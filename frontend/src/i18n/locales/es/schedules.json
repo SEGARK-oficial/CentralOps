@@ -1,0 +1,214 @@
+{
+  "pageEyebrow": "Knowledge",
+  "pageTitle": "Programaciones",
+  "pageDescription": "Programe queries guardadas con ventana de búsqueda, recurrencia, notificaciones e historial consolidado.",
+  "queryFallback": "Query #{{id}}",
+  "clientFallback": "Cliente #{{id}}",
+  "units": {
+    "minute": "minuto",
+    "minutes": "minutos",
+    "hour": "hora",
+    "hours": "horas",
+    "day": "día",
+    "days": "días",
+    "week": "semana",
+    "weeks": "semanas",
+    "minutesLabel": "Minutos",
+    "hoursLabel": "Horas",
+    "daysLabel": "Días",
+    "weeksLabel": "Semanas"
+  },
+  "stats": {
+    "schedules": "Programaciones",
+    "readyQueries": "Queries listas",
+    "eligibleClients": "Clientes elegibles",
+    "activeEmails": "Emails activos"
+  },
+  "feedback": {
+    "operationCompleted": "Operación completada",
+    "operationFailed": "No se pudo completar",
+    "dependenciesUnavailable": "Dependencias no disponibles",
+    "createSuccess": "Programación creada y ejecutada con éxito.",
+    "createError": "Error al crear la programación.",
+    "deleteSuccess": "Programación eliminada con éxito.",
+    "deleteError": "Error al eliminar la programación.",
+    "downloadError": "Error al descargar el CSV del resultado.",
+    "loadSchedulesError": "Error al cargar las programaciones.",
+    "loadEmailsError": "Error al cargar los emails de notificación.",
+    "refreshError": "Error al actualizar los datos de la programación.",
+    "loadHistoryError": "Error al cargar el historial de la programación."
+  },
+  "form": {
+    "title": "Nueva programación",
+    "description": "Seleccione la query, la ventana de búsqueda y la frecuencia de ejecución.",
+    "pendingSetupTitle": "Configuración pendiente",
+    "pendingSetupDescription": "Registre al menos una query y un cliente autenticado antes de crear una programación.",
+    "noRecipientsTitle": "Sin destinatarios configurados",
+    "noRecipientsDescription": "Las notificaciones están activas, pero no se registró ningún email en la pantalla de configuración.",
+    "submit": "Crear programación",
+    "validation": {
+      "queryRequired": "Seleccione una query registrada",
+      "clientsRequired": "Seleccione al menos un cliente",
+      "intervalInvalid": "Ingrese un intervalo válido",
+      "lookbackInvalid": "Ingrese una ventana de tiempo válida"
+    },
+    "fields": {
+      "query": "Query",
+      "queryHelperText": "Las queries vinculadas a clientes completan la selección automáticamente.",
+      "clients": "Clientes",
+      "lookbackWindow": "Ventana de búsqueda",
+      "unit": "Unidad",
+      "runEvery": "Ejecutar cada",
+      "notifyByEmail": "Notificar por email cuando haya resultados",
+      "configuredEmails": "Emails configurados:"
+    }
+  },
+  "activeList": {
+    "title": "Programaciones activas",
+    "description": "Visualice la recurrencia, los clientes vinculados y abra el historial de cada elemento.",
+    "loading": "Cargando programaciones...",
+    "emptyTitle": "No hay programaciones registradas",
+    "emptyDescription": "Cree la primera programación para seguir las ejecuciones automáticas en esta pantalla.",
+    "tableAriaLabel": "Lista de programaciones",
+    "idLabel": "ID #{{id}}",
+    "notificationOn": "Activa",
+    "notificationOff": "Desactivada",
+    "notifies": "Notifica",
+    "noNotice": "Sin aviso",
+    "history": "Historial",
+    "columns": {
+      "query": "Query",
+      "clients": "Clientes",
+      "window": "Ventana",
+      "recurrence": "Recurrencia",
+      "nextRun": "Próxima ejecución",
+      "notification": "Notificación"
+    }
+  },
+  "history": {
+    "title": "Historial y resultados",
+    "subtitle": "Ejecuciones de la programación {{name}}",
+    "selectPrompt": "Seleccione una programación para seguir las ejecuciones registradas.",
+    "noneSelectedTitle": "Ninguna programación seleccionada",
+    "noneSelectedDescription": "Use el botón Historial en la lista de arriba para abrir los resultados de una programación específica.",
+    "loadErrorTitle": "Error al cargar el historial",
+    "loading": "Cargando historial de la programación...",
+    "emptyTitle": "No se encontraron ejecuciones",
+    "emptyDescription": "Los resultados aparecerán aquí en cuanto la programación genere ejecuciones persistidas.",
+    "filterByStatusAriaLabel": "Filtrar por estado",
+    "searchPlaceholder": "Filtrar por entorno o Search ID…",
+    "searchAriaLabel": "Filtrar historial",
+    "noMatchTitle": "No hay ejecuciones para el filtro actual",
+    "noMatchDescription": "Ajuste el estado o el término de búsqueda para ver otras ejecuciones.",
+    "tableAriaLabel": "Historial de la programación",
+    "notExecuted": "No ejecutado",
+    "environmentUnknown": "Entorno no informado",
+    "until": "hasta",
+    "notAvailable": "N/D",
+    "csv": "CSV",
+    "filters": {
+      "all": "Todas",
+      "success": "Completadas",
+      "error": "Fallidas",
+      "running": "En ejecución"
+    },
+    "status": {
+      "completed": "Completada",
+      "failed": "Falló",
+      "cancelled": "Cancelada",
+      "running": "En ejecución"
+    },
+    "stats": {
+      "lastRun": "Última ejecución",
+      "totalRuns": "Ejecuciones registradas",
+      "successfulRuns": "Ejecuciones completadas",
+      "failedRuns": "Fallas",
+      "accumulatedResults": "Resultados acumulados"
+    },
+    "columns": {
+      "when": "Cuándo",
+      "queryEnvironment": "Query / Entorno",
+      "period": "Período",
+      "results": "Resultados"
+    },
+    "pagination": {
+      "showing": "Mostrando",
+      "of": "de",
+      "runs": "ejecuciones",
+      "previous": "Anterior",
+      "next": "Siguiente",
+      "pageOf": "Página {{current}} de {{total}}"
+    }
+  },
+  "deleteDialog": {
+    "title": "Eliminar programación",
+    "confirmPrefix": "¿Eliminar la programación de",
+    "confirmSuffix": "? El historial de ejecuciones almacenado seguirá disponible solo mientras se conserven los resultados.",
+    "confirmLabel": "Eliminar programación"
+  },
+  "previewModal": {
+    "title": "Detalles de la ejecución",
+    "searchId": "Search ID",
+    "results": "Resultados",
+    "errorTitle": "Error registrado",
+    "noResultPersisted": "No hay resultado persistido para esta ejecución."
+  },
+  "queries": {
+    "pageEyebrow": "Knowledge",
+    "pageTitle": "Queries",
+    "pageDescription": "Cree consultas SQL reutilizables, con clientes sugeridos, para acelerar investigaciones y alimentar programaciones.",
+    "closeForm": "Cerrar formulario",
+    "newQuery": "Nueva query",
+    "closeNotice": "Cerrar aviso",
+    "stats": {
+      "savedQueries": "Queries guardadas",
+      "withDefaultClients": "Con clientes predeterminados",
+      "totalLinks": "Vínculos totales"
+    },
+    "feedback": {
+      "createSuccess": "Query creada con éxito.",
+      "createError": "Error al crear la query.",
+      "updateSuccess": "Query actualizada con éxito.",
+      "updateError": "Error al actualizar la query.",
+      "deleteSuccess": "Query eliminada con éxito.",
+      "deleteError": "Error al eliminar la query.",
+      "loadError": "Error al cargar las queries",
+      "clientsUnavailable": "Clientes no disponibles"
+    },
+    "createCard": {
+      "title": "Nueva query",
+      "description": "Guarde consultas listas para reutilizar en búsquedas recurrentes, playbooks y programaciones."
+    },
+    "catalogCard": {
+      "title": "Catálogo de consultas",
+      "description": "Edite, revise y mantenga las consultas depuradas para toda la operación."
+    },
+    "deleteDialog": {
+      "title": "Eliminar query",
+      "confirmPrefix": "¿Eliminar",
+      "confirmSuffix": "? Dejará de aparecer en búsquedas y nuevas programaciones.",
+      "confirmLabel": "Eliminar query"
+    }
+  },
+  "detections": {
+    "pageEyebrow": "Seguridad",
+    "pageTitle": "Detecciones",
+    "pageDescription": "Triaje de detecciones de primera clase generadas por queries programadas, queries en vivo y reglas de correlación.",
+    "filterByStatusAriaLabel": "Filtrar por estado",
+    "kpis": {
+      "total": "Total",
+      "open": "Abiertas",
+      "ack": "Reconocidas",
+      "closed": "Cerradas"
+    },
+    "status": {
+      "open": "Abiertas",
+      "ack": "Reconocidas",
+      "closed": "Cerradas"
+    },
+    "feedback": {
+      "triageError": "Error al actualizar el estado de la detección",
+      "loadError": "Error al cargar las detecciones"
+    }
+  }
+}

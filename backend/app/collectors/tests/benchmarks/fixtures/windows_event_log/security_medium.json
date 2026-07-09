@@ -1,0 +1,26 @@
+{
+  "TimeCreated": "2026-06-21T10:00:00Z",
+  "EventID": 4624,
+  "Channel": "Security",
+  "Provider": "Microsoft-Windows-Security-Auditing",
+  "Level": "Information",
+  "Computer": "WIN-DC-01.acme.local",
+  "Message": "An account was successfully logged on.",
+  "Keywords": "Audit Success",
+  "Task": "Logon",
+  "EventData": {
+    "SubjectUserSid": "S-1-5-18",
+    "SubjectUserName": "WIN-DC-01$",
+    "SubjectDomainName": "ACME",
+    "TargetUserSid": "S-1-5-21-1111111111-2222222222-3333333333-1001",
+    "TargetUserName": "alice",
+    "TargetDomainName": "ACME",
+    "LogonType": "3",
+    "IpAddress": "10.0.0.5",
+    "IpPort": "51514",
+    "WorkstationName": "WS-ALICE",
+    "AuthenticationPackageName": "Kerberos",
+    "LogonProcessName": "Kerberos",
+    "Status": "0x0"
+  }
+}

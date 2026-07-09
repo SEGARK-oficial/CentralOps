@@ -1,0 +1,36 @@
+name: i18n guard
+
+# Fails the PR if the SPA translation catalogs drift: a key present in one locale
+# but missing in another (pt/en/es parity), or a t("key") with no catalog entry
+# (would render a raw key). Both are regressions that actually happened during the
+# i18n rollout, so they're gated here. Fast, no Docker.
+
+on:
+  pull_request:
+    paths:
+      - "frontend/src/i18n/**"
+      - "frontend/src/**/*.tsx"
+      - "frontend/scripts/check-i18n.mjs"
+  push:
+    branches: [main]
+    paths:
+      - "frontend/src/i18n/**"
+  workflow_dispatch:
+
+concurrency:
+  group: i18n-guard-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  i18n-check:
+    name: SPA catalog parity + t() resolution
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      # The guard is pure Node (no deps) — no install needed.
+      - name: Check i18n catalogs
+        working-directory: frontend
+        run: node scripts/check-i18n.mjs

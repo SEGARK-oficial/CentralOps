@@ -1,0 +1,61 @@
+# Git
+.git
+.gitignore
+README.md
+
+# Frontend development files
+frontend/node_modules
+frontend/dist
+frontend/.vite
+
+# Backend development files
+backend/__pycache__
+backend/.pytest_cache
+backend/*.pyc
+backend/**/__pycache__
+backend/**/*.pyc
+
+# Python
+*.pyc
+__pycache__
+.pytest_cache
+.coverage
+.coverage.*
+# `.venv` sozinho só casa na RAIZ do contexto — `backend/.venv` (venv de dev,
+# py3.12) escapava e vazava para a imagem (bloat + CVEs de deps de dev). Os
+# padrões `**/` cobrem qualquer nível. O final stage do Dockerfile também remove
+# /app/.venv como defesa-em-profundidade.
+.venv
+venv/
+**/.venv
+**/venv
+backend/.mypy_cache
+backend/.ruff_cache
+.mypy_cache
+.ruff_cache
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# NOTE: backend/tests is intentionally INCLUDED in the build context.
+# The compose/Dockerfile has a ``backend-test`` stage that runs the
+# full pytest sweep against the Cython-compiled tree as a release
+# gate. The tests do not ship to the final image — that stage removes
+# them after the suite passes (and is itself discarded from the final
+# image graph).

@@ -1,0 +1,254 @@
+# e2e.yml — Workflow de testes E2E com Playwright e sharding 4-way.
+#
+# Triggers:
+#   - pull_request: shards 1-2 (50% da suíte, feedback rápido)
+#   - push main: todos os shards
+#   - schedule nightly 03:00 UTC: todos os shards
+#
+# Arquitetura:
+#   - Projeto "setup" roda em job dedicado ANTES dos shards de teste.
+#     Isso garante que os storageState de todos os roles estejam prontos.
+#   - docker compose sobe o stack E2E (backend + redis) antes do Playwright
+#   - e2e/seed.ts popula DB via API
+#   - scripts/seed-redis-e2e.sh popula reservoir Redis
+#   - 4 shards rodam em paralelo; artefatos de falha são publicados
+#
+# Sprint 6: adicionados projetos de role múltiplo (viewer/operator/engineer/admin)
+
+name: E2E Tests
+
+# SUPERSEDED por ci.yml (pipeline build-once): o E2E agora roda nos jobs
+# `e2e-setup`/`e2e` do ci.yml, que PUXAM a imagem pré-compilada (sem recompilar)
+# — incl. o nightly (schedule herdado lá). Mantido só p/ disparo manual.
+on:
+  workflow_dispatch:
+
+# Cancela runs E2E obsoletos do mesmo ref (push/PR) num burst — só o HEAD
+# importa, e o E2E é o maior gerador de jobs (setup + shards, cada um sobe a
+# stack). O run AGENDADO (nightly, event_name == 'schedule') NUNCA é cancelado,
+# para preservar a cobertura noturna.
+concurrency:
+  group: e2e-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name != 'schedule' }}
+
+env:
+  COMPOSE_HEALTH_TIMEOUT: 120
+
+jobs:
+  # ── Job 1: setup de autenticação (roda antes dos shards) ─────────────────────
+  e2e-setup:
+    runs-on: [self-hosted, Linux, X64]
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: |
+            frontend/package-lock.json
+            e2e/package-lock.json
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        id: playwright-cache
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ hashFiles('e2e/package-lock.json') }}
+          restore-keys: |
+            playwright-
+
+      - name: Instalar dependências do e2e
+        working-directory: e2e
+        run: npm ci
+
+      - name: Instalar Playwright browsers
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        working-directory: e2e
+        run: npx playwright install chromium --with-deps
+
+      - name: Subir stack E2E
+        run: |
+          docker compose -f compose/docker-compose.e2e.yml up --build -d
+          echo "Aguardando healthcheck do backend..."
+          for i in $(seq 1 $COMPOSE_HEALTH_TIMEOUT); do
+            STATUS=$(docker inspect --format='{{.State.Health.Status}}' \
+              $(docker compose -f compose/docker-compose.e2e.yml ps -q frontend) 2>/dev/null || echo "starting")
+            if [ "$STATUS" = "healthy" ]; then
+              echo "Backend healthy após ${i}s"
+              break
+            fi
+            if [ "$i" = "$COMPOSE_HEALTH_TIMEOUT" ]; then
+              echo "Backend não ficou healthy em ${COMPOSE_HEALTH_TIMEOUT}s"
+              docker compose -f compose/docker-compose.e2e.yml logs centralops frontend
+              exit 1
+            fi
+            sleep 1
+          done
+
+      # Diagnóstico: se QUALQUER passo do setup falhar (subida do stack, seed,
+      # autenticação), despeja o estado + os logs de TODOS os serviços. Sem isto,
+      # uma falha de boot do `centralops` (ex.: migração que aborta) fica invisível
+      # — o `up -d` é detached e o stderr do container não vai pro log do job.
+      - name: Dump dos logs do stack E2E (diagnóstico em falha)
+        if: failure()
+        run: |
+          echo "===== docker compose ps -a (códigos de saída) ====="
+          docker compose -f compose/docker-compose.e2e.yml ps -a
+          echo "===== logs (todos os serviços) ====="
+          docker compose -f compose/docker-compose.e2e.yml logs --no-color --timestamps
+
+      - name: Executar seed do banco de dados
+        working-directory: e2e
+        run: npx ts-node seed.ts
+        env:
+          BASE_URL: http://localhost:3000
+
+      - name: Popular reservoir Redis
+        run: bash scripts/seed-redis-e2e.sh
+
+      - name: Rodar projeto de setup (autenticar roles)
+        working-directory: e2e
+        run: npx playwright test --project=setup
+        env:
+          BASE_URL: http://localhost:3000
+          CI: true
+
+      # Publicar storageStates como artefato para os jobs de shard
+      - name: Upload storageStates de autenticação
+        uses: actions/upload-artifact@v4
+        with:
+          name: auth-states
+          path: e2e/.auth/
+          retention-days: 1
+          # .auth/ é um diretório OCULTO (dotdir). O upload-artifact@v4 ignora
+          # arquivos ocultos por padrão (include-hidden-files: false), então os
+          # storageState (.auth/*.json) não seriam encontrados. Habilita a inclusão.
+          include-hidden-files: true
+          if-no-files-found: error
+
+      - name: Derrubar stack E2E
+        if: always()
+        run: docker compose -f compose/docker-compose.e2e.yml down -v
+
+  # ── Job 2: shards de teste (dependem do setup) ────────────────────────────────
+  e2e:
+    needs: e2e-setup
+    runs-on: [self-hosted, Linux, X64]
+    timeout-minutes: 30
+
+    strategy:
+      fail-fast: false
+      matrix:
+        # PR roda shards 1-2; push main e nightly rodam todos os 4
+        shard: ${{ (github.event_name == 'pull_request') && fromJSON('[1, 2]') || fromJSON('[1, 2, 3, 4]') }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: |
+            frontend/package-lock.json
+            e2e/package-lock.json
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        id: playwright-cache
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ hashFiles('e2e/package-lock.json') }}
+          restore-keys: |
+            playwright-
+
+      - name: Instalar dependências do e2e
+        working-directory: e2e
+        run: npm ci
+
+      - name: Instalar Playwright browsers
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        working-directory: e2e
+        run: npx playwright install chromium --with-deps
+
+      # Baixar storageStates gerados pelo job de setup
+      - name: Download storageStates de autenticação
+        uses: actions/download-artifact@v4
+        with:
+          name: auth-states
+          path: e2e/.auth/
+
+      - name: Subir stack E2E
+        run: |
+          docker compose -f compose/docker-compose.e2e.yml up --build -d
+          echo "Aguardando healthcheck do backend..."
+          for i in $(seq 1 $COMPOSE_HEALTH_TIMEOUT); do
+            STATUS=$(docker inspect --format='{{.State.Health.Status}}' \
+              $(docker compose -f compose/docker-compose.e2e.yml ps -q frontend) 2>/dev/null || echo "starting")
+            if [ "$STATUS" = "healthy" ]; then
+              echo "Backend healthy após ${i}s"
+              break
+            fi
+            if [ "$i" = "$COMPOSE_HEALTH_TIMEOUT" ]; then
+              echo "Backend não ficou healthy em ${COMPOSE_HEALTH_TIMEOUT}s"
+              docker compose -f compose/docker-compose.e2e.yml logs centralops frontend
+              exit 1
+            fi
+            sleep 1
+          done
+
+      - name: Dump dos logs do stack E2E (diagnóstico em falha)
+        if: failure()
+        run: |
+          echo "===== docker compose ps -a (códigos de saída) ====="
+          docker compose -f compose/docker-compose.e2e.yml ps -a
+          echo "===== logs (todos os serviços) ====="
+          docker compose -f compose/docker-compose.e2e.yml logs --no-color --timestamps
+
+      - name: Executar seed do banco de dados
+        working-directory: e2e
+        run: npx ts-node seed.ts
+        env:
+          BASE_URL: http://localhost:3000
+
+      - name: Popular reservoir Redis
+        run: bash scripts/seed-redis-e2e.sh
+
+      # Rodar todos os projetos exceto "setup" (já rodou no job anterior)
+      - name: Rodar testes Playwright (shard ${{ matrix.shard }}/4)
+        working-directory: e2e
+        run: npx playwright test --shard=${{ matrix.shard }}/4 --ignore-snapshots
+        env:
+          BASE_URL: http://localhost:3000
+          CI: true
+
+      # Publicar relatório HTML em caso de falha para diagnóstico
+      - name: Upload relatório Playwright em caso de falha
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-shard-${{ matrix.shard }}
+          path: e2e/playwright-report/
+          retention-days: 7
+          if-no-files-found: ignore
+
+      # Publicar vídeos/screenshots de falha para diagnóstico visual
+      - name: Upload artefatos de teste em caso de falha
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-shard-${{ matrix.shard }}
+          path: e2e/test-results/
+          retention-days: 7
+          if-no-files-found: ignore
+
+      - name: Derrubar stack E2E
+        if: always()
+        run: docker compose -f compose/docker-compose.e2e.yml down -v

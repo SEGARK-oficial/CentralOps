@@ -1,0 +1,58 @@
+{{- if eq .Values.dataPlane.eventDataplane "kafka" }}
+{{-   if and (eq .Values.dataPlane.kafka.bootstrapServers "redpanda:9092") (not .Values.devBroker.enabled) }}
+{{-     fail "dataPlane.eventDataplane=kafka points at the in-cluster broker (redpanda:9092) but devBroker.enabled=false. Set devBroker.enabled=true (dev/test) or point dataPlane.kafka.bootstrapServers at an external/managed broker." }}
+{{-   end }}
+{{- end }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "centralops.fullname" . }}-config
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "centralops.labels" . | nindent 4 }}
+data:
+  APP_ENV: {{ .Values.config.appEnv | quote }}
+  OTEL_ENABLED: {{ .Values.config.otelEnabled | quote }}
+  {{- with .Values.config.otelExporterOtlpEndpoint }}
+  # IMPORTANTE: aponte para um OTel COLLECTOR (que faz fan-out métrica→Prometheus,
+  # log→Loki, trace→Tempo), NÃO direto para o Prometheus. O Prometheus OTLP só
+  # aceita MÉTRICAS — traces/logs apontados a ele dão 404. Se você empurra
+  # métricas direto pro Prometheus (sem Collector), zere o sampler de traces
+  # abaixo para evitar o 404 de export de spans.
+  OTEL_EXPORTER_OTLP_ENDPOINT: {{ . | quote }}
+  {{- end }}
+  # Sampler de traces (0..1). 0 = desliga export de traces (mantém métricas) —
+  # use quando não há backend de traces. Com Collector+Tempo, use 1 (head 1.0;
+  # o tail-sampling decide no Collector).
+  OTEL_TRACES_SAMPLER_RATIO: {{ .Values.config.otelTracesSamplerRatio | quote }}
+  # Sinal de LOGS (toggle SEPARADO de OTEL_ENABLED — volume alto). ON ⇒ exporta
+  # logs via OTLP para o Collector → Loki.
+  OTEL_LOGS_ENABLED: {{ .Values.config.otelLogsEnabled | quote }}
+  NGINX_SERVER_NAME: {{ .Values.config.nginxServerName | quote }}
+  CORS_ORIGINS: {{ .Values.config.corsOrigins | quote }}
+  SESSION_SECURE_COOKIE: {{ .Values.config.sessionSecureCookie | quote }}
+  REDBEAT_LOCK_TIMEOUT: {{ .Values.config.redbeatLockTimeout | quote }}
+  ENABLE_HTTPS: {{ .Values.config.enableHttps | quote }}
+  # ── Edição/licença  — tuning OPCIONAL do flip em runtime ──
+  # Só emitidos quando setados; o core tem defaults sãos (refresh 300s, grace 7d).
+  {{- with .Values.config.editionRefreshSeconds }}
+  CENTRALOPS_EDITION_REFRESH_SECONDS: {{ . | quote }}
+  {{- end }}
+  {{- with .Values.config.licenseGraceDays }}
+  CENTRALOPS_LICENSE_GRACE_DAYS: {{ . | quote }}
+  {{- end }}
+  {{- if eq (include "centralops.licenseKeyring.enabled" .) "true" }}
+  # Keyring público (<kid>.pem) montado em /licensing (ver license-keyring-configmap.yaml
+  # e _helpers.tpl) → verificação OFFLINE do token EdDSA. Sem isto, um token válido
+  # não verifica e a edição fail-close para Community .
+  CENTRALOPS_LICENSE_KEYS_DIR: /licensing
+  {{- end }}
+  # ── Onda 3 — data-plane durável (Kafka/Redpanda) ──
+  EVENT_DATAPLANE: {{ .Values.dataPlane.eventDataplane | quote }}
+  KAFKA_BOOTSTRAP_SERVERS: {{ .Values.dataPlane.kafka.bootstrapServers | quote }}
+  KAFKA_TOPIC_PREFIX: {{ .Values.dataPlane.kafka.topicPrefix | quote }}
+  KAFKA_CONSUMER_GROUP: {{ .Values.dataPlane.kafka.consumerGroup | quote }}
+  KAFKA_SECURITY_PROTOCOL: {{ .Values.dataPlane.kafka.securityProtocol | quote }}
+  {{- with .Values.dataPlane.kafka.sasl.mechanism }}
+  KAFKA_SASL_MECHANISM: {{ . | quote }}
+  {{- end }}

@@ -1,0 +1,16 @@
+{
+  "composite_id": "cid-small-1",
+  "created_timestamp": "2026-06-21T14:22:10Z",
+  "severity": 70,
+  "severity_name": "High",
+  "display_name": "SuspiciousActivity",
+  "description": "masquerading behavior",
+  "status": "new",
+  "tactic": "Defense Evasion",
+  "user_name": "jdoe",
+  "device": {
+    "device_id": "9f8a",
+    "hostname": "WS-1",
+    "local_ip": "10.0.0.9"
+  }
+}

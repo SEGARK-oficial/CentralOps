@@ -1,0 +1,441 @@
+{
+  "organizations": {
+    "title": "Organizations",
+    "badge_one": "organization",
+    "badge_other": "organizations",
+    "newOrganization": "New Organization",
+    "limitReachedTitle": "Plan limit reached ({{max}}). Upgrade to add more organizations.",
+    "limitReachedNotice": {
+      "title": "Plan organization limit reached",
+      "description_one": "Your plan allows up to {{max}} active organization (single-tenant). Deactivate an existing organization or upgrade your plan to add more.",
+      "description_other": "Your plan allows up to {{max}} active organizations. Deactivate an existing organization or upgrade your plan to add more."
+    },
+    "form": {
+      "nameLabel": "Name",
+      "namePlaceholder": "Organization name",
+      "descriptionLabel": "Description",
+      "descriptionPlaceholder": "Description (optional)"
+    },
+    "filters": {
+      "searchPlaceholder": "Search by name or slug...",
+      "searchLabel": "Search",
+      "searchAriaLabel": "Search organizations",
+      "statusLabel": "Status",
+      "statusActive": "Active",
+      "statusInactive": "Inactive",
+      "statusAll": "All",
+      "typeLabel": "Type",
+      "typeAll": "All (manual + auto)",
+      "typeManualOnly": "Manual only",
+      "typeAutoOnly": "Auto-managed only"
+    },
+    "autoManagedNote": "Auto-managed organizations (Sophos) can't be bulk-deactivated — use the Partner flow to manage them.",
+    "bulkBar": {
+      "contextLabel": "organization(s)",
+      "deactivateSelected": "Deactivate selected"
+    },
+    "list": {
+      "ariaLabel": "Organization list",
+      "selectAllAriaLabel": "Select all eligible organizations",
+      "selectEligible": "Select eligible ({{count}})",
+      "selectOneAriaLabel": "Select {{name}}",
+      "statusActiveBadge": "Active",
+      "statusInactiveBadge": "Inactive",
+      "autoManagedBadge": "Auto-managed",
+      "autoManagedTitle": "Auto-created via Sophos Partner sync",
+      "irisBadgeTitle": "Iris customer_id mapped",
+      "irisBadgeLabel": "Iris #{{id}}",
+      "integrationCount": "{{count}} integration(s)",
+      "deleteAriaLabel": "Delete {{name}}",
+      "deleteAutoManagedTitle": "Auto-managed organizations can only be removed via Partner deactivation",
+      "moreResultsNotice": "Showing the first {{pageSize}} — refine the filters to see more."
+    },
+    "empty": {
+      "filteredTitle": "No organization for the applied filters",
+      "filteredDescription": "Adjust the filters or clear them to see more results.",
+      "defaultTitle": "No organization registered",
+      "defaultDescription": "Create your first organization to get started."
+    },
+    "bulkDeactivateModal": {
+      "title": "Deactivate {{count}} organization(s)?",
+      "description": "This action marks the selected organizations as <strong>inactive</strong>. Linked integrations keep existing, but the org disappears from default lists.",
+      "autoIgnoredNote": "Auto-managed and already-inactive organizations are automatically ignored by the server.",
+      "confirmWord": "DEACTIVATE",
+      "confirmTextLabel": "To confirm >10 items, type {{expected}}",
+      "confirmTextPlaceholder": "Type {{expected}} to confirm",
+      "confirmButton": "Deactivate"
+    },
+    "deleteDialog": {
+      "title": "Delete organization?",
+      "description": "Are you sure you want to delete <strong>{{name}}</strong>? Linked integrations will also be removed."
+    },
+    "errors": {
+      "bulkPartial": "Bulk completed with warnings: {{deactivated}}/{{processed}} deactivated. {{errorsCount}} item(s) skipped."
+    }
+  },
+  "users": {
+    "eyebrow": "Administration",
+    "title": "Users",
+    "description": "Manage portal users' access, roles and status.",
+    "viewPermissions": "View permissions",
+    "newUser": "New user",
+    "loading": "Loading users...",
+    "stats": {
+      "total": "Total",
+      "totalUnit": "users",
+      "active": "Active",
+      "activeUnit": "active",
+      "admins": "Admins",
+      "adminsUnit": "admin"
+    },
+    "feedback": {
+      "operationDone": "Operation completed",
+      "error": "Error",
+      "closeAriaLabel": "Dismiss notice",
+      "userDeactivated": "User deactivated.",
+      "userReactivated": "User reactivated.",
+      "toggleActiveFailed": "Failed to update status",
+      "userDeleted": "User deleted. Action logged to the audit log.",
+      "deleteFailed": "Failed to delete",
+      "roleUpdated": "Role updated.",
+      "dataUpdated": "Data updated.",
+      "userCreated": "User created successfully.",
+      "loadFailedTitle": "Failed to load users"
+    },
+    "empty": {
+      "title": "No user registered",
+      "description": "Create the first account to start administering the portal.",
+      "searchTitle": "No user found",
+      "searchDescription": "No results for \"{{query}}\". Adjust the search term.",
+      "clearSearch": "Clear search"
+    },
+    "search": {
+      "placeholder": "Search by name or username...",
+      "ariaLabel": "Search users by name or username"
+    },
+    "deleteDialog": {
+      "title": "Delete user",
+      "description": "Delete <strong>{{name}}</strong>? This action is logged to the audit log and cannot be undone.",
+      "confirmLabel": "Delete user"
+    }
+  },
+  "usersTable": {
+    "ariaLabel": "User list",
+    "columns": {
+      "user": "User",
+      "role": "Role",
+      "organization": "Organization",
+      "status": "Status",
+      "lastAccess": "Last access",
+      "actions": "Actions"
+    },
+    "you": "You",
+    "never": "Never",
+    "statusActive": "Active",
+    "statusInactive": "Inactive",
+    "roleLabels": {
+      "viewer": "Viewer",
+      "operator": "Operator",
+      "engineer": "Engineer",
+      "admin": "Admin"
+    },
+    "actions": {
+      "editRole": "Edit role",
+      "editData": "Edit data",
+      "deactivate": "Deactivate",
+      "reactivate": "Reactivate",
+      "delete": "Delete"
+    }
+  },
+  "newUserModal": {
+    "title": "New user",
+    "displayNameLabel": "Display name",
+    "usernameLabel": "Username (login)",
+    "roleLabel": "Role",
+    "organizationLabel": "Organization",
+    "organizationNone": "None (global — admin only)",
+    "organizationInactiveSuffix": " (inactive)",
+    "organizationHelp": "Non-admin users can only see data from their own organization. Admin is global.",
+    "passwordLabel": "Password",
+    "confirmPasswordLabel": "Confirm password",
+    "submit": "Create user",
+    "roleOptions": {
+      "viewer": "Viewer",
+      "operator": "Operator",
+      "engineer": "Engineer",
+      "admin": "Admin"
+    },
+    "errors": {
+      "usernameRequired": "Username is required",
+      "passwordRequired": "Password is required",
+      "passwordTooShort": "Password must be at least 10 characters",
+      "passwordMismatch": "Passwords don't match",
+      "organizationRequired": "Select an organization for non-admin users",
+      "createFailed": "Failed to create user"
+    }
+  },
+  "editUserModal": {
+    "title": "Edit user data",
+    "displayNameLabel": "Display name",
+    "organizationLabel": "Organization",
+    "organizationNone": "None (global — admin only)",
+    "organizationInactiveSuffix": " (inactive)",
+    "newPasswordLabel": "New password",
+    "newPasswordHelp": "Optional. Fill in only to reset.",
+    "confirmNewPasswordLabel": "Confirm new password",
+    "submit": "Save changes",
+    "errorTitle": "Error",
+    "errors": {
+      "passwordTooShort": "Password must be at least 10 characters",
+      "passwordMismatch": "Passwords don't match",
+      "organizationRequired": "Non-admin users need an organization (without it they see no data)",
+      "saveFailed": "Failed to save"
+    }
+  },
+  "editUserRoleModal": {
+    "title": "Edit user role",
+    "cannotChangeTitle": "Couldn't change role",
+    "changingRoleFor": "Changing role of <strong>{{name}}</strong>",
+    "roleLabel": "Role",
+    "reasonLabel": "Reason for change",
+    "reasonOptional": "(optional)",
+    "reasonPlaceholder": "E.g.: promoted to engineer in sprint 4...",
+    "submit": "Save role",
+    "roleOptions": {
+      "viewer": {
+        "label": "Viewer",
+        "description": "Read-only — dashboards, alerts, inventory."
+      },
+      "operator": {
+        "label": "Operator",
+        "description": "Response operations — blocks, quarantine, drift."
+      },
+      "engineer": {
+        "label": "Engineer",
+        "description": "Mapping management and rollback."
+      },
+      "admin": {
+        "label": "Admin",
+        "description": "Full access — users, configuration, all actions."
+      }
+    },
+    "errors": {
+      "changeFailed": "Failed to change role"
+    }
+  },
+  "rolePermissionsViewer": {
+    "title": "Permissions matrix",
+    "loading": "Loading matrix...",
+    "loadFailedTitle": "Failed to load",
+    "description": "Overview of which permissions each role has in the system.",
+    "tableAriaLabel": "Permissions matrix by role",
+    "permissionColumn": "Permission",
+    "hasPermissionAriaLabel": "{{role}} has {{perm}}",
+    "noPermissionAriaLabel": "{{role}} doesn't have {{perm}}"
+  },
+  "serviceAccounts": {
+    "eyebrow": "Administration",
+    "title": "Service Accounts",
+    "description": "Service Accounts are 'robot' identities without a session cookie. Use them for integrations that need a stable, revocable credential independent of any human (cron jobs, IASOC worker, etc).",
+    "newServiceAccount": "New Service Account",
+    "closeAriaLabel": "Dismiss notice",
+    "listTitle": "Service Accounts",
+    "listSummary": "({{active}} active / {{total}} total · {{tokens}} live tokens)",
+    "empty": {
+      "title": "No Service Account",
+      "description": "Create a SA to authenticate workers and cron jobs without depending on a specific human's account."
+    },
+    "table": {
+      "ariaLabel": "Service Account list",
+      "columns": {
+        "name": "Name",
+        "role": "Role",
+        "status": "Status",
+        "activeTokens": "Active tokens",
+        "created": "Created",
+        "actions": "Actions"
+      },
+      "statusActive": "Active",
+      "statusInactive": "Deactivated",
+      "tokensAction": "Tokens",
+      "editAction": "Edit",
+      "deleteAction": "Delete"
+    },
+    "roleLabels": {
+      "viewer": "Viewer (read-only)",
+      "operator": "Operator (read + ops)",
+      "engineer": "Engineer (mappings & drift)",
+      "admin": "Admin (everything)"
+    },
+    "deleteDialog": {
+      "title": "Delete Service Account",
+      "description": "Delete \"{{name}}\"? All {{count}} active tokens will be revoked in cascade. The audit log preserves the history."
+    },
+    "feedback": {
+      "deleted": "Service Account \"{{name}}\" deleted. Its tokens were revoked in cascade.",
+      "deleteFailed": "Failed to delete SA",
+      "created": "Service Account \"{{name}}\" created.",
+      "updated": "Service Account \"{{name}}\" updated.",
+      "listFailed": "Failed to list Service Accounts"
+    },
+    "createModal": {
+      "title": "New Service Account",
+      "nameLabel": "Name",
+      "namePlaceholder": "e.g.: iasoc-worker, grafana-bot",
+      "nameHelp": "Appears as <code>sa:&lt;name&gt;</code> in the audit log.",
+      "descriptionLabel": "Description (optional)",
+      "descriptionPlaceholder": "What is this SA for?",
+      "roleLabel": "Role",
+      "roleHelp": "Defines the permission ceiling for tokens bound to this SA. Least-privilege principle: prefer <code>viewer</code> or <code>operator</code>.",
+      "submit": "Create Service Account",
+      "submitting": "Creating…",
+      "errors": {
+        "nameRequired": "Name is required",
+        "createFailed": "Failed to create SA"
+      }
+    },
+    "editModal": {
+      "title": "Edit {{name}}",
+      "descriptionLabel": "Description",
+      "roleLabel": "Role",
+      "roleHelp": "Changing role redefines the permission ceiling for existing tokens — without revoking them.",
+      "activeLabel": "Service Account active",
+      "deactivateWarning": "Deactivating invalidates all of this SA's tokens immediately (next request returns 401). Reactivating doesn't revive already-revoked tokens — issue new ones.",
+      "submit": "Save",
+      "submitting": "Saving…",
+      "errors": {
+        "updateFailed": "Failed to update SA"
+      }
+    },
+    "tokensModal": {
+      "title": "Tokens — {{name}}",
+      "boundTokens": "Tokens bound to <strong>{{name}}</strong> (role {{role}}).",
+      "newToken": "New token",
+      "ariaLabel": "Tokens for {{name}}",
+      "columns": {
+        "name": "Name",
+        "prefix": "Prefix",
+        "status": "Status",
+        "expires": "Expires",
+        "actions": "Actions"
+      },
+      "statusActive": "Active",
+      "statusRevoked": "Revoked",
+      "statusExpired": "Expired",
+      "revokeAction": "Revoke",
+      "empty": {
+        "title": "No token issued",
+        "description": "This Service Account doesn't have any tokens yet. Create a new token to get started."
+      },
+      "revokeDialog": {
+        "title": "Revoke token",
+        "description": "Revoke \"{{name}}\"? Integrations using this token will get 401 immediately."
+      },
+      "errors": {
+        "listFailed": "Failed to list tokens",
+        "revokeFailed": "Failed to revoke"
+      }
+    },
+    "createTokenModal": {
+      "titleCreated": "Token created",
+      "titleNew": "New token for {{name}}",
+      "nameLabel": "Name",
+      "namePlaceholder": "{{name}}-prod",
+      "expiryLabel": "Expires in",
+      "scopesLabel": "Permissions (scopes)",
+      "effectiveLimit": "Effective limit: <code>{{role}}</code> ∩ selected scopes.",
+      "copyNow": "Copy the token now.",
+      "copyNowDescription": "It won't be shown again. If you lose it, revoke it and create a new one.",
+      "tokenLabel": "Token",
+      "copied": "Copied",
+      "copy": "Copy",
+      "submit": "Create token",
+      "submitting": "Creating…",
+      "errors": {
+        "nameRequired": "Name is required",
+        "createFailed": "Failed to create token"
+      }
+    }
+  },
+  "tokens": {
+    "eyebrow": "Your account",
+    "title": "Personal Access Tokens",
+    "description": "Use Personal Access Tokens (PATs) to authenticate non-browser integrations (scripts, CI, pipelines). Each token inherits your current permissions and can be revoked at any time.",
+    "newToken": "New token",
+    "closeAriaLabel": "Dismiss notice",
+    "listTitle": "Your tokens",
+    "listSummary": "({{active}} active, {{total}} total)",
+    "neverExpires": "Never expires",
+    "neverUsed": "Never used",
+    "usedFrom": "from {{ip}}",
+    "empty": {
+      "title": "No token created",
+      "description": "Create your first Personal Access Token to authenticate non-browser integrations."
+    },
+    "table": {
+      "ariaLabel": "Your Personal Access Tokens",
+      "columns": {
+        "name": "Name",
+        "prefix": "Prefix",
+        "status": "Status",
+        "expires": "Expires",
+        "lastUsed": "Last used",
+        "uses": "Uses",
+        "actions": "Actions"
+      },
+      "revokeAction": "Revoke"
+    },
+    "statusRevoked": "Revoked",
+    "statusExpired": "Expired",
+    "statusEternal": "Eternal",
+    "statusActive": "Active",
+    "feedback": {
+      "revoked": "Token \"{{name}}\" revoked. Audit log recorded.",
+      "revokeFailed": "Failed to revoke",
+      "created": "Token \"{{name}}\" created.",
+      "listFailed": "Failed to list tokens"
+    },
+    "revokeDialog": {
+      "title": "Revoke token",
+      "description": "Revoke the token \"{{name}}\"? Integrations using this token will start getting 401 immediately. This action is logged to the audit log."
+    },
+    "createModal": {
+      "titleCreated": "Token created",
+      "titleNew": "New Personal Access Token",
+      "copyNow": "Copy the token now.",
+      "copyNowDescription": "For security reasons, this token <strong>won't be shown again</strong>. If you lose it, you'll have to revoke it and create a new one.",
+      "tokenLabel": "Token",
+      "copied": "Copied",
+      "copy": "Copy",
+      "useInHeader": "Use in the HTTP header:",
+      "closeToFinish": "Close to finish.",
+      "nameLabel": "Name",
+      "namePlaceholder": "e.g.: ci-deploy-bot, monitoring-poller",
+      "nameHelp": "Use a name that identifies where the token will run — helps with auditing and rotation.",
+      "expiryLabel": "Expires in",
+      "eternalWarningTitle": "Token with no expiration",
+      "eternalWarningDescription": " — we recommend setting a date. Eternal tokens are a preferred target in historical leaks.",
+      "scopesLabel": "Permissions (scopes)",
+      "submit": "Create token",
+      "submitting": "Creating…",
+      "errors": {
+        "nameRequired": "Name is required",
+        "createFailed": "Failed to create token"
+      }
+    },
+    "expiryOptions": {
+      "30d": "30 days",
+      "60d": "60 days",
+      "90d": "90 days",
+      "1y": "1 year",
+      "never": "Never expires"
+    }
+  },
+  "expiryOptions": {
+    "30d": "30 days",
+    "60d": "60 days",
+    "90d": "90 days",
+    "1y": "1 year",
+    "never": "Never"
+  }
+}

@@ -1,0 +1,20 @@
+{{- if and (not (empty .Values.secrets.licenseKeyring)) (not .Values.secrets.existingLicenseKeyring) }}
+# Keyring PÚBLICO Enterprise : os <kid>.pem da chave PÚBLICA do
+# billing-plane que verificam a assinatura EdDSA do token de licença OFFLINE. SÓ
+# chaves PÚBLICAS (a privada nunca sai do billing-plane) → um ConfigMap é adequado
+# (não é segredo). Montado read-only em /licensing (ver _helpers.tpl); pareado com
+# CENTRALOPS_LICENSE_KEYS_DIR=/licensing no ConfigMap principal. Só é renderizado
+# quando `secrets.licenseKeyring` é fornecido inline e `existingLicenseKeyring` não
+# — nesse caso o operador traz o próprio ConfigMap/Secret.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "centralops.fullname" . }}-license-keyring
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "centralops.labels" . | nindent 4 }}
+data:
+  {{- range $file, $pem := .Values.secrets.licenseKeyring }}
+  {{ $file }}: {{ $pem | quote }}
+  {{- end }}
+{{- end }}

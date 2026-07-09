@@ -1,0 +1,56 @@
+{
+  "rules": [
+    { "target": "normalized.class_uid", "const": 3002, "required": true },
+    { "target": "normalized.class_name", "const": "Authentication" },
+    { "target": "normalized.category_uid", "const": 3, "required": true },
+    { "target": "normalized.category_name", "const": "Identity & Access Management" },
+    { "target": "normalized.activity_id", "const": 1 },
+    { "target": "normalized.activity_name", "const": "Logon" },
+    { "target": "normalized.type_uid", "const": 300201 },
+
+    { "target": "normalized.time", "source": "published", "type_cast": "iso_to_epoch", "required": true },
+
+    {
+      "target": "normalized.severity_id",
+      "source": "severity",
+      "value_map": { "DEBUG": 1, "INFO": 1, "WARN": 3, "ERROR": 5 },
+      "default": 1,
+      "required": true
+    },
+    { "target": "normalized.severity", "source": "severity", "default": "Informational" },
+
+    {
+      "target": "normalized.status_id",
+      "source": "outcome.result",
+      "value_map": { "SUCCESS": 1, "ALLOW": 1, "CHALLENGE": 1, "FAILURE": 2, "DENY": 2 },
+      "default": 0
+    },
+    { "target": "normalized.status", "source": "outcome.result", "default": null },
+    { "target": "normalized.status_detail", "source": "outcome.reason", "default": null },
+
+    { "target": "normalized.message", "source": "displayMessage", "default": null },
+
+    { "target": "normalized.user.name", "source": "actor.alternateId", "default": null },
+    { "target": "normalized.user.uid", "source": "actor.id", "default": null },
+    { "target": "normalized.user.full_name", "source": "actor.displayName", "default": null },
+
+    { "target": "normalized.src_endpoint.ip", "source": "client.ipAddress", "default": null },
+
+    { "target": "normalized.metadata.version", "const": "1.3.0" },
+    { "target": "normalized.metadata.product.name", "const": "Okta" },
+    { "target": "normalized.metadata.product.vendor_name", "const": "Okta" },
+    { "target": "normalized.metadata.uid", "source": "uuid" },
+    { "target": "normalized.metadata.event_code", "source": "eventType", "default": null },
+
+    {
+      "target": "normalized.observables",
+      "kind": "array_builder",
+      "items": [
+        { "name": "user", "type": "User Name", "type_id": 4, "source": "actor.alternateId", "skip_null": true },
+        { "name": "src_ip", "type": "IP Address", "type_id": 2, "source": "client.ipAddress", "skip_null": true }
+      ],
+      "skip_null": true,
+      "dedup_by": ["value"]
+    }
+  ]
+}

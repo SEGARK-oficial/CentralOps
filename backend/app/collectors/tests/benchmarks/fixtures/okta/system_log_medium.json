@@ -1,0 +1,36 @@
+{
+  "uuid": "okta-medium-1",
+  "published": "2026-06-20T21:05:32.000Z",
+  "eventType": "user.session.start",
+  "severity": "INFO",
+  "displayMessage": "User login to Okta",
+  "outcome": {
+    "result": "SUCCESS"
+  },
+  "actor": {
+    "id": "00u",
+    "type": "User",
+    "alternateId": "admin@okta.com",
+    "displayName": "Admin"
+  },
+  "client": {
+    "ipAddress": "142.126.158.61",
+    "userAgent": {
+      "os": "Mac OS X",
+      "browser": "CHROME"
+    },
+    "geographicalContext": {
+      "city": "San Francisco",
+      "country": "United States"
+    }
+  },
+  "eventTypeVersion": "0",
+  "version": "0",
+  "transaction": {
+    "id": "tx-1",
+    "type": "WEB"
+  },
+  "authenticationContext": {
+    "externalSessionId": "es-1"
+  }
+}

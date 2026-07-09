@@ -1,0 +1,34 @@
+# Edge-collectors do CentralOps .
+#
+# Sobe um Vector que recebe syslog do FortiGate (UDP 5514) e encaminha ao
+# endpoint de ingestão. Rode na rede do cliente, perto das fontes.
+#
+# CENTRALOPS_INGEST_URL=https://centralops.example.com/api/ingest/traffic \
+# CENTRALOPS_INGEST_TOKEN=coi_3_xxxxx \
+# docker compose -f compose/edge/docker-compose.edge.yml up -d
+#
+# O coletor de Windows Event Log (Fluent Bit) roda nativamente no servidor
+# Windows Event Collector (WEC) — ver fluent-bit-windows-wec.conf e o runbook.
+
+services:
+  vector-fortigate:
+    image: timberio/vector:0.39.0-debian
+    container_name: centralops-edge-fortigate
+    restart: unless-stopped
+    command: ["--config", "/etc/vector/vector.toml"]
+    environment:
+      CENTRALOPS_INGEST_URL: ${CENTRALOPS_INGEST_URL:?defina o endpoint de ingestão}
+      CENTRALOPS_INGEST_TOKEN: ${CENTRALOPS_INGEST_TOKEN:?defina o token de ingestão}
+    ports:
+      - "5514:5514/udp"   # syslog do FortiGate
+    volumes:
+      - ./vector-fortigate.toml:/etc/vector/vector.toml:ro
+      - vector-fortigate-buffer:/var/lib/vector
+    healthcheck:
+      test: ["CMD", "vector", "validate", "--no-environment", "/etc/vector/vector.toml"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+volumes:
+  vector-fortigate-buffer:

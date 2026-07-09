@@ -1,0 +1,168 @@
+name: Open-core gate
+
+#D — prova que o artefato COMMUNITY (AGPL) está limpo de material
+# proprietário: sem o pacote EE vendorado, sem frontend web-ee, sem dependência/
+# import de Stripe e sem NENHUMA chave privada commitada. Hermético (puro shell +
+# git, sem instalar Python) — roda em paralelo ao build. A contraparte de runtime
+# (activate_enterprise → Community quando o EE está ausente) é coberta por
+# backend/tests/test_open_core_boundary.py na suíte do ci.yml.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  openness-gate:
+    runs-on: [self-hosted, Linux, X64]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: LICENSE é AGPLv3 (não proprietária)
+        run: |
+          set -euo pipefail
+          if [ ! -f LICENSE ]; then
+            echo "::error::LICENSE ausente"
+            exit 1
+          fi
+          if ! grep -q "GNU AFFERO GENERAL PUBLIC LICENSE" LICENSE; then
+            echo "::error::LICENSE não é AGPLv3 — o artefato Community deve ser open-source"
+            exit 1
+          fi
+          if grep -qi "Proprietary License" LICENSE; then
+            echo "::error::LICENSE ainda contém texto proprietário"
+            exit 1
+          fi
+          echo "OK — LICENSE é AGPLv3."
+
+      - name: Modelos multi-tenant EE ausentes do core
+        run: |
+          set -euo pipefail
+          # As 3 tabelas nucleares (OrgClosure/OrgRoleBinding/PartnerProgram) + a função
+          # subtree_org_ids foram carve-out p/ centralops_ee. Falha se REAPARECEREM como
+          # DEFINIÇÃO no source Community (casa 'class X(' — não menções em comentário).
+          leak="$(git grep -nE 'class (OrgClosure|OrgRoleBinding|PartnerProgram)\(|def subtree_org_ids|subtree_org_ids\(' \
+                  -- backend/app ':(exclude)backend/app/**/tests/**' || true)"
+          if [ -n "${leak//[$'\t\r\n ']/}" ]; then
+            echo "::error::modelo/lógica multi-tenant EE de volta no core Community:"
+            echo "$leak"
+            exit 1
+          fi
+          echo "OK — OrgClosure/OrgRoleBinding/PartnerProgram/subtree_org_ids ausentes do core."
+
+      - name: EE package não vendorado (centralops_ee)
+        run: |
+          set -euo pipefail
+          for d in centralops_ee backend/centralops_ee backend/app/centralops_ee; do
+            if [ -d "$d" ]; then
+              echo "::error::pacote EE vendorado no artefato Community: $d"
+              exit 1
+            fi
+          done
+          echo "OK — nenhum pacote centralops_ee no Core."
+
+      - name: Frontend web-ee não vendorado
+        run: |
+          set -euo pipefail
+          for d in frontend/web-ee web-ee frontend/src/web-ee; do
+            if [ -d "$d" ]; then
+              echo "::error::workspace web-ee vendorado no artefato Community: $d"
+              exit 1
+            fi
+          done
+          echo "OK — nenhum workspace web-ee no Core."
+
+      - name: Import de centralops_ee só no hook guardado (core/edition.py)
+        run: |
+          set -euo pipefail
+          # Linhas de import REAIS de centralops_ee (POSIX-ERE: sem \b, que não é
+          # word-boundary aqui; pathspec de diretório — git não casa 'app/**/*.py').
+          hits="$(git grep -nE '^[[:space:]]*(import|from)[[:space:]]+centralops_ee' -- backend/app || true)"
+          offenders="$(echo "$hits" | grep -v '/core/edition.py:' || true)"
+          if [ -n "${offenders//[$'\t\r\n ']/}" ]; then
+            echo "::error::import de centralops_ee fora de core/edition.py:"
+            echo "$offenders"
+            exit 1
+          fi
+          echo "OK — único import de EE é o hook guardado em core/edition.py."
+
+      - name: Sem dependência/import de Stripe no backend Community
+        run: |
+          set -euo pipefail
+          for req in backend/requirements.txt backend/requirements.lock; do
+            [ -f "$req" ] || continue
+            if grep -iqE '^[[:space:]]*stripe([[:space:]=<>!~\[]|$)' "$req"; then
+              echo "::error::dependência Stripe em $req"
+              grep -inE '^[[:space:]]*stripe' "$req"
+              exit 1
+            fi
+          done
+          imp="$(git grep -nE '^[[:space:]]*(import|from)[[:space:]]+stripe' -- backend/app || true)"
+          if [ -n "${imp//[$'\t\r\n ']/}" ]; then
+            echo "::error::import de stripe no backend Community:"
+            echo "$imp"
+            exit 1
+          fi
+          echo "OK — sem Stripe no backend Community."
+
+      - name: Nenhuma chave PRIVADA commitada
+        run: |
+          set -euo pipefail
+          # POSIX-ERE (sem grupos não-capturantes). ``-e`` é obrigatório pois o
+          # padrão começa com '-----'. Exclui o próprio teste (contém o padrão).
+          hits="$(git grep -lI -E -e '-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----' \
+                  -- ':!backend/tests/test_open_core_boundary.py' \
+                  ':!.github/workflows/openness-gate.yml' || true)"
+          if [ -n "${hits//[$'\t\r\n ']/}" ]; then
+            echo "::error::material de chave PRIVADA commitado:"
+            echo "$hits"
+            exit 1
+          fi
+          echo "OK — nenhuma chave privada commitada."
+
+      - name: license_keys/ embutido só com material público
+        run: |
+          set -euo pipefail
+          dir="backend/app/core/license_keys"
+          if [ -d "$dir" ]; then
+            if git grep -lI -E -e '-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----' -- "$dir" | grep -q .; then
+              echo "::error::chave PRIVADA no keyring embutido ($dir)"
+              exit 1
+            fi
+          fi
+          echo "OK — keyring embutido sem material privado."
+
+      - name: Frontend Community sem import de componente EE (web-ee)
+        run: |
+          set -euo pipefail
+          # Linhas de IMPORT (não comentários) referenciando o overlay web-ee ou seus
+          # componentes EE. Se nenhuma fonte Community importa, o Vite não empacota.
+          imp="$(git grep -nE '^[[:space:]]*(import|export).*from.*(@centralops/web-ee|web-ee/)' -- frontend/src || true)"
+          sym="$(git grep -nE '^[[:space:]]*import .*(PartnerTenantsPanel|AutoApprovePolicyModal)' -- frontend/src || true)"
+          hits="${imp}${sym}"
+          if [ -n "${hits//[$'\t\r\n ']/}" ]; then
+            echo "::error::componente EE importado na fonte Community do frontend:"
+            echo "$imp"; echo "$sym"
+            exit 1
+          fi
+          echo "OK — frontend Community sem import de componente EE."
+
+      - name: Motor de busca federada ausente do core Community
+        run: |
+          set -euo pipefail
+          # o ENGINE de query federada (orquestração, tasks, routers)
+          # vive só no centralops_ee. Os MODELOS ORM + execução por-provider + triagem de
+          # Detection ficam (entrelaçados / SOC base) — por isso a lista é específica.
+          engine="backend/app/services/query_service.py backend/app/services/query_quota.py backend/app/services/query_sigma.py backend/app/services/correlation_service.py backend/app/collectors/query_tasks.py backend/app/routers/query_jobs.py backend/app/routers/correlation_rules.py"
+          leaked=""
+          for f in $engine; do
+            if git ls-files --error-unmatch "$f" >/dev/null 2>&1; then leaked="${leaked} ${f}"; fi
+          done
+          if [ -n "${leaked// /}" ]; then
+            echo "::error::motor de busca federada (EE) vazado no core Community:${leaked}"
+            exit 1
+          fi
+          echo "OK — motor de busca federada ausente do core Community."

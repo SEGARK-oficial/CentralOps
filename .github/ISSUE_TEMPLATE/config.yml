@@ -1,0 +1,37 @@
+# Configuração dos templates de issue do CentralOps (Community core).
+#
+# A licença do core é a AGPLv3 (veja o arquivo LICENSE).
+#
+# Modelo de suporte: sem SLA em issues de OSS. Dúvidas de uso vão
+# para o GitHub Discussions (não para Issues); vulnerabilidades seguem a
+# política de segurança (divulgação privada), nunca um issue público.
+#
+# Referência de schema:
+# https://docs.github.com/communities/using-templates-to-encourage-useful-issues-and-pull-requests/configuring-issue-templates-for-your-repository
+
+# Desativa a opção de abrir issues "em branco" (sem template), direcionando
+# cada pessoa ao canal correto via os contact_links abaixo.
+blank_issues_enabled: false
+
+contact_links:
+  - name: 💬 Dúvidas de uso e suporte da comunidade
+    url: https://github.com/SEGARK-oficial/CentralOps/discussions
+    about: >-
+      Perguntas de uso, configuração, "como faço…" e pedidos de ajuda vão para o
+      GitHub Discussions. Issues são reservadas a relatos de bug e propostas de
+      melhoria já caracterizados. Lembre-se: não há SLA de suporte em canais de
+      código aberto.
+
+  - name: 🔒 Reportar uma vulnerabilidade de segurança
+    url: https://github.com/SEGARK-oficial/CentralOps/security/advisories/new
+    about: >-
+      NÃO abra um issue público para falhas de segurança. Use a divulgação
+      privada via GitHub Security Advisories ou envie e-mail para
+      support@segark.com. Detalhes e janela de divulgação coordenada estão em
+      SECURITY.md.
+
+  - name: 📜 Política de segurança (SECURITY.md)
+    url: https://github.com/SEGARK-oficial/CentralOps/blob/main/SECURITY.md
+    about: >-
+      Leia a política de divulgação responsável, versões suportadas, escopo,
+      safe harbor e o processo de divulgação coordenada antes de reportar.

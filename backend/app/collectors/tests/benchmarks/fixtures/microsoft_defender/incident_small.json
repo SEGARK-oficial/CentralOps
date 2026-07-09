@@ -1,0 +1,8 @@
+{
+  "id": "defender-incident-small-001",
+  "createdDateTime": "2026-04-23T08:00:00Z",
+  "lastUpdateDateTime": "2026-04-23T08:30:00Z",
+  "displayName": "Multi-stage incident",
+  "severity": "high",
+  "status": "active"
+}

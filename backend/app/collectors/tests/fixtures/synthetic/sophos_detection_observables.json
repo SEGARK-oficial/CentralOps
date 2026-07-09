@@ -1,0 +1,21 @@
+{
+  "id": "00000000-0000-0000-0000-000000000099",
+  "detectionRule": "XDR-sophos-email-dlpviolation",
+  "sensor": {
+    "id": "00000000-0000-0000-0000-000000000088",
+    "type": "email",
+    "source": "Sophos"
+  },
+  "mitreAttacks": [
+    {
+      "tactic": {
+        "id": "TA0010",
+        "name": "Exfiltration"
+      }
+    }
+  ],
+  "severity": 0,
+  "processedData": "{\"action\":\"queuedForDelivery\",\"alertScore\":0.1,\"alertType\":\"dlpViolation\",\"parsedAlert\":{\"fields\":{\"mailFrom\":\"sender@example.com\",\"clientIp\":\"198.51.100.42\",\"envelopeRecipients\":[\"alice@example.com\",\"bob@example.org\"],\"attachments\":[{\"name\":\"report.pdf\",\"checksum\":\"aabbccdd00112233aabbccdd00112233aabbccdd00112233aabbccdd00112233\",\"sizeInBytes\":16413},{\"name\":\"archive.zip\",\"checksum\":\"deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef\",\"sizeInBytes\":4096}],\"subject\":\"Q4 Observables Test\",\"from\":\"Vendor <sender@example.com>\",\"to\":[\"alice@example.com\",\"bob@example.org\"]}}}",
+  "time": "2026-04-27T22:41:09Z",
+  "type": "Threat"
+}

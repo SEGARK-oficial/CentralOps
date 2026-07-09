@@ -1,0 +1,36 @@
+name: Security audit
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  schedule:
+    - cron: '0 6 * * 1'  # toda segunda às 6am UTC
+
+jobs:
+  pip-audit:
+    runs-on: [self-hosted, Linux, X64]
+    steps:
+      - uses: actions/checkout@v4
+
+      # Usa o Python 3.12 provisionado no runner via pyenv. actions/setup-python
+      # NÃO enxerga o pyenv (baixa pro tool-cache próprio, inexistente neste
+      # runner self-hosted) — daí o erro "version 3.12 not found for this OS".
+      # Requer `pyenv global 3.12` configurado para o usuário do runner.
+      - name: Usar Python 3.12 do pyenv (runner)
+        run: |
+          PYENV_ROOT="${PYENV_ROOT:-$HOME/.pyenv}"
+          echo "$PYENV_ROOT/bin" >> "$GITHUB_PATH"
+          echo "$PYENV_ROOT/shims" >> "$GITHUB_PATH"
+          "$PYENV_ROOT/shims/python" --version || echo "WARN: pyenv python não encontrado em $PYENV_ROOT/shims"
+
+      - name: Install pip-audit
+        run: |
+          python --version
+          pip install pip-audit
+
+      - name: Run pip-audit
+        # Aponta para requirements.txt (mais permissivo para resolver).
+        # Quando o lockfile estiver estável em CI, migrar para:
+        #   pip-audit -r backend/requirements.lock --strict
+        run: pip-audit -r backend/requirements.txt --strict

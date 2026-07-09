@@ -1,0 +1,100 @@
+name: Test (backend + frontend)
+
+# Trigger on PRs and main pushes. We split the test workflow out of
+# build-and-publish.yml because the latter pushes to ghcr.io; tests
+# should run on every PR before merge, without touching the registry.
+# SUPERSEDED por ci.yml (pipeline build-once): o sweep backend agora roda dentro
+# do job `build` do ci.yml (compila o Cython 1× e reusa). Mantido só p/ disparo
+# manual (fallback/rollback). Para reativar o gate antigo, restaure os triggers.
+on:
+  workflow_dispatch:
+
+concurrency:
+  # One run per ref; cancel obsolete runs on new pushes.
+  group: test-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend-test:
+    name: Backend test sweep (Cython-compiled image)
+    runs-on: [self-hosted, Linux, X64]
+    # The backend-test stage executes the Cython compile + a 1500-test
+    # pytest sweep against the .so tree. Build success == tests passed:
+    # any failed test fails the docker build via the COPY --from chain.
+    #
+    # timeout-minutes: o sweep sozinho leva ~15 min; com o compile Cython a
+    # frio (cache gha não-quente) o job passava de 25 min e era CANCELADO em
+    # TODO PR/push (gate inútil p/ branch protection). 50 min cobre compile
+    # frio + sweep completo com folga; o ``--maxfail=5`` do cython-tests.sh
+    # garante fast-fail em regressão real, então a folga não mascara hang.
+    # TODO(perf): paralelizar/cachear o compile p/ trazer o gate p/ <20 min.
+    timeout-minutes: 50
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build backend-test stage (Cython compile + pytest sweep)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: compose/Dockerfile
+          target: backend-test
+          push: false
+          load: false
+          # Share cache with build-and-publish.yml so the Cython compile
+          # layer is reused across test runs and image releases.
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  backend-pg-migrations:
+    name: Backend Postgres migration gate (real Postgres)
+    runs-on: [self-hosted, Linux, X64]
+    # Fecha a lacuna que deixou passar o bug DATETIME→TIMESTAMP (PR #124): os
+    # unit tests do backend-test rodam em SQLite (DATABASE_URL=sqlite:///:memory:),
+    # cuja tipagem frouxa MASCARA erros de DDL/dialeto do Postgres. Este gate
+    # roda SÓ os testes marcados ``-m pg`` (migrações lightweight, constraints,
+    # tipos) contra um Postgres 16 REAL — paridade com produção. É barato
+    # (subconjunto pequeno), então não precisa do compile Cython.
+    timeout-minutes: 20
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run -m pg tests against real Postgres
+        run: |
+          set -euo pipefail
+          NET="co_pgnet_${{ github.run_id }}"
+          PG="co_pg_${{ github.run_id }}"
+          docker network create "$NET" 2>/dev/null || true
+          docker rm -f "$PG" >/dev/null 2>&1 || true
+          docker run -d --name "$PG" --network "$NET" \
+            -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=centralops_test \
+            postgres:16-alpine
+          echo "aguardando Postgres ficar pronto..."
+          for i in $(seq 1 30); do
+            docker exec "$PG" pg_isready -U postgres >/dev/null 2>&1 && break
+            sleep 1
+          done
+          # python:3.11-slim espelha o estágio backend-deps; requirements.txt
+          # instala limpo (psycopg2-binary é wheel, sem build tools).
+          docker run --rm --network "$NET" -v "$PWD":/w -w /w \
+            -e PYTHONPATH=/w \
+            -e PG_TEST_DSN="postgresql://postgres:postgres@${PG}:5432/centralops_test" \
+            -e CENTRALOPS_TEST_PG_DSN="postgresql://postgres:postgres@${PG}:5432/centralops_test" \
+            -e APP_MASTER_KEY=test-master-key-for-centralops-suite-12345 \
+            -e APP_ENV=test \
+            python:3.11-slim \
+            bash -c "pip install --no-cache-dir -q -r backend/requirements.txt && python -m pytest -m pg -v backend/tests"
+
+      - name: Tear down Postgres
+        if: always()
+        run: |
+          docker rm -f "co_pg_${{ github.run_id }}" >/dev/null 2>&1 || true
+          docker network rm "co_pgnet_${{ github.run_id }}" >/dev/null 2>&1 || true
+
+  # Future expansion: add frontend-test job here when the frontend
+  # suite is wired up. Keeping a single workflow makes branch protection
+  # rules simpler ("require test workflow to pass").

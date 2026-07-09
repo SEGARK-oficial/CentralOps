@@ -1,0 +1,33 @@
+# Prometheus — config do stack de observabilidade CentralOps (host .108).
+# Modelo: REMOTE-WRITE recebido do OTel Collector (não scrape da app).
+global:
+  scrape_interval: 30s          # alinha com OTEL_METRIC_EXPORT_INTERVAL_MS=60000
+  evaluation_interval: 30s
+
+storage:
+  tsdb:
+    # Múltiplas réplicas (api x2 + workers x5) emitindo → amostras podem chegar
+    # levemente fora de ordem ao serem mescladas. Janela de tolerância.
+    out_of_order_time_window: 30m
+
+# Promoção de resource attributes → labels, SE algo ainda empurrar OTLP direto
+# (--web.enable-otlp-receiver, caminho de transição/back-compat). Lista MÍNIMA
+# p/ não explodir cardinalidade em multi-tenant. No caminho canônico (remote-write
+# via Collector) job/instance já vêm carimbados pelo exporter.
+otlp:
+  promote_resource_attributes:
+    - service.name
+    - service.instance.id
+    - deployment.environment
+
+scrape_configs:
+  # Self-métricas do próprio Collector (saúde do gateway: filas, drops de
+  # tail_sampling, throughput). NÃO é scrape da app — é do Collector.
+  - job_name: otel-collector
+    static_configs:
+      - targets: ['otel-collector:8888']
+
+  # Self-métricas do Prometheus (opcional, útil p/ capacidade).
+  - job_name: prometheus
+    static_configs:
+      - targets: ['localhost:9090']

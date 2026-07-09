@@ -1,0 +1,214 @@
+{
+  "pageEyebrow": "Knowledge",
+  "pageTitle": "Agendamentos",
+  "pageDescription": "Agende queries salvas com janela de busca, recorrência, notificações e histórico consolidado.",
+  "queryFallback": "Query #{{id}}",
+  "clientFallback": "Cliente #{{id}}",
+  "units": {
+    "minute": "minuto",
+    "minutes": "minutos",
+    "hour": "hora",
+    "hours": "horas",
+    "day": "dia",
+    "days": "dias",
+    "week": "semana",
+    "weeks": "semanas",
+    "minutesLabel": "Minutos",
+    "hoursLabel": "Horas",
+    "daysLabel": "Dias",
+    "weeksLabel": "Semanas"
+  },
+  "stats": {
+    "schedules": "Agendamentos",
+    "readyQueries": "Queries prontas",
+    "eligibleClients": "Clientes aptos",
+    "activeEmails": "Emails ativos"
+  },
+  "feedback": {
+    "operationCompleted": "Operação concluída",
+    "operationFailed": "Não foi possível concluir",
+    "dependenciesUnavailable": "Dependências indisponíveis",
+    "createSuccess": "Agendamento criado e executado com sucesso.",
+    "createError": "Falha ao criar agendamento.",
+    "deleteSuccess": "Agendamento removido com sucesso.",
+    "deleteError": "Falha ao remover agendamento.",
+    "downloadError": "Falha ao baixar o CSV do resultado.",
+    "loadSchedulesError": "Falha ao carregar agendamentos.",
+    "loadEmailsError": "Falha ao carregar emails de notificação.",
+    "refreshError": "Falha ao atualizar dados de agendamento.",
+    "loadHistoryError": "Falha ao carregar o histórico do agendamento."
+  },
+  "form": {
+    "title": "Novo agendamento",
+    "description": "Selecione a query, a janela de busca e a frequência da execução.",
+    "pendingSetupTitle": "Cadastro pendente",
+    "pendingSetupDescription": "Cadastre ao menos uma query e um cliente autenticado antes de criar um agendamento.",
+    "noRecipientsTitle": "Sem destinatários configurados",
+    "noRecipientsDescription": "As notificações estão ativas, mas nenhum email foi cadastrado na tela de configurações.",
+    "submit": "Criar agendamento",
+    "validation": {
+      "queryRequired": "Selecione uma query cadastrada",
+      "clientsRequired": "Selecione ao menos um cliente",
+      "intervalInvalid": "Informe um intervalo válido",
+      "lookbackInvalid": "Informe uma janela de tempo válida"
+    },
+    "fields": {
+      "query": "Query",
+      "queryHelperText": "Queries vinculadas a clientes preenchem a selecao automaticamente.",
+      "clients": "Clientes",
+      "lookbackWindow": "Janela de busca",
+      "unit": "Unidade",
+      "runEvery": "Executar a cada",
+      "notifyByEmail": "Notificar por email quando houver resultados",
+      "configuredEmails": "Emails configurados:"
+    }
+  },
+  "activeList": {
+    "title": "Agendamentos ativos",
+    "description": "Visualize a recorrência, os clientes vinculados e abra o histórico de cada item.",
+    "loading": "Carregando agendamentos...",
+    "emptyTitle": "Nenhum agendamento cadastrado",
+    "emptyDescription": "Crie o primeiro agendamento para acompanhar execuções automaticas nesta tela.",
+    "tableAriaLabel": "Lista de agendamentos",
+    "idLabel": "ID #{{id}}",
+    "notificationOn": "Ativa",
+    "notificationOff": "Desligada",
+    "notifies": "Notifica",
+    "noNotice": "Sem aviso",
+    "history": "Histórico",
+    "columns": {
+      "query": "Query",
+      "clients": "Clientes",
+      "window": "Janela",
+      "recurrence": "Recorrência",
+      "nextRun": "Próxima execução",
+      "notification": "Notificação"
+    }
+  },
+  "history": {
+    "title": "Histórico e resultados",
+    "subtitle": "Execuções do agendamento {{name}}",
+    "selectPrompt": "Selecione um agendamento para acompanhar as execuções registradas.",
+    "noneSelectedTitle": "Nenhum agendamento selecionado",
+    "noneSelectedDescription": "Use o botao Histórico na lista acima para abrir os resultados de um agendamento específico.",
+    "loadErrorTitle": "Falha ao carregar histórico",
+    "loading": "Carregando histórico do agendamento...",
+    "emptyTitle": "Nenhuma execução encontrada",
+    "emptyDescription": "Os resultados aparecerão aqui assim que o agendamento gerar execuções persistidas.",
+    "filterByStatusAriaLabel": "Filtrar por status",
+    "searchPlaceholder": "Filtrar por ambiente ou Search ID…",
+    "searchAriaLabel": "Filtrar histórico",
+    "noMatchTitle": "Nenhuma execução para o filtro atual",
+    "noMatchDescription": "Ajuste o status ou o termo de busca para ver outras execuções.",
+    "tableAriaLabel": "Histórico do agendamento",
+    "notExecuted": "Não executado",
+    "environmentUnknown": "Ambiente não informado",
+    "until": "até",
+    "notAvailable": "N/D",
+    "csv": "CSV",
+    "filters": {
+      "all": "Todas",
+      "success": "Concluídas",
+      "error": "Falhas",
+      "running": "Em execução"
+    },
+    "status": {
+      "completed": "Concluída",
+      "failed": "Falhou",
+      "cancelled": "Cancelada",
+      "running": "Em execução"
+    },
+    "stats": {
+      "lastRun": "Última execução",
+      "totalRuns": "Execuções registradas",
+      "successfulRuns": "Execuções concluídas",
+      "failedRuns": "Falhas",
+      "accumulatedResults": "Resultados acumulados"
+    },
+    "columns": {
+      "when": "Quando",
+      "queryEnvironment": "Query / Ambiente",
+      "period": "Período",
+      "results": "Resultados"
+    },
+    "pagination": {
+      "showing": "Mostrando",
+      "of": "de",
+      "runs": "execuções",
+      "previous": "Anterior",
+      "next": "Próxima",
+      "pageOf": "Página {{current}} de {{total}}"
+    }
+  },
+  "deleteDialog": {
+    "title": "Remover agendamento",
+    "confirmPrefix": "Excluir o agendamento de",
+    "confirmSuffix": "? O histórico de execuções armazenado continuará disponível apenas enquanto os resultados estiverem retidos.",
+    "confirmLabel": "Excluir agendamento"
+  },
+  "previewModal": {
+    "title": "Detalhes da execução",
+    "searchId": "Search ID",
+    "results": "Resultados",
+    "errorTitle": "Erro registrado",
+    "noResultPersisted": "Nenhum resultado persistido para esta execução."
+  },
+  "queries": {
+    "pageEyebrow": "Knowledge",
+    "pageTitle": "Queries",
+    "pageDescription": "Monte consultas SQL reutilizáveis, com clientes sugeridos, para acelerar investigações e alimentar agendamentos.",
+    "closeForm": "Fechar formulário",
+    "newQuery": "Nova query",
+    "closeNotice": "Fechar aviso",
+    "stats": {
+      "savedQueries": "Queries salvas",
+      "withDefaultClients": "Com clientes padrão",
+      "totalLinks": "Vínculos totais"
+    },
+    "feedback": {
+      "createSuccess": "Query criada com sucesso.",
+      "createError": "Falha ao criar query.",
+      "updateSuccess": "Query atualizada com sucesso.",
+      "updateError": "Falha ao atualizar query.",
+      "deleteSuccess": "Query removida com sucesso.",
+      "deleteError": "Falha ao remover query.",
+      "loadError": "Falha ao carregar queries",
+      "clientsUnavailable": "Clientes indisponíveis"
+    },
+    "createCard": {
+      "title": "Nova query",
+      "description": "Salve consultas prontas para reuso em buscas recorrentes, playbooks e agendamentos."
+    },
+    "catalogCard": {
+      "title": "Catálogo de consultas",
+      "description": "Edite, revise e mantenha consultas curadas para toda a operação."
+    },
+    "deleteDialog": {
+      "title": "Remover query",
+      "confirmPrefix": "Excluir",
+      "confirmSuffix": "? Ela deixará de aparecer para buscas e novos agendamentos.",
+      "confirmLabel": "Excluir query"
+    }
+  },
+  "detections": {
+    "pageEyebrow": "Segurança",
+    "pageTitle": "Detecções",
+    "pageDescription": "Triagem de detecções de 1ª classe geradas por queries agendadas, queries live e regras de correlação.",
+    "filterByStatusAriaLabel": "Filtrar por status",
+    "kpis": {
+      "total": "Total",
+      "open": "Abertas",
+      "ack": "Reconhecidas",
+      "closed": "Fechadas"
+    },
+    "status": {
+      "open": "Abertas",
+      "ack": "Reconhecidas",
+      "closed": "Fechadas"
+    },
+    "feedback": {
+      "triageError": "Falha ao atualizar status da detecção",
+      "loadError": "Falha ao carregar detecções"
+    }
+  }
+}

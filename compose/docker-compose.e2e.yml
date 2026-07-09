@@ -1,0 +1,129 @@
+# Stack E2E — CentralOps
+# Usado por: Playwright local + GitHub Actions.
+# NÃO usar em produção — sem TLS, credenciais fixas de teste,
+# volume temporário destruído após `down -v`.
+#
+# Como subir:
+#   docker compose -f compose/docker-compose.e2e.yml up --build -d
+# Como derrubar e limpar:
+#   docker compose -f compose/docker-compose.e2e.yml down -v
+
+services:
+  # ── API (FastAPI/uvicorn) — sem nginx, sem portas no host ────────────────
+  centralops:
+    build:
+      context: ..
+      dockerfile: compose/Dockerfile
+      target: final
+    image: centralops:e2e
+    environment:
+      - APP_ENV=test
+      # Chave mestra determinística para fixtures — NUNCA usar fora de test.
+      - APP_MASTER_KEY=test-master-key-for-centralops-suite-12345
+      # PARIDADE dev/prod — E2E roda em POSTGRES (não SQLite).
+      # SQLite mascarava bugs específicos do Postgres (ex.: boolean≠integer no
+      # seed de migração que quebrava o boot em prod). Agora o E2E exercita o
+      # mesmo dialeto da produção.
+      - DATABASE_URL=postgresql+psycopg2://centralops:e2e-pg-pass@postgres:5432/centralops_e2e
+      - REDIS_URL=redis://:e2e-redis-pass@redis:6379/0
+      - SESSION_SECURE_COOKIE=0
+      - DEBUG_REQUESTS=0
+      # Desabilitar envio de e-mail em testes — sem SMTP real.
+      - SMTP_HOST=
+      - APP_COMPANY_NAME=CentralOps E2E
+      - APP_COMPANY_PORTAL_NAME=E2E Test Portal
+    volumes:
+      - e2e-app-data:/app/data
+    expose:
+      - "8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      # readiness real (DB+Redis) batendo no uvicorn :8000.
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8000/readyz || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
+    restart: "no"
+
+  # ── Frontend (nginx + SPA) — expõe :3000 p/ o Playwright; proxia /api → API ─
+  frontend:
+    build:
+      context: ..
+      dockerfile: compose/Dockerfile
+      target: frontend
+      args:
+        VITE_BACKEND_URL: /api
+    image: centralops-frontend:e2e
+    environment:
+      - ENABLE_HTTPS=0
+      - API_UPSTREAM=centralops:8000
+      - NGINX_SERVER_NAME=_
+    ports:
+      # Porta 3000 (host) → 8080 (nginx-unprivileged non-root). Playwright baseURL.
+      - "3000:8080"
+    depends_on:
+      centralops:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:8080/health || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+    restart: "no"
+
+  # ── Postgres real (paridade dev/prod
+  # Mesmo dialeto da produção: pega bugs Postgres-specific (boolean/json/locks)
+  # que o SQLite mascarava. Credenciais fixas de TESTE; volume some no `down -v`.
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      - POSTGRES_USER=centralops
+      - POSTGRES_PASSWORD=e2e-pg-pass
+      - POSTGRES_DB=centralops_e2e
+    volumes:
+      - e2e-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U centralops -d centralops_e2e"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 10s
+    restart: "no"
+
+  # ── Redis real (não fake) ────────────────────────────────────────────────
+  # Workers Playwright paralelos precisam compartilhar estado de sessão
+  # e o reservoir de samples. Fake Redis causaria divergência entre shards.
+  redis:
+    image: redis:7-alpine
+    command:
+      - redis-server
+      - --appendonly
+      - "yes"
+      - --requirepass
+      - e2e-redis-pass
+    volumes:
+      - e2e-redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "e2e-redis-pass", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: "no"
+
+volumes:
+  # Volumes anônimos com sufixo e2e para não colidir com volumes de produção.
+  e2e-app-data:
+    driver: local
+    name: centralops-e2e-app-data
+  e2e-postgres-data:
+    driver: local
+    name: centralops-e2e-postgres-data
+  e2e-redis-data:
+    driver: local
+    name: centralops-e2e-redis-data

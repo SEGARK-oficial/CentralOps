@@ -1,0 +1,381 @@
+{
+  "dashboardPage": {
+    "eyebrow": "Overview",
+    "title": "Dashboard",
+    "description": "Pipeline throughput and source health first; then risk-based prioritization and actionable buckets with drill-down into alerts.",
+    "loading": "Loading dashboard...",
+    "updating": "Updating...",
+    "loadError": "Failed to load dashboard",
+    "empty": {
+      "title": "No data to display",
+      "description": "No summary available for the current scope. Adjust the global filter or try refreshing."
+    },
+    "scope": {
+      "title": "Current scope",
+      "description": "The dashboard uses the application's global filter. Adjust client, platform, or integration in the top bar.",
+      "client": "Client: {{value}}",
+      "platform": "Platform: {{value}}",
+      "integration": "Integration: {{value}}",
+      "lastQuery": "Last query: {{time}} ({{relative}})",
+      "lastEvent": "Last event: {{time}}",
+      "clear": "Clear scope",
+      "allOrganizations": "All",
+      "allPlatforms": "All",
+      "allIntegrations": "All"
+    },
+    "timeWindow": {
+      "title": "Time window",
+      "description": "The window below adjusts the comparison with the previous period and the drill-downs into alerts.",
+      "label": "Window",
+      "options": {
+        "24h": "24 hours",
+        "7d": "7 days",
+        "30d": "30 days"
+      }
+    },
+    "notices": {
+      "partialErrorsTitle": "Some integrations were left out of the summary",
+      "unsupportedSourcesTitle": "Partial alert coverage",
+      "unsupportedSources": "{{count}} integration(s) within the current scope don't expose alert capability."
+    },
+    "stats": {
+      "organizationsInScope": "Clients in scope",
+      "organizationsActive": "{{count}} active",
+      "integrationsInScope": "Integrations in scope",
+      "integrationsSummary": "{{active}} active · {{healthy}} healthy · {{degraded}} degraded · {{error}} with error · {{unknown}} unknown · {{inactive}} inactive",
+      "alertsInPeriod": "Alerts in period",
+      "alertsDays": "{{count}} day(s)",
+      "critical": "Critical",
+      "criticalSub": "Severe detections",
+      "degradedEnvironments": "Degraded environments",
+      "degradedSub": "Require attention",
+      "lastEvent": "Last event",
+      "noData": "No data",
+      "freshness": "Data freshness",
+      "previousPeriod": "Previous period: {{value}}"
+    },
+    "trend": {
+      "up": "up {{value}}",
+      "down": "down {{value}}",
+      "stable": "stable"
+    },
+    "priority": {
+      "mostCriticalClient": {
+        "title": "Most critical client",
+        "description": "First environment to review when the scope mixes multiple sources."
+      },
+      "mostCriticalIntegration": {
+        "title": "Integration with the most critical alerts",
+        "description": "Shortcut to jump directly into the source with the most severe events."
+      },
+      "empty": "Not enough data to prioritize in this scope.",
+      "noIdentification": "No identification",
+      "unnamedClient": "Unnamed client",
+      "criticalCount": "{{count}} critical",
+      "total": "Total: {{value}}",
+      "critical": "Critical: {{value}}",
+      "high": "High: {{value}}"
+    },
+    "alertsTrend": {
+      "title": "Alert trend",
+      "description": "Click a bar to open the corresponding scope in alerts.",
+      "severity": {
+        "critical": "Critical",
+        "high": "High",
+        "medium": "Medium",
+        "low": "Low",
+        "info": "Info"
+      },
+      "empty": "No aggregated alerts found for the current window.",
+      "barAriaLabel": "{{day}}: {{count}} alert(s). Open this period's scope in alerts."
+    },
+    "sourcesHealth": {
+      "title": "Sources & health",
+      "description": "Degraded environments and integrations with the most volume in the current scope.",
+      "noDegraded": "No degraded environments in this scope.",
+      "noDetail": "No detailed message",
+      "unnamedClient": "Client {{id}}",
+      "noSources": "No sources with alerts in the period.",
+      "critical": "Critical: {{value}}",
+      "high": "High: {{value}}",
+      "medium": "Medium: {{value}}",
+      "low": "Low: {{value}}",
+      "byPlatform": "Integrations by platform"
+    },
+    "buckets": {
+      "topHosts": {
+        "title": "Hosts with most alerts",
+        "description": "Noisiest hosts in the current scope, with client and integration context."
+      },
+      "topRules": {
+        "title": "Most triggered rules",
+        "description": "Dominant rules with client and integration detail to speed up triage."
+      },
+      "topMitre": {
+        "title": "Most frequent MITRE",
+        "description": "Dominant techniques in the current scope to guide investigation and containment."
+      },
+      "topAgentGroups": {
+        "title": "Most affected agent groups",
+        "description": "Segments under the most alert pressure, useful for multi-environment prioritization."
+      },
+      "empty": "No bucket available in this scope.",
+      "unnamedClient": "Unnamed client"
+    },
+    "dates": {
+      "noData": "No data",
+      "noRecentQuery": "No recent query",
+      "invalidTime": "Invalid time",
+      "now": "now",
+      "minutesAgo": "{{count}} min ago",
+      "hoursAgo": "{{count}} h ago",
+      "daysAgo": "{{count}} d ago"
+    }
+  },
+  "flowPage": {
+    "title": "Data flow",
+    "description": "From ingestion to delivery — sources, routing, and destinations with live throughput (60-minute window).",
+    "liveFeed": "Live feed",
+    "loadError": "Failed to load the flow.",
+    "notLoaded": "Couldn't load",
+    "empty": {
+      "title": "No flow to display",
+      "description": "Set up integrations (sources), routes, and destinations to see the platform's data flow."
+    },
+    "stats": {
+      "ingest": "Ingest",
+      "routed": "Routed",
+      "dropped": "Dropped",
+      "delivered": "Delivered",
+      "perMinute": "{{value}}/min"
+    },
+    "topology": {
+      "title": "Flow topology",
+      "healthy": "healthy",
+      "degraded": "degraded",
+      "unavailable": "unavailable",
+      "legend": "width/speed ∝ throughput · scroll=zoom · drag=pan"
+    }
+  },
+  "pipelineHealthPage": {
+    "title": "Pipeline Health",
+    "loadError": "Failed to load",
+    "loadHealthError": "Failed to load health data.",
+    "loading": "Loading...",
+    "updatedAt": "Updated at {{time}}",
+    "summary": "{{healthy}} healthy · {{degraded}} degraded · {{unhealthy}} unavailable · {{unknown}} awaiting collection",
+    "filters": {
+      "groupLabel": "Filter by status",
+      "all": "All ({{count}})",
+      "healthy": "Healthy ({{count}})",
+      "problem": "With issues ({{count}})"
+    },
+    "empty": {
+      "title": "No integration found",
+      "description": "No integration matches the selected filter. Adjust the filter to see other integrations."
+    },
+    "card": {
+      "eventsPerMinute": "Events/min",
+      "lag": "Lag",
+      "drift24h": "Drift (24h)",
+      "quarantine24h": "Quarantine (24h)"
+    },
+    "destinations": {
+      "title": "Health by destination",
+      "show": "Show destinations",
+      "hide": "Hide destinations"
+    }
+  },
+  "health": {
+    "badge": {
+      "healthy": "Healthy",
+      "degraded": "Degraded",
+      "unhealthy": "Unavailable",
+      "unknown": "Awaiting first collection"
+    },
+    "statusCard": {
+      "title": "Pipeline Status",
+      "description": {
+        "healthy": "The normalization pipeline is operating normally.",
+        "degraded": "The pipeline is running with degradation. Check recent errors.",
+        "unhealthy": "The pipeline is unavailable. Immediate action recommended.",
+        "unknown": "No collection has been performed yet. Awaiting first run."
+      },
+      "statusAriaLabel": "Status: {{status}}"
+    },
+    "metricsGrid": {
+      "ariaLabel": "Pipeline metrics",
+      "eventsPerMinute": "Events/min",
+      "collectionLag": "Collection lag",
+      "collectionLagAriaLabel": "Collection lag: {{value}}",
+      "drift24h": "Drift (24h)",
+      "viewInDriftExplorer": "View in Drift Explorer",
+      "quarantine24h": "Quarantine (24h)",
+      "viewInQuarantine": "View in Quarantine",
+      "lag": {
+        "secondsAgo": "{{count}}s ago",
+        "minutesAgo": "{{count}}min ago",
+        "hoursAgo": "{{count}}h ago",
+        "daysAgo": "{{count}}d ago"
+      }
+    },
+    "lastError": {
+      "title": "Last recorded error"
+    },
+    "mappedFieldRatio": {
+      "title": "Field Coverage",
+      "notCalculable": "Coverage not calculable (no mapping configured)",
+      "mappedFields": "mapped fields",
+      "ariaLabel": "Field coverage: {{percentage}}%"
+    },
+    "metricsList": {
+      "ariaLabel": "Integration health metrics",
+      "noDetailedMetrics": "This integration doesn't publish detailed metrics",
+      "lastCollection": "Last collection {{relative}}",
+      "awaitingFirstCollection": "Awaiting first collection — within 5 minutes",
+      "severity": {
+        "ok": "ok",
+        "warn": "attention",
+        "critical": "critical",
+        "unknown": "unknown"
+      },
+      "severityAriaLabel": "Severity: {{severity}}",
+      "metricAriaLabel": "{{label}}: {{value}}, {{severity}}",
+      "relativeTime": {
+        "justNow": "just now",
+        "minutesAgo": "{{count}}min ago",
+        "hoursAgo": "{{count}}h ago",
+        "daysAgo": "{{count}}d ago"
+      }
+    },
+    "summaryCard": {
+      "title": "Health",
+      "awaitingCollection": "Awaiting collection",
+      "viewDetails": "View details",
+      "viewDetailsAriaLabel": "View health details",
+      "severity": {
+        "healthy": "Healthy",
+        "attention": "Needs attention",
+        "critical": "Critical",
+        "unknown": "Unknown"
+      },
+      "summaryAllHealthy_one": "{{count}} healthy metric",
+      "summaryAllHealthy_other": "{{count}} healthy metrics",
+      "summaryMixed": "{{okCount}} healthy, {{nonOkCount}} needing attention"
+    },
+    "integrationPanel": {
+      "title": "Normalization Pipeline Health",
+      "updatedSecondsAgo": "Metrics updated {{seconds}}s ago — data cached for 60s",
+      "loadError": "Failed to load health data",
+      "loading": "Loading metrics...",
+      "refresh": "Refresh",
+      "refreshAriaLabel": "Refresh health metrics",
+      "lastSuccess": "Last success: {{time}}"
+    },
+    "destinationGrid": {
+      "ariaLabel": "Health by destination",
+      "loadingAriaLabel": "Loading destinations…",
+      "loadError": "Failed to load destinations",
+      "empty": "No destination configured for this organization.",
+      "disabled": "Destination disabled",
+      "eps": "EPS",
+      "bytesPerMinute": "Bytes/min",
+      "dlq24h": "DLQ (24h)",
+      "circuitBreaker": "Circuit breaker",
+      "destinationAriaLabel": "Destination {{name}}",
+      "metricsAriaLabel": "Destination metrics",
+      "breaker": {
+        "closed": "Circuit closed",
+        "open": "Circuit open",
+        "halfOpen": "Half-open",
+        "ariaLabel": "Circuit breaker: {{label}}"
+      }
+    }
+  },
+  "flow": {
+    "canvas": {
+      "ariaLabel": "Data flow: {{sources}} sources, {{routes}} routes, {{destinations}} destinations",
+      "zoomIn": "Zoom in",
+      "zoomOut": "Zoom out",
+      "resetZoom": "Reset zoom and position",
+      "columns": {
+        "sources": "SOURCES",
+        "routing": "ROUTING",
+        "destinations": "DESTINATIONS"
+      },
+      "catchAll": "Catch-all",
+      "drop": "drop",
+      "off": "off"
+    },
+    "liveFeed": {
+      "title": "Live feed",
+      "noRecentEvents": "No recent events.",
+      "noActiveDestinations": "No active destinations.",
+      "updated": "Updated {{relative}} · polling every {{seconds}}s",
+      "refreshNow": "Refresh now",
+      "redacted": "redacted",
+      "genericEvent": "event"
+    },
+    "nodeDetail": {
+      "closeAriaLabel": "Close panel",
+      "detailAriaLabel": "Details: {{title}}",
+      "status": {
+        "healthy": "healthy",
+        "degraded": "degraded",
+        "unhealthy": "unavailable",
+        "unknown": "unknown"
+      },
+      "kind": {
+        "source": "Source",
+        "route": "Route",
+        "destination": "Destination"
+      },
+      "row": {
+        "type": "Type",
+        "platform": "Platform",
+        "eventsPerMinute": "Events/min",
+        "status": "Status",
+        "action": "Action",
+        "routedPerMinute": "Routed/min",
+        "matchedPerMinute": "Matched/min",
+        "droppedPerMinute": "Dropped/min",
+        "kind": "Kind",
+        "deliveredPerMinute": "Delivered/min",
+        "throughput": "Throughput"
+      },
+      "destinations": "Destinations",
+      "active": "active",
+      "inactive": "inactive",
+      "system": "system",
+      "drop": "drop",
+      "recentEvents": "Recent events",
+      "loadingEvents": "Loading events…",
+      "noRecentEvents": "No recent events.",
+      "loadEventsError": "Failed to load events.",
+      "redacted": "redacted"
+    }
+  },
+  "observability": {
+    "costSavings": {
+      "title": "Volume & cost reduction",
+      "windowMinutes": "(window {{minutes}} min)",
+      "enterpriseBadge": "Enterprise: $ ROI",
+      "collected": "Collected",
+      "delivered": "Delivered",
+      "avoided": "Avoided",
+      "reduction": "Reduction",
+      "estimatedSavings": "Estimated savings",
+      "perDay": "/ day",
+      "enablePricing": "Enable US$ calculation (savings/ROI) with the Enterprise edition + per-GB pricing on the destination."
+    },
+    "sparkline": {
+      "noData": "{{label}}: no data",
+      "lastValue": "{{label}}: last value {{value}}",
+      "lastValueAt": "{{label}}: last value {{value}} at {{time}}",
+      "pointsCount_one": "{{count}} point",
+      "pointsCount_other": "{{count}} points",
+      "min": "Min: {{value}}",
+      "max": "Max: {{value}}"
+    }
+  }
+}

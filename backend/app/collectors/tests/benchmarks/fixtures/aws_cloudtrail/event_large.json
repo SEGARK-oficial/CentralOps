@@ -1,0 +1,185 @@
+{
+  "eventID": "ct-large-1",
+  "eventTime": "2026-06-21T10:00:00Z",
+  "eventName": "CreateUser",
+  "eventSource": "iam.amazonaws.com",
+  "awsRegion": "us-east-1",
+  "sourceIPAddress": "192.0.2.0",
+  "userAgent": "aws-cli/2.13.5",
+  "userIdentity": {
+    "type": "IAMUser",
+    "principalId": "AIDA",
+    "arn": "arn:aws:iam::888:user/Mary",
+    "accountId": "888",
+    "userName": "Mary"
+  },
+  "recipientAccountId": "888",
+  "readOnly": false,
+  "eventVersion": "1.08",
+  "eventType": "AwsApiCall",
+  "managementEvent": true,
+  "requestParameters": {
+    "userName": "Bob",
+    "path": "/"
+  },
+  "responseElements": {
+    "user": {
+      "userId": "AIDB",
+      "arn": "arn:aws:iam::888:user/Bob"
+    }
+  },
+  "resources": [
+    {
+      "ARN": "arn:aws:iam::888:user/U0",
+      "accountId": "888",
+      "type": "AWS::IAM::User"
+    },
+    {
+      "ARN": "arn:aws:iam::888:user/U1",
+      "accountId": "888",
+      "type": "AWS::IAM::User"
+    },
+    {
+      "ARN": "arn:aws:iam::888:user/U2",
+      "accountId": "888",
+      "type": "AWS::IAM::User"
+    },
+    {
+      "ARN": "arn:aws:iam::888:user/U3",
+      "accountId": "888",
+      "type": "AWS::IAM::User"
+    },
+    {
+      "ARN": "arn:aws:iam::888:user/U4",
+      "accountId": "888",
+      "type": "AWS::IAM::User"
+    },
+    {
+      "ARN": "arn:aws:iam::888:user/U5",
+      "accountId": "888",
+      "type": "AWS::IAM::User"
+    },
+    {
+      "ARN": "arn:aws:iam::888:user/U6",
+      "accountId": "888",
+      "type": "AWS::IAM::User"
+    },
+    {
+      "ARN": "arn:aws:iam::888:user/U7",
+      "accountId": "888",
+      "type": "AWS::IAM::User"
+    },
+    {
+      "ARN": "arn:aws:iam::888:user/U8",
+      "accountId": "888",
+      "type": "AWS::IAM::User"
+    },
+    {
+      "ARN": "arn:aws:iam::888:user/U9",
+      "accountId": "888",
+      "type": "AWS::IAM::User"
+    },
+    {
+      "ARN": "arn:aws:iam::888:user/U10",
+      "accountId": "888",
+      "type": "AWS::IAM::User"
+    },
+    {
+      "ARN": "arn:aws:iam::888:user/U11",
+      "accountId": "888",
+      "type": "AWS::IAM::User"
+    },
+    {
+      "ARN": "arn:aws:iam::888:user/U12",
+      "accountId": "888",
+      "type": "AWS::IAM::User"
+    },
+    {
+      "ARN": "arn:aws:iam::888:user/U13",
+      "accountId": "888",
+      "type": "AWS::IAM::User"
+    },
+    {
+      "ARN": "arn:aws:iam::888:user/U14",
+      "accountId": "888",
+      "type": "AWS::IAM::User"
+    },
+    {
+      "ARN": "arn:aws:iam::888:user/U15",
+      "accountId": "888",
+      "type": "AWS::IAM::User"
+    }
+  ],
+  "additionalEventData": [
+    {
+      "ts": "2026-06-21T10:00:00Z",
+      "k": "aed-0",
+      "detail": "value-0-xxxxxxxx"
+    },
+    {
+      "ts": "2026-06-21T10:01:00Z",
+      "k": "aed-1",
+      "detail": "value-1-xxxxxxxx"
+    },
+    {
+      "ts": "2026-06-21T10:02:00Z",
+      "k": "aed-2",
+      "detail": "value-2-xxxxxxxx"
+    },
+    {
+      "ts": "2026-06-21T10:03:00Z",
+      "k": "aed-3",
+      "detail": "value-3-xxxxxxxx"
+    },
+    {
+      "ts": "2026-06-21T10:04:00Z",
+      "k": "aed-4",
+      "detail": "value-4-xxxxxxxx"
+    },
+    {
+      "ts": "2026-06-21T10:05:00Z",
+      "k": "aed-5",
+      "detail": "value-5-xxxxxxxx"
+    },
+    {
+      "ts": "2026-06-21T10:06:00Z",
+      "k": "aed-6",
+      "detail": "value-6-xxxxxxxx"
+    },
+    {
+      "ts": "2026-06-21T10:07:00Z",
+      "k": "aed-7",
+      "detail": "value-7-xxxxxxxx"
+    },
+    {
+      "ts": "2026-06-21T10:08:00Z",
+      "k": "aed-8",
+      "detail": "value-8-xxxxxxxx"
+    },
+    {
+      "ts": "2026-06-21T10:09:00Z",
+      "k": "aed-9",
+      "detail": "value-9-xxxxxxxx"
+    },
+    {
+      "ts": "2026-06-21T10:10:00Z",
+      "k": "aed-10",
+      "detail": "value-10-xxxxxxxx"
+    },
+    {
+      "ts": "2026-06-21T10:11:00Z",
+      "k": "aed-11",
+      "detail": "value-11-xxxxxxxx"
+    },
+    {
+      "ts": "2026-06-21T10:12:00Z",
+      "k": "aed-12",
+      "detail": "value-12-xxxxxxxx"
+    },
+    {
+      "ts": "2026-06-21T10:13:00Z",
+      "k": "aed-13",
+      "detail": "value-13-xxxxxxxx"
+    }
+  ]
+}

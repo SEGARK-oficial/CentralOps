@@ -1,0 +1,43 @@
+{
+  "timestamp": "2026-06-21T10:00:00Z",
+  "id": "1700000000.123",
+  "rule": {
+    "level": 7,
+    "description": "Multiple failed logins",
+    "groups": [
+      "authentication_failed",
+      "syslog",
+      "sshd"
+    ],
+    "id": "5710",
+    "firedtimes": 3,
+    "mail": false,
+    "mitre": {
+      "id": [
+        "T1110"
+      ],
+      "tactic": [
+        "Credential Access"
+      ],
+      "technique": [
+        "Brute Force"
+      ]
+    }
+  },
+  "agent": {
+    "id": "001",
+    "name": "host-a",
+    "ip": "10.0.0.5"
+  },
+  "data": {
+    "srcip": "1.2.3.4",
+    "srcuser": "root"
+  },
+  "location": "/var/log/auth.log",
+  "manager": {
+    "name": "wazuh-mgr"
+  },
+  "decoder": {
+    "name": "sshd"
+  }
+}

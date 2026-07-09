@@ -1,0 +1,6 @@
+apiVersion: v2
+name: centralops
+description: A Helm chart for deploying CentralOps on Kubernetes with DevSecOps best practices
+type: application
+version: 0.2.0
+appVersion: "latest"

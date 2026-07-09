@@ -1,0 +1,32 @@
+# Fase 5 — extras dos sinks de saída de "construção nova" (OPCIONAL).
+#
+# Instale SOMENTE quando for usar um destino que exige client SDK próprio.
+# Mantidos FORA da imagem base (deploy leve) — espelha requirements-otel.txt.
+# Cada sink importa seu SDK de forma TARDIA (dentro do factory/cliente), então
+# o módulo registra normalmente mesmo sem o pacote; ``send_batch``/``test``
+# falham de forma descritiva ("instale aioboto3") quando o SDK está ausente.
+#
+# pip install -r requirements-sinks.txt
+#
+# Sinks HTTP-puro (aiohttp já em requirements.txt — sem SDK third-party extra).
+# "HTTP-puro" é sobre o TRANSPORTE; alguns ainda exigem credencial via secret_ref
+# (sem ela ficam dormant, falhando descritivo):
+# - sentinel        (Microsoft Sentinel — requer client_secret via secret_ref)
+# - splunk_hec      (Splunk HEC — requer hec_token via secret_ref)
+# - elastic_bulk    (Elastic/OpenSearch — requer credencial via secret_ref)
+# - otlp            (OpenTelemetry/HTTP — auth opcional via secret_ref)
+# - syslog_rfc3164 / syslog_rfc5424 / jsonl  (sem credencial)
+# - webhook         (HTTP genérico — auth opcional via secret_ref)   [F2 Onda2]
+# - datadog         (Datadog Logs Intake — requer api_key via secret_ref) [F2 Onda2]
+
+# S3 / object store (data lake) — kind=s3 / security_lake
+aioboto3>=12
+
+# Kafka / message bus — kind=kafka
+aiokafka>=0.10
+
+# Amazon Security Lake (OCSF Parquet) — kind=security_lake  [F2 Onda2]
+pyarrow>=14
+
+# Google SecOps / Chronicle (OAuth service-account) — kind=chronicle  [F2 Onda2]
+google-auth>=2.30

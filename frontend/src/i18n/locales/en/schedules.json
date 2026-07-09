@@ -1,0 +1,214 @@
+{
+  "pageEyebrow": "Knowledge",
+  "pageTitle": "Schedules",
+  "pageDescription": "Schedule saved queries with a lookback window, recurrence, notifications and consolidated history.",
+  "queryFallback": "Query #{{id}}",
+  "clientFallback": "Client #{{id}}",
+  "units": {
+    "minute": "minute",
+    "minutes": "minutes",
+    "hour": "hour",
+    "hours": "hours",
+    "day": "day",
+    "days": "days",
+    "week": "week",
+    "weeks": "weeks",
+    "minutesLabel": "Minutes",
+    "hoursLabel": "Hours",
+    "daysLabel": "Days",
+    "weeksLabel": "Weeks"
+  },
+  "stats": {
+    "schedules": "Schedules",
+    "readyQueries": "Ready queries",
+    "eligibleClients": "Eligible clients",
+    "activeEmails": "Active emails"
+  },
+  "feedback": {
+    "operationCompleted": "Operation completed",
+    "operationFailed": "Could not complete",
+    "dependenciesUnavailable": "Dependencies unavailable",
+    "createSuccess": "Schedule created and executed successfully.",
+    "createError": "Failed to create schedule.",
+    "deleteSuccess": "Schedule removed successfully.",
+    "deleteError": "Failed to remove schedule.",
+    "downloadError": "Failed to download the result CSV.",
+    "loadSchedulesError": "Failed to load schedules.",
+    "loadEmailsError": "Failed to load notification emails.",
+    "refreshError": "Failed to refresh schedule data.",
+    "loadHistoryError": "Failed to load schedule history."
+  },
+  "form": {
+    "title": "New schedule",
+    "description": "Select the query, the lookback window and the run frequency.",
+    "pendingSetupTitle": "Pending setup",
+    "pendingSetupDescription": "Register at least one query and one authenticated client before creating a schedule.",
+    "noRecipientsTitle": "No recipients configured",
+    "noRecipientsDescription": "Notifications are enabled, but no email has been registered in the settings screen.",
+    "submit": "Create schedule",
+    "validation": {
+      "queryRequired": "Select a registered query",
+      "clientsRequired": "Select at least one client",
+      "intervalInvalid": "Enter a valid interval",
+      "lookbackInvalid": "Enter a valid time window"
+    },
+    "fields": {
+      "query": "Query",
+      "queryHelperText": "Queries linked to clients fill the selection automatically.",
+      "clients": "Clients",
+      "lookbackWindow": "Lookback window",
+      "unit": "Unit",
+      "runEvery": "Run every",
+      "notifyByEmail": "Notify by email when there are results",
+      "configuredEmails": "Configured emails:"
+    }
+  },
+  "activeList": {
+    "title": "Active schedules",
+    "description": "View the recurrence, linked clients and open the history for each item.",
+    "loading": "Loading schedules...",
+    "emptyTitle": "No schedules registered",
+    "emptyDescription": "Create the first schedule to track automatic runs on this screen.",
+    "tableAriaLabel": "List of schedules",
+    "idLabel": "ID #{{id}}",
+    "notificationOn": "Active",
+    "notificationOff": "Off",
+    "notifies": "Notifies",
+    "noNotice": "No notice",
+    "history": "History",
+    "columns": {
+      "query": "Query",
+      "clients": "Clients",
+      "window": "Window",
+      "recurrence": "Recurrence",
+      "nextRun": "Next run",
+      "notification": "Notification"
+    }
+  },
+  "history": {
+    "title": "History and results",
+    "subtitle": "Runs of the {{name}} schedule",
+    "selectPrompt": "Select a schedule to track its recorded runs.",
+    "noneSelectedTitle": "No schedule selected",
+    "noneSelectedDescription": "Use the History button in the list above to open the results for a specific schedule.",
+    "loadErrorTitle": "Failed to load history",
+    "loading": "Loading schedule history...",
+    "emptyTitle": "No runs found",
+    "emptyDescription": "Results will appear here as soon as the schedule generates persisted runs.",
+    "filterByStatusAriaLabel": "Filter by status",
+    "searchPlaceholder": "Filter by environment or Search ID…",
+    "searchAriaLabel": "Filter history",
+    "noMatchTitle": "No runs for the current filter",
+    "noMatchDescription": "Adjust the status or search term to see other runs.",
+    "tableAriaLabel": "Schedule history",
+    "notExecuted": "Not executed",
+    "environmentUnknown": "Environment not informed",
+    "until": "until",
+    "notAvailable": "N/A",
+    "csv": "CSV",
+    "filters": {
+      "all": "All",
+      "success": "Completed",
+      "error": "Failed",
+      "running": "Running"
+    },
+    "status": {
+      "completed": "Completed",
+      "failed": "Failed",
+      "cancelled": "Cancelled",
+      "running": "Running"
+    },
+    "stats": {
+      "lastRun": "Last run",
+      "totalRuns": "Recorded runs",
+      "successfulRuns": "Completed runs",
+      "failedRuns": "Failures",
+      "accumulatedResults": "Accumulated results"
+    },
+    "columns": {
+      "when": "When",
+      "queryEnvironment": "Query / Environment",
+      "period": "Period",
+      "results": "Results"
+    },
+    "pagination": {
+      "showing": "Showing",
+      "of": "of",
+      "runs": "runs",
+      "previous": "Previous",
+      "next": "Next",
+      "pageOf": "Page {{current}} of {{total}}"
+    }
+  },
+  "deleteDialog": {
+    "title": "Remove schedule",
+    "confirmPrefix": "Delete the schedule for",
+    "confirmSuffix": "? The stored run history will remain available only as long as results are retained.",
+    "confirmLabel": "Delete schedule"
+  },
+  "previewModal": {
+    "title": "Run details",
+    "searchId": "Search ID",
+    "results": "Results",
+    "errorTitle": "Recorded error",
+    "noResultPersisted": "No result persisted for this run."
+  },
+  "queries": {
+    "pageEyebrow": "Knowledge",
+    "pageTitle": "Queries",
+    "pageDescription": "Build reusable SQL queries, with suggested clients, to speed up investigations and feed schedules.",
+    "closeForm": "Close form",
+    "newQuery": "New query",
+    "closeNotice": "Close notice",
+    "stats": {
+      "savedQueries": "Saved queries",
+      "withDefaultClients": "With default clients",
+      "totalLinks": "Total links"
+    },
+    "feedback": {
+      "createSuccess": "Query created successfully.",
+      "createError": "Failed to create query.",
+      "updateSuccess": "Query updated successfully.",
+      "updateError": "Failed to update query.",
+      "deleteSuccess": "Query removed successfully.",
+      "deleteError": "Failed to remove query.",
+      "loadError": "Failed to load queries",
+      "clientsUnavailable": "Clients unavailable"
+    },
+    "createCard": {
+      "title": "New query",
+      "description": "Save ready-made queries for reuse in recurring searches, playbooks and schedules."
+    },
+    "catalogCard": {
+      "title": "Query catalog",
+      "description": "Edit, review and keep queries curated for the whole operation."
+    },
+    "deleteDialog": {
+      "title": "Remove query",
+      "confirmPrefix": "Delete",
+      "confirmSuffix": "? It will no longer appear for searches and new schedules.",
+      "confirmLabel": "Delete query"
+    }
+  },
+  "detections": {
+    "pageEyebrow": "Security",
+    "pageTitle": "Detections",
+    "pageDescription": "Triage first-class detections generated by scheduled queries, live queries and correlation rules.",
+    "filterByStatusAriaLabel": "Filter by status",
+    "kpis": {
+      "total": "Total",
+      "open": "Open",
+      "ack": "Acknowledged",
+      "closed": "Closed"
+    },
+    "status": {
+      "open": "Open",
+      "ack": "Acknowledged",
+      "closed": "Closed"
+    },
+    "feedback": {
+      "triageError": "Failed to update detection status",
+      "loadError": "Failed to load detections"
+    }
+  }
+}

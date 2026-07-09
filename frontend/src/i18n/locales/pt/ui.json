@@ -1,0 +1,127 @@
+{
+  "notFound": {
+    "title": "Página não encontrada",
+    "description": "O endereço acessado não existe ou foi movido. Verifique o link ou volte para uma área conhecida.",
+    "goToDashboard": "Ir para o Dashboard",
+    "back": "Voltar"
+  },
+  "errorState": {
+    "retry": "Tentar novamente"
+  },
+  "commandPalette": {
+    "dialogLabel": "Paleta de comandos",
+    "searchPlaceholder": "Buscar comandos...",
+    "searchAriaLabel": "Buscar comandos",
+    "resultsAriaLabel": "Comandos disponíveis",
+    "noResults": "Nenhum resultado para \"{{query}}\"",
+    "footer": {
+      "navigate": "Navegar",
+      "execute": "Executar",
+      "close": "Fechar"
+    }
+  },
+  "dataTable": {
+    "loading": "Carregando dados...",
+    "emptyTitle": "Nenhum dado encontrado",
+    "emptyDescription": "Não há dados para exibir no momento.",
+    "showingRange": "Mostrando {{start}} a {{end}} de {{total}} registros",
+    "itemsPerPage": "Itens:",
+    "firstPage": "Primeira página",
+    "previousPage": "Página anterior",
+    "nextPage": "Próxima página",
+    "lastPage": "Última página"
+  },
+  "dateRangePicker": {
+    "placeholder": "Selecione um período",
+    "clearSelection": "Limpar seleção",
+    "selectPeriod": "Selecionar período",
+    "quickRanges": "Períodos rápidos",
+    "quickRange": {
+      "lastHour": "Última hora",
+      "last6Hours": "Últimas 6h",
+      "last24Hours": "Últimas 24h",
+      "last7Days": "Últimos 7 dias",
+      "last30Days": "Últimos 30 dias"
+    },
+    "startTime": "Hora inicial",
+    "endTime": "Hora final",
+    "previousMonth": "Mês anterior",
+    "nextMonth": "Próximo mês",
+    "selectDate": "Selecionar {{date}}",
+    "selectStartDate": "Selecione a data inicial",
+    "selectEndDate": "Selecione a data final",
+    "months": [
+      "Janeiro",
+      "Fevereiro",
+      "Março",
+      "Abril",
+      "Maio",
+      "Junho",
+      "Julho",
+      "Agosto",
+      "Setembro",
+      "Outubro",
+      "Novembro",
+      "Dezembro"
+    ],
+    "weekdays": [
+      "Dom",
+      "Seg",
+      "Ter",
+      "Qua",
+      "Qui",
+      "Sex",
+      "Sáb"
+    ]
+  },
+  "select": {
+    "placeholder": "Selecione uma opção",
+    "selectedCount": "{{count}} selecionados",
+    "searchPlaceholder": "Buscar...",
+    "searchAriaLabel": "Buscar opções",
+    "selectAll": "Selecionar todos",
+    "clearAll": "Desmarcar todos",
+    "noOptionsFound": "Nenhuma opção encontrada"
+  },
+  "filtersToolbar": {
+    "searchAriaLabel": "Buscar",
+    "resetAriaLabel": "Resetar filtros",
+    "reset": "Resetar"
+  },
+  "bulkActionBar": {
+    "regionAriaLabel": "Ações em massa",
+    "clearSelection": "Limpar seleção",
+    "counter_one": "{{count}} selecionado",
+    "counter_other": "{{count}} selecionados",
+    "counterWithLabel": "{{count}} {{contextLabel}} selecionado(s)"
+  },
+  "confirmDialog": {
+    "confirm": "Confirmar",
+    "cancel": "Cancelar"
+  },
+  "modal": {
+    "closeAriaLabel": "Fechar modal"
+  },
+  "helpTooltip": {
+    "exampleLabel": "Ex.:",
+    "learnMore": "Saiba mais",
+    "triggerAriaLabel": "Ajuda: {{label}}"
+  },
+  "loadingSpinner": {
+    "loading": "Carregando…"
+  },
+  "skeleton": {
+    "loadingText": "Carregando texto…",
+    "loadingCard": "Carregando card…",
+    "loadingTable": "Carregando tabela…"
+  },
+  "button": {
+    "loading": "Carregando..."
+  },
+  "themeToggle": {
+    "switchToLight": "Mudar para tema claro",
+    "switchToDark": "Mudar para tema escuro",
+    "lightTheme": "Tema claro",
+    "darkTheme": "Tema escuro"
+  }
+}

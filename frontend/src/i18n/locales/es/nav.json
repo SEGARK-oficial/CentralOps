@@ -1,0 +1,138 @@
+{
+  "skipToContent": "Saltar al contenido principal",
+  "mainContent": "Contenido principal",
+  "appLoading": {
+    "loading": "Cargando...",
+    "validatingSession": "Validando sesión..."
+  },
+  "commandPalette": {
+    "groups": {
+      "navigate": "Navegar"
+    },
+    "items": {
+      "dashboard": {
+        "label": "Dashboard",
+        "keywords": "home, inicio, panel"
+      },
+      "integrations": {
+        "label": "Integraciones",
+        "keywords": "integrations, integracion"
+      },
+      "collectors": {
+        "label": "Colectores",
+        "keywords": "collectors, agentes, agents"
+      },
+      "destinations": {
+        "label": "Destinos",
+        "keywords": "destinations, siem, salida, output"
+      },
+      "routes": {
+        "label": "Rutas",
+        "keywords": "routes, routing, enrutamiento"
+      },
+      "quarantine": {
+        "label": "Cuarentena",
+        "keywords": "quarantine, bloqueado, blocked"
+      },
+      "mappings": {
+        "label": "Mapeos",
+        "keywords": "mappings, mapeo, normalizacion"
+      },
+      "pipelineHealth": {
+        "label": "Salud del Pipeline",
+        "keywords": "pipeline, health, salud, monitoreo"
+      }
+    }
+  },
+  "header": {
+    "openMenu": "Abrir menú de navegación",
+    "closeMenu": "Cerrar menú de navegación",
+    "expandSidebar": "Expandir menú lateral",
+    "collapseSidebar": "Contraer menú lateral"
+  },
+  "navigation": {
+    "ariaLabel": "Navegación principal",
+    "groups": {
+      "overview": "Visión general",
+      "operations": "Operación",
+      "normalization": "Normalización",
+      "knowledge": "Conocimiento",
+      "administration": "Administración",
+      "account": "Tu cuenta"
+    },
+    "items": {
+      "dashboard": "Dashboard",
+      "organizations": "Organizaciones",
+      "integrations": "Integraciones",
+      "alerts": "Alertas",
+      "collectors": "Collectors",
+      "destinations": "Destinos",
+      "routes": "Enrutamiento",
+      "flow": "Flujo de datos",
+      "detections": "Detecciones",
+      "history": "Historial",
+      "mappings": "Mappings",
+      "drift": "Drift Explorer",
+      "quarantine": "Cuarentena",
+      "health": "Salud del Pipeline",
+      "queries": "Consultas Guardadas",
+      "schedules": "Programaciones",
+      "adminUsers": "Usuarios",
+      "serviceAccounts": "Cuentas de Servicio",
+      "ocsf": "Gobernanza OCSF",
+      "config": "Configuración",
+      "account": "Configuración de la cuenta",
+      "tokens": "Tokens de API"
+    }
+  },
+  "breadcrumbs": {
+    "ariaLabel": "Ruta de navegación",
+    "home": "Inicio",
+    "detail": "Detalle",
+    "backToHome": "Volver al inicio",
+    "goTo": "Ir a {{label}}",
+    "routes": {
+      "dashboard": "Dashboard",
+      "organizations": "Organizaciones",
+      "integrations": "Integraciones",
+      "alerts": "Alertas",
+      "collectors": "Collectors",
+      "flow": "Flujo de datos",
+      "history": "Historial",
+      "mappings": "Mappings",
+      "drift": "Drift Explorer",
+      "quarantine": "Cuarentena",
+      "pipelineHealth": "Salud del Pipeline",
+      "queries": "Consultas Guardadas",
+      "schedules": "Programaciones",
+      "clients": "Clientes (Legacy)",
+      "users": "Usuarios",
+      "config": "Configuración",
+      "admin": "Administración",
+      "adminUsers": "Usuarios",
+      "adminServiceAccounts": "Cuentas de Servicio",
+      "settings": "Cuenta",
+      "settingsTokens": "Tokens de API"
+    }
+  },
+  "globalFilters": {
+    "label": "Filtros",
+    "loadFailed": "No se pudieron cargar los filtros globales.",
+    "retry": "Reintentar",
+    "clearFilters": "Limpiar filtros",
+    "allOrganizations": "Todas las organizaciones",
+    "allPlatforms": "Todas las plataformas",
+    "allIntegrations": "Todas las integraciones",
+    "filterByOrganization": "Filtrar por organización",
+    "filterByPlatform": "Filtrar por plataforma",
+    "filterByIntegration": "Filtrar por integración"
+  },
+  "userMenu": {
+    "ariaLabel": "Menú de la cuenta",
+    "defaultName": "Usuario",
+    "defaultRole": "user",
+    "account": "Configuración de la cuenta",
+    "tokens": "Tokens de API",
+    "signOut": "Salir"
+  }
+}

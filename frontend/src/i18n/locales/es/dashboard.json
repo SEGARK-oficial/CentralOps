@@ -1,0 +1,381 @@
+{
+  "dashboardPage": {
+    "eyebrow": "Visión general",
+    "title": "Dashboard",
+    "description": "Primero el throughput del pipeline y la salud de las fuentes; luego priorización por riesgo y buckets accionables con drill-down hacia alertas.",
+    "loading": "Cargando dashboard...",
+    "updating": "Actualizando...",
+    "loadError": "Error al cargar el dashboard",
+    "empty": {
+      "title": "Sin datos para mostrar",
+      "description": "No hay resumen disponible para el recorte actual. Ajuste el filtro global o intente actualizar."
+    },
+    "scope": {
+      "title": "Alcance actual",
+      "description": "El dashboard usa el filtro global de la aplicación. Ajuste cliente, plataforma o integración en la barra superior.",
+      "client": "Cliente: {{value}}",
+      "platform": "Plataforma: {{value}}",
+      "integration": "Integración: {{value}}",
+      "lastQuery": "Última consulta: {{time}} ({{relative}})",
+      "lastEvent": "Último evento: {{time}}",
+      "clear": "Limpiar alcance",
+      "allOrganizations": "Todos",
+      "allPlatforms": "Todas",
+      "allIntegrations": "Todas"
+    },
+    "timeWindow": {
+      "title": "Ventana temporal",
+      "description": "El recorte de abajo ajusta la comparación con el período anterior y los drill-downs hacia alertas.",
+      "label": "Ventana",
+      "options": {
+        "24h": "24 horas",
+        "7d": "7 días",
+        "30d": "30 días"
+      }
+    },
+    "notices": {
+      "partialErrorsTitle": "Algunas integraciones no entraron en el resumen",
+      "unsupportedSourcesTitle": "Cobertura parcial de alertas",
+      "unsupportedSources": "{{count}} integración(es) dentro del alcance actual no exponen capacidad de alertas."
+    },
+    "stats": {
+      "organizationsInScope": "Clientes en el alcance",
+      "organizationsActive": "{{count}} activos",
+      "integrationsInScope": "Integraciones en el alcance",
+      "integrationsSummary": "{{active}} activas · {{healthy}} saludables · {{degraded}} degradadas · {{error}} con error · {{unknown}} desconocidas · {{inactive}} inactivas",
+      "alertsInPeriod": "Alertas en el período",
+      "alertsDays": "{{count}} día(s)",
+      "critical": "Críticos",
+      "criticalSub": "Detecciones graves",
+      "degradedEnvironments": "Ambientes degradados",
+      "degradedSub": "Requieren atención",
+      "lastEvent": "Último evento",
+      "noData": "Sin datos",
+      "freshness": "Frescura del dato",
+      "previousPeriod": "Período anterior: {{value}}"
+    },
+    "trend": {
+      "up": "subió {{value}}",
+      "down": "bajó {{value}}",
+      "stable": "estable"
+    },
+    "priority": {
+      "mostCriticalClient": {
+        "title": "Cliente más crítico",
+        "description": "Primer ambiente a revisar cuando el recorte mezcla varias fuentes."
+      },
+      "mostCriticalIntegration": {
+        "title": "Integración con más críticos",
+        "description": "Atajo para entrar directo a la fuente con más eventos graves."
+      },
+      "empty": "No hay suficiente priorización en este recorte.",
+      "noIdentification": "Sin identificación",
+      "unnamedClient": "Cliente sin nombre",
+      "criticalCount": "{{count}} críticos",
+      "total": "Total: {{value}}",
+      "critical": "Críticos: {{value}}",
+      "high": "Altos: {{value}}"
+    },
+    "alertsTrend": {
+      "title": "Tendencia de alertas",
+      "description": "Haga clic en una barra para abrir el recorte correspondiente en alertas.",
+      "severity": {
+        "critical": "Crítico",
+        "high": "Alto",
+        "medium": "Medio",
+        "low": "Bajo",
+        "info": "Info"
+      },
+      "empty": "No se encontraron alertas agregadas para la ventana actual.",
+      "barAriaLabel": "{{day}}: {{count}} alerta(s). Abrir el recorte de este período en alertas."
+    },
+    "sourcesHealth": {
+      "title": "Fuentes y salud",
+      "description": "Ambientes degradados e integraciones con más volumen en el recorte actual.",
+      "noDegraded": "Ningún ambiente degradado en este recorte.",
+      "noDetail": "Sin mensaje detallado",
+      "unnamedClient": "Cliente {{id}}",
+      "noSources": "Ninguna fuente con alertas en el período.",
+      "critical": "Críticos: {{value}}",
+      "high": "Altos: {{value}}",
+      "medium": "Medios: {{value}}",
+      "low": "Bajos: {{value}}",
+      "byPlatform": "Integraciones por plataforma"
+    },
+    "buckets": {
+      "topHosts": {
+        "title": "Hosts con más alertas",
+        "description": "Hosts más ruidosos del recorte actual, con contexto de cliente e integración."
+      },
+      "topRules": {
+        "title": "Reglas más disparadas",
+        "description": "Reglas dominantes con detalle de cliente e integración para acelerar la triage."
+      },
+      "topMitre": {
+        "title": "MITRE más frecuente",
+        "description": "Técnicas dominantes en el recorte actual para orientar investigación y contención."
+      },
+      "topAgentGroups": {
+        "title": "Grupos de agentes más afectados",
+        "description": "Segmentos con mayor presión de alertas, útiles para priorización multiambiente."
+      },
+      "empty": "Ningún bucket disponible en este recorte.",
+      "unnamedClient": "Cliente sin nombre"
+    },
+    "dates": {
+      "noData": "Sin datos",
+      "noRecentQuery": "Sin consulta reciente",
+      "invalidTime": "Hora inválida",
+      "now": "ahora",
+      "minutesAgo": "hace {{count}} min",
+      "hoursAgo": "hace {{count}} h",
+      "daysAgo": "hace {{count}} d"
+    }
+  },
+  "flowPage": {
+    "title": "Flujo de datos",
+    "description": "De la ingesta a la entrega — fuentes, enrutamiento y destinos con throughput en vivo (ventana de 60 min).",
+    "liveFeed": "Feed en vivo",
+    "loadError": "Error al cargar el flujo.",
+    "notLoaded": "No se pudo cargar",
+    "empty": {
+      "title": "Sin flujo para mostrar",
+      "description": "Configure integraciones (fuentes), rutas y destinos para ver el flujo de datos de la plataforma."
+    },
+    "stats": {
+      "ingest": "Ingesta",
+      "routed": "Enrutados",
+      "dropped": "Descartados",
+      "delivered": "Entregados",
+      "perMinute": "{{value}}/min"
+    },
+    "topology": {
+      "title": "Topología del flujo",
+      "healthy": "saludable",
+      "degraded": "degradado",
+      "unavailable": "no disponible",
+      "legend": "ancho/velocidad ∝ throughput · scroll=zoom · arrastrar=desplazar"
+    }
+  },
+  "pipelineHealthPage": {
+    "title": "Salud del Pipeline",
+    "loadError": "Error al cargar",
+    "loadHealthError": "Error al cargar los datos de salud.",
+    "loading": "Cargando...",
+    "updatedAt": "Actualizado a las {{time}}",
+    "summary": "{{healthy}} saludables · {{degraded}} degradadas · {{unhealthy}} no disponibles · {{unknown}} esperando recolección",
+    "filters": {
+      "groupLabel": "Filtrar por estado",
+      "all": "Todos ({{count}})",
+      "healthy": "Saludables ({{count}})",
+      "problem": "Con problemas ({{count}})"
+    },
+    "empty": {
+      "title": "Ninguna integración encontrada",
+      "description": "Ninguna integración coincide con el filtro seleccionado. Ajuste el filtro para ver otras integraciones."
+    },
+    "card": {
+      "eventsPerMinute": "Eventos/min",
+      "lag": "Lag",
+      "drift24h": "Drift (24h)",
+      "quarantine24h": "Cuarentena (24h)"
+    },
+    "destinations": {
+      "title": "Salud por destino",
+      "show": "Ver destinos",
+      "hide": "Ocultar destinos"
+    }
+  },
+  "health": {
+    "badge": {
+      "healthy": "Saludable",
+      "degraded": "Degradado",
+      "unhealthy": "No disponible",
+      "unknown": "Esperando primera recolección"
+    },
+    "statusCard": {
+      "title": "Estado del Pipeline",
+      "description": {
+        "healthy": "El pipeline de normalización está operando con normalidad.",
+        "degraded": "El pipeline está funcionando con degradación. Revise los errores recientes.",
+        "unhealthy": "El pipeline no está disponible. Se recomienda acción inmediata.",
+        "unknown": "Aún no se ha realizado ninguna recolección. Esperando primera ejecución."
+      },
+      "statusAriaLabel": "Estado: {{status}}"
+    },
+    "metricsGrid": {
+      "ariaLabel": "Métricas del pipeline",
+      "eventsPerMinute": "Eventos/min",
+      "collectionLag": "Lag de recolección",
+      "collectionLagAriaLabel": "Lag de recolección: {{value}}",
+      "drift24h": "Drift (24h)",
+      "viewInDriftExplorer": "Ver en Drift Explorer",
+      "quarantine24h": "Cuarentena (24h)",
+      "viewInQuarantine": "Ver en Cuarentena",
+      "lag": {
+        "secondsAgo": "hace {{count}}s",
+        "minutesAgo": "hace {{count}}min",
+        "hoursAgo": "hace {{count}}h",
+        "daysAgo": "hace {{count}}d"
+      }
+    },
+    "lastError": {
+      "title": "Último error registrado"
+    },
+    "mappedFieldRatio": {
+      "title": "Cobertura de Campos",
+      "notCalculable": "Cobertura no calculable (ningún mapping configurado)",
+      "mappedFields": "campos mapeados",
+      "ariaLabel": "Cobertura de campos: {{percentage}}%"
+    },
+    "metricsList": {
+      "ariaLabel": "Métricas de salud de la integración",
+      "noDetailedMetrics": "Esta integración no publica métricas detalladas",
+      "lastCollection": "Última recolección {{relative}}",
+      "awaitingFirstCollection": "Esperando primera recolección — en hasta 5 minutos",
+      "severity": {
+        "ok": "ok",
+        "warn": "atención",
+        "critical": "crítico",
+        "unknown": "desconocido"
+      },
+      "severityAriaLabel": "Severidad: {{severity}}",
+      "metricAriaLabel": "{{label}}: {{value}}, {{severity}}",
+      "relativeTime": {
+        "justNow": "ahora mismo",
+        "minutesAgo": "hace {{count}}min",
+        "hoursAgo": "hace {{count}}h",
+        "daysAgo": "hace {{count}}d"
+      }
+    },
+    "summaryCard": {
+      "title": "Salud",
+      "awaitingCollection": "Esperando recolección",
+      "viewDetails": "Ver detalles",
+      "viewDetailsAriaLabel": "Ver detalles de salud",
+      "severity": {
+        "healthy": "Saludable",
+        "attention": "Con atención",
+        "critical": "Crítico",
+        "unknown": "Desconocido"
+      },
+      "summaryAllHealthy_one": "{{count}} métrica saludable",
+      "summaryAllHealthy_other": "{{count}} métricas saludables",
+      "summaryMixed": "{{okCount}} saludable(s), {{nonOkCount}} con atención"
+    },
+    "integrationPanel": {
+      "title": "Salud del Pipeline de Normalización",
+      "updatedSecondsAgo": "Métricas actualizadas hace {{seconds}}s — datos en caché 60s",
+      "loadError": "Error al cargar los datos de salud",
+      "loading": "Cargando métricas...",
+      "refresh": "Actualizar",
+      "refreshAriaLabel": "Actualizar métricas de salud",
+      "lastSuccess": "Último éxito: {{time}}"
+    },
+    "destinationGrid": {
+      "ariaLabel": "Salud por destino",
+      "loadingAriaLabel": "Cargando destinos…",
+      "loadError": "Error al cargar destinos",
+      "empty": "Ningún destino configurado en esta organización.",
+      "disabled": "Destino deshabilitado",
+      "eps": "EPS",
+      "bytesPerMinute": "Bytes/min",
+      "dlq24h": "DLQ (24h)",
+      "circuitBreaker": "Circuit breaker",
+      "destinationAriaLabel": "Destino {{name}}",
+      "metricsAriaLabel": "Métricas del destino",
+      "breaker": {
+        "closed": "Circuito cerrado",
+        "open": "Circuito abierto",
+        "halfOpen": "Semiabierto",
+        "ariaLabel": "Circuit breaker: {{label}}"
+      }
+    }
+  },
+  "flow": {
+    "canvas": {
+      "ariaLabel": "Flujo de datos: {{sources}} fuentes, {{routes}} rutas, {{destinations}} destinos",
+      "zoomIn": "Acercar",
+      "zoomOut": "Alejar",
+      "resetZoom": "Restablecer zoom y posición",
+      "columns": {
+        "sources": "FUENTES",
+        "routing": "ENRUTAMIENTO",
+        "destinations": "DESTINOS"
+      },
+      "catchAll": "Catch-all",
+      "drop": "drop",
+      "off": "apagado"
+    },
+    "liveFeed": {
+      "title": "Feed en vivo",
+      "noRecentEvents": "Ningún evento reciente.",
+      "noActiveDestinations": "Ningún destino activo.",
+      "updated": "Actualizado {{relative}} · sondeo cada {{seconds}}s",
+      "refreshNow": "Actualizar ahora",
+      "redacted": "redactado",
+      "genericEvent": "evento"
+    },
+    "nodeDetail": {
+      "closeAriaLabel": "Cerrar panel",
+      "detailAriaLabel": "Detalles: {{title}}",
+      "status": {
+        "healthy": "saludable",
+        "degraded": "degradado",
+        "unhealthy": "no disponible",
+        "unknown": "desconocido"
+      },
+      "kind": {
+        "source": "Fuente",
+        "route": "Ruta",
+        "destination": "Destino"
+      },
+      "row": {
+        "type": "Tipo",
+        "platform": "Plataforma",
+        "eventsPerMinute": "Eventos/min",
+        "status": "Estado",
+        "action": "Acción",
+        "routedPerMinute": "Enrutados/min",
+        "matchedPerMinute": "Coincididos/min",
+        "droppedPerMinute": "Descartados/min",
+        "kind": "Kind",
+        "deliveredPerMinute": "Entregados/min",
+        "throughput": "Throughput"
+      },
+      "destinations": "Destinos",
+      "active": "activa",
+      "inactive": "inactiva",
+      "system": "sistema",
+      "drop": "drop",
+      "recentEvents": "Últimos eventos",
+      "loadingEvents": "Cargando eventos…",
+      "noRecentEvents": "Ningún evento reciente.",
+      "loadEventsError": "Error al cargar eventos.",
+      "redacted": "redactado"
+    }
+  },
+  "observability": {
+    "costSavings": {
+      "title": "Reducción de volumen y costo",
+      "windowMinutes": "(ventana {{minutes}} min)",
+      "enterpriseBadge": "Enterprise: $ ROI",
+      "collected": "Recolectado",
+      "delivered": "Entregado",
+      "avoided": "Evitado",
+      "reduction": "Reducción",
+      "estimatedSavings": "Ahorro estimado",
+      "perDay": "/ día",
+      "enablePricing": "Active el cálculo en US$ (ahorro/ROI) con la edición Enterprise + el precio por GB en el destino."
+    },
+    "sparkline": {
+      "noData": "{{label}}: sin datos",
+      "lastValue": "{{label}}: último valor {{value}}",
+      "lastValueAt": "{{label}}: último valor {{value}} a las {{time}}",
+      "pointsCount_one": "{{count}} punto",
+      "pointsCount_other": "{{count}} puntos",
+      "min": "Mín: {{value}}",
+      "max": "Máx: {{value}}"
+    }
+  }
+}

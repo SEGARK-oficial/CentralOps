@@ -1,0 +1,12 @@
+{
+  "TimeCreated": "2026-06-21T10:00:00Z",
+  "EventID": 4624,
+  "Channel": "Security",
+  "Provider": "Microsoft-Windows-Security-Auditing",
+  "Level": "Information",
+  "Computer": "WIN-DC-01",
+  "TargetUserName": "alice",
+  "TargetDomainName": "ACME",
+  "IpAddress": "10.0.0.5",
+  "LogonType": "3"
+}

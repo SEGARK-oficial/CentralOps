@@ -1,0 +1,86 @@
+{
+  "page": {
+    "eyebrow": "Normalização",
+    "title": "Quarentena",
+    "description": "Eventos que falharam na normalização",
+    "loading": "Carregando quarentena...",
+    "loadError": "Erro ao carregar quarentena",
+    "emptyState": "Nenhuma entrada em quarentena."
+  },
+  "actions": {
+    "reprocess": "Reprocessar",
+    "discard": "Descartar"
+  },
+  "errors": {
+    "unexpected": "Erro inesperado",
+    "permissionDenied": "Permissão negada",
+    "discardErrorTitle": "Erro ao descartar"
+  },
+  "notices": {
+    "reprocessSuccess": "Evento reprocessado e enviado ao Wazuh",
+    "reprocessExpired": "Evento expirou e não pode mais ser reprocessado"
+  },
+  "badges": {
+    "reprocessed": "Reprocessado",
+    "expired": "Expirado"
+  },
+  "detail": {
+    "errorDetailTitle": "Detalhe do erro",
+    "rawPayload": "Payload bruto",
+    "metadata": "Metadados",
+    "integrationId": "Integration ID",
+    "mappingVersion": "Versão do mapping",
+    "openMappingInEditor": "Abrir mapping no editor",
+    "timestamps": "Timestamps",
+    "createdAt": "Criado em",
+    "expiresAt": "Expira em",
+    "reprocessedAt": "Reprocessado em",
+    "reprocessEventAriaLabel": "Reprocessar evento {{id}}",
+    "discardEntryAriaLabel": "Descartar entrada de quarentena",
+    "discardConfirmTitle": "Descartar entrada de quarentena?",
+    "discardConfirmDescription": "A entrada para \"{{vendor}}{{eventType}}\" será descartada permanentemente.",
+    "reprocessConfirmTitle": "Reprocessar evento?",
+    "reprocessConfirmDescription": "O evento será revalidado contra o mapping atual. Se a normalização tiver sucesso, ele será enviado ao Wazuh. Caso contrário, permanecerá em quarentena com novo erro."
+  },
+  "bulk": {
+    "discardTypedConfirmPhrase": "DESCARTAR",
+    "contextLabel": "entrada(s)",
+    "selectAllFilterButton": "Selecionar tudo do filtro",
+    "selectAllFilterAriaLabel": "Selecionar todos os itens correspondentes ao filtro atual",
+    "selectAllCapped": "Foram selecionados os {{count}} itens mais recentes (de {{total}}). Refine os filtros para operar sobre o restante.",
+    "selectAllFromFilter_one": "{{count}} item selecionado pelos filtros atuais.",
+    "selectAllFromFilter_other": "{{count}} itens selecionados pelos filtros atuais.",
+    "reprocessSelected": "Reprocessar selecionados",
+    "discardSelected": "Descartar selecionados",
+    "discardSuccess_one": "{{count}} entrada descartada.",
+    "discardSuccess_other": "{{count}} entradas descartadas.",
+    "discardPartial": "{{discarded}} descartadas, {{failed}} ignoradas (não encontradas/inacessíveis).",
+    "discardFailed": "Falha no discard em massa: {{message}}",
+    "reprocessFailed": "Falha no reprocess em massa: {{message}}",
+    "reprocessQueued": "Reprocesso enfileirado: {{parts}}.",
+    "reprocessParts": {
+      "accepted": "{{count}} aceitos",
+      "expired": "{{count}} expirados",
+      "alreadyReprocessed": "{{count}} já reprocessados",
+      "ignored": "{{count}} ignorados",
+      "nothingToProcess": "nada para processar"
+    },
+    "errors": {
+      "listIdsFailed": "Erro ao listar IDs do filtro"
+    },
+    "discardDialog": {
+      "title_one": "Descartar {{count}} entrada?",
+      "title_other": "Descartar {{count}} entradas?",
+      "irreversibleWarning": "Esta ação é irreversível — as entradas serão removidas permanentemente da fila de quarentena.",
+      "typeToConfirmPrefix": "Digite",
+      "typeToConfirmSuffix": "para confirmar:",
+      "typedConfirmAriaLabel": "Confirmação textual de descarte em massa",
+      "confirmLabel": "Descartar {{count}}"
+    },
+    "reprocessDialog": {
+      "title_one": "Reprocessar {{count}} entrada?",
+      "title_other": "Reprocessar {{count}} entradas?",
+      "description": "Os eventos serão revalidados contra o mapping atual em background. Itens com mapping bem-sucedido serão enviados aos destinos roteados; falhas atualizam o erro mas mantêm o item na quarentena."
+    }
+  }
+}

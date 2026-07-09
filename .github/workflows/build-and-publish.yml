@@ -1,0 +1,131 @@
+name: Build & Publish Docker Image
+
+# SÓ RELEASES (tags v*). O publish de push/main migrou p/ o job 'publish' do
+# ci.yml (gate completo build+pg+e2e, promove a imagem JÁ testada sem recompilar).
+# Aqui ficou o caminho de RELEASE versionado (com toda a supply-chain).
+on:
+  push:
+    tags:
+      - "v*"
+
+# Cancela builds obsoletos do MESMO ref (push em main) num burst de merges —
+# só o HEAD de main precisa publicar `latest`. Em TAGS de release
+# (github.ref_type == 'tag') o cancel é FALSE: a imagem versionada NUNCA é
+# cancelada (e também é construída por release-please.yml em job próprio).
+concurrency:
+  group: build-publish-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref_type == 'branch' }}
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  build-and-push:
+    runs-on: [self-hosted, Linux, X64]
+
+    permissions:
+      contents: read
+      packages: write
+      id-token: write       # OIDC p/ assinatura keyless (cosign)
+
+    # a imagem foi dividida em DUAS — `final` (API/uvicorn) e
+    # `frontend` (nginx + SPA). O matrix publica as duas com a mesma esteira de
+    # supply-chain (SBOM + provenance + cosign + Trivy). Imagens OCI genéricas:
+    # servem qualquer runtime (docker puro, Portainer, k8s) — não há acoplamento
+    # a um orquestrador específico.
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: final
+            suffix: ""
+          - target: frontend
+            suffix: "-frontend"
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # OCI/GHCR exigem o nome do repositório em MINÚSCULAS, mas
+      # github.repository preserva o case original (ex.: SEGARK-oficial/CentralOps).
+      # Calcula o ref base minúsculo UMA vez e reusa em meta/cosign/Trivy — senão
+      # os passos que montam o ref na mão (cosign/Trivy) falham com
+      # "repository name must be lowercase".
+      - name: Compute lowercase image ref
+        id: img
+        env:
+          IMAGE_NAME: ${{ env.IMAGE_NAME }}
+          SUFFIX: ${{ matrix.suffix }}
+        # `tr` em vez de `${VAR,,}` (bash 4+): portável p/ qualquer shell POSIX.
+        run: |
+          name="$(printf '%s' "${IMAGE_NAME}" | tr '[:upper:]' '[:lower:]')"
+          echo "ref=${REGISTRY}/${name}${SUFFIX}" >> "$GITHUB_OUTPUT"
+
+      - name: Extract metadata (tags, labels)
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ steps.img.outputs.ref }}
+          tags: |
+            type=raw,value=latest,enable=${{ github.ref_type == 'branch' && github.ref_name == github.event.repository.default_branch }}
+            type=semver,pattern=v{{version}},enable=${{ github.ref_type == 'tag' }}
+            type=sha,prefix=sha-
+
+      - name: Build and push Docker image (${{ matrix.target }})
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: compose/Dockerfile
+          target: ${{ matrix.target }}
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=${{ matrix.target }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.target }}
+          # SBOM + provenance SLSA anexados à imagem (atestações
+          # OCI). Procurement enterprise/MSSP exige proveniência verificável.
+          sbom: true
+          provenance: mode=max
+
+      # assinatura keyless (Sigstore/Fulcio/Rekor) por DIGEST.
+      # Verificável com `cosign verify <ref>@<digest> \
+      #   --certificate-identity-regexp '.*' \
+      #   --certificate-oidc-issuer https://token.actions.githubusercontent.com`.
+      - name: Install cosign
+        uses: sigstore/cosign-installer@v3
+
+      - name: Sign image (keyless)
+        shell: bash
+        run: cosign sign --yes "${{ steps.img.outputs.ref }}@${{ steps.build.outputs.digest }}"
+
+      # scan de vulnerabilidades da IMAGEM (não só deps — isso já é
+      # feito por pip-audit em security.yml). Saída em TABELA no log do job
+      # (report-only: exit-code 0 → não bloqueia o publish). NÃO enviamos o SARIF
+      # pro Security tab: code scanning em repo PRIVADO exige GitHub Advanced
+      # Security; sem GHAS o upload falha com "Resource not accessible by
+      # integration". Para bloquear em CVE, troque exit-code p/ '1'. Com GHAS,
+      # volte format=sarif + um passo github/codeql-action/upload-sarif
+      # (requer permissão security-events: write).
+      - name: Scan image (Trivy)
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: ${{ steps.img.outputs.ref }}@${{ steps.build.outputs.digest }}
+          format: table
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          # GATE: release com CRITICAL/HIGH fixável FALHA o job (era '0'/report-only).
+          # Nota: roda APÓS o push (build-push-action é atômico); a tag de release
+          # fica publicada mas o job vermelho sinaliza/bloqueia a promoção do deploy.
+          exit-code: '1'

@@ -1,0 +1,43 @@
+{
+  "title": "OCSF governance",
+  "subtitle": "Per-organization validation policy and pipeline conformance.",
+  "refresh": "Refresh",
+  "loadError": "Failed to load OCSF data.",
+  "modes": {
+    "tag_and_pass": "Tag and pass",
+    "quarantine": "Quarantine",
+    "fail_closed": "Drop (fail-closed)",
+    "tag_and_pass_hint": "Only tags and dispatches — never drops.",
+    "quarantine_hint": "Sends to quarantine (recoverable); does not dispatch.",
+    "fail_closed_hint": "Drops without quarantine."
+  },
+  "policies": {
+    "title": "Enforcement per organization",
+    "description": "How the pipeline treats a structurally-invalid OCSF event, per organization.",
+    "columns": {
+      "organization": "Organization",
+      "mode": "Enforcement mode"
+    },
+    "default": "global default",
+    "saved": "Policy updated.",
+    "saveError": "Failed to update the policy.",
+    "empty": "No organizations."
+  },
+  "compliance": {
+    "title": "OCSF conformance (24h)",
+    "description": "Invalid OCSF events sent to quarantine per integration in the last 24h.",
+    "columns": {
+      "integration": "Integration",
+      "mode": "Mode",
+      "invalid": "Quarantined invalid (24h)"
+    },
+    "empty": "No integrations.",
+    "status": {
+      "enabled": "OCSF validation on",
+      "disabled": "OCSF validation off",
+      "disabledHint": "Validation is off — the counts reflect only what was already quarantined.",
+      "version": "OCSF version: {{version}}",
+      "globalDefault": "Global default: {{mode}}"
+    }
+  }
+}

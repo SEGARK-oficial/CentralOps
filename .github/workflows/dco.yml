@@ -1,0 +1,213 @@
+name: DCO
+
+# Garante o sign-off DCO (Developer Certificate of Origin 1.1) em CADA commit de
+# um pull request. O CentralOps adota DCO — não CLA / cessão de copyright (
+# §4.2): cada commit DEVE carregar um trailer "Signed-off-by: Nome <email>".
+#
+# license-NEUTRO: ele NÃO afirma sob qual licença o projeto está. O DCO 1.1 vincula
+# a contribuição à "open source license indicated in the file" (i.e. a licença
+# declarada no arquivo LICENSE do repositório), seja ela qual for no momento do
+#
+# Abordagem: script inline, hermético (puro shell + git, sem jq nem action de
+# marketplace) — coerente com os runners self-hosted e com openness-gate.yml, que
+# declara apenas `contents: read`. Opera sobre o intervalo de commits do PR
+# (base..head), confere que o sign-off corresponde ao autor do commit e FALHA
+# FECHADO se os SHAs do range não forem válidos/alcançáveis (nunca passa em verde
+# por um range vazio fruto de um SHA ausente).
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, edited]
+
+# Escopo mínimo: o job é hermético (só git + shell) e NÃO consulta a API de PRs.
+# `contents: read` basta — espelha a convenção de openness-gate.yml e evita ampliar
+# o escopo do token além do necessário.
+permissions:
+  contents: read
+
+jobs:
+  dco-check:
+    name: Verifica sign-off DCO em todos os commits
+    runs-on: [self-hosted, Linux, X64]
+    steps:
+      # Checkout com histórico COMPLETO: precisamos do range base..head para
+      # enumerar os commits do PR (fetch-depth: 0 traz todo o histórico).
+      - name: Checkout (histórico completo)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Verificar Signed-off-by (DCO 1.1)
+        env:
+          # SHAs estáveis do range do PR, fornecidos pelo evento — não dependem do
+          # estado do checkout nem do merge-commit efêmero criado pelo Actions.
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+
+          # ── Guarda fail-closed dos SHAs ───────────────────────────────────────
+          # Se BASE_SHA chegar vazio (payload parcial, novo gatilho mal-configurado
+          # etc.), "git rev-list ${BASE_SHA}..${HEAD_SHA}" vira "..HEAD" — um range
+          # VAZIO que sairia 0 sem verificar NADA. Recusamos qualquer SHA que não
+          # seja uma string hexadecimal não-vazia (40/64 chars), abortando o job em
+          # vez de passar em falso-verde.
+          for var_name in BASE_SHA HEAD_SHA; do
+            eval "val=\${$var_name}"
+            case "$val" in
+              "" )
+                echo "::error::$var_name está vazio — payload do PR inesperado; abortando (fail-closed)."
+                exit 1
+                ;;
+              *[!0-9a-fA-F]* )
+                echo "::error::$var_name não parece um SHA hexadecimal: '$val' — abortando (fail-closed)."
+                exit 1
+                ;;
+            esac
+          done
+
+          # Garante que ambos os lados do range estão presentes localmente. Em PRs
+          # de fork, o head pode não vir no checkout — buscamos os objetos por SHA.
+          # NÃO engolimos a falha do fetch do HEAD: se o objeto realmente não vier,
+          # queremos emitir um erro acionável (abaixo) em vez de deixar o rev-list
+          # morrer com um "fatal: Invalid revision range" cru e exit 128.
+          git fetch --no-tags --quiet origin "$BASE_SHA" 2>/dev/null || true
+          git fetch --no-tags --quiet origin "$HEAD_SHA" 2>/dev/null || true
+
+          # Confirma que ambos os SHAs resolvem para commits REAIS e alcançáveis.
+          # Se faltar o base, o range é inválido; se faltar o head (típico em forks
+          # quando o objeto não pôde ser buscado), explicamos como contornar.
+          if ! git cat-file -e "${BASE_SHA}^{commit}" 2>/dev/null; then
+            echo "::error::Commit base ($BASE_SHA) não encontrado no repositório."
+            echo "         Não foi possível determinar o intervalo de commits do PR."
+            echo "         Reabra/atualize o PR ou verifique se o branch base está sincronizado."
+            exit 1
+          fi
+          if ! git cat-file -e "${HEAD_SHA}^{commit}" 2>/dev/null; then
+            echo "::error::Commit head ($HEAD_SHA) não pôde ser obtido (objeto ausente)."
+            echo "         Isso pode acontecer em PRs de fork dependendo do estado do runner."
+            echo "         Tente: re-executar este job, ou dar 'git push' novamente no branch"
+            echo "         de origem para que o objeto fique disponível ao CI."
+            exit 1
+          fi
+
+          # Commits introduzidos PELO PR: tudo acessível a partir do head e NÃO do
+          # base. "git log BASE..HEAD" já exclui o que a base alcança. Merge commits
+          # entram no range e são tratados conforme a lógica de no-op abaixo.
+          commits="$(git rev-list "${BASE_SHA}..${HEAD_SHA}")"
+
+          if [ -z "${commits//[$'\t\r\n ']/}" ]; then
+            echo "Nenhum commit novo no PR — nada a verificar."
+            exit 0
+          fi
+
+          fail=0
+          # Lê SHA a SHA via here-string para não abrir subshell (preserva $fail).
+          while IFS= read -r sha; do
+            [ -n "$sha" ] || continue
+
+            # Contagem REAL de pais. Atenção: "git rev-list --parents -n 1" imprime
+            # o PRÓPRIO SHA do commit seguido dos SHAs dos pais — logo wc -w conta
+            # (1 + n_pais). Subtraímos 1 para obter o número de pais de fato:
+            #   commit normal -> 0 pais? não: 1 pai -> wc=2 -> nparents=1
+            #   2-parent merge -> wc=3 -> nparents=2 ; octopus -> nparents>=3
+            #   commit-raiz    -> wc=1 -> nparents=0
+            nparents=$(( $(git rev-list --parents -n 1 "$sha" | wc -w) - 1 ))
+
+            if [ "$nparents" -ge 2 ]; then
+              # Merge commit. NÃO ignoramos cegamente: um "evil merge" pode introduzir
+              # conteúdo NOVO na resolução de conflito, ausente em qualquer pai, e
+              # esse conteúdo precisa de sign-off. Só dispensamos sign-off quando a
+              # árvore do merge é IDÊNTICA à de algum pai — i.e. um merge no-op/ff-like
+              # que não adiciona conteúdo próprio. Caso contrário, exigimos sign-off
+              # como em qualquer commit.
+              merge_tree="$(git rev-parse "${sha}^{tree}")"
+              noop_merge=0
+              parent_idx=1
+              while [ "$parent_idx" -le "$nparents" ]; do
+                parent_tree="$(git rev-parse "${sha}^${parent_idx}^{tree}" 2>/dev/null || true)"
+                if [ -n "$parent_tree" ] && [ "$parent_tree" = "$merge_tree" ]; then
+                  noop_merge=1
+                  break
+                fi
+                parent_idx=$((parent_idx + 1))
+              done
+
+              if [ "$noop_merge" -eq 1 ]; then
+                echo "• $(git log -1 --format='%h %s' "$sha")  [merge no-op — ignorado]"
+                continue
+              fi
+              # Merge que introduz conteúdo próprio: cai na verificação normal abaixo.
+              echo "  ($(git log -1 --format='%h' "$sha") é um merge com conteúdo próprio — exige sign-off)"
+            fi
+
+            author_name="$(git log -1 --format='%an' "$sha")"
+            author_email="$(git log -1 --format='%ae' "$sha")"
+            subject="$(git log -1 --format='%s' "$sha")"
+
+            # Coleta TODOS os trailers Signed-off-by do corpo do commit. %(trailers)
+            # normaliza o parsing; cada linha é um "Nome <email>".
+            signoffs="$(git log -1 --format='%(trailers:key=Signed-off-by,valueonly)' "$sha" \
+                        | sed '/^[[:space:]]*$/d')"
+
+            if [ -z "${signoffs//[$'\t\r\n ']/}" ]; then
+              echo "::error::Commit $sha SEM 'Signed-off-by:' — \"$subject\""
+              fail=1
+              continue
+            fi
+
+            # Aceita se ALGUM sign-off casar exatamente com o autor (nome + email).
+            # Comparação case-insensitive no email (e-mails não diferenciam caixa na
+            # parte de domínio; tratamos o todo de forma tolerante).
+            expected="$(printf '%s <%s>' "$author_name" "$author_email")"
+            matched=0
+            while IFS= read -r so; do
+              [ -n "${so//[$'\t\r\n ']/}" ] || continue
+              # Normaliza espaços nas pontas.
+              so_trimmed="$(printf '%s' "$so" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
+              if [ "$(printf '%s' "$so_trimmed" | tr '[:upper:]' '[:lower:]')" \
+                 = "$(printf '%s' "$expected" | tr '[:upper:]' '[:lower:]')" ]; then
+                matched=1
+                break
+              fi
+            done <<< "$signoffs"
+
+            if [ "$matched" -ne 1 ]; then
+              echo "::error::Commit $sha tem 'Signed-off-by' que NÃO corresponde ao autor — \"$subject\""
+              echo "         autor:    $expected"
+              echo "         sign-off: $(printf '%s' "$signoffs" | paste -sd ';' -)"
+              fail=1
+              continue
+            fi
+
+            echo "• $(git log -1 --format='%h %s' "$sha")  [OK]"
+          done <<< "$commits"
+
+          if [ "$fail" -ne 0 ]; then
+            echo ""
+            echo "::error::Um ou mais commits não têm um sign-off DCO válido."
+            echo ""
+            echo "O CentralOps exige o Developer Certificate of Origin (DCO 1.1) em"
+            echo "cada commit. Ao assinar (sign-off) você certifica a origem da"
+            echo "contribuição sob a licença declarada no arquivo LICENSE do repositório."
+            echo ""
+            echo "Como corrigir:"
+            echo "  • Para um commit novo:        git commit -s -m \"sua mensagem\""
+            echo "  • Para reescrever os commits do branch com sign-off:"
+            echo "        git rebase --signoff origin/main"
+            echo "    (ou, para o último commit:  git commit --amend --signoff --no-edit)"
+            echo "  • Depois:                     git push --force-with-lease"
+            echo ""
+            echo "O trailer deve corresponder ao autor do commit, ex.:"
+            echo "  Signed-off-by: Maria Silva <maria@example.com>"
+            echo ""
+            echo "Configure sua identidade git com:"
+            echo "  git config user.name  \"Seu Nome\""
+            echo "  git config user.email \"voce@example.com\""
+            echo ""
+            echo "Detalhes em CONTRIBUTING.md."
+            exit 1
+          fi
+
+          echo ""
+          echo "Todos os commits do PR têm sign-off DCO válido."

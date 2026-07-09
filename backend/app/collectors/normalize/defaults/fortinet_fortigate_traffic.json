@@ -1,0 +1,52 @@
+{
+  "rules": [
+    { "target": "normalized.class_uid", "const": 4001, "required": true },
+    { "target": "normalized.class_name", "const": "Network Activity" },
+    { "target": "normalized.category_uid", "const": 4, "required": true },
+    { "target": "normalized.category_name", "const": "Network Activity" },
+    { "target": "normalized.activity_id", "const": 6 },
+    { "target": "normalized.type_uid", "const": 400106 },
+
+    { "target": "normalized.time", "source": "timestamp || _ingest.received_at", "type_cast": "iso_to_epoch", "required": true },
+    { "target": "normalized.severity_id", "const": 1, "required": true },
+    { "target": "normalized.severity", "source": "level", "default": "Informational" },
+
+    { "target": "normalized.message", "source": "msg", "default": null },
+    { "target": "normalized.action", "source": "action", "default": null },
+    { "target": "normalized.status", "source": "action", "default": null },
+
+    { "target": "normalized.src_endpoint.ip", "source": "srcip", "default": null },
+    { "target": "normalized.src_endpoint.port", "source": "srcport", "default": null },
+    { "target": "normalized.src_endpoint.interface_name", "source": "srcintf", "default": null },
+    { "target": "normalized.dst_endpoint.ip", "source": "dstip", "default": null },
+    { "target": "normalized.dst_endpoint.port", "source": "dstport", "default": null },
+    { "target": "normalized.dst_endpoint.interface_name", "source": "dstintf", "default": null },
+
+    { "target": "normalized.connection_info.protocol_num", "source": "proto", "default": null },
+    { "target": "normalized.traffic.bytes_out", "source": "sentbyte", "default": null },
+    { "target": "normalized.traffic.bytes_in", "source": "rcvdbyte", "default": null },
+
+    { "target": "normalized.app_name", "source": "app || service", "default": null },
+    { "target": "normalized.actor.user.name", "source": "user", "default": null },
+
+    { "target": "normalized.metadata.version", "const": "1.3.0" },
+    { "target": "normalized.metadata.product.name", "const": "FortiGate" },
+    { "target": "normalized.metadata.product.vendor_name", "const": "Fortinet" },
+    { "target": "normalized.metadata.event_code", "source": "subtype || type", "default": null },
+    { "target": "normalized.metadata.log_name", "source": "logid", "default": null },
+
+    { "target": "normalized.cloud.region", "source": "devname", "default": null },
+
+    {
+      "target": "normalized.observables",
+      "kind": "array_builder",
+      "items": [
+        { "name": "src_ip", "type": "IP Address", "type_id": 2, "source": "srcip", "skip_null": true },
+        { "name": "dst_ip", "type": "IP Address", "type_id": 2, "source": "dstip", "skip_null": true },
+        { "name": "actor_user", "type": "User Name", "type_id": 4, "source": "user", "skip_null": true }
+      ],
+      "skip_null": true,
+      "dedup_by": ["value"]
+    }
+  ]
+}

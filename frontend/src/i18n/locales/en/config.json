@@ -1,0 +1,593 @@
+{
+  "page": {
+    "eyebrow": "Administration",
+    "title": "Settings",
+    "description": "Manage the email gateway, recipients, and the Collector runtime configuration (buffering, rate limits).",
+    "stats": {
+      "recipients": "Recipients",
+      "tlsSmtp": "TLS SMTP",
+      "tlsActive": "Active",
+      "tlsOptional": "Optional",
+      "tlsSecure": "Secure",
+      "tlsFree": "Unrestricted",
+      "smtpPassword": "SMTP password",
+      "smtpPasswordSaved": "Saved",
+      "smtpPasswordNotSaved": "Not saved",
+      "smtpPasswordProtected": "Protected",
+      "smtpPasswordPending": "Pending",
+      "activeDestinations": "Active destinations",
+      "viewDestinations": "View destinations"
+    },
+    "tabs": {
+      "ariaLabel": "Settings sections",
+      "email": "Email notifications",
+      "collector": "Collector / Dispatch",
+      "identity": "Identity & SSO",
+      "audit": "Audit",
+      "capture": "Live capture",
+      "licensing": "Licensing"
+    },
+    "email": {
+      "loadError": "Failed to load email configuration",
+      "cardTitle": "Email notifications",
+      "cardDescription": "SMTP relay, sender, and recipients used in alerts and reports."
+    },
+    "collector": {
+      "loadError": "Failed to load Collector configuration",
+      "cardTitle": "Collector / Dispatch",
+      "cardDescription": "Batching, rate limits, and concurrency per vendor. Changes propagate to workers within 30s without a restart."
+    },
+    "identity": {
+      "loadError": "Failed to load identity configuration",
+      "cardTitle": "Identity & SSO (Microsoft Entra)",
+      "cardDescription": "Federated \"Sign in with Microsoft\" login (OIDC). Credentials are encrypted in the database; changes apply on the next login, no restart needed."
+    },
+    "audit": {
+      "cardTitle": "Dispatched event audit",
+      "cardDescription": "Latest events dispatched via Syslog/JSONL. Use this to inspect the real shape and test decoders in your destination's tool (e.g., {{tool}})."
+    },
+    "capture": {
+      "cardTitle": "Live capture (\"listening mode\")",
+      "cardDescription": "Records a temporary sample of traffic dispatched to destinations, optionally filtered by vendor. Ideal for inspecting the real shape during an integration test. The session expires on its own."
+    }
+  },
+  "collectorsPage": {
+    "eyebrow": "Ingestion",
+    "title": "Collectors",
+    "description": "Real-time collection state. Each row represents an active collection (integration + data type).",
+    "refresh": "Refresh",
+    "closeNotice": "Close notice",
+    "loadError": "Failed to load collector data.",
+    "triggerError": "Failed to trigger collection.",
+    "resetError": "Failed to reset cursor.",
+    "triggerSuccess": "Collection queued in queue {{queue}} (task {{taskId}}…).",
+    "resetSuccess": "Cursor for {{name}} / {{stream}} reset.",
+    "defaultIntegration": "integration",
+    "kpi": {
+      "integrationsTracked": "Monitored integrations",
+      "vendorsRegisteredHint": "{{count}} vendor(s) registered",
+      "eventsCollected": "Events collected",
+      "eventsCollectedHint": "historical total per integration",
+      "integrationsWithErrors": "With consecutive failures",
+      "maxLag": "Max lag (min)",
+      "maxLagHint": "since last success"
+    },
+    "vendors": {
+      "registered": "Registered vendors ({{count}})",
+      "hide": "Hide",
+      "showAll": "View all",
+      "filterPlaceholder": "Filter vendor or stream…",
+      "filterAriaLabel": "Filter registered vendors",
+      "listAriaLabel": "List of registered vendors",
+      "taskTooltip": "Task: {{task}} • Queue: {{queue}} • {{seconds}}s",
+      "filteredCount": "{{filtered}} of {{total}} vendors",
+      "collapsedHint": "{{count}} vendor streams registered in the collector. Click “View all” to list and filter."
+    },
+    "table": {
+      "title": "Collection state",
+      "sourceHint": "Source: table <code>{{table}}</code> (hot cache in Redis).",
+      "loading": "Loading collections…",
+      "ariaLabel": "Collection state by integration and stream",
+      "columns": {
+        "orgIntegration": "Organization / Integration",
+        "platformStream": "Platform / Stream",
+        "events": "Events",
+        "lastSuccess": "Last success",
+        "status": "Status",
+        "actions": "Actions"
+      },
+      "emptyTitle": "No collection registered",
+      "emptyNoVendors": "The Collector subsystem hasn't registered any vendors yet. Check Celery Beat.",
+      "emptyNoIntegration": "Create an active integration and wait for the next Beat tick (up to 60s).",
+      "trigger": "Trigger",
+      "triggerTooltip": "Trigger immediate collection",
+      "reset": "Reset",
+      "resetTooltip": "Reset cursor (admin)"
+    },
+    "health": {
+      "failures": "Failures: {{count}}",
+      "noCollection": "No collection",
+      "active": "Active",
+      "minutesAgo": "{{minutes}} min ago"
+    },
+    "resetModal": {
+      "title": "Reset cursor?",
+      "body": "This will erase the persisted checkpoint for {{name}} / {{stream}}.",
+      "hint": "The next collection will use the vendor's default lookback (1h back). Deduplication still filters recent events, but there may be re-delivery until the TTL expires.",
+      "confirm": "Reset cursor"
+    }
+  },
+  "email": {
+    "resultTitleSuccess": "Operation completed",
+    "resultTitleError": "Could not complete",
+    "fields": {
+      "smtpHost": "SMTP host",
+      "port": "Port",
+      "user": "Username",
+      "userHelper": "Optional. Use when the relay requires authentication.",
+      "sender": "Sender",
+      "senderPlaceholder": "centralops@company.com",
+      "password": "SMTP password",
+      "passwordHelperConfigured": "A password is already saved. Fill in only to replace it.",
+      "passwordHelperEmpty": "Optional. Leave blank if your relay doesn't require a password."
+    },
+    "useTls": "Use TLS",
+    "useTlsDescription": "Enable when the provider requires encrypted transport for SMTP connections.",
+    "passwordStoredSecurely": "Password stored securely",
+    "keepCurrentPassword": "Keep current password",
+    "removeStoredPassword": "Remove saved password",
+    "passwordMarkedForRemovalTitle": "Password marked for removal",
+    "passwordMarkedForRemovalBody": "The saved password will be erased the next time settings are saved.",
+    "sendTest": "Send test",
+    "saveConfig": "Save settings",
+    "recipients": {
+      "title": "Recipients",
+      "description": "Emails that receive alerts and results from scheduled runs.",
+      "count_one": "{{count}} registered",
+      "count_other": "{{count}} registered",
+      "newLabel": "New recipient",
+      "newPlaceholder": "name@company.com",
+      "add": "Add",
+      "emptyTitle": "No recipient configured",
+      "emptyDescription": "Add at least one email to receive alert and schedule notifications.",
+      "idLabel": "Recipient #{{id}}",
+      "remove": "Remove",
+      "removeAriaLabel": "Remove recipient {{email}}",
+      "deleteTitle": "Remove recipient",
+      "deleteDescriptionPrefix": "Are you sure you want to remove",
+      "deleteDescriptionSuffix": "? This email will stop receiving alerts and results from scheduled runs."
+    }
+  },
+  "collector": {
+    "envBanner": {
+      "title": "Configuration inherited from environment variables",
+      "body": "The current values come from <code>{{envFile}}</code>. Save to persist to the database and enable UI editing — workers will automatically reload within ≤30s."
+    },
+    "destinationsCta": "The delivery destination configuration (e.g., wazuh-default) has moved to the <a>Destinations</a> page.",
+    "testResult": {
+      "healthy": "Healthy",
+      "error": "Error"
+    },
+    "sections": {
+      "bufferDedupe": {
+        "title": "Buffer & Dedupe",
+        "hint": "How batches are accumulated and duplicate events are filtered."
+      },
+      "domainConcurrency": {
+        "title": "Concurrency per domain",
+        "hint": "Maximum simultaneous requests to each vendor's host."
+      },
+      "vendorRateLimits": {
+        "title": "Rate limits per vendor",
+        "hint": "Budget per window (sliding window distributed via Redis)."
+      }
+    },
+    "fields": {
+      "batchSize": "Batch size",
+      "batchSizeHelper": "Larger batches = fewer round-trips, higher per-event latency.",
+      "flushSeconds": "Flush after (seconds)",
+      "flushSecondsHelper": "Sends the partial batch even if not full — guarantees maximum latency.",
+      "dedupeTtl": "Dedupe TTL (days)",
+      "dedupeTtlHelper": "Memory window for filtering duplicate events per vendor."
+    },
+    "table": {
+      "vendor": "Vendor",
+      "concurrentLimit": "Concurrent limit (1–1000)",
+      "perSecond": "/second",
+      "perMinute": "/minute",
+      "perHour": "/hour",
+      "noVendorsConfigured": "No vendor configured.",
+      "registeredBadge": "registered",
+      "concurrentLimitAriaLabel": "Concurrent limit for {{vendor}}",
+      "removeAriaLabel": "Remove {{vendor}}",
+      "perFieldAriaLabel": "{{field}} for {{vendor}}",
+      "selectVendorPlaceholder": "Select vendor...",
+      "selectVendorAriaLabel": "Select vendor to add",
+      "selectVendorRateLimitAriaLabel": "Select vendor to add rate limit",
+      "other": "other...",
+      "list": "list",
+      "customVendorPlaceholder": "vendor-name",
+      "customVendorAriaLabel": "Custom vendor name",
+      "add": "Add",
+      "availableDefault10": "Available (default 10):",
+      "availableDefaultRates": "Available (default 10/100/1000):",
+      "configureDefaultTooltip": "Configure {{vendor}} with default limit 10",
+      "configureDefaultRatesTooltip": "Configure {{vendor}} with default limits"
+    },
+    "unsavedChanges": "Unsaved changes",
+    "test": "Test",
+    "testTooltipDirty": "Save before testing",
+    "testTooltipClean": "Test the saved config now",
+    "saveConfig": "Save configuration"
+  },
+  "identity": {
+    "enableEntraLogin": "Enable Microsoft Entra login",
+    "enableEntraLoginDescription": "Shows the 'Sign in with Microsoft' button on the login screen.",
+    "fields": {
+      "tenantId": "Tenant ID (Directory)",
+      "clientId": "Client ID (Application)",
+      "clientSecret": "Client secret",
+      "clientSecretPlaceholderConfigured": "•••••••• configured — leave blank to keep",
+      "clientSecretPlaceholderEmpty": "Paste the client secret",
+      "clientSecretHelper": "Stored encrypted in the database; never displayed back.",
+      "redirectUri": "Redirect URI",
+      "redirectUriPlaceholder": "https://centralops.example.com/api/auth/sso/callback",
+      "redirectUriHelper": "Must match what's registered in the App Registration (HTTPS).",
+      "authority": "Authority",
+      "authorityHelper": "Only change for sovereign clouds (US Gov / China).",
+      "scopes": "Scopes",
+      "defaultRole": "Default role",
+      "defaultRoleHelper": "Used when no App Role in the token matches the map.",
+      "allowedEmailDomains": "Allowed email domains",
+      "allowedEmailDomainsPlaceholder": "company.com, company.co.uk",
+      "allowedEmailDomainsHelper": "CSV. Empty = any domain in the tenant.",
+      "roleMap": "App Roles → local role map (JSON)",
+      "roleMapHelper": "E.g.: {\"CentralOpsAdmin\":\"admin\",\"CentralOpsOperator\":\"operator\"}",
+      "buttonLabel": "Button label",
+      "postLoginRedirect": "Post-login redirect"
+    },
+    "roles": {
+      "viewer": "Viewer",
+      "operator": "Operator",
+      "engineer": "Engineer",
+      "admin": "Admin"
+    },
+    "globalScopeDefault": "Global scope by default",
+    "globalScopeDefaultDescription": "Accounts created via SSO see all organizations (typical case for an internal SOC).",
+    "jitProvisioning": "JIT provisioning",
+    "jitProvisioningDescription": "Creates the account on first login. Turn off to require a pre-provisioned account.",
+    "sync": {
+      "title": "User Sync (Graph)",
+      "enabled": "Sync enabled",
+      "enabledDescription": "Enables periodic sync of App Registration users via Microsoft Graph.",
+      "deprovision": "Automatic deprovisioning",
+      "deprovisionDescription": "Deactivate users who leave the App Registration (sessions and tokens revoked)."
+    },
+    "roleMapInvalid": "Invalid JSON: {{message}}",
+    "roleMapInvalidNotObject": "must be a JSON object",
+    "roleMapInvalidGeneric": "check the syntax",
+    "defaultButtonLabel": "Sign in with Microsoft",
+    "saveConfig": "Save configuration",
+    "testConnection": "Test connection",
+    "envOnlyHint": "Reading from .env — save to persist to the database."
+  },
+  "entraSync": {
+    "never": "Never",
+    "status": {
+      "inProgress": "In progress",
+      "inProgressAriaLabel": "Sync in progress",
+      "ok": "OK",
+      "okAriaLabel": "Last sync succeeded",
+      "error": "Error",
+      "errorAriaLabel": "Last sync failed",
+      "partial": "Partial",
+      "partialAriaLabel": "Last sync completed with partial errors",
+      "never": "Never synced",
+      "neverAriaLabel": "No sync has run yet"
+    },
+    "counters": {
+      "created": "Created:",
+      "updated": "Updated:",
+      "deactivated": "Deactivated:"
+    },
+    "errors": {
+      "hide": "Hide errors",
+      "showCount_one": "{{count}} error in the last sync",
+      "showCount_other": "{{count}} errors in the last sync",
+      "listAriaLabel": "Last sync errors"
+    },
+    "cardTitle": "Sync Status (Graph)",
+    "cardDescription": "Latest Entra user sync via Microsoft Graph API.",
+    "statusRegionAriaLabel": "Status of the latest Entra user sync",
+    "loadingStatus": "Loading status...",
+    "lastSync": "Last sync:",
+    "syncNow": "Sync now",
+    "syncNowAriaLabelRunning": "Sync in progress — please wait",
+    "syncNowAriaLabelIdle": "Trigger sync now",
+    "refresh": "Refresh",
+    "refreshAriaLabel": "Refresh sync status"
+  },
+  "audit": {
+    "intro": {
+      "title": "What this tab is",
+      "body": "Ring buffer of the latest <strong>events actually dispatched to destinations</strong> (last 500, 24h TTL). The wire-format lines exported here are <strong>byte-for-byte identical</strong> to what went out on the network — hostname and PRI are captured at dispatch time. Paste into your destination's test tool (e.g., {{tool}}) to see exactly how your decoder/rule behaves against real traffic."
+    },
+    "loadError": "Failed to load audit data",
+    "clearBufferSuccess": "Ring buffer cleared.",
+    "clearBufferError": "Failed to clear buffer",
+    "copyWireSuccess": "{{format}} line copied — paste it into your destination's test tool (e.g., {{tool}}) to test decoders.",
+    "copyJsonSuccess": "Event JSON copied.",
+    "toolbar": {
+      "filterByPlatform": "Filter by platform",
+      "allPlatforms": "All platforms",
+      "filterByStream": "Filter by stream",
+      "allStreams": "All streams",
+      "quantity": "Quantity",
+      "eventsUnit": "{{count}} events",
+      "eventCount_one": "{{count}} event",
+      "eventCount_other": "{{count}} events",
+      "clearBuffer": "Clear buffer"
+    },
+    "loading": "Loading audit data…",
+    "emptyTitle": "Buffer empty",
+    "emptyDescription": "No events dispatched in the last few minutes — or you just cleared the buffer. The ring starts filling as soon as the next collection runs.",
+    "table": {
+      "timestamp": "Timestamp",
+      "vendorStream": "Vendor / Stream",
+      "customer": "Customer",
+      "eventId": "Event ID",
+      "severity": "Severity",
+      "actions": "Actions",
+      "legacyFormatTooltip": "Sample recorded before a system update — actual format not recorded"
+    },
+    "actions": {
+      "inspect": "Inspect",
+      "inspectTooltip": "View full JSON",
+      "json": "JSON",
+      "jsonTooltip": "Copy JSON",
+      "wireTooltip": "Copy wire-format line ready for wazuh-logtest"
+    },
+    "modal": {
+      "defaultTitle": "Event",
+      "customerBadge": "customer #{{id}}",
+      "integrationBadge": "integration #{{id}}",
+      "legacyHostnameBadge": "hostname placeholder",
+      "tabsAriaLabel": "Event views",
+      "tabWire": "Wire-format",
+      "tabNormalized": "Normalized (OCSF)",
+      "tabRaw": "Raw (vendor)",
+      "wireLineLabelRfc3164": "RFC 3164 line",
+      "wireLineLabelRfc5424": "RFC 5424 line",
+      "wireLineCopyHint": "(copy to your destination's test tool, e.g., {{tool}})",
+      "hostBadge": "host: {{hostname}}",
+      "legacyEnvelopeNote": "This event was recorded before the fidelity fix; the hostname is a placeholder but doesn't affect the decoder (we match on {{field}}). New events will carry the real hostname.",
+      "legacyFormatNote": "Sample recorded before a system update — displayed in RFC 5424 format.",
+      "copyLine": "Copy line",
+      "normalizedTitle": "Normalized OCSF v1.3",
+      "rawTitle": "Original vendor payload",
+      "copyJson": "Copy JSON"
+    },
+    "clearDialog": {
+      "title": "Clear the audit ring buffer?",
+      "descriptionPrefix": "This action removes",
+      "descriptionAllEvents": "all {{count}} events",
+      "descriptionSuffix": "currently in the buffer and cannot be undone. New events will keep being recorded normally as collectors dispatch to destinations.",
+      "confirm": "Clear buffer"
+    }
+  },
+  "capture": {
+    "intro": {
+      "title": "What live capture is",
+      "body": "Turns on a temporary <strong>\"listening mode\"</strong> that records a sample of traffic <strong>actually dispatched to destinations</strong>, optionally filtered by vendor. Use it to inspect the real shape of events during an integration test — without digging through the global audit ring. The session expires on its own at the end of the window; nothing stays on forever."
+    },
+    "loadSessionsError": "Failed to list capture sessions",
+    "loadEventsError": "Failed to load session events",
+    "startSuccess": "Capture started{{vendorSuffix}}. Events appear as the pipeline dispatches them.",
+    "startVendorSuffix": " (vendor: {{vendor}})",
+    "limitReached": "Simultaneous capture session limit reached. Stop or delete an existing session before starting another.",
+    "startError": "Failed to start capture",
+    "stopSuccess": "Capture stopped. Already-recorded events remain available.",
+    "stopError": "Failed to stop capture",
+    "deleteSuccess": "Capture session deleted.",
+    "deleteError": "Failed to delete session",
+    "copyJsonSuccess": "Event JSON copied.",
+    "durations": {
+      "1m": "1 minute",
+      "5m": "5 minutes",
+      "15m": "15 minutes",
+      "30m": "30 minutes",
+      "1h": "1 hour"
+    },
+    "form": {
+      "vendorScope": "Vendor (scope)",
+      "vendorAriaLabel": "Capture vendor",
+      "allVendors": "All vendors",
+      "duration": "Duration",
+      "durationAriaLabel": "Capture duration",
+      "bufferSize": "Buffer size",
+      "bufferSizeAriaLabel": "Capture buffer size",
+      "eventsUnit": "{{count}} events",
+      "start": "Start capture",
+      "refresh": "Refresh"
+    },
+    "sessionsLoading": "Loading sessions…",
+    "sessionsEmptyTitle": "No capture session",
+    "sessionsEmptyDescription": "Start a capture above to record a sample of dispatched traffic. The session expires on its own at the end of the chosen window.",
+    "table": {
+      "vendor": "Vendor",
+      "status": "Status",
+      "events": "Events",
+      "started": "Started",
+      "expires": "Expires",
+      "actions": "Actions",
+      "allVendors": "All",
+      "expiresIn": "in ~{{seconds}}s",
+      "viewEvents": "Events",
+      "viewEventsTooltip": "View captured events",
+      "stop": "Stop",
+      "stopTooltip": "Stop capture",
+      "delete": "Delete",
+      "deleteTooltip": "Delete session"
+    },
+    "events": {
+      "title": "Events — {{vendor}}",
+      "allVendors": "All vendors",
+      "liveUpdating": "(updating live)",
+      "refresh": "Refresh",
+      "loading": "Loading events…",
+      "waitingTitle": "Waiting for traffic…",
+      "waitingDescription": "The capture is active but no event has been dispatched matching the chosen filter yet. Events appear here as soon as the pipeline delivers them.",
+      "emptyTitle": "No events captured",
+      "emptyDescription": "This session didn't capture any events in the window (no traffic matched the filter).",
+      "table": {
+        "capturedAt": "Captured at",
+        "vendor": "Vendor",
+        "preview": "Preview",
+        "actions": "Actions"
+      },
+      "inspect": "Inspect",
+      "inspectTooltip": "View full JSON",
+      "json": "JSON",
+      "jsonTooltip": "Copy JSON"
+    },
+    "inspectModal": {
+      "title": "Captured event — {{vendor}}",
+      "defaultTitle": "Event",
+      "copyJson": "Copy JSON"
+    },
+    "deleteDialog": {
+      "title": "Delete capture session?",
+      "description": "Removes the session and all events captured in it. Cannot be undone.",
+      "confirm": "Delete"
+    }
+  },
+  "licensing": {
+    "cardTitle": "Licensing",
+    "cardDescription": "Activate the Enterprise edition by pasting the license key. It's validated offline and stored <strong>encrypted in the database</strong> — the system then reads the license from there (survives restarts, no environment variable editing needed).",
+    "graceTitle": "License expired — in grace period",
+    "graceBody": "Enterprise features remain temporarily active. Paste the renewed license below before the grace period ends to avoid reverting to Community.",
+    "source": {
+      "database": "Database (activated via UI)",
+      "environment": "Environment variable / file",
+      "none": "No active license"
+    },
+    "edition": {
+      "enterprise": "Enterprise",
+      "community": "Community"
+    },
+    "plan": "Plan: <strong>{{plan}}</strong>",
+    "origin": "Source: {{source}}",
+    "expiresOn": "Expires on {{date}}",
+    "activatedOn": "Activated on {{date}}",
+    "activatedBy": " by {{name}}",
+    "activateSuccessEnterprise": "License activated — Enterprise edition (plan {{plan}}).",
+    "activateSuccessCommunityOnly": "Token accepted, but the edition remained Community.",
+    "activateError": "Failed to activate license.",
+    "deactivateSuccess": "License deactivated — reverted to Community.",
+    "deactivateError": "Failed to deactivate license.",
+    "unknownPlan": "—",
+    "form": {
+      "label": "License key",
+      "placeholder": "Paste the token here (eyJhbGciOiJFZERTQS...)",
+      "helper": "Signed token (EdDSA) issued for your organization. Validated offline.",
+      "activate": "Activate license",
+      "deactivate": "Deactivate"
+    }
+  },
+  "edition": {
+    "enterprise": "Enterprise",
+    "community": "Community",
+    "plan": "Plan: <strong>{{plan}}</strong>",
+    "featuresLicensed_one": "{{count}} feature licensed",
+    "featuresLicensed_other": "{{count}} features licensed",
+    "expiresOn": "Expires on {{date}}{{daysSuffix}}",
+    "expiresOnDaysSuffix": " ({{days}}d)",
+    "graceTitle": "License expired — in grace period",
+    "graceBody": "The Enterprise license expired, but features remain active during the grace window. <strong>Renew now</strong> — the system reverts to Community mode once the grace period ends.",
+    "expiredTitle": "License expired",
+    "expiredBody": "The Enterprise license expired — the system has already reverted (or will on the next check) to Community mode. Renew the license to reactivate your plan's features.",
+    "expiringSoonTitle": "License expiring soon",
+    "expiringSoonBody": "Your license expires in {{days}} day(s) ({{date}}). Renew to avoid losing your plan's features — the system reverts to Community once it expires."
+  },
+  "backfill": {
+    "panel": {
+      "title": "Backfill — controlled historical collection",
+      "description": "Run retroactive event collections without affecting real-time polling.",
+      "newBackfill": "New backfill",
+      "modalTitle": "New Backfill"
+    },
+    "status": {
+      "pending": "Pending",
+      "running": "Running",
+      "completed": "Completed",
+      "failed": "Failed",
+      "cancelled": "Cancelled"
+    },
+    "table": {
+      "id": "ID",
+      "streams": "Streams",
+      "window": "Window",
+      "status": "Status",
+      "progress": "Progress",
+      "events": "Events",
+      "requested": "Requested",
+      "actions": "Actions",
+      "progressAriaLabel": "Progress: {{percent}}%",
+      "details": "Details",
+      "cancel": "Cancel",
+      "loading": "Loading jobs...",
+      "loadError": "Error loading backfill jobs",
+      "emptyTitle": "No backfill run yet",
+      "emptyDescription": "Use the 'New backfill' button to start a controlled historical collection.",
+      "cancelError": "Error cancelling backfill.",
+      "cancelErrorTitle": "Error cancelling"
+    },
+    "cancelDialog": {
+      "title": "Cancel backfill",
+      "description": "Are you sure you want to cancel job {{jobId}}? This action cannot be undone.",
+      "confirm": "Yes, cancel",
+      "back": "Back"
+    },
+    "detailDrawer": {
+      "title": "Backfill Details",
+      "lastUpdate": "Last update: {{when}}",
+      "progress": "Progress",
+      "progressAriaLabel": "Backfill progress: {{percent}}%",
+      "fields": {
+        "id": "ID",
+        "streams": "Streams",
+        "window": "Window",
+        "eventsCollected": "Events collected",
+        "eventsDispatched": "Events dispatched",
+        "requestedAt": "Requested at",
+        "startedAt": "Started at",
+        "finishedAt": "Finished at",
+        "cancelledAt": "Cancelled at"
+      },
+      "lastErrorTitle": "Last error",
+      "close": "Close",
+      "cancel": "Cancel backfill"
+    },
+    "form": {
+      "info": "The backfill runs in a dedicated queue and doesn't affect normal polling. Events go through the same pipeline (mapping + dispatch). Maximum window: {{maxDays}} days.",
+      "learnMore": "Learn more",
+      "period": "Period",
+      "from": "From",
+      "fromAriaLabel": "Backfill start date",
+      "to": "To",
+      "toAriaLabel": "Backfill end date",
+      "errorDateOrder": "The start date must be earlier than the end date.",
+      "windowExceededTitle": "Window exceeds {{maxDays}} days",
+      "windowExceededBody": "Select a period of {{maxDays}} days or less to avoid overloading the system.",
+      "streams": "Streams",
+      "streamAriaLabel": "Stream {{stream}}",
+      "errorNoStreams": "Select at least one stream.",
+      "createErrorTitle": "Error creating backfill",
+      "createError": "Error creating backfill.",
+      "cancel": "Cancel",
+      "submit": "Start backfill",
+      "successTitle": "Backfill created successfully",
+      "successBody": "The job was added to the queue and will be processed shortly."
+    }
+  }
+}

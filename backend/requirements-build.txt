@@ -1,0 +1,7 @@
+# Build-time only — used by the Cython compile stage to produce .so
+# extension modules from .py sources before they enter the final image.
+# Not installed into the runtime image (the compiled .so files do not
+# depend on Cython at runtime).
+cython>=3.0,<4
+setuptools>=68
+wheel>=0.42

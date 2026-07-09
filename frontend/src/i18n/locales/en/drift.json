@@ -1,0 +1,220 @@
+{
+  "explorer": {
+    "eyebrow": "Normalization",
+    "title": "Drift Explorer",
+    "description": "Raw fields not consumed by any mapping",
+    "loadError": "Error loading drift data",
+    "loading": "Loading drift data...",
+    "emptyTitle": "No drift fields found.",
+    "emptyDescriptionFiltered": "No field matches the selected filters. Adjust or clear the filters to see other results.",
+    "emptyDescriptionUnfiltered": "All raw fields are being consumed by some mapping. There is no pending drift.",
+    "clearFilters": "Clear filters"
+  },
+  "summary": {
+    "new": "New",
+    "ignored": "Ignored",
+    "mapped": "Mapped",
+    "cardAriaLoading": "{{label}}: loading",
+    "cardAria_one": "{{count}} field {{label}}",
+    "cardAria_other": "{{count}} fields {{label}}"
+  },
+  "filters": {
+    "status": {
+      "all": "All",
+      "new": "New",
+      "ignored": "Ignored",
+      "mapped": "Mapped"
+    },
+    "vendorLabel": "Vendor",
+    "vendorPlaceholder": "All vendors",
+    "vendorAll": "All",
+    "vendorAriaLabel": "Filter by vendor",
+    "eventTypeLabel": "Event type",
+    "eventTypePlaceholder": "All types",
+    "eventTypeAll": "All",
+    "eventTypeAriaLabel": "Filter by event type",
+    "statusLabel": "Status",
+    "statusGroupAriaLabel": "Filter by status",
+    "resetAriaLabel": "Reset filters",
+    "reset": "Reset filters"
+  },
+  "bulkBar": {
+    "ignore": "Ignore",
+    "markMapped": "Mark mapped",
+    "successIgnored_one": "{{count}} field ignored.",
+    "successIgnored_other": "{{count}} fields ignored.",
+    "successMarkedMapped_one": "{{count}} field marked as mapped.",
+    "successMarkedMapped_other": "{{count}} fields marked as mapped.",
+    "errorUnexpected": "Unexpected error",
+    "errorBulkAction": "Bulk action error",
+    "confirmIgnoreTitle_one": "Ignore {{count}} field?",
+    "confirmIgnoreTitle_other": "Ignore {{count}} fields?",
+    "confirmIgnoreDescription": "The selected fields will be marked as ignored.",
+    "confirmIgnoreLabel": "Ignore",
+    "confirmMarkMappedTitle_one": "Mark {{count}} field as mapped?",
+    "confirmMarkMappedTitle_other": "Mark {{count}} fields as mapped?",
+    "confirmMarkMappedDescription": "The selected fields will be marked as mapped.",
+    "confirmMarkMappedLabel": "Mark"
+  },
+  "rulesDrawer": {
+    "eyebrow": "Rules consuming this field",
+    "closeAriaLabel": "Close drawer",
+    "emptyMessage": "No rules found.",
+    "matchKind": {
+      "primary": "Primary",
+      "fallback": "Fallback",
+      "array_builder_item": "Array Item",
+      "preprocess": "Preprocess"
+    },
+    "sourceLabel": "source: ",
+    "openMapping": "Open mapping"
+  },
+  "table": {
+    "relativeTime": {
+      "now": "now",
+      "minutesAgo": "{{count}}min ago",
+      "hoursAgo": "{{count}}h ago",
+      "daysAgo": "{{count}}d ago"
+    },
+    "emptyValue": "—",
+    "loadingRules": "Loading rules...",
+    "loadingRulesShort": "…",
+    "noRulesConsume": "No rule consumes this field",
+    "rulesCount_one": "{{count}} rule",
+    "rulesCount_other": "{{count}} rules",
+    "rulesCountAriaLabel": "{{label}} consume this field, click to see details",
+    "columns": {
+      "select": "Select all on page",
+      "selectRow": "Select {{field}}",
+      "vendor": "Vendor",
+      "eventType": "Event Type",
+      "field": "Field",
+      "mappedBy": "Mapped by",
+      "sampleValue": "Sample Value",
+      "sampleType": "Type",
+      "occurrenceCount": "Occurrences",
+      "lastSeen": "Last seen",
+      "status": "Status",
+      "actions": "Actions"
+    },
+    "status": {
+      "new": "New",
+      "ignored": "Ignored",
+      "mapped": "Mapped"
+    },
+    "actions": {
+      "ignore": "Ignore",
+      "ignoreAriaLabel": "Ignore field {{field}}",
+      "markMapped": "Mapped",
+      "markMappedAriaLabel": "Mark field {{field}} as mapped",
+      "delete": "Remove",
+      "deleteAriaLabel": "Remove entry {{field}}",
+      "createRule": "Create rule",
+      "createRuleAriaLabel": "Create rule for {{field}}"
+    },
+    "successIgnored": "Field \"{{field}}\" ignored.",
+    "successMarkedMapped": "Field \"{{field}}\" marked as mapped.",
+    "successDeleted": "Entry \"{{field}}\" removed.",
+    "errorUnexpected": "Unexpected error",
+    "errorAction": "Action error",
+    "emptyTitle": "No drift fields found.",
+    "emptyDescription": "There are no matching fields on this page. Adjust the filters or navigate to another page of results.",
+    "confirm": {
+      "ignoreTitle": "Ignore field?",
+      "ignoreDescription": "Field \"{{field}}\" will be marked as ignored and will no longer appear in new items.",
+      "markMappedTitle": "Mark as mapped?",
+      "markMappedDescription": "Field \"{{field}}\" will be marked as mapped.",
+      "deleteTitle": "Remove entry?",
+      "deleteDescription": "Entry \"{{field}}\" will be permanently removed. This action cannot be undone.",
+      "deleteLabel": "Remove",
+      "ignoreLabel": "Ignore",
+      "markMappedLabel": "Mark"
+    }
+  },
+  "quarantine": {
+    "filters": {
+      "errorKind": {
+        "map": "Mapping error",
+        "parse": "Parse error",
+        "validate": "Validation error",
+        "missing_customer_id": "Missing customer ID",
+        "missing_mapping": "Missing mapping"
+      },
+      "status": {
+        "pending": "Pending",
+        "reprocessed": "Reprocessed",
+        "all": "All"
+      },
+      "searchPlaceholder": "Search by integration...",
+      "searchLabel": "Integration",
+      "searchAriaLabel": "Search by integration name",
+      "statusLabel": "Status",
+      "statusAriaLabel": "Filter by status",
+      "vendorLabel": "Vendor",
+      "vendorPlaceholder": "All vendors",
+      "vendorAll": "All",
+      "vendorAriaLabel": "Filter by vendor",
+      "eventTypeLabel": "Event type",
+      "eventTypePlaceholder": "All types",
+      "eventTypeAll": "All",
+      "eventTypeAriaLabel": "Filter by event type",
+      "errorKindLabel": "Error type",
+      "errorKindPlaceholder": "All errors",
+      "errorKindAll": "All",
+      "errorKindAriaLabel": "Filter by error type"
+    },
+    "summary": {
+      "total": "Total",
+      "estimateTooltip": "Proportional estimate over {{total}} items in the filter"
+    },
+    "table": {
+      "relativeTime": {
+        "now": "now",
+        "minutesAgo": "{{count}}min ago",
+        "hoursAgo": "{{count}}h ago",
+        "daysAgo": "{{count}}d ago"
+      },
+      "emptyValue": "—",
+      "columns": {
+        "select": "Select all visible rows",
+        "selectRow": "Select entry {{id}}",
+        "createdAt": "Created at",
+        "vendor": "Vendor",
+        "eventType": "Event Type",
+        "errorKind": "Error Type",
+        "errorDetail": "Error Detail",
+        "statusActions": "Status / Actions"
+      },
+      "status": {
+        "reprocessed": "Reprocessed",
+        "expired": "Expired",
+        "pending": "Pending"
+      },
+      "actions": {
+        "details": "Details",
+        "detailsAriaLabel": "View details for entry {{id}}",
+        "reprocess": "Reprocess",
+        "reprocessAriaLabel": "Reprocess event {{id}}",
+        "discard": "Discard",
+        "discardAriaLabel": "Discard quarantine entry {{id}}"
+      },
+      "errorUnexpected": "Unexpected error",
+      "detailLoadError": "Could not load details: {{message}}",
+      "discardSuccess": "Quarantine entry discarded.",
+      "reprocessSuccess": "Event reprocessed and sent to Wazuh",
+      "reprocessExpired": "Event has expired and can no longer be reprocessed",
+      "reprocessForbidden": "Permission denied",
+      "errorTitleDiscard": "Error discarding",
+      "errorTitleDetail": "Error loading details",
+      "emptyMessage": "No entries in quarantine.",
+      "confirm": {
+        "discardTitle": "Discard entry?",
+        "discardDescription": "The quarantine entry for \"{{vendor}}{{eventTypeSuffix}}\" will be permanently discarded.",
+        "discardLabel": "Discard",
+        "reprocessTitle": "Reprocess event?",
+        "reprocessDescription": "The event will be revalidated against the current mapping. If normalization succeeds, it will be sent to Wazuh. Otherwise, it will remain in quarantine with a new error.",
+        "reprocessLabel": "Reprocess"
+      }
+    }
+  }
+}

@@ -1,0 +1,198 @@
+{
+  "timestamp": "2026-06-21T10:00:00Z",
+  "id": "1700000000.123",
+  "rule": {
+    "level": 7,
+    "description": "Multiple failed logins",
+    "groups": [
+      "authentication_failed",
+      "syslog",
+      "sshd"
+    ],
+    "id": "5710",
+    "firedtimes": 3,
+    "mail": false,
+    "mitre": {
+      "id": [
+        "T1110"
+      ],
+      "tactic": [
+        "Credential Access"
+      ],
+      "technique": [
+        "Brute Force"
+      ]
+    }
+  },
+  "agent": {
+    "id": "001",
+    "name": "host-a",
+    "ip": "10.0.0.5"
+  },
+  "data": {
+    "srcip": "1.2.3.4",
+    "srcuser": "root",
+    "extra": [
+      {
+        "ts": "2026-06-21T10:00:00Z",
+        "k": "ex-0",
+        "detail": "value-0-xxxxxxxx"
+      },
+      {
+        "ts": "2026-06-21T10:01:00Z",
+        "k": "ex-1",
+        "detail": "value-1-xxxxxxxx"
+      },
+      {
+        "ts": "2026-06-21T10:02:00Z",
+        "k": "ex-2",
+        "detail": "value-2-xxxxxxxx"
+      },
+      {
+        "ts": "2026-06-21T10:03:00Z",
+        "k": "ex-3",
+        "detail": "value-3-xxxxxxxx"
+      },
+      {
+        "ts": "2026-06-21T10:04:00Z",
+        "k": "ex-4",
+        "detail": "value-4-xxxxxxxx"
+      },
+      {
+        "ts": "2026-06-21T10:05:00Z",
+        "k": "ex-5",
+        "detail": "value-5-xxxxxxxx"
+      },
+      {
+        "ts": "2026-06-21T10:06:00Z",
+        "k": "ex-6",
+        "detail": "value-6-xxxxxxxx"
+      },
+      {
+        "ts": "2026-06-21T10:07:00Z",
+        "k": "ex-7",
+        "detail": "value-7-xxxxxxxx"
+      },
+      {
+        "ts": "2026-06-21T10:08:00Z",
+        "k": "ex-8",
+        "detail": "value-8-xxxxxxxx"
+      },
+      {
+        "ts": "2026-06-21T10:09:00Z",
+        "k": "ex-9",
+        "detail": "value-9-xxxxxxxx"
+      }
+    ]
+  },
+  "location": "/var/log/auth.log",
+  "manager": {
+    "name": "wazuh-mgr"
+  },
+  "decoder": {
+    "name": "sshd"
+  },
+  "full_log": "Jun 21 10:00:00 host-a sshd[1]: Failed password xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+  "previous_output": [
+    {
+      "ts": "2026-06-21T10:00:00Z",
+      "k": "po-0",
+      "detail": "value-0-xxxxxxxx"
+    },
+    {
+      "ts": "2026-06-21T10:01:00Z",
+      "k": "po-1",
+      "detail": "value-1-xxxxxxxx"
+    },
+    {
+      "ts": "2026-06-21T10:02:00Z",
+      "k": "po-2",
+      "detail": "value-2-xxxxxxxx"
+    },
+    {
+      "ts": "2026-06-21T10:03:00Z",
+      "k": "po-3",
+      "detail": "value-3-xxxxxxxx"
+    },
+    {
+      "ts": "2026-06-21T10:04:00Z",
+      "k": "po-4",
+      "detail": "value-4-xxxxxxxx"
+    },
+    {
+      "ts": "2026-06-21T10:05:00Z",
+      "k": "po-5",
+      "detail": "value-5-xxxxxxxx"
+    },
+    {
+      "ts": "2026-06-21T10:06:00Z",
+      "k": "po-6",
+      "detail": "value-6-xxxxxxxx"
+    },
+    {
+      "ts": "2026-06-21T10:07:00Z",
+      "k": "po-7",
+      "detail": "value-7-xxxxxxxx"
+    },
+    {
+      "ts": "2026-06-21T10:08:00Z",
+      "k": "po-8",
+      "detail": "value-8-xxxxxxxx"
+    },
+    {
+      "ts": "2026-06-21T10:09:00Z",
+      "k": "po-9",
+      "detail": "value-9-xxxxxxxx"
+    },
+    {
+      "ts": "2026-06-21T10:10:00Z",
+      "k": "po-10",
+      "detail": "value-10-xxxxxxxx"
+    },
+    {
+      "ts": "2026-06-21T10:11:00Z",
+      "k": "po-11",
+      "detail": "value-11-xxxxxxxx"
+    },
+    {
+      "ts": "2026-06-21T10:12:00Z",
+      "k": "po-12",
+      "detail": "value-12-xxxxxxxx"
+    },
+    {
+      "ts": "2026-06-21T10:13:00Z",
+      "k": "po-13",
+      "detail": "value-13-xxxxxxxx"
+    },
+    {
+      "ts": "2026-06-21T10:14:00Z",
+      "k": "po-14",
+      "detail": "value-14-xxxxxxxx"
+    },
+    {
+      "ts": "2026-06-21T10:15:00Z",
+      "k": "po-15",
+      "detail": "value-15-xxxxxxxx"
+    },
+    {
+      "ts": "2026-06-21T10:16:00Z",
+      "k": "po-16",
+      "detail": "value-16-xxxxxxxx"
+    },
+    {
+      "ts": "2026-06-21T10:17:00Z",
+      "k": "po-17",
+      "detail": "value-17-xxxxxxxx"
+    },
+    {
+      "ts": "2026-06-21T10:18:00Z",
+      "k": "po-18",
+      "detail": "value-18-xxxxxxxx"
+    },
+    {
+      "ts": "2026-06-21T10:19:00Z",
+      "k": "po-19",
+      "detail": "value-19-xxxxxxxx"
+    }
+  ]
+}

@@ -1,0 +1,46 @@
+[
+  { "target": "normalized.class_uid", "const": 2004, "required": true },
+  { "target": "normalized.class_name", "const": "Detection Finding" },
+  { "target": "normalized.category_uid", "const": 2, "required": true },
+  { "target": "normalized.category_name", "const": "Findings" },
+  { "target": "normalized.activity_id", "const": 1 },
+  { "target": "normalized.activity_name", "const": "Create" },
+  { "target": "normalized.type_uid", "const": 200401 },
+  { "target": "normalized.time", "source": "lastUpdateDateTime", "type_cast": "iso_to_epoch", "required": true },
+
+  { "target": "normalized.finding_info.uid", "source": "id", "required": true },
+  { "target": "normalized.finding_info.title", "source": "title", "default": null },
+  { "target": "normalized.finding_info.desc", "source": "description", "default": null },
+  { "target": "normalized.finding_info.created_time", "source": "createdDateTime", "type_cast": "iso_to_epoch", "default": null },
+  { "target": "normalized.finding_info.modified_time", "source": "lastUpdateDateTime", "type_cast": "iso_to_epoch" },
+  { "target": "normalized.finding_info.types", "source": "[category]", "default": [] },
+
+  { "target": "normalized.severity_id",
+    "source": "severity",
+    "value_map": {
+      "high": 4, "medium": 3, "low": 2, "informational": 1, "unknown": 0
+    },
+    "default": 0,
+    "required": true
+  },
+  { "target": "normalized.severity", "source": "severity", "default": "Unknown" },
+
+  { "target": "normalized.status_id",
+    "source": "status",
+    "value_map": {
+      "new": 1, "inProgress": 2, "in_progress": 2, "resolved": 4
+    },
+    "default": 0
+  },
+  { "target": "normalized.status", "source": "status", "default": "Unknown" },
+
+  { "target": "normalized.message", "source": "description", "default": null },
+
+  { "target": "normalized.actor.user.name", "source": "assignedTo", "default": null },
+
+  { "target": "normalized.metadata.version", "const": "1.3.0" },
+  { "target": "normalized.metadata.product.name", "const": "Microsoft Defender" },
+  { "target": "normalized.metadata.product.vendor_name", "const": "Microsoft" },
+  { "target": "normalized.metadata.product.feature.name", "source": "serviceSource", "default": null },
+  { "target": "normalized.metadata.uid", "source": "id" }
+]

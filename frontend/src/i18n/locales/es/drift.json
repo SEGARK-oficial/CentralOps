@@ -1,0 +1,220 @@
+{
+  "explorer": {
+    "eyebrow": "Normalización",
+    "title": "Drift Explorer",
+    "description": "Campos del raw que ningún mapping consume",
+    "loadError": "Error al cargar los datos de drift",
+    "loading": "Cargando datos de drift...",
+    "emptyTitle": "No se encontraron campos de drift.",
+    "emptyDescriptionFiltered": "Ningún campo coincide con los filtros seleccionados. Ajuste o borre los filtros para ver otros resultados.",
+    "emptyDescriptionUnfiltered": "Todos los campos del raw están siendo consumidos por algún mapping. No hay drift pendiente.",
+    "clearFilters": "Limpiar filtros"
+  },
+  "summary": {
+    "new": "Nuevos",
+    "ignored": "Ignorados",
+    "mapped": "Mapeados",
+    "cardAriaLoading": "{{label}}: cargando",
+    "cardAria_one": "{{count}} campo {{label}}",
+    "cardAria_other": "{{count}} campos {{label}}"
+  },
+  "filters": {
+    "status": {
+      "all": "Todos",
+      "new": "Nuevos",
+      "ignored": "Ignorados",
+      "mapped": "Mapeados"
+    },
+    "vendorLabel": "Vendor",
+    "vendorPlaceholder": "Todos los vendors",
+    "vendorAll": "Todos",
+    "vendorAriaLabel": "Filtrar por vendor",
+    "eventTypeLabel": "Tipo de evento",
+    "eventTypePlaceholder": "Todos los tipos",
+    "eventTypeAll": "Todos",
+    "eventTypeAriaLabel": "Filtrar por tipo de evento",
+    "statusLabel": "Estado",
+    "statusGroupAriaLabel": "Filtrar por estado",
+    "resetAriaLabel": "Restablecer filtros",
+    "reset": "Restablecer filtros"
+  },
+  "bulkBar": {
+    "ignore": "Ignorar",
+    "markMapped": "Marcar mapeado",
+    "successIgnored_one": "{{count}} campo ignorado.",
+    "successIgnored_other": "{{count}} campos ignorados.",
+    "successMarkedMapped_one": "{{count}} campo marcado como mapeado.",
+    "successMarkedMapped_other": "{{count}} campos marcados como mapeados.",
+    "errorUnexpected": "Error inesperado",
+    "errorBulkAction": "Error en la acción masiva",
+    "confirmIgnoreTitle_one": "¿Ignorar {{count}} campo?",
+    "confirmIgnoreTitle_other": "¿Ignorar {{count}} campos?",
+    "confirmIgnoreDescription": "Los campos seleccionados se marcarán como ignorados.",
+    "confirmIgnoreLabel": "Ignorar",
+    "confirmMarkMappedTitle_one": "¿Marcar {{count}} campo como mapeado?",
+    "confirmMarkMappedTitle_other": "¿Marcar {{count}} campos como mapeado?",
+    "confirmMarkMappedDescription": "Los campos seleccionados se marcarán como mapeados.",
+    "confirmMarkMappedLabel": "Marcar"
+  },
+  "rulesDrawer": {
+    "eyebrow": "Reglas que consumen",
+    "closeAriaLabel": "Cerrar panel",
+    "emptyMessage": "No se encontraron reglas.",
+    "matchKind": {
+      "primary": "Primario",
+      "fallback": "Fallback",
+      "array_builder_item": "Array Item",
+      "preprocess": "Preprocess"
+    },
+    "sourceLabel": "source: ",
+    "openMapping": "Abrir mapping"
+  },
+  "table": {
+    "relativeTime": {
+      "now": "ahora",
+      "minutesAgo": "hace {{count}}min",
+      "hoursAgo": "hace {{count}}h",
+      "daysAgo": "hace {{count}}d"
+    },
+    "emptyValue": "—",
+    "loadingRules": "Cargando reglas...",
+    "loadingRulesShort": "…",
+    "noRulesConsume": "Ninguna regla consume este campo",
+    "rulesCount_one": "{{count}} regla",
+    "rulesCount_other": "{{count}} reglas",
+    "rulesCountAriaLabel": "{{label}} consumen este campo, haga clic para ver detalles",
+    "columns": {
+      "select": "Seleccionar todos de la página",
+      "selectRow": "Seleccionar {{field}}",
+      "vendor": "Vendor",
+      "eventType": "Tipo de Evento",
+      "field": "Campo",
+      "mappedBy": "Mapeado por",
+      "sampleValue": "Valor de Muestra",
+      "sampleType": "Tipo",
+      "occurrenceCount": "Ocurrencias",
+      "lastSeen": "Última vez",
+      "status": "Estado",
+      "actions": "Acciones"
+    },
+    "status": {
+      "new": "Nuevo",
+      "ignored": "Ignorado",
+      "mapped": "Mapeado"
+    },
+    "actions": {
+      "ignore": "Ignorar",
+      "ignoreAriaLabel": "Ignorar campo {{field}}",
+      "markMapped": "Mapeado",
+      "markMappedAriaLabel": "Marcar campo {{field}} como mapeado",
+      "delete": "Eliminar",
+      "deleteAriaLabel": "Eliminar entrada {{field}}",
+      "createRule": "Crear regla",
+      "createRuleAriaLabel": "Crear regla para {{field}}"
+    },
+    "successIgnored": "Campo \"{{field}}\" ignorado.",
+    "successMarkedMapped": "Campo \"{{field}}\" marcado como mapeado.",
+    "successDeleted": "Entrada \"{{field}}\" eliminada.",
+    "errorUnexpected": "Error inesperado",
+    "errorAction": "Error en la acción",
+    "emptyTitle": "No se encontraron campos de drift.",
+    "emptyDescription": "No hay campos coincidentes en esta página. Ajuste los filtros o navegue a otra página de resultados.",
+    "confirm": {
+      "ignoreTitle": "¿Ignorar campo?",
+      "ignoreDescription": "El campo \"{{field}}\" se marcará como ignorado y ya no aparecerá en los elementos nuevos.",
+      "markMappedTitle": "¿Marcar como mapeado?",
+      "markMappedDescription": "El campo \"{{field}}\" se marcará como mapeado.",
+      "deleteTitle": "¿Eliminar entrada?",
+      "deleteDescription": "La entrada \"{{field}}\" se eliminará permanentemente. Esta acción no se puede deshacer.",
+      "deleteLabel": "Eliminar",
+      "ignoreLabel": "Ignorar",
+      "markMappedLabel": "Marcar"
+    }
+  },
+  "quarantine": {
+    "filters": {
+      "errorKind": {
+        "map": "Error de mapeo",
+        "parse": "Error de parseo",
+        "validate": "Error de validación",
+        "missing_customer_id": "Customer ID ausente",
+        "missing_mapping": "Mapping ausente"
+      },
+      "status": {
+        "pending": "Pendientes",
+        "reprocessed": "Reprocesados",
+        "all": "Todos"
+      },
+      "searchPlaceholder": "Buscar por integración...",
+      "searchLabel": "Integración",
+      "searchAriaLabel": "Buscar por nombre de la integración",
+      "statusLabel": "Estado",
+      "statusAriaLabel": "Filtrar por estado",
+      "vendorLabel": "Vendor",
+      "vendorPlaceholder": "Todos los vendors",
+      "vendorAll": "Todos",
+      "vendorAriaLabel": "Filtrar por vendor",
+      "eventTypeLabel": "Tipo de evento",
+      "eventTypePlaceholder": "Todos los tipos",
+      "eventTypeAll": "Todos",
+      "eventTypeAriaLabel": "Filtrar por tipo de evento",
+      "errorKindLabel": "Tipo de error",
+      "errorKindPlaceholder": "Todos los errores",
+      "errorKindAll": "Todos",
+      "errorKindAriaLabel": "Filtrar por tipo de error"
+    },
+    "summary": {
+      "total": "Total",
+      "estimateTooltip": "Estimación proporcional sobre {{total}} elementos del filtro"
+    },
+    "table": {
+      "relativeTime": {
+        "now": "ahora",
+        "minutesAgo": "hace {{count}}min",
+        "hoursAgo": "hace {{count}}h",
+        "daysAgo": "hace {{count}}d"
+      },
+      "emptyValue": "—",
+      "columns": {
+        "select": "Seleccionar todas las filas visibles",
+        "selectRow": "Seleccionar entrada {{id}}",
+        "createdAt": "Creado en",
+        "vendor": "Vendor",
+        "eventType": "Tipo de Evento",
+        "errorKind": "Tipo de Error",
+        "errorDetail": "Detalle del Error",
+        "statusActions": "Estado / Acciones"
+      },
+      "status": {
+        "reprocessed": "Reprocesado",
+        "expired": "Expirado",
+        "pending": "Pendiente"
+      },
+      "actions": {
+        "details": "Detalles",
+        "detailsAriaLabel": "Ver detalles de la entrada {{id}}",
+        "reprocess": "Reprocesar",
+        "reprocessAriaLabel": "Reprocesar evento {{id}}",
+        "discard": "Descartar",
+        "discardAriaLabel": "Descartar entrada de cuarentena {{id}}"
+      },
+      "errorUnexpected": "Error inesperado",
+      "detailLoadError": "No fue posible cargar los detalles: {{message}}",
+      "discardSuccess": "Entrada de cuarentena descartada.",
+      "reprocessSuccess": "Evento reprocesado y enviado a Wazuh",
+      "reprocessExpired": "El evento expiró y ya no puede reprocesarse",
+      "reprocessForbidden": "Permiso denegado",
+      "errorTitleDiscard": "Error al descartar",
+      "errorTitleDetail": "Error al cargar detalles",
+      "emptyMessage": "No hay entradas en cuarentena.",
+      "confirm": {
+        "discardTitle": "¿Descartar entrada?",
+        "discardDescription": "La entrada de cuarentena para \"{{vendor}}{{eventTypeSuffix}}\" se descartará permanentemente.",
+        "discardLabel": "Descartar",
+        "reprocessTitle": "¿Reprocesar evento?",
+        "reprocessDescription": "El evento será revalidado contra el mapping actual. Si la normalización tiene éxito, se enviará a Wazuh. De lo contrario, permanecerá en cuarentena con un nuevo error.",
+        "reprocessLabel": "Reprocesar"
+      }
+    }
+  }
+}

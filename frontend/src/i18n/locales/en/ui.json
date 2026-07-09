@@ -1,0 +1,127 @@
+{
+  "notFound": {
+    "title": "Page not found",
+    "description": "The address you accessed does not exist or has moved. Check the link or go back to a known area.",
+    "goToDashboard": "Go to Dashboard",
+    "back": "Back"
+  },
+  "errorState": {
+    "retry": "Try again"
+  },
+  "commandPalette": {
+    "dialogLabel": "Command palette",
+    "searchPlaceholder": "Search commands...",
+    "searchAriaLabel": "Search commands",
+    "resultsAriaLabel": "Available commands",
+    "noResults": "No results for \"{{query}}\"",
+    "footer": {
+      "navigate": "Navigate",
+      "execute": "Run",
+      "close": "Close"
+    }
+  },
+  "dataTable": {
+    "loading": "Loading data...",
+    "emptyTitle": "No data found",
+    "emptyDescription": "There is no data to display at the moment.",
+    "showingRange": "Showing {{start}} to {{end}} of {{total}} records",
+    "itemsPerPage": "Items:",
+    "firstPage": "First page",
+    "previousPage": "Previous page",
+    "nextPage": "Next page",
+    "lastPage": "Last page"
+  },
+  "dateRangePicker": {
+    "placeholder": "Select a period",
+    "clearSelection": "Clear selection",
+    "selectPeriod": "Select period",
+    "quickRanges": "Quick ranges",
+    "quickRange": {
+      "lastHour": "Last hour",
+      "last6Hours": "Last 6h",
+      "last24Hours": "Last 24h",
+      "last7Days": "Last 7 days",
+      "last30Days": "Last 30 days"
+    },
+    "startTime": "Start time",
+    "endTime": "End time",
+    "previousMonth": "Previous month",
+    "nextMonth": "Next month",
+    "selectDate": "Select {{date}}",
+    "selectStartDate": "Select the start date",
+    "selectEndDate": "Select the end date",
+    "months": [
+      "January",
+      "February",
+      "March",
+      "April",
+      "May",
+      "June",
+      "July",
+      "August",
+      "September",
+      "October",
+      "November",
+      "December"
+    ],
+    "weekdays": [
+      "Sun",
+      "Mon",
+      "Tue",
+      "Wed",
+      "Thu",
+      "Fri",
+      "Sat"
+    ]
+  },
+  "select": {
+    "placeholder": "Select an option",
+    "selectedCount": "{{count}} selected",
+    "searchPlaceholder": "Search...",
+    "searchAriaLabel": "Search options",
+    "selectAll": "Select all",
+    "clearAll": "Clear all",
+    "noOptionsFound": "No options found"
+  },
+  "filtersToolbar": {
+    "searchAriaLabel": "Search",
+    "resetAriaLabel": "Reset filters",
+    "reset": "Reset"
+  },
+  "bulkActionBar": {
+    "regionAriaLabel": "Bulk actions",
+    "clearSelection": "Clear selection",
+    "counter_one": "{{count}} selected",
+    "counter_other": "{{count}} selected",
+    "counterWithLabel": "{{count}} {{contextLabel}} selected"
+  },
+  "confirmDialog": {
+    "confirm": "Confirm",
+    "cancel": "Cancel"
+  },
+  "modal": {
+    "closeAriaLabel": "Close modal"
+  },
+  "helpTooltip": {
+    "exampleLabel": "E.g.:",
+    "learnMore": "Learn more",
+    "triggerAriaLabel": "Help: {{label}}"
+  },
+  "loadingSpinner": {
+    "loading": "Loading…"
+  },
+  "skeleton": {
+    "loadingText": "Loading text…",
+    "loadingCard": "Loading card…",
+    "loadingTable": "Loading table…"
+  },
+  "button": {
+    "loading": "Loading..."
+  },
+  "themeToggle": {
+    "switchToLight": "Switch to light theme",
+    "switchToDark": "Switch to dark theme",
+    "lightTheme": "Light theme",
+    "darkTheme": "Dark theme"
+  }
+}

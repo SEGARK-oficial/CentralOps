@@ -1,0 +1,71 @@
+# Vector — edge-collector para Fortinet FortiGate .
+#
+# Recebe syslog do FortiGate, faz parse dos pares key=value e encaminha NDJSON
+# autenticado para o endpoint de ingestão do CentralOps.
+#
+# Variáveis de ambiente:
+# CENTRALOPS_INGEST_URL    ex.: https://centralops.example.com/api/ingest/traffic
+# CENTRALOPS_INGEST_TOKEN  token de ingestão (emitido na tela da integração)
+#
+# No FortiGate: configure o syslog server apontando para o host deste Vector
+# config log syslogd setting
+# set status enable
+# set server "<IP_DO_VECTOR>"
+# set port 5514
+# set format default        # key=value
+# end
+
+data_dir = "/var/lib/vector"
+
+[sources.fortigate_syslog]
+type = "syslog"
+address = "0.0.0.0:5514"
+mode = "udp"
+
+# FortiGate coloca pares key=value no corpo do syslog. Faz parse para campos
+# de topo (srcip, dstip, action, …) que o mapping OCSF do CentralOps consome.
+[transforms.fortigate_parse]
+type = "remap"
+inputs = ["fortigate_syslog"]
+source = '''
+parsed = parse_key_value(string!(.message)) ?? {}
+. = merge(., parsed)
+# Timestamp ISO-8601 que o mapping (iso_to_epoch) espera, com o TEMPO DO EVENTO
+# (não o de coleta). Preferência: eventtime do FortiGate (epoch ns) → timestamp do
+# cabeçalho syslog (já parseado pelo source) → agora (só se ambos ausentes).
+# NUNCA usar só now: destrói a cronologia (correlação/timeline/rate).
+event_ts = .timestamp ?? now
+if exists(.eventtime) {
+    ns = to_int(.eventtime) ?? 0
+    if ns > 0 {
+        event_ts = from_unix_timestamp(ns, unit: "nanoseconds") ?? event_ts
+    }
+}
+.timestamp = format_timestamp!(event_ts, format: "%+")
+'''
+
+[sinks.centralops]
+type = "http"
+inputs = ["fortigate_parse"]
+uri = "${CENTRALOPS_INGEST_URL:-https://centralops.example.com/api/ingest/traffic}"
+method = "post"
+encoding.codec = "json"
+framing.method = "newline_delimited"
+compression = "none"
+
+[sinks.centralops.request.headers]
+Authorization = "Bearer ${CENTRALOPS_INGEST_TOKEN}"
+
+# Lote + retry com backoff e buffer em disco — resiliência se o CentralOps
+# estiver indisponível por alguns instantes (não perde eventos da borda).
+[sinks.centralops.batch]
+max_events = 500
+timeout_secs = 5
+
+[sinks.centralops.request]
+retry_attempts = 10
+
+[sinks.centralops.buffer]
+type = "disk"
+max_size = 268435456   # 256 MiB
+when_full = "block"

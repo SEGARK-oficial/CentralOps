@@ -1,0 +1,48 @@
+fastapi
+# starlette é transitivo (via fastapi), mas fixamos um FLOOR de segurança:
+# CVE-2026-48818 (SSRF/NTLM via UNC em StaticFiles) + CVE-2026-54283 → fix 1.3.1.
+starlette>=1.3.1
+uvicorn[standard]
+sqlalchemy
+alembic>=1.13  # P1 — migrações de schema (baseline+stamp; revisions futuras)
+# Driver Postgres — necessário quando DATABASE_URL=postgresql+psycopg2://...
+# A versão "binary" inclui libpq pré-compilada; não precisa libpq-dev no Docker.
+psycopg2-binary>=2.9
+httpx
+pydantic
+pydantic-settings
+cryptography>=48.0.1  # GHSA-537c-gmf6-5ccf (OpenSSL vulnerável nas wheels) → 48.0.1
+pyjwt[crypto]>=2.8  # Validação de id_token OIDC (login Microsoft Entra — Fase 1)
+argon2-cffi>=23.1  # Personal Access Tokens (Fase 1) — hash Argon2id para PATs
+redis>=5.0.0
+python-json-logger>=2.0
+
+# ── Collector subsystem ───────────────────────────────────────────────
+celery>=5.3,<6
+celery-redbeat>=2.2,<3  # Redis-backed dynamic Beat scheduler (Fase 1.3)
+aiokafka>=0.10,<0.12  # Onda 3 — data-plane durável (producer/consumer Kafka/Redpanda)
+aiohttp>=3.14.1  # 3.14.1+ corrige 11 CVEs (CVE-2026-*) do 3.13.5. O cap <3.14
+                 # antigo existia por causa do aioresponses (abandonado em 0.7.8,
+                 # incompatível com o stream_writer obrigatório do 3.14); os mocks
+                 # HTTP dos coletores migraram para o helper interno
+                 # app/collectors/tests/_aiohttp_mock.py, então o cap caiu.
+tenacity>=8.2
+# prometheus-client REMOVIDO : instrumentação migrou p/ OTel-native
+# (OTLP-push). Endpoint Prometheus /metrics de compat, se desejado, é exposto
+# pelo OTel Collector — ver compose/otel-collector-config.yaml. Pacotes OTel são
+# extras opcionais em requirements-otel.txt.
+jmespath>=1.0  # DSL de mapping no normalize/engine
+orjson>=3.9    # Serialização JSON de alta performance no hot path
+# OTel tracing distribuído  é OPCIONAL e gated por OTEL_ENABLED.
+# Fora da imagem base (deploy leve). Para ligar o tracing:
+# pip install -r requirements-otel.txt
+# Ausente ⇒ o código degrada para no-op (pipeline segue normal).
+
+# ── Dev / tests ───────────────────────────────────────────────────────
+# (kept light — install extras via requirements-dev.txt if needed)
+# Mock HTTP dos coletores: helper interno app/collectors/tests/_aiohttp_mock.py
+# (substituiu o aioresponses, abandonado e incompatível com aiohttp >= 3.14).
+fakeredis[lua]>=2.20
+pytest>=8.0
+pytest-asyncio>=0.23
+pytest-benchmark>=4.0  # Fase 0 baseline benchmarks (benchmarks/ suite)

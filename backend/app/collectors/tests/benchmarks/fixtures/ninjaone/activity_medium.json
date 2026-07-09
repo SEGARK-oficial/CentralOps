@@ -1,0 +1,54 @@
+{
+  "id": 200001,
+  "activityTime": 1776940800,
+  "activityType": "PATCH_MANAGEMENT",
+  "subject": "Critical patch deployment failed on WIN-WORKSTATION-42",
+  "severity": "high",
+  "user": {
+    "id": 42,
+    "name": "patch-admin",
+    "email": "patch-admin@corp.com"
+  },
+  "device": {
+    "id": 142,
+    "systemName": "WIN-WORKSTATION-42",
+    "dnsName": "ws42.corp.local",
+    "ipAddress": "192.168.1.142",
+    "macAddress": "AA:BB:CC:DD:EE:42",
+    "os": "Windows 10 Pro",
+    "osVersion": "10.0.19041"
+  },
+  "organization": {
+    "id": 10,
+    "name": "Acme Corp",
+    "identifier": "acme-corp"
+  },
+  "location": {
+    "id": 5,
+    "name": "HQ - Floor 3"
+  },
+  "type": "alert",
+  "message": "Patch KB5034441 failed to install: Error 0x80070426",
+  "errorCode": "0x80070426",
+  "category": "PATCH",
+  "status": "failed",
+  "patchName": "KB5034441",
+  "patchSeverity": "Critical",
+  "patchType": "Security",
+  "ticketId": 9001,
+  "ticketStatus": "open",
+  "assignedTechnician": {"id": 42, "name": "patch-admin"},
+  "tags": ["patch-failure", "critical", "security"],
+  "source": "NinjaRMM",
+  "priority": "high",
+  "createdAt": "2026-04-23T08:00:00Z",
+  "updatedAt": "2026-04-23T08:05:00Z",
+  "scheduledMaintenanceWindow": null,
+  "policyId": 7,
+  "policyName": "Critical Patch Policy",
+  "remoteControl": false,
+  "automatedRemediation": true,
+  "remediationResult": "failed",
+  "retryCount": 3,
+  "nextRetryAt": "2026-04-23T10:00:00Z"
+}

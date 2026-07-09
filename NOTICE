@@ -1,0 +1,14 @@
+CentralOps
+Copyright 2026 Dathan Nobrega
+
+SPDX-License-Identifier: AGPL-3.0-or-later
+The CentralOps Community core is licensed under the GNU Affero General Public
+License v3.0 or later (see LICENSE). Enterprise features live in the separate,
+proprietary centralops-ee package (open-core) and are NOT covered by
+this license.
+
+This product includes software developed by the CentralOps contributors.
+
+"CentralOps" is an independent project and is not affiliated with, endorsed by,
+or sponsored by Sophos. Sophos and Sophos Central are trademarks of Sophos Ltd.
+All other trademarks are property of their respective owners.

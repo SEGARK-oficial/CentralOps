@@ -1,0 +1,43 @@
+{
+  "id": "alert-medium-001",
+  "createdAt": "2026-04-23T14:22:10Z",
+  "raisedAt": "2026-04-23T14:22:08Z",
+  "severity": "critical",
+  "type": "malware",
+  "description": "Trojan.GenericKD detected on WIN-DESKTOP-42 — process explorer.exe injected into lsass.exe",
+  "managedAgent": {
+    "id": "agent-uuid-42",
+    "name": "WIN-DESKTOP-42",
+    "type": "computer"
+  },
+  "person": {
+    "id": "user-uuid-7",
+    "name": "bob.smith"
+  },
+  "product": "Endpoint",
+  "allowedActions": ["acknowledge", "cleanUp"],
+  "category": "runtime",
+  "groupKey": "alert-group-001",
+  "tenant": {"id": "tenant-abc", "name": "Acme Corp"},
+  "threats": ["Trojan.GenericKD.12345"],
+  "correlationId": "corr-001",
+  "location": "US-EAST-1",
+  "assignee": "security-analyst",
+  "source": {"md5": "aabbccdd", "sha256": "00112233"},
+  "destination": {"ip": "10.0.0.1", "port": 443},
+  "filePath": "C:\\Windows\\System32\\explorer.exe",
+  "hostname": "WIN-DESKTOP-42",
+  "ipAddresses": ["192.168.1.42"],
+  "macAddresses": ["AA:BB:CC:DD:EE:FF"],
+  "os": {"platform": "windows", "name": "Windows 10", "build": "19041"},
+  "customerProductVersion": "2024.1.1",
+  "detectionAction": "blocked",
+  "localIp": "192.168.1.42",
+  "originatingEntityPath": "C:\\Users\\bob\\Downloads\\trojan.exe",
+  "policyType": "real-time",
+  "rawData": "base64encodedrawdata==",
+  "sha256": "aabbccddeeff00112233445566778899aabbccddeeff00112233445566778899",
+  "thumbprint": "fingerprint-001",
+  "type2": "malware-behavior",
+  "workloadType": "endpoint"
+}

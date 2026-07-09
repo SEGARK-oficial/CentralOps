@@ -1,0 +1,71 @@
+{
+  "loading": "Loading...",
+  "validatingSession": "Validating session...",
+  "language": "Language",
+  "languageNames": {
+    "pt": "Português",
+    "en": "English",
+    "es": "Español"
+  },
+  "actions": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "create": "Create",
+    "add": "Add",
+    "remove": "Remove",
+    "confirm": "Confirm",
+    "close": "Close",
+    "back": "Back",
+    "next": "Next",
+    "search": "Search",
+    "filter": "Filter",
+    "refresh": "Refresh",
+    "retry": "Try again",
+    "apply": "Apply",
+    "clear": "Clear",
+    "export": "Export",
+    "view": "View",
+    "details": "Details",
+    "copy": "Copy",
+    "test": "Test",
+    "enable": "Enable",
+    "disable": "Disable",
+    "reset": "Reset"
+  },
+  "states": {
+    "active": "Active",
+    "inactive": "Inactive",
+    "enabled": "Enabled",
+    "disabled": "Disabled",
+    "all": "All",
+    "yes": "Yes",
+    "no": "No",
+    "none": "None",
+    "empty": "Empty",
+    "noData": "No data",
+    "required": "required",
+    "optional": "optional",
+    "healthy": "Healthy",
+    "degraded": "Degraded",
+    "unknown": "Unknown"
+  },
+  "fields": {
+    "name": "Name",
+    "description": "Description",
+    "status": "Status",
+    "type": "Type",
+    "date": "Date",
+    "createdAt": "Created at",
+    "updatedAt": "Updated at",
+    "organization": "Organization",
+    "actions": "Actions"
+  },
+  "feedback": {
+    "savedSuccess": "Saved successfully.",
+    "errorGeneric": "An error occurred. Please try again.",
+    "confirmDelete": "Are you sure you want to delete?",
+    "loadFailed": "Failed to load."
+  }
+}

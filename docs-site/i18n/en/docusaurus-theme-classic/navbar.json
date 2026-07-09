@@ -1,0 +1,34 @@
+{
+  "title": {
+    "message": "CentralOps",
+    "description": "The title in the navbar"
+  },
+  "logo.alt": {
+    "message": "CentralOps",
+    "description": "The alt text of navbar logo"
+  },
+  "item.label.Começar": {
+    "message": "Começar",
+    "description": "Navbar item with label Começar"
+  },
+  "item.label.Saídas & Rotas": {
+    "message": "Saídas & Rotas",
+    "description": "Navbar item with label Saídas & Rotas"
+  },
+  "item.label.Operação": {
+    "message": "Operação",
+    "description": "Navbar item with label Operação"
+  },
+  "item.label.Administração": {
+    "message": "Administração",
+    "description": "Navbar item with label Administração"
+  },
+  "item.label.Mappings": {
+    "message": "Mappings",
+    "description": "Navbar item with label Mappings"
+  },
+  "item.label.Runbooks": {
+    "message": "Runbooks",
+    "description": "Navbar item with label Runbooks"
+  }
+}

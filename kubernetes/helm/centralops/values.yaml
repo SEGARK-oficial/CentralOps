@@ -1,0 +1,353 @@
+# Default values for centralops.
+# This is a YAML-formatted file.
+
+# nameOverride / fullnameOverride permitem renomear os recursos sem mexer no chart.
+nameOverride: ""
+fullnameOverride: ""
+
+image:
+  repository: ghcr.io/segark-oficial/centralops
+  pullPolicy: IfNotPresent
+  # Prefira PINAR por digest imutável em produção (reprodutível, rollback seguro):
+  # digest: "sha256:<...>"
+  # Se `digest` estiver vazio, cai na `tag`. Evite `latest` em produção.
+  tag: ""
+  digest: ""
+
+frontendImage:
+  repository: ghcr.io/segark-oficial/centralops-frontend
+  pullPolicy: IfNotPresent
+  tag: ""
+  digest: ""
+
+imagePullSecrets:
+  - name: ghcr-secret
+
+# ServiceAccount dedicado (least-privilege). Não monta o token da API do k8s —
+# nenhum workload precisa falar com o api-server.
+serviceAccount:
+  create: true
+  name: ""
+  automountServiceAccountToken: false
+
+config:
+  domain: ""
+  appEnv: "production"
+  otelEnabled: "true"
+  # Endpoint OTLP BASE — aponte para o OTel COLLECTOR gateway (fan-out p/
+  # Prometheus/Loki/Tempo); a app anexa /v1/{metrics,logs,traces}. Ex.:
+  # "http://192.168.3.108:4318". NÃO aponte direto pro Prometheus (só aceita
+  # métricas → traces/logs dariam 404). Vazio = OTel efetivamente desligado.
+  # Ver compose/observability/ p/ o stack do Collector pronto.
+  otelExporterOtlpEndpoint: ""
+  # Sampler de traces (0..1). 0 = sem export de traces (mantém métricas) — use
+  # quando não há backend de traces. 1 = head 1.0 (o tail-sampling decide no
+  # Collector); só use 1 com Collector+Tempo no ar.
+  otelTracesSamplerRatio: "0"
+  # Logs OTel → Collector → Loki (toggle separado; volume alto). Ligue ("true")
+  # quando o Collector estiver no ar.
+  otelLogsEnabled: "false"
+  nginxServerName: "centralops.local"
+  # CORS — restrinja às origens reais em produção (evite "*").
+  corsOrigins: ""
+  sessionSecureCookie: "1"
+  redbeatLockTimeout: "600"
+  # TLS do frontend: "1" termina TLS no nginx (precisa de cert), "0" serve HTTP
+  # e o TLS termina no Ingress. Default 0 = TLS na borda (Ingress).
+  enableHttps: "0"
+  # ── Edição/licença  — tuning OPCIONAL, só p/ deploy EE ──
+  # Vazio = usa os defaults do core (refresh 300s de re-resolução da edição em
+  # runtime; grace 7d após expirar). Sobrescreva só se quiser afinar. Ver
+  # values.ee.yaml (overlay Enterprise) e o runbook de upgrade CE→EE.
+  editionRefreshSeconds: ""
+  licenseGraceDays: ""
+
+secrets:
+  # Em produção, gerencie estes valores FORA do values.yaml (ExternalSecrets,
+  # HashiCorp Vault, SOPS) e referencie via `existingSecret`. Os defaults abaixo
+  # são placeholders propositalmente inválidos/vazios — o boot falha-rápido se
+  # não forem sobrescritos (ex.: APP_MASTER_KEY < 32 chars aborta o entrypoint).
+  existingSecret: ""
+  appMasterKey: "CHANGE_ME_TO_A_32_CHARS_MINIMUM_SECRET_KEY"
+  databaseUrl: "postgresql+psycopg2://user:CHANGE_ME@postgres.centralops.svc.cluster.local:5432/db"
+  redisPassword: "CHANGE_ME"
+  redisUrl: "redis://:CHANGE_ME@redis.centralops.svc.cluster.local:6379/0"
+  celeryBrokerUrl: "redis://:CHANGE_ME@redis.centralops.svc.cluster.local:6379/1"
+  celeryResultBackend: "redis://:CHANGE_ME@redis.centralops.svc.cluster.local:6379/2"
+  # Flower (UI Celery) — deixe vazio para desabilitar basic-auth fraco.
+  flowerBasicAuth: ""
+  # Licença Enterprise . Vazio = Community (default). Um token
+  # EdDSA válido + a IMAGEM EE (values.ee.yaml) → flip para Enterprise em runtime.
+  # Edition-neutro: a Community ignora o token (não há código EE para ativar).
+  # Em produção, injete via ExistingSecret/ExternalSecrets/Vault — não versione o token.
+  licenseToken: ""
+  # Keyring PÚBLICO Enterprise  — os <kid>.pem da chave PÚBLICA do
+  # billing-plane que verificam a assinatura EdDSA do token OFFLINE. OBRIGATÓRIO
+  # para o flip Enterprise: SEM o keyring, um token válido não pode ser verificado
+  # e edition.current fail-close para Community (mesmo na imagem EE). SÓ chaves
+  # PÚBLICAS aqui — a privada NUNCA sai do billing-plane (por isso um ConfigMap
+  # basta; não é segredo). Mapa <arquivo.pem> → conteúdo PEM. Ex.:
+  # licenseKeyring:
+  # "billing-2026.pem": |
+  # -----BEGIN PUBLIC KEY-----
+  # ...
+  # -----END PUBLIC KEY-----
+  # No deploy, prefira `--set-file secrets.licenseKeyring.<arquivo\.pem>=./chave.pem`
+  # (mantém o PEM fora do values versionado) ou `existingLicenseKeyring`.
+  licenseKeyring: {}
+  # Alternativa GitOps/ExternalSecrets ao inline acima: nome de um ConfigMap
+  # PRÉ-EXISTENTE contendo os <kid>.pem. Tem precedência sobre `licenseKeyring`.
+  existingLicenseKeyring: ""
+
+# ── SecurityContext (Pod Security Standards: restricted) ────────────────────
+# Aplicado a TODOS os workloads via _helpers. backend roda uid 10001
+# (Dockerfile `USER 10001`); nginx-unprivileged roda uid 101 (`USER 101`).
+podSecurityContext:
+  runAsNonRoot: true
+  seccompProfile:
+    type: RuntimeDefault
+containerSecurityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+      - ALL
+
+api:
+  replicaCount: 2
+  runAsUser: 10001
+  autoscaling:
+    enabled: false
+    minReplicas: 2
+    maxReplicas: 5
+    targetCPUUtilizationPercentage: 80
+    # targetMemoryUtilizationPercentage: PROIBIDO (death-spiral; ver workers)
+  pdb:
+    enabled: true
+    minAvailable: 1
+  resources:
+    limits:
+      cpu: "500m"
+      memory: "512Mi"
+    requests:
+      cpu: "100m"
+      memory: "256Mi"
+  probes:
+    startup:
+      path: /readyz
+      failureThreshold: 30
+      periodSeconds: 5
+    readiness:
+      path: /readyz
+      periodSeconds: 10
+      timeoutSeconds: 3
+    liveness:
+      path: /livez
+      initialDelaySeconds: 15
+      periodSeconds: 20
+      timeoutSeconds: 3
+
+frontend:
+  replicaCount: 2
+  runAsUser: 101
+  autoscaling:
+    enabled: false
+    minReplicas: 2
+    maxReplicas: 3
+    targetCPUUtilizationPercentage: 80
+    # targetMemoryUtilizationPercentage: PROIBIDO (death-spiral; ver workers)
+  pdb:
+    enabled: true
+    minAvailable: 1
+  resources:
+    limits:
+      cpu: "200m"
+      memory: "128Mi"
+    requests:
+      cpu: "50m"
+      memory: "64Mi"
+  service:
+    type: ClusterIP
+    port: 8080
+  probes:
+    readiness:
+      path: /health
+      periodSeconds: 10
+      timeoutSeconds: 3
+    liveness:
+      path: /health
+      initialDelaySeconds: 15
+      periodSeconds: 20
+
+workers:
+  priority:
+    replicaCount: 1
+  bulk:
+    replicaCount: 1
+  maintenance:
+    replicaCount: 1
+  dispatcher:
+    replicaCount: 1
+    # Dispatcher é o worker MAIS PESADO (carrega libs de sink dos destinos —
+    # S3/Sentinel/Kafka — por fork) → ~554Mi a concurrency=2 (OOMKilled em 640Mi).
+    # Override de resources (medido 2026-06-25).
+    resources:
+      limits:
+        cpu: "1000m"
+        memory: "1Gi"
+      requests:
+        cpu: "150m"
+        memory: "512Mi"
+  # beat DEVE permanecer singleton (o lock RedBeat protege, mas mantenha 1).
+  beat:
+    replicaCount: 1
+    # beat só AGENDA (não faz fork de tarefa) → uso ~98Mi. Override enxuto.
+    resources:
+      limits:
+        cpu: "300m"
+        memory: "256Mi"
+      requests:
+        cpu: "50m"
+        memory: "128Mi"
+  runAsUser: 10001
+  # Concurrency do prefork Celery. 2 é o ponto certo p/ nós pequenos (2 vCPU/4GB):
+  # cada fork é um processo Python ~150-200Mi → concurrency=4 estoura 512Mi (cgroup-OOM).
+  # Tarefas são I/O-bound (API de vendor) → 2 forks bastam; p/ mais vazão, escale RÉPLICAS.
+  concurrency: 2
+  # default autoscaling for workers (NÃO aplicado ao beat — singleton).
+  # ⚠️ NUNCA escale por MEMÓRIA. O consumo é overhead FIXO dos forks (não cresce
+  # com a carga) → HPA-por-memória nunca converge e entra em DEATH-SPIRAL (escala
+  # até o máximo → OOM → escala mais → derruba o control-plane). Só CPU. Incidente
+  # real 2026-06-25 — ver docs/deployment + chart README (Sizing).
+  autoscaling:
+    enabled: false
+    minReplicas: 1
+    maxReplicas: 5
+    targetCPUUtilizationPercentage: 80
+    # targetMemoryUtilizationPercentage: PROIBIDO (ver aviso acima)
+  pdb:
+    enabled: false
+    minAvailable: 0
+  # Resources MEDIDOS: worker concurrency=2 usa ~200-232Mi → limite 640Mi com folga
+  # p/ o pico dos 2 forks. (concurrency=4 exigiria ~1Gi e nós de 8GB.)
+  resources:
+    limits:
+      cpu: "800m"
+      memory: "640Mi"
+    requests:
+      cpu: "150m"
+      memory: "384Mi"
+  # Liveness via celery inspect ping (worker travado é reiniciado). Não se
+  # aplica ao beat (que não responde a inspect).
+  livenessProbe:
+    enabled: true
+    periodSeconds: 60
+    timeoutSeconds: 10
+    failureThreshold: 3
+
+ingress:
+  enabled: true
+  className: "traefik"
+  annotations: {}
+  hosts:
+    - host: ""
+      paths:
+        - path: /
+          pathType: Prefix
+  # TLS de borda — preencha com o Secret de certificado (ou deixe o cert-manager
+  # gerenciar via annotations). Sem isto, o tráfego externo é HTTP puro.
+  tls: []
+  # - secretName: centralops-tls
+  # hosts:
+  # - centralops.example.com
+
+networkPolicies:
+  enabled: true
+  # Namespace do ingress controller (label kubernetes.io/metadata.name). Usado
+  # para liberar SOMENTE o ingress controller a alcançar o frontend. Vazio =
+  # libera de qualquer namespace (menos restrito — defina em produção).
+  ingressControllerNamespace: ""
+  # Egress de internet (HTTPS 443) para os coletores chamarem APIs de vendor,
+  # bloqueando o range privado do cluster (anti-movimento-lateral). Desligue só
+  # se o cluster roteia vendors por um egress gateway/proxy dedicado.
+  allowInternetEgress: true
+  # Egress allow-list adicional. DNS é sempre liberado. Acrescente CIDRs/portas
+  # externas (ex.: endpoint OTLP fora do cluster) conforme necessário.
+  egress:
+    # CIDRs externos permitidos (ex.: coletor OTLP fora do cluster, APIs SaaS).
+    extraAllowedCIDRs: []
+    # - cidr: 192.168.3.0/24
+    # ports:
+    # - { protocol: TCP, port: 9090 }
+
+# Banco/redis de DESENVOLVIMENTO (Postgres+Redis in-cluster). NÃO use em produção
+# — use serviço gerenciado (RDS/Cloud SQL/ElastiCache) e aponte os secrets.
+devDatabase:
+  enabled: false
+  postgres:
+    image: postgres:16-alpine
+    storage: 5Gi
+    user: "user"
+    password: "CHANGE_ME"
+    db: "db"
+  redis:
+    image: redis:7-alpine
+    storage: 2Gi
+    password: "CHANGE_ME"
+    maxmemory: "512mb"   # dataset máximo em RAM (evicta só chaves com TTL)
+
+# ── Onda 3 — data-plane durável (Kafka/Redpanda) ──────────────────────
+# Transporte de evento separado do control-plane (Celery+Redis). Com
+# eventDataplane=kafka, o fan-out produz no tópico ``<prefix>.deliver`` e o
+# kafka-dispatcher consome. wazuh-default segue na lane Celery (worker dispatcher).
+dataPlane:
+  eventDataplane: "kafka"          # "kafka" (deploy) | "celery" (dev sem broker)
+  kafka:
+    # PROD: aponte p/ MSK/Redpanda Cloud/Confluent. DEV: use devBroker (redpanda:9092).
+    bootstrapServers: "redpanda:9092"
+    topicPrefix: "centralops"
+    consumerGroup: "centralops-dispatcher"
+    securityProtocol: "PLAINTEXT"  # SASL_SSL em broker gerenciado
+    # Managed-broker egress allow-list for NetworkPolicy (prod brokers off-cluster).
+    # Each entry: { cidr: <broker CIDR>, ports: [ { protocol: TCP, port: 9092 } ] }
+    brokerCIDRs: []
+    # Credenciais SASL (broker gerenciado SASL_SSL). Vazio = sem SASL.
+    sasl:
+      mechanism: ""   # PLAIN | SCRAM-SHA-256 | SCRAM-SHA-512 (empty = no SASL)
+      username: ""
+      password: ""    # prefer existingSecret in prod
+  # Role dispatcher (consumer do tópico deliver).
+  dispatcher:
+    replicaCount: 1
+    resources:
+      limits:
+        cpu: "1000m"
+        memory: "1Gi"
+      requests:
+        cpu: "150m"
+        memory: "512Mi"
+    # KEDA: escala por LAG do consumer group (exige o KEDA instalado no cluster).
+    # Desligado por default; ligue em prod p/ autoscaling por estágio .
+    keda:
+      enabled: false
+      minReplicas: 1
+      maxReplicas: 10
+      lagThreshold: "1000"         # mensagens de lag toleradas por réplica
+    # Probes do dispatcher (liveness/readiness via touch-files em /tmp; o lado
+    # Python toca /tmp/dispatcher-ready após start e /tmp/dispatcher-heartbeat a
+    # cada ciclo de poll). Espelha workers.livenessProbe.enabled.
+    probes:
+      enabled: true
+    # Onda 4 (hardening) — PodDisruptionBudget do dispatcher.
+    # maxUnavailable:1 permite drain de nó mesmo com replicaCount:1 (minAvailable:1
+    # bloquearia o drain do único pod).
+    pdb:
+      enabled: false
+      maxUnavailable: 1
+
+# Broker Redpanda IN-CLUSTER — APENAS dev/test (single-node, sem HA). Em produção
+# use MSK/Redpanda Cloud/Confluent e aponte dataPlane.kafka.bootstrapServers.
+devBroker:
+  enabled: false
+  image: redpandadata/redpanda:v24.2.7
+  storage: 5Gi

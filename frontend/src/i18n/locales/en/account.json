@@ -1,0 +1,75 @@
+{
+  "eyebrow": "Your account",
+  "title": "Account settings",
+  "description": "Manage your profile, language and password. Administrative settings like role and organization are managed by an administrator.",
+  "load": {
+    "error": "Could not load your account. Please try again."
+  },
+  "summary": {
+    "title": "Identity",
+    "subtitle": "Read-only details about your account.",
+    "username": "Username",
+    "role": "Role",
+    "scope": "Access scope",
+    "scopeGlobal": "Global — all organizations",
+    "scopeOrg": "Scoped to {{org}}",
+    "scopeNone": "No organization",
+    "organization": "Organization",
+    "signInMethod": "Sign-in method",
+    "methodLocal": "Local password",
+    "methodSso": "Microsoft Entra (SSO)",
+    "memberSince": "Member since",
+    "lastSignIn": "Last sign-in",
+    "never": "Never"
+  },
+  "profile": {
+    "title": "Profile",
+    "subtitle": "Update how you appear and the language of the interface.",
+    "displayName": "Display name",
+    "displayNameHelp": "The name shown across the app.",
+    "email": "Email",
+    "emailHelp": "Used for notifications and account recovery.",
+    "emailManagedByIdp": "Your email is managed by your identity provider.",
+    "confirmPassword": "Current password",
+    "confirmPasswordHelp": "Confirm your current password to change your email.",
+    "emailPasswordRequired": "Enter your current password to change your email.",
+    "language": "Language",
+    "languageHelp": "The interface language that follows you across devices.",
+    "saved": "Your profile has been updated.",
+    "saveError": "Could not save your profile."
+  },
+  "locales": {
+    "pt": "Portuguese",
+    "en": "English",
+    "es": "Spanish"
+  },
+  "security": {
+    "title": "Security",
+    "subtitle": "Change your password and manage active sessions."
+  },
+  "password": {
+    "title": "Change password",
+    "current": "Current password",
+    "new": "New password",
+    "confirm": "Confirm new password",
+    "rule": "At least {{min}} characters.",
+    "submit": "Change password",
+    "tooShort": "The new password must be at least {{min}} characters.",
+    "mismatch": "The new password and its confirmation do not match.",
+    "reuse": "The new password must be different from the current one.",
+    "changed": "Your password has been changed.",
+    "changedWithSessions": "Your password has been changed. {{count}} other session(s) were signed out.",
+    "error": "Could not change your password.",
+    "ssoManaged": "Your password is managed by your identity provider (Microsoft Entra). Change it there."
+  },
+  "sessions": {
+    "title": "Active sessions",
+    "subtitle": "Sign out of every other device while keeping this one active.",
+    "action": "Sign out other sessions",
+    "revoked": "{{count}} other session(s) were signed out.",
+    "noneToRevoke": "There were no other sessions to sign out.",
+    "error": "Could not sign out other sessions.",
+    "confirmTitle": "Sign out other sessions?",
+    "confirmDescription": "Every other device will be signed out. This session stays active."
+  }
+}

@@ -1,0 +1,593 @@
+{
+  "page": {
+    "eyebrow": "Administración",
+    "title": "Configuración",
+    "description": "Gestione el gateway de correo, los destinatarios y la configuración en tiempo de ejecución del Collector (buffering, límites de tasa).",
+    "stats": {
+      "recipients": "Destinatarios",
+      "tlsSmtp": "TLS SMTP",
+      "tlsActive": "Activo",
+      "tlsOptional": "Opcional",
+      "tlsSecure": "Seguro",
+      "tlsFree": "Libre",
+      "smtpPassword": "Contraseña SMTP",
+      "smtpPasswordSaved": "Guardada",
+      "smtpPasswordNotSaved": "No guardada",
+      "smtpPasswordProtected": "Protegida",
+      "smtpPasswordPending": "Pendiente",
+      "activeDestinations": "Destinos activos",
+      "viewDestinations": "Ver destinos"
+    },
+    "tabs": {
+      "ariaLabel": "Secciones de configuración",
+      "email": "Notificaciones por correo",
+      "collector": "Collector / Dispatch",
+      "identity": "Identidad y SSO",
+      "audit": "Auditoría",
+      "capture": "Captura en vivo",
+      "licensing": "Licenciamiento"
+    },
+    "email": {
+      "loadError": "Error al cargar la configuración de correo",
+      "cardTitle": "Notificaciones por correo",
+      "cardDescription": "Relay SMTP, remitente y destinatarios usados en alertas e informes."
+    },
+    "collector": {
+      "loadError": "Error al cargar la configuración del Collector",
+      "cardTitle": "Collector / Dispatch",
+      "cardDescription": "Batching, límites de tasa y concurrencia por proveedor. Los cambios se propagan a los workers en hasta 30s sin reinicio."
+    },
+    "identity": {
+      "loadError": "Error al cargar la configuración de identidad",
+      "cardTitle": "Identidad y SSO (Microsoft Entra)",
+      "cardDescription": "Inicio de sesión federado \"Iniciar sesión con Microsoft\" (OIDC). Las credenciales se cifran en la base de datos; los cambios aplican en el próximo inicio de sesión, sin reinicio."
+    },
+    "audit": {
+      "cardTitle": "Auditoría de eventos despachados",
+      "cardDescription": "Últimos eventos despachados vía Syslog/JSONL. Úselo para inspeccionar la forma real y probar decoders en la herramienta de su destino (ej.: {{tool}})."
+    },
+    "capture": {
+      "cardTitle": "Captura en vivo (\"modo escucha\")",
+      "cardDescription": "Graba una muestra temporal del tráfico despachado a los destinos, opcionalmente filtrada por proveedor. Ideal para inspeccionar la forma real durante una prueba de integración. La sesión expira sola."
+    }
+  },
+  "collectorsPage": {
+    "eyebrow": "Ingesta",
+    "title": "Collectors",
+    "description": "Estado de las recolecciones en tiempo real. Cada fila representa una recolección activa (integración + tipo de dato).",
+    "refresh": "Actualizar",
+    "closeNotice": "Cerrar aviso",
+    "loadError": "Error al cargar los datos del collector.",
+    "triggerError": "Error al disparar la recolección.",
+    "resetError": "Error al reiniciar el cursor.",
+    "triggerSuccess": "Recolección encolada en la cola {{queue}} (tarea {{taskId}}…).",
+    "resetSuccess": "Cursor de {{name}} / {{stream}} reiniciado.",
+    "defaultIntegration": "integración",
+    "kpi": {
+      "integrationsTracked": "Integraciones monitoreadas",
+      "vendorsRegisteredHint": "{{count}} proveedor(es) registrado(s)",
+      "eventsCollected": "Eventos recolectados",
+      "eventsCollectedHint": "acumulado histórico por integración",
+      "integrationsWithErrors": "Con fallos consecutivos",
+      "maxLag": "Retraso máximo (min)",
+      "maxLagHint": "desde el último éxito"
+    },
+    "vendors": {
+      "registered": "Proveedores registrados ({{count}})",
+      "hide": "Ocultar",
+      "showAll": "Ver todos",
+      "filterPlaceholder": "Filtrar proveedor o stream…",
+      "filterAriaLabel": "Filtrar proveedores registrados",
+      "listAriaLabel": "Lista de proveedores registrados",
+      "taskTooltip": "Tarea: {{task}} • Cola: {{queue}} • {{seconds}}s",
+      "filteredCount": "{{filtered}} de {{total}} proveedores",
+      "collapsedHint": "{{count}} streams de proveedor registrados en el collector. Haga clic en “Ver todos” para listar y filtrar."
+    },
+    "table": {
+      "title": "Estado de las recolecciones",
+      "sourceHint": "Fuente: tabla <code>{{table}}</code> (caché en caliente en Redis).",
+      "loading": "Cargando recolecciones…",
+      "ariaLabel": "Estado de las recolecciones por integración y stream",
+      "columns": {
+        "orgIntegration": "Organización / Integración",
+        "platformStream": "Platform / Stream",
+        "events": "Eventos",
+        "lastSuccess": "Último éxito",
+        "status": "Estado",
+        "actions": "Acciones"
+      },
+      "emptyTitle": "Ninguna recolección registrada",
+      "emptyNoVendors": "El subsistema Collector aún no registró proveedores. Verifique el Celery Beat.",
+      "emptyNoIntegration": "Cree una integración activa y espere el próximo tick del Beat (hasta 60s).",
+      "trigger": "Disparar",
+      "triggerTooltip": "Disparar recolección inmediata",
+      "reset": "Reiniciar",
+      "resetTooltip": "Reiniciar cursor (admin)"
+    },
+    "health": {
+      "failures": "Fallos: {{count}}",
+      "noCollection": "Sin recolección",
+      "active": "Activo",
+      "minutesAgo": "hace {{minutes}} min"
+    },
+    "resetModal": {
+      "title": "¿Reiniciar cursor?",
+      "body": "Esto borrará el checkpoint persistido de {{name}} / {{stream}}.",
+      "hint": "La próxima recolección usará el lookback predeterminado del proveedor (1h atrás). La deduplicación sigue filtrando eventos recientes, pero puede haber reenvío hasta que expire el TTL.",
+      "confirm": "Reiniciar cursor"
+    }
+  },
+  "email": {
+    "resultTitleSuccess": "Operación completada",
+    "resultTitleError": "No se pudo completar",
+    "fields": {
+      "smtpHost": "Host SMTP",
+      "port": "Puerto",
+      "user": "Usuario",
+      "userHelper": "Opcional. Úselo cuando el relay requiera autenticación.",
+      "sender": "Remitente",
+      "senderPlaceholder": "centralops@empresa.com",
+      "password": "Contraseña SMTP",
+      "passwordHelperConfigured": "Ya existe una contraseña guardada. Complete solo para reemplazarla.",
+      "passwordHelperEmpty": "Opcional. Deje en blanco si su relay no requiere contraseña."
+    },
+    "useTls": "Usar TLS",
+    "useTlsDescription": "Actívelo cuando el proveedor requiera transporte cifrado en las conexiones SMTP.",
+    "passwordStoredSecurely": "Contraseña almacenada de forma segura",
+    "keepCurrentPassword": "Mantener contraseña actual",
+    "removeStoredPassword": "Eliminar contraseña guardada",
+    "passwordMarkedForRemovalTitle": "Contraseña marcada para eliminación",
+    "passwordMarkedForRemovalBody": "La contraseña guardada se eliminará en el próximo guardado de la configuración.",
+    "sendTest": "Enviar prueba",
+    "saveConfig": "Guardar configuración",
+    "recipients": {
+      "title": "Destinatarios",
+      "description": "Correos que reciben alertas y resultados de ejecuciones programadas.",
+      "count_one": "{{count}} registrado",
+      "count_other": "{{count}} registrados",
+      "newLabel": "Nuevo destinatario",
+      "newPlaceholder": "nombre@empresa.com",
+      "add": "Agregar",
+      "emptyTitle": "Ningún destinatario configurado",
+      "emptyDescription": "Agregue al menos un correo para recibir notificaciones de alertas y programaciones.",
+      "idLabel": "Destinatario #{{id}}",
+      "remove": "Eliminar",
+      "removeAriaLabel": "Eliminar destinatario {{email}}",
+      "deleteTitle": "Eliminar destinatario",
+      "deleteDescriptionPrefix": "¿Está seguro de que desea eliminar",
+      "deleteDescriptionSuffix": "? Este correo dejará de recibir alertas y resultados de ejecuciones programadas."
+    }
+  },
+  "collector": {
+    "envBanner": {
+      "title": "Configuración heredada de variables de entorno",
+      "body": "Los valores actuales provienen de <code>{{envFile}}</code>. Guarde para persistir en la base de datos y habilitar la edición vía UI — los workers recargarán automáticamente en ≤30s."
+    },
+    "destinationsCta": "La configuración del destino de entrega (ej.: wazuh-default) se movió a la página <a>Destinos</a>.",
+    "testResult": {
+      "healthy": "Saludable",
+      "error": "Error"
+    },
+    "sections": {
+      "bufferDedupe": {
+        "title": "Buffer y Dedupe",
+        "hint": "Cómo se acumulan los lotes y se filtran los eventos duplicados."
+      },
+      "domainConcurrency": {
+        "title": "Concurrencia por dominio",
+        "hint": "Máximo de solicitudes simultáneas al host de cada proveedor."
+      },
+      "vendorRateLimits": {
+        "title": "Límites de tasa por proveedor",
+        "hint": "Presupuesto por ventana (sliding window distribuido vía Redis)."
+      }
+    },
+    "fields": {
+      "batchSize": "Tamaño del lote",
+      "batchSizeHelper": "Lotes más grandes = menos round-trips, mayor latencia por evento.",
+      "flushSeconds": "Flush después de (segundos)",
+      "flushSecondsHelper": "Envía el lote parcial aunque no esté lleno — garantiza latencia máxima.",
+      "dedupeTtl": "TTL de dedupe (días)",
+      "dedupeTtlHelper": "Ventana de memoria para filtrar eventos duplicados por proveedor."
+    },
+    "table": {
+      "vendor": "Proveedor",
+      "concurrentLimit": "Límite simultáneo (1–1000)",
+      "perSecond": "/segundo",
+      "perMinute": "/minuto",
+      "perHour": "/hora",
+      "noVendorsConfigured": "Ningún proveedor configurado.",
+      "registeredBadge": "registrado",
+      "concurrentLimitAriaLabel": "Límite simultáneo para {{vendor}}",
+      "removeAriaLabel": "Eliminar {{vendor}}",
+      "perFieldAriaLabel": "{{field}} para {{vendor}}",
+      "selectVendorPlaceholder": "Seleccionar proveedor...",
+      "selectVendorAriaLabel": "Seleccionar proveedor para agregar",
+      "selectVendorRateLimitAriaLabel": "Seleccionar proveedor para agregar límite de tasa",
+      "other": "otro...",
+      "list": "lista",
+      "customVendorPlaceholder": "nombre-del-proveedor",
+      "customVendorAriaLabel": "Nombre de proveedor personalizado",
+      "add": "Agregar",
+      "availableDefault10": "Disponibles (predeterminado 10):",
+      "availableDefaultRates": "Disponibles (predeterminado 10/100/1000):",
+      "configureDefaultTooltip": "Configurar {{vendor}} con límite predeterminado 10",
+      "configureDefaultRatesTooltip": "Configurar {{vendor}} con límites predeterminados"
+    },
+    "unsavedChanges": "Cambios sin guardar",
+    "test": "Probar",
+    "testTooltipDirty": "Guarde antes de probar",
+    "testTooltipClean": "Prueba la configuración guardada ahora",
+    "saveConfig": "Guardar configuración"
+  },
+  "identity": {
+    "enableEntraLogin": "Habilitar inicio de sesión con Microsoft Entra",
+    "enableEntraLoginDescription": "Muestra el botón 'Iniciar sesión con Microsoft' en la pantalla de inicio de sesión.",
+    "fields": {
+      "tenantId": "Tenant ID (Directory)",
+      "clientId": "Client ID (Application)",
+      "clientSecret": "Client secret",
+      "clientSecretPlaceholderConfigured": "•••••••• configurado — deje en blanco para mantener",
+      "clientSecretPlaceholderEmpty": "Pegue el client secret",
+      "clientSecretHelper": "Almacenado cifrado en la base de datos; nunca se muestra de nuevo.",
+      "redirectUri": "Redirect URI",
+      "redirectUriPlaceholder": "https://centralops.ejemplo.com/api/auth/sso/callback",
+      "redirectUriHelper": "Idéntico al registrado en el App Registration (HTTPS).",
+      "authority": "Authority",
+      "authorityHelper": "Cámbielo solo en nubes soberanas (US Gov / China).",
+      "scopes": "Scopes",
+      "defaultRole": "Rol predeterminado",
+      "defaultRoleHelper": "Se usa cuando ningún App Role del token coincide en el mapa.",
+      "allowedEmailDomains": "Dominios de correo permitidos",
+      "allowedEmailDomainsPlaceholder": "empresa.com, empresa.com.mx",
+      "allowedEmailDomainsHelper": "CSV. Vacío = cualquier dominio del tenant.",
+      "roleMap": "Mapa de App Roles → rol local (JSON)",
+      "roleMapHelper": "Ej: {\"CentralOpsAdmin\":\"admin\",\"CentralOpsOperator\":\"operator\"}",
+      "buttonLabel": "Etiqueta del botón",
+      "postLoginRedirect": "Redirección post-inicio de sesión"
+    },
+    "roles": {
+      "viewer": "Viewer",
+      "operator": "Operator",
+      "engineer": "Engineer",
+      "admin": "Admin"
+    },
+    "globalScopeDefault": "Alcance global por defecto",
+    "globalScopeDefaultDescription": "Las cuentas creadas vía SSO ven todas las organizaciones (caso típico de un SOC interno).",
+    "jitProvisioning": "Aprovisionamiento JIT",
+    "jitProvisioningDescription": "Crea la cuenta en el primer inicio de sesión. Desactívelo para exigir una cuenta pre-aprovisionada.",
+    "sync": {
+      "title": "Sincronización de usuarios (Graph)",
+      "enabled": "Sincronización activa",
+      "enabledDescription": "Habilita la sincronización periódica de usuarios del App Registration vía Microsoft Graph.",
+      "deprovision": "Desaprovisionamiento automático",
+      "deprovisionDescription": "Desactivar usuarios que salen del App Registration (sesiones y tokens revocados)."
+    },
+    "roleMapInvalid": "JSON inválido: {{message}}",
+    "roleMapInvalidNotObject": "debe ser un objeto JSON",
+    "roleMapInvalidGeneric": "verifique la sintaxis",
+    "defaultButtonLabel": "Iniciar sesión con Microsoft",
+    "saveConfig": "Guardar configuración",
+    "testConnection": "Probar conexión",
+    "envOnlyHint": "Leyendo desde .env — guarde para grabar en la base de datos."
+  },
+  "entraSync": {
+    "never": "Nunca",
+    "status": {
+      "inProgress": "En curso",
+      "inProgressAriaLabel": "Sincronización en curso",
+      "ok": "OK",
+      "okAriaLabel": "Última sincronización exitosa",
+      "error": "Error",
+      "errorAriaLabel": "Última sincronización con error",
+      "partial": "Parcial",
+      "partialAriaLabel": "Última sincronización completada con errores parciales",
+      "never": "Nunca sincronizado",
+      "neverAriaLabel": "Ninguna sincronización realizada aún"
+    },
+    "counters": {
+      "created": "Creados:",
+      "updated": "Actualizados:",
+      "deactivated": "Desactivados:"
+    },
+    "errors": {
+      "hide": "Ocultar errores",
+      "showCount_one": "{{count}} error en la última sincronización",
+      "showCount_other": "{{count}} errores en la última sincronización",
+      "listAriaLabel": "Errores de la última sincronización"
+    },
+    "cardTitle": "Estado de sincronización (Graph)",
+    "cardDescription": "Última sincronización de usuarios de Entra vía Microsoft Graph API.",
+    "statusRegionAriaLabel": "Estado de la última sincronización de usuarios de Entra",
+    "loadingStatus": "Cargando estado...",
+    "lastSync": "Última sincronización:",
+    "syncNow": "Sincronizar ahora",
+    "syncNowAriaLabelRunning": "Sincronización en curso — espere",
+    "syncNowAriaLabelIdle": "Disparar sincronización ahora",
+    "refresh": "Actualizar",
+    "refreshAriaLabel": "Actualizar estado de sincronización"
+  },
+  "audit": {
+    "intro": {
+      "title": "Qué es esta pestaña",
+      "body": "Ring buffer de los últimos <strong>eventos efectivamente despachados a los destinos</strong> (últimos 500, TTL 24h). Las líneas wire-format exportadas aquí son <strong>idénticas byte a byte</strong> a las que salieron por la red — el hostname y el PRI se capturan en el momento del despacho. Péguelas en la herramienta de prueba de su destino (ej.: {{tool}}) para ver exactamente cómo se comporta su decoder/regla contra el tráfico real."
+    },
+    "loadError": "Error al cargar la auditoría",
+    "clearBufferSuccess": "Ring buffer reiniciado.",
+    "clearBufferError": "Error al reiniciar el buffer",
+    "copyWireSuccess": "Línea {{format}} copiada — péguela en la herramienta de prueba de su destino (ej.: {{tool}}) para probar decoders.",
+    "copyJsonSuccess": "JSON del evento copiado.",
+    "toolbar": {
+      "filterByPlatform": "Filtrar por plataforma",
+      "allPlatforms": "Todas las plataformas",
+      "filterByStream": "Filtrar por stream",
+      "allStreams": "Todos los streams",
+      "quantity": "Cantidad",
+      "eventsUnit": "{{count}} eventos",
+      "eventCount_one": "{{count}} evento",
+      "eventCount_other": "{{count}} eventos",
+      "clearBuffer": "Limpiar buffer"
+    },
+    "loading": "Cargando auditoría…",
+    "emptyTitle": "Buffer vacío",
+    "emptyDescription": "Ningún evento despachado en los últimos minutos — o acaba de limpiar el buffer. El ring comienza a llenarse tan pronto como se ejecute la próxima recolección.",
+    "table": {
+      "timestamp": "Marca de tiempo",
+      "vendorStream": "Proveedor / Stream",
+      "customer": "Cliente",
+      "eventId": "ID del evento",
+      "severity": "Severidad",
+      "actions": "Acciones",
+      "legacyFormatTooltip": "Muestra registrada antes de una actualización del sistema — formato real no registrado"
+    },
+    "actions": {
+      "inspect": "Inspeccionar",
+      "inspectTooltip": "Ver JSON completo",
+      "json": "JSON",
+      "jsonTooltip": "Copiar JSON",
+      "wireTooltip": "Copiar línea wire-format lista para wazuh-logtest"
+    },
+    "modal": {
+      "defaultTitle": "Evento",
+      "customerBadge": "cliente #{{id}}",
+      "integrationBadge": "integración #{{id}}",
+      "legacyHostnameBadge": "hostname de marcador",
+      "tabsAriaLabel": "Vistas del evento",
+      "tabWire": "Wire-format",
+      "tabNormalized": "Normalizado (OCSF)",
+      "tabRaw": "Sin procesar (proveedor)",
+      "wireLineLabelRfc3164": "Línea RFC 3164",
+      "wireLineLabelRfc5424": "Línea RFC 5424",
+      "wireLineCopyHint": "(copiar a la herramienta de prueba del destino, ej.: {{tool}})",
+      "hostBadge": "host: {{hostname}}",
+      "legacyEnvelopeNote": "Este evento se grabó antes de la corrección de fidelidad; el hostname es un marcador pero no afecta al decoder (coincidimos en {{field}}). Los eventos nuevos llevarán el hostname real.",
+      "legacyFormatNote": "Muestra registrada antes de una actualización del sistema — mostrada en formato RFC 5424.",
+      "copyLine": "Copiar línea",
+      "normalizedTitle": "OCSF v1.3 normalizado",
+      "rawTitle": "Payload original del proveedor",
+      "copyJson": "Copiar JSON"
+    },
+    "clearDialog": {
+      "title": "¿Reiniciar el ring buffer de auditoría?",
+      "descriptionPrefix": "Esta acción elimina",
+      "descriptionAllEvents": "los {{count}} eventos",
+      "descriptionSuffix": "actualmente en el buffer y no se puede deshacer. Los eventos nuevos seguirán registrándose normalmente a medida que los collectors despachen a los destinos.",
+      "confirm": "Reiniciar buffer"
+    }
+  },
+  "capture": {
+    "intro": {
+      "title": "Qué es la captura en vivo",
+      "body": "Activa un <strong>\"modo escucha\"</strong> temporal que graba una muestra del tráfico <strong>efectivamente despachado a los destinos</strong>, opcionalmente filtrado por proveedor. Úselo para inspeccionar la forma real de los eventos durante una prueba de integración — sin revisar el ring global de auditoría. La sesión expira sola al final de la ventana; nada queda activo para siempre."
+    },
+    "loadSessionsError": "Error al listar sesiones de captura",
+    "loadEventsError": "Error al cargar eventos de la sesión",
+    "startSuccess": "Captura iniciada{{vendorSuffix}}. Los eventos aparecen a medida que el pipeline los despacha.",
+    "startVendorSuffix": " (proveedor: {{vendor}})",
+    "limitReached": "Se alcanzó el límite de sesiones de captura simultáneas. Detenga o elimine una sesión existente antes de iniciar otra.",
+    "startError": "Error al iniciar la captura",
+    "stopSuccess": "Captura detenida. Los eventos ya grabados siguen disponibles.",
+    "stopError": "Error al detener la captura",
+    "deleteSuccess": "Sesión de captura eliminada.",
+    "deleteError": "Error al eliminar la sesión",
+    "copyJsonSuccess": "JSON del evento copiado.",
+    "durations": {
+      "1m": "1 minuto",
+      "5m": "5 minutos",
+      "15m": "15 minutos",
+      "30m": "30 minutos",
+      "1h": "1 hora"
+    },
+    "form": {
+      "vendorScope": "Proveedor (alcance)",
+      "vendorAriaLabel": "Proveedor de la captura",
+      "allVendors": "Todos los proveedores",
+      "duration": "Duración",
+      "durationAriaLabel": "Duración de la captura",
+      "bufferSize": "Tamaño del buffer",
+      "bufferSizeAriaLabel": "Tamaño del buffer de la captura",
+      "eventsUnit": "{{count}} eventos",
+      "start": "Iniciar captura",
+      "refresh": "Actualizar"
+    },
+    "sessionsLoading": "Cargando sesiones…",
+    "sessionsEmptyTitle": "Ninguna sesión de captura",
+    "sessionsEmptyDescription": "Inicie una captura arriba para grabar una muestra del tráfico despachado. La sesión expira sola al final de la ventana elegida.",
+    "table": {
+      "vendor": "Proveedor",
+      "status": "Estado",
+      "events": "Eventos",
+      "started": "Iniciada",
+      "expires": "Expira",
+      "actions": "Acciones",
+      "allVendors": "Todos",
+      "expiresIn": "en ~{{seconds}}s",
+      "viewEvents": "Eventos",
+      "viewEventsTooltip": "Ver eventos capturados",
+      "stop": "Detener",
+      "stopTooltip": "Detener captura",
+      "delete": "Eliminar",
+      "deleteTooltip": "Eliminar sesión"
+    },
+    "events": {
+      "title": "Eventos — {{vendor}}",
+      "allVendors": "Todos los proveedores",
+      "liveUpdating": "(actualizando en vivo)",
+      "refresh": "Actualizar",
+      "loading": "Cargando eventos…",
+      "waitingTitle": "Esperando tráfico…",
+      "waitingDescription": "La captura está activa pero aún no se ha despachado ningún evento para el filtro elegido. Los eventos aparecerán aquí tan pronto como el pipeline los entregue.",
+      "emptyTitle": "Sin eventos capturados",
+      "emptyDescription": "Esta sesión no capturó eventos en la ventana (no hubo tráfico que coincidiera con el filtro).",
+      "table": {
+        "capturedAt": "Capturado el",
+        "vendor": "Proveedor",
+        "preview": "Vista previa",
+        "actions": "Acciones"
+      },
+      "inspect": "Inspeccionar",
+      "inspectTooltip": "Ver JSON completo",
+      "json": "JSON",
+      "jsonTooltip": "Copiar JSON"
+    },
+    "inspectModal": {
+      "title": "Evento capturado — {{vendor}}",
+      "defaultTitle": "Evento",
+      "copyJson": "Copiar JSON"
+    },
+    "deleteDialog": {
+      "title": "¿Eliminar sesión de captura?",
+      "description": "Elimina la sesión y todos los eventos capturados en ella. No se puede deshacer.",
+      "confirm": "Eliminar"
+    }
+  },
+  "licensing": {
+    "cardTitle": "Licenciamiento",
+    "cardDescription": "Active la edición Enterprise pegando la clave de licencia. Se valida sin conexión y se guarda <strong>cifrada en la base de datos</strong> — el sistema pasa a leer la licencia de allí (sobrevive a reinicios, sin editar variables de entorno).",
+    "graceTitle": "Licencia expirada — en período de gracia",
+    "graceBody": "Las funciones Enterprise siguen activas temporalmente. Pegue la licencia renovada abajo antes de que finalice el período de gracia para no revertir a Community.",
+    "source": {
+      "database": "Base de datos (activada por la UI)",
+      "environment": "Variable de entorno / archivo",
+      "none": "Ninguna licencia activa"
+    },
+    "edition": {
+      "enterprise": "Enterprise",
+      "community": "Community"
+    },
+    "plan": "Plan: <strong>{{plan}}</strong>",
+    "origin": "Origen: {{source}}",
+    "expiresOn": "Expira el {{date}}",
+    "activatedOn": "Activada el {{date}}",
+    "activatedBy": " por {{name}}",
+    "activateSuccessEnterprise": "Licencia activada — edición Enterprise (plan {{plan}}).",
+    "activateSuccessCommunityOnly": "Token aceptado, pero la edición permaneció en Community.",
+    "activateError": "Error al activar la licencia.",
+    "deactivateSuccess": "Licencia desactivada — revertido a Community.",
+    "deactivateError": "Error al desactivar la licencia.",
+    "unknownPlan": "—",
+    "form": {
+      "label": "Clave de licencia",
+      "placeholder": "Pegue aquí el token (eyJhbGciOiJFZERTQS...)",
+      "helper": "Token firmado (EdDSA) emitido para su organización. Validado sin conexión.",
+      "activate": "Activar licencia",
+      "deactivate": "Desactivar"
+    }
+  },
+  "edition": {
+    "enterprise": "Enterprise",
+    "community": "Community",
+    "plan": "Plan: <strong>{{plan}}</strong>",
+    "featuresLicensed_one": "{{count}} función licenciada",
+    "featuresLicensed_other": "{{count}} funciones licenciadas",
+    "expiresOn": "Expira el {{date}}{{daysSuffix}}",
+    "expiresOnDaysSuffix": " ({{days}}d)",
+    "graceTitle": "Licencia expirada — en período de gracia",
+    "graceBody": "La licencia Enterprise venció, pero las funciones siguen activas durante la ventana de gracia. <strong>Renueve ahora</strong> — al finalizar la gracia el sistema revierte al modo Community.",
+    "expiredTitle": "Licencia expirada",
+    "expiredBody": "La licencia Enterprise expiró — el sistema ya revirtió (o revertirá en la próxima verificación) al modo Community. Renueve la licencia para reactivar las funciones de su plan.",
+    "expiringSoonTitle": "Licencia próxima a vencer",
+    "expiringSoonBody": "Su licencia expira en {{days}} día(s) ({{date}}). Renueve para no perder las funciones del plan — al expirar, el sistema revierte a Community."
+  },
+  "backfill": {
+    "panel": {
+      "title": "Backfill — recolección histórica controlada",
+      "description": "Ejecute recolecciones retroactivas de eventos sin afectar el polling en tiempo real.",
+      "newBackfill": "Nuevo backfill",
+      "modalTitle": "Nuevo Backfill"
+    },
+    "status": {
+      "pending": "Pendiente",
+      "running": "En ejecución",
+      "completed": "Completado",
+      "failed": "Falló",
+      "cancelled": "Cancelado"
+    },
+    "table": {
+      "id": "ID",
+      "streams": "Streams",
+      "window": "Ventana",
+      "status": "Estado",
+      "progress": "Progreso",
+      "events": "Eventos",
+      "requested": "Solicitado",
+      "actions": "Acciones",
+      "progressAriaLabel": "Progreso: {{percent}}%",
+      "details": "Detalles",
+      "cancel": "Cancelar",
+      "loading": "Cargando jobs...",
+      "loadError": "Error al cargar los jobs de backfill",
+      "emptyTitle": "Ningún backfill ejecutado todavía",
+      "emptyDescription": "Use el botón 'Nuevo backfill' para iniciar una recolección histórica controlada.",
+      "cancelError": "Error al cancelar el backfill.",
+      "cancelErrorTitle": "Error al cancelar"
+    },
+    "cancelDialog": {
+      "title": "Cancelar backfill",
+      "description": "¿Está seguro de que desea cancelar el job {{jobId}}? Esta acción no se puede deshacer.",
+      "confirm": "Sí, cancelar",
+      "back": "Volver"
+    },
+    "detailDrawer": {
+      "title": "Detalles del Backfill",
+      "lastUpdate": "Última actualización: {{when}}",
+      "progress": "Progreso",
+      "progressAriaLabel": "Progreso del backfill: {{percent}}%",
+      "fields": {
+        "id": "ID",
+        "streams": "Streams",
+        "window": "Ventana",
+        "eventsCollected": "Eventos recolectados",
+        "eventsDispatched": "Eventos despachados",
+        "requestedAt": "Solicitado el",
+        "startedAt": "Iniciado el",
+        "finishedAt": "Finalizado el",
+        "cancelledAt": "Cancelado el"
+      },
+      "lastErrorTitle": "Último error",
+      "close": "Cerrar",
+      "cancel": "Cancelar backfill"
+    },
+    "form": {
+      "info": "El backfill se ejecuta en una cola dedicada y no afecta el polling normal. Los eventos pasan por el mismo pipeline (mapping + dispatch). Ventana máxima: {{maxDays}} días.",
+      "learnMore": "Más información",
+      "period": "Período",
+      "from": "Desde",
+      "fromAriaLabel": "Fecha inicial del backfill",
+      "to": "Hasta",
+      "toAriaLabel": "Fecha final del backfill",
+      "errorDateOrder": "La fecha inicial debe ser anterior a la fecha final.",
+      "windowExceededTitle": "La ventana excede {{maxDays}} días",
+      "windowExceededBody": "Seleccione un período menor o igual a {{maxDays}} días para evitar sobrecargar el sistema.",
+      "streams": "Streams",
+      "streamAriaLabel": "Stream {{stream}}",
+      "errorNoStreams": "Seleccione al menos un stream.",
+      "createErrorTitle": "Error al crear el backfill",
+      "createError": "Error al crear el backfill.",
+      "cancel": "Cancelar",
+      "submit": "Iniciar backfill",
+      "successTitle": "Backfill creado con éxito",
+      "successBody": "El job se agregó a la cola y se procesará en breve."
+    }
+  }
+}

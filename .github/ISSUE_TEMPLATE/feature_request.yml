@@ -1,0 +1,154 @@
+name: Feature request
+description: Proponha uma melhoria ou novo recurso para o core Community do CentralOps.
+title: "[feature] "
+labels: ["enhancement", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Obrigado por dedicar tempo a melhorar o **CentralOps**.
+
+        Este repositório é o **core Community** (open source). Antes de abrir uma
+        proposta, considere:
+
+        - **Dúvidas de uso, "como faço…", ideias ainda em aberto** → use as
+          [GitHub Discussions](https://github.com/SEGARK-oficial/CentralOps/discussions),
+          não as Issues. Issues são para propostas concretas e acionáveis.
+        - **Vulnerabilidades de segurança** → **NÃO** abra uma Issue pública.
+          Siga a política de divulgação em [`SECURITY.md`](../SECURITY.md)
+          (advisory privado de segurança ou e-mail de contato).
+        - Não há SLA sobre Issues do projeto open source. A triagem é feita
+          conforme a capacidade dos mantenedores.
+
+        > **Escopo do core (open core).** O CentralOps segue o modelo open core
+        > descrito no [`GOVERNANCE.md`](../../GOVERNANCE.md). O core Community contém **toda** a ingestão, o
+        > roteamento, os 14 sinks/destinos, a detecção in-pipeline, a normalização
+        > base OCSF, os segredos via KMS/Vault, a push-ingestion e
+        > **SSO/OIDC + RBAC** (sem "SSO tax"). Recursos que são **trava Enterprise**
+        > — hierarquia multi-tenant/MSSP/reseller, busca federada cross-org/assíncrona,
+        > auditoria/compliance cross-tenant e HA/fleet — **não entram neste
+        > repositório** e devem ser propostos no overlay Enterprise (fora deste
+        > projeto). Veja o item "Escopo (open core)" mais abaixo.
+
+  - type: checkboxes
+    id: pre-flight
+    attributes:
+      label: Pré-requisitos
+      description: Confirme antes de enviar.
+      options:
+        - label: Procurei nas Issues e Discussions e não encontrei uma proposta equivalente já aberta.
+          required: true
+        - label: Esta é uma proposta concreta de recurso, não uma dúvida de uso (dúvidas vão para Discussions).
+          required: true
+        - label: Isto NÃO é um relato de vulnerabilidade de segurança (essas seguem o SECURITY.md, em canal privado).
+          required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problema / motivação
+      description: >
+        Qual problema concreto você está tentando resolver? Descreva a situação
+        atual, quem é afetado e por que a falta deste recurso dói. Foque no
+        problema, não na solução.
+      placeholder: |
+        Hoje, ao rotear eventos para múltiplos destinos, não há como…
+        Isso me força a… e o impacto é…
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposta
+      description: >
+        Descreva o recurso ou comportamento desejado. O que deveria acontecer?
+        Se útil, inclua exemplos de configuração, fluxo de UI, formato de dados
+        ou contrato de API.
+      placeholder: |
+        Adicionar uma opção em … que permita …
+        Comportamento esperado: …
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternativas consideradas
+      description: >
+        Que outras abordagens, workarounds ou ferramentas você avaliou? Por que
+        elas não resolvem (ou resolvem só em parte) o problema?
+      placeholder: |
+        Tentei … mas …
+        Uma alternativa seria … porém …
+    validations:
+      required: false
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Área afetada
+      description: Qual parte do core esta proposta toca? (aproximado, sem problema se houver mais de uma)
+      multiple: true
+      options:
+        - Ingestão / coletores (pull)
+        - Push-ingestion (/api/ingest, syslog, WEC)
+        - Roteamento / destinos (sinks)
+        - Normalização OCSF
+        - Detecção in-pipeline / correlação
+        - Busca / queries (não-federada, dentro de uma org)
+        - Segredos / KMS / Vault
+        - SSO/OIDC / RBAC
+        - Observabilidade (OTel) / operação
+        - Frontend (React/Vite)
+        - Documentação
+        - Outra / não tenho certeza
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: scope
+    attributes:
+      label: Escopo (open core)
+      description: >
+        O core Community não recebe recursos que são trava Enterprise. Marque a
+        afirmação que se aplica à sua proposta. Em caso de dúvida, abra antes uma
+        Discussion.
+      options:
+        - label: >
+            Confirmo que esta proposta pertence ao core Community e NÃO é um
+            recurso de trava Enterprise — ou seja, NÃO é sobre hierarquia
+            multi-tenant / MSSP / reseller, busca federada cross-org ou
+            assíncrona, auditoria/compliance cross-tenant, nem HA/fleet. Esses
+            recursos vivem no overlay Enterprise, fora deste repositório.
+          required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Contexto adicional
+      description: >
+        Qualquer outra coisa relevante — capturas de tela, mockups, links para
+        ADRs/Discussions relacionadas, restrições de ambiente, etc.
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: contribution
+    attributes:
+      label: Contribuição
+      description: >
+        Contribuições são bem-vindas e usam o fluxo DCO (Developer Certificate of
+        Origin 1.1) — cada commit precisa de `Signed-off-by`. Não há CLA nem
+        cessão de copyright. Veja o CONTRIBUTING.md.
+      options:
+        - label: Tenho interesse em implementar este recurso e abrir um Pull Request.
+          required: false
+
+  - type: markdown
+    attributes:
+      value: |
+        ---
+        <sub>Ao contribuir, você concorda em licenciar sua contribuição sob a licença
+        do projeto conforme declarada no arquivo <code>LICENSE</code> — a AGPLv3
+        (texto padrão do DCO 1.1).</sub>

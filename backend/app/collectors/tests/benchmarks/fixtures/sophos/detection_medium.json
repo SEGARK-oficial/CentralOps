@@ -1,0 +1,48 @@
+{
+  "id": "det-medium-001",
+  "detectionRule": "WIN-MITRE-Behavioral-TA0003-T1547-001",
+  "severity": 4,
+  "type": "Threat",
+  "time": "2026-04-23T14:22:10Z",
+  "device": {
+    "id": "dev-uuid-42",
+    "type": "computer",
+    "entity": "WIN-WORKSTATION-42",
+    "hostname": "WIN-WORKSTATION-42.corp.local",
+    "os": "Windows 10",
+    "ipAddress": "192.168.1.42"
+  },
+  "sensor": {
+    "id": "sensor-uuid-001",
+    "type": "cloud",
+    "source": "Sophos",
+    "version": "2024.1.0"
+  },
+  "mitreAttacks": [
+    {"tactic": "Persistence", "technique": "T1547.001"},
+    {"tactic": "Privilege Escalation", "technique": "T1547.001"},
+    {"tactic": "Defense Evasion", "technique": "T1112"}
+  ],
+  "data": {
+    "process": "regedit.exe",
+    "commandLine": "regedit.exe /s malicious.reg",
+    "registry": "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run",
+    "value": "Updater",
+    "data": "C:\\Users\\user\\AppData\\Roaming\\updater.exe",
+    "parentProcess": "cmd.exe",
+    "user": "WIN-WORKSTATION-42\\user",
+    "sha256": "aabbccdd001122334455",
+    "pid": 5678
+  },
+  "severity_string": "High",
+  "status": "new",
+  "outcome": "blocked",
+  "confidence": "high",
+  "falsePositiveStatus": null,
+  "tags": ["persistence", "registry"],
+  "tenant": {"id": "tenant-001", "name": "Acme Corp"},
+  "correlationId": "corr-med-001",
+  "sigVersion": "2024.04.23.001",
+  "policyName": "Threat Protection Advanced",
+  "region": "EU-WEST"
+}

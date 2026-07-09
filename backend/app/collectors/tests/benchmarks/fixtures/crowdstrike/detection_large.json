@@ -1,0 +1,278 @@
+{
+  "composite_id": "cid-large-1",
+  "created_timestamp": "2026-06-21T14:22:10Z",
+  "severity": 70,
+  "severity_name": "High",
+  "display_name": "SuspiciousActivity",
+  "description": "masquerading behavior",
+  "status": "new",
+  "tactic": "Defense Evasion",
+  "user_name": "jdoe",
+  "device": {
+    "device_id": "9f8a",
+    "hostname": "WS-1",
+    "local_ip": "10.0.0.9"
+  },
+  "technique": "T1036",
+  "objective": "Falcon Detection",
+  "pattern_id": 12345,
+  "tactic_id": "TA0005",
+  "parent_details": {
+    "process_id": "p1",
+    "command_line": "cmd /c whoami"
+  },
+  "behaviors": [
+    {
+      "tactic": "TA1000",
+      "technique": "T1100",
+      "name": "tech-0"
+    },
+    {
+      "tactic": "TA1001",
+      "technique": "T1101",
+      "name": "tech-1"
+    },
+    {
+      "tactic": "TA1002",
+      "technique": "T1102",
+      "name": "tech-2"
+    },
+    {
+      "tactic": "TA1003",
+      "technique": "T1103",
+      "name": "tech-3"
+    },
+    {
+      "tactic": "TA1004",
+      "technique": "T1104",
+      "name": "tech-4"
+    },
+    {
+      "tactic": "TA1005",
+      "technique": "T1105",
+      "name": "tech-5"
+    },
+    {
+      "tactic": "TA1006",
+      "technique": "T1106",
+      "name": "tech-6"
+    },
+    {
+      "tactic": "TA1007",
+      "technique": "T1107",
+      "name": "tech-7"
+    },
+    {
+      "tactic": "TA1008",
+      "technique": "T1108",
+      "name": "tech-8"
+    },
+    {
+      "tactic": "TA1009",
+      "technique": "T1109",
+      "name": "tech-9"
+    },
+    {
+      "tactic": "TA1010",
+      "technique": "T1110",
+      "name": "tech-10"
+    },
+    {
+      "tactic": "TA1011",
+      "technique": "T1111",
+      "name": "tech-11"
+    },
+    {
+      "tactic": "TA1012",
+      "technique": "T1112",
+      "name": "tech-12"
+    },
+    {
+      "tactic": "TA1013",
+      "technique": "T1113",
+      "name": "tech-13"
+    },
+    {
+      "tactic": "TA1014",
+      "technique": "T1114",
+      "name": "tech-14"
+    },
+    {
+      "tactic": "TA1015",
+      "technique": "T1115",
+      "name": "tech-15"
+    },
+    {
+      "tactic": "TA1016",
+      "technique": "T1116",
+      "name": "tech-16"
+    },
+    {
+      "tactic": "TA1017",
+      "technique": "T1117",
+      "name": "tech-17"
+    },
+    {
+      "tactic": "TA1018",
+      "technique": "T1118",
+      "name": "tech-18"
+    },
+    {
+      "tactic": "TA1019",
+      "technique": "T1119",
+      "name": "tech-19"
+    },
+    {
+      "tactic": "TA1020",
+      "technique": "T1120",
+      "name": "tech-20"
+    },
+    {
+      "tactic": "TA1021",
+      "technique": "T1121",
+      "name": "tech-21"
+    },
+    {
+      "tactic": "TA1022",
+      "technique": "T1122",
+      "name": "tech-22"
+    },
+    {
+      "tactic": "TA1023",
+      "technique": "T1123",
+      "name": "tech-23"
+    },
+    {
+      "tactic": "TA1024",
+      "technique": "T1124",
+      "name": "tech-24"
+    },
+    {
+      "tactic": "TA1025",
+      "technique": "T1125",
+      "name": "tech-25"
+    },
+    {
+      "tactic": "TA1026",
+      "technique": "T1126",
+      "name": "tech-26"
+    },
+    {
+      "tactic": "TA1027",
+      "technique": "T1127",
+      "name": "tech-27"
+    }
+  ],
+  "raw_events": [
+    {
+      "ts": "2026-06-21T10:00:00Z",
+      "k": "cs-0",
+      "detail": "value-0-xxxxxxxx"
+    },
+    {
+      "ts": "2026-06-21T10:01:00Z",
+      "k": "cs-1",
+      "detail": "value-1-xxxxxxxx"
+    },
+    {
+      "ts": "2026-06-21T10:02:00Z",
+      "k": "cs-2",
+      "detail": "value-2-xxxxxxxx"
+    },
+    {
+      "ts": "2026-06-21T10:03:00Z",
+      "k": "cs-3",
+      "detail": "value-3-xxxxxxxx"
+    },
+    {
+      "ts": "2026-06-21T10:04:00Z",
+      "k": "cs-4",
+      "detail": "value-4-xxxxxxxx"
+    },
+    {
+      "ts": "2026-06-21T10:05:00Z",
+      "k": "cs-5",
+      "detail": "value-5-xxxxxxxx"
+    },
+    {
+      "ts": "2026-06-21T10:06:00Z",
+      "k": "cs-6",
+      "detail": "value-6-xxxxxxxx"
+    },
+    {
+      "ts": "2026-06-21T10:07:00Z",
+      "k": "cs-7",
+      "detail": "value-7-xxxxxxxx"
+    },
+    {
+      "ts": "2026-06-21T10:08:00Z",
+      "k": "cs-8",
+      "detail": "value-8-xxxxxxxx"
+    },
+    {
+      "ts": "2026-06-21T10:09:00Z",
+      "k": "cs-9",
+      "detail": "value-9-xxxxxxxx"
+    },
+    {
+      "ts": "2026-06-21T10:10:00Z",
+      "k": "cs-10",
+      "detail": "value-10-xxxxxxxx"
+    },
+    {
+      "ts": "2026-06-21T10:11:00Z",
+      "k": "cs-11",
+      "detail": "value-11-xxxxxxxx"
+    },
+    {
+      "ts": "2026-06-21T10:12:00Z",
+      "k": "cs-12",
+      "detail": "value-12-xxxxxxxx"
+    },
+    {
+      "ts": "2026-06-21T10:13:00Z",
+      "k": "cs-13",
+      "detail": "value-13-xxxxxxxx"
+    },
+    {
+      "ts": "2026-06-21T10:14:00Z",
+      "k": "cs-14",
+      "detail": "value-14-xxxxxxxx"
+    },
+    {
+      "ts": "2026-06-21T10:15:00Z",
+      "k": "cs-15",
+      "detail": "value-15-xxxxxxxx"
+    },
+    {
+      "ts": "2026-06-21T10:16:00Z",
+      "k": "cs-16",
+      "detail": "value-16-xxxxxxxx"
+    },
+    {
+      "ts": "2026-06-21T10:17:00Z",
+      "k": "cs-17",
+      "detail": "value-17-xxxxxxxx"
+    },
+    {
+      "ts": "2026-06-21T10:18:00Z",
+      "k": "cs-18",
+      "detail": "value-18-xxxxxxxx"
+    },
+    {
+      "ts": "2026-06-21T10:19:00Z",
+      "k": "cs-19",
+      "detail": "value-19-xxxxxxxx"
+    },
+    {
+      "ts": "2026-06-21T10:20:00Z",
+      "k": "cs-20",
+      "detail": "value-20-xxxxxxxx"
+    },
+    {
+      "ts": "2026-06-21T10:21:00Z",
+      "k": "cs-21",
+      "detail": "value-21-xxxxxxxx"
+    }
+  ]
+}

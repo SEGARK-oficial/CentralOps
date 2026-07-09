@@ -1,0 +1,133 @@
+name: "Relatório de bug"
+description: "Reporte um comportamento incorreto, erro ou regressão no CentralOps (core Community)."
+title: "[bug]: "
+labels:
+  - "bug"
+  - "triagem"
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Obrigado por reservar um tempo para reportar um bug no **CentralOps**.
+
+        > [!IMPORTANT]
+        > **Dúvidas de uso, configuração ou "como eu faço X" NÃO vão aqui.**
+        > Use as **[GitHub Discussions](https://github.com/SEGARK-oficial/CentralOps/discussions)** para perguntas, ideias e suporte da comunidade.
+        > As *Issues* são para **defeitos reprodutíveis** no core Community.
+        >
+        > **Não há SLA** para issues do projeto open source — o atendimento é feito em regime de melhor esforço pela comunidade e pelos mantenedores.
+        >
+        > Encontrou uma **vulnerabilidade de segurança**? **Não** abra uma issue pública. Siga o processo de divulgação privada descrito em [`SECURITY.md`](https://github.com/SEGARK-oficial/CentralOps/blob/main/SECURITY.md).
+        >
+        > Este formulário é apenas para o **core Community** (este repositório). Problemas em funcionalidades Enterprise/proprietárias não pertencem a este repositório.
+
+  - type: checkboxes
+    id: pre-flight
+    attributes:
+      label: "Verificações iniciais"
+      description: "Confirme os itens abaixo antes de abrir a issue."
+      options:
+        - label: "Procurei nas issues existentes (abertas e fechadas) e este bug ainda não foi reportado."
+          required: true
+        - label: "Isto é um defeito reprodutível, não uma dúvida de uso (dúvidas vão para Discussions)."
+          required: true
+        - label: "Isto não é um relato de vulnerabilidade de segurança (esses seguem o SECURITY.md, em privado)."
+          required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: "Descrição"
+      description: "Descreva o problema de forma clara e objetiva. O que está acontecendo de errado?"
+      placeholder: "Ao rotear eventos para o destino X, o pipeline ..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: "Passos para reproduzir"
+      description: "Liste, em ordem, os passos exatos para reproduzir o comportamento."
+      placeholder: |
+        1. Configurar a integração '...'
+        2. Enviar evento '...' via '...'
+        3. Acessar a tela/endpoint '...'
+        4. Observar o erro '...'
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: "Comportamento esperado"
+      description: "O que você esperava que acontecesse?"
+      placeholder: "O evento deveria ser normalizado em OCSF e entregue ao destino configurado."
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: "Comportamento atual"
+      description: "O que de fato aconteceu? Inclua mensagens de erro exatas, se houver."
+      placeholder: "O evento foi enviado para a quarentena com o erro '...'."
+    validations:
+      required: true
+
+  - type: dropdown
+    id: deploy
+    attributes:
+      label: "Tipo de deploy"
+      description: "Como o CentralOps está sendo executado?"
+      options:
+        - "Docker Compose"
+        - "Kubernetes (Helm)"
+        - "Ambiente de desenvolvimento local (venv / vite)"
+        - "Outro / não sei"
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: "Versão / build"
+      description: "Versão, tag de imagem ou commit (SHA) em que o problema ocorre."
+      placeholder: "ex.: v2.0.3, ghcr.io/.../centralops:sha-1a2b3c4, ou commit f950e68"
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: "Ambiente"
+      description: "Detalhes relevantes do ambiente (SO, navegador, fontes/destinos envolvidos, etc.)."
+      placeholder: |
+        - SO / plataforma: 
+        - Navegador (se for problema de UI): 
+        - Fonte(s) envolvida(s): 
+        - Destino(s) envolvido(s): 
+    validations:
+      required: false
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: "Logs (opcional)"
+      description: "Cole logs, stack traces ou trechos relevantes. **Remova segredos, tokens e dados sensíveis antes de colar.** Este campo é renderizado como bloco de código."
+      render: shell
+    validations:
+      required: false
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: "Contexto adicional (opcional)"
+      description: "Qualquer outra informação que ajude a entender ou reproduzir o problema (capturas de tela, configuração, frequência, etc.)."
+    validations:
+      required: false
+
+  - type: markdown
+    attributes:
+      value: |
+        ---
+        Ao abrir esta issue, você concorda em seguir o Código de Conduta do projeto. Contribuições de código exigem `Signed-off-by` (DCO 1.1) e são feitas sob a licença do projeto, conforme indicada no arquivo `LICENSE`.

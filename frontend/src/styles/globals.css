@@ -1,0 +1,376 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap");
+@import "tailwindcss";
+
+/*
+ * CentralOps Design System — Tailwind v4 CSS-first config
+ * Single source of truth for colors, typography, spacing, and utilities.
+ *
+ * ── Estratégia de tema ──
+ * Em vez de espalhar `dark:` por centenas de arquivos (inviável e frágil),
+ * o dark mode é resolvido na CAMADA DE TOKENS: os utilitários do Tailwind v4
+ * referenciam `var(--color-*)`, então basta redefinir as variáveis sob `.dark`.
+ * Tokens semânticos (surface/text/border/sidebar) E de escala (primary/danger/…)
+ * são remapeados no `.dark`, fazendo o app inteiro herdar o tema sem classes extras.
+ */
+
+/* Variante de dark mode baseada em classe (`.dark` na raiz), não em prefers-color-scheme,
+   para permitir override manual via toggle persistido. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  /* ── Fonts ── */
+  --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", "Fira Code", monospace;
+
+  /* ── Colors — escala primary ── */
+  --color-primary-50: #f0f9ff;
+  --color-primary-100: #e0f2fe;
+  --color-primary-200: #bae6fd;
+  --color-primary-300: #7dd3fc;
+  --color-primary-400: #38bdf8;
+  --color-primary-500: #0ea5e9;
+  --color-primary-600: #0284c7;
+  --color-primary-700: #0369a1;
+  --color-primary-800: #075985;
+  --color-primary-900: #0c4a6e;
+
+  /* ── Colors — feedback (escalas completadas: -600 antes ausente e usado em ~20 lugares) ── */
+  --color-success-50: #f0fdf4;
+  --color-success-100: #dcfce7;
+  --color-success-200: #bbf7d0;
+  --color-success-500: #22c55e;
+  --color-success-600: #16a34a;
+  --color-success-700: #15803d;
+  --color-success-800: #166534;
+
+  --color-warning-50: #fffbeb;
+  --color-warning-100: #fef3c7;
+  --color-warning-200: #fde68a;
+  --color-warning-500: #f59e0b;
+  --color-warning-600: #d97706;
+  --color-warning-700: #a16207;
+  --color-warning-800: #92400e;
+
+  --color-danger-50: #fef2f2;
+  --color-danger-100: #fee2e2;
+  --color-danger-200: #fecaca;
+  --color-danger-500: #ef4444;
+  --color-danger-600: #dc2626;
+  --color-danger-700: #b91c1c;
+  --color-danger-800: #991b1b;
+
+  /* ── Colors — superfícies e chrome (semânticos) ── */
+  --color-surface: #ffffff;
+  --color-surface-secondary: #f8fafc;
+  --color-surface-tertiary: #f1f5f9;
+  --color-surface-hover: #f1f5f9;
+  --color-surface-active: #e2e8f0;
+
+  /* Aliases semânticos usados em formulários/tabelas (TokensPage, ServiceAccounts,
+     ScopeSelector, IntegrationForm). */
+  --color-bg: #ffffff;
+  --color-bg-subtle: #f1f5f9;
+
+  --color-border: #e2e8f0;
+  --color-border-hover: #cbd5e1;
+  --color-border-strong: #cbd5e1;
+
+  --color-text: #0f172a;
+  --color-text-secondary: #475569;
+  /* WCAG AA fix: #94a3b8 renderizava ~2.6:1 sobre branco; #64748b atinge ~4.8:1 */
+  --color-text-tertiary: #64748b;
+  --color-text-inverse: #ffffff;
+
+  /* Overlay de modal/backdrop como token (antes hardcoded bg-black/50). */
+  --color-overlay: rgb(15 23 42 / 0.5);
+
+  --color-sidebar: #0f172a;
+  --color-sidebar-hover: #1e293b;
+  --color-sidebar-active: #1e293b;
+  --color-sidebar-accent: #38bdf8;
+  --color-sidebar-text: #94a3b8;
+  --color-sidebar-text-active: #ffffff;
+  --color-sidebar-group: #64748b;
+
+  /* ── Radius ── */
+  --radius-xs: 0.25rem;
+  --radius-sm: 0.375rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+  --radius-xl: 1rem;
+  /* Adicionado para alinhar rounded-2xl ao sistema de tokens */
+  --radius-2xl: 1.25rem;
+
+  /* ── Shadows — tintadas com slate (15 23 42) em vez de preto puro ──
+     Sombra com tint slate tem cromaticidade compatível com a paleta;
+     preto puro (#000) desaparece no dark sem override. */
+  --shadow-xs: 0 1px 2px 0 rgb(15 23 42 / 0.06);
+  --shadow-sm: 0 1px 3px 0 rgb(15 23 42 / 0.10), 0 1px 2px -1px rgb(15 23 42 / 0.08);
+  --shadow-md: 0 4px 6px -1px rgb(15 23 42 / 0.10), 0 2px 4px -2px rgb(15 23 42 / 0.08);
+  --shadow-lg: 0 10px 15px -3px rgb(15 23 42 / 0.10), 0 4px 6px -4px rgb(15 23 42 / 0.08);
+  --shadow-xl: 0 20px 25px -5px rgb(15 23 42 / 0.12), 0 8px 10px -6px rgb(15 23 42 / 0.08);
+
+  /* ── Z-Index ──
+     Tailwind v4 gera as utilities `z-*` a partir do namespace `--z-index-*`
+     (NÃO `--z-*`). Os nomes antigos eram dropados silenciosamente, deixando
+     Header/Modal/Drawers sem z-index governado. Corrigido aqui. */
+  --z-index-dropdown: 1000;
+  --z-index-sticky: 1020;
+  --z-index-modal-backdrop: 1040;
+  --z-index-modal: 1050;
+  /* Popovers FLUTUANTES portados ao body (Select/DateRangePicker): ACIMA do
+     modal (1050) para abrirem na frente quando usados DENTRO de um Modal —
+     senão a lista de opções fica atrás do overlay. Abaixo do tooltip (1070). */
+  --z-index-popover: 1060;
+  --z-index-tooltip: 1070;
+
+  /* ── Motion — easings premium + duration scale ── */
+  /* expo-out: saída rápida, pouso suave — ideal para modais/drawers */
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  /* spring: overshoot controlado — botões, badges, micro-interações */
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --duration-fast: 120ms;
+  --duration-base: 180ms;
+  --duration-slow: 320ms;
+
+  /* ── Type scale — pares size/leading/tracking ──
+     Corpo (xs–lg): leading 1.5–1.6, tracking neutro.
+     Heading (xl–4xl): leading 1.1–1.25, tracking negativo para densidade. */
+  --text-xs: 0.75rem;
+  --text-xs--line-height: 1.5;
+  --text-xs--letter-spacing: 0em;
+
+  --text-sm: 0.875rem;
+  --text-sm--line-height: 1.5;
+  --text-sm--letter-spacing: 0em;
+
+  --text-base: 1rem;
+  --text-base--line-height: 1.6;
+  --text-base--letter-spacing: 0em;
+
+  --text-lg: 1.125rem;
+  --text-lg--line-height: 1.5;
+  --text-lg--letter-spacing: 0em;
+
+  --text-xl: 1.25rem;
+  --text-xl--line-height: 1.3;
+  --text-xl--letter-spacing: -0.01em;
+
+  --text-2xl: 1.5rem;
+  --text-2xl--line-height: 1.25;
+  --text-2xl--letter-spacing: -0.01em;
+
+  --text-3xl: 1.875rem;
+  --text-3xl--line-height: 1.2;
+  --text-3xl--letter-spacing: -0.015em;
+
+  /* Hero / page title */
+  --text-4xl: 2.25rem;
+  --text-4xl--line-height: 1.1;
+  --text-4xl--letter-spacing: -0.02em;
+
+  /* ── Animations — usa easings e durations dos tokens acima ── */
+  --animate-spin: spin 1s linear infinite;
+  --animate-fade-in: fade-in var(--duration-base) var(--ease-out-expo);
+  --animate-slide-up: slide-up var(--duration-base) var(--ease-out-expo);
+  --animate-slide-down: slide-down var(--duration-fast) var(--ease-out-expo);
+  --animate-slide-left: slide-left var(--duration-slow) var(--ease-out-expo);
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+ * DARK THEME — redefinição dos tokens sob `.dark`.
+ * Paleta slate alinhada ao chrome já escuro do produto. Como os utilitários
+ * referenciam as variáveis, todo `bg-surface`, `text-text`, `bg-danger-50`,
+ * `text-danger-700` etc. inverte automaticamente — sem editar componentes.
+ * ────────────────────────────────────────────────────────────────────────── */
+:root {
+  color-scheme: light;
+}
+
+.dark {
+  color-scheme: dark;
+
+  /* Superfícies / chrome */
+  --color-surface: #111827;
+  --color-surface-secondary: #0b1120;
+  --color-surface-tertiary: #1e293b;
+  --color-surface-hover: #1e293b;
+  --color-surface-active: #334155;
+
+  --color-bg: #111827;
+  --color-bg-subtle: #1e293b;
+
+  --color-border: #243044;
+  --color-border-hover: #334155;
+  --color-border-strong: #475569;
+
+  --color-text: #e8eef6;
+  --color-text-secondary: #a6b4c8;
+  /* WCAG AA fix: #6b7a90 sobre #111827 rendia ~4.1:1 (reprova); #8a99ad atinge ~6.1:1 */
+  --color-text-tertiary: #8a99ad;
+  --color-text-inverse: #0f172a;
+
+  --color-overlay: rgb(2 6 23 / 0.7);
+
+  --color-sidebar: #0d1526;
+  --color-sidebar-hover: #1e293b;
+  --color-sidebar-active: #1e293b;
+  --color-sidebar-accent: #38bdf8;
+  --color-sidebar-text: #8a99ad;
+  --color-sidebar-text-active: #f1f5f9;
+  --color-sidebar-group: #5b6b82;
+
+  /* Escala primary — mid-tones mantidos vívidos; soft-bg escurecido; texto clareado */
+  --color-primary-50: #0a2540;
+  --color-primary-100: #0c3457;
+  --color-primary-200: #0f4673;
+  --color-primary-300: #2b7fbf;
+  --color-primary-400: #38bdf8;
+  --color-primary-500: #38bdf8;
+  --color-primary-600: #0ea5e9;
+  --color-primary-700: #7dd3fc;
+  --color-primary-800: #bae6fd;
+  --color-primary-900: #e0f2fe;
+
+  /* Feedback — soft-bg escuro, texto claro, mid vívido */
+  --color-success-50: #0a2417;
+  --color-success-100: #0d3320;
+  --color-success-200: #10462b;
+  --color-success-500: #22c55e;
+  --color-success-600: #34d399;
+  --color-success-700: #86efac;
+  --color-success-800: #bbf7d0;
+
+  --color-warning-50: #2a2008;
+  --color-warning-100: #3a2c0a;
+  --color-warning-200: #4d3a0d;
+  --color-warning-500: #f59e0b;
+  --color-warning-600: #fbbf24;
+  --color-warning-700: #fcd34d;
+  --color-warning-800: #fde68a;
+
+  --color-danger-50: #2a1316;
+  --color-danger-100: #3a1a1d;
+  --color-danger-200: #4d2226;
+  --color-danger-500: #ef4444;
+  --color-danger-600: #f05252;
+  --color-danger-700: #fca5a5;
+  --color-danger-800: #fecaca;
+
+  /* ── Sombras dark — elevação via borda sutil + overlay claro ──
+     No dark, sombra preta pura desaparece no fundo #111827.
+     Estratégia: borda inset luminosa 1px (inset box-shadow) + sombra com
+     tint branco de baixa opacidade para simular elevação perceptível. */
+  --shadow-xs: 0 0 0 1px rgb(255 255 255 / 0.04), 0 1px 2px 0 rgb(0 0 0 / 0.30);
+  --shadow-sm: 0 0 0 1px rgb(255 255 255 / 0.05), 0 1px 3px 0 rgb(0 0 0 / 0.40), 0 1px 2px -1px rgb(0 0 0 / 0.30);
+  --shadow-md: 0 0 0 1px rgb(255 255 255 / 0.05), 0 4px 6px -1px rgb(0 0 0 / 0.45), 0 2px 4px -2px rgb(0 0 0 / 0.35);
+  --shadow-lg: 0 0 0 1px rgb(255 255 255 / 0.06), 0 10px 15px -3px rgb(0 0 0 / 0.50), 0 4px 6px -4px rgb(0 0 0 / 0.40);
+  --shadow-xl: 0 0 0 1px rgb(255 255 255 / 0.07), 0 20px 25px -5px rgb(0 0 0 / 0.55), 0 8px 10px -6px rgb(0 0 0 / 0.45);
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slide-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slide-down {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slide-left {
+  from { opacity: 0; transform: translateX(100%); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+/* ── Base layer ── */
+@layer base {
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+
+  html {
+    font-size: 16px;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    font-family: var(--font-sans);
+    color: var(--color-text);
+    background-color: var(--color-surface-secondary);
+    line-height: 1.5;
+  }
+
+  #root {
+    min-height: 100vh;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-primary-500);
+    outline-offset: 2px;
+  }
+
+  a { color: inherit; text-decoration: none; }
+  img { max-width: 100%; height: auto; }
+
+  /* Respeita usuários com sensibilidade vestibular (WCAG 2.3.3 / motion-reduce).
+     Neutraliza animações e transições globalmente quando solicitado pelo SO. */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+/* ── Utility layer ── */
+@utility scrollbar-thin {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border-strong) transparent;
+}
+
+@utility text-balance {
+  text-wrap: balance;
+}
+
+/* Anel de foco unificado do design system — fonte única para futura convergência
+   dos primitivos interativos (hoje há 4 estratégias divergentes de foco). */
+@utility focus-ring {
+  outline: none;
+
+  &:focus-visible {
+    outline: 2px solid var(--color-primary-500);
+    outline-offset: 2px;
+  }
+}
+
+/* ── Skip link (a11y) ── */
+.skip-link {
+  position: absolute;
+  top: -40px;
+  left: 6px;
+  background: var(--color-primary-600);
+  color: white;
+  padding: 0.5rem 1rem;
+  border-radius: var(--radius-sm);
+  z-index: var(--z-index-tooltip);
+  transition: top 0.2s ease-in-out;
+}
+.skip-link:focus-visible {
+  top: 6px;
+}

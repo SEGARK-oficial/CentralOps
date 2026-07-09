@@ -1,0 +1,246 @@
+{
+  "uuid": "okta-large-1",
+  "published": "2026-06-20T21:05:32.000Z",
+  "eventType": "user.session.start",
+  "severity": "INFO",
+  "displayMessage": "User login to Okta",
+  "outcome": {
+    "result": "SUCCESS"
+  },
+  "actor": {
+    "id": "00u",
+    "type": "User",
+    "alternateId": "admin@okta.com",
+    "displayName": "Admin"
+  },
+  "client": {
+    "ipAddress": "142.126.158.61",
+    "userAgent": {
+      "os": "Mac OS X",
+      "browser": "CHROME"
+    },
+    "geographicalContext": {
+      "city": "San Francisco",
+      "country": "United States"
+    }
+  },
+  "eventTypeVersion": "0",
+  "version": "0",
+  "transaction": {
+    "id": "tx-1",
+    "type": "WEB"
+  },
+  "authenticationContext": {
+    "externalSessionId": "es-1"
+  },
+  "target": [
+    {
+      "id": "t0",
+      "type": "AppInstance",
+      "displayName": "App 0",
+      "detailEntry": {
+        "k": "v0-padding"
+      }
+    },
+    {
+      "id": "t1",
+      "type": "AppInstance",
+      "displayName": "App 1",
+      "detailEntry": {
+        "k": "v1-padding"
+      }
+    },
+    {
+      "id": "t2",
+      "type": "AppInstance",
+      "displayName": "App 2",
+      "detailEntry": {
+        "k": "v2-padding"
+      }
+    },
+    {
+      "id": "t3",
+      "type": "AppInstance",
+      "displayName": "App 3",
+      "detailEntry": {
+        "k": "v3-padding"
+      }
+    },
+    {
+      "id": "t4",
+      "type": "AppInstance",
+      "displayName": "App 4",
+      "detailEntry": {
+        "k": "v4-padding"
+      }
+    },
+    {
+      "id": "t5",
+      "type": "AppInstance",
+      "displayName": "App 5",
+      "detailEntry": {
+        "k": "v5-padding"
+      }
+    },
+    {
+      "id": "t6",
+      "type": "AppInstance",
+      "displayName": "App 6",
+      "detailEntry": {
+        "k": "v6-padding"
+      }
+    },
+    {
+      "id": "t7",
+      "type": "AppInstance",
+      "displayName": "App 7",
+      "detailEntry": {
+        "k": "v7-padding"
+      }
+    },
+    {
+      "id": "t8",
+      "type": "AppInstance",
+      "displayName": "App 8",
+      "detailEntry": {
+        "k": "v8-padding"
+      }
+    },
+    {
+      "id": "t9",
+      "type": "AppInstance",
+      "displayName": "App 9",
+      "detailEntry": {
+        "k": "v9-padding"
+      }
+    },
+    {
+      "id": "t10",
+      "type": "AppInstance",
+      "displayName": "App 10",
+      "detailEntry": {
+        "k": "v10-padding"
+      }
+    },
+    {
+      "id": "t11",
+      "type": "AppInstance",
+      "displayName": "App 11",
+      "detailEntry": {
+        "k": "v11-padding"
+      }
+    },
+    {
+      "id": "t12",
+      "type": "AppInstance",
+      "displayName": "App 12",
+      "detailEntry": {
+        "k": "v12-padding"
+      }
+    },
+    {
+      "id": "t13",
+      "type": "AppInstance",
+      "displayName": "App 13",
+      "detailEntry": {
+        "k": "v13-padding"
+      }
+    },
+    {
+      "id": "t14",
+      "type": "AppInstance",
+      "displayName": "App 14",
+      "detailEntry": {
+        "k": "v14-padding"
+      }
+    },
+    {
+      "id": "t15",
+      "type": "AppInstance",
+      "displayName": "App 15",
+      "detailEntry": {
+        "k": "v15-padding"
+      }
+    },
+    {
+      "id": "t16",
+      "type": "AppInstance",
+      "displayName": "App 16",
+      "detailEntry": {
+        "k": "v16-padding"
+      }
+    },
+    {
+      "id": "t17",
+      "type": "AppInstance",
+      "displayName": "App 17",
+      "detailEntry": {
+        "k": "v17-padding"
+      }
+    }
+  ],
+  "debugContext": {
+    "debugData": [
+      {
+        "ts": "2026-06-21T10:00:00Z",
+        "k": "dbg-0",
+        "detail": "value-0-xxxxxxxx"
+      },
+      {
+        "ts": "2026-06-21T10:01:00Z",
+        "k": "dbg-1",
+        "detail": "value-1-xxxxxxxx"
+      },
+      {
+        "ts": "2026-06-21T10:02:00Z",
+        "k": "dbg-2",
+        "detail": "value-2-xxxxxxxx"
+      },
+      {
+        "ts": "2026-06-21T10:03:00Z",
+        "k": "dbg-3",
+        "detail": "value-3-xxxxxxxx"
+      },
+      {
+        "ts": "2026-06-21T10:04:00Z",
+        "k": "dbg-4",
+        "detail": "value-4-xxxxxxxx"
+      },
+      {
+        "ts": "2026-06-21T10:05:00Z",
+        "k": "dbg-5",
+        "detail": "value-5-xxxxxxxx"
+      },
+      {
+        "ts": "2026-06-21T10:06:00Z",
+        "k": "dbg-6",
+        "detail": "value-6-xxxxxxxx"
+      },
+      {
+        "ts": "2026-06-21T10:07:00Z",
+        "k": "dbg-7",
+        "detail": "value-7-xxxxxxxx"
+      },
+      {
+        "ts": "2026-06-21T10:08:00Z",
+        "k": "dbg-8",
+        "detail": "value-8-xxxxxxxx"
+      },
+      {
+        "ts": "2026-06-21T10:09:00Z",
+        "k": "dbg-9",
+        "detail": "value-9-xxxxxxxx"
+      },
+      {
+        "ts": "2026-06-21T10:10:00Z",
+        "k": "dbg-10",
+        "detail": "value-10-xxxxxxxx"
+      },
+      {
+        "ts": "2026-06-21T10:11:00Z",
+        "k": "dbg-11",
+        "detail": "value-11-xxxxxxxx"
+      }
+    ]
+  }
+}

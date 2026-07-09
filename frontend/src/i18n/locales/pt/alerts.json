@@ -1,0 +1,202 @@
+{
+  "loading": "Carregando...",
+  "page": {
+    "eyebrow": "Operações",
+    "title": "Alertas",
+    "description": "Triagem de alertas multi-fonte: filtros limpos, busca confiável em descrição e detalhe expandido sem sair da listagem."
+  },
+  "stats": {
+    "criticalShown": "Críticos exibidos",
+    "highShown": "Altos exibidos",
+    "mediumShown": "Médios exibidos",
+    "lowShown": "Baixos exibidos",
+    "infoShown": "Info exibidos"
+  },
+  "filters": {
+    "quickSeverity": {
+      "critical": "Críticos",
+      "high": "Altos",
+      "medium": "Médios",
+      "low": "Baixos",
+      "info": "Info"
+    },
+    "period": "Período",
+    "severity": "Severidade",
+    "hostname": "Hostname",
+    "hostnamePlaceholder": "Ex.: srv-web-01",
+    "index": "Índice",
+    "description": "Descrição",
+    "descriptionPlaceholder": "Ex.: bruteforce ou *bruteforce*",
+    "descriptionHelper": "Busca inteligente em rule.description. Texto simples usa busca textual; * e ? usam correspondência por padrão com fallback do Indexer. O comportamento pode variar conforme o mapping do índice.",
+    "descriptionMode": "Modo da descrição",
+    "descriptionModeOptions": {
+      "smart": "Smart",
+      "exact": "Exact",
+      "contains": "Contains"
+    },
+    "advanced": {
+      "title": "Filtros avançados",
+      "filledCount": "{{count}} filtro(s) avançado(s) preenchido(s)",
+      "hint": "Level, agent id, rule id, group, decoder, rede, usuário e query string do Indexer.",
+      "ruleId": "Rule ID",
+      "ruleIdPlaceholder": "Ex.: 5710 ou 57*",
+      "level": "Level",
+      "levelPlaceholder": "Ex.: 12",
+      "agentId": "Agent ID",
+      "agentIdPlaceholder": "Ex.: 001",
+      "decoder": "Decoder",
+      "decoderPlaceholder": "Ex.: sshd",
+      "ruleGroup": "Rule group",
+      "ruleGroupPlaceholder": "Ex.: authentication_failed",
+      "srcIp": "SRC IP",
+      "srcIpPlaceholder": "Ex.: 10.10.10.*",
+      "dstIp": "DST IP",
+      "dstIpPlaceholder": "Ex.: 172.16.1.10",
+      "username": "Usuário",
+      "usernamePlaceholder": "Ex.: root",
+      "query": "Consulta avançada",
+      "queryPlaceholder": "Ex.: agent.name:web* AND rule.id:5710",
+      "queryHelper": "Use query string do Indexer. O backend não aceita JSON DSL livre neste campo."
+    },
+    "apply": "Aplicar filtros"
+  },
+  "results": {
+    "noIntegration": "Nenhuma integração apta para consulta.",
+    "showingScoped": "Mostrando {{start}}-{{end}} de {{total}} alerta(s) em {{name}}.",
+    "showingFederated": "Mostrando {{start}}-{{end}} de {{total}} alerta(s) na visão federada."
+  },
+  "notices": {
+    "federatedMode": {
+      "title": "Modo federado",
+      "description": "A página está consultando múltiplas integrações no backend com ordenação e paginação consistentes. Se alguma fonte falhar, a interface vai marcar o resultado como parcial."
+    },
+    "partialResult": {
+      "title": "Resultado parcial",
+      "description": "Pelo menos uma integração não respondeu corretamente. Revise os erros parciais antes de tratar a ausência de eventos como ausência real."
+    },
+    "loadFailed": {
+      "title": "Falha ao carregar alertas"
+    },
+    "sourcesNotResponding": {
+      "title": "Algumas fontes não responderam"
+    }
+  },
+  "emptyStates": {
+    "noIntegration": {
+      "title": "Nenhuma integração operacional para alertas",
+      "description": "Selecione uma integração ativa com capacidade de consulta de alertas (alerts:list)."
+    },
+    "noResults": "Nenhum alerta encontrado com os filtros atuais."
+  },
+  "table": {
+    "ariaLabel": "Lista de alertas",
+    "viewDetailsAria": "Ver detalhes do alerta {{title}}",
+    "columns": {
+      "date": "Data",
+      "severity": "Severidade",
+      "description": "Descrição",
+      "host": "Host",
+      "rule": "Rule",
+      "level": "Level",
+      "origin": "Origem",
+      "integration": "Integração"
+    }
+  },
+  "pagination": {
+    "summary": "Página {{page}} de {{totalPages}}. Exibindo {{start}}-{{end}} de {{total}} alertas.",
+    "previous": "Anterior",
+    "next": "Próxima",
+    "perPage": "{{count}} por página",
+    "pageOf": "Página {{page}} de {{totalPages}}"
+  },
+  "errors": {
+    "queryFailed": "Falha ao consultar alertas",
+    "detailLoadFailed": "Falha ao carregar detalhes do alerta"
+  },
+  "history": {
+    "title": "Histórico de Atividades",
+    "subtitle": "Visualize operações e buscas realizadas no sistema.",
+    "loading": "Carregando histórico...",
+    "dismiss": "Dispensar",
+    "expand": "Expandir",
+    "requestPayload": "Payload da requisição",
+    "noPayload": "Nenhum payload registrado.",
+    "notAvailable": "N/A",
+    "system": "Sistema",
+    "clientLabel": "Cliente {{id}}",
+    "clientRemoved": "Cliente removido",
+    "tryAgain": "Tentar Novamente",
+    "tabs": {
+      "ariaLabel": "Tipos de histórico",
+      "searches": "Histórico de Buscas",
+      "operations": "Histórico de Operações",
+      "audit": "Auditoria de Usuários"
+    },
+    "filters": {
+      "byClient": "Filtrar por cliente",
+      "allClients": "Todos os clientes",
+      "selectClientPlaceholder": "Selecione um cliente..."
+    },
+    "errors": {
+      "downloadFailedTitle": "Falha no download",
+      "loadFailedTitle": "Erro ao carregar histórico",
+      "auditExportFailed": "Não foi possível exportar a auditoria em CSV. Tente novamente.",
+      "searchCsvDownloadFailed": "Não foi possível baixar o CSV da busca. Tente novamente."
+    },
+    "searches": {
+      "description": "Busca executada por cliente e status.",
+      "emptyTitle": "Nenhuma busca encontrada",
+      "emptyDescription": "Não há buscas registradas para os filtros selecionados.",
+      "csvExpired": "CSV expirado",
+      "resultCount_one": "{{count}} resultado",
+      "resultCount_other": "{{count}} resultados",
+      "expandAria": "Expandir busca {{searchId}}",
+      "columns": {
+        "client": "Cliente",
+        "query": "Query"
+      }
+    },
+    "operations": {
+      "description": "Chamadas e operações administrativas registradas no backend.",
+      "emptyTitle": "Nenhuma operação encontrada",
+      "emptyDescription": "Não há operações registradas para os filtros selecionados.",
+      "expandAria": "Expandir operação {{operation}}",
+      "columns": {
+        "client": "Cliente",
+        "operation": "Operação",
+        "endpoint": "Endpoint",
+        "result": "Resultado"
+      }
+    },
+    "audit": {
+      "description": "Logins, logouts e chamadas da API com usuário de origem, IP e status.",
+      "emptyTitle": "Nenhum evento de auditoria encontrado",
+      "emptyDescription": "As ações de usuários aparecerão aqui assim que forem executadas.",
+      "filtersAria": "Filtros de auditoria",
+      "applyFilters": "Aplicar filtros",
+      "anonymous": "Anônimo",
+      "noRole": "SEM PERFIL",
+      "ipUnidentified": "IP não identificado",
+      "expandAria": "Expandir ação {{action}}",
+      "paginationSummary": "Mostrando {{start}} a {{end}} de {{total}} registros",
+      "pageSizeOption_one": "{{count}} registro",
+      "pageSizeOption_other": "{{count}} registros",
+      "columns": {
+        "user": "Usuário",
+        "action": "Ação",
+        "endpoint": "Endpoint",
+        "origin": "Origem"
+      },
+      "filters": {
+        "username": "Usuário",
+        "usernamePlaceholder": "Filtrar por usuário",
+        "ipAddress": "IP de Origem",
+        "ipAddressPlaceholder": "Ex: 10.0.0.10",
+        "dateFrom": "Período inicial",
+        "dateTo": "Período final",
+        "pageSize": "Registros por página",
+        "selectPlaceholder": "Selecione"
+      }
+    }
+  }
+}

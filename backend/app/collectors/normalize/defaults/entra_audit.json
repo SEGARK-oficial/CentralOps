@@ -1,0 +1,41 @@
+{
+  "rules": [
+    { "target": "normalized.class_uid", "const": 3001, "required": true },
+    { "target": "normalized.class_name", "const": "Account Change" },
+    { "target": "normalized.category_uid", "const": 3, "required": true },
+    { "target": "normalized.category_name", "const": "Identity & Access Management" },
+    { "target": "normalized.activity_id", "const": 0 },
+    { "target": "normalized.type_uid", "const": 300100 },
+
+    { "target": "normalized.time", "source": "activityDateTime", "type_cast": "iso_to_epoch", "required": true },
+    { "target": "normalized.severity_id", "const": 1, "required": true },
+    { "target": "normalized.severity", "const": "Informational" },
+
+    { "target": "normalized.status", "source": "result", "default": null },
+    { "target": "normalized.status_detail", "source": "resultReason", "default": null },
+    { "target": "normalized.message", "source": "activityDisplayName", "default": null },
+
+    { "target": "normalized.actor.user.name", "source": "initiatedBy.user.userPrincipalName", "default": null },
+    { "target": "normalized.actor.user.uid", "source": "initiatedBy.user.id", "default": null },
+    { "target": "normalized.src_endpoint.ip", "source": "initiatedBy.user.ipAddress", "default": null },
+
+    { "target": "normalized.user.name", "source": "targetResources[0].userPrincipalName || targetResources[0].displayName", "default": null },
+
+    { "target": "normalized.metadata.version", "const": "1.3.0" },
+    { "target": "normalized.metadata.product.name", "const": "Microsoft Entra ID" },
+    { "target": "normalized.metadata.product.vendor_name", "const": "Microsoft" },
+    { "target": "normalized.metadata.uid", "source": "id" },
+    { "target": "normalized.metadata.log_name", "source": "category", "default": null },
+
+    {
+      "target": "normalized.observables",
+      "kind": "array_builder",
+      "items": [
+        { "name": "actor", "type": "User Name", "type_id": 4, "source": "initiatedBy.user.userPrincipalName", "skip_null": true },
+        { "name": "src_ip", "type": "IP Address", "type_id": 2, "source": "initiatedBy.user.ipAddress", "skip_null": true }
+      ],
+      "skip_null": true,
+      "dedup_by": ["value"]
+    }
+  ]
+}

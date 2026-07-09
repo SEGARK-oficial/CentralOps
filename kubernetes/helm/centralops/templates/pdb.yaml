@@ -1,0 +1,66 @@
+{{- if .Values.api.pdb.enabled }}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "centralops.fullname" . }}-api
+  labels:
+    {{- include "centralops.labels" . | nindent 4 }}
+    app.kubernetes.io/component: api
+spec:
+  minAvailable: {{ .Values.api.pdb.minAvailable }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "centralops.fullname" . }}-api
+{{- end }}
+{{- if .Values.frontend.pdb.enabled }}
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "centralops.fullname" . }}-frontend
+  labels:
+    {{- include "centralops.labels" . | nindent 4 }}
+    app.kubernetes.io/component: frontend
+spec:
+  minAvailable: {{ .Values.frontend.pdb.minAvailable }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "centralops.fullname" . }}-frontend
+{{- end }}
+{{- if and (eq .Values.dataPlane.eventDataplane "kafka") .Values.dataPlane.dispatcher.pdb.enabled }}
+---
+# Onda 4 (hardening) — PDB do consumer do data-plane.
+# maxUnavailable:1 (não minAvailable:1) permite drain de nó mesmo quando
+# replicaCount:1 — minAvailable:1 bloquearia a evicção do único pod existente.
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "centralops.fullname" . }}-kafka-dispatcher
+  labels:
+    {{- include "centralops.labels" . | nindent 4 }}
+    app.kubernetes.io/component: kafka-dispatcher
+spec:
+  maxUnavailable: {{ .Values.dataPlane.dispatcher.pdb.maxUnavailable }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "centralops.fullname" . }}-kafka-dispatcher
+{{- end }}
+{{- if .Values.workers.pdb.enabled }}
+{{- range $name, $worker := .Values.workers }}
+{{- if and (kindIs "map" $worker) (hasKey $worker "replicaCount") (ne $name "beat") }}
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "centralops.fullname" $ }}-worker-{{ $name }}
+  labels:
+    {{- include "centralops.labels" $ | nindent 4 }}
+    app.kubernetes.io/component: worker-{{ $name }}
+spec:
+  minAvailable: {{ $.Values.workers.pdb.minAvailable }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "centralops.fullname" $ }}-worker-{{ $name }}
+{{- end }}
+{{- end }}
+{{- end }}

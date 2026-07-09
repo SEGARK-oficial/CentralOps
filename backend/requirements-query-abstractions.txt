@@ -1,0 +1,14 @@
+# QF4 — camada abstrata de query (OPCIONAL).
+#
+# Instale SÓ se for usar spec_kind=sigma (regras Sigma traduzidas para o dialeto
+# nativo de cada fonte). O caminho passthrough (default) NÃO precisa destas deps.
+#
+# pip install -r backend/requirements-query-abstractions.txt
+#
+# pySigma traz ~50 deps transitivas — por isso fica fora da imagem base (espelha o
+# padrão de requirements-sinks.txt). Os backends cobrem os dialetos com tradução
+# Sigma oficial; fql/xdr_data_lake não têm backend pySigma (recusam com erro claro).
+
+pysigma>=0.11
+pysigma-backend-opensearch>=1.0      # dialeto opensearch_dsl (Wazuh/Elastic)
+pysigma-backend-microsoft365defender>=0.2  # dialeto kql (Microsoft Defender)

@@ -1,0 +1,24 @@
+{
+  "id": "00000000-0000-0000-0000-000000000042",
+  "detectionRule": "XDR-sophos-email-dlpviolation",
+  "sensor": {
+    "id": "00000000-0000-0000-0000-000000000099",
+    "type": "email",
+    "source": "Sophos"
+  },
+  "mitreAttacks": [
+    {
+      "tactic": {
+        "id": "TA0010",
+        "name": "Exfiltration"
+      }
+    }
+  ],
+  "severity": 0,
+  "processedData": "{\"action\":\"queuedForDelivery\",\"alertScore\":0.1,\"alertType\":\"dlpViolation\",\"parsedAlert\":{\"fields\":{\"mailFrom\":\"sender@example.com\",\"clientIp\":\"198.51.100.18\",\"envelopeRecipients\":[\"alice@example.com\",\"bob@example.org\"],\"attachments\":[{\"name\":\"report.pdf\",\"checksum\":\"aabbccdd00112233aabbccdd00112233aabbccdd00112233aabbccdd00112233\",\"sizeInBytes\":16413}],\"subject\":\"Q4 Report\",\"from\":\"Vendor <sender@example.com>\",\"to\":[\"alice@example.com\",\"bob@example.org\"],\"antispamData\":{\"spamScore\":8.5099},\"authenticationResults\":{\"spf\":\"pass\",\"dkim\":\"pass\",\"dmarc\":\"pass\"},\"mlScores\":[{\"score_object\":{\"threat\":7,\"spam\":4,\"bulk\":10},\"modelName\":\"email-bec\",\"languageCode\":\"pt\"}]}}}",
+  "rawData": {
+    "raw": "{\"version\":1.0,\"action\":\"queuedForDelivery\",\"mailFrom\":\"sender@example.com\",\"envelopeRecipients\":[\"alice@example.com\"],\"from\":\"Vendor <sender@example.com>\",\"to\":[\"alice@example.com\",\"bob@example.org\"],\"subject\":\"Q4 Report\",\"clientIp\":\"198.51.100.18\",\"attachments\":[{\"name\":\"report.pdf\",\"checksum\":\"aabbccdd00112233aabbccdd00112233aabbccdd00112233aabbccdd00112233\",\"sizeInBytes\":16413}]}"
+  },
+  "time": "2026-04-27T22:41:09Z",
+  "type": "Threat"
+}

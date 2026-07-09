@@ -1,0 +1,33 @@
+name: helm guard
+
+# Renders the Community Helm chart and asserts the license-keyring wiring
+#. The keyring is what verifies the EdDSA license token offline;
+# if the chart stops delivering it to the pods, a valid token fail-closes to
+# Community on Kubernetes — the exact CE→EE-upgrade blocker this guards. Fast, no
+# cluster (helm template only), and 100% Community (no EE reference — golden rule).
+
+on:
+  pull_request:
+    paths:
+      - "kubernetes/helm/**"
+  push:
+    branches: [main]
+    paths:
+      - "kubernetes/helm/**"
+  workflow_dispatch:
+
+concurrency:
+  group: helm-guard-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  helm-render:
+    name: Chart render + license-keyring wiring
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/setup-helm@v4
+        with:
+          version: v3.16.2
+      - name: Render + assert keyring reaches every edition-resolving pod
+        run: bash kubernetes/helm/centralops/tests/keyring-render-test.sh

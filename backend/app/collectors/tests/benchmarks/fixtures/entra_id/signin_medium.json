@@ -1,0 +1,19 @@
+{
+  "id": "s-medium-1",
+  "createdDateTime": "2026-06-20T10:00:00Z",
+  "userPrincipalName": "a@x.com",
+  "ipAddress": "1.1.1.1",
+  "status": {
+    "errorCode": 0
+  },
+  "appDisplayName": "Office 365",
+  "clientAppUsed": "Browser",
+  "deviceDetail": {
+    "operatingSystem": "Windows 11",
+    "browser": "Edge"
+  },
+  "location": {
+    "city": "Sao Paulo",
+    "countryOrRegion": "BR"
+  }
+}

@@ -1,0 +1,49 @@
+{
+  "id": "case-medium-001",
+  "createdAt": "2026-04-23T10:00:00Z",
+  "updatedAt": "2026-04-23T11:30:00Z",
+  "name": "Phishing campaign targeting finance team",
+  "description": "Multiple users in the finance department received spear-phishing emails with malicious attachments. Three users clicked the link, credentials potentially compromised.",
+  "severity": "critical",
+  "status": "investigating",
+  "assignee": {
+    "id": "analyst-uuid-001",
+    "name": "Jane Doe"
+  },
+  "alerts": [
+    {"id": "alert-001", "severity": "critical"},
+    {"id": "alert-002", "severity": "high"},
+    {"id": "alert-003", "severity": "medium"}
+  ],
+  "tenant": {
+    "id": "tenant-001",
+    "name": "Acme Corp",
+    "type": "enterprise"
+  },
+  "priority": "high",
+  "type": "incident",
+  "resolution": null,
+  "closedAt": null,
+  "tags": ["phishing", "credential-theft", "finance"],
+  "externalId": "EXT-CASE-001",
+  "timeline": [
+    {"time": "2026-04-23T09:55:00Z", "event": "First alert triggered"},
+    {"time": "2026-04-23T10:00:00Z", "event": "Case created"},
+    {"time": "2026-04-23T10:15:00Z", "event": "Analyst assigned"}
+  ],
+  "affectedEntities": [
+    {"type": "user", "id": "user-001", "name": "alice"},
+    {"type": "user", "id": "user-002", "name": "bob"},
+    {"type": "device", "id": "device-001", "name": "FIN-LAPTOP-01"}
+  ],
+  "indicatorsOfCompromise": [
+    {"type": "email", "value": "attacker@evil.com"},
+    {"type": "url", "value": "http://phishing-site.com/login"},
+    {"type": "hash", "value": "aabbccddeeff00112233"}
+  ],
+  "mitreTactics": ["Initial Access", "Credential Access"],
+  "mitreId": "TA0001",
+  "slaDeadline": "2026-04-24T10:00:00Z",
+  "escalated": false,
+  "ownerGroup": "SOC-Tier2"
+}

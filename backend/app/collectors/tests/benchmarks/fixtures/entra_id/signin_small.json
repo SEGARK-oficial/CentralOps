@@ -1,0 +1,9 @@
+{
+  "id": "s-small-1",
+  "createdDateTime": "2026-06-20T10:00:00Z",
+  "userPrincipalName": "a@x.com",
+  "ipAddress": "1.1.1.1",
+  "status": {
+    "errorCode": 0
+  }
+}

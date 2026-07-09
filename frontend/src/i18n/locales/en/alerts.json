@@ -1,0 +1,202 @@
+{
+  "loading": "Loading...",
+  "page": {
+    "eyebrow": "Operations",
+    "title": "Alerts",
+    "description": "Multi-source alert triage: clean filters, reliable description search, and expanded detail without leaving the list."
+  },
+  "stats": {
+    "criticalShown": "Critical shown",
+    "highShown": "High shown",
+    "mediumShown": "Medium shown",
+    "lowShown": "Low shown",
+    "infoShown": "Info shown"
+  },
+  "filters": {
+    "quickSeverity": {
+      "critical": "Critical",
+      "high": "High",
+      "medium": "Medium",
+      "low": "Low",
+      "info": "Info"
+    },
+    "period": "Period",
+    "severity": "Severity",
+    "hostname": "Hostname",
+    "hostnamePlaceholder": "E.g.: srv-web-01",
+    "index": "Index",
+    "description": "Description",
+    "descriptionPlaceholder": "E.g.: bruteforce or *bruteforce*",
+    "descriptionHelper": "Smart search on rule.description. Plain text uses text search; * and ? use pattern matching with Indexer fallback. Behavior may vary depending on the index mapping.",
+    "descriptionMode": "Description mode",
+    "descriptionModeOptions": {
+      "smart": "Smart",
+      "exact": "Exact",
+      "contains": "Contains"
+    },
+    "advanced": {
+      "title": "Advanced filters",
+      "filledCount": "{{count}} advanced filter(s) filled",
+      "hint": "Level, agent id, rule id, group, decoder, network, user and Indexer query string.",
+      "ruleId": "Rule ID",
+      "ruleIdPlaceholder": "E.g.: 5710 or 57*",
+      "level": "Level",
+      "levelPlaceholder": "E.g.: 12",
+      "agentId": "Agent ID",
+      "agentIdPlaceholder": "E.g.: 001",
+      "decoder": "Decoder",
+      "decoderPlaceholder": "E.g.: sshd",
+      "ruleGroup": "Rule group",
+      "ruleGroupPlaceholder": "E.g.: authentication_failed",
+      "srcIp": "SRC IP",
+      "srcIpPlaceholder": "E.g.: 10.10.10.*",
+      "dstIp": "DST IP",
+      "dstIpPlaceholder": "E.g.: 172.16.1.10",
+      "username": "Username",
+      "usernamePlaceholder": "E.g.: root",
+      "query": "Advanced query",
+      "queryPlaceholder": "E.g.: agent.name:web* AND rule.id:5710",
+      "queryHelper": "Use the Indexer query string. The backend does not accept free-form JSON DSL in this field."
+    },
+    "apply": "Apply filters"
+  },
+  "results": {
+    "noIntegration": "No integration eligible for querying.",
+    "showingScoped": "Showing {{start}}-{{end}} of {{total}} alert(s) in {{name}}.",
+    "showingFederated": "Showing {{start}}-{{end}} of {{total}} alert(s) in the federated view."
+  },
+  "notices": {
+    "federatedMode": {
+      "title": "Federated mode",
+      "description": "This page is querying multiple integrations on the backend with consistent ordering and pagination. If any source fails, the interface will flag the result as partial."
+    },
+    "partialResult": {
+      "title": "Partial result",
+      "description": "At least one integration did not respond correctly. Review the partial errors before treating the absence of events as a real absence."
+    },
+    "loadFailed": {
+      "title": "Failed to load alerts"
+    },
+    "sourcesNotResponding": {
+      "title": "Some sources did not respond"
+    }
+  },
+  "emptyStates": {
+    "noIntegration": {
+      "title": "No operational integration for alerts",
+      "description": "Select an active integration with alert query capability (alerts:list)."
+    },
+    "noResults": "No alerts found with the current filters."
+  },
+  "table": {
+    "ariaLabel": "Alert list",
+    "viewDetailsAria": "View details of alert {{title}}",
+    "columns": {
+      "date": "Date",
+      "severity": "Severity",
+      "description": "Description",
+      "host": "Host",
+      "rule": "Rule",
+      "level": "Level",
+      "origin": "Origin",
+      "integration": "Integration"
+    }
+  },
+  "pagination": {
+    "summary": "Page {{page}} of {{totalPages}}. Showing {{start}}-{{end}} of {{total}} alerts.",
+    "previous": "Previous",
+    "next": "Next",
+    "perPage": "{{count}} per page",
+    "pageOf": "Page {{page}} of {{totalPages}}"
+  },
+  "errors": {
+    "queryFailed": "Failed to query alerts",
+    "detailLoadFailed": "Failed to load alert details"
+  },
+  "history": {
+    "title": "Activity History",
+    "subtitle": "View operations and searches performed in the system.",
+    "loading": "Loading history...",
+    "dismiss": "Dismiss",
+    "expand": "Expand",
+    "requestPayload": "Request payload",
+    "noPayload": "No payload recorded.",
+    "notAvailable": "N/A",
+    "system": "System",
+    "clientLabel": "Client {{id}}",
+    "clientRemoved": "Removed client",
+    "tryAgain": "Try Again",
+    "tabs": {
+      "ariaLabel": "History types",
+      "searches": "Search History",
+      "operations": "Operations History",
+      "audit": "User Audit"
+    },
+    "filters": {
+      "byClient": "Filter by client",
+      "allClients": "All clients",
+      "selectClientPlaceholder": "Select a client..."
+    },
+    "errors": {
+      "downloadFailedTitle": "Download failed",
+      "loadFailedTitle": "Error loading history",
+      "auditExportFailed": "Could not export the audit log to CSV. Please try again.",
+      "searchCsvDownloadFailed": "Could not download the search CSV. Please try again."
+    },
+    "searches": {
+      "description": "Search executed by client and status.",
+      "emptyTitle": "No searches found",
+      "emptyDescription": "There are no searches recorded for the selected filters.",
+      "csvExpired": "CSV expired",
+      "resultCount_one": "{{count}} result",
+      "resultCount_other": "{{count}} results",
+      "expandAria": "Expand search {{searchId}}",
+      "columns": {
+        "client": "Client",
+        "query": "Query"
+      }
+    },
+    "operations": {
+      "description": "Calls and administrative operations recorded on the backend.",
+      "emptyTitle": "No operations found",
+      "emptyDescription": "There are no operations recorded for the selected filters.",
+      "expandAria": "Expand operation {{operation}}",
+      "columns": {
+        "client": "Client",
+        "operation": "Operation",
+        "endpoint": "Endpoint",
+        "result": "Result"
+      }
+    },
+    "audit": {
+      "description": "Logins, logouts and API calls with source user, IP and status.",
+      "emptyTitle": "No audit events found",
+      "emptyDescription": "User actions will appear here as soon as they are performed.",
+      "filtersAria": "Audit filters",
+      "applyFilters": "Apply filters",
+      "anonymous": "Anonymous",
+      "noRole": "NO ROLE",
+      "ipUnidentified": "Unidentified IP",
+      "expandAria": "Expand action {{action}}",
+      "paginationSummary": "Showing {{start}} to {{end}} of {{total}} records",
+      "pageSizeOption_one": "{{count}} record",
+      "pageSizeOption_other": "{{count}} records",
+      "columns": {
+        "user": "User",
+        "action": "Action",
+        "endpoint": "Endpoint",
+        "origin": "Origin"
+      },
+      "filters": {
+        "username": "Username",
+        "usernamePlaceholder": "Filter by user",
+        "ipAddress": "Source IP",
+        "ipAddressPlaceholder": "E.g.: 10.0.0.10",
+        "dateFrom": "Start date",
+        "dateTo": "End date",
+        "pageSize": "Records per page",
+        "selectPlaceholder": "Select"
+      }
+    }
+  }
+}

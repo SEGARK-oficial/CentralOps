@@ -1,0 +1,62 @@
+{
+  "link.title.Documentação": {
+    "message": "Documentação",
+    "description": "The title of the footer links column with title=Documentação in the footer"
+  },
+  "link.title.Plataforma": {
+    "message": "Plataforma",
+    "description": "The title of the footer links column with title=Plataforma in the footer"
+  },
+  "link.title.Recursos": {
+    "message": "Recursos",
+    "description": "The title of the footer links column with title=Recursos in the footer"
+  },
+  "link.item.label.Começar": {
+    "message": "Começar",
+    "description": "The label of footer link with label=Começar linking to /getting-started/overview"
+  },
+  "link.item.label.Operação diária": {
+    "message": "Operação diária",
+    "description": "The label of footer link with label=Operação diária linking to /operations/dashboard"
+  },
+  "link.item.label.Mappings (CML)": {
+    "message": "Mappings (CML)",
+    "description": "The label of footer link with label=Mappings (CML) linking to /normalization/overview"
+  },
+  "link.item.label.Runbooks": {
+    "message": "Runbooks",
+    "description": "The label of footer link with label=Runbooks linking to /runbooks/dispatcher"
+  },
+  "link.item.label.Arquitetura": {
+    "message": "Arquitetura",
+    "description": "The label of footer link with label=Arquitetura linking to /concepts/architecture"
+  },
+  "link.item.label.RBAC": {
+    "message": "RBAC",
+    "description": "The label of footer link with label=RBAC linking to /concepts/rbac"
+  },
+  "link.item.label.Integrações": {
+    "message": "Integrações",
+    "description": "The label of footer link with label=Integrações linking to /integrations/overview"
+  },
+  "link.item.label.Compliance": {
+    "message": "Compliance",
+    "description": "The label of footer link with label=Compliance linking to /compliance/retention"
+  },
+  "link.item.label.Quickstart": {
+    "message": "Quickstart",
+    "description": "The label of footer link with label=Quickstart linking to /getting-started/quickstart"
+  },
+  "link.item.label.DSL Cookbook": {
+    "message": "DSL Cookbook",
+    "description": "The label of footer link with label=DSL Cookbook linking to /normalization/cookbook"
+  },
+  "link.item.label.Troubleshooting": {
+    "message": "Troubleshooting",
+    "description": "The label of footer link with label=Troubleshooting linking to /normalization/troubleshooting"
+  },
+  "copyright": {
+    "message": "Copyright © 2026 CentralOps. Built with Docusaurus.",
+    "description": "The footer copyright"
+  }
+}

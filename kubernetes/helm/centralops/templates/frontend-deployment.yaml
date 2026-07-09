@@ -1,0 +1,89 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "centralops.fullname" . }}-frontend
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "centralops.labels" . | nindent 4 }}
+    app.kubernetes.io/name: {{ include "centralops.fullname" . }}-frontend
+    app.kubernetes.io/component: frontend
+spec:
+  replicas: {{ .Values.frontend.replicaCount }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "centralops.fullname" . }}-frontend
+  template:
+    metadata:
+      labels:
+        {{- include "centralops.labels" . | nindent 8 }}
+        app.kubernetes.io/name: {{ include "centralops.fullname" . }}-frontend
+        app.kubernetes.io/component: frontend
+    spec:
+      serviceAccountName: {{ include "centralops.serviceAccountName" . }}
+      automountServiceAccountToken: {{ .Values.serviceAccount.automountServiceAccountToken }}
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+        runAsUser: {{ .Values.frontend.runAsUser }}
+      containers:
+        - name: frontend
+          image: "{{ include "centralops.image" (dict "img" .Values.frontendImage "context" .) }}"
+          imagePullPolicy: {{ .Values.frontendImage.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+            {{- if eq (.Values.config.enableHttps | toString) "1" }}
+            - name: https
+              containerPort: 8443
+              protocol: TCP
+            {{- end }}
+          envFrom:
+            - configMapRef:
+                name: {{ include "centralops.fullname" . }}-config
+            - secretRef:
+                name: {{ if .Values.secrets.existingSecret }}{{ .Values.secrets.existingSecret }}{{ else }}{{ include "centralops.fullname" . }}-secret{{ end }}
+          env:
+            # Upstream da API dentro do cluster (o nginx do frontend faz reverse-proxy
+            # de /api → este Service). Casado com api-service.yaml.
+            - name: API_UPSTREAM
+              value: {{ include "centralops.fullname" . }}-api:8000
+          readinessProbe:
+            httpGet:
+              path: {{ .Values.frontend.probes.readiness.path }}
+              port: http
+            periodSeconds: {{ .Values.frontend.probes.readiness.periodSeconds }}
+            timeoutSeconds: {{ .Values.frontend.probes.readiness.timeoutSeconds }}
+          livenessProbe:
+            httpGet:
+              path: {{ .Values.frontend.probes.liveness.path }}
+              port: http
+            initialDelaySeconds: {{ .Values.frontend.probes.liveness.initialDelaySeconds }}
+            periodSeconds: {{ .Values.frontend.probes.liveness.periodSeconds }}
+          resources:
+            {{- toYaml .Values.frontend.resources | nindent 12 }}
+          securityContext:
+            {{- toYaml .Values.containerSecurityContext | nindent 12 }}
+          volumeMounts:
+            - name: nginx-conf
+              mountPath: /etc/nginx/conf.d
+            - name: nginx-ssl
+              mountPath: /etc/nginx/ssl
+            - name: nginx-cache
+              mountPath: /var/cache/nginx
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        # nginx gera conf.d/default.conf e certs self-signed em runtime (envsubst,
+        # start-frontend.sh) → emptyDir é o destino correto sob readOnlyRootFilesystem.
+        - name: nginx-conf
+          emptyDir: {}
+        - name: nginx-ssl
+          emptyDir: {}
+        - name: nginx-cache
+          emptyDir: {}
+        - name: tmp
+          emptyDir: {}

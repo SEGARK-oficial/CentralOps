@@ -1,0 +1,9 @@
+{
+  "id": "defender-alert-small-001",
+  "createdDateTime": "2026-04-23T09:00:00Z",
+  "lastUpdateDateTime": "2026-04-23T09:30:00Z",
+  "title": "Suspicious PowerShell execution",
+  "severity": "high",
+  "status": "new",
+  "category": "Execution"
+}

@@ -1,0 +1,138 @@
+{
+  "skipToContent": "Pular para o conteúdo principal",
+  "mainContent": "Conteúdo principal",
+  "appLoading": {
+    "loading": "Carregando...",
+    "validatingSession": "Validando sessão..."
+  },
+  "commandPalette": {
+    "groups": {
+      "navigate": "Navegar"
+    },
+    "items": {
+      "dashboard": {
+        "label": "Dashboard",
+        "keywords": "home, inicio, painel"
+      },
+      "integrations": {
+        "label": "Integrações",
+        "keywords": "integrations, integracao"
+      },
+      "collectors": {
+        "label": "Coletores",
+        "keywords": "collectors, agentes, agents"
+      },
+      "destinations": {
+        "label": "Destinos",
+        "keywords": "destinations, siem, saida, output"
+      },
+      "routes": {
+        "label": "Rotas",
+        "keywords": "routes, routing, roteamento"
+      },
+      "quarantine": {
+        "label": "Quarentena",
+        "keywords": "quarantine, bloqueado, blocked"
+      },
+      "mappings": {
+        "label": "Mapeamentos",
+        "keywords": "mappings, mapeamento, normalizacao"
+      },
+      "pipelineHealth": {
+        "label": "Saúde do Pipeline",
+        "keywords": "pipeline, health, saude, monitoramento"
+      }
+    }
+  },
+  "header": {
+    "openMenu": "Abrir menu de navegação",
+    "closeMenu": "Fechar menu de navegação",
+    "expandSidebar": "Expandir menu lateral",
+    "collapseSidebar": "Recolher menu lateral"
+  },
+  "navigation": {
+    "ariaLabel": "Navegação principal",
+    "groups": {
+      "overview": "Visão geral",
+      "operations": "Operação",
+      "normalization": "Normalização",
+      "knowledge": "Conhecimento",
+      "administration": "Administração",
+      "account": "Sua conta"
+    },
+    "items": {
+      "dashboard": "Dashboard",
+      "organizations": "Organizações",
+      "integrations": "Integrações",
+      "alerts": "Alertas",
+      "collectors": "Collectors",
+      "destinations": "Destinos",
+      "routes": "Roteamento",
+      "flow": "Fluxo de dados",
+      "detections": "Detecções",
+      "history": "Histórico",
+      "mappings": "Mappings",
+      "drift": "Drift Explorer",
+      "quarantine": "Quarentena",
+      "health": "Saúde do Pipeline",
+      "queries": "Queries Salvas",
+      "schedules": "Agendamentos",
+      "adminUsers": "Usuários",
+      "serviceAccounts": "Service Accounts",
+      "ocsf": "Governança OCSF",
+      "config": "Configurações",
+      "account": "Configurações da conta",
+      "tokens": "Tokens de API"
+    }
+  },
+  "breadcrumbs": {
+    "ariaLabel": "Trilha de navegação",
+    "home": "Início",
+    "detail": "Detalhe",
+    "backToHome": "Voltar ao início",
+    "goTo": "Ir para {{label}}",
+    "routes": {
+      "dashboard": "Dashboard",
+      "organizations": "Organizações",
+      "integrations": "Integrações",
+      "alerts": "Alertas",
+      "collectors": "Collectors",
+      "flow": "Fluxo de dados",
+      "history": "Histórico",
+      "mappings": "Mappings",
+      "drift": "Drift Explorer",
+      "quarantine": "Quarentena",
+      "pipelineHealth": "Saúde do Pipeline",
+      "queries": "Queries Salvas",
+      "schedules": "Agendamentos",
+      "clients": "Clientes (Legacy)",
+      "users": "Usuários",
+      "config": "Configurações",
+      "admin": "Administração",
+      "adminUsers": "Usuários",
+      "adminServiceAccounts": "Service Accounts",
+      "settings": "Conta",
+      "settingsTokens": "Tokens de API"
+    }
+  },
+  "globalFilters": {
+    "label": "Filtros",
+    "loadFailed": "Falha ao carregar os filtros globais.",
+    "retry": "Tentar novamente",
+    "clearFilters": "Limpar filtros",
+    "allOrganizations": "Todas as organizações",
+    "allPlatforms": "Todas as plataformas",
+    "allIntegrations": "Todas as integrações",
+    "filterByOrganization": "Filtrar por organização",
+    "filterByPlatform": "Filtrar por plataforma",
+    "filterByIntegration": "Filtrar por integração"
+  },
+  "userMenu": {
+    "ariaLabel": "Menu da conta",
+    "defaultName": "Usuário",
+    "defaultRole": "user",
+    "account": "Configurações da conta",
+    "tokens": "Tokens de API",
+    "signOut": "Sair"
+  }
+}

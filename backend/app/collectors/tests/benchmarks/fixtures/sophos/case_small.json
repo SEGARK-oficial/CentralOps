@@ -1,0 +1,9 @@
+{
+  "id": "case-small-001",
+  "createdAt": "2026-04-23T10:00:00Z",
+  "updatedAt": "2026-04-23T11:00:00Z",
+  "name": "Investigation Alpha",
+  "description": "Multiple failed logons",
+  "severity": "high",
+  "status": "investigating"
+}

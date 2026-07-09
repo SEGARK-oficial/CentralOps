@@ -1,0 +1,18 @@
+{
+  "name": "centralops-e2e",
+  "private": true,
+  "version": "0.0.0",
+  "description": "CentralOps E2E test suite (Playwright)",
+  "scripts": {
+    "test": "playwright test",
+    "test:headed": "playwright test --headed",
+    "report": "playwright show-report",
+    "seed": "ts-node seed.ts"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.59.1",
+    "@types/node": "^20.0.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.2.2"
+  }
+}

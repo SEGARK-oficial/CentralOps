@@ -1,0 +1,826 @@
+services:
+  # ── API (uvicorn)
+  # Antes este serviço subia nginx + uvicorn + servia o SPA (fundido). Com o P0
+  # ele é SÓ a API (uvicorn :8000); o nginx + SPA foram para o serviço
+  # `frontend`. NÃO expõe portas no host — só o `frontend` faz isso e proxia
+  # /api para cá pela rede do compose (centralops:8000). Mantém o nome
+  # `centralops` para não quebrar o depends_on dos workers.
+  centralops:
+    # drain de SIGTERM. A API drena rápido; 30s cobre o handoff.
+    stop_grace_period: 30s
+    # governança de recursos (pontos de partida — ajuste ao host).
+    deploy:
+      # P1 — API STATELESS escalável: agora é SEGURO rodar N réplicas.
+      # O init de schema saiu do import (entrypoint roda `python -m app.db.migrate`
+      # como etapa, idempotente + serializada por advisory lock) e a master key
+      # vem do env (não de arquivo por-réplica). ⚠️ Como no beat, `replicas` é
+      # honrado por Swarm/k8s (e `docker compose up --scale centralops=N`), mas
+      # IGNORADO por `docker compose up` puro — que sobe 1.
+      replicas: ${API_REPLICAS:-1}
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1g
+        reservations:
+          cpus: '0.25'
+          memory: 256m
+    build:
+      context: ..
+      dockerfile: compose/Dockerfile
+      target: final
+    image: ${IMAGE_NAME:-centralops}:latest
+    environment:
+      - DEBUG_REQUESTS=${DEBUG_REQUESTS:-0}
+      - APP_MASTER_KEY=${APP_MASTER_KEY:-}
+      # 5 — observabilidade OTLP-PUSH p/ o Collector externo
+      # (métricas/traces/logs). Vazio/false = OTel desligado (no-op). Aponte
+      # OTEL_EXPORTER_OTLP_ENDPOINT p/ o gateway (ex.: http://host.docker.internal:4318).
+      - OTEL_ENABLED=${OTEL_ENABLED:-false}
+      - OTEL_EXPORTER_OTLP_ENDPOINT=${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+      - OTEL_TRACES_SAMPLER_RATIO=${OTEL_TRACES_SAMPLER_RATIO:-0}
+      - OTEL_LOGS_ENABLED=${OTEL_LOGS_ENABLED:-false}
+      - OTEL_METRIC_EXPORT_INTERVAL_MS=${OTEL_METRIC_EXPORT_INTERVAL_MS:-15000}
+      - APP_ENV=${APP_ENV:-production}
+      - APP_COMPANY_NAME=${APP_COMPANY_NAME:-Sua Empresa}
+      - APP_COMPANY_PORTAL_NAME=${APP_COMPANY_PORTAL_NAME:-Portal de Login}
+      # TLS termina no `frontend`; com HTTPS na borda (default), cookie Secure.
+      # Para rodar a stack em HTTP puro (dev), setar SESSION_SECURE_COOKIE=0
+      # E ENABLE_HTTPS=0 no serviço frontend.
+      - SESSION_SECURE_COOKIE=${SESSION_SECURE_COOKIE:-1}
+      - CORS_ORIGINS=${CORS_ORIGINS:-}
+      - REDIS_URL=${REDIS_URL:-redis://:${REDIS_PASSWORD:?REDIS_PASSWORD obrigatorio - gere com openssl rand -base64 24 e coloque no .env}@redis:6379/0}
+      # Default: Postgres do compose. Override via .env pra apontar pra
+      # outro host ou voltar a SQLite (sqlite:////app/data/sophos.db).
+      - DATABASE_URL=${DATABASE_URL:-postgresql+psycopg2://${POSTGRES_USER:-centralops}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD obrigatorio - gere com openssl rand -base64 24 e coloque no .env}@postgres:5432/${POSTGRES_DB:-centralops}}
+      # ── DFIR-Iris auto-create de customer (Sophos Partner sync) ────
+      # Quando setado, o sync_sophos_partner cria automaticamente um
+      # customer no Iris pra cada Organization auto-provisionada do
+      # /partner/v1/tenants e linka via Organization.iris_customer_id.
+      # Sem essas vars: log "DFIR_IRIS_* not configured — skipping" e
+      # operador popula iris_customer_id manualmente. NÃO é erro.
+      - DFIR_IRIS_URL=${DFIR_IRIS_URL:-}
+      - DFIR_IRIS_API_KEY=${DFIR_IRIS_API_KEY:-}
+      - DFIR_IRIS_TLS_SKIP_VERIFY=${DFIR_IRIS_TLS_SKIP_VERIFY:-0}
+    volumes:
+      - app-data:/app/data
+    expose:
+      - "8000"
+    # readiness real (DB+Redis), batendo direto no uvicorn (:8000),
+    # não no /api/auth/status (que conflundia liveness com readiness). O
+    # orquestrador/reverse-proxy usa este sinal para só rotear tráfego quando a
+    # réplica está pronta.
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8000/readyz || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ── Frontend (nginx + SPA estático)
+  # Imagem própria (nginx:alpine + Vite dist). Serve o SPA e faz reverse-proxy
+  # de /api → API (centralops:8000). É QUEM expõe as portas no host agora —
+  # ⚠️ No orquestrador/reverse-proxy: aponte o domínio/porta para ESTE serviço
+  # (frontend), não o `centralops`. Mudar a UI re-publica SÓ esta imagem.
+  frontend:
+    stop_grace_period: 30s
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 128m
+        reservations:
+          memory: 32m
+    build:
+      context: ..
+      dockerfile: compose/Dockerfile
+      target: frontend
+      args:
+        VITE_BACKEND_URL: ${VITE_BACKEND_URL:-/api}
+    image: ${IMAGE_NAME:-centralops}-frontend:latest
+    environment:
+      - NGINX_SERVER_NAME=${NGINX_SERVER_NAME:-_}
+      - ENABLE_HTTPS=${ENABLE_HTTPS:-1}
+      - API_UPSTREAM=${API_UPSTREAM:-centralops:8000}
+    volumes:
+      - app-ssl:/etc/nginx/ssl
+      - ../certs:/certs:ro
+    ports:
+      # O nginx-unprivileged escuta em 8080/8443 (non-root, O5).
+      - '${HTTP_PORT:-3000}:8080'
+      - '${HTTPS_PORT:-3443}:8443'
+    healthcheck:
+      # /health é uma location estática do nginx (não toca a API). busybox wget.
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:8080/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    depends_on:
+      centralops:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ── Banco de dados primário (Postgres) ──────────────────────────────
+  # CentralOps suporta tanto SQLite quanto Postgres via DATABASE_URL.
+  # Padrão do compose: Postgres (mais robusto pra concorrência de
+  # workers Celery — drift, quarantine, dispatcher escrevendo simultâneo).
+  # Para usar SQLite, comente este service e ajuste DATABASE_URL no .env
+  # para sqlite:////app/data/sophos.db.
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER:-centralops}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD obrigatorio - gere com openssl rand -base64 24 e coloque no .env}
+      - POSTGRES_DB=${POSTGRES_DB:-centralops}
+      # Tuning leve — suficiente pra carga típica (até ~100 events/s).
+      # Override via .env se for escalar mais.
+      - POSTGRES_INITDB_ARGS=--encoding=UTF-8 --lc-collate=C --lc-ctype=C
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    # (O8 durabilidade — PITR/WAL archiving + réplica — é infra fora
+    # do compose; ver runbook de deploy. Aqui só o teto de recursos.)
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1g
+        reservations:
+          cpus: '0.25'
+          memory: 256m
+    healthcheck:
+      # pg_isready como user real — falha precoce se config estiver errada
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-centralops} -d ${POSTGRES_DB:-centralops}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
+    # Não expor a porta no host por padrão. Para acesso externo de
+    # ferramentas (psql, DBeaver), descomente abaixo:
+    # ports:
+    # - "${POSTGRES_PORT:-5432}:5432"
+    restart: unless-stopped
+
+  # ── Collector Multi-Tenant (RF07, RNF05) ────────────────────────────
+  redis:
+    image: redis:7-alpine
+    # AUTH sempre habilitado (RNF06). Em produção, considerar TLS via stunnel.
+    command:
+      - redis-server
+      - --appendonly
+      - "yes"
+      # AOF auto-rewrite EXPLÍCITO (paridade com o Helm dev-database.yaml). O
+      # default do redis:7 já é 100%/64mb, mas explicitamos p/ não depender de
+      # default implícito. O teto REAL do AOF é o --maxmemory abaixo (limita o
+      # dataset vivo → limita o snapshot pós-rewrite); a AUSÊNCIA de maxmemory —
+      # não o rewrite — foi a causa-raiz do incidente de AOF=6GB.
+      - --auto-aof-rewrite-percentage
+      - "100"
+      - --auto-aof-rewrite-min-size
+      - 64mb
+      - --requirepass
+      - ${REDIS_PASSWORD:?REDIS_PASSWORD obrigatorio - gere com openssl rand -base64 24 e coloque no .env}
+      # teto de memória + política. Redis aqui é broker + schedule
+      # RedBeat + result + cache + dedup numa só instância. 'volatile-lru' evicta
+      # SÓ chaves COM TTL (dedup/cache/result) sob pressão e PRESERVA as sem-TTL
+      # (broker/RedBeat) — protege o broker MELHOR que 'noeviction', que faria até
+      # o ENQUEUE do broker falhar quando o cache/dedup enchesse os 512mb.
+      # Trade-off honesto: evictar uma chave de dedup sob pressão pode DUPLICAR
+      # entrega a destinos at-least-once sem dedup (Sentinel/syslog/HEC) — aceitável
+      # (duplicar a jusante > parar a coleta). Dimensione REDIS_MAXMEMORY < limite
+      # do container. Paridade com o Helm, que já usa volatile-lru.
+      - --maxmemory
+      - ${REDIS_MAXMEMORY:-512mb}
+      - --maxmemory-policy
+      - volatile-lru
+    volumes:
+      - redis-data:/data
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 768m
+        reservations:
+          memory: 128m
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:?REDIS_PASSWORD obrigatorio - gere com openssl rand -base64 24 e coloque no .env}", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  # ── Onda 3 — broker do data-plane durável (Kafka-API) ──────
+  # Redpanda é single-binary (sem ZooKeeper/JVM), ideal p/ self-host. Em PROD,
+  # aponte os serviços p/ MSK/Redpanda Cloud/Confluent via KAFKA_BOOTSTRAP_SERVERS
+  # e NÃO suba este serviço (perfil ``self-host-broker``). O fan-out produz no
+  # tópico ``<prefix>.deliver`` (N partições, key=destination_id) e o
+  # collector-kafka-dispatcher consome.
+  redpanda:
+    image: redpandadata/redpanda:v24.2.7
+    command:
+      - redpanda
+      - start
+      - --smp=1
+      - --memory=512M
+      - --reserve-memory=0M
+      - --overprovisioned
+      - --node-id=0
+      - --check=false
+      - --kafka-addr=PLAINTEXT://0.0.0.0:9092
+      - --advertise-kafka-addr=PLAINTEXT://redpanda:9092
+    volumes:
+      - redpanda-data:/var/lib/redpanda/data
+    healthcheck:
+      test: ["CMD-SHELL", "rpk cluster health | grep -E 'Healthy:.+true' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1g
+        reservations:
+          memory: 256m
+    restart: unless-stopped
+
+  collector-worker-priority:
+    # Celery faz warm shutdown no SIGTERM (recebido direto, pois o
+    # entrypoint faz exec do celery). Coleta priority é curta; 120s sobra.
+    stop_grace_period: 120s
+    image: ${IMAGE_NAME:-centralops}:latest
+    # Bypassa o CMD da imagem (``start-api.sh``) e sobe direto o worker Celery.
+    # Diretório de trabalho do imagem final é ``/app`` com o módulo em
+    # ``app/collectors``. Celery resolve ``backend.app.collectors`` via
+    # PYTHONPATH=/ (raiz mapeada) — setamos explicitamente abaixo.
+    entrypoint: ["/usr/local/bin/start-collector.sh"]
+    command:
+      - celery
+      - -A
+      - app.collectors.celery_app
+      - worker
+      - -Q
+      - collect.priority
+      - -n
+      - priority@%h
+      - --concurrency=4
+      - --loglevel=info
+    environment:
+      - SERVICE_ROLE=worker
+      - APP_MASTER_KEY=${APP_MASTER_KEY:-}
+      # 5 — observabilidade OTLP-PUSH p/ o Collector externo
+      # (métricas/traces/logs). Vazio/false = OTel desligado (no-op). Aponte
+      # OTEL_EXPORTER_OTLP_ENDPOINT p/ o gateway (ex.: http://host.docker.internal:4318).
+      - OTEL_ENABLED=${OTEL_ENABLED:-false}
+      - OTEL_EXPORTER_OTLP_ENDPOINT=${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+      - OTEL_TRACES_SAMPLER_RATIO=${OTEL_TRACES_SAMPLER_RATIO:-0}
+      - OTEL_LOGS_ENABLED=${OTEL_LOGS_ENABLED:-false}
+      - OTEL_METRIC_EXPORT_INTERVAL_MS=${OTEL_METRIC_EXPORT_INTERVAL_MS:-15000}
+      - APP_ENV=${APP_ENV:-production}
+      - SESSION_SECURE_COOKIE=${SESSION_SECURE_COOKIE:-}
+      # Onda 3 — data-plane durável: kafka é o caminho de DEPLOY (o
+      # producer do fan-out publica no tópico ``deliver``). Override p/ "celery"
+      # só em dev sem broker. Aponte KAFKA_BOOTSTRAP_SERVERS p/ MSK/Redpanda Cloud
+      # em prod (e não suba o serviço redpanda local).
+      - EVENT_DATAPLANE=${EVENT_DATAPLANE:-kafka}
+      - KAFKA_BOOTSTRAP_SERVERS=${KAFKA_BOOTSTRAP_SERVERS:-redpanda:9092}
+      # Default: Postgres do compose. Override via .env pra apontar pra
+      # outro host ou voltar a SQLite (sqlite:////app/data/sophos.db).
+      - DATABASE_URL=${DATABASE_URL:-postgresql+psycopg2://${POSTGRES_USER:-centralops}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD obrigatorio - gere com openssl rand -base64 24 e coloque no .env}@postgres:5432/${POSTGRES_DB:-centralops}}
+      # Honra override do orquestrador (ex.: Redis gerenciado externamente) e cai
+      # no redis do compose só se não houver override — espelha o REDIS_URL da API.
+      - REDIS_URL=${REDIS_URL:-redis://:${REDIS_PASSWORD:?REDIS_PASSWORD obrigatorio - gere com openssl rand -base64 24 e coloque no .env}@redis:6379/0}
+      - CELERY_BROKER_URL=${CELERY_BROKER_URL:-redis://:${REDIS_PASSWORD:?REDIS_PASSWORD obrigatorio - gere com openssl rand -base64 24 e coloque no .env}@redis:6379/1}
+      - CELERY_RESULT_BACKEND=${CELERY_RESULT_BACKEND:-redis://:${REDIS_PASSWORD:?REDIS_PASSWORD obrigatorio - gere com openssl rand -base64 24 e coloque no .env}@redis:6379/2}
+      # ── Collector runtime settings — seed only ───────────────────────
+      # A partir de 2026-04, essas variáveis são seed inicial.
+      # Alterações em runtime: UI em /config → "Collector / Dispatch".
+      # Os workers leem de ``collector_config`` no banco + cache Redis 30s.
+      - WAZUH_SYSLOG_HOST=${WAZUH_SYSLOG_HOST:-}
+      - WAZUH_SYSLOG_PORT=${WAZUH_SYSLOG_PORT:-514}
+      - WAZUH_CA_BUNDLE=${WAZUH_CA_BUNDLE:-}
+      - WAZUH_DISPATCH_MODE=${WAZUH_DISPATCH_MODE:-syslog}
+    working_dir: /app
+    volumes:
+      - app-data:/app/data
+      - collector-logs:/var/log/centralops/collectors
+      - ../certs:/certs:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      centralops:
+        # Garante que o centralops gerou APP_MASTER_KEY em /app/data/app_master_key
+        # antes do worker tentar ler.
+        condition: service_started
+    deploy:
+      replicas: ${COLLECTOR_PRIORITY_REPLICAS:-2}
+      resources:  # O7
+        limits:
+          cpus: '1.0'
+          memory: 1g
+        reservations:
+          cpus: '0.25'
+          memory: 256m
+    restart: unless-stopped
+
+  collector-worker-bulk:
+    # backfill é longo (até task_time_limit=900s). O grace precisa
+    # cobri-lo p/ o warm shutdown drenar a task em voo em vez de SIGKILL (com
+    # task_acks_late, um SIGKILL só re-entrega — desperdício, não perda).
+    stop_grace_period: 930s
+    image: ${IMAGE_NAME:-centralops}:latest
+    entrypoint: ["/usr/local/bin/start-collector.sh"]
+    command:
+      - celery
+      - -A
+      - app.collectors.celery_app
+      - worker
+      - -Q
+      # este worker consome SÓ trabalho não-realtime de COLETA —
+      # collect.bulk + collect.backfill (jobs longos, até 90 dias de eventos),
+      # que não devem concorrer com o polling realtime (collect.priority).
+      # As filas de housekeeping (maintenance/maintenance.high) foram MOVIDAS
+      # para o serviço dedicado ``collector-worker-maintenance`` — assim um
+      # backfill pesado não estrangula retention purge / PAT housekeeping /
+      # sync_sophos_partner (compliance-crítico). Sem este consumer,
+      # collect.backfill fica pending para sempre.
+      - collect.bulk,collect.backfill
+      - -n
+      - bulk@%h
+      - --concurrency=8
+      - --loglevel=info
+    environment:
+      - SERVICE_ROLE=worker
+      - APP_MASTER_KEY=${APP_MASTER_KEY:-}
+      # 5 — observabilidade OTLP-PUSH p/ o Collector externo
+      # (métricas/traces/logs). Vazio/false = OTel desligado (no-op). Aponte
+      # OTEL_EXPORTER_OTLP_ENDPOINT p/ o gateway (ex.: http://host.docker.internal:4318).
+      - OTEL_ENABLED=${OTEL_ENABLED:-false}
+      - OTEL_EXPORTER_OTLP_ENDPOINT=${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+      - OTEL_TRACES_SAMPLER_RATIO=${OTEL_TRACES_SAMPLER_RATIO:-0}
+      - OTEL_LOGS_ENABLED=${OTEL_LOGS_ENABLED:-false}
+      - OTEL_METRIC_EXPORT_INTERVAL_MS=${OTEL_METRIC_EXPORT_INTERVAL_MS:-15000}
+      - APP_ENV=${APP_ENV:-production}
+      - SESSION_SECURE_COOKIE=${SESSION_SECURE_COOKIE:-}
+      # Onda 3 — data-plane durável: kafka é o caminho de DEPLOY (o
+      # producer do fan-out publica no tópico ``deliver``). Override p/ "celery"
+      # só em dev sem broker. Aponte KAFKA_BOOTSTRAP_SERVERS p/ MSK/Redpanda Cloud
+      # em prod (e não suba o serviço redpanda local).
+      - EVENT_DATAPLANE=${EVENT_DATAPLANE:-kafka}
+      - KAFKA_BOOTSTRAP_SERVERS=${KAFKA_BOOTSTRAP_SERVERS:-redpanda:9092}
+      # Default: Postgres do compose. Override via .env pra apontar pra
+      # outro host ou voltar a SQLite (sqlite:////app/data/sophos.db).
+      - DATABASE_URL=${DATABASE_URL:-postgresql+psycopg2://${POSTGRES_USER:-centralops}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD obrigatorio - gere com openssl rand -base64 24 e coloque no .env}@postgres:5432/${POSTGRES_DB:-centralops}}
+      # Honra override do orquestrador (ex.: Redis gerenciado externamente) e cai
+      # no redis do compose só se não houver override — espelha o REDIS_URL da API.
+      - REDIS_URL=${REDIS_URL:-redis://:${REDIS_PASSWORD:?REDIS_PASSWORD obrigatorio - gere com openssl rand -base64 24 e coloque no .env}@redis:6379/0}
+      - CELERY_BROKER_URL=${CELERY_BROKER_URL:-redis://:${REDIS_PASSWORD:?REDIS_PASSWORD obrigatorio - gere com openssl rand -base64 24 e coloque no .env}@redis:6379/1}
+      - CELERY_RESULT_BACKEND=${CELERY_RESULT_BACKEND:-redis://:${REDIS_PASSWORD:?REDIS_PASSWORD obrigatorio - gere com openssl rand -base64 24 e coloque no .env}@redis:6379/2}
+    working_dir: /app
+    volumes:
+      - app-data:/app/data
+      - collector-logs:/var/log/centralops/collectors
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      centralops:
+        condition: service_started
+    # bulk recebe mais teto (backfill de até 90 dias) que priority.
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2g
+        reservations:
+          cpus: '0.5'
+          memory: 512m
+    restart: unless-stopped
+
+  # ── P2: housekeeping/compliance ISOLADO do backfill ────────────
+  collector-worker-maintenance:
+    # Consome maintenance + maintenance.high (retention purge RNF7.2/7.3, PAT
+    # expiration housekeeping, sync_sophos_partner discovery). Tasks declaradas
+    # com @shared_task(queue="maintenance") em partner_sync_tasks,
+    # retention_tasks, api_tokens_housekeeping. Antes dividia o pool com o
+    # backfill no worker bulk — um backfill de 90 dias podia ocupar os 8 slots e
+    # atrasar purge/sync. Agora tem pool próprio. Sem este consumer, o sync de
+    # tenants Sophos retorna 200 no producer mas fica encarcerado no Redis — bug
+    # silencioso (diagnóstico 2026-05-06). Grace 300s: purge/sync moderados.
+    stop_grace_period: 300s
+    image: ${IMAGE_NAME:-centralops}:latest
+    entrypoint: ["/usr/local/bin/start-collector.sh"]
+    command:
+      - celery
+      - -A
+      - app.collectors.celery_app
+      - worker
+      - -Q
+      - maintenance,maintenance.high
+      - -n
+      - maintenance@%h
+      - --concurrency=4
+      - --loglevel=info
+    environment:
+      - SERVICE_ROLE=worker
+      - APP_MASTER_KEY=${APP_MASTER_KEY:-}
+      # 5 — observabilidade OTLP-PUSH p/ o Collector externo
+      # (métricas/traces/logs). Vazio/false = OTel desligado (no-op). Aponte
+      # OTEL_EXPORTER_OTLP_ENDPOINT p/ o gateway (ex.: http://host.docker.internal:4318).
+      - OTEL_ENABLED=${OTEL_ENABLED:-false}
+      - OTEL_EXPORTER_OTLP_ENDPOINT=${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+      - OTEL_TRACES_SAMPLER_RATIO=${OTEL_TRACES_SAMPLER_RATIO:-0}
+      - OTEL_LOGS_ENABLED=${OTEL_LOGS_ENABLED:-false}
+      - OTEL_METRIC_EXPORT_INTERVAL_MS=${OTEL_METRIC_EXPORT_INTERVAL_MS:-15000}
+      - APP_ENV=${APP_ENV:-production}
+      - SESSION_SECURE_COOKIE=${SESSION_SECURE_COOKIE:-}
+      - DATABASE_URL=${DATABASE_URL:-postgresql+psycopg2://${POSTGRES_USER:-centralops}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD obrigatorio - gere com openssl rand -base64 24 e coloque no .env}@postgres:5432/${POSTGRES_DB:-centralops}}
+      # Honra override do orquestrador (ex.: Redis gerenciado externamente) e cai
+      # no redis do compose só se não houver override — espelha o REDIS_URL da API.
+      - REDIS_URL=${REDIS_URL:-redis://:${REDIS_PASSWORD:?REDIS_PASSWORD obrigatorio - gere com openssl rand -base64 24 e coloque no .env}@redis:6379/0}
+      - CELERY_BROKER_URL=${CELERY_BROKER_URL:-redis://:${REDIS_PASSWORD:?REDIS_PASSWORD obrigatorio - gere com openssl rand -base64 24 e coloque no .env}@redis:6379/1}
+      - CELERY_RESULT_BACKEND=${CELERY_RESULT_BACKEND:-redis://:${REDIS_PASSWORD:?REDIS_PASSWORD obrigatorio - gere com openssl rand -base64 24 e coloque no .env}@redis:6379/2}
+      # DFIR-Iris — sync_sophos_partner (fila maintenance) auto-cria customer no
+      # Iris quando configurado. Vide centralops env.
+      - DFIR_IRIS_URL=${DFIR_IRIS_URL:-}
+      - DFIR_IRIS_API_KEY=${DFIR_IRIS_API_KEY:-}
+      - DFIR_IRIS_TLS_SKIP_VERIFY=${DFIR_IRIS_TLS_SKIP_VERIFY:-0}
+    working_dir: /app
+    volumes:
+      - app-data:/app/data
+      - collector-logs:/var/log/centralops/collectors
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      centralops:
+        condition: service_started
+    deploy:
+      resources:  # O7 — housekeeping leve.
+        limits:
+          cpus: '1.0'
+          memory: 512m
+        reservations:
+          cpus: '0.25'
+          memory: 128m
+    restart: unless-stopped
+
+  collector-worker-query:
+    # pool DEDICADO da query federada ao vivo (QueryService). Consome
+    # SÓ collect.query — isolado da ingestão (collect.priority/bulk) para uma query
+    # lenta de um tenant não estrangular o polling realtime nem o backfill. Sem este
+    # consumer, os jobs de POST /query-jobs ficam pending para sempre no Redis.
+    # Tasks: collectors.query.run_job (query_tasks.run_query_job). Grace cobre o
+    # time_limit=900s da task para drenar a query em voo no warm shutdown.
+    stop_grace_period: 930s
+    image: ${IMAGE_NAME:-centralops}:latest
+    entrypoint: ["/usr/local/bin/start-collector.sh"]
+    command:
+      - celery
+      - -A
+      - app.collectors.celery_app
+      - worker
+      - -Q
+      - collect.query
+      - -n
+      - query@%h
+      - --concurrency=4
+      - --loglevel=info
+    environment:
+      - SERVICE_ROLE=worker
+      - APP_MASTER_KEY=${APP_MASTER_KEY:-}
+      # 5 — observabilidade OTLP-PUSH p/ o Collector externo
+      # (métricas/traces/logs). Vazio/false = OTel desligado (no-op). Aponte
+      # OTEL_EXPORTER_OTLP_ENDPOINT p/ o gateway (ex.: http://host.docker.internal:4318).
+      - OTEL_ENABLED=${OTEL_ENABLED:-false}
+      - OTEL_EXPORTER_OTLP_ENDPOINT=${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+      - OTEL_TRACES_SAMPLER_RATIO=${OTEL_TRACES_SAMPLER_RATIO:-0}
+      - OTEL_LOGS_ENABLED=${OTEL_LOGS_ENABLED:-false}
+      - OTEL_METRIC_EXPORT_INTERVAL_MS=${OTEL_METRIC_EXPORT_INTERVAL_MS:-15000}
+      - APP_ENV=${APP_ENV:-production}
+      - SESSION_SECURE_COOKIE=${SESSION_SECURE_COOKIE:-}
+      - DATABASE_URL=${DATABASE_URL:-postgresql+psycopg2://${POSTGRES_USER:-centralops}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD obrigatorio - gere com openssl rand -base64 24 e coloque no .env}@postgres:5432/${POSTGRES_DB:-centralops}}
+      # Honra override do orquestrador (ex.: Redis gerenciado externamente) e cai
+      # no redis do compose só se não houver override — espelha o REDIS_URL da API.
+      - REDIS_URL=${REDIS_URL:-redis://:${REDIS_PASSWORD:?REDIS_PASSWORD obrigatorio - gere com openssl rand -base64 24 e coloque no .env}@redis:6379/0}
+      - CELERY_BROKER_URL=${CELERY_BROKER_URL:-redis://:${REDIS_PASSWORD:?REDIS_PASSWORD obrigatorio - gere com openssl rand -base64 24 e coloque no .env}@redis:6379/1}
+      - CELERY_RESULT_BACKEND=${CELERY_RESULT_BACKEND:-redis://:${REDIS_PASSWORD:?REDIS_PASSWORD obrigatorio - gere com openssl rand -base64 24 e coloque no .env}@redis:6379/2}
+    working_dir: /app
+    volumes:
+      - app-data:/app/data
+      - collector-logs:/var/log/centralops/collectors
+      - ../certs:/certs:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      centralops:
+        condition: service_started
+    deploy:
+      replicas: ${COLLECTOR_QUERY_REPLICAS:-1}
+      resources:  # O7 — query é I/O-bound (espera o Indexer/Data Lake).
+        limits:
+          cpus: '1.0'
+          memory: 1g
+        reservations:
+          cpus: '0.25'
+          memory: 256m
+    restart: unless-stopped
+
+  collector-dispatcher:
+    # uma task de dispatch é limitada por task_time_limit=900s;
+    # grace ≥ isso garante drain do envio em voo ao destino antes do encerramento.
+    stop_grace_period: 930s
+    image: ${IMAGE_NAME:-centralops}:latest
+    entrypoint: ["/usr/local/bin/start-collector.sh"]
+    command:
+      - celery
+      - -A
+      - app.collectors.celery_app
+      - worker
+      # E5 bulkhead: este pool consome a fila genérica + os 8 shards de destino
+      # (dispatch.destination.0..7). Para isolamento OS-level de um destino
+      # lento, suba um worker dedicado a um shard (-Q dispatch.destination.N).
+      - -Q
+      - dispatch.dlq,dispatch.destination,dispatch.destination.0,dispatch.destination.1,dispatch.destination.2,dispatch.destination.3,dispatch.destination.4,dispatch.destination.5,dispatch.destination.6,dispatch.destination.7
+      - -n
+      - dispatch@%h
+      - --concurrency=8     # W6: dobra throughput de dispatch por processo
+      - --loglevel=info
+    environment:
+      - SERVICE_ROLE=worker
+      - APP_MASTER_KEY=${APP_MASTER_KEY:-}
+      # 5 — observabilidade OTLP-PUSH p/ o Collector externo
+      # (métricas/traces/logs). Vazio/false = OTel desligado (no-op). Aponte
+      # OTEL_EXPORTER_OTLP_ENDPOINT p/ o gateway (ex.: http://host.docker.internal:4318).
+      - OTEL_ENABLED=${OTEL_ENABLED:-false}
+      - OTEL_EXPORTER_OTLP_ENDPOINT=${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+      - OTEL_TRACES_SAMPLER_RATIO=${OTEL_TRACES_SAMPLER_RATIO:-0}
+      - OTEL_LOGS_ENABLED=${OTEL_LOGS_ENABLED:-false}
+      - OTEL_METRIC_EXPORT_INTERVAL_MS=${OTEL_METRIC_EXPORT_INTERVAL_MS:-15000}
+      - APP_ENV=${APP_ENV:-production}
+      - SESSION_SECURE_COOKIE=${SESSION_SECURE_COOKIE:-}
+      # Necessario para o config_loader ler collector_config do Postgres.
+      # Sem isso o loader cai no default sqlite:///./data/sophos.db, falha
+      # com "unable to open database file" e fica em fallback de env.
+      - DATABASE_URL=${DATABASE_URL:-postgresql+psycopg2://${POSTGRES_USER:-centralops}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD obrigatorio - gere com openssl rand -base64 24 e coloque no .env}@postgres:5432/${POSTGRES_DB:-centralops}}
+      # Honra override do orquestrador (ex.: Redis gerenciado externamente) e cai
+      # no redis do compose só se não houver override — espelha o REDIS_URL da API.
+      - REDIS_URL=${REDIS_URL:-redis://:${REDIS_PASSWORD:?REDIS_PASSWORD obrigatorio - gere com openssl rand -base64 24 e coloque no .env}@redis:6379/0}
+      - CELERY_BROKER_URL=${CELERY_BROKER_URL:-redis://:${REDIS_PASSWORD:?REDIS_PASSWORD obrigatorio - gere com openssl rand -base64 24 e coloque no .env}@redis:6379/1}
+      - CELERY_RESULT_BACKEND=${CELERY_RESULT_BACKEND:-redis://:${REDIS_PASSWORD:?REDIS_PASSWORD obrigatorio - gere com openssl rand -base64 24 e coloque no .env}@redis:6379/2}
+      - WAZUH_SYSLOG_HOST=${WAZUH_SYSLOG_HOST:-}
+      - WAZUH_SYSLOG_PORT=${WAZUH_SYSLOG_PORT:-6514}
+      - WAZUH_CA_BUNDLE=${WAZUH_CA_BUNDLE:-/certs/wazuh-ca.pem}
+      - WAZUH_DISPATCH_MODE=${WAZUH_DISPATCH_MODE:-syslog}
+      - COLLECTOR_JSONL_DIR=${COLLECTOR_JSONL_DIR:-/var/log/centralops/collectors}
+    working_dir: /app
+    volumes:
+      # app-data:ro — dispatcher nao precisa gravar; so le APP_MASTER_KEY.
+      - app-data:/app/data:ro
+      - collector-logs:/var/log/centralops/collectors
+      - ../certs:/certs:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      centralops:
+        condition: service_started
+    restart: unless-stopped
+    deploy:
+      replicas: ${COLLECTOR_DISPATCHER_REPLICAS:-2}   # W7: 2 replicas por default
+      resources:  # O7
+        limits:
+          cpus: '1.0'
+          memory: 1g
+        reservations:
+          cpus: '0.25'
+          memory: 256m
+
+  # ── Onda 3 — role dispatcher do data-plane Kafka ───────────
+  # Consome o tópico ``deliver`` e despacha aos destinos (reusa o
+  # dispatch_batch_to_destination: breaker/chunk/retry/DLQ). Substitui o caminho
+  # Celery dispatch.destination quando EVENT_DATAPLANE=kafka. O wazuh-default
+  # segue no collector-dispatcher acima (Celery, lane byte-idêntica). Escalável
+  # por réplicas (consumer group ``centralops-dispatcher``; no k8s = KEDA por lag).
+  collector-kafka-dispatcher:
+    stop_grace_period: 930s
+    image: ${IMAGE_NAME:-centralops}:latest
+    entrypoint: ["/usr/local/bin/start-collector.sh"]
+    # NÃO usar ``python -m``: na imagem Cython-compilada o módulo é um .so e o -m
+    # falha com "No code object available". Importar o .so e chamar main funciona
+    # tanto compilado quanto em .py (dev). (collectors/ é compilado; db/ não.)
+    command: ["python", "-c", "from app.collectors.dataplane.dispatcher import main; main"]
+    environment:
+      - SERVICE_ROLE=kafka-dispatcher
+      - APP_MASTER_KEY=${APP_MASTER_KEY:-}
+      # 5 — observabilidade OTLP-PUSH p/ o Collector externo
+      # (métricas/traces/logs). Vazio/false = OTel desligado (no-op). Aponte
+      # OTEL_EXPORTER_OTLP_ENDPOINT p/ o gateway (ex.: http://host.docker.internal:4318).
+      - OTEL_ENABLED=${OTEL_ENABLED:-false}
+      - OTEL_EXPORTER_OTLP_ENDPOINT=${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+      - OTEL_TRACES_SAMPLER_RATIO=${OTEL_TRACES_SAMPLER_RATIO:-0}
+      - OTEL_LOGS_ENABLED=${OTEL_LOGS_ENABLED:-false}
+      - OTEL_METRIC_EXPORT_INTERVAL_MS=${OTEL_METRIC_EXPORT_INTERVAL_MS:-15000}
+      - APP_ENV=${APP_ENV:-production}
+      - SESSION_SECURE_COOKIE=${SESSION_SECURE_COOKIE:-}
+      - EVENT_DATAPLANE=${EVENT_DATAPLANE:-kafka}
+      - KAFKA_BOOTSTRAP_SERVERS=${KAFKA_BOOTSTRAP_SERVERS:-redpanda:9092}
+      - KAFKA_CONSUMER_GROUP=${KAFKA_CONSUMER_GROUP:-centralops-dispatcher}
+      - DATABASE_URL=${DATABASE_URL:-postgresql+psycopg2://${POSTGRES_USER:-centralops}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD obrigatorio - gere com openssl rand -base64 24 e coloque no .env}@postgres:5432/${POSTGRES_DB:-centralops}}
+      # Control-plane Redis: o dispatch usa breaker/limiter/observability no Redis.
+      - REDIS_URL=${REDIS_URL:-redis://:${REDIS_PASSWORD:?REDIS_PASSWORD obrigatorio - gere com openssl rand -base64 24 e coloque no .env}@redis:6379/0}
+      - CELERY_BROKER_URL=${CELERY_BROKER_URL:-redis://:${REDIS_PASSWORD:?REDIS_PASSWORD obrigatorio - gere com openssl rand -base64 24 e coloque no .env}@redis:6379/1}
+      - CELERY_RESULT_BACKEND=${CELERY_RESULT_BACKEND:-redis://:${REDIS_PASSWORD:?REDIS_PASSWORD obrigatorio - gere com openssl rand -base64 24 e coloque no .env}@redis:6379/2}
+    working_dir: /app
+    volumes:
+      - app-data:/app/data:ro
+      - collector-logs:/var/log/centralops/collectors
+      - ../certs:/certs:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      redpanda:
+        condition: service_healthy
+      centralops:
+        condition: service_started
+    restart: unless-stopped
+    deploy:
+      replicas: ${COLLECTOR_KAFKA_DISPATCHER_REPLICAS:-2}
+      resources:  # O7
+        limits:
+          cpus: '1.0'
+          memory: 1g
+        reservations:
+          cpus: '0.25'
+          memory: 256m
+
+  collector-beat:
+    # o beat só agenda (não executa tasks longas); 30s sobra.
+    stop_grace_period: 30s
+    image: ${IMAGE_NAME:-centralops}:latest
+    entrypoint: ["/usr/local/bin/start-collector.sh"]
+    command:
+      - celery
+      - -A
+      - app.collectors.celery_app
+      - beat
+      # --schedule removido: RedBeat armazena o schedule no Redis (Fase 1.3).
+      # O arquivo celerybeat-schedule do PersistentScheduler não é mais usado.
+      - --loglevel=info
+    environment:
+      - SERVICE_ROLE=beat
+      - APP_MASTER_KEY=${APP_MASTER_KEY:-}
+      # 5 — observabilidade OTLP-PUSH p/ o Collector externo
+      # (métricas/traces/logs). Vazio/false = OTel desligado (no-op). Aponte
+      # OTEL_EXPORTER_OTLP_ENDPOINT p/ o gateway (ex.: http://host.docker.internal:4318).
+      - OTEL_ENABLED=${OTEL_ENABLED:-false}
+      - OTEL_EXPORTER_OTLP_ENDPOINT=${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+      - OTEL_TRACES_SAMPLER_RATIO=${OTEL_TRACES_SAMPLER_RATIO:-0}
+      - OTEL_LOGS_ENABLED=${OTEL_LOGS_ENABLED:-false}
+      - OTEL_METRIC_EXPORT_INTERVAL_MS=${OTEL_METRIC_EXPORT_INTERVAL_MS:-15000}
+      - APP_ENV=${APP_ENV:-production}
+      - SESSION_SECURE_COOKIE=${SESSION_SECURE_COOKIE:-}
+      # Onda 3 — data-plane durável: kafka é o caminho de DEPLOY (o
+      # producer do fan-out publica no tópico ``deliver``). Override p/ "celery"
+      # só em dev sem broker. Aponte KAFKA_BOOTSTRAP_SERVERS p/ MSK/Redpanda Cloud
+      # em prod (e não suba o serviço redpanda local).
+      - EVENT_DATAPLANE=${EVENT_DATAPLANE:-kafka}
+      - KAFKA_BOOTSTRAP_SERVERS=${KAFKA_BOOTSTRAP_SERVERS:-redpanda:9092}
+      # Default: Postgres do compose. Override via .env pra apontar pra
+      # outro host ou voltar a SQLite (sqlite:////app/data/sophos.db).
+      - DATABASE_URL=${DATABASE_URL:-postgresql+psycopg2://${POSTGRES_USER:-centralops}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD obrigatorio - gere com openssl rand -base64 24 e coloque no .env}@postgres:5432/${POSTGRES_DB:-centralops}}
+      # Honra override do orquestrador (ex.: Redis gerenciado externamente) e cai
+      # no redis do compose só se não houver override — espelha o REDIS_URL da API.
+      - REDIS_URL=${REDIS_URL:-redis://:${REDIS_PASSWORD:?REDIS_PASSWORD obrigatorio - gere com openssl rand -base64 24 e coloque no .env}@redis:6379/0}
+      - CELERY_BROKER_URL=${CELERY_BROKER_URL:-redis://:${REDIS_PASSWORD:?REDIS_PASSWORD obrigatorio - gere com openssl rand -base64 24 e coloque no .env}@redis:6379/1}
+      - CELERY_RESULT_BACKEND=${CELERY_RESULT_BACKEND:-redis://:${REDIS_PASSWORD:?REDIS_PASSWORD obrigatorio - gere com openssl rand -base64 24 e coloque no .env}@redis:6379/2}
+      # RedBeat usa o broker Redis (db 1) por padrão; override apenas se necessário.
+      # REDBEAT_REDIS_URL=redis://:${REDIS_PASSWORD:?REDIS_PASSWORD obrigatorio - gere com openssl rand -base64 24 e coloque no .env}@redis:6379/1
+    working_dir: /app
+    volumes:
+      - app-data:/app/data
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      centralops:
+        condition: service_started
+    # beat com leader-election via RedBeat (lock distribuído,
+    # redbeat_lock_key/timeout em celery_app.py) — só o detentor dispara; os
+    # demais ficam hot-standby e assumem em segundos no failover.
+    # ⚠️ HONESTIDADE: `deploy.replicas` é IGNORADO por `docker compose up` puro
+    # (só Swarm/`docker stack deploy` e k8s honram). No caminho compose padrão
+    # sobe **1 beat** (SPOF aceitável num nó único). O lock RedBeat torna SEGURO
+    # rodar 2+ — então a HA real vem de `docker compose up --scale
+    # collector-beat=2`, Swarm ou k8s. O lock garante que escalar nunca duplica
+    # disparos (o ganho de correção vale mesmo com 1 réplica).
+    deploy:
+      replicas: ${COLLECTOR_BEAT_REPLICAS:-2}
+      resources:  # O7 — beat só agenda; teto pequeno.
+        limits:
+          cpus: '0.50'
+          memory: 256m
+        reservations:
+          memory: 64m
+    restart: unless-stopped
+
+  flower:
+    image: mher/flower:2.0
+    # Gate de seguranca (L-3): em APP_ENV=production, FLOWER_BASIC_AUTH e obrigatorio.
+    # Sem isso, qualquer um na rede pode revogar/terminar tasks Celery.
+    command:
+      - sh
+      - -c
+      - |
+        if [ "$${APP_ENV:-development}" = "production" ] && [ -z "$${FLOWER_BASIC_AUTH}" ]; then
+          echo "[flower] ERROR: FLOWER_BASIC_AUTH e obrigatorio quando APP_ENV=production." >&2
+          echo "[flower] Configure FLOWER_BASIC_AUTH=user:password no .env antes de subir o servico." >&2
+          exit 1
+        fi
+        exec celery --broker="$${CELERY_BROKER_URL}" flower --port=5555
+    environment:
+      - APP_ENV=${APP_ENV:-development}
+      - REDIS_PASSWORD=${REDIS_PASSWORD:?REDIS_PASSWORD obrigatorio - gere com openssl rand -base64 24 e coloque no .env}
+      # Honra override (Redis gerenciado) e cai no redis do compose por padrão.
+      - CELERY_BROKER_URL=${CELERY_BROKER_URL:-redis://:${REDIS_PASSWORD:?REDIS_PASSWORD obrigatorio - gere com openssl rand -base64 24 e coloque no .env}@redis:6379/1}
+      - FLOWER_UNAUTHENTICATED_API=false
+      # Em producao, FLOWER_BASIC_AUTH=user:password e obrigatorio (gate em command).
+      - FLOWER_BASIC_AUTH=${FLOWER_BASIC_AUTH:-}
+    ports:
+      # Em producao, considere bindar a 127.0.0.1 para nao expor o monitor na rede:
+      # - "127.0.0.1:${FLOWER_PORT:-5555}:5555"
+      - "${FLOWER_PORT:-5555}:5555"
+    depends_on:
+      redis:
+        condition: service_healthy
+    deploy:
+      resources:  # O7 — monitor leve.
+        limits:
+          cpus: '0.50'
+          memory: 256m
+        reservations:
+          memory: 64m
+    restart: unless-stopped
+
+  # ── OTel Collector (OPCIONAL)
+  # Bloco INTEIRO comentado de propósito: NÃO faz parte do runtime default. É a
+  # superfície B (ops/SRE) e só sobe quando o time de observabilidade quiser.
+  #
+  # Como ligar:
+  # 1) descomente este bloco;
+  # 2) instale os extras nos workers (pip install -r requirements-otel.txt — já
+  # vai na imagem se você buildar com eles) e sete no .env, propagando aos
+  # serviços collector-*:
+  # OTEL_ENABLED=true
+  # OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
+  # 3) scrape o /metrics de compat em otel-collector:8889 (NÃO mais por worker).
+  #
+  # A config de referência está em ./otel-collector-config.yaml (montada abaixo).
+  # e
+  #
+  # otel-collector:
+  # image: otel/opentelemetry-collector-contrib:latest
+  # command: ["--config=/etc/otelcol-contrib/config.yaml"]
+  # volumes:
+  # - ./otel-collector-config.yaml:/etc/otelcol-contrib/config.yaml:ro
+  # ports:
+  # - "4317:4317"   # OTLP/gRPC
+  # - "4318:4318"   # OTLP/HTTP (os workers exportam aqui)
+  # - "8889:8889"   # /metrics de compat Prometheus (scrape AQUI)
+  # restart: unless-stopped
+
+volumes:
+  app-data:
+    driver: local
+    name: ${APP_DATA_VOLUME:-centralops-db}
+  app-ssl:
+    driver: local
+    name: ${APP_SSL_VOLUME:-centralops-ssl}
+  postgres-data:
+    driver: local
+    name: ${POSTGRES_DATA_VOLUME:-centralops-postgres}
+  redis-data:
+    driver: local
+    name: ${REDIS_DATA_VOLUME:-centralops-redis}
+  redpanda-data:  # Onda 3 — log durável do broker do data-plane
+    driver: local
+    name: ${REDPANDA_DATA_VOLUME:-centralops-redpanda}
+  collector-logs:
+    driver: local
+    name: ${COLLECTOR_LOGS_VOLUME:-centralops-collector-logs}

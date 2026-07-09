@@ -1,0 +1,460 @@
+# ci.yml — Pipeline "build once, test many" (compila o Cython UMA vez por run).
+#
+# PROBLEMA que resolve: hoje test.yml, e2e.yml e build-and-publish.yml montam a
+# imagem `final` independentemente — e como `final` faz COPY --from=backend-test,
+# cada build RECOMPILA o Cython E re-roda a suíte de unit tests. Num PR isso são
+# 4+ compilações+sweeps do mesmo código (test 1×, e2e-setup 1×, cada e2e shard 1×).
+#
+# ARQUITETURA (build-once + handoff por registry — padrão da indústria):
+#   build      → compila 1× (final = compile + unit sweep = o GATE) e publica uma
+#                imagem EFÊMERA `ci-<run_id>` no GHCR.
+#   e2e-setup  → PUXA a imagem (não recompila), sobe o stack, seed + autenticação.
+#   e2e        → PUXA a mesma imagem, roda os shards Playwright.
+#   pg-migr.   → gate de migração contra Postgres real (independe do build).
+#   publish    → (só em push/main) RE-TAGUEIA a imagem JÁ TESTADA p/ latest + sha-<commit>.
+#   cleanup    → apaga a tag efêmera `ci-<run_id>`.
+# A imagem publicada é EXATAMENTE a que passou nos testes (não um rebuild).
+#
+# ───────────────────────────────────────────────────────────────────────────────
+# ESTADO: ATIVO em PR + push/main + nightly (substitui test.yml + e2e.yml, em
+# workflow_dispatch). O PUBLISH agora é DESTE pipeline (job 'publish'): em push/
+# main, APÓS o gate inteiro (build+pg+e2e), GATEIA por Trivy e PROMOVE a MESMA
+# imagem ci-<id> já testada p/ latest+sha (buildx imagetools, SEM recompilar —
+# preserva SBOM/provenance) + cosign. O build-and-publish.yml passa a cuidar SÓ
+# de RELEASES (tags v*). Assim: PR=1 compile; push/main=1 compile (sem o duplo).
+# ───────────────────────────────────────────────────────────────────────────────
+
+name: CI (build-once)
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  schedule:
+    # Nightly 03:00 UTC — cobertura E2E completa (4 shards), herdada do e2e.yml.
+    - cron: "0 3 * * *"
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name != 'schedule' }}
+
+env:
+  REGISTRY: ghcr.io
+  COMPOSE_HEALTH_TIMEOUT: 120
+
+jobs:
+  # ── 1) Build once: compila o Cython + roda o unit sweep (gate) e publica ci-<id> ──
+  build:
+    name: Build once (Cython + unit sweep) → ci image
+    runs-on: [self-hosted, Linux, X64]
+    timeout-minutes: 50
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      api: ${{ steps.refs.outputs.api }}
+      frontend: ${{ steps.refs.outputs.frontend }}
+    steps:
+      # Self-hosted: jobs anteriores podem ter rodado containers como ROOT que
+      # escreveram no workspace (ex.: __pycache__); o actions/checkout roda como
+      # github-runner e NÃO consegue limpá-los (EACCES). Devolve a posse ao runner
+      # ANTES do checkout — auto-cura sem intervenção manual nas LXC.
+      - name: Fix leftover workspace ownership (self-hosted)
+        run: sudo chown -R "$(id -u):$(id -g)" "$GITHUB_WORKSPACE" 2>/dev/null || true
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Compute ephemeral image refs (lowercase)
+        id: refs
+        run: |
+          repo="$(printf '%s' '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')"
+          echo "api=${REGISTRY}/${repo}:ci-${{ github.run_id }}" >> "$GITHUB_OUTPUT"
+          echo "frontend=${REGISTRY}/${repo}-frontend:ci-${{ github.run_id }}" >> "$GITHUB_OUTPUT"
+
+      # `final` faz COPY --from=backend-test → este build COMPILA o Cython e roda
+      # a suíte pytest. Build verde == unit tests passaram (o gate, como hoje).
+      - name: Build + push API image (final — compile + unit-test gate)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: compose/Dockerfile
+          target: final
+          push: true
+          tags: ${{ steps.refs.outputs.api }}
+          cache-from: type=gha,scope=cython
+          cache-to: type=gha,mode=max,scope=cython
+          # SBOM + provenance anexados já AQUI: o job publish promove ESTA imagem
+          # (imagetools, sem rebuild), preservando as atestações.
+          sbom: true
+          provenance: mode=max
+
+      - name: Build + push frontend image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: compose/Dockerfile
+          target: frontend
+          build-args: |
+            VITE_BACKEND_URL=/api
+          push: true
+          tags: ${{ steps.refs.outputs.frontend }}
+          cache-from: type=gha,scope=frontend
+          cache-to: type=gha,mode=max,scope=frontend
+          sbom: true
+          provenance: mode=max
+
+  # ── 2) Postgres migration gate (independe do build; ver PR #124) ─────────────
+  pg-migrations:
+    name: Postgres migration gate (-m pg)
+    runs-on: [self-hosted, Linux, X64]
+    timeout-minutes: 20
+    steps:
+      # Self-hosted: jobs anteriores podem ter rodado containers como ROOT que
+      # escreveram no workspace (ex.: __pycache__); o actions/checkout roda como
+      # github-runner e NÃO consegue limpá-los (EACCES). Devolve a posse ao runner
+      # ANTES do checkout — auto-cura sem intervenção manual nas LXC.
+      - name: Fix leftover workspace ownership (self-hosted)
+        run: sudo chown -R "$(id -u):$(id -g)" "$GITHUB_WORKSPACE" 2>/dev/null || true
+      - uses: actions/checkout@v4
+      - name: Run -m pg tests against real Postgres
+        run: |
+          set -euo pipefail
+          NET="ci_pgnet_${{ github.run_id }}"; PG="ci_pg_${{ github.run_id }}"
+          docker network create "$NET" 2>/dev/null || true
+          docker rm -f "$PG" >/dev/null 2>&1 || true
+          docker run -d --name "$PG" --network "$NET" \
+            -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=centralops_test postgres:16-alpine
+          for i in $(seq 1 30); do docker exec "$PG" pg_isready -U postgres >/dev/null 2>&1 && break; sleep 1; done
+          # O container roda como root: evitamos que ele escreva arquivos
+          # root-owned no workspace (que quebrariam o checkout do próximo run):
+          # PYTHONDONTWRITEBYTECODE (sem __pycache__), -p no:cacheprovider (sem
+          # .pytest_cache) e DATABASE_URL=sqlite:///:memory: (engine global sem
+          # arquivo .db). O chown-before-checkout é a rede de segurança final.
+          docker run --rm --network "$NET" -v "$PWD":/w -w /w \
+            -e PYTHONPATH=/w \
+            -e PYTHONDONTWRITEBYTECODE=1 \
+            -e DATABASE_URL=sqlite:///:memory: \
+            -e PG_TEST_DSN="postgresql://postgres:postgres@${PG}:5432/centralops_test" \
+            -e CENTRALOPS_TEST_PG_DSN="postgresql://postgres:postgres@${PG}:5432/centralops_test" \
+            -e APP_MASTER_KEY=test-master-key-for-centralops-suite-12345 -e APP_ENV=test \
+            python:3.11-slim \
+            bash -c "pip install --no-cache-dir -q -r backend/requirements.txt && python -m pytest -m pg -v -p no:cacheprovider backend/tests"
+      - name: Tear down Postgres
+        if: always()
+        run: |
+          docker rm -f "ci_pg_${{ github.run_id }}" >/dev/null 2>&1 || true
+          docker network rm "ci_pgnet_${{ github.run_id }}" >/dev/null 2>&1 || true
+
+  # ── 3) E2E setup: PUXA a imagem (sem recompilar), sobe stack, seed + auth ─────
+  e2e-setup:
+    name: E2E setup (auth states)
+    needs: build
+    runs-on: [self-hosted, Linux, X64]
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      # Self-hosted: jobs anteriores podem ter rodado containers como ROOT que
+      # escreveram no workspace (ex.: __pycache__); o actions/checkout roda como
+      # github-runner e NÃO consegue limpá-los (EACCES). Devolve a posse ao runner
+      # ANTES do checkout — auto-cura sem intervenção manual nas LXC.
+      - name: Fix leftover workspace ownership (self-hosted)
+        run: sudo chown -R "$(id -u):$(id -g)" "$GITHUB_WORKSPACE" 2>/dev/null || true
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: |
+            frontend/package-lock.json
+            e2e/package-lock.json
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        id: playwright-cache
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ hashFiles('e2e/package-lock.json') }}
+          restore-keys: |
+            playwright-
+      - name: Instalar dependências do e2e
+        working-directory: e2e
+        run: npm ci
+      - name: Instalar Playwright browsers
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        working-directory: e2e
+        run: npx playwright install chromium --with-deps
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      # Handoff: puxa a imagem JÁ compilada e re-tagueia p/ o nome que o compose
+      # espera (centralops:e2e / centralops-frontend:e2e). `up --no-build` garante
+      # ZERO recompilação.
+      - name: Pull pre-built images (handoff)
+        run: |
+          docker pull "${{ needs.build.outputs.api }}"
+          docker pull "${{ needs.build.outputs.frontend }}"
+          docker tag "${{ needs.build.outputs.api }}" centralops:e2e
+          docker tag "${{ needs.build.outputs.frontend }}" centralops-frontend:e2e
+
+      - name: Subir stack E2E (sem build)
+        run: |
+          docker compose -f compose/docker-compose.e2e.yml up --no-build -d
+          echo "Aguardando healthcheck do frontend..."
+          for i in $(seq 1 $COMPOSE_HEALTH_TIMEOUT); do
+            STATUS=$(docker inspect --format='{{.State.Health.Status}}' \
+              $(docker compose -f compose/docker-compose.e2e.yml ps -q frontend) 2>/dev/null || echo "starting")
+            if [ "$STATUS" = "healthy" ]; then echo "healthy após ${i}s"; break; fi
+            if [ "$i" = "$COMPOSE_HEALTH_TIMEOUT" ]; then
+              echo "não ficou healthy em ${COMPOSE_HEALTH_TIMEOUT}s"
+              docker compose -f compose/docker-compose.e2e.yml logs centralops frontend
+              exit 1
+            fi
+            sleep 1
+          done
+      - name: Dump logs (diagnóstico em falha)
+        if: failure()
+        run: |
+          docker compose -f compose/docker-compose.e2e.yml ps -a
+          docker compose -f compose/docker-compose.e2e.yml logs --no-color --timestamps
+      - name: Seed do banco
+        working-directory: e2e
+        run: npx ts-node seed.ts
+        env:
+          BASE_URL: http://localhost:3000
+      - name: Popular reservoir Redis
+        run: bash scripts/seed-redis-e2e.sh
+      - name: Rodar projeto de setup (autenticar roles)
+        working-directory: e2e
+        run: npx playwright test --project=setup
+        env:
+          BASE_URL: http://localhost:3000
+          CI: true
+      - name: Upload storageStates
+        uses: actions/upload-artifact@v4
+        with:
+          name: auth-states
+          path: e2e/.auth/
+          retention-days: 1
+          include-hidden-files: true
+          if-no-files-found: error
+      - name: Derrubar stack
+        if: always()
+        run: docker compose -f compose/docker-compose.e2e.yml down -v
+
+  # ── 4) E2E shards: PUXAM a mesma imagem, rodam Playwright ────────────────────
+  e2e:
+    name: E2E shard ${{ matrix.shard }}
+    needs: [build, e2e-setup]
+    runs-on: [self-hosted, Linux, X64]
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: read
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: ${{ (github.event_name == 'pull_request') && fromJSON('[1, 2]') || fromJSON('[1, 2, 3, 4]') }}
+    steps:
+      # Self-hosted: jobs anteriores podem ter rodado containers como ROOT que
+      # escreveram no workspace (ex.: __pycache__); o actions/checkout roda como
+      # github-runner e NÃO consegue limpá-los (EACCES). Devolve a posse ao runner
+      # ANTES do checkout — auto-cura sem intervenção manual nas LXC.
+      - name: Fix leftover workspace ownership (self-hosted)
+        run: sudo chown -R "$(id -u):$(id -g)" "$GITHUB_WORKSPACE" 2>/dev/null || true
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: |
+            frontend/package-lock.json
+            e2e/package-lock.json
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        id: playwright-cache
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ hashFiles('e2e/package-lock.json') }}
+          restore-keys: |
+            playwright-
+      - name: Instalar dependências do e2e
+        working-directory: e2e
+        run: npm ci
+      - name: Instalar Playwright browsers
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        working-directory: e2e
+        run: npx playwright install chromium --with-deps
+      - name: Download storageStates
+        uses: actions/download-artifact@v4
+        with:
+          name: auth-states
+          path: e2e/.auth/
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Pull pre-built images (handoff)
+        run: |
+          docker pull "${{ needs.build.outputs.api }}"
+          docker pull "${{ needs.build.outputs.frontend }}"
+          docker tag "${{ needs.build.outputs.api }}" centralops:e2e
+          docker tag "${{ needs.build.outputs.frontend }}" centralops-frontend:e2e
+      - name: Subir stack E2E (sem build)
+        run: |
+          docker compose -f compose/docker-compose.e2e.yml up --no-build -d
+          for i in $(seq 1 $COMPOSE_HEALTH_TIMEOUT); do
+            STATUS=$(docker inspect --format='{{.State.Health.Status}}' \
+              $(docker compose -f compose/docker-compose.e2e.yml ps -q frontend) 2>/dev/null || echo "starting")
+            if [ "$STATUS" = "healthy" ]; then break; fi
+            if [ "$i" = "$COMPOSE_HEALTH_TIMEOUT" ]; then
+              docker compose -f compose/docker-compose.e2e.yml logs centralops frontend; exit 1
+            fi
+            sleep 1
+          done
+      - name: Dump logs (diagnóstico em falha)
+        if: failure()
+        run: |
+          docker compose -f compose/docker-compose.e2e.yml ps -a
+          docker compose -f compose/docker-compose.e2e.yml logs --no-color --timestamps
+      - name: Seed do banco
+        working-directory: e2e
+        run: npx ts-node seed.ts
+        env:
+          BASE_URL: http://localhost:3000
+      - name: Popular reservoir Redis
+        run: bash scripts/seed-redis-e2e.sh
+      - name: Rodar Playwright (shard ${{ matrix.shard }}/4)
+        working-directory: e2e
+        run: npx playwright test --shard=${{ matrix.shard }}/4 --ignore-snapshots
+        env:
+          BASE_URL: http://localhost:3000
+          CI: true
+      - name: Upload relatório (falha)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-shard-${{ matrix.shard }}
+          path: e2e/playwright-report/
+          retention-days: 7
+          if-no-files-found: ignore
+      - name: Upload artefatos (falha)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-shard-${{ matrix.shard }}
+          path: e2e/test-results/
+          retention-days: 7
+          if-no-files-found: ignore
+      - name: Derrubar stack
+        if: always()
+        run: docker compose -f compose/docker-compose.e2e.yml down -v
+
+  # ── 5) Publish: só em push/main, APÓS o gate inteiro (build+pg+e2e). ─────────
+  # Acopla o publish ao CI (E2E incluso) e MATA o duplo-compile: NÃO recompila —
+  # GATEIA por Trivy e PROMOVE a MESMA imagem ci-<id> já testada para latest+sha
+  # via 'buildx imagetools create' (cópia registry-side que preserva SBOM/
+  # provenance), depois assina (cosign keyless). O build-and-publish.yml passa a
+  # cuidar só de RELEASES (tags v*).
+  publish:
+    name: Publish (Trivy gate + promote tested image + cosign)
+    needs: [build, pg-migrations, e2e]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: [self-hosted, Linux, X64]
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      packages: write
+      id-token: write # cosign keyless (OIDC)
+    steps:
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/setup-buildx-action@v3
+
+      # GATE: escaneia a imagem JÁ TESTADA ANTES de promover. CRITICAL/HIGH
+      # fixável bloqueia a promoção (exit-code 1) — diferente do report-only antigo.
+      - name: Trivy gate (API)
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: ${{ needs.build.outputs.api }}
+          format: table
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          exit-code: "1"
+      - name: Trivy gate (frontend)
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: ${{ needs.build.outputs.frontend }}
+          format: table
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          exit-code: "1"
+
+      - name: Install cosign
+        uses: sigstore/cosign-installer@v3
+
+      - name: Promote (retag tested image) + cosign sign
+        env:
+          API_SRC: ${{ needs.build.outputs.api }}
+          FE_SRC: ${{ needs.build.outputs.frontend }}
+        run: |
+          set -euo pipefail
+          repo="$(printf '%s' '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')"
+          short="${GITHUB_SHA:0:7}"
+          promote() {  # $1 = imagem fonte ci-<id> (testada), $2 = base de destino
+            # imagetools create: cópia registry-side (sem pull/rebuild) que
+            # PRESERVA as atestações SBOM/provenance (referrers OCI).
+            docker buildx imagetools create -t "$2:latest" -t "$2:sha-${short}" "$1"
+            # Assina por DIGEST (não por tag — tag pode mover).
+            digest="$(docker buildx imagetools inspect "$2:latest" --format '{{.Manifest.Digest}}')"
+            cosign sign --yes "$2@${digest}"
+          }
+          promote "$API_SRC" "${REGISTRY}/${repo}"
+          promote "$FE_SRC" "${REGISTRY}/${repo}-frontend"
+
+  # ── 6) Cleanup: apaga a tag efêmera ci-<run_id> (best-effort) ────────────────
+  # if: success() (NÃO always): em FALHA a imagem é PRESERVADA p/ permitir
+  # `gh run rerun --failed` do shard E2E (que PUXA a mesma imagem). As imagens
+  # de runs falhos são podadas pela retenção (ci-* com TTL) — ver ghcr-retention.
+  cleanup:
+    name: Cleanup ci image
+    needs: [build, pg-migrations, e2e, publish]
+    if: success()
+    runs-on: [self-hosted, Linux, X64]
+    permissions:
+      packages: write
+    steps:
+      - name: Delete ephemeral ci-<run_id> versions
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          owner="${{ github.repository_owner }}"
+          tag="ci-${{ github.run_id }}"
+          for pkg in centralops centralops-frontend; do
+            vid=$(gh api "/users/${owner}/packages/container/${pkg}/versions" \
+              --jq ".[] | select(.metadata.container.tags[]? == \"${tag}\") | .id" 2>/dev/null | head -1 || true)
+            if [ -n "${vid:-}" ]; then
+              gh api --method DELETE "/users/${owner}/packages/container/${pkg}/versions/${vid}" || true
+              echo "apagado ${pkg} ${tag} (version ${vid})"
+            else
+              echo "nada a apagar p/ ${pkg} ${tag}"
+            fi
+          done

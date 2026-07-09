@@ -1,0 +1,86 @@
+{
+  "page": {
+    "eyebrow": "Normalization",
+    "title": "Quarantine",
+    "description": "Events that failed normalization",
+    "loading": "Loading quarantine...",
+    "loadError": "Failed to load quarantine",
+    "emptyState": "No entries in quarantine."
+  },
+  "actions": {
+    "reprocess": "Reprocess",
+    "discard": "Discard"
+  },
+  "errors": {
+    "unexpected": "Unexpected error",
+    "permissionDenied": "Permission denied",
+    "discardErrorTitle": "Error discarding"
+  },
+  "notices": {
+    "reprocessSuccess": "Event reprocessed and sent to Wazuh",
+    "reprocessExpired": "Event has expired and can no longer be reprocessed"
+  },
+  "badges": {
+    "reprocessed": "Reprocessed",
+    "expired": "Expired"
+  },
+  "detail": {
+    "errorDetailTitle": "Error detail",
+    "rawPayload": "Raw payload",
+    "metadata": "Metadata",
+    "integrationId": "Integration ID",
+    "mappingVersion": "Mapping version",
+    "openMappingInEditor": "Open mapping in editor",
+    "timestamps": "Timestamps",
+    "createdAt": "Created at",
+    "expiresAt": "Expires at",
+    "reprocessedAt": "Reprocessed at",
+    "reprocessEventAriaLabel": "Reprocess event {{id}}",
+    "discardEntryAriaLabel": "Discard quarantine entry",
+    "discardConfirmTitle": "Discard quarantine entry?",
+    "discardConfirmDescription": "The entry for \"{{vendor}}{{eventType}}\" will be permanently discarded.",
+    "reprocessConfirmTitle": "Reprocess event?",
+    "reprocessConfirmDescription": "The event will be revalidated against the current mapping. If normalization succeeds, it will be sent to Wazuh. Otherwise, it will remain in quarantine with a new error."
+  },
+  "bulk": {
+    "discardTypedConfirmPhrase": "DISCARD",
+    "contextLabel": "entry(ies)",
+    "selectAllFilterButton": "Select all from filter",
+    "selectAllFilterAriaLabel": "Select all items matching the current filter",
+    "selectAllCapped": "The {{count}} most recent items were selected (of {{total}}). Refine the filters to operate on the rest.",
+    "selectAllFromFilter_one": "{{count}} item selected by the current filters.",
+    "selectAllFromFilter_other": "{{count}} items selected by the current filters.",
+    "reprocessSelected": "Reprocess selected",
+    "discardSelected": "Discard selected",
+    "discardSuccess_one": "{{count}} entry discarded.",
+    "discardSuccess_other": "{{count}} entries discarded.",
+    "discardPartial": "{{discarded}} discarded, {{failed}} skipped (not found/inaccessible).",
+    "discardFailed": "Bulk discard failed: {{message}}",
+    "reprocessFailed": "Bulk reprocess failed: {{message}}",
+    "reprocessQueued": "Reprocess queued: {{parts}}.",
+    "reprocessParts": {
+      "accepted": "{{count}} accepted",
+      "expired": "{{count}} expired",
+      "alreadyReprocessed": "{{count}} already reprocessed",
+      "ignored": "{{count}} skipped",
+      "nothingToProcess": "nothing to process"
+    },
+    "errors": {
+      "listIdsFailed": "Error listing filter IDs"
+    },
+    "discardDialog": {
+      "title_one": "Discard {{count}} entry?",
+      "title_other": "Discard {{count}} entries?",
+      "irreversibleWarning": "This action is irreversible — the entries will be permanently removed from the quarantine queue.",
+      "typeToConfirmPrefix": "Type",
+      "typeToConfirmSuffix": "to confirm:",
+      "typedConfirmAriaLabel": "Text confirmation for bulk discard",
+      "confirmLabel": "Discard {{count}}"
+    },
+    "reprocessDialog": {
+      "title_one": "Reprocess {{count}} entry?",
+      "title_other": "Reprocess {{count}} entries?",
+      "description": "The events will be revalidated against the current mapping in the background. Items with successful mapping will be sent to routed destinations; failures update the error but keep the item in quarantine."
+    }
+  }
+}

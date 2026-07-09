@@ -1,0 +1,43 @@
+[
+  { "target": "normalized.class_uid", "const": 6003, "required": true },
+  { "target": "normalized.class_name", "const": "API Activity" },
+  { "target": "normalized.category_uid", "const": 6, "required": true },
+  { "target": "normalized.category_name", "const": "Application Activity" },
+  { "target": "normalized.activity_id", "const": 1 },
+  { "target": "normalized.activity_name", "const": "Create" },
+  { "target": "normalized.type_uid", "const": 600301 },
+
+  { "target": "normalized.time",
+    "source": "activityTime",
+    "type_cast": "to_int",
+    "default": 0
+  },
+
+  { "target": "normalized.severity_id",
+    "source": "severity",
+    "value_map": {
+      "critical": 5, "high": 4, "medium": 3, "low": 2,
+      "info": 1, "informational": 1, "none": 0
+    },
+    "default": 1
+  },
+  { "target": "normalized.severity", "source": "severity", "default": "Informational" },
+
+  { "target": "normalized.status_id", "const": 1 },
+  { "target": "normalized.status", "const": "Other" },
+
+  { "target": "normalized.message", "source": "subject", "default": null },
+
+  { "target": "normalized.actor.user.name", "source": "user.name", "default": null },
+  { "target": "normalized.actor.user.uid", "source": "user.id", "default": null },
+
+  { "target": "normalized.device.name", "source": "device.systemName", "default": null },
+  { "target": "normalized.device.hostname", "source": "device.dnsName", "default": null },
+  { "target": "normalized.device.uid", "source": "device.id", "default": null },
+
+  { "target": "normalized.metadata.version", "const": "1.3.0" },
+  { "target": "normalized.metadata.product.name", "const": "NinjaOne" },
+  { "target": "normalized.metadata.product.vendor_name", "const": "NinjaOne" },
+  { "target": "normalized.metadata.product.feature.name", "source": "activityType", "default": null },
+  { "target": "normalized.metadata.uid", "source": "id" }
+]

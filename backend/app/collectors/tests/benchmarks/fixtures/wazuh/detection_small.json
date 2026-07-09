@@ -1,0 +1,21 @@
+{
+  "timestamp": "2026-06-21T10:00:00Z",
+  "id": "1700000000.123",
+  "rule": {
+    "level": 7,
+    "description": "Multiple failed logins",
+    "groups": [
+      "authentication_failed"
+    ]
+  },
+  "agent": {
+    "id": "001",
+    "name": "host-a",
+    "ip": "10.0.0.5"
+  },
+  "data": {
+    "srcip": "1.2.3.4",
+    "srcuser": "root"
+  },
+  "location": "/var/log/auth.log"
+}

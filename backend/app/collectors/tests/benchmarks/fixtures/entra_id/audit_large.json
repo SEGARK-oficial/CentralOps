@@ -1,0 +1,310 @@
+{
+  "id": "a-large-1",
+  "activityDateTime": "2026-06-20T10:01:19Z",
+  "activityDisplayName": "Add member to group",
+  "category": "GroupManagement",
+  "result": "success",
+  "initiatedBy": {
+    "user": {
+      "userPrincipalName": "bob@x.com",
+      "id": "u-1",
+      "ipAddress": "3.3.3.3"
+    }
+  },
+  "targetResources": [
+    {
+      "displayName": "Group 0",
+      "userPrincipalName": "u0@x.com",
+      "modifiedProperties": [
+        {
+          "ts": "2026-06-21T10:00:00Z",
+          "k": "mp0-0",
+          "detail": "value-0-xxxxxxxx"
+        },
+        {
+          "ts": "2026-06-21T10:01:00Z",
+          "k": "mp0-1",
+          "detail": "value-1-xxxxxxxx"
+        },
+        {
+          "ts": "2026-06-21T10:02:00Z",
+          "k": "mp0-2",
+          "detail": "value-2-xxxxxxxx"
+        }
+      ]
+    },
+    {
+      "displayName": "Group 1",
+      "userPrincipalName": "u1@x.com",
+      "modifiedProperties": [
+        {
+          "ts": "2026-06-21T10:00:00Z",
+          "k": "mp1-0",
+          "detail": "value-0-xxxxxxxx"
+        },
+        {
+          "ts": "2026-06-21T10:01:00Z",
+          "k": "mp1-1",
+          "detail": "value-1-xxxxxxxx"
+        },
+        {
+          "ts": "2026-06-21T10:02:00Z",
+          "k": "mp1-2",
+          "detail": "value-2-xxxxxxxx"
+        }
+      ]
+    },
+    {
+      "displayName": "Group 2",
+      "userPrincipalName": "u2@x.com",
+      "modifiedProperties": [
+        {
+          "ts": "2026-06-21T10:00:00Z",
+          "k": "mp2-0",
+          "detail": "value-0-xxxxxxxx"
+        },
+        {
+          "ts": "2026-06-21T10:01:00Z",
+          "k": "mp2-1",
+          "detail": "value-1-xxxxxxxx"
+        },
+        {
+          "ts": "2026-06-21T10:02:00Z",
+          "k": "mp2-2",
+          "detail": "value-2-xxxxxxxx"
+        }
+      ]
+    },
+    {
+      "displayName": "Group 3",
+      "userPrincipalName": "u3@x.com",
+      "modifiedProperties": [
+        {
+          "ts": "2026-06-21T10:00:00Z",
+          "k": "mp3-0",
+          "detail": "value-0-xxxxxxxx"
+        },
+        {
+          "ts": "2026-06-21T10:01:00Z",
+          "k": "mp3-1",
+          "detail": "value-1-xxxxxxxx"
+        },
+        {
+          "ts": "2026-06-21T10:02:00Z",
+          "k": "mp3-2",
+          "detail": "value-2-xxxxxxxx"
+        }
+      ]
+    },
+    {
+      "displayName": "Group 4",
+      "userPrincipalName": "u4@x.com",
+      "modifiedProperties": [
+        {
+          "ts": "2026-06-21T10:00:00Z",
+          "k": "mp4-0",
+          "detail": "value-0-xxxxxxxx"
+        },
+        {
+          "ts": "2026-06-21T10:01:00Z",
+          "k": "mp4-1",
+          "detail": "value-1-xxxxxxxx"
+        },
+        {
+          "ts": "2026-06-21T10:02:00Z",
+          "k": "mp4-2",
+          "detail": "value-2-xxxxxxxx"
+        }
+      ]
+    },
+    {
+      "displayName": "Group 5",
+      "userPrincipalName": "u5@x.com",
+      "modifiedProperties": [
+        {
+          "ts": "2026-06-21T10:00:00Z",
+          "k": "mp5-0",
+          "detail": "value-0-xxxxxxxx"
+        },
+        {
+          "ts": "2026-06-21T10:01:00Z",
+          "k": "mp5-1",
+          "detail": "value-1-xxxxxxxx"
+        },
+        {
+          "ts": "2026-06-21T10:02:00Z",
+          "k": "mp5-2",
+          "detail": "value-2-xxxxxxxx"
+        }
+      ]
+    },
+    {
+      "displayName": "Group 6",
+      "userPrincipalName": "u6@x.com",
+      "modifiedProperties": [
+        {
+          "ts": "2026-06-21T10:00:00Z",
+          "k": "mp6-0",
+          "detail": "value-0-xxxxxxxx"
+        },
+        {
+          "ts": "2026-06-21T10:01:00Z",
+          "k": "mp6-1",
+          "detail": "value-1-xxxxxxxx"
+        },
+        {
+          "ts": "2026-06-21T10:02:00Z",
+          "k": "mp6-2",
+          "detail": "value-2-xxxxxxxx"
+        }
+      ]
+    },
+    {
+      "displayName": "Group 7",
+      "userPrincipalName": "u7@x.com",
+      "modifiedProperties": [
+        {
+          "ts": "2026-06-21T10:00:00Z",
+          "k": "mp7-0",
+          "detail": "value-0-xxxxxxxx"
+        },
+        {
+          "ts": "2026-06-21T10:01:00Z",
+          "k": "mp7-1",
+          "detail": "value-1-xxxxxxxx"
+        },
+        {
+          "ts": "2026-06-21T10:02:00Z",
+          "k": "mp7-2",
+          "detail": "value-2-xxxxxxxx"
+        }
+      ]
+    }
+  ],
+  "loggedByService": "Core Directory",
+  "operationType": "Assign",
+  "correlationId": "corr-123",
+  "resultReason": "ok",
+  "additionalDetails": [
+    {
+      "ts": "2026-06-21T10:00:00Z",
+      "k": "ad-0",
+      "detail": "value-0-xxxxxxxx"
+    },
+    {
+      "ts": "2026-06-21T10:01:00Z",
+      "k": "ad-1",
+      "detail": "value-1-xxxxxxxx"
+    },
+    {
+      "ts": "2026-06-21T10:02:00Z",
+      "k": "ad-2",
+      "detail": "value-2-xxxxxxxx"
+    },
+    {
+      "ts": "2026-06-21T10:03:00Z",
+      "k": "ad-3",
+      "detail": "value-3-xxxxxxxx"
+    },
+    {
+      "ts": "2026-06-21T10:04:00Z",
+      "k": "ad-4",
+      "detail": "value-4-xxxxxxxx"
+    },
+    {
+      "ts": "2026-06-21T10:05:00Z",
+      "k": "ad-5",
+      "detail": "value-5-xxxxxxxx"
+    },
+    {
+      "ts": "2026-06-21T10:06:00Z",
+      "k": "ad-6",
+      "detail": "value-6-xxxxxxxx"
+    },
+    {
+      "ts": "2026-06-21T10:07:00Z",
+      "k": "ad-7",
+      "detail": "value-7-xxxxxxxx"
+    },
+    {
+      "ts": "2026-06-21T10:08:00Z",
+      "k": "ad-8",
+      "detail": "value-8-xxxxxxxx"
+    },
+    {
+      "ts": "2026-06-21T10:09:00Z",
+      "k": "ad-9",
+      "detail": "value-9-xxxxxxxx"
+    },
+    {
+      "ts": "2026-06-21T10:10:00Z",
+      "k": "ad-10",
+      "detail": "value-10-xxxxxxxx"
+    },
+    {
+      "ts": "2026-06-21T10:11:00Z",
+      "k": "ad-11",
+      "detail": "value-11-xxxxxxxx"
+    },
+    {
+      "ts": "2026-06-21T10:12:00Z",
+      "k": "ad-12",
+      "detail": "value-12-xxxxxxxx"
+    },
+    {
+      "ts": "2026-06-21T10:13:00Z",
+      "k": "ad-13",
+      "detail": "value-13-xxxxxxxx"
+    },
+    {
+      "ts": "2026-06-21T10:14:00Z",
+      "k": "ad-14",
+      "detail": "value-14-xxxxxxxx"
+    },
+    {
+      "ts": "2026-06-21T10:15:00Z",
+      "k": "ad-15",
+      "detail": "value-15-xxxxxxxx"
+    },
+    {
+      "ts": "2026-06-21T10:16:00Z",
+      "k": "ad-16",
+      "detail": "value-16-xxxxxxxx"
+    },
+    {
+      "ts": "2026-06-21T10:17:00Z",
+      "k": "ad-17",
+      "detail": "value-17-xxxxxxxx"
+    },
+    {
+      "ts": "2026-06-21T10:18:00Z",
+      "k": "ad-18",
+      "detail": "value-18-xxxxxxxx"
+    },
+    {
+      "ts": "2026-06-21T10:19:00Z",
+      "k": "ad-19",
+      "detail": "value-19-xxxxxxxx"
+    },
+    {
+      "ts": "2026-06-21T10:20:00Z",
+      "k": "ad-20",
+      "detail": "value-20-xxxxxxxx"
+    },
+    {
+      "ts": "2026-06-21T10:21:00Z",
+      "k": "ad-21",
+      "detail": "value-21-xxxxxxxx"
+    },
+    {
+      "ts": "2026-06-21T10:22:00Z",
+      "k": "ad-22",
+      "detail": "value-22-xxxxxxxx"
+    },
+    {
+      "ts": "2026-06-21T10:23:00Z",
+      "k": "ad-23",
+      "detail": "value-23-xxxxxxxx"
+    }
+  ]
+}

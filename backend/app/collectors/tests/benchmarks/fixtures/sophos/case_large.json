@@ -1,0 +1,103 @@
+{
+  "id": "case-large-001",
+  "createdAt": "2026-04-23T08:00:00Z",
+  "updatedAt": "2026-04-23T16:45:00Z",
+  "name": "APT41 — multi-stage supply chain attack with lateral movement across 23 endpoints",
+  "description": "Nation-state level APT41 intrusion detected. Initial access via compromised software update (SolarWinds-style supply chain). Lateral movement to 23 endpoints over 6 hours. Domain controller compromised. Kerberoasting and DCSync observed. Data staged for exfiltration to cloud storage. Full IR engagement required.",
+  "severity": "critical",
+  "status": "investigating",
+  "assignee": {
+    "id": "lead-analyst-001",
+    "name": "Carlos Incident"
+  },
+  "alerts": [
+    {"id": "alert-001", "severity": "critical", "type": "malware"},
+    {"id": "alert-002", "severity": "critical", "type": "lateral-movement"},
+    {"id": "alert-003", "severity": "critical", "type": "credential-theft"},
+    {"id": "alert-004", "severity": "high", "type": "data-exfiltration"},
+    {"id": "alert-005", "severity": "high", "type": "c2"},
+    {"id": "alert-006", "severity": "high", "type": "persistence"},
+    {"id": "alert-007", "severity": "medium", "type": "discovery"},
+    {"id": "alert-008", "severity": "medium", "type": "collection"}
+  ],
+  "tenant": {
+    "id": "tenant-enterprise-large-001",
+    "name": "MegaCorp International",
+    "type": "enterprise",
+    "region": "global"
+  },
+  "priority": "critical",
+  "type": "major-incident",
+  "resolution": null,
+  "closedAt": null,
+  "tags": ["apt41", "supply-chain", "lateral-movement", "dcync", "kerberoasting", "critical", "p1", "nation-state"],
+  "externalId": "INC-2026-MAJOR-001",
+  "externalTicketUrl": "https://jira.example.com/browse/INC-2026-MAJOR-001",
+  "timeline": [
+    {"time": "2026-04-23T02:00:00Z", "event": "Compromised update deployed"},
+    {"time": "2026-04-23T02:15:00Z", "event": "Initial beaconing detected"},
+    {"time": "2026-04-23T03:00:00Z", "event": "Lateral movement begins"},
+    {"time": "2026-04-23T05:30:00Z", "event": "DC compromise confirmed"},
+    {"time": "2026-04-23T06:00:00Z", "event": "DCSync attack observed"},
+    {"time": "2026-04-23T07:00:00Z", "event": "Data staging detected"},
+    {"time": "2026-04-23T08:00:00Z", "event": "Case created"},
+    {"time": "2026-04-23T08:30:00Z", "event": "IR team engaged"}
+  ],
+  "affectedEntities": [
+    {"type": "user", "id": "admin-001", "name": "domain.admin"},
+    {"type": "user", "id": "svc-001", "name": "svc-backup"},
+    {"type": "device", "id": "dc-001", "name": "WIN-DC-01"},
+    {"type": "device", "id": "dc-002", "name": "WIN-DC-02"},
+    {"type": "device", "id": "fs-001", "name": "WIN-FS-01"},
+    {"type": "device", "id": "ws-001", "name": "WIN-WS-01"},
+    {"type": "device", "id": "ws-002", "name": "WIN-WS-02"},
+    {"type": "device", "id": "ws-003", "name": "WIN-WS-03"}
+  ],
+  "indicatorsOfCompromise": [
+    {"type": "hash", "value": "aabbccddeeff001122334455667788990011223344556677889900aabbccddee"},
+    {"type": "hash", "value": "00112233445566778899aabbccddeeffaabbccddeeff001122334455667788"},
+    {"type": "ip", "value": "185.220.101.42"},
+    {"type": "ip", "value": "195.123.246.100"},
+    {"type": "domain", "value": "update.supply-chain-evil.net"},
+    {"type": "domain", "value": "c2.apt41-infra.com"},
+    {"type": "url", "value": "https://update.supply-chain-evil.net/pkg/v2.1.tar.gz"},
+    {"type": "certificate", "value": "SHA256:AA:BB:CC:DD:EE:FF:00:11:22:33:44:55:66:77:88:99"}
+  ],
+  "mitreTactics": [
+    "Initial Access", "Execution", "Persistence", "Privilege Escalation",
+    "Defense Evasion", "Credential Access", "Discovery", "Lateral Movement",
+    "Collection", "Command and Control", "Exfiltration"
+  ],
+  "mitreTechniques": [
+    "T1195.002", "T1059.001", "T1543.003", "T1548.002",
+    "T1036.005", "T1003.001", "T1018", "T1021.002",
+    "T1005", "T1071.001", "T1048.003"
+  ],
+  "escalated": true,
+  "escalationReason": "Nation-state actor confirmed, board notification required",
+  "ownerGroup": "CSIRT",
+  "collaborators": [
+    {"id": "analyst-002", "name": "Maria Threat", "role": "forensics"},
+    {"id": "analyst-003", "name": "John Hunt", "role": "threat-intel"},
+    {"id": "analyst-004", "name": "Sarah Resp", "role": "containment"}
+  ],
+  "slaDeadline": "2026-04-23T20:00:00Z",
+  "slaBreached": false,
+  "businessImpact": "critical",
+  "businessImpactDescription": "Domain controller compromise. Entire AD at risk. All 4000 user accounts potentially compromised.",
+  "containmentStatus": "in-progress",
+  "communicationsLog": [
+    {"time": "2026-04-23T08:30:00Z", "to": "CISO", "type": "email", "summary": "Critical incident notification"},
+    {"time": "2026-04-23T09:00:00Z", "to": "Board", "type": "phone", "summary": "Executive briefing initiated"},
+    {"time": "2026-04-23T10:00:00Z", "to": "Legal", "type": "email", "summary": "Regulatory notification assessment"}
+  ],
+  "forensicsArtifacts": [
+    {"type": "memory-dump", "host": "WIN-DC-01", "status": "collected"},
+    {"type": "disk-image", "host": "WIN-DC-01", "status": "in-progress"},
+    {"type": "network-pcap", "host": "core-switch", "status": "collected"}
+  ],
+  "regulatoryNotifications": [
+    {"regulation": "GDPR", "required": true, "deadline": "2026-04-26T08:00:00Z", "status": "pending"},
+    {"regulation": "NIS2", "required": true, "deadline": "2026-04-24T08:00:00Z", "status": "pending"}
+  ]
+}

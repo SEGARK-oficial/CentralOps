@@ -1,0 +1,49 @@
+# Grafana Tempo — backend de TRACES (modo monolítico/single-binary), suficiente
+# p/ self-hosted pequeno/médio. Recebe OTLP do Collector e serve a Grafana.
+#
+# Mínimo e robusto de propósito. O `metrics_generator` (service-graphs/span-metrics
+# → remote_write p/ Prometheus) é um ADD-ON OPCIONAL — em multi-tenant/alto fan-out
+# ele pode explodir cardinalidade no Prometheus compartilhado. Ligue-o só depois,
+# com dimensões limitadas (ver comentário no fim). Sem ele, traces funcionam 100%.
+server:
+  http_listen_port: 3200
+
+distributor:
+  receivers:
+    otlp:
+      protocols:
+        grpc:
+          endpoint: 0.0.0.0:4317   # o Collector exporta para tempo:4317
+        http:
+          endpoint: 0.0.0.0:4318
+
+# NOTA: o Tempo v3.0 reestruturou o monolítico (live-store) — os blocos
+# top-level `ingester`/`compactor` NÃO existem mais e quebram o parse. Usamos os
+# defaults (retenção/blocos). Para retenção custom em v3.0, ver a doc da versão.
+
+storage:
+  trace:
+    backend: local
+    wal:
+      path: /var/tempo/wal
+    local:
+      path: /var/tempo/blocks
+
+# ── ADD-ON OPCIONAL: métricas RED (service-graphs/span-metrics) ──────────────
+# Descomente para gerar service graph + RED no Prometheus. CUIDADO com
+# cardinalidade (span-metrics gera séries por service/span_name/status). Limite
+# as dimensões antes de ligar em produção multi-tenant.
+#
+# metrics_generator:
+#   registry:
+#     external_labels:
+#       source: tempo
+#   storage:
+#     path: /var/tempo/generator/wal
+#     remote_write:
+#       - url: http://prometheus:9090/api/v1/write
+#         send_exemplars: true
+# overrides:
+#   defaults:
+#     metrics_generator:
+#       processors: [service-graphs, span-metrics]

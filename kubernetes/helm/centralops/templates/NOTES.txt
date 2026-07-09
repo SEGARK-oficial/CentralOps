@@ -1,0 +1,43 @@
+CentralOps — release {{ .Release.Name }} (namespace {{ .Release.Namespace }})
+
+Workloads:
+  - {{ include "centralops.fullname" . }}-api          (réplicas: {{ .Values.api.replicaCount }})
+  - {{ include "centralops.fullname" . }}-frontend     (réplicas: {{ .Values.frontend.replicaCount }})
+  - workers: priority, bulk, maintenance, dispatcher, beat(singleton)
+
+Verifique o rollout:
+  kubectl -n {{ .Release.Namespace }} rollout status deploy/{{ include "centralops.fullname" . }}-api
+
+{{- if not .Values.secrets.existingSecret }}
+
+⚠️  SEGREDOS: você está usando o Secret gerado pelo chart. Em PRODUÇÃO defina
+    `secrets.existingSecret` (ExternalSecrets/Vault/SOPS) e NÃO deixe os
+    placeholders `CHANGE_ME*` do values.yaml. APP_MASTER_KEY precisa de ≥32 chars
+    (o entrypoint aborta o boot caso contrário).
+{{- end }}
+
+{{- if and .Values.ingress.enabled (not .Values.ingress.tls) }}
+
+⚠️  TLS: o Ingress está sem bloco `tls:` — o tráfego externo será HTTP puro.
+    Configure `ingress.tls` (ou cert-manager via `ingress.annotations`).
+{{- end }}
+
+{{- if and .Values.networkPolicies.enabled (not .Values.networkPolicies.ingressControllerNamespace) }}
+
+ℹ️  NetworkPolicy: `networkPolicies.ingressControllerNamespace` não foi definido —
+    o frontend aceita ingress de QUALQUER namespace. Defina o namespace do seu
+    ingress controller (ex.: traefik / ingress-nginx) para restringir.
+{{- end }}
+
+{{- if .Values.devDatabase.enabled }}
+
+ℹ️  devDatabase HABILITADO: Postgres/Redis in-cluster são APENAS para dev/teste.
+    Garanta que `secrets.databaseUrl`/`redisUrl` casem com as credenciais do
+    bloco `devDatabase`. NÃO use em produção.
+{{- end }}
+
+{{- if eq .Values.image.tag "latest" }}
+
+⚠️  IMAGEM: `image.tag=latest` não é reproduzível. Em produção pine por digest:
+      image.digest=sha256:<...>  (rollback/auditoria seguros).
+{{- end }}

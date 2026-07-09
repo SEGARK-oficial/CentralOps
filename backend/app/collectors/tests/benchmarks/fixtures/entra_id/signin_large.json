@@ -1,0 +1,183 @@
+{
+  "id": "s-large-1",
+  "createdDateTime": "2026-06-20T10:00:00Z",
+  "userPrincipalName": "a@x.com",
+  "ipAddress": "1.1.1.1",
+  "status": {
+    "errorCode": 0
+  },
+  "appDisplayName": "Office 365",
+  "clientAppUsed": "Browser",
+  "deviceDetail": {
+    "operatingSystem": "Windows 11",
+    "browser": "Edge"
+  },
+  "location": {
+    "city": "Sao Paulo",
+    "countryOrRegion": "BR"
+  },
+  "authenticationDetails": [
+    {
+      "ts": "2026-06-21T10:00:00Z",
+      "k": "auth-0",
+      "detail": "value-0-xxxxxxxx"
+    },
+    {
+      "ts": "2026-06-21T10:01:00Z",
+      "k": "auth-1",
+      "detail": "value-1-xxxxxxxx"
+    },
+    {
+      "ts": "2026-06-21T10:02:00Z",
+      "k": "auth-2",
+      "detail": "value-2-xxxxxxxx"
+    },
+    {
+      "ts": "2026-06-21T10:03:00Z",
+      "k": "auth-3",
+      "detail": "value-3-xxxxxxxx"
+    },
+    {
+      "ts": "2026-06-21T10:04:00Z",
+      "k": "auth-4",
+      "detail": "value-4-xxxxxxxx"
+    },
+    {
+      "ts": "2026-06-21T10:05:00Z",
+      "k": "auth-5",
+      "detail": "value-5-xxxxxxxx"
+    },
+    {
+      "ts": "2026-06-21T10:06:00Z",
+      "k": "auth-6",
+      "detail": "value-6-xxxxxxxx"
+    },
+    {
+      "ts": "2026-06-21T10:07:00Z",
+      "k": "auth-7",
+      "detail": "value-7-xxxxxxxx"
+    },
+    {
+      "ts": "2026-06-21T10:08:00Z",
+      "k": "auth-8",
+      "detail": "value-8-xxxxxxxx"
+    },
+    {
+      "ts": "2026-06-21T10:09:00Z",
+      "k": "auth-9",
+      "detail": "value-9-xxxxxxxx"
+    },
+    {
+      "ts": "2026-06-21T10:10:00Z",
+      "k": "auth-10",
+      "detail": "value-10-xxxxxxxx"
+    },
+    {
+      "ts": "2026-06-21T10:11:00Z",
+      "k": "auth-11",
+      "detail": "value-11-xxxxxxxx"
+    },
+    {
+      "ts": "2026-06-21T10:12:00Z",
+      "k": "auth-12",
+      "detail": "value-12-xxxxxxxx"
+    },
+    {
+      "ts": "2026-06-21T10:13:00Z",
+      "k": "auth-13",
+      "detail": "value-13-xxxxxxxx"
+    },
+    {
+      "ts": "2026-06-21T10:14:00Z",
+      "k": "auth-14",
+      "detail": "value-14-xxxxxxxx"
+    },
+    {
+      "ts": "2026-06-21T10:15:00Z",
+      "k": "auth-15",
+      "detail": "value-15-xxxxxxxx"
+    },
+    {
+      "ts": "2026-06-21T10:16:00Z",
+      "k": "auth-16",
+      "detail": "value-16-xxxxxxxx"
+    },
+    {
+      "ts": "2026-06-21T10:17:00Z",
+      "k": "auth-17",
+      "detail": "value-17-xxxxxxxx"
+    },
+    {
+      "ts": "2026-06-21T10:18:00Z",
+      "k": "auth-18",
+      "detail": "value-18-xxxxxxxx"
+    },
+    {
+      "ts": "2026-06-21T10:19:00Z",
+      "k": "auth-19",
+      "detail": "value-19-xxxxxxxx"
+    }
+  ],
+  "appliedConditionalAccessPolicies": [
+    {
+      "ts": "2026-06-21T10:00:00Z",
+      "k": "ca-0",
+      "detail": "value-0-xxxxxxxx"
+    },
+    {
+      "ts": "2026-06-21T10:01:00Z",
+      "k": "ca-1",
+      "detail": "value-1-xxxxxxxx"
+    },
+    {
+      "ts": "2026-06-21T10:02:00Z",
+      "k": "ca-2",
+      "detail": "value-2-xxxxxxxx"
+    },
+    {
+      "ts": "2026-06-21T10:03:00Z",
+      "k": "ca-3",
+      "detail": "value-3-xxxxxxxx"
+    },
+    {
+      "ts": "2026-06-21T10:04:00Z",
+      "k": "ca-4",
+      "detail": "value-4-xxxxxxxx"
+    },
+    {
+      "ts": "2026-06-21T10:05:00Z",
+      "k": "ca-5",
+      "detail": "value-5-xxxxxxxx"
+    },
+    {
+      "ts": "2026-06-21T10:06:00Z",
+      "k": "ca-6",
+      "detail": "value-6-xxxxxxxx"
+    },
+    {
+      "ts": "2026-06-21T10:07:00Z",
+      "k": "ca-7",
+      "detail": "value-7-xxxxxxxx"
+    },
+    {
+      "ts": "2026-06-21T10:08:00Z",
+      "k": "ca-8",
+      "detail": "value-8-xxxxxxxx"
+    },
+    {
+      "ts": "2026-06-21T10:09:00Z",
+      "k": "ca-9",
+      "detail": "value-9-xxxxxxxx"
+    },
+    {
+      "ts": "2026-06-21T10:10:00Z",
+      "k": "ca-10",
+      "detail": "value-10-xxxxxxxx"
+    },
+    {
+      "ts": "2026-06-21T10:11:00Z",
+      "k": "ca-11",
+      "detail": "value-11-xxxxxxxx"
+    }
+  ]
+}

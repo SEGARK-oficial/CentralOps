@@ -1,0 +1,76 @@
+{
+  "rules": [
+    { "target": "normalized.class_uid", "const": 2004, "required": true },
+    { "target": "normalized.class_name", "const": "Detection Finding" },
+    { "target": "normalized.category_uid", "const": 2, "required": true },
+    { "target": "normalized.category_name", "const": "Findings" },
+    { "target": "normalized.activity_id", "const": 1 },
+    { "target": "normalized.activity_name", "const": "Create" },
+    { "target": "normalized.type_uid", "const": 200401 },
+    { "target": "normalized.time", "source": "createdAt || raisedAt", "type_cast": "iso_to_epoch", "required": true },
+    { "target": "normalized.finding_info.uid", "source": "id", "required": true },
+    { "target": "normalized.finding_info.title", "source": "description", "default": null },
+    { "target": "normalized.finding_info.types", "source": "[type]", "default": [] },
+    { "target": "normalized.finding_info.created_time", "source": "createdAt || raisedAt", "type_cast": "iso_to_epoch" },
+
+    {
+      "target": "normalized.severity_id",
+      "source": "severity",
+      "value_map": {
+        "critical": 5, "high": 4, "medium": 3, "low": 2, "info": 1, "informational": 1
+      },
+      "default": 0,
+      "required": true
+    },
+    { "target": "normalized.severity", "source": "severity", "default": "Unknown" },
+
+    { "target": "normalized.status_id", "const": 1 },
+    { "target": "normalized.status", "const": "New" },
+
+    { "target": "normalized.message", "source": "description", "default": null },
+
+    { "target": "normalized.device.name", "source": "managedAgent.name", "default": null },
+    { "target": "normalized.device.hostname", "source": "managedAgent.name", "default": null },
+    { "target": "normalized.device.uid", "source": "managedAgent.id", "default": null },
+    { "target": "normalized.device.type", "source": "managedAgent.type", "default": null },
+
+    { "target": "normalized.actor.user.name", "source": "person.name", "default": null },
+    { "target": "normalized.actor.user.uid", "source": "person.id", "default": null },
+
+    { "target": "normalized.metadata.version", "const": "1.3.0" },
+    { "target": "normalized.metadata.product.name", "const": "Sophos Central" },
+    { "target": "normalized.metadata.product.vendor_name", "const": "Sophos" },
+    { "target": "normalized.metadata.product.feature.name", "source": "product", "default": null },
+    { "target": "normalized.metadata.uid", "source": "id" },
+
+    {
+      "target": "normalized.observables",
+      "kind": "array_builder",
+      "items": [
+        {
+          "name": "device_uid",
+          "type": "Resource UID",
+          "type_id": 33,
+          "source": "managedAgent.id",
+          "skip_null": true
+        },
+        {
+          "name": "device_name",
+          "type": "Hostname",
+          "type_id": 1,
+          "source": "managedAgent.name",
+          "skip_null": true
+        },
+        {
+          "name": "tenant_id",
+          "type": "Resource UID",
+          "type_id": 33,
+          "source": "tenant.id",
+          "skip_null": true
+        }
+      ],
+      "skip_null": true,
+      "dedup_by": ["value"]
+    }
+  ]
+}

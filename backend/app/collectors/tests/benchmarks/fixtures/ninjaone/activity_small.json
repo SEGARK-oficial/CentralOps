@@ -1,0 +1,9 @@
+{
+  "id": 100001,
+  "activityTime": 1776940800,
+  "activityType": "DEVICE_ALERT",
+  "subject": "Device offline",
+  "severity": "info",
+  "user": {"id": 5, "name": "tech-1"},
+  "device": {"id": 22, "systemName": "WIN-FIN-01", "dnsName": "fin01.local"}
+}

@@ -1,0 +1,86 @@
+{
+  "page": {
+    "eyebrow": "Normalización",
+    "title": "Cuarentena",
+    "description": "Eventos que fallaron la normalización",
+    "loading": "Cargando cuarentena...",
+    "loadError": "Error al cargar la cuarentena",
+    "emptyState": "No hay entradas en cuarentena."
+  },
+  "actions": {
+    "reprocess": "Reprocesar",
+    "discard": "Descartar"
+  },
+  "errors": {
+    "unexpected": "Error inesperado",
+    "permissionDenied": "Permiso denegado",
+    "discardErrorTitle": "Error al descartar"
+  },
+  "notices": {
+    "reprocessSuccess": "Evento reprocesado y enviado a Wazuh",
+    "reprocessExpired": "El evento expiró y ya no puede reprocesarse"
+  },
+  "badges": {
+    "reprocessed": "Reprocesado",
+    "expired": "Expirado"
+  },
+  "detail": {
+    "errorDetailTitle": "Detalle del error",
+    "rawPayload": "Payload sin procesar",
+    "metadata": "Metadatos",
+    "integrationId": "ID de integración",
+    "mappingVersion": "Versión del mapping",
+    "openMappingInEditor": "Abrir mapping en el editor",
+    "timestamps": "Marcas de tiempo",
+    "createdAt": "Creado el",
+    "expiresAt": "Expira el",
+    "reprocessedAt": "Reprocesado el",
+    "reprocessEventAriaLabel": "Reprocesar evento {{id}}",
+    "discardEntryAriaLabel": "Descartar entrada de cuarentena",
+    "discardConfirmTitle": "¿Descartar entrada de cuarentena?",
+    "discardConfirmDescription": "La entrada de \"{{vendor}}{{eventType}}\" será descartada permanentemente.",
+    "reprocessConfirmTitle": "¿Reprocesar evento?",
+    "reprocessConfirmDescription": "El evento será revalidado contra el mapping actual. Si la normalización tiene éxito, se enviará a Wazuh. De lo contrario, permanecerá en cuarentena con un nuevo error."
+  },
+  "bulk": {
+    "discardTypedConfirmPhrase": "DESCARTAR",
+    "contextLabel": "entrada(s)",
+    "selectAllFilterButton": "Seleccionar todo del filtro",
+    "selectAllFilterAriaLabel": "Seleccionar todos los elementos que coinciden con el filtro actual",
+    "selectAllCapped": "Se seleccionaron los {{count}} elementos más recientes (de {{total}}). Ajuste los filtros para operar sobre el resto.",
+    "selectAllFromFilter_one": "{{count}} elemento seleccionado por los filtros actuales.",
+    "selectAllFromFilter_other": "{{count}} elementos seleccionados por los filtros actuales.",
+    "reprocessSelected": "Reprocesar seleccionados",
+    "discardSelected": "Descartar seleccionados",
+    "discardSuccess_one": "{{count}} entrada descartada.",
+    "discardSuccess_other": "{{count}} entradas descartadas.",
+    "discardPartial": "{{discarded}} descartadas, {{failed}} omitidas (no encontradas/inaccesibles).",
+    "discardFailed": "Falló el descarte masivo: {{message}}",
+    "reprocessFailed": "Falló el reprocesamiento masivo: {{message}}",
+    "reprocessQueued": "Reprocesamiento encolado: {{parts}}.",
+    "reprocessParts": {
+      "accepted": "{{count}} aceptados",
+      "expired": "{{count}} expirados",
+      "alreadyReprocessed": "{{count}} ya reprocesados",
+      "ignored": "{{count}} omitidos",
+      "nothingToProcess": "nada para procesar"
+    },
+    "errors": {
+      "listIdsFailed": "Error al listar los IDs del filtro"
+    },
+    "discardDialog": {
+      "title_one": "¿Descartar {{count}} entrada?",
+      "title_other": "¿Descartar {{count}} entradas?",
+      "irreversibleWarning": "Esta acción es irreversible: las entradas se eliminarán permanentemente de la cola de cuarentena.",
+      "typeToConfirmPrefix": "Escriba",
+      "typeToConfirmSuffix": "para confirmar:",
+      "typedConfirmAriaLabel": "Confirmación de texto para descarte masivo",
+      "confirmLabel": "Descartar {{count}}"
+    },
+    "reprocessDialog": {
+      "title_one": "¿Reprocesar {{count}} entrada?",
+      "title_other": "¿Reprocesar {{count}} entradas?",
+      "description": "Los eventos se revalidarán contra el mapping actual en segundo plano. Los elementos con mapping exitoso se enviarán a los destinos enrutados; los fallos actualizan el error pero mantienen el elemento en cuarentena."
+    }
+  }
+}

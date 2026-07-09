@@ -1,0 +1,42 @@
+{{- if and (eq .Values.dataPlane.eventDataplane "kafka") .Values.dataPlane.dispatcher.keda.enabled }}
+# §B4 — autoscaling do dispatcher por LAG do consumer group (KEDA).
+# Exige o KEDA instalado no cluster (keda.sh). Escala o Deployment do
+# kafka-dispatcher entre min/max conforme o lag do tópico ``deliver`` —
+# autoscaling por estágio do data-plane (independe do poller/web).
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: {{ include "centralops.fullname" . }}-kafka-dispatcher
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "centralops.labels" . | nindent 4 }}
+spec:
+  scaleTargetRef:
+    name: {{ include "centralops.fullname" . }}-kafka-dispatcher
+  minReplicaCount: {{ .Values.dataPlane.dispatcher.keda.minReplicas }}
+  maxReplicaCount: {{ .Values.dataPlane.dispatcher.keda.maxReplicas }}
+  triggers:
+    - type: kafka
+      metadata:
+        bootstrapServers: {{ .Values.dataPlane.kafka.bootstrapServers | quote }}
+        consumerGroup: {{ .Values.dataPlane.kafka.consumerGroup | quote }}
+        topic: "{{ .Values.dataPlane.kafka.topicPrefix }}.deliver"
+        lagThreshold: {{ .Values.dataPlane.dispatcher.keda.lagThreshold | quote }}
+        offsetResetPolicy: earliest
+        {{- with .Values.dataPlane.kafka.sasl.mechanism }}
+        sasl: {{ . | lower }}
+        tls: enable
+        {{- end }}
+      # TODO(KEDA SASL TriggerAuth): quando sasl.mechanism estiver definido, o
+      # trigger acima precisa de um `authenticationRef` apontando para um recurso
+      # TriggerAuthentication que fonte KAFKA_SASL_USERNAME/KAFKA_SASL_PASSWORD
+      # do Secret do chart. Não foi implementado aqui pois a forma correta de
+      # referenciar o Secret gerado (nome dinâmico via include) em um recurso
+      # TriggerAuthentication separado exige validação contra a versão do KEDA
+      # instalada (v2.12+ muda o schema de SecretTargetRef). Implemente com:
+      # authenticationRef:
+      # name: {{ include "centralops.fullname" . }}-kafka-dispatcher-trigger-auth
+      # e adicione um TriggerAuthentication renderizado somente quando sasl.mechanism
+      # estiver definido, referenciando secretTargetRef username/password do
+      # Secret {{ include "centralops.fullname" . }}-secret.
+{{- end }}

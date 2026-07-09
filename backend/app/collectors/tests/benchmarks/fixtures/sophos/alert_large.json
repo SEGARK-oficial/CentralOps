@@ -1,0 +1,104 @@
+{
+  "id": "alert-large-001",
+  "createdAt": "2026-04-23T14:22:10Z",
+  "raisedAt": "2026-04-23T14:22:08Z",
+  "severity": "critical",
+  "type": "malware",
+  "description": "Multi-stage ransomware attack: Trojan.GenericKD injected into lsass.exe, lateral movement detected across 15 endpoints, C2 communication to 185.220.101.x:443 observed, exfiltration via DNS tunneling to evil.corp domain confirmed by XDR behavioral analysis",
+  "managedAgent": {
+    "id": "agent-uuid-large-001",
+    "name": "WIN-DC-PRIMARY",
+    "type": "server"
+  },
+  "person": {
+    "id": "user-uuid-admin-001",
+    "name": "admin.account"
+  },
+  "product": "Intercept X Advanced with XDR",
+  "allowedActions": ["acknowledge", "cleanUp", "isolate", "deisolate"],
+  "category": "ransomware",
+  "groupKey": "alert-group-ransomware-001",
+  "tenant": {"id": "tenant-enterprise-001", "name": "Enterprise Corp Ltd"},
+  "threats": [
+    "Trojan.GenericKD.12345", "Ransomware.Lockbit.B", "Backdoor.Remcos.A",
+    "Tool.Mimikatz.A", "PUA.AdvancedIPScanner.A"
+  ],
+  "correlationId": "corr-ransomware-001",
+  "location": "EU-WEST-2",
+  "assignee": "incident-response-team",
+  "source": {
+    "md5": "aabbccdd1122334455667788",
+    "sha256": "0011223344556677889900aabbccddeeff0011223344556677889900aabbccdd",
+    "path": "C:\\Users\\admin\\AppData\\Roaming\\update.exe",
+    "pid": 4892,
+    "name": "update.exe"
+  },
+  "destination": {
+    "ip": "185.220.101.42",
+    "port": 443,
+    "domain": "c2.evil-domain.net",
+    "country": "RU"
+  },
+  "filePath": "C:\\Users\\admin\\AppData\\Roaming\\update.exe",
+  "hostname": "WIN-DC-PRIMARY",
+  "ipAddresses": ["192.168.1.1", "10.0.0.1", "172.16.0.1"],
+  "macAddresses": ["AA:BB:CC:DD:EE:FF", "11:22:33:44:55:66"],
+  "os": {
+    "platform": "windows",
+    "name": "Windows Server 2022",
+    "build": "20348",
+    "sp": "0",
+    "type": "server"
+  },
+  "customerProductVersion": "2024.3.2",
+  "detectionAction": "blocked",
+  "localIp": "192.168.1.1",
+  "originatingEntityPath": "C:\\Users\\admin\\AppData\\Roaming\\update.exe",
+  "policyType": "real-time",
+  "rawData": "SGVsbG8gV29ybGQgLS0gdGhpcyBpcyBhIGxhcmdlIHJhdyBkYXRhIGJsb2IgZm9yIGJlbmNobWFyayB0ZXN0aW5n",
+  "sha256": "0011223344556677889900aabbccddeeff0011223344556677889900aabbccdd",
+  "thumbprint": "sha256-fingerprint-001",
+  "type2": "ransomware-behavior",
+  "workloadType": "server",
+  "mitreTechniques": ["T1566.001", "T1059.001", "T1003.001", "T1486", "T1071.001"],
+  "mitreTactics": ["Initial Access", "Execution", "Credential Access", "Impact", "Command and Control"],
+  "endpoint": {
+    "id": "ep-001",
+    "type": "server",
+    "hostname": "WIN-DC-PRIMARY",
+    "os": "Windows Server 2022",
+    "isolationStatus": "not_isolated",
+    "tamperProtectionEnabled": true,
+    "associatedPerson": {"id": "user-001", "name": "admin.account", "viaLogin": "WIN-DC-PRIMARY\\admin"}
+  },
+  "process": {
+    "pid": 4892,
+    "name": "update.exe",
+    "path": "C:\\Users\\admin\\AppData\\Roaming\\update.exe",
+    "sha256": "0011223344556677889900aabbccddeeff0011223344556677889900aabbccdd",
+    "cmdLine": "C:\\Users\\admin\\AppData\\Roaming\\update.exe --silent --install",
+    "parent": {"pid": 1234, "name": "explorer.exe"},
+    "user": "WIN-DC-PRIMARY\\admin",
+    "startTime": "2026-04-23T14:20:00Z"
+  },
+  "network": {
+    "remoteAddress": "185.220.101.42",
+    "remotePort": 443,
+    "localAddress": "192.168.1.1",
+    "localPort": 52341,
+    "protocol": "tcp",
+    "direction": "outbound"
+  },
+  "xdrQuery": "SELECT * FROM processes WHERE sha256='0011...'",
+  "policyActions": [
+    {"action": "block", "policy": "ransomware-protection"},
+    {"action": "isolate", "policy": "automatic-isolation"}
+  ],
+  "tags": ["ransomware", "critical", "lateral-movement", "exfiltration", "c2"],
+  "notes": "Incident confirmed as RaaS attack. IR team engaged. Business impact: file encryption on 3 servers.",
+  "priority": "P1",
+  "daysToClose": null,
+  "resolution": null,
+  "externalTicketId": "INC-2026-0042",
+  "externalTicketUrl": "https://jira.example.com/browse/INC-2026-0042"
+}

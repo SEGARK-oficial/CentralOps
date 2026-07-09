@@ -1,0 +1,93 @@
+{
+  "id": "defender-incident-large-001",
+  "createdDateTime": "2026-04-23T06:00:00Z",
+  "lastUpdateDateTime": "2026-04-23T18:00:00Z",
+  "displayName": "APT29 — Supply chain compromise with full domain takeover",
+  "description": "Nation-state actor APT29 (Cozy Bear) confirmed. Supply chain compromise via SolarWinds Orion update. Full domain controller takeover. Golden Ticket attack observed. Data staged for exfiltration. 47 endpoints affected across 3 regions.",
+  "severity": "high",
+  "status": "inProgress",
+  "assignedTo": "ciso-ir@corp.com",
+  "classification": "TruePositive",
+  "determination": "APT",
+  "tenantId": "tenant-enterprise-global",
+  "tags": ["apt29", "supply-chain", "golden-ticket", "domain-takeover", "p0", "nation-state"],
+  "comments": [
+    {"comment": "P0 incident declared. CISO and board notified.", "createdBy": "ciso@corp.com", "createdTime": "2026-04-23T06:30:00Z"},
+    {"comment": "External IR firm Mandiant engaged.", "createdBy": "ciso@corp.com", "createdTime": "2026-04-23T07:00:00Z"},
+    {"comment": "Domain controller isolation approved by CISO.", "createdBy": "ir-lead@corp.com", "createdTime": "2026-04-23T08:00:00Z"},
+    {"comment": "Golden Ticket invalidated via krbtgt password reset x2.", "createdBy": "ir-lead@corp.com", "createdTime": "2026-04-23T10:00:00Z"},
+    {"comment": "Forensic imaging complete on 5 priority endpoints.", "createdBy": "forensics@corp.com", "createdTime": "2026-04-23T14:00:00Z"}
+  ],
+  "alerts": [
+    {"id": "alert-001", "severity": "high", "status": "resolved", "category": "InitialAccess"},
+    {"id": "alert-002", "severity": "high", "status": "inProgress", "category": "LateralMovement"},
+    {"id": "alert-003", "severity": "high", "status": "inProgress", "category": "PrivilegeEscalation"},
+    {"id": "alert-004", "severity": "high", "status": "inProgress", "category": "CredentialAccess"},
+    {"id": "alert-005", "severity": "high", "status": "inProgress", "category": "Persistence"},
+    {"id": "alert-006", "severity": "medium", "status": "new", "category": "Discovery"},
+    {"id": "alert-007", "severity": "medium", "status": "new", "category": "Collection"},
+    {"id": "alert-008", "severity": "medium", "status": "new", "category": "Exfiltration"}
+  ],
+  "devices": [
+    {"id": "device-001", "deviceName": "WIN-DC-01", "osPlatform": "WindowsServer2022", "rbacGroupName": "Domain Controllers"},
+    {"id": "device-002", "deviceName": "WIN-DC-02", "osPlatform": "WindowsServer2022", "rbacGroupName": "Domain Controllers"},
+    {"id": "device-003", "deviceName": "WIN-DC-03", "osPlatform": "WindowsServer2019", "rbacGroupName": "Domain Controllers"},
+    {"id": "device-004", "deviceName": "WIN-SQL-01", "osPlatform": "WindowsServer2022", "rbacGroupName": "Database Servers"},
+    {"id": "device-005", "deviceName": "WIN-FS-01", "osPlatform": "WindowsServer2019", "rbacGroupName": "File Servers"},
+    {"id": "device-006", "deviceName": "WIN-WS-01", "osPlatform": "Windows10", "rbacGroupName": "Workstations"},
+    {"id": "device-007", "deviceName": "WIN-WS-02", "osPlatform": "Windows10", "rbacGroupName": "Workstations"},
+    {"id": "device-008", "deviceName": "WIN-WS-03", "osPlatform": "Windows11", "rbacGroupName": "Workstations"}
+  ],
+  "users": [
+    {"id": "user-001", "accountName": "domain.admin", "domainName": "CORP", "userSid": "S-1-5-21-xxx-500"},
+    {"id": "user-002", "accountName": "svc.solarwinds", "domainName": "CORP", "userSid": "S-1-5-21-xxx-1001"},
+    {"id": "user-003", "accountName": "svc.backup", "domainName": "CORP", "userSid": "S-1-5-21-xxx-1002"},
+    {"id": "user-004", "accountName": "alice.exec", "domainName": "CORP", "userSid": "S-1-5-21-xxx-1003"},
+    {"id": "user-005", "accountName": "bob.finance", "domainName": "CORP", "userSid": "S-1-5-21-xxx-1004"}
+  ],
+  "mailboxes": [
+    {"mailboxAddress": "ceo@corp.com", "displayName": "CEO"},
+    {"mailboxAddress": "cfo@corp.com", "displayName": "CFO"},
+    {"mailboxAddress": "domain.admin@corp.com", "displayName": "Domain Admin"}
+  ],
+  "cloudResources": [
+    {"resourceId": "/subscriptions/xxx/resourceGroups/prod/providers/Microsoft.KeyVault/vaults/prod-secrets"},
+    {"resourceId": "/subscriptions/xxx/resourceGroups/prod/providers/Microsoft.Storage/storageAccounts/prodb"},
+    {"resourceId": "/subscriptions/xxx/resourceGroups/prod/providers/Microsoft.Compute/virtualMachines/prod-vm-01"}
+  ],
+  "oauthApplications": [
+    {"appId": "malicious-oauth-001", "appName": "Malicious Survey App", "publisher": "Unknown", "permissionsGranted": ["Mail.ReadAll", "Files.ReadWrite.All"]}
+  ],
+  "incidentWebUrl": "https://security.microsoft.com/incidents/defender-incident-large-001",
+  "redirectToIncidentId": null,
+  "providerIncidentId": "prov-inc-large-001",
+  "malwareFamilies": ["SunBurst", "TeardropLoader", "GoldMax"],
+  "attackTechniques": ["T1195.002", "T1558.001", "T1550.003", "T1021.002", "T1003.006", "T1048.001"],
+  "systemTags": ["critical", "automated-investigation-pending"],
+  "customTags": ["APT29-CONFIRMED", "P0", "Board-Notified", "Mandiant-Engaged", "GDPR-Notifiable"],
+  "incidentProductSource": "Microsoft",
+  "resolvedDateTime": null,
+  "lastModifiedBy": "ir-lead@corp.com",
+  "recommendedActions": "1. Isolate all DCs. 2. Reset krbtgt x2. 3. Review all service account permissions. 4. Audit OAuth app grants. 5. Rotate all secrets in Key Vault.",
+  "mitreTactics": ["Initial Access", "Execution", "Persistence", "Privilege Escalation", "Defense Evasion", "Credential Access", "Discovery", "Lateral Movement", "Collection", "Exfiltration", "Command and Control"],
+  "mitreTechniques": ["T1195.002", "T1059.001", "T1543.003", "T1548.002", "T1036.005", "T1003.006", "T1018", "T1021.002", "T1005", "T1071.001", "T1048.001"],
+  "regulatoryReporting": [
+    {"regulation": "GDPR", "reportingRequired": true, "deadline": "2026-04-26T06:00:00Z", "reportedAt": null},
+    {"regulation": "NIS2", "reportingRequired": true, "deadline": "2026-04-24T06:00:00Z", "reportedAt": null},
+    {"regulation": "SEC", "reportingRequired": true, "deadline": "2026-04-27T06:00:00Z", "reportedAt": null}
+  ],
+  "estimatedImpact": {
+    "affectedEndpoints": 47,
+    "affectedUsers": 5,
+    "affectedRegions": ["EU-WEST", "US-EAST", "AP-SOUTHEAST"],
+    "dataAtRisk": "All confidential data on compromised servers",
+    "businessCritical": true
+  },
+  "containmentActions": [
+    {"action": "isolate", "target": "WIN-DC-01", "status": "completed", "timestamp": "2026-04-23T08:05:00Z"},
+    {"action": "isolate", "target": "WIN-DC-02", "status": "completed", "timestamp": "2026-04-23T08:07:00Z"},
+    {"action": "reset-credentials", "target": "domain.admin", "status": "completed", "timestamp": "2026-04-23T09:00:00Z"},
+    {"action": "reset-krbtgt", "target": "CORP domain", "status": "completed", "timestamp": "2026-04-23T10:00:00Z"},
+    {"action": "block-ip", "target": "185.220.101.42", "status": "completed", "timestamp": "2026-04-23T06:45:00Z"}
+  ]
+}

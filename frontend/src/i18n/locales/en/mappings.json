@@ -1,0 +1,444 @@
+{
+  "list": {
+    "eyebrow": "Normalization",
+    "title": "Mappings",
+    "description": "Mappings that normalize events from your integrations into the standard format (OCSF).",
+    "searchPlaceholder": "Search by vendor, type or description...",
+    "searchAriaLabel": "Search mapping",
+    "resetFilters": "Reset filters",
+    "resetFiltersAriaLabel": "Reset filters",
+    "showAllVendors": "Show all available vendors",
+    "loading": "Loading mappings...",
+    "loadError": "Failed to load mappings",
+    "emptyNoData": "No mappings registered.",
+    "filters": {
+      "allVendors": "All vendors",
+      "allEventTypes": "All types",
+      "vendorAriaLabel": "Filter by vendor",
+      "eventTypeAriaLabel": "Filter by event type"
+    },
+    "columns": {
+      "vendor": "Vendor",
+      "eventType": "Event type",
+      "rules": "Rules",
+      "noVersion": "no version",
+      "noVersionTitle": "No current version"
+    },
+    "editAriaLabel": "Edit mapping {{vendor}}/{{eventType}}",
+    "emptyFiltered": {
+      "title": "No mapping found with the applied filters.",
+      "description": "Adjust the search or the vendor/event type filters, or clear them to see all mappings.",
+      "clearFilters": "Clear filters"
+    },
+    "emptyNoActive": {
+      "title": "No mappings for active integrations",
+      "description": "Default mappings appear here as soon as you connect an integration. Connect one in Integrations, or view all available mappings.",
+      "showAll": "Show all available"
+    }
+  },
+  "editor": {
+    "eyebrow": "Mapping Editor",
+    "loading": "Loading mapping...",
+    "notFound": "Mapping not found",
+    "loadError": "Failed to load mapping",
+    "preprocessBadge": "preprocess",
+    "preprocessBadgeTitle": "This mapping has preprocessing operations",
+    "helpLink": "How to create rules?",
+    "editRules": "Edit rules",
+    "discard": "Discard",
+    "unsavedChanges": "You have unsaved changes.",
+    "dismissBannerAriaLabel": "Dismiss notice",
+    "prefillBanner": {
+      "before": "Adding a rule for the field",
+      "after": "detected in drift. Fill in the",
+      "targetField": "target",
+      "suffix": "field to complete the rule."
+    },
+    "tabsAriaLabel": "Mapping editor sections",
+    "tabs": {
+      "editor": "Editor",
+      "versions": "Versions",
+      "audit": "Audit"
+    },
+    "discardConfirm": {
+      "title": "Discard changes?",
+      "description": "All unsaved changes will be lost. This action cannot be undone.",
+      "cancelLabel": "Keep editing"
+    }
+  },
+  "editorLayout": {
+    "expandPayloadPanel": "Expand sample panel",
+    "collapsePayloadPanel": "Collapse sample panel"
+  },
+  "payloadPanel": {
+    "heading": "Sample payload",
+    "modeAriaLabel": "Payload mode",
+    "tabs": {
+      "reservoir": "Reservoir",
+      "manual": "Manual"
+    },
+    "reservoir": {
+      "title": "Reservoir samples unavailable",
+      "description": "Automatic sample loading will be available soon. For now, use Manual mode to paste an event JSON and preview the simulation."
+    },
+    "manual": {
+      "inputLabel": "Paste the event JSON here",
+      "inputAriaLabel": "Sample event JSON",
+      "previewLabel": "Structured preview:",
+      "hint": "Paste a valid JSON object to see the normalized envelope in the right-hand panel."
+    },
+    "errors": {
+      "notObject": "The payload must be a JSON object (key/value).",
+      "invalidJson": "Invalid JSON — check the syntax."
+    }
+  },
+  "rulesEditor": {
+    "heading": "Rules",
+    "total_one": "Total: {{count}} rule",
+    "total_other": "Total: {{count}} rules",
+    "exportAriaLabel": "Export rules as JSON",
+    "import": "Import",
+    "importAriaLabel": "Import rules from a JSON file",
+    "importErrorPrefix": "Import error:",
+    "importFileError": "Failed to import file.",
+    "importConfirm": {
+      "title": "Confirm import",
+      "replaceCurrent_one": "This will replace the {{count}} current rule",
+      "replaceCurrent_other": "This will replace the {{count}} current rules",
+      "withImported_one": "with {{count}} imported rule. This action cannot be undone.",
+      "withImported_other": "with {{count}} imported rules. This action cannot be undone.",
+      "confirm": "Confirm import"
+    },
+    "filterControlsAriaLabel": "Filter controls",
+    "searchPlaceholder": "Search rule (target or source)...",
+    "searchAriaLabel": "Search rule by target or source",
+    "filters": {
+      "required": "Required",
+      "group": "Group"
+    },
+    "expandAll": "⊞ Expand all",
+    "expandAllAriaLabel": "Expand all rules",
+    "collapseAll": "⊟ Collapse all",
+    "collapseAllAriaLabel": "Collapse all rules",
+    "showingCount_one": "Showing {{filtered}} of {{total}} rule",
+    "showingCount_other": "Showing {{filtered}} of {{total}} rules",
+    "emptyEditHint": "No rules yet. Click \"Add rule\" to get started.",
+    "emptyView": {
+      "title": "No rules defined",
+      "description": "This version has no mapping rules."
+    },
+    "noFilterResults": "No rules found with the applied filters.",
+    "clearFilters": "Clear filters",
+    "addRule": "+ Add rule",
+    "addMenuAriaLabel": "Type of rule to add",
+    "addMenu": {
+      "scalarRule": "Scalar rule",
+      "scalarRuleHint": "Maps a field one-to-one",
+      "arrayBuilder": "Array builder",
+      "observables": "observables",
+      "arrayBuilderHint": "Builds an array of OCSF observables",
+      "loadTemplate": "Load OCSF template…",
+      "loadTemplateHint": "Pre-fills the class's required rules"
+    }
+  },
+  "ruleRow": {
+    "arrayPlaceholder": "(array)",
+    "newFieldPlaceholder": "new.field",
+    "arrayBuilderChip_one": "array_builder ({{count}} item)",
+    "arrayBuilderChip_other": "array_builder ({{count}} items)",
+    "collapseDetails": "Collapse rule details",
+    "expandDetails": "Expand rule details",
+    "collapseRule": "Collapse rule",
+    "expandRule": "Expand rule",
+    "defaultLabel": "default:",
+    "castLabel": "cast:",
+    "valueMapLabel": "value_map:",
+    "invalidValueMap": "Invalid JSON in value_map.",
+    "loading": "Loading...",
+    "loadError": "Failed to load",
+    "typeCastNone": "None",
+    "moveUp": "Move rule up",
+    "moveDown": "Move rule down",
+    "removeConfirm": {
+      "title": "Remove rule?",
+      "before": "The rule",
+      "after": "will be removed from this mapping. This action cannot be undone."
+    },
+    "sections": {
+      "identification": "Identification",
+      "valueOrigin": "Value origin",
+      "transformation": "Transformation",
+      "validation": "Validation",
+      "conditional": "Conditional"
+    },
+    "fields": {
+      "source": "source (JMESPath)",
+      "defaultOptional": "default (optional)",
+      "valueMapOptional": "value_map (optional JSON)"
+    },
+    "placeholders": {
+      "target": "e.g.: event.action",
+      "source": "e.g.: data.action",
+      "const": "constant value",
+      "default": "default value if source is missing"
+    },
+    "sourceType": {
+      "label": "Source type",
+      "description": "Choose how the value is obtained: extracted from the vendor payload (JMESPath) or a fixed value (constant).",
+      "radioGroupAriaLabel": "Rule source type",
+      "sourceOption": "JMESPath (source)",
+      "constOption": "Constant (const)"
+    },
+    "tooltips": {
+      "target": {
+        "description": "Path in the normalized envelope where the value goes. Use dot-path notation."
+      },
+      "source": {
+        "description": "JMESPath expression applied to the vendor's raw payload to extract the value. Supports nested paths, filters and functions."
+      },
+      "const": {
+        "description": "Constant value assigned to the target, regardless of the vendor payload. Useful for fixed metadata like the product name."
+      },
+      "default": {
+        "description": "Value used if the source does not exist or resolves to null. Without a default, the field is left absent."
+      },
+      "typeCast": {
+        "description": "Transformation applied AFTER source and value_map. Examples: iso_to_epoch converts ISO 8601 to epoch ms; to_int/to_str/to_bool perform type coercion."
+      },
+      "valueMap": {
+        "description": "JSON map {original_value: mapped_value} applied AFTER the source. Useful for converting severity strings into OCSF codes."
+      },
+      "required": {
+        "description": "If checked and the value is null/absent after all transformations, the event goes to quarantine instead of being sent to the SIEM."
+      }
+    },
+    "castSignatureTitle": "{{description}} — Signature: {{signature}}",
+    "intentionalDefault": {
+      "label": "Intentional default value (don't alert in simulation)",
+      "description": "Check this when the rule is an expected placeholder that always falls back to default — e.g. a required OCSF field we don't have from the vendor yet."
+    },
+    "whenCondition": {
+      "label": "Condition (when)",
+      "description": "Optional predicate: if it evaluates to false, the rule is entirely skipped — the target is not written. Unlike default: the field is left absent from the output."
+    }
+  },
+  "arrayBuilder": {
+    "itemFieldAriaLabel": "Item {{index}}: {{field}}",
+    "skipNullAriaLabelInherited": "Item {{index}}: skip_null (inherited)",
+    "skipNullInheritedTitle": "Inherited from the rule ({{value}})",
+    "moveItemUp": "Move item {{index}} up",
+    "moveItemDown": "Move item {{index}} down",
+    "removeItem": "Remove item {{index}}",
+    "dedupByHint": "List of observable fields, e.g.: \"value\" or \"value,type\"",
+    "skipNullAriaLabel": "skip_null — omit observables with null source",
+    "skipNullHint": "(omit when source is null)",
+    "itemsCount": "Items ({{count}})",
+    "columns": {
+      "source": "source (JMESPath)",
+      "explodeTitle": "If true and source resolves to a list, generates 1 observable per element",
+      "skipNullTitle": "Indeterminate = inherits from the rule level"
+    },
+    "emptyItems": "No items yet. Click \"+ Add item\" to get started.",
+    "addItem": "+ Add item"
+  },
+  "whenBuilder": {
+    "addCondition": "+ Add condition",
+    "maxDepthReached": "Maximum depth reached. Simplify the condition.",
+    "operatorSelectAriaLabel": "When predicate operator",
+    "operatorTooltipLabel": "Operator: {{operator}}",
+    "removeCondition": "Remove when condition",
+    "negatedSubCondition": "Sub-condition (negated):",
+    "sourceEmptyWarning": "Source cannot be empty. The predicate will be rejected by the backend.",
+    "existsSourceAriaLabel": "JMESPath for exists",
+    "equalsSourceAriaLabel": "JMESPath for equals.source",
+    "equalsValueAriaLabel": "Literal value for equals.value",
+    "equalsValuePlaceholder": "e.g.: high (or 4 for integer)",
+    "inSourceAriaLabel": "JMESPath for in.source",
+    "inValuesAriaLabel": "Values for in.values (one per line)",
+    "inValuesHint": "One value per line. Numbers are detected automatically.",
+    "operators": {
+      "exists": {
+        "label": "exists — field exists in the payload",
+        "description": "True if the JMESPath resolves to any non-null value (including empty lists and objects)."
+      },
+      "equals": {
+        "label": "equals — value equals (type-strict)",
+        "description": "True if the field's value exactly matches the given literal. Type-strict comparison: 3 ≠ \"3\"."
+      },
+      "in": {
+        "label": "in — value is in the list (type-strict)",
+        "description": "True if the field's value is in the list. One value per line. Numbers are parsed automatically."
+      },
+      "not": {
+        "label": "not — negates a sub-condition",
+        "description": "Negates the sub-condition. Useful for expressing \"field does not exist\" or \"value is not X\"."
+      }
+    }
+  },
+  "preprocessEditor": {
+    "heading": "Preprocessing",
+    "opsCount_one": "{{count}} operation",
+    "opsCount_other": "{{count}} operations",
+    "addAriaLabel": "Add preprocessing operation",
+    "addButton": "+ Add preprocessing",
+    "tolerant": "tolerant",
+    "emptyState": "No operations. Click \"+ Add preprocessing\" to get started."
+  },
+  "preprocessRow": {
+    "removeAriaLabel": "Remove preprocessing operation",
+    "operationLabel": "Operation",
+    "newFieldPlaceholder": "_field",
+    "fields": {
+      "source": "source",
+      "target": "target"
+    },
+    "sourceAriaLabel": "source JMESPath",
+    "targetHint": "(must start with _)",
+    "targetAriaLabel": "virtual field target",
+    "targetMustStartWithUnderscore": "The target must start with \"_\".",
+    "tolerantAriaLabel": "tolerant — continue even if parsing fails",
+    "tolerantHint": "(continues even if the parse fails)",
+    "moveUp": "Move operation up",
+    "moveDown": "Move operation down"
+  },
+  "dryRunStatusBar": {
+    "statusAriaLabel": "Dry-run status",
+    "samples_one": "{{count}} sample",
+    "samples_other": "{{count}} samples",
+    "ok": "{{count}} OK",
+    "failures_one": "{{count}} failure",
+    "failures_other": "{{count}} failures",
+    "warningsChipAriaLabel_one": "{{count}} rule with 100% fallback to default — click for details",
+    "warningsChipAriaLabel_other": "{{count}} rules with 100% fallback to default — click for details",
+    "warningsChipLabel_one": "{{count}} rule 100% default",
+    "warningsChipLabel_other": "{{count}} rules 100% default"
+  },
+  "defaultHitWarnings": {
+    "title": "Rules with 100% fallback to default",
+    "closeAriaLabel": "Close warnings panel",
+    "description": "These rules have their source resolving to null in 100% of samples. Check whether the JMESPath is correct, or mark it as intentional if it's an expected placeholder.",
+    "noWarnings": "No warnings.",
+    "hitRatio": "{{hitCount}}/{{sampleSize}} samples fell back to default",
+    "markIntentional": "Mark as intentional"
+  },
+  "envelopePreview": {
+    "heading": "Normalized envelope",
+    "previewSuffix": "(preview)",
+    "simulationErrorTitle": "Simulation error",
+    "ruleFailuresTitle": "Rule failures detected",
+    "ruleFailedBefore": "Rule",
+    "ruleFailedMiddle_one": "failed on {{count}} sample",
+    "ruleFailedMiddle_other": "failed on {{count}} samples",
+    "calculating": "Calculating normalization...",
+    "empty": {
+      "title": "Provide a sample to see the normalization.",
+      "description": "Paste a JSON in the Payload panel (Manual mode) or wait for the reservoir integration."
+    }
+  },
+  "templatePicker": {
+    "title": "Load OCSF template",
+    "heading": "Select an OCSF template to pre-fill the required rules",
+    "listAriaLabel": "Available OCSF templates",
+    "useTemplate": "Use template",
+    "useTemplateAriaLabel": "Use template {{name}}",
+    "preconfiguredRules_one": "{{count}} pre-configured rule",
+    "preconfiguredRules_other": "{{count}} pre-configured rules",
+    "confirmReplace": {
+      "title_one": "Replace {{count}} existing rule?",
+      "title_other": "Replace {{count}} existing rules?",
+      "before": "The template",
+      "after": "will replace all current rules. This action cannot be undone.",
+      "confirm": "Replace"
+    }
+  },
+  "saveModal": {
+    "title": "Save new version",
+    "commitRequired": "The commit message is required.",
+    "commitTooShort": "The message must be at least {{min}} characters long.",
+    "unknownError": "Unknown error while saving.",
+    "highFailRate": {
+      "title": "High failure rate in the simulation",
+      "description": "More than 50% of the samples fail with these rules. Consider reviewing before saving."
+    },
+    "saveErrorTitle": "Save error",
+    "diffSummary": "Summary of changes (v{{version}} → new)",
+    "viewFullDiff": "View full diff",
+    "noChanges": "No changes compared to the current version.",
+    "diffAdded_one": "{{count}} added",
+    "diffAdded_other": "{{count}} added",
+    "diffRemoved_one": "{{count}} removed",
+    "diffRemoved_other": "{{count}} removed",
+    "diffModified_one": "{{count}} modified",
+    "diffModified_other": "{{count}} modified",
+    "diffReordered": "reordered",
+    "commitMessageLabel": "Commit message",
+    "commitMessagePlaceholder": "Describe what changed in this version...",
+    "confirmSave": "Save new version",
+    "diffVersionLabel": "v{{version}} → new"
+  },
+  "versionsTable": {
+    "current": "current",
+    "compare": "Compare",
+    "makeCurrent": "Make current",
+    "selectVersionAriaLabel": "Select version {{version}}",
+    "selectedCount_one": "{{count}} version selected",
+    "selectedCount_other": "{{count}} versions selected",
+    "compareSelected": "Compare selected",
+    "clearSelection": "Clear selection",
+    "emptyMessage": "No versions found",
+    "columns": {
+      "version": "Version",
+      "author": "Author",
+      "message": "Message",
+      "createdAt": "Created at"
+    },
+    "rollback": {
+      "messageTooShort": "The message must be at least 10 characters long.",
+      "success": "Rollback to v{{version}} completed successfully.",
+      "error": "Failed to perform rollback.",
+      "errorTitle": "Rollback error",
+      "confirmTitle": "Make v{{version}} the current version?",
+      "confirmDescription": "This action will promote v{{version}} to the current version of the mapping. Existing versions will not be deleted.",
+      "commitMessageLabel": "Commit message",
+      "commitMessagePlaceholder": "Reason for the rollback (min. 10 characters)...",
+      "confirmLabel": "Confirm rollback"
+    }
+  },
+  "diffModal": {
+    "title": "Version diff",
+    "titleWithVersion": "Version diff — {{versionLabel}}",
+    "loading": "Loading diff...",
+    "noDiffAvailable": "No diff available.",
+    "reorderedOnlyTitle": "Reordering only",
+    "reorderedOnlyDescription": "No rule changed — the rules were only reordered.",
+    "noChangesTitle": "No changes",
+    "noChangesDescription": "Both versions are identical.",
+    "added": "Added",
+    "removed": "Removed",
+    "modified": "Modified",
+    "before": "Before",
+    "after": "After"
+  },
+  "auditTable": {
+    "columns": {
+      "action": "Action",
+      "username": "Username",
+      "role": "Role",
+      "detail": "Detail"
+    },
+    "filters": {
+      "allActions": "All actions",
+      "actionLabel": "Action",
+      "actionAriaLabel": "Filter by action",
+      "usernameLabel": "Username",
+      "usernamePlaceholder": "Filter by username...",
+      "periodLabel": "Period",
+      "periodAriaLabel": "Filter by period"
+    },
+    "loadErrorTitle": "Failed to load audit log",
+    "emptyMessage": "No audit records found"
+  },
+  "jmespathInput": {
+    "suggestionsAriaLabel": "JMESPath field suggestions"
+  }
+}

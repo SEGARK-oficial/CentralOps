@@ -1,0 +1,99 @@
+{{- if eq .Values.dataPlane.eventDataplane "kafka" }}
+# Onda 3 — role dispatcher do data-plane Kafka. Consome o tópico
+# ``deliver`` e despacha aos destinos (reusa dispatch_batch_to_destination:
+# breaker/chunk/retry/DLQ). Escalável por réplicas / KEDA (lag) — ver
+# keda-scaledobject.yaml. wazuh-default segue no worker dispatcher (Celery).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "centralops.fullname" . }}-kafka-dispatcher
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "centralops.labels" . | nindent 4 }}
+    app.kubernetes.io/name: {{ include "centralops.fullname" . }}-kafka-dispatcher
+    app.kubernetes.io/component: kafka-dispatcher
+spec:
+  replicas: {{ .Values.dataPlane.dispatcher.replicaCount }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "centralops.fullname" . }}-kafka-dispatcher
+  template:
+    metadata:
+      labels:
+        {{- include "centralops.labels" . | nindent 8 }}
+        app.kubernetes.io/name: {{ include "centralops.fullname" . }}-kafka-dispatcher
+        app.kubernetes.io/component: kafka-dispatcher
+    spec:
+      serviceAccountName: {{ include "centralops.serviceAccountName" . }}
+      automountServiceAccountToken: {{ .Values.serviceAccount.automountServiceAccountToken }}
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+        runAsUser: {{ .Values.workers.runAsUser }}
+      terminationGracePeriodSeconds: 930
+      containers:
+        - name: kafka-dispatcher
+          image: "{{ include "centralops.image" (dict "img" .Values.image "context" .) }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          # NÃO usar ``python -m``: na imagem Cython-compilada o módulo é um .so e o
+          # -m falha ("No code object available"). Importar o .so + chamar main
+          # funciona compilado e em .py.
+          command:
+            - "/usr/local/bin/start-collector.sh"
+            - "python"
+            - "-c"
+            - "from app.collectors.dataplane.dispatcher import main; main"
+          envFrom:
+            - configMapRef:
+                name: {{ include "centralops.fullname" . }}-config
+            - secretRef:
+                name: {{ if .Values.secrets.existingSecret }}{{ .Values.secrets.existingSecret }}{{ else }}{{ include "centralops.fullname" . }}-secret{{ end }}
+          env:
+            - name: SERVICE_ROLE
+              value: "kafka-dispatcher"
+          {{- if .Values.dataPlane.dispatcher.probes.enabled }}
+          # Liveness: verifica que o dispatcher está ciclando (heartbeat escrito
+          # pelo processo Python a cada poll). Se o arquivo envelhecer mais de
+          # 300 s o pod é reiniciado. O arquivo /tmp/dispatcher-ready é criado
+          # pelo dispatcher após inicialização bem-sucedida (readiness).
+          livenessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - "test $(( $(date +%s) - $(stat -c %Y /tmp/dispatcher-heartbeat) )) -lt 300"
+            initialDelaySeconds: 30
+            periodSeconds: 60
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - "test -f /tmp/dispatcher-ready"
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          {{- end }}
+          resources:
+            {{- toYaml .Values.dataPlane.dispatcher.resources | nindent 12 }}
+          securityContext:
+            {{- toYaml .Values.containerSecurityContext | nindent 12 }}
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+            {{- if eq (include "centralops.licenseKeyring.enabled" .) "true" }}
+            {{- include "centralops.licenseKeyring.volumeMount" . | nindent 12 }}
+            {{- end }}
+      volumes:
+        - name: tmp
+          emptyDir: {}
+        {{- if eq (include "centralops.licenseKeyring.enabled" .) "true" }}
+        {{- include "centralops.licenseKeyring.volume" . | nindent 8 }}
+        {{- end }}
+{{- end }}

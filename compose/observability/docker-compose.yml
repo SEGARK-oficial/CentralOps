@@ -1,0 +1,166 @@
+# ╔══════════════════════════════════════════════════════════════════════════╗
+# ║  CentralOps — Stack de OBSERVABILIDADE (host .108, FORA do cluster k3s)    ║
+# ║  Gateway OTel Collector + Prometheus + Loki + Tempo + Grafana             ║
+# ╚══════════════════════════════════════════════════════════════════════════╝
+#
+# Best practice (gateway co-localizado com os backends). A app NÃO ganha serviço
+# novo: ela só aponta OTEL_EXPORTER_OTLP_ENDPOINT=http://<IP_DESTE_HOST>:4318.
+#
+# Plug-and-play: copie este diretório para o host de observabilidade, ajuste o
+# .env (a partir do .env.example) e rode `docker compose up -d`. Os datasources
+# do Grafana e os endpoints do Collector já vêm provisionados.
+#
+# Mudanças vs a stack anterior (ver README.md):
+# + otel-collector (gateway, publica 4317/4318)   + tempo (traces)
+# ~ prometheus: + --web.enable-remote-write-receiver + prometheus.yml montado
+# ~ grafana: + provisioning de datasources (uids fixos)
+
+services:
+  otel-collector:
+    # Versão PINADA (validada): evita que um futuro :latest mude schema/aliases.
+    image: otel/opentelemetry-collector-contrib:0.155.0
+    container_name: otel-collector
+    command: ['--config=/etc/otelcol/config.yaml']
+    volumes:
+      # config do gateway (NESTE diretório → stack auto-contida, plug-and-play)
+      - './otel-collector-config.yaml:/etc/otelcol/config.yaml:ro'
+    ports:
+      - '4317:4317'   # OTLP gRPC  — a app k3s alcança via <IP_HOST>:4317
+      - '4318:4318'   # OTLP HTTP  — a app k3s alcança via <IP_HOST>:4318
+    restart: unless-stopped
+    depends_on:
+      # backends com healthcheck → espera ficarem READY (menos ruído de erro no
+      # boot; mesmo assim a sending_queue/retry do Collector cobre indisponibilidade).
+      prometheus:
+        condition: service_healthy
+      loki:
+        condition: service_healthy
+      tempo:
+        condition: service_started   # Tempo é distroless (sem wget) → sem healthcheck
+    # SEM healthcheck de container: a imagem contrib é DISTROLESS (sem sh/wget/curl),
+    # então `components` só confirmaria que o binário roda (sempre exit 0, enganoso).
+    # A saúde real é exposta pela extension health_check em :13133 (probe externo).
+
+  tempo:
+    # Versão PINADA (estável; o :latest é um build v3.0.0/main que mudou o schema).
+    image: 'grafana/tempo:2.7.0'
+    container_name: tempo
+    command: ['-config.file=/etc/tempo/tempo.yaml']
+    volumes:
+      - './tempo.yaml:/etc/tempo/tempo.yaml:ro'
+      - 'tempodata:/var/tempo'
+    restart: unless-stopped
+    # 4317/4318 do Tempo NÃO são publicados (só o Collector os alcança via DNS
+    # `tempo:4317`). 3200 = API HTTP (a Grafana consulta via DNS `tempo:3200`).
+
+  grafana:
+    image: 'grafana/grafana:latest'
+    container_name: grafana
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: '${GRAFANA_ADMIN_PASSWORD:-admin}'
+      # URL do Prometheus interpolada no datasource provisionado (datasources.yaml
+      # usa ${PROMETHEUS_URL}). Sem isto a URL fica VAZIA → datasource health ERROR
+      # ("empty url") → todos os painéis "No data". Default = Prometheus co-locado
+      # neste stack; sobrescreva no .env p/ apontar a um Prometheus remoto.
+      PROMETHEUS_URL: '${PROMETHEUS_URL:-http://prometheus:9090}'
+      GF_USERS_ALLOW_SIGN_UP: 'false'
+      GF_AUTH_ANONYMOUS_ENABLED: 'false'
+      GF_PLUGINS_PREINSTALL: grafana-opensearch-datasource
+      GF_ANALYTICS_REPORTING_ENABLED: 'false'
+      GF_PANELS_DISABLE_SANITIZE_HTML: 'true'
+      GF_RENDERING_SERVER_URL: 'http://renderer:8081/render'
+      GF_RENDERING_CALLBACK_URL: 'http://grafana:3000/'
+      GF_RENDERING_RENDERER_TOKEN: '${RENDERER_TOKEN}'
+    volumes:
+      - 'grafanadata:/var/lib/grafana'
+      # Datasources com uids fixos (prometheus/loki/tempo) — anchor dos dashboards.
+      - './grafana/provisioning/datasources:/etc/grafana/provisioning/datasources:ro'
+      # Provisionamento dos dashboards versionados (auto-load no boot) — inclui o
+      # data-plane Kafka , pipeline, delivery e executive.
+      - './grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards:ro'
+      - './grafana/dashboards:/var/lib/grafana/dashboards/centralops:ro'
+    ports:
+      - '3000:3000'
+    restart: unless-stopped
+    depends_on:
+      renderer:
+        condition: service_started
+      loki:
+        condition: service_started
+      prometheus:
+        condition: service_started
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - 'wget -q --spider http://localhost:3000/api/health || curl -f http://localhost:3000/api/health || exit 1'
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
+  renderer:
+    image: 'grafana/grafana-image-renderer:latest'
+    container_name: grafana-renderer
+    environment:
+      AUTH_TOKEN: '${RENDERER_TOKEN}'
+    restart: unless-stopped
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - 'wget -q --spider http://localhost:8081 || curl -f http://localhost:8081 || exit 1'
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  loki:
+    image: 'grafana/loki:3.0.0'
+    container_name: grafana-loki
+    command: '-config.file=/etc/loki/local-config.yaml'
+    ports:
+      - '3100:3100'
+    volumes:
+      - 'lokidata:/tmp/loki'
+    restart: unless-stopped
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - 'wget -q --spider http://localhost:3100/ready || curl -f http://localhost:3100/ready || exit 1'
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  prometheus:
+    image: 'prom/prometheus:latest'
+    container_name: prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=15d'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+      # Caminho CANÔNICO: recebe remote-write do Collector.
+      - '--web.enable-remote-write-receiver'
+      # Mantido p/ transição/back-compat (app empurrando OTLP direto). Pode
+      # remover quando todo o tráfego passar pelo Collector.
+      - '--web.enable-otlp-receiver'
+    ports:
+      - '9090:9090'
+    volumes:
+      - './prometheus.yml:/etc/prometheus/prometheus.yml:ro'
+      - 'prometheusdata:/prometheus'
+    restart: unless-stopped
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - 'wget -q --spider http://localhost:9090/-/healthy || exit 1'
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+volumes:
+  grafanadata: null
+  lokidata: null
+  prometheusdata: null
+  tempodata: null

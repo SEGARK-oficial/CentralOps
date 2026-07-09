@@ -1,0 +1,11 @@
+# Extra OPCIONAL — KMS via HashiCorp Vault Transit .
+#
+# Instale SOMENTE quando for usar SECRETS_BACKEND=kms_wrapped_fernet com
+# KMS_PROVIDER=vault_transit. Mantido fora da imagem base para deploy leve; o
+# backend (app/core/secrets/vault_transit.py) importa hvac de forma TARDIA e dá
+# erro descritivo se ausente.
+#
+# pip install -r requirements-vault.txt
+#
+# Compatível com Vault Community Edition (o Transit engine é open-source).
+hvac>=2.1

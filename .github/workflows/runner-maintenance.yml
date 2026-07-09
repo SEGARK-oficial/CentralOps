@@ -1,0 +1,56 @@
+# runner-maintenance.yml — higiene de disco dos runners self-hosted (LXC).
+#
+# Desarma a "bomba de disco": sem poda, /var/lib/docker enche e o CI para com
+# "no space left on device" sem aviso (achado HIGH da revisão adversarial).
+#
+# LIMITAÇÃO HONESTA (pool de 2 LXC): um job de workflow roda em UM runner — não
+# há como um workflow agendado garantir que pode AS DUAS máquinas. O `matrix`
+# abaixo dispara 4 jobs paralelos p/ AUMENTAR a chance de cair nas duas, mas a
+# cobertura GARANTIDA é via cron de host em cada LXC (ver scripts/runner-docker-
+# prune.sh, seção USO RECOMENDADO). Este workflow serve p/ poda on-demand
+# (workflow_dispatch) e um reforço agendado best-effort + health logging.
+
+name: Runner maintenance (disk hygiene)
+
+on:
+  schedule:
+    - cron: "0 2 * * *" # diário 02:00 UTC (antes do nightly E2E às 03:00)
+  workflow_dispatch:
+    inputs:
+      prune:
+        description: "Executar a poda (true) ou só logar disco (false)"
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: runner-maintenance
+  cancel-in-progress: false
+
+jobs:
+  maintain:
+    name: Prune + health (best-effort por runner)
+    runs-on: [self-hosted, Linux, X64]
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      # 4 réplicas p/ aumentar a chance de cobrir as 2 máquinas do pool. Não é
+      # garantia — o cron de host é a cobertura confiável.
+      matrix:
+        replica: [1, 2, 3, 4]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Health (df / docker system df / free)
+        run: |
+          echo "===== hostname ====="; hostname || true
+          echo "===== df -h ====="; df -h / || true
+          echo "===== free -m ====="; free -m || true
+          echo "===== docker system df ====="; docker system df || true
+
+      - name: Prune (escopado e seguro)
+        # No schedule, sempre poda; no dispatch, honra o input.
+        if: ${{ github.event_name == 'schedule' || inputs.prune }}
+        run: bash scripts/runner-docker-prune.sh

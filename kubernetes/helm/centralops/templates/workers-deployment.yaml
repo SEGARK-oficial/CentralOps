@@ -1,0 +1,98 @@
+{{- range $name, $worker := .Values.workers }}
+{{- if and (kindIs "map" $worker) (hasKey $worker "replicaCount") }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "centralops.fullname" $ }}-worker-{{ $name }}
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    {{- include "centralops.labels" $ | nindent 4 }}
+    app.kubernetes.io/name: {{ include "centralops.fullname" $ }}-worker-{{ $name }}
+    app.kubernetes.io/component: worker-{{ $name }}
+spec:
+  replicas: {{ $worker.replicaCount }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "centralops.fullname" $ }}-worker-{{ $name }}
+  template:
+    metadata:
+      labels:
+        {{- include "centralops.labels" $ | nindent 8 }}
+        app.kubernetes.io/name: {{ include "centralops.fullname" $ }}-worker-{{ $name }}
+        app.kubernetes.io/component: worker-{{ $name }}
+    spec:
+      serviceAccountName: {{ include "centralops.serviceAccountName" $ }}
+      automountServiceAccountToken: {{ $.Values.serviceAccount.automountServiceAccountToken }}
+      {{- with $.Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        {{- toYaml $.Values.podSecurityContext | nindent 8 }}
+        runAsUser: {{ $.Values.workers.runAsUser }}
+      containers:
+        - name: worker
+          image: "{{ include "centralops.image" (dict "img" $.Values.image "context" $) }}"
+          imagePullPolicy: {{ $.Values.image.pullPolicy }}
+          command:
+            - "/usr/local/bin/start-collector.sh"
+            - "celery"
+            - "-A"
+            - "app.collectors.celery_app"
+            {{- if eq $name "beat" }}
+            - "beat"
+            {{- else }}
+            - "worker"
+            - "-Q"
+            {{- if eq $name "priority" }}
+            - "collect.priority"
+            {{- else if eq $name "bulk" }}
+            - "collect.bulk,collect.backfill"
+            {{- else if eq $name "maintenance" }}
+            - "maintenance,maintenance.high"
+            {{- else if eq $name "dispatcher" }}
+            - "dispatch.dlq,dispatch.destination,dispatch.destination.0,dispatch.destination.1,dispatch.destination.2,dispatch.destination.3,dispatch.destination.4,dispatch.destination.5,dispatch.destination.6,dispatch.destination.7"
+            {{- end }}
+            - "-n"
+            - "{{ $name }}@%h"
+            - "--concurrency={{ $.Values.workers.concurrency }}"
+            {{- end }}
+            - "--loglevel=info"
+          envFrom:
+            - configMapRef:
+                name: {{ include "centralops.fullname" $ }}-config
+            - secretRef:
+                name: {{ if $.Values.secrets.existingSecret }}{{ $.Values.secrets.existingSecret }}{{ else }}{{ include "centralops.fullname" $ }}-secret{{ end }}
+          env:
+            - name: SERVICE_ROLE
+              value: {{ if eq $name "beat" }}"beat"{{ else }}"worker"{{ end }}
+          {{- if and $.Values.workers.livenessProbe.enabled (ne $name "beat") }}
+          livenessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - "celery -A app.collectors.celery_app inspect ping -d {{ $name }}@$(hostname) --timeout {{ $.Values.workers.livenessProbe.timeoutSeconds }}"
+            periodSeconds: {{ $.Values.workers.livenessProbe.periodSeconds }}
+            timeoutSeconds: {{ add $.Values.workers.livenessProbe.timeoutSeconds 5 }}
+            failureThreshold: {{ $.Values.workers.livenessProbe.failureThreshold }}
+          {{- end }}
+          resources:
+            {{- toYaml (default $.Values.workers.resources $worker.resources) | nindent 12 }}
+          securityContext:
+            {{- toYaml $.Values.containerSecurityContext | nindent 12 }}
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+            {{- if eq (include "centralops.licenseKeyring.enabled" $) "true" }}
+            {{- include "centralops.licenseKeyring.volumeMount" $ | nindent 12 }}
+            {{- end }}
+      volumes:
+        - name: tmp
+          emptyDir: {}
+        {{- if eq (include "centralops.licenseKeyring.enabled" $) "true" }}
+        {{- include "centralops.licenseKeyring.volume" $ | nindent 8 }}
+        {{- end }}
+{{- end }}
+{{- end }}

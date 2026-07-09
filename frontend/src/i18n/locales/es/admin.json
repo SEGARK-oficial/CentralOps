@@ -1,0 +1,441 @@
+{
+  "organizations": {
+    "title": "Organizaciones",
+    "badge_one": "organización",
+    "badge_other": "organizaciones",
+    "newOrganization": "Nueva organización",
+    "limitReachedTitle": "Límite del plan alcanzado ({{max}}). Actualice su plan para agregar más organizaciones.",
+    "limitReachedNotice": {
+      "title": "Límite de organizaciones del plan alcanzado",
+      "description_one": "Su plan permite hasta {{max}} organización activa (single-tenant). Desactive una organización existente o actualice su plan para agregar más.",
+      "description_other": "Su plan permite hasta {{max}} organizaciones activas. Desactive una organización existente o actualice su plan para agregar más."
+    },
+    "form": {
+      "nameLabel": "Nombre",
+      "namePlaceholder": "Nombre de la organización",
+      "descriptionLabel": "Descripción",
+      "descriptionPlaceholder": "Descripción (opcional)"
+    },
+    "filters": {
+      "searchPlaceholder": "Buscar por nombre o slug...",
+      "searchLabel": "Buscar",
+      "searchAriaLabel": "Buscar organizaciones",
+      "statusLabel": "Estado",
+      "statusActive": "Activas",
+      "statusInactive": "Inactivas",
+      "statusAll": "Todas",
+      "typeLabel": "Tipo",
+      "typeAll": "Todas (manuales + auto)",
+      "typeManualOnly": "Solo manuales",
+      "typeAutoOnly": "Solo auto-gestionadas"
+    },
+    "autoManagedNote": "Las organizaciones auto-gestionadas (Sophos) no pueden desactivarse en lote — use el flujo de Partner para gestionarlas.",
+    "bulkBar": {
+      "contextLabel": "organización(es)",
+      "deactivateSelected": "Desactivar seleccionadas"
+    },
+    "list": {
+      "ariaLabel": "Lista de organizaciones",
+      "selectAllAriaLabel": "Seleccionar todas las organizaciones elegibles",
+      "selectEligible": "Seleccionar elegibles ({{count}})",
+      "selectOneAriaLabel": "Seleccionar {{name}}",
+      "statusActiveBadge": "Activa",
+      "statusInactiveBadge": "Inactiva",
+      "autoManagedBadge": "Auto-gestionada",
+      "autoManagedTitle": "Auto-creada vía sincronización de Sophos Partner",
+      "irisBadgeTitle": "Iris customer_id mapeado",
+      "irisBadgeLabel": "Iris #{{id}}",
+      "integrationCount": "{{count}} integración(es)",
+      "deleteAriaLabel": "Eliminar {{name}}",
+      "deleteAutoManagedTitle": "Las organizaciones auto-gestionadas solo se eliminan mediante la desactivación del Partner",
+      "moreResultsNotice": "Mostrando los primeros {{pageSize}} — refine los filtros para ver más."
+    },
+    "empty": {
+      "filteredTitle": "Ninguna organización para los filtros aplicados",
+      "filteredDescription": "Ajuste los filtros o límpielos para ver más resultados.",
+      "defaultTitle": "Ninguna organización registrada",
+      "defaultDescription": "Cree su primera organización para comenzar."
+    },
+    "bulkDeactivateModal": {
+      "title": "¿Desactivar {{count}} organización(es)?",
+      "description": "Esta acción marca las organizaciones seleccionadas como <strong>inactivas</strong>. Las integraciones vinculadas siguen existiendo, pero la organización desaparece de las listas predeterminadas.",
+      "autoIgnoredNote": "Las auto-gestionadas y las ya inactivas son ignoradas automáticamente por el servidor.",
+      "confirmWord": "DESACTIVAR",
+      "confirmTextLabel": "Para confirmar >10 elementos, escriba {{expected}}",
+      "confirmTextPlaceholder": "Escriba {{expected}} para confirmar",
+      "confirmButton": "Desactivar"
+    },
+    "deleteDialog": {
+      "title": "¿Eliminar organización?",
+      "description": "¿Está seguro de que desea eliminar <strong>{{name}}</strong>? Las integraciones vinculadas también serán eliminadas."
+    },
+    "errors": {
+      "bulkPartial": "Lote completado con advertencias: {{deactivated}}/{{processed}} desactivadas. {{errorsCount}} elemento(s) omitido(s)."
+    }
+  },
+  "users": {
+    "eyebrow": "Administración",
+    "title": "Usuarios",
+    "description": "Gestione accesos, roles y estado de los usuarios del portal.",
+    "viewPermissions": "Ver permisos",
+    "newUser": "Nuevo usuario",
+    "loading": "Cargando usuarios...",
+    "stats": {
+      "total": "Total",
+      "totalUnit": "usuarios",
+      "active": "Activos",
+      "activeUnit": "activos",
+      "admins": "Admins",
+      "adminsUnit": "admin"
+    },
+    "feedback": {
+      "operationDone": "Operación completada",
+      "error": "Error",
+      "closeAriaLabel": "Cerrar aviso",
+      "userDeactivated": "Usuario desactivado.",
+      "userReactivated": "Usuario reactivado.",
+      "toggleActiveFailed": "Error al actualizar el estado",
+      "userDeleted": "Usuario eliminado. Acción registrada en el audit log.",
+      "deleteFailed": "Error al eliminar",
+      "roleUpdated": "Rol actualizado.",
+      "dataUpdated": "Datos actualizados.",
+      "userCreated": "Usuario creado con éxito.",
+      "loadFailedTitle": "Error al cargar usuarios"
+    },
+    "empty": {
+      "title": "Ningún usuario registrado",
+      "description": "Cree el primer acceso para iniciar la administración del portal.",
+      "searchTitle": "Ningún usuario encontrado",
+      "searchDescription": "Sin resultados para \"{{query}}\". Ajuste el término de búsqueda.",
+      "clearSearch": "Limpiar búsqueda"
+    },
+    "search": {
+      "placeholder": "Buscar por nombre o usuario...",
+      "ariaLabel": "Buscar usuarios por nombre o usuario"
+    },
+    "deleteDialog": {
+      "title": "Eliminar usuario",
+      "description": "¿Eliminar a <strong>{{name}}</strong>? Esta acción se registra en el audit log y no se puede deshacer.",
+      "confirmLabel": "Eliminar usuario"
+    }
+  },
+  "usersTable": {
+    "ariaLabel": "Lista de usuarios",
+    "columns": {
+      "user": "Usuario",
+      "role": "Rol",
+      "organization": "Organización",
+      "status": "Estado",
+      "lastAccess": "Último acceso",
+      "actions": "Acciones"
+    },
+    "you": "Usted",
+    "never": "Nunca",
+    "statusActive": "Activo",
+    "statusInactive": "Inactivo",
+    "roleLabels": {
+      "viewer": "Viewer",
+      "operator": "Operator",
+      "engineer": "Engineer",
+      "admin": "Admin"
+    },
+    "actions": {
+      "editRole": "Editar rol",
+      "editData": "Editar datos",
+      "deactivate": "Desactivar",
+      "reactivate": "Reactivar",
+      "delete": "Eliminar"
+    }
+  },
+  "newUserModal": {
+    "title": "Nuevo usuario",
+    "displayNameLabel": "Nombre visible",
+    "usernameLabel": "Usuario (login)",
+    "roleLabel": "Rol",
+    "organizationLabel": "Organización",
+    "organizationNone": "Ninguna (global — solo admin)",
+    "organizationInactiveSuffix": " (inactiva)",
+    "organizationHelp": "Los usuarios no admin solo ven datos de su propia organización. Admin es global.",
+    "passwordLabel": "Contraseña",
+    "confirmPasswordLabel": "Confirmar contraseña",
+    "submit": "Crear usuario",
+    "roleOptions": {
+      "viewer": "Viewer",
+      "operator": "Operator",
+      "engineer": "Engineer",
+      "admin": "Admin"
+    },
+    "errors": {
+      "usernameRequired": "El usuario es obligatorio",
+      "passwordRequired": "La contraseña es obligatoria",
+      "passwordTooShort": "La contraseña debe tener al menos 10 caracteres",
+      "passwordMismatch": "Las contraseñas no coinciden",
+      "organizationRequired": "Seleccione una organización para usuarios no admin",
+      "createFailed": "Error al crear usuario"
+    }
+  },
+  "editUserModal": {
+    "title": "Editar datos del usuario",
+    "displayNameLabel": "Nombre visible",
+    "organizationLabel": "Organización",
+    "organizationNone": "Ninguna (global — solo admin)",
+    "organizationInactiveSuffix": " (inactiva)",
+    "newPasswordLabel": "Nueva contraseña",
+    "newPasswordHelp": "Opcional. Complete solo para restablecer.",
+    "confirmNewPasswordLabel": "Confirmar nueva contraseña",
+    "submit": "Guardar cambios",
+    "errorTitle": "Error",
+    "errors": {
+      "passwordTooShort": "La contraseña debe tener al menos 10 caracteres",
+      "passwordMismatch": "Las contraseñas no coinciden",
+      "organizationRequired": "Los usuarios no admin necesitan una organización (sin ella no ven datos)",
+      "saveFailed": "Error al guardar"
+    }
+  },
+  "editUserRoleModal": {
+    "title": "Editar rol del usuario",
+    "cannotChangeTitle": "No se pudo cambiar el rol",
+    "changingRoleFor": "Cambiando el rol de <strong>{{name}}</strong>",
+    "roleLabel": "Rol",
+    "reasonLabel": "Motivo del cambio",
+    "reasonOptional": "(opcional)",
+    "reasonPlaceholder": "Ej.: promovido a engineer en el sprint 4...",
+    "submit": "Guardar rol",
+    "roleOptions": {
+      "viewer": {
+        "label": "Viewer",
+        "description": "Solo lectura — paneles, alertas, inventario."
+      },
+      "operator": {
+        "label": "Operator",
+        "description": "Operaciones de respuesta — bloqueos, cuarentena, drift."
+      },
+      "engineer": {
+        "label": "Engineer",
+        "description": "Gestión de mappings y rollback."
+      },
+      "admin": {
+        "label": "Admin",
+        "description": "Acceso total — usuarios, configuración, todas las acciones."
+      }
+    },
+    "errors": {
+      "changeFailed": "Error al cambiar el rol"
+    }
+  },
+  "rolePermissionsViewer": {
+    "title": "Matriz de permisos",
+    "loading": "Cargando matriz...",
+    "loadFailedTitle": "Error al cargar",
+    "description": "Vista general de qué permisos tiene cada rol en el sistema.",
+    "tableAriaLabel": "Matriz de permisos por rol",
+    "permissionColumn": "Permiso",
+    "hasPermissionAriaLabel": "{{role}} tiene {{perm}}",
+    "noPermissionAriaLabel": "{{role}} no tiene {{perm}}"
+  },
+  "serviceAccounts": {
+    "eyebrow": "Administración",
+    "title": "Service Accounts",
+    "description": "Las Service Accounts son identidades 'robot' sin cookie de sesión. Úselas para integraciones que necesitan una credencial estable y revocable, independiente de cualquier humano (cron jobs, worker de IASOC, etc).",
+    "newServiceAccount": "Nueva Service Account",
+    "closeAriaLabel": "Cerrar aviso",
+    "listTitle": "Service Accounts",
+    "listSummary": "({{active}} activas / {{total}} en total · {{tokens}} tokens vivos)",
+    "empty": {
+      "title": "Ninguna Service Account",
+      "description": "Cree una SA para autenticar workers y cron jobs sin depender de la cuenta de una persona específica."
+    },
+    "table": {
+      "ariaLabel": "Lista de Service Accounts",
+      "columns": {
+        "name": "Nombre",
+        "role": "Rol",
+        "status": "Estado",
+        "activeTokens": "Tokens activos",
+        "created": "Creado",
+        "actions": "Acciones"
+      },
+      "statusActive": "Activo",
+      "statusInactive": "Desactivado",
+      "tokensAction": "Tokens",
+      "editAction": "Editar",
+      "deleteAction": "Eliminar"
+    },
+    "roleLabels": {
+      "viewer": "Viewer (solo lectura)",
+      "operator": "Operator (lectura + operaciones)",
+      "engineer": "Engineer (mappings y drift)",
+      "admin": "Admin (todo)"
+    },
+    "deleteDialog": {
+      "title": "Eliminar Service Account",
+      "description": "¿Eliminar \"{{name}}\"? Los {{count}} tokens activos serán revocados en cascada. El audit log conserva el historial."
+    },
+    "feedback": {
+      "deleted": "Service Account \"{{name}}\" eliminada. Sus tokens fueron revocados en cascada.",
+      "deleteFailed": "Error al eliminar la SA",
+      "created": "Service Account \"{{name}}\" creada.",
+      "updated": "Service Account \"{{name}}\" actualizada.",
+      "listFailed": "Error al listar Service Accounts"
+    },
+    "createModal": {
+      "title": "Nueva Service Account",
+      "nameLabel": "Nombre",
+      "namePlaceholder": "ej.: iasoc-worker, grafana-bot",
+      "nameHelp": "Aparece como <code>sa:&lt;nombre&gt;</code> en el audit log.",
+      "descriptionLabel": "Descripción (opcional)",
+      "descriptionPlaceholder": "¿Para qué sirve esta SA?",
+      "roleLabel": "Rol",
+      "roleHelp": "Define el techo de permisos de los tokens vinculados a esta SA. Principio del mínimo privilegio: prefiera <code>viewer</code> u <code>operator</code>.",
+      "submit": "Crear Service Account",
+      "submitting": "Creando…",
+      "errors": {
+        "nameRequired": "El nombre es obligatorio",
+        "createFailed": "Error al crear la SA"
+      }
+    },
+    "editModal": {
+      "title": "Editar {{name}}",
+      "descriptionLabel": "Descripción",
+      "roleLabel": "Rol",
+      "roleHelp": "Cambiar el rol redefine el techo de permisos de los tokens existentes — sin revocarlos.",
+      "activeLabel": "Service Account activa",
+      "deactivateWarning": "Desactivar invalida todos los tokens de esta SA de inmediato (la próxima solicitud devuelve 401). Reactivar no revive tokens ya revocados — emita nuevos.",
+      "submit": "Guardar",
+      "submitting": "Guardando…",
+      "errors": {
+        "updateFailed": "Error al actualizar la SA"
+      }
+    },
+    "tokensModal": {
+      "title": "Tokens — {{name}}",
+      "boundTokens": "Tokens vinculados a <strong>{{name}}</strong> (rol {{role}}).",
+      "newToken": "Nuevo token",
+      "ariaLabel": "Tokens de {{name}}",
+      "columns": {
+        "name": "Nombre",
+        "prefix": "Prefijo",
+        "status": "Estado",
+        "expires": "Expira",
+        "actions": "Acciones"
+      },
+      "statusActive": "Activo",
+      "statusRevoked": "Revocado",
+      "statusExpired": "Expirado",
+      "revokeAction": "Revocar",
+      "empty": {
+        "title": "Ningún token emitido",
+        "description": "Esta Service Account aún no tiene tokens. Cree un nuevo token para comenzar."
+      },
+      "revokeDialog": {
+        "title": "Revocar token",
+        "description": "¿Revocar \"{{name}}\"? Las integraciones que usan este token recibirán 401 de inmediato."
+      },
+      "errors": {
+        "listFailed": "Error al listar tokens",
+        "revokeFailed": "Error al revocar"
+      }
+    },
+    "createTokenModal": {
+      "titleCreated": "Token creado",
+      "titleNew": "Nuevo token para {{name}}",
+      "nameLabel": "Nombre",
+      "namePlaceholder": "{{name}}-prod",
+      "expiryLabel": "Expira en",
+      "scopesLabel": "Permisos (scopes)",
+      "effectiveLimit": "Límite efectivo: <code>{{role}}</code> ∩ scopes seleccionados.",
+      "copyNow": "Copie el token ahora.",
+      "copyNowDescription": "No se volverá a mostrar. Si lo pierde, revóquelo y cree uno nuevo.",
+      "tokenLabel": "Token",
+      "copied": "Copiado",
+      "copy": "Copiar",
+      "submit": "Crear token",
+      "submitting": "Creando…",
+      "errors": {
+        "nameRequired": "El nombre es obligatorio",
+        "createFailed": "Error al crear el token"
+      }
+    }
+  },
+  "tokens": {
+    "eyebrow": "Su cuenta",
+    "title": "Personal Access Tokens",
+    "description": "Use Personal Access Tokens (PATs) para autenticar integraciones non-browser (scripts, CI, pipelines). Cada token hereda sus permisos actuales y puede revocarse en cualquier momento.",
+    "newToken": "Nuevo token",
+    "closeAriaLabel": "Cerrar aviso",
+    "listTitle": "Sus tokens",
+    "listSummary": "({{active}} activos, {{total}} en total)",
+    "neverExpires": "Nunca expira",
+    "neverUsed": "Nunca usado",
+    "usedFrom": "desde {{ip}}",
+    "empty": {
+      "title": "Ningún token creado",
+      "description": "Cree su primer Personal Access Token para autenticar integraciones non-browser."
+    },
+    "table": {
+      "ariaLabel": "Sus Personal Access Tokens",
+      "columns": {
+        "name": "Nombre",
+        "prefix": "Prefijo",
+        "status": "Estado",
+        "expires": "Expira",
+        "lastUsed": "Último uso",
+        "uses": "Usos",
+        "actions": "Acciones"
+      },
+      "revokeAction": "Revocar"
+    },
+    "statusRevoked": "Revocado",
+    "statusExpired": "Expirado",
+    "statusEternal": "Eterno",
+    "statusActive": "Activo",
+    "feedback": {
+      "revoked": "Token \"{{name}}\" revocado. Audit log registrado.",
+      "revokeFailed": "Error al revocar",
+      "created": "Token \"{{name}}\" creado.",
+      "listFailed": "Error al listar tokens"
+    },
+    "revokeDialog": {
+      "title": "Revocar token",
+      "description": "¿Revocar el token \"{{name}}\"? Las integraciones que usan este token comenzarán a recibir 401 de inmediato. Esta acción se registra en el audit log."
+    },
+    "createModal": {
+      "titleCreated": "Token creado",
+      "titleNew": "Nuevo Personal Access Token",
+      "copyNow": "Copie el token ahora.",
+      "copyNowDescription": "Por motivos de seguridad, este token <strong>no se volverá a mostrar</strong>. Si lo pierde, deberá revocarlo y crear uno nuevo.",
+      "tokenLabel": "Token",
+      "copied": "Copiado",
+      "copy": "Copiar",
+      "useInHeader": "Use en el encabezado HTTP:",
+      "closeToFinish": "Cierre para finalizar.",
+      "nameLabel": "Nombre",
+      "namePlaceholder": "ej.: ci-deploy-bot, monitoring-poller",
+      "nameHelp": "Use un nombre que identifique dónde se ejecutará el token — ayuda en la auditoría y la rotación.",
+      "expiryLabel": "Expira en",
+      "eternalWarningTitle": "Token sin expiración",
+      "eternalWarningDescription": " — recomendamos definir una fecha. Los tokens eternos son un objetivo preferido en filtraciones históricas.",
+      "scopesLabel": "Permisos (scopes)",
+      "submit": "Crear token",
+      "submitting": "Creando…",
+      "errors": {
+        "nameRequired": "El nombre es obligatorio",
+        "createFailed": "Error al crear el token"
+      }
+    },
+    "expiryOptions": {
+      "30d": "30 días",
+      "60d": "60 días",
+      "90d": "90 días",
+      "1y": "1 año",
+      "never": "Nunca expira"
+    }
+  },
+  "expiryOptions": {
+    "30d": "30 días",
+    "60d": "60 días",
+    "90d": "90 días",
+    "1y": "1 año",
+    "never": "Nunca"
+  }
+}

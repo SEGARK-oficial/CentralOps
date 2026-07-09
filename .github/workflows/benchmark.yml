@@ -1,0 +1,218 @@
+# benchmark.yml — Engine benchmark regression gate for pull requests.
+#
+# PURPOSE
+#   Prevents merging PRs that regress collector engine performance.
+#   Compares p95 timings of the current branch against the pinned baseline
+#   using per-group thresholds: 1.10x for all benchmarks, 1.25x for _ab
+#   (array_builder) cases which are intentionally noisier (Fase 3).
+#
+# REQUIRED CHECK
+#   After the first green run, add "Benchmark Regression Gate" to branch
+#   protection required status checks for `main`.
+#   Settings → Branches → main → Require status checks → search for this job.
+#
+# RE-PIN PROCEDURE (run when baselines legitimately improve or shift):
+#   1. On a clean `main` checkout:
+#        cd backend
+#        pytest app/collectors/tests/benchmarks/ \
+#          --benchmark-only \
+#          --benchmark-min-rounds=5 \
+#          --benchmark-warmup=on \
+#          --benchmark-warmup-iterations=50 \
+#          --benchmark-disable-gc \
+#          --benchmark-json=app/collectors/tests/benchmarks/baseline.json
+#   2. Review the diff — confirm p95 values moved in the expected direction.
+#   3. Commit: git commit -m "chore(bench): re-pin baseline YYYY-MM-DD"
+#   4. Push to main directly (or via a dedicated chore PR).
+#   DO NOT auto-pin from CI. Automated pinning would silently accept
+#   regressions by updating the baseline on every PR.
+#
+# FIRST-RUN FALSE POSITIVE WARNING
+#   The pinned baseline was generated on an Apple M1 Pro (arm64, 10 cores).
+#   GitHub Actions shared runners are x86_64 Linux and are typically 2-4x
+#   slower for CPU-bound Python work. The first execution on GHA WILL
+#   trigger false-positive failures until the baseline is re-pinned on a
+#   representative runner (see RE-PIN PROCEDURE above, run on a GHA runner
+#   via `act` or a dedicated workflow_dispatch job).
+#   Until re-pinning: treat benchmark failures as informational — do not
+#   block merges solely on benchmark gate failures during the initial
+#   calibration period.
+
+name: Benchmark Regression Gate
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      # Only run when backend code, benchmark suite, or this workflow changes.
+      # Frontend-only PRs skip this job entirely to save CI minutes.
+      - "backend/**"
+      - ".github/workflows/benchmark.yml"
+  # Manual trigger for the re-pin job (see repin-baseline below): regenerates
+  # baseline.json ON a GHA runner so the pinned baseline matches the CI
+  # hardware class (x86_64 Linux) instead of the original Apple M1 (arm64).
+  workflow_dispatch:
+
+# Cancel in-progress runs for the same PR when a new commit is pushed.
+# This avoids queueing stale benchmark runs and wasting runner minutes.
+concurrency:
+  group: benchmark-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  benchmark:
+    name: Benchmark Regression Gate
+    # PR-only. The workflow_dispatch event is handled by repin-baseline below.
+    if: github.event_name == 'pull_request'
+    runs-on: [self-hosted, Linux, X64]
+    timeout-minutes: 10
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Match the Python version used in production and in the security workflow.
+      # Python 3.12 via pyenv do runner. actions/setup-python não enxerga o
+      # pyenv (baixa pro tool-cache próprio, inexistente neste runner). Requer
+      # `pyenv global 3.12` para o usuário do runner. O runner tem build tools.
+      - name: Usar Python 3.12 do pyenv (runner)
+        run: |
+          PYENV_ROOT="${PYENV_ROOT:-$HOME/.pyenv}"
+          echo "$PYENV_ROOT/bin" >> "$GITHUB_PATH"
+          echo "$PYENV_ROOT/shims" >> "$GITHUB_PATH"
+          "$PYENV_ROOT/shims/python" --version || echo "WARN: pyenv python não encontrado em $PYENV_ROOT/shims"
+
+      - name: Install backend requirements
+        run: pip install -r backend/requirements.txt
+
+      # ── WARN: runner speed mismatch ────────────────────────────────────────
+      # Print a visible reminder before any benchmark runs. If this job fails
+      # and the baseline was generated on an M-series Mac, the numbers are not
+      # directly comparable — see RE-PIN PROCEDURE in the header comment.
+      - name: Warn about runner/baseline machine mismatch
+        run: |
+          echo "=========================================================="
+          echo "WARNING: baseline.json was generated on Apple M1 Pro arm64."
+          echo "This runner is $(uname -m) / $(uname -s)."
+          echo "If this is the first run after workflow creation, p95 ratios"
+          echo "will be inflated. Re-pin the baseline on a GHA runner before"
+          echo "treating failures as real regressions."
+          echo "Re-pin procedure: see header comment in benchmark.yml."
+          echo "=========================================================="
+
+      # ── RUN benchmark suite ────────────────────────────────────────────────
+      # Output goes to backend/new_baseline.json so it does NOT overwrite
+      # the pinned baseline.json committed to the repo.
+      - name: Run benchmark suite
+        working-directory: backend
+        run: |
+          pytest app/collectors/tests/benchmarks/ \
+            -q \
+            --benchmark-only \
+            --benchmark-min-rounds=5 \
+            --benchmark-warmup=on \
+            --benchmark-warmup-iterations=50 \
+            --benchmark-disable-gc \
+            --benchmark-json=new_baseline.json
+
+      # ── REGRESSION GATE (INFORMATIONAL — calibration mode) ────────────────
+      # check_regression.py exits 1 if any benchmark exceeds its threshold.
+      # Thresholds: 1.10x p95 (default), 1.25x p95 for *_ab benchmarks.
+      # The script prints a full ASCII table — visible in the step log.
+      #
+      # continue-on-error: the committed baseline.json was generated on Apple
+      # M1 (arm64); GHA runners are x86_64 and 2-4x slower, so every PR trips a
+      # FALSE-POSITIVE regression (observed ratios 2.0x-2.9x). Until the
+      # baseline is re-pinned on a GHA runner — Actions → this workflow → "Run
+      # workflow" → repin-baseline job → download artifact → commit it — this
+      # step reports results WITHOUT blocking the merge. After re-pinning,
+      # delete the `continue-on-error` line to make the gate enforcing, then
+      # add it to branch protection required checks.
+      - name: Check regression against pinned baseline
+        continue-on-error: true
+        run: |
+          python backend/app/collectors/tests/benchmarks/scripts/check_regression.py \
+            backend/app/collectors/tests/benchmarks/baseline.json \
+            backend/new_baseline.json
+
+      # ── ARTIFACT: always upload results ───────────────────────────────────
+      # Upload new_baseline.json so reviewers can download and inspect raw
+      # numbers, then decide whether to re-pin or fix the regression.
+      # `if: always()` because in calibration mode the gate step no longer
+      # fails the job, but the raw numbers are still needed for review.
+      # Retained 90 days to cover typical sprint/review cycles.
+      - name: Upload benchmark results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-results-${{ github.sha }}
+          path: backend/new_baseline.json
+          retention-days: 90
+          if-no-files-found: warn
+
+  # ── Re-pin baseline on a GHA runner (manual) ──────────────────────────────
+  # Actions → "Benchmark Regression Gate" → "Run workflow". Regenerates
+  # baseline.json on the SAME hardware class as the PR gate (x86_64 Linux),
+  # which removes the arm64-vs-x86_64 false positives.
+  #
+  # By design this does NOT auto-commit (the header's RE-PIN PROCEDURE requires
+  # a human to review the p95 diff first). It uploads the new baseline as an
+  # artifact; download it, review, and commit it over the pinned file.
+  repin-baseline:
+    name: Re-pin baseline (manual)
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: [self-hosted, Linux, X64]
+    timeout-minutes: 10
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Python 3.12 via pyenv do runner. actions/setup-python não enxerga o
+      # pyenv (baixa pro tool-cache próprio, inexistente neste runner). Requer
+      # `pyenv global 3.12` para o usuário do runner. O runner tem build tools.
+      - name: Usar Python 3.12 do pyenv (runner)
+        run: |
+          PYENV_ROOT="${PYENV_ROOT:-$HOME/.pyenv}"
+          echo "$PYENV_ROOT/bin" >> "$GITHUB_PATH"
+          echo "$PYENV_ROOT/shims" >> "$GITHUB_PATH"
+          "$PYENV_ROOT/shims/python" --version || echo "WARN: pyenv python não encontrado em $PYENV_ROOT/shims"
+
+      - name: Install backend requirements
+        run: pip install -r backend/requirements.txt
+
+      # Same flags as the gate run, but writes straight to baseline.json so the
+      # downloaded artifact is a drop-in replacement for the committed file.
+      - name: Generate baseline on this runner
+        working-directory: backend
+        run: |
+          pytest app/collectors/tests/benchmarks/ \
+            -q \
+            --benchmark-only \
+            --benchmark-min-rounds=5 \
+            --benchmark-warmup=on \
+            --benchmark-warmup-iterations=50 \
+            --benchmark-disable-gc \
+            --benchmark-json=app/collectors/tests/benchmarks/baseline.json
+
+      - name: Upload regenerated baseline
+        uses: actions/upload-artifact@v4
+        with:
+          name: repinned-baseline-${{ github.sha }}
+          path: backend/app/collectors/tests/benchmarks/baseline.json
+          retention-days: 14
+          if-no-files-found: error
+
+      - name: Next steps
+        run: |
+          echo "Baseline regenerated on $(uname -m)/$(uname -s)."
+          echo "1. Download artifact 'repinned-baseline-${{ github.sha }}'."
+          echo "2. Review the p95 diff vs the committed baseline.json."
+          echo "3. Commit it to backend/app/collectors/tests/benchmarks/baseline.json."
+          echo "4. Remove 'continue-on-error: true' from the gate step to enforce again."

@@ -1,0 +1,51 @@
+{
+  "id": "defender-alert-medium-001",
+  "createdDateTime": "2026-04-23T09:00:00Z",
+  "lastUpdateDateTime": "2026-04-23T09:45:00Z",
+  "title": "Credential dumping via LSASS access",
+  "description": "A process was observed accessing LSASS memory, which is a common technique used to dump credentials.",
+  "severity": "high",
+  "status": "inProgress",
+  "category": "CredentialAccess",
+  "serviceSource": "MicrosoftDefenderForEndpoint",
+  "assignedTo": "analyst@corp.com",
+  "detectionSource": "EDR",
+  "alertType": "DefenderXDR",
+  "tenantId": "tenant-001",
+  "classification": "TruePositive",
+  "determination": "Malware",
+  "resolvedDateTime": null,
+  "actorName": "LAPSUS$",
+  "threatFamilyName": "Mimikatz",
+  "devices": [
+    {
+      "id": "device-001",
+      "deviceDnsName": "win-workstation.corp.com",
+      "osPlatform": "Windows10",
+      "osVersion": "10.0.19041",
+      "rbacGroupName": "Windows Devices"
+    }
+  ],
+  "users": [
+    {
+      "id": "user-001",
+      "accountName": "john.doe",
+      "domainName": "CORP",
+      "userSid": "S-1-5-21-xxx"
+    }
+  ],
+  "comments": [
+    {"comment": "Initial triage: appears to be credential harvesting", "createdBy": "analyst@corp.com", "createdTime": "2026-04-23T09:20:00Z"}
+  ],
+  "mitreTechniques": ["T1003.001"],
+  "investigationId": "inv-001",
+  "investigationState": "Running",
+  "incidentId": "inc-medium-001",
+  "recommendedActions": "Isolate device, reset user credentials",
+  "firstActivityDateTime": "2026-04-23T08:55:00Z",
+  "lastActivityDateTime": "2026-04-23T09:40:00Z",
+  "providerAlertId": "prov-alert-001",
+  "systemTags": ["automated-investigation"],
+  "alertWebUrl": "https://security.microsoft.com/alerts/defender-alert-medium-001",
+  "tenantAllowBlockListItems": []
+}

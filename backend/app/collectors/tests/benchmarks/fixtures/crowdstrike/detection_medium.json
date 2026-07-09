@@ -1,0 +1,24 @@
+{
+  "composite_id": "cid-medium-1",
+  "created_timestamp": "2026-06-21T14:22:10Z",
+  "severity": 70,
+  "severity_name": "High",
+  "display_name": "SuspiciousActivity",
+  "description": "masquerading behavior",
+  "status": "new",
+  "tactic": "Defense Evasion",
+  "user_name": "jdoe",
+  "device": {
+    "device_id": "9f8a",
+    "hostname": "WS-1",
+    "local_ip": "10.0.0.9"
+  },
+  "technique": "T1036",
+  "objective": "Falcon Detection",
+  "pattern_id": 12345,
+  "tactic_id": "TA0005",
+  "parent_details": {
+    "process_id": "p1",
+    "command_line": "cmd /c whoami"
+  }
+}

@@ -1,0 +1,76 @@
+name: GHCR retention (limpeza de imagens antigas)
+
+# Cada push em main publica 2 imagens (centralops + centralops-frontend), cada
+# uma com as tags `latest` + `sha-<commit>` (ver build-and-publish.yml). Os
+# manifests multi-plataforma e re-pushes deixam versões ÓRFÃS (untagged) — peso
+# morto que ninguém referencia.
+#
+# POLÍTICA SEGURA POR CONSTRUÇÃO: deleta SOMENTE versões UNTAGGED (órfãs). NUNCA
+# toca em nenhuma tag — `latest`, releases `v*` e TODAS as `sha-*` ficam intactas.
+# Isso é deliberado: deploys (Compose/Kubernetes) podem fixar imagens por `sha-<commit>`
+# (ex.: sha-df2149e), e uma sha pode estar EM USO mesmo sendo antiga — "recente"
+# != "em uso". Podar sha por idade/contagem quebraria esses deploys.
+#
+# Para reduzir o acúmulo de `sha-*` (o grosso), o caminho correto NÃO é podar por
+# idade — é parar de fixar deploy em sha efêmera: aponte o deploy para uma tag
+# ESTÁVEL (ex.: `production`) ou para releases `v*`, e só então podar `sha-*`
+# antigas com segurança. Ver bloco comentado "PODA AGRESSIVA" abaixo.
+#
+# SEGURANÇA EXTRA: schedule semanal é sempre DRY-RUN (só reporta no Summary). A
+# deleção real é deliberada via "Run workflow" com dry-run = false.
+
+on:
+  schedule:
+    - cron: "0 4 * * 0" # domingo 04:00 UTC, semanal
+  workflow_dispatch:
+    inputs:
+      dry-run:
+        description: "Apenas listar (true) ou deletar de fato (false)"
+        type: boolean
+        default: true
+
+permissions:
+  packages: write # necessário p/ deletar versões de package do owner
+
+concurrency:
+  group: ghcr-retention
+  cancel-in-progress: false
+
+jobs:
+  cleanup:
+    name: Poda imagens GHCR antigas
+    runs-on: ubuntu-latest # só chama a API do GitHub — não precisa do runner self-hosted
+    steps:
+      - name: Container retention policy
+        uses: snok/container-retention-policy@v3.0.0
+        with:
+          account: ${{ github.repository_owner }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+          # Os 2 packages publicados pela esteira (build-and-publish.yml matrix).
+          image-names: "centralops centralops-frontend"
+          # SÓ versões UNTAGGED (órfãs). Nenhuma tag é tocada → latest, v* e
+          # TODAS as sha-* (incl. sha-df2149e e qualquer sha de deploy) ficam
+          # 100% protegidas, independentemente de idade.
+          tag-selection: untagged
+          # Margem extra: não remove órfãs com menos de 1 semana (evita apagar um
+          # child de manifest recém-publicado durante um deploy em andamento).
+          cut-off: 1w
+          #
+          # ── PODA AGRESSIVA (opcional, NÃO habilitar sem ler) ──────────────
+          # Para também remover sha-* ANTIGAS (o grosso do acúmulo), troque o
+          # bloco acima por:
+          #   tag-selection: both
+          #   image-tags: "!latest !v* !sha-df2149e"   # liste AS SHAS EM USO!
+          #   keep-n-most-recent: 20
+          #   cut-off: 1mo
+          # PRÉ-REQUISITO: garanta que NENHUM deploy (Compose/Kubernetes) fixa uma sha
+          # que não esteja protegida acima — o ideal é migrar os deploys p/ uma
+          # tag estável (`production`) ou releases `v*` ANTES de ligar isto.
+          #
+          # DRY-RUN seguro por padrão:
+          #  - schedule (semanal): SEMPRE dry-run → só reporta no Summary, não deleta.
+          #  - workflow_dispatch: honra o input (default true). Rode manualmente
+          #    com dry-run = false p/ executar a poda de fato após revisar.
+          # Quando confiar na política e quiser a poda semanal AUTOMÁTICA, troque
+          # esta linha por:  ${{ github.event_name == 'workflow_dispatch' && inputs.dry-run }}
+          dry-run: ${{ github.event_name == 'schedule' || inputs.dry-run }}

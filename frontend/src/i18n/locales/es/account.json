@@ -1,0 +1,75 @@
+{
+  "eyebrow": "Tu cuenta",
+  "title": "Configuración de la cuenta",
+  "description": "Gestiona tu perfil, idioma y contraseña. La configuración administrativa como el rol y la organización la gestiona un administrador.",
+  "load": {
+    "error": "No se pudo cargar tu cuenta. Inténtalo de nuevo."
+  },
+  "summary": {
+    "title": "Identidad",
+    "subtitle": "Datos de solo lectura sobre tu cuenta.",
+    "username": "Usuario",
+    "role": "Rol",
+    "scope": "Ámbito de acceso",
+    "scopeGlobal": "Global — todas las organizaciones",
+    "scopeOrg": "Limitado a {{org}}",
+    "scopeNone": "Sin organización",
+    "organization": "Organización",
+    "signInMethod": "Método de inicio de sesión",
+    "methodLocal": "Contraseña local",
+    "methodSso": "Microsoft Entra (SSO)",
+    "memberSince": "Miembro desde",
+    "lastSignIn": "Último acceso",
+    "never": "Nunca"
+  },
+  "profile": {
+    "title": "Perfil",
+    "subtitle": "Actualiza cómo apareces y el idioma de la interfaz.",
+    "displayName": "Nombre visible",
+    "displayNameHelp": "El nombre que se muestra en toda la aplicación.",
+    "email": "Correo electrónico",
+    "emailHelp": "Se usa para notificaciones y recuperación de la cuenta.",
+    "emailManagedByIdp": "Tu correo es gestionado por tu proveedor de identidad.",
+    "confirmPassword": "Contraseña actual",
+    "confirmPasswordHelp": "Confirma tu contraseña actual para cambiar el correo.",
+    "emailPasswordRequired": "Introduce tu contraseña actual para cambiar el correo.",
+    "language": "Idioma",
+    "languageHelp": "El idioma de la interfaz que te sigue entre dispositivos.",
+    "saved": "Tu perfil se ha actualizado.",
+    "saveError": "No se pudo guardar tu perfil."
+  },
+  "locales": {
+    "pt": "Portugués",
+    "en": "Inglés",
+    "es": "Español"
+  },
+  "security": {
+    "title": "Seguridad",
+    "subtitle": "Cambia tu contraseña y gestiona las sesiones activas."
+  },
+  "password": {
+    "title": "Cambiar contraseña",
+    "current": "Contraseña actual",
+    "new": "Nueva contraseña",
+    "confirm": "Confirmar nueva contraseña",
+    "rule": "Al menos {{min}} caracteres.",
+    "submit": "Cambiar contraseña",
+    "tooShort": "La nueva contraseña debe tener al menos {{min}} caracteres.",
+    "mismatch": "La nueva contraseña y su confirmación no coinciden.",
+    "reuse": "La nueva contraseña debe ser distinta de la actual.",
+    "changed": "Tu contraseña se ha cambiado.",
+    "changedWithSessions": "Tu contraseña se ha cambiado. Se cerraron {{count}} otra(s) sesión(es).",
+    "error": "No se pudo cambiar tu contraseña.",
+    "ssoManaged": "Tu contraseña es gestionada por tu proveedor de identidad (Microsoft Entra). Cámbiala allí."
+  },
+  "sessions": {
+    "title": "Sesiones activas",
+    "subtitle": "Cierra sesión en todos los demás dispositivos manteniendo este activo.",
+    "action": "Cerrar otras sesiones",
+    "revoked": "Se cerraron {{count}} otra(s) sesión(es).",
+    "noneToRevoke": "No había otras sesiones que cerrar.",
+    "error": "No se pudieron cerrar las otras sesiones.",
+    "confirmTitle": "¿Cerrar otras sesiones?",
+    "confirmDescription": "Se cerrará la sesión en todos los demás dispositivos. Esta sesión permanece activa."
+  }
+}

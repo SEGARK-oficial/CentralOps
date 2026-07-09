@@ -1,0 +1,71 @@
+{
+  "loading": "Carregando...",
+  "validatingSession": "Validando sessão...",
+  "language": "Idioma",
+  "languageNames": {
+    "pt": "Português",
+    "en": "English",
+    "es": "Español"
+  },
+  "actions": {
+    "save": "Salvar",
+    "cancel": "Cancelar",
+    "delete": "Excluir",
+    "edit": "Editar",
+    "create": "Criar",
+    "add": "Adicionar",
+    "remove": "Remover",
+    "confirm": "Confirmar",
+    "close": "Fechar",
+    "back": "Voltar",
+    "next": "Próximo",
+    "search": "Buscar",
+    "filter": "Filtrar",
+    "refresh": "Atualizar",
+    "retry": "Tentar novamente",
+    "apply": "Aplicar",
+    "clear": "Limpar",
+    "export": "Exportar",
+    "view": "Ver",
+    "details": "Detalhes",
+    "copy": "Copiar",
+    "test": "Testar",
+    "enable": "Ativar",
+    "disable": "Desativar",
+    "reset": "Redefinir"
+  },
+  "states": {
+    "active": "Ativo",
+    "inactive": "Inativo",
+    "enabled": "Ativado",
+    "disabled": "Desativado",
+    "all": "Todos",
+    "yes": "Sim",
+    "no": "Não",
+    "none": "Nenhum",
+    "empty": "Vazio",
+    "noData": "Sem dados",
+    "required": "obrigatório",
+    "optional": "opcional",
+    "healthy": "Saudável",
+    "degraded": "Degradado",
+    "unknown": "Desconhecido"
+  },
+  "fields": {
+    "name": "Nome",
+    "description": "Descrição",
+    "status": "Status",
+    "type": "Tipo",
+    "date": "Data",
+    "createdAt": "Criado em",
+    "updatedAt": "Atualizado em",
+    "organization": "Organização",
+    "actions": "Ações"
+  },
+  "feedback": {
+    "savedSuccess": "Salvo com sucesso.",
+    "errorGeneric": "Ocorreu um erro. Tente novamente.",
+    "confirmDelete": "Tem certeza que deseja excluir?",
+    "loadFailed": "Falha ao carregar."
+  }
+}

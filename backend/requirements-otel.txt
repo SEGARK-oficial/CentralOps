@@ -1,0 +1,17 @@
+# Fase 4 §8 — extras de OTel: tracing distribuído + métricas (OPCIONAL).
+#
+# Instale SOMENTE quando for ligar o OTel (OTEL_ENABLED=true). Mantidos fora da
+# imagem base para deploy leve; o código degrada para no-op se ausentes —
+# tracing em app/collectors/tracing.py e métricas (OTLP-push) em
+# app/collectors/otel_metrics.py (Superfície B / ops).
+#
+# pip install -r requirements-otel.txt
+#
+# Vendor-neutro: aponte OTEL_EXPORTER_OTLP_ENDPOINT (ou os envs padrão do SDK)
+# para Tempo/Jaeger/Datadog/Honeycomb/Grafana/Zabbix/… O MESMO pacote
+# ``opentelemetry-exporter-otlp-proto-http`` provê os exporters dos TRÊS sinais —
+# SPANS (tracing.py), MÉTRICAS (otel_metrics.py) e LOGS (otel_logs.py) — então
+# não há dependência adicional por sinal.
+opentelemetry-api>=1.24
+opentelemetry-sdk>=1.24
+opentelemetry-exporter-otlp-proto-http>=1.24

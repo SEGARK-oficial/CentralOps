@@ -1,0 +1,138 @@
+{
+  "skipToContent": "Skip to main content",
+  "mainContent": "Main content",
+  "appLoading": {
+    "loading": "Loading...",
+    "validatingSession": "Validating session..."
+  },
+  "commandPalette": {
+    "groups": {
+      "navigate": "Navigate"
+    },
+    "items": {
+      "dashboard": {
+        "label": "Dashboard",
+        "keywords": "home, dashboard, overview"
+      },
+      "integrations": {
+        "label": "Integrations",
+        "keywords": "integrations"
+      },
+      "collectors": {
+        "label": "Collectors",
+        "keywords": "collectors, agents"
+      },
+      "destinations": {
+        "label": "Destinations",
+        "keywords": "destinations, siem, output"
+      },
+      "routes": {
+        "label": "Routes",
+        "keywords": "routes, routing"
+      },
+      "quarantine": {
+        "label": "Quarantine",
+        "keywords": "quarantine, blocked"
+      },
+      "mappings": {
+        "label": "Mappings",
+        "keywords": "mappings, normalization"
+      },
+      "pipelineHealth": {
+        "label": "Pipeline Health",
+        "keywords": "pipeline, health, monitoring"
+      }
+    }
+  },
+  "header": {
+    "openMenu": "Open navigation menu",
+    "closeMenu": "Close navigation menu",
+    "expandSidebar": "Expand sidebar",
+    "collapseSidebar": "Collapse sidebar"
+  },
+  "navigation": {
+    "ariaLabel": "Main navigation",
+    "groups": {
+      "overview": "Overview",
+      "operations": "Operations",
+      "normalization": "Normalization",
+      "knowledge": "Knowledge",
+      "administration": "Administration",
+      "account": "Your account"
+    },
+    "items": {
+      "dashboard": "Dashboard",
+      "organizations": "Organizations",
+      "integrations": "Integrations",
+      "alerts": "Alerts",
+      "collectors": "Collectors",
+      "destinations": "Destinations",
+      "routes": "Routing",
+      "flow": "Data flow",
+      "detections": "Detections",
+      "history": "History",
+      "mappings": "Mappings",
+      "drift": "Drift Explorer",
+      "quarantine": "Quarantine",
+      "health": "Pipeline Health",
+      "queries": "Saved Queries",
+      "schedules": "Schedules",
+      "adminUsers": "Users",
+      "serviceAccounts": "Service Accounts",
+      "ocsf": "OCSF governance",
+      "config": "Settings",
+      "account": "Account settings",
+      "tokens": "API Tokens"
+    }
+  },
+  "breadcrumbs": {
+    "ariaLabel": "Breadcrumb",
+    "home": "Home",
+    "detail": "Detail",
+    "backToHome": "Back to home",
+    "goTo": "Go to {{label}}",
+    "routes": {
+      "dashboard": "Dashboard",
+      "organizations": "Organizations",
+      "integrations": "Integrations",
+      "alerts": "Alerts",
+      "collectors": "Collectors",
+      "flow": "Data flow",
+      "history": "History",
+      "mappings": "Mappings",
+      "drift": "Drift Explorer",
+      "quarantine": "Quarantine",
+      "pipelineHealth": "Pipeline Health",
+      "queries": "Saved Queries",
+      "schedules": "Schedules",
+      "clients": "Clients (Legacy)",
+      "users": "Users",
+      "config": "Settings",
+      "admin": "Administration",
+      "adminUsers": "Users",
+      "adminServiceAccounts": "Service Accounts",
+      "settings": "Account",
+      "settingsTokens": "API Tokens"
+    }
+  },
+  "globalFilters": {
+    "label": "Filters",
+    "loadFailed": "Failed to load global filters.",
+    "retry": "Retry",
+    "clearFilters": "Clear filters",
+    "allOrganizations": "All organizations",
+    "allPlatforms": "All platforms",
+    "allIntegrations": "All integrations",
+    "filterByOrganization": "Filter by organization",
+    "filterByPlatform": "Filter by platform",
+    "filterByIntegration": "Filter by integration"
+  },
+  "userMenu": {
+    "ariaLabel": "Account menu",
+    "defaultName": "User",
+    "defaultRole": "user",
+    "account": "Account settings",
+    "tokens": "API Tokens",
+    "signOut": "Sign out"
+  }
+}

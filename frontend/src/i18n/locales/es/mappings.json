@@ -1,0 +1,444 @@
+{
+  "list": {
+    "eyebrow": "Normalización",
+    "title": "Mappings",
+    "description": "Mappings que normalizan los eventos de sus integraciones al formato estándar (OCSF).",
+    "searchPlaceholder": "Buscar por proveedor, tipo o descripción...",
+    "searchAriaLabel": "Buscar mapping",
+    "resetFilters": "Restablecer filtros",
+    "resetFiltersAriaLabel": "Restablecer filtros",
+    "showAllVendors": "Mostrar todos los proveedores disponibles",
+    "loading": "Cargando mappings...",
+    "loadError": "Error al cargar los mappings",
+    "emptyNoData": "No hay mappings registrados.",
+    "filters": {
+      "allVendors": "Todos los proveedores",
+      "allEventTypes": "Todos los tipos",
+      "vendorAriaLabel": "Filtrar por proveedor",
+      "eventTypeAriaLabel": "Filtrar por tipo de evento"
+    },
+    "columns": {
+      "vendor": "Proveedor",
+      "eventType": "Tipo de evento",
+      "rules": "Reglas",
+      "noVersion": "sin versión",
+      "noVersionTitle": "Sin versión actual"
+    },
+    "editAriaLabel": "Editar mapping {{vendor}}/{{eventType}}",
+    "emptyFiltered": {
+      "title": "No se encontró ningún mapping con los filtros aplicados.",
+      "description": "Ajuste la búsqueda o los filtros de proveedor y tipo de evento, o límpielos para ver todos los mappings.",
+      "clearFilters": "Limpiar filtros"
+    },
+    "emptyNoActive": {
+      "title": "No hay mappings para integraciones activas",
+      "description": "Los mappings predeterminados aparecen aquí en cuanto conecta una integración. Conecte una en Integraciones, o vea todos los mappings disponibles.",
+      "showAll": "Mostrar todos los disponibles"
+    }
+  },
+  "editor": {
+    "eyebrow": "Editor de Mapping",
+    "loading": "Cargando mapping...",
+    "notFound": "Mapping no encontrado",
+    "loadError": "Error al cargar el mapping",
+    "preprocessBadge": "preprocess",
+    "preprocessBadgeTitle": "Este mapping tiene operaciones de preprocesamiento",
+    "helpLink": "¿Cómo crear reglas?",
+    "editRules": "Editar reglas",
+    "discard": "Descartar",
+    "unsavedChanges": "Tiene cambios sin guardar.",
+    "dismissBannerAriaLabel": "Cerrar aviso",
+    "prefillBanner": {
+      "before": "Agregando regla para el campo",
+      "after": "detectado en el drift. Complete el campo",
+      "targetField": "target",
+      "suffix": "para completar la regla."
+    },
+    "tabsAriaLabel": "Secciones del editor de mapping",
+    "tabs": {
+      "editor": "Editor",
+      "versions": "Versiones",
+      "audit": "Auditoría"
+    },
+    "discardConfirm": {
+      "title": "¿Descartar cambios?",
+      "description": "Todos los cambios sin guardar se perderán. Esta acción no se puede deshacer.",
+      "cancelLabel": "Seguir editando"
+    }
+  },
+  "editorLayout": {
+    "expandPayloadPanel": "Expandir panel de muestra",
+    "collapsePayloadPanel": "Contraer panel de muestra"
+  },
+  "payloadPanel": {
+    "heading": "Payload de muestra",
+    "modeAriaLabel": "Modo de payload",
+    "tabs": {
+      "reservoir": "Reservoir",
+      "manual": "Manual"
+    },
+    "reservoir": {
+      "title": "Muestras del reservoir no disponibles",
+      "description": "Pronto será posible cargar muestras automáticamente. Por ahora, use el modo Manual para pegar un JSON de evento y ver la simulación."
+    },
+    "manual": {
+      "inputLabel": "Pegue aquí el JSON del evento",
+      "inputAriaLabel": "JSON del evento de muestra",
+      "previewLabel": "Vista previa estructurada:",
+      "hint": "Pegue un objeto JSON válido para ver el envelope normalizado en el panel derecho."
+    },
+    "errors": {
+      "notObject": "El payload debe ser un objeto JSON (clave/valor).",
+      "invalidJson": "JSON inválido — verifique la sintaxis."
+    }
+  },
+  "rulesEditor": {
+    "heading": "Reglas",
+    "total_one": "Total: {{count}} regla",
+    "total_other": "Total: {{count}} reglas",
+    "exportAriaLabel": "Exportar reglas como JSON",
+    "import": "Importar",
+    "importAriaLabel": "Importar reglas desde un archivo JSON",
+    "importErrorPrefix": "Error al importar:",
+    "importFileError": "Error al importar el archivo.",
+    "importConfirm": {
+      "title": "Confirmar importación",
+      "replaceCurrent_one": "Esto reemplazará la {{count}} regla actual",
+      "replaceCurrent_other": "Esto reemplazará las {{count}} reglas actuales",
+      "withImported_one": "por {{count}} regla importada. Esta acción no se puede deshacer.",
+      "withImported_other": "por {{count}} reglas importadas. Esta acción no se puede deshacer.",
+      "confirm": "Confirmar importación"
+    },
+    "filterControlsAriaLabel": "Controles de filtrado",
+    "searchPlaceholder": "Buscar regla (target o source)...",
+    "searchAriaLabel": "Buscar regla por target o source",
+    "filters": {
+      "required": "Obligatorias",
+      "group": "Agrupar"
+    },
+    "expandAll": "⊞ Expandir todo",
+    "expandAllAriaLabel": "Expandir todas las reglas",
+    "collapseAll": "⊟ Contraer todo",
+    "collapseAllAriaLabel": "Contraer todas las reglas",
+    "showingCount_one": "Mostrando {{filtered}} de {{total}} regla",
+    "showingCount_other": "Mostrando {{filtered}} de {{total}} reglas",
+    "emptyEditHint": "No hay reglas. Haga clic en \"Agregar regla\" para comenzar.",
+    "emptyView": {
+      "title": "No hay reglas definidas",
+      "description": "Esta versión no contiene reglas de mapeo."
+    },
+    "noFilterResults": "No se encontró ninguna regla con los filtros aplicados.",
+    "clearFilters": "Limpiar filtros",
+    "addRule": "+ Agregar regla",
+    "addMenuAriaLabel": "Tipo de regla a agregar",
+    "addMenu": {
+      "scalarRule": "Regla escalar",
+      "scalarRuleHint": "Mapea un campo uno a uno",
+      "arrayBuilder": "Array builder",
+      "observables": "observables",
+      "arrayBuilderHint": "Construye un array de observables OCSF",
+      "loadTemplate": "Cargar plantilla OCSF…",
+      "loadTemplateHint": "Precompleta las reglas obligatorias de la clase"
+    }
+  },
+  "ruleRow": {
+    "arrayPlaceholder": "(array)",
+    "newFieldPlaceholder": "nuevo.campo",
+    "arrayBuilderChip_one": "array_builder ({{count}} elemento)",
+    "arrayBuilderChip_other": "array_builder ({{count}} elementos)",
+    "collapseDetails": "Contraer detalles de la regla",
+    "expandDetails": "Expandir detalles de la regla",
+    "collapseRule": "Contraer regla",
+    "expandRule": "Expandir regla",
+    "defaultLabel": "default:",
+    "castLabel": "cast:",
+    "valueMapLabel": "value_map:",
+    "invalidValueMap": "JSON inválido en value_map.",
+    "loading": "Cargando...",
+    "loadError": "Error al cargar",
+    "typeCastNone": "Ninguno",
+    "moveUp": "Mover regla hacia arriba",
+    "moveDown": "Mover regla hacia abajo",
+    "removeConfirm": {
+      "title": "¿Eliminar regla?",
+      "before": "La regla",
+      "after": "se eliminará de este mapping. Esta acción no se puede deshacer."
+    },
+    "sections": {
+      "identification": "Identificación",
+      "valueOrigin": "Origen del valor",
+      "transformation": "Transformación",
+      "validation": "Validación",
+      "conditional": "Condicional"
+    },
+    "fields": {
+      "source": "source (JMESPath)",
+      "defaultOptional": "default (opcional)",
+      "valueMapOptional": "value_map (JSON opcional)"
+    },
+    "placeholders": {
+      "target": "ej.: event.action",
+      "source": "ej.: data.action",
+      "const": "valor constante",
+      "default": "valor predeterminado si falta source"
+    },
+    "sourceType": {
+      "label": "Tipo de fuente",
+      "description": "Elija cómo se obtiene el valor: extraído del payload del proveedor (JMESPath) o un valor fijo (constante).",
+      "radioGroupAriaLabel": "Tipo de fuente de la regla",
+      "sourceOption": "JMESPath (source)",
+      "constOption": "Constante (const)"
+    },
+    "tooltips": {
+      "target": {
+        "description": "Ruta en el envelope normalizado a donde va el valor. Use notación dot-path."
+      },
+      "source": {
+        "description": "Expresión JMESPath aplicada al payload bruto del proveedor para extraer el valor. Admite rutas anidadas, filtros y funciones."
+      },
+      "const": {
+        "description": "Valor constante asignado al target, independientemente del payload del proveedor. Útil para metadatos fijos como el nombre del producto."
+      },
+      "default": {
+        "description": "Valor usado si el source no existe o resuelve a null. Sin default, el campo queda ausente."
+      },
+      "typeCast": {
+        "description": "Transformación aplicada DESPUÉS de source y value_map. Ejemplos: iso_to_epoch convierte ISO 8601 a epoch ms; to_int/to_str/to_bool realizan coerción de tipo."
+      },
+      "valueMap": {
+        "description": "Mapa JSON {valor_original: valor_mapeado} aplicado DESPUÉS del source. Útil para convertir cadenas de severidad en códigos OCSF."
+      },
+      "required": {
+        "description": "Si está marcado y el valor es null/ausente después de todas las transformaciones, el evento va a cuarentena en lugar de enviarse al SIEM."
+      }
+    },
+    "castSignatureTitle": "{{description}} — Firma: {{signature}}",
+    "intentionalDefault": {
+      "label": "Valor predeterminado intencional (no alertar en la simulación)",
+      "description": "Marque cuando esta regla sea un placeholder esperado que siempre cae en el default — ej.: un campo OCSF obligatorio que aún no tenemos del proveedor."
+    },
+    "whenCondition": {
+      "label": "Condición (when)",
+      "description": "Predicado opcional: si se evalúa como false, la regla se ignora por completo — el target no se escribe. A diferencia de default: el campo queda ausente en la salida."
+    }
+  },
+  "arrayBuilder": {
+    "itemFieldAriaLabel": "Elemento {{index}}: {{field}}",
+    "skipNullAriaLabelInherited": "Elemento {{index}}: skip_null (heredado)",
+    "skipNullInheritedTitle": "Heredado de la regla ({{value}})",
+    "moveItemUp": "Mover elemento {{index}} hacia arriba",
+    "moveItemDown": "Mover elemento {{index}} hacia abajo",
+    "removeItem": "Eliminar elemento {{index}}",
+    "dedupByHint": "Lista de campos del observable, ej.: \"value\" o \"value,type\"",
+    "skipNullAriaLabel": "skip_null — omitir observables con source nulo",
+    "skipNullHint": "(omitir cuando source sea null)",
+    "itemsCount": "Elementos ({{count}})",
+    "columns": {
+      "source": "source (JMESPath)",
+      "explodeTitle": "Si es true y source resuelve a una lista, genera 1 observable por elemento",
+      "skipNullTitle": "Indeterminate = hereda del nivel de la regla"
+    },
+    "emptyItems": "No hay elementos. Haga clic en \"+ Agregar elemento\" para comenzar.",
+    "addItem": "+ Agregar elemento"
+  },
+  "whenBuilder": {
+    "addCondition": "+ Agregar condición",
+    "maxDepthReached": "Profundidad máxima alcanzada. Simplifique la condición.",
+    "operatorSelectAriaLabel": "Operador del predicado when",
+    "operatorTooltipLabel": "Operador: {{operator}}",
+    "removeCondition": "Eliminar condición when",
+    "negatedSubCondition": "Subcondición (negada):",
+    "sourceEmptyWarning": "El source no puede estar vacío. El backend rechazará el predicado.",
+    "existsSourceAriaLabel": "JMESPath para exists",
+    "equalsSourceAriaLabel": "JMESPath para equals.source",
+    "equalsValueAriaLabel": "Valor literal para equals.value",
+    "equalsValuePlaceholder": "ej.: high (o 4 para entero)",
+    "inSourceAriaLabel": "JMESPath para in.source",
+    "inValuesAriaLabel": "Valores para in.values (uno por línea)",
+    "inValuesHint": "Un valor por línea. Los números se detectan automáticamente.",
+    "operators": {
+      "exists": {
+        "label": "exists — el campo existe en el payload",
+        "description": "Verdadero si el JMESPath resuelve a cualquier valor no nulo (incluidas listas y objetos vacíos)."
+      },
+      "equals": {
+        "label": "equals — valor igual (type-strict)",
+        "description": "Verdadero si el valor del campo es exactamente igual al literal indicado. Comparación type-strict: 3 ≠ \"3\"."
+      },
+      "in": {
+        "label": "in — el valor está en la lista (type-strict)",
+        "description": "Verdadero si el valor del campo está en la lista. Un valor por línea. Los números se parsean automáticamente."
+      },
+      "not": {
+        "label": "not — negación de subcondición",
+        "description": "Niega la subcondición. Útil para expresar \"el campo no existe\" o \"el valor no es X\"."
+      }
+    }
+  },
+  "preprocessEditor": {
+    "heading": "Preprocesamiento",
+    "opsCount_one": "{{count}} operación",
+    "opsCount_other": "{{count}} operaciones",
+    "addAriaLabel": "Agregar operación de preprocesamiento",
+    "addButton": "+ Agregar preprocesamiento",
+    "tolerant": "tolerant",
+    "emptyState": "No hay operaciones. Haga clic en \"+ Agregar preprocesamiento\" para comenzar."
+  },
+  "preprocessRow": {
+    "removeAriaLabel": "Eliminar operación de preprocesamiento",
+    "operationLabel": "Operación",
+    "newFieldPlaceholder": "_campo",
+    "fields": {
+      "source": "source",
+      "target": "target"
+    },
+    "sourceAriaLabel": "source JMESPath",
+    "targetHint": "(debe comenzar con _)",
+    "targetAriaLabel": "target del campo virtual",
+    "targetMustStartWithUnderscore": "El target debe comenzar con \"_\".",
+    "tolerantAriaLabel": "tolerant — continuar aunque falle el parseo",
+    "tolerantHint": "(continúa incluso si el parseo falla)",
+    "moveUp": "Mover operación hacia arriba",
+    "moveDown": "Mover operación hacia abajo"
+  },
+  "dryRunStatusBar": {
+    "statusAriaLabel": "Estado del dry-run",
+    "samples_one": "{{count}} muestra",
+    "samples_other": "{{count}} muestras",
+    "ok": "{{count}} OK",
+    "failures_one": "{{count}} falla",
+    "failures_other": "{{count}} fallas",
+    "warningsChipAriaLabel_one": "{{count}} regla con 100% de fallback a default — clic para ver detalles",
+    "warningsChipAriaLabel_other": "{{count}} reglas con 100% de fallback a default — clic para ver detalles",
+    "warningsChipLabel_one": "{{count}} regla 100% default",
+    "warningsChipLabel_other": "{{count}} reglas 100% default"
+  },
+  "defaultHitWarnings": {
+    "title": "Reglas con 100% de fallback a default",
+    "closeAriaLabel": "Cerrar panel de avisos",
+    "description": "Estas reglas tienen el source resolviendo a null en el 100% de las muestras. Verifique si el JMESPath es correcto o márquelo como intencional si es un placeholder esperado.",
+    "noWarnings": "Sin avisos.",
+    "hitRatio": "{{hitCount}}/{{sampleSize}} muestras cayeron en el default",
+    "markIntentional": "Marcar como intencional"
+  },
+  "envelopePreview": {
+    "heading": "Envelope normalizado",
+    "previewSuffix": "(vista previa)",
+    "simulationErrorTitle": "Error en la simulación",
+    "ruleFailuresTitle": "Se detectaron fallas de reglas",
+    "ruleFailedBefore": "La regla",
+    "ruleFailedMiddle_one": "falló en {{count}} muestra",
+    "ruleFailedMiddle_other": "falló en {{count}} muestras",
+    "calculating": "Calculando normalización...",
+    "empty": {
+      "title": "Proporcione una muestra para ver la normalización.",
+      "description": "Pegue un JSON en el panel Payload (modo Manual) o espere la integración con el reservoir."
+    }
+  },
+  "templatePicker": {
+    "title": "Cargar plantilla OCSF",
+    "heading": "Seleccionar una plantilla OCSF para precompletar las reglas obligatorias",
+    "listAriaLabel": "Plantillas OCSF disponibles",
+    "useTemplate": "Usar plantilla",
+    "useTemplateAriaLabel": "Usar plantilla {{name}}",
+    "preconfiguredRules_one": "{{count}} regla preconfigurada",
+    "preconfiguredRules_other": "{{count}} reglas preconfiguradas",
+    "confirmReplace": {
+      "title_one": "¿Reemplazar {{count}} regla existente?",
+      "title_other": "¿Reemplazar {{count}} reglas existentes?",
+      "before": "La plantilla",
+      "after": "reemplazará todas las reglas actuales. Esta acción no se puede deshacer.",
+      "confirm": "Reemplazar"
+    }
+  },
+  "saveModal": {
+    "title": "Guardar nueva versión",
+    "commitRequired": "El mensaje del commit es obligatorio.",
+    "commitTooShort": "El mensaje debe tener al menos {{min}} caracteres.",
+    "unknownError": "Error desconocido al guardar.",
+    "highFailRate": {
+      "title": "Alto índice de fallas en la simulación",
+      "description": "Más del 50% de las muestras fallan con estas reglas. Considere revisarlas antes de guardar."
+    },
+    "saveErrorTitle": "Error al guardar",
+    "diffSummary": "Resumen de cambios (v{{version}} → nueva)",
+    "viewFullDiff": "Ver diff completo",
+    "noChanges": "Sin cambios respecto a la versión actual.",
+    "diffAdded_one": "{{count}} agregada",
+    "diffAdded_other": "{{count}} agregadas",
+    "diffRemoved_one": "{{count}} eliminada",
+    "diffRemoved_other": "{{count}} eliminadas",
+    "diffModified_one": "{{count}} modificada",
+    "diffModified_other": "{{count}} modificadas",
+    "diffReordered": "reordenamiento",
+    "commitMessageLabel": "Mensaje del commit",
+    "commitMessagePlaceholder": "Describa lo que cambió en esta versión...",
+    "confirmSave": "Guardar nueva versión",
+    "diffVersionLabel": "v{{version}} → nueva"
+  },
+  "versionsTable": {
+    "current": "actual",
+    "compare": "Comparar",
+    "makeCurrent": "Hacer actual",
+    "selectVersionAriaLabel": "Seleccionar versión {{version}}",
+    "selectedCount_one": "{{count}} versión seleccionada",
+    "selectedCount_other": "{{count}} versiones seleccionadas",
+    "compareSelected": "Comparar seleccionadas",
+    "clearSelection": "Limpiar selección",
+    "emptyMessage": "No se encontraron versiones",
+    "columns": {
+      "version": "Versión",
+      "author": "Autor",
+      "message": "Mensaje",
+      "createdAt": "Creado el"
+    },
+    "rollback": {
+      "messageTooShort": "El mensaje debe tener al menos 10 caracteres.",
+      "success": "Rollback a v{{version}} realizado con éxito.",
+      "error": "Error al realizar el rollback.",
+      "errorTitle": "Error en el rollback",
+      "confirmTitle": "¿Hacer que v{{version}} sea la versión actual?",
+      "confirmDescription": "Esta acción promoverá la v{{version}} como versión vigente del mapping. Las versiones existentes no se eliminarán.",
+      "commitMessageLabel": "Mensaje del commit",
+      "commitMessagePlaceholder": "Motivo del rollback (mín. 10 caracteres)...",
+      "confirmLabel": "Confirmar rollback"
+    }
+  },
+  "diffModal": {
+    "title": "Diff de versiones",
+    "titleWithVersion": "Diff de versiones — {{versionLabel}}",
+    "loading": "Cargando diff...",
+    "noDiffAvailable": "No hay ningún diff disponible.",
+    "reorderedOnlyTitle": "Solo reordenamiento",
+    "reorderedOnlyDescription": "Ninguna regla cambió — las reglas solo se reordenaron.",
+    "noChangesTitle": "Sin cambios",
+    "noChangesDescription": "Las dos versiones son idénticas.",
+    "added": "Agregadas",
+    "removed": "Eliminadas",
+    "modified": "Modificadas",
+    "before": "Antes",
+    "after": "Después"
+  },
+  "auditTable": {
+    "columns": {
+      "action": "Acción",
+      "username": "Usuario",
+      "role": "Rol",
+      "detail": "Detalle"
+    },
+    "filters": {
+      "allActions": "Todas las acciones",
+      "actionLabel": "Acción",
+      "actionAriaLabel": "Filtrar por acción",
+      "usernameLabel": "Usuario",
+      "usernamePlaceholder": "Filtrar por usuario...",
+      "periodLabel": "Período",
+      "periodAriaLabel": "Filtrar por período"
+    },
+    "loadErrorTitle": "Error al cargar la auditoría",
+    "emptyMessage": "No se encontraron registros de auditoría"
+  },
+  "jmespathInput": {
+    "suggestionsAriaLabel": "Sugerencias de campos JMESPath"
+  }
+}

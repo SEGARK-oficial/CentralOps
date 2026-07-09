@@ -1,0 +1,75 @@
+{
+  "eyebrow": "Sua conta",
+  "title": "Configurações da conta",
+  "description": "Gerencie seu perfil, idioma e senha. Configurações administrativas como papel e organização são geridas por um administrador.",
+  "load": {
+    "error": "Não foi possível carregar sua conta. Tente novamente."
+  },
+  "summary": {
+    "title": "Identidade",
+    "subtitle": "Dados somente leitura sobre sua conta.",
+    "username": "Usuário",
+    "role": "Papel",
+    "scope": "Escopo de acesso",
+    "scopeGlobal": "Global — todas as organizações",
+    "scopeOrg": "Restrito a {{org}}",
+    "scopeNone": "Sem organização",
+    "organization": "Organização",
+    "signInMethod": "Método de login",
+    "methodLocal": "Senha local",
+    "methodSso": "Microsoft Entra (SSO)",
+    "memberSince": "Membro desde",
+    "lastSignIn": "Último acesso",
+    "never": "Nunca"
+  },
+  "profile": {
+    "title": "Perfil",
+    "subtitle": "Atualize como você aparece e o idioma da interface.",
+    "displayName": "Nome de exibição",
+    "displayNameHelp": "O nome exibido em todo o aplicativo.",
+    "email": "E-mail",
+    "emailHelp": "Usado para notificações e recuperação de conta.",
+    "emailManagedByIdp": "Seu e-mail é gerenciado pelo provedor de identidade.",
+    "confirmPassword": "Senha atual",
+    "confirmPasswordHelp": "Confirme sua senha atual para alterar o e-mail.",
+    "emailPasswordRequired": "Informe sua senha atual para alterar o e-mail.",
+    "language": "Idioma",
+    "languageHelp": "O idioma da interface que segue você entre dispositivos.",
+    "saved": "Seu perfil foi atualizado.",
+    "saveError": "Não foi possível salvar seu perfil."
+  },
+  "locales": {
+    "pt": "Português",
+    "en": "Inglês",
+    "es": "Espanhol"
+  },
+  "security": {
+    "title": "Segurança",
+    "subtitle": "Altere sua senha e gerencie sessões ativas."
+  },
+  "password": {
+    "title": "Alterar senha",
+    "current": "Senha atual",
+    "new": "Nova senha",
+    "confirm": "Confirmar nova senha",
+    "rule": "No mínimo {{min}} caracteres.",
+    "submit": "Alterar senha",
+    "tooShort": "A nova senha deve ter no mínimo {{min}} caracteres.",
+    "mismatch": "A nova senha e a confirmação não coincidem.",
+    "reuse": "A nova senha deve ser diferente da atual.",
+    "changed": "Sua senha foi alterada.",
+    "changedWithSessions": "Sua senha foi alterada. {{count}} outra(s) sessão(ões) foram encerradas.",
+    "error": "Não foi possível alterar sua senha.",
+    "ssoManaged": "Sua senha é gerenciada pelo provedor de identidade (Microsoft Entra). Altere-a por lá."
+  },
+  "sessions": {
+    "title": "Sessões ativas",
+    "subtitle": "Saia de todos os outros dispositivos mantendo este ativo.",
+    "action": "Encerrar outras sessões",
+    "revoked": "{{count}} outra(s) sessão(ões) foram encerradas.",
+    "noneToRevoke": "Não havia outras sessões para encerrar.",
+    "error": "Não foi possível encerrar as outras sessões.",
+    "confirmTitle": "Encerrar outras sessões?",
+    "confirmDescription": "Todos os outros dispositivos serão desconectados. Esta sessão permanece ativa."
+  }
+}

@@ -1,0 +1,94 @@
+{{- if .Values.devBroker.enabled -}}
+# =============================================================================
+# Redpanda IN-CLUSTER — APENAS DESENVOLVIMENTO/teste (single-node, sem HA).
+# Em produção use MSK/Redpanda Cloud/Confluent e aponte
+# dataPlane.kafka.bootstrapServers (NÃO habilite este bloco).
+# =============================================================================
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: redpanda-data
+  labels:
+    {{- include "centralops.labels" . | nindent 4 }}
+    app: redpanda
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: {{ .Values.devBroker.storage }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redpanda
+  labels:
+    {{- include "centralops.labels" . | nindent 4 }}
+    app: redpanda
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate          # PVC RWO: termina o pod antigo antes de subir o novo
+  selector:
+    matchLabels:
+      app: redpanda
+  template:
+    metadata:
+      labels:
+        app: redpanda
+        app.kubernetes.io/part-of: centralops
+    spec:
+      # NOTA: o Redpanda inicia como root para configurar o datadir e depois faz
+      # su-exec para uid 101. Forçar runAsNonRoot/drop-caps aqui quebra o boot.
+      # Como é dev-only, mantemos só o seccomp default + fsGroup. Em produção use
+      # MSK/Redpanda Cloud/Confluent (não este Deployment).
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+        fsGroup: 101
+      containers:
+        - name: redpanda
+          image: {{ .Values.devBroker.image }}
+          securityContext:
+            allowPrivilegeEscalation: false
+          command:
+            - redpanda
+            - start
+            - --smp=1
+            - --memory=512M
+            - --reserve-memory=0M
+            - --overprovisioned
+            - --node-id=0
+            - --check=false
+            - --kafka-addr=PLAINTEXT://0.0.0.0:9092
+            - --advertise-kafka-addr=PLAINTEXT://redpanda:9092
+          ports:
+            - containerPort: 9092
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "256Mi"
+            limits:
+              cpu: "1000m"
+              memory: "1Gi"
+          volumeMounts:
+            - name: redpanda-storage
+              mountPath: /var/lib/redpanda/data
+      volumes:
+        - name: redpanda-storage
+          persistentVolumeClaim:
+            claimName: redpanda-data
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: redpanda
+  labels:
+    {{- include "centralops.labels" . | nindent 4 }}
+    app: redpanda
+spec:
+  selector:
+    app: redpanda
+  ports:
+    - port: 9092
+      targetPort: 9092
+{{- end }}

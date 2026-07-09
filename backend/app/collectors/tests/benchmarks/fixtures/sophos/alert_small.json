@@ -1,0 +1,10 @@
+{
+  "id": "alert-small-001",
+  "createdAt": "2026-04-23T14:22:10Z",
+  "severity": "high",
+  "type": "malware",
+  "description": "Trojan detected",
+  "managedAgent": {"id": "agent-01", "name": "WIN-01", "type": "computer"},
+  "person": {"id": "user-01", "name": "alice"},
+  "product": "Endpoint"
+}

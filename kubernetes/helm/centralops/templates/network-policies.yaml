@@ -1,0 +1,266 @@
+{{- if .Values.networkPolicies.enabled -}}
+{{- $fullName := include "centralops.fullname" . -}}
+{{- $appWorkloads := list (printf "%s-api" $fullName) (printf "%s-worker-priority" $fullName) (printf "%s-worker-bulk" $fullName) (printf "%s-worker-maintenance" $fullName) (printf "%s-worker-dispatcher" $fullName) (printf "%s-worker-beat" $fullName) -}}
+# ── Default deny: Ingress E Egress ──────────────────────────────────────────
+# Tudo é negado por padrão; as policies abaixo liberam só o necessário (allow-list).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $fullName }}-default-deny
+  labels:
+    {{- include "centralops.labels" . | nindent 4 }}
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress
+---
+# DNS (kube-dns) — necessário para qualquer pod resolver nomes.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $fullName }}-allow-dns-egress
+  labels:
+    {{- include "centralops.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/part-of: centralops
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - namespaceSelector: {}
+      ports:
+        - { protocol: UDP, port: 53 }
+        - { protocol: TCP, port: 53 }
+---
+# Ingress no frontend — apenas do ingress controller (se o namespace for informado),
+# senão de qualquer namespace (com aviso no NOTES).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $fullName }}-allow-frontend-ingress
+  labels:
+    {{- include "centralops.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: {{ $fullName }}-frontend
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        {{- if .Values.networkPolicies.ingressControllerNamespace }}
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ .Values.networkPolicies.ingressControllerNamespace }}
+        {{- else }}
+        - namespaceSelector: {}
+        {{- end }}
+      ports:
+        - { protocol: TCP, port: 8080 }
+        {{- if eq (.Values.config.enableHttps | toString) "1" }}
+        - { protocol: TCP, port: 8443 }
+        {{- end }}
+---
+# Frontend → API (reverse-proxy /api).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $fullName }}-allow-frontend-to-api
+  labels:
+    {{- include "centralops.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: {{ $fullName }}-frontend
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: {{ $fullName }}-api
+      ports:
+        - { protocol: TCP, port: 8000 }
+---
+# API aceita ingress só do frontend.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $fullName }}-allow-api-from-frontend
+  labels:
+    {{- include "centralops.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: {{ $fullName }}-api
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: {{ $fullName }}-frontend
+      ports:
+        - { protocol: TCP, port: 8000 }
+---
+# API + workers → Postgres/Redis (egress).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $fullName }}-allow-app-to-data-egress
+  labels:
+    {{- include "centralops.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/part-of: centralops
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - podSelector:
+            matchExpressions:
+              - { key: app, operator: In, values: [postgres, redis] }
+      ports:
+        - { protocol: TCP, port: 5432 }
+        - { protocol: TCP, port: 6379 }
+{{- if .Values.networkPolicies.egress.extraAllowedCIDRs }}
+---
+# Egress extra (ex.: coletor OTLP fora do cluster, APIs SaaS em IP fixo).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $fullName }}-allow-extra-egress
+  labels:
+    {{- include "centralops.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/part-of: centralops
+  policyTypes:
+    - Egress
+  egress:
+    {{- range .Values.networkPolicies.egress.extraAllowedCIDRs }}
+    - to:
+        - ipBlock:
+            cidr: {{ .cidr }}
+      {{- with .ports }}
+      ports:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    {{- end }}
+{{- end }}
+---
+# Egress de internet (HTTPS 443) para os COLETORES alcançarem APIs de vendor
+# (Sophos, CrowdStrike, Defender, ...), bloqueando o range privado do cluster
+# (anti-movimento-lateral). Desligue com networkPolicies.allowInternetEgress=false.
+{{- if .Values.networkPolicies.allowInternetEgress }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $fullName }}-allow-internet-egress
+  labels:
+    {{- include "centralops.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/part-of: centralops
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except:
+              - 10.0.0.0/8
+              - 172.16.0.0/12
+              - 192.168.0.0/16
+      ports:
+        - { protocol: TCP, port: 443 }
+{{- end }}
+{{- if .Values.devDatabase.enabled }}
+---
+# Postgres/Redis (dev in-cluster) aceitam ingress só dos workloads CentralOps.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $fullName }}-allow-data-from-app
+  labels:
+    {{- include "centralops.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchExpressions:
+      - { key: app, operator: In, values: [postgres, redis] }
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/part-of: centralops
+      ports:
+        - { protocol: TCP, port: 5432 }
+        - { protocol: TCP, port: 6379 }
+{{- end }}
+{{- if eq .Values.dataPlane.eventDataplane "kafka" }}
+---
+# — egress dos workloads CentralOps p/ o broker Kafka (9092). Sem isto,
+# o default-deny bloqueia produtores + kafka-dispatcher → data-plane inalcançável.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $fullName }}-allow-kafka-egress
+  labels:
+    {{- include "centralops.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/part-of: centralops
+  policyTypes:
+    - Egress
+  egress:
+    {{- if .Values.devBroker.enabled }}
+    - to:
+        - podSelector:
+            matchLabels:
+              app: redpanda
+      ports:
+        - { protocol: TCP, port: 9092 }
+    {{- end }}
+    {{- with .Values.dataPlane.kafka.brokerCIDRs }}
+    {{- range . }}
+    - to:
+        - ipBlock:
+            cidr: {{ .cidr }}
+      ports:
+        {{- toYaml .ports | nindent 8 }}
+    {{- end }}
+    {{- end }}
+{{- if .Values.devBroker.enabled }}
+---
+# Redpanda (dev in-cluster) aceita ingress só dos workloads CentralOps (9092).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $fullName }}-allow-kafka-from-app
+  labels:
+    {{- include "centralops.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app: redpanda
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/part-of: centralops
+      ports:
+        - { protocol: TCP, port: 9092 }
+{{- end }}
+{{- end }}
+{{- end }}

@@ -1,0 +1,51 @@
+# Datasources provisionados — ANCHOR dos dashboards (uids fixos).
+# Os dashboards CentralOps referenciam uid `prometheus` (e `loki`/`tempo`).
+# Provisionar aqui garante o uid → sem isto = "No data" (variável não resolve).
+apiVersion: 1
+
+datasources:
+  - name: Prometheus
+    uid: prometheus            # casa com ${DS_PROMETHEUS} dos dashboards
+    type: prometheus
+    access: proxy
+    url: ${PROMETHEUS_URL}
+    isDefault: true
+    jsonData:
+      httpMethod: POST
+      timeInterval: 30s
+      # Correlação métrica→trace (exemplars apontam p/ Tempo).
+      exemplarTraceIdDestinations:
+        - name: trace_id
+          datasourceUid: tempo
+
+  - name: Loki
+    uid: loki
+    type: loki
+    access: proxy
+    url: http://loki:3100
+    jsonData:
+      # Correlação log→trace (Loki structured metadata trace_id → Tempo).
+      derivedFields:
+        - name: trace_id
+          matcherType: label
+          matcherRegex: trace_id
+          datasourceUid: tempo
+          url: '$${__value.raw}'
+
+  - name: Tempo
+    uid: tempo
+    type: tempo
+    access: proxy
+    url: http://tempo:3200
+    jsonData:
+      # Correlação trace→log (funciona sem add-ons).
+      tracesToLogsV2:
+        datasourceUid: loki
+        filterByTraceID: true
+      # NOTA: serviceMap e tracesToMetrics dependem do metrics_generator do Tempo
+      # (add-on opcional, desligado por padrão em tempo.yaml). Descomente lá E
+      # aqui se quiser service graph / RED:
+      # tracesToMetrics:
+      #   datasourceUid: prometheus
+      # serviceMap:
+      #   datasourceUid: prometheus

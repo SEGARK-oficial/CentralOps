@@ -1,0 +1,62 @@
+{
+  "TimeCreated": "2026-06-21T10:00:00Z",
+  "EventRecordID": 998877665544,
+  "EventID": 4624,
+  "Version": 2,
+  "Channel": "Security",
+  "Provider": "Microsoft-Windows-Security-Auditing",
+  "ProviderGuid": "{54849625-5478-4994-A5BA-3E3B0328C30D}",
+  "Level": "Information",
+  "Opcode": "Info",
+  "Task": "Logon",
+  "Keywords": "Audit Success",
+  "Computer": "WIN-DC-01.acme.local",
+  "Correlation": {
+    "ActivityID": "{11112222-3333-4444-5555-666677778888}"
+  },
+  "Execution": {
+    "ProcessID": 712,
+    "ThreadID": 4820
+  },
+  "Security": {},
+  "Message": "An account was successfully logged on.\n\nSubject:\n\tSecurity ID:\t\tS-1-5-18\n\tAccount Name:\t\tWIN-DC-01$\n\tAccount Domain:\t\tACME\n\tLogon ID:\t\t0x3E7\n\nLogon Information:\n\tLogon Type:\t\t3\n\tRestricted Admin Mode:\t-\n\tVirtual Account:\t\tNo\n\tElevated Token:\t\tNo\n\nNew Logon:\n\tSecurity ID:\t\tS-1-5-21-1111111111-2222222222-3333333333-1001\n\tAccount Name:\t\talice\n\tAccount Domain:\t\tACME\n\nNetwork Information:\n\tWorkstation Name:\tWS-ALICE\n\tSource Network Address:\t10.0.0.5\n\tSource Port:\t\t51514",
+  "RenderingInfo": {
+    "Message": "An account was successfully logged on.",
+    "Level": "Information",
+    "Task": "Logon",
+    "Opcode": "Info",
+    "Channel": "Security",
+    "Provider": "Microsoft-Windows-Security-Auditing",
+    "Keywords": ["Audit Success"]
+  },
+  "EventData": {
+    "SubjectUserSid": "S-1-5-18",
+    "SubjectUserName": "WIN-DC-01$",
+    "SubjectDomainName": "ACME",
+    "SubjectLogonId": "0x3e7",
+    "TargetUserSid": "S-1-5-21-1111111111-2222222222-3333333333-1001",
+    "TargetUserName": "alice",
+    "TargetDomainName": "ACME",
+    "TargetLogonId": "0x1a2b3c",
+    "LogonType": "3",
+    "LogonProcessName": "Kerberos",
+    "AuthenticationPackageName": "Kerberos",
+    "WorkstationName": "WS-ALICE",
+    "LogonGuid": "{99990000-1111-2222-3333-444455556666}",
+    "TransmittedServices": "-",
+    "LmPackageName": "-",
+    "KeyLength": 0,
+    "ProcessId": "0x2c8",
+    "ProcessName": "C:\\Windows\\System32\\lsass.exe",
+    "IpAddress": "10.0.0.5",
+    "IpPort": "51514",
+    "ImpersonationLevel": "%%1833",
+    "RestrictedAdminMode": "-",
+    "TargetOutboundUserName": "-",
+    "TargetOutboundDomainName": "-",
+    "VirtualAccount": "%%1843",
+    "TargetLinkedLogonId": "0x0",
+    "ElevatedToken": "%%1842",
+    "Status": "0x0"
+  }
+}

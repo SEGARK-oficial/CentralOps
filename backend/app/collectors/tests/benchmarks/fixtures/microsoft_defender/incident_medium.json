@@ -1,0 +1,44 @@
+{
+  "id": "defender-incident-medium-001",
+  "createdDateTime": "2026-04-23T08:00:00Z",
+  "lastUpdateDateTime": "2026-04-23T12:00:00Z",
+  "displayName": "Credential theft campaign targeting finance team",
+  "description": "Multiple users in finance department targeted by credential theft campaign using LSASS dumping and phishing techniques.",
+  "severity": "high",
+  "status": "inProgress",
+  "assignedTo": "security-team@corp.com",
+  "classification": "TruePositive",
+  "determination": "Malware",
+  "tenantId": "tenant-001",
+  "tags": ["credential-theft", "finance", "phishing"],
+  "comments": [
+    {"comment": "IR team assigned, triage in progress", "createdBy": "lead@corp.com", "createdTime": "2026-04-23T08:30:00Z"}
+  ],
+  "alerts": [
+    {"id": "alert-001", "severity": "high", "status": "inProgress"},
+    {"id": "alert-002", "severity": "medium", "status": "new"}
+  ],
+  "devices": [
+    {"id": "device-001", "deviceName": "WIN-FIN-01"},
+    {"id": "device-002", "deviceName": "WIN-FIN-02"}
+  ],
+  "users": [
+    {"id": "user-001", "accountName": "alice"},
+    {"id": "user-002", "accountName": "bob"}
+  ],
+  "incidentWebUrl": "https://security.microsoft.com/incidents/defender-incident-medium-001",
+  "redirectToIncidentId": null,
+  "providerIncidentId": "prov-inc-001",
+  "oauthApplications": [],
+  "mailboxes": [],
+  "cloudResources": [],
+  "malwareFamilies": ["Mimikatz"],
+  "attackTechniques": ["T1003.001", "T1566.001"],
+  "systemTags": ["high-priority"],
+  "customTags": ["Q2-2026", "Finance-Threat"],
+  "incidentProductSource": "Microsoft",
+  "resolvedDateTime": null,
+  "lastModifiedBy": "system",
+  "recommendedActions": "Review all affected accounts, reset credentials, scan all endpoints",
+  "mitreTactics": ["Credential Access", "Initial Access"]
+}

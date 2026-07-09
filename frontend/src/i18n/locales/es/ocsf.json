@@ -1,0 +1,43 @@
+{
+  "title": "Gobernanza OCSF",
+  "subtitle": "Política de validación por organización y conformidad del pipeline.",
+  "refresh": "Actualizar",
+  "loadError": "No se pudieron cargar los datos de OCSF.",
+  "modes": {
+    "tag_and_pass": "Etiquetar y pasar",
+    "quarantine": "Cuarentena",
+    "fail_closed": "Descartar (fail-closed)",
+    "tag_and_pass_hint": "Solo etiqueta y despacha — nunca descarta.",
+    "quarantine_hint": "Envía a cuarentena (recuperable); no despacha.",
+    "fail_closed_hint": "Descarta sin cuarentena."
+  },
+  "policies": {
+    "title": "Enforcement por organización",
+    "description": "Cómo el pipeline trata un evento OCSF estructuralmente inválido, por organización.",
+    "columns": {
+      "organization": "Organización",
+      "mode": "Modo de enforcement"
+    },
+    "default": "predeterminado global",
+    "saved": "Política actualizada.",
+    "saveError": "No se pudo actualizar la política.",
+    "empty": "Sin organizaciones."
+  },
+  "compliance": {
+    "title": "Conformidad OCSF (24h)",
+    "description": "Eventos OCSF inválidos enviados a cuarentena por integración en las últimas 24h.",
+    "columns": {
+      "integration": "Integración",
+      "mode": "Modo",
+      "invalid": "Inválidos en cuarentena (24h)"
+    },
+    "empty": "Sin integraciones.",
+    "status": {
+      "enabled": "Validación OCSF activa",
+      "disabled": "Validación OCSF desactivada",
+      "disabledHint": "La validación está desactivada — los contadores reflejan solo lo ya puesto en cuarentena.",
+      "version": "Versión OCSF: {{version}}",
+      "globalDefault": "Predeterminado global: {{mode}}"
+    }
+  }
+}

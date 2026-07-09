@@ -1,0 +1,59 @@
+# Build the Docusaurus site and publish it to this repository's GitHub Pages.
+#
+# CentralOps is public, so Pages is free and publishes directly from this repo —
+# no separate docs repo and no PAT required. One-time setup (repo admin):
+#   Settings > Pages > Source: "Deploy from a branch" > Branch: gh-pages / (root).
+# Published URL: https://segark-oficial.github.io/CentralOps/
+# (baseUrl in docs-site/docusaurus.config.ts must match: "/CentralOps/".)
+
+name: Deploy Docs
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'docs-site/**'
+      - '.github/workflows/deploy-docs.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-docs
+  cancel-in-progress: false
+
+permissions:
+  contents: write # peaceiris pushes the built site to the gh-pages branch
+
+jobs:
+  build-and-publish:
+    name: Build and publish docs to GitHub Pages
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: docs-site/package-lock.json
+
+      - name: Install dependencies
+        working-directory: docs-site
+        run: npm ci
+
+      - name: Build static site
+        working-directory: docs-site
+        run: npm run build
+        env:
+          NODE_OPTIONS: --max-old-space-size=4096
+
+      - name: Publish to gh-pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_branch: gh-pages
+          publish_dir: ./docs-site/build
+          force_orphan: true
+          user_name: 'github-actions[bot]'
+          user_email: 'github-actions[bot]@users.noreply.github.com'

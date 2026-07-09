@@ -1,0 +1,176 @@
+# ╔══════════════════════════════════════════════════════════════════════════╗
+# ║  CentralOps — OTel Collector (gateway de PRODUÇÃO)                         ║
+# ║ Fase 4 §8 — Superfície B (ops/SRE), OTel-native                  ║
+# ╚══════════════════════════════════════════════════════════════════════════╝
+#
+# TOPOLOGIA (best practice — gateway co-localizado com os backends, FORA do
+# cluster da app; ver  e compose/observability/):
+#
+# app k3s (workers OTLP-push)  ──OTLP/HTTP 4318──▶  ESTE Collector (host .108)
+# │ fan-out por sinal:
+# métricas → prometheusremotewrite ──▶ Prometheus /api/v1/write
+# logs     → otlphttp/loki         ──▶ Loki /otlp
+# traces   → tail_sampling → otlp  ──▶ Tempo :4317
+#
+# Imagem: otel/opentelemetry-collector-contrib (precisa do contrib pelo
+# processor `tail_sampling`). Endpoints abaixo usam os NOMES DE SERVIÇO da stack
+# compose (compose/observability/docker-compose.yml) — para plug-and-play, troque
+# só os endpoints se seus backends mudarem.
+
+# ─── EXTENSIONS ─────────────────────────────────────────────────────────────
+extensions:
+  # Endpoint de saúde (probe externo em :13133; a imagem é distroless).
+  health_check:
+    endpoint: 0.0.0.0:13133
+  # NOTA durabilidade: NÃO usamos file_storage (WAL em disco). A imagem roda
+  # non-root (UID 10001) e um volume Docker é root-owned → "permission denied"
+  # (crash). Mantemos filas EM MEMÓRIA (sending_queue/retry): telemetria em voo é
+  # perdida só num restart do Collector — aceitável nesta escala. Para WAL
+  # persistente: rode o serviço como root (`user: "0:0"`), monte um volume e
+  # reative `file_storage` + `sending_queue.storage`.
+
+# ─── RECEIVERS ──────────────────────────────────────────────────────────────
+# Os três sinais chegam por OTLP. HTTP/4318 (usado pelos workers via
+# opentelemetry-exporter-otlp-proto-http) E gRPC/4317. 0.0.0.0 p/ escutar na
+# rede; o compose publica 4317/4318 no host .108 p/ a app do cluster alcançar.
+receivers:
+  otlp:
+    protocols:
+      http:
+        endpoint: 0.0.0.0:4318
+      grpc:
+        endpoint: 0.0.0.0:4317
+
+# ─── PROCESSORS ─────────────────────────────────────────────────────────────
+# ORDEM IMPORTA: memory_limiter SEMPRE primeiro; batch SEMPRE por último
+# (e, em traces, DEPOIS do tail_sampling).
+processors:
+  # Protege o Collector de OOM sob pico (descarta antes de estourar a memória).
+  memory_limiter:
+    check_interval: 1s
+    limit_mib: 400
+    spike_limit_mib: 100
+
+  # Agrupa antes de exportar (menos chamadas de rede). Defaults sãos.
+  batch:
+    timeout: 5s
+    send_batch_size: 1024
+
+  # ── REDAÇÃO DE PII (opcional, defense-in-depth p/ LOGS de OPS) ────────────
+  # ATENÇÃO honesta: isto protege os logs da APLICAÇÃO/ops, NÃO é a redação de
+  # PII fail-closed do DATA-PLANE do produto (essa vive em engine.py:380 /
+  # pipeline.py:626 e NÃO passa por este Collector). Redaction aqui é fail-OPEN
+  # (só apaga o que casar). Habilite no pipeline de logs se quiser. Exemplo:
+  # redaction/pii:
+  # allow_all_keys: true
+  # blocked_values:
+  # - '\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b'   # e-mail
+  # - '\b(?:\d[ -]*?){13,16}\b'                                # cartão
+  # summary: debug
+
+  # ── tail_sampling — decisão de amostragem de TRACES vive AQUI ─────────────
+  # A app emite HEAD-sampling 1.0 (OTEL_TRACES_SAMPLER_RATIO=1) — não descarta na
+  # origem; o Collector decide o que RETER com o trace inteiro. Políticas em OR:
+  # 1) errors — 100% dos traces com qualquer span ERROR (debug de falha/DLQ)
+  # 2) slow   — 100% dos traces > 5s (cauda de latência: retries, destino lento)
+  # 3) rest   — ~10% do restante (sucesso e rápido)
+  # num_traces >= traces/s * decision_wait * 1.5 (200*10*1.5=3000; 50000 dá folga).
+  tail_sampling:
+    decision_wait: 10s
+    num_traces: 50000
+    expected_new_traces_per_sec: 200
+    policies:
+      - name: errors
+        type: status_code
+        status_code:
+          status_codes: [ERROR]
+      - name: slow
+        type: latency
+        latency:
+          threshold_ms: 5000
+      - name: sample-rest
+        type: probabilistic
+        probabilistic:
+          sampling_percentage: 10
+
+# ─── EXPORTERS ──────────────────────────────────────────────────────────────
+exporters:
+  # ── MÉTRICAS → Prometheus remote-write ──────────────────────────────────
+  # O mapeamento OTLP→Prometheus carimba job=service.name (centralops-collector)
+  # e instance=service.instance.id (host:pid) automaticamente — os dashboards
+  # que filtram por {job,instance} seguem funcionando. `add_metric_suffixes:false`
+  # PRESERVA os nomes exatos (collector_events_total, ...).
+  # DURABILIDADE (honesto): o prometheusremotewrite NÃO usa o sending_queue do
+  # exporterhelper (não tem WAL em disco) — usa o `remote_write_queue` PRÓPRIO,
+  # que é só EM MEMÓRIA. Após esgotar fila + retry (outage > ~max_elapsed_time),
+  # amostras de MÉTRICAS são descartadas. Só logs/traces têm WAL (file_storage).
+  prometheusremotewrite:
+    endpoint: http://prometheus:9090/api/v1/write
+    add_metric_suffixes: false
+    resource_to_telemetry_conversion:
+      enabled: false   # evita explodir cardinalidade (multi-tenant); job/instance já vêm
+    remote_write_queue:
+      enabled: true
+      queue_size: 10000          # fila EM MEMÓRIA (sem WAL p/ métricas)
+    retry_on_failure:
+      enabled: true
+      max_elapsed_time: 0        # 0 = retenta indefinidamente enquanto couber na fila
+
+  # ── LOGS → Loki OTLP nativo (Loki 3.x, /otlp) ───────────────────────────
+  # O otlphttp anexa /v1/logs → http://loki:3100/otlp/v1/logs. O Loki promove
+  # service.name → label `service_name` (canônica; ver monitoring.md §6) e o
+  # resto vira structured metadata. Busque {service_name="centralops-collector"}.
+  otlphttp/loki:
+    endpoint: http://loki:3100/otlp
+    # endpoint http:// já é plaintext — sem bloco tls (insecure só faz sentido em
+    # https:// ou no transporte gRPC). sending_queue EM MEMÓRIA (sem WAL, ver nota
+    # nas extensions) + retry p/ indisponibilidade transitória do Loki.
+    sending_queue:
+      enabled: true
+    retry_on_failure:
+      enabled: true
+
+  # ── TRACES → Tempo (OTLP/gRPC) ──────────────────────────────────────────
+  otlp/tempo:
+    endpoint: tempo:4317
+    tls:
+      insecure: true        # gRPC plaintext (insecure faz sentido aqui)
+    sending_queue:
+      enabled: true
+    retry_on_failure:
+      enabled: true
+
+  # Útil p/ validar ingest sem backend (troque nos pipelines p/ debugar).
+  debug:
+    verbosity: normal
+
+# ─── SERVICE / PIPELINES ────────────────────────────────────────────────────
+service:
+  extensions: [health_check]
+  telemetry:
+    logs:
+      level: info
+    metrics:
+      # Self-métricas do Collector (otelcol_*) — Prometheus raspa em :8888
+      # (ver compose/observability/prometheus.yml) p/ você observar a saúde do
+      # próprio gateway (filas, drops do tail_sampling, etc.). Formato novo
+      # (readers) — o campo `address` foi removido nas versões recentes.
+      readers:
+        - pull:
+            exporter:
+              prometheus:
+                host: 0.0.0.0
+                port: 8888
+  pipelines:
+    metrics:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [prometheusremotewrite]
+    logs:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]   # + redaction/pii (opt-in, ver acima)
+      exporters: [otlphttp/loki]
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, tail_sampling, batch]
+      exporters: [otlp/tempo]

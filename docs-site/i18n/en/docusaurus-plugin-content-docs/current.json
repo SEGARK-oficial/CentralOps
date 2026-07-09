@@ -1,0 +1,54 @@
+{
+  "version.label": {
+    "message": "Next",
+    "description": "The label for version current"
+  },
+  "sidebar.gettingStartedSidebar.category.Começar": {
+    "message": "Começar",
+    "description": "The label for category 'Começar' in sidebar 'gettingStartedSidebar'"
+  },
+  "sidebar.gettingStartedSidebar.category.Conceitos": {
+    "message": "Conceitos",
+    "description": "The label for category 'Conceitos' in sidebar 'gettingStartedSidebar'"
+  },
+  "sidebar.operationsSidebar.category.Operação diária": {
+    "message": "Operação diária",
+    "description": "The label for category 'Operação diária' in sidebar 'operationsSidebar'"
+  },
+  "sidebar.administrationSidebar.category.Administração": {
+    "message": "Administração",
+    "description": "The label for category 'Administração' in sidebar 'administrationSidebar'"
+  },
+  "sidebar.administrationSidebar.category.Integrações": {
+    "message": "Integrações",
+    "description": "The label for category 'Integrações' in sidebar 'administrationSidebar'"
+  },
+  "sidebar.normalizationSidebar.category.Mappings (CML)": {
+    "message": "Mappings (CML)",
+    "description": "The label for category 'Mappings (CML)' in sidebar 'normalizationSidebar'"
+  },
+  "sidebar.normalizationSidebar.category.Pipelines": {
+    "message": "Pipelines",
+    "description": "The label for category 'Pipelines' in sidebar 'normalizationSidebar'"
+  },
+  "sidebar.outputsSidebar.category.Saídas & Roteamento": {
+    "message": "Saídas & Roteamento",
+    "description": "The label for category 'Saídas & Roteamento' in sidebar 'outputsSidebar'"
+  },
+  "sidebar.outputsSidebar.category.Destinos": {
+    "message": "Destinos",
+    "description": "The label for category 'Destinos' in sidebar 'outputsSidebar'"
+  },
+  "sidebar.outputsSidebar.category.Roteamento": {
+    "message": "Roteamento",
+    "description": "The label for category 'Roteamento' in sidebar 'outputsSidebar'"
+  },
+  "sidebar.runbooksSidebar.category.Runbooks (SRE)": {
+    "message": "Runbooks (SRE)",
+    "description": "The label for category 'Runbooks (SRE)' in sidebar 'runbooksSidebar'"
+  },
+  "sidebar.runbooksSidebar.category.Compliance": {
+    "message": "Compliance",
+    "description": "The label for category 'Compliance' in sidebar 'runbooksSidebar'"
+  }
+}

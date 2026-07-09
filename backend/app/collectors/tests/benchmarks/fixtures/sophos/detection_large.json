@@ -1,0 +1,114 @@
+{
+  "id": "det-large-001",
+  "detectionRule": "WIN-MITRE-Behavioral-TA0002-T1059-001-Chain",
+  "severity": 5,
+  "type": "Threat",
+  "time": "2026-04-23T14:22:10Z",
+  "device": {
+    "id": "dev-uuid-large-001",
+    "type": "server",
+    "entity": "WIN-DC-PRIMARY",
+    "hostname": "WIN-DC-PRIMARY.enterprise.local",
+    "os": "Windows Server 2022",
+    "ipAddress": "192.168.1.1",
+    "macAddress": "AA:BB:CC:DD:EE:01",
+    "domain": "enterprise.local",
+    "domainRole": "domain_controller"
+  },
+  "sensor": {
+    "id": "sensor-uuid-dc-001",
+    "type": "cloud",
+    "source": "Sophos",
+    "version": "2024.3.1"
+  },
+  "mitreAttacks": [
+    {"tactic": "Execution", "technique": "T1059.001", "subtechnique": "PowerShell"},
+    {"tactic": "Persistence", "technique": "T1136.001", "subtechnique": "Local Account"},
+    {"tactic": "Defense Evasion", "technique": "T1027.001", "subtechnique": "Binary Padding"},
+    {"tactic": "Credential Access", "technique": "T1003.001", "subtechnique": "LSASS Memory"},
+    {"tactic": "Lateral Movement", "technique": "T1021.002", "subtechnique": "SMB/Windows Admin Shares"},
+    {"tactic": "Command and Control", "technique": "T1071.001", "subtechnique": "Web Protocols"},
+    {"tactic": "Exfiltration", "technique": "T1048.003", "subtechnique": "Exfiltration Over Unencrypted Non-C2 Protocol"}
+  ],
+  "data": {
+    "process": "powershell.exe",
+    "commandLine": "powershell.exe -ExecutionPolicy Bypass -EncodedCommand SGVsbG8gV29ybGQ=",
+    "decodedCommand": "Invoke-Mimikatz -DumpCreds; Invoke-SMBExec -Target 192.168.1.2",
+    "registry": "HKLM\\SYSTEM\\CurrentControlSet\\Services\\Malicious",
+    "value": "ImagePath",
+    "data": "C:\\Windows\\System32\\mal.exe",
+    "parentProcess": "wmiprvse.exe",
+    "user": "NT AUTHORITY\\SYSTEM",
+    "sha256": "0011223344556677889900aabbccddeeff001122334455667788990011223344",
+    "pid": 9876,
+    "ppid": 544,
+    "fileHash": "aabbccddeeff001122334455667788990011223344556677889900aabbccddee",
+    "remoteIp": "185.220.101.42",
+    "remotePort": 443,
+    "localPort": 54321,
+    "protocol": "https",
+    "dnsQuery": "c2.evil.net",
+    "dnsResponse": "185.220.101.42"
+  },
+  "severity_string": "Critical",
+  "status": "new",
+  "outcome": "detected",
+  "confidence": "high",
+  "falsePositiveStatus": null,
+  "tags": ["apt", "credential-theft", "lateral-movement", "c2", "dcync", "critical"],
+  "tenant": {"id": "tenant-enterprise-001", "name": "Enterprise Corp", "region": "global"},
+  "correlationId": "corr-large-chain-001",
+  "sigVersion": "2024.04.23.042",
+  "policyName": "Advanced Threat Protection XDR",
+  "region": "EU-WEST-2",
+  "relatedDetections": [
+    {"id": "det-related-001", "type": "lateral-movement"},
+    {"id": "det-related-002", "type": "credential-theft"},
+    {"id": "det-related-003", "type": "c2"}
+  ],
+  "fileDetails": {
+    "name": "powershell.exe",
+    "path": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+    "size": 456184,
+    "created": "2023-01-15T10:00:00Z",
+    "modified": "2026-04-23T14:21:50Z",
+    "sha1": "aabbccdd001122334455667788990011223344",
+    "md5": "00112233445566778899aabbccddeeff",
+    "signed": true,
+    "signer": "Microsoft Corporation",
+    "anomalyScore": 0.97
+  },
+  "networkConnections": [
+    {"remoteIp": "185.220.101.42", "remotePort": 443, "protocol": "tcp", "state": "established", "bytes": 10240},
+    {"remoteIp": "195.123.246.100", "remotePort": 80, "protocol": "tcp", "state": "time_wait", "bytes": 512},
+    {"remoteIp": "8.8.8.8", "remotePort": 53, "protocol": "udp", "state": "closed", "bytes": 128}
+  ],
+  "loadedModules": [
+    "ntdll.dll", "kernel32.dll", "kernelbase.dll", "clr.dll", "mscorwks.dll",
+    "amsi.dll", "mscoree.dll", "msvcrt.dll", "combase.dll", "rpcrt4.dll"
+  ],
+  "registryOperations": [
+    {"operation": "create", "key": "HKLM\\SYSTEM\\CurrentControlSet\\Services\\Mal"},
+    {"operation": "set", "key": "HKLM\\SYSTEM\\CurrentControlSet\\Services\\Mal\\ImagePath"},
+    {"operation": "set", "key": "HKLM\\SYSTEM\\CurrentControlSet\\Services\\Mal\\Start"}
+  ],
+  "childProcesses": [
+    {"pid": 9877, "name": "cmd.exe", "cmdLine": "cmd /c net user hacker Password123! /add"},
+    {"pid": 9878, "name": "net.exe", "cmdLine": "net user hacker Password123! /add"},
+    {"pid": 9879, "name": "net.exe", "cmdLine": "net localgroup Administrators hacker /add"}
+  ],
+  "xdrContextScore": 98,
+  "riskScore": 100,
+  "caseSeverityRecommendation": "critical",
+  "automationStatus": "pending-review",
+  "suppressionStatus": "not-suppressed",
+  "endpointGroupId": "DC-GROUP-001",
+  "endpointGroupName": "Domain Controllers - Production",
+  "caseId": "case-large-001",
+  "incidentId": "inc-large-001",
+  "globalThreatId": "GLOBAL-THREAT-APT41-2026-001",
+  "threatIntelSource": "Sophos Labs",
+  "threatIntelConfidence": "confirmed",
+  "patchAvailable": false,
+  "workaround": "Isolate endpoint immediately; reset all domain admin credentials"
+}

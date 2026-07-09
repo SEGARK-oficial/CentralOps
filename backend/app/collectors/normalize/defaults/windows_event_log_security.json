@@ -1,0 +1,49 @@
+{
+  "rules": [
+    { "target": "normalized.class_uid", "const": 3002, "required": true },
+    { "target": "normalized.class_name", "const": "Authentication" },
+    { "target": "normalized.category_uid", "const": 3, "required": true },
+    { "target": "normalized.category_name", "const": "Identity & Access Management" },
+    { "target": "normalized.activity_id", "const": 1 },
+    { "target": "normalized.type_uid", "const": 300201 },
+
+    { "target": "normalized.time", "source": "TimeCreated || EventData.TimeCreated || timestamp || _ingest.received_at", "type_cast": "iso_to_epoch", "required": true },
+    { "target": "normalized.severity_id", "const": 1, "required": true },
+    { "target": "normalized.severity", "source": "Level", "default": "Informational" },
+
+    { "target": "normalized.message", "source": "Message || RenderingInfo.Message", "default": null },
+
+    { "target": "normalized.actor.user.name", "source": "TargetUserName || EventData.TargetUserName || SubjectUserName || EventData.SubjectUserName", "default": null },
+    { "target": "normalized.actor.user.domain", "source": "TargetDomainName || EventData.TargetDomainName || SubjectDomainName || EventData.SubjectDomainName", "default": null },
+    { "target": "normalized.actor.user.uid", "source": "TargetUserSid || EventData.TargetUserSid", "default": null },
+
+    { "target": "normalized.src_endpoint.ip", "source": "IpAddress || EventData.IpAddress", "default": null },
+    { "target": "normalized.src_endpoint.port", "source": "IpPort || EventData.IpPort", "default": null },
+    { "target": "normalized.src_endpoint.name", "source": "WorkstationName || EventData.WorkstationName", "default": null },
+
+    { "target": "normalized.logon_type", "source": "LogonType || EventData.LogonType", "default": null },
+    { "target": "normalized.status", "source": "Status || EventData.Status", "default": null },
+
+    { "target": "normalized.device.hostname", "source": "Computer || EventData.Computer", "default": null },
+    { "target": "normalized.device.type_id", "const": 6 },
+
+    { "target": "normalized.metadata.version", "const": "1.3.0" },
+    { "target": "normalized.metadata.product.name", "const": "Windows Event Log" },
+    { "target": "normalized.metadata.product.vendor_name", "const": "Microsoft" },
+    { "target": "normalized.metadata.event_code", "source": "EventID || EventData.EventID", "default": null },
+    { "target": "normalized.metadata.log_name", "source": "Channel", "default": "Security" },
+    { "target": "normalized.metadata.log_provider", "source": "Provider || ProviderName", "default": null },
+
+    {
+      "target": "normalized.observables",
+      "kind": "array_builder",
+      "items": [
+        { "name": "user", "type": "User Name", "type_id": 4, "source": "TargetUserName || EventData.TargetUserName", "skip_null": true },
+        { "name": "src_ip", "type": "IP Address", "type_id": 2, "source": "IpAddress || EventData.IpAddress", "skip_null": true },
+        { "name": "hostname", "type": "Hostname", "type_id": 1, "source": "Computer || EventData.Computer", "skip_null": true }
+      ],
+      "skip_null": true,
+      "dedup_by": ["value"]
+    }
+  ]
+}

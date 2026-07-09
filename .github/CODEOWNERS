@@ -1,0 +1,56 @@
+# CODEOWNERS — CentralOps (Community core)
+#
+# This file routes review requests for changes in this repository. GitHub
+# automatically requests a review from the owner(s) listed for any path a pull
+# request touches. The LAST matching pattern wins, so more specific paths are
+# listed AFTER the catch-all default.
+#
+# Contributions are accepted under the project's license (AGPLv3, see LICENSE) and
+# require a DCO sign-off (see CONTRIBUTING).
+#
+# NOTE: ownership != gate. CODEOWNERS only routes reviewers. The automated
+# open-core boundary gate (see below) is what actually enforces guarantee C1
+# (no Enterprise/proprietary code in this Community repo).
+
+# -----------------------------------------------------------------------------
+# Default owner — everything in the repository.
+# Any path not matched by a more specific rule below falls here.
+# -----------------------------------------------------------------------------
+*                                               @dathannobrega
+
+# -----------------------------------------------------------------------------
+# Open-core seams — the boundary between the Community core and the Enterprise
+# overlay. These modules implement edition detection, the guarded EE discovery
+# hook (the ONE place Core reaches toward EE), and license-claim handling.
+# Changes here can alter what is locked vs. always-free, so they require owner
+# review. Keep these LICENSE-NEUTRAL: no module here may assert a present
+# license fact that contradicts the LICENSE file.
+# -----------------------------------------------------------------------------
+/backend/app/core/edition.py                    @dathannobrega
+/backend/app/core/ee_hooks.py                   @dathannobrega
+/backend/app/core/licensing.py                  @dathannobrega
+
+# -----------------------------------------------------------------------------
+# Open-core boundary gate — the automated guard (guarantee C1) that keeps
+# Enterprise/proprietary code out of this repo: no centralops_ee package, no
+# web-ee workspace, no Stripe, no private keys, no EE-component frontend
+# imports, and the federated-search engine stays out. Run locally with:
+#   python -m pytest backend/tests/test_open_core_boundary.py
+# Edits that weaken or disable this gate must go through the owner.
+# -----------------------------------------------------------------------------
+/backend/tests/test_open_core_boundary.py       @dathannobrega
+/.github/workflows/openness-gate.yml            @dathannobrega
+
+# -----------------------------------------------------------------------------
+# CI/CD and repository automation — workflows define the gates that protect
+# the project (including the openness gate above). Changes to any workflow
+# require owner review.
+# -----------------------------------------------------------------------------
+/.github/workflows/                             @dathannobrega
+
+# -----------------------------------------------------------------------------
+# Governance files — this CODEOWNERS file itself plus the rest of the .github
+# governance surface (issue/PR templates, policies). Owner-reviewed so the
+# routing rules and contribution policy cannot be changed without sign-off.
+# -----------------------------------------------------------------------------
+/.github/CODEOWNERS                             @dathannobrega
