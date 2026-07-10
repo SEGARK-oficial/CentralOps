@@ -183,7 +183,9 @@ FROM nginxinc/nginx-unprivileged:alpine AS frontend
 USER root
 # gettext = envsubst (render dos templates com lista explícita de vars);
 # openssl = self-signed em ENABLE_HTTPS sem cert fornecido.
-RUN apk add --no-cache gettext openssl
+# apk upgrade: puxa os patches de OS-CVE da base (ex.: c-ares) — o Trivy gate
+# barra HIGH/CRITICAL COM fix disponível, então mantemos os pacotes atualizados.
+RUN apk upgrade --no-cache && apk add --no-cache gettext openssl
 COPY --from=frontend-build /app/dist/ /usr/share/nginx/html/
 RUN mkdir -p /etc/nginx/templates /etc/nginx/ssl /etc/nginx/conf.d \
     && chown -R 101:0 /etc/nginx/ssl /etc/nginx/conf.d /usr/share/nginx/html \
