@@ -15,6 +15,25 @@ const sidebars: SidebarsConfig = {
     },
     {
       type: 'category',
+      label: 'Instalação & Deploy',
+      collapsed: false,
+      items: [
+        'deployment/docker-compose',
+        'deployment/kubernetes',
+        'deployment/configuration',
+      ],
+    },
+    {
+      type: 'category',
+      label: 'Edições & Upgrade',
+      collapsed: false,
+      items: [
+        'editions/community-vs-enterprise',
+        'editions/upgrade',
+      ],
+    },
+    {
+      type: 'category',
       label: 'Conceitos',
       collapsed: false,
       items: [

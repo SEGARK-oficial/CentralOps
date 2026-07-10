@@ -50,5 +50,13 @@
   "sidebar.runbooksSidebar.category.Compliance": {
     "message": "Compliance",
     "description": "The label for category 'Compliance' in sidebar 'runbooksSidebar'"
+  },
+  "sidebar.gettingStartedSidebar.category.Instalação & Deploy": {
+    "message": "Instalación y despliegue",
+    "description": "The label for category 'Instalação & Deploy' in sidebar 'gettingStartedSidebar'"
+  },
+  "sidebar.gettingStartedSidebar.category.Edições & Upgrade": {
+    "message": "Ediciones y actualización",
+    "description": "The label for category 'Edições & Upgrade' in sidebar 'gettingStartedSidebar'"
   }
 }
