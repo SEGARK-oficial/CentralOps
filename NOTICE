@@ -3,9 +3,8 @@ Copyright 2026 Dathan Nobrega
 
 SPDX-License-Identifier: AGPL-3.0-or-later
 The CentralOps Community core is licensed under the GNU Affero General Public
-License v3.0 or later (see LICENSE). Enterprise features live in the separate,
-proprietary centralops-ee package (open-core) and are NOT covered by
-this license.
+License v3.0 or later (see LICENSE). Enterprise features are distributed as a
+separate, proprietary edition (open-core) and are NOT covered by this license.
 
 This product includes software developed by the CentralOps contributors.
 

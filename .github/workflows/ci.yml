@@ -48,7 +48,7 @@ jobs:
   # ── 1) Build once: compila o Cython + roda o unit sweep (gate) e publica ci-<id> ──
   build:
     name: Build once (Cython + unit sweep) → ci image
-    runs-on: [self-hosted, Linux, X64]
+    runs-on: ubuntu-latest
     timeout-minutes: 50
     permissions:
       contents: read
@@ -114,7 +114,7 @@ jobs:
   # ── 2) Postgres migration gate (independe do build; ver PR #124) ─────────────
   pg-migrations:
     name: Postgres migration gate (-m pg)
-    runs-on: [self-hosted, Linux, X64]
+    runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
       # Self-hosted: jobs anteriores podem ter rodado containers como ROOT que
@@ -157,7 +157,7 @@ jobs:
   e2e-setup:
     name: E2E setup (auth states)
     needs: build
-    runs-on: [self-hosted, Linux, X64]
+    runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
       contents: read
@@ -258,7 +258,7 @@ jobs:
   e2e:
     name: E2E shard ${{ matrix.shard }}
     needs: [build, e2e-setup]
-    runs-on: [self-hosted, Linux, X64]
+    runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
       contents: read
@@ -374,7 +374,7 @@ jobs:
     name: Publish (Trivy gate + promote tested image + cosign)
     needs: [build, pg-migrations, e2e]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    runs-on: [self-hosted, Linux, X64]
+    runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
       contents: read
@@ -438,7 +438,7 @@ jobs:
     name: Cleanup ci image
     needs: [build, pg-migrations, e2e, publish]
     if: success()
-    runs-on: [self-hosted, Linux, X64]
+    runs-on: ubuntu-latest
     permissions:
       packages: write
     steps:

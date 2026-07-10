@@ -37,7 +37,7 @@ env:
 jobs:
   # ── Job 1: setup de autenticação (roda antes dos shards) ─────────────────────
   e2e-setup:
-    runs-on: [self-hosted, Linux, X64]
+    runs-on: ubuntu-latest
     timeout-minutes: 15
 
     steps:
@@ -138,7 +138,7 @@ jobs:
   # ── Job 2: shards de teste (dependem do setup) ────────────────────────────────
   e2e:
     needs: e2e-setup
-    runs-on: [self-hosted, Linux, X64]
+    runs-on: ubuntu-latest
     timeout-minutes: 30
 
     strategy:

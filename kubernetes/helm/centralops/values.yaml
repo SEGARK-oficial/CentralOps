@@ -84,7 +84,7 @@ secrets:
   # Keyring PÚBLICO Enterprise  — os <kid>.pem da chave PÚBLICA do
   # billing-plane que verificam a assinatura EdDSA do token OFFLINE. OBRIGATÓRIO
   # para o flip Enterprise: SEM o keyring, um token válido não pode ser verificado
-  # e edition.current fail-close para Community (mesmo na imagem EE). SÓ chaves
+  # e edition.current() fail-close para Community (mesmo na imagem EE). SÓ chaves
   # PÚBLICAS aqui — a privada NUNCA sai do billing-plane (por isso um ConfigMap
   # basta; não é segredo). Mapa <arquivo.pem> → conteúdo PEM. Ex.:
   # licenseKeyring:

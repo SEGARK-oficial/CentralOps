@@ -16,31 +16,23 @@ GitLab (`/ee`), Grafana e OpenCTI: um **núcleo (core) aberto e genuinamente út
 acompanhado de uma **edição Enterprise proprietária** que vive **fora** deste
 repositório. O artefato Community **nunca** contém o código Enterprise.
 
-### 1.1 Três repositórios
+### 1.1 As duas edições
 
-| Repositório | Visibilidade | Licença | Conteúdo |
+| Edição | Onde | Licença | Conteúdo |
 |---|---|---|---|
-| **`SEGARK-oficial/CentralOps`** (este repo) | Público | Core, **AGPLv3** (`LICENSE`) | Motor de ingestão, normalização OCSF (base), redução de volume (base), roteamento (14 sinks), detecção in-pipeline, UI base, SSO/OIDC + RBAC, KMS/Vault, redação de PII, push-ingestion, docs. **Edição Community.** (O piso vinculante destas garantias é a Charter — §2.1.) |
-| **`SEGARK-oficial/centralops-ee`** | Privado | Proprietária (comercial) | Overlay Enterprise: multi-tenancy hierárquica / reseller-MSSP, busca federada cross-org/assíncrona, audit & compliance cross-tenant (WORM), HA / fleet. Compilado em **artefato separado**. **Edição Enterprise.** |
-| **`SEGARK-oficial/centralops-commercial`** | Privado | Proprietária (interno) | Billing-plane: landing, captura de lead, cobrança, emissão de licença (única dona da chave privada de assinatura), conta-comercial. **Deploy e dados totalmente separados** do produto. |
+| **Community** | Este repositório (público) | **AGPLv3** (`LICENSE`) | Motor de ingestão, normalização OCSF (base), redução de volume (base), roteamento (14 sinks), detecção in-pipeline, UI base, SSO/OIDC + RBAC, KMS/Vault, redação de PII, push-ingestion, docs. (O piso vinculante destas garantias é a Charter — §2.1.) |
+| **Enterprise** | Edição proprietária separada (não pública) | Comercial | Multi-tenancy hierárquica / reseller-MSSP, busca federada cross-org/assíncrona, audit & compliance cross-tenant (WORM), HA / fleet. Compilada em **artefato separado**, ativada por licença. |
 
-### 1.2 A seta aponta sempre EE → Core
+Os módulos Enterprise vivem **fora** deste repositório, e o artefato Community **nunca** os
+contém — é isso que torna o gate aplicável e a promessa da Charter (§2) verificável.
+
+### 1.2 A dependência aponta sempre Enterprise → Core
 
 A dependência é **unidirecional**: a Enterprise Edition depende do Core; **o Core nunca
-importa o EE**, com a única exceção de um *hook* de descoberta guardado (import opcional
-com efeito colateral, que falha em silêncio para Community). Não há chave estrangeira
-do Core para o EE. Isto é o que torna o gate aplicável e mantém o M&A limpo.
-
-```
-   centralops-commercial (billing)        centralops-ee (EE, privado)
-              │                                        │
-              │ emite JWT de licença                   │ depende de ↓ (EE → Core)
-              ▼                                        ▼
-   ┌───────────────────────────────────────────────────────────────┐
-   │   SEGARK-oficial/CentralOps  —  CORE (público, AGPLv3)         │
-   │   o Core NUNCA importa o EE (salvo 1 hook de descoberta)       │
-   └───────────────────────────────────────────────────────────────┘
-```
+importa código Enterprise**, com a única exceção de um *hook* de descoberta guardado
+(import opcional com efeito colateral, que falha em silêncio para Community). Não há
+acoplamento do Core para a edição paga — é isso que mantém o Core **100% funcional
+sozinho** e a fronteira limpa.
 
 ### 1.3 Fronteira de contribuição (Community-only)
 
@@ -219,8 +211,8 @@ divulgação coordenada estão em [`SECURITY.md`](SECURITY.md). Contato de segur
 - **Core.** A licença do core é a **AGPLv3** (GNU Affero General Public License v3.0),
   declarada no arquivo [`LICENSE`](LICENSE) na raiz deste repositório. O copyleft de rede
   da AGPLv3 desincentiva o relicenciamento por hyperscaler como SaaS sem reciprocidade.
-- **Enterprise Edition.** Licença comercial proprietária, no repositório privado
-  `centralops-ee`. A EULA (`EULA.md`) rege exclusivamente a edição Enterprise.
+- **Enterprise Edition.** Edição proprietária separada, sob licença comercial. A EULA
+  (`EULA.md`) rege exclusivamente a edição Enterprise.
 - **Contribuições.** Sob **DCO 1.1** (`Signed-off-by`), vinculadas à AGPLv3. Sem CLA, sem
   cessão de copyright (§2.3).
 

@@ -33,8 +33,8 @@ parsed = parse_key_value(string!(.message)) ?? {}
 # Timestamp ISO-8601 que o mapping (iso_to_epoch) espera, com o TEMPO DO EVENTO
 # (não o de coleta). Preferência: eventtime do FortiGate (epoch ns) → timestamp do
 # cabeçalho syslog (já parseado pelo source) → agora (só se ambos ausentes).
-# NUNCA usar só now: destrói a cronologia (correlação/timeline/rate).
-event_ts = .timestamp ?? now
+# NUNCA usar só now(): destrói a cronologia (correlação/timeline/rate).
+event_ts = .timestamp ?? now()
 if exists(.eventtime) {
     ns = to_int(.eventtime) ?? 0
     if ns > 0 {

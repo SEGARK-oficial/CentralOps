@@ -13,7 +13,7 @@ import path from "path"
 // (vs a virtual one) keeps the seam unit-testable.
 
 export default defineConfig({
-  plugins: [react, tailwindcss, svgr],
+  plugins: [react(), tailwindcss(), svgr()],
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),

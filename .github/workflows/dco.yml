@@ -28,7 +28,7 @@ permissions:
 jobs:
   dco-check:
     name: Verifica sign-off DCO em todos os commits
-    runs-on: [self-hosted, Linux, X64]
+    runs-on: ubuntu-latest
     steps:
       # Checkout com histórico COMPLETO: precisamos do range base..head para
       # enumerar os commits do PR (fetch-depth: 0 traz todo o histórico).

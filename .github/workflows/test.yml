@@ -17,7 +17,7 @@ concurrency:
 jobs:
   backend-test:
     name: Backend test sweep (Cython-compiled image)
-    runs-on: [self-hosted, Linux, X64]
+    runs-on: ubuntu-latest
     # The backend-test stage executes the Cython compile + a 1500-test
     # pytest sweep against the .so tree. Build success == tests passed:
     # any failed test fails the docker build via the COPY --from chain.
@@ -51,7 +51,7 @@ jobs:
 
   backend-pg-migrations:
     name: Backend Postgres migration gate (real Postgres)
-    runs-on: [self-hosted, Linux, X64]
+    runs-on: ubuntu-latest
     # Fecha a lacuna que deixou passar o bug DATETIME→TIMESTAMP (PR #124): os
     # unit tests do backend-test rodam em SQLite (DATABASE_URL=sqlite:///:memory:),
     # cuja tipagem frouxa MASCARA erros de DDL/dialeto do Postgres. Este gate

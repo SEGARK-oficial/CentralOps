@@ -74,7 +74,7 @@ billing-plane que verificam a assinatura EdDSA do token OFFLINE. Habilitado quan
 (nome de um ConfigMap pré-criado) é fornecido. É montado em /licensing em TODO pod que
 resolve a edição (api, workers, kafka-dispatcher) e pareado com
 CENTRALOPS_LICENSE_KEYS_DIR=/licensing no ConfigMap. SEM ele, um token válido não pode
-ser verificado e edition.current fail-close para Community — mesmo na imagem EE.
+ser verificado e edition.current() fail-close para Community — mesmo na imagem EE.
 */}}
 {{- define "centralops.licenseKeyring.enabled" -}}
 {{- if or (not (empty .Values.secrets.licenseKeyring)) (not (empty .Values.secrets.existingLicenseKeyring)) -}}true{{- end -}}

@@ -14,8 +14,8 @@ CHART_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 # irrelevant to the keyring, so enable it to get a clean render.
 BASE=(--set devBroker.enabled=true)
 fail=0
-note { printf '  %s %s\n' "$1" "$2"; }
-check { # check <description> <actual> <expected>
+note() { printf '  %s %s\n' "$1" "$2"; }
+check() { # check <description> <actual> <expected>
   if [ "$2" = "$3" ]; then note "✓" "$1"; else note "✗" "$1 (got '$2', want '$3')"; fail=1; fi
 }
 

@@ -24,7 +24,7 @@ REDIS_PASSWORD="${REDIS_PASSWORD:-e2e-redis-pass}"
 
 # Executa o redis-cli dentro do container. -T desabilita TTY (necessário em CI).
 # REDISCLI_AUTH autentica sem expor a senha em texto plano nem emitir warning.
-redis_cli {
+redis_cli() {
   docker compose -f "$COMPOSE_FILE" exec -T \
     -e REDISCLI_AUTH="$REDIS_PASSWORD" \
     "$REDIS_SERVICE" redis-cli "$@"

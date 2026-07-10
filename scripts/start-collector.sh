@@ -72,7 +72,7 @@ fi
 # Antes este worker ESPERAVA o arquivo /app/data/.db_ready escrito pela API —
 # acoplamento por filesystem que não funciona cross-node (k8s) e travava
 # réplicas/multi-node. Agora cada container GARANTE o schema ele mesmo:
-# initialize_database faz _wait_for_db (absorve rede/DNS atrasados do
+# initialize_database() faz _wait_for_db() (absorve rede/DNS atrasados do
 # orquestrador) + DDL idempotente sob pg_advisory_lock — concorrência-segura
 # entre todos os serviços que sobem juntos (verificado: 2+ inits concorrentes
 # sem corrida). Qualquer container pode bootstrapar; sem ordering, sem volume

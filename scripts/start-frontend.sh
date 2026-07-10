@@ -28,7 +28,7 @@ AUTO_SSL_DIR="/etc/nginx/ssl"
 # variáveis de runtime do nginx ($host etc.) de serem apagadas.
 ENVSUBST_VARS='${NGINX_SERVER_NAME} ${API_UPSTREAM} ${NGINX_SSL_CERT_PATH} ${NGINX_SSL_KEY_PATH}'
 
-generate_self_signed_certificate {
+generate_self_signed_certificate() {
     mkdir -p "${AUTO_SSL_DIR}"
     auto_cert_path="${AUTO_SSL_DIR}/selfsigned.crt"
     auto_key_path="${AUTO_SSL_DIR}/selfsigned.key"
@@ -60,7 +60,7 @@ generate_self_signed_certificate {
     export NGINX_SSL_KEY_PATH="${auto_key_path}"
 }
 
-select_nginx_template {
+select_nginx_template() {
     normalized=$(printf '%s' "${ENABLE_HTTPS}" | tr '[:upper:]' '[:lower:]')
     if [ "${normalized}" = "1" ] || [ "${normalized}" = "true" ] || [ "${normalized}" = "yes" ]; then
         if [ -f "${NGINX_SSL_CERT_PATH}" ] && [ -f "${NGINX_SSL_KEY_PATH}" ]; then

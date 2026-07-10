@@ -620,9 +620,9 @@ services:
     image: ${IMAGE_NAME:-centralops}:latest
     entrypoint: ["/usr/local/bin/start-collector.sh"]
     # NÃO usar ``python -m``: na imagem Cython-compilada o módulo é um .so e o -m
-    # falha com "No code object available". Importar o .so e chamar main funciona
+    # falha com "No code object available". Importar o .so e chamar main() funciona
     # tanto compilado quanto em .py (dev). (collectors/ é compilado; db/ não.)
-    command: ["python", "-c", "from app.collectors.dataplane.dispatcher import main; main"]
+    command: ["python", "-c", "from app.collectors.dataplane.dispatcher import main; main()"]
     environment:
       - SERVICE_ROLE=kafka-dispatcher
       - APP_MASTER_KEY=${APP_MASTER_KEY:-}

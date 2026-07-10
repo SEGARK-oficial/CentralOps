@@ -39,13 +39,13 @@ spec:
           image: "{{ include "centralops.image" (dict "img" .Values.image "context" .) }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           # NÃO usar ``python -m``: na imagem Cython-compilada o módulo é um .so e o
-          # -m falha ("No code object available"). Importar o .so + chamar main
+          # -m falha ("No code object available"). Importar o .so + chamar main()
           # funciona compilado e em .py.
           command:
             - "/usr/local/bin/start-collector.sh"
             - "python"
             - "-c"
-            - "from app.collectors.dataplane.dispatcher import main; main"
+            - "from app.collectors.dataplane.dispatcher import main; main()"
           envFrom:
             - configMapRef:
                 name: {{ include "centralops.fullname" . }}-config

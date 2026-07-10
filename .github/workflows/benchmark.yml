@@ -64,7 +64,7 @@ jobs:
     name: Benchmark Regression Gate
     # PR-only. The workflow_dispatch event is handled by repin-baseline below.
     if: github.event_name == 'pull_request'
-    runs-on: [self-hosted, Linux, X64]
+    runs-on: ubuntu-latest
     timeout-minutes: 10
 
     permissions:
@@ -164,7 +164,7 @@ jobs:
   repin-baseline:
     name: Re-pin baseline (manual)
     if: github.event_name == 'workflow_dispatch'
-    runs-on: [self-hosted, Linux, X64]
+    runs-on: ubuntu-latest
     timeout-minutes: 10
 
     permissions:

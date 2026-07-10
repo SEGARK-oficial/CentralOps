@@ -70,7 +70,7 @@ Vulnerabilidades em **dependências de terceiros** devem ser reportadas aqui qua
 
 ### Fora do escopo deste repositório (tratado em canal privado)
 
-O CentralOps adota um modelo **open-core**. Os componentes proprietários **Enterprise** (`centralops-ee`) e **Commercial/billing** (`centralops-commercial`) **não fazem parte deste repositório público** e **não devem ser reportados aqui**. Vulnerabilidades que envolvam esses componentes proprietários — por exemplo, hierarquia multi-tenant/reseller (MSSP), busca federada cross-org/assíncrona, auditoria/compliance cross-tenant ou HA/fleet — são tratadas em **canal privado**: use o e-mail **support@segark.com** indicando tratar-se de componente Enterprise/Commercial.
+O CentralOps adota um modelo **open-core**. Os componentes proprietários da **edição Enterprise** **não fazem parte deste repositório público** e **não devem ser reportados aqui**. Vulnerabilidades que envolvam esses componentes proprietários — por exemplo, hierarquia multi-tenant/reseller (MSSP), busca federada cross-org/assíncrona, auditoria/compliance cross-tenant ou HA/fleet — são tratadas em **canal privado**: use o e-mail **support@segark.com** indicando tratar-se de componente Enterprise.
 
 > Por garantia do projeto (Charter C1), **nenhum código proprietário/EE é versionado neste repositório**; um *gate* automatizado de fronteira impede isso. Se você encontrar o que acredita ser código EE neste repositório público, trate como reporte de segurança/conformidade e use os canais privados acima.
 
