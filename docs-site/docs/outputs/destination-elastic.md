@@ -10,7 +10,7 @@ Um **destino** Elasticsearch / OpenSearch envia os eventos já normalizados pelo
 
 A entrega é feita sem duplicação: se o mesmo evento for reenviado (por exemplo, após uma instabilidade de rede), ele não aparece duas vezes no índice.
 
-:::note Quem configura
+:::note[Quem configura]
 Criar e editar destinos é uma tarefa de **administrador**. As telas de **Destinos**, **Roteamento** e **Fluxo de dados** só aparecem para quem tem perfil de admin. Analistas e operadores conseguem acompanhar a saúde do destino, mas não criá-lo.
 :::
 

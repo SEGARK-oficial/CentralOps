@@ -8,7 +8,7 @@ description: "Como confirmar e corrigir quando um alerta abre (ou deixa de abrir
 
 O CentralOps pode encaminhar alertas para o **DFIR-IRIS**, abrindo um caso de investigação automaticamente. Para isso, cada organização do CentralOps precisa estar associada ao cliente correspondente dentro do IRIS. Quando essa associação está faltando ou aponta para o lugar errado, o caso é criado no cliente errado — ou nenhum caso é aberto. Esta página mostra como confirmar o problema e o que fazer, tudo pela interface web.
 
-:::info Quem faz o quê
+:::info[Quem faz o quê]
 A associação entre uma organização do CentralOps e um cliente do IRIS é configurada pela equipe da plataforma. Como operador, seu papel é **identificar** o sintoma, **conferir** se a integração IRIS está ativa e mapeada, e **acionar** o administrador quando a correção for de infraestrutura. Os passos abaixo deixam claro o que você resolve sozinho e o que precisa de escalonamento.
 :::
 
@@ -50,7 +50,7 @@ O que você pode encontrar:
 | Organização associada ao **cliente errado** | Por isso o caso saiu no cliente errado | Acione o administrador para corrigir a associação |
 | Associação **correta**, mas casos continuam errados | A associação está certa; o problema é mais a fundo | Siga para **Escalonamento** |
 
-:::note Configuração feita no deploy
+:::note[Configuração feita no deploy]
 A ligação técnica entre a organização do CentralOps e o cliente do IRIS é definida pela equipe de infraestrutura no momento do deploy. Se precisar alterá-la, fale com o administrador da plataforma. Esta tela serve para você **conferir** o mapeamento, não para reconfigurá-lo manualmente.
 :::
 
@@ -64,7 +64,7 @@ Se vários alertas foram para o cliente errado (ou não geraram caso) enquanto o
 
 Veja [Quarentena](../operations/quarantine.md) para o passo a passo completo de reprocessamento.
 
-:::tip Conferir o reenvio aos destinos
+:::tip[Conferir o reenvio aos destinos]
 Se a entrega ao IRIS ficou represada durante o problema, o administrador pode acompanhar a fila de reenvio na tela **Operação -> Destinos** e reprocessar o que estiver pendente, sem precisar mexer no alerta original.
 :::
 

@@ -45,7 +45,7 @@ A severidade segue o padrão OCSF (Open Cybersecurity Schema Framework):
 | **Ver Detecções** | Todos os perfis autenticados (escopado por organização). |
 | **Triagem (Ack/Fechar/Reabrir)** | Operator ou superior (mesma permissão de **QUERY_RUN**: rodar buscas ao vivo). |
 
-:::note Erro 403 ao triagar?
+:::note[Erro 403 ao triagar?]
 Se receber erro "acesso negado" ao tentar mudar o status de uma detecção, seu perfil é Viewer. Peça a um Operator que marque como reconhecida/fechada, ou solicite promoção a Operator ao administrador.
 :::
 

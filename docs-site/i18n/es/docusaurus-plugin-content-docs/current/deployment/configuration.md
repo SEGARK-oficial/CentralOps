@@ -10,7 +10,7 @@ CentralOps se configura mediante **variables de entorno**. En Docker Compose pro
 archivo `.env`; en Kubernetes, de un `Secret`/`ConfigMap`. Esta página es la referencia —
 empieza por el `.env.example`, que las incluye todas con comentarios.
 
-:::info Mínimo obligatorio
+:::info[Mínimo obligatorio]
 Para desplegar en producción solo necesitas **`POSTGRES_PASSWORD`** e, idealmente, una
 **`APP_MASTER_KEY`** definida por ti. El resto tiene un valor por defecto seguro.
 :::

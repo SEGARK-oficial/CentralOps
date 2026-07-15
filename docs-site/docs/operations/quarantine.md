@@ -10,7 +10,7 @@ A tela de **Quarentena** reúne os eventos que não conseguiram ser processados 
 
 A Quarentena fica no menu **Normalização -> Quarentena**.
 
-:::note Quem pode agir
+:::note[Quem pode agir]
 Qualquer pessoa com acesso de leitura consegue ver a fila e abrir os detalhes de um evento. As ações de descartar e reprocessar exigem permissão de operação. Se os botões aparecerem desabilitados para você, fale com o administrador da plataforma.
 :::
 

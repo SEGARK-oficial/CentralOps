@@ -49,8 +49,10 @@ Estas etapas são feitas no console do Falcon, não no CentralOps.
 6. Clique em **Add** para confirmar.
 7. O Falcon exibe o **Client ID** e o **Client Secret**.
 
-   :::warning Copie o Client Secret na hora
+   :::warning[Copie o Client Secret na hora]
+
    O **Client Secret** é mostrado uma única vez. Copie e guarde em local seguro (um gerenciador de senhas, por exemplo). Se você perder, será preciso gerar uma nova chave.
+
    :::
 
 ## Passo 2: Identificar sua região
@@ -112,7 +114,7 @@ Se você precisa investigar um indicador específico ou procurar eventos mais re
 
 5. Clique em **Buscar** e acompanhe o progresso. Os resultados chegam em tempo real.
 
-:::info Ajuda com FQL
+:::info[Ajuda com FQL]
 Para aprender a sintaxe completa de FQL, consulte a [documentação oficial do CrowdStrike](https://developer.crowdstrike.com/falcon/documentation/#tag/query-events-get-events).
 :::
 

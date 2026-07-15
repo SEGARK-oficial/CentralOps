@@ -43,8 +43,10 @@ Estas etapas são feitas no console do Sophos, não no CentralOps.
 
 5. Ao concluir, o Sophos exibe o **Client ID** e o **Client Secret**.
 
-   :::warning Copie o Client Secret na hora
+   :::warning[Copie o Client Secret na hora]
+
    O **Client Secret** é mostrado uma única vez. Copie e guarde em local seguro (um gerenciador de senhas, por exemplo). Se você perder, será preciso gerar uma nova credencial.
+
    :::
 
 ## Passo 2: Identificar sua região e o Tenant ID

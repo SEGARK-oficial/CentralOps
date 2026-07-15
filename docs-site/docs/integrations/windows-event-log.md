@@ -38,7 +38,7 @@ Você pode usar também **NXLog** como alternativa (input im_msvistalog → outp
 3. Escolha **Windows Event Log (WEC)** na lista.
 4. Preencha o nome (por exemplo, "Windows Security - Datacenter 01") e salve.
 
-:::note Sem credenciais
+:::note[Sem credenciais]
 A integração Windows Event Log não pede cliente/senha — é uma ingestão PUSH, então o servidor coletor é que faz o envio. Você apenas emite um token no próximo passo.
 :::
 
@@ -129,7 +129,7 @@ Cada evento do Security log chega ao CentralOps com informações como:
 
 Os eventos são normalizados para **OCSF Authentication** e ficam pesquisáveis em **Operação -> Alertas**.
 
-:::info Quarentena
+:::info[Quarentena]
 Se um evento chegar sem timestamp ou com campos faltando, ele será colocado em **Normalização -> Quarentena**. Revise e reprocesse se necessário.
 :::
 

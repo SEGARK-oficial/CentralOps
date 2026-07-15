@@ -10,7 +10,7 @@ O roteamento decide, regra a regra, para quais destinos cada evento vai — ou s
 
 Esta página é um guia de diagnóstico por sintoma. Para entender como o roteamento funciona como um todo (prioridade, regras exclusivas, descarte, percentual gradual), veja antes **[Roteamento por regra](../outputs/routing.md)**.
 
-:::info Tela só de administrador
+:::info[Tela só de administrador]
 As telas de **Roteamento**, **Destinos** e **Fluxo de dados** ficam no grupo **Operação** do menu e só aparecem para administradores da plataforma. Se você não as vê, peça a um administrador para conduzir os passos abaixo.
 :::
 

@@ -47,7 +47,7 @@ O que você pode ajustar por essa tela:
 
 **Testar antes de salvar**: a tela permite validar a conexão com o destino na hora, sem reiniciar nada. Faça isso sempre que mudar endereço, porta ou TLS.
 
-:::note Limites de taxa
+:::note[Limites de taxa]
 Os limites de taxa por fornecedor têm um valor padrão definido pela equipe de infraestrutura no momento do deploy. Se precisar de um limite diferente, fale com o administrador da plataforma.
 :::
 

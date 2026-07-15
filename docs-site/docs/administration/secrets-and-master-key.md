@@ -27,7 +27,7 @@ Você não precisa configurar nada para que isso aconteça. A plataforma cuida d
 - Se alguém tentar adulterar o valor armazenado, ele é rejeitado em vez de ser usado.
 - Senhas de **usuários da plataforma** são tratadas de forma diferente das credenciais de integração: elas usam um resumo de mão única (não podem ser recuperadas por ninguém, nem pelo administrador) e só podem ser **redefinidas** — veja **Administração -> Usuários**.
 
-:::info Configuração de infraestrutura
+:::info[Configuração de infraestrutura]
 A forma como a chave de criptografia da plataforma é gerada, armazenada e rotacionada é definida pela equipe de infraestrutura no momento do deploy. Se precisar alterá-la ou rotacioná-la, fale com o administrador da plataforma. Nada disso é feito pela interface.
 :::
 
@@ -68,7 +68,7 @@ O que o CentralOps faz ao salvar:
 - Testa a conexão com o fornecedor usando o novo segredo.
 - Se o teste passar, a credencial antiga é substituída. Se o teste falhar, a credencial anterior é mantida para não derrubar a coleta.
 
-:::tip Boa prática
+:::tip[Boa prática]
 Nunca compartilhe credenciais de fornecedor por chat ou e-mail. Sempre cadastre-as diretamente pelo formulário de edição da integração — assim elas já entram criptografadas e nunca trafegam em texto puro.
 :::
 

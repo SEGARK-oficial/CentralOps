@@ -12,7 +12,7 @@ CentralOps traz um **Helm chart** que provisiona a API, o frontend, os workers d
 manutenção) e **NetworkPolicies**. É o mesmo artefato Docker do
 [Docker Compose](./docker-compose.md) — só a orquestração muda.
 
-:::tip Quando usar
+:::tip[Quando usar]
 Escolha Kubernetes quando precisar de **escala horizontal, resiliência multi-node ou
 integração com um cluster existente**. Para 1 servidor, o [Docker Compose](./docker-compose.md)
 é mais simples.

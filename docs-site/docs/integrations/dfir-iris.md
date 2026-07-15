@@ -34,7 +34,7 @@ Pontos importantes:
 
 A conexão técnica com o IRIS (endereço do servidor e credencial de acesso) é definida pela equipe de infraestrutura no momento do deploy. Essa configuração não fica numa tela do CentralOps.
 
-:::info Quem configura o quê
+:::info[Quem configura o quê]
 A URL do servidor IRIS e a credencial de acesso **são definidas pela equipe de infraestrutura no momento do deploy. Se precisar alterá-las, fale com o administrador da plataforma.**
 
 Já a associação das organizações aos clientes do IRIS (descrita abaixo) é feita por você, pela interface do CentralOps.
@@ -66,7 +66,7 @@ Para organizações que você cadastra à mão (Sophos fora do modelo Partner, W
 
 Se a organização já tiver uma associação e você precisar refazê-la — por exemplo, trocou de servidor IRIS ou quer corrigir um vínculo errado — use a opção de **reassociar/forçar** na mesma tela.
 
-:::tip Ligou o IRIS com a base já cheia?
+:::tip[Ligou o IRIS com a base já cheia?]
 Se você habilitou o IRIS quando já tinha muitas organizações cadastradas, repita o passo de associação para cada uma. Se forem muitas, peça ao administrador da plataforma para executar a associação em lote.
 :::
 

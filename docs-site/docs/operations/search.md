@@ -10,7 +10,7 @@ A tela **Investigações** é onde você procura por eventos de segurança que j
 
 Para abrir, acesse o menu **Operação → Investigações**.
 
-:::info Busca ao vivo federada (multi-vendor)
+:::info[Busca ao vivo federada (multi-vendor)]
 A tela de Investigações cobre **eventos já entregues** aos seus destinos. Se você precisa rodar uma **busca ao vivo** direto nas suas integrações (Sophos, Wazuh, CrowdStrike, Defender etc.) de forma federada e assíncrona, veja [Busca Federada](./federated-search.md).
 :::
 
@@ -22,13 +22,13 @@ A tela de Investigações cobre **eventos já entregues** aos seus destinos. Se 
 
 ## Permissões necessárias
 
-:::note Rodar query AO VIVO exige Operator ou superior
+:::note[Rodar query AO VIVO exige Operator ou superior]
 A tela de Investigações permite buscar eventos **já entregues aos seus destinos** com filtros e palavras-chave. Se o seu papel é Viewer, você consegue ver os resultados já coletados sem restrição.
 
 Porém, **rodar uma busca AO VIVO na fonte** (que dispara coleta no cliente e custa $) exige papel **Operator** ou superior. Se você tentar buscar e receber erro 403, é porque sua conta está como Viewer. Peça ao administrador para promovê-lo a Operator.
 :::
 
-:::note Salvar query exige Engineer ou superior
+:::note[Salvar query exige Engineer ou superior]
 Salvar uma busca para reutilizar depois, ou agendar uma busca para rodar automaticamente, exige papel **Engineer** ou superior. Viewer e Operator conseguem rodar buscas, mas não salvar.
 :::
 

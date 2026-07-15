@@ -219,7 +219,7 @@ Deixe os campos em branco para usar os padrões do tipo.
 Alguns ajustes mais avançados de processamento (concorrência, limites de fila, tempo limite de envio) são definidos pela equipe de infraestrutura no momento do deploy. Se precisar alterá-los, fale com o administrador da plataforma.
 :::
 
-:::caution Campos ainda sem efeito
+:::caution[Campos ainda sem efeito]
 Os campos de **camada de armazenamento** (hot/cold) e **dias de retenção** são informativos nesta versão: você pode preenchê-los para registrar a intenção, mas eles ainda **não executam** mudança de armazenamento nem expiração automática. Trate-os como anotação até que essa função seja liberada.
 :::
 

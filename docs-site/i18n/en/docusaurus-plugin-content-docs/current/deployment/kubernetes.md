@@ -12,7 +12,7 @@ ships a **Helm chart** that provisions the API, the frontend, the collection wor
 maintenance), and **NetworkPolicies**. It is the same Docker artifact as
 [Docker Compose](./docker-compose.md) — only the orchestration changes.
 
-:::tip When to use
+:::tip[When to use]
 Choose Kubernetes when you need **horizontal scaling, multi-node resilience, or
 integration with an existing cluster**. For a single server, [Docker Compose](./docker-compose.md)
 is simpler.

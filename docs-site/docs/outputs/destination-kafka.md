@@ -10,7 +10,7 @@ O destino **Apache Kafka** publica os eventos já normalizados do CentralOps em 
 
 Cada evento vira uma mensagem no tópico. As mensagens são entregues de forma idempotente, ou seja, o CentralOps evita duplicar o mesmo evento no tópico mesmo quando precisa reenviar um lote.
 
-:::info Quem configura
+:::info[Quem configura]
 Criar e configurar destinos é uma tarefa de **administrador** da plataforma. As telas citadas aqui (**Destinos**, **Roteamento**, **Fluxo de dados**) só aparecem para administradores.
 :::
 
@@ -37,7 +37,7 @@ Ao cadastrar o destino, o CentralOps pede os dados de conexão com o cluster Kaf
 | **Verificar certificado (TLS)** | Mantenha **ativado** em produção para validar o certificado do broker. |
 | **Confirmações (acks)** | Nível de confirmação de gravação. O recomendado é **todas** (`all`), que garante maior durabilidade. |
 
-:::tip Não tem esses dados?
+:::tip[Não tem esses dados?]
 Endereços dos brokers, tópico, protocolo, usuário e senha são fornecidos por quem administra o cluster Kafka. Se você ainda não os tem, peça ao administrador do cluster Kafka antes de cadastrar o destino. A criação do tópico e dos usuários de autenticação é feita pela equipe que opera o Kafka — não é feita pela interface do CentralOps.
 :::
 
@@ -100,7 +100,7 @@ A conferência das mensagens dentro do próprio tópico Kafka é feita por quem 
 | **Ordem preservada por evento** | Eventos relacionados a uma mesma chave caem sempre na mesma partição, preservando a ordem entre eles. |
 | **Maior durabilidade** | Com **Confirmações = todas**, o broker só confirma a gravação depois que as réplicas registram a mensagem, reduzindo o risco de perda quando o cluster tem várias réplicas. |
 
-:::note Sobre "não duplicar"
+:::note[Sobre "não duplicar"]
 A proteção contra duplicados acontece no envio do CentralOps para o Kafka. Ela **não** garante automaticamente que a sua ferramenta consumidora processe cada evento uma única vez. Quem consome o tópico deve tratar a possibilidade de reprocessamento do lado do consumidor (por exemplo, ignorando um evento já visto). Configure isso com a equipe que opera o consumidor.
 :::
 
@@ -127,7 +127,7 @@ A tabela abaixo separa o que **você resolve pela interface** do que precisa do 
 | **Destino inativo até cadastrar a senha** | O destino fica inativo enquanto não houver uma credencial válida. Cadastre a senha no campo indicado e teste a conexão para reativá-lo. |
 | **Eventos não estão chegando ao destino** | Verifique se existe uma regra de roteamento ativa apontando para esse destino (**Operação → Roteamento**) e se o filtro não está excluindo os eventos. Acompanhe o caminho em **Operação → Fluxo de dados**. |
 
-:::caution Quando precisar da equipe de infraestrutura
+:::caution[Quando precisar da equipe de infraestrutura]
 A criação do tópico, dos usuários e a disponibilidade do cluster Kafka são responsabilidade de quem opera o Kafka. Esses pontos são definidos fora da plataforma. Se precisar deles, fale com o administrador da plataforma ou com o administrador do cluster Kafka.
 :::
 

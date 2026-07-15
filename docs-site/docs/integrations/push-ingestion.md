@@ -40,8 +40,10 @@ Algumas fontes de segurança não têm uma API de polling — elas **empurram ev
 2. Clique em **Emitir token** para gerar um novo token.
 3. O token é mostrado **uma única vez**. Copie e guarde em local seguro (você vai precisar configurar no edge-collector).
 
-   :::warning Copie o token na hora
+   :::warning[Copie o token na hora]
+
    Após fechar o painel, o token não será exibido novamente. Se precisar dele depois, use **Rotacionar token** (que invalida o anterior e emite um novo).
+
    :::
 
 ## Passo 3: Configurar o edge-collector

@@ -10,7 +10,7 @@ Cada rota de envio pode **mascarar dados pessoais (PII)** antes de entregar o ev
 
 O ponto central: a redação é configurada **por rota**, não no evento inteiro. Uma rota mascara; outra preserva. A origem é a mesma, só o que cada destino enxerga muda.
 
-:::info Quem usa esta tela
+:::info[Quem usa esta tela]
 A configuração de rotas e de redação fica em telas de administrador. Operadores e analistas conseguem **auditar** o resultado (ver quais campos foram mascarados), mas a edição das regras é feita por um administrador da plataforma.
 :::
 
@@ -74,7 +74,7 @@ A redação faz parte da configuração de uma rota de envio.
 3. Para cada campo sensível, adicione uma regra de redação escolhendo o campo e uma das quatro ações acima.
 4. Salve. A plataforma valida a configuração: regras inválidas (campo inexistente ou ação desconhecida) são recusadas no momento de salvar, com uma mensagem indicando o problema.
 
-:::note Edição avançada de regras
+:::note[Edição avançada de regras]
 Dependendo da versão do seu ambiente, as regras de redação podem ser editadas em um formulário guiado por campo ou em um editor de regras mais técnico dentro da tela de **Roteamento**. Se você não encontrar a opção de redação ao editar a rota, fale com o administrador da plataforma — o recurso pode não estar habilitado neste ambiente.
 :::
 

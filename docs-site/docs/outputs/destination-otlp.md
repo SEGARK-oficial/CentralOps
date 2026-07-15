@@ -54,7 +54,7 @@ Todos os passos abaixo são feitos pela interface, no menu **Operação → Dest
 
 **Autenticação por token:** se o backend exigir um token, escolha a opção de usar um segredo armazenado durante a criação. O CentralOps adiciona o token automaticamente na requisição; cabeçalhos manuais nunca substituem essa autenticação.
 
-:::note Certificado de CA própria
+:::note[Certificado de CA própria]
 Se o seu backend usa uma autoridade certificadora (CA) própria, o certificado correspondente é instalado pela equipe de infraestrutura no momento do deploy. Se precisar disso, fale com o administrador da plataforma — não há upload de certificado pela interface.
 :::
 

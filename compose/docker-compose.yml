@@ -28,7 +28,7 @@ services:
       context: ..
       dockerfile: compose/Dockerfile
       target: final
-    image: ${IMAGE_NAME:-centralops}:latest
+    image: ${IMAGE_NAME:-centralops}:${IMAGE_TAG:-latest}
     environment:
       - DEBUG_REQUESTS=${DEBUG_REQUESTS:-0}
       - APP_MASTER_KEY=${APP_MASTER_KEY:-}
@@ -102,7 +102,7 @@ services:
       target: frontend
       args:
         VITE_BACKEND_URL: ${VITE_BACKEND_URL:-/api}
-    image: ${IMAGE_NAME:-centralops}-frontend:latest
+    image: ${IMAGE_NAME:-centralops}-frontend:${IMAGE_TAG:-latest}
     environment:
       - NGINX_SERVER_NAME=${NGINX_SERVER_NAME:-_}
       - ENABLE_HTTPS=${ENABLE_HTTPS:-1}
@@ -254,7 +254,7 @@ services:
     # Celery faz warm shutdown no SIGTERM (recebido direto, pois o
     # entrypoint faz exec do celery). Coleta priority é curta; 120s sobra.
     stop_grace_period: 120s
-    image: ${IMAGE_NAME:-centralops}:latest
+    image: ${IMAGE_NAME:-centralops}:${IMAGE_TAG:-latest}
     # Bypassa o CMD da imagem (``start-api.sh``) e sobe direto o worker Celery.
     # Diretório de trabalho do imagem final é ``/app`` com o módulo em
     # ``app/collectors``. Celery resolve ``backend.app.collectors`` via
@@ -336,7 +336,7 @@ services:
     # cobri-lo p/ o warm shutdown drenar a task em voo em vez de SIGKILL (com
     # task_acks_late, um SIGKILL só re-entrega — desperdício, não perda).
     stop_grace_period: 930s
-    image: ${IMAGE_NAME:-centralops}:latest
+    image: ${IMAGE_NAME:-centralops}:${IMAGE_TAG:-latest}
     entrypoint: ["/usr/local/bin/start-collector.sh"]
     command:
       - celery
@@ -417,7 +417,7 @@ services:
     # tenants Sophos retorna 200 no producer mas fica encarcerado no Redis — bug
     # silencioso (diagnóstico 2026-05-06). Grace 300s: purge/sync moderados.
     stop_grace_period: 300s
-    image: ${IMAGE_NAME:-centralops}:latest
+    image: ${IMAGE_NAME:-centralops}:${IMAGE_TAG:-latest}
     entrypoint: ["/usr/local/bin/start-collector.sh"]
     command:
       - celery
@@ -483,7 +483,7 @@ services:
     # Tasks: collectors.query.run_job (query_tasks.run_query_job). Grace cobre o
     # time_limit=900s da task para drenar a query em voo no warm shutdown.
     stop_grace_period: 930s
-    image: ${IMAGE_NAME:-centralops}:latest
+    image: ${IMAGE_NAME:-centralops}:${IMAGE_TAG:-latest}
     entrypoint: ["/usr/local/bin/start-collector.sh"]
     command:
       - celery
@@ -542,7 +542,7 @@ services:
     # uma task de dispatch é limitada por task_time_limit=900s;
     # grace ≥ isso garante drain do envio em voo ao destino antes do encerramento.
     stop_grace_period: 930s
-    image: ${IMAGE_NAME:-centralops}:latest
+    image: ${IMAGE_NAME:-centralops}:${IMAGE_TAG:-latest}
     entrypoint: ["/usr/local/bin/start-collector.sh"]
     command:
       - celery
@@ -617,7 +617,7 @@ services:
   # por réplicas (consumer group ``centralops-dispatcher``; no k8s = KEDA por lag).
   collector-kafka-dispatcher:
     stop_grace_period: 930s
-    image: ${IMAGE_NAME:-centralops}:latest
+    image: ${IMAGE_NAME:-centralops}:${IMAGE_TAG:-latest}
     entrypoint: ["/usr/local/bin/start-collector.sh"]
     # NÃO usar ``python -m``: na imagem Cython-compilada o módulo é um .so e o -m
     # falha com "No code object available". Importar o .so e chamar main() funciona
@@ -672,7 +672,7 @@ services:
   collector-beat:
     # o beat só agenda (não executa tasks longas); 30s sobra.
     stop_grace_period: 30s
-    image: ${IMAGE_NAME:-centralops}:latest
+    image: ${IMAGE_NAME:-centralops}:${IMAGE_TAG:-latest}
     entrypoint: ["/usr/local/bin/start-collector.sh"]
     command:
       - celery

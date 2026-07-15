@@ -50,7 +50,7 @@ Estas etapas são feitas no Azure, não no CentralOps.
 4. Escolha a data de expiração (recomenda-se 1 ou 2 anos).
 5. Clique em **Add** (Adicionar).
 
-:::warning Copie o segredo na hora
+:::warning[Copie o segredo na hora]
 O **Client Secret** (Value) é mostrado apenas uma vez. Copie e guarde em local seguro (gerenciador de senhas ou cofre de segredos). Se perder, será preciso gerar um novo.
 :::
 
@@ -114,7 +114,7 @@ A partir da integração criada, você pode executar **advanced hunting** (busca
 5. Defina a janela de tempo (até 30 dias).
 6. Clique em **Executar**. O CentralOps faz a busca no Defender e mostra os resultados.
 
-:::note Sintaxe KQL
+:::note[Sintaxe KQL]
 A sintaxe segue exatamente o Kusto Query Language do Microsoft Defender. Para detalhes e exemplos, consulte a [documentação oficial do KQL](https://learn.microsoft.com/en-us/azure/data-explorer/kusto/query/).
 :::
 

@@ -13,13 +13,13 @@ organização — pensada para MSSPs e SOCs multi-tenant.
 
 ## O que está sempre livre (Community)
 
-Segurança de base **nunca** fica atrás de paywall:
+Os recursos de segurança de base ficam na edição Community:
 
 - **Ingestão de todas as fontes** — Sophos, Microsoft Defender, Wazuh, NinjaOne e
   qualquer vendor via registry de plugins; syslog, APIs, S3, Kafka e push de edge.
 - **Normalização OCSF** com a DSL versionada (CML), dry-run e rollback.
 - **Roteamento para 14+ destinos** (SIEMs, data lakes) com quarentena e drift detection.
-- **SSO / OIDC (Entra)** + **RBAC** — sem "taxa de SSO".
+- **SSO / OIDC (Entra)** + **RBAC**.
 - **Criptografia / KMS** e **redação de PII** no pipeline.
 - **Auditoria append-only** de base e o **servidor MCP** para automação.
 
@@ -34,18 +34,14 @@ Segurança de base **nunca** fica atrás de paywall:
 
 ## Como o gate funciona
 
-A separação é **honesta e verificável**:
+A separação é **verificável**:
 
 - O artefato Community **nunca** contém o código Enterprise — os módulos pagos são
   distribuídos como uma **imagem separada, ativada por licença**.
 - A licença é um **JWT assinado (EdDSA)** verificado **offline** contra um keyring
   **público** embutido no produto. Sem uma licença válida, o produto roda **fail-closed
   como Community** — nada quebra, os recursos Enterprise apenas ficam inativos.
-- A licença tem **expiração curta** e uma **lista de revogação** offline: assinar ativa,
-  churn desativa.
-
-Isso é o mesmo padrão de projetos como GitLab e Grafana: o core é genuinamente aberto e
-útil, e a monetização vem das capacidades que escalam com a organização.
+- A licença tem **expiração curta** e uma **lista de revogação** offline.
 
 ## Pronto para a Enterprise?
 

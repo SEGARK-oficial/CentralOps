@@ -50,7 +50,7 @@ Após salvar, a integração exibe um painel **"Ingestão push"** com o token de
 1. Clique em **"Emitir novo token"** (se não houver um ativo).
 2. Copie o token completo e guarde com segurança.
 
-:::warning Guarde o token com segurança
+:::warning[Guarde o token com segurança]
 O token é uma credencial sensível. Revogue e emita um novo se suspeitar que foi comprometido.
 :::
 
@@ -100,7 +100,7 @@ end
 
 Substitua `<IP_DO_VECTOR>` pelo endereço IP ou nome do host da máquina onde Vector está rodando. O formato **deve ser "default"** — assim o FortiGate envia pares chave=valor que o Vector consegue fazer parse.
 
-:::info Testar conectividade
+:::info[Testar conectividade]
 Se o FortiGate não conseguir alcançar Vector, confirme:
 - IP ou nome de host corretos.
 - Firewall permite saída UDP 5514 do FortiGate.
@@ -141,7 +141,7 @@ Cada evento de tráfego do FortiGate normaliza para o padrão **OCSF Network Act
 
 O CentralOps converte automaticamente para OCSF. Se um evento não puder ser normalizado (por exemplo, campo timestamp inválido), vai para a **Quarentena** (menu **Normalização -> Quarentena**) para revisar.
 
-:::note Timestamp obrigatório
+:::note[Timestamp obrigatório]
 Vector adiciona um timestamp ISO-8601 automaticamente. Confirme que o FortiGate está sincronizado com NTP.
 :::
 

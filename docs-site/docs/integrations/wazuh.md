@@ -54,7 +54,7 @@ Os certificados, endereços de rede e credenciais de serviço são definidos pel
 
 **O que o CentralOps coleta:** a cada poucos minutos, ele lê os alertas mais recentes do Wazuh Indexer e os normaliza automaticamente — convertendo campos como data/hora, severidade e título para o formato padronizado da plataforma. Você não precisa configurar nada para isso: a coleta começa assim que a integração é salva e validada.
 
-:::warning Anti-loop: Wazuh como fonte e destino
+:::warning[Anti-loop: Wazuh como fonte e destino]
 Um evento **coletado de um Wazuh nunca é reenviado para o mesmo Wazuh**. Internamente, o CentralOps suprime eventos de fonte Wazuh quando seriam entregues ao destino padrão de segurança (wazuh-default) ou a qualquer destino syslog que aponte de volta ao manager do qual o evento foi coletado. Sem essa supressão, o evento seria reindexado no Wazuh → recoletado como novo → entregue novamente, causando um loop infinito.
 
 Se você roteá-lo para um syslog cujo host coincida com o host do manager Wazuh, ele será suprimido (contabilizado como `loop_blocked` em log). Isso é **intencional e não é uma perda** — é um design para quebrar o acoplamento bidirecional. Se você quiser redirecionar eventos coletados de um Wazuh A para outro Wazuh B, use endereços diferentes.
@@ -64,7 +64,7 @@ Se você roteá-lo para um syslog cujo host coincida com o host do manager Wazuh
 
 A partir da versão 2.0, o CentralOps roteia eventos normalizados para **vários destinos em paralelo** (Wazuh, Splunk, S3, Sentinel e outros). O Wazuh é apenas um dos destinos possíveis — não o destino único.
 
-:::note Disponível apenas para administradores
+:::note[Disponível apenas para administradores]
 As telas **Destinos**, **Roteamento** e **Fluxo de dados** só aparecem para administradores da plataforma. Se você não as vê no menu, fale com um administrador.
 :::
 

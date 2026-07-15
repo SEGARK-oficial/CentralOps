@@ -10,7 +10,7 @@ O destino **CrowdStrike Falcon Next-Gen SIEM** entrega os eventos já normalizad
 
 Esta tela só aparece para administradores da plataforma.
 
-:::note Não confunda com a integração CrowdStrike
+:::note[Não confunda com a integração CrowdStrike]
 O CrowdStrike tem dois papéis no CentralOps:
 - **Integração (fonte):** coleta detecções do Falcon para o CentralOps. Veja [CrowdStrike Falcon](../integrations/crowdstrike.md).
 - **Destino:** envia eventos normalizados do CentralOps para o Falcon Next-Gen SIEM. Este documento.

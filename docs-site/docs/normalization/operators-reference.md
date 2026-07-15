@@ -22,7 +22,7 @@ Quando um operador não consegue converter um valor (por exemplo, uma data em fo
 
 Ao longo desta página, "vai para quarentena" significa exatamente isso — o evento fica retido e visível na tela de Quarentena até você ajustar a regra e reprocessar.
 
-:::tip Como testar antes de salvar
+:::tip[Como testar antes de salvar]
 O editor de mapeamento permite testar o resultado de uma regra contra eventos de exemplo antes de publicar. Use esse teste para confirmar que a conversão produz o valor esperado e não manda eventos para quarentena.
 :::
 

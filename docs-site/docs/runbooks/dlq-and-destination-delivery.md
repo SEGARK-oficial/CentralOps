@@ -8,7 +8,7 @@ description: Diagnostique e reprocesse eventos que falharam ao serem entregues a
 
 Quando um evento já normalizado não consegue ser entregue a um destino (por exemplo Splunk, Amazon S3 ou Microsoft Sentinel), o CentralOps não o descarta: ele guarda o evento na **fila de reenvio** daquele destino. Esta página mostra como inspecionar essa fila, descobrir por que a entrega falhou e reprocessar os eventos pela interface, sem perder nada.
 
-:::info Quem tem acesso
+:::info[Quem tem acesso]
 As telas de **Destinos**, **Roteamento** e **Fluxo de dados** só aparecem para administradores da plataforma. Se você não as vê no menu, peça ao administrador para conduzir os passos abaixo.
 :::
 

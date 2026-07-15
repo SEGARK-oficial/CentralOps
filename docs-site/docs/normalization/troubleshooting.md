@@ -25,7 +25,7 @@ Você nunca precisa de terminal nem de editor de texto externo. Toda mudança de
 | **Normalizacao -> Saude do Pipeline** | Visão geral de quanto de cada fonte está sendo normalizado com sucesso. |
 | **Normalizacao -> Mappings** | O editor onde você corrige as regras, pré-visualiza o resultado e publica uma nova versão. |
 
-:::tip Antes de editar
+:::tip[Antes de editar]
 No editor de mapeamento (**Normalizacao -> Mappings**), use a pré-visualização de expressão para validar o caminho de um campo contra um evento de amostra **antes** de salvar. Assim você confirma se o campo existe e como ele chega, sem sair da interface.
 :::
 

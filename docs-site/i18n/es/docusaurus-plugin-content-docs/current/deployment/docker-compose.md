@@ -11,7 +11,7 @@ plataforma necesita — API, workers de recolección (Celery), planificador, Red
 frontend (Nginx) — en un único host. Ideal para **evaluación, desarrollo y producción
 en single-host**.
 
-:::tip Cuándo usar
+:::tip[Cuándo usar]
 - **Docker Compose** (esta página): 1 servidor, empezar rápido.
 - **[Kubernetes / Helm](./kubernetes.md)**: producción a escala, multi-nodo, HA.
 :::

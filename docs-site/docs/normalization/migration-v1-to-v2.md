@@ -10,7 +10,7 @@ O CentralOps transforma cada evento de um vendor (Sophos, Wazuh, Microsoft Defen
 
 Os mapeamentos antigos continuam funcionando — você só precisa atualizar um deles quando quiser usar um desses recursos novos. Esta página mostra quando vale a pena e como fazer, sempre pela interface.
 
-:::tip O formato atual já é o padrão
+:::tip[O formato atual já é o padrão]
 Mapeamentos novos que você cria pela tela de **Mappings** já nascem no formato atual. Não há nenhuma ação obrigatória da sua parte: este guia é só para quem quer **adicionar um recurso novo a um mapeamento antigo**.
 :::
 

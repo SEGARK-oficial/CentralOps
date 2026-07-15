@@ -12,7 +12,7 @@ Para acessar, use o menu **Operação → Alertas**.
 
 **Quem pode ver:** todos os perfis com acesso de leitura ou superior.
 
-:::note Alertas vs. Detecções
+:::note[Alertas vs. Detecções]
 Esta tela mostra **eventos normalizados coletados** de suas integrações (antivírus, EDR, SIEM, etc.). Se você quer analisar **detecções de 1ª classe geradas por correlação ou buscas federadas**, vá em **Operação → Detecções**. Alertas = eventos brutos; Detecções = análise feita por regras e queries.
 :::
 
@@ -26,7 +26,7 @@ Esta tela mostra **eventos normalizados coletados** de suas integrações (antiv
 
 A tela de Alertas é acessível a todos os perfis (Viewer e acima). Você consegue filtrar por severidade, plataforma, data e palavra-chave, e ver os eventos que já foram coletados e normalizados.
 
-:::note Filtro por palavra-chave em alertas
+:::note[Filtro por palavra-chave em alertas]
 Se você digitar um termo na busca de **Palavra-chave** e receber erro 403 (acesso negado), é porque sua conta é Viewer. Esse filtro dispara uma busca AO VIVO na fonte (custa $), que só Operator e superior conseguem fazer. 
 
 Para investigação com palavras-chave, peça a um Operator que rode a busca pela tela de **Investigações**, ou solicite ao administrador para promovê-lo a Operator.

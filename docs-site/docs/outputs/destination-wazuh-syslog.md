@@ -55,7 +55,7 @@ O Wazuh recebe o alerta como JSON e enxerga, além dos campos do evento, um bloc
 
 > **Os eventos não aparecem no Wazuh?** Na configuração padrão, o Wazuh reconhece automaticamente os eventos em formato RFC 3164 enviados pelo CentralOps. Se mesmo assim eles não surgirem, peça ao administrador do Wazuh para confirmar que o reconhecimento de eventos em JSON está ativo no receptor.
 
-:::info Anti-loop: Wazuh como fonte
+:::info[Anti-loop: Wazuh como fonte]
 Se você coletou eventos **de um Wazuh** e está tentando roteá-los de volta **para o mesmo Wazuh** via destino syslog, eles serão **suprimidos** para evitar um loop infinito (evento coletado → reenviado → recoletado). Essa supressão é registrada em log como `loop_blocked`. Se você quiser reenviá-los a outro Wazuh, use um endereço de network diferente para cada um. Para mais detalhes, veja a documentação de [Wazuh](../integrations/wazuh.md).
 :::
 

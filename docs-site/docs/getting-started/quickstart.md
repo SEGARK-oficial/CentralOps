@@ -79,7 +79,7 @@ Se o destino não existir ou estiver desativado, crie um novo:
 - Preencha os dados de conexão do seu Wazuh (endereço, porta e segurança da conexão).
 - **Teste a conexão** e **salve**.
 
-:::tip Quem configura os dados de conexão do destino?
+:::tip[Quem configura os dados de conexão do destino?]
 O endereço, a porta e os certificados do seu Wazuh costumam ser definidos pela equipe de infraestrutura no momento do deploy. Se você não souber esses valores, fale com o administrador da plataforma antes de criar o destino.
 :::
 

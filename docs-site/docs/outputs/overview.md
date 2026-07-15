@@ -74,7 +74,7 @@ O CentralOps entrega para os tipos de destino abaixo. Ao criar um destino, você
 | Google SecOps (Chronicle) | Enviar para o SIEM do Google. |
 | Amazon Security Lake | Arquivar em formato OCSF padronizado na AWS. |
 
-:::note Destino Wazuh padrão
+:::note[Destino Wazuh padrão]
 O destino **Wazuh** já vem pronto e entrega exatamente como na versão anterior do produto, sem mudança de comportamento. Ele aparece na lista de destinos como qualquer outro. Veja [Destino Wazuh](./destination-wazuh-syslog.md).
 :::
 

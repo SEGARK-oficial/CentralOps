@@ -33,7 +33,7 @@ así que el upgrade y el downgrade son reversibles.
    - **`registry_credential`** — usuario + token para descargar las imágenes Enterprise privadas.
    - **`images`** — las refs exactas de las imágenes Enterprise (fija estas tags).
 
-:::info Seguridad
+:::info[Seguridad]
 La credencial de pull solo controla la **descarga** de la imagen. La activación real de las funcionalidades es
 la **licencia**, verificada offline. Guarda el `license_token` y usa siempre las dos — usuario
 **y** token — del `registry_credential`.

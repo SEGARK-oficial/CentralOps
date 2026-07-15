@@ -27,7 +27,7 @@ Use o destino S3 quando precisar de armazenamento durável e de baixo custo para
 | **Sem duplicatas no reenvio** | Quando o **mesmo lote** de eventos é reenviado, o CentralOps sobrescreve o arquivo existente em vez de criar uma cópia — o reenvio é seguro e não infla o bucket. |
 | **Retenção** | Este destino é classificado como armazenamento de retenção longa, com aplicação automática do prazo de retenção configurado. |
 
-:::info Sobre duplicatas na leitura
+:::info[Sobre duplicatas na leitura]
 Se um lote for reprocessado de forma **parcial** (por exemplo, quando alguns eventos voltam pela fila de reenvio), o CentralOps pode gravar um arquivo novo em vez de sobrescrever — então, em casos raros, o mesmo evento pode aparecer em dois arquivos. Cada evento carrega um identificador único, e as ferramentas de consulta do lago conseguem remover duplicados por esse identificador na hora da leitura. Isso é esperado e não indica erro.
 :::
 
@@ -39,7 +39,7 @@ Para que o CentralOps consiga gravar no bucket, três coisas precisam estar pron
 2. **Permissão de acesso ao bucket.** O CentralOps precisa de permissão para ler, gravar, listar e apagar objetos no bucket. Quem cuida da conta de nuvem deve conceder essa permissão à plataforma — seja por uma identidade gerenciada da própria nuvem, seja por uma chave de acesso. Se você não administra a conta de nuvem, peça ao seu administrador de nuvem que prepare a permissão antes de continuar.
 3. **A credencial de acesso disponível no CentralOps**, caso o acesso seja por chave (veja o passo a passo abaixo).
 
-:::note Forma de autenticação
+:::note[Forma de autenticação]
 A escolha entre usar a identidade gerenciada da nuvem (sem chave explícita) ou uma chave de acesso, e a permissão correspondente, é definida pela equipe de infraestrutura no momento do deploy e da configuração da conta de nuvem. Se precisar alterá-la, fale com o administrador da plataforma ou com o administrador de nuvem.
 :::
 

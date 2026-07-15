@@ -33,7 +33,7 @@ Community — so the upgrade and the downgrade are reversible.
    - **`registry_credential`** — username + token to pull the private Enterprise images.
    - **`images`** — the exact Enterprise image refs (pin these tags).
 
-:::info Security
+:::info[Security]
 The pull credential only controls the image **download**. The actual feature activation is
 the **license**, verified offline. Keep the `license_token` and always use both — username
 **and** token — from the `registry_credential`.
