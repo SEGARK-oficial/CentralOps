@@ -11,8 +11,10 @@ const config: Config = {
     v4: true,
   },
 
-  url: 'https://segark-oficial.github.io',
-  baseUrl: '/CentralOps/',
+  // Custom domain (GitHub Pages): CNAME docs.segark.com → segark-oficial.github.io.
+  // O arquivo static/CNAME mantém o domínio a cada deploy do gh-pages.
+  url: 'https://docs.segark.com',
+  baseUrl: '/',
 
   organizationName: 'SEGARK-oficial',
   projectName: 'CentralOps',

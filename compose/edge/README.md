@@ -11,7 +11,7 @@ token de ingestão.
 | `docker-compose.edge.yml` | sobe o Vector do FortiGate | Docker Compose | — |
 
 Passo a passo completo (criar integração, emitir token, validar) na
-[documentação](https://segark-oficial.github.io/CentralOps).
+[documentação](https://docs.segark.com).
 
 ## Rápido (FortiGate)
 

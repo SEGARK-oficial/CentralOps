@@ -224,4 +224,4 @@ Charter (§2) e financiar a manutenção do Core sem fechar a base.
 ### Referências
 
 - [`README.md`](README.md) · [`CONTRIBUTING.md`](CONTRIBUTING.md) · [`SECURITY.md`](SECURITY.md)
-- Documentação: [segark-oficial.github.io/CentralOps](https://segark-oficial.github.io/CentralOps)
+- Documentação: [docs.segark.com](https://docs.segark.com)

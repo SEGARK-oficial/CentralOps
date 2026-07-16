@@ -5,7 +5,7 @@
  * via env `VITE_DOCS_BASE_URL` para apontar a um portal interno/staging.
  */
 
-const DEFAULT_DOCS_BASE = "https://segark-oficial.github.io/CentralOps"
+const DEFAULT_DOCS_BASE = "https://docs.segark.com"
 const DOCS_BASE_URL =
   ((import.meta as unknown as { env?: Record<string, string | undefined> }).env?.VITE_DOCS_BASE_URL ??
     DEFAULT_DOCS_BASE).replace(/\/+$/, "")

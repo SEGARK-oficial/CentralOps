@@ -3,7 +3,7 @@
 # CentralOps is public, so Pages is free and publishes directly from this repo —
 # no separate docs repo and no PAT required. One-time setup (repo admin):
 #   Settings > Pages > Source: "Deploy from a branch" > Branch: gh-pages / (root).
-# Published URL: https://segark-oficial.github.io/CentralOps/
+# Published URL: https://docs.segark.com/
 # (baseUrl in docs-site/docusaurus.config.ts must match: "/CentralOps/".)
 
 name: Deploy Docs

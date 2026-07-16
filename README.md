@@ -7,7 +7,7 @@
 [![Build](https://img.shields.io/github/actions/workflow/status/SEGARK-oficial/CentralOps/build-and-publish.yml?branch=main)](https://github.com/SEGARK-oficial/CentralOps/actions/workflows/build-and-publish.yml)
 [![Release](https://img.shields.io/github/v/release/SEGARK-oficial/CentralOps)](https://github.com/SEGARK-oficial/CentralOps/releases)
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](LICENSE)
-[![Docs](https://img.shields.io/badge/docs-segark--oficial.github.io-informational)](https://segark-oficial.github.io/CentralOps)
+[![Docs](https://img.shields.io/badge/docs-docs.segark.com-informational)](https://docs.segark.com)
 
 </div>
 
@@ -147,7 +147,7 @@ CentralOps is pluggable on both sides — **input** (vendors) and **output** (de
 Full guides — install, concepts, CML reference and cookbook, integrations, and SRE
 runbooks — live in the documentation:
 
-📖 **[segark-oficial.github.io/CentralOps](https://segark-oficial.github.io/CentralOps)**
+📖 **[docs.segark.com](https://docs.segark.com)**
 
 ## Community & support
 

@@ -1,7 +1,7 @@
 # kubernetes/
 
 Manifests de Kubernetes do CentralOps. O guia de deployment em Kubernetes está na
-[documentação](https://segark-oficial.github.io/CentralOps).
+[documentação](https://docs.segark.com).
 
 ## Conteúdo
 
