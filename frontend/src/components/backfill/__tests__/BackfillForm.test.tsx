@@ -158,6 +158,6 @@ describe("BackfillForm", () => {
 
   it("notice informativo está visível", () => {
     renderForm()
-    expect(screen.getByText(/fila dedicada/)).toBeInTheDocument()
+    expect(screen.getByText(/separado da coleta em tempo real/)).toBeInTheDocument()
   })
 })

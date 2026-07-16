@@ -12,11 +12,19 @@
  */
 
 import { render, screen, fireEvent, waitFor, act } from "@testing-library/react"
-import { describe, it, expect, vi, beforeEach } from "vitest"
+import { describe, it, expect, vi, beforeEach, beforeAll } from "vitest"
 import { MemoryRouter } from "react-router-dom"
 import IntegrationsPage from "@/pages/IntegrationsPage"
 import * as api from "@/services/api"
+import i18n from "@/i18n"
 import type { Integration } from "@/types"
+
+// jsdom's default navigator.language is "en-US", which the app's language
+// detector picks up over the pt fallback — force pt here so assertions below
+// (written against the PT catalog copy) match what a PT-BR user actually sees.
+beforeAll(async () => {
+  await i18n.changeLanguage("pt")
+})
 
 vi.mock("@/services/api")
 vi.mock("@/contexts/AuthContext", () => ({
@@ -395,6 +403,57 @@ describe("IntegrationsPage — badge filtro org global (decisão #5)", () => {
       const callArgs = mockedApi.listIntegrations.mock.calls[0]?.[0] as any
       expect(callArgs?.organizationId).toBe(11)
     })
+  })
+})
+
+describe("IntegrationsPage — sync de tenants recusado (open-core)", () => {
+  it("status=enterprise_required NÃO mostra toast de sucesso; mostra aviso Enterprise", async () => {
+    // Backend Community responde HTTP 200 com status honesto (sem dispatcher EE).
+    mockedApi.syncPartnerTenants.mockResolvedValue({
+      integration_id: 3,
+      discovered: 0,
+      created: 0,
+      linked: 0,
+      deactivated: 0,
+      errors: [],
+      started_at: "2026-07-16T00:00:00Z",
+      finished_at: null,
+      status: "enterprise_required",
+    })
+
+    renderPage()
+    await waitFor(() => expect(screen.getByText("Sophos Partner Holding")).toBeInTheDocument())
+
+    fireEvent.click(screen.getAllByText("Sincronizar tenants")[0])
+
+    await waitFor(() => {
+      expect(screen.getByText(/recurso Enterprise/)).toBeInTheDocument()
+    })
+    expect(screen.queryByText(/Sincronização iniciada/)).not.toBeInTheDocument()
+  })
+
+  it("status=license_required mostra aviso de licença (EE presente sem a feature)", async () => {
+    mockedApi.syncPartnerTenants.mockResolvedValue({
+      integration_id: 3,
+      discovered: 0,
+      created: 0,
+      linked: 0,
+      deactivated: 0,
+      errors: [],
+      started_at: "2026-07-16T00:00:00Z",
+      finished_at: null,
+      status: "license_required",
+    })
+
+    renderPage()
+    await waitFor(() => expect(screen.getByText("Sophos Partner Holding")).toBeInTheDocument())
+
+    fireEvent.click(screen.getAllByText("Sincronizar tenants")[0])
+
+    await waitFor(() => {
+      expect(screen.getByText(/licença Enterprise ativa/)).toBeInTheDocument()
+    })
+    expect(screen.queryByText(/Sincronização iniciada/)).not.toBeInTheDocument()
   })
 })
 

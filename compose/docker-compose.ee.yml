@@ -14,12 +14,30 @@
 #
 # Env (set in compose/.env or the shell):
 # CENTRALOPS_LICENSE_TOKEN  — the signed EdDSA JWT (billing_plane.cli issue)
-# LICENSE_KEYS_DIR          — host dir holding <kid>.pem (public only)
+# LICENSE_KEYS_DIR          — OBRIGATÓRIA (sem default): host dir com a(s) chave(s)
+#                             pública(s) <kid>.pem da licença (public only). Sem a
+#                             var, o compose FALHA ALTO em vez de montar um /licensing
+#                             vazio (keyring vazio → "unknown key id" na ativação).
+#                             Caminho RELATIVO resolve contra o project directory =
+#                             diretório do PRIMEIRO -f (compose/), não o cwd do shell.
+#                             O .pem precisa ser legível pelo uid 10001 do container
+#                             (chmod 0644 no arquivo; 0755 no diretório).
 # CENTRALOPS_EE_IMAGE       — EE backend image ref (default centralops-ee:latest,
 #                             o build local; aponte p/ ghcr.io/segark-oficial/centralops-ee:<tag>
 #                             para rodar a imagem publicada sem retag)
 # CENTRALOPS_WEB_EE_IMAGE   — EE frontend image ref (default centralops-web-ee:latest;
 #                             publicada: ghcr.io/segark-oficial/centralops-ee-frontend:<tag>)
+#
+# Dica (sticky overlay): em vez de digitar os dois -f em todo comando, declare em
+# compose/.env → COMPOSE_FILE=docker-compose.yml:docker-compose.ee.yml
+# Com isso `docker compose up -d` (rodado de compose/) já aplica a overlay e os
+# comandos day-2 (stop/restart/logs/ps) não rebaixam a stack para Community.
+#
+# ⚠️ `--build`: a overlay usa `build: !reset null` (compose >= 2.24) para NEUTRALIZAR
+# o build: herdado da base nos serviços trocados de imagem — sem isso, um
+# `up -d --build` retagearia a imagem EE publicada com um build LOCAL da CE
+# (meia-Enterprise silenciosa: licença válida, módulos EE ausentes). Em compose
+# < 2.24 o !reset não é suportado: NUNCA use `--build` com esta overlay.
 
 x-ee-license-env: &ee-license-env
   - CENTRALOPS_LICENSE_TOKEN=${CENTRALOPS_LICENSE_TOKEN:-}
@@ -28,18 +46,24 @@ x-ee-license-env: &ee-license-env
 x-ee-keyring-vol: &ee-keyring-vol
   # Host dir holding the PUBLIC keyring (<kid>.pem). Set LICENSE_KEYS_DIR in compose/.env
   # to the dir produced by `billing_plane.cli keygen` (public key only — never the private).
-  - ${LICENSE_KEYS_DIR:-./dev-license-keys}:/licensing:ro
+  # OBRIGATÓRIA (:?): um default silencioso deixava o Docker auto-criar um dir
+  # inexistente VAZIO e o keyring subia vazio sem erro algum. Agora falha alto.
+  - ${LICENSE_KEYS_DIR:?defina LICENSE_KEYS_DIR no compose/.env — diretório com a(s) chave(s) pública(s) <kid>.pem da licença}:/licensing:ro
 
 services:
   # ── API: EE image (activate_enterprise mounts EE routers + registers seams) ──
   centralops:
     image: ${CENTRALOPS_EE_IMAGE:-centralops-ee:latest}
+    # Remove o build: herdado da base — senão `up -d --build` retagearia a
+    # imagem EE com um build local CE (requer compose >= 2.24; ver cabeçalho).
+    build: !reset null
     environment: *ee-license-env
     volumes: *ee-keyring-vol
 
   # ── SPA: EE bundle (federated-search screens + partner panel) ──
   frontend:
     image: ${CENTRALOPS_WEB_EE_IMAGE:-centralops-web-ee:latest}
+    build: !reset null
 
   # ── Celery workers + beat: EE image + centralops_ee.celery_app ──
   collector-worker-priority:

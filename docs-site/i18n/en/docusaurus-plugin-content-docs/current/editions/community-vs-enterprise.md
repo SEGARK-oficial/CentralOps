@@ -39,8 +39,10 @@ The separation is **honest and verifiable**:
 - The Community artifact **never** contains the Enterprise code — the paid modules are
   distributed as a **separate, license-activated image**.
 - The license is a **signed JWT (EdDSA)** verified **offline** against a **public** keyring
-  embedded in the product. Without a valid license, the product runs **fail-closed as
-  Community** — nothing breaks, the Enterprise features simply stay inactive.
+  **you mount alongside the product** — the public key (`<kid>.pem`) is delivered with
+  the license (downloaded from the portal); the product **embeds no keys**. Without a
+  valid license, the Enterprise features are **blocked** — nothing breaks, the image
+  keeps running as Community.
 - The license has a **short expiration** and an offline **revocation list**: subscribing
   activates, churn deactivates.
 

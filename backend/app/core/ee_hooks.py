@@ -58,6 +58,28 @@ if TYPE_CHECKING:  # avoid runtime import cycle and any db dependency
 
     from ..db import models
 
+class LicenseRequiredError(RuntimeError):
+    """Signal from an EE seam implementation: the EE artifact IS present but the
+    ACTIVE LICENSE does not grant the feature the seam delivers (absent license,
+    expired past the grace window, or a plan without the feature).
+
+    Part of the seam CONTRACT (defined here so the Core can catch it precisely
+    without ever importing the EE — the dependency arrow stays EE -> Core): a
+    registered ``partner_sync_dispatcher`` / ``tenant_selection_applier`` MAY raise
+    it instead of acting; Core call-sites translate it into the ``license_required``
+    signal (``TenantSyncStatus`` / ``SelectTenantsResponse.license_required``),
+    distinct from ``enterprise_required`` (= the EE artifact is ABSENT, Community).
+    Never raised by the Core itself.
+    """
+
+    def __init__(self, feature: str, message: Optional[str] = None) -> None:
+        self.feature = feature
+        super().__init__(
+            message
+            or f"license_required: the active license does not grant feature {feature!r}"
+        )
+
+
 # Maps a scoped (non-global) user to the set of organization ids it may access,
 # or ``None`` for "all orgs". Mirrors the contract of tenant.accessible_org_ids:
 #   None     -> no filter (global scope)
@@ -225,6 +247,9 @@ def reset_beat_entries() -> None:
 # that does ``sync_sophos_partner.delay(integration_id)`` — in the API process (via
 # ``activate``) AND on the Celery worker (via its own entrypoint, since the worker
 # never calls ``activate``). Mirrors the scope/quota override slots.
+# License contract: a registered dispatcher MAY raise :class:`LicenseRequiredError`
+# instead of dispatching (EE present, license without the feature) — call-sites
+# translate it into the ``license_required`` signal instead of a 5xx.
 PartnerSyncDispatcher = Callable[[int], None]
 
 _partner_sync_dispatcher: Optional[PartnerSyncDispatcher] = None
@@ -270,6 +295,9 @@ def reset_partner_sync_dispatcher() -> None:
 #   applier(session, partner_integration, selections, state) -> dict with int keys
 #   "materialized"/"deactivated"/"pending" and "errors": list of
 #   {"external_id": str, "reason": str}.
+# License contract: a registered applier MAY raise :class:`LicenseRequiredError`
+# BEFORE materializing (EE present, license without the feature) — call-sites keep
+# the persisted selections and report ``license_required`` instead of a 5xx.
 TenantSelectionApplier = Callable[..., "dict[str, Any]"]
 
 _tenant_selection_applier: Optional[TenantSelectionApplier] = None

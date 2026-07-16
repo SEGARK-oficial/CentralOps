@@ -8,8 +8,9 @@ description: Paso a paso para activar la edición Enterprise — desde la suscri
 
 Activar la edición Enterprise **no reinstala** CentralOps. Cambias las imágenes
 Community por las imágenes Enterprise (el mismo producto, con los módulos de pago
-compilados) y proporcionas tu **licencia**. Sin una licencia válida, la misma imagen se
-ejecuta como Community — así que el upgrade y el downgrade son reversibles.
+compilados) y proporcionas tu **licencia**. Sin una licencia válida, las funciones
+Enterprise quedan bloqueadas (la imagen sigue ejecutándose como Community) — así que el
+upgrade y el downgrade son reversibles.
 
 ## Lo que vas a necesitar
 
@@ -74,8 +75,8 @@ las funcionalidades es la **licencia**, verificada offline dentro del producto.
 
 ## 3. Arranca con las imágenes Enterprise
 
-Las tags EE siguen la versión del Core: `v1.0.0-ee` (acompaña la release) y
-`v1.0.0-ee.<sha>` (inmutable — **prefiere esta en producción**).
+Las tags EE siguen la versión del Core: `vX.Y.Z-ee` acompaña la release (p. ej. `v1.0.1-ee`)
+y `vX.Y.Z-ee.<sha>` es inmutable (p. ej. `v1.0.1-ee.2e8917d` — **prefiere esta en producción**).
 
 ### Docker Compose
 
@@ -91,8 +92,8 @@ En `compose/.env`, agrega:
 ```dotenv
 CENTRALOPS_LICENSE_TOKEN=<contenido del archivo .jwt>
 LICENSE_KEYS_DIR=./license-keys
-CENTRALOPS_EE_IMAGE=ghcr.io/segark-oficial/centralops-ee:v1.0.0-ee
-CENTRALOPS_WEB_EE_IMAGE=ghcr.io/segark-oficial/centralops-ee-frontend:v1.0.0-ee
+CENTRALOPS_EE_IMAGE=ghcr.io/segark-oficial/centralops-ee:v1.0.1-ee
+CENTRALOPS_WEB_EE_IMAGE=ghcr.io/segark-oficial/centralops-ee-frontend:v1.0.1-ee
 ```
 
 Y levanta el CE + la overlay Enterprise (desde la raíz del proyecto):
@@ -102,12 +103,40 @@ docker compose -f compose/docker-compose.yml -f compose/docker-compose.ee.yml pu
 docker compose -f compose/docker-compose.yml -f compose/docker-compose.ee.yml up -d
 ```
 
+:::warning[La overlay Enterprise no es permanente ("sticky")]
+
+Compose solo aplica el `docker-compose.ee.yml` cuando se pasa con `-f` — y eso vale
+para **todo comando futuro**. Un `docker compose up -d` (o `pull`, o cualquier
+recreación) solo con el archivo base **degrada la stack a Community silenciosamente**:
+la imagen vuelve a ser la CE, el mount del keyring desaparece y la siguiente activación
+falla con `unknown key id`. Para hacer la overlay permanente, define en `compose/.env`:
+
+```dotenv
+COMPOSE_FILE=docker-compose.yml:docker-compose.ee.yml
+```
+
+Con eso, un simple `docker compose up -d` (ejecutado desde dentro de `compose/`, sin
+`-f`) ya aplica la overlay, y los comandos de día 2 no degradan la stack.
+
+:::
+
 :::tip[¿Prefieres activar por la interfaz?]
 
 Con el `key.prod.pem` montado (el `LICENSE_KEYS_DIR` de arriba), puedes dejar fuera el
 `CENTRALOPS_LICENSE_TOKEN` y pegar el token en la pantalla
 **Configuración → Licencia** del producto, como administrador. La licencia queda
 guardada (cifrada) en la base de datos y sobrevive a los reinicios.
+
+La pantalla de Licencia también existe — y acepta el paste — en una stack Community
+levantada **sin** la overlay; en ese caso el keyring del contenedor está vacío y la
+activación falla exactamente con `unknown key id: 'key.prod'`. Antes de pegar, confirma
+que la clave está visible dentro del contenedor:
+
+```bash
+docker compose -f compose/docker-compose.yml -f compose/docker-compose.ee.yml \
+  exec centralops ls /licensing
+# key.prod.pem
+```
 
 :::
 
@@ -124,9 +153,9 @@ kubectl -n centralops create secret docker-registry ghcr-secret \
 
 helm upgrade centralops kubernetes/helm/centralops -n centralops \
   --set image.repository=ghcr.io/segark-oficial/centralops-ee \
-  --set image.tag=v1.0.0-ee \
+  --set image.tag=v1.0.1-ee \
   --set frontendImage.repository=ghcr.io/segark-oficial/centralops-ee-frontend \
-  --set frontendImage.tag=v1.0.0-ee \
+  --set frontendImage.tag=v1.0.1-ee \
   --set secrets.licenseToken="<contenido del archivo .jwt>" \
   --set-file "secrets.licenseKeyring.key\.prod\.pem=./key.prod.pem" \
   -f values.override.yaml
@@ -151,11 +180,56 @@ edición, el plan y las funcionalidades activas).
 
 Si aparece **`edition=community`**, la licencia no se encontró o no pudo verificarse:
 
-- **`unknown key id: 'key.prod'`** — el `key.prod.pem` no está en el keyring. Comprueba
-  que el archivo esté en el directorio del `LICENSE_KEYS_DIR` (Compose) o en
-  `secrets.licenseKeyring` (Helm) y reinicia: el keyring se lee en el arranque.
+- **`unknown key id: 'key.prod'`** — el keyring que **ve el contenedor** está vacío o
+  no contiene el `key.prod.pem`. Sigue el paso a paso de abajo.
 - **Token ausente/expirado** — comprueba el `CENTRALOPS_LICENSE_TOKEN` (o reactívalo por
   la pantalla de Licencia) y la validez en el portal.
+
+Una instalación Enterprise cuya licencia **no cubre una funcionalidad** (un plan que no
+la incluye, una licencia ausente o expirada más allá del período de tolerancia) rechaza
+la acción correspondiente con el estado **`license_required`** — por ejemplo, al
+sincronizar los tenants de un partner. En ese caso la solución no es el keyring:
+comprueba el plan y la validez en **Configuración → Licencia** o en el portal.
+
+### Corrigiendo `unknown key id`
+
+La causa dominante es el **keyring vacío dentro del contenedor** — en general porque la
+stack se levantó (o se recreó) **sin la overlay Enterprise**. El `key.prod.pem` puede
+estar perfecto en el host y aun así nunca llegar al contenedor. Diagnostica de dentro
+hacia fuera:
+
+**1. Imagen y mount** — ¿el contenedor de la API usa la imagen EE y tiene el mount
+`/licensing`?
+
+```bash
+docker inspect --format '{{.Config.Image}} {{json .Mounts}}' \
+  $(docker compose -f compose/docker-compose.yml -f compose/docker-compose.ee.yml ps -q centralops)
+```
+
+**2. Lo que ve el proceso** — la variable y el directorio dentro del contenedor:
+
+```bash
+docker compose -f compose/docker-compose.yml -f compose/docker-compose.ee.yml \
+  exec centralops sh -c 'echo $CENTRALOPS_LICENSE_KEYS_DIR; ls -la /licensing'
+```
+
+**3. Permisos** — la API corre como uid `10001`: el `.pem` debe ser legible por ella
+(archivo `0644`, directorio `0755`). Un `key.prod.pem` con `0600 root:root` se ignora
+en silencio.
+
+**4. Logs del keyring** — el arranque registra lo que se cargó (o no):
+
+```bash
+docker compose -f compose/docker-compose.yml -f compose/docker-compose.ee.yml \
+  logs centralops | grep -iE 'skipping|license keyring'
+```
+
+Si falta el mount o la variable, **recrea** los contenedores con los dos `-f`
+(`up -d`) — `docker compose restart` **no** aplica mounts ni variables de entorno
+nuevas. Con el keyring corregido, pega el token de nuevo en la pantalla de Licencia
+**sin reiniciar nada**: el keyring se relee en cada activación (y en cada refresh
+periódico). En Helm, comprueba el `secrets.licenseKeyring` y el mount `/licensing` en
+los pods.
 
 ## Downgrade
 

@@ -11,6 +11,7 @@ import type {
   UpdateIntegrationRequest,
 } from "@/types"
 import * as api from "@/services/api"
+import { useEdition } from "@/contexts/EditionContext"
 import { Badge } from "@/components/ui/Badge/Badge"
 import { Button } from "@/components/ui/Button/Button"
 import { Input } from "@/components/ui/Input/Input"
@@ -49,6 +50,12 @@ const selectCls =
 
 // Platforms with custom form blocks — these bypass the generic DynamicAuthField renderer
 const CUSTOM_BLOCK_PLATFORMS = new Set<string>(["sophos", "wazuh"])
+
+// Variantes partner/organization do Sophos (sophos_partner/sophos_organization):
+// a IMPORTAÇÃO de tenants (materialização multi-tenant) é feature Enterprise —
+// o card ganha badge "Enterprise" quando a edição corrente não a licencia.
+// (Mesma heurística do aviso de import mais abaixo: `startsWith("sophos_")`.)
+const isPartnerVariantPlatform = (platform: string) => platform.startsWith("sophos_")
 
 function formatScheduleSeconds(seconds: number): string {
   if (seconds < 60) return `${seconds}s`
@@ -154,6 +161,7 @@ export const IntegrationForm: React.FC<IntegrationFormProps> = ({
   onSubmit,
 }) => {
   const { t } = useTranslation("integrations")
+  const { isEnterprise } = useEdition()
   const [organizationId, setOrganizationId] = useState<number | "">("")
   const [name, setName] = useState("")
   const [platform, setPlatform] = useState<PlatformType>("sophos")
@@ -226,8 +234,13 @@ export const IntegrationForm: React.FC<IntegrationFormProps> = ({
       description: p.description || undefined,
       category: p.category || undefined,
       icon: platformIcon(p.platform, p.icon_id),
+      // Sinalização Enterprise: import de tenants (partner/organization) é
+      // feature paga — badge só quando a edição corrente NÃO licencia.
+      ...(isPartnerVariantPlatform(p.platform) && !isEnterprise
+        ? { badge: t("form.enterpriseBadge"), badgeTone: "primary" as const }
+        : {}),
     }))
-  }, [providerPlatforms])
+  }, [providerPlatforms, isEnterprise, t])
 
   // Reset dynamic fields + resultado do teste ao trocar de plataforma
   useEffect(() => {
@@ -697,11 +710,16 @@ export const IntegrationForm: React.FC<IntegrationFormProps> = ({
           <div className="space-y-4">
             <div className="rounded-xl border border-border bg-surface-tertiary/40 p-4">
               <h3 className="mb-3 text-sm font-semibold text-text">{t("form.credentialsTitle")}</h3>
-              {platform.startsWith("sophos_") && (
+              {isPartnerVariantPlatform(platform) && (
                 <div className="mb-3 rounded-md border border-primary-200 bg-primary-50/40 px-3 py-2 text-xs text-text">
                   <strong>{t("form.sophos.importNoticeTitle")}</strong>
                   <Trans i18nKey="form.sophos.importNoticeBody" t={t} components={{ em: <em /> }} />
                 </div>
+              )}
+              {isPartnerVariantPlatform(platform) && !isEnterprise && (
+                <Notice variant="warning" title={t("form.enterpriseBadge")} className="mb-3">
+                  {t("form.sophos.enterpriseRequiredNote")}
+                </Notice>
               )}
               <div className="grid gap-4 md:grid-cols-2">
                 {activePlatformDescriptor.auth_fields.map((field) => (

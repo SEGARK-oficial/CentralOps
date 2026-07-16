@@ -39,8 +39,10 @@ A separação é **verificável**:
 - O artefato Community **nunca** contém o código Enterprise — os módulos pagos são
   distribuídos como uma **imagem separada, ativada por licença**.
 - A licença é um **JWT assinado (EdDSA)** verificado **offline** contra um keyring
-  **público** embutido no produto. Sem uma licença válida, o produto roda **fail-closed
-  como Community** — nada quebra, os recursos Enterprise apenas ficam inativos.
+  **público** que **você monta junto ao produto** — a chave pública (`<kid>.pem`) é
+  fornecida com a licença (download no portal); o produto **não embute** nenhuma chave.
+  Sem uma licença válida, os recursos Enterprise ficam **bloqueados** — nada quebra, a
+  imagem continua rodando como Community.
 - A licença tem **expiração curta** e uma **lista de revogação** offline.
 
 ## Pronto para a Enterprise?

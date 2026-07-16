@@ -110,7 +110,7 @@ async function renderConfigCollectorTab() {
     </MemoryRouter>,
   )
 
-  const collectorTab = await screen.findByRole("tab", { name: /Collector/i })
+  const collectorTab = await screen.findByRole("tab", { name: /Coleta & Entrega/i })
   await act(async () => {
     fireEvent.click(collectorTab)
   })

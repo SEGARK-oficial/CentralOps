@@ -9,7 +9,7 @@
  *   opcional (saúde/agentes) atrás do toggle "Habilitar Manager".
  */
 
-import { render, screen, fireEvent, waitFor } from "@testing-library/react"
+import { render, screen, fireEvent, waitFor, within } from "@testing-library/react"
 import { describe, it, expect, vi, beforeEach, beforeAll } from "vitest"
 import { IntegrationForm } from "@/components/integrations/IntegrationForm"
 import * as api from "@/services/api"
@@ -18,6 +18,27 @@ import type { Organization, ProviderPlatformRead } from "@/types"
 
 vi.mock("@/services/api")
 const mockedApi = vi.mocked(api)
+
+// Estado de edição mutável por teste (default Community — mesmo padrão do
+// OrganizationsPage.test). O form usa useEdition p/ badge "Enterprise" nos
+// tiles partner/organization.
+const editionState = vi.hoisted(() => ({ isEnterprise: false }))
+vi.mock("@/contexts/EditionContext", () => ({
+  useEdition: () => ({
+    edition: editionState.isEnterprise ? "enterprise" : "community",
+    features: [],
+    plan: null,
+    seats: null,
+    maxOrganizations: null,
+    expiresAt: null,
+    expiredInGrace: false,
+    isEnterprise: editionState.isEnterprise,
+    loading: false,
+    error: null,
+    hasFeature: () => false,
+    refresh: vi.fn(),
+  }),
+}))
 
 // jsdom's default navigator.language is "en-US", which the app's language
 // detector picks up over the pt fallback — force pt here so assertions below
@@ -80,6 +101,7 @@ function renderForm(onSubmit = vi.fn().mockResolvedValue(undefined)) {
 
 beforeEach(() => {
   vi.clearAllMocks()
+  editionState.isEnterprise = false
   mockedApi.getProviderPlatforms.mockResolvedValue(CATALOG)
   mockedApi.testProviderConnection.mockResolvedValue({ ok: true, detail: "ok" })
 })
@@ -121,6 +143,29 @@ describe("IntegrationForm — Sophos", () => {
     fireEvent.click(await screen.findByTestId("tile-card-sophos_partner"))
     expect(screen.getByText(/todos os tenants/i)).toBeInTheDocument()
     expect(screen.queryByLabelText(/Região/)).not.toBeInTheDocument()
+  })
+
+  it("Community: tile sophos_partner ganha badge 'Enterprise'; card base sophos não", async () => {
+    renderForm()
+    const partnerTile = await screen.findByTestId("tile-card-sophos_partner")
+    expect(within(partnerTile).getByText("Enterprise")).toBeInTheDocument()
+    const baseTile = screen.getByTestId("tile-card-sophos")
+    expect(within(baseTile).queryByText("Enterprise")).not.toBeInTheDocument()
+  })
+
+  it("Community: selecionar sophos_partner exibe o aviso 'requer licença Enterprise'", async () => {
+    renderForm()
+    fireEvent.click(await screen.findByTestId("tile-card-sophos_partner"))
+    expect(screen.getByText(/requer licença Enterprise/i)).toBeInTheDocument()
+  })
+
+  it("Enterprise: sem badge no tile partner e sem aviso de licença", async () => {
+    editionState.isEnterprise = true
+    renderForm()
+    const partnerTile = await screen.findByTestId("tile-card-sophos_partner")
+    expect(within(partnerTile).queryByText("Enterprise")).not.toBeInTheDocument()
+    fireEvent.click(partnerTile)
+    expect(screen.queryByText(/requer licença Enterprise/i)).not.toBeInTheDocument()
   })
 })
 

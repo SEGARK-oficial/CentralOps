@@ -25,4 +25,5 @@ export const DOCS = {
   mappingEditorGuide: docsUrl("normalization/dsl-spec"),
   ruleAnatomy: docsUrl("normalization/dsl-spec", "anatomia-de-uma-regra"),
   howMappingWorks: docsUrl("normalization/overview"),
+  editionsUpgrade: docsUrl("editions/upgrade"),
 } as const

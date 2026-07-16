@@ -7,6 +7,7 @@ cache refresh, and the endpoint serialization (which must not leak the customer 
 """
 from __future__ import annotations
 
+import logging
 import time
 
 import jwt
@@ -69,6 +70,72 @@ def test_load_keyring_skips_non_ed25519_and_garbage(tmp_path):
     (tmp_path / "garbage.pem").write_bytes(b"not a pem")
     keyring = edition.load_keyring(tmp_path)
     assert set(keyring) == {"good"}  # rsa + garbage skipped, no crash
+
+
+# ── load_keyring: logging de diagnóstico (dedup por mudança de kids) ───────────
+
+def test_load_keyring_logs_info_on_kids_change_and_debug_always(tmp_path, caplog):
+    """INFO só quando o conjunto de kids MUDA (1º load, chave nova); DEBUG sempre."""
+    priv = Ed25519PrivateKey.generate()
+    _write_pubkey(tmp_path, "key.prod", priv.public_key())
+
+    with caplog.at_level(logging.DEBUG, logger="backend.app.core.edition"):
+        edition.load_keyring(tmp_path)
+    infos = [r for r in caplog.records if r.levelno == logging.INFO]
+    assert len(infos) == 1  # 1º load = mudança (None -> {key.prod})
+    assert "loaded 1 key(s)" in infos[0].getMessage()
+    assert "key.prod" in infos[0].getMessage() and str(tmp_path) in infos[0].getMessage()
+
+    caplog.clear()
+    with caplog.at_level(logging.DEBUG, logger="backend.app.core.edition"):
+        edition.load_keyring(tmp_path)  # mesmos kids -> sem INFO (dedup), DEBUG presente
+    assert [r for r in caplog.records if r.levelno == logging.INFO] == []
+    debugs = [
+        r for r in caplog.records
+        if r.levelno == logging.DEBUG and "license keyring" in r.getMessage()
+    ]
+    assert debugs, "o load deve SEMPRE logar em DEBUG"
+
+    caplog.clear()
+    _write_pubkey(tmp_path, "key.prod2", priv.public_key())  # kids mudaram -> INFO de novo
+    with caplog.at_level(logging.INFO, logger="backend.app.core.edition"):
+        edition.load_keyring(tmp_path)
+    infos = [r for r in caplog.records if r.levelno == logging.INFO]
+    assert len(infos) == 1 and "loaded 2 key(s)" in infos[0].getMessage()
+
+
+def test_load_keyring_logs_explicit_message_when_empty(tmp_path, caplog):
+    """Transição p/ VAZIO (dir ausente/sem .pem) loga INFO auto-explicativa — é o
+    estado que produz o 'unknown key id' na ativação."""
+    with caplog.at_level(logging.INFO, logger="backend.app.core.edition"):
+        assert edition.load_keyring(tmp_path / "does-not-exist") == {}
+    assert "license keyring: 0 keys loaded from" in caplog.text
+    assert "will fail with unknown key id" in caplog.text
+
+
+def test_refresh_warns_once_when_token_present_but_keyring_empty(tmp_path, monkeypatch, caplog):
+    """Token configurado + keyring vazio = incidente clássico do overlay ausente:
+    WARNING claro no refresh, deduplicado (não spamma a cada TTL), sem vazar o token."""
+    secret_token = "tok-secret-abcdef-1234567890"
+    monkeypatch.setenv("CENTRALOPS_LICENSE_KEYS_DIR", str(tmp_path))  # dir vazio
+    monkeypatch.setenv("CENTRALOPS_LICENSE_TOKEN", secret_token)
+    edition.reset_cache()
+
+    with caplog.at_level(logging.DEBUG, logger="backend.app.core.edition"):
+        fs = edition.refresh()
+    assert fs.edition == edition.COMMUNITY  # fail-closed preservado
+    warnings = [
+        r for r in caplog.records
+        if "license token present but public keyring is empty" in r.getMessage()
+    ]
+    assert len(warnings) == 1
+    assert str(tmp_path) in warnings[0].getMessage()
+    assert secret_token not in caplog.text  # decisão: NUNCA logar o token
+
+    caplog.clear()
+    with caplog.at_level(logging.DEBUG, logger="backend.app.core.edition"):
+        edition.refresh()  # mesmo estado persiste -> deduplicado
+    assert "license token present but public keyring is empty" not in caplog.text
 
 
 # ── current()/refresh() via env + file ─────────────────────────────────────────

@@ -114,7 +114,7 @@ async function renderCollectorTab(config: CollectorConfig) {
       <ConfigPage />
     </MemoryRouter>,
   )
-  const collectorTab = await screen.findByRole("tab", { name: /Collector/i })
+  const collectorTab = await screen.findByRole("tab", { name: /Coleta & Entrega/i })
   await act(async () => {
     fireEvent.click(collectorTab)
   })
@@ -204,7 +204,7 @@ describe("CollectorConfigForm — CTA de destinos", () => {
         <ConfigPage />
       </MemoryRouter>,
     )
-    const collectorTab = await screen.findByRole("tab", { name: /Collector/i })
+    const collectorTab = await screen.findByRole("tab", { name: /Coleta & Entrega/i })
     await act(async () => { fireEvent.click(collectorTab) })
     await waitFor(() => screen.getByTestId("destinations-cta"))
 

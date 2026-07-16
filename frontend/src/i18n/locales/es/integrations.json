@@ -75,7 +75,9 @@
       "bulkDeactivatedWithWarnings": "Proceso masivo completado con avisos: {{deactivated}}/{{processed}} desactivadas. {{errorCount}} elemento(s) omitido(s).",
       "bulkDeactivated": "{{count}} integración(es) desactivadas.",
       "bulkDeactivateError": "Error al desactivar en masa.",
-      "cascadeDeactivated": "Partner desactivado ({{affected}} integraciones afectadas)."
+      "cascadeDeactivated": "Partner desactivado ({{affected}} integraciones afectadas).",
+      "syncEnterpriseRequired": "La importación de tenants es una función Enterprise — esta instancia ejecuta la edición Community.",
+      "syncLicenseRequired": "La importación de tenants requiere una licencia Enterprise activa que cubra la función multi-tenant."
     },
     "bulkDialog": {
       "title": "¿Desactivar {{count}} integración(es)?",
@@ -253,7 +255,8 @@
       "region": "Región",
       "regionHelper": "Opcional. Se descubre automáticamente en la primera conexión.",
       "importNoticeTitle": "Cómo funciona:",
-      "importNoticeBody": " al guardar, se consultará la API de Sophos Central y <em>todos los tenants</em> bajo esta credencial se importarán automáticamente como Organizations + Integrations separadas. La región y el tenant_id se descubren por cada hijo — no los complete manualmente."
+      "importNoticeBody": " al guardar, se consultará la API de Sophos Central y <em>todos los tenants</em> bajo esta credencial se importarán automáticamente como Organizations + Integrations separadas. La región y el tenant_id se descubren por cada hijo — no los complete manualmente.",
+      "enterpriseRequiredNote": "La importación automática de tenants requiere una licencia Enterprise. En Community puede crear esta integración y descubrir tenants, pero no se importarán."
     },
     "wazuh": {
       "indexerTitle": "Indexer API",
@@ -305,7 +308,8 @@
       "wazuhManagerUserRequired": "Ingrese el usuario de la Manager API.",
       "wazuhManagerPasswordRequired": "Ingrese la contraseña de la Manager API.",
       "testConnectionFailed": "Error al probar la conexión."
-    }
+    },
+    "enterpriseBadge": "Enterprise"
   },
   "ingest": {
     "title": "Ingesta push",
@@ -325,5 +329,10 @@
     "issueError": "Error al emitir el token.",
     "revokeError": "Error al revocar el token.",
     "edgeCollectorConfig": "Configuración del edge-collector (Vector)"
+  },
+  "enterprisePanel": {
+    "title": "La importación de tenants es una función Enterprise",
+    "body": "Esta integración puede descubrir los tenants de esta credencial, pero importarlos como Organizations + Integrations (materialización multi-tenant) requiere una licencia Enterprise.",
+    "link": "Descubra cómo actualizar"
   }
 }

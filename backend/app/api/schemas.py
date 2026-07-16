@@ -20,7 +20,10 @@ PlatformType = Literal["sophos", "wazuh"]
 IntegrationKind = Literal["partner", "organization", "tenant"]
 # "enterprise_required": edição Community não tem o dispatcher de partner-sync
 # registrado (feature paga) — sinaliza honestamente em vez de fingir "ok".
-TenantSyncStatus = Literal["ok", "partial", "error", "enterprise_required"]
+# "license_required": o artefato EE ESTÁ presente, mas a licença ativa não concede a
+# feature (ausente/expirada pós-carência/plano sem multi_tenant) — o seam EE recusou
+# via ee_hooks.LicenseRequiredError. Distinto de enterprise_required (artefato ausente).
+TenantSyncStatus = Literal["ok", "partial", "error", "enterprise_required", "license_required"]
 DiscoveredTenantStatus = Literal["new", "linked", "stale"]
 # Estado de seleção do tenant Sophos descoberto. ``stale`` é sintético — só
 # aparece em respostas (tenant na tabela mas sumiu do último discover).
@@ -537,6 +540,9 @@ class SelectTenantsResponse(BaseModel):
     # Na Community as decisões são persistidas (processed) mas nenhum child é
     # materializado — este flag sinaliza isso ao cliente (sem 500, sem contagem falsa).
     enterprise_required: bool = False
+    # EE presente mas a licença ativa NÃO concede a feature (multi_tenant): o applier
+    # recusou via ee_hooks.LicenseRequiredError. Decisões persistidas, zero children.
+    license_required: bool = False
 
 
 class AutoApprovePolicyUpdate(BaseModel):

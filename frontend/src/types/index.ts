@@ -21,7 +21,14 @@ export type ScheduleTimeUnit = "minutes" | "hours" | "days" | "weeks"
 // Sophos Partner Mode hierarchy. ``tenant`` is the legacy default (1 cred per
 // integration). ``partner``/``organization`` unlock auto-discovery of children.
 export type IntegrationKind = "partner" | "organization" | "tenant"
-export type TenantSyncStatus = "ok" | "partial" | "error"
+// "enterprise_required": backend Community (sem os módulos EE) recusou o sync.
+// "license_required": módulos EE presentes, mas a licença não cobre a feature.
+export type TenantSyncStatus =
+  | "ok"
+  | "partial"
+  | "error"
+  | "enterprise_required"
+  | "license_required"
 export type DiscoveredTenantStatus = "new" | "linked" | "stale"
 
 /**
@@ -178,6 +185,12 @@ export interface SophosTenantSelectResponse {
   deactivated: number
   pending: number
   errors: Array<{ external_id: string; reason: string }>
+  /** True quando o backend Community (sem módulos EE) persistiu as decisões
+   *  mas NÃO materializou/desativou nada. */
+  enterprise_required?: boolean
+  /** True quando os módulos EE existem mas a licença ativa não cobre a
+   *  feature (ausente/expirada pós-grace/plano sem multi_tenant). */
+  license_required?: boolean
 }
 
 export interface AutoApprovePolicyResponse {

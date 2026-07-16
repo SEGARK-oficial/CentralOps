@@ -263,6 +263,14 @@ _cache_resolved_at: Optional[float] = None
 # Indireção p/ testes congelarem/avançarem o relógio do TTL sem sleep.
 _monotonic = time.monotonic
 
+# ── Diagnóstico do keyring (dedup de logs) ─────────────────────────────────────
+# ``load_keyring`` roda a cada ativação e a cada refresh TTL — logar INFO toda vez
+# viraria spam. Guardamos o ÚLTIMO conjunto de kids carregado (module-level) e só
+# logamos INFO quando ele MUDA (inclui o 1º load e a transição p/ vazio). O WARNING
+# "token presente + keyring vazio" (refresh) usa dedup por transição de estado.
+_last_keyring_kids: Optional[frozenset[str]] = None
+_warned_token_without_keyring = False
+
 
 def _env_int(name: str, default: int) -> int:
     """Knob inteiro de env, fail-safe: valor inválido/negativo → default."""
@@ -296,21 +304,43 @@ def load_keyring(directory: Optional[Path] = None) -> Dict[str, Ed25519PublicKey
     The file stem is the ``kid``. Non-Ed25519 or unreadable files are skipped with a
     WARNING (fail-safe — a bad key is never trusted and never crashes boot). Returns
     an empty keyring when the directory is absent (-> Community).
+
+    Diagnóstico: SEMPRE loga o resultado em DEBUG (N chaves + kids + dir) e loga em
+    INFO quando o conjunto de kids MUDOU desde o último load — inclui o 1º load e a
+    transição para vazio (o clássico "unknown key id" por keyring vazio/overlay
+    ausente). Sem spam no refresh TTL: kids iguais → só DEBUG.
     """
+    global _last_keyring_kids
     directory = directory or _keys_dir()
     keyring: Dict[str, Ed25519PublicKey] = {}
-    if not directory.is_dir():
-        return keyring
-    for pem_path in sorted(directory.glob("*.pem")):
-        try:
-            key = load_pem_public_key(pem_path.read_bytes())
-        except Exception as exc:  # noqa: BLE001
-            logger.warning("skipping unreadable license public key %s: %r", pem_path.name, exc)
-            continue
-        if not isinstance(key, Ed25519PublicKey):
-            logger.warning("skipping non-Ed25519 license public key %s", pem_path.name)
-            continue
-        keyring[pem_path.stem] = key
+    if directory.is_dir():
+        for pem_path in sorted(directory.glob("*.pem")):
+            try:
+                key = load_pem_public_key(pem_path.read_bytes())
+            except Exception as exc:  # noqa: BLE001
+                logger.warning("skipping unreadable license public key %s: %r", pem_path.name, exc)
+                continue
+            if not isinstance(key, Ed25519PublicKey):
+                logger.warning("skipping non-Ed25519 license public key %s", pem_path.name)
+                continue
+            keyring[pem_path.stem] = key
+    kids = frozenset(keyring)
+    logger.debug(
+        "license keyring: loaded %d key(s) %s from %s",
+        len(keyring), sorted(kids), directory,
+    )
+    if kids != _last_keyring_kids:
+        if keyring:
+            logger.info(
+                "license keyring: loaded %d key(s) %s from %s",
+                len(keyring), sorted(kids), directory,
+            )
+        else:
+            logger.info(
+                "license keyring: 0 keys loaded from %s — activation/verification "
+                "will fail with unknown key id", directory,
+            )
+        _last_keyring_kids = kids
     return keyring
 
 
@@ -397,10 +427,23 @@ def refresh() -> FeatureSet:
     """(Re)resolve the current edition from the DB/env/file token + keyring and cache
     it. Fail-closed (resolve_edition never raises). Call at boot, after a license
     update, and automatically via the TTL in :func:`current`."""
-    global _cached_feature_set, _cache_resolved_at
+    global _cached_feature_set, _cache_resolved_at, _warned_token_without_keyring
     keyring = load_keyring()
+    token = _load_token()
+    if token and not keyring:
+        # Diagnóstico do incidente clássico "unknown key id": há token configurado
+        # (DB/env/arquivo) mas NENHUMA chave pública carregou (overlay/mount/permissão).
+        # Dedup por transição de estado — loga quando o estado surge, não a cada TTL.
+        if not _warned_token_without_keyring:
+            logger.warning(
+                "license token present but public keyring is empty (dir: %s) — "
+                "cannot verify, resolving Community", _keys_dir(),
+            )
+            _warned_token_without_keyring = True
+    else:
+        _warned_token_without_keyring = False
     feature_set = resolve_edition(
-        _load_token(),
+        token,
         keyring,
         grace_seconds=_grace_seconds(),
         revoked_token_ids=load_revocation_list(keyring),
@@ -478,8 +521,12 @@ def enterprise_integrity_problem() -> Optional[str]:
 
 
 def reset_cache() -> None:
-    """Clear the cached FeatureSet. For tests / after a license update."""
+    """Clear the cached FeatureSet (and the keyring-log dedup state). For tests /
+    after a license update."""
     global _cached_feature_set, _cache_resolved_at
+    global _last_keyring_kids, _warned_token_without_keyring
     with _cache_lock:
         _cached_feature_set = None
         _cache_resolved_at = None
+        _last_keyring_kids = None
+        _warned_token_without_keyring = False

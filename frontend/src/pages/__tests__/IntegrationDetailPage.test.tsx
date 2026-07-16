@@ -5,7 +5,15 @@ import * as api from "@/services/api"
 import { useAuth } from "@/contexts/AuthContext"
 import { usePlatform } from "@/contexts/PlatformContext"
 import { DEFAULT_ALERT_INDEX } from "@/lib/alerts"
+import i18n from "@/i18n"
 import type { Destination, IntegrationPipelineHealth, Route as AppRoute } from "@/types"
+
+// jsdom's default navigator.language is "en-US", which the app's language
+// detector picks up over the pt fallback — force pt here so assertions below
+// (written against the PT catalog copy) match what a PT-BR user actually sees.
+beforeAll(async () => {
+  await i18n.changeLanguage("pt")
+})
 
 vi.mock("@/services/api")
 vi.mock("@/contexts/AuthContext", () => ({

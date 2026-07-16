@@ -998,6 +998,15 @@ def create_integration(
                 "integration.on_create: on_created() disparado integration_id=%s kind=%s",
                 integration.id, requested_kind,
             )
+        except ee_hooks.LicenseRequiredError as exc:
+            # EE presente mas a licença não concede a feature: a CRIAÇÃO segue
+            # permitida (teaser by-design, paridade com Community), só a descoberta
+            # assíncrona é recusada. Persiste o sinal p/ a UI (polling /sync-status).
+            logger.warning(
+                "integration.on_create: descoberta recusada por licença (feature=%s) "
+                "integration_id=%s", exc.feature, integration.id,
+            )
+            _persist_refused_sync_status(repo, integration, "license_required")
         except Exception:
             logger.error(
                 "integration.on_create: on_created() falhou integration_id=%s — "
@@ -1075,6 +1084,27 @@ def _sync_lock_active(integration_id: int) -> bool:
         return False
 
 
+def _persist_refused_sync_status(
+    repo: repository.IntegrationRepository,
+    integration: models.Integration,
+    status_value: str,
+) -> None:
+    """Persiste em ``tenant_sync_status`` o MOTIVO de um sync recusado
+    (``enterprise_required`` | ``license_required``) — sem tocar
+    ``last_tenant_sync_at`` (nenhum sync rodou). Best-effort: uma falha de commit
+    não derruba a resposta (o body já carrega o mesmo sinal)."""
+    try:
+        integration.tenant_sync_status = status_value
+        integration.updated_at = datetime.utcnow()
+        repo.db.commit()
+    except Exception:  # noqa: BLE001
+        repo.db.rollback()
+        logger.warning(
+            "sync-tenants: falha ao persistir tenant_sync_status=%s integration_id=%s",
+            status_value, integration.id, exc_info=True,
+        )
+
+
 @router.post("/{integration_id}/sync-tenants", response_model=schemas.PartnerSyncResult)
 def sync_partner_tenants(
     integration_id: int,
@@ -1115,6 +1145,9 @@ def sync_partner_tenants(
             "sync-tenants: enterprise feature não disponível (Community) integration_id=%s",
             integration_id,
         )
+        # Persiste o motivo da recusa em tenant_sync_status — o polling de
+        # /sync-status deixa de devolver null para sempre e a UI ganha o sinal.
+        _persist_refused_sync_status(repo, integration, "enterprise_required")
         return schemas.PartnerSyncResult(
             integration_id=integration_id,
             started_at=datetime.utcnow(),
@@ -1138,6 +1171,20 @@ def sync_partner_tenants(
         # sync_sophos_partner; outro MSSP faz o seu) sem acoplar o router ao task.
         provider = get_provider(integration)
         provider.on_created()
+    except ee_hooks.LicenseRequiredError as exc:
+        # EE presente, mas a licença ativa não concede a feature (multi_tenant):
+        # o dispatcher do EE recusou. Sinal DISTINTO de enterprise_required
+        # (artefato ausente) — sem 500, nada foi disparado. Nunca logar o token.
+        logger.warning(
+            "sync-tenants: recusado por licença (feature=%s) integration_id=%s",
+            exc.feature, integration_id,
+        )
+        _persist_refused_sync_status(repo, integration, "license_required")
+        return schemas.PartnerSyncResult(
+            integration_id=integration_id,
+            started_at=datetime.utcnow(),
+            status="license_required",
+        )
     except Exception as exc:  # noqa: BLE001
         # Causa típica: Celery broker (Redis) inacessível ou
         # ``settings.CELERY_BROKER_URL`` apontando pra host errado.
@@ -1590,7 +1637,19 @@ def select_tenants(
         response.pending += len(updated)
         return response
 
-    result = applier(db, integration, updated, body.state)
+    try:
+        result = applier(db, integration, updated, body.state)
+    except ee_hooks.LicenseRequiredError as exc:
+        # EE presente, mas a licença ativa não concede a feature: o applier recusou
+        # ANTES de materializar. Paridade com o branch Community — decisões ficam
+        # persistidas (passo 1), zero children, sinal license_required (distinto).
+        logger.warning(
+            "select-tenants: recusado por licença (feature=%s) integration_id=%s",
+            exc.feature, integration_id,
+        )
+        response.license_required = True
+        response.pending += len(updated)
+        return response
     response.materialized += int(result.get("materialized", 0))
     response.deactivated += int(result.get("deactivated", 0))
     response.pending += int(result.get("pending", 0))

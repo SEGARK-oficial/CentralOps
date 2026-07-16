@@ -140,7 +140,7 @@ describe("CollectorsPage", () => {
 
     expect(mockedApi.triggerCollection).toHaveBeenCalledWith(42, "alerts")
     await waitFor(() =>
-      expect(screen.getByText(/coleta enfileirada/i)).toBeInTheDocument(),
+      expect(screen.getByText(/coleta iniciada/i)).toBeInTheDocument(),
     )
   })
 

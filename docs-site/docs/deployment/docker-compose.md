@@ -46,9 +46,10 @@ Defina em `compose/.env` (o compose **recusa subir** sem os dois primeiros):
 
 - **`POSTGRES_PASSWORD`** — senha do Postgres (obrigatória).
 - **`REDIS_PASSWORD`** — senha do Redis; o AUTH do Redis é sempre exigido (obrigatória).
-- **`APP_MASTER_KEY`** — chave mestra de criptografia (≥ 32 caracteres). Deixe **em
-  branco** para o container **gerar uma na primeira subida** (persistida em
-  `/app/data/app_master_key` — guarde esse arquivo), ou defina a sua.
+- **`APP_MASTER_KEY`** — chave mestra de criptografia (≥ 32 caracteres). **Obrigatória**
+  com `APP_ENV=production` (o padrão do exemplo): sem ela o container **aborta o boot**.
+  Gere com `openssl rand -hex 32` (abaixo). A geração automática (persistida em
+  `/app/data/app_master_key`) só existe em dev/test, com `APP_ENV=development`.
 
 Gere segredos fortes:
 
@@ -133,6 +134,20 @@ orquestra o conjunto, seja buildando (passo 3) ou puxando as imagens prontas.
 ## Operação básica
 
 Rodando da raiz do repositório (todos os comandos apontam para `compose/docker-compose.yml`):
+
+:::warning[Instalação Enterprise? Inclua a overlay em TODOS os comandos]
+
+Se a sua stack roda a edição **Enterprise**
+([Upgrade para Enterprise](../editions/upgrade.md)), **todo** comando `docker compose`
+desta página precisa incluir também `-f compose/docker-compose.ee.yml` — por exemplo:
+`docker compose -f compose/docker-compose.yml -f compose/docker-compose.ee.yml up -d`.
+Um `up -d`/`pull` só com o arquivo base **rebaixa a stack para Community
+silenciosamente** (a imagem EE e o mount do keyring da licença são removidos).
+Alternativa: torne a overlay permanente com
+`COMPOSE_FILE=docker-compose.yml:docker-compose.ee.yml` no `compose/.env` e rode os
+comandos de dentro de `compose/`, sem `-f`.
+
+:::
 
 | Ação | Comando |
 |---|---|

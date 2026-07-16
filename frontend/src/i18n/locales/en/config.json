@@ -2,7 +2,7 @@
   "page": {
     "eyebrow": "Administration",
     "title": "Settings",
-    "description": "Manage the email gateway, recipients, and the Collector runtime configuration (buffering, rate limits).",
+    "description": "Manage email notifications, event collection and delivery, corporate sign-in (SSO), audit, and licensing.",
     "stats": {
       "recipients": "Recipients",
       "tlsSmtp": "TLS SMTP",
@@ -21,7 +21,7 @@
     "tabs": {
       "ariaLabel": "Settings sections",
       "email": "Email notifications",
-      "collector": "Collector / Dispatch",
+      "collector": "Collection & Delivery",
       "identity": "Identity & SSO",
       "audit": "Audit",
       "capture": "Live capture",
@@ -30,25 +30,25 @@
     "email": {
       "loadError": "Failed to load email configuration",
       "cardTitle": "Email notifications",
-      "cardDescription": "SMTP relay, sender, and recipients used in alerts and reports."
+      "cardDescription": "Outgoing mail server (SMTP), sender, and recipients used in alerts and reports."
     },
     "collector": {
       "loadError": "Failed to load Collector configuration",
-      "cardTitle": "Collector / Dispatch",
-      "cardDescription": "Batching, rate limits, and concurrency per vendor. Changes propagate to workers within 30s without a restart."
+      "cardTitle": "Collection & Delivery",
+      "cardDescription": "Adjust batches, rate limits, and concurrency per vendor. Changes take effect automatically within 30 seconds."
     },
     "identity": {
       "loadError": "Failed to load identity configuration",
       "cardTitle": "Identity & SSO (Microsoft Entra)",
-      "cardDescription": "Federated \"Sign in with Microsoft\" login (OIDC). Credentials are encrypted in the database; changes apply on the next login, no restart needed."
+      "cardDescription": "Corporate \"Sign in with Microsoft\" login (OIDC). Credentials are stored securely and changes take effect from the next login."
     },
     "audit": {
       "cardTitle": "Dispatched event audit",
-      "cardDescription": "Latest events dispatched via Syslog/JSONL. Use this to inspect the real shape and test decoders in your destination's tool (e.g., {{tool}})."
+      "cardDescription": "Latest events sent to destinations (Syslog/JSONL). Use this to check the exact format and test decoders in your destination's tool (e.g., {{tool}})."
     },
     "capture": {
       "cardTitle": "Live capture (\"listening mode\")",
-      "cardDescription": "Records a temporary sample of traffic dispatched to destinations, optionally filtered by vendor. Ideal for inspecting the real shape during an integration test. The session expires on its own."
+      "cardDescription": "Records a temporary sample of traffic sent to destinations, optionally filtered by vendor. Ideal for seeing the real format of events during an integration test. The session expires on its own."
     }
   },
   "collectorsPage": {
@@ -60,7 +60,7 @@
     "loadError": "Failed to load collector data.",
     "triggerError": "Failed to trigger collection.",
     "resetError": "Failed to reset cursor.",
-    "triggerSuccess": "Collection queued in queue {{queue}} (task {{taskId}}…).",
+    "triggerSuccess": "Collection started — new events will appear shortly (queue {{queue}}, id {{taskId}}…).",
     "resetSuccess": "Cursor for {{name}} / {{stream}} reset.",
     "defaultIntegration": "integration",
     "kpi": {
@@ -79,13 +79,13 @@
       "filterPlaceholder": "Filter vendor or stream…",
       "filterAriaLabel": "Filter registered vendors",
       "listAriaLabel": "List of registered vendors",
-      "taskTooltip": "Task: {{task}} • Queue: {{queue}} • {{seconds}}s",
+      "taskTooltip": "Task: {{task}} • Queue: {{queue}} • every {{seconds}}s",
       "filteredCount": "{{filtered}} of {{total}} vendors",
       "collapsedHint": "{{count}} vendor streams registered in the collector. Click “View all” to list and filter."
     },
     "table": {
       "title": "Collection state",
-      "sourceHint": "Source: table <code>{{table}}</code> (hot cache in Redis).",
+      "sourceHint": "Data source: <code>{{table}}</code> — updated on every collection.",
       "loading": "Loading collections…",
       "ariaLabel": "Collection state by integration and stream",
       "columns": {
@@ -97,8 +97,8 @@
         "actions": "Actions"
       },
       "emptyTitle": "No collection registered",
-      "emptyNoVendors": "The Collector subsystem hasn't registered any vendors yet. Check Celery Beat.",
-      "emptyNoIntegration": "Create an active integration and wait for the next Beat tick (up to 60s).",
+      "emptyNoVendors": "No collection vendor registered yet. Check that all CentralOps services are running — especially the scheduler (beat).",
+      "emptyNoIntegration": "Create an active integration — the first collection starts automatically within 60 seconds.",
       "trigger": "Trigger",
       "triggerTooltip": "Trigger immediate collection",
       "reset": "Reset",
@@ -112,8 +112,8 @@
     },
     "resetModal": {
       "title": "Reset cursor?",
-      "body": "This will erase the persisted checkpoint for {{name}} / {{stream}}.",
-      "hint": "The next collection will use the vendor's default lookback (1h back). Deduplication still filters recent events, but there may be re-delivery until the TTL expires.",
+      "body": "This erases the saved read position for {{name}} / {{stream}}.",
+      "hint": "The next collection restarts from the vendor's default point (1 hour back). Recent duplicates are filtered automatically, but some events may be re-sent.",
       "confirm": "Reset cursor"
     }
   },
@@ -137,7 +137,7 @@
     "keepCurrentPassword": "Keep current password",
     "removeStoredPassword": "Remove saved password",
     "passwordMarkedForRemovalTitle": "Password marked for removal",
-    "passwordMarkedForRemovalBody": "The saved password will be erased the next time settings are saved.",
+    "passwordMarkedForRemovalBody": "The saved password will be erased when you save the settings.",
     "sendTest": "Send test",
     "saveConfig": "Save settings",
     "recipients": {
@@ -160,8 +160,8 @@
   },
   "collector": {
     "envBanner": {
-      "title": "Configuration inherited from environment variables",
-      "body": "The current values come from <code>{{envFile}}</code>. Save to persist to the database and enable UI editing — workers will automatically reload within ≤30s."
+      "title": "Configuration set during installation",
+      "body": "The current values come from the installation's <code>{{envFile}}</code> file. Save to start editing them here — changes take effect automatically within 30 seconds."
     },
     "destinationsCta": "The delivery destination configuration (e.g., wazuh-default) has moved to the <a>Destinations</a> page.",
     "testResult": {
@@ -179,14 +179,14 @@
       },
       "vendorRateLimits": {
         "title": "Rate limits per vendor",
-        "hint": "Budget per window (sliding window distributed via Redis)."
+        "hint": "Maximum requests per second, minute, and hour for each vendor."
       }
     },
     "fields": {
       "batchSize": "Batch size",
-      "batchSizeHelper": "Larger batches = fewer round-trips, higher per-event latency.",
+      "batchSizeHelper": "Larger batches make fewer sends, but each event may take longer to arrive.",
       "flushSeconds": "Flush after (seconds)",
-      "flushSecondsHelper": "Sends the partial batch even if not full — guarantees maximum latency.",
+      "flushSecondsHelper": "Sends the batch even if incomplete after this time — sets the maximum wait time for an event.",
       "dedupeTtl": "Dedupe TTL (days)",
       "dedupeTtlHelper": "Memory window for filtering duplicate events per vendor."
     },
@@ -229,7 +229,7 @@
       "clientSecret": "Client secret",
       "clientSecretPlaceholderConfigured": "•••••••• configured — leave blank to keep",
       "clientSecretPlaceholderEmpty": "Paste the client secret",
-      "clientSecretHelper": "Stored encrypted in the database; never displayed back.",
+      "clientSecretHelper": "Stored encrypted; never displayed back.",
       "redirectUri": "Redirect URI",
       "redirectUriPlaceholder": "https://centralops.example.com/api/auth/sso/callback",
       "redirectUriHelper": "Must match what's registered in the App Registration (HTTPS).",
@@ -240,7 +240,7 @@
       "defaultRoleHelper": "Used when no App Role in the token matches the map.",
       "allowedEmailDomains": "Allowed email domains",
       "allowedEmailDomainsPlaceholder": "company.com, company.co.uk",
-      "allowedEmailDomainsHelper": "CSV. Empty = any domain in the tenant.",
+      "allowedEmailDomainsHelper": "Separate with commas. Empty = any domain in the tenant.",
       "roleMap": "App Roles → local role map (JSON)",
       "roleMapHelper": "E.g.: {\"CentralOpsAdmin\":\"admin\",\"CentralOpsOperator\":\"operator\"}",
       "buttonLabel": "Button label",
@@ -269,7 +269,7 @@
     "defaultButtonLabel": "Sign in with Microsoft",
     "saveConfig": "Save configuration",
     "testConnection": "Test connection",
-    "envOnlyHint": "Reading from .env — save to persist to the database."
+    "envOnlyHint": "Values come from the installation's configuration — save to edit them here."
   },
   "entraSync": {
     "never": "Never",
@@ -310,10 +310,10 @@
   "audit": {
     "intro": {
       "title": "What this tab is",
-      "body": "Ring buffer of the latest <strong>events actually dispatched to destinations</strong> (last 500, 24h TTL). The wire-format lines exported here are <strong>byte-for-byte identical</strong> to what went out on the network — hostname and PRI are captured at dispatch time. Paste into your destination's test tool (e.g., {{tool}}) to see exactly how your decoder/rule behaves against real traffic."
+      "body": "Rolling sample of the latest <strong>events actually sent to destinations</strong> (up to 500, kept for 24h). The wire-format lines exported here are <strong>byte-for-byte identical</strong> to what went out on the network, including hostname and priority. Paste into your destination's test tool (e.g., {{tool}}) to see exactly how your decoder or rule behaves with real traffic."
     },
     "loadError": "Failed to load audit data",
-    "clearBufferSuccess": "Ring buffer cleared.",
+    "clearBufferSuccess": "Audit sample cleared.",
     "clearBufferError": "Failed to clear buffer",
     "copyWireSuccess": "{{format}} line copied — paste it into your destination's test tool (e.g., {{tool}}) to test decoders.",
     "copyJsonSuccess": "Event JSON copied.",
@@ -326,11 +326,11 @@
       "eventsUnit": "{{count}} events",
       "eventCount_one": "{{count}} event",
       "eventCount_other": "{{count}} events",
-      "clearBuffer": "Clear buffer"
+      "clearBuffer": "Clear sample"
     },
     "loading": "Loading audit data…",
-    "emptyTitle": "Buffer empty",
-    "emptyDescription": "No events dispatched in the last few minutes — or you just cleared the buffer. The ring starts filling as soon as the next collection runs.",
+    "emptyTitle": "No events recorded",
+    "emptyDescription": "No events sent in the last few minutes — or you just cleared the sample. It fills up again on the next collection.",
     "table": {
       "timestamp": "Timestamp",
       "vendorStream": "Vendor / Stream",
@@ -345,13 +345,13 @@
       "inspectTooltip": "View full JSON",
       "json": "JSON",
       "jsonTooltip": "Copy JSON",
-      "wireTooltip": "Copy wire-format line ready for wazuh-logtest"
+      "wireTooltip": "Copy wire-format line for your destination's test tool"
     },
     "modal": {
       "defaultTitle": "Event",
       "customerBadge": "customer #{{id}}",
       "integrationBadge": "integration #{{id}}",
-      "legacyHostnameBadge": "hostname placeholder",
+      "legacyHostnameBadge": "generic hostname",
       "tabsAriaLabel": "Event views",
       "tabWire": "Wire-format",
       "tabNormalized": "Normalized (OCSF)",
@@ -360,7 +360,7 @@
       "wireLineLabelRfc5424": "RFC 5424 line",
       "wireLineCopyHint": "(copy to your destination's test tool, e.g., {{tool}})",
       "hostBadge": "host: {{hostname}}",
-      "legacyEnvelopeNote": "This event was recorded before the fidelity fix; the hostname is a placeholder but doesn't affect the decoder (we match on {{field}}). New events will carry the real hostname.",
+      "legacyEnvelopeNote": "Event recorded by an earlier version of the system: the hostname shown is generic, but this doesn't affect the decoder — identification uses {{field}}. New events carry the real hostname.",
       "legacyFormatNote": "Sample recorded before a system update — displayed in RFC 5424 format.",
       "copyLine": "Copy line",
       "normalizedTitle": "Normalized OCSF v1.3",
@@ -368,21 +368,21 @@
       "copyJson": "Copy JSON"
     },
     "clearDialog": {
-      "title": "Clear the audit ring buffer?",
+      "title": "Clear the audit sample?",
       "descriptionPrefix": "This action removes",
       "descriptionAllEvents": "all {{count}} events",
       "descriptionSuffix": "currently in the buffer and cannot be undone. New events will keep being recorded normally as collectors dispatch to destinations.",
-      "confirm": "Clear buffer"
+      "confirm": "Clear sample"
     }
   },
   "capture": {
     "intro": {
       "title": "What live capture is",
-      "body": "Turns on a temporary <strong>\"listening mode\"</strong> that records a sample of traffic <strong>actually dispatched to destinations</strong>, optionally filtered by vendor. Use it to inspect the real shape of events during an integration test — without digging through the global audit ring. The session expires on its own at the end of the window; nothing stays on forever."
+      "body": "Turns on a temporary <strong>\"listening mode\"</strong> that records a sample of traffic <strong>actually sent to destinations</strong>, optionally filtered by vendor. Use it to inspect the real format of events during an integration test — without having to search the general audit. The session expires on its own at the end of the window; nothing stays on forever."
     },
     "loadSessionsError": "Failed to list capture sessions",
     "loadEventsError": "Failed to load session events",
-    "startSuccess": "Capture started{{vendorSuffix}}. Events appear as the pipeline dispatches them.",
+    "startSuccess": "Capture started{{vendorSuffix}}. Events appear as they are sent to destinations.",
     "startVendorSuffix": " (vendor: {{vendor}})",
     "limitReached": "Simultaneous capture session limit reached. Stop or delete an existing session before starting another.",
     "startError": "Failed to start capture",
@@ -436,7 +436,7 @@
       "refresh": "Refresh",
       "loading": "Loading events…",
       "waitingTitle": "Waiting for traffic…",
-      "waitingDescription": "The capture is active but no event has been dispatched matching the chosen filter yet. Events appear here as soon as the pipeline delivers them.",
+      "waitingDescription": "The capture is active, but there hasn't been traffic matching the chosen filter yet. Events appear here as soon as they are sent.",
       "emptyTitle": "No events captured",
       "emptyDescription": "This session didn't capture any events in the window (no traffic matched the filter).",
       "table": {
@@ -463,12 +463,12 @@
   },
   "licensing": {
     "cardTitle": "Licensing",
-    "cardDescription": "Activate the Enterprise edition by pasting the license key. It's validated offline and stored <strong>encrypted in the database</strong> — the system then reads the license from there (survives restarts, no environment variable editing needed).",
+    "cardDescription": "Activate the Enterprise edition by pasting the license key. It's <strong>validated offline</strong>, with no external connection, and stays active across updates and restarts — no additional configuration needed.",
     "graceTitle": "License expired — in grace period",
     "graceBody": "Enterprise features remain temporarily active. Paste the renewed license below before the grace period ends to avoid reverting to Community.",
     "source": {
-      "database": "Database (activated via UI)",
-      "environment": "Environment variable / file",
+      "database": "Activated via this interface",
+      "environment": "Set during server installation",
       "none": "No active license"
     },
     "edition": {
@@ -481,15 +481,15 @@
     "activatedOn": "Activated on {{date}}",
     "activatedBy": " by {{name}}",
     "activateSuccessEnterprise": "License activated — Enterprise edition (plan {{plan}}).",
-    "activateSuccessCommunityOnly": "Token accepted, but the edition remained Community.",
+    "activateSuccessCommunityOnly": "License accepted, but the system remains on the Community edition. The license may have been revoked — contact whoever issued it.",
     "activateError": "Failed to activate license.",
     "deactivateSuccess": "License deactivated — reverted to Community.",
     "deactivateError": "Failed to deactivate license.",
     "unknownPlan": "—",
     "form": {
       "label": "License key",
-      "placeholder": "Paste the token here (eyJhbGciOiJFZERTQS...)",
-      "helper": "Signed token (EdDSA) issued for your organization. Validated offline.",
+      "placeholder": "Paste the license key here (eyJhbGci…)",
+      "helper": "Digitally signed key issued for your organization. Validated offline.",
       "activate": "Activate license",
       "deactivate": "Deactivate"
     }
@@ -503,16 +503,16 @@
     "expiresOn": "Expires on {{date}}{{daysSuffix}}",
     "expiresOnDaysSuffix": " ({{days}}d)",
     "graceTitle": "License expired — in grace period",
-    "graceBody": "The Enterprise license expired, but features remain active during the grace window. <strong>Renew now</strong> — the system reverts to Community mode once the grace period ends.",
+    "graceBody": "The Enterprise license expired, but features remain active during the grace period. <strong>Renew now</strong> — once the grace period ends, the system returns to Community mode.",
     "expiredTitle": "License expired",
-    "expiredBody": "The Enterprise license expired — the system has already reverted (or will on the next check) to Community mode. Renew the license to reactivate your plan's features.",
+    "expiredBody": "The Enterprise license expired and the system returned to Community mode. Renew the license to reactivate your plan's features.",
     "expiringSoonTitle": "License expiring soon",
     "expiringSoonBody": "Your license expires in {{days}} day(s) ({{date}}). Renew to avoid losing your plan's features — the system reverts to Community once it expires."
   },
   "backfill": {
     "panel": {
       "title": "Backfill — controlled historical collection",
-      "description": "Run retroactive event collections without affecting real-time polling.",
+      "description": "Recover events from past periods without affecting real-time collection.",
       "newBackfill": "New backfill",
       "modalTitle": "New Backfill"
     },
@@ -569,7 +569,7 @@
       "cancel": "Cancel backfill"
     },
     "form": {
-      "info": "The backfill runs in a dedicated queue and doesn't affect normal polling. Events go through the same pipeline (mapping + dispatch). Maximum window: {{maxDays}} days.",
+      "info": "The backfill runs separately from real-time collection, without affecting it. Historical events get the same processing and delivery as everything else. Maximum window: {{maxDays}} days.",
       "learnMore": "Learn more",
       "period": "Period",
       "from": "From",
@@ -587,7 +587,7 @@
       "cancel": "Cancel",
       "submit": "Start backfill",
       "successTitle": "Backfill created successfully",
-      "successBody": "The job was added to the queue and will be processed shortly."
+      "successBody": "The backfill has been queued and will start shortly."
     }
   }
 }

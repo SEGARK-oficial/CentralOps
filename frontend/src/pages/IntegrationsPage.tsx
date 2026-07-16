@@ -295,7 +295,19 @@ const IntegrationsPage: React.FC = () => {
     try {
       setSyncingId(integrationId)
       setFeedback(null)
-      await api.syncPartnerTenants(integrationId)
+      const result = await api.syncPartnerTenants(integrationId)
+      // O backend recusa honestamente (HTTP 200 + status) quando o import de
+      // tenants não está habilitado: "enterprise_required" = artefato EE ausente
+      // (Community); "license_required" = EE presente sem licença da feature.
+      // Sem isto o toast de sucesso mentiria — nada será importado.
+      if (result.status === "enterprise_required") {
+        setFeedback({ type: "error", message: t("list.feedback.syncEnterpriseRequired") })
+        return
+      }
+      if (result.status === "license_required") {
+        setFeedback({ type: "error", message: t("list.feedback.syncLicenseRequired") })
+        return
+      }
       setFeedback({
         type: "success",
         message: t("list.feedback.syncStarted"),

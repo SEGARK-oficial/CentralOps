@@ -33,30 +33,43 @@ cd CentralOps
 
 ### 2. Configura el entorno
 
-Copia el ejemplo y define los valores obligatorios:
+El `docker compose` lee el `.env` **del directorio del archivo compose** (`compose/`) — no
+de la raíz del repositorio. Copia el ejemplo allí y ajusta los secretos:
 
 ```bash
-cp .env.example .env
+cp compose/.env.example compose/.env
 ```
 
-Como mínimo, define en el `.env`:
+Define en `compose/.env` (el compose **se niega a levantar** sin los dos primeros):
 
-- **`POSTGRES_PASSWORD`** — contraseña de la base de datos (obligatoria; sin ella, compose se niega a levantar).
-- **`APP_MASTER_KEY`** — clave maestra de cifrado (≥ 32 caracteres). Si la dejas
-  en blanco, el contenedor **genera una en el primer arranque** y la persiste en
-  `/app/data/app_master_key` — guarda ese archivo.
+- **`POSTGRES_PASSWORD`** — contraseña de Postgres (obligatoria).
+- **`REDIS_PASSWORD`** — contraseña de Redis; el AUTH de Redis se exige siempre (obligatoria).
+- **`APP_MASTER_KEY`** — clave maestra de cifrado (≥ 32 caracteres). **Obligatoria**
+  con `APP_ENV=production` (valor por defecto del ejemplo): sin ella el contenedor
+  **aborta el arranque**. Genérala con `openssl rand -hex 32` (abajo). La generación
+  automática (persistida en `/app/data/app_master_key`) solo existe en dev/test, con
+  `APP_ENV=development`.
 
-Para producción con HTTPS, mantén `APP_ENV=production` y `SESSION_SECURE_COOKIE=true`
-(valor por defecto del ejemplo). La referencia completa está en **[Configuración](./configuration.md)**.
+Genera secretos fuertes:
+
+```bash
+openssl rand -base64 24   # POSTGRES_PASSWORD y REDIS_PASSWORD
+openssl rand -hex 32      # APP_MASTER_KEY
+```
+
+Para producción con HTTPS, mantén `APP_ENV=production` (valor por defecto del ejemplo —
+fuerza `SESSION_SECURE_COOKIE=true`). La referencia completa está en
+**[Configuración](./configuration.md)**.
 
 ### 3. Levanta el stack
 
+Desde la **raíz del repositorio**, apuntando al archivo en `compose/`:
+
 ```bash
-cd compose
-docker compose up --build -d
+docker compose -f compose/docker-compose.yml up --build -d
 ```
 
-El primer build descarga las imágenes y compila el frontend — los siguientes son casi
+El primer build compila el backend y el frontend — los siguientes arranques son casi
 instantáneos.
 
 ### 4. Accede
@@ -70,39 +83,79 @@ certificado propio, monta los archivos en `certs/`.
 
 ### 5. Verifica el estado
 
+La preparación real (Postgres + Redis) la verifica el **healthcheck del contenedor** — el
+`/readyz` de la API no se publica en el borde. Comprueba el estado de los servicios:
+
 ```bash
-curl -fsS http://localhost:3000/readyz
+docker compose -f compose/docker-compose.yml ps
+```
+
+Los servicios `centralops` (API) y `frontend` deben aparecer como **`healthy`**. Para
+leer el JSON de preparación directo en la API:
+
+```bash
+docker compose -f compose/docker-compose.yml exec centralops \
+  curl -fsS http://127.0.0.1:8000/readyz
 # {"status":"ready","checks":{"db":"ok","redis":"ok"}}
 ```
 
-`ready` significa que la API, la base de datos y Redis están activos. Ahora continúa hacia el
+Con todo `healthy`, continúa hacia el
 **[Primer Inicio de Sesión](../getting-started/first-login.md)** para crear la cuenta de
 administrador.
 
-## Imagen única (sin clonar el repo)
+## Ejecutar imágenes listas (sin build)
 
-Las imágenes se publican en GitHub Container Registry. Para ejecutar sin clonar:
+Las imágenes oficiales se publican en GitHub Container Registry en cada release:
+`ghcr.io/segark-oficial/centralops` (API) y `ghcr.io/segark-oficial/centralops-frontend`
+(frontend). Para levantar **sin compilar localmente**, apunta el compose hacia ellas en
+`compose/.env`:
 
-```bash
-docker run -d --name centralops \
-  -p 3000:80 -p 3443:443 \
-  -e APP_MASTER_KEY="define-una-clave-de-al-menos-32-caracteres" \
-  -e ENABLE_HTTPS=1 \
-  -v centralops-data:/app/data \
-  ghcr.io/segark-oficial/centralops:latest
+```dotenv
+IMAGE_NAME=ghcr.io/segark-oficial/centralops
+IMAGE_TAG=v1.0.0   # fija una tag de release; evita `latest` en producción
 ```
 
-Las configuraciones pueden venir por `--env-file .env` o por un archivo `/app/.env` montado en el
-contenedor. Fija una **tag inmutable** (ej.: `v1.0.0`) en producción — evita `latest`.
+Y levanta descargando las imágenes en vez de compilar:
+
+```bash
+docker compose -f compose/docker-compose.yml pull
+docker compose -f compose/docker-compose.yml up -d
+```
+
+:::note
+
+El stack necesita varios servicios (API, frontend, workers, Postgres, Redis) — no hay
+una imagen única que ejecute todo en un solo contenedor. El `compose/docker-compose.yml`
+es el que orquesta el conjunto, sea compilando (paso 3) o descargando las imágenes
+listas.
+
+:::
 
 ## Operación básica
 
+Ejecutando desde la raíz del repositorio (todos los comandos apuntan a `compose/docker-compose.yml`):
+
+:::warning[¿Instalación Enterprise? Incluye la overlay en TODOS los comandos]
+
+Si tu stack ejecuta la edición **Enterprise**
+([Upgrade a Enterprise](../editions/upgrade.md)), **todo** comando `docker compose` de
+esta página debe incluir también `-f compose/docker-compose.ee.yml` — por ejemplo:
+`docker compose -f compose/docker-compose.yml -f compose/docker-compose.ee.yml up -d`.
+Un `up -d`/`pull` solo con el archivo base **degrada la stack a Community
+silenciosamente** (la imagen EE y el mount del keyring de la licencia se eliminan).
+Alternativa: haz la overlay permanente con
+`COMPOSE_FILE=docker-compose.yml:docker-compose.ee.yml` en `compose/.env` y ejecuta los
+comandos desde dentro de `compose/`, sin `-f`.
+
+:::
+
 | Acción | Comando |
 |---|---|
-| Ver logs | `docker compose logs -f api` |
-| Detener | `docker compose down` |
-| Actualizar versión | `docker compose pull && docker compose up -d` |
-| Backup de la base de datos | `docker compose exec postgres pg_dump -U centralops centralops > backup.sql` |
+| Ver logs de la API | `docker compose -f compose/docker-compose.yml logs -f centralops` |
+| Ver logs del frontend | `docker compose -f compose/docker-compose.yml logs -f frontend` |
+| Detener | `docker compose -f compose/docker-compose.yml down` |
+| Actualizar imágenes | `docker compose -f compose/docker-compose.yml pull && docker compose -f compose/docker-compose.yml up -d` |
+| Backup de la base de datos | `docker compose -f compose/docker-compose.yml exec postgres pg_dump -U centralops centralops > backup.sql` |
 
 ## Próximos pasos
 

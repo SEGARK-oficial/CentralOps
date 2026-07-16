@@ -75,7 +75,9 @@
       "bulkDeactivatedWithWarnings": "Bulk completed with warnings: {{deactivated}}/{{processed}} deactivated. {{errorCount}} item(s) skipped.",
       "bulkDeactivated": "{{count}} integration(s) deactivated.",
       "bulkDeactivateError": "Failed to bulk deactivate.",
-      "cascadeDeactivated": "Partner deactivated ({{affected}} integrations affected)."
+      "cascadeDeactivated": "Partner deactivated ({{affected}} integrations affected).",
+      "syncEnterpriseRequired": "Tenant import is an Enterprise feature — this instance is running the Community edition.",
+      "syncLicenseRequired": "Tenant import requires an active Enterprise license covering the multi-tenant feature."
     },
     "bulkDialog": {
       "title": "Deactivate {{count}} integration(s)?",
@@ -253,7 +255,8 @@
       "region": "Region",
       "regionHelper": "Optional. Automatically discovered on the first connection.",
       "importNoticeTitle": "How it works:",
-      "importNoticeBody": " when saved, the Sophos Central API will be queried and <em>all tenants</em> under this credential will be automatically imported as separate Organizations + Integrations. Region and tenant_id are discovered per child — do not fill them in manually."
+      "importNoticeBody": " when saved, the Sophos Central API will be queried and <em>all tenants</em> under this credential will be automatically imported as separate Organizations + Integrations. Region and tenant_id are discovered per child — do not fill them in manually.",
+      "enterpriseRequiredNote": "Automatic tenant import requires an Enterprise license. In Community you can create this integration and discover tenants, but they will not be imported."
     },
     "wazuh": {
       "indexerTitle": "Indexer API",
@@ -305,7 +308,8 @@
       "wazuhManagerUserRequired": "Enter the Manager API user.",
       "wazuhManagerPasswordRequired": "Enter the Manager API password.",
       "testConnectionFailed": "Failed to test connection."
-    }
+    },
+    "enterpriseBadge": "Enterprise"
   },
   "ingest": {
     "title": "Push ingestion",
@@ -325,5 +329,10 @@
     "issueError": "Failed to issue token.",
     "revokeError": "Failed to revoke token.",
     "edgeCollectorConfig": "Edge-collector configuration (Vector)"
+  },
+  "enterprisePanel": {
+    "title": "Tenant import is an Enterprise feature",
+    "body": "This integration can discover the tenants under this credential, but importing them as Organizations + Integrations (multi-tenant materialization) requires an Enterprise license.",
+    "link": "Learn how to upgrade"
   }
 }

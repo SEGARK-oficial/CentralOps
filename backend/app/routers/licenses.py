@@ -97,10 +97,18 @@ def activate_license(
     # global.
     tenant.require_global_scope(user)
     token = payload.token.strip()
+    actor = _actor(user)
     # Validate offline BEFORE persisting — fail-closed: never store an invalid token.
+    keyring = edition_core.load_keyring()
     try:
-        verify_license(token, edition_core.load_keyring())
+        verify_license(token, keyring)
     except LicenseError as exc:
+        # Diagnóstico server-side da rejeição (antes só o 400 chegava ao operador).
+        # NUNCA logar o token (nem prefixo) — só metadados: erro, contagem e dir.
+        logger.warning(
+            "license activation rejected for %s: %s (keyring: %d key(s) from %s)",
+            actor, exc, len(keyring), edition_core._keys_dir(),
+        )
         raise ApiError(
             "license.invalid_or_expired",
             status.HTTP_400_BAD_REQUEST,
@@ -122,7 +130,6 @@ def activate_license(
                 "es": "No fue posible verificar la licencia.",
             },
         )
-    actor = _actor(user)
     license_store.save_token(token, actor=actor)
     fs = edition_core.refresh()  # re-resolve from the new DB token, update the cache
     logger.info("license activated by %s → edition=%s plan=%s", actor, fs.edition, fs.plan)

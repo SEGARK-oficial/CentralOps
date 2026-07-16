@@ -8,6 +8,7 @@ patched (the store imports it at call time, so attribute patching takes effect).
 """
 from __future__ import annotations
 
+import logging
 import time
 
 import jwt
@@ -113,6 +114,43 @@ def test_deactivation_reverts_to_community(test_db, monkeypatch, tmp_path):
     fs = edition.refresh()
     assert not fs.is_enterprise and fs.edition == edition.COMMUNITY
     assert license_store.activation_info()["source"] is None
+
+
+def test_rejected_activation_logs_warning_without_the_token(monkeypatch, tmp_path, caplog):
+    """Diagnosabilidade: a rejeição (LicenseError → 400) loga WARNING server-side com
+    ator + erro + contagem de chaves + dir do keyring — e NUNCA o token (decisão 7).
+    Antes, o único traço era o 400 no access log."""
+    from backend.app.core.errors import ApiError
+    from backend.app.db import models
+    from backend.app.routers import licenses as licenses_router
+
+    priv, pub = _keypair()
+    _write_keyring(tmp_path, pub, kid="k1")
+    monkeypatch.setenv("CENTRALOPS_LICENSE_KEYS_DIR", str(tmp_path))
+    edition.reset_cache()
+
+    # token assinado por OUTRA chave com kid ausente do keyring → unknown key id
+    other_priv, _ = _keypair()
+    bad_token = _sign(other_priv, kid="key.prod")
+
+    admin = models.AppUser(
+        username="root", email="admin@example.com", role="admin", organization_id=None
+    )
+    with caplog.at_level(logging.WARNING, logger="backend.app.routers.licenses"):
+        with pytest.raises(ApiError):
+            licenses_router.activate_license(
+                licenses_router.ActivateLicenseRequest(token=bad_token), admin
+            )
+
+    recs = [r for r in caplog.records if "license activation rejected" in r.getMessage()]
+    assert len(recs) == 1
+    msg = recs[0].getMessage()
+    assert "admin@example.com" in msg          # ator
+    assert "unknown key id" in msg             # erro subjacente
+    assert "1 key(s)" in msg                   # contagem do keyring
+    assert str(tmp_path) in msg                # diretório escaneado
+    assert bad_token not in caplog.text        # o token NUNCA vai pro log
+    assert bad_token[:16] not in caplog.text   # nem prefixo
 
 
 def test_expired_stored_token_downgrades_to_community(test_db, monkeypatch, tmp_path):

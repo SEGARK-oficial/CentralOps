@@ -305,7 +305,19 @@ def _cmd_bulk_approve(args: argparse.Namespace) -> int:
                 decided_by_user_id=args.actor_user_id,
             )
 
-            result = applier(db, partner, updated, state)
+            try:
+                result = applier(db, partner, updated, state)
+            except ee_hooks.LicenseRequiredError as exc:
+                # EE presente, mas a licença ativa não concede a feature: o applier
+                # recusou ANTES de materializar (decisões persistidas, zero children).
+                print(
+                    f"[ERROR] license_required: a licença ativa não concede a feature "
+                    f"{exc.feature!r} — bulk-approve --apply requer uma licença "
+                    f"Enterprise com multi_tenant. As decisões de seleção foram "
+                    f"persistidas; nenhum child foi materializado.",
+                    file=sys.stderr,
+                )
+                return 1
             materialized = int(result.get("materialized", 0))
             deactivated = int(result.get("deactivated", 0))
             errors: list[tuple[str, str]] = [
