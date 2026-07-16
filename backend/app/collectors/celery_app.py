@@ -169,6 +169,12 @@ celery_app.conf.update(
     # confiava-se nos defaults da lib — frágil sob múltiplas réplicas.
     redbeat_lock_key=_redbeat_lock_key(),
     redbeat_lock_timeout=settings.REDBEAT_LOCK_TIMEOUT,
+    # INVARIANTE (RedBeat docs): max_loop_interval DEVE ser menor que o
+    # lock_timeout — o Beat renova o lock a cada tick; se dormir mais que o
+    # TTL, o próprio lock expira (e outra réplica o rouba) → LockNotOwnedError
+    # + crash-loop, e entries de intervalo maior nunca ficam due. O default do
+    # celery é 300s; fixamos 30s (lock 150s = 5×, convenção da lib).
+    beat_max_loop_interval=30,
     # Beat lê novas entries a cada sync_every segundos (default 5s do
     # PersistentScheduler). Mantemos 5s para consistência com comportamento
     # anterior; não tem impacto em produção — apenas leituras leves do Redis.

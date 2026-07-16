@@ -42,6 +42,46 @@ def _make_entry_key(integration_id: int, beat_key: str) -> str:
     return f"{beat_key}-{integration_id}"
 
 
+def _existing_entry_matches(redis_key, reg, integration_id, expires, celery_app) -> bool:
+    """True se a entry JÁ existe no RedBeat com exatamente a definição desejada.
+
+    Usada para tornar o registro de fato idempotente: ``entry.save()`` numa entry
+    existente recalcula o score do zset — e, para entries que nunca rodaram (sem
+    meta), reagenda para ``now + intervalo``. Como o boot-sync roda a cada
+    (re)start do Beat, re-salvar sempre vira INANIÇÃO sob restart: qualquer
+    stream de intervalo maior que o uptime do Beat é empurrada eternamente
+    (incidente jul/2026: sophos cases/detections nunca disparavam enquanto
+    alerts, de 1 min, sobrevivia). Só re-salvamos quando não existe ou mudou.
+
+    Fail-safe: QUALQUER dúvida (ausente, corrompida, schedule de outro tipo,
+    erro de leitura) retorna False → o caller re-salva (comportamento antigo).
+    """
+    from redbeat import RedBeatSchedulerEntry
+
+    try:
+        existing = RedBeatSchedulerEntry.from_key(redis_key, app=celery_app)
+    except KeyError:
+        return False
+    except Exception:
+        logger.debug(
+            "scheduler: falha ao ler entry key=%s — re-salvando", redis_key, exc_info=True
+        )
+        return False
+    try:
+        options = existing.options or {}
+        return (
+            existing.task == reg.task_name
+            # timedelta é serializado como celery schedule(run_every=...); um
+            # schedule de outro tipo (ex.: crontab) não tem run_every → False.
+            and getattr(existing.schedule, "run_every", None) == reg.schedule
+            and list(existing.args or ()) == [integration_id, reg.stream]
+            and options.get("queue") == reg.queue
+            and options.get("expires") == expires
+        )
+    except Exception:
+        return False
+
+
 def register_integration_in_beat(integration_id: int) -> None:
     """Registra ou atualiza entries RedBeat para a integração.
 
@@ -103,9 +143,23 @@ def _register_integration_in_beat_unsafe(integration_id: int) -> None:
     platform = integration.platform
     registered_count = 0
 
+    key_prefix = celery_app.conf.redbeat_key_prefix
+
     for reg in iter_for_platform(platform):
         key = _make_entry_key(integration_id, reg.beat_key)
         expires = max(30, int(reg.schedule.total_seconds()) - 5)
+
+        # Idempotência real: não re-salvar entry idêntica (preserva agenda/meta
+        # — ver docstring de _existing_entry_matches).
+        if _existing_entry_matches(
+            f"{key_prefix}{key}", reg, integration_id, expires, celery_app
+        ):
+            registered_count += 1
+            logger.debug(
+                "scheduler: entry key=%s já registrada e idêntica — agenda preservada",
+                key,
+            )
+            continue
 
         entry = RedBeatSchedulerEntry(
             name=key,

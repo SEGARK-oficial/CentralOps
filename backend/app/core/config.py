@@ -188,7 +188,13 @@ class Settings(BaseSettings):
     # o detentor do lock distribuído dispara; os demais assumem em segundos no
     # failover. Timeout do lock: refrescado a cada beat_sync_every (5s), então
     # 60s dá margem confortável sem permitir disparo duplo por slow-GC.
-    REDBEAT_LOCK_TIMEOUT: int = 60
+    # INVARIANTE RedBeat: o lock TEM de sobreviver ao maior sleep do Beat
+    # (beat_max_loop_interval, fixado em 30s no celery_app) — a lib recomenda
+    # lock_timeout = 5 × max_loop_interval. Com 60s de lock e 300s de sleep
+    # (default antigo), o próprio lock expirava no meio do sleep: os beats
+    # entravam em LockNotOwnedError/crash-loop a cada ~90s e entries de
+    # intervalo maior (sophos cases/detections) NUNCA disparavam (jul/2026).
+    REDBEAT_LOCK_TIMEOUT: int = 150
 
     # ── data-plane durável (control/data-plane split) ──
     # Backend de TRANSPORTE de evento (data-plane), separado do control-plane
