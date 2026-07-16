@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.0](https://github.com/SEGARK-oficial/CentralOps/compare/v1.0.1...v1.1.0) (2026-07-16)
+
+
+### Features
+
+* implement license gating for tenant sync and reduce license keyring log noise ([a9bbccb](https://github.com/SEGARK-oficial/CentralOps/commit/a9bbccbed91c8447890820df4afd66752607acb6))
+
 ## [1.0.1](https://github.com/SEGARK-oficial/CentralOps/compare/v1.0.0...v1.0.1) (2026-07-10)
 
 
