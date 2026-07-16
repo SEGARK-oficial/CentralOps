@@ -239,6 +239,16 @@ async def _run_collection_once(integration_id: int, stream: str) -> None:
     cursor_store = CursorStore(redis)
     cursor_before: Optional[Dict[str, Any]] = None
     events_count = 0
+    # Hardening data-plane: no modo kafka a claim de dedupe (Redis) e o hand-off
+    # durável (produce no Kafka) são sistemas SEPARADOS. Se o run falhar, as
+    # claims tomadas são SOLTAS no except final para o retry re-reclamar —
+    # senão um produce que falhou deixaria o evento reclamado-mas-não-entregue
+    # e o reprocesso o descartaria como "duplicado" (perda silenciosa).
+    # Definidos AQUI (antes do try): o except final os referencia — exceção nos
+    # passos 1–3 (antes do loop de coleta) virava UnboundLocalError e mascarava
+    # o erro original (incidente jul/2026).
+    _track_claims = settings.EVENT_DATAPLANE == "kafka"
+    claimed_msg_ids: list[str] = []
 
     try:
         # ── 1. Carrega Integration (session efêmera) ──────────────────
@@ -366,15 +376,8 @@ async def _run_collection_once(integration_id: int, stream: str) -> None:
         # ── 4. Loop async de coleta ───────────────────────────────────
         batch: list[Dict[str, Any]] = []
         last_flush = time.monotonic()
-        # Hardening data-plane: no modo kafka a claim de dedupe
-        # (Redis) e o hand-off durável (produce no Kafka) são sistemas SEPARADOS.
-        # Se o produce falhar, a claim já foi tomada e o reprocesso (cursor não
-        # avança) descartaria o evento como "duplicado" → PERDA SILENCIOSA. Por
-        # isso rastreamos as claims do run e as SOLTAMOS no except de falha (só
-        # em kafka — na lane Celery claim+enqueue são o mesmo Redis, soltar só
-        # geraria duplicata). at-least-once + dedupe no destino absorve a reentrega.
-        _track_claims = settings.EVENT_DATAPLANE == "kafka"
-        claimed_msg_ids: list[str] = []
+        # (_track_claims/claimed_msg_ids são inicializados ANTES do try — o
+        # except final os referencia; ver comentário na inicialização.)
 
         async with _aiohttp_session() as session:
             ctx = CollectorContext(

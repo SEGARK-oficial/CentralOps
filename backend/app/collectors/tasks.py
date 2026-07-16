@@ -20,6 +20,7 @@ from typing import Optional
 
 from celery.exceptions import SoftTimeLimitExceeded
 
+from ..db import database
 from . import circuit_breaker  # BreakerOpen terminal routing
 from .celery_app import celery_app
 from .dispatch_runtime import DISPATCH_RESULT_TIMEOUT, run_coro_blocking
@@ -47,6 +48,23 @@ logger = logging.getLogger(__name__)
 _RETRYABLE = (ConnectionError, TimeoutError, OSError, VendorAuthError, TransientDeliveryError)
 
 
+def _dispose_db_pool_after_interrupt() -> None:
+    """Descarta o pool de DB deste processo após um soft-timeout.
+
+    O SIGALRM do soft-limit pode interromper o psycopg2 no MEIO de um read;
+    a conexão volta ao pool com o protocolo corrompido e envenena as PRÓXIMAS
+    tasks do processo ("error with status PGRES_TUPLES_OK and no message from
+    the libpq" / IndexError no resultproxy — incidente jul/2026; o pre_ping
+    não pega corrupção de offset em conexão que ainda responde SELECT 1).
+    ``dispose()`` fecha as conexões em repouso; o próximo checkout abre
+    conexão limpa — custo de 1 reconexão, best-effort.
+    """
+    try:
+        database.engine.dispose()
+    except Exception:  # pragma: no cover — best-effort, nunca mascara o erro original
+        logger.warning("engine.dispose() pós-soft-timeout falhou", exc_info=True)
+
+
 @celery_app.task(
     name="collectors.collect_vendor_logs_priority",
     bind=True,
@@ -67,6 +85,7 @@ def collect_vendor_logs_priority(self, integration_id: int, stream: str) -> None
                 "soft-timeout collect integration=%s stream=%s",
                 integration_id, stream,
             )
+            _dispose_db_pool_after_interrupt()
             raise
         except VendorRateLimitedError as exc:
             # Honra Retry-After do servidor em vez do backoff cego.
@@ -94,6 +113,13 @@ def collect_vendor_logs_bulk(self, integration_id: int, stream: str) -> None:
     with TASK_DURATION.labels(stream=stream, queue="collect.bulk").time():
         try:
             asyncio.run(run_collection_once(integration_id, stream))
+        except SoftTimeLimitExceeded:
+            logger.error(
+                "soft-timeout collect integration=%s stream=%s",
+                integration_id, stream,
+            )
+            _dispose_db_pool_after_interrupt()
+            raise
         except VendorRateLimitedError as exc:
             logger.info(
                 "rate-limited integration=%s stream=%s vendor=%s retry_after=%ss",
