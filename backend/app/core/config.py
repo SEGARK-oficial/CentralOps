@@ -696,6 +696,21 @@ class Settings(BaseSettings):
     # ── Debug ─────────────────────────────────────────────────────────
     DEBUG_REQUESTS: bool = False
 
+    @field_validator("SESSION_SECURE_COOKIE", mode="before")
+    @classmethod
+    def empty_secure_cookie_means_unset(cls, value: object, info) -> object:
+        """String vazia = "não configurado" (seguro em produção), nunca bool_parsing.
+
+        O compose interpola ``SESSION_SECURE_COOKIE=${SESSION_SECURE_COOKIE:-...}``;
+        um default vazio (ou operador exportando a var vazia) chegava aqui como ``''``
+        e derrubava o BOOT com ``bool_parsing`` — foi o que deixou todos os collectors
+        em crash-loop (jul/2026). Vazio vira o default seguro do ambiente: True em
+        produção, False fora dela.
+        """
+        if isinstance(value, str) and not value.strip():
+            return info.data.get("APP_ENV", "production") == "production"
+        return value
+
     @field_validator("SESSION_SECURE_COOKIE")
     @classmethod
     def enforce_secure_cookie_in_production(cls, value: bool, info) -> bool:

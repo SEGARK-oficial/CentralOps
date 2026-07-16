@@ -230,8 +230,9 @@ def test_pipeline_hook_delegates_the_drop_decision_to_policy() -> None:
 
 def test_manifest_activity_and_type_uid_identity_hold() -> None:
     """For every class, 0/99 are present and type_uid==class*100+activity is derivable."""
+    # Anchor via o pacote do próprio validator (root-agnóstico — ver validator.load).
     raw = json.loads(
-        resources.files("backend.app.collectors.normalize.ocsf")
+        resources.files(V.__package__)
         .joinpath("schemas", "1.8.0", "manifest.json")
         .read_text("utf-8")
     )

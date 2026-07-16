@@ -283,7 +283,7 @@ services:
       - OTEL_LOGS_ENABLED=${OTEL_LOGS_ENABLED:-false}
       - OTEL_METRIC_EXPORT_INTERVAL_MS=${OTEL_METRIC_EXPORT_INTERVAL_MS:-15000}
       - APP_ENV=${APP_ENV:-production}
-      - SESSION_SECURE_COOKIE=${SESSION_SECURE_COOKIE:-}
+      - SESSION_SECURE_COOKIE=${SESSION_SECURE_COOKIE:-1}
       # Onda 3 — data-plane durável: kafka é o caminho de DEPLOY (o
       # producer do fan-out publica no tópico ``deliver``). Override p/ "celery"
       # só em dev sem broker. Aponte KAFKA_BOOTSTRAP_SERVERS p/ MSK/Redpanda Cloud
@@ -369,7 +369,7 @@ services:
       - OTEL_LOGS_ENABLED=${OTEL_LOGS_ENABLED:-false}
       - OTEL_METRIC_EXPORT_INTERVAL_MS=${OTEL_METRIC_EXPORT_INTERVAL_MS:-15000}
       - APP_ENV=${APP_ENV:-production}
-      - SESSION_SECURE_COOKIE=${SESSION_SECURE_COOKIE:-}
+      - SESSION_SECURE_COOKIE=${SESSION_SECURE_COOKIE:-1}
       # Onda 3 — data-plane durável: kafka é o caminho de DEPLOY (o
       # producer do fan-out publica no tópico ``deliver``). Override p/ "celery"
       # só em dev sem broker. Aponte KAFKA_BOOTSTRAP_SERVERS p/ MSK/Redpanda Cloud
@@ -442,7 +442,7 @@ services:
       - OTEL_LOGS_ENABLED=${OTEL_LOGS_ENABLED:-false}
       - OTEL_METRIC_EXPORT_INTERVAL_MS=${OTEL_METRIC_EXPORT_INTERVAL_MS:-15000}
       - APP_ENV=${APP_ENV:-production}
-      - SESSION_SECURE_COOKIE=${SESSION_SECURE_COOKIE:-}
+      - SESSION_SECURE_COOKIE=${SESSION_SECURE_COOKIE:-1}
       - DATABASE_URL=${DATABASE_URL:-postgresql+psycopg2://${POSTGRES_USER:-centralops}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD obrigatorio - gere com openssl rand -base64 24 e coloque no .env}@postgres:5432/${POSTGRES_DB:-centralops}}
       # Honra override do orquestrador (ex.: Redis gerenciado externamente) e cai
       # no redis do compose só se não houver override — espelha o REDIS_URL da API.
@@ -508,7 +508,7 @@ services:
       - OTEL_LOGS_ENABLED=${OTEL_LOGS_ENABLED:-false}
       - OTEL_METRIC_EXPORT_INTERVAL_MS=${OTEL_METRIC_EXPORT_INTERVAL_MS:-15000}
       - APP_ENV=${APP_ENV:-production}
-      - SESSION_SECURE_COOKIE=${SESSION_SECURE_COOKIE:-}
+      - SESSION_SECURE_COOKIE=${SESSION_SECURE_COOKIE:-1}
       - DATABASE_URL=${DATABASE_URL:-postgresql+psycopg2://${POSTGRES_USER:-centralops}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD obrigatorio - gere com openssl rand -base64 24 e coloque no .env}@postgres:5432/${POSTGRES_DB:-centralops}}
       # Honra override do orquestrador (ex.: Redis gerenciado externamente) e cai
       # no redis do compose só se não houver override — espelha o REDIS_URL da API.
@@ -570,7 +570,7 @@ services:
       - OTEL_LOGS_ENABLED=${OTEL_LOGS_ENABLED:-false}
       - OTEL_METRIC_EXPORT_INTERVAL_MS=${OTEL_METRIC_EXPORT_INTERVAL_MS:-15000}
       - APP_ENV=${APP_ENV:-production}
-      - SESSION_SECURE_COOKIE=${SESSION_SECURE_COOKIE:-}
+      - SESSION_SECURE_COOKIE=${SESSION_SECURE_COOKIE:-1}
       # Necessario para o config_loader ler collector_config do Postgres.
       # Sem isso o loader cai no default sqlite:///./data/sophos.db, falha
       # com "unable to open database file" e fica em fallback de env.
@@ -635,7 +635,7 @@ services:
       - OTEL_LOGS_ENABLED=${OTEL_LOGS_ENABLED:-false}
       - OTEL_METRIC_EXPORT_INTERVAL_MS=${OTEL_METRIC_EXPORT_INTERVAL_MS:-15000}
       - APP_ENV=${APP_ENV:-production}
-      - SESSION_SECURE_COOKIE=${SESSION_SECURE_COOKIE:-}
+      - SESSION_SECURE_COOKIE=${SESSION_SECURE_COOKIE:-1}
       - EVENT_DATAPLANE=${EVENT_DATAPLANE:-kafka}
       - KAFKA_BOOTSTRAP_SERVERS=${KAFKA_BOOTSTRAP_SERVERS:-redpanda:9092}
       - KAFKA_CONSUMER_GROUP=${KAFKA_CONSUMER_GROUP:-centralops-dispatcher}
@@ -694,7 +694,7 @@ services:
       - OTEL_LOGS_ENABLED=${OTEL_LOGS_ENABLED:-false}
       - OTEL_METRIC_EXPORT_INTERVAL_MS=${OTEL_METRIC_EXPORT_INTERVAL_MS:-15000}
       - APP_ENV=${APP_ENV:-production}
-      - SESSION_SECURE_COOKIE=${SESSION_SECURE_COOKIE:-}
+      - SESSION_SECURE_COOKIE=${SESSION_SECURE_COOKIE:-1}
       # Onda 3 — data-plane durável: kafka é o caminho de DEPLOY (o
       # producer do fan-out publica no tópico ``deliver``). Override p/ "celery"
       # só em dev sem broker. Aponte KAFKA_BOOTSTRAP_SERVERS p/ MSK/Redpanda Cloud

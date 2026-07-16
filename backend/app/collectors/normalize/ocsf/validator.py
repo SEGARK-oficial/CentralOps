@@ -133,7 +133,11 @@ class OcsfValidatorRegistry:
     @classmethod
     def load(cls, version: str = DEFAULT_OCSF_VERSION) -> "OcsfValidatorRegistry":
         """Load ``ocsf/schemas/<version>/manifest.json`` into an immutable registry."""
-        anchor = resources.files("backend.app.collectors.normalize.ocsf")
+        # Anchor pelo PRÓPRIO pacote (root-agnóstico): na imagem compilada o tree
+        # importa como ``app.*`` (sem o root ``backend``) — um anchor hardcoded
+        # "backend.app...." levanta ModuleNotFoundError lá e mata a validação OCSF
+        # em produção (fail-open silencioso). ``__package__`` resolve nos dois roots.
+        anchor = resources.files(__package__)
         text = anchor.joinpath("schemas", version, "manifest.json").read_text("utf-8")
         raw = json.loads(text)
         specs: dict[int, OcsfClassSpec] = {}
