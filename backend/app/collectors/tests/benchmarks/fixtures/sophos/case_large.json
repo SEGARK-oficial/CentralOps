@@ -6,6 +6,14 @@
   "description": "Nation-state level APT41 intrusion detected. Initial access via compromised software update (SolarWinds-style supply chain). Lateral movement to 23 endpoints over 6 hours. Domain controller compromised. Kerberoasting and DCSync observed. Data staged for exfiltration to cloud storage. Full IR engagement required.",
   "severity": "critical",
   "status": "investigating",
+  "initialDetection": {
+    "id": "det-case-large-001",
+    "time": "2026-04-23T02:15:00Z",
+    "type": "Threat",
+    "severity": 10,
+    "detectionRule": "WIN-MITRE-Behavioral-TA0001-T1195-002",
+    "sensor": {"type": "endpoint", "source": "Sophos", "version": "2024.3.1"}
+  },
   "assignee": {
     "id": "lead-analyst-001",
     "name": "Carlos Incident"

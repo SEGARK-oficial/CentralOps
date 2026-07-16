@@ -40,6 +40,10 @@ _FIXTURES = {
         "id": "alert-uuid-001",
         "createdAt": "2026-04-23T14:22:10Z",
         "severity": "critical",
+        # status obrigatório na prática (sync lab jul/2026): o mapping v2
+        # tem status_id default 1 + pre_cast lowercase — sem status o
+        # default int estoura no lowercase.
+        "status": "open",
         "type": "malware",
         "description": "Trojan.GenericKD detected",
         "managedAgent": {"id": "a1", "name": "WIN-01", "type": "computer"},
@@ -54,6 +58,14 @@ _FIXTURES = {
         "description": "Multiple failed logons",
         "severity": "high",
         "status": "investigating",
+        # initialDetection presente como nos payloads reais (sync lab
+        # jul/2026): o mapping v2 exige sensor.type e detectionRule.
+        "initialDetection": {
+            "id": "det-bench-777",
+            "severity": 7,
+            "detectionRule": "WIN-LAT-Suspicious-Logon-1",
+            "sensor": {"type": "endpoint", "source": "Sophos"},
+        },
     },
     ("microsoft_defender", "defender.alert"): {
         "id": "da-001",
@@ -89,7 +101,11 @@ _FIXTURES = {
         "time": "2026-04-23T14:22:10Z",
         "device": {"id": "dev-1", "type": "computer", "entity": "WIN-DESKTOP-01"},
         "sensor": {"id": "SophosSensorID", "type": "cloud", "source": "Sophos", "version": "1.18.1"},
-        "mitreAttacks": [{"tactic": "Command and Control", "technique": "T1105"}],
+        # Shape real Sophos (tactic é dict) — exigido pelo cast
+        # mitre_tactic_to_ocsf do mapping v2 (sync lab jul/2026).
+        "mitreAttacks": [
+            {"tactic": {"id": "TA0011", "name": "Command and Control", "techniques": [{"id": "T1105", "name": "Ingress Tool Transfer"}]}}
+        ],
     },
     # Shapes idênticos aos que os collectors entregam (validados
     # nos testes de cada vendor: test_crowdstrike/test_entra_id/test_okta/

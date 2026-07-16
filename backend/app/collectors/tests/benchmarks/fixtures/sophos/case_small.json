@@ -5,5 +5,9 @@
   "name": "Investigation Alpha",
   "description": "Multiple failed logons",
   "severity": "high",
-  "status": "investigating"
+  "status": "investigating",
+  "initialDetection": {
+    "detectionRule": "WIN-LAT-Suspicious-Logon-1",
+    "sensor": {"type": "endpoint"}
+  }
 }

@@ -6,6 +6,14 @@
   "description": "Multiple users in the finance department received spear-phishing emails with malicious attachments. Three users clicked the link, credentials potentially compromised.",
   "severity": "critical",
   "status": "investigating",
+  "initialDetection": {
+    "id": "det-case-medium-001",
+    "time": "2026-04-23T09:55:00Z",
+    "type": "Threat",
+    "severity": 8,
+    "detectionRule": "WIN-PHI-Malicious-Attachment-1",
+    "sensor": {"type": "endpoint", "source": "Sophos"}
+  },
   "assignee": {
     "id": "analyst-uuid-001",
     "name": "Jane Doe"

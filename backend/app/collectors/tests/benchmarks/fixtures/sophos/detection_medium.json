@@ -19,9 +19,9 @@
     "version": "2024.1.0"
   },
   "mitreAttacks": [
-    {"tactic": "Persistence", "technique": "T1547.001"},
-    {"tactic": "Privilege Escalation", "technique": "T1547.001"},
-    {"tactic": "Defense Evasion", "technique": "T1112"}
+    {"tactic": {"id": "TA0003", "name": "Persistence", "techniques": [{"id": "T1547.001", "name": "Registry Run Keys / Startup Folder"}]}},
+    {"tactic": {"id": "TA0004", "name": "Privilege Escalation", "techniques": [{"id": "T1547.001", "name": "Registry Run Keys / Startup Folder"}]}},
+    {"tactic": {"id": "TA0005", "name": "Defense Evasion", "techniques": [{"id": "T1112", "name": "Modify Registry"}]}}
   ],
   "data": {
     "process": "regedit.exe",

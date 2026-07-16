@@ -22,13 +22,13 @@
     "version": "2024.3.1"
   },
   "mitreAttacks": [
-    {"tactic": "Execution", "technique": "T1059.001", "subtechnique": "PowerShell"},
-    {"tactic": "Persistence", "technique": "T1136.001", "subtechnique": "Local Account"},
-    {"tactic": "Defense Evasion", "technique": "T1027.001", "subtechnique": "Binary Padding"},
-    {"tactic": "Credential Access", "technique": "T1003.001", "subtechnique": "LSASS Memory"},
-    {"tactic": "Lateral Movement", "technique": "T1021.002", "subtechnique": "SMB/Windows Admin Shares"},
-    {"tactic": "Command and Control", "technique": "T1071.001", "subtechnique": "Web Protocols"},
-    {"tactic": "Exfiltration", "technique": "T1048.003", "subtechnique": "Exfiltration Over Unencrypted Non-C2 Protocol"}
+    {"tactic": {"id": "TA0002", "name": "Execution", "techniques": [{"id": "T1059.001", "name": "PowerShell"}]}},
+    {"tactic": {"id": "TA0003", "name": "Persistence", "techniques": [{"id": "T1136.001", "name": "Local Account"}]}},
+    {"tactic": {"id": "TA0005", "name": "Defense Evasion", "techniques": [{"id": "T1027.001", "name": "Binary Padding"}]}},
+    {"tactic": {"id": "TA0006", "name": "Credential Access", "techniques": [{"id": "T1003.001", "name": "LSASS Memory"}]}},
+    {"tactic": {"id": "TA0008", "name": "Lateral Movement", "techniques": [{"id": "T1021.002", "name": "SMB/Windows Admin Shares"}]}},
+    {"tactic": {"id": "TA0011", "name": "Command and Control", "techniques": [{"id": "T1071.001", "name": "Web Protocols"}]}},
+    {"tactic": {"id": "TA0010", "name": "Exfiltration", "techniques": [{"id": "T1048.003", "name": "Exfiltration Over Unencrypted Non-C2 Protocol"}]}}
   ],
   "data": {
     "process": "powershell.exe",

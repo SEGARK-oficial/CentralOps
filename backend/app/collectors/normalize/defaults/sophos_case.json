@@ -1,4 +1,5 @@
 {
+  "preprocess": [],
   "rules": [
     { "target": "normalized.class_uid", "const": 2005, "required": true },
     { "target": "normalized.class_name", "const": "Incident Finding" },
@@ -7,66 +8,334 @@
     { "target": "normalized.activity_id", "const": 1 },
     { "target": "normalized.activity_name", "const": "Create" },
     { "target": "normalized.type_uid", "const": 200501 },
-    { "target": "normalized.time", "source": "createdAt", "type_cast": "iso_to_epoch", "required": true },
-
+    { "target": "normalized.type_name", "const": "Incident Finding: Create" },
+    {
+      "target": "normalized.time",
+      "source": "createdAt",
+      "fallback_source": [
+        "updatedAt"
+      ],
+      "type_cast": "iso_to_epoch",
+      "required": true
+    },
+    {
+      "target": "normalized.start_time",
+      "source": "initialDetection.time",
+      "fallback_source": [
+        "createdAt"
+      ],
+      "type_cast": "iso_to_epoch"
+    },
     { "target": "normalized.finding_info.uid", "source": "id", "required": true },
-    { "target": "normalized.finding_info.title", "source": "name", "default": null },
-    { "target": "normalized.finding_info.desc", "source": "description", "default": null },
+    {
+      "target": "normalized.finding_info.title",
+      "source": "name",
+      "default": "Sophos Case",
+      "required": true
+    },
+    { "target": "normalized.finding_info.desc", "source": "overview", "fallback_source": ["name"] },
+    { "target": "normalized.finding_info.types", "source": "[type, initialDetection.type][?@!=null]" },
     { "target": "normalized.finding_info.created_time", "source": "createdAt", "type_cast": "iso_to_epoch" },
-    { "target": "normalized.finding_info.modified_time", "source": "updatedAt", "type_cast": "iso_to_epoch", "default": null },
-
+    { "target": "normalized.finding_info.modified_time", "source": "updatedAt", "type_cast": "iso_to_epoch" },
+    {
+      "target": "normalized.finding_info.first_seen_time",
+      "source": "initialDetection.time",
+      "type_cast": "iso_to_epoch"
+    },
+    { "target": "normalized.finding_info.product_uid", "source": "id" },
+    {
+      "target": "normalized.finding_info.related_events",
+      "source": "[{type: 'detection', uid: initialDetection.id}][?uid!=null]"
+    },
     {
       "target": "normalized.severity_id",
-      "source": "severity",
+      "source": "initialDetection.severity",
+      "pre_cast": "to_str",
       "value_map": {
-        "critical": 5, "high": 4, "medium": 3, "low": 2, "info": 1, "informational": 1
+        "0": 1,
+        "1": 2,
+        "2": 2,
+        "3": 3,
+        "4": 3,
+        "5": 4,
+        "6": 4,
+        "7": 5,
+        "8": 5,
+        "9": 6,
+        "10": 6
       },
       "default": 0,
       "required": true
     },
-    { "target": "normalized.severity", "source": "severity", "default": "Unknown" },
-
+    {
+      "target": "normalized.severity",
+      "source": "initialDetection.severity",
+      "pre_cast": "to_str",
+      "value_map": {
+        "0": "Informational",
+        "1": "Low",
+        "2": "Low",
+        "3": "Medium",
+        "4": "Medium",
+        "5": "High",
+        "6": "High",
+        "7": "Critical",
+        "8": "Critical",
+        "9": "Fatal",
+        "10": "Fatal"
+      },
+      "default": "Unknown"
+    },
     {
       "target": "normalized.status_id",
       "source": "status",
+      "pre_cast": "lowercase",
       "value_map": {
-        "new": 1, "open": 1, "investigating": 2, "in_progress": 2,
-        "closed": 4, "resolved": 4, "suppressed": 3
+        "new": 1,
+        "open": 1,
+        "in_progress": 2,
+        "investigating": 2,
+        "acknowledged": 2,
+        "on_hold": 2,
+        "suppressed": 3,
+        "resolved": 4,
+        "closed": 4,
+        "false_positive": 4
       },
-      "default": 0
+      "default": 1,
+      "required": true
     },
-    { "target": "normalized.status", "source": "status", "default": "Unknown" },
-
-    { "target": "normalized.assignee.name", "source": "assignee.name", "default": null },
-    { "target": "normalized.assignee.uid", "source": "assignee.id", "default": null },
-
+    {
+      "target": "normalized.status",
+      "source": "status",
+      "pre_cast": "lowercase",
+      "value_map": {
+        "new": "New",
+        "open": "New",
+        "in_progress": "In Progress",
+        "investigating": "In Progress",
+        "acknowledged": "In Progress",
+        "on_hold": "In Progress",
+        "suppressed": "Suppressed",
+        "resolved": "Resolved",
+        "closed": "Resolved",
+        "false_positive": "Resolved"
+      },
+      "default": "New"
+    },
+    { "target": "normalized.status_detail", "source": "status" },
+    { "target": "normalized.message", "source": "name" },
+    { "target": "normalized.count", "source": "detectionCount", "type_cast": "to_int" },
+    { "target": "normalized.is_alert", "source": "escalated", "type_cast": "to_bool" },
+    { "target": "normalized.assignee.name", "source": "assignee.name" },
+    { "target": "normalized.actor.user.name", "source": "createdBy.name" },
+    {
+      "target": "normalized.device.hostname",
+      "source": "relatedDevices[0].name",
+      "when": {
+        "exists": "relatedDevices[0].name"
+      }
+    },
+    {
+      "target": "normalized.device.name",
+      "source": "relatedDevices[0].name",
+      "when": {
+        "exists": "relatedDevices[0].name"
+      }
+    },
+    {
+      "target": "normalized.device.uid",
+      "source": "relatedDevices[0].id",
+      "when": {
+        "exists": "relatedDevices[0].id"
+      }
+    },
+    {
+      "target": "normalized.device.type",
+      "source": "relatedDevices[0].type",
+      "when": {
+        "exists": "relatedDevices[0].type"
+      }
+    },
+    {
+      "target": "normalized.device.type_id",
+      "source": "relatedDevices[0].type",
+      "pre_cast": "lowercase",
+      "value_map": {
+        "firewall": 9,
+        "utm": 9,
+        "endpoint": 2,
+        "computer": 2,
+        "server": 1,
+        "laptop": 3,
+        "mobile": 5,
+        "tablet": 4,
+        "iot": 7,
+        "virtual": 6,
+        "browser": 8,
+        "email": 0
+      },
+      "default": 0,
+      "when": {
+        "exists": "relatedDevices[0].type"
+      }
+    },
+    {
+      "target": "normalized.device.os.platform",
+      "source": "relatedDevices[0].osPlatform",
+      "when": {
+        "exists": "relatedDevices[0].osPlatform"
+      }
+    },
+    {
+      "target": "normalized.device.os.name",
+      "source": "relatedDevices[0].osName",
+      "when": {
+        "exists": "relatedDevices[0].osName"
+      }
+    },
+    {
+      "target": "normalized.device.type",
+      "source": "initialDetection.sensor.type",
+      "when": {
+        "not": {
+          "exists": "relatedDevices[0].type"
+        }
+      }
+    },
+    {
+      "target": "normalized.device.type_id",
+      "source": "initialDetection.sensor.type",
+      "pre_cast": "lowercase",
+      "value_map": {
+        "firewall": 9,
+        "utm": 9,
+        "endpoint": 2,
+        "computer": 2,
+        "server": 1,
+        "laptop": 3,
+        "mobile": 5,
+        "tablet": 4,
+        "iot": 7,
+        "virtual": 6,
+        "browser": 8,
+        "email": 0
+      },
+      "default": 0,
+      "when": {
+        "not": {
+          "exists": "relatedDevices[0].type"
+        }
+      }
+    },
+    {
+      "target": "normalized.attacks",
+      "source": "initialDetection.mitreAttacks",
+      "type_cast": "mitre_tactic_to_ocsf",
+      "default": []
+    },
+    {
+      "target": "normalized.attacks",
+      "source": "[starts_with(initialDetection.detectionRule, 'WIN-DIS') && {tactics: [{uid: 'TA0007', name: 'Discovery'}]}, starts_with(initialDetection.detectionRule, 'LNX-DIS') && {tactics: [{uid: 'TA0007', name: 'Discovery'}]}, starts_with(initialDetection.detectionRule, 'MAC-DIS') && {tactics: [{uid: 'TA0007', name: 'Discovery'}]}, starts_with(initialDetection.detectionRule, 'ALL-DIS') && {tactics: [{uid: 'TA0007', name: 'Discovery'}]}, starts_with(initialDetection.detectionRule, 'WIN-EXF') && {tactics: [{uid: 'TA0010', name: 'Exfiltration'}]}, starts_with(initialDetection.detectionRule, 'LNX-EXF') && {tactics: [{uid: 'TA0010', name: 'Exfiltration'}]}, starts_with(initialDetection.detectionRule, 'WIN-PER') && {tactics: [{uid: 'TA0003', name: 'Persistence'}]}, starts_with(initialDetection.detectionRule, 'LNX-PER') && {tactics: [{uid: 'TA0003', name: 'Persistence'}]}, starts_with(initialDetection.detectionRule, 'WIN-CAC') && {tactics: [{uid: 'TA0006', name: 'Credential Access'}]}, starts_with(initialDetection.detectionRule, 'LNX-CAC') && {tactics: [{uid: 'TA0006', name: 'Credential Access'}]}, starts_with(initialDetection.detectionRule, 'UNX-CAC') && {tactics: [{uid: 'TA0006', name: 'Credential Access'}]}, starts_with(initialDetection.detectionRule, 'WIN-CRD') && {tactics: [{uid: 'TA0006', name: 'Credential Access'}]}, starts_with(initialDetection.detectionRule, 'WIN-PRI') && {tactics: [{uid: 'TA0004', name: 'Privilege Escalation'}]}, starts_with(initialDetection.detectionRule, 'LNX-PRI') && {tactics: [{uid: 'TA0004', name: 'Privilege Escalation'}]}, starts_with(initialDetection.detectionRule, 'WIN-LAT') && {tactics: [{uid: 'TA0008', name: 'Lateral Movement'}]}, starts_with(initialDetection.detectionRule, 'WIN-IMP') && {tactics: [{uid: 'TA0040', name: 'Impact'}]}, starts_with(initialDetection.detectionRule, 'LNX-IMP') && {tactics: [{uid: 'TA0040', name: 'Impact'}]}, starts_with(initialDetection.detectionRule, 'WIN-DEF') && {tactics: [{uid: 'TA0005', name: 'Defense Evasion'}]}, starts_with(initialDetection.detectionRule, 'LNX-DEF') && {tactics: [{uid: 'TA0005', name: 'Defense Evasion'}]}, starts_with(initialDetection.detectionRule, 'WIN-EXE') && {tactics: [{uid: 'TA0002', name: 'Execution'}]}, starts_with(initialDetection.detectionRule, 'LNX-EXE') && {tactics: [{uid: 'TA0002', name: 'Execution'}]}, starts_with(initialDetection.detectionRule, 'ALL-EXE') && {tactics: [{uid: 'TA0002', name: 'Execution'}]}, starts_with(initialDetection.detectionRule, 'WIN-INA') && {tactics: [{uid: 'TA0001', name: 'Initial Access'}]}, starts_with(initialDetection.detectionRule, 'WIN-C2-') && {tactics: [{uid: 'TA0011', name: 'Command and Control'}]}, starts_with(initialDetection.detectionRule, 'WIN-CMD') && {tactics: [{uid: 'TA0011', name: 'Command and Control'}]}, starts_with(initialDetection.detectionRule, 'WIN-CLT') && {tactics: [{uid: 'TA0009', name: 'Collection'}]}, starts_with(initialDetection.detectionRule, 'WIN-REC') && {tactics: [{uid: 'TA0043', name: 'Reconnaissance'}]}][?@!=null && @!=`false`]",
+      "when": {
+        "not": {
+          "exists": "initialDetection.mitreAttacks[0]"
+        }
+      }
+    },
+    { "target": "normalized.cloud.org.uid", "source": "tenant.id" },
+    { "target": "normalized.cloud.provider", "const": "Sophos Central" },
     { "target": "normalized.metadata.version", "const": "1.3.0" },
     { "target": "normalized.metadata.product.name", "const": "Sophos Central" },
     { "target": "normalized.metadata.product.vendor_name", "const": "Sophos" },
-    { "target": "normalized.metadata.product.feature.name", "const": "MDR/XDR Cases" },
+    {
+      "target": "normalized.metadata.product.feature.name",
+      "source": "initialDetection.sensor.source",
+      "default": "Sophos Cases"
+    },
     { "target": "normalized.metadata.uid", "source": "id" },
-
+    { "target": "normalized.metadata.event_code", "source": "initialDetection.detectionRule" },
+    { "target": "normalized.metadata.original_time", "source": "createdAt" },
+    { "target": "normalized.metadata.correlation_uid", "source": "initialDetection.id" },
+    { "target": "normalized.metadata.log_provider", "const": "Sophos Central Cases" },
+    {
+      "target": "normalized.unmapped.sophos.managed_by",
+      "source": "managedBy",
+      "when": {
+        "exists": "managedBy"
+      }
+    },
+    {
+      "target": "normalized.unmapped.sophos.case_escalated",
+      "source": "escalated",
+      "type_cast": "to_bool",
+      "when": {
+        "exists": "escalated"
+      }
+    },
+    {
+      "target": "normalized.unmapped.sophos.detection_count",
+      "source": "detectionCount",
+      "type_cast": "to_int",
+      "when": {
+        "exists": "detectionCount"
+      }
+    },
+    {
+      "target": "normalized.unmapped.sophos.sensor_source",
+      "source": "initialDetection.sensor.source",
+      "when": {
+        "exists": "initialDetection.sensor.source"
+      }
+    },
     {
       "target": "normalized.observables",
       "kind": "array_builder",
       "items": [
         {
-          "name": "tenant_id",
+          "name": "case.uid",
           "type": "Resource UID",
           "type_id": 33,
-          "source": "tenant.id",
-          "skip_null": true
+          "source": "id"
         },
         {
-          "name": "case_id",
-          "type": "Other UID",
-          "type_id": 34,
-          "source": "id",
-          "skip_null": true
+          "name": "detection.uid",
+          "type": "Resource UID",
+          "type_id": 33,
+          "source": "initialDetection.id"
+        },
+        {
+          "name": "assignee.name",
+          "type": "User Name",
+          "type_id": 4,
+          "source": "assignee.name"
+        },
+        {
+          "name": "device.hostname",
+          "type": "Hostname",
+          "type_id": 1,
+          "source": "relatedDevices[].name",
+          "explode": true
+        },
+        {
+          "name": "device.uid",
+          "type": "Resource UID",
+          "type_id": 33,
+          "source": "relatedDevices[].id",
+          "explode": true
+        },
+        {
+          "name": "actor.user.name",
+          "type": "User Name",
+          "type_id": 4,
+          "source": "createdBy.name"
         }
       ],
       "skip_null": true,
-      "dedup_by": ["value"]
+      "dedup_by": [
+        "type_id",
+        "value"
+      ]
     }
   ]
 }

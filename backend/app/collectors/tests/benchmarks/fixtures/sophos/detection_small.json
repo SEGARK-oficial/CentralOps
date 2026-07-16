@@ -6,5 +6,7 @@
   "time": "2026-04-23T14:22:10Z",
   "device": {"id": "dev-01", "type": "computer", "entity": "WIN-DESKTOP-01"},
   "sensor": {"id": "sensor-01", "type": "cloud", "source": "Sophos", "version": "1.18.1"},
-  "mitreAttacks": [{"tactic": "Command and Control", "technique": "T1105"}]
+  "mitreAttacks": [
+    {"tactic": {"id": "TA0011", "name": "Command and Control", "techniques": [{"id": "T1105", "name": "Ingress Tool Transfer"}]}}
+  ]
 }

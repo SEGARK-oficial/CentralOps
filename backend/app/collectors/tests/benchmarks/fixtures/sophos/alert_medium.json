@@ -3,6 +3,7 @@
   "createdAt": "2026-04-23T14:22:10Z",
   "raisedAt": "2026-04-23T14:22:08Z",
   "severity": "critical",
+  "status": "acknowledged",
   "type": "malware",
   "description": "Trojan.GenericKD detected on WIN-DESKTOP-42 — process explorer.exe injected into lsass.exe",
   "managedAgent": {

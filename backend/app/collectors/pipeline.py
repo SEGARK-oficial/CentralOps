@@ -570,8 +570,13 @@ async def _run_collection_once(integration_id: int, stream: str) -> None:
                     # despacha, recuperável); fail_closed → descarta sem quarentena.
                     # out_of_scope (classe OCSF-válida não-vendorada) SEMPRE passa (graceful).
                     # O counter de inválidos é SEM amostragem; só a ESCRITA de
-                    # quarentena tem teto por ciclo. ``_centralops`` é stripado no
-                    # dispatch → a etiqueta não vaza ao sink.
+                    # quarentena tem teto por ciclo. NB: ``_centralops`` NÃO é
+                    # stripado no dispatch — sinks de envelope-inteiro (syslog/
+                    # Splunk/Elastic/...) recebem a etiqueta no wire (e alguns a
+                    # usam de propósito, ex. elastic indexa organization_id);
+                    # só os sinks normalized-only (Datadog/Chronicle/Security
+                    # Lake) a omitem. Auditoria jul/2026 corrigiu este comentário
+                    # que afirmava o strip.
                     if settings.OCSF_VALIDATION_ENABLED:
                         _ocsf_reg = ocsf_validator.get_registry(
                             settings.OCSF_VALIDATION_VERSION

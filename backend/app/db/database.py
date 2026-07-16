@@ -1014,9 +1014,20 @@ def _run_lightweight_migrations() -> None:
                 ("microsoft_defender", "defender.incident", 2005, "Microsoft Defender — incidents (Incident Finding)"),
                 ("microsoft_defender", "defender.alert", 2004, "Microsoft Defender — alerts (Detection Finding)"),
                 ("ninjaone", "ninjaone.activity", 6003, "NinjaOne — activities (API Activity)"),
+                # Wazuh como FONTE (pull do Indexer) — Detection Finding.
+                ("wazuh", "wazuh.detection", 2004, "Wazuh — detections do Indexer (Detection Finding)"),
                 # Fontes push/ingest — mapeamento OCSF baseline seedado.
                 ("fortinet_fortigate", "fortinet_fortigate.traffic", 4001, "Fortinet FortiGate — traffic (Network Activity)"),
                 ("windows_event_log", "windows_event_log.security", 3002, "Windows Event Log/WEC — security (Authentication)"),
+                # Vendors com default em DEFAULT_MAPPING_FILES que ficaram FORA
+                # do catálogo de seed (gap jul/2026): a 1ª integração ia 100%
+                # p/ quarentena por missing_mapping, como no incidente wazuh.
+                # class_uid extraído da regra const de cada JSON default.
+                ("crowdstrike", "crowdstrike.detection", 2004, "CrowdStrike Falcon — detections (Detection Finding)"),
+                ("entra_id", "entra_id.signin", 3002, "Microsoft Entra ID — sign-ins (Authentication)"),
+                ("entra_id", "entra_id.audit", 3001, "Microsoft Entra ID — directory audit (Account Change)"),
+                ("okta", "okta.system_log", 3002, "Okta — System Log (Authentication)"),
+                ("aws_cloudtrail", "aws_cloudtrail.event", 6003, "AWS CloudTrail — management events (API Activity)"),
             ]
             now = datetime.utcnow()
 

@@ -3,6 +3,7 @@
   "createdAt": "2026-04-23T14:22:10Z",
   "raisedAt": "2026-04-23T14:22:08Z",
   "severity": "critical",
+  "status": "investigating",
   "type": "malware",
   "description": "Multi-stage ransomware attack: Trojan.GenericKD injected into lsass.exe, lateral movement detected across 15 endpoints, C2 communication to 185.220.101.x:443 observed, exfiltration via DNS tunneling to evil.corp domain confirmed by XDR behavioral analysis",
   "managedAgent": {

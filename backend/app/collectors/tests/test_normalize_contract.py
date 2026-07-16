@@ -48,12 +48,18 @@ from backend.app.collectors.normalize.ocsf import SEVERITY_ID, is_valid_severity
 # ── Fixtures sintéticas representativas ────────────────────────────────
 
 
+# Nota (sync lab jul/2026): o mapping v2 (importado do lab) tem
+# ``status_id`` com ``default: 1`` + ``pre_cast: lowercase``; a ordem do
+# engine é default → pre_cast, então payload SEM ``status`` estoura no
+# lowercase(1). Payloads reais do lab sempre trazem ``status`` — as
+# fixtures acompanham (cada uma exercita um slot do value_map).
 SOPHOS_ALERT_FIXTURES = [
     {
         "id": "alert-uuid-001",
         "createdAt": "2026-04-23T14:22:10Z",
         "raisedAt": "2026-04-23T14:22:08Z",
         "severity": "critical",
+        "status": "open",
         "type": "malware",
         "category": "Threats",
         "description": "Trojan.GenericKD detected",
@@ -66,6 +72,7 @@ SOPHOS_ALERT_FIXTURES = [
         "id": "alert-uuid-002",
         "createdAt": "2026-04-23T15:00:00Z",
         "severity": "high",
+        "status": "acknowledged",
         "type": "policy",
         "description": "Suspicious script execution",
         "managedAgent": {"id": "agent-2", "name": "WIN-LAPTOP-07"},
@@ -75,6 +82,7 @@ SOPHOS_ALERT_FIXTURES = [
         "id": "alert-uuid-003",
         "createdAt": "2026-04-23T16:30:00Z",
         "severity": "medium",
+        "status": "investigating",
         "type": "threat",
         "description": "Outbound traffic flagged",
     },
@@ -82,25 +90,43 @@ SOPHOS_ALERT_FIXTURES = [
         "id": "alert-uuid-004",
         "createdAt": "2026-04-23T17:00:00Z",
         "severity": "low",
+        "status": "resolved",
         "type": "policy",
     },
     {
         "id": "alert-uuid-005",
         "createdAt": "2026-04-23T18:00:00Z",
         "severity": "info",
+        "status": "closed",
     },
 ]
 
+# Nota (sync lab jul/2026): o mapping v2 tira severidade de
+# ``initialDetection.severity`` (escala Sophos 0-10 → OCSF via value_map).
+# case-001 exercita o caminho rico (initialDetection + relatedDevices);
+# case-002 prova o caminho mínimo (sem initialDetection → severity_id
+# default 0 → to_str → value_map "0"→1 Informational).
 SOPHOS_CASE_FIXTURES = [
     {
         "id": "case-001",
         "createdAt": "2026-04-23T10:00:00Z",
         "updatedAt": "2026-04-23T11:00:00Z",
         "name": "Investigation: Unauthorized access",
-        "description": "Multiple failed logons followed by success",
+        "overview": "Multiple failed logons followed by success",
         "severity": "high",
         "status": "investigating",
         "assignee": {"id": "soc-1", "name": "soc-on-call"},
+        "initialDetection": {
+            "id": "det-uuid-777",
+            "time": "2026-04-23T09:58:00Z",
+            "type": "Threat",
+            "severity": 8,
+            "detectionRule": "WIN-LAT-Suspicious-Logon-1",
+            "sensor": {"type": "endpoint", "source": "Sophos"},
+        },
+        "relatedDevices": [
+            {"id": "dev-9", "name": "WIN-DC-02", "type": "server", "osPlatform": "windows", "osName": "Windows Server 2022"}
+        ],
     },
     {
         "id": "case-002",
@@ -108,6 +134,15 @@ SOPHOS_CASE_FIXTURES = [
         "name": "MDR investigation",
         "severity": "critical",
         "status": "new",
+        # initialDetection mínimo, como nos payloads reais — o mapping v2
+        # exige sensor.type (device.type_id default 0 + pre_cast lowercase
+        # estoura com o default int) e detectionRule string (a heurística
+        # starts_with de attacks estoura com null quando mitreAttacks falta).
+        # SEM severity: exercita severity_id default 0 → to_str → "0" → 1.
+        "initialDetection": {
+            "detectionRule": "WIN-EXE-Suspicious-Process-1",
+            "sensor": {"type": "endpoint"},
+        },
     },
 ]
 
@@ -340,6 +375,8 @@ def test_engine_does_not_share_state_across_calls() -> None:
         "id": "alert-isolated-b",
         "createdAt": "2026-04-23T20:00:00Z",
         "severity": "low",
+        # status presente como nos payloads reais (ver nota nas fixtures).
+        "status": "open",
     }
     out_a = apply_compiled(compiled, raw_a).output
     out_b = apply_compiled(compiled, raw_b).output
@@ -356,17 +393,26 @@ SOPHOS_DETECTION_FIXTURES = [
     {
         "id": "det-uuid-001",
         "detectionRule": "WIN-MITRE-Behavioral-TA0011-T1105",
-        # Sophos XDR severity 0-10 → passthrough via to_int.
-        # Seed mapping usa to_int; refinamento para escala OCSF 0-6
-        # via value_map é responsabilidade do mapping editor (Fase 3 UI).
-        # Usamos valores ≤ 6 nestas fixtures de contract para validar
-        # o pipeline end-to-end com is_valid_severity_id (OCSF 0-6).
-        "severity": 5,
+        "ruleDescription": "Behavioral detection of ingress tool transfer",
+        # Sophos XDR severity 0-10 → OCSF 0-6 via value_map (sync lab
+        # jul/2026; o seed antigo usava to_int passthrough). 9 → 6 (Fatal).
+        "severity": 9,
         "type": "Threat",
         "time": "2026-04-23T14:22:10Z",
+        "sensorGeneratedAt": "2026-04-23T14:22:05Z",
         "device": {"id": "dev-1", "type": "computer", "entity": "WIN-DESKTOP-01"},
         "sensor": {"id": "SophosSensorID", "type": "cloud", "source": "Sophos", "version": "1.18.1"},
-        "mitreAttacks": [{"tactic": "Command and Control", "technique": "T1105"}],
+        # Shape REAL do Sophos (tactic é dict) — o cast
+        # mitre_tactic_to_ocsf rejeita o shape antigo {tactic: str}.
+        "mitreAttacks": [
+            {
+                "tactic": {
+                    "id": "TA0011",
+                    "name": "Command and Control",
+                    "techniques": [{"id": "T1105", "name": "Ingress Tool Transfer"}],
+                }
+            }
+        ],
         "detectionAttack": "Command and Control",
     },
     {
@@ -375,7 +421,11 @@ SOPHOS_DETECTION_FIXTURES = [
         "severity": 4,
         "type": "Threat",
         "time": "2026-04-23T15:00:00Z",
+        # sensor.type presente (payload real sempre traz) — device.type_id
+        # do mapping v2 tem default 0 + pre_cast lowercase, que estoura com
+        # o default int quando device.type e sensor.type faltam.
         "device": {"id": "dev-2", "entity": "WIN-LAPTOP-07"},
+        "sensor": {"id": "s-2", "type": "endpoint"},
     },
     {
         "id": "det-uuid-003",
@@ -383,8 +433,16 @@ SOPHOS_DETECTION_FIXTURES = [
         "severity": 3,
         "type": "Threat",
         "time": "2026-04-23T16:30:00Z",
+        "sensor": {"id": "s-3", "type": "endpoint"},
     },
 ]
+
+
+# Escala Sophos 0-10 → slot OCSF, espelhando o value_map do mapping v2
+# (sync lab jul/2026; substituiu o to_int passthrough do seed antigo).
+_SOPHOS_DETECTION_SEVERITY_MAP = {
+    0: 1, 1: 2, 2: 2, 3: 3, 4: 3, 5: 4, 6: 4, 7: 5, 8: 5, 9: 6, 10: 6,
+}
 
 
 @pytest.mark.parametrize("raw", SOPHOS_DETECTION_FIXTURES)
@@ -394,10 +452,9 @@ def test_sophos_detection_contract(raw: Dict[str, Any]) -> None:
     class_uid 2004 (Detection Finding) — detections XDR são alertas
     individuais, não incidentes correlacionados (2005 seria MDR cases).
 
-    Nota de severidade: o mapping seed usa to_int (passthrough). A API
-    Sophos XDR retorna severity 0-10; as fixtures de contract usam valores
-    ≤ 6 (OCSF válido). Escala completa 0-10 → OCSF deve ser refinada via
-    value_map no mapping editor (Fase 3 UI).
+    Nota de severidade (sync lab jul/2026): a API Sophos XDR retorna
+    severity 0-10; o mapping v2 converte para o slot OCSF 0-6 via
+    value_map (pre_cast to_str) — a escala completa é suportada.
     """
     env = _normalize("sophos", "sophos.detection", raw)
     _assert_minimal_envelope(env, expected_class_uid=2004)
@@ -406,15 +463,14 @@ def test_sophos_detection_contract(raw: Dict[str, Any]) -> None:
     # finding_info.uid deve ser o id do detection.
     assert norm["finding_info"]["uid"] == raw["id"]
 
-    # severity_id deve ser slot OCSF válido (fixtures usam valores ≤ 6).
-    assert is_valid_severity_id(norm["severity_id"]), (
-        f"severity_id={norm['severity_id']} não é slot OCSF válido. "
-        "Fixtures de contract devem usar severity 0-6; escala 7-10 requer "
-        "value_map refinado via UI."
-    )
+    # severity 0-10 do vendor cai no slot OCSF do value_map.
+    assert norm["severity_id"] == _SOPHOS_DETECTION_SEVERITY_MAP[raw["severity"]]
+    assert is_valid_severity_id(norm["severity_id"])
 
-    # metadata.product aponta para Sophos.
+    # metadata.product aponta para Sophos; feature.name vem de
+    # sensor.type (default "XDR Detections" quando ausente) — sync lab.
     assert norm["metadata"]["product"]["vendor_name"] == "Sophos"
-    assert norm["metadata"]["product"]["feature"]["name"] == "XDR Detections"
+    expected_feature = (raw.get("sensor") or {}).get("type") or "XDR Detections"
+    assert norm["metadata"]["product"]["feature"]["name"] == expected_feature
 
 
