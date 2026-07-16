@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from datetime import datetime, timedelta
 from enum import StrEnum
-from typing import Callable
+from typing import Callable, Optional
 
 from fastapi import Depends, HTTPException, Request, Response, status
 from sqlalchemy.orm import Session
@@ -44,6 +44,24 @@ _BEARER_SCHEME_PREFIX = "Bearer "
 # chamadas quebrariam com transient instance porque SQLAlchemy tentaria
 # carregar o ID negativo. Se algum router futuro fizer isso, vai
 # explodir cedo (é uma assertion de tipo "este código não esperava SA").
+
+
+def persistable_user_id(user_or_id) -> Optional[int]:
+    """Id utilizável em colunas FK para ``app_users`` — ou ``None``.
+
+    Service accounts autenticam como um SHIM transient de ``AppUser`` com id
+    sintético NEGATIVO (``-<sa.id>``, ver ``_build_sa_appuser_shim``) que NÃO
+    existe na tabela. Gravar esse id em FKs (``mapping_versions.author_user_id``,
+    ``audit_logs.user_id``) viola a constraint — foi o 500 do create_version
+    via MCP + a perda silenciosa de audit_logs de SA (jul/2026). Persistência:
+    usuário real → id; SA/shim/ausente → ``None`` (a atribuição fica no
+    ``username='sa:<name>'``, que os writers já gravam ao lado).
+
+    Aceita a instância de ``AppUser`` OU o id cru (int/None) — cobre tanto os
+    routers (têm o user) quanto o middleware de audit (têm só o id no state).
+    """
+    uid = getattr(user_or_id, "id", user_or_id)
+    return uid if isinstance(uid, int) and not isinstance(uid, bool) and uid > 0 else None
 
 
 def _build_sa_appuser_shim(sa: models.ServiceAccount) -> models.AppUser:

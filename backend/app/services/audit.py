@@ -16,6 +16,7 @@ import threading
 from fastapi import Request
 from sqlalchemy.orm import Session
 
+from ..core import auth as app_auth
 from ..core.config import settings
 from ..db import models, repository
 
@@ -126,6 +127,10 @@ class AuditService:
         self.prune_expired_entries()
 
         actor_user_id = user_id if user_id is not None else getattr(user, "id", None)
+        # Service accounts autenticam como shim com id NEGATIVO (não existe em
+        # app_users) — gravado cru, violava a FK e a linha de audit era PERDIDA
+        # (jul/2026). None mantém a linha; username='sa:<name>' dá a atribuição.
+        actor_user_id = app_auth.persistable_user_id(actor_user_id)
         actor_username = username if username is not None else getattr(user, "username", None)
         actor_role = user_role if user_role is not None else getattr(user, "role", None)
 

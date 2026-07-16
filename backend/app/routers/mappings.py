@@ -336,7 +336,7 @@ def _audit(
             mapping_definition_id=definition_id,
             mapping_version_id=version_id,
             action=action,
-            user_id=user.id,
+            user_id=app_auth.persistable_user_id(user),  # SA shim (id<0) → None
             username=user.username,
             user_role=user.role,
             diff=json.dumps(diff, separators=(",", ":")) if diff else None,
@@ -1096,7 +1096,10 @@ async def create_version(
         definition_id=definition_id,
         version_number=next_number,
         rules=json.dumps(rules_payload, separators=(",", ":")),
-        author_user_id=user.id,
+        # SA autentica como shim com id NEGATIVO (não existe em app_users) —
+        # gravar direto violava a FK (500 via MCP). None preserva a linha;
+        # a autoria fica no commit_message + mapping_audit.username.
+        author_user_id=app_auth.persistable_user_id(user),
         commit_message=payload.commit_message,
         diff_from_previous=None,
         dry_run_stats=json.dumps(dry_run.model_dump(), default=str),
