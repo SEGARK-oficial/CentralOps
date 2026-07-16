@@ -8,101 +8,159 @@ description: Step by step to activate the Enterprise edition — from subscripti
 
 Activating the Enterprise edition **does not reinstall** CentralOps. You swap the
 Community images for the Enterprise images (the same product, with the paid modules
-compiled in) and provide your **license**. Without a valid license, the same image runs as
-Community — so the upgrade and the downgrade are reversible.
+compiled in) and provide your **license**. Without a valid license, the same image runs
+as Community — so the upgrade and the downgrade are reversible.
+
+## What you will need
+
+The license comes as **two files**, and both are required:
+
+| File | What it is | Where it goes |
+|---|---|---|
+| `segark-pipeline-license-<kid>.jwt` | The signed (EdDSA) license **token**. | `CENTRALOPS_LICENSE_TOKEN` (or the **Settings → License** screen). |
+| `key.prod.pem` | The **public** key the product uses to **verify** the token offline. | A directory pointed to by `CENTRALOPS_LICENSE_KEYS_DIR`. |
+
+:::warning[Without the public key, the license won't activate]
+
+The token alone is **not enough**: without `key.prod.pem` in the keyring, the product
+can't verify the signature and answers `unknown key id: 'key.prod'` — staying on
+Community by design. Always download **both** files.
+
+:::
 
 ## Overview
 
 ```text
-  Assinar          Bundle do portal            Rodar
- ┌────────┐       ┌──────────────────┐        ┌─────────────────────────┐
- │ portal │ ────▶ │ licença + keyring │ ────▶ │ docker login → pull EE  │
- │ segark │       │ + credencial pull │        │ + subir com a licença   │
- └────────┘       └──────────────────┘        └───────────┬─────────────┘
-                                                          ▼
-                                              edition=enterprise ✅
+  segark.com portal          Registry                    Run
+ ┌───────────────────┐      ┌────────────────┐      ┌──────────────────────────┐
+ │ License page:     │ ───▶ │ docker login → │ ───▶ │ start the EE images with │
+ │ token + key.pem   │      │ pull EE images │      │ token + mounted keyring  │
+ └───────────────────┘      └────────────────┘      └───────────┬──────────────┘
+                                                                ▼
+                                                    edition=enterprise ✅
 ```
 
-## 1. Subscribe and grab the bundle
+## 1. Download the license from the portal
 
-1. Subscribe to a plan on the portal (**segark.com**). A **license** is issued for your account.
-2. On the portal, obtain the **install bundle** (`GET /api/portal/install/{license_id}`).
-   It carries everything you need:
-   - **`license_token`** — your license's signed (EdDSA) JWT.
-   - **`keyring`** — the **public** key (`<kid>.pem`) to verify the license offline.
-   - **`registry_credential`** — username + token to pull the private Enterprise images.
-   - **`images`** — the exact Enterprise image refs (pin these tags).
+1. Subscribe to a plan on the portal (**segark.com**). The license is issued to your account.
+2. Sign in to the portal and open the **License** page.
+3. Download both files:
+   - **Download token (.jwt)** — the signed license token.
+   - **Download key (key.prod.pem)** — the public keyring key.
 
-:::info[Security]
-The pull credential only controls the image **download**. The actual feature activation is
-the **license**, verified offline. Keep the `license_token` and always use both — username
-**and** token — from the `registry_credential`.
-:::
+The page itself shows the "How to activate" summary with these steps.
 
-## 2. Authenticate with the registry
+## 2. Authenticate to the registry
 
-Use the `username` and `password` from the bundle's `registry_credential` (the token goes
-through stdin, never in the shell history):
+The Enterprise images are **private** on the GitHub Container Registry:
+`ghcr.io/segark-oficial/centralops-ee` (API/workers) and
+`ghcr.io/segark-oficial/centralops-ee-frontend` (frontend). Use the pull credential
+provided with your subscription (portal install bundle, or **support@segark.com**):
 
 ```bash
-echo "<registry_credential.password>" | \
-  docker login ghcr.io -u "<registry_credential.username>" --password-stdin
+echo "<credential password>" | \
+  docker login ghcr.io -u "<credential username>" --password-stdin
 ```
 
-## 3. Bring it up with the Enterprise images
+The token goes through stdin so it never lands in your shell history.
+
+:::info[Security]
+
+The pull credential only controls the image **download**. The real feature activation is
+the **license**, verified offline inside the product.
+
+:::
+
+## 3. Start with the Enterprise images
+
+EE tags follow the Core version: `v1.0.0-ee` (tracks the release) and
+`v1.0.0-ee.<sha>` (immutable — **prefer this one in production**).
 
 ### Docker Compose
 
-Save the keyring's public key and export the license + the image refs:
+Put the public key next to the compose files and configure `compose/.env`:
 
 ```bash
-mkdir -p license-keys
-echo "<keyring[<kid>] do bundle>" > license-keys/<kid>.pem
+mkdir -p compose/license-keys
+cp ~/Downloads/key.prod.pem compose/license-keys/
+```
 
-export CENTRALOPS_LICENSE_TOKEN="<license_token do bundle>"
-export LICENSE_KEYS_DIR=./license-keys
-export CENTRALOPS_EE_IMAGE="<images.backend do bundle>"    # ex.: ghcr.io/segark-oficial/centralops-ee:v1.0.0
-export CENTRALOPS_WEB_EE_IMAGE="<images.frontend do bundle>"
+In `compose/.env`, add:
 
-# sobe o CE + a overlay Enterprise (a partir da raiz do projeto)
+```dotenv
+CENTRALOPS_LICENSE_TOKEN=<contents of the .jwt file>
+LICENSE_KEYS_DIR=./license-keys
+CENTRALOPS_EE_IMAGE=ghcr.io/segark-oficial/centralops-ee:v1.0.0-ee
+CENTRALOPS_WEB_EE_IMAGE=ghcr.io/segark-oficial/centralops-ee-frontend:v1.0.0-ee
+```
+
+And start CE + the Enterprise overlay (from the project root):
+
+```bash
+docker compose -f compose/docker-compose.yml -f compose/docker-compose.ee.yml pull
 docker compose -f compose/docker-compose.yml -f compose/docker-compose.ee.yml up -d
 ```
 
+:::tip[Prefer activating through the UI?]
+
+With `key.prod.pem` mounted (the `LICENSE_KEYS_DIR` above), you can leave
+`CENTRALOPS_LICENSE_TOKEN` out and paste the token on the product's
+**Settings → License** screen as an administrator. The license is stored (encrypted) in
+the database and survives restarts.
+
+:::
+
 ### Kubernetes (Helm)
 
-Point the images to the Enterprise refs, mount the public keyring, and pass the license via
-a Secret:
+Create the image pull secret (the chart uses `ghcr-secret` by default) and upgrade
+pointing at the images, token and keyring:
 
 ```bash
-kubectl -n centralops create secret generic centralops-license \
-  --from-literal=CENTRALOPS_LICENSE_TOKEN="<license_token>" \
-  --from-file=license-keys/<kid>.pem
+kubectl -n centralops create secret docker-registry ghcr-secret \
+  --docker-server=ghcr.io \
+  --docker-username="<credential username>" \
+  --docker-password="<credential password>"
 
 helm upgrade centralops kubernetes/helm/centralops -n centralops \
   --set image.repository=ghcr.io/segark-oficial/centralops-ee \
+  --set image.tag=v1.0.0-ee \
   --set frontendImage.repository=ghcr.io/segark-oficial/centralops-ee-frontend \
-  --set image.tag=v1.0.0 --set frontendImage.tag=v1.0.0 \
+  --set frontendImage.tag=v1.0.0-ee \
+  --set secrets.licenseToken="<contents of the .jwt file>" \
+  --set-file "secrets.licenseKeyring.key\.prod\.pem=./key.prod.pem" \
   -f values.override.yaml
 ```
 
+The chart mounts the keyring on every pod and sets `CENTRALOPS_LICENSE_KEYS_DIR`
+automatically. For GitOps/ExternalSecrets, use `secrets.existingSecret` and
+`secrets.existingLicenseKeyring` instead of the inline values.
+
 ## 4. Verify
 
+At boot, the API logs the resolved edition:
+
 ```bash
-curl -fsS http://localhost:3000/readyz
-docker compose logs api | grep edition
+docker compose -f compose/docker-compose.yml -f compose/docker-compose.ee.yml \
+  logs centralops | grep edition=
 # edition=enterprise plan=mssp features=3
 ```
 
-If you see **`edition=enterprise`**, the upgrade is complete — the MSSP features
-(hierarchical multi-tenancy, reseller, federated search) are already active. If
-`edition=community` shows up, the license was not found or is invalid: check the
-`CENTRALOPS_LICENSE_TOKEN` and whether `<kid>.pem` is in the `LICENSE_KEYS_DIR`.
+You can also check it in the UI, under **Settings → License** (shows the edition, plan
+and active features).
+
+If you see **`edition=community`**, the license wasn't found or couldn't be verified:
+
+- **`unknown key id: 'key.prod'`** — `key.prod.pem` is not in the keyring. Check that
+  the file is in the `LICENSE_KEYS_DIR` directory (Compose) or in
+  `secrets.licenseKeyring` (Helm) and restart: the keyring is read at boot.
+- **Missing/expired token** — check `CENTRALOPS_LICENSE_TOKEN` (or re-activate through
+  the License screen) and the validity on the portal.
 
 ## Downgrade
 
-Go back to the Community images (or remove the `CENTRALOPS_LICENSE_TOKEN`) and bring it up
-again — the platform falls back to Community by design, without losing data.
+Go back to the Community images (or remove `CENTRALOPS_LICENSE_TOKEN`) and start again —
+the platform falls back to Community by design, without losing data.
 
 ## Need help?
 
-Reach out to **support@segark.com**.
+Talk to **support@segark.com**.

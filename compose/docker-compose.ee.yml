@@ -15,6 +15,11 @@
 # Env (set in compose/.env or the shell):
 # CENTRALOPS_LICENSE_TOKEN  — the signed EdDSA JWT (billing_plane.cli issue)
 # LICENSE_KEYS_DIR          — host dir holding <kid>.pem (public only)
+# CENTRALOPS_EE_IMAGE       — EE backend image ref (default centralops-ee:latest,
+#                             o build local; aponte p/ ghcr.io/segark-oficial/centralops-ee:<tag>
+#                             para rodar a imagem publicada sem retag)
+# CENTRALOPS_WEB_EE_IMAGE   — EE frontend image ref (default centralops-web-ee:latest;
+#                             publicada: ghcr.io/segark-oficial/centralops-ee-frontend:<tag>)
 
 x-ee-license-env: &ee-license-env
   - CENTRALOPS_LICENSE_TOKEN=${CENTRALOPS_LICENSE_TOKEN:-}
@@ -28,47 +33,47 @@ x-ee-keyring-vol: &ee-keyring-vol
 services:
   # ── API: EE image (activate_enterprise mounts EE routers + registers seams) ──
   centralops:
-    image: centralops-ee:latest
+    image: ${CENTRALOPS_EE_IMAGE:-centralops-ee:latest}
     environment: *ee-license-env
     volumes: *ee-keyring-vol
 
   # ── SPA: EE bundle (federated-search screens + partner panel) ──
   frontend:
-    image: centralops-web-ee:latest
+    image: ${CENTRALOPS_WEB_EE_IMAGE:-centralops-web-ee:latest}
 
   # ── Celery workers + beat: EE image + centralops_ee.celery_app ──
   collector-worker-priority:
-    image: centralops-ee:latest
+    image: ${CENTRALOPS_EE_IMAGE:-centralops-ee:latest}
     command: [celery, -A, centralops_ee.celery_app, worker, -Q, collect.priority, -n, priority@%h, --concurrency=4, --loglevel=info]
     environment: *ee-license-env
     volumes: *ee-keyring-vol
 
   collector-worker-bulk:
-    image: centralops-ee:latest
+    image: ${CENTRALOPS_EE_IMAGE:-centralops-ee:latest}
     command: [celery, -A, centralops_ee.celery_app, worker, -Q, "collect.bulk,collect.backfill", -n, bulk@%h, --concurrency=8, --loglevel=info]
     environment: *ee-license-env
     volumes: *ee-keyring-vol
 
   collector-worker-maintenance:
-    image: centralops-ee:latest
+    image: ${CENTRALOPS_EE_IMAGE:-centralops-ee:latest}
     command: [celery, -A, centralops_ee.celery_app, worker, -Q, "maintenance,maintenance.high", -n, maintenance@%h, --concurrency=4, --loglevel=info]
     environment: *ee-license-env
     volumes: *ee-keyring-vol
 
   collector-worker-query:
-    image: centralops-ee:latest
+    image: ${CENTRALOPS_EE_IMAGE:-centralops-ee:latest}
     command: [celery, -A, centralops_ee.celery_app, worker, -Q, collect.query, -n, query@%h, --concurrency=4, --loglevel=info]
     environment: *ee-license-env
     volumes: *ee-keyring-vol
 
   collector-dispatcher:
-    image: centralops-ee:latest
+    image: ${CENTRALOPS_EE_IMAGE:-centralops-ee:latest}
     command: [celery, -A, centralops_ee.celery_app, worker, -Q, "dispatch.dlq,dispatch.destination,dispatch.destination.0,dispatch.destination.1,dispatch.destination.2,dispatch.destination.3,dispatch.destination.4,dispatch.destination.5,dispatch.destination.6,dispatch.destination.7", -n, dispatch@%h, --concurrency=8, --loglevel=info]
     environment: *ee-license-env
     volumes: *ee-keyring-vol
 
   collector-beat:
-    image: centralops-ee:latest
+    image: ${CENTRALOPS_EE_IMAGE:-centralops-ee:latest}
     command: [celery, -A, centralops_ee.celery_app, beat, --loglevel=info]
     environment: *ee-license-env
     volumes: *ee-keyring-vol
@@ -76,6 +81,6 @@ services:
   # ── Kafka data-plane dispatcher: EE image for edition consistency; command unchanged
   # (it runs the Core dataplane dispatcher, not a Celery -A worker) ──
   collector-kafka-dispatcher:
-    image: centralops-ee:latest
+    image: ${CENTRALOPS_EE_IMAGE:-centralops-ee:latest}
     environment: *ee-license-env
     volumes: *ee-keyring-vol
