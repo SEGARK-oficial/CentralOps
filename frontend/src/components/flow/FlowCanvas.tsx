@@ -16,7 +16,7 @@
  * - Acessível: SVG role=img, nós role=button tabIndex=0, Enter/Espaço = drill-down.
  */
 import type React from "react"
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { ZoomInIcon, ZoomOutIcon, Maximize2Icon } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -49,6 +49,11 @@ const RIBBON_MAX_W = 26
 const PARTICLE_R = 3
 // Acima deste nº de nós numa coluna, os menores colapsam num nó "+N" (expansível).
 const MAX_COL_NODES = 14
+// Teto de arestas com partículas SMIL quando NÃO há foco (view densa/expandida):
+// as `<animateMotion>` rodam contínuas no motor de render do browser. Acima disto,
+// só as arestas de maior throughput animam — o resto fica estático (fitas seguem
+// visíveis). Evita centenas de animações simultâneas na expansão total do grafo.
+const MAX_PARTICLE_EDGES = 48
 
 // ── Types ─────────────────────────────────────────────────────────────────
 export type FlowNodeId =
@@ -134,6 +139,15 @@ function particleCount(rate: number, maxRate: number): number {
   if (rate <= 0 || maxRate <= 0) return 0
   return Math.max(1, Math.round(clamp(rate / maxRate, 0, 1) * 3))
 }
+/**
+ * Id de gradiente por PAR DE CORES (não por aresta). As cores das fitas vêm de um
+ * conjunto pequeno e fixo de tokens (STATUS_COLOR + ROUTE_COLOR) — dezenas/centenas
+ * de arestas colapsam em ≤ ~49 gradientes únicos no `<defs>`. Sanitiza as CSS vars
+ * p/ um id SVG válido e estável.
+ */
+function gradKey(from: string, to: string): string {
+  return `grad-${from.replace(/[^a-zA-Z0-9]/g, "_")}__${to.replace(/[^a-zA-Z0-9]/g, "_")}`
+}
 /** Colapsa os itens de menor volume num overflow quando a coluna excede `cap`. */
 interface Grouped<T> {
   visible: T[]
@@ -171,6 +185,8 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({ data, onSelectNode, clas
   const [transform, setTransform] = useState({ tx: 0, ty: 0, scale: 1 })
   const dragging = useRef(false)
   const dragStart = useRef({ x: 0, y: 0, tx: 0, ty: 0 })
+  const dragTarget = useRef({ tx: 0, ty: 0 })
+  const rafId = useRef<number | null>(null)
 
   const [active, setActive] = useState<string | null>(null)
   const [expanded, setExpanded] = useState<Record<ColKind, boolean>>({ source: false, route: false, dest: false })
@@ -356,6 +372,27 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({ data, onSelectNode, clas
     return { edgeKeys, nodeIds }
   }, [active, allEdges])
 
+  // Gradientes DEDUPLICADOS por par de cores — um `<linearGradient>` por par único
+  // em vez de um por aresta. Estável (só depende da geometria/saúde do layout).
+  const gradients = useMemo(() => {
+    const m = new Map<string, { id: string; from: string; to: string }>()
+    for (const e of allEdges) {
+      const id = gradKey(e.from.ribbon, e.to.ribbon)
+      if (!m.has(id)) m.set(id, { id, from: e.from.ribbon, to: e.to.ribbon })
+    }
+    return [...m.values()]
+  }, [allEdges])
+
+  // Quando NÃO há foco e o grafo é denso, limita as partículas às arestas de maior
+  // throughput (null = sem teto, todas animam). Sob foco, o gate por-foco já reduz.
+  const particleEdgeKeys = useMemo(() => {
+    if (allEdges.length <= MAX_PARTICLE_EDGES) return null
+    const top = [...allEdges]
+      .sort((a, b) => b.rate / (b.maxRate || 1) - a.rate / (a.maxRate || 1))
+      .slice(0, MAX_PARTICLE_EDGES)
+    return new Set(top.map((e) => e.key))
+  }, [allEdges])
+
   // ── Fit-to-view ───────────────────────────────────────────────────────────
   const fit = useCallback(() => {
     const el = containerRef.current
@@ -397,17 +434,49 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({ data, onSelectNode, clas
     if ((e.target as Element).closest("[data-node]")) return
     dragging.current = true
     dragStart.current = { x: e.clientX, y: e.clientY, tx: 0, ty: 0 }
-    setTransform((prev) => { dragStart.current.tx = prev.tx; dragStart.current.ty = prev.ty; return prev })
+    setTransform((prev) => {
+      dragStart.current.tx = prev.tx; dragStart.current.ty = prev.ty
+      dragTarget.current = { tx: prev.tx, ty: prev.ty }
+      return prev
+    })
+  }, [])
+
+  // Pan com throttle por ANIMATION FRAME: `mousemove` pode disparar >60×/s (trackpad
+  // de alta taxa); coalescemos num único commit de estado por frame. Combinado com
+  // os visuais memoizados (NodeVisual/EdgeVisual bailam quando só `transform` muda),
+  // o custo por frame de arraste cai a O(nº de wrappers finos), não O(árvore inteira).
+  const commitDrag = useCallback(() => {
+    rafId.current = null
+    setTransform((prev) => ({ ...prev, tx: dragTarget.current.tx, ty: dragTarget.current.ty }))
   }, [])
 
   const handleMouseMove = useCallback((e: React.MouseEvent<SVGSVGElement>) => {
     if (!dragging.current) return
-    const dx = e.clientX - dragStart.current.x
-    const dy = e.clientY - dragStart.current.y
-    setTransform((prev) => ({ ...prev, tx: dragStart.current.tx + dx, ty: dragStart.current.ty + dy }))
+    dragTarget.current = {
+      tx: dragStart.current.tx + (e.clientX - dragStart.current.x),
+      ty: dragStart.current.ty + (e.clientY - dragStart.current.y),
+    }
+    if (rafId.current !== null) return
+    if (typeof requestAnimationFrame === "function") rafId.current = requestAnimationFrame(commitDrag)
+    else commitDrag() // ambiente sem rAF (ex.: SSR/teste) — commit síncrono
+  }, [commitDrag])
+
+  const stopDrag = useCallback(() => {
+    if (!dragging.current) return
+    dragging.current = false
+    // Garante que a posição FINAL do arraste seja aplicada mesmo que um frame
+    // pendente seja cancelado (senão o último delta se perderia).
+    if (rafId.current !== null) {
+      if (typeof cancelAnimationFrame === "function") cancelAnimationFrame(rafId.current)
+      rafId.current = null
+      setTransform((prev) => ({ ...prev, tx: dragTarget.current.tx, ty: dragTarget.current.ty }))
+    }
   }, [])
 
-  const stopDrag = useCallback(() => { dragging.current = false }, [])
+  // Cancela qualquer frame de pan pendente ao desmontar.
+  useEffect(() => () => {
+    if (rafId.current !== null && typeof cancelAnimationFrame === "function") cancelAnimationFrame(rafId.current)
+  }, [])
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -454,10 +523,10 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({ data, onSelectNode, clas
         onMouseLeave={() => { stopDrag(); setActive(null) }}
       >
         <defs>
-          {allEdges.map((e) => (
-            <linearGradient key={`g-${e.key}`} id={`grad-${e.key}`} x1="0" y1="0" x2="1" y2="0">
-              <stop offset="0%" stopColor={e.from.ribbon} />
-              <stop offset="100%" stopColor={e.to.ribbon} />
+          {gradients.map((g) => (
+            <linearGradient key={g.id} id={g.id} x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0%" stopColor={g.from} />
+              <stop offset="100%" stopColor={g.to} />
             </linearGradient>
           ))}
           <filter id="flow-node-shadow" x="-20%" y="-30%" width="140%" height="160%">
@@ -478,27 +547,18 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({ data, onSelectNode, clas
 
           {allEdges.map((e) => {
             const dur = particleDur(e.rate, e.maxRate)
-            const showParticles = !prefersReducedMotion && dur > 0 && (!focus || focus.edgeKeys.has(e.key))
-            const count = showParticles ? particleCount(e.rate, e.maxRate) : 0
+            const animates =
+              !prefersReducedMotion &&
+              dur > 0 &&
+              (!focus || focus.edgeKeys.has(e.key)) &&
+              (particleEdgeKeys === null || particleEdgeKeys.has(e.key))
+            const count = animates ? particleCount(e.rate, e.maxRate) : 0
+            // O `<g>` externo carrega só o que muda no hover (opacity) — barato de
+            // reconciliar. O desenho pesado (fita + partículas) fica no EdgeVisual
+            // memoizado, que bail-out quando só o pan/zoom muda.
             return (
               <g key={e.key} data-testid={e.key} opacity={edgeOpacity(e.key)} style={{ transition: "opacity 160ms ease" }}>
-                <path
-                  d={e.ribbonD}
-                  fill={e.idle ? "none" : `url(#grad-${e.key})`}
-                  fillOpacity={0.5}
-                  stroke={e.idle ? "var(--color-border)" : e.to.ribbon}
-                  strokeWidth={e.idle ? 1 : 0.5}
-                  strokeOpacity={e.idle ? 0.6 : 0.25}
-                  strokeDasharray={e.idle ? "4 5" : undefined}
-                />
-                {count > 0 && <path id={`${e.key}-cl`} d={e.centreD} fill="none" stroke="none" />}
-                {Array.from({ length: count }, (_, pi) => (
-                  <circle key={pi} r={PARTICLE_R} fill={e.to.dot} fillOpacity={0.9}>
-                    <animateMotion dur={`${dur}s`} repeatCount="indefinite" begin={`${-(pi * (dur / count)).toFixed(2)}s`}>
-                      <mpath href={`#${e.key}-cl`} />
-                    </animateMotion>
-                  </circle>
-                ))}
+                <EdgeVisual edge={e} gradId={gradKey(e.from.ribbon, e.to.ribbon)} count={count} dur={dur} />
               </g>
             )
           })}
@@ -532,25 +592,21 @@ const ControlButton: React.FC<{ label: string; onClick: () => void; children: Re
 )
 
 // ── SankeyNode ──────────────────────────────────────────────────────────────
+// Wrapper INTERATIVO fino: carrega testid, a11y, handlers e a `opacity` (que muda
+// no hover/foco) — barato de reconciliar. O desenho pesado é delegado ao NodeVisual
+// memoizado, que NÃO re-renderiza no hover (opacity) nem no pan (transform), pois
+// suas props saem do `layout` memoizado (estáveis fora de mudança de dados).
 const SankeyNode: React.FC<{ x: number; node: LNode; opacity: number; onHover: () => void; onLeave: () => void }> = ({ x, node, opacity, onHover, onLeave }) => {
-  const { top, h, color, title, subtitle, tag, brand, isOverflow } = node
-  const cy = top + h / 2
-  const rx = 9
-  const testid = `flow-${node.kind}-${node.id}`
-  const hasIcon = !!brand && !isOverflow
-  const textX = x + (hasIcon ? 34 : 15)
-
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" || e.key === " ") { e.preventDefault(); node.onSelect() }
   }
-
   return (
     <g
-      data-testid={testid}
+      data-testid={`flow-${node.kind}-${node.id}`}
       data-node="true"
       tabIndex={0}
       role="button"
-      aria-label={`${title} — ${subtitle}`}
+      aria-label={`${node.title} — ${node.subtitle}`}
       onClick={node.onSelect}
       onKeyDown={handleKeyDown}
       onMouseEnter={onHover}
@@ -560,6 +616,22 @@ const SankeyNode: React.FC<{ x: number; node: LNode; opacity: number; onHover: (
       style={{ cursor: "pointer", outline: "none", transition: "opacity 160ms ease" }}
       opacity={opacity}
     >
+      <NodeVisual x={x} node={node} />
+    </g>
+  )
+}
+
+// Desenho PURO do nó (rect + acento + ícone + textos + tag). Memoizado: só
+// re-renderiza quando a geometria/rótulos mudam (novos dados) — nunca no hover
+// nem no pan. É o que elimina o re-render O(árvore inteira) desses dois gestos.
+const NodeVisual = memo(function NodeVisual({ x, node }: { x: number; node: LNode }) {
+  const { top, h, color, title, subtitle, tag, brand, isOverflow } = node
+  const cy = top + h / 2
+  const rx = 9
+  const hasIcon = !!brand && !isOverflow
+  const textX = x + (hasIcon ? 34 : 15)
+  return (
+    <>
       <rect
         x={x}
         y={top}
@@ -605,6 +677,34 @@ const SankeyNode: React.FC<{ x: number; node: LNode; opacity: number; onHover: (
           {truncate(tag, 12).toUpperCase()}
         </text>
       )}
-    </g>
+    </>
   )
-}
+})
+
+// ── EdgeVisual ──────────────────────────────────────────────────────────────
+// Desenho PURO da aresta: fita Sankey (gradiente DEDUPLICADO) + partículas SMIL.
+// Memoizado — bail-out no pan/zoom (só `transform` muda) e no hover das arestas
+// NÃO afetadas. `count`/`dur` são estáveis fora de mudança de foco/dados.
+const EdgeVisual = memo(function EdgeVisual({ edge, gradId, count, dur }: { edge: Edge; gradId: string; count: number; dur: number }) {
+  return (
+    <>
+      <path
+        d={edge.ribbonD}
+        fill={edge.idle ? "none" : `url(#${gradId})`}
+        fillOpacity={0.5}
+        stroke={edge.idle ? "var(--color-border)" : edge.to.ribbon}
+        strokeWidth={edge.idle ? 1 : 0.5}
+        strokeOpacity={edge.idle ? 0.6 : 0.25}
+        strokeDasharray={edge.idle ? "4 5" : undefined}
+      />
+      {count > 0 && <path id={`${edge.key}-cl`} d={edge.centreD} fill="none" stroke="none" />}
+      {Array.from({ length: count }, (_, pi) => (
+        <circle key={pi} r={PARTICLE_R} fill={edge.to.dot} fillOpacity={0.9}>
+          <animateMotion dur={`${dur}s`} repeatCount="indefinite" begin={`${-(pi * (dur / count)).toFixed(2)}s`}>
+            <mpath href={`#${edge.key}-cl`} />
+          </animateMotion>
+        </circle>
+      ))}
+    </>
+  )
+})
