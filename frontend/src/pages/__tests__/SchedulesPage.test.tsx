@@ -1,5 +1,6 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react"
 import { describe, it, expect, vi, beforeEach } from "vitest"
+import i18n from "@/i18n"
 import { SchedulesPage } from "@/pages/SchedulesPage"
 import type { Integration, Query, Schedule, SearchHistoryItem } from "@/types"
 
@@ -54,7 +55,10 @@ function makeHistory(n: number): SearchHistoryItem[] {
 }
 
 describe("SchedulesPage — histórico", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
+    // O detector do i18n resolve pelo navigator do jsdom (en); fixamos pt-BR para as
+    // asserções de rótulos localizados abaixo.
+    await i18n.changeLanguage("pt")
     vi.clearAllMocks()
     ;(api.listSchedules as ReturnType<typeof vi.fn>).mockResolvedValue([schedule])
     ;(api.listQueries as ReturnType<typeof vi.fn>).mockResolvedValue([query])
@@ -109,5 +113,32 @@ describe("SchedulesPage — histórico", () => {
         .map((r) => r.querySelector("td:nth-child(2)")?.textContent?.trim())
       expect(statusCells.every((s) => s === "Falhou")).toBe(true)
     })
+  })
+
+  it("oferece download de CSV na tela de visualizar o resultado", async () => {
+    const item: SearchHistoryItem = {
+      id: 2000,
+      search_id: "srch_view_csv",
+      client_id: 1,
+      schedule_id: 100,
+      status: "finished",
+      statement: "SELECT *",
+      table: "auth",
+      from_ts: "2026-06-10T00:00:00Z",
+      to_ts: "2026-06-10T23:59:59Z",
+      result_count: 5,
+      created_at: "2026-06-10T08:00:00Z",
+    }
+    ;(api.getScheduleHistory as ReturnType<typeof vi.fn>).mockResolvedValue([item])
+    const table = await openHistory()
+
+    // Abre o modal de visualização (botão "Ver" da linha do histórico).
+    fireEvent.click(within(table).getByRole("button", { name: /^Ver$/i }))
+
+    // O modal expõe o download do CSV (reusa /history/result/{id}/csv).
+    const csvButton = await screen.findByRole("button", { name: /Baixar CSV/i })
+    expect(csvButton).toBeEnabled()
+    fireEvent.click(csvButton)
+    expect(api.downloadStoredCSV).toHaveBeenCalledWith("srch_view_csv")
   })
 })

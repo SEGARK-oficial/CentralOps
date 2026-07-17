@@ -125,6 +125,7 @@
     "system": "System",
     "clientLabel": "Client {{id}}",
     "clientRemoved": "Removed client",
+    "federatedSearch": "Federated search",
     "tryAgain": "Try Again",
     "tabs": {
       "ariaLabel": "History types",

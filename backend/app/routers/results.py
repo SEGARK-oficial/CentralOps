@@ -1,5 +1,7 @@
-from datetime import datetime, timedelta
+import csv
+import io
 import json
+from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends, Response
 from sqlalchemy.orm import Session
@@ -20,6 +22,78 @@ def _csv_expired(result: models.SearchResult) -> bool:
         return False
     retention_window = timedelta(days=settings.SEARCH_HISTORY_CSV_RETENTION_DAYS)
     return result.created_at < datetime.utcnow() - retention_window
+
+
+# Chave de coluna sintética para itens escalares (não-dict) — busca federada normal
+# devolve uma lista de dicts, mas mantemos robustez para shapes heterogêneos.
+_SCALAR_COLUMN = "value"
+
+
+def _extract_items(result_json: str) -> list:
+    """Normaliza ``result_json`` para uma lista de itens.
+
+    Aceita duas formas de payload persistido:
+    - LISTA no topo (busca federada / opensearch_dsl): ``[ {...}, {...} ]``.
+    - dict com ``items`` ou ``results``: ``{"items": [...]}`` / ``{"results": [...]}``.
+
+    Só o *parse* de JSON é tolerado a falha (payload corrompido → sem dados). O
+    tratamento de shape NÃO é embrulhado em ``try/except`` de propósito: um shape
+    novo/inesperado deve propagar (500) em vez de virar um 404 silencioso e enganoso.
+    """
+    try:
+        data = json.loads(result_json)
+    except (json.JSONDecodeError, ValueError, TypeError):
+        return []
+    if isinstance(data, list):
+        return data
+    if isinstance(data, dict):
+        items = data.get("items")
+        if items is None:
+            items = data.get("results")
+        return items if isinstance(items, list) else []
+    return []
+
+
+def _csv_cell(value: object) -> str:
+    """Serializa uma célula. Valores aninhados (dict/list) → JSON compacto; o
+    ``csv.writer`` cuida do quoting/escape (vírgulas, aspas, quebras de linha)."""
+    if value is None:
+        return ""
+    if isinstance(value, (dict, list)):
+        return json.dumps(value, ensure_ascii=False, separators=(",", ":"))
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    return str(value)
+
+
+def _rows_to_csv(items: list) -> str:
+    """Monta o CSV com cabeçalho = UNIÃO estável das chaves de todos os itens
+    (ordem de primeira aparição), não apenas as do primeiro item — resultados
+    heterogêneos não perdem colunas."""
+    headers: list[str] = []
+    seen: set[str] = set()
+    has_scalars = False
+    for item in items:
+        if isinstance(item, dict):
+            for key in item.keys():
+                if key not in seen:
+                    seen.add(key)
+                    headers.append(key)
+        else:
+            has_scalars = True
+    if has_scalars and _SCALAR_COLUMN not in seen:
+        seen.add(_SCALAR_COLUMN)
+        headers.append(_SCALAR_COLUMN)
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(headers)
+    for item in items:
+        if isinstance(item, dict):
+            writer.writerow([_csv_cell(item.get(h)) for h in headers])
+        else:
+            writer.writerow([_csv_cell(item) if h == _SCALAR_COLUMN else "" for h in headers])
+    return output.getvalue()
 
 
 def get_results_repo(
@@ -86,11 +160,7 @@ def download_history_csv(
                 "es": "Descarga de CSV vencida para este resultado de búsqueda.",
             },
         )
-    try:
-        data = json.loads(result.result_json)
-        items = data.get("items") or data.get("results") or []
-    except Exception:
-        items = []
+    items = _extract_items(result.result_json)
     if not items:
         raise ApiError(
             "search.no_data",
@@ -101,9 +171,9 @@ def download_history_csv(
                 "es": "No hay datos disponibles.",
             },
         )
-    headers = list(items[0].keys())
-    csv_lines = [",".join(headers)]
-    for item in items:
-        csv_lines.append(",".join(json.dumps(item.get(h, "")) for h in headers))
-    csv_data = "\n".join(csv_lines)
-    return Response(csv_data, media_type="text/csv")
+    csv_data = _rows_to_csv(items)
+    return Response(
+        csv_data,
+        media_type="text/csv",
+        headers={"Content-Disposition": f'attachment; filename="{result.search_id}.csv"'},
+    )

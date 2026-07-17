@@ -151,7 +151,8 @@
     "searchId": "Search ID",
     "results": "Resultados",
     "errorTitle": "Error registrado",
-    "noResultPersisted": "No hay resultado persistido para esta ejecución."
+    "noResultPersisted": "No hay resultado persistido para esta ejecución.",
+    "downloadCsv": "Descargar CSV"
   },
   "queries": {
     "pageEyebrow": "Knowledge",

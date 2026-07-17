@@ -1110,6 +1110,18 @@ export const SchedulesPage: React.FC = () => {
             )}
 
             <pre className="max-h-[480px] overflow-auto rounded-xl border border-border bg-surface-tertiary/50 p-4 text-xs leading-relaxed text-text-secondary">{formatResultPayload(previewItem, t)}</pre>
+
+            <div className="flex justify-end">
+              <Button
+                size="sm"
+                variant="outline"
+                leftIcon={<DownloadIcon size={14} />}
+                onClick={() => void handleDownloadResult(previewItem)}
+                disabled={(getHistoryResultCount(previewItem) || 0) <= 0}
+              >
+                {t("schedules:previewModal.downloadCsv")}
+              </Button>
+            </div>
           </div>
         )}
       </Modal>

@@ -303,7 +303,9 @@ const HistoryPage: React.FC = () => {
                       {filteredSearchHistory.map((h) => {
                         const rowKey = `search-mobile-${h.id}`
                         const isExpanded = !!expandedRows[rowKey]
-                        const clientName = h.client_id ? clients.find((c) => c.id === h.client_id)?.name || t("history.clientLabel", { id: h.client_id }) : t("history.clientRemoved")
+                        const clientName = h.client_id == null
+                          ? t("history.federatedSearch")
+                          : clients.find((c) => c.id === h.client_id)?.name || t("history.clientRemoved")
                         const storedCount = getStoredResultCount(h)
                         return (
                           <div key={h.id} className="rounded-lg border border-border bg-surface p-3">
@@ -357,7 +359,9 @@ const HistoryPage: React.FC = () => {
                           {filteredSearchHistory.map((h) => {
                             const rowKey = `search-${h.id}`
                             const isExpanded = !!expandedRows[rowKey]
-                            const clientName = h.client_id ? clients.find((c) => c.id === h.client_id)?.name || t("history.clientLabel", { id: h.client_id }) : t("history.clientRemoved")
+                            const clientName = h.client_id == null
+                              ? t("history.federatedSearch")
+                              : clients.find((c) => c.id === h.client_id)?.name || t("history.clientRemoved")
                             const storedCount = getStoredResultCount(h)
                             return (
                               <Fragment key={h.id}>
