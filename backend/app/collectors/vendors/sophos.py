@@ -235,7 +235,7 @@ def _register() -> None:
             capabilities=frozenset({
                 "catalog", "auth:test", "health",
                 "collect:alerts", "collect:cases", "collect:detections",
-                "alerts:list", "alerts:search", "discover:children",
+                "discover:children",
                 CAP_QUERY_XDR_DATA_LAKE,
             }),
             # Só o card base ("sophos" = tenant) roda query; as variantes MSSP

@@ -101,7 +101,6 @@
   "detail": {
     "backToIntegrations": "Back to Integrations",
     "region": "Region",
-    "viewAllInAlerts": "View all in Alerts",
     "editIntegration": "Edit integration",
     "inactiveTitle": "Inactive integration",
     "inactiveDescription": "This integration has been deactivated and cannot be used in operational flows until it is reactivated.",
@@ -116,7 +115,6 @@
     "tabsAriaLabel": "Integration sections",
     "tabs": {
       "overview": "Overview",
-      "alerts": "Alerts",
       "health": "Health",
       "pipelineHealth": "Normalization Health",
       "destinations": "Destinations",
@@ -124,13 +122,7 @@
       "config": "Configuration"
     },
     "lastCheck": "Last check",
-    "alertsPreview": "Alerts in preview",
     "overviewErrorTitle": "Failed to load overview",
-    "recentAlerts": "Recent alerts",
-    "viewAll": "View all",
-    "noTimestamp": "No timestamp",
-    "noAlertsPreview": "No alerts preview.",
-    "alertsPreviewUnavailableTitle": "Alerts preview unavailable",
     "licensedProducts": {
       "title": "Licensed products",
       "none": "No licensed products returned by the API.",
@@ -149,22 +141,6 @@
       "validity": "Valid until: {{date}}",
       "type": "Type: {{type}}"
     },
-    "viewAllInAlertsRoute": "View all in /alerts",
-    "openCritical": "Open critical",
-    "openArchives": "Open archives",
-    "partialAlertsNotice": "Showing the first {{count}} alerts. Use \"View all in /alerts\" to refine and see more.",
-    "noAlertsFound": "No alerts found",
-    "alertsTableAriaLabel": "Integration alerts",
-    "columns": {
-      "severity": "Severity",
-      "title": "Title",
-      "host": "Host",
-      "ruleId": "Rule ID",
-      "level": "Level",
-      "source": "Source",
-      "timestamp": "Timestamp"
-    },
-    "viewAlertDetailsAriaLabel": "View alert details: {{title}}",
     "health": {
       "title": "Integration health",
       "lastCollection": "Last collection: {{date}}",
@@ -205,8 +181,7 @@
         "label": "Spec kinds",
         "description": "Accepted statement formats: passthrough (literal) or sigma (automatic translation)."
       }
-    },
-    "alertDetailLoadError": "Failed to load alert details."
+    }
   },
   "destinationsTab": {
     "previewDescription": "<strong>Routing preview</strong> — the routes below match this integration and would send events to the indicated destinations. This is not a historical log; it is a simulation based on the routes' current conditions.",

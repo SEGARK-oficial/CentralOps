@@ -182,8 +182,8 @@ def observe_capability(vendor: str, capability: str) -> Iterator[None]:
     ``collector_capability_latency_seconds{vendor,capability}``. ``outcome`` é
     ``"ok"`` ou ``"error"`` (a exceção é re-levantada). Uso::
 
-        with observe_capability("sophos", "alerts:list"):
-            result = service.list_alerts()
+        with observe_capability("sophos", "collect:alerts"):
+            result = collector.collect()
     """
     started = _time.monotonic()
     outcome = "ok"

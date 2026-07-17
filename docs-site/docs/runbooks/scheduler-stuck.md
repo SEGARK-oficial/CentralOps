@@ -10,7 +10,7 @@ Quando uma integração aparece como **Ativo**, o CentralOps deveria buscar even
 
 ## Quando usar
 
-- A integração da **Sophos** (ou de outro fornecedor) está como **Ativo**, mas você percebe que nenhum alerta novo apareceu na tela de **Alertas** há um bom tempo.
+- A integração da **Sophos** (ou de outro fornecedor) está como **Ativo**, mas você percebe que nenhum evento novo apareceu na tela de **Investigações** há um bom tempo.
 - Em uma investigação você nota um "buraco" na linha do tempo — eventos de uma fonte simplesmente sumiram a partir de certo horário, mesmo a integração continuando ativa.
 - O painel inicial mostra uma fonte com o indicador de coleta atrasado e você precisa saber se é problema de credencial, de destino lento ou algo que só a equipe de plataforma resolve.
 

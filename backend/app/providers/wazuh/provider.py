@@ -10,11 +10,8 @@ import httpx
 from ...db.models import Integration
 from ...services import integration_secrets
 from ..base import (
-    AlertDetailSummary,
-    AlertSummary,
     BaseProvider,
     HealthResult,
-    PaginatedAlertsResult,
     QueryResult,
 )
 from ..errors import (
@@ -23,14 +20,8 @@ from ..errors import (
     ProviderInvalidRequestError,
     ProviderQueryError,
 )
-from .alert_query_builder import (
-    SEVERITY_KEYS,
-    build_alert_aggregation_body,
-    build_alert_search_body,
-)
 from .indexer_client import WazuhIndexerClient
 from .manager_client import WazuhManagerClient
-from .query_builder import build_agent_query
 
 logger = logging.getLogger(__name__)
 DEFAULT_ALERT_INDEX = "wazuh-alerts-*"
@@ -160,150 +151,6 @@ class WazuhProvider(BaseProvider):
         return "error"
 
     @staticmethod
-    def _as_list(value: Any) -> list[Any]:
-        if isinstance(value, list):
-            return value
-        if value in (None, ""):
-            return []
-        return [value]
-
-    @staticmethod
-    def _as_string_list(value: Any) -> list[str]:
-        result: list[str] = []
-        for item in WazuhProvider._as_list(value):
-            if item in (None, ""):
-                continue
-            result.append(str(item))
-        return result
-
-    @staticmethod
-    def _first_non_empty(*values: Any) -> Optional[str]:
-        for value in values:
-            if value in (None, "", [], {}):
-                continue
-            return str(value)
-        return None
-
-    @staticmethod
-    def _join_groups(*values: Any) -> Optional[str]:
-        groups: list[str] = []
-        for value in values:
-            for item in WazuhProvider._as_string_list(value):
-                if item not in groups:
-                    groups.append(item)
-        if not groups:
-            return None
-        return ", ".join(groups)
-
-    @staticmethod
-    def _severity_from_level(level: int) -> str:
-        if level >= 15:
-            return "critical"
-        if level >= 12:
-            return "high"
-        if level >= 7:
-            return "medium"
-        if level >= 4:
-            return "low"
-        return "info"
-
-    @staticmethod
-    def _extract_bucket_summary(aggregations: Dict[str, Any], key: str) -> list[dict[str, Any]]:
-        buckets = aggregations.get(key, {}).get("buckets", [])
-        result: list[dict[str, Any]] = []
-        for bucket in buckets:
-            bucket_key = bucket.get("key")
-            if bucket_key in (None, ""):
-                continue
-            label = None
-            if key == "top_rules":
-                descriptions = bucket.get("description", {}).get("buckets", [])
-                if descriptions:
-                    label = descriptions[0].get("key")
-            result.append(
-                {
-                    "key": str(bucket_key),
-                    "label": str(label) if label else None,
-                    "count": int(bucket.get("doc_count", 0) or 0),
-                    "integration_id": None,
-                    "integration_name": None,
-                    "organization_id": None,
-                    "organization_name": None,
-                }
-            )
-        return result
-
-    def _serialize_alert_hit(self, hit: Dict[str, Any]) -> AlertSummary:
-        source = hit.get("_source", {})
-        rule = source.get("rule", {})
-        level = int(rule.get("level", 0) or 0)
-        severity = self._severity_from_level(level)
-
-        mitre = rule.get("mitre", {})
-        agent = source.get("agent", {})
-        data = source.get("data", {})
-        decoder = source.get("decoder", {})
-        manager = source.get("manager", {})
-        input_data = source.get("input", {})
-        syscheck = source.get("syscheck", {})
-        mitre_ids = mitre.get("id", []) if isinstance(mitre, dict) else []
-        mitre_tactics = mitre.get("tactic", []) if isinstance(mitre, dict) else []
-        mitre_techniques = mitre.get("technique", []) if isinstance(mitre, dict) else []
-        highlights = hit.get("highlight", {})
-
-        return AlertSummary(
-            alert_id=hit.get("_id", ""),
-            title=rule.get("description", ""),
-            severity=severity,
-            platform="wazuh",
-            timestamp=source.get("timestamp"),
-            hostname=agent.get("name"),
-            rule_id=str(rule.get("id", "")),
-            rule_level=level,
-            rule_groups=self._as_string_list(rule.get("groups")),
-            rule_firedtimes=rule.get("firedtimes"),
-            mitre_ids=self._as_string_list(mitre_ids),
-            mitre_tactics=self._as_string_list(mitre_tactics),
-            mitre_techniques=self._as_string_list(mitre_techniques),
-            decoder_name=self._first_non_empty(decoder.get("name"), source.get("decoder", {}).get("parent")),
-            agent_id=self._first_non_empty(agent.get("id")),
-            agent_name=self._first_non_empty(agent.get("name")),
-            agent_ip=self._first_non_empty(agent.get("ip")),
-            agent_group=self._join_groups(agent.get("groups"), agent.get("group"), agent.get("labels", {}).get("group")),
-            agent_labels=agent.get("labels", {}) if isinstance(agent.get("labels"), dict) else {},
-            manager_name=self._first_non_empty(manager.get("name")),
-            location=self._first_non_empty(source.get("location")),
-            full_log=self._first_non_empty(source.get("full_log")),
-            src_ip=self._first_non_empty(data.get("srcip")),
-            dst_ip=self._first_non_empty(data.get("dstip")),
-            src_user=self._first_non_empty(data.get("srcuser"), data.get("user")),
-            dst_user=self._first_non_empty(data.get("dstuser")),
-            input_type=self._first_non_empty(input_data.get("type")),
-            syscheck_path=self._first_non_empty(syscheck.get("path")),
-            data_fields=data if isinstance(data, dict) else {},
-            highlights={key: self._as_string_list(value) for key, value in highlights.items() if isinstance(value, list)},
-            source_index=self._first_non_empty(hit.get("_index")),
-            integration_id=self.integration.id,
-            integration_name=self.integration.name,
-            organization_id=self.integration.organization_id,
-            organization_name=self.integration.organization.name if self.integration.organization else None,
-            raw=source,
-        )
-
-    @staticmethod
-    def _extract_total_hits(total: Any, *, fallback: int) -> int:
-        if isinstance(total, dict):
-            value = total.get("value")
-            if value is not None:
-                return int(value)
-        if total is None:
-            return fallback
-        try:
-            return int(total)
-        except (TypeError, ValueError):
-            return fallback
-
-    @staticmethod
     def _extract_manager_total(data: Dict[str, Any], *, fallback: int) -> int:
         total = data.get("data", {}).get("total_affected_items")
         try:
@@ -424,18 +271,12 @@ class WazuhProvider(BaseProvider):
             raise AssertionError("unreachable")
 
     def capabilities(self) -> List[str]:
-        # "alerts:*" são SUPORTE da plataforma (Wazuh é SIEM) —
-        # capability ≠ configuração. Indexer ausente é erro de RUNTIME
-        # (ProviderConfigurationError em list_alerts/search), não ausência de
-        # capability. Assim o router gateia a preview de alertas puramente por
-        # "alerts:list" (sem ``if platform == "wazuh"``), e wazuh-sem-indexer
-        # ainda surfacia o erro de config no call-time.
         # a capability de query (``query:opensearch_dsl``) é DERIVADA
         # da ``query_capability()`` (catálogo), garantindo runtime↔catálogo alinhados
         # — substitui o legado ``investigations:run`` (que não tinha dono no gate).
-        return [
-            "health:check", "alerts:list", "alerts:detail", "alerts:search",
-        ] + self._query_capability_keys()
+        # NB: as capabilities ``alerts:*`` (superfície de visualização Wazuh-only)
+        # foram REMOVIDAS — a busca federada (query:opensearch_dsl) cobre o caso.
+        return ["health:check"] + self._query_capability_keys()
 
     def test_connection(self) -> HealthResult:
         details: Dict[str, Any] = {}
@@ -677,161 +518,6 @@ class WazuhProvider(BaseProvider):
                 ))
 
         return metrics
-
-    def list_alerts(self, **filters) -> PaginatedAlertsResult:
-        size = filters.get("limit", 100)
-        from_ = filters.get("offset", 0)
-        query_body = build_alert_search_body(
-            {
-                "severity": filters.get("severity"),
-                "level": filters.get("level"),
-                "hostname": filters.get("hostname"),
-                "agent_id": filters.get("agent_id"),
-                "rule_id": filters.get("rule_id"),
-                "rule_group": filters.get("rule_group"),
-                "decoder": filters.get("decoder"),
-                "src_ip": filters.get("src_ip"),
-                "dst_ip": filters.get("dst_ip"),
-                "username": filters.get("username"),
-                "description": filters.get("description"),
-                "description_mode": filters.get("description_mode"),
-                "query": filters.get("query"),
-                "time_from": filters.get("time_from"),
-                "time_to": filters.get("time_to"),
-            },
-            size=size,
-            offset=from_,
-        )
-
-        data = self._search_alert_index(body=query_body, filters=filters, operation="list_alerts")
-        hits = data.get("hits", {}).get("hits", [])
-        items = [self._serialize_alert_hit(hit) for hit in hits]
-        total = self._extract_total_hits(data.get("hits", {}).get("total"), fallback=len(items))
-        return PaginatedAlertsResult(
-            items=items,
-            total=total,
-            limit=size,
-            offset=from_,
-            has_more=from_ + len(items) < total,
-        )
-
-    def get_alert(self, alert_id: str, **filters) -> Optional[AlertDetailSummary]:
-        body = {
-            "size": 1,
-            "track_total_hits": False,
-            "query": {
-                "ids": {
-                    "values": [alert_id],
-                }
-            },
-        }
-
-        data = self._search_alert_index(body=body, filters=filters, operation="get_alert")
-        hits = data.get("hits", {}).get("hits", [])
-        if not hits:
-            return None
-        summary = self._serialize_alert_hit(hits[0])
-        return AlertDetailSummary(**summary.__dict__)
-
-    def search_alerts(self, query: str, **filters) -> PaginatedAlertsResult:
-        size = filters.get("limit", 100)
-        body = {
-            "size": size,
-            "from": 0,
-            "track_total_hits": True,
-            "sort": [{"timestamp": {"order": "desc"}}],
-            "query": {"query_string": {"query": query}},
-            "highlight": {
-                "pre_tags": ["<em>"],
-                "post_tags": ["</em>"],
-                "fields": {
-                    "rule.description": {"number_of_fragments": 2, "fragment_size": 180},
-                    "full_log": {"number_of_fragments": 1, "fragment_size": 240},
-                },
-            },
-        }
-
-        data = self._search_alert_index(body=body, filters=filters, operation="search_alerts")
-        hits = data.get("hits", {}).get("hits", [])
-        items = [self._serialize_alert_hit(hit) for hit in hits]
-        total = self._extract_total_hits(data.get("hits", {}).get("total"), fallback=len(items))
-        return PaginatedAlertsResult(
-            items=items,
-            total=total,
-            limit=size,
-            offset=0,
-            has_more=len(items) < total,
-        )
-
-    def get_alert_statistics(self, **filters) -> Dict[str, Any]:
-        body = build_alert_aggregation_body(
-            {
-                "severity": filters.get("severity"),
-                "level": filters.get("level"),
-                "hostname": filters.get("hostname"),
-                "agent_id": filters.get("agent_id"),
-                "rule_id": filters.get("rule_id"),
-                "rule_group": filters.get("rule_group"),
-                "decoder": filters.get("decoder"),
-                "src_ip": filters.get("src_ip"),
-                "dst_ip": filters.get("dst_ip"),
-                "username": filters.get("username"),
-                "description": filters.get("description"),
-                "description_mode": filters.get("description_mode"),
-                "query": filters.get("query"),
-                "time_from": filters.get("time_from"),
-                "time_to": filters.get("time_to"),
-            }
-        )
-
-        data = self._search_alert_index(body=body, filters=filters, operation="get_alert_statistics")
-        total = data.get("hits", {}).get("total", {})
-        total_count = total.get("value", 0) if isinstance(total, dict) else int(total or 0)
-        aggregations = data.get("aggregations", {})
-        severity_buckets = aggregations.get("severity", {}).get("buckets", {})
-        timeline_buckets = aggregations.get("timeline", {}).get("buckets", [])
-
-        by_severity = {
-            key: int(severity_buckets.get(key, {}).get("doc_count", 0))
-            for key in SEVERITY_KEYS
-        }
-        latest_timestamp = aggregations.get("latest_timestamp", {}).get("value_as_string")
-        top_hosts = self._extract_bucket_summary(aggregations, "top_hosts")
-        top_rules = self._extract_bucket_summary(aggregations, "top_rules")
-        top_mitre_ids = self._extract_bucket_summary(aggregations, "top_mitre_ids")
-        top_agent_groups = self._extract_bucket_summary(aggregations, "top_agent_groups")
-
-        for bucket_list in (top_hosts, top_rules, top_mitre_ids, top_agent_groups):
-            for bucket in bucket_list:
-                bucket["integration_id"] = self.integration.id
-                bucket["integration_name"] = self.integration.name
-                bucket["organization_id"] = self.integration.organization_id
-                bucket["organization_name"] = self.integration.organization.name if self.integration.organization else None
-
-        trend: list[dict[str, Any]] = []
-        for bucket in timeline_buckets:
-            bucket_severity = bucket.get("severity", {}).get("buckets", {})
-            trend.append(
-                {
-                    "timestamp": bucket.get("key_as_string"),
-                    "total": int(bucket.get("doc_count", 0)),
-                    **{
-                        key: int(bucket_severity.get(key, {}).get("doc_count", 0))
-                        for key in SEVERITY_KEYS
-                    },
-                }
-            )
-
-        return {
-            "total": total_count,
-            "by_severity": by_severity,
-            "trend": trend,
-            "top_hosts": top_hosts,
-            "top_rules": top_rules,
-            "top_mitre_ids": top_mitre_ids,
-            "top_agent_groups": top_agent_groups,
-            "latest_timestamp": latest_timestamp,
-        }
 
     def run_query(self, statement: str, from_ts: str, to_ts: str, **kwargs) -> QueryResult:
         size = kwargs.get("limit", 500)

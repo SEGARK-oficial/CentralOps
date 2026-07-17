@@ -68,7 +68,7 @@ def _register() -> None:
                 "indexer_username", "indexer_password",
             ),
             capabilities=frozenset({
-                "catalog", "health", "alerts:list", "alerts:search",
+                "catalog", "health",
                 CAP_QUERY_OPENSEARCH_DSL,
                 # Wazuh como FONTE — pull de detecções do Indexer.
                 "collect:detections",

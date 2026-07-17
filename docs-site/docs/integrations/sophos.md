@@ -18,7 +18,7 @@ Conecte o Sophos Central ao CentralOps para coletar automaticamente os alertas e
 ## Quem pode fazer o quê
 
 - **Administrador da plataforma:** cria e edita a integração (menu **Visão geral -> Integrações**).
-- **Demais perfis:** visualizam os alertas e cases já coletados (menu **Operação -> Alertas** e tela de **Investigações**).
+- **Demais perfis:** visualizam os alertas e cases já coletados (tela **Operação -> Investigações**).
 
 ## Pré-requisitos
 
@@ -86,7 +86,7 @@ A primeira coleta acontece automaticamente, poucos minutos depois de salvar. Aco
 Quando houver alertas recentes no Sophos:
 
 - O status da integração muda para ativo e o indicador de saúde fica verde.
-- Os eventos passam a aparecer em **Operação -> Alertas**.
+- Os eventos ficam pesquisáveis em **Operação -> Investigações**.
 
 Se nada aparecer depois de alguns minutos, veja a seção [Solução de problemas](#solução-de-problemas) abaixo.
 
@@ -121,7 +121,7 @@ O CentralOps converte esses dados para o formato padronizado da plataforma, de m
 | Sintoma | Causa provável | O que fazer |
 |---|---|---|
 | Erro de credenciais inválidas ao testar a conexão | Client ID ou Client Secret incorretos ou expirados | Gere uma nova credencial no Sophos, apague a antiga e atualize os valores na integração do CentralOps (**Visão geral -> Integrações**). Teste a conexão de novo. |
-| Nenhum evento aparecendo | O Sophos não tem alertas recentes, ou o evento foi para a quarentena | Confirme no console do Sophos se há alertas recentes. Se houver, aguarde alguns minutos. Se ainda assim nada aparecer em **Operação -> Alertas**, verifique a tela **Normalização -> Quarentena**. |
+| Nenhum evento aparecendo | O Sophos não tem alertas recentes, ou o evento foi para a quarentena | Confirme no console do Sophos se há alertas recentes. Se houver, aguarde alguns minutos. Se ainda assim nada aparecer em **Operação -> Investigações**, verifique a tela **Normalização -> Quarentena**. |
 | Volume de eventos muito baixo | O Sophos está limitando as requisições de API (rate limit) | Abra **Normalização -> Saúde do Pipeline** e veja a integração do Sophos para confirmar o limite de taxa. O intervalo de coleta é definido pela equipe de infraestrutura no momento do deploy. Se precisar ajustá-lo, fale com o administrador da plataforma. Para um limite muito agressivo, considere contatar o suporte do Sophos. |
 | Integração parada por erro de token | A renovação automática do acesso falhou | O CentralOps tenta renovar o acesso sozinho. Se continuar falhando, gere uma nova credencial no Sophos e atualize a integração, testando a conexão em seguida. |
 

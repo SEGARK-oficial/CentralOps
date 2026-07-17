@@ -2,7 +2,7 @@
   "dashboardPage": {
     "eyebrow": "Overview",
     "title": "Dashboard",
-    "description": "Pipeline throughput and source health first; then risk-based prioritization and actionable buckets with drill-down into alerts.",
+    "description": "Pipeline throughput and source health first; then actionable rankings of sources, destinations, quarantine, and routes.",
     "loading": "Loading dashboard...",
     "updating": "Updating...",
     "loadError": "Failed to load dashboard",
@@ -16,8 +16,8 @@
       "client": "Client: {{value}}",
       "platform": "Platform: {{value}}",
       "integration": "Integration: {{value}}",
-      "lastQuery": "Last query: {{time}} ({{relative}})",
-      "lastEvent": "Last event: {{time}}",
+      "counts": "Scope: {{orgs}} client(s) · {{integrations}} integration(s) ({{active}} active)",
+      "generatedAt": "Data generated: {{time}} ({{relative}})",
       "clear": "Clear scope",
       "allOrganizations": "All",
       "allPlatforms": "All",
@@ -25,7 +25,7 @@
     },
     "timeWindow": {
       "title": "Time window",
-      "description": "The window below adjusts the comparison with the previous period and the drill-downs into alerts.",
+      "description": "The window below adjusts the metrics and rankings shown on the dashboard.",
       "label": "Window",
       "options": {
         "24h": "24 hours",
@@ -33,94 +33,13 @@
         "30d": "30 days"
       }
     },
-    "notices": {
-      "partialErrorsTitle": "Some integrations were left out of the summary",
-      "unsupportedSourcesTitle": "Partial alert coverage",
-      "unsupportedSources": "{{count}} integration(s) within the current scope don't expose alert capability."
-    },
-    "stats": {
-      "organizationsInScope": "Clients in scope",
-      "organizationsActive": "{{count}} active",
-      "integrationsInScope": "Integrations in scope",
-      "integrationsSummary": "{{active}} active · {{healthy}} healthy · {{degraded}} degraded · {{error}} with error · {{unknown}} unknown · {{inactive}} inactive",
-      "alertsInPeriod": "Alerts in period",
-      "alertsDays": "{{count}} day(s)",
-      "critical": "Critical",
-      "criticalSub": "Severe detections",
-      "degradedEnvironments": "Degraded environments",
-      "degradedSub": "Require attention",
-      "lastEvent": "Last event",
-      "noData": "No data",
-      "freshness": "Data freshness",
-      "previousPeriod": "Previous period: {{value}}"
-    },
-    "trend": {
-      "up": "up {{value}}",
-      "down": "down {{value}}",
-      "stable": "stable"
-    },
-    "priority": {
-      "mostCriticalClient": {
-        "title": "Most critical client",
-        "description": "First environment to review when the scope mixes multiple sources."
-      },
-      "mostCriticalIntegration": {
-        "title": "Integration with the most critical alerts",
-        "description": "Shortcut to jump directly into the source with the most severe events."
-      },
-      "empty": "Not enough data to prioritize in this scope.",
-      "noIdentification": "No identification",
-      "unnamedClient": "Unnamed client",
-      "criticalCount": "{{count}} critical",
-      "total": "Total: {{value}}",
-      "critical": "Critical: {{value}}",
-      "high": "High: {{value}}"
-    },
-    "alertsTrend": {
-      "title": "Alert trend",
-      "description": "Click a bar to open the corresponding scope in alerts.",
-      "severity": {
-        "critical": "Critical",
-        "high": "High",
-        "medium": "Medium",
-        "low": "Low",
-        "info": "Info"
-      },
-      "empty": "No aggregated alerts found for the current window.",
-      "barAriaLabel": "{{day}}: {{count}} alert(s). Open this period's scope in alerts."
-    },
     "sourcesHealth": {
       "title": "Sources & health",
-      "description": "Degraded environments and integrations with the most volume in the current scope.",
+      "description": "Degraded environments and the distribution of integrations by platform.",
       "noDegraded": "No degraded environments in this scope.",
       "noDetail": "No detailed message",
       "unnamedClient": "Client {{id}}",
-      "noSources": "No sources with alerts in the period.",
-      "critical": "Critical: {{value}}",
-      "high": "High: {{value}}",
-      "medium": "Medium: {{value}}",
-      "low": "Low: {{value}}",
       "byPlatform": "Integrations by platform"
-    },
-    "buckets": {
-      "topHosts": {
-        "title": "Hosts with most alerts",
-        "description": "Noisiest hosts in the current scope, with client and integration context."
-      },
-      "topRules": {
-        "title": "Most triggered rules",
-        "description": "Dominant rules with client and integration detail to speed up triage."
-      },
-      "topMitre": {
-        "title": "Most frequent MITRE",
-        "description": "Dominant techniques in the current scope to guide investigation and containment."
-      },
-      "topAgentGroups": {
-        "title": "Most affected agent groups",
-        "description": "Segments under the most alert pressure, useful for multi-environment prioritization."
-      },
-      "empty": "No bucket available in this scope.",
-      "unnamedClient": "Unnamed client"
     },
     "dates": {
       "noData": "No data",

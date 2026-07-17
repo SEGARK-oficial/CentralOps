@@ -4,7 +4,6 @@ import IntegrationDetailPage from "@/pages/IntegrationDetailPage"
 import * as api from "@/services/api"
 import { useAuth } from "@/contexts/AuthContext"
 import { usePlatform } from "@/contexts/PlatformContext"
-import { DEFAULT_ALERT_INDEX } from "@/lib/alerts"
 import i18n from "@/i18n"
 import type { Destination, IntegrationPipelineHealth, Route as AppRoute } from "@/types"
 
@@ -49,7 +48,7 @@ const integration = {
   is_active: true,
   is_authenticated: true,
   auth_status: "healthy" as const,
-  capabilities: ["alerts:list", "alerts:detail"],
+  capabilities: ["health:check"],
 }
 
 function renderPage() {
@@ -71,59 +70,15 @@ describe("IntegrationDetailPage", () => {
       setSelectedIntegrationId: vi.fn(),
     } as never)
     mockedApi.getIntegration.mockResolvedValue(integration as never)
-    mockedApi.listAlerts.mockResolvedValue({
-      items: [],
-      total: 0,
-      limit: 50,
-      offset: 0,
-      has_more: false,
-    })
     mockedApi.getIntegrationPipelineHealth.mockResolvedValue(PIPELINE_HEALTH as never)
     // a página passou a carregar o catálogo de query-capabilities no mount.
     mockedApi.listQueryCapabilities.mockResolvedValue([])
-  })
-
-  it("mostra erro estruturado no preview e usa o indice padrao na aba de alertas", async () => {
-    mockedApi.getIntegrationOverview.mockResolvedValue({
-      integration,
-      health: {
-        status: "degraded",
-        details: {
-          manager: { status: "unreachable", message: "Unable to connect" },
-          indexer: { status: "healthy", cluster_status: "green" },
-        },
-        manager_status: "unreachable",
-        indexer_status: "healthy",
-      },
-      alerts_preview: null,
-      alerts_preview_error: {
-        code: "INDEXER_QUERY_FAILED",
-        message: "Failed to load alerts preview",
-        integration_id: 100,
-      },
-    } as never)
-
-    renderPage()
-
-    expect(await screen.findByText("Preview de alertas indisponível")).toBeInTheDocument()
-    expect(screen.getByText("Failed to load alerts preview")).toBeInTheDocument()
-
-    fireEvent.click(screen.getByRole("tab", { name: /^alertas$/i }))
-
-    await waitFor(() => {
-      expect(mockedApi.listAlerts).toHaveBeenCalledWith(
-        100,
-        expect.objectContaining({ limit: 50, index: DEFAULT_ALERT_INDEX }),
-      )
-    })
   })
 
   it("aba Saúde de Normalização: exibe IntegrationHealthPanel com métricas", async () => {
     mockedApi.getIntegrationOverview.mockResolvedValue({
       integration,
       health: null,
-      alerts_preview: null,
-      alerts_preview_error: null,
     } as never)
 
     renderPage()
@@ -160,8 +115,6 @@ describe("IntegrationDetailPage", () => {
     mockedApi.getIntegrationOverview.mockResolvedValue({
       integration,
       health: null,
-      alerts_preview: null,
-      alerts_preview_error: null,
     } as never)
 
     renderPage()
@@ -185,8 +138,6 @@ describe("IntegrationDetailPage", () => {
     mockedApi.getIntegrationOverview.mockResolvedValue({
       integration,
       health: null,
-      alerts_preview: null,
-      alerts_preview_error: null,
     } as never)
 
     renderPage()
@@ -210,8 +161,6 @@ describe("IntegrationDetailPage", () => {
     mockedApi.getIntegrationOverview.mockResolvedValue({
       integration: sophosChildIntegration,
       health: null,
-      alerts_preview: null,
-      alerts_preview_error: null,
       licensed_products: [
         {
           code: "CIXA-MSP",
@@ -242,8 +191,6 @@ describe("IntegrationDetailPage", () => {
     mockedApi.getIntegrationOverview.mockResolvedValue({
       integration: sophosChildIntegration,
       health: null,
-      alerts_preview: null,
-      alerts_preview_error: null,
       licensed_products: [
         {
           code: "CIXAXDR",
@@ -269,8 +216,6 @@ describe("IntegrationDetailPage", () => {
     mockedApi.getIntegrationOverview.mockResolvedValue({
       integration: sophosChildIntegration,
       health: null,
-      alerts_preview: null,
-      alerts_preview_error: null,
       licensed_products: [
         {
           code: "MDR-COMPLETE",
@@ -299,8 +244,6 @@ describe("IntegrationDetailPage", () => {
     mockedApi.getIntegrationOverview.mockResolvedValue({
       integration: sophosChildIntegration,
       health: null,
-      alerts_preview: null,
-      alerts_preview_error: null,
       licensed_products: [
         { code: "CIXAXDR", label: "Sophos XDR - User", category: "xdr", details: {} },
         { code: "MDR-COMPLETE", label: "Sophos MDR Complete", category: "mdr", details: {} },
@@ -320,8 +263,6 @@ describe("IntegrationDetailPage", () => {
     mockedApi.getIntegrationOverview.mockResolvedValue({
       integration: sophosChildIntegration,
       health: null,
-      alerts_preview: null,
-      alerts_preview_error: null,
       licensed_products: [
         { code: "CIXA-MSP", label: "Sophos Endpoint - User MSP Monthly", category: null, details: {} },
         { code: "CEMA-MSP", label: "Sophos Email MSP Monthly", category: null, details: {} },
@@ -340,8 +281,6 @@ describe("IntegrationDetailPage", () => {
     mockedApi.getIntegrationOverview.mockResolvedValue({
       integration: sophosChildIntegration,
       health: null,
-      alerts_preview: null,
-      alerts_preview_error: null,
       licensed_products: null,
     } as never)
 
@@ -356,8 +295,6 @@ describe("IntegrationDetailPage", () => {
     mockedApi.getIntegrationOverview.mockResolvedValue({
       integration: sophosChildIntegration,
       health: null,
-      alerts_preview: null,
-      alerts_preview_error: null,
       licensed_products: [],
     } as never)
 
@@ -408,8 +345,6 @@ describe("IntegrationDetailPage", () => {
     mockedApi.getIntegrationOverview.mockResolvedValue({
       integration,
       health: null,
-      alerts_preview: null,
-      alerts_preview_error: null,
     } as never)
     mockedApi.listRoutes.mockResolvedValue([routeWazuh] as never)
     mockedApi.listDestinations.mockResolvedValue([destX1] as never)
@@ -437,8 +372,6 @@ describe("IntegrationDetailPage", () => {
     mockedApi.getIntegrationOverview.mockResolvedValue({
       integration,
       health: null,
-      alerts_preview: null,
-      alerts_preview_error: null,
     } as never)
     // rota de outra plataforma, não referencia wazuh
     mockedApi.listRoutes.mockResolvedValue([{
@@ -466,8 +399,6 @@ describe("IntegrationDetailPage", () => {
     mockedApi.getIntegrationOverview.mockResolvedValue({
       integration,
       health: null,
-      alerts_preview: null,
-      alerts_preview_error: null,
     } as never)
     mockedApi.listRoutes.mockRejectedValue(new Error("Network timeout"))
     mockedApi.listDestinations.mockResolvedValue([destX1] as never)
@@ -481,60 +412,4 @@ describe("IntegrationDetailPage", () => {
   })
 
   // ── fim aba Destinos ──────────────────────────────────────────────────────────
-
-  it("usa o source_index do preview ao abrir o detalhe do alerta", async () => {
-    mockedApi.getIntegrationOverview.mockResolvedValue({
-      integration,
-      health: {
-        status: "healthy",
-        details: {
-          manager: { status: "healthy" },
-          indexer: { status: "healthy" },
-        },
-        manager_status: "healthy",
-        indexer_status: "healthy",
-      },
-      alerts_preview: {
-        items: [
-          {
-            alert_id: "alert-preview",
-            title: "Preview alert",
-            severity: "high",
-            timestamp: "2026-01-08T00:00:00Z",
-            hostname: "srv-web-01",
-            rule_id: "5710",
-            source_index: "wazuh-alerts-4.x-2026.01.08",
-          },
-        ],
-      },
-      alerts_preview_error: null,
-    } as never)
-    mockedApi.getAlertDetail.mockResolvedValue({
-      alert_id: "alert-preview",
-      title: "Preview alert",
-      severity: "high",
-      platform: "wazuh",
-      rule_groups: [],
-      mitre_ids: [],
-      mitre_tactics: [],
-      mitre_techniques: [],
-      agent_labels: {},
-      data_fields: {},
-      highlights: {},
-      source_index: "wazuh-alerts-4.x-2026.01.08",
-      raw: {},
-    } as never)
-
-    renderPage()
-
-    fireEvent.click(await screen.findByText("Preview alert"))
-
-    await waitFor(() => {
-      expect(mockedApi.getAlertDetail).toHaveBeenCalledWith(
-        100,
-        "alert-preview",
-        { index: "wazuh-alerts-4.x-2026.01.08" },
-      )
-    })
-  })
 })

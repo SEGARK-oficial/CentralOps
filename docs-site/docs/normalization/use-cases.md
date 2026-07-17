@@ -12,7 +12,7 @@ Um mapeamento diz ao CentralOps **quais campos do evento original correspondem a
 
 ## Quando usar
 
-- **Onboarding de um novo vendor:** você acabou de conectar uma integração (por exemplo, um EDR novo) e os eventos chegam, mas com campos do vendor. Você precisa criar um mapeamento para que severidade, host e indicadores apareçam corretamente nos Alertas e nas Investigações.
+- **Onboarding de um novo vendor:** você acabou de conectar uma integração (por exemplo, um EDR novo) e os eventos chegam, mas com campos do vendor. Você precisa criar um mapeamento para que severidade, host e indicadores apareçam corretamente nas Investigações.
 - **Campos faltando nos alertas:** os analistas reclamam que o nome do host ou o usuário não aparece num alerta de phishing. Você abre o mapeamento daquele vendor, identifica o campo de origem que está sem ligação e corrige.
 - **Vendor mudou o formato:** o fornecedor passou a enviar a severidade como texto ("high") em vez de número, e os eventos começaram a cair na Quarentena. Você ajusta a conversão de severidade no mapeamento e reprocessa.
 
@@ -84,7 +84,7 @@ Um alerta de detecção do Defender traz uma lista de evidências, e cada evidê
 
 ### Resultado esperado
 
-Depois de ativado, um alerta de "credential dumping" do Defender chega aos Alertas já com:
+Depois de ativado, um alerta de "credential dumping" do Defender chega às Investigações já com:
 
 - severidade padronizada,
 - status (verdadeiro/falso positivo) traduzido,

@@ -283,7 +283,11 @@ class TestSafeProviderErrorM2:
         assert len(unsafe) == 0, f"Padrão inseguro encontrado: {unsafe}"
 
     def test_unsafe_pattern_removed_from_dashboard(self):
-        """dashboard.py também não deve expor exc diretamente."""
+        """dashboard.py também não deve expor exc diretamente.
+
+        NB: a agregação de alertas (a única superfície de erro de provider no
+        dashboard) foi removida — o gate continua valendo caso o padrão volte.
+        """
         dashboard_path = os.path.join(
             os.path.dirname(__file__), "../../routers/dashboard.py"
         )
@@ -291,12 +295,3 @@ class TestSafeProviderErrorM2:
             content = f.read()
         unsafe = re.findall(r'partial_errors\.append\(f"[^"]*\{exc\}"', content)
         assert len(unsafe) == 0, f"Padrão inseguro em dashboard.py: {unsafe}"
-
-    def test_dashboard_uses_generic_message(self):
-        """dashboard.py deve usar mensagem genérica."""
-        dashboard_path = os.path.join(
-            os.path.dirname(__file__), "../../routers/dashboard.py"
-        )
-        with open(dashboard_path) as f:
-            content = f.read()
-        assert "falha ao consultar provedor" in content

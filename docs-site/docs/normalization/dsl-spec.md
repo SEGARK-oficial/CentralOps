@@ -19,7 +19,7 @@ Cada mapeamento tem uma lista de **regras**. Cada regra grava um campo do evento
 
 Mexa no editor de mapeamento quando:
 
-- **Um novo fornecedor entrou em produção e os campos chegam "crus".** Você precisa apontar quais campos do produto viram severidade, horário, IP de origem, usuário, etc., para que os alertas apareçam corretos nas telas de Alertas e Investigações.
+- **Um novo fornecedor entrou em produção e os campos chegam "crus".** Você precisa apontar quais campos do produto viram severidade, horário, IP de origem, usuário, etc., para que os eventos apareçam corretos na tela de Investigações.
 - **O fornecedor manda severidade como texto e o padrão espera número.** Ex.: o produto envia `high`, `medium`, `low` e o OCSF precisa de `4`, `3`, `2`. Você cria uma tabela de tradução na regra (ver [Tabela de tradução](#tabela-de-tradução-value_map)).
 - **Eventos importantes estão indo parar na Quarentena por falta de um campo crítico.** Você marca o campo como obrigatório para garantir que qualquer evento sem ele seja isolado para revisão em vez de passar pela metade (ver [Campo obrigatório](#campo-obrigatório-required)).
 - **O fornecedor mudou o nome de um campo ou passou a mandar a mesma informação em lugares diferentes.** Você adiciona fontes alternativas para a mesma regra (ver [Fontes alternativas](#fontes-alternativas-fallback_source)).

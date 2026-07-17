@@ -8,7 +8,7 @@ description: Detectar padrões cross-source e disparar alertas quando um padrão
 
 Uma **regra de correlação** observa eventos de múltiplas fontes ao mesmo tempo e dispara uma **Detecção** (um alerta de análise) quando um padrão específico acontece. Por exemplo: "se o mesmo IP falhar em fazer login 5 vezes em 5 minutos, abrir uma detecção".
 
-Diferente dos [Alertas](./alerts.md) (que são eventos já coletados das fontes), as Detecções vêm de análise: correlação, busca em tempo real ou agendamentos. Você gerencia aqui regras de **tipo threshold** — o tipo mais comum. Tipos mais avançados (sequência de eventos, agregações) estão no nosso roadmap.
+Diferente dos eventos coletados das fontes (que você pesquisa em [Investigações](./search.md)), as Detecções vêm de análise: correlação, busca em tempo real ou agendamentos. Você gerencia aqui regras de **tipo threshold** — o tipo mais comum. Tipos mais avançados (sequência de eventos, agregações) estão no nosso roadmap.
 
 Para acessar, use o menu **Conhecimento → Correlação**.
 
@@ -155,4 +155,4 @@ A partir daqui, sempre que 10 ou mais falhas de SSH vierem do mesmo IP em 5 minu
 
 - **Quer triagem as Detecções geradas?** Vá em **Operação → Detecções** ([Detecções](./detections.md)).
 - **Precisa de análise mais profunda?** Use **Operação → Busca federada** ([Busca federada](./detections.md)) para consultar múltiplas fontes com queries avançadas.
-- **Quer ver todos os eventos?** Vá em **Operação → Alertas** ([Alertas](./alerts.md)).
+- **Quer ver todos os eventos?** Vá em **Operação → Investigações** ([Investigações](./search.md)).

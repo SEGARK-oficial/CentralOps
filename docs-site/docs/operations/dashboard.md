@@ -10,29 +10,33 @@ O Dashboard é a primeira tela da plataforma (menu **Visão geral -> Dashboard**
 
 A tela acompanha duas pontas do fluxo:
 
-- **Entrada (coleta):** saúde das integrações, volume de alertas por severidade e eventos que ficaram retidos para correção.
+- **Entrada (coleta):** saúde das integrações, taxa de ingestão de eventos e eventos que ficaram retidos para correção.
 - **Saída (entrega):** destinos ativos, taxa de entrega por destino e eventos que não puderam ser entregues e aguardam reenvio.
 
 Quem é Viewer enxerga todos os indicadores. Quem é administrador vê, além disso, os atalhos para reprocessar reenvios, ajustar roteamento e operar destinos.
 
 ## Quando usar
 
-- **Check-in matinal do SOC:** ao começar o turno, abrir o Dashboard para responder "houve algum evento crítico durante a madrugada?" e "alguma fonte parou de enviar dados?".
-- **Durante um incidente:** confirmar rapidamente se um pico de alertas críticos é real (e não falha de coleta) e se os eventos estão chegando aos destinos onde o time investiga.
+- **Check-in matinal do SOC:** ao começar o turno, abrir o Dashboard para responder "os eventos continuaram fluindo durante a madrugada?" e "alguma fonte parou de enviar dados?".
+- **Durante um incidente:** confirmar rapidamente se um pico de eventos é real (e não falha de coleta) e se os eventos estão chegando aos destinos onde o time investiga.
 - **Verificação de entrega:** depois de configurar ou alterar um destino, conferir se os eventos voltaram a fluir e se a fila de reenvio não está crescendo.
 
 ## Indicadores de entrada (coleta)
 
-### Alertas das últimas 24h
+### Funil do pipeline
 
-Distribuição dos eventos recebidos por severidade. Clique em uma faixa para filtrar os alertas correspondentes.
+Visão de ponta a ponta do fluxo: quantos eventos foram **coletados**, **normalizados**, **roteados** e **entregues** na janela atual. Uma queda brusca entre duas etapas indica onde investigar — por exemplo, muitos eventos coletados mas poucos normalizados apontam para a Quarentena; muitos roteados mas poucos entregues apontam para um destino com problema.
 
-| Severidade | O que significa | Ação esperada |
-|---|---|---|
-| Crítico | Maior gravidade | Ação imediata |
-| Alto | Gravidade elevada | Investigar em horas |
-| Médio | Gravidade moderada | Revisar, prioridade baixa |
-| Baixo | Apenas registro | Em geral nenhuma ação |
+Os cartões de indicadores resumem a mesma história:
+
+| Indicador | O que mostra |
+|---|---|
+| **Ingestão (EPS)** | Eventos por segundo entrando pelas suas fontes. |
+| **Cobertura de mapping** | Percentual médio de campos mapeados na normalização. |
+| **Quarentena 24h** | Taxa (ou volume) de eventos retidos por erro de normalização. |
+| **Roteados (/min)** | Eventos processados pelas regras de roteamento e o percentual descartado (drop). |
+| **Destinos** | Quantos destinos estão saudáveis em relação ao total. |
+| **Fontes ativas** | Quantas integrações estão coletando e quantas apresentam erro. |
 
 ### Taxa de eventos
 
@@ -108,10 +112,11 @@ Clique para abrir **Operação -> Roteamento**, onde é possível ajustar as con
 ### Investigação rápida de entrada
 
 1. Abra **Visão geral -> Dashboard**.
-2. Olhe **Alertas das últimas 24h** e veja se há picos inesperados.
-3. Clique em **Crítico** para filtrar somente os eventos críticos.
+2. Olhe o **funil do pipeline** e a **taxa de eventos** e veja se há picos ou quedas inesperados.
+3. Confira **Saúde da coleta** para identificar a fonte com problema.
 4. Revise **Últimos eventos normalizados** para identificar a fonte e o padrão.
 5. Se houver muitos eventos em quarentena, vá para [Quarentena](./quarantine.md).
+6. Para investigar eventos específicos, use **Operação -> Investigações** ([busca de eventos](./search.md)).
 
 ### Verificação de entrega
 
@@ -128,7 +133,7 @@ Clique para abrir **Operação -> Roteamento**, onde é possível ajustar as con
 
 ### Monitoramento contínuo
 
-- **Início do turno:** confira **Alertas das últimas 24h** para saber se houve eventos críticos durante a madrugada.
+- **Início do turno:** confira o **funil do pipeline** e a **saúde da coleta** para saber se os eventos fluíram normalmente durante a madrugada; para triagem de detecções, vá a **Operação -> Detecções**.
 - **Ao longo do dia:** verifique se a taxa de eventos está dentro do normal, se todos os destinos estão saudáveis e se a fila de reenvio não está crescendo.
 - **Sinal de alerta:** se a fila de reenvio começa a crescer ou destinos passam a Degradado/Indisponível, investigue imediatamente — geralmente é credencial expirada, rede ou destino fora do ar.
 
@@ -136,7 +141,7 @@ Clique para abrir **Operação -> Roteamento**, onde é possível ajustar as con
 
 - O Dashboard mostra apenas as **últimas 24 horas**. Para outras janelas de tempo, use a tela **Operação -> Investigações** ([busca de eventos](./search.md)).
 - Os dados são atualizados aproximadamente **a cada minuto**, não em tempo real instantâneo.
-- As agregações são por severidade (entrada) e por destino (saída). Para recortes personalizados — por exemplo, por fornecedor ou por organização — use a busca de eventos em **Operação -> Investigações** e exporte o resultado.
+- As agregações são por fonte (entrada) e por destino (saída). Para recortes personalizados — por exemplo, por fornecedor ou por organização — use a busca de eventos em **Operação -> Investigações** e exporte o resultado.
 
 ## Próximos passos
 

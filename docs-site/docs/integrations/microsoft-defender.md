@@ -19,7 +19,7 @@ Conecte o CentralOps ao seu **Microsoft Defender** para coletar incidentes e ale
 
 - **Administrador da plataforma:** cria e edita a integração (menu **Visão geral -> Integrações**).
 - **Operador ou superior:** executa buscas ao vivo e triagem de detecções (menu **Operação -> Busca federada** e **Operação -> Detecções**).
-- **Demais perfis:** visualizam os incidentes e alertas já coletados (menu **Operação -> Alertas** e tela de **Investigações**).
+- **Demais perfis:** visualizam os incidentes e alertas já coletados (tela **Operação -> Investigações**).
 
 ## Pré-requisitos
 
@@ -99,7 +99,7 @@ A primeira coleta acontece automaticamente, poucos minutos depois de salvar. Aco
 Quando houver incidentes ou alertas recentes no Defender:
 
 - O status da integração muda para ativo e o indicador de saúde fica verde.
-- Os eventos passam a aparecer em **Operação -> Alertas**.
+- Os eventos ficam pesquisáveis em **Operação -> Investigações**.
 
 Se nada aparecer depois de alguns minutos, veja a seção [Solução de problemas](#solução-de-problemas) abaixo.
 
@@ -154,7 +154,7 @@ Estas capacidades ficam visíveis em **Operação -> Busca federada**, no seleto
 |---|---|---|
 | Erro "Falha na autenticação" ao testar a conexão | Client ID ou Client Secret incorretos, ou permissões não concedidas | Verifique no Azure AD: o Client ID está correto, o segredo não expirou, e o consentimento do administrador foi concedido para as permissões. Gere um novo segredo se necessário. |
 | Erro "Permissão negada" (access denied) | Permissões de API não concedidas ou insuficientes | No Azure AD, em **API permissions**, confirme que `SecurityAlert.Read.All` e `SecurityIncident.Read.All` estão presentes e com consentimento concedido (ícone verde). |
-| Nenhum evento aparecendo | Não há incidentes ou alertas recentes no Defender, ou evento foi para a quarentena | Confirme no console do Defender se há incidentes/alertas recentes. Se houver, aguarde alguns minutos. Se ainda assim nada aparecer em **Operação -> Alertas**, verifique a tela **Normalização -> Quarentena**. |
+| Nenhum evento aparecendo | Não há incidentes ou alertas recentes no Defender, ou evento foi para a quarentena | Confirme no console do Defender se há incidentes/alertas recentes. Se houver, aguarde alguns minutos. Se ainda assim nada aparecer em **Operação -> Investigações**, verifique a tela **Normalização -> Quarentena**. |
 | Erro de conexão "connection refused" | Host ou porta incorretos (improvável — o Graph está online) | Confirme que sua rede permite conexões de saída para `graph.microsoft.com` na porta 443 (HTTPS). Se o bloqueio for por firewall, peça exceção. |
 | Busca KQL retorna erro "Query syntax error" | Sintaxe KQL inválida | Verifique a sintaxe no [Microsoft Defender Advanced Hunting](https://security.microsoft.com/advanced-hunting) antes de copiar para o CentralOps. Erros comuns: falta de `|` entre operadores, nomes de tabela errados. |
 | Busca KQL fica "Pendente" por muito tempo | Taxa de limite do Graph foi atingida (45/min) | Aguarde alguns minutos e tente novamente. Se precisar executar muitas queries, escalone-as. Para aumento permanente, fale com o suporte da Microsoft. |

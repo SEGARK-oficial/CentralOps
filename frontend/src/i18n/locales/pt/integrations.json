@@ -101,7 +101,6 @@
   "detail": {
     "backToIntegrations": "Voltar para Integrações",
     "region": "Região",
-    "viewAllInAlerts": "Ver todos em Alertas",
     "editIntegration": "Editar integração",
     "inactiveTitle": "Integração inativa",
     "inactiveDescription": "Esta integração foi desativada e não pode ser usada em fluxos operacionais até ser reativada.",
@@ -116,7 +115,6 @@
     "tabsAriaLabel": "Seções da integração",
     "tabs": {
       "overview": "Overview",
-      "alerts": "Alertas",
       "health": "Saúde",
       "pipelineHealth": "Saúde de Normalização",
       "destinations": "Destinos",
@@ -124,13 +122,7 @@
       "config": "Configuração"
     },
     "lastCheck": "Última checagem",
-    "alertsPreview": "Alertas em preview",
     "overviewErrorTitle": "Falha ao carregar o overview",
-    "recentAlerts": "Alertas recentes",
-    "viewAll": "Ver todos",
-    "noTimestamp": "Sem timestamp",
-    "noAlertsPreview": "Sem preview de alertas.",
-    "alertsPreviewUnavailableTitle": "Preview de alertas indisponível",
     "licensedProducts": {
       "title": "Produtos licenciados",
       "none": "Nenhum produto licenciado retornado pela API.",
@@ -149,22 +141,6 @@
       "validity": "Validade: {{date}}",
       "type": "Tipo: {{type}}"
     },
-    "viewAllInAlertsRoute": "Ver todos em /alerts",
-    "openCritical": "Abrir críticos",
-    "openArchives": "Abrir archives",
-    "partialAlertsNotice": "Exibindo os primeiros {{count}} alertas. Use \"Ver todos em /alerts\" para refinar e ver mais.",
-    "noAlertsFound": "Nenhum alerta encontrado",
-    "alertsTableAriaLabel": "Alertas da integração",
-    "columns": {
-      "severity": "Severidade",
-      "title": "Título",
-      "host": "Host",
-      "ruleId": "Rule ID",
-      "level": "Level",
-      "source": "Origem",
-      "timestamp": "Timestamp"
-    },
-    "viewAlertDetailsAriaLabel": "Ver detalhes do alerta: {{title}}",
     "health": {
       "title": "Saúde da integração",
       "lastCollection": "Última coleta: {{date}}",
@@ -205,8 +181,7 @@
         "label": "Spec kinds",
         "description": "Formatos de statement aceitos: passthrough (literal) ou sigma (tradução automática)."
       }
-    },
-    "alertDetailLoadError": "Falha ao carregar detalhes do alerta."
+    }
   },
   "destinationsTab": {
     "previewDescription": "<strong>Preview de roteamento</strong> — as rotas abaixo correspondem a esta integração e enviariam eventos para os destinos indicados. Isso não é um log histórico; é uma simulação baseada nas condições atuais das rotas.",

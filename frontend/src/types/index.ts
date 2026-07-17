@@ -304,6 +304,27 @@ export interface DashboardSummaryV2 {
   generated_at: string
   kpis: KpiCard[]
   top_buckets: BucketSection[]
+  /** Contagens de escopo (ScopeSummary) — absorvidas do antigo shape v1. */
+  organizations: {
+    total: number
+    active: number
+  }
+  /** Saúde/contagens de integrações (seção "Sources & Health"). */
+  integrations: {
+    total: number
+    active: number
+    authenticated: number
+    by_platform: Record<string, number>
+    health: {
+      healthy: number
+      degraded: number
+      error: number
+      unknown: number
+      inactive: number
+    }
+    degraded_items: DashboardIntegrationIssueSummary[]
+    comparison: DashboardIntegrationComparisonSummary
+  }
 }
 
 // ── Provider Platforms ────────────────────────────────────────────
@@ -344,96 +365,11 @@ export interface TestConnectionResponse {
   details: Record<string, any>
 }
 
-export interface Alert {
-  alert_id: string
-  title: string
-  severity: string
-  platform: string
-  timestamp?: string
-  hostname?: string
-  rule_id?: string
-  rule_level?: number
-  rule_groups: string[]
-  rule_firedtimes?: number
-  mitre_ids: string[]
-  mitre_tactics: string[]
-  mitre_techniques: string[]
-  decoder_name?: string
-  agent_id?: string
-  agent_name?: string
-  agent_ip?: string
-  agent_group?: string
-  agent_labels: Record<string, any>
-  manager_name?: string
-  location?: string
-  full_log?: string
-  src_ip?: string
-  dst_ip?: string
-  src_user?: string
-  dst_user?: string
-  input_type?: string
-  syscheck_path?: string
-  data_fields: Record<string, any>
-  highlights: Record<string, string[]>
-  source_index?: string
-  integration_id?: number
-  integration_name?: string
-  organization_id?: number
-  organization_name?: string
-  raw: Record<string, any>
-}
-
-export interface AlertDetail extends Alert {}
-
-export interface AlertListResponse {
-  items: Alert[]
-  total: number
-  limit: number
-  offset: number
-  has_more: boolean
-}
-
-export interface AggregatedAlertListResponse extends AlertListResponse {
-  partial_errors: string[]
-  is_sampled: boolean
-}
-
-export interface AlertFilters {
-  index?: string
-  severity?: string
-  level?: string
-  hostname?: string
-  agent_id?: string
-  rule_id?: string
-  rule_group?: string
-  decoder?: string
-  src_ip?: string
-  dst_ip?: string
-  username?: string
-  description?: string
-  description_mode?: "smart" | "exact" | "contains"
-  query?: string
-  time_from?: string
-  time_to?: string
-  limit?: number
-  offset?: number
-}
-
 export interface ProviderOperationError {
   code: string
   message: string
   integration_id?: number | null
   details?: Record<string, any>
-}
-
-export interface IntegrationOverviewAlertPreview {
-  alert_id: string
-  title: string
-  severity: string
-  timestamp?: string
-  hostname?: string
-  rule_id?: string
-  source_index?: string
 }
 
 /**
@@ -476,48 +412,12 @@ export interface IntegrationOverview {
     manager_status?: string | null
     indexer_status?: string | null
   } | null
-  alerts_preview?: {
-    items: IntegrationOverviewAlertPreview[]
-  } | null
-  alerts_preview_error?: ProviderOperationError | null
   /**
    * Lista de produtos licenciados do tenant Sophos child.
    * null  → integração não é um child tenant (seção não deve ser renderizada).
    * []    → é um child tenant mas a API não retornou produtos.
    */
   licensed_products?: LicensedProduct[] | null
-}
-
-export interface DashboardAlertSeveritySummary {
-  critical: number
-  high: number
-  medium: number
-  low: number
-  info: number
-}
-
-export interface DashboardAlertTrendPoint extends DashboardAlertSeveritySummary {
-  timestamp?: string
-  total: number
-}
-
-export interface DashboardAlertSourceSummary {
-  integration_id: number
-  integration_name: string
-  organization_id: number
-  organization_name?: string
-  total: number
-  by_severity: DashboardAlertSeveritySummary
-}
-
-export interface DashboardAlertBucketSummary {
-  key: string
-  label?: string | null
-  count: number
-  integration_id?: number | null
-  integration_name?: string | null
-  organization_id?: number | null
-  organization_name?: string | null
 }
 
 export interface DashboardIntegrationIssueSummary {
@@ -537,66 +437,8 @@ export interface DashboardMetricComparison {
   trend: "up" | "down" | "stable"
 }
 
-export interface DashboardAlertComparisonSummary {
-  total_alerts: DashboardMetricComparison
-  critical_alerts: DashboardMetricComparison
-}
-
 export interface DashboardIntegrationComparisonSummary {
   degraded_integrations: DashboardMetricComparison
-}
-
-export interface DashboardPrioritySummary {
-  organization_id?: number | null
-  organization_name?: string | null
-  integration_id?: number | null
-  integration_name?: string | null
-  critical: number
-  high: number
-  total: number
-}
-
-export interface DashboardSummary {
-  organizations: {
-    total: number
-    active: number
-  }
-  integrations: {
-    total: number
-    active: number
-    authenticated: number
-    by_platform: Record<string, number>
-    health: {
-      healthy: number
-      degraded: number
-      error: number
-      unknown: number
-      inactive?: number
-    }
-    degraded_items: DashboardIntegrationIssueSummary[]
-    comparison: DashboardIntegrationComparisonSummary
-  }
-  alerts: {
-    total: number
-    by_severity: DashboardAlertSeveritySummary
-    trend: DashboardAlertTrendPoint[]
-    sources: DashboardAlertSourceSummary[]
-    top_hosts: DashboardAlertBucketSummary[]
-    top_rules: DashboardAlertBucketSummary[]
-    top_mitre_ids: DashboardAlertBucketSummary[]
-    top_agent_groups: DashboardAlertBucketSummary[]
-    partial_errors: string[]
-    latest_timestamp?: string | null
-    last_query_at?: string | null
-    unsupported_sources: number
-    window_days: number
-    applied_organization_id?: number | null
-    applied_integration_id?: number | null
-    applied_platform?: PlatformType | null
-    comparison: DashboardAlertComparisonSummary
-    most_critical_client?: DashboardPrioritySummary | null
-    most_critical_integration?: DashboardPrioritySummary | null
-  }
 }
 
 export interface Client {

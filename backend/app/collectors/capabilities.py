@@ -35,13 +35,13 @@ EXACT_CAPABILITIES: frozenset = frozenset(
         # descoberta MSSP (parent) — gating de children_count/bulk/delete/backfill
         "discover:children",
         "partner:sync_tenants",
-        # alertas (Wazuh, e futuros SIEM)
-        "alerts:list",
-        "alerts:detail",
-        "alerts:search",
         # NB: ``investigations:run`` (query síncrona legada do provider) foi REMOVIDA
         # — a query agora é o namespace dinâmico ``query:<dialect>``
         # (ver DYNAMIC_NAMESPACES + QueryCapability). Nenhum provider a emite mais.
+        # NB: ``alerts:list``/``alerts:detail``/``alerts:search`` (superfície de
+        # visualização de alertas Wazuh-only) foram REMOVIDAS — a busca federada
+        # (``query:<dialect>``) + detections cobrem o caso vendor-neutro.
+        # ``collect:alerts`` (ingestão) NÃO é afetada (namespace dinâmico).
         # preview de licença (Sophos child tenant)
         "licensing:list",
     }
@@ -57,9 +57,6 @@ DYNAMIC_NAMESPACES: frozenset = frozenset({"collect", "query"})
 # NameError no import (falha cedo) em vez de um literal que NUNCA casa →
 # guard pulado silenciosamente (fail-OPEN, ex.: bulk-delete sem proteção).
 CAP_DISCOVER_CHILDREN = "discover:children"
-CAP_ALERTS_LIST = "alerts:list"
-CAP_ALERTS_DETAIL = "alerts:detail"
-CAP_ALERTS_SEARCH = "alerts:search"
 CAP_LICENSING_LIST = "licensing:list"
 
 # ── Dialetos de query canônicos ────────────────────────────

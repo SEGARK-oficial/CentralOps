@@ -35,7 +35,6 @@ const DashboardPage = lazy(() => import("./pages/DashboardPage"))
 const OrganizationsPage = lazy(() => import("./pages/OrganizationsPage"))
 const IntegrationsPage = lazy(() => import("./pages/IntegrationsPage"))
 const IntegrationDetailPage = lazy(() => import("./pages/IntegrationDetailPage"))
-const AlertsPage = lazy(() => import("./pages/AlertsPage"))
 const HistoryPage = lazy(() => import("./pages/HistoryPage"))
 const QueriesPage = lazy(() => import("./pages/QueriesPage"))
 const SchedulesPage = lazy(() => import("./pages/SchedulesPage"))
@@ -311,7 +310,6 @@ const AppRoutes: React.FC = () => {
         <Route path="pipeline-health" element={<PipelineHealthPage />} />
 
         {/* Operations */}
-        <Route path="alerts" element={<AlertsPage />} />
         <Route path="collectors" element={<CollectorsPage />} />
         <Route
           path="destinations"

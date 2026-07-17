@@ -51,7 +51,6 @@ const sidebars: SidebarsConfig = {
       collapsed: false,
       items: [
         'operations/dashboard',
-        'operations/alerts',
         'operations/quarantine',
         'operations/search',
         'operations/federated-search',

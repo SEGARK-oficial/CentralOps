@@ -18,7 +18,7 @@ Algumas fontes de segurança não têm uma API de polling — elas **empurram ev
 
 - **Administrador da plataforma:** cria e edita a integração push (menu **Visão geral -> Integrações**), emite e rotaciona tokens.
 - **Operador de infraestrutura:** configura o edge-collector (Vector ou Fluent Bit) perto da fonte, usando o endpoint e o token fornecidos.
-- **Demais perfis:** visualizam os eventos coletados em **Operação -> Alertas** e investigam como com qualquer outra fonte.
+- **Demais perfis:** visualizam e investigam os eventos coletados em **Operação -> Investigações**, como com qualquer outra fonte.
 
 ## Passo 1: Criar a integração no CentralOps
 
@@ -86,7 +86,7 @@ Assim que o edge-collector começar a enviar eventos:
    - **Taxa de ingestão** — eventos recebidos nos últimos minutos.
    - **Drops** (se houver) — quantos eventos foram descartados por limite de fila.
 
-3. Após ~20 segundos, os eventos devem aparecer em **Operação -> Alertas**.
+3. Após ~20 segundos, os eventos devem ficar pesquisáveis em **Operação -> Investigações**.
 
 Se nada aparecer após alguns minutos, verifique a seção [Solução de problemas](#solução-de-problemas).
 
@@ -106,7 +106,7 @@ Fonte (FortiGate/Windows Event Log)
   → Edge-collector (Vector/Fluent Bit)
     → POST HTTPS para {sua-url}/api/ingest/<stream>
       → CentralOps normaliza e roteiza (mesma pipeline das fontes de polling)
-        → Operação -> Alertas (ou Quarentena se houver erro de normalização)
+        → Eventos normalizados (ou Quarentena se houver erro de normalização)
           → Destinos configurados (Splunk, S3, Kafka, etc.)
 ```
 
@@ -181,7 +181,7 @@ Os eventos são normalizados para o formato padrão do CentralOps, de modo que p
 | **Edge-collector não consegue conectar** | URL incorreta ou firewall bloqueando HTTPS para o CentralOps | Confirme que a URL está correta e completa (com `https://`). Verifique se há firewall bloqueando a porta 443 para o CentralOps. Teste: `curl -v https://sua-url/api/ingest/traffic`. |
 | **Erro 401 ou 403 ao enviar** | Token inválido, expirado ou já rotacionado | Confirme o token na integração. Se foi rotacionado recentemente, atualize o edge-collector com o novo token. |
 | **Buffer muito alto (muitos drops)** | Edge-collector enviando mais rápido que o CentralOps processa | Reduza a taxa de ingestão no edge-collector (batch size, flush interval). Verifique se os destinos (Splunk, S3, Kafka) estão lentos em **Operação -> Destinos**. |
-| **Nenhum evento aparecendo** | Edge-collector não está enviando ou eventos estão na quarentena | Confirme que o edge-collector está rodando e enviando (`curl` do teste acima). Se o teste retorna `"accepted":1`, mas os eventos não aparecem em **Operação -> Alertas**, verifique **Normalização -> Quarentena**. |
+| **Nenhum evento aparecendo** | Edge-collector não está enviando ou eventos estão na quarentena | Confirme que o edge-collector está rodando e enviando (`curl` do teste acima). Se o teste retorna `"accepted":1`, mas os eventos não aparecem em **Operação -> Investigações**, verifique **Normalização -> Quarentena**. |
 | **Muitos eventos na quarentena** | Problema de normalização ou mapeamento de campos | Abra **Normalização -> Quarentena**, selecione um evento da integração push e veja o motivo do erro. Corrija o mapeamento de campos na integração se necessário. |
 
 ## Próximos passos

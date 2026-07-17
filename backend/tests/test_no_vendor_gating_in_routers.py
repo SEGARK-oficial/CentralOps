@@ -115,8 +115,10 @@ def test_runtime_capabilities_drive_gating():
     assert "licensing:list" in integration_capabilities(child)
     assert "licensing:list" not in integration_capabilities(standalone)
 
-    # alerts preview gateia por alerts:list (wazuh é suporte; config é runtime)
-    assert "alerts:list" in integration_capabilities(wazuh)
+    # a superfície de alerts foi REMOVIDA — wazuh não emite mais alerts:*
+    # (busca federada usa query:opensearch_dsl)
+    assert not any(cap.startswith("alerts:") for cap in integration_capabilities(wazuh))
+    assert "query:opensearch_dsl" in integration_capabilities(wazuh)
 
     # plataforma sem provider rico ⇒ conjunto vazio (nunca parent/licensing)
     assert integration_capabilities(ninjaone) == frozenset()

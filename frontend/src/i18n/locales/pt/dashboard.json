@@ -2,7 +2,7 @@
   "dashboardPage": {
     "eyebrow": "Visão geral",
     "title": "Dashboard",
-    "description": "Throughput do pipeline e saúde das fontes primeiro; depois priorização por risco e buckets acionáveis com drill-down para alertas.",
+    "description": "Throughput do pipeline e saúde das fontes primeiro; depois rankings acionáveis de fontes, destinos, quarentena e rotas.",
     "loading": "Carregando dashboard...",
     "updating": "Atualizando...",
     "loadError": "Falha ao carregar dashboard",
@@ -16,8 +16,8 @@
       "client": "Cliente: {{value}}",
       "platform": "Plataforma: {{value}}",
       "integration": "Integração: {{value}}",
-      "lastQuery": "Última consulta: {{time}} ({{relative}})",
-      "lastEvent": "Último evento: {{time}}",
+      "counts": "Escopo: {{orgs}} cliente(s) · {{integrations}} integração(ões) ({{active}} ativas)",
+      "generatedAt": "Dados gerados: {{time}} ({{relative}})",
       "clear": "Limpar escopo",
       "allOrganizations": "Todos",
       "allPlatforms": "Todas",
@@ -25,7 +25,7 @@
     },
     "timeWindow": {
       "title": "Janela temporal",
-      "description": "O recorte abaixo ajusta comparação com período anterior e os drill-downs para alertas.",
+      "description": "O recorte abaixo ajusta as métricas e rankings exibidos no dashboard.",
       "label": "Janela",
       "options": {
         "24h": "24 horas",
@@ -33,94 +33,13 @@
         "30d": "30 dias"
       }
     },
-    "notices": {
-      "partialErrorsTitle": "Algumas integrações não entraram no resumo",
-      "unsupportedSourcesTitle": "Cobertura parcial de alertas",
-      "unsupportedSources": "{{count}} integração(ões) dentro do escopo atual não expõem capacidade de alertas."
-    },
-    "stats": {
-      "organizationsInScope": "Clientes no escopo",
-      "organizationsActive": "{{count}} ativos",
-      "integrationsInScope": "Integrações no escopo",
-      "integrationsSummary": "{{active}} ativas · {{healthy}} saudáveis · {{degraded}} degradadas · {{error}} com erro · {{unknown}} desconhecidas · {{inactive}} inativas",
-      "alertsInPeriod": "Alertas no período",
-      "alertsDays": "{{count}} dia(s)",
-      "critical": "Críticos",
-      "criticalSub": "Detecções graves",
-      "degradedEnvironments": "Ambientes degradados",
-      "degradedSub": "Exigem atenção",
-      "lastEvent": "Último evento",
-      "noData": "Sem dados",
-      "freshness": "Frescor do dado",
-      "previousPeriod": "Período anterior: {{value}}"
-    },
-    "trend": {
-      "up": "subiu {{value}}",
-      "down": "caiu {{value}}",
-      "stable": "estável"
-    },
-    "priority": {
-      "mostCriticalClient": {
-        "title": "Cliente mais crítico",
-        "description": "Primeiro ambiente a revisar quando o recorte mistura várias fontes."
-      },
-      "mostCriticalIntegration": {
-        "title": "Integração com mais críticos",
-        "description": "Atalho para entrar direto na fonte com mais eventos graves."
-      },
-      "empty": "Sem priorização suficiente neste recorte.",
-      "noIdentification": "Sem identificação",
-      "unnamedClient": "Cliente sem nome",
-      "criticalCount": "{{count}} críticos",
-      "total": "Total: {{value}}",
-      "critical": "Críticos: {{value}}",
-      "high": "Altos: {{value}}"
-    },
-    "alertsTrend": {
-      "title": "Tendência de alertas",
-      "description": "Clique em uma barra para abrir o recorte correspondente em alertas.",
-      "severity": {
-        "critical": "Crítico",
-        "high": "Alto",
-        "medium": "Médio",
-        "low": "Baixo",
-        "info": "Info"
-      },
-      "empty": "Nenhum alerta agregado encontrado para a janela atual.",
-      "barAriaLabel": "{{day}}: {{count}} alerta(s). Abrir recorte deste período em alertas."
-    },
     "sourcesHealth": {
       "title": "Fontes e saúde",
-      "description": "Ambientes degradados e integrações com mais volume no recorte atual.",
+      "description": "Ambientes degradados e distribuição das integrações por plataforma.",
       "noDegraded": "Nenhum ambiente degradado neste recorte.",
       "noDetail": "Sem mensagem detalhada",
       "unnamedClient": "Cliente {{id}}",
-      "noSources": "Nenhuma fonte com alertas no período.",
-      "critical": "Críticos: {{value}}",
-      "high": "Altos: {{value}}",
-      "medium": "Médios: {{value}}",
-      "low": "Baixos: {{value}}",
       "byPlatform": "Integrações por plataforma"
-    },
-    "buckets": {
-      "topHosts": {
-        "title": "Hosts com mais alertas",
-        "description": "Hosts mais ruidosos do recorte atual, com contexto de cliente e integração."
-      },
-      "topRules": {
-        "title": "Rules mais disparadas",
-        "description": "Regras dominantes com detalhe de cliente e integração para acelerar a triagem."
-      },
-      "topMitre": {
-        "title": "MITRE mais frequente",
-        "description": "Técnicas dominantes no recorte atual para orientar investigação e contenção."
-      },
-      "topAgentGroups": {
-        "title": "Grupos de agentes mais afetados",
-        "description": "Segmentos com maior pressão de alertas, úteis para priorização multiambiente."
-      },
-      "empty": "Nenhum bucket disponível neste recorte.",
-      "unnamedClient": "Cliente sem nome"
     },
     "dates": {
       "noData": "Sem dados",

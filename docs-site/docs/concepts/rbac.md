@@ -104,7 +104,7 @@ A tabela mostra o que cada papel pode fazer. "✓" = permitido; "—" = não per
 - Ver detalhes de eventos em quarentena (somente leitura).
 - Ver campos novos detectados (somente leitura).
 - Consultar o Histórico de auditoria.
-- Buscar eventos na base histórica pelos filtros de **Alertas** e **Investigações** (leitura de eventos JÁ ENTREGUES aos destinos).
+- Buscar eventos na base histórica pelos filtros de **Investigações** (leitura de eventos JÁ ENTREGUES aos destinos).
 - Ver destinos, regras de roteamento e mappings (somente leitura).
 
 **Não pode**:

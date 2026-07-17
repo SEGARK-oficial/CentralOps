@@ -59,7 +59,7 @@ Depois de entrar, você navega pelo **menu lateral**, organizado em grupos. As t
 | Grupo | Telas | Para que serve |
 |-------|-------|----------------|
 | **Visão geral** | Dashboard, Organizações *(admin)*, Integrações | Painel de KPIs, gestão de organizações e a lista de integrações conectadas. |
-| **Operação** | Alertas, Collectors, Destinos *(admin)*, Roteamento *(admin)*, Fluxo de dados *(admin)*, Investigações, Busca federada, Detecções, Resposta, Histórico | Operação do dia a dia: alertas, fontes de entrada, saídas, regras de envio, buscas (síncrona e federada), detecções, bloqueios e histórico. Busca federada e Detecções aparecem se você tiver permissão de operador ou superior. |
+| **Operação** | Collectors, Destinos *(admin)*, Roteamento *(admin)*, Fluxo de dados *(admin)*, Investigações, Busca federada, Detecções, Resposta, Histórico | Operação do dia a dia: fontes de entrada, saídas, regras de envio, buscas (síncrona e federada), detecções, bloqueios e histórico. Busca federada e Detecções aparecem se você tiver permissão de operador ou superior. |
 | **Normalização** | Mappings, Drift Explorer, Quarentena, Saúde do Pipeline | Como os eventos são padronizados, campos novos detectados, eventos retidos e a saúde do processamento. |
 | **Conhecimento** | Queries Salvas, Correlação, Agendamentos *(admin)* | Buscas reutilizáveis, regras de correlação para detecção automática e tarefas agendadas. Correlação aparece se você tiver permissão de engenheiro ou superior. |
 | **Administração** | Usuários, Service Accounts, Configurações *(admin)* | Gestão de pessoas, contas de serviço e configurações da plataforma. |

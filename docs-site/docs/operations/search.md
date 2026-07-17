@@ -193,7 +193,7 @@ A tela de Investigações alcança apenas os eventos mais recentes. Para consult
 
 ## Próximos passos
 
-- **Quer ver os alertas em andamento?** Vá a **Operação → Alertas**.
+- **Quer triar as detecções geradas por regras e buscas?** Vá a **Operação → Detecções** ([Detecções](./detections.md)).
 - **Precisa salvar e reaproveitar buscas?** Vá a **Conhecimento → Queries Salvas**.
 - **Quer agendar uma busca recorrente?** Vá a **Conhecimento → Agendamentos** (somente administradores).
 - **Precisa revisar para onde os eventos vão?** Os administradores encontram a configuração em **Operação → Destinos** e **Operação → Roteamento**.

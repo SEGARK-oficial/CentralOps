@@ -71,7 +71,7 @@ _SPEC: Dict[str, Dict[str, Any]] = {
     "collector_ocsf_invalid_total": {"kind": "counter", "unit": "1", "labels": ("vendor", "event_type", "reason")},
     "collector_ocsf_validate_latency_seconds": {"kind": "histogram", "unit": "s", "labels": ("vendor",), "buckets": (0.0005, 0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1)},
     # observabilidade IN-CODE por (vendor, capability). Toda
-    # invocação de capability (run_query/list_alerts/block_*) emite estas séries.
+    # invocação de capability (run_query/collect/block_*) emite estas séries.
     "collector_capability_invocations_total": {"kind": "counter", "unit": "1", "labels": ("vendor", "capability", "outcome")},
     "collector_capability_latency_seconds": {"kind": "histogram", "unit": "s", "labels": ("vendor", "capability"), "buckets": (0.05, 0.1, 0.25, 0.5, 1, 2, 5, 10, 30)},
     # entrega / dispatch / roteamento (Superfície B core)

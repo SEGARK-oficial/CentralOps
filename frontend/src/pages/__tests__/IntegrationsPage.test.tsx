@@ -65,7 +65,7 @@ const INT_TENANT_A: Integration = {
   is_authenticated: true,
   auth_status: "healthy",
   kind: "tenant",
-  capabilities: ["alerts:list"],
+  capabilities: ["health:check"],
 }
 
 const INT_TENANT_B: Integration = {
@@ -78,7 +78,7 @@ const INT_TENANT_B: Integration = {
   is_authenticated: true,
   auth_status: "healthy",
   kind: "tenant",
-  capabilities: ["alerts:list"],
+  capabilities: ["health:check"],
 }
 
 const INT_PARTNER: Integration = {

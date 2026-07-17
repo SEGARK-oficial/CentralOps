@@ -15,7 +15,6 @@ const routeLabelKeys: Record<string, string> = {
   "/dashboard": "dashboard",
   "/organizations": "organizations",
   "/integrations": "integrations",
-  "/alerts": "alerts",
   "/collectors": "collectors",
   "/flow": "flow",
   "/history": "history",

@@ -5,9 +5,7 @@ import { useTranslation } from "react-i18next"
 import {
   ActivityIcon,
   ArrowLeftIcon,
-  BellIcon,
   DatabaseIcon,
-  ExternalLinkIcon,
   HeartPulseIcon,
   LayoutDashboardIcon,
   PencilIcon,
@@ -15,8 +13,7 @@ import {
   SettingsIcon,
 } from "lucide-react"
 import * as api from "@/services/api"
-import type { Alert, AlertDetail, HealthResponse, Integration, IntegrationHealth, IntegrationOverview, LicensedProduct, QueryCapabilityRead } from "@/types"
-import AlertDetailsDrawer from "@/components/alerts/AlertDetailsDrawer"
+import type { HealthResponse, Integration, IntegrationHealth, IntegrationOverview, LicensedProduct, QueryCapabilityRead } from "@/types"
 import { IntegrationBackfillPanel } from "@/components/backfill/IntegrationBackfillPanel"
 import { HealthMetricsList } from "@/components/health/HealthMetricsList"
 import { HealthSummaryCard } from "@/components/health/HealthSummaryCard"
@@ -36,33 +33,10 @@ import { Notice } from "@/components/ui/Notice/Notice"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/Tabs/Tabs"
 import { useAuth } from "@/contexts/AuthContext"
 import { usePlatform } from "@/contexts/PlatformContext"
-import { DEFAULT_ALERT_INDEX, getAlertDetailFilters, getAlertRequestErrorMessage, withDefaultAlertIndex } from "@/lib/alerts"
 import { authStatusLabel, authStatusVariant } from "@/lib/labels"
 import { formatDateTime as formatDateTimeIntl } from "@/lib/intl"
 
-type Tab = "overview" | "alerts" | "health" | "pipeline-health" | "destinations" | "config" | "backfill"
-
-const LIST_PAGE_SIZE = 50
-
-const SEVERITY_VARIANT: Record<string, "danger" | "warning" | "default" | "success" | "primary"> = {
-  critical: "danger",
-  high: "warning",
-  medium: "default",
-  low: "success",
-  info: "primary",
-}
-
-const thCls = "px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider"
-const tdCls = "px-4 py-3 text-sm"
-
-function buildAlertsPath(integrationId: number, filters?: Record<string, string | undefined>) {
-  const params = new URLSearchParams({ integration_id: String(integrationId), index: DEFAULT_ALERT_INDEX })
-  for (const [key, value] of Object.entries(filters || {})) {
-    if (!value) continue
-    params.set(key, value)
-  }
-  return `/alerts?${params.toString()}`
-}
+type Tab = "overview" | "health" | "pipeline-health" | "destinations" | "config" | "backfill"
 
 const IntegrationDetailPage: React.FC = () => {
   const { t } = useTranslation("integrations")
@@ -88,17 +62,11 @@ const IntegrationDetailPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null)
   const [overview, setOverview] = useState<IntegrationOverview | null>(null)
   const [overviewError, setOverviewError] = useState<string | null>(null)
-  const [alerts, setAlerts] = useState<Alert[]>([])
   const [health, setHealth] = useState<IntegrationHealth | null>(null)
   const [healthV2, setHealthV2] = useState<HealthResponse | null>(null)
   const [tabLoading, setTabLoading] = useState(false)
   const [editingOpen, setEditingOpen] = useState(false)
   const [saving, setSaving] = useState(false)
-  const [selectedAlert, setSelectedAlert] = useState<Alert | null>(null)
-  const [alertDetail, setAlertDetail] = useState<AlertDetail | null>(null)
-  const [detailLoading, setDetailLoading] = useState(false)
-  const [detailError, setDetailError] = useState<string | null>(null)
-  const alertListFilters = useMemo(() => withDefaultAlertIndex({ limit: LIST_PAGE_SIZE }), [])
   const [queryCaps, setQueryCaps] = useState<QueryCapabilityRead[]>([])
 
   useEffect(() => {
@@ -157,9 +125,6 @@ const IntegrationDetailPage: React.FC = () => {
           if (v2HealthData.status === "fulfilled") setHealthV2(v2HealthData.value)
           break
         }
-        case "alerts":
-          setAlerts((await api.listAlerts(integrationId, alertListFilters)).items)
-          break
         case "health": {
           const [legacyHealth, v2Health] = await Promise.allSettled([
             api.getIntegrationHealth(integrationId),
@@ -173,16 +138,12 @@ const IntegrationDetailPage: React.FC = () => {
           break
       }
     } catch (tabError) {
-      const message = tab === "alerts"
-        ? getAlertRequestErrorMessage(tabError, t("detail.loadTabError"))
-        : tabError instanceof Error
-          ? tabError.message
-          : t("detail.loadTabError")
+      const message = tabError instanceof Error ? tabError.message : t("detail.loadTabError")
       setError(message)
     } finally {
       setTabLoading(false)
     }
-  }, [alertListFilters, integrationId, t])
+  }, [integrationId, t])
 
   useEffect(() => {
     if (integration) {
@@ -190,48 +151,16 @@ const IntegrationDetailPage: React.FC = () => {
     }
   }, [activeTab, integration, loadTabData])
 
-  useEffect(() => {
-    if (!selectedAlert) {
-      setAlertDetail(null)
-      setDetailLoading(false)
-      setDetailError(null)
-      return
-    }
-
-    const loadDetail = async () => {
-      try {
-        setDetailLoading(true)
-        setDetailError(null)
-        setAlertDetail(selectedAlert)
-        const detail = await api.getAlertDetail(
-          integrationId,
-          selectedAlert.alert_id,
-          getAlertDetailFilters(selectedAlert, alertListFilters),
-        )
-        setAlertDetail(detail)
-      } catch (detailLoadError) {
-        const message = getAlertRequestErrorMessage(detailLoadError, t("detail.alertDetailLoadError"))
-        setDetailError(message)
-        setAlertDetail(selectedAlert)
-      } finally {
-        setDetailLoading(false)
-      }
-    }
-
-    void loadDetail()
-  }, [alertListFilters, integrationId, selectedAlert, t])
-
   const tabs: { key: Tab; label: string; icon: React.ReactNode; show: boolean }[] = useMemo(
     () => [
       { key: "overview", label: t("detail.tabs.overview"), icon: <LayoutDashboardIcon size={16} />, show: true },
-      { key: "alerts", label: t("detail.tabs.alerts"), icon: <BellIcon size={16} />, show: integration?.capabilities.includes("alerts:list") ?? false },
       { key: "health", label: t("detail.tabs.health"), icon: <HeartPulseIcon size={16} />, show: true },
       { key: "pipeline-health", label: t("detail.tabs.pipelineHealth"), icon: <ActivityIcon size={16} />, show: true },
       { key: "destinations", label: t("detail.tabs.destinations"), icon: <ServerIcon size={16} />, show: true },
       { key: "backfill", label: t("detail.tabs.backfill"), icon: <DatabaseIcon size={16} />, show: true },
       { key: "config", label: t("detail.tabs.config"), icon: <SettingsIcon size={16} />, show: Boolean(isAdmin) },
     ],
-    [integration?.capabilities, isAdmin, t],
+    [isAdmin, t],
   )
 
   // healthCards removed — replaced by HealthMetricsList + HealthSummaryCard
@@ -299,15 +228,6 @@ const IntegrationDetailPage: React.FC = () => {
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            {integration.capabilities.includes("alerts:list") && (
-              <Button
-                variant="outline"
-                leftIcon={<ExternalLinkIcon size={16} />}
-                onClick={() => navigate(buildAlertsPath(integration.id))}
-              >
-                {t("detail.viewAllInAlerts")}
-              </Button>
-            )}
             {isAdmin && (
               <Button variant="outline" onClick={() => setEditingOpen(true)} leftIcon={<PencilIcon size={16} />}>
                 {t("detail.editIntegration")}
@@ -401,51 +321,6 @@ const IntegrationDetailPage: React.FC = () => {
               <div className="text-xs font-semibold uppercase tracking-wider text-text-tertiary">{t("detail.lastCheck")}</div>
               <div className="mt-2 text-lg font-semibold text-text">{formatDateTime(integration.last_checked_at)}</div>
             </Card>
-            <Card padding="sm" className="shadow-sm">
-              <div className="text-xs font-semibold uppercase tracking-wider text-text-tertiary">{t("detail.alertsPreview")}</div>
-              <div className="mt-2 text-lg font-semibold text-text">{overview.alerts_preview?.items.length || 0}</div>
-            </Card>
-          </div>
-
-          {overview.alerts_preview_error && (
-            <Notice variant="warning" title={t("detail.alertsPreviewUnavailableTitle")}>
-              {overview.alerts_preview_error.message}
-            </Notice>
-          )}
-
-          <div className="grid gap-6">
-            <Card padding="md" className="space-y-3 shadow-sm">
-              <div className="flex items-center justify-between gap-3">
-                <h3 className="font-semibold text-text">{t("detail.recentAlerts")}</h3>
-                {integration.capabilities.includes("alerts:list") && (
-                  <Button variant="outline" size="sm" onClick={() => navigate(buildAlertsPath(integration.id))}>
-                    {t("detail.viewAll")}
-                  </Button>
-                )}
-              </div>
-              {overview.alerts_preview?.items?.length ? (
-                <div className="space-y-2">
-                  {overview.alerts_preview.items.map((alert) => (
-                    <button
-                      key={alert.alert_id}
-                      type="button"
-                      onClick={() => setSelectedAlert({ ...alert, platform: integration.platform, rule_groups: [], mitre_ids: [], mitre_tactics: [], mitre_techniques: [], agent_labels: {}, data_fields: {}, highlights: {}, raw: {}, source_index: alert.source_index, integration_id: integration.id, integration_name: integration.name })}
-                      className="flex w-full items-center justify-between rounded-xl border border-border bg-surface-tertiary/40 px-3 py-2 text-left text-sm transition hover:border-primary-300"
-                    >
-                      <div className="min-w-0">
-                        <div className="truncate font-medium text-text">{alert.title}</div>
-                        <div className="text-xs text-text-secondary">{alert.timestamp ? formatDateTimeIntl(alert.timestamp) : t("detail.noTimestamp")}</div>
-                      </div>
-                      <Badge variant={SEVERITY_VARIANT[alert.severity] || "default"} size="sm">
-                        {alert.severity}
-                      </Badge>
-                    </button>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-sm text-text-secondary">{t("detail.noAlertsPreview")}</div>
-              )}
-            </Card>
           </div>
 
           {Array.isArray(overview.licensed_products) && (
@@ -526,88 +401,6 @@ const IntegrationDetailPage: React.FC = () => {
         </div>
       )}
 
-
-      {activeTab === "alerts" && !tabLoading && (
-        <div className="space-y-4">
-          <div className="flex flex-wrap items-center gap-2">
-            <Button variant="outline" size="sm" onClick={() => navigate(buildAlertsPath(integration.id))}>
-              {t("detail.viewAllInAlertsRoute")}
-            </Button>
-            <Button variant="outline" size="sm" onClick={() => navigate(buildAlertsPath(integration.id, { severity: "critical" }))}>
-              {t("detail.openCritical")}
-            </Button>
-            <Button variant="outline" size="sm" onClick={() => navigate(buildAlertsPath(integration.id, { index: "wazuh-archives-*" }))}>
-              {t("detail.openArchives")}
-            </Button>
-          </div>
-
-          {alerts.length === LIST_PAGE_SIZE && (
-            <Notice variant="info">
-              {t("detail.partialAlertsNotice", { count: LIST_PAGE_SIZE })}
-            </Notice>
-          )}
-
-          {alerts.length === 0 ? (
-            <div className="py-12 text-center text-text-secondary">{t("detail.noAlertsFound")}</div>
-          ) : (
-            <div className="overflow-x-auto rounded-lg border border-border">
-              <table className="w-full min-w-[820px] text-sm" role="table" aria-label={t("detail.alertsTableAriaLabel")}>
-                <thead>
-                  <tr className="border-b border-border bg-surface-tertiary">
-                    <th scope="col" className={`${thCls} whitespace-nowrap`}>{t("detail.columns.severity")}</th>
-                    <th scope="col" className={thCls}>{t("detail.columns.title")}</th>
-                    <th scope="col" className={thCls}>{t("detail.columns.host")}</th>
-                    <th scope="col" className={`${thCls} whitespace-nowrap`}>{t("detail.columns.ruleId")}</th>
-                    <th scope="col" className={`${thCls} whitespace-nowrap`}>{t("detail.columns.level")}</th>
-                    <th scope="col" className={thCls}>{t("detail.columns.source")}</th>
-                    <th scope="col" className={`${thCls} whitespace-nowrap`}>{t("detail.columns.timestamp")}</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border">
-                  {alerts.map((alert) => (
-                    <tr
-                      key={alert.alert_id}
-                      role="button"
-                      tabIndex={0}
-                      aria-label={t("detail.viewAlertDetailsAriaLabel", { title: alert.title })}
-                      className="cursor-pointer hover:bg-surface-tertiary/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
-                      onClick={() => setSelectedAlert(alert)}
-                      onKeyDown={(event) => {
-                        if (event.key === "Enter" || event.key === " ") {
-                          event.preventDefault()
-                          setSelectedAlert(alert)
-                        }
-                      }}
-                    >
-                      <td className={`${tdCls} whitespace-nowrap`}>
-                        <Badge variant={SEVERITY_VARIANT[alert.severity] || "default"} size="sm">
-                          {alert.severity}
-                        </Badge>
-                      </td>
-                      <td className={tdCls}>
-                        <span className="block max-w-[280px] truncate" title={alert.title}>{alert.title}</span>
-                      </td>
-                      <td className={tdCls}>
-                        <span className="block max-w-[180px] truncate" title={alert.hostname || alert.agent_name || undefined}>
-                          {alert.hostname || alert.agent_name || "-"}
-                        </span>
-                      </td>
-                      <td className={`${tdCls} whitespace-nowrap font-mono text-xs`}>{alert.rule_id || "-"}</td>
-                      <td className={`${tdCls} whitespace-nowrap`}>{alert.rule_level ?? "-"}</td>
-                      <td className={`${tdCls} text-xs`}>
-                        <span className="block max-w-[180px] truncate" title={alert.src_user || alert.src_ip || alert.decoder_name || undefined}>
-                          {alert.src_user || alert.src_ip || alert.decoder_name || "-"}
-                        </span>
-                      </td>
-                      <td className={`${tdCls} whitespace-nowrap text-xs`}>{alert.timestamp ? formatDateTimeIntl(alert.timestamp) : "-"}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-      )}
 
       {activeTab === "health" && !tabLoading && (
         <div className="space-y-4">
@@ -819,20 +612,6 @@ const IntegrationDetailPage: React.FC = () => {
           }}
         />
       </Modal>
-
-      <AlertDetailsDrawer
-        open={!!selectedAlert}
-        alert={alertDetail}
-        loading={detailLoading}
-        error={detailError}
-        onClose={() => {
-          setSelectedAlert(null)
-          setAlertDetail(null)
-          setDetailError(null)
-        }}
-        onPivotRuleId={(ruleId) => navigate(buildAlertsPath(integration.id, { rule_id: ruleId }))}
-        onPivotHostname={(hostname) => navigate(buildAlertsPath(integration.id, { hostname }))}
-      />
     </div>
   )
 }

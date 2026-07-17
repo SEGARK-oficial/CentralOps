@@ -15,7 +15,7 @@ A plataforma foi pensada para o dia a dia de quem opera muitos clientes com prod
 
 ## Quando usar
 
-- **Receber alertas de vendors diferentes em um só lugar** — você opera Sophos e Wazuh (e outros), mas não quer abrir vários consoles. O CentralOps junta tudo na tela **Operação -> Alertas**, já no mesmo formato.
+- **Receber alertas de vendors diferentes em um só lugar** — você opera Sophos e Wazuh (e outros), mas não quer abrir vários consoles. O CentralOps coleta e padroniza tudo num formato único, entrega aos seus destinos e deixa os eventos pesquisáveis em **Operação -> Investigações**.
 - **Enviar o mesmo evento para mais de um destino** — o time de detecção precisa dos eventos no SIEM, mas o time de compliance quer uma cópia arquivada em um data lake. O administrador configura as duas entregas e cada destino recebe sua versão (por exemplo, a do SIEM com dados pessoais mascarados).
 - **Investigar um incidente com contexto** — durante um caso, o analista usa **Operação -> Investigações** para buscar eventos relacionados, todos no mesmo schema, sem precisar traduzir campos entre fabricantes.
 - **Operar vários clientes com isolamento** — em um MSSP, cada organização vê apenas seus próprios dados, e o administrador gerencia clientes, integrações e políticas pela mesma interface.
@@ -36,7 +36,7 @@ O CentralOps é um serviço acessado pelo navegador — não há nada para insta
 1. **Faça login** no endereço da sua plataforma.
 2. **Conheça o painel** em **Visão geral -> Dashboard** — é a sua visão geral do que está entrando e de como o pipeline está se comportando.
 3. **Veja as integrações** em **Visão geral -> Integrações** — aqui aparecem os vendors conectados e a saúde de cada coleta.
-4. **Acompanhe os alertas** em **Operação -> Alertas** — onde os eventos padronizados chegam para triagem.
+4. **Investigue os eventos** em **Operação -> Investigações** — busca pelos eventos padronizados já entregues aos destinos; para triagem de detecções geradas por regras e buscas, use **Operação -> Detecções**.
 
 ## O que a plataforma faz
 

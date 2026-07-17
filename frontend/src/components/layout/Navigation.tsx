@@ -6,7 +6,6 @@ import {
   LayoutDashboardIcon,
   BuildingIcon,
   PlugIcon,
-  BellIcon,
   HistoryIcon,
   FileTextIcon,
   CalendarIcon,
@@ -168,7 +167,6 @@ export const Navigation: React.FC<NavigationProps> = ({ open = false, onClose, c
     {
       label: t("navigation.groups.operations"),
       items: [
-        { key: "alerts", label: t("navigation.items.alerts"), path: "/alerts", icon: <BellIcon size={18} /> },
         { key: "collectors", label: t("navigation.items.collectors"), path: "/collectors", icon: <ZapIcon size={18} /> },
         ...(isAdmin
           ? [

@@ -21,8 +21,6 @@ from backend.app.collectors.capabilities import (
     invalid_capabilities,
     is_valid_capability,
     CAP_DISCOVER_CHILDREN,
-    CAP_ALERTS_LIST,
-    CAP_ALERTS_SEARCH,
     CAP_LICENSING_LIST,
 )
 from backend.app.db import models
@@ -38,7 +36,6 @@ from backend.app.db import models
         ("health", True),
         ("health:check", True),
         ("discover:children", True),
-        ("alerts:list", True),
         ("licensing:list", True),
         # namespaces dinâmicos
         ("collect:detections", True),
@@ -50,7 +47,11 @@ from backend.app.db import models
         ("collect:", False),         # sufixo vazio
         ("foo:bar", False),          # namespace não-dinâmico desconhecido
         ("randomkey", False),        # não-namespaced fora do exato
-        ("alerts:LIST", False),      # sufixo fora do slug
+        # superfície de alerts REMOVIDA — as keys saíram do vocabulário
+        ("alerts:list", False),
+        ("alerts:detail", False),
+        ("alerts:search", False),
+        ("alerts:LIST", False),      # sufixo fora do slug (e namespace morto)
         ("", False),
     ],
 )
@@ -100,8 +101,17 @@ def test_runtime_capabilities_are_canonical(integration):
 
 def test_router_gated_keys_are_canonical():
     """As keys que o router gateia precisam estar no vocabulário exato."""
-    for key in ("discover:children", "alerts:list", "licensing:list"):
+    for key in ("discover:children", "licensing:list"):
         assert key in EXACT_CAPABILITIES
+
+
+def test_alerts_surface_keys_removed_from_vocabulary():
+    """Superfície de alerts morta: as keys NÃO podem voltar ao vocabulário
+    exato (``collect:alerts`` — ingestão — segue válida via namespace dinâmico)."""
+    for key in ("alerts:list", "alerts:detail", "alerts:search"):
+        assert key not in EXACT_CAPABILITIES
+        assert not is_valid_capability(key)
+    assert is_valid_capability("collect:alerts")
 
 
 # ── Observabilidade: a primitiva observe_capability ───────────────────
@@ -111,7 +121,7 @@ def test_observe_capability_ok_path():
     from backend.app.collectors.metrics import observe_capability
 
     ran = False
-    with observe_capability("sophos", "alerts:list"):
+    with observe_capability("sophos", "collect:alerts"):
         ran = True
     assert ran  # contexto roda sem erro e emite a métrica (no-op em test OTel)
 
@@ -120,7 +130,7 @@ def test_observe_capability_reraises_on_error():
     from backend.app.collectors.metrics import observe_capability
 
     with pytest.raises(ValueError):
-        with observe_capability("wazuh", "alerts:list"):
+        with observe_capability("wazuh", "query:opensearch_dsl"):
             raise ValueError("boom")  # outcome=error registrado, exceção propaga
 
 
@@ -128,8 +138,7 @@ def test_observe_capability_reraises_on_error():
 
 
 def test_named_constants_are_canonical():
-    for const in (CAP_DISCOVER_CHILDREN, CAP_ALERTS_LIST, CAP_ALERTS_SEARCH,
-                  CAP_LICENSING_LIST):
+    for const in (CAP_DISCOVER_CHILDREN, CAP_LICENSING_LIST):
         assert is_valid_capability(const), const
 
 
@@ -152,7 +161,7 @@ def test_no_raw_literal_capability_membership_in_routers():
     # literal de capability de GATE seguido (na mesma linha) de um membership em
     # algum *capabilities (integration_capabilities / provider.capabilities()).
     gate_caps = (
-        "discover:children", "alerts:list", "alerts:search", "alerts:detail",
+        "discover:children",
         "licensing:list",
     )
     pat = re.compile(

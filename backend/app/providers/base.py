@@ -24,60 +24,6 @@ class HealthResult:
 
 
 @dataclass
-class AlertSummary:
-    alert_id: str
-    title: str
-    severity: str  # "critical" | "high" | "medium" | "low" | "info"
-    platform: str
-    timestamp: Optional[str] = None
-    hostname: Optional[str] = None
-    rule_id: Optional[str] = None
-    rule_level: Optional[int] = None
-    rule_groups: List[str] = field(default_factory=list)
-    rule_firedtimes: Optional[int] = None
-    mitre_ids: List[str] = field(default_factory=list)
-    mitre_tactics: List[str] = field(default_factory=list)
-    mitre_techniques: List[str] = field(default_factory=list)
-    decoder_name: Optional[str] = None
-    agent_id: Optional[str] = None
-    agent_name: Optional[str] = None
-    agent_ip: Optional[str] = None
-    agent_group: Optional[str] = None
-    agent_labels: Dict[str, Any] = field(default_factory=dict)
-    manager_name: Optional[str] = None
-    location: Optional[str] = None
-    full_log: Optional[str] = None
-    src_ip: Optional[str] = None
-    dst_ip: Optional[str] = None
-    src_user: Optional[str] = None
-    dst_user: Optional[str] = None
-    input_type: Optional[str] = None
-    syscheck_path: Optional[str] = None
-    data_fields: Dict[str, Any] = field(default_factory=dict)
-    highlights: Dict[str, List[str]] = field(default_factory=dict)
-    source_index: Optional[str] = None
-    integration_id: Optional[int] = None
-    integration_name: Optional[str] = None
-    organization_id: Optional[int] = None
-    organization_name: Optional[str] = None
-    raw: Dict[str, Any] = field(default_factory=dict)
-
-
-@dataclass
-class AlertDetailSummary(AlertSummary):
-    pass
-
-
-@dataclass
-class PaginatedAlertsResult:
-    items: List[AlertSummary] = field(default_factory=list)
-    total: int = 0
-    limit: int = 0
-    offset: int = 0
-    has_more: bool = False
-
-
-@dataclass
 class QueryResult:
     items: List[Dict[str, Any]]
     total: int = 0
@@ -149,8 +95,7 @@ class BaseProvider(ABC):
     def capabilities(self) -> List[str]:
         """Return list of supported capability keys.
 
-        Examples: "alerts:list", "alerts:search",
-        "query:<dialect>", "health:check"
+        Examples: "health:check", "query:<dialect>", "discover:children"
         """
         ...
 
@@ -163,18 +108,6 @@ class BaseProvider(ABC):
     def health_check(self) -> HealthResult:
         """Return current health/status summary."""
         ...
-
-    def list_alerts(self, **filters) -> PaginatedAlertsResult:
-        raise NotImplementedError(f"{self.platform} does not support alerts:list")
-
-    def search_alerts(self, query: str, **filters) -> PaginatedAlertsResult:
-        raise NotImplementedError(f"{self.platform} does not support alerts:search")
-
-    def get_alert(self, alert_id: str, **filters) -> Optional[AlertDetailSummary]:
-        raise NotImplementedError(f"{self.platform} does not support alerts:detail")
-
-    def get_alert_statistics(self, **filters) -> Dict[str, Any]:
-        raise NotImplementedError(f"{self.platform} does not support alert statistics")
 
     # ── Query ──────────────────────────────────────────────────
     # ``run_query`` / ``run_query_async`` são o ÚNICO ponto de execução canônico de

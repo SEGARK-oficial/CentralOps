@@ -19,7 +19,7 @@ Conecte o CrowdStrike Falcon ao CentralOps para coletar automaticamente as detec
 
 - **Administrador da plataforma:** cria e edita a integração (menu **Visão geral -> Integrações**).
 - **Operador ou superior:** rodam consultas FQL ao vivo (menu **Operação -> Busca Federada**).
-- **Demais perfis:** visualizam os alertas já coletados (menu **Operação -> Alertas** e tela de **Investigações**).
+- **Demais perfis:** visualizam os alertas já coletados (tela **Operação -> Investigações**).
 
 ## Pré-requisitos
 
@@ -96,7 +96,7 @@ A primeira coleta acontece automaticamente, poucos minutos depois de salvar. Aco
 Quando houver detecções recentes no Falcon:
 
 - O status da integração muda para ativo e o indicador de saúde fica verde.
-- Os eventos passam a aparecer em **Operação -> Alertas**.
+- Os eventos ficam pesquisáveis em **Operação -> Investigações**.
 
 Se nada aparecer depois de alguns minutos, veja a seção [Solução de problemas](#solução-de-problemas) abaixo.
 
@@ -152,7 +152,7 @@ Para rodar uma consulta, acesse **Operação -> Busca Federada** e selecione Cro
 |---|---|---|
 | Erro de credenciais inválidas ao testar a conexão | Client ID ou Client Secret incorretos, ou expirados | Gere uma nova chave no Falcon, apague a antiga e atualize os valores na integração do CentralOps (**Visão geral -> Integrações**). Teste a conexão de novo. |
 | Erro de autenticação ao testar (HTTP 401 ou 403) | Base URL errada para a sua região | Confira em qual URL você acessa o Falcon (falcon.crowdstrike.com, falcon.us-2, falcon.eu-1, etc.) e coloque a base URL correspondente no Passo 2. |
-| Nenhum evento aparecendo | O Falcon não tem detecções recentes, ou o evento foi para a quarentena | Confirme no console Falcon se há detecções recentes. Se houver, aguarde alguns minutos. Se ainda assim nada aparecer em **Operação -> Alertas**, verifique a tela **Normalização -> Quarentena**. |
+| Nenhum evento aparecendo | O Falcon não tem detecções recentes, ou o evento foi para a quarentena | Confirme no console Falcon se há detecções recentes. Se houver, aguarde alguns minutos. Se ainda assim nada aparecer em **Operação -> Investigações**, verifique a tela **Normalização -> Quarentena**. |
 | Volume de eventos muito baixo | O Falcon está limitando as requisições de API (rate limit) | Abra **Normalização -> Saúde do Pipeline** e veja a integração do CrowdStrike para confirmar o limite de taxa. O intervalo de coleta é definido pela equipe de infraestrutura no momento do deploy. Se precisar ajustá-lo, fale com o administrador da plataforma. |
 | Consulta FQL retorna erro "Invalid filter" | Sintaxe FQL inválida | Confira a [documentação oficial de FQL](https://developer.crowdstrike.com/falcon/documentation/#tag/query-events-get-events) ou reduza a complexidade (tente `event_type:ProcessRollup2` antes de filtros mais complexos). |
 

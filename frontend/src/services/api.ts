@@ -5,11 +5,6 @@
 
 import i18n from "@/i18n"
 import type {
-  Alert,
-  AlertDetail,
-  AlertFilters,
-  AlertListResponse,
-  AggregatedAlertListResponse,
   AppUser,
   AccountProfile,
   SelfProfileUpdate,
@@ -45,7 +40,6 @@ import type {
   CreateQueryRequest,
   CreateScheduleRequest,
   CreateUserRequest,
-  DashboardSummary,
   EmailConfig,
   EmailRecipient,
   Integration,
@@ -109,27 +103,6 @@ export class ApiRequestError extends Error {
     this.code = code
     this.details = details
   }
-}
-
-function appendAlertFilterParams(params: URLSearchParams, filters?: Partial<AlertFilters>) {
-  if (filters?.limit) params.set("limit", String(filters.limit))
-  if (filters?.offset) params.set("offset", String(filters.offset))
-  if (filters?.index) params.set("index", filters.index)
-  if (filters?.severity) params.set("severity", filters.severity)
-  if (filters?.level) params.set("level", filters.level)
-  if (filters?.hostname) params.set("hostname", filters.hostname)
-  if (filters?.agent_id) params.set("agent_id", filters.agent_id)
-  if (filters?.rule_id) params.set("rule_id", filters.rule_id)
-  if (filters?.rule_group) params.set("rule_group", filters.rule_group)
-  if (filters?.decoder) params.set("decoder", filters.decoder)
-  if (filters?.src_ip) params.set("src_ip", filters.src_ip)
-  if (filters?.dst_ip) params.set("dst_ip", filters.dst_ip)
-  if (filters?.username) params.set("username", filters.username)
-  if (filters?.description) params.set("description", filters.description)
-  if (filters?.description_mode) params.set("description_mode", filters.description_mode)
-  if (filters?.query) params.set("query", filters.query)
-  if (filters?.time_from) params.set("time_from", filters.time_from)
-  if (filters?.time_to) params.set("time_to", filters.time_to)
 }
 
 // Helper para fazer requests
@@ -560,24 +533,12 @@ export async function sendTestEmail() {
 
 // ── Dashboard API ─────────────────────────────────────────────────────
 
+/**
+ * GET /dashboard/summary — payload v2 consolidado (fetch ÚNICA do dashboard).
+ * O shape v1 (Accept: application/vnd.centralops.v1+json) foi removido junto
+ * com a superfície de alertas Wazuh-only.
+ */
 export async function getDashboardSummary(params?: {
-  organization_id?: number | null
-  integration_id?: number | null
-  platform?: PlatformType | null
-  days?: number
-}) {
-  const searchParams = new URLSearchParams()
-  if (params?.organization_id) searchParams.set("organization_id", String(params.organization_id))
-  if (params?.integration_id) searchParams.set("integration_id", String(params.integration_id))
-  if (params?.platform) searchParams.set("platform", params.platform)
-  if (params?.days) searchParams.set("days", String(params.days))
-  const qs = searchParams.toString()
-  return apiRequest<DashboardSummary>(`/dashboard/summary${qs ? `?${qs}` : ""}`, {
-    headers: V1_ACCEPT_HEADER,
-  })
-}
-
-export async function getDashboardSummaryV2(params?: {
   organization_id?: number | null
   integration_id?: number | null
   platform?: PlatformType | null
@@ -902,58 +863,6 @@ export async function getIntegrationOverview(id: number) {
 
 export async function listSupportedPlatforms() {
   return apiRequest<{ platforms: string[] }>("/integrations/platforms")
-}
-
-
-// ── Alerts API ────────────────────────────────────────────────────────
-
-export async function listAlerts(integrationId: number, filters?: AlertFilters, options?: Pick<ApiRequestOptions, "signal">) {
-  const params = new URLSearchParams()
-  appendAlertFilterParams(params, filters)
-  const qs = params.toString()
-  return apiRequest<AlertListResponse>(`/integrations/${integrationId}/alerts${qs ? `?${qs}` : ""}`, options)
-}
-
-export async function getAlertDetail(
-  integrationId: number,
-  alertId: string,
-  filters?: Pick<AlertFilters, "index">,
-  options?: Pick<ApiRequestOptions, "signal">,
-) {
-  const searchParams = new URLSearchParams()
-  appendAlertFilterParams(searchParams, filters)
-  const qs = searchParams.toString()
-  return apiRequest<AlertDetail>(`/integrations/${integrationId}/alerts/${alertId}${qs ? `?${qs}` : ""}`, options)
-}
-
-export async function listAggregatedAlerts(
-  filters?: AlertFilters & {
-    organization_id?: number | null
-    integration_ids?: number[]
-  },
-  options?: Pick<ApiRequestOptions, "signal">,
-) {
-  const params = new URLSearchParams()
-  if (filters?.organization_id) params.set("organization_id", String(filters.organization_id))
-  for (const integrationId of filters?.integration_ids ?? []) {
-    params.append("integration_ids", String(integrationId))
-  }
-  appendAlertFilterParams(params, filters)
-  const qs = params.toString()
-  return apiRequest<AggregatedAlertListResponse>(`/integrations/alerts/aggregate${qs ? `?${qs}` : ""}`, options)
-}
-
-export async function searchAlerts(
-  integrationId: number,
-  filters: AlertFilters & { query: string },
-  options?: Pick<ApiRequestOptions, "signal">,
-) {
-  const params = new URLSearchParams()
-  appendAlertFilterParams(params, filters)
-  return apiRequest<AlertListResponse>(`/integrations/${integrationId}/alerts/search?${params.toString()}`, {
-    method: "POST",
-    signal: options?.signal,
-  })
 }
 
 

@@ -18,7 +18,7 @@ O Windows Event Log é uma **fonte PUSH** que coleta eventos de segurança nativ
 
 - **Administrador da plataforma:** cria a integração (menu **Visão geral -> Integrações**) e emite tokens de ingestão.
 - **Administrador de infraestrutura Windows:** configura o WEF/WEC no Active Directory e instala o Fluent Bit no servidor coletor.
-- **Operador ou superior:** visualiza os eventos (menu **Operação -> Alertas**).
+- **Operador ou superior:** visualiza os eventos (menu **Operação -> Investigações**).
 
 ## Arquitetura: WEF → WEC → Fluent Bit → CentralOps
 
@@ -110,7 +110,7 @@ Após a configuração, os eventos de segurança de todos os endpoints começam 
    fluent-bit.exe -c fluent-bit-windows-wec.conf
    ```
 
-5. **Verifique** que os eventos começam a aparecer na tela **Operação -> Alertas** do CentralOps em poucos minutos.
+5. **Verifique** que os eventos começam a aparecer na tela **Operação -> Investigações** do CentralOps em poucos minutos.
 
 ## O que é coletado
 
@@ -127,7 +127,7 @@ Cada evento do Security log chega ao CentralOps com informações como:
 | **IpAddress** | 192.168.1.100 |
 | **LogonType** | 2 (Interactive), 3 (Network), 5 (Service), etc. |
 
-Os eventos são normalizados para **OCSF Authentication** e ficam pesquisáveis em **Operação -> Alertas**.
+Os eventos são normalizados para **OCSF Authentication** e ficam pesquisáveis em **Operação -> Investigações**.
 
 :::info[Quarentena]
 Se um evento chegar sem timestamp ou com campos faltando, ele será colocado em **Normalização -> Quarentena**. Revise e reprocesse se necessário.
@@ -136,7 +136,7 @@ Se um evento chegar sem timestamp ou com campos faltando, ele será colocado em 
 ## Verificar que tudo está funcionando
 
 - **Na tela de integração:** abra **Visão geral -> Integrações**, selecione a integração Windows Event Log e veja o status da ingestão PUSH.
-- **Em Alertas:** vá em **Operação -> Alertas** e filtre por eventos "Windows" ou "Security".
+- **Em Investigações:** vá em **Operação -> Investigações** e filtre por eventos "Windows" ou "Security".
 - **Profundidade do buffer:** na aba **Ingestão push**, o gráfico mostra quantos eventos estão na fila aguardando processamento. Deve cair gradualmente para zero.
 
 ## Solução de problemas
@@ -150,7 +150,7 @@ Se um evento chegar sem timestamp ou com campos faltando, ele será colocado em 
 
 ## Próximos passos
 
-- **Eventos aparecendo?** Veja o [Dashboard](../operations/dashboard.md) ou [Alertas](../operations/alerts.md).
+- **Eventos aparecendo?** Veja o [Dashboard](../operations/dashboard.md) ou [Investigações](../operations/search.md).
 - **Algo na quarentena?** Veja a [Quarentena](../operations/quarantine.md).
 - **Quer correlacionar com outras fontes?** Veja [Regras de Correlação](../operations/correlation-rules.md).
 - **Adicionar outro fornecedor?** Veja a [visão geral de Integrações](./overview.md).

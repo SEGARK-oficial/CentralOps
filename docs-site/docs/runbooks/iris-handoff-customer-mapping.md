@@ -24,9 +24,9 @@ Use este guia quando, na operação do dia a dia, você perceber um destes cená
 
 ### 1. Identifique a organização do alerta
 
-1. Abra o menu **Operação -> Alertas**.
-2. Localize o alerta que abriu (ou deveria ter aberto) o caso e abra os detalhes.
-3. Anote a **organização** à qual o alerta pertence. É por essa organização que o caso do IRIS é direcionado.
+1. Abra o menu **Operação -> Investigações**.
+2. Localize o evento que abriu (ou deveria ter aberto) o caso e abra os detalhes.
+3. Anote a **organização** à qual o evento pertence. É por essa organização que o caso do IRIS é direcionado.
 
 ### 2. Confirme que a integração IRIS está ativa
 
@@ -89,7 +89,7 @@ Acione o administrador da plataforma (ou o time responsável pelo IRIS) quando:
 Ao escalonar, informe o que ajuda o time a localizar o caso rapidamente:
 
 - Nome da **organização** afetada.
-- O **alerta** envolvido (da tela **Operação -> Alertas**).
+- O **evento** envolvido (localizado pela tela **Operação -> Investigações**).
 - Em qual **cliente do IRIS** o caso apareceu (errado) ou que **nenhum caso** foi aberto.
 
 ## Links

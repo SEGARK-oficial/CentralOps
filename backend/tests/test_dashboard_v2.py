@@ -1,13 +1,14 @@
-"""Testes para DashboardSummaryV2 e versionamento via header Accept.
+"""Testes para DashboardSummaryV2 — o payload ÚNICO do dashboard.
 
 Cobertura:
 - KpiCard / BucketSection / DashboardSummaryV2: validação Pydantic.
 - build_dashboard_summary_v2: KPIs do funil vendor-neutro.
-- Buckets vendor-neutros presentes; top_mitre/top_agent_groups AUSENTES.
+- Buckets vendor-neutros presentes; buckets/KPIs de ALERTS AUSENTES (superfície
+  Wazuh-only removida — sem shape v1, sem Accept vendorizado).
+- Envelope consolidado: organizations/integrations (degraded_items/by_platform/
+  contagens) presentes no v2.
 - Degradação graciosa quando subsistemas (funnel_data) estão vazios.
-- GET /dashboard/summary (sem header): retorna v2.
-- GET /dashboard/summary (Accept: v1): retorna v1 + header X-API-Deprecation.
-- Campos window derivados corretamente de ``days``.
+- GET /dashboard/summary: retorna SEMPRE v2; Accept v1 não muda o shape.
 """
 from __future__ import annotations
 
@@ -42,7 +43,7 @@ from backend.app.schemas.dashboard import (
 
 class TestKpiCardSchema:
     def test_minimal(self):
-        k = KpiCard(id="total_alerts", label="Alertas", value=42)
+        k = KpiCard(id="ingest_eps", label="Ingestão", value=42)
         assert k.value == 42
         assert k.trend is None
 
@@ -89,6 +90,19 @@ class TestDashboardSummaryV2Schema:
                 top_buckets=[],
             )
 
+    def test_scope_sections_default_to_zeros(self):
+        """organizations/integrations são aditivos com defaults seguros."""
+        d = DashboardSummaryV2(
+            window="7d",
+            generated_at=datetime.now(timezone.utc),
+            kpis=[],
+            top_buckets=[],
+        )
+        assert d.organizations.total == 0
+        assert d.integrations.total == 0
+        assert d.integrations.degraded_items == []
+        assert d.integrations.by_platform == {}
+
 
 # ── _days_to_window ───────────────────────────────────────────────────────────
 
@@ -110,8 +124,8 @@ class TestDaysToWindow:
 # ── helpers ───────────────────────────────────────────────────────────────────
 
 
-def _sample_v1_payload() -> dict:
-    """Minimal v1 payload with NO alerts (verifies alert KPI is not in v2 by default)."""
+def _sample_summary() -> dict:
+    """Summary dict (organizations/integrations) como o handler monta."""
     return {
         "organizations": {"total": 3, "active": 3},
         "integrations": {
@@ -120,46 +134,22 @@ def _sample_v1_payload() -> dict:
             "authenticated": 3,
             "by_platform": {"wazuh": 2, "sophos": 2},
             "health": {"healthy": 3, "degraded": 1, "error": 0, "unknown": 0, "inactive": 0},
-            "degraded_items": [],
+            "degraded_items": [
+                {
+                    "integration_id": 7,
+                    "integration_name": "Wazuh Prod",
+                    "organization_id": 1,
+                    "organization_name": "Acme Corp",
+                    "status": "degraded",
+                    "last_error": "indexer: Authentication failed",
+                    "last_checked_at": None,
+                },
+            ],
             "comparison": {
                 "degraded_integrations": {"current": 1, "previous": 0, "delta": 1, "trend": "up"},
             },
         },
-        "alerts": {
-            "total": 0,
-            "by_severity": {"critical": 0, "high": 0, "medium": 0, "low": 0, "info": 0},
-            "trend": [],
-            "sources": [],
-            "top_hosts": [],
-            "top_rules": [],
-            "top_mitre_ids": [],
-            "top_agent_groups": [],
-            "partial_errors": [],
-            "latest_timestamp": None,
-            "last_query_at": "2026-04-27T10:01:00Z",
-            "unsupported_sources": 0,
-            "window_days": 7,
-            "comparison": {
-                "total_alerts": {"current": 0, "previous": 0, "delta": 0, "trend": "stable"},
-                "critical_alerts": {"current": 0, "previous": 0, "delta": 0, "trend": "stable"},
-            },
-            "most_critical_client": None,
-            "most_critical_integration": None,
-        },
     }
-
-
-def _sample_v1_payload_with_alerts() -> dict:
-    """v1 payload with alerts — verifies secondary alert KPI/bucket appears."""
-    payload = _sample_v1_payload()
-    payload["alerts"]["total"] = 150
-    payload["alerts"]["by_severity"] = {
-        "critical": 10, "high": 30, "medium": 60, "low": 40, "info": 10
-    }
-    payload["alerts"]["comparison"]["total_alerts"] = {
-        "current": 150, "previous": 120, "delta": 30, "trend": "up"
-    }
-    return payload
 
 
 def _sample_funnel_data() -> dict:
@@ -217,9 +207,9 @@ def _sample_funnel_data() -> dict:
 class TestBuildDashboardSummaryV2FunnelKpis:
     """Funnel KPIs: IDs esperados, valores calculados, severidades."""
 
-    def _build(self, funnel: dict | None = None, payload: dict | None = None) -> DashboardSummaryV2:
+    def _build(self, funnel: dict | None = None, summary: dict | None = None) -> DashboardSummaryV2:
         return build_dashboard_summary_v2(
-            v1_payload=payload or _sample_v1_payload(),
+            summary=summary or _sample_summary(),
             days=7,
             generated_at=datetime.now(timezone.utc),
             funnel_data=funnel,
@@ -247,17 +237,16 @@ class TestBuildDashboardSummaryV2FunnelKpis:
         }
         assert expected <= kpi_ids
 
-    def test_old_alert_kpi_ids_absent_when_no_alerts(self):
-        """top_mitre/top_agent_groups KPI ids from old v2 must not appear."""
+    def test_alert_kpi_ids_never_present(self):
+        """A superfície de alerts foi removida — nenhum KPI de alerts no v2."""
         v2 = self._build(_sample_funnel_data())
         kpi_ids = {k.id for k in v2.kpis}
+        assert "total_alerts" not in kpi_ids
+        assert "critical_alerts" not in kpi_ids
         assert "total_orgs" not in kpi_ids
         assert "total_integrations" not in kpi_ids
-        assert "critical_alerts" not in kpi_ids
         assert "degraded_integrations" not in kpi_ids
         assert "last_event" not in kpi_ids
-        # total_alerts only appears when alerts > 0
-        assert "total_alerts" not in kpi_ids
 
     def test_ingest_eps_value(self):
         """600 + 120 epm → 720/60 = 12.0 EPS."""
@@ -337,33 +326,23 @@ class TestBuildDashboardSummaryV2FunnelKpis:
         assert kpi.severity == "ok"
 
     def test_active_sources_kpi(self):
-        payload = _sample_v1_payload()
-        payload["integrations"]["active"] = 4
-        payload["integrations"]["health"]["degraded"] = 1
-        v2 = self._build(_sample_funnel_data(), payload=payload)
+        summary = _sample_summary()
+        summary["integrations"]["active"] = 4
+        summary["integrations"]["health"]["degraded"] = 1
+        v2 = self._build(_sample_funnel_data(), summary=summary)
         kpi = next(k for k in v2.kpis if k.id == "active_sources")
         assert kpi.value == 4
         assert "1 com erro" in (kpi.sub or "")
         assert kpi.severity == "critical"  # degraded > 0
-
-    def test_alert_kpi_appears_when_alerts_present(self):
-        v2 = self._build(_sample_funnel_data(), payload=_sample_v1_payload_with_alerts())
-        kpi_ids = {k.id for k in v2.kpis}
-        assert "total_alerts" in kpi_ids
-
-    def test_alert_kpi_absent_when_no_alerts(self):
-        v2 = self._build(_sample_funnel_data())
-        kpi_ids = {k.id for k in v2.kpis}
-        assert "total_alerts" not in kpi_ids
 
 
 # ── build_dashboard_summary_v2 — vendor-neutral buckets ──────────────────────
 
 
 class TestBuildDashboardSummaryV2Buckets:
-    def _build(self, funnel: dict | None = None, payload: dict | None = None) -> DashboardSummaryV2:
+    def _build(self, funnel: dict | None = None, summary: dict | None = None) -> DashboardSummaryV2:
         return build_dashboard_summary_v2(
-            v1_payload=payload or _sample_v1_payload(),
+            summary=summary or _sample_summary(),
             days=7,
             generated_at=datetime.now(timezone.utc),
             funnel_data=funnel,
@@ -383,15 +362,10 @@ class TestBuildDashboardSummaryV2Buckets:
         assert "top_mitre" not in bucket_ids
         assert "top_agent_groups" not in bucket_ids
 
-    def test_alerts_by_severity_absent_when_no_alerts(self):
+    def test_alerts_by_severity_never_present(self):
         v2 = self._build(_sample_funnel_data())
         bucket_ids = {b.id for b in v2.top_buckets}
         assert "alerts_by_severity" not in bucket_ids
-
-    def test_alerts_by_severity_present_when_alerts_exist(self):
-        v2 = self._build(_sample_funnel_data(), payload=_sample_v1_payload_with_alerts())
-        bucket_ids = {b.id for b in v2.top_buckets}
-        assert "alerts_by_severity" in bucket_ids
 
     def test_top_sources_volume_ordered_by_epm(self):
         v2 = self._build(_sample_funnel_data())
@@ -449,6 +423,56 @@ class TestBuildDashboardSummaryV2Buckets:
             assert len(bucket.items) <= 5, f"bucket {bucket.id!r} has {len(bucket.items)} items"
 
 
+# ── build_dashboard_summary_v2 — envelope consolidado (ex-v1) ────────────────
+
+
+class TestBuildDashboardSummaryV2ScopeSections:
+    """As contagens/saúde que o frontend lia do v1 agora vivem no v2."""
+
+    def _build(self, summary: dict | None = None) -> DashboardSummaryV2:
+        return build_dashboard_summary_v2(
+            summary=summary or _sample_summary(),
+            days=7,
+            generated_at=datetime.now(timezone.utc),
+            funnel_data=_sample_funnel_data(),
+        )
+
+    def test_organizations_counts_present(self):
+        v2 = self._build()
+        assert v2.organizations.total == 3
+        assert v2.organizations.active == 3
+
+    def test_integrations_counts_and_by_platform(self):
+        v2 = self._build()
+        assert v2.integrations.total == 4
+        assert v2.integrations.active == 4
+        assert v2.integrations.authenticated == 3
+        assert v2.integrations.by_platform == {"wazuh": 2, "sophos": 2}
+
+    def test_integrations_health_counts(self):
+        v2 = self._build()
+        assert v2.integrations.health.healthy == 3
+        assert v2.integrations.health.degraded == 1
+        assert v2.integrations.health.error == 0
+        assert v2.integrations.health.inactive == 0
+
+    def test_degraded_items_carried_through(self):
+        v2 = self._build()
+        assert len(v2.integrations.degraded_items) == 1
+        item = v2.integrations.degraded_items[0]
+        assert item.integration_id == 7
+        assert item.integration_name == "Wazuh Prod"
+        assert item.status == "degraded"
+        assert item.last_error == "indexer: Authentication failed"
+
+    def test_comparison_carried_through(self):
+        v2 = self._build()
+        comp = v2.integrations.comparison.degraded_integrations
+        assert comp.current == 1
+        assert comp.previous == 0
+        assert comp.trend == "up"
+
+
 # ── Degradação graciosa — subsistemas vazios/ausentes ────────────────────────
 
 
@@ -456,7 +480,7 @@ class TestGracefulDegradation:
     def test_no_funnel_data_does_not_raise(self):
         """funnel_data=None → KPIs degrade to 0/'—' without exception."""
         v2 = build_dashboard_summary_v2(
-            v1_payload=_sample_v1_payload(),
+            summary=_sample_summary(),
             days=1,
             generated_at=datetime.now(timezone.utc),
             funnel_data=None,
@@ -474,7 +498,7 @@ class TestGracefulDegradation:
             "dest_eps": {}, "route_rows": [], "route_metrics": {},
         }
         v2 = build_dashboard_summary_v2(
-            v1_payload=_sample_v1_payload(),
+            summary=_sample_summary(),
             days=7,
             generated_at=datetime.now(timezone.utc),
             funnel_data=empty_funnel,
@@ -482,8 +506,8 @@ class TestGracefulDegradation:
         assert v2.schema_version == 2
         assert v2.window == "7d"
 
-    def test_empty_payload_does_not_raise(self):
-        empty_payload: dict[str, Any] = {
+    def test_empty_summary_does_not_raise(self):
+        empty_summary: dict[str, Any] = {
             "organizations": {"total": 0, "active": 0},
             "integrations": {
                 "total": 0, "active": 0, "authenticated": 0,
@@ -492,27 +516,33 @@ class TestGracefulDegradation:
                 "degraded_items": [],
                 "comparison": {"degraded_integrations": {}},
             },
-            "alerts": {
-                "total": 0, "by_severity": {}, "trend": [], "sources": [],
-                "top_hosts": [], "top_rules": [], "top_mitre_ids": [],
-                "top_agent_groups": [], "partial_errors": [],
-                "latest_timestamp": None, "comparison": {},
-            },
         }
         v2 = build_dashboard_summary_v2(
-            v1_payload=empty_payload,
+            summary=empty_summary,
             days=1,
             generated_at=datetime.now(timezone.utc),
         )
         assert v2.schema_version == 2
         assert v2.window == "24h"
+        assert v2.organizations.total == 0
+        assert v2.integrations.health.inactive == 0
+
+    def test_missing_sections_do_not_raise(self):
+        """summary sem organizations/integrations → defaults (aditivo)."""
+        v2 = build_dashboard_summary_v2(
+            summary={},
+            days=7,
+            generated_at=datetime.now(timezone.utc),
+        )
+        assert v2.organizations.total == 0
+        assert v2.integrations.total == 0
 
     @pytest.mark.parametrize("days,expected_window", [
         (1, "24h"), (7, "7d"), (8, "30d"), (30, "30d"), (90, "30d"),
     ])
     def test_window_parametrized(self, days: int, expected_window: str):
         v2 = build_dashboard_summary_v2(
-            v1_payload=_sample_v1_payload(),
+            summary=_sample_summary(),
             days=days,
             generated_at=datetime.now(timezone.utc),
         )
@@ -565,35 +595,20 @@ def _bootstrap_admin(client: TestClient) -> None:
     assert r2.status_code == 200, r2.text
 
 
-def _mock_alert_stats():
-    return {
-        "total": 0,
-        "by_severity": {"critical": 0, "high": 0, "medium": 0, "low": 0, "info": 0},
-        "partial_errors": [],
-        "unsupported_sources": 0,
-        "sources": [],
-        "trend": [],
-        "top_hosts": [],
-        "top_rules": [],
-        "top_mitre_ids": [],
-        "top_agent_groups": [],
-        "latest_timestamp": None,
-    }
+_EMPTY_FUNNEL_DB = {"ph_items": [], "dest_rows": [], "dest_dlq": {}, "route_rows": []}
+_EMPTY_FUNNEL = {
+    "ph_items": [], "dest_rows": [], "dest_dlq": {}, "route_rows": [],
+    "dest_eps": {}, "route_metrics": {},
+}
 
 
-class TestDashboardEndpointVersioning:
-    def test_v2_is_default(self, client_factory):
+class TestDashboardEndpointSingleShape:
+    def test_v2_is_the_only_shape(self, client_factory):
         client = client_factory()
         _bootstrap_admin(client)
 
-        with patch("backend.app.routers.dashboard._collect_alert_statistics", return_value=_mock_alert_stats()), \
-             patch("backend.app.routers.dashboard._collect_funnel_db", return_value={
-                 "ph_items": [], "dest_rows": [], "dest_dlq": {}, "route_rows": [],
-             }), \
-             patch("backend.app.routers.dashboard._collect_funnel_redis", return_value={
-                 "ph_items": [], "dest_rows": [], "dest_dlq": {}, "route_rows": [],
-                 "dest_eps": {}, "route_metrics": {},
-             }):
+        with patch("backend.app.routers.dashboard._collect_funnel_db", return_value=dict(_EMPTY_FUNNEL_DB)), \
+             patch("backend.app.routers.dashboard._collect_funnel_redis", return_value=dict(_EMPTY_FUNNEL)):
             r = client.get("/api/dashboard/summary")
 
         assert r.status_code == 200, r.text
@@ -601,20 +616,15 @@ class TestDashboardEndpointVersioning:
         assert data["schema_version"] == 2
         assert "kpis" in data
         assert "top_buckets" in data
+        assert "alerts" not in data
         assert "X-API-Deprecation" not in r.headers
 
     def test_v2_contains_funnel_kpi_ids(self, client_factory):
         client = client_factory()
         _bootstrap_admin(client)
 
-        with patch("backend.app.routers.dashboard._collect_alert_statistics", return_value=_mock_alert_stats()), \
-             patch("backend.app.routers.dashboard._collect_funnel_db", return_value={
-                 "ph_items": [], "dest_rows": [], "dest_dlq": {}, "route_rows": [],
-             }), \
-             patch("backend.app.routers.dashboard._collect_funnel_redis", return_value={
-                 "ph_items": [], "dest_rows": [], "dest_dlq": {}, "route_rows": [],
-                 "dest_eps": {}, "route_metrics": {},
-             }):
+        with patch("backend.app.routers.dashboard._collect_funnel_db", return_value=dict(_EMPTY_FUNNEL_DB)), \
+             patch("backend.app.routers.dashboard._collect_funnel_redis", return_value=dict(_EMPTY_FUNNEL)):
             r = client.get("/api/dashboard/summary")
 
         assert r.status_code == 200, r.text
@@ -626,19 +636,14 @@ class TestDashboardEndpointVersioning:
         assert "routed_events" in kpi_ids
         assert "destinations_healthy" in kpi_ids
         assert "active_sources" in kpi_ids
+        assert "total_alerts" not in kpi_ids
 
     def test_v2_does_not_contain_vendor_bucket_ids(self, client_factory):
         client = client_factory()
         _bootstrap_admin(client)
 
-        with patch("backend.app.routers.dashboard._collect_alert_statistics", return_value=_mock_alert_stats()), \
-             patch("backend.app.routers.dashboard._collect_funnel_db", return_value={
-                 "ph_items": [], "dest_rows": [], "dest_dlq": {}, "route_rows": [],
-             }), \
-             patch("backend.app.routers.dashboard._collect_funnel_redis", return_value={
-                 "ph_items": [], "dest_rows": [], "dest_dlq": {}, "route_rows": [],
-                 "dest_eps": {}, "route_metrics": {},
-             }):
+        with patch("backend.app.routers.dashboard._collect_funnel_db", return_value=dict(_EMPTY_FUNNEL_DB)), \
+             patch("backend.app.routers.dashboard._collect_funnel_redis", return_value=dict(_EMPTY_FUNNEL)):
             r = client.get("/api/dashboard/summary")
 
         assert r.status_code == 200, r.text
@@ -649,19 +654,15 @@ class TestDashboardEndpointVersioning:
         assert "top_rules" not in bucket_ids
         assert "top_mitre" not in bucket_ids
         assert "top_agent_groups" not in bucket_ids
+        assert "alerts_by_severity" not in bucket_ids
 
-    def test_v1_via_accept_header(self, client_factory):
+    def test_v1_accept_header_still_returns_v2(self, client_factory):
+        """O ramo v1 foi REMOVIDO — Accept vendorizado não muda o shape."""
         client = client_factory()
         _bootstrap_admin(client)
 
-        with patch("backend.app.routers.dashboard._collect_alert_statistics", return_value=_mock_alert_stats()), \
-             patch("backend.app.routers.dashboard._collect_funnel_db", return_value={
-                 "ph_items": [], "dest_rows": [], "dest_dlq": {}, "route_rows": [],
-             }), \
-             patch("backend.app.routers.dashboard._collect_funnel_redis", return_value={
-                 "ph_items": [], "dest_rows": [], "dest_dlq": {}, "route_rows": [],
-                 "dest_eps": {}, "route_metrics": {},
-             }):
+        with patch("backend.app.routers.dashboard._collect_funnel_db", return_value=dict(_EMPTY_FUNNEL_DB)), \
+             patch("backend.app.routers.dashboard._collect_funnel_redis", return_value=dict(_EMPTY_FUNNEL)):
             r = client.get(
                 "/api/dashboard/summary",
                 headers={"Accept": "application/vnd.centralops.v1+json"},
@@ -669,12 +670,26 @@ class TestDashboardEndpointVersioning:
 
         assert r.status_code == 200, r.text
         data = r.json()
-        # v1 shape: tem organizations, integrations, alerts
-        assert "organizations" in data
-        assert "integrations" in data
-        assert "alerts" in data
-        assert data.get("schema_version") != 2
-        assert "X-API-Deprecation" in r.headers
+        assert data["schema_version"] == 2
+        assert "alerts" not in data
+        assert "X-API-Deprecation" not in r.headers
+
+    def test_v2_contains_scope_sections(self, client_factory):
+        """organizations/integrations (contagens + health + inactive) no v2."""
+        client = client_factory()
+        _bootstrap_admin(client)
+
+        with patch("backend.app.routers.dashboard._collect_funnel_db", return_value=dict(_EMPTY_FUNNEL_DB)), \
+             patch("backend.app.routers.dashboard._collect_funnel_redis", return_value=dict(_EMPTY_FUNNEL)):
+            r = client.get("/api/dashboard/summary")
+
+        assert r.status_code == 200, r.text
+        data = r.json()
+        assert {"total", "active"} <= set(data["organizations"].keys())
+        ints = data["integrations"]
+        assert {"total", "active", "authenticated", "by_platform", "health", "degraded_items", "comparison"} <= set(ints.keys())
+        # Shape inclui inactive + unknown explícito (sem subtração frágil)
+        assert {"healthy", "degraded", "error", "unknown", "inactive"} <= set(ints["health"].keys())
 
     def test_requires_auth(self, client_factory):
         client = client_factory()
@@ -810,36 +825,3 @@ class TestCollectIntegrationHealthInactive:
         assert result["degraded_count"] == expected["degraded"]
         assert result["error_count"] == expected["error"]
         assert result["unknown_count"] == expected["unknown"]
-
-
-class TestHealthV1PayloadIncludesInactive:
-    """v1 expõe `inactive` dentro de `health` (aditivo) e `unknown` agora é
-    explícito (descontando inativas) — corrige o bug de dupla contagem no
-    card do dashboard."""
-
-    def test_health_v1_includes_inactive_field(self, client_factory):
-        client = client_factory()
-        _bootstrap_admin(client)
-
-        with patch(
-            "backend.app.routers.dashboard._collect_alert_statistics",
-            return_value=_mock_alert_stats(),
-        ), patch("backend.app.routers.dashboard._collect_funnel_db", return_value={
-            "ph_items": [], "dest_rows": [], "dest_dlq": {}, "route_rows": [],
-        }), patch("backend.app.routers.dashboard._collect_funnel_redis", return_value={
-            "ph_items": [], "dest_rows": [], "dest_dlq": {}, "route_rows": [],
-            "dest_eps": {}, "route_metrics": {},
-        }):
-            r = client.get(
-                "/api/dashboard/summary",
-                headers={"Accept": "application/vnd.centralops.v1+json"},
-            )
-
-        assert r.status_code == 200, r.text
-        data = r.json()
-        health = data["integrations"]["health"]
-
-        # Shape inclui inactive + unknown explícito (sem subtração frágil)
-        assert {"healthy", "degraded", "error", "unknown", "inactive"} <= set(health.keys())
-        # Header de deprecação presente (v1 continua marcado)
-        assert "X-API-Deprecation" in r.headers

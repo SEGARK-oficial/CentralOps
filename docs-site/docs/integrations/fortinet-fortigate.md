@@ -18,7 +18,7 @@ Conecte o Fortinet FortiGate ao CentralOps para coletar eventos de tráfego e se
 
 - **Administrador da plataforma:** cria a integração e emite o token (menu **Visão geral -> Integrações**).
 - **Administrador de infraestrutura:** configura o Vector near o FortiGate e valida a conectividade.
-- **Demais perfis:** visualizam os eventos já coletados (menu **Operação -> Alertas**).
+- **Demais perfis:** visualizam os eventos já coletados (menu **Operação -> Investigações**).
 
 ## Pré-requisitos
 
@@ -114,9 +114,9 @@ Se o FortiGate não conseguir alcançar Vector, confirme:
 1. Volte ao CentralOps, menu **Visão geral -> Integrações**, selecione a integração do FortiGate.
 2. No painel **"Ingestão push"**, acompanhe a **profundidade da fila**: deve subir quando eventos chegam, depois descer ~20 segundos depois (enquanto Vector envia ao CentralOps).
 
-### Via menu Alertas
+### Via tela de Investigações
 
-1. Acesse **Operação -> Alertas**.
+1. Acesse **Operação -> Investigações**.
 2. Procure por eventos com `type: network_activity` ou `source: fortigate`.
 3. Se nada aparecer, veja a seção [Solução de problemas](#solução-de-problemas).
 

@@ -129,8 +129,8 @@ Se a quarentena disparou logo após uma edição de mapeamento, a edição é a 
 
 Quando só uma parte dos eventos falha (e não 100%), o problema tende a ser qualidade de dados, não schema.
 
-1. Vá ao menu **Operação -> Alertas**.
-2. Filtre pelas últimas 24 horas e pelo fornecedor em questão.
+1. Vá ao menu **Operação -> Investigações**.
+2. Filtre pelas últimas 24 horas e pela plataforma de origem em questão.
 3. Compare o volume de antes com o de agora e estime o percentual em quarentena.
 
 Se o percentual de erro subiu (por exemplo, de 1% para 3%), as causas prováveis são:
@@ -145,7 +145,7 @@ Identifique qual cliente ou qual tipo de evento está falhando e trate a origem.
 
 Se uma regra de roteamento aplica **mascaramento de dados** (remoção de informações sensíveis) antes de enviar a um destino, alguns campos podem sumir e dar a impressão de que o evento "se perdeu". Isso **não é quarentena** — os eventos foram normalizados com sucesso.
 
-Para confirmar, vá ao menu **Operação -> Alertas** (não à Quarentena), filtre pelo fornecedor nas últimas horas e verifique se os eventos aparecem normalmente. Se eles estão lá, a redução de conteúdo é o mascaramento agindo, e não um erro.
+Para confirmar, vá ao menu **Operação -> Investigações** (não à Quarentena), filtre pela plataforma de origem nas últimas horas e verifique se os eventos aparecem normalmente. Se eles estão lá, a redução de conteúdo é o mascaramento agindo, e não um erro.
 
 > As regras de roteamento e de mascaramento ficam no menu **Operação -> Roteamento**, disponível apenas para administradores. Se você não é administrador e suspeita que o mascaramento está agressivo demais, fale com o administrador da plataforma.
 

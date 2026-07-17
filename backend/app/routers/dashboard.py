@@ -1,4 +1,4 @@
-"""Dashboard router with scoped operational summaries and alert analytics."""
+"""Dashboard router with scoped operational summaries (pipeline-first)."""
 
 from __future__ import annotations
 
@@ -7,87 +7,21 @@ import logging
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Literal, Optional, Sequence
 
-from fastapi import APIRouter, Depends, Query, Response
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session, selectinload
 
 from ..core import auth as app_auth
 from ..core import tenant
-from ..core.accept_version import resolve_api_version
 from ..core.errors import ApiError
 from ..db import database, models, repository
-from ..collectors.registry import get_provider
-from ..collectors.capabilities import CAP_ALERTS_LIST
 from ..schemas.dashboard import BucketItem, BucketSection, DashboardSummaryV2, KpiCard
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/dashboard", tags=["dashboard"])
 
-_ALERT_SEVERITY_KEYS = ("critical", "high", "medium", "low", "info")
 _DEGRADED_STATUSES = {"degraded", "error"}
 _DEGRADED_STATUS_RANK = {"error": 0, "degraded": 1, "unknown": 2}
-
-
-def _empty_alert_severity() -> dict[str, int]:
-    return {key: 0 for key in _ALERT_SEVERITY_KEYS}
-
-
-def _merge_alert_severity(target: dict[str, int], source: dict[str, Any] | None) -> None:
-    if not source:
-        return
-    for key in _ALERT_SEVERITY_KEYS:
-        target[key] += int(source.get(key, 0) or 0)
-
-
-def _format_utc(dt: datetime) -> str:
-    return dt.astimezone(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
-
-
-def _merge_bucket_counts(
-    target: dict[str, dict[str, Any]],
-    buckets: list[dict[str, Any]] | None,
-    *,
-    preserve_context: bool = False,
-) -> None:
-    if not buckets:
-        return
-    for bucket in buckets:
-        key = str(bucket.get("key", "") or "").strip()
-        if not key:
-            continue
-        merge_key = key
-        if preserve_context:
-            integration_id = bucket.get("integration_id")
-            merge_key = f"{integration_id}:{key}" if integration_id is not None else key
-        entry = target.setdefault(
-            merge_key,
-            {
-                "key": key,
-                "label": None,
-                "count": 0,
-                "integration_id": bucket.get("integration_id"),
-                "integration_name": bucket.get("integration_name"),
-                "organization_id": bucket.get("organization_id"),
-                "organization_name": bucket.get("organization_name"),
-            },
-        )
-        if not entry.get("label") and bucket.get("label"):
-            entry["label"] = bucket.get("label")
-        entry["count"] += int(bucket.get("count", 0) or 0)
-
-
-def _sorted_bucket_list(buckets: dict[str, dict[str, Any]], *, limit: int = 5) -> list[dict[str, Any]]:
-    return sorted(
-        buckets.values(),
-        key=lambda item: (-int(item.get("count", 0) or 0), str(item.get("label") or item["key"])),
-    )[:limit]
-
-
-def _max_timestamp(*values: str | None) -> str | None:
-    valid = [value for value in values if value]
-    if not valid:
-        return None
-    return max(valid)
 
 
 def _metric_comparison(current: int, previous: int) -> dict[str, Any]:
@@ -104,66 +38,6 @@ def _metric_comparison(current: int, previous: int) -> dict[str, Any]:
         "delta": delta,
         "trend": trend,
     }
-
-
-def _priority_from_sources(
-    sources: Sequence[dict[str, Any]],
-    *,
-    group_by: str,
-) -> dict[str, Any] | None:
-    grouped: dict[str, dict[str, Any]] = {}
-
-    for source in sources:
-        if group_by == "organization":
-            group_key = str(source.get("organization_id") or "")
-            if not group_key:
-                continue
-            entry = grouped.setdefault(
-                group_key,
-                {
-                    "organization_id": source.get("organization_id"),
-                    "organization_name": source.get("organization_name"),
-                    "integration_id": None,
-                    "integration_name": None,
-                    "critical": 0,
-                    "high": 0,
-                    "total": 0,
-                },
-            )
-        else:
-            group_key = str(source.get("integration_id") or "")
-            if not group_key:
-                continue
-            entry = grouped.setdefault(
-                group_key,
-                {
-                    "organization_id": source.get("organization_id"),
-                    "organization_name": source.get("organization_name"),
-                    "integration_id": source.get("integration_id"),
-                    "integration_name": source.get("integration_name"),
-                    "critical": 0,
-                    "high": 0,
-                    "total": 0,
-                },
-            )
-
-        severity = source.get("by_severity", {})
-        entry["critical"] += int(severity.get("critical", 0) or 0)
-        entry["high"] += int(severity.get("high", 0) or 0)
-        entry["total"] += int(source.get("total", 0) or 0)
-
-    if not grouped:
-        return None
-
-    return sorted(
-        grouped.values(),
-        key=lambda item: (
-            -int(item.get("critical", 0) or 0),
-            -int(item.get("high", 0) or 0),
-            -int(item.get("total", 0) or 0),
-            str(item.get("integration_name") or item.get("organization_name") or ""),
-        ),
-    )[0]
 
 
 def _resolve_dashboard_scope(
@@ -324,116 +198,6 @@ def _collect_integration_health(
     }
 
 
-def _collect_alert_statistics(
-    integrations: Sequence[models.Integration],
-    *,
-    time_from: str,
-    time_to: str,
-    include_breakdown: bool,
-) -> dict[str, Any]:
-    alerts_total = 0
-    alerts_by_severity = _empty_alert_severity()
-    alerts_sources: list[dict[str, Any]] = []
-    alerts_partial_errors: list[str] = []
-    trend_map: dict[str, dict[str, Any]] = {}
-    top_hosts_map: dict[str, dict[str, Any]] = {}
-    top_rules_map: dict[str, dict[str, Any]] = {}
-    top_mitre_map: dict[str, dict[str, Any]] = {}
-    top_agent_groups_map: dict[str, dict[str, Any]] = {}
-    latest_timestamp: str | None = None
-    unsupported_sources = 0
-
-    for integration in integrations:
-        if not integration.is_active:
-            continue
-
-        provider = None
-        try:
-            provider = get_provider(integration)
-            if CAP_ALERTS_LIST not in provider.capabilities():
-                unsupported_sources += 1
-                continue
-
-            stats = provider.get_alert_statistics(time_from=time_from, time_to=time_to)
-            _merge_alert_severity(alerts_by_severity, stats.get("by_severity"))
-            alerts_total += int(stats.get("total", 0) or 0)
-
-            if not include_breakdown:
-                continue
-
-            source_severity = _empty_alert_severity()
-            _merge_alert_severity(source_severity, stats.get("by_severity"))
-            _merge_bucket_counts(top_hosts_map, stats.get("top_hosts"), preserve_context=True)
-            _merge_bucket_counts(top_rules_map, stats.get("top_rules"), preserve_context=True)
-            _merge_bucket_counts(top_mitre_map, stats.get("top_mitre_ids"))
-            _merge_bucket_counts(top_agent_groups_map, stats.get("top_agent_groups"))
-            latest_timestamp = _max_timestamp(latest_timestamp, stats.get("latest_timestamp"))
-
-            alerts_sources.append(
-                {
-                    "integration_id": integration.id,
-                    "integration_name": integration.name,
-                    "organization_id": integration.organization_id,
-                    "organization_name": integration.organization.name if integration.organization else None,
-                    "total": int(stats.get("total", 0) or 0),
-                    "by_severity": source_severity,
-                }
-            )
-
-            for point in stats.get("trend", []):
-                timestamp = point.get("timestamp")
-                if not timestamp:
-                    continue
-                entry = trend_map.setdefault(
-                    timestamp,
-                    {
-                        "timestamp": timestamp,
-                        "total": 0,
-                        **_empty_alert_severity(),
-                    },
-                )
-                entry["total"] += int(point.get("total", 0) or 0)
-                for key in _ALERT_SEVERITY_KEYS:
-                    entry[key] += int(point.get(key, 0) or 0)
-        except NotImplementedError:
-            continue
-        except Exception as exc:
-            # sanitizar mensagem para não vazar detalhes de infraestrutura
-            logger.warning(
-                "Dashboard alert summary failed for integration %s: %s",
-                integration.id,
-                exc,
-                exc_info=True,
-            )
-            alerts_partial_errors.append(f"{integration.name}: falha ao consultar provedor")
-        finally:
-            if provider:
-                provider.close()
-
-    result = {
-        "total": alerts_total,
-        "by_severity": alerts_by_severity,
-        "partial_errors": alerts_partial_errors,
-        "unsupported_sources": unsupported_sources,
-    }
-
-    if include_breakdown:
-        alerts_sources.sort(key=lambda source: (-source["total"], source["integration_name"]))
-        result.update(
-            {
-                "sources": alerts_sources,
-                "trend": [trend_map[key] for key in sorted(trend_map.keys())],
-                "top_hosts": _sorted_bucket_list(top_hosts_map),
-                "top_rules": _sorted_bucket_list(top_rules_map),
-                "top_mitre_ids": _sorted_bucket_list(top_mitre_map),
-                "top_agent_groups": _sorted_bucket_list(top_agent_groups_map),
-                "latest_timestamp": latest_timestamp,
-            }
-        )
-
-    return result
-
-
 def _days_to_window(days: int) -> str:
     """Map the ``days`` query param to a v2 window label."""
     if days <= 1:
@@ -583,31 +347,6 @@ def _collect_funnel_redis(db_data: Dict[str, Any]) -> Dict[str, Any]:
     return {**db_data, "dest_eps": dest_eps, "route_metrics": route_metrics}
 
 
-def _severity_to_v2(sev: str) -> Optional[Literal["ok", "warn", "critical", "info"]]:
-    """Map dashboard severity labels to v2 KpiCard/BucketItem severity literals."""
-    mapping: Dict[str, Literal["ok", "warn", "critical", "info"]] = {
-        "critical": "critical",
-        "high": "warn",
-        "medium": "info",
-        "low": "info",
-        "info": "info",
-    }
-    return mapping.get(sev)
-
-
-def _trend_from_comparison(
-    comparison: Dict[str, Any],
-) -> Optional[Literal["up", "down", "flat"]]:
-    trend = comparison.get("trend")
-    if trend == "up":
-        return "up"
-    if trend == "down":
-        return "down"
-    if trend == "stable":
-        return "flat"
-    return None
-
-
 def _days_to_window_lit(days: int) -> Literal["24h", "7d", "30d"]:
     """Same as ``_days_to_window`` but with a Literal return type for Pydantic."""
     if days <= 1:
@@ -619,21 +358,20 @@ def _days_to_window_lit(days: int) -> Literal["24h", "7d", "30d"]:
 
 def build_dashboard_summary_v2(
     *,
-    v1_payload: Dict[str, Any],
+    summary: Dict[str, Any],
     days: int,
     generated_at: datetime,
     funnel_data: Optional[Dict[str, Any]] = None,
 ) -> DashboardSummaryV2:
-    """Map a v1 dashboard payload dict to DashboardSummaryV2.
+    """Build the (single) DashboardSummaryV2 payload.
 
-    ``funnel_data`` (optional) carries the pipeline-funnel metrics collected by
+    ``summary`` carries the org/integration counts + health collected by the
+    handler (``organizations`` / ``integrations`` keys). ``funnel_data``
+    (optional) carries the pipeline-funnel metrics collected by
     ``_collect_funnel_db`` + ``_collect_funnel_redis``.  When absent (e.g. old
     tests that pre-date the funnel) the KPIs degrade gracefully to 0/"—".
     """
-    ints = v1_payload.get("integrations", {})
-    alerts = v1_payload.get("alerts", {})
-    by_sev = alerts.get("by_severity", {})
-    comparisons_alerts = alerts.get("comparison", {})
+    ints = summary.get("integrations", {})
 
     fd: Dict[str, Any] = funnel_data or {}
     ph_items: List[Dict[str, Any]] = fd.get("ph_items", [])
@@ -733,7 +471,7 @@ def build_dashboard_summary_v2(
     )
     sources_severity: _Sev = "critical" if sources_with_errors > 0 else "ok"
 
-    # ── KPIs (funnel-first, alert as secondary if data present) ───────────
+    # ── KPIs (funnel-first, vendor-neutral) ───────────────────────────────
     kpis: list[KpiCard] = [
         KpiCard(
             id="ingest_eps",
@@ -783,27 +521,6 @@ def build_dashboard_summary_v2(
             severity=sources_severity,
         ),
     ]
-
-    # Secondary alert KPI (optional — only when data present)
-    alerts_total = int(alerts.get("total", 0) or 0)
-    total_alerts_comp = comparisons_alerts.get("total_alerts", {})
-    if alerts_total > 0:
-        kpis.append(
-            KpiCard(
-                id="total_alerts",
-                label="Alertas",
-                value=alerts_total,
-                sub=f"últimos {days}d",
-                icon_id="alert",
-                trend=_trend_from_comparison(total_alerts_comp),
-                trend_value=(
-                    f"{total_alerts_comp.get('delta', 0):+d}"
-                    if total_alerts_comp.get("delta") is not None
-                    else None
-                ),
-                severity="critical",
-            )
-        )
 
     # ── Top Buckets (vendor-neutral) ──────────────────────────────────────
     # 1. Top sources by volume (integrations ordered by epm desc)
@@ -905,51 +622,30 @@ def build_dashboard_summary_v2(
         ),
     ]
 
-    # Secondary: alerts_by_severity — only when there are alerts
-    if alerts_total > 0:
-        top_buckets.append(
-            BucketSection(
-                id="alerts_by_severity",
-                label="Alertas por Severidade",
-                items=[
-                    BucketItem(
-                        id=sev,
-                        label=sev.capitalize(),
-                        value=int(by_sev.get(sev, 0) or 0),
-                        severity=_severity_to_v2(sev),
-                    )
-                    for sev in ("critical", "high", "medium", "low", "info")
-                ],
-                icon_id="alert",
-                empty_hint="Sem alertas na janela atual.",
-            )
-        )
-
     return DashboardSummaryV2(
         window=_days_to_window_lit(days),
         generated_at=generated_at,
         kpis=kpis,
         top_buckets=top_buckets,
+        organizations=summary.get("organizations") or {},
+        integrations=ints or {},
     )
 
 
-@router.get("/summary")
+@router.get("/summary", response_model=DashboardSummaryV2)
 def get_dashboard_summary(
-    response: Response,
     organization_id: int | None = None,
     integration_id: int | None = None,
     platform: str | None = None,
     days: int = Query(default=7, ge=1, le=90),
     db: Session = Depends(database.get_session),
     current_user: models.AppUser = Depends(app_auth.require_authenticated_user),
-    api_version: int = Depends(resolve_api_version),
 ):
-    """Sumário do dashboard com saúde das integrações e estatísticas de alertas.
+    """Sumário do dashboard: funil do pipeline + saúde das integrações.
 
-    Suporta dois shapes via header ``Accept``:
-    - Padrão (sem header ou ``*/*``): retorna ``DashboardSummaryV2``.
-    - ``Accept: application/vnd.centralops.v1+json``: retorna shape v1 legado
-      com header ``X-API-Deprecation`` indicando remoção na próxima release.
+    Retorna SEMPRE ``DashboardSummaryV2`` (payload único). O shape v1 legado
+    (``Accept: application/vnd.centralops.v1+json``) e a agregação de alertas
+    Wazuh-only foram removidos.
     """
     org_repo = repository.OrganizationRepository(db)
     int_repo = repository.IntegrationRepository(db)
@@ -990,10 +686,6 @@ def get_dashboard_summary(
 
     now_aware = datetime.now(timezone.utc)
     now_naive = datetime.utcnow()
-    current_time_to = _format_utc(now_aware)
-    current_time_from = _format_utc(now_aware - timedelta(days=days))
-    previous_time_to = current_time_from
-    previous_time_from = _format_utc(now_aware - timedelta(days=days * 2))
 
     health_repo = repository.IntegrationHealthRepository(db)
     health_summary = _collect_integration_health(
@@ -1024,20 +716,7 @@ def get_dashboard_summary(
         logger.warning("dashboard funnel Redis phase failed: %s", exc)
         funnel_data = {**funnel_db, "dest_eps": {}, "route_metrics": {}}
 
-    current_alerts = _collect_alert_statistics(
-        integrations,
-        time_from=current_time_from,
-        time_to=current_time_to,
-        include_breakdown=True,
-    )
-    previous_alerts = _collect_alert_statistics(
-        integrations,
-        time_from=previous_time_from,
-        time_to=previous_time_to,
-        include_breakdown=False,
-    )
-
-    v1_payload: Dict[str, Any] = {
+    summary: Dict[str, Any] = {
         "organizations": {
             "total": len(orgs),
             "active": sum(1 for organization in orgs if organization.is_active),
@@ -1062,45 +741,10 @@ def get_dashboard_summary(
                 )
             },
         },
-        "alerts": {
-            "total": current_alerts["total"],
-            "by_severity": current_alerts["by_severity"],
-            "trend": current_alerts.get("trend", []),
-            "sources": current_alerts.get("sources", []),
-            "top_hosts": current_alerts.get("top_hosts", []),
-            "top_rules": current_alerts.get("top_rules", []),
-            "top_mitre_ids": current_alerts.get("top_mitre_ids", []),
-            "top_agent_groups": current_alerts.get("top_agent_groups", []),
-            "partial_errors": current_alerts["partial_errors"],
-            "latest_timestamp": current_alerts.get("latest_timestamp"),
-            "last_query_at": current_time_to,
-            "unsupported_sources": current_alerts["unsupported_sources"],
-            "window_days": days,
-            "applied_organization_id": effective_organization_id,
-            "applied_integration_id": target_integration.id if target_integration else None,
-            "applied_platform": effective_platform,
-            "comparison": {
-                "total_alerts": _metric_comparison(current_alerts["total"], previous_alerts["total"]),
-                "critical_alerts": _metric_comparison(
-                    int(current_alerts["by_severity"].get("critical", 0) or 0),
-                    int(previous_alerts["by_severity"].get("critical", 0) or 0),
-                ),
-            },
-            "most_critical_client": _priority_from_sources(current_alerts.get("sources", []), group_by="organization"),
-            "most_critical_integration": _priority_from_sources(current_alerts.get("sources", []), group_by="integration"),
-        },
     }
 
-    # ── v1 backwards compat ───────────────────────────────────────────────
-    if api_version == 1:
-        response.headers["X-API-Deprecation"] = (
-            "DashboardSummary v1 sera removido na proxima release; migrar para v2"
-        )
-        return v1_payload
-
-    # ── v2 data-driven ────────────────────────────────────────────────────
     return build_dashboard_summary_v2(
-        v1_payload=v1_payload,
+        summary=summary,
         days=days,
         generated_at=now_aware,
         funnel_data=funnel_data,

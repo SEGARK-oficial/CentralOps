@@ -104,7 +104,7 @@ Você não precisa acompanhar nada manualmente — o CentralOps cuida da coleta 
 2. **A coleta começa automaticamente.** A partir daí, o CentralOps puxa novos eventos em intervalos regulares (tipicamente a cada poucos minutos), sem você precisar acionar nada. Eventos repetidos são descartados, então o mesmo alerta não aparece duas vezes.
 3. **Os eventos são normalizados.** Cada evento coletado é convertido para o formato padrão do CentralOps. Se algum evento não puder ser convertido (por exemplo, um formato inesperado), ele vai para a **Quarentena**, onde pode ser revisado e reprocessado.
 4. **Os eventos são entregues aos destinos.** Conforme as rotas definidas, cada evento é enviado para um ou mais destinos, com ou sem remoção de dados pessoais.
-5. **Você acompanha o resultado na interface.** Os eventos passam a aparecer em **Operação -> Alertas** e na tela de busca em **Operação -> Investigações**. A saúde da coleta fica visível na própria tela de Integrações.
+5. **Você acompanha o resultado na interface.** Os eventos passam a aparecer na tela de busca em **Operação -> Investigações**. A saúde da coleta fica visível na própria tela de Integrações.
 
 Para acompanhar a etapa de normalização e a entrega, use também **Normalização -> Saúde do Pipeline** e **Normalização -> Quarentena**.
 

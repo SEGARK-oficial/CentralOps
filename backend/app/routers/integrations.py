@@ -1,6 +1,6 @@
 """Integration CRUD + provider-powered operations router.
 
-Handles creation, health checks, alerts, and investigations
+Handles creation, health checks, and provider-powered operations
 for any registered provider (Sophos, Wazuh, etc.).
 """
 
@@ -9,9 +9,9 @@ from __future__ import annotations
 import json
 import logging
 from datetime import datetime
-from typing import Any, Dict, List, Sequence
+from typing import Any, Dict, List
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
@@ -36,14 +36,10 @@ from ..collectors.registry import (
     integration_has_capability,
 )
 from ..collectors.capabilities import (
-    CAP_ALERTS_DETAIL,
-    CAP_ALERTS_LIST,
-    CAP_ALERTS_SEARCH,
     CAP_DISCOVER_CHILDREN,
     CAP_LICENSING_LIST,
     validate_capability,
 )
-from ..providers.base import PaginatedAlertsResult
 from ..services import integration_secrets
 from ..core.accept_version import resolve_api_version
 from ..schemas.health import HealthResponse
@@ -235,33 +231,6 @@ def _ensure_integration_access(
         )
 
 
-def _ensure_query_run_if_freetext(request: Request, current_user, query) -> None:
-    """O filtro free-text ``query`` vira
-    um ``query_string`` Lucene AO VIVO contra o indexer do tenant (mesmo custo/risco
-    do ``search_alerts``). Filtros ESTRUTURADOS (severity/hostname/agent_id/…)
-    seguem como READ (viewer ok); SÓ o free-text exige ``QUERY_RUN``. Sem isto o
-    gate de ``search_alerts`` era contornável pelo gêmeo ``list_alerts``."""
-    if not query or not str(query).strip():
-        return
-    api_token = getattr(request.state, "authenticated_token", None)
-    token_scopes = None
-    if api_token is not None:
-        from ..services.api_tokens import parse_scopes
-        parsed = parse_scopes(api_token.scopes_json)
-        token_scopes = parsed if parsed else None
-    allowed = app_auth.effective_scopes(current_user.role, token_scopes)
-    if app_auth.Permission.QUERY_RUN not in allowed:
-        raise ApiError(
-            "query.freetext_requires_run",
-            403,
-            messages={
-                "pt": "A busca livre 'query' (live hunt) exige a permissão QUERY_RUN.",
-                "en": "Free-text 'query' (live hunt) requires QUERY_RUN permission.",
-                "es": "La búsqueda libre 'query' (live hunt) requiere el permiso QUERY_RUN.",
-            },
-        )
-
-
 def _ensure_capability(provider, capability: str) -> None:
     validate_capability(capability)  # typo → ValueError, não fail-open
     if capability in provider.capabilities():
@@ -275,172 +244,6 @@ def _ensure_capability(provider, capability: str) -> None:
             "es": "La integración no soporta {capability}.",
         },
         params={"capability": capability},
-    )
-
-
-def _normalize_alert_page(result: Any, *, limit: int, offset: int) -> PaginatedAlertsResult:
-    if isinstance(result, PaginatedAlertsResult):
-        return result
-    if isinstance(result, list):
-        return PaginatedAlertsResult(
-            items=result,
-            total=len(result),
-            limit=limit,
-            offset=offset,
-            has_more=False,
-        )
-    raise TypeError("Provider returned an unsupported alert result type")
-
-
-def _serialize_alert(alert: Any) -> schemas.AlertRead:
-    return schemas.AlertRead(
-        alert_id=alert.alert_id,
-        title=alert.title,
-        severity=alert.severity,
-        platform=alert.platform,
-        timestamp=alert.timestamp,
-        hostname=alert.hostname,
-        rule_id=alert.rule_id,
-        rule_level=alert.rule_level,
-        rule_groups=alert.rule_groups,
-        rule_firedtimes=alert.rule_firedtimes,
-        mitre_ids=alert.mitre_ids,
-        mitre_tactics=alert.mitre_tactics,
-        mitre_techniques=alert.mitre_techniques,
-        decoder_name=alert.decoder_name,
-        agent_id=alert.agent_id,
-        agent_name=alert.agent_name,
-        agent_ip=alert.agent_ip,
-        agent_group=alert.agent_group,
-        agent_labels=alert.agent_labels,
-        manager_name=alert.manager_name,
-        location=alert.location,
-        full_log=alert.full_log,
-        src_ip=alert.src_ip,
-        dst_ip=alert.dst_ip,
-        src_user=alert.src_user,
-        dst_user=alert.dst_user,
-        input_type=alert.input_type,
-        syscheck_path=alert.syscheck_path,
-        data_fields=alert.data_fields,
-        highlights=alert.highlights,
-        source_index=alert.source_index,
-        integration_id=alert.integration_id,
-        integration_name=alert.integration_name,
-        organization_id=alert.organization_id,
-        organization_name=alert.organization_name,
-        raw=alert.raw,
-    )
-
-
-def _serialize_alert_detail(alert: Any) -> schemas.AlertDetailRead:
-    return schemas.AlertDetailRead(**_serialize_alert(alert).model_dump())
-
-
-def _collect_alert_filters(
-    *,
-    index: str | None,
-    severity: str | None,
-    level: str | None,
-    hostname: str | None,
-    agent_id: str | None,
-    rule_id: str | None,
-    rule_group: str | None,
-    decoder: str | None,
-    src_ip: str | None,
-    dst_ip: str | None,
-    username: str | None,
-    description: str | None,
-    description_mode: str | None,
-    query: str | None,
-    time_from: str | None,
-    time_to: str | None,
-) -> Dict[str, Any]:
-    filters = {
-        "index": index,
-        "severity": severity,
-        "level": level,
-        "hostname": hostname,
-        "agent_id": agent_id,
-        "rule_id": rule_id,
-        "rule_group": rule_group,
-        "decoder": decoder,
-        "src_ip": src_ip,
-        "dst_ip": dst_ip,
-        "username": username,
-        "description": description,
-        "description_mode": description_mode,
-        "query": query,
-        "time_from": time_from,
-        "time_to": time_to,
-    }
-    return {key: value for key, value in filters.items() if value is not None}
-
-
-def _resolve_integrations_for_aggregate(
-    *,
-    organization_id: int | None,
-    integration_ids: Sequence[int] | None,
-    repo: repository.IntegrationRepository,
-    current_user: models.AppUser,
-) -> list[models.Integration]:
-    allowed_org_ids = tenant.accessible_org_ids(current_user, repo.db)
-    if organization_id is not None:
-        tenant.require_subtree_access(current_user, organization_id)
-
-    if integration_ids:
-        integrations: list[models.Integration] = []
-        for integration_id in integration_ids:
-            integration = _get_integration_or_404(repo, integration_id)
-            _ensure_integration_access(current_user, integration, require_active=True)
-            if organization_id is not None and integration.organization_id != organization_id:
-                raise ApiError(
-                    "integration.org_mismatch",
-                    409,
-                    messages={
-                        "pt": "A integração não pertence à organização selecionada.",
-                        "en": "Integration does not belong to the selected organization.",
-                        "es": "La integración no pertenece a la organización seleccionada.",
-                    },
-                )
-            integrations.append(integration)
-        return integrations
-
-    integrations = repo.list(
-        organization_id=organization_id,
-        include_inactive=False,
-        organization_ids=allowed_org_ids,
-    )
-    return [integration for integration in integrations if integration.is_active]
-
-
-def _contains_wildcards(value: str | None) -> bool:
-    return bool(value and ("*" in value or "?" in value))
-
-
-def _log_alert_filter_usage(
-    *,
-    scope: str,
-    integration_count: int,
-    filters: Dict[str, Any],
-) -> None:
-    logger.info(
-        "Alert query scope=%s integrations=%s severity=%s description=%s description_mode=%s query=%s hostname=%s rule_id=%s time_range=%s",
-        scope,
-        integration_count,
-        bool(filters.get("severity")),
-        {
-            "present": bool(filters.get("description")),
-            "wildcards": _contains_wildcards(filters.get("description")),
-        },
-        filters.get("description_mode") or "smart",
-        bool(filters.get("query")),
-        bool(filters.get("hostname")),
-        {
-            "present": bool(filters.get("rule_id")),
-            "wildcards": _contains_wildcards(filters.get("rule_id")),
-        },
-        bool(filters.get("time_from") or filters.get("time_to")),
     )
 
 
@@ -529,30 +332,6 @@ def _serialize_health_result(result) -> Dict[str, Any]:
     }
 
 
-def _ensure_alert_capability(provider, capability: str) -> None:
-    validate_capability(capability)  # typo → ValueError, não fail-open
-    if capability in provider.capabilities():
-        return
-
-    integration = provider.integration
-    if getattr(provider, "platform", None) == "wazuh" and capability.startswith("alerts:"):
-        if not integration.indexer_url:
-            raise ProviderConfigurationError(
-                "Wazuh indexer URL is not configured for this integration",
-                code="INDEXER_NOT_CONFIGURED",
-            )
-        raise ProviderConfigurationError(
-            "Wazuh indexer credentials are incomplete for this integration",
-            code="INDEXER_CREDENTIALS_MISSING",
-        )
-
-    raise ProviderConfigurationError(
-        f"Integration does not support {capability}",
-        code="ALERTS_NOT_SUPPORTED",
-        details={"capability": capability},
-    )
-
-
 # ── Collector hooks (fire-and-forget) ────────────────────────────────
 
 def _trigger_initial_collection(integration_id: int, platform: str) -> None:
@@ -634,117 +413,6 @@ def _deregister_from_beat(integration_id: int) -> None:
             integration_id,
             exc_info=True,
         )
-
-
-# ── Aggregate alerts ─────────────────────────────────────────────────
-
-@router.get("/alerts/aggregate", response_model=schemas.AggregatedAlertListResponse)
-def list_alerts_aggregate(
-    organization_id: int | None = None,
-    integration_ids: List[int] | None = Query(default=None),
-    limit: int = Query(default=50, le=250),
-    offset: int = Query(default=0, ge=0),
-    index: str | None = Query(default=None, max_length=200),
-    severity: str | None = None,
-    level: str | None = None,
-    hostname: str | None = None,
-    agent_id: str | None = None,
-    rule_id: str | None = None,
-    rule_group: str | None = None,
-    decoder: str | None = None,
-    src_ip: str | None = None,
-    dst_ip: str | None = None,
-    username: str | None = None,
-    description: str | None = None,
-    description_mode: str | None = Query(default="smart"),
-    query: str | None = None,
-    time_from: str | None = None,
-    time_to: str | None = None,
-    request: Request = None,  # type: ignore[assignment]
-    db: Session = Depends(database.get_session),
-    repo: repository.IntegrationRepository = Depends(get_repo),
-    current_user: models.AppUser = Depends(app_auth.require_authenticated_user),
-):
-    # free-text `query` = hunt ao vivo → exige QUERY_RUN.
-    _ensure_query_run_if_freetext(request, current_user, query)
-    integrations = _resolve_integrations_for_aggregate(
-        organization_id=organization_id,
-        integration_ids=integration_ids,
-        repo=repo,
-        current_user=current_user,
-    )
-
-    filters = _collect_alert_filters(
-        index=index,
-        severity=severity,
-        level=level,
-        hostname=hostname,
-        agent_id=agent_id,
-        rule_id=rule_id,
-        rule_group=rule_group,
-        decoder=decoder,
-        src_ip=src_ip,
-        dst_ip=dst_ip,
-        username=username,
-        description=description,
-        description_mode=description_mode,
-        query=query,
-        time_from=time_from,
-        time_to=time_to,
-    )
-    _log_alert_filter_usage(scope="aggregate", integration_count=len(integrations), filters=filters)
-
-    total = 0
-    merged_items: list[Any] = []
-    partial_errors: list[str] = []
-    fetch_limit = offset + limit
-
-    for integration in integrations:
-        provider = get_provider(integration)
-        try:
-            try:
-                _ensure_alert_capability(provider, CAP_ALERTS_LIST)
-            except ProviderError as exc:
-                partial_errors.append(f"{integration.name}: {exc.message}")
-                continue
-            alerts_page = _normalize_alert_page(
-                provider.list_alerts(limit=fetch_limit, offset=0, **filters),
-                limit=fetch_limit,
-                offset=0,
-            )
-            total += alerts_page.total
-            merged_items.extend(alerts_page.items)
-        except ValueError as exc:
-            raise ApiError(
-                "integration.filter_invalid",
-                400,
-                messages={
-                    "pt": "{error}",
-                    "en": "{error}",
-                    "es": "{error}",
-                },
-                params={"error": str(exc)},
-            ) from exc
-        except ProviderError as exc:
-            logger.warning("Aggregated alerts failed for integration %s: %s", integration.id, exc)
-            partial_errors.append(f"{integration.name}: {exc.message}")
-        except Exception as exc:
-            partial_errors.append(_safe_provider_error(integration, exc))
-        finally:
-            provider.close()
-
-    merged_items.sort(key=lambda item: ((item.timestamp or ""), item.alert_id), reverse=True)
-    page_items = merged_items[offset : offset + limit]
-
-    return schemas.AggregatedAlertListResponse(
-        items=[_serialize_alert(alert) for alert in page_items],
-        total=total,
-        limit=limit,
-        offset=offset,
-        has_more=offset + len(page_items) < total,
-        partial_errors=partial_errors,
-        is_sampled=bool(partial_errors),
-    )
 
 
 # ── CRUD endpoints ────────────────────────────────────────────────────
@@ -1984,7 +1652,7 @@ def update_integration(
 
     elif integration.platform == "wazuh":
         # configured-check vem do store (sem fallback api_* legado).
-        # Indexer é OBRIGATÓRIO (fonte de alertas/detecções/queries).
+        # Indexer é OBRIGATÓRIO (fonte de detecções/consultas — wazuh-alerts-*).
         # Manager é OPCIONAL (saúde + inventário de agentes) — mas se fornecido,
         # username + password são exigidos (proibido Manager parcial).
         final_indexer_url = payload["indexer_url"] if "indexer_url" in payload else integration.indexer_url
@@ -2294,182 +1962,6 @@ def get_health(
         provider.close()
 
 
-# ── Alerts ────────────────────────────────────────────────────────────
-
-@router.get("/{integration_id}/alerts", response_model=schemas.AlertListResponse)
-def list_alerts(
-    integration_id: int,
-    limit: int = Query(default=100, le=1000),
-    offset: int = Query(default=0, ge=0),
-    index: str | None = Query(default=None, max_length=200),
-    severity: str | None = None,
-    level: str | None = None,
-    hostname: str | None = None,
-    agent_id: str | None = None,
-    rule_id: str | None = None,
-    rule_group: str | None = None,
-    decoder: str | None = None,
-    src_ip: str | None = None,
-    dst_ip: str | None = None,
-    username: str | None = None,
-    description: str | None = None,
-    description_mode: str | None = Query(default="smart"),
-    query: str | None = None,
-    time_from: str | None = None,
-    time_to: str | None = None,
-    request: Request = None,  # type: ignore[assignment]
-    db: Session = Depends(database.get_session),
-    repo: repository.IntegrationRepository = Depends(get_repo),
-    current_user: models.AppUser = Depends(app_auth.require_authenticated_user),
-):
-    integration = _get_integration_or_404(repo, integration_id)
-    _ensure_integration_access(current_user, integration, require_active=True)
-    # free-text `query` = hunt ao vivo → exige QUERY_RUN.
-    _ensure_query_run_if_freetext(request, current_user, query)
-
-    filters = _collect_alert_filters(
-        index=index,
-        severity=severity,
-        level=level,
-        hostname=hostname,
-        agent_id=agent_id,
-        rule_id=rule_id,
-        rule_group=rule_group,
-        decoder=decoder,
-        src_ip=src_ip,
-        dst_ip=dst_ip,
-        username=username,
-        description=description,
-        description_mode=description_mode,
-        query=query,
-        time_from=time_from,
-        time_to=time_to,
-    )
-    _log_alert_filter_usage(scope="integration", integration_count=1, filters=filters)
-    provider = get_provider(integration)
-    try:
-        _ensure_alert_capability(provider, CAP_ALERTS_LIST)
-        try:
-            alerts_page = _normalize_alert_page(
-                provider.list_alerts(
-                    limit=limit,
-                    offset=offset,
-                    **filters,
-                ),
-                limit=limit,
-                offset=offset,
-            )
-        except ValueError as exc:
-            raise ApiError(
-                "integration.filter_invalid",
-                400,
-                messages={
-                    "pt": "{error}",
-                    "en": "{error}",
-                    "es": "{error}",
-                },
-                params={"error": str(exc)},
-            ) from exc
-        except Exception as exc:
-            logger.warning("Alert list failed for integration %s: %s", integration.id, exc)
-            raise
-        items = [_serialize_alert(alert) for alert in alerts_page.items]
-        return schemas.AlertListResponse(
-            items=items,
-            total=alerts_page.total,
-            limit=alerts_page.limit,
-            offset=alerts_page.offset,
-            has_more=alerts_page.has_more,
-        )
-    except ProviderError as exc:
-        return _provider_error_response(exc, integration=integration, operation="list_alerts")
-    finally:
-        provider.close()
-
-
-@router.get("/{integration_id}/alerts/{alert_id}", response_model=schemas.AlertDetailRead)
-def get_alert(
-    integration_id: int,
-    alert_id: str,
-    index: str | None = Query(default=None, max_length=200),
-    db: Session = Depends(database.get_session),
-    repo: repository.IntegrationRepository = Depends(get_repo),
-    current_user: models.AppUser = Depends(app_auth.require_authenticated_user),
-):
-    integration = _get_integration_or_404(repo, integration_id)
-    _ensure_integration_access(current_user, integration, require_active=True)
-
-    provider = get_provider(integration)
-    try:
-        _ensure_alert_capability(provider, CAP_ALERTS_DETAIL)
-        alert = provider.get_alert(alert_id, **_collect_alert_filters(
-            index=index,
-            severity=None,
-            level=None,
-            hostname=None,
-            agent_id=None,
-            rule_id=None,
-            rule_group=None,
-            decoder=None,
-            src_ip=None,
-            dst_ip=None,
-            username=None,
-            description=None,
-            description_mode=None,
-            query=None,
-            time_from=None,
-            time_to=None,
-        ))
-        if not alert:
-            return _provider_error_response(
-                ProviderNotFoundError("Alert not found", code="ALERT_NOT_FOUND"),
-                integration=integration,
-                operation="get_alert",
-            )
-        return _serialize_alert_detail(alert)
-    except ProviderError as exc:
-        return _provider_error_response(exc, integration=integration, operation="get_alert")
-    finally:
-        provider.close()
-
-
-@router.post("/{integration_id}/alerts/search", response_model=schemas.AlertListResponse)
-def search_alerts(
-    integration_id: int,
-    query: str,
-    limit: int = Query(default=100, le=1000),
-    index: str | None = Query(default=None, max_length=200),
-    db: Session = Depends(database.get_session),
-    repo: repository.IntegrationRepository = Depends(get_repo),
-    # query/hunt free-text AO VIVO na fonte do cliente
-    # custa $ e toca o tenant — exige QUERY_RUN (tira viewer). NÃO basta autenticação.
-    current_user: models.AppUser = Depends(app_auth.require_permission(app_auth.Permission.QUERY_RUN)),
-):
-    integration = _get_integration_or_404(repo, integration_id)
-    _ensure_integration_access(current_user, integration, require_active=True)
-
-    provider = get_provider(integration)
-    try:
-        _ensure_alert_capability(provider, CAP_ALERTS_SEARCH)
-        alerts_page = _normalize_alert_page(
-            provider.search_alerts(query, limit=limit, index=index),
-            limit=limit,
-            offset=0,
-        )
-        items = [_serialize_alert(alert) for alert in alerts_page.items]
-        return schemas.AlertListResponse(
-            items=items,
-            total=alerts_page.total,
-            limit=alerts_page.limit,
-            offset=alerts_page.offset,
-            has_more=alerts_page.has_more,
-        )
-    except ProviderError as exc:
-        return _provider_error_response(exc, integration=integration, operation="search_alerts")
-    finally:
-        provider.close()
-
-
 # ── Overview (unified summary for an integration) ─────────────────────
 
 @router.get("/{integration_id}/overview", response_model=schemas.IntegrationOverviewRead)
@@ -2501,51 +1993,6 @@ def get_integration_overview(
                 "manager_status": None,
                 "indexer_status": None,
             }
-
-        # Recent alerts — gateado puro pela capability. wazuh
-        # declara alerts:list como SUPORTE; indexer ausente surfacia erro de
-        # config no call-time abaixo (não some silenciosamente).
-        if CAP_ALERTS_LIST in provider.capabilities():
-            try:
-                _ensure_alert_capability(provider, CAP_ALERTS_LIST)
-            except ProviderError as exc:
-                overview["alerts_preview"] = None
-                overview["alerts_preview_error"] = _provider_error_payload(
-                    exc,
-                    integration_id=integration.id,
-                )["error"]
-            else:
-                try:
-                    alerts_page = _normalize_alert_page(provider.list_alerts(limit=5), limit=5, offset=0)
-                    overview["alerts_preview"] = {
-                        "items": [
-                            {
-                                "alert_id": a.alert_id,
-                                "title": a.title,
-                                "severity": a.severity,
-                                "timestamp": a.timestamp,
-                                "hostname": a.hostname,
-                                "rule_id": a.rule_id,
-                                "source_index": a.source_index,
-                            }
-                            for a in alerts_page.items
-                        ],
-                    }
-                    overview["alerts_preview_error"] = None
-                except ProviderError as exc:
-                    overview["alerts_preview"] = None
-                    overview["alerts_preview_error"] = _provider_error_payload(
-                        exc,
-                        integration_id=integration.id,
-                    )["error"]
-                except Exception:
-                    overview["alerts_preview"] = None
-                    overview["alerts_preview_error"] = {
-                        "code": "INDEXER_QUERY_FAILED",
-                        "message": "Failed to load alerts preview",
-                        "integration_id": integration.id,
-                        "details": {},
-                    }
 
         # Licensed products — gateado pela capability licensing:list.
         # SophosProvider só a declara p/ child tenant (kind=tenant com
