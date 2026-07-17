@@ -292,3 +292,38 @@ def test_worker_init_warms_edition_cache():
         assert edition._cached_feature_set.edition == edition.COMMUNITY
     finally:
         root.handlers[:], root.level = saved_handlers, saved_level
+
+
+def test_worker_process_init_disposes_db_pool_for_fork_safety(monkeypatch):
+    """Regressão (incidente prod v2.0.0): o ``worker_process_init`` (por filho
+    prefork, após o fork) DEVE descartar o pool de DB herdado do pai.
+
+    O ``worker_init`` roda no PAI e chama ``edition.refresh()``, que abre uma
+    conexão psycopg2 no pool ANTES do fork. Sem o dispose por-filho, dois filhos
+    disputam o MESMO socket → ``error with status PGRES_TUPLES_OK and no message
+    from the libpq`` / ``ResourceClosedError`` no meio de um selectinload. O
+    dispose usa ``close=False`` para NÃO fechar os fds do pai (padrão SQLAlchemy
+    p/ os.fork())."""
+    import logging as _logging
+
+    from celery.signals import worker_process_init
+
+    from backend.app.db import database
+    import backend.app.collectors.celery_app  # noqa: F401 — registra o receiver
+
+    calls: list[dict] = []
+    monkeypatch.setattr(database.engine, "dispose", lambda **kw: calls.append(kw))
+
+    # worker_process_init também toca logging/OTel (no-op com OTEL off) — preserva
+    # os handlers do root logger, como no teste do worker_init acima.
+    root = _logging.getLogger()
+    saved_handlers, saved_level = root.handlers[:], root.level
+    try:
+        worker_process_init.send(sender=None)
+    finally:
+        root.handlers[:], root.level = saved_handlers, saved_level
+
+    assert calls, "worker_process_init não chamou engine.dispose() — fork sem fork-safety"
+    assert calls[-1].get("close") is False, (
+        "engine.dispose deve usar close=False (não fechar os fds do processo pai)"
+    )

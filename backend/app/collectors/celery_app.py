@@ -452,6 +452,24 @@ try:
 
     @worker_process_init.connect
     def _warm_dispatch_runtime(**_kwargs) -> None:  # type: ignore[no-redef]
+        # ── Fork-safety do pool de DB (CRÍTICO) ─────────────────────────────
+        # O ``worker_init`` roda 1× no PAI e chama ``edition.refresh()``, que ABRE
+        # uma conexão psycopg2 no pool ANTES do fork. Os filhos prefork HERDAM esse
+        # MESMO socket TCP; dois filhos usando a mesma conexão corrompem o estado do
+        # libpq → ``error with status PGRES_TUPLES_OK and no message from the libpq``
+        # / ``ResourceClosedError`` no meio de um selectinload (a coleta falha em
+        # loop). ``dispose(close=False)`` descarta o pool HERDADO SEM fechar os fds
+        # do pai — cada filho passa a abrir conexões próprias. É o padrão oficial do
+        # SQLAlchemy para ``os.fork()`` (pool_pre_ping NÃO cobre isto: ambos os
+        # filhos passam no ping e ainda assim disputam o mesmo socket). Roda ANTES
+        # de qualquer uso de DB do filho (a 1ª query só ocorre dentro de uma task).
+        try:
+            from ..db import database
+
+            database.engine.dispose(close=False)
+        except Exception:  # pragma: no cover — nunca derruba o boot do filho
+            logger.warning("Falha ao descartar o pool de DB no fork do worker", exc_info=True)
+
         from .dispatch_runtime import _persistent_enabled, warmup_runtime
 
         # Monta o SDK OTel POR filho prefork (nunca no pai —
