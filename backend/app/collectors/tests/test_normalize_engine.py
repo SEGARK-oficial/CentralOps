@@ -1625,3 +1625,55 @@ def test_raw_reduction_invalid_spec_rejected() -> None:
             },
             2,
         )
+
+
+# ── Regressão: default não passa por pre_cast/value_map ────────────────────
+# Bug (E2E 02-dry-run-live): uma regra com `value_map` + `pre_cast: lowercase` e
+# um `default` NÃO-string (int) derrubava o EVENTO INTEIRO quando o source estava
+# ausente — o default int chegava ao lowercase (`espera str, recebeu int`) →
+# MappingError → sample descartado → envelope sem class_uid. O default é o valor de
+# saída final, então pula pre_cast + value_map (mas ainda passa por type_cast).
+def _status_id_rule(default):
+    return {
+        "target": "normalized.status_id",
+        "source": "status",
+        "pre_cast": "lowercase",
+        "value_map": {"open": 1, "new": 1, "closed": 4},
+        "default": default,
+    }
+
+
+def test_int_default_bypasses_lowercase_pre_cast_no_crash() -> None:
+    # source ausente → default int 1 → NÃO deve levantar (bypass do pre_cast).
+    compiled = compile_rules({"preprocess": [], "rules": [_status_id_rule(1)]}, 2)
+    res = apply_compiled(compiled, {})  # sem `status`
+    assert res.output["normalized"]["status_id"] == 1
+
+
+def test_int_default_bypasses_value_map_emits_default_as_is() -> None:
+    # default int NÃO é usado como chave crua do value_map — sai como está.
+    compiled = compile_rules({"preprocess": [], "rules": [_status_id_rule(1)]}, 2)
+    assert apply_compiled(compiled, {}).output["normalized"]["status_id"] == 1
+
+
+def test_pre_cast_and_value_map_still_apply_when_source_present() -> None:
+    # Com source presente, pre_cast (lowercase) + value_map continuam aplicando.
+    compiled = compile_rules({"preprocess": [], "rules": [_status_id_rule(1)]}, 2)
+    res = apply_compiled(compiled, {"status": "CLOSED"})
+    assert res.output["normalized"]["status_id"] == 4  # lowercase→"closed"→4
+
+
+def test_dry_run_style_sample_normalizes_with_class_uid() -> None:
+    # Reproduz o cenário do dry-run E2E: class_uid const + status_id ausente com
+    # default int não pode mais quarentenar o evento.
+    rules = {
+        "preprocess": [],
+        "rules": [
+            {"target": "normalized.class_uid", "const": 2004, "required": True},
+            _status_id_rule(1),
+        ],
+    }
+    compiled = compile_rules(rules, 2)
+    out = apply_compiled(compiled, {"id": "x"}).output  # sem `status`
+    assert out["normalized"]["class_uid"] == 2004
+    assert out["normalized"]["status_id"] == 1

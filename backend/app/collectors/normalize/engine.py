@@ -814,11 +814,13 @@ def apply_compiled(
             for fb_str in rule.fallback_source_strs:
                 consumed.add(f"source:{fb_str}")
 
+        used_default = False
         if rule.default is not _MISSING:
             # contabiliza default hits ANTES de aplicar o fallback.
             # Somente scalar rules com default — array_builder é excluído acima.
             if value is None:
                 _default_hits.append(rule.target)
+                used_default = True
             value = apply_default(value, rule.default)
 
         # Resiliência temporal: fallback de ingestão. Aplicado após source +
@@ -833,8 +835,16 @@ def apply_compiled(
             value = ingest_time_epoch
             _ingest_fallback.append(rule.target)
 
-        # pre_cast: normaliza tipo ANTES do value_map.
-        if rule.pre_cast and value is not None:
+        # pre_cast + value_map: aplicados ao valor resolvido do SOURCE — NÃO a um
+        # valor vindo do ``default``. O ``default`` é o fallback FINAL escolhido
+        # pelo operador (já na forma de saída), não um source cru a normalizar:
+        # aplicar um pre_cast de string (lowercase/uppercase/trim) a um ``default``
+        # int/não-string levantaria OperatorError → MappingError → o evento INTEIRO
+        # seria descartado/quarentenado (bug: um status_id ausente com default 1
+        # derrubava a normalização toda). value_map também é pulado — o default já é
+        # o valor de saída, não uma chave crua a mapear. ``type_cast`` (pós-value_map,
+        # abaixo) SEGUE aplicando: um default pode legitimamente precisar de coerção.
+        if rule.pre_cast and value is not None and not used_default:
             try:
                 value = apply_type_cast(value, rule.pre_cast)
             except OperatorError as exc:
@@ -845,7 +855,7 @@ def apply_compiled(
         if value is None and rule.required:
             raise MappingRequiredFieldError(rule.target)
 
-        if rule.value_map is not None and value is not None:
+        if rule.value_map is not None and value is not None and not used_default:
             try:
                 value = apply_value_map(value, rule.value_map)
             except OperatorError as exc:
