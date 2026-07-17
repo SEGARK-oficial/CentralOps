@@ -72,7 +72,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
 
       # Match the Python version used in production and in the security workflow.
       # Python 3.12 via pyenv do runner. actions/setup-python não enxerga o
@@ -146,7 +146,7 @@ jobs:
       # Retained 90 days to cover typical sprint/review cycles.
       - name: Upload benchmark results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: benchmark-results-${{ github.sha }}
           path: backend/new_baseline.json
@@ -172,7 +172,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
 
       # Python 3.12 via pyenv do runner. actions/setup-python não enxerga o
       # pyenv (baixa pro tool-cache próprio, inexistente neste runner). Requer
@@ -202,7 +202,7 @@ jobs:
             --benchmark-json=app/collectors/tests/benchmarks/baseline.json
 
       - name: Upload regenerated baseline
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: repinned-baseline-${{ github.sha }}
           path: backend/app/collectors/tests/benchmarks/baseline.json

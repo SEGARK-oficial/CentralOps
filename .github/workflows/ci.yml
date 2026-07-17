@@ -63,10 +63,10 @@ jobs:
       # ANTES do checkout — auto-cura sem intervenção manual nas LXC.
       - name: Fix leftover workspace ownership (self-hosted)
         run: sudo chown -R "$(id -u):$(id -g)" "$GITHUB_WORKSPACE" 2>/dev/null || true
-      - uses: actions/checkout@v4
-      - uses: docker/setup-buildx-action@v3
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
       - name: Log in to GHCR
-        uses: docker/login-action@v3
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
@@ -82,7 +82,7 @@ jobs:
       # `final` faz COPY --from=backend-test → este build COMPILA o Cython e roda
       # a suíte pytest. Build verde == unit tests passaram (o gate, como hoje).
       - name: Build + push API image (final — compile + unit-test gate)
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
         with:
           context: .
           file: compose/Dockerfile
@@ -97,7 +97,7 @@ jobs:
           provenance: mode=max
 
       - name: Build + push frontend image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
         with:
           context: .
           file: compose/Dockerfile
@@ -123,7 +123,7 @@ jobs:
       # ANTES do checkout — auto-cura sem intervenção manual nas LXC.
       - name: Fix leftover workspace ownership (self-hosted)
         run: sudo chown -R "$(id -u):$(id -g)" "$GITHUB_WORKSPACE" 2>/dev/null || true
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
       - name: Run -m pg tests against real Postgres
         run: |
           set -euo pipefail
@@ -169,8 +169,8 @@ jobs:
       # ANTES do checkout — auto-cura sem intervenção manual nas LXC.
       - name: Fix leftover workspace ownership (self-hosted)
         run: sudo chown -R "$(id -u):$(id -g)" "$GITHUB_WORKSPACE" 2>/dev/null || true
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: "20"
           cache: "npm"
@@ -178,7 +178,7 @@ jobs:
             frontend/package-lock.json
             e2e/package-lock.json
       - name: Cache Playwright browsers
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         id: playwright-cache
         with:
           path: ~/.cache/ms-playwright
@@ -194,7 +194,7 @@ jobs:
         run: npx playwright install chromium --with-deps
 
       - name: Log in to GHCR
-        uses: docker/login-action@v3
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
@@ -243,7 +243,7 @@ jobs:
           BASE_URL: http://localhost:3000
           CI: true
       - name: Upload storageStates
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: auth-states
           path: e2e/.auth/
@@ -274,8 +274,8 @@ jobs:
       # ANTES do checkout — auto-cura sem intervenção manual nas LXC.
       - name: Fix leftover workspace ownership (self-hosted)
         run: sudo chown -R "$(id -u):$(id -g)" "$GITHUB_WORKSPACE" 2>/dev/null || true
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: "20"
           cache: "npm"
@@ -283,7 +283,7 @@ jobs:
             frontend/package-lock.json
             e2e/package-lock.json
       - name: Cache Playwright browsers
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         id: playwright-cache
         with:
           path: ~/.cache/ms-playwright
@@ -298,12 +298,12 @@ jobs:
         working-directory: e2e
         run: npx playwright install chromium --with-deps
       - name: Download storageStates
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           name: auth-states
           path: e2e/.auth/
       - name: Log in to GHCR
-        uses: docker/login-action@v3
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
@@ -346,7 +346,7 @@ jobs:
           CI: true
       - name: Upload relatório (falha)
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: playwright-report-shard-${{ matrix.shard }}
           path: e2e/playwright-report/
@@ -354,7 +354,7 @@ jobs:
           if-no-files-found: ignore
       - name: Upload artefatos (falha)
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: test-results-shard-${{ matrix.shard }}
           path: e2e/test-results/
@@ -382,12 +382,12 @@ jobs:
       id-token: write # cosign keyless (OIDC)
     steps:
       - name: Log in to GHCR
-        uses: docker/login-action@v3
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - uses: docker/setup-buildx-action@v3
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
 
       # GATE: escaneia a imagem JÁ TESTADA ANTES de promover. CRITICAL/HIGH
       # fixável bloqueia a promoção (exit-code 1) — diferente do report-only antigo.
@@ -409,7 +409,7 @@ jobs:
           exit-code: "1"
 
       - name: Install cosign
-        uses: sigstore/cosign-installer@v3
+        uses: sigstore/cosign-installer@7e8b541eb2e61bf99390e1afd4be13a184e9ebc5 # v3.10.1
 
       - name: Promote (retag tested image) + cosign sign
         env:

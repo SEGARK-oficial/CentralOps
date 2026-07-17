@@ -33,7 +33,7 @@ jobs:
       # Checkout com histórico COMPLETO: precisamos do range base..head para
       # enumerar os commits do PR (fetch-depth: 0 traz todo o histórico).
       - name: Checkout (histórico completo)
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
         with:
           fetch-depth: 0
 

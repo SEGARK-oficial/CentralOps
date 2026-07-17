@@ -42,7 +42,9 @@ jobs:
     runs-on: ubuntu-latest # só chama a API do GitHub — não precisa do runner self-hosted
     steps:
       - name: Container retention policy
-        uses: snok/container-retention-policy@v3.0.0
+        # Pinada por SHA (não @v3.0.0 — tags são mutáveis). Action de 3º com
+        # `packages: write` que DELETA versões de package — pin por SHA é obrigatório.
+        uses: snok/container-retention-policy@4f22ef80902ad409ed55a99dc5133cc1250a0d03 # v3.0.0
         with:
           account: ${{ github.repository_owner }}
           token: ${{ secrets.GITHUB_TOKEN }}

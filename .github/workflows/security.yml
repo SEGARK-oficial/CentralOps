@@ -11,7 +11,7 @@ jobs:
   pip-audit:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
 
       # Usa o Python 3.12 provisionado no runner via pyenv. actions/setup-python
       # NÃO enxerga o pyenv (baixa pro tool-cache próprio, inexistente neste
