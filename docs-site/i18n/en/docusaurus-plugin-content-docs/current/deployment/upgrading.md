@@ -1,20 +1,31 @@
 ---
 sidebar_position: 4
 title: Upgrade to a newer version
-description: "Step by step to move CentralOps from one version to the latest (e.g. 1.1.0 → 1.2.0) — the generic mechanics on Compose and Helm, the idempotent boot migration, verification and rollback — plus the 1.2.0 release notes."
+description: "Step by step to move CentralOps from one version to the latest (e.g. 1.1.0 → 2.0.0) — the generic mechanics on Compose and Helm, the idempotent boot migration, verification and rollback — plus the 2.0.0 release notes."
 ---
 
 # Upgrade to a newer version
 
-Moving from one **version** to the latest (e.g. `1.0.1` or `1.1.0` → `1.2.0`) is a
+Moving from one **version** to the latest (e.g. `1.1.0` → `2.0.0`) is, mechanically, a
 routine operation: you swap the **image tag**, pull the new image and recreate the
 services. There is no reinstall, no manual migration step, and your **data is
 preserved**. This page covers the generic mechanics (they apply to any version) and, at
 the end, the **release notes** with what changes in each release.
 
+:::danger[2.0.0 is a major with a breaking change]
+
+**2.0.0** bumps the **major** on purpose: it **removes the Alerts surface** (the `/alerts`
+route, the alerts API endpoints, the `v1` Accept path of `/dashboard/summary`, and the MCP
+`list_integration_alerts` tool). **Data and schema are preserved** — what changes is the
+**read contract**. If you have bookmarks, automations or integrations hitting those paths,
+**migrate them before upgrading** (details in [Release notes → 2.0.0](#200)). Sophos/Wazuh
+alert **ingestion** does not change.
+
+:::
+
 :::note[This is different from "Upgrade to Enterprise"]
 
-This page is about moving up a **version** (e.g. `1.1.0` → `1.2.0`), within the same
+This page is about moving up a **version** (e.g. `1.1.0` → `2.0.0`), within the same
 edition. To change **edition** — Community → Enterprise, activating the MSSP modules with
 your license — see **[Upgrade to Enterprise](../editions/upgrade.md)**. The two processes
 are independent: you upgrade the version of a Community or Enterprise stack in exactly the
@@ -38,8 +49,8 @@ Each release's images get two tags — a **moving** one (tracks the version) and
 
 | Edition | Release tag (moving) | Immutable tag (pin in production) | Extra tag |
 |---|---|---|---|
-| **Community** | `vX.Y.Z` — e.g. `v1.2.0` | `sha-<shortsha>` — e.g. `sha-a1b2c3d` | — |
-| **Enterprise** | `vX.Y.Z-ee` — e.g. `v1.2.0-ee` | `vX.Y.Z-ee.<sha>` — e.g. `v1.2.0-ee.9f8e7d6` | `core-<coresha>` |
+| **Community** | `vX.Y.Z` — e.g. `v2.0.0` | `sha-<shortsha>` — e.g. `sha-a1b2c3d` | — |
+| **Enterprise** | `vX.Y.Z-ee` — e.g. `v2.0.0-ee` | `vX.Y.Z-ee.<sha>` — e.g. `v2.0.0-ee.9f8e7d6` | `core-<coresha>` |
 
 - The **release tag** is great for tracking the version, but it can be re-published — bad
   for reproducibility.
@@ -77,8 +88,8 @@ There is no local build — the images come ready from the registry.
 On an Enterprise stack, swap **both** EE images in `compose/.env`:
 
 ```dotenv
-CENTRALOPS_EE_IMAGE=ghcr.io/segark-oficial/centralops-ee:v1.2.0-ee.9f8e7d6
-CENTRALOPS_WEB_EE_IMAGE=ghcr.io/segark-oficial/centralops-ee-frontend:v1.2.0-ee.9f8e7d6
+CENTRALOPS_EE_IMAGE=ghcr.io/segark-oficial/centralops-ee:v2.0.0-ee.9f8e7d6
+CENTRALOPS_WEB_EE_IMAGE=ghcr.io/segark-oficial/centralops-ee-frontend:v2.0.0-ee.9f8e7d6
 ```
 
 And recreate **always with both files** (`-f` base + `-f` EE overlay):
@@ -116,9 +127,9 @@ helm upgrade centralops kubernetes/helm/centralops -n centralops \
 ```bash
 helm upgrade centralops kubernetes/helm/centralops -n centralops \
   --set image.repository=ghcr.io/segark-oficial/centralops-ee \
-  --set image.tag=v1.2.0-ee.9f8e7d6 \
+  --set image.tag=v2.0.0-ee.9f8e7d6 \
   --set frontendImage.repository=ghcr.io/segark-oficial/centralops-ee-frontend \
-  --set frontendImage.tag=v1.2.0-ee.9f8e7d6 \
+  --set frontendImage.tag=v2.0.0-ee.9f8e7d6 \
   --reuse-values
 ```
 
@@ -194,13 +205,17 @@ are additive.
 Each version adds a section here. Read the one for your target version **before**
 upgrading.
 
-### 1.2.0
+### 2.0.0
+
+**2.0.0** is a **major**: it removes the Alerts surface — that is why the jump from `1.x`
+to `2.0`. It is the **only** compatibility-breaking change; everything else is features,
+fixes and performance improvements (no action required).
 
 :::danger[Breaking: the Alerts surface has been REMOVED]
 
-The **Alerts** area has been **removed entirely** in this version. Because the change
-landed as a *refactor* (without a *breaking change* marker), it **does not appear in the
-automatic changelog** — this guide is the only heads-up. What goes away:
+The **Alerts** area has been **removed entirely** in this version. The change **is** in the
+automatic changelog (marked as `⚠ BREAKING CHANGE`) — it is what made the release become
+`2.0.0`. What goes away:
 
 - The **`/alerts`** route no longer exists (old bookmarks → **404**).
 - The **alerts API endpoints** were removed.
@@ -218,6 +233,18 @@ change** — only the "alerts" read surface is gone.
 
 :::
 
+**New (nothing to configure — already on):**
+
+- **Robust CSV export from Federated search**, with localized labels (PT/EN/ES) — under
+  **Operations → Investigations**.
+- **A `/flow` map that scales.** The **Data flow** view (Operations → Data flow)
+  collapses dense columns into an expandable **"+N"** node and fits itself to the screen
+  (fit-to-view), with path highlight on hover — readable even with dozens of
+  sources/routes/destinations.
+- **Readable route-condition labels.** In the route editor, condition operators show
+  human, localized names instead of the raw label.
+- **Wazuh detection-mapping validation** + a fix for a missing seed definition.
+
 **Cost metering on by default.** `COST_METERING_ENABLED` now defaults to **`true`**. As a
 result, the **"Volume & cost reduction"** card starts showing up under **Operations →
 Data flow**: on Community it shows the volume, the percentage and the bytes saved; on
@@ -226,10 +253,18 @@ destination). To turn it off, set `COST_METERING_ENABLED=false`.
 
 **Operational fixes** (informational — nothing to do):
 
-- Collectors no longer enter a **RedBeat crash-loop** (lock and loop-cap fixed).
-- The **collection soft-timeout** no longer poisons the database connection pool.
-- An **empty `SESSION_SECURE_COOKIE`** no longer breaks boot.
+- Collectors no longer enter a **RedBeat crash-loop** (lock, loop-cap and idempotent
+  scheduler registration fixed). See also **Observability** (Operations → Observability)
+  to track Beat health.
+- The **collection soft-timeout** no longer poisons the database connection pool (pool
+  disposal + early initialization avoid `UnboundLocalError`).
+- An **empty `SESSION_SECURE_COOKIE`** no longer breaks boot; OCSF resource path anchoring
+  was fixed.
+- **Service account (shim) IDs** are sanitized — no more FK violations in audit/mapping.
 - **OCSF validation** runs again on the compiled image.
+
+**Performance:** ingestion volume metering is now **batched** (`InVolumeAccumulator`),
+cutting Redis I/O latency on the hot path.
 
 **New mapping defaults.** This version seeds default definitions for **Wazuh** and for
 **CrowdStrike, Entra ID, Okta and CloudTrail**. They only fill **empty definitions** —

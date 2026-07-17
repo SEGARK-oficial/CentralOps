@@ -58,6 +58,7 @@ const sidebars: SidebarsConfig = {
         'operations/detections',
         'operations/correlation-rules',
         'operations/pipeline-health',
+        'operations/observability',
         'operations/history-audit',
       ],
     },

@@ -1,20 +1,31 @@
 ---
 sidebar_position: 4
 title: Atualizar de versão
-description: "Passo a passo para atualizar o CentralOps de uma versão para a mais recente (ex.: 1.1.0 → 1.2.0) — mecânica genérica no Compose e no Helm, migração idempotente no boot, verificação e rollback — mais as notas da versão 1.2.0."
+description: "Passo a passo para atualizar o CentralOps de uma versão para a mais recente (ex.: 1.1.0 → 2.0.0) — mecânica genérica no Compose e no Helm, migração idempotente no boot, verificação e rollback — mais as notas da versão 2.0.0, que traz uma mudança que quebra compatibilidade."
 ---
 
 # Atualizar de versão
 
-Subir de uma **versão** para a mais recente (ex.: `1.0.1` ou `1.1.0` → `1.2.0`) é uma
+Subir de uma **versão** para a mais recente (ex.: `1.1.0` → `2.0.0`) é, na mecânica, uma
 operação de rotina: você troca a **tag da imagem**, puxa a nova imagem e recria os
 serviços. Não há reinstalação, não há passo manual de migração, e os **dados são
 preservados**. Esta página cobre a mecânica genérica (vale para qualquer versão) e traz,
 no fim, as **Notas da versão** com o que muda em cada release.
 
+:::danger[2.0.0 é um major com *breaking change*]
+
+A **2.0.0** sobe o número **maior** de propósito: ela **remove a superfície de Alertas**
+(rota `/alerts`, endpoints de alerts da API, o Accept `v1` de `/dashboard/summary` e a
+ferramenta MCP `list_integration_alerts`). **Os dados e o schema são preservados** — o que
+muda é o **contrato de leitura**. Se você tem bookmarks, automações ou integrações que
+batem nesses caminhos, **migre-as antes de atualizar** (detalhes em
+[Notas da versão → 2.0.0](#200)). A **ingestão** de alertas Sophos/Wazuh **não muda**.
+
+:::
+
 :::note[Isto é diferente de "Atualizar de edição"]
 
-Esta página trata de subir de **versão** (ex.: `1.1.0` → `1.2.0`), dentro da mesma
+Esta página trata de subir de **versão** (ex.: `1.1.0` → `2.0.0`), dentro da mesma
 edição. Para trocar de **edição** — Community → Enterprise, ativando os módulos MSSP com
 a sua licença — veja **[Upgrade para Enterprise](../editions/upgrade.md)**. Os dois
 processos são independentes: você atualiza a versão de uma stack Community ou Enterprise
@@ -38,8 +49,8 @@ As imagens de cada release recebem duas tags — uma **móvel** (acompanha a ver
 
 | Edição | Tag de release (móvel) | Tag imutável (fixe em produção) | Tag extra |
 |---|---|---|---|
-| **Community** | `vX.Y.Z` — ex.: `v1.2.0` | `sha-<shortsha>` — ex.: `sha-a1b2c3d` | — |
-| **Enterprise** | `vX.Y.Z-ee` — ex.: `v1.2.0-ee` | `vX.Y.Z-ee.<sha>` — ex.: `v1.2.0-ee.9f8e7d6` | `core-<coresha>` |
+| **Community** | `vX.Y.Z` — ex.: `v2.0.0` | `sha-<shortsha>` — ex.: `sha-a1b2c3d` | — |
+| **Enterprise** | `vX.Y.Z-ee` — ex.: `v2.0.0-ee` | `vX.Y.Z-ee.<sha>` — ex.: `v2.0.0-ee.9f8e7d6` | `core-<coresha>` |
 
 - A **tag de release** é ótima para acompanhar a versão, mas pode ser re-publicada — ruim
   para reprodutibilidade.
@@ -76,8 +87,8 @@ Não há build local — as imagens já vêm prontas do registry.
 Numa stack Enterprise, troque as **duas** imagens EE em `compose/.env`:
 
 ```dotenv
-CENTRALOPS_EE_IMAGE=ghcr.io/segark-oficial/centralops-ee:v1.2.0-ee.9f8e7d6
-CENTRALOPS_WEB_EE_IMAGE=ghcr.io/segark-oficial/centralops-ee-frontend:v1.2.0-ee.9f8e7d6
+CENTRALOPS_EE_IMAGE=ghcr.io/segark-oficial/centralops-ee:v2.0.0-ee.9f8e7d6
+CENTRALOPS_WEB_EE_IMAGE=ghcr.io/segark-oficial/centralops-ee-frontend:v2.0.0-ee.9f8e7d6
 ```
 
 E recrie **sempre com os dois arquivos** (`-f` base + `-f` overlay EE):
@@ -115,9 +126,9 @@ helm upgrade centralops kubernetes/helm/centralops -n centralops \
 ```bash
 helm upgrade centralops kubernetes/helm/centralops -n centralops \
   --set image.repository=ghcr.io/segark-oficial/centralops-ee \
-  --set image.tag=v1.2.0-ee.9f8e7d6 \
+  --set image.tag=v2.0.0-ee.9f8e7d6 \
   --set frontendImage.repository=ghcr.io/segark-oficial/centralops-ee-frontend \
-  --set frontendImage.tag=v1.2.0-ee.9f8e7d6 \
+  --set frontendImage.tag=v2.0.0-ee.9f8e7d6 \
   --reuse-values
 ```
 
@@ -194,13 +205,17 @@ schema são aditivas.
 Cada versão adiciona uma seção aqui. Leia a da sua versão de destino **antes** de
 atualizar.
 
-### 1.2.0
+### 2.0.0
+
+A **2.0.0** é um **major**: ela remove a superfície de Alertas — por isso o salto de
+`1.x` para `2.0`. É a **única** mudança que quebra compatibilidade; o resto são features,
+correções e melhorias de performance (sem ação necessária).
 
 :::danger[Breaking: a superfície de Alertas foi REMOVIDA]
 
-A área de **Alertas** foi **totalmente removida** nesta versão. Como a mudança entrou
-como *refactor* (sem marcador de *breaking change*), **não aparece no changelog
-automático** — este guia é o único aviso. O que sai:
+A área de **Alertas** foi **totalmente removida** nesta versão. A mudança **está** no
+changelog automático (marcada como `⚠ BREAKING CHANGE`) — é o que fez o release virar
+`2.0.0`. O que sai:
 
 - A rota **`/alerts`** deixa de existir (bookmarks antigos → **404**).
 - Os **endpoints de alerts da API** foram removidos.
@@ -218,6 +233,17 @@ superfície de leitura de "alertas" saiu.
 
 :::
 
+**Novidades (nada a configurar — já vêm ligadas):**
+
+- **Exportação CSV robusta da Busca federada**, com rótulos localizados (PT/EN/ES) — em
+  **Operação → Investigações**.
+- **Mapa de fluxo `/flow` que escala.** O **[Fluxo de dados](../operations/dashboard.md)**
+  agrupa colunas densas num nó **"+N"** expansível e cabe sozinho na tela (fit-to-view),
+  com realce de caminho ao passar o mouse — legível mesmo com dezenas de fontes/rotas/destinos.
+- **Rótulos de condição de rota legíveis.** No editor de rotas, os operadores de condição
+  aparecem com nomes humanos e localizados (em vez do rótulo cru).
+- **Validação de mapping de detecção do Wazuh** + correção de uma definição de seed faltante.
+
 **Metering de custo ligado por padrão.** O `COST_METERING_ENABLED` agora vem **`true`**
 por padrão. Com isso, o card **"Redução de volume & custo"** passa a aparecer em
 **Operação → Fluxo de dados**: no Community ele mostra volume, percentual e bytes
@@ -226,11 +252,19 @@ configurado em cada destino). Para desligar, defina `COST_METERING_ENABLED=false
 
 **Correções operacionais** (informativo — nada a fazer):
 
-- Os coletores não entram mais em **crash-loop de RedBeat** (lock e limite de laço
-  corrigidos).
-- O **soft-timeout de coleta** não envenena mais o pool de conexões do banco.
-- Um `SESSION_SECURE_COOKIE` **vazio** não derruba mais o boot.
+- Os coletores não entram mais em **crash-loop de RedBeat** (lock, limite de laço e
+  registro idempotente do scheduler corrigidos). Ver também
+  **[Observabilidade](../operations/observability.md)** para acompanhar a saúde do Beat.
+- O **soft-timeout de coleta** não envenena mais o pool de conexões do banco
+  (dispose do pool + inicialização adiantada evitam `UnboundLocalError`).
+- Um `SESSION_SECURE_COOKIE` **vazio** não derruba mais o boot; o ancoramento de caminho
+  do recurso OCSF foi corrigido.
+- IDs de **service account (shim)** são sanitizados — sem mais violação de FK em
+  auditoria/mapping.
 - A **validação OCSF** volta a rodar na imagem compilada.
+
+**Performance:** a medição de volume da ingestão passou a ser **em lote**
+(`InVolumeAccumulator`), reduzindo a latência de I/O no Redis do hot-path.
 
 **Novos defaults de mapping.** Esta versão seeda definições padrão para **Wazuh** e para
 **CrowdStrike, Entra ID, Okta e CloudTrail**. Elas só preenchem **definições vazias** —
