@@ -1140,6 +1140,10 @@ def _enqueue_routed(batch: list[Dict[str, Any]], routes: list[Any]) -> None:
             action = action_by_id.get(route_id, "route")
             ROUTE_EVENTS.labels(route_id=route_id, action=action).inc(count)
             _obs.record_counter("route", route_id, "matched", count)
+            # route|drop split: os eventos casados vão para o bucket da AÇÃO da rota
+            # — a UI /flow lê ``routed_per_min`` da série ``route`` e ``drop_per_min``
+            # da série ``drop``.
+            _obs.record_counter("route", route_id, action, count)
 
     # eventos amostrados PARA FORA (redução) por rota. OTel
     # (collector_events_dropped_total{reason=sample}) + série nativa da UI. getattr
@@ -1152,7 +1156,6 @@ def _enqueue_routed(batch: list[Dict[str, Any]], routes: list[Any]) -> None:
         for route_id, count in _sampled_per_route.items():
             EVENTS_DROPPED.labels(route_id=route_id, reason="sample").inc(count)
             _obs_s.record_counter("route", route_id, "events_dropped", count)
-            _obs.record_counter("route", route_id, action, count)  # route|drop split
 
     # backpressure (drop_newest): resolve o plano de entrega POR DESTINO só
     # quando a feature está ON (sem custo de DB no default). Mapeia destination_id
