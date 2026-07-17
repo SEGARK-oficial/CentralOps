@@ -7,14 +7,25 @@ on:
   push:
     tags:
       - "v*"
+  # Botão manual: (re)builda + publica AS DUAS imagens (final + frontend) de uma
+  # tag de release JÁ existente, com toda a supply-chain (SBOM + cosign + Trivy).
+  # Útil quando o publish automático de um release não gerou tudo (ex.: a tag foi
+  # criada pelo GITHUB_TOKEN do release-please → este workflow, que dispara em
+  # `push: tags`, não roda; e o job próprio do release-please só buildava a API).
+  # NÃO mexe na tag/release — só (re)publica as imagens no digest do tag.
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag de release para (re)buildar+publicar (ex.: v2.0.0)"
+        required: true
+        type: string
 
-# Cancela builds obsoletos do MESMO ref (push em main) num burst de merges —
-# só o HEAD de main precisa publicar `latest`. Em TAGS de release
-# (github.ref_type == 'tag') o cancel é FALSE: a imagem versionada NUNCA é
-# cancelada (e também é construída por release-please.yml em job próprio).
+# Cancela builds obsoletos do MESMO ref num burst de merges. Em TAGS de release e
+# no workflow_dispatch o cancel é FALSE: a imagem versionada NUNCA é cancelada no
+# meio do publish (também construída por release-please.yml em job próprio).
 concurrency:
-  group: build-publish-${{ github.ref }}
-  cancel-in-progress: ${{ github.ref_type == 'branch' }}
+  group: build-publish-${{ inputs.tag || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'push' && github.ref_type == 'branch' }}
 
 env:
   REGISTRY: ghcr.io
@@ -46,6 +57,9 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          # Na dispatch, faz checkout do TAG informado; no push de tag, o ref já é a tag.
+          ref: ${{ inputs.tag || github.ref }}
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -77,10 +91,16 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: ${{ steps.img.outputs.ref }}
+          # value= vale para os dois gatilhos: no push de tag, github.ref_name já é a
+          # tag (ex.: v2.0.0); na dispatch, é o inputs.tag. Emite vX.Y.Z + rolling
+          # vX.Y e vX (paridade com release-please.yml). `sha-` só no push de tag
+          # (na dispatch o github.sha seria o do ref de disparo, não o do tag).
           tags: |
-            type=raw,value=latest,enable=${{ github.ref_type == 'branch' && github.ref_name == github.event.repository.default_branch }}
-            type=semver,pattern=v{{version}},enable=${{ github.ref_type == 'tag' }}
-            type=sha,prefix=sha-
+            type=semver,pattern=v{{version}},value=${{ inputs.tag || github.ref_name }},enable=${{ github.ref_type == 'tag' || github.event_name == 'workflow_dispatch' }}
+            type=semver,pattern=v{{major}}.{{minor}},value=${{ inputs.tag || github.ref_name }},enable=${{ github.ref_type == 'tag' || github.event_name == 'workflow_dispatch' }}
+            type=semver,pattern=v{{major}},value=${{ inputs.tag || github.ref_name }},enable=${{ github.ref_type == 'tag' || github.event_name == 'workflow_dispatch' }}
+            type=raw,value=latest,enable=${{ github.event_name == 'push' && github.ref_type == 'branch' && github.ref_name == github.event.repository.default_branch }}
+            type=sha,prefix=sha-,enable=${{ github.ref_type == 'tag' }}
 
       - name: Build and push Docker image (${{ matrix.target }})
         id: build

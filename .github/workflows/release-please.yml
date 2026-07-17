@@ -39,9 +39,24 @@ jobs:
     permissions:
       contents: read
       packages: write
+      id-token: write       # OIDC p/ assinatura keyless (cosign)
     env:
       REGISTRY: ghcr.io
       IMAGE_NAME: ${{ github.repository }}
+    # A imagem foi dividida em DUAS — `final` (API/uvicorn) e `frontend`
+    # (nginx + SPA). O matrix publica AS DUAS com as tags versionadas. Antes só a
+    # `final` era buildada aqui → num release automático o frontend NUNCA ganhava
+    # a tag vX.Y.Z (o build-and-publish.yml, que faz as duas via matrix, não
+    # dispara para tags criadas pelo GITHUB_TOKEN do release-please — anti-recursão
+    # do Actions). Sem esta matrix, `centralops-frontend:vX.Y.Z` ficava faltando.
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: final
+            suffix: ""
+          - target: frontend
+            suffix: "-frontend"
     steps:
       - name: Checkout no tag do release
         uses: actions/checkout@v4
@@ -58,28 +73,51 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      # GHCR exige o nome em MINÚSCULAS; github.repository preserva o case. Calcula
+      # o ref base (com o suffix do target) uma vez e reusa em meta/cosign.
+      - name: Compute lowercase image ref
+        id: img
+        env:
+          IMAGE_NAME: ${{ env.IMAGE_NAME }}
+          SUFFIX: ${{ matrix.suffix }}
+        run: |
+          name="$(printf '%s' "${IMAGE_NAME}" | tr '[:upper:]' '[:lower:]')"
+          echo "ref=${REGISTRY}/${name}${SUFFIX}" >> "$GITHUB_OUTPUT"
+
       - name: Extract metadata (tags, labels)
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-          # tag_name = vX.Y.Z. Geramos a tag exata da versão + as rolling tags
-          # vX e vX.Y (convenção comum). value= sobrescreve o ref git (o run é
-          # disparado por push em main, não pela tag). metadata-action também
-          # normaliza o nome da imagem para lowercase (requisito do GHCR).
+          images: ${{ steps.img.outputs.ref }}
+          # tag_name = vX.Y.Z. Tag exata da versão + rolling vX e vX.Y. value=
+          # sobrescreve o ref git (o run é disparado por push em main, não pela tag).
           tags: |
             type=semver,pattern=v{{version}},value=${{ needs.release-please.outputs.tag_name }}
             type=semver,pattern=v{{major}}.{{minor}},value=${{ needs.release-please.outputs.tag_name }}
             type=semver,pattern=v{{major}},value=${{ needs.release-please.outputs.tag_name }}
 
-      - name: Build and push Docker image (versão)
+      - name: Build and push Docker image (${{ matrix.target }})
+        id: build
         uses: docker/build-push-action@v6
         with:
           context: .
           file: compose/Dockerfile
-          target: final
+          target: ${{ matrix.target }}
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=gha,scope=${{ matrix.target }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.target }}
+          # SBOM + provenance SLSA anexados (atestações OCI) — paridade com
+          # build-and-publish.yml (procurement enterprise/MSSP exige proveniência).
+          sbom: true
+          provenance: mode=max
+
+      # Assinatura keyless (Sigstore/Fulcio/Rekor) por DIGEST — paridade com o
+      # build-and-publish.yml. Verificável com `cosign verify <ref>@<digest>`.
+      - name: Install cosign
+        uses: sigstore/cosign-installer@v3
+
+      - name: Sign image (keyless)
+        shell: bash
+        run: cosign sign --yes "${{ steps.img.outputs.ref }}@${{ steps.build.outputs.digest }}"
