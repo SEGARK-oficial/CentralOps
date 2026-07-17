@@ -191,6 +191,31 @@ def event_labels(envelope: Mapping[str, Any]) -> dict:
     return dict(envelope.get("_centralops") or {})
 
 
+def _envelope_bytes(envelope: Any) -> int:
+    """Tamanho lógico (pré-compressão) do envelope ORIGINAL via o mesmo serializador da
+    entrega (``dumps_bytes``) — estima o volume evitado por amostragem.
+
+    APROXIMAÇÃO (documentada honestamente): mede o envelope-fonte, NÃO a cópia
+    contrafactual entregue. Exato para rotas amostradas SEM redação; para uma rota que
+    amostra E redige, super-estima levemente (a entrega seria a cópia redigida, menor);
+    ignora a decoração ``sample_rate`` (~20B, sub-estima de forma segura). No caso
+    dominante (amostragem sem redação) fica na mesma unidade de ``bytes_out``.
+
+    BEST-EFFORT: retorna 0 se a serialização falhar (ref. circular, aninhamento
+    profundo, ``__str__`` que levanta) — o metering NUNCA pode derrubar o roteamento/
+    coleta (invariante do módulo ``reduction/metering``). Import lazy p/ não acoplar o
+    engine ao serializador no import-time."""
+    try:
+        from ..output._fastjson import dumps_bytes
+
+        return len(dumps_bytes(envelope))
+    except Exception:  # noqa: BLE001 — best-effort: a métrica nunca derruba o roteamento
+        import logging
+
+        logging.getLogger(__name__).debug("metering: _envelope_bytes falhou", exc_info=True)
+        return 0
+
+
 def _cmp(op: str, actual: Any, expected: Any) -> bool:
     """Evaluate one operator. Missing field (actual is None) matches only ``ne``
     / ``nin`` (and ``exists:false``); all positive comparisons are False."""
@@ -335,6 +360,12 @@ class BatchRouting:
     #: volume). Total + por-rota, p/ o pipeline emitir events_dropped{reason=sample}.
     sampled: int = 0
     sampled_per_route: dict = field(default_factory=dict)
+    #: bytes LÓGICOS do envelope ORIGINAL (aproximação — ver ``_envelope_bytes``)
+    #: evitados por amostragem, por-entrega, agregados por ``organization_id``. O
+    #: pipeline converte em ``bytes_saved{reason=sample}`` (Evitado/Redução na
+    #: /cost-summary). Só popula com o sampling ativo (o que, por contrato de
+    #: ``SamplingConfig.enabled``, implica ``COST_METERING_ENABLED`` também on).
+    sampled_bytes_per_org: dict = field(default_factory=dict)
 
 
 def _residency_conflict(
@@ -508,6 +539,10 @@ def route_batch(
             continue
 
         event_id = str(labels.get("event_id") or "")
+        # bytes do envelope medidos NO MÁXIMO 1× por evento (env não muta no laço
+        # interno — _with_sample_rate/apply_pii_redaction copiam) e reusados por destino
+        # amostrado, evitando re-serializar o mesmo objeto N vezes.
+        _sampled_nbytes: Optional[int] = None
         delivered_any = False
         for dest, route in chosen.items():
             # sampling de redução por-rota: só uma fração
@@ -516,6 +551,18 @@ def route_batch(
             if _should_sample_out(route, event_id, sampling):
                 result.sampled += 1
                 result.sampled_per_route[route.id] = result.sampled_per_route.get(route.id, 0) + 1
+                # volume LÓGICO evitado por ESTE par evento×destino (consistente com
+                # bytes_out, também por-entrega) → bytes_saved{reason=sample} no pipeline.
+                # Serialização só AQUI, no ramo de amostragem (sampling on ⇒ metering on),
+                # medida 1× por evento e reusada por destino; best-effort (0 em falha).
+                _s_org = labels.get("organization_id")
+                if _s_org is not None:
+                    if _sampled_nbytes is None:
+                        _sampled_nbytes = _envelope_bytes(env)
+                    if _sampled_nbytes:
+                        result.sampled_bytes_per_org[_s_org] = (
+                            result.sampled_bytes_per_org.get(_s_org, 0.0) + _sampled_nbytes
+                        )
                 continue
             # Evento MANTIDO por uma rota amostrada → decora a cópia com sample_rate
             # (reescala contagens downstream). Rota sem sampling → env full-fidelity.

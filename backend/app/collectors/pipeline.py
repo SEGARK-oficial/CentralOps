@@ -675,6 +675,15 @@ async def _run_collection_once(integration_id: int, stream: str) -> None:
 
                             SUPPRESSED.labels(route_id=_suppressed_by).inc()
                             _obs_sup.record_counter("route", _suppressed_by, "suppressed", 1.0)
+                            # volume evitado pela supressão → bytes_saved{reason=suppress}
+                            # (Evitado/Redução). Best-effort; o helper é gated
+                            # (REDUCTION_SUPPRESS + COST_METERING) e fail-closed em org.
+                            from .reduction import metering as _metering_sup
+
+                            _metering_sup.record_suppress_saving(
+                                (envelope.get("_centralops") or {}).get("organization_id"),
+                                envelope,
+                            )
                             continue
 
                     batch.append(envelope)
@@ -1156,6 +1165,18 @@ def _enqueue_routed(batch: list[Dict[str, Any]], routes: list[Any]) -> None:
         for route_id, count in _sampled_per_route.items():
             EVENTS_DROPPED.labels(route_id=route_id, reason="sample").inc(count)
             _obs_s.record_counter("route", route_id, "events_dropped", count)
+
+    # volume evitado por AMOSTRAGEM: bytes do envelope medidos no engine (por par
+    # evento×destino amostrado, MESMO serializador da entrega), agregados por org →
+    # bytes_saved{reason=sample} (alimenta Evitado/Redução na /cost-summary). O engine
+    # só mede quando o sampling está ativo; o helper de metering é gated
+    # (REDUCTION_SAMPLE + COST_METERING) e fail-closed em org. Best-effort.
+    _sampled_bytes = getattr(result, "sampled_bytes_per_org", None)
+    if _sampled_bytes:
+        from .reduction import metering as _metering_sample
+
+        for _s_org, _s_bytes in _sampled_bytes.items():
+            _metering_sample.record_sample_saving(_s_org, _s_bytes)
 
     # backpressure (drop_newest): resolve o plano de entrega POR DESTINO só
     # quando a feature está ON (sem custo de DB no default). Mapeia destination_id

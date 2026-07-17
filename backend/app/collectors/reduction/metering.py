@@ -107,6 +107,50 @@ def record_trim_saving(organization_id: Optional[int], raw: Any, reduced: Any) -
         logger.debug("metering.record_trim_saving falhou (org=%s)", organization_id, exc_info=True)
 
 
+def record_sample_saving(organization_id: Optional[int], bytes_: float) -> None:
+    """Contabiliza o volume lógico evitado por AMOSTRAGEM (redução) como
+    ``bytes_saved{reason=sample}``. Os bytes são MEDIDOS no engine de roteamento (o
+    mesmo serializador da entrega, por par evento x destino amostrado) e AGREGADOS por
+    org; aqui só gravamos o rollup. Gated por ``REDUCTION_SAMPLE_ENABLED`` **E**
+    ``COST_METERING_ENABLED`` (espelha :func:`record_trim_saving`); no-op/fail-closed
+    em org ausente ou ``bytes_`` zero."""
+    if not enabled() or not bool(getattr(settings, "REDUCTION_SAMPLE_ENABLED", False)):
+        return
+    if organization_id is None or not bytes_:
+        return
+    try:
+        record_saving(organization_id, None, "sample", bytes_=float(bytes_))
+    except Exception:  # noqa: BLE001 — best-effort
+        logger.debug("metering.record_sample_saving falhou (org=%s)", organization_id, exc_info=True)
+
+
+def record_suppress_saving(organization_id: Optional[int], envelope: Any) -> None:
+    """Mede o volume lógico evitado por SUPRESSÃO: o envelope inteiro é
+    descartado (não entra no batch) → ``bytes_saved{reason=suppress}``.
+
+    BASE per-EVENTO (não per-entrega): a supressão é um rate-limiter que dispara
+    PRÉ-roteamento, então mede o envelope UMA vez — diferente de ``bytes_out`` e
+    ``bytes_saved{sample}`` (base per-ENTREGA). Logo o termo suppress na razão de
+    Redução pode SUB-contar (fan-out>1: o evento alcançaria N destinos) OU SOBRE-contar
+    (o evento poderia ser drop/unrouted/loop-blocked = 0 entregas faturáveis, ou
+    entregue a um destino que redige = menos bytes). Recalcular o contrafactual exigiria
+    rotear um evento já descartado (caro/estranho no ponto do rate-limiter) — aceitamos
+    a estimativa per-evento.
+
+    Gated por ``REDUCTION_SUPPRESS_ENABLED`` **E** ``COST_METERING_ENABLED`` — a
+    serialização (1 dumps) só ocorre com as duas on; fail-closed em org ausente."""
+    if not enabled() or not bool(getattr(settings, "REDUCTION_SUPPRESS_ENABLED", False)):
+        return
+    if organization_id is None:
+        return
+    try:
+        nbytes = _event_bytes(envelope)  # serializa o ENVELOPE (base = bytes_out)
+        if nbytes > 0:
+            record_saving(organization_id, None, "suppress", bytes_=float(nbytes))
+    except Exception:  # noqa: BLE001 — best-effort
+        logger.debug("metering.record_suppress_saving falhou (org=%s)", organization_id, exc_info=True)
+
+
 def _event_bytes(raw_event: Any) -> int:
     """Logical (pre-compression) JSON size of the RAW event, via the same serializer
     (``dumps_bytes``) the dispatch path uses.
