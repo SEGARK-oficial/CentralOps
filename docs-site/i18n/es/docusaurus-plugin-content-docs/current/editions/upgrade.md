@@ -12,6 +12,14 @@ compilados) y proporcionas tu **licencia**. Sin una licencia válida, las funcio
 Enterprise quedan bloqueadas (la imagen sigue ejecutándose como Community) — así que el
 upgrade y el downgrade son reversibles.
 
+:::note[Cambiar de edición ≠ cambiar de versión]
+
+Esta página trata de **cambiar de edición** (Community → Enterprise). Para actualizar de
+una **versión** a la más reciente (p. ej. `1.1.0` → `1.2.0`), consulta
+**[Actualizar de versión](../deployment/upgrading.md)**.
+
+:::
+
 ## Lo que vas a necesitar
 
 La licencia viene en **dos archivos**, y ambos son obligatorios:

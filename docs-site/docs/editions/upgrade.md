@@ -12,6 +12,14 @@ fornece a sua **licença**. Sem uma licença válida, os recursos Enterprise fic
 bloqueados (a imagem continua rodando como Community) — então o upgrade e o downgrade
 são reversíveis.
 
+:::note[Trocar de edição ≠ trocar de versão]
+
+Esta página é sobre **mudar de edição** (Community → Enterprise). Para atualizar de uma
+**versão** para a mais recente (ex.: `1.1.0` → `1.2.0`), veja
+**[Atualizar de versão](../deployment/upgrading.md)**.
+
+:::
+
 ## O que você vai precisar
 
 A licença tem **dois arquivos**, e os dois são obrigatórios:

@@ -12,6 +12,14 @@ compiled in) and provide your **license**. Without a valid license, the Enterpri
 features stay blocked (the image keeps running as Community) — so the upgrade and the
 downgrade are reversible.
 
+:::note[Changing edition ≠ changing version]
+
+This page is about **changing edition** (Community → Enterprise). To update from one
+**version** to a newer one (e.g. `1.1.0` → `1.2.0`), see
+**[Upgrade to a newer version](../deployment/upgrading.md)**.
+
+:::
+
 ## What you will need
 
 The license comes as **two files**, and both are required:

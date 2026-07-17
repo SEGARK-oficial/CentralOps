@@ -21,6 +21,7 @@ const sidebars: SidebarsConfig = {
         'deployment/docker-compose',
         'deployment/kubernetes',
         'deployment/configuration',
+        'deployment/upgrading',
       ],
     },
     {
