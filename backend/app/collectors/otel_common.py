@@ -80,30 +80,40 @@ def otlp_endpoint_for(signal: str) -> str:
     return stripped + "/v1/" + signal
 
 
-def sdk_env_endpoint_valid() -> bool:
-    """``True`` se ALGUMA env padrão do SDK aponta para um endpoint OTLP ABSOLUTO
-    (com scheme ``http://``/``https://``).
+def sdk_env_endpoint_valid(signal: str) -> bool:
+    """``True`` se — na AUSÊNCIA de endpoint explícito na config — delegar ao SDK
+    ainda produz um endpoint OTLP ABSOLUTO (com scheme) para ``signal``.
 
-    Guarda contra a armadilha de produção: quando ``OTEL_ENABLED=true`` mas o
-    endpoint é IRRESOLVÍVEL, delegar ao SDK constrói uma URL RELATIVA
-    ``/v1/<sinal>`` → o exporter HTTP falha a CADA ciclo com "No scheme supplied".
-    Isso acontece porque o compose/Helm SETA ``OTEL_EXPORTER_OTLP_ENDPOINT`` como
-    string VAZIA (presente-porém-vazia) — a var existe, então o
-    ``os.environ.get(default)`` do SDK NUNCA cai no default ``localhost:4318``.
+    Segue a MESMA precedência do SDK OTLP/HTTP: env per-signal
+    (``OTEL_EXPORTER_OTLP_<SIGNAL>_ENDPOINT``) > env genérica
+    (``OTEL_EXPORTER_OTLP_ENDPOINT``) > DEFAULT do SDK (``http://localhost:4318``).
 
-    Retorna ``True`` só se o operador REALMENTE informou um endpoint com scheme
-    em alguma das envs padrão do SDK; caso contrário ``False`` (o chamador então
-    desliga o sinal com 1 warning em vez de spammar export falho)."""
-    for key in (
-        "OTEL_EXPORTER_OTLP_METRICS_ENDPOINT",
-        "OTEL_EXPORTER_OTLP_TRACES_ENDPOINT",
-        "OTEL_EXPORTER_OTLP_LOGS_ENDPOINT",
-        "OTEL_EXPORTER_OTLP_ENDPOINT",
-    ):
-        val = (os.environ.get(key) or "").strip()
-        if val.startswith("http://") or val.startswith("https://"):
-            return True
-    return False
+    Retorna ``False`` APENAS na armadilha de produção: a env efetiva está
+    PRESENTE porém VAZIA/sem-scheme → o SDK monta uma URL RELATIVA ``/v1/<signal>``
+    e o exporter HTTP falha a CADA ciclo ("No scheme supplied"). Isso ocorre
+    porque o compose/Helm SETA ``OTEL_EXPORTER_OTLP_ENDPOINT`` como string VAZIA
+    (presente-porém-vazia). A AUSÊNCIA total de env NÃO é problema — o SDK cai no
+    default absoluto ``localhost:4318`` — por isso retornamos ``True`` nesse caso
+    (preservando o comportamento OTel-nativo padrão)."""
+    per_signal = {
+        "metrics": "OTEL_EXPORTER_OTLP_METRICS_ENDPOINT",
+        "traces": "OTEL_EXPORTER_OTLP_TRACES_ENDPOINT",
+        "logs": "OTEL_EXPORTER_OTLP_LOGS_ENDPOINT",
+    }.get(signal)
+
+    def _has_scheme(v: str) -> bool:
+        return v.startswith("http://") or v.startswith("https://")
+
+    # per-signal PRESENTE e não-vazia vence (o SDK a usa diretamente).
+    if per_signal:
+        pv = (os.environ.get(per_signal) or "").strip()
+        if pv:
+            return _has_scheme(pv)
+    # senão cai na genérica: se PRESENTE (mesmo vazia), o SDK usa esse valor
+    # literal (vazio ⇒ path relativo). Se AUSENTE, o SDK usa o default absoluto.
+    if "OTEL_EXPORTER_OTLP_ENDPOINT" in os.environ:
+        return _has_scheme((os.environ.get("OTEL_EXPORTER_OTLP_ENDPOINT") or "").strip())
+    return True
 
 
 def service_role() -> str:
