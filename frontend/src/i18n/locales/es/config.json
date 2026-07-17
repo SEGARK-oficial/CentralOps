@@ -399,6 +399,10 @@
       "1h": "1 hora"
     },
     "form": {
+      "orgScope": "Organización",
+      "orgAriaLabel": "Organización de la captura",
+      "orgPlaceholder": "Selecciona una organización",
+      "orgRequiredHint": "Selecciona una organización para capturar su tráfico.",
       "vendorScope": "Proveedor (alcance)",
       "vendorAriaLabel": "Proveedor de la captura",
       "allVendors": "Todos los proveedores",

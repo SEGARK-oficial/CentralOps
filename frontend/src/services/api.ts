@@ -1002,37 +1002,52 @@ export async function countActiveOrganizations(): Promise<number> {
 
 // ── Captura ao vivo ("listening mode") ────────────────────────────────────────
 
-export async function startCaptureSession(data: CaptureSessionStartRequest) {
-  return apiRequest<CaptureSession>("/collectors/config/capture-sessions", {
-    method: "POST",
-    body: JSON.stringify(data),
-    forbiddenRedirectTo: ADMIN_REDIRECT_PATH,
-  })
+// Captura ao vivo é POR-TENANT. Admin escopado herda a org implícita (não passa
+// nada). Admin global precisa escolher a org: o front passa ?org_id= em TODAS as
+// chamadas (o backend aceita org_id em start/list/events/stop/delete). Sem org_id
+// explícito, um admin global cairia no guard 400 (org_id obrigatório).
+function captureOrgQuery(orgId?: number | null, prefix: "?" | "&" = "?"): string {
+  return orgId != null ? `${prefix}org_id=${orgId}` : ""
 }
 
-export async function listCaptureSessions() {
-  return apiRequest<CaptureSessionList>("/collectors/config/capture-sessions", {
-    forbiddenRedirectTo: ADMIN_REDIRECT_PATH,
-  })
+export async function startCaptureSession(
+  data: CaptureSessionStartRequest,
+  orgId?: number | null,
+) {
+  return apiRequest<CaptureSession>(
+    `/collectors/config/capture-sessions${captureOrgQuery(orgId)}`,
+    {
+      method: "POST",
+      body: JSON.stringify(data),
+      forbiddenRedirectTo: ADMIN_REDIRECT_PATH,
+    },
+  )
 }
 
-export async function getCaptureEvents(sessionId: string, limit = 200) {
-  return apiRequest<CaptureEventList>(
-    `/collectors/config/capture-sessions/${encodeURIComponent(sessionId)}/events?limit=${limit}`,
+export async function listCaptureSessions(orgId?: number | null) {
+  return apiRequest<CaptureSessionList>(
+    `/collectors/config/capture-sessions${captureOrgQuery(orgId)}`,
     { forbiddenRedirectTo: ADMIN_REDIRECT_PATH },
   )
 }
 
-export async function stopCaptureSession(sessionId: string) {
+export async function getCaptureEvents(sessionId: string, limit = 200, orgId?: number | null) {
+  return apiRequest<CaptureEventList>(
+    `/collectors/config/capture-sessions/${encodeURIComponent(sessionId)}/events?limit=${limit}${captureOrgQuery(orgId, "&")}`,
+    { forbiddenRedirectTo: ADMIN_REDIRECT_PATH },
+  )
+}
+
+export async function stopCaptureSession(sessionId: string, orgId?: number | null) {
   return apiRequest<void>(
-    `/collectors/config/capture-sessions/${encodeURIComponent(sessionId)}/stop`,
+    `/collectors/config/capture-sessions/${encodeURIComponent(sessionId)}/stop${captureOrgQuery(orgId)}`,
     { method: "POST", forbiddenRedirectTo: ADMIN_REDIRECT_PATH },
   )
 }
 
-export async function deleteCaptureSession(sessionId: string) {
+export async function deleteCaptureSession(sessionId: string, orgId?: number | null) {
   return apiRequest<void>(
-    `/collectors/config/capture-sessions/${encodeURIComponent(sessionId)}`,
+    `/collectors/config/capture-sessions/${encodeURIComponent(sessionId)}${captureOrgQuery(orgId)}`,
     { method: "DELETE", forbiddenRedirectTo: ADMIN_REDIRECT_PATH },
   )
 }

@@ -14,7 +14,8 @@ import {
 } from "lucide-react"
 import * as api from "@/services/api"
 import { ApiRequestError } from "@/services/api"
-import type { CaptureEvent, CaptureSession } from "@/types"
+import { useAuth } from "@/contexts/AuthContext"
+import type { CaptureEvent, CaptureSession, Organization } from "@/types"
 import { Badge } from "@/components/ui/Badge/Badge"
 import { Button } from "@/components/ui/Button/Button"
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog/ConfirmDialog"
@@ -73,10 +74,30 @@ function copyToClipboard(text: string): Promise<void> {
 
 export const CapturePanel: React.FC = () => {
   const { t } = useTranslation("config")
+  const { user } = useAuth()
   const [vendor, setVendor] = useState<string>("")
   const [duration, setDuration] = useState<number>(300)
   const [ringSize, setRingSize] = useState<number>(5000)
   const [starting, setStarting] = useState(false)
+
+  // Captura ao vivo é POR-TENANT. Admin ESCOPADO herda a própria org (backend
+  // resolve implicitamente) → nenhum seletor. Admin GLOBAL (is_global ou sem org)
+  // precisa escolher a org de destino, senão o backend rejeita com 400
+  // "org_id é obrigatório para admin global". Detectamos pelo AuthContext.
+  const isGlobalAdmin = useMemo(
+    () => !!user && (user.is_global === true || user.organization_id == null),
+    [user],
+  )
+  const [organizations, setOrganizations] = useState<Organization[]>([])
+  const [selectedOrgId, setSelectedOrgId] = useState<number | null>(null)
+  // Escopo efetivo passado às chamadas de captura: só o admin global manda org_id
+  // (e apenas depois de escolher uma). Admin escopado sempre passa undefined.
+  const orgScope = useMemo<number | undefined>(
+    () => (isGlobalAdmin ? (selectedOrgId ?? undefined) : undefined),
+    [isGlobalAdmin, selectedOrgId],
+  )
+  // Admin global sem org escolhida não pode capturar (evita o 400 do backend).
+  const captureBlocked = isGlobalAdmin && selectedOrgId == null
 
   const [sessions, setSessions] = useState<CaptureSession[]>([])
   const [loadingSessions, setLoadingSessions] = useState(true)
@@ -112,7 +133,7 @@ export const CapturePanel: React.FC = () => {
   const loadSessions = useCallback(async (opts?: { silent?: boolean }) => {
     if (!opts?.silent) setLoadingSessions(true)
     try {
-      const data = await api.listCaptureSessions()
+      const data = await api.listCaptureSessions(orgScope)
       if (!mountedRef.current) return
       setSessions(data.sessions)
       setError(null)
@@ -122,12 +143,12 @@ export const CapturePanel: React.FC = () => {
     } finally {
       if (mountedRef.current) setLoadingSessions(false)
     }
-  }, [t])
+  }, [t, orgScope])
 
   const loadEvents = useCallback(async (sessionId: string, opts?: { silent?: boolean }) => {
     if (!opts?.silent) setLoadingEvents(true)
     try {
-      const data = await api.getCaptureEvents(sessionId, 500)
+      const data = await api.getCaptureEvents(sessionId, 500, orgScope)
       if (!mountedRef.current) return
       setEvents(data.events)
     } catch (err) {
@@ -136,7 +157,7 @@ export const CapturePanel: React.FC = () => {
     } finally {
       if (mountedRef.current) setLoadingEvents(false)
     }
-  }, [t])
+  }, [t, orgScope])
 
   // Carga inicial: sessões + catálogo de vendors (para o select de escopo).
   useEffect(() => {
@@ -157,6 +178,33 @@ export const CapturePanel: React.FC = () => {
       cancelled = true
     }
   }, [])
+
+  // Só o admin global escolhe a org — carrega o catálogo (mesmo endpoint do
+  // /admin/users). Admin escopado não vê o seletor, então nem lista.
+  useEffect(() => {
+    if (!isGlobalAdmin) return
+    let cancelled = false
+    api
+      .listOrganizations()
+      .then((orgs) => {
+        if (!cancelled) setOrganizations(orgs)
+      })
+      .catch(() => {
+        /* não-fatal — o seletor fica vazio e a captura segue bloqueada */
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [isGlobalAdmin])
+
+  // Trocar de org (admin global) descarta seleção/eventos da org anterior; a
+  // lista recarrega sozinha porque loadSessions depende de orgScope.
+  const handleOrgChange = (value: string) => {
+    setSelectedOrgId(value === "" ? null : Number(value))
+    setSelectedId(null)
+    setEvents([])
+    setFeedback(null)
+  }
 
   const hasActive = useMemo(() => sessions.some((s) => s.status === "active"), [sessions])
   const selected = useMemo(
@@ -197,11 +245,14 @@ export const CapturePanel: React.FC = () => {
     try {
       setStarting(true)
       setFeedback(null)
-      const session = await api.startCaptureSession({
-        vendor: vendor || undefined,
-        duration_seconds: duration,
-        ring_size: ringSize,
-      })
+      const session = await api.startCaptureSession(
+        {
+          vendor: vendor || undefined,
+          duration_seconds: duration,
+          ring_size: ringSize,
+        },
+        orgScope,
+      )
       setFeedback({
         type: "success",
         message: t("capture.startSuccess", {
@@ -234,7 +285,7 @@ export const CapturePanel: React.FC = () => {
   const handleStop = async (sessionId: string) => {
     try {
       setBusyId(sessionId)
-      await api.stopCaptureSession(sessionId)
+      await api.stopCaptureSession(sessionId, orgScope)
       setFeedback({ type: "success", message: t("capture.stopSuccess") })
       await loadSessions()
     } catch (err) {
@@ -247,7 +298,7 @@ export const CapturePanel: React.FC = () => {
   const handleDelete = async (sessionId: string) => {
     try {
       setBusyId(sessionId)
-      await api.deleteCaptureSession(sessionId)
+      await api.deleteCaptureSession(sessionId, orgScope)
       if (selectedId === sessionId) {
         setSelectedId(null)
         setEvents([])
@@ -282,6 +333,24 @@ export const CapturePanel: React.FC = () => {
 
       {/* Formulário de início */}
       <div className="flex flex-wrap items-end gap-3 rounded-md border border-border bg-surface p-3">
+        {isGlobalAdmin && (
+          <label className="flex flex-col gap-1 text-xs font-medium text-text-secondary">
+            {t("capture.form.orgScope")}
+            <select
+              className="h-8 rounded border border-border bg-surface px-2 text-sm text-text"
+              value={selectedOrgId ?? ""}
+              onChange={(e) => handleOrgChange(e.target.value)}
+              aria-label={t("capture.form.orgAriaLabel")}
+            >
+              <option value="">{t("capture.form.orgPlaceholder")}</option>
+              {organizations.map((o) => (
+                <option key={o.id} value={o.id}>
+                  {o.name}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
         <label className="flex flex-col gap-1 text-xs font-medium text-text-secondary">
           {t("capture.form.vendorScope")}
           <select
@@ -334,6 +403,7 @@ export const CapturePanel: React.FC = () => {
           leftIcon={<PlayIcon size={14} />}
           onClick={() => void handleStart()}
           loading={starting}
+          disabled={captureBlocked}
         >
           {t("capture.form.start")}
         </Button>
@@ -349,6 +419,13 @@ export const CapturePanel: React.FC = () => {
           </Button>
         </div>
       </div>
+
+      {/* Admin global precisa escolher a org antes de capturar. */}
+      {captureBlocked && (
+        <p className="text-xs text-text-tertiary" role="note">
+          {t("capture.form.orgRequiredHint")}
+        </p>
+      )}
 
       {/* Lista de sessões */}
       {loadingSessions && sessions.length === 0 ? (
