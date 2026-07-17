@@ -67,5 +67,16 @@
     "errorGeneric": "Ocurrió un error. Inténtalo de nuevo.",
     "confirmDelete": "¿Seguro que quieres eliminar?",
     "loadFailed": "Error al cargar."
+  },
+  "conditionOperators": {
+    "eq": "= igual a",
+    "ne": "≠ distinto de",
+    "gt": "> mayor que",
+    "gte": "≥ mayor o igual",
+    "lt": "< menor que",
+    "lte": "≤ menor o igual",
+    "in": "∈ está en la lista",
+    "nin": "∉ fuera de la lista",
+    "exists": "existe"
   }
 }

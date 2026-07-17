@@ -5,9 +5,12 @@ import { PlusIcon, Trash2Icon } from "lucide-react"
 import { Button } from "@/components/ui/Button/Button"
 import { Select } from "@/components/ui/Select/Select"
 import { Input } from "@/components/ui/Input/Input"
+import { CONDITION_OPERATORS, useConditionOperatorLabels, type ConditionOperator } from "@/lib/operatorLabels"
 import type { RouteCondition } from "@/types"
 
-// Espelha routing.engine.ALLOWED_FIELDS / ALLOWED_OPS no backend.
+// Espelha routing.engine.ALLOWED_FIELDS no backend. Os OPERADORES vêm de
+// CONDITION_OPERATORS (fonte única em @/lib/operatorLabels, espelha ALLOWED_OPS);
+// aqui o value permanece cru — só o label exibido é amigável.
 const FIELDS = [
   "severity_id",
   "vendor",
@@ -18,9 +21,8 @@ const FIELDS = [
   "customer_id",
 ] as const
 const NUMERIC = new Set(["severity_id", "organization_id", "integration_id", "customer_id"])
-const OPS = ["eq", "ne", "gt", "gte", "lt", "lte", "in", "nin", "exists"] as const
 
-type Op = (typeof OPS)[number]
+type Op = ConditionOperator
 interface Clause {
   field: string
   op: Op
@@ -88,6 +90,7 @@ interface Props {
 
 export const RouteConditionEditor: React.FC<Props> = ({ clauses, onChange, disabled }) => {
   const { t } = useTranslation("routing")
+  const { options: operatorOptions } = useConditionOperatorLabels()
   const preview = useMemo(() => JSON.stringify(clausesToCondition(clauses)), [clauses])
 
   const set = (i: number, patch: Partial<Clause>) =>
@@ -113,11 +116,12 @@ export const RouteConditionEditor: React.FC<Props> = ({ clauses, onChange, disab
               onValueChange={(v) => set(i, { field: String(v) })}
             />
           </div>
-          <div className="w-24">
+          <div className="w-40">
             <Select
               label={i === 0 ? t("conditionEditor.opLabel") : undefined}
+              aria-label={t("conditionEditor.opSelectAriaLabel")}
               value={c.op}
-              options={OPS.map((o) => ({ value: o, label: o }))}
+              options={operatorOptions(CONDITION_OPERATORS)}
               disabled={disabled}
               onValueChange={(v) => set(i, { op: v as Op })}
             />

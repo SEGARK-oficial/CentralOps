@@ -315,6 +315,7 @@
     "noConditions": "Sem condições, a regra corresponde a todos os eventos.",
     "fieldLabel": "Campo",
     "opLabel": "Op",
+    "opSelectAriaLabel": "Operador da condição",
     "valueLabel": "Valor",
     "valueListPlaceholder": "a,b,c",
     "valuePlaceholder": "valor",

@@ -67,5 +67,16 @@
     "errorGeneric": "Ocorreu um erro. Tente novamente.",
     "confirmDelete": "Tem certeza que deseja excluir?",
     "loadFailed": "Falha ao carregar."
+  },
+  "conditionOperators": {
+    "eq": "= igual a",
+    "ne": "≠ diferente de",
+    "gt": "> maior que",
+    "gte": "≥ maior ou igual",
+    "lt": "< menor que",
+    "lte": "≤ menor ou igual",
+    "in": "∈ está na lista",
+    "nin": "∉ fora da lista",
+    "exists": "existe"
   }
 }

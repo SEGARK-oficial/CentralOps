@@ -315,6 +315,7 @@
     "noConditions": "Sin condiciones, la regla coincide con todos los eventos.",
     "fieldLabel": "Campo",
     "opLabel": "Operador",
+    "opSelectAriaLabel": "Operador de la condición",
     "valueLabel": "Valor",
     "valueListPlaceholder": "a,b,c",
     "valuePlaceholder": "valor",

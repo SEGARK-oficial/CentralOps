@@ -67,5 +67,16 @@
     "errorGeneric": "An error occurred. Please try again.",
     "confirmDelete": "Are you sure you want to delete?",
     "loadFailed": "Failed to load."
+  },
+  "conditionOperators": {
+    "eq": "= equals",
+    "ne": "≠ not equal",
+    "gt": "> greater",
+    "gte": "≥ greater or equal",
+    "lt": "< less",
+    "lte": "≤ less or equal",
+    "in": "∈ in list",
+    "nin": "∉ not in list",
+    "exists": "exists"
   }
 }

@@ -315,6 +315,7 @@
     "noConditions": "No conditions — this rule matches every event.",
     "fieldLabel": "Field",
     "opLabel": "Op",
+    "opSelectAriaLabel": "Condition operator",
     "valueLabel": "Value",
     "valueListPlaceholder": "a,b,c",
     "valuePlaceholder": "value",
