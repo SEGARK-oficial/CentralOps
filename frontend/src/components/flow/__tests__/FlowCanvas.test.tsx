@@ -165,3 +165,75 @@ describe("FlowCanvas", () => {
     expect(screen.getByRole("img")).toBeInTheDocument()
   })
 })
+
+// ── Escala / agrupamento / foco (regressão do "quebra com muitos nós") ────────
+function bigData(nSrc: number, nRt: number, nDest: number): FlowGraphData {
+  const sources = Array.from({ length: nSrc }, (_, i) => ({
+    id: `s${i}`,
+    name: `Fonte ${i}`,
+    platform: "sophos",
+    status: "healthy" as const,
+    events_per_minute: (i + 1) * 60,
+    eps: i + 1,
+  }))
+  const destinations = Array.from({ length: nDest }, (_, i) => ({
+    id: `d${i}`,
+    name: `Destino ${i}`,
+    kind: "syslog",
+    status: "healthy" as const,
+    eps: i + 1,
+    bytes_per_min: 1000,
+  }))
+  const routes = Array.from({ length: nRt }, (_, i) => ({
+    id: `r${i}`,
+    name: `Rota ${i}`,
+    action: "route",
+    destination_ids: [`d${i % Math.max(nDest, 1)}`],
+    matched_per_min: (i + 1) * 10,
+    routed_per_min: (i + 1) * 10,
+    drop_per_min: 0,
+    enabled: true,
+    is_system: i === nRt - 1,
+  }))
+  return {
+    generated_at: "2026-07-17T00:00:00Z",
+    window_minutes: 60,
+    sources,
+    routes,
+    destinations,
+    totals: { ingest_eps: 100, routed_per_min: 100, drop_per_min: 0, delivered_eps: 100 },
+  }
+}
+
+describe("FlowCanvas — escala e agrupamento", () => {
+  it("colapsa colunas densas num nó overflow '+N' (nunca renderiza a coluna inteira)", () => {
+    render(<FlowCanvas data={bigData(30, 5, 4)} onSelectNode={vi.fn()} />)
+    // 30 fontes → no máx MAX_COL_NODES (14) nós de fonte visíveis…
+    expect(screen.getAllByTestId(/^flow-source-/).length).toBeLessThanOrEqual(14)
+    // …e existe um nó de overflow.
+    expect(screen.getByTestId("flow-source-__ovf_src__")).toBeInTheDocument()
+  })
+
+  it("clicar no nó overflow expande a coluna inteira", () => {
+    render(<FlowCanvas data={bigData(30, 5, 4)} onSelectNode={vi.fn()} />)
+    expect(screen.getAllByTestId(/^flow-source-/).length).toBeLessThanOrEqual(14)
+    fireEvent.click(screen.getByTestId("flow-source-__ovf_src__"))
+    // Agora todas as 30 fontes aparecem e o overflow some.
+    expect(screen.getAllByTestId(/^flow-source-/).length).toBe(30)
+    expect(screen.queryByTestId("flow-source-__ovf_src__")).not.toBeInTheDocument()
+  })
+
+  it("grafo grande (40·30·25) renderiza sem crash", () => {
+    expect(() => render(<FlowCanvas data={bigData(40, 30, 25)} onSelectNode={vi.fn()} />)).not.toThrow()
+    expect(screen.getByRole("img")).toBeInTheDocument()
+  })
+
+  it("hover num nó (foco+contexto) não quebra o render", () => {
+    render(<FlowCanvas data={bigData(6, 4, 3)} onSelectNode={vi.fn()} />)
+    const node = screen.getByTestId("flow-route-r0")
+    fireEvent.mouseEnter(node)
+    expect(node).toBeInTheDocument()
+    fireEvent.mouseLeave(node)
+    expect(node).toBeInTheDocument()
+  })
+})

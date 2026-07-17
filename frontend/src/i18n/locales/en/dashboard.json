@@ -224,7 +224,9 @@
       },
       "catchAll": "Catch-all",
       "drop": "drop",
-      "off": "off"
+      "off": "off",
+      "moreNodes": "+{{count}} more",
+      "expandHint": "click to expand"
     },
     "liveFeed": {
       "title": "Live feed",
