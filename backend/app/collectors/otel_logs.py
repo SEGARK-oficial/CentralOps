@@ -52,7 +52,7 @@ def init_logs() -> bool:
         # Fail-safe (idêntico a otel_metrics/tracing): endpoint irresolvível → o
         # SDK monta '/v1/logs' relativo (No scheme supplied) e o BatchLogRecord
         # Processor spamma export falho. Desliga limpo com 1 warning.
-        if not endpoint and not otel_common.sdk_env_endpoint_valid("logs"):
+        if not endpoint and not otel_common.sdk_env_endpoint_valid():
             logger.warning(
                 "OTEL_LOGS_ENABLED=true mas nenhum endpoint OTLP com scheme "
                 "(OTEL_EXPORTER_OTLP_ENDPOINT vazio/sem http[s]://) — logs OTel "

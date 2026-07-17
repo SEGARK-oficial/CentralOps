@@ -117,7 +117,7 @@ def init_tracing() -> bool:
         # Fail-safe (idêntico a otel_metrics): endpoint irresolvível → o SDK monta
         # '/v1/traces' relativo (No scheme supplied) e o BatchSpanProcessor spamma
         # export falho. Desliga limpo com 1 warning em vez de poluir o log.
-        if not endpoint and not otel_common.sdk_env_endpoint_valid("traces"):
+        if not endpoint and not otel_common.sdk_env_endpoint_valid():
             logger.warning(
                 "OTEL_ENABLED=true mas nenhum endpoint OTLP com scheme "
                 "(OTEL_EXPORTER_OTLP_ENDPOINT vazio/sem http[s]://) — tracing OTel "

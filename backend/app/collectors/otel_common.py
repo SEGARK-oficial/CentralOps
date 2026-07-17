@@ -80,40 +80,19 @@ def otlp_endpoint_for(signal: str) -> str:
     return stripped + "/v1/" + signal
 
 
-def sdk_env_endpoint_valid(signal: str) -> bool:
+def sdk_env_endpoint_valid() -> bool:
     """``True`` se — na AUSÊNCIA de endpoint explícito na config — delegar ao SDK
-    ainda produz um endpoint OTLP ABSOLUTO (com scheme) para ``signal``.
+    ainda produz um endpoint OTLP ABSOLUTO (com scheme).
 
-    Segue a MESMA precedência do SDK OTLP/HTTP: env per-signal
-    (``OTEL_EXPORTER_OTLP_<SIGNAL>_ENDPOINT``) > env genérica
-    (``OTEL_EXPORTER_OTLP_ENDPOINT``) > DEFAULT do SDK (``http://localhost:4318``).
-
-    Retorna ``False`` APENAS na armadilha de produção: a env efetiva está
-    PRESENTE porém VAZIA/sem-scheme → o SDK monta uma URL RELATIVA ``/v1/<signal>``
-    e o exporter HTTP falha a CADA ciclo ("No scheme supplied"). Isso ocorre
-    porque o compose/Helm SETA ``OTEL_EXPORTER_OTLP_ENDPOINT`` como string VAZIA
-    (presente-porém-vazia). A AUSÊNCIA total de env NÃO é problema — o SDK cai no
-    default absoluto ``localhost:4318`` — por isso retornamos ``True`` nesse caso
-    (preservando o comportamento OTel-nativo padrão)."""
-    per_signal = {
-        "metrics": "OTEL_EXPORTER_OTLP_METRICS_ENDPOINT",
-        "traces": "OTEL_EXPORTER_OTLP_TRACES_ENDPOINT",
-        "logs": "OTEL_EXPORTER_OTLP_LOGS_ENDPOINT",
-    }.get(signal)
-
-    def _has_scheme(v: str) -> bool:
-        return v.startswith("http://") or v.startswith("https://")
-
-    # per-signal PRESENTE e não-vazia vence (o SDK a usa diretamente).
-    if per_signal:
-        pv = (os.environ.get(per_signal) or "").strip()
-        if pv:
-            return _has_scheme(pv)
-    # senão cai na genérica: se PRESENTE (mesmo vazia), o SDK usa esse valor
-    # literal (vazio ⇒ path relativo). Se AUSENTE, o SDK usa o default absoluto.
-    if "OTEL_EXPORTER_OTLP_ENDPOINT" in os.environ:
-        return _has_scheme((os.environ.get("OTEL_EXPORTER_OTLP_ENDPOINT") or "").strip())
-    return True
+    Detecta EXCLUSIVAMENTE a armadilha REAL de deploy: o compose/Helm setam
+    ``OTEL_EXPORTER_OTLP_ENDPOINT`` como string VAZIA (``${OTEL_..._ENDPOINT:-}``).
+    Presente-porém-vazia derrota o fallback-localhost do SDK → ele monta uma URL
+    RELATIVA ``/v1/<sinal>`` e o exporter HTTP falha a CADA ciclo ("No scheme
+    supplied"). Retornamos ``False`` só nesse caso (env PRESENTE mas sem scheme)."""
+    if "OTEL_EXPORTER_OTLP_ENDPOINT" not in os.environ:
+        return True
+    v = (os.environ.get("OTEL_EXPORTER_OTLP_ENDPOINT") or "").strip()
+    return v.startswith("http://") or v.startswith("https://")
 
 
 def service_role() -> str:

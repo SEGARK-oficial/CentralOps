@@ -1,5 +1,5 @@
 /**
- * FlowCanvas — mapa de fluxo (estilo Cribl/Axoflow) dependency-free em SVG.
+ * FlowCanvas — mapa de fluxo dependency-free em SVG.
  *
  * Fontes → Roteamento → Destinos, com:
  * - Zoom (roda), pan (arraste) e FIT-TO-VIEW automático (nunca "quebra"/estoura,
