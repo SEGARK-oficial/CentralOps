@@ -80,6 +80,32 @@ def otlp_endpoint_for(signal: str) -> str:
     return stripped + "/v1/" + signal
 
 
+def sdk_env_endpoint_valid() -> bool:
+    """``True`` se ALGUMA env padrão do SDK aponta para um endpoint OTLP ABSOLUTO
+    (com scheme ``http://``/``https://``).
+
+    Guarda contra a armadilha de produção: quando ``OTEL_ENABLED=true`` mas o
+    endpoint é IRRESOLVÍVEL, delegar ao SDK constrói uma URL RELATIVA
+    ``/v1/<sinal>`` → o exporter HTTP falha a CADA ciclo com "No scheme supplied".
+    Isso acontece porque o compose/Helm SETA ``OTEL_EXPORTER_OTLP_ENDPOINT`` como
+    string VAZIA (presente-porém-vazia) — a var existe, então o
+    ``os.environ.get(default)`` do SDK NUNCA cai no default ``localhost:4318``.
+
+    Retorna ``True`` só se o operador REALMENTE informou um endpoint com scheme
+    em alguma das envs padrão do SDK; caso contrário ``False`` (o chamador então
+    desliga o sinal com 1 warning em vez de spammar export falho)."""
+    for key in (
+        "OTEL_EXPORTER_OTLP_METRICS_ENDPOINT",
+        "OTEL_EXPORTER_OTLP_TRACES_ENDPOINT",
+        "OTEL_EXPORTER_OTLP_LOGS_ENDPOINT",
+        "OTEL_EXPORTER_OTLP_ENDPOINT",
+    ):
+        val = (os.environ.get(key) or "").strip()
+        if val.startswith("http://") or val.startswith("https://"):
+            return True
+    return False
+
+
 def service_role() -> str:
     """Papel do processo (``worker`` / ``beat`` / ``dispatcher``) lido da env
     ``SERVICE_ROLE`` — a MESMA que o ``celery_app`` usa para decidir signals.

@@ -211,6 +211,18 @@ def init_metrics() -> bool:
             getattr(settings, "OTEL_METRIC_EXPORT_INTERVAL_MS", 60000) or 60000
         )
         endpoint = otel_common.otlp_endpoint_for("metrics")
+        # Fail-safe: OTEL_ENABLED=true porém NENHUM endpoint resolvível com scheme.
+        # Delegar ao SDK aqui construiria a URL relativa '/v1/metrics' (No scheme
+        # supplied) porque o compose/Helm seta OTEL_EXPORTER_OTLP_ENDPOINT vazio →
+        # export falho a cada ciclo, poluindo o log. Desliga limpo com 1 warning.
+        if not endpoint and not otel_common.sdk_env_endpoint_valid():
+            logger.warning(
+                "OTEL_ENABLED=true mas nenhum endpoint OTLP com scheme "
+                "(OTEL_EXPORTER_OTLP_ENDPOINT vazio/sem http[s]://) — métricas OTel "
+                "DESLIGADAS neste processo (evita spam '/v1/metrics: No scheme supplied')"
+            )
+            _ENABLED = False
+            return False
         exporter = (
             OTLPMetricExporter(endpoint=endpoint) if endpoint else OTLPMetricExporter()
         )

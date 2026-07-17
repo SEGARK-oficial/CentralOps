@@ -81,6 +81,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      redis-control:
+        condition: service_healthy
     restart: unless-stopped
 
   # ── Frontend (nginx + SPA estático)
@@ -186,15 +188,16 @@ services:
       - 64mb
       - --requirepass
       - ${REDIS_PASSWORD:?REDIS_PASSWORD obrigatorio - gere com openssl rand -base64 24 e coloque no .env}
-      # teto de memória + política. Redis aqui é broker + schedule
-      # RedBeat + result + cache + dedup numa só instância. 'volatile-lru' evicta
-      # SÓ chaves COM TTL (dedup/cache/result) sob pressão e PRESERVA as sem-TTL
-      # (broker/RedBeat) — protege o broker MELHOR que 'noeviction', que faria até
-      # o ENQUEUE do broker falhar quando o cache/dedup enchesse os 512mb.
-      # Trade-off honesto: evictar uma chave de dedup sob pressão pode DUPLICAR
-      # entrega a destinos at-least-once sem dedup (Sentinel/syslog/HEC) — aceitável
-      # (duplicar a jusante > parar a coleta). Dimensione REDIS_MAXMEMORY < limite
-      # do container. Paridade com o Helm, que já usa volatile-lru.
+      # teto de memória + política. Esta instância serve SÓ cache/dedup (db0) —
+      # o control-plane (broker + schedule/lock RedBeat + result) foi para o
+      # serviço `redis-control` com `noeviction`. Motivo: o LOCK do RedBeat TEM
+      # TTL (redbeat_lock_timeout) e, como maxmemory-policy é GLOBAL por instância,
+      # sob `volatile-lru` ele era EVICTÁVEL junto do dedup → `LockNotOwnedError` +
+      # crash-loop do beat (a premissa antiga de que "volatile-lru preserva o
+      # broker/RedBeat sem-TTL" era FALSA para o lock). Aqui `volatile-lru` evicta
+      # dedup/cache frios sob pressão — trade-off aceitável: duplicar entrega a
+      # destinos at-least-once (Sentinel/syslog/HEC) > parar a coleta. Dimensione
+      # REDIS_MAXMEMORY < limite do container.
       - --maxmemory
       - ${REDIS_MAXMEMORY:-512mb}
       - --maxmemory-policy
@@ -204,10 +207,52 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '0.50'
+          cpus: '1.0'  # Redis é single-thread; teto largo evita throttle que atrasaria o broker/lock
           memory: 768m
         reservations:
           memory: 128m
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:?REDIS_PASSWORD obrigatorio - gere com openssl rand -base64 24 e coloque no .env}", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  # ── Control-plane Redis: broker + schedule/lock RedBeat + result ───────
+  # SEPARADO do `redis` (cache/dedup) de propósito: maxmemory-policy é GLOBAL por
+  # instância, então não dá para ter `noeviction` no broker/lock E `volatile-lru`
+  # no dedup na MESMA instância. O lock do RedBeat TEM TTL → sob volatile-lru era
+  # evictável → LockNotOwnedError/crash-loop do beat. Aqui `noeviction` torna a
+  # evicção do lock ESTRUTURALMENTE IMPOSSÍVEL; se o broker encher (backlog
+  # extremo), o ENQUEUE falha VISIVELMENTE em vez de perder o lock em silêncio.
+  # Dataset minúsculo (broker + zset do schedule + poucos result-metas).
+  # Em PROD gerenciado: use um cluster/endpoint com noeviction + HA (failover),
+  # SEPARADO do cluster de cache (volatile-lru) — ver README/values do Helm.
+  redis-control:
+    image: redis:7-alpine
+    command:
+      - redis-server
+      - --appendonly
+      - "yes"
+      - --auto-aof-rewrite-percentage
+      - "100"
+      - --auto-aof-rewrite-min-size
+      - 64mb
+      - --requirepass
+      - ${REDIS_PASSWORD:?REDIS_PASSWORD obrigatorio - gere com openssl rand -base64 24 e coloque no .env}
+      - --maxmemory
+      - ${REDIS_CONTROL_MAXMEMORY:-256mb}
+      - --maxmemory-policy
+      - noeviction
+    volumes:
+      - redis-control-data:/data
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 384m
+        reservations:
+          memory: 64m
     healthcheck:
       test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:?REDIS_PASSWORD obrigatorio - gere com openssl rand -base64 24 e coloque no .env}", "ping"]
       interval: 5s
@@ -298,8 +343,8 @@ services:
       # Honra override do orquestrador (ex.: Redis gerenciado externamente) e cai
       # no redis do compose só se não houver override — espelha o REDIS_URL da API.
       - REDIS_URL=${REDIS_URL:-redis://:${REDIS_PASSWORD:?REDIS_PASSWORD obrigatorio - gere com openssl rand -base64 24 e coloque no .env}@redis:6379/0}
-      - CELERY_BROKER_URL=${CELERY_BROKER_URL:-redis://:${REDIS_PASSWORD:?REDIS_PASSWORD obrigatorio - gere com openssl rand -base64 24 e coloque no .env}@redis:6379/1}
-      - CELERY_RESULT_BACKEND=${CELERY_RESULT_BACKEND:-redis://:${REDIS_PASSWORD:?REDIS_PASSWORD obrigatorio - gere com openssl rand -base64 24 e coloque no .env}@redis:6379/2}
+      - CELERY_BROKER_URL=${CELERY_BROKER_URL:-redis://:${REDIS_PASSWORD:?REDIS_PASSWORD obrigatorio - gere com openssl rand -base64 24 e coloque no .env}@redis-control:6379/1}
+      - CELERY_RESULT_BACKEND=${CELERY_RESULT_BACKEND:-redis://:${REDIS_PASSWORD:?REDIS_PASSWORD obrigatorio - gere com openssl rand -base64 24 e coloque no .env}@redis-control:6379/2}
       # ── Collector runtime settings — seed only ───────────────────────
       # A partir de 2026-04, essas variáveis são seed inicial.
       # Alterações em runtime: UI em /config → "Collector / Dispatch".
@@ -317,6 +362,8 @@ services:
       postgres:
         condition: service_healthy
       redis:
+        condition: service_healthy
+      redis-control:
         condition: service_healthy
       centralops:
         # Garante que o centralops gerou APP_MASTER_KEY em /app/data/app_master_key
@@ -385,8 +432,8 @@ services:
       # Honra override do orquestrador (ex.: Redis gerenciado externamente) e cai
       # no redis do compose só se não houver override — espelha o REDIS_URL da API.
       - REDIS_URL=${REDIS_URL:-redis://:${REDIS_PASSWORD:?REDIS_PASSWORD obrigatorio - gere com openssl rand -base64 24 e coloque no .env}@redis:6379/0}
-      - CELERY_BROKER_URL=${CELERY_BROKER_URL:-redis://:${REDIS_PASSWORD:?REDIS_PASSWORD obrigatorio - gere com openssl rand -base64 24 e coloque no .env}@redis:6379/1}
-      - CELERY_RESULT_BACKEND=${CELERY_RESULT_BACKEND:-redis://:${REDIS_PASSWORD:?REDIS_PASSWORD obrigatorio - gere com openssl rand -base64 24 e coloque no .env}@redis:6379/2}
+      - CELERY_BROKER_URL=${CELERY_BROKER_URL:-redis://:${REDIS_PASSWORD:?REDIS_PASSWORD obrigatorio - gere com openssl rand -base64 24 e coloque no .env}@redis-control:6379/1}
+      - CELERY_RESULT_BACKEND=${CELERY_RESULT_BACKEND:-redis://:${REDIS_PASSWORD:?REDIS_PASSWORD obrigatorio - gere com openssl rand -base64 24 e coloque no .env}@redis-control:6379/2}
     working_dir: /app
     volumes:
       - app-data:/app/data
@@ -395,6 +442,8 @@ services:
       postgres:
         condition: service_healthy
       redis:
+        condition: service_healthy
+      redis-control:
         condition: service_healthy
       centralops:
         condition: service_started
@@ -451,8 +500,8 @@ services:
       # Honra override do orquestrador (ex.: Redis gerenciado externamente) e cai
       # no redis do compose só se não houver override — espelha o REDIS_URL da API.
       - REDIS_URL=${REDIS_URL:-redis://:${REDIS_PASSWORD:?REDIS_PASSWORD obrigatorio - gere com openssl rand -base64 24 e coloque no .env}@redis:6379/0}
-      - CELERY_BROKER_URL=${CELERY_BROKER_URL:-redis://:${REDIS_PASSWORD:?REDIS_PASSWORD obrigatorio - gere com openssl rand -base64 24 e coloque no .env}@redis:6379/1}
-      - CELERY_RESULT_BACKEND=${CELERY_RESULT_BACKEND:-redis://:${REDIS_PASSWORD:?REDIS_PASSWORD obrigatorio - gere com openssl rand -base64 24 e coloque no .env}@redis:6379/2}
+      - CELERY_BROKER_URL=${CELERY_BROKER_URL:-redis://:${REDIS_PASSWORD:?REDIS_PASSWORD obrigatorio - gere com openssl rand -base64 24 e coloque no .env}@redis-control:6379/1}
+      - CELERY_RESULT_BACKEND=${CELERY_RESULT_BACKEND:-redis://:${REDIS_PASSWORD:?REDIS_PASSWORD obrigatorio - gere com openssl rand -base64 24 e coloque no .env}@redis-control:6379/2}
       # DFIR-Iris — sync_sophos_partner (fila maintenance) auto-cria customer no
       # Iris quando configurado. Vide centralops env.
       - DFIR_IRIS_URL=${DFIR_IRIS_URL:-}
@@ -466,6 +515,8 @@ services:
       postgres:
         condition: service_healthy
       redis:
+        condition: service_healthy
+      redis-control:
         condition: service_healthy
       centralops:
         condition: service_started
@@ -518,8 +569,8 @@ services:
       # Honra override do orquestrador (ex.: Redis gerenciado externamente) e cai
       # no redis do compose só se não houver override — espelha o REDIS_URL da API.
       - REDIS_URL=${REDIS_URL:-redis://:${REDIS_PASSWORD:?REDIS_PASSWORD obrigatorio - gere com openssl rand -base64 24 e coloque no .env}@redis:6379/0}
-      - CELERY_BROKER_URL=${CELERY_BROKER_URL:-redis://:${REDIS_PASSWORD:?REDIS_PASSWORD obrigatorio - gere com openssl rand -base64 24 e coloque no .env}@redis:6379/1}
-      - CELERY_RESULT_BACKEND=${CELERY_RESULT_BACKEND:-redis://:${REDIS_PASSWORD:?REDIS_PASSWORD obrigatorio - gere com openssl rand -base64 24 e coloque no .env}@redis:6379/2}
+      - CELERY_BROKER_URL=${CELERY_BROKER_URL:-redis://:${REDIS_PASSWORD:?REDIS_PASSWORD obrigatorio - gere com openssl rand -base64 24 e coloque no .env}@redis-control:6379/1}
+      - CELERY_RESULT_BACKEND=${CELERY_RESULT_BACKEND:-redis://:${REDIS_PASSWORD:?REDIS_PASSWORD obrigatorio - gere com openssl rand -base64 24 e coloque no .env}@redis-control:6379/2}
     working_dir: /app
     volumes:
       - app-data:/app/data
@@ -529,6 +580,8 @@ services:
       postgres:
         condition: service_healthy
       redis:
+        condition: service_healthy
+      redis-control:
         condition: service_healthy
       centralops:
         condition: service_started
@@ -584,8 +637,8 @@ services:
       # Honra override do orquestrador (ex.: Redis gerenciado externamente) e cai
       # no redis do compose só se não houver override — espelha o REDIS_URL da API.
       - REDIS_URL=${REDIS_URL:-redis://:${REDIS_PASSWORD:?REDIS_PASSWORD obrigatorio - gere com openssl rand -base64 24 e coloque no .env}@redis:6379/0}
-      - CELERY_BROKER_URL=${CELERY_BROKER_URL:-redis://:${REDIS_PASSWORD:?REDIS_PASSWORD obrigatorio - gere com openssl rand -base64 24 e coloque no .env}@redis:6379/1}
-      - CELERY_RESULT_BACKEND=${CELERY_RESULT_BACKEND:-redis://:${REDIS_PASSWORD:?REDIS_PASSWORD obrigatorio - gere com openssl rand -base64 24 e coloque no .env}@redis:6379/2}
+      - CELERY_BROKER_URL=${CELERY_BROKER_URL:-redis://:${REDIS_PASSWORD:?REDIS_PASSWORD obrigatorio - gere com openssl rand -base64 24 e coloque no .env}@redis-control:6379/1}
+      - CELERY_RESULT_BACKEND=${CELERY_RESULT_BACKEND:-redis://:${REDIS_PASSWORD:?REDIS_PASSWORD obrigatorio - gere com openssl rand -base64 24 e coloque no .env}@redis-control:6379/2}
       - WAZUH_SYSLOG_HOST=${WAZUH_SYSLOG_HOST:-}
       - WAZUH_SYSLOG_PORT=${WAZUH_SYSLOG_PORT:-6514}
       - WAZUH_CA_BUNDLE=${WAZUH_CA_BUNDLE:-/certs/wazuh-ca.pem}
@@ -601,6 +654,8 @@ services:
       postgres:
         condition: service_healthy
       redis:
+        condition: service_healthy
+      redis-control:
         condition: service_healthy
       centralops:
         condition: service_started
@@ -649,8 +704,8 @@ services:
       - DATABASE_URL=${DATABASE_URL:-postgresql+psycopg2://${POSTGRES_USER:-centralops}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD obrigatorio - gere com openssl rand -base64 24 e coloque no .env}@postgres:5432/${POSTGRES_DB:-centralops}}
       # Control-plane Redis: o dispatch usa breaker/limiter/observability no Redis.
       - REDIS_URL=${REDIS_URL:-redis://:${REDIS_PASSWORD:?REDIS_PASSWORD obrigatorio - gere com openssl rand -base64 24 e coloque no .env}@redis:6379/0}
-      - CELERY_BROKER_URL=${CELERY_BROKER_URL:-redis://:${REDIS_PASSWORD:?REDIS_PASSWORD obrigatorio - gere com openssl rand -base64 24 e coloque no .env}@redis:6379/1}
-      - CELERY_RESULT_BACKEND=${CELERY_RESULT_BACKEND:-redis://:${REDIS_PASSWORD:?REDIS_PASSWORD obrigatorio - gere com openssl rand -base64 24 e coloque no .env}@redis:6379/2}
+      - CELERY_BROKER_URL=${CELERY_BROKER_URL:-redis://:${REDIS_PASSWORD:?REDIS_PASSWORD obrigatorio - gere com openssl rand -base64 24 e coloque no .env}@redis-control:6379/1}
+      - CELERY_RESULT_BACKEND=${CELERY_RESULT_BACKEND:-redis://:${REDIS_PASSWORD:?REDIS_PASSWORD obrigatorio - gere com openssl rand -base64 24 e coloque no .env}@redis-control:6379/2}
     working_dir: /app
     volumes:
       - app-data:/app/data:ro
@@ -660,6 +715,8 @@ services:
       postgres:
         condition: service_healthy
       redis:
+        condition: service_healthy
+      redis-control:
         condition: service_healthy
       redpanda:
         condition: service_healthy
@@ -715,10 +772,11 @@ services:
       # Honra override do orquestrador (ex.: Redis gerenciado externamente) e cai
       # no redis do compose só se não houver override — espelha o REDIS_URL da API.
       - REDIS_URL=${REDIS_URL:-redis://:${REDIS_PASSWORD:?REDIS_PASSWORD obrigatorio - gere com openssl rand -base64 24 e coloque no .env}@redis:6379/0}
-      - CELERY_BROKER_URL=${CELERY_BROKER_URL:-redis://:${REDIS_PASSWORD:?REDIS_PASSWORD obrigatorio - gere com openssl rand -base64 24 e coloque no .env}@redis:6379/1}
-      - CELERY_RESULT_BACKEND=${CELERY_RESULT_BACKEND:-redis://:${REDIS_PASSWORD:?REDIS_PASSWORD obrigatorio - gere com openssl rand -base64 24 e coloque no .env}@redis:6379/2}
-      # RedBeat usa o broker Redis (db 1) por padrão; override apenas se necessário.
-      # REDBEAT_REDIS_URL=redis://:${REDIS_PASSWORD:?REDIS_PASSWORD obrigatorio - gere com openssl rand -base64 24 e coloque no .env}@redis:6379/1
+      - CELERY_BROKER_URL=${CELERY_BROKER_URL:-redis://:${REDIS_PASSWORD:?REDIS_PASSWORD obrigatorio - gere com openssl rand -base64 24 e coloque no .env}@redis-control:6379/1}
+      - CELERY_RESULT_BACKEND=${CELERY_RESULT_BACKEND:-redis://:${REDIS_PASSWORD:?REDIS_PASSWORD obrigatorio - gere com openssl rand -base64 24 e coloque no .env}@redis-control:6379/2}
+      # RedBeat (schedule + LOCK) segue o broker por padrão → agora no
+      # redis-control (noeviction), NÃO no `redis` de cache. Override só se preciso.
+      # REDBEAT_REDIS_URL=redis://:${REDIS_PASSWORD:?REDIS_PASSWORD obrigatorio - gere com openssl rand -base64 24 e coloque no .env}@redis-control:6379/1
     working_dir: /app
     volumes:
       - app-data:/app/data
@@ -727,24 +785,45 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      redis-control:
+        condition: service_healthy
       centralops:
         condition: service_started
+    # Healthcheck de HEARTBEAT: o ResilientRedBeatScheduler grava
+    # /tmp/beat-heartbeat no início de CADA tick (celery_app→beat_scheduler_
+    # resilient.py). Se o mtime envelhece > 90s (3× beat_max_loop_interval=30s), o
+    # beat parou de agendar (travado ou crash-loop) → unhealthy. `$$` escapa a
+    # interpolação do compose p/ o SHELL avaliar. start_period 180s > REDBEAT_LOCK_
+    # TIMEOUT(150s): no boot o beat pode BLOQUEAR na aquisição do lock residual
+    # antes do 1º tick — não marcar unhealthy nessa espera.
+    # NOTA: sob `docker compose up` puro, unhealthy NÃO reinicia sozinho (só dá
+    # observabilidade + gating de depends_on); para AUTO-recuperar beat travado no
+    # compose, pareie com um sidecar autoheal, ou rode em Swarm/k8s.
+    healthcheck:
+      test: ["CMD-SHELL", "test -f /tmp/beat-heartbeat && [ $$(( $$(date +%s) - $$(stat -c %Y /tmp/beat-heartbeat) )) -lt 90 ]"]
+      interval: 20s
+      timeout: 5s
+      retries: 3
+      start_period: 180s
     # beat com leader-election via RedBeat (lock distribuído,
     # redbeat_lock_key/timeout em celery_app.py) — só o detentor dispara; os
     # demais ficam hot-standby e assumem em segundos no failover.
-    # ⚠️ HONESTIDADE: `deploy.replicas` é IGNORADO por `docker compose up` puro
-    # (só Swarm/`docker stack deploy` e k8s honram). No caminho compose padrão
-    # sobe **1 beat** (SPOF aceitável num nó único). O lock RedBeat torna SEGURO
-    # rodar 2+ — então a HA real vem de `docker compose up --scale
-    # collector-beat=2`, Swarm ou k8s. O lock garante que escalar nunca duplica
-    # disparos (o ganho de correção vale mesmo com 1 réplica).
+    # ⚠️ HONESTIDADE: `deploy.replicas` é IGNORADO por `docker compose up` puro (só
+    # Swarm/`docker stack deploy` e k8s honram) → default 1 (SPOF aceitável num nó
+    # único). O lock RedBeat torna SEGURO rodar 2+; HA real vem de
+    # `docker compose up -d --scale collector-beat=2`, Swarm ou k8s (o lock garante
+    # que escalar nunca duplica disparos). CAVEAT --scale=2: só o LÍDER roda tick()
+    # → o healthcheck de heartbeat marca o STANDBY como unhealthy (benigno sob
+    # compose puro; se usar autoheal, troque o probe pelo PTTL do lock).
     deploy:
-      replicas: ${COLLECTOR_BEAT_REPLICAS:-2}
-      resources:  # O7 — beat só agenda; teto pequeno.
+      replicas: ${COLLECTOR_BEAT_REPLICAS:-1}
+      resources:  # O7 — beat só agenda; sem teto de CPU apertado (evita CFS
+        # throttle do loop single-thread que atrasaria a renovação do lock).
         limits:
-          cpus: '0.50'
+          cpus: '1.0'
           memory: 256m
         reservations:
+          cpus: '0.25'
           memory: 64m
     restart: unless-stopped
 
@@ -766,7 +845,7 @@ services:
       - APP_ENV=${APP_ENV:-development}
       - REDIS_PASSWORD=${REDIS_PASSWORD:?REDIS_PASSWORD obrigatorio - gere com openssl rand -base64 24 e coloque no .env}
       # Honra override (Redis gerenciado) e cai no redis do compose por padrão.
-      - CELERY_BROKER_URL=${CELERY_BROKER_URL:-redis://:${REDIS_PASSWORD:?REDIS_PASSWORD obrigatorio - gere com openssl rand -base64 24 e coloque no .env}@redis:6379/1}
+      - CELERY_BROKER_URL=${CELERY_BROKER_URL:-redis://:${REDIS_PASSWORD:?REDIS_PASSWORD obrigatorio - gere com openssl rand -base64 24 e coloque no .env}@redis-control:6379/1}
       - FLOWER_UNAUTHENTICATED_API=false
       # Em producao, FLOWER_BASIC_AUTH=user:password e obrigatorio (gate em command).
       - FLOWER_BASIC_AUTH=${FLOWER_BASIC_AUTH:-}
@@ -776,6 +855,8 @@ services:
       - "${FLOWER_PORT:-5555}:5555"
     depends_on:
       redis:
+        condition: service_healthy
+      redis-control:
         condition: service_healthy
     deploy:
       resources:  # O7 — monitor leve.
@@ -826,6 +907,9 @@ volumes:
   redis-data:
     driver: local
     name: ${REDIS_DATA_VOLUME:-centralops-redis}
+  redis-control-data:  # broker + schedule/lock RedBeat + result (noeviction, AOF)
+    driver: local
+    name: ${REDIS_CONTROL_DATA_VOLUME:-centralops-redis-control}
   redpanda-data:  # Onda 3 — log durável do broker do data-plane
     driver: local
     name: ${REDPANDA_DATA_VOLUME:-centralops-redpanda}

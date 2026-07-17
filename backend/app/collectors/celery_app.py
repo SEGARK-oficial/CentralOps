@@ -162,7 +162,12 @@ celery_app.conf.update(
     # ── RedBeat: scheduler Redis-backed ────────────────────
     # Substitui o PersistentScheduler de arquivo. Permite que entries sejam
     # criadas/removidas em runtime sem reiniciar o Beat.
-    beat_scheduler="redbeat.RedBeatScheduler",
+    # Scheduler RedBeat endurecido: re-adquire o lock in-process em perdas
+    # transitórias (evita crash-loop/janela morta) e emite heartbeat por tick p/
+    # o healthcheck detectar beat travado. Ver beat_scheduler_resilient.py.
+    # ``__package__`` resolve p/ ``app.collectors`` (container) ou
+    # ``backend.app.collectors`` (repo root) — o mesmo idioma dos includes.
+    beat_scheduler=f"{__package__}.beat_scheduler_resilient:ResilientRedBeatScheduler",
     redbeat_redis_url=_redbeat_redis_url(),
     redbeat_key_prefix=_redbeat_key_prefix(),
     # Lock explícito p/ HA (2+ beats hot-standby). Sem isto,
@@ -231,6 +236,15 @@ celery_app.conf.update(
     # Recicla processos filhos periodicamente — mitiga leaks em aiohttp.
     worker_max_tasks_per_child=500,
     broker_connection_retry_on_startup=True,
+    # Resiliência a restart/failover do Redis EM RUNTIME (não só no boot): o
+    # consumidor/publicador reconecta indefinidamente em vez de o processo morrer
+    # quando o broker pisca. Sem isto, um restart do Redis derruba workers/beat.
+    broker_connection_retry=True,
+    broker_connection_max_retries=None,  # None = reconecta p/ sempre (nunca desiste)
+    # Detecção de socket morto + re-tentativa no nível do cliente Redis do broker.
+    redis_socket_keepalive=True,
+    redis_retry_on_timeout=True,
+    redis_socket_connect_timeout=10,
     # Redis broker visibility_timeout: make the
     # at-least-once invariant explicit. With acks_late, a task must finish (or be
     # killed by task_time_limit) BEFORE the broker re-delivers it, otherwise the
@@ -238,7 +252,14 @@ celery_app.conf.update(
     #   DISPATCH_RESULT_TIMEOUT(600) < task_soft_time_limit(720)
     #     < task_time_limit(900) < visibility_timeout(3600)
     # The hard time-limit kills a stuck task ~45min before redelivery could fire.
-    broker_transport_options={"visibility_timeout": 3600},
+    broker_transport_options={
+        "visibility_timeout": 3600,
+        # Keepalive + health-check da conexão do broker: valida o socket ocioso
+        # entre despachos e derruba conexões mortas rápido após um restart do
+        # Redis (kombu ignora chaves não-reconhecidas → seguro).
+        "socket_keepalive": True,
+        "health_check_interval": 30,
+    },
     # Fire-and-forget: NÃO gravar um result-row no Redis por
     # task. O pipeline é assíncrono e ninguém lê o VALOR de retorno das tasks — os
     # call-sites só usam ``result.id`` (task id, sempre disponível mesmo sem
@@ -255,6 +276,33 @@ celery_app.conf.update(
     timezone="UTC",
     enable_utc=True,
 )
+
+# ── Guard executável da invariante RedBeat ────────────────────────────
+# O lock DEVE sobreviver ao maior sleep do Beat: se REDBEAT_LOCK_TIMEOUT <=
+# beat_max_loop_interval, o lock expira DURANTE o sleep → LockNotOwnedError +
+# crash-loop (a causa-raiz histórica do incidente). Hoje a invariante era só um
+# comentário — nada impedia baixar o timeout via env (ex.: Helm chegou a usar
+# 600 vs. 150 do core) e reintroduzir o bug em silêncio. Transformamos em
+# contrato executável: o BEAT recusa bootar (fail-fast, alto), enquanto os demais
+# processos (API/worker) só logam — um env ruim não deve derrubar a API junto.
+_beat_loop_interval = int(celery_app.conf.beat_max_loop_interval or 0)
+_lock_ttl = int(settings.REDBEAT_LOCK_TIMEOUT or 0)
+if _lock_ttl <= _beat_loop_interval:
+    _invariant_msg = (
+        f"Invariante RedBeat violada: REDBEAT_LOCK_TIMEOUT ({_lock_ttl}s) deve ser "
+        f"MAIOR que beat_max_loop_interval ({_beat_loop_interval}s) — recomendado "
+        ">=5x. O lock expiraria durante o sleep do Beat → LockNotOwnedError/crash-loop."
+    )
+    if os.environ.get("SERVICE_ROLE") == "beat":
+        raise RuntimeError(_invariant_msg)
+    logger.error(_invariant_msg)
+elif _lock_ttl < 3 * _beat_loop_interval:
+    logger.warning(
+        "REDBEAT_LOCK_TIMEOUT (%ds) < 3x beat_max_loop_interval (%ds): margem "
+        "apertada p/ blips/GC/throttle; a convenção da lib é 5x.",
+        _lock_ttl,
+        _beat_loop_interval,
+    )
 
 # Beat schedule é montado dinamicamente a partir do banco — apenas o
 # processo Beat precisa disso. Workers pulam para economizar startup.

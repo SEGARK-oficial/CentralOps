@@ -152,12 +152,15 @@ spec:
             - "$(REDIS_PASSWORD)"
             - "--appendonly"
             - "yes"
-            # maxmemory + volatile-lru: evicta SÓ chaves com TTL (cache/sessão),
-            # NUNCA o broker/results do Celery (sem TTL). Impede crescer sem limite.
+            # Instância de CACHE/DEDUP (db0). volatile-lru evicta a chave-com-TTL
+            # menos usada. ATENÇÃO: as entries do RedBeat e do broker são sem-TTL
+            # (protegidas), MAS o LOCK do RedBeat TEM TTL (REDBEAT_LOCK_TIMEOUT) →
+            # seria evictável aqui. Por isso broker+RedBeat+result foram para o
+            # `redis-control` (noeviction). maxmemory-policy é GLOBAL por instância.
             - "--maxmemory"
             - "{{ .Values.devDatabase.redis.maxmemory }}"
             - "--maxmemory-policy"
-            - "volatile-lru"
+            - "{{ .Values.devDatabase.redis.maxmemoryPolicy | default "volatile-lru" }}"
             # auto-rewrite do AOF EXPLÍCITO (o default do redis:7 já é 100%/64mb).
             # O que REALMENTE limita o AOF é o --maxmemory acima (limita o dataset
             # vivo → limita o snapshot pós-rewrite); a AUSÊNCIA de maxmemory — não
@@ -200,6 +203,111 @@ metadata:
 spec:
   selector:
     app: redis
+  ports:
+    - port: 6379
+      targetPort: 6379
+---
+# ── redis-control (dev): broker + schedule/LOCK RedBeat + result, noeviction ──
+# SEPARADO do `redis` de cache porque a policy de eviction é GLOBAL por instância:
+# o lock do RedBeat TEM TTL e sob volatile-lru seria evictável → crash-loop do
+# beat. `noeviction` torna isso IMPOSSÍVEL (se encher, o enqueue falha visível).
+# Em PROD (devDatabase.enabled=false) use um Redis gerenciado noeviction+HA e
+# aponte secrets.celeryBrokerUrl/celeryResultBackend p/ ele.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: redis-control-data
+  labels:
+    {{- include "centralops.labels" . | nindent 4 }}
+    app: redis-control
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: {{ .Values.devDatabase.redisControl.storage | default "1Gi" }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis-control
+  labels:
+    {{- include "centralops.labels" . | nindent 4 }}
+    app: redis-control
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate          # PVC RWO: termina o pod antigo antes de subir o novo
+  selector:
+    matchLabels:
+      app: redis-control
+  template:
+    metadata:
+      labels:
+        app: redis-control
+        app.kubernetes.io/part-of: centralops
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 999
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: redis-control
+          image: {{ .Values.devDatabase.redisControl.image | default .Values.devDatabase.redis.image }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          command:
+            - "redis-server"
+            - "--requirepass"
+            - "$(REDIS_PASSWORD)"
+            - "--appendonly"
+            - "yes"
+            # noeviction: NUNCA evicta (protege broker + schedule/lock RedBeat +
+            # result). Se encher, o enqueue falha VISÍVEL > perder o lock silencioso.
+            - "--maxmemory"
+            - "{{ .Values.devDatabase.redisControl.maxmemory | default "256mb" }}"
+            - "--maxmemory-policy"
+            - "{{ .Values.devDatabase.redisControl.maxmemoryPolicy | default "noeviction" }}"
+            - "--auto-aof-rewrite-percentage"
+            - "100"
+            - "--auto-aof-rewrite-min-size"
+            - "64mb"
+          env:
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "centralops.fullname" . }}-devdb
+                  key: REDIS_PASSWORD
+          ports:
+            - containerPort: 6379
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "64Mi"
+            limits:
+              cpu: "500m"
+              memory: "384Mi"
+          volumeMounts:
+            - name: redis-control-storage
+              mountPath: /data
+      volumes:
+        - name: redis-control-storage
+          persistentVolumeClaim:
+            claimName: redis-control-data
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis-control
+  labels:
+    {{- include "centralops.labels" . | nindent 4 }}
+    app: redis-control
+spec:
+  selector:
+    app: redis-control
   ports:
     - port: 6379
       targetPort: 6379

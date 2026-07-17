@@ -1,5 +1,13 @@
 {{- range $name, $worker := .Values.workers }}
 {{- if and (kindIs "map" $worker) (hasKey $worker "replicaCount") }}
+{{- if eq $name "beat" }}
+{{-   if gt (int $worker.replicaCount) 1 }}
+{{-     fail "workers.beat.replicaCount DEVE ser 0 ou 1: o beat é scheduler singleton (lock RedBeat). replicaCount>1 gera disputa de lock → LockNotOwnedError. Para HA, 1 réplica + restart do k8s bastam (o failover é o próprio restart)." }}
+{{-   end }}
+{{-   if dig "autoscaling" "enabled" false $worker }}
+{{-     fail "O beat NÃO pode ter autoscaling (scheduler singleton). Remova workers.beat.autoscaling — o HPA/KEDA já excluem o beat por design." }}
+{{-   end }}
+{{- end }}
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -12,6 +20,14 @@ metadata:
     app.kubernetes.io/component: worker-{{ $name }}
 spec:
   replicas: {{ $worker.replicaCount }}
+  {{- if eq $name "beat" }}
+  # Scheduler SINGLETON: Recreate mata o beat antigo ANTES de subir o novo, evitando
+  # 2 beats simultâneos disputando o lock RedBeat (→ LockNotOwnedError) a cada helm
+  # upgrade. Mesmo padrão de postgres/redis (dev-database.yaml). Gap curto de
+  # agendamento no rollout, coberto pelo schedule persistido no Redis.
+  strategy:
+    type: Recreate
+  {{- end }}
   selector:
     matchLabels:
       app.kubernetes.io/name: {{ include "centralops.fullname" $ }}-worker-{{ $name }}
@@ -77,6 +93,22 @@ spec:
             periodSeconds: {{ $.Values.workers.livenessProbe.periodSeconds }}
             timeoutSeconds: {{ add $.Values.workers.livenessProbe.timeoutSeconds 5 }}
             failureThreshold: {{ $.Values.workers.livenessProbe.failureThreshold }}
+          {{- else if and (eq $name "beat") (dig "livenessProbe" "enabled" false $worker) }}
+          # Beat NÃO responde a `celery inspect ping` → liveness por HEARTBEAT: o
+          # ResilientRedBeatScheduler grava /tmp/beat-heartbeat a cada tick; mtime
+          # velho ⇒ beat travado/parado ⇒ reinício. initialDelaySeconds >
+          # REDBEAT_LOCK_TIMEOUT p/ NÃO matar o beat que bloqueia na aquisição do
+          # lock residual no boot. Espelha o heartbeat do kafka-dispatcher.
+          livenessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - "test $(( $(date +%s) - $(stat -c %Y /tmp/beat-heartbeat) )) -lt {{ dig "livenessProbe" "staleSeconds" 180 $worker }}"
+            initialDelaySeconds: {{ dig "livenessProbe" "initialDelaySeconds" 180 $worker }}
+            periodSeconds: {{ dig "livenessProbe" "periodSeconds" 60 $worker }}
+            timeoutSeconds: 5
+            failureThreshold: {{ dig "livenessProbe" "failureThreshold" 3 $worker }}
           {{- end }}
           resources:
             {{- toYaml (default $.Values.workers.resources $worker.resources) | nindent 12 }}

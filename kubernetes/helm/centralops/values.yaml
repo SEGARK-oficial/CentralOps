@@ -51,7 +51,12 @@ config:
   # CORS — restrinja às origens reais em produção (evite "*").
   corsOrigins: ""
   sessionSecureCookie: "1"
-  redbeatLockTimeout: "600"
+  # 150s = 5x o beat_max_loop_interval (30s), casando a intenção do core
+  # (config.py:REDBEAT_LOCK_TIMEOUT=150). NÃO usar 600: prolonga a espera de
+  # re-aquisição do lock após kill-duro do beat (coleta parada por até 10min).
+  # NÃO baixar de ~90s (romperia a invariante max_loop < lock_timeout, que o
+  # celery_app agora VALIDA no boot com fail-fast no processo beat).
+  redbeatLockTimeout: "150"
   # TLS do frontend: "1" termina TLS no nginx (precisa de cert), "0" serve HTTP
   # e o TLS termina no Ingress. Default 0 = TLS na borda (Ingress).
   enableHttps: "0"
@@ -71,9 +76,13 @@ secrets:
   appMasterKey: "CHANGE_ME_TO_A_32_CHARS_MINIMUM_SECRET_KEY"
   databaseUrl: "postgresql+psycopg2://user:CHANGE_ME@postgres.centralops.svc.cluster.local:5432/db"
   redisPassword: "CHANGE_ME"
+  # redisUrl → cache/dedup (volatile-lru). broker+result → redis-control
+  # (noeviction) p/ o LOCK do RedBeat (que TEM TTL) NUNCA ser evictável. Em PROD
+  # gerenciado, aponte broker/result p/ um cluster/endpoint noeviction+HA SEPARADO
+  # do cache. O RedBeat (schedule+lock) segue o broker automaticamente.
   redisUrl: "redis://:CHANGE_ME@redis.centralops.svc.cluster.local:6379/0"
-  celeryBrokerUrl: "redis://:CHANGE_ME@redis.centralops.svc.cluster.local:6379/1"
-  celeryResultBackend: "redis://:CHANGE_ME@redis.centralops.svc.cluster.local:6379/2"
+  celeryBrokerUrl: "redis://:CHANGE_ME@redis-control.centralops.svc.cluster.local:6379/1"
+  celeryResultBackend: "redis://:CHANGE_ME@redis-control.centralops.svc.cluster.local:6379/2"
   # Flower (UI Celery) — deixe vazio para desabilitar basic-auth fraco.
   flowerBasicAuth: ""
   # Licença Enterprise . Vazio = Community (default). Um token
@@ -199,16 +208,35 @@ workers:
         cpu: "150m"
         memory: "512Mi"
   # beat DEVE permanecer singleton (o lock RedBeat protege, mas mantenha 1).
+  # replicaCount>1 ou autoscaling p/ o beat FALHAM o `helm template` (guard em
+  # workers-deployment.yaml) — 2 beats disputam o lock → LockNotOwnedError.
   beat:
     replicaCount: 1
     # beat só AGENDA (não faz fork de tarefa) → uso ~98Mi. Override enxuto.
     resources:
       limits:
-        cpu: "300m"
+        # SEM cpu limit de propósito: o beat é loop single-thread e um teto
+        # apertado causa throttling CFS que atrasa a renovação do lock (→
+        # LockNotOwnedError). Mantém-se o memory limit (guard de OOM real). Se a
+        # política do cluster EXIGIR limits (LimitRange), use cpu:"1000m".
         memory: "256Mi"
       requests:
-        cpu: "50m"
+        cpu: "100m"
         memory: "128Mi"
+    # Liveness por HEARTBEAT (o beat não responde a `celery inspect ping`): o
+    # ResilientRedBeatScheduler grava /tmp/beat-heartbeat a cada tick — mtime velho
+    # ⇒ travado ⇒ reinício. Ver workers-deployment.yaml.
+    livenessProbe:
+      enabled: true
+      staleSeconds: 180          # ~6x beat_max_loop_interval (30s)
+      initialDelaySeconds: 180   # > REDBEAT_LOCK_TIMEOUT(150): cobre espera de lock no boot
+      periodSeconds: 60
+      failureThreshold: 3        # 3×60s de staleness consecutiva antes do reinício
+    # Singleton drain-safe: maxUnavailable:1 permite drain de nó (minAvailable:1
+    # bloquearia o drain p/ sempre). Ver pdb.yaml.
+    pdb:
+      enabled: true
+      maxUnavailable: 1
   runAsUser: 10001
   # Concurrency do prefork Celery. 2 é o ponto certo p/ nós pequenos (2 vCPU/4GB):
   # cada fork é um processo Python ~150-200Mi → concurrency=4 estoura 512Mi (cgroup-OOM).
@@ -290,11 +318,24 @@ devDatabase:
     user: "user"
     password: "CHANGE_ME"
     db: "db"
+  # Instância de CACHE/DEDUP (db0). maxmemory-policy é GLOBAL por instância → esta
+  # usa volatile-lru (evicta dedup/cache frios). O broker + schedule/LOCK RedBeat +
+  # result ficam no redisControl (noeviction) porque o lock TEM TTL e sob
+  # volatile-lru seria evictável → crash-loop do beat. Em PROD use gerenciado.
   redis:
     image: redis:7-alpine
     storage: 2Gi
     password: "CHANGE_ME"
-    maxmemory: "512mb"   # dataset máximo em RAM (evicta só chaves com TTL)
+    maxmemory: "512mb"        # dataset máximo em RAM (evicta só chaves com TTL)
+    maxmemoryPolicy: "volatile-lru"
+  # Instância de CONTROL-PLANE (broker db1 + RedBeat + result db2), noeviction.
+  # Dataset pequeno; NUNCA evicta (se encher, o enqueue falha visível > perder o
+  # lock em silêncio). Só sobe quando devDatabase.enabled=true.
+  redisControl:
+    image: redis:7-alpine
+    storage: 1Gi
+    maxmemory: "256mb"
+    maxmemoryPolicy: "noeviction"
 
 # ── Onda 3 — data-plane durável (Kafka/Redpanda) ──────────────────────
 # Transporte de evento separado do control-plane (Celery+Redis). Com

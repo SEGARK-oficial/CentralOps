@@ -64,3 +64,22 @@ spec:
 {{- end }}
 {{- end }}
 {{- end }}
+{{- if (dig "beat" "pdb" "enabled" false .Values.workers) }}
+---
+# Beat é scheduler SINGLETON: maxUnavailable:1 (não minAvailable:1) permite drain
+# de nó do único pod (minAvailable:1 bloquearia o drain p/ sempre). Mesmo padrão
+# do kafka-dispatcher. O gap curto no drain é coberto pelo restart + schedule
+# persistido no Redis.
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "centralops.fullname" . }}-worker-beat
+  labels:
+    {{- include "centralops.labels" . | nindent 4 }}
+    app.kubernetes.io/component: worker-beat
+spec:
+  maxUnavailable: {{ dig "beat" "pdb" "maxUnavailable" 1 .Values.workers }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "centralops.fullname" . }}-worker-beat
+{{- end }}

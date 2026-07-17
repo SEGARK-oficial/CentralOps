@@ -114,6 +114,17 @@ def init_tracing() -> bool:
         # padrão OTEL_EXPORTER_OTLP_ENDPOINT/_TRACES_ENDPOINT — comportamento que
         # o time de SRE espera de qualquer app OTel-nativa.
         endpoint = otel_common.otlp_endpoint_for("traces")
+        # Fail-safe (idêntico a otel_metrics): endpoint irresolvível → o SDK monta
+        # '/v1/traces' relativo (No scheme supplied) e o BatchSpanProcessor spamma
+        # export falho. Desliga limpo com 1 warning em vez de poluir o log.
+        if not endpoint and not otel_common.sdk_env_endpoint_valid():
+            logger.warning(
+                "OTEL_ENABLED=true mas nenhum endpoint OTLP com scheme "
+                "(OTEL_EXPORTER_OTLP_ENDPOINT vazio/sem http[s]://) — tracing OTel "
+                "DESLIGADO neste processo (evita spam '/v1/traces: No scheme supplied')"
+            )
+            _ENABLED = False
+            return False
         exporter = OTLPSpanExporter(endpoint=endpoint) if endpoint else OTLPSpanExporter()
         provider.add_span_processor(BatchSpanProcessor(exporter))
 
