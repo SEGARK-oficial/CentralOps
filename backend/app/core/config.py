@@ -346,16 +346,23 @@ class Settings(BaseSettings):
     PII_REDACTION_ENABLED: bool = False
 
     # ── metering de custo/volume (medição, sem alavanca) ──
-    # OFF (default) + byte-idêntico: quando False, os hooks de metering são no-op
-    # IMEDIATO (zero serialização extra no hot path). ON: mede eventos/bytes
-    # (lógicos, pré-compressão) que ENTRAM (por source/org) vs SAEM (por destino/org)
-    # e expõe em GET /collectors/cost-summary + no catálogo OTel. NENHUMA alavanca de
-    # redução (drop/sample/trim) é ativada aqui — só medição; logo nenhum evento
-    # é descartado e a pré-condição Route.protect_detection (que gateia o
-    # sampling) não se aplica. Custo em US$ é EE (seam ee_hooks.cost_pricer); o core
-    # Community expõe só volume + razão adimensional. Toda futura flag REDUCTION_* será
-    # no-op enquanto esta estiver False.
-    COST_METERING_ENABLED: bool = False
+    # ON (default): metering é feature CORE — o card de volume/bytes-evitados/%
+    # em /flow (Community) e TODAS as alavancas REDUCTION_* dependem dele ("não
+    # se reduz sem medir"); default off deixava a redução dormente em toda
+    # instalação nova. O custo de hot path que justificava o off foi resolvido
+    # por BATCHING (metering.InVolumeAccumulator: 1 flush Redis por ~500
+    # eventos/15s em vez de 4 pipelines síncronos POR EVENTO); é fail-open
+    # (Redis/OTel indisponível nunca afeta coleta/entrega) e de cardinalidade
+    # bounded (buckets por minuto + TTL no observability_store; labels OTel
+    # mínimas org+integration). Mede eventos/bytes (lógicos, pré-compressão) que
+    # ENTRAM (por source/org) vs SAEM (por destino/org) e expõe em GET
+    # /collectors/cost-summary + no catálogo OTel. NENHUMA alavanca de redução
+    # (drop/sample/trim) é ativada aqui — só medição; logo nenhum evento é
+    # descartado e a pré-condição Route.protect_detection (que gateia o
+    # sampling) não se aplica. Custo em US$ é EE (seam ee_hooks.cost_pricer); o
+    # core Community expõe só volume + razão adimensional. Opt-out documentado:
+    # COST_METERING_ENABLED=false (toda flag REDUCTION_* vira no-op junto).
+    COST_METERING_ENABLED: bool = True
     # Sampling estatístico de redução (consistent-hash por
     # event_id). Default OFF: sample_percent nas rotas é no-op até ligar. Só reduz
     # se COST_METERING_ENABLED também estiver on (não se reduz sem medir).

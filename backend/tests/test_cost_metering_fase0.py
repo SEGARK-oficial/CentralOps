@@ -68,11 +68,16 @@ def _reset_pricer():
     ee_hooks.reset_cost_pricer()
 
 
-# ── flag-off no-op (rollback / byte-idêntico) ────────────────────────────────────
+# ── default ON + flag-off no-op (rollback / byte-idêntico) ───────────────────────
 
-def test_metering_disabled_by_default():
-    assert settings.COST_METERING_ENABLED is False
-    assert metering.enabled() is False
+def test_metering_enabled_by_default():
+    """Metering é CORE e vem LIGADO por padrão (ADR-0011: as alavancas de
+    redução SÓ agem com metering on — "não se reduz sem medir"; default off
+    deixava a redução dormente em toda instalação nova). O custo de hot path
+    foi resolvido pelo batching (InVolumeAccumulator). Opt-out explícito:
+    COST_METERING_ENABLED=false."""
+    assert settings.COST_METERING_ENABLED is True
+    assert metering.enabled() is True
 
 
 def test_record_in_is_noop_when_flag_off(monkeypatch, spies):

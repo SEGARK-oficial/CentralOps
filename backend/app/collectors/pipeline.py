@@ -249,6 +249,13 @@ async def _run_collection_once(integration_id: int, stream: str) -> None:
     # o erro original (incidente jul/2026).
     _track_claims = settings.EVENT_DATAPLANE == "kafka"
     claimed_msg_ids: list[str] = []
+    # metering IN batched (ADR-0011): acumula (eventos, bytes) por
+    # (org, integração) e faz flush a cada 500 eventos/15s — o record_in
+    # por-evento fazia 4 pipelines Redis SÍNCRONOS por evento e bloqueava o
+    # event loop (~0,8ms/evento). Instanciado ANTES do try (padrão
+    # _track_claims): o finally faz o flush FINAL best-effort mesmo em
+    # exceção/soft-timeout, sem mascarar o erro original.
+    _metering_in = metering.InVolumeAccumulator()
 
     try:
         # ── 1. Carrega Integration (session efêmera) ──────────────────
@@ -425,9 +432,11 @@ async def _run_collection_once(integration_id: int, stream: str) -> None:
                     )
 
                     # metering de volume IN (eventos/bytes que
-                    # entraram, pós-dedupe). No-op imediato quando COST_METERING_ENABLED
-                    # off — sem serialização extra; nunca dropa nem afeta a coleta.
-                    metering.record_in(organization_id, integration_id, raw_event)
+                    # entraram, pós-dedupe), BATCHED: acumula localmente e grava
+                    # no Redis 1×/500 eventos ou 15s (flush final no finally do
+                    # ciclo). No-op imediato quando COST_METERING_ENABLED off —
+                    # sem serialização extra; nunca dropa nem afeta a coleta.
+                    _metering_in.add(organization_id, integration_id, raw_event)
 
                     # ── Normalização ──────────────────────────────────
                     if mapping_current is None:
@@ -789,6 +798,10 @@ async def _run_collection_once(integration_id: int, stream: str) -> None:
             logger.exception("collection: falha ao persistir cursor de erro")
         raise
     finally:
+        # flush FINAL do metering IN: grava o parcial acumulado mesmo quando o
+        # ciclo falhou (exceção/soft-timeout). Best-effort — flush() engole tudo
+        # internamente e NUNCA mascara o erro original em voo.
+        _metering_in.flush()
         # Fecha conexão apenas se for efêmera (sem pool compartilhado do worker).
         # Fechar client de pool com aclose() devolve conexões ao pool — ok,
         # mas como sinal explícito de intenção: só faz aclose no cliente efêmero.

@@ -29,7 +29,8 @@ Storage surfaces (both already exist; we only add series):
 from __future__ import annotations
 
 import logging
-from typing import Any, Optional
+import time
+from typing import Any, Callable, Dict, Optional, Tuple
 
 from ...core.config import settings
 
@@ -132,33 +133,143 @@ def record_in(
     """Meter ONE ingested (post-dedupe) raw event: +1 event_in and +bytes_in of its
     logical size, under the source (integration) and org series + the OTel counters.
 
-    Called per event in the collection loop AFTER the dedupe claim succeeds (so it
-    counts events that actually entered — note: this is BEFORE quarantine, so bytes_in
-    includes events that may later be quarantined; that is intentional [they DID ingest]
-    and documented so the UI does not read quarantine loss as "savings"). No-op when the
-    flag is off (returns before any serialization). org_id is fail-closed: a missing org
-    is skipped (never written to a shared/null bucket — anti cross-tenant)."""
+    NOTE — the collection loop no longer calls this per event: it feeds an
+    :class:`InVolumeAccumulator` and flushes via :func:`record_in_batch` (the 4 sync
+    Redis pipelines per event blocked the event loop ~0.8ms/event). This per-event
+    form is kept for compat/tests and one-off callers; it is exactly equivalent to
+    ``record_in_batch(org, integ, 1, bytes(raw_event))``.
+
+    Counts events AFTER the dedupe claim succeeds (so it counts events that actually
+    entered — note: this is BEFORE quarantine, so bytes_in includes events that may
+    later be quarantined; that is intentional [they DID ingest] and documented so the
+    UI does not read quarantine loss as "savings"). No-op when the flag is off
+    (returns before any serialization). org_id is fail-closed: a missing org is
+    skipped (never written to a shared/null bucket — anti cross-tenant)."""
     if not enabled():
         return
     try:
-        nbytes = _event_bytes(raw_event)
+        record_in_batch(organization_id, integration_id, 1, float(_event_bytes(raw_event)))
+    except Exception:  # noqa: BLE001 — metering is best-effort; never breaks collection
+        logger.debug("metering.record_in falhou (integ=%s)", integration_id, exc_info=True)
+
+
+def record_in_batch(
+    organization_id: Optional[int],
+    integration_id: Optional[int],
+    events: int,
+    nbytes: float,
+) -> None:
+    """Meter an AGGREGATED slice of ingested events: +``events`` events_in and
+    +``nbytes`` bytes_in under the source (integration) and org series + the OTel
+    counters. Semantically equivalent to ``events`` calls to :func:`record_in`
+    (counter ``inc(N)`` ≡ N × ``inc(1)``; the per-minute Redis buckets accumulate
+    floats), but costs ONE set of writes instead of N — this is the flush target of
+    :class:`InVolumeAccumulator`.
+
+    No-op when the flag is off or ``events`` is zero. org_id/integration_id are
+    fail-closed individually: a missing org skips the org series and the OTel
+    counters (which require both labels — anti cross-tenant), a missing integration
+    skips the source series."""
+    if not enabled() or not events:
+        return
+    try:
         from .. import metrics
 
         if organization_id is not None and integration_id is not None:
             labels = {"org_id": str(organization_id), "integration_id": str(integration_id)}
-            metrics.EVENTS_IN.labels(**labels).inc()
-            metrics.BYTES_IN.labels(**labels).inc(nbytes)
+            metrics.EVENTS_IN.labels(**labels).inc(float(events))
+            metrics.BYTES_IN.labels(**labels).inc(float(nbytes))
 
         from .. import observability_store as obs
 
         if integration_id is not None:
-            obs.record_counter(_KIND_SOURCE, str(integration_id), _M_EVENTS_IN, 1.0)
+            obs.record_counter(_KIND_SOURCE, str(integration_id), _M_EVENTS_IN, float(events))
             obs.record_counter(_KIND_SOURCE, str(integration_id), _M_BYTES_IN, float(nbytes))
         if organization_id is not None:
-            obs.record_counter(_KIND_ORG, str(organization_id), _M_EVENTS_IN, 1.0)
+            obs.record_counter(_KIND_ORG, str(organization_id), _M_EVENTS_IN, float(events))
             obs.record_counter(_KIND_ORG, str(organization_id), _M_BYTES_IN, float(nbytes))
     except Exception:  # noqa: BLE001 — metering is best-effort; never breaks collection
-        logger.debug("metering.record_in falhou (integ=%s)", integration_id, exc_info=True)
+        logger.debug("metering.record_in_batch falhou (integ=%s)", integration_id, exc_info=True)
+
+
+class InVolumeAccumulator:
+    """Batcher do metering IN para o loop async de coleta.
+
+    O ``record_in`` por-evento fazia 4 pipelines Redis SÍNCRONOS
+    (hincrbyfloat+expire) POR EVENTO no event loop (~0,8ms/evento; ciclo de 10k
+    ≈ 8s bloqueados). Este acumulador soma (events, bytes) por
+    ``(org_id, integration_id)`` — na prática 1 par por ciclo (mono-tenant) — e
+    faz flush via :func:`record_in_batch` a cada ``flush_events`` eventos OU
+    ``flush_seconds`` segundos, o que vier primeiro. O limite de 15s preserva a
+    granularidade de MINUTO dos buckets do observability_store (um ciclo bulk de
+    12min não pode atribuir tudo ao minuto final).
+
+    Contrato (espelha o módulo): o ``_event_bytes`` (1 dumps) continua por evento
+    — só o Redis é batched; ``add`` é no-op imediato flag-off (zero serialização);
+    tudo é best-effort/fail-open (NUNCA levanta no hot path). O dono do ciclo DEVE
+    chamar :meth:`flush` num ``finally`` (inclusive exceção/soft-timeout: grava o
+    parcial sem mascarar o erro original — padrão ``_track_claims``: instancie
+    ANTES do try). ``clock`` é injetável para testes (default ``time.monotonic``).
+    """
+
+    def __init__(
+        self,
+        *,
+        flush_events: int = 500,
+        flush_seconds: float = 15.0,
+        clock: Callable[[], float] = time.monotonic,
+    ) -> None:
+        self._flush_events = int(flush_events)
+        self._flush_seconds = float(flush_seconds)
+        self._clock = clock
+        # (org_id, integration_id) -> [events, bytes]
+        self._pending: Dict[Tuple[Optional[int], Optional[int]], list] = {}
+        self._pending_events = 0
+        self._window_start: Optional[float] = None
+
+    def add(
+        self,
+        organization_id: Optional[int],
+        integration_id: Optional[int],
+        raw_event: Any,
+    ) -> None:
+        """Acumula UM evento ingerido (pós-dedupe). Flag-off = no-op imediato
+        (sem serialização). Best-effort: qualquer falha é engolida em debug."""
+        if not enabled():
+            return
+        try:
+            nbytes = _event_bytes(raw_event)
+            if self._window_start is None:
+                # a janela de tempo começa no 1º evento pendente (não na
+                # construção) — garante "dado parado no buffer ≤ flush_seconds".
+                self._window_start = self._clock()
+            slot = self._pending.setdefault((organization_id, integration_id), [0, 0.0])
+            slot[0] += 1
+            slot[1] += float(nbytes)
+            self._pending_events += 1
+            if self._pending_events >= self._flush_events or (
+                self._clock() - self._window_start
+            ) >= self._flush_seconds:
+                self.flush()
+        except Exception:  # noqa: BLE001 — best-effort; nunca quebra a coleta
+            logger.debug(
+                "metering.InVolumeAccumulator.add falhou (integ=%s)",
+                integration_id,
+                exc_info=True,
+            )
+
+    def flush(self) -> None:
+        """Grava os agregados pendentes (1 ``record_in_batch`` por par) e zera o
+        buffer. Best-effort: NUNCA levanta (seguro num ``finally`` — não mascara
+        a exceção original do ciclo). Sem pendências = no-op."""
+        try:
+            pending, self._pending = self._pending, {}
+            self._pending_events = 0
+            self._window_start = None
+            for (org_id, integ_id), (events, nbytes) in pending.items():
+                record_in_batch(org_id, integ_id, events, nbytes)
+        except Exception:  # noqa: BLE001 — best-effort; nunca mascara o erro do ciclo
+            logger.debug("metering.InVolumeAccumulator.flush falhou", exc_info=True)
 
 
 def record_out(
