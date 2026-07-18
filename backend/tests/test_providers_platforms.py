@@ -72,16 +72,26 @@ class TestProviderPlatformsEndpoint:
         assert r.status_code in (401, 403)
 
     def test_returns_all_catalog_platforms(self, client_factory):
+        """O endpoint deve expor TODAS as plataformas registradas.
+
+        A contagem é DERIVADA do registry, não hardcoded: o catálogo é plugin-driven
+        (cada vendor se auto-registra no import de ``vendors/__init__.py``), então um
+        número fixo quebra a cada integração nova — sem pegar bug nenhum. O invariante
+        que importa é a equivalência com o registry: se um vendor SUMIR do catálogo
+        (registro perdido, import removido), isto falha.
+        """
+        from backend.app.collectors import vendors  # noqa: F401 — dispara auto-registro
+        from backend.app.collectors import registry as collector_registry
+
         client = client_factory()
         _bootstrap_admin(client)
         r = client.get("/api/providers/platforms")
         assert r.status_code == 200, r.text
         data = r.json()
-        # 8 vendors (sophos/wazuh/defender/ninjaone/crowdstrike/entra_id/okta/
-        # aws_cloudtrail) + 2 variantes-card do Sophos (partner/organization)
-        # + lake (search-in-place no S3) + 2 fontes PUSH (
-        # fortinet_fortigate, windows_event_log).
-        assert len(data) == 13
+        expected = {p.platform for p in collector_registry.all_platforms()}
+        assert {p["platform"] for p in data} == expected
+        assert len(data) == len(expected)  # sem duplicatas no catálogo
+        assert expected, "catálogo vazio — o auto-registro dos vendors não rodou"
 
     def test_platform_slugs(self, client_factory):
         client = client_factory()
@@ -96,6 +106,8 @@ class TestProviderPlatformsEndpoint:
         assert "entra_id" in slugs
         assert "okta" in slugs
         assert "aws_cloudtrail" in slugs
+        assert "aws_cloudwatch" in slugs
+        assert "veeam" in slugs
 
     def test_each_has_display_name(self, client_factory):
         client = client_factory()
