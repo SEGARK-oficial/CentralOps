@@ -216,9 +216,34 @@ def _envelope_bytes(envelope: Any) -> int:
         return 0
 
 
-def _cmp(op: str, actual: Any, expected: Any) -> bool:
+def compare_values(op: str, actual: Any, expected: Any) -> bool:
     """Evaluate one operator. Missing field (actual is None) matches only ``ne``
-    / ``nin`` (and ``exists:false``); all positive comparisons are False."""
+    / ``nin`` (and ``exists:false``); all positive comparisons are False.
+
+    VOCABULÁRIO ÚNICO DE OPERADORES do caminho de ingestão (ADR-0015, Fase 1).
+    Consumido por dois avaliadores: as condições de ROTA (aqui) e as regras de
+    CLASSIFICAÇÃO EM VOO (``collectors/inflight/matcher.py``). Uma segunda
+    implementação divergiria em silêncio nos casos de borda que mais importam —
+    campo ausente, tipos incomparáveis — e um operador que se comporta diferente
+    conforme onde é usado é indefensável num produto de segurança.
+
+    Contratos que os chamadores DEVEM conhecer:
+
+    * **Igualdade nativa, sem coerção.** ``1`` não casa ``"1"``; comparação de
+      string é case-sensitive. Tipos incomparáveis (``str`` vs ``int`` em
+      ``gt``) caem no ``except TypeError`` e devolvem False — nunca levantam.
+    * **Coerção numérica é responsabilidade de QUEM COMPILA a cláusula**, não
+      desta função. Um vendor que serializa severidade como ``"5"`` faria
+      ``'5' > 3`` levantar TypeError e a regra nunca casaria, com contador zerado
+      indistinguível de "o valor não bateu". O compilador de regras em voo
+      resolve isso convertendo o lado ``actual`` antes de chamar
+      (``inflight/runtime.py``); rotas mantêm a semântica atual, que já tem
+      cobertura própria.
+    * **``nin``/``ne`` casam por VACUIDADE em campo ausente** (``:224``). Numa
+      allowlist isso é fail-OPEN: o evento sem o campo passa pelo filtro que
+      deveria excluí-lo. O compilador em voo fecha isso auto-injetando uma
+      cláusula ``exists`` para todo path usado em ``nin``/``ne``.
+    """
     if op == "exists":
         return (actual is not None) == bool(expected)
     if actual is None:
@@ -244,6 +269,11 @@ def _cmp(op: str, actual: Any, expected: Any) -> bool:
         # incomparable types (e.g. str vs int) → no match, never crash
         return False
     return False
+
+
+# Alias interno preservado: os chamadores existentes deste módulo continuam
+# usando ``_cmp``. Renomear todos seria ruído num diff que não muda semântica.
+_cmp = compare_values
 
 
 def _match_clause(spec: Any, actual: Any) -> bool:

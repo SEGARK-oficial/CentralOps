@@ -228,7 +228,7 @@ def test_every_facade_maps_to_spec_and_vice_versa():
     # evictada faz ``claim()`` devolver True para um evento reentregue, que é
     # indistinguível de um evento novo — só o sinal do próprio Redis expõe.
     # 42 → 44.
-    assert len(facade_names) == 44
+    assert len(facade_names) == 48
     # O catálogo tem as síncronas + ao menos o observável collector_up.
     assert "collector_up" in otel_metrics._SPEC
     assert "collector_up" not in facade_names

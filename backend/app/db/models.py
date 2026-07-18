@@ -903,6 +903,18 @@ class CorrelationRule(Base):
     # OCSF severity_id da Detection emitida (configurável, não fixo).
     severity_id = Column(Integer, nullable=False, default=4)
     rule_type = Column(String, nullable=False, default="threshold")  # threshold | (futuro)
+    # ADR-0015 Fase 1 — DISCRIMINADOR DE EXECUÇÃO. "batch" (default,
+    # preserva o comportamento de toda regra existente) = avaliada pelo
+    # CorrelationService ao final de uma busca federada. "inflight" = avaliada
+    # POR EVENTO no pipeline de ingestão, antes de o dado chegar ao SIEM.
+    #
+    # Em modo "inflight" os campos de agregação são IGNORADOS — ``rule_type``,
+    # ``min_count``, ``window_seconds`` e ``timestamp_field`` não têm sentido
+    # sobre um único evento — e ``group_by_field`` muda de papel: deixa de
+    # agrupar para virar o SELETOR DA CHAVE DE DEDUP da Detection emitida
+    # (NULL ⇒ uma Detection por regra por janela de supressão). ``where_json``
+    # aceita ``in``/``nin``/``exists`` SÓ neste modo.
+    eval_mode = Column(String, nullable=False, default="batch")  # batch | inflight
     # ── threshold ────────────────────────────────────────────────────────
     # Campo (dotted path) p/ agrupar (ex.: "agent.name", "host", "data.srcip").
     group_by_field = Column(String, nullable=True)

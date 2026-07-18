@@ -73,6 +73,14 @@ _SPEC: Dict[str, Dict[str, Any]] = {
     # evicção começar.
     "collector_dedupe_redis_evicted_keys": {"kind": "gauge", "unit": "1", "labels": ()},
     "collector_dedupe_redis_memory_used_ratio": {"kind": "gauge", "unit": "1", "labels": ()},
+    "collector_inflight_rules_loaded": {
+        "kind": "gauge", "unit": "1", "labels": ("org_id",)},
+    "collector_inflight_rules_rejected_total": {
+        "kind": "counter", "unit": "1", "labels": ("reason",)},
+    "collector_inflight_matches_total": {
+        "kind": "counter", "unit": "1", "labels": ("rule_id",)},
+    "collector_inflight_errors_total": {
+        "kind": "counter", "unit": "1", "labels": ("reason",)},
     "collector_quarantine_total": {"kind": "counter", "unit": "1", "labels": ("vendor", "event_type", "error_kind")},
     "collector_normalize_latency_seconds": {"kind": "histogram", "unit": "s", "labels": ("vendor", "event_type"), "buckets": (0.0005, 0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1)},
     # conformidade OCSF (tag-and-pass). ``reason`` é enum FECHADO

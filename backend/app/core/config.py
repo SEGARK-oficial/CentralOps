@@ -269,6 +269,34 @@ class Settings(BaseSettings):
         return normalized
 
     @model_validator(mode="after")
+    def _validate_inflight_budget(self) -> "Settings":
+        """O TRABALHO MÁXIMO POR EVENTO da classificação em voo é limitado.
+
+        ADR-0015 R1/R8. Os dois tetos isolados não protegem nada: 200 regras de 2
+        cláusulas e 4 regras de 100 cláusulas custam o mesmo por evento, e é o
+        PRODUTO que entra no laço do hot path — onde ``await claim`` já é o
+        gargalo dominante do pipeline (~2-4k EPS por task).
+
+        Reprovar o BOOT, e não logar um aviso, é deliberado: um operador que
+        eleva os tetos num ``.env`` degradaria a INGESTÃO de todos os tenants
+        daquele worker, e a degradação apareceria como lentidão difusa de
+        coleta — sintoma que ninguém liga a uma regra de detecção. Falhar cedo e
+        alto é a única forma de esse erro ser barato.
+        """
+        budget = int(self.INFLIGHT_MAX_RULES_PER_CYCLE) * int(
+            self.INFLIGHT_MAX_WHERE_CLAUSES
+        )
+        if budget > 500:
+            raise ValueError(
+                "INFLIGHT_MAX_RULES_PER_CYCLE * INFLIGHT_MAX_WHERE_CLAUSES = "
+                f"{budget} excede o orçamento de 500 comparações por evento. "
+                "Este produto é o trabalho do matcher no hot path; acima disso a "
+                "classificação em voo passa a competir com a ingestão. Reduza um "
+                "dos dois."
+            )
+        return self
+
+    @model_validator(mode="after")
     def _validate_kafka_sasl(self) -> "Settings":
         """SASL_* exige um mecanismo SASL — senão o aiokafka tenta conectar sem
         mecanismo e o ``.start()`` do producer/consumer falha no broker gerenciado.
@@ -363,32 +391,58 @@ class Settings(BaseSettings):
     # core Community expõe só volume + razão adimensional. Opt-out documentado:
     # COST_METERING_ENABLED=false (toda flag REDUCTION_* vira no-op junto).
     COST_METERING_ENABLED: bool = True
-    # Sampling estatístico de redução (consistent-hash por
-    # event_id). Default OFF: sample_percent nas rotas é no-op até ligar. Só reduz
-    # se COST_METERING_ENABLED também estiver on (não se reduz sem medir).
-    REDUCTION_SAMPLE_ENABLED: bool = False
+    # Sampling estatístico de redução (consistent-hash por event_id). Só reduz se
+    # COST_METERING_ENABLED também estiver on (não se reduz sem medir).
+    #
+    # ADR-0015: default invertido para ON (era OFF). A segurança REAL é o default
+    # por-rota — ``Route.sample_percent`` nasce 100 (mantém tudo), então ligar esta
+    # flag não descarta um único evento até que alguém configure uma rota
+    # explicitamente. Mantê-la OFF criava um SEGUNDO portão cujo efeito prático era
+    # confundir: o operador configurava ``sample_percent`` na UI e nada acontecia,
+    # sem nenhum sinal do porquê — a mesma classe de falha silenciosa que esta ADR
+    # fecha no resto do produto. O fail-safe que importa continua sendo
+    # ``REDUCTION_SAMPLE_PROTECT_DETECTION`` + ``Route.protect_detection``.
+    REDUCTION_SAMPLE_ENABLED: bool = True
     # Kill-switch GLOBAL do fail-safe de detecção. True
     # (default) = rotas com Route.protect_detection=True NUNCA são amostradas/
     # agregadas, mesmo com sampling/aggregate on. False desliga a proteção
     # globalmente (perigoso; use só com replay de detecção validado). A proteção
     # real é por-rota (a coluna); esta flag é o override de emergência.
     REDUCTION_SAMPLE_PROTECT_DETECTION: bool = True
-    # Trimming lossless: quando o raw_reduction (limites de tamanho
-    # por-campo) dispara, mede os bytes evitados como bytes_saved{reason=trim}. Default
-    # OFF: o trimming por max_bytes/max_items CONTINUA acontecendo (back-compat); esta
-    # flag só liga a CONTABILIZAÇÃO da economia (não muda o que é entregue). Só reduz
-    # se COST_METERING_ENABLED também estiver on.
-    REDUCTION_TRIM_ENABLED: bool = False
-    # Suppression durável por assinatura (rate-limit Number-to-Allow
-    # via Redis INCR+EXPIRE). Default OFF: rotas com suppress_key/allow são no-op até
-    # ligar. Só reduz se COST_METERING_ENABLED também estiver on. Fail-OPEN: erro de
-    # Redis entrega o evento (supressão é otimização, não correção).
-    REDUCTION_SUPPRESS_ENABLED: bool = False
+    # Trimming lossless: quando o raw_reduction (limites de tamanho por-campo)
+    # dispara, mede os bytes evitados como bytes_saved{reason=trim}.
+    #
+    # ADR-0015: default invertido para ON (era OFF), e este é o caso mais claro
+    # dos quatro. Esta flag NÃO liga o corte — o trimming por max_bytes/max_items
+    # JÁ acontece hoje (back-compat) e continua acontecendo com ela desligada.
+    # Ela liga apenas a CONTABILIZAÇÃO. Com OFF, o produto cortava bytes e se
+    # recusava a contá-los, deixando os cards Evitado/Redução em zero enquanto a
+    # economia era real. Custo do ON: 2 dumps JSON por evento efetivamente
+    # trimado (nada nos demais). Não muda um byte do que é entregue.
+    REDUCTION_TRIM_ENABLED: bool = True
+    # Suppression durável por assinatura (rate-limit Number-to-Allow via Redis
+    # INCR+EXPIRE). Só reduz se COST_METERING_ENABLED também estiver on.
+    # Fail-OPEN: erro de Redis entrega o evento (supressão é otimização, não
+    # correção).
+    #
+    # ADR-0015: default invertido para ON (era OFF), mesma razão do sampling — o
+    # default por-rota já é o no-op (``Route.suppress_allow`` nasce 0 = desligado),
+    # então ligar aqui não suprime nada até uma rota ser configurada. E a
+    # supressão preserva a 1ª ocorrência por design (pipeline.py), o que a torna
+    # segura para detecção single-event.
+    REDUCTION_SUPPRESS_ENABLED: bool = True
     # Agregação/rollup log→métrica por destino (a mais coarse; opt-in
     # por-destino via delivery.aggregate.group_by). Default OFF: flush_ms/aggregate são
     # no-op. Só reduz se COST_METERING_ENABLED on. FAIL-OPEN anti-OOM: cardinalidade de
     # grupos acima do teto passa o lote intacto. Nunca agrega
     # detecção (é opt-in por-destino — quem alimenta detecção não recebe aggregate).
+    #
+    # ADR-0015: PERMANECE OFF, deliberadamente, enquanto sample/suppress/trim foram
+    # ligadas. É a única das quatro que destrói FIDELIDADE DE EVENTO: colapsa
+    # log→métrica, e o evento individual deixa de existir. Sampling descarta uma
+    # fração mas preserva a forma do que sobra; agregação não preserva evento
+    # nenhum. Numa plataforma de segurança isso merece continuar sendo uma decisão
+    # consciente por ambiente, não um default.
     REDUCTION_AGGREGATE_ENABLED: bool = False
 
     # ── OTel tracing distribuído (export vendor-neutro) ──
@@ -472,6 +526,30 @@ class Settings(BaseSettings):
     # pulada), e um WARNING é emitido uma vez por razão por ciclo.
     # Invariante coberta por backend/tests/test_adr0015_quarantine_budget.py.
     QUARANTINE_MAX_PER_KIND_PER_RUN: int = 100
+
+    # ── Classificação em voo (ADR-0015, Fase 1) ──────────────────────────
+    # Regras single-event avaliadas no hot path, emitindo Detection ANTES de o
+    # dado chegar ao SIEM. Cada teto abaixo fecha um modo de falha nomeado, e
+    # cada um tem teste de invariante (regra R8 da ADR — este produto já foi
+    # mordido 3x por invariante que era só comentário).
+    #
+    # Teto de regras compiladas por ciclo. 0 = KILL-SWITCH de ambiente (a carga
+    # sai cedo, mas conta as regras habilitadas e AVISA no log — senão o
+    # diagnóstico viraria "não há regras" quando o operador desligou a feature).
+    INFLIGHT_MAX_RULES_PER_CYCLE: int = 50
+    # Teto de cláusulas por regra. O produto (regras × cláusulas) é o trabalho
+    # máximo por evento e é validado no BOOT — é o número que de fato protege o
+    # hot path, não os dois isolados.
+    INFLIGHT_MAX_WHERE_CLAUSES: int = 10
+    # Teto de chaves de dedup DISTINTAS por regra por ciclo. A variável perigosa
+    # é a CARDINALIDADE do group_by_field, não a taxa de match: uma regra que
+    # casa 100% dos eventos com group_by=None gera UMA chave. No teto, os matches
+    # seguem contados e nenhum evento é descartado — só não há Detection nova.
+    INFLIGHT_MAX_DEDUP_KEYS_PER_RULE_PER_CYCLE: int = 50
+    # Truncamento do valor de group_by dentro do dedup_key. É o único teto que
+    # protege escrita REAL: o valor vem do evento e entra num índice B-tree
+    # (ix_detections_org_dedup).
+    INFLIGHT_MAX_GROUP_VALUE_LEN: int = 200
     # Gate de commit: 422 em ``create_version`` quando o mapping emite OCSF
     # inválido. OFF = permissivo (só grava ``ocsf_validation_stats``, não bloqueia).
     OCSF_MAPPING_GATE_ENABLED: bool = False

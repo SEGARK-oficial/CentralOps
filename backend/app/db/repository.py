@@ -1936,6 +1936,48 @@ class CorrelationRuleRepository:
             .all()
         )
 
+    def list_inflight_for_org(
+        self, organization_id: int, limit: int
+    ) -> list[models.CorrelationRule]:
+        """Regras em modo ``inflight`` da org (ADR-0015 Fase 1).
+
+        Método SEPARADO de ``list_enabled_for_org`` de propósito: aquele é o
+        caminho batch/EE e não pode mudar de comportamento. Ordenado por ``id``
+        para que a compilação seja determinística entre workers — duas réplicas
+        avaliando regras em ordens diferentes produziriam Detections com
+        ``first_seen`` divergente sob concorrência.
+
+        ``limit`` é teto DURO de avaliação por ciclo; ``max(0, ...)`` e não
+        ``max(1, ...)`` porque 0 é o kill-switch de ambiente.
+        """
+        return (
+            self.db.query(models.CorrelationRule)
+            .filter(
+                models.CorrelationRule.organization_id == organization_id,
+                models.CorrelationRule.enabled.is_(True),
+                models.CorrelationRule.eval_mode == "inflight",
+            )
+            .order_by(models.CorrelationRule.id.asc())
+            .limit(max(0, limit))
+            .all()
+        )
+
+    def count_enabled_for_org(self, organization_id: int) -> int:
+        """Quantas regras habilitadas a org tem, INDEPENDENTE de ``eval_mode``.
+
+        Existe só para o diagnóstico: quando nenhuma regra em voo é carregada,
+        a diferença entre "a org não tem regra" e "a org tem 12 regras, todas em
+        modo batch" é a resposta ao ticket de suporte mais provável desta fase.
+        """
+        return (
+            self.db.query(models.CorrelationRule)
+            .filter(
+                models.CorrelationRule.organization_id == organization_id,
+                models.CorrelationRule.enabled.is_(True),
+            )
+            .count()
+        )
+
     def count_for_org(self, organization_id: int) -> int:
         return (
             self.db.query(func.count(models.CorrelationRule.id))

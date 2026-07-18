@@ -134,6 +134,12 @@ DEDUPE_DROPS = _instrument("collector_dedupe_drops_total")
 DEDUPE_REDIS_EVICTED_KEYS = _instrument("collector_dedupe_redis_evicted_keys")
 DEDUPE_REDIS_MEMORY_USED_RATIO = _instrument("collector_dedupe_redis_memory_used_ratio")
 QUARANTINE_TOTAL = _instrument("collector_quarantine_total")
+# classificação em voo (ADR-0015 Fase 1). Emitidas 1x por CICLO
+# (carga e flush), nunca por evento — R1.
+INFLIGHT_RULES_LOADED = _instrument("collector_inflight_rules_loaded")
+INFLIGHT_RULES_REJECTED = _instrument("collector_inflight_rules_rejected_total")
+INFLIGHT_MATCHES = _instrument("collector_inflight_matches_total")
+INFLIGHT_ERRORS = _instrument("collector_inflight_errors_total")
 NORMALIZE_LATENCY = _instrument("collector_normalize_latency_seconds")
 # conformidade OCSF (tag-and-pass). reason ∈ validator.OCSF_REASONS.
 OCSF_VALID = _instrument("collector_ocsf_valid_total")

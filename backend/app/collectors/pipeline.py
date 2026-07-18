@@ -417,6 +417,16 @@ async def _run_collection_once(integration_id: int, stream: str) -> None:
     # _track_claims): o finally faz o flush FINAL best-effort mesmo em
     # exceção/soft-timeout, sem mascarar o erro original.
     _metering_in = metering.InVolumeAccumulator()
+    # ADR-0015 Fase 1 — MESMO padrão e MESMO motivo de ``_track_claims`` acima:
+    # o ``finally`` referencia estes nomes, e uma exceção nos passos 1-3 (antes
+    # da carga das regras) os deixaria unbound, transformando o flush num
+    # ``UnboundLocalError`` que MASCARARIA o erro original. Foi exatamente essa
+    # a forma do incidente de jul/2026 registrado no comentário acima.
+    _inflight_rules: tuple = ()
+    _inflight_acc = None
+    _inflight_logged = False
+    _inflight_org_id: Optional[int] = None
+    from .inflight.runtime import flush_inflight
 
     try:
         # ── 1. Carrega Integration (session efêmera) ──────────────────
@@ -519,6 +529,22 @@ async def _run_collection_once(integration_id: int, stream: str) -> None:
             if (settings.REDUCTION_SUPPRESS_ENABLED and settings.COST_METERING_ENABLED)
             else []
         )
+
+        # ── Classificação em voo (ADR-0015 Fase 1) ───────────────────────
+        # Carga e compilação 1x por ciclo, OFF-LOOP (não há sessão de DB aberta
+        # no laço de eventos). Import lazy: uma org sem regras em voo não paga
+        # nem o custo de resolver o módulo. Fail-safe para () — um problema aqui
+        # nunca pode impedir a COLETA, que é o produto que se vende.
+        from .inflight.matcher import evaluate_inflight
+        from .inflight.runtime import InflightAccumulator, load_inflight_rules_for_org
+
+        _inflight_org_id = organization_id
+        _inflight_rules = await asyncio.to_thread(
+            load_inflight_rules_for_org, organization_id
+        )
+        # Instanciado SÓ quando há regra: com a tupla vazia o hot path fica
+        # byte-idêntico ao anterior (R2) e o flush é curto-circuitado.
+        _inflight_acc = InflightAccumulator() if _inflight_rules else None
 
         if not registry_has(platform, stream):
             logger.error(
@@ -904,6 +930,40 @@ async def _run_collection_once(integration_id: int, stream: str) -> None:
                             )
                             continue
 
+                    # ── Classificação em voo ─────────────────────────────
+                    # Posição deliberada: DEPOIS da supressão (que preserva a 1ª
+                    # ocorrência por assinatura — pipeline.py, comentário do
+                    # bloco de suppress — logo um evento suprimido é repetição
+                    # de um já classificado) e ANTES do roteamento, que é onde
+                    # vive a ação `drop`. Classificar depois do drop seria
+                    # falso-negativo silencioso; classificar antes da supressão
+                    # produziria Detection sobre evento que nunca chega ao SIEM.
+                    #
+                    # R3 — FAIL-OPEN NA ENTREGA: nada aqui tem `continue`,
+                    # `return` ou mutação do envelope. Uma regra que explode
+                    # custa um log e o evento segue no batch. O detector é
+                    # observador, nunca porteiro.
+                    if _inflight_rules:
+                        try:
+                            for _rule in evaluate_inflight(envelope, _inflight_rules):
+                                _inflight_acc.add(
+                                    _rule, envelope, organization_id, integration_id
+                                )
+                        except Exception:  # noqa: BLE001
+                            # Rate-limit de log por ciclo: sem isso, uma regra
+                            # ruim trocaria degradação de detecção por
+                            # amplificação de escrita no log — a mesma classe de
+                            # dano que o teto de quarentena existe para evitar.
+                            if not _inflight_logged:
+                                _inflight_logged = True
+                                logger.exception(
+                                    "inflight: matcher falhou (o evento segue "
+                                    "no batch; avaliação abortada neste evento)"
+                                )
+                            _inflight_acc.errors["matcher"] = (
+                                _inflight_acc.errors.get("matcher", 0) + 1
+                            )
+
                     batch.append(envelope)
                     events_count += 1
 
@@ -1029,6 +1089,17 @@ async def _run_collection_once(integration_id: int, stream: str) -> None:
         # ciclo falhou (exceção/soft-timeout). Best-effort — flush() engole tudo
         # internamente e NUNCA mascara o erro original em voo.
         _metering_in.flush()
+        # Flush ÚNICO da classificação em voo, no ``finally`` — cobre o caminho
+        # feliz E o de exceção. Isso é obrigatório, não zelo: no data-plane
+        # default uma exceção no meio do ciclo NÃO solta as claims de dedupe, o
+        # retry re-busca os eventos e ``claim`` os descarta como duplicados —
+        # eles nunca seriam reclassificados. Sem flush aqui os matches morreriam
+        # em memória, sem Detection, sem log e sem métrica.
+        # Envolto em try/except próprio para JAMAIS mascarar a exceção original.
+        try:
+            await flush_inflight(_inflight_acc, _inflight_org_id)
+        except Exception:  # noqa: BLE001
+            logger.exception("inflight: flush falhou no encerramento do ciclo")
         # Fecha conexão apenas se for efêmera (sem pool compartilhado do worker).
         # Fechar client de pool com aclose() devolve conexões ao pool — ok,
         # mas como sinal explícito de intenção: só faz aclose no cliente efêmero.
