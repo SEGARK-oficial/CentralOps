@@ -9,7 +9,8 @@
 
   { "target": "normalized.time",
     "source": "activityTime",
-    "type_cast": "to_int",
+    "_comment": "NinjaOne entrega activityTime em epoch SEGUNDOS (float). iso_to_epoch aplica a heuristica segundos-vs-ms e devolve timestamp_t (ms) do OCSF; to_int deixava 10 digitos.",
+    "type_cast": "iso_to_epoch",
     "default": 0
   },
 
@@ -35,7 +36,7 @@
   { "target": "normalized.device.hostname", "source": "device.dnsName", "default": null },
   { "target": "normalized.device.uid", "source": "device.id", "default": null },
 
-  { "target": "normalized.metadata.version", "const": "1.3.0" },
+  { "target": "normalized.metadata.version", "const": "1.8.0" },
   { "target": "normalized.metadata.product.name", "const": "NinjaOne" },
   { "target": "normalized.metadata.product.vendor_name", "const": "NinjaOne" },
   { "target": "normalized.metadata.product.feature.name", "source": "activityType", "default": null },

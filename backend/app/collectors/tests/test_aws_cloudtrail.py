@@ -171,6 +171,84 @@ async def test_skips_objects_at_or_before_cursor_overlap() -> None:
     assert collected == []
 
 
+@pytest.mark.asyncio
+async def test_caps_objects_per_cycle_and_saves_resumable_position(monkeypatch) -> None:
+    """Teto por ciclo + cursor RESUMÍVEL. Com backlog maior que o teto, para no teto e
+    grava a POSIÇÃO (prefix + start_after) SEM avançar o watermark — o próximo ciclo
+    retoma exatamente daí. Antes o cursor era só um watermark gravado no FIM: um return
+    no meio não retomava, e o catch-up drenava tudo num run (soft-timeout → rollback →
+    loop sem progresso)."""
+    monkeypatch.setattr(ct, "_MAX_OBJECTS_PER_CYCLE", 2)
+    now = datetime.now(timezone.utc)
+    keys = [f"{_PREFIX}obj{i}.json.gz" for i in range(4)]
+    listing = {_PREFIX: {
+        "Contents": [{"Key": k, "LastModified": now} for k in keys],
+        "IsTruncated": False,
+    }}
+    fake = _FakeS3(listing, {k: _gz([_event(f"ev-{i}")]) for i, k in enumerate(keys)})
+
+    watermark = datetime(2026, 6, 20, tzinfo=timezone.utc)
+    ctx = _ctx(cursor={"last_modified": watermark.isoformat()})
+    with patch.object(AWSCloudTrailCollector, "_load_conn", return_value=dict(_CONN)), \
+         patch.object(AWSCloudTrailCollector, "_s3_client", return_value=fake), \
+         patch.object(ct, "_date_prefixes", return_value=[_PREFIX]):
+        collected = [ev async for ev in AWSCloudTrailCollector(ctx).collect()]
+
+    # PAROU no teto: só 2 dos 4 objetos processados.
+    assert [e["eventID"] for e in collected] == ["ev-0", "ev-1"]
+    # Posição resumível gravada…
+    assert ctx.cursor["prefix"] == _PREFIX
+    assert ctx.cursor["start_after"] == keys[1]
+    # …e o watermark NÃO avançou (senão obj2/obj3 seriam pulados = perda de dado).
+    assert ctx.cursor["last_modified"] == watermark.isoformat()
+
+
+@pytest.mark.asyncio
+async def test_resumes_from_saved_position() -> None:
+    """Retomada: com cursor de posição, a listagem continua da chave salva (StartAfter)
+    em vez de recomeçar o prefixo; ao drenar, o watermark avança e a posição é limpa."""
+    now = datetime.now(timezone.utc)
+    key = f"{_PREFIX}obj9.json.gz"
+    listing = {_PREFIX: {"Contents": [{"Key": key, "LastModified": now}], "IsTruncated": False}}
+    fake = _FakeS3(listing, {key: _gz([_event("ev-9")])})
+    seen: List[Dict[str, Any]] = []
+    _orig = fake.list_objects_v2
+
+    async def _spy(**kw):
+        seen.append(kw)
+        return await _orig(**kw)
+
+    fake.list_objects_v2 = _spy  # type: ignore[method-assign]
+
+    ctx = _ctx(cursor={
+        "last_modified": datetime(2026, 6, 20, tzinfo=timezone.utc).isoformat(),
+        "prefix": _PREFIX,
+        "start_after": f"{_PREFIX}obj5.json.gz",
+    })
+    with patch.object(AWSCloudTrailCollector, "_load_conn", return_value=dict(_CONN)), \
+         patch.object(AWSCloudTrailCollector, "_s3_client", return_value=fake), \
+         patch.object(ct, "_date_prefixes", return_value=[_PREFIX]):
+        collected = [ev async for ev in AWSCloudTrailCollector(ctx).collect()]
+
+    assert [e["eventID"] for e in collected] == ["ev-9"]
+    assert seen[0].get("StartAfter") == f"{_PREFIX}obj5.json.gz"  # retomou da posição
+    assert ctx.cursor == {"last_modified": now.isoformat()}  # drenou → posição limpa
+
+
+def test_date_prefixes_cover_backlog_not_just_two_days() -> None:
+    """Data-gap corrigido: antes só hoje+ontem, então um backlog de >2 dias (cursor
+    atrasado/downtime/primeira carga) era silenciosamente PULADO."""
+    now = datetime(2026, 6, 21, 12, 0, tzinfo=timezone.utc)
+    since = datetime(2026, 6, 17, 12, 0, tzinfo=timezone.utc)  # 4 dias atrás
+    out = ct._date_prefixes("B/", since, now)
+    assert out[0] == "B/2026/06/16/"   # 1 dia de folga antes do watermark
+    assert out[-1] == "B/2026/06/21/"  # até hoje (ordem: antigo → novo)
+    assert len(out) == 6
+    # cursor MUITO velho não gera lista infinita (teto de lookback).
+    ancient = datetime(2020, 1, 1, tzinfo=timezone.utc)
+    assert len(ct._date_prefixes("B/", ancient, now)) == ct._MAX_LOOKBACK_DAYS + 1
+
+
 def test_registered_zero_core_exotic_creds() -> None:
     from ..registry import get, get_platform, has
     from ..capabilities import invalid_capabilities

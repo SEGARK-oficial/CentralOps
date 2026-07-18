@@ -2,47 +2,248 @@
   "ocsf_version": "1.8.0",
   "_note": "Vendored, versioned OCSF 1.8.0 class manifest. Single source of truth for the tier-1 structural validator (ocsf/validator.py). Covers ONLY the classes the CentralOps default mappings emit. Verified against https://schema.ocsf.io/1.8.0/classes/<name> and github.com/ocsf/ocsf-schema tag v1.8.0 (identity math class_uid==category_uid*1000+idx and type_uid==class_uid*100+activity_id confirmed for all; activity_id/status_id enums cross-checked). 'required' is the OCSF-1.8.0 inheritance-resolved required set (advisory — the validator does NOT fail an event on missing content-required; identity fields are enforced separately). A CI test asserts this manifest stays consistent with ocsf/classes.py so the two can't drift.",
   "classes": {
+    "0": {
+      "name": "Base Event",
+      "category_uid": 0,
+      "activity_ids": {
+        "0": "Unknown",
+        "99": "Other"
+      },
+      "status_ids": {
+        "0": "Unknown",
+        "1": "Success",
+        "2": "Failure",
+        "99": "Other"
+      },
+      "required": [
+        "activity_id",
+        "category_uid",
+        "class_uid",
+        "metadata",
+        "severity_id",
+        "time",
+        "type_uid"
+      ]
+    },
+    "1006": {
+      "name": "Scheduled Job Activity",
+      "category_uid": 1,
+      "activity_ids": {
+        "0": "Unknown",
+        "1": "Create",
+        "2": "Update",
+        "3": "Delete",
+        "4": "Enable",
+        "5": "Disable",
+        "6": "Start",
+        "99": "Other"
+      },
+      "status_ids": {
+        "0": "Unknown",
+        "1": "Success",
+        "2": "Failure",
+        "99": "Other"
+      },
+      "required": [
+        "activity_id",
+        "category_uid",
+        "class_uid",
+        "device",
+        "job",
+        "metadata",
+        "severity_id",
+        "time",
+        "type_uid"
+      ]
+    },
     "2004": {
       "name": "Detection Finding",
       "category_uid": 2,
-      "activity_ids": { "0": "Unknown", "1": "Create", "2": "Update", "3": "Close", "99": "Other" },
-      "status_ids": { "0": "Unknown", "1": "New", "2": "In Progress", "3": "Suppressed", "4": "Resolved", "5": "Archived", "6": "Deleted", "99": "Other" },
-      "required": ["activity_id", "category_uid", "class_uid", "finding_info", "metadata", "severity_id", "time", "type_uid"]
+      "activity_ids": {
+        "0": "Unknown",
+        "1": "Create",
+        "2": "Update",
+        "3": "Close",
+        "99": "Other"
+      },
+      "status_ids": {
+        "0": "Unknown",
+        "1": "New",
+        "2": "In Progress",
+        "3": "Suppressed",
+        "4": "Resolved",
+        "5": "Archived",
+        "6": "Deleted",
+        "99": "Other"
+      },
+      "required": [
+        "activity_id",
+        "category_uid",
+        "class_uid",
+        "finding_info",
+        "metadata",
+        "severity_id",
+        "time",
+        "type_uid"
+      ]
     },
     "2005": {
       "name": "Incident Finding",
       "category_uid": 2,
-      "activity_ids": { "0": "Unknown", "1": "Create", "2": "Update", "3": "Close", "99": "Other" },
-      "status_ids": { "0": "Unknown", "1": "New", "2": "In Progress", "3": "On Hold", "4": "Resolved", "5": "Closed", "99": "Other" },
-      "required": ["activity_id", "category_uid", "class_uid", "finding_info_list", "metadata", "severity_id", "status_id", "time", "type_uid"]
+      "activity_ids": {
+        "0": "Unknown",
+        "1": "Create",
+        "2": "Update",
+        "3": "Close",
+        "99": "Other"
+      },
+      "status_ids": {
+        "0": "Unknown",
+        "1": "New",
+        "2": "In Progress",
+        "3": "On Hold",
+        "4": "Resolved",
+        "5": "Closed",
+        "99": "Other"
+      },
+      "required": [
+        "activity_id",
+        "category_uid",
+        "class_uid",
+        "finding_info_list",
+        "metadata",
+        "severity_id",
+        "status_id",
+        "time",
+        "type_uid"
+      ]
     },
     "3001": {
       "name": "Account Change",
       "category_uid": 3,
-      "activity_ids": { "0": "Unknown", "1": "Create", "2": "Enable", "3": "Password Change", "4": "Password Reset", "5": "Disable", "6": "Delete", "7": "Attach Policy", "8": "Detach Policy", "9": "Lock", "10": "MFA Factor Enable", "11": "MFA Factor Disable", "12": "Unlock", "99": "Other" },
-      "status_ids": { "0": "Unknown", "1": "Success", "2": "Failure", "99": "Other" },
-      "required": ["activity_id", "category_uid", "class_uid", "metadata", "severity_id", "time", "type_uid", "user"]
+      "activity_ids": {
+        "0": "Unknown",
+        "1": "Create",
+        "2": "Enable",
+        "3": "Password Change",
+        "4": "Password Reset",
+        "5": "Disable",
+        "6": "Delete",
+        "7": "Attach Policy",
+        "8": "Detach Policy",
+        "9": "Lock",
+        "10": "MFA Factor Enable",
+        "11": "MFA Factor Disable",
+        "12": "Unlock",
+        "99": "Other"
+      },
+      "status_ids": {
+        "0": "Unknown",
+        "1": "Success",
+        "2": "Failure",
+        "99": "Other"
+      },
+      "required": [
+        "activity_id",
+        "category_uid",
+        "class_uid",
+        "metadata",
+        "severity_id",
+        "time",
+        "type_uid",
+        "user"
+      ]
     },
     "3002": {
       "name": "Authentication",
       "category_uid": 3,
-      "activity_ids": { "0": "Unknown", "1": "Logon", "2": "Logoff", "3": "Authentication Ticket", "4": "Service Ticket Request", "5": "Service Ticket Renew", "6": "Preauth", "7": "Account Switch", "99": "Other" },
-      "status_ids": { "0": "Unknown", "1": "Success", "2": "Failure", "99": "Other" },
-      "required": ["activity_id", "category_uid", "class_uid", "metadata", "severity_id", "time", "type_uid", "user"]
+      "activity_ids": {
+        "0": "Unknown",
+        "1": "Logon",
+        "2": "Logoff",
+        "3": "Authentication Ticket",
+        "4": "Service Ticket Request",
+        "5": "Service Ticket Renew",
+        "6": "Preauth",
+        "7": "Account Switch",
+        "99": "Other"
+      },
+      "status_ids": {
+        "0": "Unknown",
+        "1": "Success",
+        "2": "Failure",
+        "99": "Other"
+      },
+      "required": [
+        "activity_id",
+        "category_uid",
+        "class_uid",
+        "metadata",
+        "severity_id",
+        "time",
+        "type_uid",
+        "user"
+      ]
     },
     "4001": {
       "name": "Network Activity",
       "category_uid": 4,
-      "activity_ids": { "0": "Unknown", "1": "Open", "2": "Close", "3": "Reset", "4": "Fail", "5": "Refuse", "6": "Traffic", "7": "Listen", "99": "Other" },
-      "status_ids": { "0": "Unknown", "1": "Success", "2": "Failure", "99": "Other" },
-      "required": ["activity_id", "category_uid", "class_uid", "metadata", "severity_id", "time", "type_uid"]
+      "activity_ids": {
+        "0": "Unknown",
+        "1": "Open",
+        "2": "Close",
+        "3": "Reset",
+        "4": "Fail",
+        "5": "Refuse",
+        "6": "Traffic",
+        "7": "Listen",
+        "99": "Other"
+      },
+      "status_ids": {
+        "0": "Unknown",
+        "1": "Success",
+        "2": "Failure",
+        "99": "Other"
+      },
+      "required": [
+        "activity_id",
+        "category_uid",
+        "class_uid",
+        "metadata",
+        "severity_id",
+        "time",
+        "type_uid"
+      ]
     },
     "6003": {
       "name": "API Activity",
       "category_uid": 6,
-      "activity_ids": { "0": "Unknown", "1": "Create", "2": "Read", "3": "Update", "4": "Delete", "99": "Other" },
-      "status_ids": { "0": "Unknown", "1": "Success", "2": "Failure", "99": "Other" },
-      "required": ["activity_id", "actor", "api", "category_uid", "class_uid", "metadata", "severity_id", "src_endpoint", "time", "type_uid"]
+      "activity_ids": {
+        "0": "Unknown",
+        "1": "Create",
+        "2": "Read",
+        "3": "Update",
+        "4": "Delete",
+        "99": "Other"
+      },
+      "status_ids": {
+        "0": "Unknown",
+        "1": "Success",
+        "2": "Failure",
+        "99": "Other"
+      },
+      "required": [
+        "activity_id",
+        "actor",
+        "api",
+        "category_uid",
+        "class_uid",
+        "metadata",
+        "severity_id",
+        "src_endpoint",
+        "time",
+        "type_uid"
+      ]
     }
   }
 }

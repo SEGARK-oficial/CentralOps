@@ -38,7 +38,7 @@ from typing import Any, Mapping, Optional
 # ── reason: closed enum (never interpolate event values) ──────────
 REASON_OK = "ok"
 REASON_OUT_OF_SCOPE = "out_of_scope"          # valid-looking class we do not vendor
-REASON_UNKNOWN_CLASS = "unknown_class"        # class_uid missing / not a positive int
+REASON_UNKNOWN_CLASS = "unknown_class"        # class_uid ausente / negativo / não vendorizado
 REASON_CATEGORY_MISMATCH = "category_mismatch"
 REASON_BAD_SEVERITY_ID = "bad_severity_id"
 REASON_BAD_ACTIVITY_ID = "bad_activity_id"
@@ -203,7 +203,11 @@ def structural_gate(
     class_uid = normalized.get("class_uid")
 
     # ── GATE-1: class_uid present, positive int, and a class we vendor ──────────
-    if not _is_ocsf_int(class_uid) or class_uid <= 0:
+    # class_uid 0 é o **Base Event** do OCSF (classe legítima, vendorizada no
+    # manifesto) — usado por transportes de log heterogêneo. Ausente/None continua
+    # inválido porque ``_is_ocsf_int`` já reprova (o guard de "mapping esqueceu o
+    # class_uid" é preservado); só negativos são rejeitados aqui.
+    if not _is_ocsf_int(class_uid) or class_uid < 0:
         return _result(valid=False, reason=REASON_UNKNOWN_CLASS, in_scope=True,
                        class_uid=class_uid if _is_ocsf_int(class_uid) else None, spec=None)
     spec = registry.spec_for(class_uid)

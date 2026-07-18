@@ -80,9 +80,25 @@ def test_gate_valid_event() -> None:
 
 
 def test_gate_unknown_class_when_missing() -> None:
-    for bad in ({}, {"class_uid": None}, {"class_uid": 0}, {"class_uid": -5}, {"class_uid": "3002"}, {"class_uid": True}):
+    # ``{"class_uid": 0}`` NÃO entra aqui: 0 é o Base Event do OCSF (classe legítima,
+    # vendorizada no manifesto). O guard de "mapping esqueceu o class_uid" continua
+    # intacto — ausente/None/str/bool são pegos por ``_is_ocsf_int`` e negativos por
+    # ``class_uid < 0``. Ver test_gate_base_event_is_a_valid_vendored_class abaixo.
+    for bad in ({}, {"class_uid": None}, {"class_uid": -5}, {"class_uid": "3002"}, {"class_uid": True}):
         r = V.validate_normalized(bad)
         assert not r.valid and r.in_scope and r.reason == V.REASON_UNKNOWN_CLASS, bad
+
+
+def test_gate_base_event_is_a_valid_vendored_class() -> None:
+    """class_uid 0 (Base Event) é o fallback OFICIAL do OCSF quando não há classe
+    específica para o payload (ex.: transporte de log heterogêneo do CloudWatch).
+    Regressão: o gate rejeitava 0 por truthiness (``class_uid <= 0``), o que tornava
+    impossível emitir Base Event de forma conforme."""
+    r = V.validate_normalized({
+        "class_uid": 0, "category_uid": 0, "activity_id": 0, "type_uid": 0,
+        "severity_id": 1, "time": 1782079200000, "metadata": {"version": "1.8.0"},
+    })
+    assert r.valid and r.in_scope, r
 
 
 def test_gate_out_of_scope_for_unvendored_class() -> None:

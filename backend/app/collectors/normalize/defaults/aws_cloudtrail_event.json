@@ -31,7 +31,7 @@
 
     { "target": "normalized.status", "source": "errorCode", "default": "Success" },
 
-    { "target": "normalized.metadata.version", "const": "1.3.0" },
+    { "target": "normalized.metadata.version", "const": "1.8.0" },
     { "target": "normalized.metadata.product.name", "const": "CloudTrail" },
     { "target": "normalized.metadata.product.vendor_name", "const": "AWS" },
     { "target": "normalized.metadata.uid", "source": "eventID" },

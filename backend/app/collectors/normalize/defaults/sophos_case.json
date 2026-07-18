@@ -245,7 +245,7 @@
     },
     { "target": "normalized.cloud.org.uid", "source": "tenant.id" },
     { "target": "normalized.cloud.provider", "const": "Sophos Central" },
-    { "target": "normalized.metadata.version", "const": "1.3.0" },
+    { "target": "normalized.metadata.version", "const": "1.8.0" },
     { "target": "normalized.metadata.product.name", "const": "Sophos Central" },
     { "target": "normalized.metadata.product.vendor_name", "const": "Sophos" },
     {

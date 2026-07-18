@@ -173,11 +173,12 @@ def test_windows_eventchannel_maps_and_passes_structural_gate() -> None:
     assert norm["type_uid"] == 200401
     assert norm["status_id"] == 1
 
-    # time = epoch (segundos) do timestamp do alerta
+    # time = epoch em MILISSEGUNDOS (timestamp_t do OCSF) do timestamp do alerta
     expected_epoch = int(
-        datetime.fromisoformat("2026-07-16T20:03:02.432+00:00").timestamp()
+        round(datetime.fromisoformat("2026-07-16T20:03:02.432+00:00").timestamp() * 1000)
     )
     assert norm["time"] == expected_epoch
+    assert len(str(norm["time"])) == 13  # ms, não segundos
 
     # severidade: rule.level 3 → 1 Informational
     assert norm["severity_id"] == 1

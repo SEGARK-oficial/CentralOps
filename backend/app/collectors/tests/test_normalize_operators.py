@@ -18,25 +18,73 @@ from backend.app.collectors.normalize.registry import (
 
 
 class TestTypeCast:
+    # ── timestamp_t (OCSF) = MILISSEGUNDOS ────────────────────────────
+    # O OCSF tipa timestamp_t como ms desde a epoch. Todas as asserções
+    # abaixo usam 13 dígitos; 10 dígitos (segundos) fariam um consumidor
+    # OCSF conforme ler o evento como janeiro de 1970.
+
     def test_iso_to_epoch_with_z_suffix(self) -> None:
-        assert apply_type_cast("2026-04-23T14:22:10Z", "iso_to_epoch") == 1776954130
+        assert apply_type_cast("2026-04-23T14:22:10Z", "iso_to_epoch") == 1776954130000
 
     def test_iso_to_epoch_with_offset(self) -> None:
         # mesmo instante, fuso explícito
-        assert apply_type_cast("2026-04-23T14:22:10+00:00", "iso_to_epoch") == 1776954130
+        assert (
+            apply_type_cast("2026-04-23T14:22:10+00:00", "iso_to_epoch")
+            == 1776954130000
+        )
 
-    def test_iso_to_epoch_passthrough_when_already_epoch(self) -> None:
-        assert apply_type_cast(1776954130, "iso_to_epoch") == 1776954130
+    def test_iso_to_epoch_preserves_subsecond_precision(self) -> None:
+        # ms do vendor não podem ser truncados na conversão.
+        assert (
+            apply_type_cast("2026-04-23T14:22:10.432Z", "iso_to_epoch")
+            == 1776954130432
+        )
+
+    def test_iso_to_epoch_numeric_seconds_promoted_to_millis(self) -> None:
+        # Vendors epoch-em-segundos (CrowdStrike, NinjaOne): |v| < 1e11
+        # → interpretado como segundos → ×1000.
+        assert apply_type_cast(1776954130, "iso_to_epoch") == 1776954130000
+        assert apply_type_cast(1776954130.432, "iso_to_epoch") == 1776954130432
+
+    def test_iso_to_epoch_numeric_millis_passthrough(self) -> None:
+        # Vendors epoch-em-ms (CloudWatch, Defender): |v| >= 1e11 → já é ms.
+        assert apply_type_cast(1776954130000, "iso_to_epoch") == 1776954130000
+
+    def test_iso_to_epoch_heuristic_threshold_boundary(self) -> None:
+        # 1e11 é o limiar: como segundos ≈ ano 5138, como ms ≈ 1973-03-03.
+        # Abaixo → segundos; no limiar/acima → já ms.
+        assert apply_type_cast(99_999_999_999, "iso_to_epoch") == 99_999_999_999_000
+        assert apply_type_cast(100_000_000_000, "iso_to_epoch") == 100_000_000_000
 
     def test_iso_to_epoch_invalid_string_raises(self) -> None:
         with pytest.raises(OperatorError):
             apply_type_cast("not-a-timestamp", "iso_to_epoch")
 
-    def test_epoch_to_iso(self) -> None:
+    def test_iso_to_epoch_rejects_bool(self) -> None:
+        # bool é subclasse de int — deixar passar viraria time=1000.
+        with pytest.raises(OperatorError):
+            apply_type_cast(True, "iso_to_epoch")
+
+    def test_epoch_to_iso_from_millis(self) -> None:
+        assert apply_type_cast(1776954130000, "epoch_to_iso") == "2026-04-23T14:22:10Z"
+
+    def test_epoch_to_iso_from_seconds_uses_same_heuristic(self) -> None:
+        # Mesma heurística do iso_to_epoch: < 1e11 = segundos.
         assert apply_type_cast(1776954130, "epoch_to_iso") == "2026-04-23T14:22:10Z"
 
     def test_epoch_to_iso_from_string_number(self) -> None:
         assert apply_type_cast("1776954130", "epoch_to_iso") == "2026-04-23T14:22:10Z"
+        assert apply_type_cast("1776954130000", "epoch_to_iso") == "2026-04-23T14:22:10Z"
+
+    def test_epoch_iso_round_trip(self) -> None:
+        # Ida-e-volta: o inverso tem de fechar em ambas as direções.
+        iso = "2026-04-23T14:22:10Z"
+        assert apply_type_cast(apply_type_cast(iso, "iso_to_epoch"), "epoch_to_iso") == iso
+        millis = 1776954130000
+        assert (
+            apply_type_cast(apply_type_cast(millis, "epoch_to_iso"), "iso_to_epoch")
+            == millis
+        )
 
     def test_to_int_from_string(self) -> None:
         assert apply_type_cast("42", "to_int") == 42

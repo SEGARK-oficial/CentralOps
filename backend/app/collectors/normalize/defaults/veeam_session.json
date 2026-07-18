@@ -1,0 +1,84 @@
+{
+  "rules": [
+    { "target": "normalized.class_uid", "const": 1006, "required": true },
+    { "target": "normalized.class_name", "const": "Scheduled Job Activity" },
+    { "target": "normalized.category_uid", "const": 1, "required": true },
+    { "target": "normalized.category_name", "const": "System Activity" },
+
+    { "target": "normalized.activity_id", "const": 6, "required": true },
+    { "target": "normalized.activity_name", "const": "Start" },
+    { "target": "normalized.type_uid", "const": 100606, "required": true },
+
+    { "target": "normalized.time", "source": "endTime || creationTime", "type_cast": "iso_to_epoch", "required": true },
+    { "target": "normalized.start_time", "source": "creationTime", "type_cast": "iso_to_epoch", "default": null },
+    { "target": "normalized.end_time", "source": "endTime", "type_cast": "iso_to_epoch", "default": null },
+    { "target": "normalized.metadata.original_time", "source": "creationTime", "default": null },
+
+    {
+      "target": "normalized.severity_id",
+      "source": "result.result",
+      "pre_cast": "lowercase",
+      "value_map": { "success": 1, "none": 1, "warning": 3, "failed": 4 },
+      "default": 1,
+      "required": true
+    },
+    {
+      "target": "normalized.severity",
+      "source": "result.result",
+      "pre_cast": "lowercase",
+      "value_map": { "success": "Informational", "none": "Informational", "warning": "Medium", "failed": "High" },
+      "default": "Informational"
+    },
+
+    {
+      "target": "normalized.status_id",
+      "source": "result.result",
+      "pre_cast": "lowercase",
+      "value_map": { "success": 1, "failed": 2, "warning": 99, "none": 0 },
+      "default": 0
+    },
+    { "target": "normalized.status", "source": "result.result", "default": null },
+    { "target": "normalized.status_detail", "source": "result.message", "default": null },
+    { "target": "normalized.message", "source": "result.message", "default": null },
+
+    { "target": "normalized.job.name", "source": "name || jobId", "required": true },
+    { "target": "normalized.job.desc", "source": "sessionType", "default": null },
+    { "target": "normalized.job.last_run_time", "source": "creationTime", "type_cast": "iso_to_epoch", "default": null },
+    {
+      "target": "normalized.job.run_state_id",
+      "source": "state",
+      "pre_cast": "lowercase",
+      "value_map": { "pending": 1, "idle": 1, "starting": 2, "resuming": 2, "queued": 2, "working": 3, "inprogress": 3, "stopping": 4, "stopped": 4 },
+      "default": 99
+    },
+    { "target": "normalized.job.run_state", "source": "state", "default": null },
+
+    { "target": "normalized.device.type_id", "const": 1, "required": true },
+    { "target": "normalized.device.type", "const": "Server" },
+
+    { "target": "normalized.metadata.version", "const": "1.8.0" },
+    { "target": "normalized.metadata.product.name", "const": "Veeam Backup & Replication" },
+    { "target": "normalized.metadata.product.vendor_name", "const": "Veeam" },
+    { "target": "normalized.metadata.uid", "source": "id" },
+    { "target": "normalized.metadata.event_code", "source": "sessionType", "default": null },
+    { "target": "normalized.metadata.correlation_uid", "source": "jobId || parentSessionId", "default": null },
+
+    { "target": "normalized.unmapped.job_id", "source": "jobId", "default": null },
+    { "target": "normalized.unmapped.session_type", "source": "sessionType", "default": null },
+    { "target": "normalized.unmapped.progress_percent", "source": "progressPercent", "default": null },
+    { "target": "normalized.unmapped.usn", "source": "usn", "default": null },
+    { "target": "normalized.unmapped.resource_id", "source": "resourceId", "default": null },
+    { "target": "normalized.unmapped.resource_reference", "source": "resourceReference", "default": null },
+
+    {
+      "target": "normalized.observables",
+      "kind": "array_builder",
+      "items": [
+        { "name": "session_uid", "type": "Resource UID", "type_id": 10, "source": "id", "skip_null": true },
+        { "name": "job_uid", "type": "Resource UID", "type_id": 10, "source": "jobId", "skip_null": true }
+      ],
+      "skip_null": true,
+      "dedup_by": ["value"]
+    }
+  ]
+}

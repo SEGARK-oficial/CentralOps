@@ -136,7 +136,7 @@
     { "target": "normalized.cloud.org.name", "source": "tenant.name" },
     { "target": "normalized.cloud.region", "source": "tenant.dataRegion" },
     { "target": "normalized.cloud.provider", "const": "Sophos Central" },
-    { "target": "normalized.metadata.version", "const": "1.3.0" },
+    { "target": "normalized.metadata.version", "const": "1.8.0" },
     { "target": "normalized.metadata.product.name", "const": "Sophos Central" },
     { "target": "normalized.metadata.product.vendor_name", "const": "Sophos" },
     { "target": "normalized.metadata.product.feature.name", "source": "product", "default": "Sophos Alerts" },

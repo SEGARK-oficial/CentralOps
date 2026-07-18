@@ -242,7 +242,8 @@ def test_apply_iso_to_epoch_cast() -> None:
         }
     ]
     out = _apply(rules, {"createdAt": "2026-04-23T14:22:10Z"})
-    assert out == {"normalized": {"time": 1776954130}}
+    # timestamp_t do OCSF é em MILISSEGUNDOS.
+    assert out == {"normalized": {"time": 1776954130000}}
 
 
 def test_apply_jmespath_nested_path() -> None:
@@ -1677,3 +1678,168 @@ def test_dry_run_style_sample_normalizes_with_class_uid() -> None:
     out = apply_compiled(compiled, {"id": "x"}).output  # sem `status`
     assert out["normalized"]["class_uid"] == 2004
     assert out["normalized"]["status_id"] == 1
+
+
+# ── Regressão: drift de enum (MISS do value_map) ──────────────────────────
+# Defeito (auditoria de fidelidade OCSF): quando o vendor manda um valor que não
+# está no `value_map`, o passthrough do operador devolvia o valor CRU — um str
+# vazava para um campo que o OCSF tipa como int (ex. ninjaone
+# severity=WARNING → severity_id="WARNING"). Com `default` declarado, o MISS
+# passa a usar o default (o valor de saída final escolhido pelo operador).
+# Sem `default`, o passthrough legado é mantido (compat retroativa).
+
+_ENUM_VALUE_MAP = {"critical": 5, "high": 4, "medium": 3, "low": 2, "info": 1}
+
+
+def _severity_rule(**extra):
+    rule = {
+        "target": "normalized.severity_id",
+        "source": "severity",
+        "value_map": dict(_ENUM_VALUE_MAP),
+    }
+    rule.update(extra)
+    return rule
+
+
+def test_value_map_miss_with_default_uses_default() -> None:
+    # (i) MISS + default → default int, não o str cru do vendor.
+    compiled = compile_rules([_severity_rule(default=1)])
+    out = apply_compiled(compiled, {"severity": "BRAND_NEW_LEVEL"}).output
+    assert out["normalized"]["severity_id"] == 1
+    assert isinstance(out["normalized"]["severity_id"], int)
+
+
+def test_value_map_miss_without_default_passthrough_backcompat() -> None:
+    # (ii) MISS sem default → passthrough do valor cru (comportamento legado).
+    compiled = compile_rules([_severity_rule()])
+    out = apply_compiled(compiled, {"severity": "BRAND_NEW_LEVEL"}).output
+    assert out["normalized"]["severity_id"] == "BRAND_NEW_LEVEL"
+
+
+def test_value_map_hit_unaffected_by_default() -> None:
+    # (iii) HIT normal continua ganhando do default.
+    compiled = compile_rules([_severity_rule(default=1)])
+    for vendor_value, expected in (("critical", 5), ("HIGH", 4), ("low", 2)):
+        out = apply_compiled(compiled, {"severity": vendor_value}).output
+        assert out["normalized"]["severity_id"] == expected
+
+
+def test_value_map_hit_to_falsy_value_is_not_treated_as_miss() -> None:
+    # HIT cujo valor mapeado é falsy (0) NÃO pode cair no default.
+    compiled = compile_rules(
+        [
+            {
+                "target": "normalized.severity_id",
+                "source": "severity",
+                "value_map": {"none": 0},
+                "default": 1,
+            }
+        ]
+    )
+    out = apply_compiled(compiled, {"severity": "none"}).output
+    assert out["normalized"]["severity_id"] == 0
+
+
+def test_value_map_hit_mapping_to_same_value_is_not_treated_as_miss() -> None:
+    # HIT identidade ("open" → "open") é HIT: não pode disparar o default.
+    compiled = compile_rules(
+        [
+            {
+                "target": "normalized.status",
+                "source": "status",
+                "value_map": {"open": "open"},
+                "default": "Other",
+            }
+        ]
+    )
+    out = apply_compiled(compiled, {"status": "open"}).output
+    assert out["normalized"]["status"] == "open"
+
+
+def test_value_map_miss_default_still_goes_through_type_cast() -> None:
+    # Contrato: o default pula pre_cast + value_map, mas ainda passa por type_cast.
+    compiled = compile_rules(
+        [
+            {
+                "target": "normalized.severity_id",
+                "source": "severity",
+                "pre_cast": "lowercase",
+                "value_map": dict(_ENUM_VALUE_MAP),
+                "type_cast": "to_str",
+                "default": 1,
+            }
+        ]
+    )
+    out = apply_compiled(compiled, {"severity": "BRAND_NEW_LEVEL"}).output
+    assert out["normalized"]["severity_id"] == "1"
+
+
+def test_value_map_miss_default_is_not_recast_by_pre_cast() -> None:
+    # O default int NÃO pode chegar ao pre_cast de string (OperatorError → o
+    # evento inteiro seria quarentenado). MISS com pre_cast + default int passa.
+    compiled = compile_rules(
+        [
+            {
+                "target": "normalized.severity_id",
+                "source": "severity",
+                "pre_cast": "lowercase",
+                "value_map": dict(_ENUM_VALUE_MAP),
+                "default": 1,
+            }
+        ]
+    )
+    out = apply_compiled(compiled, {"severity": "BRAND_NEW_LEVEL"}).output
+    assert out["normalized"]["severity_id"] == 1
+
+
+def test_value_map_miss_with_default_works_in_dsl_v2() -> None:
+    compiled = compile_rules({"preprocess": [], "rules": [_severity_rule(default=1)]}, 2)
+    out = apply_compiled(compiled, {"severity": "WARNING"}).output
+    assert out["normalized"]["severity_id"] == 1
+
+
+def test_ninjaone_severity_drift_never_leaks_string_into_severity_id() -> None:
+    """(iv) Caso real ninjaone: severity fora do mapa → severity_id int."""
+    ninjaone_rule = {
+        "target": "normalized.severity_id",
+        "source": "severity",
+        "value_map": {
+            "critical": 5,
+            "high": 4,
+            "medium": 3,
+            "low": 2,
+            "info": 1,
+            "informational": 1,
+            "none": 0,
+        },
+        "default": 1,
+    }
+    compiled = compile_rules([ninjaone_rule])
+
+    # Valores canônicos continuam mapeando corretamente.
+    for vendor_value, expected in (("critical", 5), ("none", 0), ("informational", 1)):
+        out = apply_compiled(compiled, {"severity": vendor_value}).output
+        assert out["normalized"]["severity_id"] == expected
+
+    # Drift de enum: valores que o vendor manda mas não estão no mapa.
+    for drifted in ("WARNING", "BRAND_NEW_LEVEL", "Moderate"):
+        out = apply_compiled(compiled, {"severity": drifted}).output
+        severity_id = out["normalized"]["severity_id"]
+        assert isinstance(severity_id, int), f"{drifted!r} vazou {severity_id!r}"
+        assert severity_id == 1
+
+
+def test_ninjaone_default_mapping_file_severity_drift_is_int() -> None:
+    """O mapping default versionado no repo não vaza str em severity_id."""
+    import pathlib
+
+    path = (
+        pathlib.Path(__file__).resolve().parents[1]
+        / "normalize"
+        / "defaults"
+        / "ninjaone_activity.json"
+    )
+    rules = json.loads(path.read_text(encoding="utf-8"))
+    compiled = compile_rules(rules)
+    out = apply_compiled(compiled, {"severity": "WARNING"}).output
+    assert isinstance(out["normalized"]["severity_id"], int)

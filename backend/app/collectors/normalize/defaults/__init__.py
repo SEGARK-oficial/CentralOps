@@ -42,6 +42,10 @@ DEFAULT_MAPPING_FILES = {
     ("okta", "okta.system_log"): "okta_system_log.json",
     # AWS CloudTrail → OCSF API Activity.
     ("aws_cloudtrail", "aws_cloudtrail.event"): "aws_cloudtrail_event.json",
+    # Veeam Backup & Replication — sessões de job → OCSF API Activity.
+    ("veeam", "veeam.session"): "veeam_session.json",
+    # AWS CloudWatch Logs → OCSF API Activity (log events de um log group).
+    ("aws_cloudwatch", "aws_cloudwatch.event"): "aws_cloudwatch_event.json",
     # push/ingest: FortiGate syslog → OCSF Network Activity.
     ("fortinet_fortigate", "fortinet_fortigate.traffic"): "fortinet_fortigate_traffic.json",
     # push/ingest: Windows Event Log/WEC (Security) → OCSF Authentication.

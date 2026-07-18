@@ -163,6 +163,22 @@ _FIXTURES = {
         "recipientAccountId": "888",
         "readOnly": False,
     },
+    # CloudWatch Logs: shape do FilteredLogEvent JÁ enriquecido pelo collector
+    # (logGroupName/awsRegion/awsAccountId/eventTime) — é o que chega ao engine.
+    ("aws_cloudwatch", "aws_cloudwatch.event"): {
+        "eventId": "31132629274945519779805322857203735586714454643391594505",
+        "timestamp": 1782036000000,
+        "ingestionTime": 1782036000500,
+        "message": (
+            '{"level":"ERROR","eventName":"PutItem","user":"mary",'
+            '"sourceIPAddress":"192.0.2.10","errorCode":"Throttled"}'
+        ),
+        "logStreamName": "2026/06/21/[$LATEST]abc123",
+        "logGroupName": "/aws/lambda/minha-funcao",
+        "awsRegion": "us-east-1",
+        "awsAccountId": "888",
+        "eventTime": "2026-06-21T10:00:00.000Z",
+    },
     ("wazuh", "wazuh.detection"): {
         "timestamp": "2026-06-21T10:00:00Z",
         "id": "1700000000.123",
@@ -206,6 +222,21 @@ _FIXTURES = {
         "IpAddress": "10.0.0.5",
         "IpPort": "51514",
         "LogonType": "3",
+    },
+    # Veeam B&R: sessão de job do ``GET /api/v1/sessions`` (envelope data[]).
+    ("veeam", "veeam.session"): {
+        "id": "sess-bench-1",
+        "name": "Daily Backup - SQL",
+        "jobId": "9c1f0f2e-0000-4000-8000-000000000001",
+        "sessionType": "BackupJob",
+        "state": "Stopped",
+        "creationTime": "2026-07-18T02:00:00.000Z",
+        "endTime": "2026-07-18T02:14:31.000Z",
+        "progressPercent": 100,
+        "usn": 4711,
+        "resourceId": "1c0e0000-0000-4000-8000-00000000000a",
+        "resourceReference": "/api/v1/jobs/9c1f0f2e-0000-4000-8000-000000000001",
+        "result": {"result": "Success", "message": "", "isCanceled": False},
     },
 }
 

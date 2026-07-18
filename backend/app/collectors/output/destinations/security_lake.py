@@ -138,8 +138,12 @@ class SecurityLakeClient:
         for row in rows:
             raw = row.get("time")
             if isinstance(raw, (int, float)) and raw > 0:
-                # OCSF time = epoch ms; heurística: > 1e12 → ms, senão s.
-                secs = raw / 1000.0 if raw > 1_000_000_000_000 else float(raw)
+                # OCSF time = epoch ms. Mesma heurística de
+                # ``collectors.normalize.operators._EPOCH_MS_THRESHOLD``:
+                # >= 1e11 → ms, senão segundos (1e11 s ≈ ano 5138 / 1e11 ms
+                # ≈ 1973-03-03). O limiar anterior (1e12 ≈ 2001-09-09) lia
+                # eventos em ms anteriores a 2001 como segundos.
+                secs = raw / 1000.0 if raw >= 100_000_000_000 else float(raw)
                 try:
                     return datetime.fromtimestamp(secs, tz=timezone.utc).strftime("%Y%m%d")
                 except (ValueError, OSError, OverflowError):

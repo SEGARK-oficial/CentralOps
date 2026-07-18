@@ -32,6 +32,17 @@ import time
 
 logger = logging.getLogger(__name__)
 
+# Teto de OBJETOS S3 processados por ciclo. Cada objeto custa GET + gzip.decompress +
+# json.loads (pesado), então o teto é por objeto, não por página de listagem. Sem ele,
+# um catch-up drena a janela inteira num run e estoura o ``task_soft_time_limit`` (720s)
+# → o pipeline reverte o cursor → loop sem progresso. Ao atingir, gravamos a POSIÇÃO
+# (prefixo + última chave) e retomamos no próximo ciclo.
+_MAX_OBJECTS_PER_CYCLE = 500
+
+# Teto de dias de prefixo gerados num ciclo. Evita lista ilimitada de prefixos quando o
+# cursor está MUITO atrasado (o watermark avança a cada ciclo até alcançar o presente).
+_MAX_LOOKBACK_DAYS = 14
+
 
 class AWSCloudTrailCollector(BaseCollector):
     """Pull de eventos CloudTrail de um bucket S3 (aioboto3)."""
@@ -95,17 +106,31 @@ class AWSCloudTrailCollector(BaseCollector):
         last_mod = _parse_iso(cursor.get("last_modified")) or _default_lookback_dt()
         overlap = last_mod - timedelta(minutes=15)  # cobre entrega atrasada / ts empatado
         latest = last_mod
+        # Retomada MID-BACKLOG (teto do ciclo anterior): continua no MESMO prefixo, a
+        # partir da última chave processada. Sem isto o cursor era só um watermark
+        # gravado no FIM — um return no meio não retomava (daí o redesenho).
+        resume_prefix: Optional[str] = cursor.get("prefix") or None
+        resume_after: Optional[str] = cursor.get("start_after") or None
 
-        prefixes = _date_prefixes(conn["prefix_base"], datetime.now(timezone.utc))
+        # Prefixos de dia do watermark até hoje (antes: só hoje+ontem → um backlog de
+        # >2 dias era silenciosamente PULADO). Do mais ANTIGO p/ o mais novo, p/ drenar
+        # cronologicamente e a posição de retomada fazer sentido.
+        prefixes = _date_prefixes(conn["prefix_base"], last_mod, datetime.now(timezone.utc))
+        if resume_prefix and resume_prefix in prefixes:
+            prefixes = prefixes[prefixes.index(resume_prefix):]  # pula os já drenados
 
+        objects_done = 0
         async with self._s3_client(conn) as s3:
             for prefix in prefixes:
-                token: Optional[str] = None
+                # ``StartAfter`` (chave, lexicográfico) em vez de ContinuationToken
+                # (opaco/expirável): é o que torna a posição PERSISTÍVEL e resumível.
+                start_after: Optional[str] = resume_after if prefix == resume_prefix else None
+                resume_after = None  # só vale p/ o primeiro prefixo retomado
                 while True:
                     await self.ctx.rate_limiter.acquire(self.ctx.integration_id, self.platform)
                     list_kwargs: Dict[str, Any] = {"Bucket": bucket, "Prefix": prefix}
-                    if token:
-                        list_kwargs["ContinuationToken"] = token
+                    if start_after:
+                        list_kwargs["StartAfter"] = start_after
 
                     started = time.monotonic()
                     async with self.ctx.domain_limiter.slot(self.domain):
@@ -114,20 +139,41 @@ class AWSCloudTrailCollector(BaseCollector):
                         time.monotonic() - started
                     )
 
-                    for obj in resp.get("Contents", []) or []:
+                    contents = resp.get("Contents", []) or []
+                    if not contents:
+                        break
+                    for obj in contents:
+                        key = obj["Key"]
                         lm = obj.get("LastModified")
+                        start_after = key  # avança SEMPRE (mesmo se pulado) → progresso
                         if lm is None or lm <= overlap:
                             continue
-                        records = await self._read_records(s3, bucket, obj["Key"])
+                        records = await self._read_records(s3, bucket, key)
                         for ev in records:
                             yield ev
                         if lm > latest:
                             latest = lm
+                        objects_done += 1
+                        if self.ctx.bounded_per_cycle and objects_done >= _MAX_OBJECTS_PER_CYCLE:
+                            # Teto do ciclo: grava a POSIÇÃO e retoma no próximo ciclo.
+                            # O watermark NÃO avança — senão a retomada pularia os
+                            # objetos ainda não lidos desta janela (perda de dado).
+                            self.ctx.cursor = {
+                                "last_modified": last_mod.isoformat(),
+                                "prefix": prefix,
+                                "start_after": key,
+                            }
+                            logger.info(
+                                "cloudtrail: teto de %d objetos/ciclo — retomando em "
+                                "prefix=%s start_after=%s (integration=%s)",
+                                _MAX_OBJECTS_PER_CYCLE, prefix, key, self.ctx.integration_id,
+                            )
+                            return
 
                     if not resp.get("IsTruncated"):
                         break
-                    token = resp.get("NextContinuationToken")
 
+        # Drenou a janela inteira: só AQUI o watermark avança (e a posição é limpa).
         self.ctx.cursor = {"last_modified": latest.isoformat()}
 
     async def _read_records(self, s3, bucket: str, key: str) -> List[Dict[str, Any]]:
@@ -161,13 +207,22 @@ def _parse_iso(value: Optional[str]) -> Optional[datetime]:
     return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
 
 
-def _date_prefixes(base_prefix: str, now: datetime) -> List[str]:
-    """Hoje + ontem (UTC) — a partição CloudTrail é por data de ENTREGA."""
-    out = []
-    for delta in (0, 1):
-        d = now - timedelta(days=delta)
-        out.append(f"{base_prefix}{d.year:04d}/{d.month:02d}/{d.day:02d}/")
-    return out
+def _date_prefixes(base_prefix: str, since: datetime, now: datetime) -> List[str]:
+    """Prefixos de dia (UTC) do watermark até hoje, do mais ANTIGO p/ o mais novo.
+
+    A partição CloudTrail é por data de ENTREGA. Antes gerávamos só hoje+ontem, então um
+    backlog de mais de 2 dias (cursor atrasado, downtime, primeira carga) era
+    silenciosamente PULADO — data-gap. Agora cobrimos do watermark até hoje, com 1 dia de
+    folga p/ entrega atrasada e teto de ``_MAX_LOOKBACK_DAYS`` (o watermark avança a cada
+    ciclo até alcançar o presente, então um cursor muito velho converge sem lista infinita).
+    """
+    start = min(since, now) - timedelta(days=1)  # folga p/ entrega atrasada
+    days = (now.date() - start.date()).days
+    days = max(0, min(days, _MAX_LOOKBACK_DAYS))
+    return [
+        f"{base_prefix}{d.year:04d}/{d.month:02d}/{d.day:02d}/"
+        for d in (now - timedelta(days=delta) for delta in range(days, -1, -1))
+    ]
 
 
 # ── Self-registration (sem OAuth — IAM key) ────────────────────────────

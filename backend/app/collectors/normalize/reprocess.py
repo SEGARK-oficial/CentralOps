@@ -194,7 +194,8 @@ def attempt_reprocess(
     try:
         applied = default_engine.apply(
             version.id, rules, raw, dsl_version=dsl_version,
-            ingest_time_epoch=int(time.time()),
+            # timestamp_t do OCSF é em MILISSEGUNDOS.
+            ingest_time_epoch=int(time.time() * 1000),
         )
     except MappingRequiredFieldError as exc:
         return ReprocessResult(

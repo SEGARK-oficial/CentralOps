@@ -25,7 +25,10 @@ A DSL aceita por regra:
   ``int`` em ``str`` antes de ``value_map`` com chaves de string.
   ``pre_cast`` e ``value_map`` **não** são mutuamente exclusivos;
   combiná-los é justamente o caso de uso.
-- ``value_map`` (dict, opcional): lookup pós-resolução.
+- ``value_map`` (dict, opcional): lookup pós-resolução. No MISS (valor do
+  vendor fora do mapa — drift de enum), se a regra declarar ``default`` o
+  ``default`` é usado; sem ``default`` o valor cru passa direto
+  (passthrough, compat retroativa).
 - ``type_cast`` (str, opcional): nome do cast em :mod:`operators`.
 - ``required`` (bool, opcional, default ``False``): se ``True`` e o
   valor final for ``None``, levanta :class:`MappingRequiredFieldError`
@@ -104,10 +107,21 @@ _MISSING = object()
 
 # Fontes válidas para ``default_from`` (resiliência temporal).
 # ``ingest_time``: quando o valor resolve None (após source + fallback_source),
-# usa o epoch de ingestão passado ao engine. Rede de segurança GENÉRICA — a
+# usa o epoch de ingestão passado ao engine (em MILISSEGUNDOS — timestamp_t do
+# OCSF; ver ``operators._coerce_epoch_millis``). Rede de segurança GENÉRICA — a
 # DECISÃO de usá-la é declarativa, por mapping (não vendor-específico no Core).
 _DEFAULT_FROM_INGEST_TIME = "ingest_time"
 _DEFAULT_FROM_SOURCES = frozenset({_DEFAULT_FROM_INGEST_TIME})
+
+# Sentinel usado para detectar HIT/MISS do ``value_map`` SEM reimplementar a
+# semântica de lookup de :func:`operators.apply_value_map` (case-insensitive
+# para chaves str, exact-then-str() para não-str). Compilamos um "probe map" —
+# mesmas chaves, cada valor embrulhado em ``(_VALUE_MAP_HIT, valor_real)`` — e
+# rodamos o MESMO operador contra ele. Se o retorno é uma tupla cujo [0] é
+# este sentinel (identidade — inimitável por dado de vendor), houve HIT e o
+# valor mapeado está em [1]. Qualquer outra coisa é o passthrough do operador,
+# ou seja, MISS. Um único lookup serve para decidir E obter o valor.
+_VALUE_MAP_HIT = object()
 
 
 @dataclass(frozen=True)
@@ -165,6 +179,12 @@ class CompiledRule:
     # que um campo temporal required nunca quarentene só por falta de timestamp.
     # ``None`` (default) = sem fallback de engine; compat retroativa total.
     default_from: Optional[str] = None
+    # Probe map pré-computado (mesmas chaves de ``value_map``, valores =
+    # ``_VALUE_MAP_HIT``) usado para distinguir HIT de MISS no lookup sem
+    # duplicar a semântica do operador. ``None`` quando a regra não tem
+    # ``value_map`` ou não tem ``default`` (nesse caso o MISS mantém o
+    # passthrough legado e a distinção é irrelevante).
+    value_map_probe: Optional[Mapping[Any, Any]] = None
 
 
 @dataclass(frozen=True)
@@ -291,6 +311,11 @@ def _compile_single_rule(
             f"regra {target!r}: 'value_map' deve ser dict"
         )
 
+    # Probe map: só faz sentido quando há ``default`` para usar no MISS.
+    value_map_probe: Optional[Mapping[Any, Any]] = None
+    if value_map is not None and "default" in rule:
+        value_map_probe = {k: (_VALUE_MAP_HIT, v) for k, v in value_map.items()}
+
     # ── fallback_source ─────────────────────────────────────
     raw_fallbacks = rule.get("fallback_source")
     fallback_compiled: tuple[ParsedResult, ...] = ()
@@ -400,6 +425,7 @@ def _compile_single_rule(
         predicate_source_strs=predicate_strs,
         expected_always_default=raw_ead,
         default_from=default_from,
+        value_map_probe=value_map_probe,
     )
 
 
@@ -827,6 +853,7 @@ def apply_compiled(
         # fallback_source + default literal, ANTES do check ``required`` — um
         # campo temporal required nunca quarentena só por timestamp ausente.
         # Genérico no Core; a decisão de usar é declarativa (default_from).
+        used_ingest_fallback = False
         if (
             value is None
             and rule.default_from == _DEFAULT_FROM_INGEST_TIME
@@ -834,6 +861,7 @@ def apply_compiled(
         ):
             value = ingest_time_epoch
             _ingest_fallback.append(rule.target)
+            used_ingest_fallback = True
 
         # pre_cast + value_map: aplicados ao valor resolvido do SOURCE — NÃO a um
         # valor vindo do ``default``. O ``default`` é o fallback FINAL escolhido
@@ -857,7 +885,31 @@ def apply_compiled(
 
         if rule.value_map is not None and value is not None and not used_default:
             try:
-                value = apply_value_map(value, rule.value_map)
+                # Drift de enum: quando o valor do vendor NÃO está no
+                # value_map (vendor adicionou um nível novo), o passthrough do
+                # valor cru vaza um str para um campo que o OCSF tipa como int
+                # (ex. ninjaone severity=BRAND_NEW_LEVEL -> severity_id str).
+                # Se o operador declarou ``default``, ele JÁ é o valor de saída
+                # final escolhido — usa-se ele no MISS. Sem ``default``,
+                # mantém-se o passthrough legado (compat retroativa).
+                #
+                # O ``default`` entra aqui já "pronto": não passa por pre_cast
+                # (fase anterior) nem pelo próprio value_map — só por type_cast
+                # logo abaixo. Mesmo contrato do default-por-source-None.
+                if rule.value_map_probe is not None and not used_ingest_fallback:
+                    probed = apply_value_map(value, rule.value_map_probe)
+                    # len==2 guard: no MISS o operador devolve o valor cru, que
+                    # pode ser uma tupla qualquer (inclusive vazia).
+                    if (
+                        type(probed) is tuple
+                        and len(probed) == 2
+                        and probed[0] is _VALUE_MAP_HIT
+                    ):
+                        value = probed[1]  # HIT — valor mapeado real
+                    else:
+                        value = rule.default  # MISS — drift de enum
+                else:
+                    value = apply_value_map(value, rule.value_map)
             except OperatorError as exc:
                 raise MappingError(
                     f"regra {rule.target!r}: value_map falhou: {exc}"

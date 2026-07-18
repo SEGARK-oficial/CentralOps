@@ -1,0 +1,11 @@
+{
+  "eventId": "cw-small-1",
+  "timestamp": 1782036000000,
+  "ingestionTime": 1782036000500,
+  "message": "START RequestId: 8f3a1c2e-0001 Version: $LATEST",
+  "logStreamName": "2026/06/21/[$LATEST]abc123",
+  "logGroupName": "/aws/lambda/minha-funcao",
+  "awsRegion": "us-east-1",
+  "awsAccountId": "888",
+  "eventTime": "2026-06-21T10:00:00.000Z"
+}

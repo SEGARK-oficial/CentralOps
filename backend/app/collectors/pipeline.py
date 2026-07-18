@@ -463,7 +463,8 @@ async def _run_collection_once(integration_id: int, stream: str) -> None:
                         applied = default_engine.apply(
                             mapping_version_id, rules, raw_event,
                             dsl_version=dsl_version,
-                            ingest_time_epoch=int(time.time()),
+                            # timestamp_t do OCSF é em MILISSEGUNDOS.
+                            ingest_time_epoch=int(time.time() * 1000),
                         )
                     except MappingRequiredFieldError as exc:
                         await _quarantine_async(

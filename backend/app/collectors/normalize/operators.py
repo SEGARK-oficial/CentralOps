@@ -49,16 +49,59 @@ __all__ = [
 # ── type_cast — casts originais ────────────────────────────────────────
 
 
+# ── timestamp_t (OCSF) — a unidade canônica é MILISSEGUNDOS ───────────
+#
+# O OCSF tipa ``timestamp_t`` como milissegundos desde a epoch Unix. Todo
+# campo temporal numérico do envelope normalizado (``time``, ``start_time``,
+# ``end_time``, ``finding_info.*_time``, ``process.created_time``, …) DEVE
+# sair daqui em ms — um consumidor OCSF conforme que receba segundos lê os
+# eventos como janeiro de 1970.
+#
+# Heurística segundos-vs-ms (``_EPOCH_MS_THRESHOLD``)
+# ---------------------------------------------------
+# Quando o vendor já entrega o campo NUMÉRICO não há como saber a unidade
+# pelo tipo — CrowdStrike/NinjaOne mandam segundos, CloudWatch/Defender
+# mandam ms. Usamos o limiar clássico de 1e11:
+#
+#   |v| <  1e11  → interpretado como SEGUNDOS  (→ multiplica por 1000)
+#   |v| >= 1e11  → interpretado como MILISSEGUNDOS (passthrough)
+#
+# Por que 1e11 é seguro nas duas pontas:
+#   - Como segundos, 1e11 s ≈ ano 5138. Qualquer epoch-em-segundos real
+#     (passado ou futuro plausível) cai ABAIXO do limiar.
+#   - Como ms, 1e11 ms ≈ 1973-03-03. Qualquer epoch-em-ms real de um evento
+#     de segurança cai ACIMA do limiar.
+# A única zona ambígua é ms anteriores a 1973-03-03, que não existem em
+# telemetria de segurança. ``abs()`` mantém o comportamento simétrico para
+# datas pré-1970 (epoch negativa).
+_EPOCH_MS_THRESHOLD = 100_000_000_000  # 1e11
+
+
+def _coerce_epoch_millis(value: int | float) -> int:
+    """Normaliza um epoch numérico de unidade desconhecida para ms.
+
+    Ver a nota de heurística acima. Frações são preservadas na conversão
+    segundos→ms (``1776954130.5`` → ``1776954130500``).
+    """
+    if abs(value) < _EPOCH_MS_THRESHOLD:
+        return int(round(value * 1000))
+    return int(value)
+
+
 @register_type_cast(
     "iso_to_epoch",
-    description="Converte ISO-8601 (com ou sem Z) para segundos epoch (int). Passthrough idempotente para int/float.",
-    signature="str|int|float → int",
+    description=(
+        "Converte ISO-8601 (com ou sem Z) para epoch em MILISSEGUNDOS (int), "
+        "conforme timestamp_t do OCSF. Entradas numéricas passam pela "
+        "heurística segundos-vs-ms (|v| < 1e11 = segundos → ×1000)."
+    ),
+    signature="str|int|float → int (epoch ms)",
 )
 def _iso_to_epoch(value: Any) -> int:
-    """ISO-8601 (com ou sem ``Z``) → segundos epoch (int)."""
-    if isinstance(value, (int, float)):
-        # Já epoch — passthrough idempotente.
-        return int(value)
+    """ISO-8601 (com ou sem ``Z``) → epoch em MILISSEGUNDOS (int)."""
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        # Vendor já entregou epoch numérico — unidade desconhecida.
+        return _coerce_epoch_millis(value)
     if not isinstance(value, str):
         raise OperatorError(
             f"iso_to_epoch espera string ISO-8601, recebeu {type(value).__name__}"
@@ -70,16 +113,23 @@ def _iso_to_epoch(value: Any) -> int:
         raise OperatorError(f"iso_to_epoch: timestamp inválido {value!r}") from exc
     if dt.tzinfo is None:
         dt = dt.replace(tzinfo=timezone.utc)
-    return int(dt.timestamp())
+    return int(round(dt.timestamp() * 1000))
 
 
 @register_type_cast(
     "epoch_to_iso",
-    description="Converte epoch (int/float, segundos) para ISO-8601 com sufixo Z.",
+    description=(
+        "Converte epoch para ISO-8601 com sufixo Z. Inverso de iso_to_epoch: "
+        "usa a MESMA heurística segundos-vs-ms (|v| < 1e11 = segundos)."
+    ),
     signature="int|float|str → str",
 )
 def _epoch_to_iso(value: Any) -> str:
-    """Epoch (int/float, segundos) → ISO-8601 com sufixo ``Z``."""
+    """Epoch (segundos ou ms, detectado pela heurística) → ISO-8601 ``Z``.
+
+    Simétrico a :func:`_iso_to_epoch`: um round-trip
+    ``epoch_to_iso(iso_to_epoch(x)) == x`` (na precisão de segundos).
+    """
     if isinstance(value, str):
         # Best-effort: alguns vendors devolvem epoch como string.
         try:
@@ -88,11 +138,12 @@ def _epoch_to_iso(value: Any) -> str:
             raise OperatorError(
                 f"epoch_to_iso: string não-numérica {value!r}"
             ) from exc
-    if not isinstance(value, (int, float)):
+    if not isinstance(value, (int, float)) or isinstance(value, bool):
         raise OperatorError(
             f"epoch_to_iso espera número, recebeu {type(value).__name__}"
         )
-    dt = datetime.fromtimestamp(float(value), tz=timezone.utc)
+    millis = _coerce_epoch_millis(value)
+    dt = datetime.fromtimestamp(millis / 1000.0, tz=timezone.utc)
     return dt.isoformat(timespec="seconds").replace("+00:00", "Z")
 
 

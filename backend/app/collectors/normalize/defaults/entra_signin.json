@@ -23,7 +23,7 @@
     { "target": "normalized.src_endpoint.ip", "source": "ipAddress", "default": null },
     { "target": "normalized.device.os.name", "source": "deviceDetail.operatingSystem", "default": null },
 
-    { "target": "normalized.metadata.version", "const": "1.3.0" },
+    { "target": "normalized.metadata.version", "const": "1.8.0" },
     { "target": "normalized.metadata.product.name", "const": "Microsoft Entra ID" },
     { "target": "normalized.metadata.product.vendor_name", "const": "Microsoft" },
     { "target": "normalized.metadata.uid", "source": "id" },

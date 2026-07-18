@@ -121,8 +121,12 @@ def test_severity_id_universal_keys_present() -> None:
 
 def test_is_valid_helpers() -> None:
     assert is_valid_class_uid(CLASS_UID_DETECTION_FINDING)
-    assert not is_valid_class_uid(0)
+    # 0 = Base Event: classe LEGÍTIMA do OCSF (fallback oficial quando não há classe
+    # específica p/ o payload — ex.: transporte de log heterogêneo do CloudWatch).
+    # Ausência de class_uid continua inválida, mas é pega por _is_ocsf_int (None).
+    assert is_valid_class_uid(0)
     assert not is_valid_class_uid(9999)
+    assert not is_valid_class_uid(-1)
 
     assert is_valid_severity_id(5)
     assert is_valid_severity_id(99)

@@ -1,0 +1,19 @@
+{
+  "id": "6f6a2f61-0002-4c2a-9a10-000000000002",
+  "name": "Daily Backup - File Server (Incremental)",
+  "jobId": "11111111-2222-3333-4444-666666666666",
+  "parentSessionId": "6f6a2f61-0000-4c2a-9a10-000000000000",
+  "sessionType": "BackupJob",
+  "state": "Stopped",
+  "creationTime": "2026-06-21T03:00:00.000Z",
+  "endTime": "2026-06-21T03:42:07.000Z",
+  "progressPercent": 100,
+  "usn": 90002,
+  "resourceId": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+  "resourceReference": "urn:veeam:BackupJob:aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+  "result": {
+    "result": "Warning",
+    "message": "Job finished with warnings: 2 of 48 objects were skipped because they were unavailable at the time of processing.",
+    "isCanceled": false
+  }
+}

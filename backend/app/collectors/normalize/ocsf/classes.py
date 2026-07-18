@@ -1,6 +1,6 @@
-"""Constantes OCSF v1.3.0 — class_uids, category_uids e enums.
+"""Constantes OCSF v1.8.0 — class_uids, category_uids e enums.
 
-Referência: https://schema.ocsf.io/1.3.0
+Referência: https://schema.ocsf.io/1.8.0
 """
 
 from __future__ import annotations
@@ -9,7 +9,9 @@ from typing import Mapping
 
 
 # ── Categories ────────────────────────────────────────────────────────
-# https://schema.ocsf.io/1.3.0/categories
+# https://schema.ocsf.io/1.8.0/categories
+CATEGORY_UID_BASE = 0  # Base Event — sem categoria específica
+CATEGORY_UID_SYSTEM_ACTIVITY = 1
 CATEGORY_UID_IAM = 3
 CATEGORY_UID_NETWORK_ACTIVITY = 4
 CATEGORY_UID_FINDINGS = 2
@@ -25,6 +27,16 @@ CATEGORY_UID_APPLICATION_ACTIVITY = 6
 # validação OCSF fail-closed quarentenaria 100% desses streams. O guard
 # ``test_ocsf_allowed_classes_cover_defaults`` falha o CI se um mapeamento novo
 # emitir uma classe ausente aqui.
+
+# Base Event (category 0) — fallback OFICIAL do OCSF quando NÃO existe classe
+# específica para o payload. Usado por transportes de log heterogêneo (ex.: AWS
+# CloudWatch Logs, que carrega VPC Flow, stdout de Lambda e log de aplicação no mesmo
+# stream). É mais fiel do que carimbar tudo como API Activity — o ideal (rotear por
+# payload: VPC Flow→4001, CloudTrail-via-CW→6003) é evolução futura.
+CLASS_UID_BASE_EVENT = 0
+
+# System Activity (category 1)
+CLASS_UID_SCHEDULED_JOB_ACTIVITY = 1006
 
 # Findings (category 2)
 CLASS_UID_DETECTION_FINDING = 2004
@@ -42,6 +54,8 @@ CLASS_UID_API_ACTIVITY = 6003
 
 
 CLASS_NAMES: Mapping[int, str] = {
+    CLASS_UID_BASE_EVENT: "Base Event",
+    CLASS_UID_SCHEDULED_JOB_ACTIVITY: "Scheduled Job Activity",
     CLASS_UID_DETECTION_FINDING: "Detection Finding",
     CLASS_UID_INCIDENT_FINDING: "Incident Finding",
     CLASS_UID_ACCOUNT_CHANGE: "Account Change",
@@ -54,7 +68,7 @@ ALLOWED_CLASS_UIDS = frozenset(CLASS_NAMES.keys())
 
 
 # ── Severity (universal — válido para qualquer classe OCSF) ───────────
-# https://schema.ocsf.io/1.3.0/objects/severity_id
+# https://schema.ocsf.io/1.8.0/objects/severity_id
 SEVERITY_ID: Mapping[str, int] = {
     "unknown": 0,
     "informational": 1,
@@ -70,7 +84,7 @@ _SEVERITY_VALUES = frozenset(SEVERITY_ID.values())
 
 
 # ── Status (Findings — Detection/Incident) ────────────────────────────
-# https://schema.ocsf.io/1.3.0/classes/detection_finding (campo status_id)
+# https://schema.ocsf.io/1.8.0/classes/detection_finding (campo status_id)
 STATUS_ID: Mapping[str, int] = {
     "unknown": 0,
     "new": 1,

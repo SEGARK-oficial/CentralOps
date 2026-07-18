@@ -1,0 +1,19 @@
+{
+  "id": "6f6a2f61-0003-4c2a-9a10-000000000003",
+  "name": "Weekly Full Backup - VMware Cluster PROD (Tier-1 workloads, application-aware processing)",
+  "jobId": "11111111-2222-3333-4444-777777777777",
+  "parentSessionId": "6f6a2f61-0000-4c2a-9a10-000000000000",
+  "sessionType": "BackupJob",
+  "state": "Stopped",
+  "creationTime": "2026-06-21T22:00:00.000Z",
+  "endTime": "2026-06-22T04:37:52.000Z",
+  "progressPercent": 100,
+  "usn": 90003,
+  "resourceId": "aaaaaaaa-bbbb-cccc-dddd-ffffffffffff",
+  "resourceReference": "urn:veeam:BackupJob:aaaaaaaa-bbbb-cccc-dddd-ffffffffffff",
+  "result": {
+    "result": "Failed",
+    "message": "Job failed. Unable to process 3 of 214 objects. Error: Cannot create a shadow copy of the volumes containing writer's data. VSS asynchronous operation is not completed. Operation: [Shadow copy creation]. Code: [0x80042313]. Retry attempt 3 of 3 exhausted for object 'srv-sql-prod-04'. Backup files were written to repository 'REPO-PROD-01' but the restore point is marked as incomplete and will not be used for restore operations.",
+    "isCanceled": false
+  }
+}

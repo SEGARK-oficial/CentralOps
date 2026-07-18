@@ -165,7 +165,7 @@
     },
     {
       "target": "normalized.metadata.version",
-      "const": "1.3.0"
+      "const": "1.8.0"
     },
     {
       "target": "normalized.metadata.product.name",

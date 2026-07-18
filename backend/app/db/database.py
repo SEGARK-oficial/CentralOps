@@ -1028,6 +1028,8 @@ def _run_lightweight_migrations() -> None:
                 ("entra_id", "entra_id.audit", 3001, "Microsoft Entra ID — directory audit (Account Change)"),
                 ("okta", "okta.system_log", 3002, "Okta — System Log (Authentication)"),
                 ("aws_cloudtrail", "aws_cloudtrail.event", 6003, "AWS CloudTrail — management events (API Activity)"),
+                ("aws_cloudwatch", "aws_cloudwatch.event", 0, "AWS CloudWatch Logs — log events de um log group (Base Event: transporte heterogêneo)"),
+                ("veeam", "veeam.session", 1006, "Veeam Backup & Replication — sessões de job (Scheduled Job Activity)"),
             ]
             now = datetime.utcnow()
 

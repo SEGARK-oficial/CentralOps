@@ -26,5 +26,7 @@ from . import crowdstrike  # noqa: F401      — crowdstrike/detections (Alerts 
 from . import entra_id  # noqa: F401         — entra_id/signins+audit (Graph)
 from . import okta  # noqa: F401             — okta/system_log (SSWS)
 from . import aws_cloudtrail  # noqa: F401    — aws_cloudtrail/events (S3 poll)
+from . import aws_cloudwatch  # noqa: F401    — aws_cloudwatch/events (Logs FilterLogEvents)
+from . import veeam  # noqa: F401             — veeam/sessions (VBR REST, OAuth2 password)
 from . import lake  # noqa: F401             — lake (search-in-place no S3)
 from . import push_ingest  # noqa: F401      — fortigate/windows_event_log (PUSH/ingest)
