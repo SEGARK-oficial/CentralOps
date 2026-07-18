@@ -24,7 +24,7 @@ import logging
 import ssl
 import time
 from contextlib import asynccontextmanager
-from typing import Any, AsyncIterator, Dict, Optional, Tuple
+from typing import Any, AsyncIterator, Callable, Dict, Optional, Tuple
 
 import aiohttp
 from sqlalchemy import select
@@ -255,6 +255,54 @@ async def _capture_delivery_failed(
         logger.debug("capture: falha ao registrar delivery_failed (não-fatal)", exc_info=True)
 
 
+def _make_quarantine_budget(
+    integration_id: Any, platform: Any
+) -> Callable[[str, int], bool]:
+    """Orçamento de ESCRITA de quarentena por razão, para UM ciclo de coleta.
+
+    Sob uma regressão sistêmica (mapping deletado, customer_id que parou de
+    resolver, vendor mudando o schema) TODO evento do ciclo vira quarentena. Sem
+    teto isso amplifica a escrita no DB pelo tamanho do backlog inteiro — a mesma
+    forma do poison-loop de coletor já vivido em produção (drenar o backlog inteiro
+    num run → soft-timeout → rollback → não coleta).
+
+    Teto POR RAZÃO, não orçamento compartilhado: uma enxurrada de
+    ``missing_mapping`` não pode consumir o orçamento e esconder o único ``map`` do
+    ciclo — cada razão mantém representação diagnóstica. O total fica limitado a
+    (nº de razões × teto), que é bounded e pequeno.
+
+    Fail-LOUD ao estourar: loga uma vez por razão por ciclo. Silêncio aqui seria o
+    pior caso — o operador veria a fila de quarentena parar de crescer e concluiria
+    que o problema cessou, quando na verdade escalou.
+
+    A MÉTRICA fica FORA deste teto, no caller: ``QUARANTINE_TOTAL`` conta o que foi
+    quarentenado, não o que coube no orçamento de escrita.
+
+    Fábrica module-level (e não closure inline) para ser testável isoladamente —
+    ver ``backend/tests/test_adr0015_quarantine_budget.py``.
+    """
+    writes: dict[str, int] = {}
+
+    def _ok(kind: str, cap: int) -> bool:
+        n = writes.get(kind, 0)
+        if n >= cap:
+            if n == cap:  # 1ª rejeição desta razão — loga e marca como logada
+                writes[kind] = n + 1
+                logger.warning(
+                    "quarentena: teto de escrita atingido (kind=%s cap=%d "
+                    "integration=%s vendor=%s) — eventos seguem NÃO despachados e "
+                    "contados na métrica, mas as escritas subsequentes deste ciclo "
+                    "são puladas. Teto sistêmico costuma indicar regressão de "
+                    "mapping/config, não eventos ruins isolados.",
+                    kind, cap, integration_id, platform,
+                )
+            return False
+        writes[kind] = n + 1
+        return True
+
+    return _ok
+
+
 async def _quarantine_async(*, capture_org_id: Optional[int] = None, **kwargs: Any) -> None:
     """Wrapper que roda o write síncrono em thread auxiliar.
 
@@ -444,9 +492,21 @@ async def _run_collection_once(integration_id: int, stream: str) -> None:
             if settings.OCSF_VALIDATION_ENABLED
             else None
         )
-        # Teto de escritas de validate-quarentena por ciclo: sob mapping
-        # regredido evita amplificar escrita no DB. O counter de métrica é SEM teto.
-        _ocsf_quarantine_writes = 0
+        # ── Orçamento de ESCRITA de quarentena por ciclo (ADR-0015, Fase 0) ──
+        #
+        # Sob uma regressão sistêmica (mapping deletado, customer_id que parou de
+        # resolver, vendor mudando o schema) TODO evento do ciclo vira quarentena.
+        # Sem teto isso amplifica a escrita no DB pelo tamanho do backlog inteiro —
+        # a mesma forma do poison-loop de coletor já vivido em produção (drenar o
+        # backlog inteiro num run → soft-timeout → rollback → não coleta).
+        # Antes desta ADR só o caminho de validate-OCSF tinha teto; os quatro
+        # restantes (missing-mapping, map ×2, missing-customer-id) não tinham.
+        #
+        # Teto POR RAZÃO, não orçamento compartilhado: uma enxurrada de
+        # ``missing_mapping`` não pode consumir o orçamento e esconder o único
+        # ``map`` do ciclo — cada razão mantém representação diagnóstica. O total
+        # fica limitado a (nº de razões × teto), que é bounded e pequeno.
+        _quarantine_budget_ok = _make_quarantine_budget(integration_id, platform)
 
         # pré-filtra as rotas com supressão CONFIGURADA (uma vez por
         # ciclo). Gated pelas flags: sem elas, lista vazia → o check por-evento é pulado
@@ -555,20 +615,25 @@ async def _run_collection_once(integration_id: int, stream: str) -> None:
                     if mapping_current is None:
                         # Mapping ainda não configurado para este event_type.
                         # Vai pra quarentena com kind explícito.
-                        await _quarantine_async(
-                            capture_org_id=organization_id,
-                            integration_id=integration_id,
-                            vendor=platform,
-                            event_type=event_type,
-                            raw=raw_event,
-                            error_kind=quarantine.ERROR_KIND_MISSING_MAPPING,
-                            error_detail="no current MappingVersion configured",
-                        )
+                        # Métrica SEMPRE (fidelidade); escrita sob orçamento.
                         QUARANTINE_TOTAL.labels(
                             vendor=platform,
                             event_type=event_type,
                             error_kind=quarantine.ERROR_KIND_MISSING_MAPPING,
                         ).inc()
+                        if _quarantine_budget_ok(
+                            quarantine.ERROR_KIND_MISSING_MAPPING,
+                            settings.QUARANTINE_MAX_PER_KIND_PER_RUN,
+                        ):
+                            await _quarantine_async(
+                                capture_org_id=organization_id,
+                                integration_id=integration_id,
+                                vendor=platform,
+                                event_type=event_type,
+                                raw=raw_event,
+                                error_kind=quarantine.ERROR_KIND_MISSING_MAPPING,
+                                error_detail="no current MappingVersion configured",
+                            )
                         continue
 
                     mapping_version_id, rules, dsl_version = mapping_current
@@ -581,21 +646,26 @@ async def _run_collection_once(integration_id: int, stream: str) -> None:
                             ingest_time_epoch=int(time.time() * 1000),
                         )
                     except MappingRequiredFieldError as exc:
-                        await _quarantine_async(
-                            capture_org_id=organization_id,
-                            integration_id=integration_id,
-                            vendor=platform,
-                            event_type=event_type,
-                            raw=raw_event,
-                            error_kind=quarantine.ERROR_KIND_MAP,
-                            error_detail=str(exc),
-                            mapping_version_id=mapping_version_id,
-                        )
+                        # Métrica SEMPRE (fidelidade); escrita sob orçamento.
                         QUARANTINE_TOTAL.labels(
                             vendor=platform,
                             event_type=event_type,
                             error_kind=quarantine.ERROR_KIND_MAP,
                         ).inc()
+                        if _quarantine_budget_ok(
+                            quarantine.ERROR_KIND_MAP,
+                            settings.QUARANTINE_MAX_PER_KIND_PER_RUN,
+                        ):
+                            await _quarantine_async(
+                                capture_org_id=organization_id,
+                                integration_id=integration_id,
+                                vendor=platform,
+                                event_type=event_type,
+                                raw=raw_event,
+                                error_kind=quarantine.ERROR_KIND_MAP,
+                                error_detail=str(exc),
+                                mapping_version_id=mapping_version_id,
+                            )
                         continue
                     except MappingError as exc:
                         logger.warning(
@@ -607,21 +677,26 @@ async def _run_collection_once(integration_id: int, stream: str) -> None:
                                 "error_detail": str(exc),
                             },
                         )
-                        await _quarantine_async(
-                            capture_org_id=organization_id,
-                            integration_id=integration_id,
-                            vendor=platform,
-                            event_type=event_type,
-                            raw=raw_event,
-                            error_kind=quarantine.ERROR_KIND_MAP,
-                            error_detail=str(exc),
-                            mapping_version_id=mapping_version_id,
-                        )
+                        # Métrica SEMPRE (fidelidade); escrita sob orçamento.
                         QUARANTINE_TOTAL.labels(
                             vendor=platform,
                             event_type=event_type,
                             error_kind=quarantine.ERROR_KIND_MAP,
                         ).inc()
+                        if _quarantine_budget_ok(
+                            quarantine.ERROR_KIND_MAP,
+                            settings.QUARANTINE_MAX_PER_KIND_PER_RUN,
+                        ):
+                            await _quarantine_async(
+                                capture_org_id=organization_id,
+                                integration_id=integration_id,
+                                vendor=platform,
+                                event_type=event_type,
+                                raw=raw_event,
+                                error_kind=quarantine.ERROR_KIND_MAP,
+                                error_detail=str(exc),
+                                mapping_version_id=mapping_version_id,
+                            )
                         continue
 
                     envelope_ctx = EnvelopeContext(
@@ -733,11 +808,22 @@ async def _run_collection_once(integration_id: int, stream: str) -> None:
                                 mode=_ocsf_enforcement,
                             )
                             if _action == ocsf_policy.ACTION_QUARANTINE:
-                                if (
-                                    _ocsf_quarantine_writes
-                                    < settings.OCSF_QUARANTINE_MAX_PER_RUN
+                                # Métrica SEMPRE, FORA do teto. ``config.py`` já
+                                # documentava que "o counter de métrica segue SEM
+                                # amostragem (fidelidade)", mas o ``.inc()`` estava
+                                # DENTRO do if do teto — acima do teto a métrica
+                                # parava de contar, e a enxurrada ficava invisível
+                                # exatamente na situação em que se quer vê-la
+                                # (ADR-0015, Fase 0: doc e código agora concordam).
+                                QUARANTINE_TOTAL.labels(
+                                    vendor=platform,
+                                    event_type=event_type,
+                                    error_kind=quarantine.ERROR_KIND_VALIDATE,
+                                ).inc()
+                                if _quarantine_budget_ok(
+                                    quarantine.ERROR_KIND_VALIDATE,
+                                    settings.OCSF_QUARANTINE_MAX_PER_RUN,
                                 ):
-                                    _ocsf_quarantine_writes += 1
                                     await _quarantine_async(
                                         capture_org_id=organization_id,
                                         integration_id=integration_id,
@@ -750,12 +836,8 @@ async def _run_collection_once(integration_id: int, stream: str) -> None:
                                         mapping_version_id=mapping_version_id,
                                         organization_id=organization_id,
                                     )
-                                    QUARANTINE_TOTAL.labels(
-                                        vendor=platform,
-                                        event_type=event_type,
-                                        error_kind=quarantine.ERROR_KIND_VALIDATE,
-                                    ).inc()
-                                # Acima do teto: métrica já contada; pula a escrita.
+                                # Acima do teto: evento segue NÃO despachado (honra o
+                                # modo quarantine/fail_closed); só a escrita é pulada.
                                 continue
                             if _action == ocsf_policy.ACTION_DROP:
                                 continue
@@ -765,21 +847,26 @@ async def _run_collection_once(integration_id: int, stream: str) -> None:
 
                     # RF4.2 — customer_id obrigatório.
                     if not has_customer_id(envelope):
-                        await _quarantine_async(
-                            capture_org_id=organization_id,
-                            integration_id=integration_id,
-                            vendor=platform,
-                            event_type=event_type,
-                            raw=raw_event,
-                            error_kind=quarantine.ERROR_KIND_MISSING_CUSTOMER_ID,
-                            error_detail="customer_id resolved to empty",
-                            mapping_version_id=mapping_version_id,
-                        )
+                        # Métrica SEMPRE (fidelidade); escrita sob orçamento.
                         QUARANTINE_TOTAL.labels(
                             vendor=platform,
                             event_type=event_type,
                             error_kind=quarantine.ERROR_KIND_MISSING_CUSTOMER_ID,
                         ).inc()
+                        if _quarantine_budget_ok(
+                            quarantine.ERROR_KIND_MISSING_CUSTOMER_ID,
+                            settings.QUARANTINE_MAX_PER_KIND_PER_RUN,
+                        ):
+                            await _quarantine_async(
+                                capture_org_id=organization_id,
+                                integration_id=integration_id,
+                                vendor=platform,
+                                event_type=event_type,
+                                raw=raw_event,
+                                error_kind=quarantine.ERROR_KIND_MISSING_CUSTOMER_ID,
+                                error_detail="customer_id resolved to empty",
+                                mapping_version_id=mapping_version_id,
+                            )
                         continue
 
                     # suppression por assinatura (rate-limit
