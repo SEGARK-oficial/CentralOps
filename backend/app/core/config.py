@@ -460,6 +460,18 @@ class Settings(BaseSettings):
     # teto os inválidos ainda NÃO são despachados (honra o modo quarantine/fail_closed)
     # e o counter de métrica segue SEM amostragem (fidelidade), mas a escrita é pulada.
     OCSF_QUARANTINE_MAX_PER_RUN: int = 100
+    # Teto de ESCRITAS de quarentena por RAZÃO por ciclo, para as razões que não
+    # são validate-OCSF (missing_mapping, map, missing_customer_id). ADR-0015,
+    # Fase 0: antes só o caminho validate tinha teto; sob uma regressão sistêmica
+    # (mapping deletado, customer_id que parou de resolver, vendor mudando schema)
+    # TODO evento do ciclo virava escrita no DB — a mesma forma do poison-loop de
+    # coletor já vivido em produção. Por RAZÃO e não compartilhado: uma enxurrada
+    # de missing_mapping não pode consumir o orçamento e esconder o único erro de
+    # map do ciclo. Acima do teto o evento segue NÃO despachado e a métrica
+    # ``collector_quarantine_total`` conta com fidelidade total (só a escrita é
+    # pulada), e um WARNING é emitido uma vez por razão por ciclo.
+    # Invariante coberta por backend/tests/test_adr0015_quarantine_budget.py.
+    QUARANTINE_MAX_PER_KIND_PER_RUN: int = 100
     # Gate de commit: 422 em ``create_version`` quando o mapping emite OCSF
     # inválido. OFF = permissivo (só grava ``ocsf_validation_stats``, não bloqueia).
     OCSF_MAPPING_GATE_ENABLED: bool = False
@@ -507,8 +519,26 @@ class Settings(BaseSettings):
         "ninjaone": {"per_second": 5, "per_minute": 300, "per_hour": 5000},
     }
 
-    # Idempotência: TTL da chave SET NX em dias
-    DEDUPE_TTL_DAYS: int = 7
+    # Idempotência: TTL da chave SET NX em dias. Default reduzido de 7 → 1
+    # (raciocínio completo + números medidos em ``state/dedupe.py`` junto de
+    # ``DEFAULT_TTL_DAYS``): o TTL só precisa cobrir a janela real de
+    # reentrega (overlap de polling 1-5min, retry Celery <5min, redelivery
+    # por worker-crash limitado a visibility_timeout=3600s/1h — ver
+    # celery_app.py), não dedupe de longo prazo. 1 dia dá ~24x de folga sobre
+    # o pior caso automático, cobre replay manual do mesmo turno, e reduz o
+    # keyspace ``dedupe:*`` em ~7x — alívio direto da pressão de memória que
+    # causa evicção sob o ``volatile-lru`` 512mb do compose. Reentregas além
+    # do TTL são absorvidas pelo dedupe no destino por ``event_id``
+    # (at-least-once), então isto não é a única linha de defesa.
+    #
+    # NOTA: este campo é só o fallback de bootstrap (``_snapshot_from_env`` em
+    # config_loader.py, usado quando DB/Redis cache falham, e o seed inicial
+    # da tabela ``collector_config`` em database.py). Orgs já existentes têm
+    # ``collector_config.dedupe_ttl_days`` persistido no DB (default histórico
+    # 7, coluna em db/models.py) — mudar este env default NÃO retroage sobre
+    # orgs já provisionadas; alinhar o default do schema/DB é um follow-up
+    # fora do escopo desta mudança (fora dos arquivos tocados aqui).
+    DEDUPE_TTL_DAYS: int = 1
 
     # Coleta: flush de lote para o dispatch
     COLLECTOR_BATCH_SIZE: int = 200

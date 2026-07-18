@@ -1174,7 +1174,17 @@ class CollectorConfig(Base):
     # ── Batching / dedupe ───────────────────────────────────────────
     collector_batch_size = Column(Integer, nullable=False, default=200)
     collector_batch_flush_seconds = Column(Integer, nullable=False, default=5)
-    dedupe_ttl_days = Column(Integer, nullable=False, default=7)
+    # ADR-0015: alinhado a ``collectors.config_loader.DEFAULT_DEDUPE_TTL_DAYS``
+    # (fonte canônica). O literal é repetido aqui de propósito — ``models`` é
+    # importado POR ``config_loader``, então importar de volta seria circular.
+    # A divergência entre os dois é travada por
+    # ``backend/tests/test_dedupe_ttl_invariant.py``.
+    #
+    # Na prática este default é quase inerte: o seed de ``collector_config``
+    # (singleton id=1) informa o campo explicitamente a partir do env. Ele só
+    # valeria num INSERT que omitisse a coluna — e é exatamente aí que a
+    # divergência silenciosa moraria.
+    dedupe_ttl_days = Column(Integer, nullable=False, default=1)
 
     # ── JSON-serialized mappings ────────────────────────────────────
     domain_concurrency_limits = Column(Text, nullable=False, default="{}")

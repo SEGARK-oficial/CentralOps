@@ -43,6 +43,25 @@ logger = logging.getLogger(__name__)
 CACHE_KEY = "collector:config"
 CACHE_TTL_SECONDS = 30
 
+# ADR-0015, Fase 0 — fonte ÚNICA do default de TTL do dedupe.
+#
+# Este literal existia em QUATRO lugares (``Settings.DEDUPE_TTL_DAYS``, o default
+# da dataclass abaixo, e dois fallbacks ``or 7`` em ``_snapshot_from_env`` e
+# ``_snapshot_from_row``). O efeito da duplicação era pior que estética: baixar o
+# default no ``Settings`` NÃO mudava nada, porque os ``or 7`` reintroduziam o
+# valor antigo — a invariante "existe um default e ele vale em todo lugar" era
+# apenas um comentário implícito.
+#
+# É o mesmo padrão que já mordeu este produto três vezes (lock do RedBeat com TTL
+# menor que o loop do beat; coletor sem teto por ciclo; o próprio dedupe com TTL
+# de 7 dias contra memória finita). Guard executável em
+# ``backend/tests/test_dedupe_ttl_invariant.py``.
+#
+# O valor (1 dia) é justificado em ``state/dedupe.py`` junto de ``DEFAULT_TTL_DAYS``:
+# cobre com ~24x de folga a maior janela de reentrega automática
+# (``visibility_timeout`` de 1h em celery_app.py).
+DEFAULT_DEDUPE_TTL_DAYS = 1
+
 # Campos que entram no hash de versão. Mudanças disparam recriação do
 # singleton de ``wazuh_target`` (única parte com estado de processo).
 _VERSIONED_FIELDS = (
@@ -74,7 +93,10 @@ class CollectorConfigSnapshot:
     # Batching / dedupe
     collector_batch_size: int = 200
     collector_batch_flush_seconds: int = 5
-    dedupe_ttl_days: int = 7
+    # ADR-0015: fonte ÚNICA do default (era literal 7 em 4 lugares — ver
+    # DEFAULT_DEDUPE_TTL_DAYS). Divergência entre eles fazia o env default ser
+    # silenciosamente sobreposto pelos fallbacks ``or 7`` abaixo.
+    dedupe_ttl_days: int = DEFAULT_DEDUPE_TTL_DAYS
 
     # Mapas
     domain_concurrency_limits: Dict[str, int] = field(default_factory=dict)
@@ -123,7 +145,7 @@ def _snapshot_from_env() -> CollectorConfigSnapshot:
         or "/var/log/centralops/collectors",
         collector_batch_size=int(settings.COLLECTOR_BATCH_SIZE or 200),
         collector_batch_flush_seconds=int(settings.COLLECTOR_BATCH_FLUSH_SECONDS or 5),
-        dedupe_ttl_days=int(settings.DEDUPE_TTL_DAYS or 7),
+        dedupe_ttl_days=int(settings.DEDUPE_TTL_DAYS or DEFAULT_DEDUPE_TTL_DAYS),
         domain_concurrency_limits=dict(settings.DOMAIN_CONCURRENCY_LIMITS or {}),
         rate_limits_by_vendor=dict(settings.RATE_LIMITS_BY_VENDOR or {}),
         is_persisted=False,
@@ -154,7 +176,7 @@ def _snapshot_from_row(row: models.CollectorConfig) -> CollectorConfigSnapshot:
         or "/var/log/centralops/collectors",
         collector_batch_size=int(row.collector_batch_size or 200),
         collector_batch_flush_seconds=int(row.collector_batch_flush_seconds or 5),
-        dedupe_ttl_days=int(row.dedupe_ttl_days or 7),
+        dedupe_ttl_days=int(row.dedupe_ttl_days or DEFAULT_DEDUPE_TTL_DAYS),
         domain_concurrency_limits=dict(dcl),
         rate_limits_by_vendor=dict(rlv),
         is_persisted=True,

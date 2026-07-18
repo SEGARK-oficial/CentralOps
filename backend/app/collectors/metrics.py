@@ -21,7 +21,7 @@ from __future__ import annotations
 
 import time as _time
 from contextlib import contextmanager
-from typing import Any, Iterator, Tuple
+from typing import Any, Iterator, Literal, Tuple
 
 from . import otel_metrics
 
@@ -41,7 +41,7 @@ class _Timer:
         self._start = _time.perf_counter()
         return self
 
-    def __exit__(self, *exc: Any) -> bool:
+    def __exit__(self, *exc: Any) -> Literal[False]:
         self._bound.observe(_time.perf_counter() - self._start)
         return False  # nunca suprime exceção
 
@@ -128,6 +128,11 @@ CURSOR_LAG = _instrument("collector_cursor_lag_seconds")
 TASK_DURATION = _instrument("collector_task_duration_seconds")
 RATE_LIMIT_BACKOFFS = _instrument("collector_rate_limit_backoffs_total")
 DEDUPE_DROPS = _instrument("collector_dedupe_drops_total")
+# saúde do Redis do dedupe (evicção silenciosa / pressão de memória).
+# Amostrado periodicamente por state.dedupe.sample_redis_health — NÃO no hot
+# path de claim().
+DEDUPE_REDIS_EVICTED_KEYS = _instrument("collector_dedupe_redis_evicted_keys")
+DEDUPE_REDIS_MEMORY_USED_RATIO = _instrument("collector_dedupe_redis_memory_used_ratio")
 QUARANTINE_TOTAL = _instrument("collector_quarantine_total")
 NORMALIZE_LATENCY = _instrument("collector_normalize_latency_seconds")
 # conformidade OCSF (tag-and-pass). reason ∈ validator.OCSF_REASONS.

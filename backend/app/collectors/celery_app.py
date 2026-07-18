@@ -67,6 +67,7 @@ _MODULES_WITH_TASKS = [
     # worker entrypoint before this module is imported).
     f"{__package__}.api_tokens_housekeeping",  # marca PATs expirados
     f"{__package__}.entra_sync_tasks",       # sync de usuarios do Entra via Graph
+    f"{__package__}.dedupe_health_tasks",    # saúde do Redis do dedupe (ADR-0015)
     # query_tasks (federated-query execution) is an Enterprise feature; the EE worker
     # re-adds it via ee_hooks.get_extra_task_modules() in _build_include(). The
     # Queue("collect.query") + task_routes stay here (the Community scheduler's
