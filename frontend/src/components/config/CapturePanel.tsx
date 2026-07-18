@@ -6,6 +6,7 @@ import { Trans, useTranslation } from "react-i18next"
 import {
   CopyIcon,
   EyeIcon,
+  FilterIcon,
   PlayIcon,
   RadioIcon,
   RefreshCwIcon,
@@ -33,11 +34,112 @@ const DURATION_OPTIONS: Array<{ value: number; labelKey: string }> = [
   { value: 3600, labelKey: "capture.durations.1h" },
 ]
 
+// Default = 15 min, NÃO 5 min. Vários coletores rodam em ciclos de 1–5 min: uma
+// janela de 5 min pode abrir e fechar entre dois ciclos e não capturar NADA, o
+// que faz o usuário concluir "não passa tráfego" quando na verdade a janela é
+// que era curta demais. 15 min cobre com folga a cadência típica.
+const DEFAULT_DURATION_SECONDS = 900
+
 // Tamanho do ring (quantos eventos a sessão retém). Alinhado ao backend (1–20000).
 const RING_OPTIONS = [1000, 5000, 10000, 20000]
 
 // Cadência do polling enquanto há sessão ativa (sessões + eventos da selecionada).
 const POLL_INTERVAL_MS = 3000
+
+// ── Desfecho (outcome) ──────────────────────────────────────────────────────
+// O objetivo do troubleshooting é "como entrou e como saiu aquele log": além do
+// evento, a captura carrega o DESFECHO (entregue / descartado / sem destino /
+// quarentena / …). O campo é OPCIONAL e best-effort — eventos antigos no ring
+// (gravados antes do backend passar a anotar o desfecho) simplesmente não têm,
+// e a UI precisa continuar renderizando sem quebrar.
+
+/** Sentinela do filtro: "todos os desfechos". */
+const OUTCOME_ALL = "__all__"
+/** Sentinela do agrupamento: evento sem desfecho anotado (ring antigo). */
+const OUTCOME_UNKNOWN = "__unknown__"
+
+type BadgeTone = "success" | "warning" | "danger" | "primary" | "default" | "outline"
+
+/**
+ * Cor por CATEGORIA de desfecho. Chaves em snake_case minúsculo; sinônimos
+ * mapeados de propósito porque o vocabulário exato do backend ainda pode variar
+ * (e um desfecho desconhecido cai no neutro em vez de quebrar).
+ */
+// Espelha o vocabulário FECHADO do backend (``capture_session.OUTCOMES``): exatamente
+// estes 9 desfechos são emitidos. Não inventar chaves — um nome que o backend nunca
+// manda vira código morto E some do i18n, fazendo a tela exibir a string crua.
+const OUTCOME_TONES: Record<string, BadgeTone> = {
+  // entregue de fato ao destino
+  delivered: "success",
+  // FALHOU na entrega (sink recusou, breaker aberto, destino ausente/cross-tenant) —
+  // é o desfecho mais importante p/ troubleshooting: "saiu ou morreu no sink?"
+  delivery_failed: "danger",
+  // retido p/ inspeção (erro de mapping, customer_id ausente, OCSF)
+  quarantined: "danger",
+  // saiu do fluxo por DECISÃO do pipeline (não é erro, mas não chega ao destino)
+  dropped: "warning",
+  unrouted: "warning",
+  loop_blocked: "warning",
+  residency_blocked: "warning",
+  sampled_out: "warning",
+  suppressed: "warning",
+}
+
+function outcomeTone(outcome: string | null): BadgeTone {
+  if (!outcome) return "outline"
+  return OUTCOME_TONES[outcome] ?? "default"
+}
+
+/** Normaliza para a chave canônica (minúscula, sem espaços). `null` se ausente. */
+function normalizeOutcome(value: unknown): string | null {
+  if (typeof value !== "string") return null
+  const v = value.trim().toLowerCase().replace(/[\s-]+/g, "_")
+  return v || null
+}
+
+/** Coage um valor solto (string|number) em string não-vazia, senão `null`. */
+function coerceField(value: unknown): string | null {
+  if (typeof value === "string") return value.trim() || null
+  if (typeof value === "number" && Number.isFinite(value)) return String(value)
+  return null
+}
+
+/**
+ * Lê um campo de metadado do evento capturado, tolerando duas formas: no
+ * envelope da captura (``ev.outcome``) ou dentro do namespace interno do
+ * evento (``ev.event._centralops.outcome``). NUNCA lê campos crus do log do
+ * vendor — um log do Windows tem "Outcome" próprio, que não é o nosso.
+ */
+function metaField(ev: CaptureEvent, key: string): string | null {
+  const direct = coerceField((ev as unknown as Record<string, unknown>)[key])
+  if (direct != null) return direct
+  const payload = ev.event as Record<string, unknown> | undefined
+  if (!payload || typeof payload !== "object") return null
+  const meta = payload["_centralops"]
+  if (!meta || typeof meta !== "object") return null
+  return coerceField((meta as Record<string, unknown>)[key])
+}
+
+function eventOutcome(ev: CaptureEvent): string | null {
+  return normalizeOutcome(metaField(ev, "outcome"))
+}
+
+/**
+ * Contadores por desfecho expostos (opcionalmente) pelo backend na sessão.
+ * Permite distinguir "a sessão não viu NADA" de "viu N eventos" mesmo quando a
+ * lista renderizada está vazia (ring podado, filtro ativo, etc.).
+ */
+function sessionOutcomeCounts(session: CaptureSession | null): Record<string, number> {
+  const raw = (session as unknown as Record<string, unknown> | null)?.["outcome_counts"]
+  if (!raw || typeof raw !== "object") return {}
+  const out: Record<string, number> = {}
+  for (const [key, value] of Object.entries(raw as Record<string, unknown>)) {
+    const n = typeof value === "number" ? value : Number(value)
+    const norm = normalizeOutcome(key)
+    if (norm && Number.isFinite(n) && n > 0) out[norm] = n
+  }
+  return out
+}
 
 /** Converte epoch-seconds em hora local legível (== null, não falsy: epoch 0 é válido). */
 function formatEpoch(seconds?: number | null): string {
@@ -76,7 +178,7 @@ export const CapturePanel: React.FC = () => {
   const { t } = useTranslation("config")
   const { user } = useAuth()
   const [vendor, setVendor] = useState<string>("")
-  const [duration, setDuration] = useState<number>(300)
+  const [duration, setDuration] = useState<number>(DEFAULT_DURATION_SECONDS)
   const [ringSize, setRingSize] = useState<number>(5000)
   const [starting, setStarting] = useState(false)
 
@@ -104,6 +206,8 @@ export const CapturePanel: React.FC = () => {
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [events, setEvents] = useState<CaptureEvent[]>([])
   const [loadingEvents, setLoadingEvents] = useState(false)
+  // Filtro por desfecho (client-side: o payload já vem inteiro no ring).
+  const [outcomeFilter, setOutcomeFilter] = useState<string>(OUTCOME_ALL)
 
   const [busyId, setBusyId] = useState<string | null>(null) // stop/delete em andamento
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
@@ -203,7 +307,10 @@ export const CapturePanel: React.FC = () => {
     setSelectedOrgId(value === "" ? null : Number(value))
     setSelectedId(null)
     setEvents([])
+    setOutcomeFilter(OUTCOME_ALL)
     setFeedback(null)
+    // Nova org ⇒ nova auto-seleção (a sessão da org anterior não vale mais).
+    autoSelectedRef.current = false
   }
 
   const hasActive = useMemo(() => sessions.some((s) => s.status === "active"), [sessions])
@@ -241,6 +348,38 @@ export const CapturePanel: React.FC = () => {
     }
   }, [selectedId, selected])
 
+  // Auto-seleção ao montar: sem isto, recarregar a página deixava a tela vazia
+  // mesmo com os eventos VIVOS no Redis — o usuário lia isso como "não capturei
+  // nada". Seleciona a sessão ativa mais recente (senão a mais recente de
+  // todas) e já busca os eventos. Roda UMA vez por escopo (o ref é resetado na
+  // troca de org), para não sequestrar a seleção manual do usuário depois.
+  const autoSelectedRef = useRef(false)
+  useEffect(() => {
+    if (autoSelectedRef.current || selectedId || sessions.length === 0) return
+    const preferred = sessions.find((s) => s.status === "active") ?? sessions[0]
+    if (!preferred) return
+    autoSelectedRef.current = true
+    setSelectedId(preferred.id)
+    void loadEvents(preferred.id, { silent: true })
+  }, [sessions, selectedId, loadEvents])
+
+  // Busca FINAL ao encerrar: quando a sessão selecionada sai de "active"
+  // (expirou ou foi parada), o polling para — e sem um último fetch os eventos
+  // gravados no fim da janela nunca chegariam à tela. Dispara exatamente na
+  // transição (guardando id+status anteriores), não a cada render.
+  const lastStatusRef = useRef<{ id: string; status: string } | null>(null)
+  useEffect(() => {
+    const prev = lastStatusRef.current
+    if (!selectedId || !selected) {
+      lastStatusRef.current = null
+      return
+    }
+    lastStatusRef.current = { id: selectedId, status: selected.status }
+    if (prev && prev.id === selectedId && prev.status === "active" && selected.status !== "active") {
+      void loadEvents(selectedId, { silent: true })
+    }
+  }, [selectedId, selected, loadEvents])
+
   const handleStart = async () => {
     try {
       setStarting(true)
@@ -261,6 +400,8 @@ export const CapturePanel: React.FC = () => {
       })
       setSelectedId(session.id)
       setEvents([])
+      setOutcomeFilter(OUTCOME_ALL)
+      autoSelectedRef.current = true // seleção explícita vence a auto-seleção
       await loadSessions()
     } catch (err) {
       const isLimit = err instanceof ApiRequestError && err.statusCode === 429
@@ -279,6 +420,8 @@ export const CapturePanel: React.FC = () => {
 
   const handleSelect = (sessionId: string) => {
     setSelectedId(sessionId)
+    setOutcomeFilter(OUTCOME_ALL)
+    autoSelectedRef.current = true
     void loadEvents(sessionId)
   }
 
@@ -317,6 +460,52 @@ export const CapturePanel: React.FC = () => {
     await copyToClipboard(JSON.stringify(ev.event, null, 2))
     setFeedback({ type: "success", message: t("capture.copyJsonSuccess") })
   }
+
+  // ── Desfechos da sessão selecionada ───────────────────────────────────────
+  /** Rótulo traduzido do desfecho; desconhecido cai no próprio código cru. */
+  const outcomeLabel = useCallback(
+    (key: string) =>
+      key === OUTCOME_UNKNOWN
+        ? t("capture.outcomes.unknown")
+        : t(`capture.outcomes.${key}`, { defaultValue: key }),
+    [t],
+  )
+
+  const outcomeCounts = useMemo(() => {
+    const counts: Record<string, number> = {}
+    for (const ev of events) {
+      const key = eventOutcome(ev) ?? OUTCOME_UNKNOWN
+      counts[key] = (counts[key] ?? 0) + 1
+    }
+    return counts
+  }, [events])
+
+  // Só mostra chips/filtro/coluna se ALGUM evento trouxe desfecho. Num ring
+  // antigo (sem o campo) a UI volta a ser exatamente a de antes.
+  const hasOutcomeData = useMemo(
+    () => Object.keys(outcomeCounts).some((k) => k !== OUTCOME_UNKNOWN),
+    [outcomeCounts],
+  )
+
+  const filteredEvents = useMemo(() => {
+    if (outcomeFilter === OUTCOME_ALL) return events
+    return events.filter((ev) => (eventOutcome(ev) ?? OUTCOME_UNKNOWN) === outcomeFilter)
+  }, [events, outcomeFilter])
+
+  // Contadores vindos do backend (opcionais): distinguem "a sessão não viu
+  // nada" de "viu N eventos" mesmo com a lista renderizada vazia.
+  const selectedCounts = useMemo(() => sessionOutcomeCounts(selected), [selected])
+  const selectedCountsTotal = useMemo(
+    () => Object.values(selectedCounts).reduce((acc, n) => acc + n, 0),
+    [selectedCounts],
+  )
+
+  /** Tamanho da janela da sessão, em minutos (para o texto do estado vazio). */
+  const selectedWindowMinutes = useMemo(() => {
+    if (selected?.created_at == null || selected?.expires_at == null) return null
+    const minutes = Math.round((selected.expires_at - selected.created_at) / 60)
+    return minutes > 0 ? minutes : null
+  }, [selected])
 
   return (
     <div className="space-y-4">
@@ -419,6 +608,13 @@ export const CapturePanel: React.FC = () => {
           </Button>
         </div>
       </div>
+
+      {/* Janela x cadência dos coletores: uma janela curta pode fechar entre
+          dois ciclos de coleta e não capturar nada — dizer isso ANTES evita a
+          conclusão errada de "não passa tráfego". */}
+      <p className="text-xs text-text-tertiary" role="note">
+        {t("capture.form.durationHint")}
+      </p>
 
       {/* Admin global precisa escolher a org antes de capturar. */}
       {captureBlocked && (
@@ -523,8 +719,8 @@ export const CapturePanel: React.FC = () => {
       {/* Eventos da sessão selecionada */}
       {selected && (
         <div className="space-y-2 rounded-md border border-border p-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 text-sm font-semibold text-text">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex flex-wrap items-center gap-2 text-sm font-semibold text-text">
               <RadioIcon size={16} className="text-primary-600" />
               {t("capture.events.title", { vendor: selected.vendor ?? t("capture.events.allVendors") })}
               <Badge variant={statusVariant(selected.status)} size="sm">
@@ -536,29 +732,134 @@ export const CapturePanel: React.FC = () => {
                 </span>
               )}
             </div>
-            <Button
-              size="xs"
-              variant="ghost"
-              leftIcon={<RefreshCwIcon size={12} />}
-              onClick={() => void loadEvents(selected.id)}
-              loading={loadingEvents}
-            >
-              {t("capture.events.refresh")}
-            </Button>
+            <div className="flex items-center gap-2">
+              {/* Filtro por desfecho: só existe se algum evento trouxe o campo. */}
+              {hasOutcomeData && (
+                <select
+                  className="h-7 rounded border border-border bg-surface px-2 text-xs text-text"
+                  value={outcomeFilter}
+                  onChange={(e) => setOutcomeFilter(e.target.value)}
+                  aria-label={t("capture.events.outcomeFilterAriaLabel")}
+                >
+                  <option value={OUTCOME_ALL}>
+                    {t("capture.events.outcomeFilterAll", { total: events.length })}
+                  </option>
+                  {Object.entries(outcomeCounts)
+                    .sort((a, b) => b[1] - a[1])
+                    .map(([key, count]) => (
+                      <option key={key} value={key}>
+                        {`${outcomeLabel(key)} (${count})`}
+                      </option>
+                    ))}
+                </select>
+              )}
+              <Button
+                size="xs"
+                variant="ghost"
+                leftIcon={<RefreshCwIcon size={12} />}
+                onClick={() => void loadEvents(selected.id)}
+                loading={loadingEvents}
+              >
+                {t("capture.events.refresh")}
+              </Button>
+            </div>
           </div>
+
+          {/* Resumo "como saiu": um chip por desfecho, clicável = filtro. */}
+          {hasOutcomeData && (
+            <div className="flex flex-wrap items-center gap-1">
+              {Object.entries(outcomeCounts)
+                .sort((a, b) => b[1] - a[1])
+                .map(([key, count]) => {
+                  const activeChip = outcomeFilter === key
+                  return (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => setOutcomeFilter(activeChip ? OUTCOME_ALL : key)}
+                      aria-pressed={activeChip}
+                      className={
+                        activeChip
+                          ? "rounded-full ring-2 ring-primary-500 ring-offset-1 ring-offset-surface"
+                          : "rounded-full"
+                      }
+                      title={t("capture.events.outcomeChipTooltip")}
+                    >
+                      <Badge variant={outcomeTone(key === OUTCOME_UNKNOWN ? null : key)} size="sm">
+                        {outcomeLabel(key)} · {count}
+                      </Badge>
+                    </button>
+                  )
+                })}
+            </div>
+          )}
 
           {loadingEvents && events.length === 0 ? (
             <div className="flex justify-center py-6">
               <LoadingSpinner size="sm" text={t("capture.events.loading")} />
             </div>
-          ) : events.length === 0 ? (
+          ) : filteredEvents.length === 0 && events.length > 0 ? (
+            /* Não é "sem tráfego": é o FILTRO que escondeu tudo. */
+            <EmptyState
+              icon={<FilterIcon size={28} />}
+              title={t("capture.events.filteredEmptyTitle", {
+                outcome: outcomeLabel(outcomeFilter),
+              })}
+              description={t("capture.events.filteredEmptyDescription", { total: events.length })}
+              action={
+                <Button size="xs" variant="outline" onClick={() => setOutcomeFilter(OUTCOME_ALL)}>
+                  {t("capture.events.clearOutcomeFilter")}
+                </Button>
+              }
+            />
+          ) : events.length === 0 && selected.status === "active" ? (
+            /* ESTADO VAZIO HONESTO: sessão ativa e nada ainda. Sem explicação,
+               o usuário conclui "não capturei nada" sem distinguir "não houve
+               tráfego" de "ainda não rodou um ciclo de coleta". */
             <EmptyState
               icon={<RadioIcon size={28} />}
-              title={selected.status === "active" ? t("capture.events.waitingTitle") : t("capture.events.emptyTitle")}
-              description={
-                selected.status === "active"
-                  ? t("capture.events.waitingDescription")
-                  : t("capture.events.emptyDescription")
+              title={t("capture.events.waitingTitle")}
+              description={t("capture.events.waitingDescription")}
+              action={
+                <div className="max-w-md space-y-1 text-left text-xs text-text-tertiary">
+                  <p>{t("capture.events.waitingWhyPipeline")}</p>
+                  <p>{t("capture.events.waitingWhyCadence")}</p>
+                  {selectedWindowMinutes != null && (
+                    <p>
+                      {t("capture.events.waitingWindow", { minutes: selectedWindowMinutes })}
+                    </p>
+                  )}
+                  {selected.vendor && (
+                    <p>{t("capture.events.waitingVendorFilter", { vendor: selected.vendor })}</p>
+                  )}
+                  {/* Contadores do backend (se existirem) desmentem o "vazio":
+                      houve tráfego, ele só não está no ring renderizado. */}
+                  {selectedCountsTotal > 0 && (
+                    <p className="text-text-secondary">
+                      {t("capture.events.waitingServerCounts", { total: selectedCountsTotal })}
+                    </p>
+                  )}
+                </div>
+              }
+            />
+          ) : filteredEvents.length === 0 ? (
+            /* Janela encerrada sem nenhum evento. */
+            <EmptyState
+              icon={<RadioIcon size={28} />}
+              title={t("capture.events.emptyTitle")}
+              description={t("capture.events.emptyDescription")}
+              action={
+                <div className="max-w-md space-y-1 text-left text-xs text-text-tertiary">
+                  {selectedWindowMinutes != null && (
+                    <p>{t("capture.events.emptyWindow", { minutes: selectedWindowMinutes })}</p>
+                  )}
+                  <p>{t("capture.events.emptyRetryHint")}</p>
+                  {selectedCountsTotal > 0 && (
+                    <p className="text-text-secondary">
+                      {t("capture.events.waitingServerCounts", { total: selectedCountsTotal })}
+                    </p>
+                  )}
+                </div>
               }
             />
           ) : (
@@ -568,17 +869,46 @@ export const CapturePanel: React.FC = () => {
                   <tr>
                     <th className="px-3 py-2 text-left">{t("capture.events.table.capturedAt")}</th>
                     <th className="px-3 py-2 text-left">{t("capture.events.table.vendor")}</th>
+                    {hasOutcomeData && (
+                      <th className="px-3 py-2 text-left">{t("capture.events.table.outcome")}</th>
+                    )}
                     <th className="px-3 py-2 text-left">{t("capture.events.table.preview")}</th>
                     <th className="px-3 py-2 text-right">{t("capture.events.table.actions")}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
-                  {events.map((ev, idx) => (
+                  {filteredEvents.map((ev, idx) => {
+                    const outcome = eventOutcome(ev)
+                    const destination = metaField(ev, "destination_id")
+                    const detail = metaField(ev, "detail")
+                    return (
                     <tr key={`${selected.id}-${ev.captured_at ?? idx}-${ev.vendor ?? ""}-${idx}`}>
                       <td className="px-3 py-2 text-text-secondary">
                         <code className="text-xs">{formatEpoch(ev.captured_at)}</code>
                       </td>
                       <td className="px-3 py-2 text-text">{ev.vendor ?? "—"}</td>
+                      {hasOutcomeData && (
+                        <td className="px-3 py-2">
+                          {outcome ? (
+                            <div className="flex flex-col gap-0.5">
+                              <Badge variant={outcomeTone(outcome)} size="sm" title={detail ?? undefined}>
+                                {outcomeLabel(outcome)}
+                              </Badge>
+                              {destination && (
+                                <span className="text-[10px] text-text-tertiary">
+                                  {t("capture.events.destinationShort", { destination })}
+                                </span>
+                              )}
+                            </div>
+                          ) : (
+                            /* Evento antigo no ring (gravado antes do desfecho
+                               existir): não quebra, só não sabemos o desfecho. */
+                            <span className="text-xs text-text-tertiary" title={t("capture.outcomes.unknownTooltip")}>
+                              —
+                            </span>
+                          )}
+                        </td>
+                      )}
                       <td className="px-3 py-2">
                         <code className="block max-w-[420px] truncate text-xs text-text-secondary">
                           {JSON.stringify(ev.event)}
@@ -607,7 +937,8 @@ export const CapturePanel: React.FC = () => {
                         </div>
                       </td>
                     </tr>
-                  ))}
+                    )
+                  })}
                 </tbody>
               </table>
             </div>
@@ -629,7 +960,32 @@ export const CapturePanel: React.FC = () => {
               {inspected.captured_at && (
                 <Badge variant="outline">{formatEpoch(inspected.captured_at)}</Badge>
               )}
+              {/* "Como saiu": desfecho + destino + motivo, quando o backend anota. */}
+              {(() => {
+                const outcome = eventOutcome(inspected)
+                return outcome ? (
+                  <Badge variant={outcomeTone(outcome)}>
+                    {t("capture.inspectModal.outcome", { outcome: outcomeLabel(outcome) })}
+                  </Badge>
+                ) : null
+              })()}
+              {(() => {
+                const destination = metaField(inspected, "destination_id")
+                return destination ? (
+                  <Badge variant="outline">
+                    {t("capture.inspectModal.destination", { destination })}
+                  </Badge>
+                ) : null
+              })()}
             </div>
+            {(() => {
+              const detail = metaField(inspected, "detail")
+              return detail ? (
+                <p className="text-xs text-text-secondary">
+                  {t("capture.inspectModal.detail", { detail })}
+                </p>
+              ) : null
+            })()}
             <div className="rounded bg-surface-tertiary p-3">
               <pre className="max-h-96 overflow-auto whitespace-pre-wrap break-all text-xs text-text">
                 {JSON.stringify(inspected.event, null, 2)}
