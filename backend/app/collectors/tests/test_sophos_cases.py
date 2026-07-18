@@ -224,3 +224,56 @@ async def test_logs_info_when_zero_events_collected(caplog) -> None:
 
     messages = [r.getMessage() for r in caplog.records]
     assert any("0 events collected" in msg for msg in messages), messages
+
+
+@pytest.mark.asyncio
+async def test_caps_pages_per_cycle_and_saves_resumable_cursor(monkeypatch) -> None:
+    """Teto por ciclo (regressão do poison-loop de soft-timeout): com backlog MAIOR que o
+    teto, ``collect()`` PARA após ``_MAX_PAGES_PER_CYCLE`` páginas em vez de drenar tudo
+    num único run, e salva o cursor RESUMÍVEL (token da PRÓXIMA página + janela intacta)
+    p/ o próximo ciclo RETOMAR — NÃO o watermark final (``created_after=latest_updated,
+    page=1``), que descartaria as páginas não lidas. Sem isto, um backlog grande estoura o
+    ``task_soft_time_limit`` (720s) → o pipeline reverte p/ ``cursor_before`` e solta as
+    claims → loop sem progresso.
+
+    Cobre TAMBÉM a preservação de ``backfill_to_ts`` no cursor resumível: sem ela, uma
+    retomada mid-backfill perderia o teto superior (``createdBefore``) e paginaria até o
+    presente."""
+    from ..vendors import sophos_cases as sc
+
+    monkeypatch.setattr(sc, "_MAX_PAGES_PER_CYCLE", 3)
+    monkeypatch.setattr(sc, "_PAGE_SIZE", 2)  # página "cheia" = 2 items (não quebra cedo)
+
+    # Cada página devolve 2 items (page cheia = _PAGE_SIZE) → o loop nunca vê página curta
+    # e continuaria paginando até o presente sem o teto.
+    full_page = {
+        "items": [
+            {"id": "c1", "updatedAt": "2026-04-23T10:00:00Z", "severity": "low"},
+            {"id": "c2", "updatedAt": "2026-04-23T10:00:01Z", "severity": "low"},
+        ],
+        "pages": {"current": 1, "size": 2, "total": 999},
+    }
+
+    with aioresponses() as m:
+        m.get(_URL_RE, payload=full_page, repeat=True)  # o teto corta em 3 fetches
+
+        async with aiohttp.ClientSession() as session:
+            ctx = _ctx(
+                session,
+                cursor={
+                    "created_after": "2026-04-23T09:00:00Z",
+                    "backfill_to_ts": "2026-05-01T00:00:00Z",
+                },
+            )
+            collector = SophosCasesCollector(ctx)
+            collected = [ev async for ev in collector.collect()]
+
+    # PAROU no teto: 3 páginas × 2 items = 6 eventos (não drenou até o presente).
+    assert len(collected) == 3 * 2
+    # Cursor RESUMÍVEL: created_after FIXO (não avançado p/ latest_updated), page = a
+    # PRÓXIMA página (4, não 1), e backfill_to_ts PRESERVADO (teto superior intacto).
+    assert ctx.cursor == {
+        "created_after": "2026-04-23T09:00:00Z",
+        "page": 4,
+        "backfill_to_ts": "2026-05-01T00:00:00Z",
+    }

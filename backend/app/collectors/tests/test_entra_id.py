@@ -113,6 +113,57 @@ async def test_directory_audit_collects_and_normalizes() -> None:
     assert norm["actor"]["user"]["name"] == "bob@x.com"
 
 
+@pytest.mark.parametrize(
+    "collector_cls, endpoint_re, cursor_field",
+    [
+        (EntraSignInsCollector, _SIGNINS_RE, "createdDateTime"),
+        (EntraDirectoryAuditCollector, _AUDIT_RE, "activityDateTime"),
+    ],
+)
+@pytest.mark.asyncio
+async def test_caps_pages_per_cycle_and_saves_resumable_cursor(
+    monkeypatch, collector_cls, endpoint_re, cursor_field
+) -> None:
+    """Teto por ciclo (regressão do poison-loop de soft-timeout): com backlog MAIOR que o
+    teto, ``collect()`` PARA após ``_MAX_PAGES_PER_CYCLE`` páginas em vez de drenar a cadeia
+    de ``@odata.nextLink`` inteira num único run, e salva o cursor RESUMÍVEL (o nextLink da
+    PRÓXIMA página, preservando ``last_ts`` — NÃO o watermark ``latest_seen`` nem
+    nextLink=None) p/ o próximo ciclo RETOMAR sem descartar o resto do backlog. Sem isto,
+    um backlog grande estoura o soft-timeout (720s) → rollback total → loop sem progresso.
+    Cobre a subclasse ``EntraDirectoryAuditCollector`` (reusa o mesmo ``collect()``)."""
+    from ..vendors import entra_id as ei
+
+    monkeypatch.setattr(ei, "_MAX_PAGES_PER_CYCLE", 3)
+
+    base = collector_cls._ENDPOINT
+    # Cadeia de nextLinks: cada página "cheia" aponta a PRÓXIMA → o loop nunca vê página
+    # final (nextLink ausente) e drenaria a cadeia inteira sem o teto.
+    links = [f"{base}?$skiptoken=p{i}" for i in range(1, 8)]
+
+    def _page(idx: int, next_link: str) -> Dict[str, Any]:
+        return {
+            "value": [{"id": f"e{idx}", cursor_field: f"2026-06-20T10:0{idx}:00Z"}],
+            "@odata.nextLink": next_link,
+        }
+
+    with aioresponses() as m:
+        # 1ª página: endpoint + $filter (casa o regex) → nextLink=links[0].
+        m.get(endpoint_re, payload=_page(1, links[0]))
+        # páginas subsequentes fetchadas pelo nextLink exato; cada uma aponta a próxima.
+        for i in range(len(links) - 1):
+            m.get(links[i], payload=_page(i + 2, links[i + 1]))
+        async with aiohttp.ClientSession() as session:
+            ctx = _ctx(session, cursor={cursor_field: "2026-06-20T09:00:00Z"})
+            collected = [ev async for ev in collector_cls(ctx).collect()]
+
+    # PAROU no teto: 3 páginas × 1 item = 3 eventos (não drenou a cadeia de 7 páginas).
+    assert len(collected) == 3
+    assert [e["id"] for e in collected] == ["e1", "e2", "e3"]
+    # cursor RESUMÍVEL: aponta o @odata.nextLink da PRÓXIMA página (links[2]) e PRESERVA o
+    # last_ts inicial — NÃO avança p/ latest_seen ("2026-06-20T10:03:00Z") nem zera o token.
+    assert ctx.cursor == {cursor_field: "2026-06-20T09:00:00Z", "@odata.nextLink": links[2]}
+
+
 def test_registered_zero_core_reusing_defender_oauth() -> None:
     from ..registry import get, get_platform, has
     from ..capabilities import invalid_capabilities

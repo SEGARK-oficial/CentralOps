@@ -115,6 +115,40 @@ async def test_paginates_via_link_header_and_stops_on_empty() -> None:
     assert norm["metadata"]["uid"] == "u1"
 
 
+@pytest.mark.asyncio
+async def test_caps_pages_per_cycle_and_saves_resumable_cursor(monkeypatch) -> None:
+    """Teto por ciclo (regressão do poison-loop de soft-timeout): com backlog MAIOR que o
+    teto, ``collect()`` PARA após ``_MAX_PAGES_PER_CYCLE`` páginas em vez de seguir Link
+    após Link até drenar tudo num único run, e salva o cursor no ``next_url`` da PRÓXIMA
+    página (resumível — NÃO um watermark ``since`` final) p/ o próximo ciclo RETOMAR sem
+    pular. Sem isto, um backlog grande estoura o soft-timeout (720s) → rollback p/
+    cursor_before → loop sem progresso."""
+    from ..vendors import okta as ok
+
+    monkeypatch.setattr(ok, "_MAX_PAGES_PER_CYCLE", 3)
+
+    def _page_link(n: int) -> str:
+        return f"https://acme.okta.com/api/v1/logs?after=tok{n}&sortOrder=ASCENDING&limit=200"
+
+    with aioresponses() as m:
+        # 8 páginas "cheias" (2 eventos + Link next distinto cada); o teto corta em 3.
+        for n in range(1, 9):
+            m.get(
+                _LOGS_RE,
+                payload=[_event(f"u{n}a"), _event(f"u{n}b")],
+                headers={"Link": f'<{_page_link(n)}>; rel="next"'},
+            )
+        async with aiohttp.ClientSession() as session:
+            ctx = _ctx(session, cursor=None)
+            with patch.object(OktaSystemLogCollector, "_load_conn", return_value=dict(_CONN)):
+                collected = [ev async for ev in OktaSystemLogCollector(ctx).collect()]
+
+    # PAROU no teto: 3 páginas × 2 eventos = 6 (não seguiu Link infinitamente).
+    assert len(collected) == 3 * 2
+    # cursor = next_url da PRÓXIMA página (a Link da 3ª resposta) → resumível, não watermark.
+    assert ctx.cursor == {"next_url": _page_link(3)}
+
+
 def test_registered_zero_core_with_ssws_probe() -> None:
     from ..registry import get, get_platform, has
     from ..capabilities import invalid_capabilities

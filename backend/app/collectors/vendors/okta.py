@@ -31,6 +31,17 @@ logger = logging.getLogger(__name__)
 
 _PAGE_SIZE = 200
 
+# Teto de páginas por CICLO Celery (50 × 200 = 10.000 eventos/ciclo). Sem este guard,
+# um backlog grande é drenado num ÚNICO run — o while abaixo segue Link após Link até
+# exaurir a Okta — estourando o ``task_soft_time_limit`` (720s). No soft-timeout o
+# pipeline reverte o cursor para ``cursor_before`` e solta TODAS as claims → loop sem
+# progresso (não coleta). Ao atingir o teto, o cursor já aponta para a PRÓXIMA página
+# (``next_url`` resumível — o token ``after`` opaco) e devolvemos o slot do worker; o
+# próximo ciclo retoma daí (a borda re-buscada é deduplicada por ``uuid``). NÃO caímos
+# em nenhuma escrita final de watermark. Espelha ``_MAX_PAGES_PER_CYCLE`` dos coletores
+# de detections do Wazuh/Sophos.
+_MAX_PAGES_PER_CYCLE = 50
+
 
 class OktaRateLimitedError(VendorRateLimitedError):
     def __init__(self, retry_after: int) -> None:
@@ -96,6 +107,7 @@ class OktaSystemLogCollector(BaseCollector):
                 f"&sortOrder=ASCENDING&limit={_PAGE_SIZE}"
             )
 
+        pages = 0
         while True:
             await self.ctx.rate_limiter.acquire(self.ctx.integration_id, self.platform)
 
@@ -128,6 +140,19 @@ class OktaSystemLogCollector(BaseCollector):
                 break
             url = next_url
             self.ctx.cursor = {"next_url": next_url}
+
+            # Teto por ciclo: o cursor acima já aponta p/ a PRÓXIMA página (``next_url``,
+            # resumível). Encerra o run graciosamente e devolve o slot do worker; o
+            # próximo ciclo retoma daqui (borda re-buscada é deduplicada por ``uuid``).
+            # Ver _MAX_PAGES_PER_CYCLE — NÃO caímos em escrita final de watermark.
+            pages += 1
+            if self.ctx.bounded_per_cycle and pages >= _MAX_PAGES_PER_CYCLE:
+                logger.info(
+                    "okta system_log: teto de %d páginas/ciclo atingido — cursor em "
+                    "next_url p/ próximo ciclo (integration=%s)",
+                    _MAX_PAGES_PER_CYCLE, self.ctx.integration_id,
+                )
+                break
 
     def extract_message_id(self, event: Dict[str, Any]) -> str:
         return str(event.get("uuid") or "")

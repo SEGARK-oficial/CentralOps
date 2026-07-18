@@ -117,6 +117,69 @@ async def test_empty_result_keeps_lookback_cursor() -> None:
 
 
 @pytest.mark.asyncio
+async def test_caps_pages_per_cycle_and_saves_resumable_cursor(monkeypatch) -> None:
+    """Teto por ciclo (regressão do poison-loop de soft-timeout): com backlog MAIOR que o
+    teto, ``collect()`` PARA após ``_MAX_PAGES_PER_CYCLE`` páginas em vez de drenar tudo
+    num único run, e salva o cursor no último ts visto p/ o próximo ciclo RETOMAR (sem
+    pular). Sem isto, um backlog grande estoura o soft-timeout (720s) → rollback total →
+    loop sem progresso."""
+    from ..vendors import wazuh_detections as wd
+
+    monkeypatch.setattr(wd, "_MAX_PAGES_PER_CYCLE", 3)
+    monkeypatch.setattr(wd, "_PAGE_SIZE", 2)  # página "cheia" = 2 hits (não quebra cedo)
+
+    # Cada página devolve 2 hits (page cheia) → o loop nunca vê página curta e continuaria
+    # infinitamente sem o teto. ts fixos: latest_seen para no maior visto.
+    page = {"hits": {"hits": [
+        _hit("d1", "2024-06-21T10:00:00.000+0000", native_id="i1"),
+        _hit("d2", "2024-06-21T10:00:01.000+0000", native_id="i2"),
+    ]}}
+    with aioresponses() as m:
+        for _ in range(8):  # registra páginas de sobra; o teto corta em 3
+            m.post(_SEARCH_RE, payload=page)
+        async with aiohttp.ClientSession() as session:
+            ctx = _ctx(session, cursor={"from_ts": "2024-06-21T09:00:00.000+0000"})
+            with patch.object(WazuhDetectionsCollector, "_load_conn", return_value=dict(_FAKE_CONN)):
+                collected = [ev async for ev in WazuhDetectionsCollector(ctx).collect()]
+
+    # PAROU no teto: 3 páginas × 2 hits = 6 eventos (não drenou infinitamente).
+    assert len(collected) == 3 * 2
+    # cursor salvo no último ts visto → o próximo ciclo retoma daqui (gte, borda deduplicada).
+    assert ctx.cursor == {"from_ts": "2024-06-21T10:00:01.000+0000"}
+
+
+@pytest.mark.asyncio
+async def test_backfill_drains_past_cap_when_unbounded(monkeypatch) -> None:
+    """BACKFILL (``ctx.bounded_per_cycle=False``): o teto por-ciclo NÃO se aplica —
+    ``collect()`` drena a janela INTEIRA num run. O orquestrador de backfill invoca
+    ``collect()`` uma única vez e marca o job completo; se o teto capasse aqui, o job
+    truncaria SILENCIOSAMENTE. Prova que o gate ``bounded_per_cycle`` desliga o teto no
+    caminho de backfill (mas o mantém no polling — ``test_caps_...`` acima)."""
+    from ..vendors import wazuh_detections as wd
+
+    monkeypatch.setattr(wd, "_MAX_PAGES_PER_CYCLE", 2)  # teto baixo
+    monkeypatch.setattr(wd, "_PAGE_SIZE", 2)
+
+    full = {"hits": {"hits": [
+        _hit("d1", "2024-06-21T10:00:00.000+0000", native_id="i1"),
+        _hit("d2", "2024-06-21T10:00:01.000+0000", native_id="i2"),
+    ]}}
+    short = {"hits": {"hits": [_hit("d3", "2024-06-21T10:00:02.000+0000", native_id="i3")]}}
+    with aioresponses() as m:
+        for _ in range(4):  # 4 páginas CHEIAS (bem além do teto=2)
+            m.post(_SEARCH_RE, payload=full)
+        m.post(_SEARCH_RE, payload=short)  # página curta encerra o drain
+        async with aiohttp.ClientSession() as session:
+            ctx = _ctx(session, cursor={"from_ts": "2024-06-21T09:00:00.000+0000"})
+            ctx.bounded_per_cycle = False  # ← BACKFILL
+            with patch.object(WazuhDetectionsCollector, "_load_conn", return_value=dict(_FAKE_CONN)):
+                collected = [ev async for ev in WazuhDetectionsCollector(ctx).collect()]
+
+    # DRENOU TUDO ignorando o teto=2: 4 páginas cheias (8) + 1 curta (1) = 9 eventos.
+    assert len(collected) == 4 * 2 + 1
+
+
+@pytest.mark.asyncio
 async def test_sends_basic_auth_header() -> None:
     captured: Dict[str, Any] = {}
 

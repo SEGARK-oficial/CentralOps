@@ -21,6 +21,16 @@ logger = logging.getLogger(__name__)
 
 _PAGE_SIZE = 200
 
+# Teto de páginas por CICLO Celery (13 × 200 = 2.600 eventos/ciclo). Sem este guard,
+# um backlog grande é drenado num ÚNICO run — o while abaixo pagina após página até
+# exaurir o vendor — estourando o ``task_soft_time_limit`` (720s). No soft-timeout o
+# pipeline reverte o cursor e solta TODAS as claims → loop sem progresso (não coleta).
+# Ao atingir o teto salvamos o cursor keyset RESUMÍVEL (``after`` exclusivo → o próximo
+# ciclo retoma de ``?after=after_id`` sem pular nem duplicar) e devolvemos o slot do
+# worker; NÃO avançamos o piso temporal. Espelha ``_MAX_PAGES_PER_CYCLE`` dos coletores
+# de detections da Sophos/Wazuh.
+_MAX_PAGES_PER_CYCLE = 13
+
 
 from ._rate_limit import VendorRateLimitedError
 
@@ -46,8 +56,29 @@ class NinjaOneActivitiesCollector(BaseCollector):
         )
 
         latest_id = after_id or 0
+        page_count = 0
 
         while True:
+            # Teto por ciclo: encerra o run e retoma no próximo ciclo (ver
+            # _MAX_PAGES_PER_CYCLE). O cursor keyset já reflete todas as páginas
+            # anteriores (``after_id``/``latest_id`` = maior id emitido), então salvá-lo
+            # aqui NÃO perde nem pula eventos — ``after`` é exclusivo. Salvamos o cursor
+            # RESUMÍVEL explicitamente e damos ``return`` ANTES da escrita de cursor final
+            # (linha ~114): não dependemos das gravações intermediárias sobreviverem ao
+            # soft-timeout, e NÃO avançamos o piso temporal (activity_time_after fixo).
+            page_count += 1
+            if self.ctx.bounded_per_cycle and page_count > _MAX_PAGES_PER_CYCLE:
+                self.ctx.cursor = {
+                    "after_id": latest_id,
+                    "activity_time_after": activity_time_after,
+                }
+                logger.info(
+                    "ninjaone activities: teto de %d páginas/ciclo atingido — cursor em "
+                    "after_id=%s p/ próximo ciclo (integration=%s)",
+                    _MAX_PAGES_PER_CYCLE, latest_id, self.ctx.integration_id,
+                )
+                return
+
             await self.ctx.rate_limiter.acquire(
                 self.ctx.integration_id, self.platform
             )

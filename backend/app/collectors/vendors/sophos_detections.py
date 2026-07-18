@@ -148,7 +148,7 @@ class SophosDetectionsCollector(BaseCollector):
         while True:
             # Bug C: limita páginas por ciclo para não bloquear o slot Celery.
             page_count += 1
-            if page_count > _MAX_PAGES_PER_CYCLE:
+            if self.ctx.bounded_per_cycle and page_count > _MAX_PAGES_PER_CYCLE:
                 logger.info(
                     "sophos_detections: max pages reached, persistindo cursor para próximo ciclo",
                     extra={"run_id": run_id, "page_count": page_count},

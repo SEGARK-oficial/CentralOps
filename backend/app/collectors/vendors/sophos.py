@@ -53,6 +53,17 @@ class SophosRateLimitedError(VendorRateLimitedError):
         super().__init__(retry_after, vendor="sophos")
 
 
+# Teto de páginas por CICLO Celery (25 × 200 = 5.000 alertas/ciclo). Sem este guard,
+# um backlog grande é drenado num ÚNICO run — o while abaixo pagina ``pages.nextKey``
+# após nextKey até exaurir o vendor — estourando o ``task_soft_time_limit`` (720s). No
+# soft-timeout o pipeline reverte o cursor p/ cursor_before e solta TODAS as claims →
+# loop sem progresso (a coleta trava). Ao atingir o teto, salvamos o cursor RESUMÍVEL
+# (o ``pageFromKey`` da PRÓXIMA página, NÃO o watermark final) e retornamos gracioso;
+# o próximo ciclo retoma exatamente de onde paramos. Espelha ``_MAX_PAGES_PER_CYCLE``
+# do coletor de detections da Sophos (``sophos_detections.py``).
+_MAX_PAGES_PER_CYCLE = 25
+
+
 class SophosAlertsCollector(BaseCollector):
     platform = "sophos"
     stream = "alerts"
@@ -87,6 +98,7 @@ class SophosAlertsCollector(BaseCollector):
 
         # Headers Sophos exigem ``X-Tenant-ID`` além do Bearer.
         # O pipeline já popula no ``ctx.headers``.
+        page_count = 0
         while True:
             await self.ctx.rate_limiter.acquire(
                 self.ctx.integration_id, self.platform
@@ -138,6 +150,25 @@ class SophosAlertsCollector(BaseCollector):
                 yield ev
 
             page_key = (payload.get("pages") or {}).get("nextKey")
+
+            # Teto por ciclo (regressão do poison-loop de soft-timeout): se ainda há
+            # próxima página (``page_key`` truthy) E batemos o teto, salvamos o cursor
+            # RESUMÍVEL — o ``pageFromKey`` da PRÓXIMA página — e retornamos ANTES da
+            # escrita final abaixo. CRÍTICO: cair na escrita final moveria ``from`` p/
+            # ``latest_ts`` e zeraria o ``pageFromKey``; como o endpoint NÃO aceita
+            # ``sort`` (ver params acima), isso PULARIA as páginas ainda não lidas
+            # (perda de dados). Mantemos ``from_ts`` no valor original — o próximo
+            # ciclo retoma exatamente de ``page_key``; a escrita final só roda quando
+            # ``nextKey`` realmente some (backlog drenado).
+            page_count += 1
+            if self.ctx.bounded_per_cycle and page_key and page_count >= _MAX_PAGES_PER_CYCLE:
+                self.ctx.cursor = {"from_ts": from_ts, "pageFromKey": page_key}
+                logger.info(
+                    "sophos alerts: teto de %d páginas/ciclo atingido — cursor RESUMÍVEL "
+                    "em pageFromKey (from_ts=%s) p/ próximo ciclo (integration=%s)",
+                    _MAX_PAGES_PER_CYCLE, from_ts, self.ctx.integration_id,
+                )
+                return
             if not page_key:
                 break
 

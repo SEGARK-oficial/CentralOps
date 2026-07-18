@@ -46,6 +46,19 @@ logger = logging.getLogger(__name__)
 _DEFAULT_BASE = "https://api.crowdstrike.com"
 _PAGE_SIZE = 1000  # máx do combined/alerts/v1
 
+# Teto de páginas por CICLO Celery (20 × 1000 = ~20.000 eventos/ciclo). Sem este
+# guard, um backlog grande é drenado num ÚNICO run — o while abaixo pagina via
+# cursor ``after`` até exaurir o vendor — estourando o ``task_soft_time_limit``
+# (720s). No soft-timeout o pipeline reverte o cursor e solta TODAS as claims →
+# loop sem progresso (não coleta). Ao atingir o teto, salvamos o cursor RESUMÍVEL
+# (o token ``after`` da PRÓXIMA página, com o MESMO ``created_after``) e devolvemos
+# o slot do worker; o próximo ciclo retoma exatamente daí (filter/sort imutáveis →
+# paginação estável). CRÍTICO: NÃO caímos no cursor final {latest_seen, after:None}
+# no caminho do teto — isso avançaria o watermark ``created_after`` e descartaria o
+# ``after``, jogando fora as páginas ainda não lidas. Espelha ``_MAX_PAGES_PER_CYCLE``
+# dos coletores de detections da Sophos/Wazuh.
+_MAX_PAGES_PER_CYCLE = 20
+
 # query FQL ao vivo (Falcon Alerts API v2). Síncrono. Teto de janela
 # de 7d (FQL não documenta limite — evita poison-query unbounded, Invariante #5).
 CROWDSTRIKE_QUERY_CAPABILITY = QueryCapability(
@@ -109,8 +122,25 @@ class CrowdStrikeDetectionsCollector(BaseCollector):
         created_after: str = cursor.get("created_after") or _default_lookback_iso()
         after: Optional[str] = cursor.get("after")
         latest_seen = created_after
+        page_count = 0
 
         while True:
+            # Teto por ciclo: encerra o run e retoma no próximo ciclo via ``after``
+            # (filter/sort imutáveis = paginação estável). ``after`` aqui é o token
+            # da PRÓXIMA página (setado no fim da iteração anterior, junto ao cursor
+            # intermediário). NÃO caímos no cursor final {latest_seen, after:None} —
+            # isso avançaria ``created_after`` e descartaria o ``after``, jogando fora
+            # as páginas ainda não lidas. Ver _MAX_PAGES_PER_CYCLE.
+            page_count += 1
+            if self.ctx.bounded_per_cycle and page_count > _MAX_PAGES_PER_CYCLE:
+                self.ctx.cursor = {"created_after": created_after, "after": after}
+                logger.info(
+                    "crowdstrike detections: teto de %d páginas/ciclo atingido — cursor "
+                    "resumível em created_after=%s after=%s p/ próximo ciclo (integration=%s)",
+                    _MAX_PAGES_PER_CYCLE, created_after, after, self.ctx.integration_id,
+                )
+                return
+
             await self.ctx.rate_limiter.acquire(self.ctx.integration_id, self.platform)
 
             body: Dict[str, Any] = {

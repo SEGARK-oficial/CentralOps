@@ -117,6 +117,48 @@ async def test_empty_result_keeps_cursor() -> None:
 
 
 @pytest.mark.asyncio
+async def test_caps_pages_per_cycle_and_saves_resumable_cursor(monkeypatch) -> None:
+    """Teto por ciclo (regressão do poison-loop de soft-timeout): com backlog MAIOR que o
+    teto, ``collect()`` PARA após ``_MAX_PAGES_PER_CYCLE`` páginas em vez de drenar tudo num
+    único run, e salva o cursor RESUMÍVEL — o token ``after`` da PRÓXIMA página com o MESMO
+    ``created_after`` — p/ o próximo ciclo RETOMAR (sem pular). CRÍTICO: no cap-hit NÃO cai no
+    cursor final {latest_seen, after:None} — isso avançaria o watermark ``created_after`` e
+    descartaria o ``after``, jogando fora as páginas ainda não lidas. Sem o teto, um backlog
+    grande estoura o soft-timeout (720s) → rollback total do cursor → loop sem progresso."""
+    from ..vendors import crowdstrike as cs
+
+    monkeypatch.setattr(cs, "_MAX_PAGES_PER_CYCLE", 3)
+
+    # Cada página traz um cursor ``after`` NÃO-vazio → a paginação por cursor nunca vê
+    # "página curta" e continuaria indefinidamente sem o teto. O teto corta em 3 páginas.
+    def _page(n: int) -> Dict[str, Any]:
+        return {
+            "resources": [
+                _alert(f"cid-{n}a", f"2026-06-20T10:{n:02d}:00.000Z"),
+                _alert(f"cid-{n}b", f"2026-06-20T10:{n:02d}:30.000Z"),
+            ],
+            "meta": {"pagination": {"after": f"tok-{n}"}},
+        }
+
+    with aioresponses() as m:
+        for n in range(1, 7):  # registra páginas de sobra; o teto corta em 3
+            m.post(_COMBINED_RE, payload=_page(n))
+        async with aiohttp.ClientSession() as session:
+            ctx = _ctx(session, cursor={"created_after": "2026-06-20T09:00:00.000Z"})
+            with patch.object(CrowdStrikeDetectionsCollector, "_load_base_url", return_value=_BASE):
+                collected = [ev async for ev in CrowdStrikeDetectionsCollector(ctx).collect()]
+
+    # PAROU no teto: 3 páginas × 2 alertas = 6 eventos (não drenou o backlog inteiro).
+    assert len(collected) == 3 * 2
+    # cursor RESUMÍVEL: ``created_after`` INALTERADO + ``after`` = token da PRÓXIMA página
+    # (tok-3, retornado pela pág. 3 = token p/ buscar a pág. 4). NÃO é o cursor final
+    # {latest_seen, after:None} → o próximo ciclo retoma exatamente daqui, sem perda.
+    assert ctx.cursor == {"created_after": "2026-06-20T09:00:00.000Z", "after": "tok-3"}
+    # a armadilha (perda de dados): created_after NÃO avançou p/ o latest_seen, after NÃO zerou.
+    assert ctx.cursor["after"] is not None
+
+
+@pytest.mark.asyncio
 async def test_collect_then_normalizes_ocsf() -> None:
     with aioresponses() as m:
         m.post(_COMBINED_RE, payload={

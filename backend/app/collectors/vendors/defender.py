@@ -57,6 +57,19 @@ class DefenderRateLimitedError(VendorRateLimitedError):
         super().__init__(retry_after, vendor="graph")
 
 
+# Teto de páginas por CICLO Celery (50 × 100 = 5.000 incidentes/ciclo). Sem este
+# guard, um backlog grande é drenado num ÚNICO run — o while abaixo segue o
+# ``@odata.nextLink`` página após página até exaurir o vendor — estourando o
+# ``task_soft_time_limit`` (720s). No soft-timeout o pipeline reverte o cursor para
+# cursor_before e solta TODAS as claims → loop sem progresso (não coleta). Escritas de
+# cursor no MEIO do laço não sobrevivem ao revert; só um return gracioso faz o pipeline
+# COMMITAR o cursor pelo caminho de sucesso. Ao atingir o teto, salvamos o cursor
+# RESUMÍVEL (o ``nextLink`` da PRÓXIMA página, com ``lastUpdateDateTime`` preservado em
+# ``last_ts``) e devolvemos o slot do worker; o próximo ciclo retoma exatamente deste
+# ponto. Espelha ``_MAX_PAGES_PER_CYCLE`` dos coletores de detections da Sophos/Wazuh.
+_MAX_PAGES_PER_CYCLE = 50
+
+
 class DefenderIncidentsCollector(BaseCollector):
     platform = "microsoft_defender"
     stream = "incidents"
@@ -81,7 +94,30 @@ class DefenderIncidentsCollector(BaseCollector):
                 "$top": 100,
             }
 
+        page_count = 0
         while True:
+            # Teto por ciclo: encerra o run e retoma no próximo ciclo (ver
+            # _MAX_PAGES_PER_CYCLE). Salvamos o cursor RESUMÍVEL — o ``next_link`` da
+            # PRÓXIMA página, com ``lastUpdateDateTime`` preservado em ``last_ts`` (NÃO
+            # ``latest_seen``) — e retornamos ANTES do próximo fetch. NÃO caímos na
+            # escrita FINAL do cursor (que avança o watermark p/ latest_seen e zera o
+            # nextLink), pois isso DESCARTARIA as páginas ainda não lidas. Na 1ª iteração
+            # o guard nunca dispara (page_count=1), então ``next_link`` aqui é sempre o
+            # token da página seguinte (setado no fim da iteração anterior). O próximo
+            # ciclo retoma deste nextLink; dedup id@lastUpdateDateTime absorve a borda.
+            page_count += 1
+            if self.ctx.bounded_per_cycle and page_count > _MAX_PAGES_PER_CYCLE:
+                self.ctx.cursor = {
+                    "lastUpdateDateTime": last_ts,
+                    "@odata.nextLink": next_link,
+                }
+                logger.info(
+                    "defender incidents: teto de %d páginas/ciclo atingido — cursor "
+                    "resumível em nextLink p/ próximo ciclo (integration=%s)",
+                    _MAX_PAGES_PER_CYCLE, self.ctx.integration_id,
+                )
+                return
+
             await self.ctx.rate_limiter.acquire(
                 self.ctx.integration_id, self.platform
             )

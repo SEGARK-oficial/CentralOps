@@ -267,6 +267,11 @@ async def run_backfill_collection_once(
                 domain_limiter=domain_limiter,
                 rate_limiter=rate_limiter,
                 redis=redis,
+                # BACKFILL: drena a janela INTEIRA num run — o teto por-ciclo dos
+                # coletores é só p/ o polling agendado (que retoma via beat). O
+                # orquestrador de backfill invoca collect() UMA vez e marca o job
+                # completo; capar aqui truncaria o job silenciosamente.
+                bounded_per_cycle=False,
             )
             collector = collector_cls(ctx)
 

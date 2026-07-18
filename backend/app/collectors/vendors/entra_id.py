@@ -33,6 +33,19 @@ logger = logging.getLogger(__name__)
 
 _GRAPH_DOMAIN = "graph.microsoft.com"
 
+# Teto de páginas por CICLO Celery. Com ``$top=1000``, 25 × 1000 = 25.000 eventos/ciclo.
+# Sign-in logs são ALTO volume: sem este guard, um backlog grande é drenado num ÚNICO run
+# — o ``while`` abaixo segue ``@odata.nextLink`` página após página até o Graph parar de
+# devolver o link — estourando o ``task_soft_time_limit`` (720s). No soft-timeout o
+# pipeline reverte o cursor p/ ``cursor_before`` e solta TODAS as claims → loop sem
+# progresso (a coleta trava). Ao atingir o teto salvamos o cursor RESUMÍVEL (o
+# ``@odata.nextLink`` da PRÓXIMA página, preservando ``last_ts`` — NÃO o watermark
+# ``latest_seen``) e retornamos ANTES da escrita final (a que zera o nextLink e avança o
+# watermark, descartando o backlog não lido). O próximo ciclo retoma exatamente desse
+# nextLink; a borda ``ge`` re-buscada é deduplicada por ``id`` no pipeline. Espelha
+# ``_MAX_PAGES_PER_CYCLE`` de ``wazuh_detections`` / ``sophos_detections``.
+_MAX_PAGES_PER_CYCLE = 25
+
 
 class EntraRateLimitedError(VendorRateLimitedError):
     def __init__(self, retry_after: int) -> None:
@@ -62,7 +75,24 @@ class EntraSignInsCollector(BaseCollector):
             url = self._ENDPOINT
             params = {"$filter": f"{self._CURSOR_FIELD} ge {last_ts}", "$top": 1000}
 
+        page_count = 0
         while True:
+            # Teto por ciclo: encerra o run e retoma no próximo ciclo (ver
+            # _MAX_PAGES_PER_CYCLE). Salva o cursor RESUMÍVEL — o ``@odata.nextLink`` da
+            # PRÓXIMA página, preservando ``last_ts`` — e retorna ANTES da escrita final
+            # (linha ~:96, que zera o nextLink e avança o watermark p/ ``latest_seen``,
+            # descartando as páginas não lidas). ``next_link`` aqui já é o token gravado
+            # no cursor pela iteração anterior; a borda ``ge`` re-buscada é deduplicada.
+            page_count += 1
+            if self.ctx.bounded_per_cycle and page_count > _MAX_PAGES_PER_CYCLE:
+                self.ctx.cursor = {self._CURSOR_FIELD: last_ts, "@odata.nextLink": next_link}
+                logger.info(
+                    "entra_id %s: teto de %d páginas/ciclo atingido — cursor no "
+                    "@odata.nextLink p/ próximo ciclo (integration=%s)",
+                    self.stream, _MAX_PAGES_PER_CYCLE, self.ctx.integration_id,
+                )
+                return
+
             await self.ctx.rate_limiter.acquire(self.ctx.integration_id, self.platform)
 
             started = time.monotonic()

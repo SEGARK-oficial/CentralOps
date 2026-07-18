@@ -110,3 +110,50 @@ async def test_collector_preserves_cursor_on_empty_page() -> None:
 
     assert collected == []
     assert ctx.cursor == {"from_ts": initial, "pageFromKey": None}
+
+
+@pytest.mark.asyncio
+async def test_caps_pages_per_cycle_and_saves_resumable_cursor(monkeypatch) -> None:
+    """Teto por ciclo (regressão do poison-loop de soft-timeout): com backlog MAIOR que o
+    teto, ``collect()`` PARA após ``_MAX_PAGES_PER_CYCLE`` páginas em vez de drenar tudo
+    num único run, e salva o cursor RESUMÍVEL — o ``pageFromKey`` da PRÓXIMA página, NÃO o
+    watermark final. Sem isto, um backlog grande estoura o soft-timeout (720s) → o pipeline
+    reverte o cursor p/ cursor_before e solta as claims → loop sem progresso.
+
+    ARMADILHA verificada: como o endpoint NÃO aceita ``sort``, cair na escrita final
+    (``{"from_ts": latest_ts, "pageFromKey": None}``) avançaria ``from`` p/ o maior
+    createdAt visto e zeraria o token de página — descartando as páginas não lidas. O
+    cursor salvo no cap-hit DEVE manter o ``from_ts`` original e o ``pageFromKey`` da
+    próxima página."""
+    from ..vendors import sophos as sm
+
+    monkeypatch.setattr(sm, "_MAX_PAGES_PER_CYCLE", 3)
+
+    # Cada página traz nextKey → o loop nunca vê fim e continuaria até exaurir o vendor
+    # sem o teto. createdAt crescentes: se a escrita final (bug) rodasse, o cursor
+    # avançaria p/ o maior ts e zeraria o pageFromKey (perda de dados).
+    pages = [
+        {"items": [{"id": "a1", "createdAt": "2026-04-23T10:00:00Z"}], "pages": {"nextKey": "k2"}},
+        {"items": [{"id": "a2", "createdAt": "2026-04-23T11:00:00Z"}], "pages": {"nextKey": "k3"}},
+        {"items": [{"id": "a3", "createdAt": "2026-04-23T12:00:00Z"}], "pages": {"nextKey": "k4"}},
+        # páginas de sobra — o teto (3) corta antes de chegar aqui.
+        {"items": [{"id": "a4", "createdAt": "2026-04-23T13:00:00Z"}], "pages": {"nextKey": "k5"}},
+        {"items": [{"id": "a5", "createdAt": "2026-04-23T14:00:00Z"}], "pages": {"nextKey": "k6"}},
+    ]
+
+    with aioresponses() as m:
+        for page in pages:
+            m.get(_URL_RE, payload=page)
+
+        async with aiohttp.ClientSession() as session:
+            initial = "2026-04-23T09:00:00Z"
+            ctx = _ctx(session, cursor={"from_ts": initial})
+            collector = SophosAlertsCollector(ctx)
+            collected = [ev async for ev in collector.collect()]
+
+    # PAROU no teto: 3 páginas × 1 item = 3 eventos (não drenou o backlog inteiro).
+    assert [e["id"] for e in collected] == ["a1", "a2", "a3"]
+    # Cursor RESUMÍVEL: token da PRÓXIMA página (nextKey da 3ª = "k4"), NÃO o watermark
+    # final. ``from_ts`` permanece no original (não avançou p/ o maior createdAt) e
+    # ``pageFromKey`` NÃO é None (senão pularia páginas por falta de ``sort``).
+    assert ctx.cursor == {"from_ts": initial, "pageFromKey": "k4"}

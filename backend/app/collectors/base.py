@@ -40,6 +40,13 @@ class CollectorContext:
     domain_limiter: "DomainLimiter"
     rate_limiter: "RedisRateLimiter"
     redis: "redis_async.Redis"
+    #: True (default, caminho de POLLING agendado): o coletor limita o trabalho por
+    #: ciclo (``_MAX_PAGES_PER_CYCLE``) e o beat retoma no próximo ciclo — evita o
+    #: poison-loop de soft-timeout. False (caminho de BACKFILL one-shot): o coletor
+    #: DRENA a janela inteira num run (o orquestrador de backfill não tem loop de
+    #: retomada; capar aqui truncaria o job silenciosamente). Ver os guards de teto
+    #: nos coletores (ex.: wazuh_detections.py).
+    bounded_per_cycle: bool = True
 
 
 class BaseCollector(abc.ABC):

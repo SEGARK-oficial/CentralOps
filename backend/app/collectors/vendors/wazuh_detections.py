@@ -40,6 +40,15 @@ DEFAULT_ALERT_INDEX = "wazuh-alerts-*"
 _PAGE_SIZE = 200
 _MAX_RESULT_WINDOW = 10000  # OpenSearch ``index.max_result_window`` default.
 
+# Teto de páginas por CICLO Celery (50 × 200 = 10.000 eventos/ciclo). Sem este guard,
+# um backlog grande é drenado num ÚNICO run — o while abaixo pagina janela após janela
+# até exaurir o Indexer — estourando o ``task_soft_time_limit`` (720s). No soft-timeout
+# o pipeline reverte o cursor e solta TODAS as claims → loop sem progresso (não coleta).
+# Ao atingir o teto, salvamos o cursor no último timestamp visto e devolvemos o slot do
+# worker; o próximo ciclo retoma de ``latest_seen`` (gte, borda re-buscada é deduplicada).
+# Espelha ``_MAX_PAGES_PER_CYCLE`` do coletor de detections da Sophos.
+_MAX_PAGES_PER_CYCLE = 50
+
 
 class WazuhRateLimitedError(VendorRateLimitedError):
     def __init__(self, retry_after: int) -> None:
@@ -131,8 +140,23 @@ class WazuhDetectionsCollector(BaseCollector):
         from_ts: str = cursor.get("from_ts") or _default_lookback_iso()
         latest_seen = from_ts
         offset = 0
+        page_count = 0
 
         while True:
+            # Teto por ciclo: encerra o run e retoma no próximo ciclo (ver
+            # _MAX_PAGES_PER_CYCLE). ``latest_seen`` já reflete todas as páginas
+            # anteriores (atualizado no loop de hits abaixo), então salvar o cursor aqui
+            # não perde nem pula eventos — a borda (gte) é absorvida pela dedupe.
+            page_count += 1
+            if self.ctx.bounded_per_cycle and page_count > _MAX_PAGES_PER_CYCLE:
+                self.ctx.cursor = {"from_ts": latest_seen}
+                logger.info(
+                    "wazuh detections: teto de %d páginas/ciclo atingido — cursor em "
+                    "from_ts=%s p/ próximo ciclo (integration=%s)",
+                    _MAX_PAGES_PER_CYCLE, latest_seen, self.ctx.integration_id,
+                )
+                return
+
             await self.ctx.rate_limiter.acquire(self.ctx.integration_id, self.platform)
 
             started = time.monotonic()

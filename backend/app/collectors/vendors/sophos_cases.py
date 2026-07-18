@@ -48,6 +48,16 @@ logger = logging.getLogger(__name__)
 # error do vendor: ``"Page size must be between 1 and 50."``
 _PAGE_SIZE = 50
 
+# Teto de páginas por CICLO Celery (50 × 50 = 2.500 cases/ciclo). Sem este guard,
+# um backlog grande é drenado num ÚNICO run — o while abaixo pagina página após
+# página até exaurir o vendor — estourando o ``task_soft_time_limit`` (720s). No
+# soft-timeout o pipeline reverte o cursor (para ``cursor_before``) e solta TODAS
+# as claims → loop sem progresso (a coleta trava). Ao atingir o teto, salvamos o
+# cursor RESUMÍVEL (token da PRÓXIMA página, janela intacta) e devolvemos o slot do
+# worker; o próximo ciclo retoma da mesma página/janela. Espelha
+# ``_MAX_PAGES_PER_CYCLE`` do coletor ``wazuh_detections``.
+_MAX_PAGES_PER_CYCLE = 50
+
 
 from ._rate_limit import VendorRateLimitedError
 
@@ -93,6 +103,7 @@ class SophosCasesCollector(BaseCollector):
         page: int = int(cursor.get("page") or 1)
         latest_updated = created_after
         total_collected = 0
+        pages_this_cycle = 0
 
         base_url = f"https://{self.domain}/cases/v1/cases"
 
@@ -151,9 +162,36 @@ class SophosCasesCollector(BaseCollector):
                 break
 
             page += 1
-            # Cursor intermediário — retomada segura se o worker morre
-            # mid-loop (voltamos na mesma página).
-            self.ctx.cursor = {"created_after": created_after, "page": page}
+            # Cursor intermediário/RESUMÍVEL — retomada segura se o worker morre
+            # mid-loop OU se batermos o teto por ciclo abaixo (voltamos na MESMA
+            # página, MESMA janela). ``backfill_to_ts`` é PRESERVADO aqui: sem ele,
+            # uma retomada mid-backfill perderia o teto superior (``createdBefore``)
+            # e paginaria até o presente.
+            resume_cursor: Dict[str, Any] = {
+                "created_after": created_after,
+                "page": page,
+            }
+            if backfill_to_ts:
+                resume_cursor["backfill_to_ts"] = backfill_to_ts
+            self.ctx.cursor = resume_cursor
+
+            # Teto por ciclo: ao atingi-lo, o cursor RESUMÍVEL acima (token da
+            # PRÓXIMA página, janela intacta) JÁ está salvo — devolvemos o slot do
+            # worker e o próximo ciclo retoma exatamente daqui. Damos ``return``
+            # ANTES da escrita de cursor FINAL (que avança ``created_after`` p/
+            # ``latest_updated`` e zera ``page=1``) — cair nela descartaria as
+            # páginas NÃO lidas (perda de dados). A escrita final só roda na
+            # conclusão real (página incompleta = backlog drenado).
+            pages_this_cycle += 1
+            if self.ctx.bounded_per_cycle and pages_this_cycle >= _MAX_PAGES_PER_CYCLE:
+                logger.info(
+                    "sophos cases: teto de %d páginas/ciclo atingido — cursor "
+                    "resumível em created_after=%s page=%d p/ próximo ciclo "
+                    "(integration=%s)",
+                    _MAX_PAGES_PER_CYCLE, created_after, page,
+                    getattr(self.ctx, "integration_id", None),
+                )
+                return
 
         if total_collected == 0:
             # Distingue 'vendor retornou 200 com items=[]' de 'API quebrada'.

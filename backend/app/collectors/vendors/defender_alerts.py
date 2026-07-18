@@ -39,6 +39,18 @@ logger = logging.getLogger(__name__)
 from ._rate_limit import VendorRateLimitedError
 
 
+# Teto de páginas por CICLO Celery (50 × 100 = 5.000 eventos/ciclo). Sem este guard,
+# um backlog grande é drenado num ÚNICO run — o while abaixo segue ``@odata.nextLink``
+# página após página até exaurir o Graph — estourando o ``task_soft_time_limit`` (720s).
+# No soft-timeout o pipeline reverte o cursor (para ``cursor_before``) e solta TODAS as
+# claims → loop sem progresso (não coleta). Ao atingir o teto, salvamos o cursor RESUMÍVEL
+# (o ``@odata.nextLink`` da PRÓXIMA página + o ``lastUpdateDateTime`` de INÍCIO do run) e
+# damos return gracioso ANTES da escrita final que avança o watermark — assim o próximo
+# ciclo retoma exatamente da página não lida. Espelha ``_MAX_PAGES_PER_CYCLE`` dos
+# coletores de detections da Sophos e do Wazuh.
+_MAX_PAGES_PER_CYCLE = 50
+
+
 class DefenderAlertsRateLimitedError(VendorRateLimitedError):
     def __init__(self, retry_after: int) -> None:
         super().__init__(retry_after, vendor="graph-alerts")
@@ -67,7 +79,12 @@ class DefenderAlertsV2Collector(BaseCollector):
                 "$top": 100,  # Graph caps alerts_v2 em 100 por página
             }
 
+        page_count = 0
         while True:
+            # Teto por ciclo: encerra o run e retoma no próximo ciclo (ver
+            # _MAX_PAGES_PER_CYCLE). Contado no topo do while.
+            page_count += 1
+
             await self.ctx.rate_limiter.acquire(
                 self.ctx.integration_id, self.platform
             )
@@ -108,6 +125,25 @@ class DefenderAlertsV2Collector(BaseCollector):
                 "lastUpdateDateTime": last_update,
                 "@odata.nextLink": next_link,
             }
+
+            # Teto por ciclo atingido: salva o cursor RESUMÍVEL (o nextLink da
+            # PRÓXIMA página + ``last_update`` = INÍCIO do run, NÃO ``latest_seen``)
+            # e retorna ANTES da escrita final que avança o watermark e zera o
+            # nextLink. Usar ``last_update`` é deliberado: se o skiptoken expirar,
+            # o próximo ciclo cai no fallback ``$filter=lastUpdateDateTime gt
+            # last_update`` e re-varre o run inteiro sem perder páginas (a dedupe
+            # por ``id::lastUpdateDateTime`` absorve a sobreposição).
+            if self.ctx.bounded_per_cycle and page_count >= _MAX_PAGES_PER_CYCLE:
+                self.ctx.cursor = {
+                    "lastUpdateDateTime": last_update,
+                    "@odata.nextLink": next_link,
+                }
+                logger.info(
+                    "defender alerts: teto de %d páginas/ciclo atingido — cursor "
+                    "resumível em @odata.nextLink p/ próximo ciclo (integration=%s)",
+                    _MAX_PAGES_PER_CYCLE, self.ctx.integration_id,
+                )
+                return
 
         self.ctx.cursor = {
             "lastUpdateDateTime": latest_seen,
