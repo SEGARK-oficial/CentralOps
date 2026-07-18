@@ -17,7 +17,7 @@ Para acessar, use o menu **Operação → Detecções**.
 - **Revisar análises ativas do motor.** Os alertas Critical e High aqui são resultado de correlações ou buscas agendadas — priorize pelas detecções abertas.
 - **Triagem: acknowledge e fechar.** Ao investigar um alerta, reconheça-o para avisar a equipe que está sendo tratado; feche quando resolvido.
 - **Auditar supressões.** A plataforma agrupa detecções repetidas (mesma origem, mesma janela) em um único alerta com count incrementado — confira o `count` para ver se há spam.
-- **Rastrear origens.** Veja se a detecção veio de uma query agendada, busca ao vivo ou regra de correlação. Detecções de correlação muitas vezes apontam padrões multi-fonte.
+- **Rastrear origens.** Veja se a detecção veio de uma query agendada, busca ao vivo ou regra de correlação. Detecções de correlação muitas vezes apontam padrões multi-fonte — e, por ora, só surgem depois de uma busca federada ser executada.
 
 ## Origens de uma detecção
 
@@ -25,7 +25,7 @@ Para acessar, use o menu **Operação → Detecções**.
 |--------|-----------------|
 | **Scheduled Query** | Uma busca que roda em intervalo fixo (diária, a cada hora) e emite um alerta quando encontra correspondência. |
 | **Live Query** | Uma busca disparada manualmente pelo operador (on-demand) via "Busca Federada" que gerou um alerta. |
-| **Correlation** | Uma regra de correlação que avaliou múltiplas fontes simultaneamente e detectou um padrão de risco. |
+| **Correlation** | Uma regra de correlação que avaliou os resultados de uma busca federada concluída e detectou um padrão de risco. Em **Beta**: a avaliação não é contínua — acontece somente ao final de uma busca federada. Veja [Regras de correlação](./correlation-rules.md). |
 
 ## Severidade (OCSF)
 
@@ -68,7 +68,7 @@ Se receber erro "acesso negado" ao tentar mudar o status de uma detecção, seu 
 | **Severidade** | Nível de risco, com cor destacada. |
 | **Título** | Resumo do que foi detectado (ex.: "5 tentativas falhadas em 1h"). |
 | **Origem** | Scheduled Query, Live Query ou Correlation. |
-| **Count** | Quantas vezes a mesma detecção disparou na janela de supressão. |
+| **Count** | Quantas vezes a mesma detecção (mesmo `dedup_key`) foi reincidida. Em detecções de **correlação**, conta **execuções da regra**, não eventos correlacionados — veja [Deduplicação e supressão](#deduplicação-e-supressão). |
 | **Primeira vista** | Quando o primeiro evento do grupo foi registrado. |
 | **Última vista** | Quando a detecção mais recente foi adicionada ao grupo. |
 
@@ -76,9 +76,15 @@ Se receber erro "acesso negado" ao tentar mudar o status de uma detecção, seu 
 
 Detecções com o **mesmo ``dedup_key``** (origem, campo de chave) dentro da **mesma janela de supressão** (padrão: 3600 segundos = 1 hora) são agrupadas em um único alerta.
 
-**Exemplo:** uma query detecta 5 tentativas falhadas do mesmo usuário em 50 minutos. Em vez de 5 alertas, você vê 1 alerta com `count=5` e `last_seen` atualizado.
+**Exemplo:** uma query dispara 5 vezes para o mesmo usuário ao longo de 50 minutos. Em vez de 5 alertas, você vê 1 alerta com `count=5` e `last_seen` atualizado.
 
 Benefício: reduz ruído e evita que você feche o mesmo alerta múltiplas vezes.
+
+:::caution[`count` conta reincidências, não eventos]
+O `count` é incrementado em **1 a cada nova ocorrência da mesma detecção** — ou seja, a cada vez que a origem reincide naquele `dedup_key`. Ele **não** é o número de eventos que compõem o padrão.
+
+Isso importa especialmente nas detecções de **correlação**: ali o `count` reflete **quantas vezes a regra foi executada e voltou a bater naquela chave** (uma vez por busca federada concluída), e não quantos eventos foram correlacionados. Uma regra "10 falhas de SSH do mesmo IP" que bateu uma única vez aparece com `count=1`, não `count=10`. Para saber quantos eventos formaram o padrão, abra o detalhe da detecção e olhe os eventos, não a coluna Count.
+:::
 
 ## Passo a passo
 
@@ -115,7 +121,7 @@ Clique no alerta para ver:
 - **Status** — Aberta / Reconhecida / Fechada.
 - **Origem** — qual query ou correlação gerou.
 - **Regra** — nome da regra de correlação (se aplicável).
-- **Contagem** — quantas vezes repetiu.
+- **Contagem** — quantas vezes a detecção reincidiu (execuções que voltaram a bater, não eventos).
 - **Primeira/Última vista** — intervalo do grupo.
 - **Dedup key** — chave de deduplicação (interno; útil para debug).
 
