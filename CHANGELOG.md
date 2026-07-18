@@ -1,5 +1,27 @@
 # Changelog
 
+## [2.1.0](https://github.com/SEGARK-oficial/CentralOps/compare/v2.0.0...v2.1.0) (2026-07-18)
+
+
+### Features
+
+* add manual release trigger to build-and-publish and update release-please to build both API and frontend images with provenance and signing ([a41c7ba](https://github.com/SEGARK-oficial/CentralOps/commit/a41c7ba01ab076e996e55f333df4780b35c8f65b))
+
+
+### Bug Fixes
+
+* **collectors:** bound per-cycle work in all paginating collectors to stop the soft-timeout poison-loop ([4ecddaa](https://github.com/SEGARK-oficial/CentralOps/commit/4ecddaa07961f93a8f0e2c91c7b2ed71a8ba5395))
+* dispose DB engine pool on worker process initialization to ensure fork safety ([8489f54](https://github.com/SEGARK-oficial/CentralOps/commit/8489f5414e7c448a557cb5d8758e1cca62062548))
+* **flow:** record per-route route/drop counters unconditionally, not only under sampling ([db492f0](https://github.com/SEGARK-oficial/CentralOps/commit/db492f082c8612d6b5373944bcb1e340462e7932))
+* **metering:** credit bytes_saved for sampling and suppression reduction levers ([1a3cf9b](https://github.com/SEGARK-oficial/CentralOps/commit/1a3cf9ba2fd25ece297d19223545224ec23063a4))
+* **ocsf:** emit timestamp_t in milliseconds, map Veeam to 1006 and CloudWatch to Base Event ([659c110](https://github.com/SEGARK-oficial/CentralOps/commit/659c11077f6a6cc500eaf98b887bfce0ce197965))
+* update correlation engine to support millisecond timestamps and add Veeam brand icon ([21710bb](https://github.com/SEGARK-oficial/CentralOps/commit/21710bbe420362aedf4f76b461d72da3a4a7e320))
+
+
+### Performance Improvements
+
+* **flow:** memoize FlowCanvas node/edge visuals, throttle pan to rAF, dedupe gradients, cap SMIL particles ([87d8126](https://github.com/SEGARK-oficial/CentralOps/commit/87d8126047b1cdc539b9a8eedf555bd4011202eb))
+
 ## [2.0.0](https://github.com/SEGARK-oficial/CentralOps/compare/v1.1.0...v2.0.0) (2026-07-17)
 
 
