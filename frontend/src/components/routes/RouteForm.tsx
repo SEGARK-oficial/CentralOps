@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/Button/Button"
 import { Input } from "@/components/ui/Input/Input"
 import { Select } from "@/components/ui/Select/Select"
 import { Notice } from "@/components/ui/Notice/Notice"
+import { Checkbox } from "@/components/ui/Checkbox/Checkbox"
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog/ConfirmDialog"
 import {
   RouteConditionEditor,
   clausesToCondition,
@@ -44,6 +46,26 @@ export const RouteForm: React.FC<RouteFormProps> = ({ mode, route, loading, onCa
   const [piiRules, setPiiRules] = useState<PiiRedactionRule[]>(() => normalizePii(route?.pii_redaction ?? null))
   const [destinations, setDestinations] = useState<Destination[]>([])
   const [error, setError] = useState<string | null>(null)
+
+  // ── Alavancas de redução de volume (ADR-0011) ────────────────────────
+  // protect_detection é fail-safe: default TRUE (protege). Desligar é opt-out
+  // consciente por-rota — nunca um checkbox neutro (ver handleProtectDetectionChange).
+  const [protectDetection, setProtectDetection] = useState(route?.protect_detection ?? true)
+  const [samplePercent, setSamplePercent] = useState(route?.sample_percent ?? 100)
+  const [suppressKey, setSuppressKey] = useState(route?.suppress_key ?? "")
+  const [suppressAllow, setSuppressAllow] = useState(route?.suppress_allow ?? 0)
+  const [suppressWindowS, setSuppressWindowS] = useState(route?.suppress_window_s ?? 30)
+  const [confirmUnprotectOpen, setConfirmUnprotectOpen] = useState(false)
+
+  const handleProtectDetectionChange = (checked: boolean) => {
+    if (checked) {
+      // Re-ligar a proteção é sempre seguro — sem confirmação.
+      setProtectDetection(true)
+      return
+    }
+    // Desligar é a ação de risco (perda de detecção) — exige confirmação explícita.
+    setConfirmUnprotectOpen(true)
+  }
 
   useEffect(() => {
     api.listDestinations({ include_disabled: true, limit: 200 }).then(setDestinations).catch(() => setDestinations([]))
@@ -96,6 +118,11 @@ export const RouteForm: React.FC<RouteFormProps> = ({ mode, route, loading, onCa
         enabled,
         canary_percent: canary,
         pii_redaction: piiRedaction,
+        protect_detection: protectDetection,
+        sample_percent: samplePercent,
+        suppress_key: suppressKey.trim() ? suppressKey.trim() : null,
+        suppress_allow: suppressAllow,
+        suppress_window_s: suppressWindowS,
       })
     } catch (err) {
       setError(err instanceof Error ? err.message : t("routeForm.saveError"))
@@ -177,6 +204,82 @@ export const RouteForm: React.FC<RouteFormProps> = ({ mode, route, loading, onCa
         </fieldset>
       )}
 
+      {action === "route" && (
+        <fieldset className="space-y-3 rounded-lg border border-border p-4">
+          <legend className="px-1 text-sm font-semibold text-text">
+            {t("routeForm.reductionLegend")}{" "}
+            <span className="font-normal text-text-secondary">{t("routeForm.reductionLegendOptional")}</span>
+          </legend>
+
+          {/* Requisito de negócio: as alavancas de redução (sample/suppress) só têm
+              efeito com as flags globais REDUCTION_SAMPLE_ENABLED/REDUCTION_SUPPRESS_ENABLED
+              ligadas no ambiente (default OFF). Não há endpoint que exponha o estado
+              dessas flags hoje (nenhum /cost-summary, /config ou /collectors/* as
+              retorna) — aviso estático em vez de checagem em tempo real. */}
+          <Notice variant="info" title={t("routeForm.reductionFlagsNoticeTitle")}>
+            {t("routeForm.reductionFlagsNoticeBody")}
+          </Notice>
+
+          <Checkbox
+            label={t("routeForm.protectDetectionLabel")}
+            description={t("routeForm.protectDetectionDescription")}
+            checked={protectDetection}
+            onChange={(e) => handleProtectDetectionChange(e.target.checked)}
+            disabled={loading}
+            data-testid="route-form-protect-detection"
+          />
+
+          {!protectDetection && (
+            <Notice variant="warning" title={t("routeForm.unprotectedWarningTitle")}>
+              {t("routeForm.unprotectedWarningBody")}
+            </Notice>
+          )}
+
+          <div className="grid grid-cols-3 gap-3">
+            <Input
+              label={t("routeForm.samplePercentLabel")}
+              type="number"
+              min={0}
+              max={100}
+              value={String(samplePercent)}
+              onChange={(e) => setSamplePercent(Math.max(0, Math.min(100, Number(e.target.value) || 0)))}
+              helperText={protectDetection ? t("routeForm.samplePercentHelperProtected") : t("routeForm.samplePercentHelper")}
+              disabled={loading || protectDetection}
+              data-testid="route-form-sample-percent"
+            />
+            <Input
+              label={t("routeForm.suppressAllowLabel")}
+              type="number"
+              min={0}
+              value={String(suppressAllow)}
+              onChange={(e) => setSuppressAllow(Math.max(0, Number(e.target.value) || 0))}
+              helperText={t("routeForm.suppressAllowHelper")}
+              disabled={loading || protectDetection}
+              data-testid="route-form-suppress-allow"
+            />
+            <Input
+              label={t("routeForm.suppressWindowLabel")}
+              type="number"
+              min={1}
+              value={String(suppressWindowS)}
+              onChange={(e) => setSuppressWindowS(Math.max(1, Number(e.target.value) || 1))}
+              helperText={t("routeForm.suppressWindowHelper")}
+              disabled={loading || protectDetection}
+              data-testid="route-form-suppress-window"
+            />
+          </div>
+          <Input
+            label={t("routeForm.suppressKeyLabel")}
+            value={suppressKey}
+            onChange={(e) => setSuppressKey(e.target.value)}
+            placeholder={t("routeForm.suppressKeyPlaceholder")}
+            helperText={t("routeForm.suppressKeyHelper")}
+            disabled={loading || protectDetection}
+            data-testid="route-form-suppress-key"
+          />
+        </fieldset>
+      )}
+
       <div className="flex flex-wrap gap-5">
         <label className="flex items-center gap-2 text-sm text-text">
           <input type="checkbox" className="h-4 w-4 rounded border-border" checked={isFinal} onChange={(e) => setIsFinal(e.target.checked)} disabled={loading} />
@@ -192,6 +295,23 @@ export const RouteForm: React.FC<RouteFormProps> = ({ mode, route, loading, onCa
         <Button type="button" variant="outline" onClick={onCancel} disabled={loading}>{t("common:actions.cancel")}</Button>
         <Button type="submit" loading={loading}>{mode === "create" ? t("routeForm.createSubmit") : t("routeForm.editSubmit")}</Button>
       </div>
+
+      {/* protect_detection é fail-safe (default true) — desligar exige confirmação
+          explícita do risco (perda de detecção), nunca um checkbox neutro. */}
+      <ConfirmDialog
+        open={confirmUnprotectOpen}
+        title={t("routeForm.unprotectDialogTitle")}
+        description={t("routeForm.unprotectDialogDescription")}
+        confirmLabel={t("routeForm.unprotectDialogConfirm")}
+        cancelLabel={t("common:actions.cancel")}
+        confirmVariant="danger"
+        onConfirm={() => {
+          setProtectDetection(false)
+          setConfirmUnprotectOpen(false)
+        }}
+        onClose={() => setConfirmUnprotectOpen(false)}
+        data-testid="route-form-unprotect-dialog"
+      />
     </form>
   )
 }

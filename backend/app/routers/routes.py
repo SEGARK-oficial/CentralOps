@@ -149,6 +149,11 @@ def _row_to_read(row: models.Route, *, unreachable: bool = False) -> RouteRead:
             if getattr(row, "pii_redaction", None)
             else None
         ),
+        protect_detection=bool(row.protect_detection),
+        sample_percent=int(row.sample_percent),
+        suppress_key=row.suppress_key,  # type: ignore[arg-type]
+        suppress_allow=int(row.suppress_allow),
+        suppress_window_s=int(row.suppress_window_s),
         enabled=bool(row.enabled),
         organization_id=int(row.organization_id) if row.organization_id is not None else None,
         created_at=row.created_at,  # type: ignore[arg-type]
@@ -277,6 +282,11 @@ def create_route(
         canary_percent=payload.canary_percent,
         transform_ref=payload.transform_ref,
         pii_redaction=payload.pii_redaction,
+        protect_detection=payload.protect_detection,
+        sample_percent=payload.sample_percent,
+        suppress_key=payload.suppress_key,
+        suppress_allow=payload.suppress_allow,
+        suppress_window_s=payload.suppress_window_s,
         organization_id=org_id,
         actor=user.username,
     )
@@ -695,6 +705,21 @@ def update_route(
             payload.destination_ids, dest_repo, caller_org=caller_org, is_global=is_global
         )
 
+    # ``suppress_key`` é o único campo novo nullable-com-significado: ausente
+    # (não enviado) = mantém; ``null`` EXPLÍCITO = limpa a chave de supressão.
+    # ``model_fields_set`` (Pydantic v2) distingue "não enviado" de "enviado
+    # como null" — sem ele, ``payload.suppress_key is not None`` colapsaria os
+    # dois casos em _UNSET e um clear explícito nunca aplicaria (bug conhecido:
+    # ver CorrelationRuleRepository.update). Os outros 4 campos novos são
+    # colunas NOT NULL (sem estado "limpo"), então o idiom padrão
+    # ``is not None`` já usado por ``is_final``/``enabled``/``canary_percent``
+    # é suficiente — e preserva o fail-safe: ausência de ``protect_detection``
+    # nunca vira False, só um True/False EXPLÍCITO é aplicado.
+    _suppress_key_update = (
+        payload.suppress_key
+        if "suppress_key" in payload.model_fields_set
+        else repository._UNSET
+    )
     updated = repo.update(
         route_id,
         name=payload.name if payload.name is not None else repository._UNSET,
@@ -706,6 +731,11 @@ def update_route(
         canary_percent=payload.canary_percent if payload.canary_percent is not None else repository._UNSET,
         transform_ref=payload.transform_ref if payload.transform_ref is not None else repository._UNSET,
         pii_redaction=payload.pii_redaction if payload.pii_redaction is not None else repository._UNSET,
+        protect_detection=payload.protect_detection if payload.protect_detection is not None else repository._UNSET,
+        sample_percent=payload.sample_percent if payload.sample_percent is not None else repository._UNSET,
+        suppress_key=_suppress_key_update,
+        suppress_allow=payload.suppress_allow if payload.suppress_allow is not None else repository._UNSET,
+        suppress_window_s=payload.suppress_window_s if payload.suppress_window_s is not None else repository._UNSET,
         enabled=payload.enabled if payload.enabled is not None else repository._UNSET,
         organization_id=payload.organization_id if payload.organization_id is not None else repository._UNSET,
         actor=user.username,
@@ -1006,6 +1036,11 @@ def rollback_route(
         canary_percent=snap.get("canary_percent", repository._UNSET),
         transform_ref=snap.get("transform_ref", repository._UNSET),
         pii_redaction=snap.get("pii_redaction", repository._UNSET),
+        protect_detection=snap.get("protect_detection", repository._UNSET),
+        sample_percent=snap.get("sample_percent", repository._UNSET),
+        suppress_key=snap.get("suppress_key", repository._UNSET),
+        suppress_allow=snap.get("suppress_allow", repository._UNSET),
+        suppress_window_s=snap.get("suppress_window_s", repository._UNSET),
         enabled=snap.get("enabled", repository._UNSET),
         actor=user.username,
         audit_action="rolled_back",

@@ -1780,6 +1780,28 @@ export interface Route {
   updated_at: string
   /** UX guard — sombreada por uma rota is_final anterior. */
   unreachable: boolean
+  // ── Alavancas de redução de volume (ADR-0011) ──────────────────────
+  // NOTA (jul/2026): estes 5 campos existem em ``backend/app/db/models.py``
+  // (classe Route) e são lidos pelo pipeline de dispatch a partir da linha do
+  // banco, mas ``RouteRead``/``RouteCreate``/``RouteUpdate``
+  // (backend/app/api/schemas_routes.py) e ``RouteRepository.add``/``update``
+  // (backend/app/db/repository.py) AINDA NÃO os expõem — a API atual
+  // silenciosamente IGNORA estes campos em create/update, e GET nunca os
+  // retorna. Marcados ``?`` (opcionais) de propósito para refletir a
+  // realidade do contrato hoje; o formulário usa os defaults do modelo
+  // (protect_detection=true, sample_percent=100, suppress_allow=0,
+  // suppress_window_s=30) quando ausentes. Fechar esse gap de backend é
+  // pré-requisito para estes controles terem efeito.
+  /** fail-safe de detecção — default true. Rotas protegidas NUNCA são amostradas/agregadas. */
+  protect_detection?: boolean
+  /** amostragem de redução 0-100 (100 = sem amostragem). Ignorado se protect_detection=true. */
+  sample_percent?: number
+  /** CSV de labels para assinatura de supressão (null/"" = sem supressão). */
+  suppress_key?: string | null
+  /** quantos eventos passam por janela de supressão (0 = desligado). */
+  suppress_allow?: number
+  /** janela de supressão em segundos. */
+  suppress_window_s?: number
 }
 
 export interface RouteCreateRequest {
@@ -1794,6 +1816,12 @@ export interface RouteCreateRequest {
   transform_ref?: string | null
   pii_redaction?: PiiRedaction
   organization_id?: number | null
+  /** ver nota em ``Route`` — API ainda não persiste estes campos (gap de backend). */
+  protect_detection?: boolean
+  sample_percent?: number
+  suppress_key?: string | null
+  suppress_allow?: number
+  suppress_window_s?: number
 }
 
 export type RouteUpdateRequest = Partial<RouteCreateRequest>
