@@ -18,10 +18,12 @@ trava no PR). Não são conjuntos iguais — o catálogo (o que a plataforma ofe
 
 from __future__ import annotations
 
+import importlib.util
 import re
 from dataclasses import dataclass
 from datetime import timedelta
-from typing import Iterable, List, Optional, Tuple
+from functools import lru_cache
+from typing import Dict, Iterable, List, Optional, Tuple
 
 # Keys EXATAS válidas (não-namespaced ou de namespace fechado).
 EXACT_CAPABILITIES: frozenset = frozenset(
@@ -166,3 +168,42 @@ def validate_capability(key: str) -> str:
             f"capability desconhecida fora do vocabulário canônico: {key!r}"
         )
     return key
+
+
+# ── Disponibilidade de RUNTIME dos spec_kinds
+# ``QueryCapability.spec_kinds`` é uma declaração ESTÁTICA do catálogo do vendor:
+# ``wazuh``/``defender`` anunciam ``sigma`` porque o dialeto tem backend pySigma
+# OFICIAL — não porque pySigma esteja instalado. Mas pySigma é dependência
+# OPCIONAL (``requirements-query-abstractions.txt``) e NÃO entra na imagem
+# (``compose/Dockerfile`` instala apenas requirements.lock|txt + otel).
+#
+# Sem este filtro, ``GET /providers/query-capabilities`` anuncia ``sigma``, a UI
+# oferece a opção, o analista escreve a regra e só descobre no submit que o
+# tradutor não existe (HTTP 501 de ``SigmaUnavailableError``). O backend degrada
+_SPEC_KIND_RUNTIME_PROBE: Dict[str, str] = {
+    # spec_kind -> módulo-raiz de terceiros que o torna executável.
+    SPEC_SIGMA: "sigma",  # pacote pySigma (importável como ``sigma``)
+}
+
+
+@lru_cache(maxsize=None)
+def _spec_kind_available(spec_kind: str) -> bool:
+    """``True`` se o spec_kind é executável NESTE processo.
+
+    Cacheado: o conjunto de pacotes instalados não muda em runtime, e este
+    caminho é chamado por request em ``/providers/query-capabilities``.
+    """
+    module = _SPEC_KIND_RUNTIME_PROBE.get(spec_kind)
+    if module is None:
+        return True  # sem dependência externa (ex.: passthrough) ⇒ sempre disponível
+    return importlib.util.find_spec(module) is not None
+
+
+def available_spec_kinds(declared: Iterable[str]) -> List[str]:
+    """Filtra ``declared`` pelos spec_kinds efetivamente executáveis, preservando ordem.
+
+    ``passthrough`` NUNCA é removido: é o caminho nativo, sem dependência externa,
+    e uma capability de query sem nenhum spec_kind seria indistinguível de uma
+    fonte que não consulta — trocaria uma degradação honesta por um sumiço.
+    """
+    return [s for s in declared if s == SPEC_PASSTHROUGH or _spec_kind_available(s)]
