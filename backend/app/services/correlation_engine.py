@@ -77,13 +77,24 @@ def matches_where(item: dict, filters: Iterable[dict]) -> bool:
     return True
 
 
+# Limiar segundos-vs-ms para epochs numéricos. Espelha (deliberadamente, para
+# manter este módulo sem dependência de collectors/OCSF — ver docstring do
+# módulo) ``collectors.normalize.operators._EPOCH_MS_THRESHOLD``: como segundos
+# 1e11 ≈ ano 5138, como ms ≈ 1973-03-03. Necessário porque ``timestamp_field``
+# pode apontar para um campo ``timestamp_t`` do OCSF, que é em MILISSEGUNDOS —
+# sem a conversão, ``window_seconds`` compararia deltas 1000× maiores e as
+# regras threshold simplesmente parariam de disparar.
+_EPOCH_MS_THRESHOLD = 100_000_000_000  # 1e11
+
+
 def _parse_ts(value: Any) -> Optional[float]:
-    """ISO-8601 (ou epoch) → segundos. ``None`` se não parsear."""
+    """ISO-8601 (ou epoch em segundos/ms) → SEGUNDOS. ``None`` se não parsear."""
     if value is None:
         return None
     num = _coerce_number(value)
     if num is not None:
-        return num  # epoch
+        # Epoch numérico de unidade desconhecida: ms acima do limiar.
+        return num / 1000.0 if abs(num) >= _EPOCH_MS_THRESHOLD else num
     try:
         return datetime.fromisoformat(str(value).strip().replace("Z", "+00:00")).timestamp()
     except (ValueError, TypeError):

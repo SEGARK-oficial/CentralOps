@@ -34,20 +34,23 @@ Convertem um valor de um tipo para outro (texto, número, data, lista, sim/não)
 
 ### Data em texto -> data interna (`iso_to_epoch`)
 
-Converte uma data/hora em texto (formato ISO-8601, como `2026-04-27T12:30:00Z`) para o formato de horário interno usado pelo CentralOps.
+Converte uma data/hora em texto (formato ISO-8601, como `2026-04-27T12:30:00Z`) para o formato de horário interno usado pelo CentralOps: **milissegundos desde 1970**, que é como o OCSF define o tipo `timestamp_t`. São 13 dígitos, não 10.
 
 | Situação | Resultado |
 |----------|-----------|
 | `2026-04-27T12:30:00Z` | convertido para o horário interno correspondente |
 | Data com fuso, ex. `...+05:00` | ajustado corretamente para o fuso informado |
-| Valor já no formato interno | mantido como está |
+| Fornecedor já envia número em **milissegundos** | mantido como está |
+| Fornecedor já envia número em **segundos** | multiplicado por 1000 |
 | Campo vazio | vai para quarentena (defina um valor padrão antes da conversão para tratar ausência) |
+
+**Como o CentralOps distingue segundos de milissegundos.** Quando o fornecedor entrega o horário já como número, não há como saber a unidade pelo tipo — a CrowdStrike manda segundos, o CloudWatch manda milissegundos. O CentralOps usa o limiar de `100.000.000.000` (10<sup>11</sup>): abaixo dele o valor é lido como segundos e multiplicado por 1000; a partir dele já é considerado milissegundos. O limiar é seguro nas duas pontas — como segundos ele equivale ao ano 5138, e como milissegundos a março de 1973.
 
 **Atenção ao fuso horário.** Se o fornecedor envia a data sem fuso (ex.: `2026-04-27T12:30:00`), o CentralOps assume UTC. Se o fornecedor opera em outro fuso, alinhe isso com o administrador da plataforma para evitar horários deslocados.
 
 ### Data interna -> data em texto (`epoch_to_iso`)
 
-Faz o caminho inverso: converte o horário interno de volta para texto ISO-8601 com sufixo `Z`.
+Faz o caminho inverso: converte o horário interno (milissegundos) de volta para texto ISO-8601 com sufixo `Z`. Usa a **mesma** regra de limiar do `iso_to_epoch`, então um valor em segundos também é interpretado corretamente e a ida-e-volta entre os dois operadores fecha.
 
 | Situação | Resultado |
 |----------|-----------|

@@ -30,6 +30,7 @@ import {
   SiOpentelemetry,
   SiOkta,
   SiFortinet,
+  SiVeeam,
 } from "react-icons/si"
 import { iconFor } from "./icons"
 
@@ -625,6 +626,7 @@ const SI_MARKS: Record<string, BrandRenderer> = {
   okta: siMark(SiOkta as SiComponent, "#007DC1"),
   fortinet: siMark(SiFortinet as SiComponent, "#EE3124"),
   apachekafka: siMark(SiApachekafka as SiComponent, "#231F20"),
+  veeam: siMark(SiVeeam as SiComponent, "#00B336"),
 }
 
 // ── Public API ────────────────────────────────────────────────────────────────
