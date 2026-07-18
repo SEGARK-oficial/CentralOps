@@ -94,7 +94,15 @@ def record_trim_saving(organization_id: Optional[int], raw: Any, reduced: Any) -
     Gated por ``REDUCTION_TRIM_ENABLED`` **E** ``COST_METERING_ENABLED``: a serialização
     extra (2 dumps) só ocorre quando as DUAS flags estão on — flag-off ⇒ zero overhead
     (early-return antes de qualquer serialização). ``reduced is None`` (o engine não
-    trimou nada) ⇒ no-op."""
+    trimou nada) ⇒ no-op.
+
+    BASE DE MEDIÇÃO APROXIMADA (mesma ressalva do suppress, antes não documentada
+    aqui): o trim roda na NORMALIZAÇÃO, PRÉ-fan-out, então mede o payload CRU UMA vez
+    por evento — enquanto o denominador da razão de Redução (``bytes_out``) é o
+    ENVELOPE ``{_centralops, normalized, raw}`` PÓS-fan-out, contado por ENTREGA. Logo
+    o termo trim SUB-conta quando o evento vai a N>1 destinos (o corte se repetiria em
+    cada entrega) e não é diretamente comparável a ``bytes_out`` na mesma unidade: a
+    % de redução exibida é uma APROXIMAÇÃO, não um balanço exato."""
     if not enabled() or not bool(getattr(settings, "REDUCTION_TRIM_ENABLED", False)):
         return
     if reduced is None or organization_id is None:
@@ -122,6 +130,34 @@ def record_sample_saving(organization_id: Optional[int], bytes_: float) -> None:
         record_saving(organization_id, None, "sample", bytes_=float(bytes_))
     except Exception:  # noqa: BLE001 — best-effort
         logger.debug("metering.record_sample_saving falhou (org=%s)", organization_id, exc_info=True)
+
+
+def record_drop_saving(organization_id: Optional[int], bytes_: float) -> None:
+    """Contabiliza o volume lógico evitado por uma rota ``action=drop`` como
+    ``bytes_saved{reason=drop}``. Os bytes são MEDIDOS no engine de roteamento (mesmo
+    serializador da entrega, no ramo de drop) e AGREGADOS por org; aqui só gravamos o
+    rollup — espelhando :func:`record_sample_saving`.
+
+    GATING — só ``COST_METERING_ENABLED`` (diferente de trim/sample/suppress/aggregate,
+    que exigem também sua ``REDUCTION_*``): drop NÃO é uma alavanca opcional de
+    redução, é CONFIG DE ROTA, sempre ativa. Não existe flag para desligá-la, então
+    exigir uma flag REDUCTION_* deixaria esse volume permanentemente invisível.
+
+    ATENÇÃO — MUDA O NÚMERO DE QUEM JÁ USA DROP HOJE: até aqui uma rota ``action=drop``
+    descartava volume SEM creditar ``bytes_saved`` (os únicos call-sites de
+    :func:`record_saving` eram trim/suppress/sample/aggregate). Com este helper, os
+    cards "Evitado"/"Redução" da ``/cost-summary`` passam a exibir uma economia que
+    antes era invisível — o volume não mudou, a CONTABILIDADE ficou completa.
+
+    No-op flag-off; fail-closed em org ausente ou ``bytes_`` zero; best-effort."""
+    if not enabled():
+        return
+    if organization_id is None or not bytes_:
+        return
+    try:
+        record_saving(organization_id, None, "drop", bytes_=float(bytes_))
+    except Exception:  # noqa: BLE001 — best-effort
+        logger.debug("metering.record_drop_saving falhou (org=%s)", organization_id, exc_info=True)
 
 
 def record_suppress_saving(organization_id: Optional[int], envelope: Any) -> None:

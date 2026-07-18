@@ -169,9 +169,122 @@ def _load_current_mapping(
         return version.id, rules, dsl_version
 
 
-async def _quarantine_async(**kwargs: Any) -> None:
-    """Wrapper que roda o write síncrono em thread auxiliar."""
+def _capture_sync(
+    batch: list,
+    org_id: Optional[int],
+    outcome: str,
+    *,
+    destination_id: Optional[str] = None,
+    detail: Optional[str] = None,
+    sessions: Optional[list] = None,
+) -> None:
+    """Registra o DESFECHO de um lote nas sessões de captura ativas (tap de ciclo de
+    vida). BEST-EFFORT ABSOLUTO: engole TUDO — a captura nunca altera o resultado do
+    dispatch/coleta (mesma garantia do bloco histórico em ``dispatch``).
+
+    Fail-closed em ``org_id is None`` (nunca escreve num bucket compartilhado). Curto-
+    circuita barato quando o org não tem sessão ativa (cache negativo em
+    ``capture_session``), então chamar isto no hot path é seguro."""
+    if not batch or org_id is None:
+        return
+    try:
+        from . import capture_session
+
+        capture_session.record_sync(
+            batch,
+            org_id,
+            outcome=outcome,
+            destination_id=destination_id,
+            detail=detail,
+            sessions=sessions,
+        )
+    except Exception:  # noqa: BLE001 — captura nunca quebra o hot path
+        logger.debug("capture: falha ao registrar outcome=%s (não-fatal)", outcome, exc_info=True)
+
+
+async def _capture_outcome(
+    batch: list,
+    org_id: Optional[int],
+    outcome: str,
+    *,
+    destination_id: Optional[str] = None,
+    detail: Optional[str] = None,
+) -> None:
+    """:func:`_capture_sync` fora do event loop (o cliente de captura é síncrono).
+    Best-effort — nunca levanta."""
+    if not batch or org_id is None:
+        return
+    # Short-circuit ANTES do hop de thread-pool. Sem sessão ativa conhecida, despachar
+    # para a thread custaria ~50µs/chamada só em troca de contexto (130× a chamada
+    # direta) — e a SUPRESSÃO chama isto POR EVENTO dentro do laço de coleta, que é
+    # justamente o caminho de alto volume. A sonda é em memória (zero I/O) e
+    # conservadora: se não souber, segue o caminho normal.
+    from .capture_session import likely_no_session
+
+    if likely_no_session(org_id):
+        return
+    try:
+        await asyncio.to_thread(
+            _capture_sync,
+            batch,
+            org_id,
+            outcome,
+            destination_id=destination_id,
+            detail=detail,
+        )
+    except Exception:  # noqa: BLE001 — captura nunca quebra o hot path
+        logger.debug("capture: falha ao registrar outcome=%s (não-fatal)", outcome, exc_info=True)
+
+
+async def _capture_delivery_failed(
+    batch: list, destination_id: Optional[str], detail: str
+) -> None:
+    """Atalho do desfecho ``delivery_failed`` (destino ausente, cross-tenant, breaker
+    aberto, exceção de envio). Best-effort — nunca levanta nem mascara o erro real."""
+    try:
+        from .capture_session import OUTCOME_DELIVERY_FAILED
+
+        await _capture_outcome(
+            batch,
+            _batch_org_id(batch),
+            OUTCOME_DELIVERY_FAILED,
+            destination_id=destination_id,
+            detail=detail,
+        )
+    except Exception:  # noqa: BLE001 — captura nunca quebra o dispatch
+        logger.debug("capture: falha ao registrar delivery_failed (não-fatal)", exc_info=True)
+
+
+async def _quarantine_async(*, capture_org_id: Optional[int] = None, **kwargs: Any) -> None:
+    """Wrapper que roda o write síncrono em thread auxiliar.
+
+    ``capture_org_id`` NÃO é repassado à quarentena — serve só para o tap de captura
+    saber o tenant (vários call-sites não passam ``organization_id`` para a quarentena,
+    e mudar isso alteraria as linhas gravadas na tabela). A captura roda DEPOIS do
+    write e é best-effort: nunca afeta a quarentena."""
     await asyncio.to_thread(quarantine.send_to_quarantine, **kwargs)
+    _org = capture_org_id if capture_org_id is not None else kwargs.get("organization_id")
+    if _org is None:
+        return
+    # Pseudo-envelope: o evento quarentenado morreu ANTES de virar envelope roteável,
+    # mas o tap precisa do vendor (filtro da sessão) e do raw ("como entrou").
+    from .capture_session import OUTCOME_QUARANTINED
+
+    _pseudo = {
+        "_centralops": {
+            "vendor": kwargs.get("vendor"),
+            "event_type": kwargs.get("event_type"),
+            "organization_id": _org,
+            "integration_id": kwargs.get("integration_id"),
+        },
+        "raw": kwargs.get("raw"),
+    }
+    await _capture_outcome(
+        [_pseudo],
+        _org,
+        OUTCOME_QUARANTINED,
+        detail=f"{kwargs.get('error_kind') or 'quarantine'}: {kwargs.get('error_detail') or ''}",
+    )
 
 
 async def _maybe_suppress(redis: Any, envelope: dict, suppress_routes: list) -> Optional[str]:
@@ -443,6 +556,7 @@ async def _run_collection_once(integration_id: int, stream: str) -> None:
                         # Mapping ainda não configurado para este event_type.
                         # Vai pra quarentena com kind explícito.
                         await _quarantine_async(
+                            capture_org_id=organization_id,
                             integration_id=integration_id,
                             vendor=platform,
                             event_type=event_type,
@@ -468,6 +582,7 @@ async def _run_collection_once(integration_id: int, stream: str) -> None:
                         )
                     except MappingRequiredFieldError as exc:
                         await _quarantine_async(
+                            capture_org_id=organization_id,
                             integration_id=integration_id,
                             vendor=platform,
                             event_type=event_type,
@@ -493,6 +608,7 @@ async def _run_collection_once(integration_id: int, stream: str) -> None:
                             },
                         )
                         await _quarantine_async(
+                            capture_org_id=organization_id,
                             integration_id=integration_id,
                             vendor=platform,
                             event_type=event_type,
@@ -623,6 +739,7 @@ async def _run_collection_once(integration_id: int, stream: str) -> None:
                                 ):
                                     _ocsf_quarantine_writes += 1
                                     await _quarantine_async(
+                                        capture_org_id=organization_id,
                                         integration_id=integration_id,
                                         vendor=platform,
                                         event_type=event_type,
@@ -649,6 +766,7 @@ async def _run_collection_once(integration_id: int, stream: str) -> None:
                     # RF4.2 — customer_id obrigatório.
                     if not has_customer_id(envelope):
                         await _quarantine_async(
+                            capture_org_id=organization_id,
                             integration_id=integration_id,
                             vendor=platform,
                             event_type=event_type,
@@ -684,6 +802,18 @@ async def _run_collection_once(integration_id: int, stream: str) -> None:
                             _metering_sup.record_suppress_saving(
                                 (envelope.get("_centralops") or {}).get("organization_id"),
                                 envelope,
+                            )
+                            # tap de ciclo de vida: o evento suprimido NUNCA chegava à
+                            # captura (morria antes do dispatch) — o operador via um
+                            # buraco sem explicação. Best-effort, curto-circuitado
+                            # quando não há sessão ativa.
+                            from .capture_session import OUTCOME_SUPPRESSED
+
+                            await _capture_outcome(
+                                [envelope],
+                                organization_id,
+                                OUTCOME_SUPPRESSED,
+                                detail=f"route={_suppressed_by}",
                             )
                             continue
 
@@ -1061,6 +1191,59 @@ def _load_wazuh_loop_destination_ids(dest_ids: "set[str]") -> "frozenset[str]":
         return frozenset()
 
 
+def _capture_outcomes(org_id: Optional[int], result: Any) -> None:
+    """Escreve na captura os desfechos NÃO-entregues acumulados pelo routing engine.
+
+    Um evento entregue a N destinos gera N registros ``delivered`` (no dispatch); aqui
+    tratamos o que morreu ANTES: ``dropped`` (rota action=drop), ``unrouted`` (sem rota
+    e sem default → DLQ), ``loop_blocked`` (anti-loop Wazuh), ``residency_blocked``
+    (por par evento×destino) e ``sampled_out`` (redução). BEST-EFFORT integral: engole
+    tudo — nem a captura nem a resolução de sessões podem afetar o enfileiramento.
+
+    Os ``getattr`` são defensivos: os testes fazem monkeypatch de ``route_batch`` com
+    resultados duck-typed que não têm os campos novos."""
+    if org_id is None:
+        return
+    try:
+        from . import capture_session
+
+        # 1 resolução por lote, reusada em todos os desfechos (evita reabrir o índice
+        # do org a cada bucket). [] ⇒ nada a fazer (caso comum, curto-circuitado).
+        sessions = capture_session.active_sessions_sync(org_id)
+        if not sessions:
+            return
+
+        def _emit(events: list, outcome: str) -> None:
+            if events:
+                _capture_sync(events, org_id, outcome, sessions=sessions)
+
+        # (envelope, route_id) → detalhe = a rota responsável pelo drop.
+        for _env, _rid in getattr(result, "dropped_events", None) or ():
+            _capture_sync(
+                [_env], org_id, capture_session.OUTCOME_DROPPED,
+                detail=f"route={_rid}" if _rid else None, sessions=sessions,
+            )
+        _emit(list(getattr(result, "unrouted_events", None) or ()), capture_session.OUTCOME_UNROUTED)
+        for _env, _reason in getattr(result, "loop_blocked_events", None) or ():
+            _capture_sync(
+                [_env], org_id, capture_session.OUTCOME_LOOP_BLOCKED,
+                detail=_reason, sessions=sessions,
+            )
+        for _env, _dest in getattr(result, "residency_blocked_events", None) or ():
+            _capture_sync(
+                [_env], org_id, capture_session.OUTCOME_RESIDENCY_BLOCKED,
+                destination_id=_dest, sessions=sessions,
+            )
+        for _env, _dest, _rid in getattr(result, "sampled_events", None) or ():
+            _capture_sync(
+                [_env], org_id, capture_session.OUTCOME_SAMPLED_OUT,
+                destination_id=_dest, detail=f"route={_rid}" if _rid else None,
+                sessions=sessions,
+            )
+    except Exception:  # noqa: BLE001 — captura nunca quebra o roteamento
+        logger.debug("capture: falha ao registrar desfechos do roteamento", exc_info=True)
+
+
 def _enqueue_routed(batch: list[Dict[str, Any]], routes: list[Any]) -> None:
     """Split the batch per-event via the routing engine and
     enqueue one (sub-)batch per resolved destination. ALL destinations (incl. the
@@ -1105,7 +1288,17 @@ def _enqueue_routed(batch: list[Dict[str, Any]], routes: list[Any]) -> None:
         destination_residency=_destination_residency,
         wazuh_loop_destination_ids=_wazuh_loop_ids,
         sampling=_sampling,
+        # drop não tem flag REDUCTION_* (é config de rota, sempre ativa) — a medição
+        # segue só o metering de custo. Off ⇒ nenhuma serialização no ramo de drop.
+        measure_drop_bytes=bool(settings.COST_METERING_ENABLED),
     )
+
+    # ── Tap de captura: DESFECHO de cada evento que NÃO foi entregue ────
+    # O engine é puro e só ACUMULA os eventos por desfecho; a escrita é aqui. Antes,
+    # o único tap ficava atrás da guarda ``accepted_total > 0`` do dispatch — ou seja,
+    # drop/unrouted/loop/residency/sample eram INVISÍVEIS para quem estava "escutando".
+    # Resolve as sessões UMA vez por lote (não por evento nem por desfecho).
+    _capture_outcomes(_org_id, result)
 
     # Vendor-neutro: eventos sem rota E sem fallback configurado → DLQ/quarentena
     # (zero perda, visível, replayável) em vez de um sink hardcoded.
@@ -1178,6 +1371,17 @@ def _enqueue_routed(batch: list[Dict[str, Any]], routes: list[Any]) -> None:
 
         for _s_org, _s_bytes in _sampled_bytes.items():
             _metering_sample.record_sample_saving(_s_org, _s_bytes)
+
+    # volume evitado por rotas ``action=drop``. Mesma base do sampling (envelope,
+    # serializador da entrega), medida no engine só quando ``measure_drop_bytes``.
+    # Gated APENAS por COST_METERING_ENABLED — drop é config de rota, sempre ativa,
+    # não uma alavanca REDUCTION_*. Passa a EXIBIR economia que antes era invisível.
+    _dropped_bytes = getattr(result, "dropped_bytes_per_org", None)
+    if _dropped_bytes:
+        from .reduction import metering as _metering_drop
+
+        for _d_org, _d_bytes in _dropped_bytes.items():
+            _metering_drop.record_drop_saving(_d_org, _d_bytes)
 
     # backpressure (drop_newest): resolve o plano de entrega POR DESTINO só
     # quando a feature está ON (sem custo de DB no default). Mapeia destination_id
@@ -1368,12 +1572,39 @@ def _should_shed_dispatch(item: Dict[str, Any], batch_len: int) -> bool:
 def _batch_org_id(batch: list[Dict[str, Any]]) -> Optional[int]:
     """organization_id do lote. Um batch é mono-integração,
     logo o ``_centralops.organization_id`` do 1º envelope é autoritativo.
-    Retorna ``None`` se ausente (envelopes legados pré-S2 / fluxos sem org)."""
+    Retorna ``None`` se ausente (envelopes legados pré-S2 / fluxos sem org).
+
+    COERÇÃO SEGURA: o ``isinstance(org_id, int)`` puro devolvia ``None`` quando o
+    envelope trazia o org como STRING (``"1"``) — o que acontece depois de um
+    round-trip JSON/Kafka ou num push-ingest. E ``None`` aqui faz a CAPTURA, o
+    audit-ring e a LINHAGEM serem pulados em silêncio (sem log, sem métrica).
+    Agora aceitamos int, string decimal e float INTEGRAL; qualquer outra coisa
+    (``"abc"``, ``1.5``, ``True``) continua ``None`` — mas com log de debug, não mudo."""
     if not batch:
         return None
     meta = batch[0].get("_centralops") or {}
     org_id = meta.get("organization_id")
-    return int(org_id) if isinstance(org_id, int) else None
+    if org_id is None:
+        return None
+    # bool é subclasse de int — True viraria org 1. Rejeita explicitamente.
+    if isinstance(org_id, bool):
+        pass
+    elif isinstance(org_id, int):
+        return org_id
+    elif isinstance(org_id, float):
+        if org_id.is_integer():
+            return int(org_id)
+    elif isinstance(org_id, str):
+        try:
+            return int(org_id.strip())
+        except ValueError:
+            pass
+    logger.debug(
+        "pipeline: organization_id não-coercível no envelope (type=%s) — "
+        "captura/auditoria/linhagem serão puladas para este lote",
+        type(org_id).__name__,
+    )
+    return None
 
 
 def _load_destination_config(destination_id: str):
@@ -1672,6 +1903,9 @@ async def dispatch_batch_to_destination(
         DISPATCH_FAILURES.labels(
             target="destination", reason="destination_missing", destination_id=destination_id
         ).inc()
+        await _capture_delivery_failed(
+            batch, destination_id, "destino ausente/desabilitado (DLQ)"
+        )
         return
 
     # Tenancy invariant: cross-tenant fail-closed guard.
@@ -1705,6 +1939,9 @@ async def dispatch_batch_to_destination(
         DISPATCH_FAILURES.labels(
             target="destination", reason="cross_tenant_destination", destination_id=destination_id
         ).inc()
+        await _capture_delivery_failed(
+            batch, destination_id, "destino de outro tenant (fail-closed, DLQ)"
+        )
         return
 
     # parse the validated delivery policy once (breaker/concurrency/
@@ -1850,7 +2087,7 @@ async def dispatch_batch_to_destination(
         # any dispatch path. Best-effort, gated on actual delivery, off the event
         # loop's critical section: NEVER affects the dispatch outcome.
         if redis is not None and last_result is not None and accepted_total > 0:
-            from . import audit_buffer, capture_session
+            from . import audit_buffer
 
             _audit_org = _batch_org_id(batch)
             if _audit_org is not None:
@@ -1862,8 +2099,6 @@ async def dispatch_batch_to_destination(
                     if _dkind == "syslog_rfc5424"
                     else None
                 )
-                # Auditoria e captura são INDEPENDENTEMENTE best-effort: uma falha numa
-                # não impede a outra, e NENHUMA afeta o dispatch.
                 try:
                     await audit_buffer.record_batch(
                         redis, batch, _audit_org, syslog_format=_syslog_fmt
@@ -1872,14 +2107,52 @@ async def dispatch_batch_to_destination(
                     logger.debug(
                         "audit_buffer.record_batch falhou (não-fatal)", exc_info=True
                     )
-                # On-demand capture sessions (/config "listening"): anexa a qualquer
-                # sessão ativa do org (filtrada por vendor). No-op se não houver sessão.
-                try:
-                    await capture_session.record(redis, batch, _audit_org)
-                except Exception:  # pragma: no cover — captura nunca quebra o dispatch
-                    logger.debug(
-                        "capture_session.record falhou (não-fatal)", exc_info=True
-                    )
+
+        # Captura (/config "escuta"): DESFECHO por destino. Fora da guarda
+        # ``accepted_total > 0`` de propósito — um lote 100% rejeitado/falho é
+        # exatamente o que o operador precisa ver ("saiu ou morreu no sink?").
+        # Auditoria e captura são INDEPENDENTEMENTE best-effort: uma falha numa não
+        # impede a outra, e NENHUMA afeta o dispatch.
+        # try/except PRÓPRIO (espelha o do audit_buffer acima): ``_capture_outcome`` já
+        # é best-effort internamente, mas o código AQUI não era — as list-comprehensions
+        # chamam ``e.get(...)`` e um envelope não-dict no lote levantaria AttributeError
+        # dentro do try grande do dispatch, cujo handler RE-LEVANTA. Captura nunca pode
+        # derrubar a entrega.
+        try:
+            _cap_org = _batch_org_id(batch)
+            if _cap_org is not None:
+                from .capture_session import OUTCOME_DELIVERED, OUTCOME_DELIVERY_FAILED
+
+                _rejected_ids = rejected_event_ids if last_result is not None else set()
+                if last_result is None:
+                    # nenhum chunk chegou a ser enviado (lote vazio) — nada a registrar.
+                    _accepted_envs, _failed_envs = [], []
+                elif accepted_total <= 0:
+                    _accepted_envs, _failed_envs = [], list(batch)
+                elif _rejected_ids:
+                    _accepted_envs = [
+                        e for e in batch
+                        if isinstance(e, dict)
+                        and (e.get("_centralops") or {}).get("event_id") not in _rejected_ids
+                    ]
+                    _failed_envs = [
+                        e for e in batch
+                        if isinstance(e, dict)
+                        and (e.get("_centralops") or {}).get("event_id") in _rejected_ids
+                    ]
+                else:
+                    _accepted_envs, _failed_envs = list(batch), []
+                await _capture_outcome(
+                    _accepted_envs, _cap_org, OUTCOME_DELIVERED,
+                    destination_id=dest_config.destination_id,
+                )
+                await _capture_outcome(
+                    _failed_envs, _cap_org, OUTCOME_DELIVERY_FAILED,
+                    destination_id=dest_config.destination_id,
+                    detail="sink rejeitou/não aceitou o lote",
+                )
+        except Exception:  # noqa: BLE001 — captura nunca quebra a entrega
+            logger.debug("capture: falha ao registrar desfecho de entrega", exc_info=True)
 
         # lineage — record positive delivery per (event_id, dest).
         # Best-effort (fail-open), gated by LINEAGE_ENABLED.  Runs only when
@@ -1909,6 +2182,14 @@ async def dispatch_batch_to_destination(
     except circuit_breaker.BreakerOpen:
         # terminal — propagate out to the except-all in
         # dispatch_to_destination, which calls dispatch_to_dlq (no autoretry).
+        # Registra o desfecho ANTES de propagar (best-effort: não mascara o erro) —
+        # sem isto, "o breaker abriu" é justamente o caso invisível na escuta.
+        await _capture_delivery_failed(batch, destination_id, "circuit breaker aberto")
+        raise
+    except Exception as _dispatch_exc:  # noqa: BLE001 — só observa e re-levanta
+        await _capture_delivery_failed(
+            batch, destination_id, f"falha de entrega: {type(_dispatch_exc).__name__}"
+        )
         raise
     finally:
         # Best-effort close: a dead Redis client must not turn a delivered batch

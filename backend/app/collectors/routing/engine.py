@@ -282,6 +282,10 @@ class EventRouting:
     #: flat frozenset) collapses. route_batch uses it to apply each ROUTE's PII
     #: redaction to the copy bound for THAT route's destination(s).
     assignments: Tuple[Tuple[str, "CompiledRoute"], ...] = ()
+    #: id da rota ``action=drop`` que descartou o evento (``None`` se não houve drop).
+    #: ``matched_route_ids`` é um frozenset (perde a ordem), então guardamos a rota
+    #: RESPONSÁVEL para o tap de captura mostrar o MOTIVO do descarte.
+    drop_route_id: Optional[str] = None
 
 
 def order_routes(routes: Sequence[CompiledRoute]) -> List[CompiledRoute]:
@@ -310,7 +314,13 @@ def evaluate_event(
             continue
         matched_ids.append(r.id)
         if r.action == ACTION_DROP:
-            return EventRouting(frozenset(), dropped=True, matched=True, matched_route_ids=frozenset(matched_ids))
+            return EventRouting(
+                frozenset(),
+                dropped=True,
+                matched=True,
+                matched_route_ids=frozenset(matched_ids),
+                drop_route_id=r.id,
+            )
         dests.update(r.destination_ids)
         for d in r.destination_ids:
             assignments.append((d, r))
@@ -366,6 +376,26 @@ class BatchRouting:
     #: /cost-summary). Só popula com o sampling ativo (o que, por contrato de
     #: ``SamplingConfig.enabled``, implica ``COST_METERING_ENABLED`` também on).
     sampled_bytes_per_org: dict = field(default_factory=dict)
+    #: bytes LÓGICOS evitados por rotas ``action=drop``, agregados por
+    #: ``organization_id`` — mesma base/serializador de ``sampled_bytes_per_org``. O
+    #: pipeline converte em ``bytes_saved{reason=drop}``. Só popula com
+    #: ``measure_drop_bytes=True`` (o caller liga com ``COST_METERING_ENABLED``): drop
+    #: não tem flag REDUCTION_* própria — é config de rota, sempre ativa.
+    dropped_bytes_per_org: dict = field(default_factory=dict)
+
+    # ── Eventos por DESFECHO (tap de captura) ──────────────────────────
+    # O engine é PURO (sem I/O): ele ACUMULA os eventos de cada desfecho, o CALLER
+    # (``_enqueue_routed``) escreve na captura. Mesmo padrão de ``unrouted_events``.
+    # São REFERÊNCIAS aos envelopes do lote (sem cópia) — custo = 1 ponteiro/evento.
+    #: (envelope, route_id) descartados por ``action=drop``.
+    dropped_events: list = field(default_factory=list)
+    #: (envelope, reason) suprimidos pelo anti-loop de fonte Wazuh.
+    loop_blocked_events: list = field(default_factory=list)
+    #: (envelope, destination_id) excluídos por conflito de residência de dados. O
+    #: evento pode AINDA assim ser entregue aos demais destinos — é por-par.
+    residency_blocked_events: list = field(default_factory=list)
+    #: (envelope, destination_id, route_id) amostrados PARA FORA (redução).
+    sampled_events: list = field(default_factory=list)
 
 
 def _residency_conflict(
@@ -413,6 +443,7 @@ def route_batch(
     destination_residency: Optional[Mapping[str, Optional[str]]] = None,
     wazuh_loop_destination_ids: Optional[frozenset] = None,
     sampling: Optional[SamplingConfig] = None,
+    measure_drop_bytes: bool = False,
 ) -> BatchRouting:
     """Split ``batch`` into per-destination sub-batches by evaluating each event.
 
@@ -434,6 +465,16 @@ def route_batch(
     enforced when the destination has a non-null residency AND the event
     carries a known geography.  Blocked destinations are counted in
     ``BatchRouting.residency_blocked``.
+
+    ``measure_drop_bytes`` — quando True, mede o volume lógico dos eventos descartados
+    por ``action=drop`` (mesmo serializador da entrega) em
+    ``BatchRouting.dropped_bytes_per_org``. O caller liga junto com
+    ``COST_METERING_ENABLED``; off ⇒ zero serialização extra no ramo de drop.
+
+    Além dos CONTADORES, o resultado carrega os EVENTOS de cada desfecho
+    (``dropped_events``, ``unrouted_events``, ``loop_blocked_events``,
+    ``residency_blocked_events``, ``sampled_events``) para o caller alimentar o tap de
+    captura ("como entrou e como saiu"). O engine permanece PURO — nenhuma escrita aqui.
     """
     ordered = order_routes(routes)
     sub: dict = defaultdict(list)
@@ -457,6 +498,7 @@ def route_batch(
             # Fonte wazuh sem fallback não-loop: o evento já está no Wazuh — suprime
             # (não é perda; entregar de volta = loop). Conta + loga (trilha forense).
             result.loop_blocked += 1
+            result.loop_blocked_events.append((env, reason))
             _log_loop_blocked(labels, reason=reason)
             return
         if fb is not None:
@@ -474,6 +516,19 @@ def route_batch(
             per_route[rid] += 1
         if decision.dropped:
             result.dropped += 1
+            # desfecho por-evento p/ o tap de captura (o operador vê QUAL rota matou).
+            result.dropped_events.append((env, decision.drop_route_id or ""))
+            # volume evitado por drop → bytes_saved{reason=drop} no pipeline. Mesma
+            # base do sampling (envelope, serializador da entrega); só neste ramo e só
+            # com metering on. Best-effort: _envelope_bytes devolve 0 em falha.
+            if measure_drop_bytes:
+                _d_org = labels.get("organization_id")
+                if _d_org is not None:
+                    _d_bytes = _envelope_bytes(env)
+                    if _d_bytes:
+                        result.dropped_bytes_per_org[_d_org] = (
+                            result.dropped_bytes_per_org.get(_d_org, 0.0) + _d_bytes
+                        )
             continue
         # Wazuh é FONTE (pull do Indexer); NÃO é tipo de destino — o
         # destino é syslog. Um evento cuja fonte é integração wazuh entregue a um
@@ -524,6 +579,8 @@ def route_batch(
                     del chosen[dest]
             if blocked:
                 result.residency_blocked = result.residency_blocked + len(blocked)
+                for _bd in blocked:
+                    result.residency_blocked_events.append((env, _bd))
                 import logging as _log
                 _log.getLogger(__name__).info(
                     "routing: residency_block evento=%r dests=%s geo=%s",
@@ -551,6 +608,7 @@ def route_batch(
             if _should_sample_out(route, event_id, sampling):
                 result.sampled += 1
                 result.sampled_per_route[route.id] = result.sampled_per_route.get(route.id, 0) + 1
+                result.sampled_events.append((env, dest, route.id))
                 # volume LÓGICO evitado por ESTE par evento×destino (consistente com
                 # bytes_out, também por-entrega) → bytes_saved{reason=sample} no pipeline.
                 # Serialização só AQUI, no ramo de amostragem (sampling on ⇒ metering on),
