@@ -121,6 +121,7 @@ def test_a_naked_raw_would_fail_proving_the_test_is_not_vacuous():
 
 # ── A armadilha do raw_reduction ─────────────────────────────────────────────
 
+@pytest.mark.source_only  # lê o .py; na imagem Cython o fonte não existe
 def test_preview_uses_the_same_reduced_raw_expression_as_the_pipeline():
     """Guard estrutural sobre a expressão exata.
 
@@ -135,6 +136,7 @@ def test_preview_uses_the_same_reduced_raw_expression_as_the_pipeline():
     )
 
 
+@pytest.mark.source_only  # lê o .py; na imagem Cython o fonte não existe
 def test_pipeline_still_uses_that_expression():
     """A paridade é bilateral: se o pipeline mudar, este teste avisa."""
     from backend.app.collectors import pipeline
@@ -146,6 +148,7 @@ def test_pipeline_still_uses_that_expression():
     )
 
 
+@pytest.mark.source_only  # lê o .py; na imagem Cython o fonte não existe
 def test_degraded_fields_are_propagated():
     """``degraded_fields`` marca campos preenchidos por fallback de ingestão. Uma
     regra que dependa deles precisa ver o mesmo que produção vê."""
@@ -155,6 +158,7 @@ def test_degraded_fields_are_propagated():
 
 # ── O preview nunca escreve ──────────────────────────────────────────────────
 
+@pytest.mark.source_only  # lê o .py; na imagem Cython o fonte não existe
 def test_preview_never_calls_flush_or_creates_detections():
     """Se reusasse ``flush_inflight``, um autor testando 30 vezes injetaria
     disparos fantasma no contador de 24h — contaminando justamente o sinal que
@@ -192,6 +196,7 @@ def test_preview_never_calls_flush_or_creates_detections():
     assert "DetectionRepository" not in imported
 
 
+@pytest.mark.source_only  # lê o .py; na imagem Cython o fonte não existe
 def test_preview_uses_the_pure_matcher():
     from backend.app.collectors.inflight import preview
 

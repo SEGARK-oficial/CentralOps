@@ -71,6 +71,7 @@ async def test_release_many_propagates_failure_to_the_best_effort_caller():
 
 # ── Guards estruturais sobre o ciclo de coleta ───────────────────────────────
 
+@pytest.mark.source_only  # lê o .py; na imagem Cython o fonte não existe
 def test_compensation_is_unconditional():
     """O gate por data-plane sumiu: era ele que deixava o caminho default nu."""
     src = inspect.getsource(pipeline._run_collection_once)
@@ -81,6 +82,7 @@ def test_compensation_is_unconditional():
     assert "unsettled_claims" in src
 
 
+@pytest.mark.source_only  # lê o .py; na imagem Cython o fonte não existe
 def test_release_runs_in_finally_not_only_in_except():
     """``except Exception`` não pega ``WorkerShutdown`` (BaseException). No
     ``finally``, o kill do worker também solta as claims."""
@@ -90,6 +92,7 @@ def test_release_runs_in_finally_not_only_in_except():
     assert idx_release > idx_finally, "release_many precisa estar no finally"
 
 
+@pytest.mark.source_only  # lê o .py; na imagem Cython o fonte não existe
 def test_release_happens_before_the_redis_client_is_closed():
     """Soltar depois do ``aclose`` mandaria o DEL contra um cliente fechado —
     a compensação viraria no-op silencioso, que é pior que não existir."""
@@ -97,6 +100,7 @@ def test_release_happens_before_the_redis_client_is_closed():
     assert src.index("release_many") < src.index("await redis.aclose()")
 
 
+@pytest.mark.source_only  # lê o .py; na imagem Cython o fonte não existe
 def test_settlement_happens_after_the_durable_handoff():
     """Liquidar ANTES do ``_enqueue_dispatch`` converteria falha de enqueue em
     perda: a claim ficaria de pé e o retry descartaria o evento."""
@@ -108,6 +112,7 @@ def test_settlement_happens_after_the_durable_handoff():
     )
 
 
+@pytest.mark.source_only  # lê o .py; na imagem Cython o fonte não existe
 def test_every_dispatch_site_settles():
     """São dois: o flush por tamanho/tempo dentro do laço e o dreno TERMINAL.
 
@@ -120,6 +125,7 @@ def test_every_dispatch_site_settles():
     assert src.count("unsettled_claims.difference_update(batch_msg_ids)") == 2
 
 
+@pytest.mark.source_only  # lê o .py; na imagem Cython o fonte não existe
 def test_batch_and_msg_ids_stay_aligned():
     """``batch_msg_ids`` é paralelo 1:1 com ``batch``: os dois crescem e zeram
     juntos. Desalinhamento liquidaria a claim errada."""
@@ -131,6 +137,7 @@ def test_batch_and_msg_ids_stay_aligned():
     )
 
 
+@pytest.mark.source_only  # lê o .py; na imagem Cython o fonte não existe
 def test_envelope_is_not_mutated_to_carry_the_msg_id():
     """O envelope é serializado para o data-plane; carregar um campo transiente
     nele vazaria para o destino."""

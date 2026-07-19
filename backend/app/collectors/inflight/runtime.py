@@ -48,7 +48,7 @@ NEGATIVE_OPS = frozenset({"ne", "nin"})
 
 #: Enum FECHADO de razões de rejeição — vira label de métrica, logo nunca pode
 #: conter valor vindo de evento ou nome de regra (esses vão no log).
-REJECT_REASONS = ("bad_json", "empty_where", "unknown_op", "over_cap")
+REJECT_REASONS = ("bad_json", "empty_where", "unknown_op", "over_cap", "truncated")
 
 #: Granularidade dos contadores de disparo por regra (``observability_store``,
 #: kind="rule") — HORÁRIA, não per-minute (default do store). Uma janela de
@@ -157,8 +157,14 @@ def compile_rule(row: Any) -> tuple[Optional[CompiledInflightRule], Optional[str
             rule_id=int(row.id),
             name=str(row.name),
             severity_id=int(getattr(row, "severity_id", 4) or 4),
+            # Checagem explícita de None, NUNCA ``or``: ``0`` é um valor
+            # LEGÍTIMO (supressão desligada) e ``or 3600`` o engoliria em
+            # silêncio, dando ao operador uma janela de 1h que ele não pediu.
+            # É a mesma classe do bug ``or 7`` do TTL de dedupe corrigido nesta
+            # mesma branch — e eu o reintroduzi aqui.
             suppression_window_seconds=int(
-                getattr(row, "suppression_window_seconds", 3600) or 3600
+                _sup if (_sup := getattr(row, "suppression_window_seconds", None)) is not None
+                else 3600
             ),
             group_by_path=tuple(str(group_by).split(".")) if group_by else None,
             clauses=tuple(compiled),
@@ -207,6 +213,27 @@ def load_inflight_rules_for_org(
                     )
                 return CompiledRuleSet(rules=(), share_paths=False)
             rows = repo.list_inflight_for_org(organization_id, limit=cap)
+            if len(rows) >= cap:
+                # TRUNCAMENTO SILENCIOSO — o pior modo de falha desta feature.
+                #
+                # ``CORRELATION_MAX_RULES_PER_ORG`` (200) governa a CRIAÇÃO;
+                # ``INFLIGHT_MAX_RULES_PER_CYCLE`` (50) governa a AVALIAÇÃO. Um
+                # cliente pode criar 200 regras em voo e apenas 50 rodam. E como
+                # a query ordena por ``id ASC``, as descartadas são sempre as
+                # MAIS RECENTES — exatamente a regra que o operador acabou de
+                # escrever e está testando. Sem este aviso ela fica verde na
+                # lista, nunca dispara, e nada no sistema diz por quê.
+                total = repo.count_inflight_for_org(organization_id)
+                if total > cap:
+                    INFLIGHT_RULES_REJECTED.labels(reason="truncated").inc(total - cap)
+                    logger.warning(
+                        "inflight: org %s tem %d regras em voo mas só as %d de "
+                        "MENOR id são avaliadas por ciclo "
+                        "(INFLIGHT_MAX_RULES_PER_CYCLE=%d) — %d regra(s) NÃO "
+                        "estão sendo avaliadas, e são as mais RECENTES. "
+                        "Desabilite regras antigas ou eleve o teto.",
+                        organization_id, total, cap, cap, total - cap,
+                    )
             if not rows:
                 # Diagnóstico do caso mais comum de suporte: o operador criou a
                 # regra e ela ficou em modo batch.

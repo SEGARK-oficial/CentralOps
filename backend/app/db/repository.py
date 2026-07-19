@@ -1962,6 +1962,25 @@ class CorrelationRuleRepository:
             .all()
         )
 
+    def count_inflight_for_org(self, organization_id: int) -> int:
+        """Quantas regras EM VOO habilitadas a org tem, sem o teto por ciclo.
+
+        Existe para tornar visível o truncamento: ``list_inflight_for_org``
+        aplica ``INFLIGHT_MAX_RULES_PER_CYCLE`` com ``order_by(id ASC)``, então
+        acima do teto as regras descartadas são as mais RECENTES. Comparar este
+        total com o teto é a única forma de o operador saber que a regra que ele
+        acabou de criar não está sendo avaliada.
+        """
+        return (
+            self.db.query(models.CorrelationRule)
+            .filter(
+                models.CorrelationRule.organization_id == organization_id,
+                models.CorrelationRule.enabled.is_(True),
+                models.CorrelationRule.eval_mode == "inflight",
+            )
+            .count()
+        )
+
     def count_enabled_for_org(self, organization_id: int) -> int:
         """Quantas regras habilitadas a org tem, INDEPENDENTE de ``eval_mode``.
 

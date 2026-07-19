@@ -98,6 +98,7 @@ def test_export_does_not_silently_reset_protect_detection():
     )
 
 
+@pytest.mark.source_only  # lê o .py; na imagem Cython o fonte não existe
 @pytest.mark.parametrize("field", _REDUCTION_FIELDS)
 def test_import_paths_carry_every_reduction_field(field: str):
     """Guard estrutural sobre os 3 caminhos de escrita do importador.

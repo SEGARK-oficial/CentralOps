@@ -187,6 +187,7 @@ def test_groups_formed_but_none_reached_min_count_is_explained(caplog):
     assert any("min_count" in r.getMessage() for r in caplog.records)
 
 
+@pytest.mark.source_only  # lê o .py; na imagem Cython o fonte não existe
 def test_the_logger_is_actually_used():
     """Guard estrutural: o ``logger`` do módulo era declarado e nunca chamado.
 

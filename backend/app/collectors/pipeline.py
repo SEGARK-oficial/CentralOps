@@ -551,9 +551,14 @@ async def _run_collection_once(integration_id: int, stream: str) -> None:
 
         # ── Classificação em voo (ADR-0015 Fase 1) ───────────────────────
         # Carga e compilação 1x por ciclo, OFF-LOOP (não há sessão de DB aberta
-        # no laço de eventos). Import lazy: uma org sem regras em voo não paga
-        # nem o custo de resolver o módulo. Fail-safe para () — um problema aqui
+        # no laço de eventos). Fail-safe para ruleset vazio — um problema aqui
         # nunca pode impedir a COLETA, que é o produto que se vende.
+        #
+        # NB: estes imports são de função, mas NÃO são condicionais — o módulo é
+        # resolvido em todo ciclo, com ou sem regras. (``flush_inflight`` é
+        # importado ANTES do try, porque o ``finally`` o referencia.) O custo é
+        # um lookup em ``sys.modules``; o que a ausência de regras economiza é a
+        # avaliação por evento, não o import.
         from .inflight.matcher import evaluate_ruleset
         from .inflight.runtime import InflightAccumulator, load_inflight_rules_for_org
 

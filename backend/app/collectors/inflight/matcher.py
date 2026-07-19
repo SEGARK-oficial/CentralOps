@@ -2,7 +2,8 @@
 
 O ÚNICO código desta feature que roda por evento. Não faz I/O, não guarda
 estado, não loga, não emite métrica, não é ``async``. Um guard estrutural em CI
-(``test_adr0015_inflight_matcher_purity.py``) reprova qualquer import proibido
+(``test_adr0015_inflight_matcher.py::test_matcher_module_imports_nothing_that_touches_the_world``)
+reprova qualquer import proibido
 neste módulo — a restrição vira mecânica em vez de convenção, porque um
 ``import redis`` acrescentado aqui daqui a seis meses seria invisível numa
 revisão de PR e custaria um round-trip por evento no gargalo do pipeline.

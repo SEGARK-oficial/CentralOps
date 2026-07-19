@@ -101,6 +101,7 @@ def test_caps_are_configured_and_positive(setting_name: str):
     assert value > 0, f"{setting_name}={value} desligaria a escrita de quarentena"
 
 
+@pytest.mark.source_only  # lê o .py; na imagem Cython o fonte não existe
 def test_every_quarantine_write_in_the_pipeline_is_budgeted():
     """Guard estrutural: nenhum ``_quarantine_async`` pode escapar do orçamento.
 

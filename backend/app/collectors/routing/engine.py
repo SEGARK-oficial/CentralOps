@@ -261,6 +261,19 @@ def compare_values(op: str, actual: Any, expected: Any) -> bool:
             return actual < expected
         if op == "lte":
             return actual <= expected
+        if op == "contains":
+            # Substring, com a MESMA semântica do motor batch
+            # (``services/correlation_engine.matches_where``): stringifica os dois
+            # lados. NÃO faz parte de ``ALLOWED_OPS`` — condições de ROTA continuam
+            # sem ``contains``, e este ramo existe para as regras de classificação
+            # em voo, que herdaram o operador do vocabulário batch.
+            #
+            # ADR-0015: sem este ramo, ``contains`` caía no ``return False`` final.
+            # A regra compilava, aparecia verde na UI e NUNCA disparava — enquanto
+            # a MESMA regra em ``eval_mode='batch'`` funcionava. Falha silenciosa
+            # exatamente da classe que esta ADR existe para eliminar, e introduzida
+            # pela unificação de vocabulário que pretendia evitá-la.
+            return str(expected) in str(actual)
         if op == "in":
             return actual in expected  # type: ignore[operator]
         if op == "nin":

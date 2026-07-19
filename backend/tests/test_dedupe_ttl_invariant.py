@@ -181,6 +181,7 @@ def test_all_declared_defaults_agree() -> None:
     )
 
 
+@pytest.mark.source_only  # lê o .py; na imagem Cython o fonte não existe
 def test_the_or_fallbacks_do_not_reintroduce_a_stale_literal() -> None:
     """``_snapshot_from_env``/``_snapshot_from_row`` não podem ter ``or 7`` literal.
 

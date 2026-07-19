@@ -439,6 +439,7 @@ def test_cache_does_not_leak_the_numeric_coercion():
     )
 
 
+@pytest.mark.source_only  # lê o .py; na imagem Cython o fonte não existe
 def test_share_paths_is_detected_at_compile_time_not_per_event():
     """A decisão sai do caminho quente. Se ela fosse tomada por evento, o custo
     da própria decisão anularia o ganho."""
