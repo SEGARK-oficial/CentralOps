@@ -847,7 +847,10 @@ class Detection(Base):
     organization_id = Column(
         Integer, ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False
     )
-    # "scheduled_query" | "live_query" | "correlation"
+    # "scheduled_query" | "live_query" | "correlation" | "inflight"
+    # ``inflight`` (ADR-0015 Fase 1) = classificação single-event no pipeline de
+    # ingestão, emitida ANTES de o dado chegar ao SIEM. Difere de ``correlation``
+    # (multi-evento, ao final de uma busca federada) na origem e na latência.
     source = Column(String, nullable=False)
     source_query_id = Column(
         Integer, ForeignKey("predefined_queries.id", ondelete="SET NULL"), nullable=True
