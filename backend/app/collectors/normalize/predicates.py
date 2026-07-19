@@ -42,6 +42,8 @@ from dataclasses import dataclass
 from typing import Any, Literal, Mapping, Optional, Union
 
 import jmespath
+
+from .dotpath import compile_source
 from jmespath.parser import ParsedResult
 
 from .exceptions import MappingDefinitionError
@@ -251,7 +253,7 @@ def _compile_jmespath(
             f"recebeu {type(expr).__name__!r}"
         )
     try:
-        return jmespath.compile(expr), expr
+        return compile_source(expr), expr
     except Exception as exc:
         raise MappingDefinitionError(
             f"'when.{context}': JMESPath inválido {expr!r}: {exc}"

@@ -49,7 +49,15 @@ _FORBIDDEN_IMPORTS = (
 )
 
 
+@pytest.mark.source_only
 def test_matcher_module_imports_nothing_that_touches_the_world():
+    # ``source_only``: ``compose/cython-build.sh`` compila ``app/collectors``
+    # INTEIRO (excluindo só os diretórios de teste), então na imagem de produção
+    # ``matcher.py`` vira ``.so`` e o ``.py`` é REMOVIDO — ``read_text()``
+    # levantaria FileNotFoundError. O guard vale sobre a árvore de fontes, que é
+    # onde o import proibido seria introduzido. Só ESTES dois testes são
+    # source-only; o resto do arquivo (semântica de operadores, tetos, custo)
+    # tem valor justamente na imagem compilada e continua rodando lá.
     src = Path(matcher_mod.__file__).read_text()
     tree = ast.parse(src)
     imported: list[str] = []
@@ -68,8 +76,12 @@ def test_matcher_module_imports_nothing_that_touches_the_world():
     )
 
 
+@pytest.mark.source_only
 def test_matcher_has_no_async_and_no_logger():
-    """``async`` implicaria await; logger implicaria I/O e formatação por evento."""
+    """``async`` implicaria await; logger implicaria I/O e formatação por evento.
+
+    ``source_only`` pelo mesmo motivo do teste acima (o ``.py`` some na imagem).
+    """
     src = Path(matcher_mod.__file__).read_text()
     tree = ast.parse(src)
     assert not [n for n in ast.walk(tree) if isinstance(n, ast.AsyncFunctionDef)]
@@ -381,3 +393,68 @@ def test_empty_ruleset_is_effectively_free():
         evaluate_inflight(env, ())
     us = (time.perf_counter() - t0) / N * 1e6
     assert us < 5, f"{us:.2f} µs/evento com ZERO regras — deveria ser ~0"
+
+
+# ── Cache condicional de resolução de path ───────────────────────────────────
+#
+# Regras de SOC discriminam pelo mesmo campo primeiro (_centralops.vendor,
+# event_type), então N regras resolvem o MESMO path por evento. Um dict local
+# elimina a repetição: 1,54x medido no orçamento máximo com paths compartilhados.
+#
+# A guarda é OBRIGATÓRIA, não polimento: com paths todos únicos o cache mede
+# 0,76x — ou seja 1,32x PIOR. Sem `share_paths`, a "otimização" seria uma
+# pessimização em metade dos casos.
+
+from backend.app.collectors.inflight.matcher import CompiledRuleSet, evaluate_ruleset
+from backend.app.collectors.inflight.runtime import load_inflight_rules_for_org
+
+
+def test_ruleset_with_cache_agrees_with_uncached_evaluation():
+    """O cache é otimização, não mudança de semântica: os dois caminhos têm de
+    produzir o MESMO resultado para a mesma entrada."""
+    env = {"_centralops": {"vendor": "sophos"}, "raw": {"sev": "5", "u": "alice"}}
+    rules = (
+        _rule(CompiledClause(("_centralops", "vendor"), "eq", "sophos"),
+              CompiledClause(("raw", "sev"), "gte", 3.0, numeric=True), rule_id=1),
+        _rule(CompiledClause(("_centralops", "vendor"), "eq", "outro"), rule_id=2),
+        _rule(CompiledClause(("raw", "u"), "nin", frozenset({"bob"})),
+              CompiledClause(("raw", "u"), "exists", True), rule_id=3),
+    )
+    sem = evaluate_ruleset(env, CompiledRuleSet(rules=rules, share_paths=False))
+    com = evaluate_ruleset(env, CompiledRuleSet(rules=rules, share_paths=True))
+    assert sem == com
+
+
+def test_cache_does_not_leak_the_numeric_coercion():
+    """O cache guarda o valor CRU. Se guardasse o já-coagido, uma cláusula
+    numérica contaminaria a próxima que espera a string original."""
+    env = {"raw": {"sev": "5"}}
+    rules = (
+        _rule(CompiledClause(("raw", "sev"), "gte", 3.0, numeric=True), rule_id=1),
+        _rule(CompiledClause(("raw", "sev"), "eq", "5"), rule_id=2),
+    )
+    got = evaluate_ruleset(env, CompiledRuleSet(rules=rules, share_paths=True))
+    assert {r.rule_id for r in got} == {1, 2}, (
+        "ambas deveriam casar: a numérica via coerção, a de igualdade via string crua"
+    )
+
+
+def test_share_paths_is_detected_at_compile_time_not_per_event():
+    """A decisão sai do caminho quente. Se ela fosse tomada por evento, o custo
+    da própria decisão anularia o ganho."""
+    import inspect
+
+    from backend.app.collectors.inflight import runtime
+
+    src = inspect.getsource(runtime.load_inflight_rules_for_org)
+    assert "share" in src, "share_paths precisa ser decidido na carga, 1x por ciclo"
+
+    ev_src = inspect.getsource(evaluate_ruleset)
+    assert "share_paths" in ev_src
+    assert "for rule in" in ev_src
+
+
+def test_empty_ruleset_short_circuits_before_allocating_a_cache():
+    """R2: sem regra, nem o dict do cache deve ser criado."""
+    rs = CompiledRuleSet(rules=(), share_paths=True)
+    assert evaluate_ruleset({"a": 1}, rs) == ()

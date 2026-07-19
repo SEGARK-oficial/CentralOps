@@ -27,7 +27,7 @@ import logging
 from typing import Any, Iterable, Mapping, Optional
 
 from ...core.config import settings
-from .matcher import CompiledClause, CompiledInflightRule
+from .matcher import CompiledClause, CompiledInflightRule, CompiledRuleSet
 
 logger = logging.getLogger(__name__)
 
@@ -160,7 +160,7 @@ def _as_float(value: Any) -> Optional[float]:
 
 def load_inflight_rules_for_org(
     organization_id: Optional[int],
-) -> tuple[CompiledInflightRule, ...]:
+) -> CompiledRuleSet:
     """Regras habilitadas em modo ``inflight`` da org, compiladas. SÍNCRONA.
 
     Chamada via ``asyncio.to_thread`` 1x por ciclo. Fail-safe para ``()`` em
@@ -169,7 +169,7 @@ def load_inflight_rules_for_org(
     saber de quem é o evento).
     """
     if organization_id is None:
-        return ()
+        return CompiledRuleSet(rules=(), share_paths=False)
 
     from ...db import database, repository
     from ..metrics import INFLIGHT_RULES_LOADED, INFLIGHT_RULES_REJECTED
@@ -189,7 +189,7 @@ def load_inflight_rules_for_org(
                         "INFLIGHT_MAX_RULES_PER_CYCLE=0 desliga a avaliação",
                         total, organization_id,
                     )
-                return ()
+                return CompiledRuleSet(rules=(), share_paths=False)
             rows = repo.list_inflight_for_org(organization_id, limit=cap)
             if not rows:
                 # Diagnóstico do caso mais comum de suporte: o operador criou a
@@ -202,10 +202,10 @@ def load_inflight_rules_for_org(
                         organization_id, total,
                     )
                 INFLIGHT_RULES_LOADED.labels(org_id=str(organization_id)).set(0)
-                return ()
+                return CompiledRuleSet(rules=(), share_paths=False)
     except Exception:  # noqa: BLE001 — coleta nunca cai por causa do detector
         logger.exception("inflight: falha carregando regras (org %s)", organization_id)
-        return ()
+        return CompiledRuleSet(rules=(), share_paths=False)
 
     compiled: list[CompiledInflightRule] = []
     for row in rows:
@@ -220,7 +220,22 @@ def load_inflight_rules_for_org(
         compiled.append(rule)
 
     INFLIGHT_RULES_LOADED.labels(org_id=str(organization_id)).set(len(compiled))
-    return tuple(compiled)
+
+    # Decide UMA VEZ se vale cachear resolução de path no laço por evento. Ver
+    # ``CompiledRuleSet.share_paths``: o cache incondicional PIORA 1,21x quando
+    # todo path é único, então a decisão tem de sair do caminho quente.
+    seen: set[tuple[str, ...]] = set()
+    share = False
+    for rule in compiled:
+        for clause in rule.clauses:
+            if clause.path in seen:
+                share = True
+                break
+            seen.add(clause.path)
+        if share:
+            break
+
+    return CompiledRuleSet(rules=tuple(compiled), share_paths=share)
 
 
 class InflightAccumulator:

@@ -62,6 +62,8 @@ from dataclasses import dataclass
 from typing import Any, Dict, Literal, Mapping, Optional, Sequence, Union
 
 import jmespath
+
+from .dotpath import compile_source
 from jmespath.parser import ParsedResult
 
 from . import registry as _registry
@@ -278,7 +280,7 @@ def _compile_single_rule(
                 f"regra {target!r}: 'source' deve ser string JMESPath não-vazia"
             )
         try:
-            source_expr = jmespath.compile(raw_source)
+            source_expr = compile_source(raw_source)
             source_str = raw_source
         except Exception as exc:  # jmespath.exceptions.ParseError
             raise MappingDefinitionError(
@@ -352,7 +354,7 @@ def _compile_single_rule(
                     "source primário (ambos raw ou ambos extracted)."
                 )
             try:
-                compiled_list.append(jmespath.compile(fb_expr))
+                compiled_list.append(compile_source(fb_expr))
                 str_list.append(fb_expr)
             except Exception as exc:
                 raise MappingDefinitionError(
@@ -454,7 +456,7 @@ def _compile_preprocess_op(idx: int, item: Any) -> CompiledPreprocessOp:
             f"preprocess[{idx}]: 'source' é obrigatório e deve ser JMESPath string"
         )
     try:
-        compiled_source = jmespath.compile(source_raw)
+        compiled_source = compile_source(source_raw)
     except Exception as exc:
         raise MappingDefinitionError(
             f"preprocess[{idx}]: JMESPath inválido {source_raw!r}: {exc}"
@@ -575,6 +577,43 @@ def _compile_v2(payload: Mapping[str, Any]) -> CompiledRules:
     )
 
 
+def _log_fastpath_coverage(rules_or_dict: Any) -> None:
+    """Registra que fração das expressões ``source`` usa o fast-path de dot-path.
+
+    ADR-0015 Fase 2. O ganho do fast-path varia MUITO por vendor — medido, 1,79x
+    em ``sophos.detection`` e 1,03x em ``windows_event_log.security``, porque este
+    último usa expressões jmespath de verdade. Sem este diagnóstico a média
+    esconderia que um mapping inteiro não está sendo acelerado, e a primeira
+    hipótese diante de "o normalize deste cliente está lento" seria a errada.
+
+    Roda 1x por versão de mapping, na compilação (que é cacheada por LRU) — nunca
+    no caminho por evento. Log e não métrica de propósito: a razão é propriedade
+    ESTÁTICA do mapping, então um gauge seria uma constante re-publicada.
+    """
+    try:
+        import json as _json
+        import re as _re
+
+        from .dotpath import is_fast_path
+
+        blob = _json.dumps(rules_or_dict, default=str)
+        sources = _re.findall(r'"(?:source|fallback_source|when)"\s*:\s*"([^"]+)"', blob)
+        if not sources:
+            return
+        fast = sum(1 for e in sources if is_fast_path(e))
+        pct = fast / len(sources) * 100
+        # INFO no caminho bom, WARNING quando a maior parte NÃO acelera — é o
+        # sinal de que aquele mapping vai custar caro e o motivo é conhecido.
+        (logger.info if pct >= 50 else logger.warning)(
+            "normalize: fast-path de dot-path cobre %d/%d expressões (%.0f%%) "
+            "deste mapping%s",
+            fast, len(sources), pct,
+            "" if pct >= 50 else " — o restante usa jmespath e custa ~10x mais por resolução",
+        )
+    except Exception:  # noqa: BLE001 — diagnóstico jamais quebra a compilação
+        logger.debug("normalize: falha ao medir cobertura do fast-path", exc_info=True)
+
+
 def compile_rules(
     rules_or_dict: Union[Sequence[Any], Mapping[str, Any]],
     dsl_version: Optional[int] = None,
@@ -623,7 +662,9 @@ def compile_rules(
                 "DSL v2 espera um dict com 'rules' e 'preprocess', recebeu list/tuple. "
                 "Use dsl_version=1 para listas simples."
             )
-        return _compile_v1(rules_or_dict)
+        compiled = _compile_v1(rules_or_dict)
+        _log_fastpath_coverage(rules_or_dict)
+        return compiled
 
     if isinstance(rules_or_dict, Mapping):
         if dsl_version == 1:
@@ -631,7 +672,9 @@ def compile_rules(
                 "DSL v1 espera rules como list, got dict. "
                 "Use dsl_version=2 para o formato dict com 'preprocess'/'rules'."
             )
-        return _compile_v2(rules_or_dict)
+        compiled = _compile_v2(rules_or_dict)
+        _log_fastpath_coverage(rules_or_dict)
+        return compiled
 
     raise MappingDefinitionError(
         f"rules_or_dict deve ser list ou dict, recebeu {type(rules_or_dict).__name__}"
