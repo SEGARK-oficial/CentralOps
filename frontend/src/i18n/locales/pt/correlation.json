@@ -1,0 +1,286 @@
+{
+  "page": {
+    "eyebrow": "Detecção",
+    "badgeBeta": "Beta",
+    "title": "Regras de correlação",
+    "description": "Defina regras threshold cross-source para detectar padrões anômalos em múltiplos eventos. As regras são avaliadas ao final de cada busca federada, sobre os resultados dela.",
+    "actions": {
+      "newRule": "Nova regra",
+      "closeForm": "Fechar formulário"
+    },
+    "betaNotice": {
+      "title": "Beta — a avaliação não é contínua",
+      "body": "Uma regra habilitada só é avaliada quando uma <strong>busca federada termina</strong>, e apenas sobre os resultados daquela busca. O pipeline de ingestão não avalia regras e não há agendamento próprio: enquanto ninguém executar uma busca federada, nenhuma detecção de correlação é criada. Não use estas regras como sua única cobertura de detecção."
+    },
+    "kpi": {
+      "total": "Total de regras",
+      "enabled": "Habilitadas"
+    },
+    "loadError": {
+      "title": "Falha ao carregar regras"
+    },
+    "feedback": {
+      "successTitle": "Operação concluída",
+      "errorTitle": "Não foi possível concluir",
+      "dismissAriaLabel": "Fechar aviso",
+      "toggleEnabled": "Regra \"{{name}}\" habilitada.",
+      "toggleDisabled": "Regra \"{{name}}\" desabilitada — para de gerar novas detecções em até 1 ciclo de coleta.",
+      "createSuccess": "Regra de correlação criada com sucesso.",
+      "createError": "Falha ao criar regra.",
+      "updateSuccess": "Regra atualizada com sucesso.",
+      "updateError": "Falha ao atualizar regra.",
+      "deleteSuccess": "Regra removida com sucesso.",
+      "deleteError": "Falha ao remover regra."
+    },
+    "createCard": {
+      "title": "Nova regra",
+      "description": "Configure os critérios de correlação aplicados aos resultados de cada busca federada concluída."
+    },
+    "catalogCard": {
+      "title": "Catálogo de regras",
+      "description": "Gerencie as regras de correlação habilitadas na plataforma. Regras habilitadas entram na próxima busca federada."
+    },
+    "search": {
+      "placeholder": "Buscar por nome, descrição ou campo de agrupamento…",
+      "ariaLabel": "Buscar regras de correlação",
+      "resultCount": "{{visible}} de {{total}} regra(s)"
+    }
+  },
+  "table": {
+    "ariaLabel": "Lista de regras de correlação",
+    "column": {
+      "name": "Nome",
+      "status": "Status",
+      "severity": "Severidade",
+      "groupBy": "Agrupar por",
+      "minCount": "Mín. eventos",
+      "window": "Janela (s)",
+      "actions": "Ações"
+    },
+    "idLabel": "ID #{{id}}",
+    "toggle": {
+      "ariaLabelEnable": "Habilitar a regra {{name}}",
+      "ariaLabelDisable": "Desabilitar a regra {{name}}",
+      "tooltipInflight": "Para de gerar novas detecções em até 1 ciclo de coleta. Não remove as detecções já criadas.",
+      "tooltipDefault": "Para de ser avaliada na próxima busca federada.",
+      "applying": "Aplicando…",
+      "statusChangeError": "Falha ao alterar o status"
+    },
+    "status": {
+      "enabled": "Habilitada",
+      "disabled": "Desabilitada"
+    },
+    "actions": {
+      "edit": "Editar",
+      "remove": "Remover"
+    },
+    "loading": "Carregando regras...",
+    "empty": {
+      "title": "Nenhuma regra de correlação",
+      "description": "Crie regras para detectar padrões cross-source e gerar detecções automaticamente."
+    },
+    "mobile": {
+      "severity": "Severidade: {{value}}",
+      "minCount": "Mín: {{value}} eventos",
+      "window": "Janela: {{value}}s",
+      "groupBy": "Agrupar:"
+    },
+    "footer": {
+      "label": "Regras cadastradas"
+    },
+    "deleteDialog": {
+      "title": "Remover regra de correlação",
+      "description": "Excluir a regra <strong>{{name}}</strong>? Detecções futuras geradas por ela serão interrompidas.",
+      "confirmLabel": "Excluir regra"
+    }
+  },
+  "form": {
+    "field": {
+      "name": {
+        "label": "Nome da regra"
+      },
+      "description": {
+        "label": "Descrição"
+      },
+      "status": {
+        "label": "Status"
+      },
+      "severity": {
+        "label": "Severidade (OCSF)"
+      },
+      "groupBy": {
+        "label": "Agrupar por (dotted-path)",
+        "placeholder": "Ex: source.ip"
+      },
+      "minCount": {
+        "label": "Mín. de eventos"
+      },
+      "window": {
+        "label": "Janela (segundos)",
+        "helperText": "Exige um campo de timestamp abaixo."
+      },
+      "suppression": {
+        "label": "Supressão (segundos)"
+      },
+      "timestamp": {
+        "label": "Campo de timestamp",
+        "placeholder": "Ex: event.timestamp",
+        "helperText": "Campo do evento usado para aplicar a janela. Sem ele a janela é desligada e a regra conta todos os eventos do grupo no resultado da busca."
+      }
+    },
+    "status": {
+      "enabled": "Habilitada",
+      "disabled": "Desabilitada"
+    },
+    "validation": {
+      "nameRequired": "Nome é obrigatório",
+      "nameTooShort": "Use pelo menos 3 caracteres",
+      "groupByRequired": "Campo de agrupamento é obrigatório",
+      "minCountMin": "Mínimo de 1 evento",
+      "windowMin": "Janela mínima de 10 segundos",
+      "timestampRequired": "Obrigatório quando há janela — sem ele a janela é ignorada"
+    },
+    "actions": {
+      "cancel": "Cancelar"
+    }
+  },
+  "createForm": {
+    "field": {
+      "name": {
+        "placeholder": "Ex: Múltiplos logins falhos"
+      },
+      "description": {
+        "placeholder": "Contexto e objetivo da regra"
+      },
+      "groupBy": {
+        "helperText": "Campo do evento usado para agrupar ocorrências na janela."
+      },
+      "suppression": {
+        "helperText": "Intervalo mínimo entre detecções repetidas."
+      }
+    },
+    "actions": {
+      "submit": "Criar regra"
+    }
+  },
+  "editForm": {
+    "modalTitle": "Editar regra de correlação",
+    "actions": {
+      "submit": "Salvar alterações"
+    }
+  },
+  "severity": {
+    "options": {
+      "1": "1 — Informational",
+      "2": "2 — Low",
+      "3": "3 — Medium",
+      "4": "4 — High",
+      "5": "5 — Critical",
+      "6": "6 — Fatal"
+    }
+  },
+  "whereFilter": {
+    "heading": "Filtros (where)",
+    "empty": "Nenhum filtro adicionado — a regra avaliará todos os eventos.",
+    "field": {
+      "label": "Campo",
+      "placeholder": "ex: event.severity",
+      "ariaLabel": "Campo do filtro {{index}}"
+    },
+    "operator": {
+      "label": "Operador",
+      "ariaLabel": "Operador do filtro {{index}}"
+    },
+    "value": {
+      "label": "Valor",
+      "placeholder": "ex: critical",
+      "ariaLabel": "Valor do filtro {{index}}"
+    },
+    "remove": "Remover",
+    "removeAriaLabel": "Remover filtro {{index}}",
+    "add": "Adicionar filtro",
+    "op": {
+      "eq": "= (igual)",
+      "ne": "≠ (diferente)",
+      "contains": "contém",
+      "gt": "> (maior que)",
+      "lt": "< (menor que)",
+      "gte": "≥ (maior ou igual)",
+      "lte": "≤ (menor ou igual)"
+    }
+  },
+  "preview": {
+    "heading": "Testar contra amostras",
+    "description": "Roda esta regra contra uma amostra real de eventos já recebidos para o vendor e tipo de evento escolhidos — sem persistir nada. Cada teste abre uma nova consulta ao backend; não é automático.",
+    "vendor": {
+      "label": "Vendor",
+      "placeholder": "ex: wazuh",
+      "helperText": "Obrigatório — a amostra é indexada por vendor + tipo de evento.",
+      "loadError": "Não foi possível carregar as integrações ativas — informe o vendor manualmente."
+    },
+    "eventType": {
+      "label": "Tipo de evento",
+      "placeholder": "ex: authentication",
+      "helperText": "Obrigatório — a amostra é indexada por vendor + tipo de evento.",
+      "emptyForVendor": "Nenhum tipo de evento catalogado para este vendor — informe manualmente."
+    },
+    "actions": {
+      "run": "Testar contra amostras",
+      "running": "Testando…"
+    },
+    "disabledReason": {
+      "noWhere": "Adicione ao menos um filtro (where) para testar.",
+      "noVendorOrEventType": "Escolha vendor e tipo de evento para testar."
+    },
+    "freshness": {
+      "window": "Amostras entre {{oldest}} e {{newest}}.",
+      "singleSample": "Amostra única, capturada em {{time}}.",
+      "unknown": "Não foi possível determinar a janela temporal das amostras.",
+      "staleWarningTitle": "Amostras antigas",
+      "staleWarning": "A amostra mais recente tem mais de {{days}} dia(s). O reservoir não expira sozinho — isto pode ser uma integração parada, não tráfego vivo."
+    },
+    "summary": {
+      "matched": "{{matched}} de {{total}} amostra(s) casaram com a regra completa"
+    },
+    "state": {
+      "empty": {
+        "title": "Sem amostras",
+        "description": "Ainda não há eventos amostrados para este vendor + tipo de evento. Confirme se a integração está ativa e enviando dados, ou tente novamente em instantes."
+      },
+      "unavailable": {
+        "title": "Telemetria indisponível",
+        "description": "Não foi possível consultar o reservoir de amostras agora — o backend de telemetria está fora do ar. Isto NÃO significa que a regra não casaria: tente novamente."
+      },
+      "invalid": {
+        "title": "Regra inválida",
+        "description": "Esta regra não compila e nunca seria avaliada.",
+        "reason": {
+          "bad_json": "O filtro (where) tem um formato inválido — revise campo, operador e valor de cada linha.",
+          "empty_where": "A regra não tem nenhum filtro (where) — adicione ao menos um antes de testar.",
+          "unknown_op": "Um dos operadores usados não é suportado pelo motor de correlação.",
+          "over_cap": "A regra tem mais filtros do que o motor de correlação suporta — reduza o número de cláusulas.",
+          "fallback": "Motivo: {{reason}}"
+        }
+      },
+      "requestError": {
+        "title": "Falha ao testar a regra",
+        "description": "Não foi possível completar a chamada de teste."
+      }
+    },
+    "clauses": {
+      "heading": "Veredito por cláusula",
+      "column": {
+        "field": "Campo",
+        "operator": "Operador",
+        "pathResolved": "Caminho resolvido",
+        "matched": "Casou",
+        "observed": "Valores observados"
+      },
+      "pathResolvedValue": "{{resolved}} de {{total}}",
+      "matchedValue": "{{matched}} de {{total}}",
+      "pathNotFound": "Campo \"{{path}}\" não encontrado em nenhuma amostra — o caminho pode estar errado.",
+      "pathFoundNoMatch": "Campo existe em {{resolved}} de {{total}} amostra(s), mas o valor não bate com o operador.",
+      "noObserved": "—"
+    }
+  }
+}
