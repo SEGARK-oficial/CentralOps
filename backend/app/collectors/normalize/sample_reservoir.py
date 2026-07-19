@@ -84,13 +84,41 @@ async def peek(
     do PRÓPRIO tenant. Usado pelo dry-run da UI: chama isto +
     aplica a versão candidata do mapping para mostrar diff vs a atual.
     """
+    try:
+        return await peek_strict(
+            redis, organization_id, vendor, event_type, limit=limit
+        )
+    except Exception as exc:  # noqa: BLE001 — contrato best-effort do hot path
+        logger.warning(
+            "sample_reservoir: falha ao ler (org=%s %s/%s): %s",
+            organization_id, vendor, event_type, exc,
+        )
+        return []
+
+
+async def peek_strict(
+    redis: "redis_async.Redis",
+    organization_id: int,
+    vendor: str,
+    event_type: str,
+    *,
+    limit: Optional[int] = None,
+) -> List[dict]:
+    """Como :func:`peek`, mas PROPAGA a falha de Redis em vez de devolver ``[]``.
+
+    ADR-0015 Fase 3. Para o hot path, engolir o erro é correto — o reservoir é
+    advisory e não pode derrubar a coleta. Mas para o PREVIEW de regra a mesma
+    escolha seria destrutiva: "Redis fora do ar" e "reservoir vazio" produziriam
+    a mesma tela, e o autor concluiria que sua regra não casa nada quando na
+    verdade não houve consulta nenhuma. Seria o décimo-segundo motivo silencioso
+    num produto cuja fase inteira existe para eliminá-los.
+
+    O chamador do preview traduz a exceção em ``state="unavailable"`` + HTTP 503;
+    ``peek`` mantém o contrato antigo delegando aqui dentro do seu try/except.
+    """
     key = _key(organization_id, vendor, event_type)
     end = (limit - 1) if limit and limit > 0 else -1
-    try:
-        raw_items = await redis.lrange(key, 0, end)
-    except Exception as exc:
-        logger.warning("sample_reservoir: falha ao ler (%s): %s", key, exc)
-        return []
+    raw_items = await redis.lrange(key, 0, end)
 
     out: List[dict] = []
     for item in raw_items or []:
