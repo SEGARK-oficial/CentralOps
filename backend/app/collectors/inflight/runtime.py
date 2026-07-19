@@ -50,6 +50,22 @@ NEGATIVE_OPS = frozenset({"ne", "nin"})
 #: conter valor vindo de evento ou nome de regra (esses vão no log).
 REJECT_REASONS = ("bad_json", "empty_where", "unknown_op", "over_cap")
 
+#: Granularidade dos contadores de disparo por regra (``observability_store``,
+#: kind="rule") — HORÁRIA, não per-minute (default do store). Uma janela de
+#: 24h em buckets de minuto seria 1440 campos no hash por regra; horária são
+#: 24 — a mesma janela, hash 60x menor.
+RULE_METRIC_BUCKET_SECONDS = 60 * 60
+
+#: TTL dos contadores de disparo por regra: cobre a janela de leitura de 24h
+#: (``RULE_METRIC_WINDOW_MINUTES``) com 1h de folga, para o bucket mais antigo
+#: da janela nunca ter expirado no momento da leitura. O default do store
+#: (3h) é insuficiente por construção para uma janela de 24h — é exatamente o
+#: bug que estes dois valores existem para fechar.
+RULE_METRIC_TTL_SECONDS = 25 * 60 * 60
+
+#: Janela que a UI lê — "disparos nas últimas 24h" por regra.
+RULE_METRIC_WINDOW_MINUTES = 24 * 60
+
 
 def validate_where_json(raw: Optional[str]) -> tuple[list[dict], Optional[str]]:
     """``(cláusulas, None)`` ou ``([], razão)``. Público: o CRUD do EE deve
@@ -336,6 +352,32 @@ def _flush_sync(pending: dict[str, dict[str, Any]], organization_id: int) -> int
     return written
 
 
+def _record_rule_metric(metric: str, rule_id: int, count: int) -> None:
+    """Escreve UM contador de regra no observability_store (kind="rule").
+    Best-effort e nunca deixa vazar: ``observability_store.record_counter`` já
+    engole exceções internamente (é o contrato do módulo), mas esta função
+    ainda envolve a chamada — inclusive o próprio ``import`` — em try/except,
+    porque roda dentro do ``finally`` de ``flush_inflight`` e uma falha aqui
+    JAMAIS pode mascarar a exceção original do ciclo de coleta nem derrubá-lo.
+    """
+    try:
+        from .. import observability_store as obs
+
+        obs.record_counter(
+            "rule",
+            str(rule_id),
+            metric,
+            float(count),
+            ttl_seconds=RULE_METRIC_TTL_SECONDS,
+            bucket_seconds=RULE_METRIC_BUCKET_SECONDS,
+        )
+    except Exception:  # noqa: BLE001 — best-effort, nunca derruba o flush
+        logger.debug(
+            "inflight: falha gravando '%s' no observability_store (rule %s)",
+            metric, rule_id, exc_info=True,
+        )
+
+
 async def flush_inflight(
     acc: Optional[InflightAccumulator], organization_id: Optional[int]
 ) -> None:
@@ -346,6 +388,18 @@ async def flush_inflight(
     solta as claims de dedupe, o retry re-busca os eventos e ``claim`` os
     descarta como duplicados. Sem flush aqui, os matches morreriam em memória
     sem log nem métrica.
+
+    Além do instrumento OTel (``INFLIGHT_MATCHES``, no-op quando
+    ``OTEL_ENABLED=False`` — o default da instalação padrão), espelha
+    ``acc.matches``/``acc.overflow`` no ``observability_store`` (Redis,
+    kind="rule") para a UI mostrar "disparos nas últimas 24h" por regra sem
+    depender de um OTel Collector estar configurado.
+
+    DUAS métricas, não uma: ``matches`` sozinho ao lado de uma lista de
+    Detections muito menor pareceria produto quebrado, mas a divergência é
+    ESTRUTURAL (dedup + teto de chaves por regra/ciclo + group_by não
+    resolvido) — matches alto com ``overflow`` alto é o diagnóstico de que a
+    cardinalidade do group_by estourou o teto, não um bug.
     """
     if acc is None or organization_id is None:
         return
@@ -365,6 +419,9 @@ async def flush_inflight(
 
     for rule_id, count in acc.matches.items():
         INFLIGHT_MATCHES.labels(rule_id=str(rule_id)).inc(count)
+        _record_rule_metric("matches", rule_id, count)
+    for rule_id, count in acc.overflow.items():
+        _record_rule_metric("overflow", rule_id, count)
     for reason, count in acc.errors.items():
         INFLIGHT_ERRORS.labels(reason=reason).inc(count)
 

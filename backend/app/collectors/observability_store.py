@@ -34,7 +34,8 @@ from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
-_TTL_SECONDS = 3 * 60 * 60  # 3h sliding window of minute buckets
+_TTL_SECONDS = 3 * 60 * 60  # 3h sliding window — DEFAULT ttl for callers that don't override
+_BUCKET_SECONDS = 60  # per-minute buckets — DEFAULT granularity for callers that don't override
 _TAP_MAX = 50  # live data-tap ring size per destination
 _client = None
 _client_pid: Optional[int] = None
@@ -45,8 +46,21 @@ def _now() -> float:
     return time.time()
 
 
+def _bucket_epoch(now: Optional[float], bucket_seconds: int) -> int:
+    """Epoch of the bucket ``now`` falls into, aligned to ``bucket_seconds``.
+
+    Generalizes the old per-minute-only ``_minute()``: a 24h read window over
+    per-minute buckets means 1440 hash fields per key (and a TTL that must
+    outlive all of them); an hourly bucket for the same window is 24 fields.
+    Callers pick the granularity per call via ``record_counter``/
+    ``read_window_total``'s ``bucket_seconds`` kwarg — the default (60s)
+    reproduces the original per-minute behaviour byte-for-byte.
+    """
+    return int((now if now is not None else _now()) // bucket_seconds) * bucket_seconds
+
+
 def _minute(now: Optional[float]) -> int:
-    return int((now if now is not None else _now()) // 60) * 60
+    return _bucket_epoch(now, _BUCKET_SECONDS)
 
 
 def _redis():
@@ -79,16 +93,33 @@ def _gauge_key(kind: str, oid: str) -> str:
 # ── Writes (best-effort) ────────────────────────────────────────────────
 
 
-def record_counter(kind: str, oid: str, metric: str, value: float = 1.0, *, now: Optional[float] = None) -> None:
+def record_counter(
+    kind: str,
+    oid: str,
+    metric: str,
+    value: float = 1.0,
+    *,
+    now: Optional[float] = None,
+    ttl_seconds: int = _TTL_SECONDS,
+    bucket_seconds: int = _BUCKET_SECONDS,
+) -> None:
+    """Accumulate ``value`` into the current bucket of ``metric``. Best-effort
+    (never raises). ``ttl_seconds``/``bucket_seconds`` default to the original
+    3h/per-minute pair — pass them explicitly for a different retention/
+    granularity profile (e.g. hourly buckets with a 25h TTL for a 24h read
+    window; per-minute buckets would need 1440 fields per hash for the same
+    window). A caller that reads this series back MUST pass the matching
+    ``bucket_seconds`` to ``read_window_total``/``read_series``, or the window
+    cutoff will be computed against the wrong epoch alignment."""
     if value == 0:
         return
     try:
-        m = str(_minute(now))
+        b = str(_bucket_epoch(now, bucket_seconds))
         key = _key(kind, oid, metric)
         r = _redis()
         pipe = r.pipeline()
-        pipe.hincrbyfloat(key, m, float(value))
-        pipe.expire(key, _TTL_SECONDS)
+        pipe.hincrbyfloat(key, b, float(value))
+        pipe.expire(key, ttl_seconds)
         pipe.execute()
     except Exception:
         logger.debug("observability_store.record_counter falhou (%s/%s/%s)", kind, oid, metric, exc_info=True)
@@ -116,11 +147,19 @@ def set_gauge(kind: str, oid: str, name: str, value: object) -> None:
 
 
 def read_series(
-    kind: str, oid: str, metrics: List[str], *, minutes: int = 60, now: Optional[float] = None
+    kind: str,
+    oid: str,
+    metrics: List[str],
+    *,
+    minutes: int = 60,
+    now: Optional[float] = None,
+    bucket_seconds: int = _BUCKET_SECONDS,
 ) -> Dict[str, List[list]]:
-    """{metric: [[minute_epoch, value], ...]} for the last ``minutes``. The
-    synthetic metric ``latency_avg`` is derived from latency_sum/latency_count."""
-    cutoff = _minute(now) - minutes * 60
+    """{metric: [[bucket_epoch, value], ...]} for the last ``minutes``. The
+    synthetic metric ``latency_avg`` is derived from latency_sum/latency_count.
+    ``bucket_seconds`` must match what ``record_counter`` used to write the
+    series (default: per-minute, same as before this kwarg existed)."""
+    cutoff = _bucket_epoch(now, bucket_seconds) - minutes * 60
     raw_metrics = set(metrics)
     if "latency_avg" in raw_metrics:
         raw_metrics.update({"latency_sum", "latency_count"})
@@ -159,12 +198,80 @@ def read_series(
     return out
 
 
+def _warn_if_window_exceeds_ttl(
+    kind: str, oid: str, metric: str, *, minutes: int, ttl_seconds: int
+) -> None:
+    """A window longer than the TTL used to write the series will silently
+    under-count (the oldest buckets have already expired in Redis) — this is
+    exactly the "3h TTL, 24h window" bug this module used to have. Diagnostic
+    only (debug level): the caller is responsible for keeping the two in sync,
+    this just makes the mismatch discoverable instead of a mystery zero."""
+    if minutes * 60 > ttl_seconds:
+        logger.debug(
+            "observability_store: janela de %d min pedida > TTL de %d s "
+            "configurado (%s/%s/%s) — buckets fora da janela retida já "
+            "expiraram no Redis; a soma pode estar sub-contada",
+            minutes, ttl_seconds, kind, oid, metric,
+        )
+
+
 def read_window_total(
-    kind: str, oid: str, metric: str, *, minutes: int, now: Optional[float] = None
+    kind: str,
+    oid: str,
+    metric: str,
+    *,
+    minutes: int,
+    now: Optional[float] = None,
+    bucket_seconds: int = _BUCKET_SECONDS,
+    ttl_seconds: int = _TTL_SECONDS,
 ) -> float:
-    """Soma do counter ``metric`` na janela de ``minutes`` (0.0 em erro/sem dado)."""
-    series = read_series(kind, oid, [metric], minutes=minutes, now=now)
+    """Soma do counter ``metric`` na janela de ``minutes`` (0.0 em erro/sem dado).
+
+    Best-effort DE PROPÓSITO — qualquer falha de leitura (Redis fora do ar,
+    timeout, ...) vira ``0.0``, INDISTINGUÍVEL de "a série existe e soma zero".
+    Quando essa ambiguidade importa (ex.: contador de disparos de regra, onde
+    um operador vendo "0" precisa saber se a regra está muda ou se a leitura
+    falhou), use ``read_window_total_strict``.
+
+    ``bucket_seconds``/``ttl_seconds`` devem espelhar o que ``record_counter``
+    usou para escrever a série (defaults = comportamento original: per-minute/
+    3h)."""
+    _warn_if_window_exceeds_ttl(kind, oid, metric, minutes=minutes, ttl_seconds=ttl_seconds)
+    series = read_series(kind, oid, [metric], minutes=minutes, now=now, bucket_seconds=bucket_seconds)
     return float(sum(v for _, v in series.get(metric, [])))
+
+
+def read_window_total_strict(
+    kind: str,
+    oid: str,
+    metric: str,
+    *,
+    minutes: int,
+    now: Optional[float] = None,
+    bucket_seconds: int = _BUCKET_SECONDS,
+    ttl_seconds: int = _TTL_SECONDS,
+) -> float:
+    """Como ``read_window_total``, mas PROPAGA qualquer falha de leitura (Redis
+    indisponível, timeout, resposta corrompida) em vez de mascará-la como
+    ``0.0``.
+
+    ``read_window_total``/``read_series`` são best-effort de propósito (nunca
+    podem derrubar um dashboard) — mas isso faz ``0.0`` ambíguo: tanto "a regra
+    não disparou na janela" quanto "não consegui falar com o Redis" produzem o
+    mesmo zero. Para contadores onde essa distinção importa — ex.: "disparos
+    nas últimas 24h" por regra de correlação, onde "0 disparos" e "não sei"
+    NUNCA podem parecer a mesma coisa para o operador — o chamador usa esta
+    função, captura a exceção NO SEU nível e devolve ``None`` (nunca ``0``)
+    para a UI renderizar "—" com tooltip de erro.
+
+    Soma direta do hash de um único counter — não passa por ``read_series``
+    (que engole exceções por design) e não suporta métricas sintéticas como
+    ``latency_avg``; para essas, use ``read_series``."""
+    _warn_if_window_exceeds_ttl(kind, oid, metric, minutes=minutes, ttl_seconds=ttl_seconds)
+    cutoff = _bucket_epoch(now, bucket_seconds) - minutes * 60
+    r = _redis()
+    raw = r.hgetall(_key(kind, oid, metric)) or {}
+    return float(sum(float(v) for b, v in raw.items() if int(b) >= cutoff))
 
 
 def read_window_rate(
