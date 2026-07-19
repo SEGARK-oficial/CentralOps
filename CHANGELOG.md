@@ -1,5 +1,37 @@
 # Changelog
 
+## [2.2.0](https://github.com/SEGARK-oficial/CentralOps/compare/v2.1.0...v2.2.0) (2026-07-19)
+
+
+### Features
+
+* **auth:** add correlation.preview, never granted to read-only roles ([925e971](https://github.com/SEGARK-oficial/CentralOps/commit/925e971f05856dd8cb00ff65b13c7aece54a2a79))
+* **capture:** record every event outcome, not just successful deliveries ([d6136e9](https://github.com/SEGARK-oficial/CentralOps/commit/d6136e9687d7729026e26e220811929fb5b40e83))
+* **i18n:** add the correlation namespace in pt, en and es ([253fc56](https://github.com/SEGARK-oficial/CentralOps/commit/253fc56a2a5e2a1568cf588c63e2725065321f24))
+* **inflight:** classify events in the pipeline, before they reach the SIEM ([428e337](https://github.com/SEGARK-oficial/CentralOps/commit/428e337199f5311a033e757062ac17c8b0d71e91))
+* **inflight:** preview a rule against real samples without persisting anything ([184efd9](https://github.com/SEGARK-oficial/CentralOps/commit/184efd9ddf655760d80d8d676344b8a8bb96444a))
+* **observability:** per-rule 24h counters, which the 3h TTL made impossible ([66ab079](https://github.com/SEGARK-oficial/CentralOps/commit/66ab079839bcef5e8242c83c5edd36c520d671d9))
+* **routes:** expose the volume-reduction levers end to end ([fcf6044](https://github.com/SEGARK-oficial/CentralOps/commit/fcf60446dd3f845dee2ede819a2423aa47a7f6c1))
+
+
+### Bug Fixes
+
+* **capture-ui:** align the outcome vocabulary with the backend enum ([9104a60](https://github.com/SEGARK-oficial/CentralOps/commit/9104a60863989ad15a9b144df2a06997428cbdbb))
+* **contract:** expose eval_mode to the client and name inflight as a Detection source ([4c7f0f8](https://github.com/SEGARK-oficial/CentralOps/commit/4c7f0f87a5fffb4682c3f0771512591b85af7640))
+* **correlation:** normalise timestamps to UTC and fail closed on a broken where ([440a69e](https://github.com/SEGARK-oficial/CentralOps/commit/440a69e468b5be8a3117c16523f193273ad602d3))
+* **dedupe:** cut the TTL to 1 day, unify its default, and surface Redis eviction ([ddaf54d](https://github.com/SEGARK-oficial/CentralOps/commit/ddaf54d2589c52abe13714d6330f28d5cf3d696b))
+* **dedupe:** release unsettled claims on every data plane, not just kafka ([ac1a246](https://github.com/SEGARK-oficial/CentralOps/commit/ac1a2466f586ec0724169ccc4b7eb35e48de688f))
+* **flow:** attach the wheel-zoom listener as non-passive ([fb0817a](https://github.com/SEGARK-oficial/CentralOps/commit/fb0817a87ed8b72f6d94ce11f3f69630e56f146c))
+* **inflight:** implement contains, report rule truncation, and unbreak the cython sweep ([a31b9c0](https://github.com/SEGARK-oficial/CentralOps/commit/a31b9c05b63bbe421a67cf8c5bacc78a3804350b))
+* **providers:** advertise spec_kinds by runtime availability, not static catalog ([af00344](https://github.com/SEGARK-oficial/CentralOps/commit/af0034418c6fc3ca3f179939fb4828b245c53cd5))
+* **quarantine:** cap writes per reason per cycle and keep the metric faithful ([7c13cfa](https://github.com/SEGARK-oficial/CentralOps/commit/7c13cfa05215a21680f7fad4b02a39ced4cd8412))
+* **threat-intel:** drop the dead re-export that made the package unimportable ([84afcf8](https://github.com/SEGARK-oficial/CentralOps/commit/84afcf82aae0b88794b09eec89ce3b1669bddacb))
+
+
+### Performance Improvements
+
+* **normalize:** resolve simple dot-paths without the jmespath interpreter ([2034852](https://github.com/SEGARK-oficial/CentralOps/commit/20348527890f4f415569da643836595ed4a667b2))
+
 ## [2.1.0](https://github.com/SEGARK-oficial/CentralOps/compare/v2.0.0...v2.1.0) (2026-07-18)
 
 
