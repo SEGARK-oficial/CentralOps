@@ -72,6 +72,8 @@ import type {
   CorrelationRuleRead,
   CorrelationRuleCreate,
   CorrelationRuleUpdate,
+  CorrelationRulePreviewRequest,
+  CorrelationRulePreviewResult,
   CaptureSession,
   CaptureSessionList,
   CaptureEventList,
@@ -2252,6 +2254,19 @@ export async function updateCorrelationRule(id: number, data: CorrelationRuleUpd
 export async function deleteCorrelationRule(id: number) {
   return apiRequest<void>(`${CORRELATION_RULES_BASE}/${id}`, {
     method: "DELETE",
+  })
+}
+
+/**
+ * Testa uma regra (ainda não salva) contra o reservoir de amostras reais de
+ * `vendor`+`event_type` (ADR-0015, Fase 3). NUNCA persiste nada — cada chamada
+ * abre uma conexão Redis nova no backend, por isso o caller (UI) só deve
+ * disparar isto num clique explícito, nunca em auto-run por keystroke.
+ */
+export async function previewCorrelationRule(data: CorrelationRulePreviewRequest) {
+  return apiRequest<CorrelationRulePreviewResult>(`${CORRELATION_RULES_BASE}/preview`, {
+    method: "POST",
+    body: JSON.stringify(data),
   })
 }
 

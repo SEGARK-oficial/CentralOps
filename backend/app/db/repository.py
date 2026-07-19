@@ -1936,6 +1936,67 @@ class CorrelationRuleRepository:
             .all()
         )
 
+    def list_inflight_for_org(
+        self, organization_id: int, limit: int
+    ) -> list[models.CorrelationRule]:
+        """Regras em modo ``inflight`` da org (ADR-0015 Fase 1).
+
+        Método SEPARADO de ``list_enabled_for_org`` de propósito: aquele é o
+        caminho batch/EE e não pode mudar de comportamento. Ordenado por ``id``
+        para que a compilação seja determinística entre workers — duas réplicas
+        avaliando regras em ordens diferentes produziriam Detections com
+        ``first_seen`` divergente sob concorrência.
+
+        ``limit`` é teto DURO de avaliação por ciclo; ``max(0, ...)`` e não
+        ``max(1, ...)`` porque 0 é o kill-switch de ambiente.
+        """
+        return (
+            self.db.query(models.CorrelationRule)
+            .filter(
+                models.CorrelationRule.organization_id == organization_id,
+                models.CorrelationRule.enabled.is_(True),
+                models.CorrelationRule.eval_mode == "inflight",
+            )
+            .order_by(models.CorrelationRule.id.asc())
+            .limit(max(0, limit))
+            .all()
+        )
+
+    def count_inflight_for_org(self, organization_id: int) -> int:
+        """Quantas regras EM VOO habilitadas a org tem, sem o teto por ciclo.
+
+        Existe para tornar visível o truncamento: ``list_inflight_for_org``
+        aplica ``INFLIGHT_MAX_RULES_PER_CYCLE`` com ``order_by(id ASC)``, então
+        acima do teto as regras descartadas são as mais RECENTES. Comparar este
+        total com o teto é a única forma de o operador saber que a regra que ele
+        acabou de criar não está sendo avaliada.
+        """
+        return (
+            self.db.query(models.CorrelationRule)
+            .filter(
+                models.CorrelationRule.organization_id == organization_id,
+                models.CorrelationRule.enabled.is_(True),
+                models.CorrelationRule.eval_mode == "inflight",
+            )
+            .count()
+        )
+
+    def count_enabled_for_org(self, organization_id: int) -> int:
+        """Quantas regras habilitadas a org tem, INDEPENDENTE de ``eval_mode``.
+
+        Existe só para o diagnóstico: quando nenhuma regra em voo é carregada,
+        a diferença entre "a org não tem regra" e "a org tem 12 regras, todas em
+        modo batch" é a resposta ao ticket de suporte mais provável desta fase.
+        """
+        return (
+            self.db.query(models.CorrelationRule)
+            .filter(
+                models.CorrelationRule.organization_id == organization_id,
+                models.CorrelationRule.enabled.is_(True),
+            )
+            .count()
+        )
+
     def count_for_org(self, organization_id: int) -> int:
         return (
             self.db.query(func.count(models.CorrelationRule.id))
@@ -2958,6 +3019,11 @@ class RouteRepository:
                 if getattr(row, "pii_redaction", None)
                 else None
             ),
+            "protect_detection": bool(row.protect_detection),
+            "sample_percent": int(row.sample_percent),
+            "suppress_key": row.suppress_key,
+            "suppress_allow": int(row.suppress_allow),
+            "suppress_window_s": int(row.suppress_window_s),
             "enabled": bool(row.enabled),
             "organization_id": int(row.organization_id) if row.organization_id is not None else None,
         }
@@ -2988,6 +3054,15 @@ class RouteRepository:
         canary_percent: int = 100,
         transform_ref: str | None = None,
         pii_redaction: object = None,
+        # ── redução de volume (ADR-0015) ────────────────────────────
+        # Defaults ESPELHAM ``models.Route``: protect_detection=True é o
+        # fail-safe (protege por default, opt-out explícito); os demais
+        # default pra "sem redução" (byte-idêntico).
+        protect_detection: bool = True,
+        sample_percent: int = 100,
+        suppress_key: str | None = None,
+        suppress_allow: int = 0,
+        suppress_window_s: int = 30,
         organization_id: int | None = None,
         actor: str | None = None,
     ) -> models.Route:
@@ -3001,6 +3076,11 @@ class RouteRepository:
             canary_percent=canary_percent,
             transform_ref=transform_ref,
             pii_redaction=self._dumps(pii_redaction) if pii_redaction else None,
+            protect_detection=protect_detection,
+            sample_percent=sample_percent,
+            suppress_key=suppress_key,
+            suppress_allow=suppress_allow,
+            suppress_window_s=suppress_window_s,
             enabled=enabled,
             organization_id=organization_id,
         )
@@ -3024,6 +3104,17 @@ class RouteRepository:
         canary_percent: object = _UNSET,
         transform_ref: object = _UNSET,
         pii_redaction: object = _UNSET,
+        # ── redução de volume (ADR-0015) ────────────────────────────
+        # ``_UNSET`` (não passado) = mantém o valor atual da row — inclui
+        # ``protect_detection``: ausência NUNCA rebaixa o fail-safe pra
+        # False. ``suppress_key`` aceita ``None`` EXPLÍCITO (distinto de
+        # ``_UNSET``) pra limpar a chave — o caller (router) é quem faz
+        # essa distinção via ``model_fields_set``.
+        protect_detection: object = _UNSET,
+        sample_percent: object = _UNSET,
+        suppress_key: object = _UNSET,
+        suppress_allow: object = _UNSET,
+        suppress_window_s: object = _UNSET,
         enabled: object = _UNSET,
         organization_id: object = _UNSET,
         actor: str | None = None,
@@ -3053,6 +3144,16 @@ class RouteRepository:
             row.pii_redaction = (  # type: ignore[assignment]
                 self._dumps(pii_redaction) if pii_redaction else None
             )
+        if protect_detection is not _UNSET:
+            row.protect_detection = protect_detection  # type: ignore[assignment]
+        if sample_percent is not _UNSET:
+            row.sample_percent = sample_percent  # type: ignore[assignment]
+        if suppress_key is not _UNSET:
+            row.suppress_key = suppress_key  # type: ignore[assignment]
+        if suppress_allow is not _UNSET:
+            row.suppress_allow = suppress_allow  # type: ignore[assignment]
+        if suppress_window_s is not _UNSET:
+            row.suppress_window_s = suppress_window_s  # type: ignore[assignment]
         if enabled is not _UNSET:
             row.enabled = enabled  # type: ignore[assignment]
         if organization_id is not _UNSET:

@@ -24,6 +24,7 @@ from pydantic import BaseModel
 from ..core import auth as app_auth
 from ..core.errors import ApiError
 from ..db import models
+from ..collectors import capabilities
 from ..collectors import registry as collector_registry
 
 logger = logging.getLogger(__name__)
@@ -188,7 +189,7 @@ def list_query_capabilities(
                 rate_limit=qc.rate_limit,
                 required_secrets=list(qc.required_secrets),
                 ocsf_mapping_version=qc.ocsf_mapping_version,
-                spec_kinds=list(qc.spec_kinds),
+                spec_kinds=capabilities.available_spec_kinds(qc.spec_kinds),
                 supported_by=sorted(entry["platforms"]),
             )
         )

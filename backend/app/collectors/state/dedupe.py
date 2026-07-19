@@ -12,17 +12,67 @@ descartar o evento silenciosamente.
 replays). Quando o evento não tem id natural, cai em SHA-256 sobre um
 conjunto determinístico de campos — cuidado para não incluir timestamps
 de coleta ou headers que mudem entre reenvios.
+
+**Este é o ÚNICO guard de idempotência no hot path** (1 round-trip Redis por
+evento — o gargalo dominante do pipeline, ~2-4k EPS/task). O Redis do compose
+roda ``volatile-lru`` com 512mb (compose/docker-compose.yml) — memória finita.
+Um TTL longo demais contra memória finita = evicção silenciosa: a chave
+``dedupe:*`` some ANTES do TTL lógico expirar, o próximo `claim()` do MESMO
+evento retorna ``True`` (parece novo) e o evento é reentregue como duplicata
+— sem exceção, sem log, sem sinal algum (já houve incidente real com 310k
+chaves evicted). Ver ``sample_redis_health`` abaixo para tornar isso visível.
 """
 
 from __future__ import annotations
 
 import hashlib
 import json
-from typing import Any, Dict, Iterable
+import logging
+from dataclasses import dataclass
+from typing import Any, Dict, Iterable, Optional
 
 import redis.asyncio as redis_async
 
-DEFAULT_TTL_DAYS = 7
+from .. import metrics
+
+logger = logging.getLogger(__name__)
+
+# TTL default do dedupe (dias) — usado só como fallback do parâmetro de
+# ``claim()``; em produção o valor real vem de settings/config (por-org, ver
+# ``config_loader.CollectorConfigSnapshot.dedupe_ttl_days`` e
+# ``core.config.Settings.DEDUPE_TTL_DAYS``, ambos default 1 dia após esta
+# revisão).
+#
+# Por que 1 dia (era 7): o TTL só precisa cobrir a janela real de REENTREGA
+# possível — não é dedupe de longo prazo (isso é papel do destino, ver
+# docstring de ``release()`` abaixo). Medido neste repo:
+#   - overlap de polling entre ciclos: schedule por vendor é de 1-5 min
+#     (registry.py: sophos=1min; defender/crowdstrike/okta/wazuh=2min;
+#     veeam/ninjaone/aws=5min) — a janela onde o MESMO evento pode aparecer
+#     em dois polls consecutivos é da ordem de minutos.
+#   - retry automático do Celery (tasks.py collect_vendor_logs_*): backoff
+#     exponencial com jitter, teto 120s/600s, max_retries 5/8 — soma do pior
+#     caso (sem contar tempo de execução) < 5 min.
+#   - crash TOTAL do worker ANTES do except de pipeline.py:784-798 rodar
+#     (SIGKILL/OOM — o release() nunca executa, a claim fica ÓRFÃ): o pior
+#     caso de redelivery é limitado pelo broker Redis via
+#     acks_late+task_reject_on_worker_lost+visibility_timeout=3600s (1h),
+#     invariante já documentada em celery_app.py:248-256
+#     (DISPATCH_RESULT_TIMEOUT(600) < soft(720) < hard(900) < visibility(3600)).
+# 24h dá ~24x de folga sobre o pior caso AUTOMÁTICO (1h) e ainda cobre um
+# replay MANUAL do mesmo turno (operador investigando um incidente). E, ao
+# contrário do TTL de 7 dias, uma claim ÓRFÃ (crash que nunca chama release())
+# agora tem raio de silêncio máximo de 24h em vez de 7 dias — ela se
+# auto-cicatriza (expira e volta a ser reclamável) muito mais rápido, E o
+# footprint de memória do keyspace ``dedupe:*`` cai ~7x (chaves vivem 1 dia em
+# vez de 7), aliviando diretamente a pressão que causa evicção sob os 512mb do
+# compose. Isto é seguro reduzir porque o dedupe Redis é OTIMIZAÇÃO, não a
+# única linha de defesa: reentregas além do TTL são absorvidas pelo dedupe no
+# destino por ``event_id`` (at-least-once — ver docstring de ``release()``).
+#
+# NÃO baixe abaixo de ~1h (o teto de visibility_timeout) sem reavaliar a
+# invariante — ver test_dedupe_ttl_invariant.py.
+DEFAULT_TTL_DAYS = 1
 KEY_TMPL = "dedupe:{integration_id}:{message_id}"
 
 # Campos comumente presentes como id primário em payloads de vendors.
@@ -79,6 +129,33 @@ async def release(
     await redis.delete(key)
 
 
+async def release_many(
+    redis: redis_async.Redis,
+    integration_id: int,
+    message_ids: Iterable[str],
+) -> int:
+    """``DEL`` em lote das claims de ``message_ids``. Devolve quantas soltou.
+
+    Mesma compensação de :func:`release`, em uma única chamada. Pipelinar AQUI é
+    seguro — e é a diferença que importa em relação a pipelinar o ``claim``:
+    nenhuma decisão de "processar ou pular" depende deste resultado. O ``claim``
+    é caminho de DECISÃO (agrupar exigiria bufferizar eventos e criaria uma
+    janela onde chaves são reivindicadas para eventos ainda não processados);
+    o release é caminho de COMPENSAÇÃO, executado quando o run já falhou.
+
+    Best-effort: falha de Redis é engolida pelo chamador. O residual é claim
+    órfã até o TTL — que é exatamente o estado de hoje, então não piora nada.
+    """
+    ids = [m for m in message_ids if m]
+    if not ids:
+        return 0
+    keys = [
+        KEY_TMPL.format(integration_id=integration_id, message_id=m) for m in ids
+    ]
+    await redis.delete(*keys)
+    return len(keys)
+
+
 # ── suppression durável por assinatura ─────────────────────
 
 SUPPRESS_KEY_TMPL = "cops:suppress:{route_id}:{signature}"
@@ -116,3 +193,76 @@ async def claim_suppress(
     if count == 1:
         await redis.expire(key, max(int(window_s), 1))
     return (count <= allow), count
+
+
+# ── saúde do Redis: visibilidade de evicção silenciosa ──────────────
+
+
+@dataclass(frozen=True)
+class RedisHealth:
+    """Snapshot de ``INFO`` do Redis usado pelo dedupe — o suficiente para
+    detectar evicção antes que vire reentrega silenciosa."""
+
+    evicted_keys: int
+    used_memory_bytes: int
+    maxmemory_bytes: int
+    maxmemory_policy: str
+
+    @property
+    def memory_used_ratio(self) -> float:
+        """``used_memory / maxmemory``. ``0.0`` quando ``maxmemory`` não está
+        configurado (sem teto ⇒ sem pressão por definição, embora nesse caso o
+        risco vire "Redis derruba o processo/host", não evicção)."""
+        if self.maxmemory_bytes <= 0:
+            return 0.0
+        return self.used_memory_bytes / self.maxmemory_bytes
+
+
+async def sample_redis_health(redis: redis_async.Redis) -> Optional[RedisHealth]:
+    """Amostra ``INFO`` do Redis e expõe evicção/pressão de memória como
+    gauges OTel (``collector_dedupe_redis_evicted_keys`` e
+    ``collector_dedupe_redis_memory_used_ratio``).
+
+    **NÃO chame isto no hot path de ``claim()``** — seria um 2º round-trip
+    Redis POR EVENTO, dobrando o gargalo dominante do pipeline. Este é um
+    sample de PROCESSO/INSTÂNCIA (não por-evento): chame periodicamente (ex.:
+    1x/min) de um healthcheck ou task de manutenção — o custo é 1 ``INFO`` por
+    ciclo, amortizado sobre milhares de eventos.
+
+    ``evicted_keys`` é o contador cru do Redis inteiro (não filtrado pelo
+    prefixo ``dedupe:``) — o Redis não expõe evicção por-prefixo/por-keyspace,
+    então este é o sinal mais barato e direto disponível: se ele estiver
+    subindo, ALGO está sendo evictado sob pressão de memória, e como o dedupe
+    é o maior consumidor de chaves com TTL deste Redis, é o suspeito primário.
+    ``memory_used_ratio`` alerta ANTES da evicção começar (útil para calibrar
+    ``REDIS_MAXMEMORY``/``DEDUPE_TTL_DAYS`` antes do incidente, não depois).
+
+    Best-effort: erro de Redis aqui é logado e retorna ``None`` — observabilidade
+    nunca deve derrubar quem a chama (mesmo espírito de ``claim_suppress``, mas
+    aqui não há decisão de negócio a fazer fail-open/closed, só não propagar).
+    """
+    try:
+        info = await redis.info()
+    except Exception:  # pragma: no cover — best-effort, nunca propaga
+        logger.warning("sample_redis_health: INFO falhou", exc_info=True)
+        return None
+
+    health = RedisHealth(
+        evicted_keys=int(info.get("evicted_keys", 0) or 0),
+        used_memory_bytes=int(info.get("used_memory", 0) or 0),
+        maxmemory_bytes=int(info.get("maxmemory", 0) or 0),
+        maxmemory_policy=str(info.get("maxmemory_policy", "") or ""),
+    )
+    metrics.DEDUPE_REDIS_EVICTED_KEYS.set(float(health.evicted_keys))
+    metrics.DEDUPE_REDIS_MEMORY_USED_RATIO.set(health.memory_used_ratio)
+    if health.evicted_keys > 0:
+        logger.warning(
+            "dedupe: Redis reportou %d chaves evictadas (policy=%s, "
+            "used=%d/%d bytes) — dedupe pode estar deixando reentregas "
+            "passarem como \"novas\" silenciosamente",
+            health.evicted_keys,
+            health.maxmemory_policy,
+            health.used_memory_bytes,
+            health.maxmemory_bytes,
+        )
+    return health

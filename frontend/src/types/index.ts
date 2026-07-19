@@ -1780,6 +1780,28 @@ export interface Route {
   updated_at: string
   /** UX guard — sombreada por uma rota is_final anterior. */
   unreachable: boolean
+  // ── Alavancas de redução de volume (ADR-0011) ──────────────────────
+  // NOTA (jul/2026): estes 5 campos existem em ``backend/app/db/models.py``
+  // (classe Route) e são lidos pelo pipeline de dispatch a partir da linha do
+  // banco, mas ``RouteRead``/``RouteCreate``/``RouteUpdate``
+  // (backend/app/api/schemas_routes.py) e ``RouteRepository.add``/``update``
+  // (backend/app/db/repository.py) AINDA NÃO os expõem — a API atual
+  // silenciosamente IGNORA estes campos em create/update, e GET nunca os
+  // retorna. Marcados ``?`` (opcionais) de propósito para refletir a
+  // realidade do contrato hoje; o formulário usa os defaults do modelo
+  // (protect_detection=true, sample_percent=100, suppress_allow=0,
+  // suppress_window_s=30) quando ausentes. Fechar esse gap de backend é
+  // pré-requisito para estes controles terem efeito.
+  /** fail-safe de detecção — default true. Rotas protegidas NUNCA são amostradas/agregadas. */
+  protect_detection?: boolean
+  /** amostragem de redução 0-100 (100 = sem amostragem). Ignorado se protect_detection=true. */
+  sample_percent?: number
+  /** CSV de labels para assinatura de supressão (null/"" = sem supressão). */
+  suppress_key?: string | null
+  /** quantos eventos passam por janela de supressão (0 = desligado). */
+  suppress_allow?: number
+  /** janela de supressão em segundos. */
+  suppress_window_s?: number
 }
 
 export interface RouteCreateRequest {
@@ -1794,6 +1816,12 @@ export interface RouteCreateRequest {
   transform_ref?: string | null
   pii_redaction?: PiiRedaction
   organization_id?: number | null
+  /** ver nota em ``Route`` — API ainda não persiste estes campos (gap de backend). */
+  protect_detection?: boolean
+  sample_percent?: number
+  suppress_key?: string | null
+  suppress_allow?: number
+  suppress_window_s?: number
 }
 
 export type RouteUpdateRequest = Partial<RouteCreateRequest>
@@ -2087,6 +2115,18 @@ export interface CorrelationRuleRead {
   enabled: boolean
   severity_id: number
   rule_type: string
+  /**
+   * ADR-0015 — discriminador de execução da regra.
+   * `batch` (default) = avaliada ao final de uma busca federada, sobre os
+   * resultados dela. `inflight` = avaliada POR EVENTO no pipeline de ingestão,
+   * emitindo Detection ANTES de o dado chegar ao SIEM.
+   *
+   * Em `inflight` os campos de agregação (`min_count`, `window_seconds`,
+   * `timestamp_field`) são IGNORADOS — não há janela sobre um único evento — e
+   * `group_by_field` muda de papel: vira o seletor da chave de dedup da
+   * Detection (ausente ⇒ uma Detection por regra por janela de supressão).
+   */
+  eval_mode: "batch" | "inflight"
   group_by_field?: string | null
   min_count: number
   window_seconds: number
@@ -2107,6 +2147,8 @@ export interface CorrelationRuleCreate {
   timestamp_field?: string
   where?: WhereFilter[]
   suppression_window_seconds?: number
+  /** ADR-0015. Omitido ⇒ "batch" (nenhuma regra entra no hot path por omissão). */
+  eval_mode?: "batch" | "inflight"
   organization_id?: number
 }
 
@@ -2115,12 +2157,58 @@ export interface CorrelationRuleUpdate {
   description?: string
   enabled?: boolean
   severity_id?: number
+  /** ADR-0015. Ausente no PATCH ⇒ mantém o modo atual. */
+  eval_mode?: "batch" | "inflight"
   group_by_field?: string
   min_count?: number
   window_seconds?: number
   timestamp_field?: string
   where?: WhereFilter[]
   suppression_window_seconds?: number
+}
+
+/** Payload de POST /correlation-rules/preview (ADR-0015, Fase 3). */
+export interface CorrelationRulePreviewRequest {
+  vendor: string
+  event_type: string
+  where: WhereFilter[]
+  limit?: number
+  organization_id?: number
+}
+
+/**
+ * Estado do preview — NUNCA colapsar em "0 de N":
+ * - `ok`: avaliou contra amostras reais, `clauses` tem o veredito por cláusula.
+ * - `empty`: nenhuma amostra para esse vendor/event_type (não é "não casou").
+ * - `unavailable`: telemetria (reservoir) fora do ar — não é "não casou".
+ * - `invalid`: a regra não compila; `reason` traz o motivo (vocabulário fechado).
+ */
+export type CorrelationRulePreviewState = "ok" | "empty" | "unavailable" | "invalid"
+
+/**
+ * Veredito de UMA cláusula sobre o conjunto de amostras. `path_resolved` e
+ * `matched` são medidas DIFERENTES: `path_resolved=0` = "o campo não existe
+ * onde você apontou"; `path_resolved=N, matched=0` = "existe e o valor não bate".
+ */
+export interface CorrelationRuleClauseVerdict {
+  index: number
+  field_path: string
+  op: WhereOp
+  path_resolved: number
+  matched: number
+  observed: string[]
+}
+
+/** Resposta de POST /correlation-rules/preview. Espelha `PreviewResult` (backend). */
+export interface CorrelationRulePreviewResult {
+  state: CorrelationRulePreviewState
+  sample_count: number
+  matched: number
+  oldest_event_time: string | null
+  newest_event_time: string | null
+  clauses: CorrelationRuleClauseVerdict[]
+  /** Só presente quando `state === "invalid"`: "bad_json"|"empty_where"|"unknown_op"|"over_cap". */
+  reason: string | null
 }
 
 // ── OCSF governance ────────────────────────────────────────────

@@ -135,6 +135,18 @@ class Permission(StrEnum):
     # / INTEGRATION_WRITE. ACTION_BLOCK removido: response actions descontinuadas.
     QUERY_RUN = "query.run"
     QUERY_SAVE = "query.save"
+    # ADR-0015 Fase 3 — testar uma regra de correlação contra AMOSTRAS REAIS do
+    # reservoir. Permissão PRÓPRIA, e não reuso de outra, por um motivo de
+    # segurança: o preview toca payload de evento de cliente.
+    #
+    # Não pode herdar ``MAPPING_READ`` — VIEWER a possui, e um viewer passaria a
+    # ler payload por um endpoint novo. Nem ``QUERY_RUN`` — hoje ela autoriza
+    # apenas LER a configuração de regras, e ampliá-la para liberar payload seria
+    # alargar em silêncio o alcance de uma permissão já concedida.
+    #
+    # Concedida a partir de ENGINEER (quem de fato escreve a regra).
+    # Invariante travada em test_adr0015_preview_permission.py.
+    CORRELATION_PREVIEW = "correlation.preview"
 
 
 # Matriz papel × permissão (hardcoded — fonte da verdade)
@@ -176,6 +188,8 @@ ROLE_PERMISSIONS: dict[str, frozenset[str]] = {
         Permission.DRIFT_DELETE,
         Permission.AUDIT_READ,
         Permission.INTERNAL_TENANT_READ,
+        # ADR-0015: testar regra contra amostras reais. Quem escreve a regra.
+        Permission.CORRELATION_PREVIEW,
         # Engineer roda E salva query/agendamento. Block
         # (destrutivo) segue só admin por padrão (concedível a operator via policy).
         Permission.QUERY_RUN,

@@ -93,6 +93,18 @@ def _static_entries() -> Dict[str, Any]:
             "schedule": crontab(hour=3, minute=30),
             "options": {"queue": "maintenance", "expires": 3600},
         },
+        # ADR-0015 Fase 0 — saúde do Redis do dedupe (evicção/pressão de memória).
+        # 1×/min: o dedupe é o único guard de idempotência do hot path e uma chave
+        # evictada vira reentrega silenciosa (``claim()`` devolve True para um evento
+        # repetido). Amostrar aqui e não em ``claim()`` é deliberado: lá seria um 2º
+        # round-trip Redis POR EVENTO, dobrando o gargalo dominante do pipeline.
+        # ``expires`` curto — um sample atrasado não tem valor; melhor pular do que
+        # empilhar na fila se o worker de maintenance ficar para trás.
+        "dedupe-redis-health": {
+            "task": "collectors.dedupe_sample_redis_health",
+            "schedule": timedelta(seconds=60),
+            "options": {"queue": "maintenance", "expires": 55},
+        },
     }
 
     # The Sophos partner-sync beat entry is an Enterprise feature, registered by the

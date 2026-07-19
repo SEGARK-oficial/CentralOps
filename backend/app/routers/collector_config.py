@@ -22,10 +22,11 @@ import os
 import socket
 import ssl
 from datetime import datetime
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional, Set
 
 import redis.asyncio as redis_async
 from fastapi import APIRouter, Depends, Query
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from ..api import schemas
@@ -424,15 +425,302 @@ def _capture_effective_org(org_id: Optional[int], user: models.AppUser) -> Optio
     return effective
 
 
-def _to_capture_schema(meta: Dict[str, Any]) -> schemas.CaptureSession:
-    return schemas.CaptureSession(
+# ── Escopo HIERÁRQUICO da captura ────────────────────────────────────────────
+#
+# O gate de autorização (``require_subtree_access``) é SUBTREE-aware: um admin da
+# org PAI pode abrir captura na org FILHA. A gravação (``capture_session.record``),
+# porém, indexa a sessão pela org EXATA do evento — logo, uma sessão aberta no PAI
+# nunca via o tráfego dos FILHOS (o admin lia "capturei nada" com tráfego correndo
+# na subárvore que ele legitimamente enxerga).
+#
+# Correção (a mais simples e segura): no START, a sessão é indexada em TODAS as
+# orgs do escopo — ``subárvore(org efetiva) ∩ orgs acessíveis ao usuário``. Assim o
+# tap de ``record()`` (que continua olhando só o índice da org do evento) encontra a
+# mesma sessão e escreve num ÚNICO ring; a leitura já sai agregada, sem fan-in no
+# read-path. O escopo coberto fica EXPLÍCITO na sessão (``scope_org_ids``, gravado no
+# meta e devolvido pela API) — o operador vê exatamente o que a sessão cobre.
+#
+# Isolamento: o escopo é sempre INTERSECTADO com ``tenant.accessible_org_ids`` — nunca
+# alcança uma org que o usuário já não podia ver. Falha de resolução ⇒ fail-closed
+# (escopo = só a org efetiva).
+#
+# Trade-off conhecido: sessões do PAI ocupam slot no índice do FILHO, então contam
+# para o teto ``MAX_SESSIONS_PER_ORG`` do filho. Preferimos isso a um segundo índice
+# (que exigiria mudar o hot path de ``record()``).
+
+
+def _org_subtree_ids(db: Session, root_org_id: int) -> Set[int]:
+    """IDs da subárvore de ``root_org_id`` (inclusive), via
+    ``Organization.parent_organization_id``.
+
+    Em Community a hierarquia é FLAT (parent sempre ``None``) ⇒ ``{root_org_id}``;
+    em Enterprise as colunas são materializadas e o walk devolve os descendentes.
+    Fail-closed: qualquer erro ⇒ só a própria org.
+    """
+    try:
+        rows = db.query(
+            models.Organization.id, models.Organization.parent_organization_id
+        ).all()
+    except Exception as exc:  # pragma: no cover — defensivo
+        logger.warning("capture: falha ao resolver subárvore de org=%s: %s", root_org_id, exc)
+        return {root_org_id}
+
+    children: Dict[Optional[int], List[int]] = {}
+    for org_id, parent_id in rows:
+        children.setdefault(parent_id, []).append(org_id)
+
+    out: Set[int] = {root_org_id}
+    frontier = [root_org_id]
+    while frontier:
+        nxt: List[int] = []
+        for org_id in frontier:
+            for child in children.get(org_id, ()):
+                if child not in out:
+                    out.add(child)
+                    nxt.append(child)
+        frontier = nxt
+    return out
+
+
+def _capture_scope_org_ids(
+    user: models.AppUser, db: Session, effective_org: int
+) -> List[int]:
+    """Orgs cobertas por uma sessão aberta em ``effective_org``.
+
+    ``subárvore(effective_org) ∩ acessíveis(user)`` — admin global não tem filtro de
+    acesso (``accessible_org_ids`` ⇒ ``None``), então cobre a subárvore inteira. A org
+    efetiva SEMPRE entra (o gate de autorização já a validou)."""
+    subtree = _org_subtree_ids(db, effective_org)
+    try:
+        accessible = tenant.accessible_org_ids(user, db)
+    except Exception as exc:  # pragma: no cover — defensivo, fail-closed
+        logger.warning("capture: falha ao resolver escopo do usuário: %s", exc)
+        accessible = set()
+    if accessible is not None:
+        subtree &= set(accessible)
+    subtree.add(effective_org)
+    return sorted(subtree)
+
+
+# TTL fixo do índice — espelha ``capture_session.start_session`` (não regride).
+_CAPTURE_INDEX_TTL = capture_session.MAX_DURATION_SECONDS + capture_session.GRACE_SECONDS
+_SCOPE_META_FIELD = "scope_org_ids"
+# Convenção OPCIONAL de contadores por desfecho no meta (``outcome:dropped`` etc.).
+# Se o engine passar a mantê-los (``hincrby`` ao lado de ``event_count``), a API os
+# expõe automaticamente; até lá o campo sai vazio.
+_OUTCOME_META_PREFIX = "outcome:"
+
+
+async def _index_session_in_scope(
+    redis: redis_async.Redis,
+    session_id: str,
+    scope_org_ids: List[int],
+    owner_org_id: int,
+) -> None:
+    """Indexa a sessão nas orgs do escopo (além da dona, já feita pelo engine) e
+    persiste o escopo no meta. Best-effort: falhar aqui degrada a sessão para
+    "só a org dona" — nunca derruba o start."""
+    try:
+        pipe = redis.pipeline()
+        for org_id in scope_org_ids:
+            if org_id == owner_org_id:
+                continue
+            key = capture_session._org_index_key(org_id)
+            pipe.sadd(key, session_id)
+            pipe.expire(key, _CAPTURE_INDEX_TTL)
+        pipe.hset(
+            capture_session._meta_key(session_id),
+            _SCOPE_META_FIELD,
+            ",".join(str(o) for o in scope_org_ids),
+        )
+        await pipe.execute()
+        # O tap memoiza "org sem sessão" (cache NEGATIVO); as orgs recém-incluídas
+        # no escopo precisam sair dele para não perder eventos da janela inicial.
+        for org_id in scope_org_ids:
+            capture_session.reset_session_cache(org_id)
+    except Exception as exc:  # pragma: no cover — não-fatal
+        logger.warning("capture: fan-out de escopo falhou para sessão %s: %s", session_id, exc)
+
+
+async def _session_extras(
+    redis: redis_async.Redis, session_id: str, owner_org_id: Optional[int]
+) -> tuple[List[int], Dict[str, int]]:
+    """``(scope_org_ids, outcome_counts)`` num único ``HGETALL`` do meta.
+
+    ``outcome_counts`` são os contadores POR DESFECHO da sessão inteira, se o engine
+    os mantiver (campos ``outcome:<nome>`` no meta, ao lado de ``event_count``). Enquanto
+    não existirem, sai ``{}`` — a UI já trata como opcional e cai no breakdown da página
+    de eventos. Escopo ausente (sessão anterior a esta versão) ⇒ só a org dona."""
+    meta: Dict[str, Any] = {}
+    try:
+        raw_meta = await redis.hgetall(capture_session._meta_key(session_id))
+        meta = {capture_session._s(k): capture_session._s(v) for k, v in (raw_meta or {}).items()}
+    except Exception:  # pragma: no cover — não-fatal
+        meta = {}
+
+    ids: Set[int] = set()
+    for part in (meta.get(_SCOPE_META_FIELD) or "").split(","):
+        try:
+            ids.add(int(part.strip()))
+        except ValueError:
+            continue
+    if owner_org_id is not None:
+        ids.add(int(owner_org_id))
+
+    counts: Dict[str, int] = {}
+    for key, value in meta.items():
+        if not key.startswith(_OUTCOME_META_PREFIX):
+            continue
+        try:
+            counts[key[len(_OUTCOME_META_PREFIX):]] = int(value)
+        except (TypeError, ValueError):
+            continue
+    return sorted(ids), counts
+
+
+async def _unindex_session_from_scope(
+    redis: redis_async.Redis, session_id: str, scope_org_ids: List[int]
+) -> None:
+    """Remove o id da sessão dos índices do escopo (o engine só limpa o da dona)."""
+    try:
+        pipe = redis.pipeline()
+        for org_id in scope_org_ids:
+            pipe.srem(capture_session._org_index_key(org_id), session_id)
+        await pipe.execute()
+    except Exception as exc:  # pragma: no cover — não-fatal
+        logger.warning("capture: limpeza de índice falhou para sessão %s: %s", session_id, exc)
+
+
+# ── Response models (locais: estendem o contrato base com escopo/contadores) ──
+
+
+class CaptureSessionScoped(schemas.CaptureSession):
+    """Sessão + as orgs que ela realmente cobre (subárvore autorizada).
+
+    ``outcome_counts`` é o total POR DESFECHO da sessão inteira quando o engine mantém
+    esses contadores (ver ``_OUTCOME_META_PREFIX``); vazio caso contrário — nunca um
+    palpite. ``event_count`` continua sendo o total geral."""
+
+    scope_org_ids: List[int] = Field(default_factory=list)
+    outcome_counts: Dict[str, int] = Field(default_factory=dict)
+
+
+class CaptureSessionScopedList(BaseModel):
+    count: int
+    sessions: List[CaptureSessionScoped] = Field(default_factory=list)
+
+
+class CaptureEventDetail(schemas.CaptureEvent):
+    """Evento capturado + de qual org veio e QUAL FOI O DESFECHO.
+
+    ``outcome`` vem do tap de ciclo de vida (``capture_session.OUTCOMES``);
+    ``destination_id``/``detail`` só existem nos desfechos que os têm (entrega por
+    destino, motivo do drop/quarentena) — é o par "como entrou / como saiu"."""
+
+    organization_id: Optional[int] = None
+    outcome: str = "unknown"
+    destination_id: Optional[str] = None
+    detail: Optional[str] = None
+
+
+class CaptureEventPage(BaseModel):
+    """Página de eventos + contadores que deixam a UI honesta.
+
+    ``total_captured`` é o contador da SESSÃO INTEIRA (inclui o que já saiu do ring
+    por trim) — é ele que distingue "sessão ativa e nada aconteceu" (0) de "houve
+    tráfego, mas fora da janela lida". ``outcome_counts`` é o breakdown por desfecho
+    (entregue/drop/sem-destino/quarentena/…) **dos eventos desta página**."""
+
+    count: int
+    session_id: str
+    session_status: str = "active"
+    total_captured: int = 0
+    scope_org_ids: List[int] = Field(default_factory=list)
+    outcome_counts: Dict[str, int] = Field(default_factory=dict)
+    events: List[CaptureEventDetail] = Field(default_factory=list)
+
+
+# ── Catálogo de vendors capturáveis (derivado do registry, sem hardcode) ──────
+
+
+class CaptureVendor(BaseModel):
+    vendor: str
+    display_name: str
+    transport: str  # "pull" | "push"
+    streams: List[str] = Field(default_factory=list)
+
+
+class CaptureVendorList(BaseModel):
+    count: int
+    vendors: List[CaptureVendor] = Field(default_factory=list)
+
+
+def _capture_vendor_catalog() -> List[CaptureVendor]:
+    """Vendors que podem aparecer em ``_centralops.vendor`` — TODOS os transportes.
+
+    União do registry de collectors (``all_registrations`` — pull **e** push, ex.:
+    ``fortinet_fortigate``/``windows_event_log`` via ``/api/ingest``) com o catálogo de
+    plataformas (``all_platforms`` — inclui plataformas sem collector próprio, como as
+    variantes de partner). Zero hardcode: registrar um vendor novo o faz aparecer aqui.
+    """
+    try:  # import tardio (mesmo motivo do router de collectors: evita Celery/aiohttp)
+        from ..collectors import registry
+    except Exception as exc:  # pragma: no cover — defensivo
+        logger.warning("capture: registry indisponível: %s", exc)
+        return []
+
+    streams_by_platform: Dict[str, Set[str]] = {}
+    try:
+        for reg in registry.all_registrations():
+            streams_by_platform.setdefault(reg.platform, set()).add(reg.stream)
+        catalog = {p.platform: p for p in registry.all_platforms()}
+    except Exception as exc:  # pragma: no cover — defensivo
+        logger.warning("capture: leitura do registry falhou: %s", exc)
+        return []
+
+    out: List[CaptureVendor] = []
+    for platform in sorted(set(streams_by_platform) | set(catalog)):
+        meta = catalog.get(platform)
+        out.append(
+            CaptureVendor(
+                vendor=platform,
+                display_name=getattr(meta, "display_name", None) or platform,
+                transport=getattr(meta, "transport", None) or "pull",
+                streams=sorted(streams_by_platform.get(platform, ())),
+            )
+        )
+    return out
+
+
+@router.get("/capture-vendors", response_model=CaptureVendorList)
+def list_capture_vendors(
+    _: models.AppUser = Depends(app_auth.require_admin_user),
+) -> CaptureVendorList:
+    """Catálogo de vendors para o filtro da captura — pull **e** push."""
+    vendors = _capture_vendor_catalog()
+    return CaptureVendorList(count=len(vendors), vendors=vendors)
+
+
+def _to_capture_schema(
+    meta: Dict[str, Any],
+    scope_org_ids: Optional[List[int]] = None,
+    outcome_counts: Optional[Dict[str, int]] = None,
+) -> CaptureSessionScoped:
+    org_id = meta.get("organization_id")
+    return CaptureSessionScoped(
         id=meta["id"],
-        organization_id=meta.get("organization_id"),
+        organization_id=org_id,
         vendor=meta.get("vendor"),
         created_at=meta.get("created_at"),
         expires_at=meta.get("expires_at"),
         status=meta.get("status", "active"),
         event_count=meta.get("event_count", 0),
+        scope_org_ids=(
+            scope_org_ids
+            if scope_org_ids is not None
+            else ([int(org_id)] if org_id is not None else [])
+        ),
+        outcome_counts=outcome_counts or {},
     )
 
 
@@ -458,15 +746,20 @@ async def _owned_capture_or_404(
     return meta
 
 
-@router.post("/capture-sessions", response_model=schemas.CaptureSession, status_code=201)
+@router.post("/capture-sessions", response_model=CaptureSessionScoped, status_code=201)
 async def start_capture_session(
     body: schemas.CaptureSessionStartRequest,
     org_id: Optional[int] = None,
     user: models.AppUser = Depends(app_auth.require_admin_user),
-) -> schemas.CaptureSession:
+    db: Session = Depends(database.get_session),
+) -> CaptureSessionScoped:
     """Inicia uma sessão de captura (o "botão listening"): por uma janela, grava tudo o
     que for despachado para o tenant — opcionalmente filtrado por vendor — p/
-    troubleshooting. Escopo de tenant idêntico ao da auditoria."""
+    troubleshooting. Escopo de tenant idêntico ao da auditoria.
+
+    A sessão cobre a subárvore AUTORIZADA da org (ver ``_capture_scope_org_ids``): quem
+    pode abrir captura nos filhos também VÊ o tráfego deles, num ring único. O escopo
+    efetivo volta em ``scope_org_ids``."""
     effective_org = _capture_effective_org(org_id, user)
     if effective_org is None:
         raise ApiError(
@@ -478,6 +771,7 @@ async def start_capture_session(
                 "es": "org_id es obligatorio para un administrador global",
             },
         )
+    scope_org_ids = _capture_scope_org_ids(user, db, effective_org)
     redis = await _redis_client()
     try:
         meta = await capture_session.start_session(
@@ -486,6 +780,9 @@ async def start_capture_session(
             vendor=body.vendor,
             duration_seconds=body.duration_seconds,
             ring_size=body.ring_size,
+        )
+        await _index_session_in_scope(
+            redis, meta["id"], scope_org_ids, effective_org
         )
     except capture_session.CaptureLimitReached as exc:
         raise ApiError(
@@ -500,54 +797,109 @@ async def start_capture_session(
         ) from exc
     finally:
         await redis.aclose()
-    return _to_capture_schema(meta)
+    return _to_capture_schema(meta, scope_org_ids)
 
 
-@router.get("/capture-sessions", response_model=schemas.CaptureSessionList)
+@router.get("/capture-sessions", response_model=CaptureSessionScopedList)
 async def list_capture_sessions(
     org_id: Optional[int] = None,
     user: models.AppUser = Depends(app_auth.require_admin_user),
-) -> schemas.CaptureSessionList:
+) -> CaptureSessionScopedList:
+    """Lista as sessões DA ORG (as que ela iniciou).
+
+    O índice da org também guarda sessões de um ANCESTRAL cujo escopo a alcança (é
+    assim que o pai captura o tráfego do filho) — essas são filtradas aqui: só o dono
+    lista/para/apaga a própria sessão, o filho não enxerga a captura do pai."""
     effective_org = _capture_effective_org(org_id, user)
     if effective_org is None:
-        return schemas.CaptureSessionList(count=0)
+        return CaptureSessionScopedList(count=0)
     redis = await _redis_client()
     try:
         sessions = await capture_session.list_sessions(redis, effective_org)
+        owned = [m for m in sessions if m.get("organization_id") == effective_org]
+        items = []
+        for m in owned:
+            scope_org_ids, outcome_counts = await _session_extras(
+                redis, m["id"], m.get("organization_id")
+            )
+            items.append(_to_capture_schema(m, scope_org_ids, outcome_counts))
     finally:
         await redis.aclose()
-    items = [_to_capture_schema(m) for m in sessions]
-    return schemas.CaptureSessionList(count=len(items), sessions=items)
+    return CaptureSessionScopedList(count=len(items), sessions=items)
+
+
+def _event_outcome(entry: Dict[str, Any]) -> str:
+    """Desfecho do evento: ``outcome`` do envelope de captura, ou o carimbado em
+    ``_centralops``. Ausente ⇒ ``"unknown"`` (honesto: entradas de taps antigos não
+    sabem o desfecho — melhor do que assumir "entregue")."""
+    meta = (entry.get("event") or {}).get("_centralops") or {}
+    raw = entry.get("outcome") or (meta.get("outcome") if isinstance(meta, dict) else None)
+    return str(raw) if raw else "unknown"
+
+
+def _event_org_id(entry: Dict[str, Any]) -> Optional[int]:
+    meta = (entry.get("event") or {}).get("_centralops") or {}
+    if not isinstance(meta, dict):
+        return None
+    try:
+        return int(meta.get("organization_id"))
+    except (TypeError, ValueError):
+        return None
 
 
 @router.get(
     "/capture-sessions/{session_id}/events",
-    response_model=schemas.CaptureEventList,
+    response_model=CaptureEventPage,
 )
 async def get_capture_events(
     session_id: str,
     limit: int = Query(default=200, ge=1, le=20000),
     org_id: Optional[int] = None,
     user: models.AppUser = Depends(app_auth.require_admin_user),
-) -> schemas.CaptureEventList:
+) -> CaptureEventPage:
+    """Eventos da sessão + contadores.
+
+    A UI precisa distinguir "sessão ativa e NADA aconteceu" de "houve tráfego":
+    ``total_captured`` (contador da sessão inteira, sobrevive ao trim do ring) responde
+    isso, e ``outcome_counts`` mostra o breakdown por desfecho da página lida — é o que
+    revela tráfego que entrou mas NÃO foi entregue (drop/sem-destino/quarentena/…).
+    O ring é único para toda a subárvore coberta (``scope_org_ids``); cada evento traz
+    o ``organization_id`` de origem."""
     effective_org = _capture_effective_org(org_id, user)
     redis = await _redis_client()
     try:
-        await _owned_capture_or_404(redis, session_id, effective_org)
+        meta = await _owned_capture_or_404(redis, session_id, effective_org)
         events = await capture_session.read_events(redis, session_id, limit=limit)
+        scope_org_ids, _ = await _session_extras(
+            redis, session_id, meta.get("organization_id")
+        )
     finally:
         await redis.aclose()
-    return schemas.CaptureEventList(
-        count=len(events),
-        session_id=session_id,
-        events=[
-            schemas.CaptureEvent(
+
+    outcome_counts: Dict[str, int] = {}
+    items: List[CaptureEventDetail] = []
+    for e in events:
+        outcome = _event_outcome(e)
+        outcome_counts[outcome] = outcome_counts.get(outcome, 0) + 1
+        items.append(
+            CaptureEventDetail(
                 event=e.get("event") or {},
                 vendor=e.get("vendor"),
                 captured_at=e.get("captured_at"),
+                organization_id=_event_org_id(e),
+                outcome=outcome,
+                destination_id=e.get("destination_id"),
+                detail=e.get("detail"),
             )
-            for e in events
-        ],
+        )
+    return CaptureEventPage(
+        count=len(items),
+        session_id=session_id,
+        session_status=meta.get("status", "active"),
+        total_captured=int(meta.get("event_count") or 0),
+        scope_org_ids=scope_org_ids,
+        outcome_counts=outcome_counts,
+        events=items,
     )
 
 
@@ -576,8 +928,12 @@ async def delete_capture_session(
     redis = await _redis_client()
     try:
         meta = await _owned_capture_or_404(redis, session_id, effective_org)
-        await capture_session.delete_session(
-            redis, session_id, int(meta["organization_id"])
-        )
+        owner_org = int(meta["organization_id"])
+        # Lê o escopo ANTES do delete (o meta some junto com o campo).
+        scope_org_ids, _ = await _session_extras(redis, session_id, owner_org)
+        await capture_session.delete_session(redis, session_id, owner_org)
+        # O engine só limpa o índice da org dona; as demais do escopo saem aqui
+        # (sem isso ficariam ids órfãos até o ``record()`` podá-los).
+        await _unindex_session_from_scope(redis, session_id, scope_org_ids)
     finally:
         await redis.aclose()

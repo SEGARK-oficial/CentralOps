@@ -78,6 +78,8 @@ from dataclasses import dataclass
 from typing import Any, Dict, List, Literal, Mapping, Optional
 
 import jmespath
+
+from .dotpath import compile_source
 from jmespath.parser import ParsedResult
 
 from .exceptions import MappingDefinitionError
@@ -262,7 +264,7 @@ def _compile_item(idx: int, item_dict: Any, *, rule_skip_null: bool) -> Compiled
         )
 
     try:
-        compiled_source = jmespath.compile(source_raw)
+        compiled_source = compile_source(source_raw)
     except Exception as exc:
         raise MappingDefinitionError(
             f"array_builder items[{idx}] ({name!r}): JMESPath inválido "

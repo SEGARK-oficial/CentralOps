@@ -62,6 +62,25 @@ _SPEC: Dict[str, Dict[str, Any]] = {
     "collector_task_duration_seconds": {"kind": "histogram", "unit": "s", "labels": ("stream", "queue"), "buckets": (1, 5, 15, 60, 300, 900)},
     "collector_rate_limit_backoffs_total": {"kind": "counter", "unit": "1", "labels": ("vendor",)},
     "collector_dedupe_drops_total": {"kind": "counter", "unit": "1", "labels": ("vendor", "stream")},
+    # Saúde do Redis do dedupe — visibilidade de EVICÇÃO SILENCIOSA (chave
+    # ``dedupe:*`` some antes do TTL lógico sob memory pressure ⇒ reentrega vira
+    # "evento novo" sem erro nenhum). Amostrado periodicamente (fora do hot
+    # path de claim(), ver ``state.dedupe.sample_redis_health``), não por
+    # evento. ``evicted_keys`` é o contador CRU do Redis (INFO stats) — LastValue
+    # por processo/instância; suba se subir (não deveria, se maxmemory/TTL
+    # estiverem calibrados). ``memory_used_ratio`` = used_memory/maxmemory
+    # (0 quando maxmemory=0, i.e. sem teto configurado) — alerta ANTES da
+    # evicção começar.
+    "collector_dedupe_redis_evicted_keys": {"kind": "gauge", "unit": "1", "labels": ()},
+    "collector_dedupe_redis_memory_used_ratio": {"kind": "gauge", "unit": "1", "labels": ()},
+    "collector_inflight_rules_loaded": {
+        "kind": "gauge", "unit": "1", "labels": ("org_id",)},
+    "collector_inflight_rules_rejected_total": {
+        "kind": "counter", "unit": "1", "labels": ("reason",)},
+    "collector_inflight_matches_total": {
+        "kind": "counter", "unit": "1", "labels": ("rule_id",)},
+    "collector_inflight_errors_total": {
+        "kind": "counter", "unit": "1", "labels": ("reason",)},
     "collector_quarantine_total": {"kind": "counter", "unit": "1", "labels": ("vendor", "event_type", "error_kind")},
     "collector_normalize_latency_seconds": {"kind": "histogram", "unit": "s", "labels": ("vendor", "event_type"), "buckets": (0.0005, 0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1)},
     # conformidade OCSF (tag-and-pass). ``reason`` é enum FECHADO

@@ -847,7 +847,10 @@ class Detection(Base):
     organization_id = Column(
         Integer, ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False
     )
-    # "scheduled_query" | "live_query" | "correlation"
+    # "scheduled_query" | "live_query" | "correlation" | "inflight"
+    # ``inflight`` (ADR-0015 Fase 1) = classificação single-event no pipeline de
+    # ingestão, emitida ANTES de o dado chegar ao SIEM. Difere de ``correlation``
+    # (multi-evento, ao final de uma busca federada) na origem e na latência.
     source = Column(String, nullable=False)
     source_query_id = Column(
         Integer, ForeignKey("predefined_queries.id", ondelete="SET NULL"), nullable=True
@@ -903,6 +906,18 @@ class CorrelationRule(Base):
     # OCSF severity_id da Detection emitida (configurável, não fixo).
     severity_id = Column(Integer, nullable=False, default=4)
     rule_type = Column(String, nullable=False, default="threshold")  # threshold | (futuro)
+    # ADR-0015 Fase 1 — DISCRIMINADOR DE EXECUÇÃO. "batch" (default,
+    # preserva o comportamento de toda regra existente) = avaliada pelo
+    # CorrelationService ao final de uma busca federada. "inflight" = avaliada
+    # POR EVENTO no pipeline de ingestão, antes de o dado chegar ao SIEM.
+    #
+    # Em modo "inflight" os campos de agregação são IGNORADOS — ``rule_type``,
+    # ``min_count``, ``window_seconds`` e ``timestamp_field`` não têm sentido
+    # sobre um único evento — e ``group_by_field`` muda de papel: deixa de
+    # agrupar para virar o SELETOR DA CHAVE DE DEDUP da Detection emitida
+    # (NULL ⇒ uma Detection por regra por janela de supressão). ``where_json``
+    # aceita ``in``/``nin``/``exists`` SÓ neste modo.
+    eval_mode = Column(String, nullable=False, default="batch")  # batch | inflight
     # ── threshold ────────────────────────────────────────────────────────
     # Campo (dotted path) p/ agrupar (ex.: "agent.name", "host", "data.srcip").
     group_by_field = Column(String, nullable=True)
@@ -1174,7 +1189,17 @@ class CollectorConfig(Base):
     # ── Batching / dedupe ───────────────────────────────────────────
     collector_batch_size = Column(Integer, nullable=False, default=200)
     collector_batch_flush_seconds = Column(Integer, nullable=False, default=5)
-    dedupe_ttl_days = Column(Integer, nullable=False, default=7)
+    # ADR-0015: alinhado a ``collectors.config_loader.DEFAULT_DEDUPE_TTL_DAYS``
+    # (fonte canônica). O literal é repetido aqui de propósito — ``models`` é
+    # importado POR ``config_loader``, então importar de volta seria circular.
+    # A divergência entre os dois é travada por
+    # ``backend/tests/test_dedupe_ttl_invariant.py``.
+    #
+    # Na prática este default é quase inerte: o seed de ``collector_config``
+    # (singleton id=1) informa o campo explicitamente a partir do env. Ele só
+    # valeria num INSERT que omitisse a coluna — e é exatamente aí que a
+    # divergência silenciosa moraria.
+    dedupe_ttl_days = Column(Integer, nullable=False, default=1)
 
     # ── JSON-serialized mappings ────────────────────────────────────
     domain_concurrency_limits = Column(Text, nullable=False, default="{}")

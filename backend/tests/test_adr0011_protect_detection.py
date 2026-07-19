@@ -46,9 +46,25 @@ def _row(**over):
 # ── Flags (defaults seguros) ─────────────────────────────────────────────────
 
 def test_config_flag_defaults():
-    # Protege por default; sampling desligado (forward-looking, no-op).
+    """O fail-safe de detecção protege por default.
+
+    ADR-0015 inverteu ``REDUCTION_SAMPLE_ENABLED`` para ON (a asserção original
+    aqui era ``is False``, de quando o sampling era forward-looking e ainda não
+    tinha consumidor). A inversão NÃO enfraquece esta ADR: a segurança real é o
+    default POR ROTA — ``Route.sample_percent`` nasce 100 e ``protect_detection``
+    nasce True — então nenhum evento é descartado até que alguém configure uma
+    rota explicitamente. O que a flag global fazia era um segundo portão cujo
+    efeito prático era o operador configurar a UI e nada acontecer, sem sinal.
+
+    A asserção que IMPORTA para o fail-safe é a primeira, e ela continua.
+    """
     assert settings.REDUCTION_SAMPLE_PROTECT_DETECTION is True
-    assert settings.REDUCTION_SAMPLE_ENABLED is False
+    # Contrato ADR-0015: as alavancas que só reduzem sob config por-rota ficam ON;
+    # aggregate — a única que destrói fidelidade de EVENTO — continua OFF.
+    assert settings.REDUCTION_SAMPLE_ENABLED is True
+    assert settings.REDUCTION_TRIM_ENABLED is True
+    assert settings.REDUCTION_SUPPRESS_ENABLED is True
+    assert settings.REDUCTION_AGGREGATE_ENABLED is False
 
 
 # ── CompiledRoute default + wiring de compilação ─────────────────────────────

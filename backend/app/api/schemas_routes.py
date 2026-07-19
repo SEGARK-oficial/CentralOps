@@ -26,6 +26,20 @@ class RouteCreate(BaseModel):
     #: redação de PII por rota ({"version":1,"rules":[...]} ou lista).
     #: Validada na escrita (FAIL-CLOSED: spec ruim → 422, nunca armazenada).
     pii_redaction: Optional[Any] = None
+    #: fail-safe de detecção — default True (PROTEGE). Espelha
+    #: ``models.Route.protect_detection``: ausência de decisão NUNCA vira
+    #: amostragem/agregação silenciosa. Opt-out é sempre explícito (False).
+    protect_detection: bool = True
+    #: amostragem determinística por event_id (0-100). 100 = byte-idêntico
+    #: (sem redução). NUNCA aplicada a rotas ``protect_detection=True``.
+    sample_percent: int = Field(default=100, ge=0, le=100)
+    #: CSV de labels da assinatura de supressão (ex.: "src_ip,event_type").
+    #: None/"" = supressão desligada.
+    suppress_key: Optional[str] = None
+    #: quantos eventos passam por janela antes de suprimir (0 = desligado).
+    suppress_allow: int = Field(default=0, ge=0)
+    #: janela de supressão em segundos (deve ser > 0).
+    suppress_window_s: int = Field(default=30, gt=0)
     organization_id: Optional[int] = None
 
     @field_validator("name")
@@ -80,6 +94,16 @@ class RouteUpdate(BaseModel):
     canary_percent: Optional[int] = Field(default=None, ge=0, le=100)
     transform_ref: Optional[str] = None
     pii_redaction: Optional[Any] = None
+    #: ausente = mantém o valor atual (fail-safe: NUNCA vira False por
+    #: omissão). Explícito True/False é sempre respeitado.
+    protect_detection: Optional[bool] = None
+    sample_percent: Optional[int] = Field(default=None, ge=0, le=100)
+    #: ausente = mantém; explícito ``null`` LIMPA a chave de supressão
+    #: (ver ``model_fields_set`` no router — ``None`` aqui é ambíguo por
+    #: si só, o wiring do endpoint resolve a distinção).
+    suppress_key: Optional[str] = None
+    suppress_allow: Optional[int] = Field(default=None, ge=0)
+    suppress_window_s: Optional[int] = Field(default=None, gt=0)
     organization_id: Optional[int] = None
 
     @field_validator("name")
@@ -130,6 +154,11 @@ class RouteRead(BaseModel):
     canary_percent: int
     transform_ref: Optional[str]
     pii_redaction: Optional[Any] = None
+    protect_detection: bool = True
+    sample_percent: int = 100
+    suppress_key: Optional[str] = None
+    suppress_allow: int = 0
+    suppress_window_s: int = 30
     enabled: bool
     organization_id: Optional[int]
     created_at: datetime

@@ -378,7 +378,7 @@
   "capture": {
     "intro": {
       "title": "Qué es la captura en vivo",
-      "body": "Activa un <strong>\"modo escucha\"</strong> temporal que graba una muestra del tráfico <strong>efectivamente enviado a los destinos</strong>, opcionalmente filtrado por proveedor. Úselo para inspeccionar el formato real de los eventos durante una prueba de integración — sin tener que buscar en la auditoría general. La sesión expira sola al final de la ventana; nada queda activo para siempre."
+      "body": "Activa un <strong>\"modo escucha\"</strong> temporal que graba una muestra del tráfico <strong>procesado por el pipeline</strong> junto con el <strong>desenlace de cada evento</strong> (entregado, descartado, sin destino, cuarentena…), opcionalmente filtrado por proveedor. Úselo para ver cómo entró y cómo salió el log durante una prueba de integración — sin buscar en la auditoría general. La sesión expira sola al final de la ventana; nada queda activo para siempre."
     },
     "loadSessionsError": "Error al listar sesiones de captura",
     "loadEventsError": "Error al cargar eventos de la sesión",
@@ -412,7 +412,8 @@
       "bufferSizeAriaLabel": "Tamaño del buffer de la captura",
       "eventsUnit": "{{count}} eventos",
       "start": "Iniciar captura",
-      "refresh": "Actualizar"
+      "refresh": "Actualizar",
+      "durationHint": "Los colectores se ejecutan en ciclos (de 1 a algunos minutos). Una ventana corta puede abrirse y cerrarse entre dos ciclos sin capturar nada — para troubleshooting, prefiera 15 minutos o más."
     },
     "sessionsLoading": "Cargando sesiones…",
     "sessionsEmptyTitle": "Ninguna sesión de captura",
@@ -439,30 +440,61 @@
       "liveUpdating": "(actualizando en vivo)",
       "refresh": "Actualizar",
       "loading": "Cargando eventos…",
-      "waitingTitle": "Esperando tráfico…",
-      "waitingDescription": "La captura está activa, pero todavía no hubo tráfico para el filtro elegido. Los eventos aparecerán aquí tan pronto como se envíen.",
+      "waitingTitle": "Sesión activa — esperando eventos",
+      "waitingDescription": "La captura está activa y todavía no registró nada. Normalmente eso significa que aún no pasó tráfico por el pipeline en esta ventana — no que la captura esté rota.",
       "emptyTitle": "Sin eventos capturados",
-      "emptyDescription": "Esta sesión no capturó eventos en la ventana (no hubo tráfico que coincidiera con el filtro).",
+      "emptyDescription": "La ventana terminó sin eventos. O no hubo tráfico en ese período, o no coincidió con el filtro elegido.",
       "table": {
         "capturedAt": "Capturado el",
         "vendor": "Proveedor",
         "preview": "Vista previa",
-        "actions": "Acciones"
+        "actions": "Acciones",
+        "outcome": "Desenlace"
       },
       "inspect": "Inspeccionar",
       "inspectTooltip": "Ver JSON completo",
       "json": "JSON",
-      "jsonTooltip": "Copiar JSON"
+      "jsonTooltip": "Copiar JSON",
+      "outcomeFilterAriaLabel": "Filtrar por desenlace",
+      "outcomeFilterAll": "Todos los desenlaces ({{total}})",
+      "outcomeChipTooltip": "Filtrar por este desenlace",
+      "clearOutcomeFilter": "Limpiar filtro",
+      "filteredEmptyTitle": "Ningún evento con el desenlace “{{outcome}}”",
+      "filteredEmptyDescription": "La sesión capturó {{total}} evento(s), pero ninguno con ese desenlace. Limpie el filtro para verlos todos.",
+      "waitingWhyPipeline": "• La captura registra lo que el pipeline procesa, con el desenlace de cada evento.",
+      "waitingWhyCadence": "• Los colectores se ejecutan en ciclos: puede tardar de 1 a algunos minutos hasta el primer lote.",
+      "waitingWindow": "• Ventana de esta sesión: ~{{minutes}} min. Si es menor que la cadencia del colector, puede cerrarse sin capturar nada.",
+      "waitingVendorFilter": "• Limitado al proveedor “{{vendor}}”: el tráfico de otros proveedores no entra en esta sesión.",
+      "waitingServerCounts": "El servidor ya contabilizó {{total}} evento(s) en esta sesión — actualice para cargarlos.",
+      "emptyWindow": "• La ventana duró ~{{minutes}} min.",
+      "emptyRetryHint": "• Consejo: repita con una ventana mayor (15 min o más) y sin filtro de proveedor para confirmar.",
+      "destinationShort": "destino: {{destination}}"
     },
     "inspectModal": {
       "title": "Evento capturado — {{vendor}}",
       "defaultTitle": "Evento",
-      "copyJson": "Copiar JSON"
+      "copyJson": "Copiar JSON",
+      "outcome": "Desenlace: {{outcome}}",
+      "destination": "Destino: {{destination}}",
+      "detail": "Motivo: {{detail}}"
     },
     "deleteDialog": {
       "title": "¿Eliminar sesión de captura?",
       "description": "Elimina la sesión y todos los eventos capturados en ella. No se puede deshacer.",
       "confirm": "Eliminar"
+    },
+    "outcomes": {
+      "delivered": "Entregado",
+      "delivery_failed": "Fallo en la entrega",
+      "dropped": "Descartado",
+      "loop_blocked": "Bloqueado (bucle)",
+      "quarantined": "En cuarentena",
+      "residency_blocked": "Bloqueado (residencia)",
+      "sampled_out": "Muestreado fuera",
+      "suppressed": "Suprimido",
+      "unrouted": "Sin destino",
+      "unknown": "Desconocido",
+      "unknownTooltip": "Evento grabado antes de que la captura registrara el desenlace."
     }
   },
   "licensing": {

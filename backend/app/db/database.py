@@ -491,6 +491,24 @@ def _run_lightweight_migrations() -> None:
                     text("ALTER TABLE routes ADD COLUMN suppress_window_s INTEGER NOT NULL DEFAULT 30")
                 )
 
+        # ADR-0015 Fase 1 — discriminador de execução da regra de correlação.
+        # DEFAULT 'batch' = back-compat exato: toda regra existente continua
+        # sendo avaliada apenas ao final de uma busca federada, e NENHUMA passa
+        # a rodar no hot path de ingestão sem que o operador opte por isso.
+        # VARCHAR e não ENUM: o domínio ainda pode crescer e um ENUM em Postgres
+        # exigiria migração de tipo para cada valor novo.
+        if "correlation_rules" in table_names:
+            corr_rule_columns = {
+                c["name"] for c in inspector.get_columns("correlation_rules")
+            }
+            if "eval_mode" not in corr_rule_columns:
+                conn.execute(
+                    text(
+                        "ALTER TABLE correlation_rules "
+                        "ADD COLUMN eval_mode VARCHAR NOT NULL DEFAULT 'batch'"
+                    )
+                )
+
         # Preferência de idioma da UI por usuário (nullable =
         # seguir o Accept-Language do navegador). Sincronizada pelo seletor do SPA.
         if "app_users" in table_names:

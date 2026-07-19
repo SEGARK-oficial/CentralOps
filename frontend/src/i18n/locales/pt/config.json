@@ -378,7 +378,7 @@
   "capture": {
     "intro": {
       "title": "O que é a captura ao vivo",
-      "body": "Liga um <strong>\"modo escuta\"</strong> temporário que grava uma amostra do tráfego <strong>efetivamente enviado aos destinos</strong>, opcionalmente filtrado por vendor. Use para inspecionar o formato real dos eventos durante um teste de integração — sem precisar procurar na auditoria geral. A sessão expira sozinha ao fim da janela; nada fica ligado para sempre."
+      "body": "Liga um <strong>\"modo escuta\"</strong> temporário que grava uma amostra do tráfego <strong>processado pelo pipeline</strong> junto com o <strong>desfecho de cada evento</strong> (entregue, descartado, sem destino, quarentena…), opcionalmente filtrado por vendor. Use para ver como o log entrou e como ele saiu durante um teste de integração — sem procurar na auditoria geral. A sessão expira sozinha ao fim da janela; nada fica ligado para sempre."
     },
     "loadSessionsError": "Falha ao listar sessões de captura",
     "loadEventsError": "Falha ao carregar eventos da sessão",
@@ -412,7 +412,8 @@
       "bufferSizeAriaLabel": "Tamanho do buffer da captura",
       "eventsUnit": "{{count}} eventos",
       "start": "Iniciar captura",
-      "refresh": "Atualizar"
+      "refresh": "Atualizar",
+      "durationHint": "Os coletores rodam em ciclos (de 1 a alguns minutos). Uma janela curta pode abrir e fechar entre dois ciclos e não capturar nada — para troubleshooting, prefira 15 minutos ou mais."
     },
     "sessionsLoading": "Carregando sessões…",
     "sessionsEmptyTitle": "Nenhuma sessão de captura",
@@ -439,30 +440,61 @@
       "liveUpdating": "(atualizando ao vivo)",
       "refresh": "Atualizar",
       "loading": "Carregando eventos…",
-      "waitingTitle": "Aguardando tráfego…",
-      "waitingDescription": "A captura está ativa, mas ainda não houve tráfego para o filtro escolhido. Os eventos aparecem aqui assim que forem enviados.",
+      "waitingTitle": "Sessão ativa — aguardando eventos",
+      "waitingDescription": "A captura está no ar e ainda não registrou nada. Isso normalmente significa que ainda não passou tráfego pelo pipeline nesta janela — não que a captura esteja quebrada.",
       "emptyTitle": "Sem eventos capturados",
-      "emptyDescription": "Esta sessão não capturou eventos na janela (não houve tráfego que casasse com o filtro).",
+      "emptyDescription": "A janela terminou sem nenhum evento. Ou não houve tráfego no período, ou ele não casou com o filtro escolhido.",
       "table": {
         "capturedAt": "Capturado em",
         "vendor": "Vendor",
         "preview": "Prévia",
-        "actions": "Ações"
+        "actions": "Ações",
+        "outcome": "Desfecho"
       },
       "inspect": "Inspecionar",
       "inspectTooltip": "Ver JSON completo",
       "json": "JSON",
-      "jsonTooltip": "Copiar JSON"
+      "jsonTooltip": "Copiar JSON",
+      "outcomeFilterAriaLabel": "Filtrar por desfecho",
+      "outcomeFilterAll": "Todos os desfechos ({{total}})",
+      "outcomeChipTooltip": "Filtrar por este desfecho",
+      "clearOutcomeFilter": "Limpar filtro",
+      "filteredEmptyTitle": "Nenhum evento com o desfecho “{{outcome}}”",
+      "filteredEmptyDescription": "A sessão capturou {{total}} evento(s), mas nenhum com esse desfecho. Limpe o filtro para ver todos.",
+      "waitingWhyPipeline": "• A captura registra o que o pipeline processa, com o desfecho de cada evento.",
+      "waitingWhyCadence": "• Os coletores rodam em ciclos: pode levar de 1 a alguns minutos até o primeiro lote.",
+      "waitingWindow": "• Janela desta sessão: ~{{minutes}} min. Se ela for menor que a cadência do coletor, pode fechar sem pegar nada.",
+      "waitingVendorFilter": "• Escopo restrito ao vendor “{{vendor}}”: tráfego de outros vendors não entra nesta sessão.",
+      "waitingServerCounts": "O servidor já contabilizou {{total}} evento(s) nesta sessão — atualize para carregá-los.",
+      "emptyWindow": "• A janela durou ~{{minutes}} min.",
+      "emptyRetryHint": "• Dica: repita com uma janela maior (15 min ou mais) e sem filtro de vendor para confirmar.",
+      "destinationShort": "destino: {{destination}}"
     },
     "inspectModal": {
       "title": "Evento capturado — {{vendor}}",
       "defaultTitle": "Evento",
-      "copyJson": "Copiar JSON"
+      "copyJson": "Copiar JSON",
+      "outcome": "Desfecho: {{outcome}}",
+      "destination": "Destino: {{destination}}",
+      "detail": "Motivo: {{detail}}"
     },
     "deleteDialog": {
       "title": "Excluir sessão de captura?",
       "description": "Remove a sessão e todos os eventos capturados nela. Não pode ser desfeito.",
       "confirm": "Excluir"
+    },
+    "outcomes": {
+      "delivered": "Entregue",
+      "delivery_failed": "Falha na entrega",
+      "dropped": "Descartado (drop)",
+      "loop_blocked": "Bloqueado (loop)",
+      "quarantined": "Quarentena",
+      "residency_blocked": "Bloqueado (residência)",
+      "sampled_out": "Amostrado p/ fora",
+      "suppressed": "Suprimido",
+      "unrouted": "Sem destino",
+      "unknown": "Desconhecido",
+      "unknownTooltip": "Evento gravado antes de a captura registrar o desfecho."
     }
   },
   "licensing": {

@@ -112,6 +112,53 @@ jobs:
           provenance: mode=max
 
   # ── 2) Postgres migration gate (independe do build; ver PR #124) ─────────────
+  source-tree-guards:
+    name: Guards de árvore de fontes (-m source_only)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # Os testes marcados ``source_only`` inspecionam a ÁRVORE DE FONTES — leem o
+    # ``.py`` do alvo com ``inspect.getsource``/``read_text``, ou arquivos do
+    # frontend (``.tsx``/``.json``) para travar contratos backend→UI.
+    #
+    # A varredura unitária principal roda DENTRO da imagem da API, que é
+    # Cythonizada (o ``.py`` é removido) e não contém ``frontend/`` — por isso ela
+    # os exclui com ``-m "not source_only"``. Sem este job eles não rodariam em
+    # NENHUM lugar do CI: seriam guards decorativos, verdes por ausência.
+    #
+    # Aqui rodam sobre o checkout cru, onde tudo existe. Sem Docker, sem Cython,
+    # sem Postgres — só a árvore de fontes, que é exatamente o que eles afirmam.
+    steps:
+      # Self-hosted: ver a nota em pg-migrations (containers root deixam
+      # __pycache__ que o checkout não consegue limpar).
+      - name: Fix leftover workspace ownership (self-hosted)
+        run: sudo chown -R "$(id -u):$(id -g)" "$GITHUB_WORKSPACE" 2>/dev/null || true
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: "3.12"
+      - name: Instalar dependências
+        run: pip install --no-cache-dir -q -r backend/requirements.txt
+      - name: Rodar os guards de árvore de fontes
+        env:
+          APP_MASTER_KEY: ci-source-tree-guards-master-key-32chars
+          APP_ENV: test
+          SESSION_SECURE_COOKIE: "false"
+          DATABASE_URL: "sqlite:///:memory:"
+        run: |
+          set -euo pipefail
+          # --strict-markers: um marcador com typo viraria seleção vazia e o job
+          # passaria em verde sem rodar nada.
+          python -m pytest -m source_only --strict-markers -v -p no:cacheprovider \
+            --ignore=backend/app/collectors/tests/benchmarks \
+            backend/tests backend/app/collectors/tests \
+            | tee /tmp/source_only.log
+          # Fail-closed: seleção vazia é indistinguível de "tudo passou".
+          if grep -qE "no tests ran|collected 0 items" /tmp/source_only.log; then
+            echo "::error::Nenhum teste source_only foi selecionado — o marcador \
+sumiu ou o caminho mudou. Recusando o verde vazio."
+            exit 1
+          fi
+
   pg-migrations:
     name: Postgres migration gate (-m pg)
     runs-on: ubuntu-latest

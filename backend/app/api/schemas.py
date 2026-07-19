@@ -1473,7 +1473,9 @@ class CollectorConfigBase(BaseModel):
     # Batching / dedupe
     collector_batch_size: int = Field(default=200, ge=1, le=10_000)
     collector_batch_flush_seconds: int = Field(default=5, ge=1, le=600)
-    dedupe_ttl_days: int = Field(default=7, ge=1, le=365)
+    # alinhado a ``collectors.config_loader.DEFAULT_DEDUPE_TTL_DAYS``.
+    # Travado contra divergência em ``backend/tests/test_dedupe_ttl_invariant.py``.
+    dedupe_ttl_days: int = Field(default=1, ge=1, le=365)
 
     # Mapas JSON
     domain_concurrency_limits: Dict[str, int] = Field(default_factory=dict)

@@ -414,20 +414,31 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({ data, onSelectNode, clas
   }, [fit])
 
   // ── Wheel zoom ──────────────────────────────────────────────────────────
-  const handleWheel = useCallback((e: React.WheelEvent<HTMLDivElement>) => {
-    e.preventDefault()
-    const rect = containerRef.current!.getBoundingClientRect()
-    const mouseX = e.clientX - rect.left
-    const mouseY = e.clientY - rect.top
-    setTransform((prev) => {
-      const factor = e.deltaY < 0 ? 1.1 : 0.9
-      const newScale = clamp(prev.scale * factor, 0.35, 3)
-      return {
-        tx: mouseX - (mouseX - prev.tx) * (newScale / prev.scale),
-        ty: mouseY - (mouseY - prev.ty) * (newScale / prev.scale),
-        scale: newScale,
-      }
-    })
+  // Anexado MANUALMENTE com ``{ passive: false }``. O React registra ``onWheel`` como
+  // listener PASSIVO, então o ``preventDefault()`` é ignorado e o browser loga
+  // "Unable to preventDefault inside passive event listener invocation" a cada scroll
+  // sobre o canvas. E sem o preventDefault a PÁGINA rola junto com o zoom (o gesto faz
+  // as duas coisas). Só um listener não-passivo permite cancelar o scroll nativo.
+  useEffect(() => {
+    const el = containerRef.current
+    if (!el) return
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault()
+      const rect = el.getBoundingClientRect()
+      const mouseX = e.clientX - rect.left
+      const mouseY = e.clientY - rect.top
+      setTransform((prev) => {
+        const factor = e.deltaY < 0 ? 1.1 : 0.9
+        const newScale = clamp(prev.scale * factor, 0.35, 3)
+        return {
+          tx: mouseX - (mouseX - prev.tx) * (newScale / prev.scale),
+          ty: mouseY - (mouseY - prev.ty) * (newScale / prev.scale),
+          scale: newScale,
+        }
+      })
+    }
+    el.addEventListener("wheel", onWheel, { passive: false })
+    return () => el.removeEventListener("wheel", onWheel)
   }, [])
 
   const handleMouseDown = useCallback((e: React.MouseEvent<SVGSVGElement>) => {
@@ -495,7 +506,6 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({ data, onSelectNode, clas
     <div
       ref={containerRef}
       className={cn("relative overflow-hidden select-none", className)}
-      onWheel={handleWheel}
       style={{ cursor: dragging.current ? "grabbing" : "grab", height: displayH }}
     >
       <div className="absolute right-3 top-3 z-10 flex flex-col gap-1" onMouseDown={(e) => e.stopPropagation()}>

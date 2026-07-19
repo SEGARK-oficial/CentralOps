@@ -220,8 +220,15 @@ def test_every_facade_maps_to_spec_and_vice_versa():
     # collector_suppressed_total (suppression). Antes: 33 (+5 data-
     # plane Kafka, +3 ingest, base 28). +3: conformidade
     # OCSF collector_ocsf_{valid,invalid}_total + collector_ocsf_validate_latency_seconds.
-    # 39 → 42.
-    assert len(facade_names) == 42
+    # 39 → 42. +2 (ADR-0015, Fase 0): saúde do Redis do dedupe —
+    # collector_dedupe_redis_{evicted_keys,memory_used_ratio}. Amostradas
+    # periodicamente por ``state.dedupe.sample_redis_health``, NUNCA no hot path
+    # de ``claim()`` (o round-trip por evento já é o gargalo do pipeline).
+    # Tornam visível a evicção silenciosa sob o ``volatile-lru`` 512mb: uma claim
+    # evictada faz ``claim()`` devolver True para um evento reentregue, que é
+    # indistinguível de um evento novo — só o sinal do próprio Redis expõe.
+    # 42 → 44.
+    assert len(facade_names) == 48
     # O catálogo tem as síncronas + ao menos o observável collector_up.
     assert "collector_up" in otel_metrics._SPEC
     assert "collector_up" not in facade_names

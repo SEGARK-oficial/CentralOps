@@ -197,6 +197,15 @@ def _route_row_to_read(row: models.Route) -> RouteRead:
         destination_ids=json.loads(str(row.destination_ids or "[]")),
         is_final=bool(row.is_final),
         canary_percent=int(row.canary_percent),
+        # ADR-0015: alavancas de redução. Sem estas linhas o export emitiria os
+        # DEFAULTS do schema em vez dos valores da rota — pior que omitir, porque
+        # um restore desconfiguraria a economia em silêncio e reporia
+        # ``protect_detection`` para o default, descartando um opt-out consciente.
+        protect_detection=bool(row.protect_detection),
+        sample_percent=int(row.sample_percent),
+        suppress_key=row.suppress_key,
+        suppress_allow=int(row.suppress_allow),
+        suppress_window_s=int(row.suppress_window_s),
         transform_ref=row.transform_ref,  # type: ignore[arg-type]
         pii_redaction=(
             json.loads(str(row.pii_redaction))
@@ -566,6 +575,12 @@ def import_config(
                     priority=route.priority,
                     enabled=route.enabled,
                     canary_percent=route.canary_percent,
+                    # ADR-0015 — alavancas de redução preservadas no import.
+                    protect_detection=route.protect_detection,
+                    sample_percent=route.sample_percent,
+                    suppress_key=route.suppress_key,
+                    suppress_allow=route.suppress_allow,
+                    suppress_window_s=route.suppress_window_s,
                     transform_ref=route.transform_ref,
                     pii_redaction=route.pii_redaction,
                     organization_id=effective_org,
@@ -591,6 +606,14 @@ def import_config(
                 or int(existing_route.priority) != route.priority
                 or bool(existing_route.enabled) != route.enabled
                 or int(existing_route.canary_percent) != route.canary_percent
+                # ADR-0015 — sem estas comparações, mudar SÓ uma alavanca de
+                # redução no bundle seria detectado como "sem drift" e o import
+                # viraria no-op silencioso.
+                or bool(existing_route.protect_detection) != route.protect_detection
+                or int(existing_route.sample_percent) != route.sample_percent
+                or existing_route.suppress_key != route.suppress_key
+                or int(existing_route.suppress_allow) != route.suppress_allow
+                or int(existing_route.suppress_window_s) != route.suppress_window_s
                 or existing_route.transform_ref != route.transform_ref
                 or existing_pii != route.pii_redaction
             )
@@ -605,6 +628,12 @@ def import_config(
                         priority=route.priority,
                         enabled=route.enabled,
                         canary_percent=route.canary_percent,
+                        # ADR-0015 — alavancas de redução preservadas no update.
+                        protect_detection=route.protect_detection,
+                        sample_percent=route.sample_percent,
+                        suppress_key=route.suppress_key,
+                        suppress_allow=route.suppress_allow,
+                        suppress_window_s=route.suppress_window_s,
                         transform_ref=route.transform_ref,
                         pii_redaction=route.pii_redaction,
                         actor=str(user.username),

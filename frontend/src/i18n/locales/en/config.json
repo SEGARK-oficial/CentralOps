@@ -378,7 +378,7 @@
   "capture": {
     "intro": {
       "title": "What live capture is",
-      "body": "Turns on a temporary <strong>\"listening mode\"</strong> that records a sample of traffic <strong>actually sent to destinations</strong>, optionally filtered by vendor. Use it to inspect the real format of events during an integration test — without having to search the general audit. The session expires on its own at the end of the window; nothing stays on forever."
+      "body": "Turns on a temporary <strong>\"listening mode\"</strong> that records a sample of the traffic <strong>processed by the pipeline</strong> along with <strong>each event's outcome</strong> (delivered, dropped, no destination, quarantined…), optionally filtered by vendor. Use it to see how a log came in and how it went out during an integration test — without searching the general audit. The session expires on its own at the end of the window; nothing stays on forever."
     },
     "loadSessionsError": "Failed to list capture sessions",
     "loadEventsError": "Failed to load session events",
@@ -412,7 +412,8 @@
       "bufferSizeAriaLabel": "Capture buffer size",
       "eventsUnit": "{{count}} events",
       "start": "Start capture",
-      "refresh": "Refresh"
+      "refresh": "Refresh",
+      "durationHint": "Collectors run in cycles (from 1 to a few minutes). A short window can open and close between two cycles and capture nothing — for troubleshooting, prefer 15 minutes or more."
     },
     "sessionsLoading": "Loading sessions…",
     "sessionsEmptyTitle": "No capture session",
@@ -439,30 +440,61 @@
       "liveUpdating": "(updating live)",
       "refresh": "Refresh",
       "loading": "Loading events…",
-      "waitingTitle": "Waiting for traffic…",
-      "waitingDescription": "The capture is active, but there hasn't been traffic matching the chosen filter yet. Events appear here as soon as they are sent.",
+      "waitingTitle": "Session active — waiting for events",
+      "waitingDescription": "The capture is live and hasn't recorded anything yet. That usually means no traffic has gone through the pipeline in this window — not that the capture is broken.",
       "emptyTitle": "No events captured",
-      "emptyDescription": "This session didn't capture any events in the window (no traffic matched the filter).",
+      "emptyDescription": "The window ended with no events. Either there was no traffic in that period, or it didn't match the chosen filter.",
       "table": {
         "capturedAt": "Captured at",
         "vendor": "Vendor",
         "preview": "Preview",
-        "actions": "Actions"
+        "actions": "Actions",
+        "outcome": "Outcome"
       },
       "inspect": "Inspect",
       "inspectTooltip": "View full JSON",
       "json": "JSON",
-      "jsonTooltip": "Copy JSON"
+      "jsonTooltip": "Copy JSON",
+      "outcomeFilterAriaLabel": "Filter by outcome",
+      "outcomeFilterAll": "All outcomes ({{total}})",
+      "outcomeChipTooltip": "Filter by this outcome",
+      "clearOutcomeFilter": "Clear filter",
+      "filteredEmptyTitle": "No events with outcome “{{outcome}}”",
+      "filteredEmptyDescription": "The session captured {{total}} event(s), but none with that outcome. Clear the filter to see them all.",
+      "waitingWhyPipeline": "• The capture records what the pipeline processes, with each event's outcome.",
+      "waitingWhyCadence": "• Collectors run in cycles: it can take 1 to a few minutes until the first batch.",
+      "waitingWindow": "• This session's window: ~{{minutes}} min. If it's shorter than the collector cadence, it may close without catching anything.",
+      "waitingVendorFilter": "• Scoped to vendor “{{vendor}}”: traffic from other vendors won't enter this session.",
+      "waitingServerCounts": "The server already counted {{total}} event(s) in this session — refresh to load them.",
+      "emptyWindow": "• The window lasted ~{{minutes}} min.",
+      "emptyRetryHint": "• Tip: retry with a longer window (15 min or more) and no vendor filter to confirm.",
+      "destinationShort": "destination: {{destination}}"
     },
     "inspectModal": {
       "title": "Captured event — {{vendor}}",
       "defaultTitle": "Event",
-      "copyJson": "Copy JSON"
+      "copyJson": "Copy JSON",
+      "outcome": "Outcome: {{outcome}}",
+      "destination": "Destination: {{destination}}",
+      "detail": "Reason: {{detail}}"
     },
     "deleteDialog": {
       "title": "Delete capture session?",
       "description": "Removes the session and all events captured in it. Cannot be undone.",
       "confirm": "Delete"
+    },
+    "outcomes": {
+      "delivered": "Delivered",
+      "delivery_failed": "Delivery failed",
+      "dropped": "Dropped",
+      "loop_blocked": "Blocked (loop)",
+      "quarantined": "Quarantined",
+      "residency_blocked": "Blocked (residency)",
+      "sampled_out": "Sampled out",
+      "suppressed": "Suppressed",
+      "unrouted": "No destination",
+      "unknown": "Unknown",
+      "unknownTooltip": "Event recorded before the capture started tracking outcomes."
     }
   },
   "licensing": {
