@@ -24,17 +24,111 @@ Para acessar, use o menu **Conhecimento → Correlação**.
 - **Reduzir ruído.** Em vez de alertar cada evento isolado (cada tentativa falhada é um alerta fraco), agrupe e alerte só quando o padrão fica suspeito.
 - **Correlação sem query.** Não precisa saber linguagem de busca federada. Preencha um formulário simples: campo para agrupar, limite mínimo, janela de tempo, filtros simples.
 
-## Quando a regra é avaliada
+## Modos de avaliação: batch vs inflight
 
-Este é o ponto mais importante de entender antes de criar uma regra.
+Uma regra pode rodar em dois modos distintos, com diferenças críticas de latência e semântica.
 
-Uma regra habilitada é avaliada **somente quando uma busca federada termina** (status `finished` ou `partial`), e **somente sobre os resultados daquela busca**. Não existe gatilho contínuo:
+### Modo batch (padrão)
+
+Você define a regra com `eval_mode='batch'`. Uma regra habilitada é avaliada **somente quando uma busca federada termina** (status `finished` ou `partial`), e **somente sobre os resultados daquela busca**. Não existe gatilho contínuo:
 
 - O pipeline de coleta **não** avalia regras de correlação. Eventos ingeridos não passam pelo motor.
 - **Não** há agendamento próprio (nenhuma entrada de scheduler cria buscas para alimentar as regras).
 - Rodar uma busca federada é a única forma de disparar a avaliação — via **Operação → Busca federada**.
 
 Consequência prática: o alcance temporal da sua regra é o alcance da busca. Uma regra de "10 falhas em 5 minutos" não vê nada que esteja fora do intervalo e dos filtros da busca que a acionou.
+
+:::caution[Beta — avaliação sob demanda, não contínua]
+Batch está em **Beta** pelo motivo acima: você precisa executar uma busca federada para a regra rodar. Não é monitoramento contínuo.
+:::
+
+### Modo inflight (avaliação em voo)
+
+Você define a regra com `eval_mode='inflight'`. A regra é avaliada **por evento, no pipeline de ingestão, antes do dado chegar ao SIEM**. Uma Detection é emitida imediatamente quando o evento bate na regra — sem esperar por busca federada.
+
+Vantagens: latência em tempo real, não depende de buscas manuais.
+
+Limitações importantes:
+- **Sem janela de tempo.** Um inflight roda sobre um único evento por vez, logo `window_seconds` e `timestamp_field` são ignorados. Agrupar por `group_by_field` (ex.: `source.ip`) tira vários eventos do mesmo IP no mesmo ciclo de coleta, mas não numa janela temporal no sentido de "últimas 5 minutos" — é "neste ciclo de coleta".
+- **Sem contagem de threshold.** Não existe `min_count`. Cada evento casado gera uma Detection (ou é descartado por supressão de dedup).
+- **Operadores diferentes.** Inflight suporta três operadores extras: `in`, `nin`, `exists`. Batch não tem esses.
+- **Cardinalidade limitada.** O máximo de chaves de dedup por regra por ciclo é 50. Se uma regra gera mais de 50 variações (ex.: 100 IPs diferentes num ciclo), os matches seguem contados mas nenhuma Detection nova é criada após a 50ª chave.
+
+**Resumo:**
+
+| Aspecto | Batch | Inflight |
+|--------|-------|----------|
+| **Gatilho** | Fim de busca federada | Cada evento no pipeline |
+| **Latência** | Delay até próxima busca | Tempo real |
+| **Janela** | Sim, `window_seconds` | Não, ignorado |
+| **Min. count** | Sim, `min_count` | Não, ignorado (1 por evento) |
+| **Group by** | Agrupa dentro da busca | Agrupa dentro do ciclo de coleta |
+| **Operadores** | eq, ne, contains, gt/lt/gte/lte | +in, nin, exists |
+| **Uso típico** | Investigação pós-coleta | Detecção urgente em tempo real |
+
+## Autoria de regras — operadores e gotchas
+
+### Operadores de filtro
+
+O campo `where_json` aceita um array de cláusulas, cada uma com formato:
+```json
+{ "field": "nome.do.campo", "op": "operador", "value": valor }
+```
+
+Operadores suportados:
+
+| Operador | Significado | Exemplo | Notas |
+|----------|-------------|---------|-------|
+| `eq` | Igual | `{ "field": "event.type", "op": "eq", "value": "auth_failed" }` | Padrão, pode omitir `op`. Compara strings; case-sensitive. |
+| `ne` | Diferente | `{ "field": "user.name", "op": "ne", "value": "admin" }` | Vacuidade: campo ausente ≠ admin. Auto-injeta `exists=true`. |
+| `contains` | Contém (substring) | `{ "field": "message", "op": "contains", "value": "error" }` | Busca a string dentro da string do evento. |
+| `gt`, `lt`, `gte`, `lte` | Maior, menor, etc. | `{ "field": "severity", "op": "gte", "value": 3 }` | Coagem lado esquerdo a float. "5" vs 3 funciona. |
+| `in` (inflight) | Está em lista | `{ "field": "source.ip", "op": "in", "value": ["10.0.0.1", "10.0.0.2"] }` | **JSON array, não CSV string.** Rejeita `"10.0.0.1,10.0.0.2"`. |
+| `nin` (inflight) | Não está em lista | `{ "field": "source.ip", "op": "nin", "value": ["10.0.0.1"] }` | Vacuidade + allowlist. Auto-injeta `exists=true`. |
+| `exists` (inflight) | Campo existe | `{ "field": "user.id", "op": "exists", "value": true }` | True/false. Raro usar manualmente (auto-injetado). |
+
+### Gotchas e armadilhas
+
+**in / nin exigem LISTA JSON**
+
+Errado:
+```json
+{ "field": "source.ip", "op": "in", "value": "10.0.0.1,10.0.0.2" }
+```
+Isto é rejeitado na compilação (`bad_json`). Se você quer múltiplos valores, use um array:
+```json
+{ "field": "source.ip", "op": "in", "value": ["10.0.0.1", "10.0.0.2"] }
+```
+
+**Operadores negativos (ne, nin) casam por vacuidade — mas é seguro**
+
+Se um evento não tem o campo `user.name`, tanto `ne` quanto `nin` o deixam passar. Sem proteção, uma regra "não-admin" dispararia sobre eventos sem ID. O compilador fecha isto automaticamente injetando `exists=true` — você não vê nem precisa escrever manualmente. É transparente.
+
+**Comparação numérica é automática, mas case-sensitive**
+
+```json
+{ "field": "severity", "op": "gte", "value": 4 }
+```
+
+Se o evento tem `"severity": "5"` (string), isto funciona — o motor coage `"5"` a `5.0` antes de comparar. Mas:
+
+```json
+{ "field": "event_id", "op": "eq", "value": 1 }
+```
+
+Se o evento tem `"event_id": "1"` (string), isto **não** funciona — `eq` compara strings e `"1"` ≠ `1`. Use `"1"` como valor.
+
+**Caminhos de campo usando ponto**
+
+```json
+{ "field": "raw.user.name", "op": "eq", "value": "alice" }
+```
+
+Navega `raw` → `user` → `name`. Se em algum nível não for dict, resolve para `None` (e `eq` não casa).
+
+**Arrays não são navegados**
+
+Se `raw.events` é uma lista, um path como `raw.events.0.type` não funciona — resolve para `None`. O motor não sabe entrar em arrays. Agrupe por um campo de topo, não por dentro de listas.
 
 ## Como funciona: tipo threshold
 
@@ -133,13 +227,94 @@ Quando uma regra dispara, é criada uma **Detecção** com:
 
 Você vê as Detecções em **Operação → Detecções**.
 
+## Diagnóstico: por que a regra não dispara
+
+Sua regra está criada e habilitada, mas não gera Detections. Aqui estão as causas reais, em ordem de frequência.
+
+### 1. Eval_mode errado
+
+Você criou a regra em modo `batch`, mas esperava que ela rodasse em tempo real. Ou criou em `inflight` e esperava que ela rodasse ao fim da busca federada.
+
+**Diagnóstico:** abra a regra. Confira o campo `eval_mode` (pode estar em abas ou settings). Mude conforme necessário.
+
+- Batch roda somente após uma busca federada terminar (você precisa executar uma busca manualmente).
+- Inflight roda no pipeline de coleta, por evento, em tempo real.
+
+### 2. Regra desabilitada
+
+O `Status` da regra é "Desativada" (cinza). Regras desativadas não são avaliadas.
+
+**Diagnóstico:** na lista de regras, procure pelo ícone de status. Se estiver cinza, clique em ações → **Ativar**.
+
+### 3. Modo batch: nenhuma busca executada
+
+A regra está em batch, mas você nunca rodou uma busca federada que pudesse acioná-la.
+
+**Diagnóstico:** vá em **Operação → Busca federada**, execute uma busca que cubra as fontes e período de interesse, e aguarde conclusão. A regra é avaliada ao final.
+
+### 4. Where_json não compila
+
+A cláusula `where` tem um erro de sintaxe ou semântica que a torna inválida. A regra é rejeitada no boot.
+
+Razões possíveis (procure no **log de aplicação** pela mensagem de rejeição):
+- `bad_json`: JSON malformado, ou operador numérico (gt/lt/gte/lte) com valor não-numérico, ou `in`/`nin` sem array, ou campo `field` ausente.
+- `empty_where`: array vazio ou sem nenhuma cláusula (em inflight, regra vazia dispararia 100% dos eventos).
+- `unknown_op`: operador não reconhecido (ex.: `"op": "match"`, que não existe).
+- `over_cap`: mais de 10 cláusulas numa regra (limite inflight).
+
+**Diagnóstico:** abra a regra, valide o JSON — use um validador de JSON online se necessário. Confira operadores: são apenas `eq`, `ne`, `contains`, `gt`, `lt`, `gte`, `lte` + `in`, `nin`, `exists` (inflight).
+
+### 5. Modo batch: campo de timestamp vazio ou inválido
+
+Você configurou uma janela (`window_seconds > 0`), mas deixou `timestamp_field` vazio ou apontando para um campo que não existe.
+
+**Diagnóstico:** abra a regra. Confira `timestamp_field` — está preenchido? Se sim, ele existe de fato nos eventos daquela fonte? Execute uma investigação / busca federada para ver um evento de exemplo, verifique o caminho do campo.
+
+Se o campo estiver realmente ausente ou vazio, a **janela é desligada em silêncio** e a regra passa a contar todos os eventos do grupo presentes no resultado da busca, sem recorte temporal — isto gera falso positivo, não falha de disparo, mas é um modo silencioso de "sua regra não faz o que você esperava".
+
+### 6. Campo trimado pelo mapeamento
+
+A fonte é mapeada com `raw_reduction` que remove o campo que sua regra tenta usar.
+
+**Diagnóstico:** vá em **Conhecimento → Mapeamentos**, abra o mapeamento da fonte em questão. Procure por configurações de redução / trimming (`raw_reduction`). Se o campo usado na regra está excluído, ajuste o mapeamento ou mude a regra para usar um campo que não foi trimado.
+
+### 7. Path atravessa array
+
+Um campo do seu `where` está dentro de uma lista, ex.: `raw.events.0.type`.
+
+**Diagnóstico:** confira a estrutura dos dados. Se o campo está dentro de um array (ex.: `events` é uma lista), o motor não sabe navegar dentro. Use um campo de topo, ou agrupe por um campo que não requer entrar na lista.
+
+### 8. Group_by_field não resolve (inflight)
+
+Modo inflight: você configurou `group_by_field` apontando para um campo que não existe ou está dentro de um array.
+
+**Diagnóstico:** cada evento casado produz uma Detection usando `group_by_field` como chave. Se o campo não existe no evento, a Detection não é criada — em vez disso, você vê um erro `group_by_unresolved` nos logs. Verifique o campo, ou deixe em branco (NULL) se quer uma Detection por regra por ciclo.
+
 ## Limites e roadmap
 
-- **Sem gatilho automático (Beta)**: a avaliação acontece apenas ao final de uma busca federada. Gatilho contínuo no pipeline de ingestão e agendamento próprio da regra estão no roadmap.
-- **Tipo**: atualmente, apenas **threshold** (contagem em janela). **Sequence** (padrão A → B → C) e **Aggregation** (soma, média) estão no roadmap.
-- **Janela depende de `timestamp_field`**: sem esse campo, a janela é desligada e a contagem passa a considerar todos os eventos do grupo no resultado da busca.
-- **Sem filtros complexos**: os filtros `where` suportam operadores simples: `eq` (igual), `ne` (diferente), `contains` (contém), `gt`/`lt`/`gte`/`lte` (comparações numéricas). Para lógica muito avançada, use a [Busca federada](./detections.md) e salve como Correlation Rule depois.
+### Limites gerais
+
 - **Quota por organização**: existe limite de regras por organização. Se receber erro 409 (Conflict), consulte o administrador.
+- **Sem filtros complexos**: os filtros `where` suportam operadores simples: `eq`, `ne`, `contains`, `gt`/`lt`/`gte`/`lte`. Para lógica avançada (OR, NOT, wildcards), use a [Busca federada](./search.md) e analise manualmente.
+
+### Limites específicos do inflight
+
+- **50 regras por ciclo**: máximo de regras inflight avaliadas num ciclo de coleta. Se sua organização tiver mais, as que cabem são carregadas e avaliadas; as demais são adiadas para o próximo ciclo. Não há perda de eventos — apenas avaliação em ondas. Em caso de reach o limite, logs avisar.
+- **10 cláusulas por regra**: máximo de predicados no `where_json` de uma regra inflight. Uma regra com 11 cláusulas é rejeitada em compile-time.
+- **500 cláusulas totais por ciclo**: máx de 50 regras × 10 cláusulas = 500 predicados avaliados por evento. Se você tem 50 regras com 10 cláusulas cada, atinge o teto e nenhuma regra extra pode ser carregada naquele ciclo.
+- **50 chaves de dedup por regra por ciclo**: se uma regra gera mais de 50 variações (ex.: 100 IPs diferentes num ciclo usando `group_by_field="source.ip"`), as primeiras 50 geram Detections, as demais não — mas **todos os matches seguem sendo contados nos logs**. Nenhum evento é perdido. Isto costuma indicar que `group_by_field` tem cardinalidade muito alta (ex.: um ID único por evento). Ajuste a regra ou revise o agrupamento.
+
+:::note[O que fazer ao atingir tetos]
+- **Muitas regras?** Revise quais são críticas. Priorize pelo risco e desabilite as menos importantes.
+- **Muitas cláusulas?** Simplifique a lógica do `where` — combine predicados ou use campos mais específicos.
+- **Muitas chaves de dedup?** Revise `group_by_field` — talvez esteja muito granular. Ex.: se agrupa por `user.id` e tem milhares de usuários por ciclo, cada um gera uma chave diferente. Considere agrupar por `user.department` ou deixar em branco (uma Detection por regra).
+:::
+
+### Roadmap
+
+- **Batch**: gatilho contínuo no pipeline (inflight já cobre isto). Agendamento próprio (sem precisar rodar busca manual).
+- **Tipo**: sequência de eventos (A → B → C), agregações (soma, média), regras SQL custom.
+- **Batch: sem `timestamp_field`**: fallback automático para timestamp de ingestão (hoje a janela é desligada em silêncio).
 
 ## Passo a passo
 
