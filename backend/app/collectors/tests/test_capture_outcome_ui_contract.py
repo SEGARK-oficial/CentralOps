@@ -19,6 +19,8 @@ import json
 import re
 from pathlib import Path
 
+import pytest
+
 from ..capture_session import OUTCOMES
 
 _REPO = Path(__file__).resolve().parents[4]
@@ -41,6 +43,7 @@ def _locale_keys(loc: str) -> set[str]:
     return set(json.loads(p.read_text(encoding="utf-8"))["capture"]["outcomes"])
 
 
+@pytest.mark.source_only  # lê frontend/src — ausente na imagem da API
 def test_ui_tone_map_covers_every_backend_outcome() -> None:
     missing = OUTCOMES - _tone_keys()
     assert not missing, (
@@ -48,6 +51,7 @@ def test_ui_tone_map_covers_every_backend_outcome() -> None:
     )
 
 
+@pytest.mark.source_only  # lê frontend/src — ausente na imagem da API
 def test_ui_tone_map_has_no_invented_outcomes() -> None:
     """Chave que o backend nunca emite é código morto — e sinaliza que alguém
     adivinhou o vocabulário em vez de ler o enum."""
@@ -55,6 +59,7 @@ def test_ui_tone_map_has_no_invented_outcomes() -> None:
     assert not extra, f"OUTCOME_TONES tem desfechos inexistentes no backend: {sorted(extra)}"
 
 
+@pytest.mark.source_only  # lê frontend/src — ausente na imagem da API
 def test_every_locale_translates_every_backend_outcome() -> None:
     for loc in _LOCALES:
         missing = OUTCOMES - _locale_keys(loc)
@@ -64,6 +69,7 @@ def test_every_locale_translates_every_backend_outcome() -> None:
         )
 
 
+@pytest.mark.source_only  # lê frontend/src — ausente na imagem da API
 def test_locales_have_no_invented_outcomes() -> None:
     for loc in _LOCALES:
         extra = _locale_keys(loc) - OUTCOMES - _UI_ONLY
