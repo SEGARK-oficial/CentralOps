@@ -65,6 +65,13 @@ from .state.dedupe import claim, compute_message_id
 
 logger = logging.getLogger(__name__)
 
+# Conjunto vazio de regras em voo: valor inicial ANTES do try de
+# ``_run_collection_once`` (o ``finally`` referencia o nome). Constante de módulo
+# para não alocar um objeto por ciclo em orgs sem regra — o caso majoritário.
+from .inflight.matcher import CompiledRuleSet as _CompiledRuleSet
+
+_EMPTY_RULESET = _CompiledRuleSet(rules=(), share_paths=False)
+
 
 class VendorAuthError(Exception):
     """Levantada quando o vendor responde ``401`` — sinaliza que o cache
@@ -408,21 +415,33 @@ async def _run_collection_once(integration_id: int, stream: str) -> None:
     # Definidos AQUI (antes do try): o except final os referencia — exceção nos
     # passos 1–3 (antes do loop de coleta) virava UnboundLocalError e mascarava
     # o erro original (incidente jul/2026).
-    _track_claims = settings.EVENT_DATAPLANE == "kafka"
-    claimed_msg_ids: list[str] = []
+    # ADR-0015 Fase 2 — compensação de claim de dedupe, agora INCONDICIONAL.
+    # Antes era gated por ``EVENT_DATAPLANE == "kafka"``, o que deixava o
+    # data-plane DEFAULT sem nenhuma compensação: um run que falhasse vazava
+    # TODAS as claims tomadas até o TTL, e o retry re-via os eventos, ``claim``
+    # devolvia False e eles eram descartados como "duplicados" — PERDA
+    # SILENCIOSA de log de segurança. A claim é um risco do PIPELINE, não do
+    # transporte.
+    #
+    # Guarda apenas o NÃO-LIQUIDADO: cada id sai do conjunto assim que
+    # ``_enqueue_dispatch`` retorna (hand-off durável feito). Num run
+    # bem-sucedido o conjunto termina VAZIO e o release é no-op. Memória
+    # limitada a ~``collector_batch_size``.
+    unsettled_claims: set[str] = set()
+    batch_msg_ids: list[str] = []
     # metering IN batched (ADR-0011): acumula (eventos, bytes) por
     # (org, integração) e faz flush a cada 500 eventos/15s — o record_in
     # por-evento fazia 4 pipelines Redis SÍNCRONOS por evento e bloqueava o
     # event loop (~0,8ms/evento). Instanciado ANTES do try (padrão
-    # _track_claims): o finally faz o flush FINAL best-effort mesmo em
+    # unsettled_claims): o finally faz o flush FINAL best-effort mesmo em
     # exceção/soft-timeout, sem mascarar o erro original.
     _metering_in = metering.InVolumeAccumulator()
-    # ADR-0015 Fase 1 — MESMO padrão e MESMO motivo de ``_track_claims`` acima:
+    # ADR-0015 Fase 1 — MESMO padrão e MESMO motivo de ``unsettled_claims`` acima:
     # o ``finally`` referencia estes nomes, e uma exceção nos passos 1-3 (antes
     # da carga das regras) os deixaria unbound, transformando o flush num
     # ``UnboundLocalError`` que MASCARARIA o erro original. Foi exatamente essa
     # a forma do incidente de jul/2026 registrado no comentário acima.
-    _inflight_rules: tuple = ()
+    _inflight_rules = _EMPTY_RULESET
     _inflight_acc = None
     _inflight_logged = False
     _inflight_org_id: Optional[int] = None
@@ -535,7 +554,7 @@ async def _run_collection_once(integration_id: int, stream: str) -> None:
         # no laço de eventos). Import lazy: uma org sem regras em voo não paga
         # nem o custo de resolver o módulo. Fail-safe para () — um problema aqui
         # nunca pode impedir a COLETA, que é o produto que se vende.
-        from .inflight.matcher import evaluate_inflight
+        from .inflight.matcher import evaluate_ruleset
         from .inflight.runtime import InflightAccumulator, load_inflight_rules_for_org
 
         _inflight_org_id = organization_id
@@ -544,7 +563,7 @@ async def _run_collection_once(integration_id: int, stream: str) -> None:
         )
         # Instanciado SÓ quando há regra: com a tupla vazia o hot path fica
         # byte-idêntico ao anterior (R2) e o flush é curto-circuitado.
-        _inflight_acc = InflightAccumulator() if _inflight_rules else None
+        _inflight_acc = InflightAccumulator() if _inflight_rules.rules else None
 
         if not registry_has(platform, stream):
             logger.error(
@@ -582,7 +601,7 @@ async def _run_collection_once(integration_id: int, stream: str) -> None:
         # ── 4. Loop async de coleta ───────────────────────────────────
         batch: list[Dict[str, Any]] = []
         last_flush = time.monotonic()
-        # (_track_claims/claimed_msg_ids são inicializados ANTES do try — o
+        # (unsettled_claims/batch_msg_ids são inicializados ANTES do try — o
         # except final os referencia; ver comentário na inicialização.)
 
         async with _aiohttp_session() as session:
@@ -616,8 +635,7 @@ async def _run_collection_once(integration_id: int, stream: str) -> None:
                     ):
                         DEDUPE_DROPS.labels(vendor=platform, stream=stream).inc()
                         continue
-                    if _track_claims:
-                        claimed_msg_ids.append(msg_id)
+                    unsettled_claims.add(msg_id)
 
                     # RF3.7 — sample reservoir alimenta dry-run da UI.
                     # fire-and-forget — best-effort não pode bloquear
@@ -943,9 +961,9 @@ async def _run_collection_once(integration_id: int, stream: str) -> None:
                     # `return` ou mutação do envelope. Uma regra que explode
                     # custa um log e o evento segue no batch. O detector é
                     # observador, nunca porteiro.
-                    if _inflight_rules:
+                    if _inflight_acc is not None:
                         try:
-                            for _rule in evaluate_inflight(envelope, _inflight_rules):
+                            for _rule in evaluate_ruleset(envelope, _inflight_rules):
                                 _inflight_acc.add(
                                     _rule, envelope, organization_id, integration_id
                                 )
@@ -965,6 +983,10 @@ async def _run_collection_once(integration_id: int, stream: str) -> None:
                             )
 
                     batch.append(envelope)
+                    # Paralelo 1:1 com ``batch``: permite liquidar as claims
+                    # exatamente dos eventos que foram entregues, sem mutar o
+                    # envelope (que é serializado para o data-plane).
+                    batch_msg_ids.append(msg_id)
                     events_count += 1
 
                     if (
@@ -978,6 +1000,12 @@ async def _run_collection_once(integration_id: int, stream: str) -> None:
                             tenant=str(organization_id),
                             stream=stream,
                         ).inc(len(batch))
+                        # LIQUIDAÇÃO — só DEPOIS do hand-off durável. Liquidar
+                        # antes converteria uma falha de enqueue em perda
+                        # silenciosa: a claim ficaria de pé e o retry
+                        # descartaria o evento como duplicado.
+                        unsettled_claims.difference_update(batch_msg_ids)
+                        batch_msg_ids = []
                         batch = []
                         last_flush = time.monotonic()
             except aiohttp.ClientResponseError as exc:
@@ -1008,6 +1036,14 @@ async def _run_collection_once(integration_id: int, stream: str) -> None:
                     tenant=str(organization_id),
                     stream=stream,
                 ).inc(len(batch))
+                # Dreno TERMINAL: uma integração que devolve poucos eventos e
+                # encerra a página nunca atinge collector_batch_size nem o
+                # gatilho de tempo (avaliado DENTRO do corpo do laço). Sem
+                # liquidar aqui, as claims desses eventos seriam soltas pelo
+                # finally e o retry os reprocessaria — duplicata, não perda,
+                # mas ruído evitável.
+                unsettled_claims.difference_update(batch_msg_ids)
+                batch_msg_ids = []
 
         # ── 5. Persiste cursor final (RF02) ───────────────────────────
         # flow-view: instrumentação de volume de source no store nativo.
@@ -1058,21 +1094,6 @@ async def _run_collection_once(integration_id: int, stream: str) -> None:
         # o descartaria como "duplicado" (perda silenciosa). Eventos que já foram
         # produzidos serão reentregues e o dedupe-no-destino (event_id) os absorve
         # (at-least-once). Best-effort: erro de Redis aqui não mascara a original.
-        if _track_claims and claimed_msg_ids:
-            from .state.dedupe import release as _dedupe_release
-
-            released = 0
-            for _mid in claimed_msg_ids:
-                try:
-                    await _dedupe_release(redis, integration_id, _mid)
-                    released += 1
-                except Exception:  # pragma: no cover — best-effort
-                    pass
-            logger.warning(
-                "data-plane: run falhou — %d/%d claims de dedupe soltas p/ replay seguro "
-                "(integration=%s stream=%s)",
-                released, len(claimed_msg_ids), integration_id, stream,
-            )
         try:
             await cursor_store.save(
                 integration_id,
@@ -1100,6 +1121,33 @@ async def _run_collection_once(integration_id: int, stream: str) -> None:
             await flush_inflight(_inflight_acc, _inflight_org_id)
         except Exception:  # noqa: BLE001
             logger.exception("inflight: flush falhou no encerramento do ciclo")
+        # Solta as claims NÃO LIQUIDADAS (ADR-0015 Fase 2). Num run bem-sucedido
+        # o conjunto está vazio — todo id saiu no ``_enqueue_dispatch`` — então
+        # isto é no-op. No ``finally`` e não no ``except`` de propósito: cobre
+        # também ``WorkerShutdown``, que deriva de ``BaseException`` e escapa de
+        # ``except Exception``. Sem isto, um run interrompido deixava as claims
+        # de pé até o TTL e o retry descartava os eventos como duplicados —
+        # perda silenciosa. OBRIGATORIAMENTE antes do ``aclose`` abaixo: o DEL
+        # iria contra um cliente fechado.
+        if unsettled_claims:
+            try:
+                from .state.dedupe import release_many as _release_many
+
+                _n = await _release_many(redis, integration_id, unsettled_claims)
+                logger.warning(
+                    "dedupe: %d claim(s) não liquidada(s) solta(s) p/ replay seguro "
+                    "(integration=%s stream=%s) — os eventos serão recoletados em vez "
+                    "de descartados como duplicados",
+                    _n, integration_id, stream,
+                    extra={
+                        "event": "dedupe.claims_released",
+                        "integration_id": integration_id,
+                        "stream": stream,
+                        "released": _n,
+                    },
+                )
+            except Exception:  # noqa: BLE001 — jamais mascara a exceção original
+                logger.exception("dedupe: falha ao soltar claims não liquidadas")
         # Fecha conexão apenas se for efêmera (sem pool compartilhado do worker).
         # Fechar client de pool com aclose() devolve conexões ao pool — ok,
         # mas como sinal explícito de intenção: só faz aclose no cliente efêmero.

@@ -129,6 +129,33 @@ async def release(
     await redis.delete(key)
 
 
+async def release_many(
+    redis: redis_async.Redis,
+    integration_id: int,
+    message_ids: Iterable[str],
+) -> int:
+    """``DEL`` em lote das claims de ``message_ids``. Devolve quantas soltou.
+
+    Mesma compensação de :func:`release`, em uma única chamada. Pipelinar AQUI é
+    seguro — e é a diferença que importa em relação a pipelinar o ``claim``:
+    nenhuma decisão de "processar ou pular" depende deste resultado. O ``claim``
+    é caminho de DECISÃO (agrupar exigiria bufferizar eventos e criaria uma
+    janela onde chaves são reivindicadas para eventos ainda não processados);
+    o release é caminho de COMPENSAÇÃO, executado quando o run já falhou.
+
+    Best-effort: falha de Redis é engolida pelo chamador. O residual é claim
+    órfã até o TTL — que é exatamente o estado de hoje, então não piora nada.
+    """
+    ids = [m for m in message_ids if m]
+    if not ids:
+        return 0
+    keys = [
+        KEY_TMPL.format(integration_id=integration_id, message_id=m) for m in ids
+    ]
+    await redis.delete(*keys)
+    return len(keys)
+
+
 # ── suppression durável por assinatura ─────────────────────
 
 SUPPRESS_KEY_TMPL = "cops:suppress:{route_id}:{signature}"
