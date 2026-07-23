@@ -79,11 +79,22 @@ describe("RouteForm — render padrão", () => {
     await waitFor(() => expect(mockedApi.listDestinations).toHaveBeenCalled())
 
     expect(screen.getByText("Redução de volume")).toBeInTheDocument()
-    expect(
-      screen.getByText(/Amostragem e supressão só têm efeito se o operador ligar as flags/i),
-    ).toBeInTheDocument()
     expect(screen.getByText(/REDUCTION_SAMPLE_ENABLED/)).toBeInTheDocument()
     expect(screen.getByText(/REDUCTION_SUPPRESS_ENABLED/)).toBeInTheDocument()
+  })
+
+  // Regressão: até a ADR-0015 o aviso afirmava que as flags nasciam DESLIGADAS.
+  // Elas nascem LIGADAS (core/config.py:405,422,433) e o portão real é o default
+  // por-rota. O texto errado fazia o operador ler "Evitado > 0" como bug.
+  it("descreve o portão por-rota, não uma flag global desligada", async () => {
+    render(<RouteForm mode="edit" route={ROUTE_BASE} onCancel={vi.fn()} onSubmit={vi.fn()} />)
+    await waitFor(() => expect(mockedApi.listDestinations).toHaveBeenCalled())
+
+    const notice = screen.getByText(/REDUCTION_SAMPLE_ENABLED/)
+    expect(notice).toHaveTextContent(/LIGADAS por padrão/i)
+    expect(notice).toHaveTextContent(/sample_percent nasce em 100/i)
+    expect(notice).toHaveTextContent(/suppress_allow nasce em 0/i)
+    expect(notice.textContent ?? "").not.toMatch(/ambas desligadas por padrão/i)
   })
 
   it("não mostra o fieldset de redução quando action='drop'", async () => {
