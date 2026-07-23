@@ -3,7 +3,9 @@
 A MESMA origem chega ÍNTEGRA no lago e MASCARADA no
 SIEM, numa única passada — sem corromper a cópia byte-idêntica do wazuh-default
 (hazard de referência compartilhada no fan-out). Cobre também o gate
-PII_REDACTION_ENABLED (default OFF = byte-idêntico) e o FAIL-CLOSED.
+PII_REDACTION_ENABLED (default ON; byte-idêntico enquanto NENHUMA rota tem spec,
+porque a spec por-rota é o sinal de habilitação) e o FAIL-CLOSED, que permanece
+para o caso rota-com-spec + flag desligada explicitamente.
 """
 
 from __future__ import annotations
@@ -154,6 +156,35 @@ def test_flag_off_no_spec_is_byte_identical(monkeypatch):
     monkeypatch.setattr(settings, "PII_REDACTION_ENABLED", False)
     row = _row(None)
     assert pipeline._compile_route_row(row).redaction == ()
+
+
+def test_flag_defaults_to_on():
+    """Governança de PII é feature CORE, não opt-in de ambiente. O portão que
+    importa é o POR-ROTA — a spec na rota é o sinal de habilitação."""
+    from backend.app.core.config import Settings
+
+    assert Settings.model_fields["PII_REDACTION_ENABLED"].default is True
+
+
+def test_default_on_without_spec_is_still_byte_identical(monkeypatch):
+    """Ligar o default não muda um byte enquanto nenhuma rota tem spec —
+    _compile_route_row só entra na lógica quando pii_redaction é truthy."""
+    from backend.app.collectors import pipeline
+    from backend.app.core.config import settings
+
+    monkeypatch.setattr(settings, "PII_REDACTION_ENABLED", True)
+    assert pipeline._compile_route_row(_row(None)).redaction == ()
+
+
+def test_default_on_with_spec_compiles_instead_of_failing_closed(monkeypatch):
+    """Com o default ON, a rota que TEM spec passa a redigir de verdade — antes
+    ela derrubava o carregamento e o tráfego inteiro ia pro default interno."""
+    from backend.app.collectors import pipeline
+    from backend.app.core.config import settings
+
+    monkeypatch.setattr(settings, "PII_REDACTION_ENABLED", True)
+    row = _row(json.dumps([{"path": "raw.user.email", "action": "mask"}]))
+    assert pipeline._compile_route_row(row).redaction != ()
 
 
 def test_dedup_same_dest_two_routes_redacting_wins():

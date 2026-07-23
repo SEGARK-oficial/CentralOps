@@ -365,13 +365,31 @@ class Settings(BaseSettings):
     # ── redação de PII por rota (governança LGPD) ──
     # Kill-switch global da feature. ON → rotas com pii_redaction mascaram/
     # pseudonimizam/removem campos antes do destino daquela rota (mesma origem
-    # íntegra no lago, mascarada no SIEM). OFF (default): no estado DEFAULT (sem
-    # rota com spec) é byte-idêntico. Mas se uma rota TEM spec e a flag está OFF,
-    # é FAIL-CLOSED — _compile_route_row levanta → _load_routes_for_org cai p/
+    # íntegra no lago, mascarada no SIEM). FAIL-CLOSED: se uma rota TEM spec e a
+    # flag está OFF, _compile_route_row levanta → _load_routes_for_org cai p/
     # wazuh-default interno, NUNCA entrega cleartext ao destino externo (a flag
     # nunca vira um caminho de vazamento). FAIL-CLOSED também na escrita: spec
     # ruim → 422 no CRUD.
-    PII_REDACTION_ENABLED: bool = False
+    #
+    # DEFAULT INVERTIDO PARA ON (era OFF), mesma razão da ADR-0015 para as flags
+    # REDUCTION_*: o portão que importa é o POR-ROTA, não o global. Sem nenhuma
+    # rota com spec, ligar isto não muda UM BYTE — ``_compile_route_row`` só
+    # entra na lógica quando ``row.pii_redaction`` é truthy. A spec na rota já É
+    # o sinal de habilitação; exigir uma segunda flag global criava a mesma
+    # classe de falha silenciosa que a ADR-0015 fechou: o operador configurava
+    # redação na UI e, em vez de redigir, o tráfego INTEIRO daquela rota era
+    # desviado para o default interno, sem nada na tela explicando por quê.
+    #
+    # Governança de PII é feature CORE de uma plataforma que trata dado de
+    # segurança — não um opt-in de ambiente.
+    #
+    # ATENÇÃO na atualização: instalações que JÁ tenham rota com
+    # ``pii_redaction`` != NULL mudam de comportamento — essas rotas param de
+    # cair no wazuh-default e passam a ENTREGAR ao destino real, agora redigidas.
+    # É o comportamento pretendido, mas audite ``SELECT id, name FROM routes
+    # WHERE pii_redaction IS NOT NULL`` antes de subir. A DIREÇÃO fail-closed
+    # permanece: só o default mudou, nunca a lógica.
+    PII_REDACTION_ENABLED: bool = True
 
     # ── metering de custo/volume (medição, sem alavanca) ──
     # ON (default): metering é feature CORE — o card de volume/bytes-evitados/%
