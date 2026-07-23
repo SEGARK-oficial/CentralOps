@@ -161,12 +161,30 @@ async def release_many(
 SUPPRESS_KEY_TMPL = "cops:suppress:{route_id}:{signature}"
 
 
-def suppress_signature(labels: Dict[str, Any], suppress_key: str) -> str:
-    """Assinatura estável (16 hex) de um evento p/ rate-limit de supressão. ``suppress_key``
-    é uma lista CSV de nomes de label (ex.: ``"src_ip,event_type"``); a assinatura é o
-    SHA-256 dos VALORES desses labels. Labels ausentes entram como "" (agrupa os sem-campo).
-    Sem PII em métrica: a assinatura é hasheada (nunca vira label de OTel)."""
+def suppress_signature(labels: Dict[str, Any], suppress_key: str) -> Optional[str]:
+    """Assinatura estável (16 hex) de um evento p/ rate-limit de supressão, ou ``None``
+    quando a assinatura seria DEGENERADA (ver abaixo).
+
+    ``suppress_key`` é uma lista CSV de nomes de label (ex.: ``"vendor,event_type"``);
+    a assinatura é o SHA-256 dos VALORES desses labels. Sem PII em métrica: a
+    assinatura é hasheada (nunca vira label de OTel).
+
+    FAIL-SAFE DE ASSINATURA DEGENERADA — devolve ``None`` quando NENHUM componente
+    resolveu (todos os labels ausentes/vazios). Sem isso, uma chave que não existe no
+    escopo de labels fazia TODOS os eventos colapsarem na MESMA assinatura
+    (``labels.get(k, "")`` → ``""`` para todo mundo) e, passados ``suppress_allow``
+    eventos na janela, o pipeline descartava 100% do tráfego — em silêncio, sem erro,
+    sem DLQ. Foi exatamente o que aconteceu em produção com o ``suppress_key`` que a
+    própria UI sugeria (``src_ip``, que nunca existe em ``_centralops``).
+
+    Uma assinatura sem nenhum componente resolvido não IDENTIFICA nada: agrupar por
+    ela é indistinguível de "descarte tudo". Preferimos não suprimir (fail-open,
+    coerente com o resto da supressão, que é otimização de custo e jamais correção).
+    Resolução PARCIAL (alguns componentes vazios) segue válida — é o caso legítimo de
+    "agrupa os que não têm o campo"."""
     parts = [str(labels.get(k.strip(), "")) for k in (suppress_key or "").split(",") if k.strip()]
+    if not parts or not any(parts):
+        return None
     return hashlib.sha256("|".join(parts).encode("utf-8")).hexdigest()[:16]
 
 

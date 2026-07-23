@@ -363,6 +363,17 @@ async def _maybe_suppress(redis: Any, envelope: dict, suppress_routes: list) -> 
             continue
         try:
             sig = suppress_signature(labels, r.suppress_key)
+            if sig is None:
+                # Assinatura DEGENERADA (nenhum componente do suppress_key resolveu
+                # neste evento): agrupar por ela descartaria 100% do tráfego. Não
+                # suprime — ver o fail-safe em suppress_signature.
+                logger.warning(
+                    "suppress: suppress_key=%r não resolveu NENHUM label na rota %s — "
+                    "supressão IGNORADA para este evento (labels disponíveis: %s). "
+                    "Corrija a chave da rota: só labels de _centralops são válidos.",
+                    r.suppress_key, r.id, sorted(labels),
+                )
+                return None
             keep, count = await claim_suppress(
                 redis, r.id, sig, r.suppress_allow, r.suppress_window_s
             )
@@ -542,10 +553,21 @@ async def _run_collection_once(integration_id: int, stream: str) -> None:
         # pré-filtra as rotas com supressão CONFIGURADA (uma vez por
         # ciclo). Gated pelas flags: sem elas, lista vazia → o check por-evento é pulado
         # (hot path byte-idêntico). Só reduz se também estiver medindo (COST_METERING).
+        #
+        # FAIL-SAFE DE DETECÇÃO: rota com ``protect_detection=True`` (o default) é
+        # EXCLUÍDA da supressão, exatamente como já acontece no sampling
+        # (``_should_sample_out``, routing/engine.py) e no descarte do raw
+        # (``drop_raw``). A supressão era a ÚNICA alavanca de redução que ignorava a
+        # proteção: uma rota marcada como "alimenta detecção" seguia descartando
+        # evento em silêncio. A UI desabilita os campos quando a proteção está ligada,
+        # o que dava falsa segurança — qualquer rota com ``suppress_allow`` já gravado
+        # e protegida depois (ou editada via API/MCP/seed) continuava suprimindo.
         _suppress_routes = (
             [
                 r for r in dispatch_routes
-                if getattr(r, "suppress_key", None) and int(getattr(r, "suppress_allow", 0) or 0) > 0
+                if getattr(r, "suppress_key", None)
+                and int(getattr(r, "suppress_allow", 0) or 0) > 0
+                and not getattr(r, "protect_detection", True)
             ]
             if (settings.REDUCTION_SUPPRESS_ENABLED and settings.COST_METERING_ENABLED)
             else []
