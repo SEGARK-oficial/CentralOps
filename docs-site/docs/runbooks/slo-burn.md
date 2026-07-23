@@ -15,7 +15,7 @@ O CentralOps acompanha esse tempo de ponta a ponta (da coleta até a entrega). Q
 Use este guia nestes cenários do dia a dia:
 
 - Você recebeu um **alerta de latência de ponta a ponta acima do alvo** (por exemplo, dados levando mais de 5 minutos para chegar).
-- Um destino específico aparece como **lento** na tela de **Saúde do Pipeline**, enquanto os outros seguem normais.
+- Um destino específico aparece com **latência média** alta em **Operação -> Destinos**, enquanto os outros seguem normais.
 - Um cliente ou time interno **reportou que os dados estão chegando com atraso** em um destino (por exemplo, no SIEM ou no data lake).
 
 ## Como saber se está dentro do alvo
@@ -31,19 +31,25 @@ Como referência de saúde:
 
 Para conferir o valor atual:
 
-1. Abra o menu **Normalização -> Saúde do Pipeline**.
-2. Veja o indicador de latência (tempo de entrega) no painel.
-3. Observe se há um destino com latência muito acima dos demais.
+1. Abra o menu **Operação -> Destinos** e clique no destino que quer investigar.
+2. Veja o cartão **latência média (s)** — é o tempo de entrega do lote para aquele destino.
+3. Repita para os demais destinos e observe se há um com latência muito acima.
+
+:::note[O indicador é por destino]
+A latência é medida **por destino**, no momento da entrega. Não existe um número
+único de "latência geral" na tela de Saúde do Pipeline — compare os destinos
+entre si, que é o que aponta o gargalo.
+:::
 
 ## Passo a passo do diagnóstico
 
 ### 1. Confirme se há latência alta
 
-Em **Normalização -> Saúde do Pipeline**, olhe o indicador de latência geral. Se estiver em torno de 3 minutos ou menos, está tudo bem. Se passar de 5 minutos, siga para o próximo passo.
+Em **Operação -> Destinos**, abra cada destino e olhe a **latência média (s)**. Se estiver em torno de 3 minutos ou menos, está tudo bem. Se passar de 5 minutos, siga para o próximo passo.
 
 ### 2. Descubra qual destino está lento
 
-Ainda em **Saúde do Pipeline**, observe os cartões/indicadores por destino. Compare a latência de cada um:
+Compare a **latência média (s)** de cada destino:
 
 - Se apenas **um destino** está com latência alta (por exemplo, o SIEM mostra 8 minutos enquanto os outros mostram 1 a 2 minutos), o problema está concentrado nesse destino. Vá para a seção **O destino está lento**.
 - Se **todos os destinos** estão lentos ao mesmo tempo, o gargalo provavelmente é a coleta ou o processamento. Continue no próximo passo.
@@ -121,7 +127,7 @@ Quando escalar:
 
 Se a latência estava normal (por exemplo, 1 minuto) e disparou de uma vez (por exemplo, 8 minutos), siga este roteiro:
 
-1. **Confirme o alcance:** em **Normalização -> Saúde do Pipeline**, veja se o atraso é em um destino só ou em todos.
+1. **Confirme o alcance:** em **Operação -> Destinos**, veja se o atraso é em um destino só ou em todos.
 2. **Verifique a coleta:** em **Visão geral -> Integrações**, confira se alguma integração começou a falhar ou se entrou um volume de eventos muito acima do normal (cliente novo, pico de tráfego).
 3. **Verifique os destinos:** em **Operação -> Destinos** (admin), veja se algum destino ficou indisponível ou começou a limitar o recebimento — é o sinal da **proteção contra destino instável** ter sido acionada.
 4. **Estabilize:** quando o destino voltar, **reprocese a fila de reenvio** na tela de Destinos para drenar o acúmulo.
@@ -131,14 +137,14 @@ Se a latência estava normal (por exemplo, 1 minuto) e disparou de uma vez (por 
 
 ## Como prevenir
 
-- **Acompanhe a tendência:** confira regularmente a latência por destino em **Normalização -> Saúde do Pipeline** para perceber a degradação antes de virar incidente.
+- **Acompanhe a tendência:** confira regularmente a **latência média (s)** por destino em **Operação -> Destinos** para perceber a degradação antes de virar incidente.
 - **Configure alertas:** garanta que há um alerta disparando quando a latência de ponta a ponta passa do alvo por tempo prolongado. A configuração de notificações é definida pela equipe de infraestrutura no momento do deploy. Se precisar ajustá-la, fale com o administrador da plataforma.
 - **Planeje capacidade:** se o volume de eventos cresce de forma consistente, antecipe o aumento de capacidade com a equipe de infraestrutura.
 - **Valide destinos novos:** antes de colocar um destino novo em produção, valide-o em ambiente de testes para entender seu comportamento sob carga.
 
 ## Próximos passos
 
-- **Monitorar a latência:** vá a [Saúde do Pipeline](../operations/pipeline-health.md).
+- **Monitorar a latência por destino:** vá a **Operação -> Destinos**. Para a saúde geral do processamento, veja [Saúde do Pipeline](../operations/pipeline-health.md).
 - **Verificar a coleta:** vá a [Collectors](../pipelines/collectors.md).
 - **Ajustar um mapeamento:** vá a [Mappings](../normalization/overview.md).
 - **Configurar destinos:** vá a [Destinos](../outputs/destinations.md) (somente admin).

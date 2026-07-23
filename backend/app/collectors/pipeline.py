@@ -2291,6 +2291,15 @@ async def dispatch_batch_to_destination(
             # IDs rejeitados em qualquer chunk com 4xx (retryable=False).
             # Usado para excluir esses eventos do registro de lineage.
             rejected_event_ids: set[str] = set()
+            # Tempo de ENTREGA do lote (todos os chunks + retries), para a série
+            # nativa ``latency`` que a UI de /destinations lê. A latência já era
+            # medida por chunk em DELIVERY_LATENCY.observe, mas só ia para o
+            # OTel/Prometheus — o call-site abaixo passava 0.0 literal para o
+            # store nativo, e record_counter descarta zero, então a série
+            # ``latency_avg`` NUNCA teve um único ponto. O card "latência média"
+            # ficava permanentemente vazio e a doc de SLO mandava olhar um número
+            # que não existia.
+            _delivery_started = time.monotonic()
             for chunk in chunks:
                 last_result = await _send_chunk_with_retry(
                     target=target,
@@ -2326,7 +2335,11 @@ async def dispatch_batch_to_destination(
                 dest_config.destination_id,
                 accepted_total,
                 rejected_total,
-                0.0,  # elapsed already observed per-chunk above
+                # Tempo de entrega REAL do lote (soma dos chunks + retries).
+                # Era 0.0 literal, e como record_counter descarta zero a série
+                # ``latency`` nunca recebia um ponto — ver o comentário no início
+                # do laço de chunks.
+                max(time.monotonic() - _delivery_started, 0.0),
                 batch,
             )
 
