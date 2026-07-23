@@ -23,15 +23,26 @@ Lista de specs, cada um::
     {"path": "processedData", "max_bytes": 16384}      # clipa string longa
     {"path": "mitreAttacks",  "max_items": 50}          # limita lista
     {"path": "rawData.raw",   "max_bytes": 16384}       # path dot-separado
+    {"path": "rawData.lineage", "drop": true}           # REMOVE a chave
+    {"path": "rawData", "keep_only": ["a", "b"]}        # mantém só estes filhos
+    {"drop_nulls": true}                                # remove chaves nulas
 
-- ``path`` (str, obrigatório): caminho dot-separado para o campo dentro do
-  raw. Navega apenas dicts intermediários (não entra em listas).
-- ``max_items`` (int > 0, opcional): se o alvo é lista e excede, mantém os
-  N primeiros + um marcador de itens descartados.
-- ``max_bytes`` (int > 0, opcional): se o alvo é string e excede (UTF-8),
-  clipa para N bytes (decode tolerante). O JSON externo permanece válido —
-  o valor é apenas uma string mais curta.
-- Pelo menos um de ``max_items``/``max_bytes`` é obrigatório.
+- ``path`` (str): caminho dot-separado para o campo dentro do raw. Obrigatório
+  em todas as ops EXCETO ``drop_nulls``, que é global. Um segmento ``[]``
+  aplica a op a CADA item de uma lista (ex.: ``alerts[].evidences``).
+- ``max_items`` (int > 0): se o alvo é lista e excede, mantém os N primeiros.
+- ``max_bytes`` (int > 0): se o alvo é string e excede (UTF-8), clipa para N
+  bytes (decode tolerante). O JSON externo permanece válido.
+- ``drop`` (bool): REMOVE a chave inteira. É a primitiva que faltava — o
+  equivalente ao ``del()`` do Vector, ao "Remove fields" do Cribl e ao ``drop``
+  do Tenzir. Use para o lixo que sobra depois da extração (um
+  ``rawData.lineage`` já parseado não serve a ninguém).
+- ``keep_only`` (lista de str): keep-list — remove os IRMÃOS não listados sob
+  ``path``. Equivale ao ``Allowlist_key`` do Fluent Bit. Mais robusto que
+  enumerar drops quando o vendor adiciona campos novos.
+- ``drop_nulls`` (bool, spec sem ``path``): remove recursivamente toda chave de
+  valor ``None`` do raw inteiro.
+- Pelo menos uma op é obrigatória por spec.
 
 A redução é aplicada DEPOIS da normalização (o engine roda as regras sobre o
 raw COMPLETO — fidelidade preservada), sobre uma cópia, e só afeta o ``raw``
@@ -50,7 +61,14 @@ __all__ = [
     "CompiledReductionSpec",
     "compile_raw_reduction",
     "apply_raw_reduction",
+    "LIST_WILDCARD",
 ]
+
+#: Segmento de path que significa "para CADA item desta lista".
+LIST_WILDCARD = "[]"
+
+#: Sentinela devolvida por uma leaf-op que pede a REMOÇÃO da chave.
+_REMOVE = object()
 
 
 @dataclass(frozen=True)
@@ -61,6 +79,39 @@ class CompiledReductionSpec:
     path_parts: Tuple[str, ...]
     max_items: Optional[int]
     max_bytes: Optional[int]
+    #: remove a chave inteira (primitiva de DROP).
+    drop: bool = False
+    #: keep-list: sob ``path``, remove os irmãos que não estejam aqui.
+    keep_only: Optional[Tuple[str, ...]] = None
+    #: spec GLOBAL (sem path): remove recursivamente chaves de valor None.
+    drop_nulls: bool = False
+
+    @property
+    def is_global(self) -> bool:
+        """True para specs que não têm alvo (hoje só ``drop_nulls``)."""
+        return self.drop_nulls and not self.path_parts
+
+
+def _split_path(path: str) -> Tuple[str, ...]:
+    """``"alerts[].evidences"`` -> ``("alerts", "[]", "evidences")``.
+
+    O sufixo ``[]`` vira um segmento próprio para :func:`_transform` distribuir
+    o resto do path por cada item da lista. Sem essa separação o segmento
+    literal ``"alerts[]"`` nunca casaria uma chave do documento.
+    """
+    parts: list[str] = []
+    for segment in path.split("."):
+        if not segment:
+            continue
+        while segment.endswith(LIST_WILDCARD):
+            segment = segment[: -len(LIST_WILDCARD)]
+            if segment:
+                parts.append(segment)
+            parts.append(LIST_WILDCARD)
+            segment = ""
+        if segment:
+            parts.append(segment)
+    return tuple(parts)
 
 
 def compile_raw_reduction(raw_reduction: Any) -> Tuple[CompiledReductionSpec, ...]:
@@ -84,12 +135,25 @@ def compile_raw_reduction(raw_reduction: Any) -> Tuple[CompiledReductionSpec, ..
             raise MappingDefinitionError(
                 f"raw_reduction[{idx}]: item deve ser um objeto"
             )
+        drop_nulls = bool(item.get("drop_nulls") or False)
         path = item.get("path")
+
+        # ``drop_nulls`` é a única op GLOBAL: vale para o raw inteiro e
+        # dispensa ``path``.
+        if drop_nulls and path is None:
+            compiled.append(
+                CompiledReductionSpec(
+                    path_str="", path_parts=(), max_items=None, max_bytes=None,
+                    drop_nulls=True,
+                )
+            )
+            continue
+
         if not isinstance(path, str) or not path.strip():
             raise MappingDefinitionError(
                 f"raw_reduction[{idx}]: 'path' obrigatório (string dot-separada)"
             )
-        parts = tuple(p for p in path.split(".") if p)
+        parts = _split_path(path)
         if not parts:
             raise MappingDefinitionError(
                 f"raw_reduction[{idx}]: 'path' inválido {path!r}"
@@ -97,9 +161,30 @@ def compile_raw_reduction(raw_reduction: Any) -> Tuple[CompiledReductionSpec, ..
 
         max_items = item.get("max_items")
         max_bytes = item.get("max_bytes")
-        if max_items is None and max_bytes is None:
+        drop = bool(item.get("drop") or False)
+        keep_only_raw = item.get("keep_only")
+
+        keep_only: Optional[Tuple[str, ...]] = None
+        if keep_only_raw is not None:
+            if not isinstance(keep_only_raw, (list, tuple)) or not all(
+                isinstance(k, str) and k for k in keep_only_raw
+            ):
+                raise MappingDefinitionError(
+                    f"raw_reduction[{idx}] {path!r}: 'keep_only' deve ser lista de strings não-vazias"
+                )
+            keep_only = tuple(keep_only_raw)
+
+        if max_items is None and max_bytes is None and not drop and keep_only is None and not drop_nulls:
             raise MappingDefinitionError(
-                f"raw_reduction[{idx}] {path!r}: defina 'max_items' e/ou 'max_bytes'"
+                f"raw_reduction[{idx}] {path!r}: defina ao menos uma op "
+                "('max_items', 'max_bytes', 'drop', 'keep_only' ou 'drop_nulls')"
+            )
+        # ``drop`` remove a chave inteira: qualquer outra op sobre o MESMO path
+        # seria inalcançável. Erro explícito em vez de precedência silenciosa.
+        if drop and (max_items is not None or max_bytes is not None or keep_only is not None):
+            raise MappingDefinitionError(
+                f"raw_reduction[{idx}] {path!r}: 'drop' é exclusivo — remove a chave, "
+                "então combinar com max_items/max_bytes/keep_only não faz sentido"
             )
         for name, val in (("max_items", max_items), ("max_bytes", max_bytes)):
             if val is not None and (not isinstance(val, int) or isinstance(val, bool) or val <= 0):
@@ -113,59 +198,90 @@ def compile_raw_reduction(raw_reduction: Any) -> Tuple[CompiledReductionSpec, ..
                 path_parts=parts,
                 max_items=max_items,
                 max_bytes=max_bytes,
+                drop=drop,
+                keep_only=keep_only,
+                drop_nulls=drop_nulls,
             )
         )
     return tuple(compiled)
 
 
-def _navigate_readonly(
-    obj: Any, parts: Tuple[str, ...]
-) -> Tuple[Optional[dict], Optional[str]]:
-    """Navega ``parts[:-1]`` sobre dicts (somente leitura); retorna (parent_dict, last_key).
+def _transform(node: Any, parts: Tuple[str, ...], leaf_op) -> Tuple[Any, bool]:
+    """Reescreve ``node`` aplicando ``leaf_op`` no fim de ``parts``.
 
-    Retorna (None, None) se o caminho intermediário não existe ou passa por
-    algo que não é dict. Só navega dicts — não entra em listas.
+    Copy-on-write ESTRUTURAL: devolve ``(novo_node, mudou)``. Quando nada muda,
+    devolve a REFERÊNCIA ORIGINAL — subárvores intocadas são compartilhadas e o
+    raw original nunca é mutado. O custo é proporcional ao que mudou, não ao
+    tamanho do documento (nada de deepcopy).
+
+    Suporta o segmento ``[]``, que distribui o resto do path por cada item de
+    uma lista — sem isso, blobs dentro de arrays (``alerts[].evidences``) ficam
+    inalcançáveis, que era a limitação da versão anterior.
+
+    ``leaf_op(value) -> novo_valor`` devolve :data:`_REMOVE` para apagar a
+    chave, ou o próprio ``value`` quando não há o que fazer.
     """
-    cursor = obj
-    for key in parts[:-1]:
-        if not isinstance(cursor, dict) or key not in cursor:
-            return None, None
-        cursor = cursor[key]
-    if not isinstance(cursor, dict):
-        return None, None
-    return cursor, parts[-1]
+    if not parts:
+        return node, False
+
+    head, rest = parts[0], parts[1:]
+
+    if head == LIST_WILDCARD:
+        if not isinstance(node, list):
+            return node, False
+        out: list = []
+        changed = False
+        for item in node:
+            new_item, item_changed = _transform(item, rest, leaf_op)
+            out.append(new_item)
+            changed = changed or item_changed
+        return (out, True) if changed else (node, False)
+
+    if not isinstance(node, dict) or head not in node:
+        return node, False
+
+    if not rest:
+        new_value = leaf_op(node[head])
+        if new_value is node[head]:
+            return node, False  # no-op: preserva a referência
+        copy = dict(node)
+        if new_value is _REMOVE:
+            copy.pop(head, None)
+        else:
+            copy[head] = new_value
+        return copy, True
+
+    child, child_changed = _transform(node[head], rest, leaf_op)
+    if not child_changed:
+        return node, False
+    copy = dict(node)
+    copy[head] = child
+    return copy, True
 
 
-def _copy_path(root: Dict[str, Any], parts: Tuple[str, ...]) -> Tuple[Dict[str, Any], Optional[dict], Optional[str]]:
-    """Copy-on-write: copia só os dicts ao longo de ``parts``.
-
-    Retorna ``(new_root, parent_copy, last_key)`` onde ``new_root`` é uma
-    cópia rasa do root com o caminho até ``parts[-2]`` também copiado
-    (shallow em cada nível). ``parent_copy`` é o dict que contém
-    ``last_key`` e pode ser mutado sem afetar o ``raw`` original.
-
-    Segurança: apenas os dicts no caminho são copiados; folhas (str, list,
-    int) são compartilhadas, mas substituímos a referência em ``parent_copy``
-    em vez de mutá-las in-place, então o ``raw`` original permanece intocado.
-    """
-    # Primeiro nível: cópia rasa do root.
-    new_root: Dict[str, Any] = dict(root)
-    cursor: Dict[str, Any] = new_root
-
-    for key in parts[:-1]:
-        if not isinstance(cursor, dict) or key not in cursor:
-            return new_root, None, None
-        child = cursor[key]
-        if not isinstance(child, dict):
-            return new_root, None, None
-        child_copy: Dict[str, Any] = dict(child)
-        cursor[key] = child_copy
-        cursor = child_copy
-
-    last_key = parts[-1]
-    if not isinstance(cursor, dict):
-        return new_root, None, None
-    return new_root, cursor, last_key
+def _prune_nulls(node: Any) -> Tuple[Any, bool]:
+    """Remove recursivamente chaves de valor ``None``. Mesmo contrato
+    copy-on-write de :func:`_transform`."""
+    if isinstance(node, dict):
+        out: Dict[str, Any] = {}
+        changed = False
+        for key, value in node.items():
+            if value is None:
+                changed = True
+                continue
+            new_value, value_changed = _prune_nulls(value)
+            out[key] = new_value
+            changed = changed or value_changed
+        return (out, True) if changed else (node, False)
+    if isinstance(node, list):
+        out_list: list = []
+        changed = False
+        for item in node:
+            new_item, item_changed = _prune_nulls(item)
+            out_list.append(new_item)
+            changed = changed or item_changed
+        return (out_list, True) if changed else (node, False)
+    return node, False
 
 
 def apply_raw_reduction(
@@ -188,51 +304,55 @@ def apply_raw_reduction(
     if not specs or not isinstance(raw, Mapping):
         return None
 
-    # Pré-triagem: verifica (somente leitura) quais specs realmente disparam.
-    # Evita copiar qualquer coisa quando nada precisa ser reduzido.
-    firing: list[CompiledReductionSpec] = []
-    for spec in specs:
-        parent_ro, key_ro = _navigate_readonly(raw, spec.path_parts)
-        if parent_ro is None or key_ro is None or key_ro not in parent_ro:
-            continue
-        value = parent_ro[key_ro]
-        if spec.max_items is not None and isinstance(value, list) and len(value) > spec.max_items:
-            firing.append(spec)
-        elif spec.max_bytes is not None and isinstance(value, str):
-            if len(value.encode("utf-8")) > spec.max_bytes:
-                firing.append(spec)
-
-    if not firing:
-        return None  # nada a fazer — sem cópia
-
-    # Ao menos uma spec dispara: constrói o dict de saída com copy-on-write.
-    # Cada _copy_path parte do ``obj`` (que evolui com as cópias anteriores),
-    # criando cópias rasas apenas dos dicts no caminho da mutação.
-    obj: Dict[str, Any] = dict(raw)  # cópia rasa do root
+    obj: Any = raw
     dropped: list[str] = []
 
-    for spec in firing:
-        new_root, parent, key = _copy_path(obj, spec.path_parts)
-        if parent is None or key is None or key not in parent:
-            continue  # caminho sumiu após cópia anterior (não deve ocorrer)
-        obj = new_root
-        value = parent[key]
+    for spec in specs:
+        # ── op GLOBAL: drop_nulls sem path ──────────────────────────────
+        if spec.is_global:
+            new_obj, changed = _prune_nulls(obj)
+            if changed:
+                obj = new_obj
+                dropped.append("nulls")
+            continue
 
-        if spec.max_items is not None and isinstance(value, list) and len(value) > spec.max_items:
-            removed = len(value) - spec.max_items
-            parent[key] = value[: spec.max_items]  # list slice = novo objeto
-            dropped.append(f"{spec.path_str}[+{removed} items]")
-        elif spec.max_bytes is not None and isinstance(value, str):
-            encoded = value.encode("utf-8")
-            if len(encoded) > spec.max_bytes:
-                removed = len(encoded) - spec.max_bytes
-                parent[key] = encoded[: spec.max_bytes].decode("utf-8", "ignore")
-                dropped.append(f"{spec.path_str}(~{removed}B)")
+        # ── ops com alvo: a leaf-op decide o novo valor da chave ────────
+        marks: list[str] = []
 
-    if not dropped:
+        def _leaf(value: Any, _spec: CompiledReductionSpec = spec, _marks: list = marks) -> Any:
+            if _spec.drop:
+                _marks.append(f"{_spec.path_str}(dropped)")
+                return _REMOVE
+            if _spec.keep_only is not None and isinstance(value, Mapping):
+                kept = {k: v for k, v in value.items() if k in _spec.keep_only}
+                if len(kept) == len(value):
+                    return value  # nada removido — preserva a referência
+                _marks.append(f"{_spec.path_str}(kept {len(kept)}/{len(value)})")
+                return kept
+            if _spec.max_items is not None and isinstance(value, list):
+                if len(value) > _spec.max_items:
+                    _marks.append(f"{_spec.path_str}[+{len(value) - _spec.max_items} items]")
+                    return value[: _spec.max_items]
+                return value
+            if _spec.max_bytes is not None and isinstance(value, str):
+                encoded = value.encode("utf-8")
+                if len(encoded) > _spec.max_bytes:
+                    _marks.append(f"{_spec.path_str}(~{len(encoded) - _spec.max_bytes}B)")
+                    return encoded[: _spec.max_bytes].decode("utf-8", "ignore")
+                return value
+            return value
+
+        new_obj, changed = _transform(obj, spec.path_parts, _leaf)
+        if changed:
+            obj = new_obj
+            dropped.extend(marks)
+
+    if not dropped or obj is raw:
         return None
 
-    # Marcador de proveniência — o destino/analista sabe que o raw foi podado
-    # para caber no limite de mensagem. Não colide com campos do vendor.
-    obj["_centralops_reduced"] = dropped
-    return obj
+    # Marcador de proveniência — o destino/analista sabe que o raw foi podado.
+    # Não colide com campos do vendor. Escrito numa cópia rasa: `obj` pode ser
+    # o próprio `raw` se só ops no-op rodaram (guardado acima).
+    out: Dict[str, Any] = dict(obj)
+    out["_centralops_reduced"] = dropped
+    return out
