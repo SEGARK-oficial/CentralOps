@@ -116,3 +116,49 @@ def test_missing_attribute_defaults_to_protected():
         id, suppress_key, suppress_allow = "r4", "vendor", 2
 
     assert _prefilter([_Legacy()]) == []
+
+
+# ── validação de suppress_key no CRUD ────────────────────────────────────────
+#
+# ASSIMETRIA CORRIGIDA: uma CONDIÇÃO com {"src_ip": ...} sempre devolveu 422
+# (ALLOWED_FIELDS), mas o MESMO campo num suppress_key era aceito em silêncio —
+# e virava descarte de 100% do tráfego. Agora os dois usam a mesma allowlist.
+
+def test_validate_rejects_field_outside_the_allowlist():
+    from backend.app.collectors.routing import validate_suppress_key
+
+    with pytest.raises(ValueError, match="unknown suppress_key field"):
+        validate_suppress_key("src_ip")
+
+
+def test_validate_rejects_unique_per_event_labels():
+    """O extremo oposto da assinatura degenerada: agrupar por event_id gera uma
+    assinatura por evento e a supressão NUNCA dispara. Também é erro."""
+    from backend.app.collectors.routing import validate_suppress_key
+
+    for key in ("event_id", "collected_at", "vendor,event_id"):
+        with pytest.raises(ValueError, match="unique per event"):
+            validate_suppress_key(key)
+
+
+def test_validate_accepts_grouping_labels():
+    from backend.app.collectors.routing import validate_suppress_key
+
+    validate_suppress_key("vendor,severity_id")
+    validate_suppress_key("platform")
+    validate_suppress_key("organization_id,event_type")
+
+
+def test_validate_accepts_none_and_empty_as_suppression_off():
+    from backend.app.collectors.routing import validate_suppress_key
+
+    validate_suppress_key(None)
+    validate_suppress_key("")
+    validate_suppress_key(" , ")
+
+
+def test_validate_accepts_the_org_id_alias():
+    """`org_id` é alias canônico de organization_id nas condições — o mesmo vale aqui."""
+    from backend.app.collectors.routing import validate_suppress_key
+
+    validate_suppress_key("org_id")

@@ -220,7 +220,7 @@ describe("RouteForm — submissão inclui os campos de redução", () => {
     await waitFor(() => expect(screen.getByTestId("route-form-sample-percent")).toBeEnabled())
 
     fireEvent.change(screen.getByTestId("route-form-sample-percent"), { target: { value: "25" } })
-    fireEvent.change(screen.getByTestId("route-form-suppress-key"), { target: { value: "src_ip,event_type" } })
+    fireEvent.change(screen.getByTestId("route-form-suppress-key"), { target: { value: "vendor,severity_id" } })
     fireEvent.change(screen.getByTestId("route-form-suppress-allow"), { target: { value: "5" } })
     fireEvent.change(screen.getByTestId("route-form-suppress-window"), { target: { value: "60" } })
 
@@ -231,7 +231,7 @@ describe("RouteForm — submissão inclui os campos de redução", () => {
     expect(payload).toMatchObject({
       protect_detection: false,
       sample_percent: 25,
-      suppress_key: "src_ip,event_type",
+      suppress_key: "vendor,severity_id",
       suppress_allow: 5,
       suppress_window_s: 60,
     })

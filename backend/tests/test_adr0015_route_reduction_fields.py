@@ -114,7 +114,7 @@ def test_create_with_reduction_fields_round_trips(client_factory) -> None:
             "destination_ids": [dest],
             "protect_detection": False,
             "sample_percent": 25,
-            "suppress_key": "src_ip,event_type",
+            "suppress_key": "vendor,severity_id",
             "suppress_allow": 3,
             "suppress_window_s": 45,
         },
@@ -123,14 +123,14 @@ def test_create_with_reduction_fields_round_trips(client_factory) -> None:
     body = r.json()
     assert body["protect_detection"] is False
     assert body["sample_percent"] == 25
-    assert body["suppress_key"] == "src_ip,event_type"
+    assert body["suppress_key"] == "vendor,severity_id"
     assert body["suppress_allow"] == 3
     assert body["suppress_window_s"] == 45
 
     got = client.get(f"/api/collectors/routes/{body['id']}").json()
     assert got["protect_detection"] is False
     assert got["sample_percent"] == 25
-    assert got["suppress_key"] == "src_ip,event_type"
+    assert got["suppress_key"] == "vendor,severity_id"
     assert got["suppress_allow"] == 3
     assert got["suppress_window_s"] == 45
 
@@ -181,7 +181,7 @@ def test_partial_update_of_one_field_preserves_others(client_factory) -> None:
             "destination_ids": [dest],
             "protect_detection": False,
             "sample_percent": 40,
-            "suppress_key": "src_ip",
+            "suppress_key": "vendor",
             "suppress_allow": 2,
             "suppress_window_s": 20,
         },
@@ -193,14 +193,14 @@ def test_partial_update_of_one_field_preserves_others(client_factory) -> None:
     body = r.json()
     assert body["sample_percent"] == 80
     assert body["protect_detection"] is False
-    assert body["suppress_key"] == "src_ip"
+    assert body["suppress_key"] == "vendor"
     assert body["suppress_allow"] == 2
     assert body["suppress_window_s"] == 20
 
     got = client.get(f"/api/collectors/routes/{rid}").json()
     assert got["sample_percent"] == 80
     assert got["protect_detection"] is False
-    assert got["suppress_key"] == "src_ip"
+    assert got["suppress_key"] == "vendor"
     assert got["suppress_allow"] == 2
     assert got["suppress_window_s"] == 20
 
@@ -220,11 +220,11 @@ def test_suppress_key_can_be_explicitly_cleared(client_factory) -> None:
             "name": "r",
             "condition": {},
             "destination_ids": [dest],
-            "suppress_key": "src_ip",
+            "suppress_key": "vendor",
             "suppress_allow": 5,
         },
     ).json()["id"]
-    assert client.get(f"/api/collectors/routes/{rid}").json()["suppress_key"] == "src_ip"
+    assert client.get(f"/api/collectors/routes/{rid}").json()["suppress_key"] == "vendor"
 
     # null EXPLÍCITO no payload → limpa (não é "campo ausente").
     r = client.put(f"/api/collectors/routes/{rid}", json={"suppress_key": None})
@@ -245,13 +245,13 @@ def test_suppress_key_can_be_explicitly_cleared(client_factory) -> None:
     assert r2.json()["suppress_key"] is None  # continua None (já estava)
     assert r2.json()["suppress_allow"] == 9
 
-    r3 = client.put(f"/api/collectors/routes/{rid}", json={"suppress_key": "dst_ip"})
+    r3 = client.put(f"/api/collectors/routes/{rid}", json={"suppress_key": "platform"})
     assert r3.status_code == 200, r3.text
-    assert r3.json()["suppress_key"] == "dst_ip"
+    assert r3.json()["suppress_key"] == "platform"
     r4 = client.put(f"/api/collectors/routes/{rid}", json={"suppress_allow": 1})
     assert r4.status_code == 200, r4.text
     # campo ausente do payload (não null) → suppress_key NÃO é zerado.
-    assert r4.json()["suppress_key"] == "dst_ip"
+    assert r4.json()["suppress_key"] == "platform"
 
 
 # ── faixa inválida → 422, nada persistido ───────────────────────────────────

@@ -165,7 +165,8 @@ def suppress_signature(labels: Dict[str, Any], suppress_key: str) -> Optional[st
     """Assinatura estável (16 hex) de um evento p/ rate-limit de supressão, ou ``None``
     quando a assinatura seria DEGENERADA (ver abaixo).
 
-    ``suppress_key`` é uma lista CSV de nomes de label (ex.: ``"vendor,event_type"``);
+    ``suppress_key`` é uma lista CSV de labels DE ROTEAMENTO (mesma allowlist da ``condition``;
+    ex.: ``"vendor,severity_id"``);
     a assinatura é o SHA-256 dos VALORES desses labels. Sem PII em métrica: a
     assinatura é hasheada (nunca vira label de OTel).
 
