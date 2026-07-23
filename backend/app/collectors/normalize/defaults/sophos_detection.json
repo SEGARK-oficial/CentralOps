@@ -1,25 +1,71 @@
 {
   "preprocess": [
-    { "op": "json_parse", "source": "rawData.raw", "target": "_raw_parsed", "tolerant": true },
-    { "op": "json_parse", "source": "rawData.primary_item", "target": "_primary_parsed", "tolerant": true },
-    { "op": "json_parse", "source": "rawData.items", "target": "_items_parsed", "tolerant": true },
+    {
+      "op": "json_parse",
+      "source": "rawData.raw",
+      "target": "_raw_parsed",
+      "tolerant": true
+    },
+    {
+      "op": "json_parse",
+      "source": "rawData.primary_item",
+      "target": "_primary_parsed",
+      "tolerant": true
+    },
+    {
+      "op": "json_parse",
+      "source": "rawData.items",
+      "target": "_items_parsed",
+      "tolerant": true
+    },
     {
       "op": "json_parse",
       "source": "rawData.associated_lineages",
       "target": "_assoc_lineages_parsed",
       "tolerant": true
     },
-    { "op": "json_parse", "source": "rawData.lineage", "target": "_lineage_parsed", "tolerant": true }
+    {
+      "op": "json_parse",
+      "source": "rawData.lineage",
+      "target": "_lineage_parsed",
+      "tolerant": true
+    }
   ],
   "rules": [
-    { "target": "normalized.class_uid", "const": 2004, "required": true },
-    { "target": "normalized.class_name", "const": "Detection Finding" },
-    { "target": "normalized.category_uid", "const": 2, "required": true },
-    { "target": "normalized.category_name", "const": "Findings" },
-    { "target": "normalized.activity_id", "const": 1 },
-    { "target": "normalized.activity_name", "const": "Create" },
-    { "target": "normalized.type_uid", "const": 200401 },
-    { "target": "normalized.type_name", "const": "Detection Finding: Create" },
+    {
+      "target": "normalized.class_uid",
+      "const": 2004,
+      "required": true
+    },
+    {
+      "target": "normalized.class_name",
+      "const": "Detection Finding"
+    },
+    {
+      "target": "normalized.category_uid",
+      "const": 2,
+      "required": true
+    },
+    {
+      "target": "normalized.category_name",
+      "const": "Findings"
+    },
+    {
+      "target": "normalized.activity_id",
+      "const": 1
+    },
+    {
+      "target": "normalized.activity_name",
+      "const": "Create"
+    },
+    {
+      "target": "normalized.type_uid",
+      "const": 200401
+    },
+    {
+      "target": "normalized.type_name",
+      "const": "Detection Finding: Create"
+    },
     {
       "target": "normalized.time",
       "source": "time",
@@ -29,8 +75,16 @@
       "type_cast": "iso_to_epoch",
       "required": true
     },
-    { "target": "normalized.start_time", "source": "sensorGeneratedAt", "type_cast": "iso_to_epoch" },
-    { "target": "normalized.finding_info.uid", "source": "id", "required": true },
+    {
+      "target": "normalized.start_time",
+      "source": "sensorGeneratedAt",
+      "type_cast": "iso_to_epoch"
+    },
+    {
+      "target": "normalized.finding_info.uid",
+      "source": "id",
+      "required": true
+    },
     {
       "target": "normalized.finding_info.title",
       "source": "ruleDescription",
@@ -50,19 +104,29 @@
         }
       }
     },
-    { "target": "normalized.finding_info.desc", "source": "ruleDescription" },
+    {
+      "target": "normalized.finding_info.desc",
+      "source": "ruleDescription"
+    },
     {
       "target": "normalized.finding_info.types",
       "source": "[type, attackType, detectionAttack, starts_with(detectionRule, 'WIN-CRD') && 'credential_search', starts_with(detectionRule, 'LNX-CRD') && 'credential_search', starts_with(detectionRule, 'UNX-CRD') && 'credential_search', starts_with(detectionRule, 'MAC-CRD') && 'credential_search', starts_with(detectionRule, 'LNX-DET-PACK') && 'sniffing', starts_with(detectionRule, 'LNX-DET-SOCK') && 'sniffing', starts_with(detectionRule, 'UNX-CAC-PRC-CURL') && 'trojan', starts_with(detectionRule, 'UNX-CAC-PRC-WGET') && 'trojan', starts_with(detectionRule, 'WIN-DSC') && 'discovery', starts_with(detectionRule, 'LNX-DSC') && 'discovery', starts_with(detectionRule, 'WIN-IMP') && 'ransomware', starts_with(detectionRule, 'LNX-IMP') && 'ransomware'][?@!=null && @!=`false`]",
       "type_cast": "dedup"
     },
-    { "target": "normalized.finding_info.created_time", "source": "time", "type_cast": "iso_to_epoch" },
+    {
+      "target": "normalized.finding_info.created_time",
+      "source": "time",
+      "type_cast": "iso_to_epoch"
+    },
     {
       "target": "normalized.finding_info.first_seen_time",
       "source": "sensorGeneratedAt",
       "type_cast": "iso_to_epoch"
     },
-    { "target": "normalized.finding_info.product_uid", "source": "id" },
+    {
+      "target": "normalized.finding_info.product_uid",
+      "source": "id"
+    },
     {
       "target": "normalized.severity_id",
       "source": "severity",
@@ -102,12 +166,34 @@
       },
       "default": "Unknown"
     },
-    { "target": "normalized.status_id", "const": 1 },
-    { "target": "normalized.status", "const": "New" },
-    { "target": "normalized.message", "source": "ruleDescription" },
-    { "target": "normalized.comment", "source": "attackType" },
-    { "target": "normalized.is_suppressed", "source": "suppressed", "type_cast": "to_bool", "default": false },
-    { "target": "normalized.count", "source": "_raw_parsed.hits", "type_cast": "to_int", "default": 1 },
+    {
+      "target": "normalized.status_id",
+      "const": 1
+    },
+    {
+      "target": "normalized.status",
+      "const": "New"
+    },
+    {
+      "target": "normalized.message",
+      "source": "ruleDescription"
+    },
+    {
+      "target": "normalized.comment",
+      "source": "attackType"
+    },
+    {
+      "target": "normalized.is_suppressed",
+      "source": "suppressed",
+      "type_cast": "to_bool",
+      "default": false
+    },
+    {
+      "target": "normalized.count",
+      "source": "_raw_parsed.hits",
+      "type_cast": "to_int",
+      "default": 1
+    },
     {
       "target": "normalized.count",
       "source": "rawData.evidence_raw[0].failed_count_recent",
@@ -154,8 +240,20 @@
         "exists": "_raw_parsed.device_name"
       }
     },
-    { "target": "normalized.device.uid", "source": "device.id", "fallback_source": ["sensor.id"] },
-    { "target": "normalized.device.type", "source": "device.type", "fallback_source": ["sensor.type"] },
+    {
+      "target": "normalized.device.uid",
+      "source": "device.id",
+      "fallback_source": [
+        "sensor.id"
+      ]
+    },
+    {
+      "target": "normalized.device.type",
+      "source": "device.type",
+      "fallback_source": [
+        "sensor.type"
+      ]
+    },
     {
       "target": "normalized.device.type_id",
       "source": "device.type",
@@ -197,7 +295,10 @@
         "exists": "_raw_parsed.device_model"
       }
     },
-    { "target": "normalized.device.ip", "source": "rawData.meta_ip_address" },
+    {
+      "target": "normalized.device.ip",
+      "source": "rawData.meta_ip_address"
+    },
     {
       "target": "normalized.device.ip",
       "source": "_raw_parsed.meta_ip_address",
@@ -205,10 +306,22 @@
         "exists": "_raw_parsed.meta_ip_address"
       }
     },
-    { "target": "normalized.device.mac", "source": "rawData.meta_mac_address" },
-    { "target": "normalized.device.os.name", "source": "rawData.meta_os_name" },
-    { "target": "normalized.device.os.version", "source": "rawData.meta_os_version" },
-    { "target": "normalized.device.os.type", "source": "rawData.meta_os_platform" },
+    {
+      "target": "normalized.device.mac",
+      "source": "rawData.meta_mac_address"
+    },
+    {
+      "target": "normalized.device.os.name",
+      "source": "rawData.meta_os_name"
+    },
+    {
+      "target": "normalized.device.os.version",
+      "source": "rawData.meta_os_version"
+    },
+    {
+      "target": "normalized.device.os.type",
+      "source": "rawData.meta_os_platform"
+    },
     {
       "target": "normalized.device.location.city",
       "source": "geolocation[0].city",
@@ -230,8 +343,15 @@
         "exists": "geolocation[0].longitude"
       }
     },
-    { "target": "normalized.actor.user.name", "source": "rawData.username" },
-    { "target": "normalized.actor.user.uid", "source": "rawData.uid", "type_cast": "to_str" },
+    {
+      "target": "normalized.actor.user.name",
+      "source": "rawData.username"
+    },
+    {
+      "target": "normalized.actor.user.uid",
+      "source": "rawData.uid",
+      "type_cast": "to_str"
+    },
     {
       "target": "normalized.actor.user.name",
       "source": "rawData.evidence_raw[0].targeted_users_recent[0]",
@@ -251,11 +371,28 @@
         }
       }
     },
-    { "target": "normalized.process.pid", "source": "rawData.pids", "type_cast": "to_int" },
-    { "target": "normalized.process.uid", "source": "rawData.sophos_pid" },
-    { "target": "normalized.process.cmd_line", "source": "rawData.cmdline" },
-    { "target": "normalized.process.created_time", "source": "rawData.time", "type_cast": "iso_to_epoch" },
-    { "target": "normalized.process.file.path", "source": "rawData.path" },
+    {
+      "target": "normalized.process.pid",
+      "source": "rawData.pids",
+      "type_cast": "to_int"
+    },
+    {
+      "target": "normalized.process.uid",
+      "source": "rawData.sophos_pid"
+    },
+    {
+      "target": "normalized.process.cmd_line",
+      "source": "rawData.cmdline"
+    },
+    {
+      "target": "normalized.process.created_time",
+      "source": "rawData.time",
+      "type_cast": "iso_to_epoch"
+    },
+    {
+      "target": "normalized.process.file.path",
+      "source": "rawData.path"
+    },
     {
       "target": "normalized.process.file.name",
       "source": "rawData.name",
@@ -272,12 +409,31 @@
       "target": "normalized.process.file.hashes",
       "source": "[{algorithm: 'SHA-256', value: rawData.sha256}, {algorithm: 'SHA-1', value: rawData.sha1}][?value!=null]"
     },
-    { "target": "normalized.process.user.name", "source": "rawData.username" },
-    { "target": "normalized.process.user.uid", "source": "rawData.uid", "type_cast": "to_str" },
-    { "target": "normalized.process.parent_process.name", "source": "rawData.parent_name" },
-    { "target": "normalized.process.parent_process.uid", "source": "rawData.parent_sophos_pid" },
-    { "target": "normalized.process.parent_process.cmd_line", "source": "rawData.parent_cmdline" },
-    { "target": "normalized.process.parent_process.file.path", "source": "rawData.parent_path" },
+    {
+      "target": "normalized.process.user.name",
+      "source": "rawData.username"
+    },
+    {
+      "target": "normalized.process.user.uid",
+      "source": "rawData.uid",
+      "type_cast": "to_str"
+    },
+    {
+      "target": "normalized.process.parent_process.name",
+      "source": "rawData.parent_name"
+    },
+    {
+      "target": "normalized.process.parent_process.uid",
+      "source": "rawData.parent_sophos_pid"
+    },
+    {
+      "target": "normalized.process.parent_process.cmd_line",
+      "source": "rawData.parent_cmdline"
+    },
+    {
+      "target": "normalized.process.parent_process.file.path",
+      "source": "rawData.parent_path"
+    },
     {
       "target": "normalized.src_endpoint.ip",
       "source": "rawData.meta_public_ip",
@@ -299,14 +455,40 @@
         "exists": "rawData.evidence_raw[0].source_ips_recent[0]"
       }
     },
-    { "target": "normalized.src_endpoint.port", "source": "_raw_parsed.src_port", "type_cast": "to_int" },
-    { "target": "normalized.src_endpoint.uid", "source": "sensor.id" },
-    { "target": "normalized.src_endpoint.type", "source": "sensor.type" },
-    { "target": "normalized.src_endpoint.location.country", "source": "_raw_parsed.src_country" },
-    { "target": "normalized.src_endpoint.zone", "source": "_raw_parsed.src_zone" },
-    { "target": "normalized.dst_endpoint.ip", "source": "_raw_parsed.dst_ip" },
-    { "target": "normalized.dst_endpoint.port", "source": "_raw_parsed.dst_port", "type_cast": "to_int" },
-    { "target": "normalized.dst_endpoint.hostname", "source": "_raw_parsed.url" },
+    {
+      "target": "normalized.src_endpoint.port",
+      "source": "_raw_parsed.src_port",
+      "type_cast": "to_int"
+    },
+    {
+      "target": "normalized.src_endpoint.uid",
+      "source": "sensor.id"
+    },
+    {
+      "target": "normalized.src_endpoint.type",
+      "source": "sensor.type"
+    },
+    {
+      "target": "normalized.src_endpoint.location.country",
+      "source": "_raw_parsed.src_country"
+    },
+    {
+      "target": "normalized.src_endpoint.zone",
+      "source": "_raw_parsed.src_zone"
+    },
+    {
+      "target": "normalized.dst_endpoint.ip",
+      "source": "_raw_parsed.dst_ip"
+    },
+    {
+      "target": "normalized.dst_endpoint.port",
+      "source": "_raw_parsed.dst_port",
+      "type_cast": "to_int"
+    },
+    {
+      "target": "normalized.dst_endpoint.hostname",
+      "source": "_raw_parsed.url"
+    },
     {
       "target": "normalized.dst_endpoint.hostname",
       "source": "entities[?type=='domain'].attributes.name | [0]",
@@ -314,7 +496,10 @@
         "exists": "entities[?type=='domain'] | [0]"
       }
     },
-    { "target": "normalized.url.url", "source": "_raw_parsed.url" },
+    {
+      "target": "normalized.url.url",
+      "source": "_raw_parsed.url"
+    },
     {
       "target": "normalized.url.url",
       "source": "entities[?type=='url'].attributes.url | [0]",
@@ -322,10 +507,22 @@
         "exists": "entities[?type=='url'] | [0]"
       }
     },
-    { "target": "normalized.url.hostname", "source": "entities[?type=='domain'].attributes.name | [0]" },
-    { "target": "normalized.dst_endpoint.location.country", "source": "_raw_parsed.dst_country" },
-    { "target": "normalized.dst_endpoint.zone", "source": "_raw_parsed.dst_zone" },
-    { "target": "normalized.connection_info.protocol_name", "source": "_raw_parsed.protocol" },
+    {
+      "target": "normalized.url.hostname",
+      "source": "entities[?type=='domain'].attributes.name | [0]"
+    },
+    {
+      "target": "normalized.dst_endpoint.location.country",
+      "source": "_raw_parsed.dst_country"
+    },
+    {
+      "target": "normalized.dst_endpoint.zone",
+      "source": "_raw_parsed.dst_zone"
+    },
+    {
+      "target": "normalized.connection_info.protocol_name",
+      "source": "_raw_parsed.protocol"
+    },
     {
       "target": "normalized.connection_info.direction",
       "source": "_raw_parsed.src_zone_type",
@@ -397,7 +594,10 @@
       "type_cast": "to_bool",
       "default": false
     },
-    { "target": "normalized.cloud.org.uid", "source": "_raw_parsed.customer_id" },
+    {
+      "target": "normalized.cloud.org.uid",
+      "source": "_raw_parsed.customer_id"
+    },
     {
       "target": "normalized.cloud.org.uid",
       "source": "rawData.evidence_raw[0].customer_id",
@@ -405,21 +605,52 @@
         "exists": "rawData.evidence_raw[0].customer_id"
       }
     },
-    { "target": "normalized.cloud.region", "source": "_raw_parsed.region" },
-    { "target": "normalized.cloud.provider", "const": "Sophos Central" },
-    { "target": "normalized.metadata.version", "const": "1.8.0" },
-    { "target": "normalized.metadata.product.name", "const": "Sophos Central" },
-    { "target": "normalized.metadata.product.vendor_name", "const": "Sophos" },
+    {
+      "target": "normalized.cloud.region",
+      "source": "_raw_parsed.region"
+    },
+    {
+      "target": "normalized.cloud.provider",
+      "const": "Sophos Central"
+    },
+    {
+      "target": "normalized.metadata.version",
+      "const": "1.8.0"
+    },
+    {
+      "target": "normalized.metadata.product.name",
+      "const": "Sophos Central"
+    },
+    {
+      "target": "normalized.metadata.product.vendor_name",
+      "const": "Sophos"
+    },
     {
       "target": "normalized.metadata.product.feature.name",
       "source": "sensor.type",
       "default": "XDR Detections"
     },
-    { "target": "normalized.metadata.product.version", "source": "sensor.version" },
-    { "target": "normalized.metadata.uid", "source": "id" },
-    { "target": "normalized.metadata.event_code", "source": "detectionRule" },
-    { "target": "normalized.metadata.original_time", "source": "sensorGeneratedAt" },
-    { "target": "normalized.metadata.log_provider", "source": "sensor.source", "default": "Sophos" },
+    {
+      "target": "normalized.metadata.product.version",
+      "source": "sensor.version"
+    },
+    {
+      "target": "normalized.metadata.uid",
+      "source": "id"
+    },
+    {
+      "target": "normalized.metadata.event_code",
+      "source": "detectionRule"
+    },
+    {
+      "target": "normalized.metadata.original_time",
+      "source": "sensorGeneratedAt"
+    },
+    {
+      "target": "normalized.metadata.log_provider",
+      "source": "sensor.source",
+      "default": "Sophos"
+    },
     {
       "target": "normalized.metadata.correlation_uid",
       "source": "caseDescription.correlatedReasonId",
@@ -925,7 +1156,13 @@
         "exists": "rawData.process_parent_path"
       }
     },
-    { "target": "normalized.actor.user.uid", "source": "rawData.sid", "when": {"exists": "rawData.sid"} },
+    {
+      "target": "normalized.actor.user.uid",
+      "source": "rawData.sid",
+      "when": {
+        "exists": "rawData.sid"
+      }
+    },
     {
       "target": "normalized.unmapped.sophos.threat_source",
       "source": "rawData.threat_source",
@@ -1099,8 +1336,28 @@
     }
   ],
   "raw_reduction": [
-    { "path": "rawData.raw", "max_bytes": 16384 },
-    { "path": "rawData.items", "max_bytes": 16384 },
-    { "path": "rawData.associated_lineages", "max_bytes": 16384 }
+    {
+      "path": "rawData.raw",
+      "drop": true
+    },
+    {
+      "path": "rawData.primary_item",
+      "drop": true
+    },
+    {
+      "path": "rawData.items",
+      "drop": true
+    },
+    {
+      "path": "rawData.associated_lineages",
+      "drop": true
+    },
+    {
+      "path": "rawData.lineage",
+      "drop": true
+    },
+    {
+      "drop_nulls": true
+    }
   ]
 }

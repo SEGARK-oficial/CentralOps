@@ -1,29 +1,77 @@
 {
   "preprocess": [
-    { "op": "json_parse", "source": "message", "target": "_msg", "tolerant": true }
+    {
+      "op": "json_parse",
+      "source": "message",
+      "target": "_msg",
+      "tolerant": true
+    }
   ],
   "rules": [
-    { "target": "normalized.class_uid", "const": 0, "required": true },
-    { "target": "normalized.class_name", "const": "Base Event" },
-    { "target": "normalized.category_uid", "const": 0, "required": true },
-    { "target": "normalized.category_name", "const": "Uncategorized" },
-    { "target": "normalized.activity_id", "const": 0, "required": true },
-    { "target": "normalized.activity_name", "const": "Unknown" },
-    { "target": "normalized.type_uid", "const": 0, "required": true },
-
-    { "target": "normalized.time", "source": "eventTime", "type_cast": "iso_to_epoch", "required": true },
-    { "target": "normalized.metadata.original_time", "source": "eventTime", "default": null },
-
+    {
+      "target": "normalized.class_uid",
+      "const": 0,
+      "required": true
+    },
+    {
+      "target": "normalized.class_name",
+      "const": "Base Event"
+    },
+    {
+      "target": "normalized.category_uid",
+      "const": 0,
+      "required": true
+    },
+    {
+      "target": "normalized.category_name",
+      "const": "Uncategorized"
+    },
+    {
+      "target": "normalized.activity_id",
+      "const": 0,
+      "required": true
+    },
+    {
+      "target": "normalized.activity_name",
+      "const": "Unknown"
+    },
+    {
+      "target": "normalized.type_uid",
+      "const": 0,
+      "required": true
+    },
+    {
+      "target": "normalized.time",
+      "source": "eventTime",
+      "type_cast": "iso_to_epoch",
+      "required": true
+    },
+    {
+      "target": "normalized.metadata.original_time",
+      "source": "eventTime",
+      "default": null
+    },
     {
       "target": "normalized.severity_id",
       "source": "_msg.level || _msg.severity",
       "pre_cast": "lowercase",
       "value_map": {
-        "trace": 1, "debug": 1, "info": 1, "information": 1, "informational": 1, "notice": 1,
-        "warn": 3, "warning": 3,
-        "error": 4, "err": 4,
-        "critical": 5, "crit": 5, "alert": 5,
-        "fatal": 6, "emerg": 6, "emergency": 6
+        "trace": 1,
+        "debug": 1,
+        "info": 1,
+        "information": 1,
+        "informational": 1,
+        "notice": 1,
+        "warn": 3,
+        "warning": 3,
+        "error": 4,
+        "err": 4,
+        "critical": 5,
+        "crit": 5,
+        "alert": 5,
+        "fatal": 6,
+        "emerg": 6,
+        "emergency": 6
       },
       "default": 1,
       "required": true
@@ -33,50 +81,153 @@
       "source": "_msg.level || _msg.severity",
       "pre_cast": "lowercase",
       "value_map": {
-        "trace": "Informational", "debug": "Informational", "info": "Informational",
-        "information": "Informational", "informational": "Informational", "notice": "Informational",
-        "warn": "Medium", "warning": "Medium",
-        "error": "High", "err": "High",
-        "critical": "Critical", "crit": "Critical", "alert": "Critical",
-        "fatal": "Fatal", "emerg": "Fatal", "emergency": "Fatal"
+        "trace": "Informational",
+        "debug": "Informational",
+        "info": "Informational",
+        "information": "Informational",
+        "informational": "Informational",
+        "notice": "Informational",
+        "warn": "Medium",
+        "warning": "Medium",
+        "error": "High",
+        "err": "High",
+        "critical": "Critical",
+        "crit": "Critical",
+        "alert": "Critical",
+        "fatal": "Fatal",
+        "emerg": "Fatal",
+        "emergency": "Fatal"
       },
       "default": "Informational"
     },
-
-    { "target": "normalized.message", "source": "message", "default": null },
-
-    { "target": "normalized.metadata.version", "const": "1.8.0" },
-    { "target": "normalized.metadata.product.name", "const": "CloudWatch Logs" },
-    { "target": "normalized.metadata.product.vendor_name", "const": "AWS" },
-    { "target": "normalized.metadata.uid", "source": "eventId", "required": true },
-    { "target": "normalized.metadata.log_name", "source": "logGroupName", "default": null },
-    { "target": "normalized.metadata.log_provider", "const": "AWS CloudWatch Logs" },
-    { "target": "normalized.metadata.correlation_uid", "source": "logStreamName", "default": null },
-
-    { "target": "normalized.cloud.provider", "const": "AWS" },
-    { "target": "normalized.cloud.region", "source": "awsRegion", "default": null },
-    { "target": "normalized.cloud.account.uid", "source": "awsAccountId", "default": null },
-
-    { "target": "normalized.unmapped.log_group", "source": "logGroupName", "default": null },
-    { "target": "normalized.unmapped.log_stream", "source": "logStreamName", "default": null },
-    { "target": "normalized.unmapped.operation", "source": "_msg.eventName || _msg.operation || _msg.action", "default": null },
-    { "target": "normalized.unmapped.error_code", "source": "_msg.errorCode || _msg.error", "default": null },
-    { "target": "normalized.unmapped.error_message", "source": "_msg.errorMessage", "default": null },
-    { "target": "normalized.unmapped.user_name", "source": "_msg.user || _msg.userName || _msg.userIdentity.userName", "default": null },
-    { "target": "normalized.unmapped.user_uid", "source": "_msg.userId || _msg.userIdentity.principalId", "default": null },
-    { "target": "normalized.unmapped.src_ip", "source": "_msg.sourceIPAddress || _msg.srcAddr || _msg.client_ip || _msg.clientIp", "default": null },
-    { "target": "normalized.unmapped.user_agent", "source": "_msg.userAgent", "default": null },
-    { "target": "normalized.unmapped.status", "source": "_msg.status", "default": null },
-
+    {
+      "target": "normalized.message",
+      "source": "message",
+      "default": null
+    },
+    {
+      "target": "normalized.metadata.version",
+      "const": "1.8.0"
+    },
+    {
+      "target": "normalized.metadata.product.name",
+      "const": "CloudWatch Logs"
+    },
+    {
+      "target": "normalized.metadata.product.vendor_name",
+      "const": "AWS"
+    },
+    {
+      "target": "normalized.metadata.uid",
+      "source": "eventId",
+      "required": true
+    },
+    {
+      "target": "normalized.metadata.log_name",
+      "source": "logGroupName",
+      "default": null
+    },
+    {
+      "target": "normalized.metadata.log_provider",
+      "const": "AWS CloudWatch Logs"
+    },
+    {
+      "target": "normalized.metadata.correlation_uid",
+      "source": "logStreamName",
+      "default": null
+    },
+    {
+      "target": "normalized.cloud.provider",
+      "const": "AWS"
+    },
+    {
+      "target": "normalized.cloud.region",
+      "source": "awsRegion",
+      "default": null
+    },
+    {
+      "target": "normalized.cloud.account.uid",
+      "source": "awsAccountId",
+      "default": null
+    },
+    {
+      "target": "normalized.unmapped.log_group",
+      "source": "logGroupName",
+      "default": null
+    },
+    {
+      "target": "normalized.unmapped.log_stream",
+      "source": "logStreamName",
+      "default": null
+    },
+    {
+      "target": "normalized.unmapped.operation",
+      "source": "_msg.eventName || _msg.operation || _msg.action",
+      "default": null
+    },
+    {
+      "target": "normalized.unmapped.error_code",
+      "source": "_msg.errorCode || _msg.error",
+      "default": null
+    },
+    {
+      "target": "normalized.unmapped.error_message",
+      "source": "_msg.errorMessage",
+      "default": null
+    },
+    {
+      "target": "normalized.unmapped.user_name",
+      "source": "_msg.user || _msg.userName || _msg.userIdentity.userName",
+      "default": null
+    },
+    {
+      "target": "normalized.unmapped.user_uid",
+      "source": "_msg.userId || _msg.userIdentity.principalId",
+      "default": null
+    },
+    {
+      "target": "normalized.unmapped.src_ip",
+      "source": "_msg.sourceIPAddress || _msg.srcAddr || _msg.client_ip || _msg.clientIp",
+      "default": null
+    },
+    {
+      "target": "normalized.unmapped.user_agent",
+      "source": "_msg.userAgent",
+      "default": null
+    },
+    {
+      "target": "normalized.unmapped.status",
+      "source": "_msg.status",
+      "default": null
+    },
     {
       "target": "normalized.observables",
       "kind": "array_builder",
       "items": [
-        { "name": "actor_user", "type": "User Name", "type_id": 4, "source": "_msg.user || _msg.userName || _msg.userIdentity.userName", "skip_null": true },
-        { "name": "src_ip", "type": "IP Address", "type_id": 2, "source": "_msg.sourceIPAddress || _msg.srcAddr || _msg.client_ip || _msg.clientIp", "skip_null": true }
+        {
+          "name": "actor_user",
+          "type": "User Name",
+          "type_id": 4,
+          "source": "_msg.user || _msg.userName || _msg.userIdentity.userName",
+          "skip_null": true
+        },
+        {
+          "name": "src_ip",
+          "type": "IP Address",
+          "type_id": 2,
+          "source": "_msg.sourceIPAddress || _msg.srcAddr || _msg.client_ip || _msg.clientIp",
+          "skip_null": true
+        }
       ],
       "skip_null": true,
-      "dedup_by": ["value"]
+      "dedup_by": [
+        "value"
+      ]
+    }
+  ],
+  "raw_reduction": [
+    {
+      "drop_nulls": true
     }
   ]
 }

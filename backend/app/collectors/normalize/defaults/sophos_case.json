@@ -1,14 +1,40 @@
 {
   "preprocess": [],
   "rules": [
-    { "target": "normalized.class_uid", "const": 2005, "required": true },
-    { "target": "normalized.class_name", "const": "Incident Finding" },
-    { "target": "normalized.category_uid", "const": 2, "required": true },
-    { "target": "normalized.category_name", "const": "Findings" },
-    { "target": "normalized.activity_id", "const": 1 },
-    { "target": "normalized.activity_name", "const": "Create" },
-    { "target": "normalized.type_uid", "const": 200501 },
-    { "target": "normalized.type_name", "const": "Incident Finding: Create" },
+    {
+      "target": "normalized.class_uid",
+      "const": 2005,
+      "required": true
+    },
+    {
+      "target": "normalized.class_name",
+      "const": "Incident Finding"
+    },
+    {
+      "target": "normalized.category_uid",
+      "const": 2,
+      "required": true
+    },
+    {
+      "target": "normalized.category_name",
+      "const": "Findings"
+    },
+    {
+      "target": "normalized.activity_id",
+      "const": 1
+    },
+    {
+      "target": "normalized.activity_name",
+      "const": "Create"
+    },
+    {
+      "target": "normalized.type_uid",
+      "const": 200501
+    },
+    {
+      "target": "normalized.type_name",
+      "const": "Incident Finding: Create"
+    },
     {
       "target": "normalized.time",
       "source": "createdAt",
@@ -26,23 +52,47 @@
       ],
       "type_cast": "iso_to_epoch"
     },
-    { "target": "normalized.finding_info.uid", "source": "id", "required": true },
+    {
+      "target": "normalized.finding_info.uid",
+      "source": "id",
+      "required": true
+    },
     {
       "target": "normalized.finding_info.title",
       "source": "name",
       "default": "Sophos Case",
       "required": true
     },
-    { "target": "normalized.finding_info.desc", "source": "overview", "fallback_source": ["name"] },
-    { "target": "normalized.finding_info.types", "source": "[type, initialDetection.type][?@!=null]" },
-    { "target": "normalized.finding_info.created_time", "source": "createdAt", "type_cast": "iso_to_epoch" },
-    { "target": "normalized.finding_info.modified_time", "source": "updatedAt", "type_cast": "iso_to_epoch" },
+    {
+      "target": "normalized.finding_info.desc",
+      "source": "overview",
+      "fallback_source": [
+        "name"
+      ]
+    },
+    {
+      "target": "normalized.finding_info.types",
+      "source": "[type, initialDetection.type][?@!=null]"
+    },
+    {
+      "target": "normalized.finding_info.created_time",
+      "source": "createdAt",
+      "type_cast": "iso_to_epoch"
+    },
+    {
+      "target": "normalized.finding_info.modified_time",
+      "source": "updatedAt",
+      "type_cast": "iso_to_epoch"
+    },
     {
       "target": "normalized.finding_info.first_seen_time",
       "source": "initialDetection.time",
       "type_cast": "iso_to_epoch"
     },
-    { "target": "normalized.finding_info.product_uid", "source": "id" },
+    {
+      "target": "normalized.finding_info.product_uid",
+      "source": "id"
+    },
     {
       "target": "normalized.finding_info.related_events",
       "source": "[{type: 'detection', uid: initialDetection.id}][?uid!=null]"
@@ -123,12 +173,32 @@
       },
       "default": "New"
     },
-    { "target": "normalized.status_detail", "source": "status" },
-    { "target": "normalized.message", "source": "name" },
-    { "target": "normalized.count", "source": "detectionCount", "type_cast": "to_int" },
-    { "target": "normalized.is_alert", "source": "escalated", "type_cast": "to_bool" },
-    { "target": "normalized.assignee.name", "source": "assignee.name" },
-    { "target": "normalized.actor.user.name", "source": "createdBy.name" },
+    {
+      "target": "normalized.status_detail",
+      "source": "status"
+    },
+    {
+      "target": "normalized.message",
+      "source": "name"
+    },
+    {
+      "target": "normalized.count",
+      "source": "detectionCount",
+      "type_cast": "to_int"
+    },
+    {
+      "target": "normalized.is_alert",
+      "source": "escalated",
+      "type_cast": "to_bool"
+    },
+    {
+      "target": "normalized.assignee.name",
+      "source": "assignee.name"
+    },
+    {
+      "target": "normalized.actor.user.name",
+      "source": "createdBy.name"
+    },
     {
       "target": "normalized.device.hostname",
       "source": "relatedDevices[0].name",
@@ -243,21 +313,51 @@
         }
       }
     },
-    { "target": "normalized.cloud.org.uid", "source": "tenant.id" },
-    { "target": "normalized.cloud.provider", "const": "Sophos Central" },
-    { "target": "normalized.metadata.version", "const": "1.8.0" },
-    { "target": "normalized.metadata.product.name", "const": "Sophos Central" },
-    { "target": "normalized.metadata.product.vendor_name", "const": "Sophos" },
+    {
+      "target": "normalized.cloud.org.uid",
+      "source": "tenant.id"
+    },
+    {
+      "target": "normalized.cloud.provider",
+      "const": "Sophos Central"
+    },
+    {
+      "target": "normalized.metadata.version",
+      "const": "1.8.0"
+    },
+    {
+      "target": "normalized.metadata.product.name",
+      "const": "Sophos Central"
+    },
+    {
+      "target": "normalized.metadata.product.vendor_name",
+      "const": "Sophos"
+    },
     {
       "target": "normalized.metadata.product.feature.name",
       "source": "initialDetection.sensor.source",
       "default": "Sophos Cases"
     },
-    { "target": "normalized.metadata.uid", "source": "id" },
-    { "target": "normalized.metadata.event_code", "source": "initialDetection.detectionRule" },
-    { "target": "normalized.metadata.original_time", "source": "createdAt" },
-    { "target": "normalized.metadata.correlation_uid", "source": "initialDetection.id" },
-    { "target": "normalized.metadata.log_provider", "const": "Sophos Central Cases" },
+    {
+      "target": "normalized.metadata.uid",
+      "source": "id"
+    },
+    {
+      "target": "normalized.metadata.event_code",
+      "source": "initialDetection.detectionRule"
+    },
+    {
+      "target": "normalized.metadata.original_time",
+      "source": "createdAt"
+    },
+    {
+      "target": "normalized.metadata.correlation_uid",
+      "source": "initialDetection.id"
+    },
+    {
+      "target": "normalized.metadata.log_provider",
+      "const": "Sophos Central Cases"
+    },
     {
       "target": "normalized.unmapped.sophos.managed_by",
       "source": "managedBy",
@@ -336,6 +436,11 @@
         "type_id",
         "value"
       ]
+    }
+  ],
+  "raw_reduction": [
+    {
+      "drop_nulls": true
     }
   ]
 }
