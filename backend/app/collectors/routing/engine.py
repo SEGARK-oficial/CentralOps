@@ -121,6 +121,12 @@ class CompiledRoute:
     #: (the event reaches this route's destinations untouched). The same source
     #: event reaches a non-redacting route (e.g. the lake) full-fidelity.
     redaction: Tuple["CompiledRedactionRule", ...] = ()
+    #: descarta o bloco ``raw`` (evento bruto do vendor) da cópia entregue por
+    #: ESTA rota. False = byte-idêntico. É a decisão POR-DESTINO (lago recebe o
+    #: bruto, SIEM não) que o ``raw_reduction`` do mapping não pode tomar.
+    #: NUNCA aplicado a rotas ``protect_detection=True`` (mesmo fail-safe do
+    #: sampling): quem alimenta detecção não perde fidelidade sem opt-out.
+    drop_raw: bool = False
 
 
 def _canary_bucket(event_id: str) -> int:
@@ -179,6 +185,24 @@ def _with_sample_rate(env: Mapping[str, Any], sample_percent: int) -> dict:
     out = dict(env)
     labels = dict(out.get("_centralops") or {})
     labels["sample_rate"] = round(sample_percent / 100.0, 6)
+    out["_centralops"] = labels
+    return out
+
+
+def _without_raw(env: Mapping[str, Any]) -> Optional[dict]:
+    """Cópia rasa do envelope SEM o bloco ``raw``, marcada em
+    ``_centralops.raw_dropped`` para o destino/analista saber que o bruto foi
+    descartado nesta entrega (e não que o vendor não o mandou).
+
+    Devolve ``None`` quando não há ``raw`` a remover — o caller reusa o envelope
+    original sem custo de cópia. NÃO muta o ``env`` compartilhado: as outras
+    rotas do fan-out (ex.: o lago) seguem recebendo o bruto íntegro."""
+    if not isinstance(env, Mapping) or "raw" not in env:
+        return None
+    out = dict(env)
+    out.pop("raw", None)
+    labels = dict(out.get("_centralops") or {})
+    labels["raw_dropped"] = True
     out["_centralops"] = labels
     return out
 
@@ -425,6 +449,13 @@ class BatchRouting:
     #: ``measure_drop_bytes=True`` (o caller liga com ``COST_METERING_ENABLED``): drop
     #: não tem flag REDUCTION_* própria — é config de rota, sempre ativa.
     dropped_bytes_per_org: dict = field(default_factory=dict)
+    #: bytes LÓGICOS evitados pelo DESCARTE DO BLOCO ``raw`` (Route.drop_raw),
+    #: agregados por ``organization_id``. Mesma base dos demais (envelope,
+    #: por-entrega). O pipeline converte em ``bytes_saved{reason=raw_drop}`` —
+    #: série própria porque o raw costuma ser o MAIOR contribuinte de bytes, e
+    #: fundi-lo em ``trim`` esconderia exatamente o que se quer provar. Só popula
+    #: com ``measure_drop_bytes=True`` (o caller liga com COST_METERING_ENABLED).
+    raw_dropped_bytes_per_org: dict = field(default_factory=dict)
 
     # ── Eventos por DESFECHO (tap de captura) ──────────────────────────
     # O engine é PURO (sem I/O): ele ACUMULA os eventos de cada desfecho, o CALLER
@@ -674,9 +705,25 @@ def route_batch(
             )
             if route.redaction:
                 redacted = apply_pii_redaction(env_out, route.redaction)
-                sub[dest].append(redacted if redacted is not None else env_out)
-            else:
-                sub[dest].append(env_out)
+                env_out = redacted if redacted is not None else env_out
+            # Descarte do bloco ``raw`` por-destino. DEPOIS da redação (a redação
+            # também toca ``normalized``) e por ÚLTIMO, para medir os bytes que
+            # realmente deixam de sair. Fail-safe: rota que alimenta detecção
+            # nunca perde o bruto sem opt-out explícito — mesmo contrato do
+            # sampling. A cópia é rasa: o envelope original segue íntegro para as
+            # OUTRAS rotas (o lago continua recebendo o raw).
+            if route.drop_raw and not route.protect_detection:
+                dropped_env = _without_raw(env_out)
+                if dropped_env is not None:
+                    _d_org = labels.get("organization_id")
+                    if _d_org is not None and measure_drop_bytes:
+                        saved = _envelope_bytes(env_out) - _envelope_bytes(dropped_env)
+                        if saved > 0:
+                            result.raw_dropped_bytes_per_org[_d_org] = (
+                                result.raw_dropped_bytes_per_org.get(_d_org, 0.0) + saved
+                            )
+                    env_out = dropped_env
+            sub[dest].append(env_out)
             delivered_any = True
         # Conta como routed só se ALGO foi entregue; um evento 100% amostrado p/ fora
         # (todos os destinos) foi reduzido, não roteado (não infla o contador routed).

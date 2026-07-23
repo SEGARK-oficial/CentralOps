@@ -1337,6 +1337,15 @@ class Route(Base):
     suppress_key = Column(Text, nullable=True)
     suppress_allow = Column(Integer, nullable=False, default=0, server_default=_sa_text("0"))
     suppress_window_s = Column(Integer, nullable=False, default=30, server_default=_sa_text("30"))
+    # descarta o bloco ``raw`` (evento bruto do vendor) do envelope entregue por
+    # ESTA rota. FALSE (default) = byte-idêntico. É a decisão POR-DESTINO que o
+    # mapping não pode tomar: o mesmo evento vai íntegro ao lago (DFIR precisa do
+    # bruto) e enxuto ao SIEM (que cobra por volume). Complementa o
+    # ``raw_reduction`` do mapping, que remove o lixo invariante de destino.
+    # NUNCA aplicado a rotas protect_detection=True (mesmo fail-safe do sampling).
+    drop_raw = Column(
+        Boolean, nullable=False, default=False, server_default=_sa_text("false")
+    )
     transform_ref = Column(String, nullable=True)  # mapping/redação por rota (futuro)
     # redação de PII por rota (JSON declarativo:
     # {"version":1,"rules":[{path,action,...}]}). NULL = sem redação (default,

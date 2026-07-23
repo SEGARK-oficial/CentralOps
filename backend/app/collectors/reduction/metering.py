@@ -51,7 +51,9 @@ _M_BYTES_SAVED = "bytes_saved"
 # virando chave é explosão de cardinalidade (e vetor de escrita arbitrária vinda
 # de config de rota). Um reason fora desta lista continua sendo contabilizado no
 # total agregado e no OTel — só não ganha série própria.
-SAVING_REASONS: Tuple[str, ...] = ("trim", "sample", "suppress", "drop", "aggregate", "redaction")
+SAVING_REASONS: Tuple[str, ...] = (
+    "trim", "sample", "suppress", "drop", "aggregate", "redaction", "raw_drop",
+)
 
 
 def _reason_metric(reason: str) -> Optional[str]:
@@ -179,6 +181,36 @@ def record_drop_saving(organization_id: Optional[int], bytes_: float) -> None:
         record_saving(organization_id, None, "drop", bytes_=float(bytes_))
     except Exception:  # noqa: BLE001 — best-effort
         logger.debug("metering.record_drop_saving falhou (org=%s)", organization_id, exc_info=True)
+
+
+def record_raw_drop_saving(organization_id: Optional[int], bytes_: float) -> None:
+    """Contabiliza o volume evitado pelo DESCARTE DO BLOCO ``raw`` de uma rota
+    (``Route.drop_raw``) como ``bytes_saved{reason=raw_drop}``.
+
+    Os bytes são MEDIDOS no engine de roteamento (diferença entre o envelope com
+    e sem o ``raw``, mesmo serializador da entrega, por par evento×destino) e
+    agregados por org; aqui só gravamos o rollup — espelhando
+    :func:`record_drop_saving`.
+
+    SÉRIE PRÓPRIA, não fundida em ``trim``: o bloco ``raw`` costuma ser o MAIOR
+    contribuinte isolado de bytes do envelope, e escondê-lo dentro do balde de
+    trimming tiraria justamente a visibilidade que justifica a alavanca.
+
+    GATING — só ``COST_METERING_ENABLED``, como o ``drop``: descartar o raw é
+    CONFIG DE ROTA (o operador liga na rota), não uma alavanca REDUCTION_*
+    global. Exigir uma flag extra deixaria o volume permanentemente invisível.
+
+    No-op flag-off; fail-closed em org ausente ou ``bytes_`` zero; best-effort."""
+    if not enabled():
+        return
+    if organization_id is None or not bytes_:
+        return
+    try:
+        record_saving(organization_id, None, "raw_drop", bytes_=float(bytes_))
+    except Exception:  # noqa: BLE001 — best-effort
+        logger.debug(
+            "metering.record_raw_drop_saving falhou (org=%s)", organization_id, exc_info=True
+        )
 
 
 def record_suppress_saving(organization_id: Optional[int], envelope: Any) -> None:
