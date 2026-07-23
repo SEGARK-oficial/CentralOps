@@ -51,6 +51,7 @@ from ..collectors.routing import (
 )
 from ..core import auth as app_auth
 from ..core.errors import ApiError
+from ..core import tenant
 from ..core.tenant import has_global_scope
 from ..db import database, models, repository
 
@@ -97,10 +98,18 @@ def _assert_visible(row: models.Route | None, user: models.AppUser) -> models.Ro
                 "es": "Ruta no encontrada.",
             },
         )
-    is_global, org_id = _resolve_scope(user)
+    is_global, _ = _resolve_scope(user)
     if is_global:
         return row
-    if row.organization_id is not None and row.organization_id != org_id:
+    # Rota GLOBAL (org NULL) vale para todas as orgs — sempre visível.
+    # Rota de org: usa o gate SUBTREE-AWARE, não igualdade exata. Com igualdade,
+    # um admin de org PAI recebia 404 numa rota da FILHA mesmo com a hierarquia
+    # materializada — divergindo de integrações, que já usavam require_subtree_access.
+    # Em Community o resolver é FLAT e o resultado é idêntico ao de antes; sob
+    # Enterprise a subárvore passa a valer, que é o contrato prometido.
+    if row.organization_id is not None and not tenant.can_access_subtree(
+        user, int(row.organization_id)
+    ):
         raise ApiError(
             "route.not_found",
             status.HTTP_404_NOT_FOUND,
@@ -229,16 +238,26 @@ def list_routes(
     repo: repository.RouteRepository = Depends(_get_repo),
 ) -> List[RouteRead]:
     is_global, caller_org = _resolve_scope(user)
+    # Escopo SUBTREE-AWARE (reusa a sessão do repo): um admin de org PAI passa a
+    # enxergar as rotas das FILHAS. Antes o filtro era igualdade exata e a tela
+    # de Rotas era estruturalmente incapaz de mostrá-las, mesmo com o resolver
+    # Enterprise registrado — divergindo do /flow, que já lista as FONTES da
+    # subárvore. Em Community o resolver é FLAT e o resultado não muda.
+    _org_ids = None if is_global else tenant.accessible_org_ids(user, repo.db)
     rows = repo.list(
         caller_org,
         include_disabled=include_disabled,
         global_scope=is_global,
         offset=offset,
         limit=limit,
+        org_ids=_org_ids,
     )
     # Compute unreachable over the FULL ordered visible set (not just this page's
     # slice) for an accurate UX guard — re-list without pagination bound.
-    full = repo.list(caller_org, include_disabled=include_disabled, global_scope=is_global, limit=500)
+    full = repo.list(
+        caller_org, include_disabled=include_disabled, global_scope=is_global,
+        limit=500, org_ids=_org_ids,
+    )
     unreachable_ids = set(find_unreachable(order_routes([_compile(r) for r in full])))
     return [_row_to_read(r, unreachable=str(r.id) in unreachable_ids) for r in rows]
 
