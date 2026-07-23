@@ -58,6 +58,21 @@ SENSITIVE_FIELD_NAMES: frozenset[str] = frozenset(
         "secret_id",
         "role_id",
         "vault_token",
+        # Nomes de segredo comuns em payloads de evento de segurança (não PII —
+        # segredos, cuja redação é sempre segura). Fecham buracos no ring de
+        # captura/auditoria, que grava payload de cliente.
+        "api_key",
+        "apikey",
+        "x-api-key",
+        "private_key",
+        "secret_key",
+        "session_key",
+        "credentials",
+        "passwd",
+        "pwd",
+        "cookie",
+        "set-cookie",
+        "bearer",
     }
 )
 
@@ -85,6 +100,15 @@ def _scrub_pat(value: str) -> str:
     value = _PAT_PATTERN.sub(_PAT_REDACTION, value)
     value = _VAULT_TOKEN_PATTERN.sub(_VAULT_TOKEN_REDACTION, value)
     return value
+
+
+def scrub_secrets_in_value(value: str) -> str:
+    """Público: remove secrets embutidos EM UM VALOR de string (PAT, token Vault).
+
+    Diferente da redação por NOME de campo, isto pega o segredo mesmo quando ele
+    cai num campo de nome inocente — ex.: uma URL ``https://.../?token=copsk_...``
+    num campo ``url``. Usado pela redação do ring de captura/auditoria."""
+    return _scrub_pat(value)
 
 
 class TokenScrubFilter(logging.Filter):

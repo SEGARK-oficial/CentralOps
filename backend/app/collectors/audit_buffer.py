@@ -35,7 +35,7 @@ from typing import Any, Dict, List, Optional
 
 import redis.asyncio as redis_async
 
-from ..core.logging_config import SENSITIVE_FIELD_NAMES
+from ..core.logging_config import SENSITIVE_FIELD_NAMES, scrub_secrets_in_value
 
 logger = logging.getLogger(__name__)
 
@@ -48,8 +48,15 @@ def _audit_key(org_id: int) -> str:
 def _redact(obj: Any) -> Any:
     """Redação recursiva de PII/segredos.
 
-    Reusa ``SENSITIVE_FIELD_NAMES`` do logging — qualquer chave cujo nome
-    (lowercased) esteja na lista tem o valor trocado por ``"[REDACTED]"``.
+    Duas camadas:
+      * por NOME de campo — chave (lowercased) em ``SENSITIVE_FIELD_NAMES`` →
+        valor trocado por ``"[REDACTED]"``;
+      * por VALOR — todo valor string passa por ``scrub_secrets_in_value``, que
+        remove segredos embutidos mesmo em campos de nome inocente (ex.: um PAT
+        ``copsk_...`` ou token do Vault dentro de uma URL/mensagem). Antes, um
+        segredo assim ia em claro para o ring de captura/auditoria, que grava
+        payload de cliente e é lido pelo inspetor e pelo export.
+
     Não muta o original (constrói cópia)."""
     if isinstance(obj, dict):
         out: Dict[str, Any] = {}
@@ -61,6 +68,8 @@ def _redact(obj: Any) -> Any:
         return out
     if isinstance(obj, list):
         return [_redact(v) for v in obj]
+    if isinstance(obj, str):
+        return scrub_secrets_in_value(obj)
     return obj
 
 # Tamanho do ring — balanço entre "ter contexto útil" e "custo de RAM".
