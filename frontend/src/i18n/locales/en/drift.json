@@ -16,7 +16,10 @@
     "mapped": "Mapped",
     "cardAriaLoading": "{{label}}: loading",
     "cardAria_one": "{{count}} field {{label}}",
-    "cardAria_other": "{{count}} fields {{label}}"
+    "cardAria_other": "{{count}} fields {{label}}",
+    "cardAriaError": "{{label}}: failed to load",
+    "loadError": "Could not load the counters",
+    "loadErrorBody": "The per-status totals could not be loaded. The values shown may be wrong — this does not mean there is no drift."
   },
   "filters": {
     "status": {

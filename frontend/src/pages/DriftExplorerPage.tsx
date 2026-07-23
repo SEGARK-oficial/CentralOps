@@ -51,6 +51,10 @@ export const DriftExplorerPage: React.FC = () => {
   const [ignoredCount, setIgnoredCount] = useState(0)
   const [mappedCount, setMappedCount] = useState(0)
   const [summaryLoading, setSummaryLoading] = useState(true)
+  // Antes: um 500 aqui era engolido em silêncio e os cards ficavam em zero,
+  // indistinguível de "não há drift" — que é exatamente a leitura errada que o
+  // operador faz quando desconfia do detector.
+  const [summaryError, setSummaryError] = useState(false)
 
   const fetchSummaryCounts = useCallback(async () => {
     setSummaryLoading(true)
@@ -63,8 +67,9 @@ export const DriftExplorerPage: React.FC = () => {
       setNewCount(newRes.total)
       setIgnoredCount(ignoredRes.total)
       setMappedCount(mappedRes.total)
+      setSummaryError(false)
     } catch {
-      // Silently absorb — summary is informational
+      setSummaryError(true)
     } finally {
       setSummaryLoading(false)
     }
@@ -73,6 +78,11 @@ export const DriftExplorerPage: React.FC = () => {
   useEffect(() => {
     void fetchSummaryCounts()
   }, [fetchSummaryCounts])
+
+  // ── Main data ────────────────────────────────────────────────────────────────
+  // Declarado ANTES das opções de filtro: elas fazem união com `items`.
+  const { items, total, isLoading, error, refetch, ignoreField, markMapped, deleteField, bulkIgnore, bulkMarkMapped } =
+    useDrift(filters)
 
   // ── Vendor / EventType options from mappings ─────────────────────────────────
   const [mappings, setMappings] = useState<MappingListItem[]>([])
@@ -86,22 +96,25 @@ export const DriftExplorerPage: React.FC = () => {
     return () => controller.abort()
   }, [])
 
+  // Data-driven read: o motor de drift agora registra campos de fontes SEM
+  // MappingDefinition (fonte push/syslog nova, janela de aprendizado). Se as
+  // opções viessem só de listMappings(), esse drift existiria na tabela mas
+  // seria INFILTRÁVEL. Unimos os vendors/event_types dos mappings com os
+  // presentes nas linhas de drift já carregadas.
   const vendorOptions = useMemo<SelectOption[]>(
     () =>
-      [...new Set(mappings.map((m) => m.vendor))].sort().map((v) => ({
-        value: v,
-        label: v,
-      })),
-    [mappings],
+      [...new Set([...mappings.map((m) => m.vendor), ...items.map((d) => d.vendor)])]
+        .sort()
+        .map((v) => ({ value: v, label: v })),
+    [mappings, items],
   )
 
   const eventTypeOptions = useMemo<SelectOption[]>(
     () =>
-      [...new Set(mappings.map((m) => m.event_type))].sort().map((et) => ({
-        value: et,
-        label: et,
-      })),
-    [mappings],
+      [...new Set([...mappings.map((m) => m.event_type), ...items.map((d) => d.event_type)])]
+        .sort()
+        .map((et) => ({ value: et, label: et })),
+    [mappings, items],
   )
 
   const mappingRefs = useMemo(
@@ -126,10 +139,6 @@ export const DriftExplorerPage: React.FC = () => {
   const handleCloseDrawer = useCallback(() => {
     setDrawerOpen(false)
   }, [])
-
-  // ── Main data ────────────────────────────────────────────────────────────────
-  const { items, total, isLoading, error, refetch, ignoreField, markMapped, deleteField, bulkIgnore, bulkMarkMapped } =
-    useDrift(filters)
 
   // ── Bulk selection (via primitive hook) ─────────────────────────────────────
   const {
@@ -194,11 +203,26 @@ export const DriftExplorerPage: React.FC = () => {
         onFiltersChange={handleFiltersChange}
       />
 
+      {summaryError && (
+        <Notice
+          variant="warning"
+          title={t("summary.loadError")}
+          action={
+            <Button variant="ghost" size="sm" onClick={() => void fetchSummaryCounts()}>
+              {t("common:actions.retry")}
+            </Button>
+          }
+        >
+          {t("summary.loadErrorBody")}
+        </Notice>
+      )}
+
       <DriftSummaryCards
         newCount={newCount}
         ignoredCount={ignoredCount}
         mappedCount={mappedCount}
         isLoading={summaryLoading}
+        hasError={summaryError}
       />
 
       <DriftBulkActionBar

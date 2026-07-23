@@ -41,7 +41,7 @@ A tela lista os campos detectados com as seguintes informações:
 | Campo | Nome do campo recebido (ex.: confiança da detecção). |
 | Fornecedor | Plataforma de origem (Sophos, Defender, etc.). |
 | Tipo | Tipo inferido do valor (texto, número, verdadeiro/falso, lista ou estrutura aninhada). |
-| Contagem | Quantas vezes o campo foi visto nas últimas 24 horas. |
+| Contagem | Quantas vezes o campo foi visto desde a primeira observação (acumulado, sem janela). Como a detecção amostra uma fração dos eventos, esta contagem reflete os eventos amostrados — o volume real é proporcionalmente maior. |
 | Visto por último | Data e hora do evento mais recente que trouxe esse campo. |
 | Status | Novo, ignorado ou já mapeado. |
 | Ação | Ignorar ou marcar como mapeado. |

@@ -18,6 +18,7 @@ interface SummaryCardProps {
   isLoading: boolean
   icon: React.ReactNode
   variant: "new" | "ignored" | "mapped"
+  hasError?: boolean
 }
 
 const variantStyles: Record<SummaryCardProps["variant"], string> = {
@@ -26,11 +27,13 @@ const variantStyles: Record<SummaryCardProps["variant"], string> = {
   mapped: "text-success-600",
 }
 
-const SummaryCard: React.FC<SummaryCardProps> = ({ label, count, isLoading, icon, variant }) => {
+const SummaryCard: React.FC<SummaryCardProps> = ({ label, count, isLoading, icon, variant, hasError }) => {
   const { t } = useTranslation("drift")
   const ariaLabel = isLoading
     ? t("summary.cardAriaLoading", { label })
-    : t("summary.cardAria", { count, label: label.toLowerCase() })
+    : hasError
+      ? t("summary.cardAriaError", { label })
+      : t("summary.cardAria", { count, label: label.toLowerCase() })
   return (
     <Card
       className="flex-1 min-w-[140px]"
@@ -42,6 +45,10 @@ const SummaryCard: React.FC<SummaryCardProps> = ({ label, count, isLoading, icon
             <span className="text-xs font-medium text-text-secondary uppercase tracking-wide">{label}</span>
             {isLoading ? (
               <LoadingSpinner size="sm" />
+            ) : hasError ? (
+              // "—" em vez de "0": um erro de carga não pode se passar por
+              // "nenhum drift", que é a leitura enganosa que o operador faria.
+              <span className="text-2xl font-bold text-text-tertiary" title={t("summary.loadError")}>—</span>
             ) : (
               <span className={cn("text-2xl font-bold", variantStyles[variant])}>{formatNumber(count)}</span>
             )}
@@ -60,6 +67,7 @@ interface DriftSummaryCardsProps {
   ignoredCount: number
   mappedCount: number
   isLoading: boolean
+  hasError?: boolean
 }
 
 export const DriftSummaryCards: React.FC<DriftSummaryCardsProps> = ({
@@ -67,6 +75,7 @@ export const DriftSummaryCards: React.FC<DriftSummaryCardsProps> = ({
   ignoredCount,
   mappedCount,
   isLoading,
+  hasError,
 }) => {
   const { t } = useTranslation("drift")
   return (
@@ -75,6 +84,7 @@ export const DriftSummaryCards: React.FC<DriftSummaryCardsProps> = ({
         label={t("summary.new")}
         count={newCount}
         isLoading={isLoading}
+        hasError={hasError}
         icon={<AlertCircleIcon size={28} />}
         variant="new"
       />
@@ -82,6 +92,7 @@ export const DriftSummaryCards: React.FC<DriftSummaryCardsProps> = ({
         label={t("summary.ignored")}
         count={ignoredCount}
         isLoading={isLoading}
+        hasError={hasError}
         icon={<EyeOffIcon size={28} />}
         variant="ignored"
       />
@@ -89,6 +100,7 @@ export const DriftSummaryCards: React.FC<DriftSummaryCardsProps> = ({
         label={t("summary.mapped")}
         count={mappedCount}
         isLoading={isLoading}
+        hasError={hasError}
         icon={<CheckCircle2Icon size={28} />}
         variant="mapped"
       />
