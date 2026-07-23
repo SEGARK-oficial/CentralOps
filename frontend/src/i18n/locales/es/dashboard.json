@@ -287,7 +287,22 @@
       "reduction": "Reducción",
       "estimatedSavings": "Ahorro estimado",
       "perDay": "/ día",
-      "enablePricing": "Active el cálculo en US$ (ahorro/ROI) con la edición Enterprise + el precio por GB en el destino."
+      "enablePricing": "Active el cálculo en US$ (ahorro/ROI) con la edición Enterprise + el precio por GB en el destino.",
+      "pricingUnconfigured": "Precio por GB no configurado en el destino — sin él el ahorro en moneda no puede calcularse y queda en cero.",
+      "unitRaw": "evento crudo, 1× por evento",
+      "unitEnvelope": "envelope, por entrega",
+      "unitMixed": "bases mixtas — ver detalle",
+      "reductionBasis": "sobre entregado + evitado",
+      "byReason": "Por causa:",
+      "unitMismatch": "Evitado supera a Recolectado porque las métricas usan bases de medición distintas (crudo × envelope, por evento × por entrega) — no es doble conteo. Trate los números como una aproximación hasta unificar las bases.",
+      "reasons": {
+        "trim": "poda",
+        "sample": "muestreo",
+        "suppress": "supresión",
+        "drop": "descarte por ruta",
+        "aggregate": "agregación",
+        "redaction": "redacción"
+      }
     },
     "sparkline": {
       "noData": "{{label}}: sin datos",

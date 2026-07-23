@@ -1885,7 +1885,14 @@ export interface CostSummaryRow {
   out_in_byte_ratio: number | null
   reduction_active: boolean
   bytes_saved: number
+  /** Decomposição de bytes_saved por causa (trim/sample/suppress/drop/…).
+   *  Causas que não dispararam são omitidas pelo backend. */
+  bytes_saved_by_reason: Record<string, number>
+  /** saved / (out + saved) — denominador CONTRAFACTUAL, não bytes_in. */
   reduction_pct: number | null
+  /** true quando bytes_saved > bytes_in: funil impossível causado por bases de
+   *  medição diferentes (ver CostSummary.units), não por dupla contagem. */
+  unit_mismatch: boolean
   savings_usd_per_day: number | null
   cost: { usd: number; currency: string } | null
 }
@@ -1893,6 +1900,10 @@ export interface CostSummary {
   window_minutes: number
   enabled: boolean
   pricing_available: boolean
+  /** Estado real das flags REDUCTION_* no backend que respondeu. */
+  levers: Record<string, boolean>
+  /** Base de medição de cada métrica (`raw_event`, `envelope_per_delivery`, …). */
+  units: Record<string, string>
   rows: CostSummaryRow[]
   note: string
 }
