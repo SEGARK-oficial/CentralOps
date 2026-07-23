@@ -632,6 +632,27 @@ class Settings(BaseSettings):
     # Drift Explorer com o schema completo, em vez de gotejar 1 campo a cada 10
     # eventos. Depois da janela, cai para a amostragem estacionária. 0 desliga o boost.
     DRIFT_LEARNING_EVENTS: int = 200
+    # O que a coluna ``sample_value`` do Drift Explorer guarda.
+    #
+    # "masked" (default): um CLASSIFICADOR DE FORMATO no lugar do valor —
+    #   ``<ipv4>``, ``<email>``, ``<uuid>``, ``<timestamp>``, ``<string:12>``.
+    #   Preserva o que o autor de mapping precisa (que TIPO de dado é o campo,
+    #   para escolher o target OCSF) sem persistir o dado do cliente.
+    # "raw": comportamento anterior — valor truncado em 200 chars. Persiste
+    #   usuário, host, IP, caminho e o que mais caia num campo não mapeado numa
+    #   tabela lida por perfil VIEWER (Permission.DRIFT_READ e MAPPING_READ),
+    #   com retenção de 90 dias e ``last_seen`` reescrito a cada ocorrência — ou
+    #   seja, campo recorrente nunca expira. Use só com base legal para isso.
+    # "none": não persiste amostra nenhuma.
+    DRIFT_SAMPLE_VALUE_MODE: str = "masked"
+
+    @field_validator("DRIFT_SAMPLE_VALUE_MODE")
+    @classmethod
+    def _validate_drift_sample_mode(cls, v: str) -> str:
+        allowed = {"masked", "raw", "none"}
+        if v not in allowed:
+            raise ValueError(f"DRIFT_SAMPLE_VALUE_MODE deve ser um de {sorted(allowed)}")
+        return v
 
     @field_validator("DOMAIN_CONCURRENCY_LIMITS", "RATE_LIMITS_BY_VENDOR", mode="before")
     @classmethod

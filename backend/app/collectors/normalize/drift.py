@@ -319,6 +319,72 @@ def _truncate_sample(value: Any) -> str:
     return s
 
 
+# ── Classificação de formato (substitui o valor do cliente) ──────────────────
+#
+# O sample_value era o valor CRU do evento, truncado. Campo não mapeado é
+# exatamente onde caem usuário, host, IP, caminho de arquivo e linha de comando —
+# e a tabela `unknown_fields` é lida por perfil VIEWER, tanto em GET /api/drift
+# (DRIFT_READ) quanto no autocomplete do editor de mapping (MAPPING_READ), com
+# retenção de 90 dias e `last_seen` reescrito a cada ocorrência.
+#
+# O que o autor de mapping realmente precisa da amostra é o TIPO de dado, para
+# escolher o target OCSF — não o dado. O classificador entrega isso.
+_FORMAT_PATTERNS: Tuple[Tuple[str, "re.Pattern[str]"], ...] = (
+    ("ipv4", re.compile(r"^\d{1,3}(?:\.\d{1,3}){3}$")),
+    # MAC antes de IPv6: "00:1A:2B:3C:4D:5E" satisfaz os dois, e o rótulo certo
+    # é o mais específico.
+    ("mac", re.compile(r"^(?:[0-9A-Fa-f]{2}[:-]){5}[0-9A-Fa-f]{2}$")),
+    ("ipv6", re.compile(r"^(?:[0-9A-Fa-f]{0,4}:){2,7}[0-9A-Fa-f]{0,4}$")),
+    ("uuid", re.compile(r"^[0-9A-Fa-f]{8}-(?:[0-9A-Fa-f]{4}-){3}[0-9A-Fa-f]{12}$")),
+    ("email", re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")),
+    ("url", re.compile(r"^[a-zA-Z][a-zA-Z0-9+.\-]*://\S+$")),
+    ("timestamp", re.compile(r"^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}")),
+    ("date", re.compile(r"^\d{4}-\d{2}-\d{2}$")),
+    ("sha256", re.compile(r"^[0-9A-Fa-f]{64}$")),
+    ("sha1", re.compile(r"^[0-9A-Fa-f]{40}$")),
+    ("md5", re.compile(r"^[0-9A-Fa-f]{32}$")),
+    ("path_win", re.compile(r"^[A-Za-z]:[\\/]")),
+    ("path_posix", re.compile(r"^/(?:[^/\0]+/?)+$")),
+    ("number_str", re.compile(r"^-?\d+(?:\.\d+)?$")),
+)
+
+
+def _classify_sample(value: Any) -> str:
+    """Descreve o FORMATO do valor sem revelar o valor."""
+    if value is None:
+        return "<null>"
+    if isinstance(value, bool):
+        return "<bool>"
+    if isinstance(value, (int, float)):
+        return "<number>"
+    if isinstance(value, list):
+        return f"<array len={len(value)}>"
+    if isinstance(value, dict):
+        return f"<object keys={len(value)}>"
+    if not isinstance(value, str):
+        return f"<{type(value).__name__}>"
+    if not value:
+        return "<empty>"
+    for name, pattern in _FORMAT_PATTERNS:
+        if pattern.match(value):
+            return f"<{name}>"
+    return f"<string len={len(value)}>"
+
+
+def build_sample_value(value: Any, mode: Optional[str] = None) -> Optional[str]:
+    """Valor a persistir em ``UnknownField.sample_value``, conforme
+    ``DRIFT_SAMPLE_VALUE_MODE``. ``None`` = não persistir amostra."""
+    if mode is None:
+        from ...core.config import settings
+
+        mode = str(getattr(settings, "DRIFT_SAMPLE_VALUE_MODE", "masked"))
+    if mode == "none":
+        return None
+    if mode == "raw":
+        return _truncate_sample(value)
+    return _classify_sample(value)
+
+
 def flatten_paths(
     obj: Any,
     *,
@@ -489,7 +555,7 @@ def record_unknown_fields(
                             event_type=event_type,
                             field_path=path,
                             organization_id=organization_id,
-                            sample_value=_truncate_sample(value),
+                            sample_value=build_sample_value(value),
                             sample_type=_type_name(value),
                             occurrence_count=1,
                             first_seen=now,

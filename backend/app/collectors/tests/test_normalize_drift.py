@@ -6,6 +6,8 @@ cobertos no test integration via seed/migrations.
 
 from __future__ import annotations
 
+import pytest
+
 import backend.app.collectors.normalize.drift as drift_mod
 from backend.app.collectors.normalize.drift import (
     compute_unknown_paths,
@@ -335,3 +337,45 @@ def test_walk_has_a_depth_guard() -> None:
     paths = flatten_paths(cyclic)  # não pode levantar
 
     assert len(paths) <= drift_mod._MAX_PATHS_PER_EVENT
+
+
+# ── sample_value: formato em vez do dado do cliente ──────────────────────────
+#
+# Campo NÃO MAPEADO é onde caem usuário, host, IP, caminho e linha de comando.
+# A tabela unknown_fields é lida por perfil VIEWER (DRIFT_READ no /api/drift e
+# MAPPING_READ no autocomplete do editor), tem retenção de 90 dias e last_seen
+# reescrito a cada ocorrência — campo recorrente nunca expirava.
+
+@pytest.mark.parametrize(
+    "value,expected",
+    [
+        ("10.0.0.9", "<ipv4>"),
+        ("svc_backup@corp.local", "<email>"),
+        ("a3f1c2d4-1111-2222-3333-444455556666", "<uuid>"),
+        ("2026-07-23T10:00:00Z", "<timestamp>"),
+        ("C:/Windows/System32/x.dll", "<path_win>"),
+        ("/etc/shadow", "<path_posix>"),
+        ("00:1A:2B:3C:4D:5E", "<mac>"),
+        ("d41d8cd98f00b204e9800998ecf8427e", "<md5>"),
+        ("https://evil.example/?token=copsk_abc", "<url>"),
+        (4624, "<number>"),
+        (True, "<bool>"),
+        (None, "<null>"),
+        ("svc_backup", "<string len=10>"),
+    ],
+)
+def test_masked_sample_describes_format_without_the_value(value, expected) -> None:
+    assert drift_mod.build_sample_value(value, mode="masked") == expected
+
+
+def test_masked_sample_never_echoes_the_input() -> None:
+    for secret in ("svc_backup", "10.0.0.9", "copsk_deadbeef", "diretor@corp.com"):
+        assert secret not in (drift_mod.build_sample_value(secret, mode="masked") or "")
+
+
+def test_sample_mode_none_persists_nothing() -> None:
+    assert drift_mod.build_sample_value("svc_backup", mode="none") is None
+
+
+def test_sample_mode_raw_keeps_the_legacy_behaviour() -> None:
+    assert drift_mod.build_sample_value("svc_backup", mode="raw") == "svc_backup"
