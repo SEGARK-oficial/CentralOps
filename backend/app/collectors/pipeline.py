@@ -344,6 +344,29 @@ async def _quarantine_async(*, capture_org_id: Optional[int] = None, **kwargs: A
     )
 
 
+def _record_source_ingested(integration_id: int, count: int) -> None:
+    """Credita ``count`` eventos à série ``obs:source:{id}:ingested`` NO MINUTO
+    CORRENTE — chamado a cada flush de lote, não uma vez por ciclo.
+
+    Por que incrementalmente: ``record_counter`` bucketiza pelo relógio da
+    CHAMADA. Gravar o total no fim do ciclo atribuía todos os eventos de um ciclo
+    de vários minutos ao minuto de encerramento, enquanto os contadores de ROTA
+    são escritos por lote, continuamente. Lidas na mesma janela de 5 min do
+    /flow, as duas séries ficavam incomparáveis — a rota de drop chegou a exibir
+    9.051 ev/min contra 5.999 ev/min de ingestão das fontes que a alimentam.
+
+    Best-effort: ``record_counter`` já engole as próprias exceções; o try extra
+    cobre o import. NUNCA afeta a coleta."""
+    if count <= 0:
+        return
+    try:
+        from . import observability_store as _obs_src
+
+        _obs_src.record_counter("source", str(integration_id), "ingested", float(count))
+    except Exception:  # pragma: no cover — jamais bloqueia a coleta
+        pass
+
+
 async def _maybe_suppress(redis: Any, envelope: dict, suppress_routes: list) -> Optional[str]:
     """Decide a supressão por assinatura de UM evento.
 
@@ -1024,6 +1047,18 @@ async def _run_collection_once(integration_id: int, stream: str) -> None:
                         >= config.collector_batch_flush_seconds
                     ):
                         _enqueue_dispatch(batch, dispatch_routes)
+                        # Volume de source NO MINUTO EM QUE O EVENTO REALMENTE
+                        # FLUIU. Antes esta série era gravada UMA vez, no fim do
+                        # ciclo, com o total — atribuindo um ciclo de vários
+                        # minutos ao minuto final. Como os contadores de ROTA são
+                        # escritos por lote (continuamente), as duas séries ficavam
+                        # incomparáveis na mesma janela de 5 min: o /flow chegou a
+                        # mostrar a rota de drop descartando 9.051 ev/min contra
+                        # 5.999 ev/min de ingestão das fontes wazuh — 1,5× mais do
+                        # que existia. Mesmo cuidado já adotado pelo
+                        # InVolumeAccumulator do metering ("um ciclo bulk de 12min
+                        # não pode atribuir tudo ao minuto final").
+                        _record_source_ingested(integration_id, len(batch))
                         EVENTS_TOTAL.labels(
                             vendor=platform,
                             tenant=str(organization_id),
@@ -1060,6 +1095,7 @@ async def _run_collection_once(integration_id: int, stream: str) -> None:
 
             if batch:
                 _enqueue_dispatch(batch, dispatch_routes)
+                _record_source_ingested(integration_id, len(batch))
                 EVENTS_TOTAL.labels(
                     vendor=platform,
                     tenant=str(organization_id),
@@ -1075,17 +1111,12 @@ async def _run_collection_once(integration_id: int, stream: str) -> None:
                 batch_msg_ids = []
 
         # ── 5. Persiste cursor final (RF02) ───────────────────────────
-        # flow-view: instrumentação de volume de source no store nativo.
-        # Best-effort — record_counter já engole exceções internamente; nunca afeta
-        # a coleta. Alimenta obs:source:{integration_id}:ingested (forward-looking:
-        # o endpoint /flow usa pipeline-health como fonte primária, mas esta série
-        # permite futura consistência com o store nativo de rotas/destinos).
-        if events_count > 0:
-            try:
-                from . import observability_store as _obs_src
-                _obs_src.record_counter("source", str(integration_id), "ingested", float(events_count))
-            except Exception:  # pragma: no cover — jamais bloqueia a coleta
-                pass
+        # A série obs:source:{id}:ingested é gravada INCREMENTALMENTE, junto de
+        # cada flush de lote (ver _record_source_ingested no laço acima), para
+        # cair no minuto em que o evento realmente fluiu. O resíduo do último
+        # lote parcial é contabilizado no flush final logo abaixo — não há
+        # gravação de total aqui, que era o que deslocava um ciclo inteiro para
+        # o minuto de encerramento.
 
         await cursor_store.save(
             integration_id,
