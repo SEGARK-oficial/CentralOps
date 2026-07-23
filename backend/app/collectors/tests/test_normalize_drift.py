@@ -189,3 +189,149 @@ def test_learning_window_respects_key_cap() -> None:
     finally:
         drift_mod._MAX_TRACKED_KEYS = original
         drift_mod._seen_counts.clear()
+
+
+# ── cobertura por PATH (substitui a comparação por chave de topo) ────────────
+#
+# Causa raiz relatada em produção: campos que existem no evento bruto do Wazuh
+# nunca apareciam no Drift Explorer. O detector reduzia todo path consumido à
+# sua CHAVE DE TOPO, então consumir `data.win.system.eventID` cegava todo
+# `data.*`. Num alerta Wazuh típico isso suprimia 34 de 46 folhas.
+
+def test_nested_sibling_under_a_mapped_key_is_reported() -> None:
+    """O caso do usuário: o mapping lê UMA folha sob `data`, e as IRMÃS dela
+    passam a ser reportadas em vez de sumirem junto com a top-key."""
+    raw = {
+        "data": {
+            "win": {
+                "system": {"eventID": "4624", "channel": "Security"},
+                "eventdata": {"logonType": "3"},
+            }
+        }
+    }
+    consumed = {"source:data.win.system.eventID"}
+
+    paths = {p for p, _ in compute_unknown_paths(raw, consumed)}
+
+    assert "data.win.system.eventID" not in paths  # consumido
+    assert "data.win.system.channel" in paths      # irmã — antes invisível
+    assert "data.win.eventdata.logonType" in paths  # tia — antes invisível
+
+
+def test_whole_subtree_source_still_covers_its_descendants() -> None:
+    """`source: "data"` (passthrough da subárvore inteira, como no mapping
+    default do Wazuh) continua cobrindo tudo abaixo — senão o passthrough
+    inundaria a tela de falso positivo."""
+    raw = {"data": {"a": {"b": 1}}, "outro": 2}
+
+    paths = {p for p, _ in compute_unknown_paths(raw, {"source:data"})}
+
+    assert not any(p.startswith("data") for p in paths)
+    assert "outro" in paths
+
+
+def test_prefix_match_does_not_leak_across_sibling_names() -> None:
+    """`data.win` não pode cobrir `data.winlog` por prefixo de string."""
+    raw = {"data": {"win": {"a": 1}, "winlog": {"b": 2}}}
+
+    paths = {p for p, _ in compute_unknown_paths(raw, {"source:data.win"})}
+
+    assert "data.win.a" not in paths
+    assert "data.winlog.b" in paths
+
+
+def test_quoted_jmespath_identifier_is_unquoted() -> None:
+    """Regressão de falso positivo: `timestamp || "@timestamp"` é o source real
+    do mapping default do Wazuh. O parser antigo fazia split('.') no texto cru,
+    então a top-key virava '"@timestamp"' COM aspas e nunca casava — o campo
+    aparecia como desconhecido embora fosse consumido."""
+    raw = {"@timestamp": "2026-07-23T10:00:00Z", "outro": 1}
+
+    paths = {p for p, _ in compute_unknown_paths(raw, {'source:timestamp || "@timestamp"'})}
+
+    assert "@timestamp" not in paths
+    assert "outro" in paths
+
+
+def test_target_name_no_longer_masks_a_raw_key_when_sources_exist() -> None:
+    """O amplificador: o TARGET OCSF também virava chave conhecida, então criar
+    a regra `normalized.message` escondia o campo `message` do raw — e cada
+    regra nova aumentava a cegueira. Com source disponível, o target não
+    suprime mais nada."""
+    raw = {"message": "texto do vendor", "rule": {"level": 5}}
+    consumed = {"source:rule.level", "normalized.message", "normalized.severity_id"}
+
+    paths = {p for p, _ in compute_unknown_paths(raw, consumed)}
+
+    assert "message" in paths       # antes: suprimido pelo target homônimo
+    assert "rule.level" not in paths
+
+
+def test_legacy_mapping_without_sources_keeps_top_key_behaviour() -> None:
+    """Mapping cujo engine não devolveu nenhum `source:` mantém a supressão
+    conservadora — senão um mapping legado reportaria o raw inteiro como drift
+    no primeiro deploy."""
+    raw = {"severity_id": 4, "extra": "x"}
+
+    paths = {p for p, _ in compute_unknown_paths(raw, {"normalized.severity_id"})}
+
+    assert "severity_id" not in paths
+    assert "extra" in paths
+
+
+def test_array_indices_are_normalized_against_the_consumed_path() -> None:
+    raw = {"rule": {"mitre": {"id": ["T1078", "T1110"], "tactic": ["Access"]}}}
+
+    paths = {p for p, _ in compute_unknown_paths(raw, {"source:rule.mitre.id"})}
+
+    assert not any(p.startswith("rule.mitre.id") for p in paths)
+    assert "rule.mitre.tactic[0]" in paths
+
+
+def test_function_call_source_extracts_its_arguments() -> None:
+    """`join(', ', tags)` lê `tags`, não uma chave chamada `join`."""
+    raw = {"tags": ["a", "b"], "outro": 1}
+
+    paths = {p for p, _ in compute_unknown_paths(raw, {"source:join(', ', tags)"})}
+
+    assert not any(p.startswith("tags") for p in paths)
+    assert "outro" in paths
+
+
+def test_multiselect_source_is_understood() -> None:
+    raw = {"type": "alert", "outro": 1}
+
+    paths = {p for p, _ in compute_unknown_paths(raw, {"source:[type]"})}
+
+    assert "type" not in paths
+    assert "outro" in paths
+
+
+def test_pruning_frees_the_per_event_budget_for_unknown_leaves() -> None:
+    """O teto _MAX_PATHS_PER_EVENT era gasto enumerando folhas JÁ MAPEADAS: num
+    evento gordo (Sysmon via Wazuh) o orçamento acabava antes das chaves novas
+    no fim do documento. Com a poda, o teto orça só o que é desconhecido."""
+    raw = {
+        "data": {f"campo_{i}": i for i in range(drift_mod._MAX_PATHS_PER_EVENT + 100)},
+        "cluster": {"node": "worker-1"},  # chave nova, no FIM do documento
+    }
+
+    paths = {p for p, _ in compute_unknown_paths(raw, {"source:data"})}
+
+    assert "cluster.node" in paths
+    assert len(paths) == 1
+
+
+def test_walk_has_a_depth_guard() -> None:
+    """Sem teto de profundidade, payload cíclico levantava RecursionError num
+    ponto FORA do try/except, abortando o ciclo de coleta inteiro."""
+    cyclic: dict = {"a": {}}
+    node = cyclic["a"]
+    for _ in range(200):
+        node["a"] = {}
+        node = node["a"]
+    node["leaf"] = 1
+
+    paths = flatten_paths(cyclic)  # não pode levantar
+
+    assert len(paths) <= drift_mod._MAX_PATHS_PER_EVENT

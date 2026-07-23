@@ -688,8 +688,10 @@ def test_pipeline_health_mapped_field_ratio_approximation(
     assert data["mapped_field_ratio"] is not None
     ratio = data["mapped_field_ratio"]
     assert 0.0 <= ratio <= 1.0
-    # Com 3 regras e 1 campo drift: ratio = 1 - (1/3) ≈ 0.667
-    assert abs(ratio - (1 - 1 / 3)) < 0.01
+    # Com 3 regras e 1 campo drift: 3/(3+1) = 0.75.
+    # Era `1 - 1/3 ≈ 0.667`, que não é proporção — passa de 1 assim que há mais
+    # paths novos do que regras, e o clamp prendia o indicador em 0.
+    assert abs(ratio - 0.75) < 0.01
 
 
 def test_pipeline_health_mapped_field_ratio_none_without_mappings(
@@ -753,8 +755,8 @@ def test_pipeline_health_mapped_field_ratio_counts_v2_dict_rules(
         "v2 (dict) mapping deve produzir ratio != None (regressão)"
     )
     assert 0.0 <= ratio <= 1.0
-    # 3 regras (v2 payload['rules']) e 1 drift → 1 - 1/3 ≈ 0.667
-    assert abs(ratio - (1 - 1 / 3)) < 0.01
+    # 3 regras (v2 payload['rules']) e 1 drift → 3/(3+1) = 0.75
+    assert abs(ratio - 0.75) < 0.01
 
 
 def test_pipeline_health_caches_for_60s(client_factory: Any) -> None:

@@ -260,11 +260,24 @@ def compute_pipeline_health(
                 ).scalar_one()
                 drift_count_24h += count
 
-        # mapped_field_ratio: 1 - (drift_count / max(total_known_paths, 1))
-        if total_known_paths > 0:
-            ratio = 1.0 - (drift_count_24h / max(total_known_paths, 1))
-            mapped_field_ratio = max(0.0, min(1.0, ratio))
-        # Se total_known_paths == 0: nenhum mapping configurado → None
+        # mapped_field_ratio = conhecidos / (conhecidos + desconhecidos).
+        #
+        # A forma anterior era `1 - desconhecidos/conhecidos`, que não é uma
+        # proporção: o quociente passa de 1 assim que há mais paths novos do que
+        # regras, e o clamp então PRENDE o indicador em 0 — a partir daí ele para
+        # de distinguir "10 campos novos" de "500". Como proporção real, o valor
+        # cai suavemente e nunca precisa de clamp.
+        #
+        # Isto também absorve o degrau esperado da correção do detector de drift:
+        # o diff passou a ser por PATH em vez de por chave de topo, então
+        # drift_count_24h sobe de uma ordem de grandeza sem que nada tenha
+        # piorado no pipeline. Na forma antiga esse degrau zerava o KPI aqui, o
+        # "Mapping coverage" do dashboard (routers/dashboard.py) e o mesmo campo
+        # exposto pelo servidor MCP.
+        denominator = total_known_paths + drift_count_24h
+        if denominator > 0:
+            mapped_field_ratio = total_known_paths / denominator
+        # Se não há regra nem drift: nenhum mapping configurado → None
 
     # ── Query 4: QuarantineEvent (quarantine_count_24h) ───────────────
     cutoff_24h = now - timedelta(hours=24)
