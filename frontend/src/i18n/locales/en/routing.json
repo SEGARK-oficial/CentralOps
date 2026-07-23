@@ -182,7 +182,6 @@
       "seriesTitle": "Series (1h, per minute)",
       "eventsPerMin": "events/min",
       "rejectedPerMin": "rejected/min",
-      "discardedPerMin": "discarded/min",
       "avgLatency": "average latency (s)",
       "noRecentTraffic": "No recent traffic on this destination.",
       "queueDepth": "queue: {{value}}",
