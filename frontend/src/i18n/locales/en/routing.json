@@ -374,6 +374,8 @@
     "suppressKeyLabel": "Suppression key (suppress_key)",
     "suppressKeyPlaceholder": "e.g.: src_ip,event_type",
     "suppressKeyHelper": "CSV of labels forming the signature. Empty = no suppression.",
+    "dropRawLabel": "Drop the raw event on this delivery",
+    "dropRawHelper": "Removes the raw block from the payload delivered by this route. The normalized (OCSF) event is preserved. Use it on the SIEM, which bills by volume, and leave it off on the data lake route, where the raw event is needed for forensics. Usually the single largest saving.",
     "suppressAllowLabel": "Allowed per window",
     "suppressAllowHelper": "How many events with the same signature pass per window. 0 = suppression off.",
     "suppressWindowLabel": "Window (s)",

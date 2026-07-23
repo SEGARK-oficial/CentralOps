@@ -95,6 +95,11 @@ class CreateVersionRequest(BaseModel):
     ``rules`` é sempre um dict v2 com chaves:
     - ``preprocess`` (opcional, lista de operações)
     - ``rules`` (obrigatório, lista de regras)
+    - ``raw_reduction`` (opcional, lista de specs de poda do payload bruto)
+
+    Blocos top-level não reconhecidos são PRESERVADOS (ver
+    :func:`_normalize_rules_to_v2`) — o normalizador não pode apagar
+    configuração que o cliente enviou.
     """
     rules: Dict[str, Any] = Field(...)
     commit_message: str = Field(..., min_length=1, max_length=2000)
@@ -287,17 +292,33 @@ def _serialize_version(v: models.MappingVersion) -> MappingVersionRead:
 
 
 def _normalize_rules_to_v2(rules: Any) -> Dict[str, Any]:
-    """Garante shape v2 ``{preprocess, rules}``.
+    """Garante shape v2 ``{preprocess, rules}`` PRESERVANDO os demais blocos.
 
     Linhas legadas (DSL v1) podem ter sido persistidas como list — a
     migration startup converte, mas mantemos o normalizador como defesa
     para qualquer linha residual ou input externo.
+
+    PRESERVAÇÃO DE BLOCOS (regressão corrigida): a versão anterior RECONSTRUÍA
+    o dict com apenas ``preprocess`` e ``rules``, descartando silenciosamente
+    qualquer outro bloco top-level da DSL v2 — em particular ``raw_reduction``,
+    que é o ÚNICO mecanismo de poda do payload bruto (ver
+    ``normalize/payload_reduction.py``). Como esta função roda tanto ao SERVIR
+    a definição quanto ao COMMITAR uma nova versão, o efeito era destrutivo e
+    silencioso: a UI recebia o mapping já sem o bloco, o operador salvava, e a
+    configuração de redução era apagada para sempre. Foi assim que o
+    ``sophos.detection`` perdeu seus 3 specs de ``raw_reduction`` em produção.
+
+    Agora só normalizamos ``preprocess``/``rules`` (garantindo que existam como
+    listas) e repassamos TODAS as outras chaves intactas — o que também torna a
+    função forward-compatible com blocos futuros da DSL, sem precisar editá-la.
     """
     if isinstance(rules, dict):
-        return {
-            "preprocess": list(rules.get("preprocess") or []),
-            "rules": list(rules.get("rules") or []),
+        out: Dict[str, Any] = {
+            k: v for k, v in rules.items() if k not in ("preprocess", "rules")
         }
+        out["preprocess"] = list(rules.get("preprocess") or [])
+        out["rules"] = list(rules.get("rules") or [])
+        return out
     if isinstance(rules, list):
         return {"preprocess": [], "rules": list(rules)}
     return {"preprocess": [], "rules": []}

@@ -3024,6 +3024,7 @@ class RouteRepository:
             "suppress_key": row.suppress_key,
             "suppress_allow": int(row.suppress_allow),
             "suppress_window_s": int(row.suppress_window_s),
+            "drop_raw": bool(getattr(row, "drop_raw", False) or False),
             "enabled": bool(row.enabled),
             "organization_id": int(row.organization_id) if row.organization_id is not None else None,
         }
@@ -3063,6 +3064,7 @@ class RouteRepository:
         suppress_key: str | None = None,
         suppress_allow: int = 0,
         suppress_window_s: int = 30,
+        drop_raw: bool = False,
         organization_id: int | None = None,
         actor: str | None = None,
     ) -> models.Route:
@@ -3081,6 +3083,7 @@ class RouteRepository:
             suppress_key=suppress_key,
             suppress_allow=suppress_allow,
             suppress_window_s=suppress_window_s,
+            drop_raw=drop_raw,
             enabled=enabled,
             organization_id=organization_id,
         )
@@ -3115,6 +3118,7 @@ class RouteRepository:
         suppress_key: object = _UNSET,
         suppress_allow: object = _UNSET,
         suppress_window_s: object = _UNSET,
+        drop_raw: object = _UNSET,
         enabled: object = _UNSET,
         organization_id: object = _UNSET,
         actor: str | None = None,
@@ -3154,6 +3158,8 @@ class RouteRepository:
             row.suppress_allow = suppress_allow  # type: ignore[assignment]
         if suppress_window_s is not _UNSET:
             row.suppress_window_s = suppress_window_s  # type: ignore[assignment]
+        if drop_raw is not _UNSET:
+            row.drop_raw = drop_raw  # type: ignore[assignment]
         if enabled is not _UNSET:
             row.enabled = enabled  # type: ignore[assignment]
         if organization_id is not _UNSET:

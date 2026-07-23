@@ -236,6 +236,37 @@ describe("RouteForm — submissão inclui os campos de redução", () => {
       suppress_window_s: 60,
     })
   })
+
+  // drop_raw é a alavanca de maior impacto isolado (o bruto costuma ser o maior
+  // contribuinte de bytes do envelope) e é decisão POR-DESTINO.
+  it("drop_raw nasce desligado e é bloqueado enquanto a rota protege detecção", async () => {
+    render(<RouteForm mode="edit" route={ROUTE_BASE} onCancel={vi.fn()} onSubmit={vi.fn()} />)
+    await waitFor(() => expect(mockedApi.listDestinations).toHaveBeenCalled())
+
+    const dropRaw = screen.getByTestId("route-form-drop-raw")
+    expect(dropRaw).not.toBeChecked()
+    expect(dropRaw).toBeDisabled()
+  })
+
+  it("envia drop_raw=true depois do opt-out de proteção", async () => {
+    const onSubmit = vi.fn().mockResolvedValue(undefined)
+    render(<RouteForm mode="edit" route={ROUTE_BASE} onCancel={vi.fn()} onSubmit={onSubmit} />)
+    await waitFor(() => expect(mockedApi.listDestinations).toHaveBeenCalled())
+
+    fireEvent.click(screen.getByRole("checkbox", { name: /Proteger detecção/i }))
+    fireEvent.click(
+      within(screen.getByTestId("route-form-unprotect-dialog")).getByTestId(
+        "route-form-unprotect-dialog-confirm",
+      ),
+    )
+    await waitFor(() => expect(screen.getByTestId("route-form-drop-raw")).toBeEnabled())
+
+    fireEvent.click(screen.getByTestId("route-form-drop-raw"))
+    fireEvent.click(screen.getByRole("button", { name: "Salvar" }))
+
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledOnce())
+    expect(onSubmit.mock.calls[0][0]).toMatchObject({ drop_raw: true })
+  })
 })
 
 describe("RouteForm — a11y", () => {

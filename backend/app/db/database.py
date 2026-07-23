@@ -490,6 +490,14 @@ def _run_lightweight_migrations() -> None:
                 conn.execute(
                     text("ALTER TABLE routes ADD COLUMN suppress_window_s INTEGER NOT NULL DEFAULT 30")
                 )
+            # Descarte do bloco ``raw`` por-rota (decisão por-destino: lago
+            # recebe o bruto, SIEM não). DEFAULT false = byte-idêntico até o
+            # operador optar. Mesmo cuidado cross-dialect do protect_detection:
+            # `DEFAULT false`, NUNCA `DEFAULT 0` (Postgres rejeita int em BOOLEAN).
+            if "drop_raw" not in route_columns:
+                conn.execute(
+                    text("ALTER TABLE routes ADD COLUMN drop_raw BOOLEAN NOT NULL DEFAULT false")
+                )
 
         # ADR-0015 Fase 1 — discriminador de execução da regra de correlação.
         # DEFAULT 'batch' = back-compat exato: toda regra existente continua

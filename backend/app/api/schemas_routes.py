@@ -40,6 +40,10 @@ class RouteCreate(BaseModel):
     suppress_allow: int = Field(default=0, ge=0)
     #: janela de supressão em segundos (deve ser > 0).
     suppress_window_s: int = Field(default=30, gt=0)
+    #: descarta o bloco ``raw`` (evento bruto) na entrega desta rota. False =
+    #: byte-idêntico. Decisão POR-DESTINO: o lago recebe o bruto, o SIEM não.
+    #: NUNCA aplicada a rotas ``protect_detection=True``.
+    drop_raw: bool = False
     organization_id: Optional[int] = None
 
     @field_validator("name")
@@ -104,6 +108,9 @@ class RouteUpdate(BaseModel):
     suppress_key: Optional[str] = None
     suppress_allow: Optional[int] = Field(default=None, ge=0)
     suppress_window_s: Optional[int] = Field(default=None, gt=0)
+    #: ausente = mantém o valor atual (mesmo fail-safe do protect_detection:
+    #: nunca liga o descarte por omissão).
+    drop_raw: Optional[bool] = None
     organization_id: Optional[int] = None
 
     @field_validator("name")
@@ -159,6 +166,7 @@ class RouteRead(BaseModel):
     suppress_key: Optional[str] = None
     suppress_allow: int = 0
     suppress_window_s: int = 30
+    drop_raw: bool = False
     enabled: bool
     organization_id: Optional[int]
     created_at: datetime

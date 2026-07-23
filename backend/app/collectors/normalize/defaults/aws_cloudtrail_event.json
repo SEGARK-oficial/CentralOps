@@ -1,51 +1,164 @@
 {
   "rules": [
-    { "target": "normalized.class_uid", "const": 6003, "required": true },
-    { "target": "normalized.class_name", "const": "API Activity" },
-    { "target": "normalized.category_uid", "const": 6, "required": true },
-    { "target": "normalized.category_name", "const": "Application Activity" },
-    { "target": "normalized.activity_id", "const": 0 },
-    { "target": "normalized.type_uid", "const": 600300 },
-
-    { "target": "normalized.time", "source": "eventTime", "type_cast": "iso_to_epoch", "required": true },
-    { "target": "normalized.severity_id", "const": 1, "required": true },
-    { "target": "normalized.severity", "const": "Informational" },
-
-    { "target": "normalized.message", "source": "eventName", "default": null },
-
-    { "target": "normalized.api.operation", "source": "eventName", "default": null },
-    { "target": "normalized.api.service.name", "source": "eventSource", "default": null },
-    { "target": "normalized.api.response.error", "source": "errorCode", "default": null },
-    { "target": "normalized.api.response.message", "source": "errorMessage", "default": null },
-
-    { "target": "normalized.actor.user.name", "source": "userIdentity.userName || userIdentity.arn", "default": null },
-    { "target": "normalized.actor.user.uid", "source": "userIdentity.principalId", "default": null },
-    { "target": "normalized.actor.user.type", "source": "userIdentity.type", "default": null },
-
-    { "target": "normalized.src_endpoint.ip", "source": "sourceIPAddress", "default": null },
-    { "target": "normalized.http_request.user_agent", "source": "userAgent", "default": null },
-
-    { "target": "normalized.cloud.provider", "const": "AWS" },
-    { "target": "normalized.cloud.region", "source": "awsRegion", "default": null },
-    { "target": "normalized.cloud.account.uid", "source": "recipientAccountId", "default": null },
-
-    { "target": "normalized.status", "source": "errorCode", "default": "Success" },
-
-    { "target": "normalized.metadata.version", "const": "1.8.0" },
-    { "target": "normalized.metadata.product.name", "const": "CloudTrail" },
-    { "target": "normalized.metadata.product.vendor_name", "const": "AWS" },
-    { "target": "normalized.metadata.uid", "source": "eventID" },
-    { "target": "normalized.metadata.event_code", "source": "eventName", "default": null },
-
+    {
+      "target": "normalized.class_uid",
+      "const": 6003,
+      "required": true
+    },
+    {
+      "target": "normalized.class_name",
+      "const": "API Activity"
+    },
+    {
+      "target": "normalized.category_uid",
+      "const": 6,
+      "required": true
+    },
+    {
+      "target": "normalized.category_name",
+      "const": "Application Activity"
+    },
+    {
+      "target": "normalized.activity_id",
+      "const": 0
+    },
+    {
+      "target": "normalized.type_uid",
+      "const": 600300
+    },
+    {
+      "target": "normalized.time",
+      "source": "eventTime",
+      "type_cast": "iso_to_epoch",
+      "required": true
+    },
+    {
+      "target": "normalized.severity_id",
+      "const": 1,
+      "required": true
+    },
+    {
+      "target": "normalized.severity",
+      "const": "Informational"
+    },
+    {
+      "target": "normalized.message",
+      "source": "eventName",
+      "default": null
+    },
+    {
+      "target": "normalized.api.operation",
+      "source": "eventName",
+      "default": null
+    },
+    {
+      "target": "normalized.api.service.name",
+      "source": "eventSource",
+      "default": null
+    },
+    {
+      "target": "normalized.api.response.error",
+      "source": "errorCode",
+      "default": null
+    },
+    {
+      "target": "normalized.api.response.message",
+      "source": "errorMessage",
+      "default": null
+    },
+    {
+      "target": "normalized.actor.user.name",
+      "source": "userIdentity.userName || userIdentity.arn",
+      "default": null
+    },
+    {
+      "target": "normalized.actor.user.uid",
+      "source": "userIdentity.principalId",
+      "default": null
+    },
+    {
+      "target": "normalized.actor.user.type",
+      "source": "userIdentity.type",
+      "default": null
+    },
+    {
+      "target": "normalized.src_endpoint.ip",
+      "source": "sourceIPAddress",
+      "default": null
+    },
+    {
+      "target": "normalized.http_request.user_agent",
+      "source": "userAgent",
+      "default": null
+    },
+    {
+      "target": "normalized.cloud.provider",
+      "const": "AWS"
+    },
+    {
+      "target": "normalized.cloud.region",
+      "source": "awsRegion",
+      "default": null
+    },
+    {
+      "target": "normalized.cloud.account.uid",
+      "source": "recipientAccountId",
+      "default": null
+    },
+    {
+      "target": "normalized.status",
+      "source": "errorCode",
+      "default": "Success"
+    },
+    {
+      "target": "normalized.metadata.version",
+      "const": "1.8.0"
+    },
+    {
+      "target": "normalized.metadata.product.name",
+      "const": "CloudTrail"
+    },
+    {
+      "target": "normalized.metadata.product.vendor_name",
+      "const": "AWS"
+    },
+    {
+      "target": "normalized.metadata.uid",
+      "source": "eventID"
+    },
+    {
+      "target": "normalized.metadata.event_code",
+      "source": "eventName",
+      "default": null
+    },
     {
       "target": "normalized.observables",
       "kind": "array_builder",
       "items": [
-        { "name": "actor_user", "type": "User Name", "type_id": 4, "source": "userIdentity.userName", "skip_null": true },
-        { "name": "src_ip", "type": "IP Address", "type_id": 2, "source": "sourceIPAddress", "skip_null": true }
+        {
+          "name": "actor_user",
+          "type": "User Name",
+          "type_id": 4,
+          "source": "userIdentity.userName",
+          "skip_null": true
+        },
+        {
+          "name": "src_ip",
+          "type": "IP Address",
+          "type_id": 2,
+          "source": "sourceIPAddress",
+          "skip_null": true
+        }
       ],
       "skip_null": true,
-      "dedup_by": ["value"]
+      "dedup_by": [
+        "value"
+      ]
+    }
+  ],
+  "raw_reduction": [
+    {
+      "drop_nulls": true
     }
   ]
 }

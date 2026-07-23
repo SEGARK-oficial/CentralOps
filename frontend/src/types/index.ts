@@ -1747,17 +1747,13 @@ export interface Route {
   /** UX guard — sombreada por uma rota is_final anterior. */
   unreachable: boolean
   // ── Alavancas de redução de volume (ADR-0011) ──────────────────────
-  // NOTA (jul/2026): estes 5 campos existem em ``backend/app/db/models.py``
-  // (classe Route) e são lidos pelo pipeline de dispatch a partir da linha do
-  // banco, mas ``RouteRead``/``RouteCreate``/``RouteUpdate``
-  // (backend/app/api/schemas_routes.py) e ``RouteRepository.add``/``update``
-  // (backend/app/db/repository.py) AINDA NÃO os expõem — a API atual
-  // silenciosamente IGNORA estes campos em create/update, e GET nunca os
-  // retorna. Marcados ``?`` (opcionais) de propósito para refletir a
-  // realidade do contrato hoje; o formulário usa os defaults do modelo
+  // A nota anterior aqui dizia que a API "silenciosamente IGNORA estes campos
+  // em create/update, e GET nunca os retorna". Isso deixou de ser verdade:
+  // RouteCreate/RouteUpdate/RouteRead (backend/app/api/schemas_routes.py) e
+  // RouteRepository.add/update expõem e persistem todos eles. Seguem opcionais
+  // porque o backend aplica os defaults do modelo quando ausentes
   // (protect_detection=true, sample_percent=100, suppress_allow=0,
-  // suppress_window_s=30) quando ausentes. Fechar esse gap de backend é
-  // pré-requisito para estes controles terem efeito.
+  // suppress_window_s=30, drop_raw=false).
   /** fail-safe de detecção — default true. Rotas protegidas NUNCA são amostradas/agregadas. */
   protect_detection?: boolean
   /** amostragem de redução 0-100 (100 = sem amostragem). Ignorado se protect_detection=true. */
@@ -1768,6 +1764,9 @@ export interface Route {
   suppress_allow?: number
   /** janela de supressão em segundos. */
   suppress_window_s?: number
+  /** descarta o bloco `raw` na entrega desta rota (lago fica com o bruto, SIEM não).
+   *  default false = byte-idêntico. Ignorado se protect_detection=true. */
+  drop_raw?: boolean
 }
 
 export interface RouteCreateRequest {
@@ -1782,12 +1781,13 @@ export interface RouteCreateRequest {
   transform_ref?: string | null
   pii_redaction?: PiiRedaction
   organization_id?: number | null
-  /** ver nota em ``Route`` — API ainda não persiste estes campos (gap de backend). */
+  /** alavancas de redução — ver nota em ``Route``. */
   protect_detection?: boolean
   sample_percent?: number
   suppress_key?: string | null
   suppress_allow?: number
   suppress_window_s?: number
+  drop_raw?: boolean
 }
 
 export type RouteUpdateRequest = Partial<RouteCreateRequest>

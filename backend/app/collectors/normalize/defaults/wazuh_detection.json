@@ -313,6 +313,9 @@
     {
       "path": "data.win.system.message",
       "max_bytes": 8192
+    },
+    {
+      "drop_nulls": true
     }
   ]
 }

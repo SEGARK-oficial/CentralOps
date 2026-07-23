@@ -1245,6 +1245,9 @@ def _compile_route_row(row: Any) -> Any:
             _sw if (_sw := getattr(row, "suppress_window_s", None)) is not None else 30
         ),
         redaction=_redaction,
+        # getattr defensivo: linha antiga (pré-migração) não tem a coluna →
+        # False = byte-idêntico, mesmo padrão dos campos de redução acima.
+        drop_raw=bool(getattr(row, "drop_raw", False) or False),
     )
 
 
@@ -1597,6 +1600,16 @@ def _enqueue_routed(batch: list[Dict[str, Any]], routes: list[Any]) -> None:
 
         for _d_org, _d_bytes in _dropped_bytes.items():
             _metering_drop.record_drop_saving(_d_org, _d_bytes)
+
+    # volume evitado pelo DESCARTE DO BLOCO raw (Route.drop_raw). Série própria
+    # (reason=raw_drop) porque o raw costuma ser o maior contribuinte isolado de
+    # bytes — fundi-lo em trim esconderia o que a alavanca existe para provar.
+    _raw_dropped_bytes = getattr(result, "raw_dropped_bytes_per_org", None)
+    if _raw_dropped_bytes:
+        from .reduction import metering as _metering_raw
+
+        for _r_org, _r_bytes in _raw_dropped_bytes.items():
+            _metering_raw.record_raw_drop_saving(_r_org, _r_bytes)
 
     # backpressure (drop_newest): resolve o plano de entrega POR DESTINO só
     # quando a feature está ON (sem custo de DB no default). Mapeia destination_id

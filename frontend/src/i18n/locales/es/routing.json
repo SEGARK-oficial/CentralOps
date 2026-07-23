@@ -374,6 +374,8 @@
     "suppressKeyLabel": "Clave de supresión (suppress_key)",
     "suppressKeyPlaceholder": "ej.: src_ip,event_type",
     "suppressKeyHelper": "CSV de labels que forman la firma. Vacío = sin supresión.",
+    "dropRawLabel": "Descartar el evento bruto (raw) en esta entrega",
+    "dropRawHelper": "Elimina el bloque raw del payload entregado por esta ruta. El evento normalizado (OCSF) se conserva. Úselo en el SIEM, que cobra por volumen, y manténgalo desactivado en la ruta del data lake, donde el bruto es necesario para forense. Suele ser el mayor ahorro individual.",
     "suppressAllowLabel": "Permitidos por ventana",
     "suppressAllowHelper": "Cuántos eventos de la misma firma pasan por ventana. 0 = supresión desactivada.",
     "suppressWindowLabel": "Ventana (s)",

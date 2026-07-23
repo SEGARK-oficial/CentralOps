@@ -154,6 +154,7 @@ def _row_to_read(row: models.Route, *, unreachable: bool = False) -> RouteRead:
         suppress_key=row.suppress_key,  # type: ignore[arg-type]
         suppress_allow=int(row.suppress_allow),
         suppress_window_s=int(row.suppress_window_s),
+        drop_raw=bool(getattr(row, "drop_raw", False) or False),
         enabled=bool(row.enabled),
         organization_id=int(row.organization_id) if row.organization_id is not None else None,
         created_at=row.created_at,  # type: ignore[arg-type]
@@ -287,6 +288,7 @@ def create_route(
         suppress_key=payload.suppress_key,
         suppress_allow=payload.suppress_allow,
         suppress_window_s=payload.suppress_window_s,
+        drop_raw=payload.drop_raw,
         organization_id=org_id,
         actor=user.username,
     )
@@ -736,6 +738,7 @@ def update_route(
         suppress_key=_suppress_key_update,
         suppress_allow=payload.suppress_allow if payload.suppress_allow is not None else repository._UNSET,
         suppress_window_s=payload.suppress_window_s if payload.suppress_window_s is not None else repository._UNSET,
+        drop_raw=payload.drop_raw if payload.drop_raw is not None else repository._UNSET,
         enabled=payload.enabled if payload.enabled is not None else repository._UNSET,
         organization_id=payload.organization_id if payload.organization_id is not None else repository._UNSET,
         actor=user.username,
@@ -1041,6 +1044,7 @@ def rollback_route(
         suppress_key=snap.get("suppress_key", repository._UNSET),
         suppress_allow=snap.get("suppress_allow", repository._UNSET),
         suppress_window_s=snap.get("suppress_window_s", repository._UNSET),
+        drop_raw=snap.get("drop_raw", repository._UNSET),
         enabled=snap.get("enabled", repository._UNSET),
         actor=user.username,
         audit_action="rolled_back",
