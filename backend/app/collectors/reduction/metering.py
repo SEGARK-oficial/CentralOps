@@ -46,6 +46,19 @@ _KIND_ORG = "org"
 _KIND_DEST = "dest"
 _M_BYTES_SAVED = "bytes_saved"
 
+# Vocabulário FECHADO de causas de economia. É allow-list, não documentação: o
+# ``reason`` vira sufixo de chave Redis em :func:`record_saving`, e string livre
+# virando chave é explosão de cardinalidade (e vetor de escrita arbitrária vinda
+# de config de rota). Um reason fora desta lista continua sendo contabilizado no
+# total agregado e no OTel — só não ganha série própria.
+SAVING_REASONS: Tuple[str, ...] = ("trim", "sample", "suppress", "drop", "aggregate", "redaction")
+
+
+def _reason_metric(reason: str) -> Optional[str]:
+    """Nome da série por-causa (``bytes_saved:trim``), ou None se o reason não
+    estiver na allow-list."""
+    return f"{_M_BYTES_SAVED}:{reason}" if reason in SAVING_REASONS else None
+
 
 def enabled() -> bool:
     """True when cost/volume metering is active (single source of truth for the flag)."""
@@ -81,6 +94,14 @@ def record_saving(
         if destination_id is not None:
             obs.record_counter(_KIND_DEST, str(destination_id), _M_BYTES_SAVED, float(bytes_))
         obs.record_counter(_KIND_ORG, str(organization_id), _M_BYTES_SAVED, float(bytes_))
+        # Série por-causa, para a /cost-summary responder "de ONDE veio a
+        # economia". Sem isso o card "Evitado" é um número único e o operador
+        # não consegue distinguir trim (delta em unidade RAW) de drop/sample
+        # (envelope, por par evento×destino) — bases de medição diferentes
+        # somadas na mesma série, que é a origem do "Evitado > Coletado".
+        reason_metric = _reason_metric(reason)
+        if reason_metric is not None:
+            obs.record_counter(_KIND_ORG, str(organization_id), reason_metric, float(bytes_))
     except Exception:  # noqa: BLE001 — metering é best-effort; nunca quebra a coleta/entrega
         logger.debug(
             "metering.record_saving falhou (org=%s reason=%s)", organization_id, reason, exc_info=True
