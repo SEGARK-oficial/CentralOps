@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Trans, useTranslation } from "react-i18next"
 import {
   CopyIcon,
+  DownloadIcon,
   EyeIcon,
   FilterIcon,
   PlayIcon,
@@ -461,6 +462,19 @@ export const CapturePanel: React.FC = () => {
     setFeedback({ type: "success", message: t("capture.copyJsonSuccess") })
   }
 
+  const [exporting, setExporting] = useState<"csv" | "ndjson" | null>(null)
+  const handleExport = async (fmt: "csv" | "ndjson") => {
+    if (!selectedId) return
+    setExporting(fmt)
+    try {
+      await api.downloadCaptureExport(selectedId, fmt, orgScope)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t("capture.events.exportError"))
+    } finally {
+      if (mountedRef.current) setExporting(null)
+    }
+  }
+
   // ── Desfechos da sessão selecionada ───────────────────────────────────────
   /** Rótulo traduzido do desfecho; desconhecido cai no próprio código cru. */
   const outcomeLabel = useCallback(
@@ -762,6 +776,29 @@ export const CapturePanel: React.FC = () => {
               >
                 {t("capture.events.refresh")}
               </Button>
+              {/* Export (planilha p/ o analista abrir no Excel, ou NDJSON p/ jq).
+                  Só faz sentido com algo capturado; PII é mascarada no backend. */}
+              {events.length > 0 && (
+                <>
+                  <Button
+                    size="xs"
+                    variant="outline"
+                    leftIcon={<DownloadIcon size={12} />}
+                    loading={exporting === "csv"}
+                    onClick={() => void handleExport("csv")}
+                  >
+                    {t("capture.events.exportCsv")}
+                  </Button>
+                  <Button
+                    size="xs"
+                    variant="ghost"
+                    loading={exporting === "ndjson"}
+                    onClick={() => void handleExport("ndjson")}
+                  >
+                    {t("capture.events.exportNdjson")}
+                  </Button>
+                </>
+              )}
             </div>
           </div>
 

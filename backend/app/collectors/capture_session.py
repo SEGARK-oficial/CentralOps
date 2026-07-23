@@ -392,6 +392,41 @@ async def read_events(
     return events
 
 
+EXPORT_PAGE_SIZE = 500
+
+
+async def iter_events(
+    redis: redis_async.Redis,
+    session_id: str,
+    *,
+    page_size: int = EXPORT_PAGE_SIZE,
+    max_events: int = MAX_RING_SIZE,
+):
+    """Itera os eventos do ring em PÁGINAS (``LRANGE`` por bloco), para o export
+    streamar sem materializar o ring inteiro na RAM da API — o ``read_events``
+    carrega tudo de uma vez, e o export pode percorrer até 20k eventos.
+
+    ``max_events`` é o teto duro de linhas percorridas (anti-exfiltração/OOM). O
+    pico de memória é uma página, não o dataset."""
+    page_size = max(1, min(int(page_size), MAX_RING_SIZE))
+    max_events = max(1, min(int(max_events), MAX_RING_SIZE))
+    key = _events_key(session_id)
+    start = 0
+    while start < max_events:
+        stop = min(start + page_size, max_events) - 1
+        raw = await redis.lrange(key, start, stop)
+        if not raw:
+            return
+        for item in raw:
+            try:
+                yield json.loads(_s(item))
+            except Exception:  # pragma: no cover — entrada corrompida é ignorada
+                continue
+        if len(raw) <= stop - start:  # última página (ring menor que o teto)
+            return
+        start = stop + 1
+
+
 async def active_sessions(
     redis: redis_async.Redis, org_id: Any
 ) -> List[Dict[str, str]]:

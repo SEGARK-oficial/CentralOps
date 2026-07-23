@@ -1040,6 +1040,43 @@ export async function getCaptureEvents(sessionId: string, limit = 200, orgId?: n
   )
 }
 
+/** Constrói a URL de export (planilha CSV ou NDJSON) de uma sessão de captura.
+ *  Usada num <a download> / window.open — o backend faz streaming e a máscara de
+ *  PII (mask=true por default). */
+export function captureExportUrl(
+  sessionId: string,
+  fmt: "csv" | "ndjson" = "csv",
+  orgId?: number | null,
+): string {
+  return `${BASE_URL}/collectors/config/capture-sessions/${encodeURIComponent(sessionId)}/export?fmt=${fmt}${captureOrgQuery(orgId, "&")}`
+}
+
+/** Baixa o export como arquivo. Fetch com credenciais (o download precisa do
+ *  cookie de sessão) → blob → clique programático num link temporário. */
+export async function downloadCaptureExport(
+  sessionId: string,
+  fmt: "csv" | "ndjson",
+  orgId?: number | null,
+): Promise<void> {
+  const res = await fetch(captureExportUrl(sessionId, fmt, orgId), {
+    credentials: "include",
+    headers: { "Accept-Language": i18n.language || "pt" },
+  })
+  if (!res.ok) throw new ApiRequestError(`export failed (${res.status})`, res.status)
+  const blob = await res.blob()
+  const url = URL.createObjectURL(blob)
+  try {
+    const a = document.createElement("a")
+    a.href = url
+    a.download = `capture-${sessionId}.${fmt}`
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+  } finally {
+    URL.revokeObjectURL(url)
+  }
+}
+
 export async function stopCaptureSession(sessionId: string, orgId?: number | null) {
   return apiRequest<void>(
     `/collectors/config/capture-sessions/${encodeURIComponent(sessionId)}/stop${captureOrgQuery(orgId)}`,

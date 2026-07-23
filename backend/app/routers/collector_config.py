@@ -25,7 +25,8 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional, Set
 
 import redis.asyncio as redis_async
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Request
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
@@ -905,6 +906,88 @@ async def get_capture_events(
         scope_org_ids=scope_org_ids,
         outcome_counts=outcome_counts,
         events=items,
+    )
+
+
+_EXPORT_MAX_ROWS = 50_000
+
+
+@router.get("/capture-sessions/{session_id}/export")
+async def export_capture_events(
+    session_id: str,
+    request: Request,
+    fmt: str = Query(default="csv", pattern="^(csv|ndjson)$"),
+    org_id: Optional[int] = None,
+    mask: bool = Query(default=True),
+    user: models.AppUser = Depends(app_auth.require_admin_user),
+) -> StreamingResponse:
+    """Exporta os eventos capturados de UMA sessão como planilha (CSV) ou NDJSON,
+    para o analista de SOC abrir no Excel / anexar num ticket.
+
+    STREAMING (páginas de ``EXPORT_PAGE_SIZE`` via LRANGE) — não materializa o ring
+    na RAM. Escopo SEMPRE a uma sessão (teto natural = ring ≤ 20k) e à org do
+    usuário (mesmo gate ``require_admin_user`` dos demais endpoints de captura; a
+    chamada é auditada pelo middleware ``audit_api_requests`` — o path traz o
+    session_id). ``mask`` (default True) redige PII no serializador, porque o dado
+    está SAINDO do sistema; os SEGREDOS já foram scrubbados na gravação do ring."""
+    from ..collectors import capture_export
+
+    effective_org = _capture_effective_org(org_id, user)
+    redis = await _redis_client()
+    # Valida posse ANTES de abrir o stream (404 vira corpo de erro limpo, não um
+    # CSV meia-boca). O client de leitura das páginas é o mesmo, reusado no gerador.
+    try:
+        await _owned_capture_or_404(redis, session_id, effective_org)
+    except Exception:
+        await redis.aclose()
+        raise
+
+    separator = capture_export.csv_separator_for_locale(
+        request.headers.get("accept-language")
+    )
+
+    async def _stream():
+        # Serializa item a item conforme as páginas chegam do Redis — pico de
+        # memória = uma página do ring + uma linha, nunca o dataset inteiro.
+        try:
+            written = 0
+            if fmt == "csv":
+                yield capture_export.csv_header(separator).encode("utf-8")
+            async for entry in capture_session.iter_events(
+                redis, session_id, max_events=_EXPORT_MAX_ROWS
+            ):
+                if written >= _EXPORT_MAX_ROWS:
+                    notice = (
+                        capture_export.csv_truncation_notice(_EXPORT_MAX_ROWS)
+                        if fmt == "csv"
+                        else capture_export.ndjson_truncation_notice(_EXPORT_MAX_ROWS)
+                    )
+                    yield notice.encode("utf-8")
+                    break
+                line = (
+                    capture_export.csv_row(entry, mask=mask, separator=separator)
+                    if fmt == "csv"
+                    else capture_export.ndjson_line(entry, mask=mask)
+                )
+                yield line.encode("utf-8")
+                written += 1
+        finally:
+            await redis.aclose()
+
+    if fmt == "csv":
+        media = "text/csv; charset=utf-8"
+        filename = f"capture-{session_id}.csv"
+    else:
+        media = "application/x-ndjson"
+        filename = f"capture-{session_id}.ndjson"
+
+    return StreamingResponse(
+        _stream(),
+        media_type=media,
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"',
+            "X-CentralOps-Export-Max-Rows": str(_EXPORT_MAX_ROWS),
+        },
     )
 
 
