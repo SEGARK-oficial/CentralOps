@@ -55,6 +55,9 @@ export const RouteForm: React.FC<RouteFormProps> = ({ mode, route, loading, onCa
   const [suppressKey, setSuppressKey] = useState(route?.suppress_key ?? "")
   const [suppressAllow, setSuppressAllow] = useState(route?.suppress_allow ?? 0)
   const [suppressWindowS, setSuppressWindowS] = useState(route?.suppress_window_s ?? 30)
+  // drop_raw: default FALSE (byte-idêntico). Descartar o bruto é opt-out de
+  // fidelidade, então nunca nasce ligado — mesmo princípio do protect_detection.
+  const [dropRaw, setDropRaw] = useState(route?.drop_raw ?? false)
   const [confirmUnprotectOpen, setConfirmUnprotectOpen] = useState(false)
 
   const handleProtectDetectionChange = (checked: boolean) => {
@@ -123,6 +126,7 @@ export const RouteForm: React.FC<RouteFormProps> = ({ mode, route, loading, onCa
         suppress_key: suppressKey.trim() ? suppressKey.trim() : null,
         suppress_allow: suppressAllow,
         suppress_window_s: suppressWindowS,
+        drop_raw: dropRaw,
       })
     } catch (err) {
       setError(err instanceof Error ? err.message : t("routeForm.saveError"))
@@ -279,6 +283,28 @@ export const RouteForm: React.FC<RouteFormProps> = ({ mode, route, loading, onCa
             disabled={loading || protectDetection}
             data-testid="route-form-suppress-key"
           />
+
+          {/* Descarte do bloco raw: a alavanca de maior impacto isolado, porque
+              o evento bruto do vendor costuma ser o maior contribuinte de bytes
+              do envelope. Decisão por-destino (lago fica com o bruto, SIEM não),
+              e por isso vive aqui e não no mapping. Mesmo fail-safe do
+              sampling: bloqueada enquanto protect_detection estiver ligado. */}
+          <label className="flex items-start gap-2 text-sm text-text">
+            <input
+              type="checkbox"
+              className="mt-0.5 h-4 w-4 rounded border-border"
+              checked={dropRaw}
+              onChange={(e) => setDropRaw(e.target.checked)}
+              disabled={loading || protectDetection}
+              data-testid="route-form-drop-raw"
+            />
+            <span>
+              {t("routeForm.dropRawLabel")}
+              <span className="block text-xs text-text-tertiary">
+                {t("routeForm.dropRawHelper")}
+              </span>
+            </span>
+          </label>
         </fieldset>
       )}
 
