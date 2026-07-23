@@ -476,7 +476,10 @@
       "copyJson": "Copiar JSON",
       "outcome": "Desenlace: {{outcome}}",
       "destination": "Destino: {{destination}}",
-      "detail": "Motivo: {{detail}}"
+      "route": "Ruta: {{route}}",
+      "detail": "Motivo: {{detail}}",
+      "before": "Como lo recibimos (bruto)",
+      "after": "Como se está enviando (normalizado)"
     },
     "deleteDialog": {
       "title": "¿Eliminar sesión de captura?",

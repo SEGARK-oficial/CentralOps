@@ -476,7 +476,10 @@
       "copyJson": "Copy JSON",
       "outcome": "Outcome: {{outcome}}",
       "destination": "Destination: {{destination}}",
-      "detail": "Reason: {{detail}}"
+      "route": "Route: {{route}}",
+      "detail": "Reason: {{detail}}",
+      "before": "As received (raw)",
+      "after": "As being sent (normalized)"
     },
     "deleteDialog": {
       "title": "Delete capture session?",

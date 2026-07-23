@@ -977,6 +977,15 @@ export const CapturePanel: React.FC = () => {
                   </Badge>
                 ) : null
               })()}
+              {/* "Em qual rota bateu": responde por que foi dropado/amostrado. */}
+              {(() => {
+                const route = metaField(inspected, "route_id")
+                return route ? (
+                  <Badge variant="outline">
+                    {t("capture.inspectModal.route", { route })}
+                  </Badge>
+                ) : null
+              })()}
             </div>
             {(() => {
               const detail = metaField(inspected, "detail")
@@ -986,20 +995,54 @@ export const CapturePanel: React.FC = () => {
                 </p>
               ) : null
             })()}
-            <div className="rounded bg-surface-tertiary p-3">
-              <pre className="max-h-96 overflow-auto whitespace-pre-wrap break-all text-xs text-text">
-                {JSON.stringify(inspected.event, null, 2)}
-              </pre>
-              <div className="mt-2 flex justify-end">
-                <Button
-                  size="xs"
-                  variant="outline"
-                  leftIcon={<CopyIcon size={12} />}
-                  onClick={() => void handleCopyJson(inspected)}
-                >
-                  {t("capture.inspectModal.copyJson")}
-                </Button>
-              </div>
+            {(() => {
+              // Antes/depois: o envelope carrega `raw` (como recebemos do vendor)
+              // e `normalized` (OCSF, como está sendo mandado). Separá-los é o que
+              // torna o troubleshooting completo — em vez de um blob único, o
+              // operador vê a transformação lado a lado. Cai de volta para o blob
+              // quando o formato não é o envelope esperado.
+              const payload = inspected.event as Record<string, unknown> | undefined
+              const raw = payload?.["raw"]
+              const normalized = payload?.["normalized"]
+              if (raw !== undefined && normalized !== undefined) {
+                return (
+                  <div className="grid gap-3 md:grid-cols-2">
+                    <div className="rounded bg-surface-tertiary p-3" data-testid="capture-before">
+                      <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-text-secondary">
+                        {t("capture.inspectModal.before")}
+                      </span>
+                      <pre className="max-h-96 overflow-auto whitespace-pre-wrap break-all text-xs text-text">
+                        {JSON.stringify(raw, null, 2)}
+                      </pre>
+                    </div>
+                    <div className="rounded bg-surface-tertiary p-3" data-testid="capture-after">
+                      <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-text-secondary">
+                        {t("capture.inspectModal.after")}
+                      </span>
+                      <pre className="max-h-96 overflow-auto whitespace-pre-wrap break-all text-xs text-text">
+                        {JSON.stringify(normalized, null, 2)}
+                      </pre>
+                    </div>
+                  </div>
+                )
+              }
+              return (
+                <div className="rounded bg-surface-tertiary p-3">
+                  <pre className="max-h-96 overflow-auto whitespace-pre-wrap break-all text-xs text-text">
+                    {JSON.stringify(inspected.event, null, 2)}
+                  </pre>
+                </div>
+              )
+            })()}
+            <div className="flex justify-end">
+              <Button
+                size="xs"
+                variant="outline"
+                leftIcon={<CopyIcon size={12} />}
+                onClick={() => void handleCopyJson(inspected)}
+              >
+                {t("capture.inspectModal.copyJson")}
+              </Button>
             </div>
           </div>
         )}

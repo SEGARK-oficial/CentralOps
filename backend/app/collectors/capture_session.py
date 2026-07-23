@@ -229,12 +229,17 @@ def _entries_for(
     outcome: str,
     destination_id: Optional[str],
     detail: Optional[str],
+    route_id: Optional[str] = None,
 ) -> List[str]:
     """Serializa os eventos do lote que passam pelo filtro de vendor DESTA sessão.
 
     Formato COMPATÍVEL com o que a UI já lê (``event``/``vendor``/``captured_at``);
-    ``outcome`` é sempre adicionado e ``destination_id``/``detail`` só quando aplicáveis
-    (mantém o ring enxuto)."""
+    ``outcome`` é sempre adicionado e ``destination_id``/``detail``/``route_id`` só
+    quando aplicáveis (mantém o ring enxuto).
+
+    ``route_id`` é ESTRUTURADO (campo próprio), não texto dentro de ``detail``: é a
+    rota responsável pelo desfecho — para o operador responder "em qual rota bateu"
+    e "por que foi dropado" sem parsear string livre."""
     vfilter = (m.get("vendor") or "").strip()
     out: List[str] = []
     for ev in batch:
@@ -249,6 +254,8 @@ def _entries_for(
         }
         if destination_id is not None:
             payload["destination_id"] = str(destination_id)
+        if route_id:
+            payload["route_id"] = str(route_id)
         if detail:
             payload["detail"] = str(detail)[:MAX_DETAIL_CHARS]
         out.append(json.dumps(payload, separators=(",", ":"), default=str))
@@ -481,6 +488,7 @@ async def record(
     outcome: str = OUTCOME_DELIVERED,
     destination_id: Optional[str] = None,
     detail: Optional[str] = None,
+    route_id: Optional[str] = None,
     sessions: Optional[Sequence[Mapping[str, str]]] = None,
 ) -> None:
     """Anexa o lote às sessões de captura ATIVAS do ``org_id`` com o DESFECHO
@@ -488,9 +496,10 @@ async def record(
 
     ``outcome`` default ``delivered`` (compatível com o call-site histórico do
     dispatch). ``destination_id`` identifica o destino quando o desfecho é por-destino
-    (delivered / delivery_failed / residency_blocked / sampled_out); ``detail`` é um
-    motivo CURTO (truncado em ``MAX_DETAIL_CHARS``) — juntos respondem "como entrou e
-    como saiu". ``sessions`` reusa uma resolução prévia de :func:`active_sessions`.
+    (delivered / delivery_failed / residency_blocked / sampled_out); ``route_id`` é a
+    rota responsável (estruturado); ``detail`` é um motivo CURTO (truncado em
+    ``MAX_DETAIL_CHARS``) — juntos respondem "como entrou, por qual rota e como saiu".
+    ``sessions`` reusa uma resolução prévia de :func:`active_sessions`.
 
     Best-effort: NUNCA levanta (chamado do hot path de dispatch/coleta)."""
     if not batch:
@@ -508,7 +517,7 @@ async def record(
             sid = m.get("id") or ""
             if not sid:
                 continue
-            entries = _entries_for(m, batch, now, outcome, destination_id, detail)
+            entries = _entries_for(m, batch, now, outcome, destination_id, detail, route_id)
             if not entries:
                 continue
             ring_size, evt_ttl = _ring_params(m, now)
@@ -533,6 +542,7 @@ def record_sync(
     outcome: str = OUTCOME_DELIVERED,
     destination_id: Optional[str] = None,
     detail: Optional[str] = None,
+    route_id: Optional[str] = None,
     sessions: Optional[Sequence[Mapping[str, str]]] = None,
     redis: Any = None,
 ) -> None:
@@ -555,7 +565,7 @@ def record_sync(
             sid = m.get("id") or ""
             if not sid:
                 continue
-            entries = _entries_for(m, batch, now, outcome, destination_id, detail)
+            entries = _entries_for(m, batch, now, outcome, destination_id, detail, route_id)
             if not entries:
                 continue
             ring_size, evt_ttl = _ring_params(m, now)

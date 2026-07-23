@@ -179,6 +179,42 @@ describe("CapturePanel", () => {
     )
   })
 
+  it("modal de inspeção mostra antes/depois e a rota do desfecho", async () => {
+    baseMocks()
+    mockedApi.listCaptureSessions.mockResolvedValue({ count: 1, sessions: [activeSession] })
+    mockedApi.getCaptureEvents.mockResolvedValue({
+      count: 1,
+      session_id: "cap-1",
+      events: [
+        {
+          event: {
+            raw: { srcuser: "svc_backup", eventID: "4624" },
+            normalized: { actor: { user: { name: "svc_backup" } } },
+            _centralops: { event_id: "e1", vendor: "sophos" },
+          },
+          vendor: "sophos",
+          captured_at: 1_714_000_100,
+          outcome: "dropped",
+          route_id: "r-noise",
+        },
+      ],
+    })
+
+    render(<CapturePanel />)
+    const eventosBtn = await screen.findByRole("button", { name: /eventos/i })
+    fireEvent.click(eventosBtn)
+    const inspect = await screen.findByRole("button", { name: /inspecionar/i })
+    fireEvent.click(inspect)
+
+    // "como recebemos" e "como está sendo mandado" lado a lado
+    const before = await screen.findByTestId("capture-before")
+    const after = screen.getByTestId("capture-after")
+    expect(before).toHaveTextContent("eventID")
+    expect(after).toHaveTextContent("actor")
+    // a rota que dropou aparece estruturada
+    expect(screen.getByText(/Rota: r-noise/i)).toBeInTheDocument()
+  })
+
   it("para uma sessão ativa", async () => {
     baseMocks()
     mockedApi.listCaptureSessions.mockResolvedValue({ count: 1, sessions: [activeSession] })

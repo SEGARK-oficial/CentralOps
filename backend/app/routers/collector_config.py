@@ -620,6 +620,10 @@ class CaptureEventDetail(schemas.CaptureEvent):
     organization_id: Optional[int] = None
     outcome: str = "unknown"
     destination_id: Optional[str] = None
+    # Rota responsável pelo desfecho (estruturada). Presente nos desfechos que o
+    # engine atribui por evento — dropped/sampled_out — respondendo "em qual rota
+    # bateu" e "por que foi dropado" sem parsear texto livre.
+    route_id: Optional[str] = None
     detail: Optional[str] = None
 
 
@@ -889,6 +893,7 @@ async def get_capture_events(
                 organization_id=_event_org_id(e),
                 outcome=outcome,
                 destination_id=e.get("destination_id"),
+                route_id=e.get("route_id"),
                 detail=e.get("detail"),
             )
         )
