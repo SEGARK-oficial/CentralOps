@@ -46,6 +46,7 @@ import random
 import re
 from datetime import datetime
 from typing import Any, Callable, Dict, Iterable, List, Mapping, Optional, Set, Tuple
+from uuid import uuid4 as _uuid4
 
 from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
@@ -511,64 +512,72 @@ def record_unknown_fields(
     para futura lógica v2-específica. Sem efeito comportamental
     na versão atual.
 
-    Devolve a quantidade de paths efetivamente registrados (inserts +
-    updates). Falhas de DB são logadas e o pipeline segue.
+    Devolve a quantidade de paths efetivamente registrados. Falhas de DB são
+    logadas e o pipeline segue.
+
+    FAIL-CLOSED em ``organization_id is None``: não escreve. Duas razões, ambas
+    reais. (1) Unicidade: em Postgres ``NULL`` não colide com ``NULL`` no índice
+    ``uq_unknown_field_vendor_event_org``, então rows órfãs duplicariam sem teto
+    e o ``ON CONFLICT`` abaixo nem dispararia. (2) Retenção/erase: a purga e o
+    right-to-erasure são escopados por ``organization_id == org.id`` — uma row
+    NULL nunca casa e vive para sempre (gap de LGPD). O drift é regenerado no
+    próximo ciclo com a org correta, então pular é seguro.
+
+    Idempotência: usa ``INSERT ... ON CONFLICT DO UPDATE`` (upsert atômico). O
+    SELECT-depois-INSERT anterior perdia o LOTE INTEIRO quando dois workers
+    coletavam o mesmo (vendor, event_type, org) e colidiam no índice único — o
+    ``IntegrityError`` virava um único ``rollback`` e todos os incrementos de
+    ``occurrence_count`` daquele evento sumiam em silêncio.
     """
+    if organization_id is None:
+        return 0
+
     deltas = compute_unknown_paths(raw, consumed_paths, dsl_version=dsl_version)
     if not deltas:
         return 0
 
     now = datetime.utcnow()
-    paths_to_check = [p for p, _ in deltas]
-    delta_map = {p: v for p, v in deltas}
+    values = [
+        {
+            "id": str(_uuid4()),
+            "vendor": vendor,
+            "event_type": event_type,
+            "field_path": path,
+            "organization_id": organization_id,
+            "sample_value": build_sample_value(value),
+            "sample_type": _type_name(value),
+            "occurrence_count": 1,
+            "first_seen": now,
+            "last_seen": now,
+            "status": "new",
+        }
+        for path, value in deltas
+    ]
 
     try:
         with database.SessionLocal() as db:
-            # 1 SELECT IN em vez de N SELECTs individuais (elimina N+1).
-            existing_rows = db.scalars(
-                select(models.UnknownField).where(
-                    models.UnknownField.vendor == vendor,
-                    models.UnknownField.event_type == event_type,
-                    models.UnknownField.field_path.in_(paths_to_check),
-                    # dedupe/upsert escopado por tenant.
-                    models.UnknownField.organization_id == organization_id,
-                )
-            ).all()
-            existing_by_path = {row.field_path: row for row in existing_rows}
+            dialect = db.bind.dialect.name if db.bind is not None else "sqlite"
+            if dialect == "postgresql":
+                from sqlalchemy.dialects.postgresql import insert as _insert
+            else:
+                # SQLite (dev/test) e demais backends com suporte a UPSERT.
+                from sqlalchemy.dialects.sqlite import insert as _insert
 
-            written = 0
-            new_rows: List[models.UnknownField] = []
-            for path in paths_to_check:
-                value = delta_map[path]
-                if path in existing_by_path:
-                    row = existing_by_path[path]
-                    row.occurrence_count += 1
-                    row.last_seen = now
-                    # Não sobrescreve sample_value se já há um — primeiro
-                    # exemplo costuma ser representativo, e o engenheiro
-                    # já investigou se reapareceu.
-                    written += 1
-                else:
-                    new_rows.append(
-                        models.UnknownField(
-                            vendor=vendor,
-                            event_type=event_type,
-                            field_path=path,
-                            organization_id=organization_id,
-                            sample_value=build_sample_value(value),
-                            sample_type=_type_name(value),
-                            occurrence_count=1,
-                            first_seen=now,
-                            last_seen=now,
-                            status="new",
-                        )
-                    )
-                    written += 1
-
-            if new_rows:
-                db.add_all(new_rows)  # bulk insert — menos round-trips
+            stmt = _insert(models.UnknownField).values(values)
+            stmt = stmt.on_conflict_do_update(
+                index_elements=["vendor", "event_type", "field_path", "organization_id"],
+                set_={
+                    # +excluded (1 por evento). Não toca sample_value/status: o
+                    # primeiro exemplo continua representativo e o desfecho
+                    # "ignored"/"mapped" do analista é preservado.
+                    "occurrence_count": models.UnknownField.occurrence_count
+                    + stmt.excluded.occurrence_count,
+                    "last_seen": stmt.excluded.last_seen,
+                },
+            )
+            db.execute(stmt)
             db.commit()
-            return written
+            return len(values)
     except SQLAlchemyError as exc:
         logger.warning(
             "drift: falha ao registrar unknown_fields vendor=%s event_type=%s: %s",
