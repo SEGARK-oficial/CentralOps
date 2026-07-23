@@ -1549,45 +1549,6 @@ class CollectorConfigTestResponse(BaseModel):
     results: List[CollectorConfigTestResult] = Field(default_factory=list)
 
 
-class CollectorAuditEnvelope(BaseModel):
-    """Contexto da linha RFC 5424 real (hostname do dispatcher + PRI).
-
-    Permite à UI reconstruir a linha byte-a-byte idêntica à que foi
-    enviada ao Wazuh — sem placeholder. Pode vir vazio em entradas
-    legadas do ring (gravadas antes do fix de fidelidade).
-    """
-
-    hostname: Optional[str] = None
-    pri: Optional[int] = None
-
-
-class CollectorAuditEvent(BaseModel):
-    """Um evento do ring buffer de auditoria do Collector.
-
-    ``event`` é o payload enriquecido (mesmo JSON enviado ao Wazuh).
-    ``envelope`` carrega hostname/PRI reais do dispatcher.
-    ``meta`` destaca o namespace ``_centralops`` para facilitar
-    ordenação/filtro na UI sem reparse.
-    ``syslog_format`` indica o formato wire usado no envio deste evento.
-    None em entradas legadas — assumir rfc5424 nesses casos.
-    """
-
-    event: Dict[str, Any]
-    envelope: CollectorAuditEnvelope = Field(default_factory=CollectorAuditEnvelope)
-    meta: Dict[str, Any] = Field(default_factory=dict)
-    syslog_format: Optional[Literal["rfc3164", "rfc5424"]] = Field(
-        default=None,
-        description="Formato wire usado no envio (None em entradas legadas — assumir rfc5424).",
-    )
-
-
-class CollectorAuditResponse(BaseModel):
-    """Retorno do endpoint ``GET /api/collectors/audit/recent``."""
-
-    count: int
-    events: List[CollectorAuditEvent] = Field(default_factory=list)
-
-
 # ── Captura ao vivo / "listening" (sessões de captura) ─────────
 
 

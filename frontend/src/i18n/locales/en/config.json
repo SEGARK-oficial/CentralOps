@@ -23,7 +23,6 @@
       "email": "Email notifications",
       "collector": "Collection & Delivery",
       "identity": "Identity & SSO",
-      "audit": "Audit",
       "capture": "Live capture",
       "licensing": "Licensing"
     },
@@ -41,10 +40,6 @@
       "loadError": "Failed to load identity configuration",
       "cardTitle": "Identity & SSO (Microsoft Entra)",
       "cardDescription": "Corporate \"Sign in with Microsoft\" login (OIDC). Credentials are stored securely and changes take effect from the next login."
-    },
-    "audit": {
-      "cardTitle": "Dispatched event audit",
-      "cardDescription": "Latest events sent to destinations (Syslog/JSONL). Use this to check the exact format and test decoders in your destination's tool (e.g., {{tool}})."
     },
     "capture": {
       "cardTitle": "Live capture (\"listening mode\")",
@@ -306,74 +301,6 @@
     "syncNowAriaLabelIdle": "Trigger sync now",
     "refresh": "Refresh",
     "refreshAriaLabel": "Refresh sync status"
-  },
-  "audit": {
-    "intro": {
-      "title": "What this tab is",
-      "body": "Rolling sample of the latest <strong>events actually sent to destinations</strong> (up to 500, kept for 24h). The wire-format lines exported here are <strong>byte-for-byte identical</strong> to what went out on the network, including hostname and priority. Paste into your destination's test tool (e.g., {{tool}}) to see exactly how your decoder or rule behaves with real traffic."
-    },
-    "loadError": "Failed to load audit data",
-    "clearBufferSuccess": "Audit sample cleared.",
-    "clearBufferError": "Failed to clear buffer",
-    "copyWireSuccess": "{{format}} line copied — paste it into your destination's test tool (e.g., {{tool}}) to test decoders.",
-    "copyJsonSuccess": "Event JSON copied.",
-    "toolbar": {
-      "filterByPlatform": "Filter by platform",
-      "allPlatforms": "All platforms",
-      "filterByStream": "Filter by stream",
-      "allStreams": "All streams",
-      "quantity": "Quantity",
-      "eventsUnit": "{{count}} events",
-      "eventCount_one": "{{count}} event",
-      "eventCount_other": "{{count}} events",
-      "clearBuffer": "Clear sample"
-    },
-    "loading": "Loading audit data…",
-    "emptyTitle": "No events recorded",
-    "emptyDescription": "No events sent in the last few minutes — or you just cleared the sample. It fills up again on the next collection.",
-    "table": {
-      "timestamp": "Timestamp",
-      "vendorStream": "Vendor / Stream",
-      "customer": "Customer",
-      "eventId": "Event ID",
-      "severity": "Severity",
-      "actions": "Actions",
-      "legacyFormatTooltip": "Sample recorded before a system update — actual format not recorded"
-    },
-    "actions": {
-      "inspect": "Inspect",
-      "inspectTooltip": "View full JSON",
-      "json": "JSON",
-      "jsonTooltip": "Copy JSON",
-      "wireTooltip": "Copy wire-format line for your destination's test tool"
-    },
-    "modal": {
-      "defaultTitle": "Event",
-      "customerBadge": "customer #{{id}}",
-      "integrationBadge": "integration #{{id}}",
-      "legacyHostnameBadge": "generic hostname",
-      "tabsAriaLabel": "Event views",
-      "tabWire": "Wire-format",
-      "tabNormalized": "Normalized (OCSF)",
-      "tabRaw": "Raw (vendor)",
-      "wireLineLabelRfc3164": "RFC 3164 line",
-      "wireLineLabelRfc5424": "RFC 5424 line",
-      "wireLineCopyHint": "(copy to your destination's test tool, e.g., {{tool}})",
-      "hostBadge": "host: {{hostname}}",
-      "legacyEnvelopeNote": "Event recorded by an earlier version of the system: the hostname shown is generic, but this doesn't affect the decoder — identification uses {{field}}. New events carry the real hostname.",
-      "legacyFormatNote": "Sample recorded before a system update — displayed in RFC 5424 format.",
-      "copyLine": "Copy line",
-      "normalizedTitle": "Normalized OCSF v1.3",
-      "rawTitle": "Original vendor payload",
-      "copyJson": "Copy JSON"
-    },
-    "clearDialog": {
-      "title": "Clear the audit sample?",
-      "descriptionPrefix": "This action removes",
-      "descriptionAllEvents": "all {{count}} events",
-      "descriptionSuffix": "currently in the buffer and cannot be undone. New events will keep being recorded normally as collectors dispatch to destinations.",
-      "confirm": "Clear sample"
-    }
   },
   "capture": {
     "intro": {

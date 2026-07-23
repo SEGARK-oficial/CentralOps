@@ -20,7 +20,6 @@ import type {
   AuthUser,
   BootstrapAdminRequest,
   CollectionState,
-  CollectorAuditResponse,
   CollectorConfig,
   CollectorConfigTestResponse,
   CollectorSummary,
@@ -932,29 +931,6 @@ export async function updateCollectorConfig(data: UpdateCollectorConfigRequest) 
 export async function testCollectorConfig() {
   return apiRequest<CollectorConfigTestResponse>("/collectors/config/test", {
     method: "POST",
-    forbiddenRedirectTo: ADMIN_REDIRECT_PATH,
-  })
-}
-
-export async function getCollectorAuditRecent(params?: {
-  limit?: number
-  platform?: string
-  stream?: string
-}) {
-  const sp = new URLSearchParams()
-  if (params?.limit) sp.set("limit", String(params.limit))
-  if (params?.platform) sp.set("platform", params.platform)
-  if (params?.stream) sp.set("stream", params.stream)
-  const qs = sp.toString()
-  return apiRequest<CollectorAuditResponse>(
-    `/collectors/config/audit/recent${qs ? `?${qs}` : ""}`,
-    { forbiddenRedirectTo: ADMIN_REDIRECT_PATH },
-  )
-}
-
-export async function clearCollectorAudit() {
-  return apiRequest<void>("/collectors/config/audit/recent", {
-    method: "DELETE",
     forbiddenRedirectTo: ADMIN_REDIRECT_PATH,
   })
 }

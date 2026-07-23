@@ -978,40 +978,6 @@ export interface CollectorConfigTestResponse {
   results: CollectorConfigTestResult[]
 }
 
-// ── Collector Audit (ring buffer dos últimos eventos despachados) ───
-// Espelha backend/app/api/schemas.py::CollectorAudit*.
-
-export interface CollectorAuditEventMeta {
-  integration_id?: number | string | null
-  customer_id?: number | string | null
-  /** OCSF v1.0 usa `vendor`; envelope legado usava `platform`. Ambos são suportados. */
-  vendor?: string | null
-  platform?: string | null
-  /** Granular (ex: `sophos.alert`). Legado usa `stream`. */
-  event_type?: string | null
-  stream?: string | null
-  collected_at?: string | null
-}
-
-export interface CollectorAuditEnvelope {
-  hostname?: string | null
-  pri?: number | null
-}
-
-export interface CollectorAuditEvent {
-  event: Record<string, unknown>
-  envelope: CollectorAuditEnvelope
-  meta: CollectorAuditEventMeta
-  /** Formato syslog usado no dispatch deste evento.
-   *  null = evento legado, gravado antes deste campo (tratar como rfc5424). */
-  syslog_format?: "rfc3164" | "rfc5424" | null
-}
-
-export interface CollectorAuditResponse {
-  count: number
-  events: CollectorAuditEvent[]
-}
-
 // ── Edição / licença (open-core) ─────────────────────────────
 // Espelha o backend GET /api/edition. NÃO expõe o customer id (sub) por design.
 export interface EditionStatus {

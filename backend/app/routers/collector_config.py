@@ -37,7 +37,6 @@ from ..core.config import settings
 from ..core.errors import ApiError
 from ..db import database, models, repository
 from ..collectors import capture_session
-from ..collectors.audit_buffer import clear as audit_clear, read_recent as audit_read_recent
 from ..collectors.config_loader import (
     CollectorConfigSnapshot,
     invalidate_collector_config,
@@ -329,88 +328,6 @@ async def test_config(
         results.append(_test_jsonl(snapshot))
 
     return schemas.CollectorConfigTestResponse(mode=mode, results=results)
-
-
-# ── GET /audit/recent ────────────────────────────────────────────────
-
-
-@router.get("/audit/recent", response_model=schemas.CollectorAuditResponse)
-async def audit_recent(
-    limit: int = 100,
-    platform: Optional[str] = None,
-    stream: Optional[str] = None,
-    org_id: Optional[int] = None,
-    user: models.AppUser = Depends(app_auth.require_admin_user),
-) -> schemas.CollectorAuditResponse:
-    """Lista últimos N eventos efetivamente enviados ao Wazuh (POR TENANT).
-
-    Fonte: ring buffer Redis ``collector:audit:{org_id}:recent`` (antes era
-    global e misturava todos os tenants), atualizado pelo
-    ``dispatch_batch`` após ``send_batch``. Janela: 500 eventos; TTL 24h.
-
-    **Escopo de tenant:** o ``org_id`` efetivo é o query param (admin
-    nomeia o tenant explicitamente) ou, na ausência, o ``organization_id`` do
-    próprio admin. Admin global sem ``org_id`` → lista vazia (fail-closed, sem
-    leitura cross-tenant implícita).
-    """
-    effective_org = org_id if org_id is not None else user.organization_id
-    if effective_org is None:
-        # Admin global sem tenant especificado — não há ring a ler.
-        return schemas.CollectorAuditResponse(count=0, events=[])
-    # admin escopado não lê o ring de OUTRA org via org_id
-    # explícito (o ring contém eventos reais do tenant). Global bypassa.
-    tenant.require_subtree_access(user, effective_org)
-    redis = await _redis_client()
-    try:
-        events = await audit_read_recent(
-            redis, effective_org, limit=limit, platform=platform, stream=stream
-        )
-    finally:
-        await redis.aclose()
-
-    out = []
-    for entry in events:
-        raw_event = entry.get("event") or {}
-        envelope = entry.get("envelope") or {}
-        raw_fmt = entry.get("syslog_format")
-        # Valida contra os valores permitidos — entradas legadas/corrompidas
-        # ficam como None (UI exibe aviso "legado").
-        syslog_fmt = raw_fmt if raw_fmt in ("rfc3164", "rfc5424") else None
-        out.append(
-            schemas.CollectorAuditEvent(
-                event=raw_event,
-                envelope=schemas.CollectorAuditEnvelope(
-                    hostname=envelope.get("hostname"),
-                    pri=envelope.get("pri"),
-                ),
-                meta=raw_event.get("_centralops") or {},
-                syslog_format=syslog_fmt,
-            )
-        )
-    return schemas.CollectorAuditResponse(count=len(out), events=out)
-
-
-@router.delete("/audit/recent", status_code=204)
-async def audit_clear_endpoint(
-    org_id: Optional[int] = None,
-    user: models.AppUser = Depends(app_auth.require_admin_user),
-) -> None:
-    """Zera o ring buffer de auditoria DO TENANT — útil para começar
-    uma janela limpa durante tuning. Escopo: query param ``org_id`` ou o
-    ``organization_id`` do admin; admin global sem ``org_id`` → no-op."""
-    effective_org = org_id if org_id is not None else user.organization_id
-    if effective_org is None:
-        return
-    # escopado não zera o ring de outra org.
-    tenant.require_subtree_access(user, effective_org)
-    redis = await _redis_client()
-    try:
-        removed = await audit_clear(redis, effective_org)
-        logger.info(
-            "audit: ring zerado org=%s (%d eventos removidos)", effective_org, removed
-        )
-    finally:
-        await redis.aclose()
 
 
 # ── Captura ao vivo / "listening" (sessões de captura sob demanda) ────────────
