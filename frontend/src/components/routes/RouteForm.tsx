@@ -211,11 +211,13 @@ export const RouteForm: React.FC<RouteFormProps> = ({ mode, route, loading, onCa
             <span className="font-normal text-text-secondary">{t("routeForm.reductionLegendOptional")}</span>
           </legend>
 
-          {/* Requisito de negócio: as alavancas de redução (sample/suppress) só têm
-              efeito com as flags globais REDUCTION_SAMPLE_ENABLED/REDUCTION_SUPPRESS_ENABLED
-              ligadas no ambiente (default OFF). Não há endpoint que exponha o estado
-              dessas flags hoje (nenhum /cost-summary, /config ou /collectors/* as
-              retorna) — aviso estático em vez de checagem em tempo real. */}
+          {/* ADR-0015 inverteu os defaults: REDUCTION_SAMPLE_ENABLED,
+              REDUCTION_SUPPRESS_ENABLED e REDUCTION_TRIM_ENABLED nascem ON
+              (core/config.py:405,422,433) — só REDUCTION_AGGREGATE_ENABLED segue OFF.
+              O portão que importa é o default POR-ROTA (sample_percent=100,
+              suppress_allow=0), e não a flag global. O texto anterior afirmava o
+              contrário e induzia o operador a achar que "Evitado" deveria ser zero.
+              Aviso estático: nenhum endpoint expõe o estado das flags hoje. */}
           <Notice variant="info" title={t("routeForm.reductionFlagsNoticeTitle")}>
             {t("routeForm.reductionFlagsNoticeBody")}
           </Notice>

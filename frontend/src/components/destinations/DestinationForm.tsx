@@ -60,6 +60,17 @@ export const DestinationForm: React.FC<DestinationFormProps> = ({
   }, [])
 
   const selectedType = useMemo(() => catalog.find((t) => t.kind === kind), [catalog, kind])
+
+  // FinOps (delivery.cost) — objeto aninhado que o JsonSchemaForm não cobre.
+  const cost = (delivery.cost ?? {}) as Record<string, unknown>
+  const costPerGb = typeof cost.cost_per_gb === "number" ? cost.cost_per_gb : 0
+  const currency = typeof cost.currency === "string" ? cost.currency : "USD"
+  const setCostField = (field: "cost_per_gb" | "currency", value: number | string) => {
+    setDelivery((prev) => ({
+      ...prev,
+      cost: { ...((prev.cost ?? {}) as Record<string, unknown>), [field]: value },
+    }))
+  }
   // campo de credencial DATA-DRIVEN — aparece quando o kind declara
   // QUALQUER ``required_secrets`` (não só "hec_token"), de modo que Elastic
   // (api_key), OTLP (bearer) etc. sejam configuráveis pela mesma UI. O backend
@@ -179,6 +190,46 @@ export const DestinationForm: React.FC<DestinationFormProps> = ({
               disabled={loading}
               idPrefix="dlv"
             />
+          </fieldset>
+
+          {/* FinOps: o JsonSchemaForm só renderiza escalares de 1º nível e pula
+              o objeto aninhado `cost`, então cost_per_gb ficava inatingível pela
+              UI — o único caminho era um PATCH manual no JSON. Sem preço, o pricer
+              EE devolve US$ 0 e o card "Economia estimada" fica em zero sem
+              explicação. A config do preço é Community; só a tradução em US$ é EE. */}
+          <fieldset className="space-y-3 rounded-lg border border-border p-4">
+            <legend className="px-1 text-sm font-semibold text-text">Custo (FinOps)</legend>
+            <p className="text-xs text-text-tertiary">
+              Preço por GB lógico ingerido neste destino. Usado para traduzir o volume
+              evitado em economia (o cálculo em moeda é Enterprise; o preço é editável aqui).
+            </p>
+            <div className="flex flex-wrap gap-3">
+              <label className="flex flex-col gap-1 text-sm text-text">
+                <span className="text-xs text-text-secondary">Preço por GB</span>
+                <input
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  className="h-9 w-40 rounded border border-border bg-surface px-2 text-sm text-text"
+                  value={costPerGb}
+                  onChange={(e) => setCostField("cost_per_gb", e.target.value === "" ? 0 : Number(e.target.value))}
+                  disabled={loading}
+                  aria-label="Preço por GB"
+                />
+              </label>
+              <label className="flex flex-col gap-1 text-sm text-text">
+                <span className="text-xs text-text-secondary">Moeda</span>
+                <input
+                  type="text"
+                  maxLength={3}
+                  className="h-9 w-24 rounded border border-border bg-surface px-2 text-sm uppercase text-text"
+                  value={currency}
+                  onChange={(e) => setCostField("currency", e.target.value.toUpperCase())}
+                  disabled={loading}
+                  aria-label="Moeda"
+                />
+              </label>
+            </div>
           </fieldset>
         </>
       )}

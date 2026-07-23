@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Trans, useTranslation } from "react-i18next"
 import {
   CopyIcon,
+  DownloadIcon,
   EyeIcon,
   FilterIcon,
   PlayIcon,
@@ -461,6 +462,19 @@ export const CapturePanel: React.FC = () => {
     setFeedback({ type: "success", message: t("capture.copyJsonSuccess") })
   }
 
+  const [exporting, setExporting] = useState<"csv" | "ndjson" | null>(null)
+  const handleExport = async (fmt: "csv" | "ndjson") => {
+    if (!selectedId) return
+    setExporting(fmt)
+    try {
+      await api.downloadCaptureExport(selectedId, fmt, orgScope)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t("capture.events.exportError"))
+    } finally {
+      if (mountedRef.current) setExporting(null)
+    }
+  }
+
   // ── Desfechos da sessão selecionada ───────────────────────────────────────
   /** Rótulo traduzido do desfecho; desconhecido cai no próprio código cru. */
   const outcomeLabel = useCallback(
@@ -762,6 +776,29 @@ export const CapturePanel: React.FC = () => {
               >
                 {t("capture.events.refresh")}
               </Button>
+              {/* Export (planilha p/ o analista abrir no Excel, ou NDJSON p/ jq).
+                  Só faz sentido com algo capturado; PII é mascarada no backend. */}
+              {events.length > 0 && (
+                <>
+                  <Button
+                    size="xs"
+                    variant="outline"
+                    leftIcon={<DownloadIcon size={12} />}
+                    loading={exporting === "csv"}
+                    onClick={() => void handleExport("csv")}
+                  >
+                    {t("capture.events.exportCsv")}
+                  </Button>
+                  <Button
+                    size="xs"
+                    variant="ghost"
+                    loading={exporting === "ndjson"}
+                    onClick={() => void handleExport("ndjson")}
+                  >
+                    {t("capture.events.exportNdjson")}
+                  </Button>
+                </>
+              )}
             </div>
           </div>
 
@@ -977,6 +1014,15 @@ export const CapturePanel: React.FC = () => {
                   </Badge>
                 ) : null
               })()}
+              {/* "Em qual rota bateu": responde por que foi dropado/amostrado. */}
+              {(() => {
+                const route = metaField(inspected, "route_id")
+                return route ? (
+                  <Badge variant="outline">
+                    {t("capture.inspectModal.route", { route })}
+                  </Badge>
+                ) : null
+              })()}
             </div>
             {(() => {
               const detail = metaField(inspected, "detail")
@@ -986,20 +1032,54 @@ export const CapturePanel: React.FC = () => {
                 </p>
               ) : null
             })()}
-            <div className="rounded bg-surface-tertiary p-3">
-              <pre className="max-h-96 overflow-auto whitespace-pre-wrap break-all text-xs text-text">
-                {JSON.stringify(inspected.event, null, 2)}
-              </pre>
-              <div className="mt-2 flex justify-end">
-                <Button
-                  size="xs"
-                  variant="outline"
-                  leftIcon={<CopyIcon size={12} />}
-                  onClick={() => void handleCopyJson(inspected)}
-                >
-                  {t("capture.inspectModal.copyJson")}
-                </Button>
-              </div>
+            {(() => {
+              // Antes/depois: o envelope carrega `raw` (como recebemos do vendor)
+              // e `normalized` (OCSF, como está sendo mandado). Separá-los é o que
+              // torna o troubleshooting completo — em vez de um blob único, o
+              // operador vê a transformação lado a lado. Cai de volta para o blob
+              // quando o formato não é o envelope esperado.
+              const payload = inspected.event as Record<string, unknown> | undefined
+              const raw = payload?.["raw"]
+              const normalized = payload?.["normalized"]
+              if (raw !== undefined && normalized !== undefined) {
+                return (
+                  <div className="grid gap-3 md:grid-cols-2">
+                    <div className="rounded bg-surface-tertiary p-3" data-testid="capture-before">
+                      <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-text-secondary">
+                        {t("capture.inspectModal.before")}
+                      </span>
+                      <pre className="max-h-96 overflow-auto whitespace-pre-wrap break-all text-xs text-text">
+                        {JSON.stringify(raw, null, 2)}
+                      </pre>
+                    </div>
+                    <div className="rounded bg-surface-tertiary p-3" data-testid="capture-after">
+                      <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-text-secondary">
+                        {t("capture.inspectModal.after")}
+                      </span>
+                      <pre className="max-h-96 overflow-auto whitespace-pre-wrap break-all text-xs text-text">
+                        {JSON.stringify(normalized, null, 2)}
+                      </pre>
+                    </div>
+                  </div>
+                )
+              }
+              return (
+                <div className="rounded bg-surface-tertiary p-3">
+                  <pre className="max-h-96 overflow-auto whitespace-pre-wrap break-all text-xs text-text">
+                    {JSON.stringify(inspected.event, null, 2)}
+                  </pre>
+                </div>
+              )
+            })()}
+            <div className="flex justify-end">
+              <Button
+                size="xs"
+                variant="outline"
+                leftIcon={<CopyIcon size={12} />}
+                onClick={() => void handleCopyJson(inspected)}
+              >
+                {t("capture.inspectModal.copyJson")}
+              </Button>
             </div>
           </div>
         )}

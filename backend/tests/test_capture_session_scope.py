@@ -408,3 +408,56 @@ def test_stopped_session_status_is_reported(env) -> None:
         f"{BASE}/capture-sessions/{session['id']}/events?org_id={env['org_a']}"
     ).json()
     assert body["session_status"] == "stopped"
+
+
+# ── Export (CSV / NDJSON) ────────────────────────────────────────────────────
+
+
+def _pii_event(org_id: int) -> Dict[str, Any]:
+    return {
+        "_centralops": {"vendor": "sophos", "organization_id": org_id, "event_id": "x"},
+        "raw": {"srcuser": "svc_backup", "src_ip": "10.0.0.9", "eventID": "4624"},
+    }
+
+
+def test_export_csv_streams_with_bom_and_masks_pii(env) -> None:
+    session = _start(env["ga"], env["org_a"])
+    _record(
+        env["server"], [_pii_event(env["org_a"])], env["org_a"],
+        outcome=cs.OUTCOME_DROPPED, route_id="r-noise",
+    )
+    r = env["ga"].get(
+        f"{BASE}/capture-sessions/{session['id']}/export?org_id={env['org_a']}&fmt=csv",
+        headers={"accept-language": "pt-BR"},
+    )
+    assert r.status_code == 200, r.text
+    assert r.headers["content-type"].startswith("text/csv")
+    assert "attachment" in r.headers.get("content-disposition", "")
+    body = r.text
+    assert body.startswith("﻿")  # BOM p/ Excel
+    assert ";" in body.splitlines()[0]  # separador pt
+    assert "r-noise" in body  # rota estruturada
+    # PII mascarada no arquivo que sai do sistema; campo não-PII preservado
+    assert "svc_backup" not in body and "10.0.0.9" not in body
+    assert "4624" in body
+
+
+def test_export_ndjson_can_disable_mask(env) -> None:
+    session = _start(env["ga"], env["org_a"])
+    _record(env["server"], [_pii_event(env["org_a"])], env["org_a"], outcome=cs.OUTCOME_DELIVERED)
+    r = env["ga"].get(
+        f"{BASE}/capture-sessions/{session['id']}/export"
+        f"?org_id={env['org_a']}&fmt=ndjson&mask=false"
+    )
+    assert r.status_code == 200, r.text
+    assert r.headers["content-type"].startswith("application/x-ndjson")
+    assert "svc_backup" in r.text
+
+
+def test_export_rejects_foreign_session(env) -> None:
+    """Admin escopado da org A não exporta sessão de outra org (404, não vaza)."""
+    session = _start(env["ga"], env["org_b"])
+    r = env["scoped"].get(
+        f"{BASE}/capture-sessions/{session['id']}/export?org_id={env['org_b']}"
+    )
+    assert r.status_code in (403, 404), r.text

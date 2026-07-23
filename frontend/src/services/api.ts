@@ -20,7 +20,6 @@ import type {
   AuthUser,
   BootstrapAdminRequest,
   CollectionState,
-  CollectorAuditResponse,
   CollectorConfig,
   CollectorConfigTestResponse,
   CollectorSummary,
@@ -936,29 +935,6 @@ export async function testCollectorConfig() {
   })
 }
 
-export async function getCollectorAuditRecent(params?: {
-  limit?: number
-  platform?: string
-  stream?: string
-}) {
-  const sp = new URLSearchParams()
-  if (params?.limit) sp.set("limit", String(params.limit))
-  if (params?.platform) sp.set("platform", params.platform)
-  if (params?.stream) sp.set("stream", params.stream)
-  const qs = sp.toString()
-  return apiRequest<CollectorAuditResponse>(
-    `/collectors/config/audit/recent${qs ? `?${qs}` : ""}`,
-    { forbiddenRedirectTo: ADMIN_REDIRECT_PATH },
-  )
-}
-
-export async function clearCollectorAudit() {
-  return apiRequest<void>("/collectors/config/audit/recent", {
-    method: "DELETE",
-    forbiddenRedirectTo: ADMIN_REDIRECT_PATH,
-  })
-}
-
 // ── Edição / licença (open-core) ─────────────────────────────────────
 
 export async function getEdition() {
@@ -1038,6 +1014,43 @@ export async function getCaptureEvents(sessionId: string, limit = 200, orgId?: n
     `/collectors/config/capture-sessions/${encodeURIComponent(sessionId)}/events?limit=${limit}${captureOrgQuery(orgId, "&")}`,
     { forbiddenRedirectTo: ADMIN_REDIRECT_PATH },
   )
+}
+
+/** Constrói a URL de export (planilha CSV ou NDJSON) de uma sessão de captura.
+ *  Usada num <a download> / window.open — o backend faz streaming e a máscara de
+ *  PII (mask=true por default). */
+export function captureExportUrl(
+  sessionId: string,
+  fmt: "csv" | "ndjson" = "csv",
+  orgId?: number | null,
+): string {
+  return `${BASE_URL}/collectors/config/capture-sessions/${encodeURIComponent(sessionId)}/export?fmt=${fmt}${captureOrgQuery(orgId, "&")}`
+}
+
+/** Baixa o export como arquivo. Fetch com credenciais (o download precisa do
+ *  cookie de sessão) → blob → clique programático num link temporário. */
+export async function downloadCaptureExport(
+  sessionId: string,
+  fmt: "csv" | "ndjson",
+  orgId?: number | null,
+): Promise<void> {
+  const res = await fetch(captureExportUrl(sessionId, fmt, orgId), {
+    credentials: "include",
+    headers: { "Accept-Language": i18n.language || "pt" },
+  })
+  if (!res.ok) throw new ApiRequestError(`export failed (${res.status})`, res.status)
+  const blob = await res.blob()
+  const url = URL.createObjectURL(blob)
+  try {
+    const a = document.createElement("a")
+    a.href = url
+    a.download = `capture-${sessionId}.${fmt}`
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+  } finally {
+    URL.revokeObjectURL(url)
+  }
 }
 
 export async function stopCaptureSession(sessionId: string, orgId?: number | null) {
@@ -1885,7 +1898,14 @@ export interface CostSummaryRow {
   out_in_byte_ratio: number | null
   reduction_active: boolean
   bytes_saved: number
+  /** Decomposição de bytes_saved por causa (trim/sample/suppress/drop/…).
+   *  Causas que não dispararam são omitidas pelo backend. */
+  bytes_saved_by_reason: Record<string, number>
+  /** saved / (out + saved) — denominador CONTRAFACTUAL, não bytes_in. */
   reduction_pct: number | null
+  /** true quando bytes_saved > bytes_in: funil impossível causado por bases de
+   *  medição diferentes (ver CostSummary.units), não por dupla contagem. */
+  unit_mismatch: boolean
   savings_usd_per_day: number | null
   cost: { usd: number; currency: string } | null
 }
@@ -1893,6 +1913,10 @@ export interface CostSummary {
   window_minutes: number
   enabled: boolean
   pricing_available: boolean
+  /** Estado real das flags REDUCTION_* no backend que respondeu. */
+  levers: Record<string, boolean>
+  /** Base de medição de cada métrica (`raw_event`, `envelope_per_delivery`, …). */
+  units: Record<string, string>
   rows: CostSummaryRow[]
   note: string
 }

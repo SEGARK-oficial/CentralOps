@@ -23,7 +23,6 @@
       "email": "Notificações por email",
       "collector": "Coleta & Entrega",
       "identity": "Identidade & SSO",
-      "audit": "Auditoria",
       "capture": "Captura ao vivo",
       "licensing": "Licenciamento"
     },
@@ -41,10 +40,6 @@
       "loadError": "Falha ao carregar configuração de identidade",
       "cardTitle": "Identidade & SSO (Microsoft Entra)",
       "cardDescription": "Login corporativo \"Entrar com Microsoft\" (OIDC). As credenciais ficam guardadas com segurança e as alterações valem a partir do próximo login."
-    },
-    "audit": {
-      "cardTitle": "Auditoria de eventos despachados",
-      "cardDescription": "Últimos eventos enviados aos destinos (Syslog/JSONL). Use para conferir o formato exato e testar decoders na ferramenta do seu destino (ex.: {{tool}})."
     },
     "capture": {
       "cardTitle": "Captura ao vivo (\"modo escuta\")",
@@ -307,74 +302,6 @@
     "refresh": "Atualizar",
     "refreshAriaLabel": "Atualizar status do sync"
   },
-  "audit": {
-    "intro": {
-      "title": "O que é esta aba",
-      "body": "Amostra rotativa dos últimos <strong>eventos efetivamente enviados aos destinos</strong> (até 500, mantidos por 24h). As linhas wire-format exportadas aqui são <strong>byte-a-byte idênticas</strong> às que saíram na rede, incluindo hostname e prioridade. Cole na ferramenta de teste do seu destino (ex.: {{tool}}) para ver exatamente como seu decoder ou regra se comporta com o tráfego real."
-    },
-    "loadError": "Falha ao carregar auditoria",
-    "clearBufferSuccess": "Amostra de auditoria limpa.",
-    "clearBufferError": "Falha ao zerar buffer",
-    "copyWireSuccess": "Linha {{format}} copiada — cole na ferramenta de teste do seu destino (ex.: {{tool}}) para testar decoders.",
-    "copyJsonSuccess": "JSON do evento copiado.",
-    "toolbar": {
-      "filterByPlatform": "Filtrar por plataforma",
-      "allPlatforms": "Todas as plataformas",
-      "filterByStream": "Filtrar por stream",
-      "allStreams": "Todos os streams",
-      "quantity": "Quantidade",
-      "eventsUnit": "{{count}} eventos",
-      "eventCount_one": "{{count}} evento",
-      "eventCount_other": "{{count}} eventos",
-      "clearBuffer": "Limpar amostra"
-    },
-    "loading": "Carregando auditoria…",
-    "emptyTitle": "Nenhum evento registrado",
-    "emptyDescription": "Nenhum evento enviado nos últimos minutos — ou você acabou de limpar a amostra. Ela volta a se preencher na próxima coleta.",
-    "table": {
-      "timestamp": "Timestamp",
-      "vendorStream": "Vendor / Stream",
-      "customer": "Customer",
-      "eventId": "ID do evento",
-      "severity": "Severity",
-      "actions": "Ações",
-      "legacyFormatTooltip": "Amostra gravada antes de uma atualização do sistema — formato real não registrado"
-    },
-    "actions": {
-      "inspect": "Inspecionar",
-      "inspectTooltip": "Ver JSON completo",
-      "json": "JSON",
-      "jsonTooltip": "Copiar JSON",
-      "wireTooltip": "Copiar linha wire-format para a ferramenta de teste do destino"
-    },
-    "modal": {
-      "defaultTitle": "Evento",
-      "customerBadge": "customer #{{id}}",
-      "integrationBadge": "integration #{{id}}",
-      "legacyHostnameBadge": "hostname genérico",
-      "tabsAriaLabel": "Visualizações do evento",
-      "tabWire": "Wire-format",
-      "tabNormalized": "Normalized (OCSF)",
-      "tabRaw": "Raw (vendor)",
-      "wireLineLabelRfc3164": "Linha RFC 3164",
-      "wireLineLabelRfc5424": "Linha RFC 5424",
-      "wireLineCopyHint": "(copiar para ferramenta de teste do destino, ex.: {{tool}})",
-      "hostBadge": "host: {{hostname}}",
-      "legacyEnvelopeNote": "Evento gravado por uma versão anterior do sistema: o hostname exibido é genérico, mas isso não afeta o decoder — a identificação usa {{field}}. Eventos novos trazem o hostname real.",
-      "legacyFormatNote": "Amostra gravada antes de uma atualização do sistema — exibida no formato RFC 5424.",
-      "copyLine": "Copiar linha",
-      "normalizedTitle": "OCSF v1.3 normalizado",
-      "rawTitle": "Payload original do vendor",
-      "copyJson": "Copiar JSON"
-    },
-    "clearDialog": {
-      "title": "Limpar a amostra de auditoria?",
-      "descriptionPrefix": "Esta ação remove",
-      "descriptionAllEvents": "todos os {{count}} eventos",
-      "descriptionSuffix": "atualmente no buffer e não pode ser desfeita. Eventos novos continuarão sendo gravados normalmente conforme os coletores despacham para os destinos.",
-      "confirm": "Limpar amostra"
-    }
-  },
   "capture": {
     "intro": {
       "title": "O que é a captura ao vivo",
@@ -439,6 +366,9 @@
       "allVendors": "Todos os vendors",
       "liveUpdating": "(atualizando ao vivo)",
       "refresh": "Atualizar",
+      "exportCsv": "Exportar CSV",
+      "exportNdjson": "NDJSON",
+      "exportError": "Falha ao exportar os eventos.",
       "loading": "Carregando eventos…",
       "waitingTitle": "Sessão ativa — aguardando eventos",
       "waitingDescription": "A captura está no ar e ainda não registrou nada. Isso normalmente significa que ainda não passou tráfego pelo pipeline nesta janela — não que a captura esteja quebrada.",
@@ -476,7 +406,10 @@
       "copyJson": "Copiar JSON",
       "outcome": "Desfecho: {{outcome}}",
       "destination": "Destino: {{destination}}",
-      "detail": "Motivo: {{detail}}"
+      "route": "Rota: {{route}}",
+      "detail": "Motivo: {{detail}}",
+      "before": "Como recebemos (bruto)",
+      "after": "Como está sendo mandado (normalizado)"
     },
     "deleteDialog": {
       "title": "Excluir sessão de captura?",

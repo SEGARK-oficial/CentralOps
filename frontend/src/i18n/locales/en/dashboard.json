@@ -287,7 +287,22 @@
       "reduction": "Reduction",
       "estimatedSavings": "Estimated savings",
       "perDay": "/ day",
-      "enablePricing": "Enable US$ calculation (savings/ROI) with the Enterprise edition + per-GB pricing on the destination."
+      "enablePricing": "Enable US$ calculation (savings/ROI) with the Enterprise edition + per-GB pricing on the destination.",
+      "pricingUnconfigured": "Per-GB price not set on the destination — without it currency savings cannot be computed and stay at zero.",
+      "unitRaw": "raw event, 1× per event",
+      "unitEnvelope": "envelope, per delivery",
+      "unitMixed": "mixed bases — see breakdown",
+      "reductionBasis": "over delivered + avoided",
+      "byReason": "By cause:",
+      "unitMismatch": "Avoided exceeds Collected because the metrics use different measurement bases (raw × envelope, per event × per delivery) — this is not double counting. Treat the numbers as an approximation until the bases are unified.",
+      "reasons": {
+        "trim": "trim",
+        "sample": "sampling",
+        "suppress": "suppression",
+        "drop": "route drop",
+        "aggregate": "aggregation",
+        "redaction": "redaction"
+      }
     },
     "sparkline": {
       "noData": "{{label}}: no data",

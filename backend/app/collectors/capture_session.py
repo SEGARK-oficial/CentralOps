@@ -229,12 +229,17 @@ def _entries_for(
     outcome: str,
     destination_id: Optional[str],
     detail: Optional[str],
+    route_id: Optional[str] = None,
 ) -> List[str]:
     """Serializa os eventos do lote que passam pelo filtro de vendor DESTA sessão.
 
     Formato COMPATÍVEL com o que a UI já lê (``event``/``vendor``/``captured_at``);
-    ``outcome`` é sempre adicionado e ``destination_id``/``detail`` só quando aplicáveis
-    (mantém o ring enxuto)."""
+    ``outcome`` é sempre adicionado e ``destination_id``/``detail``/``route_id`` só
+    quando aplicáveis (mantém o ring enxuto).
+
+    ``route_id`` é ESTRUTURADO (campo próprio), não texto dentro de ``detail``: é a
+    rota responsável pelo desfecho — para o operador responder "em qual rota bateu"
+    e "por que foi dropado" sem parsear string livre."""
     vfilter = (m.get("vendor") or "").strip()
     out: List[str] = []
     for ev in batch:
@@ -249,6 +254,8 @@ def _entries_for(
         }
         if destination_id is not None:
             payload["destination_id"] = str(destination_id)
+        if route_id:
+            payload["route_id"] = str(route_id)
         if detail:
             payload["detail"] = str(detail)[:MAX_DETAIL_CHARS]
         out.append(json.dumps(payload, separators=(",", ":"), default=str))
@@ -385,6 +392,41 @@ async def read_events(
     return events
 
 
+EXPORT_PAGE_SIZE = 500
+
+
+async def iter_events(
+    redis: redis_async.Redis,
+    session_id: str,
+    *,
+    page_size: int = EXPORT_PAGE_SIZE,
+    max_events: int = MAX_RING_SIZE,
+):
+    """Itera os eventos do ring em PÁGINAS (``LRANGE`` por bloco), para o export
+    streamar sem materializar o ring inteiro na RAM da API — o ``read_events``
+    carrega tudo de uma vez, e o export pode percorrer até 20k eventos.
+
+    ``max_events`` é o teto duro de linhas percorridas (anti-exfiltração/OOM). O
+    pico de memória é uma página, não o dataset."""
+    page_size = max(1, min(int(page_size), MAX_RING_SIZE))
+    max_events = max(1, min(int(max_events), MAX_RING_SIZE))
+    key = _events_key(session_id)
+    start = 0
+    while start < max_events:
+        stop = min(start + page_size, max_events) - 1
+        raw = await redis.lrange(key, start, stop)
+        if not raw:
+            return
+        for item in raw:
+            try:
+                yield json.loads(_s(item))
+            except Exception:  # pragma: no cover — entrada corrompida é ignorada
+                continue
+        if len(raw) <= stop - start:  # última página (ring menor que o teto)
+            return
+        start = stop + 1
+
+
 async def active_sessions(
     redis: redis_async.Redis, org_id: Any
 ) -> List[Dict[str, str]]:
@@ -481,6 +523,7 @@ async def record(
     outcome: str = OUTCOME_DELIVERED,
     destination_id: Optional[str] = None,
     detail: Optional[str] = None,
+    route_id: Optional[str] = None,
     sessions: Optional[Sequence[Mapping[str, str]]] = None,
 ) -> None:
     """Anexa o lote às sessões de captura ATIVAS do ``org_id`` com o DESFECHO
@@ -488,9 +531,10 @@ async def record(
 
     ``outcome`` default ``delivered`` (compatível com o call-site histórico do
     dispatch). ``destination_id`` identifica o destino quando o desfecho é por-destino
-    (delivered / delivery_failed / residency_blocked / sampled_out); ``detail`` é um
-    motivo CURTO (truncado em ``MAX_DETAIL_CHARS``) — juntos respondem "como entrou e
-    como saiu". ``sessions`` reusa uma resolução prévia de :func:`active_sessions`.
+    (delivered / delivery_failed / residency_blocked / sampled_out); ``route_id`` é a
+    rota responsável (estruturado); ``detail`` é um motivo CURTO (truncado em
+    ``MAX_DETAIL_CHARS``) — juntos respondem "como entrou, por qual rota e como saiu".
+    ``sessions`` reusa uma resolução prévia de :func:`active_sessions`.
 
     Best-effort: NUNCA levanta (chamado do hot path de dispatch/coleta)."""
     if not batch:
@@ -508,7 +552,7 @@ async def record(
             sid = m.get("id") or ""
             if not sid:
                 continue
-            entries = _entries_for(m, batch, now, outcome, destination_id, detail)
+            entries = _entries_for(m, batch, now, outcome, destination_id, detail, route_id)
             if not entries:
                 continue
             ring_size, evt_ttl = _ring_params(m, now)
@@ -533,6 +577,7 @@ def record_sync(
     outcome: str = OUTCOME_DELIVERED,
     destination_id: Optional[str] = None,
     detail: Optional[str] = None,
+    route_id: Optional[str] = None,
     sessions: Optional[Sequence[Mapping[str, str]]] = None,
     redis: Any = None,
 ) -> None:
@@ -555,7 +600,7 @@ def record_sync(
             sid = m.get("id") or ""
             if not sid:
                 continue
-            entries = _entries_for(m, batch, now, outcome, destination_id, detail)
+            entries = _entries_for(m, batch, now, outcome, destination_id, detail, route_id)
             if not entries:
                 continue
             ring_size, evt_ttl = _ring_params(m, now)

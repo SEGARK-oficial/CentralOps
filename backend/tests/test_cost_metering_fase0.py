@@ -274,3 +274,103 @@ def test_cost_summary_surfaces_savings_when_a_lever_reduced(monkeypatch):
     # savings da janela (1 GB × 3.0 = 3.0) extrapolado p/ dia.
     expected_day = 3.0 * (1440.0 / router._COST_WINDOW_MINUTES)
     assert row.savings_usd_per_day == pytest.approx(expected_day)
+
+
+# ── decomposição por causa + honestidade de unidade ──────────────────────────
+#
+# Contexto: bytes_in mede o evento CRU (1×/evento) enquanto bytes_out e a maior
+# parte de bytes_saved medem o ENVELOPE por ENTREGA. Com isso "Evitado" pode
+# superar "Coletado" sem nenhuma dupla contagem. Estes testes travam a
+# SINALIZAÇÃO desse estado — a unificação das bases é fase seguinte.
+
+def test_record_saving_writes_a_per_reason_series(monkeypatch):
+    """Cada causa ganha série própria `bytes_saved:<reason>` além do total."""
+    from backend.app.collectors import metrics as _metrics
+
+    rec = _RecordingCounter()
+    monkeypatch.setattr(obs, "record_counter", rec)
+    monkeypatch.setattr(_metrics, "BYTES_SAVED", _SpyInstrument())
+    monkeypatch.setattr(settings, "COST_METERING_ENABLED", True)
+
+    metering.record_saving(7, None, "drop", bytes_=1234.0)
+
+    org_writes = {(m, v) for (kind, oid, m, v) in rec.calls if kind == "org" and oid == "7"}
+    assert ("bytes_saved", 1234.0) in org_writes  # total preservado
+    assert ("bytes_saved:drop", 1234.0) in org_writes  # série por causa
+
+
+def test_record_saving_rejects_reason_outside_the_allow_list(monkeypatch):
+    """`reason` vira sufixo de chave Redis: string livre não pode criar série
+    (explosão de cardinalidade). O total continua sendo creditado."""
+    from backend.app.collectors import metrics as _metrics
+
+    rec = _RecordingCounter()
+    monkeypatch.setattr(obs, "record_counter", rec)
+    monkeypatch.setattr(_metrics, "BYTES_SAVED", _SpyInstrument())
+    monkeypatch.setattr(settings, "COST_METERING_ENABLED", True)
+
+    metering.record_saving(7, None, "../evil:key", bytes_=10.0)
+
+    metrics_written = {m for (kind, oid, m, _v) in rec.calls if kind == "org"}
+    assert "bytes_saved" in metrics_written
+    assert not any(m.startswith("bytes_saved:") for m in metrics_written)
+
+
+def test_cost_summary_decomposes_savings_by_reason(monkeypatch):
+    _seed(monkeypatch, {
+        ("org", "1", "bytes_in"): 1000,
+        ("org", "1", "bytes_out"): 400,
+        ("org", "1", "bytes_saved"): 600,
+        ("org", "1", "bytes_saved:drop"): 500,
+        ("org", "1", "bytes_saved:trim"): 100,
+    })
+    out = _call_endpoint(monkeypatch, [1])
+    row = out.rows[0]
+    assert row.bytes_saved_by_reason == {"trim": 100, "drop": 500}
+    # causas que não dispararam não poluem a resposta
+    assert "sample" not in row.bytes_saved_by_reason
+
+
+def test_cost_summary_flags_the_impossible_funnel(monkeypatch):
+    """Evitado > Coletado é aritmeticamente impossível como funil e passa a ser
+    sinalizado em vez de exibido em silêncio. Números do incidente real:
+    604,6 MB coletados, 346,4 MB entregues, 701,2 MB evitados."""
+    _seed(monkeypatch, {
+        ("org", "1", "bytes_in"): 604_600_000,
+        ("org", "1", "bytes_out"): 346_400_000,
+        ("org", "1", "bytes_saved"): 701_200_000,
+    })
+    out = _call_endpoint(monkeypatch, [1])
+    row = out.rows[0]
+    assert row.unit_mismatch is True
+    # e a Redução exibida continua sendo saved/(out+saved) = 66,9% — o denominador
+    # contrafactual é justamente o que impede o número de denunciar a incoerência.
+    assert row.reduction_pct == pytest.approx(0.6693, abs=1e-4)
+
+
+def test_cost_summary_does_not_flag_a_coherent_funnel(monkeypatch):
+    _seed(monkeypatch, {
+        ("org", "1", "bytes_in"): 1000,
+        ("org", "1", "bytes_out"): 400,
+        ("org", "1", "bytes_saved"): 300,
+    })
+    assert _call_endpoint(monkeypatch, [1]).rows[0].unit_mismatch is False
+
+
+def test_cost_summary_exposes_real_lever_state_and_units(monkeypatch):
+    """A UI de rotas afirmava que sample/suppress nasciam desligadas; nada expunha
+    o estado real. O envelope passa a carregá-lo, junto da base de medição."""
+    _seed(monkeypatch, {("org", "1", "bytes_in"): 10})
+    monkeypatch.setattr(settings, "REDUCTION_SAMPLE_ENABLED", True)
+    monkeypatch.setattr(settings, "REDUCTION_AGGREGATE_ENABLED", False)
+
+    out = _call_endpoint(monkeypatch, [1])
+
+    assert out.levers["sample"] is True
+    assert out.levers["aggregate"] is False
+    assert out.levers["drop"] is True  # config de rota: não há flag para desligar
+    assert out.units["bytes_in"] == "raw_event"
+    assert out.units["bytes_out"] == "envelope_per_delivery"
+    assert out.units["bytes_saved"] == "mixed"
+    # a nota não pode mais afirmar que nenhuma alavanca está ativa
+    assert "sem alavanca de redução" not in out.note

@@ -302,13 +302,10 @@ def test_email_recipients_are_org_scoped(env) -> None:
     assert sc.delete(f"/api/emails/{b_id}").status_code == 403
 
 
-# ── Ring de auditoria + captura ao vivo (dados de eventos) ────────────────────
-
-
-def test_scoped_admin_cannot_read_or_clear_another_orgs_audit_ring(env) -> None:
-    sc = env["scoped"]
-    assert sc.get(f"/api/collectors/config/audit/recent?org_id={env['org_b']}").status_code == 403
-    assert sc.delete(f"/api/collectors/config/audit/recent?org_id={env['org_b']}").status_code == 403
+# ── Captura ao vivo (dados de eventos) ───────────────────────────────────────
+# O teste do ring de auditoria (/audit/recent) foi removido junto com o endpoint
+# — a aba Auditoria saiu (substituída pela captura ao vivo). O escopo cross-tenant
+# do dado de evento é coberto abaixo pela captura.
 
 
 def test_scoped_admin_cannot_capture_another_orgs_traffic(env) -> None:

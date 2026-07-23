@@ -276,8 +276,21 @@ class CostSummaryRow(BaseModel):
     # bytes LÓGICOS evitados pelas alavancas na janela (soma de todos os
     # reasons; ver collector_bytes_saved_total). 0 = nenhuma alavanca ativa/efetiva.
     bytes_saved: int = 0
+    # Decomposição de bytes_saved por CAUSA (trim/sample/suppress/drop/aggregate/
+    # redaction). Existe porque as causas NÃO compartilham base de medição — ver
+    # o bloco `units` do envelope — e um total único esconde essa mistura.
+    bytes_saved_by_reason: Dict[str, int] = {}
     # % de volume evitado = bytes_saved / (bytes_out + bytes_saved). None sem base.
+    # ATENÇÃO: o denominador é CONTRAFACTUAL ("o que seria entregue"), não o
+    # volume coletado — por isso nunca passa de 100% mesmo com as unidades
+    # misturadas, e nunca denuncia a incoerência. Ver `unit_mismatch`.
     reduction_pct: Optional[float] = None
+    # True quando o funil está no estado aritmeticamente impossível
+    # (bytes_saved > bytes_in). NÃO é erro de contagem nem dupla contagem: é
+    # consequência direta de bytes_in medir o evento CRU enquanto bytes_out e a
+    # maior parte de bytes_saved medem o ENVELOPE, por ENTREGA. Exposto para a UI
+    # poder rotular em vez de exibir um número impossível em silêncio.
+    unit_mismatch: bool = False
     # Economia extrapolada em US$/DIA (janela → dia). Só com o pricer EE + cost_per_gb
     # setado no destino; None no core Community puro (sem tradução em $).
     savings_usd_per_day: Optional[float] = None
@@ -289,6 +302,13 @@ class CostSummary(BaseModel):
     window_minutes: int
     enabled: bool
     pricing_available: bool
+    # Estado REAL das flags de redução no processo que respondeu. Existe porque
+    # até aqui nada expunha isso e a UI de rotas afirmava (errado) que as
+    # alavancas nasciam desligadas — o operador não tinha como conferir.
+    levers: Dict[str, bool] = {}
+    # Base de medição de cada métrica, para a UI rotular em vez de somar unidades
+    # incomparáveis. Chaves espelham os campos de CostSummaryRow.
+    units: Dict[str, str] = {}
     rows: List[CostSummaryRow]
     note: str
 
@@ -303,10 +323,23 @@ def get_cost_summary(
     aparece quando o pacote Enterprise registra um ``cost_pricer`` (seam ee_hooks);
     o core Community devolve apenas volume + razão adimensional.
 
-    Honestidade: NÃO há alavanca de redução ativa, então a razão reflete
-    overhead de pipeline (envelope), fan-out (1 evento → N destinos) e quarentena —
-    NÃO uma "economia" deliberada. As alavancas (drop/sample/trim) chegam em fases
-    seguintes; só então a razão vira "savings"."""
+    HONESTIDADE DE UNIDADE (o texto anterior aqui estava obsoleto: afirmava que
+    nenhuma alavanca estava ativa, o que deixou de ser verdade na ADR-0015). As
+    três métricas de bytes NÃO compartilham base de medição:
+
+      * ``bytes_in``  = evento CRU do vendor, medido 1× por evento, pré-envelope;
+      * ``bytes_out`` = ENVELOPE ``{_centralops, normalized, raw}``, medido por
+        ENTREGA — logo multiplicado pelo fan-out de destinos;
+      * ``bytes_saved`` = MISTURA: ``trim`` credita delta em unidade RAW (1× por
+        evento, pré-fan-out), enquanto ``drop``/``sample`` creditam envelope por
+        par evento×destino e ``suppress`` credita envelope 1× por evento.
+
+    Consequência algébrica: ``(bytes_out + bytes_saved) / bytes_in ≈ (e/r)·D``,
+    com ``e/r`` = overhead do envelope (sempre > 1, pois o envelope CONTÉM o raw)
+    e ``D`` = destinos por evento. Ou seja, ``bytes_saved`` PODE legitimamente
+    superar ``bytes_in`` sem que nenhum evento tenha sido contado duas vezes.
+    Isso é sinalizado por ``unit_mismatch`` na linha, e a unificação das bases é
+    trabalho de fase seguinte — aqui apenas não escondemos mais o problema."""
     from ..collectors import observability_store as obs
     from ..collectors.reduction import metering
 
@@ -325,6 +358,20 @@ def get_cost_summary(
         events_in = int(obs.read_window_total("org", key, "events_in", minutes=_COST_WINDOW_MINUTES))
         events_out = int(obs.read_window_total("org", key, "events_out", minutes=_COST_WINDOW_MINUTES))
         bytes_saved = int(obs.read_window_total("org", key, "bytes_saved", minutes=_COST_WINDOW_MINUTES))
+        # Decomposição por causa: séries escritas por metering.record_saving sob
+        # o vocabulário fechado SAVING_REASONS. Zeros são omitidos para não
+        # poluir a UI com causas que nunca dispararam nesta org.
+        by_reason = {
+            reason: total
+            for reason in metering.SAVING_REASONS
+            if (
+                total := int(
+                    obs.read_window_total(
+                        "org", key, f"bytes_saved:{reason}", minutes=_COST_WINDOW_MINUTES
+                    )
+                )
+            )
+        }
         if not (bytes_in or bytes_out or events_in or events_out or bytes_saved):
             continue  # sem dado na janela → omite a org
         out_in_byte_ratio = (bytes_out / bytes_in) if bytes_in else None
@@ -357,26 +404,54 @@ def get_cost_summary(
                 out_in_byte_ratio=out_in_byte_ratio,
                 reduction_active=bytes_saved > 0,
                 bytes_saved=bytes_saved,
+                bytes_saved_by_reason=by_reason,
+                unit_mismatch=bool(bytes_in and bytes_saved > bytes_in),
                 reduction_pct=reduction_pct,
                 savings_usd_per_day=savings_usd_per_day,
                 cost=cost,
             )
         )
 
+    from ..core.config import settings as _settings
+
     return CostSummary(
         window_minutes=_COST_WINDOW_MINUTES,
         enabled=metering.enabled(),
         pricing_available=pricer is not None,
+        levers={
+            "trim": bool(getattr(_settings, "REDUCTION_TRIM_ENABLED", False)),
+            "sample": bool(getattr(_settings, "REDUCTION_SAMPLE_ENABLED", False)),
+            "suppress": bool(getattr(_settings, "REDUCTION_SUPPRESS_ENABLED", False)),
+            "aggregate": bool(getattr(_settings, "REDUCTION_AGGREGATE_ENABLED", False)),
+            # drop é CONFIG DE ROTA, não alavanca opcional: não existe flag para
+            # desligá-la, então é sempre efetiva (ver metering.record_drop_saving).
+            "drop": True,
+        },
+        units={
+            "bytes_in": "raw_event",
+            "bytes_out": "envelope_per_delivery",
+            "bytes_saved": "mixed",
+            "bytes_saved:trim": "raw_delta_per_event",
+            "bytes_saved:sample": "envelope_per_delivery",
+            "bytes_saved:drop": "envelope_per_delivery",
+            "bytes_saved:suppress": "envelope_per_event",
+            "bytes_saved:aggregate": "envelope_per_delivery",
+            "bytes_saved:redaction": "envelope_per_delivery",
+        },
         rows=rows,
         note=(
-            "Fase 0 = MEDIÇÃO pura, sem alavanca de redução (reduction_active=false). "
-            "bytes_in = volume bruto coletado; bytes_out = volume entregue aos destinos "
-            "(envelope = base de custo do SIEM). out_in_byte_ratio é ≥1 por construção "
-            "(envelope + fan-out + quarentena) — NÃO é economia; só vira redução quando "
-            "as alavancas (drop/trim/sample) entrarem. IN e OUT são alinhados pela janela "
-            "de tempo (por record-time, não por evento), então a razão é uma aproximação "
-            "de regime estacionário (pode oscilar sob backpressure/retry). Custo em US$ é "
-            "Enterprise (ee_hooks.cost_pricer)."
+            "bytes_in = evento CRU coletado (1× por evento). bytes_out = ENVELOPE "
+            "{_centralops,normalized,raw} por ENTREGA — inclui overhead de envelope e "
+            "fan-out, por isso out_in_byte_ratio é ≥1 por construção e NÃO é amplificação "
+            "indevida. bytes_saved MISTURA bases: trim credita delta em unidade raw, "
+            "drop/sample creditam envelope por par evento×destino, suppress credita "
+            "envelope por evento — ver o bloco `units` e a decomposição "
+            "bytes_saved_by_reason. Como consequência, bytes_saved PODE superar bytes_in "
+            "sem dupla contagem (unit_mismatch=true sinaliza a linha). reduction_pct usa "
+            "denominador CONTRAFACTUAL (bytes_out + bytes_saved), não bytes_in. IN e OUT "
+            "são alinhados pela janela de tempo (por record-time, não por evento), então "
+            "a razão é aproximação de regime estacionário. Custo em US$ é Enterprise "
+            "(ee_hooks.cost_pricer)."
         ),
     )
 

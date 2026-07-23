@@ -870,9 +870,18 @@ def apply_compiled(
                 f"regra {rule.target!r}: erro ao resolver source: {exc}"
             ) from exc
 
+        # O SOURCE é registrado mesmo quando o valor resolve None — a regra LÊ
+        # aquele path independentemente de o evento trazer valor ali. Prender o
+        # registro ao valor fazia o conjunto de "conhecidos" variar de evento
+        # para evento: num alerta Wazuh SEM `predecoder`, a regra que lê
+        # `predecoder.hostname` não marcava `predecoder` como consumido, e no
+        # evento seguinte, COM o campo, os irmãos viravam drift — falso positivo
+        # intermitente, difícil de reproduzir. Mesmo racional do bloco de
+        # fallback_source_strs logo abaixo, que já era incondicional.
+        if rule.source is not None and rule.source_str:
+            consumed.add(f"source:{rule.source_str}")
+        # O TARGET, ao contrário, só existe no envelope quando o valor resolveu.
         if rule.source is not None and value is not None:
-            if rule.source_str:
-                consumed.add(f"source:{rule.source_str}")
             consumed.add(rule.target)
 
         # Drift detection: register all fallback paths regardless of which one

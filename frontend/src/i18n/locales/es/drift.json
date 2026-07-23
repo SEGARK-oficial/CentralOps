@@ -16,7 +16,10 @@
     "mapped": "Mapeados",
     "cardAriaLoading": "{{label}}: cargando",
     "cardAria_one": "{{count}} campo {{label}}",
-    "cardAria_other": "{{count}} campos {{label}}"
+    "cardAria_other": "{{count}} campos {{label}}",
+    "cardAriaError": "{{label}}: error al cargar",
+    "loadError": "No se pudieron cargar los contadores",
+    "loadErrorBody": "Los totales por estado no pudieron cargarse. Los valores mostrados pueden ser incorrectos — esto no significa que no haya drift."
   },
   "filters": {
     "status": {

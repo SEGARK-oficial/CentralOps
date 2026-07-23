@@ -183,6 +183,7 @@ def _capture_sync(
     *,
     destination_id: Optional[str] = None,
     detail: Optional[str] = None,
+    route_id: Optional[str] = None,
     sessions: Optional[list] = None,
 ) -> None:
     """Registra o DESFECHO de um lote nas sessões de captura ativas (tap de ciclo de
@@ -203,6 +204,7 @@ def _capture_sync(
             outcome=outcome,
             destination_id=destination_id,
             detail=detail,
+            route_id=route_id,
             sessions=sessions,
         )
     except Exception:  # noqa: BLE001 — captura nunca quebra o hot path
@@ -1428,11 +1430,13 @@ def _capture_outcomes(org_id: Optional[int], result: Any) -> None:
             if events:
                 _capture_sync(events, org_id, outcome, sessions=sessions)
 
-        # (envelope, route_id) → detalhe = a rota responsável pelo drop.
+        # (envelope, route_id) → a rota responsável pelo drop, agora ESTRUTURADA
+        # (campo route_id), não mais texto em detail: é o que responde "por que foi
+        # dropado — qual regra o descartou".
         for _env, _rid in getattr(result, "dropped_events", None) or ():
             _capture_sync(
                 [_env], org_id, capture_session.OUTCOME_DROPPED,
-                detail=f"route={_rid}" if _rid else None, sessions=sessions,
+                route_id=_rid or None, sessions=sessions,
             )
         _emit(list(getattr(result, "unrouted_events", None) or ()), capture_session.OUTCOME_UNROUTED)
         for _env, _reason in getattr(result, "loop_blocked_events", None) or ():
@@ -1448,7 +1452,7 @@ def _capture_outcomes(org_id: Optional[int], result: Any) -> None:
         for _env, _dest, _rid in getattr(result, "sampled_events", None) or ():
             _capture_sync(
                 [_env], org_id, capture_session.OUTCOME_SAMPLED_OUT,
-                destination_id=_dest, detail=f"route={_rid}" if _rid else None,
+                destination_id=_dest, route_id=_rid or None,
                 sessions=sessions,
             )
     except Exception:  # noqa: BLE001 — captura nunca quebra o roteamento

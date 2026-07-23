@@ -1,10 +1,9 @@
 import type React from "react"
 import { useEffect, useState } from "react"
-import { ClipboardIcon, CrownIcon, ExternalLinkIcon, KeyRoundIcon, MailIcon, RadioIcon, SettingsIcon, ShieldCheckIcon, ZapIcon } from "lucide-react"
+import { CrownIcon, ExternalLinkIcon, KeyRoundIcon, MailIcon, RadioIcon, SettingsIcon, ShieldCheckIcon, ZapIcon } from "lucide-react"
 import { Link } from "react-router-dom"
 import { useTranslation } from "react-i18next"
 import { CapturePanel } from "@/components/config/CapturePanel"
-import { CollectorAuditPanel } from "@/components/config/CollectorAuditPanel"
 import { EditionInfoCard } from "@/components/config/EditionInfoCard"
 import { CollectorConfigForm } from "@/components/config/CollectorConfigForm"
 import { EmailConfigForm } from "@/components/config/EmailConfigForm"
@@ -20,7 +19,7 @@ import { useEmailConfig } from "@/hooks/useEmailConfig"
 import { useIdentityConfig } from "@/hooks/useIdentityConfig"
 import * as api from "@/services/api"
 
-type ConfigTab = "email" | "collector" | "identity" | "audit" | "capture" | "licensing"
+type ConfigTab = "email" | "collector" | "identity" | "capture" | "licensing"
 
 export const ConfigPage: React.FC = () => {
   const { t } = useTranslation("config")
@@ -161,9 +160,6 @@ export const ConfigPage: React.FC = () => {
           <TabsTrigger value="identity" icon={<KeyRoundIcon size={16} />}>
             {t("page.tabs.identity")}
           </TabsTrigger>
-          <TabsTrigger value="audit" icon={<ClipboardIcon size={16} />}>
-            {t("page.tabs.audit")}
-          </TabsTrigger>
           <TabsTrigger value="capture" icon={<RadioIcon size={16} />}>
             {t("page.tabs.capture")}
           </TabsTrigger>
@@ -255,20 +251,6 @@ export const ConfigPage: React.FC = () => {
                 onSave={saveIdentityConfig}
                 onTest={testIdentityConnection}
               />
-            </CardContent>
-          </Card>
-        </TabsPanel>
-
-        <TabsPanel value="audit">
-          <Card className="shadow-sm">
-            <CardHeader>
-              <CardTitle>{t("page.audit.cardTitle")}</CardTitle>
-              <CardDescription>
-                {t("page.audit.cardDescription", { tool: "wazuh-logtest" })}
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <CollectorAuditPanel />
             </CardContent>
           </Card>
         </TabsPanel>

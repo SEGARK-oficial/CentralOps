@@ -403,7 +403,10 @@ async def test_dropped_event_reaches_capture(async_redis, sync_redis, monkeypatc
     pipeline._enqueue_routed([_env("a")], [_drop_route()])
     (ev,) = _read_sync(sync_redis, sid)
     assert ev["outcome"] == cs.OUTCOME_DROPPED
-    assert ev["detail"] == "route=r-drop"
+    # route_id passou a ser ESTRUTURADO (campo próprio), não texto em detail —
+    # responde "por que foi dropado" sem parsear string livre.
+    assert ev["route_id"] == "r-drop"
+    assert "detail" not in ev
     assert ev["event"]["_centralops"]["event_id"] == "a"
 
 
@@ -461,6 +464,8 @@ async def test_sampled_out_event_reaches_capture(async_redis, sync_redis, monkey
     (ev,) = _read_sync(sync_redis, sid)
     assert ev["outcome"] == cs.OUTCOME_SAMPLED_OUT
     assert ev["destination_id"] == "d1"
+    # a rota que amostrou o evento para fora é atribuída estruturalmente.
+    assert ev["route_id"] == "r1"
 
 
 @pytest.mark.asyncio
