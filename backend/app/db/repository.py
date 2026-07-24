@@ -1153,7 +1153,17 @@ class CollectionStateRepository:
         cursor: str | None,
         events_collected: int,
         error: str | None = None,
+        watermark_at: "datetime | None" = None,
+        last_run_capped: bool = False,
     ) -> models.CollectionState:
+        """Grava o checkpoint do ciclo.
+
+        ``watermark_at``/``last_run_capped`` medem o ATRASO REAL (ver o modelo).
+        Num ciclo que FALHOU, ``watermark_at`` chega ``None`` e a coluna é
+        PRESERVADA: o watermark é uma posição alcançada, não um heartbeat — zerá-lo
+        no erro faria o atraso saltar para "desde sempre" e depois voltar, poluindo
+        justamente o sinal que existe para detectar backlog.
+        """
         now = datetime.utcnow()
         row = self.get(integration_id, stream)
         if row is None:
@@ -1166,6 +1176,8 @@ class CollectionStateRepository:
                 last_error=error,
                 consecutive_failures=0 if not error else 1,
                 events_collected_total=events_collected,
+                watermark_at=watermark_at,
+                last_run_capped=bool(last_run_capped),
             )
             self.db.add(row)
         else:
@@ -1178,6 +1190,15 @@ class CollectionStateRepository:
                 row.last_success_at = now
                 row.last_error = None
                 row.consecutive_failures = 0
+            if watermark_at is not None:
+                row.watermark_at = watermark_at
+            # No ciclo que FALHOU a flag é preservada, pelo mesmo motivo do
+            # watermark logo acima: um ciclo que morreu não drenou nada, então
+            # "sobrou trabalho" continua verdadeiro. Zerá-la faria a etiqueta de
+            # backlog piscar a cada erro transitório — apagando o sinal justamente
+            # quando o coletor está pior.
+            if error is None:
+                row.last_run_capped = bool(last_run_capped)
             row.events_collected_total = (row.events_collected_total or 0) + events_collected
             row.updated_at = now
         self.db.commit()

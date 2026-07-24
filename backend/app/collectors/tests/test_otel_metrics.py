@@ -227,8 +227,14 @@ def test_every_facade_maps_to_spec_and_vice_versa():
     # Tornam visível a evicção silenciosa sob o ``volatile-lru`` 512mb: uma claim
     # evictada faz ``claim()`` devolver True para um evento reentregue, que é
     # indistinguível de um evento novo — só o sinal do próprio Redis expõe.
-    # 42 → 44.
-    assert len(facade_names) == 48
+    # 42 → 44. +2: observabilidade do ATRASO REAL de coleta —
+    # collector_watermark_lag_seconds (agora − watermark, ou seja, de quando é o
+    # dado que acabou de entrar) e collector_cycles_skipped_locked_total (ciclo
+    # pulado porque o anterior do mesmo (integração, stream) ainda rodava).
+    # Existem porque as duas falhas eram INVISÍVEIS: cursor_lag deriva de
+    # last_success_at, que é reescrito a cada ciclo bem-sucedido — marcava 0 num
+    # coletor 15h atrasado (jul/2026). 48 → 50.
+    assert len(facade_names) == 50
     # O catálogo tem as síncronas + ao menos o observável collector_up.
     assert "collector_up" in otel_metrics._SPEC
     assert "collector_up" not in facade_names
