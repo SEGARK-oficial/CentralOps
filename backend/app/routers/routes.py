@@ -1047,6 +1047,49 @@ def rollback_route(
                 },
                 params={"error": str(exc)},
             ) from exc
+    # Mesma defesa para a chave de supressão: uma chave gravada ANTES desta
+    # validação existir (ou vinda de seed/import) voltava a valer pelo histórico e
+    # o pipeline passava a agrupar tráfego demais, descartando em SILÊNCIO (a
+    # supressão roda antes do roteamento, invisível nos contadores da rota).
+    # Sem guarda de `if`: ``validate_suppress_key`` já trata ausente/None/vazia
+    # como supressão desligada — e só assim um valor não-string do snapshot
+    # também é recusado em vez de gravado verbatim.
+    from ..collectors.routing import validate_condition, validate_suppress_key
+
+    try:
+        validate_suppress_key(snap.get("suppress_key"))
+    except Exception as exc:
+        raise ApiError(
+            "route.snapshot_suppress_key_invalid",
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            messages={
+                "pt": "suppress_key do snapshot inválida: {error}",
+                "en": "Invalid snapshot suppress_key: {error}",
+                "es": "suppress_key del snapshot no válida: {error}",
+            },
+            params={"error": str(exc)},
+        ) from exc
+    # E a condição, pelo mesmo motivo — aqui o estrago é o OPOSTO da supressão:
+    # ``compare_values`` faz ``ne``/``nin`` casarem por VACUIDADE quando o campo
+    # não existe, então um snapshot com característica inválida não deixa de casar
+    # — ele casa com TUDO, e a regra passa a capturar tráfego que não é dela.
+    # Só valida se o snapshot traz a chave: um snapshot antigo sem ``condition``
+    # cai no ``_UNSET`` do ``repo.update`` e preserva a condição atual.
+    _snap_condition = snap.get("condition", repository._UNSET)
+    if _snap_condition is not repository._UNSET:
+        try:
+            validate_condition(_snap_condition)
+        except Exception as exc:
+            raise ApiError(
+                "route.snapshot_condition_invalid",
+                status.HTTP_422_UNPROCESSABLE_ENTITY,
+                messages={
+                    "pt": "Condição do snapshot inválida: {error}",
+                    "en": "Invalid snapshot condition: {error}",
+                    "es": "Condición del snapshot no válida: {error}",
+                },
+                params={"error": str(exc)},
+            ) from exc
     updated = repo.update(
         route_id,
         name=snap.get("name", repository._UNSET),

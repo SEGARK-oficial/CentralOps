@@ -521,6 +521,204 @@ def test_rollback_to_deleted_destination_422(client_factory) -> None:
     assert r.status_code == 422, r.text
 
 
+def _tamper_snapshot(SessionLocal, audit_id: str, **fields) -> None:
+    """Escreve valores CRUS no snapshot de auditoria, contornando o schema.
+
+    Simula o cenário real: uma chave gravada ANTES da validação existir (ou vinda
+    de seed/import) que só volta a valer pelo histórico.
+    """
+    import json as _json
+
+    from backend.app.db import models
+
+    db = SessionLocal()
+    try:
+        row = db.get(models.RouteAuditLog, audit_id)
+        assert row is not None
+        snap = _json.loads(str(row.snapshot or "{}"))
+        snap.update(fields)
+        row.snapshot = _json.dumps(snap)
+        db.commit()
+    finally:
+        db.close()
+
+
+def test_rollback_rejects_snapshot_with_invalid_suppress_key(client_factory) -> None:
+    """Snapshot com suppress_key fora da allowlist → 422 e rota INTACTA.
+
+    ``src_ip`` é campo do log, não label de roteamento: a assinatura colapsaria
+    para todos os eventos e a supressão descartaria em silêncio."""
+    factory, SessionLocal = client_factory
+    client = factory()
+    _bootstrap_admin(client)
+    dest = _seed_destination(client)
+    rid = client.post(
+        "/api/collectors/routes",
+        json={"name": "orig", "condition": {}, "destination_ids": [dest], "priority": 50},
+    ).json()["id"]
+    client.put(f"/api/collectors/routes/{rid}", json={"name": "changed", "priority": 5})
+
+    created_audit = next(a for a in client.get(f"/api/collectors/routes/{rid}/audit").json() if a["action"] == "created")
+    _tamper_snapshot(SessionLocal, created_audit["id"], suppress_key="src_ip")
+
+    r = client.post(f"/api/collectors/routes/{rid}/rollback", json={"audit_id": created_audit["id"]})
+    assert r.status_code == 422, r.text
+    assert r.json()["error"]["code"] == "route.snapshot_suppress_key_invalid"
+
+    # Fail-closed: nada do snapshot foi aplicado.
+    current = client.get(f"/api/collectors/routes/{rid}").json()
+    assert current["name"] == "changed"
+    assert current["priority"] == 5
+    assert current["suppress_key"] is None
+    assert "rolled_back" not in [a["action"] for a in client.get(f"/api/collectors/routes/{rid}/audit").json()]
+
+
+def test_rollback_rejects_snapshot_with_unique_per_event_suppress_key(client_factory) -> None:
+    """``event_id`` é único por evento: a assinatura nunca repete e a supressão
+    nunca dispara — o extremo oposto, igualmente silencioso."""
+    factory, SessionLocal = client_factory
+    client = factory()
+    _bootstrap_admin(client)
+    dest = _seed_destination(client)
+    rid = client.post("/api/collectors/routes", json={"name": "r", "condition": {}, "destination_ids": [dest]}).json()["id"]
+    created_audit = next(a for a in client.get(f"/api/collectors/routes/{rid}/audit").json() if a["action"] == "created")
+    _tamper_snapshot(SessionLocal, created_audit["id"], suppress_key="vendor,event_id")
+
+    r = client.post(f"/api/collectors/routes/{rid}/rollback", json={"audit_id": created_audit["id"]})
+    assert r.status_code == 422, r.text
+    assert r.json()["error"]["code"] == "route.snapshot_suppress_key_invalid"
+
+
+def test_rollback_restores_valid_suppress_key(client_factory) -> None:
+    """Caminho feliz preservado: chave válida no snapshot volta pelo rollback."""
+    factory, _ = client_factory
+    client = factory()
+    _bootstrap_admin(client)
+    dest = _seed_destination(client)
+    rid = client.post(
+        "/api/collectors/routes",
+        json={
+            "name": "r",
+            "condition": {},
+            "destination_ids": [dest],
+            "protect_detection": False,
+            "suppress_key": "vendor,severity_id",
+            "suppress_allow": 5,
+            "suppress_window_s": 60,
+        },
+    ).json()["id"]
+
+    # Desliga a supressão (null explícito LIMPA a chave).
+    assert client.put(f"/api/collectors/routes/{rid}", json={"suppress_key": None, "suppress_allow": 0}).status_code == 200
+    assert client.get(f"/api/collectors/routes/{rid}").json()["suppress_key"] is None
+
+    created_audit = next(a for a in client.get(f"/api/collectors/routes/{rid}/audit").json() if a["action"] == "created")
+    r = client.post(f"/api/collectors/routes/{rid}/rollback", json={"audit_id": created_audit["id"]})
+    assert r.status_code == 200, r.text
+    assert r.json()["suppress_key"] == "vendor,severity_id"
+    assert r.json()["suppress_allow"] == 5
+
+
+@pytest.mark.parametrize("value", [None, "", "  ,  "])
+def test_rollback_allows_snapshot_without_suppression(client_factory, value) -> None:
+    """Ausente/None/vazia = supressão desligada — configuração legítima, não erro."""
+    factory, SessionLocal = client_factory
+    client = factory()
+    _bootstrap_admin(client)
+    dest = _seed_destination(client)
+    rid = client.post("/api/collectors/routes", json={"name": "orig", "condition": {}, "destination_ids": [dest]}).json()["id"]
+    client.put(f"/api/collectors/routes/{rid}", json={"name": "changed"})
+
+    created_audit = next(a for a in client.get(f"/api/collectors/routes/{rid}/audit").json() if a["action"] == "created")
+    _tamper_snapshot(SessionLocal, created_audit["id"], suppress_key=value)
+
+    r = client.post(f"/api/collectors/routes/{rid}/rollback", json={"audit_id": created_audit["id"]})
+    assert r.status_code == 200, r.text
+    assert r.json()["name"] == "orig"
+
+
+def test_rollback_rejects_snapshot_with_invalid_condition(client_factory) -> None:
+    """Condição do snapshot fora da allowlist → 422 e rota INTACTA.
+
+    O estrago aqui é o oposto do da supressão: ``compare_values`` faz ``ne``/``nin``
+    casarem por VACUIDADE em campo ausente, então uma característica inválida não
+    deixa de casar — ela casa com TUDO, e a regra captura tráfego que não é dela.
+    """
+    factory, SessionLocal = client_factory
+    client = factory()
+    _bootstrap_admin(client)
+    dest = _seed_destination(client)
+    rid = client.post(
+        "/api/collectors/routes",
+        json={"name": "orig", "condition": {}, "destination_ids": [dest], "priority": 50},
+    ).json()["id"]
+    client.put(f"/api/collectors/routes/{rid}", json={"name": "changed", "priority": 5})
+
+    created_audit = next(a for a in client.get(f"/api/collectors/routes/{rid}/audit").json() if a["action"] == "created")
+    _tamper_snapshot(SessionLocal, created_audit["id"], condition={"src_ip": {"ne": "10.0.0.1"}})
+
+    r = client.post(f"/api/collectors/routes/{rid}/rollback", json={"audit_id": created_audit["id"]})
+    assert r.status_code == 422, r.text
+    assert r.json()["error"]["code"] == "route.snapshot_condition_invalid"
+
+    # Fail-closed: nada do snapshot foi aplicado.
+    current = client.get(f"/api/collectors/routes/{rid}").json()
+    assert current["name"] == "changed"
+    assert current["priority"] == 5
+    assert "rolled_back" not in [a["action"] for a in client.get(f"/api/collectors/routes/{rid}/audit").json()]
+
+
+def test_rollback_restores_valid_condition(client_factory) -> None:
+    """Caminho feliz preservado: condição válida no snapshot volta pelo rollback."""
+    factory, _ = client_factory
+    client = factory()
+    _bootstrap_admin(client)
+    dest = _seed_destination(client)
+    rid = client.post(
+        "/api/collectors/routes",
+        json={
+            "name": "orig",
+            "condition": {"vendor": "sophos"},
+            "destination_ids": [dest],
+        },
+    ).json()["id"]
+    assert client.put(f"/api/collectors/routes/{rid}", json={"condition": {"vendor": "defender"}}).status_code == 200
+
+    created_audit = next(a for a in client.get(f"/api/collectors/routes/{rid}/audit").json() if a["action"] == "created")
+    r = client.post(f"/api/collectors/routes/{rid}/rollback", json={"audit_id": created_audit["id"]})
+    assert r.status_code == 200, r.text
+    assert r.json()["condition"] == {"vendor": "sophos"}
+
+
+def test_rollback_allows_snapshot_with_suppress_key_absent(client_factory) -> None:
+    """Snapshot antigo, anterior à coluna: sem a chave no JSON o rollback passa."""
+    import json as _json
+
+    from backend.app.db import models
+
+    factory, SessionLocal = client_factory
+    client = factory()
+    _bootstrap_admin(client)
+    dest = _seed_destination(client)
+    rid = client.post("/api/collectors/routes", json={"name": "orig", "condition": {}, "destination_ids": [dest]}).json()["id"]
+    client.put(f"/api/collectors/routes/{rid}", json={"name": "changed"})
+    created_audit = next(a for a in client.get(f"/api/collectors/routes/{rid}/audit").json() if a["action"] == "created")
+
+    db = SessionLocal()
+    try:
+        row = db.get(models.RouteAuditLog, created_audit["id"])
+        snap = _json.loads(str(row.snapshot or "{}"))
+        snap.pop("suppress_key", None)
+        row.snapshot = _json.dumps(snap)
+        db.commit()
+    finally:
+        db.close()
+
+    r = client.post(f"/api/collectors/routes/{rid}/rollback", json={"audit_id": created_audit["id"]})
+    assert r.status_code == 200, r.text
+    assert r.json()["name"] == "orig"
+
+
 @pytest.mark.asyncio
 async def test_resolve_samples_unwraps_audit_buffer_entries() -> None:
     """read_recent returns {event, envelope, syslog_format}
