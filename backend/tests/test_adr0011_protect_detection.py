@@ -212,6 +212,45 @@ def test_kept_events_decorated_with_sample_rate_without_mutating_original():
     assert all("sample_rate" not in b["_centralops"] for b in batch)
 
 
+def test_protected_route_is_not_labeled_with_sample_rate():
+    """Rota protegida entrega 100% — carimbar ``sample_rate`` seria mentira de 10x.
+
+    O rótulo existe para reescalar contagens a jusante. Numa rota protegida o
+    fail-safe cancela a amostragem, então TODOS os eventos saem; um
+    ``sample_rate: 0.1`` levaria o analista a multiplicar por 10 uma contagem que
+    já é integral. O carimbo tem de seguir a MESMA condição de ``_should_sample_out``.
+    """
+    batch = [_env(i) for i in range(50)]
+    res = route_batch(
+        batch,
+        [_sroute(sample_percent=10, protect=True)],
+        sampling=SamplingConfig(enabled=True, protect_detection_enforced=True),
+    )
+    kept = res.sub_batches.get("d1", [])
+    assert len(kept) == 50 and res.sampled == 0  # fail-safe: nada amostrado
+    assert all("sample_rate" not in e["_centralops"] for e in kept)
+
+
+def test_global_override_restores_sample_rate_label_on_protected_route():
+    """GUARD (não prova do bug): o rótulo tem de voltar quando o override global age.
+
+    Passa também na versão anterior do código — é de propósito. Ele existe para
+    barrar a correção preguiçosa do teste acima, que seria olhar só
+    ``route.protect_detection`` e esquecer ``protect_detection_enforced``: aí a
+    rota protegida voltaria a ser amostrada pelo override e sairia SEM rótulo,
+    invertendo o mesmo erro de contagem. Não remova por "não cobrir nada novo".
+    """
+    batch = [_env(i) for i in range(200)]
+    res = route_batch(
+        batch,
+        [_sroute(sample_percent=50, protect=True)],
+        sampling=SamplingConfig(enabled=True, protect_detection_enforced=False),
+    )
+    kept = res.sub_batches.get("d1", [])
+    assert kept and res.sampled > 0
+    assert all(e["_centralops"].get("sample_rate") == 0.5 for e in kept)
+
+
 # ── CostConfig (Community) + contabilização do trimming ────
 
 def test_costconfig_defaults_and_validation():
