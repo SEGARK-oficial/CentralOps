@@ -204,17 +204,18 @@ Tudo é feito na tela **Operação → Roteamento**:
 
 ### O que é revalidado ao restaurar uma versão
 
-Restaurar não é "colar de volta o que estava salvo". Antes de gravar, a plataforma confere três coisas na versão antiga:
+Restaurar não é "colar de volta o que estava salvo". Antes de gravar, a plataforma confere quatro coisas na versão antiga:
 
 | O que é conferido | Por que pode ter quebrado no intervalo |
 |---|---|
 | **Existência dos destinos** | Um destino apontado pela versão antiga pode ter sido apagado desde então. |
+| **Condição da regra** | Uma característica válida na época pode não existir mais. E o estrago aqui é o contrário do que se espera: uma condição inválida não deixa de casar — ela casa com **tudo**, e a regra passa a capturar tráfego que não é dela. |
 | **Spec de redação de PII** | A configuração de mascaramento gravada no histórico é revalidada campo a campo, em vez de ser escrita como veio. |
 | **Chave de supressão** | A chave pode citar uma característica que não é mais aceita — e uma chave inválida derrubaria o tráfego em silêncio. |
 
-Se qualquer um dos três estiver inválido, o **restauro é recusado com erro** e a regra atual fica intacta. Isso é proposital: é preferível você ver a mensagem e corrigir a mão do que a plataforma ressuscitar uma configuração quebrada e você descobrir pelo volume que sumiu.
+Se qualquer um dos quatro estiver inválido, o **restauro é recusado com erro** e a regra atual fica intacta. Isso é proposital: é preferível você ver a mensagem e corrigir a mão do que a plataforma ressuscitar uma configuração quebrada e você descobrir pelo volume que sumiu.
 
-Ao **importar um pacote de configuração** de outro ambiente as checagens são parecidas, mas não idênticas: o import valida a condição da regra (que o restauro não checa), a spec de redação de PII e a chave de supressão — mas **não confere se os destinos referenciados existem**. Um pacote trazido de outro ambiente pode entrar com uma regra apontando para um destino que não existe aqui, e a falha só vai aparecer na entrega, na fila de reenvio. Depois de importar, confira os destinos das regras que vieram.
+Ao **importar um pacote de configuração** de outro ambiente as checagens são quase as mesmas — o import valida a condição, a spec de redação de PII e a chave de supressão —, com uma diferença que importa: ele **não confere se os destinos referenciados existem**. Um pacote trazido de outro ambiente pode entrar com uma regra apontando para um destino que não existe aqui, e a falha só vai aparecer na entrega, na fila de reenvio. Depois de importar, confira os destinos das regras que vieram.
 
 ---
 
