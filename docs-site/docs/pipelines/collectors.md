@@ -31,6 +31,12 @@ Em linguagem de produto, sem entrar em infraestrutura:
 
 O resultado dessa etapa são os eventos brutos, que seguem para a normalização, o roteamento e, por fim, para os destinos configurados.
 
+### Coletar menos, quando faz sentido
+
+Por padrão a plataforma coleta **tudo** o que o fornecedor oferece naquele fluxo, e o que não interessa é descartado depois, no roteamento. Isso funciona bem até o volume da origem ficar maior do que a coleta consegue transportar — aí o coletor passa a gastar cada ciclo trazendo eventos que serão jogados fora logo em seguida, e começa a ficar para trás.
+
+Para esse caso, algumas integrações permitem restringir a **própria consulta** feita ao fornecedor. Veja [Filtro de coleta](./collection-filters.md).
+
 ### Coleta em tempo real x coleta em lote
 
 A plataforma trata as origens com prioridades diferentes:
@@ -77,6 +83,7 @@ A capacidade de coleta (quantos eventos a plataforma processa em paralelo) é de
 ## Próximos passos
 
 - **Acompanhar a saúde do pipeline:** menu **Normalização -> Saúde do Pipeline**.
+- **Coleta chegando com horas de atraso:** veja [Eventos chegando horas depois](../runbooks/collection-lag-backlog.md).
 - **Ver e gerenciar as integrações conectadas:** menu **Visão geral -> Integrações**.
 - **Entender como os eventos são normalizados:** veja [Normalização](../normalization/overview.md).
 - **Entender para onde os eventos vão depois da coleta:** veja [Destinos](../outputs/destinations.md) e [Roteamento](../outputs/routing.md).

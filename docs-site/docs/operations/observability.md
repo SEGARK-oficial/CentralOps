@@ -282,6 +282,12 @@ Alguns instrumentos úteis para dashboards e alertas (catálogo completo em
 | `collector_destination_breaker_state{destination_id}` | gauge | Circuit-breaker por destino (1 = aberto). Agregue com `max by (destination_id)`. |
 | `collector_dataplane_consumer_lag{partition}` | gauge | Lag do consumer Kafka (data-plane). |
 | `collector_quarantine_total` | counter | Eventos em quarentena. |
+| `collector_watermark_lag_seconds{integration_id,stream}` | gauge | **Atraso real** da coleta: `agora − posição do cursor na linha do tempo do fornecedor`. É o único sinal que denuncia um coletor que roda sem erro e mesmo assim está horas para trás. Só existe para fontes com cursor por data. |
+| `collector_cycles_skipped_locked_total{integration_id,stream}` | counter | Ciclos pulados porque o ciclo anterior do mesmo fluxo ainda rodava. Subindo de forma sustentada ⇒ o ciclo passou a durar mais que o intervalo agendado, ou seja, há acúmulo. |
+
+:::tip[O alerta que faltava]
+`collector_cursor_lag_seconds` **não** serve para alertar sobre atraso de dado — ele é derivado da última coleta bem-sucedida e marca zero mesmo num coletor horas atrás. Para atraso real, alerte em cima de `collector_watermark_lag_seconds` (por exemplo, acima de 1800 s por 15 min) **conjugado** com `increase(collector_cycles_skipped_locked_total[15m]) > 0` — os dois juntos, nunca o primeiro sozinho. Watermark parado sem ciclo pulado é fonte sem eventos no período (o caso normal de quem tem [filtro de coleta](../pipelines/collection-filters.md) ligado), e alertar nisso queima o alerta na primeira semana. O contexto está em [Eventos chegando horas depois](../runbooks/collection-lag-backlog.md).
+:::
 
 ---
 

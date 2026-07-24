@@ -205,6 +205,70 @@ are additive.
 Each version adds a section here. Read the one for your target version **before**
 upgrading.
 
+### Next version
+
+:::note[Not released yet]
+The changes below are already in the code, but have not shipped in a tag yet. Once the
+version is published, this section takes its number.
+:::
+
+**Collection filter — off by default.** Integrations whose vendor allows restricting the
+query gained a **collection filter**: the discard now happens in the query sent to the
+vendor, instead of after collecting and normalizing. Today **Wazuh (detections)** is the
+integration that offers it, with a minimum rule level.
+
+**No installation changes behavior on upgrade.** The filter is born at the value that cuts
+nothing, and the query sent to the vendor is **identical** to the previous version's for as
+long as nobody opens the screen. There is nothing to configure and nothing to revert.
+
+It exists for a concrete case: when routing discards most of what comes in, the collector
+is spending every cycle hauling noise — and that is the cause of collections that never
+catch up to the present. Read [Collection filter](../pipelines/collection-filters)
+before turning it on: what is filtered at the source **never enters the platform** (it does
+not show up in live capture, does not raise a new field in the Drift Explorer, and is not
+available to a future route), and turning it on or off **is not retroactive**.
+
+**Concurrent cycles of the same stream are now skipped.** When a collection cycle takes
+longer than the scheduled interval, the next cycle for that same `(integration, stream)` is
+**skipped** instead of running in parallel. If you monitor the workers, you will see **one**
+cycle where you used to see two or three at once.
+
+:::note[This is not a throughput regression]
+The simultaneous cycles read the **same** collection position and fetched **the same**
+events — in production, concurrent cycles finished 34 ms apart over the same batch. Only
+one of them advanced the position; the rest was work thrown away that still pressured the
+source and made every cycle slower. Collecting stopped being done in duplicate; the amount
+of events collected per hour does not drop.
+
+The `collector_cycles_skipped_locked_total` counter shows how many cycles were skipped.
+Rising steadily, it means the cycle now takes longer than the scheduled interval — that is,
+there is a backlog. See
+[Events arriving hours late](../runbooks/collection-lag-backlog).
+:::
+
+**Pipeline Health: data lag.** Each integration card now shows, on top of the time since
+the last collection, the **Data lag** — how old the most recent event the collection has
+brought in is. These are different questions: the first answers "is collection running?",
+the second answers "is what I am looking at from now?".
+
+:::warning[A card that turns yellow after the upgrade was most likely already behind]
+The old indicator measured only the time since the last successful collection — and that
+number resets on every cycle that finishes without an error, **even when the cycle processed
+yesterday's events**. A collector that was 15 hours behind reported `0 s` of lag and a
+**Healthy** status.
+
+Upgrading closes that blind spot. A card that turns yellow (or starts showing hours of Data
+lag) right after the upgrade was almost certainly **already behind before** — the update did
+not create the lag, it made it visible. Treat it as a diagnosis, not a regression, and
+follow [Events arriving hours late](../runbooks/collection-lag-backlog).
+:::
+
+The card only goes **yellow for backlog** when **both** conditions hold at the same time: the
+last cycle ended at the per-cycle event cap **and** that stream's Data lag is over 30
+minutes. High Data lag on its own does not change the color — a stream with no events keeps
+its position parked on purpose. Details in
+[Pipeline Health](../operations/pipeline-health).
+
 ### 2.0.0
 
 **2.0.0** is a **major**: it removes the Alerts surface — that is why the jump from `1.x`

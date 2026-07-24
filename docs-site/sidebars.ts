@@ -121,6 +121,7 @@ const sidebars: SidebarsConfig = {
       collapsed: false,
       items: [
         'pipelines/collectors',
+        'pipelines/collection-filters',
         'pipelines/scheduler',
         'pipelines/drift',
         'pipelines/backfill',
@@ -184,6 +185,7 @@ const sidebars: SidebarsConfig = {
       items: [
         'runbooks/dispatcher',
         'runbooks/scheduler-stuck',
+        'runbooks/collection-lag-backlog',
         'runbooks/high-quarantine-rate',
         'runbooks/slo-burn',
         'runbooks/redis-capacity',

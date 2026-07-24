@@ -205,6 +205,69 @@ schema são aditivas.
 Cada versão adiciona uma seção aqui. Leia a da sua versão de destino **antes** de
 atualizar.
 
+### Próxima versão
+
+:::note[Ainda não publicada]
+As mudanças abaixo já estão no código, mas ainda não saíram numa tag. Quando a versão
+for publicada, esta seção passa a levar o número dela.
+:::
+
+**Filtro de coleta — nasce desligado.** As integrações cujo fornecedor permite restringir
+a consulta ganharam um **filtro de coleta**: o descarte passa a acontecer na consulta feita
+ao fornecedor, em vez de depois de coletar e normalizar. Hoje o **Wazuh (detecções)** é a
+integração que o oferece, com um nível mínimo de regra.
+
+**Nenhuma instalação muda de comportamento ao atualizar.** O filtro nasce no valor que não
+corta nada, e a consulta enviada ao fornecedor é **idêntica** à da versão anterior enquanto
+ninguém abrir a tela. Não há nada a configurar e nada a reverter.
+
+Ele existe para um caso concreto: quando o roteamento descarta a maior parte do que entra,
+o coletor está gastando cada ciclo transportando ruído — e é essa a causa de coletas que
+não alcançam o presente. Veja [Filtro de coleta](../pipelines/collection-filters.md) antes
+de ligar: o que é filtrado na origem **nunca entra na plataforma** (não aparece na captura
+ao vivo, não gera campo novo no Drift Explorer, não fica disponível para uma rota futura),
+e ligar ou desligar **não é retroativo**.
+
+**Ciclos concorrentes do mesmo fluxo agora são pulados.** Quando um ciclo de coleta demora
+mais que o intervalo agendado, o ciclo seguinte daquele mesmo `(integração, fluxo)` é
+**pulado** em vez de rodar em paralelo. Se você monitora os workers, vai ver **um** ciclo
+onde antes via dois ou três simultâneos.
+
+:::note[Isso não é regressão de throughput]
+Os ciclos simultâneos liam a **mesma** posição de coleta e buscavam **os mesmos** eventos —
+em produção, ciclos concorrentes chegaram a terminar com 34 ms de diferença sobre o mesmo
+lote. Só um avançava a posição; o resto era trabalho jogado fora que ainda pressionava a
+fonte e deixava cada ciclo mais lento. Coletar deixou de ser feito em duplicata; a
+quantidade de evento coletado por hora não cai.
+
+O contador `collector_cycles_skipped_locked_total` mostra quantos ciclos foram pulados.
+Subindo de forma sustentada, ele indica que o ciclo passou a durar mais que o intervalo
+agendado — ou seja, há acúmulo. Veja
+[Eventos chegando horas depois](../runbooks/collection-lag-backlog.md).
+:::
+
+**Saúde do Pipeline: atraso dos dados.** O card de cada integração passa a mostrar, além do
+atraso desde a última coleta, o **Atraso dos dados** — de quando é o evento mais recente que
+a coleta já trouxe. São perguntas diferentes: o primeiro responde "a coleta está rodando?",
+o segundo responde "o que eu estou vendo é de agora?".
+
+:::warning[Card que ficar amarelo depois do upgrade provavelmente já estava atrasado antes]
+O indicador antigo media apenas o tempo desde a última coleta bem-sucedida — e esse número
+zera a cada ciclo que termina sem erro, **mesmo quando o ciclo processou eventos de ontem**.
+Um coletor que estava 15 horas atrás reportava atraso `0 s` e status **Saudável**.
+
+Ao atualizar, esse ponto cego se fecha. Um card que ficar amarelo (ou passar a exibir
+horas no Atraso dos dados) logo após o upgrade quase certamente **já estava atrasado antes** —
+a atualização não criou o atraso, tornou-o visível. Trate como diagnóstico, não como
+regressão, e siga
+[Eventos chegando horas depois](../runbooks/collection-lag-backlog.md).
+:::
+
+O card só fica **amarelo por backlog** quando as **duas** condições valem ao mesmo tempo: o
+último ciclo terminou no teto de eventos **e** o Atraso dos dados daquele fluxo passa de 30
+minutos. Atraso dos dados alto sozinho não muda a cor — um fluxo sem eventos mantém a posição
+parada de propósito. Detalhes em [Saúde do Pipeline](../operations/pipeline-health.md).
+
 ### 2.0.0
 
 A **2.0.0** é um **major**: ela remove a superfície de Alertas — por isso o salto de

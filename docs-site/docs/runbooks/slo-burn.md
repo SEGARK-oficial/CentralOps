@@ -81,7 +81,7 @@ A jornada de um evento tem três etapas, e só a última é cronometrada. Nas du
 
 | Etapa | Sinal disponível | Onde olhar |
 |---|---|---|
-| **Coleta** | Horário da última coleta bem-sucedida e o atraso desde então; erros recorrentes | **Visão geral -> Integrações** e **Normalização -> Saúde do Pipeline** |
+| **Coleta** | Horário da última coleta bem-sucedida, o **Atraso dos dados** (de quando é o evento mais recente já trazido) e erros recorrentes | **Visão geral -> Integrações** e **Normalização -> Saúde do Pipeline** |
 | **Normalização** | Eventos retidos em quarentena, campos novos não mapeados, erro na última execução | **Normalização -> Saúde do Pipeline** e **Normalização -> Mappings** |
 | **Entrega ao destino** | Tempo cronometrado do lote, em segundos | **Operação -> Destinos** (somente admin) |
 
@@ -98,11 +98,12 @@ A coleta fica lenta quando o produto de origem responde devagar, devolve um volu
 Como identificar:
 
 - Em **Visão geral -> Integrações**, abra a integração suspeita e confira o status e o horário da última coleta. Coletas demoradas ou com erros recorrentes indicam problema na origem.
+- Em **Normalização -> Saúde do Pipeline**, compare os dois atrasos do card. **Última coleta em segundos com Atraso dos dados em horas** é a assinatura de uma coleta que roda sem erro e mesmo assim não vence o volume — nesse caso vá direto a [Eventos chegando horas depois](./collection-lag-backlog.md).
 
 O que você pode fazer pela interface:
 
 - **Origem respondendo devagar:** aumente o intervalo de coleta da integração, se essa opção estiver disponível na tela da integração. Isso reduz a pressão sobre a origem. Lembre-se do efeito colateral: os dados passam a chegar com um espaçamento maior entre as coletas.
-- **Volume muito alto de eventos:** alinhe com o cliente/origem se o volume é esperado. Quando possível, reduza o que é enviado já no produto de origem (filtros do lado do vendor).
+- **Volume muito alto de eventos:** alinhe com o cliente/origem se o volume é esperado. Se boa parte desse volume é descartada pelas regras de roteamento, o corte está no lugar errado — empurre-o para a consulta feita ao fornecedor com o [filtro de coleta](../pipelines/collection-filters.md). Quando possível, reduza também o que é enviado já no produto de origem (filtros do lado do vendor).
 
 Quando escalar:
 

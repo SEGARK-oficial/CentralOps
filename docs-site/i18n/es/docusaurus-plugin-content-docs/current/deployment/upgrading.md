@@ -206,6 +206,73 @@ cambios de esquema son aditivos.
 Cada versión agrega una sección aquí. Lee la de tu versión de destino **antes** de
 actualizar.
 
+### Próxima versión
+
+:::note[Todavía no publicada]
+Los cambios de abajo ya están en el código, pero aún no salieron en un tag. Cuando la
+versión se publique, esta sección pasa a llevar su número.
+:::
+
+**Filtro de recolección — nace apagado.** Las integraciones cuyo proveedor permite
+restringir la consulta ganaron un **filtro de recolección**: el descarte pasa a ocurrir en
+la consulta hecha al proveedor, en vez de después de recolectar y normalizar. Hoy **Wazuh
+(detecciones)** es la integración que lo ofrece, con un nivel mínimo de regla.
+
+**Ninguna instalación cambia de comportamiento al actualizar.** El filtro nace en el valor
+que no corta nada, y la consulta enviada al proveedor es **idéntica** a la de la versión
+anterior mientras nadie abra la pantalla. No hay nada que configurar ni nada que revertir.
+
+Existe para un caso concreto: cuando el ruteo descarta la mayor parte de lo que entra, el
+recolector está gastando cada ciclo transportando ruido — y esa es la causa de
+recolecciones que no alcanzan el presente. Lee
+[Filtro de recolección](../pipelines/collection-filters) antes de encenderlo: lo que se
+filtra en el origen **nunca entra en la plataforma** (no aparece en la captura en vivo, no
+genera campo nuevo en el Drift Explorer, no queda disponible para una ruta futura), y
+encenderlo o apagarlo **no es retroactivo**.
+
+**Los ciclos concurrentes del mismo stream ahora se saltan.** Cuando un ciclo de
+recolección tarda más que el intervalo agendado, el ciclo siguiente de ese mismo
+`(integración, stream)` se **salta** en vez de correr en paralelo. Si monitoreas los
+workers, verás **un** ciclo donde antes veías dos o tres simultáneos.
+
+:::note[Esto no es una regresión de throughput]
+Los ciclos simultáneos leían la **misma** posición de recolección y buscaban **los mismos**
+eventos — en producción, ciclos concurrentes llegaron a terminar con 34 ms de diferencia
+sobre el mismo lote. Solo uno avanzaba la posición; el resto era trabajo tirado a la basura
+que además presionaba la fuente y hacía cada ciclo más lento. Recolectar dejó de hacerse
+por duplicado; la cantidad de eventos recolectados por hora no baja.
+
+El contador `collector_cycles_skipped_locked_total` muestra cuántos ciclos se saltaron.
+Subiendo de forma sostenida, indica que el ciclo pasó a durar más que el intervalo
+agendado — es decir, hay acumulación. Ver
+[Eventos que llegan horas después](../runbooks/collection-lag-backlog).
+:::
+
+**Salud del Pipeline: retraso de los datos.** La tarjeta de cada integración pasa a
+mostrar, además del tiempo desde la última recolección, el **Retraso de los datos** — de
+cuándo es el evento más reciente que la recolección ya trajo. Son preguntas distintas: la
+primera responde "¿la recolección está corriendo?", la segunda responde "¿lo que estoy
+viendo es de ahora?".
+
+:::warning[Una tarjeta que se ponga amarilla tras el upgrade probablemente ya estaba atrasada antes]
+El indicador anterior medía solo el tiempo desde la última recolección exitosa — y ese
+número se pone en cero en cada ciclo que termina sin error, **incluso cuando el ciclo
+procesó eventos de ayer**. Un recolector que estaba 15 horas atrás reportaba un retraso de
+`0 s` y estado **Saludable**.
+
+Al actualizar, ese punto ciego se cierra. Una tarjeta que se ponga amarilla (o que pase a
+exhibir horas en el Retraso de los datos) justo después del upgrade casi seguro **ya estaba
+atrasada antes** — la actualización no creó el retraso, lo hizo visible. Trátalo como
+diagnóstico, no como regresión, y sigue
+[Eventos que llegan horas después](../runbooks/collection-lag-backlog).
+:::
+
+La tarjeta solo se pone **amarilla por backlog** cuando valen las **dos** condiciones al
+mismo tiempo: el último ciclo terminó en el tope de eventos **y** el Retraso de los datos de
+ese stream pasa de 30 minutos. Retraso de los datos alto por sí solo no cambia el color —
+un stream sin eventos mantiene la posición detenida a propósito. Detalles en
+[Salud del Pipeline](../operations/pipeline-health).
+
 ### 2.0.0
 
 La **2.0.0** es un **major**: elimina la superficie de Alertas — por eso el salto de `1.x`
