@@ -3,16 +3,64 @@
  * and scoped locally.
  */
 
+/* The hero is the ink ground the product and the marketing site both use,
+   ruled like chart paper — not a flat band of the accent colour. It stays dark
+   in both colour schemes, which is what makes it read as the brand rather than
+   as a themed component. */
 .heroBanner {
-  padding: 4rem 0;
+  padding: 5rem 0 4.5rem;
   text-align: center;
   position: relative;
   overflow: hidden;
+  background-color: var(--seg-ground);
+  background-image: repeating-linear-gradient(
+    to bottom,
+    var(--seg-ground-line) 0 1px,
+    transparent 1px 88px
+  );
+  color: #fff;
+}
+
+/* One packet travelling down a conduit behind the title — the same device the
+   marketing site uses to tie its sections together. */
+.heroBanner::after {
+  content: "";
+  position: absolute;
+  top: -6rem;
+  left: 50%;
+  width: 1px;
+  height: 6rem;
+  background: linear-gradient(to bottom, transparent, var(--seg-normalize), transparent);
+  opacity: 0.55;
+  animation: heroPacket 9s linear infinite;
+}
+
+@keyframes heroPacket {
+  from { top: -6rem; }
+  to { top: 100%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .heroBanner::after {
+    animation: none;
+    opacity: 0;
+  }
+}
+
+.heroBanner :global(.hero__title) {
+  letter-spacing: -0.03em;
+}
+
+.heroBanner :global(.hero__subtitle) {
+  color: #b9bed0;
+  max-width: 46rem;
+  margin-inline: auto;
+  font-size: 1.15rem;
 }
 
 @media screen and (max-width: 996px) {
   .heroBanner {
-    padding: 2rem;
+    padding: 3rem 1.5rem;
   }
 }
 
@@ -20,4 +68,5 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  margin-top: 2rem;
 }

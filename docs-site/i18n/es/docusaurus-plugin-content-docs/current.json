@@ -1,26 +1,26 @@
 {
   "version.label": {
-    "message": "Next",
+    "message": "Próxima",
     "description": "The label for version current"
   },
   "sidebar.gettingStartedSidebar.category.Começar": {
-    "message": "Começar",
+    "message": "Empezar",
     "description": "The label for category 'Começar' in sidebar 'gettingStartedSidebar'"
   },
   "sidebar.gettingStartedSidebar.category.Conceitos": {
-    "message": "Conceitos",
+    "message": "Conceptos",
     "description": "The label for category 'Conceitos' in sidebar 'gettingStartedSidebar'"
   },
   "sidebar.operationsSidebar.category.Operação diária": {
-    "message": "Operação diária",
+    "message": "Operación diaria",
     "description": "The label for category 'Operação diária' in sidebar 'operationsSidebar'"
   },
   "sidebar.administrationSidebar.category.Administração": {
-    "message": "Administração",
+    "message": "Administración",
     "description": "The label for category 'Administração' in sidebar 'administrationSidebar'"
   },
   "sidebar.administrationSidebar.category.Integrações": {
-    "message": "Integrações",
+    "message": "Integraciones",
     "description": "The label for category 'Integrações' in sidebar 'administrationSidebar'"
   },
   "sidebar.normalizationSidebar.category.Mappings (CML)": {
@@ -32,7 +32,7 @@
     "description": "The label for category 'Pipelines' in sidebar 'normalizationSidebar'"
   },
   "sidebar.outputsSidebar.category.Saídas & Roteamento": {
-    "message": "Saídas & Roteamento",
+    "message": "Salidas y enrutamiento",
     "description": "The label for category 'Saídas & Roteamento' in sidebar 'outputsSidebar'"
   },
   "sidebar.outputsSidebar.category.Destinos": {
@@ -40,7 +40,7 @@
     "description": "The label for category 'Destinos' in sidebar 'outputsSidebar'"
   },
   "sidebar.outputsSidebar.category.Roteamento": {
-    "message": "Roteamento",
+    "message": "Enrutamiento",
     "description": "The label for category 'Roteamento' in sidebar 'outputsSidebar'"
   },
   "sidebar.runbooksSidebar.category.Runbooks (SRE)": {
@@ -48,7 +48,7 @@
     "description": "The label for category 'Runbooks (SRE)' in sidebar 'runbooksSidebar'"
   },
   "sidebar.runbooksSidebar.category.Compliance": {
-    "message": "Compliance",
+    "message": "Cumplimiento",
     "description": "The label for category 'Compliance' in sidebar 'runbooksSidebar'"
   },
   "sidebar.gettingStartedSidebar.category.Instalação & Deploy": {

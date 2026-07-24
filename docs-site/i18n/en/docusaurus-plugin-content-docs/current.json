@@ -4,23 +4,23 @@
     "description": "The label for version current"
   },
   "sidebar.gettingStartedSidebar.category.Começar": {
-    "message": "Começar",
+    "message": "Get started",
     "description": "The label for category 'Começar' in sidebar 'gettingStartedSidebar'"
   },
   "sidebar.gettingStartedSidebar.category.Conceitos": {
-    "message": "Conceitos",
+    "message": "Concepts",
     "description": "The label for category 'Conceitos' in sidebar 'gettingStartedSidebar'"
   },
   "sidebar.operationsSidebar.category.Operação diária": {
-    "message": "Operação diária",
+    "message": "Day-to-day operations",
     "description": "The label for category 'Operação diária' in sidebar 'operationsSidebar'"
   },
   "sidebar.administrationSidebar.category.Administração": {
-    "message": "Administração",
+    "message": "Administration",
     "description": "The label for category 'Administração' in sidebar 'administrationSidebar'"
   },
   "sidebar.administrationSidebar.category.Integrações": {
-    "message": "Integrações",
+    "message": "Integrations",
     "description": "The label for category 'Integrações' in sidebar 'administrationSidebar'"
   },
   "sidebar.normalizationSidebar.category.Mappings (CML)": {
@@ -32,15 +32,15 @@
     "description": "The label for category 'Pipelines' in sidebar 'normalizationSidebar'"
   },
   "sidebar.outputsSidebar.category.Saídas & Roteamento": {
-    "message": "Saídas & Roteamento",
+    "message": "Outputs & Routing",
     "description": "The label for category 'Saídas & Roteamento' in sidebar 'outputsSidebar'"
   },
   "sidebar.outputsSidebar.category.Destinos": {
-    "message": "Destinos",
+    "message": "Destinations",
     "description": "The label for category 'Destinos' in sidebar 'outputsSidebar'"
   },
   "sidebar.outputsSidebar.category.Roteamento": {
-    "message": "Roteamento",
+    "message": "Routing",
     "description": "The label for category 'Roteamento' in sidebar 'outputsSidebar'"
   },
   "sidebar.runbooksSidebar.category.Runbooks (SRE)": {

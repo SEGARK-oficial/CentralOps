@@ -65,7 +65,7 @@ const config: Config = {
   themes: ['docusaurus-lunr-search'],
 
   themeConfig: {
-    image: 'img/centralops-social-card.jpg',
+    image: 'img/centralops-social-card.png',
     colorMode: {
       defaultMode: 'light',
       respectPrefersColorScheme: true,

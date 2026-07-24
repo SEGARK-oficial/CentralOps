@@ -100,7 +100,7 @@ docker compose -f compose/docker-compose.yml exec centralops \
 ```
 
 Con todo `healthy`, continúa hacia el
-**[Primer Inicio de Sesión](../getting-started/first-login.md)** para crear la cuenta de
+**[Primer Inicio de Sesión](/es/getting-started/first-login)** para crear la cuenta de
 administrador.
 
 ## Ejecutar imágenes listas (sin build)
@@ -160,5 +160,5 @@ comandos desde dentro de `compose/`, sin `-f`.
 ## Próximos pasos
 
 - **[Configuración](./configuration.md)** — todas las variables de entorno.
-- **[Primer Inicio de Sesión](../getting-started/first-login.md)** — crear el admin y el equipo.
-- **[Quickstart](../getting-started/quickstart.md)** — conectar la primera fuente.
+- **[Primer Inicio de Sesión](/es/getting-started/first-login)** — crear el admin y el equipo.
+- **[Quickstart](/es/getting-started/quickstart)** — conectar la primera fuente.

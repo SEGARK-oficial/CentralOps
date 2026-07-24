@@ -104,5 +104,5 @@ La referencia completa de variables está en **[Configuración](./configuration.
 ## Próximos pasos
 
 - **[Configuración](./configuration.md)** — todas las variables de entorno.
-- **[Primer Inicio de Sesión](../getting-started/first-login.md)** — crear el admin.
+- **[Primer Inicio de Sesión](/es/getting-started/first-login)** — crear el admin.
 - **[Upgrade a Enterprise](../editions/upgrade.md)** — habilitar las funciones MSSP.
