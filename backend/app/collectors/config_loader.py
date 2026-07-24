@@ -97,6 +97,8 @@ class CollectorConfigSnapshot:
     # DEFAULT_DEDUPE_TTL_DAYS). Divergência entre eles fazia o env default ser
     # silenciosamente sobreposto pelos fallbacks ``or 7`` abaixo.
     dedupe_ttl_days: int = DEFAULT_DEDUPE_TTL_DAYS
+    #: TTL canônico. None = derivar de dedupe_ttl_days (linha legada).
+    dedupe_ttl_seconds: Optional[int] = None
 
     # Mapas
     domain_concurrency_limits: Dict[str, int] = field(default_factory=dict)
@@ -104,6 +106,20 @@ class CollectorConfigSnapshot:
 
     # Meta
     is_persisted: bool = False  # True se veio do DB; False se fallback de env
+
+    @property
+    def effective_dedupe_ttl_seconds(self) -> int:
+        """TTL de dedupe efetivo, em segundos, sempre dentro de [MIN, MAX].
+
+        Precedência: ``dedupe_ttl_seconds`` (canônico) → ``dedupe_ttl_days``
+        × 86400 (legado, para linhas anteriores à migração). O clamp garante que
+        nem um valor legado absurdo nem um valor novo abaixo do piso de
+        redelivery cheguem ao ``claim``."""
+        from .state.dedupe import clamp_ttl_seconds
+
+        if self.dedupe_ttl_seconds is not None:
+            return clamp_ttl_seconds(self.dedupe_ttl_seconds)
+        return clamp_ttl_seconds(int(self.dedupe_ttl_days or DEFAULT_DEDUPE_TTL_DAYS) * 86400)
 
     @property
     def config_version(self) -> str:
@@ -124,6 +140,7 @@ class CollectorConfigSnapshot:
             "collector_batch_size": self.collector_batch_size,
             "collector_batch_flush_seconds": self.collector_batch_flush_seconds,
             "dedupe_ttl_days": self.dedupe_ttl_days,
+            "dedupe_ttl_seconds": self.effective_dedupe_ttl_seconds,
             "domain_concurrency_limits": dict(self.domain_concurrency_limits),
             "rate_limits_by_vendor": {
                 k: dict(v) for k, v in self.rate_limits_by_vendor.items()
@@ -177,6 +194,8 @@ def _snapshot_from_row(row: models.CollectorConfig) -> CollectorConfigSnapshot:
         collector_batch_size=int(row.collector_batch_size or 200),
         collector_batch_flush_seconds=int(row.collector_batch_flush_seconds or 5),
         dedupe_ttl_days=int(row.dedupe_ttl_days or DEFAULT_DEDUPE_TTL_DAYS),
+        # None em linha pré-migração → effective_dedupe_ttl_seconds deriva de dias.
+        dedupe_ttl_seconds=getattr(row, "dedupe_ttl_seconds", None),
         domain_concurrency_limits=dict(dcl),
         rate_limits_by_vendor=dict(rlv),
         is_persisted=True,

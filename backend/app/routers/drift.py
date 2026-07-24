@@ -83,19 +83,26 @@ def list_drift(
 ) -> UnknownFieldList:
     """Lista campos com drift de normalização.
 
-    Isolamento multi-tenant: non-global vê APENAS o drift da
-    própria organização — filtro EXATO por ``organization_id`` (substitui a
-    antiga aproximação por vendor, que vazava campos entre clientes do mesmo
-    vendor). Global scope (admin/SOC interno) vê tudo.
+    Isolamento multi-tenant: non-global vê o drift da SUBÁRVORE de organizações a
+    que tem acesso (substitui a antiga aproximação por vendor, que vazava campos
+    entre clientes do mesmo vendor). Global scope (admin/SOC interno) vê tudo.
+
+    O escopo vem de ``tenant.accessible_org_ids``, o mesmo seam usado por
+    integrações e rotas — não igualdade exata. Com igualdade, um admin de org PAI
+    não enxergava o drift das FILHAS mesmo com a hierarquia materializada, e
+    portanto não conseguia evoluir mapping a partir do tráfego real da subárvore
+    que administra. Em Community o resolver é FLAT e o resultado é idêntico ao de
+    antes; sob Enterprise a subárvore passa a valer, que é o contrato prometido.
     """
     q = db.query(models.UnknownField)
 
-    # Isolamento exato por tenant
-    if not tenant.has_global_scope(user):
-        if user.organization_id is None:
-            # Sem org e sem global scope → nada a ver (fail-closed).
+    # Isolamento por tenant, SUBTREE-AWARE.
+    org_ids = tenant.accessible_org_ids(user, db)
+    if org_ids is not None:  # None == escopo global (sem filtro)
+        if not org_ids:
+            # Sem nenhuma org acessível → nada a ver (fail-closed).
             return UnknownFieldList(total=0, items=[], limit=limit, offset=offset)
-        q = q.filter(models.UnknownField.organization_id == user.organization_id)
+        q = q.filter(models.UnknownField.organization_id.in_(org_ids))
 
     if vendor:
         q = q.filter(models.UnknownField.vendor == vendor)
@@ -192,7 +199,12 @@ def _check_drift_vendor_access(
                 "es": "Entrada de campo desconocido no encontrada",
             },
         )
-    if uf.organization_id != user.organization_id:
+    # Gate SUBTREE-AWARE, não igualdade exata — mesmo contrato da leitura acima e
+    # de ``routes._assert_visible``. Com igualdade, um admin de org PAI recebia
+    # 404 num campo da FILHA mesmo com a hierarquia materializada.
+    if uf.organization_id is None or not tenant.can_access_subtree(
+        user, int(uf.organization_id)
+    ):
         raise ApiError(
             "drift.field_not_found",
             404,

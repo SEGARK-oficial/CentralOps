@@ -1246,6 +1246,22 @@ def _run_lightweight_migrations() -> None:
                         "NOT NULL DEFAULT 'rfc5424'"
                     )
                 )
+            # TTL de dedupe em SEGUNDOS (canônico). NULLABLE de propósito: NULL
+            # significa "deriva de dedupe_ttl_days", então uma linha
+            # pré-migração continua valendo exatamente o que valia. O backfill
+            # abaixo materializa o valor equivalente para que a UI mostre o
+            # número certo já na primeira abertura.
+            if "dedupe_ttl_seconds" not in cc_cols:
+                conn.execute(
+                    text("ALTER TABLE collector_config ADD COLUMN dedupe_ttl_seconds INTEGER")
+                )
+                conn.execute(
+                    text(
+                        "UPDATE collector_config "
+                        "SET dedupe_ttl_seconds = dedupe_ttl_days * 86400 "
+                        "WHERE dedupe_ttl_seconds IS NULL AND dedupe_ttl_days IS NOT NULL"
+                    )
+                )
 
         # ── api_tokens: PAT (Personal Access Tokens) ───────
         # Tabela criada via Base.metadata.create_all em initialize_database;

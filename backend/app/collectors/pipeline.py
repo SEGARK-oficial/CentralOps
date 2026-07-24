@@ -683,7 +683,7 @@ async def _run_collection_once(integration_id: int, stream: str) -> None:
                         redis,
                         integration_id,
                         msg_id,
-                        ttl_days=config.dedupe_ttl_days,
+                        ttl_seconds=config.effective_dedupe_ttl_seconds,
                     ):
                         DEDUPE_DROPS.labels(vendor=platform, stream=stream).inc()
                         continue

@@ -70,6 +70,7 @@ def _snapshot_to_read(snapshot: CollectorConfigSnapshot) -> schemas.CollectorCon
         collector_batch_size=snapshot.collector_batch_size,
         collector_batch_flush_seconds=snapshot.collector_batch_flush_seconds,
         dedupe_ttl_days=snapshot.dedupe_ttl_days,
+        dedupe_ttl_seconds=snapshot.effective_dedupe_ttl_seconds,
         domain_concurrency_limits=snapshot.domain_concurrency_limits,
         rate_limits_by_vendor=snapshot.rate_limits_by_vendor,
         updated_at=None,  # preenchido abaixo se tiver row

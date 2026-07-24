@@ -123,12 +123,17 @@ describe("CollectorConfigForm — seções globais", () => {
     setupDefaultMocks()
   })
 
-  it("renderiza o campo TTL de dedupe com o valor padrão", async () => {
+  it("renderiza o campo TTL de dedupe em HORAS", async () => {
+    // O campo passou de DIAS para HORAS: em dias o mínimo era 1, e o piso real
+    // desta arquitetura são 4h (4x o visibility_timeout do broker). A config
+    // mockada traz 7 dias, que a UI mostra como 168h — mesma janela, unidade
+    // em que o operador consegue escolher 4h.
     await renderConfigCollectorTab()
 
     const ttlInput = screen.getByLabelText(/TTL de dedupe/i)
     expect(ttlInput).toBeInTheDocument()
-    expect((ttlInput as HTMLInputElement).value).toBe("7")
+    expect((ttlInput as HTMLInputElement).value).toBe("168")
+    expect(ttlInput).toHaveAttribute("min", "4")
   })
 
   it("renderiza o campo flush após (segundos)", async () => {

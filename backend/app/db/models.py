@@ -1200,6 +1200,11 @@ class CollectorConfig(Base):
     # valeria num INSERT que omitisse a coluna — e é exatamente aí que a
     # divergência silenciosa moraria.
     dedupe_ttl_days = Column(Integer, nullable=False, default=1)
+    # TTL CANÔNICO em segundos. `dedupe_ttl_days` fica como legado (lido só
+    # quando este é NULL) — dias não expressam 4h, que é o piso real desta
+    # arquitetura, e o TTL é a alavanca direta sobre o keyspace do Redis
+    # (chaves ≈ EPS × TTL). NULL = deriva de dedupe_ttl_days × 86400.
+    dedupe_ttl_seconds = Column(Integer, nullable=True)
 
     # ── JSON-serialized mappings ────────────────────────────────────
     domain_concurrency_limits = Column(Text, nullable=False, default="{}")
