@@ -182,8 +182,8 @@
       "batchSizeHelper": "Larger batches make fewer sends, but each event may take longer to arrive.",
       "flushSeconds": "Flush after (seconds)",
       "flushSecondsHelper": "Sends the batch even if incomplete after this time — sets the maximum wait time for an event.",
-      "dedupeTtl": "Dedupe TTL (days)",
-      "dedupeTtlHelper": "Memory window for filtering duplicate events per vendor."
+      "dedupeTtl": "Dedupe TTL (hours)",
+      "dedupeTtlHelper": "Memory window used to filter vendor duplicates. Minimum {{min}}h (covers the broker redelivery window). The Redis memory cost is direct: keys ≈ events/s × TTL in seconds — at 100 ev/s, 24h is ~8.6 million keys (~1 GB); 4h is ~1.4 million (~165 MB)."
     },
     "table": {
       "vendor": "Vendor",

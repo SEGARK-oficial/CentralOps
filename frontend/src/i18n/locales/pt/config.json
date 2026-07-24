@@ -182,8 +182,8 @@
       "batchSizeHelper": "Lotes maiores fazem menos envios, mas cada evento pode levar mais tempo para chegar.",
       "flushSeconds": "Flush após (segundos)",
       "flushSecondsHelper": "Envia o lote mesmo incompleto após esse tempo — define o tempo máximo de espera de um evento.",
-      "dedupeTtl": "TTL de dedupe (dias)",
-      "dedupeTtlHelper": "Janela de memória para filtrar eventos duplicados pelo vendor."
+      "dedupeTtl": "TTL de dedupe (horas)",
+      "dedupeTtlHelper": "Janela de memória para filtrar eventos duplicados pelo vendor. Mínimo {{min}}h (cobre a janela de reentrega do broker). O custo em memória do Redis é direto: chaves ≈ eventos/s × TTL em segundos — a 100 ev/s, 24h são ~8,6 milhões de chaves (~1 GB); 4h são ~1,4 milhão (~165 MB)."
     },
     "table": {
       "vendor": "Vendor",

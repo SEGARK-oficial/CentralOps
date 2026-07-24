@@ -73,7 +73,51 @@ logger = logging.getLogger(__name__)
 # NÃO baixe abaixo de ~1h (o teto de visibility_timeout) sem reavaliar a
 # invariante — ver test_dedupe_ttl_invariant.py.
 DEFAULT_TTL_DAYS = 1
+DEFAULT_TTL_SECONDS = DEFAULT_TTL_DAYS * 86400
+
+#: PISO do TTL, em segundos. Derivado da mesma invariante que
+#: ``test_dedupe_ttl_invariant`` ancora: o TTL precisa cobrir 4× o pior caso de
+#: redelivery automático (``visibility_timeout`` = 3600s), senão uma claim ÓRFÃ
+#: expira e é re-reclamada como "evento novo" ANTES de o broker desistir de
+#: redeliverar — dois workers processando o mesmo evento como independentes.
+#: NÃO baixe sem revisitar o teste de invariante.
+MIN_TTL_SECONDS = 4 * 3600
+
+#: TETO — 31 dias. Acima disso o keyspace vira o problema (ver a fórmula de
+#: capacidade em docs-site/docs/operations/): chaves ≈ EPS × TTL_segundos.
+MAX_TTL_SECONDS = 31 * 86400
+
 KEY_TMPL = "dedupe:{integration_id}:{message_id}"
+
+
+def clamp_ttl_seconds(seconds: Any) -> int:
+    """Normaliza um TTL para a faixa suportada [MIN, MAX], em segundos.
+
+    Valor ausente/inválido cai no default. O clamp é SILENCIOSO de propósito no
+    hot path (um valor fora de faixa nunca pode derrubar a coleta); a validação
+    que devolve erro ao operador vive no schema da API."""
+    try:
+        value = int(seconds)
+    except (TypeError, ValueError):
+        return DEFAULT_TTL_SECONDS
+    if value <= 0:
+        return DEFAULT_TTL_SECONDS
+    return max(MIN_TTL_SECONDS, min(value, MAX_TTL_SECONDS))
+
+
+def estimate_dedupe_keys(eps: float, ttl_seconds: int) -> int:
+    """Estimativa do keyspace de dedupe em regime estacionário: ``EPS × TTL``.
+
+    É a fórmula de capacidade que faltava ao operador — o keyspace NÃO depende do
+    volume acumulado, só da taxa e da janela. Usada pela UI para mostrar a
+    consequência da escolha de TTL antes de salvar."""
+    return max(0, int(float(eps) * int(ttl_seconds)))
+
+
+#: Custo médio observado por chave de dedupe no Redis 7 (chave + valor + entrada
+#: no dict principal + entrada no dict de ``expires`` + overhead de bucket).
+#: Usado só para ESTIMATIVA de capacidade na UI/doc — não é medição exata.
+BYTES_PER_DEDUPE_KEY = 115
 
 # Campos comumente presentes como id primário em payloads de vendors.
 _ID_CANDIDATES = ("id", "alertId", "eventId", "uuid", "incidentId")
@@ -102,11 +146,23 @@ async def claim(
     redis: redis_async.Redis,
     integration_id: int,
     message_id: str,
-    ttl_days: int = DEFAULT_TTL_DAYS,
+    ttl_days: Optional[int] = None,
+    *,
+    ttl_seconds: Optional[int] = None,
 ) -> bool:
-    """True se o evento é inédito (pode ser despachado). False se duplicado."""
+    """True se o evento é inédito (pode ser despachado). False se duplicado.
+
+    ``ttl_seconds`` é a forma CANÔNICA — o TTL é a alavanca direta sobre o
+    keyspace (``chaves ≈ EPS × TTL``), e expressá-lo só em dias impedia o
+    operador de escolher 4h, que é o piso real desta arquitetura. ``ttl_days``
+    segue aceito para retro-compatibilidade e é convertido; quando os dois vêm,
+    ``ttl_seconds`` vence. O valor é sempre clampado a [MIN, MAX]."""
+    if ttl_seconds is None:
+        ttl_seconds = (
+            ttl_days * 86400 if ttl_days is not None else DEFAULT_TTL_SECONDS
+        )
     key = KEY_TMPL.format(integration_id=integration_id, message_id=message_id)
-    result = await redis.set(key, "1", nx=True, ex=ttl_days * 86400)
+    result = await redis.set(key, "1", nx=True, ex=clamp_ttl_seconds(ttl_seconds))
     return bool(result)
 
 

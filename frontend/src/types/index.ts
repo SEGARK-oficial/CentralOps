@@ -947,6 +947,8 @@ export interface CollectorConfig {
   collector_batch_size: number
   collector_batch_flush_seconds: number
   dedupe_ttl_days: number
+  /** TTL canônico em segundos (piso 4h). dedupe_ttl_days fica como legado. */
+  dedupe_ttl_seconds?: number
 
   domain_concurrency_limits: Record<string, number>
   rate_limits_by_vendor: Record<string, CollectorRateLimits>
@@ -963,6 +965,7 @@ export interface UpdateCollectorConfigRequest {
   collector_batch_size?: number
   collector_batch_flush_seconds?: number
   dedupe_ttl_days?: number
+  dedupe_ttl_seconds?: number
   domain_concurrency_limits?: Record<string, number>
   rate_limits_by_vendor?: Record<string, CollectorRateLimits>
 }
