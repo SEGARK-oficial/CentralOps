@@ -20,7 +20,7 @@ from typing import List, Literal, Optional
 import redis.asyncio as redis_async
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
-from sqlalchemy import func, select
+from sqlalchemy import case, func, select
 from sqlalchemy.orm import Session
 
 from ..core import auth as app_auth
@@ -38,6 +38,22 @@ _CACHE_TTL = 60
 # Janela do snapshot para cálculo de events_per_minute
 _SNAPSHOT_TTL = 300  # 5 minutos
 
+# Atraso de watermark a partir do qual um ciclo que bateu o teto de páginas passa
+# a contar como BACKLOG (e não como pico absorvido).
+#
+# 30 min = 6x a cadência do stream mais lento declarado por um plugin (5 min) e
+# 15x a do mais rápido em uso (2 min, wazuh detections) — ou seja, ~10 ciclos
+# capados seguidos sem recuperar terreno. Um pico que o teto drena em um ou dois
+# ciclos NÃO acende nada; o coletor do incidente que originou isto estava 15h
+# atrás, 30x o limiar. Abaixo de ~10 min o indicador dispararia em rajada normal
+# e o operador aprenderia a ignorá-lo — que é exatamente como se perde um alarme.
+#
+# Fica aqui e não em ``core/config.py`` de propósito: o número é derivado da
+# cadência de coleta, que é declarada em CÓDIGO por cada plugin
+# (``CollectorRegistration.schedule``). Um env que afrouxa o limiar sem mexer na
+# cadência só serve para silenciar o sinal.
+_BACKLOG_LAG_THRESHOLD_SECONDS = 30 * 60
+
 
 # ── Schemas ───────────────────────────────────────────────────────────
 
@@ -53,12 +69,40 @@ class IntegrationPipelineHealth(BaseModel):
     cumulativos (``CollectionState.events_collected_total``) comparados
     com snapshot Redis 5 min atrás. Não representa eventos/min exatos
     em cenários de restart do worker ou reset de contador.
+
+    **Agregação de N streams em um número (watermark_lag_seconds /
+    backlog_detected): pelo PIOR stream** — o maior atraso e o OU dos tetos
+    atingidos. Não é soma (atraso de streams paralelos não se acumula: dois
+    streams 1h atrás não são 2h de atraso) nem média (que faz um stream 15h atrás
+    sumir atrás de três em dia — a forma EXATA do incidente que motivou o campo).
+    O card responde "o pipeline desta integração está em dia?", e a resposta é
+    não se qualquer stream não estiver.
+
+    Note a divergência deliberada de ``lag_seconds``, que agrega por
+    ``max(last_success_at)`` — o stream que coletou MAIS recentemente, portanto o
+    mais otimista. São perguntas diferentes: ``lag_seconds`` responde "alguma
+    coleta terminou agora?", ``watermark_lag_seconds`` responde "até onde na linha
+    do tempo do fornecedor nós chegamos?". Foi por só existir a primeira que um
+    coletor 15h atrasado reportou ``lag_seconds: 0`` e ``healthy`` por semanas.
     """
 
     integration_id: int
     status: Literal["healthy", "degraded", "unhealthy", "unknown"]
     events_per_minute: Optional[float]
     lag_seconds: Optional[int]
+    #: ``agora − min(CollectionState.watermark_at)`` — o atraso REAL do pior
+    #: stream. ``None`` é resposta legítima e significa "não medível": cursor não
+    #: temporal (o coletor não implementa ``watermark_at``) ou nenhum ciclo ainda
+    #: gravou watermark. NÃO confundir com 0, que afirmaria "em dia".
+    #:
+    #: Sem default de propósito: uma entrada de cache escrita pela versão
+    #: ANTERIOR (TTL 60s, sobrevive ao deploy) falha a validação e é recomputada,
+    #: em vez de responder "sem backlog" por um minuto.
+    watermark_lag_seconds: Optional[int]
+    #: Algum stream terminou o último ciclo no teto de páginas ⇒ sobrou trabalho.
+    #: Sozinho não caracteriza problema (um teto que absorve o pico é o teto
+    #: funcionando); é o par com ``watermark_lag_seconds`` que caracteriza.
+    backlog_detected: bool
     last_error: Optional[str]
     last_success_at: Optional[datetime]
     mapped_field_ratio: Optional[float]
@@ -83,14 +127,41 @@ def _determine_status(
     lag_seconds: Optional[int],
     consecutive_failures_max: int,
     last_error: Optional[str],
+    backlog_detected: bool = False,
+    backlog_lag_seconds: Optional[int] = None,
 ) -> Literal["healthy", "degraded", "unhealthy", "unknown"]:
     """Determina status de saúde a partir dos indicadores do pipeline.
 
     Regras (em ordem de prioridade):
     1. ``unknown`` — nunca coletou (last_success_at IS NULL).
     2. ``unhealthy`` — lag > 300s OU consecutive_failures >= 3.
-    3. ``degraded`` — last_error presente e lag <= 300.
+    3. ``degraded`` — backlog confirmado OU last_error presente.
     4. ``healthy`` — caso contrário.
+
+    **Backlog confirmado exige as DUAS condições**: o último ciclo parou no teto
+    de páginas (``backlog_detected``) E o watermark está mais de
+    ``_BACKLOG_LAG_THRESHOLD_SECONDS`` atrás. Nenhuma das duas serve sozinha:
+
+    - watermark atrasado SEM teto = stream sem eventos no período, watermark
+      legitimamente parado. Escalar aqui pintaria de amarelo metade da frota
+      (todo stream silencioso) e queimaria o indicador na primeira semana.
+    - teto SEM watermark atrasado = pico absorvido dentro da janela, ou seja, o
+      teto por ciclo fazendo exatamente o que existe para fazer.
+
+    ``backlog_lag_seconds`` é o atraso do stream QUE BATEU O TETO — o par vem do
+    mesmo stream, senão um stream capado porém em dia mais outro parado porém
+    silencioso se somariam num backlog que não existe. ``None`` significa cursor
+    não temporal: sem watermark não há como PROVAR atraso, e ausência de prova
+    não escala.
+
+    **Backlog é ``degraded``, não ``unhealthy``**, e a diferença é operacional:
+    hoje ``unhealthy`` quer dizer "parou de coletar" e a reação é credencial,
+    rede, token. Backlog quer dizer "coleta, mas atrasada" e a reação é outra —
+    afrouxar o teto por ciclo, apertar o filtro de coleta, dar mais worker.
+    Colapsar os dois no mesmo rótulo devolveria ao operador a ambiguidade que
+    este campo existe para desfazer, e ainda faria a fila de plantão tratar uma
+    rajada absorvível como queda. Um stream que está PARADO *e* atrasado já cai
+    na regra 2 (falhas/lag) antes de chegar aqui.
     """
     if last_success_at is None:
         return "unknown"
@@ -98,6 +169,12 @@ def _determine_status(
         return "unhealthy"
     if consecutive_failures_max >= 3:
         return "unhealthy"
+    if (
+        backlog_detected
+        and backlog_lag_seconds is not None
+        and backlog_lag_seconds > _BACKLOG_LAG_THRESHOLD_SECONDS
+    ):
+        return "degraded"
     if last_error:
         return "degraded"
     return "healthy"
@@ -126,12 +203,26 @@ def compute_pipeline_health(
 
     # ── Query 1: CollectionState ─────────────────────────────────────
     # Agrega todos os streams da integration de uma só vez.
+    #
+    # Os três agregados de watermark/backlog são o PIOR stream (ver o docstring
+    # do schema). ``min_capped_watermark`` existe separado de ``min_watermark``
+    # porque o par (teto, atraso) do status precisa vir do MESMO stream: um
+    # ``max(atraso) AND any(teto)`` cruzaria um stream capado porém em dia com um
+    # stream silencioso porém parado e inventaria backlog. O ``CASE`` sem
+    # ``else_`` vira NULL, que ``min()`` ignora — sobra o pior stream capado.
+    _capped = models.CollectionState.last_run_capped.is_(True)
     states = (
         db.execute(
             select(
                 func.max(models.CollectionState.last_success_at).label("max_success"),
                 func.max(models.CollectionState.last_attempt_at).label("max_attempt"),
                 func.max(models.CollectionState.consecutive_failures).label("max_failures"),
+                func.min(models.CollectionState.watermark_at).label("min_watermark"),
+                # sum(CASE) e não max(bool): Postgres não tem max() de boolean.
+                func.sum(case((_capped, 1), else_=0)).label("capped_streams"),
+                func.min(
+                    case((_capped, models.CollectionState.watermark_at))
+                ).label("min_capped_watermark"),
             ).where(models.CollectionState.integration_id == integration_id)
         ).one()
     )
@@ -152,6 +243,20 @@ def compute_pipeline_health(
     if max_success is not None:
         delta = now - max_success
         lag_seconds = max(0, int(delta.total_seconds()))
+
+    # Atraso REAL: quanto do passado do fornecedor ainda não foi consumido.
+    # ``last_success_at`` acima é reescrito a cada ciclo que termina sem erro —
+    # inclusive quando o ciclo processou o dia ANTERIOR — então ele NÃO mede isto.
+    def _lag_from(watermark: Optional[datetime]) -> Optional[int]:
+        if watermark is None:
+            return None
+        return max(0, int((now - watermark).total_seconds()))
+
+    watermark_lag_seconds: Optional[int] = _lag_from(states.min_watermark)
+    backlog_detected: bool = bool(states.capped_streams or 0)
+    # Atraso do pior stream QUE BATEU O TETO — o único par (teto, atraso) que
+    # pertence ao mesmo stream e portanto o único que prova backlog.
+    backlog_lag_seconds: Optional[int] = _lag_from(states.min_capped_watermark)
 
     # Trunca erro em 500 chars
     last_error: Optional[str] = None
@@ -294,6 +399,8 @@ def compute_pipeline_health(
         lag_seconds=lag_seconds,
         consecutive_failures_max=max_failures,
         last_error=last_error,
+        backlog_detected=backlog_detected,
+        backlog_lag_seconds=backlog_lag_seconds,
     )
 
     return IntegrationPipelineHealth(
@@ -301,6 +408,8 @@ def compute_pipeline_health(
         status=health_status,
         events_per_minute=events_per_minute,
         lag_seconds=lag_seconds,
+        watermark_lag_seconds=watermark_lag_seconds,
+        backlog_detected=backlog_detected,
         last_error=last_error,
         last_success_at=max_success,
         mapped_field_ratio=mapped_field_ratio,
@@ -413,10 +522,13 @@ async def get_cached_pipeline_health(
     )
 
     logger.info(
-        "pipeline_health computed integration=%s status=%s lag_s=%s drift_24h=%s quarantine_24h=%s",
+        "pipeline_health computed integration=%s status=%s lag_s=%s wm_lag_s=%s "
+        "backlog=%s drift_24h=%s quarantine_24h=%s",
         integration_id,
         result.status,
         result.lag_seconds,
+        result.watermark_lag_seconds,
+        result.backlog_detected,
         result.drift_count_24h,
         result.quarantine_count_24h,
     )

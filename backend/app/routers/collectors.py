@@ -97,6 +97,12 @@ def _serialize_state(
         cursor=cursor_parsed,
         last_success_at=row.last_success_at,
         last_attempt_at=row.last_attempt_at,
+        # Precisa ser copiado à mão: este serializador monta o schema por kwargs,
+        # então `from_attributes` não alcança as colunas novas — omiti-las aqui
+        # entregaria `null`/`false` fixos e a coluna de atraso real da tela de
+        # Coletores nasceria morta.
+        watermark_at=row.watermark_at,
+        last_run_capped=bool(row.last_run_capped),
         last_error=row.last_error,
         consecutive_failures=row.consecutive_failures or 0,
         events_collected_total=row.events_collected_total or 0,
