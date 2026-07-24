@@ -12,6 +12,17 @@ recreas los servicios. No hay reinstalación, no hay paso manual de migración, 
 **datos se conservan**. Esta página cubre la mecánica genérica (vale para cualquier
 versión) y trae, al final, las **notas de la versión** con lo que cambia en cada release.
 
+:::warning[No te quedes en la 2.3.0 — ve directo a la 2.3.1]
+
+La **2.3.0** tiene un defecto que puede **dejar colgado el primer arranque** en una
+instalación que ya tiene datos: la API se queda atascada en la migración de esquema, sin
+error en el log, y nunca llega a estar sana. Si estás en la 2.2.0, sáltate la 2.3.0 y ve
+**directo a la 2.3.1**. Si ya intentaste la 2.3.0 y quedaste en ese estado, la salida está en
+**[La actualización quedó colgada en la migración](../runbooks/migration-and-boot#upgrade-pendurado)**.
+Detalles en [Notas de la versión → 2.3.1](#231).
+
+:::
+
 :::danger[2.0.0 es un major con un breaking change]
 
 La **2.0.0** sube el número **mayor** a propósito: **elimina la superficie de Alertas** (la
@@ -205,6 +216,67 @@ cambios de esquema son aditivos.
 
 Cada versión agrega una sección aquí. Lee la de tu versión de destino **antes** de
 actualizar.
+
+### 2.3.1
+
+Versión de **corrección**. Arregla un defecto de la 2.3.0 que podía **dejar la actualización
+colgada**. No hay nada nuevo que configurar: todo lo que trajo la 2.3.0 (lee la sección de
+abajo) sigue vigente, con el arranque funcionando.
+
+**Si estás en la 2.2.0: actualiza directo a la 2.3.1.** No pases por la 2.3.0.
+
+**Si ya intentaste la 2.3.0 y quedó colgada:** sigue
+**[La actualización quedó colgada en la migración](../runbooks/migration-and-boot#upgrade-pendurado)**
+para destrabar la base de datos y luego actualiza a la 2.3.1.
+
+:::danger[El defecto de la 2.3.0, sin rodeos]
+
+En una instalación que **ya tenía datos**, el primer arranque de la 2.3.0 podía **detenerse**
+en el paso de migración de esquema y **no salir nunca de ahí**. Lo que veías:
+
+- el contenedor de la API **en pie pero nunca sano** — `running`, `exit=0`,
+  `health=unhealthy`. **No** se reiniciaba en bucle: el proceso no moría, quedaba
+  **trabado**. (En Kubernetes el pod nunca llegaba a `Ready` y terminaba reiniciado por el
+  `startupProbe` — y el pod nuevo se trababa igual.);
+- el log detenido en la línea `start-api: migração de schema (python -m app.db.migrate)...` —
+  y **ninguna línea de error después**;
+- los servicios de recolección en el mismo estado, porque ejecutan la misma migración al
+  arrancar;
+- consultas normales a la tabla de integraciones también bloqueadas, mientras durara el
+  impasse.
+
+**Una instalación nueva no se veía afectada.** El bloqueo dependía de que hubiera una columna
+nueva que agregar a una tabla que ya existía con datos — en una stack creada desde cero el
+esquema nace completo y el paso problemático ni siquiera corre. Por eso el defecto pasó las
+pruebas: estas levantan una base limpia.
+
+:::
+
+**Nada que deshacer en la base de datos, y ningún paso manual de esquema.** En este bloqueo
+la migración **todavía no había aplicado nada** cuando se colgó — esto fue verificado: el
+impasse ocurre antes del primer commit, y la 2.3.0 no crea ninguna tabla nueva. La base queda
+exactamente como estaba. Por eso la mecánica normal de [rollback](#rollback) — volver a la tag
+inmutable de la 2.2.0 — restablece el servicio sin ningún ajuste de base de datos; pero el
+destino es la 2.3.1, no la 2.2.0.
+
+**¿Y si una actualización se interrumpe en otro punto?** Tampoco queda esquema a medias, pero
+por un motivo distinto: la migración **no** es una sola transacción — son alrededor de
+**veinte pasos independientes**, cada uno con su propio commit. Interrumpirla a mitad de
+camino deja aplicados los pasos ya completados, pero **todos son idempotentes**: el estado que
+queda es parcial pero **válido**, y el siguiente arranque completa lo que faltó por sí solo.
+En ninguno de los dos casos hay algo que reparar a mano en la base de datos.
+
+**Qué cambió en el código:** la migración comprobaba qué columnas ya tenía una tabla abriendo
+una **segunda conexión** a la base de datos en medio de su propia transacción — y esa segunda
+conexión se quedaba esperando la liberación de una tabla que la primera, de la misma
+migración, mantenía bloqueada. La comprobación pasó a usar la conexión de la propia
+transacción. El paso sigue siendo idempotente.
+
+La migración también ganó un **techo de espera por bloqueo** (15 s por defecto). Si otra sesión
+de la base de datos está reteniendo una tabla que la migración necesita alterar, el arranque
+ahora **falla con un error explícito** en lugar de colgarse en silencio. Es un síntoma nuevo, y
+mejor — el procedimiento está en
+**[La migración abortó con "lock timeout"](../runbooks/migration-and-boot#lock-timeout)**.
 
 ### 2.3.0
 
