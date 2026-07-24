@@ -3185,9 +3185,29 @@ class RouteRepository:
     def get(self, route_id: str) -> models.Route | None:
         return self.db.query(models.Route).filter(models.Route.id == route_id).first()
 
-    def _scope(self, q, org_id: int | None, global_scope: bool):
+    def _scope(self, q, org_id: int | None, global_scope: bool, org_ids=None):
+        """Filtro de visibilidade: rota GLOBAL (org NULL) é visível a todo tenant;
+        rota de org é visível a quem alcança aquela org.
+
+        ``org_ids`` (conjunto/lista) é o escopo SUBTREE-AWARE vindo de
+        ``tenant.accessible_org_ids``. Quando informado, substitui a igualdade
+        exata por ``IN (...)`` — é o que permite um admin de org PAI enxergar as
+        rotas das FILHAS sob Enterprise. Em Community o resolver é FLAT e o
+        conjunto tem um elemento só, então o resultado é idêntico ao anterior.
+        ``org_id`` segue aceito para os call-sites que não têm sessão à mão."""
         if global_scope:
             return q
+        if org_ids is not None:
+            ids = [int(o) for o in org_ids]
+            if not ids:
+                # Escopado sem nenhuma org acessível: só as rotas globais.
+                return q.filter(models.Route.organization_id.is_(None))
+            return q.filter(
+                or_(
+                    models.Route.organization_id.in_(ids),
+                    models.Route.organization_id.is_(None),
+                )
+            )
         if org_id is not None:
             return q.filter(
                 or_(
@@ -3205,9 +3225,10 @@ class RouteRepository:
         global_scope: bool = False,
         offset: int = 0,
         limit: int = 200,
+        org_ids=None,
     ) -> list[models.Route]:
         q = self.db.query(models.Route)
-        q = self._scope(q, org_id, global_scope)
+        q = self._scope(q, org_id, global_scope, org_ids)
         if not include_disabled:
             q = q.filter(models.Route.enabled.is_(True))
         q = q.order_by(models.Route.priority.asc(), models.Route.id.asc())

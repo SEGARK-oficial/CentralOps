@@ -1331,7 +1331,8 @@ class Route(Base):
     # protect_detection=True. Só tem efeito com REDUCTION_SAMPLE_ENABLED on.
     sample_percent = Column(Integer, nullable=False, default=100, server_default=_sa_text("100"))
     # suppression durável por assinatura (rate-limit Number-to-Allow).
-    # suppress_key = CSV de labels p/ a assinatura (ex.: "src_ip,event_type"); NULL/vazio
+    # suppress_key = CSV de labels DE ROTEAMENTO p/ a assinatura (mesma allowlist da
+    # condition — ver routing.ALLOWED_FIELDS; ex.: "vendor,severity_id"); NULL/vazio
     # = sem supressão. suppress_allow = quantos passam por janela (0 = desligado, default).
     # suppress_window_s = janela (s). Reduz ruído repetitivo sem perder a 1ª ocorrência.
     suppress_key = Column(Text, nullable=True)

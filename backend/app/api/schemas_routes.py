@@ -33,7 +33,8 @@ class RouteCreate(BaseModel):
     #: amostragem determinística por event_id (0-100). 100 = byte-idêntico
     #: (sem redução). NUNCA aplicada a rotas ``protect_detection=True``.
     sample_percent: int = Field(default=100, ge=0, le=100)
-    #: CSV de labels da assinatura de supressão (ex.: "src_ip,event_type").
+    #: CSV de labels DE ROTEAMENTO da assinatura de supressão (ex.: "vendor,severity_id").
+    #: Validado contra a mesma allowlist da ``condition`` — campo do log (src_ip) dá 422.
     #: None/"" = supressão desligada.
     suppress_key: Optional[str] = None
     #: quantos eventos passam por janela antes de suprimir (0 = desligado).
@@ -61,6 +62,20 @@ class RouteCreate(BaseModel):
 
         try:
             validate_condition(v)
+        except Exception as exc:
+            raise ValueError(str(exc)) from exc
+        return v
+
+    @field_validator("suppress_key")
+    @classmethod
+    def _validate_suppress_key(cls, v: Any) -> Any:
+        # Mesma allowlist da ``condition``: a supressão só enxerga o bloco
+        # ``_centralops``. Sem esta validação, uma chave inexistente era aceita e
+        # o pipeline descartava 100% do tráfego em silêncio.
+        from ..collectors.routing import validate_suppress_key
+
+        try:
+            validate_suppress_key(v)
         except Exception as exc:
             raise ValueError(str(exc)) from exc
         return v
@@ -132,6 +147,20 @@ class RouteUpdate(BaseModel):
 
         try:
             validate_condition(v)
+        except Exception as exc:
+            raise ValueError(str(exc)) from exc
+        return v
+
+    @field_validator("suppress_key")
+    @classmethod
+    def _validate_suppress_key(cls, v: Any) -> Any:
+        # Mesma allowlist da ``condition``: a supressão só enxerga o bloco
+        # ``_centralops``. Sem esta validação, uma chave inexistente era aceita e
+        # o pipeline descartava 100% do tráfego em silêncio.
+        from ..collectors.routing import validate_suppress_key
+
+        try:
+            validate_suppress_key(v)
         except Exception as exc:
             raise ValueError(str(exc)) from exc
         return v

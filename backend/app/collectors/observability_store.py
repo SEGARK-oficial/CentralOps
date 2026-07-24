@@ -126,7 +126,15 @@ def record_counter(
 
 
 def record_latency(kind: str, oid: str, seconds: float, *, now: Optional[float] = None) -> None:
-    """Accumulate latency sum + count per minute → the reader computes the avg."""
+    """Accumulate latency sum + count per minute → the reader computes the avg.
+
+    O par ``latency_sum``/``latency_count`` tem que ser gravado JUNTO ou não ser
+    gravado: ``record_counter`` descarta valor zero (:114), então um ``seconds``
+    igual a 0 gravaria só o ``count`` e enviesaria a média para baixo
+    (``sum/(count+1)``). Amostra não-positiva é descartada inteira — é o que
+    mantém a média honesta."""
+    if seconds <= 0:
+        return
     record_counter(kind, oid, "latency_sum", seconds, now=now)
     record_counter(kind, oid, "latency_count", 1.0, now=now)
 

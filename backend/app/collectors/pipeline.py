@@ -344,6 +344,29 @@ async def _quarantine_async(*, capture_org_id: Optional[int] = None, **kwargs: A
     )
 
 
+def _record_source_ingested(integration_id: int, count: int) -> None:
+    """Credita ``count`` eventos à série ``obs:source:{id}:ingested`` NO MINUTO
+    CORRENTE — chamado a cada flush de lote, não uma vez por ciclo.
+
+    Por que incrementalmente: ``record_counter`` bucketiza pelo relógio da
+    CHAMADA. Gravar o total no fim do ciclo atribuía todos os eventos de um ciclo
+    de vários minutos ao minuto de encerramento, enquanto os contadores de ROTA
+    são escritos por lote, continuamente. Lidas na mesma janela de 5 min do
+    /flow, as duas séries ficavam incomparáveis — a rota de drop chegou a exibir
+    9.051 ev/min contra 5.999 ev/min de ingestão das fontes que a alimentam.
+
+    Best-effort: ``record_counter`` já engole as próprias exceções; o try extra
+    cobre o import. NUNCA afeta a coleta."""
+    if count <= 0:
+        return
+    try:
+        from . import observability_store as _obs_src
+
+        _obs_src.record_counter("source", str(integration_id), "ingested", float(count))
+    except Exception:  # pragma: no cover — jamais bloqueia a coleta
+        pass
+
+
 async def _maybe_suppress(redis: Any, envelope: dict, suppress_routes: list) -> Optional[str]:
     """Decide a supressão por assinatura de UM evento.
 
@@ -363,6 +386,17 @@ async def _maybe_suppress(redis: Any, envelope: dict, suppress_routes: list) -> 
             continue
         try:
             sig = suppress_signature(labels, r.suppress_key)
+            if sig is None:
+                # Assinatura DEGENERADA (nenhum componente do suppress_key resolveu
+                # neste evento): agrupar por ela descartaria 100% do tráfego. Não
+                # suprime — ver o fail-safe em suppress_signature.
+                logger.warning(
+                    "suppress: suppress_key=%r não resolveu NENHUM label na rota %s — "
+                    "supressão IGNORADA para este evento (labels disponíveis: %s). "
+                    "Corrija a chave da rota: só labels de _centralops são válidos.",
+                    r.suppress_key, r.id, sorted(labels),
+                )
+                return None
             keep, count = await claim_suppress(
                 redis, r.id, sig, r.suppress_allow, r.suppress_window_s
             )
@@ -542,10 +576,21 @@ async def _run_collection_once(integration_id: int, stream: str) -> None:
         # pré-filtra as rotas com supressão CONFIGURADA (uma vez por
         # ciclo). Gated pelas flags: sem elas, lista vazia → o check por-evento é pulado
         # (hot path byte-idêntico). Só reduz se também estiver medindo (COST_METERING).
+        #
+        # FAIL-SAFE DE DETECÇÃO: rota com ``protect_detection=True`` (o default) é
+        # EXCLUÍDA da supressão, exatamente como já acontece no sampling
+        # (``_should_sample_out``, routing/engine.py) e no descarte do raw
+        # (``drop_raw``). A supressão era a ÚNICA alavanca de redução que ignorava a
+        # proteção: uma rota marcada como "alimenta detecção" seguia descartando
+        # evento em silêncio. A UI desabilita os campos quando a proteção está ligada,
+        # o que dava falsa segurança — qualquer rota com ``suppress_allow`` já gravado
+        # e protegida depois (ou editada via API/MCP/seed) continuava suprimindo.
         _suppress_routes = (
             [
                 r for r in dispatch_routes
-                if getattr(r, "suppress_key", None) and int(getattr(r, "suppress_allow", 0) or 0) > 0
+                if getattr(r, "suppress_key", None)
+                and int(getattr(r, "suppress_allow", 0) or 0) > 0
+                and not getattr(r, "protect_detection", True)
             ]
             if (settings.REDUCTION_SUPPRESS_ENABLED and settings.COST_METERING_ENABLED)
             else []
@@ -1002,6 +1047,18 @@ async def _run_collection_once(integration_id: int, stream: str) -> None:
                         >= config.collector_batch_flush_seconds
                     ):
                         _enqueue_dispatch(batch, dispatch_routes)
+                        # Volume de source NO MINUTO EM QUE O EVENTO REALMENTE
+                        # FLUIU. Antes esta série era gravada UMA vez, no fim do
+                        # ciclo, com o total — atribuindo um ciclo de vários
+                        # minutos ao minuto final. Como os contadores de ROTA são
+                        # escritos por lote (continuamente), as duas séries ficavam
+                        # incomparáveis na mesma janela de 5 min: o /flow chegou a
+                        # mostrar a rota de drop descartando 9.051 ev/min contra
+                        # 5.999 ev/min de ingestão das fontes wazuh — 1,5× mais do
+                        # que existia. Mesmo cuidado já adotado pelo
+                        # InVolumeAccumulator do metering ("um ciclo bulk de 12min
+                        # não pode atribuir tudo ao minuto final").
+                        _record_source_ingested(integration_id, len(batch))
                         EVENTS_TOTAL.labels(
                             vendor=platform,
                             tenant=str(organization_id),
@@ -1038,6 +1095,7 @@ async def _run_collection_once(integration_id: int, stream: str) -> None:
 
             if batch:
                 _enqueue_dispatch(batch, dispatch_routes)
+                _record_source_ingested(integration_id, len(batch))
                 EVENTS_TOTAL.labels(
                     vendor=platform,
                     tenant=str(organization_id),
@@ -1053,17 +1111,12 @@ async def _run_collection_once(integration_id: int, stream: str) -> None:
                 batch_msg_ids = []
 
         # ── 5. Persiste cursor final (RF02) ───────────────────────────
-        # flow-view: instrumentação de volume de source no store nativo.
-        # Best-effort — record_counter já engole exceções internamente; nunca afeta
-        # a coleta. Alimenta obs:source:{integration_id}:ingested (forward-looking:
-        # o endpoint /flow usa pipeline-health como fonte primária, mas esta série
-        # permite futura consistência com o store nativo de rotas/destinos).
-        if events_count > 0:
-            try:
-                from . import observability_store as _obs_src
-                _obs_src.record_counter("source", str(integration_id), "ingested", float(events_count))
-            except Exception:  # pragma: no cover — jamais bloqueia a coleta
-                pass
+        # A série obs:source:{id}:ingested é gravada INCREMENTALMENTE, junto de
+        # cada flush de lote (ver _record_source_ingested no laço acima), para
+        # cair no minuto em que o evento realmente fluiu. O resíduo do último
+        # lote parcial é contabilizado no flush final logo abaixo — não há
+        # gravação de total aqui, que era o que deslocava um ciclo inteiro para
+        # o minuto de encerramento.
 
         await cursor_store.save(
             integration_id,
@@ -2269,6 +2322,15 @@ async def dispatch_batch_to_destination(
             # IDs rejeitados em qualquer chunk com 4xx (retryable=False).
             # Usado para excluir esses eventos do registro de lineage.
             rejected_event_ids: set[str] = set()
+            # Tempo de ENTREGA do lote (todos os chunks + retries), para a série
+            # nativa ``latency`` que a UI de /destinations lê. A latência já era
+            # medida por chunk em DELIVERY_LATENCY.observe, mas só ia para o
+            # OTel/Prometheus — o call-site abaixo passava 0.0 literal para o
+            # store nativo, e record_counter descarta zero, então a série
+            # ``latency_avg`` NUNCA teve um único ponto. O card "latência média"
+            # ficava permanentemente vazio e a doc de SLO mandava olhar um número
+            # que não existia.
+            _delivery_started = time.monotonic()
             for chunk in chunks:
                 last_result = await _send_chunk_with_retry(
                     target=target,
@@ -2304,7 +2366,11 @@ async def dispatch_batch_to_destination(
                 dest_config.destination_id,
                 accepted_total,
                 rejected_total,
-                0.0,  # elapsed already observed per-chunk above
+                # Tempo de entrega REAL do lote (soma dos chunks + retries).
+                # Era 0.0 literal, e como record_counter descarta zero a série
+                # ``latency`` nunca recebia um ponto — ver o comentário no início
+                # do laço de chunks.
+                max(time.monotonic() - _delivery_started, 0.0),
                 batch,
             )
 

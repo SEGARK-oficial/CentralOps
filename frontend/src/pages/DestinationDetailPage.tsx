@@ -364,31 +364,33 @@ const DestinationDetailPage: React.FC = () => {
               <h4 className="text-xs font-semibold uppercase tracking-wide text-text-tertiary">{t("detailPage.health.seriesTitle")}</h4>
               {metrics && (metrics.series.sent?.length || metrics.series.rejected?.length) ? (
                 <div className="flex flex-wrap gap-6">
-                  {/* enviados → primary (positivo) */}
+                  {/* Séries de contador por minuto: o número exibido é a MÉDIA da
+                      janela, descartando o bucket corrente (parcial). Mostrar o
+                      último bucket fazia um destino com ~101 eventos/min exibir
+                      um punhado de eventos e parecer parado. */}
                   <Sparkline
                     points={metrics.series.sent ?? []}
                     label={t("detailPage.health.eventsPerMin")}
                     variant="primary"
+                    dropPartialLast
+                    summary="mean"
                   />
                   {/* rejeitados → danger (sinal negativo) */}
                   <Sparkline
                     points={metrics.series.rejected ?? []}
                     label={t("detailPage.health.rejectedPerMin")}
                     variant="danger"
+                    dropPartialLast
+                    summary="mean"
                   />
-                  {/* descartados → danger se existir */}
-                  {metrics.series.discarded?.length > 0 && (
-                    <Sparkline
-                      points={metrics.series.discarded}
-                      label={t("detailPage.health.discardedPerMin")}
-                      variant="danger"
-                    />
-                  )}
-                  {/* latência → warning */}
+                  {/* latência → warning. Já é uma média por bucket; o resumo da
+                      janela também é média. */}
                   <Sparkline
                     points={metrics.series.latency_avg ?? []}
                     label={t("detailPage.health.avgLatency")}
                     variant="warning"
+                    dropPartialLast
+                    summary="mean"
                   />
                 </div>
               ) : (

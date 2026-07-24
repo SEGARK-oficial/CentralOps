@@ -26,6 +26,21 @@ export interface SparklineProps {
   showBaseline?: boolean
   /** Exibe marcadores min/max */
   showMinMax?: boolean
+  /**
+   * Descarta o ÚLTIMO ponto por ser um bucket PARCIAL.
+   *
+   * Séries de contador por minuto sempre terminam no minuto corrente, que ainda
+   * não fechou — o valor ali é uma fração do real. Num destino com ~101
+   * eventos/min de média, o bucket parcial chegou a exibir 5, e o operador leu
+   * isso como "o destino quase parou".
+   */
+  dropPartialLast?: boolean
+  /**
+   * O que o número ao lado do gráfico mostra: o último ponto (default,
+   * comportamento histórico) ou a MÉDIA da janela. Para taxas por minuto a
+   * média é o número que responde "quanto esse destino recebe".
+   */
+  summary?: "last" | "mean"
 }
 
 /** Formata timestamp unix-ms para exibição no tooltip (locale ativo). */
@@ -49,9 +64,15 @@ export const Sparkline: React.FC<SparklineProps> = ({
   height = 32,
   showBaseline = false,
   showMinMax = false,
+  dropPartialLast = false,
+  summary = "last",
 }) => {
   const { t } = useTranslation("dashboard")
-  const vals = points.map((p) => Number(p[1])).filter((n) => !Number.isNaN(n))
+  // O bucket corrente ainda não fechou: incluí-lo puxa o número para baixo e
+  // faz um destino saudável parecer parado. Só descartamos quando sobra série.
+  const usable =
+    dropPartialLast && points.length > 1 ? points.slice(0, -1) : points
+  const vals = usable.map((p) => Number(p[1])).filter((n) => !Number.isNaN(n))
   const color = VARIANT_COLOR[variant]
 
   // 0 pontos: sem dados
@@ -59,8 +80,11 @@ export const Sparkline: React.FC<SparklineProps> = ({
     return <span className="text-xs text-text-tertiary">{t("observability.sparkline.noData", { label })}</span>
   }
 
-  const last    = vals[vals.length - 1]
-  const lastTs  = points[points.length - 1]?.[0]
+  const last =
+    summary === "mean"
+      ? vals.reduce((a, b) => a + b, 0) / vals.length
+      : vals[vals.length - 1]
+  const lastTs  = usable[usable.length - 1]?.[0]
   const lastValuePart = lastTs
     ? t("observability.sparkline.lastValueAt", { label, value: last.toFixed(2), time: fmtTime(lastTs) })
     : t("observability.sparkline.lastValue", { label, value: last.toFixed(2) })

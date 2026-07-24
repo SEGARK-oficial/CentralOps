@@ -738,6 +738,46 @@ def route_batch(
 # ── Validation + UX guards ─────────────────────────────────────────────
 
 
+#: Labels que NÃO servem de assinatura de supressão por serem únicos por evento:
+#: agrupar por eles gera uma assinatura distinta para cada evento e a supressão
+#: NUNCA dispara — falha silenciosa no extremo oposto da degenerada.
+_UNIQUE_PER_EVENT_LABELS = frozenset({"event_id", "collected_at"})
+
+
+def validate_suppress_key(suppress_key: Any) -> None:
+    """Levanta ``ValueError`` se ``suppress_key`` não for uma assinatura utilizável.
+
+    A supressão só enxerga o bloco ``_centralops`` (ver ``event_labels``), então o
+    vocabulário válido é o MESMO de uma condição de rota — mas até aqui só a
+    condição era validada: ``{"src_ip": ...}`` numa condição devolvia 422 enquanto
+    ``suppress_key="src_ip"`` era aceito em silêncio e descartava 100% do tráfego
+    (a assinatura colapsava para todos os eventos).
+
+    Também recusa labels ÚNICOS POR EVENTO (``event_id``, ``collected_at``): eles
+    produzem assinatura distinta a cada evento, e a supressão nunca dispara. Os dois
+    extremos falhavam calados; ambos passam a ser erro de configuração explícito.
+    """
+    if suppress_key is None:
+        return
+    if not isinstance(suppress_key, str):
+        raise ValueError("suppress_key must be a comma-separated string of labels")
+    fields = [f.strip() for f in suppress_key.split(",") if f.strip()]
+    if not fields:
+        return  # vazio == supressão desligada (contrato existente)
+    for field_name in fields:
+        canonical = _canonical_field(field_name)
+        if canonical in _UNIQUE_PER_EVENT_LABELS:
+            raise ValueError(
+                f"suppress_key field {field_name!r} is unique per event — the signature "
+                "would never repeat and suppression would never fire; use grouping "
+                f"labels such as {sorted(ALLOWED_FIELDS)}"
+            )
+        if canonical not in ALLOWED_FIELDS:
+            raise ValueError(
+                f"unknown suppress_key field {field_name!r}; allowed: {sorted(ALLOWED_FIELDS)}"
+            )
+
+
 def validate_condition(condition: Any) -> None:
     """Raise ``ValueError`` if ``condition`` is not a valid label-driven matcher.
 

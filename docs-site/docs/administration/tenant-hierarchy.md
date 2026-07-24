@@ -8,6 +8,19 @@ description: Modelo de tree, personas de admin (global, MSP/reseller, tenant), q
 
 O CentralOps suporta uma **estrutura hierárquica de organizações** que permite a plataforma escalar de clientes diretos para resellers, MSPs (Managed Service Providers) e suas sub-redes de clientes. A hierarquia estabelece limites de visibilidade e controle: cada administrador — seja global, de reseller ou de tenant — enxerga e gerencia apenas o seu ramo, com segurança de dados absoluta entre ramos.
 
+:::warning[Recurso Enterprise]
+A **visibilidade de subárvore** — um admin de MSP enxergar as organizações filhas —
+é funcionalidade **Enterprise**. Na edição **Community** o escopo é *flat*: um
+administrador vê **apenas a própria organização**, mesmo que existam organizações
+filhas cadastradas. Não há mensagem de erro: as telas de fontes, rotas, destinos e
+drift simplesmente aparecem com os dados da própria org.
+
+Se você está em Community e precisa que um administrador enxergue outras
+organizações, a resposta **não** é promovê-lo a admin global — isso concede leitura
+e escrita sobre **todos os clientes da plataforma**, inclusive de outros contratos.
+Avalie a edição Enterprise.
+:::
+
 ## Quando usar
 
 - **Você é dono/operador da plataforma**: entenda como o modelo tree garante que os dados de um reseller nunca vazem para outro, e como conferir quotas de sub-tenants.
