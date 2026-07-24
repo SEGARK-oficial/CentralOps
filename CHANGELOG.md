@@ -1,5 +1,54 @@
 # Changelog
 
+## [2.3.0](https://github.com/SEGARK-oficial/CentralOps/compare/v2.2.0...v2.3.0) (2026-07-24)
+
+
+### Features
+
+* **api:** expor filtro de coleta e atraso real na API ([d22da15](https://github.com/SEGARK-oficial/CentralOps/commit/d22da1567a043e726ad6fa931c271ddb7beaf404))
+* **brand:** dar identidade própria ao CentralOps e corrigir o que os docs quebravam ([a3d84ae](https://github.com/SEGARK-oficial/CentralOps/commit/a3d84ae1727057a35e5833eeb66d28ef9a86a604))
+* **capture:** exportar eventos capturados em CSV/NDJSON com streaming ([bcdbb44](https://github.com/SEGARK-oficial/CentralOps/commit/bcdbb44629d6d60145955f5ce8bdc0c37c4dfdc4))
+* **capture:** rota estruturada no desfecho e antes/depois no inspetor ([6ba9b29](https://github.com/SEGARK-oficial/CentralOps/commit/6ba9b29b824b10522aaf1b6a2d1f2d4f00fbd142))
+* **collect:** filtro de coleta declarado pelo plugin, por integração ([a7e6e10](https://github.com/SEGARK-oficial/CentralOps/commit/a7e6e1010e33e6a9b8a45aa49d8314f366ed7d24))
+* **dedupe:** TTL em segundos (piso 4h) e fórmula de capacidade do Redis ([b829856](https://github.com/SEGARK-oficial/CentralOps/commit/b829856e4599db40b193149a9092ed822301be6b))
+* **destinations:** campo de preço por GB (FinOps) na UI do destino ([acc3bbe](https://github.com/SEGARK-oficial/CentralOps/commit/acc3bbea3a938c58c87cf95362c09ab4ab5fdaac))
+* filtro de coleta plugin-driven, trava de ciclo e medição do atraso real ([bf1d3aa](https://github.com/SEGARK-oficial/CentralOps/commit/bf1d3aa1de98274858cfc090602c84b45c83f1ed))
+* **helm:** expor as flags de PII, redução, metering e drift no chart ([492c7bb](https://github.com/SEGARK-oficial/CentralOps/commit/492c7bbd709061cebf84ff26e544e8e30ac7bd70))
+* **mappings:** podar o raw nos seeds — drop dos blobs Sophos e drop_nulls ([d3d2616](https://github.com/SEGARK-oficial/CentralOps/commit/d3d2616a9165fa71c46ec481e9943e5b9f9b3c64))
+* **metering:** decompor bytes_saved por causa e sinalizar mistura de unidades ([1a585c9](https://github.com/SEGARK-oficial/CentralOps/commit/1a585c9ff0981f84fb90a8bf61eaeceaa29724b7))
+* **reduction:** primitiva de drop do raw + Route.drop_raw, e o bug que apagava raw_reduction a cada edição ([7ad8a10](https://github.com/SEGARK-oficial/CentralOps/commit/7ad8a10f301768a281eb5af00c059b85ba791fe0))
+* **reduction:** primitiva de drop no raw_reduction (drop/keep_only/drop_nulls) ([3418799](https://github.com/SEGARK-oficial/CentralOps/commit/3418799bd4218b7b0969f373d66c8bc42abea19c))
+* **routes-ui:** expor "descartar raw" no formulário de rota ([17dfc90](https://github.com/SEGARK-oficial/CentralOps/commit/17dfc900003f27455637a04f844edea1e7f2f21a))
+* **routing:** Route.drop_raw — descartar o bloco raw por destino ([2546781](https://github.com/SEGARK-oficial/CentralOps/commit/25467818ac253972512c169cf131e2f841791d10))
+* **ui:** configurar o filtro de coleta e distinguir os dois atrasos ([45b56b0](https://github.com/SEGARK-oficial/CentralOps/commit/45b56b093046032715bcd463d6b219b15f892983))
+
+
+### Bug Fixes
+
+* **capture:** scrubbar segredos embutidos em valores no ring de captura ([6578601](https://github.com/SEGARK-oficial/CentralOps/commit/657860112f9e6d0d8d9112b7065d093904fab289))
+* **collect:** trava por (integração, stream) e medição do atraso real ([a52de5c](https://github.com/SEGARK-oficial/CentralOps/commit/a52de5c63beffdb339903ecfa33b0558400d1645))
+* **config-bundle:** preservar drop_raw no round-trip de exportação ([96e263e](https://github.com/SEGARK-oficial/CentralOps/commit/96e263e29ff94be1faeb4a903bcb103a836c9af6))
+* **destinations:** não exibir o bucket parcial como se fosse a taxa do destino ([416e8e7](https://github.com/SEGARK-oficial/CentralOps/commit/416e8e71314a6b6166257ea867c14e77abb3c735))
+* **drift-ui:** tornar drift sem mapping filtrável e não engolir erro de carga ([0a906e1](https://github.com/SEGARK-oficial/CentralOps/commit/0a906e1280a240d5e6dbab92b484178d4a0a6ac6))
+* **drift,capture,metering:** detecção por path, captura com rota/antes-depois/export e metering honesto ([71aae41](https://github.com/SEGARK-oficial/CentralOps/commit/71aae41289e8c8e605a3d45c1eb073970d7e8ab9))
+* **drift,dedupe:** escopo subtree em drift/samples e TTL de dedupe em horas (piso 4h) ([ab33027](https://github.com/SEGARK-oficial/CentralOps/commit/ab33027508d22e0839e64ad70130dd60b8259bcf))
+* **drift,mappings:** escopo subtree-aware em drift, discover-fields e samples ([ff4a1f7](https://github.com/SEGARK-oficial/CentralOps/commit/ff4a1f7afd629ba78ae2dd636f24b33f8100cb28))
+* **drift:** detectar campos por PATH, não por chave de topo ([4c295b1](https://github.com/SEGARK-oficial/CentralOps/commit/4c295b17f644a22aab0c3a01b140d724328613ed))
+* **drift:** mascarar o valor de amostra persistido (PII fail-closed) ([42976ba](https://github.com/SEGARK-oficial/CentralOps/commit/42976baf25f3707a4b77e1bebe2ecdd4c42d3ed7))
+* **drift:** upsert atômico e fail-closed em organização nula ([cf66dff](https://github.com/SEGARK-oficial/CentralOps/commit/cf66dfffa18f2d667aff5539fb7bf02a45cd95ba))
+* **flow:** creditar volume da fonte no minuto real, não no fim do ciclo ([a92a547](https://github.com/SEGARK-oficial/CentralOps/commit/a92a5471ebdc4402119e2b606d2d5f4a3126f8fe))
+* **flow:** parar de recalcular a redução e rotular as bases de medição do card ([f801b51](https://github.com/SEGARK-oficial/CentralOps/commit/f801b5137f771f0dd58a86180fdefbaa73b0cba0))
+* **mappings:** parar de apagar raw_reduction a cada edição de mapping ([22ee873](https://github.com/SEGARK-oficial/CentralOps/commit/22ee873a949139892486360336b50ac89f72e147))
+* **observability:** gravar a latência de entrega real (a série era sempre vazia) ([afc3434](https://github.com/SEGARK-oficial/CentralOps/commit/afc343414d4210392309b7aec9809b40e606ed45))
+* **routes-ui:** corrigir textos da UI que descreviam o produto errado ([e4bedba](https://github.com/SEGARK-oficial/CentralOps/commit/e4bedbac086476763f76c85b2aed864d11a729fa))
+* **routes:** escopo de rotas subtree-aware, alinhado com fontes e integrações ([0b2d2fb](https://github.com/SEGARK-oficial/CentralOps/commit/0b2d2fb89f92208a82e11b6359d0389cdf32914a))
+* **routes:** revalidar condição e chave de supressão ao restaurar versão ([d6f0096](https://github.com/SEGARK-oficial/CentralOps/commit/d6f00961cac5b0666bc77e2f5170755cf5ab216c))
+* **routes:** validar suppress_key com a mesma allowlist da condition ([34f719f](https://github.com/SEGARK-oficial/CentralOps/commit/34f719f92ab977eeb8983fa074da14d99acc742b))
+* **routing:** corrigir aviso que dizia alavancas de redução desligadas por padrão ([2d45e18](https://github.com/SEGARK-oficial/CentralOps/commit/2d45e182d14c9f61c847ccb3c3d1f46d4e038b27))
+* **routing:** não carimbar sample_rate em rota protegida ([3b00539](https://github.com/SEGARK-oficial/CentralOps/commit/3b00539648fea6a17cc72dae1ab89cff92b5fb4f))
+* **suppress,routes,observability:** supressão que descartava tudo, latência nunca gravada e contadores do /flow inflados ([cb8c0c8](https://github.com/SEGARK-oficial/CentralOps/commit/cb8c0c81230781b8fd5bbf3f6872624d2a32fb3f))
+* **suppress:** não descartar tráfego com assinatura degenerada nem em rota protegida ([159f8d4](https://github.com/SEGARK-oficial/CentralOps/commit/159f8d4be47cbcde8b171a2641098293d7d56ee3))
+
 ## [2.2.0](https://github.com/SEGARK-oficial/CentralOps/compare/v2.1.0...v2.2.0) (2026-07-19)
 
 
