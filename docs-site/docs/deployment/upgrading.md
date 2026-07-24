@@ -1,20 +1,20 @@
 ---
 sidebar_position: 4
 title: Atualizar de versão
-description: "Passo a passo para atualizar o CentralOps de uma versão para a mais recente (ex.: 1.1.0 → 2.0.0) — mecânica genérica no Compose e no Helm, migração idempotente no boot, verificação e rollback — mais as notas da versão 2.0.0, que traz uma mudança que quebra compatibilidade."
+description: "Passo a passo para atualizar o CentralOps de uma versão para a mais recente (ex.: 2.2.0 → 2.3.0) — mecânica genérica no Compose e no Helm, migração idempotente no boot, verificação e rollback — mais as notas de cada versão, incluindo a 2.0.0, que quebra compatibilidade."
 ---
 
 # Atualizar de versão
 
-Subir de uma **versão** para a mais recente (ex.: `1.1.0` → `2.0.0`) é, na mecânica, uma
+Subir de uma **versão** para a mais recente (ex.: `2.2.0` → `2.3.0`) é, na mecânica, uma
 operação de rotina: você troca a **tag da imagem**, puxa a nova imagem e recria os
 serviços. Não há reinstalação, não há passo manual de migração, e os **dados são
 preservados**. Esta página cobre a mecânica genérica (vale para qualquer versão) e traz,
 no fim, as **Notas da versão** com o que muda em cada release.
 
-:::danger[2.0.0 é um major com *breaking change*]
+:::danger[Vindo de uma 1.x? A 2.0.0 quebra compatibilidade no caminho]
 
-A **2.0.0** sobe o número **maior** de propósito: ela **remove a superfície de Alertas**
+Quem já está numa 2.x pode pular este aviso. A **2.0.0** subiu o número **maior** de propósito: ela **remove a superfície de Alertas**
 (rota `/alerts`, endpoints de alerts da API, o Accept `v1` de `/dashboard/summary` e a
 ferramenta MCP `list_integration_alerts`). **Os dados e o schema são preservados** — o que
 muda é o **contrato de leitura**. Se você tem bookmarks, automações ou integrações que
@@ -25,7 +25,7 @@ batem nesses caminhos, **migre-as antes de atualizar** (detalhes em
 
 :::note[Isto é diferente de "Atualizar de edição"]
 
-Esta página trata de subir de **versão** (ex.: `1.1.0` → `2.0.0`), dentro da mesma
+Esta página trata de subir de **versão** (ex.: `2.2.0` → `2.3.0`), dentro da mesma
 edição. Para trocar de **edição** — Community → Enterprise, ativando os módulos MSSP com
 a sua licença — veja **[Upgrade para Enterprise](../editions/upgrade.md)**. Os dois
 processos são independentes: você atualiza a versão de uma stack Community ou Enterprise
@@ -205,12 +205,11 @@ schema são aditivas.
 Cada versão adiciona uma seção aqui. Leia a da sua versão de destino **antes** de
 atualizar.
 
-### Próxima versão
+### 2.3.0
 
-:::note[Ainda não publicada]
-As mudanças abaixo já estão no código, mas ainda não saíram numa tag. Quando a versão
-for publicada, esta seção passa a levar o número dela.
-:::
+Versão **menor**: nenhuma mudança que quebre compatibilidade. Atualizar é a mecânica de
+rotina descrita acima, e uma instalação que não abrir as telas novas se comporta
+exatamente como na 2.2.0.
 
 **Filtro de coleta — nasce desligado.** As integrações cujo fornecedor permite restringir
 a consulta ganharam um **filtro de coleta**: o descarte passa a acontecer na consulta feita
@@ -267,6 +266,37 @@ O card só fica **amarelo por backlog** quando as **duas** condições valem ao 
 último ciclo terminou no teto de eventos **e** o Atraso dos dados daquele fluxo passa de 30
 minutos. Atraso dos dados alto sozinho não muda a cor — um fluxo sem eventos mantém a posição
 parada de propósito. Detalhes em [Saúde do Pipeline](../operations/pipeline-health.md).
+
+### 2.2.0
+
+**Detecção em voo (correlação no hot path).** Regras de correlação passam a poder ser
+avaliadas durante a ingestão, e não só ao fim de uma busca federada. A tela ganhou
+pré-visualização de uma regra contra amostras reais **sem persistir nada**, contadores de
+24h por regra, e documentação de por que uma regra fica silenciosa.
+
+Nada muda para quem não criar regra em voo — o modo de avaliação nasce no comportamento
+anterior.
+
+### 2.1.0
+
+**Correções de fidelidade OCSF e de coleta.** O `timestamp_t` passou a ser emitido em
+**milissegundos** (era segundos — erro de 1000× em todos os mapeamentos), o Veeam passou a
+mapear para *Scheduled Job Activity* e o CloudWatch para *Base Event*.
+
+**Coletores que paginam ganharam teto por ciclo.** Sem ele, um acúmulo grande era drenado
+num único run até estourar o tempo limite da task, que revertia a posição de coleta e
+recomeçava — o coletor ficava preso sem progredir. Com o teto, o ciclo encerra e o
+seguinte retoma de onde parou.
+
+:::note[O teto resolveu o travamento, mas não o acúmulo]
+Ele limita o volume **bruto** puxado por ciclo, sem saber quanto daquilo o roteamento vai
+descartar em seguida. Uma fonte cujo descarte é alto continua gastando cada ciclo
+transportando o que será jogado fora. É esse o problema que o **filtro de coleta** da
+2.3.0 ataca.
+:::
+
+**Contadores de rota e métricas de economia** passaram a ser gravados
+incondicionalmente, e não só quando a amostragem estava ligada.
 
 ### 2.0.0
 

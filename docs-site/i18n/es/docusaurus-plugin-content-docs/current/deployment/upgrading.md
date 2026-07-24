@@ -206,12 +206,11 @@ cambios de esquema son aditivos.
 Cada versión agrega una sección aquí. Lee la de tu versión de destino **antes** de
 actualizar.
 
-### Próxima versión
+### 2.3.0
 
-:::note[Todavía no publicada]
-Los cambios de abajo ya están en el código, pero aún no salieron en un tag. Cuando la
-versión se publique, esta sección pasa a llevar su número.
-:::
+Versión **menor**: ningún cambio rompe compatibilidad. Actualizar es la mecánica de rutina
+descrita arriba, y una instalación que no abra las pantallas nuevas se comporta
+exactamente como en la 2.2.0.
 
 **Filtro de recolección — nace apagado.** Las integraciones cuyo proveedor permite
 restringir la consulta ganaron un **filtro de recolección**: el descarte pasa a ocurrir en
@@ -272,6 +271,36 @@ mismo tiempo: el último ciclo terminó en el tope de eventos **y** el Retraso d
 ese stream pasa de 30 minutos. Retraso de los datos alto por sí solo no cambia el color —
 un stream sin eventos mantiene la posición detenida a propósito. Detalles en
 [Salud del Pipeline](../operations/pipeline-health).
+
+### 2.2.0
+
+**Detección en vuelo (correlación en el hot path).** Las reglas de correlación ahora pueden
+evaluarse durante la ingesta, y no solo al final de una búsqueda federada. La pantalla ganó
+vista previa de una regla contra muestras reales **sin persistir nada**, contadores de 24h
+por regla, y documentación de por qué una regla permanece en silencio.
+
+Nada cambia para quien no cree una regla en vuelo — el modo de evaluación nace en el
+comportamiento anterior.
+
+### 2.1.0
+
+**Correcciones de fidelidad OCSF y de recolección.** `timestamp_t` pasó a emitirse en
+**milisegundos** (era segundos — error de 1000× en todos los mapeos), Veeam pasó a mapear a
+*Scheduled Job Activity* y CloudWatch a *Base Event*.
+
+**Los recolectores que paginan ganaron tope por ciclo.** Sin él, un acumulado grande se
+drenaba en una sola ejecución hasta reventar el límite de tiempo de la tarea, que revertía
+la posición de recolección y empezaba de nuevo — el recolector quedaba atascado sin
+progresar. Con el tope, el ciclo termina y el siguiente retoma donde paró.
+
+:::note[El tope resolvió el atasco, no el acumulado]
+Limita el volumen **bruto** extraído por ciclo, sin saber cuánto de eso el enrutamiento va
+a descartar después. Una fuente con descarte alto sigue gastando cada ciclo transportando
+lo que será tirado. Ese es el problema que ataca el **filtro de recolección** de la 2.3.0.
+:::
+
+**Los contadores por ruta y las métricas de ahorro** pasaron a registrarse
+incondicionalmente, y no solo cuando el muestreo estaba activado.
 
 ### 2.0.0
 

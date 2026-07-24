@@ -205,12 +205,11 @@ are additive.
 Each version adds a section here. Read the one for your target version **before**
 upgrading.
 
-### Next version
+### 2.3.0
 
-:::note[Not released yet]
-The changes below are already in the code, but have not shipped in a tag yet. Once the
-version is published, this section takes its number.
-:::
+A **minor** release: nothing breaks compatibility. Upgrading is the routine mechanic
+described above, and an installation that never opens the new screens behaves exactly as
+it did on 2.2.0.
 
 **Collection filter — off by default.** Integrations whose vendor allows restricting the
 query gained a **collection filter**: the discard now happens in the query sent to the
@@ -268,6 +267,37 @@ last cycle ended at the per-cycle event cap **and** that stream's Data lag is ov
 minutes. High Data lag on its own does not change the color — a stream with no events keeps
 its position parked on purpose. Details in
 [Pipeline Health](../operations/pipeline-health).
+
+### 2.2.0
+
+**In-flight detection (correlation on the hot path).** Correlation rules can now be
+evaluated during ingestion, not only at the end of a federated search. The screen gained a
+preview of a rule against real samples **without persisting anything**, 24h per-rule
+counters, and documentation of why a rule stays silent.
+
+Nothing changes for anyone who does not create an in-flight rule — the evaluation mode
+starts at the previous behaviour.
+
+### 2.1.0
+
+**OCSF fidelity and collection fixes.** `timestamp_t` is now emitted in **milliseconds**
+(it was seconds — a 1000× error across every mapping), Veeam now maps to *Scheduled Job
+Activity* and CloudWatch to *Base Event*.
+
+**Paginating collectors gained a per-cycle cap.** Without it, a large backlog was drained
+in a single run until the task time limit blew, which reverted the collection position and
+started over — the collector was stuck making no progress. With the cap, the cycle ends and
+the next one resumes where it stopped.
+
+:::note[The cap fixed the stall, not the backlog]
+It bounds the **raw** volume pulled per cycle, with no knowledge of how much of that
+routing will discard next. A source with a high discard rate still spends every cycle
+hauling what will be thrown away. That is the problem the **collection filter** in 2.3.0
+attacks.
+:::
+
+**Per-route counters and savings metrics** are now recorded unconditionally, not only when
+sampling was on.
 
 ### 2.0.0
 
