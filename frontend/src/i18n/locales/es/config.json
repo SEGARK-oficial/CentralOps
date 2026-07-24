@@ -64,8 +64,11 @@
       "eventsCollected": "Eventos recolectados",
       "eventsCollectedHint": "acumulado histórico por integración",
       "integrationsWithErrors": "Con fallos consecutivos",
-      "maxLag": "Retraso máximo (min)",
-      "maxLagHint": "desde el último éxito"
+      "maxLag": "Última recolección más antigua (min)",
+      "maxLagHint": "hace cuánto se ejecutó el flujo que lleva más tiempo sin recolectar — no dice de cuándo son los datos",
+      "worstDataLag": "Retraso de los datos (peor flujo)",
+      "worstDataLagHint": "flujo más retrasado: {{name}} / {{stream}}",
+      "worstDataLagNone": "ningún flujo con retraso medible (cursor no temporal o sin recolección aún)"
     },
     "vendors": {
       "registered": "Proveedores registrados ({{count}})",
@@ -87,10 +90,17 @@
         "orgIntegration": "Organización / Integración",
         "platformStream": "Platform / Stream",
         "events": "Eventos",
-        "lastSuccess": "Último éxito",
+        "lastSuccess": "Última recolección",
+        "lastSuccessHint": "cuándo se ejecutó el recolector",
+        "dataLag": "Retraso de los datos",
+        "dataLagHint": "de cuándo son los datos",
         "status": "Estado",
         "actions": "Acciones"
       },
+      "dataLagTooltip": "Evento más reciente ya consumido de este flujo: {{date}}.",
+      "dataLagUnavailable": "Retraso no medible: este cursor no es temporal, o aún no se ha recolectado nada. No significa al día.",
+      "backlog": "Backlog",
+      "backlogTooltip": "El ciclo se detuvo en el tope de páginas y los datos están más de 30 min atrás: quedó trabajo pendiente y el flujo no está recuperando terreno.",
       "emptyTitle": "Ninguna recolección registrada",
       "emptyNoVendors": "Ningún proveedor de recolección registrado todavía. Verifique que todos los servicios de CentralOps estén en ejecución — en especial el planificador (beat).",
       "emptyNoIntegration": "Cree una integración activa — la primera recolección comienza automáticamente en hasta 60 segundos.",

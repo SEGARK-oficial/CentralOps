@@ -31,6 +31,8 @@ const PIPELINE_HEALTH: IntegrationPipelineHealth = {
   status: "healthy",
   events_per_minute: 15,
   lag_seconds: 10,
+  watermark_lag_seconds: null,
+  backlog_detected: false,
   last_error: null,
   last_success_at: "2026-04-25T10:00:00Z",
   mapped_field_ratio: 0.9,

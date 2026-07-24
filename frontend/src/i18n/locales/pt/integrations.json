@@ -260,7 +260,35 @@
     "streamsInfo": {
       "summary_one": "O que será coletado ({{count}} stream)",
       "summary_other": "O que será coletado ({{count}} streams)",
-      "every": "a cada {{schedule}}"
+      "every": "a cada {{schedule}}",
+      "filtersAvailable_one": "{{count}} filtro de coleta",
+      "filtersAvailable_other": "{{count}} filtros de coleta",
+      "filtersAfterCreate": "Os filtros de coleta são configurados na edição, depois que a integração existe."
+    },
+    "collectionFilters": {
+      "title": "Filtros de coleta",
+      "subtitle": "Descarte na origem: o que for filtrado aqui nunca é transportado para a plataforma.",
+      "noFilterSummary": "Sem filtro",
+      "activeSummary_one": "{{count}} filtro ativo",
+      "activeSummary_other": "{{count}} filtros ativos",
+      "streamLabel": "Stream: {{stream}}",
+      "noFilter": "Sem filtro — coleta tudo",
+      "active": "Filtrando na origem",
+      "reset": "Remover filtro",
+      "resetAll": "Remover todos os filtros",
+      "warningLabel": "Antes de ligar",
+      "notRetroactiveTitle": "Vale a partir do próximo ciclo",
+      "notRetroactive": "Ligar um filtro não reprocessa o que já passou, e desligar não recupera o que ficou de fora. Os eventos continuam no fornecedor — a plataforma apenas deixa de transportá-los.",
+      "range": "Entre {{min}} e {{max}}. Com {{noFilterValue}} nada é filtrado.",
+      "rangeInvalid": "Informe um número inteiro entre {{min}} e {{max}}.",
+      "enumNoFilterOption": "{{value}} — sem filtro",
+      "boolOn": "Ligado",
+      "confirmTitle": "Ligar este filtro de coleta?",
+      "confirmNewValue": "{{label}}: {{value}}",
+      "confirmSubmit": "Ligar filtro",
+      "loadErrorTitle": "Filtros de coleta indisponíveis",
+      "loadError": "Não foi possível ler os filtros desta integração, então eles não são exibidos aqui. Se algum estiver ligado, ele continua valendo. Detalhe: {{reason}}",
+      "saveError": "Os filtros de coleta não foram salvos e nada mais foi alterado. Detalhe: {{reason}}"
     },
     "testResult": {
       "ok": "Conexão OK.",

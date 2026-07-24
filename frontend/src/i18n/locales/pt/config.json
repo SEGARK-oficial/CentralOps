@@ -64,8 +64,11 @@
       "eventsCollected": "Eventos coletados",
       "eventsCollectedHint": "acumulado histórico por integração",
       "integrationsWithErrors": "Com falhas consecutivas",
-      "maxLag": "Lag máximo (min)",
-      "maxLagHint": "desde o último sucesso"
+      "maxLag": "Última coleta mais antiga (min)",
+      "maxLagHint": "há quanto tempo rodou o fluxo que está sem coletar há mais tempo — não diz de quando é o dado",
+      "worstDataLag": "Atraso dos dados (pior fluxo)",
+      "worstDataLagHint": "fluxo mais atrasado: {{name}} / {{stream}}",
+      "worstDataLagNone": "nenhum fluxo com atraso medível (cursor não temporal ou sem coleta ainda)"
     },
     "vendors": {
       "registered": "Vendors registrados ({{count}})",
@@ -87,10 +90,17 @@
         "orgIntegration": "Organização / Integração",
         "platformStream": "Platform / Stream",
         "events": "Eventos",
-        "lastSuccess": "Último sucesso",
+        "lastSuccess": "Última coleta",
+        "lastSuccessHint": "quando o coletor rodou",
+        "dataLag": "Atraso dos dados",
+        "dataLagHint": "de quando é o dado",
         "status": "Status",
         "actions": "Ações"
       },
+      "dataLagTooltip": "Evento mais recente já consumido deste fluxo: {{date}}.",
+      "dataLagUnavailable": "Atraso não medível: este cursor não é temporal, ou nada foi coletado ainda. Não significa em dia.",
+      "backlog": "Backlog",
+      "backlogTooltip": "O ciclo parou no teto de páginas e o dado está mais de 30 min atrás: sobrou trabalho e o fluxo não está recuperando terreno.",
       "emptyTitle": "Nenhuma coleta registrada",
       "emptyNoVendors": "Nenhum vendor de coleta registrado ainda. Verifique se todos os serviços do CentralOps estão em execução — em especial o agendador (beat).",
       "emptyNoIntegration": "Crie uma integração ativa — a primeira coleta começa automaticamente em até 60 segundos.",

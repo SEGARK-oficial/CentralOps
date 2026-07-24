@@ -260,7 +260,35 @@
     "streamsInfo": {
       "summary_one": "Qué se recolectará ({{count}} stream)",
       "summary_other": "Qué se recolectará ({{count}} streams)",
-      "every": "cada {{schedule}}"
+      "every": "cada {{schedule}}",
+      "filtersAvailable_one": "{{count}} filtro de recolección",
+      "filtersAvailable_other": "{{count}} filtros de recolección",
+      "filtersAfterCreate": "Los filtros de recolección se configuran al editar, una vez que la integración existe."
+    },
+    "collectionFilters": {
+      "title": "Filtros de recolección",
+      "subtitle": "Descarte en el origen: lo que se filtre aquí nunca entra en la plataforma.",
+      "noFilterSummary": "Sin filtro",
+      "activeSummary_one": "{{count}} filtro activo",
+      "activeSummary_other": "{{count}} filtros activos",
+      "streamLabel": "Stream: {{stream}}",
+      "noFilter": "Sin filtro — recolecta todo",
+      "active": "Filtrando en el origen",
+      "reset": "Quitar filtro",
+      "resetAll": "Quitar todos los filtros",
+      "warningLabel": "Antes de activar",
+      "notRetroactiveTitle": "Rige desde el próximo ciclo",
+      "notRetroactive": "Activar un filtro no reprocesa lo que ya pasó, y desactivarlo no recupera lo que quedó fuera. Los eventos siguen en el proveedor — la plataforma solo deja de transportarlos.",
+      "range": "Entre {{min}} y {{max}}. Con {{noFilterValue}} no se filtra nada.",
+      "rangeInvalid": "Ingrese un número entero entre {{min}} y {{max}}.",
+      "enumNoFilterOption": "{{value}} — sin filtro",
+      "boolOn": "Activado",
+      "confirmTitle": "¿Activar este filtro de recolección?",
+      "confirmNewValue": "{{label}}: {{value}}",
+      "confirmSubmit": "Activar filtro",
+      "loadErrorTitle": "Filtros de recolección no disponibles",
+      "loadError": "No se pudieron leer los filtros de esta integración, así que no se muestran aquí. Si alguno está activo, sigue vigente. Detalle: {{reason}}",
+      "saveError": "Los filtros de recolección no se guardaron y no se cambió nada más. Detalle: {{reason}}"
     },
     "testResult": {
       "ok": "Conexión OK.",

@@ -64,8 +64,11 @@
       "eventsCollected": "Events collected",
       "eventsCollectedHint": "historical total per integration",
       "integrationsWithErrors": "With consecutive failures",
-      "maxLag": "Max lag (min)",
-      "maxLagHint": "since last success"
+      "maxLag": "Oldest last collection (min)",
+      "maxLagHint": "how long ago the least recently run flow last collected — says nothing about how old the data is",
+      "worstDataLag": "Data lag (worst flow)",
+      "worstDataLagHint": "most delayed flow: {{name}} / {{stream}}",
+      "worstDataLagNone": "no flow with measurable lag (non-temporal cursor or nothing collected yet)"
     },
     "vendors": {
       "registered": "Registered vendors ({{count}})",
@@ -87,10 +90,17 @@
         "orgIntegration": "Organization / Integration",
         "platformStream": "Platform / Stream",
         "events": "Events",
-        "lastSuccess": "Last success",
+        "lastSuccess": "Last collection",
+        "lastSuccessHint": "when the collector ran",
+        "dataLag": "Data lag",
+        "dataLagHint": "how old the data is",
         "status": "Status",
         "actions": "Actions"
       },
+      "dataLagTooltip": "Most recent event already consumed from this flow: {{date}}.",
+      "dataLagUnavailable": "Lag not measurable: this cursor is not time-based, or nothing has been collected yet. It does not mean up to date.",
+      "backlog": "Backlog",
+      "backlogTooltip": "The cycle stopped at the page cap and the data is more than 30 min behind: work was left over and the flow is not catching up.",
       "emptyTitle": "No collection registered",
       "emptyNoVendors": "No collection vendor registered yet. Check that all CentralOps services are running — especially the scheduler (beat).",
       "emptyNoIntegration": "Create an active integration — the first collection starts automatically within 60 seconds.",

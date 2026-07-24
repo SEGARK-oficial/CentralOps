@@ -338,9 +338,68 @@ export interface AuthFieldRead {
   options?: string[] | null
 }
 
+// ── Filtros de coleta (descarte empurrado para a origem) ──────────────
+//
+// Metadado auto-descritivo declarado pelo plugin do vendor
+// (`CollectorRegistration.filters` no backend). A tela renderiza a partir DESTE
+// contrato — não há `switch (platform)` em lugar nenhum do frontend: um vendor
+// novo que passe a declarar filtros aparece sozinho.
+
+export type CollectionFilterFieldType = "int_range" | "enum" | "bool"
+
+/** Valor que um filtro de coleta pode assumir, por `type`. */
+export type CollectionFilterValue = number | string | boolean
+
+export interface CollectionFilterFieldRead {
+  key: string
+  label: string
+  type: CollectionFilterFieldType
+  /**
+   * O valor que NÃO filtra nada — garantido pelo backend
+   * (`CollectionFilterField.__post_init__`). É o que permite à UI dizer
+   * "sem filtro" com certeza e oferecer a volta em um clique.
+   */
+  default: CollectionFilterValue | null
+  /** Obrigatórios quando `type === "int_range"`. */
+  min?: number | null
+  max?: number | null
+  /** Obrigatório quando `type === "enum"`. */
+  options?: string[] | null
+  help_text?: string | null
+  /**
+   * Consequência de LIGAR o filtro. Precisa estar na tela ANTES do toggle: o
+   * evento filtrado na origem nunca entra na plataforma (não aparece na captura
+   * ao vivo, não gera campo novo no Drift Explorer, não fica disponível para uma
+   * rota futura).
+   */
+  warning_text?: string | null
+}
+
+/**
+ * `GET/PUT /integrations/{id}/collection-filters`.
+ *
+ * `filters` é `{stream: {key: valor}}` e só carrega o que de fato filtra — o GET
+ * revalida contra a declaração atual do plugin e OMITE valor que não passa mais,
+ * porque o coletor também o ignora. `available_filters` é o schema efetivo da
+ * plataforma desta integração; stream sem filtro declarado não aparece em
+ * nenhum dos dois.
+ */
+export interface IntegrationCollectionFilters {
+  integration_id: number
+  platform: string
+  filters: Record<string, Record<string, CollectionFilterValue>>
+  available_filters: Record<string, CollectionFilterFieldRead[]>
+}
+
 export interface StreamRead {
   stream: string
   schedule_seconds: number
+  /**
+   * Filtros que ESTE stream sabe empurrar para o fornecedor. Opcional para
+   * tolerar um backend anterior à feature durante um deploy em andamento —
+   * ausência é lida como "não filtra na origem", igual a lista vazia.
+   */
+  filters?: CollectionFilterFieldRead[]
 }
 
 export interface ProviderPlatformRead {
@@ -887,6 +946,24 @@ export interface CollectionState {
   cursor?: Record<string, unknown> | null
   last_success_at?: string | null
   last_attempt_at?: string | null
+  /**
+   * Instante do FORNECEDOR até onde o cursor consumiu — "de quando é o dado".
+   *
+   * Não confunda com `last_success_at`, que é "quando o coletor rodou": este é
+   * reescrito com `agora` a cada ciclo sem erro, inclusive quando o ciclo estava
+   * processando o dia anterior. Foi por só existir o segundo que um coletor 15h
+   * atrasado passou semanas reportando `lag 0` / `healthy`.
+   *
+   * Ausente/`null` quando não medível (cursor não temporal, nada coletado ainda,
+   * ou API anterior a esta versão): a coluna some, nunca vira 0.
+   */
+  watermark_at?: string | null
+  /**
+   * O último ciclo parou no teto de páginas ⇒ sobrou trabalho para o próximo.
+   * Sozinho não prova atraso (um teto que absorve um pico é o teto funcionando);
+   * é junto com `watermark_at` antigo que caracteriza backlog.
+   */
+  last_run_capped?: boolean
   last_error?: string | null
   consecutive_failures: number
   events_collected_total: number
@@ -1362,7 +1439,30 @@ export interface IntegrationPipelineHealth {
   integration_id: number
   status: PipelineHealthStatus
   events_per_minute: number | null
+  /**
+   * QUANDO O COLETOR RODOU: `agora − last_success_at`. É reescrito a cada ciclo
+   * que termina sem erro — inclusive quando o ciclo processou o dia ANTERIOR.
+   * Não diz nada sobre o quão atual é o dado (foi por só existir este campo que
+   * um coletor 15h atrasado reportou `lag_seconds: 0` e `healthy` em produção).
+   */
   lag_seconds: number | null
+  /**
+   * DE QUANDO É O DADO: `agora − watermark` do pior stream, ou seja, quanto do
+   * passado do fornecedor ainda não foi consumido.
+   *
+   * `null` significa NÃO MEDÍVEL (cursor não temporal, ou nenhum ciclo gravou
+   * watermark ainda) — a UI OMITE o indicador nesse caso. Nunca renderizar 0 no
+   * lugar: 0 afirmaria "em dia", que é exatamente a mentira que este campo
+   * existe para desfazer.
+   */
+  watermark_lag_seconds: number | null
+  /**
+   * Algum stream terminou o último ciclo no teto de páginas ⇒ sobrou trabalho.
+   * Sozinho não é problema (um teto que absorve um pico é o teto funcionando);
+   * é a combinação com um `watermark_lag_seconds` alto que caracteriza backlog —
+   * e essa combinação já vem decidida no `status` que o backend calcula.
+   */
+  backlog_detected: boolean
   last_error: string | null
   last_success_at: string | null
   mapped_field_ratio: number | null
