@@ -11,9 +11,14 @@
  */
 
 import { render, screen, fireEvent, waitFor } from "@testing-library/react"
+// Globais do vitest importadas explicitamente: o tsconfig do app não inclui
+// `vitest/globals` em `types`, então sem isto o `tsc --noEmit` reprova o
+// arquivo inteiro com "Cannot find name 'expect'".
+import { describe, it, expect, vi, beforeAll, beforeEach } from "vitest"
 import { MemoryRouter } from "react-router-dom"
 import PipelineHealthPage from "@/pages/PipelineHealthPage"
 import * as api from "@/services/api"
+import i18n from "@/i18n"
 import type {
   Destination,
   DestinationHealth,
@@ -23,6 +28,15 @@ import type {
 
 vi.mock("@/services/api")
 const mockedApi = vi.mocked(api)
+
+// Sem importar o bootstrap do i18n, o i18next nunca é inicializado neste
+// processo e TODA asserção de texto bate contra a chave crua
+// ("pipelineHealthPage.card.dataLag"). O `changeLanguage` fixa pt: o detector
+// resolveria o navigator do jsdom ("en-US") e as asserções abaixo são escritas
+// contra o catálogo PT, que é o que um usuário pt-BR vê.
+beforeAll(async () => {
+  await i18n.changeLanguage("pt")
+})
 
 // ── fixtures ───────────────────────────────────────────────────────────────────
 
@@ -50,11 +64,14 @@ const integrationB: Integration = {
   capabilities: [],
 }
 
+// Cursor não temporal / sem watermark gravado ⇒ atraso dos dados NÃO É MEDÍVEL.
 const healthA: IntegrationPipelineHealth = {
   integration_id: 1,
   status: "healthy",
   events_per_minute: 10,
   lag_seconds: 5,
+  watermark_lag_seconds: null,
+  backlog_detected: false,
   last_error: null,
   last_success_at: "2026-06-17T00:00:00Z",
   mapped_field_ratio: 0.95,
@@ -63,11 +80,15 @@ const healthA: IntegrationPipelineHealth = {
   cached_at: "2026-06-17T00:00:00Z",
 }
 
+// A forma exata do incidente de produção: a coleta terminou há 5 min, mas o dado
+// que ela está processando é de 15h atrás — e o último ciclo bateu o teto.
 const healthB: IntegrationPipelineHealth = {
   integration_id: 2,
   status: "degraded",
   events_per_minute: 2,
   lag_seconds: 300,
+  watermark_lag_seconds: 54000,
+  backlog_detected: true,
   last_error: "timeout",
   last_success_at: "2026-06-17T00:00:00Z",
   mapped_field_ratio: 0.6,
@@ -145,6 +166,34 @@ describe("PipelineHealthPage", () => {
     expect(screen.getByText("Sophos Beta")).toBeInTheDocument()
   })
 
+  // ── Atraso real vs. "quando rodou" ─────────────────────────────────────────
+
+  it("separa 'Última coleta' de 'Atraso dos dados' com rótulos distintos", async () => {
+    renderPage()
+    await screen.findByText("Sophos Beta")
+    // Coleta terminou há 5 min…
+    expect(screen.getByTestId("health-last-collection-2")).toHaveTextContent("há 5min")
+    // …e mesmo assim o dado é de 15h atrás. É esta linha que faltava.
+    expect(screen.getByTestId("health-data-lag-2")).toHaveTextContent("há 15h")
+    expect(screen.getByText("Atraso dos dados")).toBeInTheDocument()
+  })
+
+  it("omite o atraso dos dados quando não é medível (null), sem cair para 0", async () => {
+    renderPage()
+    await screen.findByText("Wazuh Alpha")
+    expect(screen.getByTestId("health-last-collection-1")).toHaveTextContent("há 5s")
+    expect(screen.queryByTestId("health-data-lag-1")).not.toBeInTheDocument()
+    // "0s"/"há 0s" afirmaria "em dia" — jamais pode aparecer no lugar do null.
+    expect(screen.getByTestId("health-last-collection-1").textContent).not.toMatch(/0s/)
+  })
+
+  it("exibe badge de backlog só na integração cujo ciclo bateu o teto", async () => {
+    renderPage()
+    await screen.findByText("Sophos Beta")
+    expect(screen.getByTestId("health-backlog-2")).toHaveTextContent("Backlog")
+    expect(screen.queryByTestId("health-backlog-1")).not.toBeInTheDocument()
+  })
+
   // ── Seção Saúde por destino ────────────────────────────────────────────────
 
   it("seção de destinos começa oculta", async () => {
@@ -189,7 +238,10 @@ describe("PipelineHealthPage", () => {
     fireEvent.click(screen.getByRole("button", { name: /Ver destinos/i }))
     await screen.findByText("Splunk Prod")
     const epsCell = screen.getByTestId("dest-eps-dest-01")
-    expect(epsCell.textContent).toBe("8")
+    // fmtRate() usa 1 casa decimal abaixo de 10 — a asserção antiga ("8") nunca
+    // correspondeu ao que a tela renderiza, e passava despercebida porque o
+    // arquivo inteiro falhava por falta do bootstrap do i18n.
+    expect(epsCell.textContent).toBe("8.0")
   })
 
   it("exibe estado vazio quando sem destinos", async () => {

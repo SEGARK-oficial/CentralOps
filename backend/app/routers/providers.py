@@ -8,6 +8,10 @@ data-driven, sem switch(platform) no código.
 auth_fields) vem do registro self-describing de cada vendor
 (``collectors.registry.PlatformRegistration``), NÃO de dicts hardcoded. Adicionar
 um vendor = registrar a PlatformRegistration no módulo dele; este router não muda.
+O mesmo vale para os filtros de COLETA que cada stream declara
+(``CollectorRegistration.filters``): eles saem em ``streams[].filters`` e a tela
+os renderiza sozinha — um vendor que passe a filtrar na origem não custa uma
+linha de backend nem de frontend.
 
 Não expõe valores de credenciais (AuthFieldRead.type="secret" nunca carrega
 valor padrão). A autenticação exigida replica o padrão de /api/collectors/vendors
@@ -19,8 +23,9 @@ import logging
 from typing import List, Literal, Optional
 
 from fastapi import APIRouter, Depends
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
+from ..api import schemas
 from ..core import auth as app_auth
 from ..core.errors import ApiError
 from ..db import models
@@ -46,6 +51,10 @@ class AuthFieldRead(BaseModel):
 class StreamRead(BaseModel):
     stream: str
     schedule_seconds: int
+    #: Filtros de coleta que ESTE stream sabe empurrar para o fornecedor. Lista
+    #: vazia ⇒ o stream não filtra na origem e a UI não mostra a seção. Vendor novo
+    #: que declare filtros aparece na tela sem tocar neste router nem no frontend.
+    filters: List[schemas.CollectionFilterFieldRead] = Field(default_factory=list)
 
 
 class ProviderPlatformRead(BaseModel):
@@ -102,6 +111,9 @@ def _load_streams(platform: str) -> List[StreamRead]:
             StreamRead(
                 stream=reg.stream,
                 schedule_seconds=int(reg.schedule.total_seconds()),
+                filters=[
+                    schemas.CollectionFilterFieldRead.from_field(f) for f in reg.filters
+                ],
             )
             for reg in collector_registry.iter_for_platform(platform)
         ]

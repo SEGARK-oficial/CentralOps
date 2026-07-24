@@ -125,6 +125,15 @@ BYTES_IN = _instrument("collector_bytes_in_total")
 API_LATENCY = _instrument("collector_api_latency_seconds")
 OAUTH_EXPIRES = _instrument("collector_oauth_token_expires_in_seconds")
 CURSOR_LAG = _instrument("collector_cursor_lag_seconds")
+# Atraso REAL da coleta: ``agora − watermark``, onde watermark é até onde o cursor
+# consumiu na linha do tempo do FORNECEDOR. Diferente de ``last_success_at``, que é
+# reescrito a cada ciclo bem-sucedido mesmo processando o dia anterior — e por isso
+# marcava 0 num coletor 15h atrasado (incidente jul/2026).
+WATERMARK_LAG = _instrument("collector_watermark_lag_seconds")
+# Ciclo pulado porque o anterior do MESMO (integração, stream) ainda rodava.
+# Subir de forma sustentada = a cadência do stream está menor que a duração do
+# ciclo, ou seja, há backlog e o coletor não está dando conta.
+COLLECT_SKIPPED_LOCKED = _instrument("collector_cycles_skipped_locked_total")
 TASK_DURATION = _instrument("collector_task_duration_seconds")
 RATE_LIMIT_BACKOFFS = _instrument("collector_rate_limit_backoffs_total")
 DEDUPE_DROPS = _instrument("collector_dedupe_drops_total")

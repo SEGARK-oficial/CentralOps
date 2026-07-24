@@ -56,15 +56,15 @@ _WINDOWS_LOGOFF = {
     "data": {
         "win": {
             "eventdata": {
-                "targetUserName": "julia.strello",
-                "targetDomainName": "ZAFFARINET",
+                "targetUserName": "ana.silva",
+                "targetDomainName": "CORPNET",
                 "logonType": "3",
             },
             "system": {
                 "eventID": "4634",
                 "channel": "Security",
                 "systemTime": "2026-07-16T20:02:38Z",
-                "computer": "SRV-AD02.zaffarinet.interno",
+                "computer": "SRV-AD02.corpnet.interno",
                 "severityValue": "AUDIT_SUCCESS",
                 "providerName": "Microsoft-Windows-Security-Auditing",
             },

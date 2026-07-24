@@ -21,6 +21,7 @@ import type {
   CollectorSummary,
   CollectorVendor,
 } from "@/types"
+import { formatLag } from "@/components/health/MetricsGrid"
 import { Badge } from "@/components/ui/Badge/Badge"
 import { Button } from "@/components/ui/Button/Button"
 import { Card } from "@/components/ui/Card/Card"
@@ -33,6 +34,39 @@ import { useAuth } from "@/contexts/AuthContext"
 import { formatDate } from "@/lib/utils"
 import { currentLocale, formatNumber } from "@/lib/intl"
 import type { TFunction } from "i18next"
+
+/**
+ * Espelha `_BACKLOG_LAG_THRESHOLD_SECONDS` de `backend/app/routers/pipeline_health.py`.
+ * Repetido aqui de propósito e não inventado: se esta tela usasse um limiar
+ * próprio, o mesmo fluxo apareceria "com backlog" em Coletores e "saudável" na
+ * Saúde do Pipeline, e o operador pararia de acreditar nos dois.
+ */
+const BACKLOG_LAG_THRESHOLD_SECONDS = 30 * 60
+
+/**
+ * Atraso REAL do dado: `agora − watermark_at`, o instante do fornecedor até onde
+ * o cursor consumiu.
+ *
+ * `null` quando não medível — cursor não temporal, nada coletado ainda, ou API
+ * anterior a esta versão (rolling upgrade). Quem chama tem de tratar `null` como
+ * "não dá para afirmar", nunca como zero.
+ */
+function dataLagSeconds(row: CollectionState): number | null {
+  if (!row.watermark_at) return null
+  const parsed = new Date(row.watermark_at).getTime()
+  if (!Number.isFinite(parsed)) return null
+  return Math.max(0, Math.floor((Date.now() - parsed) / 1000))
+}
+
+/**
+ * Backlog CONFIRMADO exige as duas condições, igual ao backend: o ciclo parou no
+ * teto de páginas E o dado está muito atrás. Só o teto é um pico sendo absorvido;
+ * só o atraso é um stream sem eventos com watermark legitimamente parado.
+ */
+function hasBacklog(row: CollectionState): boolean {
+  const lag = dataLagSeconds(row)
+  return Boolean(row.last_run_capped) && lag !== null && lag > BACKLOG_LAG_THRESHOLD_SECONDS
+}
 
 /** Decide a cor do badge conforme "idade" da última coleta bem-sucedida. */
 function healthBadge(
@@ -60,6 +94,10 @@ const VENDOR_INLINE_THRESHOLD = 24
 
 const CollectorsPage: React.FC = () => {
   const { t } = useTranslation("config")
+  // `formatLag` vive na MetricsGrid e lê as chaves do namespace `dashboard`.
+  // Reaproveitado em vez de reimplementado: "há 15h" tem de ler igual aqui e na
+  // Saúde do Pipeline, senão o operador acha que são duas medidas diferentes.
+  const { t: tLag } = useTranslation("dashboard")
   const { user } = useAuth()
   const isAdmin = user?.role === "admin"
 
@@ -130,6 +168,21 @@ const CollectorsPage: React.FC = () => {
       }),
     [states],
   )
+
+  /**
+   * O fluxo mais atrasado, COM NOME. A Saúde do Pipeline agrega N streams pelo
+   * pior deles e mostra só o número; esta é a única visão por (integração,
+   * fluxo) do produto, então é aqui que o operador descobre em qual fluxo mexer.
+   */
+  const worstDataLag = useMemo(() => {
+    let worst: { row: CollectionState; seconds: number } | null = null
+    for (const row of states) {
+      const seconds = dataLagSeconds(row)
+      if (seconds === null) continue
+      if (!worst || seconds > worst.seconds) worst = { row, seconds }
+    }
+    return worst
+  }, [states])
 
   const handleTrigger = async (row: CollectionState) => {
     const key = rowKey(row)
@@ -215,7 +268,7 @@ const CollectorsPage: React.FC = () => {
       )}
 
       {/* KPI cards */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
         <KpiCard
           icon={<DatabaseIcon size={18} />}
           label={t("collectorsPage.kpi.integrationsTracked")}
@@ -238,6 +291,9 @@ const CollectorsPage: React.FC = () => {
           value={summary?.integrations_with_errors ?? 0}
           intent={(summary?.integrations_with_errors ?? 0) > 0 ? "warning" : "ok"}
         />
+        {/* "Quando rodou". Continua útil para achar coletor PARADO, mas o rótulo
+            não pode mais dizer "lag": este número é reescrito a cada ciclo que
+            termina sem erro, inclusive quando o ciclo processou o dia anterior. */}
         <KpiCard
           icon={<ClockIcon size={18} />}
           label={t("collectorsPage.kpi.maxLag")}
@@ -248,6 +304,23 @@ const CollectorsPage: React.FC = () => {
               : "ok"
           }
           hint={t("collectorsPage.kpi.maxLagHint")}
+        />
+        {/* "De quando é o dado", e de qual fluxo. Sem o nome do fluxo o operador
+            vê o número e não tem onde agir — a agregação da Saúde do Pipeline
+            escolhe o pior stream e depois o esconde. */}
+        <KpiCard
+          icon={<ClockIcon size={18} />}
+          label={t("collectorsPage.kpi.worstDataLag")}
+          value={worstDataLag ? formatLag(worstDataLag.seconds, tLag) : "—"}
+          intent={worstDataLag && hasBacklog(worstDataLag.row) ? "warning" : "ok"}
+          hint={
+            worstDataLag
+              ? t("collectorsPage.kpi.worstDataLagHint", {
+                  name: worstDataLag.row.integration_name ?? `#${worstDataLag.row.integration_id}`,
+                  stream: worstDataLag.row.stream,
+                })
+              : t("collectorsPage.kpi.worstDataLagNone")
+          }
         />
       </div>
 
@@ -379,7 +452,7 @@ const CollectorsPage: React.FC = () => {
         ) : (
           <div className="overflow-x-auto">
             <table
-              className="w-full min-w-[920px] text-sm"
+              className="w-full min-w-[1080px] text-sm"
               role="table"
               aria-label={t("collectorsPage.table.ariaLabel")}
             >
@@ -388,7 +461,21 @@ const CollectorsPage: React.FC = () => {
                   <th scope="col" className="px-4 py-3 text-left">{t("collectorsPage.table.columns.orgIntegration")}</th>
                   <th scope="col" className="px-4 py-3 text-left">{t("collectorsPage.table.columns.platformStream")}</th>
                   <th scope="col" className="whitespace-nowrap px-4 py-3 text-right">{t("collectorsPage.table.columns.events")}</th>
-                  <th scope="col" className="whitespace-nowrap px-4 py-3 text-left">{t("collectorsPage.table.columns.lastSuccess")}</th>
+                  {/* Duas colunas de tempo lado a lado, cada uma com a pergunta
+                      que responde escrita embaixo. É a distinção que faltava: um
+                      coletor pode ter acabado de rodar E estar processando ontem. */}
+                  <th scope="col" className="whitespace-nowrap px-4 py-3 text-left">
+                    {t("collectorsPage.table.columns.lastSuccess")}
+                    <div className="mt-0.5 text-[10px] font-normal normal-case tracking-normal text-text-tertiary">
+                      {t("collectorsPage.table.columns.lastSuccessHint")}
+                    </div>
+                  </th>
+                  <th scope="col" className="whitespace-nowrap px-4 py-3 text-left">
+                    {t("collectorsPage.table.columns.dataLag")}
+                    <div className="mt-0.5 text-[10px] font-normal normal-case tracking-normal text-text-tertiary">
+                      {t("collectorsPage.table.columns.dataLagHint")}
+                    </div>
+                  </th>
                   <th scope="col" className="whitespace-nowrap px-4 py-3 text-left">{t("collectorsPage.table.columns.status")}</th>
                   <th scope="col" className="px-4 py-3 text-right">{t("collectorsPage.table.columns.actions")}</th>
                 </tr>
@@ -397,6 +484,7 @@ const CollectorsPage: React.FC = () => {
                 {sortedStates.map((row) => {
                   const key = rowKey(row)
                   const health = healthBadge(row, t)
+                  const dataLag = dataLagSeconds(row)
                   // Org e integração são tipicamente 1:1 (cada tenant aprovado
                   // cria 1 org + 1 integração de nome derivado), então as duas
                   // colunas repetiam. Fundimos numa só: org como principal e a
@@ -438,6 +526,49 @@ const CollectorsPage: React.FC = () => {
                       </td>
                       <td className="whitespace-nowrap px-4 py-3 text-text-secondary">
                         {row.last_success_at ? formatDate(row.last_success_at) : "—"}
+                      </td>
+                      <td
+                        className="whitespace-nowrap px-4 py-3"
+                        data-testid={`collector-data-lag-${row.integration_id}-${row.stream}`}
+                      >
+                        <div className="flex flex-col items-start gap-1">
+                          {/* O `!row.watermark_at` é redundante em runtime (é a
+                              primeira coisa que `dataLagSeconds` checa) e existe
+                              só para o TS estreitar o tipo sem cast. */}
+                          {dataLag === null || !row.watermark_at ? (
+                            // Sem watermark não dá para AFIRMAR atraso — e também
+                            // não dá para afirmar que está em dia. O tooltip
+                            // impede que este traço seja lido como "zero".
+                            <span
+                              className="text-text-tertiary"
+                              title={t("collectorsPage.table.dataLagUnavailable")}
+                            >
+                              —
+                            </span>
+                          ) : (
+                            <span
+                              className="text-text"
+                              title={t("collectorsPage.table.dataLagTooltip", {
+                                date: formatDate(row.watermark_at),
+                              })}
+                            >
+                              {formatLag(dataLag, tLag)}
+                            </span>
+                          )}
+                          {/* Teto sem atraso confirmado é pico absorvido: não
+                              acende nada, senão o badge apareceria em toda rajada
+                              normal e o operador aprenderia a ignorá-lo. */}
+                          {hasBacklog(row) && (
+                            <Badge
+                              variant="warning"
+                              size="sm"
+                              title={t("collectorsPage.table.backlogTooltip")}
+                              data-testid={`collector-backlog-${row.integration_id}-${row.stream}`}
+                            >
+                              {t("collectorsPage.table.backlog")}
+                            </Badge>
+                          )}
+                        </div>
                       </td>
                       <td className="px-4 py-3">
                         <Badge variant={health.variant}>{health.label}</Badge>

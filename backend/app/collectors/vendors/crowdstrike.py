@@ -134,6 +134,10 @@ class CrowdStrikeDetectionsCollector(BaseCollector):
             page_count += 1
             if self.ctx.bounded_per_cycle and page_count > _MAX_PAGES_PER_CYCLE:
                 self.ctx.cursor = {"created_after": created_after, "after": after}
+                # Sobrou backlog: como ``created_after`` fica parado de propósito,
+                # este é o único sinal que distingue "tenant sem detecções" de
+                # "não damos conta do volume" na Saúde do Pipeline.
+                self.mark_cycle_capped()
                 logger.info(
                     "crowdstrike detections: teto de %d páginas/ciclo atingido — cursor "
                     "resumível em created_after=%s after=%s p/ próximo ciclo (integration=%s)",
@@ -188,6 +192,15 @@ class CrowdStrikeDetectionsCollector(BaseCollector):
 
     def extract_message_id(self, event: Dict[str, Any]) -> str:
         return str(event.get("composite_id") or event.get("id") or "")
+
+    @classmethod
+    def watermark_at(cls, cursor: Optional[Dict[str, Any]]) -> Optional[datetime]:
+        """``created_after`` — o piso do filtro FQL, em ISO com milissegundos.
+
+        É o watermark real: o ciclo capado o preserva (e guarda o ``after``), e o
+        ciclo drenado o avança para o ``created_timestamp`` mais recente visto.
+        """
+        return cls.watermark_from_iso(cursor, "created_after")
 
 
 def _default_lookback_iso() -> str:

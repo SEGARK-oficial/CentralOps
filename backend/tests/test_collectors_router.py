@@ -118,6 +118,8 @@ def _seed_collection_state(
     failures: int = 0,
     last_success_minutes_ago: int | None = 2,
     last_error: str | None = None,
+    watermark_minutes_ago: int | None = None,
+    last_run_capped: bool = False,
 ) -> None:
     now = datetime.utcnow()
     row = models.CollectionState(
@@ -129,6 +131,15 @@ def _seed_collection_state(
             if last_success_minutes_ago is not None
             else None
         ),
+        # Default ``None``: é o estado de um cursor não temporal ou de um stream
+        # que nunca coletou — o caso em que a tela precisa OMITIR o atraso em vez
+        # de renderizar zero.
+        watermark_at=(
+            now - timedelta(minutes=watermark_minutes_ago)
+            if watermark_minutes_ago is not None
+            else None
+        ),
+        last_run_capped=last_run_capped,
         last_attempt_at=now,
         last_error=last_error,
         consecutive_failures=failures,
@@ -225,6 +236,54 @@ def test_state_is_scoped_by_tenant(client_factory) -> None:
     body = r.json()
     assert len(body) == 1
     assert body[0]["organization_id"] == org_a["id"]
+
+
+def test_state_exposes_watermark_and_capped_flag(client_factory) -> None:
+    """``/api/collectors/state`` é a única visão por (integração, FLUXO) do
+    produto — é onde o operador descobre QUAL fluxo está atrasado, já que a Saúde
+    do Pipeline agrega N fluxos pelo pior e não diz qual.
+
+    Regressão de serialização, não de schema: ``_serialize_state`` monta o
+    ``CollectionStateRead`` por kwargs, então declarar os campos no schema não
+    basta — sem copiá-los à mão o endpoint devolve ``null``/``false`` fixos e a
+    coluna de atraso real da tela nasce morta.
+    """
+    factory, SessionLocal = client_factory
+    admin_client = factory()
+    _bootstrap_admin(admin_client)
+    org = _create_org(admin_client, "Org A")
+
+    with SessionLocal() as s:
+        integ = _seed_integration(
+            s, organization_id=org["id"], name="A-sophos", platform="sophos"
+        )
+        # A forma do incidente: o ciclo terminou há 2 min (default do helper) e
+        # mesmo assim o dado é de 15h atrás, com o teto de páginas batido.
+        _seed_collection_state(
+            s,
+            integration_id=integ,
+            stream="alerts",
+            watermark_minutes_ago=15 * 60,
+            last_run_capped=True,
+        )
+        # Cursor não temporal: sem watermark não há como PROVAR atraso.
+        _seed_collection_state(s, integration_id=integ, stream="events")
+
+    r = admin_client.get("/api/collectors/state")
+    assert r.status_code == 200, r.text
+    by_stream = {row["stream"]: row for row in r.json()}
+
+    lagging = by_stream["alerts"]
+    assert lagging["watermark_at"] is not None
+    assert lagging["last_run_capped"] is True
+    # O watermark tem de ser MUITO mais antigo que o last_success_at — é a
+    # diferença entre os dois que o incidente escondeu.
+    assert lagging["watermark_at"] < lagging["last_success_at"]
+
+    # Não medível continua ``null``: a tela precisa distinguir "não sei" de
+    # "em dia", e um 0 aqui afirmaria a segunda coisa.
+    assert by_stream["events"]["watermark_at"] is None
+    assert by_stream["events"]["last_run_capped"] is False
 
 
 def test_state_hides_inactive_integration_by_default(client_factory) -> None:

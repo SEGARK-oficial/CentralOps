@@ -24,6 +24,7 @@ import logging
 import ssl
 import time
 from contextlib import asynccontextmanager
+from datetime import datetime
 from typing import Any, AsyncIterator, Callable, Dict, Optional, Tuple
 
 import aiohttp
@@ -39,6 +40,7 @@ from .base import CollectorContext
 from .config_loader import get_collector_config
 from .domain_limiter import DomainLimiter
 from .metrics import (
+    COLLECT_SKIPPED_LOCKED,
     CURSOR_LAG,
     DEDUPE_DROPS,
     EVENTS_TOTAL,
@@ -47,6 +49,7 @@ from .metrics import (
     OCSF_VALID,
     OCSF_VALIDATE_LATENCY,
     QUARANTINE_TOTAL,
+    WATERMARK_LAG,
 )
 from . import ocsf_policy
 from .normalize import drift, sample_reservoir
@@ -100,6 +103,39 @@ async def _aiohttp_session() -> AsyncIterator[aiohttp.ClientSession]:
     timeout = aiohttp.ClientTimeout(total=60, connect=10, sock_read=30)
     async with aiohttp.ClientSession(connector=connector, timeout=timeout) as session:
         yield session
+
+
+def _load_collection_filters(
+    integration: models.Integration, registration: Any, stream: str
+) -> Dict[str, Any]:
+    """Filtros de coleta gravados para este (integração, stream), já validados.
+
+    Revalida contra a declaração do plugin em vez de confiar no que está no banco.
+    O motivo é concreto: um filtro gravado quando o plugin declarava ``max=16`` e
+    lido depois de o plugin passar a declarar ``max=10`` viraria uma consulta que
+    o fornecedor rejeita — ou, pior, que silenciosamente não casa nada e faz o
+    stream inteiro parecer vazio.
+
+    FAIL-OPEN por decisão: valor inválido no banco vira "sem filtro" com WARNING,
+    nunca uma coleta abortada. Filtrar é otimização; parar de coletar por causa
+    de uma configuração ruim seria trocar custo por perda de dado.
+    """
+    raw = getattr(integration, "collection_filters", None)
+    if not raw:
+        return {}
+    try:
+        stored = json.loads(raw) if isinstance(raw, str) else raw
+        by_stream = (stored or {}).get(stream) or {}
+        if not by_stream:
+            return {}
+        return registration.coerce_filters(by_stream)
+    except Exception:
+        logger.warning(
+            "collect: filtros de coleta inválidos (integration=%s stream=%s) — "
+            "coletando SEM filtro neste ciclo",
+            integration.id, stream, exc_info=True,
+        )
+        return {}
 
 
 def _headers_for(platform: str, integration: models.Integration, access_token: str) -> Dict[str, str]:
@@ -410,24 +446,150 @@ async def _maybe_suppress(redis: Any, envelope: dict, suppress_routes: list) -> 
     return None
 
 
+#: Trava de exclusão mútua por (integração, stream). Ver ``run_collection_once``.
+_COLLECT_LOCK_KEY = "collect:lock:{integration_id}:{stream}"
+#: Teto do TTL da trava. Cobre o run mais longo possível: o limite real é o
+#: ``task_time_limit`` (900s, ver celery_app.py: DISPATCH_RESULT_TIMEOUT 600 <
+#: soft 720 < hard 900 < visibility_timeout 3600) + 60s de margem para o worker
+#: ser morto sem o ``finally`` rodar. Fica abaixo do visibility_timeout, então uma
+#: redelivery legítima após crash duro não fica bloqueada para sempre.
+_COLLECT_LOCK_TTL_MAX_SECONDS = 15 * 60 + 60
+#: Piso do TTL. Abaixo disto a trava expiraria dentro de um ciclo curto normal e
+#: a duplicação voltaria justamente onde ela é mais barata de acontecer.
+_COLLECT_LOCK_TTL_MIN_SECONDS = 60
+
+
+def _collect_lock_ttl_seconds(integration_id: int, stream: str) -> int:
+    """TTL da trava proporcional à CADÊNCIA declarada pelo stream.
+
+    Um TTL único penalizava os streams rápidos. Os de PUSH drenam um buffer a
+    cada 20s: com TTL fixo de 960s, um worker morto por SIGKILL/OOM deixava a
+    trava de pé e o dreno parado por até 16 minutos — enquanto o ciclo real
+    dura segundos. Streams de coleta bulk continuam precisando do teto alto.
+
+    Três ciclos de folga: cobre uma execução que atrase o dobro do previsto sem
+    liberar a trava para um concorrente, que é exatamente o cenário de backlog.
+    Erro de resolução cai no teto — errar para o lado do TTL longo só repete o
+    comportamento anterior, enquanto errar para o curto reintroduz a duplicação.
+    """
+    try:
+        from ..db import database as _db
+        from ..db import models as _models
+        from .registry import get as _registry_get
+
+        with _db.SessionLocal() as _s:
+            platform = _s.query(_models.Integration.platform).filter(
+                _models.Integration.id == integration_id
+            ).scalar()
+        if not platform:
+            return _COLLECT_LOCK_TTL_MAX_SECONDS
+        cadence = int(_registry_get(platform, stream).schedule.total_seconds())
+    except Exception:
+        return _COLLECT_LOCK_TTL_MAX_SECONDS
+    return max(
+        _COLLECT_LOCK_TTL_MIN_SECONDS,
+        min(cadence * 3, _COLLECT_LOCK_TTL_MAX_SECONDS),
+    )
+
+#: Solta a trava só se ela ainda for NOSSA. Sem o compare-and-delete, um ciclo
+#: que estourou o TTL apagaria a trava de OUTRO ciclo que já começou.
+_RELEASE_IF_MINE_LUA = """
+if redis.call('get', KEYS[1]) == ARGV[1] then
+    return redis.call('del', KEYS[1])
+end
+return 0
+"""
+
+
 async def run_collection_once(integration_id: int, stream: str) -> None:
     """Executa um ciclo completo de coleta para (integration_id, stream).
+
+    **Exclusão mútua por (integração, stream).** O agendador dispara na cadência
+    do stream sem saber se o ciclo anterior terminou. Quando o ciclo passa a
+    demorar mais que a cadência — que é justamente o que acontece sob backlog —
+    os runs se empilham. Medido em produção (jul/2026, coletor Wazuh):
+    ``schedule=2min`` contra ciclos de ~3,7min produziam **2 a 3 workers lendo o
+    MESMO cursor e buscando as MESMAS 10.000 linhas**, terminando com 34ms de
+    diferença. O cursor avançava uma vez só; o resto era trabalho jogado fora
+    competindo pelos mesmos shards do Indexer — o que deixava o ciclo ainda mais
+    lento e realimentava o empilhamento.
+
+    A trava é *best-effort por design*: sem Redis (dev/teste) o ciclo roda como
+    antes. Perder a trava degrada para o comportamento anterior, nunca para
+    perda de dado — o cursor continua sendo a fonte da verdade e a dedupe
+    absorve a borda re-buscada.
 
     Abre o span RAIZ ``collect.cycle`` do trace distribuído. Os
     ``_enqueue_dispatch`` rodam DENTRO deste escopo, então ``tracing.carrier()``
     captura este contexto e a task de dispatch vira filha do ciclo (cross-process).
     No-op quando OTEL_ENABLED off.
     """
-    from . import tracing
+    import uuid as _uuid
 
-    with tracing.span(
-        "collect.cycle",
-        **{
-            "centralops.integration_id": integration_id,
-            "centralops.stream": stream,
-        },
-    ):
-        await _run_collection_once(integration_id, stream)
+    from . import tracing
+    from .celery_app import get_worker_redis
+
+    lock_key = _COLLECT_LOCK_KEY.format(integration_id=integration_id, stream=stream)
+    token = _uuid.uuid4().hex
+    lock_redis = None
+    acquired = False
+    try:
+        try:
+            lock_redis = get_worker_redis()
+            _ttl = _collect_lock_ttl_seconds(integration_id, stream)
+            acquired = bool(await lock_redis.set(lock_key, token, nx=True, ex=_ttl))
+        except Exception:
+            # Redis indisponível: NÃO bloqueia a coleta. Sem trava o pior caso é o
+            # comportamento que já existia (trabalho duplicado), enquanto abortar
+            # aqui pararia a ingestão por uma dependência de otimização.
+            logger.warning(
+                "collect: trava indisponível (integration=%s stream=%s) — segue sem ela",
+                integration_id, stream, exc_info=True,
+            )
+            # A conexão pode ter ABERTO e só o SET ter falhado (réplica READONLY,
+            # failover, cluster em resync). Fechar aqui é obrigatório: o ``finally``
+            # pula o bloco quando ``lock_redis`` vira None, e um cliente por ciclo
+            # descartado sem ``aclose()`` vaza pool a cada 2 minutos, por stream.
+            if lock_redis is not None:
+                try:
+                    await lock_redis.aclose()
+                except Exception:  # pragma: no cover — best-effort
+                    pass
+            acquired = True
+            lock_redis = None
+
+        if not acquired:
+            # Já há um ciclo deste (integração, stream) rodando. Sair é o
+            # comportamento correto: o ciclo em curso avança o cursor e o próximo
+            # tick retoma de onde ele parar.
+            COLLECT_SKIPPED_LOCKED.labels(
+                integration_id=str(integration_id), stream=stream
+            ).inc()
+            logger.info(
+                "collect: ciclo anterior ainda em execução — pulando "
+                "(integration=%s stream=%s)",
+                integration_id, stream,
+            )
+            return
+
+        with tracing.span(
+            "collect.cycle",
+            **{
+                "centralops.integration_id": integration_id,
+                "centralops.stream": stream,
+            },
+        ):
+            await _run_collection_once(integration_id, stream)
+    finally:
+        if lock_redis is not None:
+            try:
+                await lock_redis.eval(_RELEASE_IF_MINE_LUA, 1, lock_key, token)
+            except Exception:  # pragma: no cover — best-effort; o TTL cobre
+                logger.warning("collect: falha ao soltar a trava %s", lock_key, exc_info=True)
+            try:
+                await lock_redis.aclose()
+            except Exception:  # pragma: no cover
+                pass
 
 
 async def _run_collection_once(integration_id: int, stream: str) -> None:
@@ -667,6 +829,7 @@ async def _run_collection_once(integration_id: int, stream: str) -> None:
                 domain_limiter=domain_limiter,
                 rate_limiter=rate_limiter,
                 redis=redis,
+                filters=_load_collection_filters(integration, registration, stream),
             )
             collector = collector_cls(ctx)
 
@@ -1118,16 +1281,34 @@ async def _run_collection_once(integration_id: int, stream: str) -> None:
         # gravação de total aqui, que era o que deslocava um ciclo inteiro para
         # o minuto de encerramento.
 
+        # Atraso REAL do stream: até onde o cursor consumiu na linha do tempo do
+        # FORNECEDOR. Só o coletor sabe traduzir o cursor (que é opaco ao core);
+        # ``watermark_at`` devolve None quando o cursor não é temporal, e aí o
+        # indicador é omitido em vez de inventado.
+        _watermark = None
+        try:
+            _watermark = collector_cls.watermark_at(ctx.cursor)
+        except Exception:  # pragma: no cover — nunca derruba o ciclo por métrica
+            logger.warning(
+                "collect: watermark_at falhou (integration=%s stream=%s)",
+                integration_id, stream, exc_info=True,
+            )
         await cursor_store.save(
             integration_id,
             stream,
             ctx.cursor or {},
             events_collected=events_count,
             error=None,
+            watermark_at=_watermark,
+            last_run_capped=bool(ctx.hit_cycle_cap),
         )
         CURSOR_LAG.labels(
             integration_id=str(integration_id), stream=stream
         ).set(0.0)
+        if _watermark is not None:
+            WATERMARK_LAG.labels(
+                integration_id=str(integration_id), stream=stream
+            ).set(max((datetime.utcnow() - _watermark).total_seconds(), 0.0))
         logger.info(
             "collection ok",
             extra={

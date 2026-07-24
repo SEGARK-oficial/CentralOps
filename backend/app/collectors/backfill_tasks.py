@@ -158,6 +158,7 @@ async def run_backfill_collection_once(
         _aiohttp_session,
         _enqueue_dispatch,
         _headers_for,
+        _load_collection_filters,
         _load_current_mapping,
         _quarantine_async,
     )
@@ -272,6 +273,13 @@ async def run_backfill_collection_once(
                 # orquestrador de backfill invoca collect() UMA vez e marca o job
                 # completo; capar aqui truncaria o job silenciosamente.
                 bounded_per_cycle=False,
+                # O backfill HONRA o filtro de coleta da integração. Ignorá-lo
+                # recriaria, por outra porta, o problema que o filtro existe para
+                # resolver: a janela voltaria cheia de eventos que a regra de
+                # roteamento descarta em seguida, gastando o job inteiro com ruído.
+                # Para recuperar de propósito o que foi filtrado, o caminho é
+                # explícito — desligar o filtro, rodar o backfill, religar.
+                filters=_load_collection_filters(integration, registration, stream),
             )
             collector = collector_cls(ctx)
 

@@ -215,6 +215,22 @@ class Integration(Base):
     external_id = Column(String, nullable=True, index=True)
     id_type = Column(String, nullable=True)  # echo of Sophos /whoami idType
     data_geography = Column(String, nullable=True)  # Sophos field (US, EU, ...)
+    # Filtros de COLETA por stream: {"detections": {"min_rule_level": 7}}. JSON string.
+    # NULL/vazio = não filtra nada — o default de toda instalação, e o que mantém a
+    # atualização byte-idêntica para quem nunca abriu a tela.
+    #
+    # O vocabulário aceito NÃO vive aqui: cada plugin declara os seus
+    # ``CollectionFilterField`` na ``CollectorRegistration``, e a API valida contra
+    # essa declaração (fail-closed em chave/valor fora do contrato). Por isso a
+    # coluna é opaca ao banco — mesmo contrato do ``cursor`` do CollectionState.
+    #
+    # POR QUE o filtro é na COLETA e não só no roteamento: o teto por ciclo limita o
+    # volume BRUTO puxado, mas o descarte por severidade acontece depois. Medido em
+    # jul/2026 num coletor Wazuh: 2.906.255 de backlog, 97,6% descartados pela regra
+    # seguinte, cursor 15h atrás crescendo 32min/hora. O teto estava do lado errado do
+    # funil. ATENÇÃO: o que é filtrado aqui NUNCA entra na plataforma — não aparece no
+    # drift nem na captura ao vivo, e não fica disponível p/ uma rota futura.
+    collection_filters = Column(Text, nullable=True)
     last_tenant_sync_at = Column(DateTime, nullable=True)  # only for kind=partner
     tenant_sync_status = Column(String, nullable=True)  # "ok" | "partial" | "error"
     auto_managed = Column(Boolean, nullable=False, default=False, server_default=_sa_text("false"))
@@ -401,6 +417,20 @@ class CollectionState(Base):
     # cursor é opaca ao banco; cada collector interpreta.
     stream = Column(String, nullable=False)
     cursor = Column(Text, nullable=True)  # JSON string
+    # Instante do FORNECEDOR até onde o cursor consumiu, extraído pelo próprio
+    # coletor (``BaseCollector.watermark_at``) — o cursor em si é opaco ao core.
+    # É o que permite medir o atraso REAL: ``agora − watermark_at``.
+    #
+    # Não confunda com ``last_success_at``, que é ``agora`` a cada ciclo que
+    # termina sem erro — inclusive quando o ciclo processou o dia ANTERIOR. Foi
+    # essa confusão que deixou um coletor 15h atrasado reportando ``lag_seconds:
+    # 0`` e status ``healthy`` por semanas (incidente jul/2026).
+    watermark_at = Column(DateTime, nullable=True)
+    # O último ciclo terminou por bater o teto de páginas ⇒ SOBROU backlog.
+    # Sozinho, watermark atrasado não prova nada: um stream sem eventos mantém o
+    # watermark legitimamente parado (ver test_empty_window_keeps_watermark_parked).
+    # É a COMBINAÇÃO watermark atrasado + teto atingido que caracteriza backlog.
+    last_run_capped = Column(Boolean, nullable=False, default=False, server_default=_sa_text("false"))
     last_success_at = Column(DateTime, nullable=True)
     last_attempt_at = Column(DateTime, nullable=True)
     last_error = Column(Text, nullable=True)

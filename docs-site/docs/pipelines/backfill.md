@@ -127,6 +127,20 @@ Um cenário comum é trazer histórico e, depois, querer reaplicar um mapeamento
 
 Você pode rodar backfills de integrações diferentes em paralelo. Inicie a recoleta em cada integração separadamente, na respectiva tela em **Visão geral -> Integrações**. Elas rodam de forma independente e não competem entre si.
 
+## O backfill honra o filtro de coleta
+
+Se a integração tem um [filtro de coleta](./collection-filters.md) ligado, **a recoleta histórica aplica o mesmo filtro**. Um backfill não é uma porta dos fundos para trazer o que o filtro corta.
+
+Isso é intencional: sem essa regra, a recoleta voltaria cheia de eventos que o roteamento descarta em seguida, gastando o job inteiro com o que você decidiu não coletar.
+
+Para recuperar de propósito um período que o filtro pulou, o caminho é explícito:
+
+1. **Desligue** o filtro de coleta da integração.
+2. Rode o backfill do período desejado.
+3. **Religue** o filtro.
+
+Enquanto o filtro estiver desligado, a coleta corrente também volta a trazer tudo — planeje a janela.
+
 ## Destinos e entrega
 
 O backfill segue exatamente as mesmas regras de entrega da coleta normal:

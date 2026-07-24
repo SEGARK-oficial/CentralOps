@@ -34,6 +34,7 @@ from ..collectors.registry import (
     get_provider,
     integration_capabilities,
     integration_has_capability,
+    iter_for_platform,
 )
 from ..collectors.capabilities import (
     CAP_DISCOVER_CHILDREN,
@@ -41,6 +42,7 @@ from ..collectors.capabilities import (
     validate_capability,
 )
 from ..services import integration_secrets
+from ..services.audit import AuditService
 from ..core.accept_version import resolve_api_version
 from ..schemas.health import HealthResponse
 
@@ -1732,6 +1734,209 @@ def update_integration(
 
     integration = repo.update(integration, **update_kwargs)
     return _serialize(integration, current_user)
+
+
+# ── Filtros de coleta ─────────────────────────────────────────────────
+
+
+def _stored_collection_filters(integration: models.Integration) -> Dict[str, Any]:
+    """Lê a coluna JSON crua. Conteúdo ilegível vira ``{}`` com WARNING.
+
+    Não levanta: a leitura desta tela não pode ser o que impede o operador de
+    consertar uma configuração ruim.
+    """
+    raw = integration.collection_filters
+    if not raw:
+        return {}
+    try:
+        parsed = json.loads(raw) if isinstance(raw, str) else raw
+    except (TypeError, ValueError):
+        logger.warning(
+            "collection_filters: JSON ilegível na integração %s — tratando como vazio",
+            integration.id,
+        )
+        return {}
+    return parsed if isinstance(parsed, dict) else {}
+
+
+def _collection_filters_payload(
+    integration: models.Integration,
+) -> schemas.IntegrationCollectionFiltersRead:
+    """Monta a resposta: valores EFETIVOS + schema declarado pelos plugins.
+
+    "Efetivo" quer dizer revalidado contra a declaração atual do plugin, igual ao
+    que ``pipeline._load_collection_filters`` faz antes de cada ciclo. Se o vendor
+    apertou um ``max`` depois de o valor ter sido gravado, o coletor passa a
+    ignorar aquele filtro (fail-open) — devolvê-lo aqui mostraria ao operador uma
+    redução de volume que não está acontecendo.
+    """
+    registrations = {
+        reg.stream: reg for reg in iter_for_platform(integration.platform) if reg.filters
+    }
+    stored = _stored_collection_filters(integration)
+
+    effective: Dict[str, Dict[str, Any]] = {}
+    for stream, registration in registrations.items():
+        values = stored.get(stream)
+        if not isinstance(values, dict) or not values:
+            continue
+        try:
+            coerced = registration.coerce_filters(values)
+        except ValueError as exc:
+            logger.warning(
+                "collection_filters: valor gravado inválido (integration=%s stream=%s): %s "
+                "— o coletor está rodando SEM este filtro",
+                integration.id,
+                stream,
+                exc,
+            )
+            continue
+        if coerced:
+            effective[stream] = coerced
+
+    return schemas.IntegrationCollectionFiltersRead(
+        integration_id=integration.id,
+        platform=integration.platform,
+        filters=effective,
+        available_filters={
+            stream: [
+                schemas.CollectionFilterFieldRead.from_field(f) for f in registration.filters
+            ]
+            for stream, registration in registrations.items()
+        },
+    )
+
+
+@router.get(
+    "/{integration_id}/collection-filters",
+    response_model=schemas.IntegrationCollectionFiltersRead,
+)
+def get_collection_filters(
+    integration_id: int,
+    repo: repository.IntegrationRepository = Depends(get_repo),
+    current_user: models.AppUser = Depends(
+        app_auth.require_permission(app_auth.Permission.INTEGRATION_READ)
+    ),
+) -> schemas.IntegrationCollectionFiltersRead:
+    """Filtros de coleta gravados desta integração + o schema efetivo da plataforma.
+
+    Devolve os dois juntos para a tela não precisar cruzar com
+    ``GET /providers/platforms``: ``filters`` é o que está valendo,
+    ``available_filters`` é o que cada stream aceita. Stream que não declara
+    filtro não aparece em nenhum dos dois.
+    """
+    integration = _get_integration_or_404(repo, integration_id)
+    _ensure_integration_access(current_user, integration)
+    return _collection_filters_payload(integration)
+
+
+@router.put(
+    "/{integration_id}/collection-filters",
+    response_model=schemas.IntegrationCollectionFiltersRead,
+)
+def update_collection_filters(
+    integration_id: int,
+    body: schemas.IntegrationCollectionFiltersUpdate,
+    repo: repository.IntegrationRepository = Depends(get_repo),
+    db: Session = Depends(database.get_session),
+    current_user: models.AppUser = Depends(
+        app_auth.require_permission(app_auth.Permission.INTEGRATION_WRITE)
+    ),
+) -> schemas.IntegrationCollectionFiltersRead:
+    """Substitui os filtros de coleta da integração. Validação FAIL-CLOSED.
+
+    Stream desconhecido, stream sem filtro declarado ou valor fora do contrato do
+    plugin viram 422 dizendo o que falhou — nunca um campo silenciosamente
+    descartado, que deixaria o operador acreditando ter reduzido volume sem ter
+    reduzido nada.
+
+    O que valida vira o valor mínimo possível: filtro no default some do JSON e
+    stream que fica sem nenhum filtro some junto; sem nenhum filtro a coluna volta
+    a ``NULL``, e não a ``{}`` — assim "está no default" e "alguém configurou e
+    desconfigurou" não ficam indistinguíveis no banco.
+    """
+    integration = _get_integration_or_404(repo, integration_id)
+    _ensure_integration_access(current_user, integration)
+
+    registrations = {reg.stream: reg for reg in iter_for_platform(integration.platform)}
+
+    cleaned: Dict[str, Dict[str, Any]] = {}
+    for stream, values in (body.filters or {}).items():
+        registration = registrations.get(stream)
+        if registration is None:
+            raise ApiError(
+                "integration.collection_filter_stream_unknown",
+                422,
+                messages={
+                    "pt": "A plataforma {platform!r} não coleta o stream {stream!r}.",
+                    "en": "Platform {platform!r} does not collect stream {stream!r}.",
+                    "es": "La plataforma {platform!r} no recolecta el stream {stream!r}.",
+                },
+                params={
+                    "platform": integration.platform,
+                    "stream": stream,
+                    "streams": sorted(registrations),
+                },
+            )
+        if not registration.filters:
+            raise ApiError(
+                "integration.collection_filter_stream_unsupported",
+                422,
+                messages={
+                    "pt": "O stream {stream!r} de {platform!r} não declara filtros de coleta.",
+                    "en": "Stream {stream!r} of {platform!r} declares no collection filters.",
+                    "es": "El stream {stream!r} de {platform!r} no declara filtros de recolección.",
+                },
+                params={"platform": integration.platform, "stream": stream},
+            )
+        try:
+            coerced = registration.coerce_filters(values)
+        except ValueError as exc:
+            # A mensagem do plugin chega crua ao operador: ela já diz qual chave e
+            # qual faixa foram violadas, o que uma mensagem genérica esconderia.
+            raise ApiError(
+                "integration.collection_filter_invalid",
+                422,
+                messages={
+                    "pt": "Filtro de coleta inválido no stream {stream!r}: {reason}",
+                    "en": "Invalid collection filter on stream {stream!r}: {reason}",
+                    "es": "Filtro de recolección inválido en el stream {stream!r}: {reason}",
+                },
+                params={"stream": stream, "reason": str(exc)},
+            ) from exc
+        if coerced:
+            cleaned[stream] = coerced
+
+    previous = _stored_collection_filters(integration)
+    integration.collection_filters = json.dumps(cleaned, sort_keys=True) if cleaned else None
+    integration.updated_at = datetime.utcnow()
+    db.commit()
+    db.refresh(integration)
+
+    # Auditoria best-effort (mesmo contrato do bulk deactivate: falha aqui não
+    # desfaz a mudança). Ligar um filtro faz a plataforma PARAR de coletar evento
+    # que hoje coleta, e o que não foi coletado não é recuperável depois — por
+    # isso o antes/depois vai no detail, não só o nome do endpoint.
+    try:
+        AuditService(db).log_event(
+            action="update_collection_filters",
+            endpoint=f"/api/integrations/{integration_id}/collection-filters",
+            user=current_user,
+            method="PUT",
+            status_code=200,
+            detail=(
+                f"Filtros de coleta da integração {integration.id} ({integration.name}): "
+                f"{json.dumps(previous, sort_keys=True)} → "
+                f"{json.dumps(cleaned, sort_keys=True)}"
+            ),
+        )
+    except Exception:  # noqa: BLE001
+        logger.exception(
+            "update_collection_filters.audit_log_failed integration_id=%s", integration_id
+        )
+        db.rollback()
+
+    return _collection_filters_payload(integration)
 
 
 @router.delete("/{integration_id}")

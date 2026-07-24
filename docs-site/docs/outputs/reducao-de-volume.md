@@ -23,6 +23,12 @@ Esta página as apresenta **na ordem em que agem**. Nenhuma delas nasce cortando
 
 A economia de cada uma aparece decomposta por causa no card **Redução de volume & custo**, em **Operação → Fluxo de dados**. Veja [Fluxo de dados](../operations/fluxo-de-dados.md).
 
+:::note[Existe uma alavanca ANTES destas seis]
+As seis agem sobre eventos que a plataforma **já coletou** — elas reduzem o que é **entregue**. Se o problema é a coleta não vencer o volume da origem, nenhuma delas ajuda: o evento já foi consultado, transferido e normalizado antes de ser descartado.
+
+Para esse caso existe o **[filtro de coleta](../pipelines/collection-filters.md)**, que restringe a própria consulta feita ao fornecedor. Ele economiza **transporte**, não entrega — e, ao contrário destas seis, o que ele corta **nunca entra na plataforma**.
+:::
+
 ---
 
 ## 1. Poda do bruto (no mapeamento)

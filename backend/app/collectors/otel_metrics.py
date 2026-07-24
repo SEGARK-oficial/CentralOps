@@ -59,6 +59,12 @@ _SPEC: Dict[str, Dict[str, Any]] = {
     "collector_api_latency_seconds": {"kind": "histogram", "unit": "s", "labels": ("vendor", "stream"), "buckets": (0.1, 0.25, 0.5, 1, 2, 5, 10, 30)},
     "collector_oauth_token_expires_in_seconds": {"kind": "gauge", "unit": "s", "labels": ("integration_id", "vendor")},
     "collector_cursor_lag_seconds": {"kind": "gauge", "unit": "s", "labels": ("integration_id", "stream")},
+    # Atraso REAL: agora − watermark (até onde o cursor consumiu na linha do tempo
+    # do FORNECEDOR). Não confundir com cursor_lag, que é derivado de last_success_at
+    # e marca 0 mesmo num coletor horas atrasado.
+    "collector_watermark_lag_seconds": {"kind": "gauge", "unit": "s", "labels": ("integration_id", "stream")},
+    # Ciclo pulado porque o anterior do mesmo (integração, stream) ainda rodava.
+    "collector_cycles_skipped_locked_total": {"kind": "counter", "unit": "1", "labels": ("integration_id", "stream")},
     "collector_task_duration_seconds": {"kind": "histogram", "unit": "s", "labels": ("stream", "queue"), "buckets": (1, 5, 15, 60, 300, 900)},
     "collector_rate_limit_backoffs_total": {"kind": "counter", "unit": "1", "labels": ("vendor",)},
     "collector_dedupe_drops_total": {"kind": "counter", "unit": "1", "labels": ("vendor", "stream")},

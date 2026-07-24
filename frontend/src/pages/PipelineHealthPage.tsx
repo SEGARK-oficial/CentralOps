@@ -7,6 +7,8 @@ import * as api from "@/services/api"
 import type { Integration, IntegrationPipelineHealth, PipelineHealthStatus } from "@/types"
 import { DestinationHealthGrid } from "@/components/health/DestinationHealthGrid"
 import { HealthBadge } from "@/components/health/HealthBadge"
+import { formatLag } from "@/components/health/MetricsGrid"
+import { Badge } from "@/components/ui/Badge/Badge"
 import { Button } from "@/components/ui/Button/Button"
 import { Card } from "@/components/ui/Card/Card"
 import EmptyState from "@/components/ui/EmptyState/EmptyState"
@@ -26,6 +28,10 @@ function buildUnknownHealth(integrationId: number): IntegrationPipelineHealth {
     status: "unknown",
     events_per_minute: null,
     lag_seconds: null,
+    // Integração sem dado de coleta não tem atraso MEDÍVEL — `null` faz a linha
+    // sumir do card, em vez de afirmar "em dia" com um zero.
+    watermark_lag_seconds: null,
+    backlog_detected: false,
     last_error: null,
     last_success_at: null,
     mapped_field_ratio: null,
@@ -52,15 +58,50 @@ const HealthCard: React.FC<HealthCardProps> = ({ integration, health }) => {
           <h3 className="truncate font-semibold text-text">{integration.name}</h3>
           <p className="text-xs text-text-secondary">{integration.organization_name || "—"}</p>
         </div>
-        <HealthBadge status={health.status} size="sm" />
+        <div className="flex shrink-0 flex-wrap items-center justify-end gap-1">
+          {/* Backlog não é o mesmo que "não saudável": o coletor está coletando,
+              só não está dando conta. Badge própria, ao lado do status. */}
+          {health.backlog_detected && (
+            <Badge
+              variant="warning"
+              size="sm"
+              title={t("pipelineHealthPage.card.backlogTitle")}
+              data-testid={`health-backlog-${integration.id}`}
+            >
+              {t("pipelineHealthPage.card.backlog")}
+            </Badge>
+          )}
+          <HealthBadge status={health.status} size="sm" />
+        </div>
       </div>
 
       <dl className="grid grid-cols-2 gap-1 text-xs">
         <dt className="text-text-secondary">{t("pipelineHealthPage.card.eventsPerMinute")}</dt>
         <dd className="font-medium text-text">{health.events_per_minute !== null ? String(health.events_per_minute) : "—"}</dd>
 
-        <dt className="text-text-secondary">{t("pipelineHealthPage.card.lag")}</dt>
-        <dd className="font-medium text-text">{health.lag_seconds !== null ? `${health.lag_seconds}s` : "—"}</dd>
+        {/* Dois atrasos, dois nomes. "Última coleta" responde quando o coletor
+            rodou; "Atraso dos dados" responde de quando é o dado. Foi por só
+            existir o primeiro que um coletor 15h atrasado passou por saudável. */}
+        <dt className="text-text-secondary" title={t("pipelineHealthPage.card.lastCollectionTitle")}>
+          {t("pipelineHealthPage.card.lastCollection")}
+        </dt>
+        <dd className="font-medium text-text" data-testid={`health-last-collection-${integration.id}`}>
+          {formatLag(health.lag_seconds, t)}
+        </dd>
+
+        {/* Ausente (`null`, ou campo que a API antiga nem manda) = não medível ⇒
+            a linha inteira some. Nunca "0" nem "—" aqui: os dois se leem como
+            "em dia". */}
+        {health.watermark_lag_seconds != null && (
+          <>
+            <dt className="text-text-secondary" title={t("pipelineHealthPage.card.dataLagTitle")}>
+              {t("pipelineHealthPage.card.dataLag")}
+            </dt>
+            <dd className="font-medium text-text" data-testid={`health-data-lag-${integration.id}`}>
+              {formatLag(health.watermark_lag_seconds, t)}
+            </dd>
+          </>
+        )}
 
         <dt className="text-text-secondary">{t("pipelineHealthPage.card.drift24h")}</dt>
         <dd className="font-medium text-text">{String(health.drift_count_24h)}</dd>

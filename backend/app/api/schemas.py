@@ -1379,6 +1379,17 @@ class CollectionStateRead(BaseModel):
     cursor: Optional[Dict[str, Any]] = None
     last_success_at: Optional[datetime] = None
     last_attempt_at: Optional[datetime] = None
+    # Instante do FORNECEDOR até onde o cursor consumiu. É a ÚNICA medida de
+    # atraso que não mente: ``last_success_at`` é reescrito com ``agora`` a cada
+    # ciclo sem erro, mesmo quando o ciclo processou o dia anterior.
+    #
+    # ``None`` quando não medível (cursor não temporal, ou nada coletado ainda) —
+    # a tela deve OMITIR a coluna nesse caso, nunca renderizar 0.
+    watermark_at: Optional[datetime] = None
+    # O último ciclo parou no teto de páginas ⇒ sobrou trabalho para o próximo.
+    # Só junto com ``watermark_at`` atrasado é que caracteriza backlog: um stream
+    # sem eventos mantém o watermark legitimamente parado.
+    last_run_capped: bool = False
     last_error: Optional[str] = None
     consecutive_failures: int = 0
     events_collected_total: int = 0
@@ -1405,6 +1416,84 @@ class CollectorTriggerResponse(BaseModel):
     queue: str
     integration_id: int
     stream: str
+
+
+# ── Filtros de coleta (descarte empurrado para a origem) ───────────────
+
+
+class CollectionFilterFieldRead(BaseModel):
+    """Declaração de um filtro de coleta, como a UI a recebe.
+
+    Serializa ``collectors.registry.CollectionFilterField``. É o que torna a tela
+    plugin-driven: um vendor que declare filtros novos aparece renderizado sem
+    tocar em router nem em frontend.
+
+    ``default`` é sempre o valor que NÃO filtra nada — a UI usa isso para saber
+    quando o controle está desligado e para oferecer "voltar ao padrão".
+    ``warning_text`` precisa ser exibido ANTES de o operador ligar o filtro: o que
+    é filtrado na origem nunca entra na plataforma (não aparece no drift, nem na
+    captura ao vivo, e não fica disponível para uma rota futura).
+    """
+
+    key: str
+    label: str
+    type: Literal["int_range", "enum", "bool"]
+    default: Any = None
+    min: Optional[int] = None
+    max: Optional[int] = None
+    options: Optional[List[str]] = None
+    help_text: Optional[str] = None
+    warning_text: Optional[str] = None
+
+    @classmethod
+    def from_field(cls, field: Any) -> "CollectionFilterFieldRead":
+        """Converte um ``CollectionFilterField`` do registry.
+
+        Existe para o catálogo (``/providers/platforms``) e a leitura por
+        integração compartilharem UMA serialização — duas cópias divergiriam e a
+        UI passaria a ver contratos diferentes para o mesmo campo.
+        """
+        return cls(
+            key=field.key,
+            label=field.label,
+            type=field.type,
+            default=field.default,
+            min=field.min,
+            max=field.max,
+            options=list(field.options) if field.options else None,
+            help_text=field.help_text,
+            warning_text=field.warning_text,
+        )
+
+
+class IntegrationCollectionFiltersRead(BaseModel):
+    """Filtros de coleta de UMA integração: o que está gravado + o que é possível.
+
+    ``filters`` tem o mesmo shape que o PUT aceita (``{stream: {key: valor}}``),
+    então a tela edita o que leu e devolve. Traz só o que o coletor vai de fato
+    aplicar: valor gravado que não valida mais contra o plugin é omitido, porque
+    o coletor também o ignora — ecoá-lo mostraria uma redução que não acontece.
+
+    ``available_filters`` é o schema efetivo da plataforma desta integração, para
+    a tela não ter de cruzar com ``GET /providers/platforms``. Stream que não
+    declara filtro não aparece.
+    """
+
+    integration_id: int
+    platform: str
+    filters: Dict[str, Dict[str, Any]] = Field(default_factory=dict)
+    available_filters: Dict[str, List[CollectionFilterFieldRead]] = Field(default_factory=dict)
+
+
+class IntegrationCollectionFiltersUpdate(BaseModel):
+    """Body do PUT — SUBSTITUI toda a configuração de filtros da integração.
+
+    Não é merge: stream ausente do corpo perde os filtros que tinha, e ``{}``
+    limpa tudo. É o que faz "voltar ao padrão" funcionar sem um endpoint de
+    delete separado.
+    """
+
+    filters: Dict[str, Dict[str, Any]] = Field(default_factory=dict)
 
 
 # ── Collector Config (runtime settings gerenciáveis via UI) ────────────

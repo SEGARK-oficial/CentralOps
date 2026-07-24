@@ -260,7 +260,35 @@
     "streamsInfo": {
       "summary_one": "What will be collected ({{count}} stream)",
       "summary_other": "What will be collected ({{count}} streams)",
-      "every": "every {{schedule}}"
+      "every": "every {{schedule}}",
+      "filtersAvailable_one": "{{count}} collection filter",
+      "filtersAvailable_other": "{{count}} collection filters",
+      "filtersAfterCreate": "Collection filters are configured when editing, once the integration exists."
+    },
+    "collectionFilters": {
+      "title": "Collection filters",
+      "subtitle": "Drop at the source: whatever is filtered here is never carried into the platform.",
+      "noFilterSummary": "No filter",
+      "activeSummary_one": "{{count}} active filter",
+      "activeSummary_other": "{{count}} active filters",
+      "streamLabel": "Stream: {{stream}}",
+      "noFilter": "No filter — collects everything",
+      "active": "Filtering at the source",
+      "reset": "Remove filter",
+      "resetAll": "Remove all filters",
+      "warningLabel": "Before turning this on",
+      "notRetroactiveTitle": "Takes effect on the next cycle",
+      "notRetroactive": "Turning a filter on does not reprocess the past, and turning it off does not recover what was skipped. The events stay in the source system — the platform simply stops carrying them.",
+      "range": "Between {{min}} and {{max}}. At {{noFilterValue}} nothing is filtered.",
+      "rangeInvalid": "Enter a whole number between {{min}} and {{max}}.",
+      "enumNoFilterOption": "{{value}} — no filter",
+      "boolOn": "On",
+      "confirmTitle": "Turn this collection filter on?",
+      "confirmNewValue": "{{label}}: {{value}}",
+      "confirmSubmit": "Turn filter on",
+      "loadErrorTitle": "Collection filters unavailable",
+      "loadError": "This integration's filters could not be read, so they are not shown here. Any filter already on remains in effect. Details: {{reason}}",
+      "saveError": "Collection filters were not saved and nothing else was changed. Details: {{reason}}"
     },
     "testResult": {
       "ok": "Connection OK.",

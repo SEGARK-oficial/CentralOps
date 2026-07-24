@@ -54,6 +54,12 @@ Os certificados, endereços de rede e credenciais de serviço são definidos pel
 
 **O que o CentralOps coleta:** a cada poucos minutos, ele lê os alertas mais recentes do Wazuh Indexer e os normaliza automaticamente — convertendo campos como data/hora, severidade e título para o formato padronizado da plataforma. Você não precisa configurar nada para isso: a coleta começa assim que a integração é salva e validada.
 
+:::tip[Wazuh de alto volume: colete só o que interessa]
+Por padrão, **todos** os níveis de regra são coletados — inclusive os informativos, que costumam ser a maior parte do volume. Se você já descarta severidade baixa no roteamento, esse corte pode ser empurrado para a consulta ao Indexer com o **[filtro de coleta](../pipelines/collection-filters.md)** (nível mínimo de regra).
+
+Faz diferença quando o volume é alto: em um ambiente real, 97,6% do que era coletado era descartado logo depois pelo roteamento, e o coletor acabou 15 horas atrás do presente. Leia a página antes de ligar — o que é filtrado na origem nunca entra na plataforma.
+:::
+
 :::warning[Anti-loop: Wazuh como fonte e destino]
 Um evento **coletado de um Wazuh nunca é reenviado para o mesmo Wazuh**. Internamente, o CentralOps suprime eventos de fonte Wazuh quando seriam entregues ao destino padrão de segurança (wazuh-default) ou a qualquer destino syslog que aponte de volta ao manager do qual o evento foi coletado. Sem essa supressão, o evento seria reindexado no Wazuh → recoletado como novo → entregue novamente, causando um loop infinito.
 

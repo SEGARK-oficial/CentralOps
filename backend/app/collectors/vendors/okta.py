@@ -147,6 +147,10 @@ class OktaSystemLogCollector(BaseCollector):
             # Ver _MAX_PAGES_PER_CYCLE — NÃO caímos em escrita final de watermark.
             pages += 1
             if self.ctx.bounded_per_cycle and pages >= _MAX_PAGES_PER_CYCLE:
+                # Sobrou backlog. O cursor da Okta é o ``next_url`` opaco (sem
+                # instante traduzível), então este sinal é a única evidência de
+                # atraso que este stream consegue produzir.
+                self.mark_cycle_capped()
                 logger.info(
                     "okta system_log: teto de %d páginas/ciclo atingido — cursor em "
                     "next_url p/ próximo ciclo (integration=%s)",

@@ -42,6 +42,94 @@ RefreshFn = Callable[[int], Awaitable[Dict[str, object]]]
 
 
 @dataclass(frozen=True)
+class CollectionFilterField:
+    """Um filtro de COLETA que o plugin declara e a UI renderiza sozinha.
+
+    Espelha ``AuthField``: é METADADO auto-descritivo. Adicionar um filtro num
+    vendor novo = declarar isto na ``CollectorRegistration`` dele; nem o endpoint
+    de catálogo, nem o formulário do frontend, nem o validador mudam.
+
+    **Por que existe.** O teto por ciclo (``_MAX_PAGES_PER_CYCLE``) limita o volume
+    BRUTO puxado do fornecedor, mas o descarte por severidade acontece DEPOIS, no
+    roteamento. Medido em produção (jul/2026): 2.906.255 eventos de backlog num
+    coletor Wazuh, **97,6% deles descartados pela regra seguinte** — o coletor
+    gastava o orçamento inteiro transportando ruído e o cursor ficou 15h atrás,
+    crescendo 32 min/hora. Empurrar o filtro para a consulta do fornecedor põe o
+    teto do lado CERTO do funil.
+
+    **``default`` é obrigatoriamente o valor que NÃO filtra nada.** Filtrar é
+    decisão consciente do operador: uma instalação que nunca abriu esta tela tem
+    de coletar exatamente o que coletava antes. ``__post_init__`` verifica isso.
+
+    **``warning_text`` não é enfeite.** O evento filtrado na origem NUNCA entra na
+    plataforma: não aparece no drift, não aparece na captura ao vivo e não fica
+    disponível para uma rota futura. A UI exibe este texto ANTES de o operador
+    ligar o filtro.
+    """
+
+    key: str
+    label: str
+    #: "int_range" (min/max obrigatórios) | "enum" (options obrigatório) | "bool"
+    type: str
+    #: O valor que resulta em ZERO filtragem. Nunca ``None`` por engano — use o
+    #: extremo inclusivo (ex.: ``0`` num ``rule.level`` que vai de 0 a 16).
+    default: Any = None
+    min: Optional[int] = None
+    max: Optional[int] = None
+    options: Optional[Tuple[str, ...]] = None
+    help_text: Optional[str] = None
+    warning_text: Optional[str] = None
+
+    def __post_init__(self) -> None:
+        if self.type not in ("int_range", "enum", "bool"):
+            raise ValueError(f"CollectionFilterField {self.key!r}: type inválido {self.type!r}")
+        if self.type == "int_range":
+            if self.min is None or self.max is None:
+                raise ValueError(f"CollectionFilterField {self.key!r}: int_range exige min e max")
+            if not isinstance(self.default, int) or not (self.min <= self.default <= self.max):
+                raise ValueError(
+                    f"CollectionFilterField {self.key!r}: default {self.default!r} fora de "
+                    f"[{self.min}, {self.max}]"
+                )
+        elif self.type == "enum":
+            if not self.options:
+                raise ValueError(f"CollectionFilterField {self.key!r}: enum exige options")
+            if self.default not in self.options:
+                raise ValueError(
+                    f"CollectionFilterField {self.key!r}: default {self.default!r} fora de options"
+                )
+        elif self.type == "bool" and not isinstance(self.default, bool):
+            raise ValueError(f"CollectionFilterField {self.key!r}: bool exige default booleano")
+
+    def is_noop(self, value: Any) -> bool:
+        """``True`` quando ``value`` equivale a "não filtra nada"."""
+        return value is None or value == self.default
+
+    def coerce(self, value: Any) -> Any:
+        """Valida e normaliza um valor vindo da API. Levanta ``ValueError``.
+
+        FAIL-CLOSED de propósito: valor fora do contrato é erro de configuração
+        explícito, nunca um filtro silenciosamente ignorado (que descartaria dado
+        sem ninguém saber) nem um filtro silenciosamente aplicado errado.
+        """
+        if value is None:
+            return self.default
+        if self.type == "int_range":
+            if isinstance(value, bool) or not isinstance(value, int):
+                raise ValueError(f"{self.key}: esperado inteiro, veio {type(value).__name__}")
+            if not (self.min <= value <= self.max):  # type: ignore[operator]
+                raise ValueError(f"{self.key}: {value} fora de [{self.min}, {self.max}]")
+            return value
+        if self.type == "enum":
+            if value not in (self.options or ()):
+                raise ValueError(f"{self.key}: {value!r} não está em {list(self.options or ())}")
+            return value
+        if not isinstance(value, bool):
+            raise ValueError(f"{self.key}: esperado booleano, veio {type(value).__name__}")
+        return value
+
+
+@dataclass(frozen=True)
 class CollectorRegistration:
     """Metadado completo para um (vendor, stream)."""
 
@@ -52,11 +140,40 @@ class CollectorRegistration:
     schedule: timedelta
     queue: str  # "collect.priority" | "collect.bulk"
     task_name: str  # nome Celery, ex: "collectors.collect_vendor_logs_priority"
+    #: Filtros de coleta que ESTE stream suporta empurrar para o fornecedor.
+    #: Vazio = o stream não sabe filtrar na origem (a UI não mostra a seção).
+    filters: Tuple[CollectionFilterField, ...] = ()
 
     @property
     def beat_key(self) -> str:
         """Chave estável usada em ``celery_app.conf.beat_schedule``."""
         return f"{self.platform}-{self.stream}"
+
+    def filter_by_key(self, key: str) -> Optional[CollectionFilterField]:
+        return next((f for f in self.filters if f.key == key), None)
+
+    def coerce_filters(self, values: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+        """Valida um dict {key: valor} contra os filtros declarados.
+
+        Chave desconhecida é ERRO — e não um campo ignorado. Um filtro digitado
+        errado que fosse silenciosamente descartado deixaria o operador achando
+        que reduziu volume quando não reduziu nada.
+        """
+        out: Dict[str, Any] = {}
+        for key, raw in (values or {}).items():
+            spec = self.filter_by_key(key)
+            if spec is None:
+                declared = [f.key for f in self.filters]
+                raise ValueError(
+                    f"filtro desconhecido {key!r} para {self.platform}/{self.stream}; "
+                    f"suportados: {declared or 'nenhum'}"
+                )
+            coerced = spec.coerce(raw)
+            # Só persiste o que de fato filtra: assim "voltar ao default" limpa a
+            # linha em vez de deixar lixo que parece configuração ativa.
+            if not spec.is_noop(coerced):
+                out[key] = coerced
+        return out
 
 
 @dataclass(frozen=True)

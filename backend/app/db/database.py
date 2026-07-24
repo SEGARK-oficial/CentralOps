@@ -818,6 +818,29 @@ def _run_lightweight_migrations() -> None:
             if "platform" not in sr_columns:
                 conn.execute(text("ALTER TABLE search_results ADD COLUMN platform VARCHAR"))
 
+        # Observabilidade de ATRASO REAL da coleta. Até aqui a única medida era
+        # ``last_success_at``, reescrito a cada ciclo que termina sem erro — mesmo
+        # quando o ciclo processou o dia anterior. Resultado: um coletor 15h
+        # atrasado reportava ``lag_seconds: 0`` e ``healthy`` (incidente jul/2026).
+        # ``watermark_at`` guarda até onde o cursor chegou na linha do tempo do
+        # FORNECEDOR; ``last_run_capped`` diz se sobrou backlog. Os dois juntos
+        # distinguem "parado porque não há eventos" de "parado porque não dá conta".
+        # NULL/false = desconhecido até o próximo ciclo preencher — nenhuma linha
+        # existente é reinterpretada.
+        if "collection_state" in table_names:
+            cs_columns = {column["name"] for column in inspector.get_columns("collection_state")}
+            if "watermark_at" not in cs_columns:
+                # TIMESTAMP, não DATETIME — Postgres não reconhece DATETIME.
+                conn.execute(text("ALTER TABLE collection_state ADD COLUMN watermark_at TIMESTAMP"))
+            if "last_run_capped" not in cs_columns:
+                # `DEFAULT false`, NUNCA `DEFAULT 0`: Postgres rejeita int em BOOLEAN.
+                conn.execute(
+                    text(
+                        "ALTER TABLE collection_state "
+                        "ADD COLUMN last_run_capped BOOLEAN NOT NULL DEFAULT false"
+                    )
+                )
+
         if "integrations" in table_names:
             integration_columns = {column["name"] for column in inspector.get_columns("integrations")}
 
@@ -831,13 +854,17 @@ def _run_lightweight_migrations() -> None:
                 "last_successful_check_at",
                 "last_error",
                 "config_json",  # config não-secreta de vendor (JSON)
+                # Filtros de coleta por stream (JSON). NULL = não filtra nada, que é
+                # o que mantém a atualização byte-idêntica: quem nunca abriu a tela
+                # continua coletando exatamente o mesmo volume de antes.
+                "collection_filters",
             ):
                 if column_name not in integration_columns:
                     column_type = "VARCHAR"
                     if column_name in {"last_checked_at", "last_successful_check_at"}:
                         # TIMESTAMP, não DATETIME — Postgres não reconhece DATETIME.
                         column_type = "TIMESTAMP"
-                    elif column_name in ("last_error", "config_json"):
+                    elif column_name in ("last_error", "config_json", "collection_filters"):
                         column_type = "TEXT"
                     elif column_name == "auth_status":
                         conn.execute(text("ALTER TABLE integrations ADD COLUMN auth_status VARCHAR DEFAULT 'unknown'"))

@@ -2,6 +2,8 @@
 
 Cobre:
 - Status healthy / unhealthy / degraded / unknown com base em CollectionState.
+- Backlog: watermark_lag_seconds / backlog_detected e a regra que exige os DOIS
+  sinais (teto por ciclo + watermark atrasado no MESMO stream) para escalar.
 - drift_count_24h filtrando por mappings da integration.
 - quarantine_count_24h filtrando por integration_id.
 - mapped_field_ratio aproximado.
@@ -150,6 +152,8 @@ def _seed_collection_state(
     last_error: str | None = None,
     consecutive_failures: int = 0,
     events_collected_total: int = 100,
+    watermark_at: datetime | None = None,
+    last_run_capped: bool = False,
 ) -> models.CollectionState:
     cs = models.CollectionState(
         integration_id=integration_id,
@@ -159,6 +163,8 @@ def _seed_collection_state(
         last_error=last_error,
         consecutive_failures=consecutive_failures,
         events_collected_total=events_collected_total,
+        watermark_at=watermark_at,
+        last_run_capped=last_run_capped,
     )
     db.add(cs)
     db.commit()
@@ -869,6 +875,8 @@ def test_pipeline_health_response_schema_complete(client_factory: Any) -> None:
         "status",
         "events_per_minute",
         "lag_seconds",
+        "watermark_lag_seconds",
+        "backlog_detected",
         "last_error",
         "last_success_at",
         "mapped_field_ratio",
@@ -989,3 +997,276 @@ def test_determine_status_parametrized(
         last_error=last_error,
     )
     assert result == expected, f"esperava {expected!r}, got {result!r}"
+
+
+# ── Backlog: watermark atrasado + teto por ciclo ──────────────────────
+
+
+@pytest.mark.parametrize(
+    "backlog_detected,backlog_lag_seconds,expected,motivo",
+    [
+        # A ARMADILHA, nos dois sentidos: nenhum dos dois sinais escala sozinho.
+        (False, 54_000, "healthy", "watermark 15h atrás SEM teto = stream sem eventos"),
+        (True, 120, "healthy", "teto atingido mas em dia = pico absorvido"),
+        # Os dois juntos: é backlog. Forma do incidente jul/2026 (coletor Wazuh).
+        (True, 54_000, "degraded", "teto + 15h atrás = backlog real"),
+        # Limiar: 1800s exatos não ultrapassam; 1801 ultrapassa.
+        (True, 1800, "healthy", "exatamente no limiar não escala"),
+        (True, 1801, "degraded", "um segundo acima escala"),
+        # Cursor não temporal: sem watermark não há prova de atraso.
+        (True, None, "healthy", "sem watermark não dá para provar atraso"),
+        (False, None, "healthy", "baseline — nenhum sinal"),
+    ],
+)
+def test_determine_status_backlog_requires_both_signals(
+    backlog_detected: bool,
+    backlog_lag_seconds: int | None,
+    expected: str,
+    motivo: str,
+) -> None:
+    """Backlog só escala com teto atingido E watermark atrasado — nunca com um só."""
+    from backend.app.routers.pipeline_health import _determine_status
+
+    result = _determine_status(
+        last_success_at=datetime.utcnow(),
+        lag_seconds=10,  # coletando normalmente: o velho lag_seconds diz "healthy"
+        consecutive_failures_max=0,
+        last_error=None,
+        backlog_detected=backlog_detected,
+        backlog_lag_seconds=backlog_lag_seconds,
+    )
+    assert result == expected, f"{motivo}: esperava {expected!r}, got {result!r}"
+
+
+def test_determine_status_backlog_does_not_mask_unhealthy() -> None:
+    """Parado E atrasado continua 'unhealthy' — backlog não rebaixa a regra 2.
+
+    Backlog é 'coleta, mas atrasada'; se o coletor está falhando, o problema
+    urgente é a falha, e o operador reage a ela primeiro.
+    """
+    from backend.app.routers.pipeline_health import _determine_status
+
+    assert (
+        _determine_status(
+            last_success_at=datetime.utcnow(),
+            lag_seconds=10,
+            consecutive_failures_max=3,
+            last_error="boom",
+            backlog_detected=True,
+            backlog_lag_seconds=54_000,
+        )
+        == "unhealthy"
+    )
+
+
+def test_determine_status_default_args_preserve_legacy_behavior() -> None:
+    """Chamada sem os argumentos de backlog dá exatamente o status de antes."""
+    from backend.app.routers.pipeline_health import _determine_status
+
+    now = datetime.utcnow()
+    assert _determine_status(now, 100, 0, None) == "healthy"
+    assert _determine_status(now, 100, 0, "timeout") == "degraded"
+    assert _determine_status(now, 400, 0, None) == "unhealthy"
+    assert _determine_status(None, None, 0, None) == "unknown"
+
+
+def test_pipeline_health_watermark_lag_is_null_without_watermark(
+    client_factory: Any,
+) -> None:
+    """Cursor não temporal → watermark_lag_seconds null, NUNCA 0.
+
+    0 afirmaria 'em dia'; a resposta correta é 'não medível'.
+    """
+    factory, Session = client_factory
+    client = factory()
+    _bootstrap_admin(client)
+
+    with Session() as db:
+        org_id = _seed_org(db, "Org WM Null")
+        iid = _seed_integration(db, org_id)
+        _seed_collection_state(
+            db, iid, last_success_at=datetime.utcnow() - timedelta(seconds=10)
+        )
+
+    patcher, _ = _make_fake_redis()
+    with patcher:
+        r = client.get(f"/api/integrations/{iid}/pipeline-health")
+
+    assert r.status_code == 200, r.text
+    data = r.json()
+    assert data["watermark_lag_seconds"] is None
+    assert data["backlog_detected"] is False
+    assert data["status"] == "healthy"
+
+
+def test_pipeline_health_watermark_lag_reports_worst_stream(
+    client_factory: Any,
+) -> None:
+    """N streams agregam pelo PIOR: o stream em dia não dilui o atrasado."""
+    factory, Session = client_factory
+    client = factory()
+    _bootstrap_admin(client)
+
+    now = datetime.utcnow()
+    with Session() as db:
+        org_id = _seed_org(db, "Org WM Worst")
+        iid = _seed_integration(db, org_id)
+        _seed_collection_state(
+            db, iid, stream="alerts",
+            last_success_at=now - timedelta(seconds=10),
+            watermark_at=now - timedelta(seconds=30),
+        )
+        _seed_collection_state(
+            db, iid, stream="detections",
+            last_success_at=now - timedelta(seconds=10),
+            watermark_at=now - timedelta(hours=3),
+        )
+
+    patcher, _ = _make_fake_redis()
+    with patcher:
+        r = client.get(f"/api/integrations/{iid}/pipeline-health")
+
+    assert r.status_code == 200, r.text
+    lag = r.json()["watermark_lag_seconds"]
+    assert lag is not None and lag >= 3 * 3600 - 60, (
+        f"esperava o atraso do pior stream (~10800s), got {lag!r}"
+    )
+
+
+def test_pipeline_health_backlog_escalates_to_degraded(
+    client_factory: Any,
+) -> None:
+    """A forma do incidente: coleta a cada ciclo, mas processando ontem.
+
+    ``last_success_at`` recente ⇒ ``lag_seconds`` ~0 ⇒ as regras antigas diziam
+    'healthy'. Com teto atingido + watermark 15h atrás, o status vira 'degraded'.
+    """
+    factory, Session = client_factory
+    client = factory()
+    _bootstrap_admin(client)
+
+    now = datetime.utcnow()
+    with Session() as db:
+        org_id = _seed_org(db, "Org Backlog")
+        iid = _seed_integration(db, org_id, platform="wazuh")
+        _seed_collection_state(
+            db, iid, stream="detections",
+            last_success_at=now - timedelta(seconds=10),
+            watermark_at=now - timedelta(hours=15),
+            last_run_capped=True,
+        )
+
+    patcher, _ = _make_fake_redis()
+    with patcher:
+        r = client.get(f"/api/integrations/{iid}/pipeline-health")
+
+    assert r.status_code == 200, r.text
+    data = r.json()
+    assert data["status"] == "degraded", data
+    assert data["backlog_detected"] is True
+    assert data["lag_seconds"] <= 60, "o lag antigo continua 'saudável' — esse era o bug"
+    assert data["watermark_lag_seconds"] >= 15 * 3600 - 60
+
+
+def test_pipeline_health_stale_watermark_without_cap_stays_healthy(
+    client_factory: Any,
+) -> None:
+    """Watermark parado há 15h SEM teto = stream sem eventos. Não escala."""
+    factory, Session = client_factory
+    client = factory()
+    _bootstrap_admin(client)
+
+    now = datetime.utcnow()
+    with Session() as db:
+        org_id = _seed_org(db, "Org Quiet")
+        iid = _seed_integration(db, org_id)
+        _seed_collection_state(
+            db, iid, stream="detections",
+            last_success_at=now - timedelta(seconds=10),
+            watermark_at=now - timedelta(hours=15),
+            last_run_capped=False,
+        )
+
+    patcher, _ = _make_fake_redis()
+    with patcher:
+        r = client.get(f"/api/integrations/{iid}/pipeline-health")
+
+    assert r.status_code == 200, r.text
+    data = r.json()
+    assert data["status"] == "healthy", data
+    assert data["backlog_detected"] is False
+    # O atraso continua VISÍVEL — só não é motivo de escalada por si só.
+    assert data["watermark_lag_seconds"] >= 15 * 3600 - 60
+
+
+def test_pipeline_health_backlog_within_threshold_stays_healthy(
+    client_factory: Any,
+) -> None:
+    """Teto atingido mas watermark de 5 min = pico sendo absorvido. Não escala."""
+    factory, Session = client_factory
+    client = factory()
+    _bootstrap_admin(client)
+
+    now = datetime.utcnow()
+    with Session() as db:
+        org_id = _seed_org(db, "Org Burst")
+        iid = _seed_integration(db, org_id)
+        _seed_collection_state(
+            db, iid, stream="detections",
+            last_success_at=now - timedelta(seconds=10),
+            watermark_at=now - timedelta(minutes=5),
+            last_run_capped=True,
+        )
+
+    patcher, _ = _make_fake_redis()
+    with patcher:
+        r = client.get(f"/api/integrations/{iid}/pipeline-health")
+
+    assert r.status_code == 200, r.text
+    data = r.json()
+    assert data["status"] == "healthy", data
+    assert data["backlog_detected"] is True  # o fato é reportado…
+    # …mas sozinho não escala: o teto absorvendo um pico é o teto funcionando.
+
+
+def test_pipeline_health_cap_and_lag_on_different_streams_does_not_escalate(
+    client_factory: Any,
+) -> None:
+    """O par (teto, atraso) tem de vir do MESMO stream.
+
+    Stream A bateu o teto mas está em dia; stream B está 15h atrás porque não tem
+    evento. Um ``any(teto) AND max(atraso)`` global inventaria backlog aqui.
+    """
+    factory, Session = client_factory
+    client = factory()
+    _bootstrap_admin(client)
+
+    now = datetime.utcnow()
+    with Session() as db:
+        org_id = _seed_org(db, "Org Cross Stream")
+        iid = _seed_integration(db, org_id)
+        _seed_collection_state(
+            db, iid, stream="alerts",
+            last_success_at=now - timedelta(seconds=10),
+            watermark_at=now - timedelta(seconds=30),
+            last_run_capped=True,   # capado, mas em dia
+        )
+        _seed_collection_state(
+            db, iid, stream="detections",
+            last_success_at=now - timedelta(seconds=10),
+            watermark_at=now - timedelta(hours=15),
+            last_run_capped=False,  # atrasado, mas sem teto (silencioso)
+        )
+
+    patcher, _ = _make_fake_redis()
+    with patcher:
+        r = client.get(f"/api/integrations/{iid}/pipeline-health")
+
+    assert r.status_code == 200, r.text
+    data = r.json()
+    assert data["status"] == "healthy", (
+        "teto num stream + atraso em OUTRO não é backlog"
+    )
+    # Os dois fatos continuam reportados, cada um pelo pior stream.
+    assert data["backlog_detected"] is True
+    assert data["watermark_lag_seconds"] >= 15 * 3600 - 60

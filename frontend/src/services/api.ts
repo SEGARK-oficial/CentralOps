@@ -25,6 +25,7 @@ import type {
   CollectorSummary,
   CollectorTriggerResponse,
   CollectorVendor,
+  IntegrationCollectionFilters,
   UpdateCollectorConfigRequest,
   CreateEmailRequest,
   CreateIntegrationRequest,
@@ -855,6 +856,40 @@ export async function testProviderConnection(
   return apiRequest<{ ok: boolean; detail: string; latency_ms?: number | null }>(
     `/providers/${platform}/test-connection`,
     { method: "POST", body: JSON.stringify({ config }) },
+  )
+}
+
+// ── Filtros de coleta (descarte na origem) ────────────────────────────
+
+/**
+ * Filtros gravados desta integração + o schema declarado pelos plugins.
+ *
+ * Vêm juntos de propósito: a tela não precisa cruzar com
+ * `GET /providers/platforms`, e `filters` já chega revalidado (valor que não
+ * passa mais na declaração atual do plugin é OMITIDO, porque o coletor também o
+ * ignora — ecoá-lo mostraria uma redução de volume que não está acontecendo).
+ */
+export async function getIntegrationCollectionFilters(integrationId: number) {
+  return apiRequest<IntegrationCollectionFilters>(
+    `/integrations/${integrationId}/collection-filters`,
+  )
+}
+
+/**
+ * SUBSTITUI toda a configuração de filtros da integração — não é merge.
+ * Stream ausente do corpo perde os filtros que tinha e `{}` limpa tudo; é assim
+ * que "remover filtro" funciona sem endpoint de delete.
+ *
+ * Validação fail-closed no backend: valor fora do contrato do plugin volta 422
+ * com a chave e a faixa violadas, nunca um campo silenciosamente descartado.
+ */
+export async function updateIntegrationCollectionFilters(
+  integrationId: number,
+  filters: IntegrationCollectionFilters["filters"],
+) {
+  return apiRequest<IntegrationCollectionFilters>(
+    `/integrations/${integrationId}/collection-filters`,
+    { method: "PUT", body: JSON.stringify({ filters }) },
   )
 }
 

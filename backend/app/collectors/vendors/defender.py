@@ -111,6 +111,9 @@ class DefenderIncidentsCollector(BaseCollector):
                     "lastUpdateDateTime": last_ts,
                     "@odata.nextLink": next_link,
                 }
+                # Sobrou backlog: o watermark fica em ``last_ts`` de propósito, e
+                # sem este sinal esse "parado" é lido como tenant sem incidentes.
+                self.mark_cycle_capped()
                 logger.info(
                     "defender incidents: teto de %d páginas/ciclo atingido — cursor "
                     "resumível em nextLink p/ próximo ciclo (integration=%s)",
@@ -177,6 +180,16 @@ class DefenderIncidentsCollector(BaseCollector):
             event.get("lastUpdateDateTime") or event.get("lastModifiedDateTime") or ""
         )
         return f"{base}@{updated}" if (base and updated) else base
+
+    @classmethod
+    def watermark_at(cls, cursor: Optional[Dict[str, Any]]) -> Optional[datetime]:
+        """``lastUpdateDateTime`` — o piso do ``$filter`` no Graph.
+
+        Incidente é MUTÁVEL e o stream é ordenado por hora de ATUALIZAÇÃO, então o
+        watermark mede até que ponto da linha do tempo de mudanças chegamos — que
+        é exatamente o que atrasa quando o teto por ciclo não vence o volume.
+        """
+        return cls.watermark_from_iso(cursor, "lastUpdateDateTime")
 
 
 def _default_lookback_iso() -> str:

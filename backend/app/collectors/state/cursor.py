@@ -68,7 +68,20 @@ class CursorStore:
         cursor: Dict[str, Any],
         events_collected: int,
         error: Optional[str] = None,
+        watermark_at: Optional["datetime"] = None,
+        last_run_capped: bool = False,
     ) -> None:
+        """Persiste o cursor e, com ele, o ATRASO REAL da coleta.
+
+        ``watermark_at`` é até onde este cursor consumiu na linha do tempo do
+        FORNECEDOR — extraído pelo próprio coletor, já que a semântica do cursor
+        é opaca ao core. ``last_run_capped`` diz se o run parou por bater o teto
+        de páginas, ou seja, se sobrou trabalho.
+
+        Os dois só fazem sentido juntos: watermark parado com o teto NÃO atingido
+        é um stream sem eventos (normal); watermark parado COM o teto atingido é
+        backlog que o coletor não está vencendo.
+        """
         payload = json.dumps(cursor, separators=(",", ":"), default=str)
 
         # Hot path primeiro — se Postgres falhar, ainda temos o cursor em Redis.
@@ -85,4 +98,6 @@ class CursorStore:
                 cursor=payload,
                 events_collected=events_collected,
                 error=error,
+                watermark_at=watermark_at,
+                last_run_capped=last_run_capped,
             )

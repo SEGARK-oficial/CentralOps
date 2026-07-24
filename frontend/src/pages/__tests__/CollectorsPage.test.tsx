@@ -1,4 +1,8 @@
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
+// Globais do vitest importadas explicitamente: o tsconfig do app não inclui
+// `vitest/globals` em `types`, então sem isto o `tsc --noEmit` reprova o
+// arquivo inteiro com "Cannot find name 'expect'".
+import { describe, it, expect, vi, beforeAll, beforeEach } from "vitest"
 import { MemoryRouter } from "react-router-dom"
 import CollectorsPage from "@/pages/CollectorsPage"
 import * as api from "@/services/api"
@@ -65,6 +69,8 @@ const sampleStates: CollectionState[] = [
     updated_at: new Date().toISOString(),
   },
 ]
+
+const agoIso = (seconds: number) => new Date(Date.now() - seconds * 1000).toISOString()
 
 const sampleSummary: CollectorSummary = {
   integrations_tracked: 1,
@@ -213,5 +219,109 @@ describe("CollectorsPage", () => {
     await waitFor(() =>
       expect(screen.getByText(/nenhuma coleta registrada/i)).toBeInTheDocument(),
     )
+  })
+
+  // ── "Quando rodou" × "de quando é o dado" ──────────────────────────────────
+  // Esta é a única visão do produto por (integração, FLUXO): a Saúde do Pipeline
+  // agrega N fluxos pelo pior e não diz qual. É aqui que o culpado tem nome.
+
+  it("o incidente: coleta terminou agora e o dado é de 15h atrás", async () => {
+    mockedApi.listCollectionState.mockResolvedValue([
+      {
+        ...sampleStates[0],
+        last_success_at: agoIso(30),
+        watermark_at: agoIso(15 * 3600),
+        last_run_capped: true,
+      },
+    ])
+
+    render(
+      <MemoryRouter>
+        <CollectorsPage />
+      </MemoryRouter>,
+    )
+
+    await screen.findByText("ACME Corp")
+    // A célula nova mostra a idade do DADO, não a do ciclo.
+    expect(screen.getByTestId("collector-data-lag-42-alerts")).toHaveTextContent("há 15h")
+    // Teto batido + 15h atrás = backlog confirmado (as duas condições).
+    expect(screen.getByTestId("collector-backlog-42-alerts")).toHaveTextContent("Backlog")
+    // E os dois cabeçalhos dizem o que cada coluna mede.
+    expect(screen.getByText("quando o coletor rodou")).toBeInTheDocument()
+    expect(screen.getByText("de quando é o dado")).toBeInTheDocument()
+  })
+
+  it("teto batido com dado recente NÃO é backlog (pico absorvido)", async () => {
+    mockedApi.listCollectionState.mockResolvedValue([
+      {
+        ...sampleStates[0],
+        watermark_at: agoIso(120),
+        last_run_capped: true,
+      },
+    ])
+
+    render(
+      <MemoryRouter>
+        <CollectorsPage />
+      </MemoryRouter>,
+    )
+
+    await screen.findByText("ACME Corp")
+    expect(screen.getByTestId("collector-data-lag-42-alerts")).toHaveTextContent("há 2min")
+    expect(screen.queryByTestId("collector-backlog-42-alerts")).not.toBeInTheDocument()
+  })
+
+  it("resposta de API antiga (sem watermark_at) vira traço, nunca NaN nem zero", async () => {
+    // Exatamente o payload de um backend anterior a esta versão: o campo não
+    // existe. `undefined` NÃO pode virar "há NaN dias" nem "há 0s".
+    render(
+      <MemoryRouter>
+        <CollectorsPage />
+      </MemoryRouter>,
+    )
+
+    await screen.findByText("ACME Corp")
+    const cell = screen.getByTestId("collector-data-lag-42-alerts")
+    expect(cell).toHaveTextContent("—")
+    expect(cell.textContent).not.toMatch(/NaN|0s/)
+    expect(document.body.textContent).not.toMatch(/NaN/)
+  })
+
+  it("o KPI de atraso dos dados nomeia o fluxo culpado", async () => {
+    mockedApi.listCollectionState.mockResolvedValue([
+      { ...sampleStates[0], watermark_at: agoIso(600) },
+      {
+        ...sampleStates[0],
+        integration_id: 43,
+        integration_name: "ACME Defender",
+        stream: "incidents",
+        platform: "microsoft_defender",
+        watermark_at: agoIso(15 * 3600),
+      },
+    ])
+
+    render(
+      <MemoryRouter>
+        <CollectorsPage />
+      </MemoryRouter>,
+    )
+
+    await screen.findByText("Atraso dos dados (pior fluxo)")
+    expect(
+      screen.getByText("fluxo mais atrasado: ACME Defender / incidents"),
+    ).toBeInTheDocument()
+  })
+
+  it("KPI de última coleta não se chama mais 'lag' e diz que não mede o dado", async () => {
+    render(
+      <MemoryRouter>
+        <CollectorsPage />
+      </MemoryRouter>,
+    )
+
+    await screen.findByText("Integrações monitoradas")
+    expect(screen.getByText("Última coleta mais antiga (min)")).toBeInTheDocument()
+    expect(screen.queryByText("Lag máximo (min)")).not.toBeInTheDocument()
+    expect(screen.getByText(/não diz de quando é o dado/i)).toBeInTheDocument()
   })
 })

@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react"
 import { Trans, useTranslation } from "react-i18next"
 import type {
   AuthFieldRead,
+  CollectionFilterFieldRead,
   CreateIntegrationRequest,
   Integration,
   Organization,
@@ -17,6 +18,11 @@ import { Button } from "@/components/ui/Button/Button"
 import { Input } from "@/components/ui/Input/Input"
 import { TileGallery, type Tile } from "@/components/shared/TileGallery"
 import { Notice } from "@/components/ui/Notice/Notice"
+import {
+  CollectionFiltersSection,
+  serializeFilters,
+  type CollectionFilterValues,
+} from "@/components/integrations/CollectionFiltersSection"
 import { brandIconFor } from "@/lib/brand-icons"
 
 // Fonte única da verdade do ícone: o catálogo do backend (PlatformRegistration de
@@ -196,6 +202,16 @@ export const IntegrationForm: React.FC<IntegrationFormProps> = ({
   const [testing, setTesting] = useState(false)
   const [testResult, setTestResult] = useState<{ ok: boolean; detail: string } | null>(null)
 
+  // ── Filtros de coleta (só na edição: dependem de uma integração existente) ──
+  // O schema vem do plugin do vendor via GET /integrations/{id}/collection-filters
+  // — a tela não sabe nada sobre vendor nenhum.
+  const [availableCollectionFilters, setAvailableCollectionFilters] = useState<
+    Record<string, CollectionFilterFieldRead[]>
+  >({})
+  const [collectionFilters, setCollectionFilters] = useState<CollectionFilterValues>({})
+  const [savedCollectionFilters, setSavedCollectionFilters] = useState<CollectionFilterValues>({})
+  const [collectionFiltersError, setCollectionFiltersError] = useState<string | null>(null)
+
   useEffect(() => {
     api.getProviderPlatforms()
       .then(setProviderPlatforms)
@@ -203,6 +219,46 @@ export const IntegrationForm: React.FC<IntegrationFormProps> = ({
         // Non-critical: fall back to static platform options (sophos/wazuh)
       })
   }, [])
+
+  const integrationId = integration?.id ?? null
+
+  useEffect(() => {
+    if (mode !== "edit" || integrationId === null) {
+      setAvailableCollectionFilters({})
+      setCollectionFilters({})
+      setSavedCollectionFilters({})
+      setCollectionFiltersError(null)
+      return
+    }
+    let cancelled = false
+    void (async () => {
+      try {
+        const res = await api.getIntegrationCollectionFilters(integrationId)
+        if (cancelled) return
+        setAvailableCollectionFilters(res?.available_filters ?? {})
+        setCollectionFilters(res?.filters ?? {})
+        setSavedCollectionFilters(res?.filters ?? {})
+        setCollectionFiltersError(null)
+      } catch (e) {
+        if (cancelled) return
+        // Falha na leitura NÃO pode renderizar a seção vazia: uma seção mostrando
+        // "sem filtro" afirmaria que nada está sendo descartado na origem, e a
+        // verdade é que não sabemos. Some a seção e diz por quê.
+        setAvailableCollectionFilters({})
+        setCollectionFilters({})
+        setSavedCollectionFilters({})
+        setCollectionFiltersError(e instanceof Error ? e.message : String(e))
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [mode, integrationId])
+
+  const collectionFiltersDirty = useMemo(
+    () => serializeFilters(collectionFilters) !== serializeFilters(savedCollectionFilters),
+    [collectionFilters, savedCollectionFilters],
+  )
 
   // Active platform descriptor from catalog
   const activePlatformDescriptor = useMemo(
@@ -480,6 +536,26 @@ export const IntegrationForm: React.FC<IntegrationFormProps> = ({
       payload.verify_ssl = verifySsl
     }
 
+    // Filtros ANTES do update: é a metade validada fail-closed (422 com a chave e
+    // a faixa violadas) e a metade que muda o que a plataforma para de coletar.
+    // Se ela recusar, nada foi alterado e o operador continua no formulário —
+    // depois de `onSubmit` a página fecha o modal e não haveria onde mostrar o
+    // erro.
+    if (integrationId !== null && collectionFiltersDirty) {
+      try {
+        const saved = await api.updateIntegrationCollectionFilters(integrationId, collectionFilters)
+        setCollectionFilters(saved?.filters ?? {})
+        setSavedCollectionFilters(saved?.filters ?? {})
+      } catch (e) {
+        setValidationError(
+          t("form.collectionFilters.saveError", {
+            reason: e instanceof Error ? e.message : String(e),
+          }),
+        )
+        return
+      }
+    }
+
     await onSubmit(payload)
   }
 
@@ -747,16 +823,51 @@ export const IntegrationForm: React.FC<IntegrationFormProps> = ({
           <div className="border-t border-border px-4 py-3">
             <div className="space-y-1.5">
               {activePlatformDescriptor.streams.map((stream) => (
-                <div key={stream.stream} className="flex items-center justify-between text-sm">
+                <div key={stream.stream} className="flex flex-wrap items-center justify-between gap-2 text-sm">
                   <span className="font-medium text-text">{stream.stream}</span>
-                  <span className="text-xs text-text-secondary">
-                    {t("form.streamsInfo.every", { schedule: formatScheduleSeconds(stream.schedule_seconds) })}
+                  <span className="flex items-center gap-2">
+                    {/* O catálogo já diz quais streams sabem filtrar na origem —
+                        vale mostrar antes de criar, porque muda o custo de
+                        transporte da integração. A configuração em si só existe
+                        na edição (precisa de uma integração para pendurar). */}
+                    {(stream.filters?.length ?? 0) > 0 && (
+                      <Badge variant="outline" size="sm">
+                        {t("form.streamsInfo.filtersAvailable", { count: stream.filters?.length ?? 0 })}
+                      </Badge>
+                    )}
+                    <span className="text-xs text-text-secondary">
+                      {t("form.streamsInfo.every", { schedule: formatScheduleSeconds(stream.schedule_seconds) })}
+                    </span>
                   </span>
                 </div>
               ))}
             </div>
+            {mode === "create" &&
+              activePlatformDescriptor.streams.some((s) => (s.filters?.length ?? 0) > 0) && (
+                <p className="mt-3 text-xs text-text-tertiary">
+                  {t("form.streamsInfo.filtersAfterCreate")}
+                </p>
+              )}
           </div>
         </details>
+      )}
+
+      {/* Filtros de coleta — renderizados a partir do schema que o plugin do
+          vendor declara. Plataforma que não declara nenhum não tem esta seção. */}
+      {mode === "edit" && (
+        <>
+          <CollectionFiltersSection
+            availableFilters={availableCollectionFilters}
+            values={collectionFilters}
+            onChange={setCollectionFilters}
+            disabled={loading}
+          />
+          {collectionFiltersError && (
+            <Notice variant="warning" title={t("form.collectionFilters.loadErrorTitle")}>
+              {t("form.collectionFilters.loadError", { reason: collectionFiltersError })}
+            </Notice>
+          )}
+        </>
       )}
 
       {validationError && (

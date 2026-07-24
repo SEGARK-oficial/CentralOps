@@ -149,6 +149,10 @@ class SophosDetectionsCollector(BaseCollector):
             # Bug C: limita páginas por ciclo para não bloquear o slot Celery.
             page_count += 1
             if self.ctx.bounded_per_cycle and page_count > _MAX_PAGES_PER_CYCLE:
+                # Sobrou backlog: o ``from_ts`` do cursor não avança enquanto o run
+                # não é drenado, e sem este sinal esse "parado" é lido como tenant
+                # sem detecções pela Saúde do Pipeline.
+                self.mark_cycle_capped()
                 logger.info(
                     "sophos_detections: max pages reached, persistindo cursor para próximo ciclo",
                     extra={"run_id": run_id, "page_count": page_count},
@@ -353,6 +357,17 @@ class SophosDetectionsCollector(BaseCollector):
     def extract_message_id(self, event: Dict[str, Any]) -> str:
         """ID de dedupe: campo ``id`` do detection, ou fallback hash."""
         return str(event.get("id") or "")
+
+    @classmethod
+    def watermark_at(cls, cursor: Optional[Dict[str, Any]]) -> Optional[datetime]:
+        """``from_ts`` — o ``from`` do run assíncrono já criado (ou do próximo).
+
+        Aqui o watermark cobre um atraso que os outros streams não têm: enquanto
+        um ``run_id`` fica pendente ciclo após ciclo (run que a Sophos não termina),
+        ``from_ts`` não avança e o indicador mostra a distância crescendo, mesmo
+        sem nenhum teto de página ter sido atingido.
+        """
+        return cls.watermark_from_iso(cursor, "from_ts")
 
 
 def _default_lookback_iso() -> str:
