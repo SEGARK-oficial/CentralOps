@@ -32,6 +32,13 @@ data:
   CORS_ORIGINS: {{ .Values.config.corsOrigins | quote }}
   SESSION_SECURE_COOKIE: {{ .Values.config.sessionSecureCookie | quote }}
   REDBEAT_LOCK_TIMEOUT: {{ .Values.config.redbeatLockTimeout | quote }}
+  # Teto de ESPERA por lock da migração de boot (ms). Emitida SEMPRE, nunca sob
+  # `with`: a mensagem de erro da migração abortada manda ajustar exatamente esta
+  # variável, e uma chave que só existe quando o operador adivinha o caminho no
+  # values torna aquela instrução uma mentira. Estourado o teto, o pod falha o
+  # boot com erro em vez de pendurar. Quem consome: api, workers e kafka-dispatcher
+  # (todos rodam a migração no entrypoint) — o frontend a recebe e ignora.
+  APP_DB_MIGRATION_LOCK_TIMEOUT_MS: {{ .Values.config.dbMigrationLockTimeoutMs | quote }}
   ENABLE_HTTPS: {{ .Values.config.enableHttps | quote }}
   # ── Privacidade / redução de custo / drift ──
   # Emitidas SEMPRE (nunca sob `with`): todas têm default são e explícito no

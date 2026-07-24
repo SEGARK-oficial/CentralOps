@@ -53,6 +53,12 @@ services:
       # Default: Postgres do compose. Override via .env pra apontar pra
       # outro host ou voltar a SQLite (sqlite:////app/data/sophos.db).
       - DATABASE_URL=${DATABASE_URL:-postgresql+psycopg2://${POSTGRES_USER:-centralops}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD obrigatorio - gere com openssl rand -base64 24 e coloque no .env}@postgres:5432/${POSTGRES_DB:-centralops}}
+      # Teto de ESPERA por lock da migração de boot (ms; default 15000). Não
+      # limita quanto a migração DEMORA — só quanto ela aguarda uma tabela
+      # travada por outra sessão antes de abortar o boot com erro claro, em vez
+      # de pendurar o container. Este serviço roda a migração no entrypoint, por
+      # isso a variável precisa chegar AQUI: exportá-la só no shell não adianta.
+      - APP_DB_MIGRATION_LOCK_TIMEOUT_MS=${APP_DB_MIGRATION_LOCK_TIMEOUT_MS:-}
       # ── DFIR-Iris auto-create de customer (Sophos Partner sync) ────
       # Quando setado, o sync_sophos_partner cria automaticamente um
       # customer no Iris pra cada Organization auto-provisionada do
@@ -340,6 +346,12 @@ services:
       # Default: Postgres do compose. Override via .env pra apontar pra
       # outro host ou voltar a SQLite (sqlite:////app/data/sophos.db).
       - DATABASE_URL=${DATABASE_URL:-postgresql+psycopg2://${POSTGRES_USER:-centralops}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD obrigatorio - gere com openssl rand -base64 24 e coloque no .env}@postgres:5432/${POSTGRES_DB:-centralops}}
+      # Teto de ESPERA por lock da migração de boot (ms; default 15000). Não
+      # limita quanto a migração DEMORA — só quanto ela aguarda uma tabela
+      # travada por outra sessão antes de abortar o boot com erro claro, em vez
+      # de pendurar o container. Este serviço roda a migração no entrypoint, por
+      # isso a variável precisa chegar AQUI: exportá-la só no shell não adianta.
+      - APP_DB_MIGRATION_LOCK_TIMEOUT_MS=${APP_DB_MIGRATION_LOCK_TIMEOUT_MS:-}
       # Honra override do orquestrador (ex.: Redis gerenciado externamente) e cai
       # no redis do compose só se não houver override — espelha o REDIS_URL da API.
       - REDIS_URL=${REDIS_URL:-redis://:${REDIS_PASSWORD:?REDIS_PASSWORD obrigatorio - gere com openssl rand -base64 24 e coloque no .env}@redis:6379/0}
@@ -429,6 +441,12 @@ services:
       # Default: Postgres do compose. Override via .env pra apontar pra
       # outro host ou voltar a SQLite (sqlite:////app/data/sophos.db).
       - DATABASE_URL=${DATABASE_URL:-postgresql+psycopg2://${POSTGRES_USER:-centralops}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD obrigatorio - gere com openssl rand -base64 24 e coloque no .env}@postgres:5432/${POSTGRES_DB:-centralops}}
+      # Teto de ESPERA por lock da migração de boot (ms; default 15000). Não
+      # limita quanto a migração DEMORA — só quanto ela aguarda uma tabela
+      # travada por outra sessão antes de abortar o boot com erro claro, em vez
+      # de pendurar o container. Este serviço roda a migração no entrypoint, por
+      # isso a variável precisa chegar AQUI: exportá-la só no shell não adianta.
+      - APP_DB_MIGRATION_LOCK_TIMEOUT_MS=${APP_DB_MIGRATION_LOCK_TIMEOUT_MS:-}
       # Honra override do orquestrador (ex.: Redis gerenciado externamente) e cai
       # no redis do compose só se não houver override — espelha o REDIS_URL da API.
       - REDIS_URL=${REDIS_URL:-redis://:${REDIS_PASSWORD:?REDIS_PASSWORD obrigatorio - gere com openssl rand -base64 24 e coloque no .env}@redis:6379/0}
@@ -497,6 +515,12 @@ services:
       - APP_ENV=${APP_ENV:-production}
       - SESSION_SECURE_COOKIE=${SESSION_SECURE_COOKIE:-1}
       - DATABASE_URL=${DATABASE_URL:-postgresql+psycopg2://${POSTGRES_USER:-centralops}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD obrigatorio - gere com openssl rand -base64 24 e coloque no .env}@postgres:5432/${POSTGRES_DB:-centralops}}
+      # Teto de ESPERA por lock da migração de boot (ms; default 15000). Não
+      # limita quanto a migração DEMORA — só quanto ela aguarda uma tabela
+      # travada por outra sessão antes de abortar o boot com erro claro, em vez
+      # de pendurar o container. Este serviço roda a migração no entrypoint, por
+      # isso a variável precisa chegar AQUI: exportá-la só no shell não adianta.
+      - APP_DB_MIGRATION_LOCK_TIMEOUT_MS=${APP_DB_MIGRATION_LOCK_TIMEOUT_MS:-}
       # Honra override do orquestrador (ex.: Redis gerenciado externamente) e cai
       # no redis do compose só se não houver override — espelha o REDIS_URL da API.
       - REDIS_URL=${REDIS_URL:-redis://:${REDIS_PASSWORD:?REDIS_PASSWORD obrigatorio - gere com openssl rand -base64 24 e coloque no .env}@redis:6379/0}
@@ -566,6 +590,12 @@ services:
       - APP_ENV=${APP_ENV:-production}
       - SESSION_SECURE_COOKIE=${SESSION_SECURE_COOKIE:-1}
       - DATABASE_URL=${DATABASE_URL:-postgresql+psycopg2://${POSTGRES_USER:-centralops}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD obrigatorio - gere com openssl rand -base64 24 e coloque no .env}@postgres:5432/${POSTGRES_DB:-centralops}}
+      # Teto de ESPERA por lock da migração de boot (ms; default 15000). Não
+      # limita quanto a migração DEMORA — só quanto ela aguarda uma tabela
+      # travada por outra sessão antes de abortar o boot com erro claro, em vez
+      # de pendurar o container. Este serviço roda a migração no entrypoint, por
+      # isso a variável precisa chegar AQUI: exportá-la só no shell não adianta.
+      - APP_DB_MIGRATION_LOCK_TIMEOUT_MS=${APP_DB_MIGRATION_LOCK_TIMEOUT_MS:-}
       # Honra override do orquestrador (ex.: Redis gerenciado externamente) e cai
       # no redis do compose só se não houver override — espelha o REDIS_URL da API.
       - REDIS_URL=${REDIS_URL:-redis://:${REDIS_PASSWORD:?REDIS_PASSWORD obrigatorio - gere com openssl rand -base64 24 e coloque no .env}@redis:6379/0}
@@ -634,6 +664,12 @@ services:
       # Sem isso o loader cai no default sqlite:///./data/sophos.db, falha
       # com "unable to open database file" e fica em fallback de env.
       - DATABASE_URL=${DATABASE_URL:-postgresql+psycopg2://${POSTGRES_USER:-centralops}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD obrigatorio - gere com openssl rand -base64 24 e coloque no .env}@postgres:5432/${POSTGRES_DB:-centralops}}
+      # Teto de ESPERA por lock da migração de boot (ms; default 15000). Não
+      # limita quanto a migração DEMORA — só quanto ela aguarda uma tabela
+      # travada por outra sessão antes de abortar o boot com erro claro, em vez
+      # de pendurar o container. Este serviço roda a migração no entrypoint, por
+      # isso a variável precisa chegar AQUI: exportá-la só no shell não adianta.
+      - APP_DB_MIGRATION_LOCK_TIMEOUT_MS=${APP_DB_MIGRATION_LOCK_TIMEOUT_MS:-}
       # Honra override do orquestrador (ex.: Redis gerenciado externamente) e cai
       # no redis do compose só se não houver override — espelha o REDIS_URL da API.
       - REDIS_URL=${REDIS_URL:-redis://:${REDIS_PASSWORD:?REDIS_PASSWORD obrigatorio - gere com openssl rand -base64 24 e coloque no .env}@redis:6379/0}
@@ -702,6 +738,12 @@ services:
       - KAFKA_BOOTSTRAP_SERVERS=${KAFKA_BOOTSTRAP_SERVERS:-redpanda:9092}
       - KAFKA_CONSUMER_GROUP=${KAFKA_CONSUMER_GROUP:-centralops-dispatcher}
       - DATABASE_URL=${DATABASE_URL:-postgresql+psycopg2://${POSTGRES_USER:-centralops}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD obrigatorio - gere com openssl rand -base64 24 e coloque no .env}@postgres:5432/${POSTGRES_DB:-centralops}}
+      # Teto de ESPERA por lock da migração de boot (ms; default 15000). Não
+      # limita quanto a migração DEMORA — só quanto ela aguarda uma tabela
+      # travada por outra sessão antes de abortar o boot com erro claro, em vez
+      # de pendurar o container. Este serviço roda a migração no entrypoint, por
+      # isso a variável precisa chegar AQUI: exportá-la só no shell não adianta.
+      - APP_DB_MIGRATION_LOCK_TIMEOUT_MS=${APP_DB_MIGRATION_LOCK_TIMEOUT_MS:-}
       # Control-plane Redis: o dispatch usa breaker/limiter/observability no Redis.
       - REDIS_URL=${REDIS_URL:-redis://:${REDIS_PASSWORD:?REDIS_PASSWORD obrigatorio - gere com openssl rand -base64 24 e coloque no .env}@redis:6379/0}
       - CELERY_BROKER_URL=${CELERY_BROKER_URL:-redis://:${REDIS_PASSWORD:?REDIS_PASSWORD obrigatorio - gere com openssl rand -base64 24 e coloque no .env}@redis-control:6379/1}
@@ -769,6 +811,12 @@ services:
       # Default: Postgres do compose. Override via .env pra apontar pra
       # outro host ou voltar a SQLite (sqlite:////app/data/sophos.db).
       - DATABASE_URL=${DATABASE_URL:-postgresql+psycopg2://${POSTGRES_USER:-centralops}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD obrigatorio - gere com openssl rand -base64 24 e coloque no .env}@postgres:5432/${POSTGRES_DB:-centralops}}
+      # Teto de ESPERA por lock da migração de boot (ms; default 15000). Não
+      # limita quanto a migração DEMORA — só quanto ela aguarda uma tabela
+      # travada por outra sessão antes de abortar o boot com erro claro, em vez
+      # de pendurar o container. Este serviço roda a migração no entrypoint, por
+      # isso a variável precisa chegar AQUI: exportá-la só no shell não adianta.
+      - APP_DB_MIGRATION_LOCK_TIMEOUT_MS=${APP_DB_MIGRATION_LOCK_TIMEOUT_MS:-}
       # Honra override do orquestrador (ex.: Redis gerenciado externamente) e cai
       # no redis do compose só se não houver override — espelha o REDIS_URL da API.
       - REDIS_URL=${REDIS_URL:-redis://:${REDIS_PASSWORD:?REDIS_PASSWORD obrigatorio - gere com openssl rand -base64 24 e coloque no .env}@redis:6379/0}
