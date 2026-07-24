@@ -118,13 +118,44 @@ class WazuhDetectionsCollector(BaseCollector):
         }
 
     @staticmethod
-    def _search_body(from_ts: str, offset: int) -> Dict[str, Any]:
+    def _search_body(
+        from_ts: str, offset: int, min_rule_level: Optional[int] = None
+    ) -> Dict[str, Any]:
+        """Monta a consulta do Indexer.
+
+        Sem filtro configurado a query é a de sempre (``range`` puro) — nenhuma
+        instalação existente muda de comportamento. Com ``min_rule_level``, o
+        corte por severidade vai para DENTRO da consulta: o teto de páginas do
+        ciclo passa a ser gasto em eventos que realmente serão entregues, em vez
+        de em ruído que o roteamento descartaria logo depois.
+
+        PREMISSA: ``rule.level`` é NUMÉRICO no índice — como define o template
+        oficial do Wazuh (``long``), e como confirmado em produção (a agregação
+        ``terms`` devolve chaves numéricas, não strings). Se algum deployment
+        redefinir o campo como ``keyword``, o ``range`` passa a comparar
+        LEXICOGRAFICAMENTE e ``gte 7`` excluiria "10".."16" — ou seja, cortaria
+        justamente os alertas MAIS graves, em silêncio. Sintoma: ligar o filtro
+        faz sumirem os alertas críticos em vez dos ruidosos. Confirme com
+        ``GET {indexer}/wazuh-alerts-*/_mapping/field/rule.level``.
+        """
+        time_clause: Dict[str, Any] = {"range": {"timestamp": {"gte": from_ts}}}
+        if min_rule_level is None:
+            query: Dict[str, Any] = time_clause
+        else:
+            query = {
+                "bool": {
+                    "filter": [
+                        time_clause,
+                        {"range": {"rule.level": {"gte": min_rule_level}}},
+                    ]
+                }
+            }
         return {
             "size": _PAGE_SIZE,
             "from": offset,
             "track_total_hits": False,
             "sort": [{"timestamp": {"order": "asc"}}],
-            "query": {"range": {"timestamp": {"gte": from_ts}}},
+            "query": query,
         }
 
     # ── Coleta ─────────────────────────────────────────────────────────
@@ -141,6 +172,9 @@ class WazuhDetectionsCollector(BaseCollector):
         latest_seen = from_ts
         offset = 0
         page_count = 0
+        # ``None`` no caminho quente: sem filtro configurado a query é idêntica à
+        # de antes. ``filter_value`` só devolve valor quando ele de fato filtra.
+        min_rule_level: Optional[int] = self.filter_value("min_rule_level")
 
         while True:
             # Teto por ciclo: encerra o run e retoma no próximo ciclo (ver
@@ -150,6 +184,9 @@ class WazuhDetectionsCollector(BaseCollector):
             page_count += 1
             if self.ctx.bounded_per_cycle and page_count > _MAX_PAGES_PER_CYCLE:
                 self.ctx.cursor = {"from_ts": latest_seen}
+                # Sobrou backlog: é isto que separa "watermark parado porque não há
+                # eventos" de "watermark parado porque não damos conta".
+                self.mark_cycle_capped()
                 logger.info(
                     "wazuh detections: teto de %d páginas/ciclo atingido — cursor em "
                     "from_ts=%s p/ próximo ciclo (integration=%s)",
@@ -163,7 +200,7 @@ class WazuhDetectionsCollector(BaseCollector):
             async with self.ctx.domain_limiter.slot(self.domain):
                 async with self.ctx.session.post(
                     search_url,
-                    json=self._search_body(from_ts, offset),
+                    json=self._search_body(from_ts, offset, min_rule_level),
                     headers=headers,
                     ssl=ssl_opt,
                 ) as resp:
@@ -209,6 +246,17 @@ class WazuhDetectionsCollector(BaseCollector):
     def extract_message_id(self, event: Dict[str, Any]) -> str:
         return str(event.get("id") or "")
 
+    @classmethod
+    def watermark_at(cls, cursor: Optional[Dict[str, Any]]) -> Optional[datetime]:
+        """Traduz ``{"from_ts": "..."}`` para o instante do fornecedor.
+
+        O Indexer devolve ``timestamp`` em ISO-8601 com offset — e em DOIS
+        formatos no MESMO campo, dependendo de onde veio: ``+0000`` (sem
+        dois-pontos, como o Wazuh grava) e ``Z`` (o lookback default deste
+        módulo). Os dois são tratados pelo helper compartilhado.
+        """
+        return cls.watermark_from_iso(cursor, "from_ts")
+
 
 def _default_lookback_iso() -> str:
     dt = datetime.now(timezone.utc) - timedelta(hours=1)
@@ -236,7 +284,7 @@ def _register() -> None:
 
     from ..auth.refreshers import wazuh_indexer_refresher
     from ..queues import Q_BULK, T_COLLECT_BULK
-    from ..registry import CollectorRegistration, register
+    from ..registry import CollectionFilterField, CollectorRegistration, register
 
     register(
         CollectorRegistration(
@@ -247,6 +295,38 @@ def _register() -> None:
             schedule=_td(minutes=2),
             queue=Q_BULK,
             task_name=T_COLLECT_BULK,
+            filters=(
+                CollectionFilterField(
+                    key="min_rule_level",
+                    label="Nível mínimo da regra do Wazuh",
+                    type="int_range",
+                    # 0 = coleta tudo. É o default OBRIGATÓRIO: quem atualiza sem
+                    # abrir esta tela continua coletando exatamente o que coletava.
+                    default=0,
+                    min=0,
+                    max=16,
+                    help_text=(
+                        "Só coleta alertas com rule.level igual ou acima deste valor. "
+                        "O mapeamento traduz o nível do Wazuh para a severidade OCSF "
+                        "assim: 0-3 Informativo, 4-6 Baixo, 7-11 Médio, 12-14 Alto, "
+                        "15-16 Crítico. Se você já descarta severidade baixa no "
+                        "roteamento, use 7 aqui — o descarte passa a acontecer ANTES "
+                        "de o evento ser transportado, e não depois."
+                    ),
+                    warning_text=(
+                        "O que for filtrado aqui NUNCA entra na plataforma: não aparece "
+                        "na captura ao vivo, não gera campos novos no Drift Explorer e "
+                        "não fica disponível para uma regra de roteamento futura. Os "
+                        "eventos continuam no Wazuh de origem — a plataforma apenas "
+                        "deixa de transportá-los. Depois de ligar, confira o que parou "
+                        "de chegar: se sumirem os alertas CRÍTICOS em vez dos ruidosos, "
+                        "o campo rule.level está indexado como texto (e não como número) "
+                        "no seu Indexer — a comparação vira alfabética e os níveis 10 a "
+                        "16 ficam de fora. Nesse caso desligue o filtro e corrija o "
+                        "mapeamento do índice antes de tentar de novo."
+                    ),
+                ),
+            ),
         )
     )
 

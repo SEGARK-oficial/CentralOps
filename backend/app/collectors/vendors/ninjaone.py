@@ -72,6 +72,11 @@ class NinjaOneActivitiesCollector(BaseCollector):
                     "after_id": latest_id,
                     "activity_time_after": activity_time_after,
                 }
+                # Sobrou backlog. Aqui o sinal é a ÚNICA evidência disponível: o
+                # cursor é keyset (``after_id``) e ``activity_time_after`` é um
+                # piso fixo, então este stream não reporta ``watermark_at`` — sem
+                # o teto sinalizado, nada distingue backlog de silêncio.
+                self.mark_cycle_capped()
                 logger.info(
                     "ninjaone activities: teto de %d páginas/ciclo atingido — cursor em "
                     "after_id=%s p/ próximo ciclo (integration=%s)",

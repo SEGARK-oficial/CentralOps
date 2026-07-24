@@ -163,6 +163,11 @@ class AWSCloudTrailCollector(BaseCollector):
                                 "prefix": prefix,
                                 "start_after": key,
                             }
+                            # Sobrou backlog: sem este sinal, o watermark parado
+                            # (justamente porque não avançamos) é indistinguível de
+                            # um bucket sem objetos novos, e a Saúde do Pipeline
+                            # continua verde enquanto o atraso cresce.
+                            self.mark_cycle_capped()
                             logger.info(
                                 "cloudtrail: teto de %d objetos/ciclo — retomando em "
                                 "prefix=%s start_after=%s (integration=%s)",
@@ -191,6 +196,21 @@ class AWSCloudTrailCollector(BaseCollector):
 
     def extract_message_id(self, event: Dict[str, Any]) -> str:
         return str(event.get("eventID") or "")
+
+    @classmethod
+    def watermark_at(cls, cursor: Optional[Dict[str, Any]]) -> Optional[datetime]:
+        """``last_modified`` — a hora de ENTREGA do último objeto S3 consumido.
+
+        Não é a hora do evento na AWS (o CloudTrail entrega com minutos de atraso
+        próprio), e sim até onde o bucket foi drenado. É a medida certa aqui: o
+        que a Saúde precisa responder é se ESTE coletor está acompanhando o
+        bucket, não qual é o SLA de entrega da AWS.
+
+        Num ciclo capado o valor fica no início da janela, junto de
+        ``prefix``/``start_after``, o que é proposital — enquanto sobrar objeto
+        não lido, o atraso reportado é o do ponto realmente consumido.
+        """
+        return cls.watermark_from_iso(cursor, "last_modified")
 
 
 def _default_lookback_dt() -> datetime:

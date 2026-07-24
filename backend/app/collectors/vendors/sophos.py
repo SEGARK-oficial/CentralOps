@@ -163,6 +163,9 @@ class SophosAlertsCollector(BaseCollector):
             page_count += 1
             if self.ctx.bounded_per_cycle and page_key and page_count >= _MAX_PAGES_PER_CYCLE:
                 self.ctx.cursor = {"from_ts": from_ts, "pageFromKey": page_key}
+                # Sobrou backlog: ``from_ts`` fica no valor original de propósito,
+                # e sem este sinal esse "parado" é lido como tenant sem alertas.
+                self.mark_cycle_capped()
                 logger.info(
                     "sophos alerts: teto de %d páginas/ciclo atingido — cursor RESUMÍVEL "
                     "em pageFromKey (from_ts=%s) p/ próximo ciclo (integration=%s)",
@@ -181,6 +184,15 @@ class SophosAlertsCollector(BaseCollector):
 
     def extract_message_id(self, event: Dict[str, Any]) -> str:
         return str(event.get("id") or event.get("alertId") or event.get("uuid") or "")
+
+    @classmethod
+    def watermark_at(cls, cursor: Optional[Dict[str, Any]]) -> Optional[datetime]:
+        """``from_ts`` — o ``from`` enviado à Sophos, sempre com precisão de segundos.
+
+        ``_normalize_ts`` já tirou os microssegundos antes de gravar (a Sophos
+        rejeita o formato), então o que chega aqui é ISO com ``Z``.
+        """
+        return cls.watermark_from_iso(cursor, "from_ts")
 
 
 def _default_lookback_iso() -> str:

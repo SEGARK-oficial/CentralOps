@@ -86,6 +86,10 @@ class EntraSignInsCollector(BaseCollector):
             page_count += 1
             if self.ctx.bounded_per_cycle and page_count > _MAX_PAGES_PER_CYCLE:
                 self.ctx.cursor = {self._CURSOR_FIELD: last_ts, "@odata.nextLink": next_link}
+                # Sobrou backlog: sign-in log é o stream de maior volume da frota e
+                # o que mais bate o teto — sem este sinal, o atraso cresce com a
+                # Saúde do Pipeline verde.
+                self.mark_cycle_capped()
                 logger.info(
                     "entra_id %s: teto de %d páginas/ciclo atingido — cursor no "
                     "@odata.nextLink p/ próximo ciclo (integration=%s)",
@@ -127,6 +131,17 @@ class EntraSignInsCollector(BaseCollector):
 
     def extract_message_id(self, event: Dict[str, Any]) -> str:
         return str(event.get("id") or "")
+
+    @classmethod
+    def watermark_at(cls, cursor: Optional[Dict[str, Any]]) -> Optional[datetime]:
+        """Lê ``cls._CURSOR_FIELD`` — que é OUTRO campo em cada subclasse.
+
+        ``signIns`` usa ``createdDateTime`` e ``directoryAudits`` usa
+        ``activityDateTime``. Fixar o nome aqui faria o stream de auditoria
+        devolver ``None`` para sempre e sumir do indicador de atraso — o mesmo
+        ponto cego, só que num stream a menos.
+        """
+        return cls.watermark_from_iso(cursor, cls._CURSOR_FIELD)
 
 
 class EntraDirectoryAuditCollector(EntraSignInsCollector):

@@ -219,6 +219,10 @@ class AWSCloudWatchCollector(BaseCollector):
                         "end_time_ms": window_end,
                         "next_token": next_token,
                     }
+                    # Sobrou backlog nesta janela. Sem o sinal, o watermark parado
+                    # em ``window_start`` passa por "log group quieto" e a Saúde do
+                    # Pipeline segue verde enquanto a janela nunca é alcançada.
+                    self.mark_cycle_capped()
                     logger.info(
                         "cloudwatch: teto de %d páginas/ciclo — retomando janela "
                         "[%s, %s] com nextToken (integration=%s, log_group=%s)",
@@ -234,6 +238,21 @@ class AWSCloudWatchCollector(BaseCollector):
     def extract_message_id(self, event: Dict[str, Any]) -> str:
         """``eventId`` — a AWS garante unicidade por evento no CloudWatch Logs."""
         return str(event.get("eventId") or "")
+
+    @classmethod
+    def watermark_at(cls, cursor: Optional[Dict[str, Any]]) -> Optional[datetime]:
+        """``start_time_ms`` — epoch em MILISSEGUNDOS, não ISO e não segundos.
+
+        Único cursor temporal da frota que não é string; daí o helper próprio.
+        Interpretá-lo como segundos daria 1970 e um atraso permanente de décadas,
+        que na tela é indistinguível de "coletor morto".
+
+        A semântica casa nos dois caminhos de saída: no ciclo drenado o cursor
+        guarda ``window_end + 1`` (consumimos até o fim da janela) e no ciclo
+        capado ele fica em ``window_start`` junto do ``next_token`` — enquanto
+        sobrar página, o atraso reportado é o do ponto realmente consumido.
+        """
+        return cls.watermark_from_epoch_ms(cursor, "start_time_ms")
 
 
 def _now_ms() -> int:

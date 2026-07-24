@@ -184,6 +184,10 @@ class SophosCasesCollector(BaseCollector):
             # conclusão real (página incompleta = backlog drenado).
             pages_this_cycle += 1
             if self.ctx.bounded_per_cycle and pages_this_cycle >= _MAX_PAGES_PER_CYCLE:
+                # Sobrou backlog: ``created_after`` fica na janela original de
+                # propósito, e sem este sinal esse "parado" é lido como tenant sem
+                # cases (que é comum aqui — tenant sem MDR/XDR responde 200 vazio).
+                self.mark_cycle_capped()
                 logger.info(
                     "sophos cases: teto de %d páginas/ciclo atingido — cursor "
                     "resumível em created_after=%s page=%d p/ próximo ciclo "
@@ -217,6 +221,17 @@ class SophosCasesCollector(BaseCollector):
         if case_id and updated:
             return f"{case_id}::{updated}"
         return str(case_id)
+
+    @classmethod
+    def watermark_at(cls, cursor: Optional[Dict[str, Any]]) -> Optional[datetime]:
+        """``created_after`` — o ``createdAfter`` enviado à Sophos.
+
+        Lê só ``created_after``, e não ``backfill_from_ts``: durante um backfill o
+        cursor carrega uma janela HISTÓRICA escolhida a dedo, e reportá-la como
+        watermark pintaria a integração de atrasada justamente enquanto ela
+        recupera passado de propósito.
+        """
+        return cls.watermark_from_iso(cursor, "created_after")
 
 
 def _default_lookback_iso() -> str:

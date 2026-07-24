@@ -208,6 +208,10 @@ class VeeamSessionsCollector(BaseCollector):
             # janela (ver _MAX_PAGES_PER_CYCLE).
             if self.ctx.bounded_per_cycle and pages >= _MAX_PAGES_PER_CYCLE:
                 self.ctx.cursor = {"created_after": created_after, "skip": skip}
+                # Sobrou backlog: ``created_after`` não avança até a janela drenar,
+                # e um VBR quieto produz exatamente o mesmo watermark parado. Só o
+                # par (teto, atraso) separa os dois na Saúde do Pipeline.
+                self.mark_cycle_capped()
                 logger.info(
                     "veeam sessions: teto de %d páginas/ciclo atingido — retomando em "
                     "created_after=%s skip=%d (integration=%s)",
@@ -279,6 +283,17 @@ class VeeamSessionsCollector(BaseCollector):
 
     def extract_message_id(self, event: Dict[str, Any]) -> str:
         return str(event.get("id") or "")
+
+    @classmethod
+    def watermark_at(cls, cursor: Optional[Dict[str, Any]]) -> Optional[datetime]:
+        """``created_after`` — o ``createdAfterFilter`` enviado ao VBR.
+
+        Já vem recuado de ``_WATERMARK_OVERLAP_SECONDS`` pela escrita final; o
+        atraso reportado é, portanto, conservador por alguns segundos. Preferimos
+        assim: superestimar um pouco o atraso é inofensivo, subestimar é o defeito
+        que este indicador existe para corrigir.
+        """
+        return cls.watermark_from_iso(cursor, "created_after")
 
 
 def _default_lookback_iso() -> str:

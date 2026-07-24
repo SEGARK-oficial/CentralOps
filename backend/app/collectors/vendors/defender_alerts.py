@@ -138,6 +138,9 @@ class DefenderAlertsV2Collector(BaseCollector):
                     "lastUpdateDateTime": last_update,
                     "@odata.nextLink": next_link,
                 }
+                # Sobrou backlog: o watermark fica em ``last_update`` de propósito,
+                # e sem este sinal esse "parado" é lido como tenant sem alertas.
+                self.mark_cycle_capped()
                 logger.info(
                     "defender alerts: teto de %d páginas/ciclo atingido — cursor "
                     "resumível em @odata.nextLink p/ próximo ciclo (integration=%s)",
@@ -162,6 +165,11 @@ class DefenderAlertsV2Collector(BaseCollector):
         if alert_id and updated:
             return f"{alert_id}::{updated}"
         return str(alert_id or event.get("providerAlertId") or "")
+
+    @classmethod
+    def watermark_at(cls, cursor: Optional[Dict[str, Any]]) -> Optional[datetime]:
+        """``lastUpdateDateTime`` — mesmo contrato do coletor de incidentes."""
+        return cls.watermark_from_iso(cursor, "lastUpdateDateTime")
 
 
 def _default_lookback_iso() -> str:
