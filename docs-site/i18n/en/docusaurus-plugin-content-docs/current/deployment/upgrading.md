@@ -12,6 +12,17 @@ services. There is no reinstall, no manual migration step, and your **data is
 preserved**. This page covers the generic mechanics (they apply to any version) and, at
 the end, the **release notes** with what changes in each release.
 
+:::warning[Do not stop at 2.3.0 — go straight to 2.3.1]
+
+**2.3.0** has a defect that can **hang the first boot** on an installation that already has
+data: the API gets stuck on the schema migration, with no error in the log, and never becomes
+healthy. If you are on 2.2.0, skip 2.3.0 and go **straight to 2.3.1**. If you already tried
+2.3.0 and ended up in that state, the way out is
+**[The upgrade hung on the migration](../runbooks/migration-and-boot#upgrade-pendurado)**.
+Details in [release notes → 2.3.1](#231).
+
+:::
+
 :::danger[2.0.0 is a major with a breaking change]
 
 **2.0.0** bumps the **major** on purpose: it **removes the Alerts surface** (the `/alerts`
@@ -204,6 +215,66 @@ are additive.
 
 Each version adds a section here. Read the one for your target version **before**
 upgrading.
+
+### 2.3.1
+
+A **patch** release. It fixes a 2.3.0 defect that could **leave the upgrade hanging**. There
+is nothing new to configure: everything 2.3.0 brought (read the section below) still applies,
+with a boot that works.
+
+**If you are on 2.2.0: upgrade straight to 2.3.1.** Do not go through 2.3.0.
+
+**If you already tried 2.3.0 and it hung:** follow
+**[The upgrade hung on the migration](../runbooks/migration-and-boot#upgrade-pendurado)**
+to unblock the database, then upgrade to 2.3.1.
+
+:::danger[The 2.3.0 defect, plainly]
+
+On an installation that **already had data**, the first boot of 2.3.0 could **stop** at the
+schema migration step and **never come out of it**. What you saw:
+
+- the API container **up but never healthy** — `running`, `exit=0`, `health=unhealthy`. It was
+  **not** restarting in a loop: the process did not die, it was **stuck**. (On Kubernetes the
+  pod never became `Ready` and was eventually restarted by the `startupProbe` — and the new
+  pod got stuck the same way.);
+- the log frozen at the line `start-api: migração de schema (python -m app.db.migrate)...` —
+  and **no error line after it**;
+- the collection services in the same state, because they run the same migration at boot;
+- ordinary queries against the integrations table blocked too, for as long as the standoff
+  lasted.
+
+**A fresh installation was not affected.** The hang depended on there being a new column to
+add to a table that already existed with data — on a stack created from scratch the schema is
+built whole and the problematic step never runs. That is why the defect got through testing:
+tests boot a clean database.
+
+:::
+
+**Nothing to undo in the database, and no manual schema step.** In this particular hang the
+migration **had not applied anything yet** when it stalled — this was verified: the standoff
+happens before the first commit, and 2.3.0 creates no new table. The database is left exactly
+as it was. That is why the regular [rollback](#rollback) mechanic — pointing back at the 2.2.0
+immutable tag — restores service with no database work at all; but the destination is 2.3.1,
+not 2.2.0.
+
+**And if an upgrade is interrupted at some other point?** You still never get a half-applied
+schema, but for a different reason: the migration is **not** a single transaction — it is
+roughly **twenty independent steps**, each with its own commit. Interrupting it midway leaves
+the completed steps applied, but **every step is idempotent**: the state left behind is
+partial yet **valid**, and the next boot finishes what is missing on its own. In neither case
+is there anything to repair by hand in the database.
+
+**What changed in the code:** the migration checked which columns a table already had by
+opening a **second connection** to the database in the middle of its own transaction — and
+that second connection sat waiting for a table that the first one, from the same migration,
+was holding locked. The check now uses the transaction's own connection. The step remains
+idempotent.
+
+The migration also gained a **lock wait ceiling** (15 s by default). If another database
+session is holding a table the migration needs to alter, the boot now **fails with an explicit
+error** instead of hanging in silence. That is a new symptom, and a better one — the procedure
+is in
+**[The migration aborted with a "lock timeout"](../runbooks/migration-and-boot#lock-timeout)**.
 
 ### 2.3.0
 

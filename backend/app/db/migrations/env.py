@@ -13,11 +13,14 @@ no metadata). Eles seguem geridos por ``_run_schema_init``.
 
 from __future__ import annotations
 
+import logging
 import os
 from logging.config import fileConfig
 
 from alembic import context
 from sqlalchemy import engine_from_config, pool
+
+logger = logging.getLogger("alembic.env")
 
 # Import root-agnostic. Preferimos ``backend.app`` PRIMEIRO: no sweep de teste
 # compilado o PYTHONPATH inclui /build E /build/backend (ambos os roots
@@ -98,6 +101,25 @@ def run_migrations_online() -> None:
         section, prefix="sqlalchemy.", poolclass=pool.NullPool
     )
     with connectable.connect() as connection:
+        # Teto de ESPERA por lock também aqui. O Alembic constrói o PRÓPRIO engine
+        # (``engine_from_config`` acima), então ele não herda o ``SET LOCAL`` que
+        # ``database._migration_txn`` carimba — e este passo roda logo depois do
+        # DDL do schema, no mesmo boot. Sem o teto, uma tabela travada por outra
+        # sessão penduraria o container em silêncio: exatamente o modo de falha
+        # que o hotfix da 2.3.1 existe para eliminar, só que pela porta do Alembic.
+        # ``SET`` (não ``SET LOCAL``) porque a transação das revisions só abre
+        # abaixo, em ``context.begin_transaction()`` — o escopo é esta conexão,
+        # que é descartada no ``dispose()`` logo em seguida.
+        try:
+            from ..database import _migration_lock_timeout_ms
+
+            if connection.dialect.name == "postgresql":
+                connection.exec_driver_sql(
+                    f"SET lock_timeout = '{_migration_lock_timeout_ms()}ms'"
+                )
+        except Exception:  # pragma: no cover — teto é defesa, nunca bloqueia a migração
+            logger.warning("alembic: não foi possível aplicar lock_timeout", exc_info=True)
+
         context.configure(
             connection=connection,
             target_metadata=target_metadata,

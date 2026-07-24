@@ -1,16 +1,27 @@
 ---
 sidebar_position: 4
 title: Atualizar de versão
-description: "Passo a passo para atualizar o CentralOps de uma versão para a mais recente (ex.: 2.2.0 → 2.3.0) — mecânica genérica no Compose e no Helm, migração idempotente no boot, verificação e rollback — mais as notas de cada versão, incluindo a 2.0.0, que quebra compatibilidade."
+description: "Passo a passo para atualizar o CentralOps de uma versão para a mais recente (ex.: 2.3.0 → 2.3.1) — mecânica genérica no Compose e no Helm, migração idempotente no boot, verificação e rollback — mais as notas de cada versão, incluindo a 2.0.0, que quebra compatibilidade."
 ---
 
 # Atualizar de versão
 
-Subir de uma **versão** para a mais recente (ex.: `2.2.0` → `2.3.0`) é, na mecânica, uma
+Subir de uma **versão** para a mais recente (ex.: `2.3.0` → `2.3.1`) é, na mecânica, uma
 operação de rotina: você troca a **tag da imagem**, puxa a nova imagem e recria os
 serviços. Não há reinstalação, não há passo manual de migração, e os **dados são
 preservados**. Esta página cobre a mecânica genérica (vale para qualquer versão) e traz,
 no fim, as **Notas da versão** com o que muda em cada release.
+
+:::warning[Não pare na 2.3.0 — vá direto para a 2.3.1]
+
+A **2.3.0** tem um defeito que pode **pendurar o primeiro boot** numa instalação que já tem
+dados: a API fica presa na migração de schema, sem erro no log, e nunca fica saudável. Quem
+está na 2.2.0 deve pular a 2.3.0 e ir **direto para a 2.3.1**. Se você já tentou a 2.3.0 e
+ficou nesse estado, o caminho de saída está em
+**[A atualização ficou pendurada na migração](../runbooks/migration-and-boot.md#upgrade-pendurado)**.
+Detalhes em [Notas da versão → 2.3.1](#231).
+
+:::
 
 :::danger[Vindo de uma 1.x? A 2.0.0 quebra compatibilidade no caminho]
 
@@ -25,7 +36,7 @@ batem nesses caminhos, **migre-as antes de atualizar** (detalhes em
 
 :::note[Isto é diferente de "Atualizar de edição"]
 
-Esta página trata de subir de **versão** (ex.: `2.2.0` → `2.3.0`), dentro da mesma
+Esta página trata de subir de **versão** (ex.: `2.3.0` → `2.3.1`), dentro da mesma
 edição. Para trocar de **edição** — Community → Enterprise, ativando os módulos MSSP com
 a sua licença — veja **[Upgrade para Enterprise](../editions/upgrade.md)**. Os dois
 processos são independentes: você atualiza a versão de uma stack Community ou Enterprise
@@ -204,6 +215,64 @@ schema são aditivas.
 
 Cada versão adiciona uma seção aqui. Leia a da sua versão de destino **antes** de
 atualizar.
+
+### 2.3.1
+
+Versão de **correção**. Ela conserta um defeito da 2.3.0 que podia **deixar a atualização
+pendurada**. Não há nada de novo para configurar: tudo que a 2.3.0 trouxe (leia a seção
+abaixo) continua valendo, com o boot funcionando.
+
+**Quem está na 2.2.0: atualize direto para a 2.3.1.** Não passe pela 2.3.0.
+
+**Quem já tentou a 2.3.0 e ficou pendurado:** siga
+**[A atualização ficou pendurada na migração](../runbooks/migration-and-boot.md#upgrade-pendurado)**
+para destravar o banco e, em seguida, atualize para a 2.3.1.
+
+:::danger[O defeito da 2.3.0, sem rodeios]
+
+Numa instalação que **já tinha dados**, o primeiro boot da 2.3.0 podia **parar** no passo de
+migração de schema e **nunca sair de lá**. O que você via:
+
+- o container da API **de pé, mas nunca saudável** — `running`, `exit=0`, `health=unhealthy`.
+  Ele **não** reiniciava em laço: o processo não morria, ficava **travado**. (No Kubernetes o
+  pod nunca ficava `Ready` e acabava reiniciado pelo `startupProbe` — e o pod novo travava
+  igual.);
+- o log parado na linha `start-api: migração de schema (python -m app.db.migrate)...` — e
+  **nenhuma linha de erro depois**;
+- os serviços de coleta no mesmo estado, porque rodam a mesma migração no boot;
+- consultas normais à tabela de integrações também travadas, enquanto o impasse durasse.
+
+**Instalação nova não era afetada.** O travamento dependia de existir uma coluna nova a
+acrescentar numa tabela que já existia com dados — numa stack criada do zero, o schema nasce
+inteiro e o passo problemático nem roda. Foi por isso que o defeito passou pelos testes: eles
+sobem um banco limpo.
+
+:::
+
+**Nada a desfazer no banco, e nenhum passo manual de schema.** Neste travamento a migração
+**ainda não tinha aplicado nada** quando pendurou — isso foi verificado: o impasse acontece
+antes do primeiro commit, e a 2.3.0 não cria tabela nova. O banco fica exatamente como
+estava. É por isso que a mecânica normal de [rollback](#rollback) — voltar à tag imutável da
+2.2.0 — restabelece o serviço sem nenhum ajuste de banco; mas o destino é a 2.3.1, não a
+2.2.0.
+
+**E se um upgrade for interrompido em outro ponto?** Também não sobra schema pela metade,
+por um motivo diferente: a migração **não** é uma transação única — são cerca de **vinte
+passos independentes**, cada um com o seu próprio commit. Interromper no meio deixa os passos
+já concluídos aplicados, mas **todos são idempotentes**: o estado que sobra é parcial e
+**válido**, e o boot seguinte completa o que faltou sozinho. Em nenhum dos casos há algo para
+consertar à mão no banco.
+
+**O que mudou no código:** a migração conferia quais colunas uma tabela já tinha abrindo uma
+**segunda conexão** com o banco no meio da própria transação — e essa segunda conexão ficava
+esperando a liberação de uma tabela que a primeira, da mesma migração, mantinha bloqueada. A
+verificação passou a usar a conexão da própria transação. O passo continua idempotente.
+
+A migração também ganhou um **teto de espera por bloqueio** (15 s por padrão). Se outra sessão
+do banco estiver segurando uma tabela que a migração precisa alterar, o boot agora **falha com
+erro explícito** em vez de pendurar em silêncio. É um sintoma novo, e melhor — o procedimento
+está em
+**[A migração abortou com "lock timeout"](../runbooks/migration-and-boot.md#lock-timeout)**.
 
 ### 2.3.0
 

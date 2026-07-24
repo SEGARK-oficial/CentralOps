@@ -57,6 +57,16 @@ config:
   # NÃO baixar de ~90s (romperia a invariante max_loop < lock_timeout, que o
   # celery_app agora VALIDA no boot com fail-fast no processo beat).
   redbeatLockTimeout: "150"
+  # Teto de ESPERA por lock da migração de schema no boot, em ms (espelha o
+  # default do core, database.py:_DEFAULT_MIGRATION_LOCK_TIMEOUT_MS=15000).
+  # NÃO limita quanto a migração DEMORA — limita quanto ela AGUARDA uma tabela
+  # travada por outra sessão. Estourado, o pod morre com "migração abortada" e
+  # entra em CrashLoopBackOff (visível, diagnosticável) em vez de ficar pendurado
+  # em Running/not-ready para sempre. Aumente só quando o banco tiver transações
+  # de aplicação legitimamente longas segurando as tabelas migradas — e depois de
+  # olhar pg_stat_activity: quase sempre o certo é matar a sessão travada, não
+  # esperar mais. "0" ou lixo NÃO desligam o teto: o core cai de volta em 15000.
+  dbMigrationLockTimeoutMs: "15000"
   # TLS do frontend: "1" termina TLS no nginx (precisa de cert), "0" serve HTTP
   # e o TLS termina no Ingress. Default 0 = TLS na borda (Ingress).
   enableHttps: "0"
