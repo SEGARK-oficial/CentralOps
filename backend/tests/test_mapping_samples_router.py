@@ -323,15 +323,22 @@ async def test_samples_non_admin_org_id_param_is_ignored(client_factory: Any) ->
     await sample_reservoir.push(fake, other_org, "sophos", "sophos.alert", {"who": "other"})
 
     with patch("backend.app.routers.mappings.redis_async.from_url", MagicMock(return_value=fake)):
-        # Tenta escapar para other_org via ?org_id — deve ser IGNORADO.
+        # Tenta escapar para other_org via ?org_id — RECUSADO (403).
         r = vclient.get(
             f"/api/mappings/samples?vendor=sophos&event_type=sophos.alert&org_id={other_org}"
         )
-    assert r.status_code == 200, r.text
-    items = r.json()["items"]
-    assert [it.get("who") for it in items] == ["own"], (
-        "non-admin não pode ler samples de outra org via ?org_id"
-    )
+    # Antes o param era silenciosamente IGNORADO e a resposta trazia a própria
+    # org — seguro, mas enganoso: o chamador pedia a org X e recebia a Y sem
+    # aviso, e podia construir mapping com a amostra do tenant errado. Agora a
+    # org fora da subárvore é recusada explicitamente (mesmo gate da captura).
+    assert r.status_code == 403, r.text
+    assert "other" not in r.text, "jamais pode vazar amostra de outra org"
+
+    with patch("backend.app.routers.mappings.redis_async.from_url", MagicMock(return_value=fake)):
+        # SEM ?org_id → lê a própria org, como sempre.
+        r2 = vclient.get("/api/mappings/samples?vendor=sophos&event_type=sophos.alert")
+    assert r2.status_code == 200, r2.text
+    assert [it.get("who") for it in r2.json()["items"]] == ["own"]
 
 
 @pytest.mark.asyncio

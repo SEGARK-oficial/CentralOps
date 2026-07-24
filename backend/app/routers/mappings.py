@@ -787,22 +787,31 @@ async def get_samples(
 
     Isolamento multi-tenant: a chave Redis do sample_reservoir
     AGORA inclui ``organization_id`` — amostras são particionadas por
-    (org, vendor, event_type). A leitura usa ``user.organization_id``, então um
-    tenant só enxerga as próprias amostras. O gate por vendor abaixo permanece
-    como defesa em profundidade (redundante mas barato).
+    (org, vendor, event_type). O gate por vendor abaixo permanece como defesa em
+    profundidade (redundante mas barato).
+
+    SUBÁRVORE: ``?org_id`` deixa de ser privilégio exclusivo do escopo global —
+    um admin de org PAI pode nomear uma org FILHA, desde que ela esteja na sua
+    subárvore (``require_subtree_access``, o mesmo gate das integrações). A
+    escolha é EXPLÍCITA, não um merge implícito de partições: cada resposta
+    pertence a UMA org, o que preserva a proveniência da amostra (misturar
+    amostras de tenants diferentes num mesmo dry-run seria enganoso). Sem
+    ``?org_id``, segue lendo a própria org.
     """
-    # Non-global: SEMPRE travado na própria org (ignora ?org_id). Global scope
-    # (admin/SOC interno): pode nomear o tenant via ?org_id; senão a própria org.
     is_global = tenant.has_global_scope(user)
-    effective_org = org_id if (org_id is not None and is_global) else user.organization_id
+    if org_id is not None and not is_global:
+        # Levanta 403 quando a org pedida está fora da subárvore do usuário.
+        tenant.require_subtree_access(user, int(org_id))
+    effective_org = org_id if org_id is not None else user.organization_id
     # Validação de acesso ao vendor por organização (defesa em profundidade)
     if not is_global:
+        _scope_ids = tenant.accessible_org_ids(user, db) or set()
         allowed_vendors = (
             db.query(models.Integration.platform)
-            .filter(models.Integration.organization_id == user.organization_id)
+            .filter(models.Integration.organization_id.in_(_scope_ids))
             .distinct()
             .all()
-        )
+        ) if _scope_ids else []
         allowed_set = {row.platform for row in allowed_vendors}
         if vendor not in allowed_set:
             # 404 em vez de 403 evita enumeração de vendors de outros tenants
@@ -895,16 +904,22 @@ def discover_fields(
             },
         )
 
-    is_global = tenant.has_global_scope(user)
+    # Escopo SUBTREE-AWARE (None == global, set() == nada acessível). Mesmo seam
+    # de integrações/rotas/drift: com igualdade exata, um admin de org PAI não via
+    # os campos descobertos nas FILHAS e não conseguia evoluir o mapping a partir
+    # do tráfego real da subárvore que administra. Em Community o resolver é FLAT
+    # e o resultado é idêntico ao de antes.
+    org_ids = tenant.accessible_org_ids(user, db)
+
     # Gate por vendor (defesa em profundidade — o filtro por org abaixo é o
     # isolamento real).
-    if not is_global:
+    if org_ids is not None:
         allowed_vendors = (
             db.query(models.Integration.platform)
-            .filter(models.Integration.organization_id == user.organization_id)
+            .filter(models.Integration.organization_id.in_(org_ids))
             .distinct()
             .all()
-        )
+        ) if org_ids else []
         allowed_set = {row.platform for row in allowed_vendors}
         if defn.vendor not in allowed_set:
             # 404 em vez de 403 evita enumeração de mappings de outros tenants
@@ -918,21 +933,17 @@ def discover_fields(
             },
         )
 
-    # escopo EXATO por organization_id. Sem isso, um tenant que
-    # ingere o mesmo vendor lia field_path + sample_value (dados raw) de OUTROS
-    # tenants. Non-global sem org → fail-closed: ``org_id == None`` viraria
-    # ``IS NULL`` e casaria linhas legadas de org NULL, então curto-circuita.
-    if not is_global and user.organization_id is None:
+    # Sem nenhuma org acessível → fail-closed (não cair em ``IS NULL``, que
+    # casaria linhas legadas de org NULL de outros tenants).
+    if org_ids is not None and not org_ids:
         rows = []
     else:
         rows_q = db.query(models.UnknownField).filter(
             models.UnknownField.vendor == defn.vendor,
             models.UnknownField.event_type == defn.event_type,
         )
-        if not is_global:
-            rows_q = rows_q.filter(
-                models.UnknownField.organization_id == user.organization_id
-            )
+        if org_ids is not None:
+            rows_q = rows_q.filter(models.UnknownField.organization_id.in_(org_ids))
         rows = (
             rows_q.order_by(models.UnknownField.occurrence_count.desc())
             .limit(100)
