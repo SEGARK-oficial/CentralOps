@@ -105,7 +105,7 @@ Mostra quantas regras de roteamento estão ativas e o volume de eventos que pass
 
 Clique para abrir **Operação -> Roteamento**, onde é possível ajustar as condições e os destinos de cada rota. (As telas **Roteamento** e **Fluxo de dados** aparecem apenas para administradores.)
 
-> A ativação ou desativação global do roteamento é definida pela equipe de infraestrutura no momento do deploy. Se precisar alterá-la, fale com o administrador da plataforma.
+> Não existe liga/desliga global do roteamento: as regras de rota são sempre o caminho de despacho dos eventos. O que se ativa ou desativa é cada rota individualmente, na tela **Operação -> Roteamento**.
 
 ## Fluxos de trabalho
 

@@ -48,6 +48,21 @@ Você não precisa escrever nada: escolhe o tipo no catálogo, preenche os campo
 
 Depois de salvo, o destino aparece na própria tela de **Destinos** com seu status. Para começar a enviar eventos para ele, configure uma regra que o aponte em **Operação -> Roteamento**.
 
+### Preço por GB (opcional)
+
+O formulário tem um bloco **Custo (FinOps)** com dois campos que **não interferem na entrega** — nenhum evento muda de caminho, de formato ou de velocidade por causa deles:
+
+| Campo | O que informar |
+|-------|----------------|
+| **Preço por GB** | Quanto este destino cobra por GB ingerido (o valor do contrato com o SIEM, o lake, etc.). |
+| **Moeda** | O código de três letras da moeda desse preço (por exemplo, `USD` ou `BRL`). |
+
+O preço serve só para converter volume em dinheiro no card **Redução de volume & custo**: sem ele, a plataforma continua mostrando quantos bytes foram evitados, mas não tem como dizer quanto isso vale. A conversão em valor monetário é recurso **Enterprise**.
+
+Deixar o campo em branco não quebra nada, e o card não mente por isso: em vez de exibir "zero" — que se leria como "não economizamos nada" — ele avisa que o **preço por GB não está configurado** no destino. Se você quer o número em dinheiro, preencha o preço em cada destino que cobra por volume.
+
+Veja [Redução de volume & custo](./reducao-de-volume.md) para entender o que entra nessa conta.
+
 ## Entrega, reenvio e proteção contra falhas
 
 Você não precisa gerenciar nada disso manualmente, mas é útil saber o que a plataforma faz nos bastidores:

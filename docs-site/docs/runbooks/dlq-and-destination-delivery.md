@@ -65,7 +65,7 @@ Todo o trabalho desta página acontece no menu **Operação -> Destinos**. Abra 
 
 | Tipo de erro | Causa | O que fazer |
 |---|---|---|
-| Evento grande demais | O evento ultrapassa o tamanho máximo aceito pelo destino. | Reduza o tamanho do evento ativando a remoção de dados sensíveis (PII) ou descartando campos extras no mapeamento. |
+| Evento grande demais | O evento ultrapassa o tamanho máximo aceito pelo destino — quase sempre porque o payload bruto do fornecedor é enorme. | Corte o payload bruto no mapeamento (bloco `raw_reduction`) **ou** ligue **Descartar o evento bruto** na rota daquele destino. Veja o aviso logo abaixo da tabela. |
 | Formato recusado | O destino rejeitou o formato do evento (campo com tipo inválido, estrutura inesperada). | Revise o mapeamento e o formato esperado pelo destino. Antes de reativar o tráfego, use o teste de pré-visualização descrito na seção **Prevenção**. |
 | Autenticação | Credencial inválida ou expirada. | Peça ao administrador para atualizar a credencial do destino. Confira também a configuração de certificado/TLS. |
 | Transporte | Problema de rede: tempo esgotado ou conexão recusada. | Valide a conectividade até o destino e use o **teste de conexão** do card. |
@@ -75,6 +75,21 @@ Todo o trabalho desta página acontece no menu **Operação -> Destinos**. Abra 
 | Não classificado | Erro fora das categorias acima. | Abra o evento para ver o detalhe do erro e ganhar contexto. |
 
 4. Clique em um evento da fila para ver o conteúdo (já com dados sensíveis ocultos) e o detalhe específico do erro.
+
+:::warning[Não use a redação de PII para diminuir o tamanho do evento]
+
+A redação de PII existe para **conformidade**, não para controle de tamanho, e é *fail-closed*: se a regra de mascaramento não puder ser aplicada, a entrega ao destino real é bloqueada. Ligá-la para "encolher" o evento troca um problema de tamanho por uma parada de entrega.
+
+Para reduzir o tamanho de verdade, há duas alavancas:
+
+- **No mapeamento — vale para todos os destinos.** O bloco `raw_reduction` poda o payload bruto: `max_bytes` para blobs longos, `drop` / `keep_only` para subárvores que já foram extraídas para o evento normalizado, `drop_nulls` para chaves vazias. Veja [Especificação da DSL](../normalization/dsl-spec.md).
+- **Na rota — vale para a entrega daquela regra (todos os destinos dela).** Marque **Descartar o evento bruto**: a entrega daquela rota vai sem o bloco bruto e com o evento normalizado (OCSF) preservado. Não faz efeito enquanto **Proteger detecção** estiver ligada na rota (é o padrão) — desligue a proteção primeiro, conscientemente.
+
+O caso agudo é o **Wazuh**: o `analysisd` **trunca silenciosamente** eventos acima de ~64 KiB (`OS_MAXSTR`) — o evento chega, mas cortado, sem erro nenhum para você notar.
+
+Panorama das alavancas em [Redução de volume e custo](../outputs/reducao-de-volume.md).
+
+:::
 
 ## Sintoma 3: "Muitos eventos na fila de reenvio"
 
@@ -143,7 +158,7 @@ Use o **teste de conexão** do card do destino sempre **antes** de direcionar tr
 ### 3. Acompanhe a saúde dos destinos
 
 - Use a tela **Operação -> Destinos** para ver o status de cada destino de forma contínua.
-- Para uma visão de ponta a ponta do caminho dos eventos até os destinos, use **Operação -> Fluxo de dados**.
+- Para uma visão de ponta a ponta do caminho dos eventos até os destinos, use **Operação -> [Fluxo de dados](../operations/fluxo-de-dados.md)**.
 - Defina alertas para situações como rejeições acima de um limite diário, proteção contra destino instável acionada, ou destino sem fluxo de entrada. A criação e o ajuste desses alertas é feito junto à equipe de infraestrutura.
 
 ### 4. Política de retenção da fila de reenvio

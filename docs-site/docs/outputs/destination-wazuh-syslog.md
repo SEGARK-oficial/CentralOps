@@ -26,7 +26,7 @@ O CentralOps pode entregar os eventos normalizados a um destino externo em forma
 | **Syslog RFC 5424** | Graylog, Splunk Heavy Forwarder, QRadar. | Quando o destino sabe ler os **dados estruturados** do syslog moderno. Não é o ideal para Wazuh padrão. |
 | **Arquivo JSONL local** | Um arquivo no próprio servidor do CentralOps. | Buffer durável, auditoria, ou cópia paralela do que sai para o SIEM. |
 
-Em todos os modos, cada evento já sai **normalizado** e acompanhado dos metadados internos que a plataforma adiciona (origem, integração e horário de coleta), para que o SIEM consiga filtrar e correlacionar.
+Em todos os modos, cada evento já sai **normalizado** e acompanhado dos metadados internos que a plataforma adiciona (origem, integração e horário de coleta), para que o SIEM consiga filtrar e correlacionar. Quando a rota reduz volume, esse mesmo bloco traz os **rótulos de redução** descritos mais abaixo — eles valem para os três modos e mudam como o dado deve ser lido.
 
 ## Syslog RFC 3164 (recomendado para Wazuh)
 
@@ -52,6 +52,17 @@ Em todos os modos, cada evento já sai **normalizado** e acompanhado dos metadad
 ### O que o Wazuh recebe
 
 O Wazuh recebe o alerta como JSON e enxerga, além dos campos do evento, um bloco de **metadados internos** que a plataforma adiciona — com a integração de origem, a plataforma e o horário de coleta. Use esses campos no Wazuh para filtrar por origem (ex.: separar o que veio do Sophos do que veio do Defender).
+
+#### Rótulos de redução — leia antes de concluir qualquer coisa
+
+Se a rota que alimenta este destino tem redução de volume ligada (**Operação → Roteamento**), o mesmo bloco de metadados traz rótulos que **mudam a leitura do dado**:
+
+| Rótulo | O que significa | O que fazer com ele |
+|--------|-----------------|---------------------|
+| `_centralops.raw_dropped: true` | O evento **bruto do fornecedor foi removido por esta rota**. O evento normalizado chegou íntegro; só a cópia original é que não veio. | Não abra chamado com o fornecedor por um campo ausente: fomos **nós** que cortamos, nesta entrega. Para ver o bruto, consulte outra rota que o preserve (o data lake, por exemplo) ou peça ao administrador para desligar o descarte nesta rota. |
+| `_centralops.sample_rate` | A **fração dos eventos que esta rota entregou** (`0.1` = 1 evento entregue a cada 10 que passaram). O rótulo só é carimbado quando a amostragem realmente atuou: numa rota com **Proteger detecção** ligada nada é amostrado, e o rótulo não vem. | Reescale qualquer contagem feita a partir daqui — divida pelo valor do rótulo (com `0.1`, multiplique por 10). |
+
+Ignorar esses dois rótulos leva o analista à conclusão errada sobre o dado que está vendo: sem o `raw_dropped`, "o fornecedor parou de mandar esse campo"; sem o `sample_rate`, um painel de contagem mostra uma fração do volume real e um pico de atividade passa despercebido.
 
 > **Os eventos não aparecem no Wazuh?** Na configuração padrão, o Wazuh reconhece automaticamente os eventos em formato RFC 3164 enviados pelo CentralOps. Se mesmo assim eles não surgirem, peça ao administrador do Wazuh para confirmar que o reconhecimento de eventos em JSON está ativo no receptor.
 

@@ -23,7 +23,7 @@ SRE quiser correlacionar tudo no stack de monitoramento da empresa.
 
 Nada a instalar. Disponível na UI e nos endpoints de saúde:
 
-- **Operação → [Fluxo de dados](./dashboard.md)** (`/flow`) — mapa Fontes → Roteamento →
+- **Operação → [Fluxo de dados](./fluxo-de-dados.md)** (`/flow`) — mapa Fontes → Roteamento →
   Destinos com throughput, saúde por destino e o card de **redução de volume & custo**.
 - **Normalização → [Saúde do Pipeline](./pipeline-health.md)** (`/pipeline-health`) —
   taxa de mapeamento, quarentena, conformidade OCSF.
@@ -287,7 +287,7 @@ Alguns instrumentos úteis para dashboards e alertas (catálogo completo em
 
 ## Próximos passos
 
-- **[Fluxo de dados](./dashboard.md)** e **[Saúde do Pipeline](./pipeline-health.md)** — a
+- **[Fluxo de dados](./fluxo-de-dados.md)** e **[Saúde do Pipeline](./pipeline-health.md)** — a
   Superfície A (in-app), sem configuração.
 - **[Runbooks](../runbooks/migration-and-boot.md)** — diagnóstico quando algo trava no boot
   ou na entrega.

@@ -80,6 +80,9 @@ A tabela mostra o que cada papel pode fazer. "✓" = permitido; "—" = não per
 | | Criar/editar destinos | — | — | — | ✓ |
 | **Roteamento** | Ver regras de roteamento | ✓ | ✓ | ✓ | ✓ |
 | | Criar/editar regras de roteamento | — | — | — | ✓ |
+| **Captura ao vivo** | Iniciar e parar uma sessão de captura | — | — | — | ✓ |
+| | Ver os eventos capturados | — | — | — | ✓ |
+| | Exportar a sessão em CSV/NDJSON | — | — | — | ✓ |
 | **Histórico** | Consultar histórico de auditoria | ✓ | ✓ | ✓ | ✓ |
 | **Buscas e queries** | Ver eventos já entregues (sem busca ao vivo) | ✓ | ✓ | ✓ | ✓ |
 | | Rodar query/hunt AO VIVO na fonte (query.run) | — | ✓ | ✓ | ✓ |
@@ -92,6 +95,8 @@ A tabela mostra o que cada papel pode fazer. "✓" = permitido; "—" = não per
 | | Ver credenciais armazenadas | — | — | — | ✓ |
 
 *Nota: criar, editar e deletar organizações é uma **ação de plataforma** que exige **Admin Global** (sem escopo de organização). Um Admin da organização pode gerenciar usuários dentro de seu escopo, mas não pode criar ou deletar organizações.
+
+**Nota sobre a captura ao vivo**: a captura grava o conteúdo real dos eventos de produção, por isso as três capacidades são **exclusivas do Admin** — Viewer e Operator não acessam nem a tela nem a exportação. Cada exportação fica registrada no **Histórico de auditoria** (quem exportou, qual sessão e quando), e o arquivo sai com os dados pessoais **mascarados por padrão**. Veja [Captura ao vivo](../operations/live-capture.md).
 
 ## O que cada papel faz
 
@@ -134,6 +139,7 @@ A tabela mostra o que cada papel pode fazer. "✓" = permitido; "—" = não per
 - Editar mappings (precisa de Engineer).
 - Bloquear IP/hash (precisa de Admin).
 - Criar destinos ou regras de roteamento (precisa de Admin).
+- Abrir a captura ao vivo, ver os eventos capturados ou exportá-los (precisa de Admin).
 - Gerenciar usuários (precisa de Admin).
 
 **Exemplo**: plantonista (oncall) que acompanha alertas e limpa a quarentena, sem mexer em regras de normalização ou roteamento.
@@ -152,6 +158,7 @@ A tabela mostra o que cada papel pode fazer. "✓" = permitido; "—" = não per
 **Não pode**:
 - Bloquear IP/hash (precisa de Admin).
 - Criar/editar destinos ou regras de roteamento (precisa de Admin).
+- Usar a captura ao vivo para conferir um mapping com tráfego real — a tela é só de Admin. Peça a um Admin que rode a captura e compartilhe a exportação com você.
 - Gerenciar integrações de coleta — criar, excluir, alterar credenciais (precisa de Admin).
 - Gerenciar usuários (precisa de Admin).
 
@@ -166,6 +173,7 @@ A tabela mostra o que cada papel pode fazer. "✓" = permitido; "—" = não per
 - Criar, editar e excluir destinos (Syslog, Splunk HEC, Elastic, S3, Sentinel, Kafka, OTLP, entre outros).
 - Configurar as credenciais de cada destino e testar a conexão.
 - Criar, editar e excluir regras de roteamento, incluindo envio simultâneo a vários destinos e remoção de dados sensíveis (PII) por regra.
+- Iniciar e parar sessões de [captura ao vivo](../operations/live-capture.md), inspecionar os eventos gravados e exportá-los em CSV/NDJSON (a exportação sai mascarada por padrão e fica registrada no Histórico).
 - Criar, excluir e desativar usuários e alterar o papel de cada um (dentro do escopo de organização).
 - Gerenciar organizações — **apenas se for Admin Global** (sem escopo de organização).
 - Configurar a retenção de dados.

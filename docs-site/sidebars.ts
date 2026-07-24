@@ -52,6 +52,7 @@ const sidebars: SidebarsConfig = {
       collapsed: false,
       items: [
         'operations/dashboard',
+        'operations/fluxo-de-dados',
         'operations/quarantine',
         'operations/search',
         'operations/federated-search',
@@ -166,6 +167,7 @@ const sidebars: SidebarsConfig = {
             'outputs/routing',
             'outputs/routing-canary',
             'outputs/routing-dry-run',
+            'outputs/reducao-de-volume',
             'outputs/pii-redaction',
           ],
         },

@@ -20,6 +20,12 @@ Antes de uma regra de roteamento entrar no ar, você pode simular o que ela fari
 
 A simulação avalia como uma regra (nova, editada ou a atual) rotearia eventos **sem entregar nada de verdade**. Você vê para qual destino cada evento iria e quais regras nunca seriam alcançadas.
 
+:::note[A simulação avalia só a condição e o destino]
+O que a simulação responde é "esta regra pega este evento, e para onde ele vai?". Ela **não** aplica amostragem, **não** aplica supressão e **não** aplica o descarte do evento bruto (`drop_raw`) — todas essas etapas ficam de fora do teste. Uma rota pode passar limpa na simulação e ainda assim descartar boa parte do tráfego em produção.
+
+Para ver o **desfecho real** de um evento — inclusive **Suprimido**, **Amostrado para fora** ou **Em quarentena** —, a ferramenta é a [captura ao vivo](../operations/live-capture.md), que grava tráfego real por um tempo determinado e mostra o que aconteceu com cada evento.
+:::
+
 ### Como simular
 
 1. Abra o menu **Operação → Roteamento**.
@@ -65,7 +71,7 @@ Ao olhar uma **regra** no diagrama:
 | O que aparece | Significado |
 |---|---|
 | Eventos por minuto que batem na regra | Volume alto = regra ativa; zero = a condição não está pegando nada |
-| Eventos efetivamente encaminhados | Pode ser menor que o total que bate na regra quando o canário está abaixo de 100% |
+| Eventos efetivamente encaminhados | Numa regra de encaminhamento é **sempre igual** ao número acima: os dois saem da mesma contagem de casamento. Nem o canário nem a amostragem separam um do outro — o evento fora do canário não chega a contar como casado nessa regra. A diferença aparece só quando a ação é descartar, e aí este número fica zerado |
 | Eventos descartados por minuto | Normal se a regra existe para cortar ruído |
 
 Ao olhar um **destino** no diagrama:
@@ -156,5 +162,6 @@ Endereços técnicos, credenciais e parâmetros de baixo nível dos destinos sã
 
 - **Quer criar ou ajustar regras?** Veja [Roteamento por regra](./routing.md).
 - **Testar uma mudança em uma fração do tráfego?** Veja [Roteamento canário](./routing-canary.md).
+- **Precisa do desfecho real de um evento, e não da simulação?** Veja [Captura ao vivo](../operations/live-capture.md).
 - **Um destino não está recebendo?** Veja [Saídas & Roteamento (visão geral)](./overview.md).
 - **Precisa do histórico completo para auditoria?** Veja [Histórico e auditoria](../operations/history-audit.md).

@@ -85,9 +85,22 @@ Os dados sensíveis do evento (campos com nome contendo "token", "senha" ou "seg
 | **Falha de autenticação** | Credencial inválida, vencida ou revogada | Rotacionar a credencial |
 | **Proteção ativada** | Destino indisponível por falhas seguidas | Aguardar a recuperação automática e testar a conexão; acionar o responsável pelo destino |
 | **Tempo esgotado** | O destino não respondeu a tempo | Verificar a rede; se persistir, falar com o administrador |
-| **Evento grande demais** | O evento ultrapassa o tamanho aceito pelo destino | Falar com o administrador (ajuste de configuração do destino) |
+| **Evento grande demais** | O evento ultrapassa o tamanho aceito pelo destino — quase sempre por causa do payload bruto do fornecedor | Pedir ao administrador que corte o payload bruto no mapeamento ou ligue **Descartar o evento bruto** na rota (veja a nota abaixo) |
 | **Erro de formato** | O destino não conseguiu formatar o evento | Revisar o editor de mapeamento do destino |
 | **Erro de rede** | Rede inacessível (DNS, conexão recusada) | Testar a conexão e verificar firewall |
+
+:::warning[Evento grande demais: as duas alavancas certas]
+
+Quem resolve tamanho é o **corte do payload bruto** — não a redação de PII. A redação existe para conformidade e é *fail-closed*: ligá-la para "encolher" o evento pode simplesmente parar a entrega ao destino real. Peça ao administrador uma destas duas:
+
+- **No mapeamento**, o bloco `raw_reduction`: `max_bytes` para blobs longos, `drop` / `keep_only` para subárvores já extraídas para o evento normalizado, `drop_nulls` para chaves vazias. Vale para **todos** os destinos.
+- **Na regra de roteamento**, a opção **Descartar o evento bruto**: vale para a entrega **desta regra** — todos os destinos que ela alimenta — e preserva o evento normalizado (OCSF). As outras regras seguem recebendo o bruto íntegro. Não faz efeito enquanto **Proteger detecção** estiver ligada na regra (é o padrão).
+
+O caso mais agudo é o **Wazuh**, que **trunca silenciosamente** eventos acima de ~64 KiB — o evento chega cortado, sem erro visível.
+
+Panorama em [Redução de volume e custo](./reducao-de-volume.md) e no [Guia de Roteamento](./routing.md).
+
+:::
 
 ## Reenviar eventos da fila
 
