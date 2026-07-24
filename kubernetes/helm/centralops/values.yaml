@@ -60,6 +60,88 @@ config:
   # TLS do frontend: "1" termina TLS no nginx (precisa de cert), "0" serve HTTP
   # e o TLS termina no Ingress. Default 0 = TLS na borda (Ingress).
   enableHttps: "0"
+  # ── Privacidade / redução de custo / drift ──────────────────────────────
+  # Redação de PII na entrega. "true" (default) aplica a spec de PII da rota
+  # ANTES do evento sair para o destino. "false" NÃO é um "modo de teste" e NÃO
+  # entrega em claro: é FAIL-CLOSED e o estrago é de ROTEAMENTO. Basta UMA rota
+  # da organização ter spec de PII para a compilação da lista inteira de rotas
+  # daquela org falhar — e TODO o tráfego dela passa a cair no destino marcado
+  # como padrão (ou em DLQ/quarentena, se não houver nenhum). Silencioso: não há
+  # aviso na UI. Antes de desligar, audite quais rotas têm spec de redação.
+  piiRedactionEnabled: "true"
+  # Medição de volume (bytes que ENTRAM por fonte vs bytes que SAEM por destino).
+  # É o que alimenta os cards Coletado/Entregue/Evitado/Redução em "Fluxo de
+  # dados". INTERRUPTOR-MESTRE: com "false", TODA flag reduction* abaixo vira
+  # no-op mesmo marcada "true" ("não se reduz sem medir"). Fail-open — Redis
+  # fora do ar nunca derruba coleta nem entrega, só zera o card.
+  costMeteringEnabled: "true"
+  # ── As quatro alavancas de redução ──
+  # ANTES DE MEXER: ligar qualquer uma destas NÃO descarta um byte. Quem decide é
+  # o default POR ROTA — `sample_percent` nasce 100 (mantém tudo) e
+  # `suppress_allow` nasce 0 (desligada) — e rota com `protect_detection` (o
+  # default de TODA rota) nunca é amostrada, suprimida nem agregada. Estas flags
+  # só dizem se a configuração feita na rota tem permissão de valer.
+  #
+  # Trimming: NÃO liga o corte (os limites de tamanho por campo cortam de
+  # qualquer jeito) — liga a CONTABILIZAÇÃO do que foi cortado. Com "false" o
+  # produto corta bytes e mostra Evitado/Redução em zero, escondendo economia
+  # real. Não muda um byte do que é entregue.
+  reductionTrimEnabled: "true"
+  # Amostragem estatística (hash consistente por evento — o mesmo evento cai
+  # sempre do mesmo lado). Inerte enquanto nenhuma rota tiver `sample_percent`
+  # abaixo de 100.
+  reductionSampleEnabled: "true"
+  # Supressão de assinatura repetida. Kill-switch de ambiente para quando uma
+  # chave de supressão mal configurada estiver engolindo tráfego (a supressão
+  # roda ANTES do roteamento e não aparece nos contadores da rota).
+  # ATENÇÃO ao alcance real neste chart: a chave chega ao processo por
+  # envFrom/ConfigMap, e não há checksum/config nem reloader nos templates — ou
+  # seja, `helm upgrade` sozinho NÃO surte efeito, é preciso
+  # `kubectl rollout restart` de api e workers. A lista de rotas, ao contrário,
+  # é relida do banco a cada ciclo: zerar `suppress_allow` na rota culpada
+  # costuma estancar mais rápido do que virar esta flag.
+  # Fail-open: erro de Redis entrega o evento.
+  reductionSuppressEnabled: "true"
+  # Fail-safe de detecção, override GLOBAL — de ALCANCE ESTREITO, apesar do nome.
+  # Só alcança a AMOSTRAGEM: é lida uma única vez, para montar o SamplingConfig.
+  # "false" volta a permitir amostrar rotas protegidas. NÃO libera supressão nem
+  # descarte do bruto: esses dois olham direto a coluna `protect_detection` da
+  # rota e seguem bloqueados com esta flag em "false". A agregação não consulta
+  # `protect_detection` em ponto nenhum — é opt-in por DESTINO (aggregate.group_by).
+  reductionSampleProtectDetection: "true"
+  # ÚNICA que nasce "false", de propósito. Agregação colapsa log→métrica: o
+  # evento individual DEIXA DE EXISTIR na entrega — não há o que investigar no
+  # destino depois. As outras três descartam ou encurtam, mas o que sobra ainda
+  # é um evento. Ligar é decisão consciente por ambiente, nunca default.
+  reductionAggregateEnabled: "false"
+  # ── Drift (campo que o vendor manda e o mapping ainda não cobre) ──
+  # O que a coluna de amostra do "Drift Explorer" guarda. Aceita SOMENTE
+  # masked | raw | none — QUALQUER outro valor FAZ O BOOT FALHAR no validador do
+  # core (inclusive no meio de um rolling update; o pod novo não sobe).
+  #   masked (default): grava um classificador de formato (<ipv4>, <email>,
+  #     <uuid>) no lugar do valor — quem escreve mapping vê de que TIPO é o
+  #     campo sem que dado de cliente seja persistido.
+  #   raw: grava o valor truncado (usuário, host, IP, caminho) numa tabela que o
+  #     perfil Visualizador lê, por até 90 dias — a retenção de drift padrão,
+  #     ajustável por organização via API (PATCH /api/organizations/{id}/retention).
+  #     E `last_seen` é reescrito a cada ocorrência, então campo recorrente
+  #     NUNCA expira: na prática o valor fica enquanto o campo continuar chegando.
+  #   none: não guarda amostra (o campo ainda aparece; o exemplo dele, não).
+  driftSampleValueMode: "masked"
+  # Fração de eventos inspecionados EM REGIME (0.1 = 1 a cada 10). "0" NÃO
+  # desliga a detecção sozinho: a janela de aprendizado abaixo é avaliada ANTES
+  # da amostragem e continua capturando 100% dos primeiros N eventos de cada
+  # combinação. Para parar de fato de gravar drift, zere as DUAS.
+  driftSampleRate: "0.1"
+  # Janela de aprendizado: os primeiros N eventos de uma combinação NOVA
+  # (organização, vendor, tipo) são inspecionados a 100%, ignorando
+  # driftSampleRate. É o que faz uma fonte recém-apontada aparecer com o schema
+  # inteiro em minutos, em vez de gotejar 1 campo a cada 10 eventos. "0" desliga
+  # o impulso e a fonte nova passa a gotejar.
+  # A contagem é POR PROCESSO e vive em memória: cada restart de pod e cada
+  # worker novo reabre a janela dos N eventos. Some com driftSampleRate: "0" e
+  # o resultado é continuar gravando drift depois de todo rollout.
+  driftLearningEvents: "200"
   # ── Edição/licença  — tuning OPCIONAL, só p/ deploy EE ──
   # Vazio = usa os defaults do core (refresh 300s de re-resolução da edição em
   # runtime; grace 7d após expirar). Sobrescreva só se quiser afinar. Ver

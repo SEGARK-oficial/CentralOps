@@ -33,6 +33,43 @@ data:
   SESSION_SECURE_COOKIE: {{ .Values.config.sessionSecureCookie | quote }}
   REDBEAT_LOCK_TIMEOUT: {{ .Values.config.redbeatLockTimeout | quote }}
   ENABLE_HTTPS: {{ .Values.config.enableHttps | quote }}
+  # ── Privacidade / redução de custo / drift ──
+  # Emitidas SEMPRE (nunca sob `with`): todas têm default são e explícito no
+  # values, e várias têm "0"/"false" como valor LEGÍTIMO — omitir a chave faria
+  # o core cair no próprio default e o desligamento pedido pelo operador viraria
+  # no-op silencioso (justo a classe de falha que estas flags existem para evitar).
+  #
+  # "false" é FAIL-CLOSED, não entrega em claro: UMA rota com spec de PII derruba
+  # a compilação de TODAS as rotas daquela organização, e o tráfego inteiro dela
+  # passa a cair no destino padrão (ou DLQ). Perda de roteamento silenciosa.
+  PII_REDACTION_ENABLED: {{ .Values.config.piiRedactionEnabled | quote }}
+  # Interruptor-mestre: "false" transforma TODA REDUCTION_* abaixo em no-op e
+  # zera os cards de volume/economia em "Fluxo de dados".
+  COST_METERING_ENABLED: {{ .Values.config.costMeteringEnabled | quote }}
+  # As quatro alavancas. Nenhuma descarta um byte sozinha — o portão efetivo é o
+  # default POR ROTA (`sample_percent`=100, `suppress_allow`=0) e `protect_detection`.
+  REDUCTION_TRIM_ENABLED: {{ .Values.config.reductionTrimEnabled | quote }}
+  REDUCTION_SAMPLE_ENABLED: {{ .Values.config.reductionSampleEnabled | quote }}
+  # Kill-switch p/ chave de supressão mal configurada engolindo tráfego (a
+  # supressão roda antes do roteamento — invisível nos contadores da rota). Exige
+  # rollout restart: sem checksum/config no chart, `helm upgrade` não reinjeta env.
+  REDUCTION_SUPPRESS_ENABLED: {{ .Values.config.reductionSuppressEnabled | quote }}
+  # Alcance ESTREITO: só a amostragem. "false" volta a permitir amostrar rotas
+  # protegidas; supressão e descarte do bruto continuam barrados pela coluna
+  # `protect_detection` da rota, e a agregação nunca a consultou (é por destino).
+  REDUCTION_SAMPLE_PROTECT_DETECTION: {{ .Values.config.reductionSampleProtectDetection | quote }}
+  # Única que nasce "false": agregação colapsa log→métrica e o evento individual
+  # deixa de existir na entrega.
+  REDUCTION_AGGREGATE_ENABLED: {{ .Values.config.reductionAggregateEnabled | quote }}
+  # SOMENTE masked|raw|none — qualquer outro valor FALHA O BOOT no validador do
+  # core (o pod novo não sobe no rolling update). "raw" persiste dado de cliente
+  # por até 90 dias numa tabela lida por perfil Visualizador.
+  DRIFT_SAMPLE_VALUE_MODE: {{ .Values.config.driftSampleValueMode | quote }}
+  # Desligar drift exige as DUAS em "0": a janela de aprendizado é avaliada ANTES
+  # da amostragem, então só zerar o rate mantém 100% dos N primeiros eventos de
+  # cada combinação — e a contagem é por processo, reaberta a cada restart.
+  DRIFT_SAMPLE_RATE: {{ .Values.config.driftSampleRate | quote }}
+  DRIFT_LEARNING_EVENTS: {{ .Values.config.driftLearningEvents | quote }}
   # ── Edição/licença  — tuning OPCIONAL do flip em runtime ──
   # Só emitidos quando setados; o core tem defaults sãos (refresh 300s, grace 7d).
   {{- with .Values.config.editionRefreshSeconds }}
