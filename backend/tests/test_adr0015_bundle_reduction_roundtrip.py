@@ -35,6 +35,7 @@ from backend.app.routers import config_bundle
 
 _REDUCTION_FIELDS = (
     "protect_detection",
+    "drop_raw",
     "sample_percent",
     "suppress_key",
     "suppress_allow",
@@ -59,9 +60,10 @@ def _row(**over):
         organization_id=1,
         created_at=datetime(2026, 7, 18, tzinfo=timezone.utc),
         updated_at=datetime(2026, 7, 18, tzinfo=timezone.utc),
-        # os 5 em valores NÃO-default, para que um serializer que os ignore
+        # todos em valores NÃO-default, para que um serializer que os ignore
         # produza saída visivelmente diferente.
         protect_detection=False,
+        drop_raw=True,
         sample_percent=25,
         suppress_key="src_ip,user",
         suppress_allow=3,
@@ -80,6 +82,7 @@ def test_export_preserves_non_default_reduction_values():
     """O cerne: valores reais da rota, não os defaults do schema."""
     read = config_bundle._route_row_to_read(_row())
     assert read.protect_detection is False
+    assert read.drop_raw is True
     assert read.sample_percent == 25
     assert read.suppress_key == "src_ip,user"
     assert read.suppress_allow == 3
@@ -116,3 +119,17 @@ def test_import_paths_carry_every_reduction_field(field: str):
         f"{field} ausente do cálculo de drift — mudar só este campo no bundle "
         "seria classificado como 'unchanged' e o import não aplicaria nada"
     )
+
+
+def test_export_preserves_drop_raw():
+    """``drop_raw`` chegou depois das outras alavancas e ficou de fora do export.
+
+    O efeito era o mesmo que o comentário do serializer já alertava para as
+    demais: exportar e reimportar uma rota com o descarte do bruto LIGADO trazia
+    de volta ``drop_raw=False``, e o payload bruto voltava a ser entregue —
+    silenciosamente, inflando de novo o volume que alguém tinha cortado de
+    propósito. Costuma ser a maior economia isolada da plataforma.
+    """
+    read = config_bundle._route_row_to_read(_row(drop_raw=True))
+    assert read.drop_raw is True, "export repôs drop_raw para o default e a economia sumiu"
+

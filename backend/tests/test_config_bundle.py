@@ -344,6 +344,119 @@ def test_import_dry_run_invalid_action_drop_with_dest_422(client_factory) -> Non
     assert r.status_code == 422, r.text
 
 
+@pytest.mark.parametrize(
+    "bad_key",
+    [
+        "src_ip",  # campo do log, não label de roteamento → assinatura degenerada
+        "vendor,user",  # uma boa e uma ruim: o bundle inteiro cai
+        "event_id",  # único por evento → a supressão nunca dispararia
+    ],
+)
+def test_import_rejects_invalid_suppress_key_422(client_factory, bad_key) -> None:
+    """suppress_key fora da allowlist de roteamento derruba o import.
+
+    Sem esta checagem o bundle ressuscitava uma assinatura que agrupa tráfego
+    demais e descarta em silêncio (a supressão roda ANTES do roteamento)."""
+    factory, _ = client_factory
+    client = factory()
+    _bootstrap_admin(client)
+
+    bundle = _make_bundle(route_name="Rota Suspeita")
+    bundle["routes"][0]["suppress_key"] = bad_key
+    bundle["routes"][0]["suppress_allow"] = 10
+
+    r = client.post(
+        "/api/collectors/config/import",
+        json={"bundle": bundle, "dry_run": True},
+    )
+
+    assert r.status_code == 422, r.text
+    body = r.json()
+    assert body["error"]["code"] == "config_bundle.invalid_route_suppress_key"
+    # Num bundle com dezenas de rotas, um erro anônimo é inútil.
+    assert "Rota Suspeita" in body["detail"]
+    assert body["error"]["details"]["route_name"] == "Rota Suspeita"
+
+
+def test_import_apply_rejects_invalid_suppress_key_without_writing(client_factory) -> None:
+    """dry_run=false com chave inválida: 422 ANTES de tocar no banco."""
+    factory, _ = client_factory
+    client = factory()
+    _bootstrap_admin(client)
+
+    bundle = _make_bundle()
+    bundle["routes"][0]["suppress_key"] = "dst_ip"
+
+    r = client.post(
+        "/api/collectors/config/import",
+        json={"bundle": bundle, "dry_run": False},
+    )
+    assert r.status_code == 422, r.text
+
+    export = client.get("/api/collectors/config/export").json()
+    assert export["routes"] == []
+    assert export["destinations"] == []
+
+
+def test_import_applies_valid_suppress_key(client_factory) -> None:
+    """Caminho feliz: chave válida atravessa o import e volta no export."""
+    factory, _ = client_factory
+    client = factory()
+    _bootstrap_admin(client)
+
+    bundle = _make_bundle()
+    bundle["routes"][0]["protect_detection"] = False
+    bundle["routes"][0]["suppress_key"] = "vendor,severity_id"
+    bundle["routes"][0]["suppress_allow"] = 5
+    bundle["routes"][0]["suppress_window_s"] = 60
+
+    r = client.post(
+        "/api/collectors/config/import",
+        json={"bundle": bundle, "dry_run": False},
+    )
+    assert r.status_code == 200, r.text
+
+    exported = client.get("/api/collectors/config/export").json()["routes"][0]
+    assert exported["suppress_key"] == "vendor,severity_id"
+    assert exported["suppress_allow"] == 5
+
+
+@pytest.mark.parametrize("value", [None, ""])
+def test_import_allows_route_without_suppression(client_factory, value) -> None:
+    """None/vazia = supressão desligada — legítimo, não pode virar erro."""
+    factory, _ = client_factory
+    client = factory()
+    _bootstrap_admin(client)
+
+    bundle = _make_bundle()
+    bundle["routes"][0]["suppress_key"] = value
+
+    r = client.post(
+        "/api/collectors/config/import",
+        json={"bundle": bundle, "dry_run": True},
+    )
+    assert r.status_code == 200, r.text
+    assert r.json()["routes"][0]["status"] == "created"
+
+
+def test_import_allows_route_with_suppress_key_absent(client_factory) -> None:
+    """Bundle antigo, sem o campo: o import não pode exigir o que não existe."""
+    factory, _ = client_factory
+    client = factory()
+    _bootstrap_admin(client)
+
+    bundle = _make_bundle()
+    bundle["routes"][0].pop("suppress_key", None)
+    assert "suppress_key" not in bundle["routes"][0]
+
+    r = client.post(
+        "/api/collectors/config/import",
+        json={"bundle": bundle, "dry_run": True},
+    )
+    assert r.status_code == 200, r.text
+    assert r.json()["routes"][0]["status"] == "created"
+
+
 # ── Import apply tests ─────────────────────────────────────────────────
 
 

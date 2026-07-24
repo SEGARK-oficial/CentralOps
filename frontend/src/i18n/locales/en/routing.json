@@ -67,8 +67,7 @@
     "matchedPerMin": "matched/min",
     "routedPerMin": "routed/min",
     "droppedPerMin": "dropped/min",
-    "noActivityPrefix": "No recent activity on this route (routing dormant until ",
-    "noActivitySuffix": ", or no matching traffic)."
+    "noActivity": "No recent activity on this route — no traffic matched the condition in the observed window."
   },
   "dryRun": {
     "title": "Simulate routing",
@@ -361,12 +360,12 @@
     "reductionFlagsNoticeTitle": "What actually turns these levers on",
     "reductionFlagsNoticeBody": "The backend flags REDUCTION_SAMPLE_ENABLED, REDUCTION_SUPPRESS_ENABLED and REDUCTION_TRIM_ENABLED are ON by default (ADR-0015). What actually activates reduction is this route's own configuration: sample_percent starts at 100 (keeps everything) and suppress_allow starts at 0 (off) — while they stay that way, no event is dropped. Aggregation (REDUCTION_AGGREGATE_ENABLED), by contrast, remains off by default.",
     "protectDetectionLabel": "Protect detection (protect_detection)",
-    "protectDetectionDescription": "On by default as a fail-safe: this route is never sampled or aggregated, even when the reduction levers are active in the environment.",
+    "protectDetectionDescription": "On by default as a fail-safe: this route is never sampled, suppressed, nor stripped of its raw event, even when the reduction levers are active in the environment.",
     "unprotectedWarningTitle": "Detection protection is off",
-    "unprotectedWarningBody": "This route CAN now be sampled/suppressed by the reduction levers. Events relevant to detection may never reach the SIEM. Only use this on routes where reducing volume is safe (e.g. low-value telemetry, not security events).",
+    "unprotectedWarningBody": "This route CAN now be sampled, suppressed, or delivered without its raw event by the reduction levers. Events relevant to detection may never reach the SIEM. Only use this on routes where reducing volume is safe (e.g. low-value telemetry, not security events).",
     "unprotectDialogTitle": "Turn off detection protection?",
     "unprotectDialogConfirm": "Turn off protection",
-    "unprotectDialogDescription": "Routes with protect_detection off can have events sampled or suppressed by the reduction levers — including events that would feed detection. This is a conscious risk decision, not automatically reversible. Confirm only if you are certain this route carries no signal relevant to detection.",
+    "unprotectDialogDescription": "Routes with protect_detection off can have events sampled, suppressed, or delivered without the raw event by the reduction levers — including events that would feed detection. This is a conscious risk decision, not automatically reversible. Confirm only if you are certain this route carries no signal relevant to detection.",
     "samplePercentLabel": "Sampling %",
     "samplePercentHelper": "100 = no sampling (byte-identical); <100 = only that fraction reaches destinations.",
     "samplePercentHelperProtected": "Disabled — a protected route is never sampled.",

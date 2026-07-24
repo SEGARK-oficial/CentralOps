@@ -237,7 +237,7 @@ superfície de leitura de "alertas" saiu.
 
 - **Exportação CSV robusta da Busca federada**, com rótulos localizados (PT/EN/ES) — em
   **Operação → Investigações**.
-- **Mapa de fluxo `/flow` que escala.** O **[Fluxo de dados](../operations/dashboard.md)**
+- **Mapa de fluxo `/flow` que escala.** O **[Fluxo de dados](../operations/fluxo-de-dados.md)**
   agrupa colunas densas num nó **"+N"** expansível e cabe sozinho na tela (fit-to-view),
   com realce de caminho ao passar o mouse — legível mesmo com dezenas de fontes/rotas/destinos.
 - **Rótulos de condição de rota legíveis.** No editor de rotas, os operadores de condição
@@ -246,12 +246,56 @@ superfície de leitura de "alertas" saiu.
 
 **Metering de custo ligado por padrão.** O `COST_METERING_ENABLED` agora vem **`true`**
 por padrão. Com isso, o card **"Redução de volume & custo"** passa a aparecer em
-**Operação → Fluxo de dados**: no Community ele mostra volume, percentual e bytes
+**Operação → [Fluxo de dados](../operations/fluxo-de-dados.md)**: no Community ele mostra volume, percentual e bytes
 economizados; no Enterprise ele soma o valor em **US$** (a partir do `cost_per_gb`
 configurado em cada destino). Para desligar, defina `COST_METERING_ENABLED=false`.
 
+**Redação de PII ligada por padrão.** O `PII_REDACTION_ENABLED` agora vem **`true`**.
+Sem regra de mascaramento configurada numa rota, **nada muda** — a entrega segue idêntica.
+A diferença aparece onde existe regra de mascaramento — e o alcance é maior do que
+parece. Com a flag desligada, **uma única rota** com mascaramento derrubava o
+carregamento de **todas as rotas daquela organização**: o tráfego inteiro dela caía no
+destino padrão (ou na fila de reenvio, se não houvesse). É *fail-closed* — nunca houve
+entrega em claro, mas houve perda de roteamento silenciosa. Ao subir esta versão, o
+roteamento daquela organização volta a valer por completo, e as rotas com mascaramento
+passam a entregar ao destino real com os campos mascarados. Antes de subir, confira
+quais rotas têm mascaramento configurado e confirme que a entrega ao destino real é o
+desejado — e não se surpreenda se destinos que estavam "sem tráfego" voltarem a receber.
+
+**Descartar o evento bruto por rota.** As regras de roteamento ganharam a opção
+**Descartar o evento bruto**, que remove o payload original do fornecedor da entrega
+daquela rota preservando o evento OCSF. Vem **desligada**. É a maior economia isolada
+para um SIEM cobrado por volume — mantenha desligada na rota do data lake. Veja
+[Roteamento](../outputs/routing.md).
+
+**Poda do payload bruto nos mapeamentos padrão.** Os mapeamentos de fábrica passaram a
+remover campos nulos e, no caso do Sophos Detection, as subárvores de `rawData` que já
+foram extraídas para o evento normalizado. Se você depende do payload original íntegro
+para perícia, revise o bloco `raw_reduction` do mapeamento antes de subir. Veja
+[Especificação da DSL](../normalization/dsl-spec.md).
+
+:::warning[Se você editou um mapeamento pela interface antes desta versão]
+Havia um defeito em que **salvar** um mapeamento pela interface apagava silenciosamente o
+bloco `raw_reduction` dele. Se você editou algum mapeamento e notou o payload crescer,
+verifique se a poda ainda está lá — ela pode ter sido perdida. O defeito está corrigido:
+o bloco agora sobrevive a qualquer edição.
+:::
+
+**Chave de supressão passou a ser validada.** A chave de supressão de uma rota agora só
+aceita as mesmas características usadas na condição (fornecedor, severidade, tipo de
+evento…). Campos do log como `src_ip` são **recusados com erro** — antes eram aceitos em
+silêncio e faziam todo o tráfego cair numa assinatura só, descartando praticamente tudo.
+Se alguma rota sua tem chave de supressão configurada, revise-a. Veja
+[Roteamento](../outputs/routing.md).
+
 **Correções operacionais** (informativo — nada a fazer):
 
+- A **latência média por destino** passou a ter dados, pela primeira vez. A série nunca chegava a ser
+  gravada — o valor registrado era sempre zero, e zeros são descartados —, então o cartão
+  em **Operação → Destinos** ficava permanentemente vazio, em qualquer instalação. Agora
+  ele mostra o tempo real de **entrega do lote** ao destino (todos os pedaços e as novas
+  tentativas), em **segundos**. O **histórico anterior à atualização continua vazio** —
+  isso não é defeito: só existem pontos a partir do momento em que você sobe esta versão.
 - Os coletores não entram mais em **crash-loop de RedBeat** (lock, limite de laço e
   registro idempotente do scheduler corrigidos). Ver também
   **[Observabilidade](../operations/observability.md)** para acompanhar a saúde do Beat.

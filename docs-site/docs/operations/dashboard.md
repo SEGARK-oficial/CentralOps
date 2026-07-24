@@ -32,7 +32,7 @@ Os cartões de indicadores resumem a mesma história:
 | Indicador | O que mostra |
 |---|---|
 | **Ingestão (EPS)** | Eventos por segundo entrando pelas suas fontes. |
-| **Cobertura de mapping** | Percentual médio de campos mapeados na normalização. |
+| **Cobertura de mapping** | Proporção entre os campos que o mapeamento aproveita e o total observado (aproveitados + novos detectados). Um mergulho logo após uma atualização costuma significar que o fornecedor passou a enviar campos novos, não que o mapeamento piorou. |
 | **Quarentena 24h** | Taxa (ou volume) de eventos retidos por erro de normalização. |
 | **Roteados (/min)** | Eventos processados pelas regras de roteamento e o percentual descartado (drop). |
 | **Destinos** | Quantos destinos estão saudáveis em relação ao total. |
@@ -101,11 +101,11 @@ Clique para abrir a fila e filtrar pelo destino e pelo tipo de erro (por exemplo
 
 ### Rotas ativas
 
-Mostra quantas regras de roteamento estão ativas e o volume de eventos que passou por cada uma nas últimas 24h. Se o roteamento estiver desativado, o card exibe um aviso indicando que todos os eventos seguem para o destino padrão.
+Mostra quantas regras de roteamento estão ativas e o volume de eventos que passou por cada uma nas últimas 24h. Se não houver nenhuma regra ativa, os eventos seguem para o destino marcado como padrão da organização — e, na ausência dele, vão para a fila de reenvio em vez de serem perdidos.
 
 Clique para abrir **Operação -> Roteamento**, onde é possível ajustar as condições e os destinos de cada rota. (As telas **Roteamento** e **Fluxo de dados** aparecem apenas para administradores.)
 
-> A ativação ou desativação global do roteamento é definida pela equipe de infraestrutura no momento do deploy. Se precisar alterá-la, fale com o administrador da plataforma.
+> Não existe liga/desliga global do roteamento: as regras de rota são sempre o caminho de despacho dos eventos. O que se ativa ou desativa é cada rota individualmente, na tela **Operação -> Roteamento**.
 
 ## Fluxos de trabalho
 

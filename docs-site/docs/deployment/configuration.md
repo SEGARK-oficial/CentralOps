@@ -56,6 +56,41 @@ As credenciais de cada integração são cifradas em repouso. O provedor de cifr
 **`local_fernet`** (AES derivado da `APP_MASTER_KEY`). Detalhes e rotação em
 **[Segredos e chave mestra](../administration/secrets-and-master-key.md)**.
 
+## Redução de volume e privacidade
+
+Estas controlam se o pipeline pode **descartar** dado e se ele **mascara** PII. Todas vêm
+ligadas de fábrica — o que decide se agem é a configuração de cada **rota**, que nasce
+neutra (sem amostragem, sem supressão, sem descarte).
+
+| Variável | Padrão | Descrição |
+|---|---|---|
+| `PII_REDACTION_ENABLED` | `true` | Permite que uma rota mascare campos sensíveis antes da entrega. Sem regra de mascaramento na rota, nada muda. Se desligada e uma rota exigir mascaramento, os eventos **não** são entregues em claro — são desviados para a entrega interna. |
+| `REDUCTION_TRIM_ENABLED` | `true` | Contabiliza os bytes economizados pela poda do payload bruto. Não liga a poda — ela vem do mapeamento. |
+| `REDUCTION_SAMPLE_ENABLED` | `true` | Permite a amostragem por rota. Sem `sample_percent` abaixo de 100 numa rota, nada é descartado. |
+| `REDUCTION_SUPPRESS_ENABLED` | `true` | Permite a supressão por assinatura. Sem chave de supressão na rota, nada é descartado. |
+| `REDUCTION_AGGREGATE_ENABLED` | `false` | Agregação log→métrica por destino. **Único que vem desligado**: é o que destrói a fidelidade do evento individual. |
+| `COST_METERING_ENABLED` | `true` | Mede volume coletado/entregue/evitado. Pré-requisito das alavancas acima. |
+
+:::warning[As alavancas podem descartar dado]
+Amostragem e supressão **apagam** evento para economizar volume. O fail-safe é a opção
+**Proteger detecção** da rota, ligada por padrão, que anula as três alavancas naquela
+rota. Veja [Roteamento](../outputs/routing.md).
+:::
+
+## Detecção de campos novos (drift)
+
+| Variável | Padrão | Descrição |
+|---|---|---|
+| `DRIFT_SAMPLE_RATE` | `0.1` | Fração dos eventos inspecionada em regime. `0` desliga. |
+| `DRIFT_LEARNING_EVENTS` | `200` | Os primeiros N eventos de uma combinação nova são inspecionados a 100%, para uma fonte recém-ligada aparecer com o schema completo. |
+| `DRIFT_SAMPLE_VALUE_MODE` | `masked` | O que guardar na coluna "Valor de amostra": `masked` grava só o FORMATO (`<ipv4>`, `<email>`); `raw` grava o valor do cliente; `none` não guarda nada. **Controle de privacidade** — campo não mapeado é onde caem usuário, host e IP. |
+
+## Memória do Redis
+
+| Variável | Padrão | Descrição |
+|---|---|---|
+| `REDIS_MAXMEMORY` | `512mb` | Teto da instância de cache/deduplicação. Dimensione pela fórmula `chaves ≈ eventos/s × TTL_em_segundos` e `memória ≈ chaves × 115 bytes`. Ver [Redis cheio](../runbooks/redis-capacity.md). |
+
 ## Boas práticas
 
 - **Fixe versões:** use uma tag imutável de imagem (ex.: `v1.0.0`) em produção, não `latest`.

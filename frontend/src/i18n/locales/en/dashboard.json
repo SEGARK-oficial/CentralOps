@@ -300,6 +300,7 @@
         "sample": "sampling",
         "suppress": "suppression",
         "drop": "route drop",
+        "raw_drop": "raw drop",
         "aggregate": "aggregation",
         "redaction": "redaction"
       }

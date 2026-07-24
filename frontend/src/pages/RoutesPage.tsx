@@ -666,11 +666,7 @@ const RouteActivityModal: React.FC<RouteActivityModalProps> = ({ route, onClose,
                 <Sparkline points={metrics!.series.drop ?? []} label={t("activityModal.droppedPerMin")} />
               </div>
             ) : (
-              <p className="text-sm text-text-tertiary">
-                {t("activityModal.noActivityPrefix")}
-                <code className="font-mono">ROUTING_ENABLED</code>
-                {t("activityModal.noActivitySuffix")}
-              </p>
+              <p className="text-sm text-text-tertiary">{t("activityModal.noActivity")}</p>
             )}
           </TabsPanel>
 

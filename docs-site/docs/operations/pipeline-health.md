@@ -32,18 +32,30 @@ As duas seções refletem a coleta do último minuto e o histórico das últimas
 | Campo | Descrição |
 |-------|-----------|
 | **Nome** | Nome da integração (ex.: "Sophos - Acme"). |
-| **Status** | Saudável, degradada, com problema, ou sem dados. |
+| **Status** | Saudável, Degradado, Indisponível ou Aguardando primeira coleta. |
 | **Eventos/min** | Taxa média de eventos coletados nos últimos 5 minutos (vazio = ainda não houve coleta). |
-| **Atraso** | Tempo desde o último evento coletado (vazio = nunca coletou). |
-| **Campos novos (24h)** | Eventos com campos obrigatórios faltando — sinal de mapeamento incompleto ou fabricante enviando dados fora do esperado. |
+| **Atraso** | Tempo desde a última **coleta bem-sucedida** (vazio = nunca coletou). Não é o tempo desde o último evento: um ciclo que consulta o fornecedor e não traz nada zera o atraso do mesmo jeito. |
+| **Campos novos (24h)** | Quantos CAMPOS o fornecedor enviou nas últimas 24h que o mapeamento ainda não aproveita — não é contagem de eventos com erro. Sinal de que há contexto disponível sendo descartado. Veja [Campos novos (drift)](../pipelines/drift.md). |
 | **Quarentena (24h)** | Eventos retidos por falha de mapeamento, validação ou ocultação de dados sensíveis. |
 
 ### Como ler o status
 
-- **Saudável (verde)**: coleta rodando, atraso menor que 5 minutos, sem quarentena nem campos novos.
-- **Degradada (amarelo)**: atraso de 5 a 15 minutos, ou há campos novos/quarentena, ou taxa de erro baixa.
-- **Com problema (vermelho)**: atraso maior que 15 minutos, parada há mais de 10 minutos, ou taxa de erro alta.
-- **Sem dados (cinza)**: integração criada mas que nunca coletou — não há métrica.
+O status é decidido **em ordem**: vale a primeira regra que se aplica, e as seguintes nem chegam a ser avaliadas.
+
+| Ordem | Status | Quando aparece |
+|---|---|---|
+| 1 | **Aguardando primeira coleta (cinza)** | A integração nunca coletou com sucesso. Não há métrica para julgar. |
+| 2 | **Indisponível (vermelho)** | A última **coleta bem-sucedida** foi há **mais de 5 minutos**, **ou** houve **3 ou mais falhas seguidas** de coleta. |
+| 3 | **Degradado (amarelo)** | Existe um **erro registrado** e o atraso ainda está **dentro dos 5 minutos**: a coleta não parou, mas alguma coisa falhou no caminho. |
+| 4 | **Saudável (verde)** | Nenhum dos casos acima — coletando, sem erro registrado e com atraso de até 5 minutos. |
+
+Como a avaliação é nessa ordem, uma integração que tem erro registrado **e** atraso acima de 5 minutos aparece como **Indisponível**, nunca como Degradado. Só existe esse único limite de tempo: 5 minutos. Não há faixa intermediária de atraso.
+
+:::info[Quarentena e campos novos não mudam a cor do card]
+Os contadores **Drift (24h)** — os campos novos — e **Quarentena (24h)** aparecem no card, mas são **informativos**: nenhum dos dois entra no cálculo do status. Um evento em quarentena, sozinho, não deixa o card amarelo; mil campos novos não deixam o card vermelho.
+
+Isso importa especialmente agora: a detecção de campos novos passou a comparar **caminho a caminho** dentro do evento, e o contador subiu de forma expressiva em várias integrações. Se um card ficou amarelo ou vermelho, a causa é atraso de coleta ou erro na coleta — não o número de campos novos.
+:::
 
 ### Filtrar integrações
 
@@ -51,7 +63,7 @@ Use os botões acima dos cards:
 
 - **Todos** — mostra todas (padrão).
 - **Saudáveis** — apenas as verdes.
-- **Com problema** — degradadas, com problema ou sem dados.
+- **Com problema** — junta tudo que não está verde: Degradado, Indisponível e Aguardando primeira coleta.
 
 ### Investigar uma integração com problema
 
@@ -65,7 +77,7 @@ Use os botões acima dos cards:
 
 **Exemplo: integração parada**
 
-1. O card está vermelho e o atraso passou de 15 minutos.
+1. O card está vermelho: o atraso passou de 5 minutos, ou houve 3 falhas seguidas.
 2. Abra os detalhes e leia o último erro.
 3. Se for **"401 Unauthorized"**, as credenciais expiraram. Vá ao menu **Visão geral → Integrações** ([Integrações](../integrations/overview.md)), abra a integração e atualize as credenciais.
 4. Se for **"429 Too Many Requests"**, o fabricante limitou a taxa de chamadas. A frequência de coleta é definida na configuração da integração — reduza-a se o erro persistir.

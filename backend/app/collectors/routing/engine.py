@@ -698,9 +698,18 @@ def route_batch(
                 continue
             # Evento MANTIDO por uma rota amostrada → decora a cópia com sample_rate
             # (reescala contagens downstream). Rota sem sampling → env full-fidelity.
+            # A condição TEM de ser a mesma de ``_should_sample_out`` — inclusive o
+            # fail-safe de detecção. Sem ele, uma rota protegida com sample_percent=10
+            # entregava 100% dos eventos carimbados ``sample_rate: 0.1``, e o analista
+            # que seguisse o rótulo multiplicava por 10 uma contagem já integral.
             env_out = (
                 _with_sample_rate(env, route.sample_percent)
-                if (sampling and sampling.enabled and route.sample_percent < 100)
+                if (
+                    sampling
+                    and sampling.enabled
+                    and route.sample_percent < 100
+                    and not (route.protect_detection and sampling.protect_detection_enforced)
+                )
                 else env
             )
             if route.redaction:

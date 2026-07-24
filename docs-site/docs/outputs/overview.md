@@ -121,6 +121,12 @@ Uma regra diz quais eventos vão para quais destinos. Você monta as regras no m
 | Destinos | Quais destinos recebem o evento. |
 | Regra final | Se marcada, o evento para nesta regra. Se não, o evento é copiado e continua sendo avaliado pelas próximas (é assim que se manda o mesmo evento a vários destinos). |
 | Percentual gradual (canary) | Aplica a regra só a uma fração dos eventos (por exemplo, 10%). Serve para liberar uma mudança aos poucos. |
+| Proteger detecção | **Ligada por padrão.** Enquanto estiver ligada, a regra nunca é amostrada, suprimida nem tem o evento bruto descartado — as três alavancas abaixo são simplesmente ignoradas nela. |
+| Amostragem % | Entrega só essa fração dos eventos aos destinos da regra. 100 = entrega tudo (o padrão). |
+| Supressão | Deixa passar só N eventos "iguais" por janela de tempo e economiza o excedente. Vem desligada. |
+| Descartar o evento bruto | Remove o payload original do fornecedor da entrega **desta** regra, preservando o evento normalizado (OCSF). Vem desligado. |
+
+Essas quatro últimas linhas formam o bloco de economia da regra e andam juntas: enquanto **Proteger detecção** estiver ligada — e ela nasce ligada em toda regra —, marcar amostragem, supressão ou descarte do bruto **não faz nada**. O detalhe de cada uma está no [Guia de Roteamento](./routing.md).
 
 **Exemplo de conjunto de regras:**
 
@@ -145,11 +151,11 @@ Quando um destino rejeita um evento, ele não é descartado: vai para a **fila d
 
 | Situação | O que acontece |
 |----------|----------------|
-| Evento grande demais para o destino | É rejeitado e fica na fila de reenvio, para ser reprocessado depois de reduzir o tamanho. |
+| Evento grande demais para o destino | É rejeitado e fica na fila de reenvio. Para caber, corte o payload bruto no mapeamento (bloco `raw_reduction`) ou ligue **Descartar o evento bruto** na regra que alimenta esse destino. As duas alavancas só valem para eventos **novos**: o que já está na fila guarda o payload como foi gravado, e reprocessar não o encolhe — ele será rejeitado de novo. A redação de PII **não** serve para isso: ela é de conformidade, é *fail-closed* e pode parar a entrega em vez de encolher o evento. Veja [Redução de volume e custo](./reducao-de-volume.md). |
 | Credencial inválida ou expirada | Não adianta repetir; o evento fica retido até você corrigir a credencial. |
 | Falha temporária do destino (sobrecarga, indisponibilidade momentânea) | O sistema tenta de novo sozinho, esperando cada vez um pouco mais entre as tentativas. |
 
-Você acompanha o que está retido no menu **Normalização → Quarentena**.
+Eventos retidos na **normalização** ficam em **Normalização → Quarentena**. Já o que um **destino rejeitou** fica na fila de reenvio daquele destino, em **Operação → Destinos** — são duas filas diferentes, com causas diferentes.
 
 ### Saúde de cada destino
 
@@ -242,8 +248,8 @@ A fila cresce quando a entrega está mais lenta do que a chegada de eventos.
 
 Muitos eventos estão sendo rejeitados.
 
-1. Em **Normalização → Quarentena**, filtre pelo destino e veja o motivo da rejeição.
-2. Se os eventos forem grandes demais, reduza o tamanho do envio — aplique mais redação de PII ou filtre eventos por regra.
+1. Em **Operação → Destinos**, abra o destino e veja a fila de reenvio, agrupada por tipo de erro. (A Quarentena é outra coisa: ela guarda falhas de **normalização**, não rejeição de destino, e não tem filtro por destino.)
+2. Se os eventos forem grandes demais, corte o payload bruto no mapeamento (bloco `raw_reduction`) ou ligue **Descartar o evento bruto** na regra daquele destino. Vale só para eventos novos — o que já está na fila não encolhe ao ser reprocessado. Não recorra à redação de PII para isso — ver [Redução de volume e custo](./reducao-de-volume.md).
 3. Se for falha de credencial, use o **Teste de conexão** do destino e atualize a credencial.
 
 ## Próximos passos

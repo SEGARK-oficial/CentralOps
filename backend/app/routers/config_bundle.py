@@ -202,6 +202,7 @@ def _route_row_to_read(row: models.Route) -> RouteRead:
         # um restore desconfiguraria a economia em silêncio e reporia
         # ``protect_detection`` para o default, descartando um opt-out consciente.
         protect_detection=bool(row.protect_detection),
+        drop_raw=bool(row.drop_raw),
         sample_percent=int(row.sample_percent),
         suppress_key=row.suppress_key,
         suppress_allow=int(row.suppress_allow),
@@ -289,7 +290,11 @@ def _validate_route_read(route: RouteRead) -> None:
     Raises ApiError (422) on any violation so the whole import is
     rejected before touching the DB.
     """
-    from ..collectors.routing import validate_condition, validate_pii_redaction
+    from ..collectors.routing import (
+        validate_condition,
+        validate_pii_redaction,
+        validate_suppress_key,
+    )
 
     try:
         validate_condition(route.condition)
@@ -319,6 +324,25 @@ def _validate_route_read(route: RouteRead) -> None:
                 },
                 params={"route_name": route.name, "error": str(exc)},
             ) from exc
+
+    # A chave de supressão usa a MESMA allowlist da condição. Sem esta checagem um
+    # bundle (de seed, de outro ambiente ou anterior à validação) ressuscitava uma
+    # assinatura degenerada, que agrupa tráfego demais e descarta em silêncio.
+    # Ausente/None/vazia = supressão desligada e continua válida — quem trata isso
+    # é o próprio ``validate_suppress_key``, por isso não há guarda de ``if`` aqui.
+    try:
+        validate_suppress_key(route.suppress_key)
+    except Exception as exc:
+        raise ApiError(
+            "config_bundle.invalid_route_suppress_key",
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            messages={
+                "pt": "Rota {route_name!r}: suppress_key inválida — {error}",
+                "en": "Route {route_name!r}: invalid suppress_key — {error}",
+                "es": "Ruta {route_name!r}: suppress_key no válida — {error}",
+            },
+            params={"route_name": route.name, "error": str(exc)},
+        ) from exc
 
     if route.action == "route" and not route.destination_ids:
         raise ApiError(
@@ -577,6 +601,7 @@ def import_config(
                     canary_percent=route.canary_percent,
                     # ADR-0015 — alavancas de redução preservadas no import.
                     protect_detection=route.protect_detection,
+                    drop_raw=route.drop_raw,
                     sample_percent=route.sample_percent,
                     suppress_key=route.suppress_key,
                     suppress_allow=route.suppress_allow,
@@ -610,6 +635,7 @@ def import_config(
                 # redução no bundle seria detectado como "sem drift" e o import
                 # viraria no-op silencioso.
                 or bool(existing_route.protect_detection) != route.protect_detection
+                or bool(existing_route.drop_raw) != route.drop_raw
                 or int(existing_route.sample_percent) != route.sample_percent
                 or existing_route.suppress_key != route.suppress_key
                 or int(existing_route.suppress_allow) != route.suppress_allow
@@ -630,6 +656,7 @@ def import_config(
                         canary_percent=route.canary_percent,
                         # ADR-0015 — alavancas de redução preservadas no update.
                         protect_detection=route.protect_detection,
+                        drop_raw=route.drop_raw,
                         sample_percent=route.sample_percent,
                         suppress_key=route.suppress_key,
                         suppress_allow=route.suppress_allow,

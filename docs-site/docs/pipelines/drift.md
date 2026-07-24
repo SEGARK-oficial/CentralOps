@@ -38,13 +38,24 @@ A tela lista os campos detectados com as seguintes informações:
 
 | Coluna | Descrição |
 |--------|-----------|
-| Campo | Nome do campo recebido (ex.: confiança da detecção). |
+| Campo | Caminho COMPLETO do campo recebido, incluindo o aninhamento (ex.: `data.win.eventdata.logonType`, `rule.mitre.id`). A detecção compara caminho a caminho, então campos novos dentro de estruturas já mapeadas também aparecem. |
 | Fornecedor | Plataforma de origem (Sophos, Defender, etc.). |
 | Tipo | Tipo inferido do valor (texto, número, verdadeiro/falso, lista ou estrutura aninhada). |
 | Contagem | Quantas vezes o campo foi visto desde a primeira observação (acumulado, sem janela). Como a detecção amostra uma fração dos eventos, esta contagem reflete os eventos amostrados — o volume real é proporcionalmente maior. |
 | Visto por último | Data e hora do evento mais recente que trouxe esse campo. |
+| Valor de amostra | Uma descrição do FORMATO do valor (`<ipv4>`, `<email>`, `<timestamp>`, `<string len=42>`), não o valor em si. É o suficiente para escolher o campo OCSF de destino sem guardar dado do cliente. |
 | Status | Novo, ignorado ou já mapeado. |
 | Ação | Ignorar ou marcar como mapeado. |
+
+## O que é guardado como amostra
+
+:::info[A amostra é mascarada por padrão]
+A coluna **Valor de amostra** não guarda o valor recebido: ela guarda um **classificador de formato** — `<ipv4>`, `<email>`, `<uuid>`, `<timestamp>`, `<path_win>`, `<sha256>`, `<string len=42>`. Isso é o bastante para você decidir para qual campo do evento normalizado apontar aquele dado, sem armazenar o dado do cliente.
+
+Por que a diferença importa: campo **não mapeado** é justamente onde caem nome de usuário, host, endereço IP, caminho de arquivo e linha de comando. E o registro não é passageiro — a tela é visível para o perfil **Viewer** e o registro dura o prazo de retenção (90 dias por padrão).
+
+Se a sua organização tiver base legal para ver o conteúdo real, peça ao administrador da plataforma para ajustar `DRIFT_SAMPLE_VALUE_MODE`: `raw` guarda o valor real truncado em 200 caracteres, e `none` não guarda amostra nenhuma. O padrão é `masked`, e o ajuste vale para a plataforma inteira, não por organização.
+:::
 
 ## O que fazer com um campo novo
 
@@ -119,12 +130,19 @@ A disponibilidade das ações em massa pode variar conforme a versão da platafo
 
 ## Retenção dos registros
 
-Os registros de campos novos têm um prazo de retenção padrão. Após esse período sem que o campo apareça de novo, o registro é removido automaticamente. Se o campo voltar a chegar depois, ele é detectado novamente como novo.
+O prazo padrão é de **90 dias por organização**. Passado esse período **sem que o campo apareça de novo**, o registro é removido pela limpeza automática diária. Se o campo voltar a chegar depois, ele é detectado outra vez como novo.
 
-O prazo de retenção é definido pela equipe de infraestrutura no momento do deploy. Se precisar alterá-lo, fale com o administrador da plataforma.
+Esse prazo **não é travado no deploy**: ele é por organização e vale qualquer valor entre 1 e 3650 dias. Ainda **não há tela** para editá-lo — hoje o ajuste é feito pelo administrador via API (`PATCH /api/organizations/{id}/retention`). Veja [Retenção de dados](../compliance/retention.md).
+
+:::warning[Campo que continua chegando nunca expira]
+A contagem do prazo parte da coluna **Visto por último**, e essa data é reescrita a cada nova ocorrência do campo. Ou seja: enquanto o fornecedor continuar mandando o campo, o registro é renovado indefinidamente e nunca vence. Ele só desaparece depois de o prazo inteiro passar **sem** o campo aparecer nenhuma vez.
+
+Consequência prática: um campo recorrente mantém o que estiver na coluna **Valor de amostra** guardado por tempo indeterminado. É esse o motivo de a amostra vir mascarada por padrão.
+:::
 
 ## Próximos passos
 
 - **Ajustar uma regra de mapeamento?** Veja [Mappings](../normalization/overview.md).
 - **Muitos eventos retidos?** Veja [Solução de problemas de normalização](../normalization/troubleshooting.md).
 - **Reprocessar eventos retidos?** Veja [Quarentena](../operations/quarantine.md).
+- **Mudar por quanto tempo os registros ficam guardados?** Veja [Retenção de dados](../compliance/retention.md).

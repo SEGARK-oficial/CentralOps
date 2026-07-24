@@ -32,22 +32,23 @@ Toda organização nova começa com estes prazos. Eles servem para a maioria dos
 
 Cada organização pode ter seus próprios prazos, sobrescrevendo os padrões. Esta configuração é de administrador.
 
+:::note[Ainda não há tela para isso]
+A configuração de retenção por organização existe na plataforma, mas **não foi exposta na interface** — não há área de retenção em **Visão geral → Organizações**. Enquanto ela não chega, o ajuste é feito pela API, por quem tem permissão de administrar organizações.
+:::
+
 ### Passo a passo
 
-1. Abra o menu **Visão geral → Organizações**.
-2. Clique na organização que deseja ajustar.
-3. Abra a área de retenção da organização.
-4. Informe os dias de cada tipo de dado:
+Peça ao administrador da plataforma para aplicar os prazos com `PATCH /api/organizations/{id}/retention`, enviando apenas os campos que mudam:
 
-   | Campo | Limites |
-   |---|---|
-   | Quarentena (dias) | entre 1 e 3650 |
-   | Campos novos detectados (dias) | entre 1 e 3650 |
-   | Histórico (dias) | entre 1 e 3650 |
-   | Resultados de busca (dias) | entre 1 e 3650 |
-   | Logs de auditoria (dias) | fixo em pelo menos 365; não pode ser reduzido |
+| Campo | Limites |
+|---|---|
+| `quarantine_retention_days` | entre 1 e 3650 |
+| `drift_retention_days` (campos novos) | entre 1 e 3650 |
+| `history_retention_days` | entre 1 e 3650 |
+| `search_result_retention_days` | entre 1 e 3650 |
+| `audit_log_retention_days` | fixo em pelo menos 365; não pode ser reduzido |
 
-5. Clique em **Salvar**.
+A alteração exige permissão de administrar organizações e fica registrada no log de auditoria. Consultar os prazos vigentes é o `GET` do mesmo caminho.
 
 ### Regras de validação
 
@@ -86,8 +87,7 @@ Para montar esse arranjo, configure as regras na tela de **Roteamento** e o praz
 
 ### Confirmar os prazos configurados
 
-1. Abra **Visão geral → Organizações** e selecione a organização.
-2. Verifique os dias mostrados na área de retenção. São esses os prazos que a limpeza diária aplica.
+Consulte `GET /api/organizations/{id}/retention`. São esses os prazos que a limpeza diária aplica. Uma organização que nunca teve retenção configurada responde com os padrões da tabela acima.
 
 ### Ver quem alterou a retenção e quando
 
@@ -100,7 +100,7 @@ Toda mudança de prazo fica registrada. Para auditar:
 
 Se você esperava que certos dados já tivessem sumido e eles continuam aparecendo:
 
-1. **Confira o prazo configurado** em **Visão geral → Organizações**. Um prazo maior do que o esperado (por exemplo, 365 em vez de 30 dias) faz os dados ficarem mais tempo. Ajuste e salve.
+1. **Confira o prazo configurado** (`GET /api/organizations/{id}/retention`). Um prazo maior do que o esperado (por exemplo, 365 em vez de 30 dias) faz os dados ficarem mais tempo.
 2. **Lembre-se de que a limpeza roda uma vez por dia.** Dados que acabaram de vencer só somem na próxima execução diária.
 3. **Para objetos antigos em um destino de armazenamento**, confirme em **Operação → Destinos** que aquele destino tem um prazo de retenção definido. Sem prazo definido, a plataforma não apaga nada lá.
 4. Se mesmo assim os dados persistirem além do prazo, fale com o administrador da plataforma.

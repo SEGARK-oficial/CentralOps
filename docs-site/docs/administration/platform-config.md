@@ -27,6 +27,7 @@ Não existe uma única tela "Configuração" que reúna tudo. Cada área tem seu
 | Definir as regras de quem recebe o quê | **Operação → Roteamento** |
 | Ver o fluxo dos dados ponta a ponta | **Operação → Fluxo de dados** |
 | Configurar login corporativo (Microsoft) | **Administração → Configurações** |
+| Inspecionar ao vivo o que está entrando e saindo, evento a evento | **Administração → Configurações → Captura ao vivo** |
 
 As telas **Destinos**, **Roteamento** e **Fluxo de dados** só aparecem para administradores.
 
@@ -132,6 +133,16 @@ O que você informa por essa tela:
 **Como fica para o usuário**: com o login corporativo habilitado, a tela de entrada passa a oferecer a opção "Entrar com Microsoft".
 
 **Sincronizar usuários do Entra**: a importação automática de usuários a partir do Microsoft Entra está no roadmap e ainda não está disponível para uso geral. Por enquanto, gerencie contas em **Administração → Usuários**.
+
+## Captura ao vivo (diagnóstico de entrega)
+
+Na aba **Administração → Configurações → Captura ao vivo** você grava, por uma janela definida, uma amostra do tráfego real que passa pelo pipeline. A sessão **expira sozinha** ao fim da janela — não fica gravando esquecida.
+
+Para cada evento a tela mostra o payload **como o fornecedor mandou** e **como está sendo entregue** (já normalizado), além do **desfecho**: entregue, descartado por regra, sem rota, em quarentena — e também **suprimido** e **amostrado para fora**, que não aparecem nos contadores de evento da regra (Bateram / Enviados / Descartados) — deles só o volume agregado, em bytes, aparece no card **Redução de volume & custo** do Fluxo de dados. É o caminho para responder "por que esse evento não chegou no meu SIEM?" sem depender de log de servidor.
+
+A sessão pode ser baixada em **CSV** ou **NDJSON**, com os dados pessoais mascarados por padrão. A tela e a exportação são **exclusivas do administrador**.
+
+Detalhes de uso, limites e privacidade em [Captura ao vivo](../operations/live-capture.md).
 
 ## Segredos e criptografia (visão do administrador)
 

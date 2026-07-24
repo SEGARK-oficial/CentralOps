@@ -1,39 +1,60 @@
 ---
 sidebar_position: 4
 title: "Latência alta: dados chegando com atraso"
-description: "O que verificar quando os dados demoram a chegar nos destinos e como reagir pela interface"
+description: "O que verificar quando os dados demoram a chegar nos destinos, o que o cartão de latência realmente mede e como reagir pela interface"
 ---
 
 # Latência alta: dados chegando com atraso
 
-Esta página ajuda você a investigar quando os eventos estão demorando para chegar nos destinos configurados — ou seja, quando o tempo entre o evento acontecer no produto de origem e ele aparecer no destino final está acima do esperado.
+Esta página ajuda quando os dados estão demorando a aparecer no destino. Antes de investigar, é preciso separar duas coisas que costumam ser confundidas — e que **não** são o mesmo número:
 
-O CentralOps acompanha esse tempo de ponta a ponta (da coleta até a entrega). Quando ele cresce, alguns dados continuam chegando, mas atrasados — o que atrapalha investigações em tempo real e relatórios.
+| Conceito | O que é | O CentralOps mede? |
+|---|---|---|
+| **Ponta a ponta** | Do instante em que o evento acontece no produto de origem até ele aparecer no destino | **Não.** Continua sendo um alvo de negócio legítimo — "o plantão precisa ver o alerta em até X minutos" —, mas hoje nenhuma tela da plataforma mostra esse número |
+| **Entrega do lote ao destino** | Quanto tempo o CentralOps levou para empurrar um lote já pronto até o destino | **Sim.** É o cartão **latência média (s)** em **Operação -> Destinos** |
+
+:::warning[O cartão não é ponta a ponta]
+O relógio do cartão **latência média (s)** começa no **envio** do lote e para quando o destino responde. Ele inclui a quebra do lote em pedaços e todas as retentativas. Ele **não** inclui o tempo que o evento passou parado na origem, nem a coleta, nem a normalização.
+
+O valor está em **segundos**, não em minutos. Um cartão marcando `2` quer dizer "a entrega do lote levou 2 segundos" — não "os dados estão 2 minutos atrasados".
+:::
+
+Na prática: se o time reclama de atraso ponta a ponta, o cartão sozinho não confirma nem desmente a queixa. Ele responde uma pergunta mais estreita — "o gargalo está na saída para este destino?" — e é assim que ele deve ser usado.
 
 ## Quando usar
 
 Use este guia nestes cenários do dia a dia:
 
-- Você recebeu um **alerta de latência de ponta a ponta acima do alvo** (por exemplo, dados levando mais de 5 minutos para chegar).
-- Um destino específico aparece com **latência média** alta em **Operação -> Destinos**, enquanto os outros seguem normais.
-- Um cliente ou time interno **reportou que os dados estão chegando com atraso** em um destino (por exemplo, no SIEM ou no data lake).
+- Um cliente ou time interno **reportou que os dados estão chegando com atraso** em um destino (por exemplo, no SIEM ou no data lake) e você precisa descobrir se o gargalo é a coleta, a normalização ou a entrega.
+- Um destino específico aparece com **latência média (s)** muito acima dos demais em **Operação -> Destinos**.
+- A **fila de reenvio** de um destino está crescendo, sinal de que as entregas estão falhando ou demorando.
 
-## Como saber se está dentro do alvo
+## Como ler o cartão de latência
 
-O tempo de ponta a ponta é o que mais importa: do momento em que o evento é criado no produto de origem até ele chegar ao destino configurado. Cada destino tem sua própria latência, e um destino lento não necessariamente significa que todos estão lentos.
+Cada destino tem sua própria latência de entrega, e um destino lento não significa que todos estão lentos. Como ponto de partida para ler o cartão **latência média (s)**:
 
-Como referência de saúde:
-
-| O que você vê | Situação |
+| Latência média do destino | Leitura |
 |---|---|
-| Latência de ponta a ponta em torno de 3 minutos ou menos | Dentro do alvo |
-| Latência de ponta a ponta passando de 5 minutos | Em risco — investigue |
+| Abaixo de **2 s** | Normal. O destino aceita os lotes sem esforço |
+| **2 a 10 s** | Aceitável para lotes grandes ou destinos naturalmente mais lentos. Acompanhe a tendência |
+| **10 a 30 s** | Investigue. Normalmente é lote fatiado em muitos pedaços, destino devolvendo erro e forçando retentativa, ou o destino realmente lento |
+| Acima de **30 s** | Sinal forte de retentativas ou de lote muito fatiado. Não conclua "estourou o tempo limite" só por causa deste número: o limite de 30 s é **por pedaço enviado**, e o número aqui é a soma do lote inteiro — um lote em cinco pedaços rápidos passa de 30 s sem nenhum tempo limite ter sido atingido |
+
+:::note[Estas faixas são referência inicial, não SLO de fábrica]
+A plataforma não vem com nenhum limite de latência configurado, e não existe alerta automático em cima desse número. Um destino que sempre entrega em 6 segundos não está com defeito. Meça a linha de base de cada destino durante uma semana normal e trate como problema o **desvio da própria linha de base**, não o cruzamento das faixas acima.
+:::
 
 Para conferir o valor atual:
 
 1. Abra o menu **Operação -> Destinos** e clique no destino que quer investigar.
 2. Veja o cartão **latência média (s)** — é o tempo de entrega do lote para aquele destino.
 3. Repita para os demais destinos e observe se há um com latência muito acima.
+
+:::warning[Gráfico começando do zero não é destino que ficou lento]
+Até a atualização em que essa medição passou a ser gravada, a série de latência nunca recebia um único ponto — o cartão ficava permanentemente vazio, para todos os destinos. O histórico anterior à atualização continua vazio e **não** será preenchido retroativamente.
+
+Depois de atualizar, o gráfico começa do zero e só cresce com as entregas novas. Uma linha subindo do nada nos primeiros dias é a série se enchendo, não o destino degradando. Só compare com a linha de base depois de acumular alguns dias de dados.
+:::
 
 :::note[O indicador é por destino]
 A latência é medida **por destino**, no momento da entrega. Não existe um número
@@ -43,26 +64,30 @@ entre si, que é o que aponta o gargalo.
 
 ## Passo a passo do diagnóstico
 
-### 1. Confirme se há latência alta
+### 1. Confirme se a entrega está lenta
 
-Em **Operação -> Destinos**, abra cada destino e olhe a **latência média (s)**. Se estiver em torno de 3 minutos ou menos, está tudo bem. Se passar de 5 minutos, siga para o próximo passo.
+Em **Operação -> Destinos**, abra cada destino e olhe a **latência média (s)**, sempre comparando com a linha de base daquele destino. Alguns segundos é o esperado; dezenas de segundos indicam retentativas. Se o número estiver dentro do normal para todos os destinos, a entrega **não** é o gargalo — o atraso relatado está antes dela, na coleta ou na normalização, e você deve ir direto ao passo 3.
 
 ### 2. Descubra qual destino está lento
 
 Compare a **latência média (s)** de cada destino:
 
-- Se apenas **um destino** está com latência alta (por exemplo, o SIEM mostra 8 minutos enquanto os outros mostram 1 a 2 minutos), o problema está concentrado nesse destino. Vá para a seção **O destino está lento**.
-- Se **todos os destinos** estão lentos ao mesmo tempo, o gargalo provavelmente é a coleta ou o processamento. Continue no próximo passo.
+- Se apenas **um destino** destoa (por exemplo, o SIEM em 25 s enquanto os outros ficam em 1 a 2 s), o problema está concentrado nesse destino. Vá para a seção **O destino está lento**.
+- Se **todos os destinos** estão lentos ao mesmo tempo, o gargalo provavelmente não é nenhum deles. Continue no próximo passo.
 
 ### 3. Descubra qual etapa está lenta
 
-A jornada de um evento tem três etapas. Identificar onde o tempo está sendo gasto direciona a solução:
+A jornada de um evento tem três etapas, e só a última é cronometrada. Nas duas primeiras você trabalha com sinais indiretos:
 
-| Etapa | Sintoma | Onde olhar |
+| Etapa | Sinal disponível | Onde olhar |
 |---|---|---|
-| **Coleta** | A última coleta da origem demorou muito | **Visão geral -> Integrações** (veja o status e o horário da última coleta da integração) |
-| **Normalização** | O evento foi coletado, mas demora para ser processado | **Normalização -> Saúde do Pipeline** e **Normalização -> Mappings** |
-| **Entrega ao destino** | O evento foi processado, mas demora para chegar ao destino | **Operação -> Destinos** (somente admin) |
+| **Coleta** | Horário da última coleta bem-sucedida e o atraso desde então; erros recorrentes | **Visão geral -> Integrações** e **Normalização -> Saúde do Pipeline** |
+| **Normalização** | Eventos retidos em quarentena, campos novos não mapeados, erro na última execução | **Normalização -> Saúde do Pipeline** e **Normalização -> Mappings** |
+| **Entrega ao destino** | Tempo cronometrado do lote, em segundos | **Operação -> Destinos** (somente admin) |
+
+:::note[Não existe um cronômetro de normalização]
+A tela de **Saúde do Pipeline** não mostra "quanto tempo a normalização levou". Ela mostra quando foi a última coleta bem-sucedida, o atraso acumulado desde então, o erro mais recente, os campos novos detectados e quantos eventos foram para a quarentena nas últimas 24 horas. Use esses sinais para inferir onde o tempo está indo — não procure um número de duração que a plataforma não coleta.
+:::
 
 ## Causas e o que fazer
 
@@ -89,7 +114,7 @@ A normalização fica lenta quando o mapeamento de um produto tem muitas regras 
 
 Como identificar:
 
-- Em **Normalização -> Saúde do Pipeline**, veja se o tempo de processamento (normalização) está alto mesmo com a coleta e a entrega normais.
+- Em **Normalização -> Saúde do Pipeline**, procure a combinação: coleta em dia (última coleta recente, sem atraso acumulado) e entrega normal no cartão de **latência média (s)**, mas o destino recebendo menos do que o esperado. Quarentena subindo na mesma janela reforça a hipótese de que o problema está na conversão, e não no transporte.
 
 O que você pode fazer pela interface:
 
@@ -125,7 +150,7 @@ Quando escalar:
 
 ## Quando a latência sobe de repente
 
-Se a latência estava normal (por exemplo, 1 minuto) e disparou de uma vez (por exemplo, 8 minutos), siga este roteiro:
+Se a **latência média (s)** de um destino estava estável (por exemplo, em torno de 1 segundo) e disparou de uma vez (por exemplo, para 25 segundos), siga este roteiro:
 
 1. **Confirme o alcance:** em **Operação -> Destinos**, veja se o atraso é em um destino só ou em todos.
 2. **Verifique a coleta:** em **Visão geral -> Integrações**, confira se alguma integração começou a falhar ou se entrou um volume de eventos muito acima do normal (cliente novo, pico de tráfego).
@@ -137,8 +162,9 @@ Se a latência estava normal (por exemplo, 1 minuto) e disparou de uma vez (por 
 
 ## Como prevenir
 
-- **Acompanhe a tendência:** confira regularmente a **latência média (s)** por destino em **Operação -> Destinos** para perceber a degradação antes de virar incidente.
-- **Configure alertas:** garanta que há um alerta disparando quando a latência de ponta a ponta passa do alvo por tempo prolongado. A configuração de notificações é definida pela equipe de infraestrutura no momento do deploy. Se precisar ajustá-la, fale com o administrador da plataforma.
+- **Anote a linha de base:** registre a **latência média (s)** típica de cada destino em uma semana normal. É contra esse número que faz sentido comparar depois — as faixas desta página são só um ponto de partida.
+- **Acompanhe a tendência:** confira regularmente a **latência média (s)** por destino em **Operação -> Destinos** para perceber a degradação antes de virar incidente. Não existe alerta automático de latência na plataforma; a conferência é manual, ou feita fora dela pela equipe de infraestrutura, em cima das métricas exportadas.
+- **Não prometa um alvo ponta a ponta que ninguém mede:** se o contrato ou o acordo interno fala em "evento visível no SIEM em até X minutos", combine desde já como esse número será verificado — hoje ele não sai de nenhuma tela do CentralOps.
 - **Planeje capacidade:** se o volume de eventos cresce de forma consistente, antecipe o aumento de capacidade com a equipe de infraestrutura.
 - **Valide destinos novos:** antes de colocar um destino novo em produção, valide-o em ambiente de testes para entender seu comportamento sob carga.
 

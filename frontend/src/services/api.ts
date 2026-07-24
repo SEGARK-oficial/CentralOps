@@ -2046,7 +2046,7 @@ import type {
 /**
  * POST /collectors/routes/reorder
  * Reatribui prioridades em bulk na ordem fornecida (drag-and-drop).
- * Requer ROUTING_ENABLED=true no backend (503 caso contrário).
+ * O roteamento por regra é sempre-ativo (GA): a antiga ROUTING_ENABLED foi removida.
  */
 export async function reorderRoutes(routeIds: string[]): Promise<RouteReorderResponse> {
   return apiRequest<RouteReorderResponse>(`${ROUTES_BASE}/reorder`, {

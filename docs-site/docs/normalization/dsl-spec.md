@@ -220,6 +220,47 @@ As operações de preparação disponíveis estão na [Referência de operadores
 
 ---
 
+## Redução do evento bruto (`raw_reduction`)
+
+Todo evento entregue leva, além do evento normalizado (OCSF), uma cópia do payload que o fornecedor mandou. Essa cópia é útil para perícia — e é também a maior parte do volume que você paga no destino.
+
+O bloco `raw_reduction` poda essa cópia. Ele é **irmão** das regras (fica no mesmo nível de `preprocess` e `rules`) e roda **depois** que todas as regras já leram o payload completo, de modo que a normalização nunca perde fidelidade por causa da poda.
+
+| Operação | O que faz |
+|---|---|
+| `max_bytes` | Encurta um texto longo para N bytes. O JSON continua válido — só o valor fica menor. |
+| `max_items` | Mantém apenas os N primeiros itens de uma lista. |
+| `drop` | **Remove o campo inteiro.** Use no que virou lixo depois da extração. |
+| `keep_only` | Mantém só os filhos listados sob o caminho e remove os demais — inclusive campos que o fornecedor adicionar no futuro. |
+| `drop_nulls` | Remove todos os campos de valor nulo, em qualquer profundidade. É global: não recebe caminho. |
+
+Um caminho pode atravessar listas com `[]`: `alerts[].evidences` aplica a operação ao campo `evidences` de **cada** item da lista `alerts`.
+
+### Exemplo
+
+```json
+{
+  "raw_reduction": [
+    { "path": "rawData.lineage", "drop": true },
+    { "path": "full_log", "max_bytes": 16384 },
+    { "path": "alerts[].evidences", "drop": true },
+    { "drop_nulls": true }
+  ]
+}
+```
+
+Esse é o padrão que os mapeamentos de fábrica usam: descartar as subárvores que o pré-processamento já extraiu (elas viram duplicata pura), encurtar os textos gigantes e limpar os campos nulos.
+
+:::note[Onde este bloco é editado]
+O `raw_reduction` **não aparece no editor visual de mapeamento** — ele vive na definição JSON, alterada por quem administra a plataforma. Se um campo que você esperava sumiu do payload bruto, é aqui que se verifica.
+:::
+
+:::tip[Poda por mapeamento x descarte por rota]
+O `raw_reduction` remove o que é lixo para **todos os destinos** — é conhecimento sobre o fornecedor. Para decidir se um destino específico recebe ou não o payload bruto (o data lake quer, o SIEM cobrado por volume talvez não), use a opção **Descartar o evento bruto** da regra de roteamento. Veja [Roteamento](../outputs/routing.md).
+:::
+
+---
+
 ## Em que ordem as transformações acontecem
 
 Para cada regra, a plataforma aplica as opções nesta ordem:

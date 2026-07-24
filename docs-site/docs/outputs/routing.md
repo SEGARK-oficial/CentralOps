@@ -39,21 +39,28 @@ Uma **regra** mapeia eventos para um ou mais destinos. Ao criar ou editar uma re
 | **Percentual gradual** | De 0 a 100. A regra se aplica só a essa fração dos eventos que batem nela — o resto segue para as próximas regras. Use para migração aos poucos. 100 = regra aplicada a todos. |
 | **Ativa** | Liga ou desliga a regra sem precisar apagá-la (útil para testar). |
 | **Redação de PII** | Remove ou mascara campos sensíveis (ex.: nome de usuário, IP de origem) **antes** de enviar o evento aos destinos desta regra. |
+| **Proteger detecção** | **Ligada por padrão.** Enquanto estiver ligada, esta regra **nunca** é amostrada, suprimida nem tem o evento bruto descartado — as alavancas de economia são ignoradas nela. Desligue apenas nas regras onde reduzir volume é seguro. |
+| **Amostragem** | De 0 a 100. Entrega só essa fração dos eventos aos destinos da regra; o resto é economizado. Ignorada enquanto **Proteger detecção** estiver ligada. |
+| **Supressão** | Rate-limit por assinatura: deixa passar N eventos "iguais" por janela de tempo e economiza o excedente. Veja **Reduzir ruído repetitivo** abaixo. |
+| **Descartar o evento bruto** | Remove o payload original do fornecedor da entrega **desta** regra, preservando o evento normalizado (OCSF). Deixe desligado na regra do data lake, onde o bruto é necessário para perícia, e ligue no SIEM cobrado por volume — costuma ser a maior economia isolada. |
 
 ### Características que você pode usar na condição
 
-A condição de uma regra compara características do evento já normalizado. As principais:
+A condição de uma regra compara características do evento já normalizado. São **nove**, e a lista é fechada — não existem outras:
 
 | Característica | O que é | Exemplos |
 |---------------|---------|----------|
-| **Fornecedor** | O fornecedor da integração de origem. | `sophos`, `wazuh`, `microsoft_defender` |
-| **Plataforma** | A plataforma de origem (quando difere do fornecedor). | `sophos`, `microsoft_defender` |
-| **Organização** | A organização/tenant a que o evento pertence. | uma das suas organizações |
-| **Severidade** | A severidade normalizada do evento, em escala crescente. | `5`, `8`, `10` |
-| **Fluxo** | O fluxo de dados do fornecedor. | `alerts`, `cases`, `sysmon` |
-| **Tipo de evento** | A categoria do evento. | `process_activity`, `network_activity`, `file_activity` |
-| **Cliente** | Identificador do cliente/tenant no sistema. | usado em cenários multi-tenant |
-| **Geografia** | A região de origem do evento. | `US`, `EU`, `APAC`, `global` |
+| **Fornecedor** (`vendor`) | O fornecedor da integração de origem. | `sophos`, `wazuh`, `microsoft_defender` |
+| **Plataforma** (`platform`) | A plataforma de origem (quando difere do fornecedor). | `sophos`, `microsoft_defender` |
+| **Organização** (`organization_id`) | A organização/tenant a que o evento pertence. | uma das suas organizações |
+| **Severidade** (`severity_id`) | A severidade normalizada do evento, em escala crescente. | `5`, `8`, `10` |
+| **Fluxo** (`stream`) | O fluxo de dados do fornecedor. | `alerts`, `cases`, `sysmon` |
+| **Tipo de evento** (`event_type`) | A categoria do evento. | `process_activity`, `network_activity`, `file_activity` |
+| **Integração** (`integration_id`) | A integração específica que coletou o evento. Use quando você tem várias integrações do mesmo fornecedor e quer tratar só uma delas. | uma das suas integrações |
+| **Cliente** (`customer_id`) | Identificador do cliente/tenant no sistema. | usado em cenários multi-tenant |
+| **Geografia** (`data_geography`) | A região de origem do evento. | `US`, `EU`, `APAC`, `global` |
+
+Guarde os nomes entre crases: **essa mesma lista de nove é o único vocabulário aceito também na chave de supressão** — veja [Reduzir ruído repetitivo](#reduzir-ruído-repetitivo-supressão).
 
 ---
 
@@ -127,6 +134,42 @@ Os eventos descartados são **contados à parte** nas métricas da regra, então
 
 ---
 
+## Reduzir ruído repetitivo (supressão)
+
+Enquanto o **Descartar** apaga tudo que bate na condição, a **supressão** deixa passar uma amostra e economiza o excesso: ela agrupa eventos "iguais" por uma assinatura e entrega apenas os N primeiros de cada grupo por janela de tempo.
+
+Três campos definem o comportamento:
+
+| Campo | O que faz |
+|---|---|
+| **Chave de supressão** | Quais características formam a assinatura do grupo, separadas por vírgula. Vazio = supressão desligada. |
+| **Quantos passam** | Quantos eventos de cada assinatura são entregues por janela. `0` desliga a supressão. |
+| **Janela (segundos)** | De quanto em quanto tempo a contagem reinicia. |
+
+### A chave de supressão só aceita características de roteamento
+
+Esta é a parte que mais gera engano. A assinatura é montada a partir das **mesmas nove características usadas na condição da regra** — as da tabela em [Características que você pode usar na condição](#características-que-você-pode-usar-na-condição): `vendor`, `platform`, `organization_id`, `severity_id`, `stream`, `event_type`, `integration_id`, `customer_id` e `data_geography`. Você as informa separadas por vírgula (ex.: `vendor,severity_id`).
+
+**Campos do log não valem.** `src_ip`, `dst_ip`, `user`, `agent.name`, `rule.id` e afins **não** existem nesse vocabulário. Se você tentar usá-los, a plataforma recusa a configuração com erro — antes, ela aceitava em silêncio e o resultado era desastroso: todos os eventos caíam na mesma assinatura e praticamente **todo o tráfego era descartado**.
+
+**Identificadores únicos por evento também são recusados.** `event_id` e `collected_at` existem no evento, mas mudam a cada ocorrência: a assinatura nunca se repetiria e a supressão **nunca dispararia**. Em vez de ficar ligada sem efeito nenhum, a plataforma acusa erro na hora de salvar. É a mesma falha silenciosa do parágrafo anterior, só que no extremo oposto.
+
+:::warning[Escolha a chave com cuidado]
+Uma chave **grossa demais** (por exemplo, só `vendor`) agrupa todo o tráfego da integração num único balde — e você economiza quase tudo, inclusive o que precisava ver. Prefira combinações que distingam de verdade, como `vendor,severity_id`, e confirme o efeito na [Captura ao vivo](../operations/live-capture.md) antes de aumentar a janela.
+:::
+
+Exemplo: com chave `vendor,severity_id`, "quantos passam" = 10 e janela de 60 segundos, cada combinação de fornecedor e severidade entrega no máximo 10 eventos por minuto; o excedente é economizado e contabilizado como volume evitado.
+
+A supressão **preserva sempre a primeira ocorrência** de cada grupo na janela — você nunca perde o primeiro sinal de um evento novo.
+
+### O fail-safe de detecção
+
+Supressão, amostragem e descarte do evento bruto são **ignorados** em regras com **Proteger detecção** ligada (o padrão). Isso é proposital: uma regra que alimenta detecção não perde evento por decisão de economia sem que alguém desligue a proteção conscientemente.
+
+Supressão é só uma das alavancas de economia; para escolher entre ela, amostragem, descarte do bruto e as demais — e na ordem certa — veja [Reduzir volume e custo](./reducao-de-volume.md).
+
+---
+
 ## Redação de PII por regra
 
 Uma regra pode **remover ou mascarar campos sensíveis** antes de enviar o evento aos destinos dela. Por exemplo, uma regra que manda eventos da UE para um data lake pode mascarar o nome do usuário e remover o IP de origem.
@@ -145,9 +188,9 @@ Tudo é feito na tela **Operação → Roteamento**:
 | **Criar uma regra** | Use a opção de nova regra e preencha nome, prioridade, condição, ação e destinos. A condição é validada enquanto você digita. |
 | **Editar uma regra** | Abra a regra na lista e altere os campos. Toda alteração fica registrada no histórico. |
 | **Reordenar prioridades** | Arraste as regras na lista para mudar a ordem de avaliação. |
-| **Simular antes de salvar** | Use a opção de simulação ("dry-run") para testar regras candidatas contra eventos recentes e ver para onde cada um iria, **sem salvar nada**. |
+| **Simular antes de salvar** | Use a opção de simulação ("dry-run") para testar regras candidatas contra eventos recentes e ver para onde cada um iria, **sem salvar nada**. Ela avalia só o **casamento da condição** — supressão, amostragem e descarte do bruto não são simulados. |
 | **Ver métricas de uma regra** | Abra a regra para ver o gráfico de eventos que bateram, foram enviados e foram descartados, ao longo do tempo. |
-| **Ver histórico e desfazer** | Cada regra tem um histórico de alterações; você pode restaurar uma versão anterior a partir dele. |
+| **Ver histórico e desfazer** | Cada regra tem um histórico de alterações; você pode restaurar uma versão anterior a partir dele. O restauro é revalidado antes de gravar — veja [O que é revalidado ao restaurar uma versão](#o-que-é-revalidado-ao-restaurar-uma-versão). |
 
 > O **catch-all é configurado por você**, não imposto pelo sistema: crie uma regra pega-tudo (condição vazia, menor prioridade) ou marque um destino como padrão. Sem catch-all configurado, eventos não-roteados não somem — vão à DLQ com o motivo `unrouted` (visíveis e reprocessáveis). A garantia de zero perda vem dessa rede DLQ, não de uma regra de sistema oculta.
 
@@ -158,7 +201,21 @@ Tudo é feito na tela **Operação → Roteamento**:
 - **Criar, editar, apagar e reordenar regras** exige perfil de **administrador**.
 - Cada administrador trabalha sobre as regras **da sua organização** mais as regras globais do sistema.
 - **Tudo fica auditado**: cada alteração registra quem fez, quando, e a versão anterior — e você pode restaurá-la.
-- Ao restaurar uma versão antiga, o sistema **revalida** a regra (por exemplo, um destino pode ter sido apagado no intervalo).
+
+### O que é revalidado ao restaurar uma versão
+
+Restaurar não é "colar de volta o que estava salvo". Antes de gravar, a plataforma confere quatro coisas na versão antiga:
+
+| O que é conferido | Por que pode ter quebrado no intervalo |
+|---|---|
+| **Existência dos destinos** | Um destino apontado pela versão antiga pode ter sido apagado desde então. |
+| **Condição da regra** | Uma característica válida na época pode não existir mais. E o estrago aqui é o contrário do que se espera: uma condição inválida não deixa de casar — ela casa com **tudo**, e a regra passa a capturar tráfego que não é dela. |
+| **Spec de redação de PII** | A configuração de mascaramento gravada no histórico é revalidada campo a campo, em vez de ser escrita como veio. |
+| **Chave de supressão** | A chave pode citar uma característica que não é mais aceita — e uma chave inválida derrubaria o tráfego em silêncio. |
+
+Se qualquer um dos quatro estiver inválido, o **restauro é recusado com erro** e a regra atual fica intacta. Isso é proposital: é preferível você ver a mensagem e corrigir a mão do que a plataforma ressuscitar uma configuração quebrada e você descobrir pelo volume que sumiu.
+
+Ao **importar um pacote de configuração** de outro ambiente as checagens são quase as mesmas — o import valida a condição, a spec de redação de PII e a chave de supressão —, com uma diferença que importa: ele **não confere se os destinos referenciados existem**. Um pacote trazido de outro ambiente pode entrar com uma regra apontando para um destino que não existe aqui, e a falha só vai aparecer na entrega, na fila de reenvio. Depois de importar, confira os destinos das regras que vieram.
 
 ---
 
@@ -167,12 +224,29 @@ Tudo é feito na tela **Operação → Roteamento**:
 Cada regra acompanha três contagens ao longo do tempo:
 
 - **Bateram**: eventos que satisfizeram a condição.
-- **Enviados**: eventos que efetivamente saíram da regra para os destinos.
-- **Descartados**: eventos apagados pela regra.
+- **Enviados**: os mesmos eventos que bateram, quando a ação da regra é **Encaminhar**.
+- **Descartados**: os mesmos eventos que bateram, quando a ação da regra é **Descartar**.
 
-Há um quarto desfecho possível, exclusivo de eventos coletados do Wazuh (e não aplicável a outros fornecedores):
+:::warning[O gráfico da regra conta CASAMENTO, não entrega]
+"Enviados" e "Descartados" são a contagem de **Bateram** reclassificada pela ação da regra — não a contagem do que realmente saiu pela rede. Numa regra com ação Encaminhar, Enviados é sempre igual a Bateram.
 
-- **Loop_blocked**: eventos de fonte Wazuh suprimidos para evitar loop infinito (veja a nota em [Wazuh](../integrations/wazuh.md)). Quando uma integração Wazuh coleta um evento e ele seria entregue ao destino-padrão ou a um syslog que aponta de volta ao mesmo manager, é bloqueado e registrado em log com o id do evento. É uma supressão intencional, não uma perda.
+A consequência prática é que **nenhuma alavanca de redução aparece neste gráfico**:
+
+- **Suprimido** — a supressão roda *antes* do roteamento, então o evento não entra em contagem nenhuma: nem Bateram, nem Enviados, nem Descartados.
+- **Amostrado para fora** — o evento bate na regra e é contado em Bateram **e em Enviados**, mesmo sem nunca ter sido entregue.
+
+Foi exatamente assim que uma chave de supressão mal escolhida chegou a jogar fora quase todo o tráfego de uma integração **sem mover uma única barra do gráfico**. Se o volume sumiu e as contagens da regra não explicam, o caminho é a [Captura ao vivo](../operations/live-capture.md), que mostra evento a evento o desfecho real — é a única tela onde os desfechos **Suprimido** e **Amostrado para fora** aparecem. Em bytes, o volume que essas alavancas evitaram aparece agregado no card **Redução de volume & custo** ([Fluxo de dados](../operations/fluxo-de-dados.md)).
+
+Quem coleta métricas via OpenTelemetry/Prometheus tem os contadores por rota lá — `collector_suppressed_total` e `collector_events_dropped_total{reason="sample"}` —, mas eles não são expostos em nenhuma tela nem na API da plataforma.
+:::
+
+Além desses, um evento pode terminar em outros desfechos — todos visíveis na [Captura ao vivo](../operations/live-capture.md) (**Configurações → Captura ao vivo**), que é a tela que mostra o destino final de cada evento:
+
+- **Amostrado para fora**: descartado pela amostragem da rota (`sample_percent` abaixo de 100).
+- **Suprimido**: descartado pelo rate-limit por assinatura da rota (ver [Reduzir ruído repetitivo](#reduzir-ruído-repetitivo-supressão), acima).
+- **Sem rota**: nenhuma regra casou e não há destino padrão — vai para a fila de reenvio.
+- **Bloqueado por residência**: o par evento/destino foi excluído por conflito de residência de dados.
+- **Loop bloqueado** (exclusivo do Wazuh): evento de fonte Wazuh que seria entregue de volta ao próprio manager, o que criaria um laço infinito (veja a nota em [Wazuh](../integrations/wazuh.md)). É uma supressão intencional, não uma perda.
 
 Esses números aparecem no gráfico da própria regra na tela de **Operação → Roteamento**. Para ver o panorama completo do caminho dos eventos entre integrações e destinos — com vazão por destino e desenho visual do fluxo — use a tela **Operação → Fluxo de dados** (também só de administrador).
 
@@ -192,8 +266,9 @@ Esses números aparecem no gráfico da própria regra na tela de **Operação �
 
 1. Na tela **Operação → Fluxo de dados**, identifique quais regras estão descartando mais eventos.
 2. Abra essas regras em **Operação → Roteamento** e veja se a condição está ampla demais.
-3. Use a **simulação** com eventos recentes para confirmar o que cada regra faria.
-4. Se o descarte for intencional (controle de custo), acompanhe as métricas para garantir que ele não está pegando mais do que deveria.
+3. Use a **simulação** com eventos recentes para confirmar o que cada regra faria. **Atenção**: a simulação testa só o **casamento da condição** — ela não reproduz supressão, amostragem nem descarte do evento bruto.
+4. Se o volume sumido não aparece em "Descartados", a causa provavelmente é supressão ou amostragem. Confirme na [Captura ao vivo](../operations/live-capture.md), olhando os desfechos **Suprimido** e **Amostrado para fora**.
+5. Se o descarte for intencional (controle de custo), acompanhe as métricas para garantir que ele não está pegando mais do que deveria.
 
 ### Uma regra aparece como "inalcançável"
 
@@ -239,5 +314,7 @@ Como reforço, o roteamento **bloqueia automaticamente** o envio quando a regiã
 
 - **Criar sua primeira regra?** Vá a **Operação → Roteamento** e adicione uma nova regra.
 - **Entender os destinos?** Veja a [visão geral de destinos](./overview.md).
+- **Cortar volume e custo com segurança?** Veja [Reduzir volume e custo](./reducao-de-volume.md) — reúne todas as alavancas (descarte, supressão, amostragem, descarte do bruto) e a ordem recomendada de aplicá-las.
 - **Ver o caminho dos eventos de ponta a ponta?** Vá a **Operação → Fluxo de dados**.
+- **Conferir o desfecho real de cada evento?** Veja [Captura ao vivo](../operations/live-capture.md).
 - **Investigar eventos que ficaram retidos?** Veja [Quarentena e fila de reenvio](../operations/quarantine.md).
