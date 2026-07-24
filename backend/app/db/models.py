@@ -226,7 +226,7 @@ class Integration(Base):
     #
     # POR QUE o filtro é na COLETA e não só no roteamento: o teto por ciclo limita o
     # volume BRUTO puxado, mas o descarte por severidade acontece depois. Medido em
-    # jul/2026 no Wazuh do Zaffari: 2.906.255 de backlog, 97,6% descartados pela regra
+    # jul/2026 num coletor Wazuh: 2.906.255 de backlog, 97,6% descartados pela regra
     # seguinte, cursor 15h atrás crescendo 32min/hora. O teto estava do lado errado do
     # funil. ATENÇÃO: o que é filtrado aqui NUNCA entra na plataforma — não aparece no
     # drift nem na captura ao vivo, e não fica disponível p/ uma rota futura.

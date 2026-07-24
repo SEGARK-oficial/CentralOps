@@ -507,7 +507,7 @@ async def run_collection_once(integration_id: int, stream: str) -> None:
     **Exclusão mútua por (integração, stream).** O agendador dispara na cadência
     do stream sem saber se o ciclo anterior terminou. Quando o ciclo passa a
     demorar mais que a cadência — que é justamente o que acontece sob backlog —
-    os runs se empilham. Medido em produção (jul/2026, Wazuh do Zaffari):
+    os runs se empilham. Medido em produção (jul/2026, coletor Wazuh):
     ``schedule=2min`` contra ciclos de ~3,7min produziam **2 a 3 workers lendo o
     MESMO cursor e buscando as MESMAS 10.000 linhas**, terminando com 34ms de
     diferença. O cursor avançava uma vez só; o resto era trabalho jogado fora

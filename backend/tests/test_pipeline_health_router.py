@@ -1008,7 +1008,7 @@ def test_determine_status_parametrized(
         # A ARMADILHA, nos dois sentidos: nenhum dos dois sinais escala sozinho.
         (False, 54_000, "healthy", "watermark 15h atrás SEM teto = stream sem eventos"),
         (True, 120, "healthy", "teto atingido mas em dia = pico absorvido"),
-        # Os dois juntos: é backlog. Forma do incidente jul/2026 (Wazuh Zaffari).
+        # Os dois juntos: é backlog. Forma do incidente jul/2026 (coletor Wazuh).
         (True, 54_000, "degraded", "teto + 15h atrás = backlog real"),
         # Limiar: 1800s exatos não ultrapassam; 1801 ultrapassa.
         (True, 1800, "healthy", "exatamente no limiar não escala"),

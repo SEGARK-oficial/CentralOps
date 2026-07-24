@@ -269,7 +269,7 @@ const WAZUH_INTEGRATION: Integration = {
   id: 42,
   organization_id: 10,
   organization_name: "Org A",
-  name: "Wazuh Zaffari",
+  name: "Wazuh Matriz",
   platform: "wazuh",
   is_active: true,
   is_authenticated: true,

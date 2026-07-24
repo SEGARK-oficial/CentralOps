@@ -51,8 +51,8 @@ class CollectionFilterField:
 
     **Por que existe.** O teto por ciclo (``_MAX_PAGES_PER_CYCLE``) limita o volume
     BRUTO puxado do fornecedor, mas o descarte por severidade acontece DEPOIS, no
-    roteamento. Medido em produção (jul/2026): 2.906.255 eventos de backlog no
-    Wazuh do Zaffari, **97,6% deles descartados pela regra seguinte** — o coletor
+    roteamento. Medido em produção (jul/2026): 2.906.255 eventos de backlog num
+    coletor Wazuh, **97,6% deles descartados pela regra seguinte** — o coletor
     gastava o orçamento inteiro transportando ruído e o cursor ficou 15h atrás,
     crescendo 32 min/hora. Empurrar o filtro para a consulta do fornecedor põe o
     teto do lado CERTO do funil.
