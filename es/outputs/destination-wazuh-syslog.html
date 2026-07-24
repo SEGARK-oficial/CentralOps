@@ -1,0 +1,230 @@
+<!doctype html><html lang=es dir=ltr class="docs-wrapper plugin-docs plugin-id-default docs-version-current docs-doc-page docs-doc-id-outputs/destination-wazuh-syslog" data-has-hydrated=false><head><meta charset=UTF-8><meta name=generator content="Docusaurus v3.10.0"><title data-rh=true>Destino: Syslog e JSONL | CentralOps</title><meta data-rh=true name=viewport content="width=device-width, initial-scale=1.0"/><meta data-rh=true name=twitter:card content=summary_large_image /><meta data-rh=true property=og:image content=https://docs.segark.com/es/img/centralops-social-card.png /><meta data-rh=true name=twitter:image content=https://docs.segark.com/es/img/centralops-social-card.png /><meta data-rh=true property=og:url content=https://docs.segark.com/es/outputs/destination-wazuh-syslog /><meta data-rh=true property=og:locale content=es /><meta data-rh=true property=og:locale:alternate content=pt_BR /><meta data-rh=true property=og:locale:alternate content=en /><meta data-rh=true name=docusaurus_locale content=es /><meta data-rh=true name=docsearch:language content=es /><meta data-rh=true name=docusaurus_version content=current /><meta data-rh=true name=docusaurus_tag content=docs-default-current /><meta data-rh=true name=docsearch:version content=current /><meta data-rh=true name=docsearch:docusaurus_tag content=docs-default-current /><meta data-rh=true property=og:title content="Destino: Syslog e JSONL | CentralOps"/><meta data-rh=true name=description content="Envie eventos como Syslog (RFC 3164/5424) para o Wazuh e SIEMs, ou grave em arquivo JSONL local como buffer durável."/><meta data-rh=true property=og:description content="Envie eventos como Syslog (RFC 3164/5424) para o Wazuh e SIEMs, ou grave em arquivo JSONL local como buffer durável."/><link data-rh=true rel=icon href=/es/img/favicon.ico /><link data-rh=true rel=canonical href=https://docs.segark.com/es/outputs/destination-wazuh-syslog /><link data-rh=true rel=alternate href=https://docs.segark.com/outputs/destination-wazuh-syslog hreflang=pt-BR /><link data-rh=true rel=alternate href=https://docs.segark.com/en/outputs/destination-wazuh-syslog hreflang=en /><link data-rh=true rel=alternate href=https://docs.segark.com/es/outputs/destination-wazuh-syslog hreflang=es /><link data-rh=true rel=alternate href=https://docs.segark.com/outputs/destination-wazuh-syslog hreflang=x-default /><script data-rh=true type=application/ld+json>{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","item":"https://docs.segark.com/es/outputs/destination-wazuh-syslog","name":"Destino: Syslog e JSONL","position":1}]}</script><link rel=stylesheet href=/es/assets/css/styles.65a61132.css /><script src=/es/assets/js/runtime~main.774ab3e5.js defer></script><script src=/es/assets/js/main.9750a519.js defer></script></head><body><svg style="display: none;"><defs>
+<symbol id=theme-svg-external-link viewBox="0 0 24 24"><path fill=currentColor d="M21 13v10h-21v-19h12v2h-10v15h17v-8h2zm3-12h-10.988l4.035 4-6.977 7.07 2.828 2.828 6.977-7.07 4.125 4.172v-11z"/></symbol>
+</defs></svg>
+<script>!function(){var t=function(){try{return new URLSearchParams(window.location.search).get("docusaurus-theme")}catch(t){}}()||function(){try{return window.localStorage.getItem("theme-4d2")}catch(t){}}();document.documentElement.setAttribute("data-theme",t||(window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light")),document.documentElement.setAttribute("data-theme-choice",t||"system")}(),function(){try{for(var[t,e]of new URLSearchParams(window.location.search).entries())if(t.startsWith("docusaurus-data-")){var a=t.replace("docusaurus-data-","data-");document.documentElement.setAttribute(a,e)}}catch(t){}}()</script><div id=__docusaurus><link rel=preload as=image href=/es/img/logo.svg /><div role=region aria-label="Saltar al contenido principal"><a class=skipToContent_fXgn href=#__docusaurus_skipToContent_fallback>Saltar al contenido principal</a></div><nav aria-label=Principal class="theme-layout-navbar navbar navbar--fixed-top"><div class=navbar__inner><div class="theme-layout-navbar-left navbar__items"><button aria-label="Alternar barra lateral" aria-expanded=false class="navbar__toggle clean-btn" type=button><svg width=30 height=30 viewBox="0 0 30 30" aria-hidden=true><path stroke=currentColor stroke-linecap=round stroke-miterlimit=10 stroke-width=2 d="M4 7h22M4 15h22M4 23h22"/></svg></button><a class=navbar__brand href=/es/><div class=navbar__logo><img src=/es/img/logo.svg alt=CentralOps class="themedComponent_mlkZ themedComponent--light_NVdE"/><img src=/es/img/logo.svg alt=CentralOps class="themedComponent_mlkZ themedComponent--dark_xIcU"/></div><b class="navbar__title text--truncate">CentralOps</b></a><a class="navbar__item navbar__link" href=/es/>Empezar</a><a aria-current=page class="navbar__item navbar__link navbar__link--active" href=/es/outputs/overview>Salidas y Rutas</a><a class="navbar__item navbar__link" href=/es/operations/dashboard>Operación</a><a class="navbar__item navbar__link" href=/es/administration/users-and-roles>Administración</a><a class="navbar__item navbar__link" href=/es/normalization/overview>Mappings</a><a class="navbar__item navbar__link" href=/es/runbooks/dispatcher>Runbooks</a></div><div class="theme-layout-navbar-right navbar__items navbar__items--right"><div class="navbar__item dropdown dropdown--hoverable dropdown--right"><a href=# aria-haspopup=true aria-expanded=false role=button class=navbar__link><svg viewBox="0 0 24 24" width=20 height=20 aria-hidden=true class=iconLanguage_nlXk><path fill=currentColor d="M12.87 15.07l-2.54-2.51.03-.03c1.74-1.94 2.98-4.17 3.71-6.53H17V4h-7V2H8v2H1v1.99h11.17C11.5 7.92 10.44 9.75 9 11.35 8.07 10.32 7.3 9.19 6.69 8h-2c.73 1.63 1.73 3.17 2.98 4.56l-5.09 5.02L4 19l5-5 3.11 3.11.76-2.04zM18.5 10h-2L12 22h2l1.12-3h4.75L21 22h2l-4.5-12zm-2.62 7l1.62-4.33L19.12 17h-3.24z"/></svg>Español</a><ul class=dropdown__menu><li><a href=/outputs/destination-wazuh-syslog target=_self rel="noopener noreferrer" class=dropdown__link lang=pt-BR>Português</a><li><a href=/en/outputs/destination-wazuh-syslog target=_self rel="noopener noreferrer" class=dropdown__link lang=en>English</a><li><a href=/es/outputs/destination-wazuh-syslog target=_self rel="noopener noreferrer" class="dropdown__link dropdown__link--active" lang=es>Español</a></ul></div><div class="toggle_vylO colorModeToggle_DEke"><button class="clean-btn toggleButton_gllP toggleButtonDisabled_aARS" type=button disabled title="system mode" aria-label="Cambiar entre modo oscuro y claro (actualmente system mode)"><svg viewBox="0 0 24 24" width=24 height=24 aria-hidden=true class="toggleIcon_g3eP lightToggleIcon_pyhR"><path fill=currentColor d="M12,9c1.65,0,3,1.35,3,3s-1.35,3-3,3s-3-1.35-3-3S10.35,9,12,9 M12,7c-2.76,0-5,2.24-5,5s2.24,5,5,5s5-2.24,5-5 S14.76,7,12,7L12,7z M2,13l2,0c0.55,0,1-0.45,1-1s-0.45-1-1-1l-2,0c-0.55,0-1,0.45-1,1S1.45,13,2,13z M20,13l2,0c0.55,0,1-0.45,1-1 s-0.45-1-1-1l-2,0c-0.55,0-1,0.45-1,1S19.45,13,20,13z M11,2v2c0,0.55,0.45,1,1,1s1-0.45,1-1V2c0-0.55-0.45-1-1-1S11,1.45,11,2z M11,20v2c0,0.55,0.45,1,1,1s1-0.45,1-1v-2c0-0.55-0.45-1-1-1C11.45,19,11,19.45,11,20z M5.99,4.58c-0.39-0.39-1.03-0.39-1.41,0 c-0.39,0.39-0.39,1.03,0,1.41l1.06,1.06c0.39,0.39,1.03,0.39,1.41,0s0.39-1.03,0-1.41L5.99,4.58z M18.36,16.95 c-0.39-0.39-1.03-0.39-1.41,0c-0.39,0.39-0.39,1.03,0,1.41l1.06,1.06c0.39,0.39,1.03,0.39,1.41,0c0.39-0.39,0.39-1.03,0-1.41 L18.36,16.95z M19.42,5.99c0.39-0.39,0.39-1.03,0-1.41c-0.39-0.39-1.03-0.39-1.41,0l-1.06,1.06c-0.39,0.39-0.39,1.03,0,1.41 s1.03,0.39,1.41,0L19.42,5.99z M7.05,18.36c0.39-0.39,0.39-1.03,0-1.41c-0.39-0.39-1.03-0.39-1.41,0l-1.06,1.06 c-0.39,0.39-0.39,1.03,0,1.41s1.03,0.39,1.41,0L7.05,18.36z"/></svg><svg viewBox="0 0 24 24" width=24 height=24 aria-hidden=true class="toggleIcon_g3eP darkToggleIcon_wfgR"><path fill=currentColor d="M9.37,5.51C9.19,6.15,9.1,6.82,9.1,7.5c0,4.08,3.32,7.4,7.4,7.4c0.68,0,1.35-0.09,1.99-0.27C17.45,17.19,14.93,19,12,19 c-3.86,0-7-3.14-7-7C5,9.07,6.81,6.55,9.37,5.51z M12,3c-4.97,0-9,4.03-9,9s4.03,9,9,9s9-4.03,9-9c0-0.46-0.04-0.92-0.1-1.36 c-0.98,1.37-2.58,2.26-4.4,2.26c-2.98,0-5.4-2.42-5.4-5.4c0-1.81,0.89-3.42,2.26-4.4C12.92,3.04,12.46,3,12,3L12,3z"/></svg><svg viewBox="0 0 24 24" width=24 height=24 aria-hidden=true class="toggleIcon_g3eP systemToggleIcon_QzmC"><path fill=currentColor d="m12 21c4.971 0 9-4.029 9-9s-4.029-9-9-9-9 4.029-9 9 4.029 9 9 9zm4.95-13.95c1.313 1.313 2.05 3.093 2.05 4.95s-0.738 3.637-2.05 4.95c-1.313 1.313-3.093 2.05-4.95 2.05v-14c1.857 0 3.637 0.737 4.95 2.05z"/></svg></button></div><div class=navbarSearchContainer_Bca1><div class=navbar__search><span aria-label="expand searchbar" role=button class=search-icon tabindex=0></span><input id=search_input_react type=search placeholder=Loading... aria-label=Search class="navbar__search-input search-bar" disabled/></div></div></div></div><div role=presentation class=navbar-sidebar__backdrop></div></nav><div id=__docusaurus_skipToContent_fallback class="theme-layout-main main-wrapper mainWrapper_z2l0"><div class=docsWrapper_hBAB><button aria-label="Volver al principio" class="clean-btn theme-back-to-top-button backToTopButton_sjWU" type=button></button><div class=docRoot_UBD9><aside class="theme-doc-sidebar-container docSidebarContainer_YfHR"><div class=sidebarViewport_aRkj><div class=sidebar_njMd><nav aria-label="Barra lateral de Documentos" class="menu thin-scrollbar menu_SIkG"><ul class="theme-doc-sidebar-menu menu__list"><li class="theme-doc-sidebar-item-category theme-doc-sidebar-item-category-level-1 menu__list-item"><div class=menu__list-item-collapsible><a class="categoryLink_byQd menu__link menu__link--sublist menu__link--sublist-caret menu__link--active" role=button aria-expanded=true href=/es/outputs/overview><span title="Salidas y enrutamiento" class=categoryLinkLabel_W154>Salidas y enrutamiento</span></a></div><ul class=menu__list><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/es/outputs/overview><span title="Saídas e Roteamento (visão geral)" class=linkLabel_WmDU>Saídas e Roteamento (visão geral)</span></a><li class="theme-doc-sidebar-item-category theme-doc-sidebar-item-category-level-2 menu__list-item"><div class=menu__list-item-collapsible><a class="categoryLink_byQd menu__link menu__link--sublist menu__link--sublist-caret menu__link--active" role=button aria-expanded=true tabindex=0 href=/es/outputs/destinations><span title=Destinos class=categoryLinkLabel_W154>Destinos</span></a></div><ul class=menu__list><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class=menu__link tabindex=0 href=/es/outputs/destinations><span title="Destinos (catálogo e como configurar)" class=linkLabel_WmDU>Destinos (catálogo e como configurar)</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class="menu__link menu__link--active" aria-current=page tabindex=0 href=/es/outputs/destination-wazuh-syslog><span title="Destino: Syslog e JSONL" class=linkLabel_WmDU>Destino: Syslog e JSONL</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class=menu__link tabindex=0 href=/es/outputs/destination-splunk-hec><span title="Destino: Splunk HEC" class=linkLabel_WmDU>Destino: Splunk HEC</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class=menu__link tabindex=0 href=/es/outputs/destination-elastic><span title="Destino: Elasticsearch / OpenSearch" class=linkLabel_WmDU>Destino: Elasticsearch / OpenSearch</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class=menu__link tabindex=0 href=/es/outputs/destination-clickhouse><span title="Destino: ClickHouse" class=linkLabel_WmDU>Destino: ClickHouse</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class=menu__link tabindex=0 href=/es/outputs/destination-crowdstrike-ngsiem><span title="Destino: CrowdStrike Falcon Next-Gen SIEM" class=linkLabel_WmDU>Destino: CrowdStrike Falcon Next-Gen SIEM</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class=menu__link tabindex=0 href=/es/outputs/destination-crowdstrike-logscale><span title="Destino: CrowdStrike Falcon LogScale" class=linkLabel_WmDU>Destino: CrowdStrike Falcon LogScale</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class=menu__link tabindex=0 href=/es/outputs/destination-s3><span title="Destino: S3 / Object Store (data lake)" class=linkLabel_WmDU>Destino: S3 / Object Store (data lake)</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class=menu__link tabindex=0 href=/es/outputs/destination-sentinel><span title="Destino: Microsoft Sentinel" class=linkLabel_WmDU>Destino: Microsoft Sentinel</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class=menu__link tabindex=0 href=/es/outputs/destination-kafka><span title="Destino: Apache Kafka" class=linkLabel_WmDU>Destino: Apache Kafka</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class=menu__link tabindex=0 href=/es/outputs/destination-otlp><span title="Destino: OTLP" class=linkLabel_WmDU>Destino: OTLP</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class=menu__link tabindex=0 href=/es/outputs/destination-operations><span title="Operar destinos (saúde, fila de reenvio, métricas)" class=linkLabel_WmDU>Operar destinos (saúde, fila de reenvio, métricas)</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class=menu__link tabindex=0 href=/es/outputs/destination-webhook><span title="Destino: Webhook Genérico" class=linkLabel_WmDU>Destino: Webhook Genérico</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class=menu__link tabindex=0 href=/es/outputs/destination-datadog><span title="Destino: Datadog Logs" class=linkLabel_WmDU>Destino: Datadog Logs</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class=menu__link tabindex=0 href=/es/outputs/destination-chronicle><span title="Destino: Google SecOps (Chronicle)" class=linkLabel_WmDU>Destino: Google SecOps (Chronicle)</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class=menu__link tabindex=0 href=/es/outputs/destination-security-lake><span title="Destino: Amazon Security Lake (OCSF Parquet)" class=linkLabel_WmDU>Destino: Amazon Security Lake (OCSF Parquet)</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class=menu__link tabindex=0 href=/es/outputs/adding-a-destination><span title="Destinos — catálogo e tipos disponíveis" class=linkLabel_WmDU>Destinos — catálogo e tipos disponíveis</span></a></ul><li class="theme-doc-sidebar-item-category theme-doc-sidebar-item-category-level-2 menu__list-item"><div class=menu__list-item-collapsible><a class="categoryLink_byQd menu__link menu__link--sublist menu__link--sublist-caret" role=button aria-expanded=true tabindex=0 href=/es/outputs/routing><span title=Enrutamiento class=categoryLinkLabel_W154>Enrutamiento</span></a></div><ul class=menu__list><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class=menu__link tabindex=0 href=/es/outputs/routing><span title="Roteamento por regra" class=linkLabel_WmDU>Roteamento por regra</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class=menu__link tabindex=0 href=/es/outputs/routing-canary><span title="Cutover gradual de SIEM (canary)" class=linkLabel_WmDU>Cutover gradual de SIEM (canary)</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class=menu__link tabindex=0 href=/es/outputs/routing-dry-run><span title="Testar rotas, ver o fluxo e reverter mudanças" class=linkLabel_WmDU>Testar rotas, ver o fluxo e reverter mudanças</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class=menu__link tabindex=0 href=/es/outputs/reducao-de-volume><span title="Redução de volume" class=linkLabel_WmDU>Redução de volume</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class=menu__link tabindex=0 href=/es/outputs/pii-redaction><span title="Redação de dados pessoais por rota (LGPD/GDPR)" class=linkLabel_WmDU>Redação de dados pessoais por rota (LGPD/GDPR)</span></a></ul><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/es/outputs/observability><span title="Observabilidade dos destinos" class=linkLabel_WmDU>Observabilidade dos destinos</span></a></ul></ul></nav></div></div></aside><main class=docMainContainer_TBSr><div class="container padding-top--md padding-bottom--lg"><div class=row><div class="col docItemCol_VOVn"><div class=docItemContainer_Djhp><article><nav class="theme-doc-breadcrumbs breadcrumbsContainer_Z_bl" aria-label="Rastro de navegación"><ul class=breadcrumbs><li class=breadcrumbs__item><a aria-label="Página de Inicio" class=breadcrumbs__link href=/es/><svg viewBox="0 0 24 24" class=breadcrumbHomeIcon_YNFT><path d="M10 19v-5h4v5c0 .55.45 1 1 1h3c.55 0 1-.45 1-1v-7h1.7c.46 0 .68-.57.33-.87L12.67 3.6c-.38-.34-.96-.34-1.34 0l-8.36 7.53c-.34.3-.13.87.33.87H5v7c0 .55.45 1 1 1h3c.55 0 1-.45 1-1z" fill=currentColor /></svg></a><li class=breadcrumbs__item><span class=breadcrumbs__link>Salidas y enrutamiento</span><li class=breadcrumbs__item><span class=breadcrumbs__link>Destinos</span><li class="breadcrumbs__item breadcrumbs__item--active"><span class=breadcrumbs__link>Destino: Syslog e JSONL</span></ul></nav><div class="tocCollapsible_ETCw theme-doc-toc-mobile tocMobile_ITEo"><button type=button class="clean-btn tocCollapsibleButton_TO0P">En esta página</button></div><div class="theme-doc-markdown markdown"><header><h1>Syslog e JSONL</h1></header>
+<p>O CentralOps pode entregar os eventos normalizados a um destino externo em formato <strong>Syslog</strong> (padrões RFC 3164 e RFC 5424) ou gravá-los em <strong>arquivo JSONL local</strong>. É assim que você integra a plataforma ao Wazuh, ao Graylog, ao QRadar, ao Splunk e a qualquer SIEM que receba syslog — ou mantém uma cópia local de tudo que passou pela plataforma.</p>
+<blockquote>
+<p><strong>Quem configura:</strong> apenas o administrador cria e edita destinos e rotas (menu <strong>Operação → Destinos</strong> e <strong>Operação → Roteamento</strong>). Qualquer analista ou engenheiro pode acompanhar o status da entrega em <strong>Normalização → Saúde do Pipeline</strong>.</p>
+</blockquote>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=quando-usar>Quando usar<a href=#quando-usar class=hash-link aria-label="Enlace directo al Quando usar" title="Enlace directo al Quando usar" translate=no>​</a></h2>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Cenário de SOC<th>Modo recomendado<tbody><tr><td>Você já usa o <strong>Wazuh</strong> como SIEM central e quer que os alertas de Sophos, Defender, AWS, etc. cheguem lá normalizados.<td><strong>Syslog RFC 3164</strong> — o Wazuh reconhece o JSON automaticamente.<tr><td>Seu time investiga no <strong>Graylog</strong> (ou Splunk Heavy Forwarder / QRadar) e quer aproveitar os campos estruturados do syslog moderno.<td><strong>Syslog RFC 5424</strong> — usa o bloco de dados estruturados.<tr><td>Você precisa de uma <strong>cópia durável</strong> de todos os eventos para auditoria, ou de um <em>fallback</em> caso o SIEM fique indisponível.<td><strong>Arquivo JSONL local</strong> — grava cada evento em disco, independente da rede.</table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=os-três-modos-de-entrega>Os três modos de entrega<a href=#os-três-modos-de-entrega class=hash-link aria-label="Enlace directo al Os três modos de entrega" title="Enlace directo al Os três modos de entrega" translate=no>​</a></h2>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Modo<th>Para onde vai<th>Quando escolher<tbody><tr><td><strong>Syslog RFC 3164</strong><td>Wazuh, QRadar, Splunk e SIEMs que aceitam syslog clássico.<td>É o caminho recomendado para <strong>Wazuh</strong>: o evento vai como JSON e é reconhecido automaticamente.<tr><td><strong>Syslog RFC 5424</strong><td>Graylog, Splunk Heavy Forwarder, QRadar.<td>Quando o destino sabe ler os <strong>dados estruturados</strong> do syslog moderno. Não é o ideal para Wazuh padrão.<tr><td><strong>Arquivo JSONL local</strong><td>Um arquivo no próprio servidor do CentralOps.<td>Buffer durável, auditoria, ou cópia paralela do que sai para o SIEM.</table>
+<p>Em todos os modos, cada evento já sai <strong>normalizado</strong> e acompanhado dos metadados internos que a plataforma adiciona (origem, integração e horário de coleta), para que o SIEM consiga filtrar e correlacionar. Quando a rota reduz volume, esse mesmo bloco traz os <strong>rótulos de redução</strong> descritos mais abaixo — eles valem para os três modos e mudam como o dado deve ser lido.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=syslog-rfc-3164-recomendado-para-wazuh>Syslog RFC 3164 (recomendado para Wazuh)<a href=#syslog-rfc-3164-recomendado-para-wazuh class=hash-link aria-label="Enlace directo al Syslog RFC 3164 (recomendado para Wazuh)" title="Enlace directo al Syslog RFC 3164 (recomendado para Wazuh)" translate=no>​</a></h2>
+<p>É o formato clássico de syslog. O evento viaja como JSON completo, e o Wazuh, na configuração padrão, reconhece esse JSON sozinho.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=como-configurar>Como configurar<a href=#como-configurar class=hash-link aria-label="Enlace directo al Como configurar" title="Enlace directo al Como configurar" translate=no>​</a></h3>
+<ol>
+<li class="">
+<p>Abra o menu <strong>Operação → Destinos</strong>.</p>
+</li>
+<li class="">
+<p>Adicione um novo destino e escolha o tipo <strong>Syslog RFC 3164</strong>.</p>
+</li>
+<li class="">
+<p>Preencha os campos de conexão:</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Campo<th>O que informar<tbody><tr><td><strong>Host</strong><td>O endereço do seu receptor syslog (ex.: o servidor do Wazuh).<tr><td><strong>Porta</strong><td>A porta em que o receptor escuta (514 é o padrão de syslog).<tr><td><strong>Usar TLS</strong><td>Ative para criptografar a conexão. Recomendado sempre que o destino suportar.</table>
+</li>
+<li class="">
+<p>Use a ação de <strong>testar a conexão</strong> na própria tela. Se o teste passar, salve o destino.</p>
+</li>
+<li class="">
+<p>Vá em <strong>Operação → Roteamento</strong> e crie uma rota que envie os eventos desejados para esse destino.</p>
+</li>
+</ol>
+<blockquote>
+<p><strong>Sobre o certificado (TLS):</strong> se o seu SIEM usa um certificado público (Let's Encrypt, DigiCert, etc.), não é preciso fazer nada além de ativar o TLS. Se ele usa um certificado interno/próprio, o CentralOps precisa confiar na autoridade certificadora (CA) dele. <strong>Essa CA é instalada na plataforma pela equipe de infraestrutura no momento do deploy.</strong> Se o teste de conexão acusar erro de certificado, fale com o administrador da plataforma para que a CA do seu SIEM seja adicionada.</p>
+</blockquote>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=o-que-o-wazuh-recebe>O que o Wazuh recebe<a href=#o-que-o-wazuh-recebe class=hash-link aria-label="Enlace directo al O que o Wazuh recebe" title="Enlace directo al O que o Wazuh recebe" translate=no>​</a></h3>
+<p>O Wazuh recebe o alerta como JSON e enxerga, além dos campos do evento, um bloco de <strong>metadados internos</strong> que a plataforma adiciona — com a integração de origem, a plataforma e o horário de coleta. Use esses campos no Wazuh para filtrar por origem (ex.: separar o que veio do Sophos do que veio do Defender).</p>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id=rótulos-de-redução--leia-antes-de-concluir-qualquer-coisa>Rótulos de redução — leia antes de concluir qualquer coisa<a href=#rótulos-de-redução--leia-antes-de-concluir-qualquer-coisa class=hash-link aria-label="Enlace directo al Rótulos de redução — leia antes de concluir qualquer coisa" title="Enlace directo al Rótulos de redução — leia antes de concluir qualquer coisa" translate=no>​</a></h4>
+<p>Se a rota que alimenta este destino tem redução de volume ligada (<strong>Operação → Roteamento</strong>), o mesmo bloco de metadados traz rótulos que <strong>mudam a leitura do dado</strong>:</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Rótulo<th>O que significa<th>O que fazer com ele<tbody><tr><td><code>_centralops.raw_dropped: true</code><td>O evento <strong>bruto do fornecedor foi removido por esta rota</strong>. O evento normalizado chegou íntegro; só a cópia original é que não veio.<td>Não abra chamado com o fornecedor por um campo ausente: fomos <strong>nós</strong> que cortamos, nesta entrega. Para ver o bruto, consulte outra rota que o preserve (o data lake, por exemplo) ou peça ao administrador para desligar o descarte nesta rota.<tr><td><code>_centralops.sample_rate</code><td>A <strong>fração dos eventos que esta rota entregou</strong> (<code>0.1</code> = 1 evento entregue a cada 10 que passaram). O rótulo só é carimbado quando a amostragem realmente atuou: numa rota com <strong>Proteger detecção</strong> ligada nada é amostrado, e o rótulo não vem.<td>Reescale qualquer contagem feita a partir daqui — divida pelo valor do rótulo (com <code>0.1</code>, multiplique por 10).</table>
+<p>Ignorar esses dois rótulos leva o analista à conclusão errada sobre o dado que está vendo: sem o <code>raw_dropped</code>, "o fornecedor parou de mandar esse campo"; sem o <code>sample_rate</code>, um painel de contagem mostra uma fração do volume real e um pico de atividade passa despercebido.</p>
+<blockquote>
+<p><strong>Os eventos não aparecem no Wazuh?</strong> Na configuração padrão, o Wazuh reconhece automaticamente os eventos em formato RFC 3164 enviados pelo CentralOps. Se mesmo assim eles não surgirem, peça ao administrador do Wazuh para confirmar que o reconhecimento de eventos em JSON está ativo no receptor.</p>
+</blockquote>
+<div class="theme-admonition theme-admonition-info admonition_xJq3 alert alert--info"><div class=admonitionHeading_Gvgb><span class=admonitionIcon_Rf37><svg viewBox="0 0 14 16"><path fill-rule=evenodd d="M7 2.3c3.14 0 5.7 2.56 5.7 5.7s-2.56 5.7-5.7 5.7A5.71 5.71 0 0 1 1.3 8c0-3.14 2.56-5.7 5.7-5.7zM7 1C3.14 1 0 4.14 0 8s3.14 7 7 7 7-3.14 7-7-3.14-7-7-7zm1 3H6v5h2V4zm0 6H6v2h2v-2z"/></svg></span>Anti-loop: Wazuh como fonte</div><div class=admonitionContent_BuS1><p>Se você coletou eventos <strong>de um Wazuh</strong> e está tentando roteá-los de volta <strong>para o mesmo Wazuh</strong> via destino syslog, eles serão <strong>suprimidos</strong> para evitar um loop infinito (evento coletado → reenviado → recoletado). Essa supressão é registrada em log como <code>loop_blocked</code>. Se você quiser reenviá-los a outro Wazuh, use um endereço de network diferente para cada um. Para mais detalhes, veja a documentação de <a class="" href=/es/integrations/wazuh>Wazuh</a>.</div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=syslog-rfc-5424-graylog-splunk-qradar>Syslog RFC 5424 (Graylog, Splunk, QRadar)<a href=#syslog-rfc-5424-graylog-splunk-qradar class=hash-link aria-label="Enlace directo al Syslog RFC 5424 (Graylog, Splunk, QRadar)" title="Enlace directo al Syslog RFC 5424 (Graylog, Splunk, QRadar)" translate=no>​</a></h2>
+<p>É o formato de syslog moderno, com um bloco de <strong>dados estruturados</strong> que destinos como o Graylog sabem extrair em campos próprios.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=como-configurar-1>Como configurar<a href=#como-configurar-1 class=hash-link aria-label="Enlace directo al Como configurar" title="Enlace directo al Como configurar" translate=no>​</a></h3>
+<p>O passo a passo é o mesmo do RFC 3164 — em <strong>Operação → Destinos</strong>, escolha o tipo <strong>Syslog RFC 5424</strong> e informe <strong>Host</strong>, <strong>Porta</strong> e <strong>Usar TLS</strong>. Depois crie a rota em <strong>Operação → Roteamento</strong>.</p>
+<blockquote>
+<p><strong>Não use RFC 5424 para Wazuh padrão.</strong> O Wazuh, na configuração comum, não lê o JSON quando ele vem nesse formato. Para Wazuh, prefira o <strong>RFC 3164</strong>.</p>
+</blockquote>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=arquivo-jsonl-local>Arquivo JSONL local<a href=#arquivo-jsonl-local class=hash-link aria-label="Enlace directo al Arquivo JSONL local" title="Enlace directo al Arquivo JSONL local" translate=no>​</a></h2>
+<p>Neste modo, cada evento é gravado como uma linha de JSON em um arquivo no próprio servidor do CentralOps, com um arquivo novo a cada dia. Serve como buffer durável e cópia de auditoria.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=como-configurar-2>Como configurar<a href=#como-configurar-2 class=hash-link aria-label="Enlace directo al Como configurar" title="Enlace directo al Como configurar" translate=no>​</a></h3>
+<ol>
+<li class="">Em <strong>Operação → Destinos</strong>, adicione um destino do tipo <strong>Arquivo JSONL (local)</strong>.</li>
+<li class="">Crie a rota correspondente em <strong>Operação → Roteamento</strong>.</li>
+</ol>
+<blockquote>
+<p><strong>Onde os arquivos ficam e por quanto tempo:</strong> a pasta de gravação e a política de retenção/limpeza dos arquivos JSONL são definidas pela equipe de infraestrutura no momento do deploy. Se precisar mudar o local, o período de retenção ou a compactação dos arquivos, fale com o administrador da plataforma.</p>
+</blockquote>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=para-que-serve>Para que serve<a href=#para-que-serve class=hash-link aria-label="Enlace directo al Para que serve" title="Enlace directo al Para que serve" translate=no>​</a></h3>
+<ul>
+<li class=""><strong>Buffer durável:</strong> os eventos são gravados em disco, independente de o SIEM estar acessível.</li>
+<li class=""><strong>Fallback:</strong> se o syslog cair, os eventos se acumulam localmente em vez de se perderem.</li>
+<li class=""><strong>Auditoria:</strong> você mantém uma cópia local de tudo que passou pela plataforma.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=acompanhar-a-entrega>Acompanhar a entrega<a href=#acompanhar-a-entrega class=hash-link aria-label="Enlace directo al Acompanhar a entrega" title="Enlace directo al Acompanhar a entrega" translate=no>​</a></h2>
+<p>Qualquer usuário pode verificar se os eventos estão saindo, sem precisar de acesso de administrador.</p>
+<ol>
+<li class="">Abra o menu <strong>Normalização → Saúde do Pipeline</strong>.</li>
+<li class="">Localize o destino ou a rota que você quer acompanhar.</li>
+<li class="">Observe o indicador de status:
+<ul>
+<li class=""><strong>Verde / saudável</strong> — os eventos estão sendo entregues normalmente.</li>
+<li class=""><strong>Vermelho / com erro</strong> — passe o mouse sobre o indicador para ver a mensagem do erro (por exemplo, falha de conexão ou de certificado).</li>
+</ul>
+</li>
+</ol>
+<p>Nessa tela você também acompanha o volume de eventos, a latência e a quantidade de eventos ainda em espera para envio.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=resolução-de-problemas>Resolução de problemas<a href=#resolução-de-problemas class=hash-link aria-label="Enlace directo al Resolução de problemas" title="Enlace directo al Resolução de problemas" translate=no>​</a></h2>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Sintoma<th>O que verificar<tbody><tr><td><strong>O teste de conexão falha.</strong><td>Confirme <strong>Host</strong> e <strong>Porta</strong> na tela do destino (<strong>Operação → Destinos</strong>). Se o destino estiver em outra rede, o acesso de rede entre a plataforma e o SIEM é responsabilidade da equipe de infraestrutura — fale com o administrador.<tr><td><strong>Erro de certificado no teste de conexão.</strong><td>O CentralOps não confia na autoridade certificadora do seu SIEM. Peça ao administrador da plataforma para adicionar a CA do destino. Veja a nota sobre certificado na seção do RFC 3164.<tr><td><strong>O teste passa, mas os eventos não chegam ao SIEM.</strong><td>Em <strong>Operação → Roteamento</strong>, confira se a rota não está com um filtro restritivo demais (por exemplo, filtrando só severidade "crítica" e descartando o resto). Em <strong>Normalização → Saúde do Pipeline</strong>, confirme que o destino está saudável e que há eventos saindo.<tr><td><strong>Os eventos chegam ao Wazuh, mas em formato inesperado.</strong><td>Confirme que a rota está usando <strong>Syslog RFC 3164</strong> (e não 5424). Se ainda assim o Wazuh não reconhecer o conteúdo, peça ao administrador do Wazuh para verificar o reconhecimento de eventos em JSON no receptor.<tr><td><strong>Espera de envio acumulando.</strong><td>Em <strong>Normalização → Saúde do Pipeline</strong>, um número alto de eventos em espera costuma indicar que o destino está lento ou indisponível. Verifique o status do destino e a mensagem de erro no indicador.</table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=casos-de-uso>Casos de uso<a href=#casos-de-uso class=hash-link aria-label="Enlace directo al Casos de uso" title="Enlace directo al Casos de uso" translate=no>​</a></h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=centralizar-várias-plataformas-no-wazuh>Centralizar várias plataformas no Wazuh<a href=#centralizar-várias-plataformas-no-wazuh class=hash-link aria-label="Enlace directo al Centralizar várias plataformas no Wazuh" title="Enlace directo al Centralizar várias plataformas no Wazuh" translate=no>​</a></h3>
+<p>Crie uma rota por plataforma de origem, todas apontando para o destino <strong>Syslog RFC 3164</strong> do Wazuh:</p>
+<ul>
+<li class="">Eventos do Sophos → Syslog RFC 3164 (Wazuh)</li>
+<li class="">Eventos do Defender → Syslog RFC 3164 (Wazuh)</li>
+<li class="">Eventos da AWS → Syslog RFC 3164 (Wazuh)</li>
+</ul>
+<p>Todos chegam ao Wazuh já normalizados e com os metadados de origem, o que permite filtrar por plataforma diretamente lá.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=enviar-em-paralelo-para-wazuh-e-graylog>Enviar em paralelo para Wazuh e Graylog<a href=#enviar-em-paralelo-para-wazuh-e-graylog class=hash-link aria-label="Enlace directo al Enviar em paralelo para Wazuh e Graylog" title="Enlace directo al Enviar em paralelo para Wazuh e Graylog" translate=no>​</a></h3>
+<p>Use o <strong>envio simultâneo a vários destinos</strong> com filtros diferentes por rota:</p>
+<ul>
+<li class="">Severidade alta/crítica → Syslog RFC 3164 (Wazuh)</li>
+<li class="">Severidade média ou acima → Syslog RFC 5424 (Graylog)</li>
+</ul>
+<p>Assim o Wazuh recebe o que é prioritário e o Graylog guarda uma visão mais granular para investigação e auditoria.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=buffer-local-com-fallback-de-syslog>Buffer local com fallback de syslog<a href=#buffer-local-com-fallback-de-syslog class=hash-link aria-label="Enlace directo al Buffer local com fallback de syslog" title="Enlace directo al Buffer local com fallback de syslog" translate=no>​</a></h3>
+<p>Crie duas rotas para os mesmos eventos:</p>
+<ul>
+<li class="">Todos os eventos → Arquivo JSONL local</li>
+<li class="">Todos os eventos → Syslog RFC 3164 (Wazuh)</li>
+</ul>
+<p>O arquivo JSONL funciona como cache durável: se o syslog ficar indisponível, os eventos continuam preservados localmente.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=próximos-passos>Próximos passos<a href=#próximos-passos class=hash-link aria-label="Enlace directo al Próximos passos" title="Enlace directo al Próximos passos" translate=no>​</a></h2>
+<ul>
+<li class=""><strong>Criar a rota de entrega:</strong> menu <strong>Operação → Roteamento</strong>.</li>
+<li class=""><strong>Ajustar como os campos são mapeados:</strong> menu <strong>Normalização → Mappings</strong>.</li>
+<li class=""><strong>Acompanhar a saúde da entrega:</strong> menu <strong>Normalização → Saúde do Pipeline</strong>.</li>
+</ul></div></article><nav class="docusaurus-mt-lg pagination-nav" aria-label="Página del documento"><a class="pagination-nav__link pagination-nav__link--prev" href=/es/outputs/destinations><div class=pagination-nav__sublabel>Anterior</div><div class=pagination-nav__label>Destinos (catálogo e como configurar)</div></a><a class="pagination-nav__link pagination-nav__link--next" href=/es/outputs/destination-splunk-hec><div class=pagination-nav__sublabel>Siguiente</div><div class=pagination-nav__label>Destino: Splunk HEC</div></a></nav></div></div><div class="col col--3"><div class="tableOfContents_bqdL thin-scrollbar theme-doc-toc-desktop"><ul class="table-of-contents table-of-contents__left-border"><li><a href=#quando-usar class="table-of-contents__link toc-highlight">Quando usar</a><li><a href=#os-três-modos-de-entrega class="table-of-contents__link toc-highlight">Os três modos de entrega</a><li><a href=#syslog-rfc-3164-recomendado-para-wazuh class="table-of-contents__link toc-highlight">Syslog RFC 3164 (recomendado para Wazuh)</a><ul><li><a href=#como-configurar class="table-of-contents__link toc-highlight">Como configurar</a><li><a href=#o-que-o-wazuh-recebe class="table-of-contents__link toc-highlight">O que o Wazuh recebe</a></ul><li><a href=#syslog-rfc-5424-graylog-splunk-qradar class="table-of-contents__link toc-highlight">Syslog RFC 5424 (Graylog, Splunk, QRadar)</a><ul><li><a href=#como-configurar-1 class="table-of-contents__link toc-highlight">Como configurar</a></ul><li><a href=#arquivo-jsonl-local class="table-of-contents__link toc-highlight">Arquivo JSONL local</a><ul><li><a href=#como-configurar-2 class="table-of-contents__link toc-highlight">Como configurar</a><li><a href=#para-que-serve class="table-of-contents__link toc-highlight">Para que serve</a></ul><li><a href=#acompanhar-a-entrega class="table-of-contents__link toc-highlight">Acompanhar a entrega</a><li><a href=#resolução-de-problemas class="table-of-contents__link toc-highlight">Resolução de problemas</a><li><a href=#casos-de-uso class="table-of-contents__link toc-highlight">Casos de uso</a><ul><li><a href=#centralizar-várias-plataformas-no-wazuh class="table-of-contents__link toc-highlight">Centralizar várias plataformas no Wazuh</a><li><a href=#enviar-em-paralelo-para-wazuh-e-graylog class="table-of-contents__link toc-highlight">Enviar em paralelo para Wazuh e Graylog</a><li><a href=#buffer-local-com-fallback-de-syslog class="table-of-contents__link toc-highlight">Buffer local com fallback de syslog</a></ul><li><a href=#próximos-passos class="table-of-contents__link toc-highlight">Próximos passos</a></ul></div></div></div></div></main></div></div></div><footer class="theme-layout-footer footer footer--dark"><div class="container container-fluid"><div class="row footer__links"><div class="theme-layout-footer-column col footer__col"><div class=footer__title>Documentação</div><ul class="footer__items clean-list"><li class=footer__item><a class=footer__link-item href=/es/getting-started/overview>Começar</a><li class=footer__item><a class=footer__link-item href=/es/operations/dashboard>Operação diária</a><li class=footer__item><a class=footer__link-item href=/es/normalization/overview>Mappings (CML)</a><li class=footer__item><a class=footer__link-item href=/es/runbooks/dispatcher>Runbooks</a></ul></div><div class="theme-layout-footer-column col footer__col"><div class=footer__title>Plataforma</div><ul class="footer__items clean-list"><li class=footer__item><a class=footer__link-item href=/es/concepts/architecture>Arquitetura</a><li class=footer__item><a class=footer__link-item href=/es/concepts/rbac>RBAC</a><li class=footer__item><a class=footer__link-item href=/es/integrations/overview>Integrações</a><li class=footer__item><a class=footer__link-item href=/es/compliance/retention>Compliance</a></ul></div><div class="theme-layout-footer-column col footer__col"><div class=footer__title>Recursos</div><ul class="footer__items clean-list"><li class=footer__item><a class=footer__link-item href=/es/getting-started/quickstart>Quickstart</a><li class=footer__item><a class=footer__link-item href=/es/normalization/cookbook>DSL Cookbook</a><li class=footer__item><a class=footer__link-item href=/es/normalization/troubleshooting>Troubleshooting</a></ul></div></div><div class="footer__bottom text--center"><div class=footer__copyright>Copyright © 2026 CentralOps. Built with Docusaurus.</div></div></div></footer></div></body>

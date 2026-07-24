@@ -1,0 +1,195 @@
+<!doctype html><html lang=es dir=ltr class="docs-wrapper plugin-docs plugin-id-default docs-version-current docs-doc-page docs-doc-id-integrations/windows-event-log" data-has-hydrated=false><head><meta charset=UTF-8><meta name=generator content="Docusaurus v3.10.0"><title data-rh=true>Windows Event Log (WEC) | CentralOps</title><meta data-rh=true name=viewport content="width=device-width, initial-scale=1.0"/><meta data-rh=true name=twitter:card content=summary_large_image /><meta data-rh=true property=og:image content=https://docs.segark.com/es/img/centralops-social-card.png /><meta data-rh=true name=twitter:image content=https://docs.segark.com/es/img/centralops-social-card.png /><meta data-rh=true property=og:url content=https://docs.segark.com/es/integrations/windows-event-log /><meta data-rh=true property=og:locale content=es /><meta data-rh=true property=og:locale:alternate content=pt_BR /><meta data-rh=true property=og:locale:alternate content=en /><meta data-rh=true name=docusaurus_locale content=es /><meta data-rh=true name=docsearch:language content=es /><meta data-rh=true name=docusaurus_version content=current /><meta data-rh=true name=docusaurus_tag content=docs-default-current /><meta data-rh=true name=docsearch:version content=current /><meta data-rh=true name=docsearch:docusaurus_tag content=docs-default-current /><meta data-rh=true property=og:title content="Windows Event Log (WEC) | CentralOps"/><meta data-rh=true name=description content="Colete eventos de segurança via Windows Event Forwarding (WEF) e Windows Event Collector (WEC)"/><meta data-rh=true property=og:description content="Colete eventos de segurança via Windows Event Forwarding (WEF) e Windows Event Collector (WEC)"/><link data-rh=true rel=icon href=/es/img/favicon.ico /><link data-rh=true rel=canonical href=https://docs.segark.com/es/integrations/windows-event-log /><link data-rh=true rel=alternate href=https://docs.segark.com/integrations/windows-event-log hreflang=pt-BR /><link data-rh=true rel=alternate href=https://docs.segark.com/en/integrations/windows-event-log hreflang=en /><link data-rh=true rel=alternate href=https://docs.segark.com/es/integrations/windows-event-log hreflang=es /><link data-rh=true rel=alternate href=https://docs.segark.com/integrations/windows-event-log hreflang=x-default /><script data-rh=true type=application/ld+json>{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","item":"https://docs.segark.com/es/integrations/windows-event-log","name":"Windows Event Log (WEC)","position":1}]}</script><link rel=stylesheet href=/es/assets/css/styles.65a61132.css /><script src=/es/assets/js/runtime~main.774ab3e5.js defer></script><script src=/es/assets/js/main.9750a519.js defer></script></head><body><svg style="display: none;"><defs>
+<symbol id=theme-svg-external-link viewBox="0 0 24 24"><path fill=currentColor d="M21 13v10h-21v-19h12v2h-10v15h17v-8h2zm3-12h-10.988l4.035 4-6.977 7.07 2.828 2.828 6.977-7.07 4.125 4.172v-11z"/></symbol>
+</defs></svg>
+<script>!function(){var t=function(){try{return new URLSearchParams(window.location.search).get("docusaurus-theme")}catch(t){}}()||function(){try{return window.localStorage.getItem("theme-4d2")}catch(t){}}();document.documentElement.setAttribute("data-theme",t||(window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light")),document.documentElement.setAttribute("data-theme-choice",t||"system")}(),function(){try{for(var[t,e]of new URLSearchParams(window.location.search).entries())if(t.startsWith("docusaurus-data-")){var a=t.replace("docusaurus-data-","data-");document.documentElement.setAttribute(a,e)}}catch(t){}}()</script><div id=__docusaurus><link rel=preload as=image href=/es/img/logo.svg /><div role=region aria-label="Saltar al contenido principal"><a class=skipToContent_fXgn href=#__docusaurus_skipToContent_fallback>Saltar al contenido principal</a></div><nav aria-label=Principal class="theme-layout-navbar navbar navbar--fixed-top"><div class=navbar__inner><div class="theme-layout-navbar-left navbar__items"><button aria-label="Alternar barra lateral" aria-expanded=false class="navbar__toggle clean-btn" type=button><svg width=30 height=30 viewBox="0 0 30 30" aria-hidden=true><path stroke=currentColor stroke-linecap=round stroke-miterlimit=10 stroke-width=2 d="M4 7h22M4 15h22M4 23h22"/></svg></button><a class=navbar__brand href=/es/><div class=navbar__logo><img src=/es/img/logo.svg alt=CentralOps class="themedComponent_mlkZ themedComponent--light_NVdE"/><img src=/es/img/logo.svg alt=CentralOps class="themedComponent_mlkZ themedComponent--dark_xIcU"/></div><b class="navbar__title text--truncate">CentralOps</b></a><a class="navbar__item navbar__link" href=/es/>Empezar</a><a class="navbar__item navbar__link" href=/es/outputs/overview>Salidas y Rutas</a><a class="navbar__item navbar__link" href=/es/operations/dashboard>Operación</a><a aria-current=page class="navbar__item navbar__link navbar__link--active" href=/es/administration/users-and-roles>Administración</a><a class="navbar__item navbar__link" href=/es/normalization/overview>Mappings</a><a class="navbar__item navbar__link" href=/es/runbooks/dispatcher>Runbooks</a></div><div class="theme-layout-navbar-right navbar__items navbar__items--right"><div class="navbar__item dropdown dropdown--hoverable dropdown--right"><a href=# aria-haspopup=true aria-expanded=false role=button class=navbar__link><svg viewBox="0 0 24 24" width=20 height=20 aria-hidden=true class=iconLanguage_nlXk><path fill=currentColor d="M12.87 15.07l-2.54-2.51.03-.03c1.74-1.94 2.98-4.17 3.71-6.53H17V4h-7V2H8v2H1v1.99h11.17C11.5 7.92 10.44 9.75 9 11.35 8.07 10.32 7.3 9.19 6.69 8h-2c.73 1.63 1.73 3.17 2.98 4.56l-5.09 5.02L4 19l5-5 3.11 3.11.76-2.04zM18.5 10h-2L12 22h2l1.12-3h4.75L21 22h2l-4.5-12zm-2.62 7l1.62-4.33L19.12 17h-3.24z"/></svg>Español</a><ul class=dropdown__menu><li><a href=/integrations/windows-event-log target=_self rel="noopener noreferrer" class=dropdown__link lang=pt-BR>Português</a><li><a href=/en/integrations/windows-event-log target=_self rel="noopener noreferrer" class=dropdown__link lang=en>English</a><li><a href=/es/integrations/windows-event-log target=_self rel="noopener noreferrer" class="dropdown__link dropdown__link--active" lang=es>Español</a></ul></div><div class="toggle_vylO colorModeToggle_DEke"><button class="clean-btn toggleButton_gllP toggleButtonDisabled_aARS" type=button disabled title="system mode" aria-label="Cambiar entre modo oscuro y claro (actualmente system mode)"><svg viewBox="0 0 24 24" width=24 height=24 aria-hidden=true class="toggleIcon_g3eP lightToggleIcon_pyhR"><path fill=currentColor d="M12,9c1.65,0,3,1.35,3,3s-1.35,3-3,3s-3-1.35-3-3S10.35,9,12,9 M12,7c-2.76,0-5,2.24-5,5s2.24,5,5,5s5-2.24,5-5 S14.76,7,12,7L12,7z M2,13l2,0c0.55,0,1-0.45,1-1s-0.45-1-1-1l-2,0c-0.55,0-1,0.45-1,1S1.45,13,2,13z M20,13l2,0c0.55,0,1-0.45,1-1 s-0.45-1-1-1l-2,0c-0.55,0-1,0.45-1,1S19.45,13,20,13z M11,2v2c0,0.55,0.45,1,1,1s1-0.45,1-1V2c0-0.55-0.45-1-1-1S11,1.45,11,2z M11,20v2c0,0.55,0.45,1,1,1s1-0.45,1-1v-2c0-0.55-0.45-1-1-1C11.45,19,11,19.45,11,20z M5.99,4.58c-0.39-0.39-1.03-0.39-1.41,0 c-0.39,0.39-0.39,1.03,0,1.41l1.06,1.06c0.39,0.39,1.03,0.39,1.41,0s0.39-1.03,0-1.41L5.99,4.58z M18.36,16.95 c-0.39-0.39-1.03-0.39-1.41,0c-0.39,0.39-0.39,1.03,0,1.41l1.06,1.06c0.39,0.39,1.03,0.39,1.41,0c0.39-0.39,0.39-1.03,0-1.41 L18.36,16.95z M19.42,5.99c0.39-0.39,0.39-1.03,0-1.41c-0.39-0.39-1.03-0.39-1.41,0l-1.06,1.06c-0.39,0.39-0.39,1.03,0,1.41 s1.03,0.39,1.41,0L19.42,5.99z M7.05,18.36c0.39-0.39,0.39-1.03,0-1.41c-0.39-0.39-1.03-0.39-1.41,0l-1.06,1.06 c-0.39,0.39-0.39,1.03,0,1.41s1.03,0.39,1.41,0L7.05,18.36z"/></svg><svg viewBox="0 0 24 24" width=24 height=24 aria-hidden=true class="toggleIcon_g3eP darkToggleIcon_wfgR"><path fill=currentColor d="M9.37,5.51C9.19,6.15,9.1,6.82,9.1,7.5c0,4.08,3.32,7.4,7.4,7.4c0.68,0,1.35-0.09,1.99-0.27C17.45,17.19,14.93,19,12,19 c-3.86,0-7-3.14-7-7C5,9.07,6.81,6.55,9.37,5.51z M12,3c-4.97,0-9,4.03-9,9s4.03,9,9,9s9-4.03,9-9c0-0.46-0.04-0.92-0.1-1.36 c-0.98,1.37-2.58,2.26-4.4,2.26c-2.98,0-5.4-2.42-5.4-5.4c0-1.81,0.89-3.42,2.26-4.4C12.92,3.04,12.46,3,12,3L12,3z"/></svg><svg viewBox="0 0 24 24" width=24 height=24 aria-hidden=true class="toggleIcon_g3eP systemToggleIcon_QzmC"><path fill=currentColor d="m12 21c4.971 0 9-4.029 9-9s-4.029-9-9-9-9 4.029-9 9 4.029 9 9 9zm4.95-13.95c1.313 1.313 2.05 3.093 2.05 4.95s-0.738 3.637-2.05 4.95c-1.313 1.313-3.093 2.05-4.95 2.05v-14c1.857 0 3.637 0.737 4.95 2.05z"/></svg></button></div><div class=navbarSearchContainer_Bca1><div class=navbar__search><span aria-label="expand searchbar" role=button class=search-icon tabindex=0></span><input id=search_input_react type=search placeholder=Loading... aria-label=Search class="navbar__search-input search-bar" disabled/></div></div></div></div><div role=presentation class=navbar-sidebar__backdrop></div></nav><div id=__docusaurus_skipToContent_fallback class="theme-layout-main main-wrapper mainWrapper_z2l0"><div class=docsWrapper_hBAB><button aria-label="Volver al principio" class="clean-btn theme-back-to-top-button backToTopButton_sjWU" type=button></button><div class=docRoot_UBD9><aside class="theme-doc-sidebar-container docSidebarContainer_YfHR"><div class=sidebarViewport_aRkj><div class=sidebar_njMd><nav aria-label="Barra lateral de Documentos" class="menu thin-scrollbar menu_SIkG"><ul class="theme-doc-sidebar-menu menu__list"><li class="theme-doc-sidebar-item-category theme-doc-sidebar-item-category-level-1 menu__list-item"><div class=menu__list-item-collapsible><a class="categoryLink_byQd menu__link menu__link--sublist menu__link--sublist-caret" role=button aria-expanded=true href=/es/administration/users-and-roles><span title=Administración class=categoryLinkLabel_W154>Administración</span></a></div><ul class=menu__list><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/es/administration/users-and-roles><span title="Usuários e papéis" class=linkLabel_WmDU>Usuários e papéis</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/es/administration/sso-entra><span title="SSO com Microsoft Entra ID" class=linkLabel_WmDU>SSO com Microsoft Entra ID</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/es/administration/organizations><span title=Organizações class=linkLabel_WmDU>Organizações</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/es/administration/tenant-hierarchy><span title="Hierarquia de tenants e MSP" class=linkLabel_WmDU>Hierarquia de tenants e MSP</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/es/administration/platform-config><span title="Configuração da plataforma" class=linkLabel_WmDU>Configuração da plataforma</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/es/administration/secrets-and-master-key><span title="Credenciais e segredos das integrações" class=linkLabel_WmDU>Credenciais e segredos das integrações</span></a></ul><li class="theme-doc-sidebar-item-category theme-doc-sidebar-item-category-level-1 menu__list-item"><div class=menu__list-item-collapsible><a class="categoryLink_byQd menu__link menu__link--sublist menu__link--sublist-caret menu__link--active" role=button aria-expanded=true href=/es/integrations/overview><span title=Integraciones class=categoryLinkLabel_W154>Integraciones</span></a></div><ul class=menu__list><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/es/integrations/overview><span title="Visão geral de integrações" class=linkLabel_WmDU>Visão geral de integrações</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/es/integrations/sophos><span title="Sophos Central" class=linkLabel_WmDU>Sophos Central</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/es/integrations/wazuh><span title=Wazuh class=linkLabel_WmDU>Wazuh</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/es/integrations/crowdstrike><span title="CrowdStrike Falcon" class=linkLabel_WmDU>CrowdStrike Falcon</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/es/integrations/microsoft-defender><span title="Microsoft Defender" class=linkLabel_WmDU>Microsoft Defender</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/es/integrations/dfir-iris><span title=DFIR-IRIS class=linkLabel_WmDU>DFIR-IRIS</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/es/integrations/push-ingestion><span title="Ingestão push (edge-collector)" class=linkLabel_WmDU>Ingestão push (edge-collector)</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/es/integrations/fortinet-fortigate><span title="Fortinet FortiGate" class=linkLabel_WmDU>Fortinet FortiGate</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class="menu__link menu__link--active" aria-current=page tabindex=0 href=/es/integrations/windows-event-log><span title="Windows Event Log (WEC)" class=linkLabel_WmDU>Windows Event Log (WEC)</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/es/integrations/adding-new-vendor><span title="Vendors suportados e como solicitar um novo" class=linkLabel_WmDU>Vendors suportados e como solicitar um novo</span></a></ul></ul></nav></div></div></aside><main class=docMainContainer_TBSr><div class="container padding-top--md padding-bottom--lg"><div class=row><div class="col docItemCol_VOVn"><div class=docItemContainer_Djhp><article><nav class="theme-doc-breadcrumbs breadcrumbsContainer_Z_bl" aria-label="Rastro de navegación"><ul class=breadcrumbs><li class=breadcrumbs__item><a aria-label="Página de Inicio" class=breadcrumbs__link href=/es/><svg viewBox="0 0 24 24" class=breadcrumbHomeIcon_YNFT><path d="M10 19v-5h4v5c0 .55.45 1 1 1h3c.55 0 1-.45 1-1v-7h1.7c.46 0 .68-.57.33-.87L12.67 3.6c-.38-.34-.96-.34-1.34 0l-8.36 7.53c-.34.3-.13.87.33.87H5v7c0 .55.45 1 1 1h3c.55 0 1-.45 1-1z" fill=currentColor /></svg></a><li class=breadcrumbs__item><span class=breadcrumbs__link>Integraciones</span><li class="breadcrumbs__item breadcrumbs__item--active"><span class=breadcrumbs__link>Windows Event Log (WEC)</span></ul></nav><div class="tocCollapsible_ETCw theme-doc-toc-mobile tocMobile_ITEo"><button type=button class="clean-btn tocCollapsibleButton_TO0P">En esta página</button></div><div class="theme-doc-markdown markdown"><header><h1>Windows Event Log (WEC)</h1></header>
+<p>O Windows Event Log é uma <strong>fonte PUSH</strong> que coleta eventos de segurança nativamente pelo mecanismo de Windows Event Forwarding (WEF) e Windows Event Collector (WEC). Os eventos são normalizados para o formato OCSF Authentication e chegam ao CentralOps através de um endpoint dedicado.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=quando-usar>Quando usar<a href=#quando-usar class=hash-link aria-label="Enlace directo al Quando usar" title="Enlace directo al Quando usar" translate=no>​</a></h2>
+<ul>
+<li class=""><strong>Monitorar logons e falhas de autenticação.</strong> Centralize os eventos de segurança do Windows (logons bem-sucedidos e rejeitados, IDs de evento 4624 e 4625) em um único painel.</li>
+<li class=""><strong>Investigar acesso a recursos.</strong> Cruze eventos de logon com a timeline de operações suspeitas detectadas em outras fontes (CrowdStrike, Wazuh, Sophos).</li>
+<li class=""><strong>Atender compliance.</strong> Mantenha um registro imutável de quem acessou qual máquina e quando, para auditoria.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=quem-pode-fazer-o-quê>Quem pode fazer o quê<a href=#quem-pode-fazer-o-quê class=hash-link aria-label="Enlace directo al Quem pode fazer o quê" title="Enlace directo al Quem pode fazer o quê" translate=no>​</a></h2>
+<ul>
+<li class=""><strong>Administrador da plataforma:</strong> cria a integração (menu <strong>Visão geral -> Integrações</strong>) e emite tokens de ingestão.</li>
+<li class=""><strong>Administrador de infraestrutura Windows:</strong> configura o WEF/WEC no Active Directory e instala o Fluent Bit no servidor coletor.</li>
+<li class=""><strong>Operador ou superior:</strong> visualiza os eventos (menu <strong>Operação -> Investigações</strong>).</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=arquitetura-wef--wec--fluent-bit--centralops>Arquitetura: WEF → WEC → Fluent Bit → CentralOps<a href=#arquitetura-wef--wec--fluent-bit--centralops class=hash-link aria-label="Enlace directo al Arquitetura: WEF → WEC → Fluent Bit → CentralOps" title="Enlace directo al Arquitetura: WEF → WEC → Fluent Bit → CentralOps" translate=no>​</a></h2>
+<p>Os endpoints encaminham seus Security logs para um servidor Windows Event Collector (WEC) central por meio de Windows Event Forwarding (WEF), configurado por Group Policy. No servidor WEC, o <strong>Fluent Bit</strong> lê os eventos do canal <code>ForwardedEvents</code> e os envia via HTTP POST para o endpoint de ingestão do CentralOps, autenticado com um token Bearer.</p>
+<p><strong>Fluxo:</strong></p>
+<ol>
+<li class="">Endpoint → WEC (via WEF/GPO)</li>
+<li class="">WEC local → Fluent Bit (input winevtlog)</li>
+<li class="">Fluent Bit → CentralOps (output http com Authorization Bearer)</li>
+</ol>
+<p>Você pode usar também <strong>NXLog</strong> como alternativa (input im_msvistalog → output om_http).</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=passo-1-criar-a-integração-no-centralops>Passo 1: Criar a integração no CentralOps<a href=#passo-1-criar-a-integração-no-centralops class=hash-link aria-label="Enlace directo al Passo 1: Criar a integração no CentralOps" title="Enlace directo al Passo 1: Criar a integração no CentralOps" translate=no>​</a></h2>
+<ol>
+<li class="">No menu lateral, vá em <strong>Visão geral -> Integrações</strong>.</li>
+<li class="">Clique para adicionar uma nova integração.</li>
+<li class="">Escolha <strong>Windows Event Log (WEC)</strong> na lista.</li>
+<li class="">Preencha o nome (por exemplo, "Windows Security - Datacenter 01") e salve.</li>
+</ol>
+<div class="theme-admonition theme-admonition-note admonition_xJq3 alert alert--secondary"><div class=admonitionHeading_Gvgb><span class=admonitionIcon_Rf37><svg viewBox="0 0 14 16"><path fill-rule=evenodd d="M6.3 5.69a.942.942 0 0 1-.28-.7c0-.28.09-.52.28-.7.19-.18.42-.28.7-.28.28 0 .52.09.7.28.18.19.28.42.28.7 0 .28-.09.52-.28.7a1 1 0 0 1-.7.3c-.28 0-.52-.11-.7-.3zM8 7.99c-.02-.25-.11-.48-.31-.69-.2-.19-.42-.3-.69-.31H6c-.27.02-.48.13-.69.31-.2.2-.3.44-.31.69h1v3c.02.27.11.5.31.69.2.2.42.31.69.31h1c.27 0 .48-.11.69-.31.2-.19.3-.42.31-.69H8V7.98v.01zM7 2.3c-3.14 0-5.7 2.54-5.7 5.68 0 3.14 2.56 5.7 5.7 5.7s5.7-2.55 5.7-5.7c0-3.15-2.56-5.69-5.7-5.69v.01zM7 .98c3.86 0 7 3.14 7 7s-3.14 7-7 7-7-3.12-7-7 3.14-7 7-7z"/></svg></span>Sem credenciais</div><div class=admonitionContent_BuS1><p>A integração Windows Event Log não pede cliente/senha — é uma ingestão PUSH, então o servidor coletor é que faz o envio. Você apenas emite um token no próximo passo.</div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=passo-2-emitir-o-token-de-ingestão>Passo 2: Emitir o token de ingestão<a href=#passo-2-emitir-o-token-de-ingestão class=hash-link aria-label="Enlace directo al Passo 2: Emitir o token de ingestão" title="Enlace directo al Passo 2: Emitir o token de ingestão" translate=no>​</a></h2>
+<p>Após salvar a integração:</p>
+<ol>
+<li class="">Abra a aba <strong>Ingestão push</strong> na tela da integração.</li>
+<li class="">Clique em <strong>Emitir novo token</strong> ou veja o token já gerado.</li>
+<li class="">Copie o token e a URI de ingestão — você precisará deles para configurar o Fluent Bit.</li>
+</ol>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Informação<th>Onde usar<tbody><tr><td><strong>URI</strong><td>Variável <code>uri</code> na config do Fluent Bit (ex.: <code>https://sua-url/api/ingest/security</code>)<tr><td><strong>Token Bearer</strong><td>Variável <code>auth_token</code> na config do Fluent Bit</table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=passo-3-configurar-windows-event-forwarding-wef>Passo 3: Configurar Windows Event Forwarding (WEF)<a href=#passo-3-configurar-windows-event-forwarding-wef class=hash-link aria-label="Enlace directo al Passo 3: Configurar Windows Event Forwarding (WEF)" title="Enlace directo al Passo 3: Configurar Windows Event Forwarding (WEF)" translate=no>​</a></h2>
+<p>Essas etapas são feitas no seu ambiente Windows/Active Directory.</p>
+<ol>
+<li class="">
+<p><strong>No domínio:</strong> crie uma Group Policy para encaminhar Security logs de todos os endpoints para o seu WEC.</p>
+<ul>
+<li class="">Escopo: <code>Computer Configuration > Policies > Administrative Templates > Windows Components > Event Forwarding</code>.</li>
+<li class="">Configure uma assinatura apontando para o servidor WEC.</li>
+</ul>
+</li>
+<li class="">
+<p><strong>No servidor WEC:</strong> confirme que o serviço <strong>Windows Event Collector</strong> está rodando (geralmente já vem habilitado).</p>
+</li>
+<li class="">
+<p><strong>Crie uma nova assinatura</strong> na máquina WEC:</p>
+<ul>
+<li class="">Execute <code>wecutil.exe</code> (ou use o Gerenciador de Eventos graficamente).</li>
+<li class="">Nova assinatura → Configure os computadores de origem.</li>
+<li class="">Canais de interesse: <code>Security</code> e <code>ForwardedEvents</code>.</li>
+</ul>
+</li>
+</ol>
+<p>Após a configuração, os eventos de segurança de todos os endpoints começam a chegar no canal <code>ForwardedEvents</code> do WEC.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=passo-4-instalar-e-configurar-fluent-bit-no-wec>Passo 4: Instalar e configurar Fluent Bit no WEC<a href=#passo-4-instalar-e-configurar-fluent-bit-no-wec class=hash-link aria-label="Enlace directo al Passo 4: Instalar e configurar Fluent Bit no WEC" title="Enlace directo al Passo 4: Instalar e configurar Fluent Bit no WEC" translate=no>​</a></h2>
+<ol>
+<li class=""><strong>Baixe o Fluent Bit</strong> para Windows desde <a href=https://fluentbit.io/download/ target=_blank rel="noopener noreferrer" class="">fluentbit.io</a>.</li>
+<li class=""><strong>Substitua ou use a config fornecida</strong> em <code>compose/edge/fluent-bit-windows-wec.conf</code>:</li>
+</ol>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style=--prism-color:#393A34;--prism-background-color:#f6f8fa><div class=codeBlockContent_QJqH><pre tabindex=0 class="prism-code language-text codeBlock_bY9V thin-scrollbar" style=color:#393A34;background-color:#f6f8fa><code class=codeBlockLines_e6Vv><div class=token-line style=color:#393A34><span class="token plain">[SERVICE]</span><br/></div><div class=token-line style=color:#393A34><span class="token plain">    Flush        5</span><br/></div><div class=token-line style=color:#393A34><span class="token plain">    Log_Level    info</span><br/></div><div class=token-line style=color:#393A34><span class="token plain">    Parsers_File parsers.conf</span><br/></div><div class=token-line style=color:#393A34><span class="token plain" style=display:inline-block></span><br/></div><div class=token-line style=color:#393A34><span class="token plain">[INPUT]</span><br/></div><div class=token-line style=color:#393A34><span class="token plain">    Name              winevtlog</span><br/></div><div class=token-line style=color:#393A34><span class="token plain">    Channels          ForwardedEvents,Security</span><br/></div><div class=token-line style=color:#393A34><span class="token plain">    Read_From_Tail    On</span><br/></div><div class=token-line style=color:#393A34><span class="token plain">    Tag               wec.*</span><br/></div><div class=token-line style=color:#393A34><span class="token plain" style=display:inline-block></span><br/></div><div class=token-line style=color:#393A34><span class="token plain">[OUTPUT]</span><br/></div><div class=token-line style=color:#393A34><span class="token plain">    Name              http</span><br/></div><div class=token-line style=color:#393A34><span class="token plain">    Match             wec.*</span><br/></div><div class=token-line style=color:#393A34><span class="token plain">    Host              sua-url</span><br/></div><div class=token-line style=color:#393A34><span class="token plain">    Port              443</span><br/></div><div class=token-line style=color:#393A34><span class="token plain">    URI               /api/ingest/security</span><br/></div><div class=token-line style=color:#393A34><span class="token plain">    Header            Authorization Bearer seu-token-aqui</span><br/></div><div class=token-line style=color:#393A34><span class="token plain">    Format            json_lines</span><br/></div><div class=token-line style=color:#393A34><span class="token plain">    json_date_key     TimeCreated</span><br/></div><div class=token-line style=color:#393A34><span class="token plain">    compress          gzip</span><br/></div></code></pre></div></div>
+<ol start=3>
+<li class="">
+<p><strong>Substitua:</strong></p>
+<ul>
+<li class=""><code>sua-url</code> pela URL do CentralOps (ex.: <code>api.centralops.empresa.com</code>).</li>
+<li class=""><code>seu-token-aqui</code> pelo token emitido no Passo 2.</li>
+</ul>
+</li>
+<li class="">
+<p><strong>Inicie o Fluent Bit:</strong></p>
+<div class="language-powershell codeBlockContainer_Ckt0 theme-code-block" style=--prism-color:#393A34;--prism-background-color:#f6f8fa><div class=codeBlockContent_QJqH><pre tabindex=0 class="prism-code language-powershell codeBlock_bY9V thin-scrollbar" style=color:#393A34;background-color:#f6f8fa><code class=codeBlockLines_e6Vv><div class=token-line style=color:#393A34><span class="token plain">fluent-bit.exe -c fluent-bit-windows-wec.conf</span><br/></div></code></pre></div></div>
+</li>
+<li class="">
+<p><strong>Verifique</strong> que os eventos começam a aparecer na tela <strong>Operação -> Investigações</strong> do CentralOps em poucos minutos.</p>
+</li>
+</ol>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=o-que-é-coletado>O que é coletado<a href=#o-que-é-coletado class=hash-link aria-label="Enlace directo al O que é coletado" title="Enlace directo al O que é coletado" translate=no>​</a></h2>
+<p>Cada evento do Security log chega ao CentralOps com informações como:</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Campo<th>Exemplo<tbody><tr><td><strong>TimeCreated</strong><td>2026-06-26T10:15:30Z<tr><td><strong>Computer</strong><td>workstation-01.empresa.local<tr><td><strong>EventID</strong><td>4624 (logon bem-sucedido) ou 4625 (logon falhado)<tr><td><strong>Channel</strong><td>Security, ForwardedEvents<tr><td><strong>Provider</strong><td>Microsoft-Windows-Security-Auditing<tr><td><strong>TargetUserName</strong><td>EMPRESA\usuario<tr><td><strong>IpAddress</strong><td>192.168.1.100<tr><td><strong>LogonType</strong><td>2 (Interactive), 3 (Network), 5 (Service), etc.</table>
+<p>Os eventos são normalizados para <strong>OCSF Authentication</strong> e ficam pesquisáveis em <strong>Operação -> Investigações</strong>.</p>
+<div class="theme-admonition theme-admonition-info admonition_xJq3 alert alert--info"><div class=admonitionHeading_Gvgb><span class=admonitionIcon_Rf37><svg viewBox="0 0 14 16"><path fill-rule=evenodd d="M7 2.3c3.14 0 5.7 2.56 5.7 5.7s-2.56 5.7-5.7 5.7A5.71 5.71 0 0 1 1.3 8c0-3.14 2.56-5.7 5.7-5.7zM7 1C3.14 1 0 4.14 0 8s3.14 7 7 7 7-3.14 7-7-3.14-7-7-7zm1 3H6v5h2V4zm0 6H6v2h2v-2z"/></svg></span>Quarentena</div><div class=admonitionContent_BuS1><p>Se um evento chegar sem timestamp ou com campos faltando, ele será colocado em <strong>Normalização -> Quarentena</strong>. Revise e reprocesse se necessário.</div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=verificar-que-tudo-está-funcionando>Verificar que tudo está funcionando<a href=#verificar-que-tudo-está-funcionando class=hash-link aria-label="Enlace directo al Verificar que tudo está funcionando" title="Enlace directo al Verificar que tudo está funcionando" translate=no>​</a></h2>
+<ul>
+<li class=""><strong>Na tela de integração:</strong> abra <strong>Visão geral -> Integrações</strong>, selecione a integração Windows Event Log e veja o status da ingestão PUSH.</li>
+<li class=""><strong>Em Investigações:</strong> vá em <strong>Operação -> Investigações</strong> e filtre por eventos "Windows" ou "Security".</li>
+<li class=""><strong>Profundidade do buffer:</strong> na aba <strong>Ingestão push</strong>, o gráfico mostra quantos eventos estão na fila aguardando processamento. Deve cair gradualmente para zero.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=solução-de-problemas>Solução de problemas<a href=#solução-de-problemas class=hash-link aria-label="Enlace directo al Solução de problemas" title="Enlace directo al Solução de problemas" translate=no>​</a></h2>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Sintoma<th>Causa provável<th>O que fazer<tbody><tr><td>Erro 401 (não autorizado) ao enviar<td>Token incorreto ou expirado<td>Verifique no CentralOps se o token foi copiado integralmente. Se precisar, emita um novo na aba <strong>Ingestão push</strong>.<tr><td>Nenhum evento aparece<td>WEF não está ativo ou Fluent Bit não está rodando<td>Confirme que a assinatura WEF foi criada no WEC. Execute <code>wecutil.exe enum-subscription</code> para listar. Confirme que o Fluent Bit está rodando (verifique <code>tasklist | findstr fluent</code>).<tr><td>Eventos na quarentena<td>Campo TimeCreated ou outro obrigatório faltando<td>Abra <strong>Normalização -> Quarentena</strong>, revise o evento rejeitado e verifique se o Fluent Bit está formatando corretamente o JSON.<tr><td>Fluent Bit fecha logo após iniciar<td>Erro na config<td>Verifique a sintaxe da config. Rode <code>fluent-bit.exe -c sua-config.conf -v</code> para ver logs detalhados. Confira a seção <code>[OUTPUT]</code> de forma especial.</table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=próximos-passos>Próximos passos<a href=#próximos-passos class=hash-link aria-label="Enlace directo al Próximos passos" title="Enlace directo al Próximos passos" translate=no>​</a></h2>
+<ul>
+<li class=""><strong>Eventos aparecendo?</strong> Veja o <a class="" href=/es/operations/dashboard>Dashboard</a> ou <a class="" href=/es/operations/search>Investigações</a>.</li>
+<li class=""><strong>Algo na quarentena?</strong> Veja a <a class="" href=/es/operations/quarantine>Quarentena</a>.</li>
+<li class=""><strong>Quer correlacionar com outras fontes?</strong> Veja <a class="" href=/es/operations/correlation-rules>Regras de Correlação</a>.</li>
+<li class=""><strong>Adicionar outro fornecedor?</strong> Veja a <a class="" href=/es/integrations/overview>visão geral de Integrações</a>.</li>
+</ul></div></article><nav class="docusaurus-mt-lg pagination-nav" aria-label="Página del documento"><a class="pagination-nav__link pagination-nav__link--prev" href=/es/integrations/fortinet-fortigate><div class=pagination-nav__sublabel>Anterior</div><div class=pagination-nav__label>Fortinet FortiGate</div></a><a class="pagination-nav__link pagination-nav__link--next" href=/es/integrations/adding-new-vendor><div class=pagination-nav__sublabel>Siguiente</div><div class=pagination-nav__label>Vendors suportados e como solicitar um novo</div></a></nav></div></div><div class="col col--3"><div class="tableOfContents_bqdL thin-scrollbar theme-doc-toc-desktop"><ul class="table-of-contents table-of-contents__left-border"><li><a href=#quando-usar class="table-of-contents__link toc-highlight">Quando usar</a><li><a href=#quem-pode-fazer-o-quê class="table-of-contents__link toc-highlight">Quem pode fazer o quê</a><li><a href=#arquitetura-wef--wec--fluent-bit--centralops class="table-of-contents__link toc-highlight">Arquitetura: WEF → WEC → Fluent Bit → CentralOps</a><li><a href=#passo-1-criar-a-integração-no-centralops class="table-of-contents__link toc-highlight">Passo 1: Criar a integração no CentralOps</a><li><a href=#passo-2-emitir-o-token-de-ingestão class="table-of-contents__link toc-highlight">Passo 2: Emitir o token de ingestão</a><li><a href=#passo-3-configurar-windows-event-forwarding-wef class="table-of-contents__link toc-highlight">Passo 3: Configurar Windows Event Forwarding (WEF)</a><li><a href=#passo-4-instalar-e-configurar-fluent-bit-no-wec class="table-of-contents__link toc-highlight">Passo 4: Instalar e configurar Fluent Bit no WEC</a><li><a href=#o-que-é-coletado class="table-of-contents__link toc-highlight">O que é coletado</a><li><a href=#verificar-que-tudo-está-funcionando class="table-of-contents__link toc-highlight">Verificar que tudo está funcionando</a><li><a href=#solução-de-problemas class="table-of-contents__link toc-highlight">Solução de problemas</a><li><a href=#próximos-passos class="table-of-contents__link toc-highlight">Próximos passos</a></ul></div></div></div></div></main></div></div></div><footer class="theme-layout-footer footer footer--dark"><div class="container container-fluid"><div class="row footer__links"><div class="theme-layout-footer-column col footer__col"><div class=footer__title>Documentação</div><ul class="footer__items clean-list"><li class=footer__item><a class=footer__link-item href=/es/getting-started/overview>Começar</a><li class=footer__item><a class=footer__link-item href=/es/operations/dashboard>Operação diária</a><li class=footer__item><a class=footer__link-item href=/es/normalization/overview>Mappings (CML)</a><li class=footer__item><a class=footer__link-item href=/es/runbooks/dispatcher>Runbooks</a></ul></div><div class="theme-layout-footer-column col footer__col"><div class=footer__title>Plataforma</div><ul class="footer__items clean-list"><li class=footer__item><a class=footer__link-item href=/es/concepts/architecture>Arquitetura</a><li class=footer__item><a class=footer__link-item href=/es/concepts/rbac>RBAC</a><li class=footer__item><a class=footer__link-item href=/es/integrations/overview>Integrações</a><li class=footer__item><a class=footer__link-item href=/es/compliance/retention>Compliance</a></ul></div><div class="theme-layout-footer-column col footer__col"><div class=footer__title>Recursos</div><ul class="footer__items clean-list"><li class=footer__item><a class=footer__link-item href=/es/getting-started/quickstart>Quickstart</a><li class=footer__item><a class=footer__link-item href=/es/normalization/cookbook>DSL Cookbook</a><li class=footer__item><a class=footer__link-item href=/es/normalization/troubleshooting>Troubleshooting</a></ul></div></div><div class="footer__bottom text--center"><div class=footer__copyright>Copyright © 2026 CentralOps. Built with Docusaurus.</div></div></div></footer></div></body>

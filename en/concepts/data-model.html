@@ -1,0 +1,219 @@
+<!doctype html><html lang=en dir=ltr class="docs-wrapper plugin-docs plugin-id-default docs-version-current docs-doc-page docs-doc-id-concepts/data-model" data-has-hydrated=false><head><meta charset=UTF-8><meta name=generator content="Docusaurus v3.10.0"><title data-rh=true>Como os dados se organizam | CentralOps</title><meta data-rh=true name=viewport content="width=device-width, initial-scale=1.0"/><meta data-rh=true name=twitter:card content=summary_large_image /><meta data-rh=true property=og:image content=https://docs.segark.com/en/img/centralops-social-card.png /><meta data-rh=true name=twitter:image content=https://docs.segark.com/en/img/centralops-social-card.png /><meta data-rh=true property=og:url content=https://docs.segark.com/en/concepts/data-model /><meta data-rh=true property=og:locale content=en /><meta data-rh=true property=og:locale:alternate content=pt_BR /><meta data-rh=true property=og:locale:alternate content=es /><meta data-rh=true name=docusaurus_locale content=en /><meta data-rh=true name=docsearch:language content=en /><meta data-rh=true name=docusaurus_version content=current /><meta data-rh=true name=docusaurus_tag content=docs-default-current /><meta data-rh=true name=docsearch:version content=current /><meta data-rh=true name=docsearch:docusaurus_tag content=docs-default-current /><meta data-rh=true property=og:title content="Como os dados se organizam | CentralOps"/><meta data-rh=true name=description content="Os principais elementos que você manipula no CentralOps (organizações, integrações, destinos, eventos) e como eles se conectam."/><meta data-rh=true property=og:description content="Os principais elementos que você manipula no CentralOps (organizações, integrações, destinos, eventos) e como eles se conectam."/><link data-rh=true rel=icon href=/en/img/favicon.ico /><link data-rh=true rel=canonical href=https://docs.segark.com/en/concepts/data-model /><link data-rh=true rel=alternate href=https://docs.segark.com/concepts/data-model hreflang=pt-BR /><link data-rh=true rel=alternate href=https://docs.segark.com/en/concepts/data-model hreflang=en /><link data-rh=true rel=alternate href=https://docs.segark.com/es/concepts/data-model hreflang=es /><link data-rh=true rel=alternate href=https://docs.segark.com/concepts/data-model hreflang=x-default /><script data-rh=true type=application/ld+json>{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","item":"https://docs.segark.com/en/concepts/data-model","name":"Como os dados se organizam","position":1}]}</script><link rel=stylesheet href=/en/assets/css/styles.65a61132.css /><script src=/en/assets/js/runtime~main.3e1a07f1.js defer></script><script src=/en/assets/js/main.109b76da.js defer></script></head><body><svg style="display: none;"><defs>
+<symbol id=theme-svg-external-link viewBox="0 0 24 24"><path fill=currentColor d="M21 13v10h-21v-19h12v2h-10v15h17v-8h2zm3-12h-10.988l4.035 4-6.977 7.07 2.828 2.828 6.977-7.07 4.125 4.172v-11z"/></symbol>
+</defs></svg>
+<script>!function(){var t=function(){try{return new URLSearchParams(window.location.search).get("docusaurus-theme")}catch(t){}}()||function(){try{return window.localStorage.getItem("theme-797")}catch(t){}}();document.documentElement.setAttribute("data-theme",t||(window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light")),document.documentElement.setAttribute("data-theme-choice",t||"system")}(),function(){try{for(var[t,e]of new URLSearchParams(window.location.search).entries())if(t.startsWith("docusaurus-data-")){var a=t.replace("docusaurus-data-","data-");document.documentElement.setAttribute(a,e)}}catch(t){}}()</script><div id=__docusaurus><link rel=preload as=image href=/en/img/logo.svg /><div role=region aria-label="Skip to main content"><a class=skipToContent_fXgn href=#__docusaurus_skipToContent_fallback>Skip to main content</a></div><nav aria-label=Main class="theme-layout-navbar navbar navbar--fixed-top"><div class=navbar__inner><div class="theme-layout-navbar-left navbar__items"><button aria-label="Toggle navigation bar" aria-expanded=false class="navbar__toggle clean-btn" type=button><svg width=30 height=30 viewBox="0 0 30 30" aria-hidden=true><path stroke=currentColor stroke-linecap=round stroke-miterlimit=10 stroke-width=2 d="M4 7h22M4 15h22M4 23h22"/></svg></button><a class=navbar__brand href=/en/><div class=navbar__logo><img src=/en/img/logo.svg alt=CentralOps class="themedComponent_mlkZ themedComponent--light_NVdE"/><img src=/en/img/logo.svg alt=CentralOps class="themedComponent_mlkZ themedComponent--dark_xIcU"/></div><b class="navbar__title text--truncate">CentralOps</b></a><a aria-current=page class="navbar__item navbar__link navbar__link--active" href=/en/>Get started</a><a class="navbar__item navbar__link" href=/en/outputs/overview>Outputs & Routing</a><a class="navbar__item navbar__link" href=/en/operations/dashboard>Operations</a><a class="navbar__item navbar__link" href=/en/administration/users-and-roles>Administration</a><a class="navbar__item navbar__link" href=/en/normalization/overview>Mappings</a><a class="navbar__item navbar__link" href=/en/runbooks/dispatcher>Runbooks</a></div><div class="theme-layout-navbar-right navbar__items navbar__items--right"><div class="navbar__item dropdown dropdown--hoverable dropdown--right"><a href=# aria-haspopup=true aria-expanded=false role=button class=navbar__link><svg viewBox="0 0 24 24" width=20 height=20 aria-hidden=true class=iconLanguage_nlXk><path fill=currentColor d="M12.87 15.07l-2.54-2.51.03-.03c1.74-1.94 2.98-4.17 3.71-6.53H17V4h-7V2H8v2H1v1.99h11.17C11.5 7.92 10.44 9.75 9 11.35 8.07 10.32 7.3 9.19 6.69 8h-2c.73 1.63 1.73 3.17 2.98 4.56l-5.09 5.02L4 19l5-5 3.11 3.11.76-2.04zM18.5 10h-2L12 22h2l1.12-3h4.75L21 22h2l-4.5-12zm-2.62 7l1.62-4.33L19.12 17h-3.24z"/></svg>English</a><ul class=dropdown__menu><li><a href=/concepts/data-model target=_self rel="noopener noreferrer" class=dropdown__link lang=pt-BR>Português</a><li><a href=/en/concepts/data-model target=_self rel="noopener noreferrer" class="dropdown__link dropdown__link--active" lang=en>English</a><li><a href=/es/concepts/data-model target=_self rel="noopener noreferrer" class=dropdown__link lang=es>Español</a></ul></div><div class="toggle_vylO colorModeToggle_DEke"><button class="clean-btn toggleButton_gllP toggleButtonDisabled_aARS" type=button disabled title="system mode" aria-label="Switch between dark and light mode (currently system mode)"><svg viewBox="0 0 24 24" width=24 height=24 aria-hidden=true class="toggleIcon_g3eP lightToggleIcon_pyhR"><path fill=currentColor d="M12,9c1.65,0,3,1.35,3,3s-1.35,3-3,3s-3-1.35-3-3S10.35,9,12,9 M12,7c-2.76,0-5,2.24-5,5s2.24,5,5,5s5-2.24,5-5 S14.76,7,12,7L12,7z M2,13l2,0c0.55,0,1-0.45,1-1s-0.45-1-1-1l-2,0c-0.55,0-1,0.45-1,1S1.45,13,2,13z M20,13l2,0c0.55,0,1-0.45,1-1 s-0.45-1-1-1l-2,0c-0.55,0-1,0.45-1,1S19.45,13,20,13z M11,2v2c0,0.55,0.45,1,1,1s1-0.45,1-1V2c0-0.55-0.45-1-1-1S11,1.45,11,2z M11,20v2c0,0.55,0.45,1,1,1s1-0.45,1-1v-2c0-0.55-0.45-1-1-1C11.45,19,11,19.45,11,20z M5.99,4.58c-0.39-0.39-1.03-0.39-1.41,0 c-0.39,0.39-0.39,1.03,0,1.41l1.06,1.06c0.39,0.39,1.03,0.39,1.41,0s0.39-1.03,0-1.41L5.99,4.58z M18.36,16.95 c-0.39-0.39-1.03-0.39-1.41,0c-0.39,0.39-0.39,1.03,0,1.41l1.06,1.06c0.39,0.39,1.03,0.39,1.41,0c0.39-0.39,0.39-1.03,0-1.41 L18.36,16.95z M19.42,5.99c0.39-0.39,0.39-1.03,0-1.41c-0.39-0.39-1.03-0.39-1.41,0l-1.06,1.06c-0.39,0.39-0.39,1.03,0,1.41 s1.03,0.39,1.41,0L19.42,5.99z M7.05,18.36c0.39-0.39,0.39-1.03,0-1.41c-0.39-0.39-1.03-0.39-1.41,0l-1.06,1.06 c-0.39,0.39-0.39,1.03,0,1.41s1.03,0.39,1.41,0L7.05,18.36z"/></svg><svg viewBox="0 0 24 24" width=24 height=24 aria-hidden=true class="toggleIcon_g3eP darkToggleIcon_wfgR"><path fill=currentColor d="M9.37,5.51C9.19,6.15,9.1,6.82,9.1,7.5c0,4.08,3.32,7.4,7.4,7.4c0.68,0,1.35-0.09,1.99-0.27C17.45,17.19,14.93,19,12,19 c-3.86,0-7-3.14-7-7C5,9.07,6.81,6.55,9.37,5.51z M12,3c-4.97,0-9,4.03-9,9s4.03,9,9,9s9-4.03,9-9c0-0.46-0.04-0.92-0.1-1.36 c-0.98,1.37-2.58,2.26-4.4,2.26c-2.98,0-5.4-2.42-5.4-5.4c0-1.81,0.89-3.42,2.26-4.4C12.92,3.04,12.46,3,12,3L12,3z"/></svg><svg viewBox="0 0 24 24" width=24 height=24 aria-hidden=true class="toggleIcon_g3eP systemToggleIcon_QzmC"><path fill=currentColor d="m12 21c4.971 0 9-4.029 9-9s-4.029-9-9-9-9 4.029-9 9 4.029 9 9 9zm4.95-13.95c1.313 1.313 2.05 3.093 2.05 4.95s-0.738 3.637-2.05 4.95c-1.313 1.313-3.093 2.05-4.95 2.05v-14c1.857 0 3.637 0.737 4.95 2.05z"/></svg></button></div><div class=navbarSearchContainer_Bca1><div class=navbar__search><span aria-label="expand searchbar" role=button class=search-icon tabindex=0></span><input id=search_input_react type=search placeholder=Loading... aria-label=Search class="navbar__search-input search-bar" disabled/></div></div></div></div><div role=presentation class=navbar-sidebar__backdrop></div></nav><div id=__docusaurus_skipToContent_fallback class="theme-layout-main main-wrapper mainWrapper_z2l0"><div class=docsWrapper_hBAB><button aria-label="Scroll back to top" class="clean-btn theme-back-to-top-button backToTopButton_sjWU" type=button></button><div class=docRoot_UBD9><aside class="theme-doc-sidebar-container docSidebarContainer_YfHR"><div class=sidebarViewport_aRkj><div class=sidebar_njMd><nav aria-label="Docs sidebar" class="menu thin-scrollbar menu_SIkG"><ul class="theme-doc-sidebar-menu menu__list"><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-1 menu__list-item"><a class=menu__link href=/en/><span title=CentralOps class=linkLabel_WmDU>CentralOps</span></a><li class="theme-doc-sidebar-item-category theme-doc-sidebar-item-category-level-1 menu__list-item"><div class=menu__list-item-collapsible><a class="categoryLink_byQd menu__link menu__link--sublist menu__link--sublist-caret" role=button aria-expanded=true href=/en/getting-started/overview><span title="Get started" class=categoryLinkLabel_W154>Get started</span></a></div><ul class=menu__list><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/en/getting-started/overview><span title="Visão Geral" class=linkLabel_WmDU>Visão Geral</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/en/getting-started/first-login><span title="Primeiro Login" class=linkLabel_WmDU>Primeiro Login</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/en/getting-started/quickstart><span title="Quickstart — do evento ao destino em 15 minutos" class=linkLabel_WmDU>Quickstart — do evento ao destino em 15 minutos</span></a></ul><li class="theme-doc-sidebar-item-category theme-doc-sidebar-item-category-level-1 menu__list-item"><div class=menu__list-item-collapsible><a class="categoryLink_byQd menu__link menu__link--sublist menu__link--sublist-caret" role=button aria-expanded=true href=/en/deployment/docker-compose><span title="Installation & Deploy" class=categoryLinkLabel_W154>Installation & Deploy</span></a></div><ul class=menu__list><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/en/deployment/docker-compose><span title="Deploy with Docker Compose" class=linkLabel_WmDU>Deploy with Docker Compose</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/en/deployment/kubernetes><span title="Deploy with Kubernetes (Helm)" class=linkLabel_WmDU>Deploy with Kubernetes (Helm)</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/en/deployment/configuration><span title="Configuration (environment variables)" class=linkLabel_WmDU>Configuration (environment variables)</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/en/deployment/upgrading><span title="Upgrade to a newer version" class=linkLabel_WmDU>Upgrade to a newer version</span></a></ul><li class="theme-doc-sidebar-item-category theme-doc-sidebar-item-category-level-1 menu__list-item"><div class=menu__list-item-collapsible><a class="categoryLink_byQd menu__link menu__link--sublist menu__link--sublist-caret" role=button aria-expanded=true href=/en/editions/community-vs-enterprise><span title="Editions & Upgrade" class=categoryLinkLabel_W154>Editions & Upgrade</span></a></div><ul class=menu__list><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/en/editions/community-vs-enterprise><span title="Editions — Community vs Enterprise" class=linkLabel_WmDU>Editions — Community vs Enterprise</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/en/editions/upgrade><span title="Upgrade to Enterprise" class=linkLabel_WmDU>Upgrade to Enterprise</span></a></ul><li class="theme-doc-sidebar-item-category theme-doc-sidebar-item-category-level-1 menu__list-item"><div class=menu__list-item-collapsible><a class="categoryLink_byQd menu__link menu__link--sublist menu__link--sublist-caret menu__link--active" role=button aria-expanded=true href=/en/concepts/architecture><span title=Concepts class=categoryLinkLabel_W154>Concepts</span></a></div><ul class=menu__list><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/en/concepts/architecture><span title="Como o CentralOps funciona" class=linkLabel_WmDU>Como o CentralOps funciona</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/en/concepts/rbac><span title="RBAC (Controle de acesso)" class=linkLabel_WmDU>RBAC (Controle de acesso)</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class="menu__link menu__link--active" aria-current=page tabindex=0 href=/en/concepts/data-model><span title="Como os dados se organizam" class=linkLabel_WmDU>Como os dados se organizam</span></a></ul></ul></nav></div></div></aside><main class=docMainContainer_TBSr><div class="container padding-top--md padding-bottom--lg"><div class=row><div class="col docItemCol_VOVn"><div class=docItemContainer_Djhp><article><nav class="theme-doc-breadcrumbs breadcrumbsContainer_Z_bl" aria-label=Breadcrumbs><ul class=breadcrumbs><li class=breadcrumbs__item><a aria-label="Home page" class=breadcrumbs__link href=/en/><svg viewBox="0 0 24 24" class=breadcrumbHomeIcon_YNFT><path d="M10 19v-5h4v5c0 .55.45 1 1 1h3c.55 0 1-.45 1-1v-7h1.7c.46 0 .68-.57.33-.87L12.67 3.6c-.38-.34-.96-.34-1.34 0l-8.36 7.53c-.34.3-.13.87.33.87H5v7c0 .55.45 1 1 1h3c.55 0 1-.45 1-1z" fill=currentColor /></svg></a><li class=breadcrumbs__item><span class=breadcrumbs__link>Concepts</span><li class="breadcrumbs__item breadcrumbs__item--active"><span class=breadcrumbs__link>Como os dados se organizam</span></ul></nav><div class="tocCollapsible_ETCw theme-doc-toc-mobile tocMobile_ITEo"><button type=button class="clean-btn tocCollapsibleButton_TO0P">On this page</button></div><div class="theme-doc-markdown markdown"><header><h1>Como os dados se organizam</h1></header>
+<p>O CentralOps coleta eventos de segurança dos seus produtos (Sophos, Wazuh, Microsoft Defender e outros), padroniza esses eventos em um formato único, decide para onde cada um deve ir e entrega a vários destinos ao mesmo tempo. Esta página explica, em linguagem de produto, os principais elementos que você vê e manipula na interface — e onde encontrar cada um no menu lateral.</p>
+<p>Você não precisa saber nada sobre banco de dados para usar o CentralOps. O objetivo aqui é dar um mapa mental: o que é cada coisa, para que serve e em qual tela você mexe nela.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=quando-usar>Quando usar<a href=#quando-usar class=hash-link aria-label="Direct link to Quando usar" title="Direct link to Quando usar" translate=no>​</a></h2>
+<p>Consulte esta página quando:</p>
+<ul>
+<li class="">Você é novo na plataforma e quer entender os termos que aparecem nos menus (integração, destino, rota, mapping, quarentena, drift) antes de começar a operar.</li>
+<li class="">Um evento "sumiu" e você precisa saber por onde ele passa — da coleta na integração, pela normalização, até a entrega no destino — para descobrir em que etapa parou.</li>
+<li class="">Você vai planejar o atendimento de um novo cliente (cenário MSSP) e precisa entender como o isolamento por organização separa os dados de cada um.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=os-elementos-principais>Os elementos principais<a href=#os-elementos-principais class=hash-link aria-label="Direct link to Os elementos principais" title="Direct link to Os elementos principais" translate=no>​</a></h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=organização>Organização<a href=#organização class=hash-link aria-label="Direct link to Organização" title="Direct link to Organização" translate=no>​</a></h3>
+<p>Uma organização separa completamente os dados de cada cliente ou unidade. Quem opera dentro da organização A nunca enxerga dados da organização B, mesmo que ambas usem a mesma instalação do CentralOps.</p>
+<ul>
+<li class="">Em uma operação interna, normalmente há uma única organização.</li>
+<li class="">Em uma operação de MSSP (atendendo vários clientes), cria-se uma organização por cliente.</li>
+</ul>
+<p>Onde mexer: menu <strong>Visão geral -> Organizações</strong> (visível apenas para administradores). Ali o administrador cria, renomeia e gerencia as organizações.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=hierarquia-de-tenants>Hierarquia de tenants<a href=#hierarquia-de-tenants class=hash-link aria-label="Direct link to Hierarquia de tenants" title="Direct link to Hierarquia de tenants" translate=no>​</a></h3>
+<p>Quando você trabalha com múltiplos clientes, é possível organizar as organizações em uma hierarquia (árvore) para refletir relacionamentos comerciais — por exemplo, um reseller que atende vários clientes finais.</p>
+<p>Nessa hierarquia:</p>
+<ul>
+<li class="">Uma organização pode ser um <strong>cliente final</strong> (folha da árvore) ou um <strong>reseller</strong> (ramo que tem filhos). Um reseller é autorizado pelo administrador da plataforma para atender clientes próprios.</li>
+<li class="">Cada relação é <strong>unidirecional</strong>: uma organização tem um organizador pai (exceto a raiz), formando uma corrente hierárquica.</li>
+<li class="">Um <strong>reseller pode ter um teto de clientes</strong> — o número máximo de organizações filhas permitidas. Se não há limite, o reseller pode criar quantos clientes precisar.</li>
+<li class=""><strong>Papéis e permissões</strong> são atribuídos por organização e respeitam a hierarquia: um administrador de reseller enxerga sua própria organização e todos os clientes abaixo dela (sua subárvore), mas não enxerga organizações irmãs ou acima dela. Um cliente final (folha) é administrado localmente e não tem visibilidade sobre outras organizações.</li>
+</ul>
+<p>Essa separação hierárquica mantém os dados isolados mesmo dentro de uma árvore: cada organização permanece um container seguro de dados. O que muda é a <strong>visibilidade operacional</strong> — um reseller pode monitorar e gerenciar seus clientes de forma centralizada.</p>
+<p>Onde mexer: a hierarquia e os limites são gerenciados no menu <strong>Visão geral -> Organizações</strong> (somente administradores globais ou resellers com permissão).</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=integração>Integração<a href=#integração class=hash-link aria-label="Direct link to Integração" title="Direct link to Integração" translate=no>​</a></h3>
+<p>Uma integração é a conexão com um produto de origem — é por ela que o CentralOps coleta os eventos. Cada integração guarda as credenciais daquele produto e o estado da coleta (até onde já leu, qual foi a última execução, se está saudável).</p>
+<p>O que você vê em cada integração:</p>
+<ul>
+<li class="">O produto de origem (por exemplo, Sophos, Wazuh, Microsoft Defender).</li>
+<li class="">Se está ativa ou pausada.</li>
+<li class="">O status de saúde mais recente e o horário da última coleta.</li>
+</ul>
+<p>As credenciais ficam guardadas de forma criptografada. Você nunca vê senhas, tokens ou segredos em texto puro na interface.</p>
+<p>Onde mexer: menu <strong>Visão geral -> Integrações</strong>.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=destino>Destino<a href=#destino class=hash-link aria-label="Direct link to Destino" title="Direct link to Destino" translate=no>​</a></h3>
+<p>Um destino é um lugar para onde o CentralOps entrega os eventos já padronizados — por exemplo, um SIEM, um data lake ou um sistema externo. Você pode ter vários destinos por organização e enviar o mesmo evento simultaneamente para todos eles (envio simultâneo a vários destinos).</p>
+<p>Exemplos de destinos suportados:</p>
+<ul>
+<li class="">Wazuh (destino padrão de quem migrou da configuração antiga).</li>
+<li class="">Splunk.</li>
+<li class="">Elasticsearch.</li>
+<li class="">Armazenamento em nuvem (data lake).</li>
+<li class="">Microsoft Sentinel.</li>
+<li class="">Filas de mensageria.</li>
+<li class="">Coleta no padrão OpenTelemetry.</li>
+</ul>
+<p>Cada destino tem seu próprio histórico de alterações e uma trilha de auditoria: quem mudou o quê e quando. As credenciais de cada destino também ficam criptografadas e nunca aparecem em texto puro — nem na tela, nem no histórico de mudanças.</p>
+<p>Onde mexer: menu <strong>Operação -> Destinos</strong> (visível apenas para administradores).</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=rota-regra-de-roteamento>Rota (regra de roteamento)<a href=#rota-regra-de-roteamento class=hash-link aria-label="Direct link to Rota (regra de roteamento)" title="Direct link to Rota (regra de roteamento)" translate=no>​</a></h3>
+<p>Uma rota é a regra que decide quais destinos recebem cada evento. Você define uma condição (por exemplo, "eventos de severidade alta do Sophos") e quais destinos devem recebê-los.</p>
+<p>Como as rotas são avaliadas:</p>
+<ul>
+<li class="">Cada rota tem uma prioridade. As de prioridade menor são avaliadas primeiro.</li>
+<li class="">Uma rota pode encerrar a avaliação no primeiro acerto ou clonar o evento e continuar avaliando outras rotas (assim o mesmo evento chega a vários destinos).</li>
+<li class="">É possível liberar uma rota gradualmente para uma fração dos eventos, para testar antes de aplicá-la a tudo.</li>
+<li class="">Se nenhuma rota estiver ativa, todos os eventos caem em um destino de segurança padrão. Assim nada se perde silenciosamente.</li>
+</ul>
+<p>Onde mexer: menu <strong>Operação -> Roteamento</strong> (visível apenas para administradores). Para visualizar como os eventos estão fluindo da coleta até a entrega, use o menu <strong>Operação -> Fluxo de dados</strong> (também só para administradores).</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=mapping-mapeamento-de-campos>Mapping (mapeamento de campos)<a href=#mapping-mapeamento-de-campos class=hash-link aria-label="Direct link to Mapping (mapeamento de campos)" title="Direct link to Mapping (mapeamento de campos)" translate=no>​</a></h3>
+<p>Um mapping é a regra que traduz os campos de um produto de origem para o formato padronizado do CentralOps. Cada combinação de produto e tipo de evento (por exemplo, alertas do Sophos, eventos de segurança do Wazuh) tem o seu mapping.</p>
+<p>Pontos importantes:</p>
+<ul>
+<li class="">Cada mapping mantém um histórico de versões. Uma versão está sempre em uso (a atual) e as anteriores ficam guardadas.</li>
+<li class="">Ao editar um mapping, uma nova versão é criada e passa a ser a atual; a anterior vai para o histórico.</li>
+<li class="">Você pode voltar para uma versão anterior com um clique.</li>
+<li class="">Versões antigas nunca são alteradas, apenas guardadas — isso garante uma trilha confiável.</li>
+</ul>
+<p>Onde mexer: menu <strong>Normalização -> Mappings</strong>.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=eventos-brutos-e-eventos-normalizados>Eventos brutos e eventos normalizados<a href=#eventos-brutos-e-eventos-normalizados class=hash-link aria-label="Direct link to Eventos brutos e eventos normalizados" title="Direct link to Eventos brutos e eventos normalizados" translate=no>​</a></h3>
+<p>Estes dois conceitos ajudam a entender o caminho de um evento, mesmo que você raramente os manipule diretamente:</p>
+<ul>
+<li class="">O evento bruto é o evento como chegou do produto de origem, antes de qualquer tratamento. Normalmente ele não aparece na interface — você só o vê quando algo falha e o evento vai para a quarentena.</li>
+<li class="">O evento normalizado é o evento já traduzido pelo mapping para o formato único, pronto para ser entregue aos destinos. Só eventos processados com sucesso geram um evento normalizado.</li>
+</ul>
+<p>Cada destino registra, em seu próprio histórico, quando recebeu o evento. Você acompanha esse caminho no menu <strong>Operação -> Fluxo de dados</strong> (somente administradores) e revê o que já passou no menu <strong>Operação -> Histórico</strong>.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=quarentena>Quarentena<a href=#quarentena class=hash-link aria-label="Direct link to Quarentena" title="Direct link to Quarentena" translate=no>​</a></h3>
+<p>A quarentena guarda os eventos que falharam na validação ou na tradução — por exemplo, quando falta um campo obrigatório ou um valor vem em formato inesperado. Cada item mostra a mensagem do erro, o tipo do problema e quando aconteceu.</p>
+<p>O que você pode fazer com um item em quarentena:</p>
+<ul>
+<li class="">Descartar: marca como ignorado; o evento não é reprocessado.</li>
+<li class="">Reprocessar: depois de corrigir o mapping, devolve o evento à fila para ser tratado de novo.</li>
+</ul>
+<p>Os itens em quarentena ficam guardados por um período limitado e depois são removidos automaticamente.</p>
+<p>Onde mexer: menu <strong>Normalização -> Quarentena</strong>.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=drift-campos-novos-detectados>Drift (campos novos detectados)<a href=#drift-campos-novos-detectados class=hash-link aria-label="Direct link to Drift (campos novos detectados)" title="Direct link to Drift (campos novos detectados)" translate=no>​</a></h3>
+<p>O drift mostra campos que apareceram nos eventos de um produto mas que ainda não estão tratados no mapping. Isso acontece, por exemplo, quando um fornecedor passa a enviar um campo novo. Cada item indica o produto, o nome do campo, quantas vezes foi visto e quando foi visto pela última vez.</p>
+<p>O que você pode fazer com um campo detectado:</p>
+<ul>
+<li class="">Ignorar: para de avisar sobre aquele campo.</li>
+<li class="">Marcar como tratado: indica que o campo já está sendo cuidado no mapping.</li>
+</ul>
+<p>Onde mexer: menu <strong>Normalização -> Drift Explorer</strong>.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=saúde-do-pipeline>Saúde do pipeline<a href=#saúde-do-pipeline class=hash-link aria-label="Direct link to Saúde do pipeline" title="Direct link to Saúde do pipeline" translate=no>​</a></h3>
+<p>A saúde do pipeline reúne, em um só lugar, indicadores de como o fluxo está se comportando: o que está sendo coletado, o que está sendo entregue e onde há problemas. Use essa tela como ponto de partida quando algo parece fora do normal.</p>
+<p>Onde mexer: menu <strong>Normalização -> Saúde do Pipeline</strong>.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=job-de-consulta-queryjob>Job de consulta (QueryJob)<a href=#job-de-consulta-queryjob class=hash-link aria-label="Direct link to Job de consulta (QueryJob)" title="Direct link to Job de consulta (QueryJob)" translate=no>​</a></h3>
+<p>Um job de consulta é uma busca federada que você dispara manualmente ou via regra de correlação. Ele consulta dados em múltiplas fontes de segurança (Wazuh, Sophos, CrowdStrike, Defender e outras) de forma síncrona, filtrando por janela de tempo, e acompanha o progresso de forma assíncrona.</p>
+<p>O que você vê em cada job:</p>
+<ul>
+<li class="">Um identificador único e opaco (job_id).</li>
+<li class="">Status atual: aguardando (submitted), em execução (running), finalizado (finished), parcialmente processado (partial) ou com erro (failed).</li>
+<li class="">Total de resultados encontrados.</li>
+<li class="">Resultados separados por fonte — cada fonte mostra seu próprio resultado (per_source facets).</li>
+</ul>
+<p>O que você pode fazer:</p>
+<ul>
+<li class="">Disparar uma nova busca federada selecionando as fontes, escrevendo uma consulta e escolhendo a janela de tempo.</li>
+<li class="">Acompanhar o progresso em tempo real — não precisa ficar esperando a conclusão em uma tela; você pode voltar depois via o identificador.</li>
+</ul>
+<p>Onde mexer: menu <strong>Operação -> Busca federada</strong>.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=detecção-detection>Detecção (Detection)<a href=#detecção-detection class=hash-link aria-label="Direct link to Detecção (Detection)" title="Direct link to Detecção (Detection)" translate=no>​</a></h3>
+<p>Uma detecção é um achado de segurança gerado automaticamente — pode vir de uma consulta que você executou, de uma regra de correlação que roda continuamente, ou de uma fonte externa (como um alert do Sophos).</p>
+<p>O que você vê em cada detecção:</p>
+<ul>
+<li class="">Origem: se veio de uma consulta que você rodou (scheduled_query), de uma busca ao vivo (live_query) ou de uma regra de correlação (correlation).</li>
+<li class="">Severidade em padrão OCSF (ex.: Alta, Média, Baixa). O padrão é Alto.</li>
+<li class="">Status: aberta (open) esperando ação, reconhecida (ack) ou fechada (closed) após investigação.</li>
+<li class="">Quantidade de ocorrências agregadas (count) e uma chave de deduplicação (dedup_key).</li>
+</ul>
+<p>O que você pode fazer:</p>
+<ul>
+<li class="">Filtrar por status — mostrar só o que está aberto, reconhecido ou fechado.</li>
+<li class="">Mudar o status de uma detecção — abrir, reconhecer ou fechar.</li>
+<li class="">Investigar o evento associado consultando os destinos onde ele chegou.</li>
+</ul>
+<p>Onde mexer: menu <strong>Operação -> Detecções</strong>.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=regra-de-correlação-correlationrule>Regra de correlação (CorrelationRule)<a href=#regra-de-correlação-correlationrule class=hash-link aria-label="Direct link to Regra de correlação (CorrelationRule)" title="Direct link to Regra de correlação (CorrelationRule)" translate=no>​</a></h3>
+<p>Uma regra de correlação dispara uma detecção quando um padrão de eventos ocorre. Por exemplo, pode gerar um alerta se "mais de 5 falhas de login no mesmo usuário dentro de 5 minutos".</p>
+<p>Como funciona:</p>
+<ul>
+<li class="">Define-se um nome descritivo, uma janela de tempo (em segundos) e um campo para agrupar os resultados (ex.: usuário).</li>
+<li class="">Escreve-se uma ou mais condições (ex.: "campo 'event_type' é igual a 'login_failure'").</li>
+<li class="">Define-se o mínimo de ocorrências para disparar a regra (padrão: 5).</li>
+<li class="">Opcionalmente, silencia detecções duplicadas por um período (ex.: 1 hora).</li>
+</ul>
+<p>O que você pode fazer:</p>
+<ul>
+<li class="">Criar uma nova regra manualmente.</li>
+<li class="">Ativar ou desativar uma regra.</li>
+<li class="">Salvar histórico e versões da regra.</li>
+<li class="">Abrir uma detecção que foi disparada por uma correlação para investigar.</li>
+</ul>
+<p>Onde mexer: menu <strong>Conhecimento -> Correlação</strong>.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=histórico-e-trilha-de-auditoria>Histórico e trilha de auditoria<a href=#histórico-e-trilha-de-auditoria class=hash-link aria-label="Direct link to Histórico e trilha de auditoria" title="Direct link to Histórico e trilha de auditoria" translate=no>​</a></h3>
+<p>O CentralOps registra as ações realizadas — quem fez, o que foi feito, quando e em qual organização — para rastreabilidade e conformidade. Mudanças em rotas e em destinos também ficam registradas, o que permite responder perguntas como "quem alterou esta rota e quando?" e desfazer mudanças voltando a um estado anterior.</p>
+<p>Onde acompanhar: menu <strong>Operação -> Histórico</strong>.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=sua-sessão-e-seus-acessos>Sua sessão e seus acessos<a href=#sua-sessão-e-seus-acessos class=hash-link aria-label="Direct link to Sua sessão e seus acessos" title="Direct link to Sua sessão e seus acessos" translate=no>​</a></h3>
+<p>Quando você entra na plataforma, é criada uma sessão de uso que expira depois de um tempo, exigindo novo login. Senhas e tokens nunca são guardados em texto puro.</p>
+<p>Onde mexer: a gestão de pessoas e acessos fica em <strong>Administração -> Usuários</strong> e <strong>Administração -> Service Accounts</strong>. Para gerar credenciais de uso programático da sua própria conta, vá em <strong>Sua conta -> Tokens de API</strong>.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=como-tudo-se-conecta>Como tudo se conecta<a href=#como-tudo-se-conecta class=hash-link aria-label="Direct link to Como tudo se conecta" title="Direct link to Como tudo se conecta" translate=no>​</a></h2>
+<p>Em alto nível, o caminho de um evento é:</p>
+<ol>
+<li class="">A <strong>integração</strong> coleta o evento do produto de origem.</li>
+<li class="">O <strong>mapping</strong> traduz o evento para o formato padronizado.
+<ul>
+<li class="">Se a tradução falha, o evento vai para a <strong>quarentena</strong>.</li>
+<li class="">Se aparecem campos não tratados, eles surgem no <strong>drift</strong>.</li>
+</ul>
+</li>
+<li class="">As <strong>rotas</strong> decidem para quais <strong>destinos</strong> o evento será entregue.</li>
+<li class="">Cada <strong>destino</strong> entrega o evento e registra o que recebeu.</li>
+</ol>
+<p>Tudo isso acontece dentro de uma <strong>organização</strong>, que mantém os dados de cada cliente ou unidade completamente separados.</p>
+<p>Para ver esse caminho em funcionamento, em tempo real, use o menu <strong>Operação -> Fluxo de dados</strong> (somente administradores).</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=retenção-por-quanto-tempo-os-dados-ficam-guardados>Retenção: por quanto tempo os dados ficam guardados<a href=#retenção-por-quanto-tempo-os-dados-ficam-guardados class=hash-link aria-label="Direct link to Retenção: por quanto tempo os dados ficam guardados" title="Direct link to Retenção: por quanto tempo os dados ficam guardados" translate=no>​</a></h2>
+<p>Para que a plataforma não acumule dados indefinidamente, cada tipo de informação tem um prazo de retenção e é limpo automaticamente depois. Em linhas gerais:</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Tipo de dado<th>Permanece guardado por<tbody><tr><td>Eventos brutos e normalizados<td>Período curto (alguns dias)<tr><td>Itens em quarentena<td>Alguns dias<tr><td>Campos novos detectados (drift)<td>Alguns meses<tr><td>Histórico e trilhas de auditoria<td>Mais longo, por exigência de conformidade<tr><td>Sua sessão de uso<td>Algumas horas, até precisar logar de novo</table>
+<p>Os prazos exatos de retenção são definidos pela equipe de infraestrutura no momento do deploy. Se precisar ajustá-los para a sua organização, fale com o administrador da plataforma.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=sobre-segurança-das-credenciais>Sobre segurança das credenciais<a href=#sobre-segurança-das-credenciais class=hash-link aria-label="Direct link to Sobre segurança das credenciais" title="Direct link to Sobre segurança das credenciais" translate=no>​</a></h2>
+<p>Você nunca precisa lidar com chaves ou segredos diretamente. Credenciais de integrações e de destinos são guardadas de forma criptografada e nunca aparecem em texto puro — nem nas telas, nem nos históricos de mudança. A forma exata como essa proteção é configurada é responsabilidade da equipe de infraestrutura no momento do deploy. Se precisar alterá-la, fale com o administrador da plataforma.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=limites>Limites<a href=#limites class=hash-link aria-label="Direct link to Limites" title="Direct link to Limites" translate=no>​</a></h2>
+<p>Alguns limites valem a pena conhecer:</p>
+<ul>
+<li class="">A quantidade de usuários, destinos, rotas e mappings por organização é, na prática, livre.</li>
+<li class="">Há um teto para a quantidade de integrações por organização. Se você se aproximar desse limite, fale com o administrador da plataforma.</li>
+<li class="">Itens em quarentena e eventos têm prazo de retenção (veja a seção acima).</li>
+</ul>
+<p>Estes limites são definidos no momento do deploy. Se precisar de um valor diferente do que aparece na sua instalação, fale com o administrador da plataforma.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=veja-também>Veja também<a href=#veja-também class=hash-link aria-label="Direct link to Veja também" title="Direct link to Veja também" translate=no>​</a></h2>
+<ul>
+<li class=""><a class="" href=/en/compliance/retention>Retenção</a> — detalhes sobre por quanto tempo cada tipo de dado é mantido.</li>
+</ul></div></article><nav class="docusaurus-mt-lg pagination-nav" aria-label="Docs pages"><a class="pagination-nav__link pagination-nav__link--prev" href=/en/concepts/rbac><div class=pagination-nav__sublabel>Previous</div><div class=pagination-nav__label>RBAC (Controle de acesso)</div></a></nav></div></div><div class="col col--3"><div class="tableOfContents_bqdL thin-scrollbar theme-doc-toc-desktop"><ul class="table-of-contents table-of-contents__left-border"><li><a href=#quando-usar class="table-of-contents__link toc-highlight">Quando usar</a><li><a href=#os-elementos-principais class="table-of-contents__link toc-highlight">Os elementos principais</a><ul><li><a href=#organização class="table-of-contents__link toc-highlight">Organização</a><li><a href=#hierarquia-de-tenants class="table-of-contents__link toc-highlight">Hierarquia de tenants</a><li><a href=#integração class="table-of-contents__link toc-highlight">Integração</a><li><a href=#destino class="table-of-contents__link toc-highlight">Destino</a><li><a href=#rota-regra-de-roteamento class="table-of-contents__link toc-highlight">Rota (regra de roteamento)</a><li><a href=#mapping-mapeamento-de-campos class="table-of-contents__link toc-highlight">Mapping (mapeamento de campos)</a><li><a href=#eventos-brutos-e-eventos-normalizados class="table-of-contents__link toc-highlight">Eventos brutos e eventos normalizados</a><li><a href=#quarentena class="table-of-contents__link toc-highlight">Quarentena</a><li><a href=#drift-campos-novos-detectados class="table-of-contents__link toc-highlight">Drift (campos novos detectados)</a><li><a href=#saúde-do-pipeline class="table-of-contents__link toc-highlight">Saúde do pipeline</a><li><a href=#job-de-consulta-queryjob class="table-of-contents__link toc-highlight">Job de consulta (QueryJob)</a><li><a href=#detecção-detection class="table-of-contents__link toc-highlight">Detecção (Detection)</a><li><a href=#regra-de-correlação-correlationrule class="table-of-contents__link toc-highlight">Regra de correlação (CorrelationRule)</a><li><a href=#histórico-e-trilha-de-auditoria class="table-of-contents__link toc-highlight">Histórico e trilha de auditoria</a><li><a href=#sua-sessão-e-seus-acessos class="table-of-contents__link toc-highlight">Sua sessão e seus acessos</a></ul><li><a href=#como-tudo-se-conecta class="table-of-contents__link toc-highlight">Como tudo se conecta</a><li><a href=#retenção-por-quanto-tempo-os-dados-ficam-guardados class="table-of-contents__link toc-highlight">Retenção: por quanto tempo os dados ficam guardados</a><li><a href=#sobre-segurança-das-credenciais class="table-of-contents__link toc-highlight">Sobre segurança das credenciais</a><li><a href=#limites class="table-of-contents__link toc-highlight">Limites</a><li><a href=#veja-também class="table-of-contents__link toc-highlight">Veja também</a></ul></div></div></div></div></main></div></div></div><footer class="theme-layout-footer footer footer--dark"><div class="container container-fluid"><div class="row footer__links"><div class="theme-layout-footer-column col footer__col"><div class=footer__title>Documentação</div><ul class="footer__items clean-list"><li class=footer__item><a class=footer__link-item href=/en/getting-started/overview>Começar</a><li class=footer__item><a class=footer__link-item href=/en/operations/dashboard>Operação diária</a><li class=footer__item><a class=footer__link-item href=/en/normalization/overview>Mappings (CML)</a><li class=footer__item><a class=footer__link-item href=/en/runbooks/dispatcher>Runbooks</a></ul></div><div class="theme-layout-footer-column col footer__col"><div class=footer__title>Plataforma</div><ul class="footer__items clean-list"><li class=footer__item><a class=footer__link-item href=/en/concepts/architecture>Arquitetura</a><li class=footer__item><a class=footer__link-item href=/en/concepts/rbac>RBAC</a><li class=footer__item><a class=footer__link-item href=/en/integrations/overview>Integrações</a><li class=footer__item><a class=footer__link-item href=/en/compliance/retention>Compliance</a></ul></div><div class="theme-layout-footer-column col footer__col"><div class=footer__title>Recursos</div><ul class="footer__items clean-list"><li class=footer__item><a class=footer__link-item href=/en/getting-started/quickstart>Quickstart</a><li class=footer__item><a class=footer__link-item href=/en/normalization/cookbook>DSL Cookbook</a><li class=footer__item><a class=footer__link-item href=/en/normalization/troubleshooting>Troubleshooting</a></ul></div></div><div class="footer__bottom text--center"><div class=footer__copyright>Copyright © 2026 CentralOps. Built with Docusaurus.</div></div></div></footer></div></body>

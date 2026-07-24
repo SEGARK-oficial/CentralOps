@@ -1,0 +1,251 @@
+<!doctype html><html lang=en dir=ltr class="docs-wrapper plugin-docs plugin-id-default docs-version-current docs-doc-page docs-doc-id-operations/history-audit" data-has-hydrated=false><head><meta charset=UTF-8><meta name=generator content="Docusaurus v3.10.0"><title data-rh=true>Histórico e auditoria | CentralOps</title><meta data-rh=true name=viewport content="width=device-width, initial-scale=1.0"/><meta data-rh=true name=twitter:card content=summary_large_image /><meta data-rh=true property=og:image content=https://docs.segark.com/en/img/centralops-social-card.png /><meta data-rh=true name=twitter:image content=https://docs.segark.com/en/img/centralops-social-card.png /><meta data-rh=true property=og:url content=https://docs.segark.com/en/operations/history-audit /><meta data-rh=true property=og:locale content=en /><meta data-rh=true property=og:locale:alternate content=pt_BR /><meta data-rh=true property=og:locale:alternate content=es /><meta data-rh=true name=docusaurus_locale content=en /><meta data-rh=true name=docsearch:language content=en /><meta data-rh=true name=docusaurus_version content=current /><meta data-rh=true name=docusaurus_tag content=docs-default-current /><meta data-rh=true name=docsearch:version content=current /><meta data-rh=true name=docsearch:docusaurus_tag content=docs-default-current /><meta data-rh=true property=og:title content="Histórico e auditoria | CentralOps"/><meta data-rh=true name=description content="Veja quem fez o quê e quando na plataforma, com filtros, exportação e retenção automática."/><meta data-rh=true property=og:description content="Veja quem fez o quê e quando na plataforma, com filtros, exportação e retenção automática."/><link data-rh=true rel=icon href=/en/img/favicon.ico /><link data-rh=true rel=canonical href=https://docs.segark.com/en/operations/history-audit /><link data-rh=true rel=alternate href=https://docs.segark.com/operations/history-audit hreflang=pt-BR /><link data-rh=true rel=alternate href=https://docs.segark.com/en/operations/history-audit hreflang=en /><link data-rh=true rel=alternate href=https://docs.segark.com/es/operations/history-audit hreflang=es /><link data-rh=true rel=alternate href=https://docs.segark.com/operations/history-audit hreflang=x-default /><script data-rh=true type=application/ld+json>{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","item":"https://docs.segark.com/en/operations/history-audit","name":"Histórico e auditoria","position":1}]}</script><link rel=stylesheet href=/en/assets/css/styles.65a61132.css /><script src=/en/assets/js/runtime~main.3e1a07f1.js defer></script><script src=/en/assets/js/main.109b76da.js defer></script></head><body><svg style="display: none;"><defs>
+<symbol id=theme-svg-external-link viewBox="0 0 24 24"><path fill=currentColor d="M21 13v10h-21v-19h12v2h-10v15h17v-8h2zm3-12h-10.988l4.035 4-6.977 7.07 2.828 2.828 6.977-7.07 4.125 4.172v-11z"/></symbol>
+</defs></svg>
+<script>!function(){var t=function(){try{return new URLSearchParams(window.location.search).get("docusaurus-theme")}catch(t){}}()||function(){try{return window.localStorage.getItem("theme-797")}catch(t){}}();document.documentElement.setAttribute("data-theme",t||(window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light")),document.documentElement.setAttribute("data-theme-choice",t||"system")}(),function(){try{for(var[t,e]of new URLSearchParams(window.location.search).entries())if(t.startsWith("docusaurus-data-")){var a=t.replace("docusaurus-data-","data-");document.documentElement.setAttribute(a,e)}}catch(t){}}()</script><div id=__docusaurus><link rel=preload as=image href=/en/img/logo.svg /><div role=region aria-label="Skip to main content"><a class=skipToContent_fXgn href=#__docusaurus_skipToContent_fallback>Skip to main content</a></div><nav aria-label=Main class="theme-layout-navbar navbar navbar--fixed-top"><div class=navbar__inner><div class="theme-layout-navbar-left navbar__items"><button aria-label="Toggle navigation bar" aria-expanded=false class="navbar__toggle clean-btn" type=button><svg width=30 height=30 viewBox="0 0 30 30" aria-hidden=true><path stroke=currentColor stroke-linecap=round stroke-miterlimit=10 stroke-width=2 d="M4 7h22M4 15h22M4 23h22"/></svg></button><a class=navbar__brand href=/en/><div class=navbar__logo><img src=/en/img/logo.svg alt=CentralOps class="themedComponent_mlkZ themedComponent--light_NVdE"/><img src=/en/img/logo.svg alt=CentralOps class="themedComponent_mlkZ themedComponent--dark_xIcU"/></div><b class="navbar__title text--truncate">CentralOps</b></a><a class="navbar__item navbar__link" href=/en/>Get started</a><a class="navbar__item navbar__link" href=/en/outputs/overview>Outputs & Routing</a><a aria-current=page class="navbar__item navbar__link navbar__link--active" href=/en/operations/dashboard>Operations</a><a class="navbar__item navbar__link" href=/en/administration/users-and-roles>Administration</a><a class="navbar__item navbar__link" href=/en/normalization/overview>Mappings</a><a class="navbar__item navbar__link" href=/en/runbooks/dispatcher>Runbooks</a></div><div class="theme-layout-navbar-right navbar__items navbar__items--right"><div class="navbar__item dropdown dropdown--hoverable dropdown--right"><a href=# aria-haspopup=true aria-expanded=false role=button class=navbar__link><svg viewBox="0 0 24 24" width=20 height=20 aria-hidden=true class=iconLanguage_nlXk><path fill=currentColor d="M12.87 15.07l-2.54-2.51.03-.03c1.74-1.94 2.98-4.17 3.71-6.53H17V4h-7V2H8v2H1v1.99h11.17C11.5 7.92 10.44 9.75 9 11.35 8.07 10.32 7.3 9.19 6.69 8h-2c.73 1.63 1.73 3.17 2.98 4.56l-5.09 5.02L4 19l5-5 3.11 3.11.76-2.04zM18.5 10h-2L12 22h2l1.12-3h4.75L21 22h2l-4.5-12zm-2.62 7l1.62-4.33L19.12 17h-3.24z"/></svg>English</a><ul class=dropdown__menu><li><a href=/operations/history-audit target=_self rel="noopener noreferrer" class=dropdown__link lang=pt-BR>Português</a><li><a href=/en/operations/history-audit target=_self rel="noopener noreferrer" class="dropdown__link dropdown__link--active" lang=en>English</a><li><a href=/es/operations/history-audit target=_self rel="noopener noreferrer" class=dropdown__link lang=es>Español</a></ul></div><div class="toggle_vylO colorModeToggle_DEke"><button class="clean-btn toggleButton_gllP toggleButtonDisabled_aARS" type=button disabled title="system mode" aria-label="Switch between dark and light mode (currently system mode)"><svg viewBox="0 0 24 24" width=24 height=24 aria-hidden=true class="toggleIcon_g3eP lightToggleIcon_pyhR"><path fill=currentColor d="M12,9c1.65,0,3,1.35,3,3s-1.35,3-3,3s-3-1.35-3-3S10.35,9,12,9 M12,7c-2.76,0-5,2.24-5,5s2.24,5,5,5s5-2.24,5-5 S14.76,7,12,7L12,7z M2,13l2,0c0.55,0,1-0.45,1-1s-0.45-1-1-1l-2,0c-0.55,0-1,0.45-1,1S1.45,13,2,13z M20,13l2,0c0.55,0,1-0.45,1-1 s-0.45-1-1-1l-2,0c-0.55,0-1,0.45-1,1S19.45,13,20,13z M11,2v2c0,0.55,0.45,1,1,1s1-0.45,1-1V2c0-0.55-0.45-1-1-1S11,1.45,11,2z M11,20v2c0,0.55,0.45,1,1,1s1-0.45,1-1v-2c0-0.55-0.45-1-1-1C11.45,19,11,19.45,11,20z M5.99,4.58c-0.39-0.39-1.03-0.39-1.41,0 c-0.39,0.39-0.39,1.03,0,1.41l1.06,1.06c0.39,0.39,1.03,0.39,1.41,0s0.39-1.03,0-1.41L5.99,4.58z M18.36,16.95 c-0.39-0.39-1.03-0.39-1.41,0c-0.39,0.39-0.39,1.03,0,1.41l1.06,1.06c0.39,0.39,1.03,0.39,1.41,0c0.39-0.39,0.39-1.03,0-1.41 L18.36,16.95z M19.42,5.99c0.39-0.39,0.39-1.03,0-1.41c-0.39-0.39-1.03-0.39-1.41,0l-1.06,1.06c-0.39,0.39-0.39,1.03,0,1.41 s1.03,0.39,1.41,0L19.42,5.99z M7.05,18.36c0.39-0.39,0.39-1.03,0-1.41c-0.39-0.39-1.03-0.39-1.41,0l-1.06,1.06 c-0.39,0.39-0.39,1.03,0,1.41s1.03,0.39,1.41,0L7.05,18.36z"/></svg><svg viewBox="0 0 24 24" width=24 height=24 aria-hidden=true class="toggleIcon_g3eP darkToggleIcon_wfgR"><path fill=currentColor d="M9.37,5.51C9.19,6.15,9.1,6.82,9.1,7.5c0,4.08,3.32,7.4,7.4,7.4c0.68,0,1.35-0.09,1.99-0.27C17.45,17.19,14.93,19,12,19 c-3.86,0-7-3.14-7-7C5,9.07,6.81,6.55,9.37,5.51z M12,3c-4.97,0-9,4.03-9,9s4.03,9,9,9s9-4.03,9-9c0-0.46-0.04-0.92-0.1-1.36 c-0.98,1.37-2.58,2.26-4.4,2.26c-2.98,0-5.4-2.42-5.4-5.4c0-1.81,0.89-3.42,2.26-4.4C12.92,3.04,12.46,3,12,3L12,3z"/></svg><svg viewBox="0 0 24 24" width=24 height=24 aria-hidden=true class="toggleIcon_g3eP systemToggleIcon_QzmC"><path fill=currentColor d="m12 21c4.971 0 9-4.029 9-9s-4.029-9-9-9-9 4.029-9 9 4.029 9 9 9zm4.95-13.95c1.313 1.313 2.05 3.093 2.05 4.95s-0.738 3.637-2.05 4.95c-1.313 1.313-3.093 2.05-4.95 2.05v-14c1.857 0 3.637 0.737 4.95 2.05z"/></svg></button></div><div class=navbarSearchContainer_Bca1><div class=navbar__search><span aria-label="expand searchbar" role=button class=search-icon tabindex=0></span><input id=search_input_react type=search placeholder=Loading... aria-label=Search class="navbar__search-input search-bar" disabled/></div></div></div></div><div role=presentation class=navbar-sidebar__backdrop></div></nav><div id=__docusaurus_skipToContent_fallback class="theme-layout-main main-wrapper mainWrapper_z2l0"><div class=docsWrapper_hBAB><button aria-label="Scroll back to top" class="clean-btn theme-back-to-top-button backToTopButton_sjWU" type=button></button><div class=docRoot_UBD9><aside class="theme-doc-sidebar-container docSidebarContainer_YfHR"><div class=sidebarViewport_aRkj><div class=sidebar_njMd><nav aria-label="Docs sidebar" class="menu thin-scrollbar menu_SIkG"><ul class="theme-doc-sidebar-menu menu__list"><li class="theme-doc-sidebar-item-category theme-doc-sidebar-item-category-level-1 menu__list-item"><div class=menu__list-item-collapsible><a class="categoryLink_byQd menu__link menu__link--sublist menu__link--sublist-caret menu__link--active" role=button aria-expanded=true href=/en/operations/dashboard><span title="Day-to-day operations" class=categoryLinkLabel_W154>Day-to-day operations</span></a></div><ul class=menu__list><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/en/operations/dashboard><span title=Dashboard class=linkLabel_WmDU>Dashboard</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/en/operations/fluxo-de-dados><span title="Fluxo de dados" class=linkLabel_WmDU>Fluxo de dados</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/en/operations/quarantine><span title=Quarentena class=linkLabel_WmDU>Quarentena</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/en/operations/search><span title=Investigações class=linkLabel_WmDU>Investigações</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/en/operations/federated-search><span title="Busca federada" class=linkLabel_WmDU>Busca federada</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/en/operations/detections><span title=Detecções class=linkLabel_WmDU>Detecções</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/en/operations/correlation-rules><span title="Regras de correlação" class=linkLabel_WmDU>Regras de correlação</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/en/operations/pipeline-health><span title="Saúde do Pipeline" class=linkLabel_WmDU>Saúde do Pipeline</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/en/operations/live-capture><span title="Captura ao vivo" class=linkLabel_WmDU>Captura ao vivo</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/en/operations/observability><span title="Observabilidade (OTel)" class=linkLabel_WmDU>Observabilidade (OTel)</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class="menu__link menu__link--active" aria-current=page tabindex=0 href=/en/operations/history-audit><span title="Histórico e auditoria" class=linkLabel_WmDU>Histórico e auditoria</span></a></ul></ul></nav></div></div></aside><main class=docMainContainer_TBSr><div class="container padding-top--md padding-bottom--lg"><div class=row><div class="col docItemCol_VOVn"><div class=docItemContainer_Djhp><article><nav class="theme-doc-breadcrumbs breadcrumbsContainer_Z_bl" aria-label=Breadcrumbs><ul class=breadcrumbs><li class=breadcrumbs__item><a aria-label="Home page" class=breadcrumbs__link href=/en/><svg viewBox="0 0 24 24" class=breadcrumbHomeIcon_YNFT><path d="M10 19v-5h4v5c0 .55.45 1 1 1h3c.55 0 1-.45 1-1v-7h1.7c.46 0 .68-.57.33-.87L12.67 3.6c-.38-.34-.96-.34-1.34 0l-8.36 7.53c-.34.3-.13.87.33.87H5v7c0 .55.45 1 1 1h3c.55 0 1-.45 1-1z" fill=currentColor /></svg></a><li class=breadcrumbs__item><span class=breadcrumbs__link>Day-to-day operations</span><li class="breadcrumbs__item breadcrumbs__item--active"><span class=breadcrumbs__link>Histórico e auditoria</span></ul></nav><div class="tocCollapsible_ETCw theme-doc-toc-mobile tocMobile_ITEo"><button type=button class="clean-btn tocCollapsibleButton_TO0P">On this page</button></div><div class="theme-doc-markdown markdown"><header><h1>Histórico e Auditoria</h1></header>
+<p>A tela <strong>Operação -> Histórico</strong> registra, de forma imutável, todas as ações e mudanças feitas na plataforma: quem fez, o quê e quando. É a sua trilha de auditoria para investigar mudanças, atender compliance e apoiar análises pós-incidente.</p>
+<p>Os registros ficam disponíveis por <strong>365 dias</strong> (para atender LGPD/GDPR). Operadores e analistas veem as ações da sua organização; administradores também veem os eventos de sistema e de gestão de usuários.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=quando-usar>Quando usar<a href=#quando-usar class=hash-link aria-label="Direct link to Quando usar" title="Direct link to Quando usar" translate=no>​</a></h2>
+<ul>
+<li class=""><strong>Investigar uma mudança suspeita.</strong> Um mapeamento parou de funcionar do nada — você abre o Histórico, filtra por mapeamento editado e descobre quem mexeu, quando e o que mudou.</li>
+<li class=""><strong>Forensics pós-incidente.</strong> Depois de um alerta, você reconstrói a linha do tempo: que integração foi criada, que destino foi alterado, quem acessou os dados do cliente afetado.</li>
+<li class=""><strong>Auditoria de compliance.</strong> O auditor pede evidência de todas as operações críticas do ano anterior — você filtra, exporta em PDF e entrega ao time de GRC.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=o-que-é-registrado>O que é registrado<a href=#o-que-é-registrado class=hash-link aria-label="Direct link to O que é registrado" title="Direct link to O que é registrado" translate=no>​</a></h2>
+<p>A trilha cobre as ações feitas em cada área da plataforma.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=integrações>Integrações<a href=#integrações class=hash-link aria-label="Direct link to Integrações" title="Direct link to Integrações" translate=no>​</a></h3>
+<ul>
+<li class="">Criação de integração.</li>
+<li class="">Edição de credenciais.</li>
+<li class="">Pausa e retomada.</li>
+<li class="">Teste de conexão.</li>
+<li class="">Exclusão.</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=mappings>Mappings<a href=#mappings class=hash-link aria-label="Direct link to Mappings" title="Direct link to Mappings" translate=no>​</a></h3>
+<ul>
+<li class="">Criação de mapeamento.</li>
+<li class="">Edição no editor de mapeamento.</li>
+<li class="">Restauração de uma versão anterior.</li>
+<li class="">Publicação (marcar a versão como atual).</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=quarentena>Quarentena<a href=#quarentena class=hash-link aria-label="Direct link to Quarentena" title="Direct link to Quarentena" translate=no>​</a></h3>
+<ul>
+<li class="">Descarte de um evento.</li>
+<li class="">Reprocessamento de um evento.</li>
+<li class="">Descarte em massa.</li>
+<li class="">Reprocessamento em massa.</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=drift-explorer>Drift Explorer<a href=#drift-explorer class=hash-link aria-label="Direct link to Drift Explorer" title="Direct link to Drift Explorer" translate=no>​</a></h3>
+<ul>
+<li class="">Marcar um campo novo detectado como ignorado.</li>
+<li class="">Marcar um campo novo detectado como mapeado.</li>
+<li class="">Remoção de uma entrada de campo detectado.</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=destinos-só-admin>Destinos (só admin)<a href=#destinos-só-admin class=hash-link aria-label="Direct link to Destinos (só admin)" title="Direct link to Destinos (só admin)" translate=no>​</a></h3>
+<ul>
+<li class=""><strong>Criação</strong> de destino (por exemplo syslog, Splunk, Elastic, S3, Sentinel, Kafka, OTLP ou arquivo).</li>
+<li class=""><strong>Edição</strong> de configuração ou credenciais.</li>
+<li class=""><strong>Teste de conexão</strong> (verificação rápida de saúde do destino).</li>
+<li class=""><strong>Modo de validação</strong> (replica os eventos para o destino sem entrega real, para validar antes de ir para produção).</li>
+<li class=""><strong>Exclusão</strong> de destino.</li>
+</ul>
+<p>Cada registro de auditoria mostra a configuração do destino, mas <strong>nunca exibe as credenciais</strong> — apenas indica se o destino tem ou não uma credencial configurada. Veja <a class="" href=/en/outputs/destinations>Destinos</a> para a lista completa de tipos.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=roteamento-só-admin>Roteamento (só admin)<a href=#roteamento-só-admin class=hash-link aria-label="Direct link to Roteamento (só admin)" title="Direct link to Roteamento (só admin)" translate=no>​</a></h3>
+<ul>
+<li class=""><strong>Criação</strong> de uma rota (com sua condição e seus destinos de entrega).</li>
+<li class=""><strong>Edição</strong> de prioridade, condição ou destinos da rota.</li>
+<li class=""><strong>Reordenação</strong> de rotas (ao arrastar para reordenar na tela).</li>
+<li class=""><strong>Restauração</strong> de uma versão anterior da rota (pela opção de auditoria dentro da rota).</li>
+<li class=""><strong>Alteração da regra de redação de PII</strong> de uma rota (mascara ou pseudonimiza campos antes de enviar ao destino — ver <a class="" href=/en/outputs/routing>Roteamento e redação de PII</a>).</li>
+<li class=""><strong>Exclusão</strong> de rota (a rota padrão que captura tudo é protegida e não pode ser excluída).</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=fila-de-reenvio-só-admin>Fila de reenvio (só admin)<a href=#fila-de-reenvio-só-admin class=hash-link aria-label="Direct link to Fila de reenvio (só admin)" title="Direct link to Fila de reenvio (só admin)" translate=no>​</a></h3>
+<p>Quando um evento é rejeitado por um destino instável, ele vai para a fila de reenvio. O Histórico registra:</p>
+<ul>
+<li class="">O <strong>reprocessamento</strong> desses eventos, feito pelo botão de reprocessar na tela de <strong>Operação -> Destinos</strong>.</li>
+<li class="">Quem reprocessou, quando, quantos eventos foram reenviados e para qual destino.</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=usuários-só-admin>Usuários (só admin)<a href=#usuários-só-admin class=hash-link aria-label="Direct link to Usuários (só admin)" title="Direct link to Usuários (só admin)" translate=no>​</a></h3>
+<ul>
+<li class="">Criação de usuário.</li>
+<li class="">Alteração de papel.</li>
+<li class="">Desativação.</li>
+<li class="">Redefinição de senha.</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=organizações-só-admin>Organizações (só admin)<a href=#organizações-só-admin class=hash-link aria-label="Direct link to Organizações (só admin)" title="Direct link to Organizações (só admin)" translate=no>​</a></h3>
+<ul>
+<li class="">Criação de organização.</li>
+<li class="">Alteração de configuração.</li>
+<li class="">Mudança de política de retenção.</li>
+<li class="">Solicitação de exclusão de dados.</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=sistema-só-admin>Sistema (só admin)<a href=#sistema-só-admin class=hash-link aria-label="Direct link to Sistema (só admin)" title="Direct link to Sistema (só admin)" translate=no>​</a></h3>
+<ul>
+<li class=""><strong>Rotação da chave de criptografia da plataforma.</strong></li>
+<li class=""><strong>Rotação de chave de criptografia via provedor externo</strong> (quando a plataforma usa um cofre de chaves externo).</li>
+<li class="">Backup e restauração.</li>
+<li class="">Mudanças de configuração (por exemplo, servidor de e-mail).</li>
+</ul>
+<div class="theme-admonition theme-admonition-note admonition_xJq3 alert alert--secondary"><div class=admonitionHeading_Gvgb><span class=admonitionIcon_Rf37><svg viewBox="0 0 14 16"><path fill-rule=evenodd d="M6.3 5.69a.942.942 0 0 1-.28-.7c0-.28.09-.52.28-.7.19-.18.42-.28.7-.28.28 0 .52.09.7.28.18.19.28.42.28.7 0 .28-.09.52-.28.7a1 1 0 0 1-.7.3c-.28 0-.52-.11-.7-.3zM8 7.99c-.02-.25-.11-.48-.31-.69-.2-.19-.42-.3-.69-.31H6c-.27.02-.48.13-.69.31-.2.2-.3.44-.31.69h1v3c.02.27.11.5.31.69.2.2.42.31.69.31h1c.27 0 .48-.11.69-.31.2-.19.3-.42.31-.69H8V7.98v.01zM7 2.3c-3.14 0-5.7 2.54-5.7 5.68 0 3.14 2.56 5.7 5.7 5.7s5.7-2.55 5.7-5.7c0-3.15-2.56-5.69-5.7-5.69v.01zM7 .98c3.86 0 7 3.14 7 7s-3.14 7-7 7-7-3.12-7-7 3.14-7 7-7z"/></svg></span>note</div><div class=admonitionContent_BuS1><p>A rotação de chaves e a configuração do cofre de chaves são definidas pela equipe de infraestrutura no momento do deploy. O Histórico registra <strong>quando</strong> essas operações acontecem, para fins de auditoria; alterar como elas funcionam é responsabilidade do administrador da plataforma.</div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=como-usar-a-tela>Como usar a tela<a href=#como-usar-a-tela class=hash-link aria-label="Direct link to Como usar a tela" title="Direct link to Como usar a tela" translate=no>​</a></h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=filtros>Filtros<a href=#filtros class=hash-link aria-label="Direct link to Filtros" title="Direct link to Filtros" translate=no>​</a></h3>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Filtro<th>Opções<tbody><tr><td><strong>Tipo</strong><td>Integração, mapeamento, quarentena, destino, rota, fila de reenvio, usuário, etc.<tr><td><strong>Ação</strong><td>Criar, editar, excluir, pausar, testar, reprocessar, restaurar, etc.<tr><td><strong>Usuário</strong><td>Lista de todos os usuários ativos.<tr><td><strong>Data</strong><td>Últimas 24h, 7 dias, 30 dias ou um intervalo personalizado.</table>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=colunas>Colunas<a href=#colunas class=hash-link aria-label="Direct link to Colunas" title="Direct link to Colunas" translate=no>​</a></h3>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Coluna<th>Conteúdo<tbody><tr><td><strong>Data/hora</strong><td>Quando a ação aconteceu.<tr><td><strong>Usuário</strong><td>Quem fez (ou "Sistema", para ações automáticas).<tr><td><strong>Tipo</strong><td>A que área se refere (integração, mapeamento, destino, rota, etc.).<tr><td><strong>Ação</strong><td>O que foi feito (criar, editar, excluir, testar, reprocessar, restaurar).<tr><td><strong>Recurso</strong><td>Nome do que foi alterado.<tr><td><strong>Detalhes</strong><td>As mudanças específicas (clique para expandir).</table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=fluxos-comuns>Fluxos comuns<a href=#fluxos-comuns class=hash-link aria-label="Direct link to Fluxos comuns" title="Direct link to Fluxos comuns" translate=no>​</a></h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=investigar-uma-mudança-recente>Investigar uma mudança recente<a href=#investigar-uma-mudança-recente class=hash-link aria-label="Direct link to Investigar uma mudança recente" title="Direct link to Investigar uma mudança recente" translate=no>​</a></h3>
+<p>Pergunta: "Alguém alterou o mapeamento do Sophos?"</p>
+<ol>
+<li class="">Abra <strong>Operação -> Histórico</strong>.</li>
+<li class="">Filtre por <strong>Tipo = mapeamento</strong> e <strong>Ação = editar</strong>.</li>
+<li class="">Localize a edição na lista — por exemplo, "Sophos alerts v3 -> v4", às 10:30, pelo usuário "alice".</li>
+<li class="">Clique para expandir e ver exatamente o que mudou.</li>
+</ol>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=auditar-um-destino>Auditar um destino<a href=#auditar-um-destino class=hash-link aria-label="Direct link to Auditar um destino" title="Direct link to Auditar um destino" translate=no>​</a></h3>
+<p>Pergunta: "Quando o destino Splunk foi criado? Quem editou?"</p>
+<ol>
+<li class="">Em <strong>Operação -> Histórico</strong>, filtre por <strong>Tipo = destino</strong> e busque por "Splunk".</li>
+<li class="">Você vê os eventos de criação, edição e teste.</li>
+<li class="">Expanda cada versão para ver a configuração registrada — sempre <strong>sem as credenciais</strong>.</li>
+</ol>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=restaurar-uma-versão-de-rota>Restaurar uma versão de rota<a href=#restaurar-uma-versão-de-rota class=hash-link aria-label="Direct link to Restaurar uma versão de rota" title="Direct link to Restaurar uma versão de rota" translate=no>​</a></h3>
+<p>Pergunta: "A rota de PII foi alterada. Como volto?"</p>
+<ol>
+<li class="">Abra <strong>Operação -> Roteamento</strong>.</li>
+<li class="">Clique na rota e abra a opção de auditoria dentro dela.</li>
+<li class="">Veja o histórico de condição, destinos e regra de redação de PII.</li>
+<li class="">Restaure a versão anterior. A restauração também fica registrada no Histórico (quem, quando, de qual versão para qual).</li>
+</ol>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=auditar-a-atividade-de-um-usuário>Auditar a atividade de um usuário<a href=#auditar-a-atividade-de-um-usuário class=hash-link aria-label="Direct link to Auditar a atividade de um usuário" title="Direct link to Auditar a atividade de um usuário" translate=no>​</a></h3>
+<p>Pergunta: "Que ações a alice fez esta semana?"</p>
+<ol>
+<li class="">Em <strong>Operação -> Histórico</strong>, filtre por <strong>Usuário = alice</strong> e <strong>Data = últimos 7 dias</strong>.</li>
+<li class="">Revise todas as ações — por exemplo, 3 edições de mapeamento, 2 reprocessamentos da fila de reenvio e 1 edição de rota.</li>
+</ol>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=investigar-um-possível-incidente>Investigar um possível incidente<a href=#investigar-um-possível-incidente class=hash-link aria-label="Direct link to Investigar um possível incidente" title="Direct link to Investigar um possível incidente" translate=no>​</a></h3>
+<p>Pergunta: "Quando a integração 'Backdoor Defender' foi criada?"</p>
+<ol>
+<li class="">Em <strong>Operação -> Histórico</strong>, filtre por <strong>Tipo = integração</strong> e busque pelo nome.</li>
+<li class="">Veja a criação — por exemplo, em 25/04/2026 às 14:32, pelo usuário "bob".</li>
+<li class="">Compare a data/hora com os alertas do seu SIEM. Uma integração criada durante um ataque pode indicar acesso indevido.</li>
+</ol>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=auditar-acesso-por-cliente-compliance>Auditar acesso por cliente (compliance)<a href=#auditar-acesso-por-cliente-compliance class=hash-link aria-label="Direct link to Auditar acesso por cliente (compliance)" title="Direct link to Auditar acesso por cliente (compliance)" translate=no>​</a></h3>
+<p>Pergunta: "Quem acessou os dados do cliente X?"</p>
+<ol>
+<li class="">Em <strong>Operação -> Histórico</strong>, filtre pela organização "cliente-x".</li>
+<li class="">Veja todas as ações relacionadas a esse cliente.</li>
+<li class="">Exporte o relatório para o time de GRC.</li>
+</ol>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=exportar-registros>Exportar registros<a href=#exportar-registros class=hash-link aria-label="Direct link to Exportar registros" title="Direct link to Exportar registros" translate=no>​</a></h2>
+<p>Use o botão <strong>Download</strong> para exportar o resultado filtrado em:</p>
+<ul>
+<li class=""><strong>CSV</strong> — para abrir em planilha (Excel, Google Sheets).</li>
+<li class=""><strong>JSON</strong> — para integrar com outras ferramentas.</li>
+<li class=""><strong>PDF</strong> — relatório formatado, ideal para impressão ou compliance.</li>
+</ul>
+<p>O arquivo inclui: data/hora, usuário, tipo, ação, recurso e detalhes. Útil para entregar a auditor externo, montar o relatório mensal de compliance ou anexar como evidência em uma investigação.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=retenção>Retenção<a href=#retenção class=hash-link aria-label="Direct link to Retenção" title="Direct link to Retenção" translate=no>​</a></h2>
+<ul>
+<li class="">Os registros ficam disponíveis por <strong>365 dias</strong>.</li>
+<li class="">Após esse período, são removidos <strong>automaticamente</strong> — você não precisa fazer nada.</li>
+<li class=""><strong>Exceção:</strong> eventos de sistema (gerados automaticamente, sem um usuário responsável) são mantidos por 7 anos, por exigência legal.</li>
+</ul>
+<p>A política de retenção é automática e fixa; não há configuração ou limpeza manual a fazer pelo usuário.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=quem-vê-o-quê>Quem vê o quê<a href=#quem-vê-o-quê class=hash-link aria-label="Direct link to Quem vê o quê" title="Direct link to Quem vê o quê" translate=no>​</a></h2>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Papel<th>Pode ver<tbody><tr><td><strong>Viewer</strong><td>Tudo (somente leitura), exceto os logs de administração (criação de usuário, mudanças de organização).<tr><td><strong>Operator</strong><td>Tudo do Viewer, mais seus próprios descartes e reprocessamentos.<tr><td><strong>Engineer</strong><td>Tudo do Operator, mais as edições de mapeamento.<tr><td><strong>Admin</strong><td>Tudo, incluindo gestão de usuários, eventos de sistema e auditoria de destinos, rotas e fila de reenvio.</table>
+<p>Cada usuário vê apenas os registros da sua própria organização. O administrador vê os registros de todas.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=limitações>Limitações<a href=#limitações class=hash-link aria-label="Direct link to Limitações" title="Direct link to Limitações" translate=no>​</a></h2>
+<ul>
+<li class=""><strong>Pequeno atraso:</strong> uma ação costuma aparecer no Histórico em menos de 1 minuto.</li>
+<li class=""><strong>Uma ação, um registro:</strong> operações em massa geram um registro por item afetado.</li>
+<li class=""><strong>Dados pessoais:</strong> os registros podem conter nome de usuário e e-mail. Mesmo diante de um pedido de exclusão de dados (GDPR), a trilha de auditoria <strong>não é apagada</strong>, por exigência de compliance.</li>
+<li class=""><strong>Credenciais:</strong> os registros de destinos e credenciais <strong>nunca</strong> incluem tokens ou senhas — apenas indicam se uma credencial existe.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=próximos-passos>Próximos passos<a href=#próximos-passos class=hash-link aria-label="Direct link to Próximos passos" title="Direct link to Próximos passos" translate=no>​</a></h2>
+<ul>
+<li class=""><strong>Precisa investigar uma mudança?</strong> Use os filtros em <strong>Operação -> Histórico</strong>.</li>
+<li class=""><strong>Precisa de um relatório de compliance?</strong> Filtre o período e clique em <strong>Download -> PDF</strong>.</li>
+<li class=""><strong>Trabalhando com destinos ou rotas?</strong> Veja <a class="" href=/en/outputs/destinations>Destinos</a> e <a class="" href=/en/outputs/routing>Roteamento e redação de PII</a>.</li>
+</ul></div></article><nav class="docusaurus-mt-lg pagination-nav" aria-label="Docs pages"><a class="pagination-nav__link pagination-nav__link--prev" href=/en/operations/observability><div class=pagination-nav__sublabel>Previous</div><div class=pagination-nav__label>Observabilidade (OTel)</div></a></nav></div></div><div class="col col--3"><div class="tableOfContents_bqdL thin-scrollbar theme-doc-toc-desktop"><ul class="table-of-contents table-of-contents__left-border"><li><a href=#quando-usar class="table-of-contents__link toc-highlight">Quando usar</a><li><a href=#o-que-é-registrado class="table-of-contents__link toc-highlight">O que é registrado</a><ul><li><a href=#integrações class="table-of-contents__link toc-highlight">Integrações</a><li><a href=#mappings class="table-of-contents__link toc-highlight">Mappings</a><li><a href=#quarentena class="table-of-contents__link toc-highlight">Quarentena</a><li><a href=#drift-explorer class="table-of-contents__link toc-highlight">Drift Explorer</a><li><a href=#destinos-só-admin class="table-of-contents__link toc-highlight">Destinos (só admin)</a><li><a href=#roteamento-só-admin class="table-of-contents__link toc-highlight">Roteamento (só admin)</a><li><a href=#fila-de-reenvio-só-admin class="table-of-contents__link toc-highlight">Fila de reenvio (só admin)</a><li><a href=#usuários-só-admin class="table-of-contents__link toc-highlight">Usuários (só admin)</a><li><a href=#organizações-só-admin class="table-of-contents__link toc-highlight">Organizações (só admin)</a><li><a href=#sistema-só-admin class="table-of-contents__link toc-highlight">Sistema (só admin)</a></ul><li><a href=#como-usar-a-tela class="table-of-contents__link toc-highlight">Como usar a tela</a><ul><li><a href=#filtros class="table-of-contents__link toc-highlight">Filtros</a><li><a href=#colunas class="table-of-contents__link toc-highlight">Colunas</a></ul><li><a href=#fluxos-comuns class="table-of-contents__link toc-highlight">Fluxos comuns</a><ul><li><a href=#investigar-uma-mudança-recente class="table-of-contents__link toc-highlight">Investigar uma mudança recente</a><li><a href=#auditar-um-destino class="table-of-contents__link toc-highlight">Auditar um destino</a><li><a href=#restaurar-uma-versão-de-rota class="table-of-contents__link toc-highlight">Restaurar uma versão de rota</a><li><a href=#auditar-a-atividade-de-um-usuário class="table-of-contents__link toc-highlight">Auditar a atividade de um usuário</a><li><a href=#investigar-um-possível-incidente class="table-of-contents__link toc-highlight">Investigar um possível incidente</a><li><a href=#auditar-acesso-por-cliente-compliance class="table-of-contents__link toc-highlight">Auditar acesso por cliente (compliance)</a></ul><li><a href=#exportar-registros class="table-of-contents__link toc-highlight">Exportar registros</a><li><a href=#retenção class="table-of-contents__link toc-highlight">Retenção</a><li><a href=#quem-vê-o-quê class="table-of-contents__link toc-highlight">Quem vê o quê</a><li><a href=#limitações class="table-of-contents__link toc-highlight">Limitações</a><li><a href=#próximos-passos class="table-of-contents__link toc-highlight">Próximos passos</a></ul></div></div></div></div></main></div></div></div><footer class="theme-layout-footer footer footer--dark"><div class="container container-fluid"><div class="row footer__links"><div class="theme-layout-footer-column col footer__col"><div class=footer__title>Documentação</div><ul class="footer__items clean-list"><li class=footer__item><a class=footer__link-item href=/en/getting-started/overview>Começar</a><li class=footer__item><a class=footer__link-item href=/en/operations/dashboard>Operação diária</a><li class=footer__item><a class=footer__link-item href=/en/normalization/overview>Mappings (CML)</a><li class=footer__item><a class=footer__link-item href=/en/runbooks/dispatcher>Runbooks</a></ul></div><div class="theme-layout-footer-column col footer__col"><div class=footer__title>Plataforma</div><ul class="footer__items clean-list"><li class=footer__item><a class=footer__link-item href=/en/concepts/architecture>Arquitetura</a><li class=footer__item><a class=footer__link-item href=/en/concepts/rbac>RBAC</a><li class=footer__item><a class=footer__link-item href=/en/integrations/overview>Integrações</a><li class=footer__item><a class=footer__link-item href=/en/compliance/retention>Compliance</a></ul></div><div class="theme-layout-footer-column col footer__col"><div class=footer__title>Recursos</div><ul class="footer__items clean-list"><li class=footer__item><a class=footer__link-item href=/en/getting-started/quickstart>Quickstart</a><li class=footer__item><a class=footer__link-item href=/en/normalization/cookbook>DSL Cookbook</a><li class=footer__item><a class=footer__link-item href=/en/normalization/troubleshooting>Troubleshooting</a></ul></div></div><div class="footer__bottom text--center"><div class=footer__copyright>Copyright © 2026 CentralOps. Built with Docusaurus.</div></div></div></footer></div></body>

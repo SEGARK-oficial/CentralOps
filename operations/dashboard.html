@@ -1,0 +1,229 @@
+<!doctype html><html lang=pt-BR dir=ltr class="docs-wrapper plugin-docs plugin-id-default docs-version-current docs-doc-page docs-doc-id-operations/dashboard" data-has-hydrated=false><head><meta charset=UTF-8><meta name=generator content="Docusaurus v3.10.0"><title data-rh=true>Dashboard | CentralOps</title><meta data-rh=true name=viewport content="width=device-width, initial-scale=1.0"/><meta data-rh=true name=twitter:card content=summary_large_image /><meta data-rh=true property=og:image content=https://docs.segark.com/img/centralops-social-card.png /><meta data-rh=true name=twitter:image content=https://docs.segark.com/img/centralops-social-card.png /><meta data-rh=true property=og:url content=https://docs.segark.com/operations/dashboard /><meta data-rh=true property=og:locale content=pt_BR /><meta data-rh=true property=og:locale:alternate content=en /><meta data-rh=true property=og:locale:alternate content=es /><meta data-rh=true name=docusaurus_locale content=pt-BR /><meta data-rh=true name=docsearch:language content=pt-BR /><meta data-rh=true name=docusaurus_version content=current /><meta data-rh=true name=docusaurus_tag content=docs-default-current /><meta data-rh=true name=docsearch:version content=current /><meta data-rh=true name=docsearch:docusaurus_tag content=docs-default-current /><meta data-rh=true property=og:title content="Dashboard | CentralOps"/><meta data-rh=true name=description content="Visão geral em tempo quase real da coleta, do roteamento e da entrega de eventos aos destinos."/><meta data-rh=true property=og:description content="Visão geral em tempo quase real da coleta, do roteamento e da entrega de eventos aos destinos."/><link data-rh=true rel=icon href=/img/favicon.ico /><link data-rh=true rel=canonical href=https://docs.segark.com/operations/dashboard /><link data-rh=true rel=alternate href=https://docs.segark.com/operations/dashboard hreflang=pt-BR /><link data-rh=true rel=alternate href=https://docs.segark.com/en/operations/dashboard hreflang=en /><link data-rh=true rel=alternate href=https://docs.segark.com/es/operations/dashboard hreflang=es /><link data-rh=true rel=alternate href=https://docs.segark.com/operations/dashboard hreflang=x-default /><script data-rh=true type=application/ld+json>{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","item":"https://docs.segark.com/operations/dashboard","name":"Dashboard","position":1}]}</script><link rel=stylesheet href=/assets/css/styles.65a61132.css /><script src=/assets/js/runtime~main.08d80435.js defer></script><script src=/assets/js/main.9390f800.js defer></script></head><body><svg style="display: none;"><defs>
+<symbol id=theme-svg-external-link viewBox="0 0 24 24"><path fill=currentColor d="M21 13v10h-21v-19h12v2h-10v15h17v-8h2zm3-12h-10.988l4.035 4-6.977 7.07 2.828 2.828 6.977-7.07 4.125 4.172v-11z"/></symbol>
+</defs></svg>
+<script>!function(){var t=function(){try{return new URLSearchParams(window.location.search).get("docusaurus-theme")}catch(t){}}()||function(){try{return window.localStorage.getItem("theme-cee")}catch(t){}}();document.documentElement.setAttribute("data-theme",t||(window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light")),document.documentElement.setAttribute("data-theme-choice",t||"system")}(),function(){try{for(var[t,e]of new URLSearchParams(window.location.search).entries())if(t.startsWith("docusaurus-data-")){var a=t.replace("docusaurus-data-","data-");document.documentElement.setAttribute(a,e)}}catch(t){}}()</script><div id=__docusaurus><link rel=preload as=image href=/img/logo.svg /><div role=region aria-label="Pular para o conteúdo principal"><a class=skipToContent_fXgn href=#__docusaurus_skipToContent_fallback>Pular para o conteúdo principal</a></div><nav aria-label="Navegação principal" class="theme-layout-navbar navbar navbar--fixed-top"><div class=navbar__inner><div class="theme-layout-navbar-left navbar__items"><button aria-label="Alternar painel de navegação" aria-expanded=false class="navbar__toggle clean-btn" type=button><svg width=30 height=30 viewBox="0 0 30 30" aria-hidden=true><path stroke=currentColor stroke-linecap=round stroke-miterlimit=10 stroke-width=2 d="M4 7h22M4 15h22M4 23h22"/></svg></button><a class=navbar__brand href=/><div class=navbar__logo><img src=/img/logo.svg alt=CentralOps class="themedComponent_mlkZ themedComponent--light_NVdE"/><img src=/img/logo.svg alt=CentralOps class="themedComponent_mlkZ themedComponent--dark_xIcU"/></div><b class="navbar__title text--truncate">CentralOps</b></a><a class="navbar__item navbar__link" href=/>Começar</a><a class="navbar__item navbar__link" href=/outputs/overview>Saídas & Rotas</a><a aria-current=page class="navbar__item navbar__link navbar__link--active" href=/operations/dashboard>Operação</a><a class="navbar__item navbar__link" href=/administration/users-and-roles>Administração</a><a class="navbar__item navbar__link" href=/normalization/overview>Mappings</a><a class="navbar__item navbar__link" href=/runbooks/dispatcher>Runbooks</a></div><div class="theme-layout-navbar-right navbar__items navbar__items--right"><div class="navbar__item dropdown dropdown--hoverable dropdown--right"><a href=# aria-haspopup=true aria-expanded=false role=button class=navbar__link><svg viewBox="0 0 24 24" width=20 height=20 aria-hidden=true class=iconLanguage_nlXk><path fill=currentColor d="M12.87 15.07l-2.54-2.51.03-.03c1.74-1.94 2.98-4.17 3.71-6.53H17V4h-7V2H8v2H1v1.99h11.17C11.5 7.92 10.44 9.75 9 11.35 8.07 10.32 7.3 9.19 6.69 8h-2c.73 1.63 1.73 3.17 2.98 4.56l-5.09 5.02L4 19l5-5 3.11 3.11.76-2.04zM18.5 10h-2L12 22h2l1.12-3h4.75L21 22h2l-4.5-12zm-2.62 7l1.62-4.33L19.12 17h-3.24z"/></svg>Português</a><ul class=dropdown__menu><li><a href=/operations/dashboard target=_self rel="noopener noreferrer" class="dropdown__link dropdown__link--active" lang=pt-BR>Português</a><li><a href=/en/operations/dashboard target=_self rel="noopener noreferrer" class=dropdown__link lang=en>English</a><li><a href=/es/operations/dashboard target=_self rel="noopener noreferrer" class=dropdown__link lang=es>Español</a></ul></div><div class="toggle_vylO colorModeToggle_DEke"><button class="clean-btn toggleButton_gllP toggleButtonDisabled_aARS" type=button disabled title="modo do sistema" aria-label="Mudar entre modo claro e escuro (modo do sistema está ativo)"><svg viewBox="0 0 24 24" width=24 height=24 aria-hidden=true class="toggleIcon_g3eP lightToggleIcon_pyhR"><path fill=currentColor d="M12,9c1.65,0,3,1.35,3,3s-1.35,3-3,3s-3-1.35-3-3S10.35,9,12,9 M12,7c-2.76,0-5,2.24-5,5s2.24,5,5,5s5-2.24,5-5 S14.76,7,12,7L12,7z M2,13l2,0c0.55,0,1-0.45,1-1s-0.45-1-1-1l-2,0c-0.55,0-1,0.45-1,1S1.45,13,2,13z M20,13l2,0c0.55,0,1-0.45,1-1 s-0.45-1-1-1l-2,0c-0.55,0-1,0.45-1,1S19.45,13,20,13z M11,2v2c0,0.55,0.45,1,1,1s1-0.45,1-1V2c0-0.55-0.45-1-1-1S11,1.45,11,2z M11,20v2c0,0.55,0.45,1,1,1s1-0.45,1-1v-2c0-0.55-0.45-1-1-1C11.45,19,11,19.45,11,20z M5.99,4.58c-0.39-0.39-1.03-0.39-1.41,0 c-0.39,0.39-0.39,1.03,0,1.41l1.06,1.06c0.39,0.39,1.03,0.39,1.41,0s0.39-1.03,0-1.41L5.99,4.58z M18.36,16.95 c-0.39-0.39-1.03-0.39-1.41,0c-0.39,0.39-0.39,1.03,0,1.41l1.06,1.06c0.39,0.39,1.03,0.39,1.41,0c0.39-0.39,0.39-1.03,0-1.41 L18.36,16.95z M19.42,5.99c0.39-0.39,0.39-1.03,0-1.41c-0.39-0.39-1.03-0.39-1.41,0l-1.06,1.06c-0.39,0.39-0.39,1.03,0,1.41 s1.03,0.39,1.41,0L19.42,5.99z M7.05,18.36c0.39-0.39,0.39-1.03,0-1.41c-0.39-0.39-1.03-0.39-1.41,0l-1.06,1.06 c-0.39,0.39-0.39,1.03,0,1.41s1.03,0.39,1.41,0L7.05,18.36z"/></svg><svg viewBox="0 0 24 24" width=24 height=24 aria-hidden=true class="toggleIcon_g3eP darkToggleIcon_wfgR"><path fill=currentColor d="M9.37,5.51C9.19,6.15,9.1,6.82,9.1,7.5c0,4.08,3.32,7.4,7.4,7.4c0.68,0,1.35-0.09,1.99-0.27C17.45,17.19,14.93,19,12,19 c-3.86,0-7-3.14-7-7C5,9.07,6.81,6.55,9.37,5.51z M12,3c-4.97,0-9,4.03-9,9s4.03,9,9,9s9-4.03,9-9c0-0.46-0.04-0.92-0.1-1.36 c-0.98,1.37-2.58,2.26-4.4,2.26c-2.98,0-5.4-2.42-5.4-5.4c0-1.81,0.89-3.42,2.26-4.4C12.92,3.04,12.46,3,12,3L12,3z"/></svg><svg viewBox="0 0 24 24" width=24 height=24 aria-hidden=true class="toggleIcon_g3eP systemToggleIcon_QzmC"><path fill=currentColor d="m12 21c4.971 0 9-4.029 9-9s-4.029-9-9-9-9 4.029-9 9 4.029 9 9 9zm4.95-13.95c1.313 1.313 2.05 3.093 2.05 4.95s-0.738 3.637-2.05 4.95c-1.313 1.313-3.093 2.05-4.95 2.05v-14c1.857 0 3.637 0.737 4.95 2.05z"/></svg></button></div><div class=navbarSearchContainer_Bca1><div class=navbar__search><span aria-label="expand searchbar" role=button class=search-icon tabindex=0></span><input id=search_input_react type=search placeholder=Loading... aria-label=Search class="navbar__search-input search-bar" disabled/></div></div></div></div><div role=presentation class=navbar-sidebar__backdrop></div></nav><div id=__docusaurus_skipToContent_fallback class="theme-layout-main main-wrapper mainWrapper_z2l0"><div class=docsWrapper_hBAB><button aria-label="Voltar para o topo" class="clean-btn theme-back-to-top-button backToTopButton_sjWU" type=button></button><div class=docRoot_UBD9><aside class="theme-doc-sidebar-container docSidebarContainer_YfHR"><div class=sidebarViewport_aRkj><div class=sidebar_njMd><nav aria-label="Painel lateral de documentos" class="menu thin-scrollbar menu_SIkG"><ul class="theme-doc-sidebar-menu menu__list"><li class="theme-doc-sidebar-item-category theme-doc-sidebar-item-category-level-1 menu__list-item"><div class=menu__list-item-collapsible><a class="categoryLink_byQd menu__link menu__link--sublist menu__link--sublist-caret menu__link--active" role=button aria-expanded=true href=/operations/dashboard><span title="Operação diária" class=categoryLinkLabel_W154>Operação diária</span></a></div><ul class=menu__list><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class="menu__link menu__link--active" aria-current=page tabindex=0 href=/operations/dashboard><span title=Dashboard class=linkLabel_WmDU>Dashboard</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/operations/fluxo-de-dados><span title="Fluxo de dados" class=linkLabel_WmDU>Fluxo de dados</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/operations/quarantine><span title=Quarentena class=linkLabel_WmDU>Quarentena</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/operations/search><span title=Investigações class=linkLabel_WmDU>Investigações</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/operations/federated-search><span title="Busca federada" class=linkLabel_WmDU>Busca federada</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/operations/detections><span title=Detecções class=linkLabel_WmDU>Detecções</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/operations/correlation-rules><span title="Regras de correlação" class=linkLabel_WmDU>Regras de correlação</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/operations/pipeline-health><span title="Saúde do Pipeline" class=linkLabel_WmDU>Saúde do Pipeline</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/operations/live-capture><span title="Captura ao vivo" class=linkLabel_WmDU>Captura ao vivo</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/operations/observability><span title="Observabilidade (OTel)" class=linkLabel_WmDU>Observabilidade (OTel)</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/operations/history-audit><span title="Histórico e auditoria" class=linkLabel_WmDU>Histórico e auditoria</span></a></ul></ul></nav></div></div></aside><main class=docMainContainer_TBSr><div class="container padding-top--md padding-bottom--lg"><div class=row><div class="col docItemCol_VOVn"><div class=docItemContainer_Djhp><article><nav class="theme-doc-breadcrumbs breadcrumbsContainer_Z_bl" aria-label=Trilha><ul class=breadcrumbs><li class=breadcrumbs__item><a aria-label="Página Inicial" class=breadcrumbs__link href=/><svg viewBox="0 0 24 24" class=breadcrumbHomeIcon_YNFT><path d="M10 19v-5h4v5c0 .55.45 1 1 1h3c.55 0 1-.45 1-1v-7h1.7c.46 0 .68-.57.33-.87L12.67 3.6c-.38-.34-.96-.34-1.34 0l-8.36 7.53c-.34.3-.13.87.33.87H5v7c0 .55.45 1 1 1h3c.55 0 1-.45 1-1z" fill=currentColor /></svg></a><li class=breadcrumbs__item><span class=breadcrumbs__link>Operação diária</span><li class="breadcrumbs__item breadcrumbs__item--active"><span class=breadcrumbs__link>Dashboard</span></ul></nav><div class="tocCollapsible_ETCw theme-doc-toc-mobile tocMobile_ITEo"><button type=button class="clean-btn tocCollapsibleButton_TO0P">Nesta página</button></div><div class="theme-doc-markdown markdown"><header><h1>Dashboard</h1></header>
+<p>O Dashboard é a primeira tela da plataforma (menu <strong>Visão geral -> Dashboard</strong>). Ele reúne, num só lugar, os indicadores que mostram se os eventos estão <strong>chegando</strong> das suas fontes, sendo <strong>normalizados</strong> corretamente e sendo <strong>entregues</strong> aos destinos configurados.</p>
+<p>A tela acompanha duas pontas do fluxo:</p>
+<ul>
+<li class=""><strong>Entrada (coleta):</strong> saúde das integrações, taxa de ingestão de eventos e eventos que ficaram retidos para correção.</li>
+<li class=""><strong>Saída (entrega):</strong> destinos ativos, taxa de entrega por destino e eventos que não puderam ser entregues e aguardam reenvio.</li>
+</ul>
+<p>Quem é Viewer enxerga todos os indicadores. Quem é administrador vê, além disso, os atalhos para reprocessar reenvios, ajustar roteamento e operar destinos.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=quando-usar>Quando usar<a href=#quando-usar class=hash-link aria-label="Link direto para Quando usar" title="Link direto para Quando usar" translate=no>​</a></h2>
+<ul>
+<li class=""><strong>Check-in matinal do SOC:</strong> ao começar o turno, abrir o Dashboard para responder "os eventos continuaram fluindo durante a madrugada?" e "alguma fonte parou de enviar dados?".</li>
+<li class=""><strong>Durante um incidente:</strong> confirmar rapidamente se um pico de eventos é real (e não falha de coleta) e se os eventos estão chegando aos destinos onde o time investiga.</li>
+<li class=""><strong>Verificação de entrega:</strong> depois de configurar ou alterar um destino, conferir se os eventos voltaram a fluir e se a fila de reenvio não está crescendo.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=indicadores-de-entrada-coleta>Indicadores de entrada (coleta)<a href=#indicadores-de-entrada-coleta class=hash-link aria-label="Link direto para Indicadores de entrada (coleta)" title="Link direto para Indicadores de entrada (coleta)" translate=no>​</a></h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=funil-do-pipeline>Funil do pipeline<a href=#funil-do-pipeline class=hash-link aria-label="Link direto para Funil do pipeline" title="Link direto para Funil do pipeline" translate=no>​</a></h3>
+<p>Visão de ponta a ponta do fluxo: quantos eventos foram <strong>coletados</strong>, <strong>normalizados</strong>, <strong>roteados</strong> e <strong>entregues</strong> na janela atual. Uma queda brusca entre duas etapas indica onde investigar — por exemplo, muitos eventos coletados mas poucos normalizados apontam para a Quarentena; muitos roteados mas poucos entregues apontam para um destino com problema.</p>
+<p>Os cartões de indicadores resumem a mesma história:</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Indicador<th>O que mostra<tbody><tr><td><strong>Ingestão (EPS)</strong><td>Eventos por segundo entrando pelas suas fontes.<tr><td><strong>Cobertura de mapping</strong><td>Proporção entre os campos que o mapeamento aproveita e o total observado (aproveitados + novos detectados). Um mergulho logo após uma atualização costuma significar que o fornecedor passou a enviar campos novos, não que o mapeamento piorou.<tr><td><strong>Quarentena 24h</strong><td>Taxa (ou volume) de eventos retidos por erro de normalização.<tr><td><strong>Roteados (/min)</strong><td>Eventos processados pelas regras de roteamento e o percentual descartado (drop).<tr><td><strong>Destinos</strong><td>Quantos destinos estão saudáveis em relação ao total.<tr><td><strong>Fontes ativas</strong><td>Quantas integrações estão coletando e quantas apresentam erro.</table>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=taxa-de-eventos>Taxa de eventos<a href=#taxa-de-eventos class=hash-link aria-label="Link direto para Taxa de eventos" title="Link direto para Taxa de eventos" translate=no>​</a></h3>
+<p>Gráfico com o volume de eventos processados por minuto nas últimas 24 horas. Picos podem indicar um ataque em andamento ou uma recoleta histórica (recoleta de dados antigos) recém-iniciada.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=saúde-da-coleta>Saúde da coleta<a href=#saúde-da-coleta class=hash-link aria-label="Link direto para Saúde da coleta" title="Link direto para Saúde da coleta" translate=no>​</a></h3>
+<p>Resumo do estado das suas integrações. Clique para abrir o detalhamento por fonte em <strong>Visão geral -> Integrações</strong>.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Cor<th>Situação<tbody><tr><td>Verde<td>Todas as fontes ativas e coletando normalmente<tr><td>Amarelo<td>Ao menos uma fonte com problema leve (ex.: limite de requisições atingido, credencial perto de expirar)<tr><td>Vermelho<td>Uma fonte importante parada há vários minutos</table>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=eventos-em-quarentena>Eventos em quarentena<a href=#eventos-em-quarentena class=hash-link aria-label="Link direto para Eventos em quarentena" title="Link direto para Eventos em quarentena" translate=no>​</a></h3>
+<p>Quantidade de eventos que ficaram retidos porque não puderam ser interpretados ou mapeados (por exemplo, depois de uma mudança na API de um fornecedor). Clique para abrir a tela <strong>Normalização -> Quarentena</strong> e tratar a fila.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Cor<th>Faixa<th>Leitura<tbody><tr><td>Verde<td>0<td>Nenhum erro; os mapeamentos estão funcionando<tr><td>Amarelo<td>Poucos eventos<td>Reveja o mapeamento se o número continuar subindo<tr><td>Vermelho<td>Muitos eventos<td>Provável mudança no formato da fonte; trate com prioridade</table>
+<p>Mais detalhes em <a class="" href=/operations/quarantine>Quarentena</a>. Esta fila é diferente da fila de reenvio de saída descrita abaixo.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=últimos-eventos-normalizados>Últimos eventos normalizados<a href=#últimos-eventos-normalizados class=hash-link aria-label="Link direto para Últimos eventos normalizados" title="Link direto para Últimos eventos normalizados" translate=no>​</a></h3>
+<p>Lista dos eventos mais recentes, com horário, fonte, severidade e um título curto. Clique em um item para expandir e ver o conteúdo completo do evento (somente leitura).</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=indicadores-de-saída-entrega>Indicadores de saída (entrega)<a href=#indicadores-de-saída-entrega class=hash-link aria-label="Link direto para Indicadores de saída (entrega)" title="Link direto para Indicadores de saída (entrega)" translate=no>​</a></h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=destinos-e-saúde-agregada>Destinos e saúde agregada<a href=#destinos-e-saúde-agregada class=hash-link aria-label="Link direto para Destinos e saúde agregada" title="Link direto para Destinos e saúde agregada" translate=no>​</a></h3>
+<p>Mostra quantos destinos estão ativos e o estado geral da entrega. Clique para abrir <strong>Operação -> Destinos</strong>, onde cada destino tem seu próprio indicador. (A tela <strong>Destinos</strong> aparece apenas para administradores.)</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Estado<th>O que significa<tbody><tr><td>Saudável<td>Conexão OK e nenhuma falha nas últimas 24h<tr><td>Degradado<td>Conexão OK, mas há eventos aguardando reenvio<tr><td>Indisponível<td>Destino temporariamente bloqueado pela proteção contra destino instável, após falhas repetidas<tr><td>Desativado<td>Destino inativo</table>
+<blockquote>
+<p>A <strong>proteção contra destino instável</strong> pausa automaticamente o envio para um destino que vem falhando muito, para não acumular erros. Quando o destino volta a responder, o envio é retomado.</p>
+</blockquote>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=taxa-de-entrega-por-destino>Taxa de entrega por destino<a href=#taxa-de-entrega-por-destino class=hash-link aria-label="Link direto para Taxa de entrega por destino" title="Link direto para Taxa de entrega por destino" translate=no>​</a></h3>
+<p>Tabela com os destinos mais ativos nas últimas 24h, mostrando o nome e o tipo do destino (por exemplo, Wazuh, Splunk, Sentinel, S3), o volume entregue e o estado atual. Clique em um destino para ver os detalhes de saúde e a fila de reenvio.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=fila-de-reenvio>Fila de reenvio<a href=#fila-de-reenvio class=hash-link aria-label="Link direto para Fila de reenvio" title="Link direto para Fila de reenvio" translate=no>​</a></h3>
+<p>Total de eventos que <strong>não puderam ser entregues</strong> a um destino e ficaram aguardando uma nova tentativa.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Cor<th>Faixa<th>Leitura<tbody><tr><td>Verde<td>0<td>Tudo sendo entregue normalmente<tr><td>Amarelo<td>Poucos eventos acumulados<td>Verifique o destino afetado e drene a fila<tr><td>Vermelho<td>Muitos eventos acumulados<td>Investigue com prioridade (credencial expirada, destino fora do ar, rede)</table>
+<p>Clique para abrir a fila e filtrar pelo destino e pelo tipo de erro (por exemplo, credencial inválida, tempo limite excedido, destino temporariamente bloqueado).</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=rotas-ativas>Rotas ativas<a href=#rotas-ativas class=hash-link aria-label="Link direto para Rotas ativas" title="Link direto para Rotas ativas" translate=no>​</a></h3>
+<p>Mostra quantas regras de roteamento estão ativas e o volume de eventos que passou por cada uma nas últimas 24h. Se não houver nenhuma regra ativa, os eventos seguem para o destino marcado como padrão da organização — e, na ausência dele, vão para a fila de reenvio em vez de serem perdidos.</p>
+<p>Clique para abrir <strong>Operação -> Roteamento</strong>, onde é possível ajustar as condições e os destinos de cada rota. (As telas <strong>Roteamento</strong> e <strong>Fluxo de dados</strong> aparecem apenas para administradores.)</p>
+<blockquote>
+<p>Não existe liga/desliga global do roteamento: as regras de rota são sempre o caminho de despacho dos eventos. O que se ativa ou desativa é cada rota individualmente, na tela <strong>Operação -> Roteamento</strong>.</p>
+</blockquote>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=fluxos-de-trabalho>Fluxos de trabalho<a href=#fluxos-de-trabalho class=hash-link aria-label="Link direto para Fluxos de trabalho" title="Link direto para Fluxos de trabalho" translate=no>​</a></h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=investigação-rápida-de-entrada>Investigação rápida de entrada<a href=#investigação-rápida-de-entrada class=hash-link aria-label="Link direto para Investigação rápida de entrada" title="Link direto para Investigação rápida de entrada" translate=no>​</a></h3>
+<ol>
+<li class="">Abra <strong>Visão geral -> Dashboard</strong>.</li>
+<li class="">Olhe o <strong>funil do pipeline</strong> e a <strong>taxa de eventos</strong> e veja se há picos ou quedas inesperados.</li>
+<li class="">Confira <strong>Saúde da coleta</strong> para identificar a fonte com problema.</li>
+<li class="">Revise <strong>Últimos eventos normalizados</strong> para identificar a fonte e o padrão.</li>
+<li class="">Se houver muitos eventos em quarentena, vá para <a class="" href=/operations/quarantine>Quarentena</a>.</li>
+<li class="">Para investigar eventos específicos, use <strong>Operação -> Investigações</strong> (<a class="" href=/operations/search>busca de eventos</a>).</li>
+</ol>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=verificação-de-entrega>Verificação de entrega<a href=#verificação-de-entrega class=hash-link aria-label="Link direto para Verificação de entrega" title="Link direto para Verificação de entrega" translate=no>​</a></h3>
+<ol>
+<li class="">Olhe <strong>Destinos e saúde agregada</strong>. Há algum destino indisponível?</li>
+<li class="">Se sim:
+<ul>
+<li class="">Abra <strong>Operação -> Destinos</strong> e selecione o destino.</li>
+<li class="">Use a ação de testar conexão para validar a conectividade e a credencial.</li>
+<li class="">Se o teste falhar, rotacione a credencial ou acione o responsável pelo destino. Veja <a class="" href=/outputs/destination-operations>Operar destinos</a>.</li>
+</ul>
+</li>
+<li class="">Se a fila de reenvio estiver acima de zero:
+<ul>
+<li class="">Abra a fila e identifique o tipo de erro predominante.</li>
+<li class="">Credencial inválida: rotacione a credencial do destino.</li>
+<li class="">Tempo limite ou destino bloqueado: aguarde a retomada automática e teste o destino novamente.</li>
+<li class="">Em seguida, reprocesse a fila de reenvio na tela de Destinos. Veja <a class="" href=/outputs/destination-operations>Operar destinos</a>.</li>
+</ul>
+</li>
+</ol>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=monitoramento-contínuo>Monitoramento contínuo<a href=#monitoramento-contínuo class=hash-link aria-label="Link direto para Monitoramento contínuo" title="Link direto para Monitoramento contínuo" translate=no>​</a></h3>
+<ul>
+<li class=""><strong>Início do turno:</strong> confira o <strong>funil do pipeline</strong> e a <strong>saúde da coleta</strong> para saber se os eventos fluíram normalmente durante a madrugada; para triagem de detecções, vá a <strong>Operação -> Detecções</strong>.</li>
+<li class=""><strong>Ao longo do dia:</strong> verifique se a taxa de eventos está dentro do normal, se todos os destinos estão saudáveis e se a fila de reenvio não está crescendo.</li>
+<li class=""><strong>Sinal de alerta:</strong> se a fila de reenvio começa a crescer ou destinos passam a Degradado/Indisponível, investigue imediatamente — geralmente é credencial expirada, rede ou destino fora do ar.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=limitações>Limitações<a href=#limitações class=hash-link aria-label="Link direto para Limitações" title="Link direto para Limitações" translate=no>​</a></h2>
+<ul>
+<li class="">O Dashboard mostra apenas as <strong>últimas 24 horas</strong>. Para outras janelas de tempo, use a tela <strong>Operação -> Investigações</strong> (<a class="" href=/operations/search>busca de eventos</a>).</li>
+<li class="">Os dados são atualizados aproximadamente <strong>a cada minuto</strong>, não em tempo real instantâneo.</li>
+<li class="">As agregações são por fonte (entrada) e por destino (saída). Para recortes personalizados — por exemplo, por fornecedor ou por organização — use a busca de eventos em <strong>Operação -> Investigações</strong> e exporte o resultado.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=próximos-passos>Próximos passos<a href=#próximos-passos class=hash-link aria-label="Link direto para Próximos passos" title="Link direto para Próximos passos" translate=no>​</a></h2>
+<ul>
+<li class=""><strong>Muitos eventos em quarentena?</strong> Vá para <a class="" href=/operations/quarantine>Quarentena</a> e depois para o <a class="" href=/normalization/troubleshooting>guia de solução de problemas de normalização</a>.</li>
+<li class=""><strong>Destino indisponível ou fila de reenvio crescendo?</strong> Vá para <a class="" href=/outputs/destination-operations>Operar destinos</a>.</li>
+<li class=""><strong>Ajustar regras de roteamento?</strong> Vá para <a class="" href=/outputs/routing>Roteamento</a>.</li>
+<li class=""><strong>Busca avançada e histórico?</strong> Use a tela <strong>Operação -> Investigações</strong> (<a class="" href=/operations/search>busca de eventos</a>).</li>
+</ul></div></article><nav class="docusaurus-mt-lg pagination-nav" aria-label="Páginas de documento"><a class="pagination-nav__link pagination-nav__link--next" href=/operations/fluxo-de-dados><div class=pagination-nav__sublabel>Próxima</div><div class=pagination-nav__label>Fluxo de dados</div></a></nav></div></div><div class="col col--3"><div class="tableOfContents_bqdL thin-scrollbar theme-doc-toc-desktop"><ul class="table-of-contents table-of-contents__left-border"><li><a href=#quando-usar class="table-of-contents__link toc-highlight">Quando usar</a><li><a href=#indicadores-de-entrada-coleta class="table-of-contents__link toc-highlight">Indicadores de entrada (coleta)</a><ul><li><a href=#funil-do-pipeline class="table-of-contents__link toc-highlight">Funil do pipeline</a><li><a href=#taxa-de-eventos class="table-of-contents__link toc-highlight">Taxa de eventos</a><li><a href=#saúde-da-coleta class="table-of-contents__link toc-highlight">Saúde da coleta</a><li><a href=#eventos-em-quarentena class="table-of-contents__link toc-highlight">Eventos em quarentena</a><li><a href=#últimos-eventos-normalizados class="table-of-contents__link toc-highlight">Últimos eventos normalizados</a></ul><li><a href=#indicadores-de-saída-entrega class="table-of-contents__link toc-highlight">Indicadores de saída (entrega)</a><ul><li><a href=#destinos-e-saúde-agregada class="table-of-contents__link toc-highlight">Destinos e saúde agregada</a><li><a href=#taxa-de-entrega-por-destino class="table-of-contents__link toc-highlight">Taxa de entrega por destino</a><li><a href=#fila-de-reenvio class="table-of-contents__link toc-highlight">Fila de reenvio</a><li><a href=#rotas-ativas class="table-of-contents__link toc-highlight">Rotas ativas</a></ul><li><a href=#fluxos-de-trabalho class="table-of-contents__link toc-highlight">Fluxos de trabalho</a><ul><li><a href=#investigação-rápida-de-entrada class="table-of-contents__link toc-highlight">Investigação rápida de entrada</a><li><a href=#verificação-de-entrega class="table-of-contents__link toc-highlight">Verificação de entrega</a><li><a href=#monitoramento-contínuo class="table-of-contents__link toc-highlight">Monitoramento contínuo</a></ul><li><a href=#limitações class="table-of-contents__link toc-highlight">Limitações</a><li><a href=#próximos-passos class="table-of-contents__link toc-highlight">Próximos passos</a></ul></div></div></div></div></main></div></div></div><footer class="theme-layout-footer footer footer--dark"><div class="container container-fluid"><div class="row footer__links"><div class="theme-layout-footer-column col footer__col"><div class=footer__title>Documentação</div><ul class="footer__items clean-list"><li class=footer__item><a class=footer__link-item href=/getting-started/overview>Começar</a><li class=footer__item><a class=footer__link-item href=/operations/dashboard>Operação diária</a><li class=footer__item><a class=footer__link-item href=/normalization/overview>Mappings (CML)</a><li class=footer__item><a class=footer__link-item href=/runbooks/dispatcher>Runbooks</a></ul></div><div class="theme-layout-footer-column col footer__col"><div class=footer__title>Plataforma</div><ul class="footer__items clean-list"><li class=footer__item><a class=footer__link-item href=/concepts/architecture>Arquitetura</a><li class=footer__item><a class=footer__link-item href=/concepts/rbac>RBAC</a><li class=footer__item><a class=footer__link-item href=/integrations/overview>Integrações</a><li class=footer__item><a class=footer__link-item href=/compliance/retention>Compliance</a></ul></div><div class="theme-layout-footer-column col footer__col"><div class=footer__title>Recursos</div><ul class="footer__items clean-list"><li class=footer__item><a class=footer__link-item href=/getting-started/quickstart>Quickstart</a><li class=footer__item><a class=footer__link-item href=/normalization/cookbook>DSL Cookbook</a><li class=footer__item><a class=footer__link-item href=/normalization/troubleshooting>Troubleshooting</a></ul></div></div><div class="footer__bottom text--center"><div class=footer__copyright>Copyright © 2026 CentralOps. Built with Docusaurus.</div></div></div></footer></div></body>

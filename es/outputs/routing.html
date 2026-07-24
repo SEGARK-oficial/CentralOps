@@ -1,0 +1,460 @@
+<!doctype html><html lang=es dir=ltr class="docs-wrapper plugin-docs plugin-id-default docs-version-current docs-doc-page docs-doc-id-outputs/routing" data-has-hydrated=false><head><meta charset=UTF-8><meta name=generator content="Docusaurus v3.10.0"><title data-rh=true>Roteamento por regra | CentralOps</title><meta data-rh=true name=viewport content="width=device-width, initial-scale=1.0"/><meta data-rh=true name=twitter:card content=summary_large_image /><meta data-rh=true property=og:image content=https://docs.segark.com/es/img/centralops-social-card.png /><meta data-rh=true name=twitter:image content=https://docs.segark.com/es/img/centralops-social-card.png /><meta data-rh=true property=og:url content=https://docs.segark.com/es/outputs/routing /><meta data-rh=true property=og:locale content=es /><meta data-rh=true property=og:locale:alternate content=pt_BR /><meta data-rh=true property=og:locale:alternate content=en /><meta data-rh=true name=docusaurus_locale content=es /><meta data-rh=true name=docsearch:language content=es /><meta data-rh=true name=docusaurus_version content=current /><meta data-rh=true name=docusaurus_tag content=docs-default-current /><meta data-rh=true name=docsearch:version content=current /><meta data-rh=true name=docsearch:docusaurus_tag content=docs-default-current /><meta data-rh=true property=og:title content="Roteamento por regra | CentralOps"/><meta data-rh=true name=description content="Decida, por regra, para quais destinos cada evento vai — ou se é descartado — com prioridade, envio simultâneo e descarte de ruído."/><meta data-rh=true property=og:description content="Decida, por regra, para quais destinos cada evento vai — ou se é descartado — com prioridade, envio simultâneo e descarte de ruído."/><link data-rh=true rel=icon href=/es/img/favicon.ico /><link data-rh=true rel=canonical href=https://docs.segark.com/es/outputs/routing /><link data-rh=true rel=alternate href=https://docs.segark.com/outputs/routing hreflang=pt-BR /><link data-rh=true rel=alternate href=https://docs.segark.com/en/outputs/routing hreflang=en /><link data-rh=true rel=alternate href=https://docs.segark.com/es/outputs/routing hreflang=es /><link data-rh=true rel=alternate href=https://docs.segark.com/outputs/routing hreflang=x-default /><script data-rh=true type=application/ld+json>{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","item":"https://docs.segark.com/es/outputs/routing","name":"Roteamento por regra","position":1}]}</script><link rel=stylesheet href=/es/assets/css/styles.65a61132.css /><script src=/es/assets/js/runtime~main.774ab3e5.js defer></script><script src=/es/assets/js/main.9750a519.js defer></script></head><body><svg style="display: none;"><defs>
+<symbol id=theme-svg-external-link viewBox="0 0 24 24"><path fill=currentColor d="M21 13v10h-21v-19h12v2h-10v15h17v-8h2zm3-12h-10.988l4.035 4-6.977 7.07 2.828 2.828 6.977-7.07 4.125 4.172v-11z"/></symbol>
+</defs></svg>
+<script>!function(){var t=function(){try{return new URLSearchParams(window.location.search).get("docusaurus-theme")}catch(t){}}()||function(){try{return window.localStorage.getItem("theme-4d2")}catch(t){}}();document.documentElement.setAttribute("data-theme",t||(window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light")),document.documentElement.setAttribute("data-theme-choice",t||"system")}(),function(){try{for(var[t,e]of new URLSearchParams(window.location.search).entries())if(t.startsWith("docusaurus-data-")){var a=t.replace("docusaurus-data-","data-");document.documentElement.setAttribute(a,e)}}catch(t){}}()</script><div id=__docusaurus><link rel=preload as=image href=/es/img/logo.svg /><div role=region aria-label="Saltar al contenido principal"><a class=skipToContent_fXgn href=#__docusaurus_skipToContent_fallback>Saltar al contenido principal</a></div><nav aria-label=Principal class="theme-layout-navbar navbar navbar--fixed-top"><div class=navbar__inner><div class="theme-layout-navbar-left navbar__items"><button aria-label="Alternar barra lateral" aria-expanded=false class="navbar__toggle clean-btn" type=button><svg width=30 height=30 viewBox="0 0 30 30" aria-hidden=true><path stroke=currentColor stroke-linecap=round stroke-miterlimit=10 stroke-width=2 d="M4 7h22M4 15h22M4 23h22"/></svg></button><a class=navbar__brand href=/es/><div class=navbar__logo><img src=/es/img/logo.svg alt=CentralOps class="themedComponent_mlkZ themedComponent--light_NVdE"/><img src=/es/img/logo.svg alt=CentralOps class="themedComponent_mlkZ themedComponent--dark_xIcU"/></div><b class="navbar__title text--truncate">CentralOps</b></a><a class="navbar__item navbar__link" href=/es/>Empezar</a><a aria-current=page class="navbar__item navbar__link navbar__link--active" href=/es/outputs/overview>Salidas y Rutas</a><a class="navbar__item navbar__link" href=/es/operations/dashboard>Operación</a><a class="navbar__item navbar__link" href=/es/administration/users-and-roles>Administración</a><a class="navbar__item navbar__link" href=/es/normalization/overview>Mappings</a><a class="navbar__item navbar__link" href=/es/runbooks/dispatcher>Runbooks</a></div><div class="theme-layout-navbar-right navbar__items navbar__items--right"><div class="navbar__item dropdown dropdown--hoverable dropdown--right"><a href=# aria-haspopup=true aria-expanded=false role=button class=navbar__link><svg viewBox="0 0 24 24" width=20 height=20 aria-hidden=true class=iconLanguage_nlXk><path fill=currentColor d="M12.87 15.07l-2.54-2.51.03-.03c1.74-1.94 2.98-4.17 3.71-6.53H17V4h-7V2H8v2H1v1.99h11.17C11.5 7.92 10.44 9.75 9 11.35 8.07 10.32 7.3 9.19 6.69 8h-2c.73 1.63 1.73 3.17 2.98 4.56l-5.09 5.02L4 19l5-5 3.11 3.11.76-2.04zM18.5 10h-2L12 22h2l1.12-3h4.75L21 22h2l-4.5-12zm-2.62 7l1.62-4.33L19.12 17h-3.24z"/></svg>Español</a><ul class=dropdown__menu><li><a href=/outputs/routing target=_self rel="noopener noreferrer" class=dropdown__link lang=pt-BR>Português</a><li><a href=/en/outputs/routing target=_self rel="noopener noreferrer" class=dropdown__link lang=en>English</a><li><a href=/es/outputs/routing target=_self rel="noopener noreferrer" class="dropdown__link dropdown__link--active" lang=es>Español</a></ul></div><div class="toggle_vylO colorModeToggle_DEke"><button class="clean-btn toggleButton_gllP toggleButtonDisabled_aARS" type=button disabled title="system mode" aria-label="Cambiar entre modo oscuro y claro (actualmente system mode)"><svg viewBox="0 0 24 24" width=24 height=24 aria-hidden=true class="toggleIcon_g3eP lightToggleIcon_pyhR"><path fill=currentColor d="M12,9c1.65,0,3,1.35,3,3s-1.35,3-3,3s-3-1.35-3-3S10.35,9,12,9 M12,7c-2.76,0-5,2.24-5,5s2.24,5,5,5s5-2.24,5-5 S14.76,7,12,7L12,7z M2,13l2,0c0.55,0,1-0.45,1-1s-0.45-1-1-1l-2,0c-0.55,0-1,0.45-1,1S1.45,13,2,13z M20,13l2,0c0.55,0,1-0.45,1-1 s-0.45-1-1-1l-2,0c-0.55,0-1,0.45-1,1S19.45,13,20,13z M11,2v2c0,0.55,0.45,1,1,1s1-0.45,1-1V2c0-0.55-0.45-1-1-1S11,1.45,11,2z M11,20v2c0,0.55,0.45,1,1,1s1-0.45,1-1v-2c0-0.55-0.45-1-1-1C11.45,19,11,19.45,11,20z M5.99,4.58c-0.39-0.39-1.03-0.39-1.41,0 c-0.39,0.39-0.39,1.03,0,1.41l1.06,1.06c0.39,0.39,1.03,0.39,1.41,0s0.39-1.03,0-1.41L5.99,4.58z M18.36,16.95 c-0.39-0.39-1.03-0.39-1.41,0c-0.39,0.39-0.39,1.03,0,1.41l1.06,1.06c0.39,0.39,1.03,0.39,1.41,0c0.39-0.39,0.39-1.03,0-1.41 L18.36,16.95z M19.42,5.99c0.39-0.39,0.39-1.03,0-1.41c-0.39-0.39-1.03-0.39-1.41,0l-1.06,1.06c-0.39,0.39-0.39,1.03,0,1.41 s1.03,0.39,1.41,0L19.42,5.99z M7.05,18.36c0.39-0.39,0.39-1.03,0-1.41c-0.39-0.39-1.03-0.39-1.41,0l-1.06,1.06 c-0.39,0.39-0.39,1.03,0,1.41s1.03,0.39,1.41,0L7.05,18.36z"/></svg><svg viewBox="0 0 24 24" width=24 height=24 aria-hidden=true class="toggleIcon_g3eP darkToggleIcon_wfgR"><path fill=currentColor d="M9.37,5.51C9.19,6.15,9.1,6.82,9.1,7.5c0,4.08,3.32,7.4,7.4,7.4c0.68,0,1.35-0.09,1.99-0.27C17.45,17.19,14.93,19,12,19 c-3.86,0-7-3.14-7-7C5,9.07,6.81,6.55,9.37,5.51z M12,3c-4.97,0-9,4.03-9,9s4.03,9,9,9s9-4.03,9-9c0-0.46-0.04-0.92-0.1-1.36 c-0.98,1.37-2.58,2.26-4.4,2.26c-2.98,0-5.4-2.42-5.4-5.4c0-1.81,0.89-3.42,2.26-4.4C12.92,3.04,12.46,3,12,3L12,3z"/></svg><svg viewBox="0 0 24 24" width=24 height=24 aria-hidden=true class="toggleIcon_g3eP systemToggleIcon_QzmC"><path fill=currentColor d="m12 21c4.971 0 9-4.029 9-9s-4.029-9-9-9-9 4.029-9 9 4.029 9 9 9zm4.95-13.95c1.313 1.313 2.05 3.093 2.05 4.95s-0.738 3.637-2.05 4.95c-1.313 1.313-3.093 2.05-4.95 2.05v-14c1.857 0 3.637 0.737 4.95 2.05z"/></svg></button></div><div class=navbarSearchContainer_Bca1><div class=navbar__search><span aria-label="expand searchbar" role=button class=search-icon tabindex=0></span><input id=search_input_react type=search placeholder=Loading... aria-label=Search class="navbar__search-input search-bar" disabled/></div></div></div></div><div role=presentation class=navbar-sidebar__backdrop></div></nav><div id=__docusaurus_skipToContent_fallback class="theme-layout-main main-wrapper mainWrapper_z2l0"><div class=docsWrapper_hBAB><button aria-label="Volver al principio" class="clean-btn theme-back-to-top-button backToTopButton_sjWU" type=button></button><div class=docRoot_UBD9><aside class="theme-doc-sidebar-container docSidebarContainer_YfHR"><div class=sidebarViewport_aRkj><div class=sidebar_njMd><nav aria-label="Barra lateral de Documentos" class="menu thin-scrollbar menu_SIkG"><ul class="theme-doc-sidebar-menu menu__list"><li class="theme-doc-sidebar-item-category theme-doc-sidebar-item-category-level-1 menu__list-item"><div class=menu__list-item-collapsible><a class="categoryLink_byQd menu__link menu__link--sublist menu__link--sublist-caret menu__link--active" role=button aria-expanded=true href=/es/outputs/overview><span title="Salidas y enrutamiento" class=categoryLinkLabel_W154>Salidas y enrutamiento</span></a></div><ul class=menu__list><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/es/outputs/overview><span title="Saídas e Roteamento (visão geral)" class=linkLabel_WmDU>Saídas e Roteamento (visão geral)</span></a><li class="theme-doc-sidebar-item-category theme-doc-sidebar-item-category-level-2 menu__list-item"><div class=menu__list-item-collapsible><a class="categoryLink_byQd menu__link menu__link--sublist menu__link--sublist-caret" role=button aria-expanded=true tabindex=0 href=/es/outputs/destinations><span title=Destinos class=categoryLinkLabel_W154>Destinos</span></a></div><ul class=menu__list><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class=menu__link tabindex=0 href=/es/outputs/destinations><span title="Destinos (catálogo e como configurar)" class=linkLabel_WmDU>Destinos (catálogo e como configurar)</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class=menu__link tabindex=0 href=/es/outputs/destination-wazuh-syslog><span title="Destino: Syslog e JSONL" class=linkLabel_WmDU>Destino: Syslog e JSONL</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class=menu__link tabindex=0 href=/es/outputs/destination-splunk-hec><span title="Destino: Splunk HEC" class=linkLabel_WmDU>Destino: Splunk HEC</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class=menu__link tabindex=0 href=/es/outputs/destination-elastic><span title="Destino: Elasticsearch / OpenSearch" class=linkLabel_WmDU>Destino: Elasticsearch / OpenSearch</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class=menu__link tabindex=0 href=/es/outputs/destination-clickhouse><span title="Destino: ClickHouse" class=linkLabel_WmDU>Destino: ClickHouse</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class=menu__link tabindex=0 href=/es/outputs/destination-crowdstrike-ngsiem><span title="Destino: CrowdStrike Falcon Next-Gen SIEM" class=linkLabel_WmDU>Destino: CrowdStrike Falcon Next-Gen SIEM</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class=menu__link tabindex=0 href=/es/outputs/destination-crowdstrike-logscale><span title="Destino: CrowdStrike Falcon LogScale" class=linkLabel_WmDU>Destino: CrowdStrike Falcon LogScale</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class=menu__link tabindex=0 href=/es/outputs/destination-s3><span title="Destino: S3 / Object Store (data lake)" class=linkLabel_WmDU>Destino: S3 / Object Store (data lake)</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class=menu__link tabindex=0 href=/es/outputs/destination-sentinel><span title="Destino: Microsoft Sentinel" class=linkLabel_WmDU>Destino: Microsoft Sentinel</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class=menu__link tabindex=0 href=/es/outputs/destination-kafka><span title="Destino: Apache Kafka" class=linkLabel_WmDU>Destino: Apache Kafka</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class=menu__link tabindex=0 href=/es/outputs/destination-otlp><span title="Destino: OTLP" class=linkLabel_WmDU>Destino: OTLP</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class=menu__link tabindex=0 href=/es/outputs/destination-operations><span title="Operar destinos (saúde, fila de reenvio, métricas)" class=linkLabel_WmDU>Operar destinos (saúde, fila de reenvio, métricas)</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class=menu__link tabindex=0 href=/es/outputs/destination-webhook><span title="Destino: Webhook Genérico" class=linkLabel_WmDU>Destino: Webhook Genérico</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class=menu__link tabindex=0 href=/es/outputs/destination-datadog><span title="Destino: Datadog Logs" class=linkLabel_WmDU>Destino: Datadog Logs</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class=menu__link tabindex=0 href=/es/outputs/destination-chronicle><span title="Destino: Google SecOps (Chronicle)" class=linkLabel_WmDU>Destino: Google SecOps (Chronicle)</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class=menu__link tabindex=0 href=/es/outputs/destination-security-lake><span title="Destino: Amazon Security Lake (OCSF Parquet)" class=linkLabel_WmDU>Destino: Amazon Security Lake (OCSF Parquet)</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class=menu__link tabindex=0 href=/es/outputs/adding-a-destination><span title="Destinos — catálogo e tipos disponíveis" class=linkLabel_WmDU>Destinos — catálogo e tipos disponíveis</span></a></ul><li class="theme-doc-sidebar-item-category theme-doc-sidebar-item-category-level-2 menu__list-item"><div class=menu__list-item-collapsible><a class="categoryLink_byQd menu__link menu__link--sublist menu__link--sublist-caret menu__link--active" role=button aria-expanded=true tabindex=0 href=/es/outputs/routing><span title=Enrutamiento class=categoryLinkLabel_W154>Enrutamiento</span></a></div><ul class=menu__list><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class="menu__link menu__link--active" aria-current=page tabindex=0 href=/es/outputs/routing><span title="Roteamento por regra" class=linkLabel_WmDU>Roteamento por regra</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class=menu__link tabindex=0 href=/es/outputs/routing-canary><span title="Cutover gradual de SIEM (canary)" class=linkLabel_WmDU>Cutover gradual de SIEM (canary)</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class=menu__link tabindex=0 href=/es/outputs/routing-dry-run><span title="Testar rotas, ver o fluxo e reverter mudanças" class=linkLabel_WmDU>Testar rotas, ver o fluxo e reverter mudanças</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class=menu__link tabindex=0 href=/es/outputs/reducao-de-volume><span title="Redução de volume" class=linkLabel_WmDU>Redução de volume</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class=menu__link tabindex=0 href=/es/outputs/pii-redaction><span title="Redação de dados pessoais por rota (LGPD/GDPR)" class=linkLabel_WmDU>Redação de dados pessoais por rota (LGPD/GDPR)</span></a></ul><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/es/outputs/observability><span title="Observabilidade dos destinos" class=linkLabel_WmDU>Observabilidade dos destinos</span></a></ul></ul></nav></div></div></aside><main class=docMainContainer_TBSr><div class="container padding-top--md padding-bottom--lg"><div class=row><div class="col docItemCol_VOVn"><div class=docItemContainer_Djhp><article><nav class="theme-doc-breadcrumbs breadcrumbsContainer_Z_bl" aria-label="Rastro de navegación"><ul class=breadcrumbs><li class=breadcrumbs__item><a aria-label="Página de Inicio" class=breadcrumbs__link href=/es/><svg viewBox="0 0 24 24" class=breadcrumbHomeIcon_YNFT><path d="M10 19v-5h4v5c0 .55.45 1 1 1h3c.55 0 1-.45 1-1v-7h1.7c.46 0 .68-.57.33-.87L12.67 3.6c-.38-.34-.96-.34-1.34 0l-8.36 7.53c-.34.3-.13.87.33.87H5v7c0 .55.45 1 1 1h3c.55 0 1-.45 1-1z" fill=currentColor /></svg></a><li class=breadcrumbs__item><span class=breadcrumbs__link>Salidas y enrutamiento</span><li class=breadcrumbs__item><span class=breadcrumbs__link>Enrutamiento</span><li class="breadcrumbs__item breadcrumbs__item--active"><span class=breadcrumbs__link>Roteamento por regra</span></ul></nav><div class="tocCollapsible_ETCw theme-doc-toc-mobile tocMobile_ITEo"><button type=button class="clean-btn tocCollapsibleButton_TO0P">En esta página</button></div><div class="theme-doc-markdown markdown"><header><h1>Roteamento por regra</h1></header>
+<p>O <strong>Roteamento</strong> decide, para cada evento que passa pelo CentralOps, <strong>qual ou quais destinos vão recebê-lo</strong> — ou se ele deve ser descartado. As decisões são tomadas por <strong>regras</strong> que você cria, com base em características do evento (fornecedor, severidade, tipo, organização, geografia etc.). Cada regra tem uma <strong>prioridade</strong>, e as regras são avaliadas em ordem.</p>
+<p>Com o roteamento você consegue <strong>enviar o mesmo evento para vários destinos ao mesmo tempo</strong>, <strong>migrar tráfego aos poucos</strong> de um destino para outro, e <strong>descartar ruído</strong> para reduzir custo no SIEM.</p>
+<blockquote>
+<p>Esta é uma tela <strong>só de administrador</strong>. Você a encontra no menu <strong>Operação → Roteamento</strong>. Analistas e operadores podem consultar e simular regras; criar, editar e reordenar regras exige perfil de administrador.</p>
+</blockquote>
+<hr/>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=quando-usar>Quando usar<a href=#quando-usar class=hash-link aria-label="Enlace directo al Quando usar" title="Enlace directo al Quando usar" translate=no>​</a></h2>
+<ul>
+<li class=""><strong>Controle de custo no SIEM.</strong> Você quer mandar só os eventos de alta severidade para um SIEM caro (ex.: Microsoft Sentinel) e jogar os eventos verbosos e de baixo valor para um data lake barato — ou descartá-los de vez.</li>
+<li class=""><strong>Migração gradual entre destinos.</strong> O SOC vai trocar de SIEM e não quer um corte "big bang". Você começa enviando 10% dos eventos críticos para o destino novo, observa por alguns dias e vai aumentando até 100%.</li>
+<li class=""><strong>Isolamento por cliente ou residência de dados.</strong> Em um cenário MSSP/multi-tenant, cada cliente precisa que seus eventos vão só para o destino dele; ou eventos de origem na União Europeia precisam ficar em um destino na UE (GDPR/LGPD).</li>
+</ul>
+<hr/>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=conceitos-chave>Conceitos-chave<a href=#conceitos-chave class=hash-link aria-label="Enlace directo al Conceitos-chave" title="Enlace directo al Conceitos-chave" translate=no>​</a></h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=regra-de-roteamento>Regra de roteamento<a href=#regra-de-roteamento class=hash-link aria-label="Enlace directo al Regra de roteamento" title="Enlace directo al Regra de roteamento" translate=no>​</a></h3>
+<p>Uma <strong>regra</strong> mapeia eventos para um ou mais destinos. Ao criar ou editar uma regra na tela de <strong>Operação → Roteamento</strong>, você define:</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Campo<th>O que significa<tbody><tr><td><strong>Nome</strong><td>Rótulo legível para a regra (ex.: "Sophos crítico → Sentinel").<tr><td><strong>Prioridade</strong><td>Ordem de avaliação — quanto menor o número, mais cedo a regra é avaliada. Deixe espaços entre os números (10, 20, 30…) para conseguir encaixar regras novas depois.<tr><td><strong>Condição</strong><td>As características que o evento precisa ter para "bater" na regra. Uma condição vazia bate em todos os eventos (regra "pega-tudo").<tr><td><strong>Ação</strong><td><strong>Enviar</strong> (manda o evento para os destinos escolhidos) ou <strong>Descartar</strong> (apaga o evento).<tr><td><strong>Destinos</strong><td>Os destinos que recebem o evento quando a ação é Enviar.<tr><td><strong>Exclusiva</strong><td>Quando ligada, a avaliação <strong>para</strong> assim que a regra bate (o evento vai só para esta regra). Quando desligada, o evento também segue para as próximas regras — é assim que se faz o <strong>envio simultâneo a vários destinos</strong>.<tr><td><strong>Percentual gradual</strong><td>De 0 a 100. A regra se aplica só a essa fração dos eventos que batem nela — o resto segue para as próximas regras. Use para migração aos poucos. 100 = regra aplicada a todos.<tr><td><strong>Ativa</strong><td>Liga ou desliga a regra sem precisar apagá-la (útil para testar).<tr><td><strong>Redação de PII</strong><td>Remove ou mascara campos sensíveis (ex.: nome de usuário, IP de origem) <strong>antes</strong> de enviar o evento aos destinos desta regra.<tr><td><strong>Proteger detecção</strong><td><strong>Ligada por padrão.</strong> Enquanto estiver ligada, esta regra <strong>nunca</strong> é amostrada, suprimida nem tem o evento bruto descartado — as alavancas de economia são ignoradas nela. Desligue apenas nas regras onde reduzir volume é seguro.<tr><td><strong>Amostragem</strong><td>De 0 a 100. Entrega só essa fração dos eventos aos destinos da regra; o resto é economizado. Ignorada enquanto <strong>Proteger detecção</strong> estiver ligada.<tr><td><strong>Supressão</strong><td>Rate-limit por assinatura: deixa passar N eventos "iguais" por janela de tempo e economiza o excedente. Veja <strong>Reduzir ruído repetitivo</strong> abaixo.<tr><td><strong>Descartar o evento bruto</strong><td>Remove o payload original do fornecedor da entrega <strong>desta</strong> regra, preservando o evento normalizado (OCSF). Deixe desligado na regra do data lake, onde o bruto é necessário para perícia, e ligue no SIEM cobrado por volume — costuma ser a maior economia isolada.</table>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=características-que-você-pode-usar-na-condição>Características que você pode usar na condição<a href=#características-que-você-pode-usar-na-condição class=hash-link aria-label="Enlace directo al Características que você pode usar na condição" title="Enlace directo al Características que você pode usar na condição" translate=no>​</a></h3>
+<p>A condição de uma regra compara características do evento já normalizado. São <strong>nove</strong>, e a lista é fechada — não existem outras:</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Característica<th>O que é<th>Exemplos<tbody><tr><td><strong>Fornecedor</strong> (<code>vendor</code>)<td>O fornecedor da integração de origem.<td><code>sophos</code>, <code>wazuh</code>, <code>microsoft_defender</code><tr><td><strong>Plataforma</strong> (<code>platform</code>)<td>A plataforma de origem (quando difere do fornecedor).<td><code>sophos</code>, <code>microsoft_defender</code><tr><td><strong>Organização</strong> (<code>organization_id</code>)<td>A organização/tenant a que o evento pertence.<td>uma das suas organizações<tr><td><strong>Severidade</strong> (<code>severity_id</code>)<td>A severidade normalizada do evento, em escala crescente.<td><code>5</code>, <code>8</code>, <code>10</code><tr><td><strong>Fluxo</strong> (<code>stream</code>)<td>O fluxo de dados do fornecedor.<td><code>alerts</code>, <code>cases</code>, <code>sysmon</code><tr><td><strong>Tipo de evento</strong> (<code>event_type</code>)<td>A categoria do evento.<td><code>process_activity</code>, <code>network_activity</code>, <code>file_activity</code><tr><td><strong>Integração</strong> (<code>integration_id</code>)<td>A integração específica que coletou o evento. Use quando você tem várias integrações do mesmo fornecedor e quer tratar só uma delas.<td>uma das suas integrações<tr><td><strong>Cliente</strong> (<code>customer_id</code>)<td>Identificador do cliente/tenant no sistema.<td>usado em cenários multi-tenant<tr><td><strong>Geografia</strong> (<code>data_geography</code>)<td>A região de origem do evento.<td><code>US</code>, <code>EU</code>, <code>APAC</code>, <code>global</code></table>
+<p>Guarde os nomes entre crases: <strong>essa mesma lista de nove é o único vocabulário aceito também na chave de supressão</strong> — veja <a href=#reduzir-ru%C3%ADdo-repetitivo-supress%C3%A3o class="">Reduzir ruído repetitivo</a>.</p>
+<hr/>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=como-a-condição-funciona>Como a condição funciona<a href=#como-a-condição-funciona class=hash-link aria-label="Enlace directo al Como a condição funciona" title="Enlace directo al Como a condição funciona" translate=no>​</a></h2>
+<p>Ao montar a condição, você escolhe uma característica e como ela deve ser comparada. Quando você usa mais de uma característica na mesma regra, <strong>todas precisam ser verdadeiras ao mesmo tempo</strong> para o evento bater na regra.</p>
+<p>As comparações disponíveis incluem:</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Comparação<th>O que faz<tbody><tr><td><strong>Igual a</strong><td>A característica é exatamente o valor informado.<tr><td><strong>Diferente de</strong><td>A característica não é o valor informado.<tr><td><strong>Maior que / Maior ou igual</strong><td>Para valores numéricos, como severidade.<tr><td><strong>Menor que / Menor ou igual</strong><td>Para valores numéricos.<tr><td><strong>Está na lista</strong><td>A característica é um dos valores informados.<tr><td><strong>Não está na lista</strong><td>A característica não é nenhum dos valores informados.<tr><td><strong>Existe / Não existe</strong><td>A característica está presente (ou ausente) no evento.</table>
+<p>A tela <strong>valida a condição enquanto você digita</strong>: se você escolher uma característica inexistente ou uma comparação inválida, recebe um aviso na hora e a regra não pode ser salva até corrigir. Os destinos também são checados — você só consegue apontar para destinos que existam e estejam visíveis para você.</p>
+<hr/>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=como-as-regras-são-avaliadas>Como as regras são avaliadas<a href=#como-as-regras-são-avaliadas class=hash-link aria-label="Enlace directo al Como as regras são avaliadas" title="Enlace directo al Como as regras são avaliadas" translate=no>​</a></h2>
+<p>Para cada evento, o CentralOps percorre as regras na ordem:</p>
+<ol>
+<li class="">
+<p><strong>Por prioridade.</strong> As regras são avaliadas da menor prioridade para a maior. Regras <strong>desativadas</strong> são puladas.</p>
+</li>
+<li class="">
+<p><strong>Percentual gradual.</strong> Se a regra está configurada para se aplicar a só uma parte dos eventos, o evento pode "cair" para a próxima regra. Eventos iguais sempre recebem o mesmo tratamento, então o comportamento é estável e previsível.</p>
+</li>
+<li class="">
+<p><strong>Ação.</strong> Se a regra <strong>descarta</strong>, o evento é apagado e a avaliação termina ali. Se a regra <strong>envia</strong>, o evento é encaminhado aos destinos da regra.</p>
+</li>
+<li class="">
+<p><strong>Exclusiva ou não.</strong> Se a regra for <strong>exclusiva</strong>, a avaliação para. Se não for, o evento também segue para as próximas regras — permitindo que ele chegue a vários destinos.</p>
+</li>
+<li class="">
+<p><strong>Rede de segurança (catch-all que você configura).</strong> Um evento que não bate em nenhuma regra (ou bate numa regra sem destinos) vai para o <strong>catch-all</strong> — e o catch-all é definido por você, não preso a nenhum produto. Há duas formas de configurá-lo, e qualquer destino (Elastic, S3, Splunk, Sentinel, syslog, Wazuh…) pode ser o catch-all:</p>
+<ul>
+<li class="">uma <strong>regra pega-tudo</strong> (condição vazia, menor prioridade, exclusiva); ou</li>
+<li class="">marcar um <strong>destino como padrão</strong> (<code>is_default</code>) — o padrão da sua organização tem precedência sobre um padrão global compartilhado.</li>
+</ul>
+<p>Se um evento não bate em regra nenhuma <strong>e não há catch-all configurado</strong>, ele <strong>não some nem vai para um destino oculto</strong>: é enviado à fila de retentativa/quarentena (DLQ) com o motivo <strong><code>unrouted</code></strong>, onde fica visível e pode ser <strong>reprocessado</strong> depois que você criar a regra pega-tudo ou marcar um destino como padrão. Eventos de <strong>fonte Wazuh</strong> são a exceção: são suprimidos para evitar loop infinito (veja Anti-loop: Wazuh como fonte e destino em <a class="" href=/es/integrations/wazuh>Wazuh</a>).</p>
+</li>
+</ol>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=exemplo-de-fluxo>Exemplo de fluxo<a href=#exemplo-de-fluxo class=hash-link aria-label="Enlace directo al Exemplo de fluxo" title="Enlace directo al Exemplo de fluxo" translate=no>​</a></h3>
+<p>Imagine três regras, nesta ordem de prioridade:</p>
+<ol>
+<li class=""><strong>Severidade ≥ 8 → enviar para "Sentinel"</strong> (não exclusiva)</li>
+<li class=""><strong>Tipo de evento = file_activity → descartar</strong> (exclusiva)</li>
+<li class=""><strong>Pega-tudo → enviar para o destino-padrão</strong> (exclusiva)</li>
+</ol>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Evento<th>Regra 1<th>Regra 2<th>Regra 3<th>Destinos finais<tbody><tr><td>Severidade 9, process_activity<td>bate → Sentinel, continua<td>não bate<td>bate → destino-padrão<td>Sentinel <strong>e</strong> destino-padrão<tr><td>Severidade 4, file_activity<td>não bate<td>bate → descartado<td>—<td>nenhum (evento apagado)<tr><td>Severidade 4, network_activity<td>não bate<td>não bate<td>bate → destino-padrão<td>destino-padrão</table>
+<hr/>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=migração-gradual-de-destino>Migração gradual de destino<a href=#migração-gradual-de-destino class=hash-link aria-label="Enlace directo al Migração gradual de destino" title="Enlace directo al Migração gradual de destino" translate=no>​</a></h2>
+<p>Quando você precisa migrar eventos de um destino para outro sem corte abrupto, use o <strong>percentual gradual</strong> de uma regra:</p>
+<ol>
+<li class=""><strong>Comece pequeno.</strong> Crie a regra apontando para o destino novo com percentual em <strong>10%</strong>. Só 10% dos eventos que batem na regra vão para o destino novo; os outros 90% seguem para as regras seguintes (e continuam indo para o destino antigo). Acompanhe por 1–2 dias.</li>
+<li class=""><strong>Aumente.</strong> Suba o percentual para <strong>50%</strong> — metade dos eventos em cada destino. Observe.</li>
+<li class=""><strong>Conclua.</strong> Suba para <strong>100%</strong> — migração completa.</li>
+</ol>
+<p>Como o tratamento é determinístico, um mesmo evento sempre recebe a mesma decisão, então a transição é estável e auditável.</p>
+<hr/>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=descarte-de-ruído-controle-de-custo>Descarte de ruído (controle de custo)<a href=#descarte-de-ruído-controle-de-custo class=hash-link aria-label="Enlace directo al Descarte de ruído (controle de custo)" title="Enlace directo al Descarte de ruído (controle de custo)" translate=no>​</a></h2>
+<p>Uma regra com ação <strong>Descartar</strong> apaga os eventos que batem nela sem enviá-los a nenhum destino. Use para cortar eventos verbosos e de baixo valor que só encarecem o SIEM (por exemplo, fluxos de rede em massa ou resumos de processo).</p>
+<p>Os eventos descartados são <strong>contados à parte</strong> nas métricas da regra, então você sempre enxerga quanto está sendo cortado e pode confirmar que nenhum descarte está amplo demais.</p>
+<hr/>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=reduzir-ruído-repetitivo-supressão>Reduzir ruído repetitivo (supressão)<a href=#reduzir-ruído-repetitivo-supressão class=hash-link aria-label="Enlace directo al Reduzir ruído repetitivo (supressão)" title="Enlace directo al Reduzir ruído repetitivo (supressão)" translate=no>​</a></h2>
+<p>Enquanto o <strong>Descartar</strong> apaga tudo que bate na condição, a <strong>supressão</strong> deixa passar uma amostra e economiza o excesso: ela agrupa eventos "iguais" por uma assinatura e entrega apenas os N primeiros de cada grupo por janela de tempo.</p>
+<p>Três campos definem o comportamento:</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Campo<th>O que faz<tbody><tr><td><strong>Chave de supressão</strong><td>Quais características formam a assinatura do grupo, separadas por vírgula. Vazio = supressão desligada.<tr><td><strong>Quantos passam</strong><td>Quantos eventos de cada assinatura são entregues por janela. <code>0</code> desliga a supressão.<tr><td><strong>Janela (segundos)</strong><td>De quanto em quanto tempo a contagem reinicia.</table>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=a-chave-de-supressão-só-aceita-características-de-roteamento>A chave de supressão só aceita características de roteamento<a href=#a-chave-de-supressão-só-aceita-características-de-roteamento class=hash-link aria-label="Enlace directo al A chave de supressão só aceita características de roteamento" title="Enlace directo al A chave de supressão só aceita características de roteamento" translate=no>​</a></h3>
+<p>Esta é a parte que mais gera engano. A assinatura é montada a partir das <strong>mesmas nove características usadas na condição da regra</strong> — as da tabela em <a href=#caracter%C3%ADsticas-que-voc%C3%AA-pode-usar-na-condi%C3%A7%C3%A3o class="">Características que você pode usar na condição</a>: <code>vendor</code>, <code>platform</code>, <code>organization_id</code>, <code>severity_id</code>, <code>stream</code>, <code>event_type</code>, <code>integration_id</code>, <code>customer_id</code> e <code>data_geography</code>. Você as informa separadas por vírgula (ex.: <code>vendor,severity_id</code>).</p>
+<p><strong>Campos do log não valem.</strong> <code>src_ip</code>, <code>dst_ip</code>, <code>user</code>, <code>agent.name</code>, <code>rule.id</code> e afins <strong>não</strong> existem nesse vocabulário. Se você tentar usá-los, a plataforma recusa a configuração com erro — antes, ela aceitava em silêncio e o resultado era desastroso: todos os eventos caíam na mesma assinatura e praticamente <strong>todo o tráfego era descartado</strong>.</p>
+<p><strong>Identificadores únicos por evento também são recusados.</strong> <code>event_id</code> e <code>collected_at</code> existem no evento, mas mudam a cada ocorrência: a assinatura nunca se repetiria e a supressão <strong>nunca dispararia</strong>. Em vez de ficar ligada sem efeito nenhum, a plataforma acusa erro na hora de salvar. É a mesma falha silenciosa do parágrafo anterior, só que no extremo oposto.</p>
+<div class="theme-admonition theme-admonition-warning admonition_xJq3 alert alert--warning"><div class=admonitionHeading_Gvgb><span class=admonitionIcon_Rf37><svg viewBox="0 0 16 16"><path fill-rule=evenodd d="M8.893 1.5c-.183-.31-.52-.5-.887-.5s-.703.19-.886.5L.138 13.499a.98.98 0 0 0 0 1.001c.193.31.53.501.886.501h13.964c.367 0 .704-.19.877-.5a1.03 1.03 0 0 0 .01-1.002L8.893 1.5zm.133 11.497H6.987v-2.003h2.039v2.003zm0-3.004H6.987V5.987h2.039v4.006z"/></svg></span>Escolha a chave com cuidado</div><div class=admonitionContent_BuS1><p>Uma chave <strong>grossa demais</strong> (por exemplo, só <code>vendor</code>) agrupa todo o tráfego da integração num único balde — e você economiza quase tudo, inclusive o que precisava ver. Prefira combinações que distingam de verdade, como <code>vendor,severity_id</code>, e confirme o efeito na <a class="" href=/es/operations/live-capture>Captura ao vivo</a> antes de aumentar a janela.</div></div>
+<p>Exemplo: com chave <code>vendor,severity_id</code>, "quantos passam" = 10 e janela de 60 segundos, cada combinação de fornecedor e severidade entrega no máximo 10 eventos por minuto; o excedente é economizado e contabilizado como volume evitado.</p>
+<p>A supressão <strong>preserva sempre a primeira ocorrência</strong> de cada grupo na janela — você nunca perde o primeiro sinal de um evento novo.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=o-fail-safe-de-detecção>O fail-safe de detecção<a href=#o-fail-safe-de-detecção class=hash-link aria-label="Enlace directo al O fail-safe de detecção" title="Enlace directo al O fail-safe de detecção" translate=no>​</a></h3>
+<p>Supressão, amostragem e descarte do evento bruto são <strong>ignorados</strong> em regras com <strong>Proteger detecção</strong> ligada (o padrão). Isso é proposital: uma regra que alimenta detecção não perde evento por decisão de economia sem que alguém desligue a proteção conscientemente.</p>
+<p>Supressão é só uma das alavancas de economia; para escolher entre ela, amostragem, descarte do bruto e as demais — e na ordem certa — veja <a class="" href=/es/outputs/reducao-de-volume>Reduzir volume e custo</a>.</p>
+<hr/>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=redação-de-pii-por-regra>Redação de PII por regra<a href=#redação-de-pii-por-regra class=hash-link aria-label="Enlace directo al Redação de PII por regra" title="Enlace directo al Redação de PII por regra" translate=no>​</a></h2>
+<p>Uma regra pode <strong>remover ou mascarar campos sensíveis</strong> antes de enviar o evento aos destinos dela. Por exemplo, uma regra que manda eventos da UE para um data lake pode mascarar o nome do usuário e remover o IP de origem.</p>
+<p>O efeito é <strong>isolado àquela regra</strong>: o evento chega ao destino daquela regra já sem os campos sensíveis, enquanto os outros destinos (de outras regras) continuam recebendo o evento completo.</p>
+<hr/>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=operações-na-tela-de-roteamento>Operações na tela de Roteamento<a href=#operações-na-tela-de-roteamento class=hash-link aria-label="Enlace directo al Operações na tela de Roteamento" title="Enlace directo al Operações na tela de Roteamento" translate=no>​</a></h2>
+<p>Tudo é feito na tela <strong>Operação → Roteamento</strong>:</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>O que você quer fazer<th>Como fazer na tela<tbody><tr><td><strong>Ver as regras</strong><td>A tela lista todas as regras, com prioridade, status (ativa/inativa) e indicador de saúde.<tr><td><strong>Criar uma regra</strong><td>Use a opção de nova regra e preencha nome, prioridade, condição, ação e destinos. A condição é validada enquanto você digita.<tr><td><strong>Editar uma regra</strong><td>Abra a regra na lista e altere os campos. Toda alteração fica registrada no histórico.<tr><td><strong>Reordenar prioridades</strong><td>Arraste as regras na lista para mudar a ordem de avaliação.<tr><td><strong>Simular antes de salvar</strong><td>Use a opção de simulação ("dry-run") para testar regras candidatas contra eventos recentes e ver para onde cada um iria, <strong>sem salvar nada</strong>. Ela avalia só o <strong>casamento da condição</strong> — supressão, amostragem e descarte do bruto não são simulados.<tr><td><strong>Ver métricas de uma regra</strong><td>Abra a regra para ver o gráfico de eventos que bateram, foram enviados e foram descartados, ao longo do tempo.<tr><td><strong>Ver histórico e desfazer</strong><td>Cada regra tem um histórico de alterações; você pode restaurar uma versão anterior a partir dele. O restauro é revalidado antes de gravar — veja <a href=#o-que-%C3%A9-revalidado-ao-restaurar-uma-vers%C3%A3o class="">O que é revalidado ao restaurar uma versão</a>.</table>
+<blockquote>
+<p>O <strong>catch-all é configurado por você</strong>, não imposto pelo sistema: crie uma regra pega-tudo (condição vazia, menor prioridade) ou marque um destino como padrão. Sem catch-all configurado, eventos não-roteados não somem — vão à DLQ com o motivo <code>unrouted</code> (visíveis e reprocessáveis). A garantia de zero perda vem dessa rede DLQ, não de uma regra de sistema oculta.</p>
+</blockquote>
+<hr/>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=quem-pode-fazer-o-quê>Quem pode fazer o quê<a href=#quem-pode-fazer-o-quê class=hash-link aria-label="Enlace directo al Quem pode fazer o quê" title="Enlace directo al Quem pode fazer o quê" translate=no>​</a></h2>
+<ul>
+<li class=""><strong>Criar, editar, apagar e reordenar regras</strong> exige perfil de <strong>administrador</strong>.</li>
+<li class="">Cada administrador trabalha sobre as regras <strong>da sua organização</strong> mais as regras globais do sistema.</li>
+<li class=""><strong>Tudo fica auditado</strong>: cada alteração registra quem fez, quando, e a versão anterior — e você pode restaurá-la.</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=o-que-é-revalidado-ao-restaurar-uma-versão>O que é revalidado ao restaurar uma versão<a href=#o-que-é-revalidado-ao-restaurar-uma-versão class=hash-link aria-label="Enlace directo al O que é revalidado ao restaurar uma versão" title="Enlace directo al O que é revalidado ao restaurar uma versão" translate=no>​</a></h3>
+<p>Restaurar não é "colar de volta o que estava salvo". Antes de gravar, a plataforma confere quatro coisas na versão antiga:</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>O que é conferido<th>Por que pode ter quebrado no intervalo<tbody><tr><td><strong>Existência dos destinos</strong><td>Um destino apontado pela versão antiga pode ter sido apagado desde então.<tr><td><strong>Condição da regra</strong><td>Uma característica válida na época pode não existir mais. E o estrago aqui é o contrário do que se espera: uma condição inválida não deixa de casar — ela casa com <strong>tudo</strong>, e a regra passa a capturar tráfego que não é dela.<tr><td><strong>Spec de redação de PII</strong><td>A configuração de mascaramento gravada no histórico é revalidada campo a campo, em vez de ser escrita como veio.<tr><td><strong>Chave de supressão</strong><td>A chave pode citar uma característica que não é mais aceita — e uma chave inválida derrubaria o tráfego em silêncio.</table>
+<p>Se qualquer um dos quatro estiver inválido, o <strong>restauro é recusado com erro</strong> e a regra atual fica intacta. Isso é proposital: é preferível você ver a mensagem e corrigir a mão do que a plataforma ressuscitar uma configuração quebrada e você descobrir pelo volume que sumiu.</p>
+<p>Ao <strong>importar um pacote de configuração</strong> de outro ambiente as checagens são quase as mesmas — o import valida a condição, a spec de redação de PII e a chave de supressão —, com uma diferença que importa: ele <strong>não confere se os destinos referenciados existem</strong>. Um pacote trazido de outro ambiente pode entrar com uma regra apontando para um destino que não existe aqui, e a falha só vai aparecer na entrega, na fila de reenvio. Depois de importar, confira os destinos das regras que vieram.</p>
+<hr/>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=acompanhar-o-roteamento>Acompanhar o roteamento<a href=#acompanhar-o-roteamento class=hash-link aria-label="Enlace directo al Acompanhar o roteamento" title="Enlace directo al Acompanhar o roteamento" translate=no>​</a></h2>
+<p>Cada regra acompanha três contagens ao longo do tempo:</p>
+<ul>
+<li class=""><strong>Bateram</strong>: eventos que satisfizeram a condição.</li>
+<li class=""><strong>Enviados</strong>: os mesmos eventos que bateram, quando a ação da regra é <strong>Encaminhar</strong>.</li>
+<li class=""><strong>Descartados</strong>: os mesmos eventos que bateram, quando a ação da regra é <strong>Descartar</strong>.</li>
+</ul>
+<div class="theme-admonition theme-admonition-warning admonition_xJq3 alert alert--warning"><div class=admonitionHeading_Gvgb><span class=admonitionIcon_Rf37><svg viewBox="0 0 16 16"><path fill-rule=evenodd d="M8.893 1.5c-.183-.31-.52-.5-.887-.5s-.703.19-.886.5L.138 13.499a.98.98 0 0 0 0 1.001c.193.31.53.501.886.501h13.964c.367 0 .704-.19.877-.5a1.03 1.03 0 0 0 .01-1.002L8.893 1.5zm.133 11.497H6.987v-2.003h2.039v2.003zm0-3.004H6.987V5.987h2.039v4.006z"/></svg></span>O gráfico da regra conta CASAMENTO, não entrega</div><div class=admonitionContent_BuS1><p>"Enviados" e "Descartados" são a contagem de <strong>Bateram</strong> reclassificada pela ação da regra — não a contagem do que realmente saiu pela rede. Numa regra com ação Encaminhar, Enviados é sempre igual a Bateram.<p>A consequência prática é que <strong>nenhuma alavanca de redução aparece neste gráfico</strong>:<ul>
+<li class=""><strong>Suprimido</strong> — a supressão roda <em>antes</em> do roteamento, então o evento não entra em contagem nenhuma: nem Bateram, nem Enviados, nem Descartados.</li>
+<li class=""><strong>Amostrado para fora</strong> — o evento bate na regra e é contado em Bateram <strong>e em Enviados</strong>, mesmo sem nunca ter sido entregue.</li>
+</ul><p>Foi exatamente assim que uma chave de supressão mal escolhida chegou a jogar fora quase todo o tráfego de uma integração <strong>sem mover uma única barra do gráfico</strong>. Se o volume sumiu e as contagens da regra não explicam, o caminho é a <a class="" href=/es/operations/live-capture>Captura ao vivo</a>, que mostra evento a evento o desfecho real — é a única tela onde os desfechos <strong>Suprimido</strong> e <strong>Amostrado para fora</strong> aparecem. Em bytes, o volume que essas alavancas evitaram aparece agregado no card <strong>Redução de volume & custo</strong> (<a class="" href=/es/operations/fluxo-de-dados>Fluxo de dados</a>).<p>Quem coleta métricas via OpenTelemetry/Prometheus tem os contadores por rota lá — <code>collector_suppressed_total</code> e <code>collector_events_dropped_total{reason="sample"}</code> —, mas eles não são expostos em nenhuma tela nem na API da plataforma.</div></div>
+<p>Além desses, um evento pode terminar em outros desfechos — todos visíveis na <a class="" href=/es/operations/live-capture>Captura ao vivo</a> (<strong>Configurações → Captura ao vivo</strong>), que é a tela que mostra o destino final de cada evento:</p>
+<ul>
+<li class=""><strong>Amostrado para fora</strong>: descartado pela amostragem da rota (<code>sample_percent</code> abaixo de 100).</li>
+<li class=""><strong>Suprimido</strong>: descartado pelo rate-limit por assinatura da rota (ver <a href=#reduzir-ru%C3%ADdo-repetitivo-supress%C3%A3o class="">Reduzir ruído repetitivo</a>, acima).</li>
+<li class=""><strong>Sem rota</strong>: nenhuma regra casou e não há destino padrão — vai para a fila de reenvio.</li>
+<li class=""><strong>Bloqueado por residência</strong>: o par evento/destino foi excluído por conflito de residência de dados.</li>
+<li class=""><strong>Loop bloqueado</strong> (exclusivo do Wazuh): evento de fonte Wazuh que seria entregue de volta ao próprio manager, o que criaria um laço infinito (veja a nota em <a class="" href=/es/integrations/wazuh>Wazuh</a>). É uma supressão intencional, não uma perda.</li>
+</ul>
+<p>Esses números aparecem no gráfico da própria regra na tela de <strong>Operação → Roteamento</strong>. Para ver o panorama completo do caminho dos eventos entre integrações e destinos — com vazão por destino e desenho visual do fluxo — use a tela <strong>Operação → Fluxo de dados</strong> (também só de administrador).</p>
+<hr/>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=solução-de-problemas>Solução de problemas<a href=#solução-de-problemas class=hash-link aria-label="Enlace directo al Solução de problemas" title="Enlace directo al Solução de problemas" translate=no>​</a></h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=um-evento-não-está-chegando-ao-destino-esperado>Um evento não está chegando ao destino esperado<a href=#um-evento-não-está-chegando-ao-destino-esperado class=hash-link aria-label="Enlace directo al Um evento não está chegando ao destino esperado" title="Enlace directo al Um evento não está chegando ao destino esperado" translate=no>​</a></h3>
+<ol>
+<li class="">Em <strong>Operação → Roteamento</strong>, abra a regra que deveria encaminhar o evento e confira a condição — ela está realmente batendo no tipo de evento que você espera?</li>
+<li class="">Use a <strong>simulação</strong> ("dry-run") com eventos recentes para ver, passo a passo, para onde o evento iria.</li>
+<li class="">Veja o indicador de <strong>saúde</strong> e o gráfico da regra: ela está recebendo eventos?</li>
+<li class="">Em <strong>Operação → Destinos</strong>, verifique a saúde do destino-alvo (fila e status). O problema pode estar no destino, não na regra.</li>
+<li class="">Confira o <strong>histórico</strong> da regra: ela foi alterada recentemente?</li>
+</ol>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=muitos-eventos-estão-sendo-descartados>Muitos eventos estão sendo descartados<a href=#muitos-eventos-estão-sendo-descartados class=hash-link aria-label="Enlace directo al Muitos eventos estão sendo descartados" title="Enlace directo al Muitos eventos estão sendo descartados" translate=no>​</a></h3>
+<ol>
+<li class="">Na tela <strong>Operação → Fluxo de dados</strong>, identifique quais regras estão descartando mais eventos.</li>
+<li class="">Abra essas regras em <strong>Operação → Roteamento</strong> e veja se a condição está ampla demais.</li>
+<li class="">Use a <strong>simulação</strong> com eventos recentes para confirmar o que cada regra faria. <strong>Atenção</strong>: a simulação testa só o <strong>casamento da condição</strong> — ela não reproduz supressão, amostragem nem descarte do evento bruto.</li>
+<li class="">Se o volume sumido não aparece em "Descartados", a causa provavelmente é supressão ou amostragem. Confirme na <a class="" href=/es/operations/live-capture>Captura ao vivo</a>, olhando os desfechos <strong>Suprimido</strong> e <strong>Amostrado para fora</strong>.</li>
+<li class="">Se o descarte for intencional (controle de custo), acompanhe as métricas para garantir que ele não está pegando mais do que deveria.</li>
+</ol>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=uma-regra-aparece-como-inalcançável>Uma regra aparece como "inalcançável"<a href=#uma-regra-aparece-como-inalcançável class=hash-link aria-label='Enlace directo al Uma regra aparece como "inalcançável"' title='Enlace directo al Uma regra aparece como "inalcançável"' translate=no>​</a></h3>
+<p>A tela marca uma regra como <strong>inalcançável</strong> quando outra regra de prioridade maior já "cobre" todos os casos dela — ou seja, a regra nunca chega a ser avaliada. Por exemplo, uma regra exclusiva que envia tudo de "fornecedor A ou B" sempre vai cobrir uma regra posterior só para "fornecedor A".</p>
+<p>Não é um erro, mas é desperdício. <strong>Ação</strong>: reordene as regras ou revise a lógica da condição para que a regra volte a ser alcançável.</p>
+<hr/>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=casos-de-uso-completos>Casos de uso completos<a href=#casos-de-uso-completos class=hash-link aria-label="Enlace directo al Casos de uso completos" title="Enlace directo al Casos de uso completos" translate=no>​</a></h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=tiering-econômico>Tiering econômico<a href=#tiering-econômico class=hash-link aria-label="Enlace directo al Tiering econômico" title="Enlace directo al Tiering econômico" translate=no>​</a></h3>
+<p>Mande o que é crítico para o SIEM caro, descarte o ruído e jogue o resto no data lake barato:</p>
+<ol>
+<li class=""><strong>Severidade ≥ 7 → enviar para o SIEM</strong> (não exclusiva).</li>
+<li class=""><strong>Tipo de evento na lista [network_flow, process_summary] → descartar</strong>.</li>
+<li class=""><strong>Pega-tudo → enviar para o data lake</strong> (exclusiva).</li>
+</ol>
+<p>Resultado: eventos críticos vão para o SIEM, eventos verbosos são descartados, e todo o restante é arquivado no data lake.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=isolamento-por-tenant>Isolamento por tenant<a href=#isolamento-por-tenant class=hash-link aria-label="Enlace directo al Isolamento por tenant" title="Enlace directo al Isolamento por tenant" translate=no>​</a></h3>
+<p>Garanta que os eventos de cada cliente vão só para o destino dele:</p>
+<ol>
+<li class=""><strong>Organização = Cliente A → enviar para o destino do Cliente A</strong> (exclusiva).</li>
+<li class=""><strong>Organização = Cliente B → enviar para o destino do Cliente B</strong> (exclusiva).</li>
+</ol>
+<p>Resultado: nenhum evento de um cliente vaza para o destino de outro.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=residência-de-dados-gdprlgpd>Residência de dados (GDPR/LGPD)<a href=#residência-de-dados-gdprlgpd class=hash-link aria-label="Enlace directo al Residência de dados (GDPR/LGPD)" title="Enlace directo al Residência de dados (GDPR/LGPD)" translate=no>​</a></h3>
+<p>Mantenha os eventos na região onde precisam ficar:</p>
+<ol>
+<li class=""><strong>Geografia = EU → enviar para o destino na UE</strong> (exclusiva).</li>
+<li class=""><strong>Geografia = US → enviar para o destino nos EUA</strong> (exclusiva).</li>
+</ol>
+<p>Como reforço, o roteamento <strong>bloqueia automaticamente</strong> o envio quando a região do destino não bate com a geografia do evento — e é conservador: nunca bloqueia se não tiver a informação de geografia.</p>
+<hr/>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=próximos-passos>Próximos passos<a href=#próximos-passos class=hash-link aria-label="Enlace directo al Próximos passos" title="Enlace directo al Próximos passos" translate=no>​</a></h2>
+<ul>
+<li class=""><strong>Criar sua primeira regra?</strong> Vá a <strong>Operação → Roteamento</strong> e adicione uma nova regra.</li>
+<li class=""><strong>Entender os destinos?</strong> Veja a <a class="" href=/es/outputs/overview>visão geral de destinos</a>.</li>
+<li class=""><strong>Cortar volume e custo com segurança?</strong> Veja <a class="" href=/es/outputs/reducao-de-volume>Reduzir volume e custo</a> — reúne todas as alavancas (descarte, supressão, amostragem, descarte do bruto) e a ordem recomendada de aplicá-las.</li>
+<li class=""><strong>Ver o caminho dos eventos de ponta a ponta?</strong> Vá a <strong>Operação → Fluxo de dados</strong>.</li>
+<li class=""><strong>Conferir o desfecho real de cada evento?</strong> Veja <a class="" href=/es/operations/live-capture>Captura ao vivo</a>.</li>
+<li class=""><strong>Investigar eventos que ficaram retidos?</strong> Veja <a class="" href=/es/operations/quarantine>Quarentena e fila de reenvio</a>.</li>
+</ul></div></article><nav class="docusaurus-mt-lg pagination-nav" aria-label="Página del documento"><a class="pagination-nav__link pagination-nav__link--prev" href=/es/outputs/adding-a-destination><div class=pagination-nav__sublabel>Anterior</div><div class=pagination-nav__label>Destinos — catálogo e tipos disponíveis</div></a><a class="pagination-nav__link pagination-nav__link--next" href=/es/outputs/routing-canary><div class=pagination-nav__sublabel>Siguiente</div><div class=pagination-nav__label>Cutover gradual de SIEM (canary)</div></a></nav></div></div><div class="col col--3"><div class="tableOfContents_bqdL thin-scrollbar theme-doc-toc-desktop"><ul class="table-of-contents table-of-contents__left-border"><li><a href=#quando-usar class="table-of-contents__link toc-highlight">Quando usar</a><li><a href=#conceitos-chave class="table-of-contents__link toc-highlight">Conceitos-chave</a><ul><li><a href=#regra-de-roteamento class="table-of-contents__link toc-highlight">Regra de roteamento</a><li><a href=#características-que-você-pode-usar-na-condição class="table-of-contents__link toc-highlight">Características que você pode usar na condição</a></ul><li><a href=#como-a-condição-funciona class="table-of-contents__link toc-highlight">Como a condição funciona</a><li><a href=#como-as-regras-são-avaliadas class="table-of-contents__link toc-highlight">Como as regras são avaliadas</a><ul><li><a href=#exemplo-de-fluxo class="table-of-contents__link toc-highlight">Exemplo de fluxo</a></ul><li><a href=#migração-gradual-de-destino class="table-of-contents__link toc-highlight">Migração gradual de destino</a><li><a href=#descarte-de-ruído-controle-de-custo class="table-of-contents__link toc-highlight">Descarte de ruído (controle de custo)</a><li><a href=#reduzir-ruído-repetitivo-supressão class="table-of-contents__link toc-highlight">Reduzir ruído repetitivo (supressão)</a><ul><li><a href=#a-chave-de-supressão-só-aceita-características-de-roteamento class="table-of-contents__link toc-highlight">A chave de supressão só aceita características de roteamento</a><li><a href=#o-fail-safe-de-detecção class="table-of-contents__link toc-highlight">O fail-safe de detecção</a></ul><li><a href=#redação-de-pii-por-regra class="table-of-contents__link toc-highlight">Redação de PII por regra</a><li><a href=#operações-na-tela-de-roteamento class="table-of-contents__link toc-highlight">Operações na tela de Roteamento</a><li><a href=#quem-pode-fazer-o-quê class="table-of-contents__link toc-highlight">Quem pode fazer o quê</a><ul><li><a href=#o-que-é-revalidado-ao-restaurar-uma-versão class="table-of-contents__link toc-highlight">O que é revalidado ao restaurar uma versão</a></ul><li><a href=#acompanhar-o-roteamento class="table-of-contents__link toc-highlight">Acompanhar o roteamento</a><li><a href=#solução-de-problemas class="table-of-contents__link toc-highlight">Solução de problemas</a><ul><li><a href=#um-evento-não-está-chegando-ao-destino-esperado class="table-of-contents__link toc-highlight">Um evento não está chegando ao destino esperado</a><li><a href=#muitos-eventos-estão-sendo-descartados class="table-of-contents__link toc-highlight">Muitos eventos estão sendo descartados</a><li><a href=#uma-regra-aparece-como-inalcançável class="table-of-contents__link toc-highlight">Uma regra aparece como "inalcançável"</a></ul><li><a href=#casos-de-uso-completos class="table-of-contents__link toc-highlight">Casos de uso completos</a><ul><li><a href=#tiering-econômico class="table-of-contents__link toc-highlight">Tiering econômico</a><li><a href=#isolamento-por-tenant class="table-of-contents__link toc-highlight">Isolamento por tenant</a><li><a href=#residência-de-dados-gdprlgpd class="table-of-contents__link toc-highlight">Residência de dados (GDPR/LGPD)</a></ul><li><a href=#próximos-passos class="table-of-contents__link toc-highlight">Próximos passos</a></ul></div></div></div></div></main></div></div></div><footer class="theme-layout-footer footer footer--dark"><div class="container container-fluid"><div class="row footer__links"><div class="theme-layout-footer-column col footer__col"><div class=footer__title>Documentação</div><ul class="footer__items clean-list"><li class=footer__item><a class=footer__link-item href=/es/getting-started/overview>Começar</a><li class=footer__item><a class=footer__link-item href=/es/operations/dashboard>Operação diária</a><li class=footer__item><a class=footer__link-item href=/es/normalization/overview>Mappings (CML)</a><li class=footer__item><a class=footer__link-item href=/es/runbooks/dispatcher>Runbooks</a></ul></div><div class="theme-layout-footer-column col footer__col"><div class=footer__title>Plataforma</div><ul class="footer__items clean-list"><li class=footer__item><a class=footer__link-item href=/es/concepts/architecture>Arquitetura</a><li class=footer__item><a class=footer__link-item href=/es/concepts/rbac>RBAC</a><li class=footer__item><a class=footer__link-item href=/es/integrations/overview>Integrações</a><li class=footer__item><a class=footer__link-item href=/es/compliance/retention>Compliance</a></ul></div><div class="theme-layout-footer-column col footer__col"><div class=footer__title>Recursos</div><ul class="footer__items clean-list"><li class=footer__item><a class=footer__link-item href=/es/getting-started/quickstart>Quickstart</a><li class=footer__item><a class=footer__link-item href=/es/normalization/cookbook>DSL Cookbook</a><li class=footer__item><a class=footer__link-item href=/es/normalization/troubleshooting>Troubleshooting</a></ul></div></div><div class="footer__bottom text--center"><div class=footer__copyright>Copyright © 2026 CentralOps. Built with Docusaurus.</div></div></div></footer></div></body>

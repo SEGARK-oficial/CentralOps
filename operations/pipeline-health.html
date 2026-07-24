@@ -1,0 +1,314 @@
+<!doctype html><html lang=pt-BR dir=ltr class="docs-wrapper plugin-docs plugin-id-default docs-version-current docs-doc-page docs-doc-id-operations/pipeline-health" data-has-hydrated=false><head><meta charset=UTF-8><meta name=generator content="Docusaurus v3.10.0"><title data-rh=true>Saúde do Pipeline | CentralOps</title><meta data-rh=true name=viewport content="width=device-width, initial-scale=1.0"/><meta data-rh=true name=twitter:card content=summary_large_image /><meta data-rh=true property=og:image content=https://docs.segark.com/img/centralops-social-card.png /><meta data-rh=true name=twitter:image content=https://docs.segark.com/img/centralops-social-card.png /><meta data-rh=true property=og:url content=https://docs.segark.com/operations/pipeline-health /><meta data-rh=true property=og:locale content=pt_BR /><meta data-rh=true property=og:locale:alternate content=en /><meta data-rh=true property=og:locale:alternate content=es /><meta data-rh=true name=docusaurus_locale content=pt-BR /><meta data-rh=true name=docsearch:language content=pt-BR /><meta data-rh=true name=docusaurus_version content=current /><meta data-rh=true name=docusaurus_tag content=docs-default-current /><meta data-rh=true name=docsearch:version content=current /><meta data-rh=true name=docsearch:docusaurus_tag content=docs-default-current /><meta data-rh=true property=og:title content="Saúde do Pipeline | CentralOps"/><meta data-rh=true name=description content="Acompanhe em tempo real a saúde da coleta de eventos e da entrega aos destinos"/><meta data-rh=true property=og:description content="Acompanhe em tempo real a saúde da coleta de eventos e da entrega aos destinos"/><link data-rh=true rel=icon href=/img/favicon.ico /><link data-rh=true rel=canonical href=https://docs.segark.com/operations/pipeline-health /><link data-rh=true rel=alternate href=https://docs.segark.com/operations/pipeline-health hreflang=pt-BR /><link data-rh=true rel=alternate href=https://docs.segark.com/en/operations/pipeline-health hreflang=en /><link data-rh=true rel=alternate href=https://docs.segark.com/es/operations/pipeline-health hreflang=es /><link data-rh=true rel=alternate href=https://docs.segark.com/operations/pipeline-health hreflang=x-default /><script data-rh=true type=application/ld+json>{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","item":"https://docs.segark.com/operations/pipeline-health","name":"Saúde do Pipeline","position":1}]}</script><link rel=stylesheet href=/assets/css/styles.65a61132.css /><script src=/assets/js/runtime~main.08d80435.js defer></script><script src=/assets/js/main.9390f800.js defer></script></head><body><svg style="display: none;"><defs>
+<symbol id=theme-svg-external-link viewBox="0 0 24 24"><path fill=currentColor d="M21 13v10h-21v-19h12v2h-10v15h17v-8h2zm3-12h-10.988l4.035 4-6.977 7.07 2.828 2.828 6.977-7.07 4.125 4.172v-11z"/></symbol>
+</defs></svg>
+<script>!function(){var t=function(){try{return new URLSearchParams(window.location.search).get("docusaurus-theme")}catch(t){}}()||function(){try{return window.localStorage.getItem("theme-cee")}catch(t){}}();document.documentElement.setAttribute("data-theme",t||(window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light")),document.documentElement.setAttribute("data-theme-choice",t||"system")}(),function(){try{for(var[t,e]of new URLSearchParams(window.location.search).entries())if(t.startsWith("docusaurus-data-")){var a=t.replace("docusaurus-data-","data-");document.documentElement.setAttribute(a,e)}}catch(t){}}()</script><div id=__docusaurus><link rel=preload as=image href=/img/logo.svg /><div role=region aria-label="Pular para o conteúdo principal"><a class=skipToContent_fXgn href=#__docusaurus_skipToContent_fallback>Pular para o conteúdo principal</a></div><nav aria-label="Navegação principal" class="theme-layout-navbar navbar navbar--fixed-top"><div class=navbar__inner><div class="theme-layout-navbar-left navbar__items"><button aria-label="Alternar painel de navegação" aria-expanded=false class="navbar__toggle clean-btn" type=button><svg width=30 height=30 viewBox="0 0 30 30" aria-hidden=true><path stroke=currentColor stroke-linecap=round stroke-miterlimit=10 stroke-width=2 d="M4 7h22M4 15h22M4 23h22"/></svg></button><a class=navbar__brand href=/><div class=navbar__logo><img src=/img/logo.svg alt=CentralOps class="themedComponent_mlkZ themedComponent--light_NVdE"/><img src=/img/logo.svg alt=CentralOps class="themedComponent_mlkZ themedComponent--dark_xIcU"/></div><b class="navbar__title text--truncate">CentralOps</b></a><a class="navbar__item navbar__link" href=/>Começar</a><a class="navbar__item navbar__link" href=/outputs/overview>Saídas & Rotas</a><a aria-current=page class="navbar__item navbar__link navbar__link--active" href=/operations/dashboard>Operação</a><a class="navbar__item navbar__link" href=/administration/users-and-roles>Administração</a><a class="navbar__item navbar__link" href=/normalization/overview>Mappings</a><a class="navbar__item navbar__link" href=/runbooks/dispatcher>Runbooks</a></div><div class="theme-layout-navbar-right navbar__items navbar__items--right"><div class="navbar__item dropdown dropdown--hoverable dropdown--right"><a href=# aria-haspopup=true aria-expanded=false role=button class=navbar__link><svg viewBox="0 0 24 24" width=20 height=20 aria-hidden=true class=iconLanguage_nlXk><path fill=currentColor d="M12.87 15.07l-2.54-2.51.03-.03c1.74-1.94 2.98-4.17 3.71-6.53H17V4h-7V2H8v2H1v1.99h11.17C11.5 7.92 10.44 9.75 9 11.35 8.07 10.32 7.3 9.19 6.69 8h-2c.73 1.63 1.73 3.17 2.98 4.56l-5.09 5.02L4 19l5-5 3.11 3.11.76-2.04zM18.5 10h-2L12 22h2l1.12-3h4.75L21 22h2l-4.5-12zm-2.62 7l1.62-4.33L19.12 17h-3.24z"/></svg>Português</a><ul class=dropdown__menu><li><a href=/operations/pipeline-health target=_self rel="noopener noreferrer" class="dropdown__link dropdown__link--active" lang=pt-BR>Português</a><li><a href=/en/operations/pipeline-health target=_self rel="noopener noreferrer" class=dropdown__link lang=en>English</a><li><a href=/es/operations/pipeline-health target=_self rel="noopener noreferrer" class=dropdown__link lang=es>Español</a></ul></div><div class="toggle_vylO colorModeToggle_DEke"><button class="clean-btn toggleButton_gllP toggleButtonDisabled_aARS" type=button disabled title="modo do sistema" aria-label="Mudar entre modo claro e escuro (modo do sistema está ativo)"><svg viewBox="0 0 24 24" width=24 height=24 aria-hidden=true class="toggleIcon_g3eP lightToggleIcon_pyhR"><path fill=currentColor d="M12,9c1.65,0,3,1.35,3,3s-1.35,3-3,3s-3-1.35-3-3S10.35,9,12,9 M12,7c-2.76,0-5,2.24-5,5s2.24,5,5,5s5-2.24,5-5 S14.76,7,12,7L12,7z M2,13l2,0c0.55,0,1-0.45,1-1s-0.45-1-1-1l-2,0c-0.55,0-1,0.45-1,1S1.45,13,2,13z M20,13l2,0c0.55,0,1-0.45,1-1 s-0.45-1-1-1l-2,0c-0.55,0-1,0.45-1,1S19.45,13,20,13z M11,2v2c0,0.55,0.45,1,1,1s1-0.45,1-1V2c0-0.55-0.45-1-1-1S11,1.45,11,2z M11,20v2c0,0.55,0.45,1,1,1s1-0.45,1-1v-2c0-0.55-0.45-1-1-1C11.45,19,11,19.45,11,20z M5.99,4.58c-0.39-0.39-1.03-0.39-1.41,0 c-0.39,0.39-0.39,1.03,0,1.41l1.06,1.06c0.39,0.39,1.03,0.39,1.41,0s0.39-1.03,0-1.41L5.99,4.58z M18.36,16.95 c-0.39-0.39-1.03-0.39-1.41,0c-0.39,0.39-0.39,1.03,0,1.41l1.06,1.06c0.39,0.39,1.03,0.39,1.41,0c0.39-0.39,0.39-1.03,0-1.41 L18.36,16.95z M19.42,5.99c0.39-0.39,0.39-1.03,0-1.41c-0.39-0.39-1.03-0.39-1.41,0l-1.06,1.06c-0.39,0.39-0.39,1.03,0,1.41 s1.03,0.39,1.41,0L19.42,5.99z M7.05,18.36c0.39-0.39,0.39-1.03,0-1.41c-0.39-0.39-1.03-0.39-1.41,0l-1.06,1.06 c-0.39,0.39-0.39,1.03,0,1.41s1.03,0.39,1.41,0L7.05,18.36z"/></svg><svg viewBox="0 0 24 24" width=24 height=24 aria-hidden=true class="toggleIcon_g3eP darkToggleIcon_wfgR"><path fill=currentColor d="M9.37,5.51C9.19,6.15,9.1,6.82,9.1,7.5c0,4.08,3.32,7.4,7.4,7.4c0.68,0,1.35-0.09,1.99-0.27C17.45,17.19,14.93,19,12,19 c-3.86,0-7-3.14-7-7C5,9.07,6.81,6.55,9.37,5.51z M12,3c-4.97,0-9,4.03-9,9s4.03,9,9,9s9-4.03,9-9c0-0.46-0.04-0.92-0.1-1.36 c-0.98,1.37-2.58,2.26-4.4,2.26c-2.98,0-5.4-2.42-5.4-5.4c0-1.81,0.89-3.42,2.26-4.4C12.92,3.04,12.46,3,12,3L12,3z"/></svg><svg viewBox="0 0 24 24" width=24 height=24 aria-hidden=true class="toggleIcon_g3eP systemToggleIcon_QzmC"><path fill=currentColor d="m12 21c4.971 0 9-4.029 9-9s-4.029-9-9-9-9 4.029-9 9 4.029 9 9 9zm4.95-13.95c1.313 1.313 2.05 3.093 2.05 4.95s-0.738 3.637-2.05 4.95c-1.313 1.313-3.093 2.05-4.95 2.05v-14c1.857 0 3.637 0.737 4.95 2.05z"/></svg></button></div><div class=navbarSearchContainer_Bca1><div class=navbar__search><span aria-label="expand searchbar" role=button class=search-icon tabindex=0></span><input id=search_input_react type=search placeholder=Loading... aria-label=Search class="navbar__search-input search-bar" disabled/></div></div></div></div><div role=presentation class=navbar-sidebar__backdrop></div></nav><div id=__docusaurus_skipToContent_fallback class="theme-layout-main main-wrapper mainWrapper_z2l0"><div class=docsWrapper_hBAB><button aria-label="Voltar para o topo" class="clean-btn theme-back-to-top-button backToTopButton_sjWU" type=button></button><div class=docRoot_UBD9><aside class="theme-doc-sidebar-container docSidebarContainer_YfHR"><div class=sidebarViewport_aRkj><div class=sidebar_njMd><nav aria-label="Painel lateral de documentos" class="menu thin-scrollbar menu_SIkG"><ul class="theme-doc-sidebar-menu menu__list"><li class="theme-doc-sidebar-item-category theme-doc-sidebar-item-category-level-1 menu__list-item"><div class=menu__list-item-collapsible><a class="categoryLink_byQd menu__link menu__link--sublist menu__link--sublist-caret menu__link--active" role=button aria-expanded=true href=/operations/dashboard><span title="Operação diária" class=categoryLinkLabel_W154>Operação diária</span></a></div><ul class=menu__list><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/operations/dashboard><span title=Dashboard class=linkLabel_WmDU>Dashboard</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/operations/fluxo-de-dados><span title="Fluxo de dados" class=linkLabel_WmDU>Fluxo de dados</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/operations/quarantine><span title=Quarentena class=linkLabel_WmDU>Quarentena</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/operations/search><span title=Investigações class=linkLabel_WmDU>Investigações</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/operations/federated-search><span title="Busca federada" class=linkLabel_WmDU>Busca federada</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/operations/detections><span title=Detecções class=linkLabel_WmDU>Detecções</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/operations/correlation-rules><span title="Regras de correlação" class=linkLabel_WmDU>Regras de correlação</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class="menu__link menu__link--active" aria-current=page tabindex=0 href=/operations/pipeline-health><span title="Saúde do Pipeline" class=linkLabel_WmDU>Saúde do Pipeline</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/operations/live-capture><span title="Captura ao vivo" class=linkLabel_WmDU>Captura ao vivo</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/operations/observability><span title="Observabilidade (OTel)" class=linkLabel_WmDU>Observabilidade (OTel)</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/operations/history-audit><span title="Histórico e auditoria" class=linkLabel_WmDU>Histórico e auditoria</span></a></ul></ul></nav></div></div></aside><main class=docMainContainer_TBSr><div class="container padding-top--md padding-bottom--lg"><div class=row><div class="col docItemCol_VOVn"><div class=docItemContainer_Djhp><article><nav class="theme-doc-breadcrumbs breadcrumbsContainer_Z_bl" aria-label=Trilha><ul class=breadcrumbs><li class=breadcrumbs__item><a aria-label="Página Inicial" class=breadcrumbs__link href=/><svg viewBox="0 0 24 24" class=breadcrumbHomeIcon_YNFT><path d="M10 19v-5h4v5c0 .55.45 1 1 1h3c.55 0 1-.45 1-1v-7h1.7c.46 0 .68-.57.33-.87L12.67 3.6c-.38-.34-.96-.34-1.34 0l-8.36 7.53c-.34.3-.13.87.33.87H5v7c0 .55.45 1 1 1h3c.55 0 1-.45 1-1z" fill=currentColor /></svg></a><li class=breadcrumbs__item><span class=breadcrumbs__link>Operação diária</span><li class="breadcrumbs__item breadcrumbs__item--active"><span class=breadcrumbs__link>Saúde do Pipeline</span></ul></nav><div class="tocCollapsible_ETCw theme-doc-toc-mobile tocMobile_ITEo"><button type=button class="clean-btn tocCollapsibleButton_TO0P">Nesta página</button></div><div class="theme-doc-markdown markdown"><header><h1>Saúde do Pipeline</h1></header>
+<p>A tela <strong>Saúde do Pipeline</strong> mostra, em um único painel, se os eventos estão sendo <strong>coletados</strong> das suas integrações e <strong>entregues</strong> aos destinos configurados — para você detectar problemas antes que virem perda de dados.</p>
+<p>Você a encontra no menu <strong>Normalização → Saúde do Pipeline</strong>.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=quando-usar>Quando usar<a href=#quando-usar class=hash-link aria-label="Link direto para Quando usar" title="Link direto para Quando usar" translate=no>​</a></h2>
+<ul>
+<li class=""><strong>Ronda matinal do SOC</strong>: abrir a tela no início do turno para confirmar que toda coleta e toda entrega estão saudáveis antes de começar o dia.</li>
+<li class=""><strong>"Parei de ver eventos de um fabricante"</strong>: um analista nota que alertas de um produto sumiram e precisa saber se o problema está na coleta (integração parada) ou na entrega (destino fora do ar).</li>
+<li class=""><strong>Risco de perda de dados</strong>: a fila de reenvio de um destino está crescendo e a equipe precisa decidir se age agora ou escala para o administrador.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=visão-geral>Visão geral<a href=#visão-geral class=hash-link aria-label="Link direto para Visão geral" title="Link direto para Visão geral" translate=no>​</a></h2>
+<p>O painel tem <strong>duas seções</strong>:</p>
+<ol>
+<li class=""><strong>Saúde por integração</strong> — um card por integração com eventos por minuto, atraso, campos novos detectados, eventos em quarentena e status.</li>
+<li class=""><strong>Saúde por destino</strong> — uma lista com o estado e as métricas de cada saída configurada.</li>
+</ol>
+<p>As duas seções refletem a coleta do último minuto e o histórico das últimas 24 horas.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=saúde-por-integração>Saúde por integração<a href=#saúde-por-integração class=hash-link aria-label="Link direto para Saúde por integração" title="Link direto para Saúde por integração" translate=no>​</a></h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=o-que-cada-card-mostra>O que cada card mostra<a href=#o-que-cada-card-mostra class=hash-link aria-label="Link direto para O que cada card mostra" title="Link direto para O que cada card mostra" translate=no>​</a></h3>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Campo<th>Descrição<tbody><tr><td><strong>Nome</strong><td>Nome da integração (ex.: "Sophos - Acme").<tr><td><strong>Status</strong><td>Saudável, Degradado, Indisponível ou Aguardando primeira coleta.<tr><td><strong>Eventos/min</strong><td>Taxa média de eventos coletados nos últimos 5 minutos (vazio = ainda não houve coleta).<tr><td><strong>Última coleta</strong><td>Há quanto tempo a plataforma <strong>conversou com o fornecedor</strong> pela última vez sem erro (<code>—</code> = nunca coletou). Responde "a coleta está rodando?" — e só isso.<tr><td><strong>Atraso dos dados</strong><td>De quando é o evento <strong>mais recente que a coleta já trouxe</strong>. Responde "o que eu estou vendo é de agora ou de ontem?". <strong>A linha não aparece</strong> quando não é medível (veja abaixo).<tr><td><strong>Backlog</strong><td>Etiqueta amarela ao lado do status. Significa que o último ciclo terminou no <strong>teto de eventos por ciclo</strong>, ou seja, sobrou fila para o ciclo seguinte.<tr><td><strong>Campos novos (24h)</strong><td>Quantos CAMPOS o fornecedor enviou nas últimas 24h que o mapeamento ainda não aproveita — não é contagem de eventos com erro. Sinal de que há contexto disponível sendo descartado. Veja <a class="" href=/pipelines/drift>Campos novos (drift)</a>.<tr><td><strong>Quarentena (24h)</strong><td>Eventos retidos por falha de mapeamento, validação ou ocultação de dados sensíveis.</table>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=quando-rodou-e-de-quando-é-o-dado-são-coisas-diferentes>"Quando rodou" e "de quando é o dado" são coisas diferentes<a href=#quando-rodou-e-de-quando-é-o-dado-são-coisas-diferentes class=hash-link aria-label='Link direto para "Quando rodou" e "de quando é o dado" são coisas diferentes' title='Link direto para "Quando rodou" e "de quando é o dado" são coisas diferentes' translate=no>​</a></h3>
+<p>Esses são os dois números mais confundidos da tela, e a diferença entre eles é a origem de um incidente real.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th><th><strong>Última coleta</strong><th><strong>Atraso dos dados</strong><tbody><tr><td>Pergunta que responde<td>"A plataforma falou com o fornecedor agora há pouco?"<td>"Até que ponto do passado do fornecedor nós já chegamos?"<tr><td>Zera quando…<td>Qualquer ciclo termina sem erro — <strong>mesmo que esse ciclo tenha processado eventos de ontem</strong><td>Só quando a coleta realmente alcança o presente do fornecedor<tr><td>Fica alto quando…<td>A coleta parou, falhou ou está pausada<td>A coleta está rodando, mas <strong>não vence o volume</strong></table>
+<div class="theme-admonition theme-admonition-warning admonition_xJq3 alert alert--warning"><div class=admonitionHeading_Gvgb><span class=admonitionIcon_Rf37><svg viewBox="0 0 16 16"><path fill-rule=evenodd d="M8.893 1.5c-.183-.31-.52-.5-.887-.5s-.703.19-.886.5L.138 13.499a.98.98 0 0 0 0 1.001c.193.31.53.501.886.501h13.964c.367 0 .704-.19.877-.5a1.03 1.03 0 0 0 .01-1.002L8.893 1.5zm.133 11.497H6.987v-2.003h2.039v2.003zm0-3.004H6.987V5.987h2.039v4.006z"/></svg></span>Um coletor 15 horas atrasado já apareceu como "Saudável"</div><div class=admonitionContent_BuS1><p>Em julho de 2026, uma integração Wazuh estava processando eventos criados <strong>15 horas antes</strong> e o card marcava <strong>atraso de 0 s</strong> e status <strong>Saudável</strong> — porque cada ciclo terminava sem erro, e era só isso que o número media. O SOC só descobriu quando um analista estranhou o horário dos alertas no destino.<p>O <strong>Atraso dos dados</strong> existe exatamente para fechar esse ponto cego. Se ele estiver em horas enquanto a Última coleta está em segundos, a coleta <strong>está funcionando e mesmo assim você está vendo o passado</strong>. O roteiro completo está em <a class="" href=/runbooks/collection-lag-backlog>Eventos chegando horas depois</a>.</div></div>
+<div class="theme-admonition theme-admonition-note admonition_xJq3 alert alert--secondary"><div class=admonitionHeading_Gvgb><span class=admonitionIcon_Rf37><svg viewBox="0 0 14 16"><path fill-rule=evenodd d="M6.3 5.69a.942.942 0 0 1-.28-.7c0-.28.09-.52.28-.7.19-.18.42-.28.7-.28.28 0 .52.09.7.28.18.19.28.42.28.7 0 .28-.09.52-.28.7a1 1 0 0 1-.7.3c-.28 0-.52-.11-.7-.3zM8 7.99c-.02-.25-.11-.48-.31-.69-.2-.19-.42-.3-.69-.31H6c-.27.02-.48.13-.69.31-.2.2-.3.44-.31.69h1v3c.02.27.11.5.31.69.2.2.42.31.69.31h1c.27 0 .48-.11.69-.31.2-.19.3-.42.31-.69H8V7.98v.01zM7 2.3c-3.14 0-5.7 2.54-5.7 5.68 0 3.14 2.56 5.7 5.7 5.7s5.7-2.55 5.7-5.7c0-3.15-2.56-5.69-5.7-5.69v.01zM7 .98c3.86 0 7 3.14 7 7s-3.14 7-7 7-7-3.12-7-7 3.14-7 7-7z"/></svg></span>Linha ausente não quer dizer "em dia"</div><div class=admonitionContent_BuS1><p>A linha <strong>Atraso dos dados</strong> <strong>some do card</strong> quando a plataforma não consegue medi-la: o fornecedor usa um marcador de posição que não é uma data (paginação opaca), ou nenhum ciclo gravou posição ainda.<p>Ela some em vez de mostrar <code>0</code> ou <code>—</code> de propósito: os dois se leem como "está tudo em dia", que é justamente a mentira que causou o incidente acima. Ausência da linha significa <strong>"não sei"</strong>, e a etiqueta <strong>Backlog</strong> continua aparecendo mesmo nesses casos — é o único sinal disponível para essas fontes.</div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=integração-com-vários-fluxos-vale-o-pior>Integração com vários fluxos: vale o pior<a href=#integração-com-vários-fluxos-vale-o-pior class=hash-link aria-label="Link direto para Integração com vários fluxos: vale o pior" title="Link direto para Integração com vários fluxos: vale o pior" translate=no>​</a></h3>
+<p>Uma integração pode coletar mais de um fluxo (por exemplo, detecções e auditoria). O <strong>Atraso dos dados</strong> e o <strong>Backlog</strong> do card são sempre os do <strong>pior fluxo</strong> — o mais atrasado, e "sim" se qualquer um deles bateu o teto.</p>
+<p>Não é média nem soma, e a razão é prática: numa média, um fluxo 15 horas atrasado desaparece atrás de três fluxos em dia — a forma exata do incidente. O card responde "o pipeline desta integração está em dia?", e a resposta é não se qualquer fluxo não estiver.</p>
+<p>A <strong>Última coleta</strong>, por contraste, é o do fluxo que coletou <strong>mais recentemente</strong>. São perguntas diferentes: um pergunta "alguma coleta terminou agora?", o outro "até onde nós chegamos?".</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=como-ler-o-status>Como ler o status<a href=#como-ler-o-status class=hash-link aria-label="Link direto para Como ler o status" title="Link direto para Como ler o status" translate=no>​</a></h3>
+<p>O status é decidido <strong>em ordem</strong>: vale a primeira regra que se aplica, e as seguintes nem chegam a ser avaliadas.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Ordem<th>Status<th>Quando aparece<tbody><tr><td>1<td><strong>Aguardando primeira coleta (cinza)</strong><td>A integração nunca coletou com sucesso. Não há métrica para julgar.<tr><td>2<td><strong>Indisponível (vermelho)</strong><td>A última <strong>coleta bem-sucedida</strong> foi há <strong>mais de 5 minutos</strong>, <strong>ou</strong> houve <strong>3 ou mais falhas seguidas</strong> de coleta.<tr><td>3<td><strong>Degradado (amarelo)</strong><td><strong>Backlog confirmado</strong> (as duas condições abaixo), <strong>ou</strong> existe um <strong>erro registrado</strong>. Em ambos os casos a coleta não parou — mas alguma coisa não está certa.<tr><td>4<td><strong>Saudável (verde)</strong><td>Nenhum dos casos acima.</table>
+<p>Como a avaliação é nessa ordem, uma integração que tem erro registrado <strong>e</strong> atraso de coleta acima de 5 minutos aparece como <strong>Indisponível</strong>, nunca como Degradado.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=backlog-confirmado-exige-as-duas-condições>Backlog confirmado exige as DUAS condições<a href=#backlog-confirmado-exige-as-duas-condições class=hash-link aria-label="Link direto para Backlog confirmado exige as DUAS condições" title="Link direto para Backlog confirmado exige as DUAS condições" translate=no>​</a></h3>
+<p>Para o card ficar amarelo por backlog, as duas coisas precisam ser verdade ao mesmo tempo:</p>
+<ol>
+<li class="">O último ciclo terminou no <strong>teto de eventos por ciclo</strong> (sobrou fila), <strong>e</strong></li>
+<li class="">o <strong>Atraso dos dados desse mesmo fluxo</strong> passa de <strong>30 minutos</strong>.</li>
+</ol>
+<p>Nenhuma das duas serve sozinha, e não é rigor gratuito:</p>
+<ul>
+<li class=""><strong>Atraso dos dados alto, sem teto atingido</strong> = fluxo sem eventos no período. O marcador fica parado de propósito, e isso é normal. Se isso pintasse o card de amarelo, metade da frota — todo fluxo silencioso — ficaria amarela e o indicador seria ignorado na primeira semana.</li>
+<li class=""><strong>Teto atingido, sem atraso dos dados</strong> = um pico que o teto absorveu dentro da janela, ou seja, o teto fazendo exatamente o que existe para fazer.</li>
+</ul>
+<p>Os 30 minutos equivalem a cerca de <strong>dez ciclos seguidos batendo o teto sem recuperar terreno</strong>. Um pico que drena em um ou dois ciclos não acende nada. O coletor do incidente que originou o indicador estava 15 horas atrás — trinta vezes o limite.</p>
+<div class="theme-admonition theme-admonition-info admonition_xJq3 alert alert--info"><div class=admonitionHeading_Gvgb><span class=admonitionIcon_Rf37><svg viewBox="0 0 14 16"><path fill-rule=evenodd d="M7 2.3c3.14 0 5.7 2.56 5.7 5.7s-2.56 5.7-5.7 5.7A5.71 5.71 0 0 1 1.3 8c0-3.14 2.56-5.7 5.7-5.7zM7 1C3.14 1 0 4.14 0 8s3.14 7 7 7 7-3.14 7-7-3.14-7-7-7zm1 3H6v5h2V4zm0 6H6v2h2v-2z"/></svg></span>Backlog é amarelo, não vermelho — e a diferença é a sua reação</div><div class=admonitionContent_BuS1><p><strong>Vermelho</strong> quer dizer "parou de coletar", e a reação é credencial, rede, token.
+<strong>Amarelo por backlog</strong> quer dizer "coleta, mas atrasada", e a reação é outra: reduzir o que se coleta com um <a class="" href=/pipelines/collection-filters>filtro de coleta</a>, ou pedir mais capacidade ao administrador da plataforma.<p>Um fluxo que está <strong>parado e atrasado</strong> cai antes na regra 2 (falhas ou atraso de coleta) e aparece vermelho de qualquer jeito.</div></div>
+<p>Existem, portanto, <strong>dois limites de tempo</strong> na tela, e eles medem coisas diferentes: <strong>5 minutos</strong> de Última coleta ("parou de coletar") e <strong>30 minutos</strong> de Atraso dos dados ("está para trás") — este último só conta acompanhado do teto atingido.</p>
+<div class="theme-admonition theme-admonition-info admonition_xJq3 alert alert--info"><div class=admonitionHeading_Gvgb><span class=admonitionIcon_Rf37><svg viewBox="0 0 14 16"><path fill-rule=evenodd d="M7 2.3c3.14 0 5.7 2.56 5.7 5.7s-2.56 5.7-5.7 5.7A5.71 5.71 0 0 1 1.3 8c0-3.14 2.56-5.7 5.7-5.7zM7 1C3.14 1 0 4.14 0 8s3.14 7 7 7 7-3.14 7-7-3.14-7-7-7zm1 3H6v5h2V4zm0 6H6v2h2v-2z"/></svg></span>Quarentena e campos novos não mudam a cor do card</div><div class=admonitionContent_BuS1><p>Os contadores <strong>Drift (24h)</strong> — os campos novos — e <strong>Quarentena (24h)</strong> aparecem no card, mas são <strong>informativos</strong>: nenhum dos dois entra no cálculo do status. Um evento em quarentena, sozinho, não deixa o card amarelo; mil campos novos não deixam o card vermelho.<p>Isso importa especialmente agora: a detecção de campos novos passou a comparar <strong>caminho a caminho</strong> dentro do evento, e o contador subiu de forma expressiva em várias integrações. Se um card ficou amarelo ou vermelho, a causa é atraso de coleta, erro na coleta ou backlog confirmado — não o número de campos novos.</div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=filtrar-integrações>Filtrar integrações<a href=#filtrar-integrações class=hash-link aria-label="Link direto para Filtrar integrações" title="Link direto para Filtrar integrações" translate=no>​</a></h3>
+<p>Use os botões acima dos cards:</p>
+<ul>
+<li class=""><strong>Todos</strong> — mostra todas (padrão).</li>
+<li class=""><strong>Saudáveis</strong> — apenas as verdes.</li>
+<li class=""><strong>Com problema</strong> — junta tudo que não está verde: Degradado, Indisponível e Aguardando primeira coleta.</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=investigar-uma-integração-com-problema>Investigar uma integração com problema<a href=#investigar-uma-integração-com-problema class=hash-link aria-label="Link direto para Investigar uma integração com problema" title="Link direto para Investigar uma integração com problema" translate=no>​</a></h3>
+<ol>
+<li class="">Clique no card da integração para abrir o painel de detalhes.</li>
+<li class="">No painel você vê:
+<ul>
+<li class="">O último erro registrado (ex.: "401 Unauthorized", "429 Too Many Requests").</li>
+<li class="">O gráfico de coleta das últimas 24 horas.</li>
+<li class="">O histórico de campos novos e quarentena.</li>
+<li class="">As ações de <strong>pausar</strong> ou <strong>retomar</strong> a coleta.</li>
+<li class="">A ação de <strong>testar a conexão</strong> novamente.</li>
+</ul>
+</li>
+</ol>
+<p><strong>Exemplo: integração parada</strong></p>
+<ol>
+<li class="">O card está vermelho: a <strong>Última coleta</strong> passou de 5 minutos, ou houve 3 falhas seguidas.</li>
+<li class="">Abra os detalhes e leia o último erro.</li>
+<li class="">Se for <strong>"401 Unauthorized"</strong>, as credenciais expiraram. Vá ao menu <strong>Visão geral → Integrações</strong> (<a class="" href=/integrations/overview>Integrações</a>), abra a integração e atualize as credenciais.</li>
+<li class="">Se for <strong>"429 Too Many Requests"</strong>, o fabricante limitou a taxa de chamadas. A frequência de coleta é definida na configuração da integração — reduza-a se o erro persistir.</li>
+<li class="">Use <strong>testar a conexão</strong>. Se passar, foi um erro passageiro: clique em <strong>retomar</strong>.</li>
+</ol>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=saúde-por-destino>Saúde por destino<a href=#saúde-por-destino class=hash-link aria-label="Link direto para Saúde por destino" title="Link direto para Saúde por destino" translate=no>​</a></h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=o-que-é-um-destino>O que é um destino<a href=#o-que-é-um-destino class=hash-link aria-label="Link direto para O que é um destino" title="Link direto para O que é um destino" translate=no>​</a></h3>
+<p>Um destino é uma saída configurada para receber os eventos roteados: Wazuh, Splunk, Elastic, Syslog, S3, entre outros.</p>
+<p>Cada destino é <strong>independente</strong> — a falha de um não afeta os outros. Enquanto um destino está fora do ar, os eventos ficam guardados na <strong>fila de reenvio</strong> e são entregues assim que ele volta, sem perda.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=o-que-a-lista-de-destinos-mostra>O que a lista de destinos mostra<a href=#o-que-a-lista-de-destinos-mostra class=hash-link aria-label="Link direto para O que a lista de destinos mostra" title="Link direto para O que a lista de destinos mostra" translate=no>​</a></h3>
+<p>Abra a seção <strong>Saúde por destino</strong> para ver cada saída:</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Campo<th>Descrição<tbody><tr><td><strong>Nome</strong><td>Nome do destino (ex.: "Wazuh padrão", "Splunk Prod").<tr><td><strong>Status</strong><td>Saudável, degradado, com problema, ou desativado.<tr><td><strong>Eventos/s</strong><td>Eventos enviados por segundo na última hora.<tr><td><strong>Volume</strong><td>Throughput em bytes por minuto na última hora.<tr><td><strong>Fila de reenvio</strong><td>Quantidade de eventos aguardando reentrega após falha.<tr><td><strong>Proteção do destino</strong><td>Indica se a proteção automática contra destino instável está ativa.</table>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=como-ler-o-status-1>Como ler o status<a href=#como-ler-o-status-1 class=hash-link aria-label="Link direto para Como ler o status" title="Link direto para Como ler o status" translate=no>​</a></h3>
+<ul>
+<li class=""><strong>Saudável (verde)</strong>: destino conectado, taxa de envio normal, sem falhas recentes.</li>
+<li class=""><strong>Degradado (amarelo)</strong>: latência alta, fila de reenvio crescendo, ou desconexões esporádicas.</li>
+<li class=""><strong>Com problema (vermelho)</strong>: destino fora do ar, falhas persistentes, ou muitos eventos na fila de reenvio.</li>
+<li class=""><strong>Desativado (cinza)</strong>: destino desabilitado — não recebe eventos.</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=proteção-contra-destino-instável-e-fila-de-reenvio>Proteção contra destino instável e fila de reenvio<a href=#proteção-contra-destino-instável-e-fila-de-reenvio class=hash-link aria-label="Link direto para Proteção contra destino instável e fila de reenvio" title="Link direto para Proteção contra destino instável e fila de reenvio" translate=no>​</a></h3>
+<p>Quando um destino começa a falhar repetidamente, o CentralOps ativa automaticamente uma <strong>proteção contra destino instável</strong>: em vez de insistir em um destino que está fora do ar, os novos eventos são desviados para a <strong>fila de reenvio</strong>.</p>
+<ul>
+<li class="">Enquanto a proteção está ativa, os eventos seguem para a fila de reenvio em segurança, sem se perderem.</li>
+<li class="">O CentralOps testa o destino periodicamente por conta própria. Quando ele volta a responder, a proteção é desligada e os eventos da fila de reenvio são entregues automaticamente.</li>
+<li class="">Você não precisa ligar ou desligar essa proteção — ela é automática. Sua função é corrigir a causa raiz (credencial, certificado, rede) para que o destino volte.</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=investigar-um-destino-com-problema>Investigar um destino com problema<a href=#investigar-um-destino-com-problema class=hash-link aria-label="Link direto para Investigar um destino com problema" title="Link direto para Investigar um destino com problema" translate=no>​</a></h3>
+<ol>
+<li class="">Clique no card do destino para abrir os detalhes.</li>
+<li class="">No painel você vê:
+<ul>
+<li class="">As últimas falhas, com mensagem de erro e horário.</li>
+<li class="">A taxa de reentrega.</li>
+<li class="">O histórico de envio das últimas 24 horas.</li>
+<li class="">A ação de <strong>reprocessar a fila de reenvio</strong>.</li>
+<li class="">As ações de <strong>desabilitar</strong> ou <strong>habilitar</strong> o destino.</li>
+</ul>
+</li>
+</ol>
+<p><strong>Exemplo: destino fora do ar</strong></p>
+<ol>
+<li class="">O destino está vermelho e marcado como desconectado.</li>
+<li class="">Abra os detalhes e leia o erro (ex.: "Connection refused", "TLS certificate expired").</li>
+<li class="">Se for um destino tipo Splunk, confirme com o responsável o token e o endereço do destino.</li>
+<li class="">Se for um problema de rede, certificado ou firewall entre o CentralOps e o destino, fale com o administrador da plataforma ou com a equipe de rede — esses ajustes ficam fora da interface do CentralOps.</li>
+<li class="">Depois de corrigido, a proteção é desligada automaticamente em poucos segundos. Use <strong>reprocessar a fila de reenvio</strong> para entregar os eventos que ficaram acumulados.</li>
+</ol>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=casos-de-uso-passo-a-passo>Casos de uso passo a passo<a href=#casos-de-uso-passo-a-passo class=hash-link aria-label="Link direto para Casos de uso passo a passo" title="Link direto para Casos de uso passo a passo" translate=no>​</a></h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=ronda-matinal>Ronda matinal<a href=#ronda-matinal class=hash-link aria-label="Link direto para Ronda matinal" title="Link direto para Ronda matinal" translate=no>​</a></h3>
+<ol>
+<li class="">Abra <strong>Normalização → Saúde do Pipeline</strong>.</li>
+<li class="">Todas as integrações em verde? A coleta está rodando.</li>
+<li class="">Passe os olhos no <strong>Atraso dos dados</strong> de cada card, mesmo nos verdes: é o número que diz se o que você está vendo é de agora. Minutos, tudo bem; horas <strong>com a etiqueta Backlog</strong>, investigue. Horas <strong>sem</strong> Backlog é fonte sem eventos no período — o normal em fluxos com <a class="" href=/pipelines/collection-filters>filtro de coleta</a> ligado.</li>
+<li class="">Todos os destinos em verde? Não há risco de perda de eventos.</li>
+<li class="">Qualquer amarelo ou vermelho: clique no card para investigar.</li>
+</ol>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=os-eventos-estão-chegando-com-horas-de-atraso>"Os eventos estão chegando com horas de atraso"<a href=#os-eventos-estão-chegando-com-horas-de-atraso class=hash-link aria-label='Link direto para "Os eventos estão chegando com horas de atraso"' title='Link direto para "Os eventos estão chegando com horas de atraso"' translate=no>​</a></h3>
+<ol>
+<li class="">Compare os dois atrasos no card: <strong>Última coleta</strong> em segundos e <strong>Atraso dos dados</strong> em horas é a assinatura clássica — a coleta roda, mas não vence o volume.</li>
+<li class="">Veja se o card marca <strong>Backlog</strong>. Marcando, o coletor termina cada ciclo no teto e sobra fila.</li>
+<li class="">Se sim, o caminho é reduzir o volume coletado na origem — veja <a class="" href=/pipelines/collection-filters>Filtro de coleta</a> — ou pedir mais capacidade ao administrador.</li>
+<li class="">O diagnóstico completo, com o passo a passo e a alavanca de emergência, está em <a class="" href=/runbooks/collection-lag-backlog>Eventos chegando horas depois</a>.</li>
+</ol>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=não-vejo-eventos-no-wazuh>"Não vejo eventos no Wazuh"<a href=#não-vejo-eventos-no-wazuh class=hash-link aria-label='Link direto para "Não vejo eventos no Wazuh"' title='Link direto para "Não vejo eventos no Wazuh"' translate=no>​</a></h3>
+<ol>
+<li class="">Confira se a integração de origem está em verde (coletando).</li>
+<li class=""><strong>Se está coletando, mas o Wazuh não recebe:</strong>
+<ul>
+<li class="">Verifique se o destino Wazuh está em verde.</li>
+<li class="">Se estiver vermelho, provavelmente a proteção está ativa, a fila de reenvio está cheia, ou há problema de certificado.</li>
+<li class="">Corrija a causa e use <strong>reprocessar a fila de reenvio</strong>.</li>
+</ul>
+</li>
+<li class=""><strong>Se a integração está em vermelho (não coleta):</strong>
+<ul>
+<li class="">Veja o último erro (401? 429? tempo esgotado?).</li>
+<li class="">Teste a conexão. Se falhar por credencial, atualize-a em <strong>Visão geral → Integrações</strong>.</li>
+</ul>
+</li>
+</ol>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=eventos-em-quarentena>"Eventos em quarentena"<a href=#eventos-em-quarentena class=hash-link aria-label='Link direto para "Eventos em quarentena"' title='Link direto para "Eventos em quarentena"' translate=no>​</a></h3>
+<ol>
+<li class="">O card de integração mostra "Quarentena (24h)" maior que zero.</li>
+<li class="">Abra os detalhes para ver os eventos recentes.</li>
+<li class="">Causa comum: um campo obrigatório do padrão de normalização ficou faltando, ou o fabricante enviou um valor inválido.</li>
+<li class="">Vá ao menu <strong>Normalização → Quarentena</strong> para revisar, reprocessar ou descartar esses eventos. Veja <a class="" href=/operations/quarantine>Quarentena</a>.</li>
+</ol>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=a-fila-de-reenvio-de-um-destino-está-crescendo>"A fila de reenvio de um destino está crescendo"<a href=#a-fila-de-reenvio-de-um-destino-está-crescendo class=hash-link aria-label='Link direto para "A fila de reenvio de um destino está crescendo"' title='Link direto para "A fila de reenvio de um destino está crescendo"' translate=no>​</a></h3>
+<ol>
+<li class="">O destino está amarelo ou vermelho e a fila de reenvio passou de 100 eventos.</li>
+<li class="">Abra os detalhes para ver as últimas falhas.</li>
+<li class="">Se a proteção contra destino instável estiver ativa: corrija a causa no destino (token expirado? endereço errado?) e aguarde a proteção se desligar sozinha.</li>
+<li class="">Se a proteção não estiver ativa, mas a fila continua crescendo, o destino pode estar lento ou limitando a taxa de recebimento. Esse tipo de ajuste de tempo de espera e limite de envio é definido pela equipe de infraestrutura no momento do deploy. Se precisar alterá-lo, fale com o administrador da plataforma.</li>
+<li class="">Use <strong>reprocessar a fila de reenvio</strong> quando o destino estiver saudável de novo.</li>
+</ol>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=limitações>Limitações<a href=#limitações class=hash-link aria-label="Link direto para Limitações" title="Link direto para Limitações" translate=no>​</a></h2>
+<ul>
+<li class=""><strong>Atualização</strong>: as métricas atualizam a cada 1 a 2 minutos — não é tempo real.</li>
+<li class=""><strong>Histórico</strong>: o card mostra apenas as últimas 24 horas. Para tendências de longo prazo, exporte os eventos para um destino de análise.</li>
+<li class=""><strong>Atraso dos dados</strong>: só existe para fontes cuja posição de coleta é uma data. Fontes com paginação opaca simplesmente não exibem essa linha; não é defeito.</li>
+<li class=""><strong>Sem histórico de atraso</strong>: o Atraso dos dados é o valor <strong>agora</strong>. A tela não guarda a curva dele — para acompanhar tendência, use a métrica exportada <code>collector_watermark_lag_seconds</code> (veja <a class="" href=/operations/observability>Observabilidade</a>).</li>
+<li class=""><strong>Acesso</strong>: operadores veem todas as métricas. Administradores também veem os erros detalhados e as ações de correção.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=próximos-passos>Próximos passos<a href=#próximos-passos class=hash-link aria-label="Link direto para Próximos passos" title="Link direto para Próximos passos" translate=no>​</a></h2>
+<ul>
+<li class=""><strong>Integração com problema?</strong> Vá a <strong>Visão geral → Integrações</strong> (<a class="" href=/integrations/overview>Integrações</a>).</li>
+<li class=""><strong>Eventos chegando com horas de atraso?</strong> Veja <a class="" href=/runbooks/collection-lag-backlog>Eventos chegando horas depois</a> e <a class="" href=/pipelines/collection-filters>Filtro de coleta</a>.</li>
+<li class=""><strong>Evento em quarentena?</strong> Vá a <strong>Normalização → Quarentena</strong> (<a class="" href=/operations/quarantine>Quarentena</a>).</li>
+<li class=""><strong>Quer rotear eventos seletivamente?</strong> Vá a <strong>Operação → Roteamento</strong> (<a class="" href=/outputs/routing>Roteamento</a>).</li>
+<li class=""><strong>Quer configurar novos destinos?</strong> Vá a <strong>Operação → Destinos</strong> (<a class="" href=/outputs/destinations>Destinos</a>).</li>
+</ul></div></article><nav class="docusaurus-mt-lg pagination-nav" aria-label="Páginas de documento"><a class="pagination-nav__link pagination-nav__link--prev" href=/operations/correlation-rules><div class=pagination-nav__sublabel>Anterior</div><div class=pagination-nav__label>Regras de correlação</div></a><a class="pagination-nav__link pagination-nav__link--next" href=/operations/live-capture><div class=pagination-nav__sublabel>Próxima</div><div class=pagination-nav__label>Captura ao vivo</div></a></nav></div></div><div class="col col--3"><div class="tableOfContents_bqdL thin-scrollbar theme-doc-toc-desktop"><ul class="table-of-contents table-of-contents__left-border"><li><a href=#quando-usar class="table-of-contents__link toc-highlight">Quando usar</a><li><a href=#visão-geral class="table-of-contents__link toc-highlight">Visão geral</a><li><a href=#saúde-por-integração class="table-of-contents__link toc-highlight">Saúde por integração</a><ul><li><a href=#o-que-cada-card-mostra class="table-of-contents__link toc-highlight">O que cada card mostra</a><li><a href=#quando-rodou-e-de-quando-é-o-dado-são-coisas-diferentes class="table-of-contents__link toc-highlight">"Quando rodou" e "de quando é o dado" são coisas diferentes</a><li><a href=#integração-com-vários-fluxos-vale-o-pior class="table-of-contents__link toc-highlight">Integração com vários fluxos: vale o pior</a><li><a href=#como-ler-o-status class="table-of-contents__link toc-highlight">Como ler o status</a><li><a href=#backlog-confirmado-exige-as-duas-condições class="table-of-contents__link toc-highlight">Backlog confirmado exige as DUAS condições</a><li><a href=#filtrar-integrações class="table-of-contents__link toc-highlight">Filtrar integrações</a><li><a href=#investigar-uma-integração-com-problema class="table-of-contents__link toc-highlight">Investigar uma integração com problema</a></ul><li><a href=#saúde-por-destino class="table-of-contents__link toc-highlight">Saúde por destino</a><ul><li><a href=#o-que-é-um-destino class="table-of-contents__link toc-highlight">O que é um destino</a><li><a href=#o-que-a-lista-de-destinos-mostra class="table-of-contents__link toc-highlight">O que a lista de destinos mostra</a><li><a href=#como-ler-o-status-1 class="table-of-contents__link toc-highlight">Como ler o status</a><li><a href=#proteção-contra-destino-instável-e-fila-de-reenvio class="table-of-contents__link toc-highlight">Proteção contra destino instável e fila de reenvio</a><li><a href=#investigar-um-destino-com-problema class="table-of-contents__link toc-highlight">Investigar um destino com problema</a></ul><li><a href=#casos-de-uso-passo-a-passo class="table-of-contents__link toc-highlight">Casos de uso passo a passo</a><ul><li><a href=#ronda-matinal class="table-of-contents__link toc-highlight">Ronda matinal</a><li><a href=#os-eventos-estão-chegando-com-horas-de-atraso class="table-of-contents__link toc-highlight">"Os eventos estão chegando com horas de atraso"</a><li><a href=#não-vejo-eventos-no-wazuh class="table-of-contents__link toc-highlight">"Não vejo eventos no Wazuh"</a><li><a href=#eventos-em-quarentena class="table-of-contents__link toc-highlight">"Eventos em quarentena"</a><li><a href=#a-fila-de-reenvio-de-um-destino-está-crescendo class="table-of-contents__link toc-highlight">"A fila de reenvio de um destino está crescendo"</a></ul><li><a href=#limitações class="table-of-contents__link toc-highlight">Limitações</a><li><a href=#próximos-passos class="table-of-contents__link toc-highlight">Próximos passos</a></ul></div></div></div></div></main></div></div></div><footer class="theme-layout-footer footer footer--dark"><div class="container container-fluid"><div class="row footer__links"><div class="theme-layout-footer-column col footer__col"><div class=footer__title>Documentação</div><ul class="footer__items clean-list"><li class=footer__item><a class=footer__link-item href=/getting-started/overview>Começar</a><li class=footer__item><a class=footer__link-item href=/operations/dashboard>Operação diária</a><li class=footer__item><a class=footer__link-item href=/normalization/overview>Mappings (CML)</a><li class=footer__item><a class=footer__link-item href=/runbooks/dispatcher>Runbooks</a></ul></div><div class="theme-layout-footer-column col footer__col"><div class=footer__title>Plataforma</div><ul class="footer__items clean-list"><li class=footer__item><a class=footer__link-item href=/concepts/architecture>Arquitetura</a><li class=footer__item><a class=footer__link-item href=/concepts/rbac>RBAC</a><li class=footer__item><a class=footer__link-item href=/integrations/overview>Integrações</a><li class=footer__item><a class=footer__link-item href=/compliance/retention>Compliance</a></ul></div><div class="theme-layout-footer-column col footer__col"><div class=footer__title>Recursos</div><ul class="footer__items clean-list"><li class=footer__item><a class=footer__link-item href=/getting-started/quickstart>Quickstart</a><li class=footer__item><a class=footer__link-item href=/normalization/cookbook>DSL Cookbook</a><li class=footer__item><a class=footer__link-item href=/normalization/troubleshooting>Troubleshooting</a></ul></div></div><div class="footer__bottom text--center"><div class=footer__copyright>Copyright © 2026 CentralOps. Built with Docusaurus.</div></div></div></footer></div></body>

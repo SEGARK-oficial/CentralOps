@@ -1,0 +1,517 @@
+<!doctype html><html lang=pt-BR dir=ltr class="docs-wrapper plugin-docs plugin-id-default docs-version-current docs-doc-page docs-doc-id-concepts/rbac" data-has-hydrated=false><head><meta charset=UTF-8><meta name=generator content="Docusaurus v3.10.0"><title data-rh=true>RBAC (Controle de acesso) | CentralOps</title><meta data-rh=true name=viewport content="width=device-width, initial-scale=1.0"/><meta data-rh=true name=twitter:card content=summary_large_image /><meta data-rh=true property=og:image content=https://docs.segark.com/img/centralops-social-card.png /><meta data-rh=true name=twitter:image content=https://docs.segark.com/img/centralops-social-card.png /><meta data-rh=true property=og:url content=https://docs.segark.com/concepts/rbac /><meta data-rh=true property=og:locale content=pt_BR /><meta data-rh=true property=og:locale:alternate content=en /><meta data-rh=true property=og:locale:alternate content=es /><meta data-rh=true name=docusaurus_locale content=pt-BR /><meta data-rh=true name=docsearch:language content=pt-BR /><meta data-rh=true name=docusaurus_version content=current /><meta data-rh=true name=docusaurus_tag content=docs-default-current /><meta data-rh=true name=docsearch:version content=current /><meta data-rh=true name=docsearch:docusaurus_tag content=docs-default-current /><meta data-rh=true property=og:title content="RBAC (Controle de acesso) | CentralOps"/><meta data-rh=true name=description content="Papéis e permissões — o que cada perfil de usuário pode fazer na plataforma"/><meta data-rh=true property=og:description content="Papéis e permissões — o que cada perfil de usuário pode fazer na plataforma"/><link data-rh=true rel=icon href=/img/favicon.ico /><link data-rh=true rel=canonical href=https://docs.segark.com/concepts/rbac /><link data-rh=true rel=alternate href=https://docs.segark.com/concepts/rbac hreflang=pt-BR /><link data-rh=true rel=alternate href=https://docs.segark.com/en/concepts/rbac hreflang=en /><link data-rh=true rel=alternate href=https://docs.segark.com/es/concepts/rbac hreflang=es /><link data-rh=true rel=alternate href=https://docs.segark.com/concepts/rbac hreflang=x-default /><script data-rh=true type=application/ld+json>{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","item":"https://docs.segark.com/concepts/rbac","name":"RBAC (Controle de acesso)","position":1}]}</script><link rel=stylesheet href=/assets/css/styles.65a61132.css /><script src=/assets/js/runtime~main.08d80435.js defer></script><script src=/assets/js/main.9390f800.js defer></script></head><body><svg style="display: none;"><defs>
+<symbol id=theme-svg-external-link viewBox="0 0 24 24"><path fill=currentColor d="M21 13v10h-21v-19h12v2h-10v15h17v-8h2zm3-12h-10.988l4.035 4-6.977 7.07 2.828 2.828 6.977-7.07 4.125 4.172v-11z"/></symbol>
+</defs></svg>
+<script>!function(){var t=function(){try{return new URLSearchParams(window.location.search).get("docusaurus-theme")}catch(t){}}()||function(){try{return window.localStorage.getItem("theme-cee")}catch(t){}}();document.documentElement.setAttribute("data-theme",t||(window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light")),document.documentElement.setAttribute("data-theme-choice",t||"system")}(),function(){try{for(var[t,e]of new URLSearchParams(window.location.search).entries())if(t.startsWith("docusaurus-data-")){var a=t.replace("docusaurus-data-","data-");document.documentElement.setAttribute(a,e)}}catch(t){}}()</script><div id=__docusaurus><link rel=preload as=image href=/img/logo.svg /><div role=region aria-label="Pular para o conteúdo principal"><a class=skipToContent_fXgn href=#__docusaurus_skipToContent_fallback>Pular para o conteúdo principal</a></div><nav aria-label="Navegação principal" class="theme-layout-navbar navbar navbar--fixed-top"><div class=navbar__inner><div class="theme-layout-navbar-left navbar__items"><button aria-label="Alternar painel de navegação" aria-expanded=false class="navbar__toggle clean-btn" type=button><svg width=30 height=30 viewBox="0 0 30 30" aria-hidden=true><path stroke=currentColor stroke-linecap=round stroke-miterlimit=10 stroke-width=2 d="M4 7h22M4 15h22M4 23h22"/></svg></button><a class=navbar__brand href=/><div class=navbar__logo><img src=/img/logo.svg alt=CentralOps class="themedComponent_mlkZ themedComponent--light_NVdE"/><img src=/img/logo.svg alt=CentralOps class="themedComponent_mlkZ themedComponent--dark_xIcU"/></div><b class="navbar__title text--truncate">CentralOps</b></a><a aria-current=page class="navbar__item navbar__link navbar__link--active" href=/>Começar</a><a class="navbar__item navbar__link" href=/outputs/overview>Saídas & Rotas</a><a class="navbar__item navbar__link" href=/operations/dashboard>Operação</a><a class="navbar__item navbar__link" href=/administration/users-and-roles>Administração</a><a class="navbar__item navbar__link" href=/normalization/overview>Mappings</a><a class="navbar__item navbar__link" href=/runbooks/dispatcher>Runbooks</a></div><div class="theme-layout-navbar-right navbar__items navbar__items--right"><div class="navbar__item dropdown dropdown--hoverable dropdown--right"><a href=# aria-haspopup=true aria-expanded=false role=button class=navbar__link><svg viewBox="0 0 24 24" width=20 height=20 aria-hidden=true class=iconLanguage_nlXk><path fill=currentColor d="M12.87 15.07l-2.54-2.51.03-.03c1.74-1.94 2.98-4.17 3.71-6.53H17V4h-7V2H8v2H1v1.99h11.17C11.5 7.92 10.44 9.75 9 11.35 8.07 10.32 7.3 9.19 6.69 8h-2c.73 1.63 1.73 3.17 2.98 4.56l-5.09 5.02L4 19l5-5 3.11 3.11.76-2.04zM18.5 10h-2L12 22h2l1.12-3h4.75L21 22h2l-4.5-12zm-2.62 7l1.62-4.33L19.12 17h-3.24z"/></svg>Português</a><ul class=dropdown__menu><li><a href=/concepts/rbac target=_self rel="noopener noreferrer" class="dropdown__link dropdown__link--active" lang=pt-BR>Português</a><li><a href=/en/concepts/rbac target=_self rel="noopener noreferrer" class=dropdown__link lang=en>English</a><li><a href=/es/concepts/rbac target=_self rel="noopener noreferrer" class=dropdown__link lang=es>Español</a></ul></div><div class="toggle_vylO colorModeToggle_DEke"><button class="clean-btn toggleButton_gllP toggleButtonDisabled_aARS" type=button disabled title="modo do sistema" aria-label="Mudar entre modo claro e escuro (modo do sistema está ativo)"><svg viewBox="0 0 24 24" width=24 height=24 aria-hidden=true class="toggleIcon_g3eP lightToggleIcon_pyhR"><path fill=currentColor d="M12,9c1.65,0,3,1.35,3,3s-1.35,3-3,3s-3-1.35-3-3S10.35,9,12,9 M12,7c-2.76,0-5,2.24-5,5s2.24,5,5,5s5-2.24,5-5 S14.76,7,12,7L12,7z M2,13l2,0c0.55,0,1-0.45,1-1s-0.45-1-1-1l-2,0c-0.55,0-1,0.45-1,1S1.45,13,2,13z M20,13l2,0c0.55,0,1-0.45,1-1 s-0.45-1-1-1l-2,0c-0.55,0-1,0.45-1,1S19.45,13,20,13z M11,2v2c0,0.55,0.45,1,1,1s1-0.45,1-1V2c0-0.55-0.45-1-1-1S11,1.45,11,2z M11,20v2c0,0.55,0.45,1,1,1s1-0.45,1-1v-2c0-0.55-0.45-1-1-1C11.45,19,11,19.45,11,20z M5.99,4.58c-0.39-0.39-1.03-0.39-1.41,0 c-0.39,0.39-0.39,1.03,0,1.41l1.06,1.06c0.39,0.39,1.03,0.39,1.41,0s0.39-1.03,0-1.41L5.99,4.58z M18.36,16.95 c-0.39-0.39-1.03-0.39-1.41,0c-0.39,0.39-0.39,1.03,0,1.41l1.06,1.06c0.39,0.39,1.03,0.39,1.41,0c0.39-0.39,0.39-1.03,0-1.41 L18.36,16.95z M19.42,5.99c0.39-0.39,0.39-1.03,0-1.41c-0.39-0.39-1.03-0.39-1.41,0l-1.06,1.06c-0.39,0.39-0.39,1.03,0,1.41 s1.03,0.39,1.41,0L19.42,5.99z M7.05,18.36c0.39-0.39,0.39-1.03,0-1.41c-0.39-0.39-1.03-0.39-1.41,0l-1.06,1.06 c-0.39,0.39-0.39,1.03,0,1.41s1.03,0.39,1.41,0L7.05,18.36z"/></svg><svg viewBox="0 0 24 24" width=24 height=24 aria-hidden=true class="toggleIcon_g3eP darkToggleIcon_wfgR"><path fill=currentColor d="M9.37,5.51C9.19,6.15,9.1,6.82,9.1,7.5c0,4.08,3.32,7.4,7.4,7.4c0.68,0,1.35-0.09,1.99-0.27C17.45,17.19,14.93,19,12,19 c-3.86,0-7-3.14-7-7C5,9.07,6.81,6.55,9.37,5.51z M12,3c-4.97,0-9,4.03-9,9s4.03,9,9,9s9-4.03,9-9c0-0.46-0.04-0.92-0.1-1.36 c-0.98,1.37-2.58,2.26-4.4,2.26c-2.98,0-5.4-2.42-5.4-5.4c0-1.81,0.89-3.42,2.26-4.4C12.92,3.04,12.46,3,12,3L12,3z"/></svg><svg viewBox="0 0 24 24" width=24 height=24 aria-hidden=true class="toggleIcon_g3eP systemToggleIcon_QzmC"><path fill=currentColor d="m12 21c4.971 0 9-4.029 9-9s-4.029-9-9-9-9 4.029-9 9 4.029 9 9 9zm4.95-13.95c1.313 1.313 2.05 3.093 2.05 4.95s-0.738 3.637-2.05 4.95c-1.313 1.313-3.093 2.05-4.95 2.05v-14c1.857 0 3.637 0.737 4.95 2.05z"/></svg></button></div><div class=navbarSearchContainer_Bca1><div class=navbar__search><span aria-label="expand searchbar" role=button class=search-icon tabindex=0></span><input id=search_input_react type=search placeholder=Loading... aria-label=Search class="navbar__search-input search-bar" disabled/></div></div></div></div><div role=presentation class=navbar-sidebar__backdrop></div></nav><div id=__docusaurus_skipToContent_fallback class="theme-layout-main main-wrapper mainWrapper_z2l0"><div class=docsWrapper_hBAB><button aria-label="Voltar para o topo" class="clean-btn theme-back-to-top-button backToTopButton_sjWU" type=button></button><div class=docRoot_UBD9><aside class="theme-doc-sidebar-container docSidebarContainer_YfHR"><div class=sidebarViewport_aRkj><div class=sidebar_njMd><nav aria-label="Painel lateral de documentos" class="menu thin-scrollbar menu_SIkG"><ul class="theme-doc-sidebar-menu menu__list"><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-1 menu__list-item"><a class=menu__link href=/><span title=CentralOps class=linkLabel_WmDU>CentralOps</span></a><li class="theme-doc-sidebar-item-category theme-doc-sidebar-item-category-level-1 menu__list-item"><div class=menu__list-item-collapsible><a class="categoryLink_byQd menu__link menu__link--sublist menu__link--sublist-caret" role=button aria-expanded=true href=/getting-started/overview><span title=Começar class=categoryLinkLabel_W154>Começar</span></a></div><ul class=menu__list><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/getting-started/overview><span title="Visão Geral" class=linkLabel_WmDU>Visão Geral</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/getting-started/first-login><span title="Primeiro Login" class=linkLabel_WmDU>Primeiro Login</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/getting-started/quickstart><span title="Quickstart — do evento ao destino em 15 minutos" class=linkLabel_WmDU>Quickstart — do evento ao destino em 15 minutos</span></a></ul><li class="theme-doc-sidebar-item-category theme-doc-sidebar-item-category-level-1 menu__list-item"><div class=menu__list-item-collapsible><a class="categoryLink_byQd menu__link menu__link--sublist menu__link--sublist-caret" role=button aria-expanded=true href=/deployment/docker-compose><span title="Instalação & Deploy" class=categoryLinkLabel_W154>Instalação & Deploy</span></a></div><ul class=menu__list><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/deployment/docker-compose><span title="Deploy com Docker Compose" class=linkLabel_WmDU>Deploy com Docker Compose</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/deployment/kubernetes><span title="Deploy com Kubernetes (Helm)" class=linkLabel_WmDU>Deploy com Kubernetes (Helm)</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/deployment/configuration><span title="Configuração (variáveis de ambiente)" class=linkLabel_WmDU>Configuração (variáveis de ambiente)</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/deployment/upgrading><span title="Atualizar de versão" class=linkLabel_WmDU>Atualizar de versão</span></a></ul><li class="theme-doc-sidebar-item-category theme-doc-sidebar-item-category-level-1 menu__list-item"><div class=menu__list-item-collapsible><a class="categoryLink_byQd menu__link menu__link--sublist menu__link--sublist-caret" role=button aria-expanded=true href=/editions/community-vs-enterprise><span title="Edições & Upgrade" class=categoryLinkLabel_W154>Edições & Upgrade</span></a></div><ul class=menu__list><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/editions/community-vs-enterprise><span title="Edições — Community vs Enterprise" class=linkLabel_WmDU>Edições — Community vs Enterprise</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/editions/upgrade><span title="Upgrade para Enterprise" class=linkLabel_WmDU>Upgrade para Enterprise</span></a></ul><li class="theme-doc-sidebar-item-category theme-doc-sidebar-item-category-level-1 menu__list-item"><div class=menu__list-item-collapsible><a class="categoryLink_byQd menu__link menu__link--sublist menu__link--sublist-caret menu__link--active" role=button aria-expanded=true href=/concepts/architecture><span title=Conceitos class=categoryLinkLabel_W154>Conceitos</span></a></div><ul class=menu__list><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/concepts/architecture><span title="Como o CentralOps funciona" class=linkLabel_WmDU>Como o CentralOps funciona</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class="menu__link menu__link--active" aria-current=page tabindex=0 href=/concepts/rbac><span title="RBAC (Controle de acesso)" class=linkLabel_WmDU>RBAC (Controle de acesso)</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/concepts/data-model><span title="Como os dados se organizam" class=linkLabel_WmDU>Como os dados se organizam</span></a></ul></ul></nav></div></div></aside><main class=docMainContainer_TBSr><div class="container padding-top--md padding-bottom--lg"><div class=row><div class="col docItemCol_VOVn"><div class=docItemContainer_Djhp><article><nav class="theme-doc-breadcrumbs breadcrumbsContainer_Z_bl" aria-label=Trilha><ul class=breadcrumbs><li class=breadcrumbs__item><a aria-label="Página Inicial" class=breadcrumbs__link href=/><svg viewBox="0 0 24 24" class=breadcrumbHomeIcon_YNFT><path d="M10 19v-5h4v5c0 .55.45 1 1 1h3c.55 0 1-.45 1-1v-7h1.7c.46 0 .68-.57.33-.87L12.67 3.6c-.38-.34-.96-.34-1.34 0l-8.36 7.53c-.34.3-.13.87.33.87H5v7c0 .55.45 1 1 1h3c.55 0 1-.45 1-1z" fill=currentColor /></svg></a><li class=breadcrumbs__item><span class=breadcrumbs__link>Conceitos</span><li class="breadcrumbs__item breadcrumbs__item--active"><span class=breadcrumbs__link>RBAC (Controle de acesso)</span></ul></nav><div class="tocCollapsible_ETCw theme-doc-toc-mobile tocMobile_ITEo"><button type=button class="clean-btn tocCollapsibleButton_TO0P">Nesta página</button></div><div class="theme-doc-markdown markdown"><header><h1>RBAC — Controle de acesso por papéis</h1></header>
+<p>O CentralOps controla o que cada usuário pode ver e fazer por meio de <strong>papéis</strong>. Cada usuário recebe um papel, e o papel define o conjunto de permissões — desde apenas visualizar até administrar a plataforma inteira. São quatro papéis, com permissões progressivas: <strong>Viewer</strong>, <strong>Operator</strong>, <strong>Engineer</strong> e <strong>Admin</strong>.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=quando-usar>Quando usar<a href=#quando-usar class=hash-link aria-label="Link direto para Quando usar" title="Link direto para Quando usar" translate=no>​</a></h2>
+<ul>
+<li class=""><strong>Onboarding de um novo analista de SOC</strong>: dar a um analista de triage apenas o papel Viewer, para que ele investigue alertas e eventos sem risco de alterar regras ou pausar coletas.</li>
+<li class=""><strong>Plantão (oncall) que limpa o pipeline</strong>: um técnico de plantão precisa descartar e reprocessar eventos em quarentena e pausar uma integração com problema, mas não deve mexer em regras de normalização — o papel Operator cobre exatamente isso.</li>
+<li class=""><strong>Separação de funções para auditoria/compliance</strong>: garantir que só o Admin crie destinos, configure roteamento e gerencie usuários, mantendo o restante do time no menor privilégio necessário e com tudo registrado em histórico.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=escopo-por-organização-e-subárvore>Escopo por organização e subárvore<a href=#escopo-por-organização-e-subárvore class=hash-link aria-label="Link direto para Escopo por organização e subárvore" title="Link direto para Escopo por organização e subárvore" translate=no>​</a></h2>
+<p>O CentralOps suporta ambientes multicliente com hierarquias de organizações. A visibilidade de dados e permissões de cada usuário é controlada pelo seu <strong>escopo de organização</strong> e pelo tipo de relacionamento (próprio nó vs. subárvore).</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=três-personas-principais>Três personas principais:<a href=#três-personas-principais class=hash-link aria-label="Link direto para Três personas principais:" title="Link direto para Três personas principais:" translate=no>​</a></h3>
+<p><strong>Admin Global (plataforma)</strong></p>
+<ul>
+<li class="">Sem organização definida (<code>is_global=True</code> ou <code>organization_id</code> vazio)</li>
+<li class="">Vê e gerencia <strong>todas as organizações</strong> e todas as operações de plataforma</li>
+<li class="">Pode criar, editar e deletar organizações</li>
+<li class="">Pode criar e gerenciar outros admins globais</li>
+<li class="">Responsável pela infraestrutura, compliance global e permissões em nível de plataforma</li>
+<li class="">Use-case: equipe de infraestrutura ou administrador central</li>
+</ul>
+<p><strong>Admin de MSP/Reseller (subárvore)</strong></p>
+<ul>
+<li class="">Escopado a uma organização-pai (reseller ou MSP) com visibilidade de subárvore</li>
+<li class="">Vê e gerencia a organização-pai <strong>e todas as suas filhas</strong> (clientes, subresellers, etc.)</li>
+<li class="">Pode criar usuários dentro da sua subárvore</li>
+<li class=""><strong>Não pode</strong> criar ou deletar organizações (ação de plataforma)</li>
+<li class=""><strong>Não pode</strong> conceder o papel de admin global a ninguém</li>
+<li class=""><strong>Não pode</strong> gerenciar integrações auto-gerenciadas (partner-managed)</li>
+<li class="">Use-case: provedor de serviços gerenciados (MSSP) ou reseller que suporta múltiplos clientes</li>
+</ul>
+<p><strong>Admin da Organização (tenant-admin)</strong></p>
+<ul>
+<li class="">Escopado a uma organização específica (folha ou nó isolado) — só vê aquela organização</li>
+<li class="">Gerencia usuários e configurações <strong>apenas da própria organização</strong></li>
+<li class=""><strong>Não pode</strong> criar, editar ou deletar organizações</li>
+<li class=""><strong>Não pode</strong> conceder o papel de admin global a ninguém</li>
+<li class=""><strong>Não pode</strong> gerenciar integrações auto-gerenciadas (partner-managed)</li>
+<li class="">Ideal para: cliente que tem autonomia sobre seus próprios usuários e políticas</li>
+</ul>
+<p><strong>Analista SOC com Visibilidade Global</strong></p>
+<ul>
+<li class="">Usuário com papel Operator ou Engineer + <code>is_global=True</code></li>
+<li class="">Acesso de leitura a <strong>todas as organizações</strong>, mas sem capacidade de criar/editar</li>
+<li class="">Usado para correlação, investigação cross-tenant e análise centralizada</li>
+<li class="">Cria auditoria se tocar em dados sensíveis (mesmo com acesso de leitura)</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=regra-de-visibilidade>Regra de visibilidade:<a href=#regra-de-visibilidade class=hash-link aria-label="Link direto para Regra de visibilidade:" title="Link direto para Regra de visibilidade:" translate=no>​</a></h3>
+<ul>
+<li class="">Um usuário escopado a uma organização <strong>vê apenas aquela organização</strong> (e suas filhas, se aplicável)</li>
+<li class="">Tentativas de acessar dados de outras organizações são bloqueadas com erro 403 (acesso negado)</li>
+<li class="">Essa restrição vale para todos os endpoints: mappings, integrações, quarentena, histórico, etc.</li>
+<li class="">Isolamento é aplicado no backend — não é possível contornar via UI</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=matriz-de-papéis-e-permissões>Matriz de papéis e permissões<a href=#matriz-de-papéis-e-permissões class=hash-link aria-label="Link direto para Matriz de papéis e permissões" title="Link direto para Matriz de papéis e permissões" translate=no>​</a></h2>
+<p>A tabela mostra o que cada papel pode fazer. "✓" = permitido; "—" = não permitido.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Área<th>Ação<th>Viewer<th>Operator<th>Engineer<th>Admin<tbody><tr><td><strong>Mappings</strong><td>Ver mappings<td>✓<td>✓<td>✓<td>✓<tr><td><td>Editar mappings e criar versões<td>—<td>—<td>✓<td>✓<tr><td><td>Reverter para versão anterior<td>—<td>—<td>✓<td>✓<tr><td><strong>Integrações (coleta)</strong><td>Ver integrações<td>✓<td>✓<td>✓<td>✓<tr><td><td>Criar/editar integrações e credenciais<td>—<td>—<td>—<td>✓<tr><td><td>Pausar/retomar coleta<td>—<td>✓<td>✓<td>✓<tr><td><strong>Quarentena</strong><td>Ver eventos em quarentena<td>✓<td>✓<td>✓<td>✓<tr><td><td>Descartar e reprocessar eventos<td>—<td>✓<td>✓<td>✓<tr><td><strong>Campos novos detectados (Drift)</strong><td>Ver campos detectados<td>✓<td>✓<td>✓<td>✓<tr><td><td>Marcar campo como "ignorar"<td>—<td>✓<td>✓<td>✓<tr><td><td>Marcar campo como "já mapeado"<td>—<td>—<td>✓<td>✓<tr><td><td>Excluir entrada de campo detectado<td>—<td>—<td>✓<td>✓<tr><td><strong>Destinos</strong><td>Ver destinos<td>✓<td>✓<td>✓<td>✓<tr><td><td>Criar/editar destinos<td>—<td>—<td>—<td>✓<tr><td><strong>Roteamento</strong><td>Ver regras de roteamento<td>✓<td>✓<td>✓<td>✓<tr><td><td>Criar/editar regras de roteamento<td>—<td>—<td>—<td>✓<tr><td><strong>Captura ao vivo</strong><td>Iniciar e parar uma sessão de captura<td>—<td>—<td>—<td>✓<tr><td><td>Ver os eventos capturados<td>—<td>—<td>—<td>✓<tr><td><td>Exportar a sessão em CSV/NDJSON<td>—<td>—<td>—<td>✓<tr><td><strong>Histórico</strong><td>Consultar histórico de auditoria<td>✓<td>✓<td>✓<td>✓<tr><td><strong>Buscas e queries</strong><td>Ver eventos já entregues (sem busca ao vivo)<td>✓<td>✓<td>✓<td>✓<tr><td><td>Rodar query/hunt AO VIVO na fonte (query.run)<td>—<td>✓<td>✓<td>✓<tr><td><td>Triar detecções (abrir/reconhecer/fechar)<td>—<td>✓<td>✓<td>✓<tr><td><td>Salvar query, agendamentos e correlações (query.save)<td>—<td>—<td>✓<td>✓<tr><td><td>Criar/editar/excluir regras de correlação<td>—<td>—<td>✓<td>✓<tr><td><strong>Ações destrutivas</strong><td>Bloquear IP/hash (ACTION_BLOCK)<td>—<td>—<td>—<td>✓<tr><td><strong>Administração</strong><td>Gerenciar usuários<td>—<td>—<td>—<td>✓<tr><td><td>Gerenciar organizações<td>—<td>—<td>—<td>✓*<tr><td><td>Ver credenciais armazenadas<td>—<td>—<td>—<td>✓</table>
+<p>*Nota: criar, editar e deletar organizações é uma <strong>ação de plataforma</strong> que exige <strong>Admin Global</strong> (sem escopo de organização). Um Admin da organização pode gerenciar usuários dentro de seu escopo, mas não pode criar ou deletar organizações.</p>
+<p><strong>Nota sobre a captura ao vivo</strong>: a captura grava o conteúdo real dos eventos de produção, por isso as três capacidades são <strong>exclusivas do Admin</strong> — Viewer e Operator não acessam nem a tela nem a exportação. Cada exportação fica registrada no <strong>Histórico de auditoria</strong> (quem exportou, qual sessão e quando), e o arquivo sai com os dados pessoais <strong>mascarados por padrão</strong>. Veja <a class="" href=/operations/live-capture>Captura ao vivo</a>.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=o-que-cada-papel-faz>O que cada papel faz<a href=#o-que-cada-papel-faz class=hash-link aria-label="Link direto para O que cada papel faz" title="Link direto para O que cada papel faz" translate=no>​</a></h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=viewer>Viewer<a href=#viewer class=hash-link aria-label="Link direto para Viewer" title="Link direto para Viewer" translate=no>​</a></h3>
+<p><strong>Para quem</strong>: analista que investiga alertas e eventos, mas não executa ações.</p>
+<p><strong>Pode</strong>:</p>
+<ul>
+<li class="">Ver Dashboard, indicadores e alertas.</li>
+<li class="">Ver detalhes de eventos em quarentena (somente leitura).</li>
+<li class="">Ver campos novos detectados (somente leitura).</li>
+<li class="">Consultar o Histórico de auditoria.</li>
+<li class="">Buscar eventos na base histórica pelos filtros de <strong>Investigações</strong> (leitura de eventos JÁ ENTREGUES aos destinos).</li>
+<li class="">Ver destinos, regras de roteamento e mappings (somente leitura).</li>
+</ul>
+<p><strong>Não pode</strong>:</p>
+<ul>
+<li class="">Rodar query/hunt AO VIVO na fonte (precisa de Operator) — isso dispara coleta no cliente e custa $.</li>
+<li class="">Triar detecções ou triage de resultados ao vivo (precisa de Operator).</li>
+<li class="">Salvar query, criar agendamentos ou regras de correlação (precisa de Engineer).</li>
+<li class="">Descartar quarentena (precisa de Operator).</li>
+<li class="">Editar mappings (precisa de Engineer).</li>
+<li class="">Criar destinos ou regras de roteamento (precisa de Admin).</li>
+</ul>
+<p><strong>Exemplo</strong>: analista de SOC que só faz triage de alertas, sem alterar nada.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=operator>Operator<a href=#operator class=hash-link aria-label="Link direto para Operator" title="Link direto para Operator" translate=no>​</a></h3>
+<p><strong>Para quem</strong>: técnico que monitora o pipeline e executa ações de rotina.</p>
+<p><strong>Pode</strong> (tudo do Viewer, mais):</p>
+<ul>
+<li class="">Rodar query/hunt AO VIVO na fonte (pull de alertas do cliente — custa $).</li>
+<li class="">Triar detecções: abrir, reconhecer (acknowledge) ou fechar.</li>
+<li class="">Descartar eventos de quarentena.</li>
+<li class="">Reprocessar eventos de quarentena (depois que o mapping foi corrigido).</li>
+<li class="">Pausar e retomar a coleta de uma integração.</li>
+<li class="">Marcar campos novos detectados como "ignorar".</li>
+</ul>
+<p><strong>Não pode</strong>:</p>
+<ul>
+<li class="">Salvar query, criar agendamentos ou regras de correlação (precisa de Engineer).</li>
+<li class="">Editar mappings (precisa de Engineer).</li>
+<li class="">Bloquear IP/hash (precisa de Admin).</li>
+<li class="">Criar destinos ou regras de roteamento (precisa de Admin).</li>
+<li class="">Abrir a captura ao vivo, ver os eventos capturados ou exportá-los (precisa de Admin).</li>
+<li class="">Gerenciar usuários (precisa de Admin).</li>
+</ul>
+<p><strong>Exemplo</strong>: plantonista (oncall) que acompanha alertas e limpa a quarentena, sem mexer em regras de normalização ou roteamento.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=engineer>Engineer<a href=#engineer class=hash-link aria-label="Link direto para Engineer" title="Link direto para Engineer" translate=no>​</a></h3>
+<p><strong>Para quem</strong>: especialista em segurança que customiza a normalização dos eventos.</p>
+<p><strong>Pode</strong> (tudo do Operator, mais):</p>
+<ul>
+<li class="">Salvar query e criar agendamentos de busca.</li>
+<li class="">Criar, editar e excluir regras de correlação (threshold — detecções cross-source).</li>
+<li class="">Editar mappings no editor de mapeamento, criar versões e reverter para uma versão anterior.</li>
+<li class="">Marcar campos novos detectados como "já mapeados".</li>
+<li class="">Excluir entradas de campos detectados.</li>
+</ul>
+<p><strong>Não pode</strong>:</p>
+<ul>
+<li class="">Bloquear IP/hash (precisa de Admin).</li>
+<li class="">Criar/editar destinos ou regras de roteamento (precisa de Admin).</li>
+<li class="">Usar a captura ao vivo para conferir um mapping com tráfego real — a tela é só de Admin. Peça a um Admin que rode a captura e compartilhe a exportação com você.</li>
+<li class="">Gerenciar integrações de coleta — criar, excluir, alterar credenciais (precisa de Admin).</li>
+<li class="">Gerenciar usuários (precisa de Admin).</li>
+</ul>
+<p><strong>Exemplo</strong>: engenheiro de segurança que ajusta as regras de normalização sempre que um fornecedor muda o formato dos eventos.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=admin>Admin<a href=#admin class=hash-link aria-label="Link direto para Admin" title="Link direto para Admin" translate=no>​</a></h3>
+<p><strong>Para quem</strong>: responsável pela plataforma, compliance e segurança operacional. O Admin também opera tudo pela interface.</p>
+<p><strong>Pode</strong> (tudo, mais):</p>
+<ul>
+<li class="">Bloquear IP ou hash (ação destrutiva).</li>
+<li class="">Criar, editar e excluir destinos (Syslog, Splunk HEC, Elastic, S3, Sentinel, Kafka, OTLP, entre outros).</li>
+<li class="">Configurar as credenciais de cada destino e testar a conexão.</li>
+<li class="">Criar, editar e excluir regras de roteamento, incluindo envio simultâneo a vários destinos e remoção de dados sensíveis (PII) por regra.</li>
+<li class="">Iniciar e parar sessões de <a class="" href=/operations/live-capture>captura ao vivo</a>, inspecionar os eventos gravados e exportá-los em CSV/NDJSON (a exportação sai mascarada por padrão e fica registrada no Histórico).</li>
+<li class="">Criar, excluir e desativar usuários e alterar o papel de cada um (dentro do escopo de organização).</li>
+<li class="">Gerenciar organizações — <strong>apenas se for Admin Global</strong> (sem escopo de organização).</li>
+<li class="">Configurar a retenção de dados.</li>
+<li class="">Ver as credenciais armazenadas (credenciais de integrações e de destinos). Essas credenciais ficam armazenadas de forma encriptada.</li>
+<li class="">Executar a remoção de dados para atendimento à LGPD/GDPR.</li>
+</ul>
+<p><strong>Restrições de escopo</strong>:</p>
+<ul>
+<li class="">Um <strong>Admin da Organização</strong> (escopado a uma org específica) gerencia usuários e configurações apenas daquela organização, não pode criar/deletar organizações, não pode conceder <code>is_global=True</code> a ninguém e não pode gerenciar integrações auto-gerenciadas.</li>
+<li class="">Um <strong>Admin Global</strong> (sem escopo ou <code>is_global=True</code>) pode executar todas as ações acima, incluindo gerenciar a hierarquia completa de organizações.</li>
+</ul>
+<blockquote>
+<p>A chave de criptografia da plataforma é definida pela equipe de infraestrutura no momento do deploy. Se precisar alterá-la, fale com o administrador da plataforma.</p>
+</blockquote>
+<p><strong>Exemplo</strong>: administrador da plataforma, responsável por compliance, auditoria e pela saída de dados para destinos externos.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=permissões-de-busca-e-correlação-operator-em-diante>Permissões de busca e correlação (Operator em diante)<a href=#permissões-de-busca-e-correlação-operator-em-diante class=hash-link aria-label="Link direto para Permissões de busca e correlação (Operator em diante)" title="Link direto para Permissões de busca e correlação (Operator em diante)" translate=no>​</a></h2>
+<p>A partir do papel Operator, dois tipos de permissão governam tudo o que envolve query, investigação e detecção:</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=queryrun--rodar-buscas-ao-vivo-e-triar-detecções-operator>query.run — Rodar buscas ao vivo e triar detecções (Operator+)<a href=#queryrun--rodar-buscas-ao-vivo-e-triar-detecções-operator class=hash-link aria-label="Link direto para query.run — Rodar buscas ao vivo e triar detecções (Operator+)" title="Link direto para query.run — Rodar buscas ao vivo e triar detecções (Operator+)" translate=no>​</a></h3>
+<ul>
+<li class=""><strong>Rodar query ao vivo</strong>: pull de alertas/eventos direto da fonte (Wazuh, Sophos, CrowdStrike, Defender, etc.). Toca o cliente final e incorre em custo.</li>
+<li class=""><strong>Triar detecções</strong>: abrir, reconhecer (acknowledge) ou fechar uma detecção que surgiu de análise automatizada (query salva, correlação ou scheduled query).</li>
+<li class=""><strong>Listar e detalhar regras de correlação</strong>: ler o catálogo (não criar/editar).</li>
+</ul>
+<p>Quem tem <code>query.run</code>: <strong>Operator</strong>, Engineer, Admin.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=querysave--salvar-queries-agendamentos-e-correlações-engineer>query.save — Salvar queries, agendamentos e correlações (Engineer+)<a href=#querysave--salvar-queries-agendamentos-e-correlações-engineer class=hash-link aria-label="Link direto para query.save — Salvar queries, agendamentos e correlações (Engineer+)" title="Link direto para query.save — Salvar queries, agendamentos e correlações (Engineer+)" translate=no>​</a></h3>
+<ul>
+<li class=""><strong>Salvar query</strong>: persistir uma busca federada (multi-source) para reutilização futura.</li>
+<li class=""><strong>Criar agendamentos</strong>: executar query salva em horários recorrentes, gerando detecções automatizadas.</li>
+<li class=""><strong>CRUD de regras de correlação</strong>: criar, editar e excluir regras de threshold para detectar padrões cross-source (ex.: "5 eventos do mesmo IP em 5 minutos").</li>
+</ul>
+<p>Quem tem <code>query.save</code>: <strong>Engineer</strong>, Admin.</p>
+<p>Ambas as permissões são <strong>org-scoped fail-closed</strong>: um Engineer da organização A não consegue fazer query ou criar correlação da organização B, mesmo que ambas estejam na mesma instância (multi-tenant).</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=exemplos-de-atribuição>Exemplos de atribuição<a href=#exemplos-de-atribuição class=hash-link aria-label="Link direto para Exemplos de atribuição" title="Link direto para Exemplos de atribuição" translate=no>​</a></h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=empresa-pequena-cerca-de-10-pessoas>Empresa pequena (cerca de 10 pessoas)<a href=#empresa-pequena-cerca-de-10-pessoas class=hash-link aria-label="Link direto para Empresa pequena (cerca de 10 pessoas)" title="Link direto para Empresa pequena (cerca de 10 pessoas)" translate=no>​</a></h3>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Papel<th>Pessoas<th>Perfil<tbody><tr><td>Admin<td>2<td>Responsável por infraestrutura + responsável por segurança<tr><td>Engineer<td>3<td>Time de resposta a incidentes que ajusta mappings<tr><td>Operator<td>3<td>Monitoramento 24/7<tr><td>Viewer<td>2<td>Auditor externo, somente leitura</table>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=provedor-de-serviços-gerenciados-mssp-50-clientes>Provedor de serviços gerenciados (MSSP, 50+ clientes)<a href=#provedor-de-serviços-gerenciados-mssp-50-clientes class=hash-link aria-label="Link direto para Provedor de serviços gerenciados (MSSP, 50+ clientes)" title="Link direto para Provedor de serviços gerenciados (MSSP, 50+ clientes)" translate=no>​</a></h3>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Papel<th>Quantidade<th>Perfil<tbody><tr><td>Admin global<td>1<td>Gerencia a hierarquia de organizações, destinos e roteamento global<tr><td>Admin de reseller/MSP<td>1 por reseller<td>Usuário Admin com escopo na organização-reseller, vê a subárvore de clientes<tr><td>Admin da organização<td>1 por cliente<td>Usuário Admin com escopo restrito a uma organização específica (não vê outras)<tr><td>Engineer<td>2-3 por organização<td>Customizam os mappings da organização<tr><td>Operator<td>5-10 por organização<td>Monitoramento<tr><td>Viewer<td>conforme a necessidade<td>Consultas e análise</table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=como-atribuir-papéis>Como atribuir papéis<a href=#como-atribuir-papéis class=hash-link aria-label="Link direto para Como atribuir papéis" title="Link direto para Como atribuir papéis" translate=no>​</a></h2>
+<blockquote>
+<p>As telas abaixo só aparecem para usuários com papel Admin.</p>
+</blockquote>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=criar-um-novo-usuário-com-papel>Criar um novo usuário com papel<a href=#criar-um-novo-usuário-com-papel class=hash-link aria-label="Link direto para Criar um novo usuário com papel" title="Link direto para Criar um novo usuário com papel" translate=no>​</a></h3>
+<ol>
+<li class="">Abra o menu <strong>Administração → Usuários</strong>.</li>
+<li class="">Inicie a criação de um novo usuário.</li>
+<li class="">Preencha o e-mail e selecione o papel.</li>
+<li class="">Confirme a criação. A plataforma gera um acesso temporário.</li>
+<li class="">Compartilhe com o usuário o link para definir a senha.</li>
+</ol>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=alterar-o-papel-de-um-usuário-existente>Alterar o papel de um usuário existente<a href=#alterar-o-papel-de-um-usuário-existente class=hash-link aria-label="Link direto para Alterar o papel de um usuário existente" title="Link direto para Alterar o papel de um usuário existente" translate=no>​</a></h3>
+<ol>
+<li class="">Abra o menu <strong>Administração → Usuários</strong>.</li>
+<li class="">Localize o usuário na lista.</li>
+<li class="">Abra a edição do usuário e altere o papel.</li>
+<li class="">Salve a alteração.</li>
+</ol>
+<p>A mudança vale imediatamente. A sessão ativa do usuário continua, mas o próximo acesso já usa o novo papel.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=service-accounts-tokens-de-automação>Service Accounts (tokens de automação)<a href=#service-accounts-tokens-de-automação class=hash-link aria-label="Link direto para Service Accounts (tokens de automação)" title="Link direto para Service Accounts (tokens de automação)" translate=no>​</a></h2>
+<p>Os <strong>Service Accounts</strong> são tokens usados por automações (sem um usuário humano por trás), criados e gerenciados no menu <strong>Administração → Service Accounts</strong>.</p>
+<p>Um token de automação <strong>nunca tem mais permissões do que o usuário que o criou</strong>, e pode ser configurado com um acesso ainda mais restrito do que o desse usuário. Assim, mesmo que o token vaze, o estrago possível fica limitado ao escopo que você definiu.</p>
+<p><strong>Exemplo</strong>: integrações com pipelines de CI/CD, webhooks de terceiros e automações de ponta a ponta, sem depender de credencial de uma pessoa.</p>
+<p>Para criar e gerenciar tokens, acesse o menu <strong>Administração → Service Accounts</strong>.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=considerações-de-segurança>Considerações de segurança<a href=#considerações-de-segurança class=hash-link aria-label="Link direto para Considerações de segurança" title="Link direto para Considerações de segurança" translate=no>​</a></h2>
+<ul>
+<li class=""><strong>Menor privilégio</strong>: sempre atribua o menor papel que permita a pessoa fazer o trabalho dela.</li>
+<li class=""><strong>Auditoria</strong>: toda mudança de permissão fica registrada e pode ser consultada na tela de Histórico.</li>
+<li class=""><strong>Isolamento entre organizações</strong>: um Engineer da organização A não consegue acessar os mappings da organização B, mesmo que as duas estejam na mesma instância. Um Admin da organização A não pode criar/deletar organizações ou conceder privilégios globais.</li>
+<li class=""><strong>Credenciais</strong>: apenas o Admin pode ver os valores de credenciais armazenadas (de integrações e de destinos). Essas credenciais ficam armazenadas de forma encriptada.</li>
+<li class=""><strong>Delegação com limite</strong>: um Admin escopado a uma organização nunca pode elevar outro usuário acima do seu próprio teto de permissões. Ações de plataforma (criar/deletar organizações, conceder <code>is_global=True</code>) exigem Admin Global.</li>
+</ul></div></article><nav class="docusaurus-mt-lg pagination-nav" aria-label="Páginas de documento"><a class="pagination-nav__link pagination-nav__link--prev" href=/concepts/architecture><div class=pagination-nav__sublabel>Anterior</div><div class=pagination-nav__label>Como o CentralOps funciona</div></a><a class="pagination-nav__link pagination-nav__link--next" href=/concepts/data-model><div class=pagination-nav__sublabel>Próxima</div><div class=pagination-nav__label>Como os dados se organizam</div></a></nav></div></div><div class="col col--3"><div class="tableOfContents_bqdL thin-scrollbar theme-doc-toc-desktop"><ul class="table-of-contents table-of-contents__left-border"><li><a href=#quando-usar class="table-of-contents__link toc-highlight">Quando usar</a><li><a href=#escopo-por-organização-e-subárvore class="table-of-contents__link toc-highlight">Escopo por organização e subárvore</a><ul><li><a href=#três-personas-principais class="table-of-contents__link toc-highlight">Três personas principais:</a><li><a href=#regra-de-visibilidade class="table-of-contents__link toc-highlight">Regra de visibilidade:</a></ul><li><a href=#matriz-de-papéis-e-permissões class="table-of-contents__link toc-highlight">Matriz de papéis e permissões</a><li><a href=#o-que-cada-papel-faz class="table-of-contents__link toc-highlight">O que cada papel faz</a><ul><li><a href=#viewer class="table-of-contents__link toc-highlight">Viewer</a><li><a href=#operator class="table-of-contents__link toc-highlight">Operator</a><li><a href=#engineer class="table-of-contents__link toc-highlight">Engineer</a><li><a href=#admin class="table-of-contents__link toc-highlight">Admin</a></ul><li><a href=#permissões-de-busca-e-correlação-operator-em-diante class="table-of-contents__link toc-highlight">Permissões de busca e correlação (Operator em diante)</a><ul><li><a href=#queryrun--rodar-buscas-ao-vivo-e-triar-detecções-operator class="table-of-contents__link toc-highlight">query.run — Rodar buscas ao vivo e triar detecções (Operator+)</a><li><a href=#querysave--salvar-queries-agendamentos-e-correlações-engineer class="table-of-contents__link toc-highlight">query.save — Salvar queries, agendamentos e correlações (Engineer+)</a></ul><li><a href=#exemplos-de-atribuição class="table-of-contents__link toc-highlight">Exemplos de atribuição</a><ul><li><a href=#empresa-pequena-cerca-de-10-pessoas class="table-of-contents__link toc-highlight">Empresa pequena (cerca de 10 pessoas)</a><li><a href=#provedor-de-serviços-gerenciados-mssp-50-clientes class="table-of-contents__link toc-highlight">Provedor de serviços gerenciados (MSSP, 50+ clientes)</a></ul><li><a href=#como-atribuir-papéis class="table-of-contents__link toc-highlight">Como atribuir papéis</a><ul><li><a href=#criar-um-novo-usuário-com-papel class="table-of-contents__link toc-highlight">Criar um novo usuário com papel</a><li><a href=#alterar-o-papel-de-um-usuário-existente class="table-of-contents__link toc-highlight">Alterar o papel de um usuário existente</a></ul><li><a href=#service-accounts-tokens-de-automação class="table-of-contents__link toc-highlight">Service Accounts (tokens de automação)</a><li><a href=#considerações-de-segurança class="table-of-contents__link toc-highlight">Considerações de segurança</a></ul></div></div></div></div></main></div></div></div><footer class="theme-layout-footer footer footer--dark"><div class="container container-fluid"><div class="row footer__links"><div class="theme-layout-footer-column col footer__col"><div class=footer__title>Documentação</div><ul class="footer__items clean-list"><li class=footer__item><a class=footer__link-item href=/getting-started/overview>Começar</a><li class=footer__item><a class=footer__link-item href=/operations/dashboard>Operação diária</a><li class=footer__item><a class=footer__link-item href=/normalization/overview>Mappings (CML)</a><li class=footer__item><a class=footer__link-item href=/runbooks/dispatcher>Runbooks</a></ul></div><div class="theme-layout-footer-column col footer__col"><div class=footer__title>Plataforma</div><ul class="footer__items clean-list"><li class=footer__item><a class=footer__link-item href=/concepts/architecture>Arquitetura</a><li class=footer__item><a class=footer__link-item href=/concepts/rbac>RBAC</a><li class=footer__item><a class=footer__link-item href=/integrations/overview>Integrações</a><li class=footer__item><a class=footer__link-item href=/compliance/retention>Compliance</a></ul></div><div class="theme-layout-footer-column col footer__col"><div class=footer__title>Recursos</div><ul class="footer__items clean-list"><li class=footer__item><a class=footer__link-item href=/getting-started/quickstart>Quickstart</a><li class=footer__item><a class=footer__link-item href=/normalization/cookbook>DSL Cookbook</a><li class=footer__item><a class=footer__link-item href=/normalization/troubleshooting>Troubleshooting</a></ul></div></div><div class="footer__bottom text--center"><div class=footer__copyright>Copyright © 2026 CentralOps. Built with Docusaurus.</div></div></div></footer></div></body>

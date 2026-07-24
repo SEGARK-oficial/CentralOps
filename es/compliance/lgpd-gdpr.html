@@ -1,0 +1,250 @@
+<!doctype html><html lang=es dir=ltr class="docs-wrapper plugin-docs plugin-id-default docs-version-current docs-doc-page docs-doc-id-compliance/lgpd-gdpr" data-has-hydrated=false><head><meta charset=UTF-8><meta name=generator content="Docusaurus v3.10.0"><title data-rh=true>LGPD / GDPR — Direito ao esquecimento | CentralOps</title><meta data-rh=true name=viewport content="width=device-width, initial-scale=1.0"/><meta data-rh=true name=twitter:card content=summary_large_image /><meta data-rh=true property=og:image content=https://docs.segark.com/es/img/centralops-social-card.png /><meta data-rh=true name=twitter:image content=https://docs.segark.com/es/img/centralops-social-card.png /><meta data-rh=true property=og:url content=https://docs.segark.com/es/compliance/lgpd-gdpr /><meta data-rh=true property=og:locale content=es /><meta data-rh=true property=og:locale:alternate content=pt_BR /><meta data-rh=true property=og:locale:alternate content=en /><meta data-rh=true name=docusaurus_locale content=es /><meta data-rh=true name=docsearch:language content=es /><meta data-rh=true name=docusaurus_version content=current /><meta data-rh=true name=docusaurus_tag content=docs-default-current /><meta data-rh=true name=docsearch:version content=current /><meta data-rh=true name=docsearch:docusaurus_tag content=docs-default-current /><meta data-rh=true property=og:title content="LGPD / GDPR — Direito ao esquecimento | CentralOps"/><meta data-rh=true name=description content="Como apagar todos os dados de uma organização e mascarar dados pessoais antes de enviá-los a destinos externos"/><meta data-rh=true property=og:description content="Como apagar todos os dados de uma organização e mascarar dados pessoais antes de enviá-los a destinos externos"/><link data-rh=true rel=icon href=/es/img/favicon.ico /><link data-rh=true rel=canonical href=https://docs.segark.com/es/compliance/lgpd-gdpr /><link data-rh=true rel=alternate href=https://docs.segark.com/compliance/lgpd-gdpr hreflang=pt-BR /><link data-rh=true rel=alternate href=https://docs.segark.com/en/compliance/lgpd-gdpr hreflang=en /><link data-rh=true rel=alternate href=https://docs.segark.com/es/compliance/lgpd-gdpr hreflang=es /><link data-rh=true rel=alternate href=https://docs.segark.com/compliance/lgpd-gdpr hreflang=x-default /><script data-rh=true type=application/ld+json>{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","item":"https://docs.segark.com/es/compliance/lgpd-gdpr","name":"LGPD / GDPR — Direito ao esquecimento","position":1}]}</script><link rel=stylesheet href=/es/assets/css/styles.65a61132.css /><script src=/es/assets/js/runtime~main.774ab3e5.js defer></script><script src=/es/assets/js/main.9750a519.js defer></script></head><body><svg style="display: none;"><defs>
+<symbol id=theme-svg-external-link viewBox="0 0 24 24"><path fill=currentColor d="M21 13v10h-21v-19h12v2h-10v15h17v-8h2zm3-12h-10.988l4.035 4-6.977 7.07 2.828 2.828 6.977-7.07 4.125 4.172v-11z"/></symbol>
+</defs></svg>
+<script>!function(){var t=function(){try{return new URLSearchParams(window.location.search).get("docusaurus-theme")}catch(t){}}()||function(){try{return window.localStorage.getItem("theme-4d2")}catch(t){}}();document.documentElement.setAttribute("data-theme",t||(window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light")),document.documentElement.setAttribute("data-theme-choice",t||"system")}(),function(){try{for(var[t,e]of new URLSearchParams(window.location.search).entries())if(t.startsWith("docusaurus-data-")){var a=t.replace("docusaurus-data-","data-");document.documentElement.setAttribute(a,e)}}catch(t){}}()</script><div id=__docusaurus><link rel=preload as=image href=/es/img/logo.svg /><div role=region aria-label="Saltar al contenido principal"><a class=skipToContent_fXgn href=#__docusaurus_skipToContent_fallback>Saltar al contenido principal</a></div><nav aria-label=Principal class="theme-layout-navbar navbar navbar--fixed-top"><div class=navbar__inner><div class="theme-layout-navbar-left navbar__items"><button aria-label="Alternar barra lateral" aria-expanded=false class="navbar__toggle clean-btn" type=button><svg width=30 height=30 viewBox="0 0 30 30" aria-hidden=true><path stroke=currentColor stroke-linecap=round stroke-miterlimit=10 stroke-width=2 d="M4 7h22M4 15h22M4 23h22"/></svg></button><a class=navbar__brand href=/es/><div class=navbar__logo><img src=/es/img/logo.svg alt=CentralOps class="themedComponent_mlkZ themedComponent--light_NVdE"/><img src=/es/img/logo.svg alt=CentralOps class="themedComponent_mlkZ themedComponent--dark_xIcU"/></div><b class="navbar__title text--truncate">CentralOps</b></a><a class="navbar__item navbar__link" href=/es/>Empezar</a><a class="navbar__item navbar__link" href=/es/outputs/overview>Salidas y Rutas</a><a class="navbar__item navbar__link" href=/es/operations/dashboard>Operación</a><a class="navbar__item navbar__link" href=/es/administration/users-and-roles>Administración</a><a class="navbar__item navbar__link" href=/es/normalization/overview>Mappings</a><a aria-current=page class="navbar__item navbar__link navbar__link--active" href=/es/runbooks/dispatcher>Runbooks</a></div><div class="theme-layout-navbar-right navbar__items navbar__items--right"><div class="navbar__item dropdown dropdown--hoverable dropdown--right"><a href=# aria-haspopup=true aria-expanded=false role=button class=navbar__link><svg viewBox="0 0 24 24" width=20 height=20 aria-hidden=true class=iconLanguage_nlXk><path fill=currentColor d="M12.87 15.07l-2.54-2.51.03-.03c1.74-1.94 2.98-4.17 3.71-6.53H17V4h-7V2H8v2H1v1.99h11.17C11.5 7.92 10.44 9.75 9 11.35 8.07 10.32 7.3 9.19 6.69 8h-2c.73 1.63 1.73 3.17 2.98 4.56l-5.09 5.02L4 19l5-5 3.11 3.11.76-2.04zM18.5 10h-2L12 22h2l1.12-3h4.75L21 22h2l-4.5-12zm-2.62 7l1.62-4.33L19.12 17h-3.24z"/></svg>Español</a><ul class=dropdown__menu><li><a href=/compliance/lgpd-gdpr target=_self rel="noopener noreferrer" class=dropdown__link lang=pt-BR>Português</a><li><a href=/en/compliance/lgpd-gdpr target=_self rel="noopener noreferrer" class=dropdown__link lang=en>English</a><li><a href=/es/compliance/lgpd-gdpr target=_self rel="noopener noreferrer" class="dropdown__link dropdown__link--active" lang=es>Español</a></ul></div><div class="toggle_vylO colorModeToggle_DEke"><button class="clean-btn toggleButton_gllP toggleButtonDisabled_aARS" type=button disabled title="system mode" aria-label="Cambiar entre modo oscuro y claro (actualmente system mode)"><svg viewBox="0 0 24 24" width=24 height=24 aria-hidden=true class="toggleIcon_g3eP lightToggleIcon_pyhR"><path fill=currentColor d="M12,9c1.65,0,3,1.35,3,3s-1.35,3-3,3s-3-1.35-3-3S10.35,9,12,9 M12,7c-2.76,0-5,2.24-5,5s2.24,5,5,5s5-2.24,5-5 S14.76,7,12,7L12,7z M2,13l2,0c0.55,0,1-0.45,1-1s-0.45-1-1-1l-2,0c-0.55,0-1,0.45-1,1S1.45,13,2,13z M20,13l2,0c0.55,0,1-0.45,1-1 s-0.45-1-1-1l-2,0c-0.55,0-1,0.45-1,1S19.45,13,20,13z M11,2v2c0,0.55,0.45,1,1,1s1-0.45,1-1V2c0-0.55-0.45-1-1-1S11,1.45,11,2z M11,20v2c0,0.55,0.45,1,1,1s1-0.45,1-1v-2c0-0.55-0.45-1-1-1C11.45,19,11,19.45,11,20z M5.99,4.58c-0.39-0.39-1.03-0.39-1.41,0 c-0.39,0.39-0.39,1.03,0,1.41l1.06,1.06c0.39,0.39,1.03,0.39,1.41,0s0.39-1.03,0-1.41L5.99,4.58z M18.36,16.95 c-0.39-0.39-1.03-0.39-1.41,0c-0.39,0.39-0.39,1.03,0,1.41l1.06,1.06c0.39,0.39,1.03,0.39,1.41,0c0.39-0.39,0.39-1.03,0-1.41 L18.36,16.95z M19.42,5.99c0.39-0.39,0.39-1.03,0-1.41c-0.39-0.39-1.03-0.39-1.41,0l-1.06,1.06c-0.39,0.39-0.39,1.03,0,1.41 s1.03,0.39,1.41,0L19.42,5.99z M7.05,18.36c0.39-0.39,0.39-1.03,0-1.41c-0.39-0.39-1.03-0.39-1.41,0l-1.06,1.06 c-0.39,0.39-0.39,1.03,0,1.41s1.03,0.39,1.41,0L7.05,18.36z"/></svg><svg viewBox="0 0 24 24" width=24 height=24 aria-hidden=true class="toggleIcon_g3eP darkToggleIcon_wfgR"><path fill=currentColor d="M9.37,5.51C9.19,6.15,9.1,6.82,9.1,7.5c0,4.08,3.32,7.4,7.4,7.4c0.68,0,1.35-0.09,1.99-0.27C17.45,17.19,14.93,19,12,19 c-3.86,0-7-3.14-7-7C5,9.07,6.81,6.55,9.37,5.51z M12,3c-4.97,0-9,4.03-9,9s4.03,9,9,9s9-4.03,9-9c0-0.46-0.04-0.92-0.1-1.36 c-0.98,1.37-2.58,2.26-4.4,2.26c-2.98,0-5.4-2.42-5.4-5.4c0-1.81,0.89-3.42,2.26-4.4C12.92,3.04,12.46,3,12,3L12,3z"/></svg><svg viewBox="0 0 24 24" width=24 height=24 aria-hidden=true class="toggleIcon_g3eP systemToggleIcon_QzmC"><path fill=currentColor d="m12 21c4.971 0 9-4.029 9-9s-4.029-9-9-9-9 4.029-9 9 4.029 9 9 9zm4.95-13.95c1.313 1.313 2.05 3.093 2.05 4.95s-0.738 3.637-2.05 4.95c-1.313 1.313-3.093 2.05-4.95 2.05v-14c1.857 0 3.637 0.737 4.95 2.05z"/></svg></button></div><div class=navbarSearchContainer_Bca1><div class=navbar__search><span aria-label="expand searchbar" role=button class=search-icon tabindex=0></span><input id=search_input_react type=search placeholder=Loading... aria-label=Search class="navbar__search-input search-bar" disabled/></div></div></div></div><div role=presentation class=navbar-sidebar__backdrop></div></nav><div id=__docusaurus_skipToContent_fallback class="theme-layout-main main-wrapper mainWrapper_z2l0"><div class=docsWrapper_hBAB><button aria-label="Volver al principio" class="clean-btn theme-back-to-top-button backToTopButton_sjWU" type=button></button><div class=docRoot_UBD9><aside class="theme-doc-sidebar-container docSidebarContainer_YfHR"><div class=sidebarViewport_aRkj><div class=sidebar_njMd><nav aria-label="Barra lateral de Documentos" class="menu thin-scrollbar menu_SIkG"><ul class="theme-doc-sidebar-menu menu__list"><li class="theme-doc-sidebar-item-category theme-doc-sidebar-item-category-level-1 menu__list-item"><div class=menu__list-item-collapsible><a class="categoryLink_byQd menu__link menu__link--sublist menu__link--sublist-caret" role=button aria-expanded=true href=/es/runbooks/dispatcher><span title="Runbooks (SRE)" class=categoryLinkLabel_W154>Runbooks (SRE)</span></a></div><ul class=menu__list><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/es/runbooks/dispatcher><span title="Entrega aos destinos" class=linkLabel_WmDU>Entrega aos destinos</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/es/runbooks/scheduler-stuck><span title="Integração ativa não está coletando" class=linkLabel_WmDU>Integração ativa não está coletando</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/es/runbooks/collection-lag-backlog><span title="Eventos chegando horas depois" class=linkLabel_WmDU>Eventos chegando horas depois</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/es/runbooks/high-quarantine-rate><span title="Resolver taxa alta de quarentena" class=linkLabel_WmDU>Resolver taxa alta de quarentena</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/es/runbooks/slo-burn><span title="Latência alta: dados chegando com atraso" class=linkLabel_WmDU>Latência alta: dados chegando com atraso</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/es/runbooks/redis-capacity><span title="Redis cheio: dimensionar o dedupe" class=linkLabel_WmDU>Redis cheio: dimensionar o dedupe</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/es/runbooks/dlq-and-destination-delivery><span title="Fila de reenvio e entrega a destinos" class=linkLabel_WmDU>Fila de reenvio e entrega a destinos</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/es/runbooks/destination-down><span title="Destino externo fora do ar" class=linkLabel_WmDU>Destino externo fora do ar</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/es/runbooks/routing-misroute><span title="Evento foi para o destino errado (ou nenhum)" class=linkLabel_WmDU>Evento foi para o destino errado (ou nenhum)</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/es/runbooks/pii-redaction-blocked><span title="Eventos com redação de PII não chegam ao destino" class=linkLabel_WmDU>Eventos com redação de PII não chegam ao destino</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/es/runbooks/iris-handoff-customer-mapping><span title="IRIS: caso aberto no cliente errado" class=linkLabel_WmDU>IRIS: caso aberto no cliente errado</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/es/runbooks/migration-and-boot><span title="A plataforma não está respondendo? O que fazer" class=linkLabel_WmDU>A plataforma não está respondendo? O que fazer</span></a></ul><li class="theme-doc-sidebar-item-category theme-doc-sidebar-item-category-level-1 menu__list-item"><div class=menu__list-item-collapsible><a class="categoryLink_byQd menu__link menu__link--sublist menu__link--sublist-caret menu__link--active" role=button aria-expanded=true href=/es/compliance/retention><span title=Cumplimiento class=categoryLinkLabel_W154>Cumplimiento</span></a></div><ul class=menu__list><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/es/compliance/retention><span title="Retenção de dados" class=linkLabel_WmDU>Retenção de dados</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class="menu__link menu__link--active" aria-current=page tabindex=0 href=/es/compliance/lgpd-gdpr><span title="LGPD / GDPR — Direito ao esquecimento" class=linkLabel_WmDU>LGPD / GDPR — Direito ao esquecimento</span></a></ul></ul></nav></div></div></aside><main class=docMainContainer_TBSr><div class="container padding-top--md padding-bottom--lg"><div class=row><div class="col docItemCol_VOVn"><div class=docItemContainer_Djhp><article><nav class="theme-doc-breadcrumbs breadcrumbsContainer_Z_bl" aria-label="Rastro de navegación"><ul class=breadcrumbs><li class=breadcrumbs__item><a aria-label="Página de Inicio" class=breadcrumbs__link href=/es/><svg viewBox="0 0 24 24" class=breadcrumbHomeIcon_YNFT><path d="M10 19v-5h4v5c0 .55.45 1 1 1h3c.55 0 1-.45 1-1v-7h1.7c.46 0 .68-.57.33-.87L12.67 3.6c-.38-.34-.96-.34-1.34 0l-8.36 7.53c-.34.3-.13.87.33.87H5v7c0 .55.45 1 1 1h3c.55 0 1-.45 1-1z" fill=currentColor /></svg></a><li class=breadcrumbs__item><span class=breadcrumbs__link>Cumplimiento</span><li class="breadcrumbs__item breadcrumbs__item--active"><span class=breadcrumbs__link>LGPD / GDPR — Direito ao esquecimento</span></ul></nav><div class="tocCollapsible_ETCw theme-doc-toc-mobile tocMobile_ITEo"><button type=button class="clean-btn tocCollapsibleButton_TO0P">En esta página</button></div><div class="theme-doc-markdown markdown"><header><h1>LGPD / GDPR — Direito ao esquecimento e minimização de dados</h1></header>
+<p>O CentralOps oferece duas ferramentas para atender LGPD e GDPR pela própria interface: <strong>apagar todos os dados de uma organização</strong> (direito ao esquecimento) e <strong>mascarar campos pessoais antes de entregá-los a um destino externo</strong> (minimização de dados).</p>
+<p><strong>Quem pode usar</strong>: apenas administradores da plataforma.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=quando-usar>Quando usar<a href=#quando-usar class=hash-link aria-label="Enlace directo al Quando usar" title="Enlace directo al Quando usar" translate=no>​</a></h2>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Cenário<th>Ferramenta<tbody><tr><td>Um cliente cancelou o contrato e pediu para apagar tudo o que existe sobre ele.<td>Direito ao esquecimento (apagar a organização).<tr><td>Você recebeu um pedido formal de exclusão (GDPR art. 17) de um titular de dados.<td>Direito ao esquecimento (apagar a organização).<tr><td>Você precisa enviar eventos completos para o seu lago de dados, mas o time do SIEM não deve ver e-mails, IPs ou documentos pessoais.<td>Mascaramento de dados pessoais por rota.</table>
+<hr/>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=parte-1--mascarar-dados-pessoais-por-rota-minimização>Parte 1 — Mascarar dados pessoais por rota (minimização)<a href=#parte-1--mascarar-dados-pessoais-por-rota-minimização class=hash-link aria-label="Enlace directo al Parte 1 — Mascarar dados pessoais por rota (minimização)" title="Enlace directo al Parte 1 — Mascarar dados pessoais por rota (minimização)" translate=no>​</a></h2>
+<p>A LGPD (art. 6) e a GDPR pedem que dados pessoais sejam "adequados, relevantes e limitados ao necessário" para cada finalidade. Nem todo destino precisa receber e-mail, IP ou documento em texto aberto. Com o mascaramento por rota, o <strong>mesmo evento</strong> sai completo para um destino e mascarado para outro.</p>
+<p>Isso é configurado por <strong>regra de mascaramento</strong> dentro de cada rota. O evento original guardado no CentralOps nunca é alterado — o mascaramento acontece apenas na cópia entregue ao destino daquela rota.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=como-configurar>Como configurar<a href=#como-configurar class=hash-link aria-label="Enlace directo al Como configurar" title="Enlace directo al Como configurar" translate=no>​</a></h3>
+<ol>
+<li class="">Vá em <strong>Operação → Roteamento</strong>.</li>
+<li class="">Abra a rota que entrega ao destino que deve receber dados mascarados (por exemplo, a rota do SIEM).</li>
+<li class="">Na configuração da rota, adicione as regras de mascaramento. Para cada campo pessoal, escolha:</li>
+</ol>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Tipo de mascaramento<th>O que faz<th>Quando usar<tbody><tr><td><strong>Ocultar</strong><td>Substitui o valor inteiro por um marcador fixo. O destino não vê nada do original.<td>E-mails, documentos, qualquer campo que o destino não precisa correlacionar.<tr><td><strong>Pseudonimizar</strong><td>Transforma o valor em um código fixo. O destino consegue correlacionar eventos do mesmo titular sem ver o valor real.<td>Quando o analista precisa agrupar eventos por "mesma pessoa", mas não pode ver quem é.<tr><td><strong>Parcial</strong><td>Revela só um pedaço do valor (por exemplo, os dois primeiros grupos de um IP: <code>192.168.x.x</code>).<td>IPs e identificadores onde um prefixo já basta para a investigação.<tr><td><strong>Remover campo</strong><td>Apaga o campo por completo da entrega.<td>Campos sensíveis que o destino não deve nem saber que existiram.</table>
+<ol start=4>
+<li class="">Salve a rota. A partir daí, todo evento que sair por essa rota é mascarado antes da entrega.</li>
+</ol>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=boas-práticas>Boas práticas<a href=#boas-práticas class=hash-link aria-label="Enlace directo al Boas práticas" title="Enlace directo al Boas práticas" translate=no>​</a></h3>
+<ul>
+<li class=""><strong>Deixe um destino sem mascaramento</strong> (por exemplo, a rota do lago de dados) e aplique o mascaramento <strong>apenas</strong> na rota do SIEM. Assim você preserva o dado bruto onde precisa e protege o destino que não deve vê-lo.</li>
+<li class="">O mascaramento nunca altera os metadados internos do evento (os campos que o CentralOps usa para roteamento e auditoria). Você só mascara os campos do conteúdo do evento.</li>
+<li class="">Se uma regra não puder ser aplicada com segurança a um valor, o CentralOps oculta o campo por inteiro em vez de arriscar vazar o original.</li>
+</ul>
+<blockquote>
+<p><strong>Exemplo prático</strong>: na rota do SIEM, configure o e-mail do usuário como <strong>Pseudonimizar</strong> e o IP de origem como <strong>Parcial</strong> (manter 2 grupos). O analista do SIEM continua conseguindo agrupar tentativas de login pela mesma pessoa e ver a sub-rede de origem, sem nunca enxergar o e-mail real nem o IP completo. Na rota do lago de dados, não configure nenhuma regra — lá o evento chega completo.</p>
+</blockquote>
+<hr/>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=parte-2--direito-ao-esquecimento-apagar-uma-organização>Parte 2 — Direito ao esquecimento (apagar uma organização)<a href=#parte-2--direito-ao-esquecimento-apagar-uma-organização class=hash-link aria-label="Enlace directo al Parte 2 — Direito ao esquecimento (apagar uma organização)" title="Enlace directo al Parte 2 — Direito ao esquecimento (apagar uma organização)" translate=no>​</a></h2>
+<p>Quando um cliente pede a exclusão dos seus dados, você apaga <strong>toda a organização</strong> dele no CentralOps. A exclusão remove os dados internos da plataforma e, quando o destino externo permite, dispara a remoção também nos destinos.</p>
+<blockquote>
+<p><strong>Atenção</strong>: a exclusão é <strong>irreversível</strong>. Os dados apagados não podem ser recuperados sem um backup externo (que é responsabilidade do time de infraestrutura, fora do CentralOps).</p>
+</blockquote>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=antes-de-começar>Antes de começar<a href=#antes-de-começar class=hash-link aria-label="Enlace directo al Antes de começar" title="Enlace directo al Antes de começar" translate=no>​</a></h3>
+<ul class="contains-task-list containsTaskList_mC6p">
+<li class=task-list-item><input type=checkbox disabled/> Tenha o <strong>pedido de exclusão por escrito</strong> do cliente (e-mail ou formulário).</li>
+<li class=task-list-item><input type=checkbox disabled/> Tenha um <strong>motivo documentado</strong> ("contrato cancelado", "pedido de exclusão GDPR", etc.) — ele é registrado na auditoria.</li>
+<li class=task-list-item><input type=checkbox disabled/> Confirme com o time de infraestrutura se um <strong>backup</strong> foi feito, caso ainda precise dos dados.</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=passo-a-passo>Passo a passo<a href=#passo-a-passo class=hash-link aria-label="Enlace directo al Passo a passo" title="Enlace directo al Passo a passo" translate=no>​</a></h3>
+<ol>
+<li class=""><strong>Abra a organização.</strong> Vá em <strong>Visão geral → Organizações</strong> e localize a organização a apagar.</li>
+<li class=""><strong>Inicie o pedido de exclusão.</strong> Dentro da organização, acione a opção de apagar/expurgar os dados. Um aviso de confirmação aparece informando que a ação é irreversível e listando o que será removido (eventos, rotas, destinos, usuários e mapeamentos).</li>
+<li class=""><strong>Confirme as condições.</strong> Marque que você tem backup (se aplicável) e que notificou o cliente.</li>
+<li class=""><strong>Digite a confirmação exata.</strong> Para evitar exclusão acidental, o sistema pede que você digite uma frase de confirmação exatamente como mostrada (incluindo o identificador da organização). Se digitar errado, a operação é cancelada por segurança.</li>
+<li class=""><strong>Informe o motivo.</strong> Preencha o motivo da exclusão — ele fica registrado no log de auditoria.</li>
+<li class=""><strong>Confirme o expurgo.</strong> Ao confirmar, o CentralOps cria um <strong>trabalho de exclusão</strong> que roda em segundo plano.</li>
+</ol>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=o-que-acontece-durante-a-exclusão>O que acontece durante a exclusão<a href=#o-que-acontece-durante-a-exclusão class=hash-link aria-label="Enlace directo al O que acontece durante a exclusão" title="Enlace directo al O que acontece durante a exclusão" translate=no>​</a></h3>
+<p>O trabalho de exclusão passa pelos estados <strong>pendente → em execução → concluído</strong> (ou <strong>parcial</strong>, se algum destino externo não pôde ser limpo). Cada trabalho recebe um <strong>identificador próprio</strong> para você acompanhar.</p>
+<p>Durante a execução, o CentralOps remove <strong>todos</strong> os dados da organização dentro da plataforma, incluindo:</p>
+<ul>
+<li class="">Integrações e collectors (Sophos, Wazuh, etc.).</li>
+<li class="">Mapeamentos de normalização e seu histórico de versões.</li>
+<li class="">Rotas de roteamento e suas regras de mascaramento.</li>
+<li class="">Destinos configurados e os vínculos com identificadores externos.</li>
+<li class="">Eventos de entrada, eventos normalizados e eventos em quarentena.</li>
+<li class="">A fila de reenvio (eventos que falharam na entrega).</li>
+<li class="">Registros de auditoria de roteamento e de envio, e o histórico geral.</li>
+<li class="">Usuários da organização e a própria organização.</li>
+<li class="">Dados temporários em memória (cursores, cache, agendamentos).</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=remoção-nos-destinos-externos>Remoção nos destinos externos<a href=#remoção-nos-destinos-externos class=hash-link aria-label="Enlace directo al Remoção nos destinos externos" title="Enlace directo al Remoção nos destinos externos" translate=no>​</a></h3>
+<p>Quando o destino permite, o trabalho de exclusão também <strong>dispara a remoção dos dados já entregues</strong> ao destino. O comportamento depende do tipo de destino:</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Destino<th>Remoção automática?<th>O que você precisa fazer<tbody><tr><td><strong>Elastic</strong><td>Sim. O CentralOps remove os dados da organização.<td>Nada — feito automaticamente.<tr><td><strong>S3 / lago de dados</strong><td>Sim. O CentralOps remove os objetos da organização.<td>Nada — feito automaticamente.<tr><td><strong>Splunk</strong><td>Não. O Splunk não tem remoção em massa por organização.<td>Apague manualmente no Splunk pelas políticas de retenção.<tr><td><strong>Microsoft Sentinel</strong><td>Não. A retenção é controlada pelo workspace.<td>Apague manualmente no Sentinel pelas políticas de retenção.<tr><td><strong>Kafka</strong><td>Não. A retenção é por tópico.<td>Ajuste a retenção (TTL) do tópico junto ao time responsável pelo Kafka.<tr><td><strong>OTLP / tracing</strong><td>Não. A retenção é do backend de tracing (Jaeger, Tempo, etc.).<td>Ajuste a retenção no backend de tracing.</table>
+<p>Quando todos os destinos puderam ser limpos, o trabalho termina como <strong>concluído</strong>. Se algum destino não suporta remoção automática (Splunk, Sentinel, Kafka, OTLP) ou estava indisponível, o trabalho termina como <strong>parcial</strong> — e você precisa fazer a limpeza manual nesses destinos.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=o-que-não-é-apagado--e-por-quê>O que NÃO é apagado — e por quê<a href=#o-que-não-é-apagado--e-por-quê class=hash-link aria-label="Enlace directo al O que NÃO é apagado — e por quê" title="Enlace directo al O que NÃO é apagado — e por quê" translate=no>​</a></h3>
+<ul>
+<li class=""><strong>Log de auditoria da exclusão</strong>: cada exclusão gera um comprovante que <strong>sobrevive</strong> à remoção dos dados. Ele é a prova legal de que a exclusão foi executada (quem pediu, quando, motivo e o que foi removido). Você consegue baixá-lo na tela de detalhes do trabalho de exclusão.</li>
+<li class=""><strong>Backups externos</strong>: backups feitos pelo time de infraestrutura ficam fora do controle do CentralOps. Se o pedido exige apagar também os backups, trate isso com a equipe de infraestrutura.</li>
+</ul>
+<hr/>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=acompanhar-e-confirmar-a-exclusão>Acompanhar e confirmar a exclusão<a href=#acompanhar-e-confirmar-a-exclusão class=hash-link aria-label="Enlace directo al Acompanhar e confirmar a exclusão" title="Enlace directo al Acompanhar e confirmar a exclusão" translate=no>​</a></h2>
+<p>Acompanhe o andamento pela tela de detalhes do trabalho de exclusão, dentro de <strong>Visão geral → Organizações</strong>. Lá você vê:</p>
+<ul>
+<li class="">O <strong>status</strong> atual (pendente, em execução, concluído ou parcial).</li>
+<li class="">O <strong>progresso</strong> das etapas (quais já terminaram).</li>
+<li class="">O <strong>resultado por destino</strong> (quantos registros foram removidos em cada destino e quais exigem limpeza manual).</li>
+</ul>
+<blockquote>
+<p>A visualização de progresso em tempo real e a lista consolidada de trabalhos de exclusão estão em evolução. O comportamento exato da tela pode variar conforme a versão da plataforma.</p>
+</blockquote>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=baixar-o-comprovante-de-exclusão>Baixar o comprovante de exclusão<a href=#baixar-o-comprovante-de-exclusão class=hash-link aria-label="Enlace directo al Baixar o comprovante de exclusão" title="Enlace directo al Baixar o comprovante de exclusão" translate=no>​</a></h3>
+<p>Na tela de detalhes do trabalho, baixe o <strong>log de auditoria da exclusão</strong>. Ele resume quem solicitou, quando, o motivo, quantos registros foram apagados e o resultado em cada destino. Guarde esse arquivo para fins de compliance e como prova de execução.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=sla-de-exclusão>SLA de exclusão<a href=#sla-de-exclusão class=hash-link aria-label="Enlace directo al SLA de exclusão" title="Enlace directo al SLA de exclusão" translate=no>​</a></h3>
+<ul>
+<li class="">O trabalho começa assim que houver capacidade de processamento em segundo plano — normalmente em menos de 1 hora.</li>
+<li class="">Os dados apagados são <strong>irrecuperáveis</strong> sem um backup externo.</li>
+</ul>
+<hr/>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=casos-de-uso-detalhados>Casos de uso detalhados<a href=#casos-de-uso-detalhados class=hash-link aria-label="Enlace directo al Casos de uso detalhados" title="Enlace directo al Casos de uso detalhados" translate=no>​</a></h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=cliente-cancela-o-contrato>Cliente cancela o contrato<a href=#cliente-cancela-o-contrato class=hash-link aria-label="Enlace directo al Cliente cancela o contrato" title="Enlace directo al Cliente cancela o contrato" translate=no>​</a></h3>
+<ol>
+<li class="">Documente o pedido (guarde o e-mail do cliente).</li>
+<li class="">Vá em <strong>Visão geral → Organizações</strong> e abra a organização.</li>
+<li class="">Inicie o pedido de exclusão e siga o passo a passo de confirmação.</li>
+<li class="">Aguarde a conclusão (normalmente menos de 1 hora).</li>
+<li class="">Confira o resultado por destino na tela do trabalho.</li>
+<li class="">Baixe o log de auditoria da exclusão.</li>
+<li class="">Responda ao cliente confirmando a exclusão e anexe o comprovante.</li>
+</ol>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=pedido-de-exclusão-gdpr-art-17>Pedido de exclusão GDPR (art. 17)<a href=#pedido-de-exclusão-gdpr-art-17 class=hash-link aria-label="Enlace directo al Pedido de exclusão GDPR (art. 17)" title="Enlace directo al Pedido de exclusão GDPR (art. 17)" translate=no>​</a></h3>
+<ol>
+<li class="">Confirme se o titular corresponde a uma organização inteira.</li>
+<li class="">Se sim, apague a organização pelo passo a passo acima.</li>
+<li class="">Se o titular for apenas uma pessoa dentro de uma organização com várias pessoas, fale com o administrador da plataforma antes de prosseguir — a separação de um único titular dentro de uma organização ainda está em evolução.</li>
+<li class="">Confira o resultado por destino. Se ficar <strong>parcial</strong>, faça a limpeza manual nos destinos que não suportam remoção automática (Splunk, Sentinel, Kafka, OTLP).</li>
+<li class="">Informe o time de compliance sobre eventuais ações manuais pendentes.</li>
+</ol>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=minimização--siem-mascarado-lago-de-dados-completo>Minimização — SIEM mascarado, lago de dados completo<a href=#minimização--siem-mascarado-lago-de-dados-completo class=hash-link aria-label="Enlace directo al Minimização — SIEM mascarado, lago de dados completo" title="Enlace directo al Minimização — SIEM mascarado, lago de dados completo" translate=no>​</a></h3>
+<ol>
+<li class="">Em <strong>Operação → Roteamento</strong>, crie ou abra a rota do SIEM e configure as regras de mascaramento (por exemplo, pseudonimizar o e-mail e mascarar parcialmente o IP).</li>
+<li class="">Mantenha a rota do lago de dados <strong>sem</strong> regras de mascaramento.</li>
+<li class="">Resultado: o lago recebe e-mail e IP completos; o SIEM recebe o e-mail pseudonimizado e o IP parcial.</li>
+</ol>
+<hr/>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=solução-de-problemas>Solução de problemas<a href=#solução-de-problemas class=hash-link aria-label="Enlace directo al Solução de problemas" title="Enlace directo al Solução de problemas" translate=no>​</a></h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=o-trabalho-de-exclusão-ficou-parado-por-muito-tempo>O trabalho de exclusão ficou parado por muito tempo<a href=#o-trabalho-de-exclusão-ficou-parado-por-muito-tempo class=hash-link aria-label="Enlace directo al O trabalho de exclusão ficou parado por muito tempo" title="Enlace directo al O trabalho de exclusão ficou parado por muito tempo" translate=no>​</a></h3>
+<ul>
+<li class="">Espere alguns minutos: exclusões com muitos eventos podem demorar.</li>
+<li class="">Se continuar parado, fale com o administrador da plataforma para verificar o processamento em segundo plano.</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=a-organização-não-foi-totalmente-apagada>A organização não foi totalmente apagada<a href=#a-organização-não-foi-totalmente-apagada class=hash-link aria-label="Enlace directo al A organização não foi totalmente apagada" title="Enlace directo al A organização não foi totalmente apagada" translate=no>​</a></h3>
+<ul>
+<li class="">Verifique se o trabalho terminou como <strong>parcial</strong>.</li>
+<li class="">Veja no resultado por destino se algum destino ficou com falhas (por exemplo, Elastic ou S3 indisponível no momento).</li>
+<li class="">Reexecute o trabalho de exclusão depois que o destino voltar, ou faça a limpeza manual no destino.</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=os-dados-ainda-aparecem-no-splunk-ou-no-sentinel>Os dados ainda aparecem no Splunk ou no Sentinel<a href=#os-dados-ainda-aparecem-no-splunk-ou-no-sentinel class=hash-link aria-label="Enlace directo al Os dados ainda aparecem no Splunk ou no Sentinel" title="Enlace directo al Os dados ainda aparecem no Splunk ou no Sentinel" translate=no>​</a></h3>
+<p>Isso é esperado: Splunk e Sentinel não oferecem remoção automática por organização.</p>
+<ol>
+<li class="">No log de auditoria da exclusão, confirme que o destino aparece marcado como sem remoção automática.</li>
+<li class="">Apague manualmente pela política de retenção do próprio destino (Splunk ou Sentinel).</li>
+<li class="">Informe o time de compliance de que a limpeza do destino externo foi feita manualmente.</li>
+</ol>
+<hr/>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=checklist-de-compliance>Checklist de compliance<a href=#checklist-de-compliance class=hash-link aria-label="Enlace directo al Checklist de compliance" title="Enlace directo al Checklist de compliance" translate=no>​</a></h2>
+<ul class="contains-task-list containsTaskList_mC6p">
+<li class=task-list-item><input type=checkbox disabled/> Pedido de exclusão documentado (e-mail, formulário, etc.).</li>
+<li class=task-list-item><input type=checkbox disabled/> Backup feito antes, se necessário (com o time de infraestrutura).</li>
+<li class=task-list-item><input type=checkbox disabled/> Trabalho de exclusão concluído (status concluído ou parcial).</li>
+<li class=task-list-item><input type=checkbox disabled/> Log de auditoria da exclusão baixado e guardado.</li>
+<li class=task-list-item><input type=checkbox disabled/> Resultado por destino conferido.</li>
+<li class=task-list-item><input type=checkbox disabled/> Destinos sem remoção automática (Splunk, Sentinel, Kafka, OTLP) limpos manualmente, se aplicável.</li>
+<li class=task-list-item><input type=checkbox disabled/> Cliente notificado da conclusão.</li>
+<li class=task-list-item><input type=checkbox disabled/> Time de compliance informado.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=próximos-passos>Próximos passos<a href=#próximos-passos class=hash-link aria-label="Enlace directo al Próximos passos" title="Enlace directo al Próximos passos" translate=no>​</a></h2>
+<ul>
+<li class=""><strong>Configurar retenção de dados?</strong> Veja <a class="" href=/es/compliance/retention>Retenção</a>.</li>
+<li class=""><strong>Gerenciar rotas e mascaramento?</strong> Veja <a class="" href=/es/outputs/routing>Roteamento</a>.</li>
+<li class=""><strong>Gerenciar destinos?</strong> Veja <a class="" href=/es/outputs/destinations>Destinos</a>.</li>
+<li class=""><strong>Gerenciar organizações?</strong> Veja <a class="" href=/es/administration/organizations>Organizações</a>.</li>
+<li class=""><strong>Consultar auditoria?</strong> Veja <a class="" href=/es/operations/history-audit>Histórico</a>.</li>
+</ul></div></article><nav class="docusaurus-mt-lg pagination-nav" aria-label="Página del documento"><a class="pagination-nav__link pagination-nav__link--prev" href=/es/compliance/retention><div class=pagination-nav__sublabel>Anterior</div><div class=pagination-nav__label>Retenção de dados</div></a></nav></div></div><div class="col col--3"><div class="tableOfContents_bqdL thin-scrollbar theme-doc-toc-desktop"><ul class="table-of-contents table-of-contents__left-border"><li><a href=#quando-usar class="table-of-contents__link toc-highlight">Quando usar</a><li><a href=#parte-1--mascarar-dados-pessoais-por-rota-minimização class="table-of-contents__link toc-highlight">Parte 1 — Mascarar dados pessoais por rota (minimização)</a><ul><li><a href=#como-configurar class="table-of-contents__link toc-highlight">Como configurar</a><li><a href=#boas-práticas class="table-of-contents__link toc-highlight">Boas práticas</a></ul><li><a href=#parte-2--direito-ao-esquecimento-apagar-uma-organização class="table-of-contents__link toc-highlight">Parte 2 — Direito ao esquecimento (apagar uma organização)</a><ul><li><a href=#antes-de-começar class="table-of-contents__link toc-highlight">Antes de começar</a><li><a href=#passo-a-passo class="table-of-contents__link toc-highlight">Passo a passo</a><li><a href=#o-que-acontece-durante-a-exclusão class="table-of-contents__link toc-highlight">O que acontece durante a exclusão</a><li><a href=#remoção-nos-destinos-externos class="table-of-contents__link toc-highlight">Remoção nos destinos externos</a><li><a href=#o-que-não-é-apagado--e-por-quê class="table-of-contents__link toc-highlight">O que NÃO é apagado — e por quê</a></ul><li><a href=#acompanhar-e-confirmar-a-exclusão class="table-of-contents__link toc-highlight">Acompanhar e confirmar a exclusão</a><ul><li><a href=#baixar-o-comprovante-de-exclusão class="table-of-contents__link toc-highlight">Baixar o comprovante de exclusão</a><li><a href=#sla-de-exclusão class="table-of-contents__link toc-highlight">SLA de exclusão</a></ul><li><a href=#casos-de-uso-detalhados class="table-of-contents__link toc-highlight">Casos de uso detalhados</a><ul><li><a href=#cliente-cancela-o-contrato class="table-of-contents__link toc-highlight">Cliente cancela o contrato</a><li><a href=#pedido-de-exclusão-gdpr-art-17 class="table-of-contents__link toc-highlight">Pedido de exclusão GDPR (art. 17)</a><li><a href=#minimização--siem-mascarado-lago-de-dados-completo class="table-of-contents__link toc-highlight">Minimização — SIEM mascarado, lago de dados completo</a></ul><li><a href=#solução-de-problemas class="table-of-contents__link toc-highlight">Solução de problemas</a><ul><li><a href=#o-trabalho-de-exclusão-ficou-parado-por-muito-tempo class="table-of-contents__link toc-highlight">O trabalho de exclusão ficou parado por muito tempo</a><li><a href=#a-organização-não-foi-totalmente-apagada class="table-of-contents__link toc-highlight">A organização não foi totalmente apagada</a><li><a href=#os-dados-ainda-aparecem-no-splunk-ou-no-sentinel class="table-of-contents__link toc-highlight">Os dados ainda aparecem no Splunk ou no Sentinel</a></ul><li><a href=#checklist-de-compliance class="table-of-contents__link toc-highlight">Checklist de compliance</a><li><a href=#próximos-passos class="table-of-contents__link toc-highlight">Próximos passos</a></ul></div></div></div></div></main></div></div></div><footer class="theme-layout-footer footer footer--dark"><div class="container container-fluid"><div class="row footer__links"><div class="theme-layout-footer-column col footer__col"><div class=footer__title>Documentação</div><ul class="footer__items clean-list"><li class=footer__item><a class=footer__link-item href=/es/getting-started/overview>Começar</a><li class=footer__item><a class=footer__link-item href=/es/operations/dashboard>Operação diária</a><li class=footer__item><a class=footer__link-item href=/es/normalization/overview>Mappings (CML)</a><li class=footer__item><a class=footer__link-item href=/es/runbooks/dispatcher>Runbooks</a></ul></div><div class="theme-layout-footer-column col footer__col"><div class=footer__title>Plataforma</div><ul class="footer__items clean-list"><li class=footer__item><a class=footer__link-item href=/es/concepts/architecture>Arquitetura</a><li class=footer__item><a class=footer__link-item href=/es/concepts/rbac>RBAC</a><li class=footer__item><a class=footer__link-item href=/es/integrations/overview>Integrações</a><li class=footer__item><a class=footer__link-item href=/es/compliance/retention>Compliance</a></ul></div><div class="theme-layout-footer-column col footer__col"><div class=footer__title>Recursos</div><ul class="footer__items clean-list"><li class=footer__item><a class=footer__link-item href=/es/getting-started/quickstart>Quickstart</a><li class=footer__item><a class=footer__link-item href=/es/normalization/cookbook>DSL Cookbook</a><li class=footer__item><a class=footer__link-item href=/es/normalization/troubleshooting>Troubleshooting</a></ul></div></div><div class="footer__bottom text--center"><div class=footer__copyright>Copyright © 2026 CentralOps. Built with Docusaurus.</div></div></div></footer></div></body>

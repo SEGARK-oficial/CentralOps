@@ -1,0 +1,401 @@
+<!doctype html><html lang=es dir=ltr class="docs-wrapper plugin-docs plugin-id-default docs-version-current docs-doc-page docs-doc-id-outputs/destinations" data-has-hydrated=false><head><meta charset=UTF-8><meta name=generator content="Docusaurus v3.10.0"><title data-rh=true>Destinos (catálogo e como configurar) | CentralOps</title><meta data-rh=true name=viewport content="width=device-width, initial-scale=1.0"/><meta data-rh=true name=twitter:card content=summary_large_image /><meta data-rh=true property=og:image content=https://docs.segark.com/es/img/centralops-social-card.png /><meta data-rh=true name=twitter:image content=https://docs.segark.com/es/img/centralops-social-card.png /><meta data-rh=true property=og:url content=https://docs.segark.com/es/outputs/destinations /><meta data-rh=true property=og:locale content=es /><meta data-rh=true property=og:locale:alternate content=pt_BR /><meta data-rh=true property=og:locale:alternate content=en /><meta data-rh=true name=docusaurus_locale content=es /><meta data-rh=true name=docsearch:language content=es /><meta data-rh=true name=docusaurus_version content=current /><meta data-rh=true name=docusaurus_tag content=docs-default-current /><meta data-rh=true name=docsearch:version content=current /><meta data-rh=true name=docsearch:docusaurus_tag content=docs-default-current /><meta data-rh=true property=og:title content="Destinos (catálogo e como configurar) | CentralOps"/><meta data-rh=true name=description content="Para onde o CentralOps envia seus eventos — tipos de destino disponíveis, quando usar cada um, como criar, testar, monitorar e trocar credenciais pela interface."/><meta data-rh=true property=og:description content="Para onde o CentralOps envia seus eventos — tipos de destino disponíveis, quando usar cada um, como criar, testar, monitorar e trocar credenciais pela interface."/><link data-rh=true rel=icon href=/es/img/favicon.ico /><link data-rh=true rel=canonical href=https://docs.segark.com/es/outputs/destinations /><link data-rh=true rel=alternate href=https://docs.segark.com/outputs/destinations hreflang=pt-BR /><link data-rh=true rel=alternate href=https://docs.segark.com/en/outputs/destinations hreflang=en /><link data-rh=true rel=alternate href=https://docs.segark.com/es/outputs/destinations hreflang=es /><link data-rh=true rel=alternate href=https://docs.segark.com/outputs/destinations hreflang=x-default /><script data-rh=true type=application/ld+json>{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","item":"https://docs.segark.com/es/outputs/destinations","name":"Destinos (catálogo e como configurar)","position":1}]}</script><link rel=stylesheet href=/es/assets/css/styles.65a61132.css /><script src=/es/assets/js/runtime~main.774ab3e5.js defer></script><script src=/es/assets/js/main.9750a519.js defer></script></head><body><svg style="display: none;"><defs>
+<symbol id=theme-svg-external-link viewBox="0 0 24 24"><path fill=currentColor d="M21 13v10h-21v-19h12v2h-10v15h17v-8h2zm3-12h-10.988l4.035 4-6.977 7.07 2.828 2.828 6.977-7.07 4.125 4.172v-11z"/></symbol>
+</defs></svg>
+<script>!function(){var t=function(){try{return new URLSearchParams(window.location.search).get("docusaurus-theme")}catch(t){}}()||function(){try{return window.localStorage.getItem("theme-4d2")}catch(t){}}();document.documentElement.setAttribute("data-theme",t||(window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light")),document.documentElement.setAttribute("data-theme-choice",t||"system")}(),function(){try{for(var[t,e]of new URLSearchParams(window.location.search).entries())if(t.startsWith("docusaurus-data-")){var a=t.replace("docusaurus-data-","data-");document.documentElement.setAttribute(a,e)}}catch(t){}}()</script><div id=__docusaurus><link rel=preload as=image href=/es/img/logo.svg /><div role=region aria-label="Saltar al contenido principal"><a class=skipToContent_fXgn href=#__docusaurus_skipToContent_fallback>Saltar al contenido principal</a></div><nav aria-label=Principal class="theme-layout-navbar navbar navbar--fixed-top"><div class=navbar__inner><div class="theme-layout-navbar-left navbar__items"><button aria-label="Alternar barra lateral" aria-expanded=false class="navbar__toggle clean-btn" type=button><svg width=30 height=30 viewBox="0 0 30 30" aria-hidden=true><path stroke=currentColor stroke-linecap=round stroke-miterlimit=10 stroke-width=2 d="M4 7h22M4 15h22M4 23h22"/></svg></button><a class=navbar__brand href=/es/><div class=navbar__logo><img src=/es/img/logo.svg alt=CentralOps class="themedComponent_mlkZ themedComponent--light_NVdE"/><img src=/es/img/logo.svg alt=CentralOps class="themedComponent_mlkZ themedComponent--dark_xIcU"/></div><b class="navbar__title text--truncate">CentralOps</b></a><a class="navbar__item navbar__link" href=/es/>Empezar</a><a aria-current=page class="navbar__item navbar__link navbar__link--active" href=/es/outputs/overview>Salidas y Rutas</a><a class="navbar__item navbar__link" href=/es/operations/dashboard>Operación</a><a class="navbar__item navbar__link" href=/es/administration/users-and-roles>Administración</a><a class="navbar__item navbar__link" href=/es/normalization/overview>Mappings</a><a class="navbar__item navbar__link" href=/es/runbooks/dispatcher>Runbooks</a></div><div class="theme-layout-navbar-right navbar__items navbar__items--right"><div class="navbar__item dropdown dropdown--hoverable dropdown--right"><a href=# aria-haspopup=true aria-expanded=false role=button class=navbar__link><svg viewBox="0 0 24 24" width=20 height=20 aria-hidden=true class=iconLanguage_nlXk><path fill=currentColor d="M12.87 15.07l-2.54-2.51.03-.03c1.74-1.94 2.98-4.17 3.71-6.53H17V4h-7V2H8v2H1v1.99h11.17C11.5 7.92 10.44 9.75 9 11.35 8.07 10.32 7.3 9.19 6.69 8h-2c.73 1.63 1.73 3.17 2.98 4.56l-5.09 5.02L4 19l5-5 3.11 3.11.76-2.04zM18.5 10h-2L12 22h2l1.12-3h4.75L21 22h2l-4.5-12zm-2.62 7l1.62-4.33L19.12 17h-3.24z"/></svg>Español</a><ul class=dropdown__menu><li><a href=/outputs/destinations target=_self rel="noopener noreferrer" class=dropdown__link lang=pt-BR>Português</a><li><a href=/en/outputs/destinations target=_self rel="noopener noreferrer" class=dropdown__link lang=en>English</a><li><a href=/es/outputs/destinations target=_self rel="noopener noreferrer" class="dropdown__link dropdown__link--active" lang=es>Español</a></ul></div><div class="toggle_vylO colorModeToggle_DEke"><button class="clean-btn toggleButton_gllP toggleButtonDisabled_aARS" type=button disabled title="system mode" aria-label="Cambiar entre modo oscuro y claro (actualmente system mode)"><svg viewBox="0 0 24 24" width=24 height=24 aria-hidden=true class="toggleIcon_g3eP lightToggleIcon_pyhR"><path fill=currentColor d="M12,9c1.65,0,3,1.35,3,3s-1.35,3-3,3s-3-1.35-3-3S10.35,9,12,9 M12,7c-2.76,0-5,2.24-5,5s2.24,5,5,5s5-2.24,5-5 S14.76,7,12,7L12,7z M2,13l2,0c0.55,0,1-0.45,1-1s-0.45-1-1-1l-2,0c-0.55,0-1,0.45-1,1S1.45,13,2,13z M20,13l2,0c0.55,0,1-0.45,1-1 s-0.45-1-1-1l-2,0c-0.55,0-1,0.45-1,1S19.45,13,20,13z M11,2v2c0,0.55,0.45,1,1,1s1-0.45,1-1V2c0-0.55-0.45-1-1-1S11,1.45,11,2z M11,20v2c0,0.55,0.45,1,1,1s1-0.45,1-1v-2c0-0.55-0.45-1-1-1C11.45,19,11,19.45,11,20z M5.99,4.58c-0.39-0.39-1.03-0.39-1.41,0 c-0.39,0.39-0.39,1.03,0,1.41l1.06,1.06c0.39,0.39,1.03,0.39,1.41,0s0.39-1.03,0-1.41L5.99,4.58z M18.36,16.95 c-0.39-0.39-1.03-0.39-1.41,0c-0.39,0.39-0.39,1.03,0,1.41l1.06,1.06c0.39,0.39,1.03,0.39,1.41,0c0.39-0.39,0.39-1.03,0-1.41 L18.36,16.95z M19.42,5.99c0.39-0.39,0.39-1.03,0-1.41c-0.39-0.39-1.03-0.39-1.41,0l-1.06,1.06c-0.39,0.39-0.39,1.03,0,1.41 s1.03,0.39,1.41,0L19.42,5.99z M7.05,18.36c0.39-0.39,0.39-1.03,0-1.41c-0.39-0.39-1.03-0.39-1.41,0l-1.06,1.06 c-0.39,0.39-0.39,1.03,0,1.41s1.03,0.39,1.41,0L7.05,18.36z"/></svg><svg viewBox="0 0 24 24" width=24 height=24 aria-hidden=true class="toggleIcon_g3eP darkToggleIcon_wfgR"><path fill=currentColor d="M9.37,5.51C9.19,6.15,9.1,6.82,9.1,7.5c0,4.08,3.32,7.4,7.4,7.4c0.68,0,1.35-0.09,1.99-0.27C17.45,17.19,14.93,19,12,19 c-3.86,0-7-3.14-7-7C5,9.07,6.81,6.55,9.37,5.51z M12,3c-4.97,0-9,4.03-9,9s4.03,9,9,9s9-4.03,9-9c0-0.46-0.04-0.92-0.1-1.36 c-0.98,1.37-2.58,2.26-4.4,2.26c-2.98,0-5.4-2.42-5.4-5.4c0-1.81,0.89-3.42,2.26-4.4C12.92,3.04,12.46,3,12,3L12,3z"/></svg><svg viewBox="0 0 24 24" width=24 height=24 aria-hidden=true class="toggleIcon_g3eP systemToggleIcon_QzmC"><path fill=currentColor d="m12 21c4.971 0 9-4.029 9-9s-4.029-9-9-9-9 4.029-9 9 4.029 9 9 9zm4.95-13.95c1.313 1.313 2.05 3.093 2.05 4.95s-0.738 3.637-2.05 4.95c-1.313 1.313-3.093 2.05-4.95 2.05v-14c1.857 0 3.637 0.737 4.95 2.05z"/></svg></button></div><div class=navbarSearchContainer_Bca1><div class=navbar__search><span aria-label="expand searchbar" role=button class=search-icon tabindex=0></span><input id=search_input_react type=search placeholder=Loading... aria-label=Search class="navbar__search-input search-bar" disabled/></div></div></div></div><div role=presentation class=navbar-sidebar__backdrop></div></nav><div id=__docusaurus_skipToContent_fallback class="theme-layout-main main-wrapper mainWrapper_z2l0"><div class=docsWrapper_hBAB><button aria-label="Volver al principio" class="clean-btn theme-back-to-top-button backToTopButton_sjWU" type=button></button><div class=docRoot_UBD9><aside class="theme-doc-sidebar-container docSidebarContainer_YfHR"><div class=sidebarViewport_aRkj><div class=sidebar_njMd><nav aria-label="Barra lateral de Documentos" class="menu thin-scrollbar menu_SIkG"><ul class="theme-doc-sidebar-menu menu__list"><li class="theme-doc-sidebar-item-category theme-doc-sidebar-item-category-level-1 menu__list-item"><div class=menu__list-item-collapsible><a class="categoryLink_byQd menu__link menu__link--sublist menu__link--sublist-caret menu__link--active" role=button aria-expanded=true href=/es/outputs/overview><span title="Salidas y enrutamiento" class=categoryLinkLabel_W154>Salidas y enrutamiento</span></a></div><ul class=menu__list><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/es/outputs/overview><span title="Saídas e Roteamento (visão geral)" class=linkLabel_WmDU>Saídas e Roteamento (visão geral)</span></a><li class="theme-doc-sidebar-item-category theme-doc-sidebar-item-category-level-2 menu__list-item"><div class=menu__list-item-collapsible><a class="categoryLink_byQd menu__link menu__link--sublist menu__link--sublist-caret menu__link--active" role=button aria-expanded=true tabindex=0 href=/es/outputs/destinations><span title=Destinos class=categoryLinkLabel_W154>Destinos</span></a></div><ul class=menu__list><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class="menu__link menu__link--active" aria-current=page tabindex=0 href=/es/outputs/destinations><span title="Destinos (catálogo e como configurar)" class=linkLabel_WmDU>Destinos (catálogo e como configurar)</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class=menu__link tabindex=0 href=/es/outputs/destination-wazuh-syslog><span title="Destino: Syslog e JSONL" class=linkLabel_WmDU>Destino: Syslog e JSONL</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class=menu__link tabindex=0 href=/es/outputs/destination-splunk-hec><span title="Destino: Splunk HEC" class=linkLabel_WmDU>Destino: Splunk HEC</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class=menu__link tabindex=0 href=/es/outputs/destination-elastic><span title="Destino: Elasticsearch / OpenSearch" class=linkLabel_WmDU>Destino: Elasticsearch / OpenSearch</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class=menu__link tabindex=0 href=/es/outputs/destination-clickhouse><span title="Destino: ClickHouse" class=linkLabel_WmDU>Destino: ClickHouse</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class=menu__link tabindex=0 href=/es/outputs/destination-crowdstrike-ngsiem><span title="Destino: CrowdStrike Falcon Next-Gen SIEM" class=linkLabel_WmDU>Destino: CrowdStrike Falcon Next-Gen SIEM</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class=menu__link tabindex=0 href=/es/outputs/destination-crowdstrike-logscale><span title="Destino: CrowdStrike Falcon LogScale" class=linkLabel_WmDU>Destino: CrowdStrike Falcon LogScale</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class=menu__link tabindex=0 href=/es/outputs/destination-s3><span title="Destino: S3 / Object Store (data lake)" class=linkLabel_WmDU>Destino: S3 / Object Store (data lake)</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class=menu__link tabindex=0 href=/es/outputs/destination-sentinel><span title="Destino: Microsoft Sentinel" class=linkLabel_WmDU>Destino: Microsoft Sentinel</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class=menu__link tabindex=0 href=/es/outputs/destination-kafka><span title="Destino: Apache Kafka" class=linkLabel_WmDU>Destino: Apache Kafka</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class=menu__link tabindex=0 href=/es/outputs/destination-otlp><span title="Destino: OTLP" class=linkLabel_WmDU>Destino: OTLP</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class=menu__link tabindex=0 href=/es/outputs/destination-operations><span title="Operar destinos (saúde, fila de reenvio, métricas)" class=linkLabel_WmDU>Operar destinos (saúde, fila de reenvio, métricas)</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class=menu__link tabindex=0 href=/es/outputs/destination-webhook><span title="Destino: Webhook Genérico" class=linkLabel_WmDU>Destino: Webhook Genérico</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class=menu__link tabindex=0 href=/es/outputs/destination-datadog><span title="Destino: Datadog Logs" class=linkLabel_WmDU>Destino: Datadog Logs</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class=menu__link tabindex=0 href=/es/outputs/destination-chronicle><span title="Destino: Google SecOps (Chronicle)" class=linkLabel_WmDU>Destino: Google SecOps (Chronicle)</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class=menu__link tabindex=0 href=/es/outputs/destination-security-lake><span title="Destino: Amazon Security Lake (OCSF Parquet)" class=linkLabel_WmDU>Destino: Amazon Security Lake (OCSF Parquet)</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class=menu__link tabindex=0 href=/es/outputs/adding-a-destination><span title="Destinos — catálogo e tipos disponíveis" class=linkLabel_WmDU>Destinos — catálogo e tipos disponíveis</span></a></ul><li class="theme-doc-sidebar-item-category theme-doc-sidebar-item-category-level-2 menu__list-item"><div class=menu__list-item-collapsible><a class="categoryLink_byQd menu__link menu__link--sublist menu__link--sublist-caret" role=button aria-expanded=true tabindex=0 href=/es/outputs/routing><span title=Enrutamiento class=categoryLinkLabel_W154>Enrutamiento</span></a></div><ul class=menu__list><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class=menu__link tabindex=0 href=/es/outputs/routing><span title="Roteamento por regra" class=linkLabel_WmDU>Roteamento por regra</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class=menu__link tabindex=0 href=/es/outputs/routing-canary><span title="Cutover gradual de SIEM (canary)" class=linkLabel_WmDU>Cutover gradual de SIEM (canary)</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class=menu__link tabindex=0 href=/es/outputs/routing-dry-run><span title="Testar rotas, ver o fluxo e reverter mudanças" class=linkLabel_WmDU>Testar rotas, ver o fluxo e reverter mudanças</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class=menu__link tabindex=0 href=/es/outputs/reducao-de-volume><span title="Redução de volume" class=linkLabel_WmDU>Redução de volume</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class=menu__link tabindex=0 href=/es/outputs/pii-redaction><span title="Redação de dados pessoais por rota (LGPD/GDPR)" class=linkLabel_WmDU>Redação de dados pessoais por rota (LGPD/GDPR)</span></a></ul><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/es/outputs/observability><span title="Observabilidade dos destinos" class=linkLabel_WmDU>Observabilidade dos destinos</span></a></ul></ul></nav></div></div></aside><main class=docMainContainer_TBSr><div class="container padding-top--md padding-bottom--lg"><div class=row><div class="col docItemCol_VOVn"><div class=docItemContainer_Djhp><article><nav class="theme-doc-breadcrumbs breadcrumbsContainer_Z_bl" aria-label="Rastro de navegación"><ul class=breadcrumbs><li class=breadcrumbs__item><a aria-label="Página de Inicio" class=breadcrumbs__link href=/es/><svg viewBox="0 0 24 24" class=breadcrumbHomeIcon_YNFT><path d="M10 19v-5h4v5c0 .55.45 1 1 1h3c.55 0 1-.45 1-1v-7h1.7c.46 0 .68-.57.33-.87L12.67 3.6c-.38-.34-.96-.34-1.34 0l-8.36 7.53c-.34.3-.13.87.33.87H5v7c0 .55.45 1 1 1h3c.55 0 1-.45 1-1z" fill=currentColor /></svg></a><li class=breadcrumbs__item><span class=breadcrumbs__link>Salidas y enrutamiento</span><li class=breadcrumbs__item><span class=breadcrumbs__link>Destinos</span><li class="breadcrumbs__item breadcrumbs__item--active"><span class=breadcrumbs__link>Destinos (catálogo e como configurar)</span></ul></nav><div class="tocCollapsible_ETCw theme-doc-toc-mobile tocMobile_ITEo"><button type=button class="clean-btn tocCollapsibleButton_TO0P">En esta página</button></div><div class="theme-doc-markdown markdown"><header><h1>Destinos</h1></header>
+<p>Um <strong>Destino</strong> é um lugar para onde o CentralOps envia seus eventos já normalizados: um SIEM (Splunk, Sentinel, Elasticsearch), um barramento de mensagens (Kafka), um data lake (S3), um servidor Syslog ou um arquivo local. Cada destino é independente — você pode criar, testar a conexão, acompanhar a saúde, trocar a credencial e reprocessar eventos que falharam, tudo pela interface.</p>
+<p>Destinos é uma tela de administrador. Você a encontra no menu <strong>Operação → Destinos</strong>.</p>
+<hr/>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=quando-usar>Quando usar<a href=#quando-usar class=hash-link aria-label="Enlace directo al Quando usar" title="Enlace directo al Quando usar" translate=no>​</a></h2>
+<ul>
+<li class=""><strong>Espelhar seus alertas no SIEM que sua equipe já opera.</strong> Se o SOC vive dentro do Splunk ou do Microsoft Sentinel, crie um destino para esse SIEM e os eventos normalizados passam a chegar lá automaticamente, no formato que a ferramenta espera.</li>
+<li class=""><strong>Guardar tudo a longo prazo para auditoria e conformidade.</strong> Crie um destino S3 (ou compatível) para arquivar o histórico completo de eventos de forma barata, atendendo a requisitos de retenção e investigação retroativa.</li>
+<li class=""><strong>Distribuir o mesmo evento para vários times ao mesmo tempo.</strong> Você pode ter vários destinos ativos — por exemplo, Splunk para o SOC, Kafka para o time de dados e S3 para o arquivo — e o CentralOps faz o envio simultâneo a todos eles.</li>
+</ul>
+<hr/>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=como-escolher-o-destino-certo>Como escolher o destino certo<a href=#como-escolher-o-destino-certo class=hash-link aria-label="Enlace directo al Como escolher o destino certo" title="Enlace directo al Como escolher o destino certo" translate=no>​</a></h2>
+<p>Use esta tabela para decidir qual tipo de destino criar:</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Você quer...<th>Use o tipo<tbody><tr><td>Enviar para o Splunk que já é seu SIEM principal<td><strong>Splunk HEC</strong><tr><td>Enviar para Microsoft Sentinel / Defender / Azure<td><strong>Microsoft Sentinel</strong><tr><td>Enviar para Elasticsearch ou OpenSearch<td><strong>Elasticsearch / OpenSearch</strong><tr><td>Inserir num banco analítico colunar de alto volume<td><strong>ClickHouse</strong><tr><td>Encaminhar para o CrowdStrike Falcon Next-Gen SIEM<td><strong>CrowdStrike Falcon Next-Gen SIEM</strong><tr><td>Buscar logs em escala de longo prazo no CrowdStrike LogScale<td><strong>CrowdStrike Falcon LogScale</strong><tr><td>Arquivar a longo prazo para conformidade e investigação histórica<td><strong>Amazon S3</strong> (ou compatível: MinIO, R2, Ceph)<tr><td>Publicar os eventos num barramento para outros times consumirem<td><strong>Kafka</strong><tr><td>Mandar para uma stack de observabilidade (OpenTelemetry)<td><strong>OpenTelemetry (OTLP)</strong><tr><td>Encaminhar para um SIEM legado ou para o Wazuh Manager via Syslog<td><strong>Syslog RFC 3164</strong> ou <strong>Syslog RFC 5424</strong><tr><td>Gerar um arquivo local para teste, backup ou staging<td><strong>Arquivo JSONL</strong><tr><td>Integrar com SOAR, automação ou webhooks customizados<td><strong>Webhook genérico</strong><tr><td>Centralizar logs de segurança na observabilidade Datadog<td><strong>Datadog (Logs)</strong><tr><td>Enviar para o SIEM do Google (Chronicle)<td><strong>Google SecOps (Chronicle)</strong><tr><td>Arquivar em formato OCSF padronizado no data lake AWS<td><strong>Amazon Security Lake</strong></table>
+<p>Você não precisa escolher só um. É comum ter Splunk para a operação do dia a dia e S3 para retenção, rodando ao mesmo tempo.</p>
+<hr/>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=catálogo-de-destinos-disponíveis>Catálogo de destinos disponíveis<a href=#catálogo-de-destinos-disponíveis class=hash-link aria-label="Enlace directo al Catálogo de destinos disponíveis" title="Enlace directo al Catálogo de destinos disponíveis" translate=no>​</a></h2>
+<p>Todos os tipos abaixo estão prontos para uso. Ao criar um destino, você escolhe o tipo numa lista e a interface mostra apenas os campos daquele tipo.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=splunk-hec>Splunk HEC<a href=#splunk-hec class=hash-link aria-label="Enlace directo al Splunk HEC" title="Enlace directo al Splunk HEC" translate=no>​</a></h3>
+<p>Envio de eventos para o Splunk (Enterprise ou Cloud) pelo HTTP Event Collector.</p>
+<ul>
+<li class=""><strong>Quando usar:</strong> sua equipe já opera o Splunk como SIEM principal.</li>
+<li class=""><strong>O que você informa:</strong> endereço (URL) do HEC, índice, sourcetype e se a conexão usa TLS.</li>
+<li class=""><strong>Credencial:</strong> o token do HEC.</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=elasticsearch--opensearch>Elasticsearch / OpenSearch<a href=#elasticsearch--opensearch class=hash-link aria-label="Enlace directo al Elasticsearch / OpenSearch" title="Enlace directo al Elasticsearch / OpenSearch" translate=no>​</a></h3>
+<p>Ingestão de eventos em um cluster Elasticsearch ou OpenSearch.</p>
+<ul>
+<li class=""><strong>Quando usar:</strong> você pesquisa e monta dashboards no Elastic/OpenSearch (ou Kibana).</li>
+<li class=""><strong>O que você informa:</strong> endereço do cluster, índice e o tipo de autenticação.</li>
+<li class=""><strong>Credencial:</strong> a API key (quando a autenticação por chave estiver selecionada).</li>
+<li class=""><strong>Diferenciais:</strong> evita duplicar eventos em reenvios e permite apagar eventos por critério, atendendo a pedidos de exclusão (LGPD).</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=clickhouse>ClickHouse<a href=#clickhouse class=hash-link aria-label="Enlace directo al ClickHouse" title="Enlace directo al ClickHouse" translate=no>​</a></h3>
+<p>Inserção de eventos num banco analítico colunar (ClickHouse OSS, ClickHouse Cloud ou compatível) pela interface HTTP.</p>
+<ul>
+<li class=""><strong>Quando usar:</strong> você indexa um volume alto de eventos para análise/consulta colunar (data lake de SIEM/observabilidade).</li>
+<li class=""><strong>O que você informa:</strong> URL, banco, tabela, usuário e se quer ignorar campos sem coluna correspondente.</li>
+<li class=""><strong>Credencial:</strong> a senha do usuário ClickHouse.</li>
+<li class=""><strong>Detalhes:</strong> veja <a class="" href=/es/outputs/destination-clickhouse>Destino: ClickHouse</a>.</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=crowdstrike-falcon-next-gen-siem>CrowdStrike Falcon Next-Gen SIEM<a href=#crowdstrike-falcon-next-gen-siem class=hash-link aria-label="Enlace directo al CrowdStrike Falcon Next-Gen SIEM" title="Enlace directo al CrowdStrike Falcon Next-Gen SIEM" translate=no>​</a></h3>
+<p>Encaminhamento de eventos ao Falcon Next-Gen SIEM por um conector HEC.</p>
+<ul>
+<li class=""><strong>Quando usar:</strong> você opera o Falcon NG-SIEM e quer os eventos normalizados lá para detecção e correlação.</li>
+<li class=""><strong>O que você informa:</strong> a URL do conector HEC (gerada no console do Falcon) e, opcionalmente, sourcetype/source.</li>
+<li class=""><strong>Credencial:</strong> o token de ingestão (HEC) do Falcon.</li>
+<li class=""><strong>Detalhes:</strong> veja <a class="" href=/es/outputs/destination-crowdstrike-ngsiem>Destino: CrowdStrike Falcon Next-Gen SIEM</a>.</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=crowdstrike-falcon-logscale>CrowdStrike Falcon LogScale<a href=#crowdstrike-falcon-logscale class=hash-link aria-label="Enlace directo al CrowdStrike Falcon LogScale" title="Enlace directo al CrowdStrike Falcon LogScale" translate=no>​</a></h3>
+<p>Encaminhamento de eventos ao Falcon LogScale (ex-Humio) por endpoint HEC-compatível.</p>
+<ul>
+<li class=""><strong>Quando usar:</strong> você usa o LogScale para busca de logs em escala e longo prazo.</li>
+<li class=""><strong>O que você informa:</strong> a URL de ingestão do LogScale (depende da sua região/cloud) e, opcionalmente, sourcetype/source.</li>
+<li class=""><strong>Credencial:</strong> o token de ingestão do LogScale.</li>
+<li class=""><strong>Detalhes:</strong> veja <a class="" href=/es/outputs/destination-crowdstrike-logscale>Destino: CrowdStrike Falcon LogScale</a>.</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=amazon-s3>Amazon S3<a href=#amazon-s3 class=hash-link aria-label="Enlace directo al Amazon S3" title="Enlace directo al Amazon S3" translate=no>​</a></h3>
+<p>Armazenamento de objetos para data lake ou arquivo de longo prazo. Funciona com S3 da AWS e com compatíveis (MinIO, Cloudflare R2, Ceph).</p>
+<ul>
+<li class=""><strong>Quando usar:</strong> retenção de longo prazo, conformidade e investigação histórica de baixo custo.</li>
+<li class=""><strong>O que você informa:</strong> nome do bucket, região, prefixo de pasta e se quer compressão.</li>
+<li class=""><strong>Credencial:</strong> a chave secreta de acesso (ou nenhuma, quando o ambiente usa um papel de acesso da própria nuvem).</li>
+<li class=""><strong>Diferenciais:</strong> compressão para reduzir custo e exclusão de eventos por critério (LGPD).</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=microsoft-sentinel>Microsoft Sentinel<a href=#microsoft-sentinel class=hash-link aria-label="Enlace directo al Microsoft Sentinel" title="Enlace directo al Microsoft Sentinel" translate=no>​</a></h3>
+<p>Ingestão no Microsoft Sentinel pela API de ingestão de logs.</p>
+<ul>
+<li class=""><strong>Quando usar:</strong> sua plataforma de segurança é Microsoft Defender / Azure / Sentinel.</li>
+<li class=""><strong>O que você informa:</strong> o endpoint de ingestão, o identificador da regra de coleta (DCR), o nome do fluxo e os dados do aplicativo do Entra ID (tenant e client).</li>
+<li class=""><strong>Credencial:</strong> o segredo do aplicativo (client secret).</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=kafka>Kafka<a href=#kafka class=hash-link aria-label="Enlace directo al Kafka" title="Enlace directo al Kafka" translate=no>​</a></h3>
+<p>Publicação dos eventos em um tópico Apache Kafka.</p>
+<ul>
+<li class=""><strong>Quando usar:</strong> outros times consomem os eventos a partir de um barramento de mensagens.</li>
+<li class=""><strong>O que você informa:</strong> os servidores de bootstrap, o tópico, o protocolo de segurança e o usuário.</li>
+<li class=""><strong>Credencial:</strong> a senha SASL (quando a autenticação SASL estiver ativada).</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=opentelemetry-otlp>OpenTelemetry (OTLP)<a href=#opentelemetry-otlp class=hash-link aria-label="Enlace directo al OpenTelemetry (OTLP)" title="Enlace directo al OpenTelemetry (OTLP)" translate=no>​</a></h3>
+<p>Envio dos eventos como logs no padrão OpenTelemetry (OTLP/HTTP) para stacks de observabilidade.</p>
+<ul>
+<li class=""><strong>Quando usar:</strong> você centraliza logs e métricas numa stack de observabilidade (OpenTelemetry Collector e similares).</li>
+<li class=""><strong>O que você informa:</strong> o endpoint do coletor e, opcionalmente, cabeçalhos e atributos de recurso.</li>
+<li class=""><strong>Credencial:</strong> normalmente nenhuma (a autenticação, quando existe, vai nos cabeçalhos).</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=syslog-rfc-3164>Syslog RFC 3164<a href=#syslog-rfc-3164 class=hash-link aria-label="Enlace directo al Syslog RFC 3164" title="Enlace directo al Syslog RFC 3164" translate=no>​</a></h3>
+<p>Encaminhamento via Syslog no formato clássico (BSD), com o conteúdo em JSON.</p>
+<ul>
+<li class=""><strong>Quando usar:</strong> integração com Wazuh Manager ou outro receptor Syslog tradicional.</li>
+<li class=""><strong>O que você informa:</strong> host, porta e se a conexão usa TLS.</li>
+<li class=""><strong>Credencial:</strong> nenhuma.</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=syslog-rfc-5424>Syslog RFC 5424<a href=#syslog-rfc-5424 class=hash-link aria-label="Enlace directo al Syslog RFC 5424" title="Enlace directo al Syslog RFC 5424" translate=no>​</a></h3>
+<p>Encaminhamento via Syslog no formato moderno, com dados estruturados.</p>
+<ul>
+<li class=""><strong>Quando usar:</strong> integração com SIEMs como QRadar, ArcSight ou syslog-ng modernos.</li>
+<li class=""><strong>O que você informa:</strong> host, porta e se a conexão usa TLS.</li>
+<li class=""><strong>Credencial:</strong> nenhuma.</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=arquivo-jsonl>Arquivo JSONL<a href=#arquivo-jsonl class=hash-link aria-label="Enlace directo al Arquivo JSONL" title="Enlace directo al Arquivo JSONL" translate=no>​</a></h3>
+<p>Gravação dos eventos em um arquivo local, uma linha por evento.</p>
+<ul>
+<li class=""><strong>Quando usar:</strong> teste, backup ou área de preparação (staging).</li>
+<li class=""><strong>O que você informa:</strong> a pasta onde os arquivos são gravados.</li>
+<li class=""><strong>Credencial:</strong> nenhuma.</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=webhook-genérico>Webhook genérico<a href=#webhook-genérico class=hash-link aria-label="Enlace directo al Webhook genérico" title="Enlace directo al Webhook genérico" translate=no>​</a></h3>
+<p>Envio de eventos via POST HTTP para qualquer endpoint (SOAR, automação, integrações ad-hoc).</p>
+<ul>
+<li class=""><strong>Quando usar:</strong> integração com ferramenta de orquestração, automação ou SOAR; webhooks em plataformas customizadas.</li>
+<li class=""><strong>O que você informa:</strong> URL do endpoint, método HTTP (POST ou PUT), modo de autenticação (nenhuma, Bearer, ou Basic), formato de empacotamento (array de eventos ou NDJSON), tipo de corpo (envelope padrão ou eventos normalizados), cabeçalhos customizados e se valida certificado TLS.</li>
+<li class=""><strong>Credencial:</strong> token Bearer ou par de usuário e senha (Basic auth), dependendo do modo escolhido.</li>
+<li class=""><strong>Diferenciais:</strong> autenticação flexível, múltiplos formatos de empacotamento, suporte a cabeçalhos customizados.</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=datadog-logs>Datadog (Logs)<a href=#datadog-logs class=hash-link aria-label="Enlace directo al Datadog (Logs)" title="Enlace directo al Datadog (Logs)" translate=no>​</a></h3>
+<p>Ingestão de eventos no Datadog para observabilidade e análise de segurança.</p>
+<ul>
+<li class=""><strong>Quando usar:</strong> você já opera observabilidade no Datadog e quer centralizar logs de segurança lá.</li>
+<li class=""><strong>O que você informa:</strong> site Datadog (datadoghq.com, datadoghq.eu ou endpoint customizado), nome do serviço, identificador de origem (ddsource) e tags para contexto.</li>
+<li class=""><strong>Credencial:</strong> a chave de API do Datadog (DD-API-KEY).</li>
+<li class=""><strong>Diferenciais:</strong> integração nativa com dashboards e alertas do Datadog.</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=google-secops-chronicle>Google SecOps (Chronicle)<a href=#google-secops-chronicle class=hash-link aria-label="Enlace directo al Google SecOps (Chronicle)" title="Enlace directo al Google SecOps (Chronicle)" translate=no>​</a></h3>
+<p>Envio de eventos ao SIEM do Google via API de ingestão de logs.</p>
+<ul>
+<li class=""><strong>Quando usar:</strong> você usa Google SecOps (Chronicle) como SIEM ou plataforma de análise de ameaças.</li>
+<li class=""><strong>O que você informa:</strong> ID do projeto, identificador de instância, região, localização dos logs, tipo de log e identificador do encaminhador (forwarder).</li>
+<li class=""><strong>Credencial:</strong> arquivo de conta de serviço JSON (autentica via OAuth2).</li>
+<li class=""><strong>Diferenciais:</strong> análise de ameaças integrada ao Chronicle, enriquecimento automático.</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=amazon-security-lake>Amazon Security Lake<a href=#amazon-security-lake class=hash-link aria-label="Enlace directo al Amazon Security Lake" title="Enlace directo al Amazon Security Lake" translate=no>​</a></h3>
+<p>Arquivamento de eventos em formato Parquet OCSF no data lake de segurança da AWS.</p>
+<ul>
+<li class=""><strong>Quando usar:</strong> retenção centralizada em nível empresarial, investigação histórica e conformidade com padrão OCSF.</li>
+<li class=""><strong>O que você informa:</strong> nome do bucket S3, ID da conta AWS, região, identificador de origem, compressão (Zstandard ou Snappy).</li>
+<li class=""><strong>Credencial:</strong> chave de acesso secreta da AWS (ou nenhuma, quando o ambiente usa um papel de acesso da própria instância EC2/ECS).</li>
+<li class=""><strong>Pré-requisito:</strong> a origem customizada (custom source) precisa estar registrada no Security Lake.</li>
+<li class=""><strong>Diferenciais:</strong> formato padronizado (OCSF) compatível com análise em ferramentas diversas, sem limite prático de retenção.</li>
+</ul>
+<hr/>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=como-criar-um-destino>Como criar um destino<a href=#como-criar-um-destino class=hash-link aria-label="Enlace directo al Como criar um destino" title="Enlace directo al Como criar um destino" translate=no>​</a></h2>
+<ol>
+<li class="">Vá em <strong>Operação → Destinos</strong>.</li>
+<li class="">Clique no botão para criar um novo destino.</li>
+<li class="">Dê um <strong>nome</strong> que identifique o destino (por exemplo, "Splunk Produção").</li>
+<li class="">Escolha o <strong>tipo</strong> na lista — a interface ajusta os campos conforme o tipo selecionado.</li>
+<li class="">Preencha os <strong>campos de conexão</strong> que aparecerem (endereço, índice, tópico, bucket etc.).</li>
+<li class="">Se o tipo exigir <strong>credencial</strong>, digite-a no campo indicado. A credencial é criptografada ao salvar e <strong>nunca é exibida de volta</strong> — a tela apenas indica que existe uma credencial guardada.</li>
+<li class="">Salve.</li>
+</ol>
+<p>Ao salvar, o destino aparece na lista. A partir daí você pode testar a conexão e acompanhar a saúde.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=ajustes-de-entrega-opcional>Ajustes de entrega (opcional)<a href=#ajustes-de-entrega-opcional class=hash-link aria-label="Enlace directo al Ajustes de entrega (opcional)" title="Enlace directo al Ajustes de entrega (opcional)" translate=no>​</a></h3>
+<p>Cada destino tem uma <strong>política de entrega</strong> com valores padrão que funcionam bem na maioria dos casos. Você só precisa mexer nisso se quiser otimizar para um cenário específico:</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Ajuste<th>Para que serve<tbody><tr><td><strong>Tamanho do lote</strong><td>Quantos eventos o CentralOps agrupa antes de enviar. Lotes maiores reduzem o número de requisições; menores reduzem a latência.<tr><td><strong>Reenvio automático (retry)</strong><td>Quantas vezes tentar de novo, com espera crescente, quando o destino falha temporariamente.<tr><td><strong>Proteção contra destino instável</strong><td>Pausa os envios automaticamente quando o destino acumula falhas seguidas e volta sozinho após um tempo, evitando martelar um destino fora do ar.<tr><td><strong>Modo de simulação (shadow)</strong><td>O CentralOps formata e valida os eventos, mas <strong>não envia</strong>. Útil para pré-visualizar antes de ativar de verdade.</table>
+<p>Deixe os campos em branco para usar os padrões do tipo.</p>
+<div class="theme-admonition theme-admonition-note admonition_xJq3 alert alert--secondary"><div class=admonitionHeading_Gvgb><span class=admonitionIcon_Rf37><svg viewBox="0 0 14 16"><path fill-rule=evenodd d="M6.3 5.69a.942.942 0 0 1-.28-.7c0-.28.09-.52.28-.7.19-.18.42-.28.7-.28.28 0 .52.09.7.28.18.19.28.42.28.7 0 .28-.09.52-.28.7a1 1 0 0 1-.7.3c-.28 0-.52-.11-.7-.3zM8 7.99c-.02-.25-.11-.48-.31-.69-.2-.19-.42-.3-.69-.31H6c-.27.02-.48.13-.69.31-.2.2-.3.44-.31.69h1v3c.02.27.11.5.31.69.2.2.42.31.69.31h1c.27 0 .48-.11.69-.31.2-.19.3-.42.31-.69H8V7.98v.01zM7 2.3c-3.14 0-5.7 2.54-5.7 5.68 0 3.14 2.56 5.7 5.7 5.7s5.7-2.55 5.7-5.7c0-3.15-2.56-5.69-5.7-5.69v.01zM7 .98c3.86 0 7 3.14 7 7s-3.14 7-7 7-7-3.12-7-7 3.14-7 7-7z"/></svg></span>nota</div><div class=admonitionContent_BuS1><p>Alguns ajustes mais avançados de processamento (concorrência, limites de fila, tempo limite de envio) são definidos pela equipe de infraestrutura no momento do deploy. Se precisar alterá-los, fale com o administrador da plataforma.</div></div>
+<div class="theme-admonition theme-admonition-caution admonition_xJq3 alert alert--warning"><div class=admonitionHeading_Gvgb><span class=admonitionIcon_Rf37><svg viewBox="0 0 16 16"><path fill-rule=evenodd d="M8.893 1.5c-.183-.31-.52-.5-.887-.5s-.703.19-.886.5L.138 13.499a.98.98 0 0 0 0 1.001c.193.31.53.501.886.501h13.964c.367 0 .704-.19.877-.5a1.03 1.03 0 0 0 .01-1.002L8.893 1.5zm.133 11.497H6.987v-2.003h2.039v2.003zm0-3.004H6.987V5.987h2.039v4.006z"/></svg></span>Campos ainda sem efeito</div><div class=admonitionContent_BuS1><p>Os campos de <strong>camada de armazenamento</strong> (hot/cold) e <strong>dias de retenção</strong> são informativos nesta versão: você pode preenchê-los para registrar a intenção, mas eles ainda <strong>não executam</strong> mudança de armazenamento nem expiração automática. Trate-os como anotação até que essa função seja liberada.</div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=roteamento-automático>Roteamento automático<a href=#roteamento-automático class=hash-link aria-label="Enlace directo al Roteamento automático" title="Enlace directo al Roteamento automático" translate=no>​</a></h3>
+<p>Ao criar um destino, o CentralOps já o inclui no fluxo de eventos automaticamente — você não precisa configurar nada para começar a receber eventos nele. Se quiser controle fino sobre quais eventos vão para quais destinos, use a tela <strong>Operação → Roteamento</strong> (também só para administrador).</p>
+<hr/>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=testar-a-conexão>Testar a conexão<a href=#testar-a-conexão class=hash-link aria-label="Enlace directo al Testar a conexão" title="Enlace directo al Testar a conexão" translate=no>​</a></h2>
+<p>Antes de confiar em um destino novo, teste a conexão. Isso valida a credencial e a conectividade <strong>sem</strong> precisar esperar eventos reais.</p>
+<ol>
+<li class="">Na lista de <strong>Destinos</strong>, localize o destino.</li>
+<li class="">Acione a opção de <strong>testar conexão</strong> ao lado dele.</li>
+<li class="">O resultado aparece na hora:
+<ul>
+<li class=""><strong>Sucesso:</strong> o destino respondeu e a interface mostra a latência (por exemplo, "conectado, 42 ms").</li>
+<li class=""><strong>Falha:</strong> a interface mostra o motivo específico (por exemplo, "tempo esgotado ao conectar").</li>
+</ul>
+</li>
+</ol>
+<p>O teste usa a credencial apenas em memória e não envia eventos.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=pré-visualizar-o-formato-simulação>Pré-visualizar o formato (simulação)<a href=#pré-visualizar-o-formato-simulação class=hash-link aria-label="Enlace directo al Pré-visualizar o formato (simulação)" title="Enlace directo al Pré-visualizar o formato (simulação)" translate=no>​</a></h3>
+<p>Se quiser ver <strong>exatamente como o evento sai</strong> para aquele destino antes de ligá-lo, use o <strong>modo de simulação (shadow)</strong> na política de entrega. O CentralOps formata um evento de amostra no formato do destino e mostra o resultado, sem enviar nada de verdade.</p>
+<hr/>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=acompanhar-a-saúde>Acompanhar a saúde<a href=#acompanhar-a-saúde class=hash-link aria-label="Enlace directo al Acompanhar a saúde" title="Enlace directo al Acompanhar a saúde" translate=no>​</a></h2>
+<p>A tela de <strong>Destinos</strong> mostra a saúde de todos os destinos de uma vez, com eventos por segundo, volume e estado de cada um:</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Estado<th>O que significa<th>O que fazer<tbody><tr><td><strong>Saudável</strong><td>Tudo certo, sem falhas recentes<td>Nenhuma ação<tr><td><strong>Degradado</strong><td>Funcionando, mas há eventos que não foram aceitos nas últimas 24 h<td>Abra o destino e revise a fila de reenvio<tr><td><strong>Instável</strong><td>Os envios foram pausados pela proteção contra destino instável (muitas falhas seguidas)<td>Aguarde a recuperação automática ou revise a credencial e a disponibilidade do destino<tr><td><strong>Desativado</strong><td>O destino está desligado<td>Reative, se for o caso<tr><td><strong>Indisponível</strong><td>Não foi possível ler a saúde no momento<td>Tente novamente; se persistir, fale com o administrador da plataforma</table>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=fila-de-reenvio-eventos-que-não-foram-aceitos>Fila de reenvio (eventos que não foram aceitos)<a href=#fila-de-reenvio-eventos-que-não-foram-aceitos class=hash-link aria-label="Enlace directo al Fila de reenvio (eventos que não foram aceitos)" title="Enlace directo al Fila de reenvio (eventos que não foram aceitos)" translate=no>​</a></h3>
+<p>Quando um destino rejeita ou não consegue receber um evento, ele vai para a <strong>fila de reenvio</strong> daquele destino. Abrindo o destino, você vê os eventos parados, agrupados pelo motivo da falha, e pode <strong>reprocessá-los</strong> (tentar enviar de novo) direto pela interface.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=eventos-recentes-e-métricas>Eventos recentes e métricas<a href=#eventos-recentes-e-métricas class=hash-link aria-label="Enlace directo al Eventos recentes e métricas" title="Enlace directo al Eventos recentes e métricas" translate=no>​</a></h3>
+<p>No detalhe de cada destino você também encontra:</p>
+<ul>
+<li class=""><strong>Eventos recentes</strong> que passaram por aquele destino, para conferência rápida.</li>
+<li class=""><strong>Métricas ao longo do tempo:</strong> eventos por segundo, volume, rejeições e latência média.</li>
+</ul>
+<hr/>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=credenciais>Credenciais<a href=#credenciais class=hash-link aria-label="Enlace directo al Credenciais" title="Enlace directo al Credenciais" translate=no>​</a></h2>
+<p>A credencial de um destino (token, senha, chave) é sempre <strong>criptografada</strong> e nunca exibida de volta — a tela apenas indica que ela existe.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Ação<th>Quando usar<th>Como fazer<tbody><tr><td><strong>Trocar a credencial</strong><td>Renovação periódica ou token vencido<td>No detalhe do destino, informe a nova credencial. O envio passa a usar a nova sem interrupção.<tr><td><strong>Revogar a credencial</strong><td>A credencial foi comprometida<td>Revogue pela interface. O destino é desativado e para de receber eventos até você cadastrar uma nova credencial.</table>
+<p>Toda leitura, troca ou revogação de credencial fica registrada no histórico do destino, para auditoria.</p>
+<hr/>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=histórico-e-rastreabilidade>Histórico e rastreabilidade<a href=#histórico-e-rastreabilidade class=hash-link aria-label="Enlace directo al Histórico e rastreabilidade" title="Enlace directo al Histórico e rastreabilidade" translate=no>​</a></h2>
+<ul>
+<li class=""><strong>Histórico de alterações:</strong> cada destino guarda o registro de criação, edição e exclusão. As credenciais nunca aparecem em claro nesse histórico.</li>
+<li class=""><strong>Rastreabilidade do evento:</strong> você pode conferir por quais destinos um evento específico passou e o resultado da entrega em cada um. Esse rastro fica disponível por um período limitado (alguns dias).</li>
+</ul>
+<hr/>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=problemas-comuns>Problemas comuns<a href=#problemas-comuns class=hash-link aria-label="Enlace directo al Problemas comuns" title="Enlace directo al Problemas comuns" translate=no>​</a></h2>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Sintoma<th>Causa provável<th>O que fazer<tbody><tr><td>O teste passa, mas os eventos não chegam<td>Destino desativado ou sem rota<td>Confira o estado na tela de Destinos; ajuste o roteamento em <strong>Operação → Roteamento</strong><tr><td>A fila de reenvio cresce e o destino fica "instável"<td>Credencial vencida ou destino fora do ar<td>Teste a conexão; troque a credencial se necessário; verifique se o destino está disponível<tr><td>Erro de evento muito grande<td>O evento passou do tamanho aceito pelo destino<td>Reduza o tamanho do lote ou ajuste a normalização<tr><td>Erro de autenticação<td>Token inválido ou revogado<td>Troque a credencial e confira o histórico do destino<tr><td>Latência alta<td>O destino está lento ou sobrecarregado<td>Verifique o desempenho do destino; ajustes finos de concorrência são feitos pela equipe de infraestrutura<tr><td>Eventos duplicados<td>Reenvio após falha temporária em destinos que garantem "ao menos uma vez"<td>É esperado; a deduplicação fica a cargo do destino final</table>
+<hr/>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=próximos-passos>Próximos passos<a href=#próximos-passos class=hash-link aria-label="Enlace directo al Próximos passos" title="Enlace directo al Próximos passos" translate=no>​</a></h2>
+<ul>
+<li class=""><strong>Controlar quais eventos vão para cada destino:</strong> <a class="" href=/es/outputs/routing>Roteamento</a></li>
+<li class=""><strong>Ajustar a normalização antes do envio:</strong> <a class="" href=/es/normalization/overview>Mapeamento e Normalização</a></li>
+<li class=""><strong>Ver métricas e rastros de entrega:</strong> <a class="" href=/es/outputs/observability>Observabilidade</a></li>
+</ul></div></article><nav class="docusaurus-mt-lg pagination-nav" aria-label="Página del documento"><a class="pagination-nav__link pagination-nav__link--prev" href=/es/outputs/overview><div class=pagination-nav__sublabel>Anterior</div><div class=pagination-nav__label>Saídas e Roteamento (visão geral)</div></a><a class="pagination-nav__link pagination-nav__link--next" href=/es/outputs/destination-wazuh-syslog><div class=pagination-nav__sublabel>Siguiente</div><div class=pagination-nav__label>Destino: Syslog e JSONL</div></a></nav></div></div><div class="col col--3"><div class="tableOfContents_bqdL thin-scrollbar theme-doc-toc-desktop"><ul class="table-of-contents table-of-contents__left-border"><li><a href=#quando-usar class="table-of-contents__link toc-highlight">Quando usar</a><li><a href=#como-escolher-o-destino-certo class="table-of-contents__link toc-highlight">Como escolher o destino certo</a><li><a href=#catálogo-de-destinos-disponíveis class="table-of-contents__link toc-highlight">Catálogo de destinos disponíveis</a><ul><li><a href=#splunk-hec class="table-of-contents__link toc-highlight">Splunk HEC</a><li><a href=#elasticsearch--opensearch class="table-of-contents__link toc-highlight">Elasticsearch / OpenSearch</a><li><a href=#clickhouse class="table-of-contents__link toc-highlight">ClickHouse</a><li><a href=#crowdstrike-falcon-next-gen-siem class="table-of-contents__link toc-highlight">CrowdStrike Falcon Next-Gen SIEM</a><li><a href=#crowdstrike-falcon-logscale class="table-of-contents__link toc-highlight">CrowdStrike Falcon LogScale</a><li><a href=#amazon-s3 class="table-of-contents__link toc-highlight">Amazon S3</a><li><a href=#microsoft-sentinel class="table-of-contents__link toc-highlight">Microsoft Sentinel</a><li><a href=#kafka class="table-of-contents__link toc-highlight">Kafka</a><li><a href=#opentelemetry-otlp class="table-of-contents__link toc-highlight">OpenTelemetry (OTLP)</a><li><a href=#syslog-rfc-3164 class="table-of-contents__link toc-highlight">Syslog RFC 3164</a><li><a href=#syslog-rfc-5424 class="table-of-contents__link toc-highlight">Syslog RFC 5424</a><li><a href=#arquivo-jsonl class="table-of-contents__link toc-highlight">Arquivo JSONL</a><li><a href=#webhook-genérico class="table-of-contents__link toc-highlight">Webhook genérico</a><li><a href=#datadog-logs class="table-of-contents__link toc-highlight">Datadog (Logs)</a><li><a href=#google-secops-chronicle class="table-of-contents__link toc-highlight">Google SecOps (Chronicle)</a><li><a href=#amazon-security-lake class="table-of-contents__link toc-highlight">Amazon Security Lake</a></ul><li><a href=#como-criar-um-destino class="table-of-contents__link toc-highlight">Como criar um destino</a><ul><li><a href=#ajustes-de-entrega-opcional class="table-of-contents__link toc-highlight">Ajustes de entrega (opcional)</a><li><a href=#roteamento-automático class="table-of-contents__link toc-highlight">Roteamento automático</a></ul><li><a href=#testar-a-conexão class="table-of-contents__link toc-highlight">Testar a conexão</a><ul><li><a href=#pré-visualizar-o-formato-simulação class="table-of-contents__link toc-highlight">Pré-visualizar o formato (simulação)</a></ul><li><a href=#acompanhar-a-saúde class="table-of-contents__link toc-highlight">Acompanhar a saúde</a><ul><li><a href=#fila-de-reenvio-eventos-que-não-foram-aceitos class="table-of-contents__link toc-highlight">Fila de reenvio (eventos que não foram aceitos)</a><li><a href=#eventos-recentes-e-métricas class="table-of-contents__link toc-highlight">Eventos recentes e métricas</a></ul><li><a href=#credenciais class="table-of-contents__link toc-highlight">Credenciais</a><li><a href=#histórico-e-rastreabilidade class="table-of-contents__link toc-highlight">Histórico e rastreabilidade</a><li><a href=#problemas-comuns class="table-of-contents__link toc-highlight">Problemas comuns</a><li><a href=#próximos-passos class="table-of-contents__link toc-highlight">Próximos passos</a></ul></div></div></div></div></main></div></div></div><footer class="theme-layout-footer footer footer--dark"><div class="container container-fluid"><div class="row footer__links"><div class="theme-layout-footer-column col footer__col"><div class=footer__title>Documentação</div><ul class="footer__items clean-list"><li class=footer__item><a class=footer__link-item href=/es/getting-started/overview>Começar</a><li class=footer__item><a class=footer__link-item href=/es/operations/dashboard>Operação diária</a><li class=footer__item><a class=footer__link-item href=/es/normalization/overview>Mappings (CML)</a><li class=footer__item><a class=footer__link-item href=/es/runbooks/dispatcher>Runbooks</a></ul></div><div class="theme-layout-footer-column col footer__col"><div class=footer__title>Plataforma</div><ul class="footer__items clean-list"><li class=footer__item><a class=footer__link-item href=/es/concepts/architecture>Arquitetura</a><li class=footer__item><a class=footer__link-item href=/es/concepts/rbac>RBAC</a><li class=footer__item><a class=footer__link-item href=/es/integrations/overview>Integrações</a><li class=footer__item><a class=footer__link-item href=/es/compliance/retention>Compliance</a></ul></div><div class="theme-layout-footer-column col footer__col"><div class=footer__title>Recursos</div><ul class="footer__items clean-list"><li class=footer__item><a class=footer__link-item href=/es/getting-started/quickstart>Quickstart</a><li class=footer__item><a class=footer__link-item href=/es/normalization/cookbook>DSL Cookbook</a><li class=footer__item><a class=footer__link-item href=/es/normalization/troubleshooting>Troubleshooting</a></ul></div></div><div class="footer__bottom text--center"><div class=footer__copyright>Copyright © 2026 CentralOps. Built with Docusaurus.</div></div></div></footer></div></body>

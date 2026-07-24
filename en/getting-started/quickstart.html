@@ -1,0 +1,196 @@
+<!doctype html><html lang=en dir=ltr class="docs-wrapper plugin-docs plugin-id-default docs-version-current docs-doc-page docs-doc-id-getting-started/quickstart" data-has-hydrated=false><head><meta charset=UTF-8><meta name=generator content="Docusaurus v3.10.0"><title data-rh=true>Quickstart — do evento ao destino em 15 minutos | CentralOps</title><meta data-rh=true name=viewport content="width=device-width, initial-scale=1.0"/><meta data-rh=true name=twitter:card content=summary_large_image /><meta data-rh=true property=og:image content=https://docs.segark.com/en/img/centralops-social-card.png /><meta data-rh=true name=twitter:image content=https://docs.segark.com/en/img/centralops-social-card.png /><meta data-rh=true property=og:url content=https://docs.segark.com/en/getting-started/quickstart /><meta data-rh=true property=og:locale content=en /><meta data-rh=true property=og:locale:alternate content=pt_BR /><meta data-rh=true property=og:locale:alternate content=es /><meta data-rh=true name=docusaurus_locale content=en /><meta data-rh=true name=docsearch:language content=en /><meta data-rh=true name=docusaurus_version content=current /><meta data-rh=true name=docusaurus_tag content=docs-default-current /><meta data-rh=true name=docsearch:version content=current /><meta data-rh=true name=docsearch:docusaurus_tag content=docs-default-current /><meta data-rh=true property=og:title content="Quickstart — do evento ao destino em 15 minutos | CentralOps"/><meta data-rh=true name=description content="Conecte sua primeira fonte de segurança ao CentralOps e confirme que os eventos chegam ao seu SIEM, em poucos minutos pela interface."/><meta data-rh=true property=og:description content="Conecte sua primeira fonte de segurança ao CentralOps e confirme que os eventos chegam ao seu SIEM, em poucos minutos pela interface."/><link data-rh=true rel=icon href=/en/img/favicon.ico /><link data-rh=true rel=canonical href=https://docs.segark.com/en/getting-started/quickstart /><link data-rh=true rel=alternate href=https://docs.segark.com/getting-started/quickstart hreflang=pt-BR /><link data-rh=true rel=alternate href=https://docs.segark.com/en/getting-started/quickstart hreflang=en /><link data-rh=true rel=alternate href=https://docs.segark.com/es/getting-started/quickstart hreflang=es /><link data-rh=true rel=alternate href=https://docs.segark.com/getting-started/quickstart hreflang=x-default /><script data-rh=true type=application/ld+json>{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","item":"https://docs.segark.com/en/getting-started/quickstart","name":"Quickstart — do evento ao destino em 15 minutos","position":1}]}</script><link rel=stylesheet href=/en/assets/css/styles.65a61132.css /><script src=/en/assets/js/runtime~main.3e1a07f1.js defer></script><script src=/en/assets/js/main.109b76da.js defer></script></head><body><svg style="display: none;"><defs>
+<symbol id=theme-svg-external-link viewBox="0 0 24 24"><path fill=currentColor d="M21 13v10h-21v-19h12v2h-10v15h17v-8h2zm3-12h-10.988l4.035 4-6.977 7.07 2.828 2.828 6.977-7.07 4.125 4.172v-11z"/></symbol>
+</defs></svg>
+<script>!function(){var t=function(){try{return new URLSearchParams(window.location.search).get("docusaurus-theme")}catch(t){}}()||function(){try{return window.localStorage.getItem("theme-797")}catch(t){}}();document.documentElement.setAttribute("data-theme",t||(window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light")),document.documentElement.setAttribute("data-theme-choice",t||"system")}(),function(){try{for(var[t,e]of new URLSearchParams(window.location.search).entries())if(t.startsWith("docusaurus-data-")){var a=t.replace("docusaurus-data-","data-");document.documentElement.setAttribute(a,e)}}catch(t){}}()</script><div id=__docusaurus><link rel=preload as=image href=/en/img/logo.svg /><div role=region aria-label="Skip to main content"><a class=skipToContent_fXgn href=#__docusaurus_skipToContent_fallback>Skip to main content</a></div><nav aria-label=Main class="theme-layout-navbar navbar navbar--fixed-top"><div class=navbar__inner><div class="theme-layout-navbar-left navbar__items"><button aria-label="Toggle navigation bar" aria-expanded=false class="navbar__toggle clean-btn" type=button><svg width=30 height=30 viewBox="0 0 30 30" aria-hidden=true><path stroke=currentColor stroke-linecap=round stroke-miterlimit=10 stroke-width=2 d="M4 7h22M4 15h22M4 23h22"/></svg></button><a class=navbar__brand href=/en/><div class=navbar__logo><img src=/en/img/logo.svg alt=CentralOps class="themedComponent_mlkZ themedComponent--light_NVdE"/><img src=/en/img/logo.svg alt=CentralOps class="themedComponent_mlkZ themedComponent--dark_xIcU"/></div><b class="navbar__title text--truncate">CentralOps</b></a><a aria-current=page class="navbar__item navbar__link navbar__link--active" href=/en/>Get started</a><a class="navbar__item navbar__link" href=/en/outputs/overview>Outputs & Routing</a><a class="navbar__item navbar__link" href=/en/operations/dashboard>Operations</a><a class="navbar__item navbar__link" href=/en/administration/users-and-roles>Administration</a><a class="navbar__item navbar__link" href=/en/normalization/overview>Mappings</a><a class="navbar__item navbar__link" href=/en/runbooks/dispatcher>Runbooks</a></div><div class="theme-layout-navbar-right navbar__items navbar__items--right"><div class="navbar__item dropdown dropdown--hoverable dropdown--right"><a href=# aria-haspopup=true aria-expanded=false role=button class=navbar__link><svg viewBox="0 0 24 24" width=20 height=20 aria-hidden=true class=iconLanguage_nlXk><path fill=currentColor d="M12.87 15.07l-2.54-2.51.03-.03c1.74-1.94 2.98-4.17 3.71-6.53H17V4h-7V2H8v2H1v1.99h11.17C11.5 7.92 10.44 9.75 9 11.35 8.07 10.32 7.3 9.19 6.69 8h-2c.73 1.63 1.73 3.17 2.98 4.56l-5.09 5.02L4 19l5-5 3.11 3.11.76-2.04zM18.5 10h-2L12 22h2l1.12-3h4.75L21 22h2l-4.5-12zm-2.62 7l1.62-4.33L19.12 17h-3.24z"/></svg>English</a><ul class=dropdown__menu><li><a href=/getting-started/quickstart target=_self rel="noopener noreferrer" class=dropdown__link lang=pt-BR>Português</a><li><a href=/en/getting-started/quickstart target=_self rel="noopener noreferrer" class="dropdown__link dropdown__link--active" lang=en>English</a><li><a href=/es/getting-started/quickstart target=_self rel="noopener noreferrer" class=dropdown__link lang=es>Español</a></ul></div><div class="toggle_vylO colorModeToggle_DEke"><button class="clean-btn toggleButton_gllP toggleButtonDisabled_aARS" type=button disabled title="system mode" aria-label="Switch between dark and light mode (currently system mode)"><svg viewBox="0 0 24 24" width=24 height=24 aria-hidden=true class="toggleIcon_g3eP lightToggleIcon_pyhR"><path fill=currentColor d="M12,9c1.65,0,3,1.35,3,3s-1.35,3-3,3s-3-1.35-3-3S10.35,9,12,9 M12,7c-2.76,0-5,2.24-5,5s2.24,5,5,5s5-2.24,5-5 S14.76,7,12,7L12,7z M2,13l2,0c0.55,0,1-0.45,1-1s-0.45-1-1-1l-2,0c-0.55,0-1,0.45-1,1S1.45,13,2,13z M20,13l2,0c0.55,0,1-0.45,1-1 s-0.45-1-1-1l-2,0c-0.55,0-1,0.45-1,1S19.45,13,20,13z M11,2v2c0,0.55,0.45,1,1,1s1-0.45,1-1V2c0-0.55-0.45-1-1-1S11,1.45,11,2z M11,20v2c0,0.55,0.45,1,1,1s1-0.45,1-1v-2c0-0.55-0.45-1-1-1C11.45,19,11,19.45,11,20z M5.99,4.58c-0.39-0.39-1.03-0.39-1.41,0 c-0.39,0.39-0.39,1.03,0,1.41l1.06,1.06c0.39,0.39,1.03,0.39,1.41,0s0.39-1.03,0-1.41L5.99,4.58z M18.36,16.95 c-0.39-0.39-1.03-0.39-1.41,0c-0.39,0.39-0.39,1.03,0,1.41l1.06,1.06c0.39,0.39,1.03,0.39,1.41,0c0.39-0.39,0.39-1.03,0-1.41 L18.36,16.95z M19.42,5.99c0.39-0.39,0.39-1.03,0-1.41c-0.39-0.39-1.03-0.39-1.41,0l-1.06,1.06c-0.39,0.39-0.39,1.03,0,1.41 s1.03,0.39,1.41,0L19.42,5.99z M7.05,18.36c0.39-0.39,0.39-1.03,0-1.41c-0.39-0.39-1.03-0.39-1.41,0l-1.06,1.06 c-0.39,0.39-0.39,1.03,0,1.41s1.03,0.39,1.41,0L7.05,18.36z"/></svg><svg viewBox="0 0 24 24" width=24 height=24 aria-hidden=true class="toggleIcon_g3eP darkToggleIcon_wfgR"><path fill=currentColor d="M9.37,5.51C9.19,6.15,9.1,6.82,9.1,7.5c0,4.08,3.32,7.4,7.4,7.4c0.68,0,1.35-0.09,1.99-0.27C17.45,17.19,14.93,19,12,19 c-3.86,0-7-3.14-7-7C5,9.07,6.81,6.55,9.37,5.51z M12,3c-4.97,0-9,4.03-9,9s4.03,9,9,9s9-4.03,9-9c0-0.46-0.04-0.92-0.1-1.36 c-0.98,1.37-2.58,2.26-4.4,2.26c-2.98,0-5.4-2.42-5.4-5.4c0-1.81,0.89-3.42,2.26-4.4C12.92,3.04,12.46,3,12,3L12,3z"/></svg><svg viewBox="0 0 24 24" width=24 height=24 aria-hidden=true class="toggleIcon_g3eP systemToggleIcon_QzmC"><path fill=currentColor d="m12 21c4.971 0 9-4.029 9-9s-4.029-9-9-9-9 4.029-9 9 4.029 9 9 9zm4.95-13.95c1.313 1.313 2.05 3.093 2.05 4.95s-0.738 3.637-2.05 4.95c-1.313 1.313-3.093 2.05-4.95 2.05v-14c1.857 0 3.637 0.737 4.95 2.05z"/></svg></button></div><div class=navbarSearchContainer_Bca1><div class=navbar__search><span aria-label="expand searchbar" role=button class=search-icon tabindex=0></span><input id=search_input_react type=search placeholder=Loading... aria-label=Search class="navbar__search-input search-bar" disabled/></div></div></div></div><div role=presentation class=navbar-sidebar__backdrop></div></nav><div id=__docusaurus_skipToContent_fallback class="theme-layout-main main-wrapper mainWrapper_z2l0"><div class=docsWrapper_hBAB><button aria-label="Scroll back to top" class="clean-btn theme-back-to-top-button backToTopButton_sjWU" type=button></button><div class=docRoot_UBD9><aside class="theme-doc-sidebar-container docSidebarContainer_YfHR"><div class=sidebarViewport_aRkj><div class=sidebar_njMd><nav aria-label="Docs sidebar" class="menu thin-scrollbar menu_SIkG"><ul class="theme-doc-sidebar-menu menu__list"><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-1 menu__list-item"><a class=menu__link href=/en/><span title=CentralOps class=linkLabel_WmDU>CentralOps</span></a><li class="theme-doc-sidebar-item-category theme-doc-sidebar-item-category-level-1 menu__list-item"><div class=menu__list-item-collapsible><a class="categoryLink_byQd menu__link menu__link--sublist menu__link--sublist-caret menu__link--active" role=button aria-expanded=true href=/en/getting-started/overview><span title="Get started" class=categoryLinkLabel_W154>Get started</span></a></div><ul class=menu__list><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/en/getting-started/overview><span title="Visão Geral" class=linkLabel_WmDU>Visão Geral</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/en/getting-started/first-login><span title="Primeiro Login" class=linkLabel_WmDU>Primeiro Login</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class="menu__link menu__link--active" aria-current=page tabindex=0 href=/en/getting-started/quickstart><span title="Quickstart — do evento ao destino em 15 minutos" class=linkLabel_WmDU>Quickstart — do evento ao destino em 15 minutos</span></a></ul><li class="theme-doc-sidebar-item-category theme-doc-sidebar-item-category-level-1 menu__list-item"><div class=menu__list-item-collapsible><a class="categoryLink_byQd menu__link menu__link--sublist menu__link--sublist-caret" role=button aria-expanded=true href=/en/deployment/docker-compose><span title="Installation & Deploy" class=categoryLinkLabel_W154>Installation & Deploy</span></a></div><ul class=menu__list><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/en/deployment/docker-compose><span title="Deploy with Docker Compose" class=linkLabel_WmDU>Deploy with Docker Compose</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/en/deployment/kubernetes><span title="Deploy with Kubernetes (Helm)" class=linkLabel_WmDU>Deploy with Kubernetes (Helm)</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/en/deployment/configuration><span title="Configuration (environment variables)" class=linkLabel_WmDU>Configuration (environment variables)</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/en/deployment/upgrading><span title="Upgrade to a newer version" class=linkLabel_WmDU>Upgrade to a newer version</span></a></ul><li class="theme-doc-sidebar-item-category theme-doc-sidebar-item-category-level-1 menu__list-item"><div class=menu__list-item-collapsible><a class="categoryLink_byQd menu__link menu__link--sublist menu__link--sublist-caret" role=button aria-expanded=true href=/en/editions/community-vs-enterprise><span title="Editions & Upgrade" class=categoryLinkLabel_W154>Editions & Upgrade</span></a></div><ul class=menu__list><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/en/editions/community-vs-enterprise><span title="Editions — Community vs Enterprise" class=linkLabel_WmDU>Editions — Community vs Enterprise</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/en/editions/upgrade><span title="Upgrade to Enterprise" class=linkLabel_WmDU>Upgrade to Enterprise</span></a></ul><li class="theme-doc-sidebar-item-category theme-doc-sidebar-item-category-level-1 menu__list-item"><div class=menu__list-item-collapsible><a class="categoryLink_byQd menu__link menu__link--sublist menu__link--sublist-caret" role=button aria-expanded=true href=/en/concepts/architecture><span title=Concepts class=categoryLinkLabel_W154>Concepts</span></a></div><ul class=menu__list><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/en/concepts/architecture><span title="Como o CentralOps funciona" class=linkLabel_WmDU>Como o CentralOps funciona</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/en/concepts/rbac><span title="RBAC (Controle de acesso)" class=linkLabel_WmDU>RBAC (Controle de acesso)</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/en/concepts/data-model><span title="Como os dados se organizam" class=linkLabel_WmDU>Como os dados se organizam</span></a></ul></ul></nav></div></div></aside><main class=docMainContainer_TBSr><div class="container padding-top--md padding-bottom--lg"><div class=row><div class="col docItemCol_VOVn"><div class=docItemContainer_Djhp><article><nav class="theme-doc-breadcrumbs breadcrumbsContainer_Z_bl" aria-label=Breadcrumbs><ul class=breadcrumbs><li class=breadcrumbs__item><a aria-label="Home page" class=breadcrumbs__link href=/en/><svg viewBox="0 0 24 24" class=breadcrumbHomeIcon_YNFT><path d="M10 19v-5h4v5c0 .55.45 1 1 1h3c.55 0 1-.45 1-1v-7h1.7c.46 0 .68-.57.33-.87L12.67 3.6c-.38-.34-.96-.34-1.34 0l-8.36 7.53c-.34.3-.13.87.33.87H5v7c0 .55.45 1 1 1h3c.55 0 1-.45 1-1z" fill=currentColor /></svg></a><li class=breadcrumbs__item><span class=breadcrumbs__link>Get started</span><li class="breadcrumbs__item breadcrumbs__item--active"><span class=breadcrumbs__link>Quickstart — do evento ao destino em 15 minutos</span></ul></nav><div class="tocCollapsible_ETCw theme-doc-toc-mobile tocMobile_ITEo"><button type=button class="clean-btn tocCollapsibleButton_TO0P">On this page</button></div><div class="theme-doc-markdown markdown"><header><h1>Quickstart: do evento ao destino em 15 minutos</h1></header>
+<p>O CentralOps coleta telemetria de várias fontes de segurança, normaliza tudo para um formato canônico (OCSF) e entrega a um ou mais destinos (SIEMs, data lakes etc.). Este guia mostra, de ponta a ponta, como conectar uma fonte (Sophos), confirmar para onde os eventos são entregues e ver o primeiro evento chegar no seu destino.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=quando-usar>Quando usar<a href=#quando-usar class=hash-link aria-label="Direct link to Quando usar" title="Direct link to Quando usar" translate=no>​</a></h2>
+<p>Use este guia quando você for:</p>
+<ul>
+<li class=""><strong>Conectar sua primeira fonte de segurança</strong> ao CentralOps e quiser confirmar que os eventos realmente chegam ao seu SIEM.</li>
+<li class=""><strong>Validar uma nova integração Sophos</strong> antes de confiar nela em produção — testar credenciais, coleta e entrega de uma só vez.</li>
+<li class=""><strong>Fazer uma prova de conceito</strong> em um ambiente de SOC: provar para a equipe que a telemetria flui da fonte até o destino sem precisar mexer em infraestrutura.</li>
+</ul>
+<p>Tempo estimado: cerca de 15 minutos. Você precisa de uma conta <strong>administradora</strong> no CentralOps.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=pré-requisitos>Pré-requisitos<a href=#pré-requisitos class=hash-link aria-label="Direct link to Pré-requisitos" title="Direct link to Pré-requisitos" translate=no>​</a></h2>
+<ul>
+<li class="">Você tem conta <strong>administradora</strong> no CentralOps.</li>
+<li class="">Você tem acesso administrativo ao <strong>Sophos Central</strong> da sua organização.</li>
+<li class="">Você gerou um <strong>Client ID</strong> e um <strong>Client Secret</strong> no Sophos.</li>
+</ul>
+<p>Ainda não tem as credenciais do Sophos? Siga o <a class="" href=/en/integrations/sophos>Guia de integração Sophos</a> e volte aqui.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=passo-1-obter-as-credenciais-no-sophos-5-min>Passo 1: obter as credenciais no Sophos (5 min)<a href=#passo-1-obter-as-credenciais-no-sophos-5-min class=hash-link aria-label="Direct link to Passo 1: obter as credenciais no Sophos (5 min)" title="Direct link to Passo 1: obter as credenciais no Sophos (5 min)" translate=no>​</a></h2>
+<p>No console do Sophos Central:</p>
+<ol>
+<li class="">Abra as configurações de credenciais de API da sua organização.</li>
+<li class="">Crie uma nova credencial (ou adicione, se já existir uma).</li>
+<li class="">Dê um nome reconhecível, como "CentralOps".</li>
+<li class="">Conceda ao menos permissão de leitura de alertas (e de casos, se você usa XDR).</li>
+<li class="">Copie o <strong>Client ID</strong> e o <strong>Client Secret</strong> e guarde em local seguro.</li>
+</ol>
+<p>Anote também:</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Dado<th>Onde encontrar<tbody><tr><td><strong>Region</strong><td>Aparece na URL do seu Sophos (por exemplo, <code>api-eu...</code> indica a região EU).<tr><td><strong>Tenant ID</strong><td>Nas configurações de organização do Sophos, no campo de identificação.</table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=passo-2-criar-a-integração-de-entrada-no-centralops-5-min>Passo 2: criar a integração de entrada no CentralOps (5 min)<a href=#passo-2-criar-a-integração-de-entrada-no-centralops-5-min class=hash-link aria-label="Direct link to Passo 2: criar a integração de entrada no CentralOps (5 min)" title="Direct link to Passo 2: criar a integração de entrada no CentralOps (5 min)" translate=no>​</a></h2>
+<ol>
+<li class="">No menu lateral, abra <strong>Visão geral → Integrações</strong>.</li>
+<li class="">Clique no botão para adicionar uma nova integração.</li>
+<li class="">Selecione <strong>Sophos</strong>.</li>
+<li class="">Preencha os campos:
+<ul>
+<li class=""><strong>Nome</strong>: algo que identifique a fonte, como "Sophos - Acme Corp".</li>
+<li class=""><strong>Client ID</strong>, <strong>Client Secret</strong>, <strong>Tenant ID</strong> e <strong>Region</strong>: os dados do Passo 1.</li>
+<li class=""><strong>Organização</strong>: deixe em branco ou selecione a organização correta, se você opera em modo multi-organização.</li>
+</ul>
+</li>
+<li class="">Use a opção de <strong>testar a conexão</strong>. A resposta deve indicar sucesso.</li>
+<li class=""><strong>Salve</strong> a integração.</li>
+</ol>
+<p>Ao salvar, o CentralOps:</p>
+<ul>
+<li class="">Armazena as credenciais de forma cifrada.</li>
+<li class="">Valida as credenciais junto ao Sophos.</li>
+<li class="">Agenda automaticamente a primeira coleta (acontece nos próximos minutos).</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=passo-3-conferir-o-destino-de-saída-padrão-1-min>Passo 3: conferir o destino de saída padrão (1 min)<a href=#passo-3-conferir-o-destino-de-saída-padrão-1-min class=hash-link aria-label="Direct link to Passo 3: conferir o destino de saída padrão (1 min)" title="Direct link to Passo 3: conferir o destino de saída padrão (1 min)" translate=no>​</a></h2>
+<p>O CentralOps já vem com um destino padrão para o Wazuh configurado. É para lá que os eventos são entregues por padrão.</p>
+<p>Para confirmar que o destino está ativo:</p>
+<ol>
+<li class="">No menu lateral, abra <strong>Operação → Destinos</strong> (visível apenas para administradores).</li>
+<li class="">Localize o destino padrão do Wazuh na lista.</li>
+<li class="">Confirme que o status está <strong>Ativo</strong>.</li>
+</ol>
+<p>Se o destino não existir ou estiver desativado, crie um novo:</p>
+<ul>
+<li class="">Use o botão para adicionar um destino.</li>
+<li class="">Escolha o tipo compatível com o seu Wazuh (Syslog RFC 5424 ou JSONL — ambos funcionam).</li>
+<li class="">Dê um nome ao destino.</li>
+<li class="">Preencha os dados de conexão do seu Wazuh (endereço, porta e segurança da conexão).</li>
+<li class=""><strong>Teste a conexão</strong> e <strong>salve</strong>.</li>
+</ul>
+<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class=admonitionHeading_Gvgb><span class=admonitionIcon_Rf37><svg viewBox="0 0 12 16"><path fill-rule=evenodd d="M6.5 0C3.48 0 1 2.19 1 5c0 .92.55 2.25 1 3 1.34 2.25 1.78 2.78 2 4v1h5v-1c.22-1.22.66-1.75 2-4 .45-.75 1-2.08 1-3 0-2.81-2.48-5-5.5-5zm3.64 7.48c-.25.44-.47.8-.67 1.11-.86 1.41-1.25 2.06-1.45 3.23-.02.05-.02.11-.02.17H5c0-.06 0-.13-.02-.17-.2-1.17-.59-1.83-1.45-3.23-.2-.31-.42-.67-.67-1.11C2.44 6.78 2 5.65 2 5c0-2.2 2.02-4 4.5-4 1.22 0 2.36.42 3.22 1.19C10.55 2.94 11 3.94 11 5c0 .66-.44 1.78-.86 2.48zM4 14h5c-.23 1.14-1.3 2-2.5 2s-2.27-.86-2.5-2z"/></svg></span>Quem configura os dados de conexão do destino?</div><div class=admonitionContent_BuS1><p>O endereço, a porta e os certificados do seu Wazuh costumam ser definidos pela equipe de infraestrutura no momento do deploy. Se você não souber esses valores, fale com o administrador da plataforma antes de criar o destino.</div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=passo-4-aguardar-a-primeira-coleta-3-min>Passo 4: aguardar a primeira coleta (3 min)<a href=#passo-4-aguardar-a-primeira-coleta-3-min class=hash-link aria-label="Direct link to Passo 4: aguardar a primeira coleta (3 min)" title="Direct link to Passo 4: aguardar a primeira coleta (3 min)" translate=no>​</a></h2>
+<p>Logo após salvar, a integração fica no estado de <strong>aguardando a primeira coleta</strong>.</p>
+<p>Aguarde de 2 a 3 minutos. O sistema agenda a primeira coleta automaticamente. Quando o Sophos retornar alertas:</p>
+<ul>
+<li class="">O estado da integração passa para <strong>Ativo</strong>.</li>
+<li class="">O indicador de saúde fica verde.</li>
+<li class="">Os eventos são normalizados e encaminhados para os destinos.</li>
+</ul>
+<p>Você acompanha tudo isso na tela <strong>Visão geral → Integrações</strong>: clique na integração para ver o estado, a saúde e o histórico de coletas.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=passo-5-verificar-a-entrega-no-destino-2-min>Passo 5: verificar a entrega no destino (2 min)<a href=#passo-5-verificar-a-entrega-no-destino-2-min class=hash-link aria-label="Direct link to Passo 5: verificar a entrega no destino (2 min)" title="Direct link to Passo 5: verificar a entrega no destino (2 min)" translate=no>​</a></h2>
+<p>Você pode confirmar o sucesso de três formas, da mais definitiva para a de diagnóstico.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=opção-a--no-seu-destino-final-critério-de-sucesso-de-ponta-a-ponta>Opção A — no seu destino final (critério de sucesso de ponta a ponta)<a href=#opção-a--no-seu-destino-final-critério-de-sucesso-de-ponta-a-ponta class=hash-link aria-label="Direct link to Opção A — no seu destino final (critério de sucesso de ponta a ponta)" title="Direct link to Opção A — no seu destino final (critério de sucesso de ponta a ponta)" translate=no>​</a></h3>
+<p>Acesse a interface do seu destino (Wazuh, Splunk, Elastic etc.) e procure pelos eventos recém-chegados, filtrando pelo fornecedor "Sophos" ou por um carimbo de data/hora recente com a origem CentralOps.</p>
+<p>Se o evento coletado do Sophos aparece normalizado no seu destino, o pipeline está funcionando de ponta a ponta.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=opção-b--pelo-dashboard-do-centralops-se-o-destino-estiver-indisponível-agora>Opção B — pelo Dashboard do CentralOps (se o destino estiver indisponível agora)<a href=#opção-b--pelo-dashboard-do-centralops-se-o-destino-estiver-indisponível-agora class=hash-link aria-label="Direct link to Opção B — pelo Dashboard do CentralOps (se o destino estiver indisponível agora)" title="Direct link to Opção B — pelo Dashboard do CentralOps (se o destino estiver indisponível agora)" translate=no>​</a></h3>
+<ol>
+<li class="">No menu lateral, abra <strong>Visão geral → Dashboard</strong>.</li>
+<li class="">Verifique o card de <strong>últimos eventos normalizados</strong> para confirmar que eventos foram processados.</li>
+<li class="">Verifique o card de <strong>saúde dos destinos</strong> para ver se houve algum erro de entrega.</li>
+</ol>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=opção-c--pela-quarentena-somente-se-algo-deu-errado>Opção C — pela Quarentena (somente se algo deu errado)<a href=#opção-c--pela-quarentena-somente-se-algo-deu-errado class=hash-link aria-label="Direct link to Opção C — pela Quarentena (somente se algo deu errado)" title="Direct link to Opção C — pela Quarentena (somente se algo deu errado)" translate=no>​</a></h3>
+<p>Se os eventos não aparecem em lugar nenhum:</p>
+<ol>
+<li class="">No menu lateral, abra <strong>Normalização → Quarentena</strong>.</li>
+<li class="">Procure por eventos que falharam (erro de mapeamento ou de validação).</li>
+<li class="">Abra um evento para ver os detalhes do erro e entender a causa.</li>
+</ol>
+<p>Em condições normais, a Quarentena vazia é sinal de que o pipeline está saudável.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=status-esperado-após-15-minutos>Status esperado após 15 minutos<a href=#status-esperado-após-15-minutos class=hash-link aria-label="Direct link to Status esperado após 15 minutos" title="Direct link to Status esperado após 15 minutos" translate=no>​</a></h2>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Item<th>Status esperado<tbody><tr><td><strong>Integração Sophos</strong><td>Ativa, com saúde verde<tr><td><strong>Destino padrão do Wazuh</strong><td>Ativo e testado<tr><td><strong>Coleta</strong><td>Eventos chegando a cada ciclo de coleta<tr><td><strong>Normalização</strong><td>Eventos convertidos para OCSF<tr><td><strong>Entrega</strong><td>Eventos chegando ao destino (Wazuh, Splunk, Elastic etc.)<tr><td><strong>Quarentena</strong><td>Vazia (ou apenas com erros de configuração, não de entrega)</table>
+<blockquote>
+<p>O volume de eventos por ciclo depende inteiramente do que a sua fonte está gerando — não há um número fixo esperado.</p>
+</blockquote>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=próximos-passos>Próximos passos<a href=#próximos-passos class=hash-link aria-label="Direct link to Próximos passos" title="Direct link to Próximos passos" translate=no>​</a></h2>
+<p><strong>Explorar múltiplos destinos e roteamento:</strong></p>
+<ul>
+<li class=""><a class="" href=/en/outputs/destinations>Destinos</a> — configurar S3, Splunk, Elastic, Kafka e outros.</li>
+<li class=""><a class="" href=/en/outputs/routing>Roteamento</a> — criar regras (por exemplo, eventos críticos para o SIEM principal; logs verbosos para um destino mais barato).</li>
+</ul>
+<p><strong>Aprofundar coleta e normalização:</strong></p>
+<ul>
+<li class=""><a class="" href=/en/operations/dashboard>Dashboard</a> — indicadores, volume e saúde.</li>
+<li class=""><a class="" href=/en/operations/quarantine>Quarentena</a> — análise e reprocessamento de eventos com erro.</li>
+<li class=""><a class="" href=/en/normalization/overview>Mappings</a> — ajustar as regras de normalização.</li>
+<li class=""><a class="" href=/en/integrations/overview>Mais integrações</a> — adicionar outras fontes (Wazuh, Defender etc.).</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=solução-de-problemas>Solução de problemas<a href=#solução-de-problemas class=hash-link aria-label="Direct link to Solução de problemas" title="Direct link to Solução de problemas" translate=no>​</a></h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=a-integração-não-coleta>A integração não coleta<a href=#a-integração-não-coleta class=hash-link aria-label="Direct link to A integração não coleta" title="Direct link to A integração não coleta" translate=no>​</a></h3>
+<ol>
+<li class="">Abra <strong>Visão geral → Integrações</strong> e clique na integração.</li>
+<li class="">Verifique o estado e o indicador de saúde.</li>
+<li class="">Abra os detalhes de erro da integração para entender por que a coleta falhou (por exemplo, credenciais rejeitadas ou limite de requisições atingido).</li>
+</ol>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=erro-de-autenticação-credenciais-rejeitadas>Erro de autenticação (credenciais rejeitadas)<a href=#erro-de-autenticação-credenciais-rejeitadas class=hash-link aria-label="Direct link to Erro de autenticação (credenciais rejeitadas)" title="Direct link to Erro de autenticação (credenciais rejeitadas)" translate=no>​</a></h3>
+<p>O Sophos recusou as credenciais. Verifique:</p>
+<ul>
+<li class="">O <strong>Client ID</strong> e o <strong>Client Secret</strong> estão corretos?</li>
+<li class="">O <strong>Tenant ID</strong> está correto?</li>
+<li class="">A <strong>Region</strong> está correta?</li>
+<li class="">As credenciais ainda estão ativas no Sophos Central?</li>
+</ul>
+<p>Para corrigir, edite a integração em <strong>Visão geral → Integrações</strong> e salve novamente com os dados corretos.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=aparecem-eventos-no-dashboard-mas-não-chegam-ao-destino>Aparecem eventos no Dashboard, mas não chegam ao destino<a href=#aparecem-eventos-no-dashboard-mas-não-chegam-ao-destino class=hash-link aria-label="Direct link to Aparecem eventos no Dashboard, mas não chegam ao destino" title="Direct link to Aparecem eventos no Dashboard, mas não chegam ao destino" translate=no>​</a></h3>
+<ol>
+<li class="">Em <strong>Operação → Destinos</strong>, clique no destino e veja suas métricas de entrega (há erros de conexão?).</li>
+<li class="">Se houver erro, use a opção de <strong>testar a conexão</strong> para validar o endereço e as credenciais.</li>
+<li class="">Confirme com o administrador da plataforma que a conexão de rede entre o CentralOps e o destino está liberada.</li>
+</ol>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=a-quarentena-está-cheia-de-eventos>A Quarentena está cheia de eventos<a href=#a-quarentena-está-cheia-de-eventos class=hash-link aria-label="Direct link to A Quarentena está cheia de eventos" title="Direct link to A Quarentena está cheia de eventos" translate=no>​</a></h3>
+<p>Isso indica falha na normalização ou na validação dos eventos. Consulte a <a class="" href=/en/normalization/troubleshooting>solução de problemas de normalização</a>.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=nenhum-evento-no-dashboard>Nenhum evento no Dashboard<a href=#nenhum-evento-no-dashboard class=hash-link aria-label="Direct link to Nenhum evento no Dashboard" title="Direct link to Nenhum evento no Dashboard" translate=no>​</a></h3>
+<p>A primeira coleta pode levar alguns minutos. Se continuar vazio após 5 a 10 minutos:</p>
+<ul>
+<li class="">A integração exibe algum erro? Reveja as credenciais (Passo 2).</li>
+<li class="">A saúde da integração está verde? Se não, veja a seção acima.</li>
+<li class="">O destino foi testado com sucesso? Volte ao Passo 3.</li>
+</ul></div></article><nav class="docusaurus-mt-lg pagination-nav" aria-label="Docs pages"><a class="pagination-nav__link pagination-nav__link--prev" href=/en/getting-started/first-login><div class=pagination-nav__sublabel>Previous</div><div class=pagination-nav__label>Primeiro Login</div></a><a class="pagination-nav__link pagination-nav__link--next" href=/en/deployment/docker-compose><div class=pagination-nav__sublabel>Next</div><div class=pagination-nav__label>Deploy with Docker Compose</div></a></nav></div></div><div class="col col--3"><div class="tableOfContents_bqdL thin-scrollbar theme-doc-toc-desktop"><ul class="table-of-contents table-of-contents__left-border"><li><a href=#quando-usar class="table-of-contents__link toc-highlight">Quando usar</a><li><a href=#pré-requisitos class="table-of-contents__link toc-highlight">Pré-requisitos</a><li><a href=#passo-1-obter-as-credenciais-no-sophos-5-min class="table-of-contents__link toc-highlight">Passo 1: obter as credenciais no Sophos (5 min)</a><li><a href=#passo-2-criar-a-integração-de-entrada-no-centralops-5-min class="table-of-contents__link toc-highlight">Passo 2: criar a integração de entrada no CentralOps (5 min)</a><li><a href=#passo-3-conferir-o-destino-de-saída-padrão-1-min class="table-of-contents__link toc-highlight">Passo 3: conferir o destino de saída padrão (1 min)</a><li><a href=#passo-4-aguardar-a-primeira-coleta-3-min class="table-of-contents__link toc-highlight">Passo 4: aguardar a primeira coleta (3 min)</a><li><a href=#passo-5-verificar-a-entrega-no-destino-2-min class="table-of-contents__link toc-highlight">Passo 5: verificar a entrega no destino (2 min)</a><ul><li><a href=#opção-a--no-seu-destino-final-critério-de-sucesso-de-ponta-a-ponta class="table-of-contents__link toc-highlight">Opção A — no seu destino final (critério de sucesso de ponta a ponta)</a><li><a href=#opção-b--pelo-dashboard-do-centralops-se-o-destino-estiver-indisponível-agora class="table-of-contents__link toc-highlight">Opção B — pelo Dashboard do CentralOps (se o destino estiver indisponível agora)</a><li><a href=#opção-c--pela-quarentena-somente-se-algo-deu-errado class="table-of-contents__link toc-highlight">Opção C — pela Quarentena (somente se algo deu errado)</a></ul><li><a href=#status-esperado-após-15-minutos class="table-of-contents__link toc-highlight">Status esperado após 15 minutos</a><li><a href=#próximos-passos class="table-of-contents__link toc-highlight">Próximos passos</a><li><a href=#solução-de-problemas class="table-of-contents__link toc-highlight">Solução de problemas</a><ul><li><a href=#a-integração-não-coleta class="table-of-contents__link toc-highlight">A integração não coleta</a><li><a href=#erro-de-autenticação-credenciais-rejeitadas class="table-of-contents__link toc-highlight">Erro de autenticação (credenciais rejeitadas)</a><li><a href=#aparecem-eventos-no-dashboard-mas-não-chegam-ao-destino class="table-of-contents__link toc-highlight">Aparecem eventos no Dashboard, mas não chegam ao destino</a><li><a href=#a-quarentena-está-cheia-de-eventos class="table-of-contents__link toc-highlight">A Quarentena está cheia de eventos</a><li><a href=#nenhum-evento-no-dashboard class="table-of-contents__link toc-highlight">Nenhum evento no Dashboard</a></ul></ul></div></div></div></div></main></div></div></div><footer class="theme-layout-footer footer footer--dark"><div class="container container-fluid"><div class="row footer__links"><div class="theme-layout-footer-column col footer__col"><div class=footer__title>Documentação</div><ul class="footer__items clean-list"><li class=footer__item><a class=footer__link-item href=/en/getting-started/overview>Começar</a><li class=footer__item><a class=footer__link-item href=/en/operations/dashboard>Operação diária</a><li class=footer__item><a class=footer__link-item href=/en/normalization/overview>Mappings (CML)</a><li class=footer__item><a class=footer__link-item href=/en/runbooks/dispatcher>Runbooks</a></ul></div><div class="theme-layout-footer-column col footer__col"><div class=footer__title>Plataforma</div><ul class="footer__items clean-list"><li class=footer__item><a class=footer__link-item href=/en/concepts/architecture>Arquitetura</a><li class=footer__item><a class=footer__link-item href=/en/concepts/rbac>RBAC</a><li class=footer__item><a class=footer__link-item href=/en/integrations/overview>Integrações</a><li class=footer__item><a class=footer__link-item href=/en/compliance/retention>Compliance</a></ul></div><div class="theme-layout-footer-column col footer__col"><div class=footer__title>Recursos</div><ul class="footer__items clean-list"><li class=footer__item><a class=footer__link-item href=/en/getting-started/quickstart>Quickstart</a><li class=footer__item><a class=footer__link-item href=/en/normalization/cookbook>DSL Cookbook</a><li class=footer__item><a class=footer__link-item href=/en/normalization/troubleshooting>Troubleshooting</a></ul></div></div><div class="footer__bottom text--center"><div class=footer__copyright>Copyright © 2026 CentralOps. Built with Docusaurus.</div></div></div></footer></div></body>

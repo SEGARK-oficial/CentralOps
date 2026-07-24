@@ -1,0 +1,488 @@
+<!doctype html><html lang=es dir=ltr class="docs-wrapper plugin-docs plugin-id-default docs-version-current docs-doc-page docs-doc-id-normalization/operators-reference" data-has-hydrated=false><head><meta charset=UTF-8><meta name=generator content="Docusaurus v3.10.0"><title data-rh=true>Referência de operadores de mapeamento | CentralOps</title><meta data-rh=true name=viewport content="width=device-width, initial-scale=1.0"/><meta data-rh=true name=twitter:card content=summary_large_image /><meta data-rh=true property=og:image content=https://docs.segark.com/es/img/centralops-social-card.png /><meta data-rh=true name=twitter:image content=https://docs.segark.com/es/img/centralops-social-card.png /><meta data-rh=true property=og:url content=https://docs.segark.com/es/normalization/operators-reference /><meta data-rh=true property=og:locale content=es /><meta data-rh=true property=og:locale:alternate content=pt_BR /><meta data-rh=true property=og:locale:alternate content=en /><meta data-rh=true name=docusaurus_locale content=es /><meta data-rh=true name=docsearch:language content=es /><meta data-rh=true name=docusaurus_version content=current /><meta data-rh=true name=docusaurus_tag content=docs-default-current /><meta data-rh=true name=docsearch:version content=current /><meta data-rh=true name=docsearch:docusaurus_tag content=docs-default-current /><meta data-rh=true property=og:title content="Referência de operadores de mapeamento | CentralOps"/><meta data-rh=true name=description content="Catálogo dos operadores disponíveis no editor de mapeamento — o que cada um faz, quando usar e o que acontece quando uma conversão falha."/><meta data-rh=true property=og:description content="Catálogo dos operadores disponíveis no editor de mapeamento — o que cada um faz, quando usar e o que acontece quando uma conversão falha."/><link data-rh=true rel=icon href=/es/img/favicon.ico /><link data-rh=true rel=canonical href=https://docs.segark.com/es/normalization/operators-reference /><link data-rh=true rel=alternate href=https://docs.segark.com/normalization/operators-reference hreflang=pt-BR /><link data-rh=true rel=alternate href=https://docs.segark.com/en/normalization/operators-reference hreflang=en /><link data-rh=true rel=alternate href=https://docs.segark.com/es/normalization/operators-reference hreflang=es /><link data-rh=true rel=alternate href=https://docs.segark.com/normalization/operators-reference hreflang=x-default /><script data-rh=true type=application/ld+json>{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","item":"https://docs.segark.com/es/normalization/operators-reference","name":"Referência de operadores de mapeamento","position":1}]}</script><link rel=stylesheet href=/es/assets/css/styles.65a61132.css /><script src=/es/assets/js/runtime~main.774ab3e5.js defer></script><script src=/es/assets/js/main.9750a519.js defer></script></head><body><svg style="display: none;"><defs>
+<symbol id=theme-svg-external-link viewBox="0 0 24 24"><path fill=currentColor d="M21 13v10h-21v-19h12v2h-10v15h17v-8h2zm3-12h-10.988l4.035 4-6.977 7.07 2.828 2.828 6.977-7.07 4.125 4.172v-11z"/></symbol>
+</defs></svg>
+<script>!function(){var t=function(){try{return new URLSearchParams(window.location.search).get("docusaurus-theme")}catch(t){}}()||function(){try{return window.localStorage.getItem("theme-4d2")}catch(t){}}();document.documentElement.setAttribute("data-theme",t||(window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light")),document.documentElement.setAttribute("data-theme-choice",t||"system")}(),function(){try{for(var[t,e]of new URLSearchParams(window.location.search).entries())if(t.startsWith("docusaurus-data-")){var a=t.replace("docusaurus-data-","data-");document.documentElement.setAttribute(a,e)}}catch(t){}}()</script><div id=__docusaurus><link rel=preload as=image href=/es/img/logo.svg /><div role=region aria-label="Saltar al contenido principal"><a class=skipToContent_fXgn href=#__docusaurus_skipToContent_fallback>Saltar al contenido principal</a></div><nav aria-label=Principal class="theme-layout-navbar navbar navbar--fixed-top"><div class=navbar__inner><div class="theme-layout-navbar-left navbar__items"><button aria-label="Alternar barra lateral" aria-expanded=false class="navbar__toggle clean-btn" type=button><svg width=30 height=30 viewBox="0 0 30 30" aria-hidden=true><path stroke=currentColor stroke-linecap=round stroke-miterlimit=10 stroke-width=2 d="M4 7h22M4 15h22M4 23h22"/></svg></button><a class=navbar__brand href=/es/><div class=navbar__logo><img src=/es/img/logo.svg alt=CentralOps class="themedComponent_mlkZ themedComponent--light_NVdE"/><img src=/es/img/logo.svg alt=CentralOps class="themedComponent_mlkZ themedComponent--dark_xIcU"/></div><b class="navbar__title text--truncate">CentralOps</b></a><a class="navbar__item navbar__link" href=/es/>Empezar</a><a class="navbar__item navbar__link" href=/es/outputs/overview>Salidas y Rutas</a><a class="navbar__item navbar__link" href=/es/operations/dashboard>Operación</a><a class="navbar__item navbar__link" href=/es/administration/users-and-roles>Administración</a><a aria-current=page class="navbar__item navbar__link navbar__link--active" href=/es/normalization/overview>Mappings</a><a class="navbar__item navbar__link" href=/es/runbooks/dispatcher>Runbooks</a></div><div class="theme-layout-navbar-right navbar__items navbar__items--right"><div class="navbar__item dropdown dropdown--hoverable dropdown--right"><a href=# aria-haspopup=true aria-expanded=false role=button class=navbar__link><svg viewBox="0 0 24 24" width=20 height=20 aria-hidden=true class=iconLanguage_nlXk><path fill=currentColor d="M12.87 15.07l-2.54-2.51.03-.03c1.74-1.94 2.98-4.17 3.71-6.53H17V4h-7V2H8v2H1v1.99h11.17C11.5 7.92 10.44 9.75 9 11.35 8.07 10.32 7.3 9.19 6.69 8h-2c.73 1.63 1.73 3.17 2.98 4.56l-5.09 5.02L4 19l5-5 3.11 3.11.76-2.04zM18.5 10h-2L12 22h2l1.12-3h4.75L21 22h2l-4.5-12zm-2.62 7l1.62-4.33L19.12 17h-3.24z"/></svg>Español</a><ul class=dropdown__menu><li><a href=/normalization/operators-reference target=_self rel="noopener noreferrer" class=dropdown__link lang=pt-BR>Português</a><li><a href=/en/normalization/operators-reference target=_self rel="noopener noreferrer" class=dropdown__link lang=en>English</a><li><a href=/es/normalization/operators-reference target=_self rel="noopener noreferrer" class="dropdown__link dropdown__link--active" lang=es>Español</a></ul></div><div class="toggle_vylO colorModeToggle_DEke"><button class="clean-btn toggleButton_gllP toggleButtonDisabled_aARS" type=button disabled title="system mode" aria-label="Cambiar entre modo oscuro y claro (actualmente system mode)"><svg viewBox="0 0 24 24" width=24 height=24 aria-hidden=true class="toggleIcon_g3eP lightToggleIcon_pyhR"><path fill=currentColor d="M12,9c1.65,0,3,1.35,3,3s-1.35,3-3,3s-3-1.35-3-3S10.35,9,12,9 M12,7c-2.76,0-5,2.24-5,5s2.24,5,5,5s5-2.24,5-5 S14.76,7,12,7L12,7z M2,13l2,0c0.55,0,1-0.45,1-1s-0.45-1-1-1l-2,0c-0.55,0-1,0.45-1,1S1.45,13,2,13z M20,13l2,0c0.55,0,1-0.45,1-1 s-0.45-1-1-1l-2,0c-0.55,0-1,0.45-1,1S19.45,13,20,13z M11,2v2c0,0.55,0.45,1,1,1s1-0.45,1-1V2c0-0.55-0.45-1-1-1S11,1.45,11,2z M11,20v2c0,0.55,0.45,1,1,1s1-0.45,1-1v-2c0-0.55-0.45-1-1-1C11.45,19,11,19.45,11,20z M5.99,4.58c-0.39-0.39-1.03-0.39-1.41,0 c-0.39,0.39-0.39,1.03,0,1.41l1.06,1.06c0.39,0.39,1.03,0.39,1.41,0s0.39-1.03,0-1.41L5.99,4.58z M18.36,16.95 c-0.39-0.39-1.03-0.39-1.41,0c-0.39,0.39-0.39,1.03,0,1.41l1.06,1.06c0.39,0.39,1.03,0.39,1.41,0c0.39-0.39,0.39-1.03,0-1.41 L18.36,16.95z M19.42,5.99c0.39-0.39,0.39-1.03,0-1.41c-0.39-0.39-1.03-0.39-1.41,0l-1.06,1.06c-0.39,0.39-0.39,1.03,0,1.41 s1.03,0.39,1.41,0L19.42,5.99z M7.05,18.36c0.39-0.39,0.39-1.03,0-1.41c-0.39-0.39-1.03-0.39-1.41,0l-1.06,1.06 c-0.39,0.39-0.39,1.03,0,1.41s1.03,0.39,1.41,0L7.05,18.36z"/></svg><svg viewBox="0 0 24 24" width=24 height=24 aria-hidden=true class="toggleIcon_g3eP darkToggleIcon_wfgR"><path fill=currentColor d="M9.37,5.51C9.19,6.15,9.1,6.82,9.1,7.5c0,4.08,3.32,7.4,7.4,7.4c0.68,0,1.35-0.09,1.99-0.27C17.45,17.19,14.93,19,12,19 c-3.86,0-7-3.14-7-7C5,9.07,6.81,6.55,9.37,5.51z M12,3c-4.97,0-9,4.03-9,9s4.03,9,9,9s9-4.03,9-9c0-0.46-0.04-0.92-0.1-1.36 c-0.98,1.37-2.58,2.26-4.4,2.26c-2.98,0-5.4-2.42-5.4-5.4c0-1.81,0.89-3.42,2.26-4.4C12.92,3.04,12.46,3,12,3L12,3z"/></svg><svg viewBox="0 0 24 24" width=24 height=24 aria-hidden=true class="toggleIcon_g3eP systemToggleIcon_QzmC"><path fill=currentColor d="m12 21c4.971 0 9-4.029 9-9s-4.029-9-9-9-9 4.029-9 9 4.029 9 9 9zm4.95-13.95c1.313 1.313 2.05 3.093 2.05 4.95s-0.738 3.637-2.05 4.95c-1.313 1.313-3.093 2.05-4.95 2.05v-14c1.857 0 3.637 0.737 4.95 2.05z"/></svg></button></div><div class=navbarSearchContainer_Bca1><div class=navbar__search><span aria-label="expand searchbar" role=button class=search-icon tabindex=0></span><input id=search_input_react type=search placeholder=Loading... aria-label=Search class="navbar__search-input search-bar" disabled/></div></div></div></div><div role=presentation class=navbar-sidebar__backdrop></div></nav><div id=__docusaurus_skipToContent_fallback class="theme-layout-main main-wrapper mainWrapper_z2l0"><div class=docsWrapper_hBAB><button aria-label="Volver al principio" class="clean-btn theme-back-to-top-button backToTopButton_sjWU" type=button></button><div class=docRoot_UBD9><aside class="theme-doc-sidebar-container docSidebarContainer_YfHR"><div class=sidebarViewport_aRkj><div class=sidebar_njMd><nav aria-label="Barra lateral de Documentos" class="menu thin-scrollbar menu_SIkG"><ul class="theme-doc-sidebar-menu menu__list"><li class="theme-doc-sidebar-item-category theme-doc-sidebar-item-category-level-1 menu__list-item"><div class=menu__list-item-collapsible><a class="categoryLink_byQd menu__link menu__link--sublist menu__link--sublist-caret menu__link--active" role=button aria-expanded=true href=/es/normalization/overview><span title="Mappings (CML)" class=categoryLinkLabel_W154>Mappings (CML)</span></a></div><ul class=menu__list><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/es/normalization/overview><span title="Normalização (visão geral)" class=linkLabel_WmDU>Normalização (visão geral)</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/es/normalization/cml><span title="CML — A linguagem de mapeamento" class=linkLabel_WmDU>CML — A linguagem de mapeamento</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/es/normalization/dsl-spec><span title="Editor de mapeamento — referência de campos" class=linkLabel_WmDU>Editor de mapeamento — referência de campos</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/es/normalization/cookbook><span title="Cookbook de mapeamento" class=linkLabel_WmDU>Cookbook de mapeamento</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class="menu__link menu__link--active" aria-current=page tabindex=0 href=/es/normalization/operators-reference><span title="Referência de operadores de mapeamento" class=linkLabel_WmDU>Referência de operadores de mapeamento</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/es/normalization/use-cases><span title="Casos de Uso — Guias Passo a Passo" class=linkLabel_WmDU>Casos de Uso — Guias Passo a Passo</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/es/normalization/troubleshooting><span title="Resolver problemas de mapeamento" class=linkLabel_WmDU>Resolver problemas de mapeamento</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/es/normalization/migration-v1-to-v2><span title="Atualizar um mapeamento para o formato novo" class=linkLabel_WmDU>Atualizar um mapeamento para o formato novo</span></a></ul><li class="theme-doc-sidebar-item-category theme-doc-sidebar-item-category-level-1 menu__list-item"><div class=menu__list-item-collapsible><a class="categoryLink_byQd menu__link menu__link--sublist menu__link--sublist-caret" role=button aria-expanded=true href=/es/pipelines/collectors><span title=Pipelines class=categoryLinkLabel_W154>Pipelines</span></a></div><ul class=menu__list><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/es/pipelines/collectors><span title=Collectors class=linkLabel_WmDU>Collectors</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/es/pipelines/collection-filters><span title="Filtro de coleta" class=linkLabel_WmDU>Filtro de coleta</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/es/pipelines/scheduler><span title="Agendamento de coletas" class=linkLabel_WmDU>Agendamento de coletas</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/es/pipelines/drift><span title="Campos novos detectados (drift)" class=linkLabel_WmDU>Campos novos detectados (drift)</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/es/pipelines/backfill><span title="Backfill (recoleta histórica)" class=linkLabel_WmDU>Backfill (recoleta histórica)</span></a></ul></ul></nav></div></div></aside><main class=docMainContainer_TBSr><div class="container padding-top--md padding-bottom--lg"><div class=row><div class="col docItemCol_VOVn"><div class=docItemContainer_Djhp><article><nav class="theme-doc-breadcrumbs breadcrumbsContainer_Z_bl" aria-label="Rastro de navegación"><ul class=breadcrumbs><li class=breadcrumbs__item><a aria-label="Página de Inicio" class=breadcrumbs__link href=/es/><svg viewBox="0 0 24 24" class=breadcrumbHomeIcon_YNFT><path d="M10 19v-5h4v5c0 .55.45 1 1 1h3c.55 0 1-.45 1-1v-7h1.7c.46 0 .68-.57.33-.87L12.67 3.6c-.38-.34-.96-.34-1.34 0l-8.36 7.53c-.34.3-.13.87.33.87H5v7c0 .55.45 1 1 1h3c.55 0 1-.45 1-1z" fill=currentColor /></svg></a><li class=breadcrumbs__item><span class=breadcrumbs__link>Mappings (CML)</span><li class="breadcrumbs__item breadcrumbs__item--active"><span class=breadcrumbs__link>Referência de operadores de mapeamento</span></ul></nav><div class="tocCollapsible_ETCw theme-doc-toc-mobile tocMobile_ITEo"><button type=button class="clean-btn tocCollapsibleButton_TO0P">En esta página</button></div><div class="theme-doc-markdown markdown"><header><h1>Referência de operadores de mapeamento</h1></header>
+<p>Operadores são as transformações que você aplica a cada campo ao montar um mapeamento de normalização. Eles convertem o valor que o fornecedor envia (uma data em texto, um "true"/"false", uma pontuação de 0 a 1) no formato que o CentralOps espera para busca e correlação.</p>
+<p>Você usa estes operadores no <strong>editor de mapeamento</strong>, dentro do menu <strong>Normalização -> Mappings</strong>, ao definir como cada campo de origem vira um campo normalizado.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=quando-usar>Quando usar<a href=#quando-usar class=hash-link aria-label="Enlace directo al Quando usar" title="Enlace directo al Quando usar" translate=no>​</a></h2>
+<ul>
+<li class=""><strong>Onboarding de um novo fornecedor.</strong> Você adicionou uma integração e os eventos chegam com datas em texto, severidade como string e pontuações em escala diferente. Use os operadores de conversão para colocar tudo no padrão antes de salvar o mapeamento.</li>
+<li class=""><strong>Eventos caindo na fila de quarentena.</strong> Em <strong>Normalização -> Quarentena</strong> você vê eventos rejeitados porque um campo não pôde ser convertido (ex.: uma data inválida). Esta página ajuda a identificar qual operador estava envolvido e como ajustar a regra.</li>
+<li class=""><strong>Refino de um mapeamento existente.</strong> Os alertas de um fornecedor estão com texto em caixa mista, espaços sobrando ou listas com itens repetidos, atrapalhando filtros e agrupamentos. Use operadores como minúscula, remover espaços ou remover duplicados para deixar os dados consistentes.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=o-que-acontece-quando-uma-conversão-falha>O que acontece quando uma conversão falha<a href=#o-que-acontece-quando-uma-conversão-falha class=hash-link aria-label="Enlace directo al O que acontece quando uma conversão falha" title="Enlace directo al O que acontece quando uma conversão falha" translate=no>​</a></h2>
+<p>Quando um operador não consegue converter um valor (por exemplo, uma data em formato inválido ou um texto onde se esperava um número), o evento é enviado para a <strong>fila de quarentena</strong> com o motivo da falha. Ele não é descartado: você pode revisar e reprocessar esses eventos em <strong>Normalização -> Quarentena</strong> depois de corrigir o mapeamento.</p>
+<p>Ao longo desta página, "vai para quarentena" significa exatamente isso — o evento fica retido e visível na tela de Quarentena até você ajustar a regra e reprocessar.</p>
+<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class=admonitionHeading_Gvgb><span class=admonitionIcon_Rf37><svg viewBox="0 0 12 16"><path fill-rule=evenodd d="M6.5 0C3.48 0 1 2.19 1 5c0 .92.55 2.25 1 3 1.34 2.25 1.78 2.78 2 4v1h5v-1c.22-1.22.66-1.75 2-4 .45-.75 1-2.08 1-3 0-2.81-2.48-5-5.5-5zm3.64 7.48c-.25.44-.47.8-.67 1.11-.86 1.41-1.25 2.06-1.45 3.23-.02.05-.02.11-.02.17H5c0-.06 0-.13-.02-.17-.2-1.17-.59-1.83-1.45-3.23-.2-.31-.42-.67-.67-1.11C2.44 6.78 2 5.65 2 5c0-2.2 2.02-4 4.5-4 1.22 0 2.36.42 3.22 1.19C10.55 2.94 11 3.94 11 5c0 .66-.44 1.78-.86 2.48zM4 14h5c-.23 1.14-1.3 2-2.5 2s-2.27-.86-2.5-2z"/></svg></span>Como testar antes de salvar</div><div class=admonitionContent_BuS1><p>O editor de mapeamento permite testar o resultado de uma regra contra eventos de exemplo antes de publicar. Use esse teste para confirmar que a conversão produz o valor esperado e não manda eventos para quarentena.</div></div>
+<hr/>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=operadores-de-conversão-de-valor>Operadores de conversão de valor<a href=#operadores-de-conversão-de-valor class=hash-link aria-label="Enlace directo al Operadores de conversão de valor" title="Enlace directo al Operadores de conversão de valor" translate=no>​</a></h2>
+<p>Convertem um valor de um tipo para outro (texto, número, data, lista, sim/não). São a categoria mais usada no dia a dia.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=data-em-texto---data-interna-iso_to_epoch>Data em texto -> data interna (<code>iso_to_epoch</code>)<a href=#data-em-texto---data-interna-iso_to_epoch class=hash-link aria-label="Enlace directo al data-em-texto---data-interna-iso_to_epoch" title="Enlace directo al data-em-texto---data-interna-iso_to_epoch" translate=no>​</a></h3>
+<p>Converte uma data/hora em texto (formato ISO-8601, como <code>2026-04-27T12:30:00Z</code>) para o formato de horário interno usado pelo CentralOps: <strong>milissegundos desde 1970</strong>, que é como o OCSF define o tipo <code>timestamp_t</code>. São 13 dígitos, não 10.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Situação<th>Resultado<tbody><tr><td><code>2026-04-27T12:30:00Z</code><td>convertido para o horário interno correspondente<tr><td>Data com fuso, ex. <code>...+05:00</code><td>ajustado corretamente para o fuso informado<tr><td>Fornecedor já envia número em <strong>milissegundos</strong><td>mantido como está<tr><td>Fornecedor já envia número em <strong>segundos</strong><td>multiplicado por 1000<tr><td>Campo vazio<td>vai para quarentena (defina um valor padrão antes da conversão para tratar ausência)</table>
+<p><strong>Como o CentralOps distingue segundos de milissegundos.</strong> Quando o fornecedor entrega o horário já como número, não há como saber a unidade pelo tipo — a CrowdStrike manda segundos, o CloudWatch manda milissegundos. O CentralOps usa o limiar de <code>100.000.000.000</code> (10<sup>11</sup>): abaixo dele o valor é lido como segundos e multiplicado por 1000; a partir dele já é considerado milissegundos. O limiar é seguro nas duas pontas — como segundos ele equivale ao ano 5138, e como milissegundos a março de 1973.</p>
+<p><strong>Atenção ao fuso horário.</strong> Se o fornecedor envia a data sem fuso (ex.: <code>2026-04-27T12:30:00</code>), o CentralOps assume UTC. Se o fornecedor opera em outro fuso, alinhe isso com o administrador da plataforma para evitar horários deslocados.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=data-interna---data-em-texto-epoch_to_iso>Data interna -> data em texto (<code>epoch_to_iso</code>)<a href=#data-interna---data-em-texto-epoch_to_iso class=hash-link aria-label="Enlace directo al data-interna---data-em-texto-epoch_to_iso" title="Enlace directo al data-interna---data-em-texto-epoch_to_iso" translate=no>​</a></h3>
+<p>Faz o caminho inverso: converte o horário interno (milissegundos) de volta para texto ISO-8601 com sufixo <code>Z</code>. Usa a <strong>mesma</strong> regra de limiar do <code>iso_to_epoch</code>, então um valor em segundos também é interpretado corretamente e a ida-e-volta entre os dois operadores fecha.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Situação<th>Resultado<tbody><tr><td>Horário interno<td><code>2026-04-27T12:30:00Z</code><tr><td>Campo vazio<td>vai para quarentena</table>
+<p>Se o fornecedor envia um horário em texto que não pode ser interpretado (ex.: <code>not-a-number</code>), o evento vai para quarentena.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=qualquer-valor---texto-to_str>Qualquer valor -> texto (<code>to_str</code>)<a href=#qualquer-valor---texto-to_str class=hash-link aria-label="Enlace directo al qualquer-valor---texto-to_str" title="Enlace directo al qualquer-valor---texto-to_str" translate=no>​</a></h3>
+<p>Converte qualquer valor preenchido em texto. Útil quando um campo numérico precisa virar texto para busca ou exibição.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Situação<th>Resultado<tbody><tr><td>Número <code>42</code><td><code>"42"</code><tr><td>Lista <code>[1, 2, 3]</code><td><code>"[1, 2, 3]"</code><tr><td>Campo vazio<td>vai para quarentena</table>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=valor---número-inteiro-to_int>Valor -> número inteiro (<code>to_int</code>)<a href=#valor---número-inteiro-to_int class=hash-link aria-label="Enlace directo al valor---número-inteiro-to_int" title="Enlace directo al valor---número-inteiro-to_int" translate=no>​</a></h3>
+<p>Converte texto ou número decimal em número inteiro.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Situação<th>Resultado<tbody><tr><td>Texto <code>"42"</code><td><code>42</code><tr><td>Decimal <code>42.7</code><td><code>42</code> (corta a parte decimal, não arredonda)<tr><td>Já inteiro<td>mantido<tr><td>Texto sem número, ex. <code>"not-a-number"</code><td>vai para quarentena</table>
+<p><strong>Atenção.</strong> Um campo do tipo sim/não não pode ser convertido diretamente em inteiro. Se precisar transformar sim/não em <code>1</code>/<code>0</code>, use o mapa de valores da própria regra (associando, por exemplo, <code>true</code> a <code>1</code> e <code>false</code> a <code>0</code>).</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=valor---simnão-to_bool>Valor -> sim/não (<code>to_bool</code>)<a href=#valor---simnão-to_bool class=hash-link aria-label="Enlace directo al valor---simnão-to_bool" title="Enlace directo al valor---simnão-to_bool" translate=no>​</a></h3>
+<p>Converte texto ou número em um valor verdadeiro/falso.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Entrada<th>Resultado<tbody><tr><td><code>true</code>, <code>1</code>, <code>yes</code>, <code>y</code> (sem distinção de maiúsculas)<td>verdadeiro<tr><td><code>false</code>, <code>0</code>, <code>no</code>, <code>n</code>, vazio<td>falso<tr><td>Número diferente de zero<td>verdadeiro<tr><td>Número <code>0</code><td>falso<tr><td>Texto ambíguo, ex. <code>"maybe"</code><td>vai para quarentena</table>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=pontuação-01---percentual-0100-score_to_percent>Pontuação 0–1 -> percentual 0–100 (<code>score_to_percent</code>)<a href=#pontuação-01---percentual-0100-score_to_percent class=hash-link aria-label="Enlace directo al pontuação-01---percentual-0100-score_to_percent" title="Enlace directo al pontuação-01---percentual-0100-score_to_percent" translate=no>​</a></h3>
+<p>Converte uma pontuação na escala de 0 a 1 (ex.: confiança de um alerta) para um percentual de 0 a 100.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Situação<th>Resultado<tbody><tr><td><code>0.75</code><td><code>75</code><tr><td>Valor já entre 0 e 100<td>mantido<tr><td>Valor fora do intervalo, ex. <code>150</code><td>vai para quarentena<tr><td>Campo vazio<td>permanece vazio (sem erro)</table>
+<p><strong>Atenção.</strong> Verifique primeiro a escala do fornecedor. Se ele já envia a pontuação de 0 a 100, não aplique esta conversão — ela espera valores entre 0 e 1 e rejeitaria o valor.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=texto-em-minúsculas-lowercase-e-maiúsculas-uppercase>Texto em minúsculas (<code>lowercase</code>) e maiúsculas (<code>uppercase</code>)<a href=#texto-em-minúsculas-lowercase-e-maiúsculas-uppercase class=hash-link aria-label="Enlace directo al texto-em-minúsculas-lowercase-e-maiúsculas-uppercase" title="Enlace directo al texto-em-minúsculas-lowercase-e-maiúsculas-uppercase" translate=no>​</a></h3>
+<p>Padronizam o caixa do texto. Muito úteis para deixar buscas e agrupamentos consistentes (ex.: <code>HTTP</code>, <code>Http</code> e <code>http</code> viram um único valor).</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Operador<th><code>HTTP</code> vira<th>Campo vazio<tbody><tr><td>Minúsculas<td><code>http</code><td>permanece vazio<tr><td>Maiúsculas<td><code>HTTP</code><td>permanece vazio</table>
+<p>Aplicar a um valor que não é texto (um número, por exemplo) envia o evento para quarentena.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=remover-espaços-nas-pontas-trim>Remover espaços nas pontas (<code>trim</code>)<a href=#remover-espaços-nas-pontas-trim class=hash-link aria-label="Enlace directo al remover-espaços-nas-pontas-trim" title="Enlace directo al remover-espaços-nas-pontas-trim" translate=no>​</a></h3>
+<p>Remove espaços em branco no início e no fim do texto. Espaços internos não são afetados.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Situação<th>Resultado<tbody><tr><td><code>"  exemplo  "</code><td><code>"exemplo"</code><tr><td>Campo vazio<td>permanece vazio</table>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=envolver-em-lista-to_array>Envolver em lista (<code>to_array</code>)<a href=#envolver-em-lista-to_array class=hash-link aria-label="Enlace directo al envolver-em-lista-to_array" title="Enlace directo al envolver-em-lista-to_array" translate=no>​</a></h3>
+<p>Transforma um valor único em uma lista de um item. Se o valor já é uma lista, mantém como está. Útil para campos OCSF que sempre esperam uma lista.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Situação<th>Resultado<tbody><tr><td><code>"exemplo"</code><td><code>["exemplo"]</code><tr><td><code>["a", "b"]</code><td><code>["a", "b"]</code><tr><td>Campo vazio<td>lista vazia <code>[]</code></table>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=remover-duplicados-dedup>Remover duplicados (<code>dedup</code>)<a href=#remover-duplicados-dedup class=hash-link aria-label="Enlace directo al remover-duplicados-dedup" title="Enlace directo al remover-duplicados-dedup" translate=no>​</a></h3>
+<p>Remove itens repetidos de uma lista, preservando a ordem da primeira ocorrência.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Situação<th>Resultado<tbody><tr><td><code>[1, 2, 1, 3]</code><td><code>[1, 2, 3]</code><tr><td>Lista vazia<td>lista vazia<tr><td>Campo vazio<td>permanece vazio</table>
+<p><strong>Atenção.</strong> Para listas de valores simples (textos, números) a remoção funciona normalmente. Para listas de itens compostos, prefira a regra de construção de lista (descrita mais abaixo), que oferece controle fino sobre por qual campo deduplicar.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=táticas-mitre-do-sophos---formato-ocsf-mitre_tactic_to_ocsf>Táticas MITRE do Sophos -> formato OCSF (<code>mitre_tactic_to_ocsf</code>)<a href=#táticas-mitre-do-sophos---formato-ocsf-mitre_tactic_to_ocsf class=hash-link aria-label="Enlace directo al táticas-mitre-do-sophos---formato-ocsf-mitre_tactic_to_ocsf" title="Enlace directo al táticas-mitre-do-sophos---formato-ocsf-mitre_tactic_to_ocsf" translate=no>​</a></h3>
+<p>Converte as táticas MITRE no formato que a integração Sophos envia para o formato OCSF usado pelo CentralOps.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Situação<th>Resultado<tbody><tr><td>Táticas no formato Sophos<td>convertidas para o formato OCSF<tr><td>Itens sem tática preenchida<td>descartados silenciosamente<tr><td>Itens incompletos (faltando identificador ou nome)<td>vai para quarentena<tr><td>Campo vazio<td>permanece vazio</table>
+<p><strong>Atenção.</strong> Este operador é específico do formato da integração Sophos. Se outro fornecedor envia táticas MITRE em formato diferente, ele não se aplica — fale com o administrador da plataforma sobre o suporte ao formato desse fornecedor.</p>
+<hr/>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=operadores-de-condição>Operadores de condição<a href=#operadores-de-condição class=hash-link aria-label="Enlace directo al Operadores de condição" title="Enlace directo al Operadores de condição" translate=no>​</a></h2>
+<p>Permitem aplicar uma regra apenas quando uma condição é satisfeita. Se a condição for falsa, a regra é ignorada para aquele evento. Use-os quando um campo só deve ser preenchido em certos casos (ex.: definir a direção do tráfego apenas quando o fornecedor informa que é de saída).</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=campo-existe-exists>Campo existe (<code>exists</code>)<a href=#campo-existe-exists class=hash-link aria-label="Enlace directo al campo-existe-exists" title="Enlace directo al campo-existe-exists" translate=no>​</a></h3>
+<p>Verdadeiro quando o campo de origem está preenchido (não vazio). Útil para só copiar um valor quando ele realmente vem no evento.</p>
+<ul>
+<li class="">Lista ou objeto vazio contam como "existe".</li>
+<li class="">Campo ausente ou vazio conta como "não existe".</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=campo-é-igual-a-equals>Campo é igual a (<code>equals</code>)<a href=#campo-é-igual-a-equals class=hash-link aria-label="Enlace directo al campo-é-igual-a-equals" title="Enlace directo al campo-é-igual-a-equals" translate=no>​</a></h3>
+<p>Verdadeiro quando o campo de origem é exatamente igual a um valor que você define.</p>
+<ul>
+<li class="">A comparação distingue tipo e maiúsculas: <code>"Outbound"</code> é diferente de <code>"outbound"</code>, e o número <code>3</code> é diferente do texto <code>"3"</code>.</li>
+<li class="">Se o campo está vazio, a condição é falsa.</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=campo-está-em-uma-lista-in>Campo está em uma lista (<code>in</code>)<a href=#campo-está-em-uma-lista-in class=hash-link aria-label="Enlace directo al campo-está-em-uma-lista-in" title="Enlace directo al campo-está-em-uma-lista-in" translate=no>​</a></h3>
+<p>Verdadeiro quando o valor do campo é um dos valores de uma lista que você define (ex.: severidade <code>critical</code> ou <code>high</code>).</p>
+<ul>
+<li class="">A ordem dos valores na lista não importa.</li>
+<li class="">Se o campo está vazio, a condição é falsa.</li>
+<li class="">A lista de valores é fixa, definida na própria regra.</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=negação-not>Negação (<code>not</code>)<a href=#negação-not class=hash-link aria-label="Enlace directo al negação-not" title="Enlace directo al negação-not" translate=no>​</a></h3>
+<p>Inverte uma condição: a regra se aplica quando a condição interna é falsa. Por exemplo, "preencher a direção do tráfego apenas quando ela não for <code>unknown</code>".</p>
+<p>Evite encadear negações dentro de negações — fica difícil de ler. Prefira reescrever a condição de forma direta.</p>
+<hr/>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=operador-de-pré-processamento>Operador de pré-processamento<a href=#operador-de-pré-processamento class=hash-link aria-label="Enlace directo al Operador de pré-processamento" title="Enlace directo al Operador de pré-processamento" translate=no>​</a></h2>
+<p>Roda uma vez por evento, antes das demais regras, para preparar dados que estão "embrulhados" dentro de um campo.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=interpretar-texto-json-json_parse>Interpretar texto JSON (<code>json_parse</code>)<a href=#interpretar-texto-json-json_parse class=hash-link aria-label="Enlace directo al interpretar-texto-json-json_parse" title="Enlace directo al interpretar-texto-json-json_parse" translate=no>​</a></h3>
+<p>Alguns fornecedores enviam parte do alerta como um texto JSON dentro de um único campo. Este operador interpreta esse texto e expõe os campos internos para que você possa mapeá-los normalmente nas regras seguintes.</p>
+<p>Ao configurar, você indica:</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Campo<th>Para que serve<tbody><tr><td>Campo de origem<td>de onde extrair o texto JSON dentro do evento bruto<tr><td>Destino<td>onde guardar o resultado interpretado, para uso nas regras seguintes<tr><td>Modo tolerante<td>quando ligado, textos com erro são ignorados em silêncio; quando desligado, um texto inválido manda o evento para quarentena</table>
+<p><strong>Comportamento:</strong></p>
+<ul>
+<li class="">Campo vazio na origem: nada é interpretado, segue vazio.</li>
+<li class="">Texto JSON válido: os campos internos ficam disponíveis para as regras.</li>
+<li class="">Texto malformado: vai para quarentena (ou é ignorado, se o modo tolerante estiver ligado).</li>
+<li class="">Eventos com payload JSON muito grande são rejeitados automaticamente por proteção da plataforma, mesmo no modo tolerante. Esse limite é definido pela equipe de infraestrutura no momento do deploy. Se precisar alterá-lo, fale com o administrador da plataforma.</li>
+</ul>
+<p><strong>Recomendações:</strong></p>
+<ul>
+<li class="">Ative o modo tolerante para fornecedores com problemas ocasionais de codificação, para não quarentenar eventos por causa de um registro isolado.</li>
+<li class="">Se você usa mais de um pré-processamento no mesmo mapeamento, dê destinos diferentes a cada um para evitar conflito.</li>
+</ul>
+<hr/>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=tipos-de-regra>Tipos de regra<a href=#tipos-de-regra class=hash-link aria-label="Enlace directo al Tipos de regra" title="Enlace directo al Tipos de regra" translate=no>​</a></h2>
+<p>Além dos operadores acima, uma regra pode ser de um destes tipos.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=regra-simples-valor-único>Regra simples (valor único)<a href=#regra-simples-valor-único class=hash-link aria-label="Enlace directo al Regra simples (valor único)" title="Enlace directo al Regra simples (valor único)" translate=no>​</a></h3>
+<p>É o tipo padrão. Preenche um campo normalizado com um único valor (texto, número, data, sim/não), opcionalmente aplicando uma conversão.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=regra-de-construção-de-lista-array_builder>Regra de construção de lista (<code>array_builder</code>)<a href=#regra-de-construção-de-lista-array_builder class=hash-link aria-label="Enlace directo al regra-de-construção-de-lista-array_builder" title="Enlace directo al regra-de-construção-de-lista-array_builder" translate=no>​</a></h3>
+<p>Tipo especial para montar listas de observáveis OCSF (endereços IP, e-mails, hashes etc.) a partir de várias origens em uma única regra.</p>
+<p>Em cada item da lista você define o nome e o tipo do observável, de onde extrair o valor e, opcionalmente:</p>
+<ul>
+<li class=""><strong>Ignorar vazios</strong> — não inclui itens cujo valor de origem está vazio (ligado por padrão).</li>
+<li class=""><strong>Expandir</strong> — quando a origem é uma lista, gera um observável por elemento.</li>
+<li class=""><strong>Remover duplicados por campo</strong> — evita observáveis repetidos.</li>
+</ul>
+<p>Itens desse tipo de regra nunca mandam o evento para quarentena por valor ausente: valores vazios simplesmente não entram na lista.</p>
+<p>Para um passo a passo completo, veja a <a class="" href=/es/normalization/cookbook>receita de construção de observáveis no cookbook</a>.</p>
+<hr/>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=como-encontrar-o-operador-certo>Como encontrar o operador certo<a href=#como-encontrar-o-operador-certo class=hash-link aria-label="Enlace directo al Como encontrar o operador certo" title="Enlace directo al Como encontrar o operador certo" translate=no>​</a></h2>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Você precisa...<th>Use<th>Categoria<tbody><tr><td>Corrigir/converter data em texto para o horário interno<td><code>iso_to_epoch</code><td>conversão<tr><td>Converter horário interno para texto ISO<td><code>epoch_to_iso</code><td>conversão<tr><td>Transformar número em texto para busca<td><code>to_str</code><td>conversão<tr><td>Garantir que o valor é um número inteiro<td><code>to_int</code><td>conversão<tr><td>Interpretar <code>true</code>/<code>false</code> como sim/não<td><code>to_bool</code><td>conversão<tr><td>Converter pontuação 0–1 para percentual 0–100<td><code>score_to_percent</code><td>conversão<tr><td>Padronizar maiúsculas/minúsculas para busca<td><code>lowercase</code> / <code>uppercase</code><td>conversão<tr><td>Remover espaços nas pontas<td><code>trim</code><td>conversão<tr><td>Envolver um valor único em lista<td><code>to_array</code><td>conversão<tr><td>Remover itens repetidos de uma lista<td><code>dedup</code><td>conversão<tr><td>Converter táticas MITRE da Sophos para OCSF<td><code>mitre_tactic_to_ocsf</code><td>conversão<tr><td>Aplicar a regra só se o campo existir<td><code>exists</code><td>condição<tr><td>Aplicar a regra só se o campo for igual a um valor<td><code>equals</code><td>condição<tr><td>Aplicar a regra só se o campo estiver em uma lista<td><code>in</code><td>condição<tr><td>Aplicar a regra só se uma condição NÃO for satisfeita<td><code>not</code><td>condição<tr><td>Interpretar um texto JSON embutido no evento<td><code>json_parse</code><td>pré-processamento<tr><td>Montar uma lista de observáveis OCSF<td><code>array_builder</code><td>tipo de regra</table></div></article><nav class="docusaurus-mt-lg pagination-nav" aria-label="Página del documento"><a class="pagination-nav__link pagination-nav__link--prev" href=/es/normalization/cookbook><div class=pagination-nav__sublabel>Anterior</div><div class=pagination-nav__label>Cookbook de mapeamento</div></a><a class="pagination-nav__link pagination-nav__link--next" href=/es/normalization/use-cases><div class=pagination-nav__sublabel>Siguiente</div><div class=pagination-nav__label>Casos de Uso — Guias Passo a Passo</div></a></nav></div></div><div class="col col--3"><div class="tableOfContents_bqdL thin-scrollbar theme-doc-toc-desktop"><ul class="table-of-contents table-of-contents__left-border"><li><a href=#quando-usar class="table-of-contents__link toc-highlight">Quando usar</a><li><a href=#o-que-acontece-quando-uma-conversão-falha class="table-of-contents__link toc-highlight">O que acontece quando uma conversão falha</a><li><a href=#operadores-de-conversão-de-valor class="table-of-contents__link toc-highlight">Operadores de conversão de valor</a><ul><li><a href=#data-em-texto---data-interna-iso_to_epoch class="table-of-contents__link toc-highlight">Data em texto -> data interna (<code>iso_to_epoch</code>)</a><li><a href=#data-interna---data-em-texto-epoch_to_iso class="table-of-contents__link toc-highlight">Data interna -> data em texto (<code>epoch_to_iso</code>)</a><li><a href=#qualquer-valor---texto-to_str class="table-of-contents__link toc-highlight">Qualquer valor -> texto (<code>to_str</code>)</a><li><a href=#valor---número-inteiro-to_int class="table-of-contents__link toc-highlight">Valor -> número inteiro (<code>to_int</code>)</a><li><a href=#valor---simnão-to_bool class="table-of-contents__link toc-highlight">Valor -> sim/não (<code>to_bool</code>)</a><li><a href=#pontuação-01---percentual-0100-score_to_percent class="table-of-contents__link toc-highlight">Pontuação 0–1 -> percentual 0–100 (<code>score_to_percent</code>)</a><li><a href=#texto-em-minúsculas-lowercase-e-maiúsculas-uppercase class="table-of-contents__link toc-highlight">Texto em minúsculas (<code>lowercase</code>) e maiúsculas (<code>uppercase</code>)</a><li><a href=#remover-espaços-nas-pontas-trim class="table-of-contents__link toc-highlight">Remover espaços nas pontas (<code>trim</code>)</a><li><a href=#envolver-em-lista-to_array class="table-of-contents__link toc-highlight">Envolver em lista (<code>to_array</code>)</a><li><a href=#remover-duplicados-dedup class="table-of-contents__link toc-highlight">Remover duplicados (<code>dedup</code>)</a><li><a href=#táticas-mitre-do-sophos---formato-ocsf-mitre_tactic_to_ocsf class="table-of-contents__link toc-highlight">Táticas MITRE do Sophos -> formato OCSF (<code>mitre_tactic_to_ocsf</code>)</a></ul><li><a href=#operadores-de-condição class="table-of-contents__link toc-highlight">Operadores de condição</a><ul><li><a href=#campo-existe-exists class="table-of-contents__link toc-highlight">Campo existe (<code>exists</code>)</a><li><a href=#campo-é-igual-a-equals class="table-of-contents__link toc-highlight">Campo é igual a (<code>equals</code>)</a><li><a href=#campo-está-em-uma-lista-in class="table-of-contents__link toc-highlight">Campo está em uma lista (<code>in</code>)</a><li><a href=#negação-not class="table-of-contents__link toc-highlight">Negação (<code>not</code>)</a></ul><li><a href=#operador-de-pré-processamento class="table-of-contents__link toc-highlight">Operador de pré-processamento</a><ul><li><a href=#interpretar-texto-json-json_parse class="table-of-contents__link toc-highlight">Interpretar texto JSON (<code>json_parse</code>)</a></ul><li><a href=#tipos-de-regra class="table-of-contents__link toc-highlight">Tipos de regra</a><ul><li><a href=#regra-simples-valor-único class="table-of-contents__link toc-highlight">Regra simples (valor único)</a><li><a href=#regra-de-construção-de-lista-array_builder class="table-of-contents__link toc-highlight">Regra de construção de lista (<code>array_builder</code>)</a></ul><li><a href=#como-encontrar-o-operador-certo class="table-of-contents__link toc-highlight">Como encontrar o operador certo</a></ul></div></div></div></div></main></div></div></div><footer class="theme-layout-footer footer footer--dark"><div class="container container-fluid"><div class="row footer__links"><div class="theme-layout-footer-column col footer__col"><div class=footer__title>Documentação</div><ul class="footer__items clean-list"><li class=footer__item><a class=footer__link-item href=/es/getting-started/overview>Começar</a><li class=footer__item><a class=footer__link-item href=/es/operations/dashboard>Operação diária</a><li class=footer__item><a class=footer__link-item href=/es/normalization/overview>Mappings (CML)</a><li class=footer__item><a class=footer__link-item href=/es/runbooks/dispatcher>Runbooks</a></ul></div><div class="theme-layout-footer-column col footer__col"><div class=footer__title>Plataforma</div><ul class="footer__items clean-list"><li class=footer__item><a class=footer__link-item href=/es/concepts/architecture>Arquitetura</a><li class=footer__item><a class=footer__link-item href=/es/concepts/rbac>RBAC</a><li class=footer__item><a class=footer__link-item href=/es/integrations/overview>Integrações</a><li class=footer__item><a class=footer__link-item href=/es/compliance/retention>Compliance</a></ul></div><div class="theme-layout-footer-column col footer__col"><div class=footer__title>Recursos</div><ul class="footer__items clean-list"><li class=footer__item><a class=footer__link-item href=/es/getting-started/quickstart>Quickstart</a><li class=footer__item><a class=footer__link-item href=/es/normalization/cookbook>DSL Cookbook</a><li class=footer__item><a class=footer__link-item href=/es/normalization/troubleshooting>Troubleshooting</a></ul></div></div><div class="footer__bottom text--center"><div class=footer__copyright>Copyright © 2026 CentralOps. Built with Docusaurus.</div></div></div></footer></div></body>

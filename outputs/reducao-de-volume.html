@@ -1,0 +1,224 @@
+<!doctype html><html lang=pt-BR dir=ltr class="docs-wrapper plugin-docs plugin-id-default docs-version-current docs-doc-page docs-doc-id-outputs/reducao-de-volume" data-has-hydrated=false><head><meta charset=UTF-8><meta name=generator content="Docusaurus v3.10.0"><title data-rh=true>Redução de volume | CentralOps</title><meta data-rh=true name=viewport content="width=device-width, initial-scale=1.0"/><meta data-rh=true name=twitter:card content=summary_large_image /><meta data-rh=true property=og:image content=https://docs.segark.com/img/centralops-social-card.png /><meta data-rh=true name=twitter:image content=https://docs.segark.com/img/centralops-social-card.png /><meta data-rh=true property=og:url content=https://docs.segark.com/outputs/reducao-de-volume /><meta data-rh=true property=og:locale content=pt_BR /><meta data-rh=true property=og:locale:alternate content=en /><meta data-rh=true property=og:locale:alternate content=es /><meta data-rh=true name=docusaurus_locale content=pt-BR /><meta data-rh=true name=docsearch:language content=pt-BR /><meta data-rh=true name=docusaurus_version content=current /><meta data-rh=true name=docusaurus_tag content=docs-default-current /><meta data-rh=true name=docsearch:version content=current /><meta data-rh=true name=docsearch:docusaurus_tag content=docs-default-current /><meta data-rh=true property=og:title content="Redução de volume | CentralOps"/><meta data-rh=true name=description content="As seis alavancas que reduzem o volume entregue — o que cada uma corta, onde se configura, se respeita a proteção de detecção e onde a economia aparece."/><meta data-rh=true property=og:description content="As seis alavancas que reduzem o volume entregue — o que cada uma corta, onde se configura, se respeita a proteção de detecção e onde a economia aparece."/><link data-rh=true rel=icon href=/img/favicon.ico /><link data-rh=true rel=canonical href=https://docs.segark.com/outputs/reducao-de-volume /><link data-rh=true rel=alternate href=https://docs.segark.com/outputs/reducao-de-volume hreflang=pt-BR /><link data-rh=true rel=alternate href=https://docs.segark.com/en/outputs/reducao-de-volume hreflang=en /><link data-rh=true rel=alternate href=https://docs.segark.com/es/outputs/reducao-de-volume hreflang=es /><link data-rh=true rel=alternate href=https://docs.segark.com/outputs/reducao-de-volume hreflang=x-default /><script data-rh=true type=application/ld+json>{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","item":"https://docs.segark.com/outputs/reducao-de-volume","name":"Redução de volume","position":1}]}</script><link rel=stylesheet href=/assets/css/styles.65a61132.css /><script src=/assets/js/runtime~main.08d80435.js defer></script><script src=/assets/js/main.9390f800.js defer></script></head><body><svg style="display: none;"><defs>
+<symbol id=theme-svg-external-link viewBox="0 0 24 24"><path fill=currentColor d="M21 13v10h-21v-19h12v2h-10v15h17v-8h2zm3-12h-10.988l4.035 4-6.977 7.07 2.828 2.828 6.977-7.07 4.125 4.172v-11z"/></symbol>
+</defs></svg>
+<script>!function(){var t=function(){try{return new URLSearchParams(window.location.search).get("docusaurus-theme")}catch(t){}}()||function(){try{return window.localStorage.getItem("theme-cee")}catch(t){}}();document.documentElement.setAttribute("data-theme",t||(window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light")),document.documentElement.setAttribute("data-theme-choice",t||"system")}(),function(){try{for(var[t,e]of new URLSearchParams(window.location.search).entries())if(t.startsWith("docusaurus-data-")){var a=t.replace("docusaurus-data-","data-");document.documentElement.setAttribute(a,e)}}catch(t){}}()</script><div id=__docusaurus><link rel=preload as=image href=/img/logo.svg /><div role=region aria-label="Pular para o conteúdo principal"><a class=skipToContent_fXgn href=#__docusaurus_skipToContent_fallback>Pular para o conteúdo principal</a></div><nav aria-label="Navegação principal" class="theme-layout-navbar navbar navbar--fixed-top"><div class=navbar__inner><div class="theme-layout-navbar-left navbar__items"><button aria-label="Alternar painel de navegação" aria-expanded=false class="navbar__toggle clean-btn" type=button><svg width=30 height=30 viewBox="0 0 30 30" aria-hidden=true><path stroke=currentColor stroke-linecap=round stroke-miterlimit=10 stroke-width=2 d="M4 7h22M4 15h22M4 23h22"/></svg></button><a class=navbar__brand href=/><div class=navbar__logo><img src=/img/logo.svg alt=CentralOps class="themedComponent_mlkZ themedComponent--light_NVdE"/><img src=/img/logo.svg alt=CentralOps class="themedComponent_mlkZ themedComponent--dark_xIcU"/></div><b class="navbar__title text--truncate">CentralOps</b></a><a class="navbar__item navbar__link" href=/>Começar</a><a aria-current=page class="navbar__item navbar__link navbar__link--active" href=/outputs/overview>Saídas & Rotas</a><a class="navbar__item navbar__link" href=/operations/dashboard>Operação</a><a class="navbar__item navbar__link" href=/administration/users-and-roles>Administração</a><a class="navbar__item navbar__link" href=/normalization/overview>Mappings</a><a class="navbar__item navbar__link" href=/runbooks/dispatcher>Runbooks</a></div><div class="theme-layout-navbar-right navbar__items navbar__items--right"><div class="navbar__item dropdown dropdown--hoverable dropdown--right"><a href=# aria-haspopup=true aria-expanded=false role=button class=navbar__link><svg viewBox="0 0 24 24" width=20 height=20 aria-hidden=true class=iconLanguage_nlXk><path fill=currentColor d="M12.87 15.07l-2.54-2.51.03-.03c1.74-1.94 2.98-4.17 3.71-6.53H17V4h-7V2H8v2H1v1.99h11.17C11.5 7.92 10.44 9.75 9 11.35 8.07 10.32 7.3 9.19 6.69 8h-2c.73 1.63 1.73 3.17 2.98 4.56l-5.09 5.02L4 19l5-5 3.11 3.11.76-2.04zM18.5 10h-2L12 22h2l1.12-3h4.75L21 22h2l-4.5-12zm-2.62 7l1.62-4.33L19.12 17h-3.24z"/></svg>Português</a><ul class=dropdown__menu><li><a href=/outputs/reducao-de-volume target=_self rel="noopener noreferrer" class="dropdown__link dropdown__link--active" lang=pt-BR>Português</a><li><a href=/en/outputs/reducao-de-volume target=_self rel="noopener noreferrer" class=dropdown__link lang=en>English</a><li><a href=/es/outputs/reducao-de-volume target=_self rel="noopener noreferrer" class=dropdown__link lang=es>Español</a></ul></div><div class="toggle_vylO colorModeToggle_DEke"><button class="clean-btn toggleButton_gllP toggleButtonDisabled_aARS" type=button disabled title="modo do sistema" aria-label="Mudar entre modo claro e escuro (modo do sistema está ativo)"><svg viewBox="0 0 24 24" width=24 height=24 aria-hidden=true class="toggleIcon_g3eP lightToggleIcon_pyhR"><path fill=currentColor d="M12,9c1.65,0,3,1.35,3,3s-1.35,3-3,3s-3-1.35-3-3S10.35,9,12,9 M12,7c-2.76,0-5,2.24-5,5s2.24,5,5,5s5-2.24,5-5 S14.76,7,12,7L12,7z M2,13l2,0c0.55,0,1-0.45,1-1s-0.45-1-1-1l-2,0c-0.55,0-1,0.45-1,1S1.45,13,2,13z M20,13l2,0c0.55,0,1-0.45,1-1 s-0.45-1-1-1l-2,0c-0.55,0-1,0.45-1,1S19.45,13,20,13z M11,2v2c0,0.55,0.45,1,1,1s1-0.45,1-1V2c0-0.55-0.45-1-1-1S11,1.45,11,2z M11,20v2c0,0.55,0.45,1,1,1s1-0.45,1-1v-2c0-0.55-0.45-1-1-1C11.45,19,11,19.45,11,20z M5.99,4.58c-0.39-0.39-1.03-0.39-1.41,0 c-0.39,0.39-0.39,1.03,0,1.41l1.06,1.06c0.39,0.39,1.03,0.39,1.41,0s0.39-1.03,0-1.41L5.99,4.58z M18.36,16.95 c-0.39-0.39-1.03-0.39-1.41,0c-0.39,0.39-0.39,1.03,0,1.41l1.06,1.06c0.39,0.39,1.03,0.39,1.41,0c0.39-0.39,0.39-1.03,0-1.41 L18.36,16.95z M19.42,5.99c0.39-0.39,0.39-1.03,0-1.41c-0.39-0.39-1.03-0.39-1.41,0l-1.06,1.06c-0.39,0.39-0.39,1.03,0,1.41 s1.03,0.39,1.41,0L19.42,5.99z M7.05,18.36c0.39-0.39,0.39-1.03,0-1.41c-0.39-0.39-1.03-0.39-1.41,0l-1.06,1.06 c-0.39,0.39-0.39,1.03,0,1.41s1.03,0.39,1.41,0L7.05,18.36z"/></svg><svg viewBox="0 0 24 24" width=24 height=24 aria-hidden=true class="toggleIcon_g3eP darkToggleIcon_wfgR"><path fill=currentColor d="M9.37,5.51C9.19,6.15,9.1,6.82,9.1,7.5c0,4.08,3.32,7.4,7.4,7.4c0.68,0,1.35-0.09,1.99-0.27C17.45,17.19,14.93,19,12,19 c-3.86,0-7-3.14-7-7C5,9.07,6.81,6.55,9.37,5.51z M12,3c-4.97,0-9,4.03-9,9s4.03,9,9,9s9-4.03,9-9c0-0.46-0.04-0.92-0.1-1.36 c-0.98,1.37-2.58,2.26-4.4,2.26c-2.98,0-5.4-2.42-5.4-5.4c0-1.81,0.89-3.42,2.26-4.4C12.92,3.04,12.46,3,12,3L12,3z"/></svg><svg viewBox="0 0 24 24" width=24 height=24 aria-hidden=true class="toggleIcon_g3eP systemToggleIcon_QzmC"><path fill=currentColor d="m12 21c4.971 0 9-4.029 9-9s-4.029-9-9-9-9 4.029-9 9 4.029 9 9 9zm4.95-13.95c1.313 1.313 2.05 3.093 2.05 4.95s-0.738 3.637-2.05 4.95c-1.313 1.313-3.093 2.05-4.95 2.05v-14c1.857 0 3.637 0.737 4.95 2.05z"/></svg></button></div><div class=navbarSearchContainer_Bca1><div class=navbar__search><span aria-label="expand searchbar" role=button class=search-icon tabindex=0></span><input id=search_input_react type=search placeholder=Loading... aria-label=Search class="navbar__search-input search-bar" disabled/></div></div></div></div><div role=presentation class=navbar-sidebar__backdrop></div></nav><div id=__docusaurus_skipToContent_fallback class="theme-layout-main main-wrapper mainWrapper_z2l0"><div class=docsWrapper_hBAB><button aria-label="Voltar para o topo" class="clean-btn theme-back-to-top-button backToTopButton_sjWU" type=button></button><div class=docRoot_UBD9><aside class="theme-doc-sidebar-container docSidebarContainer_YfHR"><div class=sidebarViewport_aRkj><div class=sidebar_njMd><nav aria-label="Painel lateral de documentos" class="menu thin-scrollbar menu_SIkG"><ul class="theme-doc-sidebar-menu menu__list"><li class="theme-doc-sidebar-item-category theme-doc-sidebar-item-category-level-1 menu__list-item"><div class=menu__list-item-collapsible><a class="categoryLink_byQd menu__link menu__link--sublist menu__link--sublist-caret menu__link--active" role=button aria-expanded=true href=/outputs/overview><span title="Saídas & Roteamento" class=categoryLinkLabel_W154>Saídas & Roteamento</span></a></div><ul class=menu__list><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/outputs/overview><span title="Saídas e Roteamento (visão geral)" class=linkLabel_WmDU>Saídas e Roteamento (visão geral)</span></a><li class="theme-doc-sidebar-item-category theme-doc-sidebar-item-category-level-2 menu__list-item"><div class=menu__list-item-collapsible><a class="categoryLink_byQd menu__link menu__link--sublist menu__link--sublist-caret" role=button aria-expanded=true tabindex=0 href=/outputs/destinations><span title=Destinos class=categoryLinkLabel_W154>Destinos</span></a></div><ul class=menu__list><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class=menu__link tabindex=0 href=/outputs/destinations><span title="Destinos (catálogo e como configurar)" class=linkLabel_WmDU>Destinos (catálogo e como configurar)</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class=menu__link tabindex=0 href=/outputs/destination-wazuh-syslog><span title="Destino: Syslog e JSONL" class=linkLabel_WmDU>Destino: Syslog e JSONL</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class=menu__link tabindex=0 href=/outputs/destination-splunk-hec><span title="Destino: Splunk HEC" class=linkLabel_WmDU>Destino: Splunk HEC</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class=menu__link tabindex=0 href=/outputs/destination-elastic><span title="Destino: Elasticsearch / OpenSearch" class=linkLabel_WmDU>Destino: Elasticsearch / OpenSearch</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class=menu__link tabindex=0 href=/outputs/destination-clickhouse><span title="Destino: ClickHouse" class=linkLabel_WmDU>Destino: ClickHouse</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class=menu__link tabindex=0 href=/outputs/destination-crowdstrike-ngsiem><span title="Destino: CrowdStrike Falcon Next-Gen SIEM" class=linkLabel_WmDU>Destino: CrowdStrike Falcon Next-Gen SIEM</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class=menu__link tabindex=0 href=/outputs/destination-crowdstrike-logscale><span title="Destino: CrowdStrike Falcon LogScale" class=linkLabel_WmDU>Destino: CrowdStrike Falcon LogScale</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class=menu__link tabindex=0 href=/outputs/destination-s3><span title="Destino: S3 / Object Store (data lake)" class=linkLabel_WmDU>Destino: S3 / Object Store (data lake)</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class=menu__link tabindex=0 href=/outputs/destination-sentinel><span title="Destino: Microsoft Sentinel" class=linkLabel_WmDU>Destino: Microsoft Sentinel</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class=menu__link tabindex=0 href=/outputs/destination-kafka><span title="Destino: Apache Kafka" class=linkLabel_WmDU>Destino: Apache Kafka</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class=menu__link tabindex=0 href=/outputs/destination-otlp><span title="Destino: OTLP" class=linkLabel_WmDU>Destino: OTLP</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class=menu__link tabindex=0 href=/outputs/destination-operations><span title="Operar destinos (saúde, fila de reenvio, métricas)" class=linkLabel_WmDU>Operar destinos (saúde, fila de reenvio, métricas)</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class=menu__link tabindex=0 href=/outputs/destination-webhook><span title="Destino: Webhook Genérico" class=linkLabel_WmDU>Destino: Webhook Genérico</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class=menu__link tabindex=0 href=/outputs/destination-datadog><span title="Destino: Datadog Logs" class=linkLabel_WmDU>Destino: Datadog Logs</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class=menu__link tabindex=0 href=/outputs/destination-chronicle><span title="Destino: Google SecOps (Chronicle)" class=linkLabel_WmDU>Destino: Google SecOps (Chronicle)</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class=menu__link tabindex=0 href=/outputs/destination-security-lake><span title="Destino: Amazon Security Lake (OCSF Parquet)" class=linkLabel_WmDU>Destino: Amazon Security Lake (OCSF Parquet)</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class=menu__link tabindex=0 href=/outputs/adding-a-destination><span title="Destinos — catálogo e tipos disponíveis" class=linkLabel_WmDU>Destinos — catálogo e tipos disponíveis</span></a></ul><li class="theme-doc-sidebar-item-category theme-doc-sidebar-item-category-level-2 menu__list-item"><div class=menu__list-item-collapsible><a class="categoryLink_byQd menu__link menu__link--sublist menu__link--sublist-caret menu__link--active" role=button aria-expanded=true tabindex=0 href=/outputs/routing><span title=Roteamento class=categoryLinkLabel_W154>Roteamento</span></a></div><ul class=menu__list><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class=menu__link tabindex=0 href=/outputs/routing><span title="Roteamento por regra" class=linkLabel_WmDU>Roteamento por regra</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class=menu__link tabindex=0 href=/outputs/routing-canary><span title="Cutover gradual de SIEM (canary)" class=linkLabel_WmDU>Cutover gradual de SIEM (canary)</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class=menu__link tabindex=0 href=/outputs/routing-dry-run><span title="Testar rotas, ver o fluxo e reverter mudanças" class=linkLabel_WmDU>Testar rotas, ver o fluxo e reverter mudanças</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class="menu__link menu__link--active" aria-current=page tabindex=0 href=/outputs/reducao-de-volume><span title="Redução de volume" class=linkLabel_WmDU>Redução de volume</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class=menu__link tabindex=0 href=/outputs/pii-redaction><span title="Redação de dados pessoais por rota (LGPD/GDPR)" class=linkLabel_WmDU>Redação de dados pessoais por rota (LGPD/GDPR)</span></a></ul><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/outputs/observability><span title="Observabilidade dos destinos" class=linkLabel_WmDU>Observabilidade dos destinos</span></a></ul></ul></nav></div></div></aside><main class=docMainContainer_TBSr><div class="container padding-top--md padding-bottom--lg"><div class=row><div class="col docItemCol_VOVn"><div class=docItemContainer_Djhp><article><nav class="theme-doc-breadcrumbs breadcrumbsContainer_Z_bl" aria-label=Trilha><ul class=breadcrumbs><li class=breadcrumbs__item><a aria-label="Página Inicial" class=breadcrumbs__link href=/><svg viewBox="0 0 24 24" class=breadcrumbHomeIcon_YNFT><path d="M10 19v-5h4v5c0 .55.45 1 1 1h3c.55 0 1-.45 1-1v-7h1.7c.46 0 .68-.57.33-.87L12.67 3.6c-.38-.34-.96-.34-1.34 0l-8.36 7.53c-.34.3-.13.87.33.87H5v7c0 .55.45 1 1 1h3c.55 0 1-.45 1-1z" fill=currentColor /></svg></a><li class=breadcrumbs__item><span class=breadcrumbs__link>Saídas & Roteamento</span><li class=breadcrumbs__item><span class=breadcrumbs__link>Roteamento</span><li class="breadcrumbs__item breadcrumbs__item--active"><span class=breadcrumbs__link>Redução de volume</span></ul></nav><div class="tocCollapsible_ETCw theme-doc-toc-mobile tocMobile_ITEo"><button type=button class="clean-btn tocCollapsibleButton_TO0P">Nesta página</button></div><div class="theme-doc-markdown markdown"><header><h1>Redução de volume</h1></header>
+<p>Todo evento entregue carrega, além do evento normalizado (OCSF), uma cópia do payload original do fornecedor. Isso é ótimo para perícia e caro no SIEM. A plataforma tem <strong>seis alavancas</strong> para reduzir esse volume, e elas agem em pontos diferentes do caminho — o que muda bastante o efeito de cada uma.</p>
+<p>Esta página as apresenta <strong>na ordem em que agem</strong>. Nenhuma delas nasce cortando: por padrão, tudo passa.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=as-seis-alavancas-em-ordem>As seis alavancas, em ordem<a href=#as-seis-alavancas-em-ordem class=hash-link aria-label="Link direto para As seis alavancas, em ordem" title="Link direto para As seis alavancas, em ordem" translate=no>​</a></h2>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>#<th>Alavanca<th>Onde se configura<th>O que corta<th>Respeita <strong>Proteger detecção</strong>?<th>Etiqueta no card<tbody><tr><td>1<td><strong>Poda do bruto</strong><td>Definição JSON do mapeamento<td>Pedaços do payload do fornecedor, em <strong>todos</strong> os destinos<td>Não se aplica (não é config de rota)<td><strong>poda</strong><tr><td>2<td><strong>Supressão</strong><td>Regra de rota<td>Repetições da mesma assinatura dentro de uma janela<td>Sim<td><strong>supressão</strong><tr><td>3<td><strong>Descartar</strong><td>Regra de rota (ação)<td>O evento inteiro, em todos os destinos da regra<td>Não — é decisão explícita sua<td><strong>descarte por rota</strong><tr><td>4<td><strong>Amostragem %</strong><td>Regra de rota<td>Uma fração dos eventos daquela regra<td>Sim<td><strong>amostragem</strong><tr><td>5<td><strong>Descartar o evento bruto</strong><td>Regra de rota<td>O bloco bruto, <strong>só na entrega daquela regra</strong><td>Sim<td><strong>descarte do bruto</strong><tr><td>6<td><strong>Agregação</strong><td>Política de entrega do destino<td>Eventos repetidos, colapsados em um só<td>Por configuração (veja abaixo)<td><strong>agregação</strong></table>
+<p>A economia de cada uma aparece decomposta por causa no card <strong>Redução de volume & custo</strong>, em <strong>Operação → Fluxo de dados</strong>. Veja <a class="" href=/operations/fluxo-de-dados>Fluxo de dados</a>.</p>
+<div class="theme-admonition theme-admonition-note admonition_xJq3 alert alert--secondary"><div class=admonitionHeading_Gvgb><span class=admonitionIcon_Rf37><svg viewBox="0 0 14 16"><path fill-rule=evenodd d="M6.3 5.69a.942.942 0 0 1-.28-.7c0-.28.09-.52.28-.7.19-.18.42-.28.7-.28.28 0 .52.09.7.28.18.19.28.42.28.7 0 .28-.09.52-.28.7a1 1 0 0 1-.7.3c-.28 0-.52-.11-.7-.3zM8 7.99c-.02-.25-.11-.48-.31-.69-.2-.19-.42-.3-.69-.31H6c-.27.02-.48.13-.69.31-.2.2-.3.44-.31.69h1v3c.02.27.11.5.31.69.2.2.42.31.69.31h1c.27 0 .48-.11.69-.31.2-.19.3-.42.31-.69H8V7.98v.01zM7 2.3c-3.14 0-5.7 2.54-5.7 5.68 0 3.14 2.56 5.7 5.7 5.7s5.7-2.55 5.7-5.7c0-3.15-2.56-5.69-5.7-5.69v.01zM7 .98c3.86 0 7 3.14 7 7s-3.14 7-7 7-7-3.12-7-7 3.14-7 7-7z"/></svg></span>Existe uma alavanca ANTES destas seis</div><div class=admonitionContent_BuS1><p>As seis agem sobre eventos que a plataforma <strong>já coletou</strong> — elas reduzem o que é <strong>entregue</strong>. Se o problema é a coleta não vencer o volume da origem, nenhuma delas ajuda: o evento já foi consultado, transferido e normalizado antes de ser descartado.<p>Para esse caso existe o <strong><a class="" href=/pipelines/collection-filters>filtro de coleta</a></strong>, que restringe a própria consulta feita ao fornecedor. Ele economiza <strong>transporte</strong>, não entrega — e, ao contrário destas seis, o que ele corta <strong>nunca entra na plataforma</strong>.</div></div>
+<hr/>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=1-poda-do-bruto-no-mapeamento>1. Poda do bruto (no mapeamento)<a href=#1-poda-do-bruto-no-mapeamento class=hash-link aria-label="Link direto para 1. Poda do bruto (no mapeamento)" title="Link direto para 1. Poda do bruto (no mapeamento)" translate=no>​</a></h2>
+<p><strong>O que corta:</strong> partes do payload original do fornecedor — a cópia bruta que viaja junto do evento normalizado. As operações disponíveis são:</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Operação<th>Efeito<tbody><tr><td><code>drop</code><td>Remove o campo inteiro. Use no que virou lixo depois da extração.<tr><td><code>keep_only</code><td>Mantém só os filhos que você listar e remove os demais — inclusive os que o fornecedor inventar no futuro.<tr><td><code>drop_nulls</code><td>Remove todos os campos de valor nulo, em qualquer profundidade.<tr><td><code>max_bytes</code><td>Encurta um texto longo.<tr><td><code>max_items</code><td>Mantém só os primeiros itens de uma lista.</table>
+<p><strong>Onde se configura:</strong> na definição JSON do mapeamento, no bloco de redução do bruto. Ele <strong>não aparece no editor visual</strong> — quem administra a plataforma edita o JSON. Veja <a class="" href=/normalization/dsl-spec>Especificação da DSL</a>.</p>
+<p><strong>Alcance:</strong> vale para <strong>todos os destinos</strong>, porque é conhecimento sobre o fornecedor ("este campo é duplicata do que já extraímos"), não uma decisão sobre destino.</p>
+<p><strong>Fidelidade:</strong> a poda roda <strong>depois</strong> que as regras de mapeamento já leram o payload completo. A normalização nunca perde informação por causa dela.</p>
+<p><strong>Proteção de detecção:</strong> não se aplica — a poda não descarta eventos, só encolhe a cópia bruta, e não é configurada por rota.</p>
+<div class="theme-admonition theme-admonition-note admonition_xJq3 alert alert--secondary"><div class=admonitionHeading_Gvgb><span class=admonitionIcon_Rf37><svg viewBox="0 0 14 16"><path fill-rule=evenodd d="M6.3 5.69a.942.942 0 0 1-.28-.7c0-.28.09-.52.28-.7.19-.18.42-.28.7-.28.28 0 .52.09.7.28.18.19.28.42.28.7 0 .28-.09.52-.28.7a1 1 0 0 1-.7.3c-.28 0-.52-.11-.7-.3zM8 7.99c-.02-.25-.11-.48-.31-.69-.2-.19-.42-.3-.69-.31H6c-.27.02-.48.13-.69.31-.2.2-.3.44-.31.69h1v3c.02.27.11.5.31.69.2.2.42.31.69.31h1c.27 0 .48-.11.69-.31.2-.19.3-.42.31-.69H8V7.98v.01zM7 2.3c-3.14 0-5.7 2.54-5.7 5.68 0 3.14 2.56 5.7 5.7 5.7s5.7-2.55 5.7-5.7c0-3.15-2.56-5.69-5.7-5.69v.01zM7 .98c3.86 0 7 3.14 7 7s-3.14 7-7 7-7-3.12-7-7 3.14-7 7-7z"/></svg></span>A poda acontece mesmo com a contabilidade desligada</div><div class=admonitionContent_BuS1><p>Se o mapeamento declara a poda, ela é aplicada. A chave de ambiente correspondente controla apenas se a economia é <strong>contabilizada</strong> no card — não se o corte acontece. Se um campo sumiu do payload bruto e você não sabe por quê, o mapeamento é o primeiro lugar a checar.</div></div>
+<hr/>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=2-supressão-por-assinatura>2. Supressão por assinatura<a href=#2-supressão-por-assinatura class=hash-link aria-label="Link direto para 2. Supressão por assinatura" title="Link direto para 2. Supressão por assinatura" translate=no>​</a></h2>
+<p><strong>O que corta:</strong> repetições. A regra monta uma <strong>assinatura</strong> de cada evento e entrega apenas os N primeiros de cada assinatura por janela de tempo; o excedente é economizado.</p>
+<p><strong>Onde se configura:</strong> na regra, em <strong>Operação → Roteamento</strong>, seção <strong>Redução de volume</strong>:</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Campo<th>O que faz<tbody><tr><td><strong>Chave de supressão</strong><td>Quais características formam a assinatura.<tr><td><strong>Permitidos por janela</strong><td>Quantos eventos de cada assinatura passam. <strong>0 = desligada</strong> (é o padrão).<tr><td><strong>Janela (s)</strong><td>De quanto em quanto tempo a contagem reinicia. Padrão: 30 segundos.</table>
+<p><strong>A chave só aceita as nove características de roteamento</strong> (fornecedor, plataforma, organização, severidade, fluxo, tipo de evento, integração, cliente e geografia). Um campo do log — <code>src_ip</code>, <code>user</code>, <code>dst_ip</code> — é <strong>recusado com erro</strong> na hora de salvar. Também são recusadas características que são únicas por evento, como o identificador do evento e o horário de coleta: uma assinatura única por evento nunca suprimiria nada.</p>
+<p><strong>Proteção de detecção:</strong> sim. Uma regra protegida nunca suprime, mesmo que os campos estejam preenchidos.</p>
+<p><strong>Garantia:</strong> a <strong>primeira ocorrência de cada assinatura sempre passa</strong>. Você nunca perde o primeiro sinal de algo novo.</p>
+<div class="theme-admonition theme-admonition-warning admonition_xJq3 alert alert--warning"><div class=admonitionHeading_Gvgb><span class=admonitionIcon_Rf37><svg viewBox="0 0 16 16"><path fill-rule=evenodd d="M8.893 1.5c-.183-.31-.52-.5-.887-.5s-.703.19-.886.5L.138 13.499a.98.98 0 0 0 0 1.001c.193.31.53.501.886.501h13.964c.367 0 .704-.19.877-.5a1.03 1.03 0 0 0 .01-1.002L8.893 1.5zm.133 11.497H6.987v-2.003h2.039v2.003zm0-3.004H6.987V5.987h2.039v4.006z"/></svg></span>A supressão é invisível nos contadores da regra</div><div class=admonitionContent_BuS1><p>Ela roda <strong>antes</strong> do roteamento. Por isso o evento suprimido não entra em <strong>Bateram</strong>, <strong>Enviados</strong> nem <strong>Descartados</strong> — ele nunca chegou lá. E não existe contador de supressão em nenhuma tela: o que existe é o desfecho <strong>Suprimido</strong>, por evento, na <a class="" href=/operations/live-capture>Captura ao vivo</a>, e — para quem coleta métricas OpenTelemetry/Prometheus — o contador <code>collector_suppressed_total</code>, fora do produto. Em bytes, o volume evitado aparece agregado no card de redução.<p>Pelo mesmo motivo, a <strong>simulação de regras</strong> ("dry-run") não ajuda aqui: ela testa apenas se a condição casa. Ela <strong>não</strong> simula supressão, amostragem nem descarte do bruto.</div></div>
+<p>Uma chave grossa demais (só <code>vendor</code>, por exemplo) joga todo o tráfego da integração num único balde e economiza quase tudo, inclusive o que você precisava ver. Se <strong>nenhuma</strong> característica da chave existir no evento, a plataforma não suprime — mas o aviso fica só no log do servidor, sem nada na tela. Confirme o efeito na Captura ao vivo antes de aumentar a janela.</p>
+<hr/>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=3-descartar-ação-da-regra>3. Descartar (ação da regra)<a href=#3-descartar-ação-da-regra class=hash-link aria-label="Link direto para 3. Descartar (ação da regra)" title="Link direto para 3. Descartar (ação da regra)" translate=no>​</a></h2>
+<p><strong>O que corta:</strong> o evento inteiro. A avaliação termina ali e ele não vai a destino nenhum.</p>
+<p><strong>Onde se configura:</strong> na regra, em <strong>Operação → Roteamento</strong>, escolhendo a ação <strong>Descartar</strong> em vez de <strong>Enviar</strong>.</p>
+<p><strong>Proteção de detecção:</strong> não. Descartar é uma decisão explícita e consciente sua, expressa na própria regra — a proteção existe para impedir que alavancas <em>estatísticas</em> comam eventos sem que ninguém tenha pedido, não para vetar um descarte deliberado.</p>
+<p><strong>Não existe chave de ambiente que desligue o descarte.</strong> Ele é configuração de rota, sempre ativa. Quem controla o corte é a condição da regra — por isso mantenha a condição estreita e acompanhe o contador <strong>Descartados</strong>.</p>
+<hr/>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=4-amostragem->4. Amostragem %<a href=#4-amostragem- class=hash-link aria-label="Link direto para 4. Amostragem %" title="Link direto para 4. Amostragem %" translate=no>​</a></h2>
+<p><strong>O que corta:</strong> uma fração dos eventos que batem na regra. <code>100</code> (o padrão) entrega tudo; <code>10</code> entrega um em cada dez.</p>
+<p><strong>Onde se configura:</strong> campo <strong>Amostragem %</strong> da regra.</p>
+<p><strong>Proteção de detecção:</strong> sim. Enquanto a proteção estiver ligada, o campo fica desabilitado e a regra nunca é amostrada.</p>
+<p><strong>Estabilidade:</strong> a escolha é determinística por evento — o mesmo evento sempre toma o mesmo caminho, inclusive em nova tentativa. Não há sorteio a cada passagem.</p>
+<p>O que sai amostrado é <strong>etiquetado</strong>: veja <a href=#r%C3%B3tulos-que-acompanham-a-entrega class="">Rótulos que acompanham a entrega</a>.</p>
+<hr/>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=5-descartar-o-evento-bruto>5. Descartar o evento bruto<a href=#5-descartar-o-evento-bruto class=hash-link aria-label="Link direto para 5. Descartar o evento bruto" title="Link direto para 5. Descartar o evento bruto" translate=no>​</a></h2>
+<p><strong>O que corta:</strong> o bloco bruto do envelope — o payload original do fornecedor — <strong>só na entrega daquela regra</strong>. O evento normalizado (OCSF) é preservado inteiro.</p>
+<p><strong>Onde se configura:</strong> caixa <strong>Descartar o evento bruto</strong> da regra.</p>
+<p><strong>Proteção de detecção:</strong> sim, e este é o ponto que mais confunde: numa regra <strong>protegida</strong>, marcar a caixa <strong>não faz absolutamente nada</strong>. Se você marcou e o volume não caiu, confira a proteção antes de procurar defeito em outro lugar.</p>
+<p><strong>Alcance:</strong> é a decisão por destino que o mapeamento não consegue tomar. O mesmo evento vai <strong>íntegro</strong> para o data lake por uma regra e <strong>enxuto</strong> para o SIEM por outra. Costuma ser a maior economia isolada, porque o bloco bruto é normalmente a maior parte do envelope.</p>
+<hr/>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=6-agregação-rollup-por-destino>6. Agregação (rollup por destino)<a href=#6-agregação-rollup-por-destino class=hash-link aria-label="Link direto para 6. Agregação (rollup por destino)" title="Link direto para 6. Agregação (rollup por destino)" translate=no>​</a></h2>
+<p><strong>O que corta:</strong> eventos repetidos, colapsados num único evento que carrega a contagem do grupo.</p>
+<p><strong>Onde se configura:</strong> na <strong>política de entrega do destino</strong>, não na rota — o agrupamento é declarado no JSON de entrega pelo administrador da plataforma. Agrupamento vazio (o padrão) significa desligada.</p>
+<p><strong>É a única alavanca desligada por padrão</strong> também na plataforma: além da configuração do destino, ela exige que a chave de ambiente correspondente seja ligada.</p>
+<p><strong>Proteção de detecção:</strong> por configuração, não por bloqueio automático. Como a agregação é ligada <strong>no destino</strong>, a garantia é você não apontar para um destino agregador a rota que alimenta detecção — a cópia completa vai ao data lake por uma rota separada.</p>
+<p><strong>Trava de segurança:</strong> se a variedade de grupos explodir, o lote passa <strong>intacto</strong> em vez de agregar. A alavanca degrada para "não agregou", nunca para "derrubou o worker".</p>
+<hr/>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=rótulos-que-acompanham-a-entrega>Rótulos que acompanham a entrega<a href=#rótulos-que-acompanham-a-entrega class=hash-link aria-label="Link direto para Rótulos que acompanham a entrega" title="Link direto para Rótulos que acompanham a entrega" translate=no>​</a></h2>
+<p>Quando a plataforma corta alguma coisa, ela <strong>avisa no evento entregue</strong>. Isso é a diferença entre o analista concluir "o fornecedor não mandou esse campo" e "nós cortamos aqui, de propósito".</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Rótulo<th>Quando aparece<th>Como o analista deve ler<tbody><tr><td><code>_centralops.raw_dropped: true</code><td>Entrega de uma regra com <strong>Descartar o evento bruto</strong> ligado.<td><strong>Nós</strong> removemos o payload bruto nesta entrega. Não é ausência do fornecedor — o bruto existe e chegou íntegro nas outras rotas.<tr><td><code>_centralops.sample_rate</code><td>Entrega de uma regra amostrada. Fração entregue, de 0 a 1.<td>Este evento representa uma amostra. <strong>Reescale as contagens a jusante</strong> por esse fator antes de tirar conclusões de volume.<tr><td><code>_centralops.suppress_count</code><td>Evento <strong>liberado</strong> por uma regra com supressão ligada.<td>A <strong>posição</strong> deste evento dentro da janela da sua assinatura (de 1 até <em>Permitidos por janela</em>). <strong>Não</strong> diz quantas repetições foram suprimidas depois dele — com o valor 1, o mais comum, o rótulo é sempre <code>1</code>, tenha a janela engolido dez eventos ou dez mil. Para dimensionar o que foi suprimido, use o desfecho <strong>Suprimido</strong> na Captura ao vivo.<tr><td><code>_aggregate</code><td>Evento resultante de uma agregação, com a contagem e os campos do grupo.<td>Esta linha não é um evento, é um resumo de vários.</table>
+<hr/>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=tiering-o-mesmo-evento-dois-destinos>Tiering: o mesmo evento, dois destinos<a href=#tiering-o-mesmo-evento-dois-destinos class=hash-link aria-label="Link direto para Tiering: o mesmo evento, dois destinos" title="Link direto para Tiering: o mesmo evento, dois destinos" translate=no>​</a></h2>
+<p>O ganho real não vem de escolher <strong>uma</strong> alavanca, e sim de tratar cada destino conforme o que ele custa e para que serve:</p>
+<ul>
+<li class=""><strong>Data lake / armazenamento barato — recebe íntegro.</strong> Perícia precisa do payload bruto. Deixe <strong>Descartar o evento bruto</strong> desligado e não amostre esta rota.</li>
+<li class=""><strong>SIEM cobrado por volume — recebe enxuto.</strong> Ligue <strong>Descartar o evento bruto</strong>, considere amostragem para telemetria de baixo valor e suprima o ruído repetitivo.</li>
+</ul>
+<p><strong>A decisão é por rota.</strong> O mesmo evento sai completo para um destino e podado para o outro, na mesma passagem — a cópia entregue a cada rota é independente. Não é preciso escolher entre perícia e conta baixa.</p>
+<p>Um desenho comum, com três regras:</p>
+<ol>
+<li class="">Severidade ≥ 7 → <strong>SIEM</strong>, bruto descartado (não exclusiva).</li>
+<li class="">Tipo de evento na lista de ruído conhecido → <strong>Descartar</strong>.</li>
+<li class="">Pega-tudo → <strong>data lake</strong>, íntegro (exclusiva).</li>
+</ol>
+<p>Veja <a class="" href=/outputs/routing>Roteamento por regra</a> para montar as regras e <a class="" href=/operations/fluxo-de-dados>Fluxo de dados</a> para conferir o resultado.</p>
+<hr/>
+<div class="theme-admonition theme-admonition-danger admonition_xJq3 alert alert--danger"><div class=admonitionHeading_Gvgb><span class=admonitionIcon_Rf37><svg viewBox="0 0 12 16"><path fill-rule=evenodd d="M5.05.31c.81 2.17.41 3.38-.52 4.31C3.55 5.67 1.98 6.45.9 7.98c-1.45 2.05-1.7 6.53 3.53 7.7-2.2-1.16-2.67-4.52-.3-6.61-.61 2.03.53 3.33 1.94 2.86 1.39-.47 2.3.53 2.27 1.67-.02.78-.31 1.44-1.13 1.81 3.42-.59 4.78-3.42 4.78-5.56 0-2.84-2.53-3.22-1.25-5.61-1.52.13-2.03 1.13-1.89 2.75.09 1.08-1.02 1.8-1.86 1.33-.67-.41-.66-1.19-.06-1.78C8.18 5.31 8.68 2.45 5.05.32L5.03.3l.02.01z"/></svg></span>Desligar a proteção de detecção é uma decisão de risco</div><div class=admonitionContent_BuS1><p><strong>Proteger detecção nasce ligada em toda regra</strong> — inclusive nas regras antigas, criadas antes de a opção existir, que são tratadas como protegidas. Enquanto está ligada, a regra nunca é amostrada, suprimida nem tem o bruto descartado.<p>Ao desligar, você autoriza que eventos <strong>daquela</strong> regra deixem de ser entregues por decisão de economia — inclusive eventos que alimentariam uma detecção. A plataforma pede confirmação explícita, e com razão: uma detecção que não dispara não deixa rastro, e o buraco só aparece no incidente seguinte.<p>Desligue apenas em rotas onde reduzir volume é comprovadamente seguro (telemetria de baixo valor), nunca na rota que alimenta o SIEM de detecção.</div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=próximos-passos>Próximos passos<a href=#próximos-passos class=hash-link aria-label="Link direto para Próximos passos" title="Link direto para Próximos passos" translate=no>​</a></h2>
+<ul>
+<li class=""><strong>Ver quanto está sendo cortado?</strong> <a class="" href=/operations/fluxo-de-dados>Fluxo de dados</a>.</li>
+<li class=""><strong>Conferir o efeito evento a evento?</strong> <a class="" href=/operations/live-capture>Captura ao vivo</a>.</li>
+<li class=""><strong>Montar as regras?</strong> <a class="" href=/outputs/routing>Roteamento por regra</a>.</li>
+<li class=""><strong>Podar o payload do fornecedor?</strong> <a class="" href=/normalization/dsl-spec>Especificação da DSL</a>.</li>
+</ul></div></article><nav class="docusaurus-mt-lg pagination-nav" aria-label="Páginas de documento"><a class="pagination-nav__link pagination-nav__link--prev" href=/outputs/routing-dry-run><div class=pagination-nav__sublabel>Anterior</div><div class=pagination-nav__label>Testar rotas, ver o fluxo e reverter mudanças</div></a><a class="pagination-nav__link pagination-nav__link--next" href=/outputs/pii-redaction><div class=pagination-nav__sublabel>Próxima</div><div class=pagination-nav__label>Redação de dados pessoais por rota (LGPD/GDPR)</div></a></nav></div></div><div class="col col--3"><div class="tableOfContents_bqdL thin-scrollbar theme-doc-toc-desktop"><ul class="table-of-contents table-of-contents__left-border"><li><a href=#as-seis-alavancas-em-ordem class="table-of-contents__link toc-highlight">As seis alavancas, em ordem</a><li><a href=#1-poda-do-bruto-no-mapeamento class="table-of-contents__link toc-highlight">1. Poda do bruto (no mapeamento)</a><li><a href=#2-supressão-por-assinatura class="table-of-contents__link toc-highlight">2. Supressão por assinatura</a><li><a href=#3-descartar-ação-da-regra class="table-of-contents__link toc-highlight">3. Descartar (ação da regra)</a><li><a href=#4-amostragem- class="table-of-contents__link toc-highlight">4. Amostragem %</a><li><a href=#5-descartar-o-evento-bruto class="table-of-contents__link toc-highlight">5. Descartar o evento bruto</a><li><a href=#6-agregação-rollup-por-destino class="table-of-contents__link toc-highlight">6. Agregação (rollup por destino)</a><li><a href=#rótulos-que-acompanham-a-entrega class="table-of-contents__link toc-highlight">Rótulos que acompanham a entrega</a><li><a href=#tiering-o-mesmo-evento-dois-destinos class="table-of-contents__link toc-highlight">Tiering: o mesmo evento, dois destinos</a><li><a href=#próximos-passos class="table-of-contents__link toc-highlight">Próximos passos</a></ul></div></div></div></div></main></div></div></div><footer class="theme-layout-footer footer footer--dark"><div class="container container-fluid"><div class="row footer__links"><div class="theme-layout-footer-column col footer__col"><div class=footer__title>Documentação</div><ul class="footer__items clean-list"><li class=footer__item><a class=footer__link-item href=/getting-started/overview>Começar</a><li class=footer__item><a class=footer__link-item href=/operations/dashboard>Operação diária</a><li class=footer__item><a class=footer__link-item href=/normalization/overview>Mappings (CML)</a><li class=footer__item><a class=footer__link-item href=/runbooks/dispatcher>Runbooks</a></ul></div><div class="theme-layout-footer-column col footer__col"><div class=footer__title>Plataforma</div><ul class="footer__items clean-list"><li class=footer__item><a class=footer__link-item href=/concepts/architecture>Arquitetura</a><li class=footer__item><a class=footer__link-item href=/concepts/rbac>RBAC</a><li class=footer__item><a class=footer__link-item href=/integrations/overview>Integrações</a><li class=footer__item><a class=footer__link-item href=/compliance/retention>Compliance</a></ul></div><div class="theme-layout-footer-column col footer__col"><div class=footer__title>Recursos</div><ul class="footer__items clean-list"><li class=footer__item><a class=footer__link-item href=/getting-started/quickstart>Quickstart</a><li class=footer__item><a class=footer__link-item href=/normalization/cookbook>DSL Cookbook</a><li class=footer__item><a class=footer__link-item href=/normalization/troubleshooting>Troubleshooting</a></ul></div></div><div class="footer__bottom text--center"><div class=footer__copyright>Copyright © 2026 CentralOps. Built with Docusaurus.</div></div></div></footer></div></body>

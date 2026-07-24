@@ -1,0 +1,434 @@
+<!doctype html><html lang=es dir=ltr class="docs-wrapper plugin-docs plugin-id-default docs-version-current docs-doc-page docs-doc-id-operations/correlation-rules" data-has-hydrated=false><head><meta charset=UTF-8><meta name=generator content="Docusaurus v3.10.0"><title data-rh=true>Regras de correlação | CentralOps</title><meta data-rh=true name=viewport content="width=device-width, initial-scale=1.0"/><meta data-rh=true name=twitter:card content=summary_large_image /><meta data-rh=true property=og:image content=https://docs.segark.com/es/img/centralops-social-card.png /><meta data-rh=true name=twitter:image content=https://docs.segark.com/es/img/centralops-social-card.png /><meta data-rh=true property=og:url content=https://docs.segark.com/es/operations/correlation-rules /><meta data-rh=true property=og:locale content=es /><meta data-rh=true property=og:locale:alternate content=pt_BR /><meta data-rh=true property=og:locale:alternate content=en /><meta data-rh=true name=docusaurus_locale content=es /><meta data-rh=true name=docsearch:language content=es /><meta data-rh=true name=docusaurus_version content=current /><meta data-rh=true name=docusaurus_tag content=docs-default-current /><meta data-rh=true name=docsearch:version content=current /><meta data-rh=true name=docsearch:docusaurus_tag content=docs-default-current /><meta data-rh=true property=og:title content="Regras de correlação | CentralOps"/><meta data-rh=true name=description content="Detectar padrões cross-source nos resultados de uma busca federada e abrir uma Detecção quando um padrão atinge um limite"/><meta data-rh=true property=og:description content="Detectar padrões cross-source nos resultados de uma busca federada e abrir uma Detecção quando um padrão atinge um limite"/><link data-rh=true rel=icon href=/es/img/favicon.ico /><link data-rh=true rel=canonical href=https://docs.segark.com/es/operations/correlation-rules /><link data-rh=true rel=alternate href=https://docs.segark.com/operations/correlation-rules hreflang=pt-BR /><link data-rh=true rel=alternate href=https://docs.segark.com/en/operations/correlation-rules hreflang=en /><link data-rh=true rel=alternate href=https://docs.segark.com/es/operations/correlation-rules hreflang=es /><link data-rh=true rel=alternate href=https://docs.segark.com/operations/correlation-rules hreflang=x-default /><script data-rh=true type=application/ld+json>{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","item":"https://docs.segark.com/es/operations/correlation-rules","name":"Regras de correlação","position":1}]}</script><link rel=stylesheet href=/es/assets/css/styles.65a61132.css /><script src=/es/assets/js/runtime~main.774ab3e5.js defer></script><script src=/es/assets/js/main.9750a519.js defer></script></head><body><svg style="display: none;"><defs>
+<symbol id=theme-svg-external-link viewBox="0 0 24 24"><path fill=currentColor d="M21 13v10h-21v-19h12v2h-10v15h17v-8h2zm3-12h-10.988l4.035 4-6.977 7.07 2.828 2.828 6.977-7.07 4.125 4.172v-11z"/></symbol>
+</defs></svg>
+<script>!function(){var t=function(){try{return new URLSearchParams(window.location.search).get("docusaurus-theme")}catch(t){}}()||function(){try{return window.localStorage.getItem("theme-4d2")}catch(t){}}();document.documentElement.setAttribute("data-theme",t||(window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light")),document.documentElement.setAttribute("data-theme-choice",t||"system")}(),function(){try{for(var[t,e]of new URLSearchParams(window.location.search).entries())if(t.startsWith("docusaurus-data-")){var a=t.replace("docusaurus-data-","data-");document.documentElement.setAttribute(a,e)}}catch(t){}}()</script><div id=__docusaurus><link rel=preload as=image href=/es/img/logo.svg /><div role=region aria-label="Saltar al contenido principal"><a class=skipToContent_fXgn href=#__docusaurus_skipToContent_fallback>Saltar al contenido principal</a></div><nav aria-label=Principal class="theme-layout-navbar navbar navbar--fixed-top"><div class=navbar__inner><div class="theme-layout-navbar-left navbar__items"><button aria-label="Alternar barra lateral" aria-expanded=false class="navbar__toggle clean-btn" type=button><svg width=30 height=30 viewBox="0 0 30 30" aria-hidden=true><path stroke=currentColor stroke-linecap=round stroke-miterlimit=10 stroke-width=2 d="M4 7h22M4 15h22M4 23h22"/></svg></button><a class=navbar__brand href=/es/><div class=navbar__logo><img src=/es/img/logo.svg alt=CentralOps class="themedComponent_mlkZ themedComponent--light_NVdE"/><img src=/es/img/logo.svg alt=CentralOps class="themedComponent_mlkZ themedComponent--dark_xIcU"/></div><b class="navbar__title text--truncate">CentralOps</b></a><a class="navbar__item navbar__link" href=/es/>Empezar</a><a class="navbar__item navbar__link" href=/es/outputs/overview>Salidas y Rutas</a><a aria-current=page class="navbar__item navbar__link navbar__link--active" href=/es/operations/dashboard>Operación</a><a class="navbar__item navbar__link" href=/es/administration/users-and-roles>Administración</a><a class="navbar__item navbar__link" href=/es/normalization/overview>Mappings</a><a class="navbar__item navbar__link" href=/es/runbooks/dispatcher>Runbooks</a></div><div class="theme-layout-navbar-right navbar__items navbar__items--right"><div class="navbar__item dropdown dropdown--hoverable dropdown--right"><a href=# aria-haspopup=true aria-expanded=false role=button class=navbar__link><svg viewBox="0 0 24 24" width=20 height=20 aria-hidden=true class=iconLanguage_nlXk><path fill=currentColor d="M12.87 15.07l-2.54-2.51.03-.03c1.74-1.94 2.98-4.17 3.71-6.53H17V4h-7V2H8v2H1v1.99h11.17C11.5 7.92 10.44 9.75 9 11.35 8.07 10.32 7.3 9.19 6.69 8h-2c.73 1.63 1.73 3.17 2.98 4.56l-5.09 5.02L4 19l5-5 3.11 3.11.76-2.04zM18.5 10h-2L12 22h2l1.12-3h4.75L21 22h2l-4.5-12zm-2.62 7l1.62-4.33L19.12 17h-3.24z"/></svg>Español</a><ul class=dropdown__menu><li><a href=/operations/correlation-rules target=_self rel="noopener noreferrer" class=dropdown__link lang=pt-BR>Português</a><li><a href=/en/operations/correlation-rules target=_self rel="noopener noreferrer" class=dropdown__link lang=en>English</a><li><a href=/es/operations/correlation-rules target=_self rel="noopener noreferrer" class="dropdown__link dropdown__link--active" lang=es>Español</a></ul></div><div class="toggle_vylO colorModeToggle_DEke"><button class="clean-btn toggleButton_gllP toggleButtonDisabled_aARS" type=button disabled title="system mode" aria-label="Cambiar entre modo oscuro y claro (actualmente system mode)"><svg viewBox="0 0 24 24" width=24 height=24 aria-hidden=true class="toggleIcon_g3eP lightToggleIcon_pyhR"><path fill=currentColor d="M12,9c1.65,0,3,1.35,3,3s-1.35,3-3,3s-3-1.35-3-3S10.35,9,12,9 M12,7c-2.76,0-5,2.24-5,5s2.24,5,5,5s5-2.24,5-5 S14.76,7,12,7L12,7z M2,13l2,0c0.55,0,1-0.45,1-1s-0.45-1-1-1l-2,0c-0.55,0-1,0.45-1,1S1.45,13,2,13z M20,13l2,0c0.55,0,1-0.45,1-1 s-0.45-1-1-1l-2,0c-0.55,0-1,0.45-1,1S19.45,13,20,13z M11,2v2c0,0.55,0.45,1,1,1s1-0.45,1-1V2c0-0.55-0.45-1-1-1S11,1.45,11,2z M11,20v2c0,0.55,0.45,1,1,1s1-0.45,1-1v-2c0-0.55-0.45-1-1-1C11.45,19,11,19.45,11,20z M5.99,4.58c-0.39-0.39-1.03-0.39-1.41,0 c-0.39,0.39-0.39,1.03,0,1.41l1.06,1.06c0.39,0.39,1.03,0.39,1.41,0s0.39-1.03,0-1.41L5.99,4.58z M18.36,16.95 c-0.39-0.39-1.03-0.39-1.41,0c-0.39,0.39-0.39,1.03,0,1.41l1.06,1.06c0.39,0.39,1.03,0.39,1.41,0c0.39-0.39,0.39-1.03,0-1.41 L18.36,16.95z M19.42,5.99c0.39-0.39,0.39-1.03,0-1.41c-0.39-0.39-1.03-0.39-1.41,0l-1.06,1.06c-0.39,0.39-0.39,1.03,0,1.41 s1.03,0.39,1.41,0L19.42,5.99z M7.05,18.36c0.39-0.39,0.39-1.03,0-1.41c-0.39-0.39-1.03-0.39-1.41,0l-1.06,1.06 c-0.39,0.39-0.39,1.03,0,1.41s1.03,0.39,1.41,0L7.05,18.36z"/></svg><svg viewBox="0 0 24 24" width=24 height=24 aria-hidden=true class="toggleIcon_g3eP darkToggleIcon_wfgR"><path fill=currentColor d="M9.37,5.51C9.19,6.15,9.1,6.82,9.1,7.5c0,4.08,3.32,7.4,7.4,7.4c0.68,0,1.35-0.09,1.99-0.27C17.45,17.19,14.93,19,12,19 c-3.86,0-7-3.14-7-7C5,9.07,6.81,6.55,9.37,5.51z M12,3c-4.97,0-9,4.03-9,9s4.03,9,9,9s9-4.03,9-9c0-0.46-0.04-0.92-0.1-1.36 c-0.98,1.37-2.58,2.26-4.4,2.26c-2.98,0-5.4-2.42-5.4-5.4c0-1.81,0.89-3.42,2.26-4.4C12.92,3.04,12.46,3,12,3L12,3z"/></svg><svg viewBox="0 0 24 24" width=24 height=24 aria-hidden=true class="toggleIcon_g3eP systemToggleIcon_QzmC"><path fill=currentColor d="m12 21c4.971 0 9-4.029 9-9s-4.029-9-9-9-9 4.029-9 9 4.029 9 9 9zm4.95-13.95c1.313 1.313 2.05 3.093 2.05 4.95s-0.738 3.637-2.05 4.95c-1.313 1.313-3.093 2.05-4.95 2.05v-14c1.857 0 3.637 0.737 4.95 2.05z"/></svg></button></div><div class=navbarSearchContainer_Bca1><div class=navbar__search><span aria-label="expand searchbar" role=button class=search-icon tabindex=0></span><input id=search_input_react type=search placeholder=Loading... aria-label=Search class="navbar__search-input search-bar" disabled/></div></div></div></div><div role=presentation class=navbar-sidebar__backdrop></div></nav><div id=__docusaurus_skipToContent_fallback class="theme-layout-main main-wrapper mainWrapper_z2l0"><div class=docsWrapper_hBAB><button aria-label="Volver al principio" class="clean-btn theme-back-to-top-button backToTopButton_sjWU" type=button></button><div class=docRoot_UBD9><aside class="theme-doc-sidebar-container docSidebarContainer_YfHR"><div class=sidebarViewport_aRkj><div class=sidebar_njMd><nav aria-label="Barra lateral de Documentos" class="menu thin-scrollbar menu_SIkG"><ul class="theme-doc-sidebar-menu menu__list"><li class="theme-doc-sidebar-item-category theme-doc-sidebar-item-category-level-1 menu__list-item"><div class=menu__list-item-collapsible><a class="categoryLink_byQd menu__link menu__link--sublist menu__link--sublist-caret menu__link--active" role=button aria-expanded=true href=/es/operations/dashboard><span title="Operación diaria" class=categoryLinkLabel_W154>Operación diaria</span></a></div><ul class=menu__list><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/es/operations/dashboard><span title=Dashboard class=linkLabel_WmDU>Dashboard</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/es/operations/fluxo-de-dados><span title="Fluxo de dados" class=linkLabel_WmDU>Fluxo de dados</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/es/operations/quarantine><span title=Quarentena class=linkLabel_WmDU>Quarentena</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/es/operations/search><span title=Investigações class=linkLabel_WmDU>Investigações</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/es/operations/federated-search><span title="Busca federada" class=linkLabel_WmDU>Busca federada</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/es/operations/detections><span title=Detecções class=linkLabel_WmDU>Detecções</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class="menu__link menu__link--active" aria-current=page tabindex=0 href=/es/operations/correlation-rules><span title="Regras de correlação" class=linkLabel_WmDU>Regras de correlação</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/es/operations/pipeline-health><span title="Saúde do Pipeline" class=linkLabel_WmDU>Saúde do Pipeline</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/es/operations/live-capture><span title="Captura ao vivo" class=linkLabel_WmDU>Captura ao vivo</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/es/operations/observability><span title="Observabilidade (OTel)" class=linkLabel_WmDU>Observabilidade (OTel)</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/es/operations/history-audit><span title="Histórico e auditoria" class=linkLabel_WmDU>Histórico e auditoria</span></a></ul></ul></nav></div></div></aside><main class=docMainContainer_TBSr><div class="container padding-top--md padding-bottom--lg"><div class=row><div class="col docItemCol_VOVn"><div class=docItemContainer_Djhp><article><nav class="theme-doc-breadcrumbs breadcrumbsContainer_Z_bl" aria-label="Rastro de navegación"><ul class=breadcrumbs><li class=breadcrumbs__item><a aria-label="Página de Inicio" class=breadcrumbs__link href=/es/><svg viewBox="0 0 24 24" class=breadcrumbHomeIcon_YNFT><path d="M10 19v-5h4v5c0 .55.45 1 1 1h3c.55 0 1-.45 1-1v-7h1.7c.46 0 .68-.57.33-.87L12.67 3.6c-.38-.34-.96-.34-1.34 0l-8.36 7.53c-.34.3-.13.87.33.87H5v7c0 .55.45 1 1 1h3c.55 0 1-.45 1-1z" fill=currentColor /></svg></a><li class=breadcrumbs__item><span class=breadcrumbs__link>Operación diaria</span><li class="breadcrumbs__item breadcrumbs__item--active"><span class=breadcrumbs__link>Regras de correlação</span></ul></nav><div class="tocCollapsible_ETCw theme-doc-toc-mobile tocMobile_ITEo"><button type=button class="clean-btn tocCollapsibleButton_TO0P">En esta página</button></div><div class="theme-doc-markdown markdown"><header><h1>Regras de correlação</h1></header>
+<div class="theme-admonition theme-admonition-caution admonition_xJq3 alert alert--warning"><div class=admonitionHeading_Gvgb><span class=admonitionIcon_Rf37><svg viewBox="0 0 16 16"><path fill-rule=evenodd d="M8.893 1.5c-.183-.31-.52-.5-.887-.5s-.703.19-.886.5L.138 13.499a.98.98 0 0 0 0 1.001c.193.31.53.501.886.501h13.964c.367 0 .704-.19.877-.5a1.03 1.03 0 0 0 .01-1.002L8.893 1.5zm.133 11.497H6.987v-2.003h2.039v2.003zm0-3.004H6.987V5.987h2.039v4.006z"/></svg></span>Beta — avaliação sob demanda, não contínua</div><div class=admonitionContent_BuS1><p>As regras de correlação estão em <strong>Beta</strong>. O motor <strong>não</strong> observa o pipeline de ingestão nem roda em agendamento próprio: uma regra só é avaliada <strong>ao final de uma busca federada</strong> (um QueryJob concluído), sobre os resultados daquela busca. Enquanto ninguém executar uma busca federada, nenhuma regra roda e nenhuma Detecção de correlação é criada. Não use estas regras como sua única cobertura de detecção.</div></div>
+<p>Uma <strong>regra de correlação</strong> examina os resultados de uma busca federada — que podem vir de múltiplas fontes ao mesmo tempo — e abre uma <strong>Detecção</strong> (um alerta de análise) quando um padrão específico aparece naquele conjunto de resultados. Por exemplo: "se o mesmo IP falhar em fazer login 5 vezes em 5 minutos dentro dos resultados desta busca, abrir uma detecção".</p>
+<p>Diferente dos eventos coletados das fontes (que você pesquisa em <a class="" href=/es/operations/search>Investigações</a>), as Detecções vêm de análise: correlação, busca em tempo real ou agendamentos. Você gerencia aqui regras de <strong>tipo threshold</strong> — o tipo mais comum. Tipos mais avançados (sequência de eventos, agregações) estão no nosso roadmap.</p>
+<p>Para acessar, use o menu <strong>Conhecimento → Correlação</strong>.</p>
+<p><strong>Quem pode ver:</strong> todos os perfis com acesso de leitura ou superior. Apenas <strong>Engineer</strong> e acima conseguem criar, editar ou excluir regras.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=quando-usar>Quando usar<a href=#quando-usar class=hash-link aria-label="Enlace directo al Quando usar" title="Enlace directo al Quando usar" translate=no>​</a></h2>
+<ul>
+<li class=""><strong>Materializar um padrão que você acabou de buscar.</strong> ≥5 tentativas de login falhadas da mesma origem em poucos minutos? Pode ser brute-force. Ao rodar a busca federada, a regra avalia o resultado e vira uma Detecção que você triagem na tela de <a class="" href=/es/operations/detections>Detecções</a>.</li>
+<li class=""><strong>Reduzir ruído.</strong> Em vez de alertar cada evento isolado (cada tentativa falhada é um alerta fraco), agrupe e alerte só quando o padrão fica suspeito.</li>
+<li class=""><strong>Correlação sem query.</strong> Não precisa saber linguagem de busca federada. Preencha um formulário simples: campo para agrupar, limite mínimo, janela de tempo, filtros simples.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=modos-de-avaliação-batch-vs-inflight>Modos de avaliação: batch vs inflight<a href=#modos-de-avaliação-batch-vs-inflight class=hash-link aria-label="Enlace directo al Modos de avaliação: batch vs inflight" title="Enlace directo al Modos de avaliação: batch vs inflight" translate=no>​</a></h2>
+<p>Uma regra pode rodar em dois modos distintos, com diferenças críticas de latência e semântica.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=modo-batch-padrão>Modo batch (padrão)<a href=#modo-batch-padrão class=hash-link aria-label="Enlace directo al Modo batch (padrão)" title="Enlace directo al Modo batch (padrão)" translate=no>​</a></h3>
+<p>Você define a regra com <code>eval_mode='batch'</code>. Uma regra habilitada é avaliada <strong>somente quando uma busca federada termina</strong> (status <code>finished</code> ou <code>partial</code>), e <strong>somente sobre os resultados daquela busca</strong>. Não existe gatilho contínuo:</p>
+<ul>
+<li class="">O pipeline de coleta <strong>não</strong> avalia regras de correlação. Eventos ingeridos não passam pelo motor.</li>
+<li class=""><strong>Não</strong> há agendamento próprio (nenhuma entrada de scheduler cria buscas para alimentar as regras).</li>
+<li class="">Rodar uma busca federada é a única forma de disparar a avaliação — via <strong>Operação → Busca federada</strong>.</li>
+</ul>
+<p>Consequência prática: o alcance temporal da sua regra é o alcance da busca. Uma regra de "10 falhas em 5 minutos" não vê nada que esteja fora do intervalo e dos filtros da busca que a acionou.</p>
+<div class="theme-admonition theme-admonition-caution admonition_xJq3 alert alert--warning"><div class=admonitionHeading_Gvgb><span class=admonitionIcon_Rf37><svg viewBox="0 0 16 16"><path fill-rule=evenodd d="M8.893 1.5c-.183-.31-.52-.5-.887-.5s-.703.19-.886.5L.138 13.499a.98.98 0 0 0 0 1.001c.193.31.53.501.886.501h13.964c.367 0 .704-.19.877-.5a1.03 1.03 0 0 0 .01-1.002L8.893 1.5zm.133 11.497H6.987v-2.003h2.039v2.003zm0-3.004H6.987V5.987h2.039v4.006z"/></svg></span>Beta — avaliação sob demanda, não contínua</div><div class=admonitionContent_BuS1><p>Batch está em <strong>Beta</strong> pelo motivo acima: você precisa executar uma busca federada para a regra rodar. Não é monitoramento contínuo.</div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=modo-inflight-avaliação-em-voo>Modo inflight (avaliação em voo)<a href=#modo-inflight-avaliação-em-voo class=hash-link aria-label="Enlace directo al Modo inflight (avaliação em voo)" title="Enlace directo al Modo inflight (avaliação em voo)" translate=no>​</a></h3>
+<p>Você define a regra com <code>eval_mode='inflight'</code>. A regra é avaliada <strong>por evento, no pipeline de ingestão, antes do dado chegar ao SIEM</strong>. Uma Detection é emitida imediatamente quando o evento bate na regra — sem esperar por busca federada.</p>
+<p>Vantagens: latência em tempo real, não depende de buscas manuais.</p>
+<p>Limitações importantes:</p>
+<ul>
+<li class=""><strong>Sem janela de tempo.</strong> Um inflight roda sobre um único evento por vez, logo <code>window_seconds</code> e <code>timestamp_field</code> são ignorados. Agrupar por <code>group_by_field</code> (ex.: <code>source.ip</code>) tira vários eventos do mesmo IP no mesmo ciclo de coleta, mas não numa janela temporal no sentido de "últimas 5 minutos" — é "neste ciclo de coleta".</li>
+<li class=""><strong>Sem contagem de threshold.</strong> Não existe <code>min_count</code>. Cada evento casado gera uma Detection (ou é descartado por supressão de dedup).</li>
+<li class=""><strong>Operadores diferentes.</strong> Inflight suporta três operadores extras: <code>in</code>, <code>nin</code>, <code>exists</code>. Batch não tem esses.</li>
+<li class=""><strong>Cardinalidade limitada.</strong> O máximo de chaves de dedup por regra por ciclo é 50. Se uma regra gera mais de 50 variações (ex.: 100 IPs diferentes num ciclo), os matches seguem contados mas nenhuma Detection nova é criada após a 50ª chave.</li>
+</ul>
+<p><strong>Resumo:</strong></p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Aspecto<th>Batch<th>Inflight<tbody><tr><td><strong>Gatilho</strong><td>Fim de busca federada<td>Cada evento no pipeline<tr><td><strong>Latência</strong><td>Delay até próxima busca<td>Tempo real<tr><td><strong>Janela</strong><td>Sim, <code>window_seconds</code><td>Não, ignorado<tr><td><strong>Min. count</strong><td>Sim, <code>min_count</code><td>Não, ignorado (1 por evento)<tr><td><strong>Group by</strong><td>Agrupa dentro da busca<td>Agrupa dentro do ciclo de coleta<tr><td><strong>Operadores</strong><td>eq, ne, contains, gt/lt/gte/lte<td>+in, nin, exists<tr><td><strong>Uso típico</strong><td>Investigação pós-coleta<td>Detecção urgente em tempo real</table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=autoria-de-regras--operadores-e-gotchas>Autoria de regras — operadores e gotchas<a href=#autoria-de-regras--operadores-e-gotchas class=hash-link aria-label="Enlace directo al Autoria de regras — operadores e gotchas" title="Enlace directo al Autoria de regras — operadores e gotchas" translate=no>​</a></h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=operadores-de-filtro>Operadores de filtro<a href=#operadores-de-filtro class=hash-link aria-label="Enlace directo al Operadores de filtro" title="Enlace directo al Operadores de filtro" translate=no>​</a></h3>
+<p>O campo <code>where_json</code> aceita um array de cláusulas, cada uma com formato:</p>
+<div class="language-json codeBlockContainer_Ckt0 theme-code-block" style=--prism-color:#393A34;--prism-background-color:#f6f8fa><div class=codeBlockContent_QJqH><pre tabindex=0 class="prism-code language-json codeBlock_bY9V thin-scrollbar" style=color:#393A34;background-color:#f6f8fa><code class=codeBlockLines_e6Vv><div class=token-line style=color:#393A34><span class="token punctuation" style=color:#393A34>{</span><span class="token plain"> </span><span class="token property" style=color:#36acaa>"field"</span><span class="token operator" style=color:#393A34>:</span><span class="token plain"> </span><span class="token string" style=color:#e3116c>"nome.do.campo"</span><span class="token punctuation" style=color:#393A34>,</span><span class="token plain"> </span><span class="token property" style=color:#36acaa>"op"</span><span class="token operator" style=color:#393A34>:</span><span class="token plain"> </span><span class="token string" style=color:#e3116c>"operador"</span><span class="token punctuation" style=color:#393A34>,</span><span class="token plain"> </span><span class="token property" style=color:#36acaa>"value"</span><span class="token operator" style=color:#393A34>:</span><span class="token plain"> valor </span><span class="token punctuation" style=color:#393A34>}</span><br/></div></code></pre></div></div>
+<p>Operadores suportados:</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Operador<th>Significado<th>Exemplo<th>Notas<tbody><tr><td><code>eq</code><td>Igual<td><code>{ "field": "event.type", "op": "eq", "value": "auth_failed" }</code><td>Padrão, pode omitir <code>op</code>. Compara strings; case-sensitive.<tr><td><code>ne</code><td>Diferente<td><code>{ "field": "user.name", "op": "ne", "value": "admin" }</code><td>Vacuidade: campo ausente ≠ admin. Auto-injeta <code>exists=true</code>.<tr><td><code>contains</code><td>Contém (substring)<td><code>{ "field": "message", "op": "contains", "value": "error" }</code><td>Busca a string dentro da string do evento.<tr><td><code>gt</code>, <code>lt</code>, <code>gte</code>, <code>lte</code><td>Maior, menor, etc.<td><code>{ "field": "severity", "op": "gte", "value": 3 }</code><td>Coagem lado esquerdo a float. "5" vs 3 funciona.<tr><td><code>in</code> (inflight)<td>Está em lista<td><code>{ "field": "source.ip", "op": "in", "value": ["10.0.0.1", "10.0.0.2"] }</code><td><strong>JSON array, não CSV string.</strong> Rejeita <code>"10.0.0.1,10.0.0.2"</code>.<tr><td><code>nin</code> (inflight)<td>Não está em lista<td><code>{ "field": "source.ip", "op": "nin", "value": ["10.0.0.1"] }</code><td>Vacuidade + allowlist. Auto-injeta <code>exists=true</code>.<tr><td><code>exists</code> (inflight)<td>Campo existe<td><code>{ "field": "user.id", "op": "exists", "value": true }</code><td>True/false. Raro usar manualmente (auto-injetado).</table>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=gotchas-e-armadilhas>Gotchas e armadilhas<a href=#gotchas-e-armadilhas class=hash-link aria-label="Enlace directo al Gotchas e armadilhas" title="Enlace directo al Gotchas e armadilhas" translate=no>​</a></h3>
+<p><strong>in / nin exigem LISTA JSON</strong></p>
+<p>Errado:</p>
+<div class="language-json codeBlockContainer_Ckt0 theme-code-block" style=--prism-color:#393A34;--prism-background-color:#f6f8fa><div class=codeBlockContent_QJqH><pre tabindex=0 class="prism-code language-json codeBlock_bY9V thin-scrollbar" style=color:#393A34;background-color:#f6f8fa><code class=codeBlockLines_e6Vv><div class=token-line style=color:#393A34><span class="token punctuation" style=color:#393A34>{</span><span class="token plain"> </span><span class="token property" style=color:#36acaa>"field"</span><span class="token operator" style=color:#393A34>:</span><span class="token plain"> </span><span class="token string" style=color:#e3116c>"source.ip"</span><span class="token punctuation" style=color:#393A34>,</span><span class="token plain"> </span><span class="token property" style=color:#36acaa>"op"</span><span class="token operator" style=color:#393A34>:</span><span class="token plain"> </span><span class="token string" style=color:#e3116c>"in"</span><span class="token punctuation" style=color:#393A34>,</span><span class="token plain"> </span><span class="token property" style=color:#36acaa>"value"</span><span class="token operator" style=color:#393A34>:</span><span class="token plain"> </span><span class="token string" style=color:#e3116c>"10.0.0.1,10.0.0.2"</span><span class="token plain"> </span><span class="token punctuation" style=color:#393A34>}</span><br/></div></code></pre></div></div>
+<p>Isto é rejeitado na compilação (<code>bad_json</code>). Se você quer múltiplos valores, use um array:</p>
+<div class="language-json codeBlockContainer_Ckt0 theme-code-block" style=--prism-color:#393A34;--prism-background-color:#f6f8fa><div class=codeBlockContent_QJqH><pre tabindex=0 class="prism-code language-json codeBlock_bY9V thin-scrollbar" style=color:#393A34;background-color:#f6f8fa><code class=codeBlockLines_e6Vv><div class=token-line style=color:#393A34><span class="token punctuation" style=color:#393A34>{</span><span class="token plain"> </span><span class="token property" style=color:#36acaa>"field"</span><span class="token operator" style=color:#393A34>:</span><span class="token plain"> </span><span class="token string" style=color:#e3116c>"source.ip"</span><span class="token punctuation" style=color:#393A34>,</span><span class="token plain"> </span><span class="token property" style=color:#36acaa>"op"</span><span class="token operator" style=color:#393A34>:</span><span class="token plain"> </span><span class="token string" style=color:#e3116c>"in"</span><span class="token punctuation" style=color:#393A34>,</span><span class="token plain"> </span><span class="token property" style=color:#36acaa>"value"</span><span class="token operator" style=color:#393A34>:</span><span class="token plain"> </span><span class="token punctuation" style=color:#393A34>[</span><span class="token string" style=color:#e3116c>"10.0.0.1"</span><span class="token punctuation" style=color:#393A34>,</span><span class="token plain"> </span><span class="token string" style=color:#e3116c>"10.0.0.2"</span><span class="token punctuation" style=color:#393A34>]</span><span class="token plain"> </span><span class="token punctuation" style=color:#393A34>}</span><br/></div></code></pre></div></div>
+<p><strong>Operadores negativos (ne, nin) casam por vacuidade — mas é seguro</strong></p>
+<p>Se um evento não tem o campo <code>user.name</code>, tanto <code>ne</code> quanto <code>nin</code> o deixam passar. Sem proteção, uma regra "não-admin" dispararia sobre eventos sem ID. O compilador fecha isto automaticamente injetando <code>exists=true</code> — você não vê nem precisa escrever manualmente. É transparente.</p>
+<p><strong>Comparação numérica é automática, mas case-sensitive</strong></p>
+<div class="language-json codeBlockContainer_Ckt0 theme-code-block" style=--prism-color:#393A34;--prism-background-color:#f6f8fa><div class=codeBlockContent_QJqH><pre tabindex=0 class="prism-code language-json codeBlock_bY9V thin-scrollbar" style=color:#393A34;background-color:#f6f8fa><code class=codeBlockLines_e6Vv><div class=token-line style=color:#393A34><span class="token punctuation" style=color:#393A34>{</span><span class="token plain"> </span><span class="token property" style=color:#36acaa>"field"</span><span class="token operator" style=color:#393A34>:</span><span class="token plain"> </span><span class="token string" style=color:#e3116c>"severity"</span><span class="token punctuation" style=color:#393A34>,</span><span class="token plain"> </span><span class="token property" style=color:#36acaa>"op"</span><span class="token operator" style=color:#393A34>:</span><span class="token plain"> </span><span class="token string" style=color:#e3116c>"gte"</span><span class="token punctuation" style=color:#393A34>,</span><span class="token plain"> </span><span class="token property" style=color:#36acaa>"value"</span><span class="token operator" style=color:#393A34>:</span><span class="token plain"> </span><span class="token number" style=color:#36acaa>4</span><span class="token plain"> </span><span class="token punctuation" style=color:#393A34>}</span><br/></div></code></pre></div></div>
+<p>Se o evento tem <code>"severity": "5"</code> (string), isto funciona — o motor coage <code>"5"</code> a <code>5.0</code> antes de comparar. Mas:</p>
+<div class="language-json codeBlockContainer_Ckt0 theme-code-block" style=--prism-color:#393A34;--prism-background-color:#f6f8fa><div class=codeBlockContent_QJqH><pre tabindex=0 class="prism-code language-json codeBlock_bY9V thin-scrollbar" style=color:#393A34;background-color:#f6f8fa><code class=codeBlockLines_e6Vv><div class=token-line style=color:#393A34><span class="token punctuation" style=color:#393A34>{</span><span class="token plain"> </span><span class="token property" style=color:#36acaa>"field"</span><span class="token operator" style=color:#393A34>:</span><span class="token plain"> </span><span class="token string" style=color:#e3116c>"event_id"</span><span class="token punctuation" style=color:#393A34>,</span><span class="token plain"> </span><span class="token property" style=color:#36acaa>"op"</span><span class="token operator" style=color:#393A34>:</span><span class="token plain"> </span><span class="token string" style=color:#e3116c>"eq"</span><span class="token punctuation" style=color:#393A34>,</span><span class="token plain"> </span><span class="token property" style=color:#36acaa>"value"</span><span class="token operator" style=color:#393A34>:</span><span class="token plain"> </span><span class="token number" style=color:#36acaa>1</span><span class="token plain"> </span><span class="token punctuation" style=color:#393A34>}</span><br/></div></code></pre></div></div>
+<p>Se o evento tem <code>"event_id": "1"</code> (string), isto <strong>não</strong> funciona — <code>eq</code> compara strings e <code>"1"</code> ≠ <code>1</code>. Use <code>"1"</code> como valor.</p>
+<p><strong>Caminhos de campo usando ponto</strong></p>
+<div class="language-json codeBlockContainer_Ckt0 theme-code-block" style=--prism-color:#393A34;--prism-background-color:#f6f8fa><div class=codeBlockContent_QJqH><pre tabindex=0 class="prism-code language-json codeBlock_bY9V thin-scrollbar" style=color:#393A34;background-color:#f6f8fa><code class=codeBlockLines_e6Vv><div class=token-line style=color:#393A34><span class="token punctuation" style=color:#393A34>{</span><span class="token plain"> </span><span class="token property" style=color:#36acaa>"field"</span><span class="token operator" style=color:#393A34>:</span><span class="token plain"> </span><span class="token string" style=color:#e3116c>"raw.user.name"</span><span class="token punctuation" style=color:#393A34>,</span><span class="token plain"> </span><span class="token property" style=color:#36acaa>"op"</span><span class="token operator" style=color:#393A34>:</span><span class="token plain"> </span><span class="token string" style=color:#e3116c>"eq"</span><span class="token punctuation" style=color:#393A34>,</span><span class="token plain"> </span><span class="token property" style=color:#36acaa>"value"</span><span class="token operator" style=color:#393A34>:</span><span class="token plain"> </span><span class="token string" style=color:#e3116c>"alice"</span><span class="token plain"> </span><span class="token punctuation" style=color:#393A34>}</span><br/></div></code></pre></div></div>
+<p>Navega <code>raw</code> → <code>user</code> → <code>name</code>. Se em algum nível não for dict, resolve para <code>None</code> (e <code>eq</code> não casa).</p>
+<p><strong>Arrays não são navegados</strong></p>
+<p>Se <code>raw.events</code> é uma lista, um path como <code>raw.events.0.type</code> não funciona — resolve para <code>None</code>. O motor não sabe entrar em arrays. Agrupe por um campo de topo, não por dentro de listas.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=como-funciona-tipo-threshold>Como funciona: tipo threshold<a href=#como-funciona-tipo-threshold class=hash-link aria-label="Enlace directo al Como funciona: tipo threshold" title="Enlace directo al Como funciona: tipo threshold" translate=no>​</a></h2>
+<p>Ao final de uma busca federada, a regra <strong>threshold</strong> segue este fluxo sobre os resultados retornados:</p>
+<ol>
+<li class=""><strong>Agrupa</strong> os eventos do resultado por um campo (ex.: <code>source.ip</code>, usando notação de caminho com ponto).</li>
+<li class=""><strong>Filtra</strong> (opcional) — apenas eventos que atendem aos critérios da cláusula <code>where</code>.</li>
+<li class=""><strong>Conta</strong> eventos dentro de uma janela de tempo (ex.: últimos 5 minutos), usando o <strong>campo de timestamp</strong> configurado.</li>
+<li class=""><strong>Dispara</strong> — quando a contagem ≥ <code>min_count</code>, emite uma Detecção.</li>
+<li class=""><strong>Suprime</strong> — não dispara novamente pela mesma chave de agrupamento durante a janela de supressão (ex.: 1 hora).</li>
+</ol>
+<div class="theme-admonition theme-admonition-caution admonition_xJq3 alert alert--warning"><div class=admonitionHeading_Gvgb><span class=admonitionIcon_Rf37><svg viewBox="0 0 16 16"><path fill-rule=evenodd d="M8.893 1.5c-.183-.31-.52-.5-.887-.5s-.703.19-.886.5L.138 13.499a.98.98 0 0 0 0 1.001c.193.31.53.501.886.501h13.964c.367 0 .704-.19.877-.5a1.03 1.03 0 0 0 .01-1.002L8.893 1.5zm.133 11.497H6.987v-2.003h2.039v2.003zm0-3.004H6.987V5.987h2.039v4.006z"/></svg></span>A janela só existe se houver campo de timestamp</div><div class=admonitionContent_BuS1><p>A janela de tempo é aplicada <strong>apenas</strong> quando <code>window_seconds > 0</code> <strong>e</strong> <code>timestamp_field</code> está preenchido. Se você deixar <code>timestamp_field</code> vazio, a janela é <strong>desligada</strong> e a regra passa a contar <strong>todos</strong> os eventos do grupo presentes no resultado da busca, sem qualquer recorte temporal — o que costuma gerar falso positivo. Não existe fallback para "timestamp de ingestão".<p>Se o campo estiver preenchido mas os valores forem inválidos ou ausentes nos eventos, o comportamento é <strong>fail-closed</strong>: a contagem vai a zero e a regra não dispara (em vez de virar silenciosamente "N em qualquer tempo"). Sempre preencha <code>timestamp_field</code> com um campo que exista de fato nos eventos daquela fonte.</div></div>
+<p><strong>Exemplo prático:</strong></p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Campo<th>Valor<tbody><tr><td><strong>Nome</strong><td>Múltiplas falhas de login do mesmo IP<tr><td><strong>group_by_field</strong><td><code>source.ip</code><tr><td><strong>min_count</strong><td>5<tr><td><strong>window_seconds</strong><td>300 (5 minutos)<tr><td><strong>timestamp_field</strong><td><code>event.timestamp</code> (obrigatório para a janela valer)<tr><td><strong>where</strong><td><code>[{field: "event.category", op: "eq", value: "authentication"}]</code><tr><td><strong>suppression_window_seconds</strong><td>3600 (1 hora)</table>
+<p>Resultado: quando uma busca federada terminar, se o resultado contiver 5 ou mais eventos de autenticação do mesmo IP dentro de uma janela de 5 minutos, uma Detecção é aberta. A mesma regra não dispara novamente para aquele IP pelos próximos 60 minutos, mesmo que outras buscas sejam executadas.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=permissões>Permissões<a href=#permissões class=hash-link aria-label="Enlace directo al Permissões" title="Enlace directo al Permissões" translate=no>​</a></h2>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Ação<th>Permissão<th>Quem tem<tbody><tr><td>Ver lista de regras<td><code>query.run</code><td>Viewer, Operator, Engineer, Admin<tr><td>Criar / Editar / Excluir regra<td><code>query.save</code><td>Engineer, Admin</table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=a-tela>A tela<a href=#a-tela class=hash-link aria-label="Enlace directo al A tela" title="Enlace directo al A tela" translate=no>​</a></h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=lista-de-regras>Lista de regras<a href=#lista-de-regras class=hash-link aria-label="Enlace directo al Lista de regras" title="Enlace directo al Lista de regras" translate=no>​</a></h3>
+<p>Mostra todas as regras da sua organização:</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Coluna<th>O que mostra<tbody><tr><td><strong>Nome</strong><td>Identificador da regra (ex.: "Múltiplas falhas de login").<tr><td><strong>Status</strong><td>Ativa (verde) ou desativada (cinza). Regras desativadas não disparam.<tr><td><strong>Tipo</strong><td>Sempre "threshold" por enquanto.<tr><td><strong>Grupo</strong><td>Campo pelo qual agrupa (ex.: <code>source.ip</code>).<tr><td><strong>Limite</strong><td>Número mínimo de eventos para disparar.<tr><td><strong>Janela</strong><td>Período em segundos no qual conta eventos.<tr><td><strong>Ações</strong><td>Editar, desativar/ativar, ou excluir.</table>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=criar-uma-regra>Criar uma regra<a href=#criar-uma-regra class=hash-link aria-label="Enlace directo al Criar uma regra" title="Enlace directo al Criar uma regra" translate=no>​</a></h3>
+<ol>
+<li class="">
+<p>Clique em <strong>+ Nova regra</strong>.</p>
+</li>
+<li class="">
+<p>Preencha o formulário:</p>
+<ul>
+<li class=""><strong>Nome</strong>: descrição curta e única (ex.: "Brute-force SSH").</li>
+<li class=""><strong>Descrição</strong> (opcional): mais contexto (ex.: "Múltiplas tentativas falhadas em um curto espaço de tempo").</li>
+<li class=""><strong>Campo de agrupamento</strong>: qual campo usar para agrupar (ex.: <code>source.ip</code>, <code>user.name</code>). Use notação com ponto para campos aninhados.</li>
+<li class=""><strong>Limite mínimo</strong>: quantos eventos no mínimo para disparar (padrão: 5).</li>
+<li class=""><strong>Janela de tempo</strong>: quantos segundos de história examinar dentro do resultado da busca (padrão: 300 = 5 min).</li>
+<li class=""><strong>Campo de timestamp</strong>: qual campo do evento datar para aplicar a janela (ex.: <code>event.timestamp</code>). <strong>Obrigatório sempre que a janela for maior que zero</strong> — sem ele a janela é desligada e a regra conta todos os eventos do grupo no resultado da busca.</li>
+<li class=""><strong>Filtros</strong> (opcional): adicione condições. Exemplo: <code>event.category eq "authentication"</code> — só conta eventos de autenticação.</li>
+<li class=""><strong>Severidade</strong>: nível da Detecção gerada (padrão: High). Escolha entre Low, Medium, High ou Critical.</li>
+<li class=""><strong>Supressão</strong>: quantos segundos para silenciar a regra depois que dispara para a mesma chave (padrão: 3600 = 1 hora).</li>
+</ul>
+</li>
+<li class="">
+<p>Clique <strong>Salvar</strong>. A regra fica habilitada e passa a ser avaliada na próxima busca federada.</p>
+</li>
+</ol>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=editar-uma-regra>Editar uma regra<a href=#editar-uma-regra class=hash-link aria-label="Enlace directo al Editar uma regra" title="Enlace directo al Editar uma regra" translate=no>​</a></h3>
+<ol>
+<li class="">Clique no nome da regra ou no botão de editar.</li>
+<li class="">Modifique os campos.</li>
+<li class="">Clique <strong>Salvar</strong>.</li>
+</ol>
+<p>Se a regra está habilitada, as mudanças valem a partir da próxima busca federada — nada é reavaliado retroativamente sobre buscas já concluídas.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=ativar--desativar>Ativar / Desativar<a href=#ativar--desativar class=hash-link aria-label="Enlace directo al Ativar / Desativar" title="Enlace directo al Ativar / Desativar" translate=no>​</a></h3>
+<p>No botão de ações, escolha <strong>Ativar</strong> ou <strong>Desativar</strong>. Regras desativadas são ignoradas na avaliação.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=excluir-uma-regra>Excluir uma regra<a href=#excluir-uma-regra class=hash-link aria-label="Enlace directo al Excluir uma regra" title="Enlace directo al Excluir uma regra" translate=no>​</a></h3>
+<p>Clique no botão de ações e escolha <strong>Excluir</strong>. A confirmação é pedida antes de remover.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=detecções-geradas>Detecções geradas<a href=#detecções-geradas class=hash-link aria-label="Enlace directo al Detecções geradas" title="Enlace directo al Detecções geradas" translate=no>​</a></h2>
+<p>Quando uma regra dispara, é criada uma <strong>Detecção</strong> com:</p>
+<ul>
+<li class=""><strong>Fonte</strong>: "correlation" (diferente de "scheduled_query" ou "live_query").</li>
+<li class=""><strong>Severidade</strong>: a que você escolheu ao criar a regra.</li>
+<li class=""><strong>Status</strong>: começa em "open" — você triagem em <a class="" href=/es/operations/detections>Detecções</a>.</li>
+<li class=""><strong>Chave de dedup</strong>: inclui a chave de agrupamento, garantindo que eventos do mesmo grupo não geram duplicatas enquanto a supressão estiver ativa.</li>
+<li class=""><strong>Contagem (<code>count</code>)</strong>: começa em 1 e é incrementada a cada <strong>nova avaliação da regra</strong> que reincide na mesma chave de dedup. Ela <strong>não</strong> reflete quantos eventos foram correlacionados — para isso, olhe os eventos no detalhe da Detecção. Veja <a class="" href=/es/operations/detections#deduplica%C3%A7%C3%A3o-e-supress%C3%A3o>Detecções</a>.</li>
+</ul>
+<p>Você vê as Detecções em <strong>Operação → Detecções</strong>.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=diagnóstico-por-que-a-regra-não-dispara>Diagnóstico: por que a regra não dispara<a href=#diagnóstico-por-que-a-regra-não-dispara class=hash-link aria-label="Enlace directo al Diagnóstico: por que a regra não dispara" title="Enlace directo al Diagnóstico: por que a regra não dispara" translate=no>​</a></h2>
+<p>Sua regra está criada e habilitada, mas não gera Detections. Aqui estão as causas reais, em ordem de frequência.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=1-eval_mode-errado>1. Eval_mode errado<a href=#1-eval_mode-errado class=hash-link aria-label="Enlace directo al 1. Eval_mode errado" title="Enlace directo al 1. Eval_mode errado" translate=no>​</a></h3>
+<p>Você criou a regra em modo <code>batch</code>, mas esperava que ela rodasse em tempo real. Ou criou em <code>inflight</code> e esperava que ela rodasse ao fim da busca federada.</p>
+<p><strong>Diagnóstico:</strong> abra a regra. Confira o campo <code>eval_mode</code> (pode estar em abas ou settings). Mude conforme necessário.</p>
+<ul>
+<li class="">Batch roda somente após uma busca federada terminar (você precisa executar uma busca manualmente).</li>
+<li class="">Inflight roda no pipeline de coleta, por evento, em tempo real.</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=2-regra-desabilitada>2. Regra desabilitada<a href=#2-regra-desabilitada class=hash-link aria-label="Enlace directo al 2. Regra desabilitada" title="Enlace directo al 2. Regra desabilitada" translate=no>​</a></h3>
+<p>O <code>Status</code> da regra é "Desativada" (cinza). Regras desativadas não são avaliadas.</p>
+<p><strong>Diagnóstico:</strong> na lista de regras, procure pelo ícone de status. Se estiver cinza, clique em ações → <strong>Ativar</strong>.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=3-modo-batch-nenhuma-busca-executada>3. Modo batch: nenhuma busca executada<a href=#3-modo-batch-nenhuma-busca-executada class=hash-link aria-label="Enlace directo al 3. Modo batch: nenhuma busca executada" title="Enlace directo al 3. Modo batch: nenhuma busca executada" translate=no>​</a></h3>
+<p>A regra está em batch, mas você nunca rodou uma busca federada que pudesse acioná-la.</p>
+<p><strong>Diagnóstico:</strong> vá em <strong>Operação → Busca federada</strong>, execute uma busca que cubra as fontes e período de interesse, e aguarde conclusão. A regra é avaliada ao final.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=4-where_json-não-compila>4. Where_json não compila<a href=#4-where_json-não-compila class=hash-link aria-label="Enlace directo al 4. Where_json não compila" title="Enlace directo al 4. Where_json não compila" translate=no>​</a></h3>
+<p>A cláusula <code>where</code> tem um erro de sintaxe ou semântica que a torna inválida. A regra é rejeitada no boot.</p>
+<p>Razões possíveis (procure no <strong>log de aplicação</strong> pela mensagem de rejeição):</p>
+<ul>
+<li class=""><code>bad_json</code>: JSON malformado, ou operador numérico (gt/lt/gte/lte) com valor não-numérico, ou <code>in</code>/<code>nin</code> sem array, ou campo <code>field</code> ausente.</li>
+<li class=""><code>empty_where</code>: array vazio ou sem nenhuma cláusula (em inflight, regra vazia dispararia 100% dos eventos).</li>
+<li class=""><code>unknown_op</code>: operador não reconhecido (ex.: <code>"op": "match"</code>, que não existe).</li>
+<li class=""><code>over_cap</code>: mais de 10 cláusulas numa regra (limite inflight).</li>
+</ul>
+<p><strong>Diagnóstico:</strong> abra a regra, valide o JSON — use um validador de JSON online se necessário. Confira operadores: são apenas <code>eq</code>, <code>ne</code>, <code>contains</code>, <code>gt</code>, <code>lt</code>, <code>gte</code>, <code>lte</code> + <code>in</code>, <code>nin</code>, <code>exists</code> (inflight).</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=5-modo-batch-campo-de-timestamp-vazio-ou-inválido>5. Modo batch: campo de timestamp vazio ou inválido<a href=#5-modo-batch-campo-de-timestamp-vazio-ou-inválido class=hash-link aria-label="Enlace directo al 5. Modo batch: campo de timestamp vazio ou inválido" title="Enlace directo al 5. Modo batch: campo de timestamp vazio ou inválido" translate=no>​</a></h3>
+<p>Você configurou uma janela (<code>window_seconds > 0</code>), mas deixou <code>timestamp_field</code> vazio ou apontando para um campo que não existe.</p>
+<p><strong>Diagnóstico:</strong> abra a regra. Confira <code>timestamp_field</code> — está preenchido? Se sim, ele existe de fato nos eventos daquela fonte? Execute uma investigação / busca federada para ver um evento de exemplo, verifique o caminho do campo.</p>
+<p>Se o campo estiver realmente ausente ou vazio, a <strong>janela é desligada em silêncio</strong> e a regra passa a contar todos os eventos do grupo presentes no resultado da busca, sem recorte temporal — isto gera falso positivo, não falha de disparo, mas é um modo silencioso de "sua regra não faz o que você esperava".</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=6-campo-podado-pelo-mapeamento-raw_reduction>6. Campo podado pelo mapeamento (<code>raw_reduction</code>)<a href=#6-campo-podado-pelo-mapeamento-raw_reduction class=hash-link aria-label="Enlace directo al 6-campo-podado-pelo-mapeamento-raw_reduction" title="Enlace directo al 6-campo-podado-pelo-mapeamento-raw_reduction" translate=no>​</a></h3>
+<p>A fonte é mapeada com um bloco <code>raw_reduction</code> que <strong>remove</strong> ou <strong>encurta</strong> o campo que sua regra tenta usar. Note que hoje o campo pode ter sido apagado por inteiro, não apenas truncado.</p>
+<p><strong>Diagnóstico:</strong> o bloco <code>raw_reduction</code> <strong>não é editável pelo editor visual de mapeamento</strong> — ele vive na definição JSON e é alterado por quem administra a plataforma. Peça a definição atual do mapeamento e verifique se o campo da sua regra cai em algum spec <code>drop</code>, <code>keep_only</code>, <code>max_bytes</code> ou <code>drop_nulls</code>. Se cair, ajuste o mapeamento ou reescreva a regra sobre um campo que sobrevive à poda. Veja <a class="" href=/es/normalization/dsl-spec>Especificação da DSL</a>.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=7-path-atravessa-array>7. Path atravessa array<a href=#7-path-atravessa-array class=hash-link aria-label="Enlace directo al 7. Path atravessa array" title="Enlace directo al 7. Path atravessa array" translate=no>​</a></h3>
+<p>Um campo do seu <code>where</code> está dentro de uma lista, ex.: <code>raw.events.0.type</code>.</p>
+<p><strong>Diagnóstico:</strong> confira a estrutura dos dados. Se o campo está dentro de um array (ex.: <code>events</code> é uma lista), o motor não sabe navegar dentro. Use um campo de topo, ou agrupe por um campo que não requer entrar na lista.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=8-group_by_field-não-resolve-inflight>8. Group_by_field não resolve (inflight)<a href=#8-group_by_field-não-resolve-inflight class=hash-link aria-label="Enlace directo al 8. Group_by_field não resolve (inflight)" title="Enlace directo al 8. Group_by_field não resolve (inflight)" translate=no>​</a></h3>
+<p>Modo inflight: você configurou <code>group_by_field</code> apontando para um campo que não existe ou está dentro de um array.</p>
+<p><strong>Diagnóstico:</strong> cada evento casado produz uma Detection usando <code>group_by_field</code> como chave. Se o campo não existe no evento, a Detection não é criada — em vez disso, você vê um erro <code>group_by_unresolved</code> nos logs. Verifique o campo, ou deixe em branco (NULL) se quer uma Detection por regra por ciclo.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=limites-e-roadmap>Limites e roadmap<a href=#limites-e-roadmap class=hash-link aria-label="Enlace directo al Limites e roadmap" title="Enlace directo al Limites e roadmap" translate=no>​</a></h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=limites-gerais>Limites gerais<a href=#limites-gerais class=hash-link aria-label="Enlace directo al Limites gerais" title="Enlace directo al Limites gerais" translate=no>​</a></h3>
+<ul>
+<li class=""><strong>Quota por organização</strong>: existe limite de regras por organização. Se receber erro 409 (Conflict), consulte o administrador.</li>
+<li class=""><strong>Sem filtros complexos</strong>: os filtros <code>where</code> suportam operadores simples: <code>eq</code>, <code>ne</code>, <code>contains</code>, <code>gt</code>/<code>lt</code>/<code>gte</code>/<code>lte</code>. Para lógica avançada (OR, NOT, wildcards), use a <a class="" href=/es/operations/search>Busca federada</a> e analise manualmente.</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=limites-específicos-do-inflight>Limites específicos do inflight<a href=#limites-específicos-do-inflight class=hash-link aria-label="Enlace directo al Limites específicos do inflight" title="Enlace directo al Limites específicos do inflight" translate=no>​</a></h3>
+<ul>
+<li class=""><strong>50 regras por ciclo</strong>: máximo de regras inflight avaliadas num ciclo de coleta. Se sua organização tiver mais, as que cabem são carregadas e avaliadas; as demais são adiadas para o próximo ciclo. Não há perda de eventos — apenas avaliação em ondas. Em caso de reach o limite, logs avisar.</li>
+<li class=""><strong>10 cláusulas por regra</strong>: máximo de predicados no <code>where_json</code> de uma regra inflight. Uma regra com 11 cláusulas é rejeitada em compile-time.</li>
+<li class=""><strong>500 cláusulas totais por ciclo</strong>: máx de 50 regras × 10 cláusulas = 500 predicados avaliados por evento. Se você tem 50 regras com 10 cláusulas cada, atinge o teto e nenhuma regra extra pode ser carregada naquele ciclo.</li>
+<li class=""><strong>50 chaves de dedup por regra por ciclo</strong>: se uma regra gera mais de 50 variações (ex.: 100 IPs diferentes num ciclo usando <code>group_by_field="source.ip"</code>), as primeiras 50 geram Detections, as demais não — mas <strong>todos os matches seguem sendo contados nos logs</strong>. Nenhum evento é perdido. Isto costuma indicar que <code>group_by_field</code> tem cardinalidade muito alta (ex.: um ID único por evento). Ajuste a regra ou revise o agrupamento.</li>
+</ul>
+<div class="theme-admonition theme-admonition-note admonition_xJq3 alert alert--secondary"><div class=admonitionHeading_Gvgb><span class=admonitionIcon_Rf37><svg viewBox="0 0 14 16"><path fill-rule=evenodd d="M6.3 5.69a.942.942 0 0 1-.28-.7c0-.28.09-.52.28-.7.19-.18.42-.28.7-.28.28 0 .52.09.7.28.18.19.28.42.28.7 0 .28-.09.52-.28.7a1 1 0 0 1-.7.3c-.28 0-.52-.11-.7-.3zM8 7.99c-.02-.25-.11-.48-.31-.69-.2-.19-.42-.3-.69-.31H6c-.27.02-.48.13-.69.31-.2.2-.3.44-.31.69h1v3c.02.27.11.5.31.69.2.2.42.31.69.31h1c.27 0 .48-.11.69-.31.2-.19.3-.42.31-.69H8V7.98v.01zM7 2.3c-3.14 0-5.7 2.54-5.7 5.68 0 3.14 2.56 5.7 5.7 5.7s5.7-2.55 5.7-5.7c0-3.15-2.56-5.69-5.7-5.69v.01zM7 .98c3.86 0 7 3.14 7 7s-3.14 7-7 7-7-3.12-7-7 3.14-7 7-7z"/></svg></span>O que fazer ao atingir tetos</div><div class=admonitionContent_BuS1><ul>
+<li class=""><strong>Muitas regras?</strong> Revise quais são críticas. Priorize pelo risco e desabilite as menos importantes.</li>
+<li class=""><strong>Muitas cláusulas?</strong> Simplifique a lógica do <code>where</code> — combine predicados ou use campos mais específicos.</li>
+<li class=""><strong>Muitas chaves de dedup?</strong> Revise <code>group_by_field</code> — talvez esteja muito granular. Ex.: se agrupa por <code>user.id</code> e tem milhares de usuários por ciclo, cada um gera uma chave diferente. Considere agrupar por <code>user.department</code> ou deixar em branco (uma Detection por regra).</li>
+</ul></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=roadmap>Roadmap<a href=#roadmap class=hash-link aria-label="Enlace directo al Roadmap" title="Enlace directo al Roadmap" translate=no>​</a></h3>
+<ul>
+<li class=""><strong>Batch</strong>: gatilho contínuo no pipeline (inflight já cobre isto). Agendamento próprio (sem precisar rodar busca manual).</li>
+<li class=""><strong>Tipo</strong>: sequência de eventos (A → B → C), agregações (soma, média), regras SQL custom.</li>
+<li class=""><strong>Batch: sem <code>timestamp_field</code></strong>: fallback automático para timestamp de ingestão (hoje a janela é desligada em silêncio).</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=passo-a-passo>Passo a passo<a href=#passo-a-passo class=hash-link aria-label="Enlace directo al Passo a passo" title="Enlace directo al Passo a passo" translate=no>​</a></h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=criar-uma-regra-para-detectar-brute-force>Criar uma regra para detectar brute-force<a href=#criar-uma-regra-para-detectar-brute-force class=hash-link aria-label="Enlace directo al Criar uma regra para detectar brute-force" title="Enlace directo al Criar uma regra para detectar brute-force" translate=no>​</a></h3>
+<ol>
+<li class="">
+<p>Abra <strong>Conhecimento → Correlação</strong>.</p>
+</li>
+<li class="">
+<p>Clique em <strong>+ Nova regra</strong>.</p>
+</li>
+<li class="">
+<p>Preencha:</p>
+<ul>
+<li class=""><strong>Nome</strong>: "Brute-force SSH"</li>
+<li class=""><strong>Descrição</strong>: "Múltiplas conexões SSH falhadas do mesmo IP"</li>
+<li class=""><strong>Campo de agrupamento</strong>: <code>source.ip</code></li>
+<li class=""><strong>Limite mínimo</strong>: 10</li>
+<li class=""><strong>Janela de tempo</strong>: 300 (5 minutos)</li>
+<li class=""><strong>Campo de timestamp</strong>: <code>event.timestamp</code> (sem ele a janela de 5 minutos não é aplicada)</li>
+<li class=""><strong>Filtros</strong>: adicione <code>event.action eq "ssh_login_failed"</code></li>
+<li class=""><strong>Severidade</strong>: High</li>
+<li class=""><strong>Supressão</strong>: 3600</li>
+</ul>
+</li>
+<li class="">
+<p>Clique <strong>Salvar</strong>.</p>
+</li>
+<li class="">
+<p>Abra <strong>Operação → Busca federada</strong> e execute uma busca que cubra as fontes e o período de interesse.</p>
+</li>
+</ol>
+<p>Quando essa busca terminar, a regra é avaliada sobre os resultados dela: se houver 10 ou mais falhas de SSH do mesmo IP dentro de uma janela de 5 minutos, uma Detecção é criada. Repita a busca sempre que quiser reavaliar — a regra não roda sozinha.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=revisar-e-triagem-de-uma-detecção-gerada>Revisar e triagem de uma Detecção gerada<a href=#revisar-e-triagem-de-uma-detecção-gerada class=hash-link aria-label="Enlace directo al Revisar e triagem de uma Detecção gerada" title="Enlace directo al Revisar e triagem de uma Detecção gerada" translate=no>​</a></h3>
+<ol>
+<li class="">Abra <strong>Operação → Detecções</strong>.</li>
+<li class="">Filtre por status "open".</li>
+<li class="">Clique em uma Detecção com <code>source = "correlation"</code>.</li>
+<li class="">No detalhe, veja a regra que a gerou e os eventos que acionaram.</li>
+<li class="">Mude o status para "acknowledged" (investigando) ou "closed" (resolvido/falso positivo).</li>
+</ol>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=ajustar-uma-regra-que-gera-muitos-falsos-positivos>Ajustar uma regra que gera muitos falsos positivos<a href=#ajustar-uma-regra-que-gera-muitos-falsos-positivos class=hash-link aria-label="Enlace directo al Ajustar uma regra que gera muitos falsos positivos" title="Enlace directo al Ajustar uma regra que gera muitos falsos positivos" translate=no>​</a></h3>
+<ol>
+<li class="">Abra <strong>Conhecimento → Correlação</strong>.</li>
+<li class="">Clique em editar na regra problemática.</li>
+<li class=""><strong>Confira primeiro o campo de timestamp.</strong> Se estiver vazio, a janela não está sendo aplicada e a regra conta todos os eventos do grupo no resultado da busca — essa é a causa mais comum de falso positivo. Preencha com um campo que exista nos eventos daquela fonte.</li>
+<li class="">Aumente <code>min_count</code> (ex.: de 5 para 10).</li>
+<li class="">Ou reduza <code>window_seconds</code> para exigir uma concentração maior em menos tempo.</li>
+<li class="">Ou adicione um filtro mais específico na cláusula <code>where</code>.</li>
+<li class="">Clique <strong>Salvar</strong>. As mudanças valem a partir da próxima busca federada.</li>
+</ol>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=próximos-passos>Próximos passos<a href=#próximos-passos class=hash-link aria-label="Enlace directo al Próximos passos" title="Enlace directo al Próximos passos" translate=no>​</a></h2>
+<ul>
+<li class=""><strong>Quer triagem as Detecções geradas?</strong> Vá em <strong>Operação → Detecções</strong> (<a class="" href=/es/operations/detections>Detecções</a>).</li>
+<li class=""><strong>Quer que suas regras rodem?</strong> Execute uma <strong>Operação → Busca federada</strong> (<a class="" href=/es/operations/detections>Busca federada</a>) — é o que dispara a avaliação das regras habilitadas.</li>
+<li class=""><strong>Quer ver todos os eventos?</strong> Vá em <strong>Operação → Investigações</strong> (<a class="" href=/es/operations/search>Investigações</a>).</li>
+</ul></div></article><nav class="docusaurus-mt-lg pagination-nav" aria-label="Página del documento"><a class="pagination-nav__link pagination-nav__link--prev" href=/es/operations/detections><div class=pagination-nav__sublabel>Anterior</div><div class=pagination-nav__label>Detecções</div></a><a class="pagination-nav__link pagination-nav__link--next" href=/es/operations/pipeline-health><div class=pagination-nav__sublabel>Siguiente</div><div class=pagination-nav__label>Saúde do Pipeline</div></a></nav></div></div><div class="col col--3"><div class="tableOfContents_bqdL thin-scrollbar theme-doc-toc-desktop"><ul class="table-of-contents table-of-contents__left-border"><li><a href=#quando-usar class="table-of-contents__link toc-highlight">Quando usar</a><li><a href=#modos-de-avaliação-batch-vs-inflight class="table-of-contents__link toc-highlight">Modos de avaliação: batch vs inflight</a><ul><li><a href=#modo-batch-padrão class="table-of-contents__link toc-highlight">Modo batch (padrão)</a><li><a href=#modo-inflight-avaliação-em-voo class="table-of-contents__link toc-highlight">Modo inflight (avaliação em voo)</a></ul><li><a href=#autoria-de-regras--operadores-e-gotchas class="table-of-contents__link toc-highlight">Autoria de regras — operadores e gotchas</a><ul><li><a href=#operadores-de-filtro class="table-of-contents__link toc-highlight">Operadores de filtro</a><li><a href=#gotchas-e-armadilhas class="table-of-contents__link toc-highlight">Gotchas e armadilhas</a></ul><li><a href=#como-funciona-tipo-threshold class="table-of-contents__link toc-highlight">Como funciona: tipo threshold</a><li><a href=#permissões class="table-of-contents__link toc-highlight">Permissões</a><li><a href=#a-tela class="table-of-contents__link toc-highlight">A tela</a><ul><li><a href=#lista-de-regras class="table-of-contents__link toc-highlight">Lista de regras</a><li><a href=#criar-uma-regra class="table-of-contents__link toc-highlight">Criar uma regra</a><li><a href=#editar-uma-regra class="table-of-contents__link toc-highlight">Editar uma regra</a><li><a href=#ativar--desativar class="table-of-contents__link toc-highlight">Ativar / Desativar</a><li><a href=#excluir-uma-regra class="table-of-contents__link toc-highlight">Excluir uma regra</a></ul><li><a href=#detecções-geradas class="table-of-contents__link toc-highlight">Detecções geradas</a><li><a href=#diagnóstico-por-que-a-regra-não-dispara class="table-of-contents__link toc-highlight">Diagnóstico: por que a regra não dispara</a><ul><li><a href=#1-eval_mode-errado class="table-of-contents__link toc-highlight">1. Eval_mode errado</a><li><a href=#2-regra-desabilitada class="table-of-contents__link toc-highlight">2. Regra desabilitada</a><li><a href=#3-modo-batch-nenhuma-busca-executada class="table-of-contents__link toc-highlight">3. Modo batch: nenhuma busca executada</a><li><a href=#4-where_json-não-compila class="table-of-contents__link toc-highlight">4. Where_json não compila</a><li><a href=#5-modo-batch-campo-de-timestamp-vazio-ou-inválido class="table-of-contents__link toc-highlight">5. Modo batch: campo de timestamp vazio ou inválido</a><li><a href=#6-campo-podado-pelo-mapeamento-raw_reduction class="table-of-contents__link toc-highlight">6. Campo podado pelo mapeamento (<code>raw_reduction</code>)</a><li><a href=#7-path-atravessa-array class="table-of-contents__link toc-highlight">7. Path atravessa array</a><li><a href=#8-group_by_field-não-resolve-inflight class="table-of-contents__link toc-highlight">8. Group_by_field não resolve (inflight)</a></ul><li><a href=#limites-e-roadmap class="table-of-contents__link toc-highlight">Limites e roadmap</a><ul><li><a href=#limites-gerais class="table-of-contents__link toc-highlight">Limites gerais</a><li><a href=#limites-específicos-do-inflight class="table-of-contents__link toc-highlight">Limites específicos do inflight</a><li><a href=#roadmap class="table-of-contents__link toc-highlight">Roadmap</a></ul><li><a href=#passo-a-passo class="table-of-contents__link toc-highlight">Passo a passo</a><ul><li><a href=#criar-uma-regra-para-detectar-brute-force class="table-of-contents__link toc-highlight">Criar uma regra para detectar brute-force</a><li><a href=#revisar-e-triagem-de-uma-detecção-gerada class="table-of-contents__link toc-highlight">Revisar e triagem de uma Detecção gerada</a><li><a href=#ajustar-uma-regra-que-gera-muitos-falsos-positivos class="table-of-contents__link toc-highlight">Ajustar uma regra que gera muitos falsos positivos</a></ul><li><a href=#próximos-passos class="table-of-contents__link toc-highlight">Próximos passos</a></ul></div></div></div></div></main></div></div></div><footer class="theme-layout-footer footer footer--dark"><div class="container container-fluid"><div class="row footer__links"><div class="theme-layout-footer-column col footer__col"><div class=footer__title>Documentação</div><ul class="footer__items clean-list"><li class=footer__item><a class=footer__link-item href=/es/getting-started/overview>Começar</a><li class=footer__item><a class=footer__link-item href=/es/operations/dashboard>Operação diária</a><li class=footer__item><a class=footer__link-item href=/es/normalization/overview>Mappings (CML)</a><li class=footer__item><a class=footer__link-item href=/es/runbooks/dispatcher>Runbooks</a></ul></div><div class="theme-layout-footer-column col footer__col"><div class=footer__title>Plataforma</div><ul class="footer__items clean-list"><li class=footer__item><a class=footer__link-item href=/es/concepts/architecture>Arquitetura</a><li class=footer__item><a class=footer__link-item href=/es/concepts/rbac>RBAC</a><li class=footer__item><a class=footer__link-item href=/es/integrations/overview>Integrações</a><li class=footer__item><a class=footer__link-item href=/es/compliance/retention>Compliance</a></ul></div><div class="theme-layout-footer-column col footer__col"><div class=footer__title>Recursos</div><ul class="footer__items clean-list"><li class=footer__item><a class=footer__link-item href=/es/getting-started/quickstart>Quickstart</a><li class=footer__item><a class=footer__link-item href=/es/normalization/cookbook>DSL Cookbook</a><li class=footer__item><a class=footer__link-item href=/es/normalization/troubleshooting>Troubleshooting</a></ul></div></div><div class="footer__bottom text--center"><div class=footer__copyright>Copyright © 2026 CentralOps. Built with Docusaurus.</div></div></div></footer></div></body>

@@ -1,0 +1,260 @@
+<!doctype html><html lang=en dir=ltr class="docs-wrapper plugin-docs plugin-id-default docs-version-current docs-doc-page docs-doc-id-runbooks/dlq-and-destination-delivery" data-has-hydrated=false><head><meta charset=UTF-8><meta name=generator content="Docusaurus v3.10.0"><title data-rh=true>Fila de reenvio e entrega a destinos | CentralOps</title><meta data-rh=true name=viewport content="width=device-width, initial-scale=1.0"/><meta data-rh=true name=twitter:card content=summary_large_image /><meta data-rh=true property=og:image content=https://docs.segark.com/en/img/centralops-social-card.png /><meta data-rh=true name=twitter:image content=https://docs.segark.com/en/img/centralops-social-card.png /><meta data-rh=true property=og:url content=https://docs.segark.com/en/runbooks/dlq-and-destination-delivery /><meta data-rh=true property=og:locale content=en /><meta data-rh=true property=og:locale:alternate content=pt_BR /><meta data-rh=true property=og:locale:alternate content=es /><meta data-rh=true name=docusaurus_locale content=en /><meta data-rh=true name=docsearch:language content=en /><meta data-rh=true name=docusaurus_version content=current /><meta data-rh=true name=docusaurus_tag content=docs-default-current /><meta data-rh=true name=docsearch:version content=current /><meta data-rh=true name=docsearch:docusaurus_tag content=docs-default-current /><meta data-rh=true property=og:title content="Fila de reenvio e entrega a destinos | CentralOps"/><meta data-rh=true name=description content="Diagnostique e reprocesse eventos que falharam ao serem entregues a um destino, direto pela interface."/><meta data-rh=true property=og:description content="Diagnostique e reprocesse eventos que falharam ao serem entregues a um destino, direto pela interface."/><link data-rh=true rel=icon href=/en/img/favicon.ico /><link data-rh=true rel=canonical href=https://docs.segark.com/en/runbooks/dlq-and-destination-delivery /><link data-rh=true rel=alternate href=https://docs.segark.com/runbooks/dlq-and-destination-delivery hreflang=pt-BR /><link data-rh=true rel=alternate href=https://docs.segark.com/en/runbooks/dlq-and-destination-delivery hreflang=en /><link data-rh=true rel=alternate href=https://docs.segark.com/es/runbooks/dlq-and-destination-delivery hreflang=es /><link data-rh=true rel=alternate href=https://docs.segark.com/runbooks/dlq-and-destination-delivery hreflang=x-default /><script data-rh=true type=application/ld+json>{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","item":"https://docs.segark.com/en/runbooks/dlq-and-destination-delivery","name":"Fila de reenvio e entrega a destinos","position":1}]}</script><link rel=stylesheet href=/en/assets/css/styles.65a61132.css /><script src=/en/assets/js/runtime~main.3e1a07f1.js defer></script><script src=/en/assets/js/main.109b76da.js defer></script></head><body><svg style="display: none;"><defs>
+<symbol id=theme-svg-external-link viewBox="0 0 24 24"><path fill=currentColor d="M21 13v10h-21v-19h12v2h-10v15h17v-8h2zm3-12h-10.988l4.035 4-6.977 7.07 2.828 2.828 6.977-7.07 4.125 4.172v-11z"/></symbol>
+</defs></svg>
+<script>!function(){var t=function(){try{return new URLSearchParams(window.location.search).get("docusaurus-theme")}catch(t){}}()||function(){try{return window.localStorage.getItem("theme-797")}catch(t){}}();document.documentElement.setAttribute("data-theme",t||(window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light")),document.documentElement.setAttribute("data-theme-choice",t||"system")}(),function(){try{for(var[t,e]of new URLSearchParams(window.location.search).entries())if(t.startsWith("docusaurus-data-")){var a=t.replace("docusaurus-data-","data-");document.documentElement.setAttribute(a,e)}}catch(t){}}()</script><div id=__docusaurus><link rel=preload as=image href=/en/img/logo.svg /><div role=region aria-label="Skip to main content"><a class=skipToContent_fXgn href=#__docusaurus_skipToContent_fallback>Skip to main content</a></div><nav aria-label=Main class="theme-layout-navbar navbar navbar--fixed-top"><div class=navbar__inner><div class="theme-layout-navbar-left navbar__items"><button aria-label="Toggle navigation bar" aria-expanded=false class="navbar__toggle clean-btn" type=button><svg width=30 height=30 viewBox="0 0 30 30" aria-hidden=true><path stroke=currentColor stroke-linecap=round stroke-miterlimit=10 stroke-width=2 d="M4 7h22M4 15h22M4 23h22"/></svg></button><a class=navbar__brand href=/en/><div class=navbar__logo><img src=/en/img/logo.svg alt=CentralOps class="themedComponent_mlkZ themedComponent--light_NVdE"/><img src=/en/img/logo.svg alt=CentralOps class="themedComponent_mlkZ themedComponent--dark_xIcU"/></div><b class="navbar__title text--truncate">CentralOps</b></a><a class="navbar__item navbar__link" href=/en/>Get started</a><a class="navbar__item navbar__link" href=/en/outputs/overview>Outputs & Routing</a><a class="navbar__item navbar__link" href=/en/operations/dashboard>Operations</a><a class="navbar__item navbar__link" href=/en/administration/users-and-roles>Administration</a><a class="navbar__item navbar__link" href=/en/normalization/overview>Mappings</a><a aria-current=page class="navbar__item navbar__link navbar__link--active" href=/en/runbooks/dispatcher>Runbooks</a></div><div class="theme-layout-navbar-right navbar__items navbar__items--right"><div class="navbar__item dropdown dropdown--hoverable dropdown--right"><a href=# aria-haspopup=true aria-expanded=false role=button class=navbar__link><svg viewBox="0 0 24 24" width=20 height=20 aria-hidden=true class=iconLanguage_nlXk><path fill=currentColor d="M12.87 15.07l-2.54-2.51.03-.03c1.74-1.94 2.98-4.17 3.71-6.53H17V4h-7V2H8v2H1v1.99h11.17C11.5 7.92 10.44 9.75 9 11.35 8.07 10.32 7.3 9.19 6.69 8h-2c.73 1.63 1.73 3.17 2.98 4.56l-5.09 5.02L4 19l5-5 3.11 3.11.76-2.04zM18.5 10h-2L12 22h2l1.12-3h4.75L21 22h2l-4.5-12zm-2.62 7l1.62-4.33L19.12 17h-3.24z"/></svg>English</a><ul class=dropdown__menu><li><a href=/runbooks/dlq-and-destination-delivery target=_self rel="noopener noreferrer" class=dropdown__link lang=pt-BR>Português</a><li><a href=/en/runbooks/dlq-and-destination-delivery target=_self rel="noopener noreferrer" class="dropdown__link dropdown__link--active" lang=en>English</a><li><a href=/es/runbooks/dlq-and-destination-delivery target=_self rel="noopener noreferrer" class=dropdown__link lang=es>Español</a></ul></div><div class="toggle_vylO colorModeToggle_DEke"><button class="clean-btn toggleButton_gllP toggleButtonDisabled_aARS" type=button disabled title="system mode" aria-label="Switch between dark and light mode (currently system mode)"><svg viewBox="0 0 24 24" width=24 height=24 aria-hidden=true class="toggleIcon_g3eP lightToggleIcon_pyhR"><path fill=currentColor d="M12,9c1.65,0,3,1.35,3,3s-1.35,3-3,3s-3-1.35-3-3S10.35,9,12,9 M12,7c-2.76,0-5,2.24-5,5s2.24,5,5,5s5-2.24,5-5 S14.76,7,12,7L12,7z M2,13l2,0c0.55,0,1-0.45,1-1s-0.45-1-1-1l-2,0c-0.55,0-1,0.45-1,1S1.45,13,2,13z M20,13l2,0c0.55,0,1-0.45,1-1 s-0.45-1-1-1l-2,0c-0.55,0-1,0.45-1,1S19.45,13,20,13z M11,2v2c0,0.55,0.45,1,1,1s1-0.45,1-1V2c0-0.55-0.45-1-1-1S11,1.45,11,2z M11,20v2c0,0.55,0.45,1,1,1s1-0.45,1-1v-2c0-0.55-0.45-1-1-1C11.45,19,11,19.45,11,20z M5.99,4.58c-0.39-0.39-1.03-0.39-1.41,0 c-0.39,0.39-0.39,1.03,0,1.41l1.06,1.06c0.39,0.39,1.03,0.39,1.41,0s0.39-1.03,0-1.41L5.99,4.58z M18.36,16.95 c-0.39-0.39-1.03-0.39-1.41,0c-0.39,0.39-0.39,1.03,0,1.41l1.06,1.06c0.39,0.39,1.03,0.39,1.41,0c0.39-0.39,0.39-1.03,0-1.41 L18.36,16.95z M19.42,5.99c0.39-0.39,0.39-1.03,0-1.41c-0.39-0.39-1.03-0.39-1.41,0l-1.06,1.06c-0.39,0.39-0.39,1.03,0,1.41 s1.03,0.39,1.41,0L19.42,5.99z M7.05,18.36c0.39-0.39,0.39-1.03,0-1.41c-0.39-0.39-1.03-0.39-1.41,0l-1.06,1.06 c-0.39,0.39-0.39,1.03,0,1.41s1.03,0.39,1.41,0L7.05,18.36z"/></svg><svg viewBox="0 0 24 24" width=24 height=24 aria-hidden=true class="toggleIcon_g3eP darkToggleIcon_wfgR"><path fill=currentColor d="M9.37,5.51C9.19,6.15,9.1,6.82,9.1,7.5c0,4.08,3.32,7.4,7.4,7.4c0.68,0,1.35-0.09,1.99-0.27C17.45,17.19,14.93,19,12,19 c-3.86,0-7-3.14-7-7C5,9.07,6.81,6.55,9.37,5.51z M12,3c-4.97,0-9,4.03-9,9s4.03,9,9,9s9-4.03,9-9c0-0.46-0.04-0.92-0.1-1.36 c-0.98,1.37-2.58,2.26-4.4,2.26c-2.98,0-5.4-2.42-5.4-5.4c0-1.81,0.89-3.42,2.26-4.4C12.92,3.04,12.46,3,12,3L12,3z"/></svg><svg viewBox="0 0 24 24" width=24 height=24 aria-hidden=true class="toggleIcon_g3eP systemToggleIcon_QzmC"><path fill=currentColor d="m12 21c4.971 0 9-4.029 9-9s-4.029-9-9-9-9 4.029-9 9 4.029 9 9 9zm4.95-13.95c1.313 1.313 2.05 3.093 2.05 4.95s-0.738 3.637-2.05 4.95c-1.313 1.313-3.093 2.05-4.95 2.05v-14c1.857 0 3.637 0.737 4.95 2.05z"/></svg></button></div><div class=navbarSearchContainer_Bca1><div class=navbar__search><span aria-label="expand searchbar" role=button class=search-icon tabindex=0></span><input id=search_input_react type=search placeholder=Loading... aria-label=Search class="navbar__search-input search-bar" disabled/></div></div></div></div><div role=presentation class=navbar-sidebar__backdrop></div></nav><div id=__docusaurus_skipToContent_fallback class="theme-layout-main main-wrapper mainWrapper_z2l0"><div class=docsWrapper_hBAB><button aria-label="Scroll back to top" class="clean-btn theme-back-to-top-button backToTopButton_sjWU" type=button></button><div class=docRoot_UBD9><aside class="theme-doc-sidebar-container docSidebarContainer_YfHR"><div class=sidebarViewport_aRkj><div class=sidebar_njMd><nav aria-label="Docs sidebar" class="menu thin-scrollbar menu_SIkG"><ul class="theme-doc-sidebar-menu menu__list"><li class="theme-doc-sidebar-item-category theme-doc-sidebar-item-category-level-1 menu__list-item"><div class=menu__list-item-collapsible><a class="categoryLink_byQd menu__link menu__link--sublist menu__link--sublist-caret menu__link--active" role=button aria-expanded=true href=/en/runbooks/dispatcher><span title="Runbooks (SRE)" class=categoryLinkLabel_W154>Runbooks (SRE)</span></a></div><ul class=menu__list><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/en/runbooks/dispatcher><span title="Entrega aos destinos" class=linkLabel_WmDU>Entrega aos destinos</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/en/runbooks/scheduler-stuck><span title="Integração ativa não está coletando" class=linkLabel_WmDU>Integração ativa não está coletando</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/en/runbooks/collection-lag-backlog><span title="Eventos chegando horas depois" class=linkLabel_WmDU>Eventos chegando horas depois</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/en/runbooks/high-quarantine-rate><span title="Resolver taxa alta de quarentena" class=linkLabel_WmDU>Resolver taxa alta de quarentena</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/en/runbooks/slo-burn><span title="Latência alta: dados chegando com atraso" class=linkLabel_WmDU>Latência alta: dados chegando com atraso</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/en/runbooks/redis-capacity><span title="Redis cheio: dimensionar o dedupe" class=linkLabel_WmDU>Redis cheio: dimensionar o dedupe</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class="menu__link menu__link--active" aria-current=page tabindex=0 href=/en/runbooks/dlq-and-destination-delivery><span title="Fila de reenvio e entrega a destinos" class=linkLabel_WmDU>Fila de reenvio e entrega a destinos</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/en/runbooks/destination-down><span title="Destino externo fora do ar" class=linkLabel_WmDU>Destino externo fora do ar</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/en/runbooks/routing-misroute><span title="Evento foi para o destino errado (ou nenhum)" class=linkLabel_WmDU>Evento foi para o destino errado (ou nenhum)</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/en/runbooks/pii-redaction-blocked><span title="Eventos com redação de PII não chegam ao destino" class=linkLabel_WmDU>Eventos com redação de PII não chegam ao destino</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/en/runbooks/iris-handoff-customer-mapping><span title="IRIS: caso aberto no cliente errado" class=linkLabel_WmDU>IRIS: caso aberto no cliente errado</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/en/runbooks/migration-and-boot><span title="A plataforma não está respondendo? O que fazer" class=linkLabel_WmDU>A plataforma não está respondendo? O que fazer</span></a></ul><li class="theme-doc-sidebar-item-category theme-doc-sidebar-item-category-level-1 menu__list-item"><div class=menu__list-item-collapsible><a class="categoryLink_byQd menu__link menu__link--sublist menu__link--sublist-caret" role=button aria-expanded=true href=/en/compliance/retention><span title=Compliance class=categoryLinkLabel_W154>Compliance</span></a></div><ul class=menu__list><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/en/compliance/retention><span title="Retenção de dados" class=linkLabel_WmDU>Retenção de dados</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/en/compliance/lgpd-gdpr><span title="LGPD / GDPR — Direito ao esquecimento" class=linkLabel_WmDU>LGPD / GDPR — Direito ao esquecimento</span></a></ul></ul></nav></div></div></aside><main class=docMainContainer_TBSr><div class="container padding-top--md padding-bottom--lg"><div class=row><div class="col docItemCol_VOVn"><div class=docItemContainer_Djhp><article><nav class="theme-doc-breadcrumbs breadcrumbsContainer_Z_bl" aria-label=Breadcrumbs><ul class=breadcrumbs><li class=breadcrumbs__item><a aria-label="Home page" class=breadcrumbs__link href=/en/><svg viewBox="0 0 24 24" class=breadcrumbHomeIcon_YNFT><path d="M10 19v-5h4v5c0 .55.45 1 1 1h3c.55 0 1-.45 1-1v-7h1.7c.46 0 .68-.57.33-.87L12.67 3.6c-.38-.34-.96-.34-1.34 0l-8.36 7.53c-.34.3-.13.87.33.87H5v7c0 .55.45 1 1 1h3c.55 0 1-.45 1-1z" fill=currentColor /></svg></a><li class=breadcrumbs__item><span class=breadcrumbs__link>Runbooks (SRE)</span><li class="breadcrumbs__item breadcrumbs__item--active"><span class=breadcrumbs__link>Fila de reenvio e entrega a destinos</span></ul></nav><div class="tocCollapsible_ETCw theme-doc-toc-mobile tocMobile_ITEo"><button type=button class="clean-btn tocCollapsibleButton_TO0P">On this page</button></div><div class="theme-doc-markdown markdown"><header><h1>Fila de reenvio e entrega a destinos</h1></header>
+<p>Quando um evento já normalizado não consegue ser entregue a um destino (por exemplo Splunk, Amazon S3 ou Microsoft Sentinel), o CentralOps não o descarta: ele guarda o evento na <strong>fila de reenvio</strong> daquele destino. Esta página mostra como inspecionar essa fila, descobrir por que a entrega falhou e reprocessar os eventos pela interface, sem perder nada.</p>
+<div class="theme-admonition theme-admonition-info admonition_xJq3 alert alert--info"><div class=admonitionHeading_Gvgb><span class=admonitionIcon_Rf37><svg viewBox="0 0 14 16"><path fill-rule=evenodd d="M7 2.3c3.14 0 5.7 2.56 5.7 5.7s-2.56 5.7-5.7 5.7A5.71 5.71 0 0 1 1.3 8c0-3.14 2.56-5.7 5.7-5.7zM7 1C3.14 1 0 4.14 0 8s3.14 7 7 7 7-3.14 7-7-3.14-7-7-7zm1 3H6v5h2V4zm0 6H6v2h2v-2z"/></svg></span>Quem tem acesso</div><div class=admonitionContent_BuS1><p>As telas de <strong>Destinos</strong>, <strong>Roteamento</strong> e <strong>Fluxo de dados</strong> só aparecem para administradores da plataforma. Se você não as vê no menu, peça ao administrador para conduzir os passos abaixo.</div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=quando-usar>Quando usar<a href=#quando-usar class=hash-link aria-label="Direct link to Quando usar" title="Direct link to Quando usar" translate=no>​</a></h2>
+<p>Recorra a esta página quando, na operação do SOC, você perceber alguma destas situações:</p>
+<ul>
+<li class=""><strong>Um destino ficou fora do ar e voltou.</strong> O Sentinel (ou o coletor Splunk) passou horas indisponível durante a madrugada. Os eventos não se perderam, ficaram na fila de reenvio. Depois que o destino volta, você reprocessa a fila para entregar o que ficou represado.</li>
+<li class=""><strong>Faltam eventos em uma ferramenta de busca externa.</strong> Um analista relata que alertas de um conector pararam de aparecer no Splunk a partir de certo horário. Você verifica a saúde do destino e descobre rejeições acumuladas na fila de reenvio.</li>
+<li class=""><strong>Trocou-se uma credencial ou um certificado.</strong> Um token de envio expirou e as entregas começaram a ser recusadas por erro de autenticação. Após o administrador atualizar a credencial, você reprocessa a fila para reenviar o que falhou nesse intervalo.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=onde-fica-na-interface>Onde fica na interface<a href=#onde-fica-na-interface class=hash-link aria-label="Direct link to Onde fica na interface" title="Direct link to Onde fica na interface" translate=no>​</a></h2>
+<p>Todo o trabalho desta página acontece no menu <strong>Operação -> Destinos</strong>. Abra a tela, localize o card do destino em questão e use as abas de <strong>Saúde</strong> e de <strong>fila de reenvio</strong> desse card.</p>
+<blockquote>
+<p>A fila de reenvio é a fase final do caminho de um evento (a entrega). Ela é diferente da <strong>Quarentena</strong>, que captura problemas em uma fase anterior (a normalização). Veja a comparação no fim desta página.</p>
+</blockquote>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=sintoma-1-eventos-não-chegaram-a-um-destino>Sintoma 1: "Eventos não chegaram a um destino"<a href=#sintoma-1-eventos-não-chegaram-a-um-destino class=hash-link aria-label='Direct link to Sintoma 1: "Eventos não chegaram a um destino"' title='Direct link to Sintoma 1: "Eventos não chegaram a um destino"' translate=no>​</a></h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=como-diagnosticar>Como diagnosticar<a href=#como-diagnosticar class=hash-link aria-label="Direct link to Como diagnosticar" title="Direct link to Como diagnosticar" translate=no>​</a></h3>
+<ol>
+<li class="">Vá a <strong>Operação -> Destinos</strong> e abra o card do destino.</li>
+<li class="">Na aba <strong>Saúde</strong>, confira o status:</li>
+</ol>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Status<th>O que significa<tbody><tr><td>Saudável<td>Conectado e entregando, sem rejeições recentes.<tr><td>Degradado<td>Conectado, mas com rejeições nas últimas 24 horas.<tr><td>Instável<td>A proteção contra destino instável foi acionada — o destino está sendo tratado como offline.<tr><td>Desligado<td>O destino está desativado e não recebe eventos.</table>
+<ol start=3>
+<li class="">Olhe o indicador de <strong>rejeições nas últimas 24h</strong>:
+<ul>
+<li class="">Se for maior que zero, vá para o <strong>Sintoma 2</strong> para descobrir o motivo.</li>
+<li class="">Se for zero, mas mesmo assim você suspeita que eventos não chegaram, verifique os itens abaixo.</li>
+</ul>
+</li>
+</ol>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=quando-o-contador-está-zerado-mas-faltam-eventos>Quando o contador está zerado mas faltam eventos<a href=#quando-o-contador-está-zerado-mas-faltam-eventos class=hash-link aria-label="Direct link to Quando o contador está zerado mas faltam eventos" title="Direct link to Quando o contador está zerado mas faltam eventos" translate=no>​</a></h3>
+<ul>
+<li class=""><strong>O destino está ligado?</strong> Na aba <strong>Saúde</strong>, o status não pode estar como Desligado. Se estiver, reative o destino (próximo bloco).</li>
+<li class=""><strong>Existe uma rota apontando para este destino?</strong> Vá a <strong>Operação -> Roteamento</strong> e confirme que há pelo menos uma regra que envia eventos a este destino. Sem rota, nenhum evento é encaminhado e nada chega à fila de reenvio.</li>
+<li class=""><strong>Os eventos estão sendo coletados?</strong> Vá a <strong>Visão geral -> Dashboard</strong> e confira o volume de eventos normalizados recentes. Se a coleta na origem parou, o problema é anterior à entrega.</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=como-resolver>Como resolver<a href=#como-resolver class=hash-link aria-label="Direct link to Como resolver" title="Direct link to Como resolver" translate=no>​</a></h3>
+<ul>
+<li class=""><strong>Destino desligado:</strong> no card do destino em <strong>Operação -> Destinos</strong>, reative o destino pelo controle de ativação do próprio card.</li>
+<li class=""><strong>Sem rota:</strong> crie uma regra em <strong>Operação -> Roteamento</strong> que direcione os eventos desejados para este destino.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=sintoma-2-rejeições-com-um-erro-específico>Sintoma 2: "Rejeições com um erro específico"<a href=#sintoma-2-rejeições-com-um-erro-específico class=hash-link aria-label='Direct link to Sintoma 2: "Rejeições com um erro específico"' title='Direct link to Sintoma 2: "Rejeições com um erro específico"' translate=no>​</a></h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=como-diagnosticar-1>Como diagnosticar<a href=#como-diagnosticar-1 class=hash-link aria-label="Direct link to Como diagnosticar" title="Direct link to Como diagnosticar" translate=no>​</a></h3>
+<ol>
+<li class="">Vá a <strong>Operação -> Destinos</strong> e abra o card do destino.</li>
+<li class="">Abra a aba da <strong>fila de reenvio</strong>.</li>
+<li class="">Observe o agrupamento por <strong>tipo de erro</strong> — o CentralOps classifica cada falha em uma categoria. Use a tabela abaixo para entender a causa e o caminho de solução:</li>
+</ol>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Tipo de erro<th>Causa<th>O que fazer<tbody><tr><td>Evento grande demais<td>O evento ultrapassa o tamanho máximo aceito pelo destino — quase sempre porque o payload bruto do fornecedor é enorme.<td>Corte o payload bruto no mapeamento (bloco <code>raw_reduction</code>) <strong>ou</strong> ligue <strong>Descartar o evento bruto</strong> na rota daquele destino. Veja o aviso logo abaixo da tabela.<tr><td>Formato recusado<td>O destino rejeitou o formato do evento (campo com tipo inválido, estrutura inesperada).<td>Revise o mapeamento e o formato esperado pelo destino. Antes de reativar o tráfego, use o teste de pré-visualização descrito na seção <strong>Prevenção</strong>.<tr><td>Autenticação<td>Credencial inválida ou expirada.<td>Peça ao administrador para atualizar a credencial do destino. Confira também a configuração de certificado/TLS.<tr><td>Transporte<td>Problema de rede: tempo esgotado ou conexão recusada.<td>Valide a conectividade até o destino e use o <strong>teste de conexão</strong> do card.<tr><td>Proteção acionada<td>A proteção contra destino instável está aberta porque o destino ficou indisponível por muito tempo.<td>Aguarde a recuperação automática (em geral poucos minutos) ou faça um novo teste de conexão.<tr><td>Tentativas esgotadas<td>O CentralOps tentou reenviar várias vezes e a falha persistiu.<td>Investigue o lado do destino ou da rede. Quando o problema for resolvido, reprocesse a fila (Sintoma 5).<tr><td>Sem rota (<code>unrouted</code>)<td>O evento não bateu em nenhuma regra de roteamento e não há catch-all configurado, então não tinha para onde ir.<td>Em <strong>Operação -> Roteamento</strong>, crie uma regra pega-tudo (condição vazia) ou marque um destino como padrão — qualquer destino pode assumir esse papel. Depois reprocesse a fila (Sintoma 5). Veja <a class="" href=/en/runbooks/routing-misroute>Evento foi para o destino errado (ou nenhum)</a>.<tr><td>Não classificado<td>Erro fora das categorias acima.<td>Abra o evento para ver o detalhe do erro e ganhar contexto.</table>
+<ol start=4>
+<li class="">Clique em um evento da fila para ver o conteúdo (já com dados sensíveis ocultos) e o detalhe específico do erro.</li>
+</ol>
+<div class="theme-admonition theme-admonition-warning admonition_xJq3 alert alert--warning"><div class=admonitionHeading_Gvgb><span class=admonitionIcon_Rf37><svg viewBox="0 0 16 16"><path fill-rule=evenodd d="M8.893 1.5c-.183-.31-.52-.5-.887-.5s-.703.19-.886.5L.138 13.499a.98.98 0 0 0 0 1.001c.193.31.53.501.886.501h13.964c.367 0 .704-.19.877-.5a1.03 1.03 0 0 0 .01-1.002L8.893 1.5zm.133 11.497H6.987v-2.003h2.039v2.003zm0-3.004H6.987V5.987h2.039v4.006z"/></svg></span>Não use a redação de PII para diminuir o tamanho do evento</div><div class=admonitionContent_BuS1><p>A redação de PII existe para <strong>conformidade</strong>, não para controle de tamanho, e é <em>fail-closed</em>: se a regra de mascaramento não puder ser aplicada, a entrega ao destino real é bloqueada. Ligá-la para "encolher" o evento troca um problema de tamanho por uma parada de entrega.<p>Para reduzir o tamanho de verdade, há duas alavancas:<ul>
+<li class=""><strong>No mapeamento — vale para todos os destinos.</strong> O bloco <code>raw_reduction</code> poda o payload bruto: <code>max_bytes</code> para blobs longos, <code>drop</code> / <code>keep_only</code> para subárvores que já foram extraídas para o evento normalizado, <code>drop_nulls</code> para chaves vazias. Veja <a class="" href=/en/normalization/dsl-spec>Especificação da DSL</a>.</li>
+<li class=""><strong>Na rota — vale para a entrega daquela regra (todos os destinos dela).</strong> Marque <strong>Descartar o evento bruto</strong>: a entrega daquela rota vai sem o bloco bruto e com o evento normalizado (OCSF) preservado. Não faz efeito enquanto <strong>Proteger detecção</strong> estiver ligada na rota (é o padrão) — desligue a proteção primeiro, conscientemente.</li>
+</ul><p>O caso agudo é o <strong>Wazuh</strong>: o <code>analysisd</code> <strong>trunca silenciosamente</strong> eventos acima de ~64 KiB (<code>OS_MAXSTR</code>) — o evento chega, mas cortado, sem erro nenhum para você notar.<p>Panorama das alavancas em <a class="" href=/en/outputs/reducao-de-volume>Redução de volume e custo</a>.</div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=sintoma-3-muitos-eventos-na-fila-de-reenvio>Sintoma 3: "Muitos eventos na fila de reenvio"<a href=#sintoma-3-muitos-eventos-na-fila-de-reenvio class=hash-link aria-label='Direct link to Sintoma 3: "Muitos eventos na fila de reenvio"' title='Direct link to Sintoma 3: "Muitos eventos na fila de reenvio"' translate=no>​</a></h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=como-diagnosticar-2>Como diagnosticar<a href=#como-diagnosticar-2 class=hash-link aria-label="Direct link to Como diagnosticar" title="Direct link to Como diagnosticar" translate=no>​</a></h3>
+<ol>
+<li class="">Em <strong>Operação -> Destinos</strong>, abra o card do destino.</li>
+<li class="">Na aba <strong>Saúde</strong>, veja o total acumulado e o total das últimas 24 horas na fila de reenvio.</li>
+<li class="">Na aba da <strong>fila de reenvio</strong>, observe a distribuição por <strong>tipo de erro</strong>. Normalmente um único tipo concentra a maior parte das falhas — esse é o problema a atacar primeiro.</li>
+</ol>
+<p><strong>Próximo passo:</strong> identifique o tipo de erro predominante e aplique a ação correspondente da tabela do <strong>Sintoma 2</strong>.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=sintoma-4-destino-perdeu-a-conectividade>Sintoma 4: "Destino perdeu a conectividade"<a href=#sintoma-4-destino-perdeu-a-conectividade class=hash-link aria-label='Direct link to Sintoma 4: "Destino perdeu a conectividade"' title='Direct link to Sintoma 4: "Destino perdeu a conectividade"' translate=no>​</a></h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=como-diagnosticar-3>Como diagnosticar<a href=#como-diagnosticar-3 class=hash-link aria-label="Direct link to Como diagnosticar" title="Direct link to Como diagnosticar" translate=no>​</a></h3>
+<ol>
+<li class="">Em <strong>Operação -> Destinos</strong>, abra o card do destino e vá à aba <strong>Saúde</strong>.</li>
+<li class="">Verifique o estado da proteção contra destino instável:
+<ul>
+<li class=""><strong>Aberta:</strong> o destino está sendo tratado como offline e as entregas estão sendo seguradas.</li>
+<li class=""><strong>Em teste:</strong> o CentralOps está sondando o destino para ver se já voltou.</li>
+</ul>
+</li>
+<li class="">Use o <strong>teste de conexão</strong> do card do destino. Um resultado positivo mostra que a conexão e a latência estão saudáveis. Se o teste falhar, verifique:
+<ul>
+<li class="">O endereço (host/URL) configurado está correto?</li>
+<li class="">A rede consegue alcançar o destino?</li>
+<li class="">A credencial ou token ainda é válida?</li>
+<li class="">O certificado (TLS) do destino é válido?</li>
+</ul>
+</li>
+</ol>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=como-resolver-1>Como resolver<a href=#como-resolver-1 class=hash-link aria-label="Direct link to Como resolver" title="Direct link to Como resolver" translate=no>​</a></h3>
+<ul>
+<li class=""><strong>Credencial expirada:</strong> peça ao administrador para atualizar a credencial do destino. A configuração de credenciais e certificados é tratada na própria tela do destino pelo administrador.</li>
+<li class=""><strong>Problema de rede:</strong> acione a equipe responsável pela rede ou pelo destino.</li>
+<li class=""><strong>Certificado inválido:</strong> o pacote de certificados (CA) usado para validar o destino é definido pela equipe de infraestrutura no momento do deploy. Se precisar alterá-lo, fale com o administrador da plataforma.</li>
+</ul>
+<p>Depois que a conectividade for restabelecida, siga para o <strong>Sintoma 5</strong> para reprocessar o que ficou retido.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=sintoma-5-preciso-reprocessar-os-eventos-da-fila-de-reenvio>Sintoma 5: "Preciso reprocessar os eventos da fila de reenvio"<a href=#sintoma-5-preciso-reprocessar-os-eventos-da-fila-de-reenvio class=hash-link aria-label='Direct link to Sintoma 5: "Preciso reprocessar os eventos da fila de reenvio"' title='Direct link to Sintoma 5: "Preciso reprocessar os eventos da fila de reenvio"' translate=no>​</a></h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=antes-de-reprocessar-confirme>Antes de reprocessar, confirme<a href=#antes-de-reprocessar-confirme class=hash-link aria-label="Direct link to Antes de reprocessar, confirme" title="Direct link to Antes de reprocessar, confirme" translate=no>​</a></h3>
+<ol>
+<li class=""><strong>O problema de fundo já foi resolvido</strong> (credencial atualizada, destino online de novo, rede restabelecida). Reprocessar antes disso só vai gerar novas rejeições.</li>
+<li class=""><strong>O reenvio é seguro.</strong> O CentralOps identifica cada evento de forma única, então reprocessar não duplica eventos que já tinham sido entregues.</li>
+</ol>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=como-reprocessar>Como reprocessar<a href=#como-reprocessar class=hash-link aria-label="Direct link to Como reprocessar" title="Direct link to Como reprocessar" translate=no>​</a></h3>
+<ol>
+<li class="">Vá a <strong>Operação -> Destinos</strong> e abra o card do destino.</li>
+<li class="">Abra a aba da <strong>fila de reenvio</strong>.</li>
+<li class="">Escolha o escopo:
+<ul>
+<li class=""><strong>Todos os eventos da fila:</strong> use a ação de reprocessar a fila inteira do destino.</li>
+<li class=""><strong>Eventos selecionados:</strong> marque os eventos desejados na lista e reprocesse apenas eles.</li>
+</ul>
+</li>
+<li class="">Confirme. O reprocessamento roda em segundo plano — você não precisa manter a tela aberta.</li>
+</ol>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=como-acompanhar-o-resultado>Como acompanhar o resultado<a href=#como-acompanhar-o-resultado class=hash-link aria-label="Direct link to Como acompanhar o resultado" title="Direct link to Como acompanhar o resultado" translate=no>​</a></h3>
+<ul>
+<li class="">Permaneça na aba da <strong>fila de reenvio</strong>: o contador de eventos pendentes diminui conforme o reprocessamento avança.</li>
+<li class="">Quando o contador zera, todos os eventos foram reentregues com sucesso.</li>
+<li class="">Se ainda restarem eventos na fila ou novas rejeições aparecerem, o problema de fundo não foi totalmente resolvido. Volte aos sintomas 2 e 4 para investigar o tipo de erro remanescente.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=prevenção>Prevenção<a href=#prevenção class=hash-link aria-label="Direct link to Prevenção" title="Direct link to Prevenção" translate=no>​</a></h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=1-valide-o-formato-antes-de-ligar-um-destino-novo>1. Valide o formato antes de ligar um destino novo<a href=#1-valide-o-formato-antes-de-ligar-um-destino-novo class=hash-link aria-label="Direct link to 1. Valide o formato antes de ligar um destino novo" title="Direct link to 1. Valide o formato antes de ligar um destino novo" translate=no>​</a></h3>
+<p>Antes de enviar tráfego real, use o teste de pré-visualização disponível no card do destino (em <strong>Operação -> Destinos</strong>). Ele mostra como o evento ficará ao ser enviado, permitindo confirmar formato e tamanho sem arriscar uma enxurrada de rejeições.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=2-teste-a-conexão>2. Teste a conexão<a href=#2-teste-a-conexão class=hash-link aria-label="Direct link to 2. Teste a conexão" title="Direct link to 2. Teste a conexão" translate=no>​</a></h3>
+<p>Use o <strong>teste de conexão</strong> do card do destino sempre <strong>antes</strong> de direcionar tráfego de produção a ele.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=3-acompanhe-a-saúde-dos-destinos>3. Acompanhe a saúde dos destinos<a href=#3-acompanhe-a-saúde-dos-destinos class=hash-link aria-label="Direct link to 3. Acompanhe a saúde dos destinos" title="Direct link to 3. Acompanhe a saúde dos destinos" translate=no>​</a></h3>
+<ul>
+<li class="">Use a tela <strong>Operação -> Destinos</strong> para ver o status de cada destino de forma contínua.</li>
+<li class="">Para uma visão de ponta a ponta do caminho dos eventos até os destinos, use <strong>Operação -> <a class="" href=/en/operations/fluxo-de-dados>Fluxo de dados</a></strong>.</li>
+<li class="">Defina alertas para situações como rejeições acima de um limite diário, proteção contra destino instável acionada, ou destino sem fluxo de entrada. A criação e o ajuste desses alertas é feito junto à equipe de infraestrutura.</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=4-política-de-retenção-da-fila-de-reenvio>4. Política de retenção da fila de reenvio<a href=#4-política-de-retenção-da-fila-de-reenvio class=hash-link aria-label="Direct link to 4. Política de retenção da fila de reenvio" title="Direct link to 4. Política de retenção da fila de reenvio" translate=no>​</a></h3>
+<p>Os eventos na fila de reenvio são preservados para fins de auditoria e investigação. Periodicamente:</p>
+<ul>
+<li class="">Revise os tipos de erro e os detalhes dos eventos retidos na aba da <strong>fila de reenvio</strong>.</li>
+<li class="">Reprocesse ou descarte os eventos depois de confirmar que a causa foi resolvida.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=fila-de-reenvio-x-quarentena>Fila de reenvio x Quarentena<a href=#fila-de-reenvio-x-quarentena class=hash-link aria-label="Direct link to Fila de reenvio x Quarentena" title="Direct link to Fila de reenvio x Quarentena" translate=no>​</a></h2>
+<p>São duas filas diferentes, em fases diferentes do caminho do evento. Saber qual usar evita procurar o evento no lugar errado.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Aspecto<th>Fila de reenvio<th>Quarentena<tbody><tr><td>Fase<td>Entrega ao destino (etapa final)<td>Normalização (etapa inicial)<tr><td>Origem do problema<td>Destino recusou ou não recebeu o evento<td>Falha ao interpretar/normalizar o evento de entrada<tr><td>Exemplos de erro<td>Evento grande demais, autenticação, formato recusado, transporte<td>Evento bruto inválido, campo obrigatório ausente<tr><td>Onde inspecionar<td><strong>Operação -> Destinos</strong>, aba da fila de reenvio do destino<td><strong>Normalização -> Quarentena</strong><tr><td>Quem costuma tratar<td>Administrador do destino e equipe de operação<td>Quem cuida de integrações e mapeamentos</table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=se-o-problema-persistir>Se o problema persistir<a href=#se-o-problema-persistir class=hash-link aria-label="Direct link to Se o problema persistir" title="Direct link to Se o problema persistir" translate=no>​</a></h2>
+<p>Se, mesmo após os passos acima, o destino continuar falhando:</p>
+<ol>
+<li class=""><strong>Reúna as evidências pela interface:</strong> anote o status na aba <strong>Saúde</strong>, o tipo de erro predominante e o detalhe de alguns eventos na aba da <strong>fila de reenvio</strong>, além de quando as falhas começaram e o que já foi tentado.</li>
+<li class=""><strong>Acione o suporte da plataforma</strong> pelo canal de suporte da sua organização, anexando as informações acima.</li>
+<li class=""><strong>Verifique o lado do destino:</strong> se as evidências apontam para o próprio destino (Splunk, Elasticsearch, Sentinel, etc.), acione também o administrador desse sistema.</li>
+</ol>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=próximos-passos>Próximos passos<a href=#próximos-passos class=hash-link aria-label="Direct link to Próximos passos" title="Direct link to Próximos passos" translate=no>​</a></h2>
+<ul>
+<li class=""><strong>Problema na normalização?</strong> Veja <a class="" href=/en/operations/quarantine>Quarentena e normalização</a>.</li>
+<li class=""><strong>Configurar para onde os eventos vão?</strong> Veja <a class="" href=/en/outputs/routing>Roteamento de eventos</a>.</li>
+<li class=""><strong>Visão geral da saúde dos destinos?</strong> Veja <a class="" href=/en/operations/pipeline-health>Saúde do Pipeline</a>.</li>
+</ul></div></article><nav class="docusaurus-mt-lg pagination-nav" aria-label="Docs pages"><a class="pagination-nav__link pagination-nav__link--prev" href=/en/runbooks/redis-capacity><div class=pagination-nav__sublabel>Previous</div><div class=pagination-nav__label>Redis cheio: dimensionar o dedupe</div></a><a class="pagination-nav__link pagination-nav__link--next" href=/en/runbooks/destination-down><div class=pagination-nav__sublabel>Next</div><div class=pagination-nav__label>Destino externo fora do ar</div></a></nav></div></div><div class="col col--3"><div class="tableOfContents_bqdL thin-scrollbar theme-doc-toc-desktop"><ul class="table-of-contents table-of-contents__left-border"><li><a href=#quando-usar class="table-of-contents__link toc-highlight">Quando usar</a><li><a href=#onde-fica-na-interface class="table-of-contents__link toc-highlight">Onde fica na interface</a><li><a href=#sintoma-1-eventos-não-chegaram-a-um-destino class="table-of-contents__link toc-highlight">Sintoma 1: "Eventos não chegaram a um destino"</a><ul><li><a href=#como-diagnosticar class="table-of-contents__link toc-highlight">Como diagnosticar</a><li><a href=#quando-o-contador-está-zerado-mas-faltam-eventos class="table-of-contents__link toc-highlight">Quando o contador está zerado mas faltam eventos</a><li><a href=#como-resolver class="table-of-contents__link toc-highlight">Como resolver</a></ul><li><a href=#sintoma-2-rejeições-com-um-erro-específico class="table-of-contents__link toc-highlight">Sintoma 2: "Rejeições com um erro específico"</a><ul><li><a href=#como-diagnosticar-1 class="table-of-contents__link toc-highlight">Como diagnosticar</a></ul><li><a href=#sintoma-3-muitos-eventos-na-fila-de-reenvio class="table-of-contents__link toc-highlight">Sintoma 3: "Muitos eventos na fila de reenvio"</a><ul><li><a href=#como-diagnosticar-2 class="table-of-contents__link toc-highlight">Como diagnosticar</a></ul><li><a href=#sintoma-4-destino-perdeu-a-conectividade class="table-of-contents__link toc-highlight">Sintoma 4: "Destino perdeu a conectividade"</a><ul><li><a href=#como-diagnosticar-3 class="table-of-contents__link toc-highlight">Como diagnosticar</a><li><a href=#como-resolver-1 class="table-of-contents__link toc-highlight">Como resolver</a></ul><li><a href=#sintoma-5-preciso-reprocessar-os-eventos-da-fila-de-reenvio class="table-of-contents__link toc-highlight">Sintoma 5: "Preciso reprocessar os eventos da fila de reenvio"</a><ul><li><a href=#antes-de-reprocessar-confirme class="table-of-contents__link toc-highlight">Antes de reprocessar, confirme</a><li><a href=#como-reprocessar class="table-of-contents__link toc-highlight">Como reprocessar</a><li><a href=#como-acompanhar-o-resultado class="table-of-contents__link toc-highlight">Como acompanhar o resultado</a></ul><li><a href=#prevenção class="table-of-contents__link toc-highlight">Prevenção</a><ul><li><a href=#1-valide-o-formato-antes-de-ligar-um-destino-novo class="table-of-contents__link toc-highlight">1. Valide o formato antes de ligar um destino novo</a><li><a href=#2-teste-a-conexão class="table-of-contents__link toc-highlight">2. Teste a conexão</a><li><a href=#3-acompanhe-a-saúde-dos-destinos class="table-of-contents__link toc-highlight">3. Acompanhe a saúde dos destinos</a><li><a href=#4-política-de-retenção-da-fila-de-reenvio class="table-of-contents__link toc-highlight">4. Política de retenção da fila de reenvio</a></ul><li><a href=#fila-de-reenvio-x-quarentena class="table-of-contents__link toc-highlight">Fila de reenvio x Quarentena</a><li><a href=#se-o-problema-persistir class="table-of-contents__link toc-highlight">Se o problema persistir</a><li><a href=#próximos-passos class="table-of-contents__link toc-highlight">Próximos passos</a></ul></div></div></div></div></main></div></div></div><footer class="theme-layout-footer footer footer--dark"><div class="container container-fluid"><div class="row footer__links"><div class="theme-layout-footer-column col footer__col"><div class=footer__title>Documentação</div><ul class="footer__items clean-list"><li class=footer__item><a class=footer__link-item href=/en/getting-started/overview>Começar</a><li class=footer__item><a class=footer__link-item href=/en/operations/dashboard>Operação diária</a><li class=footer__item><a class=footer__link-item href=/en/normalization/overview>Mappings (CML)</a><li class=footer__item><a class=footer__link-item href=/en/runbooks/dispatcher>Runbooks</a></ul></div><div class="theme-layout-footer-column col footer__col"><div class=footer__title>Plataforma</div><ul class="footer__items clean-list"><li class=footer__item><a class=footer__link-item href=/en/concepts/architecture>Arquitetura</a><li class=footer__item><a class=footer__link-item href=/en/concepts/rbac>RBAC</a><li class=footer__item><a class=footer__link-item href=/en/integrations/overview>Integrações</a><li class=footer__item><a class=footer__link-item href=/en/compliance/retention>Compliance</a></ul></div><div class="theme-layout-footer-column col footer__col"><div class=footer__title>Recursos</div><ul class="footer__items clean-list"><li class=footer__item><a class=footer__link-item href=/en/getting-started/quickstart>Quickstart</a><li class=footer__item><a class=footer__link-item href=/en/normalization/cookbook>DSL Cookbook</a><li class=footer__item><a class=footer__link-item href=/en/normalization/troubleshooting>Troubleshooting</a></ul></div></div><div class="footer__bottom text--center"><div class=footer__copyright>Copyright © 2026 CentralOps. Built with Docusaurus.</div></div></div></footer></div></body>

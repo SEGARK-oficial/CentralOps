@@ -1,0 +1,227 @@
+<!doctype html><html lang=pt-BR dir=ltr class="docs-wrapper plugin-docs plugin-id-default docs-version-current docs-doc-page docs-doc-id-outputs/destination-otlp" data-has-hydrated=false><head><meta charset=UTF-8><meta name=generator content="Docusaurus v3.10.0"><title data-rh=true>Destino: OTLP | CentralOps</title><meta data-rh=true name=viewport content="width=device-width, initial-scale=1.0"/><meta data-rh=true name=twitter:card content=summary_large_image /><meta data-rh=true property=og:image content=https://docs.segark.com/img/centralops-social-card.png /><meta data-rh=true name=twitter:image content=https://docs.segark.com/img/centralops-social-card.png /><meta data-rh=true property=og:url content=https://docs.segark.com/outputs/destination-otlp /><meta data-rh=true property=og:locale content=pt_BR /><meta data-rh=true property=og:locale:alternate content=en /><meta data-rh=true property=og:locale:alternate content=es /><meta data-rh=true name=docusaurus_locale content=pt-BR /><meta data-rh=true name=docsearch:language content=pt-BR /><meta data-rh=true name=docusaurus_version content=current /><meta data-rh=true name=docusaurus_tag content=docs-default-current /><meta data-rh=true name=docsearch:version content=current /><meta data-rh=true name=docsearch:docusaurus_tag content=docs-default-current /><meta data-rh=true property=og:title content="Destino: OTLP | CentralOps"/><meta data-rh=true name=description content="Envie eventos normalizados (OCSF) para backends de observabilidade compatíveis com OpenTelemetry, como Grafana, Datadog, Honeycomb ou SigNoz."/><meta data-rh=true property=og:description content="Envie eventos normalizados (OCSF) para backends de observabilidade compatíveis com OpenTelemetry, como Grafana, Datadog, Honeycomb ou SigNoz."/><link data-rh=true rel=icon href=/img/favicon.ico /><link data-rh=true rel=canonical href=https://docs.segark.com/outputs/destination-otlp /><link data-rh=true rel=alternate href=https://docs.segark.com/outputs/destination-otlp hreflang=pt-BR /><link data-rh=true rel=alternate href=https://docs.segark.com/en/outputs/destination-otlp hreflang=en /><link data-rh=true rel=alternate href=https://docs.segark.com/es/outputs/destination-otlp hreflang=es /><link data-rh=true rel=alternate href=https://docs.segark.com/outputs/destination-otlp hreflang=x-default /><script data-rh=true type=application/ld+json>{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","item":"https://docs.segark.com/outputs/destination-otlp","name":"Destino: OTLP","position":1}]}</script><link rel=stylesheet href=/assets/css/styles.65a61132.css /><script src=/assets/js/runtime~main.08d80435.js defer></script><script src=/assets/js/main.9390f800.js defer></script></head><body><svg style="display: none;"><defs>
+<symbol id=theme-svg-external-link viewBox="0 0 24 24"><path fill=currentColor d="M21 13v10h-21v-19h12v2h-10v15h17v-8h2zm3-12h-10.988l4.035 4-6.977 7.07 2.828 2.828 6.977-7.07 4.125 4.172v-11z"/></symbol>
+</defs></svg>
+<script>!function(){var t=function(){try{return new URLSearchParams(window.location.search).get("docusaurus-theme")}catch(t){}}()||function(){try{return window.localStorage.getItem("theme-cee")}catch(t){}}();document.documentElement.setAttribute("data-theme",t||(window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light")),document.documentElement.setAttribute("data-theme-choice",t||"system")}(),function(){try{for(var[t,e]of new URLSearchParams(window.location.search).entries())if(t.startsWith("docusaurus-data-")){var a=t.replace("docusaurus-data-","data-");document.documentElement.setAttribute(a,e)}}catch(t){}}()</script><div id=__docusaurus><link rel=preload as=image href=/img/logo.svg /><div role=region aria-label="Pular para o conteúdo principal"><a class=skipToContent_fXgn href=#__docusaurus_skipToContent_fallback>Pular para o conteúdo principal</a></div><nav aria-label="Navegação principal" class="theme-layout-navbar navbar navbar--fixed-top"><div class=navbar__inner><div class="theme-layout-navbar-left navbar__items"><button aria-label="Alternar painel de navegação" aria-expanded=false class="navbar__toggle clean-btn" type=button><svg width=30 height=30 viewBox="0 0 30 30" aria-hidden=true><path stroke=currentColor stroke-linecap=round stroke-miterlimit=10 stroke-width=2 d="M4 7h22M4 15h22M4 23h22"/></svg></button><a class=navbar__brand href=/><div class=navbar__logo><img src=/img/logo.svg alt=CentralOps class="themedComponent_mlkZ themedComponent--light_NVdE"/><img src=/img/logo.svg alt=CentralOps class="themedComponent_mlkZ themedComponent--dark_xIcU"/></div><b class="navbar__title text--truncate">CentralOps</b></a><a class="navbar__item navbar__link" href=/>Começar</a><a aria-current=page class="navbar__item navbar__link navbar__link--active" href=/outputs/overview>Saídas & Rotas</a><a class="navbar__item navbar__link" href=/operations/dashboard>Operação</a><a class="navbar__item navbar__link" href=/administration/users-and-roles>Administração</a><a class="navbar__item navbar__link" href=/normalization/overview>Mappings</a><a class="navbar__item navbar__link" href=/runbooks/dispatcher>Runbooks</a></div><div class="theme-layout-navbar-right navbar__items navbar__items--right"><div class="navbar__item dropdown dropdown--hoverable dropdown--right"><a href=# aria-haspopup=true aria-expanded=false role=button class=navbar__link><svg viewBox="0 0 24 24" width=20 height=20 aria-hidden=true class=iconLanguage_nlXk><path fill=currentColor d="M12.87 15.07l-2.54-2.51.03-.03c1.74-1.94 2.98-4.17 3.71-6.53H17V4h-7V2H8v2H1v1.99h11.17C11.5 7.92 10.44 9.75 9 11.35 8.07 10.32 7.3 9.19 6.69 8h-2c.73 1.63 1.73 3.17 2.98 4.56l-5.09 5.02L4 19l5-5 3.11 3.11.76-2.04zM18.5 10h-2L12 22h2l1.12-3h4.75L21 22h2l-4.5-12zm-2.62 7l1.62-4.33L19.12 17h-3.24z"/></svg>Português</a><ul class=dropdown__menu><li><a href=/outputs/destination-otlp target=_self rel="noopener noreferrer" class="dropdown__link dropdown__link--active" lang=pt-BR>Português</a><li><a href=/en/outputs/destination-otlp target=_self rel="noopener noreferrer" class=dropdown__link lang=en>English</a><li><a href=/es/outputs/destination-otlp target=_self rel="noopener noreferrer" class=dropdown__link lang=es>Español</a></ul></div><div class="toggle_vylO colorModeToggle_DEke"><button class="clean-btn toggleButton_gllP toggleButtonDisabled_aARS" type=button disabled title="modo do sistema" aria-label="Mudar entre modo claro e escuro (modo do sistema está ativo)"><svg viewBox="0 0 24 24" width=24 height=24 aria-hidden=true class="toggleIcon_g3eP lightToggleIcon_pyhR"><path fill=currentColor d="M12,9c1.65,0,3,1.35,3,3s-1.35,3-3,3s-3-1.35-3-3S10.35,9,12,9 M12,7c-2.76,0-5,2.24-5,5s2.24,5,5,5s5-2.24,5-5 S14.76,7,12,7L12,7z M2,13l2,0c0.55,0,1-0.45,1-1s-0.45-1-1-1l-2,0c-0.55,0-1,0.45-1,1S1.45,13,2,13z M20,13l2,0c0.55,0,1-0.45,1-1 s-0.45-1-1-1l-2,0c-0.55,0-1,0.45-1,1S19.45,13,20,13z M11,2v2c0,0.55,0.45,1,1,1s1-0.45,1-1V2c0-0.55-0.45-1-1-1S11,1.45,11,2z M11,20v2c0,0.55,0.45,1,1,1s1-0.45,1-1v-2c0-0.55-0.45-1-1-1C11.45,19,11,19.45,11,20z M5.99,4.58c-0.39-0.39-1.03-0.39-1.41,0 c-0.39,0.39-0.39,1.03,0,1.41l1.06,1.06c0.39,0.39,1.03,0.39,1.41,0s0.39-1.03,0-1.41L5.99,4.58z M18.36,16.95 c-0.39-0.39-1.03-0.39-1.41,0c-0.39,0.39-0.39,1.03,0,1.41l1.06,1.06c0.39,0.39,1.03,0.39,1.41,0c0.39-0.39,0.39-1.03,0-1.41 L18.36,16.95z M19.42,5.99c0.39-0.39,0.39-1.03,0-1.41c-0.39-0.39-1.03-0.39-1.41,0l-1.06,1.06c-0.39,0.39-0.39,1.03,0,1.41 s1.03,0.39,1.41,0L19.42,5.99z M7.05,18.36c0.39-0.39,0.39-1.03,0-1.41c-0.39-0.39-1.03-0.39-1.41,0l-1.06,1.06 c-0.39,0.39-0.39,1.03,0,1.41s1.03,0.39,1.41,0L7.05,18.36z"/></svg><svg viewBox="0 0 24 24" width=24 height=24 aria-hidden=true class="toggleIcon_g3eP darkToggleIcon_wfgR"><path fill=currentColor d="M9.37,5.51C9.19,6.15,9.1,6.82,9.1,7.5c0,4.08,3.32,7.4,7.4,7.4c0.68,0,1.35-0.09,1.99-0.27C17.45,17.19,14.93,19,12,19 c-3.86,0-7-3.14-7-7C5,9.07,6.81,6.55,9.37,5.51z M12,3c-4.97,0-9,4.03-9,9s4.03,9,9,9s9-4.03,9-9c0-0.46-0.04-0.92-0.1-1.36 c-0.98,1.37-2.58,2.26-4.4,2.26c-2.98,0-5.4-2.42-5.4-5.4c0-1.81,0.89-3.42,2.26-4.4C12.92,3.04,12.46,3,12,3L12,3z"/></svg><svg viewBox="0 0 24 24" width=24 height=24 aria-hidden=true class="toggleIcon_g3eP systemToggleIcon_QzmC"><path fill=currentColor d="m12 21c4.971 0 9-4.029 9-9s-4.029-9-9-9-9 4.029-9 9 4.029 9 9 9zm4.95-13.95c1.313 1.313 2.05 3.093 2.05 4.95s-0.738 3.637-2.05 4.95c-1.313 1.313-3.093 2.05-4.95 2.05v-14c1.857 0 3.637 0.737 4.95 2.05z"/></svg></button></div><div class=navbarSearchContainer_Bca1><div class=navbar__search><span aria-label="expand searchbar" role=button class=search-icon tabindex=0></span><input id=search_input_react type=search placeholder=Loading... aria-label=Search class="navbar__search-input search-bar" disabled/></div></div></div></div><div role=presentation class=navbar-sidebar__backdrop></div></nav><div id=__docusaurus_skipToContent_fallback class="theme-layout-main main-wrapper mainWrapper_z2l0"><div class=docsWrapper_hBAB><button aria-label="Voltar para o topo" class="clean-btn theme-back-to-top-button backToTopButton_sjWU" type=button></button><div class=docRoot_UBD9><aside class="theme-doc-sidebar-container docSidebarContainer_YfHR"><div class=sidebarViewport_aRkj><div class=sidebar_njMd><nav aria-label="Painel lateral de documentos" class="menu thin-scrollbar menu_SIkG"><ul class="theme-doc-sidebar-menu menu__list"><li class="theme-doc-sidebar-item-category theme-doc-sidebar-item-category-level-1 menu__list-item"><div class=menu__list-item-collapsible><a class="categoryLink_byQd menu__link menu__link--sublist menu__link--sublist-caret menu__link--active" role=button aria-expanded=true href=/outputs/overview><span title="Saídas & Roteamento" class=categoryLinkLabel_W154>Saídas & Roteamento</span></a></div><ul class=menu__list><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/outputs/overview><span title="Saídas e Roteamento (visão geral)" class=linkLabel_WmDU>Saídas e Roteamento (visão geral)</span></a><li class="theme-doc-sidebar-item-category theme-doc-sidebar-item-category-level-2 menu__list-item"><div class=menu__list-item-collapsible><a class="categoryLink_byQd menu__link menu__link--sublist menu__link--sublist-caret menu__link--active" role=button aria-expanded=true tabindex=0 href=/outputs/destinations><span title=Destinos class=categoryLinkLabel_W154>Destinos</span></a></div><ul class=menu__list><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class=menu__link tabindex=0 href=/outputs/destinations><span title="Destinos (catálogo e como configurar)" class=linkLabel_WmDU>Destinos (catálogo e como configurar)</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class=menu__link tabindex=0 href=/outputs/destination-wazuh-syslog><span title="Destino: Syslog e JSONL" class=linkLabel_WmDU>Destino: Syslog e JSONL</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class=menu__link tabindex=0 href=/outputs/destination-splunk-hec><span title="Destino: Splunk HEC" class=linkLabel_WmDU>Destino: Splunk HEC</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class=menu__link tabindex=0 href=/outputs/destination-elastic><span title="Destino: Elasticsearch / OpenSearch" class=linkLabel_WmDU>Destino: Elasticsearch / OpenSearch</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class=menu__link tabindex=0 href=/outputs/destination-clickhouse><span title="Destino: ClickHouse" class=linkLabel_WmDU>Destino: ClickHouse</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class=menu__link tabindex=0 href=/outputs/destination-crowdstrike-ngsiem><span title="Destino: CrowdStrike Falcon Next-Gen SIEM" class=linkLabel_WmDU>Destino: CrowdStrike Falcon Next-Gen SIEM</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class=menu__link tabindex=0 href=/outputs/destination-crowdstrike-logscale><span title="Destino: CrowdStrike Falcon LogScale" class=linkLabel_WmDU>Destino: CrowdStrike Falcon LogScale</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class=menu__link tabindex=0 href=/outputs/destination-s3><span title="Destino: S3 / Object Store (data lake)" class=linkLabel_WmDU>Destino: S3 / Object Store (data lake)</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class=menu__link tabindex=0 href=/outputs/destination-sentinel><span title="Destino: Microsoft Sentinel" class=linkLabel_WmDU>Destino: Microsoft Sentinel</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class=menu__link tabindex=0 href=/outputs/destination-kafka><span title="Destino: Apache Kafka" class=linkLabel_WmDU>Destino: Apache Kafka</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class="menu__link menu__link--active" aria-current=page tabindex=0 href=/outputs/destination-otlp><span title="Destino: OTLP" class=linkLabel_WmDU>Destino: OTLP</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class=menu__link tabindex=0 href=/outputs/destination-operations><span title="Operar destinos (saúde, fila de reenvio, métricas)" class=linkLabel_WmDU>Operar destinos (saúde, fila de reenvio, métricas)</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class=menu__link tabindex=0 href=/outputs/destination-webhook><span title="Destino: Webhook Genérico" class=linkLabel_WmDU>Destino: Webhook Genérico</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class=menu__link tabindex=0 href=/outputs/destination-datadog><span title="Destino: Datadog Logs" class=linkLabel_WmDU>Destino: Datadog Logs</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class=menu__link tabindex=0 href=/outputs/destination-chronicle><span title="Destino: Google SecOps (Chronicle)" class=linkLabel_WmDU>Destino: Google SecOps (Chronicle)</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class=menu__link tabindex=0 href=/outputs/destination-security-lake><span title="Destino: Amazon Security Lake (OCSF Parquet)" class=linkLabel_WmDU>Destino: Amazon Security Lake (OCSF Parquet)</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class=menu__link tabindex=0 href=/outputs/adding-a-destination><span title="Destinos — catálogo e tipos disponíveis" class=linkLabel_WmDU>Destinos — catálogo e tipos disponíveis</span></a></ul><li class="theme-doc-sidebar-item-category theme-doc-sidebar-item-category-level-2 menu__list-item"><div class=menu__list-item-collapsible><a class="categoryLink_byQd menu__link menu__link--sublist menu__link--sublist-caret" role=button aria-expanded=true tabindex=0 href=/outputs/routing><span title=Roteamento class=categoryLinkLabel_W154>Roteamento</span></a></div><ul class=menu__list><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class=menu__link tabindex=0 href=/outputs/routing><span title="Roteamento por regra" class=linkLabel_WmDU>Roteamento por regra</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class=menu__link tabindex=0 href=/outputs/routing-canary><span title="Cutover gradual de SIEM (canary)" class=linkLabel_WmDU>Cutover gradual de SIEM (canary)</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class=menu__link tabindex=0 href=/outputs/routing-dry-run><span title="Testar rotas, ver o fluxo e reverter mudanças" class=linkLabel_WmDU>Testar rotas, ver o fluxo e reverter mudanças</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class=menu__link tabindex=0 href=/outputs/reducao-de-volume><span title="Redução de volume" class=linkLabel_WmDU>Redução de volume</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class=menu__link tabindex=0 href=/outputs/pii-redaction><span title="Redação de dados pessoais por rota (LGPD/GDPR)" class=linkLabel_WmDU>Redação de dados pessoais por rota (LGPD/GDPR)</span></a></ul><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/outputs/observability><span title="Observabilidade dos destinos" class=linkLabel_WmDU>Observabilidade dos destinos</span></a></ul></ul></nav></div></div></aside><main class=docMainContainer_TBSr><div class="container padding-top--md padding-bottom--lg"><div class=row><div class="col docItemCol_VOVn"><div class=docItemContainer_Djhp><article><nav class="theme-doc-breadcrumbs breadcrumbsContainer_Z_bl" aria-label=Trilha><ul class=breadcrumbs><li class=breadcrumbs__item><a aria-label="Página Inicial" class=breadcrumbs__link href=/><svg viewBox="0 0 24 24" class=breadcrumbHomeIcon_YNFT><path d="M10 19v-5h4v5c0 .55.45 1 1 1h3c.55 0 1-.45 1-1v-7h1.7c.46 0 .68-.57.33-.87L12.67 3.6c-.38-.34-.96-.34-1.34 0l-8.36 7.53c-.34.3-.13.87.33.87H5v7c0 .55.45 1 1 1h3c.55 0 1-.45 1-1z" fill=currentColor /></svg></a><li class=breadcrumbs__item><span class=breadcrumbs__link>Saídas & Roteamento</span><li class=breadcrumbs__item><span class=breadcrumbs__link>Destinos</span><li class="breadcrumbs__item breadcrumbs__item--active"><span class=breadcrumbs__link>Destino: OTLP</span></ul></nav><div class="tocCollapsible_ETCw theme-doc-toc-mobile tocMobile_ITEo"><button type=button class="clean-btn tocCollapsibleButton_TO0P">Nesta página</button></div><div class="theme-doc-markdown markdown"><header><h1>Destino: OTLP</h1></header>
+<p>O destino <strong>OTLP</strong> envia os eventos já normalizados do CentralOps para qualquer backend de observabilidade compatível com <strong>OpenTelemetry</strong> (OTLP/HTTP). É assim que você integra a plataforma a ferramentas como Grafana, Datadog, Honeycomb, SigNoz ou Jaeger sem precisar de coletores intermediários.</p>
+<p>A configuração de destinos é feita pelo administrador da plataforma, no menu <strong>Operação → Destinos</strong>. Quem não tem perfil de admin não enxerga essa tela, mas qualquer analista pode acompanhar a saúde dos destinos depois de criados.</p>
+<hr/>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=quando-usar>Quando usar<a href=#quando-usar class=hash-link aria-label="Link direto para Quando usar" title="Link direto para Quando usar" translate=no>​</a></h2>
+<ul>
+<li class=""><strong>Centralizar eventos de segurança no painel de observabilidade do SOC.</strong> Sua equipe já vive no Grafana ou no Datadog para métricas e logs de infraestrutura. Enviar os eventos do CentralOps para o mesmo backend coloca os alertas de segurança ao lado dos dados de operação, sem trocar de ferramenta.</li>
+<li class=""><strong>Correlacionar eventos de segurança com telemetria de aplicação.</strong> Ao mandar os eventos para um backend OpenTelemetry, o time consegue cruzar uma tentativa de acesso suspeito com traces e métricas da mesma janela de tempo durante uma investigação.</li>
+<li class=""><strong>Encaminhar para uma camada que a infraestrutura já mantém.</strong> A equipe de infraestrutura já opera um coletor OpenTelemetry que distribui dados para outros sistemas. Você só aponta o destino do CentralOps para o endereço que ela informar e os eventos seguem o caminho já existente.</li>
+</ul>
+<hr/>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=o-que-você-precisa-antes-de-começar>O que você precisa antes de começar<a href=#o-que-você-precisa-antes-de-começar class=hash-link aria-label="Link direto para O que você precisa antes de começar" title="Link direto para O que você precisa antes de começar" translate=no>​</a></h2>
+<p>Peça ao responsável pelo backend de observabilidade (ou à equipe de infraestrutura) as informações abaixo:</p>
+<ul>
+<li class=""><strong>Endereço do destino (endpoint)</strong> — a URL completa para onde os eventos serão enviados, normalmente terminando em <code>/v1/logs</code>. Exemplo: <code>https://otel.exemplo.com:4318/v1/logs</code>.</li>
+<li class=""><strong>Token de autenticação</strong> (se exigido) — alguns backends pedem um token para aceitar os dados.</li>
+<li class=""><strong>Atributos de identificação</strong> (opcional) — rótulos como <code>service.name</code> ou <code>deployment.environment</code> que ajudam a identificar a origem dos eventos no destino.</li>
+</ul>
+<p><strong>Backends compatíveis:</strong> Grafana, OpenTelemetry Collector, Datadog, Honeycomb, SigNoz, Jaeger e qualquer receptor que aceite OTLP/HTTP.</p>
+<hr/>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=como-configurar-o-destino>Como configurar o destino<a href=#como-configurar-o-destino class=hash-link aria-label="Link direto para Como configurar o destino" title="Link direto para Como configurar o destino" translate=no>​</a></h2>
+<p>Todos os passos abaixo são feitos pela interface, no menu <strong>Operação → Destinos</strong> (visível apenas para administradores).</p>
+<ol>
+<li class=""><strong>Abrir o cadastro.</strong> Em <strong>Operação → Destinos</strong>, use a ação de adicionar um novo destino.</li>
+<li class=""><strong>Escolher o tipo.</strong> Selecione o tipo <strong>OTLP/HTTP (OpenTelemetry)</strong> e avance.</li>
+<li class=""><strong>Preencher os campos</strong> (veja a tabela abaixo).</li>
+<li class=""><strong>Testar a conexão.</strong> Use o botão de testar conexão. O CentralOps envia um evento de teste para o endereço informado; se o backend responder com sucesso, a conexão está válida.</li>
+<li class=""><strong>Salvar.</strong> Ao salvar, o destino fica ativo e os eventos passam a ser enviados.</li>
+</ol>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=campos-do-formulário>Campos do formulário<a href=#campos-do-formulário class=hash-link aria-label="Link direto para Campos do formulário" title="Link direto para Campos do formulário" translate=no>​</a></h3>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Campo<th>Obrigatório<th>O que preencher<tbody><tr><td><strong>Nome</strong><td>Sim<td>Um nome para identificar o destino (ex: <code>OTel - Produção</code>).<tr><td><strong>Endpoint</strong><td>Sim<td>O endereço completo do destino, incluindo o caminho <code>/v1/logs</code> (ex: <code>https://otel.exemplo.com:4318/v1/logs</code>).<tr><td><strong>Headers</strong><td>Não<td>Cabeçalhos extras que o backend exija, no formato indicado no campo (ex: identificação de cliente).<tr><td><strong>Atributos de recurso</strong><td>Não<td>Rótulos de identificação como <code>service.name</code> ou <code>deployment.environment</code>.<tr><td><strong>Validar TLS</strong><td>Não<td>Mantém a verificação do certificado HTTPS (vem ativado por padrão). Desative apenas se o backend usar certificado próprio sem cadeia confiável.</table>
+<p><strong>Autenticação por token:</strong> se o backend exigir um token, escolha a opção de usar um segredo armazenado durante a criação. O CentralOps adiciona o token automaticamente na requisição; cabeçalhos manuais nunca substituem essa autenticação.</p>
+<div class="theme-admonition theme-admonition-note admonition_xJq3 alert alert--secondary"><div class=admonitionHeading_Gvgb><span class=admonitionIcon_Rf37><svg viewBox="0 0 14 16"><path fill-rule=evenodd d="M6.3 5.69a.942.942 0 0 1-.28-.7c0-.28.09-.52.28-.7.19-.18.42-.28.7-.28.28 0 .52.09.7.28.18.19.28.42.28.7 0 .28-.09.52-.28.7a1 1 0 0 1-.7.3c-.28 0-.52-.11-.7-.3zM8 7.99c-.02-.25-.11-.48-.31-.69-.2-.19-.42-.3-.69-.31H6c-.27.02-.48.13-.69.31-.2.2-.3.44-.31.69h1v3c.02.27.11.5.31.69.2.2.42.31.69.31h1c.27 0 .48-.11.69-.31.2-.19.3-.42.31-.69H8V7.98v.01zM7 2.3c-3.14 0-5.7 2.54-5.7 5.68 0 3.14 2.56 5.7 5.7 5.7s5.7-2.55 5.7-5.7c0-3.15-2.56-5.69-5.7-5.69v.01zM7 .98c3.86 0 7 3.14 7 7s-3.14 7-7 7-7-3.12-7-7 3.14-7 7-7z"/></svg></span>Certificado de CA própria</div><div class=admonitionContent_BuS1><p>Se o seu backend usa uma autoridade certificadora (CA) própria, o certificado correspondente é instalado pela equipe de infraestrutura no momento do deploy. Se precisar disso, fale com o administrador da plataforma — não há upload de certificado pela interface.</div></div>
+<hr/>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=o-que-é-enviado-para-o-destino>O que é enviado para o destino<a href=#o-que-é-enviado-para-o-destino class=hash-link aria-label="Link direto para O que é enviado para o destino" title="Link direto para O que é enviado para o destino" translate=no>​</a></h2>
+<p>Cada evento normalizado vira um registro de log no formato OpenTelemetry. O CentralOps faz essa conversão automaticamente:</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Informação do evento<th>Vira, no destino<tbody><tr><td>Severidade<td>Nível de severidade equivalente no padrão OpenTelemetry.<tr><td>Data/hora do evento<td>Carimbo de tempo do registro.<tr><td>Mensagem<td>Corpo (texto) do registro de log.<tr><td>Identificador do evento<td>Atributo de rastreamento, para localizar o mesmo evento depois.<tr><td>Demais campos normalizados<td>Atributos do registro, preservados como chave e valor.</table>
+<p>Não é preciso configurar esse mapeamento: ele acontece de forma transparente para qualquer destino OTLP.</p>
+<hr/>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=o-que-esse-destino-garante>O que esse destino garante<a href=#o-que-esse-destino-garante class=hash-link aria-label="Link direto para O que esse destino garante" title="Link direto para O que esse destino garante" translate=no>​</a></h2>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Recurso<th>Disponível<th>Observação<tbody><tr><td>Envio por HTTPS (TLS)<td>Sim<td>Comunicação criptografada com verificação de certificado.<tr><td>Envio em lotes<td>Sim<td>Os eventos são agrupados e enviados em blocos, o que melhora o desempenho.<tr><td>Teste de conexão<td>Sim<td>Pelo botão de testar conexão na tela de cadastro.<tr><td>Reenvio automático em falha<td>Sim<td>Se o destino responder com erro temporário (limite de taxa ou indisponibilidade), o CentralOps tenta novamente algumas vezes antes de desistir.<tr><td>Remoção de duplicados<td>Não<td>O protocolo OTLP não remove duplicados. Use o identificador do evento para deduplicar no próprio backend, se precisar.<tr><td>Apagamento retroativo (LGPD/GDPR)<td>Não<td>O OTLP não garante a remoção de eventos já entregues no destino.</table>
+<hr/>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=acompanhar-e-resolver-problemas>Acompanhar e resolver problemas<a href=#acompanhar-e-resolver-problemas class=hash-link aria-label="Link direto para Acompanhar e resolver problemas" title="Link direto para Acompanhar e resolver problemas" translate=no>​</a></h2>
+<p>Depois que o destino está ativo, acompanhe a entrega pela tela de <strong>Operação → Destinos</strong> e pela <strong>Normalização → Saúde do Pipeline</strong>. Quando um destino apresenta erros, o status fica visível ali — você não precisa de nenhuma ferramenta externa para diagnosticar.</p>
+<p>A tabela abaixo lista as situações mais comuns e o que fazer <strong>pela interface</strong>:</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Sintoma<th>O que costuma significar<th>O que fazer<tbody><tr><td>Falha de conexão / destino inacessível<td>O endereço está incorreto ou o backend não está acessível pela rede.<td>Confirme com a equipe de infraestrutura se o endereço informado está correto e acessível, e revise o campo <strong>Endpoint</strong> no cadastro do destino.<tr><td>Erro de autenticação<td>O token expirou ou está inválido.<td>Gere um novo token no backend de observabilidade e atualize o segredo do destino no cadastro.<tr><td>Endereço recusado pelo destino<td>O <strong>Endpoint</strong> está sem o caminho esperado (ex: falta o <code>/v1/logs</code>).<td>Edite o destino e confirme que o endereço inclui o caminho completo informado pelo backend.<tr><td>Limite de taxa atingido<td>O backend está recebendo eventos demais e pediu para reduzir o ritmo.<td>O CentralOps reduz o ritmo e tenta novamente sozinho. Se persistir, peça ao responsável pelo backend para aumentar o limite.<tr><td>Destino indisponível ou reiniciando<td>O backend está fora do ar temporariamente.<td>O CentralOps reenviará automaticamente. Acompanhe o status na tela de <strong>Destinos</strong>; se não normalizar, avise a equipe que opera o backend.<tr><td>Evento grande demais<td>O lote ou um evento individual ultrapassa o limite aceito pelo backend.<td>Peça ao responsável pelo backend para aumentar o limite de tamanho aceito.<tr><td>Erro de certificado (TLS)<td>O certificado do backend não é confiável para o CentralOps.<td>Se for certificado próprio da sua organização, ele precisa ser instalado pela equipe de infraestrutura. Fale com o administrador da plataforma.</table>
+<p>Em todos esses casos, o CentralOps mantém os eventos não entregues em uma <strong>fila de reenvio</strong>, então nada é perdido enquanto o destino estiver indisponível.</p>
+<hr/>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=exemplos-de-integração>Exemplos de integração<a href=#exemplos-de-integração class=hash-link aria-label="Link direto para Exemplos de integração" title="Link direto para Exemplos de integração" translate=no>​</a></h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=grafana>Grafana<a href=#grafana class=hash-link aria-label="Link direto para Grafana" title="Link direto para Grafana" translate=no>​</a></h3>
+<ol>
+<li class="">No Grafana, obtenha o endereço OTLP e gere um token de acesso (nas configurações de conexões do Grafana).</li>
+<li class="">No CentralOps, em <strong>Operação → Destinos</strong>, crie um destino OTLP com esse endereço e token.</li>
+<li class="">Os eventos começam a aparecer na visualização de logs do Grafana.</li>
+</ol>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=datadog>Datadog<a href=#datadog class=hash-link aria-label="Link direto para Datadog" title="Link direto para Datadog" translate=no>​</a></h3>
+<ol>
+<li class="">No Datadog, gere uma chave de API (em configurações da organização → chaves de API).</li>
+<li class="">Confirme com o Datadog qual é o endereço OTLP atual para ingestão de logs — esse endereço muda conforme a região e o método de ingestão, então use sempre o que estiver na documentação vigente do Datadog.</li>
+<li class="">No CentralOps, crie um destino OTLP com o endereço e a chave informados.</li>
+<li class="">Os eventos aparecem na seção de logs do Datadog.</li>
+</ol>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=coletor-opentelemetry-mantido-pela-infraestrutura>Coletor OpenTelemetry mantido pela infraestrutura<a href=#coletor-opentelemetry-mantido-pela-infraestrutura class=hash-link aria-label="Link direto para Coletor OpenTelemetry mantido pela infraestrutura" title="Link direto para Coletor OpenTelemetry mantido pela infraestrutura" translate=no>​</a></h3>
+<p>Quando a equipe de infraestrutura já opera um coletor OpenTelemetry que distribui dados para outros sistemas (por exemplo, um data lake ou um SIEM), você só precisa apontar o destino para ele:</p>
+<ol>
+<li class="">Peça à equipe de infraestrutura o endereço do coletor (algo como <code>http://otel-collector:4318/v1/logs</code>).</li>
+<li class="">No CentralOps, crie um destino OTLP com esse endereço.</li>
+<li class="">A partir daí, o coletor cuida de distribuir os eventos para onde a infraestrutura já configurou.</li>
+</ol>
+<hr/>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=próximos-passos>Próximos passos<a href=#próximos-passos class=hash-link aria-label="Link direto para Próximos passos" title="Link direto para Próximos passos" translate=no>​</a></h2>
+<ul>
+<li class=""><strong>Acompanhar a entrega:</strong> veja o <a class="" href=/operations/dashboard>Dashboard</a> e a tela de <strong>Normalização → Saúde do Pipeline</strong>.</li>
+<li class=""><strong>Configurar outros destinos:</strong> veja a <a class="" href=/outputs/overview>visão geral de Destinos</a>.</li>
+</ul></div></article><nav class="docusaurus-mt-lg pagination-nav" aria-label="Páginas de documento"><a class="pagination-nav__link pagination-nav__link--prev" href=/outputs/destination-kafka><div class=pagination-nav__sublabel>Anterior</div><div class=pagination-nav__label>Destino: Apache Kafka</div></a><a class="pagination-nav__link pagination-nav__link--next" href=/outputs/destination-operations><div class=pagination-nav__sublabel>Próxima</div><div class=pagination-nav__label>Operar destinos (saúde, fila de reenvio, métricas)</div></a></nav></div></div><div class="col col--3"><div class="tableOfContents_bqdL thin-scrollbar theme-doc-toc-desktop"><ul class="table-of-contents table-of-contents__left-border"><li><a href=#quando-usar class="table-of-contents__link toc-highlight">Quando usar</a><li><a href=#o-que-você-precisa-antes-de-começar class="table-of-contents__link toc-highlight">O que você precisa antes de começar</a><li><a href=#como-configurar-o-destino class="table-of-contents__link toc-highlight">Como configurar o destino</a><ul><li><a href=#campos-do-formulário class="table-of-contents__link toc-highlight">Campos do formulário</a></ul><li><a href=#o-que-é-enviado-para-o-destino class="table-of-contents__link toc-highlight">O que é enviado para o destino</a><li><a href=#o-que-esse-destino-garante class="table-of-contents__link toc-highlight">O que esse destino garante</a><li><a href=#acompanhar-e-resolver-problemas class="table-of-contents__link toc-highlight">Acompanhar e resolver problemas</a><li><a href=#exemplos-de-integração class="table-of-contents__link toc-highlight">Exemplos de integração</a><ul><li><a href=#grafana class="table-of-contents__link toc-highlight">Grafana</a><li><a href=#datadog class="table-of-contents__link toc-highlight">Datadog</a><li><a href=#coletor-opentelemetry-mantido-pela-infraestrutura class="table-of-contents__link toc-highlight">Coletor OpenTelemetry mantido pela infraestrutura</a></ul><li><a href=#próximos-passos class="table-of-contents__link toc-highlight">Próximos passos</a></ul></div></div></div></div></main></div></div></div><footer class="theme-layout-footer footer footer--dark"><div class="container container-fluid"><div class="row footer__links"><div class="theme-layout-footer-column col footer__col"><div class=footer__title>Documentação</div><ul class="footer__items clean-list"><li class=footer__item><a class=footer__link-item href=/getting-started/overview>Começar</a><li class=footer__item><a class=footer__link-item href=/operations/dashboard>Operação diária</a><li class=footer__item><a class=footer__link-item href=/normalization/overview>Mappings (CML)</a><li class=footer__item><a class=footer__link-item href=/runbooks/dispatcher>Runbooks</a></ul></div><div class="theme-layout-footer-column col footer__col"><div class=footer__title>Plataforma</div><ul class="footer__items clean-list"><li class=footer__item><a class=footer__link-item href=/concepts/architecture>Arquitetura</a><li class=footer__item><a class=footer__link-item href=/concepts/rbac>RBAC</a><li class=footer__item><a class=footer__link-item href=/integrations/overview>Integrações</a><li class=footer__item><a class=footer__link-item href=/compliance/retention>Compliance</a></ul></div><div class="theme-layout-footer-column col footer__col"><div class=footer__title>Recursos</div><ul class="footer__items clean-list"><li class=footer__item><a class=footer__link-item href=/getting-started/quickstart>Quickstart</a><li class=footer__item><a class=footer__link-item href=/normalization/cookbook>DSL Cookbook</a><li class=footer__item><a class=footer__link-item href=/normalization/troubleshooting>Troubleshooting</a></ul></div></div><div class="footer__bottom text--center"><div class=footer__copyright>Copyright © 2026 CentralOps. Built with Docusaurus.</div></div></div></footer></div></body>

@@ -1,0 +1,321 @@
+<!doctype html><html lang=en dir=ltr class="docs-wrapper plugin-docs plugin-id-default docs-version-current docs-doc-page docs-doc-id-normalization/troubleshooting" data-has-hydrated=false><head><meta charset=UTF-8><meta name=generator content="Docusaurus v3.10.0"><title data-rh=true>Resolver problemas de mapeamento | CentralOps</title><meta data-rh=true name=viewport content="width=device-width, initial-scale=1.0"/><meta data-rh=true name=twitter:card content=summary_large_image /><meta data-rh=true property=og:image content=https://docs.segark.com/en/img/centralops-social-card.png /><meta data-rh=true name=twitter:image content=https://docs.segark.com/en/img/centralops-social-card.png /><meta data-rh=true property=og:url content=https://docs.segark.com/en/normalization/troubleshooting /><meta data-rh=true property=og:locale content=en /><meta data-rh=true property=og:locale:alternate content=pt_BR /><meta data-rh=true property=og:locale:alternate content=es /><meta data-rh=true name=docusaurus_locale content=en /><meta data-rh=true name=docsearch:language content=en /><meta data-rh=true name=docusaurus_version content=current /><meta data-rh=true name=docusaurus_tag content=docs-default-current /><meta data-rh=true name=docsearch:version content=current /><meta data-rh=true name=docsearch:docusaurus_tag content=docs-default-current /><meta data-rh=true property=og:title content="Resolver problemas de mapeamento | CentralOps"/><meta data-rh=true name=description content="Guia por sintoma para diagnosticar e corrigir eventos que falham ao serem normalizados, direto pela interface do CentralOps."/><meta data-rh=true property=og:description content="Guia por sintoma para diagnosticar e corrigir eventos que falham ao serem normalizados, direto pela interface do CentralOps."/><link data-rh=true rel=icon href=/en/img/favicon.ico /><link data-rh=true rel=canonical href=https://docs.segark.com/en/normalization/troubleshooting /><link data-rh=true rel=alternate href=https://docs.segark.com/normalization/troubleshooting hreflang=pt-BR /><link data-rh=true rel=alternate href=https://docs.segark.com/en/normalization/troubleshooting hreflang=en /><link data-rh=true rel=alternate href=https://docs.segark.com/es/normalization/troubleshooting hreflang=es /><link data-rh=true rel=alternate href=https://docs.segark.com/normalization/troubleshooting hreflang=x-default /><script data-rh=true type=application/ld+json>{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","item":"https://docs.segark.com/en/normalization/troubleshooting","name":"Resolver problemas de mapeamento","position":1}]}</script><link rel=stylesheet href=/en/assets/css/styles.65a61132.css /><script src=/en/assets/js/runtime~main.3e1a07f1.js defer></script><script src=/en/assets/js/main.109b76da.js defer></script></head><body><svg style="display: none;"><defs>
+<symbol id=theme-svg-external-link viewBox="0 0 24 24"><path fill=currentColor d="M21 13v10h-21v-19h12v2h-10v15h17v-8h2zm3-12h-10.988l4.035 4-6.977 7.07 2.828 2.828 6.977-7.07 4.125 4.172v-11z"/></symbol>
+</defs></svg>
+<script>!function(){var t=function(){try{return new URLSearchParams(window.location.search).get("docusaurus-theme")}catch(t){}}()||function(){try{return window.localStorage.getItem("theme-797")}catch(t){}}();document.documentElement.setAttribute("data-theme",t||(window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light")),document.documentElement.setAttribute("data-theme-choice",t||"system")}(),function(){try{for(var[t,e]of new URLSearchParams(window.location.search).entries())if(t.startsWith("docusaurus-data-")){var a=t.replace("docusaurus-data-","data-");document.documentElement.setAttribute(a,e)}}catch(t){}}()</script><div id=__docusaurus><link rel=preload as=image href=/en/img/logo.svg /><div role=region aria-label="Skip to main content"><a class=skipToContent_fXgn href=#__docusaurus_skipToContent_fallback>Skip to main content</a></div><nav aria-label=Main class="theme-layout-navbar navbar navbar--fixed-top"><div class=navbar__inner><div class="theme-layout-navbar-left navbar__items"><button aria-label="Toggle navigation bar" aria-expanded=false class="navbar__toggle clean-btn" type=button><svg width=30 height=30 viewBox="0 0 30 30" aria-hidden=true><path stroke=currentColor stroke-linecap=round stroke-miterlimit=10 stroke-width=2 d="M4 7h22M4 15h22M4 23h22"/></svg></button><a class=navbar__brand href=/en/><div class=navbar__logo><img src=/en/img/logo.svg alt=CentralOps class="themedComponent_mlkZ themedComponent--light_NVdE"/><img src=/en/img/logo.svg alt=CentralOps class="themedComponent_mlkZ themedComponent--dark_xIcU"/></div><b class="navbar__title text--truncate">CentralOps</b></a><a class="navbar__item navbar__link" href=/en/>Get started</a><a class="navbar__item navbar__link" href=/en/outputs/overview>Outputs & Routing</a><a class="navbar__item navbar__link" href=/en/operations/dashboard>Operations</a><a class="navbar__item navbar__link" href=/en/administration/users-and-roles>Administration</a><a aria-current=page class="navbar__item navbar__link navbar__link--active" href=/en/normalization/overview>Mappings</a><a class="navbar__item navbar__link" href=/en/runbooks/dispatcher>Runbooks</a></div><div class="theme-layout-navbar-right navbar__items navbar__items--right"><div class="navbar__item dropdown dropdown--hoverable dropdown--right"><a href=# aria-haspopup=true aria-expanded=false role=button class=navbar__link><svg viewBox="0 0 24 24" width=20 height=20 aria-hidden=true class=iconLanguage_nlXk><path fill=currentColor d="M12.87 15.07l-2.54-2.51.03-.03c1.74-1.94 2.98-4.17 3.71-6.53H17V4h-7V2H8v2H1v1.99h11.17C11.5 7.92 10.44 9.75 9 11.35 8.07 10.32 7.3 9.19 6.69 8h-2c.73 1.63 1.73 3.17 2.98 4.56l-5.09 5.02L4 19l5-5 3.11 3.11.76-2.04zM18.5 10h-2L12 22h2l1.12-3h4.75L21 22h2l-4.5-12zm-2.62 7l1.62-4.33L19.12 17h-3.24z"/></svg>English</a><ul class=dropdown__menu><li><a href=/normalization/troubleshooting target=_self rel="noopener noreferrer" class=dropdown__link lang=pt-BR>Português</a><li><a href=/en/normalization/troubleshooting target=_self rel="noopener noreferrer" class="dropdown__link dropdown__link--active" lang=en>English</a><li><a href=/es/normalization/troubleshooting target=_self rel="noopener noreferrer" class=dropdown__link lang=es>Español</a></ul></div><div class="toggle_vylO colorModeToggle_DEke"><button class="clean-btn toggleButton_gllP toggleButtonDisabled_aARS" type=button disabled title="system mode" aria-label="Switch between dark and light mode (currently system mode)"><svg viewBox="0 0 24 24" width=24 height=24 aria-hidden=true class="toggleIcon_g3eP lightToggleIcon_pyhR"><path fill=currentColor d="M12,9c1.65,0,3,1.35,3,3s-1.35,3-3,3s-3-1.35-3-3S10.35,9,12,9 M12,7c-2.76,0-5,2.24-5,5s2.24,5,5,5s5-2.24,5-5 S14.76,7,12,7L12,7z M2,13l2,0c0.55,0,1-0.45,1-1s-0.45-1-1-1l-2,0c-0.55,0-1,0.45-1,1S1.45,13,2,13z M20,13l2,0c0.55,0,1-0.45,1-1 s-0.45-1-1-1l-2,0c-0.55,0-1,0.45-1,1S19.45,13,20,13z M11,2v2c0,0.55,0.45,1,1,1s1-0.45,1-1V2c0-0.55-0.45-1-1-1S11,1.45,11,2z M11,20v2c0,0.55,0.45,1,1,1s1-0.45,1-1v-2c0-0.55-0.45-1-1-1C11.45,19,11,19.45,11,20z M5.99,4.58c-0.39-0.39-1.03-0.39-1.41,0 c-0.39,0.39-0.39,1.03,0,1.41l1.06,1.06c0.39,0.39,1.03,0.39,1.41,0s0.39-1.03,0-1.41L5.99,4.58z M18.36,16.95 c-0.39-0.39-1.03-0.39-1.41,0c-0.39,0.39-0.39,1.03,0,1.41l1.06,1.06c0.39,0.39,1.03,0.39,1.41,0c0.39-0.39,0.39-1.03,0-1.41 L18.36,16.95z M19.42,5.99c0.39-0.39,0.39-1.03,0-1.41c-0.39-0.39-1.03-0.39-1.41,0l-1.06,1.06c-0.39,0.39-0.39,1.03,0,1.41 s1.03,0.39,1.41,0L19.42,5.99z M7.05,18.36c0.39-0.39,0.39-1.03,0-1.41c-0.39-0.39-1.03-0.39-1.41,0l-1.06,1.06 c-0.39,0.39-0.39,1.03,0,1.41s1.03,0.39,1.41,0L7.05,18.36z"/></svg><svg viewBox="0 0 24 24" width=24 height=24 aria-hidden=true class="toggleIcon_g3eP darkToggleIcon_wfgR"><path fill=currentColor d="M9.37,5.51C9.19,6.15,9.1,6.82,9.1,7.5c0,4.08,3.32,7.4,7.4,7.4c0.68,0,1.35-0.09,1.99-0.27C17.45,17.19,14.93,19,12,19 c-3.86,0-7-3.14-7-7C5,9.07,6.81,6.55,9.37,5.51z M12,3c-4.97,0-9,4.03-9,9s4.03,9,9,9s9-4.03,9-9c0-0.46-0.04-0.92-0.1-1.36 c-0.98,1.37-2.58,2.26-4.4,2.26c-2.98,0-5.4-2.42-5.4-5.4c0-1.81,0.89-3.42,2.26-4.4C12.92,3.04,12.46,3,12,3L12,3z"/></svg><svg viewBox="0 0 24 24" width=24 height=24 aria-hidden=true class="toggleIcon_g3eP systemToggleIcon_QzmC"><path fill=currentColor d="m12 21c4.971 0 9-4.029 9-9s-4.029-9-9-9-9 4.029-9 9 4.029 9 9 9zm4.95-13.95c1.313 1.313 2.05 3.093 2.05 4.95s-0.738 3.637-2.05 4.95c-1.313 1.313-3.093 2.05-4.95 2.05v-14c1.857 0 3.637 0.737 4.95 2.05z"/></svg></button></div><div class=navbarSearchContainer_Bca1><div class=navbar__search><span aria-label="expand searchbar" role=button class=search-icon tabindex=0></span><input id=search_input_react type=search placeholder=Loading... aria-label=Search class="navbar__search-input search-bar" disabled/></div></div></div></div><div role=presentation class=navbar-sidebar__backdrop></div></nav><div id=__docusaurus_skipToContent_fallback class="theme-layout-main main-wrapper mainWrapper_z2l0"><div class=docsWrapper_hBAB><button aria-label="Scroll back to top" class="clean-btn theme-back-to-top-button backToTopButton_sjWU" type=button></button><div class=docRoot_UBD9><aside class="theme-doc-sidebar-container docSidebarContainer_YfHR"><div class=sidebarViewport_aRkj><div class=sidebar_njMd><nav aria-label="Docs sidebar" class="menu thin-scrollbar menu_SIkG"><ul class="theme-doc-sidebar-menu menu__list"><li class="theme-doc-sidebar-item-category theme-doc-sidebar-item-category-level-1 menu__list-item"><div class=menu__list-item-collapsible><a class="categoryLink_byQd menu__link menu__link--sublist menu__link--sublist-caret menu__link--active" role=button aria-expanded=true href=/en/normalization/overview><span title="Mappings (CML)" class=categoryLinkLabel_W154>Mappings (CML)</span></a></div><ul class=menu__list><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/en/normalization/overview><span title="Normalização (visão geral)" class=linkLabel_WmDU>Normalização (visão geral)</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/en/normalization/cml><span title="CML — A linguagem de mapeamento" class=linkLabel_WmDU>CML — A linguagem de mapeamento</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/en/normalization/dsl-spec><span title="Editor de mapeamento — referência de campos" class=linkLabel_WmDU>Editor de mapeamento — referência de campos</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/en/normalization/cookbook><span title="Cookbook de mapeamento" class=linkLabel_WmDU>Cookbook de mapeamento</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/en/normalization/operators-reference><span title="Referência de operadores de mapeamento" class=linkLabel_WmDU>Referência de operadores de mapeamento</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/en/normalization/use-cases><span title="Casos de Uso — Guias Passo a Passo" class=linkLabel_WmDU>Casos de Uso — Guias Passo a Passo</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class="menu__link menu__link--active" aria-current=page tabindex=0 href=/en/normalization/troubleshooting><span title="Resolver problemas de mapeamento" class=linkLabel_WmDU>Resolver problemas de mapeamento</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/en/normalization/migration-v1-to-v2><span title="Atualizar um mapeamento para o formato novo" class=linkLabel_WmDU>Atualizar um mapeamento para o formato novo</span></a></ul><li class="theme-doc-sidebar-item-category theme-doc-sidebar-item-category-level-1 menu__list-item"><div class=menu__list-item-collapsible><a class="categoryLink_byQd menu__link menu__link--sublist menu__link--sublist-caret" role=button aria-expanded=true href=/en/pipelines/collectors><span title=Pipelines class=categoryLinkLabel_W154>Pipelines</span></a></div><ul class=menu__list><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/en/pipelines/collectors><span title=Collectors class=linkLabel_WmDU>Collectors</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/en/pipelines/collection-filters><span title="Filtro de coleta" class=linkLabel_WmDU>Filtro de coleta</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/en/pipelines/scheduler><span title="Agendamento de coletas" class=linkLabel_WmDU>Agendamento de coletas</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/en/pipelines/drift><span title="Campos novos detectados (drift)" class=linkLabel_WmDU>Campos novos detectados (drift)</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/en/pipelines/backfill><span title="Backfill (recoleta histórica)" class=linkLabel_WmDU>Backfill (recoleta histórica)</span></a></ul></ul></nav></div></div></aside><main class=docMainContainer_TBSr><div class="container padding-top--md padding-bottom--lg"><div class=row><div class="col docItemCol_VOVn"><div class=docItemContainer_Djhp><article><nav class="theme-doc-breadcrumbs breadcrumbsContainer_Z_bl" aria-label=Breadcrumbs><ul class=breadcrumbs><li class=breadcrumbs__item><a aria-label="Home page" class=breadcrumbs__link href=/en/><svg viewBox="0 0 24 24" class=breadcrumbHomeIcon_YNFT><path d="M10 19v-5h4v5c0 .55.45 1 1 1h3c.55 0 1-.45 1-1v-7h1.7c.46 0 .68-.57.33-.87L12.67 3.6c-.38-.34-.96-.34-1.34 0l-8.36 7.53c-.34.3-.13.87.33.87H5v7c0 .55.45 1 1 1h3c.55 0 1-.45 1-1z" fill=currentColor /></svg></a><li class=breadcrumbs__item><span class=breadcrumbs__link>Mappings (CML)</span><li class="breadcrumbs__item breadcrumbs__item--active"><span class=breadcrumbs__link>Resolver problemas de mapeamento</span></ul></nav><div class="tocCollapsible_ETCw theme-doc-toc-mobile tocMobile_ITEo"><button type=button class="clean-btn tocCollapsibleButton_TO0P">On this page</button></div><div class="theme-doc-markdown markdown"><header><h1>Resolver problemas de mapeamento</h1></header>
+<p>Quando um evento de um fornecedor não consegue ser normalizado, o CentralOps o envia para a <strong>Quarentena</strong> e registra o motivo. Esta página é um guia por sintoma: você parte da mensagem de erro que aparece na tela e segue até a correção, sempre pela interface da plataforma.</p>
+<p>Você nunca precisa de terminal nem de editor de texto externo. Toda mudança de mapeamento é feita pelo <strong>editor de mapeamento</strong> da plataforma, em <strong>Normalizacao -> Mappings</strong>, que oferece pré-visualização e teste de expressão direto na tela antes de salvar.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=quando-usar>Quando usar<a href=#quando-usar class=hash-link aria-label="Direct link to Quando usar" title="Direct link to Quando usar" translate=no>​</a></h2>
+<ul>
+<li class=""><strong>Eventos sumindo do Dashboard.</strong> Você percebe que um fornecedor parou de aparecer nos painéis e suspeita que os eventos estão sendo barrados na normalização — comece pela <strong>Quarentena</strong>.</li>
+<li class=""><strong>Depois de publicar uma versão nova de mapeamento.</strong> Você ajustou as regras de um fornecedor e, logo em seguida, a contagem de quarentena disparou. Use o guia de reversão abaixo.</li>
+<li class=""><strong>Revisão periódica de cobertura.</strong> Durante a triagem semanal, você abre o <strong>Drift Explorer</strong> para ver quais campos do fornecedor ainda não estão sendo aproveitados nas investigações.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=onde-os-erros-aparecem>Onde os erros aparecem<a href=#onde-os-erros-aparecem class=hash-link aria-label="Direct link to Onde os erros aparecem" title="Direct link to Onde os erros aparecem" translate=no>​</a></h2>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Tela (menu)<th>O que ela mostra<tbody><tr><td><strong>Normalizacao -> Quarentena</strong><td>Eventos que falharam ao mapear. A coluna de motivo traz a mensagem de erro que dá nome a cada sintoma abaixo.<tr><td><strong>Normalizacao -> Drift Explorer</strong><td>Campos enviados pelo fornecedor que o seu mapeamento ainda não usa.<tr><td><strong>Normalizacao -> Saude do Pipeline</strong><td>Visão geral de quanto de cada fonte está sendo normalizado com sucesso.<tr><td><strong>Normalizacao -> Mappings</strong><td>O editor onde você corrige as regras, pré-visualiza o resultado e publica uma nova versão.</table>
+<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class=admonitionHeading_Gvgb><span class=admonitionIcon_Rf37><svg viewBox="0 0 12 16"><path fill-rule=evenodd d="M6.5 0C3.48 0 1 2.19 1 5c0 .92.55 2.25 1 3 1.34 2.25 1.78 2.78 2 4v1h5v-1c.22-1.22.66-1.75 2-4 .45-.75 1-2.08 1-3 0-2.81-2.48-5-5.5-5zm3.64 7.48c-.25.44-.47.8-.67 1.11-.86 1.41-1.25 2.06-1.45 3.23-.02.05-.02.11-.02.17H5c0-.06 0-.13-.02-.17-.2-1.17-.59-1.83-1.45-3.23-.2-.31-.42-.67-.67-1.11C2.44 6.78 2 5.65 2 5c0-2.2 2.02-4 4.5-4 1.22 0 2.36.42 3.22 1.19C10.55 2.94 11 3.94 11 5c0 .66-.44 1.78-.86 2.48zM4 14h5c-.23 1.14-1.3 2-2.5 2s-2.27-.86-2.5-2z"/></svg></span>Antes de editar</div><div class=admonitionContent_BuS1><p>No editor de mapeamento (<strong>Normalizacao -> Mappings</strong>), use a pré-visualização de expressão para validar o caminho de um campo contra um evento de amostra <strong>antes</strong> de salvar. Assim você confirma se o campo existe e como ele chega, sem sair da interface.</div></div>
+<hr/>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=eventos-em-quarentena-por-falha-de-mapeamento>Eventos em quarentena por falha de mapeamento<a href=#eventos-em-quarentena-por-falha-de-mapeamento class=hash-link aria-label="Direct link to Eventos em quarentena por falha de mapeamento" title="Direct link to Eventos em quarentena por falha de mapeamento" translate=no>​</a></h2>
+<p>Quando um evento aparece em <strong>Normalizacao -> Quarentena</strong> com motivo relacionado a mapeamento, abra o evento para ver a mensagem completa. Os sintomas mais comuns estão abaixo.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=campo-obrigatório-resolveu-para-vazio>"Campo obrigatório resolveu para vazio"<a href=#campo-obrigatório-resolveu-para-vazio class=hash-link aria-label='Direct link to "Campo obrigatório resolveu para vazio"' title='Direct link to "Campo obrigatório resolveu para vazio"' translate=no>​</a></h3>
+<p>Mensagem na coluna de motivo: o evento exigia um campo obrigatório (por exemplo, o horário do evento) e esse campo veio vazio.</p>
+<p><strong>O que costuma causar:</strong></p>
+<ul>
+<li class="">O fornecedor não enviou o campo, ou enviou em branco.</li>
+<li class="">A regra está apontando para um nome de campo que não existe naquele tipo de evento.</li>
+<li class="">A conversão de tipo rejeitou um valor inválido (por exemplo, tentar transformar <code>"abc"</code> em número).</li>
+</ul>
+<p><strong>Como diagnosticar:</strong></p>
+<ol>
+<li class="">Abra uma amostra do evento na própria tela de Quarentena e confira se o campo realmente existe no que o fornecedor mandou.</li>
+<li class="">No editor de mapeamento, use a pré-visualização de expressão para testar o caminho do campo contra essa amostra.</li>
+</ol>
+<p><strong>Como corrigir, no editor de mapeamento:</strong></p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Situação<th>Ajuste na regra<tbody><tr><td>O campo às vezes vem ausente<td>Defina um <strong>valor padrão</strong> para a regra.<tr><td>O fornecedor usa nomes diferentes para o mesmo dado<td>Configure um ou mais <strong>campos alternativos</strong> (a regra tenta o próximo quando o primeiro vem vazio).<tr><td>O valor chega num tipo incompatível<td>Adicione uma <strong>conversão de tipo</strong> ou um <strong>mapa de valores</strong> antes da regra obrigatória.<tr><td>O campo é mesmo opcional<td><strong>Retire a marcação de obrigatório</strong> da regra.</table>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=horário-inválido>"Horário inválido"<a href=#horário-inválido class=hash-link aria-label='Direct link to "Horário inválido"' title='Direct link to "Horário inválido"' translate=no>​</a></h3>
+<p>Mensagem na coluna de motivo: a regra de horário recebeu um valor de data/hora mas não conseguiu interpretá-lo — geralmente porque o fornecedor usa um formato ou fuso fora do padrão.</p>
+<p><strong>Como diagnosticar:</strong></p>
+<ol>
+<li class="">Veja como o horário chega na amostra do evento (formato, fuso, casas decimais).</li>
+<li class="">Confirme se é um formato de data/hora reconhecível.</li>
+</ol>
+<p><strong>Como corrigir, no editor de mapeamento:</strong></p>
+<ul>
+<li class=""><strong>Fuso ou espaços fora do padrão:</strong> ajuste a regra para limpar o valor antes de convertê-lo em horário.</li>
+<li class=""><strong>O fornecedor envia o horário em milissegundos:</strong> confirme a unidade na amostra. O tratamento de horários em milissegundos pode exigir ajuste específico — se você não encontrar a opção no editor, registre o caso e fale com o administrador da plataforma para avaliar um ajuste de mapeamento.</li>
+<li class=""><strong>Formato totalmente fora do padrão:</strong> documente o caso e fale com o administrador da plataforma; pode ser necessário um tratamento específico para esse fornecedor.</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=texto-não-numérico-em-campo-numérico>"Texto não numérico em campo numérico"<a href=#texto-não-numérico-em-campo-numérico class=hash-link aria-label='Direct link to "Texto não numérico em campo numérico"' title='Direct link to "Texto não numérico em campo numérico"' translate=no>​</a></h3>
+<p>Mensagem na coluna de motivo: uma regra esperava um número, mas o fornecedor mandou um texto como <code>"N/A"</code> ou <code>"unknown"</code>.</p>
+<p><strong>Como diagnosticar:</strong></p>
+<ol>
+<li class="">Veja com que frequência isso acontece — o <strong>Drift Explorer</strong> ajuda a entender a distribuição de valores daquele campo.</li>
+<li class="">Decida se o evento deve usar um valor padrão ou ser ignorado nesses casos.</li>
+</ol>
+<p><strong>Como corrigir, no editor de mapeamento:</strong></p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Situação<th>Ajuste na regra<tbody><tr><td>O texto inválido aparece raramente<td>Defina um <strong>valor padrão</strong> numérico.<tr><td>O fornecedor usa rótulos fixos (<code>"critical"</code>, <code>"N/A"</code>)<td>Use um <strong>mapa de valores</strong> que traduz cada rótulo para o número correspondente antes da conversão.<tr><td>O campo só faz sentido quando válido<td>Use uma <strong>condição</strong> na regra para só preencher o campo quando o valor estiver na faixa esperada.</table>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=valor-fora-da-faixa-esperada>"Valor fora da faixa esperada"<a href=#valor-fora-da-faixa-esperada class=hash-link aria-label='Direct link to "Valor fora da faixa esperada"' title='Direct link to "Valor fora da faixa esperada"' translate=no>​</a></h3>
+<p>Mensagem na coluna de motivo: o fornecedor usa uma escala diferente da esperada (por exemplo, severidade de 0 a 150) e a conversão esperava de 0 a 100.</p>
+<p><strong>Como diagnosticar:</strong></p>
+<ol>
+<li class="">Descubra qual é a escala real de severidade do fornecedor (0 a 10, 0 a 100, 0 a 1000, customizada).</li>
+<li class="">Defina para qual escala você quer normalizar.</li>
+</ol>
+<p><strong>Como corrigir, no editor de mapeamento:</strong></p>
+<ul>
+<li class="">Use um <strong>mapa de valores</strong> para traduzir a escala do fornecedor para a escala-alvo antes da conversão.</li>
+<li class="">Ou, se a escala do fornecedor já serve, troque a conversão por uma que apenas transforme o valor em número, sem reescalonar.</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=lista-de-evidências-vazia>"Lista de evidências vazia"<a href=#lista-de-evidências-vazia class=hash-link aria-label='Direct link to "Lista de evidências vazia"' title='Direct link to "Lista de evidências vazia"' translate=no>​</a></h3>
+<p>Mensagem na coluna de motivo: uma regra que monta uma lista de evidências (por exemplo, um conjunto de indicadores como IPs e identificadores de dispositivo) resultou em lista vazia, porque todos os itens vieram nulos.</p>
+<p><strong>Como diagnosticar:</strong></p>
+<ol>
+<li class="">Confira se a regra de lista foi marcada como obrigatória por engano — esse tipo de regra não pode ser obrigatório.</li>
+<li class="">Verifique se todos os itens da lista realmente estão ausentes na amostra do evento.</li>
+</ol>
+<p><strong>Como corrigir, no editor de mapeamento:</strong></p>
+<ul>
+<li class=""><strong>Retire a marcação de obrigatório</strong> da regra de lista (não é suportada para esse tipo de regra).</li>
+<li class="">Se você precisa garantir pelo menos um item, adicione uma <strong>condição</strong> para que a regra só seja aplicada quando o dado de origem existir.</li>
+</ul>
+<hr/>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=aviso-de-sempre-usa-o-valor-padrão>Aviso de "sempre usa o valor padrão"<a href=#aviso-de-sempre-usa-o-valor-padrão class=hash-link aria-label='Direct link to Aviso de "sempre usa o valor padrão"' title='Direct link to Aviso de "sempre usa o valor padrão"' translate=no>​</a></h2>
+<p>Ao pré-visualizar um mapeamento contra eventos de amostra, o editor pode avisar que uma regra <strong>sempre</strong> cai no valor padrão — ou seja, a origem nunca traz um valor.</p>
+<p><strong>Provavelmente não é problema, se:</strong></p>
+<ul>
+<li class="">O fornecedor não oferece esse campo (lacuna conhecida).</li>
+<li class="">A regra é um espaço reservado para uso futuro.</li>
+<li class="">Os campos alternativos são todos opcionais.</li>
+</ul>
+<p><strong>Provavelmente é problema, se:</strong></p>
+<ul>
+<li class="">O nome do campo está escrito errado.</li>
+<li class="">Faltou alguma etapa de preparação que deveria gerar o dado de origem.</li>
+</ul>
+<p><strong>Como resolver, no editor de mapeamento:</strong></p>
+<ol>
+<li class=""><strong>Confirme que é intencional.</strong> Marque a regra como "padrão esperado" para silenciar o aviso (procure essa opção na configuração da regra).</li>
+<li class=""><strong>Remova a regra</strong>, se o campo não for importante.</li>
+<li class=""><strong>Investigue a origem.</strong> Use a pré-visualização de expressão para testar o caminho do campo contra uma amostra real. Se a pré-visualização retorna vazio, a expressão está certa mas o fornecedor não envia aquele dado — nesse caso, marque como padrão esperado.</li>
+</ol>
+<hr/>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=muitos-campos-não-mapeados-no-drift-explorer>Muitos campos não mapeados no Drift Explorer<a href=#muitos-campos-não-mapeados-no-drift-explorer class=hash-link aria-label="Direct link to Muitos campos não mapeados no Drift Explorer" title="Direct link to Muitos campos não mapeados no Drift Explorer" translate=no>​</a></h2>
+<p>A tela <strong>Normalizacao -> Drift Explorer</strong> lista os campos novos detectados nos eventos do fornecedor que o seu mapeamento ainda não aproveita.</p>
+<p><strong>Campos que normalmente dá para ignorar:</strong></p>
+<ul>
+<li class="">Identificadores internos, metadados e marcadores de versão sem significado para a investigação.</li>
+<li class="">Identificadores opacos sem valor semântico.</li>
+<li class="">Campos que duplicam informação já capturada em outro lugar.</li>
+</ul>
+<p><strong>Lacunas reais que valem a pena mapear:</strong></p>
+<ul>
+<li class="">Endereços IP, hostnames, nomes de usuário.</li>
+<li class="">Caminhos de arquivo, hashes, domínios.</li>
+<li class="">Severidade, tipo de detecção, categoria.</li>
+<li class="">Horários e fusos.</li>
+<li class="">Detalhes de processo, arquivo e rede.</li>
+</ul>
+<p><strong>Fluxo de trabalho:</strong></p>
+<ol>
+<li class="">Revise os campos não mapeados no <strong>Drift Explorer</strong>.</li>
+<li class="">Pergunte-se: "Isso é acionável numa investigação de segurança?"</li>
+<li class="">Decida:
+<ul>
+<li class=""><strong>Sim</strong> → abra <strong>Normalizacao -> Mappings</strong> e adicione uma regra para o campo.</li>
+<li class=""><strong>Não</strong> → registre-o como ignorado, deixando uma anotação no mapeamento explicando o motivo, para que a próxima pessoa não o reavalie sem necessidade.</li>
+</ul>
+</li>
+</ol>
+<hr/>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=uma-mudança-de-mapeamento-quebrou-a-produção-reverter>Uma mudança de mapeamento quebrou a produção (reverter)<a href=#uma-mudança-de-mapeamento-quebrou-a-produção-reverter class=hash-link aria-label="Direct link to Uma mudança de mapeamento quebrou a produção (reverter)" title="Direct link to Uma mudança de mapeamento quebrou a produção (reverter)" translate=no>​</a></h2>
+<p>Você publicou uma versão nova do mapeamento e os eventos começaram a cair em quarentena. O caminho mais rápido é voltar para a versão anterior e investigar com calma.</p>
+<p><strong>Passos para reverter, em Normalizacao -> Mappings:</strong></p>
+<ol>
+<li class="">Abra o mapeamento afetado e veja o <strong>histórico de versões</strong>.</li>
+<li class="">Identifique a última versão que funcionava (a anterior à mudança problemática).</li>
+<li class=""><strong>Ative</strong> essa versão anterior.</li>
+<li class="">O efeito é imediato: os eventos novos passam a usar o mapeamento antigo.</li>
+<li class="">Os eventos que já caíram em quarentena durante a versão problemática continuam lá. Depois de corrigir o mapeamento, reprocesse esses eventos a partir da tela <strong>Normalizacao -> Quarentena</strong> (selecione os eventos afetados e reprocesse).</li>
+</ol>
+<p><strong>Como evitar a próxima regressão:</strong></p>
+<ul>
+<li class="">Sempre use a <strong>pré-visualização</strong> do editor antes de publicar.</li>
+<li class="">Teste contra uma amostra representativa de eventos do fornecedor, não apenas um.</li>
+<li class="">Em mudanças grandes, publique em etapas: primeiro as regras de campos opcionais e, depois, as alterações em campos obrigatórios (que têm risco maior).</li>
+</ul>
+<hr/>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=a-regra-não-encontra-o-dado-mesmo-com-o-campo-presente>A regra não encontra o dado mesmo com o campo presente<a href=#a-regra-não-encontra-o-dado-mesmo-com-o-campo-presente class=hash-link aria-label="Direct link to A regra não encontra o dado mesmo com o campo presente" title="Direct link to A regra não encontra o dado mesmo com o campo presente" translate=no>​</a></h2>
+<p>Você apontou a regra para um caminho de campo, mas o valor chega vazio embora o evento do fornecedor tenha o dado. Use a pré-visualização de expressão no editor para testar cada hipótese contra uma amostra real.</p>
+<p><strong>Causas comuns:</strong></p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Causa<th>Como confirmar e corrigir<tbody><tr><td>Diferença de maiúsculas/minúsculas<td>O fornecedor usa, por exemplo, <code>Device.name</code> (com inicial maiúscula). Ajuste o caminho na regra para bater exatamente.<tr><td>Falta o índice de uma lista<td>O fornecedor manda uma lista de valores. Aponte para a posição desejada da lista em vez do campo inteiro.<tr><td>Erro de digitação no caminho aninhado<td>O caminho real tem um nível a mais ou a menos. Corrija o caminho na regra.<tr><td>O fornecedor usa estruturas diferentes por tipo de evento<td>Configure <strong>campos alternativos</strong> para cobrir as duas formas (a regra tenta o próximo quando o primeiro vem vazio).</table>
+<hr/>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=o-mapa-de-valores-não-está-traduzindo>O mapa de valores não está traduzindo<a href=#o-mapa-de-valores-não-está-traduzindo class=hash-link aria-label="Direct link to O mapa de valores não está traduzindo" title="Direct link to O mapa de valores não está traduzindo" translate=no>​</a></h2>
+<p>Você definiu um mapa de valores (por exemplo, traduzindo <code>"high"</code> para um número), mas os eventos passam direto sem tradução.</p>
+<p><strong>Causas comuns:</strong></p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Causa<th>Como corrigir, no editor de mapeamento<tbody><tr><td>Tipos diferentes entre a origem e as chaves do mapa<td>A origem chega como número, mas as chaves do mapa são texto (ou vice-versa). Normalize o tipo antes do mapa de valores.<tr><td>Valor fora do mapa<td>Por padrão, valores não listados passam sem tradução. Se você quer um destino fixo para o desconhecido, inclua uma entrada de "todos os demais" no mapa.</table>
+<hr/>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=como-ler-as-mensagens-de-erro>Como ler as mensagens de erro<a href=#como-ler-as-mensagens-de-erro class=hash-link aria-label="Direct link to Como ler as mensagens de erro" title="Direct link to Como ler as mensagens de erro" translate=no>​</a></h2>
+<p>A tabela abaixo traduz as mensagens mais comuns que aparecem na coluna de motivo da <strong>Quarentena</strong> e indica onde agir.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Mensagem<th>Causa provável<th>Onde corrigir<tbody><tr><td>Campo obrigatório resolveu para vazio<td>Campo obrigatório ausente, ou conversão de tipo falhou<td>Revise a origem e o valor padrão da regra<tr><td>Horário inválido<td>Formato ou fuso de data/hora não suportado<td>Ajuste a regra de horário; limpe o valor antes de converter<tr><td>Texto não numérico em campo numérico<td>Fornecedor mandou texto num campo numérico<td>Adicione mapa de valores ou valor padrão<tr><td>Conversão de tipo desconhecida<td>Nome de conversão escrito errado<td>Confira o nome na referência de operadores<tr><td>Caminho de expressão inválido<td>Erro de digitação no caminho do campo<td>Valide com a pré-visualização de expressão<tr><td>Lista de evidências vazia<td>Todos os itens da lista vieram nulos<td>Use uma condição para preencher só quando houver dado</table>
+<hr/>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=onde-buscar-ajuda>Onde buscar ajuda<a href=#onde-buscar-ajuda class=hash-link aria-label="Direct link to Onde buscar ajuda" title="Direct link to Onde buscar ajuda" translate=no>​</a></h2>
+<ol>
+<li class=""><strong>Confira o Drift Explorer</strong> (<strong>Normalizacao -> Drift Explorer</strong>) para ver campos do fornecedor ainda não mapeados.</li>
+<li class=""><strong>Use a pré-visualização do editor</strong> (<strong>Normalizacao -> Mappings</strong>) para encontrar regras que sempre caem no valor padrão.</li>
+<li class=""><strong>Valide o caminho de cada campo</strong> com a pré-visualização de expressão, contra uma amostra real, antes de salvar.</li>
+<li class=""><strong>Consulte a referência de operadores</strong> para detalhes de conversões e condições disponíveis.</li>
+<li class=""><strong>Compare com mapeamentos de fornecedores parecidos</strong> (por exemplo, alertas e detecções do mesmo fornecedor) para reaproveitar padrões.</li>
+</ol>
+<p>Se um problema persistir mesmo após esses ajustes, ou se a correção parecer depender de algo fora do editor de mapeamento, fale com o administrador da plataforma.</div></article><nav class="docusaurus-mt-lg pagination-nav" aria-label="Docs pages"><a class="pagination-nav__link pagination-nav__link--prev" href=/en/normalization/use-cases><div class=pagination-nav__sublabel>Previous</div><div class=pagination-nav__label>Casos de Uso — Guias Passo a Passo</div></a><a class="pagination-nav__link pagination-nav__link--next" href=/en/normalization/migration-v1-to-v2><div class=pagination-nav__sublabel>Next</div><div class=pagination-nav__label>Atualizar um mapeamento para o formato novo</div></a></nav></div></div><div class="col col--3"><div class="tableOfContents_bqdL thin-scrollbar theme-doc-toc-desktop"><ul class="table-of-contents table-of-contents__left-border"><li><a href=#quando-usar class="table-of-contents__link toc-highlight">Quando usar</a><li><a href=#onde-os-erros-aparecem class="table-of-contents__link toc-highlight">Onde os erros aparecem</a><li><a href=#eventos-em-quarentena-por-falha-de-mapeamento class="table-of-contents__link toc-highlight">Eventos em quarentena por falha de mapeamento</a><ul><li><a href=#campo-obrigatório-resolveu-para-vazio class="table-of-contents__link toc-highlight">"Campo obrigatório resolveu para vazio"</a><li><a href=#horário-inválido class="table-of-contents__link toc-highlight">"Horário inválido"</a><li><a href=#texto-não-numérico-em-campo-numérico class="table-of-contents__link toc-highlight">"Texto não numérico em campo numérico"</a><li><a href=#valor-fora-da-faixa-esperada class="table-of-contents__link toc-highlight">"Valor fora da faixa esperada"</a><li><a href=#lista-de-evidências-vazia class="table-of-contents__link toc-highlight">"Lista de evidências vazia"</a></ul><li><a href=#aviso-de-sempre-usa-o-valor-padrão class="table-of-contents__link toc-highlight">Aviso de "sempre usa o valor padrão"</a><li><a href=#muitos-campos-não-mapeados-no-drift-explorer class="table-of-contents__link toc-highlight">Muitos campos não mapeados no Drift Explorer</a><li><a href=#uma-mudança-de-mapeamento-quebrou-a-produção-reverter class="table-of-contents__link toc-highlight">Uma mudança de mapeamento quebrou a produção (reverter)</a><li><a href=#a-regra-não-encontra-o-dado-mesmo-com-o-campo-presente class="table-of-contents__link toc-highlight">A regra não encontra o dado mesmo com o campo presente</a><li><a href=#o-mapa-de-valores-não-está-traduzindo class="table-of-contents__link toc-highlight">O mapa de valores não está traduzindo</a><li><a href=#como-ler-as-mensagens-de-erro class="table-of-contents__link toc-highlight">Como ler as mensagens de erro</a><li><a href=#onde-buscar-ajuda class="table-of-contents__link toc-highlight">Onde buscar ajuda</a></ul></div></div></div></div></main></div></div></div><footer class="theme-layout-footer footer footer--dark"><div class="container container-fluid"><div class="row footer__links"><div class="theme-layout-footer-column col footer__col"><div class=footer__title>Documentação</div><ul class="footer__items clean-list"><li class=footer__item><a class=footer__link-item href=/en/getting-started/overview>Começar</a><li class=footer__item><a class=footer__link-item href=/en/operations/dashboard>Operação diária</a><li class=footer__item><a class=footer__link-item href=/en/normalization/overview>Mappings (CML)</a><li class=footer__item><a class=footer__link-item href=/en/runbooks/dispatcher>Runbooks</a></ul></div><div class="theme-layout-footer-column col footer__col"><div class=footer__title>Plataforma</div><ul class="footer__items clean-list"><li class=footer__item><a class=footer__link-item href=/en/concepts/architecture>Arquitetura</a><li class=footer__item><a class=footer__link-item href=/en/concepts/rbac>RBAC</a><li class=footer__item><a class=footer__link-item href=/en/integrations/overview>Integrações</a><li class=footer__item><a class=footer__link-item href=/en/compliance/retention>Compliance</a></ul></div><div class="theme-layout-footer-column col footer__col"><div class=footer__title>Recursos</div><ul class="footer__items clean-list"><li class=footer__item><a class=footer__link-item href=/en/getting-started/quickstart>Quickstart</a><li class=footer__item><a class=footer__link-item href=/en/normalization/cookbook>DSL Cookbook</a><li class=footer__item><a class=footer__link-item href=/en/normalization/troubleshooting>Troubleshooting</a></ul></div></div><div class="footer__bottom text--center"><div class=footer__copyright>Copyright © 2026 CentralOps. Built with Docusaurus.</div></div></div></footer></div></body>

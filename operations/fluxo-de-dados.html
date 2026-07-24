@@ -1,0 +1,165 @@
+<!doctype html><html lang=pt-BR dir=ltr class="docs-wrapper plugin-docs plugin-id-default docs-version-current docs-doc-page docs-doc-id-operations/fluxo-de-dados" data-has-hydrated=false><head><meta charset=UTF-8><meta name=generator content="Docusaurus v3.10.0"><title data-rh=true>Fluxo de dados | CentralOps</title><meta data-rh=true name=viewport content="width=device-width, initial-scale=1.0"/><meta data-rh=true name=twitter:card content=summary_large_image /><meta data-rh=true property=og:image content=https://docs.segark.com/img/centralops-social-card.png /><meta data-rh=true name=twitter:image content=https://docs.segark.com/img/centralops-social-card.png /><meta data-rh=true property=og:url content=https://docs.segark.com/operations/fluxo-de-dados /><meta data-rh=true property=og:locale content=pt_BR /><meta data-rh=true property=og:locale:alternate content=en /><meta data-rh=true property=og:locale:alternate content=es /><meta data-rh=true name=docusaurus_locale content=pt-BR /><meta data-rh=true name=docsearch:language content=pt-BR /><meta data-rh=true name=docusaurus_version content=current /><meta data-rh=true name=docusaurus_tag content=docs-default-current /><meta data-rh=true name=docsearch:version content=current /><meta data-rh=true name=docsearch:docusaurus_tag content=docs-default-current /><meta data-rh=true property=og:title content="Fluxo de dados | CentralOps"/><meta data-rh=true name=description content="O mapa Fontes → Roteamento → Destinos, com vazão e saúde por destino, e o card de redução de volume e custo."/><meta data-rh=true property=og:description content="O mapa Fontes → Roteamento → Destinos, com vazão e saúde por destino, e o card de redução de volume e custo."/><link data-rh=true rel=icon href=/img/favicon.ico /><link data-rh=true rel=canonical href=https://docs.segark.com/operations/fluxo-de-dados /><link data-rh=true rel=alternate href=https://docs.segark.com/operations/fluxo-de-dados hreflang=pt-BR /><link data-rh=true rel=alternate href=https://docs.segark.com/en/operations/fluxo-de-dados hreflang=en /><link data-rh=true rel=alternate href=https://docs.segark.com/es/operations/fluxo-de-dados hreflang=es /><link data-rh=true rel=alternate href=https://docs.segark.com/operations/fluxo-de-dados hreflang=x-default /><script data-rh=true type=application/ld+json>{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","item":"https://docs.segark.com/operations/fluxo-de-dados","name":"Fluxo de dados","position":1}]}</script><link rel=stylesheet href=/assets/css/styles.65a61132.css /><script src=/assets/js/runtime~main.08d80435.js defer></script><script src=/assets/js/main.9390f800.js defer></script></head><body><svg style="display: none;"><defs>
+<symbol id=theme-svg-external-link viewBox="0 0 24 24"><path fill=currentColor d="M21 13v10h-21v-19h12v2h-10v15h17v-8h2zm3-12h-10.988l4.035 4-6.977 7.07 2.828 2.828 6.977-7.07 4.125 4.172v-11z"/></symbol>
+</defs></svg>
+<script>!function(){var t=function(){try{return new URLSearchParams(window.location.search).get("docusaurus-theme")}catch(t){}}()||function(){try{return window.localStorage.getItem("theme-cee")}catch(t){}}();document.documentElement.setAttribute("data-theme",t||(window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light")),document.documentElement.setAttribute("data-theme-choice",t||"system")}(),function(){try{for(var[t,e]of new URLSearchParams(window.location.search).entries())if(t.startsWith("docusaurus-data-")){var a=t.replace("docusaurus-data-","data-");document.documentElement.setAttribute(a,e)}}catch(t){}}()</script><div id=__docusaurus><link rel=preload as=image href=/img/logo.svg /><div role=region aria-label="Pular para o conteúdo principal"><a class=skipToContent_fXgn href=#__docusaurus_skipToContent_fallback>Pular para o conteúdo principal</a></div><nav aria-label="Navegação principal" class="theme-layout-navbar navbar navbar--fixed-top"><div class=navbar__inner><div class="theme-layout-navbar-left navbar__items"><button aria-label="Alternar painel de navegação" aria-expanded=false class="navbar__toggle clean-btn" type=button><svg width=30 height=30 viewBox="0 0 30 30" aria-hidden=true><path stroke=currentColor stroke-linecap=round stroke-miterlimit=10 stroke-width=2 d="M4 7h22M4 15h22M4 23h22"/></svg></button><a class=navbar__brand href=/><div class=navbar__logo><img src=/img/logo.svg alt=CentralOps class="themedComponent_mlkZ themedComponent--light_NVdE"/><img src=/img/logo.svg alt=CentralOps class="themedComponent_mlkZ themedComponent--dark_xIcU"/></div><b class="navbar__title text--truncate">CentralOps</b></a><a class="navbar__item navbar__link" href=/>Começar</a><a class="navbar__item navbar__link" href=/outputs/overview>Saídas & Rotas</a><a aria-current=page class="navbar__item navbar__link navbar__link--active" href=/operations/dashboard>Operação</a><a class="navbar__item navbar__link" href=/administration/users-and-roles>Administração</a><a class="navbar__item navbar__link" href=/normalization/overview>Mappings</a><a class="navbar__item navbar__link" href=/runbooks/dispatcher>Runbooks</a></div><div class="theme-layout-navbar-right navbar__items navbar__items--right"><div class="navbar__item dropdown dropdown--hoverable dropdown--right"><a href=# aria-haspopup=true aria-expanded=false role=button class=navbar__link><svg viewBox="0 0 24 24" width=20 height=20 aria-hidden=true class=iconLanguage_nlXk><path fill=currentColor d="M12.87 15.07l-2.54-2.51.03-.03c1.74-1.94 2.98-4.17 3.71-6.53H17V4h-7V2H8v2H1v1.99h11.17C11.5 7.92 10.44 9.75 9 11.35 8.07 10.32 7.3 9.19 6.69 8h-2c.73 1.63 1.73 3.17 2.98 4.56l-5.09 5.02L4 19l5-5 3.11 3.11.76-2.04zM18.5 10h-2L12 22h2l1.12-3h4.75L21 22h2l-4.5-12zm-2.62 7l1.62-4.33L19.12 17h-3.24z"/></svg>Português</a><ul class=dropdown__menu><li><a href=/operations/fluxo-de-dados target=_self rel="noopener noreferrer" class="dropdown__link dropdown__link--active" lang=pt-BR>Português</a><li><a href=/en/operations/fluxo-de-dados target=_self rel="noopener noreferrer" class=dropdown__link lang=en>English</a><li><a href=/es/operations/fluxo-de-dados target=_self rel="noopener noreferrer" class=dropdown__link lang=es>Español</a></ul></div><div class="toggle_vylO colorModeToggle_DEke"><button class="clean-btn toggleButton_gllP toggleButtonDisabled_aARS" type=button disabled title="modo do sistema" aria-label="Mudar entre modo claro e escuro (modo do sistema está ativo)"><svg viewBox="0 0 24 24" width=24 height=24 aria-hidden=true class="toggleIcon_g3eP lightToggleIcon_pyhR"><path fill=currentColor d="M12,9c1.65,0,3,1.35,3,3s-1.35,3-3,3s-3-1.35-3-3S10.35,9,12,9 M12,7c-2.76,0-5,2.24-5,5s2.24,5,5,5s5-2.24,5-5 S14.76,7,12,7L12,7z M2,13l2,0c0.55,0,1-0.45,1-1s-0.45-1-1-1l-2,0c-0.55,0-1,0.45-1,1S1.45,13,2,13z M20,13l2,0c0.55,0,1-0.45,1-1 s-0.45-1-1-1l-2,0c-0.55,0-1,0.45-1,1S19.45,13,20,13z M11,2v2c0,0.55,0.45,1,1,1s1-0.45,1-1V2c0-0.55-0.45-1-1-1S11,1.45,11,2z M11,20v2c0,0.55,0.45,1,1,1s1-0.45,1-1v-2c0-0.55-0.45-1-1-1C11.45,19,11,19.45,11,20z M5.99,4.58c-0.39-0.39-1.03-0.39-1.41,0 c-0.39,0.39-0.39,1.03,0,1.41l1.06,1.06c0.39,0.39,1.03,0.39,1.41,0s0.39-1.03,0-1.41L5.99,4.58z M18.36,16.95 c-0.39-0.39-1.03-0.39-1.41,0c-0.39,0.39-0.39,1.03,0,1.41l1.06,1.06c0.39,0.39,1.03,0.39,1.41,0c0.39-0.39,0.39-1.03,0-1.41 L18.36,16.95z M19.42,5.99c0.39-0.39,0.39-1.03,0-1.41c-0.39-0.39-1.03-0.39-1.41,0l-1.06,1.06c-0.39,0.39-0.39,1.03,0,1.41 s1.03,0.39,1.41,0L19.42,5.99z M7.05,18.36c0.39-0.39,0.39-1.03,0-1.41c-0.39-0.39-1.03-0.39-1.41,0l-1.06,1.06 c-0.39,0.39-0.39,1.03,0,1.41s1.03,0.39,1.41,0L7.05,18.36z"/></svg><svg viewBox="0 0 24 24" width=24 height=24 aria-hidden=true class="toggleIcon_g3eP darkToggleIcon_wfgR"><path fill=currentColor d="M9.37,5.51C9.19,6.15,9.1,6.82,9.1,7.5c0,4.08,3.32,7.4,7.4,7.4c0.68,0,1.35-0.09,1.99-0.27C17.45,17.19,14.93,19,12,19 c-3.86,0-7-3.14-7-7C5,9.07,6.81,6.55,9.37,5.51z M12,3c-4.97,0-9,4.03-9,9s4.03,9,9,9s9-4.03,9-9c0-0.46-0.04-0.92-0.1-1.36 c-0.98,1.37-2.58,2.26-4.4,2.26c-2.98,0-5.4-2.42-5.4-5.4c0-1.81,0.89-3.42,2.26-4.4C12.92,3.04,12.46,3,12,3L12,3z"/></svg><svg viewBox="0 0 24 24" width=24 height=24 aria-hidden=true class="toggleIcon_g3eP systemToggleIcon_QzmC"><path fill=currentColor d="m12 21c4.971 0 9-4.029 9-9s-4.029-9-9-9-9 4.029-9 9 4.029 9 9 9zm4.95-13.95c1.313 1.313 2.05 3.093 2.05 4.95s-0.738 3.637-2.05 4.95c-1.313 1.313-3.093 2.05-4.95 2.05v-14c1.857 0 3.637 0.737 4.95 2.05z"/></svg></button></div><div class=navbarSearchContainer_Bca1><div class=navbar__search><span aria-label="expand searchbar" role=button class=search-icon tabindex=0></span><input id=search_input_react type=search placeholder=Loading... aria-label=Search class="navbar__search-input search-bar" disabled/></div></div></div></div><div role=presentation class=navbar-sidebar__backdrop></div></nav><div id=__docusaurus_skipToContent_fallback class="theme-layout-main main-wrapper mainWrapper_z2l0"><div class=docsWrapper_hBAB><button aria-label="Voltar para o topo" class="clean-btn theme-back-to-top-button backToTopButton_sjWU" type=button></button><div class=docRoot_UBD9><aside class="theme-doc-sidebar-container docSidebarContainer_YfHR"><div class=sidebarViewport_aRkj><div class=sidebar_njMd><nav aria-label="Painel lateral de documentos" class="menu thin-scrollbar menu_SIkG"><ul class="theme-doc-sidebar-menu menu__list"><li class="theme-doc-sidebar-item-category theme-doc-sidebar-item-category-level-1 menu__list-item"><div class=menu__list-item-collapsible><a class="categoryLink_byQd menu__link menu__link--sublist menu__link--sublist-caret menu__link--active" role=button aria-expanded=true href=/operations/dashboard><span title="Operação diária" class=categoryLinkLabel_W154>Operação diária</span></a></div><ul class=menu__list><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/operations/dashboard><span title=Dashboard class=linkLabel_WmDU>Dashboard</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class="menu__link menu__link--active" aria-current=page tabindex=0 href=/operations/fluxo-de-dados><span title="Fluxo de dados" class=linkLabel_WmDU>Fluxo de dados</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/operations/quarantine><span title=Quarentena class=linkLabel_WmDU>Quarentena</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/operations/search><span title=Investigações class=linkLabel_WmDU>Investigações</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/operations/federated-search><span title="Busca federada" class=linkLabel_WmDU>Busca federada</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/operations/detections><span title=Detecções class=linkLabel_WmDU>Detecções</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/operations/correlation-rules><span title="Regras de correlação" class=linkLabel_WmDU>Regras de correlação</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/operations/pipeline-health><span title="Saúde do Pipeline" class=linkLabel_WmDU>Saúde do Pipeline</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/operations/live-capture><span title="Captura ao vivo" class=linkLabel_WmDU>Captura ao vivo</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/operations/observability><span title="Observabilidade (OTel)" class=linkLabel_WmDU>Observabilidade (OTel)</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/operations/history-audit><span title="Histórico e auditoria" class=linkLabel_WmDU>Histórico e auditoria</span></a></ul></ul></nav></div></div></aside><main class=docMainContainer_TBSr><div class="container padding-top--md padding-bottom--lg"><div class=row><div class="col docItemCol_VOVn"><div class=docItemContainer_Djhp><article><nav class="theme-doc-breadcrumbs breadcrumbsContainer_Z_bl" aria-label=Trilha><ul class=breadcrumbs><li class=breadcrumbs__item><a aria-label="Página Inicial" class=breadcrumbs__link href=/><svg viewBox="0 0 24 24" class=breadcrumbHomeIcon_YNFT><path d="M10 19v-5h4v5c0 .55.45 1 1 1h3c.55 0 1-.45 1-1v-7h1.7c.46 0 .68-.57.33-.87L12.67 3.6c-.38-.34-.96-.34-1.34 0l-8.36 7.53c-.34.3-.13.87.33.87H5v7c0 .55.45 1 1 1h3c.55 0 1-.45 1-1z" fill=currentColor /></svg></a><li class=breadcrumbs__item><span class=breadcrumbs__link>Operação diária</span><li class="breadcrumbs__item breadcrumbs__item--active"><span class=breadcrumbs__link>Fluxo de dados</span></ul></nav><div class="tocCollapsible_ETCw theme-doc-toc-mobile tocMobile_ITEo"><button type=button class="clean-btn tocCollapsibleButton_TO0P">Nesta página</button></div><div class="theme-doc-markdown markdown"><header><h1>Fluxo de dados</h1></header>
+<p>A tela <strong>Fluxo de dados</strong> é o mapa do caminho que os eventos percorrem: <strong>Fontes → Roteamento → Destinos</strong>, desenhado como um grafo, com a vazão de cada trecho e a saúde de cada nó. É onde você responde "por onde o volume está passando?" e "quanto disso a plataforma está conseguindo evitar?".</p>
+<blockquote>
+<p>Esta é uma tela <strong>só de administrador</strong>. Você a encontra no menu <strong>Operação → Fluxo de dados</strong>.</p>
+</blockquote>
+<p>Ela é diferente do <a class="" href=/operations/dashboard>Dashboard</a>: o Dashboard resume entrada e saída em números; aqui você vê a <strong>topologia</strong> — qual fonte alimenta qual rota, qual rota entrega a qual destino, e onde o fluxo estreita.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=quando-usar>Quando usar<a href=#quando-usar class=hash-link aria-label="Link direto para Quando usar" title="Link direto para Quando usar" translate=no>​</a></h2>
+<ul>
+<li class=""><strong>Antes de mexer no roteamento.</strong> Ver quais destinos uma fonte alcança hoje, para não descobrir depois que uma regra nova cortou um caminho que alguém usava.</li>
+<li class=""><strong>Depois de ligar uma alavanca de redução.</strong> Conferir se o volume evitado subiu como você esperava e por qual causa.</li>
+<li class=""><strong>Numa conversa sobre custo.</strong> O card de redução dá a ordem de grandeza do que está sendo cortado antes de chegar ao SIEM.</li>
+<li class=""><strong>Quando um destino some do radar.</strong> O nó fica marcado como degradado ou indisponível no próprio desenho.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=a-faixa-de-indicadores>A faixa de indicadores<a href=#a-faixa-de-indicadores class=hash-link aria-label="Link direto para A faixa de indicadores" title="Link direto para A faixa de indicadores" translate=no>​</a></h2>
+<p>Quatro números no topo, todos na mesma unidade (<strong>eventos por minuto</strong>) para serem comparáveis entre si:</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Indicador<th>O que conta<tbody><tr><td><strong>Ingestão</strong><td>Eventos entrando por todas as fontes visíveis para você.<tr><td><strong>Roteados</strong><td>Eventos que <strong>bateram</strong> numa regra com ação <strong>Encaminhar</strong>, somados entre as regras. É contagem de casamento, não do que saiu pela rede: um evento amostrado para fora, bloqueado por residência ou anti-loop, ou casado por uma regra sem destino configurado continua contado aqui.<tr><td><strong>Descartados</strong><td>Eventos apagados por regras com ação <strong>Descartar</strong>. Fica em vermelho sempre que for maior que zero — é um lembrete, não um erro.<tr><td><strong>Entregues</strong><td>Eventos que efetivamente saíram para os destinos.</table>
+<p>São médias móveis de uma janela curta definida na configuração da plataforma, e a tela se atualiza sozinha a cada 15 segundos.</p>
+<div class="theme-admonition theme-admonition-note admonition_xJq3 alert alert--secondary"><div class=admonitionHeading_Gvgb><span class=admonitionIcon_Rf37><svg viewBox="0 0 14 16"><path fill-rule=evenodd d="M6.3 5.69a.942.942 0 0 1-.28-.7c0-.28.09-.52.28-.7.19-.18.42-.28.7-.28.28 0 .52.09.7.28.18.19.28.42.28.7 0 .28-.09.52-.28.7a1 1 0 0 1-.7.3c-.28 0-.52-.11-.7-.3zM8 7.99c-.02-.25-.11-.48-.31-.69-.2-.19-.42-.3-.69-.31H6c-.27.02-.48.13-.69.31-.2.2-.3.44-.31.69h1v3c.02.27.11.5.31.69.2.2.42.31.69.31h1c.27 0 .48-.11.69-.31.2-.19.3-.42.31-.69H8V7.98v.01zM7 2.3c-3.14 0-5.7 2.54-5.7 5.68 0 3.14 2.56 5.7 5.7 5.7s5.7-2.55 5.7-5.7c0-3.15-2.56-5.69-5.7-5.69v.01zM7 .98c3.86 0 7 3.14 7 7s-3.14 7-7 7-7-3.12-7-7 3.14-7 7-7z"/></svg></span>Roteados e Entregues não formam um funil</div><div class=admonitionContent_BuS1><p>Cada um conta uma coisa diferente. <strong>Roteados</strong> conta pares evento × regra casada; <strong>Entregues</strong> conta pares evento × entrega.<ul>
+<li class="">Um evento que casa <strong>uma</strong> regra com três destinos: 1 em Roteados, 3 em Entregues.</li>
+<li class="">Um evento que casa <strong>três</strong> regras não-exclusivas (o padrão de tiering — SIEM e data lake): 3 em Roteados.</li>
+</ul><p>Por isso "Entregues" acima de "Roteados" é esperado, e a diferença entre os dois não mede perda.</div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=redução-de-volume--custo>Redução de volume & custo<a href=#redução-de-volume--custo class=hash-link aria-label="Link direto para Redução de volume & custo" title="Link direto para Redução de volume & custo" translate=no>​</a></h2>
+<p>O card <strong>Redução de volume & custo</strong> mostra o que a plataforma cortou antes de o volume chegar aos destinos, na janela indicada ao lado do título (as últimas 3 horas), somando as organizações que você enxerga.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Número<th>O que é<th>Como é medido<tbody><tr><td><strong>Coletado</strong><td>O que o fornecedor mandou.<td>O evento <strong>cru</strong>, contado <strong>uma vez por evento</strong>, antes de a plataforma montar o envelope.<tr><td><strong>Entregue</strong><td>O que saiu pela porta.<td>O <strong>envelope completo</strong> (rótulos + evento normalizado + evento bruto), contado <strong>por entrega</strong> — um evento que vai a três destinos é contado três vezes.<tr><td><strong>Evitado</strong><td>O que as alavancas de redução impediram de sair.<td><strong>Bases mistas</strong>: a poda do mapeamento é creditada em cima do evento cru, o descarte e a amostragem em cima do envelope por destino, a supressão em cima do envelope uma vez por evento.<tr><td><strong>Redução %</strong><td>A fração do volume que deixou de sair.<td>Evitado ÷ (Entregue + Evitado) — o denominador é o volume que <strong>teria</strong> saído se nada tivesse sido cortado.</table>
+<p>Cada número traz a sua base de medição escrita embaixo, na própria tela.</p>
+<div class="theme-admonition theme-admonition-warning admonition_xJq3 alert alert--warning"><div class=admonitionHeading_Gvgb><span class=admonitionIcon_Rf37><svg viewBox="0 0 16 16"><path fill-rule=evenodd d="M8.893 1.5c-.183-.31-.52-.5-.887-.5s-.703.19-.886.5L.138 13.499a.98.98 0 0 0 0 1.001c.193.31.53.501.886.501h13.964c.367 0 .704-.19.877-.5a1.03 1.03 0 0 0 .01-1.002L8.893 1.5zm.133 11.497H6.987v-2.003h2.039v2.003zm0-3.004H6.987V5.987h2.039v4.006z"/></svg></span>Os quatro números não fecham como um balanço</div><div class=admonitionContent_BuS1><p>Não tente conferir <code>Coletado − Evitado = Entregue</code>: essa conta <strong>não fecha</strong>, e não é defeito.<p><strong>Coletado</strong> é o evento cru contado uma vez. <strong>Entregue</strong> e <strong>Evitado</strong> são o envelope contado <strong>por entrega</strong> — e o envelope é maior que o evento cru (ele carrega o cru dentro de si), enquanto o envio simultâneo a vários destinos multiplica cada entrega. Por isso <strong>"Evitado" pode legitimamente ficar maior que "Coletado"</strong> sem que nenhum evento tenha sido contado duas vezes.<p>Quando a tela detecta essa situação, ela <strong>avisa no próprio card</strong>, em vez de exibir o número em silêncio. Enquanto as bases não forem unificadas, trate os quatro valores como ordem de grandeza — bons para comparar "antes e depois de ligar uma alavanca", ruins para fechar uma fatura.</div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=de-onde-veio-a-economia>De onde veio a economia<a href=#de-onde-veio-a-economia class=hash-link aria-label="Link direto para De onde veio a economia" title="Link direto para De onde veio a economia" translate=no>​</a></h3>
+<p>Logo abaixo dos quatro números, o card decompõe o <strong>Evitado</strong> por causa. Só aparecem as causas que de fato economizaram algo na janela — uma causa zerada é omitida.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Etiqueta no card<th>Quem gerou<th>Disponível por padrão?<tbody><tr><td><strong>poda</strong><td>O bloco de poda do payload bruto declarado no <strong>mapeamento</strong> — vale para todos os destinos.<td>Sim<tr><td><strong>descarte por rota</strong><td>Regras de roteamento com ação <strong>Descartar</strong>.<td>Sim — é configuração de rota, não tem chave de ambiente que a desligue<tr><td><strong>amostragem</strong><td>O campo <strong>Amostragem %</strong> da rota, quando abaixo de 100.<td>Sim<tr><td><strong>supressão</strong><td>O rate-limit por assinatura da rota (<strong>Permitidos por janela</strong> acima de 0).<td>Sim<tr><td><strong>descarte do bruto</strong><td>A opção <strong>Descartar o evento bruto</strong> da rota. Costuma ser a maior economia isolada.<td>Sim — também é configuração de rota<tr><td><strong>agregação</strong><td>O rollup por destino, que colapsa eventos repetidos em um só.<td><strong>Não — é a única alavanca desligada por padrão.</strong><tr><td><strong>redação</strong><td>Reservado para a redação de PII. Nenhuma parte da plataforma credita volume nessa causa hoje, então ela não aparece no card.<td>—</table>
+<p>"Disponível" quer dizer que a alavanca <strong>pode</strong> agir, não que ela esteja cortando alguma coisa. O que de fato liga cada corte é a configuração <strong>da rota</strong> — que nasce conservadora: a amostragem começa em 100% (entrega tudo) e a supressão começa em zero (desligada). Enquanto ninguém mexer nesses campos, nenhum evento é economizado. Veja <a class="" href=/outputs/reducao-de-volume>Redução de volume</a> para o que cada alavanca corta e onde se configura.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=economia-estimada-em-dinheiro>Economia estimada, em dinheiro<a href=#economia-estimada-em-dinheiro class=hash-link aria-label="Link direto para Economia estimada, em dinheiro" title="Link direto para Economia estimada, em dinheiro" translate=no>​</a></h3>
+<p>O bloco final traduz o volume evitado em valor por dia. Ele depende de duas coisas:</p>
+<ol>
+<li class=""><strong>Preço por GB configurado no destino.</strong> No cadastro de cada destino, na seção <strong>Custo (FinOps)</strong>, há os campos <strong>Preço por GB</strong> e <strong>Moeda</strong>. Esse preço serve <strong>só</strong> para essa conversão — ele não muda nada na entrega. Configurá-lo é recurso da edição Community.</li>
+<li class=""><strong>Edição Enterprise.</strong> Converter bytes em moeda é recurso Enterprise. Na Community o card mostra volume e percentual, e diz isso abertamente em vez de exibir um valor inventado.</li>
+</ol>
+<p>Se o preço não estiver preenchido, o card informa que <strong>o preço por GB não está configurado</strong> — e não mostra "US$ 0,00", que seria indistinguível de "não economizou nada".</p>
+<p>O valor exibido é <strong>por dia</strong>: a plataforma projeta para 24 horas o que mediu na janela de 3 horas.</p>
+<div class="theme-admonition theme-admonition-note admonition_xJq3 alert alert--secondary"><div class=admonitionHeading_Gvgb><span class=admonitionIcon_Rf37><svg viewBox="0 0 14 16"><path fill-rule=evenodd d="M6.3 5.69a.942.942 0 0 1-.28-.7c0-.28.09-.52.28-.7.19-.18.42-.28.7-.28.28 0 .52.09.7.28.18.19.28.42.28.7 0 .28-.09.52-.28.7a1 1 0 0 1-.7.3c-.28 0-.52-.11-.7-.3zM8 7.99c-.02-.25-.11-.48-.31-.69-.2-.19-.42-.3-.69-.31H6c-.27.02-.48.13-.69.31-.2.2-.3.44-.31.69h1v3c.02.27.11.5.31.69.2.2.42.31.69.31h1c.27 0 .48-.11.69-.31.2-.19.3-.42.31-.69H8V7.98v.01zM7 2.3c-3.14 0-5.7 2.54-5.7 5.68 0 3.14 2.56 5.7 5.7 5.7s5.7-2.55 5.7-5.7c0-3.15-2.56-5.69-5.7-5.69v.01zM7 .98c3.86 0 7 3.14 7 7s-3.14 7-7 7-7-3.12-7-7 3.14-7 7-7z"/></svg></span>O card não apareceu</div><div class=admonitionContent_BuS1><p>O card se esconde sozinho em dois casos: a medição de custo está desligada na plataforma, ou não houve tráfego nenhum na janela. Nos dois casos ele some inteiro em vez de mostrar uma fileira de zeros.</div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=topologia-do-fluxo>Topologia do fluxo<a href=#topologia-do-fluxo class=hash-link aria-label="Link direto para Topologia do fluxo" title="Link direto para Topologia do fluxo" translate=no>​</a></h2>
+<p>O desenho abaixo do card é interativo:</p>
+<ul>
+<li class=""><strong>Largura e velocidade das faixas</strong> são proporcionais à vazão daquele trecho — um caminho fino é um caminho com pouco tráfego.</li>
+<li class=""><strong>Role para dar zoom, arraste para deslocar.</strong></li>
+<li class=""><strong>Cada nó tem uma bolinha de saúde</strong>: verde (saudável), amarelo (degradado), vermelho (indisponível). Para as fontes, o critério é o mesmo da <a class="" href=/operations/pipeline-health>Saúde do pipeline</a>; para os destinos, o mesmo de <a class="" href=/outputs/destination-operations>Operar destinos</a>.</li>
+<li class=""><strong>Clique em um nó</strong> para abrir o painel lateral com a vazão e o estado daquele ponto. Em destinos, o painel também traz o volume em bytes por minuto e uma amostra dos últimos eventos entregues.</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=feed-ao-vivo>Feed ao vivo<a href=#feed-ao-vivo class=hash-link aria-label="Link direto para Feed ao vivo" title="Link direto para Feed ao vivo" translate=no>​</a></h3>
+<p>O botão <strong>Feed ao vivo</strong>, no topo, abre um painel que acompanha os destinos de maior vazão e lista os eventos mais recentes que chegaram neles, atualizando sozinho. Serve para confirmar em segundos que algo continua saindo — não substitui a <a class="" href=/operations/live-capture>Captura ao vivo</a>, que é a ferramenta para seguir o destino final de <strong>cada</strong> evento, inclusive dos que não foram entregues.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=limitações>Limitações<a href=#limitações class=hash-link aria-label="Link direto para Limitações" title="Link direto para Limitações" translate=no>​</a></h2>
+<ul>
+<li class="">A tela mostra <strong>taxa</strong>, não histórico: ela responde "como está agora", não "o que aconteceu ontem às 3h".</li>
+<li class="">Um evento que morreu antes do roteamento (em quarentena, ou suprimido) não aparece como uma faixa no desenho. Para segui-lo, use a <a class="" href=/operations/live-capture>Captura ao vivo</a>.</li>
+<li class="">Os números de redução são <strong>aproximações</strong> com bases de medição diferentes — veja o aviso acima.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=próximos-passos>Próximos passos<a href=#próximos-passos class=hash-link aria-label="Link direto para Próximos passos" title="Link direto para Próximos passos" translate=no>​</a></h2>
+<ul>
+<li class=""><strong>Quer cortar volume?</strong> <a class="" href=/outputs/reducao-de-volume>Redução de volume</a> — as alavancas, em ordem, e o que cada uma corta.</li>
+<li class=""><strong>Quer mudar para onde os eventos vão?</strong> <a class="" href=/outputs/routing>Roteamento por regra</a>.</li>
+<li class=""><strong>Um destino aparece degradado?</strong> <a class="" href=/outputs/destination-operations>Operar destinos</a>.</li>
+<li class=""><strong>Um evento específico não chegou?</strong> <a class="" href=/operations/live-capture>Captura ao vivo</a>.</li>
+</ul></div></article><nav class="docusaurus-mt-lg pagination-nav" aria-label="Páginas de documento"><a class="pagination-nav__link pagination-nav__link--prev" href=/operations/dashboard><div class=pagination-nav__sublabel>Anterior</div><div class=pagination-nav__label>Dashboard</div></a><a class="pagination-nav__link pagination-nav__link--next" href=/operations/quarantine><div class=pagination-nav__sublabel>Próxima</div><div class=pagination-nav__label>Quarentena</div></a></nav></div></div><div class="col col--3"><div class="tableOfContents_bqdL thin-scrollbar theme-doc-toc-desktop"><ul class="table-of-contents table-of-contents__left-border"><li><a href=#quando-usar class="table-of-contents__link toc-highlight">Quando usar</a><li><a href=#a-faixa-de-indicadores class="table-of-contents__link toc-highlight">A faixa de indicadores</a><li><a href=#redução-de-volume--custo class="table-of-contents__link toc-highlight">Redução de volume & custo</a><ul><li><a href=#de-onde-veio-a-economia class="table-of-contents__link toc-highlight">De onde veio a economia</a><li><a href=#economia-estimada-em-dinheiro class="table-of-contents__link toc-highlight">Economia estimada, em dinheiro</a></ul><li><a href=#topologia-do-fluxo class="table-of-contents__link toc-highlight">Topologia do fluxo</a><ul><li><a href=#feed-ao-vivo class="table-of-contents__link toc-highlight">Feed ao vivo</a></ul><li><a href=#limitações class="table-of-contents__link toc-highlight">Limitações</a><li><a href=#próximos-passos class="table-of-contents__link toc-highlight">Próximos passos</a></ul></div></div></div></div></main></div></div></div><footer class="theme-layout-footer footer footer--dark"><div class="container container-fluid"><div class="row footer__links"><div class="theme-layout-footer-column col footer__col"><div class=footer__title>Documentação</div><ul class="footer__items clean-list"><li class=footer__item><a class=footer__link-item href=/getting-started/overview>Começar</a><li class=footer__item><a class=footer__link-item href=/operations/dashboard>Operação diária</a><li class=footer__item><a class=footer__link-item href=/normalization/overview>Mappings (CML)</a><li class=footer__item><a class=footer__link-item href=/runbooks/dispatcher>Runbooks</a></ul></div><div class="theme-layout-footer-column col footer__col"><div class=footer__title>Plataforma</div><ul class="footer__items clean-list"><li class=footer__item><a class=footer__link-item href=/concepts/architecture>Arquitetura</a><li class=footer__item><a class=footer__link-item href=/concepts/rbac>RBAC</a><li class=footer__item><a class=footer__link-item href=/integrations/overview>Integrações</a><li class=footer__item><a class=footer__link-item href=/compliance/retention>Compliance</a></ul></div><div class="theme-layout-footer-column col footer__col"><div class=footer__title>Recursos</div><ul class="footer__items clean-list"><li class=footer__item><a class=footer__link-item href=/getting-started/quickstart>Quickstart</a><li class=footer__item><a class=footer__link-item href=/normalization/cookbook>DSL Cookbook</a><li class=footer__item><a class=footer__link-item href=/normalization/troubleshooting>Troubleshooting</a></ul></div></div><div class="footer__bottom text--center"><div class=footer__copyright>Copyright © 2026 CentralOps. Built with Docusaurus.</div></div></div></footer></div></body>

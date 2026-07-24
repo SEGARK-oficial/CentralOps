@@ -1,0 +1,367 @@
+<!doctype html><html lang=en dir=ltr class="docs-wrapper plugin-docs plugin-id-default docs-version-current docs-doc-page docs-doc-id-normalization/dsl-spec" data-has-hydrated=false><head><meta charset=UTF-8><meta name=generator content="Docusaurus v3.10.0"><title data-rh=true>Editor de mapeamento — referência de campos | CentralOps</title><meta data-rh=true name=viewport content="width=device-width, initial-scale=1.0"/><meta data-rh=true name=twitter:card content=summary_large_image /><meta data-rh=true property=og:image content=https://docs.segark.com/en/img/centralops-social-card.png /><meta data-rh=true name=twitter:image content=https://docs.segark.com/en/img/centralops-social-card.png /><meta data-rh=true property=og:url content=https://docs.segark.com/en/normalization/dsl-spec /><meta data-rh=true property=og:locale content=en /><meta data-rh=true property=og:locale:alternate content=pt_BR /><meta data-rh=true property=og:locale:alternate content=es /><meta data-rh=true name=docusaurus_locale content=en /><meta data-rh=true name=docsearch:language content=en /><meta data-rh=true name=docusaurus_version content=current /><meta data-rh=true name=docusaurus_tag content=docs-default-current /><meta data-rh=true name=docsearch:version content=current /><meta data-rh=true name=docsearch:docusaurus_tag content=docs-default-current /><meta data-rh=true property=og:title content="Editor de mapeamento — referência de campos | CentralOps"/><meta data-rh=true name=description content="O que cada opção do editor de mapeamento faz e quando usar — traduzir campos de um fornecedor para o padrão OCSF direto pela interface."/><meta data-rh=true property=og:description content="O que cada opção do editor de mapeamento faz e quando usar — traduzir campos de um fornecedor para o padrão OCSF direto pela interface."/><link data-rh=true rel=icon href=/en/img/favicon.ico /><link data-rh=true rel=canonical href=https://docs.segark.com/en/normalization/dsl-spec /><link data-rh=true rel=alternate href=https://docs.segark.com/normalization/dsl-spec hreflang=pt-BR /><link data-rh=true rel=alternate href=https://docs.segark.com/en/normalization/dsl-spec hreflang=en /><link data-rh=true rel=alternate href=https://docs.segark.com/es/normalization/dsl-spec hreflang=es /><link data-rh=true rel=alternate href=https://docs.segark.com/normalization/dsl-spec hreflang=x-default /><script data-rh=true type=application/ld+json>{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","item":"https://docs.segark.com/en/normalization/dsl-spec","name":"Editor de mapeamento — referência de campos","position":1}]}</script><link rel=stylesheet href=/en/assets/css/styles.65a61132.css /><script src=/en/assets/js/runtime~main.3e1a07f1.js defer></script><script src=/en/assets/js/main.109b76da.js defer></script></head><body><svg style="display: none;"><defs>
+<symbol id=theme-svg-external-link viewBox="0 0 24 24"><path fill=currentColor d="M21 13v10h-21v-19h12v2h-10v15h17v-8h2zm3-12h-10.988l4.035 4-6.977 7.07 2.828 2.828 6.977-7.07 4.125 4.172v-11z"/></symbol>
+</defs></svg>
+<script>!function(){var t=function(){try{return new URLSearchParams(window.location.search).get("docusaurus-theme")}catch(t){}}()||function(){try{return window.localStorage.getItem("theme-797")}catch(t){}}();document.documentElement.setAttribute("data-theme",t||(window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light")),document.documentElement.setAttribute("data-theme-choice",t||"system")}(),function(){try{for(var[t,e]of new URLSearchParams(window.location.search).entries())if(t.startsWith("docusaurus-data-")){var a=t.replace("docusaurus-data-","data-");document.documentElement.setAttribute(a,e)}}catch(t){}}()</script><div id=__docusaurus><link rel=preload as=image href=/en/img/logo.svg /><div role=region aria-label="Skip to main content"><a class=skipToContent_fXgn href=#__docusaurus_skipToContent_fallback>Skip to main content</a></div><nav aria-label=Main class="theme-layout-navbar navbar navbar--fixed-top"><div class=navbar__inner><div class="theme-layout-navbar-left navbar__items"><button aria-label="Toggle navigation bar" aria-expanded=false class="navbar__toggle clean-btn" type=button><svg width=30 height=30 viewBox="0 0 30 30" aria-hidden=true><path stroke=currentColor stroke-linecap=round stroke-miterlimit=10 stroke-width=2 d="M4 7h22M4 15h22M4 23h22"/></svg></button><a class=navbar__brand href=/en/><div class=navbar__logo><img src=/en/img/logo.svg alt=CentralOps class="themedComponent_mlkZ themedComponent--light_NVdE"/><img src=/en/img/logo.svg alt=CentralOps class="themedComponent_mlkZ themedComponent--dark_xIcU"/></div><b class="navbar__title text--truncate">CentralOps</b></a><a class="navbar__item navbar__link" href=/en/>Get started</a><a class="navbar__item navbar__link" href=/en/outputs/overview>Outputs & Routing</a><a class="navbar__item navbar__link" href=/en/operations/dashboard>Operations</a><a class="navbar__item navbar__link" href=/en/administration/users-and-roles>Administration</a><a aria-current=page class="navbar__item navbar__link navbar__link--active" href=/en/normalization/overview>Mappings</a><a class="navbar__item navbar__link" href=/en/runbooks/dispatcher>Runbooks</a></div><div class="theme-layout-navbar-right navbar__items navbar__items--right"><div class="navbar__item dropdown dropdown--hoverable dropdown--right"><a href=# aria-haspopup=true aria-expanded=false role=button class=navbar__link><svg viewBox="0 0 24 24" width=20 height=20 aria-hidden=true class=iconLanguage_nlXk><path fill=currentColor d="M12.87 15.07l-2.54-2.51.03-.03c1.74-1.94 2.98-4.17 3.71-6.53H17V4h-7V2H8v2H1v1.99h11.17C11.5 7.92 10.44 9.75 9 11.35 8.07 10.32 7.3 9.19 6.69 8h-2c.73 1.63 1.73 3.17 2.98 4.56l-5.09 5.02L4 19l5-5 3.11 3.11.76-2.04zM18.5 10h-2L12 22h2l1.12-3h4.75L21 22h2l-4.5-12zm-2.62 7l1.62-4.33L19.12 17h-3.24z"/></svg>English</a><ul class=dropdown__menu><li><a href=/normalization/dsl-spec target=_self rel="noopener noreferrer" class=dropdown__link lang=pt-BR>Português</a><li><a href=/en/normalization/dsl-spec target=_self rel="noopener noreferrer" class="dropdown__link dropdown__link--active" lang=en>English</a><li><a href=/es/normalization/dsl-spec target=_self rel="noopener noreferrer" class=dropdown__link lang=es>Español</a></ul></div><div class="toggle_vylO colorModeToggle_DEke"><button class="clean-btn toggleButton_gllP toggleButtonDisabled_aARS" type=button disabled title="system mode" aria-label="Switch between dark and light mode (currently system mode)"><svg viewBox="0 0 24 24" width=24 height=24 aria-hidden=true class="toggleIcon_g3eP lightToggleIcon_pyhR"><path fill=currentColor d="M12,9c1.65,0,3,1.35,3,3s-1.35,3-3,3s-3-1.35-3-3S10.35,9,12,9 M12,7c-2.76,0-5,2.24-5,5s2.24,5,5,5s5-2.24,5-5 S14.76,7,12,7L12,7z M2,13l2,0c0.55,0,1-0.45,1-1s-0.45-1-1-1l-2,0c-0.55,0-1,0.45-1,1S1.45,13,2,13z M20,13l2,0c0.55,0,1-0.45,1-1 s-0.45-1-1-1l-2,0c-0.55,0-1,0.45-1,1S19.45,13,20,13z M11,2v2c0,0.55,0.45,1,1,1s1-0.45,1-1V2c0-0.55-0.45-1-1-1S11,1.45,11,2z M11,20v2c0,0.55,0.45,1,1,1s1-0.45,1-1v-2c0-0.55-0.45-1-1-1C11.45,19,11,19.45,11,20z M5.99,4.58c-0.39-0.39-1.03-0.39-1.41,0 c-0.39,0.39-0.39,1.03,0,1.41l1.06,1.06c0.39,0.39,1.03,0.39,1.41,0s0.39-1.03,0-1.41L5.99,4.58z M18.36,16.95 c-0.39-0.39-1.03-0.39-1.41,0c-0.39,0.39-0.39,1.03,0,1.41l1.06,1.06c0.39,0.39,1.03,0.39,1.41,0c0.39-0.39,0.39-1.03,0-1.41 L18.36,16.95z M19.42,5.99c0.39-0.39,0.39-1.03,0-1.41c-0.39-0.39-1.03-0.39-1.41,0l-1.06,1.06c-0.39,0.39-0.39,1.03,0,1.41 s1.03,0.39,1.41,0L19.42,5.99z M7.05,18.36c0.39-0.39,0.39-1.03,0-1.41c-0.39-0.39-1.03-0.39-1.41,0l-1.06,1.06 c-0.39,0.39-0.39,1.03,0,1.41s1.03,0.39,1.41,0L7.05,18.36z"/></svg><svg viewBox="0 0 24 24" width=24 height=24 aria-hidden=true class="toggleIcon_g3eP darkToggleIcon_wfgR"><path fill=currentColor d="M9.37,5.51C9.19,6.15,9.1,6.82,9.1,7.5c0,4.08,3.32,7.4,7.4,7.4c0.68,0,1.35-0.09,1.99-0.27C17.45,17.19,14.93,19,12,19 c-3.86,0-7-3.14-7-7C5,9.07,6.81,6.55,9.37,5.51z M12,3c-4.97,0-9,4.03-9,9s4.03,9,9,9s9-4.03,9-9c0-0.46-0.04-0.92-0.1-1.36 c-0.98,1.37-2.58,2.26-4.4,2.26c-2.98,0-5.4-2.42-5.4-5.4c0-1.81,0.89-3.42,2.26-4.4C12.92,3.04,12.46,3,12,3L12,3z"/></svg><svg viewBox="0 0 24 24" width=24 height=24 aria-hidden=true class="toggleIcon_g3eP systemToggleIcon_QzmC"><path fill=currentColor d="m12 21c4.971 0 9-4.029 9-9s-4.029-9-9-9-9 4.029-9 9 4.029 9 9 9zm4.95-13.95c1.313 1.313 2.05 3.093 2.05 4.95s-0.738 3.637-2.05 4.95c-1.313 1.313-3.093 2.05-4.95 2.05v-14c1.857 0 3.637 0.737 4.95 2.05z"/></svg></button></div><div class=navbarSearchContainer_Bca1><div class=navbar__search><span aria-label="expand searchbar" role=button class=search-icon tabindex=0></span><input id=search_input_react type=search placeholder=Loading... aria-label=Search class="navbar__search-input search-bar" disabled/></div></div></div></div><div role=presentation class=navbar-sidebar__backdrop></div></nav><div id=__docusaurus_skipToContent_fallback class="theme-layout-main main-wrapper mainWrapper_z2l0"><div class=docsWrapper_hBAB><button aria-label="Scroll back to top" class="clean-btn theme-back-to-top-button backToTopButton_sjWU" type=button></button><div class=docRoot_UBD9><aside class="theme-doc-sidebar-container docSidebarContainer_YfHR"><div class=sidebarViewport_aRkj><div class=sidebar_njMd><nav aria-label="Docs sidebar" class="menu thin-scrollbar menu_SIkG"><ul class="theme-doc-sidebar-menu menu__list"><li class="theme-doc-sidebar-item-category theme-doc-sidebar-item-category-level-1 menu__list-item"><div class=menu__list-item-collapsible><a class="categoryLink_byQd menu__link menu__link--sublist menu__link--sublist-caret menu__link--active" role=button aria-expanded=true href=/en/normalization/overview><span title="Mappings (CML)" class=categoryLinkLabel_W154>Mappings (CML)</span></a></div><ul class=menu__list><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/en/normalization/overview><span title="Normalização (visão geral)" class=linkLabel_WmDU>Normalização (visão geral)</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/en/normalization/cml><span title="CML — A linguagem de mapeamento" class=linkLabel_WmDU>CML — A linguagem de mapeamento</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class="menu__link menu__link--active" aria-current=page tabindex=0 href=/en/normalization/dsl-spec><span title="Editor de mapeamento — referência de campos" class=linkLabel_WmDU>Editor de mapeamento — referência de campos</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/en/normalization/cookbook><span title="Cookbook de mapeamento" class=linkLabel_WmDU>Cookbook de mapeamento</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/en/normalization/operators-reference><span title="Referência de operadores de mapeamento" class=linkLabel_WmDU>Referência de operadores de mapeamento</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/en/normalization/use-cases><span title="Casos de Uso — Guias Passo a Passo" class=linkLabel_WmDU>Casos de Uso — Guias Passo a Passo</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/en/normalization/troubleshooting><span title="Resolver problemas de mapeamento" class=linkLabel_WmDU>Resolver problemas de mapeamento</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/en/normalization/migration-v1-to-v2><span title="Atualizar um mapeamento para o formato novo" class=linkLabel_WmDU>Atualizar um mapeamento para o formato novo</span></a></ul><li class="theme-doc-sidebar-item-category theme-doc-sidebar-item-category-level-1 menu__list-item"><div class=menu__list-item-collapsible><a class="categoryLink_byQd menu__link menu__link--sublist menu__link--sublist-caret" role=button aria-expanded=true href=/en/pipelines/collectors><span title=Pipelines class=categoryLinkLabel_W154>Pipelines</span></a></div><ul class=menu__list><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/en/pipelines/collectors><span title=Collectors class=linkLabel_WmDU>Collectors</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/en/pipelines/collection-filters><span title="Filtro de coleta" class=linkLabel_WmDU>Filtro de coleta</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/en/pipelines/scheduler><span title="Agendamento de coletas" class=linkLabel_WmDU>Agendamento de coletas</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/en/pipelines/drift><span title="Campos novos detectados (drift)" class=linkLabel_WmDU>Campos novos detectados (drift)</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/en/pipelines/backfill><span title="Backfill (recoleta histórica)" class=linkLabel_WmDU>Backfill (recoleta histórica)</span></a></ul></ul></nav></div></div></aside><main class=docMainContainer_TBSr><div class="container padding-top--md padding-bottom--lg"><div class=row><div class="col docItemCol_VOVn"><div class=docItemContainer_Djhp><article><nav class="theme-doc-breadcrumbs breadcrumbsContainer_Z_bl" aria-label=Breadcrumbs><ul class=breadcrumbs><li class=breadcrumbs__item><a aria-label="Home page" class=breadcrumbs__link href=/en/><svg viewBox="0 0 24 24" class=breadcrumbHomeIcon_YNFT><path d="M10 19v-5h4v5c0 .55.45 1 1 1h3c.55 0 1-.45 1-1v-7h1.7c.46 0 .68-.57.33-.87L12.67 3.6c-.38-.34-.96-.34-1.34 0l-8.36 7.53c-.34.3-.13.87.33.87H5v7c0 .55.45 1 1 1h3c.55 0 1-.45 1-1z" fill=currentColor /></svg></a><li class=breadcrumbs__item><span class=breadcrumbs__link>Mappings (CML)</span><li class="breadcrumbs__item breadcrumbs__item--active"><span class=breadcrumbs__link>Editor de mapeamento — referência de campos</span></ul></nav><div class="tocCollapsible_ETCw theme-doc-toc-mobile tocMobile_ITEo"><button type=button class="clean-btn tocCollapsibleButton_TO0P">On this page</button></div><div class="theme-doc-markdown markdown"><header><h1>Editor de mapeamento — referência de campos</h1></header>
+<p>O editor de mapeamento é onde você ensina o CentralOps a traduzir os eventos de um fornecedor para o padrão único da plataforma (OCSF). Cada regra que você cria diz: "pegue este campo do evento original e grave neste campo padronizado", aplicando conversões pelo caminho (texto para número, fuso de data, tabelas de tradução, etc.).</p>
+<p>Você edita os mapeamentos na interface, sem escrever código de infraestrutura. O caminho é:</p>
+<ul>
+<li class="">Menu <strong>Normalização -> Mappings</strong> para ver e editar todos os mapeamentos.</li>
+<li class="">Ou, a partir de um conector específico, em <strong>Visão geral -> Integrações</strong>, abra a integração e vá até a seção de mapeamento dela.</li>
+</ul>
+<p>Cada mapeamento tem uma lista de <strong>regras</strong>. Cada regra grava um campo do evento normalizado. Você monta as regras pelo editor e valida o resultado antes de salvar.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=quando-usar>Quando usar<a href=#quando-usar class=hash-link aria-label="Direct link to Quando usar" title="Direct link to Quando usar" translate=no>​</a></h2>
+<p>Mexa no editor de mapeamento quando:</p>
+<ul>
+<li class=""><strong>Um novo fornecedor entrou em produção e os campos chegam "crus".</strong> Você precisa apontar quais campos do produto viram severidade, horário, IP de origem, usuário, etc., para que os eventos apareçam corretos na tela de Investigações.</li>
+<li class=""><strong>O fornecedor manda severidade como texto e o padrão espera número.</strong> Ex.: o produto envia <code>high</code>, <code>medium</code>, <code>low</code> e o OCSF precisa de <code>4</code>, <code>3</code>, <code>2</code>. Você cria uma tabela de tradução na regra (ver <a href=#tabela-de-tradu%C3%A7%C3%A3o-value_map class="">Tabela de tradução</a>).</li>
+<li class=""><strong>Eventos importantes estão indo parar na Quarentena por falta de um campo crítico.</strong> Você marca o campo como obrigatório para garantir que qualquer evento sem ele seja isolado para revisão em vez de passar pela metade (ver <a href=#campo-obrigat%C3%B3rio-required class="">Campo obrigatório</a>).</li>
+<li class=""><strong>O fornecedor mudou o nome de um campo ou passou a mandar a mesma informação em lugares diferentes.</strong> Você adiciona fontes alternativas para a mesma regra (ver <a href=#fontes-alternativas-fallback_source class="">Fontes alternativas</a>).</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=antes-de-começar-validar-antes-de-salvar>Antes de começar: validar antes de salvar<a href=#antes-de-começar-validar-antes-de-salvar class=hash-link aria-label="Direct link to Antes de começar: validar antes de salvar" title="Direct link to Antes de começar: validar antes de salvar" translate=no>​</a></h2>
+<p>Sempre que terminar de montar ou ajustar regras, rode a <strong>validação (ensaio/dry-run)</strong> dentro do próprio editor antes de salvar. Ela aplica o mapeamento a eventos de exemplo e mostra, campo a campo, o que cada regra produziria. Use isso para conferir se as severidades, horários e demais campos estão saindo como você espera. Quando estiver satisfeito, salve a nova versão do mapeamento — o histórico de versões fica registrado e pode ser comparado.</p>
+<hr/>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=estrutura-de-uma-regra>Estrutura de uma regra<a href=#estrutura-de-uma-regra class=hash-link aria-label="Direct link to Estrutura de uma regra" title="Direct link to Estrutura de uma regra" translate=no>​</a></h2>
+<p>Cada regra responde duas perguntas: <strong>de onde vem o valor</strong> e <strong>para onde ele vai</strong>. As demais opções são transformações aplicadas no meio do caminho.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Opção na regra<th>O que faz<th>Obrigatória?<tbody><tr><td>Campo de destino (<code>target</code>)<td>Para qual campo padronizado o valor vai<td>Sim<tr><td>Campo de origem (<code>source</code>)<td>De qual campo do evento original o valor vem<td>Sim*<tr><td>Valor fixo (<code>const</code>)<td>Um valor constante, igual para todos os eventos<td>Sim*<tr><td>Valor padrão (<code>default</code>)<td>O que usar quando a origem vier vazia<td>Não<tr><td>Conversão antes da tradução (<code>pre_cast</code>)<td>Converte o tipo antes de consultar a tabela de tradução<td>Não<tr><td>Tabela de tradução (<code>value_map</code>)<td>Troca valores do fornecedor pelos valores padrão<td>Não<tr><td>Conversão de tipo (<code>type_cast</code>)<td>Converte o formato final (data, número, texto)<td>Não<tr><td>Campo obrigatório (<code>required</code>)<td>Isola o evento se este campo vier vazio<td>Não<tr><td>Fontes alternativas (<code>fallback_source</code>)<td>Outros campos a tentar se o principal vier vazio<td>Não<tr><td>Condição (<code>when</code>)<td>Só aplica a regra se uma condição for verdadeira<td>Não<tr><td>Padrão esperado (<code>expected_always_default</code>)<td>Marca que é normal este campo cair sempre no valor padrão<td>Não</table>
+<p>* Toda regra precisa de <strong>um campo de origem OU um valor fixo</strong> — nunca os dois ao mesmo tempo.</p>
+<hr/>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=campo-de-destino-target>Campo de destino (<code>target</code>)<a href=#campo-de-destino-target class=hash-link aria-label="Direct link to campo-de-destino-target" title="Direct link to campo-de-destino-target" translate=no>​</a></h3>
+<p><strong>O que é:</strong> o campo padronizado (OCSF) que esta regra preenche.</p>
+<p><strong>Como informar:</strong> o caminho do campo separado por ponto, por exemplo:</p>
+<ul>
+<li class=""><code>normalized.class_uid</code></li>
+<li class=""><code>normalized.finding_info.title</code></li>
+<li class=""><code>normalized.device.name</code></li>
+</ul>
+<p><strong>Lembre-se:</strong> o campo de destino nunca fica em branco.</p>
+<hr/>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=campo-de-origem-source>Campo de origem (<code>source</code>)<a href=#campo-de-origem-source class=hash-link aria-label="Direct link to campo-de-origem-source" title="Direct link to campo-de-origem-source" translate=no>​</a></h3>
+<p><strong>O que é:</strong> o campo do evento original (como o fornecedor enviou) de onde o valor é lido.</p>
+<p><strong>Como informar:</strong> o nome do campo. Pode ser um campo simples, um campo aninhado ou uma expressão de busca:</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Exemplo<th>O que pega<tbody><tr><td><code>severity</code><td>um campo simples na raiz do evento<tr><td><code>device.name</code><td>um campo dentro de outro<tr><td><code>createdAt || raisedAt</code><td>tenta <code>createdAt</code>; se vazio, usa <code>raisedAt</code></table>
+<p><strong>Comportamento:</strong></p>
+<ul>
+<li class="">Se a origem vier vazia, a regra passa para o <strong>valor padrão</strong> (se houver).</li>
+<li class="">Uma lista vazia conta como valor preenchido — não é o mesmo que vazio.</li>
+</ul>
+<blockquote>
+<p><strong>Origem ou valor fixo, nunca os dois.</strong> Cada regra usa <strong>ou</strong> um campo de origem <strong>ou</strong> um valor fixo. Se você preencher os dois, a validação acusa erro (ver <a href=#quando-algo-d%C3%A1-errado class="">Quando algo dá errado</a>).</p>
+</blockquote>
+<hr/>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=valor-fixo-const>Valor fixo (<code>const</code>)<a href=#valor-fixo-const class=hash-link aria-label="Direct link to valor-fixo-const" title="Direct link to valor-fixo-const" translate=no>​</a></h3>
+<p><strong>O que é:</strong> um valor constante, gravado igual em todos os eventos daquele fornecedor — sem ler nada do evento original.</p>
+<p><strong>Quando usar:</strong> para campos OCSF que são sempre os mesmos para um fornecedor. Por exemplo, o código da classe do evento, ou um rótulo fixo como <code>Detection Finding</code>.</p>
+<p><strong>Comportamento:</strong> o valor fixo ainda passa pelas etapas de <strong>valor padrão</strong>, <strong>tabela de tradução</strong> e <strong>conversão de tipo</strong>, se você as configurar.</p>
+<hr/>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=valor-padrão-default>Valor padrão (<code>default</code>)<a href=#valor-padrão-default class=hash-link aria-label="Direct link to valor-padrão-default" title="Direct link to valor-padrão-default" translate=no>​</a></h3>
+<p><strong>O que é:</strong> o que gravar quando a origem (ou o valor fixo) vier vazia.</p>
+<p><strong>Comportamento:</strong></p>
+<ul>
+<li class="">Se o valor estava vazio, ele vira o valor padrão.</li>
+<li class="">Se o valor veio preenchido, o padrão é ignorado.</li>
+</ul>
+<p>É a primeira coisa aplicada depois de ler a origem.</p>
+<hr/>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=conversão-antes-da-tradução-pre_cast>Conversão antes da tradução (<code>pre_cast</code>)<a href=#conversão-antes-da-tradução-pre_cast class=hash-link aria-label="Direct link to conversão-antes-da-tradução-pre_cast" title="Direct link to conversão-antes-da-tradução-pre_cast" translate=no>​</a></h3>
+<p><strong>O que é:</strong> uma conversão de tipo aplicada <strong>antes</strong> de consultar a tabela de tradução.</p>
+<p><strong>Quando usar:</strong> o fornecedor manda o valor em um tipo, mas a sua tabela de tradução usa outro. Exemplo clássico: o produto envia a severidade como número (<code>0</code> a <code>10</code>), mas as chaves da sua tabela são texto (<code>high</code>, <code>medium</code>, <code>low</code>). Você converte número para texto antes da busca.</p>
+<p>Os tipos de conversão disponíveis estão na <a class="" href=/en/normalization/operators-reference#operadores-de-convers%C3%A3o-de-valor>Referência de operadores</a>.</p>
+<hr/>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=tabela-de-tradução-value_map>Tabela de tradução (<code>value_map</code>)<a href=#tabela-de-tradução-value_map class=hash-link aria-label="Direct link to tabela-de-tradução-value_map" title="Direct link to tabela-de-tradução-value_map" translate=no>​</a></h3>
+<p><strong>O que é:</strong> uma tabela que troca os valores do fornecedor pelos valores que o padrão exige.</p>
+<p><strong>Quando usar:</strong> o fornecedor envia categorias em texto e o OCSF espera códigos numéricos — o caso mais comum é severidade.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Valor do fornecedor<th>Valor padronizado<tbody><tr><td><code>critical</code><td><code>5</code><tr><td><code>high</code><td><code>4</code><tr><td><code>medium</code><td><code>3</code><tr><td><code>low</code><td><code>2</code><tr><td><code>info</code><td><code>1</code></table>
+<p><strong>Comportamento:</strong></p>
+<ul>
+<li class="">Se o valor de entrada está na tabela, usa o valor traduzido.</li>
+<li class="">Se não está, o valor passa sem alteração (ou cai no <strong>valor padrão</strong>, se você definir um).</li>
+<li class="">A busca por texto não diferencia maiúsculas de minúsculas — <code>high</code> e <code>HIGH</code> são tratados igual.</li>
+</ul>
+<hr/>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=conversão-de-tipo-type_cast>Conversão de tipo (<code>type_cast</code>)<a href=#conversão-de-tipo-type_cast class=hash-link aria-label="Direct link to conversão-de-tipo-type_cast" title="Direct link to conversão-de-tipo-type_cast" translate=no>​</a></h3>
+<p><strong>O que é:</strong> a conversão do formato final do valor, aplicada por último.</p>
+<p><strong>Exemplos de uso:</strong></p>
+<ul>
+<li class="">Converter uma data em texto (ISO) para o formato de horário do padrão.</li>
+<li class="">Forçar um texto para maiúsculas.</li>
+<li class="">Converter um texto numérico em número.</li>
+</ul>
+<p>Os tipos de conversão disponíveis estão na <a class="" href=/en/normalization/operators-reference#operadores-de-convers%C3%A3o-de-valor>Referência de operadores</a>.</p>
+<hr/>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=campo-obrigatório-required>Campo obrigatório (<code>required</code>)<a href=#campo-obrigatório-required class=hash-link aria-label="Direct link to campo-obrigatório-required" title="Direct link to campo-obrigatório-required" translate=no>​</a></h3>
+<p><strong>O que é:</strong> marca o campo como indispensável. Se o valor final vier vazio, o evento inteiro é isolado para revisão.</p>
+<p><strong>Quando usar:</strong> para campos OCSF que não podem faltar — por exemplo o horário do evento ou o identificador do achado. Marcando como obrigatório, qualquer evento sem esse campo vai para a <strong>Quarentena</strong> em vez de seguir incompleto, o que evita alertas "quebrados" nas telas de operação.</p>
+<p><strong>O que acontece quando falta:</strong> o evento aparece em <strong>Normalização -> Quarentena</strong>, com o motivo indicando que faltou um campo do mapeamento. De lá você revisa o evento, corrige o mapeamento e reprocessa.</p>
+<hr/>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=fontes-alternativas-fallback_source>Fontes alternativas (<code>fallback_source</code>)<a href=#fontes-alternativas-fallback_source class=hash-link aria-label="Direct link to fontes-alternativas-fallback_source" title="Direct link to fontes-alternativas-fallback_source" translate=no>​</a></h3>
+<p><strong>O que é:</strong> uma lista de outros campos a tentar, em ordem, se o campo de origem principal vier vazio.</p>
+<p><strong>Quando usar:</strong> o fornecedor coloca a mesma informação em campos diferentes dependendo do tipo de evento, ou mudou o nome do campo entre versões. Você lista as alternativas e a plataforma tenta uma a uma.</p>
+<p><strong>Comportamento:</strong></p>
+<ol>
+<li class="">Tenta o campo de origem principal.</li>
+<li class="">Se vier vazio, tenta a primeira alternativa.</li>
+<li class="">Continua até achar um valor preenchido.</li>
+<li class="">Se todas vierem vazias, usa o <strong>valor padrão</strong>.</li>
+</ol>
+<hr/>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=condição-when>Condição (<code>when</code>)<a href=#condição-when class=hash-link aria-label="Direct link to condição-when" title="Direct link to condição-when" translate=no>​</a></h3>
+<p><strong>O que é:</strong> um filtro que faz a regra rodar <strong>só quando</strong> uma condição for verdadeira.</p>
+<p><strong>Quando usar:</strong> você só quer preencher um campo em certos eventos. Por exemplo, gravar o e-mail do remetente apenas quando o evento realmente tiver um remetente.</p>
+<p><strong>Comportamento:</strong> se a condição não for atendida, a regra é <strong>pulada</strong> por completo — o campo de destino fica sem ser escrito (diferente de gravar vazio).</p>
+<p>As condições disponíveis estão na <a class="" href=/en/normalization/operators-reference#operadores-de-condi%C3%A7%C3%A3o>Referência de operadores</a>.</p>
+<hr/>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=padrão-esperado-expected_always_default>Padrão esperado (<code>expected_always_default</code>)<a href=#padrão-esperado-expected_always_default class=hash-link aria-label="Direct link to padrão-esperado-expected_always_default" title="Direct link to padrão-esperado-expected_always_default" translate=no>​</a></h3>
+<p><strong>O que é:</strong> uma marcação informativa. Diz que é normal este campo sempre cair no valor padrão, porque o fornecedor simplesmente não fornece essa informação.</p>
+<p><strong>Quando usar:</strong> durante a validação, a plataforma avisa quando uma regra está sempre usando o valor padrão (sinal de que pode estar mal configurada). Se você sabe que é esperado — o fornecedor não tem aquele dado — marque esta opção para que o aviso não apareça.</p>
+<p><strong>Importante:</strong> essa marcação não muda o resultado da regra. Ela só silencia o aviso de validação para casos conhecidos.</p>
+<hr/>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=etapas-de-preparação-preprocess>Etapas de preparação (preprocess)<a href=#etapas-de-preparação-preprocess class=hash-link aria-label="Direct link to Etapas de preparação (preprocess)" title="Direct link to Etapas de preparação (preprocess)" translate=no>​</a></h2>
+<p>Alguns fornecedores entregam parte da informação "embrulhada" — por exemplo, um campo de texto que na verdade contém outro evento em formato JSON. As <strong>etapas de preparação</strong> rodam uma vez por evento, antes de qualquer regra, para "desembrulhar" esse conteúdo e deixá-lo disponível para as regras lerem.</p>
+<p>Hoje a operação de preparação disponível é a leitura de um campo de texto que contém JSON, transformando-o em campos navegáveis. Depois da preparação, suas regras conseguem apontar para os campos de dentro desse conteúdo.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>O que você informa<th>Significado<tbody><tr><td>A operação<td>Qual preparação aplicar (atualmente, ler texto JSON)<tr><td>O campo de origem<td>De onde vem o conteúdo embrulhado, no evento original<tr><td>O destino interno<td>Onde guardar o resultado para as regras usarem<tr><td>Tolerância a erro<td>Se ligada, conteúdo malformado é ignorado em silêncio em vez de falhar</table>
+<p>As operações de preparação disponíveis estão na <a class="" href=/en/normalization/operators-reference#operador-de-pr%C3%A9-processamento>Referência de operadores</a>.</p>
+<hr/>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=redução-do-evento-bruto-raw_reduction>Redução do evento bruto (<code>raw_reduction</code>)<a href=#redução-do-evento-bruto-raw_reduction class=hash-link aria-label="Direct link to redução-do-evento-bruto-raw_reduction" title="Direct link to redução-do-evento-bruto-raw_reduction" translate=no>​</a></h2>
+<p>Todo evento entregue leva, além do evento normalizado (OCSF), uma cópia do payload que o fornecedor mandou. Essa cópia é útil para perícia — e é também a maior parte do volume que você paga no destino.</p>
+<p>O bloco <code>raw_reduction</code> poda essa cópia. Ele é <strong>irmão</strong> das regras (fica no mesmo nível de <code>preprocess</code> e <code>rules</code>) e roda <strong>depois</strong> que todas as regras já leram o payload completo, de modo que a normalização nunca perde fidelidade por causa da poda.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Operação<th>O que faz<tbody><tr><td><code>max_bytes</code><td>Encurta um texto longo para N bytes. O JSON continua válido — só o valor fica menor.<tr><td><code>max_items</code><td>Mantém apenas os N primeiros itens de uma lista.<tr><td><code>drop</code><td><strong>Remove o campo inteiro.</strong> Use no que virou lixo depois da extração.<tr><td><code>keep_only</code><td>Mantém só os filhos listados sob o caminho e remove os demais — inclusive campos que o fornecedor adicionar no futuro.<tr><td><code>drop_nulls</code><td>Remove todos os campos de valor nulo, em qualquer profundidade. É global: não recebe caminho.</table>
+<p>Um caminho pode atravessar listas com <code>[]</code>: <code>alerts[].evidences</code> aplica a operação ao campo <code>evidences</code> de <strong>cada</strong> item da lista <code>alerts</code>.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=exemplo>Exemplo<a href=#exemplo class=hash-link aria-label="Direct link to Exemplo" title="Direct link to Exemplo" translate=no>​</a></h3>
+<div class="language-json codeBlockContainer_Ckt0 theme-code-block" style=--prism-color:#393A34;--prism-background-color:#f6f8fa><div class=codeBlockContent_QJqH><pre tabindex=0 class="prism-code language-json codeBlock_bY9V thin-scrollbar" style=color:#393A34;background-color:#f6f8fa><code class=codeBlockLines_e6Vv><div class=token-line style=color:#393A34><span class="token punctuation" style=color:#393A34>{</span><span class="token plain"></span><br/></div><div class=token-line style=color:#393A34><span class="token plain">  </span><span class="token property" style=color:#36acaa>"raw_reduction"</span><span class="token operator" style=color:#393A34>:</span><span class="token plain"> </span><span class="token punctuation" style=color:#393A34>[</span><span class="token plain"></span><br/></div><div class=token-line style=color:#393A34><span class="token plain">    </span><span class="token punctuation" style=color:#393A34>{</span><span class="token plain"> </span><span class="token property" style=color:#36acaa>"path"</span><span class="token operator" style=color:#393A34>:</span><span class="token plain"> </span><span class="token string" style=color:#e3116c>"rawData.lineage"</span><span class="token punctuation" style=color:#393A34>,</span><span class="token plain"> </span><span class="token property" style=color:#36acaa>"drop"</span><span class="token operator" style=color:#393A34>:</span><span class="token plain"> </span><span class="token boolean" style=color:#36acaa>true</span><span class="token plain"> </span><span class="token punctuation" style=color:#393A34>}</span><span class="token punctuation" style=color:#393A34>,</span><span class="token plain"></span><br/></div><div class=token-line style=color:#393A34><span class="token plain">    </span><span class="token punctuation" style=color:#393A34>{</span><span class="token plain"> </span><span class="token property" style=color:#36acaa>"path"</span><span class="token operator" style=color:#393A34>:</span><span class="token plain"> </span><span class="token string" style=color:#e3116c>"full_log"</span><span class="token punctuation" style=color:#393A34>,</span><span class="token plain"> </span><span class="token property" style=color:#36acaa>"max_bytes"</span><span class="token operator" style=color:#393A34>:</span><span class="token plain"> </span><span class="token number" style=color:#36acaa>16384</span><span class="token plain"> </span><span class="token punctuation" style=color:#393A34>}</span><span class="token punctuation" style=color:#393A34>,</span><span class="token plain"></span><br/></div><div class=token-line style=color:#393A34><span class="token plain">    </span><span class="token punctuation" style=color:#393A34>{</span><span class="token plain"> </span><span class="token property" style=color:#36acaa>"path"</span><span class="token operator" style=color:#393A34>:</span><span class="token plain"> </span><span class="token string" style=color:#e3116c>"alerts[].evidences"</span><span class="token punctuation" style=color:#393A34>,</span><span class="token plain"> </span><span class="token property" style=color:#36acaa>"drop"</span><span class="token operator" style=color:#393A34>:</span><span class="token plain"> </span><span class="token boolean" style=color:#36acaa>true</span><span class="token plain"> </span><span class="token punctuation" style=color:#393A34>}</span><span class="token punctuation" style=color:#393A34>,</span><span class="token plain"></span><br/></div><div class=token-line style=color:#393A34><span class="token plain">    </span><span class="token punctuation" style=color:#393A34>{</span><span class="token plain"> </span><span class="token property" style=color:#36acaa>"drop_nulls"</span><span class="token operator" style=color:#393A34>:</span><span class="token plain"> </span><span class="token boolean" style=color:#36acaa>true</span><span class="token plain"> </span><span class="token punctuation" style=color:#393A34>}</span><span class="token plain"></span><br/></div><div class=token-line style=color:#393A34><span class="token plain">  </span><span class="token punctuation" style=color:#393A34>]</span><span class="token plain"></span><br/></div><div class=token-line style=color:#393A34><span class="token plain"></span><span class="token punctuation" style=color:#393A34>}</span><br/></div></code></pre></div></div>
+<p>Esse é o padrão que os mapeamentos de fábrica usam: descartar as subárvores que o pré-processamento já extraiu (elas viram duplicata pura), encurtar os textos gigantes e limpar os campos nulos.</p>
+<div class="theme-admonition theme-admonition-note admonition_xJq3 alert alert--secondary"><div class=admonitionHeading_Gvgb><span class=admonitionIcon_Rf37><svg viewBox="0 0 14 16"><path fill-rule=evenodd d="M6.3 5.69a.942.942 0 0 1-.28-.7c0-.28.09-.52.28-.7.19-.18.42-.28.7-.28.28 0 .52.09.7.28.18.19.28.42.28.7 0 .28-.09.52-.28.7a1 1 0 0 1-.7.3c-.28 0-.52-.11-.7-.3zM8 7.99c-.02-.25-.11-.48-.31-.69-.2-.19-.42-.3-.69-.31H6c-.27.02-.48.13-.69.31-.2.2-.3.44-.31.69h1v3c.02.27.11.5.31.69.2.2.42.31.69.31h1c.27 0 .48-.11.69-.31.2-.19.3-.42.31-.69H8V7.98v.01zM7 2.3c-3.14 0-5.7 2.54-5.7 5.68 0 3.14 2.56 5.7 5.7 5.7s5.7-2.55 5.7-5.7c0-3.15-2.56-5.69-5.7-5.69v.01zM7 .98c3.86 0 7 3.14 7 7s-3.14 7-7 7-7-3.12-7-7 3.14-7 7-7z"/></svg></span>Onde este bloco é editado</div><div class=admonitionContent_BuS1><p>O <code>raw_reduction</code> <strong>não aparece no editor visual de mapeamento</strong> — ele vive na definição JSON, alterada por quem administra a plataforma. Se um campo que você esperava sumiu do payload bruto, é aqui que se verifica.</div></div>
+<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class=admonitionHeading_Gvgb><span class=admonitionIcon_Rf37><svg viewBox="0 0 12 16"><path fill-rule=evenodd d="M6.5 0C3.48 0 1 2.19 1 5c0 .92.55 2.25 1 3 1.34 2.25 1.78 2.78 2 4v1h5v-1c.22-1.22.66-1.75 2-4 .45-.75 1-2.08 1-3 0-2.81-2.48-5-5.5-5zm3.64 7.48c-.25.44-.47.8-.67 1.11-.86 1.41-1.25 2.06-1.45 3.23-.02.05-.02.11-.02.17H5c0-.06 0-.13-.02-.17-.2-1.17-.59-1.83-1.45-3.23-.2-.31-.42-.67-.67-1.11C2.44 6.78 2 5.65 2 5c0-2.2 2.02-4 4.5-4 1.22 0 2.36.42 3.22 1.19C10.55 2.94 11 3.94 11 5c0 .66-.44 1.78-.86 2.48zM4 14h5c-.23 1.14-1.3 2-2.5 2s-2.27-.86-2.5-2z"/></svg></span>Poda por mapeamento x descarte por rota</div><div class=admonitionContent_BuS1><p>O <code>raw_reduction</code> remove o que é lixo para <strong>todos os destinos</strong> — é conhecimento sobre o fornecedor. Para decidir se um destino específico recebe ou não o payload bruto (o data lake quer, o SIEM cobrado por volume talvez não), use a opção <strong>Descartar o evento bruto</strong> da regra de roteamento. Veja <a class="" href=/en/outputs/routing>Roteamento</a>.</div></div>
+<hr/>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=em-que-ordem-as-transformações-acontecem>Em que ordem as transformações acontecem<a href=#em-que-ordem-as-transformações-acontecem class=hash-link aria-label="Direct link to Em que ordem as transformações acontecem" title="Direct link to Em que ordem as transformações acontecem" translate=no>​</a></h2>
+<p>Para cada regra, a plataforma aplica as opções nesta ordem:</p>
+<ol>
+<li class=""><strong>Lê a origem</strong> (ou usa o valor fixo).</li>
+<li class=""><strong>Valor padrão</strong> — se vier vazio, usa o padrão.</li>
+<li class=""><strong>Conversão antes da tradução</strong> — ajusta o tipo para a tabela.</li>
+<li class=""><strong>Tabela de tradução</strong> — troca o valor pelo padronizado.</li>
+<li class=""><strong>Conversão de tipo</strong> — ajusta o formato final.</li>
+<li class=""><strong>Grava</strong> no campo de destino.</li>
+</ol>
+<p>Saber essa ordem ajuda a entender por que, por exemplo, a conversão de número para texto precisa vir <strong>antes</strong> da tabela de tradução de severidade.</p>
+<hr/>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=construir-listas-de-observáveis>Construir listas de observáveis<a href=#construir-listas-de-observáveis class=hash-link aria-label="Direct link to Construir listas de observáveis" title="Direct link to Construir listas de observáveis" translate=no>​</a></h2>
+<p>Há um tipo especial de regra para montar <strong>listas de observáveis</strong> (IPs, e-mails, hashes, etc.) a partir de vários campos do evento de uma vez. Em vez de uma regra por item, você descreve cada observável que quer extrair e a plataforma monta a lista.</p>
+<p>Para cada item você informa:</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>O que você informa<th>Significado<tbody><tr><td>Nome e tipo<td>Como identificar o observável (ex.: "endereço IP", "endereço de e-mail")<tr><td>O campo de origem<td>De onde ler o valor no evento<tr><td>Expandir lista<td>Se o campo já é uma lista (ex.: vários destinatários), gera um observável por item</table>
+<p>No nível da regra você ainda pode:</p>
+<ul>
+<li class=""><strong>Omitir vazios</strong> — não cria observáveis sem valor.</li>
+<li class=""><strong>Remover duplicados</strong> — descarta repetições, mantendo a primeira ocorrência.</li>
+</ul>
+<p>Para um passo a passo, veja o <a class="" href=/en/normalization/cookbook>Cookbook</a> e os <a class="" href=/en/normalization/use-cases>Casos de uso</a>.</p>
+<hr/>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=quando-algo-dá-errado>Quando algo dá errado<a href=#quando-algo-dá-errado class=hash-link aria-label="Direct link to Quando algo dá errado" title="Direct link to Quando algo dá errado" translate=no>​</a></h2>
+<p>Você descobre problemas de mapeamento em dois momentos.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=ao-salvar-problema-na-definição-da-regra>Ao salvar (problema na definição da regra)<a href=#ao-salvar-problema-na-definição-da-regra class=hash-link aria-label="Direct link to Ao salvar (problema na definição da regra)" title="Direct link to Ao salvar (problema na definição da regra)" translate=no>​</a></h3>
+<p>Se uma regra estiver mal montada, a plataforma <strong>bloqueia o salvamento</strong> e mostra um aviso de validação na tela do editor, indicando qual regra ou campo está com erro. Os casos mais comuns são:</p>
+<ul>
+<li class="">A expressão do campo de origem está escrita de forma inválida.</li>
+<li class="">Um nome de conversão de tipo não existe.</li>
+<li class="">A regra tem campo de origem <strong>e</strong> valor fixo ao mesmo tempo.</li>
+<li class="">Faltou um campo obrigatório na própria regra.</li>
+</ul>
+<p><strong>O que fazer:</strong> corrija a regra apontada pelo aviso e rode a validação novamente antes de salvar. Você sempre acessa o editor por <strong>Normalização -> Mappings</strong> (ou pela seção de mapeamento da integração em <strong>Visão geral -> Integrações</strong>).</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=ao-processar-eventos-problema-com-um-evento-real>Ao processar eventos (problema com um evento real)<a href=#ao-processar-eventos-problema-com-um-evento-real class=hash-link aria-label="Direct link to Ao processar eventos (problema com um evento real)" title="Direct link to Ao processar eventos (problema com um evento real)" translate=no>​</a></h3>
+<p>Mesmo com o mapeamento salvo e válido, um evento específico pode falhar — por exemplo, um campo obrigatório veio vazio, ou um valor não pôde ser convertido (texto onde se esperava número). Nesses casos o evento vai para a <strong>Quarentena</strong>.</p>
+<p><strong>O que fazer:</strong></p>
+<ol>
+<li class="">Abra <strong>Normalização -> Quarentena</strong> para ver os eventos isolados e o motivo de cada um.</li>
+<li class="">Use o motivo para identificar qual regra precisa de ajuste (campo obrigatório, conversão, etc.).</li>
+<li class="">Corrija o mapeamento no editor e reprocesse os eventos isolados.</li>
+</ol>
+<p>Para um guia detalhado, veja <a class="" href=/en/normalization/troubleshooting>Resolução de problemas</a>.</div></article><nav class="docusaurus-mt-lg pagination-nav" aria-label="Docs pages"><a class="pagination-nav__link pagination-nav__link--prev" href=/en/normalization/cml><div class=pagination-nav__sublabel>Previous</div><div class=pagination-nav__label>CML — A linguagem de mapeamento</div></a><a class="pagination-nav__link pagination-nav__link--next" href=/en/normalization/cookbook><div class=pagination-nav__sublabel>Next</div><div class=pagination-nav__label>Cookbook de mapeamento</div></a></nav></div></div><div class="col col--3"><div class="tableOfContents_bqdL thin-scrollbar theme-doc-toc-desktop"><ul class="table-of-contents table-of-contents__left-border"><li><a href=#quando-usar class="table-of-contents__link toc-highlight">Quando usar</a><li><a href=#antes-de-começar-validar-antes-de-salvar class="table-of-contents__link toc-highlight">Antes de começar: validar antes de salvar</a><li><a href=#estrutura-de-uma-regra class="table-of-contents__link toc-highlight">Estrutura de uma regra</a><ul><li><a href=#campo-de-destino-target class="table-of-contents__link toc-highlight">Campo de destino (<code>target</code>)</a><li><a href=#campo-de-origem-source class="table-of-contents__link toc-highlight">Campo de origem (<code>source</code>)</a><li><a href=#valor-fixo-const class="table-of-contents__link toc-highlight">Valor fixo (<code>const</code>)</a><li><a href=#valor-padrão-default class="table-of-contents__link toc-highlight">Valor padrão (<code>default</code>)</a><li><a href=#conversão-antes-da-tradução-pre_cast class="table-of-contents__link toc-highlight">Conversão antes da tradução (<code>pre_cast</code>)</a><li><a href=#tabela-de-tradução-value_map class="table-of-contents__link toc-highlight">Tabela de tradução (<code>value_map</code>)</a><li><a href=#conversão-de-tipo-type_cast class="table-of-contents__link toc-highlight">Conversão de tipo (<code>type_cast</code>)</a><li><a href=#campo-obrigatório-required class="table-of-contents__link toc-highlight">Campo obrigatório (<code>required</code>)</a><li><a href=#fontes-alternativas-fallback_source class="table-of-contents__link toc-highlight">Fontes alternativas (<code>fallback_source</code>)</a><li><a href=#condição-when class="table-of-contents__link toc-highlight">Condição (<code>when</code>)</a><li><a href=#padrão-esperado-expected_always_default class="table-of-contents__link toc-highlight">Padrão esperado (<code>expected_always_default</code>)</a></ul><li><a href=#etapas-de-preparação-preprocess class="table-of-contents__link toc-highlight">Etapas de preparação (preprocess)</a><li><a href=#redução-do-evento-bruto-raw_reduction class="table-of-contents__link toc-highlight">Redução do evento bruto (<code>raw_reduction</code>)</a><ul><li><a href=#exemplo class="table-of-contents__link toc-highlight">Exemplo</a></ul><li><a href=#em-que-ordem-as-transformações-acontecem class="table-of-contents__link toc-highlight">Em que ordem as transformações acontecem</a><li><a href=#construir-listas-de-observáveis class="table-of-contents__link toc-highlight">Construir listas de observáveis</a><li><a href=#quando-algo-dá-errado class="table-of-contents__link toc-highlight">Quando algo dá errado</a><ul><li><a href=#ao-salvar-problema-na-definição-da-regra class="table-of-contents__link toc-highlight">Ao salvar (problema na definição da regra)</a><li><a href=#ao-processar-eventos-problema-com-um-evento-real class="table-of-contents__link toc-highlight">Ao processar eventos (problema com um evento real)</a></ul></ul></div></div></div></div></main></div></div></div><footer class="theme-layout-footer footer footer--dark"><div class="container container-fluid"><div class="row footer__links"><div class="theme-layout-footer-column col footer__col"><div class=footer__title>Documentação</div><ul class="footer__items clean-list"><li class=footer__item><a class=footer__link-item href=/en/getting-started/overview>Começar</a><li class=footer__item><a class=footer__link-item href=/en/operations/dashboard>Operação diária</a><li class=footer__item><a class=footer__link-item href=/en/normalization/overview>Mappings (CML)</a><li class=footer__item><a class=footer__link-item href=/en/runbooks/dispatcher>Runbooks</a></ul></div><div class="theme-layout-footer-column col footer__col"><div class=footer__title>Plataforma</div><ul class="footer__items clean-list"><li class=footer__item><a class=footer__link-item href=/en/concepts/architecture>Arquitetura</a><li class=footer__item><a class=footer__link-item href=/en/concepts/rbac>RBAC</a><li class=footer__item><a class=footer__link-item href=/en/integrations/overview>Integrações</a><li class=footer__item><a class=footer__link-item href=/en/compliance/retention>Compliance</a></ul></div><div class="theme-layout-footer-column col footer__col"><div class=footer__title>Recursos</div><ul class="footer__items clean-list"><li class=footer__item><a class=footer__link-item href=/en/getting-started/quickstart>Quickstart</a><li class=footer__item><a class=footer__link-item href=/en/normalization/cookbook>DSL Cookbook</a><li class=footer__item><a class=footer__link-item href=/en/normalization/troubleshooting>Troubleshooting</a></ul></div></div><div class="footer__bottom text--center"><div class=footer__copyright>Copyright © 2026 CentralOps. Built with Docusaurus.</div></div></div></footer></div></body>

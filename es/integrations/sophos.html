@@ -1,0 +1,243 @@
+<!doctype html><html lang=es dir=ltr class="docs-wrapper plugin-docs plugin-id-default docs-version-current docs-doc-page docs-doc-id-integrations/sophos" data-has-hydrated=false><head><meta charset=UTF-8><meta name=generator content="Docusaurus v3.10.0"><title data-rh=true>Sophos Central | CentralOps</title><meta data-rh=true name=viewport content="width=device-width, initial-scale=1.0"/><meta data-rh=true name=twitter:card content=summary_large_image /><meta data-rh=true property=og:image content=https://docs.segark.com/es/img/centralops-social-card.png /><meta data-rh=true name=twitter:image content=https://docs.segark.com/es/img/centralops-social-card.png /><meta data-rh=true property=og:url content=https://docs.segark.com/es/integrations/sophos /><meta data-rh=true property=og:locale content=es /><meta data-rh=true property=og:locale:alternate content=pt_BR /><meta data-rh=true property=og:locale:alternate content=en /><meta data-rh=true name=docusaurus_locale content=es /><meta data-rh=true name=docsearch:language content=es /><meta data-rh=true name=docusaurus_version content=current /><meta data-rh=true name=docusaurus_tag content=docs-default-current /><meta data-rh=true name=docsearch:version content=current /><meta data-rh=true name=docsearch:docusaurus_tag content=docs-default-current /><meta data-rh=true property=og:title content="Sophos Central | CentralOps"/><meta data-rh=true name=description content="Conecte o Sophos Central ao CentralOps para coletar alertas e cases de ameaça"/><meta data-rh=true property=og:description content="Conecte o Sophos Central ao CentralOps para coletar alertas e cases de ameaça"/><link data-rh=true rel=icon href=/es/img/favicon.ico /><link data-rh=true rel=canonical href=https://docs.segark.com/es/integrations/sophos /><link data-rh=true rel=alternate href=https://docs.segark.com/integrations/sophos hreflang=pt-BR /><link data-rh=true rel=alternate href=https://docs.segark.com/en/integrations/sophos hreflang=en /><link data-rh=true rel=alternate href=https://docs.segark.com/es/integrations/sophos hreflang=es /><link data-rh=true rel=alternate href=https://docs.segark.com/integrations/sophos hreflang=x-default /><script data-rh=true type=application/ld+json>{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","item":"https://docs.segark.com/es/integrations/sophos","name":"Sophos Central","position":1}]}</script><link rel=stylesheet href=/es/assets/css/styles.65a61132.css /><script src=/es/assets/js/runtime~main.774ab3e5.js defer></script><script src=/es/assets/js/main.9750a519.js defer></script></head><body><svg style="display: none;"><defs>
+<symbol id=theme-svg-external-link viewBox="0 0 24 24"><path fill=currentColor d="M21 13v10h-21v-19h12v2h-10v15h17v-8h2zm3-12h-10.988l4.035 4-6.977 7.07 2.828 2.828 6.977-7.07 4.125 4.172v-11z"/></symbol>
+</defs></svg>
+<script>!function(){var t=function(){try{return new URLSearchParams(window.location.search).get("docusaurus-theme")}catch(t){}}()||function(){try{return window.localStorage.getItem("theme-4d2")}catch(t){}}();document.documentElement.setAttribute("data-theme",t||(window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light")),document.documentElement.setAttribute("data-theme-choice",t||"system")}(),function(){try{for(var[t,e]of new URLSearchParams(window.location.search).entries())if(t.startsWith("docusaurus-data-")){var a=t.replace("docusaurus-data-","data-");document.documentElement.setAttribute(a,e)}}catch(t){}}()</script><div id=__docusaurus><link rel=preload as=image href=/es/img/logo.svg /><div role=region aria-label="Saltar al contenido principal"><a class=skipToContent_fXgn href=#__docusaurus_skipToContent_fallback>Saltar al contenido principal</a></div><nav aria-label=Principal class="theme-layout-navbar navbar navbar--fixed-top"><div class=navbar__inner><div class="theme-layout-navbar-left navbar__items"><button aria-label="Alternar barra lateral" aria-expanded=false class="navbar__toggle clean-btn" type=button><svg width=30 height=30 viewBox="0 0 30 30" aria-hidden=true><path stroke=currentColor stroke-linecap=round stroke-miterlimit=10 stroke-width=2 d="M4 7h22M4 15h22M4 23h22"/></svg></button><a class=navbar__brand href=/es/><div class=navbar__logo><img src=/es/img/logo.svg alt=CentralOps class="themedComponent_mlkZ themedComponent--light_NVdE"/><img src=/es/img/logo.svg alt=CentralOps class="themedComponent_mlkZ themedComponent--dark_xIcU"/></div><b class="navbar__title text--truncate">CentralOps</b></a><a class="navbar__item navbar__link" href=/es/>Empezar</a><a class="navbar__item navbar__link" href=/es/outputs/overview>Salidas y Rutas</a><a class="navbar__item navbar__link" href=/es/operations/dashboard>Operación</a><a aria-current=page class="navbar__item navbar__link navbar__link--active" href=/es/administration/users-and-roles>Administración</a><a class="navbar__item navbar__link" href=/es/normalization/overview>Mappings</a><a class="navbar__item navbar__link" href=/es/runbooks/dispatcher>Runbooks</a></div><div class="theme-layout-navbar-right navbar__items navbar__items--right"><div class="navbar__item dropdown dropdown--hoverable dropdown--right"><a href=# aria-haspopup=true aria-expanded=false role=button class=navbar__link><svg viewBox="0 0 24 24" width=20 height=20 aria-hidden=true class=iconLanguage_nlXk><path fill=currentColor d="M12.87 15.07l-2.54-2.51.03-.03c1.74-1.94 2.98-4.17 3.71-6.53H17V4h-7V2H8v2H1v1.99h11.17C11.5 7.92 10.44 9.75 9 11.35 8.07 10.32 7.3 9.19 6.69 8h-2c.73 1.63 1.73 3.17 2.98 4.56l-5.09 5.02L4 19l5-5 3.11 3.11.76-2.04zM18.5 10h-2L12 22h2l1.12-3h4.75L21 22h2l-4.5-12zm-2.62 7l1.62-4.33L19.12 17h-3.24z"/></svg>Español</a><ul class=dropdown__menu><li><a href=/integrations/sophos target=_self rel="noopener noreferrer" class=dropdown__link lang=pt-BR>Português</a><li><a href=/en/integrations/sophos target=_self rel="noopener noreferrer" class=dropdown__link lang=en>English</a><li><a href=/es/integrations/sophos target=_self rel="noopener noreferrer" class="dropdown__link dropdown__link--active" lang=es>Español</a></ul></div><div class="toggle_vylO colorModeToggle_DEke"><button class="clean-btn toggleButton_gllP toggleButtonDisabled_aARS" type=button disabled title="system mode" aria-label="Cambiar entre modo oscuro y claro (actualmente system mode)"><svg viewBox="0 0 24 24" width=24 height=24 aria-hidden=true class="toggleIcon_g3eP lightToggleIcon_pyhR"><path fill=currentColor d="M12,9c1.65,0,3,1.35,3,3s-1.35,3-3,3s-3-1.35-3-3S10.35,9,12,9 M12,7c-2.76,0-5,2.24-5,5s2.24,5,5,5s5-2.24,5-5 S14.76,7,12,7L12,7z M2,13l2,0c0.55,0,1-0.45,1-1s-0.45-1-1-1l-2,0c-0.55,0-1,0.45-1,1S1.45,13,2,13z M20,13l2,0c0.55,0,1-0.45,1-1 s-0.45-1-1-1l-2,0c-0.55,0-1,0.45-1,1S19.45,13,20,13z M11,2v2c0,0.55,0.45,1,1,1s1-0.45,1-1V2c0-0.55-0.45-1-1-1S11,1.45,11,2z M11,20v2c0,0.55,0.45,1,1,1s1-0.45,1-1v-2c0-0.55-0.45-1-1-1C11.45,19,11,19.45,11,20z M5.99,4.58c-0.39-0.39-1.03-0.39-1.41,0 c-0.39,0.39-0.39,1.03,0,1.41l1.06,1.06c0.39,0.39,1.03,0.39,1.41,0s0.39-1.03,0-1.41L5.99,4.58z M18.36,16.95 c-0.39-0.39-1.03-0.39-1.41,0c-0.39,0.39-0.39,1.03,0,1.41l1.06,1.06c0.39,0.39,1.03,0.39,1.41,0c0.39-0.39,0.39-1.03,0-1.41 L18.36,16.95z M19.42,5.99c0.39-0.39,0.39-1.03,0-1.41c-0.39-0.39-1.03-0.39-1.41,0l-1.06,1.06c-0.39,0.39-0.39,1.03,0,1.41 s1.03,0.39,1.41,0L19.42,5.99z M7.05,18.36c0.39-0.39,0.39-1.03,0-1.41c-0.39-0.39-1.03-0.39-1.41,0l-1.06,1.06 c-0.39,0.39-0.39,1.03,0,1.41s1.03,0.39,1.41,0L7.05,18.36z"/></svg><svg viewBox="0 0 24 24" width=24 height=24 aria-hidden=true class="toggleIcon_g3eP darkToggleIcon_wfgR"><path fill=currentColor d="M9.37,5.51C9.19,6.15,9.1,6.82,9.1,7.5c0,4.08,3.32,7.4,7.4,7.4c0.68,0,1.35-0.09,1.99-0.27C17.45,17.19,14.93,19,12,19 c-3.86,0-7-3.14-7-7C5,9.07,6.81,6.55,9.37,5.51z M12,3c-4.97,0-9,4.03-9,9s4.03,9,9,9s9-4.03,9-9c0-0.46-0.04-0.92-0.1-1.36 c-0.98,1.37-2.58,2.26-4.4,2.26c-2.98,0-5.4-2.42-5.4-5.4c0-1.81,0.89-3.42,2.26-4.4C12.92,3.04,12.46,3,12,3L12,3z"/></svg><svg viewBox="0 0 24 24" width=24 height=24 aria-hidden=true class="toggleIcon_g3eP systemToggleIcon_QzmC"><path fill=currentColor d="m12 21c4.971 0 9-4.029 9-9s-4.029-9-9-9-9 4.029-9 9 4.029 9 9 9zm4.95-13.95c1.313 1.313 2.05 3.093 2.05 4.95s-0.738 3.637-2.05 4.95c-1.313 1.313-3.093 2.05-4.95 2.05v-14c1.857 0 3.637 0.737 4.95 2.05z"/></svg></button></div><div class=navbarSearchContainer_Bca1><div class=navbar__search><span aria-label="expand searchbar" role=button class=search-icon tabindex=0></span><input id=search_input_react type=search placeholder=Loading... aria-label=Search class="navbar__search-input search-bar" disabled/></div></div></div></div><div role=presentation class=navbar-sidebar__backdrop></div></nav><div id=__docusaurus_skipToContent_fallback class="theme-layout-main main-wrapper mainWrapper_z2l0"><div class=docsWrapper_hBAB><button aria-label="Volver al principio" class="clean-btn theme-back-to-top-button backToTopButton_sjWU" type=button></button><div class=docRoot_UBD9><aside class="theme-doc-sidebar-container docSidebarContainer_YfHR"><div class=sidebarViewport_aRkj><div class=sidebar_njMd><nav aria-label="Barra lateral de Documentos" class="menu thin-scrollbar menu_SIkG"><ul class="theme-doc-sidebar-menu menu__list"><li class="theme-doc-sidebar-item-category theme-doc-sidebar-item-category-level-1 menu__list-item"><div class=menu__list-item-collapsible><a class="categoryLink_byQd menu__link menu__link--sublist menu__link--sublist-caret" role=button aria-expanded=true href=/es/administration/users-and-roles><span title=Administración class=categoryLinkLabel_W154>Administración</span></a></div><ul class=menu__list><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/es/administration/users-and-roles><span title="Usuários e papéis" class=linkLabel_WmDU>Usuários e papéis</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/es/administration/sso-entra><span title="SSO com Microsoft Entra ID" class=linkLabel_WmDU>SSO com Microsoft Entra ID</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/es/administration/organizations><span title=Organizações class=linkLabel_WmDU>Organizações</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/es/administration/tenant-hierarchy><span title="Hierarquia de tenants e MSP" class=linkLabel_WmDU>Hierarquia de tenants e MSP</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/es/administration/platform-config><span title="Configuração da plataforma" class=linkLabel_WmDU>Configuração da plataforma</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/es/administration/secrets-and-master-key><span title="Credenciais e segredos das integrações" class=linkLabel_WmDU>Credenciais e segredos das integrações</span></a></ul><li class="theme-doc-sidebar-item-category theme-doc-sidebar-item-category-level-1 menu__list-item"><div class=menu__list-item-collapsible><a class="categoryLink_byQd menu__link menu__link--sublist menu__link--sublist-caret menu__link--active" role=button aria-expanded=true href=/es/integrations/overview><span title=Integraciones class=categoryLinkLabel_W154>Integraciones</span></a></div><ul class=menu__list><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/es/integrations/overview><span title="Visão geral de integrações" class=linkLabel_WmDU>Visão geral de integrações</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class="menu__link menu__link--active" aria-current=page tabindex=0 href=/es/integrations/sophos><span title="Sophos Central" class=linkLabel_WmDU>Sophos Central</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/es/integrations/wazuh><span title=Wazuh class=linkLabel_WmDU>Wazuh</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/es/integrations/crowdstrike><span title="CrowdStrike Falcon" class=linkLabel_WmDU>CrowdStrike Falcon</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/es/integrations/microsoft-defender><span title="Microsoft Defender" class=linkLabel_WmDU>Microsoft Defender</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/es/integrations/dfir-iris><span title=DFIR-IRIS class=linkLabel_WmDU>DFIR-IRIS</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/es/integrations/push-ingestion><span title="Ingestão push (edge-collector)" class=linkLabel_WmDU>Ingestão push (edge-collector)</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/es/integrations/fortinet-fortigate><span title="Fortinet FortiGate" class=linkLabel_WmDU>Fortinet FortiGate</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/es/integrations/windows-event-log><span title="Windows Event Log (WEC)" class=linkLabel_WmDU>Windows Event Log (WEC)</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/es/integrations/adding-new-vendor><span title="Vendors suportados e como solicitar um novo" class=linkLabel_WmDU>Vendors suportados e como solicitar um novo</span></a></ul></ul></nav></div></div></aside><main class=docMainContainer_TBSr><div class="container padding-top--md padding-bottom--lg"><div class=row><div class="col docItemCol_VOVn"><div class=docItemContainer_Djhp><article><nav class="theme-doc-breadcrumbs breadcrumbsContainer_Z_bl" aria-label="Rastro de navegación"><ul class=breadcrumbs><li class=breadcrumbs__item><a aria-label="Página de Inicio" class=breadcrumbs__link href=/es/><svg viewBox="0 0 24 24" class=breadcrumbHomeIcon_YNFT><path d="M10 19v-5h4v5c0 .55.45 1 1 1h3c.55 0 1-.45 1-1v-7h1.7c.46 0 .68-.57.33-.87L12.67 3.6c-.38-.34-.96-.34-1.34 0l-8.36 7.53c-.34.3-.13.87.33.87H5v7c0 .55.45 1 1 1h3c.55 0 1-.45 1-1z" fill=currentColor /></svg></a><li class=breadcrumbs__item><span class=breadcrumbs__link>Integraciones</span><li class="breadcrumbs__item breadcrumbs__item--active"><span class=breadcrumbs__link>Sophos Central</span></ul></nav><div class="tocCollapsible_ETCw theme-doc-toc-mobile tocMobile_ITEo"><button type=button class="clean-btn tocCollapsibleButton_TO0P">En esta página</button></div><div class="theme-doc-markdown markdown"><header><h1>Sophos Central</h1></header>
+<p>Conecte o Sophos Central ao CentralOps para coletar automaticamente os alertas e os cases de ameaça da sua organização e analisá-los junto com as demais fontes de segurança.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=quando-usar>Quando usar<a href=#quando-usar class=hash-link aria-label="Enlace directo al Quando usar" title="Enlace directo al Quando usar" translate=no>​</a></h2>
+<ul>
+<li class=""><strong>Centralizar a detecção do Sophos no SOC.</strong> Traga as detecções de malware e comportamento do Sophos Central para o CentralOps e analise-as ao lado das outras fontes, sem precisar abrir o console do Sophos para cada alerta.</li>
+<li class=""><strong>Correlacionar ameaças entre fornecedores.</strong> Cruze os alertas do Sophos com eventos de outras integrações para investigar um incidente de ponta a ponta na tela de <strong>Investigações</strong>.</li>
+<li class=""><strong>Encaminhar para SIEM e resposta.</strong> Depois de coletados, os eventos do Sophos seguem pelas regras de roteamento para os seus destinos (SIEM, data lake, automação de resposta), permitindo alertar e responder de forma centralizada.</li>
+<li class=""><strong>Acompanhar cases de XDR/MDR.</strong> Se você usa Managed Threat Response, traga também os cases de XDR para acompanhar investigações gerenciadas dentro do CentralOps.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=quem-pode-fazer-o-quê>Quem pode fazer o quê<a href=#quem-pode-fazer-o-quê class=hash-link aria-label="Enlace directo al Quem pode fazer o quê" title="Enlace directo al Quem pode fazer o quê" translate=no>​</a></h2>
+<ul>
+<li class=""><strong>Administrador da plataforma:</strong> cria e edita a integração (menu <strong>Visão geral -> Integrações</strong>).</li>
+<li class=""><strong>Demais perfis:</strong> visualizam os alertas e cases já coletados (tela <strong>Operação -> Investigações</strong>).</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=pré-requisitos>Pré-requisitos<a href=#pré-requisitos class=hash-link aria-label="Enlace directo al Pré-requisitos" title="Enlace directo al Pré-requisitos" translate=no>​</a></h2>
+<p>Antes de começar, garanta que você tem:</p>
+<ul>
+<li class="">Acesso de <strong>administrador no Sophos Central</strong> da sua organização, para gerar as credenciais de API.</li>
+<li class="">Acesso de <strong>administrador no CentralOps</strong>, para criar a integração.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=passo-1-gerar-as-credenciais-no-sophos-central>Passo 1: Gerar as credenciais no Sophos Central<a href=#passo-1-gerar-as-credenciais-no-sophos-central class=hash-link aria-label="Enlace directo al Passo 1: Gerar as credenciais no Sophos Central" title="Enlace directo al Passo 1: Gerar as credenciais no Sophos Central" translate=no>​</a></h2>
+<p>Estas etapas são feitas no console do Sophos, não no CentralOps.</p>
+<ol>
+<li class="">
+<p>Acesse o <strong>Sophos Central</strong> (<code>https://central.sophos.com</code> ou a URL da sua região).</p>
+</li>
+<li class="">
+<p>Abra a área de <strong>API Credentials</strong>, em <strong>Settings</strong>.</p>
+</li>
+<li class="">
+<p>Crie uma nova credencial de API. Dê um nome descritivo, por exemplo <strong>CentralOps</strong>, para reconhecê-la depois.</p>
+</li>
+<li class="">
+<p>Conceda <strong>apenas as permissões necessárias</strong> (princípio do menor privilégio):</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Permissão no Sophos<th>Para que serve<tbody><tr><td><code>alerts:read</code><td>Obrigatória — permite coletar os alertas.<tr><td><code>cases:read</code><td>Opcional — necessária só se você for coletar cases de XDR/Managed Threat Response.</table>
+</li>
+<li class="">
+<p>Ao concluir, o Sophos exibe o <strong>Client ID</strong> e o <strong>Client Secret</strong>.</p>
+<div class="theme-admonition theme-admonition-warning admonition_xJq3 alert alert--warning"><div class=admonitionHeading_Gvgb><span class=admonitionIcon_Rf37><svg viewBox="0 0 16 16"><path fill-rule=evenodd d="M8.893 1.5c-.183-.31-.52-.5-.887-.5s-.703.19-.886.5L.138 13.499a.98.98 0 0 0 0 1.001c.193.31.53.501.886.501h13.964c.367 0 .704-.19.877-.5a1.03 1.03 0 0 0 .01-1.002L8.893 1.5zm.133 11.497H6.987v-2.003h2.039v2.003zm0-3.004H6.987V5.987h2.039v4.006z"/></svg></span>Copie o Client Secret na hora</div><div class=admonitionContent_BuS1><p>O <strong>Client Secret</strong> é mostrado uma única vez. Copie e guarde em local seguro (um gerenciador de senhas, por exemplo). Se você perder, será preciso gerar uma nova credencial.</div></div>
+</li>
+</ol>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=passo-2-identificar-sua-região-e-o-tenant-id>Passo 2: Identificar sua região e o Tenant ID<a href=#passo-2-identificar-sua-região-e-o-tenant-id class=hash-link aria-label="Enlace directo al Passo 2: Identificar sua região e o Tenant ID" title="Enlace directo al Passo 2: Identificar sua região e o Tenant ID" translate=no>​</a></h2>
+<p>Você vai precisar destes dois dados ao criar a integração:</p>
+<ul>
+<li class=""><strong>Região:</strong> identifique pela URL da API do seu Sophos (por exemplo, <strong>US</strong>, <strong>EU</strong>, <strong>APAC</strong> ou <strong>AU</strong>).</li>
+<li class=""><strong>Tenant ID:</strong> no Sophos, em <strong>Settings -> Organization</strong>, copie o identificador da organização (o campo <strong>Organization ID</strong>, um código longo).</li>
+</ul>
+<p>Anote os dois para usar no próximo passo.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=passo-3-criar-a-integração-no-centralops>Passo 3: Criar a integração no CentralOps<a href=#passo-3-criar-a-integração-no-centralops class=hash-link aria-label="Enlace directo al Passo 3: Criar a integração no CentralOps" title="Enlace directo al Passo 3: Criar a integração no CentralOps" translate=no>​</a></h2>
+<ol>
+<li class="">
+<p>No menu lateral, vá em <strong>Visão geral -> Integrações</strong>.</p>
+</li>
+<li class="">
+<p>Clique para adicionar uma nova integração.</p>
+</li>
+<li class="">
+<p>Escolha <strong>Sophos Central</strong> na lista de plataformas e avance.</p>
+</li>
+<li class="">
+<p>Preencha os campos do formulário:</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Campo<th>O que informar<tbody><tr><td>Nome<td>Um nome para identificar esta conexão, por exemplo "Sophos - Acme Corp".<tr><td>Client ID<td>O Client ID gerado no Passo 1.<tr><td>Client Secret<td>O Client Secret gerado no Passo 1.<tr><td>Tenant ID<td>O identificador da organização (Passo 2).<tr><td>Região<td>A região do seu Sophos (Passo 2).</table>
+</li>
+<li class="">
+<p>Use a opção de <strong>testar a conexão</strong>. O CentralOps valida as credenciais, confirma o Tenant ID e verifica se a permissão de leitura de alertas está concedida. Se aparecer um erro, confira:</p>
+<ul>
+<li class="">Client ID ou Client Secret digitados incorretamente (copie novamente).</li>
+<li class="">Tenant ID ou região errados.</li>
+<li class="">Falta da permissão <code>alerts:read</code> no Sophos.</li>
+</ul>
+</li>
+<li class="">
+<p>Salve a integração. As credenciais são armazenadas de forma criptografada e a integração entra no estado de aguardando a primeira coleta.</p>
+</li>
+</ol>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=passo-4-acompanhar-a-primeira-coleta>Passo 4: Acompanhar a primeira coleta<a href=#passo-4-acompanhar-a-primeira-coleta class=hash-link aria-label="Enlace directo al Passo 4: Acompanhar a primeira coleta" title="Enlace directo al Passo 4: Acompanhar a primeira coleta" translate=no>​</a></h2>
+<p>A primeira coleta acontece automaticamente, poucos minutos depois de salvar. Acompanhe o status na própria tela da integração, em <strong>Visão geral -> Integrações</strong>.</p>
+<p>Quando houver alertas recentes no Sophos:</p>
+<ul>
+<li class="">O status da integração muda para ativo e o indicador de saúde fica verde.</li>
+<li class="">Os eventos ficam pesquisáveis em <strong>Operação -> Investigações</strong>.</li>
+</ul>
+<p>Se nada aparecer depois de alguns minutos, veja a seção <a href=#solu%C3%A7%C3%A3o-de-problemas class="">Solução de problemas</a> abaixo.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=passo-5-opcional-coletar-também-os-cases-de-xdr>Passo 5 (opcional): Coletar também os cases de XDR<a href=#passo-5-opcional-coletar-também-os-cases-de-xdr class=hash-link aria-label="Enlace directo al Passo 5 (opcional): Coletar também os cases de XDR" title="Enlace directo al Passo 5 (opcional): Coletar também os cases de XDR" translate=no>​</a></h2>
+<p>Se você usa <strong>Managed Threat Response / XDR</strong> e quer trazer os cases para o CentralOps:</p>
+<ol>
+<li class="">No Sophos, edite a credencial de API criada no Passo 1 e adicione a permissão <code>cases:read</code>.</li>
+<li class="">Salve no Sophos.</li>
+<li class="">Volte à integração no CentralOps (<strong>Visão geral -> Integrações</strong>) e teste a conexão novamente para validar a nova permissão.</li>
+</ol>
+<p>A partir daí, os cases passam a ser coletados automaticamente, junto com os alertas.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=o-que-é-coletado>O que é coletado<a href=#o-que-é-coletado class=hash-link aria-label="Enlace directo al O que é coletado" title="Enlace directo al O que é coletado" translate=no>​</a></h2>
+<p>Cada alerta do Sophos chega ao CentralOps com informações como:</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Informação<th>Exemplo<tbody><tr><td>Identificador do alerta<td><code>sophos-alert-123</code><tr><td>Nível de severidade<td>Crítico, alto, médio, baixo<tr><td>Tipo de ameaça<td>Malware, comportamento suspeito, etc.<tr><td>Nome da ameaça<td><code>Trojan.X</code><tr><td>Host de origem<td><code>workstation-01</code><tr><td>Endereço IP de origem<td><code>192.168.1.100</code><tr><td>Data e hora<td><code>2026-04-27T10:00:00Z</code></table>
+<p>O CentralOps converte esses dados para o formato padronizado da plataforma, de modo que os alertas do Sophos podem ser pesquisados e correlacionados com as demais fontes. Se algum campo não puder ser convertido, o evento vai para a <strong>Quarentena</strong> (menu <strong>Normalização -> Quarentena</strong>), onde você pode revisar e reprocessar.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=solução-de-problemas>Solução de problemas<a href=#solução-de-problemas class=hash-link aria-label="Enlace directo al Solução de problemas" title="Enlace directo al Solução de problemas" translate=no>​</a></h2>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Sintoma<th>Causa provável<th>O que fazer<tbody><tr><td>Erro de credenciais inválidas ao testar a conexão<td>Client ID ou Client Secret incorretos ou expirados<td>Gere uma nova credencial no Sophos, apague a antiga e atualize os valores na integração do CentralOps (<strong>Visão geral -> Integrações</strong>). Teste a conexão de novo.<tr><td>Nenhum evento aparecendo<td>O Sophos não tem alertas recentes, ou o evento foi para a quarentena<td>Confirme no console do Sophos se há alertas recentes. Se houver, aguarde alguns minutos. Se ainda assim nada aparecer em <strong>Operação -> Investigações</strong>, verifique a tela <strong>Normalização -> Quarentena</strong>.<tr><td>Volume de eventos muito baixo<td>O Sophos está limitando as requisições de API (rate limit)<td>Abra <strong>Normalização -> Saúde do Pipeline</strong> e veja a integração do Sophos para confirmar o limite de taxa. O intervalo de coleta é definido pela equipe de infraestrutura no momento do deploy. Se precisar ajustá-lo, fale com o administrador da plataforma. Para um limite muito agressivo, considere contatar o suporte do Sophos.<tr><td>Integração parada por erro de token<td>A renovação automática do acesso falhou<td>O CentralOps tenta renovar o acesso sozinho. Se continuar falhando, gere uma nova credencial no Sophos e atualize a integração, testando a conexão em seguida.</table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=streams-disponíveis>Streams disponíveis<a href=#streams-disponíveis class=hash-link aria-label="Enlace directo al Streams disponíveis" title="Enlace directo al Streams disponíveis" translate=no>​</a></h2>
+<p>A integração do Sophos coleta dois tipos de dados:</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Tipo de dado<th>Descrição<th>Necessário?<tbody><tr><td>Alertas<td>Detecções de malware, comportamento suspeito e outras ameaças.<td>Obrigatório<tr><td>Cases<td>Cases de XDR / Managed Threat Response.<td>Opcional</table>
+<p>A frequência de coleta é definida pela equipe de infraestrutura no momento do deploy. Se precisar alterá-la, fale com o administrador da plataforma.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=próximos-passos>Próximos passos<a href=#próximos-passos class=hash-link aria-label="Enlace directo al Próximos passos" title="Enlace directo al Próximos passos" translate=no>​</a></h2>
+<ul>
+<li class=""><strong>Eventos aparecendo?</strong> Veja o <a class="" href=/es/operations/dashboard>Dashboard</a>.</li>
+<li class=""><strong>Algo na quarentena?</strong> Veja a <a class="" href=/es/operations/quarantine>Quarentena</a>.</li>
+<li class=""><strong>Adicionar outro fornecedor?</strong> Veja a <a class="" href=/es/integrations/overview>visão geral de Integrações</a>.</li>
+</ul></div></article><nav class="docusaurus-mt-lg pagination-nav" aria-label="Página del documento"><a class="pagination-nav__link pagination-nav__link--prev" href=/es/integrations/overview><div class=pagination-nav__sublabel>Anterior</div><div class=pagination-nav__label>Visão geral de integrações</div></a><a class="pagination-nav__link pagination-nav__link--next" href=/es/integrations/wazuh><div class=pagination-nav__sublabel>Siguiente</div><div class=pagination-nav__label>Wazuh</div></a></nav></div></div><div class="col col--3"><div class="tableOfContents_bqdL thin-scrollbar theme-doc-toc-desktop"><ul class="table-of-contents table-of-contents__left-border"><li><a href=#quando-usar class="table-of-contents__link toc-highlight">Quando usar</a><li><a href=#quem-pode-fazer-o-quê class="table-of-contents__link toc-highlight">Quem pode fazer o quê</a><li><a href=#pré-requisitos class="table-of-contents__link toc-highlight">Pré-requisitos</a><li><a href=#passo-1-gerar-as-credenciais-no-sophos-central class="table-of-contents__link toc-highlight">Passo 1: Gerar as credenciais no Sophos Central</a><li><a href=#passo-2-identificar-sua-região-e-o-tenant-id class="table-of-contents__link toc-highlight">Passo 2: Identificar sua região e o Tenant ID</a><li><a href=#passo-3-criar-a-integração-no-centralops class="table-of-contents__link toc-highlight">Passo 3: Criar a integração no CentralOps</a><li><a href=#passo-4-acompanhar-a-primeira-coleta class="table-of-contents__link toc-highlight">Passo 4: Acompanhar a primeira coleta</a><li><a href=#passo-5-opcional-coletar-também-os-cases-de-xdr class="table-of-contents__link toc-highlight">Passo 5 (opcional): Coletar também os cases de XDR</a><li><a href=#o-que-é-coletado class="table-of-contents__link toc-highlight">O que é coletado</a><li><a href=#solução-de-problemas class="table-of-contents__link toc-highlight">Solução de problemas</a><li><a href=#streams-disponíveis class="table-of-contents__link toc-highlight">Streams disponíveis</a><li><a href=#próximos-passos class="table-of-contents__link toc-highlight">Próximos passos</a></ul></div></div></div></div></main></div></div></div><footer class="theme-layout-footer footer footer--dark"><div class="container container-fluid"><div class="row footer__links"><div class="theme-layout-footer-column col footer__col"><div class=footer__title>Documentação</div><ul class="footer__items clean-list"><li class=footer__item><a class=footer__link-item href=/es/getting-started/overview>Começar</a><li class=footer__item><a class=footer__link-item href=/es/operations/dashboard>Operação diária</a><li class=footer__item><a class=footer__link-item href=/es/normalization/overview>Mappings (CML)</a><li class=footer__item><a class=footer__link-item href=/es/runbooks/dispatcher>Runbooks</a></ul></div><div class="theme-layout-footer-column col footer__col"><div class=footer__title>Plataforma</div><ul class="footer__items clean-list"><li class=footer__item><a class=footer__link-item href=/es/concepts/architecture>Arquitetura</a><li class=footer__item><a class=footer__link-item href=/es/concepts/rbac>RBAC</a><li class=footer__item><a class=footer__link-item href=/es/integrations/overview>Integrações</a><li class=footer__item><a class=footer__link-item href=/es/compliance/retention>Compliance</a></ul></div><div class="theme-layout-footer-column col footer__col"><div class=footer__title>Recursos</div><ul class="footer__items clean-list"><li class=footer__item><a class=footer__link-item href=/es/getting-started/quickstart>Quickstart</a><li class=footer__item><a class=footer__link-item href=/es/normalization/cookbook>DSL Cookbook</a><li class=footer__item><a class=footer__link-item href=/es/normalization/troubleshooting>Troubleshooting</a></ul></div></div><div class="footer__bottom text--center"><div class=footer__copyright>Copyright © 2026 CentralOps. Built with Docusaurus.</div></div></div></footer></div></body>

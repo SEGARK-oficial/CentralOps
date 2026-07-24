@@ -1,0 +1,233 @@
+<!doctype html><html lang=pt-BR dir=ltr class="docs-wrapper plugin-docs plugin-id-default docs-version-current docs-doc-page docs-doc-id-operations/detections" data-has-hydrated=false><head><meta charset=UTF-8><meta name=generator content="Docusaurus v3.10.0"><title data-rh=true>Detecções | CentralOps</title><meta data-rh=true name=viewport content="width=device-width, initial-scale=1.0"/><meta data-rh=true name=twitter:card content=summary_large_image /><meta data-rh=true property=og:image content=https://docs.segark.com/img/centralops-social-card.png /><meta data-rh=true name=twitter:image content=https://docs.segark.com/img/centralops-social-card.png /><meta data-rh=true property=og:url content=https://docs.segark.com/operations/detections /><meta data-rh=true property=og:locale content=pt_BR /><meta data-rh=true property=og:locale:alternate content=en /><meta data-rh=true property=og:locale:alternate content=es /><meta data-rh=true name=docusaurus_locale content=pt-BR /><meta data-rh=true name=docsearch:language content=pt-BR /><meta data-rh=true name=docusaurus_version content=current /><meta data-rh=true name=docusaurus_tag content=docs-default-current /><meta data-rh=true name=docsearch:version content=current /><meta data-rh=true name=docsearch:docusaurus_tag content=docs-default-current /><meta data-rh=true property=og:title content="Detecções | CentralOps"/><meta data-rh=true name=description content="Alertas de 1ª classe originários de queries e correlações, com triagem e supressão inteligente"/><meta data-rh=true property=og:description content="Alertas de 1ª classe originários de queries e correlações, com triagem e supressão inteligente"/><link data-rh=true rel=icon href=/img/favicon.ico /><link data-rh=true rel=canonical href=https://docs.segark.com/operations/detections /><link data-rh=true rel=alternate href=https://docs.segark.com/operations/detections hreflang=pt-BR /><link data-rh=true rel=alternate href=https://docs.segark.com/en/operations/detections hreflang=en /><link data-rh=true rel=alternate href=https://docs.segark.com/es/operations/detections hreflang=es /><link data-rh=true rel=alternate href=https://docs.segark.com/operations/detections hreflang=x-default /><script data-rh=true type=application/ld+json>{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","item":"https://docs.segark.com/operations/detections","name":"Detecções","position":1}]}</script><link rel=stylesheet href=/assets/css/styles.65a61132.css /><script src=/assets/js/runtime~main.08d80435.js defer></script><script src=/assets/js/main.9390f800.js defer></script></head><body><svg style="display: none;"><defs>
+<symbol id=theme-svg-external-link viewBox="0 0 24 24"><path fill=currentColor d="M21 13v10h-21v-19h12v2h-10v15h17v-8h2zm3-12h-10.988l4.035 4-6.977 7.07 2.828 2.828 6.977-7.07 4.125 4.172v-11z"/></symbol>
+</defs></svg>
+<script>!function(){var t=function(){try{return new URLSearchParams(window.location.search).get("docusaurus-theme")}catch(t){}}()||function(){try{return window.localStorage.getItem("theme-cee")}catch(t){}}();document.documentElement.setAttribute("data-theme",t||(window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light")),document.documentElement.setAttribute("data-theme-choice",t||"system")}(),function(){try{for(var[t,e]of new URLSearchParams(window.location.search).entries())if(t.startsWith("docusaurus-data-")){var a=t.replace("docusaurus-data-","data-");document.documentElement.setAttribute(a,e)}}catch(t){}}()</script><div id=__docusaurus><link rel=preload as=image href=/img/logo.svg /><div role=region aria-label="Pular para o conteúdo principal"><a class=skipToContent_fXgn href=#__docusaurus_skipToContent_fallback>Pular para o conteúdo principal</a></div><nav aria-label="Navegação principal" class="theme-layout-navbar navbar navbar--fixed-top"><div class=navbar__inner><div class="theme-layout-navbar-left navbar__items"><button aria-label="Alternar painel de navegação" aria-expanded=false class="navbar__toggle clean-btn" type=button><svg width=30 height=30 viewBox="0 0 30 30" aria-hidden=true><path stroke=currentColor stroke-linecap=round stroke-miterlimit=10 stroke-width=2 d="M4 7h22M4 15h22M4 23h22"/></svg></button><a class=navbar__brand href=/><div class=navbar__logo><img src=/img/logo.svg alt=CentralOps class="themedComponent_mlkZ themedComponent--light_NVdE"/><img src=/img/logo.svg alt=CentralOps class="themedComponent_mlkZ themedComponent--dark_xIcU"/></div><b class="navbar__title text--truncate">CentralOps</b></a><a class="navbar__item navbar__link" href=/>Começar</a><a class="navbar__item navbar__link" href=/outputs/overview>Saídas & Rotas</a><a aria-current=page class="navbar__item navbar__link navbar__link--active" href=/operations/dashboard>Operação</a><a class="navbar__item navbar__link" href=/administration/users-and-roles>Administração</a><a class="navbar__item navbar__link" href=/normalization/overview>Mappings</a><a class="navbar__item navbar__link" href=/runbooks/dispatcher>Runbooks</a></div><div class="theme-layout-navbar-right navbar__items navbar__items--right"><div class="navbar__item dropdown dropdown--hoverable dropdown--right"><a href=# aria-haspopup=true aria-expanded=false role=button class=navbar__link><svg viewBox="0 0 24 24" width=20 height=20 aria-hidden=true class=iconLanguage_nlXk><path fill=currentColor d="M12.87 15.07l-2.54-2.51.03-.03c1.74-1.94 2.98-4.17 3.71-6.53H17V4h-7V2H8v2H1v1.99h11.17C11.5 7.92 10.44 9.75 9 11.35 8.07 10.32 7.3 9.19 6.69 8h-2c.73 1.63 1.73 3.17 2.98 4.56l-5.09 5.02L4 19l5-5 3.11 3.11.76-2.04zM18.5 10h-2L12 22h2l1.12-3h4.75L21 22h2l-4.5-12zm-2.62 7l1.62-4.33L19.12 17h-3.24z"/></svg>Português</a><ul class=dropdown__menu><li><a href=/operations/detections target=_self rel="noopener noreferrer" class="dropdown__link dropdown__link--active" lang=pt-BR>Português</a><li><a href=/en/operations/detections target=_self rel="noopener noreferrer" class=dropdown__link lang=en>English</a><li><a href=/es/operations/detections target=_self rel="noopener noreferrer" class=dropdown__link lang=es>Español</a></ul></div><div class="toggle_vylO colorModeToggle_DEke"><button class="clean-btn toggleButton_gllP toggleButtonDisabled_aARS" type=button disabled title="modo do sistema" aria-label="Mudar entre modo claro e escuro (modo do sistema está ativo)"><svg viewBox="0 0 24 24" width=24 height=24 aria-hidden=true class="toggleIcon_g3eP lightToggleIcon_pyhR"><path fill=currentColor d="M12,9c1.65,0,3,1.35,3,3s-1.35,3-3,3s-3-1.35-3-3S10.35,9,12,9 M12,7c-2.76,0-5,2.24-5,5s2.24,5,5,5s5-2.24,5-5 S14.76,7,12,7L12,7z M2,13l2,0c0.55,0,1-0.45,1-1s-0.45-1-1-1l-2,0c-0.55,0-1,0.45-1,1S1.45,13,2,13z M20,13l2,0c0.55,0,1-0.45,1-1 s-0.45-1-1-1l-2,0c-0.55,0-1,0.45-1,1S19.45,13,20,13z M11,2v2c0,0.55,0.45,1,1,1s1-0.45,1-1V2c0-0.55-0.45-1-1-1S11,1.45,11,2z M11,20v2c0,0.55,0.45,1,1,1s1-0.45,1-1v-2c0-0.55-0.45-1-1-1C11.45,19,11,19.45,11,20z M5.99,4.58c-0.39-0.39-1.03-0.39-1.41,0 c-0.39,0.39-0.39,1.03,0,1.41l1.06,1.06c0.39,0.39,1.03,0.39,1.41,0s0.39-1.03,0-1.41L5.99,4.58z M18.36,16.95 c-0.39-0.39-1.03-0.39-1.41,0c-0.39,0.39-0.39,1.03,0,1.41l1.06,1.06c0.39,0.39,1.03,0.39,1.41,0c0.39-0.39,0.39-1.03,0-1.41 L18.36,16.95z M19.42,5.99c0.39-0.39,0.39-1.03,0-1.41c-0.39-0.39-1.03-0.39-1.41,0l-1.06,1.06c-0.39,0.39-0.39,1.03,0,1.41 s1.03,0.39,1.41,0L19.42,5.99z M7.05,18.36c0.39-0.39,0.39-1.03,0-1.41c-0.39-0.39-1.03-0.39-1.41,0l-1.06,1.06 c-0.39,0.39-0.39,1.03,0,1.41s1.03,0.39,1.41,0L7.05,18.36z"/></svg><svg viewBox="0 0 24 24" width=24 height=24 aria-hidden=true class="toggleIcon_g3eP darkToggleIcon_wfgR"><path fill=currentColor d="M9.37,5.51C9.19,6.15,9.1,6.82,9.1,7.5c0,4.08,3.32,7.4,7.4,7.4c0.68,0,1.35-0.09,1.99-0.27C17.45,17.19,14.93,19,12,19 c-3.86,0-7-3.14-7-7C5,9.07,6.81,6.55,9.37,5.51z M12,3c-4.97,0-9,4.03-9,9s4.03,9,9,9s9-4.03,9-9c0-0.46-0.04-0.92-0.1-1.36 c-0.98,1.37-2.58,2.26-4.4,2.26c-2.98,0-5.4-2.42-5.4-5.4c0-1.81,0.89-3.42,2.26-4.4C12.92,3.04,12.46,3,12,3L12,3z"/></svg><svg viewBox="0 0 24 24" width=24 height=24 aria-hidden=true class="toggleIcon_g3eP systemToggleIcon_QzmC"><path fill=currentColor d="m12 21c4.971 0 9-4.029 9-9s-4.029-9-9-9-9 4.029-9 9 4.029 9 9 9zm4.95-13.95c1.313 1.313 2.05 3.093 2.05 4.95s-0.738 3.637-2.05 4.95c-1.313 1.313-3.093 2.05-4.95 2.05v-14c1.857 0 3.637 0.737 4.95 2.05z"/></svg></button></div><div class=navbarSearchContainer_Bca1><div class=navbar__search><span aria-label="expand searchbar" role=button class=search-icon tabindex=0></span><input id=search_input_react type=search placeholder=Loading... aria-label=Search class="navbar__search-input search-bar" disabled/></div></div></div></div><div role=presentation class=navbar-sidebar__backdrop></div></nav><div id=__docusaurus_skipToContent_fallback class="theme-layout-main main-wrapper mainWrapper_z2l0"><div class=docsWrapper_hBAB><button aria-label="Voltar para o topo" class="clean-btn theme-back-to-top-button backToTopButton_sjWU" type=button></button><div class=docRoot_UBD9><aside class="theme-doc-sidebar-container docSidebarContainer_YfHR"><div class=sidebarViewport_aRkj><div class=sidebar_njMd><nav aria-label="Painel lateral de documentos" class="menu thin-scrollbar menu_SIkG"><ul class="theme-doc-sidebar-menu menu__list"><li class="theme-doc-sidebar-item-category theme-doc-sidebar-item-category-level-1 menu__list-item"><div class=menu__list-item-collapsible><a class="categoryLink_byQd menu__link menu__link--sublist menu__link--sublist-caret menu__link--active" role=button aria-expanded=true href=/operations/dashboard><span title="Operação diária" class=categoryLinkLabel_W154>Operação diária</span></a></div><ul class=menu__list><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/operations/dashboard><span title=Dashboard class=linkLabel_WmDU>Dashboard</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/operations/fluxo-de-dados><span title="Fluxo de dados" class=linkLabel_WmDU>Fluxo de dados</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/operations/quarantine><span title=Quarentena class=linkLabel_WmDU>Quarentena</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/operations/search><span title=Investigações class=linkLabel_WmDU>Investigações</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/operations/federated-search><span title="Busca federada" class=linkLabel_WmDU>Busca federada</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class="menu__link menu__link--active" aria-current=page tabindex=0 href=/operations/detections><span title=Detecções class=linkLabel_WmDU>Detecções</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/operations/correlation-rules><span title="Regras de correlação" class=linkLabel_WmDU>Regras de correlação</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/operations/pipeline-health><span title="Saúde do Pipeline" class=linkLabel_WmDU>Saúde do Pipeline</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/operations/live-capture><span title="Captura ao vivo" class=linkLabel_WmDU>Captura ao vivo</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/operations/observability><span title="Observabilidade (OTel)" class=linkLabel_WmDU>Observabilidade (OTel)</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/operations/history-audit><span title="Histórico e auditoria" class=linkLabel_WmDU>Histórico e auditoria</span></a></ul></ul></nav></div></div></aside><main class=docMainContainer_TBSr><div class="container padding-top--md padding-bottom--lg"><div class=row><div class="col docItemCol_VOVn"><div class=docItemContainer_Djhp><article><nav class="theme-doc-breadcrumbs breadcrumbsContainer_Z_bl" aria-label=Trilha><ul class=breadcrumbs><li class=breadcrumbs__item><a aria-label="Página Inicial" class=breadcrumbs__link href=/><svg viewBox="0 0 24 24" class=breadcrumbHomeIcon_YNFT><path d="M10 19v-5h4v5c0 .55.45 1 1 1h3c.55 0 1-.45 1-1v-7h1.7c.46 0 .68-.57.33-.87L12.67 3.6c-.38-.34-.96-.34-1.34 0l-8.36 7.53c-.34.3-.13.87.33.87H5v7c0 .55.45 1 1 1h3c.55 0 1-.45 1-1z" fill=currentColor /></svg></a><li class=breadcrumbs__item><span class=breadcrumbs__link>Operação diária</span><li class="breadcrumbs__item breadcrumbs__item--active"><span class=breadcrumbs__link>Detecções</span></ul></nav><div class="tocCollapsible_ETCw theme-doc-toc-mobile tocMobile_ITEo"><button type=button class="clean-btn tocCollapsibleButton_TO0P">Nesta página</button></div><div class="theme-doc-markdown markdown"><header><h1>Detecções</h1></header>
+<p>A tela <strong>Detecções</strong> mostra alertas duráveis gerados por buscas de segurança (scheduled queries e correlações cross-source). Cada alerta aqui é um registro consultável, com status de triagem (aberto, reconhecido ou fechado) e supressão automática de ruído. Diferente dos eventos brutos de coleta (pesquisáveis em <strong>Operação → Investigações</strong>), as Detecções são análises de 1ª classe, produzidas pelo motor de IA e regras que você configurar.</p>
+<p>Para acessar, use o menu <strong>Operação → Detecções</strong>.</p>
+<p><strong>Quem pode ver:</strong> todos os perfis autenticados, escopado pela organização. Apenas <strong>Operator e superiores</strong> conseguem mudar o status (triagem).</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=quando-usar>Quando usar<a href=#quando-usar class=hash-link aria-label="Link direto para Quando usar" title="Link direto para Quando usar" translate=no>​</a></h2>
+<ul>
+<li class=""><strong>Revisar análises ativas do motor.</strong> Os alertas Critical e High aqui são resultado de correlações ou buscas agendadas — priorize pelas detecções abertas.</li>
+<li class=""><strong>Triagem: acknowledge e fechar.</strong> Ao investigar um alerta, reconheça-o para avisar a equipe que está sendo tratado; feche quando resolvido.</li>
+<li class=""><strong>Auditar supressões.</strong> A plataforma agrupa detecções repetidas (mesma origem, mesma janela) em um único alerta com count incrementado — confira o <code>count</code> para ver se há spam.</li>
+<li class=""><strong>Rastrear origens.</strong> Veja se a detecção veio de uma query agendada, busca ao vivo ou regra de correlação. Detecções de correlação muitas vezes apontam padrões multi-fonte — e, por ora, só surgem depois de uma busca federada ser executada.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=origens-de-uma-detecção>Origens de uma detecção<a href=#origens-de-uma-detecção class=hash-link aria-label="Link direto para Origens de uma detecção" title="Link direto para Origens de uma detecção" translate=no>​</a></h2>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Origem<th>O que significa<tbody><tr><td><strong>Scheduled Query</strong><td>Uma busca que roda em intervalo fixo (diária, a cada hora) e emite um alerta quando encontra correspondência.<tr><td><strong>Live Query</strong><td>Uma busca disparada manualmente pelo operador (on-demand) via "Busca Federada" que gerou um alerta.<tr><td><strong>Correlation</strong><td>Uma regra de correlação que avaliou os resultados de uma busca federada concluída e detectou um padrão de risco. Em <strong>Beta</strong>: a avaliação não é contínua — acontece somente ao final de uma busca federada. Veja <a class="" href=/operations/correlation-rules>Regras de correlação</a>.</table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=severidade-ocsf>Severidade (OCSF)<a href=#severidade-ocsf class=hash-link aria-label="Link direto para Severidade (OCSF)" title="Link direto para Severidade (OCSF)" translate=no>​</a></h2>
+<p>A severidade segue o padrão OCSF (Open Cybersecurity Schema Framework):</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Nível<th>Significado<tbody><tr><td><strong>Critical (5)</strong><td>Falha de segurança confirmada, ataque em andamento ou perda de controle. Ação imediata.<tr><td><strong>High (4)</strong><td>Padrão de risco bem definido, evidência forte. Investigar nas próximas horas.<tr><td><strong>Medium (3)</strong><td>Comportamento suspeito, mas sem confirmação. Investigar quando houver tempo.<tr><td><strong>Low (1–2)</strong><td>Atividade anômala ou informativa. Útil para trend analysis.</table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=permissões-necessárias>Permissões necessárias<a href=#permissões-necessárias class=hash-link aria-label="Link direto para Permissões necessárias" title="Link direto para Permissões necessárias" translate=no>​</a></h2>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Ação<th>Quem pode fazer<tbody><tr><td><strong>Ver Detecções</strong><td>Todos os perfis autenticados (escopado por organização).<tr><td><strong>Triagem (Ack/Fechar/Reabrir)</strong><td>Operator ou superior (mesma permissão de <strong>QUERY_RUN</strong>: rodar buscas ao vivo).</table>
+<div class="theme-admonition theme-admonition-note admonition_xJq3 alert alert--secondary"><div class=admonitionHeading_Gvgb><span class=admonitionIcon_Rf37><svg viewBox="0 0 14 16"><path fill-rule=evenodd d="M6.3 5.69a.942.942 0 0 1-.28-.7c0-.28.09-.52.28-.7.19-.18.42-.28.7-.28.28 0 .52.09.7.28.18.19.28.42.28.7 0 .28-.09.52-.28.7a1 1 0 0 1-.7.3c-.28 0-.52-.11-.7-.3zM8 7.99c-.02-.25-.11-.48-.31-.69-.2-.19-.42-.3-.69-.31H6c-.27.02-.48.13-.69.31-.2.2-.3.44-.31.69h1v3c.02.27.11.5.31.69.2.2.42.31.69.31h1c.27 0 .48-.11.69-.31.2-.19.3-.42.31-.69H8V7.98v.01zM7 2.3c-3.14 0-5.7 2.54-5.7 5.68 0 3.14 2.56 5.7 5.7 5.7s5.7-2.55 5.7-5.7c0-3.15-2.56-5.69-5.7-5.69v.01zM7 .98c3.86 0 7 3.14 7 7s-3.14 7-7 7-7-3.12-7-7 3.14-7 7-7z"/></svg></span>Erro 403 ao triagar?</div><div class=admonitionContent_BuS1><p>Se receber erro "acesso negado" ao tentar mudar o status de uma detecção, seu perfil é Viewer. Peça a um Operator que marque como reconhecida/fechada, ou solicite promoção a Operator ao administrador.</div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=a-tela>A tela<a href=#a-tela class=hash-link aria-label="Link direto para A tela" title="Link direto para A tela" translate=no>​</a></h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=filtros-disponíveis>Filtros disponíveis<a href=#filtros-disponíveis class=hash-link aria-label="Link direto para Filtros disponíveis" title="Link direto para Filtros disponíveis" translate=no>​</a></h3>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Filtro<th>Como funciona<tbody><tr><td><strong>Status</strong><td>Aberta, Reconhecida (Ack), ou Fechada. Escolha um ou mais para refinar.<tr><td><strong>Severidade</strong><td>Critical, High, Medium, Low. Filtre pelas que mais importam agora.<tr><td><strong>Origem</strong><td>Scheduled Query, Live Query ou Correlation.<tr><td><strong>Data</strong><td>Últimas 24h, 7 dias, 30 dias ou intervalo personalizado.</table>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=colunas-da-lista>Colunas da lista<a href=#colunas-da-lista class=hash-link aria-label="Link direto para Colunas da lista" title="Link direto para Colunas da lista" translate=no>​</a></h3>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Coluna<th>O que mostra<tbody><tr><td><strong>Status</strong><td>Aberta (●), Reconhecida (◐), Fechada (✓).<tr><td><strong>Severidade</strong><td>Nível de risco, com cor destacada.<tr><td><strong>Título</strong><td>Resumo do que foi detectado (ex.: "5 tentativas falhadas em 1h").<tr><td><strong>Origem</strong><td>Scheduled Query, Live Query ou Correlation.<tr><td><strong>Count</strong><td>Quantas vezes a mesma detecção (mesmo <code>dedup_key</code>) foi reincidida. Em detecções de <strong>correlação</strong>, conta <strong>execuções da regra</strong>, não eventos correlacionados — veja <a href=#deduplica%C3%A7%C3%A3o-e-supress%C3%A3o class="">Deduplicação e supressão</a>.<tr><td><strong>Primeira vista</strong><td>Quando o primeiro evento do grupo foi registrado.<tr><td><strong>Última vista</strong><td>Quando a detecção mais recente foi adicionada ao grupo.</table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=deduplicação-e-supressão>Deduplicação e supressão<a href=#deduplicação-e-supressão class=hash-link aria-label="Link direto para Deduplicação e supressão" title="Link direto para Deduplicação e supressão" translate=no>​</a></h2>
+<p>Detecções com o <strong>mesmo <code>dedup_key</code></strong> (origem, campo de chave) dentro da <strong>mesma janela de supressão</strong> (padrão: 3600 segundos = 1 hora) são agrupadas em um único alerta.</p>
+<p><strong>Exemplo:</strong> uma query dispara 5 vezes para o mesmo usuário ao longo de 50 minutos. Em vez de 5 alertas, você vê 1 alerta com <code>count=5</code> e <code>last_seen</code> atualizado.</p>
+<p>Benefício: reduz ruído e evita que você feche o mesmo alerta múltiplas vezes.</p>
+<div class="theme-admonition theme-admonition-caution admonition_xJq3 alert alert--warning"><div class=admonitionHeading_Gvgb><span class=admonitionIcon_Rf37><svg viewBox="0 0 16 16"><path fill-rule=evenodd d="M8.893 1.5c-.183-.31-.52-.5-.887-.5s-.703.19-.886.5L.138 13.499a.98.98 0 0 0 0 1.001c.193.31.53.501.886.501h13.964c.367 0 .704-.19.877-.5a1.03 1.03 0 0 0 .01-1.002L8.893 1.5zm.133 11.497H6.987v-2.003h2.039v2.003zm0-3.004H6.987V5.987h2.039v4.006z"/></svg></span>cuidado</div><div class=admonitionContent_BuS1><mdxadmonitiontitle><code>count</code> conta reincidências, não eventos</mdxadmonitiontitle><p>O <code>count</code> é incrementado em <strong>1 a cada nova ocorrência da mesma detecção</strong> — ou seja, a cada vez que a origem reincide naquele <code>dedup_key</code>. Ele <strong>não</strong> é o número de eventos que compõem o padrão.<p>Isso importa especialmente nas detecções de <strong>correlação</strong>: ali o <code>count</code> reflete <strong>quantas vezes a regra foi executada e voltou a bater naquela chave</strong> (uma vez por busca federada concluída), e não quantos eventos foram correlacionados. Uma regra "10 falhas de SSH do mesmo IP" que bateu uma única vez aparece com <code>count=1</code>, não <code>count=10</code>. Para saber quantos eventos formaram o padrão, abra o detalhe da detecção e olhe os eventos, não a coluna Count.</div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=passo-a-passo>Passo a passo<a href=#passo-a-passo class=hash-link aria-label="Link direto para Passo a passo" title="Link direto para Passo a passo" translate=no>​</a></h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=ver-detecções-abertas-do-dia>Ver detecções abertas do dia<a href=#ver-detecções-abertas-do-dia class=hash-link aria-label="Link direto para Ver detecções abertas do dia" title="Link direto para Ver detecções abertas do dia" translate=no>​</a></h3>
+<ol>
+<li class="">No menu, abra <strong>Operação → Detecções</strong>.</li>
+<li class="">Filtre <strong>Status</strong> = Aberta.</li>
+<li class="">Filtre <strong>Data</strong> = Últimas 24h.</li>
+<li class="">Confirme. A lista mostra apenas as detecções abertas recentes.</li>
+</ol>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=reconhecer-uma-detecção-ack>Reconhecer uma detecção (Ack)<a href=#reconhecer-uma-detecção-ack class=hash-link aria-label="Link direto para Reconhecer uma detecção (Ack)" title="Link direto para Reconhecer uma detecção (Ack)" translate=no>​</a></h3>
+<ol>
+<li class="">Localize a detecção na lista.</li>
+<li class="">Abra o detalhe ou use a ação <strong>Reconhecer</strong>.</li>
+<li class="">O status muda para <strong>Reconhecida</strong> — avisa a equipe que você está investigando.</li>
+</ol>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=fechar-uma-detecção>Fechar uma detecção<a href=#fechar-uma-detecção class=hash-link aria-label="Link direto para Fechar uma detecção" title="Link direto para Fechar uma detecção" translate=no>​</a></h3>
+<ol>
+<li class="">Quando terminar a investigação, abra o detalhe da detecção.</li>
+<li class="">Use a ação <strong>Fechar</strong>.</li>
+<li class="">A detecção muda para <strong>Fechada</strong>. Se disparar novamente (fora da janela de supressão), um novo alerta aparece.</li>
+</ol>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=reabrir-uma-detecção>Reabrir uma detecção<a href=#reabrir-uma-detecção class=hash-link aria-label="Link direto para Reabrir uma detecção" title="Link direto para Reabrir uma detecção" translate=no>​</a></h3>
+<ol>
+<li class="">Se a investigação não resolveu o problema, abra a detecção fechada.</li>
+<li class="">Use a ação <strong>Reabrir</strong>.</li>
+<li class="">O status volta para <strong>Aberta</strong>.</li>
+</ol>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=detalhe-de-uma-detecção>Detalhe de uma detecção<a href=#detalhe-de-uma-detecção class=hash-link aria-label="Link direto para Detalhe de uma detecção" title="Link direto para Detalhe de uma detecção" translate=no>​</a></h3>
+<p>Clique no alerta para ver:</p>
+<ul>
+<li class=""><strong>Severidade</strong> — nível de risco.</li>
+<li class=""><strong>Status</strong> — Aberta / Reconhecida / Fechada.</li>
+<li class=""><strong>Origem</strong> — qual query ou correlação gerou.</li>
+<li class=""><strong>Regra</strong> — nome da regra de correlação (se aplicável).</li>
+<li class=""><strong>Contagem</strong> — quantas vezes a detecção reincidiu (execuções que voltaram a bater, não eventos).</li>
+<li class=""><strong>Primeira/Última vista</strong> — intervalo do grupo.</li>
+<li class=""><strong>Dedup key</strong> — chave de deduplicação (interno; útil para debug).</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=casos-de-uso-rápidos>Casos de uso rápidos<a href=#casos-de-uso-rápidos class=hash-link aria-label="Link direto para Casos de uso rápidos" title="Link direto para Casos de uso rápidos" translate=no>​</a></h2>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Pergunta<th>Como responder<tbody><tr><td>Tenho alertas Critical para triagar?<td>Filtre Severidade = Critical e Status = Aberta. Clique em cada um para investigar.<tr><td>Qual tema está gerando mais alertas?<td>Filtre por Origem (ex.: Scheduled Query) e olhe a distribuição.<tr><td>Este é falso positivo?<td>Filtre pela regra/origem e veja se muitos alertas parecidos aparecem repetidamente. Se sim, revise a regra com um Engineer.<tr><td>Como vejo o evento que originou a detecção?<td>Abra o detalhe. Se houver link a um evento (Search Result), clique para ver os dados brutos.</table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=o-que-esperar-e-limites>O que esperar (e limites)<a href=#o-que-esperar-e-limites class=hash-link aria-label="Link direto para O que esperar (e limites)" title="Link direto para O que esperar (e limites)" translate=no>​</a></h2>
+<ul>
+<li class=""><strong>Apenas triagem aqui.</strong> Esta tela serve para reconhecer e fechar alertas de análise. Não é o lugar para investigar eventos brutos — vá em <strong>Operação → Investigações</strong> para dados completos.</li>
+<li class=""><strong>Dedup inteligente.</strong> Alertas com o mesmo padrão (dedup_key) em um intervalo curto são agrupados. Após a janela de supressão (padrão 1 hora), um novo alerta da mesma regra é legítimo.</li>
+<li class=""><strong>Retenção.</strong> Detecções são armazenadas de forma durável. Eventos muito antigos podem não aparecer em buscas rápidas — use as telas de <strong>Investigações</strong> ou os destinos configurados para histórico de longo prazo.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=próximos-passos>Próximos passos<a href=#próximos-passos class=hash-link aria-label="Link direto para Próximos passos" title="Link direto para Próximos passos" translate=no>​</a></h2>
+<ul>
+<li class=""><strong>Investigar a raiz de um alerta?</strong> Vá em <strong>Operação → Investigações</strong> (<a class="" href=/operations/search>Investigações</a>) para buscar os eventos de coleta que geraram a detecção.</li>
+<li class=""><strong>Criar ou editar regras de correlação?</strong> Vá em <strong>Conhecimento → Correlação</strong> (visível apenas a Engineer e acima).</li>
+<li class=""><strong>Executar uma busca on-demand?</strong> Vá em <strong>Operação → Busca Federada</strong> (<a class="" href=/operations/search>Busca Federada</a>).</li>
+</ul></div></article><nav class="docusaurus-mt-lg pagination-nav" aria-label="Páginas de documento"><a class="pagination-nav__link pagination-nav__link--prev" href=/operations/federated-search><div class=pagination-nav__sublabel>Anterior</div><div class=pagination-nav__label>Busca federada</div></a><a class="pagination-nav__link pagination-nav__link--next" href=/operations/correlation-rules><div class=pagination-nav__sublabel>Próxima</div><div class=pagination-nav__label>Regras de correlação</div></a></nav></div></div><div class="col col--3"><div class="tableOfContents_bqdL thin-scrollbar theme-doc-toc-desktop"><ul class="table-of-contents table-of-contents__left-border"><li><a href=#quando-usar class="table-of-contents__link toc-highlight">Quando usar</a><li><a href=#origens-de-uma-detecção class="table-of-contents__link toc-highlight">Origens de uma detecção</a><li><a href=#severidade-ocsf class="table-of-contents__link toc-highlight">Severidade (OCSF)</a><li><a href=#permissões-necessárias class="table-of-contents__link toc-highlight">Permissões necessárias</a><li><a href=#a-tela class="table-of-contents__link toc-highlight">A tela</a><ul><li><a href=#filtros-disponíveis class="table-of-contents__link toc-highlight">Filtros disponíveis</a><li><a href=#colunas-da-lista class="table-of-contents__link toc-highlight">Colunas da lista</a></ul><li><a href=#deduplicação-e-supressão class="table-of-contents__link toc-highlight">Deduplicação e supressão</a><li><a href=#passo-a-passo class="table-of-contents__link toc-highlight">Passo a passo</a><ul><li><a href=#ver-detecções-abertas-do-dia class="table-of-contents__link toc-highlight">Ver detecções abertas do dia</a><li><a href=#reconhecer-uma-detecção-ack class="table-of-contents__link toc-highlight">Reconhecer uma detecção (Ack)</a><li><a href=#fechar-uma-detecção class="table-of-contents__link toc-highlight">Fechar uma detecção</a><li><a href=#reabrir-uma-detecção class="table-of-contents__link toc-highlight">Reabrir uma detecção</a><li><a href=#detalhe-de-uma-detecção class="table-of-contents__link toc-highlight">Detalhe de uma detecção</a></ul><li><a href=#casos-de-uso-rápidos class="table-of-contents__link toc-highlight">Casos de uso rápidos</a><li><a href=#o-que-esperar-e-limites class="table-of-contents__link toc-highlight">O que esperar (e limites)</a><li><a href=#próximos-passos class="table-of-contents__link toc-highlight">Próximos passos</a></ul></div></div></div></div></main></div></div></div><footer class="theme-layout-footer footer footer--dark"><div class="container container-fluid"><div class="row footer__links"><div class="theme-layout-footer-column col footer__col"><div class=footer__title>Documentação</div><ul class="footer__items clean-list"><li class=footer__item><a class=footer__link-item href=/getting-started/overview>Começar</a><li class=footer__item><a class=footer__link-item href=/operations/dashboard>Operação diária</a><li class=footer__item><a class=footer__link-item href=/normalization/overview>Mappings (CML)</a><li class=footer__item><a class=footer__link-item href=/runbooks/dispatcher>Runbooks</a></ul></div><div class="theme-layout-footer-column col footer__col"><div class=footer__title>Plataforma</div><ul class="footer__items clean-list"><li class=footer__item><a class=footer__link-item href=/concepts/architecture>Arquitetura</a><li class=footer__item><a class=footer__link-item href=/concepts/rbac>RBAC</a><li class=footer__item><a class=footer__link-item href=/integrations/overview>Integrações</a><li class=footer__item><a class=footer__link-item href=/compliance/retention>Compliance</a></ul></div><div class="theme-layout-footer-column col footer__col"><div class=footer__title>Recursos</div><ul class="footer__items clean-list"><li class=footer__item><a class=footer__link-item href=/getting-started/quickstart>Quickstart</a><li class=footer__item><a class=footer__link-item href=/normalization/cookbook>DSL Cookbook</a><li class=footer__item><a class=footer__link-item href=/normalization/troubleshooting>Troubleshooting</a></ul></div></div><div class="footer__bottom text--center"><div class=footer__copyright>Copyright © 2026 CentralOps. Built with Docusaurus.</div></div></div></footer></div></body>

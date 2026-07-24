@@ -1,0 +1,268 @@
+<!doctype html><html lang=en dir=ltr class="docs-wrapper plugin-docs plugin-id-default docs-version-current docs-doc-page docs-doc-id-integrations/microsoft-defender" data-has-hydrated=false><head><meta charset=UTF-8><meta name=generator content="Docusaurus v3.10.0"><title data-rh=true>Microsoft Defender | CentralOps</title><meta data-rh=true name=viewport content="width=device-width, initial-scale=1.0"/><meta data-rh=true name=twitter:card content=summary_large_image /><meta data-rh=true property=og:image content=https://docs.segark.com/en/img/centralops-social-card.png /><meta data-rh=true name=twitter:image content=https://docs.segark.com/en/img/centralops-social-card.png /><meta data-rh=true property=og:url content=https://docs.segark.com/en/integrations/microsoft-defender /><meta data-rh=true property=og:locale content=en /><meta data-rh=true property=og:locale:alternate content=pt_BR /><meta data-rh=true property=og:locale:alternate content=es /><meta data-rh=true name=docusaurus_locale content=en /><meta data-rh=true name=docsearch:language content=en /><meta data-rh=true name=docusaurus_version content=current /><meta data-rh=true name=docusaurus_tag content=docs-default-current /><meta data-rh=true name=docsearch:version content=current /><meta data-rh=true name=docsearch:docusaurus_tag content=docs-default-current /><meta data-rh=true property=og:title content="Microsoft Defender | CentralOps"/><meta data-rh=true name=description content="Conecte o Microsoft Defender ao CentralOps para coletar incidentes, alertas e executar hunts com KQL"/><meta data-rh=true property=og:description content="Conecte o Microsoft Defender ao CentralOps para coletar incidentes, alertas e executar hunts com KQL"/><link data-rh=true rel=icon href=/en/img/favicon.ico /><link data-rh=true rel=canonical href=https://docs.segark.com/en/integrations/microsoft-defender /><link data-rh=true rel=alternate href=https://docs.segark.com/integrations/microsoft-defender hreflang=pt-BR /><link data-rh=true rel=alternate href=https://docs.segark.com/en/integrations/microsoft-defender hreflang=en /><link data-rh=true rel=alternate href=https://docs.segark.com/es/integrations/microsoft-defender hreflang=es /><link data-rh=true rel=alternate href=https://docs.segark.com/integrations/microsoft-defender hreflang=x-default /><script data-rh=true type=application/ld+json>{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","item":"https://docs.segark.com/en/integrations/microsoft-defender","name":"Microsoft Defender","position":1}]}</script><link rel=stylesheet href=/en/assets/css/styles.65a61132.css /><script src=/en/assets/js/runtime~main.3e1a07f1.js defer></script><script src=/en/assets/js/main.109b76da.js defer></script></head><body><svg style="display: none;"><defs>
+<symbol id=theme-svg-external-link viewBox="0 0 24 24"><path fill=currentColor d="M21 13v10h-21v-19h12v2h-10v15h17v-8h2zm3-12h-10.988l4.035 4-6.977 7.07 2.828 2.828 6.977-7.07 4.125 4.172v-11z"/></symbol>
+</defs></svg>
+<script>!function(){var t=function(){try{return new URLSearchParams(window.location.search).get("docusaurus-theme")}catch(t){}}()||function(){try{return window.localStorage.getItem("theme-797")}catch(t){}}();document.documentElement.setAttribute("data-theme",t||(window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light")),document.documentElement.setAttribute("data-theme-choice",t||"system")}(),function(){try{for(var[t,e]of new URLSearchParams(window.location.search).entries())if(t.startsWith("docusaurus-data-")){var a=t.replace("docusaurus-data-","data-");document.documentElement.setAttribute(a,e)}}catch(t){}}()</script><div id=__docusaurus><link rel=preload as=image href=/en/img/logo.svg /><div role=region aria-label="Skip to main content"><a class=skipToContent_fXgn href=#__docusaurus_skipToContent_fallback>Skip to main content</a></div><nav aria-label=Main class="theme-layout-navbar navbar navbar--fixed-top"><div class=navbar__inner><div class="theme-layout-navbar-left navbar__items"><button aria-label="Toggle navigation bar" aria-expanded=false class="navbar__toggle clean-btn" type=button><svg width=30 height=30 viewBox="0 0 30 30" aria-hidden=true><path stroke=currentColor stroke-linecap=round stroke-miterlimit=10 stroke-width=2 d="M4 7h22M4 15h22M4 23h22"/></svg></button><a class=navbar__brand href=/en/><div class=navbar__logo><img src=/en/img/logo.svg alt=CentralOps class="themedComponent_mlkZ themedComponent--light_NVdE"/><img src=/en/img/logo.svg alt=CentralOps class="themedComponent_mlkZ themedComponent--dark_xIcU"/></div><b class="navbar__title text--truncate">CentralOps</b></a><a class="navbar__item navbar__link" href=/en/>Get started</a><a class="navbar__item navbar__link" href=/en/outputs/overview>Outputs & Routing</a><a class="navbar__item navbar__link" href=/en/operations/dashboard>Operations</a><a aria-current=page class="navbar__item navbar__link navbar__link--active" href=/en/administration/users-and-roles>Administration</a><a class="navbar__item navbar__link" href=/en/normalization/overview>Mappings</a><a class="navbar__item navbar__link" href=/en/runbooks/dispatcher>Runbooks</a></div><div class="theme-layout-navbar-right navbar__items navbar__items--right"><div class="navbar__item dropdown dropdown--hoverable dropdown--right"><a href=# aria-haspopup=true aria-expanded=false role=button class=navbar__link><svg viewBox="0 0 24 24" width=20 height=20 aria-hidden=true class=iconLanguage_nlXk><path fill=currentColor d="M12.87 15.07l-2.54-2.51.03-.03c1.74-1.94 2.98-4.17 3.71-6.53H17V4h-7V2H8v2H1v1.99h11.17C11.5 7.92 10.44 9.75 9 11.35 8.07 10.32 7.3 9.19 6.69 8h-2c.73 1.63 1.73 3.17 2.98 4.56l-5.09 5.02L4 19l5-5 3.11 3.11.76-2.04zM18.5 10h-2L12 22h2l1.12-3h4.75L21 22h2l-4.5-12zm-2.62 7l1.62-4.33L19.12 17h-3.24z"/></svg>English</a><ul class=dropdown__menu><li><a href=/integrations/microsoft-defender target=_self rel="noopener noreferrer" class=dropdown__link lang=pt-BR>Português</a><li><a href=/en/integrations/microsoft-defender target=_self rel="noopener noreferrer" class="dropdown__link dropdown__link--active" lang=en>English</a><li><a href=/es/integrations/microsoft-defender target=_self rel="noopener noreferrer" class=dropdown__link lang=es>Español</a></ul></div><div class="toggle_vylO colorModeToggle_DEke"><button class="clean-btn toggleButton_gllP toggleButtonDisabled_aARS" type=button disabled title="system mode" aria-label="Switch between dark and light mode (currently system mode)"><svg viewBox="0 0 24 24" width=24 height=24 aria-hidden=true class="toggleIcon_g3eP lightToggleIcon_pyhR"><path fill=currentColor d="M12,9c1.65,0,3,1.35,3,3s-1.35,3-3,3s-3-1.35-3-3S10.35,9,12,9 M12,7c-2.76,0-5,2.24-5,5s2.24,5,5,5s5-2.24,5-5 S14.76,7,12,7L12,7z M2,13l2,0c0.55,0,1-0.45,1-1s-0.45-1-1-1l-2,0c-0.55,0-1,0.45-1,1S1.45,13,2,13z M20,13l2,0c0.55,0,1-0.45,1-1 s-0.45-1-1-1l-2,0c-0.55,0-1,0.45-1,1S19.45,13,20,13z M11,2v2c0,0.55,0.45,1,1,1s1-0.45,1-1V2c0-0.55-0.45-1-1-1S11,1.45,11,2z M11,20v2c0,0.55,0.45,1,1,1s1-0.45,1-1v-2c0-0.55-0.45-1-1-1C11.45,19,11,19.45,11,20z M5.99,4.58c-0.39-0.39-1.03-0.39-1.41,0 c-0.39,0.39-0.39,1.03,0,1.41l1.06,1.06c0.39,0.39,1.03,0.39,1.41,0s0.39-1.03,0-1.41L5.99,4.58z M18.36,16.95 c-0.39-0.39-1.03-0.39-1.41,0c-0.39,0.39-0.39,1.03,0,1.41l1.06,1.06c0.39,0.39,1.03,0.39,1.41,0c0.39-0.39,0.39-1.03,0-1.41 L18.36,16.95z M19.42,5.99c0.39-0.39,0.39-1.03,0-1.41c-0.39-0.39-1.03-0.39-1.41,0l-1.06,1.06c-0.39,0.39-0.39,1.03,0,1.41 s1.03,0.39,1.41,0L19.42,5.99z M7.05,18.36c0.39-0.39,0.39-1.03,0-1.41c-0.39-0.39-1.03-0.39-1.41,0l-1.06,1.06 c-0.39,0.39-0.39,1.03,0,1.41s1.03,0.39,1.41,0L7.05,18.36z"/></svg><svg viewBox="0 0 24 24" width=24 height=24 aria-hidden=true class="toggleIcon_g3eP darkToggleIcon_wfgR"><path fill=currentColor d="M9.37,5.51C9.19,6.15,9.1,6.82,9.1,7.5c0,4.08,3.32,7.4,7.4,7.4c0.68,0,1.35-0.09,1.99-0.27C17.45,17.19,14.93,19,12,19 c-3.86,0-7-3.14-7-7C5,9.07,6.81,6.55,9.37,5.51z M12,3c-4.97,0-9,4.03-9,9s4.03,9,9,9s9-4.03,9-9c0-0.46-0.04-0.92-0.1-1.36 c-0.98,1.37-2.58,2.26-4.4,2.26c-2.98,0-5.4-2.42-5.4-5.4c0-1.81,0.89-3.42,2.26-4.4C12.92,3.04,12.46,3,12,3L12,3z"/></svg><svg viewBox="0 0 24 24" width=24 height=24 aria-hidden=true class="toggleIcon_g3eP systemToggleIcon_QzmC"><path fill=currentColor d="m12 21c4.971 0 9-4.029 9-9s-4.029-9-9-9-9 4.029-9 9 4.029 9 9 9zm4.95-13.95c1.313 1.313 2.05 3.093 2.05 4.95s-0.738 3.637-2.05 4.95c-1.313 1.313-3.093 2.05-4.95 2.05v-14c1.857 0 3.637 0.737 4.95 2.05z"/></svg></button></div><div class=navbarSearchContainer_Bca1><div class=navbar__search><span aria-label="expand searchbar" role=button class=search-icon tabindex=0></span><input id=search_input_react type=search placeholder=Loading... aria-label=Search class="navbar__search-input search-bar" disabled/></div></div></div></div><div role=presentation class=navbar-sidebar__backdrop></div></nav><div id=__docusaurus_skipToContent_fallback class="theme-layout-main main-wrapper mainWrapper_z2l0"><div class=docsWrapper_hBAB><button aria-label="Scroll back to top" class="clean-btn theme-back-to-top-button backToTopButton_sjWU" type=button></button><div class=docRoot_UBD9><aside class="theme-doc-sidebar-container docSidebarContainer_YfHR"><div class=sidebarViewport_aRkj><div class=sidebar_njMd><nav aria-label="Docs sidebar" class="menu thin-scrollbar menu_SIkG"><ul class="theme-doc-sidebar-menu menu__list"><li class="theme-doc-sidebar-item-category theme-doc-sidebar-item-category-level-1 menu__list-item"><div class=menu__list-item-collapsible><a class="categoryLink_byQd menu__link menu__link--sublist menu__link--sublist-caret" role=button aria-expanded=true href=/en/administration/users-and-roles><span title=Administration class=categoryLinkLabel_W154>Administration</span></a></div><ul class=menu__list><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/en/administration/users-and-roles><span title="Usuários e papéis" class=linkLabel_WmDU>Usuários e papéis</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/en/administration/sso-entra><span title="SSO com Microsoft Entra ID" class=linkLabel_WmDU>SSO com Microsoft Entra ID</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/en/administration/organizations><span title=Organizações class=linkLabel_WmDU>Organizações</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/en/administration/tenant-hierarchy><span title="Hierarquia de tenants e MSP" class=linkLabel_WmDU>Hierarquia de tenants e MSP</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/en/administration/platform-config><span title="Configuração da plataforma" class=linkLabel_WmDU>Configuração da plataforma</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/en/administration/secrets-and-master-key><span title="Credenciais e segredos das integrações" class=linkLabel_WmDU>Credenciais e segredos das integrações</span></a></ul><li class="theme-doc-sidebar-item-category theme-doc-sidebar-item-category-level-1 menu__list-item"><div class=menu__list-item-collapsible><a class="categoryLink_byQd menu__link menu__link--sublist menu__link--sublist-caret menu__link--active" role=button aria-expanded=true href=/en/integrations/overview><span title=Integrations class=categoryLinkLabel_W154>Integrations</span></a></div><ul class=menu__list><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/en/integrations/overview><span title="Visão geral de integrações" class=linkLabel_WmDU>Visão geral de integrações</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/en/integrations/sophos><span title="Sophos Central" class=linkLabel_WmDU>Sophos Central</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/en/integrations/wazuh><span title=Wazuh class=linkLabel_WmDU>Wazuh</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/en/integrations/crowdstrike><span title="CrowdStrike Falcon" class=linkLabel_WmDU>CrowdStrike Falcon</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class="menu__link menu__link--active" aria-current=page tabindex=0 href=/en/integrations/microsoft-defender><span title="Microsoft Defender" class=linkLabel_WmDU>Microsoft Defender</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/en/integrations/dfir-iris><span title=DFIR-IRIS class=linkLabel_WmDU>DFIR-IRIS</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/en/integrations/push-ingestion><span title="Ingestão push (edge-collector)" class=linkLabel_WmDU>Ingestão push (edge-collector)</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/en/integrations/fortinet-fortigate><span title="Fortinet FortiGate" class=linkLabel_WmDU>Fortinet FortiGate</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/en/integrations/windows-event-log><span title="Windows Event Log (WEC)" class=linkLabel_WmDU>Windows Event Log (WEC)</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/en/integrations/adding-new-vendor><span title="Vendors suportados e como solicitar um novo" class=linkLabel_WmDU>Vendors suportados e como solicitar um novo</span></a></ul></ul></nav></div></div></aside><main class=docMainContainer_TBSr><div class="container padding-top--md padding-bottom--lg"><div class=row><div class="col docItemCol_VOVn"><div class=docItemContainer_Djhp><article><nav class="theme-doc-breadcrumbs breadcrumbsContainer_Z_bl" aria-label=Breadcrumbs><ul class=breadcrumbs><li class=breadcrumbs__item><a aria-label="Home page" class=breadcrumbs__link href=/en/><svg viewBox="0 0 24 24" class=breadcrumbHomeIcon_YNFT><path d="M10 19v-5h4v5c0 .55.45 1 1 1h3c.55 0 1-.45 1-1v-7h1.7c.46 0 .68-.57.33-.87L12.67 3.6c-.38-.34-.96-.34-1.34 0l-8.36 7.53c-.34.3-.13.87.33.87H5v7c0 .55.45 1 1 1h3c.55 0 1-.45 1-1z" fill=currentColor /></svg></a><li class=breadcrumbs__item><span class=breadcrumbs__link>Integrations</span><li class="breadcrumbs__item breadcrumbs__item--active"><span class=breadcrumbs__link>Microsoft Defender</span></ul></nav><div class="tocCollapsible_ETCw theme-doc-toc-mobile tocMobile_ITEo"><button type=button class="clean-btn tocCollapsibleButton_TO0P">On this page</button></div><div class="theme-doc-markdown markdown"><header><h1>Microsoft Defender</h1></header>
+<p>Conecte o CentralOps ao seu <strong>Microsoft Defender</strong> para coletar incidentes e alertas automaticamente, normalizá-los e disponibilizá-los para busca, investigação e correlação com as demais fontes de segurança. Além disso, execute buscas ao vivo (advanced hunting com KQL) diretamente pela plataforma de forma federada.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=quando-usar>Quando usar<a href=#quando-usar class=hash-link aria-label="Direct link to Quando usar" title="Direct link to Quando usar" translate=no>​</a></h2>
+<ul>
+<li class=""><strong>Centralizar incidentes e alertas do EDR/XDR da Microsoft.</strong> Você usa Microsoft Defender para proteção de endpoints e quer trazer as detecções para o CentralOps e analisá-las ao lado das outras origens de segurança.</li>
+<li class=""><strong>Correlacionar ameaças entre fornecedores.</strong> Cruze os incidentes do Defender com eventos de Sophos, CrowdStrike, Wazuh e outras integrações para investigar um incidente de ponta a ponta.</li>
+<li class=""><strong>Fazer hunts ao vivo com KQL (Kusto Query Language).</strong> Use o menu <strong>Operação → Busca federada</strong> para escrever queries KQL, executar advanced hunting e coletar resultados sem sair do CentralOps.</li>
+<li class=""><strong>Encaminhar para SIEM e data lake.</strong> Depois de coletados, os eventos do Defender seguem pelas regras de roteamento para os seus destinos (Sentinel, Splunk, S3), permitindo alertar e responder de forma centralizada.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=quem-pode-fazer-o-quê>Quem pode fazer o quê<a href=#quem-pode-fazer-o-quê class=hash-link aria-label="Direct link to Quem pode fazer o quê" title="Direct link to Quem pode fazer o quê" translate=no>​</a></h2>
+<ul>
+<li class=""><strong>Administrador da plataforma:</strong> cria e edita a integração (menu <strong>Visão geral -> Integrações</strong>).</li>
+<li class=""><strong>Operador ou superior:</strong> executa buscas ao vivo e triagem de detecções (menu <strong>Operação -> Busca federada</strong> e <strong>Operação -> Detecções</strong>).</li>
+<li class=""><strong>Demais perfis:</strong> visualizam os incidentes e alertas já coletados (tela <strong>Operação -> Investigações</strong>).</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=pré-requisitos>Pré-requisitos<a href=#pré-requisitos class=hash-link aria-label="Direct link to Pré-requisitos" title="Direct link to Pré-requisitos" translate=no>​</a></h2>
+<p>Antes de começar, garanta que você tem:</p>
+<ul>
+<li class="">Acesso de <strong>administrador no Azure AD</strong> (Entra ID) da sua organização, para registrar uma aplicação e gerar credenciais.</li>
+<li class="">Acesso de <strong>administrador no CentralOps</strong>, para criar a integração.</li>
+<li class=""><strong>Permissões de API no Microsoft Defender</strong>: a aplicação registrada precisa das permissões <code>SecurityAlert.Read.All</code> e <code>SecurityIncident.Read.All</code> (no mínimo).</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=passo-1-registrar-uma-aplicação-no-azure-ad>Passo 1: Registrar uma aplicação no Azure AD<a href=#passo-1-registrar-uma-aplicação-no-azure-ad class=hash-link aria-label="Direct link to Passo 1: Registrar uma aplicação no Azure AD" title="Direct link to Passo 1: Registrar uma aplicação no Azure AD" translate=no>​</a></h2>
+<p>Estas etapas são feitas no Azure, não no CentralOps.</p>
+<ol>
+<li class="">Acesse o <strong>Azure Portal</strong> (<code>https://portal.azure.com</code>).</li>
+<li class="">Navegue até <strong>Azure Active Directory</strong> → <strong>App registrations</strong> (Registos de aplicações).</li>
+<li class="">Clique em <strong>+ New registration</strong> (+ Novo registo).</li>
+<li class="">Preencha os dados:
+<ul>
+<li class=""><strong>Name:</strong> um nome descritivo, por exemplo <strong>CentralOps Defender Integration</strong>.</li>
+<li class=""><strong>Supported account types:</strong> escolha <strong>Accounts in this organizational directory only</strong> (sua organização).</li>
+</ul>
+</li>
+<li class="">Clique em <strong>Register</strong> (Registar).</li>
+<li class="">Anote o <strong>Application (client) ID</strong> e o <strong>Directory (tenant) ID</strong>. Você vai precisar deles no Passo 3.</li>
+</ol>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=passo-2-gerar-o-segredo-da-aplicação>Passo 2: Gerar o segredo da aplicação<a href=#passo-2-gerar-o-segredo-da-aplicação class=hash-link aria-label="Direct link to Passo 2: Gerar o segredo da aplicação" title="Direct link to Passo 2: Gerar o segredo da aplicação" translate=no>​</a></h2>
+<ol>
+<li class="">No App Registration criado, abra a seção <strong>Certificates & secrets</strong> (Certificados e segredos).</li>
+<li class="">Na aba <strong>Client secrets</strong>, clique em <strong>+ New client secret</strong> (+ Novo segredo do cliente).</li>
+<li class="">Dê uma descrição, por exemplo <strong>CentralOps</strong>.</li>
+<li class="">Escolha a data de expiração (recomenda-se 1 ou 2 anos).</li>
+<li class="">Clique em <strong>Add</strong> (Adicionar).</li>
+</ol>
+<div class="theme-admonition theme-admonition-warning admonition_xJq3 alert alert--warning"><div class=admonitionHeading_Gvgb><span class=admonitionIcon_Rf37><svg viewBox="0 0 16 16"><path fill-rule=evenodd d="M8.893 1.5c-.183-.31-.52-.5-.887-.5s-.703.19-.886.5L.138 13.499a.98.98 0 0 0 0 1.001c.193.31.53.501.886.501h13.964c.367 0 .704-.19.877-.5a1.03 1.03 0 0 0 .01-1.002L8.893 1.5zm.133 11.497H6.987v-2.003h2.039v2.003zm0-3.004H6.987V5.987h2.039v4.006z"/></svg></span>Copie o segredo na hora</div><div class=admonitionContent_BuS1><p>O <strong>Client Secret</strong> (Value) é mostrado apenas uma vez. Copie e guarde em local seguro (gerenciador de senhas ou cofre de segredos). Se perder, será preciso gerar um novo.</div></div>
+<ol start=6>
+<li class="">Anote o valor do segredo.</li>
+</ol>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=passo-3-conceder-permissões-de-api>Passo 3: Conceder permissões de API<a href=#passo-3-conceder-permissões-de-api class=hash-link aria-label="Direct link to Passo 3: Conceder permissões de API" title="Direct link to Passo 3: Conceder permissões de API" translate=no>​</a></h2>
+<p>Ainda na App Registration:</p>
+<ol>
+<li class="">Abra a seção <strong>API permissions</strong> (Permissões de API).</li>
+<li class="">Clique em <strong>+ Add a permission</strong> (+ Adicionar uma permissão).</li>
+<li class="">Escolha <strong>Microsoft Graph</strong>.</li>
+<li class="">Selecione <strong>Application permissions</strong> (Permissões da aplicação) — <strong>não delegadas</strong>.</li>
+<li class="">Na caixa de busca, procure por e selecione as permissões necessárias:
+<ul>
+<li class=""><code>SecurityAlert.Read.All</code> — para ler alertas.</li>
+<li class=""><code>SecurityIncident.Read.All</code> — para ler incidentes.</li>
+</ul>
+</li>
+<li class="">Clique em <strong>Add permissions</strong> (Adicionar permissões).</li>
+<li class="">De volta em <strong>API permissions</strong>, clique em <strong>Grant admin consent for [sua organização]</strong> (Conceder consentimento do administrador) e confirme.</li>
+</ol>
+<p>O status das permissões deve mudar para verde, indicando consentimento concedido.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=passo-4-criar-a-integração-no-centralops>Passo 4: Criar a integração no CentralOps<a href=#passo-4-criar-a-integração-no-centralops class=hash-link aria-label="Direct link to Passo 4: Criar a integração no CentralOps" title="Direct link to Passo 4: Criar a integração no CentralOps" translate=no>​</a></h2>
+<ol>
+<li class="">
+<p>No menu lateral, vá em <strong>Visão geral -> Integrações</strong>.</p>
+</li>
+<li class="">
+<p>Clique em <strong>Adicionar integração</strong>.</p>
+</li>
+<li class="">
+<p>Escolha <strong>Microsoft Defender</strong> na lista de plataformas e avance.</p>
+</li>
+<li class="">
+<p>Preencha os campos do formulário:</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Campo<th>O que informar<tbody><tr><td>Nome<td>Um nome para identificar esta conexão, por exemplo "Microsoft Defender - Produção".<tr><td>Tenant ID<td>O Directory (tenant) ID copiado no Passo 1.<tr><td>Client ID<td>O Application (client) ID copiado no Passo 1.<tr><td>Client Secret<td>O valor do segredo gerado no Passo 2.</table>
+</li>
+<li class="">
+<p>Use a opção de <strong>testar a conexão</strong>. O CentralOps valida as credenciais e verifica se consegue alcançar o Microsoft Defender. Se aparecer um erro, confira:</p>
+<ul>
+<li class="">Tenant ID, Client ID ou Client Secret digitados incorretamente.</li>
+<li class="">Permissões de API não concedidas ou não consentidas no Azure AD.</li>
+<li class="">A aplicação registrada está no Azure AD correto.</li>
+</ul>
+</li>
+<li class="">
+<p>Salve a integração. As credenciais são armazenadas de forma criptografada e a integração entra no estado de aguardando a primeira coleta.</p>
+</li>
+</ol>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=passo-5-acompanhar-a-primeira-coleta>Passo 5: Acompanhar a primeira coleta<a href=#passo-5-acompanhar-a-primeira-coleta class=hash-link aria-label="Direct link to Passo 5: Acompanhar a primeira coleta" title="Direct link to Passo 5: Acompanhar a primeira coleta" translate=no>​</a></h2>
+<p>A primeira coleta acontece automaticamente, poucos minutos depois de salvar. Acompanhe o status na própria tela da integração, em <strong>Visão geral -> Integrações</strong>.</p>
+<p>Quando houver incidentes ou alertas recentes no Defender:</p>
+<ul>
+<li class="">O status da integração muda para ativo e o indicador de saúde fica verde.</li>
+<li class="">Os eventos ficam pesquisáveis em <strong>Operação -> Investigações</strong>.</li>
+</ul>
+<p>Se nada aparecer depois de alguns minutos, veja a seção <a href=#solu%C3%A7%C3%A3o-de-problemas class="">Solução de problemas</a> abaixo.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=passo-6-opcional-executar-buscas-ao-vivo-com-kql>Passo 6 (opcional): Executar buscas ao vivo com KQL<a href=#passo-6-opcional-executar-buscas-ao-vivo-com-kql class=hash-link aria-label="Direct link to Passo 6 (opcional): Executar buscas ao vivo com KQL" title="Direct link to Passo 6 (opcional): Executar buscas ao vivo com KQL" translate=no>​</a></h2>
+<p>A partir da integração criada, você pode executar <strong>advanced hunting</strong> (buscas ao vivo com KQL) diretamente no CentralOps, sem precisar abrir o portal do Azure.</p>
+<ol>
+<li class="">Vá em <strong>Operação -> Busca federada</strong>.</li>
+<li class="">Selecione <strong>Microsoft Defender</strong> como plataforma.</li>
+<li class="">Escolha o dialeto <strong>KQL</strong>.</li>
+<li class="">Escreva sua query KQL (por exemplo, <code>DeviceProcessEvents | where FileName == "cmd.exe" | limit 100</code>).</li>
+<li class="">Defina a janela de tempo (até 30 dias).</li>
+<li class="">Clique em <strong>Executar</strong>. O CentralOps faz a busca no Defender e mostra os resultados.</li>
+</ol>
+<div class="theme-admonition theme-admonition-note admonition_xJq3 alert alert--secondary"><div class=admonitionHeading_Gvgb><span class=admonitionIcon_Rf37><svg viewBox="0 0 14 16"><path fill-rule=evenodd d="M6.3 5.69a.942.942 0 0 1-.28-.7c0-.28.09-.52.28-.7.19-.18.42-.28.7-.28.28 0 .52.09.7.28.18.19.28.42.28.7 0 .28-.09.52-.28.7a1 1 0 0 1-.7.3c-.28 0-.52-.11-.7-.3zM8 7.99c-.02-.25-.11-.48-.31-.69-.2-.19-.42-.3-.69-.31H6c-.27.02-.48.13-.69.31-.2.2-.3.44-.31.69h1v3c.02.27.11.5.31.69.2.2.42.31.69.31h1c.27 0 .48-.11.69-.31.2-.19.3-.42.31-.69H8V7.98v.01zM7 2.3c-3.14 0-5.7 2.54-5.7 5.68 0 3.14 2.56 5.7 5.7 5.7s5.7-2.55 5.7-5.7c0-3.15-2.56-5.69-5.7-5.69v.01zM7 .98c3.86 0 7 3.14 7 7s-3.14 7-7 7-7-3.12-7-7 3.14-7 7-7z"/></svg></span>Sintaxe KQL</div><div class=admonitionContent_BuS1><p>A sintaxe segue exatamente o Kusto Query Language do Microsoft Defender. Para detalhes e exemplos, consulte a <a href=https://learn.microsoft.com/en-us/azure/data-explorer/kusto/query/ target=_blank rel="noopener noreferrer" class="">documentação oficial do KQL</a>.</div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=o-que-é-coletado>O que é coletado<a href=#o-que-é-coletado class=hash-link aria-label="Direct link to O que é coletado" title="Direct link to O que é coletado" translate=no>​</a></h2>
+<p>Cada incidente e alerta do Defender chega ao CentralOps com informações como:</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Informação<th>Exemplo<tbody><tr><td>Identificador do incidente<td><code>incident-123</code><tr><td>Estado<td>Ativo, resolvido<tr><td>Nível de severidade<td>Crítico, alto, médio, baixo, informativo<tr><td>Título<td><code>Suspected Windows Defender Tampering</code><tr><td>Dispositivos afetados<td><code>workstation-01</code>, <code>server-02</code><tr><td>Usuários envolvidos<td><code>user@domain.com</code><tr><td>Data e hora<td><code>2026-05-15T14:30:00Z</code></table>
+<p>O CentralOps converte esses dados para o formato padronizado da plataforma, de modo que os incidentes do Defender podem ser pesquisados e correlacionados com as demais fontes. Se algum campo não puder ser convertido, o evento vai para a <strong>Quarentena</strong> (menu <strong>Normalização -> Quarentena</strong>), onde você pode revisar e reprocessar.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=capacidades-de-consulta>Capacidades de consulta<a href=#capacidades-de-consulta class=hash-link aria-label="Direct link to Capacidades de consulta" title="Direct link to Capacidades de consulta" translate=no>​</a></h2>
+<p>A integração do Microsoft Defender suporta:</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Capacidade<th>Detalhes<tbody><tr><td><strong>Advanced hunting (KQL)</strong><td>Dialeto: KQL (Kusto Query Language)<tr><td><strong>Modo de execução</strong><td>Ao vivo (síncrono)<tr><td><strong>Janela máxima de tempo</strong><td>30 dias<tr><td><strong>Taxa de limite</strong><td>~45 requisições por minuto (limite do Graph)<tr><td><strong>Especificação</strong><td>Passthrough (KQL direto) ou Sigma (regras de detecção em YAML)</table>
+<p>Estas capacidades ficam visíveis em <strong>Operação -> Busca federada</strong>, no seletor de integrações.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=solução-de-problemas>Solução de problemas<a href=#solução-de-problemas class=hash-link aria-label="Direct link to Solução de problemas" title="Direct link to Solução de problemas" translate=no>​</a></h2>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Sintoma<th>Causa provável<th>O que fazer<tbody><tr><td>Erro "Falha na autenticação" ao testar a conexão<td>Client ID ou Client Secret incorretos, ou permissões não concedidas<td>Verifique no Azure AD: o Client ID está correto, o segredo não expirou, e o consentimento do administrador foi concedido para as permissões. Gere um novo segredo se necessário.<tr><td>Erro "Permissão negada" (access denied)<td>Permissões de API não concedidas ou insuficientes<td>No Azure AD, em <strong>API permissions</strong>, confirme que <code>SecurityAlert.Read.All</code> e <code>SecurityIncident.Read.All</code> estão presentes e com consentimento concedido (ícone verde).<tr><td>Nenhum evento aparecendo<td>Não há incidentes ou alertas recentes no Defender, ou evento foi para a quarentena<td>Confirme no console do Defender se há incidentes/alertas recentes. Se houver, aguarde alguns minutos. Se ainda assim nada aparecer em <strong>Operação -> Investigações</strong>, verifique a tela <strong>Normalização -> Quarentena</strong>.<tr><td>Erro de conexão "connection refused"<td>Host ou porta incorretos (improvável — o Graph está online)<td>Confirme que sua rede permite conexões de saída para <code>graph.microsoft.com</code> na porta 443 (HTTPS). Se o bloqueio for por firewall, peça exceção.<tr><td>Busca KQL retorna erro "Query syntax error"<td>Sintaxe KQL inválida<td>Verifique a sintaxe no <a href=https://security.microsoft.com/advanced-hunting target=_blank rel="noopener noreferrer" class="">Microsoft Defender Advanced Hunting</a> antes de copiar para o CentralOps. Erros comuns: falta de `<tr><td>Busca KQL fica "Pendente" por muito tempo<td>Taxa de limite do Graph foi atingida (45/min)<td>Aguarde alguns minutos e tente novamente. Se precisar executar muitas queries, escalone-as. Para aumento permanente, fale com o suporte da Microsoft.<tr><td>Integração parada por erro de token<td>A renovação automática do acesso falhou<td>O CentralOps tenta renovar o token sozinho. Se continuar falhando, verifique a validade do segredo no Azure AD (pode estar expirado). Gere um novo segredo e atualize a integração, testando a conexão em seguida.</table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=próximos-passos>Próximos passos<a href=#próximos-passos class=hash-link aria-label="Direct link to Próximos passos" title="Direct link to Próximos passos" translate=no>​</a></h2>
+<ul>
+<li class=""><strong>Eventos aparecendo?</strong> Veja o <a class="" href=/en/operations/dashboard>Dashboard</a>.</li>
+<li class=""><strong>Algo na quarentena?</strong> Veja a <a class="" href=/en/operations/quarantine>Quarentena</a>.</li>
+<li class=""><strong>Executar buscas ao vivo?</strong> Veja o guia de <a class="" href=/en/operations/search>Busca federada</a> (em breve).</li>
+<li class=""><strong>Adicionar outro fornecedor?</strong> Veja a <a class="" href=/en/integrations/overview>visão geral de Integrações</a>.</li>
+</ul></div></article><nav class="docusaurus-mt-lg pagination-nav" aria-label="Docs pages"><a class="pagination-nav__link pagination-nav__link--prev" href=/en/integrations/crowdstrike><div class=pagination-nav__sublabel>Previous</div><div class=pagination-nav__label>CrowdStrike Falcon</div></a><a class="pagination-nav__link pagination-nav__link--next" href=/en/integrations/dfir-iris><div class=pagination-nav__sublabel>Next</div><div class=pagination-nav__label>DFIR-IRIS</div></a></nav></div></div><div class="col col--3"><div class="tableOfContents_bqdL thin-scrollbar theme-doc-toc-desktop"><ul class="table-of-contents table-of-contents__left-border"><li><a href=#quando-usar class="table-of-contents__link toc-highlight">Quando usar</a><li><a href=#quem-pode-fazer-o-quê class="table-of-contents__link toc-highlight">Quem pode fazer o quê</a><li><a href=#pré-requisitos class="table-of-contents__link toc-highlight">Pré-requisitos</a><li><a href=#passo-1-registrar-uma-aplicação-no-azure-ad class="table-of-contents__link toc-highlight">Passo 1: Registrar uma aplicação no Azure AD</a><li><a href=#passo-2-gerar-o-segredo-da-aplicação class="table-of-contents__link toc-highlight">Passo 2: Gerar o segredo da aplicação</a><li><a href=#passo-3-conceder-permissões-de-api class="table-of-contents__link toc-highlight">Passo 3: Conceder permissões de API</a><li><a href=#passo-4-criar-a-integração-no-centralops class="table-of-contents__link toc-highlight">Passo 4: Criar a integração no CentralOps</a><li><a href=#passo-5-acompanhar-a-primeira-coleta class="table-of-contents__link toc-highlight">Passo 5: Acompanhar a primeira coleta</a><li><a href=#passo-6-opcional-executar-buscas-ao-vivo-com-kql class="table-of-contents__link toc-highlight">Passo 6 (opcional): Executar buscas ao vivo com KQL</a><li><a href=#o-que-é-coletado class="table-of-contents__link toc-highlight">O que é coletado</a><li><a href=#capacidades-de-consulta class="table-of-contents__link toc-highlight">Capacidades de consulta</a><li><a href=#solução-de-problemas class="table-of-contents__link toc-highlight">Solução de problemas</a><li><a href=#próximos-passos class="table-of-contents__link toc-highlight">Próximos passos</a></ul></div></div></div></div></main></div></div></div><footer class="theme-layout-footer footer footer--dark"><div class="container container-fluid"><div class="row footer__links"><div class="theme-layout-footer-column col footer__col"><div class=footer__title>Documentação</div><ul class="footer__items clean-list"><li class=footer__item><a class=footer__link-item href=/en/getting-started/overview>Começar</a><li class=footer__item><a class=footer__link-item href=/en/operations/dashboard>Operação diária</a><li class=footer__item><a class=footer__link-item href=/en/normalization/overview>Mappings (CML)</a><li class=footer__item><a class=footer__link-item href=/en/runbooks/dispatcher>Runbooks</a></ul></div><div class="theme-layout-footer-column col footer__col"><div class=footer__title>Plataforma</div><ul class="footer__items clean-list"><li class=footer__item><a class=footer__link-item href=/en/concepts/architecture>Arquitetura</a><li class=footer__item><a class=footer__link-item href=/en/concepts/rbac>RBAC</a><li class=footer__item><a class=footer__link-item href=/en/integrations/overview>Integrações</a><li class=footer__item><a class=footer__link-item href=/en/compliance/retention>Compliance</a></ul></div><div class="theme-layout-footer-column col footer__col"><div class=footer__title>Recursos</div><ul class="footer__items clean-list"><li class=footer__item><a class=footer__link-item href=/en/getting-started/quickstart>Quickstart</a><li class=footer__item><a class=footer__link-item href=/en/normalization/cookbook>DSL Cookbook</a><li class=footer__item><a class=footer__link-item href=/en/normalization/troubleshooting>Troubleshooting</a></ul></div></div><div class="footer__bottom text--center"><div class=footer__copyright>Copyright © 2026 CentralOps. Built with Docusaurus.</div></div></div></footer></div></body>

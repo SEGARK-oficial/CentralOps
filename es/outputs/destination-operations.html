@@ -1,0 +1,242 @@
+<!doctype html><html lang=es dir=ltr class="docs-wrapper plugin-docs plugin-id-default docs-version-current docs-doc-page docs-doc-id-outputs/destination-operations" data-has-hydrated=false><head><meta charset=UTF-8><meta name=generator content="Docusaurus v3.10.0"><title data-rh=true>Operar destinos (saúde, fila de reenvio, métricas) | CentralOps</title><meta data-rh=true name=viewport content="width=device-width, initial-scale=1.0"/><meta data-rh=true name=twitter:card content=summary_large_image /><meta data-rh=true property=og:image content=https://docs.segark.com/es/img/centralops-social-card.png /><meta data-rh=true name=twitter:image content=https://docs.segark.com/es/img/centralops-social-card.png /><meta data-rh=true property=og:url content=https://docs.segark.com/es/outputs/destination-operations /><meta data-rh=true property=og:locale content=es /><meta data-rh=true property=og:locale:alternate content=pt_BR /><meta data-rh=true property=og:locale:alternate content=en /><meta data-rh=true name=docusaurus_locale content=es /><meta data-rh=true name=docsearch:language content=es /><meta data-rh=true name=docusaurus_version content=current /><meta data-rh=true name=docusaurus_tag content=docs-default-current /><meta data-rh=true name=docsearch:version content=current /><meta data-rh=true name=docsearch:docusaurus_tag content=docs-default-current /><meta data-rh=true property=og:title content="Operar destinos (saúde, fila de reenvio, métricas) | CentralOps"/><meta data-rh=true name=description content="Acompanhe a saúde dos destinos, investigue falhas, reenvie eventos e gerencie credenciais — tudo pela interface."/><meta data-rh=true property=og:description content="Acompanhe a saúde dos destinos, investigue falhas, reenvie eventos e gerencie credenciais — tudo pela interface."/><link data-rh=true rel=icon href=/es/img/favicon.ico /><link data-rh=true rel=canonical href=https://docs.segark.com/es/outputs/destination-operations /><link data-rh=true rel=alternate href=https://docs.segark.com/outputs/destination-operations hreflang=pt-BR /><link data-rh=true rel=alternate href=https://docs.segark.com/en/outputs/destination-operations hreflang=en /><link data-rh=true rel=alternate href=https://docs.segark.com/es/outputs/destination-operations hreflang=es /><link data-rh=true rel=alternate href=https://docs.segark.com/outputs/destination-operations hreflang=x-default /><script data-rh=true type=application/ld+json>{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","item":"https://docs.segark.com/es/outputs/destination-operations","name":"Operar destinos (saúde, fila de reenvio, métricas)","position":1}]}</script><link rel=stylesheet href=/es/assets/css/styles.65a61132.css /><script src=/es/assets/js/runtime~main.774ab3e5.js defer></script><script src=/es/assets/js/main.9750a519.js defer></script></head><body><svg style="display: none;"><defs>
+<symbol id=theme-svg-external-link viewBox="0 0 24 24"><path fill=currentColor d="M21 13v10h-21v-19h12v2h-10v15h17v-8h2zm3-12h-10.988l4.035 4-6.977 7.07 2.828 2.828 6.977-7.07 4.125 4.172v-11z"/></symbol>
+</defs></svg>
+<script>!function(){var t=function(){try{return new URLSearchParams(window.location.search).get("docusaurus-theme")}catch(t){}}()||function(){try{return window.localStorage.getItem("theme-4d2")}catch(t){}}();document.documentElement.setAttribute("data-theme",t||(window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light")),document.documentElement.setAttribute("data-theme-choice",t||"system")}(),function(){try{for(var[t,e]of new URLSearchParams(window.location.search).entries())if(t.startsWith("docusaurus-data-")){var a=t.replace("docusaurus-data-","data-");document.documentElement.setAttribute(a,e)}}catch(t){}}()</script><div id=__docusaurus><link rel=preload as=image href=/es/img/logo.svg /><div role=region aria-label="Saltar al contenido principal"><a class=skipToContent_fXgn href=#__docusaurus_skipToContent_fallback>Saltar al contenido principal</a></div><nav aria-label=Principal class="theme-layout-navbar navbar navbar--fixed-top"><div class=navbar__inner><div class="theme-layout-navbar-left navbar__items"><button aria-label="Alternar barra lateral" aria-expanded=false class="navbar__toggle clean-btn" type=button><svg width=30 height=30 viewBox="0 0 30 30" aria-hidden=true><path stroke=currentColor stroke-linecap=round stroke-miterlimit=10 stroke-width=2 d="M4 7h22M4 15h22M4 23h22"/></svg></button><a class=navbar__brand href=/es/><div class=navbar__logo><img src=/es/img/logo.svg alt=CentralOps class="themedComponent_mlkZ themedComponent--light_NVdE"/><img src=/es/img/logo.svg alt=CentralOps class="themedComponent_mlkZ themedComponent--dark_xIcU"/></div><b class="navbar__title text--truncate">CentralOps</b></a><a class="navbar__item navbar__link" href=/es/>Empezar</a><a aria-current=page class="navbar__item navbar__link navbar__link--active" href=/es/outputs/overview>Salidas y Rutas</a><a class="navbar__item navbar__link" href=/es/operations/dashboard>Operación</a><a class="navbar__item navbar__link" href=/es/administration/users-and-roles>Administración</a><a class="navbar__item navbar__link" href=/es/normalization/overview>Mappings</a><a class="navbar__item navbar__link" href=/es/runbooks/dispatcher>Runbooks</a></div><div class="theme-layout-navbar-right navbar__items navbar__items--right"><div class="navbar__item dropdown dropdown--hoverable dropdown--right"><a href=# aria-haspopup=true aria-expanded=false role=button class=navbar__link><svg viewBox="0 0 24 24" width=20 height=20 aria-hidden=true class=iconLanguage_nlXk><path fill=currentColor d="M12.87 15.07l-2.54-2.51.03-.03c1.74-1.94 2.98-4.17 3.71-6.53H17V4h-7V2H8v2H1v1.99h11.17C11.5 7.92 10.44 9.75 9 11.35 8.07 10.32 7.3 9.19 6.69 8h-2c.73 1.63 1.73 3.17 2.98 4.56l-5.09 5.02L4 19l5-5 3.11 3.11.76-2.04zM18.5 10h-2L12 22h2l1.12-3h4.75L21 22h2l-4.5-12zm-2.62 7l1.62-4.33L19.12 17h-3.24z"/></svg>Español</a><ul class=dropdown__menu><li><a href=/outputs/destination-operations target=_self rel="noopener noreferrer" class=dropdown__link lang=pt-BR>Português</a><li><a href=/en/outputs/destination-operations target=_self rel="noopener noreferrer" class=dropdown__link lang=en>English</a><li><a href=/es/outputs/destination-operations target=_self rel="noopener noreferrer" class="dropdown__link dropdown__link--active" lang=es>Español</a></ul></div><div class="toggle_vylO colorModeToggle_DEke"><button class="clean-btn toggleButton_gllP toggleButtonDisabled_aARS" type=button disabled title="system mode" aria-label="Cambiar entre modo oscuro y claro (actualmente system mode)"><svg viewBox="0 0 24 24" width=24 height=24 aria-hidden=true class="toggleIcon_g3eP lightToggleIcon_pyhR"><path fill=currentColor d="M12,9c1.65,0,3,1.35,3,3s-1.35,3-3,3s-3-1.35-3-3S10.35,9,12,9 M12,7c-2.76,0-5,2.24-5,5s2.24,5,5,5s5-2.24,5-5 S14.76,7,12,7L12,7z M2,13l2,0c0.55,0,1-0.45,1-1s-0.45-1-1-1l-2,0c-0.55,0-1,0.45-1,1S1.45,13,2,13z M20,13l2,0c0.55,0,1-0.45,1-1 s-0.45-1-1-1l-2,0c-0.55,0-1,0.45-1,1S19.45,13,20,13z M11,2v2c0,0.55,0.45,1,1,1s1-0.45,1-1V2c0-0.55-0.45-1-1-1S11,1.45,11,2z M11,20v2c0,0.55,0.45,1,1,1s1-0.45,1-1v-2c0-0.55-0.45-1-1-1C11.45,19,11,19.45,11,20z M5.99,4.58c-0.39-0.39-1.03-0.39-1.41,0 c-0.39,0.39-0.39,1.03,0,1.41l1.06,1.06c0.39,0.39,1.03,0.39,1.41,0s0.39-1.03,0-1.41L5.99,4.58z M18.36,16.95 c-0.39-0.39-1.03-0.39-1.41,0c-0.39,0.39-0.39,1.03,0,1.41l1.06,1.06c0.39,0.39,1.03,0.39,1.41,0c0.39-0.39,0.39-1.03,0-1.41 L18.36,16.95z M19.42,5.99c0.39-0.39,0.39-1.03,0-1.41c-0.39-0.39-1.03-0.39-1.41,0l-1.06,1.06c-0.39,0.39-0.39,1.03,0,1.41 s1.03,0.39,1.41,0L19.42,5.99z M7.05,18.36c0.39-0.39,0.39-1.03,0-1.41c-0.39-0.39-1.03-0.39-1.41,0l-1.06,1.06 c-0.39,0.39-0.39,1.03,0,1.41s1.03,0.39,1.41,0L7.05,18.36z"/></svg><svg viewBox="0 0 24 24" width=24 height=24 aria-hidden=true class="toggleIcon_g3eP darkToggleIcon_wfgR"><path fill=currentColor d="M9.37,5.51C9.19,6.15,9.1,6.82,9.1,7.5c0,4.08,3.32,7.4,7.4,7.4c0.68,0,1.35-0.09,1.99-0.27C17.45,17.19,14.93,19,12,19 c-3.86,0-7-3.14-7-7C5,9.07,6.81,6.55,9.37,5.51z M12,3c-4.97,0-9,4.03-9,9s4.03,9,9,9s9-4.03,9-9c0-0.46-0.04-0.92-0.1-1.36 c-0.98,1.37-2.58,2.26-4.4,2.26c-2.98,0-5.4-2.42-5.4-5.4c0-1.81,0.89-3.42,2.26-4.4C12.92,3.04,12.46,3,12,3L12,3z"/></svg><svg viewBox="0 0 24 24" width=24 height=24 aria-hidden=true class="toggleIcon_g3eP systemToggleIcon_QzmC"><path fill=currentColor d="m12 21c4.971 0 9-4.029 9-9s-4.029-9-9-9-9 4.029-9 9 4.029 9 9 9zm4.95-13.95c1.313 1.313 2.05 3.093 2.05 4.95s-0.738 3.637-2.05 4.95c-1.313 1.313-3.093 2.05-4.95 2.05v-14c1.857 0 3.637 0.737 4.95 2.05z"/></svg></button></div><div class=navbarSearchContainer_Bca1><div class=navbar__search><span aria-label="expand searchbar" role=button class=search-icon tabindex=0></span><input id=search_input_react type=search placeholder=Loading... aria-label=Search class="navbar__search-input search-bar" disabled/></div></div></div></div><div role=presentation class=navbar-sidebar__backdrop></div></nav><div id=__docusaurus_skipToContent_fallback class="theme-layout-main main-wrapper mainWrapper_z2l0"><div class=docsWrapper_hBAB><button aria-label="Volver al principio" class="clean-btn theme-back-to-top-button backToTopButton_sjWU" type=button></button><div class=docRoot_UBD9><aside class="theme-doc-sidebar-container docSidebarContainer_YfHR"><div class=sidebarViewport_aRkj><div class=sidebar_njMd><nav aria-label="Barra lateral de Documentos" class="menu thin-scrollbar menu_SIkG"><ul class="theme-doc-sidebar-menu menu__list"><li class="theme-doc-sidebar-item-category theme-doc-sidebar-item-category-level-1 menu__list-item"><div class=menu__list-item-collapsible><a class="categoryLink_byQd menu__link menu__link--sublist menu__link--sublist-caret menu__link--active" role=button aria-expanded=true href=/es/outputs/overview><span title="Salidas y enrutamiento" class=categoryLinkLabel_W154>Salidas y enrutamiento</span></a></div><ul class=menu__list><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/es/outputs/overview><span title="Saídas e Roteamento (visão geral)" class=linkLabel_WmDU>Saídas e Roteamento (visão geral)</span></a><li class="theme-doc-sidebar-item-category theme-doc-sidebar-item-category-level-2 menu__list-item"><div class=menu__list-item-collapsible><a class="categoryLink_byQd menu__link menu__link--sublist menu__link--sublist-caret menu__link--active" role=button aria-expanded=true tabindex=0 href=/es/outputs/destinations><span title=Destinos class=categoryLinkLabel_W154>Destinos</span></a></div><ul class=menu__list><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class=menu__link tabindex=0 href=/es/outputs/destinations><span title="Destinos (catálogo e como configurar)" class=linkLabel_WmDU>Destinos (catálogo e como configurar)</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class=menu__link tabindex=0 href=/es/outputs/destination-wazuh-syslog><span title="Destino: Syslog e JSONL" class=linkLabel_WmDU>Destino: Syslog e JSONL</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class=menu__link tabindex=0 href=/es/outputs/destination-splunk-hec><span title="Destino: Splunk HEC" class=linkLabel_WmDU>Destino: Splunk HEC</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class=menu__link tabindex=0 href=/es/outputs/destination-elastic><span title="Destino: Elasticsearch / OpenSearch" class=linkLabel_WmDU>Destino: Elasticsearch / OpenSearch</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class=menu__link tabindex=0 href=/es/outputs/destination-clickhouse><span title="Destino: ClickHouse" class=linkLabel_WmDU>Destino: ClickHouse</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class=menu__link tabindex=0 href=/es/outputs/destination-crowdstrike-ngsiem><span title="Destino: CrowdStrike Falcon Next-Gen SIEM" class=linkLabel_WmDU>Destino: CrowdStrike Falcon Next-Gen SIEM</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class=menu__link tabindex=0 href=/es/outputs/destination-crowdstrike-logscale><span title="Destino: CrowdStrike Falcon LogScale" class=linkLabel_WmDU>Destino: CrowdStrike Falcon LogScale</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class=menu__link tabindex=0 href=/es/outputs/destination-s3><span title="Destino: S3 / Object Store (data lake)" class=linkLabel_WmDU>Destino: S3 / Object Store (data lake)</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class=menu__link tabindex=0 href=/es/outputs/destination-sentinel><span title="Destino: Microsoft Sentinel" class=linkLabel_WmDU>Destino: Microsoft Sentinel</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class=menu__link tabindex=0 href=/es/outputs/destination-kafka><span title="Destino: Apache Kafka" class=linkLabel_WmDU>Destino: Apache Kafka</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class=menu__link tabindex=0 href=/es/outputs/destination-otlp><span title="Destino: OTLP" class=linkLabel_WmDU>Destino: OTLP</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class="menu__link menu__link--active" aria-current=page tabindex=0 href=/es/outputs/destination-operations><span title="Operar destinos (saúde, fila de reenvio, métricas)" class=linkLabel_WmDU>Operar destinos (saúde, fila de reenvio, métricas)</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class=menu__link tabindex=0 href=/es/outputs/destination-webhook><span title="Destino: Webhook Genérico" class=linkLabel_WmDU>Destino: Webhook Genérico</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class=menu__link tabindex=0 href=/es/outputs/destination-datadog><span title="Destino: Datadog Logs" class=linkLabel_WmDU>Destino: Datadog Logs</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class=menu__link tabindex=0 href=/es/outputs/destination-chronicle><span title="Destino: Google SecOps (Chronicle)" class=linkLabel_WmDU>Destino: Google SecOps (Chronicle)</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class=menu__link tabindex=0 href=/es/outputs/destination-security-lake><span title="Destino: Amazon Security Lake (OCSF Parquet)" class=linkLabel_WmDU>Destino: Amazon Security Lake (OCSF Parquet)</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class=menu__link tabindex=0 href=/es/outputs/adding-a-destination><span title="Destinos — catálogo e tipos disponíveis" class=linkLabel_WmDU>Destinos — catálogo e tipos disponíveis</span></a></ul><li class="theme-doc-sidebar-item-category theme-doc-sidebar-item-category-level-2 menu__list-item"><div class=menu__list-item-collapsible><a class="categoryLink_byQd menu__link menu__link--sublist menu__link--sublist-caret" role=button aria-expanded=true tabindex=0 href=/es/outputs/routing><span title=Enrutamiento class=categoryLinkLabel_W154>Enrutamiento</span></a></div><ul class=menu__list><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class=menu__link tabindex=0 href=/es/outputs/routing><span title="Roteamento por regra" class=linkLabel_WmDU>Roteamento por regra</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class=menu__link tabindex=0 href=/es/outputs/routing-canary><span title="Cutover gradual de SIEM (canary)" class=linkLabel_WmDU>Cutover gradual de SIEM (canary)</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class=menu__link tabindex=0 href=/es/outputs/routing-dry-run><span title="Testar rotas, ver o fluxo e reverter mudanças" class=linkLabel_WmDU>Testar rotas, ver o fluxo e reverter mudanças</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class=menu__link tabindex=0 href=/es/outputs/reducao-de-volume><span title="Redução de volume" class=linkLabel_WmDU>Redução de volume</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class=menu__link tabindex=0 href=/es/outputs/pii-redaction><span title="Redação de dados pessoais por rota (LGPD/GDPR)" class=linkLabel_WmDU>Redação de dados pessoais por rota (LGPD/GDPR)</span></a></ul><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/es/outputs/observability><span title="Observabilidade dos destinos" class=linkLabel_WmDU>Observabilidade dos destinos</span></a></ul></ul></nav></div></div></aside><main class=docMainContainer_TBSr><div class="container padding-top--md padding-bottom--lg"><div class=row><div class="col docItemCol_VOVn"><div class=docItemContainer_Djhp><article><nav class="theme-doc-breadcrumbs breadcrumbsContainer_Z_bl" aria-label="Rastro de navegación"><ul class=breadcrumbs><li class=breadcrumbs__item><a aria-label="Página de Inicio" class=breadcrumbs__link href=/es/><svg viewBox="0 0 24 24" class=breadcrumbHomeIcon_YNFT><path d="M10 19v-5h4v5c0 .55.45 1 1 1h3c.55 0 1-.45 1-1v-7h1.7c.46 0 .68-.57.33-.87L12.67 3.6c-.38-.34-.96-.34-1.34 0l-8.36 7.53c-.34.3-.13.87.33.87H5v7c0 .55.45 1 1 1h3c.55 0 1-.45 1-1z" fill=currentColor /></svg></a><li class=breadcrumbs__item><span class=breadcrumbs__link>Salidas y enrutamiento</span><li class=breadcrumbs__item><span class=breadcrumbs__link>Destinos</span><li class="breadcrumbs__item breadcrumbs__item--active"><span class=breadcrumbs__link>Operar destinos (saúde, fila de reenvio, métricas)</span></ul></nav><div class="tocCollapsible_ETCw theme-doc-toc-mobile tocMobile_ITEo"><button type=button class="clean-btn tocCollapsibleButton_TO0P">En esta página</button></div><div class="theme-doc-markdown markdown"><header><h1>Operar destinos</h1></header>
+<p>Esta tela mostra a saúde de cada destino para onde o CentralOps envia eventos — conectividade, proteção contra destino instável e fila de reenvio — e permite gerenciar as credenciais de cada um.</p>
+<p>Os destinos são gerenciados pelo administrador da plataforma no menu <strong>Operação → Destinos</strong>. Analistas e engenheiros podem acompanhar a saúde e a fila de reenvio; ações que mexem em credenciais (rotacionar, revogar) são restritas ao administrador.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=quando-usar>Quando usar<a href=#quando-usar class=hash-link aria-label="Enlace directo al Quando usar" title="Enlace directo al Quando usar" translate=no>​</a></h2>
+<ul>
+<li class=""><strong>Um destino parou de receber eventos.</strong> O Sentinel, o Splunk ou o data lake do cliente apareceu com aviso vermelho no painel e você precisa descobrir se é credencial vencida, rede ou indisponibilidade do lado do destino.</li>
+<li class=""><strong>A fila de reenvio está crescendo.</strong> Eventos estão acumulando sem chegar ao destino. Você quer ver o motivo predominante das falhas, corrigir a causa e reenviar o que ficou retido.</li>
+<li class=""><strong>Rotação de credencial agendada ou após incidente.</strong> O token de um destino vai vencer (ou vazou) e você precisa trocá-lo sem derrubar o fluxo nem perder eventos em trânsito.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=saúde-geral-dos-destinos>Saúde geral dos destinos<a href=#saúde-geral-dos-destinos class=hash-link aria-label="Enlace directo al Saúde geral dos destinos" title="Enlace directo al Saúde geral dos destinos" translate=no>​</a></h2>
+<p>Vá ao menu <strong>Operação → Destinos</strong>. A coluna de status mostra um indicador colorido para cada destino:</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Indicador<th>Significado<th>O que fazer<tbody><tr><td>🟢 <strong>Saudável</strong><td>Conexão OK, nenhuma falha nas últimas 24h<td>Acompanhar.<tr><td>🟡 <strong>Degradado</strong><td>Conexão OK, mas há eventos na fila de reenvio nas últimas 24h<td>Abrir a fila de reenvio e investigar os erros.<tr><td>🔴 <strong>Indisponível</strong><td>Proteção contra destino instável <strong>ativada</strong> — o destino não está recebendo<td>Testar a conexão, conferir a credencial, acionar o responsável pelo destino.<tr><td>⚪ <strong>Desconhecido</strong><td>A plataforma não conseguiu verificar o estado no momento<td>Aguardar e atualizar a tela; se persistir, falar com o administrador.<tr><td>⚫ <strong>Desabilitado</strong><td>Destino desligado<td>Reativar pelo administrador, se necessário.</table>
+<p>A tela lista todos os destinos visíveis à sua organização com status, eventos por segundo (na última hora) e volume de dados — útil como visão de painel.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=testar-a-conexão-de-um-destino>Testar a conexão de um destino<a href=#testar-a-conexão-de-um-destino class=hash-link aria-label="Enlace directo al Testar a conexão de um destino" title="Enlace directo al Testar a conexão de um destino" translate=no>​</a></h2>
+<p>Antes de colocar um destino em produção, valide a conexão:</p>
+<ol>
+<li class="">Vá ao menu <strong>Operação → Destinos</strong> e selecione o destino.</li>
+<li class="">Use o botão de <strong>Testar</strong> conexão.</li>
+<li class="">A plataforma abre uma conexão temporária só para o teste e verifica:
+<ul>
+<li class="">se a rede responde (nome do host resolve, porta aberta);</li>
+<li class="">se a credencial é válida (ela é usada apenas neste teste, nunca registrada em log);</li>
+<li class="">se o envio de uma amostra funciona no formato esperado pelo destino;</li>
+<li class="">a latência da resposta.</li>
+</ul>
+</li>
+</ol>
+<p>Se passar, você vê uma confirmação com o tempo de resposta. Se falhar, a tela mostra a mensagem de erro indicando o motivo (credencial, rede ou formato).</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=saúde-detalhada-de-um-destino>Saúde detalhada de um destino<a href=#saúde-detalhada-de-um-destino class=hash-link aria-label="Enlace directo al Saúde detalhada de um destino" title="Enlace directo al Saúde detalhada de um destino" translate=no>​</a></h2>
+<p>Ao abrir um destino, a plataforma mostra os indicadores de saúde dele:</p>
+<ul>
+<li class=""><strong>Estado da proteção contra destino instável</strong>: normal (recebendo), ativada (parou de enviar e está acumulando na fila de reenvio) ou em recuperação (testando se o destino voltou).</li>
+<li class=""><strong>Eventos na fila de reenvio nas últimas 24h</strong>: quantos eventos foram recusados recentemente.</li>
+<li class=""><strong>Eventos por segundo</strong>: ritmo de eventos entregues com sucesso na última hora.</li>
+<li class=""><strong>Quando ocorreu a última falha</strong>.</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=como-funciona-a-proteção-contra-destino-instável>Como funciona a proteção contra destino instável<a href=#como-funciona-a-proteção-contra-destino-instável class=hash-link aria-label="Enlace directo al Como funciona a proteção contra destino instável" title="Enlace directo al Como funciona a proteção contra destino instável" translate=no>​</a></h3>
+<p>Para evitar martelar um destino que está caindo, a plataforma protege o fluxo automaticamente:</p>
+<ol>
+<li class=""><strong>Falhas seguidas</strong>: a proteção é ativada — os novos eventos vão direto para a fila de reenvio, sem novas tentativas imediatas.</li>
+<li class=""><strong>Após um curto período de espera</strong>: a plataforma envia um evento de teste para ver se o destino voltou.</li>
+<li class=""><strong>Teste OK</strong>: a proteção é desativada e o tráfego normal volta.</li>
+<li class=""><strong>Teste falha</strong>: a proteção continua ativa e a plataforma espera mais um pouco antes de tentar de novo.</li>
+</ol>
+<p>Enquanto a proteção está ativada, os eventos retidos aparecem na fila de reenvio com o motivo correspondente.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=fila-de-reenvio-eventos-recusados>Fila de reenvio (eventos recusados)<a href=#fila-de-reenvio-eventos-recusados class=hash-link aria-label="Enlace directo al Fila de reenvio (eventos recusados)" title="Enlace directo al Fila de reenvio (eventos recusados)" translate=no>​</a></h2>
+<p>Quando um destino recusa um evento (formato inválido, credencial vencida, tempo esgotado etc.), o evento não é descartado: ele vai para a <strong>fila de reenvio</strong>, guardado por completo para análise.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=ver-a-fila-de-reenvio>Ver a fila de reenvio<a href=#ver-a-fila-de-reenvio class=hash-link aria-label="Enlace directo al Ver a fila de reenvio" title="Enlace directo al Ver a fila de reenvio" translate=no>​</a></h3>
+<p>No destino, abra a fila de reenvio. A plataforma mostra:</p>
+<ul>
+<li class="">o total de eventos retidos;</li>
+<li class="">um resumo por motivo de falha;</li>
+<li class="">a lista de eventos, cada um com o motivo, o detalhe do erro, o conteúdo do evento e a data.</li>
+</ul>
+<p>Os dados sensíveis do evento (campos com nome contendo "token", "senha" ou "segredo") aparecem mascarados.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=motivos-de-falha-mais-comuns>Motivos de falha mais comuns<a href=#motivos-de-falha-mais-comuns class=hash-link aria-label="Enlace directo al Motivos de falha mais comuns" title="Enlace directo al Motivos de falha mais comuns" translate=no>​</a></h3>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Motivo<th>Causa<th>O que fazer<tbody><tr><td><strong>Falha de autenticação</strong><td>Credencial inválida, vencida ou revogada<td>Rotacionar a credencial<tr><td><strong>Proteção ativada</strong><td>Destino indisponível por falhas seguidas<td>Aguardar a recuperação automática e testar a conexão; acionar o responsável pelo destino<tr><td><strong>Tempo esgotado</strong><td>O destino não respondeu a tempo<td>Verificar a rede; se persistir, falar com o administrador<tr><td><strong>Evento grande demais</strong><td>O evento ultrapassa o tamanho aceito pelo destino — quase sempre por causa do payload bruto do fornecedor<td>Pedir ao administrador que corte o payload bruto no mapeamento ou ligue <strong>Descartar o evento bruto</strong> na rota (veja a nota abaixo)<tr><td><strong>Erro de formato</strong><td>O destino não conseguiu formatar o evento<td>Revisar o editor de mapeamento do destino<tr><td><strong>Erro de rede</strong><td>Rede inacessível (DNS, conexão recusada)<td>Testar a conexão e verificar firewall</table>
+<div class="theme-admonition theme-admonition-warning admonition_xJq3 alert alert--warning"><div class=admonitionHeading_Gvgb><span class=admonitionIcon_Rf37><svg viewBox="0 0 16 16"><path fill-rule=evenodd d="M8.893 1.5c-.183-.31-.52-.5-.887-.5s-.703.19-.886.5L.138 13.499a.98.98 0 0 0 0 1.001c.193.31.53.501.886.501h13.964c.367 0 .704-.19.877-.5a1.03 1.03 0 0 0 .01-1.002L8.893 1.5zm.133 11.497H6.987v-2.003h2.039v2.003zm0-3.004H6.987V5.987h2.039v4.006z"/></svg></span>Evento grande demais: as duas alavancas certas</div><div class=admonitionContent_BuS1><p>Quem resolve tamanho é o <strong>corte do payload bruto</strong> — não a redação de PII. A redação existe para conformidade e é <em>fail-closed</em>: ligá-la para "encolher" o evento pode simplesmente parar a entrega ao destino real. Peça ao administrador uma destas duas:<ul>
+<li class=""><strong>No mapeamento</strong>, o bloco <code>raw_reduction</code>: <code>max_bytes</code> para blobs longos, <code>drop</code> / <code>keep_only</code> para subárvores já extraídas para o evento normalizado, <code>drop_nulls</code> para chaves vazias. Vale para <strong>todos</strong> os destinos.</li>
+<li class=""><strong>Na regra de roteamento</strong>, a opção <strong>Descartar o evento bruto</strong>: vale para a entrega <strong>desta regra</strong> — todos os destinos que ela alimenta — e preserva o evento normalizado (OCSF). As outras regras seguem recebendo o bruto íntegro. Não faz efeito enquanto <strong>Proteger detecção</strong> estiver ligada na regra (é o padrão).</li>
+</ul><p>O caso mais agudo é o <strong>Wazuh</strong>, que <strong>trunca silenciosamente</strong> eventos acima de ~64 KiB — o evento chega cortado, sem erro visível.<p>Panorama em <a class="" href=/es/outputs/reducao-de-volume>Redução de volume e custo</a> e no <a class="" href=/es/outputs/routing>Guia de Roteamento</a>.</div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=reenviar-eventos-da-fila>Reenviar eventos da fila<a href=#reenviar-eventos-da-fila class=hash-link aria-label="Enlace directo al Reenviar eventos da fila" title="Enlace directo al Reenviar eventos da fila" translate=no>​</a></h2>
+<p>Depois de corrigir a causa (por exemplo, renovar a credencial), reenvie os eventos retidos para o destino. Na tela do destino, na fila de reenvio, você pode:</p>
+<ul>
+<li class=""><strong>Reenviar tudo</strong>: a plataforma reprocessa todos os eventos retidos daquele destino em segundo plano, sem afetar o fluxo ao vivo.</li>
+<li class=""><strong>Reenviar eventos selecionados</strong>: escolha eventos específicos da lista para reenviar apenas eles.</li>
+</ul>
+<p>Depois de reenviar, atualize a fila:</p>
+<ul>
+<li class="">se o envio funcionou, o evento sai da fila de reenvio;</li>
+<li class="">se falhar pelo mesmo motivo, o evento volta para a fila com o detalhe atualizado do erro — sinal de que a causa raiz ainda não foi resolvida.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=métricas-do-destino>Métricas do destino<a href=#métricas-do-destino class=hash-link aria-label="Enlace directo al Métricas do destino" title="Enlace directo al Métricas do destino" translate=no>​</a></h2>
+<p>Na tela do destino, a plataforma mostra a evolução recente em formato de série temporal:</p>
+<ul>
+<li class=""><strong>Entregues</strong>: eventos entregues com sucesso por minuto.</li>
+<li class=""><strong>Recusados</strong>: eventos recusados por minuto.</li>
+<li class=""><strong>Latência média</strong>: tempo médio de entrega por minuto.</li>
+<li class=""><strong>Eventos na fila local</strong>: eventos aguardando envio (acúmulo momentâneo).</li>
+<li class=""><strong>Estado de vazão</strong>: normal ou sob sobrecarga. Em sobrecarga, a plataforma pode reduzir o volume automaticamente para proteger o destino.</li>
+</ul>
+<p>Acompanhe essas métricas junto com a fila de reenvio para distinguir um pico passageiro de um problema persistente.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=ver-os-últimos-eventos-enviados>Ver os últimos eventos enviados<a href=#ver-os-últimos-eventos-enviados class=hash-link aria-label="Enlace directo al Ver os últimos eventos enviados" title="Enlace directo al Ver os últimos eventos enviados" translate=no>​</a></h3>
+<p>Na tela do destino você pode visualizar os eventos mais recentes que passaram por ele (com dados sensíveis mascarados). É a forma mais rápida de confirmar, na hora, que o destino está recebendo o conteúdo no formato esperado — sem precisar consultar o destino final.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=credenciais-do-destino>Credenciais do destino<a href=#credenciais-do-destino class=hash-link aria-label="Enlace directo al Credenciais do destino" title="Enlace directo al Credenciais do destino" translate=no>​</a></h2>
+<p>Cada destino tem uma credencial (token ou senha) usada para se autenticar no sistema de destino. Na tela do destino, a plataforma indica:</p>
+<ul>
+<li class="">se há uma credencial cadastrada;</li>
+<li class="">quando ela foi rotacionada pela última vez;</li>
+<li class="">quando ela vence (se houver data de validade).</li>
+</ul>
+<p>Um destino <strong>sem credencial</strong> fica desabilitado automaticamente, pois não tem como se autenticar.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=rotacionar-uma-credencial>Rotacionar uma credencial<a href=#rotacionar-uma-credencial class=hash-link aria-label="Enlace directo al Rotacionar uma credencial" title="Enlace directo al Rotacionar uma credencial" translate=no>​</a></h3>
+<p>Use a rotação para trocar o token ou a senha <strong>sem apagar</strong> o destino:</p>
+<ol>
+<li class="">Vá ao menu <strong>Operação → Destinos</strong> e abra o destino.</li>
+<li class="">Acesse a área de credencial do destino.</li>
+<li class="">Escolha <strong>rotacionar</strong> a credencial.</li>
+<li class="">Cole o novo token ou senha.</li>
+<li class="">Defina uma data de validade (opcional).</li>
+<li class="">Confirme.</li>
+</ol>
+<p>A troca não causa interrupção: a credencial anterior continua válida por um curto período, então os eventos que já estavam em trânsito não falham. Se o destino estava desabilitado por uma revogação anterior, a rotação o reativa.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=revogar-uma-credencial>Revogar uma credencial<a href=#revogar-uma-credencial class=hash-link aria-label="Enlace directo al Revogar uma credencial" title="Enlace directo al Revogar uma credencial" translate=no>​</a></h3>
+<p>Use a revogação em um incidente de segurança, quando precisa cortar o acesso imediatamente:</p>
+<ol>
+<li class="">Abra o destino e acesse a área de credencial.</li>
+<li class="">Escolha <strong>revogar</strong> a credencial.</li>
+</ol>
+<p>A plataforma apaga a credencial e desabilita o destino. Nenhum evento é enviado até você cadastrar uma nova credencial pela rotação.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=histórico-de-credenciais>Histórico de credenciais<a href=#histórico-de-credenciais class=hash-link aria-label="Enlace directo al Histórico de credenciais" title="Enlace directo al Histórico de credenciais" translate=no>​</a></h3>
+<p>Cada destino mantém um histórico de quem acessou, rotacionou ou revogou a credencial, com o usuário responsável, a ação e a data. Use-o para auditar mudanças de credencial, por exemplo após um incidente. As ações registradas incluem:</p>
+<ul>
+<li class=""><strong>teste</strong>: a credencial foi usada em um teste de conexão;</li>
+<li class=""><strong>rotação</strong>: a credencial foi renovada;</li>
+<li class=""><strong>revogação</strong>: a credencial foi revogada.</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=histórico-de-alterações-do-destino>Histórico de alterações do destino<a href=#histórico-de-alterações-do-destino class=hash-link aria-label="Enlace directo al Histórico de alterações do destino" title="Enlace directo al Histórico de alterações do destino" translate=no>​</a></h3>
+<p>Separado do histórico de credenciais, há também um registro das alterações de configuração do destino (criação, edição, remoção), com o usuário e a data de cada mudança. Esse registro nunca expõe o valor da credencial — apenas indica se há uma credencial cadastrada.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=rastrear-um-evento-até-o-destino>Rastrear um evento até o destino<a href=#rastrear-um-evento-até-o-destino class=hash-link aria-label="Enlace directo al Rastrear um evento até o destino" title="Enlace directo al Rastrear um evento até o destino" translate=no>​</a></h2>
+<p>Você pode verificar se um evento específico chegou a um destino consultando o rastreamento de entregas na tela do destino. Ele mostra os eventos entregues com sucesso e quando isso ocorreu, dentro da janela de retenção recente.</p>
+<p>Se um evento não aparecer no rastreamento de entregas, procure-o na fila de reenvio do destino — é provável que ele tenha sido recusado.</p>
+<blockquote>
+<p>O rastreamento de entregas é uma ferramenta operacional de curto prazo, não um arquivo de conformidade. Para retenção de longo prazo, use um destino de armazenamento (por exemplo, um data lake) configurado para esse fim.</p>
+</blockquote>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=comportamento-de-entrega>Comportamento de entrega<a href=#comportamento-de-entrega class=hash-link aria-label="Enlace directo al Comportamento de entrega" title="Enlace directo al Comportamento de entrega" translate=no>​</a></h2>
+<p>O comportamento de entrega de cada destino — agrupamento de eventos em lotes, tentativas automáticas, proteção contra destino instável, tempo limite de resposta, prioridade e retenção — é definido na configuração do destino pelo administrador da plataforma. Se precisar ajustar qualquer um desses parâmetros, fale com o administrador.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=solução-de-problemas>Solução de problemas<a href=#solução-de-problemas class=hash-link aria-label="Enlace directo al Solução de problemas" title="Enlace directo al Solução de problemas" translate=no>​</a></h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=destino-aparece-como-indisponível>Destino aparece como indisponível<a href=#destino-aparece-como-indisponível class=hash-link aria-label="Enlace directo al Destino aparece como indisponível" title="Enlace directo al Destino aparece como indisponível" translate=no>​</a></h3>
+<ol>
+<li class="">Use o botão de <strong>Testar</strong> conexão para validar rede e credencial.</li>
+<li class="">Se falhar:
+<ul>
+<li class=""><strong>Credencial vencida?</strong> Rotacione a credencial.</li>
+<li class=""><strong>Host não responde?</strong> Verifique rede, DNS, firewall e certificado.</li>
+<li class=""><strong>Destino fora do ar?</strong> Acione o responsável pelo sistema de destino.</li>
+</ul>
+</li>
+<li class="">Se passar, a proteção contra destino instável se recupera sozinha em pouco tempo.</li>
+</ol>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=fila-de-reenvio-crescendo>Fila de reenvio crescendo<a href=#fila-de-reenvio-crescendo class=hash-link aria-label="Enlace directo al Fila de reenvio crescendo" title="Enlace directo al Fila de reenvio crescendo" translate=no>​</a></h3>
+<ol>
+<li class="">Abra a fila de reenvio e veja o motivo de falha predominante.</li>
+<li class="">Se for <strong>falha de autenticação</strong>: a credencial venceu — rotacione-a.</li>
+<li class="">Se for <strong>tempo esgotado</strong>: verifique a rede; se for necessário ajustar o tempo limite, fale com o administrador.</li>
+<li class="">Se for <strong>proteção ativada</strong>: aguarde a recuperação automática e teste a conexão.</li>
+<li class="">Depois de resolver a causa, reenvie os eventos retidos.</li>
+</ol>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=credencial-revogada-destino-desabilitado>Credencial revogada, destino desabilitado<a href=#credencial-revogada-destino-desabilitado class=hash-link aria-label="Enlace directo al Credencial revogada, destino desabilitado" title="Enlace directo al Credencial revogada, destino desabilitado" translate=no>​</a></h3>
+<p>Rotacione a credencial (cole o novo token e confirme). O destino volta a operar imediatamente.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=eventos-por-segundo-em-zero--nada-sendo-entregue>Eventos por segundo em zero — nada sendo entregue<a href=#eventos-por-segundo-em-zero--nada-sendo-entregue class=hash-link aria-label="Enlace directo al Eventos por segundo em zero — nada sendo entregue" title="Enlace directo al Eventos por segundo em zero — nada sendo entregue" translate=no>​</a></h3>
+<ol>
+<li class="">Confirme que o destino está <strong>habilitado</strong> e <strong>saudável</strong>.</li>
+<li class="">Confirme que existe uma regra de roteamento ativa enviando eventos para esse destino. O roteamento é gerenciado pelo administrador no menu <strong>Operação → Roteamento</strong>.</li>
+<li class="">Verifique se os eventos não estão sendo reduzidos por sobrecarga (estado de vazão nas métricas do destino).</li>
+</ol>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=erro-ao-usar-a-credencial-não-foi-possível-descriptografar>Erro ao usar a credencial ("não foi possível descriptografar")<a href=#erro-ao-usar-a-credencial-não-foi-possível-descriptografar class=hash-link aria-label='Enlace directo al Erro ao usar a credencial ("não foi possível descriptografar")' title='Enlace directo al Erro ao usar a credencial ("não foi possível descriptografar")' translate=no>​</a></h3>
+<p>A chave de criptografia da plataforma é definida pela equipe de infraestrutura no momento do deploy. Se um teste falhar com erro de descriptografia da credencial, isso indica um problema de configuração da plataforma. Fale com o administrador da plataforma — não há ação no painel para resolver isso.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=próximos-passos>Próximos passos<a href=#próximos-passos class=hash-link aria-label="Enlace directo al Próximos passos" title="Enlace directo al Próximos passos" translate=no>​</a></h2>
+<ul>
+<li class=""><strong>Configurar um novo destino</strong>: veja <a class="" href=/es/outputs/destinations>Visão geral de destinos</a>.</li>
+<li class=""><strong>Eventos na fila de reenvio, mas o destino parece OK?</strong> Investigue a normalização em <a class="" href=/es/normalization/overview>Visão geral de normalização</a>.</li>
+<li class=""><strong>Auditar todas as ações?</strong> Use os históricos de credencial e de alterações na própria tela do destino.</li>
+</ul></div></article><nav class="docusaurus-mt-lg pagination-nav" aria-label="Página del documento"><a class="pagination-nav__link pagination-nav__link--prev" href=/es/outputs/destination-otlp><div class=pagination-nav__sublabel>Anterior</div><div class=pagination-nav__label>Destino: OTLP</div></a><a class="pagination-nav__link pagination-nav__link--next" href=/es/outputs/destination-webhook><div class=pagination-nav__sublabel>Siguiente</div><div class=pagination-nav__label>Destino: Webhook Genérico</div></a></nav></div></div><div class="col col--3"><div class="tableOfContents_bqdL thin-scrollbar theme-doc-toc-desktop"><ul class="table-of-contents table-of-contents__left-border"><li><a href=#quando-usar class="table-of-contents__link toc-highlight">Quando usar</a><li><a href=#saúde-geral-dos-destinos class="table-of-contents__link toc-highlight">Saúde geral dos destinos</a><li><a href=#testar-a-conexão-de-um-destino class="table-of-contents__link toc-highlight">Testar a conexão de um destino</a><li><a href=#saúde-detalhada-de-um-destino class="table-of-contents__link toc-highlight">Saúde detalhada de um destino</a><ul><li><a href=#como-funciona-a-proteção-contra-destino-instável class="table-of-contents__link toc-highlight">Como funciona a proteção contra destino instável</a></ul><li><a href=#fila-de-reenvio-eventos-recusados class="table-of-contents__link toc-highlight">Fila de reenvio (eventos recusados)</a><ul><li><a href=#ver-a-fila-de-reenvio class="table-of-contents__link toc-highlight">Ver a fila de reenvio</a><li><a href=#motivos-de-falha-mais-comuns class="table-of-contents__link toc-highlight">Motivos de falha mais comuns</a></ul><li><a href=#reenviar-eventos-da-fila class="table-of-contents__link toc-highlight">Reenviar eventos da fila</a><li><a href=#métricas-do-destino class="table-of-contents__link toc-highlight">Métricas do destino</a><ul><li><a href=#ver-os-últimos-eventos-enviados class="table-of-contents__link toc-highlight">Ver os últimos eventos enviados</a></ul><li><a href=#credenciais-do-destino class="table-of-contents__link toc-highlight">Credenciais do destino</a><ul><li><a href=#rotacionar-uma-credencial class="table-of-contents__link toc-highlight">Rotacionar uma credencial</a><li><a href=#revogar-uma-credencial class="table-of-contents__link toc-highlight">Revogar uma credencial</a><li><a href=#histórico-de-credenciais class="table-of-contents__link toc-highlight">Histórico de credenciais</a><li><a href=#histórico-de-alterações-do-destino class="table-of-contents__link toc-highlight">Histórico de alterações do destino</a></ul><li><a href=#rastrear-um-evento-até-o-destino class="table-of-contents__link toc-highlight">Rastrear um evento até o destino</a><li><a href=#comportamento-de-entrega class="table-of-contents__link toc-highlight">Comportamento de entrega</a><li><a href=#solução-de-problemas class="table-of-contents__link toc-highlight">Solução de problemas</a><ul><li><a href=#destino-aparece-como-indisponível class="table-of-contents__link toc-highlight">Destino aparece como indisponível</a><li><a href=#fila-de-reenvio-crescendo class="table-of-contents__link toc-highlight">Fila de reenvio crescendo</a><li><a href=#credencial-revogada-destino-desabilitado class="table-of-contents__link toc-highlight">Credencial revogada, destino desabilitado</a><li><a href=#eventos-por-segundo-em-zero--nada-sendo-entregue class="table-of-contents__link toc-highlight">Eventos por segundo em zero — nada sendo entregue</a><li><a href=#erro-ao-usar-a-credencial-não-foi-possível-descriptografar class="table-of-contents__link toc-highlight">Erro ao usar a credencial ("não foi possível descriptografar")</a></ul><li><a href=#próximos-passos class="table-of-contents__link toc-highlight">Próximos passos</a></ul></div></div></div></div></main></div></div></div><footer class="theme-layout-footer footer footer--dark"><div class="container container-fluid"><div class="row footer__links"><div class="theme-layout-footer-column col footer__col"><div class=footer__title>Documentação</div><ul class="footer__items clean-list"><li class=footer__item><a class=footer__link-item href=/es/getting-started/overview>Começar</a><li class=footer__item><a class=footer__link-item href=/es/operations/dashboard>Operação diária</a><li class=footer__item><a class=footer__link-item href=/es/normalization/overview>Mappings (CML)</a><li class=footer__item><a class=footer__link-item href=/es/runbooks/dispatcher>Runbooks</a></ul></div><div class="theme-layout-footer-column col footer__col"><div class=footer__title>Plataforma</div><ul class="footer__items clean-list"><li class=footer__item><a class=footer__link-item href=/es/concepts/architecture>Arquitetura</a><li class=footer__item><a class=footer__link-item href=/es/concepts/rbac>RBAC</a><li class=footer__item><a class=footer__link-item href=/es/integrations/overview>Integrações</a><li class=footer__item><a class=footer__link-item href=/es/compliance/retention>Compliance</a></ul></div><div class="theme-layout-footer-column col footer__col"><div class=footer__title>Recursos</div><ul class="footer__items clean-list"><li class=footer__item><a class=footer__link-item href=/es/getting-started/quickstart>Quickstart</a><li class=footer__item><a class=footer__link-item href=/es/normalization/cookbook>DSL Cookbook</a><li class=footer__item><a class=footer__link-item href=/es/normalization/troubleshooting>Troubleshooting</a></ul></div></div><div class="footer__bottom text--center"><div class=footer__copyright>Copyright © 2026 CentralOps. Built with Docusaurus.</div></div></div></footer></div></body>
