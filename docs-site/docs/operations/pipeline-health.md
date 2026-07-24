@@ -35,13 +35,13 @@ As duas seções refletem a coleta do último minuto e o histórico das últimas
 | **Status** | Saudável, degradada, com problema, ou sem dados. |
 | **Eventos/min** | Taxa média de eventos coletados nos últimos 5 minutos (vazio = ainda não houve coleta). |
 | **Atraso** | Tempo desde o último evento coletado (vazio = nunca coletou). |
-| **Campos novos (24h)** | Eventos com campos obrigatórios faltando — sinal de mapeamento incompleto ou fabricante enviando dados fora do esperado. |
+| **Campos novos (24h)** | Quantos CAMPOS o fornecedor enviou nas últimas 24h que o mapeamento ainda não aproveita — não é contagem de eventos com erro. Sinal de que há contexto disponível sendo descartado. Veja [Campos novos (drift)](../pipelines/drift.md). |
 | **Quarentena (24h)** | Eventos retidos por falha de mapeamento, validação ou ocultação de dados sensíveis. |
 
 ### Como ler o status
 
-- **Saudável (verde)**: coleta rodando, atraso menor que 5 minutos, sem quarentena nem campos novos.
-- **Degradada (amarelo)**: atraso de 5 a 15 minutos, ou há campos novos/quarentena, ou taxa de erro baixa.
+- **Saudável (verde)**: coleta rodando e atraso menor que 5 minutos.
+- **Degradada (amarelo)**: atraso de 5 a 15 minutos, ou há eventos em quarentena, ou taxa de erro baixa.
 - **Com problema (vermelho)**: atraso maior que 15 minutos, parada há mais de 10 minutos, ou taxa de erro alta.
 - **Sem dados (cinza)**: integração criada mas que nunca coletou — não há métrica.
 

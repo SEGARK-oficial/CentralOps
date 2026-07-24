@@ -48,7 +48,8 @@ Cada evento bruto passa por uma sequência fixa, sem ramificações:
    - Aplicam-se as conversões e tabelas de tradução, sempre na mesma ordem.
    - Se a regra é obrigatória e mesmo assim o valor ficou vazio, o evento vai para a **quarentena** (nunca é descartado em silêncio).
    - O valor final é escrito no campo de destino OCSF.
-3. **Evento normalizado pronto.** O resultado tem três partes: o evento OCSF normalizado, os metadados internos do evento (origem, versão do mapeamento, horário de coleta) e o payload original preservado para auditoria.
+3. **Evento normalizado pronto.** O resultado tem três partes: o evento OCSF normalizado, os metadados internos do evento (origem, versão do mapeamento, horário de coleta) e o payload do fornecedor.
+4. **Redução do bruto.** Só depois que todas as regras rodaram sobre o payload COMPLETO — a fidelidade da normalização é preservada — o mapeamento pode podar a cópia que segue para a entrega.
 
 Depois disso, o evento normalizado segue para o motor de roteamento, que decide quais destinos recebem o evento. Veja [Roteamento](../outputs/routing.md). Antes da entrega, cada destino pode aplicar redação de PII — veja [Redação de PII](../outputs/pii-redaction.md).
 
@@ -57,7 +58,11 @@ Pontos importantes:
 - **Ordem garantida.** As transformações de cada regra rodam sempre na mesma ordem. O resultado é determinístico.
 - **Falha vira quarentena, nunca perda.** Um campo obrigatório vazio manda o evento para a quarentena, onde você pode inspecionar e reprocessar.
 - **Campos novos viram drift.** Qualquer campo presente no evento bruto que nenhuma regra consome é detectado automaticamente e aparece no Drift Explorer para você decidir o que fazer.
-- **Evento bruto preservado.** O payload original é guardado junto com o evento normalizado, para auditoria completa.
+- **Evento bruto podável.** O payload do fornecedor acompanha o evento normalizado, mas nem sempre inteiro: o mapeamento pode remover ou encurtar partes dele (bloco `raw_reduction`) e uma regra de roteamento pode descartá-lo por completo (**Descartar o evento bruto**). Os mapeamentos padrão já removem campos nulos; o de Sophos Detection remove também as subárvores de `rawData` que já foram extraídas para o evento normalizado.
+
+:::warning[O bruto entregue pode não ser o bruto recebido]
+Se você depende do payload original para perícia, confira o bloco `raw_reduction` do mapeamento e a opção **Descartar o evento bruto** da rota que alimenta aquele destino. O evento normalizado (OCSF) nunca é afetado por essas podas.
+:::
 
 ## Como é um mapeamento (exemplo)
 

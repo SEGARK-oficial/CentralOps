@@ -39,6 +39,10 @@ Uma **regra** mapeia eventos para um ou mais destinos. Ao criar ou editar uma re
 | **Percentual gradual** | De 0 a 100. A regra se aplica só a essa fração dos eventos que batem nela — o resto segue para as próximas regras. Use para migração aos poucos. 100 = regra aplicada a todos. |
 | **Ativa** | Liga ou desliga a regra sem precisar apagá-la (útil para testar). |
 | **Redação de PII** | Remove ou mascara campos sensíveis (ex.: nome de usuário, IP de origem) **antes** de enviar o evento aos destinos desta regra. |
+| **Proteger detecção** | **Ligada por padrão.** Enquanto estiver ligada, esta regra **nunca** é amostrada, suprimida nem tem o evento bruto descartado — as alavancas de economia são ignoradas nela. Desligue apenas nas regras onde reduzir volume é seguro. |
+| **Amostragem** | De 0 a 100. Entrega só essa fração dos eventos aos destinos da regra; o resto é economizado. Ignorada enquanto **Proteger detecção** estiver ligada. |
+| **Supressão** | Rate-limit por assinatura: deixa passar N eventos "iguais" por janela de tempo e economiza o excedente. Veja **Reduzir ruído repetitivo** abaixo. |
+| **Descartar o evento bruto** | Remove o payload original do fornecedor da entrega **desta** regra, preservando o evento normalizado (OCSF). Deixe desligado na regra do data lake, onde o bruto é necessário para perícia, e ligue no SIEM cobrado por volume — costuma ser a maior economia isolada. |
 
 ### Características que você pode usar na condição
 
@@ -127,6 +131,38 @@ Os eventos descartados são **contados à parte** nas métricas da regra, então
 
 ---
 
+## Reduzir ruído repetitivo (supressão)
+
+Enquanto o **Descartar** apaga tudo que bate na condição, a **supressão** deixa passar uma amostra e economiza o excesso: ela agrupa eventos "iguais" por uma assinatura e entrega apenas os N primeiros de cada grupo por janela de tempo.
+
+Três campos definem o comportamento:
+
+| Campo | O que faz |
+|---|---|
+| **Chave de supressão** | Quais características formam a assinatura do grupo. |
+| **Quantos passam** | Quantos eventos de cada assinatura são entregues por janela. `0` desliga a supressão. |
+| **Janela (segundos)** | De quanto em quanto tempo a contagem reinicia. |
+
+### A chave de supressão só aceita características de roteamento
+
+Esta é a parte que mais gera engano. A assinatura é montada a partir das **mesmas características usadas na condição da regra** — aquelas da tabela em "Características que você pode usar na condição": fornecedor, plataforma, organização, severidade, fluxo, tipo de evento, cliente e geografia.
+
+**Campos do log não valem.** `src_ip`, `agent.name`, `rule.id` e afins **não** existem nesse vocabulário. Se você tentar usá-los, a plataforma recusa a configuração com erro — antes, ela aceitava em silêncio e o resultado era desastroso: todos os eventos caíam na mesma assinatura e praticamente **todo o tráfego era descartado**.
+
+:::warning[Escolha a chave com cuidado]
+Uma chave **grossa demais** (por exemplo, só `fornecedor`) agrupa todo o tráfego da integração num único balde — e você economiza quase tudo, inclusive o que precisava ver. Prefira combinações que distingam de verdade, como `fornecedor + severidade`, e confirme o efeito na **Captura ao vivo** antes de aumentar a janela.
+:::
+
+Exemplo: com chave `fornecedor, severidade`, "quantos passam" = 10 e janela de 60 segundos, cada combinação de fornecedor e severidade entrega no máximo 10 eventos por minuto; o excedente é economizado e contabilizado como volume evitado.
+
+A supressão **preserva sempre a primeira ocorrência** de cada grupo na janela — você nunca perde o primeiro sinal de um evento novo.
+
+### O fail-safe de detecção
+
+Supressão, amostragem e descarte do evento bruto são **ignorados** em regras com **Proteger detecção** ligada (o padrão). Isso é proposital: uma regra que alimenta detecção não perde evento por decisão de economia sem que alguém desligue a proteção conscientemente.
+
+---
+
 ## Redação de PII por regra
 
 Uma regra pode **remover ou mascarar campos sensíveis** antes de enviar o evento aos destinos dela. Por exemplo, uma regra que manda eventos da UE para um data lake pode mascarar o nome do usuário e remover o IP de origem.
@@ -170,9 +206,13 @@ Cada regra acompanha três contagens ao longo do tempo:
 - **Enviados**: eventos que efetivamente saíram da regra para os destinos.
 - **Descartados**: eventos apagados pela regra.
 
-Há um quarto desfecho possível, exclusivo de eventos coletados do Wazuh (e não aplicável a outros fornecedores):
+Além desses, um evento pode terminar em outros desfechos — todos visíveis na **Captura ao vivo** (**Configurações → Captura ao vivo**), que é a tela que mostra o destino final de cada evento:
 
-- **Loop_blocked**: eventos de fonte Wazuh suprimidos para evitar loop infinito (veja a nota em [Wazuh](../integrations/wazuh.md)). Quando uma integração Wazuh coleta um evento e ele seria entregue ao destino-padrão ou a um syslog que aponta de volta ao mesmo manager, é bloqueado e registrado em log com o id do evento. É uma supressão intencional, não uma perda.
+- **Amostrado para fora**: descartado pela amostragem da rota (`sample_percent` abaixo de 100).
+- **Suprimido**: descartado pelo rate-limit por assinatura da rota (ver **Reduzir ruído repetitivo** abaixo).
+- **Sem rota**: nenhuma regra casou e não há destino padrão — vai para a fila de reenvio.
+- **Bloqueado por residência**: o par evento/destino foi excluído por conflito de residência de dados.
+- **Loop bloqueado** (exclusivo do Wazuh): evento de fonte Wazuh que seria entregue de volta ao próprio manager, o que criaria um laço infinito (veja a nota em [Wazuh](../integrations/wazuh.md)). É uma supressão intencional, não uma perda.
 
 Esses números aparecem no gráfico da própria regra na tela de **Operação → Roteamento**. Para ver o panorama completo do caminho dos eventos entre integrações e destinos — com vazão por destino e desenho visual do fluxo — use a tela **Operação → Fluxo de dados** (também só de administrador).
 

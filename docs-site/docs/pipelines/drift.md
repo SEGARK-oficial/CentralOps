@@ -38,11 +38,12 @@ A tela lista os campos detectados com as seguintes informações:
 
 | Coluna | Descrição |
 |--------|-----------|
-| Campo | Nome do campo recebido (ex.: confiança da detecção). |
+| Campo | Caminho COMPLETO do campo recebido, incluindo o aninhamento (ex.: `data.win.eventdata.logonType`, `rule.mitre.id`). A detecção compara caminho a caminho, então campos novos dentro de estruturas já mapeadas também aparecem. |
 | Fornecedor | Plataforma de origem (Sophos, Defender, etc.). |
 | Tipo | Tipo inferido do valor (texto, número, verdadeiro/falso, lista ou estrutura aninhada). |
 | Contagem | Quantas vezes o campo foi visto desde a primeira observação (acumulado, sem janela). Como a detecção amostra uma fração dos eventos, esta contagem reflete os eventos amostrados — o volume real é proporcionalmente maior. |
 | Visto por último | Data e hora do evento mais recente que trouxe esse campo. |
+| Valor de amostra | Uma descrição do FORMATO do valor (`<ipv4>`, `<email>`, `<timestamp>`, `<string len=42>`), não o valor em si. É o suficiente para escolher o campo OCSF de destino sem guardar dado do cliente. |
 | Status | Novo, ignorado ou já mapeado. |
 | Ação | Ignorar ou marcar como mapeado. |
 

@@ -27,6 +27,7 @@ Não existe uma única tela "Configuração" que reúna tudo. Cada área tem seu
 | Definir as regras de quem recebe o quê | **Operação → Roteamento** |
 | Ver o fluxo dos dados ponta a ponta | **Operação → Fluxo de dados** |
 | Configurar login corporativo (Microsoft) | **Administração → Configurações** |
+| Ver o tráfego real evento a evento (troubleshooting) | **Configurações → Captura ao vivo** |
 
 As telas **Destinos**, **Roteamento** e **Fluxo de dados** só aparecem para administradores.
 

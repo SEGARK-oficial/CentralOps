@@ -103,7 +103,7 @@ Se um destino que deveria receber dados mascarados está recebendo o evento comp
 1. **A rota tem regras de redação?** Em **Operação → Roteamento**, confirme que a rota daquele destino tem ao menos uma regra.
 2. **O evento está caindo nesta rota?** Confira a condição da rota — o evento precisa satisfazer o filtro para ser processado por ela.
 3. **O destino está realmente recebendo os eventos?** Em **Normalização → Saúde do Pipeline**, confirme que o destino está ativo e recebendo entregas.
-4. **O recurso está habilitado no ambiente?** A funcionalidade de redação de PII pode ser ligada ou desligada na configuração da plataforma. Essa configuração é definida pela equipe de infraestrutura no momento do deploy. Se precisar alterá-la, fale com o administrador da plataforma. **Importante**: por segurança, se a redação estiver desligada no ambiente mas uma rota exigir mascaramento, os eventos **não são entregues em claro** — eles são desviados para a entrega padrão interna, sem vazar dados.
+4. **O recurso está habilitado no ambiente?** A redação de PII vem **ligada de fábrica** — o que decide se ela age é a própria rota: sem regra de mascaramento configurada, nada é redigido e a entrega segue idêntica. Um administrador pode desligá-la globalmente na configuração da plataforma, mas isso é incomum. **Importante**: por segurança, se a redação estiver desligada no ambiente e uma rota exigir mascaramento, os eventos **não são entregues em claro** — eles são desviados para a entrega padrão interna, sem vazar dados.
 
 ---
 

@@ -272,11 +272,11 @@ Você configurou uma janela (`window_seconds > 0`), mas deixou `timestamp_field`
 
 Se o campo estiver realmente ausente ou vazio, a **janela é desligada em silêncio** e a regra passa a contar todos os eventos do grupo presentes no resultado da busca, sem recorte temporal — isto gera falso positivo, não falha de disparo, mas é um modo silencioso de "sua regra não faz o que você esperava".
 
-### 6. Campo trimado pelo mapeamento
+### 6. Campo podado pelo mapeamento (`raw_reduction`)
 
-A fonte é mapeada com `raw_reduction` que remove o campo que sua regra tenta usar.
+A fonte é mapeada com um bloco `raw_reduction` que **remove** ou **encurta** o campo que sua regra tenta usar. Note que hoje o campo pode ter sido apagado por inteiro, não apenas truncado.
 
-**Diagnóstico:** vá em **Conhecimento → Mapeamentos**, abra o mapeamento da fonte em questão. Procure por configurações de redução / trimming (`raw_reduction`). Se o campo usado na regra está excluído, ajuste o mapeamento ou mude a regra para usar um campo que não foi trimado.
+**Diagnóstico:** o bloco `raw_reduction` **não é editável pelo editor visual de mapeamento** — ele vive na definição JSON e é alterado por quem administra a plataforma. Peça a definição atual do mapeamento e verifique se o campo da sua regra cai em algum spec `drop`, `keep_only`, `max_bytes` ou `drop_nulls`. Se cair, ajuste o mapeamento ou reescreva a regra sobre um campo que sobrevive à poda. Veja [Especificação da DSL](../normalization/dsl-spec.md).
 
 ### 7. Path atravessa array
 
