@@ -4,6 +4,7 @@ from sqlalchemy.orm import sessionmaker, declarative_base
 import logging
 import os
 import time
+from contextlib import contextmanager
 from datetime import datetime
 from uuid import uuid4
 
@@ -142,6 +143,104 @@ def _wait_for_db(max_wait_s: float | None = None, interval_s: float = 2.0) -> No
 _MIGRATION_ADVISORY_LOCK_KEY = 0x0C0DE004
 
 
+# ── Teto de espera por lock nas transações de migração ──────────────────────
+# O boot da 2.3.0 pendurou PARA SEMPRE numa migração: a transação segurava
+# ACCESS EXCLUSIVE em ``integrations`` (por um ALTER TABLE) e ficava ``idle in
+# transaction`` esperando o CLIENTE, enquanto o MESMO processo Python bloqueava
+# numa SEGUNDA conexão lendo o catálogo daquela tabela. O detector de deadlock
+# do Postgres não desfaz esse impasse — ele só enxerga ciclos de espera-por-LOCK,
+# e quem segurava o ACCESS EXCLUSIVE não esperava lock, esperava o cliente.
+# Sem teto, o operador via só ``start-api: migração de schema...`` e um container
+# reciclando pelo healthcheck, sem UMA linha de erro.
+#
+# ALCANCE — leia antes de confiar: o teto vale para os statements emitidos NA
+# conexão da migração. Cobre a espera por um detentor EXTERNO (réplica da versão
+# anterior, transação longa da app, psql esquecido aberto), que é o modo de falha
+# recorrente. NÃO cobre conexão que o SQLAlchemy abre por dentro — um
+# ``inspect(engine)`` (em vez de ``inspect(conn)``) dentro de um bloco destes
+# pega uma conexão NOVA, sem ``SET LOCAL``, e volta a pendurar para sempre:
+# foi exatamente esse par de conexões que travou a 2.3.0. Ou seja, este teto é
+# a rede; ``inspect(conn)`` é o que tira o pé do buraco. Não troque um pelo outro.
+#
+# 15_000 ms é o compromisso, calibrado contra o healthcheck do serviço
+# ``centralops`` em ``compose/docker-compose.yml`` (``interval: 15s``,
+# ``retries: 5``, ``start_period: 40s`` ⇒ o container só vira ``unhealthy``
+# depois de ~115s sem responder):
+#   - baixo o bastante para o erro sair DENTRO do ``start_period``, antes mesmo
+#     do primeiro check falho contar — o operador lê a causa em ``docker logs``
+#     em vez de ver o container reciclar mudo;
+#   - alto o bastante para não abortar migração legítima: um ALTER só espera os
+#     leitores CORRENTES da tabela terminarem, e query de API/coletor vive em
+#     milissegundos — 15s dá ~3 ordens de grandeza de folga, inclusive durante o
+#     rolling update em que a versão anterior ainda serve tráfego.
+#
+# Só ``lock_timeout``, deliberadamente NÃO ``statement_timeout``: os UPDATEs de
+# backfill deste arquivo varrem tabelas inteiras e podem levar minutos legítimos
+# num banco grande — um teto de EXECUÇÃO tornaria o upgrade impossível justamente
+# em quem tem mais dado. O que precisa de teto é a ESPERA, não o trabalho.
+_DEFAULT_MIGRATION_LOCK_TIMEOUT_MS = 15_000
+
+
+def _migration_lock_timeout_ms() -> int:
+    """Teto de espera por lock, em ms — ``APP_DB_MIGRATION_LOCK_TIMEOUT_MS``.
+
+    Escape hatch para bancos onde uma transação de aplicação legitimamente segura
+    locks por mais tempo que o default. Valor inválido ou ``<= 0`` cai no default:
+    desligar o teto reintroduz o pendura-para-sempre, então não é ajustável para
+    "nenhum" por acidente de digitação.
+    """
+    try:
+        value = int(os.environ.get("APP_DB_MIGRATION_LOCK_TIMEOUT_MS", ""))
+    except ValueError:
+        return _DEFAULT_MIGRATION_LOCK_TIMEOUT_MS
+    return value if value > 0 else _DEFAULT_MIGRATION_LOCK_TIMEOUT_MS
+
+
+def _apply_migration_lock_timeout(conn) -> None:
+    """Emite ``SET LOCAL lock_timeout`` na transação corrente (Postgres apenas).
+
+    ``SET LOCAL``, e não um ajuste no ``engine`` ou um ``SET`` de sessão: o
+    ``engine`` é COMPARTILHADO com o runtime da aplicação e suas conexões voltam
+    para o POOL. Um ajuste de sessão sobreviveria ao retorno — o reset do pool
+    emite ROLLBACK, não ``RESET ALL`` — e contaminaria query de request com um
+    teto pensado para DDL de boot. ``SET LOCAL`` morre no COMMIT/ROLLBACK da
+    própria transação de migração, então o alcance é exatamente o pretendido.
+
+    SQLite não conhece ``lock_timeout`` (lá o equivalente é o ``PRAGMA
+    busy_timeout`` já aplicado no connect) — no-op fora do Postgres.
+
+    Dialeto via ``engine.dialect.name``, NUNCA ``DATABASE_URL.startswith`` (a
+    convenção que o resto deste arquivo já segue): ``DATABASE_URL`` é resolvida no
+    import do módulo, e os testes que exercitam a migração contra Postgres REAL
+    monkey-patcham o ``engine`` mantendo a URL de SQLite. Com a checagem pela URL,
+    justamente esses testes pulariam o ``SET LOCAL`` — o teto nunca seria exercido
+    onde ele importa.
+    """
+    if conn.engine.dialect.name != "postgresql":
+        return
+    # ``SET`` não aceita bind param no Postgres; o valor é int coagido acima,
+    # nunca texto de origem externa.
+    conn.execute(text(f"SET LOCAL lock_timeout = '{_migration_lock_timeout_ms()}ms'"))
+
+
+@contextmanager
+def _migration_txn():
+    """``engine.begin()`` com teto de espera por lock — a transação de migração.
+
+    Todo DDL/backfill DESTE módulo passa por aqui para que uma espera anormal vire
+    ``OperationalError`` ("canceling statement due to lock timeout") — logada por
+    ``app.db.migrate`` e abortando o boot — em vez de container pendurado.
+
+    Não cobre o passo do Alembic (``_sync_alembic_version``): ele constrói o
+    PRÓPRIO engine em ``migrations/env.py`` e por isso carimba o teto lá, por
+    conta. Dizer aqui que "todo DDL do boot passa por aqui" faria alguém concluir
+    que aquele caminho está protegido quando não estaria.
+    """
+    with engine.begin() as conn:
+        _apply_migration_lock_timeout(conn)
+        yield conn
+
+
 def _run_schema_init() -> None:
     """O DDL idempotente do schema (drop legado + create_all + migrações leves)."""
     # CRÍTICO: registra TODOS os models em ``Base.metadata`` antes do create_all.
@@ -156,7 +255,13 @@ def _run_schema_init() -> None:
     from . import models  # noqa: F401 — popula Base.metadata (side-effect)
 
     _drop_legacy_client_tables()
-    Base.metadata.create_all(bind=engine)
+    # ``create_all(bind=engine)`` já abria UMA transação por dentro
+    # (``Engine._run_ddl_visitor`` faz ``self.begin()``) — passar a conexão
+    # explícita não muda a atomicidade, só permite o ``SET LOCAL``. Faz falta
+    # aqui: criar tabela com FK exige lock na tabela REFERENCIADA, então este
+    # passo também pode esperar por outra sessão.
+    with _migration_txn() as conn:
+        Base.metadata.create_all(bind=conn)
     _run_lightweight_migrations()
     _backfill_org_hierarchy()
 
@@ -174,12 +279,32 @@ def _backfill_org_hierarchy() -> None:
         from . import hierarchy
 
         with SessionLocal() as session:
+            # A Session já abriu transação implícita, então o ``SET LOCAL`` tem o
+            # escopo certo. Sem ele este era o último caminho de boot capaz de
+            # pendurar para sempre: numa base 2.2.0 o ``root_id`` é NULL, logo o
+            # backfill SEMPRE roda, e ele emite ``UPDATE organizations`` dentro do
+            # advisory lock — qualquer transação externa segurando essas linhas
+            # travaria a atualização sem log e sem fim.
+            _apply_migration_lock_timeout(session.connection())
             if hierarchy.needs_backfill(session):
                 n = hierarchy.backfill_hierarchy(session)
                 session.commit()
                 logger.info("hierarquia materializada para %s orgs", n)
-    except Exception:  # pragma: no cover — boot resiliente
-        logger.warning("backfill de hierarquia falhou (não-fatal)", exc_info=True)
+    except Exception as exc:  # pragma: no cover — boot resiliente
+        # Um lock timeout aqui NÃO é o mesmo que um erro qualquer: significa que
+        # outra sessão segurava ``organizations`` e a árvore de tenants ficou sem
+        # materializar. Continua não-fatal (o próximo boot refaz), mas o operador
+        # precisa saber a consequência — um WARNING genérico esconde isso.
+        if "lock timeout" in str(getattr(exc, "orig", exc)).lower():
+            logger.error(
+                "backfill de hierarquia abortado por lock timeout — a árvore de "
+                "tenants NÃO foi materializada neste boot. Não é fatal: o próximo "
+                "boot refaz, desde que a contenção tenha passado. Veja quem segura "
+                "as linhas de ``organizations`` em pg_stat_activity.",
+                exc_info=True,
+            )
+        else:
+            logger.warning("backfill de hierarquia falhou (não-fatal)", exc_info=True)
 
 
 # Alembic. A revisão BASELINE âncora a adoção: o schema legado é
@@ -232,6 +357,11 @@ def _do_init() -> None:
     # Estado ANTES do schema init — distingue fresh de legado (depois do
     # _run_schema_init as tabelas existem e a distinção se perde).
     with engine.connect() as _probe:
+        # Leitura de catálogo também espera por lock de relação (na 2.3.0 foi
+        # exatamente um ``SELECT pg_catalog.pg_attribute`` que travou). O teto
+        # vale aqui pelo mesmo motivo: um detentor externo (psql aberto, réplica
+        # de versão anterior) não pode pendurar o boot em silêncio.
+        _apply_migration_lock_timeout(_probe)
         _insp = inspect(_probe)
         had_version = _insp.has_table("alembic_version")
         had_app = _insp.has_table("app_users")
@@ -265,12 +395,42 @@ def initialize_database() -> None:
     # AUTOCOMMIT: garante que o pg_advisory_lock tome efeito de imediato em
     # nível de SESSÃO (não preso a uma transação) e siga retido enquanto esta
     # conexão viver. Liberado no finally (mesma conexão).
+    #
+    # Este ``pg_advisory_lock`` fica DE PROPÓSITO sem teto de espera, ao
+    # contrário das transações de migração:
+    #   1. esperar aqui é o comportamento CORRETO — quem segura o lock é outra
+    #      réplica migrando de verdade, o que num banco grande leva minutos;
+    #      abortar transformaria a serialização (que existe justamente para
+    #      viabilizar ``replicas>1``) num crash loop das réplicas atrasadas;
+    #   2. a espera aqui já é limitada pelo detentor: com ``lock_timeout`` nas
+    #      transações de migração, ele não fica mais preso indefinidamente
+    #      esperando lock — falha, o ``finally`` solta o advisory lock e quem
+    #      espera segue. No incidente da 2.3.0 a pid 51 era vítima inocente presa
+    #      aqui; curar o DETENTOR é o que a solta, não cronometrar a vítima;
+    #   3. um teto teria de ser de SESSÃO (``SET``, não ``SET LOCAL``: esta
+    #      conexão está em AUTOCOMMIT, sem transação a que escopar) e vazaria
+    #      para o runtime — ``lock_conn`` volta para o POOL compartilhado, cujo
+    #      reset emite ROLLBACK e não ``RESET ALL``.
     with engine.connect().execution_options(isolation_level="AUTOCOMMIT") as lock_conn:
         lock_conn.execute(
             text("SELECT pg_advisory_lock(:k)"), {"k": _MIGRATION_ADVISORY_LOCK_KEY}
         )
         try:
             _do_init()
+        except OperationalError as exc:
+            # Traduz o erro cru do driver na ação que o operador precisa tomar —
+            # a alternativa é um traceback de ``canceling statement`` sem pista
+            # de QUEM segurava o lock.
+            if "lock timeout" in str(getattr(exc, "orig", exc)).lower():
+                logger.error(
+                    "migração abortada: espera por lock passou de %dms. Outra "
+                    "sessão segura lock nas tabelas migradas — inspecione "
+                    "pg_stat_activity (procure state='idle in transaction') e "
+                    "suba de novo. Se a contenção for legítima, aumente "
+                    "APP_DB_MIGRATION_LOCK_TIMEOUT_MS.",
+                    _migration_lock_timeout_ms(),
+                )
+            raise
         finally:
             lock_conn.execute(
                 text("SELECT pg_advisory_unlock(:k)"),
@@ -295,7 +455,19 @@ def _drop_legacy_client_tables() -> None:
     inspector = inspect(engine)
     table_names = set(inspector.get_table_names())
 
-    with engine.begin() as conn:
+    with _migration_txn() as conn:
+        # Religa o inspector à CONEXÃO da transação. Um inspector ligado ao
+        # ENGINE abre uma conexão NOVA a cada ``get_columns`` — e uma segunda
+        # conexão, no meio de uma transação que já pegou ACCESS EXCLUSIVE num
+        # ALTER TABLE acima, fica bloqueada esperando a PRÓPRIA transação
+        # terminar. O Postgres não desfaz esse impasse: o detector de deadlock
+        # só enxerga ciclos de espera-por-lock, e a primeira conexão está em
+        # ``idle in transaction`` esperando o CLIENTE (que está travado na
+        # segunda). Sem ``lock_timeout``, pendura para sempre — foi o que
+        # travou o boot da 2.3.0 ao adicionar ``integrations.collection_filters``.
+        # Ligado à conexão, a inspeção ainda ENXERGA o DDL não-commitado deste
+        # mesmo bloco, que é o que os "re-inspect" abaixo pressupõem.
+        inspector = inspect(conn)
         for legacy_table in ("history", "search_results"):
             if legacy_table not in table_names:
                 continue
@@ -396,7 +568,12 @@ def _heal_fk_ondelete_rules(inspector_obj) -> None:
         # NO ACTION pode). Para o nosso caso (todas constraints são imediatas),
         # tratamos NO ACTION e RESTRICT como valor "default", que é justamente
         # o que queremos REESCREVER.
-        with engine.begin() as conn:
+        # ``_migration_txn`` (e não ``engine.begin()`` cru): este bloco emite
+        # ``ALTER TABLE ... DROP/ADD CONSTRAINT``, que pede ACCESS EXCLUSIVE nas
+        # DUAS tabelas da FK e roda dentro do advisory lock de migração. Sem o
+        # teto, um detentor externo pendura o boot inteiro em silêncio — o mesmo
+        # modo de falha do incidente da 2.3.0, por outra porta.
+        with _migration_txn() as conn:
             row = conn.execute(
                 text(
                     """
@@ -451,7 +628,19 @@ def _run_lightweight_migrations() -> None:
     inspector = inspect(engine)
     table_names = set(inspector.get_table_names())
 
-    with engine.begin() as conn:
+    with _migration_txn() as conn:
+        # Religa o inspector à CONEXÃO da transação. Um inspector ligado ao
+        # ENGINE abre uma conexão NOVA a cada ``get_columns`` — e uma segunda
+        # conexão, no meio de uma transação que já pegou ACCESS EXCLUSIVE num
+        # ALTER TABLE acima, fica bloqueada esperando a PRÓPRIA transação
+        # terminar. O Postgres não desfaz esse impasse: o detector de deadlock
+        # só enxerga ciclos de espera-por-lock, e a primeira conexão está em
+        # ``idle in transaction`` esperando o CLIENTE (que está travado na
+        # segunda). Sem ``lock_timeout``, pendura para sempre — foi o que
+        # travou o boot da 2.3.0 ao adicionar ``integrations.collection_filters``.
+        # Ligado à conexão, a inspeção ainda ENXERGA o DDL não-commitado deste
+        # mesmo bloco, que é o que os "re-inspect" abaixo pressupõem.
+        inspector = inspect(conn)
         # Canary: add routes.canary_percent if the table was
         # created before this column existed.
         if "routes" in table_names:
@@ -888,7 +1077,7 @@ def _run_lightweight_migrations() -> None:
 
             # ── Sophos Partner Mode — hierarchy + auto-onboarding columns ─
             # Re-inspect to pick up columns added above in this same block.
-            integration_columns = {column["name"] for column in inspect(engine).get_columns("integrations")}
+            integration_columns = {column["name"] for column in inspect(conn).get_columns("integrations")}
             partner_columns = (
                 # (name, type_sql, default_sql_or_None)
                 # NOTE: ``TIMESTAMP`` (ANSI SQL) instead of ``DATETIME`` —
@@ -1019,7 +1208,7 @@ def _run_lightweight_migrations() -> None:
             )
 
         # ── Threat Intel singleton config seed ──────────────────────
-        ti_table_names = set(inspect(engine).get_table_names())
+        ti_table_names = set(inspect(conn).get_table_names())
         if "threat_intel_config" in ti_table_names:
             existing = conn.execute(
                 text("SELECT COUNT(*) AS n FROM threat_intel_config")
@@ -1050,7 +1239,7 @@ def _run_lightweight_migrations() -> None:
         #   - cria v1 apenas se a definição não tem ``current_version_id``
         # Saves manuais via UI geram v2/v3/... e o seed nunca
         # mais toca essa definição.
-        md_table_names = set(inspect(engine).get_table_names())
+        md_table_names = set(inspect(conn).get_table_names())
         if "mapping_definitions" in md_table_names:
             import json as _json
 
@@ -1254,10 +1443,19 @@ def _run_lightweight_migrations() -> None:
                 )
             )
 
-        # unknown_fields.organization_id: ver bloco ISOLADO
-        # fora deste ``with engine.begin() as conn:`` (logo após o heal de
-        # api_host), porque o backfill é write NÃO idempotente e seria
-        # descartado pelo ROLLBACK do inspect() interno deste bloco.
+        # unknown_fields.organization_id: ver bloco ISOLADO fora deste
+        # ``with _migration_txn() as conn:`` (logo após o heal de api_host).
+        # Fica lá por ser o único write NÃO idempotente da leva: o
+        # ``ALTER ... ADD COLUMN`` e o backfill que preenche a coluna são um
+        # write só, e o backfill roda UMA vez — quem o autoriza é a ausência da
+        # coluna que o próprio ALTER cria. Trazido para cá, ele passaria a ser
+        # desfeito por qualquer passo posterior deste bloco que falhe, e ainda
+        # seguraria o ACCESS EXCLUSIVE já tomado pelos ALTERs acima durante toda
+        # a varredura da tabela de drift — justo no rolling update, com a versão
+        # anterior ainda servindo tráfego nessas tabelas.
+        # O gatilho ORIGINAL do isolamento (o ROLLBACK que ``inspect(engine)``
+        # disparava aqui dentro sob StaticPool, descartando writes pendentes)
+        # deixou de existir na 2.3.1, com a troca por ``inspect(conn)``.
 
         # ── collector_config: adiciona wazuh_syslog_format ─
         # Linhas existentes (prod) recebem 'rfc5424' para preservar
@@ -1297,7 +1495,7 @@ def _run_lightweight_migrations() -> None:
         # índices que viramos a definir depois.
         if "api_tokens" in table_names:
             api_tokens_columns = {
-                column["name"] for column in inspect(engine).get_columns("api_tokens")
+                column["name"] for column in inspect(conn).get_columns("api_tokens")
             }
             # Defesa em profundidade: caso a tabela exista de uma rev anterior,
             # adiciona colunas faltantes sem perder linhas existentes.
@@ -1393,7 +1591,7 @@ def _run_lightweight_migrations() -> None:
         # secundários e idempotência caso já exista de rev anterior.
         if "service_accounts" in table_names:
             sa_columns = {
-                column["name"] for column in inspect(engine).get_columns("service_accounts")
+                column["name"] for column in inspect(conn).get_columns("service_accounts")
             }
             for col_name, col_type in (
                 ("description", "TEXT"),
@@ -1429,7 +1627,7 @@ def _run_lightweight_migrations() -> None:
         # preenche linhas existentes (contas locais → 'local' / false).
         if "app_users" in table_names:
             app_users_columns = {
-                column["name"] for column in inspect(engine).get_columns("app_users")
+                column["name"] for column in inspect(conn).get_columns("app_users")
             }
             # ATENÇÃO: PostgreSQL exige TIMESTAMP, não DATETIME; e DEFAULT
             # FALSE (ANSI) em vez de 0 — booleano portável Postgres+SQLite.
@@ -1485,7 +1683,7 @@ def _run_lightweight_migrations() -> None:
         # Primeira subida popula a tabela com valores do ``.env`` atual
         # (via ``settings``). Deploy subsequentes: preserva o que o
         # operador editou na UI.
-        cc_table_names = set(inspect(engine).get_table_names())
+        cc_table_names = set(inspect(conn).get_table_names())
         if "collector_config" in cc_table_names:
             existing = conn.execute(
                 text("SELECT COUNT(*) AS n FROM collector_config")
@@ -1560,7 +1758,7 @@ def _run_lightweight_migrations() -> None:
         # Primeira subida popula a partir das env ENTRA_* (via settings).
         # Depois a UI (/config → Identidade & SSO) é a fonte de verdade.
         # O client_secret é cifrado antes de persistir.
-        ic_table_names = set(inspect(engine).get_table_names())
+        ic_table_names = set(inspect(conn).get_table_names())
         if "identity_config" in ic_table_names:
             ic_existing = conn.execute(
                 text("SELECT COUNT(*) AS n FROM identity_config")
@@ -1627,7 +1825,7 @@ def _run_lightweight_migrations() -> None:
             }
             ic_columns_existing = {
                 col["name"]
-                for col in inspect(engine).get_columns("identity_config")
+                for col in inspect(conn).get_columns("identity_config")
             }
             for _col_name, _col_def in _IC_NEW_COLS_2B.items():
                 if _col_name not in ic_columns_existing:
@@ -1636,17 +1834,30 @@ def _run_lightweight_migrations() -> None:
                     ))
 
     # ── Sophos Partner — integration_tenant_selections + backfill ───────
-    # IMPORTANTE: roda em sua própria transação isolada pela mesma razão
-    # do bloco de heal abaixo: o pipeline acima intercala ``inspect(engine)``,
-    # e o ROLLBACK implícito do inspect descarta writes pendentes da outer
-    # transaction (vide nota detalhada no bloco seguinte). Aqui, em
-    # particular, o INSERT do backfill é one-shot e NÃO é trivialmente
-    # idempotente em re-runs (a query usa NOT EXISTS, então é safe re-rodar,
-    # mas não queremos depender disso por sorte).
+    # Transação PRÓPRIA, e não mais um trecho do bloco de ~1200 linhas acima:
+    # este é write de DADO (cria a tabela e a popula a partir de
+    # ``integrations``), enquanto o bloco acima é a migração de SCHEMA de que o
+    # resto do boot depende. Separados, o schema já está commitado quando este
+    # INSERT roda: se ele falhar — contenção de lock, dado legado inesperado —
+    # o boot aborta com o schema preservado, e a tentativa seguinte encontra as
+    # ~1200 linhas já aplicadas (todas guardadas) e refaz só o que falta.
+    # Juntos, o ACCESS EXCLUSIVE que os ALTERs de ``integrations`` tomaram lá em
+    # cima ficaria retido até este INSERT terminar — a janela que o rolling
+    # update, com a versão anterior ainda servindo, não tem como pagar.
+    #
+    # O write em si É idempotente e continua seguro em re-run: ``CREATE ... IF
+    # NOT EXISTS`` no DDL e ``INSERT ... WHERE NOT EXISTS`` sobre a chave única
+    # (parent, external_id). Excluir um tenant é soft-delete (``state`` vira
+    # ``excluded``, a linha fica), então o backfill nunca re-aprova um tenant que
+    # o operador tirou do ar.
+    #
+    # O gatilho ORIGINAL do isolamento (o ROLLBACK que ``inspect(engine)``
+    # disparava dentro do bloco acima sob StaticPool, descartando writes
+    # pendentes) deixou de existir na 2.3.1, com a troca por ``inspect(conn)``.
     inspector = inspect(engine)
     table_names_now = set(inspector.get_table_names())
     if "integrations" in table_names_now and "app_users" in table_names_now:
-        with engine.begin() as ts_conn:
+        with _migration_txn() as ts_conn:
             # 1) Garante a tabela mesmo quando ``Base.metadata.create_all``
             #    não roda (testes isolados que invocam migrations sem ORM).
             # NOTA: dialect é checada via ``engine.dialect.name`` (não via
@@ -1784,14 +1995,21 @@ def _run_lightweight_migrations() -> None:
         _heal_fk_ondelete_rules(inspector)
 
     # ── Heal: NULL-out fantasma ``api_host`` derivado-errado ────────────
-    # IMPORTANT: este bloco roda em sua PRÓPRIA transaction, FORA do
-    # ``with engine.begin() as conn:`` acima. Isso porque o bloco acima
-    # intercala chamadas a ``inspect(engine)``, e cada uma delas dispara
-    # um ``BEGIN/ROLLBACK`` na conexão subjacente (StaticPool/SQLite usa
-    # uma única conexão física). O ``ROLLBACK`` do inspect DESCARTA
-    # writes pendentes da nossa outer transaction quando não há savepoint.
-    # As demais UPDATEs do bloco acima são idempotentes; esta heal NÃO é,
-    # logo precisa de transação isolada.
+    # Transação PRÓPRIA, FORA do ``with _migration_txn() as conn:`` acima, pela
+    # mesma razão do bloco de tenant selections: é write de DADO em
+    # ``integrations``, tabela que o bloco acima ALTERa. Dentro dele, o ACCESS
+    # EXCLUSIVE daqueles ALTERs ficaria retido até este UPDATE terminar, e uma
+    # falha em qualquer passo posterior arrastaria o heal junto. Isolado, o pior
+    # caso é o boot abortar com a migração de schema já commitada.
+    #
+    # O UPDATE em si é convergente, não one-shot: no segundo run o
+    # ``api_host IS NOT NULL`` combinado com a lista fechada de hosts inválidos
+    # casa zero linhas. Ou seja, ele não depende de rodar exatamente uma vez —
+    # a razão do isolamento é a de cima, não a de "write que não pode repetir".
+    #
+    # O gatilho ORIGINAL do isolamento (o ROLLBACK que ``inspect(engine)``
+    # disparava dentro do bloco acima sob StaticPool, descartando writes
+    # pendentes) deixou de existir na 2.3.1, com a troca por ``inspect(conn)``.
     #
     # Sophos Central usa slugs de datacenter (``eu01``/``us03``/...) — não
     # geo-codes (``EU``/``US``/...). Se um registro persistiu um host
@@ -1799,7 +2017,7 @@ def _run_lightweight_migrations() -> None:
     # próximo sync repopule a partir do payload canônico de ``/partner/v1``.
     inspector = inspect(engine)
     if "integrations" in set(inspector.get_table_names()):
-        with engine.begin() as heal_conn:
+        with _migration_txn() as heal_conn:
             heal_conn.execute(
                 text(
                     """
@@ -1826,11 +2044,21 @@ def _run_lightweight_migrations() -> None:
             )
 
     # ── unknown_fields.organization_id (bloco ISOLADO) ──
-    # Mesma razão do heal acima: o backfill é write NÃO idempotente que o
-    # ROLLBACK do inspect() no bloco principal descartaria (StaticPool/SQLite).
-    # ``inspect`` roda ANTES de abrir a transação; o backfill (DML) vem por
-    # ÚLTIMO, sem DDL após, para o commit do bloco persisti-lo. Idempotente:
-    # roda só enquanto a coluna não existir (DB novo já a tem via create_all).
+    # O ÚNICO write NÃO idempotente desta leva — e por isso o que mais depende
+    # de commitar sozinho. ``ALTER ... ADD COLUMN`` e backfill formam um par
+    # indivisível: quem autoriza o backfill é a AUSÊNCIA da coluna que o ALTER
+    # acabou de criar. Se a coluna commitasse sem o backfill, o guard fecharia
+    # PARA SEMPRE e as linhas de drift legadas ficariam órfãs (org NULL) — que a
+    # leitura, fail-closed por org, nunca serve a ninguém. Fora do bloco grande,
+    # esse par não fica refém de um ALTER posterior que falhe, nem prende o
+    # ACCESS EXCLUSIVE daquele bloco durante a varredura de ``unknown_fields``.
+    # ``inspect`` roda ANTES de abrir a transação (nunca uma segunda conexão com
+    # lock retido); o backfill (DML) vem por ÚLTIMO, sem DDL após, para o commit
+    # do bloco persisti-lo. Re-rodar o boot é seguro: o bloco só entra enquanto a
+    # coluna não existir (DB novo já a tem via create_all).
+    # O gatilho ORIGINAL do isolamento (o ROLLBACK que ``inspect(engine)``
+    # disparava dentro do bloco grande sob StaticPool, descartando writes
+    # pendentes) deixou de existir na 2.3.1, com a troca por ``inspect(conn)``.
     inspector = inspect(engine)
     if "unknown_fields" in set(inspector.get_table_names()):
         _uf_cols = {c["name"] for c in inspector.get_columns("unknown_fields")}
@@ -1838,7 +2066,7 @@ def _run_lightweight_migrations() -> None:
             # ``engine.dialect.name`` (não DATABASE_URL) — testes monkey-patcham
             # o engine p/ Postgres mantendo a URL SQLite.
             _uf_sqlite = engine.dialect.name == "sqlite"
-            with engine.begin() as uf_conn:
+            with _migration_txn() as uf_conn:
                 if _uf_sqlite:
                     # SQLite não adiciona FK via ALTER — coluna pura; FK no ORM.
                     uf_conn.execute(
@@ -1902,17 +2130,23 @@ def _run_lightweight_migrations() -> None:
                 )
 
     # ── Seed: destino wazuh-default (saída desacoplada) ──────
-    # Bloco PRÓPRIO (mesma razão do heal acima): o seed é não-idempotente
-    # (INSERT), e o ``inspect(engine)`` intercalado no bloco principal
-    # descartaria o write sob StaticPool/SQLite (ROLLBACK do inspect). O
-    # ``inspect`` aqui roda ANTES de abrir a transação; dentro só há
-    # SELECT/INSERT. Materializa o destino Wazuh a partir das colunas
-    # ``wazuh_*`` do collector_config — caminho Wazuh idêntico. Idempotente:
-    # só insere se a linha id='wazuh-default' ainda não existe.
+    # Bloco PRÓPRIO pela mesma razão do heal acima: é write de DADO, e as
+    # colunas de ``collector_config`` que ele lê acabaram de ser criadas no bloco
+    # grande. Mantê-lo fora impede que o ACCESS EXCLUSIVE daqueles ALTERs siga
+    # retido durante o seed, e desamarra o seed do destino de todo o bloco — uma
+    # falha lá não o desfaz, uma falha aqui não desfaz o schema já commitado.
+    # O ``inspect`` roda ANTES de abrir a transação; dentro só há SELECT/INSERT.
+    # Materializa o destino Wazuh a partir das colunas ``wazuh_*`` do
+    # collector_config — caminho Wazuh idêntico. Idempotente: o INSERT é gated
+    # por um COUNT na MESMA transação, então só insere se a linha
+    # id='wazuh-default' ainda não existe.
+    # O gatilho ORIGINAL do isolamento (o ROLLBACK que ``inspect(engine)``
+    # disparava dentro do bloco grande sob StaticPool, descartando writes
+    # pendentes) deixou de existir na 2.3.1, com a troca por ``inspect(conn)``.
     inspector = inspect(engine)
     _dst_tables = set(inspector.get_table_names())
     if "destinations" in _dst_tables and "collector_config" in _dst_tables:
-        with engine.begin() as dst_conn:
+        with _migration_txn() as dst_conn:
             dst_existing = dst_conn.execute(
                 text("SELECT COUNT(*) AS n FROM destinations WHERE id = 'wazuh-default'")
             ).fetchone()
@@ -2023,7 +2257,7 @@ def _run_lightweight_migrations() -> None:
     _dlq_tables = set(inspect(engine).get_table_names())
     if "destination_dlq" not in _dlq_tables:
         _dlq_is_sqlite = DATABASE_URL.startswith("sqlite")
-        with engine.begin() as _dlq_conn:
+        with _migration_txn() as _dlq_conn:
             if _dlq_is_sqlite:
                 _dlq_conn.execute(
                     text(
@@ -2085,7 +2319,7 @@ def _run_lightweight_migrations() -> None:
     # table already holds duplicate rows the CREATE UNIQUE INDEX fails — we log
     # and continue (the table is dormant/forensic; an operator can dedup later).
     try:
-        with engine.begin() as _dlq_uq_conn:
+        with _migration_txn() as _dlq_uq_conn:
             _dlq_uq_conn.execute(
                 text(
                     "CREATE UNIQUE INDEX IF NOT EXISTS uq_dest_dlq_dest_event "
@@ -2104,7 +2338,7 @@ def _run_lightweight_migrations() -> None:
     # pruning/erase por tenant+tempo. Bloco próprio idempotente para curar
     # tabelas destination_dlq pré-existentes (criadas antes deste índice).
     if "destination_dlq" in set(inspect(engine).get_table_names()):
-        with engine.begin() as _dlq_idx_conn:
+        with _migration_txn() as _dlq_idx_conn:
             _dlq_idx_conn.execute(
                 text(
                     "CREATE INDEX IF NOT EXISTS ix_destination_dlq_org_created "
@@ -2116,14 +2350,14 @@ def _run_lightweight_migrations() -> None:
     # A tabela é criada por create_all (é model). Aqui só migramos os ids do IRIS
     # da coluna DEPRECADA Organization.iris_customer_id para o mapping genérico
     # (kind='iris'), tornando o mapping a fonte da verdade. Idempotente: só insere
-    # orgs ainda sem mapping. inspect() ANTES do engine.begin() (gotcha StaticPool/
+    # orgs ainda sem mapping. inspect() ANTES do _migration_txn() (gotcha StaticPool/
     # SQLite: inspect DENTRO do bloco faz ROLLBACK e descarta os inserts).
     _dcm_inspector = inspect(engine)
     _dcm_names = set(_dcm_inspector.get_table_names())
     if {"destination_customer_mappings", "organizations"} <= _dcm_names:
         _org_cols = {c["name"] for c in _dcm_inspector.get_columns("organizations")}
         if "iris_customer_id" in _org_cols:
-            with engine.begin() as _dcm_conn:
+            with _migration_txn() as _dcm_conn:
                 # Dois NOT EXISTS: (1) org ainda sem mapping iris; (2) o id
                 # externo não está reivindicado por OUTRA org (uq kind+extid) —
                 # evita violar a unicidade global no boot se ids legados
@@ -2167,7 +2401,7 @@ def _run_lightweight_migrations() -> None:
     if "destinations" in _s5_table_names:
         _s5_cols = {c["name"] for c in _s5_inspector.get_columns("destinations")}
         _s5_is_sqlite = engine.dialect.name == "sqlite"
-        with engine.begin() as _s5_conn:
+        with _migration_txn() as _s5_conn:
             if "secret_version" not in _s5_cols:
                 _s5_conn.execute(
                     text(
@@ -2190,7 +2424,7 @@ def _run_lightweight_migrations() -> None:
     _s6_table_names = set(_s6_inspector.get_table_names())
     if "credential_access_log" not in _s6_table_names:
         _s6_is_sqlite = engine.dialect.name == "sqlite"
-        with engine.begin() as _s6_conn:
+        with _migration_txn() as _s6_conn:
             if _s6_is_sqlite:
                 _s6_conn.execute(
                     text(
@@ -2254,7 +2488,7 @@ def _run_lightweight_migrations() -> None:
     _da_table_names = set(_da_inspector.get_table_names())
     if "destination_audit_log" not in _da_table_names:
         _da_is_sqlite = engine.dialect.name == "sqlite"
-        with engine.begin() as _da_conn:
+        with _migration_txn() as _da_conn:
             if _da_is_sqlite:
                 _da_conn.execute(
                     text(
@@ -2316,7 +2550,7 @@ def _run_lightweight_migrations() -> None:
     if "destinations" in _s7_table_names:
         _s7_cols = {c["name"] for c in _s7_inspector.get_columns("destinations")}
         if "data_residency" not in _s7_cols:
-            with engine.begin() as _s7_conn:
+            with _migration_txn() as _s7_conn:
                 _s7_conn.execute(
                     text("ALTER TABLE destinations ADD COLUMN data_residency VARCHAR")
                 )
@@ -2330,7 +2564,7 @@ def _run_lightweight_migrations() -> None:
         # aceito por Postgres E SQLite (>=3.23). Unicidade "1 default por org" é
         # garantida na API (destinations router) — evita índice parcial cross-DB.
         if "is_default" not in _s7_cols:
-            with engine.begin() as _s7_conn:
+            with _migration_txn() as _s7_conn:
                 _s7_conn.execute(
                     text(
                         "ALTER TABLE destinations ADD COLUMN is_default "
