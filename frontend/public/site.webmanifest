@@ -1,15 +1,15 @@
 {
   "name": "CentralOps",
   "short_name": "CentralOps",
-  "description": "Central de operações de segurança e normalização de pipeline.",
+  "description": "Motor open-source de pipeline de dados de segurança: coleta, normalização OCSF, redução e roteamento.",
   "id": "/",
   "lang": "pt-BR",
   "dir": "ltr",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
-  "theme_color": "#0284c7",
-  "background_color": "#0b1120",
+  "theme_color": "#181D2E",
+  "background_color": "#181D2E",
   "icons": [
     { "src": "/favicon.svg", "type": "image/svg+xml", "sizes": "any" },
     { "src": "/icon-192.png", "type": "image/png", "sizes": "192x192", "purpose": "any" },

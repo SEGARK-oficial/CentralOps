@@ -54,7 +54,7 @@ production, prefer a managed Postgres and point `DATABASE_URL` at it.
 
 The credentials for each integration are encrypted at rest. The default cipher provider is
 **`local_fernet`** (AES derived from `APP_MASTER_KEY`). Details and rotation in
-**[Secrets and master key](../administration/secrets-and-master-key.md)**.
+**[Secrets and master key](/en/administration/secrets-and-master-key)**.
 
 ## Best practices
 

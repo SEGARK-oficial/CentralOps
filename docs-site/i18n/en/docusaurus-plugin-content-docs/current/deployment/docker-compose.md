@@ -99,7 +99,7 @@ docker compose -f compose/docker-compose.yml exec centralops \
 ```
 
 With everything `healthy`, head over to
-**[First Login](../getting-started/first-login.md)** to create the administrator
+**[First Login](/en/getting-started/first-login)** to create the administrator
 account.
 
 ## Run prebuilt images (no build)
@@ -157,5 +157,5 @@ permanent with `COMPOSE_FILE=docker-compose.yml:docker-compose.ee.yml` in
 ## Next steps
 
 - **[Configuration](./configuration.md)** — all environment variables.
-- **[First Login](../getting-started/first-login.md)** — create the admin and the team.
-- **[Quickstart](../getting-started/quickstart.md)** — connect your first source.
+- **[First Login](/en/getting-started/first-login)** — create the admin and the team.
+- **[Quickstart](/en/getting-started/quickstart)** — connect your first source.

@@ -12,7 +12,7 @@ type FeatureItem = {
 const FeatureList: FeatureItem[] = [
   {
     title: 'Multi-vendor por design',
-    Svg: require('@site/static/img/undraw_docusaurus_mountain.svg').default,
+    Svg: require('@site/static/img/feature-multivendor.svg').default,
     description: (
       <>
         Registry pluggable de providers — Sophos Central/XDR, Microsoft Defender,
@@ -24,7 +24,7 @@ const FeatureList: FeatureItem[] = [
   },
   {
     title: 'Normalização versionada (CML)',
-    Svg: require('@site/static/img/undraw_docusaurus_tree.svg').default,
+    Svg: require('@site/static/img/feature-normalization.svg').default,
     description: (
       <>
         <strong>CML — CentralOps Mapping Language</strong> é uma DSL JSON
@@ -36,7 +36,7 @@ const FeatureList: FeatureItem[] = [
   },
   {
     title: 'MSSP-grade multi-tenant',
-    Svg: require('@site/static/img/undraw_docusaurus_react.svg').default,
+    Svg: require('@site/static/img/feature-multitenant.svg').default,
     description: (
       <>
         Auto-discovery de tenants Sophos Partner com workflow de aprovação
@@ -52,7 +52,10 @@ function Feature({title, Svg, description}: FeatureItem) {
   return (
     <div className={clsx('col col--4')}>
       <div className="text--center">
-        <Svg className={styles.featureSvg} role="img" />
+        {/* Decorative: the heading and copy beside it carry the meaning, and
+            SVGR strips the <title> out of the source file anyway, so role="img"
+            would announce an unnamed graphic. */}
+        <Svg className={styles.featureSvg} aria-hidden />
       </div>
       <div className="text--center padding-horiz--md">
         <Heading as="h3">{title}</Heading>

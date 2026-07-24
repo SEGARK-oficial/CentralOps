@@ -54,7 +54,7 @@ seria, prefiere un Postgres gestionado y apunta `DATABASE_URL` hacia él.
 
 Las credenciales de cada integración se cifran en reposo. El proveedor de cifrado por defecto es
 **`local_fernet`** (AES derivado de la `APP_MASTER_KEY`). Detalles y rotación en
-**[Secretos y clave maestra](../administration/secrets-and-master-key.md)**.
+**[Secretos y clave maestra](/es/administration/secrets-and-master-key)**.
 
 ## Buenas prácticas
 

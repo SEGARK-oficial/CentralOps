@@ -8,19 +8,19 @@
     "description": "The alt text of navbar logo"
   },
   "item.label.Começar": {
-    "message": "Começar",
+    "message": "Get started",
     "description": "Navbar item with label Começar"
   },
   "item.label.Saídas & Rotas": {
-    "message": "Saídas & Rotas",
+    "message": "Outputs & Routing",
     "description": "Navbar item with label Saídas & Rotas"
   },
   "item.label.Operação": {
-    "message": "Operação",
+    "message": "Operations",
     "description": "Navbar item with label Operação"
   },
   "item.label.Administração": {
-    "message": "Administração",
+    "message": "Administration",
     "description": "Navbar item with label Administração"
   },
   "item.label.Mappings": {
