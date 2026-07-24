@@ -67,8 +67,7 @@
     "matchedPerMin": "casados/min",
     "routedPerMin": "roteados/min",
     "droppedPerMin": "descartados/min",
-    "noActivityPrefix": "Sem atividade recente nesta rota (roteamento dormente até ",
-    "noActivitySuffix": ", ou sem tráfego que case)."
+    "noActivity": "Sem atividade recente nesta rota — nenhum tráfego casou com a condição na janela observada."
   },
   "dryRun": {
     "title": "Simular roteamento",
@@ -361,12 +360,12 @@
     "reductionFlagsNoticeTitle": "O que ativa estas alavancas",
     "reductionFlagsNoticeBody": "As flags de backend REDUCTION_SAMPLE_ENABLED, REDUCTION_SUPPRESS_ENABLED e REDUCTION_TRIM_ENABLED estão LIGADAS por padrão (ADR-0015). Quem ativa a redução de fato é a configuração desta rota: sample_percent nasce em 100 (mantém tudo) e suppress_allow nasce em 0 (desligado) — enquanto ficarem assim, nenhum evento é descartado. Já a agregação (REDUCTION_AGGREGATE_ENABLED) permanece desligada por padrão.",
     "protectDetectionLabel": "Proteger detecção (protect_detection)",
-    "protectDetectionDescription": "Fail-safe ligado por padrão: esta rota nunca é amostrada ou agregada, mesmo com as alavancas de redução ativas no ambiente.",
+    "protectDetectionDescription": "Fail-safe ligado por padrão: esta rota nunca é amostrada, suprimida nem tem o evento bruto descartado, mesmo com as alavancas de redução ativas no ambiente.",
     "unprotectedWarningTitle": "Proteção de detecção desligada",
-    "unprotectedWarningBody": "Esta rota agora PODE ser amostrada/suprimida pelas alavancas de redução. Eventos relevantes para detecção podem nunca chegar ao SIEM. Use somente em rotas onde reduzir volume é seguro (ex.: telemetria de baixo valor, não eventos de segurança).",
+    "unprotectedWarningBody": "Esta rota agora PODE ser amostrada, suprimida ou entregue sem o evento bruto pelas alavancas de redução. Eventos relevantes para detecção podem nunca chegar ao SIEM. Use somente em rotas onde reduzir volume é seguro (ex.: telemetria de baixo valor, não eventos de segurança).",
     "unprotectDialogTitle": "Desligar proteção de detecção?",
     "unprotectDialogConfirm": "Desligar proteção",
-    "unprotectDialogDescription": "Rotas com protect_detection desligado podem ter eventos amostrados ou suprimidos pelas alavancas de redução — incluindo eventos que alimentariam detecção. Esta é uma decisão consciente de risco, não reversível automaticamente. Confirme apenas se tiver certeza de que esta rota não carrega sinal relevante para detecção.",
+    "unprotectDialogDescription": "Rotas com protect_detection desligado podem ter eventos amostrados, suprimidos ou entregues sem o evento bruto pelas alavancas de redução — incluindo eventos que alimentariam detecção. Esta é uma decisão consciente de risco, não reversível automaticamente. Confirme apenas se tiver certeza de que esta rota não carrega sinal relevante para detecção.",
     "samplePercentLabel": "Amostragem %",
     "samplePercentHelper": "100 = sem amostragem (byte-idêntico); <100 = só essa fração chega aos destinos.",
     "samplePercentHelperProtected": "Desabilitado — rota protegida nunca é amostrada.",

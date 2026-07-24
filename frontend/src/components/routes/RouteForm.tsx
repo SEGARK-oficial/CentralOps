@@ -215,13 +215,18 @@ export const RouteForm: React.FC<RouteFormProps> = ({ mode, route, loading, onCa
             <span className="font-normal text-text-secondary">{t("routeForm.reductionLegendOptional")}</span>
           </legend>
 
-          {/* ADR-0015 inverteu os defaults: REDUCTION_SAMPLE_ENABLED,
-              REDUCTION_SUPPRESS_ENABLED e REDUCTION_TRIM_ENABLED nascem ON
-              (core/config.py:405,422,433) — só REDUCTION_AGGREGATE_ENABLED segue OFF.
+          {/* ADR-0015 inverteu os defaults: REDUCTION_SAMPLE_ENABLED (core/config.py:423),
+              REDUCTION_SUPPRESS_ENABLED (:451) e REDUCTION_TRIM_ENABLED (:440) nascem ON
+              — só REDUCTION_AGGREGATE_ENABLED (:464) segue OFF; o fail-safe global é
+              REDUCTION_SAMPLE_PROTECT_DETECTION (:429).
               O portão que importa é o default POR-ROTA (sample_percent=100,
               suppress_allow=0), e não a flag global. O texto anterior afirmava o
               contrário e induzia o operador a achar que "Evitado" deveria ser zero.
-              Aviso estático: nenhum endpoint expõe o estado das flags hoje. */}
+              Aviso ainda estático, mas já existe fonte real: GET /collectors/cost-summary
+              devolve `levers` com o estado das flags no processo que respondeu
+              (backend/app/routers/collectors.py:421-429). Próximo passo é trocar este
+              texto fixo por leitura desse campo — fora do escopo desta PR porque
+              mudaria o comportamento do formulário e exigiria teste. */}
           <Notice variant="info" title={t("routeForm.reductionFlagsNoticeTitle")}>
             {t("routeForm.reductionFlagsNoticeBody")}
           </Notice>

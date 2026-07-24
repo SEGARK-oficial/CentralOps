@@ -300,6 +300,7 @@
         "sample": "muestreo",
         "suppress": "supresión",
         "drop": "descarte por ruta",
+        "raw_drop": "descarte del bruto",
         "aggregate": "agregación",
         "redaction": "redacción"
       }

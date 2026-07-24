@@ -67,8 +67,7 @@
     "matchedPerMin": "coincidencias/min",
     "routedPerMin": "enrutados/min",
     "droppedPerMin": "descartados/min",
-    "noActivityPrefix": "Sin actividad reciente en esta ruta (enrutamiento inactivo hasta ",
-    "noActivitySuffix": ", o sin tráfico que coincida)."
+    "noActivity": "Sin actividad reciente en esta ruta — ningún tráfico coincidió con la condición en la ventana observada."
   },
   "dryRun": {
     "title": "Simular enrutamiento",
@@ -361,12 +360,12 @@
     "reductionFlagsNoticeTitle": "Qué activa realmente estas palancas",
     "reductionFlagsNoticeBody": "Las flags del backend REDUCTION_SAMPLE_ENABLED, REDUCTION_SUPPRESS_ENABLED y REDUCTION_TRIM_ENABLED están ACTIVADAS por defecto (ADR-0015). Lo que activa la reducción realmente es la configuración de esta ruta: sample_percent nace en 100 (conserva todo) y suppress_allow nace en 0 (desactivado) — mientras sigan así, no se descarta ningún evento. La agregación (REDUCTION_AGGREGATE_ENABLED), en cambio, sigue desactivada por defecto.",
     "protectDetectionLabel": "Proteger detección (protect_detection)",
-    "protectDetectionDescription": "Activado por defecto como fail-safe: esta ruta nunca se muestrea ni se agrega, incluso con las palancas de reducción activas en el entorno.",
+    "protectDetectionDescription": "Activado por defecto como fail-safe: esta ruta nunca se muestrea, se suprime ni pierde el evento bruto, incluso con las palancas de reducción activas en el entorno.",
     "unprotectedWarningTitle": "Protección de detección desactivada",
-    "unprotectedWarningBody": "Esta ruta AHORA puede ser muestreada/suprimida por las palancas de reducción. Eventos relevantes para detección pueden nunca llegar al SIEM. Úsalo solo en rutas donde reducir volumen sea seguro (ej.: telemetría de bajo valor, no eventos de seguridad).",
+    "unprotectedWarningBody": "Esta ruta AHORA puede ser muestreada, suprimida o entregada sin el evento bruto por las palancas de reducción. Eventos relevantes para detección pueden nunca llegar al SIEM. Úsalo solo en rutas donde reducir volumen sea seguro (ej.: telemetría de bajo valor, no eventos de seguridad).",
     "unprotectDialogTitle": "¿Desactivar la protección de detección?",
     "unprotectDialogConfirm": "Desactivar protección",
-    "unprotectDialogDescription": "Las rutas con protect_detection desactivado pueden tener eventos muestreados o suprimidos por las palancas de reducción — incluyendo eventos que alimentarían la detección. Esta es una decisión consciente de riesgo, no reversible automáticamente. Confirma solo si estás seguro de que esta ruta no lleva señal relevante para detección.",
+    "unprotectDialogDescription": "Las rutas con protect_detection desactivado pueden tener eventos muestreados, suprimidos o entregados sin el evento bruto por las palancas de reducción — incluyendo eventos que alimentarían la detección. Esta es una decisión consciente de riesgo, no reversible automáticamente. Confirma solo si estás seguro de que esta ruta no lleva señal relevante para detección.",
     "samplePercentLabel": "Muestreo %",
     "samplePercentHelper": "100 = sin muestreo (byte-idéntico); <100 = solo esa fracción llega a los destinos.",
     "samplePercentHelperProtected": "Deshabilitado — una ruta protegida nunca se muestrea.",
