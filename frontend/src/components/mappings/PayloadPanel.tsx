@@ -1,32 +1,58 @@
 /**
  * PayloadPanel
- * Painel esquerdo do editor de mappings.
- * Sprint 1: suporte a dois modos via Tabs:
- *   - "reservoir": placeholder informativo (endpoint de samples ainda não existe no backend)
+ * Painel esquerdo do editor de mappings. Dois modos via Tabs:
+ *   - "reservoir": amostras reais de eventos brutos do tenant, vindas do ring buffer
+ *     no Redis que o pipeline alimenta a cada evento coletado
  *   - "manual": textarea para colar JSON raw e alimentar o dry-run
+ *
+ * A aba reservoir foi um placeholder estático por um release inteiro: o endpoint
+ * `GET /mappings/samples` e o `EmptyState` "amostras indisponíveis" entraram no MESMO
+ * commit, e só o segundo foi ligado. O painel nunca chamou API nenhuma, então a tela
+ * anunciava indisponibilidade de uma coisa que existia e funcionava.
  */
 
 import type React from "react"
-import { useState, useId } from "react"
+import { useState, useId, useEffect, useCallback } from "react"
 import { DatabaseIcon } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { cn } from "@/lib/utils"
 import { Tabs, TabsList, TabsTrigger, TabsPanel } from "@/components/ui/Tabs/Tabs"
 import { Textarea } from "@/components/ui/Textarea/Textarea"
 import { Notice } from "@/components/ui/Notice/Notice"
+import { Button } from "@/components/ui/Button/Button"
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState"
+import { LoadingSpinner } from "@/components/ui/LoadingSpinner/LoadingSpinner"
 import { JsonViewer } from "@/components/shared/JsonViewer"
+import { getMappingSamples } from "@/services/api"
 
 type PayloadMode = "reservoir" | "manual"
 
 interface PayloadPanelProps {
-  /** Chamada quando o usuário cola JSON válido no modo manual */
+  /** Chamada quando o usuário escolhe uma amostra ou cola JSON válido */
   onRawEventChange: (event: Record<string, unknown> | null) => void
+  /** Coordenadas do reservoir: ele é indexado por vendor + tipo de evento. */
+  vendor?: string
+  eventType?: string
+  /** Tenant cujas amostras exibir. Admin global precisa nomear um. */
+  orgId?: number | null
+  /**
+   * O reservoir é por tenant, e um admin GLOBAL com o filtro em "todas as
+   * organizações" não tem tenant para consultar: o backend resolve org=None e
+   * devolve vazio sem tocar no Redis. Sem este sinal, a tela diria "ainda não há
+   * amostras" — falso sobre dados que existem, só que em outro escopo. Vem como
+   * prop e não de `useAuth` para o painel continuar apresentacional (e testável
+   * sem provider de autenticação).
+   */
+  needsOrgChoice?: boolean
   className?: string
 }
 
 export const PayloadPanel: React.FC<PayloadPanelProps> = ({
   onRawEventChange,
+  vendor,
+  eventType,
+  orgId,
+  needsOrgChoice = false,
   className,
 }) => {
   const { t } = useTranslation("mappings")
@@ -34,6 +60,50 @@ export const PayloadPanel: React.FC<PayloadPanelProps> = ({
   const [rawText, setRawText] = useState("")
   const [parseError, setParseError] = useState<string | null>(null)
   const [parsedJson, setParsedJson] = useState<Record<string, unknown> | null>(null)
+
+  // ── Reservoir ──────────────────────────────────────────────────────────────
+  const [samples, setSamples] = useState<Record<string, unknown>[]>([])
+  const [samplesLoading, setSamplesLoading] = useState(false)
+  const [samplesError, setSamplesError] = useState<string | null>(null)
+  const [selectedSample, setSelectedSample] = useState<number | null>(null)
+  const [reloadToken, setReloadToken] = useState(0)
+
+  const canQueryReservoir = Boolean(vendor && eventType) && !needsOrgChoice
+
+  useEffect(() => {
+    if (!canQueryReservoir) return
+    const controller = new AbortController()
+    setSamplesLoading(true)
+    setSamplesError(null)
+    getMappingSamples(
+      { vendor: vendor as string, event_type: eventType as string, limit: 10, org_id: orgId },
+      { signal: controller.signal },
+    )
+      .then((res) => {
+        setSamples(res.items ?? [])
+        setSelectedSample(null)
+      })
+      .catch((err: unknown) => {
+        // AbortError é troca de mapping/desmonte, não falha: mostrar erro aqui
+        // faria a tela piscar vermelho a cada navegação.
+        if (err instanceof DOMException && err.name === "AbortError") return
+        setSamplesError(err instanceof Error ? err.message : t("payloadPanel.reservoir.error"))
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setSamplesLoading(false)
+      })
+    return () => controller.abort()
+  }, [canQueryReservoir, vendor, eventType, orgId, reloadToken, t])
+
+  const handleSelectSample = useCallback(
+    (index: number) => {
+      const picked = samples[index]
+      if (!picked) return
+      setSelectedSample(index)
+      onRawEventChange(picked)
+    },
+    [samples, onRawEventChange],
+  )
 
   const headingId = useId()
 
@@ -88,11 +158,57 @@ export const PayloadPanel: React.FC<PayloadPanelProps> = ({
         </TabsList>
 
         <TabsPanel value="reservoir">
-          <EmptyState
-            icon={<DatabaseIcon size={32} />}
-            title={t("payloadPanel.reservoir.title")}
-            description={t("payloadPanel.reservoir.description")}
-          />
+          {needsOrgChoice ? (
+            <EmptyState
+              icon={<DatabaseIcon size={32} />}
+              title={t("payloadPanel.reservoir.pickOrgTitle")}
+              description={t("payloadPanel.reservoir.pickOrgDescription")}
+            />
+          ) : samplesLoading ? (
+            <div className="flex justify-center py-8">
+              <LoadingSpinner />
+            </div>
+          ) : samplesError ? (
+            <div className="flex flex-col gap-3">
+              <Notice variant="danger">{samplesError}</Notice>
+              <Button variant="secondary" size="sm" onClick={() => setReloadToken((n) => n + 1)}>
+                {t("payloadPanel.reservoir.retry")}
+              </Button>
+            </div>
+          ) : samples.length === 0 ? (
+            /* Vazio não é falha: o reservoir só enche com tráfego real. A copy diz o
+               que fazer enquanto isso, em vez de anunciar indisponibilidade. */
+            <EmptyState
+              icon={<DatabaseIcon size={32} />}
+              title={t("payloadPanel.reservoir.title")}
+              description={t("payloadPanel.reservoir.description")}
+            />
+          ) : (
+            <ul className="flex flex-col gap-2" data-testid="reservoir-samples">
+              {samples.map((sample, index) => (
+                <li key={index}>
+                  <button
+                    type="button"
+                    onClick={() => handleSelectSample(index)}
+                    aria-pressed={selectedSample === index}
+                    className={cn(
+                      "w-full rounded-md border p-2 text-left transition-colors focus-ring",
+                      selectedSample === index
+                        ? "border-primary-500 bg-surface-tertiary"
+                        : "border-border hover:border-border-hover",
+                    )}
+                  >
+                    <span className="mb-1 block font-mono text-xs text-text-tertiary">
+                      {t("payloadPanel.reservoir.sampleIndex", { index: index + 1 })}
+                    </span>
+                    {/* collapseLevel=1: a lista é para ESCOLHER uma amostra, não para
+                        ler o evento inteiro. O JSON completo aparece no dry-run. */}
+                    <JsonViewer data={sample} collapseLevel={1} />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
         </TabsPanel>
 
         <TabsPanel value="manual">

@@ -1,31 +1,26 @@
 {
   "dashboardPage": {
-    "eyebrow": "Visión general",
     "title": "Dashboard",
-    "description": "Primero el throughput del pipeline y la salud de las fuentes; luego rankings accionables de fuentes, destinos, cuarentena y rutas.",
     "loading": "Cargando dashboard...",
     "updating": "Actualizando...",
     "loadError": "Error al cargar el dashboard",
     "empty": {
       "title": "Sin datos para mostrar",
-      "description": "No hay resumen disponible para el recorte actual. Ajuste el filtro global o intente actualizar."
+      "description": "Ajusta el filtro global o actualiza."
     },
     "scope": {
       "title": "Alcance actual",
-      "description": "El dashboard usa el filtro global de la aplicación. Ajuste cliente, plataforma o integración en la barra superior.",
       "client": "Cliente: {{value}}",
       "platform": "Plataforma: {{value}}",
       "integration": "Integración: {{value}}",
-      "counts": "Alcance: {{orgs}} cliente(s) · {{integrations}} integración(es) ({{active}} activas)",
-      "generatedAt": "Datos generados: {{time}} ({{relative}})",
+      "counts": "{{orgs}} clientes · {{integrations}} integraciones · {{active}} activas",
+      "generatedAt": "{{time}} · {{relative}}",
       "clear": "Limpiar alcance",
       "allOrganizations": "Todos",
       "allPlatforms": "Todas",
       "allIntegrations": "Todas"
     },
     "timeWindow": {
-      "title": "Ventana temporal",
-      "description": "El recorte de abajo ajusta las métricas y rankings mostrados en el dashboard.",
       "label": "Ventana",
       "options": {
         "24h": "24 horas",
@@ -35,11 +30,16 @@
     },
     "sourcesHealth": {
       "title": "Fuentes y salud",
-      "description": "Ambientes degradados y distribución de las integraciones por plataforma.",
-      "noDegraded": "Ningún ambiente degradado en este recorte.",
+      "noDegraded": "Ninguna fuente degradada.",
       "noDetail": "Sin mensaje detallado",
       "unnamedClient": "Cliente {{id}}",
-      "byPlatform": "Integraciones por plataforma"
+      "byPlatform": "Integraciones por plataforma",
+      "status": {
+        "degraded": "Degradado",
+        "error": "Error",
+        "unhealthy": "No disponible",
+        "unknown": "Esperando recolección"
+      }
     },
     "dates": {
       "noData": "Sin datos",
@@ -49,23 +49,35 @@
       "minutesAgo": "hace {{count}} min",
       "hoursAgo": "hace {{count}} h",
       "daysAgo": "hace {{count}} d"
+    },
+    "kpi": {
+      "severity": {
+        "warn": "atención",
+        "critical": "crítico"
+      },
+      "gridAriaLabel": "Indicadores del pipeline",
+      "cardAriaLabel": "{{label}}: {{value}}",
+      "trendAriaLabel": "Tendencia {{trend}} {{value}}"
+    },
+    "buckets": {
+      "empty": "Sin datos en esta ventana."
     }
   },
   "flowPage": {
     "title": "Flujo de datos",
-    "description": "De la ingesta a la entrega — fuentes, enrutamiento y destinos con throughput en vivo (ventana de 60 min).",
+    "description": "De la ingesta a la entrega: fuentes, enrutamiento y destinos con throughput en vivo (60 min).",
     "liveFeed": "Feed en vivo",
     "loadError": "Error al cargar el flujo.",
     "notLoaded": "No se pudo cargar",
     "empty": {
       "title": "Sin flujo para mostrar",
-      "description": "Configure integraciones (fuentes), rutas y destinos para ver el flujo de datos de la plataforma."
+      "description": "Crea integraciones, rutas y destinos para ver el flujo."
     },
     "stats": {
-      "ingest": "Ingesta",
-      "routed": "Enrutados",
-      "dropped": "Descartados",
-      "delivered": "Entregados",
+      "ingest": "Recolectado",
+      "routed": "Enrutado",
+      "dropped": "Descartado",
+      "delivered": "Entregado",
       "perMinute": "{{value}}/min"
     },
     "topology": {
@@ -73,16 +85,15 @@
       "healthy": "saludable",
       "degraded": "degradado",
       "unavailable": "no disponible",
-      "legend": "ancho/velocidad ∝ throughput · scroll=zoom · arrastrar=desplazar"
+      "legend": "ancho ∝ volumen · scroll = zoom · arrastrar = desplazar"
     }
   },
   "pipelineHealthPage": {
-    "title": "Salud del Pipeline",
+    "title": "Salud del pipeline",
     "loadError": "Error al cargar",
     "loadHealthError": "Error al cargar los datos de salud.",
     "loading": "Cargando...",
     "updatedAt": "Actualizado a las {{time}}",
-    "summary": "{{healthy}} saludables · {{degraded}} degradadas · {{unhealthy}} no disponibles · {{unknown}} esperando recolección",
     "filters": {
       "groupLabel": "Filtrar por estado",
       "all": "Todos ({{count}})",
@@ -91,14 +102,14 @@
     },
     "empty": {
       "title": "Ninguna integración encontrada",
-      "description": "Ninguna integración coincide con el filtro seleccionado. Ajuste el filtro para ver otras integraciones."
+      "description": "Ajusta el filtro para ver otras integraciones."
     },
     "card": {
       "eventsPerMinute": "Eventos/min",
       "lastCollection": "Última recolección",
       "lastCollectionTitle": "Cuándo se ejecutó el recolector por última vez.",
       "dataLag": "Retraso de los datos",
-      "dataLagTitle": "De cuándo es el evento más reciente ya recolectado. Es el que revela un recolector atrasado — la última recolección pudo terminar recién y aun así estar procesando ayer.",
+      "dataLagTitle": "Edad del evento más nuevo. Revela al recolector que corre al día pero procesa ayer.",
       "backlog": "Backlog",
       "backlogTitle": "El último ciclo se detuvo en el tope de páginas: quedó trabajo para el siguiente.",
       "drift24h": "Drift (24h)",
@@ -115,15 +126,16 @@
       "healthy": "Saludable",
       "degraded": "Degradado",
       "unhealthy": "No disponible",
-      "unknown": "Esperando primera recolección"
+      "disabled": "Desactivado",
+      "unknown": "Esperando recolección"
     },
     "statusCard": {
-      "title": "Estado del Pipeline",
+      "title": "Estado del pipeline",
       "description": {
-        "healthy": "El pipeline de normalización está operando con normalidad.",
-        "degraded": "El pipeline está funcionando con degradación. Revise los errores recientes.",
-        "unhealthy": "El pipeline no está disponible. Se recomienda acción inmediata.",
-        "unknown": "Aún no se ha realizado ninguna recolección. Esperando primera ejecución."
+        "healthy": "Normalización operando sin errores.",
+        "degraded": "Operando con degradación. Revisa los errores recientes.",
+        "unhealthy": "Pipeline no disponible. Revisa el recolector ahora.",
+        "unknown": "Ninguna recolección aún. Esperando la primera ejecución."
       },
       "statusAriaLabel": "Estado: {{status}}"
     },
@@ -154,7 +166,7 @@
       "title": "Último error registrado"
     },
     "mappedFieldRatio": {
-      "title": "Cobertura de Campos",
+      "title": "Cobertura de campos",
       "notCalculable": "Cobertura no calculable (ningún mapping configurado)",
       "mappedFields": "campos mapeados",
       "ariaLabel": "Cobertura de campos: {{percentage}}%"
@@ -163,7 +175,7 @@
       "ariaLabel": "Métricas de salud de la integración",
       "noDetailedMetrics": "Esta integración no publica métricas detalladas",
       "lastCollection": "Última recolección {{relative}}",
-      "awaitingFirstCollection": "Esperando primera recolección — en hasta 5 minutos",
+      "awaitingFirstCollection": "Esperando primera recolección, en 5 minutos",
       "severity": {
         "ok": "ok",
         "warn": "atención",
@@ -195,8 +207,8 @@
       "summaryMixed": "{{okCount}} saludable(s), {{nonOkCount}} con atención"
     },
     "integrationPanel": {
-      "title": "Salud del Pipeline de Normalización",
-      "updatedSecondsAgo": "Métricas actualizadas hace {{seconds}}s — datos en caché 60s",
+      "title": "Salud del pipeline de normalización",
+      "updatedSecondsAgo": "Métricas de hace {{seconds}}s, caché de 60s",
       "loadError": "Error al cargar los datos de salud",
       "loading": "Cargando métricas...",
       "refresh": "Actualizar",
@@ -216,9 +228,9 @@
       "destinationAriaLabel": "Destino {{name}}",
       "metricsAriaLabel": "Métricas del destino",
       "breaker": {
-        "closed": "Circuito cerrado",
-        "open": "Circuito abierto",
-        "halfOpen": "Semiabierto",
+        "closed": "Cerrado",
+        "open": "Abierto",
+        "halfOpen": "Medio abierto",
         "ariaLabel": "Circuit breaker: {{label}}"
       }
     }
@@ -300,13 +312,13 @@
       "estimatedSavings": "Ahorro estimado",
       "perDay": "/ día",
       "enablePricing": "Active el cálculo en US$ (ahorro/ROI) con la edición Enterprise + el precio por GB en el destino.",
-      "pricingUnconfigured": "Precio por GB no configurado en el destino — sin él el ahorro en moneda no puede calcularse y queda en cero.",
+      "pricingUnconfigured": "El destino no tiene precio por GB. Sin él el ahorro en moneda queda en cero.",
       "unitRaw": "evento crudo, 1× por evento",
       "unitEnvelope": "envelope, por entrega",
-      "unitMixed": "bases mixtas — ver detalle",
+      "unitMixed": "bases mixtas, ver detalle",
       "reductionBasis": "sobre entregado + evitado",
       "byReason": "Por causa:",
-      "unitMismatch": "Evitado supera a Recolectado porque las métricas usan bases de medición distintas (crudo × envelope, por evento × por entrega) — no es doble conteo. Trate los números como una aproximación hasta unificar las bases.",
+      "unitMismatch": "Evitado supera a Recolectado porque las bases difieren: crudo × envelope, evento × entrega. No es doble conteo.",
       "reasons": {
         "trim": "poda",
         "sample": "muestreo",

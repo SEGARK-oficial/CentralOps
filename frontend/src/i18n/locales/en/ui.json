@@ -10,7 +10,7 @@
   },
   "commandPalette": {
     "dialogLabel": "Command palette",
-    "searchPlaceholder": "Search commands...",
+    "searchPlaceholder": "Search commands…",
     "searchAriaLabel": "Search commands",
     "resultsAriaLabel": "Available commands",
     "noResults": "No results for \"{{query}}\"",
@@ -21,11 +21,9 @@
     }
   },
   "dataTable": {
-    "loading": "Loading data...",
-    "emptyTitle": "No data found",
-    "emptyDescription": "There is no data to display at the moment.",
-    "showingRange": "Showing {{start}} to {{end}} of {{total}} records",
-    "itemsPerPage": "Items:",
+    "emptyTitle": "No records",
+    "showingRange": "{{start}} to {{end}} of {{total}}",
+    "itemsPerPage": "Per page",
     "firstPage": "First page",
     "previousPage": "Previous page",
     "nextPage": "Next page",
@@ -77,7 +75,7 @@
   "select": {
     "placeholder": "Select an option",
     "selectedCount": "{{count}} selected",
-    "searchPlaceholder": "Search...",
+    "searchPlaceholder": "Search…",
     "searchAriaLabel": "Search options",
     "selectAll": "Select all",
     "clearAll": "Clear all",
@@ -85,8 +83,8 @@
   },
   "filtersToolbar": {
     "searchAriaLabel": "Search",
-    "resetAriaLabel": "Reset filters",
-    "reset": "Reset"
+    "resetAriaLabel": "Clear filters",
+    "reset": "Clear filters"
   },
   "bulkActionBar": {
     "regionAriaLabel": "Bulk actions",
@@ -116,12 +114,6 @@
     "loadingTable": "Loading table…"
   },
   "button": {
-    "loading": "Loading..."
-  },
-  "themeToggle": {
-    "switchToLight": "Switch to light theme",
-    "switchToDark": "Switch to dark theme",
-    "lightTheme": "Light theme",
-    "darkTheme": "Dark theme"
+    "loading": "Loading…"
   }
 }

@@ -30,7 +30,13 @@ const InputInner = forwardRef<HTMLInputElement, InputProps>(
             )}
           >
             {label}
-            {required && <span className="text-danger-500" aria-label="obrigatório">*</span>}
+            {/* O atributo `required` no input já anuncia a obrigatoriedade; o
+                asterisco é a pista visual. Rotulá-lo de novo faz o leitor de
+                tela falar duas vezes (e falava em pt fixo). */}
+            {/* -ml-1 cancela o gap-1.5 do label: o asterisco cola no rótulo,
+                como no Select. Sem isto os dois primitivos ficavam com
+                espaçamentos diferentes lado a lado no mesmo formulário. */}
+            {required && <span className="-ml-1 text-danger-500" aria-hidden="true">*</span>}
           </label>
         )}
 
@@ -44,9 +50,12 @@ const InputInner = forwardRef<HTMLInputElement, InputProps>(
           <input
             type={type}
             className={cn(
+              // Campo é POÇO: `surface-tertiary` afunda em relação ao painel
+              // (`surface`) em que quase sempre está. Com o mesmo tom do card,
+              // o campo sumia e só a borda dizia onde clicar.
               // focus-ring: estratégia única de foco do design system.
-              "w-full h-9 px-3 text-sm rounded-md border border-border bg-surface text-text placeholder:text-text-tertiary",
-              "transition-colors focus-ring",
+              "w-full h-9 px-3 text-sm rounded-md border border-border-field bg-surface-tertiary text-text placeholder:text-text-tertiary",
+              "transition-colors hover:border-border-field-hover focus-ring",
               "disabled:opacity-50 disabled:cursor-not-allowed",
               leftIcon && "pl-9",
               rightIcon && "pr-9",

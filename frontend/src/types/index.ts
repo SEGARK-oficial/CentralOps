@@ -1145,6 +1145,17 @@ export interface PreprocessOp {
 export interface MappingPayload {
   preprocess: PreprocessOp[]
   rules: MappingRule[]
+  /**
+   * Poda do evento bruto, aplicada DEPOIS que as regras leram o payload completo.
+   * O editor visual não a edita, mas ela existe em 10 dos 16 mappings de fábrica.
+   */
+  raw_reduction?: unknown[]
+  /**
+   * O dict v2 é aberto: o backend preserva qualquer bloco top-level que ele não
+   * conheça. Sem esta assinatura o TypeScript deixava o editor montar um payload
+   * só com `preprocess`+`rules`, e salvar APAGAVA silenciosamente o resto.
+   */
+  [key: string]: unknown
 }
 
 // ── Normalização / Mapping ──────────────────────────────────────────

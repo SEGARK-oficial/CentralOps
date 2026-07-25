@@ -5,7 +5,7 @@
  */
 
 import { memo } from "react"
-import { JsonView, allExpanded, collapseAllNested, defaultStyles } from "react-json-view-lite"
+import { JsonView, allExpanded, collapseAllNested, darkStyles } from "react-json-view-lite"
 import "react-json-view-lite/dist/index.css"
 import { cn } from "@/lib/utils"
 
@@ -36,19 +36,20 @@ export const JsonViewer = memo(function JsonViewer({ data, collapseLevel = 2, cl
   return (
     <div
       className={cn(
-        // Neutraliza cores fortes da lib — usa a paleta do DS
-        "text-xs font-mono [&_.json-view-lite]:bg-transparent",
-        "[&_.json-view-lite-string]:text-success-700",
-        "[&_.json-view-lite-number]:text-primary-700",
-        "[&_.json-view-lite-boolean]:text-warning-700",
-        "[&_.json-view-lite-null]:text-text-tertiary",
+        // Os overrides que havia aqui miravam `.json-view-lite*`, classes que esta
+        // lib NÃO emite: ela usa CSS modules com hash (`_2IvMF`). Nenhum dos cinco
+        // seletores casava com coisa alguma, e o container ficava no cinza claro
+        // (#eee) do preset default — uma caixa clara dentro do tema escuro, em toda
+        // tela que mostra JSON. Como não dá para mirar classe com hash, a correção é
+        // trocar o PRESET (`darkStyles`), não empilhar seletor.
+        "text-xs font-mono",
         className,
       )}
     >
       <JsonView
         data={safeData}
         shouldExpandNode={shouldExpandNode}
-        style={defaultStyles}
+        style={darkStyles}
       />
     </div>
   )

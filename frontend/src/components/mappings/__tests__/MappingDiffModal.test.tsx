@@ -88,7 +88,7 @@ describe("MappingDiffModal", () => {
 
   it("exibe versionLabel no título quando fornecido", () => {
     render(<MappingDiffModal open={true} onClose={vi.fn()} diff={DIFF_WITH_ALL} versionLabel="v1 → v2" />)
-    expect(screen.getByText("Diff de versões — v1 → v2")).toBeInTheDocument()
+    expect(screen.getByText("Diff de versões: v1 → v2")).toBeInTheDocument()
   })
 
   it("chama onClose quando ESC é pressionado", () => {

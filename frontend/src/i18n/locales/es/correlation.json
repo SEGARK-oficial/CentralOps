@@ -3,14 +3,14 @@
     "eyebrow": "Detección",
     "badgeBeta": "Beta",
     "title": "Reglas de correlación",
-    "description": "Defina reglas de umbral cross-source para detectar patrones anómalos en múltiples eventos. Las reglas se evalúan al final de cada búsqueda federada, sobre los resultados de esta.",
+    "description": "Reglas de umbral cross-source, evaluadas al final de cada búsqueda federada.",
     "actions": {
       "newRule": "Nueva regla",
       "closeForm": "Cerrar formulario"
     },
     "betaNotice": {
-      "title": "Beta — la evaluación no es continua",
-      "body": "Una regla habilitada solo se evalúa cuando <strong>finaliza una búsqueda federada</strong>, y únicamente sobre los resultados de esa búsqueda. El pipeline de ingesta no evalúa reglas y no hay programación propia: mientras nadie ejecute una búsqueda federada, no se crea ninguna detección de correlación. No use estas reglas como su única cobertura de detección."
+      "title": "Beta: la evaluación no es continua",
+      "body": "La regla solo corre cuando <strong>termina una búsqueda federada</strong>, y solo sobre sus resultados. Sin búsqueda, no hay detección. No la use como única cobertura."
     },
     "kpi": {
       "total": "Total de reglas",
@@ -24,7 +24,7 @@
       "errorTitle": "No se pudo completar",
       "dismissAriaLabel": "Cerrar aviso",
       "toggleEnabled": "Regla \"{{name}}\" habilitada.",
-      "toggleDisabled": "Regla \"{{name}}\" deshabilitada — deja de generar nuevas detecciones en hasta 1 ciclo de recolección.",
+      "toggleDisabled": "Regla \"{{name}}\" deshabilitada. Deja de generar detecciones en 1 ciclo de recolección.",
       "createSuccess": "Regla de correlación creada con éxito.",
       "createError": "Error al crear la regla.",
       "updateSuccess": "Regla actualizada con éxito.",
@@ -38,7 +38,7 @@
     },
     "catalogCard": {
       "title": "Catálogo de reglas",
-      "description": "Gestione las reglas de correlación habilitadas en la plataforma. Las reglas habilitadas se incorporan a la próxima búsqueda federada."
+      "description": "Las reglas de correlación de la plataforma. Las habilitadas entran en la próxima búsqueda."
     },
     "search": {
       "placeholder": "Buscar por nombre, descripción o campo de agrupación…",
@@ -125,7 +125,7 @@
       "timestamp": {
         "label": "Campo de timestamp",
         "placeholder": "Ej.: event.timestamp",
-        "helperText": "Campo del evento usado para aplicar la ventana. Sin él, la ventana se desactiva y la regla cuenta todos los eventos del grupo en el resultado de la búsqueda."
+        "helperText": "Campo que aplica la ventana. Sin él la ventana se apaga y la regla cuenta todo."
       }
     },
     "status": {
@@ -138,7 +138,7 @@
       "groupByRequired": "El campo de agrupación es obligatorio",
       "minCountMin": "Mínimo de 1 evento",
       "windowMin": "Ventana mínima de 10 segundos",
-      "timestampRequired": "Obligatorio cuando hay ventana — sin él, la ventana se ignora"
+      "timestampRequired": "Obligatorio cuando hay ventana. Sin él la ventana se ignora"
     },
     "actions": {
       "cancel": "Cancelar"
@@ -171,17 +171,17 @@
   },
   "severity": {
     "options": {
-      "1": "1 — Informational",
-      "2": "2 — Low",
-      "3": "3 — Medium",
-      "4": "4 — High",
-      "5": "5 — Critical",
-      "6": "6 — Fatal"
+      "1": "Informational (1)",
+      "2": "Low (2)",
+      "3": "Medium (3)",
+      "4": "High (4)",
+      "5": "Critical (5)",
+      "6": "Fatal (6)"
     }
   },
   "whereFilter": {
     "heading": "Filtros (where)",
-    "empty": "No se agregó ningún filtro — la regla evaluará todos los eventos.",
+    "empty": "Sin filtros. La regla evalúa todos los eventos.",
     "field": {
       "label": "Campo",
       "placeholder": "ej.: event.severity",
@@ -211,18 +211,18 @@
   },
   "preview": {
     "heading": "Probar contra muestras",
-    "description": "Ejecuta esta regla contra una muestra real de eventos ya recibidos para el vendor y tipo de evento elegidos — no se persiste nada. Cada prueba abre una nueva consulta al backend; nunca se ejecuta automáticamente.",
+    "description": "Ejecuta la regla sobre una muestra real del vendor y tipo elegidos. No se guarda nada.",
     "vendor": {
       "label": "Vendor",
       "placeholder": "ej.: wazuh",
-      "helperText": "Obligatorio — la muestra se indexa por vendor + tipo de evento.",
-      "loadError": "No se pudieron cargar las integraciones activas — indique el vendor manualmente."
+      "helperText": "Obligatorio. La muestra se indexa por vendor + tipo de evento.",
+      "loadError": "No se pudieron cargar las integraciones activas. Indique el vendor manualmente."
     },
     "eventType": {
       "label": "Tipo de evento",
       "placeholder": "ej.: authentication",
-      "helperText": "Obligatorio — la muestra se indexa por vendor + tipo de evento.",
-      "emptyForVendor": "No hay tipo de evento catalogado para este vendor — indíquelo manualmente."
+      "helperText": "Obligatorio. La muestra se indexa por vendor + tipo de evento.",
+      "emptyForVendor": "No hay tipo de evento catalogado para este vendor. Indíquelo manualmente."
     },
     "actions": {
       "run": "Probar contra muestras",
@@ -237,7 +237,7 @@
       "singleSample": "Muestra única, capturada el {{time}}.",
       "unknown": "No se pudo determinar la ventana temporal de las muestras.",
       "staleWarningTitle": "Muestras antiguas",
-      "staleWarning": "La muestra más reciente tiene más de {{days}} día(s). El reservoir nunca expira por sí solo — esto puede ser una integración detenida, no tráfico en vivo."
+      "staleWarning": "La muestra más reciente tiene más de {{days}} día(s). El reservoir no expira solo, así que puede ser integración detenida."
     },
     "summary": {
       "matched": "{{matched}} de {{total}} muestra(s) coincidieron con la regla completa"
@@ -245,20 +245,20 @@
     "state": {
       "empty": {
         "title": "Sin muestras",
-        "description": "Todavía no hay eventos muestreados para este vendor + tipo de evento. Confirme que la integración esté activa y enviando datos, o inténtelo de nuevo en unos instantes."
+        "description": "Aún no hay eventos muestreados para este vendor y tipo. Confirma que la integración esté enviando datos."
       },
       "unavailable": {
         "title": "Telemetría no disponible",
-        "description": "No se pudo consultar el reservoir de muestras ahora — el backend de telemetría está caído. Esto NO significa que la regla no coincidiría: inténtelo de nuevo."
+        "description": "No significa que la regla no coincidiría: inténtalo de nuevo."
       },
       "invalid": {
         "title": "Regla inválida",
         "description": "Esta regla no compila y nunca se evaluaría.",
         "reason": {
-          "bad_json": "El filtro (where) tiene un formato inválido — revise campo, operador y valor de cada fila.",
-          "empty_where": "La regla no tiene ningún filtro (where) — agregue al menos uno antes de probar.",
+          "bad_json": "El filtro (where) tiene formato inválido. Revise campo, operador y valor de cada fila.",
+          "empty_where": "La regla no tiene filtro (where). Agregue al menos uno antes de probar.",
           "unknown_op": "Uno de los operadores usados no es compatible con el motor de correlación.",
-          "over_cap": "La regla tiene más filtros de los que admite el motor de correlación — reduzca el número de cláusulas.",
+          "over_cap": "La regla tiene más filtros de los que el motor de correlación soporta. Reduce el número de cláusulas.",
           "fallback": "Motivo: {{reason}}"
         }
       },
@@ -278,9 +278,9 @@
       },
       "pathResolvedValue": "{{resolved}} de {{total}}",
       "matchedValue": "{{matched}} de {{total}}",
-      "pathNotFound": "El campo \"{{path}}\" no se encontró en ninguna muestra — la ruta puede estar equivocada.",
+      "pathNotFound": "Campo \"{{path}}\" no encontrado en ninguna muestra. La ruta puede estar mal.",
       "pathFoundNoMatch": "El campo existe en {{resolved}} de {{total}} muestra(s), pero el valor no coincide con el operador.",
-      "noObserved": "—"
+      "noObserved": "ninguno"
     }
   }
 }

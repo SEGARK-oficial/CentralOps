@@ -46,7 +46,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<AuthUser | null>(null)
   const [loading, setLoading] = useState(true)
   const [setupRequired, setSetupRequired] = useState(false)
-  const [companyName, setCompanyName] = useState("Sua Empresa")
+  // Fallback = nome do PRODUTO, não texto de rascunho. O padrão anterior era o
+  // literal "Sua Empresa", que aparecia no header e na tela de login em toda
+  // instalação sem marca configurada, e também no primeiro paint de qualquer sessão
+  // (antes de /auth/status responder). Quem faz white-label sobrescreve pelo campo.
+  const [companyName, setCompanyName] = useState("CentralOps")
   const [companyPortalName, setCompanyPortalName] = useState("Portal de Login")
   const [ssoEnabled, setSsoEnabled] = useState(false)
   const [ssoButtonLabel, setSsoButtonLabel] = useState("Entrar com Microsoft")
@@ -57,7 +61,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       const status = await api.getAuthStatus()
       setSetupRequired(status.setup_required)
-      setCompanyName(status.company_name || "Sua Empresa")
+      setCompanyName(status.company_name || "CentralOps")
       setCompanyPortalName(status.company_portal_name || "Portal de Login")
       setSsoEnabled(Boolean(status.sso_enabled))
       setSsoButtonLabel(status.sso_button_label || "Entrar com Microsoft")
@@ -76,7 +80,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       }
     } catch {
       setSetupRequired(false)
-      setCompanyName("Sua Empresa")
+      setCompanyName("CentralOps")
       setCompanyPortalName("Portal de Login")
       setSsoEnabled(false)
       setSsoButtonLabel("Entrar com Microsoft")

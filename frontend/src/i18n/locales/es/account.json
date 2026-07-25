@@ -1,7 +1,7 @@
 {
   "eyebrow": "Tu cuenta",
-  "title": "Configuración de la cuenta",
-  "description": "Gestiona tu perfil, idioma y contraseña. La configuración administrativa como el rol y la organización la gestiona un administrador.",
+  "title": "Perfil y seguridad",
+  "description": "Tu perfil, idioma y contraseña. El rol y la organización solo los cambia un administrador.",
   "load": {
     "error": "No se pudo cargar tu cuenta. Inténtalo de nuevo."
   },
@@ -11,7 +11,7 @@
     "username": "Usuario",
     "role": "Rol",
     "scope": "Ámbito de acceso",
-    "scopeGlobal": "Global — todas las organizaciones",
+    "scopeGlobal": "Global (todas las organizaciones)",
     "scopeOrg": "Limitado a {{org}}",
     "scopeNone": "Sin organización",
     "organization": "Organización",

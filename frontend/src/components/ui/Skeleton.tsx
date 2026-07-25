@@ -129,17 +129,18 @@ export const SkeletonTable: React.FC<SkeletonTableProps> = ({
       aria-label={t("skeleton.loadingTable")}
       className={cn("w-full overflow-hidden rounded-lg border border-border", className)}
     >
-      {/* Cabeçalho */}
-      <div className="flex gap-4 border-b border-border bg-surface-tertiary px-4 py-3">
+      {/* Cabeçalho — mesma densidade do DataTable (px-3/py-2). Skeleton com
+          outra métrica faz a página "pular" quando o dado chega. */}
+      <div className="flex gap-4 border-b border-border bg-surface-tertiary px-3 py-2">
         {Array.from({ length: columns }).map((_, c) => (
-          <Skeleton key={c} className="h-4 flex-1" />
+          <Skeleton key={c} className="h-3 flex-1" />
         ))}
       </div>
       {/* Linhas */}
       {Array.from({ length: rows }).map((_, r) => (
         <div
           key={r}
-          className="flex gap-4 border-b border-border px-4 py-3 last:border-b-0"
+          className="flex gap-4 border-b border-border px-3 py-2 last:border-b-0"
         >
           {Array.from({ length: columns }).map((_, c) => (
             <Skeleton key={c} className="h-4 flex-1" />

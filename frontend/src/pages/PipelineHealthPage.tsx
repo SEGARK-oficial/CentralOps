@@ -52,13 +52,16 @@ const HealthCard: React.FC<HealthCardProps> = ({ integration, health }) => {
   const { t } = useTranslation("dashboard")
   const navigate = useNavigate()
   return (
-    <Card padding="md" className="shadow-sm flex flex-col gap-3">
-      <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0">
-          <h3 className="truncate font-semibold text-text">{integration.name}</h3>
-          <p className="text-xs text-text-secondary">{integration.organization_name || "—"}</p>
-        </div>
-        <div className="flex shrink-0 flex-wrap items-center justify-end gap-1">
+    <Card padding="md" className="flex flex-col gap-4">
+      {/* Nome numa linha inteira, selos na de baixo: com dois selos ao lado, o
+          nome truncava em "Firewall bo…" — e o card existe para identificar
+          QUAL integração está com problema. */}
+      <div>
+        <h3 className="truncate font-semibold text-text">{integration.name}</h3>
+        <p className="truncate font-mono text-xs text-text-tertiary">
+          {integration.organization_name || "—"}
+        </p>
+        <div className="mt-2 flex flex-wrap items-center gap-1">
           {/* Backlog não é o mesmo que "não saudável": o coletor está coletando,
               só não está dando conta. Badge própria, ao lado do status. */}
           {health.backlog_detected && (
@@ -75,17 +78,25 @@ const HealthCard: React.FC<HealthCardProps> = ({ integration, health }) => {
         </div>
       </div>
 
-      <dl className="grid grid-cols-2 gap-1 text-xs">
-        <dt className="text-text-secondary">{t("pipelineHealthPage.card.eventsPerMinute")}</dt>
-        <dd className="font-medium text-text">{health.events_per_minute !== null ? String(health.events_per_minute) : "—"}</dd>
+      {/* O número é o conteúdo: a vazão em Archivo grande, a unidade em mono ao
+          lado. O resto do card é contexto e fica um degrau abaixo. */}
+      <div className="flex items-baseline gap-1.5">
+        <span className="font-display text-3xl leading-none text-text">
+          {health.events_per_minute !== null ? String(health.events_per_minute) : "—"}
+        </span>
+        <span className="font-mono text-[11px] uppercase tracking-[0.1em] text-text-tertiary">
+          {t("pipelineHealthPage.card.eventsPerMinute")}
+        </span>
+      </div>
 
+      <dl className="grid grid-cols-2 gap-x-3 gap-y-1 font-mono text-xs">
         {/* Dois atrasos, dois nomes. "Última coleta" responde quando o coletor
             rodou; "Atraso dos dados" responde de quando é o dado. Foi por só
             existir o primeiro que um coletor 15h atrasado passou por saudável. */}
-        <dt className="text-text-secondary" title={t("pipelineHealthPage.card.lastCollectionTitle")}>
+        <dt className="text-text-tertiary" title={t("pipelineHealthPage.card.lastCollectionTitle")}>
           {t("pipelineHealthPage.card.lastCollection")}
         </dt>
-        <dd className="font-medium text-text" data-testid={`health-last-collection-${integration.id}`}>
+        <dd className="text-right text-text" data-testid={`health-last-collection-${integration.id}`}>
           {formatLag(health.lag_seconds, t)}
         </dd>
 
@@ -94,20 +105,20 @@ const HealthCard: React.FC<HealthCardProps> = ({ integration, health }) => {
             "em dia". */}
         {health.watermark_lag_seconds != null && (
           <>
-            <dt className="text-text-secondary" title={t("pipelineHealthPage.card.dataLagTitle")}>
+            <dt className="text-text-tertiary" title={t("pipelineHealthPage.card.dataLagTitle")}>
               {t("pipelineHealthPage.card.dataLag")}
             </dt>
-            <dd className="font-medium text-text" data-testid={`health-data-lag-${integration.id}`}>
+            <dd className="text-right text-text" data-testid={`health-data-lag-${integration.id}`}>
               {formatLag(health.watermark_lag_seconds, t)}
             </dd>
           </>
         )}
 
-        <dt className="text-text-secondary">{t("pipelineHealthPage.card.drift24h")}</dt>
-        <dd className="font-medium text-text">{String(health.drift_count_24h)}</dd>
+        <dt className="text-text-tertiary">{t("pipelineHealthPage.card.drift24h")}</dt>
+        <dd className="text-right text-text">{String(health.drift_count_24h)}</dd>
 
-        <dt className="text-text-secondary">{t("pipelineHealthPage.card.quarantine24h")}</dt>
-        <dd className="font-medium text-text">{String(health.quarantine_count_24h)}</dd>
+        <dt className="text-text-tertiary">{t("pipelineHealthPage.card.quarantine24h")}</dt>
+        <dd className="text-right text-text">{String(health.quarantine_count_24h)}</dd>
       </dl>
 
       <Button
@@ -197,20 +208,10 @@ const PipelineHealthPage: React.FC = () => {
       <PageHeader
         icon={<ActivityIcon size={24} />}
         title={t("pipelineHealthPage.title")}
-        description={
-          !isLoading
-            ? t("pipelineHealthPage.summary", {
-                healthy: counts.healthy,
-                degraded: counts.degraded,
-                unhealthy: counts.unhealthy,
-                unknown: counts.unknown,
-              })
-            : undefined
-        }
         actions={
           <div className="flex items-center gap-3">
             {updatedAt && !isLoading && (
-              <span className="text-xs text-text-secondary">
+              <span className="font-mono text-xs text-text-tertiary">
                 {t("pipelineHealthPage.updatedAt", {
                   time: formatDateTime(updatedAt, { hour: "2-digit", minute: "2-digit" }),
                 })}
@@ -255,8 +256,8 @@ const PipelineHealthPage: React.FC = () => {
                 className={cn(
                   "rounded-md px-3 py-1.5 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500",
                   filterTab === f.value
-                    ? "bg-primary-600 text-white"
-                    : "border border-border bg-surface text-text-secondary hover:bg-surface-tertiary hover:text-text",
+                    ? "bg-primary-600 text-text-inverse"
+                    : "border border-border bg-surface text-text-secondary hover:bg-surface-hover hover:text-text",
                 )}
               >
                 {f.label}
@@ -288,10 +289,10 @@ const PipelineHealthPage: React.FC = () => {
           <section aria-labelledby="dest-health-heading" className="space-y-3 pt-4 border-t border-border">
             <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-2">
-                <ServerIcon size={16} className="text-text-secondary" aria-hidden="true" />
+                <ServerIcon size={15} className="text-stage-route" aria-hidden="true" />
                 <h2
                   id="dest-health-heading"
-                  className="text-base font-semibold text-text"
+                  className="font-mono text-xs uppercase tracking-[0.1em] text-text-secondary"
                 >
                   {t("pipelineHealthPage.destinations.title")}
                 </h2>
@@ -304,8 +305,8 @@ const PipelineHealthPage: React.FC = () => {
                 className={cn(
                   "rounded-md px-3 py-1.5 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500",
                   showDestinations
-                    ? "bg-primary-600 text-white"
-                    : "border border-border bg-surface text-text-secondary hover:bg-surface-tertiary hover:text-text",
+                    ? "bg-primary-600 text-text-inverse"
+                    : "border border-border bg-surface text-text-secondary hover:bg-surface-hover hover:text-text",
                 )}
               >
                 {showDestinations ? t("pipelineHealthPage.destinations.hide") : t("pipelineHealthPage.destinations.show")}

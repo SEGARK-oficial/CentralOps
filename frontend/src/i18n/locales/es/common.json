@@ -49,7 +49,8 @@
     "optional": "opcional",
     "healthy": "Saludable",
     "degraded": "Degradado",
-    "unknown": "Desconocido"
+    "unknown": "Desconocido",
+    "error": "Error"
   },
   "fields": {
     "name": "Nombre",
@@ -63,8 +64,8 @@
     "actions": "Acciones"
   },
   "feedback": {
-    "savedSuccess": "Guardado con éxito.",
-    "errorGeneric": "Ocurrió un error. Inténtalo de nuevo.",
+    "savedSuccess": "Guardado.",
+    "errorGeneric": "La acción falló. Inténtelo de nuevo.",
     "confirmDelete": "¿Seguro que quieres eliminar?",
     "loadFailed": "Error al cargar."
   },

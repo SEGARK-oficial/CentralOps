@@ -88,8 +88,10 @@ export const DataTable = <T extends object>({
   const rowVirtualizer = useVirtualizer({
     count: virtualizeRows ? paginatedData.length : 0,
     getScrollElement: () => scrollContainerRef.current,
-    estimateSize: () => 48, // altura estimada de cada linha em px
-    overscan: 5,
+    // Acompanha a densidade da linha (py-2 + text-sm ≈ 34px). Estimar alto
+    // demais faz o scrollbar mentir sobre o tamanho da lista.
+    estimateSize: () => 34,
+    overscan: 8,
   })
 
   const handleSort = (key: string) => {
@@ -118,12 +120,19 @@ export const DataTable = <T extends object>({
   const endRecord = pagination ? Math.min(currentPage * pagination.pageSize, resolvedTotal) : sortedData.length
 
   if (loading) {
-    return <LoadingSpinner size="lg" text={t("dataTable.loading")} className="py-12" />
+    // O spinner já diz que está carregando; legenda repetindo isso é ruído.
+    // O anúncio para leitor de tela vem do sr-only do próprio LoadingSpinner.
+    return <LoadingSpinner size="md" className="py-10" />
   }
 
   if (data.length === 0) {
-    return <EmptyState title={emptyMessage ?? t("dataTable.emptyTitle")} description={t("dataTable.emptyDescription")} />
+    return <EmptyState title={emptyMessage ?? t("dataTable.emptyTitle")} />
   }
+
+  // Coluna alinhada à direita é número, por convenção. Mono + tabular alinha
+  // dígito com dígito, que é o que faz a tabela ler como painel de instrumento.
+  const cellClass = (col: TableColumn<T>) =>
+    cn("px-3 py-2 text-text", col.align === "right" && "font-mono tabular-nums", col.className)
 
   // Cabeçalho compartilhado entre os dois modos de renderização
   const tableHead = (
@@ -133,7 +142,7 @@ export const DataTable = <T extends object>({
           <th
             key={col.key}
             className={cn(
-              "px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-text-secondary",
+              "px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-text-tertiary",
               col.className,
             )}
             style={{ width: col.width, textAlign: col.align || "left" }}
@@ -192,7 +201,7 @@ export const DataTable = <T extends object>({
                       const key = col.dataIndex || col.key
                       const val = (record as Record<string, unknown>)[key]
                       return (
-                        <td key={col.key} className={cn("px-4 py-3 text-text", col.className)} style={{ textAlign: col.align || "left" }}>
+                        <td key={col.key} className={cellClass(col)} style={{ textAlign: col.align || "left" }}>
                           {col.render ? col.render(val, record, virtualRow.index) : String(val ?? "")}
                         </td>
                       )
@@ -215,7 +224,7 @@ export const DataTable = <T extends object>({
                     const key = col.dataIndex || col.key
                     const val = (record as Record<string, unknown>)[key]
                     return (
-                      <td key={col.key} className={cn("px-4 py-3 text-text", col.className)} style={{ textAlign: col.align || "left" }}>
+                      <td key={col.key} className={cellClass(col)} style={{ textAlign: col.align || "left" }}>
                         {col.render ? col.render(val, record, index) : String(val ?? "")}
                       </td>
                     )
@@ -228,8 +237,8 @@ export const DataTable = <T extends object>({
       )}
 
       {pagination && (
-        <div className="flex flex-wrap items-center justify-between gap-4 text-sm">
-          <div className="text-text-secondary">
+        <div className="flex flex-wrap items-center justify-between gap-4 text-xs">
+          <div className="text-text-tertiary">
             {pagination.showTotal && (
               <span>
                 {t("dataTable.showingRange", {
@@ -244,9 +253,10 @@ export const DataTable = <T extends object>({
           <div className="flex items-center gap-4">
             {pagination.showSizeChanger && (
               <div className="flex items-center gap-2">
-                <label htmlFor="page-size-select" className="text-text-secondary text-xs">{t("dataTable.itemsPerPage")}</label>
+                <label htmlFor="page-size-select" className="text-text-tertiary text-xs">{t("dataTable.itemsPerPage")}</label>
                 <Select
                   id="page-size-select"
+                  size="sm"
                   value={pagination.pageSize.toString()}
                   onValueChange={handlePageSizeChange}
                   options={[
@@ -266,7 +276,7 @@ export const DataTable = <T extends object>({
               <Button variant="ghost" size="xs" onClick={() => handlePageChange(currentPage - 1)} disabled={currentPage === 1} aria-label={t("dataTable.previousPage")}>
                 <ChevronLeftIcon size={14} />
               </Button>
-              <span className="px-2 text-text-secondary text-xs">
+              <span className="px-2 font-mono text-xs tabular-nums text-text-secondary">
                 {currentPage} / {totalPages}
               </span>
               <Button variant="ghost" size="xs" onClick={() => handlePageChange(currentPage + 1)} disabled={currentPage === totalPages} aria-label={t("dataTable.nextPage")}>

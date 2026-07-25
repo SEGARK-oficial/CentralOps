@@ -1,8 +1,8 @@
 {
   "list": {
-    "eyebrow": "Operaciones",
+    "eyebrow": "Recolecta",
     "title": "Integraciones",
-    "description": "Gestione credenciales, estados de autenticación y capacidades de las conexiones Sophos y Wazuh.",
+    "description": "Gestione credenciales, estado de autenticación y capacidades de sus conexiones de origen.",
     "newIntegration": "Nueva integración",
     "editIntegration": "Editar integración",
     "loading": "Cargando integraciones...",
@@ -24,7 +24,7 @@
     },
     "activeOrgFilterBadge": "Filtro activo: org={{name}}",
     "activeOrgFilterNote": "Las acciones masivas y el listado solo consideran integraciones de la organización seleccionada.",
-    "partnerBulkNote": "Las integraciones Partner no pueden desactivarse en masa — use el botón de desactivación individual para activar la cascada.",
+    "partnerBulkNote": "Las integraciones Partner no salen en lote. Use el botón individual para activar la cascada.",
     "bulkContextLabel": "integración(es)",
     "bulkDeactivateSelected": "Desactivar seleccionadas",
     "emptyState": {
@@ -55,7 +55,7 @@
     "testing": "Probando...",
     "deactivateAriaLabel": "Desactivar {{name}}",
     "partialResultsTitle": "Resultados parciales",
-    "partialResultsDescription": "Mostrando los primeros {{count}} — refine los filtros para ver más.",
+    "partialResultsDescription": "Mostrando los primeros {{count}}. Refine los filtros para ver más.",
     "operationSuccessTitle": "Operación completada",
     "operationErrorTitle": "No se pudo completar",
     "feedback": {
@@ -68,7 +68,7 @@
       "deactivateSuccess": "Integración desactivada con éxito.",
       "deactivateError": "Error al desactivar la integración.",
       "deactivatePartnerError": "Error al desactivar el Partner.",
-      "syncStarted": "Sincronización iniciada — actualizando tenants en segundo plano.",
+      "syncStarted": "Sincronización iniciada. Los tenants se actualizan en segundo plano.",
       "syncInProgress": "Ya hay una sincronización en curso. Espere a que finalice.",
       "syncError": "Error al sincronizar tenants.",
       "loadError": "Error al cargar las integraciones.",
@@ -76,24 +76,24 @@
       "bulkDeactivated": "{{count}} integración(es) desactivadas.",
       "bulkDeactivateError": "Error al desactivar en masa.",
       "cascadeDeactivated": "Partner desactivado ({{affected}} integraciones afectadas).",
-      "syncEnterpriseRequired": "La importación de tenants es una función Enterprise — esta instancia ejecuta la edición Community.",
+      "syncEnterpriseRequired": "Importar tenants es una función Enterprise. Esta instancia ejecuta la edición Community.",
       "syncLicenseRequired": "La importación de tenants requiere una licencia Enterprise activa que cubra la función multi-tenant."
     },
     "bulkDialog": {
       "title": "¿Desactivar {{count}} integración(es)?",
-      "description": "Esta acción marca las integraciones seleccionadas como <strong>inactivas</strong>. Los trabajos de recolección se detienen y la integración desaparece de los flujos operativos. Los datos históricos se conservan.",
-      "note": "Las que ya están inactivas son omitidas automáticamente por el servidor. Las integraciones Partner están bloqueadas — use el flujo individual para activar la cascada.",
+      "description": "Marca las seleccionadas como <strong>inactivas</strong>. La recolección se detiene; el histórico queda.",
+      "note": "Las ya inactivas se omiten. Partner está bloqueado: use el flujo individual.",
       "confirmTextLabel": "Para confirmar >10 elementos, escriba <0>{{text}}</0>",
       "confirmTextValue": "DESACTIVAR {{count}}"
     },
     "deactivateDialog": {
       "title": "¿Desactivar la integración?",
-      "description": "La integración <strong>{{name}}</strong> se marcará como inactiva y saldrá de los flujos operativos. Los datos históricos se conservan."
+      "description": "<strong>{{name}}</strong> queda inactiva y sale de los flujos. El histórico queda."
     },
     "cascadeDialog": {
       "title": "¿Desactivar Partner con tenants activos?",
       "cascadeOperationTitle": "Operación en cascada",
-      "description": "La integración <strong>{{name}}</strong> es un Partner Sophos con <strong>{{count}}</strong> tenant(s) activos. Confirmar desactivará (soft-delete) el Partner Y todos los tenants hijos. Los datos históricos se conservan.",
+      "description": "<strong>{{name}}</strong> tiene <strong>{{count}}</strong> tenant(s). Desactiva todos y el Partner; el histórico queda.",
       "childrenListTitle": "Tenants que serán desactivados",
       "confirmAndDeactivateAll": "Confirmar y desactivar todo"
     }
@@ -184,7 +184,7 @@
     }
   },
   "destinationsTab": {
-    "previewDescription": "<strong>Vista previa de enrutamiento</strong> — las rutas a continuación corresponden a esta integración y enviarían eventos a los destinos indicados. Esto no es un registro histórico; es una simulación basada en las condiciones actuales de las rutas.",
+    "previewDescription": "<strong>Vista previa</strong>: estas rutas coinciden y enviarían eventos a los destinos listados. No es histórico.",
     "loadingAriaLabel": "Cargando destinos…",
     "loadErrorTitle": "Error al cargar los destinos",
     "simulationLabel": "Simulación (1 evento sintético)",
@@ -197,7 +197,6 @@
     "matchingRoutesAriaLabel": "Rutas que coinciden con esta integración",
     "noDestinationsConfigured": "Sin destinos configurados en esta ruta.",
     "destinationsForRouteAriaLabel": "Destinos de la ruta {{name}}",
-    "enabled": "Habilitada",
     "disabled": "Deshabilitada",
     "final": "Final",
     "priority": "Prioridad {{value}}"
@@ -218,8 +217,8 @@
     "statusInactive": "Inactiva",
     "pushSource": {
       "title": "Fuente push (ingesta por edge-collector)",
-      "intro": "Esta fuente <strong>empuja</strong> eventos hacia CentralOps — no hay credenciales de poll.",
-      "createHint": " Cree la integración y luego, en la pantalla de detalles, <strong>emita el token de ingesta</strong> y configure su edge-collector (Vector/OTel) apuntando a <code>POST /api/ingest/&lt;stream&gt;</code>. Se generan automáticamente snippets listos para FortiGate (syslog) y Windows Event Log (WEC).",
+      "intro": "Esta fuente <strong>empuja</strong> eventos a CentralOps. No hay credenciales de poll.",
+      "createHint": " Cree la integración y, en los detalles, <strong>emita el token</strong> y apunte el edge-collector a <code>POST /api/ingest/&lt;stream&gt;</code>. Esa pantalla genera los snippets listos de FortiGate (syslog) y Windows Event Log (WEC).",
       "editHint": " Gestione el token de ingesta y el endpoint en la pestaña de ingesta de esta integración."
     },
     "sophos": {
@@ -230,8 +229,8 @@
       "region": "Región",
       "regionHelper": "Opcional. Se descubre automáticamente en la primera conexión.",
       "importNoticeTitle": "Cómo funciona:",
-      "importNoticeBody": " al guardar, se consultará la API de Sophos Central y <em>todos los tenants</em> bajo esta credencial se importarán automáticamente como Organizations + Integrations separadas. La región y el tenant_id se descubren por cada hijo — no los complete manualmente.",
-      "enterpriseRequiredNote": "La importación automática de tenants requiere una licencia Enterprise. En Community puede crear esta integración y descubrir tenants, pero no se importarán."
+      "importNoticeBody": " al guardar, cada tenant se vuelve una Organization + Integration. La región y el tenant_id vienen de la API.",
+      "enterpriseRequiredNote": "Importar tenants exige Enterprise. En Community puede descubrir, no importar."
     },
     "wazuh": {
       "indexerTitle": "Indexer API",
@@ -244,7 +243,7 @@
       "passwordHelper": "Déjela en blanco para mantener la contraseña actual.",
       "managerTitle": "Manager API",
       "optional": "Opcional",
-      "managerDescription": "Salud del servidor e inventario de agentes. No recolecta alertas/detecciones — habilítelo solo si desea estos datos de gestión.",
+      "managerDescription": "Salud del servidor e inventario de agentes. No recolecta alertas ni detecciones.",
       "enableManager": "Habilitar Manager",
       "managerUrl": "Manager URL",
       "managerUser": "Usuario del Manager",
@@ -272,22 +271,22 @@
       "activeSummary_one": "{{count}} filtro activo",
       "activeSummary_other": "{{count}} filtros activos",
       "streamLabel": "Stream: {{stream}}",
-      "noFilter": "Sin filtro — recolecta todo",
+      "noFilter": "Sin filtro (recolecta todo)",
       "active": "Filtrando en el origen",
       "reset": "Quitar filtro",
       "resetAll": "Quitar todos los filtros",
       "warningLabel": "Antes de activar",
       "notRetroactiveTitle": "Rige desde el próximo ciclo",
-      "notRetroactive": "Activar un filtro no reprocesa lo que ya pasó, y desactivarlo no recupera lo que quedó fuera. Los eventos siguen en el proveedor — la plataforma solo deja de transportarlos.",
+      "notRetroactive": "Activarlo no reprocesa el pasado; desactivarlo no recupera lo que quedó fuera.",
       "range": "Entre {{min}} y {{max}}. Con {{noFilterValue}} no se filtra nada.",
       "rangeInvalid": "Ingrese un número entero entre {{min}} y {{max}}.",
-      "enumNoFilterOption": "{{value}} — sin filtro",
+      "enumNoFilterOption": "{{value}} (sin filtro)",
       "boolOn": "Activado",
       "confirmTitle": "¿Activar este filtro de recolección?",
       "confirmNewValue": "{{label}}: {{value}}",
       "confirmSubmit": "Activar filtro",
       "loadErrorTitle": "Filtros de recolección no disponibles",
-      "loadError": "No se pudieron leer los filtros de esta integración, así que no se muestran aquí. Si alguno está activo, sigue vigente. Detalle: {{reason}}",
+      "loadError": "No se leyeron los filtros. Los activos siguen vigentes. Detalle: {{reason}}",
       "saveError": "Los filtros de recolección no se guardaron y no se cambió nada más. Detalle: {{reason}}"
     },
     "testResult": {
@@ -321,21 +320,21 @@
     "copy": "Copiar",
     "copied": "Copiado",
     "tokenLabel": "Token de ingesta",
-    "tokenWarningTitle": "Cópielo ahora — el token no se volverá a mostrar",
+    "tokenWarningTitle": "Cópielo ahora, el token no se muestra de nuevo",
     "tokenAlreadyIssued": "Ya se emitió un token. Rótelo para generar uno nuevo (invalida el anterior).",
     "tokenNotIssued": "Aún no se ha emitido ningún token.",
     "revoke": "Revocar",
     "issueToken": "Emitir token",
     "rotateToken": "Rotar token",
-    "revokeConfirm": "¿Revocar el token de ingesta? El edge-collector que lo utiliza comenzará a recibir 401 de inmediato. Use esto si el token se filtró.",
-    "revokeSuccess": "Token revocado. Ningún token activo — emita uno nuevo para reanudar la ingesta.",
+    "revokeConfirm": "¿Revocar el token? El edge-collector recibe 401 al instante.",
+    "revokeSuccess": "Token revocado. Sin token activo, emita uno nuevo para reanudar la ingesta.",
     "issueError": "Error al emitir el token.",
     "revokeError": "Error al revocar el token.",
     "edgeCollectorConfig": "Configuración del edge-collector (Vector)"
   },
   "enterprisePanel": {
     "title": "La importación de tenants es una función Enterprise",
-    "body": "Esta integración puede descubrir los tenants de esta credencial, pero importarlos como Organizations + Integrations (materialización multi-tenant) requiere una licencia Enterprise.",
+    "body": "Descubrir tenants funciona. Importarlos como Organizations + Integrations exige Enterprise.",
     "link": "Descubra cómo actualizar"
   }
 }

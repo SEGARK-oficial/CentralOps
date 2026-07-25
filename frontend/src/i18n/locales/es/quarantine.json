@@ -40,7 +40,7 @@
     "discardConfirmTitle": "¿Descartar entrada de cuarentena?",
     "discardConfirmDescription": "La entrada de \"{{vendor}}{{eventType}}\" será descartada permanentemente.",
     "reprocessConfirmTitle": "¿Reprocesar evento?",
-    "reprocessConfirmDescription": "El evento será revalidado contra el mapping actual. Si la normalización tiene éxito, se enviará a Wazuh. De lo contrario, permanecerá en cuarentena con un nuevo error."
+    "reprocessConfirmDescription": "Revalida contra el mapping actual. Si normaliza, va a Wazuh; si no, sigue en cuarentena."
   },
   "bulk": {
     "discardTypedConfirmPhrase": "DESCARTAR",
@@ -71,7 +71,7 @@
     "discardDialog": {
       "title_one": "¿Descartar {{count}} entrada?",
       "title_other": "¿Descartar {{count}} entradas?",
-      "irreversibleWarning": "Esta acción es irreversible: las entradas se eliminarán permanentemente de la cola de cuarentena.",
+      "irreversibleWarning": "Acción irreversible. Las entradas salen de la cola de cuarentena para siempre.",
       "typeToConfirmPrefix": "Escriba",
       "typeToConfirmSuffix": "para confirmar:",
       "typedConfirmAriaLabel": "Confirmación de texto para descarte masivo",
@@ -80,7 +80,7 @@
     "reprocessDialog": {
       "title_one": "¿Reprocesar {{count}} entrada?",
       "title_other": "¿Reprocesar {{count}} entradas?",
-      "description": "Los eventos se revalidarán contra el mapping actual en segundo plano. Los elementos con mapping exitoso se enviarán a los destinos enrutados; los fallos actualizan el error pero mantienen el elemento en cuarentena."
+      "description": "Revalida en segundo plano. Lo que pasa va a los destinos; lo que falla sigue en cuarentena."
     }
   }
 }

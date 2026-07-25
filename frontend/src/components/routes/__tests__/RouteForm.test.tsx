@@ -2,8 +2,8 @@
  * RouteForm tests — foco nas alavancas de redução de volume (ADR-0011).
  *
  * Cobre:
- * - Render padrão: fieldset "Redução de volume" visível para action="route",
- *   com o aviso estático sobre as flags globais REDUCTION_*_ENABLED.
+ * - Render padrão: fieldset "Redução de volume" visível para action="route", com o
+ *   helper de cada campo dizendo quais valores são no-op (100 e 0).
  * - protect_detection vem TRUE por padrão (fail-safe) e os campos de
  *   amostragem/supressão começam desabilitados (no-op enquanto protegida).
  * - Desligar protect_detection é opt-out consciente: abre ConfirmDialog;
@@ -74,27 +74,30 @@ beforeEach(() => {
 })
 
 describe("RouteForm — render padrão", () => {
-  it("mostra o fieldset 'Redução de volume' com o aviso de flags globais", async () => {
+  it("mostra o fieldset 'Redução de volume'", async () => {
     render(<RouteForm mode="edit" route={ROUTE_BASE} onCancel={vi.fn()} onSubmit={vi.fn()} />)
     await waitFor(() => expect(mockedApi.listDestinations).toHaveBeenCalled())
 
     expect(screen.getByText("Redução de volume")).toBeInTheDocument()
-    expect(screen.getByText(/REDUCTION_SAMPLE_ENABLED/)).toBeInTheDocument()
-    expect(screen.getByText(/REDUCTION_SUPPRESS_ENABLED/)).toBeInTheDocument()
   })
 
-  // Regressão: até a ADR-0015 o aviso afirmava que as flags nasciam DESLIGADAS.
-  // Elas nascem LIGADAS (core/config.py:405,422,433) e o portão real é o default
-  // por-rota. O texto errado fazia o operador ler "Evitado > 0" como bug.
-  it("descreve o portão por-rota, não uma flag global desligada", async () => {
-    render(<RouteForm mode="edit" route={ROUTE_BASE} onCancel={vi.fn()} onSubmit={vi.fn()} />)
+  // Regressão que sobreviveu à remoção do aviso: até a ADR-0015 o texto afirmava que as
+  // flags REDUCTION_* nasciam DESLIGADAS. Nascem LIGADAS, e o portão real é o default
+  // POR-ROTA — a versão errada fazia o operador ler "Evitado > 0" como bug. O aviso saiu
+  // (falava em variável de ambiente e número de ADR), mas o fato que ele protegia mudou
+  // de lugar, não de importância: agora vive no helper de cada campo. A guarda segue o fato.
+  it("diz, no helper de cada campo, que 100 e 0 são os valores que não descartam nada", async () => {
+    // Rota DESPROTEGIDA de propósito: com protect_detection=true (o default fail-safe)
+    // o campo de amostragem fica desabilitado e o helper vira "Rota protegida nunca é
+    // amostrada". O fato que este teste guarda só é visível com a proteção desligada.
+    const UNPROTECTED: Route = { ...ROUTE_BASE, protect_detection: false }
+    render(<RouteForm mode="edit" route={UNPROTECTED} onCancel={vi.fn()} onSubmit={vi.fn()} />)
     await waitFor(() => expect(mockedApi.listDestinations).toHaveBeenCalled())
 
-    const notice = screen.getByText(/REDUCTION_SAMPLE_ENABLED/)
-    expect(notice).toHaveTextContent(/LIGADAS por padrão/i)
-    expect(notice).toHaveTextContent(/sample_percent nasce em 100/i)
-    expect(notice).toHaveTextContent(/suppress_allow nasce em 0/i)
-    expect(notice.textContent ?? "").not.toMatch(/ambas desligadas por padrão/i)
+    expect(screen.getByText(/100 = sem amostragem/i)).toBeInTheDocument()
+    expect(screen.getByText(/0 = supressão desligada/i)).toBeInTheDocument()
+    // O erro original: atribuir o não-descarte a uma flag global em vez do default da rota.
+    expect(document.body.textContent ?? "").not.toMatch(/desligadas por padrão/i)
   })
 
   it("não mostra o fieldset de redução quando action='drop'", async () => {
@@ -132,7 +135,7 @@ describe("RouteForm — opt-out consciente de protect_detection", () => {
     // Ainda marcado — o estado só muda após confirmação explícita.
     expect(protectCheckbox).toBeChecked()
     expect(screen.getByText("Desligar proteção de detecção?")).toBeInTheDocument()
-    expect(screen.getByText(/decisão consciente de risco/i)).toBeInTheDocument()
+    expect(screen.getByText(/o que se perde não volta/i)).toBeInTheDocument()
   })
 
   it("cancelar o diálogo mantém a rota protegida", async () => {

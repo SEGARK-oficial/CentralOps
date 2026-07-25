@@ -225,7 +225,7 @@ describe("IntegrationsPage — filtros", () => {
     renderPage()
     await waitFor(() => {
       expect(
-        screen.getByText(/Integrações Partner não podem ser desativadas em massa/i),
+        screen.getByText(/Integrações Partner não saem em lote/i),
       ).toBeInTheDocument()
     })
   })

@@ -19,14 +19,10 @@ export const StatusCard: React.FC<StatusCardProps> = ({ status }) => {
   const { t } = useTranslation("dashboard")
   const statusLabel = useStatusLabel()
   return (
-    <Card
-      padding="md"
-      className="shadow-sm"
-      data-testid="health-status-card"
-    >
+    <Card padding="md" data-testid="health-status-card">
       <div className="flex flex-col gap-3">
         <div className="flex items-center justify-between gap-3">
-          <span className="text-xs font-semibold uppercase tracking-wider text-text-tertiary">
+          <span className="font-mono text-[11px] uppercase tracking-[0.1em] text-text-tertiary">
             {t("health.statusCard.title")}
           </span>
           <HealthBadge status={status} size="lg" />

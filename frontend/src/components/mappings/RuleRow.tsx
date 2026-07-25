@@ -183,14 +183,18 @@ const RuleRowViewInner: React.FC<RuleRowViewProps> = ({
               {t("ruleRow.arrayBuilderChip", { count: rule.items.length })}
             </Badge>
           )}
+          {/* Os três são fatos de configuração em repouso, não estados: uma regra
+              obrigatória não está falhando, e ter type_cast não pede atenção.
+              Vermelho/violeta/âmbar lado a lado faziam três matizes disputarem a
+              linha e gastavam o alarme que a lista precisa para o erro de verdade. */}
           {!isArrayBuilder && rule.required && (
-            <Badge variant="danger" size="sm">{t("common:states.required")}</Badge>
+            <Badge variant="outline" size="sm">{t("common:states.required")}</Badge>
           )}
           {!isArrayBuilder && rule.type_cast && (
-            <Badge variant="primary" size="sm">{rule.type_cast}</Badge>
+            <Badge variant="outline" size="sm" mono>{rule.type_cast}</Badge>
           )}
           {!isArrayBuilder && rule.value_map != null && (
-            <Badge variant="warning" size="sm">value_map</Badge>
+            <Badge variant="outline" size="sm" mono>value_map</Badge>
           )}
         </div>
 

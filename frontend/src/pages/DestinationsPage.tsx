@@ -41,9 +41,10 @@ type Feedback = { type: "success" | "error"; message: string }
 
 // ── Badge de status de saúde por destino ────────────────────────────────────────
 //
-// Reusa o encoding colorblind-safe de severity.ts (healthy=success/degraded=warning/
-// unhealthy=danger/unknown=outline). O estado "disabled" do contrato de saúde é
-// tratado como neutro/cinza (não é uma falha — o destino está intencionalmente off).
+// Reusa o encoding colorblind-safe de severity.tsx (healthy=neutro/degraded=warning/
+// unhealthy=danger/unknown=outline), o mesmo que /pipeline-health lê. O estado
+// "disabled" do contrato de saúde também é neutro: o destino está intencionalmente
+// off, não quebrado.
 
 const DestinationStatusBadge: React.FC<{
   health: DestinationHealthItem | undefined
@@ -391,11 +392,16 @@ const DestinationsPage: React.FC = () => {
                   <h2 className="truncate text-base font-semibold text-text">{dest.name}</h2>
                   {/* Badge de saúde — degrada para nada se health falhar */}
                   <DestinationStatusBadge health={healthMap.get(dest.id)} destinationId={dest.id} />
-                  <Badge variant={dest.enabled ? "success" : "default"}>
+                  {/* Ativo é o normal: fica neutro. Inativo também é escolha do
+                      operador, não anomalia. Muda o preenchimento, não a matiz. */}
+                  <Badge variant={dest.enabled ? "default" : "outline"}>
                     {dest.enabled ? t("destinationsPage.statusEnabled") : t("destinationsPage.statusInactive")}
                   </Badge>
                   <Badge variant="outline">{dest.kind}</Badge>
-                  {dest.has_secret && <Badge variant="primary">{t("destinationsPage.hasCredentialBadge")}</Badge>}
+                  {/* "Tem credencial" é fato de configuração, igual ao kind e à
+                      plataforma. Violeta aqui dizia "normalizado" num substantivo
+                      e roubava a matiz do estágio. */}
+                  {dest.has_secret && <Badge variant="outline">{t("destinationsPage.hasCredentialBadge")}</Badge>}
                 </div>
                 <div className="flex flex-wrap items-center gap-3">
                   <p className="font-mono text-xs text-text-tertiary">{dest.id}</p>

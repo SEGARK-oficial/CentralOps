@@ -76,9 +76,10 @@ beforeEach(() => {
 })
 
 describe("MappingsListPage — render padrão", () => {
-  it("exibe o título 'Mappings'", async () => {
+  // O H1 segue o rótulo do menu ("Mapeamentos"), não o nome interno do recurso.
+  it("exibe o título 'Mapeamentos'", async () => {
     renderPage()
-    await waitFor(() => expect(screen.getByRole("heading", { name: "Mappings" })).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByRole("heading", { name: "Mapeamentos" })).toBeInTheDocument())
   })
 
   it("exibe o eyebrow 'Normalização'", async () => {

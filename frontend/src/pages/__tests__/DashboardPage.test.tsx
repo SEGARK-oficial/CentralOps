@@ -141,7 +141,9 @@ describe("DashboardPage", () => {
 
     expect(await screen.findByText("Fontes e saúde")).toBeInTheDocument()
     expect(screen.getByText("Wazuh Prod")).toBeInTheDocument()
-    expect(screen.getByText("degraded")).toBeInTheDocument()
+    // O enum do backend chega como "degraded"; a UI em português mostra o rótulo.
+    expect(screen.getByText("Degradado")).toBeInTheDocument()
+    expect(screen.queryByText("degraded")).toBeNull()
     expect(screen.getByText(/timeout/)).toBeInTheDocument()
     // by_platform
     expect(screen.getByText("Integrações por plataforma")).toBeInTheDocument()
@@ -152,7 +154,7 @@ describe("DashboardPage", () => {
     expect(setSelectedIntegrationId).toHaveBeenCalledWith(100)
   })
 
-  it("mostra as contagens de escopo e o horário de geração no ScopeSummary", async () => {
+  it("mostra as contagens de escopo e o horário de geração na barra de escopo", async () => {
     mockedUsePlatform.mockReturnValue(mockPlatformContext())
     mockedApi.getDashboardSummary.mockResolvedValue(buildSummary())
 
@@ -162,7 +164,9 @@ describe("DashboardPage", () => {
       </MemoryRouter>,
     )
 
-    expect(await screen.findByText(/Escopo: 1 cliente\(s\) · 2 integração\(ões\) \(2 ativas\)/)).toBeInTheDocument()
-    expect(screen.getByText(/Dados gerados:/)).toBeInTheDocument()
+    // A barra troca o parágrafo explicativo por rótulo + número: "N clientes ·
+    // N integrações · N ativas", e a geração vira "hora · relativo".
+    expect(await screen.findByText("1 clientes · 2 integrações · 2 ativas")).toBeInTheDocument()
+    expect(screen.getByText(/·\s*\d+\s*(min|h|d) atrás|·\s*agora/)).toBeInTheDocument()
   })
 })

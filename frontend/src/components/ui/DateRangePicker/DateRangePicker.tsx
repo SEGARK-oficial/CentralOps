@@ -270,10 +270,13 @@ export const DateRangePicker: React.FC<DateRangePickerProps> = ({
           aria-invalid={error ? "true" : "false"}
           aria-describedby={errorId}
           className={cn(
-            "flex h-9 w-full items-center gap-2 rounded-md border bg-surface px-3 text-left text-sm transition-colors",
-            "hover:border-border-hover focus:outline-none focus-visible:border-primary-500 focus-visible:ring-2 focus-visible:ring-primary-500/40",
+            // Trigger é CONTROLE: limite em `border-field` (3:1, WCAG 1.4.11).
+            // A hairline media 1.30:1. O hover saiu da borda porque
+            // `border-hover` (16%) é mais fraco que `border-field` (34%).
+            "flex h-9 w-full items-center gap-2 rounded-md border bg-surface px-3 text-left text-sm transition-colors focus-ring",
+            "hover:bg-surface-hover",
             "disabled:cursor-not-allowed disabled:opacity-50",
-            isOpen ? "border-primary-500 ring-2 ring-primary-500/20" : "border-border",
+            isOpen ? "border-primary-500 ring-2 ring-primary-500/20" : "border-border-field",
             error && "border-danger-500",
             hasValue && "pr-8",
           )}
@@ -333,7 +336,7 @@ export const DateRangePicker: React.FC<DateRangePickerProps> = ({
                   value={getTimeValue(normalizedValue.from)}
                   onChange={(e) => handleTimeChange("from", e.target.value)}
                   disabled={!normalizedValue.from}
-                  className="h-8 rounded border border-border bg-surface px-2 text-xs focus:border-primary-500 focus:outline-none disabled:opacity-50"
+                  className="h-8 rounded border border-border-field bg-surface px-2 text-xs focus-ring disabled:opacity-50"
                 />
               </div>
               <div className="flex flex-col gap-1">
@@ -345,7 +348,7 @@ export const DateRangePicker: React.FC<DateRangePickerProps> = ({
                   value={getTimeValue(normalizedValue.to)}
                   onChange={(e) => handleTimeChange("to", e.target.value)}
                   disabled={!normalizedValue.to}
-                  className="h-8 rounded border border-border bg-surface px-2 text-xs focus:border-primary-500 focus:outline-none disabled:opacity-50"
+                  className="h-8 rounded border border-border-field bg-surface px-2 text-xs focus-ring disabled:opacity-50"
                 />
               </div>
             </div>
@@ -373,7 +376,7 @@ export const DateRangePicker: React.FC<DateRangePickerProps> = ({
                       "h-8 w-full rounded text-xs transition-colors",
                       !date && "invisible",
                       date && "hover:bg-primary-50 hover:text-primary-700",
-                      date && isSelected(date) && "bg-primary-600 font-semibold text-white hover:bg-primary-700 hover:text-white",
+                      date && isSelected(date) && "bg-primary-600 font-semibold text-text-inverse hover:bg-primary-500 hover:text-text-inverse",
                       date && isInRange(date) && !isSelected(date) && "bg-primary-50 text-primary-700",
                       date && date.toDateString() === new Date().toDateString() && !isSelected(date) && "font-bold text-primary-600",
                     )}

@@ -3,14 +3,14 @@
     "eyebrow": "Detection",
     "badgeBeta": "Beta",
     "title": "Correlation rules",
-    "description": "Define cross-source threshold rules to detect anomalous patterns across multiple events. Rules are evaluated at the end of each federated search, over its results.",
+    "description": "Cross-source threshold rules, evaluated at the end of each federated search.",
     "actions": {
       "newRule": "New rule",
       "closeForm": "Close form"
     },
     "betaNotice": {
-      "title": "Beta — evaluation is not continuous",
-      "body": "An enabled rule is only evaluated when a <strong>federated search finishes</strong>, and only over that search's results. The ingestion pipeline does not evaluate rules and there is no scheduling of its own: as long as no one runs a federated search, no correlation detection is created. Do not use these rules as your only detection coverage."
+      "title": "Beta: evaluation is not continuous",
+      "body": "A rule only runs when a <strong>federated search finishes</strong>, and only over its results. No search, no detection. Do not rely on this as your only coverage."
     },
     "kpi": {
       "total": "Total rules",
@@ -24,7 +24,7 @@
       "errorTitle": "Could not complete",
       "dismissAriaLabel": "Dismiss notice",
       "toggleEnabled": "Rule \"{{name}}\" enabled.",
-      "toggleDisabled": "Rule \"{{name}}\" disabled — it stops generating new detections within 1 collection cycle.",
+      "toggleDisabled": "Rule \"{{name}}\" disabled. It stops generating detections within 1 collection cycle.",
       "createSuccess": "Correlation rule created successfully.",
       "createError": "Failed to create rule.",
       "updateSuccess": "Rule updated successfully.",
@@ -38,7 +38,7 @@
     },
     "catalogCard": {
       "title": "Rule catalog",
-      "description": "Manage the correlation rules enabled on the platform. Enabled rules join the next federated search."
+      "description": "The platform's correlation rules. Enabled ones join the next federated search."
     },
     "search": {
       "placeholder": "Search by name, description or group-by field…",
@@ -125,7 +125,7 @@
       "timestamp": {
         "label": "Timestamp field",
         "placeholder": "E.g.: event.timestamp",
-        "helperText": "Event field used to apply the window. Without it, the window is turned off and the rule counts every event in the group across the search results."
+        "helperText": "Field the window uses. Without it the window is off and every event counts."
       }
     },
     "status": {
@@ -138,7 +138,7 @@
       "groupByRequired": "Group-by field is required",
       "minCountMin": "Minimum of 1 event",
       "windowMin": "Minimum window of 10 seconds",
-      "timestampRequired": "Required when there is a window — without it the window is ignored"
+      "timestampRequired": "Required when there is a window. Without it the window is ignored"
     },
     "actions": {
       "cancel": "Cancel"
@@ -171,17 +171,17 @@
   },
   "severity": {
     "options": {
-      "1": "1 — Informational",
-      "2": "2 — Low",
-      "3": "3 — Medium",
-      "4": "4 — High",
-      "5": "5 — Critical",
-      "6": "6 — Fatal"
+      "1": "Informational (1)",
+      "2": "Low (2)",
+      "3": "Medium (3)",
+      "4": "High (4)",
+      "5": "Critical (5)",
+      "6": "Fatal (6)"
     }
   },
   "whereFilter": {
     "heading": "Filters (where)",
-    "empty": "No filter added — the rule will evaluate every event.",
+    "empty": "No filter. The rule evaluates every event.",
     "field": {
       "label": "Field",
       "placeholder": "e.g.: event.severity",
@@ -211,18 +211,18 @@
   },
   "preview": {
     "heading": "Test against samples",
-    "description": "Runs this rule against a real sample of events already received for the chosen vendor and event type — nothing is persisted. Each test opens a new backend query; it never runs automatically.",
+    "description": "Runs the rule over a real sample for the chosen vendor and event type. Nothing is saved.",
     "vendor": {
       "label": "Vendor",
       "placeholder": "e.g.: wazuh",
-      "helperText": "Required — the sample is indexed by vendor + event type.",
-      "loadError": "Could not load active integrations — enter the vendor manually."
+      "helperText": "Required. The sample is indexed by vendor + event type.",
+      "loadError": "Could not load active integrations. Enter the vendor manually."
     },
     "eventType": {
       "label": "Event type",
       "placeholder": "e.g.: authentication",
-      "helperText": "Required — the sample is indexed by vendor + event type.",
-      "emptyForVendor": "No event type cataloged for this vendor — enter it manually."
+      "helperText": "Required. The sample is indexed by vendor + event type.",
+      "emptyForVendor": "No event type cataloged for this vendor. Enter it manually."
     },
     "actions": {
       "run": "Test against samples",
@@ -237,7 +237,7 @@
       "singleSample": "Single sample, captured at {{time}}.",
       "unknown": "Could not determine the samples' time window.",
       "staleWarningTitle": "Stale samples",
-      "staleWarning": "The most recent sample is more than {{days}} day(s) old. The reservoir never expires on its own — this may be a stalled integration, not live traffic."
+      "staleWarning": "The newest sample is more than {{days}} day(s) old. The reservoir does not expire on its own, so the integration may be stopped."
     },
     "summary": {
       "matched": "{{matched}} of {{total}} sample(s) matched the full rule"
@@ -245,20 +245,20 @@
     "state": {
       "empty": {
         "title": "No samples",
-        "description": "There are no sampled events yet for this vendor + event type. Confirm the integration is active and sending data, or try again shortly."
+        "description": "No sampled events yet for this vendor and type. Check that the integration is sending data."
       },
       "unavailable": {
         "title": "Telemetry unavailable",
-        "description": "Could not query the sample reservoir right now — the telemetry backend is down. This does NOT mean the rule wouldn't match: try again."
+        "description": "This does not mean the rule would not match: try again."
       },
       "invalid": {
         "title": "Invalid rule",
         "description": "This rule does not compile and would never be evaluated.",
         "reason": {
-          "bad_json": "The filter (where) has an invalid shape — review the field, operator and value of each row.",
-          "empty_where": "The rule has no filter (where) — add at least one before testing.",
+          "bad_json": "The filter (where) has an invalid shape. Review field, operator and value on each row.",
+          "empty_where": "The rule has no filter (where). Add at least one before testing.",
           "unknown_op": "One of the operators used isn't supported by the correlation engine.",
-          "over_cap": "The rule has more filters than the correlation engine supports — reduce the number of clauses.",
+          "over_cap": "The rule has more filters than the correlation engine supports. Reduce the number of clauses.",
           "fallback": "Reason: {{reason}}"
         }
       },
@@ -278,9 +278,9 @@
       },
       "pathResolvedValue": "{{resolved}} of {{total}}",
       "matchedValue": "{{matched}} of {{total}}",
-      "pathNotFound": "Field \"{{path}}\" was not found in any sample — the path may be wrong.",
+      "pathNotFound": "Field \"{{path}}\" not found in any sample. The path may be wrong.",
       "pathFoundNoMatch": "Field exists in {{resolved}} of {{total}} sample(s), but the value doesn't match the operator.",
-      "noObserved": "—"
+      "noObserved": "none"
     }
   }
 }

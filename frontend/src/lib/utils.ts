@@ -59,13 +59,24 @@ export function generateId(): string {
   return Math.random().toString(36).substr(2, 9)
 }
 
+const BYTE_UNITS = ["Bytes", "KB", "MB", "GB", "TB", "PB"]
+
+/**
+ * Formata bytes na maior unidade que ainda deixa a parte inteira legível.
+ *
+ * O expoente é travado nos dois extremos porque as duas pontas escapam da tabela
+ * de unidades. Abaixo de 1 byte o log fica negativo: `bytes_per_min` é
+ * `bytes_window/300`, e um destino de baixo volume manda 0,5. O expoente vira
+ * -1 e `BYTE_UNITS[-1]` renderizava "512 undefined" no card de saúde. Acima de
+ * 1024 PB o expoente passa do fim do array e cai no mesmo undefined.
+ */
 export function formatBytes(bytes: number, decimals = 2): string {
-  if (bytes === 0) return "0 Bytes"
+  if (!Number.isFinite(bytes) || bytes === 0) return "0 Bytes"
   const k = 1024
   const dm = decimals < 0 ? 0 : decimals
-  const sizes = ["Bytes", "KB", "MB", "GB", "TB"]
-  const i = Math.floor(Math.log(bytes) / Math.log(k))
-  return Number.parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + " " + sizes[i]
+  const exp = Math.floor(Math.log(Math.abs(bytes)) / Math.log(k))
+  const i = Math.min(Math.max(exp, 0), BYTE_UNITS.length - 1)
+  return Number.parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + " " + BYTE_UNITS[i]
 }
 
 export function formatRelativeDate(iso: string): string {

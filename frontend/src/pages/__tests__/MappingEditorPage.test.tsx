@@ -31,9 +31,22 @@ vi.mock("@/hooks/useMappingAudit")
 vi.mock("@/contexts/PlatformContext", () => ({
   usePlatform: () => ({ selectedOrgId: null }),
 }))
+// A página consulta o escopo do usuário para distinguir "não há amostras" de
+// "você não disse de qual tenant". Usuário de org 1 aqui: o caso do admin global
+// tem teste próprio em PayloadPanel, que recebe a decisão pronta via prop.
+vi.mock("@/contexts/AuthContext", () => ({
+  useAuth: () => ({ user: { organization_id: 1 } }),
+}))
 // Mock useMappingDiff para evitar requests reais
 vi.mock("@/hooks/useMappingDiff", () => ({
   useMappingDiff: () => ({ diff: null, isLoading: false, error: null }),
+}))
+// SaveModal vira um espião do payload. É aqui que o editor entrega o que vai virar
+// a próxima versão, então é aqui que dá para provar que nenhum bloco do dict v2 se
+// perdeu — sem precisar de testid de mentira no componente de produção.
+vi.mock("@/components/mappings/SaveModal", () => ({
+  SaveModal: ({ open, draftPayload }: { open: boolean; draftPayload: unknown }) =>
+    open ? <pre data-testid="save-modal-payload">{JSON.stringify(draftPayload)}</pre> : null,
 }))
 
 const mockedUseMapping = vi.mocked(hooks.useMapping)
@@ -307,7 +320,7 @@ describe("MappingEditorPage", () => {
     fireEvent.change(textarea, { target: { value: "{ invalido }" } })
 
     await waitFor(() => {
-      expect(screen.getByText("JSON inválido — verifique a sintaxe.")).toBeInTheDocument()
+      expect(screen.getByText("JSON inválido. Verifique a sintaxe.")).toBeInTheDocument()
     })
   })
 
@@ -568,7 +581,7 @@ describe("MappingEditorPage", () => {
     // O link aponta para o portal Docusaurus público (CentralOps-docs).
     // A URL exata é mantida em src/lib/docs.ts.
     const href = link.getAttribute("href") ?? ""
-    expect(href).toMatch(/CentralOps-docs\/docs\/normalization\//)
+    expect(href).toMatch(/docs\.segark\.com\/normalization\//)
     expect(href).toMatch(/^https?:\/\//)
     expect(link).toHaveAttribute("target", "_blank")
     expect(link).toHaveAttribute("rel", "noopener noreferrer")
@@ -959,5 +972,56 @@ describe("MappingEditorPage", () => {
     // A verificação principal é que não houve throw e a UI não crashou.
     // O re-run real é testado via integração; aqui validamos que o callback existe.
     expect(mockedUseDryRun).toHaveBeenCalled()
+  })
+})
+
+// ── Regressão: perda silenciosa de blocos do dict v2 ──────────────────────────
+//
+// O dict v2 é ABERTO: além de `preprocess` e `rules`, carrega blocos que este
+// editor não edita — hoje `raw_reduction`, presente em 10 dos 16 mappings de
+// fábrica. O payload de save era montado como literal `{preprocess, rules}`, então
+// abrir um mapping de fábrica no editor visual e salvar APAGAVA a poda do raw, sem
+// aviso e sem aparecer no diff. O backend preserva o que recebe; o cliente é que
+// nunca mandava. Este teste vigia o payload no ponto exato onde o dado se perdia.
+describe("MappingEditorPage — preservação de blocos não editados", () => {
+  const RAW_REDUCTION = [
+    { path: "rawData.lineage", drop: true },
+    { path: "full_log", max_bytes: 16384 },
+    { drop_nulls: true },
+  ]
+
+  const VERSION_COM_REDUCTION: MappingVersion = {
+    ...VERSION,
+    rules: { ...VERSION.rules, raw_reduction: RAW_REDUCTION },
+  }
+
+  const MAPPING_COM_REDUCTION = {
+    ...MAPPING,
+    versions: [VERSION_COM_REDUCTION],
+  } as Mapping & { versions: MappingVersion[] }
+
+  it("mantém raw_reduction no payload entregue ao SaveModal", async () => {
+    mockedUsePermission.mockReturnValue(true)
+    mockedUseMapping.mockReturnValue({
+      data: MAPPING_COM_REDUCTION,
+      isLoading: false,
+      error: null,
+      refetch: vi.fn(),
+    })
+
+    renderPage()
+    fireEvent.click(screen.getByTestId("edit-mode-button"))
+    fireEvent.click(screen.getByTestId("save-button"))
+
+    const payload = await waitFor(() => {
+      const el = screen.getByTestId("save-modal-payload")
+      expect(el).toBeInTheDocument()
+      return JSON.parse(el.textContent ?? "{}")
+    })
+
+    expect(payload.raw_reduction).toEqual(RAW_REDUCTION)
+    // e os blocos editáveis continuam vindo do rascunho, não da versão servida
+    expect(payload).toHaveProperty("preprocess")
+    expect(payload).toHaveProperty("rules")
   })
 })

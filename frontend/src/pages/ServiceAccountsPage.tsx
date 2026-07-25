@@ -315,10 +315,13 @@ export const ServiceAccountsPage: React.FC = () => {
                         <Badge variant={roleBadgeVariant(sa.role)}>{sa.role}</Badge>
                       </td>
                       <td className="px-4 py-2 whitespace-nowrap">
+                        {/* Conta ativa é o normal: neutro. Desativada é escolha
+                            do operador, não incidente: neutro vazado, nunca
+                            vermelhão. Mesmo par de /destinations e /integrations. */}
                         {sa.is_active ? (
-                          <Badge variant="success">{t("serviceAccounts.table.statusActive")}</Badge>
+                          <Badge variant="default">{t("serviceAccounts.table.statusActive")}</Badge>
                         ) : (
-                          <Badge variant="danger">{t("serviceAccounts.table.statusInactive")}</Badge>
+                          <Badge variant="outline">{t("serviceAccounts.table.statusInactive")}</Badge>
                         )}
                       </td>
                       <td className="px-4 py-2 text-right tabular-nums whitespace-nowrap">
@@ -386,9 +389,9 @@ export const ServiceAccountsPage: React.FC = () => {
                       )}
                     </div>
                     {sa.is_active ? (
-                      <Badge variant="success">{t("serviceAccounts.table.statusActive")}</Badge>
+                      <Badge variant="default">{t("serviceAccounts.table.statusActive")}</Badge>
                     ) : (
-                      <Badge variant="danger">{t("serviceAccounts.table.statusInactive")}</Badge>
+                      <Badge variant="outline">{t("serviceAccounts.table.statusInactive")}</Badge>
                     )}
                   </div>
 
@@ -915,12 +918,14 @@ const ServiceAccountTokensModal: React.FC<SaTokensModalProps> = ({
                         {tok.token_prefix}…
                       </td>
                       <td className="px-3 py-2 whitespace-nowrap">
+                        {/* Mesmo contrato do /tokens: válido em repouso é neutro
+                            cheio, revogado e expirado são neutro vazado. */}
                         {isTokenActive(tok) ? (
-                          <Badge variant="success">{t("serviceAccounts.tokensModal.statusActive")}</Badge>
+                          <Badge variant="default">{t("serviceAccounts.tokensModal.statusActive")}</Badge>
                         ) : tok.revoked_at ? (
-                          <Badge variant="danger">{t("serviceAccounts.tokensModal.statusRevoked")}</Badge>
+                          <Badge variant="outline">{t("serviceAccounts.tokensModal.statusRevoked")}</Badge>
                         ) : (
-                          <Badge variant="warning">{t("serviceAccounts.tokensModal.statusExpired")}</Badge>
+                          <Badge variant="outline">{t("serviceAccounts.tokensModal.statusExpired")}</Badge>
                         )}
                       </td>
                       <td className="px-3 py-2 text-text-secondary whitespace-nowrap">

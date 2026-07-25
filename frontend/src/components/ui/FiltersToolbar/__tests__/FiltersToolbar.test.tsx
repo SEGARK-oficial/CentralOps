@@ -160,12 +160,14 @@ describe("FiltersToolbar — botão Resetar", () => {
     expect(onReset).toHaveBeenCalledTimes(1)
   })
 
-  it("botão Resetar tem aria-label 'Resetar filtros'", () => {
+  // O rótulo diz o que acontece ("Limpar filtros"), não o que o sistema faz
+  // internamente ("Resetar"). aria-label acompanha o texto visível.
+  it("botão tem aria-label 'Limpar filtros'", () => {
     const onReset = vi.fn()
     render(<ControlledHarness hasActiveFilters onReset={onReset} />)
     expect(screen.getByTestId("filters-toolbar-reset")).toHaveAttribute(
       "aria-label",
-      "Resetar filtros",
+      "Limpar filtros",
     )
   })
 })

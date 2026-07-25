@@ -31,7 +31,11 @@ class Settings(BaseSettings):
     # (correlação/deploy markers no backend de ops). Setar via env no build/CI.
     APP_VERSION: str = "unknown"
     ENABLE_API_DOCS: Optional[bool] = None
-    APP_COMPANY_NAME: str = "Sua Empresa"
+    # O default é o nome do PRODUTO, não um placeholder. "Sua Empresa" era texto de
+    # rascunho embarcado como padrão: toda instalação que não configurasse a marca
+    # exibia literalmente "Sua Empresa" no topo do console e na tela de login. O campo
+    # continua existindo para white-label — quem personaliza sobrescreve.
+    APP_COMPANY_NAME: str = "CentralOps"
     APP_COMPANY_PORTAL_NAME: str = "Portal de Login"
 
     # ── Database ──────────────────────────────────────────────────────

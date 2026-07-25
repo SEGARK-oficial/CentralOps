@@ -91,7 +91,7 @@ describe("CollectionFiltersSection — renderização dinâmica pelos 3 tipos", 
     const options = Array.from(select.querySelectorAll("option")).map((o) => o.getAttribute("value"))
     expect(options).toEqual(["all", "medium", "high"])
     // O default é marcado como "sem filtro" na própria lista.
-    expect(screen.getByText("all — sem filtro")).toBeInTheDocument()
+    expect(screen.getByText("all (sem filtro)")).toBeInTheDocument()
   })
 
   it("bool vira checkbox desmarcado quando o default é false", () => {
@@ -129,7 +129,7 @@ describe("CollectionFiltersSection — consequência antes da ação", () => {
     renderSection()
     // Nada ligado ainda…
     expect(screen.getByTestId("collection-filter-state-min_widget_level")).toHaveTextContent(
-      "Sem filtro — coleta tudo",
+      "Sem filtro (coleta tudo)",
     )
     // …e o aviso do plugin já está visível.
     expect(screen.getByTestId("collection-filter-warning-min_widget_level")).toHaveTextContent(
@@ -139,8 +139,8 @@ describe("CollectionFiltersSection — consequência antes da ação", () => {
 
   it("deixa explícito que não é retroativo", () => {
     renderSection()
-    expect(screen.getByText(/não reprocessa o que já passou/i)).toBeInTheDocument()
-    expect(screen.getByText(/não recupera o que ficou de fora/i)).toBeInTheDocument()
+    expect(screen.getByText(/não reprocessa o passado/i)).toBeInTheDocument()
+    expect(screen.getByText(/não recupera o que ficou fora/i)).toBeInTheDocument()
   })
 
   it("'Sem filtro' é o estado anunciado quando nada está configurado", () => {

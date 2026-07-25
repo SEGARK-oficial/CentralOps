@@ -2,7 +2,7 @@
   "page": {
     "eyebrow": "Administration",
     "title": "Settings",
-    "description": "Manage email notifications, event collection and delivery, corporate sign-in (SSO), audit, and licensing.",
+    "description": "Email notifications, event collection and delivery, corporate sign-in (SSO), audit and license.",
     "stats": {
       "recipients": "Recipients",
       "tlsSmtp": "TLS SMTP",
@@ -34,20 +34,20 @@
     "collector": {
       "loadError": "Failed to load Collector configuration",
       "cardTitle": "Collection & Delivery",
-      "cardDescription": "Adjust batches, rate limits, and concurrency per vendor. Changes take effect automatically within 30 seconds."
+      "cardDescription": "Batches, rate limits and concurrency per vendor. Changes apply within 30 seconds."
     },
     "identity": {
       "loadError": "Failed to load identity configuration",
       "cardTitle": "Identity & SSO (Microsoft Entra)",
-      "cardDescription": "Corporate \"Sign in with Microsoft\" login (OIDC). Credentials are stored securely and changes take effect from the next login."
+      "cardDescription": "Corporate Microsoft sign-in (OIDC). Credentials are stored encrypted; changes apply at the next sign-in."
     },
     "capture": {
       "cardTitle": "Live capture (\"listening mode\")",
-      "cardDescription": "Records a temporary sample of traffic sent to destinations, optionally filtered by vendor. Ideal for seeing the real format of events during an integration test. The session expires on its own."
+      "cardDescription": "Records a sample of the traffic sent to destinations, filterable by vendor. The session expires on its own."
     }
   },
   "collectorsPage": {
-    "eyebrow": "Ingestion",
+    "eyebrow": "Collect",
     "title": "Collectors",
     "description": "Real-time collection state. Each row represents an active collection (integration + data type).",
     "refresh": "Refresh",
@@ -55,7 +55,7 @@
     "loadError": "Failed to load collector data.",
     "triggerError": "Failed to trigger collection.",
     "resetError": "Failed to reset cursor.",
-    "triggerSuccess": "Collection started — new events will appear shortly (queue {{queue}}, id {{taskId}}…).",
+    "triggerSuccess": "Collection started. Events appear shortly (queue {{queue}}, id {{taskId}}…).",
     "resetSuccess": "Cursor for {{name}} / {{stream}} reset.",
     "defaultIntegration": "integration",
     "kpi": {
@@ -65,7 +65,7 @@
       "eventsCollectedHint": "historical total per integration",
       "integrationsWithErrors": "With consecutive failures",
       "maxLag": "Oldest last collection (min)",
-      "maxLagHint": "how long ago the least recently run flow last collected — says nothing about how old the data is",
+      "maxLagHint": "how long since the least recently run flow collected. Says nothing about data age",
       "worstDataLag": "Data lag (worst flow)",
       "worstDataLagHint": "most delayed flow: {{name}} / {{stream}}",
       "worstDataLagNone": "no flow with measurable lag (non-temporal cursor or nothing collected yet)"
@@ -83,7 +83,7 @@
     },
     "table": {
       "title": "Collection state",
-      "sourceHint": "Data source: <code>{{table}}</code> — updated on every collection.",
+      "sourceHint": "Data source: <code>{{table}}</code>, updated on every collection.",
       "loading": "Loading collections…",
       "ariaLabel": "Collection state by integration and stream",
       "columns": {
@@ -100,10 +100,10 @@
       "dataLagTooltip": "Most recent event already consumed from this flow: {{date}}.",
       "dataLagUnavailable": "Lag not measurable: this cursor is not time-based, or nothing has been collected yet. It does not mean up to date.",
       "backlog": "Backlog",
-      "backlogTooltip": "The cycle stopped at the page cap and the data is more than 30 min behind: work was left over and the flow is not catching up.",
+      "backlogTooltip": "The cycle hit the page cap and data is over 30 min behind. Work was left over and the flow is not catching up.",
       "emptyTitle": "No collection registered",
-      "emptyNoVendors": "No collection vendor registered yet. Check that all CentralOps services are running — especially the scheduler (beat).",
-      "emptyNoIntegration": "Create an active integration — the first collection starts automatically within 60 seconds.",
+      "emptyNoVendors": "No collection vendor registered. Check that the services are up, especially the scheduler (beat).",
+      "emptyNoIntegration": "Create an active integration. The first collection starts within 60 seconds.",
       "trigger": "Trigger",
       "triggerTooltip": "Trigger immediate collection",
       "reset": "Reset",
@@ -118,7 +118,7 @@
     "resetModal": {
       "title": "Reset cursor?",
       "body": "This erases the saved read position for {{name}} / {{stream}}.",
-      "hint": "The next collection restarts from the vendor's default point (1 hour back). Recent duplicates are filtered automatically, but some events may be re-sent.",
+      "hint": "The next collection restarts from 1 hour back. Recent duplicates are filtered, but some events may come again.",
       "confirm": "Reset cursor"
     }
   },
@@ -166,9 +166,8 @@
   "collector": {
     "envBanner": {
       "title": "Configuration set during installation",
-      "body": "The current values come from the installation's <code>{{envFile}}</code> file. Save to start editing them here — changes take effect automatically within 30 seconds."
+      "body": "The values come from <code>{{envFile}}</code>. Save to edit them here; changes apply within 30 seconds."
     },
-    "destinationsCta": "The delivery destination configuration (e.g., wazuh-default) has moved to the <a>Destinations</a> page.",
     "testResult": {
       "healthy": "Healthy",
       "error": "Error"
@@ -191,9 +190,9 @@
       "batchSize": "Batch size",
       "batchSizeHelper": "Larger batches make fewer sends, but each event may take longer to arrive.",
       "flushSeconds": "Flush after (seconds)",
-      "flushSecondsHelper": "Sends the batch even if incomplete after this time — sets the maximum wait time for an event.",
+      "flushSecondsHelper": "Sends the batch even if incomplete after this time. It is an event's maximum wait.",
       "dedupeTtl": "Dedupe TTL (hours)",
-      "dedupeTtlHelper": "Memory window used to filter vendor duplicates. Minimum {{min}}h (covers the broker redelivery window). The Redis memory cost is direct: keys ≈ events/s × TTL in seconds — at 100 ev/s, 24h is ~8.6 million keys (~1 GB); 4h is ~1.4 million (~165 MB)."
+      "dedupeTtlHelper": "Window to filter vendor duplicates; the {{min}}h minimum covers broker redelivery. Redis cost at 100 ev/s: 24h ~1 GB, 4h ~165 MB."
     },
     "table": {
       "vendor": "Vendor",
@@ -232,7 +231,7 @@
       "tenantId": "Tenant ID (Directory)",
       "clientId": "Client ID (Application)",
       "clientSecret": "Client secret",
-      "clientSecretPlaceholderConfigured": "•••••••• configured — leave blank to keep",
+      "clientSecretPlaceholderConfigured": "•••••••• configured. Leave blank to keep",
       "clientSecretPlaceholderEmpty": "Paste the client secret",
       "clientSecretHelper": "Stored encrypted; never displayed back.",
       "redirectUri": "Redirect URI",
@@ -262,7 +261,7 @@
     "jitProvisioning": "JIT provisioning",
     "jitProvisioningDescription": "Creates the account on first login. Turn off to require a pre-provisioned account.",
     "sync": {
-      "title": "User Sync (Graph)",
+      "title": "User sync (Graph)",
       "enabled": "Sync enabled",
       "enabledDescription": "Enables periodic sync of App Registration users via Microsoft Graph.",
       "deprovision": "Automatic deprovisioning",
@@ -274,7 +273,7 @@
     "defaultButtonLabel": "Sign in with Microsoft",
     "saveConfig": "Save configuration",
     "testConnection": "Test connection",
-    "envOnlyHint": "Values come from the installation's configuration — save to edit them here."
+    "envOnlyHint": "Values come from the installation's configuration. Save to edit them here."
   },
   "entraSync": {
     "never": "Never",
@@ -307,7 +306,7 @@
     "loadingStatus": "Loading status...",
     "lastSync": "Last sync:",
     "syncNow": "Sync now",
-    "syncNowAriaLabelRunning": "Sync in progress — please wait",
+    "syncNowAriaLabelRunning": "Sync in progress, wait",
     "syncNowAriaLabelIdle": "Trigger sync now",
     "refresh": "Refresh",
     "refreshAriaLabel": "Refresh sync status"
@@ -315,7 +314,7 @@
   "capture": {
     "intro": {
       "title": "What live capture is",
-      "body": "Turns on a temporary <strong>\"listening mode\"</strong> that records a sample of the traffic <strong>processed by the pipeline</strong> along with <strong>each event's outcome</strong> (delivered, dropped, no destination, quarantined…), optionally filtered by vendor. Use it to see how a log came in and how it went out during an integration test — without searching the general audit. The session expires on its own at the end of the window; nothing stays on forever."
+      "body": "Temporary listening mode. Records a sample of what the pipeline processed with <strong>each event's outcome</strong>: delivered, dropped, no destination, quarantined. The session expires on its own."
     },
     "loadSessionsError": "Failed to list capture sessions",
     "loadEventsError": "Failed to load session events",
@@ -350,11 +349,11 @@
       "eventsUnit": "{{count}} events",
       "start": "Start capture",
       "refresh": "Refresh",
-      "durationHint": "Collectors run in cycles (from 1 to a few minutes). A short window can open and close between two cycles and capture nothing — for troubleshooting, prefer 15 minutes or more."
+      "durationHint": "Collectors run in cycles. A short window may catch nothing: use 15 min or more."
     },
     "sessionsLoading": "Loading sessions…",
     "sessionsEmptyTitle": "No capture session",
-    "sessionsEmptyDescription": "Start a capture above to record a sample of dispatched traffic. The session expires on its own at the end of the chosen window.",
+    "sessionsEmptyDescription": "Start a capture above to record a sample of dispatched traffic.",
     "table": {
       "vendor": "Vendor",
       "status": "Status",
@@ -372,7 +371,7 @@
       "deleteTooltip": "Delete session"
     },
     "events": {
-      "title": "Events — {{vendor}}",
+      "title": "Events from {{vendor}}",
       "allVendors": "All vendors",
       "liveUpdating": "(updating live)",
       "refresh": "Refresh",
@@ -380,8 +379,8 @@
       "exportNdjson": "NDJSON",
       "exportError": "Failed to export the events.",
       "loading": "Loading events…",
-      "waitingTitle": "Session active — waiting for events",
-      "waitingDescription": "The capture is live and hasn't recorded anything yet. That usually means no traffic has gone through the pipeline in this window — not that the capture is broken.",
+      "waitingTitle": "Session active, waiting for events",
+      "waitingDescription": "Live, with nothing recorded. Most likely no traffic passed in this window.",
       "emptyTitle": "No events captured",
       "emptyDescription": "The window ended with no events. Either there was no traffic in that period, or it didn't match the chosen filter.",
       "table": {
@@ -403,15 +402,15 @@
       "filteredEmptyDescription": "The session captured {{total}} event(s), but none with that outcome. Clear the filter to see them all.",
       "waitingWhyPipeline": "• The capture records what the pipeline processes, with each event's outcome.",
       "waitingWhyCadence": "• Collectors run in cycles: it can take 1 to a few minutes until the first batch.",
-      "waitingWindow": "• This session's window: ~{{minutes}} min. If it's shorter than the collector cadence, it may close without catching anything.",
+      "waitingWindow": "• This session's window: ~{{minutes}} min. Shorter than the collector cadence, it may close empty.",
       "waitingVendorFilter": "• Scoped to vendor “{{vendor}}”: traffic from other vendors won't enter this session.",
-      "waitingServerCounts": "The server already counted {{total}} event(s) in this session — refresh to load them.",
+      "waitingServerCounts": "The server already counted {{total}} event(s) in this session. Refresh to load them.",
       "emptyWindow": "• The window lasted ~{{minutes}} min.",
       "emptyRetryHint": "• Tip: retry with a longer window (15 min or more) and no vendor filter to confirm.",
       "destinationShort": "destination: {{destination}}"
     },
     "inspectModal": {
-      "title": "Captured event — {{vendor}}",
+      "title": "Captured event from {{vendor}}",
       "defaultTitle": "Event",
       "copyJson": "Copy JSON",
       "outcome": "Outcome: {{outcome}}",
@@ -442,9 +441,9 @@
   },
   "licensing": {
     "cardTitle": "Licensing",
-    "cardDescription": "Activate the Enterprise edition by pasting the license key. It's <strong>validated offline</strong>, with no external connection, and stays active across updates and restarts — no additional configuration needed.",
-    "graceTitle": "License expired — in grace period",
-    "graceBody": "Enterprise features remain temporarily active. Paste the renewed license below before the grace period ends to avoid reverting to Community.",
+    "cardDescription": "Paste the key to activate Enterprise. <strong>Validated offline</strong>, it survives updates and restarts.",
+    "graceTitle": "License expired, in grace period",
+    "graceBody": "Features stay active until grace ends. Renew to avoid dropping to Community.",
     "source": {
       "database": "Activated via this interface",
       "environment": "Set during server installation",
@@ -459,12 +458,12 @@
     "expiresOn": "Expires on {{date}}",
     "activatedOn": "Activated on {{date}}",
     "activatedBy": " by {{name}}",
-    "activateSuccessEnterprise": "License activated — Enterprise edition (plan {{plan}}).",
-    "activateSuccessCommunityOnly": "License accepted, but the system remains on the Community edition. The license may have been revoked — contact whoever issued it.",
+    "activateSuccessEnterprise": "License activated. Enterprise edition, plan {{plan}}.",
+    "activateSuccessCommunityOnly": "Accepted, but the system stays on Community. It may be revoked: contact the issuer.",
     "activateError": "Failed to activate license.",
-    "deactivateSuccess": "License deactivated — reverted to Community.",
+    "deactivateSuccess": "License deactivated. Back to Community.",
     "deactivateError": "Failed to deactivate license.",
-    "unknownPlan": "—",
+    "unknownPlan": "unknown",
     "form": {
       "label": "License key",
       "placeholder": "Paste the license key here (eyJhbGci…)",
@@ -481,16 +480,16 @@
     "featuresLicensed_other": "{{count}} features licensed",
     "expiresOn": "Expires on {{date}}{{daysSuffix}}",
     "expiresOnDaysSuffix": " ({{days}}d)",
-    "graceTitle": "License expired — in grace period",
-    "graceBody": "The Enterprise license expired, but features remain active during the grace period. <strong>Renew now</strong> — once the grace period ends, the system returns to Community mode.",
+    "graceTitle": "License expired, in grace period",
+    "graceBody": "Expired, with features still active during grace. <strong>Renew</strong> before dropping to Community.",
     "expiredTitle": "License expired",
-    "expiredBody": "The Enterprise license expired and the system returned to Community mode. Renew the license to reactivate your plan's features.",
+    "expiredBody": "License expired, system on Community. Renew to reactivate your plan.",
     "expiringSoonTitle": "License expiring soon",
-    "expiringSoonBody": "Your license expires in {{days}} day(s) ({{date}}). Renew to avoid losing your plan's features — the system reverts to Community once it expires."
+    "expiringSoonBody": "Expires in {{days}} day(s) ({{date}}). Renew or it drops to Community."
   },
   "backfill": {
     "panel": {
-      "title": "Backfill — controlled historical collection",
+      "title": "Historical collection (backfill)",
       "description": "Recover events from past periods without affecting real-time collection.",
       "newBackfill": "New backfill",
       "modalTitle": "New Backfill"
@@ -528,7 +527,7 @@
       "back": "Back"
     },
     "detailDrawer": {
-      "title": "Backfill Details",
+      "title": "Backfill details",
       "lastUpdate": "Last update: {{when}}",
       "progress": "Progress",
       "progressAriaLabel": "Backfill progress: {{percent}}%",
@@ -548,7 +547,7 @@
       "cancel": "Cancel backfill"
     },
     "form": {
-      "info": "The backfill runs separately from real-time collection, without affecting it. Historical events get the same processing and delivery as everything else. Maximum window: {{maxDays}} days.",
+      "info": "Runs alongside live collection, with the same processing. Maximum window: {{maxDays}} days.",
       "learnMore": "Learn more",
       "period": "Period",
       "from": "From",

@@ -17,11 +17,14 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        primary: "bg-primary-600 text-white hover:bg-primary-700 active:bg-primary-800",
-        secondary: "bg-surface-tertiary text-text hover:bg-border active:bg-border-hover",
-        outline: "border border-border text-text hover:bg-surface-tertiary active:bg-border/50",
-        ghost: "text-text-secondary hover:bg-surface-tertiary hover:text-text active:bg-border/50",
-        danger: "bg-danger-500 text-white hover:bg-danger-700 active:bg-danger-700/90",
+        // Texto sobre preenchimento de matiz é o GROUND, não branco. As matizes
+        // do sistema são claras (L~0.70-0.80): branco sobre violeta-600 rende
+        // 2.7:1 e reprova; o ground rende 5.96:1.
+        primary: "bg-primary-600 text-text-inverse hover:bg-primary-500 active:bg-primary-400",
+        secondary: "bg-surface-hover text-text hover:bg-surface-active active:bg-surface-active",
+        outline: "border border-border-hover text-text hover:bg-surface-hover hover:border-border-strong active:bg-surface-active",
+        ghost: "text-text-secondary hover:bg-surface-hover hover:text-text active:bg-surface-active",
+        danger: "bg-danger-500 text-text-inverse hover:bg-danger-600 active:bg-danger-600",
       },
       size: {
         xs: `h-7 px-2 text-xs rounded ${TOUCH_TARGET_XS}`,

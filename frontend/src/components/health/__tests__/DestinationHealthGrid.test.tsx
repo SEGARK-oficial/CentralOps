@@ -16,6 +16,16 @@ import { MemoryRouter } from "react-router-dom"
 import { DestinationHealthGrid } from "@/components/health/DestinationHealthGrid"
 import * as api from "@/services/api"
 import type { Destination, DestinationHealth } from "@/types"
+import i18n from "@/i18n"
+
+// Sem o bootstrap do i18n o i18next nunca é inicializado neste processo e toda
+// asserção de texto bate contra a chave crua. `changeLanguage("pt")` fixa o
+// catálogo contra o qual as asserções abaixo foram escritas (o detector
+// resolveria o navigator do jsdom, "en-US").
+beforeAll(async () => {
+  await i18n.changeLanguage("pt")
+})
+
 
 vi.mock("@/services/api")
 const mockedApi = vi.mocked(api)
@@ -128,16 +138,16 @@ describe("DestinationHealthGrid", () => {
     expect(screen.getByText("3")).toBeInTheDocument()
   })
 
-  it("exibe breaker_state 'closed' como 'Circuito fechado'", async () => {
+  it("exibe breaker_state 'closed' como 'Fechado'", async () => {
     renderGrid()
     await screen.findByText("Splunk HEC Prod")
-    expect(screen.getByText("Circuito fechado")).toBeInTheDocument()
+    expect(screen.getByText("Fechado")).toBeInTheDocument()
   })
 
-  it("exibe breaker_state 'open' como 'Circuito aberto'", async () => {
+  it("exibe breaker_state 'open' como 'Aberto'", async () => {
     renderGrid()
     await screen.findByText("Elasticsearch Cold")
-    expect(screen.getByText("Circuito aberto")).toBeInTheDocument()
+    expect(screen.getByText("Aberto")).toBeInTheDocument()
   })
 
   it("exibe aviso de destino desabilitado", async () => {
@@ -200,6 +210,6 @@ describe("DestinationHealthGrid", () => {
   it("circuit breaker tem aria-label descritivo", async () => {
     renderGrid()
     await screen.findByText("Splunk HEC Prod")
-    expect(screen.getByLabelText(/Circuit breaker: Circuito fechado/i)).toBeInTheDocument()
+    expect(screen.getByLabelText(/Circuit breaker: Fechado/i)).toBeInTheDocument()
   })
 })

@@ -33,7 +33,7 @@ import { Notice } from "@/components/ui/Notice/Notice"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/Tabs/Tabs"
 import { useAuth } from "@/contexts/AuthContext"
 import { usePlatform } from "@/contexts/PlatformContext"
-import { authStatusLabel, authStatusVariant } from "@/lib/labels"
+import { authStatusLabelKey, authStatusVariant } from "@/lib/labels"
 import { formatDateTime as formatDateTimeIntl } from "@/lib/intl"
 
 type Tab = "overview" | "health" | "pipeline-health" | "destinations" | "config" | "backfill"
@@ -212,12 +212,16 @@ const IntegrationDetailPage: React.FC = () => {
           <div className="space-y-2">
             <div className="flex flex-wrap items-center gap-2">
               <h1 className="text-2xl font-bold text-text">{integration.name}</h1>
-              <Badge variant={integration.platform === "sophos" ? "primary" : "success"}>{integration.platform}</Badge>
-              <Badge variant={integration.is_active ? "success" : "warning"} size="sm">
+              {/* Plataforma é substantivo, não estado: matiz aqui rouba o
+                  significado da paleta. Ativo é o normal, e o normal é neutro;
+                  inativo é escolha do operador, não falha. Mesmo contrato da
+                  lista em /integrations. */}
+              <Badge variant="outline">{integration.platform}</Badge>
+              <Badge variant={integration.is_active ? "default" : "outline"} size="sm">
                 {integration.is_active ? t("form.statusActive") : t("form.statusInactive")}
               </Badge>
               <Badge variant={authStatusVariant(integration.auth_status)} size="sm">
-                {authStatusLabel(integration.auth_status)}
+                {t(authStatusLabelKey(integration.auth_status))}
               </Badge>
             </div>
             <p className="text-sm text-text-secondary">
@@ -488,7 +492,7 @@ const IntegrationDetailPage: React.FC = () => {
               </>
             )}
             <dt className="font-medium text-text-secondary">{t("detail.config.authentication")}</dt>
-            <dd>{authStatusLabel(integration.auth_status)}</dd>
+            <dd>{t(authStatusLabelKey(integration.auth_status))}</dd>
             <dt className="font-medium text-text-secondary">{t("detail.config.lastCheck")}</dt>
             <dd>{formatDateTime(integration.last_checked_at)}</dd>
             <dt className="font-medium text-text-secondary">{t("detail.config.lastSuccess")}</dt>

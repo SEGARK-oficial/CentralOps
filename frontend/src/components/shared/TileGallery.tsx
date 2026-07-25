@@ -195,7 +195,7 @@ export const TileGallery: React.FC<TileGalleryProps> = ({
                         className={cn(
                           "flex h-5 w-5 items-center justify-center rounded border",
                           isSelected
-                            ? "border-primary-600 bg-primary-600 text-white"
+                            ? "border-primary-600 bg-primary-600 text-text-inverse"
                             : "border-border bg-surface",
                         )}
                       >

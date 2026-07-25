@@ -1,10 +1,20 @@
 /**
  * Testes — FlowLiveFeed (feed ao vivo colapsável).
  */
-import { describe, it, expect, vi, beforeEach } from "vitest"
+import { describe, it, expect, vi, beforeAll, beforeEach } from "vitest"
 import { render, screen, waitFor, act, fireEvent } from "@testing-library/react"
 import { FlowLiveFeed } from "@/components/flow/FlowLiveFeed"
 import type { TopologyDestination } from "@/types"
+import i18n from "@/i18n"
+
+// Sem o bootstrap do i18n o i18next nunca é inicializado neste processo e toda
+// asserção de texto bate contra a chave crua. `changeLanguage("pt")` fixa o
+// catálogo contra o qual as asserções abaixo foram escritas (o detector
+// resolveria o navigator do jsdom, "en-US").
+beforeAll(async () => {
+  await i18n.changeLanguage("pt")
+})
+
 
 const DESTS: TopologyDestination[] = [
   { id: "d1", name: "Splunk Prod", kind: "splunk_hec", status: "healthy", eps: 133 },

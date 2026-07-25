@@ -258,11 +258,13 @@ export const Select: React.FC<SelectProps> = ({
           id={selectId}
           name={name}
           className={cn(
+            // Trigger é campo, logo é poço (`surface-tertiary`), igual a Input
+            // e Textarea. A lista, essa sim, flutua: fica em `surface`.
             // focus-ring: estratégia única de foco do design system.
-            "w-full flex items-center gap-2 rounded-md border bg-surface text-left transition-colors focus-ring",
+            "w-full flex items-center gap-2 rounded-md border bg-surface-tertiary text-left transition-colors focus-ring",
             size === "sm" ? "h-8 px-2.5 text-xs" : "h-9 px-3 text-sm",
             "disabled:opacity-50 disabled:cursor-not-allowed",
-            error ? "border-danger-500" : "border-border hover:border-border-hover",
+            error ? "border-danger-500" : "border-border-field hover:border-border-field-hover",
             leftIcon && (size === "sm" ? "pl-8" : "pl-9"),
           )}
           onClick={() => !disabled && setIsOpen((prev) => !prev)}
@@ -291,24 +293,24 @@ export const Select: React.FC<SelectProps> = ({
           <div
             ref={portalRef}
             style={portalStyle}
-            className="bg-surface border border-border rounded-md shadow-lg animate-slide-down overflow-hidden"
+            className="bg-surface border border-border-field rounded-md shadow-lg animate-slide-down overflow-hidden"
           >
             {options.length > 10 && (
-              <div className="p-2 border-b border-border">
+              <div className="p-2 border-b border-border-field">
                 <input
                   ref={inputRef}
                   type="text"
                   placeholder={t("select.searchPlaceholder")}
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full h-8 px-3 text-sm rounded border border-border bg-surface-secondary focus-ring"
+                  className="w-full h-8 px-3 text-sm rounded border border-border-field bg-surface-tertiary text-text placeholder:text-text-tertiary focus-ring"
                   aria-label={t("select.searchAriaLabel")}
                 />
               </div>
             )}
 
             {multiple && (
-              <div className="flex gap-2 px-3 py-2 border-b border-border text-xs">
+              <div className="flex gap-2 px-3 py-2 border-b border-border-field text-xs">
                 <button
                   type="button"
                   className="text-primary-600 hover:underline disabled:opacity-50"
@@ -340,8 +342,8 @@ export const Select: React.FC<SelectProps> = ({
                         type="button"
                         className={cn(
                           // focus-ring: estratégia única; mantém bg de foco para feedback visual do item.
-                          "w-full flex items-center gap-2 px-3 py-2 text-sm text-left transition-colors focus-ring",
-                          "hover:bg-surface-tertiary focus-visible:bg-surface-tertiary",
+                          "w-full flex items-center gap-2 px-3 py-1.5 text-sm text-left transition-colors focus-ring",
+                          "hover:bg-surface-hover focus-visible:bg-surface-hover",
                           isSelected && "bg-primary-50 text-primary-700 font-medium",
                           option.disabled && "opacity-50 cursor-not-allowed",
                         )}

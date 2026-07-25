@@ -139,7 +139,7 @@ describe("IntegrationDestinationsTab", () => {
 
   it("exibe aviso informativo sobre preview de roteamento", async () => {
     renderTab()
-    expect(screen.getByText(/Preview de roteamento/i)).toBeInTheDocument()
+    expect(screen.getByText(/enviariam eventos aos destinos listados/i)).toBeInTheDocument()
   })
 
   it("exibe skeletons durante o carregamento", () => {

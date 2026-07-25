@@ -260,7 +260,9 @@ export const HelpTooltip: React.FC<HelpTooltipProps> = ({
             position: "fixed",
             top: position.top,
             left: position.left,
-            zIndex: 1070, // matches --z-tooltip token
+            // Lê o token em vez de repetir o número: o valor antigo estava
+            // hardcoded e citava `--z-tooltip`, nome que nem existe mais.
+            zIndex: "var(--z-index-tooltip)",
             maxWidth: TOOLTIP_MAX_WIDTH,
             // Render invisível até measured=true. Evita usuário ver o
             // tooltip na posição estimada e depois "saltar" pra final.
@@ -272,12 +274,14 @@ export const HelpTooltip: React.FC<HelpTooltipProps> = ({
             measured && "animate-fade-in",
           )}
         >
-          <p className="font-semibold text-text mb-1">{label}</p>
+          {/* O label é a chave que a pessoa vê no formulário: mono, porque é
+              nome de campo, não prosa. */}
+          <p className="font-mono text-[11px] font-medium text-text mb-1">{label}</p>
           <p className="text-text-secondary leading-relaxed">{description}</p>
           {example != null && (
             <p className="mt-1.5 text-text-secondary">
               {t("helpTooltip.exampleLabel")}{" "}
-              <code className="font-mono bg-surface-tertiary px-1 rounded text-text">
+              <code className="font-mono rounded bg-surface-tertiary px-1 text-text">
                 {example}
               </code>
             </p>
@@ -331,7 +335,7 @@ export const HelpTooltip: React.FC<HelpTooltipProps> = ({
             setHoverOpen(false)
           }
         }}
-        className="inline-flex items-center justify-center text-text-tertiary hover:text-text-secondary transition-colors focus-visible:outline-2 focus-visible:outline-primary-500 rounded"
+        className="inline-flex items-center justify-center rounded text-text-tertiary transition-colors hover:text-text-secondary focus-ring"
       >
         <HelpCircleIcon size={14} aria-hidden="true" />
       </button>

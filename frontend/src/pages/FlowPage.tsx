@@ -29,32 +29,44 @@ import type { FlowNodeId } from "@/components/flow/FlowCanvas"
 
 const POLL_MS = 15000
 
+/**
+ * Os quatro números do funil. A matiz diz em que estágio o evento está, e é a
+ * única cor da faixa: coletado é âmbar (cru, ainda caro), roteado e entregue
+ * são ciano (em trânsito), descartado é teal porque descarte É a redução — o
+ * ponto onde a conta cai. Nenhum deles é alarme.
+ */
+type Stage = "collect" | "reduce" | "route"
+
+const STAGE_RULE: Record<Stage, string> = {
+  collect: "border-l-stage-collect",
+  reduce: "border-l-stage-reduce",
+  route: "border-l-stage-route",
+}
+
+const STAGE_ICON: Record<Stage, string> = {
+  collect: "text-stage-collect",
+  reduce: "text-stage-reduce",
+  route: "text-stage-route",
+}
+
 interface StatCardProps {
   label: string
   value: string
   icon: React.ReactNode
-  tone?: "default" | "primary" | "danger"
+  stage: Stage
 }
 
-const StatCard: React.FC<StatCardProps> = ({ label, value, icon, tone = "default" }) => {
-  const toneCls =
-    tone === "primary"
-      ? "text-primary-600"
-      : tone === "danger"
-        ? "text-danger-600"
-        : "text-text-secondary"
-  return (
-    <Card padding="sm" className="shadow-sm">
-      <div className="flex items-center justify-between gap-2">
-        <span className="text-xs font-semibold uppercase tracking-wider text-text-tertiary">
-          {label}
-        </span>
-        <span className={toneCls}>{icon}</span>
-      </div>
-      <div className="mt-2 text-2xl font-semibold tabular-nums text-text">{value}</div>
-    </Card>
-  )
-}
+const StatCard: React.FC<StatCardProps> = ({ label, value, icon, stage }) => (
+  <Card padding="sm" className={`border-l-[3px] ${STAGE_RULE[stage]}`}>
+    <div className="flex items-start justify-between gap-2">
+      <span className="font-mono text-[11px] uppercase tracking-[0.1em] text-text-tertiary">
+        {label}
+      </span>
+      <span className={STAGE_ICON[stage]}>{icon}</span>
+    </div>
+    <div className="mt-2 font-display text-3xl leading-none text-text">{value}</div>
+  </Card>
+)
 
 const FlowPage: React.FC = () => {
   const { t } = useTranslation("dashboard")
@@ -153,31 +165,32 @@ const FlowPage: React.FC = () => {
       ) : data ? (
         <>
           {/* KPI strip */}
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
             <StatCard
               label={t("flowPage.stats.ingest")}
               // Unidade unificada do funil: tudo em eventos/min (ingest/delivered
               // vêm em EPS do backend → ×60). Mantém os 4 cards comparáveis.
               value={t("flowPage.stats.perMinute", { value: fmtRate((totals?.ingest_eps ?? 0) * 60) })}
-              icon={<ActivityIcon size={18} />}
-              tone="primary"
+              icon={<ActivityIcon size={16} />}
+              stage="collect"
             />
             <StatCard
               label={t("flowPage.stats.routed")}
               value={t("flowPage.stats.perMinute", { value: fmtRate(totals?.routed_per_min ?? 0) })}
-              icon={<NetworkIcon size={18} />}
+              icon={<NetworkIcon size={16} />}
+              stage="route"
             />
             <StatCard
               label={t("flowPage.stats.dropped")}
               value={t("flowPage.stats.perMinute", { value: fmtRate(totals?.drop_per_min ?? 0) })}
-              icon={<TrashIcon size={18} />}
-              tone={totals && totals.drop_per_min > 0 ? "danger" : "default"}
+              icon={<TrashIcon size={16} />}
+              stage="reduce"
             />
             <StatCard
               label={t("flowPage.stats.delivered")}
               value={t("flowPage.stats.perMinute", { value: fmtRate((totals?.delivered_eps ?? 0) * 60) })}
-              icon={<SendIcon size={18} />}
-              tone="primary"
+              icon={<SendIcon size={16} />}
+              stage="route"
             />
           </div>
 
@@ -194,12 +207,15 @@ const FlowPage: React.FC = () => {
           {/* Flow canvas */}
           <Card padding="md" className="space-y-3">
             <div className="flex items-center justify-between">
-              <h3 className="text-sm font-semibold text-text">{t("flowPage.topology.title")}</h3>
-              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-text-tertiary">
+              <h3 className="font-mono text-xs uppercase tracking-[0.1em] text-text-secondary">
+                {t("flowPage.topology.title")}
+              </h3>
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 font-mono text-xs text-text-tertiary">
+                {/* Saudável é cinza de propósito: o que precisa de você é o que tem cor. */}
                 <span className="flex items-center gap-1">
                   <span
                     className="inline-block h-2.5 w-2.5 rounded-full"
-                    style={{ backgroundColor: "var(--color-success-500)" }}
+                    style={{ backgroundColor: "var(--color-text-tertiary)" }}
                     aria-hidden="true"
                   />
                   {t("flowPage.topology.healthy")}

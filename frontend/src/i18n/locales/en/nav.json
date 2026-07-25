@@ -39,7 +39,7 @@
         "keywords": "mappings, normalization"
       },
       "pipelineHealth": {
-        "label": "Pipeline Health",
+        "label": "Pipeline health",
         "keywords": "pipeline, health, monitoring"
       }
     }
@@ -48,17 +48,20 @@
     "openMenu": "Open navigation menu",
     "closeMenu": "Close navigation menu",
     "expandSidebar": "Expand sidebar",
-    "collapseSidebar": "Collapse sidebar"
+    "collapseSidebar": "Collapse sidebar",
+    "search": "Search"
   },
   "navigation": {
     "ariaLabel": "Main navigation",
     "groups": {
+      "collect": "Collect",
+      "normalize": "Normalize",
+      "reduce": "Reduce",
+      "route": "Route",
+      "detect": "Detect",
       "overview": "Overview",
-      "operations": "Operations",
-      "normalization": "Normalization",
-      "knowledge": "Knowledge",
       "administration": "Administration",
-      "account": "Your account"
+      "account": "Account"
     },
     "items": {
       "dashboard": "Dashboard",
@@ -66,22 +69,22 @@
       "integrations": "Integrations",
       "collectors": "Collectors",
       "destinations": "Destinations",
-      "routes": "Routing",
+      "routes": "Routes",
       "flow": "Data flow",
       "detections": "Detections",
       "history": "History",
       "mappings": "Mappings",
-      "drift": "Drift Explorer",
+      "drift": "Drift",
       "quarantine": "Quarantine",
-      "health": "Pipeline Health",
-      "queries": "Saved Queries",
+      "health": "Pipeline health",
+      "queries": "Saved queries",
       "schedules": "Schedules",
       "adminUsers": "Users",
-      "serviceAccounts": "Service Accounts",
+      "serviceAccounts": "Service accounts",
       "ocsf": "OCSF governance",
       "config": "Settings",
-      "account": "Account settings",
-      "tokens": "API Tokens"
+      "account": "Profile and security",
+      "tokens": "API tokens"
     }
   },
   "breadcrumbs": {
@@ -95,27 +98,31 @@
       "organizations": "Organizations",
       "integrations": "Integrations",
       "collectors": "Collectors",
+      "destinations": "Destinations",
+      "routes": "Routes",
       "flow": "Data flow",
+      "detections": "Detections",
       "history": "History",
       "mappings": "Mappings",
-      "drift": "Drift Explorer",
+      "drift": "Drift",
       "quarantine": "Quarantine",
-      "pipelineHealth": "Pipeline Health",
-      "queries": "Saved Queries",
+      "pipelineHealth": "Pipeline health",
+      "queries": "Saved queries",
       "schedules": "Schedules",
-      "clients": "Clients (Legacy)",
       "users": "Users",
       "config": "Settings",
       "admin": "Administration",
       "adminUsers": "Users",
-      "adminServiceAccounts": "Service Accounts",
+      "adminServiceAccounts": "Service accounts",
+      "adminOcsf": "OCSF governance",
       "settings": "Account",
-      "settingsTokens": "API Tokens"
+      "settingsAccount": "Profile and security",
+      "settingsTokens": "API tokens"
     }
   },
   "globalFilters": {
     "label": "Filters",
-    "loadFailed": "Failed to load global filters.",
+    "loadFailed": "Could not load the filters.",
     "retry": "Retry",
     "clearFilters": "Clear filters",
     "allOrganizations": "All organizations",
@@ -129,8 +136,8 @@
     "ariaLabel": "Account menu",
     "defaultName": "User",
     "defaultRole": "user",
-    "account": "Account settings",
-    "tokens": "API Tokens",
+    "account": "Profile and security",
+    "tokens": "API tokens",
     "signOut": "Sign out"
   }
 }

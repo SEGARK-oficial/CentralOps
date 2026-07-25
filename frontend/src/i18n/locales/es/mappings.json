@@ -1,12 +1,12 @@
 {
   "list": {
     "eyebrow": "Normalización",
-    "title": "Mappings",
+    "title": "Mapeos",
     "description": "Mappings que normalizan los eventos de sus integraciones al formato estándar (OCSF).",
     "searchPlaceholder": "Buscar por proveedor, tipo o descripción...",
     "searchAriaLabel": "Buscar mapping",
-    "resetFilters": "Restablecer filtros",
-    "resetFiltersAriaLabel": "Restablecer filtros",
+    "resetFilters": "Limpiar filtros",
+    "resetFiltersAriaLabel": "Limpiar filtros",
     "showAllVendors": "Mostrar todos los proveedores disponibles",
     "loading": "Cargando mappings...",
     "loadError": "Error al cargar los mappings",
@@ -32,7 +32,7 @@
     },
     "emptyNoActive": {
       "title": "No hay mappings para integraciones activas",
-      "description": "Los mappings predeterminados aparecen aquí en cuanto conecta una integración. Conecte una en Integraciones, o vea todos los mappings disponibles.",
+      "description": "Conecte una integración y los mappings predeterminados aparecen aquí.",
       "showAll": "Mostrar todos los disponibles"
     }
   },
@@ -78,8 +78,13 @@
       "manual": "Manual"
     },
     "reservoir": {
-      "title": "Muestras del reservoir no disponibles",
-      "description": "Pronto será posible cargar muestras automáticamente. Por ahora, use el modo Manual para pegar un JSON de evento y ver la simulación."
+      "title": "Todavía no hay muestras recolectadas",
+      "description": "Las muestras aparecen aquí cuando eventos de esta integración pasen por el pipeline. Mientras tanto, pega un evento en modo Manual.",
+      "error": "No se pudieron cargar las muestras.",
+      "retry": "Intentar de nuevo",
+      "sampleIndex": "Muestra {{index}}",
+      "pickOrgTitle": "Elige una organización",
+      "pickOrgDescription": "Las muestras se guardan por organización. Usa el filtro de arriba para elegir cuál inspeccionar."
     },
     "manual": {
       "inputLabel": "Pegue aquí el JSON del evento",
@@ -89,7 +94,7 @@
     },
     "errors": {
       "notObject": "El payload debe ser un objeto JSON (clave/valor).",
-      "invalidJson": "JSON inválido — verifique la sintaxis."
+      "invalidJson": "JSON inválido. Verifique la sintaxis."
     }
   },
   "rulesEditor": {
@@ -194,32 +199,32 @@
         "description": "Ruta en el envelope normalizado a donde va el valor. Use notación dot-path."
       },
       "source": {
-        "description": "Expresión JMESPath aplicada al payload bruto del proveedor para extraer el valor. Admite rutas anidadas, filtros y funciones."
+        "description": "JMESPath sobre el payload bruto del proveedor. Admite rutas anidadas, filtros y funciones."
       },
       "const": {
-        "description": "Valor constante asignado al target, independientemente del payload del proveedor. Útil para metadatos fijos como el nombre del producto."
+        "description": "Valor fijo en el target, sin mirar el payload. Para metadatos como el nombre del producto."
       },
       "default": {
         "description": "Valor usado si el source no existe o resuelve a null. Sin default, el campo queda ausente."
       },
       "typeCast": {
-        "description": "Transformación aplicada DESPUÉS de source y value_map. Ejemplos: iso_to_epoch convierte ISO 8601 a epoch ms; to_int/to_str/to_bool realizan coerción de tipo."
+        "description": "Corre DESPUÉS de source y value_map. Ej.: iso_to_epoch da epoch ms."
       },
       "valueMap": {
-        "description": "Mapa JSON {valor_original: valor_mapeado} aplicado DESPUÉS del source. Útil para convertir cadenas de severidad en códigos OCSF."
+        "description": "Mapa JSON {original: mapeado}, aplicado DESPUÉS del source. Convierte severidad en código OCSF."
       },
       "required": {
-        "description": "Si está marcado y el valor es null/ausente después de todas las transformaciones, el evento va a cuarentena en lugar de enviarse al SIEM."
+        "description": "Si está marcado y el valor queda null, el evento va a cuarentena, no al SIEM."
       }
     },
-    "castSignatureTitle": "{{description}} — Firma: {{signature}}",
+    "castSignatureTitle": "{{description}}. Firma: {{signature}}",
     "intentionalDefault": {
       "label": "Valor predeterminado intencional (no alertar en la simulación)",
-      "description": "Marque cuando esta regla sea un placeholder esperado que siempre cae en el default — ej.: un campo OCSF obligatorio que aún no tenemos del proveedor."
+      "description": "Marque cuando la regla siempre cae en el default a propósito."
     },
     "whenCondition": {
       "label": "Condición (when)",
-      "description": "Predicado opcional: si se evalúa como false, la regla se ignora por completo — el target no se escribe. A diferencia de default: el campo queda ausente en la salida."
+      "description": "Si da false, la regla se omite. A diferencia de default, el campo no sale."
     }
   },
   "arrayBuilder": {
@@ -230,7 +235,7 @@
     "moveItemDown": "Mover elemento {{index}} hacia abajo",
     "removeItem": "Eliminar elemento {{index}}",
     "dedupByHint": "Lista de campos del observable, ej.: \"value\" o \"value,type\"",
-    "skipNullAriaLabel": "skip_null — omitir observables con source nulo",
+    "skipNullAriaLabel": "skip_null: omitir observables con source nulo",
     "skipNullHint": "(omitir cuando source sea null)",
     "itemsCount": "Elementos ({{count}})",
     "columns": {
@@ -258,19 +263,19 @@
     "inValuesHint": "Un valor por línea. Los números se detectan automáticamente.",
     "operators": {
       "exists": {
-        "label": "exists — el campo existe en el payload",
+        "label": "exists: el campo existe en el payload",
         "description": "Verdadero si el JMESPath resuelve a cualquier valor no nulo (incluidas listas y objetos vacíos)."
       },
       "equals": {
-        "label": "equals — valor igual (type-strict)",
+        "label": "equals: valor igual (type-strict)",
         "description": "Verdadero si el valor del campo es exactamente igual al literal indicado. Comparación type-strict: 3 ≠ \"3\"."
       },
       "in": {
-        "label": "in — el valor está en la lista (type-strict)",
+        "label": "in: el valor está en la lista (type-strict)",
         "description": "Verdadero si el valor del campo está en la lista. Un valor por línea. Los números se parsean automáticamente."
       },
       "not": {
-        "label": "not — negación de subcondición",
+        "label": "not: niega la subcondición",
         "description": "Niega la subcondición. Útil para expresar \"el campo no existe\" o \"el valor no es X\"."
       }
     }
@@ -296,7 +301,7 @@
     "targetHint": "(debe comenzar con _)",
     "targetAriaLabel": "target del campo virtual",
     "targetMustStartWithUnderscore": "El target debe comenzar con \"_\".",
-    "tolerantAriaLabel": "tolerant — continuar aunque falle el parseo",
+    "tolerantAriaLabel": "tolerant: continuar aunque falle el parseo",
     "tolerantHint": "(continúa incluso si el parseo falla)",
     "moveUp": "Mover operación hacia arriba",
     "moveDown": "Mover operación hacia abajo"
@@ -308,15 +313,15 @@
     "ok": "{{count}} OK",
     "failures_one": "{{count}} falla",
     "failures_other": "{{count}} fallas",
-    "warningsChipAriaLabel_one": "{{count}} regla con 100% de fallback a default — clic para ver detalles",
-    "warningsChipAriaLabel_other": "{{count}} reglas con 100% de fallback a default — clic para ver detalles",
+    "warningsChipAriaLabel_one": "{{count}} regla con 100% de fallback a default. Clic para ver detalles",
+    "warningsChipAriaLabel_other": "{{count}} reglas con 100% de fallback a default. Clic para ver detalles",
     "warningsChipLabel_one": "{{count}} regla 100% default",
     "warningsChipLabel_other": "{{count}} reglas 100% default"
   },
   "defaultHitWarnings": {
     "title": "Reglas con 100% de fallback a default",
     "closeAriaLabel": "Cerrar panel de avisos",
-    "description": "Estas reglas tienen el source resolviendo a null en el 100% de las muestras. Verifique si el JMESPath es correcto o márquelo como intencional si es un placeholder esperado.",
+    "description": "Null en el 100% de las muestras. Revise el JMESPath o márquelo como intencional.",
     "noWarnings": "Sin avisos.",
     "hitRatio": "{{hitCount}}/{{sampleSize}} muestras cayeron en el default",
     "markIntentional": "Marcar como intencional"
@@ -332,7 +337,7 @@
     "calculating": "Calculando normalización...",
     "empty": {
       "title": "Proporcione una muestra para ver la normalización.",
-      "description": "Pegue un JSON en el panel Payload (modo Manual) o espere la integración con el reservoir."
+      "description": "Elige una muestra en el panel Payload o pega un evento en modo Manual."
     }
   },
   "templatePicker": {
@@ -394,8 +399,8 @@
     },
     "rollback": {
       "messageTooShort": "El mensaje debe tener al menos 10 caracteres.",
-      "success": "Rollback a v{{version}} realizado con éxito.",
-      "error": "Error al realizar el rollback.",
+      "success": "Rollback a v{{version}} completado.",
+      "error": "El rollback falló.",
       "errorTitle": "Error en el rollback",
       "confirmTitle": "¿Hacer que v{{version}} sea la versión actual?",
       "confirmDescription": "Esta acción promoverá la v{{version}} como versión vigente del mapping. Las versiones existentes no se eliminarán.",
@@ -406,11 +411,11 @@
   },
   "diffModal": {
     "title": "Diff de versiones",
-    "titleWithVersion": "Diff de versiones — {{versionLabel}}",
+    "titleWithVersion": "Diff de versiones: {{versionLabel}}",
     "loading": "Cargando diff...",
     "noDiffAvailable": "No hay ningún diff disponible.",
     "reorderedOnlyTitle": "Solo reordenamiento",
-    "reorderedOnlyDescription": "Ninguna regla cambió — las reglas solo se reordenaron.",
+    "reorderedOnlyDescription": "Ninguna regla cambió. Solo se reordenaron.",
     "noChangesTitle": "Sin cambios",
     "noChangesDescription": "Las dos versiones son idénticas.",
     "added": "Agregadas",

@@ -1,10 +1,20 @@
 /**
  * Testes — FlowCanvas (Sankey + zoom/pan + partículas + drill-down).
  */
-import { describe, it, expect, vi } from "vitest"
+import { describe, it, expect, vi, beforeAll } from "vitest"
 import { render, screen, fireEvent } from "@testing-library/react"
 import { FlowCanvas } from "@/components/flow/FlowCanvas"
 import type { FlowGraph as FlowGraphData } from "@/types"
+import i18n from "@/i18n"
+
+// Sem o bootstrap do i18n o i18next nunca é inicializado neste processo e toda
+// asserção de texto bate contra a chave crua. `changeLanguage("pt")` fixa o
+// catálogo contra o qual as asserções abaixo foram escritas (o detector
+// resolveria o navigator do jsdom, "en-US").
+beforeAll(async () => {
+  await i18n.changeLanguage("pt")
+})
+
 
 const DATA: FlowGraphData = {
   generated_at: "2026-06-19T12:00:00Z",

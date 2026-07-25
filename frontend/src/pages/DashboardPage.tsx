@@ -14,6 +14,7 @@ import type { DashboardSummaryV2 } from "@/types"
 import { usePlatform } from "@/contexts/PlatformContext"
 import { BucketSectionComponent } from "@/components/dashboard/BucketSectionComponent"
 import { KpiGrid } from "@/components/dashboard/KpiGrid"
+import { SourceStatusBadge } from "@/components/dashboard/SourceStatusBadge"
 import { Badge } from "@/components/ui/Badge/Badge"
 import { Button } from "@/components/ui/Button/Button"
 import { Card } from "@/components/ui/Card/Card"
@@ -21,10 +22,8 @@ import { EmptyState } from "@/components/ui/EmptyState/EmptyState"
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner/LoadingSpinner"
 import { Notice } from "@/components/ui/Notice/Notice"
 import { PageHeader } from "@/components/ui/PageHeader/PageHeader"
+import { Select } from "@/components/ui/Select/Select"
 import { formatDateTime as intlFormatDateTime } from "@/lib/intl"
-
-const selectCls =
-  "h-9 rounded-md border border-border bg-surface px-3 text-sm text-text focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
 
 function formatDateTime(value: string | null | undefined, t: (key: string) => string) {
   if (!value) return t("dashboardPage.dates.noData")
@@ -48,12 +47,19 @@ function formatRelativeFromNow(value: string | null | undefined, t: (key: string
 }
 
 
-function ScopeSummary({
+/**
+ * Barra de controle: o que está em foco e sobre qual janela, numa linha só.
+ * Antes eram dois cards com título e parágrafo explicando o filtro global —
+ * chrome puro empurrando os números para baixo da dobra.
+ */
+function ScopeBar({
   organization,
   platform,
   integration,
   generatedAt,
   counts,
+  days,
+  onDaysChange,
   onClear,
 }: {
   organization: string
@@ -65,6 +71,8 @@ function ScopeSummary({
     integrations: number
     activeIntegrations: number
   } | null
+  days: number
+  onDaysChange: (days: number) => void
   onClear: () => void
 }) {
   const { t } = useTranslation("dashboard")
@@ -75,48 +83,55 @@ function ScopeSummary({
     organization !== allOrganizations || platform !== allPlatforms || integration !== allIntegrations
 
   return (
-    <Card className="shadow-sm">
-      <div className="flex flex-col gap-4 p-5 lg:flex-row lg:items-end lg:justify-between">
-        <div className="space-y-3">
-          <div>
-            <h2 className="text-lg font-semibold text-text">{t("dashboardPage.scope.title")}</h2>
-            <p className="text-sm text-text-secondary">
-              {t("dashboardPage.scope.description")}
-            </p>
-          </div>
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg border border-border bg-surface px-4 py-3">
+      <span className="font-mono text-[11px] uppercase tracking-[0.1em] text-text-tertiary">
+        {t("dashboardPage.scope.title")}
+      </span>
+      <Badge variant="outline" size="sm">{t("dashboardPage.scope.client", { value: organization })}</Badge>
+      <Badge variant="outline" size="sm">{t("dashboardPage.scope.platform", { value: platform })}</Badge>
+      <Badge variant="outline" size="sm">{t("dashboardPage.scope.integration", { value: integration })}</Badge>
 
-          <div className="flex flex-wrap gap-2">
-            <Badge variant="outline" size="sm">{t("dashboardPage.scope.client", { value: organization })}</Badge>
-            <Badge variant="outline" size="sm">{t("dashboardPage.scope.platform", { value: platform })}</Badge>
-            <Badge variant="outline" size="sm">{t("dashboardPage.scope.integration", { value: integration })}</Badge>
-          </div>
+      {counts && (
+        <span className="font-mono text-xs text-text-tertiary">
+          {t("dashboardPage.scope.counts", {
+            orgs: counts.organizations,
+            integrations: counts.integrations,
+            active: counts.activeIntegrations,
+          })}
+        </span>
+      )}
 
-          <div className="flex flex-wrap gap-4 text-xs text-text-secondary">
-            {counts && (
-              <span>
-                {t("dashboardPage.scope.counts", {
-                  orgs: counts.organizations,
-                  integrations: counts.integrations,
-                  active: counts.activeIntegrations,
-                })}
-              </span>
-            )}
-            <span>
-              {t("dashboardPage.scope.generatedAt", {
-                time: formatDateTime(generatedAt, t),
-                relative: formatRelativeFromNow(generatedAt, t),
-              })}
-            </span>
-          </div>
-        </div>
+      {hasScopedFilters && (
+        <Button variant="ghost" size="xs" onClick={onClear}>
+          {t("dashboardPage.scope.clear")}
+        </Button>
+      )}
 
-        {hasScopedFilters && (
-          <Button variant="outline" size="sm" onClick={onClear}>
-            {t("dashboardPage.scope.clear")}
-          </Button>
-        )}
+      <div className="ml-auto flex items-center gap-2">
+        <span className="font-mono text-xs text-text-tertiary">
+          {t("dashboardPage.scope.generatedAt", {
+            time: formatDateTime(generatedAt, t),
+            relative: formatRelativeFromNow(generatedAt, t),
+          })}
+        </span>
+        {/* Era um <select> nativo estilizado à mão: borda na hairline (1.32:1,
+            reprova a WCAG 1.4.11) e foco próprio. O componente do sistema já
+            traz `border-field` e o `focus-ring` único. */}
+        <Select
+          id="dashboard-window"
+          size="sm"
+          className="w-32"
+          aria-label={t("dashboardPage.timeWindow.label")}
+          value={days}
+          onChange={(value) => onDaysChange(Number(value))}
+          options={[
+            { value: 1, label: t("dashboardPage.timeWindow.options.24h") },
+            { value: 7, label: t("dashboardPage.timeWindow.options.7d") },
+            { value: 30, label: t("dashboardPage.timeWindow.options.30d") },
+          ]}
+        />
       </div>
-    </Card>
+    </div>
   )
 }
 
@@ -204,10 +219,8 @@ const DashboardPage: React.FC = () => {
   return (
     <div className="space-y-6">
       <PageHeader
-        eyebrow={t("dashboardPage.eyebrow")}
         icon={<ShieldCheckIcon size={24} />}
         title={t("dashboardPage.title")}
-        description={t("dashboardPage.description")}
         actions={
           <Button variant="outline" size="sm" onClick={() => void loadSummary(true)} disabled={refreshing} leftIcon={<RefreshCwIcon size={14} />}>
             {refreshing ? t("dashboardPage.updating") : t("common:actions.refresh")}
@@ -215,7 +228,7 @@ const DashboardPage: React.FC = () => {
         }
       />
 
-      <ScopeSummary
+      <ScopeBar
         organization={selectedOrganization?.name || t("dashboardPage.scope.allOrganizations")}
         platform={selectedPlatform || t("dashboardPage.scope.allPlatforms")}
         integration={selectedIntegration?.name || t("dashboardPage.scope.allIntegrations")}
@@ -229,35 +242,18 @@ const DashboardPage: React.FC = () => {
               }
             : null
         }
+        days={days}
+        onDaysChange={setDays}
         onClear={clearFilters}
       />
 
-      <Card className="shadow-sm">
-        <div className="flex flex-col gap-4 p-5 lg:flex-row lg:items-end lg:justify-between">
-          <div>
-            <h2 className="text-lg font-semibold text-text">{t("dashboardPage.timeWindow.title")}</h2>
-            <p className="text-sm text-text-secondary">{t("dashboardPage.timeWindow.description")}</p>
-          </div>
-
-          <div className="flex flex-col gap-1.5 lg:min-w-[180px]">
-            <label htmlFor="dashboard-window" className="text-sm font-medium text-text">{t("dashboardPage.timeWindow.label")}</label>
-            <select id="dashboard-window" value={days} onChange={(event) => setDays(Number(event.target.value))} className={selectCls}>
-              <option value={1}>{t("dashboardPage.timeWindow.options.24h")}</option>
-              <option value={7}>{t("dashboardPage.timeWindow.options.7d")}</option>
-              <option value={30}>{t("dashboardPage.timeWindow.options.30d")}</option>
-            </select>
-          </div>
-        </div>
-      </Card>
-
       <KpiGrid kpis={summary.kpis} />
 
-      <Card className="shadow-sm">
-        <div className="space-y-4 p-5">
-          <div>
-            <h2 className="text-lg font-semibold text-text">{t("dashboardPage.sourcesHealth.title")}</h2>
-            <p className="text-sm text-text-secondary">{t("dashboardPage.sourcesHealth.description")}</p>
-          </div>
+      <Card padding="md">
+        <div className="space-y-3">
+          <h2 className="font-mono text-xs uppercase tracking-[0.1em] text-text-secondary">
+            {t("dashboardPage.sourcesHealth.title")}
+          </h2>
 
           {degradedItems.length > 0 ? (
             <div className="max-h-80 space-y-2 overflow-auto">
@@ -265,22 +261,20 @@ const DashboardPage: React.FC = () => {
                 <button
                   key={`${item.integration_id}-${item.status}`}
                   type="button"
-                  className="w-full rounded-2xl border border-warning-200 bg-warning-50 px-4 py-3 text-left transition hover:border-warning-500"
+                  className="w-full rounded-lg border border-warning-200 bg-warning-50 px-4 py-3 text-left transition-colors hover:border-warning-500"
                   onClick={() => {
                     setSelectedIntegrationId(item.integration_id)
                     navigate(`/integrations/${item.integration_id}`)
                   }}
                 >
                   <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <div className="font-semibold text-text">{item.integration_name}</div>
-                      <div className="text-xs text-text-secondary">
+                    <div className="min-w-0">
+                      <div className="truncate font-semibold text-text">{item.integration_name}</div>
+                      <div className="truncate font-mono text-xs text-text-tertiary">
                         {item.organization_name || t("dashboardPage.sourcesHealth.unnamedClient", { id: item.organization_id })}
                       </div>
                     </div>
-                    <Badge variant="warning" size="sm">
-                      {item.status}
-                    </Badge>
+                    <SourceStatusBadge status={item.status} />
                   </div>
                   <div className="mt-2 text-xs text-text-secondary">
                     {item.last_error || t("dashboardPage.sourcesHealth.noDetail")}
@@ -290,21 +284,23 @@ const DashboardPage: React.FC = () => {
               ))}
             </div>
           ) : (
-            <div className="rounded-2xl border border-dashed border-border p-6 text-center text-sm text-text-secondary">
+            <div className="rounded-lg border border-dashed border-border p-6 text-center text-sm text-text-tertiary">
               {t("dashboardPage.sourcesHealth.noDegraded")}
             </div>
           )}
 
           {Object.keys(byPlatform).length > 0 && (
-            <div className="rounded-2xl border border-border bg-surface p-4">
-              <div className="text-sm font-semibold text-text">{t("dashboardPage.sourcesHealth.byPlatform")}</div>
-              <div className="mt-3 flex flex-wrap gap-3">
+            <div className="border-t border-border pt-3">
+              <div className="font-mono text-[11px] uppercase tracking-[0.1em] text-text-tertiary">
+                {t("dashboardPage.sourcesHealth.byPlatform")}
+              </div>
+              <div className="mt-2 flex flex-wrap gap-x-4 gap-y-2">
                 {Object.entries(byPlatform).map(([platform, count]) => (
                   <div key={platform} className="flex items-center gap-2">
                     <Badge variant="outline" size="sm">
                       {platform}
                     </Badge>
-                    <span className="text-sm font-semibold text-text">{count}</span>
+                    <span className="font-mono text-sm text-text">{count}</span>
                   </div>
                 ))}
               </div>

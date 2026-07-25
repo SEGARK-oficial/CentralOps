@@ -67,12 +67,12 @@ export const BulkActionBar: React.FC<BulkActionBarProps> = ({
       role="region"
       aria-label={t("bulkActionBar.regionAriaLabel")}
       className={cn(
-        "flex flex-wrap items-center justify-between gap-2 rounded-md border border-primary-200 bg-primary-50 px-3 py-2",
+        "flex flex-wrap items-center justify-between gap-2 rounded-md border border-primary-200 bg-primary-50 px-3 py-1.5",
         className,
       )}
     >
       <span
-        className="text-sm font-medium text-primary-800"
+        className="text-sm font-medium tabular-nums text-primary-800"
         aria-live="polite"
         data-testid={`${dataTestId}-count`}
       >

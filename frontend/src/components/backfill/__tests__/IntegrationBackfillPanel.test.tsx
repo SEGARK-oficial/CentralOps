@@ -73,9 +73,9 @@ describe("IntegrationBackfillPanel", () => {
     expect(screen.getByTestId("backfill-panel")).toBeInTheDocument()
   })
 
-  it("título 'Backfill — coleta histórica controlada' está presente", () => {
+  it("título 'Coleta histórica (backfill)' está presente", () => {
     renderPanel()
-    expect(screen.getByText(/Backfill — coleta histórica controlada/)).toBeInTheDocument()
+    expect(screen.getByText(/Coleta histórica \(backfill\)/)).toBeInTheDocument()
   })
 
   it("botão 'Novo backfill' visível com permissão integration.write", () => {

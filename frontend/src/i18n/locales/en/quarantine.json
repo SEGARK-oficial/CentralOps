@@ -40,7 +40,7 @@
     "discardConfirmTitle": "Discard quarantine entry?",
     "discardConfirmDescription": "The entry for \"{{vendor}}{{eventType}}\" will be permanently discarded.",
     "reprocessConfirmTitle": "Reprocess event?",
-    "reprocessConfirmDescription": "The event will be revalidated against the current mapping. If normalization succeeds, it will be sent to Wazuh. Otherwise, it will remain in quarantine with a new error."
+    "reprocessConfirmDescription": "Revalidated against the current mapping. Success goes to Wazuh; failure stays in quarantine."
   },
   "bulk": {
     "discardTypedConfirmPhrase": "DISCARD",
@@ -71,7 +71,7 @@
     "discardDialog": {
       "title_one": "Discard {{count}} entry?",
       "title_other": "Discard {{count}} entries?",
-      "irreversibleWarning": "This action is irreversible — the entries will be permanently removed from the quarantine queue.",
+      "irreversibleWarning": "Irreversible. The entries leave the quarantine queue for good.",
       "typeToConfirmPrefix": "Type",
       "typeToConfirmSuffix": "to confirm:",
       "typedConfirmAriaLabel": "Text confirmation for bulk discard",
@@ -80,7 +80,7 @@
     "reprocessDialog": {
       "title_one": "Reprocess {{count}} entry?",
       "title_other": "Reprocess {{count}} entries?",
-      "description": "The events will be revalidated against the current mapping in the background. Items with successful mapping will be sent to routed destinations; failures update the error but keep the item in quarantine."
+      "description": "Revalidates in the background. What passes goes to the destinations; what fails stays in quarantine."
     }
   }
 }

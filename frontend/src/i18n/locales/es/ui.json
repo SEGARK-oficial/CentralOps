@@ -10,7 +10,7 @@
   },
   "commandPalette": {
     "dialogLabel": "Paleta de comandos",
-    "searchPlaceholder": "Buscar comandos...",
+    "searchPlaceholder": "Buscar comandos…",
     "searchAriaLabel": "Buscar comandos",
     "resultsAriaLabel": "Comandos disponibles",
     "noResults": "Sin resultados para \"{{query}}\"",
@@ -21,11 +21,9 @@
     }
   },
   "dataTable": {
-    "loading": "Cargando datos...",
-    "emptyTitle": "No se encontraron datos",
-    "emptyDescription": "No hay datos para mostrar en este momento.",
-    "showingRange": "Mostrando {{start}} a {{end}} de {{total}} registros",
-    "itemsPerPage": "Elementos:",
+    "emptyTitle": "Sin registros",
+    "showingRange": "{{start}} a {{end}} de {{total}}",
+    "itemsPerPage": "Por página",
     "firstPage": "Primera página",
     "previousPage": "Página anterior",
     "nextPage": "Página siguiente",
@@ -77,7 +75,7 @@
   "select": {
     "placeholder": "Seleccione una opción",
     "selectedCount": "{{count}} seleccionados",
-    "searchPlaceholder": "Buscar...",
+    "searchPlaceholder": "Buscar…",
     "searchAriaLabel": "Buscar opciones",
     "selectAll": "Seleccionar todos",
     "clearAll": "Deseleccionar todos",
@@ -85,8 +83,8 @@
   },
   "filtersToolbar": {
     "searchAriaLabel": "Buscar",
-    "resetAriaLabel": "Restablecer filtros",
-    "reset": "Restablecer"
+    "resetAriaLabel": "Limpiar filtros",
+    "reset": "Limpiar filtros"
   },
   "bulkActionBar": {
     "regionAriaLabel": "Acciones masivas",
@@ -116,12 +114,6 @@
     "loadingTable": "Cargando tabla…"
   },
   "button": {
-    "loading": "Cargando..."
-  },
-  "themeToggle": {
-    "switchToLight": "Cambiar a tema claro",
-    "switchToDark": "Cambiar a tema oscuro",
-    "lightTheme": "Tema claro",
-    "darkTheme": "Tema oscuro"
+    "loading": "Cargando…"
   }
 }

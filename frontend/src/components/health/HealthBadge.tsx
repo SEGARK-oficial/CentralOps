@@ -3,8 +3,13 @@ import { useTranslation } from "react-i18next"
 import { Badge } from "@/components/ui/Badge/Badge"
 import type { PipelineHealthStatus } from "@/types"
 
-const STATUS_VARIANT: Record<PipelineHealthStatus, "success" | "warning" | "danger" | "outline"> = {
-  healthy: "success",
+/**
+ * Saudável é NEUTRO. Numa grade de 40 integrações em ordem, 40 selos verdes
+ * viram ruído e o degradado desaparece no meio deles; o operador varre
+ * procurando o que NÃO está neutro. Matiz aqui é exceção, não confirmação.
+ */
+const STATUS_VARIANT: Record<PipelineHealthStatus, "default" | "warning" | "danger" | "outline"> = {
+  healthy: "default",
   degraded: "warning",
   unhealthy: "danger",
   unknown: "outline",

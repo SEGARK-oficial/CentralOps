@@ -86,7 +86,13 @@ describe("MappingAuditTable", () => {
   it("exibe loading spinner quando isLoading=true", () => {
     mockedUseAudit.mockReturnValue({ entries: [], isLoading: true, error: null })
     render(<MappingAuditTable mappingId="m1" />)
-    expect(screen.getByText("Carregando dados...")).toBeInTheDocument()
+    // O DataTable não escreve mais "Carregando dados..." ao lado do spinner:
+    // o spinner já diz isso. O anúncio para leitor de tela continua, via o
+    // texto sr-only dentro do role="status" (que NÃO deriva nome do conteúdo,
+    // por isso a asserção é no conteúdo e não no accessible name).
+    const status = screen.getByRole("status")
+    expect(status).toHaveAttribute("aria-busy", "true")
+    expect(status).toHaveTextContent(/carregando/i)
   })
 
   it("exibe notice de erro quando error está presente", () => {

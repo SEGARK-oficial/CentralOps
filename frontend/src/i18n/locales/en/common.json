@@ -49,7 +49,8 @@
     "optional": "optional",
     "healthy": "Healthy",
     "degraded": "Degraded",
-    "unknown": "Unknown"
+    "unknown": "Unknown",
+    "error": "Error"
   },
   "fields": {
     "name": "Name",
@@ -63,8 +64,8 @@
     "actions": "Actions"
   },
   "feedback": {
-    "savedSuccess": "Saved successfully.",
-    "errorGeneric": "An error occurred. Please try again.",
+    "savedSuccess": "Saved.",
+    "errorGeneric": "The action failed. Try again.",
     "confirmDelete": "Are you sure you want to delete?",
     "loadFailed": "Failed to load."
   },

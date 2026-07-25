@@ -7,7 +7,7 @@
     "tag_and_pass": "Etiquetar e passar",
     "quarantine": "Quarentena",
     "fail_closed": "Descartar (fail-closed)",
-    "tag_and_pass_hint": "Só etiqueta e despacha — nunca descarta.",
+    "tag_and_pass_hint": "Só etiqueta e despacha. Nunca descarta.",
     "quarantine_hint": "Envia à quarentena (recuperável); não despacha.",
     "fail_closed_hint": "Descarta sem quarentena."
   },
@@ -35,7 +35,7 @@
     "status": {
       "enabled": "Validação OCSF ativa",
       "disabled": "Validação OCSF desligada",
-      "disabledHint": "A validação está desligada — os contadores refletem apenas o que já foi quarentenado.",
+      "disabledHint": "A validação está desligada. Os contadores só refletem o que já foi quarentenado.",
       "version": "Versão OCSF: {{version}}",
       "globalDefault": "Default global: {{mode}}"
     }

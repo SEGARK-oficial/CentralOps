@@ -668,7 +668,7 @@ export const CapturePanel: React.FC = () => {
                 return (
                   <tr
                     key={s.id}
-                    className={isSelected ? "bg-primary-50/40 dark:bg-primary-900/10" : undefined}
+                    className={isSelected ? "bg-primary-50/60" : undefined}
                   >
                     <td className="px-3 py-2 text-text">{s.vendor ?? t("capture.table.allVendors")}</td>
                     <td className="px-3 py-2">

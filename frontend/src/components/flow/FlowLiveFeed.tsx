@@ -140,8 +140,10 @@ export const FlowLiveFeed: React.FC<FlowLiveFeedProps> = ({
         aria-expanded={open}
         aria-controls="flow-live-feed-body"
       >
-        <span className="flex items-center gap-2 text-sm font-semibold text-text">
-          <ActivityIcon size={14} className="text-primary-500" aria-hidden="true" />
+        <span className="flex items-center gap-2 font-mono text-xs uppercase tracking-[0.1em] text-text-secondary">
+          {/* Ícone de cabeçalho não nomeia estágio nenhum: fica neutro. Violeta
+              aqui dizia "normalizado" num painel que mostra o que JÁ saiu. */}
+          <ActivityIcon size={14} className="text-text-tertiary" aria-hidden="true" />
           {t("flow.liveFeed.title")}
           {loading && (
             <RefreshCwIcon size={12} className="animate-spin text-text-tertiary" aria-hidden="true" />
@@ -149,7 +151,7 @@ export const FlowLiveFeed: React.FC<FlowLiveFeedProps> = ({
         </span>
         <span className="flex items-center gap-2 text-text-tertiary">
           {lastUpdated && !open && (
-            <span className="text-xs text-text-tertiary">
+            <span className="font-mono text-xs text-text-tertiary">
               {formatRelativeDate(lastUpdated.toISOString())}
             </span>
           )}
@@ -175,8 +177,10 @@ export const FlowLiveFeed: React.FC<FlowLiveFeedProps> = ({
               {items.map((item) => (
                 <li
                   key={item.key}
+                  // Item recém-chegado é evento entregue: ciano, o estágio do
+                  // trânsito. Some em 2s, e é o único pixel colorido do painel.
                   className={`flex items-start gap-3 px-4 py-2.5 transition-colors ${
-                    item.isNew ? "bg-primary-50/60" : ""
+                    item.isNew ? "bg-stage-route/10" : ""
                   }`}
                 >
                   <div className="min-w-0 flex-1">
@@ -188,7 +192,7 @@ export const FlowLiveFeed: React.FC<FlowLiveFeedProps> = ({
                         <Badge variant="warning" size="sm">{t("flow.liveFeed.redacted")}</Badge>
                       )}
                     </div>
-                    <div className="mt-0.5 flex items-center gap-2 text-[10px] text-text-tertiary">
+                    <div className="mt-0.5 flex items-center gap-2 font-mono text-[10px] text-text-tertiary">
                       <span className="truncate">{item.destName}</span>
                       {item.timestamp && (
                         <>
@@ -205,7 +209,7 @@ export const FlowLiveFeed: React.FC<FlowLiveFeedProps> = ({
 
           {lastUpdated && (
             <div className="flex items-center justify-between border-t border-border px-4 py-2">
-              <span className="text-[10px] text-text-tertiary">
+              <span className="font-mono text-[10px] text-text-tertiary">
                 {t("flow.liveFeed.updated", { relative: formatRelativeDate(lastUpdated.toISOString()), seconds: POLL_MS / 1000 })}
               </span>
               <Button

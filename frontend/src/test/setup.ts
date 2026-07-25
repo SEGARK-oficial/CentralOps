@@ -29,3 +29,11 @@ Object.defineProperty(window, "ResizeObserver", {
 if (!Element.prototype.scrollIntoView) {
   Element.prototype.scrollIntoView = () => {}
 }
+
+// O i18n nunca era inicializado aqui: `useTranslation` devolvia a chave crua (ou
+// o defaultValue em inglês embutido em alguns componentes), então toda asserção
+// em português falhava. Fixar "pt" também tira o teste da mão do detector, que
+// lia navigator.language do jsdom ("en-US") e deixava o resultado dependente do
+// ambiente.
+import i18n from "@/i18n"
+await i18n.changeLanguage("pt")

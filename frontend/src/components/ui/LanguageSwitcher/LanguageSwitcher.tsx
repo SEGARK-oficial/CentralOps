@@ -8,13 +8,18 @@ import { updateMyLocale } from "@/services/api"
  *  localStorage cache, so it survives reloads. */
 export const LanguageSwitcher: React.FC<{ className?: string }> = ({ className }) => {
   const { t, i18n } = useTranslation("common")
+  // `resolvedLanguage`, não `language`: o detector devolve a variante do navegador
+  // ("en-US"), que não está em SUPPORTED_LOCALES — e o fallback "pt-BR" também não
+  // estava, então o <select> ficava com um valor sem <option> e exibia a primeira
+  // da lista. Resultado: tela em inglês com o seletor marcando "Português".
+  const resolved = i18n.resolvedLanguage
   const current = (
-    SUPPORTED_LOCALES.includes(i18n.language as AppLocale) ? i18n.language : "pt-BR"
+    SUPPORTED_LOCALES.includes(resolved as AppLocale) ? resolved : "pt"
   ) as AppLocale
 
   return (
     <label
-      className={`inline-flex items-center gap-1.5 rounded-md border border-border bg-surface px-2 py-1 text-sm text-text-secondary focus-within:ring-2 focus-within:ring-primary-500 ${className ?? ""}`}
+      className={`inline-flex h-8 items-center gap-1.5 rounded-md border border-border bg-surface-tertiary px-2 text-sm text-text-secondary transition-colors hover:border-border-hover focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-primary-500 ${className ?? ""}`}
     >
       <GlobeIcon size={15} aria-hidden="true" />
       <span className="sr-only">{t("language")}</span>
