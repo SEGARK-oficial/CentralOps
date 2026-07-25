@@ -22,7 +22,7 @@ Duas seções no fim desta página são para você — ambas exigem acesso ao te
 ## Quando usar
 
 - **Logo após uma janela de manutenção ou atualização**: você tenta entrar e a tela de login não carrega, ou entra mas as telas aparecem vazias. Antes de abrir um chamado urgente, vale confirmar se o problema é só com você ou com toda a plataforma.
-- **No meio de um plantão do SOC**: você abre **Visão geral → Dashboard** ou **Operação → Investigações** e os dados não atualizam há um tempo. Você precisa decidir rápido se isso é uma falha da plataforma ou apenas ausência de eventos novos.
+- **No meio de um plantão do SOC**: você abre **Visão geral → Dashboard** ou **Detecta → Queries salvas** e os dados não atualizam há um tempo. Você precisa decidir rápido se isso é uma falha da plataforma ou apenas ausência de eventos novos.
 - **Ao receber relatos de colegas**: vários analistas dizem que "o CentralOps caiu". Você quer fazer uma checagem rápida e padronizada antes de escalar para a infraestrutura.
 
 ## Sinais de que algo está errado
@@ -32,7 +32,7 @@ Duas seções no fim desta página são para você — ambas exigem acesso ao te
 | A tela de login não abre ou fica girando sem terminar | A plataforma pode estar reiniciando ou indisponível |
 | Você consegue logar, mas as telas aparecem em branco ou com erro ao carregar | A interface subiu, mas o serviço por trás dela ainda não está pronto |
 | Uma tela específica falha (ex.: **Integrações** não lista nada), mas o resto funciona | Pode ser um problema pontual daquela área, não da plataforma toda |
-| Os números do **Dashboard** ou de **Investigações** estão "congelados" há bastante tempo | Pode ser falta de eventos novos **ou** o processamento em segundo plano parado |
+| Os números do **Dashboard** ou os resultados das consultas em **Queries salvas** estão "congelados" há bastante tempo | Pode ser falta de eventos novos **ou** o processamento em segundo plano parado |
 
 ## Passo a passo (tudo pela interface)
 
@@ -54,8 +54,8 @@ Se **só você** está afetado, pode ser sessão expirada (faça logout e login 
 Se você consegue logar, abra algumas telas de áreas diferentes do menu lateral, por exemplo:
 
 - **Visão geral → Dashboard**
-- **Operação → Investigações**
-- **Visão geral → Integrações**
+- **Detecta → Queries salvas**
+- **Coleta → Integrações**
 
 - Se **todas** falham em carregar, o problema é geral.
 - Se **apenas uma** falha e as outras funcionam, o problema é localizado naquela área.
@@ -66,8 +66,8 @@ Anote quais telas funcionam e quais não — isso ajuda muito quem for investiga
 
 Se as telas abrem, mas os números parecem "congelados":
 
-- Em **Normalização → Saúde do Pipeline**, confira se o processamento dos eventos está acontecendo normalmente.
-- Em **Operação → Investigações** e **Visão geral → Dashboard**, observe os horários dos eventos mais recentes.
+- Em **Visão geral → Saúde do pipeline**, confira se o processamento dos eventos está acontecendo normalmente.
+- Em **Detecta → Queries salvas** e **Visão geral → Dashboard**, observe os horários dos eventos mais recentes.
 
 Se os eventos mais recentes pararam num mesmo horário e não voltam a chegar, registre esse horário. Isso indica que o processamento em segundo plano (que recebe e trata os eventos) pode ter parado — e é uma informação importante para o administrador.
 
@@ -82,7 +82,7 @@ Acione o administrador da plataforma quando:
 
 Para que o atendimento seja rápido, descreva o que você observou:
 
-- **O que você tentou fazer** (ex.: "abrir a tela de Investigações").
+- **O que você tentou fazer** (ex.: "abrir a tela de Queries salvas").
 - **O que aconteceu** (ex.: "fica girando e nunca carrega" ou "mostra erro ao carregar").
 - **Quem está afetado** (só você ou todos os colegas).
 - **Desde quando** você notou o problema, com horário aproximado.

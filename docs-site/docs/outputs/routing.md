@@ -10,7 +10,7 @@ O **Roteamento** decide, para cada evento que passa pelo CentralOps, **qual ou q
 
 Com o roteamento você consegue **enviar o mesmo evento para vários destinos ao mesmo tempo**, **migrar tráfego aos poucos** de um destino para outro, e **descartar ruído** para reduzir custo no SIEM.
 
-> Esta é uma tela **só de administrador**. Você a encontra no menu **Operação → Roteamento**. Analistas e operadores podem consultar e simular regras; criar, editar e reordenar regras exige perfil de administrador.
+> Esta é uma tela **só de administrador**. Você a encontra no menu **Roteia → Rotas**. Analistas e operadores podem consultar e simular regras; criar, editar e reordenar regras exige perfil de administrador.
 
 ---
 
@@ -26,7 +26,7 @@ Com o roteamento você consegue **enviar o mesmo evento para vários destinos ao
 
 ### Regra de roteamento
 
-Uma **regra** mapeia eventos para um ou mais destinos. Ao criar ou editar uma regra na tela de **Operação → Roteamento**, você define:
+Uma **regra** mapeia eventos para um ou mais destinos. Ao criar ou editar uma regra na tela de **Roteia → Rotas**, você define:
 
 | Campo | O que significa |
 |-------|-----------------|
@@ -180,7 +180,7 @@ O efeito é **isolado àquela regra**: o evento chega ao destino daquela regra j
 
 ## Operações na tela de Roteamento
 
-Tudo é feito na tela **Operação → Roteamento**:
+Tudo é feito na tela **Roteia → Rotas**:
 
 | O que você quer fazer | Como fazer na tela |
 |-----------------------|--------------------|
@@ -248,7 +248,7 @@ Além desses, um evento pode terminar em outros desfechos — todos visíveis na
 - **Bloqueado por residência**: o par evento/destino foi excluído por conflito de residência de dados.
 - **Loop bloqueado** (exclusivo do Wazuh): evento de fonte Wazuh que seria entregue de volta ao próprio manager, o que criaria um laço infinito (veja a nota em [Wazuh](../integrations/wazuh.md)). É uma supressão intencional, não uma perda.
 
-Esses números aparecem no gráfico da própria regra na tela de **Operação → Roteamento**. Para ver o panorama completo do caminho dos eventos entre integrações e destinos — com vazão por destino e desenho visual do fluxo — use a tela **Operação → Fluxo de dados** (também só de administrador).
+Esses números aparecem no gráfico da própria regra na tela de **Roteia → Rotas**. Para ver o panorama completo do caminho dos eventos entre integrações e destinos — com vazão por destino e desenho visual do fluxo — use a tela **Roteia → Fluxo de dados** (também só de administrador).
 
 ---
 
@@ -256,16 +256,16 @@ Esses números aparecem no gráfico da própria regra na tela de **Operação �
 
 ### Um evento não está chegando ao destino esperado
 
-1. Em **Operação → Roteamento**, abra a regra que deveria encaminhar o evento e confira a condição — ela está realmente batendo no tipo de evento que você espera?
+1. Em **Roteia → Rotas**, abra a regra que deveria encaminhar o evento e confira a condição — ela está realmente batendo no tipo de evento que você espera?
 2. Use a **simulação** ("dry-run") com eventos recentes para ver, passo a passo, para onde o evento iria.
 3. Veja o indicador de **saúde** e o gráfico da regra: ela está recebendo eventos?
-4. Em **Operação → Destinos**, verifique a saúde do destino-alvo (fila e status). O problema pode estar no destino, não na regra.
+4. Em **Roteia → Destinos**, verifique a saúde do destino-alvo (fila e status). O problema pode estar no destino, não na regra.
 5. Confira o **histórico** da regra: ela foi alterada recentemente?
 
 ### Muitos eventos estão sendo descartados
 
-1. Na tela **Operação → Fluxo de dados**, identifique quais regras estão descartando mais eventos.
-2. Abra essas regras em **Operação → Roteamento** e veja se a condição está ampla demais.
+1. Na tela **Roteia → Fluxo de dados**, identifique quais regras estão descartando mais eventos.
+2. Abra essas regras em **Roteia → Rotas** e veja se a condição está ampla demais.
 3. Use a **simulação** com eventos recentes para confirmar o que cada regra faria. **Atenção**: a simulação testa só o **casamento da condição** — ela não reproduz supressão, amostragem nem descarte do evento bruto.
 4. Se o volume sumido não aparece em "Descartados", a causa provavelmente é supressão ou amostragem. Confirme na [Captura ao vivo](../operations/live-capture.md), olhando os desfechos **Suprimido** e **Amostrado para fora**.
 5. Se o descarte for intencional (controle de custo), acompanhe as métricas para garantir que ele não está pegando mais do que deveria.
@@ -312,9 +312,9 @@ Como reforço, o roteamento **bloqueia automaticamente** o envio quando a regiã
 
 ## Próximos passos
 
-- **Criar sua primeira regra?** Vá a **Operação → Roteamento** e adicione uma nova regra.
+- **Criar sua primeira regra?** Vá a **Roteia → Rotas** e adicione uma nova regra.
 - **Entender os destinos?** Veja a [visão geral de destinos](./overview.md).
 - **Cortar volume e custo com segurança?** Veja [Reduzir volume e custo](./reducao-de-volume.md) — reúne todas as alavancas (descarte, supressão, amostragem, descarte do bruto) e a ordem recomendada de aplicá-las.
-- **Ver o caminho dos eventos de ponta a ponta?** Vá a **Operação → Fluxo de dados**.
+- **Ver o caminho dos eventos de ponta a ponta?** Vá a **Roteia → Fluxo de dados**.
 - **Conferir o desfecho real de cada evento?** Veja [Captura ao vivo](../operations/live-capture.md).
 - **Investigar eventos que ficaram retidos?** Veja [Quarentena e fila de reenvio](../operations/quarantine.md).

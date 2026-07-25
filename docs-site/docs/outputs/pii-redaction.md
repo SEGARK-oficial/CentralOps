@@ -69,13 +69,13 @@ Apenas os campos de dados do evento (o conteúdo bruto e o conteúdo normalizado
 
 A redação faz parte da configuração de uma rota de envio.
 
-1. Abra o menu **Operação → Roteamento**.
+1. Abra o menu **Roteia → Rotas**.
 2. Crie uma nova rota (ou edite uma existente) que aponte para o destino que deve receber os dados mascarados.
 3. Para cada campo sensível, adicione uma regra de redação escolhendo o campo e uma das quatro ações acima.
 4. Salve. A plataforma valida a configuração: regras inválidas (campo inexistente ou ação desconhecida) são recusadas no momento de salvar, com uma mensagem indicando o problema.
 
 :::note[Edição avançada de regras]
-Dependendo da versão do seu ambiente, as regras de redação podem ser editadas em um formulário guiado por campo ou em um editor de regras mais técnico dentro da tela de **Roteamento**. Se você não encontrar a opção de redação ao editar a rota, fale com o administrador da plataforma — o recurso pode não estar habilitado neste ambiente.
+Dependendo da versão do seu ambiente, as regras de redação podem ser editadas em um formulário guiado por campo ou em um editor de regras mais técnico dentro da tela de **Rotas**. Se você não encontrar a opção de redação ao editar a rota, fale com o administrador da plataforma — o recurso pode não estar habilitado neste ambiente.
 :::
 
 ### Rota de controle (sem redação)
@@ -88,7 +88,7 @@ Para que um destino receba o evento **completo**, basta criar a rota apontando p
 
 Depois que os eventos começarem a fluir:
 
-1. Abra **Normalização → Saúde do Pipeline**.
+1. Abra **Visão geral → Saúde do pipeline**.
 2. Selecione o destino que deveria estar recebendo os dados mascarados.
 3. Consulte a auditoria de entregas daquele destino. Eventos que passaram pela redação trazem a marca de quais campos foram mascarados.
 
@@ -100,9 +100,9 @@ Se os eventos chegam mascarados ao SIEM e completos ao data lake, a configuraç�
 
 Se um destino que deveria receber dados mascarados está recebendo o evento completo, verifique nesta ordem:
 
-1. **A rota tem regras de redação?** Em **Operação → Roteamento**, confirme que a rota daquele destino tem ao menos uma regra.
+1. **A rota tem regras de redação?** Em **Roteia → Rotas**, confirme que a rota daquele destino tem ao menos uma regra.
 2. **O evento está caindo nesta rota?** Confira a condição da rota — o evento precisa satisfazer o filtro para ser processado por ela.
-3. **O destino está realmente recebendo os eventos?** Em **Normalização → Saúde do Pipeline**, confirme que o destino está ativo e recebendo entregas.
+3. **O destino está realmente recebendo os eventos?** Em **Visão geral → Saúde do pipeline**, confirme que o destino está ativo e recebendo entregas.
 4. **O recurso está habilitado no ambiente?** A redação de PII vem **ligada de fábrica** — o que decide se ela age é a própria rota: sem regra de mascaramento configurada, nada é redigido e a entrega segue idêntica. Um administrador pode desligá-la globalmente na configuração da plataforma, mas isso é incomum. **Importante**: por segurança, se a redação estiver desligada no ambiente e uma rota exigir mascaramento, os eventos **não são entregues em claro** — eles são desviados para a entrega padrão interna, sem vazar dados.
 
 ---
@@ -121,7 +121,7 @@ Se um destino que deveria receber dados mascarados está recebendo o evento comp
 - [ ] **Mapear destinos**: defina qual destino precisa de dados mascarados (SIEM) e qual recebe tudo (data lake).
 - [ ] **Criar rotas**: uma rota por nível de exposição (interno completo vs. externo mascarado).
 - [ ] **Escolher a ação por campo**: substituir, pseudonimizar, mostrar parcial ou remover.
-- [ ] **Validar a entrega**: confirme em **Saúde do Pipeline** que os eventos chegam mascarados ao destino certo.
+- [ ] **Validar a entrega**: confirme em **Saúde do pipeline** que os eventos chegam mascarados ao destino certo.
 - [ ] **Auditar**: use a marca de campos redigidos para comprovar a execução em auditorias.
 
 ---

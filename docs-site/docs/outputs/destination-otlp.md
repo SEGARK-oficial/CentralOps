@@ -8,7 +8,7 @@ description: Envie eventos normalizados (OCSF) para backends de observabilidade 
 
 O destino **OTLP** envia os eventos já normalizados do CentralOps para qualquer backend de observabilidade compatível com **OpenTelemetry** (OTLP/HTTP). É assim que você integra a plataforma a ferramentas como Grafana, Datadog, Honeycomb, SigNoz ou Jaeger sem precisar de coletores intermediários.
 
-A configuração de destinos é feita pelo administrador da plataforma, no menu **Operação → Destinos**. Quem não tem perfil de admin não enxerga essa tela, mas qualquer analista pode acompanhar a saúde dos destinos depois de criados.
+A configuração de destinos é feita pelo administrador da plataforma, no menu **Roteia → Destinos**. Quem não tem perfil de admin não enxerga essa tela, mas qualquer analista pode acompanhar a saúde dos destinos depois de criados.
 
 ---
 
@@ -34,9 +34,9 @@ Peça ao responsável pelo backend de observabilidade (ou à equipe de infraestr
 
 ## Como configurar o destino
 
-Todos os passos abaixo são feitos pela interface, no menu **Operação → Destinos** (visível apenas para administradores).
+Todos os passos abaixo são feitos pela interface, no menu **Roteia → Destinos** (visível apenas para administradores).
 
-1. **Abrir o cadastro.** Em **Operação → Destinos**, use a ação de adicionar um novo destino.
+1. **Abrir o cadastro.** Em **Roteia → Destinos**, use a ação de adicionar um novo destino.
 2. **Escolher o tipo.** Selecione o tipo **OTLP/HTTP (OpenTelemetry)** e avance.
 3. **Preencher os campos** (veja a tabela abaixo).
 4. **Testar a conexão.** Use o botão de testar conexão. O CentralOps envia um evento de teste para o endereço informado; se o backend responder com sucesso, a conexão está válida.
@@ -91,7 +91,7 @@ Não é preciso configurar esse mapeamento: ele acontece de forma transparente p
 
 ## Acompanhar e resolver problemas
 
-Depois que o destino está ativo, acompanhe a entrega pela tela de **Operação → Destinos** e pela **Normalização → Saúde do Pipeline**. Quando um destino apresenta erros, o status fica visível ali — você não precisa de nenhuma ferramenta externa para diagnosticar.
+Depois que o destino está ativo, acompanhe a entrega pela tela de **Roteia → Destinos** e pela **Visão geral → Saúde do pipeline**. Quando um destino apresenta erros, o status fica visível ali — você não precisa de nenhuma ferramenta externa para diagnosticar.
 
 A tabela abaixo lista as situações mais comuns e o que fazer **pela interface**:
 
@@ -114,7 +114,7 @@ Em todos esses casos, o CentralOps mantém os eventos não entregues em uma **fi
 ### Grafana
 
 1. No Grafana, obtenha o endereço OTLP e gere um token de acesso (nas configurações de conexões do Grafana).
-2. No CentralOps, em **Operação → Destinos**, crie um destino OTLP com esse endereço e token.
+2. No CentralOps, em **Roteia → Destinos**, crie um destino OTLP com esse endereço e token.
 3. Os eventos começam a aparecer na visualização de logs do Grafana.
 
 ### Datadog
@@ -136,5 +136,5 @@ Quando a equipe de infraestrutura já opera um coletor OpenTelemetry que distrib
 
 ## Próximos passos
 
-- **Acompanhar a entrega:** veja o [Dashboard](../operations/dashboard.md) e a tela de **Normalização → Saúde do Pipeline**.
+- **Acompanhar a entrega:** veja o [Dashboard](../operations/dashboard.md) e a tela de **Visão geral → Saúde do pipeline**.
 - **Configurar outros destinos:** veja a [visão geral de Destinos](./overview.md).

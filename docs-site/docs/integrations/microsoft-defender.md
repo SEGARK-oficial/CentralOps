@@ -12,14 +12,14 @@ Conecte o CentralOps ao seu **Microsoft Defender** para coletar incidentes e ale
 
 - **Centralizar incidentes e alertas do EDR/XDR da Microsoft.** Você usa Microsoft Defender para proteção de endpoints e quer trazer as detecções para o CentralOps e analisá-las ao lado das outras origens de segurança.
 - **Correlacionar ameaças entre fornecedores.** Cruze os incidentes do Defender com eventos de Sophos, CrowdStrike, Wazuh e outras integrações para investigar um incidente de ponta a ponta.
-- **Fazer hunts ao vivo com KQL (Kusto Query Language).** Use o menu **Operação → Busca federada** para escrever queries KQL, executar advanced hunting e coletar resultados sem sair do CentralOps.
+- **Fazer hunts ao vivo com KQL (Kusto Query Language).** Use o menu **Detecta → Busca federada** para escrever queries KQL, executar advanced hunting e coletar resultados sem sair do CentralOps.
 - **Encaminhar para SIEM e data lake.** Depois de coletados, os eventos do Defender seguem pelas regras de roteamento para os seus destinos (Sentinel, Splunk, S3), permitindo alertar e responder de forma centralizada.
 
 ## Quem pode fazer o quê
 
-- **Administrador da plataforma:** cria e edita a integração (menu **Visão geral -> Integrações**).
-- **Operador ou superior:** executa buscas ao vivo e triagem de detecções (menu **Operação -> Busca federada** e **Operação -> Detecções**).
-- **Demais perfis:** visualizam os incidentes e alertas já coletados (tela **Operação -> Investigações**).
+- **Administrador da plataforma:** cria e edita a integração (menu **Coleta -> Integrações**).
+- **Operador ou superior:** executa buscas ao vivo e triagem de detecções (menu **Detecta -> Busca federada** e **Detecta -> Detecções**).
+- **Demais perfis:** visualizam os incidentes e alertas já coletados (tela **Detecta -> Queries salvas**).
 
 ## Pré-requisitos
 
@@ -74,7 +74,7 @@ O status das permissões deve mudar para verde, indicando consentimento concedid
 
 ## Passo 4: Criar a integração no CentralOps
 
-1. No menu lateral, vá em **Visão geral -> Integrações**.
+1. No menu lateral, vá em **Coleta -> Integrações**.
 2. Clique em **Adicionar integração**.
 3. Escolha **Microsoft Defender** na lista de plataformas e avance.
 4. Preencha os campos do formulário:
@@ -94,12 +94,12 @@ O status das permissões deve mudar para verde, indicando consentimento concedid
 
 ## Passo 5: Acompanhar a primeira coleta
 
-A primeira coleta acontece automaticamente, poucos minutos depois de salvar. Acompanhe o status na própria tela da integração, em **Visão geral -> Integrações**.
+A primeira coleta acontece automaticamente, poucos minutos depois de salvar. Acompanhe o status na própria tela da integração, em **Coleta -> Integrações**.
 
 Quando houver incidentes ou alertas recentes no Defender:
 
 - O status da integração muda para ativo e o indicador de saúde fica verde.
-- Os eventos ficam pesquisáveis em **Operação -> Investigações**.
+- Os eventos ficam pesquisáveis no destino para onde suas rotas os enviam.
 
 Se nada aparecer depois de alguns minutos, veja a seção [Solução de problemas](#solução-de-problemas) abaixo.
 
@@ -107,7 +107,7 @@ Se nada aparecer depois de alguns minutos, veja a seção [Solução de problema
 
 A partir da integração criada, você pode executar **advanced hunting** (buscas ao vivo com KQL) diretamente no CentralOps, sem precisar abrir o portal do Azure.
 
-1. Vá em **Operação -> Busca federada**.
+1. Vá em **Detecta -> Busca federada**.
 2. Selecione **Microsoft Defender** como plataforma.
 3. Escolha o dialeto **KQL**.
 4. Escreva sua query KQL (por exemplo, `DeviceProcessEvents | where FileName == "cmd.exe" | limit 100`).
@@ -132,7 +132,7 @@ Cada incidente e alerta do Defender chega ao CentralOps com informações como:
 | Usuários envolvidos | `user@domain.com` |
 | Data e hora | `2026-05-15T14:30:00Z` |
 
-O CentralOps converte esses dados para o formato padronizado da plataforma, de modo que os incidentes do Defender podem ser pesquisados e correlacionados com as demais fontes. Se algum campo não puder ser convertido, o evento vai para a **Quarentena** (menu **Normalização -> Quarentena**), onde você pode revisar e reprocessar.
+O CentralOps converte esses dados para o formato padronizado da plataforma, de modo que os incidentes do Defender podem ser pesquisados e correlacionados com as demais fontes. Se algum campo não puder ser convertido, o evento vai para a **Quarentena** (menu **Normaliza -> Quarentena**), onde você pode revisar e reprocessar.
 
 ## Capacidades de consulta
 
@@ -146,7 +146,7 @@ A integração do Microsoft Defender suporta:
 | **Taxa de limite** | ~45 requisições por minuto (limite do Graph) |
 | **Especificação** | Passthrough (KQL direto) ou Sigma (regras de detecção em YAML) |
 
-Estas capacidades ficam visíveis em **Operação -> Busca federada**, no seletor de integrações.
+Estas capacidades ficam visíveis em **Detecta -> Busca federada**, no seletor de integrações.
 
 ## Solução de problemas
 
@@ -154,7 +154,7 @@ Estas capacidades ficam visíveis em **Operação -> Busca federada**, no seleto
 |---|---|---|
 | Erro "Falha na autenticação" ao testar a conexão | Client ID ou Client Secret incorretos, ou permissões não concedidas | Verifique no Azure AD: o Client ID está correto, o segredo não expirou, e o consentimento do administrador foi concedido para as permissões. Gere um novo segredo se necessário. |
 | Erro "Permissão negada" (access denied) | Permissões de API não concedidas ou insuficientes | No Azure AD, em **API permissions**, confirme que `SecurityAlert.Read.All` e `SecurityIncident.Read.All` estão presentes e com consentimento concedido (ícone verde). |
-| Nenhum evento aparecendo | Não há incidentes ou alertas recentes no Defender, ou evento foi para a quarentena | Confirme no console do Defender se há incidentes/alertas recentes. Se houver, aguarde alguns minutos. Se ainda assim nada aparecer em **Operação -> Investigações**, verifique a tela **Normalização -> Quarentena**. |
+| Nenhum evento aparecendo | Não há incidentes ou alertas recentes no Defender, ou evento foi para a quarentena | Confirme no console do Defender se há incidentes/alertas recentes. Se houver, aguarde alguns minutos. Se ainda assim nada aparecer em **Detecta -> Queries salvas**, verifique a tela **Normaliza -> Quarentena**. |
 | Erro de conexão "connection refused" | Host ou porta incorretos (improvável — o Graph está online) | Confirme que sua rede permite conexões de saída para `graph.microsoft.com` na porta 443 (HTTPS). Se o bloqueio for por firewall, peça exceção. |
 | Busca KQL retorna erro "Query syntax error" | Sintaxe KQL inválida | Verifique a sintaxe no [Microsoft Defender Advanced Hunting](https://security.microsoft.com/advanced-hunting) antes de copiar para o CentralOps. Erros comuns: falta de `|` entre operadores, nomes de tabela errados. |
 | Busca KQL fica "Pendente" por muito tempo | Taxa de limite do Graph foi atingida (45/min) | Aguarde alguns minutos e tente novamente. Se precisar executar muitas queries, escalone-as. Para aumento permanente, fale com o suporte da Microsoft. |
@@ -164,5 +164,5 @@ Estas capacidades ficam visíveis em **Operação -> Busca federada**, no seleto
 
 - **Eventos aparecendo?** Veja o [Dashboard](../operations/dashboard.md).
 - **Algo na quarentena?** Veja a [Quarentena](../operations/quarantine.md).
-- **Executar buscas ao vivo?** Veja o guia de [Busca federada](../operations/search.md) (em breve).
+- **Executar buscas ao vivo?** A busca federada consulta os destinos sem mover o dado e é um recurso da edição Enterprise. Veja [Community vs Enterprise](/editions/community-vs-enterprise).
 - **Adicionar outro fornecedor?** Veja a [visão geral de Integrações](./overview.md).

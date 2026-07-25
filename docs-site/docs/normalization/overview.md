@@ -39,18 +39,19 @@ Os mapeamentos têm três características importantes:
 
 ## Onde fica na plataforma
 
-Tudo relacionado a normalização está no grupo **Normalização** do menu lateral:
+Tudo relacionado a normalização está no grupo **Normaliza** do menu lateral:
 
 | Tela | Para que serve |
 |------|----------------|
-| **Mappings** | Lista de mapeamentos. É aqui que você cria, edita e testa as regras de cada origem. |
-| **Drift Explorer** | Mostra **campos novos detectados** nos alertas — informação que o fornecedor começou a enviar e que ainda não está no seu mapeamento. |
+| **Mapeamentos** | Lista de mapeamentos. É aqui que você cria, edita e testa as regras de cada origem. |
+| **Drift** | Mostra **campos novos detectados** nos alertas — informação que o fornecedor começou a enviar e que ainda não está no seu mapeamento. |
 | **Quarentena** | Alertas que não puderam ser normalizados (por exemplo, um campo obrigatório veio ausente). Você pode investigar e reprocessá-los. |
-| **Saúde do Pipeline** | Visão geral de como a normalização está indo: volume processado, quanto foi para quarentena, qualidade dos mapeamentos. |
+
+A tela que resume o andamento da normalização (volume processado, quanto foi para quarentena, qualidade dos mapeamentos) fica fora desse grupo, em **Visão geral → Saúde do pipeline**.
 
 ## Criar ou ajustar um mapeamento
 
-Pelo menu **Normalização → Mappings**:
+Pelo menu **Normaliza → Mapeamentos**:
 
 1. **Abra ou crie o mapeamento.** Clique em um mapeamento existente para editá-lo, ou crie um novo para a origem desejada.
 2. **Monte as regras.** Para cada informação que você quer no formato padrão, adicione uma regra apontando de qual campo do alerta original ela vem. A plataforma oferece transformações prontas para os casos comuns (converter formato de data, usar um campo alternativo quando o principal está ausente, definir um valor padrão, extrair listas de itens como IPs ou hashes).
@@ -58,14 +59,14 @@ Pelo menu **Normalização → Mappings**:
 4. **Salve a nova versão.** Ao salvar, descreva o que mudou. Essa versão passa a valer para os próximos alertas e fica registrada no histórico.
 
 :::tip
-Quando o **Drift Explorer** apontar um campo novo, você pode ir direto dele para o mapeamento correspondente, já com o campo pré-preenchido, e decidir se quer incorporá-lo.
+Quando a tela de **Drift** apontar um campo novo, você pode ir direto dele para o mapeamento correspondente, já com o campo pré-preenchido, e decidir se quer incorporá-lo.
 :::
 
 ## O que acontece depois da normalização
 
 Depois que um alerta é padronizado, ele segue automaticamente pelo restante do pipeline:
 
-1. **Roteamento** — a plataforma decide para qual(is) destino(s) o alerta deve ir, com base em condições que você configura. (Esta etapa fica em **Operação → Roteamento**, disponível para administradores.) Veja [Saídas & Roteamento](../outputs/overview.md).
+1. **Roteamento** — a plataforma decide para qual(is) destino(s) o alerta deve ir, com base em condições que você configura. (Esta etapa fica em **Roteia → Rotas**, disponível para administradores.) Veja [Saídas & Roteamento](../outputs/overview.md).
 2. **Mascaramento de dados sensíveis** — quando configurado, informações sensíveis (PII) podem ser mascaradas ou removidas antes da entrega, por rota. Veja [Mascaramento de PII](../outputs/pii-redaction.md).
 3. **Destinos** — o alerta é entregue aos seus destinos: SIEMs, data lakes e outros. Veja [Destinos disponíveis](../outputs/destinations.md).
 

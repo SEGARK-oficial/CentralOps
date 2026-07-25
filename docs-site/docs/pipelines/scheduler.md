@@ -31,7 +31,7 @@ A cada coleta, a plataforma guarda o ponto onde parou, para que o próximo ciclo
 
 Para ver se uma integração está coletando normalmente:
 
-1. Abra o menu **Visão geral -> Integrações**.
+1. Abra o menu **Coleta -> Integrações**.
 2. Localize a integração na lista e observe o indicador de status e a hora da última coleta.
 
 O que os sinais indicam:
@@ -43,13 +43,13 @@ O que os sinais indicam:
 | Sem coleta recente / coleta atrasada | Os ciclos pararam de rodar no ritmo esperado. | Veja a seção de problemas abaixo. |
 | Erro de autenticação ou de conexão | As credenciais do fornecedor expiraram ou a conexão falhou. | Revise as credenciais da integração na própria tela de **Integrações**. |
 
-Para uma visão mais completa da saúde do processamento (não só da coleta), use o menu **Normalização -> Saúde do Pipeline**.
+Para uma visão mais completa da saúde do processamento (não só da coleta), use o menu **Visão geral -> Saúde do pipeline**.
 
 ## Pausar a coleta de uma integração
 
 Pausar interrompe os ciclos de coleta daquela integração sem apagá-la. A configuração e as credenciais são preservadas.
 
-1. Abra o menu **Visão geral -> Integrações**.
+1. Abra o menu **Coleta -> Integrações**.
 2. Clique na integração que deseja pausar.
 3. Use a ação de **pausar** a coleta na tela da integração.
 
@@ -57,7 +57,7 @@ Enquanto estiver pausada, a integração para de buscar novos eventos. Os evento
 
 ## Retomar a coleta
 
-1. Abra o menu **Visão geral -> Integrações**.
+1. Abra o menu **Coleta -> Integrações**.
 2. Clique na integração pausada.
 3. Use a ação de **retomar** a coleta.
 
@@ -69,7 +69,7 @@ Além da coleta automática dos fornecedores, administradores podem programar **
 
 Quando uma query agendada encontra resultados, ela gera uma **Detecção de 1ª classe** — um alerta consultável, com status de triagem (aberto, reconhecido ou fechado), severidade configurável e deduplicação automática de ruído. Além disso, você pode ativar notificações por e-mail para resultados imediatos.
 
-Para criar ou gerenciar essas execuções programadas, use o menu **Conhecimento → Agendamentos** (disponível apenas para administradores). Os alertas produzidos por queries agendadas seguem as regras de roteamento configuradas — veja a página de Roteamento para entender como direcioná-los aos destinos certos. Para revisar as Detecções geradas, acesse o menu **Operação → Detecções**.
+Para criar ou gerenciar essas execuções programadas, use o menu **Detecta → Agendamentos** (disponível apenas para administradores). Os alertas produzidos por queries agendadas seguem as regras de roteamento configuradas — veja a página de Roteamento para entender como direcioná-los aos destinos certos. Para revisar as Detecções geradas, acesse o menu **Detecta → Detecções**.
 
 ### Acompanhar a saúde de um agendamento
 
@@ -91,9 +91,9 @@ Quando uma query agendada encontra resultados e tem a flag **notificar por e-mai
 
 ### Uma integração aparece como "Sem coleta recente"
 
-1. Abra **Visão geral -> Integrações** e confirme se a integração não está **pausada**. Se estiver, retome a coleta.
+1. Abra **Coleta -> Integrações** e confirme se a integração não está **pausada**. Se estiver, retome a coleta.
 2. Verifique se há aviso de erro de autenticação ou conexão na integração. Se houver, revise as credenciais do fornecedor.
-3. Abra **Normalização -> Saúde do Pipeline** para checar se o atraso afeta só essa integração ou o processamento como um todo.
+3. Abra **Visão geral -> Saúde do pipeline** para checar se o atraso afeta só essa integração ou o processamento como um todo.
 4. Se a integração continuar sem coletar mesmo ativa e com credenciais válidas, acione o administrador da plataforma ou o suporte.
 
 ### A primeira coleta não acontece após criar a integração
@@ -102,17 +102,17 @@ A primeira coleta pode levar alguns minutos. Atualize a tela de **Integrações*
 
 ### Eventos chegam muito atrasados
 
-Quando muitos eventos chegam de uma vez, pode haver um pequeno atraso de processamento. Acompanhe em **Normalização -> Saúde do Pipeline**; o atraso costuma se normalizar sozinho. Se persistir, fale com o administrador da plataforma.
+Quando muitos eventos chegam de uma vez, pode haver um pequeno atraso de processamento. Acompanhe em **Visão geral -> Saúde do pipeline**; o atraso costuma se normalizar sozinho. Se persistir, fale com o administrador da plataforma.
 
 ## Boas práticas
 
 - Para interromper temporariamente uma fonte, **pause a integração** em vez de removê-la — assim você preserva a configuração e retoma com um clique.
 - Antes de pausar, confirme com sua equipe que a fonte pode ficar sem coletar no período, para não criar lacunas em investigações.
-- Use **Normalização -> Saúde do Pipeline** como painel diário para identificar cedo qualquer integração que pare de coletar.
+- Use **Visão geral -> Saúde do pipeline** como painel diário para identificar cedo qualquer integração que pare de coletar.
 
 ## Próximos passos
 
-- **Gerenciar integrações e credenciais:** menu **Visão geral -> Integrações**.
-- **Programar queries recorrentes (admin):** menu **Conhecimento -> Agendamentos**.
-- **Acompanhar a saúde do processamento:** menu **Normalização -> Saúde do Pipeline**.
+- **Gerenciar integrações e credenciais:** menu **Coleta -> Integrações**.
+- **Programar queries recorrentes (admin):** menu **Detecta -> Agendamentos**.
+- **Acompanhar a saúde do processamento:** menu **Visão geral -> Saúde do pipeline**.
 - **Direcionar eventos aos destinos certos (admin):** veja a página de Roteamento.

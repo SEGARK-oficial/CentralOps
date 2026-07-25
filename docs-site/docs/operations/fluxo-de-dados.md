@@ -8,7 +8,7 @@ description: O mapa Fontes → Roteamento → Destinos, com vazão e saúde por 
 
 A tela **Fluxo de dados** é o mapa do caminho que os eventos percorrem: **Fontes → Roteamento → Destinos**, desenhado como um grafo, com a vazão de cada trecho e a saúde de cada nó. É onde você responde "por onde o volume está passando?" e "quanto disso a plataforma está conseguindo evitar?".
 
-> Esta é uma tela **só de administrador**. Você a encontra no menu **Operação → Fluxo de dados**.
+> Esta é uma tela **só de administrador**. Você a encontra no menu **Roteia → Fluxo de dados**.
 
 Ela é diferente do [Dashboard](./dashboard.md): o Dashboard resume entrada e saída em números; aqui você vê a **topologia** — qual fonte alimenta qual rota, qual rota entrega a qual destino, e onde o fluxo estreita.
 

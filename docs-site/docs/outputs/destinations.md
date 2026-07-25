@@ -8,7 +8,7 @@ description: Para onde o CentralOps envia seus eventos — tipos de destino disp
 
 Um **Destino** é um lugar para onde o CentralOps envia seus eventos já normalizados: um SIEM (Splunk, Sentinel, Elasticsearch), um barramento de mensagens (Kafka), um data lake (S3), um servidor Syslog ou um arquivo local. Cada destino é independente — você pode criar, testar a conexão, acompanhar a saúde, trocar a credencial e reprocessar eventos que falharam, tudo pela interface.
 
-Destinos é uma tela de administrador. Você a encontra no menu **Operação → Destinos**.
+Destinos é uma tela de administrador. Você a encontra no menu **Roteia → Destinos**.
 
 ---
 
@@ -192,7 +192,7 @@ Arquivamento de eventos em formato Parquet OCSF no data lake de segurança da AW
 
 ## Como criar um destino
 
-1. Vá em **Operação → Destinos**.
+1. Vá em **Roteia → Destinos**.
 2. Clique no botão para criar um novo destino.
 3. Dê um **nome** que identifique o destino (por exemplo, "Splunk Produção").
 4. Escolha o **tipo** na lista — a interface ajusta os campos conforme o tipo selecionado.
@@ -225,7 +225,7 @@ Os campos de **camada de armazenamento** (hot/cold) e **dias de retenção** sã
 
 ### Roteamento automático
 
-Ao criar um destino, o CentralOps já o inclui no fluxo de eventos automaticamente — você não precisa configurar nada para começar a receber eventos nele. Se quiser controle fino sobre quais eventos vão para quais destinos, use a tela **Operação → Roteamento** (também só para administrador).
+Ao criar um destino, o CentralOps já o inclui no fluxo de eventos automaticamente — você não precisa configurar nada para começar a receber eventos nele. Se quiser controle fino sobre quais eventos vão para quais destinos, use a tela **Roteia → Rotas** (também só para administrador).
 
 ---
 
@@ -296,7 +296,7 @@ Toda leitura, troca ou revogação de credencial fica registrada no histórico d
 
 | Sintoma | Causa provável | O que fazer |
 |---------|----------------|-------------|
-| O teste passa, mas os eventos não chegam | Destino desativado ou sem rota | Confira o estado na tela de Destinos; ajuste o roteamento em **Operação → Roteamento** |
+| O teste passa, mas os eventos não chegam | Destino desativado ou sem rota | Confira o estado na tela de Destinos; ajuste o roteamento em **Roteia → Rotas** |
 | A fila de reenvio cresce e o destino fica "instável" | Credencial vencida ou destino fora do ar | Teste a conexão; troque a credencial se necessário; verifique se o destino está disponível |
 | Erro de evento muito grande | O evento passou do tamanho aceito pelo destino | Reduza o tamanho do lote ou ajuste a normalização |
 | Erro de autenticação | Token inválido ou revogado | Troque a credencial e confira o histórico do destino |

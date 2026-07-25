@@ -8,32 +8,32 @@ description: Guia por sintoma para diagnosticar e corrigir eventos que falham ao
 
 Quando um evento de um fornecedor não consegue ser normalizado, o CentralOps o envia para a **Quarentena** e registra o motivo. Esta página é um guia por sintoma: você parte da mensagem de erro que aparece na tela e segue até a correção, sempre pela interface da plataforma.
 
-Você nunca precisa de terminal nem de editor de texto externo. Toda mudança de mapeamento é feita pelo **editor de mapeamento** da plataforma, em **Normalizacao -> Mappings**, que oferece pré-visualização e teste de expressão direto na tela antes de salvar.
+Você nunca precisa de terminal nem de editor de texto externo. Toda mudança de mapeamento é feita pelo **editor de mapeamento** da plataforma, em **Normaliza -> Mapeamentos**, que oferece pré-visualização e teste de expressão direto na tela antes de salvar.
 
 ## Quando usar
 
 - **Eventos sumindo do Dashboard.** Você percebe que um fornecedor parou de aparecer nos painéis e suspeita que os eventos estão sendo barrados na normalização — comece pela **Quarentena**.
 - **Depois de publicar uma versão nova de mapeamento.** Você ajustou as regras de um fornecedor e, logo em seguida, a contagem de quarentena disparou. Use o guia de reversão abaixo.
-- **Revisão periódica de cobertura.** Durante a triagem semanal, você abre o **Drift Explorer** para ver quais campos do fornecedor ainda não estão sendo aproveitados nas investigações.
+- **Revisão periódica de cobertura.** Durante a triagem semanal, você abre a tela de **Drift** para ver quais campos do fornecedor ainda não estão sendo aproveitados nas investigações.
 
 ## Onde os erros aparecem
 
 | Tela (menu) | O que ela mostra |
 |-------------|------------------|
-| **Normalizacao -> Quarentena** | Eventos que falharam ao mapear. A coluna de motivo traz a mensagem de erro que dá nome a cada sintoma abaixo. |
-| **Normalizacao -> Drift Explorer** | Campos enviados pelo fornecedor que o seu mapeamento ainda não usa. |
-| **Normalizacao -> Saude do Pipeline** | Visão geral de quanto de cada fonte está sendo normalizado com sucesso. |
-| **Normalizacao -> Mappings** | O editor onde você corrige as regras, pré-visualiza o resultado e publica uma nova versão. |
+| **Normaliza -> Quarentena** | Eventos que falharam ao mapear. A coluna de motivo traz a mensagem de erro que dá nome a cada sintoma abaixo. |
+| **Normaliza -> Drift** | Campos enviados pelo fornecedor que o seu mapeamento ainda não usa. |
+| **Visão geral -> Saúde do pipeline** | Visão geral de quanto de cada fonte está sendo normalizado com sucesso. |
+| **Normaliza -> Mapeamentos** | O editor onde você corrige as regras, pré-visualiza o resultado e publica uma nova versão. |
 
 :::tip[Antes de editar]
-No editor de mapeamento (**Normalizacao -> Mappings**), use a pré-visualização de expressão para validar o caminho de um campo contra um evento de amostra **antes** de salvar. Assim você confirma se o campo existe e como ele chega, sem sair da interface.
+No editor de mapeamento (**Normaliza -> Mapeamentos**), use a pré-visualização de expressão para validar o caminho de um campo contra um evento de amostra **antes** de salvar. Assim você confirma se o campo existe e como ele chega, sem sair da interface.
 :::
 
 ---
 
 ## Eventos em quarentena por falha de mapeamento
 
-Quando um evento aparece em **Normalizacao -> Quarentena** com motivo relacionado a mapeamento, abra o evento para ver a mensagem completa. Os sintomas mais comuns estão abaixo.
+Quando um evento aparece em **Normaliza -> Quarentena** com motivo relacionado a mapeamento, abra o evento para ver a mensagem completa. Os sintomas mais comuns estão abaixo.
 
 ### "Campo obrigatório resolveu para vazio"
 
@@ -80,7 +80,7 @@ Mensagem na coluna de motivo: uma regra esperava um número, mas o fornecedor ma
 
 **Como diagnosticar:**
 
-1. Veja com que frequência isso acontece — o **Drift Explorer** ajuda a entender a distribuição de valores daquele campo.
+1. Veja com que frequência isso acontece — a tela de **Drift** ajuda a entender a distribuição de valores daquele campo.
 2. Decida se o evento deve usar um valor padrão ou ser ignorado nesses casos.
 
 **Como corrigir, no editor de mapeamento:**
@@ -144,9 +144,9 @@ Ao pré-visualizar um mapeamento contra eventos de amostra, o editor pode avisar
 
 ---
 
-## Muitos campos não mapeados no Drift Explorer
+## Muitos campos não mapeados no Drift
 
-A tela **Normalizacao -> Drift Explorer** lista os campos novos detectados nos eventos do fornecedor que o seu mapeamento ainda não aproveita.
+A tela **Normaliza -> Drift** lista os campos novos detectados nos eventos do fornecedor que o seu mapeamento ainda não aproveita.
 
 **Campos que normalmente dá para ignorar:**
 
@@ -164,10 +164,10 @@ A tela **Normalizacao -> Drift Explorer** lista os campos novos detectados nos e
 
 **Fluxo de trabalho:**
 
-1. Revise os campos não mapeados no **Drift Explorer**.
+1. Revise os campos não mapeados na tela de **Drift**.
 2. Pergunte-se: "Isso é acionável numa investigação de segurança?"
 3. Decida:
-   - **Sim** → abra **Normalizacao -> Mappings** e adicione uma regra para o campo.
+   - **Sim** → abra **Normaliza -> Mapeamentos** e adicione uma regra para o campo.
    - **Não** → registre-o como ignorado, deixando uma anotação no mapeamento explicando o motivo, para que a próxima pessoa não o reavalie sem necessidade.
 
 ---
@@ -176,13 +176,13 @@ A tela **Normalizacao -> Drift Explorer** lista os campos novos detectados nos e
 
 Você publicou uma versão nova do mapeamento e os eventos começaram a cair em quarentena. O caminho mais rápido é voltar para a versão anterior e investigar com calma.
 
-**Passos para reverter, em Normalizacao -> Mappings:**
+**Passos para reverter, em Normaliza -> Mapeamentos:**
 
 1. Abra o mapeamento afetado e veja o **histórico de versões**.
 2. Identifique a última versão que funcionava (a anterior à mudança problemática).
 3. **Ative** essa versão anterior.
 4. O efeito é imediato: os eventos novos passam a usar o mapeamento antigo.
-5. Os eventos que já caíram em quarentena durante a versão problemática continuam lá. Depois de corrigir o mapeamento, reprocesse esses eventos a partir da tela **Normalizacao -> Quarentena** (selecione os eventos afetados e reprocesse).
+5. Os eventos que já caíram em quarentena durante a versão problemática continuam lá. Depois de corrigir o mapeamento, reprocesse esses eventos a partir da tela **Normaliza -> Quarentena** (selecione os eventos afetados e reprocesse).
 
 **Como evitar a próxima regressão:**
 
@@ -237,8 +237,8 @@ A tabela abaixo traduz as mensagens mais comuns que aparecem na coluna de motivo
 
 ## Onde buscar ajuda
 
-1. **Confira o Drift Explorer** (**Normalizacao -> Drift Explorer**) para ver campos do fornecedor ainda não mapeados.
-2. **Use a pré-visualização do editor** (**Normalizacao -> Mappings**) para encontrar regras que sempre caem no valor padrão.
+1. **Confira a tela de Drift** (**Normaliza -> Drift**) para ver campos do fornecedor ainda não mapeados.
+2. **Use a pré-visualização do editor** (**Normaliza -> Mapeamentos**) para encontrar regras que sempre caem no valor padrão.
 3. **Valide o caminho de cada campo** com a pré-visualização de expressão, contra uma amostra real, antes de salvar.
 4. **Consulte a referência de operadores** para detalhes de conversões e condições disponíveis.
 5. **Compare com mapeamentos de fornecedores parecidos** (por exemplo, alertas e detecções do mesmo fornecedor) para reaproveitar padrões.

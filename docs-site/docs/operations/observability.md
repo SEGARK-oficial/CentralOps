@@ -23,9 +23,9 @@ SRE quiser correlacionar tudo no stack de monitoramento da empresa.
 
 Nada a instalar. Disponível na UI e nos endpoints de saúde:
 
-- **Operação → [Fluxo de dados](./fluxo-de-dados.md)** (`/flow`) — mapa Fontes → Roteamento →
+- **Roteia → [Fluxo de dados](./fluxo-de-dados.md)** (`/flow`) — mapa Fontes → Roteamento →
   Destinos com throughput, saúde por destino e o card de **redução de volume & custo**.
-- **Normalização → [Saúde do Pipeline](./pipeline-health.md)** (`/pipeline-health`) —
+- **Visão geral → [Saúde do pipeline](./pipeline-health.md)** (`/pipeline-health`) —
   taxa de mapeamento, quarentena, conformidade OCSF.
 - **Health/liveness:** `GET /readyz` (prontidão de db/redis — **não** reporta versão nem
   edição) e `GET /healthz`.

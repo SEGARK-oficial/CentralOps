@@ -21,7 +21,7 @@ Esta página as apresenta **na ordem em que agem**. Nenhuma delas nasce cortando
 | 5 | **Descartar o evento bruto** | Regra de rota | O bloco bruto, **só na entrega daquela regra** | Sim | **descarte do bruto** |
 | 6 | **Agregação** | Política de entrega do destino | Eventos repetidos, colapsados em um só | Por configuração (veja abaixo) | **agregação** |
 
-A economia de cada uma aparece decomposta por causa no card **Redução de volume & custo**, em **Operação → Fluxo de dados**. Veja [Fluxo de dados](../operations/fluxo-de-dados.md).
+A economia de cada uma aparece decomposta por causa no card **Redução de volume & custo**, em **Roteia → Fluxo de dados**. Veja [Fluxo de dados](../operations/fluxo-de-dados.md).
 
 :::note[Existe uma alavanca ANTES destas seis]
 As seis agem sobre eventos que a plataforma **já coletou** — elas reduzem o que é **entregue**. Se o problema é a coleta não vencer o volume da origem, nenhuma delas ajuda: o evento já foi consultado, transferido e normalizado antes de ser descartado.
@@ -61,7 +61,7 @@ Se o mapeamento declara a poda, ela é aplicada. A chave de ambiente corresponde
 
 **O que corta:** repetições. A regra monta uma **assinatura** de cada evento e entrega apenas os N primeiros de cada assinatura por janela de tempo; o excedente é economizado.
 
-**Onde se configura:** na regra, em **Operação → Roteamento**, seção **Redução de volume**:
+**Onde se configura:** na regra, em **Roteia → Rotas**, seção **Redução de volume**:
 
 | Campo | O que faz |
 |---|---|
@@ -89,7 +89,7 @@ Uma chave grossa demais (só `vendor`, por exemplo) joga todo o tráfego da inte
 
 **O que corta:** o evento inteiro. A avaliação termina ali e ele não vai a destino nenhum.
 
-**Onde se configura:** na regra, em **Operação → Roteamento**, escolhendo a ação **Descartar** em vez de **Enviar**.
+**Onde se configura:** na regra, em **Roteia → Rotas**, escolhendo a ação **Descartar** em vez de **Enviar**.
 
 **Proteção de detecção:** não. Descartar é uma decisão explícita e consciente sua, expressa na própria regra — a proteção existe para impedir que alavancas *estatísticas* comam eventos sem que ninguém tenha pedido, não para vetar um descarte deliberado.
 

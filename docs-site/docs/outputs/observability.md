@@ -19,12 +19,12 @@ O CentralOps mostra, em tempo real, como cada destino está recebendo os seus ev
 | O que você quer ver | Onde encontrar |
 |---|---|
 | Visão consolidada de todos os destinos e do funil de eventos | menu **Visão geral -> Dashboard** |
-| Saúde detalhada de um destino específico (EPS, latência, rejeições, fila) | menu **Operação -> Destinos** (apenas admin) |
-| Como os eventos estão sendo distribuídos entre destinos | menu **Operação -> Fluxo de dados** (apenas admin) |
-| Saúde do processamento que normaliza os eventos antes do envio | menu **Normalização -> Saúde do Pipeline** |
+| Saúde detalhada de um destino específico (EPS, latência, rejeições, fila) | menu **Roteia -> Destinos** (apenas admin) |
+| Como os eventos estão sendo distribuídos entre destinos | menu **Roteia -> Fluxo de dados** (apenas admin) |
+| Saúde do processamento que normaliza os eventos antes do envio | menu **Visão geral -> Saúde do pipeline** |
 
 :::note
-As telas **Destinos**, **Roteamento** e **Fluxo de dados** só aparecem para usuários administradores. Operadores de SOC acompanham a saúde geral pelo **Dashboard** e pela **Saúde do Pipeline**.
+As telas **Destinos**, **Rotas** e **Fluxo de dados** só aparecem para usuários administradores. Operadores de SOC acompanham a saúde geral pelo **Dashboard** e pela **Saúde do pipeline**.
 :::
 
 ---
@@ -64,11 +64,11 @@ Use isso para confirmar, por exemplo, que os eventos certos estão indo para o d
 
 | Sintoma na tela | Provável causa | Próximo passo na interface |
 |---|---|---|
-| EPS em zero, mas há eventos chegando | Destino indisponível ou credencial expirada | Abra **Operação -> Destinos**, verifique o estado e o último erro do destino |
-| Rejeições subindo | Formato/tamanho/credencial do destino | Reveja a configuração do destino em **Operação -> Destinos** |
+| EPS em zero, mas há eventos chegando | Destino indisponível ou credencial expirada | Abra **Roteia -> Destinos**, verifique o estado e o último erro do destino |
+| Rejeições subindo | Formato/tamanho/credencial do destino | Reveja a configuração do destino em **Roteia -> Destinos** |
 | Fila de reenvio crescendo | Destino instável ou fora do ar | Aguarde a recuperação automática; se persistir, acione o destino. Você pode reprocessar a fila de reenvio na tela de **Destinos** quando o destino voltar |
 | Latência alta de forma contínua | Destino lento ou rede congestionada | Confirme com o time responsável pelo destino |
-| Eventos não normalizam (não chegam a sair) | Problema antes do envio | Verifique **Normalização -> Saúde do Pipeline** e **Normalização -> Quarentena** |
+| Eventos não normalizam (não chegam a sair) | Problema antes do envio | Verifique **Visão geral -> Saúde do pipeline** e **Normaliza -> Quarentena** |
 
 :::tip
 Antes de concluir que o CentralOps deixou de enviar, confira o **Último envio bem-sucedido** e a **fila de reenvio**. Fila crescendo + EPS caindo quase sempre significa problema no **destino**, não no CentralOps.
@@ -80,12 +80,12 @@ Antes de concluir que o CentralOps deixou de enviar, confira o **Último envio b
 
 Além dos painéis de produto que você vê na interface, o CentralOps pode exportar métricas e registros técnicos para ferramentas de monitoramento de infraestrutura usadas pelo time de TI/SRE (por exemplo, painéis corporativos de observabilidade). Isso serve para a equipe de operações acompanhar a plataforma em nível de servidor, não para o uso diário do operador de SOC.
 
-Essa exportação é definida pela equipe de infraestrutura no momento do deploy. Se precisar habilitá-la ou direcioná-la para uma ferramenta específica, fale com o administrador da plataforma. Para o trabalho do dia a dia, tudo que você precisa já está nas telas de **Dashboard**, **Destinos** e **Saúde do Pipeline**.
+Essa exportação é definida pela equipe de infraestrutura no momento do deploy. Se precisar habilitá-la ou direcioná-la para uma ferramenta específica, fale com o administrador da plataforma. Para o trabalho do dia a dia, tudo que você precisa já está nas telas de **Dashboard**, **Destinos** e **Saúde do pipeline**.
 
 ---
 
 ## Próximos passos
 
-- **Conferir onde os eventos estão indo:** menu **Operação -> Fluxo de dados** (apenas admin).
+- **Conferir onde os eventos estão indo:** menu **Roteia -> Fluxo de dados** (apenas admin).
 - **Eventos que não normalizaram:** veja [Quarentena](../operations/quarantine.md).
 - **Saúde geral da plataforma:** menu **Visão geral -> Dashboard**.

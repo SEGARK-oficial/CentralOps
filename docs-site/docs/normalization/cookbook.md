@@ -13,14 +13,14 @@ Cada receita mostra **o evento que chega**, **a regra que você cria** e **o res
 ## Quando usar
 
 - **Onboarding de uma nova origem.** Você acabou de conectar um fornecedor e percebe, na tela de Saúde do Pipeline, que vários campos não estão sendo preenchidos. Use as receitas abaixo para escrever as regras que populam severidade, título, indicadores e horário do evento.
-- **Eventos caindo em Quarentena.** Eventos de uma origem específica aparecem em **Normalização -> Quarentena** com falha de mapeamento. As receitas de horário obrigatório (Receita 10) e de táticas MITRE (Receita 8) cobrem as causas mais comuns.
-- **Campos novos detectados.** O Drift Explorer apontou campos novos que o fornecedor passou a enviar (por exemplo, um novo bloco de dados de e-mail). As receitas de extração de JSON aninhado (Receita 4) e de construção de indicadores (Receita 5) ajudam a incorporá-los ao mapeamento.
+- **Eventos caindo em Quarentena.** Eventos de uma origem específica aparecem em **Normaliza -> Quarentena** com falha de mapeamento. As receitas de horário obrigatório (Receita 10) e de táticas MITRE (Receita 8) cobrem as causas mais comuns.
+- **Campos novos detectados.** A tela de Drift apontou campos novos que o fornecedor passou a enviar (por exemplo, um novo bloco de dados de e-mail). As receitas de extração de JSON aninhado (Receita 4) e de construção de indicadores (Receita 5) ajudam a incorporá-los ao mapeamento.
 
 ## Onde isso acontece na interface
 
 Todas as receitas são montadas no mesmo lugar. Antes de seguir qualquer uma, abra o editor de mapeamento:
 
-1. No menu lateral, vá em **Normalização -> Mappings**.
+1. No menu lateral, vá em **Normaliza -> Mapeamentos**.
 2. Escolha o mapeamento da origem que você quer ajustar (ou abra o mapeamento que está gerando eventos em Quarentena).
 3. No editor de regras, cada linha tem um campo **target** (onde o valor vai parar, no padrão OCSF) e um campo **source** (de onde o valor vem, no evento do fornecedor). Os demais ajustes de cada receita são opções dessa mesma regra.
 4. Use o painel de amostra ao lado para colar um evento de exemplo (modo **Manual**) ou puxar um evento real já coletado (modo **Reservoir**). É com base nessa amostra que o **dry-run** mostra, em tempo real, o resultado normalizado e os avisos.
@@ -190,7 +190,7 @@ O passo de preparo transforma o texto JSON em um objeto navegável. Depois disso
 
 ## Receita 5: Montar uma lista de indicadores de várias fontes
 
-**Use esta receita quando** você precisa produzir a lista de indicadores (observables) de um evento combinando pedaços que estão espalhados: IP de origem, endereços de e-mail, hashes e nomes de arquivos anexados. É o coração de uma detecção de e-mail bem normalizada, porque é essa lista que alimenta as buscas em **Operação -> Investigações**.
+**Use esta receita quando** você precisa produzir a lista de indicadores (observables) de um evento combinando pedaços que estão espalhados: IP de origem, endereços de e-mail, hashes e nomes de arquivos anexados. É o coração de uma detecção de e-mail bem normalizada, porque é essa lista que torna o evento pesquisável por indicador no destino para onde ele foi entregue (seu SIEM, data lake ou bucket). Na edição Enterprise, **Detecta -> Busca federada** consulta esses destinos a partir do próprio console.
 
 ### Evento que chega (já com o JSON aberto, como na Receita 4)
 ```jsonc
@@ -364,7 +364,7 @@ A conversão reorganiza cada tática no formato OCSF, ajusta os nomes dos campos
 
 ### Variações
 - **Sem táticas:** se o campo vier vazio, o resultado também fica vazio.
-- **Tática incompleta:** se um item não tiver identificador ou nome, o evento vai para **Normalização -> Quarentena** com falha de mapeamento — corrija a origem ou trate o campo antes da conversão.
+- **Tática incompleta:** se um item não tiver identificador ou nome, o evento vai para **Normaliza -> Quarentena** com falha de mapeamento — corrija a origem ou trate o campo antes da conversão.
 
 ---
 
@@ -397,7 +397,7 @@ A conversão multiplica o decimal por 100 e arredonda (`0,85 → 85`). Se o valo
 
 ## Receita 10: Horário obrigatório com alternativas
 
-**Use esta receita quando** o horário do evento é obrigatório no OCSF, mas alguns eventos chegam sem ele. Você define um horário principal, algumas alternativas e o que fazer caso nenhuma exista. É a causa número um de eventos parados em **Normalização -> Quarentena**.
+**Use esta receita quando** o horário do evento é obrigatório no OCSF, mas alguns eventos chegam sem ele. Você define um horário principal, algumas alternativas e o que fazer caso nenhuma exista. É a causa número um de eventos parados em **Normaliza -> Quarentena**.
 
 ### Evento que chega
 ```jsonc
@@ -452,7 +452,7 @@ Se você só quer uma lista plana de endereços, use uma regra direta:
 ```
 
 ### Por que funciona
-Em ambos os casos, os itens repetidos são descartados e a primeira ocorrência é mantida. Escolha a opção A se você precisa de indicadores (para alimentar Investigações) e a opção B se basta uma lista simples de valores.
+Em ambos os casos, os itens repetidos são descartados e a primeira ocorrência é mantida. Escolha a opção A se você precisa de indicadores (para alimentar as buscas por indicador nos destinos) e a opção B se basta uma lista simples de valores.
 
 ### Variações
 - Você pode remover duplicados por valor (padrão) ou por mais de um campo ao mesmo tempo, para um critério mais fino.

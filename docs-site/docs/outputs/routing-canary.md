@@ -24,11 +24,11 @@ Uma rota com porcentagem de cutover **menor que 100%** entrega ao destino novo a
 
 ## Configurar um cutover gradual
 
-O cutover é feito na tela de roteamento, em **Operação -> Roteamento** (disponível apenas para administradores). O ponto de partida é uma rota que já entrega 100% dos eventos ao destino antigo.
+O cutover é feito na tela de roteamento, em **Roteia -> Rotas** (disponível apenas para administradores). O ponto de partida é uma rota que já entrega 100% dos eventos ao destino antigo.
 
 ### Passo 1 — Criar a rota de cutover para o destino novo
 
-1. Vá ao menu **Operação -> Roteamento**.
+1. Vá ao menu **Roteia -> Rotas**.
 2. Adicione uma nova rota.
 3. Preencha os campos do formulário:
 
@@ -51,7 +51,7 @@ Pronto: a partir de agora, cerca de 10% dos eventos que casam com a condição v
 
 Com o cutover rodando, acompanhe se o destino novo está recebendo a fração esperada e se não há falhas de entrega.
 
-1. Vá ao menu **Operação -> Roteamento** e abra a rota de cutover para ver suas métricas.
+1. Vá ao menu **Roteia -> Rotas** e abra a rota de cutover para ver suas métricas.
 2. Observe três números:
 
 | Indicador | O que significa |
@@ -62,13 +62,13 @@ Com o cutover rodando, acompanhe se o destino novo está recebendo a fração es
 
 O cutover está saudável quando os **eventos entregues** correspondem, aproximadamente, à porcentagem que você configurou (por exemplo, com 10% configurado, cerca de 1 a cada 10 eventos elegíveis), e a **fila de reenvio** está próxima de zero.
 
-Para uma visão do fluxo ponta a ponta — origem, rotas e destinos lado a lado, com a proporção mudando conforme você ajusta o percentual — use o menu **Operação -> Fluxo de dados** (disponível apenas para administradores). A proporção exibida pode levar cerca de um minuto para refletir mudanças recentes.
+Para uma visão do fluxo ponta a ponta — origem, rotas e destinos lado a lado, com a proporção mudando conforme você ajusta o percentual — use o menu **Roteia -> Fluxo de dados** (disponível apenas para administradores). A proporção exibida pode levar cerca de um minuto para refletir mudanças recentes.
 
 ### Passo 3 — Aumentar a porcentagem aos poucos
 
 Depois de acompanhar por 15 a 30 minutos e confirmar que o destino novo está saudável:
 
-1. Volte a **Operação -> Roteamento** e abra a rota de cutover.
+1. Volte a **Roteia -> Rotas** e abra a rota de cutover.
 2. Aumente a porcentagem de cutover, por exemplo de 10% para 25%.
 3. Salve.
 
@@ -78,7 +78,7 @@ Repita a cada 15 a 30 minutos, subindo de forma gradual: 25% -> 50% -> 75% -> 10
 
 Quando a porcentagem chega a **100%**, todos os eventos elegíveis já estão indo para o destino novo. A partir daí:
 
-1. Vá a **Operação -> Roteamento** e abra a rota antiga.
+1. Vá a **Roteia -> Rotas** e abra a rota antiga.
 2. Desative a rota antiga (recomendado guardar no histórico) ou remova-a, se tiver certeza de que não precisará mais dela.
 3. Salve a alteração.
 
@@ -114,22 +114,22 @@ Provável causa: a condição da rota não está casando com os eventos.
 
 1. Confira o campo usado na condição (por exemplo, fornecedor x plataforma).
 2. Confira o valor exato esperado, atenção a maiúsculas e minúsculas (ex.: "sophos" x "Sophos").
-3. Use a validação de rota em **Operação -> Roteamento** (testar a rota com um evento de exemplo) para ver se a condição casa. Veja [Validar rotas antes de publicar](./routing-dry-run.md).
+3. Use a validação de rota em **Roteia -> Rotas** (testar a rota com um evento de exemplo) para ver se a condição casa. Veja [Validar rotas antes de publicar](./routing-dry-run.md).
 4. Verifique nas métricas da rota se há eventos casando a condição (o indicador de "eventos que casaram" deve ser maior que zero).
 
 ### A rota de cutover ficou em 100% e nada mais chega à rota antiga
 
 Esse é o comportamento esperado quando o cutover está completo e a rota encerra a avaliação: todos os eventos param no destino novo e nada "passa adiante". Se você queria que parte dos eventos continuasse indo também para o destino antigo (envio simultâneo), ajuste a rota de cutover para **não** encerrar nesta rota. Se a intenção era concluir a migração, basta desativar a rota antiga (Passo 4).
 
-Se a rota antiga foi desativada ou removida, os eventos que não são atendidos por nenhuma outra rota seguem para o destino de segurança padrão. Confira em **Operação -> Roteamento** se a rota antiga ainda existe.
+Se a rota antiga foi desativada ou removida, os eventos que não são atendidos por nenhuma outra rota seguem para o destino de segurança padrão. Confira em **Roteia -> Rotas** se a rota antiga ainda existe.
 
 ### O mesmo evento parece cair em frações diferentes a cada momento
 
-Isso pode acontecer quando os eventos chegam sem um identificador próprio — sem ele, o sistema não consegue distribuí-los de forma estável. Verifique se a integração de origem está fornecendo um identificador para cada evento. Você pode inspecionar um evento na tela de busca em **Operação -> Investigações** para conferir os metadados internos do evento.
+Isso pode acontecer quando os eventos chegam sem um identificador próprio — sem ele, o sistema não consegue distribuí-los de forma estável. Verifique se a integração de origem está fornecendo um identificador para cada evento. Você pode inspecionar um evento na tela de busca em **Detecta -> Queries salvas** para conferir os metadados internos do evento.
 
 ## Próximos passos
 
 - **Iniciar um cutover?** Comece com 5% a 10% e acompanhe por 15 minutos antes de subir.
-- **Ver métricas da rota?** Vá a **Operação -> Roteamento** e abra a rota.
-- **Comparar dois destinos antes de publicar?** Use a validação de rota em **Operação -> Roteamento**. Veja [Validar rotas antes de publicar](./routing-dry-run.md).
+- **Ver métricas da rota?** Vá a **Roteia -> Rotas** e abra a rota.
+- **Comparar dois destinos antes de publicar?** Use a validação de rota em **Roteia -> Rotas**. Veja [Validar rotas antes de publicar](./routing-dry-run.md).
 - **Entender o roteamento por completo?** Veja [Roteamento por regra](./routing.md) e a [Visão geral de saídas e roteamento](./overview.md).

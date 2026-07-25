@@ -1,17 +1,17 @@
 ---
 sidebar_position: 6
 title: "Atualizar um mapeamento para o formato novo"
-description: "Quando e como migrar um mapeamento antigo para o formato atual, pela tela de Mappings — com fallback de campos, pré-processamento e múltiplos observáveis"
+description: "Quando e como migrar um mapeamento antigo para o formato atual, pela tela de Mapeamentos — com fallback de campos, pré-processamento e múltiplos observáveis"
 ---
 
 # Atualizar um mapeamento para o formato novo
 
-O CentralOps transforma cada evento de um vendor (Sophos, Wazuh, Microsoft Defender, etc.) em um evento padronizado, usando as regras que você define em **Normalização → Mappings**. O formato atual dessas regras oferece recursos que o formato antigo não tinha: tentar mais de um campo de origem, ler dados que vêm "embrulhados" dentro de um texto, pular uma regra quando o campo não existe e montar listas de observáveis (IPs, e-mails, hashes).
+O CentralOps transforma cada evento de um vendor (Sophos, Wazuh, Microsoft Defender, etc.) em um evento padronizado, usando as regras que você define em **Normaliza → Mapeamentos**. O formato atual dessas regras oferece recursos que o formato antigo não tinha: tentar mais de um campo de origem, ler dados que vêm "embrulhados" dentro de um texto, pular uma regra quando o campo não existe e montar listas de observáveis (IPs, e-mails, hashes).
 
 Os mapeamentos antigos continuam funcionando — você só precisa atualizar um deles quando quiser usar um desses recursos novos. Esta página mostra quando vale a pena e como fazer, sempre pela interface.
 
 :::tip[O formato atual já é o padrão]
-Mapeamentos novos que você cria pela tela de **Mappings** já nascem no formato atual. Não há nenhuma ação obrigatória da sua parte: este guia é só para quem quer **adicionar um recurso novo a um mapeamento antigo**.
+Mapeamentos novos que você cria pela tela de **Mapeamentos** já nascem no formato atual. Não há nenhuma ação obrigatória da sua parte: este guia é só para quem quer **adicionar um recurso novo a um mapeamento antigo**.
 :::
 
 ---
@@ -46,7 +46,7 @@ Todo o resto que você já usava (origem de campo, valor fixo, valor padrão, co
 
 Tudo abaixo acontece na interface, sem terminal e sem editar arquivos:
 
-1. Abra o menu **Normalização → Mappings**.
+1. Abra o menu **Normaliza → Mapeamentos**.
 2. Selecione o mapeamento que quer atualizar.
 3. Faça as alterações no editor de mapeamento da própria tela.
 4. Use o **teste sem efeito (dry-run)** para conferir o resultado contra uma amostra de eventos antes de valer para o tráfego real.
@@ -91,7 +91,7 @@ Quando o teste estiver limpo, salve para criar a nova versão e ative-a na lista
 
 **Situação:** o mapeamento atual já preenche os campos básicos (classe da detecção, horário, identificador, severidade), mas não consegue extrair os dados de e-mail, que chegam embrulhados como texto dentro do campo `processedData`.
 
-**Como resolver, pela tela de Mappings:**
+**Como resolver, pela tela de Mapeamentos:**
 
 1. **Adicione o pré-processamento** para "abrir" o campo `processedData`. Depois disso, os campos internos (como o IP de origem e a lista de destinatários) ficam acessíveis para as regras.
 2. **Acrescente uma regra de lista de observáveis** que produz:
@@ -125,7 +125,7 @@ Algumas regras gravam um valor vazio mesmo quando o campo de origem não existe 
 
 ## Histórico de versões e como reverter
 
-Cada vez que você salva um mapeamento, o CentralOps guarda uma nova versão. Na tela de **Mappings**, ao selecionar um mapeamento, você vê a lista de versões e qual está ativa (a versão ativa fica marcada).
+Cada vez que você salva um mapeamento, o CentralOps guarda uma nova versão. Na tela de **Mapeamentos**, ao selecionar um mapeamento, você vê a lista de versões e qual está ativa (a versão ativa fica marcada).
 
 - **Só uma versão fica ativa por vez** para cada combinação de collector e tipo de evento.
 - Ao ativar uma versão, os eventos **novos** passam a usá-la imediatamente; eventos já processados não mudam.
@@ -154,7 +154,7 @@ Não. Só uma versão fica ativa por combinação de collector e tipo de evento.
 Não. Eventos anteriores já foram normalizados e não mudam. Só os eventos **novos** usam o mapeamento atualizado.
 
 **Como sei qual versão está ativa?**
-Em **Normalização → Mappings**, selecione o mapeamento e olhe a lista de versões: a versão ativa fica marcada.
+Em **Normaliza → Mapeamentos**, selecione o mapeamento e olhe a lista de versões: a versão ativa fica marcada.
 
 **Posso voltar para a versão anterior depois de atualizar?**
 Sim. Basta ativar a versão anterior na lista de versões. Você perde os recursos novos, mas as regras antigas voltam a funcionar imediatamente.

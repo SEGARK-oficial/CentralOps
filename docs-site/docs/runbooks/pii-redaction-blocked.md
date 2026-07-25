@@ -40,7 +40,7 @@ Os eventos de uma rota com redação de PII deixam de aparecer no destino extern
 
 **1. Confirme que a rota tem redação de PII configurada**
 
-1. Abra o menu **Operação → Roteamento**.
+1. Abra o menu **Roteia → Rotas**.
 2. Localize a rota esperada e abra o detalhe dela.
 3. Procure a seção de redação de PII. Se houver regras listadas (por exemplo, mascarar o e-mail do usuário ou remover um campo de documento), a rota **tem** redação configurada.
 
@@ -52,7 +52,7 @@ Os eventos de uma rota com redação de PII deixam de aparecer no destino extern
 
 **3. Veja se o desvio atinge só essa rota ou todas**
 
-Confira se os outros destinos externos continuam recebendo. Se **todos** pararam ao mesmo tempo, você confirmou que o roteamento da organização caiu por inteiro — mas **isso não diz qual das duas causas foi**: a variável desligada e a spec inválida produzem o mesmo desvio em massa. Só depois de eliminar a variável no passo 1 é que faz sentido caçar a rota com redação alterada mais recentemente, pelo histórico em **Operação → Roteamento**.
+Confira se os outros destinos externos continuam recebendo. Se **todos** pararam ao mesmo tempo, você confirmou que o roteamento da organização caiu por inteiro — mas **isso não diz qual das duas causas foi**: a variável desligada e a spec inválida produzem o mesmo desvio em massa. Só depois de eliminar a variável no passo 1 é que faz sentido caçar a rota com redação alterada mais recentemente, pelo histórico em **Roteia → Rotas**.
 
 ### Como resolver
 
@@ -67,7 +67,7 @@ Este é o **primeiro** item a eliminar, porque é rápido e porque é o estado e
 
 #### Passo 2: procure a rota com a especificação de redação problemática
 
-1. Em **Operação → Roteamento**, liste as rotas que têm regras de redação de PII.
+1. Em **Roteia → Rotas**, liste as rotas que têm regras de redação de PII.
 2. Olhe o **histórico** de cada uma e identifique qual foi alterada por último, principalmente se a alteração veio de fora da tela (importação de pacote de configuração, chamada de API, carga inicial). A tela recusa uma especificação inválida na hora de salvar; as outras portas de entrada é que produzem o problema.
 3. Abra a rota suspeita e **salve a especificação de redação novamente pela tela**. A validação roda no salvamento e aponta a regra fora do formato — a tabela do Sintoma 2 lista os erros mais comuns.
 4. Se preferir voltar ao estado anterior, **restaure uma versão do histórico**. A restauração revalida a rota antes de aplicá-la — destinos, especificação de redação e chave de supressão —, então uma versão antiga que já era inválida é recusada em vez de recolocar a rota quebrada no ar.
@@ -76,7 +76,7 @@ Este é o **primeiro** item a eliminar, porque é rápido e porque é o estado e
 
 Ao falar com o administrador, informe:
 
-- O **nome da rota** afetada (visível em **Operação → Roteamento**).
+- O **nome da rota** afetada (visível em **Roteia → Rotas**).
 - O **destino** que deveria receber os eventos.
 - A **contagem de eventos desviados** observada no Dashboard e desde quando ela está subindo.
 - Se o desvio atinge **uma rota ou todas** as rotas da organização.
@@ -122,7 +122,7 @@ Isso é **esperado e correto** — nenhuma ação é necessária.
 Antes de colocar uma rota com redação de PII em produção:
 
 - **Crie e edite a redação sempre pela tela** de criação/edição da rota (veja o Sintoma 2). A tela valida antes de salvar; é o caminho que não deixa passar uma especificação inválida. Quando a rota vier de uma importação de pacote de configuração ou de uma chamada de API, abra-a na tela depois e salve uma vez para confirmar que ela é válida.
-- **Teste com volume pequeno** usando o modo canário da rota (uma fração baixa do tráfego), em **Operação → Roteamento**, antes de direcionar todo o fluxo.
+- **Teste com volume pequeno** usando o modo canário da rota (uma fração baixa do tráfego), em **Roteia → Rotas**, antes de direcionar todo o fluxo.
 - **Acompanhe o Dashboard** em **Visão geral → Dashboard** para confirmar que os eventos estão chegando ao destino e que o contador de desvio não está subindo.
 
 > A redação de PII vem ligada por padrão. Se, mesmo assim, você quiser confirmar que ninguém a desligou no seu ambiente (`PII_REDACTION_ENABLED=false`), peça ao administrador da plataforma — é uma variável definida no deploy, fora da interface.
@@ -131,7 +131,7 @@ Antes de colocar uma rota com redação de PII em produção:
 
 Se o problema continuar depois das verificações acima, reúna as informações visíveis na interface e envie ao administrador da plataforma ou ao suporte:
 
-- O **nome da rota** afetada (em **Operação → Roteamento**).
+- O **nome da rota** afetada (em **Roteia → Rotas**).
 - O **destino** que deveria receber os eventos.
 - A **contagem de eventos desviados** mostrada no Dashboard e há quanto tempo ela está crescendo.
 - A **mensagem de erro exibida na tela**, caso o problema seja ao salvar a rota (Sintoma 2).

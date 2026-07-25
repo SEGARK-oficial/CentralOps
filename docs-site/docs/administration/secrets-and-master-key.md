@@ -15,7 +15,7 @@ Toda integração conectada ao CentralOps (Sophos, Wazuh, etc.) precisa de crede
 | Cenário | O que fazer |
 |---------|-------------|
 | Um Client Secret da Sophos vazou em um canal de chat e precisa ser invalidado | Gere uma credencial nova no painel do fornecedor e substitua o segredo pela tela de edição da integração (ver abaixo). |
-| Durante uma auditoria de SOC você precisa confirmar quais integrações têm credencial configurada e quando foram atualizadas | Use a lista de integrações em **Visão geral -> Integrações** para conferir o estado das credenciais. |
+| Durante uma auditoria de SOC você precisa confirmar quais integrações têm credencial configurada e quando foram atualizadas | Use a lista de integrações em **Coleta -> Integrações** para conferir o estado das credenciais. |
 | Um analista relata que uma integração parou de coletar logo após a troca de uma senha no fornecedor | Edite a integração e regrave a credencial atualizada; o CentralOps testa a conexão antes de salvar. |
 
 ## Como suas credenciais ficam protegidas
@@ -46,7 +46,7 @@ Os campos sensíveis de cada integração são protegidos, tanto nas colunas da 
 
 ## Conferir quais integrações têm credenciais
 
-1. Acesse o menu **Visão geral -> Integrações**.
+1. Acesse o menu **Coleta -> Integrações**.
 2. A lista mostra cada integração e seu estado de conexão.
 3. Para cada integração você consegue identificar se a credencial está configurada e quando foi atualizada pela última vez.
 
@@ -57,7 +57,7 @@ Você nunca verá o valor do segredo — apenas a indicação de que ele existe.
 Use este procedimento sempre que uma credencial vazar ou precisar ser renovada (por exemplo, um Client Secret que apareceu em um canal de chat).
 
 1. **No painel do fornecedor**, gere uma credencial nova (ex.: um novo Client Secret na Sophos). Isso invalida a credencial antiga na origem.
-2. No CentralOps, acesse **Visão geral -> Integrações** e abra a integração afetada.
+2. No CentralOps, acesse **Coleta -> Integrações** e abra a integração afetada.
 3. Use a opção de **editar** a integração.
 4. Preencha o novo segredo no formulário de edição.
 5. Salve.
@@ -98,7 +98,7 @@ Para fins de auditoria, vale registrar que:
 
 - As credenciais de integração ficam **criptografadas em repouso** (todas as colunas acima).
 - O valor das credenciais **nunca é exibido** na interface.
-- Trocas de credencial e ações administrativas relacionadas ficam registradas no **Histórico** (menu **Operação -> Histórico**).
+- Trocas de credencial e ações administrativas relacionadas ficam registradas no **Histórico** (menu **Visão geral -> Histórico**).
 - Se Vault está ativo (Fase 2+), cada leitura de segredo aparece em **Vault audit log** com identidade do serviço e timestamp.
 
 Os detalhes técnicos do padrão de criptografia usado pela plataforma são definidos pela equipe de infraestrutura no deploy. Se um auditor pedir essas evidências técnicas, fale com o administrador da plataforma.

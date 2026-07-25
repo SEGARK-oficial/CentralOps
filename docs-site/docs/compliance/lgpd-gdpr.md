@@ -28,7 +28,7 @@ Isso é configurado por **regra de mascaramento** dentro de cada rota. O evento 
 
 ### Como configurar
 
-1. Vá em **Operação → Roteamento**.
+1. Vá em **Roteia → Rotas**.
 2. Abra a rota que entrega ao destino que deve receber dados mascarados (por exemplo, a rota do SIEM).
 3. Na configuração da rota, adicione as regras de mascaramento. Para cada campo pessoal, escolha:
 
@@ -65,7 +65,7 @@ Quando um cliente pede a exclusão dos seus dados, você apaga **toda a organiza
 
 ### Passo a passo
 
-1. **Abra a organização.** Vá em **Visão geral → Organizações** e localize a organização a apagar.
+1. **Abra a organização.** Vá em **Administração → Organizações** e localize a organização a apagar.
 2. **Inicie o pedido de exclusão.** Dentro da organização, acione a opção de apagar/expurgar os dados. Um aviso de confirmação aparece informando que a ação é irreversível e listando o que será removido (eventos, rotas, destinos, usuários e mapeamentos).
 3. **Confirme as condições.** Marque que você tem backup (se aplicável) e que notificou o cliente.
 4. **Digite a confirmação exata.** Para evitar exclusão acidental, o sistema pede que você digite uma frase de confirmação exatamente como mostrada (incluindo o identificador da organização). Se digitar errado, a operação é cancelada por segurança.
@@ -112,7 +112,7 @@ Quando todos os destinos puderam ser limpos, o trabalho termina como **concluíd
 
 ## Acompanhar e confirmar a exclusão
 
-Acompanhe o andamento pela tela de detalhes do trabalho de exclusão, dentro de **Visão geral → Organizações**. Lá você vê:
+Acompanhe o andamento pela tela de detalhes do trabalho de exclusão, dentro de **Administração → Organizações**. Lá você vê:
 
 - O **status** atual (pendente, em execução, concluído ou parcial).
 - O **progresso** das etapas (quais já terminaram).
@@ -136,7 +136,7 @@ Na tela de detalhes do trabalho, baixe o **log de auditoria da exclusão**. Ele 
 ### Cliente cancela o contrato
 
 1. Documente o pedido (guarde o e-mail do cliente).
-2. Vá em **Visão geral → Organizações** e abra a organização.
+2. Vá em **Administração → Organizações** e abra a organização.
 3. Inicie o pedido de exclusão e siga o passo a passo de confirmação.
 4. Aguarde a conclusão (normalmente menos de 1 hora).
 5. Confira o resultado por destino na tela do trabalho.
@@ -153,7 +153,7 @@ Na tela de detalhes do trabalho, baixe o **log de auditoria da exclusão**. Ele 
 
 ### Minimização — SIEM mascarado, lago de dados completo
 
-1. Em **Operação → Roteamento**, crie ou abra a rota do SIEM e configure as regras de mascaramento (por exemplo, pseudonimizar o e-mail e mascarar parcialmente o IP).
+1. Em **Roteia → Rotas**, crie ou abra a rota do SIEM e configure as regras de mascaramento (por exemplo, pseudonimizar o e-mail e mascarar parcialmente o IP).
 2. Mantenha a rota do lago de dados **sem** regras de mascaramento.
 3. Resultado: o lago recebe e-mail e IP completos; o SIEM recebe o e-mail pseudonimizado e o IP parcial.
 

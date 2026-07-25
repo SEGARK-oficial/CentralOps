@@ -20,9 +20,9 @@ Todo evento percorre três momentos. Cada estágio tem uma tela própria onde vo
 
 | Estágio | O que acontece | Onde acompanhar na interface |
 |---------|----------------|------------------------------|
-| **1. Coletar** | O CentralOps busca os eventos nas APIs dos fornecedores (por exemplo, Sophos Central) de forma contínua, sem reprocessar o que já foi visto. | Menu **Visão geral -> Integrações** e **Operação -> Collectors** |
-| **2. Normalizar** | Cada evento bruto é convertido para o formato padrão da plataforma, aplicando as regras de mapeamento que você definiu. | Menu **Normalização -> Mappings** |
-| **3. Entregar** | O evento padronizado é roteado e enviado aos destinos configurados. Um mesmo evento pode ir para vários destinos ao mesmo tempo, ser descartado de propósito ou cair na rota padrão. | Menu **Operação -> Fluxo de dados** e **Operação -> Destinos** (somente administrador) |
+| **1. Coletar** | O CentralOps busca os eventos nas APIs dos fornecedores (por exemplo, Sophos Central) de forma contínua, sem reprocessar o que já foi visto. | Menu **Coleta -> Integrações** e **Coleta -> Coletores** |
+| **2. Normalizar** | Cada evento bruto é convertido para o formato padrão da plataforma, aplicando as regras de mapeamento que você definiu. | Menu **Normaliza -> Mapeamentos** |
+| **3. Entregar** | O evento padronizado é roteado e enviado aos destinos configurados. Um mesmo evento pode ir para vários destinos ao mesmo tempo, ser descartado de propósito ou cair na rota padrão. | Menu **Roteia -> Fluxo de dados** e **Roteia -> Destinos** (somente administrador) |
 
 Você gerencia tudo isso pela interface. O processamento em segundo plano que move os eventos entre os estágios é dimensionado e mantido pela equipe de infraestrutura — você não precisa configurá-lo.
 
@@ -36,7 +36,7 @@ Pontos importantes:
 - Eventos em tempo real (como alertas) são priorizados sobre coletas mais pesadas (como auditoria e recoleta histórica), para que um trabalho grande não atrase os alertas urgentes.
 - Duplicados são removidos automaticamente: se o mesmo evento for buscado mais de uma vez, ele entra uma única vez.
 
-**Onde acompanhar:** menu **Visão geral -> Integrações** mostra cada integração com status (saudável, atenção, erro) e a data da última coleta. O menu **Operação -> Collectors** detalha a atividade de coleta por fornecedor.
+**Onde acompanhar:** menu **Coleta -> Integrações** mostra cada integração com status (saudável, atenção, erro) e a data da última coleta. O menu **Coleta -> Coletores** detalha a atividade de coleta por fornecedor.
 
 ## Estágio 2 — Normalizar
 
@@ -44,10 +44,10 @@ Cada evento bruto chega em um formato diferente, próprio de cada fornecedor. A 
 
 Quando a normalização encontra um problema, o CentralOps nunca descarta o evento em silêncio. Ele sinaliza em uma de duas telas:
 
-- **Quarentena** (menu **Normalização -> Quarentena**) — eventos que não passaram na validação, por exemplo por falta de um campo obrigatório. Você revisa, corrige a regra e reprocessa.
-- **Campos novos detectados** (menu **Normalização -> Drift Explorer**) — campos que o fornecedor passou a enviar e que as regras atuais ainda não cobrem. O evento continua sendo entregue, mas com menos contexto até você ajustar o mapeamento.
+- **Quarentena** (menu **Normaliza -> Quarentena**) — eventos que não passaram na validação, por exemplo por falta de um campo obrigatório. Você revisa, corrige a regra e reprocessa.
+- **Campos novos detectados** (menu **Normaliza -> Drift**) — campos que o fornecedor passou a enviar e que as regras atuais ainda não cobrem. O evento continua sendo entregue, mas com menos contexto até você ajustar o mapeamento.
 
-**Onde acompanhar:** menu **Normalização -> Mappings** para as regras, e a tela **Saúde do Pipeline** (também em **Normalização**) para a taxa de processamento.
+**Onde acompanhar:** menu **Normaliza -> Mapeamentos** para as regras, e a tela **Saúde do pipeline** (no grupo **Visão geral**) para a taxa de processamento.
 
 ## Estágio 3 — Entregar
 
@@ -61,13 +61,13 @@ Se um destino fica indisponível, os eventos não são perdidos: eles entram em 
 
 **Onde acompanhar:**
 
-- Menu **Operação -> Fluxo de dados** (somente administrador) — visão completa do caminho dos eventos, dos fornecedores até cada destino, com volume ao vivo.
-- Menu **Operação -> Roteamento** (somente administrador) — as regras que decidem para onde cada evento vai.
-- Menu **Operação -> Destinos** (somente administrador) — os destinos configurados e o status de cada um, incluindo a fila de reenvio.
+- Menu **Roteia -> Fluxo de dados** (somente administrador) — visão completa do caminho dos eventos, dos fornecedores até cada destino, com volume ao vivo.
+- Menu **Roteia -> Rotas** (somente administrador) — as regras que decidem para onde cada evento vai.
+- Menu **Roteia -> Destinos** (somente administrador) — os destinos configurados e o status de cada um, incluindo a fila de reenvio.
 
 ### Destinos suportados
 
-O CentralOps entrega para vários tipos de destino. A configuração de cada um é feita na tela **Operação -> Destinos** (somente administrador):
+O CentralOps entrega para vários tipos de destino. A configuração de cada um é feita na tela **Roteia -> Destinos** (somente administrador):
 
 - Wazuh Manager e outros receptores Syslog (este é o destino padrão)
 - Splunk
@@ -94,11 +94,11 @@ Quando usar:
 - Correlacionar eventos de múltiplas fontes durante o mesmo período.
 - Consultar dados históricos guardados no data lake sem reimportar.
 
-Onde usar: menu **Operação -> Busca federada**.
+Onde usar: menu **Detecta -> Busca federada**.
 
 **Detecções:** resultados interessantes da busca federada (ou triggers automáticos de regras de correlação) viram detecções — elementos que você triou como relevantes (aberto, confirmado, fechado). Cada detecção rastreia de qual fonte veio, a severidade, quantas vezes o padrão apareceu e por quanto tempo deve ser suprimida.
 
-Onde ver: menu **Operação -> Detecções**.
+Onde ver: menu **Detecta -> Detecções**.
 
 ### Correlação cross-source (Regras de correlação)
 
@@ -106,11 +106,11 @@ Você pode definir regras que procuram padrões em múltiplas fontes — por exe
 
 Hoje há suporte a correlação de **limite** (threshold): "X eventos com campo Y em janela de tempo Z". Correlações mais complexas (sequência, agregação) estão no roadmap.
 
-Onde usar: menu **Conhecimento -> Correlação**.
+Onde usar: menu **Detecta -> Correlação**.
 
 ## Onde olhar quando algo está lento ou falhando
 
-A tela **Normalização -> Saúde do Pipeline** é o primeiro lugar para diagnosticar problemas de fluxo. Ela mostra, em um só painel:
+A tela **Visão geral -> Saúde do pipeline** é o primeiro lugar para diagnosticar problemas de fluxo. Ela mostra, em um só painel:
 
 - O status de cada integração (saudável, atenção, erro), a última coleta e a taxa de eventos por minuto.
 - O estado do processamento em segundo plano (online ou com atraso).
@@ -120,10 +120,10 @@ Use o quadro abaixo para identificar onde está o problema:
 
 | Sintoma | Estágio provável | Onde investigar |
 |---------|------------------|-----------------|
-| Eventos demoram a aparecer; acúmulo crescente na coleta | Coleta | **Saúde do Pipeline** e **Integrações** |
-| Eventos caindo em quarentena | Normalização | **Normalização -> Quarentena** |
-| Muitos campos novos sinalizados | Normalização | **Normalização -> Drift Explorer** |
-| Um destino não recebe; fila de reenvio crescendo | Entrega | **Operação -> Destinos** e **Roteamento** |
+| Eventos demoram a aparecer; acúmulo crescente na coleta | Coleta | **Visão geral -> Saúde do pipeline** e **Coleta -> Integrações** |
+| Eventos caindo em quarentena | Normalização | **Normaliza -> Quarentena** |
+| Muitos campos novos sinalizados | Normalização | **Normaliza -> Drift** |
+| Um destino não recebe; fila de reenvio crescendo | Entrega | **Roteia -> Destinos** e **Roteia -> Rotas** |
 
 > Se o acúmulo continua crescendo mesmo sem nenhum erro nas telas acima, pode ser falta de capacidade no processamento em segundo plano. Esse dimensionamento é gerenciado pela equipe de infraestrutura — registre o que você viu na tela de **Saúde do Pipeline** e fale com o administrador da plataforma.
 
@@ -131,14 +131,14 @@ Use o quadro abaixo para identificar onde está o problema:
 
 O CentralOps mostra o que está acontecendo de duas formas:
 
-- **Dentro do produto.** A tela **Normalização -> Saúde do Pipeline** reúne a vazão por destino, as tentativas de entrega (sucesso e falha) e o estado geral do pipeline. É o que você usa no dia a dia.
+- **Dentro do produto.** A tela **Visão geral -> Saúde do pipeline** reúne a vazão por destino, as tentativas de entrega (sucesso e falha) e o estado geral do pipeline. É o que você usa no dia a dia.
 - **Integração com sua plataforma de observabilidade.** O CentralOps também pode enviar métricas e rastreamento de eventos (do início ao fim do fluxo) para uma ferramenta externa, como Datadog, Grafana ou Honeycomb. Essa conexão é definida pela equipe de infraestrutura no momento do deploy. Se precisar habilitá-la ou alterá-la, fale com o administrador da plataforma.
 
 ## Garantias do pipeline
 
 - **Coletar duas vezes é seguro.** Cada evento é identificado de forma única; coletas repetidas não geram duplicados.
 - **Ordem preservada por integração.** Dentro de uma mesma integração, os eventos mantêm a ordem temporal. Não há ordenação entre fornecedores diferentes.
-- **Nenhuma perda silenciosa.** Um evento que falha sempre aparece em uma tela: **Quarentena** (falha de validação), **Drift Explorer** (campos novos) ou na fila de reenvio (destino indisponível). Você sempre tem onde olhar.
+- **Nenhuma perda silenciosa.** Um evento que falha sempre aparece em uma tela: **Quarentena** (falha de validação), **Drift** (campos novos) ou na fila de reenvio (destino indisponível). Você sempre tem onde olhar.
 - **Entrega confiável aos destinos.** Em caso de falha de rede, um evento pode ser reenviado; os destinos eliminam eventuais duplicatas para que cada evento conte uma vez só.
 
 ## Próximos passos
@@ -150,7 +150,7 @@ O CentralOps mostra o que está acontecendo de duas formas:
 - **Consultar dados históricos do data lake** -> [Busca no lake (search-in-place)](../operations/federated-search.md)
 - **Definir regras de correlação** -> [Regras de correlação](../operations/correlation-rules.md)
 - **Recoleta histórica de eventos** -> [Recoleta histórica](../pipelines/backfill.md)
-- **Tratar campos novos detectados** -> [Drift Explorer](../pipelines/drift.md)
+- **Tratar campos novos detectados** -> [Drift](../pipelines/drift.md)
 
 ---
 

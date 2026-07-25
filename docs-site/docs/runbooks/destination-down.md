@@ -8,13 +8,13 @@ description: "Como identificar e recuperar um destino (Splunk, Elasticsearch, S3
 
 Quando um destino externo para de receber eventos, o CentralOps deixa de entregar os dados para ele, ativa a **proteção contra destino instável** e guarda os eventos não entregues na **fila de reenvio**. Esta página explica como reconhecer essa situação na interface, descobrir a causa e recolocar o destino no ar.
 
-> A configuração de destinos só aparece para administradores da plataforma, no menu **Operação → Destinos**.
+> A configuração de destinos só aparece para administradores da plataforma, no menu **Roteia → Destinos**.
 
 ## Quando usar
 
 Use esta página quando notar qualquer um destes sinais na interface:
 
-- Um destino aparece com **badge vermelho** ("indisponível") ou amarelo ("degradado") na tela **Operação → Destinos**.
+- Um destino aparece com **badge vermelho** ("indisponível") ou amarelo ("degradado") na tela **Roteia → Destinos**.
 - A **fila de reenvio** de um destino (Splunk, Elasticsearch, S3, Sentinel, Kafka ou OTLP) está crescendo e não drena.
 - O botão de **testar conexão** do destino falha.
 
@@ -28,7 +28,7 @@ Cenários reais de SOC:
 
 ## Passo 1 — Confirme a falha na interface
 
-1. Abra **Operação → Destinos**.
+1. Abra **Roteia → Destinos**.
 2. Clique no destino com problema.
 3. Veja o **status de saúde** do destino. Os estados possíveis são:
 
@@ -50,17 +50,17 @@ Na tela do destino, abra a **fila de reenvio** e veja qual tipo de rejeição pr
 | Excesso de requisições | O destino está recebendo mais do que aguenta | Reduza a velocidade de envio do destino (Passo 3). |
 | Tempo de resposta esgotado | O destino ou a rede está lento/indisponível | Verifique a disponibilidade do destino com a equipe responsável. |
 | Carga muito grande | Os lotes de eventos estão acima do limite aceito pelo destino | Reduza a velocidade de envio ou ajuste o limite do destino. |
-| Formato/esquema rejeitado | O formato dos eventos não bate com o esperado pelo destino | Ajuste o mapeamento (menu **Normalização → Mappings**) e confira a saúde do pipeline. |
+| Formato/esquema rejeitado | O formato dos eventos não bate com o esperado pelo destino | Ajuste o mapeamento (menu **Normaliza → Mapeamentos**) e confira a saúde do pipeline. |
 
 ## Passo 3 — Corrija conforme o tipo de destino
 
-Todas as correções abaixo são feitas na tela do destino, em **Operação → Destinos**. Selecione o destino e edite a configuração indicada.
+Todas as correções abaixo são feitas na tela do destino, em **Roteia → Destinos**. Selecione o destino e edite a configuração indicada.
 
 ### Credencial expirada (qualquer destino)
 
 Esse é o caso mais comum quando a rejeição é de **autenticação**.
 
-1. Abra o destino em **Operação → Destinos**.
+1. Abra o destino em **Roteia → Destinos**.
 2. Vá até a área de **credenciais** do destino.
 3. Use a opção de **girar/atualizar credencial** e cole o novo valor (token do Splunk, chave de acesso da AWS, usuário e senha do Kafka, etc.).
 4. Salve e use o botão de **testar conexão** para confirmar.
@@ -69,7 +69,7 @@ Esse é o caso mais comum quando a rejeição é de **autenticação**.
 
 Quando o destino está sobrecarregado (rejeições por **excesso de requisições**, **tempo esgotado** ou **carga muito grande**):
 
-1. Abra o destino em **Operação → Destinos** e edite-o.
+1. Abra o destino em **Roteia → Destinos** e edite-o.
 2. Reduza a **velocidade de envio** (número de envios simultâneos) do destino para um valor menor.
 3. Salve e teste novamente. Aumente a velocidade aos poucos quando o destino estabilizar.
 
@@ -85,7 +85,7 @@ Quando o destino está sobrecarregado (rejeições por **excesso de requisiçõe
 - Erros comuns: autenticação, excesso de requisições, formato/esquema rejeitado.
 - Se a credencial expirou, gire-a no destino.
 - Em caso de **excesso de requisições**, reduza a velocidade de envio.
-- Em caso de **formato/esquema rejeitado**, verifique o mapeamento em **Normalização → Mappings** e a saúde do pipeline em **Normalização → Saúde do Pipeline**. Se o cluster estiver com problema de índice, acione a equipe responsável pelo Elasticsearch.
+- Em caso de **formato/esquema rejeitado**, verifique o mapeamento em **Normaliza → Mapeamentos** e a saúde do pipeline em **Visão geral → Saúde do pipeline**. Se o cluster estiver com problema de índice, acione a equipe responsável pelo Elasticsearch.
 
 ### S3
 
@@ -99,7 +99,7 @@ Quando o destino está sobrecarregado (rejeições por **excesso de requisiçõe
 - O CentralOps renova o acesso automaticamente. Se a falha de autenticação persistir, confira no destino o endereço e a regra de coleta configurados.
 - Se a rejeição for de **regra de coleta inválida**, a regra pode ter sido renomeada ou removida no portal da Azure:
   1. Peça à equipe de nuvem para confirmar, no portal da Azure, que a regra de coleta existe e está habilitada, e para fornecer o identificador atualizado.
-  2. Em **Operação → Destinos**, edite o destino Sentinel, atualize o identificador da regra de coleta e salve.
+  2. Em **Roteia → Destinos**, edite o destino Sentinel, atualize o identificador da regra de coleta e salve.
 
 ### Kafka
 
@@ -116,7 +116,7 @@ Quando o destino está sobrecarregado (rejeições por **excesso de requisiçõe
 ## Passo 4 — Teste e acompanhe a recuperação
 
 1. Use o botão de **testar conexão** do destino. Se passar, o destino está respondendo novamente.
-2. Acompanhe o destino por alguns minutos em **Operação → Destinos**:
+2. Acompanhe o destino por alguns minutos em **Roteia → Destinos**:
    - O status deve voltar para **saudável**.
    - A **fila de reenvio** deve começar a drenar (a contagem cai conforme os eventos guardados são reenviados).
 
@@ -126,9 +126,9 @@ Quando o destino está sobrecarregado (rejeições por **excesso de requisiçõe
 
 Para reduzir a chance de um destino cair sem aviso:
 
-- **Teste a conexão periodicamente.** Use o botão de **testar conexão** em **Operação → Destinos** de tempos em tempos, especialmente em destinos cujas credenciais expiram (tokens de curta duração, chaves rotacionadas pela equipe de nuvem).
-- **Monitore a fila de reenvio.** Acompanhe em **Operação → Destinos** se a fila de algum destino está crescendo. Uma fila que sobe de forma constante é o primeiro sinal de um destino com problema.
-- **Acompanhe a saúde do pipeline.** A tela **Normalização → Saúde do Pipeline** mostra a saúde geral da entrega e ajuda a identificar destinos degradados antes de uma queda completa.
+- **Teste a conexão periodicamente.** Use o botão de **testar conexão** em **Roteia → Destinos** de tempos em tempos, especialmente em destinos cujas credenciais expiram (tokens de curta duração, chaves rotacionadas pela equipe de nuvem).
+- **Monitore a fila de reenvio.** Acompanhe em **Roteia → Destinos** se a fila de algum destino está crescendo. Uma fila que sobe de forma constante é o primeiro sinal de um destino com problema.
+- **Acompanhe a saúde do pipeline.** A tela **Visão geral → Saúde do pipeline** mostra a saúde geral da entrega e ajuda a identificar destinos degradados antes de uma queda completa.
 - **Mantenha as credenciais em dia.** Combine com as equipes donas dos destinos (Splunk, nuvem, Kafka) um aviso antes de rotacionar credenciais, para girar a credencial no CentralOps na mesma janela.
 
 > O envio automático de notificações (Slack, e-mail) quando a fila de reenvio passa de um limite está no roadmap e ainda não está disponível na interface. Por enquanto, use o acompanhamento manual descrito acima.

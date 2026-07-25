@@ -44,7 +44,7 @@ Gráfico com o volume de eventos processados por minuto nas últimas 24 horas. P
 
 ### Saúde da coleta
 
-Resumo do estado das suas integrações. Clique para abrir o detalhamento por fonte em **Visão geral -> Integrações**.
+Resumo do estado das suas integrações. Clique para abrir o detalhamento por fonte em **Coleta -> Integrações**.
 
 | Cor | Situação |
 |---|---|
@@ -54,7 +54,7 @@ Resumo do estado das suas integrações. Clique para abrir o detalhamento por fo
 
 ### Eventos em quarentena
 
-Quantidade de eventos que ficaram retidos porque não puderam ser interpretados ou mapeados (por exemplo, depois de uma mudança na API de um fornecedor). Clique para abrir a tela **Normalização -> Quarentena** e tratar a fila.
+Quantidade de eventos que ficaram retidos porque não puderam ser interpretados ou mapeados (por exemplo, depois de uma mudança na API de um fornecedor). Clique para abrir a tela **Normaliza -> Quarentena** e tratar a fila.
 
 | Cor | Faixa | Leitura |
 |---|---|---|
@@ -72,7 +72,7 @@ Lista dos eventos mais recentes, com horário, fonte, severidade e um título cu
 
 ### Destinos e saúde agregada
 
-Mostra quantos destinos estão ativos e o estado geral da entrega. Clique para abrir **Operação -> Destinos**, onde cada destino tem seu próprio indicador. (A tela **Destinos** aparece apenas para administradores.)
+Mostra quantos destinos estão ativos e o estado geral da entrega. Clique para abrir **Roteia -> Destinos**, onde cada destino tem seu próprio indicador. (A tela **Destinos** aparece apenas para administradores.)
 
 | Estado | O que significa |
 |---|---|
@@ -103,9 +103,9 @@ Clique para abrir a fila e filtrar pelo destino e pelo tipo de erro (por exemplo
 
 Mostra quantas regras de roteamento estão ativas e o volume de eventos que passou por cada uma nas últimas 24h. Se não houver nenhuma regra ativa, os eventos seguem para o destino marcado como padrão da organização — e, na ausência dele, vão para a fila de reenvio em vez de serem perdidos.
 
-Clique para abrir **Operação -> Roteamento**, onde é possível ajustar as condições e os destinos de cada rota. (As telas **Roteamento** e **Fluxo de dados** aparecem apenas para administradores.)
+Clique para abrir **Roteia -> Rotas**, onde é possível ajustar as condições e os destinos de cada rota. (As telas **Rotas** e **Fluxo de dados** aparecem apenas para administradores.)
 
-> Não existe liga/desliga global do roteamento: as regras de rota são sempre o caminho de despacho dos eventos. O que se ativa ou desativa é cada rota individualmente, na tela **Operação -> Roteamento**.
+> Não existe liga/desliga global do roteamento: as regras de rota são sempre o caminho de despacho dos eventos. O que se ativa ou desativa é cada rota individualmente, na tela **Roteia -> Rotas**.
 
 ## Fluxos de trabalho
 
@@ -116,13 +116,13 @@ Clique para abrir **Operação -> Roteamento**, onde é possível ajustar as con
 3. Confira **Saúde da coleta** para identificar a fonte com problema.
 4. Revise **Últimos eventos normalizados** para identificar a fonte e o padrão.
 5. Se houver muitos eventos em quarentena, vá para [Quarentena](./quarantine.md).
-6. Para investigar eventos específicos, use **Operação -> Investigações** ([busca de eventos](./search.md)).
+6. Para investigar eventos específicos, pesquise no destino que os recebeu. Veja [onde pesquisar eventos](./search.md).
 
 ### Verificação de entrega
 
 1. Olhe **Destinos e saúde agregada**. Há algum destino indisponível?
 2. Se sim:
-   - Abra **Operação -> Destinos** e selecione o destino.
+   - Abra **Roteia -> Destinos** e selecione o destino.
    - Use a ação de testar conexão para validar a conectividade e a credencial.
    - Se o teste falhar, rotacione a credencial ou acione o responsável pelo destino. Veja [Operar destinos](../outputs/destination-operations.md).
 3. Se a fila de reenvio estiver acima de zero:
@@ -133,19 +133,19 @@ Clique para abrir **Operação -> Roteamento**, onde é possível ajustar as con
 
 ### Monitoramento contínuo
 
-- **Início do turno:** confira o **funil do pipeline** e a **saúde da coleta** para saber se os eventos fluíram normalmente durante a madrugada; para triagem de detecções, vá a **Operação -> Detecções**.
+- **Início do turno:** confira o **funil do pipeline** e a **saúde da coleta** para saber se os eventos fluíram normalmente durante a madrugada; para triagem de detecções, vá a **Detecta -> Detecções**.
 - **Ao longo do dia:** verifique se a taxa de eventos está dentro do normal, se todos os destinos estão saudáveis e se a fila de reenvio não está crescendo.
 - **Sinal de alerta:** se a fila de reenvio começa a crescer ou destinos passam a Degradado/Indisponível, investigue imediatamente — geralmente é credencial expirada, rede ou destino fora do ar.
 
 ## Limitações
 
-- O Dashboard mostra apenas as **últimas 24 horas**. Para outras janelas de tempo, use a tela **Operação -> Investigações** ([busca de eventos](./search.md)).
+- O Dashboard mostra apenas as **últimas 24 horas**. Para outras janelas de tempo, pesquise no destino. Veja [onde pesquisar eventos](./search.md).
 - Os dados são atualizados aproximadamente **a cada minuto**, não em tempo real instantâneo.
-- As agregações são por fonte (entrada) e por destino (saída). Para recortes personalizados — por exemplo, por fornecedor ou por organização — use a busca de eventos em **Operação -> Investigações** e exporte o resultado.
+- As agregações são por fonte (entrada) e por destino (saída). Para recortes personalizados, por exemplo por fornecedor ou por organização, pesquise no destino. Veja [onde pesquisar eventos](./search.md).
 
 ## Próximos passos
 
 - **Muitos eventos em quarentena?** Vá para [Quarentena](./quarantine.md) e depois para o [guia de solução de problemas de normalização](../normalization/troubleshooting.md).
 - **Destino indisponível ou fila de reenvio crescendo?** Vá para [Operar destinos](../outputs/destination-operations.md).
 - **Ajustar regras de roteamento?** Vá para [Roteamento](../outputs/routing.md).
-- **Busca avançada e histórico?** Use a tela **Operação -> Investigações** ([busca de eventos](./search.md)).
+- **Busca avançada e histórico?** Veja [onde pesquisar eventos](./search.md).

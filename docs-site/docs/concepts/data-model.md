@@ -27,7 +27,7 @@ Uma organização separa completamente os dados de cada cliente ou unidade. Quem
 - Em uma operação interna, normalmente há uma única organização.
 - Em uma operação de MSSP (atendendo vários clientes), cria-se uma organização por cliente.
 
-Onde mexer: menu **Visão geral -> Organizações** (visível apenas para administradores). Ali o administrador cria, renomeia e gerencia as organizações.
+Onde mexer: menu **Administração -> Organizações** (visível apenas para administradores). Ali o administrador cria, renomeia e gerencia as organizações.
 
 ### Hierarquia de tenants
 
@@ -42,7 +42,7 @@ Nessa hierarquia:
 
 Essa separação hierárquica mantém os dados isolados mesmo dentro de uma árvore: cada organização permanece um container seguro de dados. O que muda é a **visibilidade operacional** — um reseller pode monitorar e gerenciar seus clientes de forma centralizada.
 
-Onde mexer: a hierarquia e os limites são gerenciados no menu **Visão geral -> Organizações** (somente administradores globais ou resellers com permissão).
+Onde mexer: a hierarquia e os limites são gerenciados no menu **Administração -> Organizações** (somente administradores globais ou resellers com permissão).
 
 ### Integração
 
@@ -56,7 +56,7 @@ O que você vê em cada integração:
 
 As credenciais ficam guardadas de forma criptografada. Você nunca vê senhas, tokens ou segredos em texto puro na interface.
 
-Onde mexer: menu **Visão geral -> Integrações**.
+Onde mexer: menu **Coleta -> Integrações**.
 
 ### Destino
 
@@ -74,7 +74,7 @@ Exemplos de destinos suportados:
 
 Cada destino tem seu próprio histórico de alterações e uma trilha de auditoria: quem mudou o quê e quando. As credenciais de cada destino também ficam criptografadas e nunca aparecem em texto puro — nem na tela, nem no histórico de mudanças.
 
-Onde mexer: menu **Operação -> Destinos** (visível apenas para administradores).
+Onde mexer: menu **Roteia -> Destinos** (visível apenas para administradores).
 
 ### Rota (regra de roteamento)
 
@@ -87,7 +87,7 @@ Como as rotas são avaliadas:
 - É possível liberar uma rota gradualmente para uma fração dos eventos, para testar antes de aplicá-la a tudo.
 - Se nenhuma rota estiver ativa, todos os eventos caem em um destino de segurança padrão. Assim nada se perde silenciosamente.
 
-Onde mexer: menu **Operação -> Roteamento** (visível apenas para administradores). Para visualizar como os eventos estão fluindo da coleta até a entrega, use o menu **Operação -> Fluxo de dados** (também só para administradores).
+Onde mexer: menu **Roteia -> Rotas** (visível apenas para administradores). Para visualizar como os eventos estão fluindo da coleta até a entrega, use o menu **Roteia -> Fluxo de dados** (também só para administradores).
 
 ### Mapping (mapeamento de campos)
 
@@ -100,7 +100,7 @@ Pontos importantes:
 - Você pode voltar para uma versão anterior com um clique.
 - Versões antigas nunca são alteradas, apenas guardadas — isso garante uma trilha confiável.
 
-Onde mexer: menu **Normalização -> Mappings**.
+Onde mexer: menu **Normaliza -> Mapeamentos**.
 
 ### Eventos brutos e eventos normalizados
 
@@ -109,7 +109,7 @@ Estes dois conceitos ajudam a entender o caminho de um evento, mesmo que você r
 - O evento bruto é o evento como chegou do produto de origem, antes de qualquer tratamento. Normalmente ele não aparece na interface — você só o vê quando algo falha e o evento vai para a quarentena.
 - O evento normalizado é o evento já traduzido pelo mapping para o formato único, pronto para ser entregue aos destinos. Só eventos processados com sucesso geram um evento normalizado.
 
-Cada destino registra, em seu próprio histórico, quando recebeu o evento. Você acompanha esse caminho no menu **Operação -> Fluxo de dados** (somente administradores) e revê o que já passou no menu **Operação -> Histórico**.
+Cada destino registra, em seu próprio histórico, quando recebeu o evento. Você acompanha esse caminho no menu **Roteia -> Fluxo de dados** (somente administradores) e revê o que já passou no menu **Visão geral -> Histórico**.
 
 ### Quarentena
 
@@ -122,7 +122,7 @@ O que você pode fazer com um item em quarentena:
 
 Os itens em quarentena ficam guardados por um período limitado e depois são removidos automaticamente.
 
-Onde mexer: menu **Normalização -> Quarentena**.
+Onde mexer: menu **Normaliza -> Quarentena**.
 
 ### Drift (campos novos detectados)
 
@@ -133,13 +133,13 @@ O que você pode fazer com um campo detectado:
 - Ignorar: para de avisar sobre aquele campo.
 - Marcar como tratado: indica que o campo já está sendo cuidado no mapping.
 
-Onde mexer: menu **Normalização -> Drift Explorer**.
+Onde mexer: menu **Normaliza -> Drift**.
 
 ### Saúde do pipeline
 
 A saúde do pipeline reúne, em um só lugar, indicadores de como o fluxo está se comportando: o que está sendo coletado, o que está sendo entregue e onde há problemas. Use essa tela como ponto de partida quando algo parece fora do normal.
 
-Onde mexer: menu **Normalização -> Saúde do Pipeline**.
+Onde mexer: menu **Visão geral -> Saúde do pipeline**.
 
 ### Job de consulta (QueryJob)
 
@@ -157,7 +157,7 @@ O que você pode fazer:
 - Disparar uma nova busca federada selecionando as fontes, escrevendo uma consulta e escolhendo a janela de tempo.
 - Acompanhar o progresso em tempo real — não precisa ficar esperando a conclusão em uma tela; você pode voltar depois via o identificador.
 
-Onde mexer: menu **Operação -> Busca federada**.
+Onde mexer: menu **Detecta -> Busca federada**.
 
 ### Detecção (Detection)
 
@@ -176,7 +176,7 @@ O que você pode fazer:
 - Mudar o status de uma detecção — abrir, reconhecer ou fechar.
 - Investigar o evento associado consultando os destinos onde ele chegou.
 
-Onde mexer: menu **Operação -> Detecções**.
+Onde mexer: menu **Detecta -> Detecções**.
 
 ### Regra de correlação (CorrelationRule)
 
@@ -196,19 +196,19 @@ O que você pode fazer:
 - Salvar histórico e versões da regra.
 - Abrir uma detecção que foi disparada por uma correlação para investigar.
 
-Onde mexer: menu **Conhecimento -> Correlação**.
+Onde mexer: menu **Detecta -> Correlação**.
 
 ### Histórico e trilha de auditoria
 
 O CentralOps registra as ações realizadas — quem fez, o que foi feito, quando e em qual organização — para rastreabilidade e conformidade. Mudanças em rotas e em destinos também ficam registradas, o que permite responder perguntas como "quem alterou esta rota e quando?" e desfazer mudanças voltando a um estado anterior.
 
-Onde acompanhar: menu **Operação -> Histórico**.
+Onde acompanhar: menu **Visão geral -> Histórico**.
 
 ### Sua sessão e seus acessos
 
 Quando você entra na plataforma, é criada uma sessão de uso que expira depois de um tempo, exigindo novo login. Senhas e tokens nunca são guardados em texto puro.
 
-Onde mexer: a gestão de pessoas e acessos fica em **Administração -> Usuários** e **Administração -> Service Accounts**. Para gerar credenciais de uso programático da sua própria conta, vá em **Sua conta -> Tokens de API**.
+Onde mexer: a gestão de pessoas e acessos fica em **Administração -> Usuários** e **Administração -> Contas de serviço**. Para cuidar da sua própria conta, abra o menu do avatar no canto superior direito: **Perfil e segurança** para senha e sessões, e **Tokens de API** para gerar credenciais de uso programático em seu nome.
 
 ## Como tudo se conecta
 
@@ -223,7 +223,7 @@ Em alto nível, o caminho de um evento é:
 
 Tudo isso acontece dentro de uma **organização**, que mantém os dados de cada cliente ou unidade completamente separados.
 
-Para ver esse caminho em funcionamento, em tempo real, use o menu **Operação -> Fluxo de dados** (somente administradores).
+Para ver esse caminho em funcionamento, em tempo real, use o menu **Roteia -> Fluxo de dados** (somente administradores).
 
 ## Retenção: por quanto tempo os dados ficam guardados
 

@@ -42,19 +42,19 @@ Consulte a página de [RBAC](../concepts/rbac.md) para a matriz completa de perm
 
 ## Conceitos-chave
 
-**Integração** — uma ferramenta conectada (por exemplo Sophos Central de uma empresa), com suas credenciais e o estado da coleta. Fica na tela **Visão geral -> Integrações**.
+**Integração** — uma ferramenta conectada (por exemplo Sophos Central de uma empresa), com suas credenciais e o estado da coleta. Fica na tela **Coleta -> Integrações**.
 
-**Mapping** — a regra que converte os eventos brutos para o formato padronizado. As versões ficam guardadas, e você pode voltar para uma versão anterior em um clique. Fica na tela **Normalização -> Mappings**.
+**Mapping** — a regra que converte os eventos brutos para o formato padronizado. As versões ficam guardadas, e você pode voltar para uma versão anterior em um clique. Fica na tela **Normaliza -> Mapeamentos**.
 
-**Quarentena** — eventos que falharam na validação (por exemplo, um campo obrigatório ausente). Você revisa, descarta ou reprocessa depois de corrigir o Mapping. Fica na tela **Normalização -> Quarentena**.
+**Quarentena** — eventos que falharam na validação (por exemplo, um campo obrigatório ausente). Você revisa, descarta ou reprocessa depois de corrigir o Mapping. Fica na tela **Normaliza -> Quarentena**.
 
-**Campos novos detectados (drift)** — campos que um fornecedor passou a enviar e que ainda não estavam previstos. Você pode ignorá-los ou marcá-los como já tratados para deixarem de aparecer. Fica na tela **Normalização -> Drift Explorer**.
+**Campos novos detectados (drift)** — campos que um fornecedor passou a enviar e que ainda não estavam previstos. Você pode ignorá-los ou marcá-los como já tratados para deixarem de aparecer. Fica na tela **Normaliza -> Drift**.
 
-**Organização** — a separação de dados entre clientes. Cada organização tem suas próprias integrações, regras e usuários, sem cruzar dados com outras. Ideal para quem atende vários clientes. Fica na tela **Visão geral -> Organizações** (só admin).
+**Organização** — a separação de dados entre clientes. Cada organização tem suas próprias integrações, regras e usuários, sem cruzar dados com outras. Ideal para quem atende vários clientes. Fica na tela **Administração -> Organizações** (só admin).
 
-**Destino** — para onde os eventos são enviados (por exemplo Wazuh, Splunk ou S3), com suas credenciais, formatação e estado de saúde próprios. É independente da coleta. Fica na tela **Operação -> Destinos** (só admin).
+**Destino** — para onde os eventos são enviados (por exemplo Wazuh, Splunk ou S3), com suas credenciais, formatação e estado de saúde próprios. É independente da coleta. Fica na tela **Roteia -> Destinos** (só admin).
 
-**Rota** — a regra que decide quais eventos vão para quais destinos. Avalia condições, envia para vários destinos ao mesmo tempo e permite ocultar dados sensíveis por rota. Fica na tela **Operação -> Roteamento** (só admin).
+**Rota** — a regra que decide quais eventos vão para quais destinos. Avalia condições, envia para vários destinos ao mesmo tempo e permite ocultar dados sensíveis por rota. Fica na tela **Roteia -> Rotas** (só admin).
 
 ## Próximos passos
 

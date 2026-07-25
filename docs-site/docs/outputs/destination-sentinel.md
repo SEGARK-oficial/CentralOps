@@ -53,7 +53,7 @@ O **client secret** da aplicação é uma credencial sensível. O CentralOps gua
 
 ## Passo 2: Criar o destino no CentralOps
 
-1. No menu **Operação → Destinos**, clique para criar um **novo destino**.
+1. No menu **Roteia → Destinos**, clique para criar um **novo destino**.
 2. No tipo de destino, selecione **Microsoft Sentinel**.
 3. Preencha os campos da configuração:
 
@@ -75,7 +75,7 @@ O **client secret** da aplicação é uma credencial sensível. O CentralOps gua
 
 Criar o destino não envia nada sozinho — você precisa de uma regra de roteamento que diga **quais** eventos vão para ele.
 
-1. No menu **Operação → Roteamento**, crie uma **nova regra**.
+1. No menu **Roteia → Rotas**, crie uma **nova regra**.
 2. Configure:
 
 | Campo | O que informar |
@@ -92,7 +92,7 @@ Criar o destino não envia nada sozinho — você precisa de uma regra de roteam
 
 ### Pela interface do CentralOps
 
-1. Vá em **Normalização → Saúde do Pipeline**.
+1. Vá em **Visão geral → Saúde do pipeline**.
 2. Localize o destino **Sentinel - Produção**.
 3. O status deve aparecer como **ativo** (verde). Se aparecer **inativo/parado**, geralmente a credencial não foi resolvida corretamente — veja a seção [Problemas comuns](#problemas-comuns).
 
@@ -109,13 +109,13 @@ Abra o seu **Log Analytics Workspace** no Azure e consulte a tabela personalizad
 
 ## Problemas comuns
 
-Em todos os casos abaixo, comece pela tela **Normalização → Saúde do Pipeline** para ver o status e a mensagem mais recente do destino.
+Em todos os casos abaixo, comece pela tela **Visão geral → Saúde do pipeline** para ver o status e a mensagem mais recente do destino.
 
 | Sintoma | O que verificar |
 |---------|-----------------|
-| **Destino aparece inativo/parado** | A credencial (client secret) foi selecionada na configuração do destino? Ela ainda existe no cofre de credenciais com o mesmo nome? Reabra o destino em **Operação → Destinos** e confirme a credencial. |
+| **Destino aparece inativo/parado** | A credencial (client secret) foi selecionada na configuração do destino? Ela ainda existe no cofre de credenciais com o mesmo nome? Reabra o destino em **Roteia → Destinos** e confirme a credencial. |
 | **Eventos rejeitados por falha de autenticação** | Tenant ID e Client ID estão corretos (copie diretamente do Azure)? O client secret expirou no Azure? A aplicação tem a função **Monitoring Metrics Publisher** no DCR? Se o secret expirou, gere um novo no Azure e atualize a credencial no cofre. |
-| **Eventos rejeitados por formato/esquema** | O **Stream Name** e o **DCR Immutable ID** informados no destino correspondem exatamente aos do Azure? Corrija o valor no destino. Se o status na Saúde do Pipeline continuar com erro, acione o suporte. |
+| **Eventos rejeitados por formato/esquema** | O **Stream Name** e o **DCR Immutable ID** informados no destino correspondem exatamente aos do Azure? Corrija o valor no destino. Se o status na Saúde do pipeline continuar com erro, acione o suporte. |
 | **Falha de conexão / tempo esgotado** | Pode ser instabilidade temporária de rede — o CentralOps tenta reenviar sozinho. Se persistir, confirme com a equipe de infraestrutura se o endpoint do Azure ainda existe e está acessível a partir do ambiente. |
 | **Limite de taxa (muitos eventos)** | O Azure pode estar limitando o volume. O CentralOps ajusta o ritmo de envio automaticamente. Se o aviso persistir, considere restringir a regra de roteamento para enviar menos eventos, ou verifique os limites de cota do seu workspace no Azure. |
 
@@ -124,5 +124,5 @@ Em todos os casos abaixo, comece pela tela **Normalização → Saúde do Pipeli
 ## Próximos passos
 
 - **Os dados estão chegando?** Acompanhe o volume no menu **Visão geral → Dashboard**.
-- **Eventos parando antes de sair?** Confira o menu **Normalização → Quarentena**.
+- **Eventos parando antes de sair?** Confira o menu **Normaliza → Quarentena**.
 - **Quer adicionar outros destinos?** Veja a [visão geral de destinos](./overview.md).

@@ -32,7 +32,7 @@ Durante uma apuração, você percebe que precisa de eventos de um vendor refere
 
 ## Como iniciar um backfill
 
-1. Vá ao menu **Visão geral -> Integrações**.
+1. Vá ao menu **Coleta -> Integrações**.
 2. Abra a integração da qual você quer recolher o histórico.
 3. Inicie um backfill na própria tela da integração.
 4. Informe o intervalo e a velocidade (veja abaixo) e confirme o início.
@@ -73,7 +73,7 @@ Ao final, a plataforma indica que o backfill foi concluído e quantos eventos fo
 
 ## Acompanhar o progresso
 
-Acompanhe a recoleta pela tela **Normalização -> Saúde do Pipeline**. Lá você vê, para o backfill em andamento:
+Acompanhe a recoleta pela tela **Visão geral -> Saúde do pipeline**. Lá você vê, para o backfill em andamento:
 
 - Se ainda está em execução ou se já terminou.
 - Quantos eventos já foram importados e o percentual concluído.
@@ -118,14 +118,14 @@ Quando o vendor recusa pedidos temporariamente por volume, a plataforma reduz o 
 Um cenário comum é trazer histórico e, depois, querer reaplicar um mapeamento atualizado sobre esses eventos.
 
 1. Rode o backfill do período desejado.
-2. Ajuste o mapeamento da integração em **Normalização -> Mappings**. Eventos novos passam a usar o mapeamento atualizado automaticamente.
-3. Se eventos do histórico ficaram na **Quarentena** (por falha de normalização), reprocesse-os em **Normalização -> Quarentena** depois de ajustar o mapeamento.
+2. Ajuste o mapeamento da integração em **Normaliza -> Mapeamentos**. Eventos novos passam a usar o mapeamento atualizado automaticamente.
+3. Se eventos do histórico ficaram na **Quarentena** (por falha de normalização), reprocesse-os em **Normaliza -> Quarentena** depois de ajustar o mapeamento.
 
 > Eventos do histórico que **já foram normalizados** com um mapeamento anterior não são reaplicados automaticamente quando você muda o mapeamento. Reprocessar em massa eventos já normalizados ainda **não está disponível na interface** — não conte com esse passo hoje. Se você precisa garantir um mapeamento específico sobre todo o histórico, ajuste o mapeamento **antes** de iniciar o backfill.
 
 ## Recolher de várias integrações ao mesmo tempo
 
-Você pode rodar backfills de integrações diferentes em paralelo. Inicie a recoleta em cada integração separadamente, na respectiva tela em **Visão geral -> Integrações**. Elas rodam de forma independente e não competem entre si.
+Você pode rodar backfills de integrações diferentes em paralelo. Inicie a recoleta em cada integração separadamente, na respectiva tela em **Coleta -> Integrações**. Elas rodam de forma independente e não competem entre si.
 
 ## O backfill honra o filtro de coleta
 
@@ -155,10 +155,10 @@ Para entender como destinos e roteamento funcionam, veja [Roteamento e Destinos]
 
 | Sintoma | O que verificar / fazer |
 | --- | --- |
-| O backfill parou antes de concluir | Confira o status em **Normalização -> Saúde do Pipeline**. Pause e retome a recoleta. Se continuar parando, reduza a velocidade. Se persistir, fale com o suporte da plataforma. |
+| O backfill parou antes de concluir | Confira o status em **Visão geral -> Saúde do pipeline**. Pause e retome a recoleta. Se continuar parando, reduza a velocidade. Se persistir, fale com o suporte da plataforma. |
 | A recoleta está muito lenta | Aumente um pouco a velocidade. Se não melhorar, o gargalo provavelmente é a API do vendor — aguarde ou fale com o suporte. |
 | O vendor está recusando pedidos por excesso de chamadas | Reduza a velocidade da recoleta. A plataforma já tenta novamente de forma automática; reduzir o ritmo evita novas recusas. |
-| Muitos eventos do backfill caíram na Quarentena | Revise o mapeamento da integração em **Normalização -> Mappings** e reprocesse os eventos em **Normalização -> Quarentena**. |
+| Muitos eventos do backfill caíram na Quarentena | Revise o mapeamento da integração em **Normaliza -> Mapeamentos** e reprocesse os eventos em **Normaliza -> Quarentena**. |
 
 ## Próximos passos
 

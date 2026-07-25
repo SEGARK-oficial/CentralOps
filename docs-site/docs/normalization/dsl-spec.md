@@ -10,8 +10,8 @@ O editor de mapeamento é onde você ensina o CentralOps a traduzir os eventos d
 
 Você edita os mapeamentos na interface, sem escrever código de infraestrutura. O caminho é:
 
-- Menu **Normalização -> Mappings** para ver e editar todos os mapeamentos.
-- Ou, a partir de um conector específico, em **Visão geral -> Integrações**, abra a integração e vá até a seção de mapeamento dela.
+- Menu **Normaliza -> Mapeamentos** para ver e editar todos os mapeamentos.
+- Ou, a partir de um conector específico, em **Coleta -> Integrações**, abra a integração e vá até a seção de mapeamento dela.
 
 Cada mapeamento tem uma lista de **regras**. Cada regra grava um campo do evento normalizado. Você monta as regras pelo editor e valida o resultado antes de salvar.
 
@@ -19,7 +19,7 @@ Cada mapeamento tem uma lista de **regras**. Cada regra grava um campo do evento
 
 Mexa no editor de mapeamento quando:
 
-- **Um novo fornecedor entrou em produção e os campos chegam "crus".** Você precisa apontar quais campos do produto viram severidade, horário, IP de origem, usuário, etc., para que os eventos apareçam corretos na tela de Investigações.
+- **Um novo fornecedor entrou em produção e os campos chegam "crus".** Você precisa apontar quais campos do produto viram severidade, horário, IP de origem, usuário, etc., para que os eventos cheguem corretos aos destinos, que é onde você depois pesquisa o evento (seu SIEM, data lake ou bucket).
 - **O fornecedor manda severidade como texto e o padrão espera número.** Ex.: o produto envia `high`, `medium`, `low` e o OCSF precisa de `4`, `3`, `2`. Você cria uma tabela de tradução na regra (ver [Tabela de tradução](#tabela-de-tradução-value_map)).
 - **Eventos importantes estão indo parar na Quarentena por falta de um campo crítico.** Você marca o campo como obrigatório para garantir que qualquer evento sem ele seja isolado para revisão em vez de passar pela metade (ver [Campo obrigatório](#campo-obrigatório-required)).
 - **O fornecedor mudou o nome de um campo ou passou a mandar a mesma informação em lugares diferentes.** Você adiciona fontes alternativas para a mesma regra (ver [Fontes alternativas](#fontes-alternativas-fallback_source)).
@@ -162,7 +162,7 @@ Os tipos de conversão disponíveis estão na [Referência de operadores](operat
 
 **Quando usar:** para campos OCSF que não podem faltar — por exemplo o horário do evento ou o identificador do achado. Marcando como obrigatório, qualquer evento sem esse campo vai para a **Quarentena** em vez de seguir incompleto, o que evita alertas "quebrados" nas telas de operação.
 
-**O que acontece quando falta:** o evento aparece em **Normalização -> Quarentena**, com o motivo indicando que faltou um campo do mapeamento. De lá você revisa o evento, corrige o mapeamento e reprocessa.
+**O que acontece quando falta:** o evento aparece em **Normaliza -> Quarentena**, com o motivo indicando que faltou um campo do mapeamento. De lá você revisa o evento, corrige o mapeamento e reprocessa.
 
 ---
 
@@ -310,7 +310,7 @@ Se uma regra estiver mal montada, a plataforma **bloqueia o salvamento** e mostr
 - A regra tem campo de origem **e** valor fixo ao mesmo tempo.
 - Faltou um campo obrigatório na própria regra.
 
-**O que fazer:** corrija a regra apontada pelo aviso e rode a validação novamente antes de salvar. Você sempre acessa o editor por **Normalização -> Mappings** (ou pela seção de mapeamento da integração em **Visão geral -> Integrações**).
+**O que fazer:** corrija a regra apontada pelo aviso e rode a validação novamente antes de salvar. Você sempre acessa o editor por **Normaliza -> Mapeamentos** (ou pela seção de mapeamento da integração em **Coleta -> Integrações**).
 
 ### Ao processar eventos (problema com um evento real)
 
@@ -318,7 +318,7 @@ Mesmo com o mapeamento salvo e válido, um evento específico pode falhar — po
 
 **O que fazer:**
 
-1. Abra **Normalização -> Quarentena** para ver os eventos isolados e o motivo de cada um.
+1. Abra **Normaliza -> Quarentena** para ver os eventos isolados e o motivo de cada um.
 2. Use o motivo para identificar qual regra precisa de ajuste (campo obrigatório, conversão, etc.).
 3. Corrija o mapeamento no editor e reprocesse os eventos isolados.
 

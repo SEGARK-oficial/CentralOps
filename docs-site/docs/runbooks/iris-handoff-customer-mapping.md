@@ -24,13 +24,13 @@ Use este guia quando, na operação do dia a dia, você perceber um destes cená
 
 ### 1. Identifique a organização do alerta
 
-1. Abra o menu **Operação -> Investigações**.
+1. Pesquise os eventos daquela janela no destino que os recebeu (no EE, use **Detecta -> Busca federada** para consultar os destinos sem sair do console).
 2. Localize o evento que abriu (ou deveria ter aberto) o caso e abra os detalhes.
 3. Anote a **organização** à qual o evento pertence. É por essa organização que o caso do IRIS é direcionado.
 
 ### 2. Confirme que a integração IRIS está ativa
 
-1. Abra o menu **Visão geral -> Integrações**.
+1. Abra o menu **Coleta -> Integrações**.
 2. Verifique se existe uma integração **IRIS** e se ela está com status ativo/saudável.
 3. Se a integração estiver inativa ou com erro de conexão, esse é o motivo de nenhum caso ser criado. Acione o administrador da plataforma para reativá-la.
 
@@ -38,7 +38,7 @@ Use este guia quando, na operação do dia a dia, você perceber um destes cená
 
 O encaminhamento para o IRIS é tratado como um **destino**. Quem tem perfil de administrador pode conferir o mapeamento:
 
-1. Abra o menu **Operação -> Destinos**.
+1. Abra o menu **Roteia -> Destinos**.
 2. Localize o destino do tipo **IRIS** e abra seus detalhes.
 3. Verifique se a organização identificada no passo 1 está **associada ao cliente IRIS correto**. É essa associação que decide em qual cliente do IRIS o caso é aberto.
 
@@ -59,21 +59,21 @@ A ligação técnica entre a organização do CentralOps e o cliente do IRIS é 
 Se vários alertas foram para o cliente errado (ou não geraram caso) enquanto o mapeamento estava incorreto, depois que a associação for corrigida você pode reenviar esses eventos:
 
 1. Peça ao administrador IRIS para **fechar/descartar os casos abertos no cliente errado**, evitando duplicidade.
-2. No CentralOps, abra o menu **Normalização -> Quarentena** e localize os eventos afetados.
+2. No CentralOps, abra o menu **Normaliza -> Quarentena** e localize os eventos afetados.
 3. **Reprocesse** os eventos a partir da Quarentena. Com a associação já corrigida, eles serão reenviados e abrirão o caso no cliente certo.
 
 Veja [Quarentena](../operations/quarantine.md) para o passo a passo completo de reprocessamento.
 
 :::tip[Conferir o reenvio aos destinos]
-Se a entrega ao IRIS ficou represada durante o problema, o administrador pode acompanhar a fila de reenvio na tela **Operação -> Destinos** e reprocessar o que estiver pendente, sem precisar mexer no alerta original.
+Se a entrega ao IRIS ficou represada durante o problema, o administrador pode acompanhar a fila de reenvio na tela **Roteia -> Destinos** e reprocessar o que estiver pendente, sem precisar mexer no alerta original.
 :::
 
 ## Como prevenir antes de ir para produção
 
 Ao ativar a integração IRIS para uma nova organização, confirme estes pontos pela interface:
 
-- A integração **IRIS** aparece como ativa em **Visão geral -> Integrações**.
-- A organização está **associada a um cliente IRIS** no destino IRIS em **Operação -> Destinos** (verificação feita por um administrador).
+- A integração **IRIS** aparece como ativa em **Coleta -> Integrações**.
+- A organização está **associada a um cliente IRIS** no destino IRIS em **Roteia -> Destinos** (verificação feita por um administrador).
 - Um alerta de teste dessa organização abre o caso **no cliente correto** dentro do IRIS.
 
 Se algum desses pontos não estiver pronto, a configuração de associação é feita pela equipe de infraestrutura. Fale com o administrador da plataforma antes de liberar em produção.
@@ -89,7 +89,7 @@ Acione o administrador da plataforma (ou o time responsável pelo IRIS) quando:
 Ao escalonar, informe o que ajuda o time a localizar o caso rapidamente:
 
 - Nome da **organização** afetada.
-- O **evento** envolvido (localizado pela tela **Operação -> Investigações**).
+- O **evento** envolvido (localizado no destino que o recebeu ou, no EE, em **Detecta -> Busca federada**).
 - Em qual **cliente do IRIS** o caso apareceu (errado) ou que **nenhum caso** foi aberto.
 
 ## Links

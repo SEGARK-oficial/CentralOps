@@ -8,15 +8,15 @@ description: O que é CML, quando criar ou editar um mapeamento, como ele transf
 
 **CML é a linguagem do CentralOps para transformar os eventos brutos de cada vendor de segurança no formato padronizado OCSF.** Cada integração tem um mapeamento (mapping) escrito em CML que diz, campo por campo, como o evento original do vendor vira um evento normalizado que o resto da plataforma entende.
 
-Você trabalha com mapeamentos na tela **Normalização → Mappings**. Para a referência detalhada de cada campo da linguagem, veja a [Especificação DSL](./dsl-spec.md).
+Você trabalha com mapeamentos na tela **Normaliza → Mapeamentos**. Para a referência detalhada de cada campo da linguagem, veja a [Especificação DSL](./dsl-spec.md).
 
 ## Quando usar
 
 Você cria ou edita um mapeamento quando precisa decidir como os eventos brutos de uma fonte viram eventos OCSF. Cenários reais:
 
 - **Nova integração conectada.** Você acabou de conectar uma integração Sophos em **Integrações** e precisa definir como os alertas brutos viram eventos OCSF (severidade, host, usuário, observables) antes que eles fluam para os destinos.
-- **O vendor mudou o schema.** O fornecedor atualizou o produto e novos campos começaram a aparecer em **Normalização → Drift Explorer**. Você precisa decidir o que mapear, o que ignorar e atualizar o mapeamento.
-- **Eventos caindo na quarentena.** A tela **Normalização → Saúde do Pipeline** ou **Normalização → Quarentena** mostra eventos que falharam na normalização (por exemplo, um campo obrigatório veio vazio). Você ajusta o mapeamento para corrigir a regra e reprocessa.
+- **O vendor mudou o schema.** O fornecedor atualizou o produto e novos campos começaram a aparecer em **Normaliza → Drift**. Você precisa decidir o que mapear, o que ignorar e atualizar o mapeamento.
+- **Eventos caindo na quarentena.** A tela **Visão geral → Saúde do pipeline** ou **Normaliza → Quarentena** mostra eventos que falharam na normalização (por exemplo, um campo obrigatório veio vazio). Você ajusta o mapeamento para corrigir a regra e reprocessa.
 
 ## O que é CML
 
@@ -57,7 +57,7 @@ Pontos importantes:
 
 - **Ordem garantida.** As transformações de cada regra rodam sempre na mesma ordem. O resultado é determinístico.
 - **Falha vira quarentena, nunca perda.** Um campo obrigatório vazio manda o evento para a quarentena, onde você pode inspecionar e reprocessar.
-- **Campos novos viram drift.** Qualquer campo presente no evento bruto que nenhuma regra consome é detectado automaticamente e aparece no Drift Explorer para você decidir o que fazer.
+- **Campos novos viram drift.** Qualquer campo presente no evento bruto que nenhuma regra consome é detectado automaticamente e aparece na tela de Drift para você decidir o que fazer.
 - **Evento bruto podável.** O payload do fornecedor acompanha o evento normalizado, mas nem sempre inteiro: o mapeamento pode remover ou encurtar partes dele (bloco `raw_reduction`) e uma regra de roteamento pode descartá-lo por completo (**Descartar o evento bruto**). Os mapeamentos padrão já removem campos nulos; o de Sophos Detection remove também as subárvores de `rawData` que já foram extraídas para o evento normalizado.
 
 :::warning[O bruto entregue pode não ser o bruto recebido]
@@ -66,7 +66,7 @@ Se você depende do payload original para perícia, confira o bloco `raw_reducti
 
 ## Como é um mapeamento (exemplo)
 
-Abaixo, um mapeamento mínimo. Você não precisa decorar a sintaxe — o editor de mapeamento na tela **Normalização → Mappings** ajuda a montar e validar cada regra. O exemplo serve para você reconhecer a estrutura:
+Abaixo, um mapeamento mínimo. Você não precisa decorar a sintaxe — o editor de mapeamento na tela **Normaliza → Mapeamentos** ajuda a montar e validar cada regra. O exemplo serve para você reconhecer a estrutura:
 
 ```jsonc
 {
@@ -119,13 +119,13 @@ Para a referência completa de cada campo, condição, conversão e tratamento d
 
 ## Governança: testar, versionar e reverter
 
-No CentralOps, todo o ciclo de vida de um mapeamento acontece dentro do produto, na tela **Normalização → Mappings**. Você não precisa de ferramentas externas para versionar ou aprovar mudanças.
+No CentralOps, todo o ciclo de vida de um mapeamento acontece dentro do produto, na tela **Normaliza → Mapeamentos**. Você não precisa de ferramentas externas para versionar ou aprovar mudanças.
 
 ### Teste antes de publicar (dry-run)
 
 Antes de publicar uma versão nova, você testa o mapeamento contra eventos reais já coletados, sem afetar a produção:
 
-1. Abra o mapeamento em **Normalização → Mappings**.
+1. Abra o mapeamento em **Normaliza → Mapeamentos**.
 2. Edite as regras no editor de mapeamento.
 3. Rode o teste do mapeamento (dry-run) contra a amostra de eventos coletados nos últimos dias.
 4. O CentralOps mostra um resumo: percentual de regras que aplicaram, percentual de eventos que iriam para quarentena, campos que ficaram sempre vazios e campos novos (drift) que a mudança introduziria.
@@ -150,7 +150,7 @@ Se uma versão nova causou problema, você reverte para uma versão anterior a p
 
 ### Campos novos do vendor (drift)
 
-A cada coleta, o CentralOps compara os campos que suas regras consomem com os campos realmente presentes no evento bruto. Campos que apareceram mas ninguém mapeou são listados em **Normalização → Drift Explorer**, onde você pode:
+A cada coleta, o CentralOps compara os campos que suas regras consomem com os campos realmente presentes no evento bruto. Campos que apareceram mas ninguém mapeou são listados em **Normaliza → Drift**, onde você pode:
 
 - Filtrar por vendor e tipo de evento.
 - Marcar campos como **ignorar** (param de alertar).

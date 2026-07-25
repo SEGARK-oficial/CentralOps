@@ -22,18 +22,18 @@ Não existe uma única tela "Configuração" que reúna tudo. Cada área tem seu
 
 | O que você quer fazer | Onde ir (menu lateral) |
 |-----------------------|------------------------|
-| Configurar a coleta e o envio dos eventos | **Operação → Collectors** |
-| Cadastrar para onde os eventos vão (SIEM, lake, etc.) | **Operação → Destinos** |
-| Definir as regras de quem recebe o quê | **Operação → Roteamento** |
-| Ver o fluxo dos dados ponta a ponta | **Operação → Fluxo de dados** |
+| Configurar a coleta e o envio dos eventos | **Coleta → Coletores** |
+| Cadastrar para onde os eventos vão (SIEM, lake, etc.) | **Roteia → Destinos** |
+| Definir as regras de quem recebe o quê | **Roteia → Rotas** |
+| Ver o fluxo dos dados ponta a ponta | **Roteia → Fluxo de dados** |
 | Configurar login corporativo (Microsoft) | **Administração → Configurações** |
 | Inspecionar ao vivo o que está entrando e saindo, evento a evento | **Administração → Configurações → Captura ao vivo** |
 
-As telas **Destinos**, **Roteamento** e **Fluxo de dados** só aparecem para administradores.
+As telas **Destinos**, **Rotas** e **Fluxo de dados** só aparecem para administradores.
 
-## Collectors — coleta e envio
+## Coletores — coleta e envio
 
-Na tela **Operação → Collectors** você controla como o CentralOps recebe os eventos das integrações e como os entrega ao destino principal.
+Na tela **Coleta → Coletores** você controla como o CentralOps recebe os eventos das integrações e como os entrega ao destino principal.
 
 O que você pode ajustar por essa tela:
 
@@ -54,7 +54,7 @@ Os limites de taxa por fornecedor têm um valor padrão definido pela equipe de 
 
 ## Destinos — para onde os eventos vão
 
-Na tela **Operação → Destinos** você cadastra cada lugar que vai receber os eventos. Um destino é uma saída: um SIEM, um lake, uma fila ou um coletor de observabilidade.
+Na tela **Roteia → Destinos** você cadastra cada lugar que vai receber os eventos. Um destino é uma saída: um SIEM, um lake, uma fila ou um coletor de observabilidade.
 
 Tipos de destino disponíveis hoje:
 
@@ -71,7 +71,7 @@ Tipos de destino disponíveis hoje:
 
 ### Como cadastrar um destino
 
-1. Vá em **Operação → Destinos** e abra o formulário de novo destino.
+1. Vá em **Roteia → Destinos** e abra o formulário de novo destino.
 2. Escolha o tipo (Splunk, S3, etc.). Os campos mudam conforme o tipo.
 3. Preencha endereço, credenciais e demais opções.
 4. Use o botão de **testar conexão** — ele faz um envio de prova ao vivo, sem salvar.
@@ -79,13 +79,13 @@ Tipos de destino disponíveis hoje:
 
 **Credenciais ficam protegidas**: tokens, chaves de API e segredos que você informa nunca são exibidos de volta na tela nem em registros. A tela mostra apenas um indicador de **configurado / não configurado** para você saber se a credencial já está salva.
 
-**Rota automática**: ao criar um destino, o CentralOps gera automaticamente uma regra que envia tudo para ele. Você pode refinar essa regra depois na tela de **Roteamento**.
+**Rota automática**: ao criar um destino, o CentralOps gera automaticamente uma regra que envia tudo para ele. Você pode refinar essa regra depois na tela de **Rotas**.
 
 Para detalhes de cada tipo de destino, veja [Destinos](../outputs/destinations.md).
 
 ## Roteamento — quem recebe o quê
 
-Na tela **Operação → Roteamento** você define as regras que decidem para quais destinos cada evento vai. As regras são avaliadas em ordem, de cima para baixo, e a primeira que combina vence.
+Na tela **Roteia → Rotas** você define as regras que decidem para quais destinos cada evento vai. As regras são avaliadas em ordem, de cima para baixo, e a primeira que combina vence.
 
 Cada regra tem:
 
@@ -102,8 +102,8 @@ Cada regra tem:
 
 ### Caso de uso: cópia anonimizada para um lake
 
-1. Crie o destino do lake em **Operação → Destinos** (por exemplo, um bucket S3).
-2. Em **Operação → Roteamento**, crie uma regra que copia os eventos de endpoint para esse destino.
+1. Crie o destino do lake em **Roteia → Destinos** (por exemplo, um bucket S3).
+2. Em **Roteia → Rotas**, crie uma regra que copia os eventos de endpoint para esse destino.
 3. Na própria regra, ative a anonimização para mascarar os campos sensíveis (PII) antes da entrega.
 4. Os mesmos eventos continuam indo, íntegros, para o seu SIEM principal pela regra correspondente (ou pelo catch-all que você configurou como destino padrão).
 
@@ -111,7 +111,7 @@ Cada regra tem:
 
 ### Validar antes de aplicar
 
-Antes de ativar uma regra nova, use o recurso de **simulação** na tela de Roteamento: ele mostra para quais destinos um evento de exemplo iria, sem entregar de verdade. Se algo sair errado depois, a tela também permite reverter a última alteração.
+Antes de ativar uma regra nova, use o recurso de **simulação** na tela de Rotas: ele mostra para quais destinos um evento de exemplo iria, sem entregar de verdade. Se algo sair errado depois, a tela também permite reverter a última alteração.
 
 Para mais detalhes, veja [Roteamento](../outputs/routing.md), [Simulação de roteamento](../outputs/routing-dry-run.md) e [Anonimização de PII](../outputs/pii-redaction.md).
 
@@ -166,7 +166,7 @@ Estas configurações são definidas pela equipe de infraestrutura no momento do
 
 | Sintoma | O que verificar pela interface |
 |---------|-------------------------------|
-| Um destino não está recebendo eventos | Em **Operação → Roteamento**, confirme se existe uma regra que envia para esse destino e se ela está ativa. Use a **simulação** para ver para onde um evento de exemplo iria. |
+| Um destino não está recebendo eventos | Em **Roteia → Rotas**, confirme se existe uma regra que envia para esse destino e se ela está ativa. Use a **simulação** para ver para onde um evento de exemplo iria. |
 | Não consigo salvar uma regra com anonimização de PII | Esse recurso não está habilitado neste ambiente. Fale com o administrador da plataforma. |
 | O teste de conexão de um destino falha | Confira endereço, porta e credenciais no formulário do destino. Use o botão de **testar conexão** para repetir a prova. |
 | O login com Microsoft não aparece na tela de entrada | Em **Administração → Configurações**, confirme que a identidade está habilitada e que o teste de conexão com o Entra passou. |

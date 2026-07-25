@@ -187,8 +187,8 @@ para ficar totalmente pronta. Persistindo, veja o runbook
    # edition=community        (ou "edition=enterprise plan=... features=..." numa stack EE)
    ```
 
-2. **Saúde geral** — abra **Operação → Fluxo de dados** (`/flow`) e **Normalização →
-   Saúde do Pipeline** (`/pipeline-health`) e confirme que os eventos continuam fluindo
+2. **Saúde geral** — abra **Roteia → Fluxo de dados** (`/flow`) e **Visão geral →
+   Saúde do pipeline** (`/pipeline-health`) e confirme que os eventos continuam fluindo
    normalmente.
 
 :::note[Como NÃO verificar versão/edição]
@@ -293,7 +293,7 @@ Ele existe para um caso concreto: quando o roteamento descarta a maior parte do 
 o coletor está gastando cada ciclo transportando ruído — e é essa a causa de coletas que
 não alcançam o presente. Veja [Filtro de coleta](../pipelines/collection-filters.md) antes
 de ligar: o que é filtrado na origem **nunca entra na plataforma** (não aparece na captura
-ao vivo, não gera campo novo no Drift Explorer, não fica disponível para uma rota futura),
+ao vivo, não gera campo novo no Drift, não fica disponível para uma rota futura),
 e ligar ou desligar **não é retroativo**.
 
 **Ciclos concorrentes do mesmo fluxo agora são pulados.** Quando um ciclo de coleta demora
@@ -385,8 +385,8 @@ changelog automático (marcada como `⚠ BREAKING CHANGE`) — é o que fez o re
   (`application/vnd.centralops.v1+json`) foi removido.
 - A ferramenta **MCP `list_integration_alerts`** foi removida.
 
-**O que fazer:** a triagem agora é vendor-neutra, por **Operação → Investigações /
-Busca federada** e **Detecções**. Se você tem automações ou integrações batendo nos
+**O que fazer:** a triagem agora é vendor-neutra, por **Detecta → Busca federada**
+(Enterprise) e **Detecta → Detecções**. Se você tem automações ou integrações batendo nos
 endpoints de alerts (ou no Accept v1 do `/dashboard/summary`), **migre-as** para esses
 caminhos antes de atualizar.
 
@@ -398,7 +398,7 @@ superfície de leitura de "alertas" saiu.
 **Novidades (nada a configurar — já vêm ligadas):**
 
 - **Exportação CSV robusta da Busca federada**, com rótulos localizados (PT/EN/ES) — em
-  **Operação → Investigações**.
+  **Detecta → Busca federada**.
 - **Mapa de fluxo `/flow` que escala.** O **[Fluxo de dados](../operations/fluxo-de-dados.md)**
   agrupa colunas densas num nó **"+N"** expansível e cabe sozinho na tela (fit-to-view),
   com realce de caminho ao passar o mouse — legível mesmo com dezenas de fontes/rotas/destinos.
@@ -408,7 +408,7 @@ superfície de leitura de "alertas" saiu.
 
 **Metering de custo ligado por padrão.** O `COST_METERING_ENABLED` agora vem **`true`**
 por padrão. Com isso, o card **"Redução de volume & custo"** passa a aparecer em
-**Operação → [Fluxo de dados](../operations/fluxo-de-dados.md)**: no Community ele mostra volume, percentual e bytes
+**Roteia → [Fluxo de dados](../operations/fluxo-de-dados.md)**: no Community ele mostra volume, percentual e bytes
 economizados; no Enterprise ele soma o valor em **US$** (a partir do `cost_per_gb`
 configurado em cada destino). Para desligar, defina `COST_METERING_ENABLED=false`.
 
@@ -454,7 +454,7 @@ Se alguma rota sua tem chave de supressão configurada, revise-a. Veja
 
 - A **latência média por destino** passou a ter dados, pela primeira vez. A série nunca chegava a ser
   gravada — o valor registrado era sempre zero, e zeros são descartados —, então o cartão
-  em **Operação → Destinos** ficava permanentemente vazio, em qualquer instalação. Agora
+  em **Roteia → Destinos** ficava permanentemente vazio, em qualquer instalação. Agora
   ele mostra o tempo real de **entrega do lote** ao destino (todos os pedaços e as novas
   tentativas), em **segundos**. O **histórico anterior à atualização continua vazio** —
   isso não é defeito: só existem pontos a partir do momento em que você sobe esta versão.

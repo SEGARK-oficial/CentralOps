@@ -22,7 +22,7 @@ Recorra a esta página quando, na operação do SOC, você perceber alguma desta
 
 ## Onde fica na interface
 
-Todo o trabalho desta página acontece no menu **Operação -> Destinos**. Abra a tela, localize o card do destino em questão e use as abas de **Saúde** e de **fila de reenvio** desse card.
+Todo o trabalho desta página acontece no menu **Roteia -> Destinos**. Abra a tela, localize o card do destino em questão e use as abas de **Saúde** e de **fila de reenvio** desse card.
 
 > A fila de reenvio é a fase final do caminho de um evento (a entrega). Ela é diferente da **Quarentena**, que captura problemas em uma fase anterior (a normalização). Veja a comparação no fim desta página.
 
@@ -30,7 +30,7 @@ Todo o trabalho desta página acontece no menu **Operação -> Destinos**. Abra 
 
 ### Como diagnosticar
 
-1. Vá a **Operação -> Destinos** e abra o card do destino.
+1. Vá a **Roteia -> Destinos** e abra o card do destino.
 2. Na aba **Saúde**, confira o status:
 
 | Status | O que significa |
@@ -47,19 +47,19 @@ Todo o trabalho desta página acontece no menu **Operação -> Destinos**. Abra 
 ### Quando o contador está zerado mas faltam eventos
 
 - **O destino está ligado?** Na aba **Saúde**, o status não pode estar como Desligado. Se estiver, reative o destino (próximo bloco).
-- **Existe uma rota apontando para este destino?** Vá a **Operação -> Roteamento** e confirme que há pelo menos uma regra que envia eventos a este destino. Sem rota, nenhum evento é encaminhado e nada chega à fila de reenvio.
+- **Existe uma rota apontando para este destino?** Vá a **Roteia -> Rotas** e confirme que há pelo menos uma regra que envia eventos a este destino. Sem rota, nenhum evento é encaminhado e nada chega à fila de reenvio.
 - **Os eventos estão sendo coletados?** Vá a **Visão geral -> Dashboard** e confira o volume de eventos normalizados recentes. Se a coleta na origem parou, o problema é anterior à entrega.
 
 ### Como resolver
 
-- **Destino desligado:** no card do destino em **Operação -> Destinos**, reative o destino pelo controle de ativação do próprio card.
-- **Sem rota:** crie uma regra em **Operação -> Roteamento** que direcione os eventos desejados para este destino.
+- **Destino desligado:** no card do destino em **Roteia -> Destinos**, reative o destino pelo controle de ativação do próprio card.
+- **Sem rota:** crie uma regra em **Roteia -> Rotas** que direcione os eventos desejados para este destino.
 
 ## Sintoma 2: "Rejeições com um erro específico"
 
 ### Como diagnosticar
 
-1. Vá a **Operação -> Destinos** e abra o card do destino.
+1. Vá a **Roteia -> Destinos** e abra o card do destino.
 2. Abra a aba da **fila de reenvio**.
 3. Observe o agrupamento por **tipo de erro** — o CentralOps classifica cada falha em uma categoria. Use a tabela abaixo para entender a causa e o caminho de solução:
 
@@ -71,7 +71,7 @@ Todo o trabalho desta página acontece no menu **Operação -> Destinos**. Abra 
 | Transporte | Problema de rede: tempo esgotado ou conexão recusada. | Valide a conectividade até o destino e use o **teste de conexão** do card. |
 | Proteção acionada | A proteção contra destino instável está aberta porque o destino ficou indisponível por muito tempo. | Aguarde a recuperação automática (em geral poucos minutos) ou faça um novo teste de conexão. |
 | Tentativas esgotadas | O CentralOps tentou reenviar várias vezes e a falha persistiu. | Investigue o lado do destino ou da rede. Quando o problema for resolvido, reprocesse a fila (Sintoma 5). |
-| Sem rota (`unrouted`) | O evento não bateu em nenhuma regra de roteamento e não há catch-all configurado, então não tinha para onde ir. | Em **Operação -> Roteamento**, crie uma regra pega-tudo (condição vazia) ou marque um destino como padrão — qualquer destino pode assumir esse papel. Depois reprocesse a fila (Sintoma 5). Veja [Evento foi para o destino errado (ou nenhum)](./routing-misroute.md). |
+| Sem rota (`unrouted`) | O evento não bateu em nenhuma regra de roteamento e não há catch-all configurado, então não tinha para onde ir. | Em **Roteia -> Rotas**, crie uma regra pega-tudo (condição vazia) ou marque um destino como padrão — qualquer destino pode assumir esse papel. Depois reprocesse a fila (Sintoma 5). Veja [Evento foi para o destino errado (ou nenhum)](./routing-misroute.md). |
 | Não classificado | Erro fora das categorias acima. | Abra o evento para ver o detalhe do erro e ganhar contexto. |
 
 4. Clique em um evento da fila para ver o conteúdo (já com dados sensíveis ocultos) e o detalhe específico do erro.
@@ -95,7 +95,7 @@ Panorama das alavancas em [Redução de volume e custo](../outputs/reducao-de-vo
 
 ### Como diagnosticar
 
-1. Em **Operação -> Destinos**, abra o card do destino.
+1. Em **Roteia -> Destinos**, abra o card do destino.
 2. Na aba **Saúde**, veja o total acumulado e o total das últimas 24 horas na fila de reenvio.
 3. Na aba da **fila de reenvio**, observe a distribuição por **tipo de erro**. Normalmente um único tipo concentra a maior parte das falhas — esse é o problema a atacar primeiro.
 
@@ -105,7 +105,7 @@ Panorama das alavancas em [Redução de volume e custo](../outputs/reducao-de-vo
 
 ### Como diagnosticar
 
-1. Em **Operação -> Destinos**, abra o card do destino e vá à aba **Saúde**.
+1. Em **Roteia -> Destinos**, abra o card do destino e vá à aba **Saúde**.
 2. Verifique o estado da proteção contra destino instável:
    - **Aberta:** o destino está sendo tratado como offline e as entregas estão sendo seguradas.
    - **Em teste:** o CentralOps está sondando o destino para ver se já voltou.
@@ -132,7 +132,7 @@ Depois que a conectividade for restabelecida, siga para o **Sintoma 5** para rep
 
 ### Como reprocessar
 
-1. Vá a **Operação -> Destinos** e abra o card do destino.
+1. Vá a **Roteia -> Destinos** e abra o card do destino.
 2. Abra a aba da **fila de reenvio**.
 3. Escolha o escopo:
    - **Todos os eventos da fila:** use a ação de reprocessar a fila inteira do destino.
@@ -149,7 +149,7 @@ Depois que a conectividade for restabelecida, siga para o **Sintoma 5** para rep
 
 ### 1. Valide o formato antes de ligar um destino novo
 
-Antes de enviar tráfego real, use o teste de pré-visualização disponível no card do destino (em **Operação -> Destinos**). Ele mostra como o evento ficará ao ser enviado, permitindo confirmar formato e tamanho sem arriscar uma enxurrada de rejeições.
+Antes de enviar tráfego real, use o teste de pré-visualização disponível no card do destino (em **Roteia -> Destinos**). Ele mostra como o evento ficará ao ser enviado, permitindo confirmar formato e tamanho sem arriscar uma enxurrada de rejeições.
 
 ### 2. Teste a conexão
 
@@ -157,8 +157,8 @@ Use o **teste de conexão** do card do destino sempre **antes** de direcionar tr
 
 ### 3. Acompanhe a saúde dos destinos
 
-- Use a tela **Operação -> Destinos** para ver o status de cada destino de forma contínua.
-- Para uma visão de ponta a ponta do caminho dos eventos até os destinos, use **Operação -> [Fluxo de dados](../operations/fluxo-de-dados.md)**.
+- Use a tela **Roteia -> Destinos** para ver o status de cada destino de forma contínua.
+- Para uma visão de ponta a ponta do caminho dos eventos até os destinos, use **Roteia -> [Fluxo de dados](../operations/fluxo-de-dados.md)**.
 - Defina alertas para situações como rejeições acima de um limite diário, proteção contra destino instável acionada, ou destino sem fluxo de entrada. A criação e o ajuste desses alertas é feito junto à equipe de infraestrutura.
 
 ### 4. Política de retenção da fila de reenvio
@@ -177,7 +177,7 @@ São duas filas diferentes, em fases diferentes do caminho do evento. Saber qual
 | Fase | Entrega ao destino (etapa final) | Normalização (etapa inicial) |
 | Origem do problema | Destino recusou ou não recebeu o evento | Falha ao interpretar/normalizar o evento de entrada |
 | Exemplos de erro | Evento grande demais, autenticação, formato recusado, transporte | Evento bruto inválido, campo obrigatório ausente |
-| Onde inspecionar | **Operação -> Destinos**, aba da fila de reenvio do destino | **Normalização -> Quarentena** |
+| Onde inspecionar | **Roteia -> Destinos**, aba da fila de reenvio do destino | **Normaliza -> Quarentena** |
 | Quem costuma tratar | Administrador do destino e equipe de operação | Quem cuida de integrações e mapeamentos |
 
 ## Se o problema persistir

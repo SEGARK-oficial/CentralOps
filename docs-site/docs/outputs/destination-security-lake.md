@@ -41,7 +41,7 @@ Tenha em mãos:
 
 ## Criar o destino
 
-1. No menu lateral, abra **Operação → Destinos**.
+1. No menu lateral, abra **Roteia → Destinos**.
 2. Use a opção de criar um novo destino.
 3. Escolha o tipo **Amazon Security Lake (OCSF Parquet)**.
 4. Preencha os campos abaixo.
@@ -98,7 +98,7 @@ Se o teste passar, salve. O destino fica **ativo** (badge verde).
 
 ## Acompanhar a saúde do destino
 
-Abra **Operação → Destinos** e selecione o seu destino Security Lake.
+Abra **Roteia → Destinos** e selecione o seu destino Security Lake.
 
 O badge de saúde mostra:
 
@@ -139,7 +139,7 @@ Depois que os dados chegam, você consegue consultá-los:
 
 ## Próximos passos
 
-- **Confirmar que os dados estão chegando:** abra **Operação → Destinos**, selecione o Security Lake e veja as métricas de eventos por segundo.
+- **Confirmar que os dados estão chegando:** abra **Roteia → Destinos**, selecione o Security Lake e veja as métricas de eventos por segundo.
 - **Investigar eventos recusados:** abra a fila de reenvio na visão do destino.
 - **Adicionar outros destinos:** veja a [visão geral de destinos](./overview.md).
 - **Decidir quais eventos vão para cada destino:** use a tela de [Roteamento](./routing.md).

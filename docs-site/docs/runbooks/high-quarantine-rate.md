@@ -21,8 +21,8 @@ A **quarentena** guarda os eventos que chegaram de uma integração mas não pud
 | Tela | O que ela mostra |
 |------|------------------|
 | Menu **Visão geral -> Dashboard**, card de quarentena | Total de eventos em quarentena crescendo em tempo real. |
-| Menu **Normalização -> Saúde do Pipeline**, card de quarentena | Visão consolidada da saúde da normalização; o card de quarentena fica vermelho quando o volume sobe. |
-| Menu **Normalização -> Quarentena** | A fila em si: lista de eventos, fornecedor, mensagem de erro e ações de reprocesso/descarte. |
+| Menu **Visão geral -> Saúde do pipeline**, card de quarentena | Visão consolidada da saúde da normalização; o card de quarentena fica vermelho quando o volume sobe. |
+| Menu **Normaliza -> Quarentena** | A fila em si: lista de eventos, fornecedor, mensagem de erro e ações de reprocesso/descarte. |
 
 Compare o card de quarentena com o card da **fila de reenvio** na mesma tela de **Saúde do Pipeline**:
 
@@ -43,7 +43,7 @@ Antes de mexer em qualquer coisa, pergunte-se:
 
 ### 2. Qual fornecedor está gerando os erros?
 
-1. Vá ao menu **Normalização -> Quarentena**.
+1. Vá ao menu **Normaliza -> Quarentena**.
 2. Sem filtro, observe a coluna de plataforma/fornecedor.
 3. Identifique quais fornecedores concentram os eventos.
 
@@ -51,7 +51,7 @@ Por exemplo, se 80% dos eventos em quarentena são de um único fornecedor, é e
 
 ### 3. Qual é o tipo de erro?
 
-Ainda em **Normalização -> Quarentena**, abra um ou dois eventos do fornecedor problemático e leia a mensagem de erro. Os casos mais comuns:
+Ainda em **Normaliza -> Quarentena**, abra um ou dois eventos do fornecedor problemático e leia a mensagem de erro. Os casos mais comuns:
 
 | Mensagem (exemplos) | O que significa |
 |---------------------|-----------------|
@@ -66,22 +66,22 @@ Ainda em **Normalização -> Quarentena**, abra um ou dois eventos do fornecedor
 
 **Causa:** o fornecedor removeu ou renomeou um campo.
 
-1. Vá ao menu **Normalização -> Mappings** e abra o mapeamento do fornecedor.
+1. Vá ao menu **Normaliza -> Mapeamentos** e abra o mapeamento do fornecedor.
 2. No editor de mapeamento, localize a regra do campo que ficou faltando.
 3. Aponte a regra para o novo nome do campo enviado pelo fornecedor.
 4. Salve. Isso cria uma nova versão do mapeamento.
-5. Volte ao menu **Normalização -> Quarentena** e reprocesse os eventos do fornecedor.
+5. Volte ao menu **Normaliza -> Quarentena** e reprocesse os eventos do fornecedor.
 6. Aguarde cerca de 1 minuto. Os erros devem desaparecer e a quarentena voltar a um valor baixo.
 
 ### Mudança de tipo de campo
 
 **Causa:** o fornecedor passou a enviar um campo com outro tipo (por exemplo, texto no lugar de número).
 
-1. Vá ao menu **Normalização -> Mappings** e abra o mapeamento do fornecedor.
+1. Vá ao menu **Normaliza -> Mapeamentos** e abra o mapeamento do fornecedor.
 2. No editor de mapeamento, localize a regra do campo afetado.
 3. Ajuste a regra para converter o valor ao tipo esperado pelo modelo normalizado.
 4. Salve para gerar a nova versão.
-5. Volte ao menu **Normalização -> Quarentena** e reprocesse os eventos.
+5. Volte ao menu **Normaliza -> Quarentena** e reprocesse os eventos.
 
 > Se você não tem certeza de como ajustar a conversão de tipo, use o recurso de pré-visualização do editor de mapeamento (teste a regra com uma amostra) antes de salvar. Assim você confirma o resultado sem afetar a produção.
 
@@ -89,7 +89,7 @@ Ainda em **Normalização -> Quarentena**, abra um ou dois eventos do fornecedor
 
 **Causa:** o fornecedor devolveu um JSON malformado. É raro e quase sempre indica um problema do lado do fornecedor.
 
-1. Vá ao menu **Normalização -> Quarentena** e expanda um evento com esse erro.
+1. Vá ao menu **Normaliza -> Quarentena** e expanda um evento com esse erro.
 2. Inspecione o conteúdo bruto do evento para confirmar que o JSON realmente está quebrado (aspas ou escape incorretos).
 3. Se os eventos estão corrompidos e não há como repará-los, descarte-os pela tela de Quarentena.
 4. Abra um chamado com o suporte do fornecedor informando que a resposta da API está vindo com JSON inválido.
@@ -112,15 +112,15 @@ Ainda em **Normalização -> Quarentena**, abra um ou dois eventos do fornecedor
 
 Quando todos (ou quase todos) os eventos de um fornecedor falham de uma vez, suspeite de mudança de schema na API.
 
-1. Em **Normalização -> Quarentena**, abra alguns eventos recentes do fornecedor e compare o conteúdo bruto com o que o mapeamento espera: faltam campos? Surgiram campos novos? Os tipos mudaram?
-2. Se confirmado, atualize o mapeamento em **Normalização -> Mappings** conforme o novo formato e reprocesse a fila.
+1. Em **Normaliza -> Quarentena**, abra alguns eventos recentes do fornecedor e compare o conteúdo bruto com o que o mapeamento espera: faltam campos? Surgiram campos novos? Os tipos mudaram?
+2. Se confirmado, atualize o mapeamento em **Normaliza -> Mapeamentos** conforme o novo formato e reprocesse a fila.
 3. Registre um chamado com o fornecedor informando a data em que o formato mudou.
 
 ### Um mapeamento foi quebrado por engano
 
 Se a quarentena disparou logo após uma edição de mapeamento, a edição é a suspeita principal.
 
-1. Vá ao menu **Normalização -> Mappings** e abra o histórico de versões do mapeamento.
+1. Vá ao menu **Normaliza -> Mapeamentos** e abra o histórico de versões do mapeamento.
 2. Compare a versão atual com a anterior para ver o que mudou.
 3. Se a versão anterior estava correta, reverta para ela pelo próprio histórico.
 4. A fila de quarentena costuma limpar em menos de 1 minuto após o reprocesso.
@@ -129,7 +129,7 @@ Se a quarentena disparou logo após uma edição de mapeamento, a edição é a 
 
 Quando só uma parte dos eventos falha (e não 100%), o problema tende a ser qualidade de dados, não schema.
 
-1. Vá ao menu **Operação -> Investigações**.
+1. Pesquise os eventos já entregues no destino que os recebeu (no EE, use **Detecta -> Busca federada**).
 2. Filtre pelas últimas 24 horas e pela plataforma de origem em questão.
 3. Compare o volume de antes com o de agora e estime o percentual em quarentena.
 
@@ -145,9 +145,9 @@ Identifique qual cliente ou qual tipo de evento está falhando e trate a origem.
 
 Se uma regra de roteamento aplica **mascaramento de dados** (remoção de informações sensíveis) antes de enviar a um destino, alguns campos podem sumir e dar a impressão de que o evento "se perdeu". Isso **não é quarentena** — os eventos foram normalizados com sucesso.
 
-Para confirmar, vá ao menu **Operação -> Investigações** (não à Quarentena), filtre pela plataforma de origem nas últimas horas e verifique se os eventos aparecem normalmente. Se eles estão lá, a redução de conteúdo é o mascaramento agindo, e não um erro.
+Para confirmar, consulte os eventos no destino (não na Quarentena), filtrando pela plataforma de origem nas últimas horas, e verifique se aparecem normalmente. No EE, a mesma checagem pode ser feita em **Detecta -> Busca federada**. Se eles estão lá, a redução de conteúdo é o mascaramento agindo, e não um erro.
 
-> As regras de roteamento e de mascaramento ficam no menu **Operação -> Roteamento**, disponível apenas para administradores. Se você não é administrador e suspeita que o mascaramento está agressivo demais, fale com o administrador da plataforma.
+> As regras de roteamento e de mascaramento ficam no menu **Roteia -> Rotas**, disponível apenas para administradores. Se você não é administrador e suspeita que o mascaramento está agressivo demais, fale com o administrador da plataforma.
 
 ## Limpando muitos eventos de uma vez
 
@@ -155,13 +155,13 @@ Quando há centenas ou milhares de eventos na fila, escolha a abordagem conforme
 
 | Abordagem | Quando usar | Como fazer |
 |-----------|-------------|------------|
-| Corrigir e reprocessar | O erro é mapeável (nome ou tipo de campo). É a opção preferida. | Corrija o mapeamento em **Normalização -> Mappings**, volte a **Normalização -> Quarentena** e reprocesse a fila. O reprocesso roda em segundo plano; aguarde alguns minutos. |
-| Descartar tudo | Os eventos são ruído ou de teste e não valem reprocesso. | Em **Normalização -> Quarentena**, filtre pelo fornecedor e descarte os eventos selecionados. Eles não são recuperáveis pela quarentena. |
+| Corrigir e reprocessar | O erro é mapeável (nome ou tipo de campo). É a opção preferida. | Corrija o mapeamento em **Normaliza -> Mapeamentos**, volte a **Normaliza -> Quarentena** e reprocesse a fila. O reprocesso roda em segundo plano; aguarde alguns minutos. |
+| Descartar tudo | Os eventos são ruído ou de teste e não valem reprocesso. | Em **Normaliza -> Quarentena**, filtre pelo fornecedor e descarte os eventos selecionados. Eles não são recuperáveis pela quarentena. |
 | Recoleta histórica | O erro afeta muitos eventos antigos, não só os recentes. | Após corrigir o mapeamento, solicite uma recoleta histórica da integração (por exemplo, dos últimos dias). Os eventos antigos voltam a ser processados com o mapeamento corrigido. |
 
 ## Prevenção
 
-- Acompanhe o card de quarentena em **Normalização -> Saúde do Pipeline** e em **Visão geral -> Dashboard** para detectar picos cedo.
+- Acompanhe o card de quarentena em **Visão geral -> Saúde do pipeline** e em **Visão geral -> Dashboard** para detectar picos cedo.
 - Use o histórico de versões dos mapeamentos: ele permite reverter uma alteração com poucos cliques.
 - Após uma atualização grande de um fornecedor, teste o mapeamento (pré-visualização com amostra) antes de aplicar em produção.
 - Registre as mudanças de formato dos fornecedores para reagir mais rápido na próxima vez.

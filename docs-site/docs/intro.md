@@ -15,9 +15,9 @@ A plataforma foi pensada para o dia a dia de quem opera muitos clientes com prod
 
 ## Quando usar
 
-- **Receber alertas de vendors diferentes em um só lugar** — você opera Sophos e Wazuh (e outros), mas não quer abrir vários consoles. O CentralOps coleta e padroniza tudo num formato único, entrega aos seus destinos e deixa os eventos pesquisáveis em **Operação -> Investigações**.
+- **Receber alertas de vendors diferentes em um só lugar** — você opera Sophos e Wazuh (e outros), mas não quer abrir vários consoles. O CentralOps coleta e padroniza tudo num formato único, entrega aos seus destinos, e as detecções que ele gera ficam em **Detecta -> Detecções**.
 - **Enviar o mesmo evento para mais de um destino** — o time de detecção precisa dos eventos no SIEM, mas o time de compliance quer uma cópia arquivada em um data lake. O administrador configura as duas entregas e cada destino recebe sua versão (por exemplo, a do SIEM com dados pessoais mascarados).
-- **Investigar um incidente com contexto** — durante um caso, o analista usa **Operação -> Investigações** para buscar eventos relacionados, todos no mesmo schema, sem precisar traduzir campos entre fabricantes.
+- **Investigar um incidente com contexto** — durante um caso, o analista abre **Detecta -> Detecções** para ver o que disparou, e pesquisa os eventos no destino para onde eles foram entregues, já no mesmo schema, sem precisar traduzir campos entre fabricantes. Com a edição Enterprise, **Detecta -> Busca federada** consulta os destinos sem mover o dado.
 - **Operar vários clientes com isolamento** — em um MSSP, cada organização vê apenas seus próprios dados, e o administrador gerencia clientes, integrações e políticas pela mesma interface.
 
 ## Para quem é
@@ -35,20 +35,20 @@ O CentralOps é um serviço acessado pelo navegador — não há nada para insta
 
 1. **Faça login** no endereço da sua plataforma.
 2. **Conheça o painel** em **Visão geral -> Dashboard** — é a sua visão geral do que está entrando e de como o pipeline está se comportando.
-3. **Veja as integrações** em **Visão geral -> Integrações** — aqui aparecem os vendors conectados e a saúde de cada coleta.
-4. **Investigue os eventos** em **Operação -> Investigações** — busca pelos eventos padronizados já entregues aos destinos; para triagem de detecções geradas por regras e buscas, use **Operação -> Detecções**.
+3. **Veja as integrações** em **Coleta -> Integrações** — aqui aparecem os vendors conectados e a saúde de cada coleta.
+4. **Investigue** em **Detecta -> Detecções**, onde ficam as detecções geradas por regras. Os eventos em si são pesquisados no destino que os recebeu.
 
 ## O que a plataforma faz
 
 - **Vários vendors numa só plataforma** — os eventos de cada fabricante chegam ao mesmo lugar. Para conectar um novo vendor, o administrador usa o catálogo de integrações na própria interface — não é preciso programar nada.
-- **Eventos padronizados** — cada vendor descreve os mesmos dados de um jeito diferente; o CentralOps converte tudo para um formato único, para que um campo (por exemplo, "endereço de origem") signifique sempre a mesma coisa, venha de onde vier. Esse mapeamento é configurado pelo editor de mapeamento na tela **Normalização -> Mappings**, com versões, comparação entre versões, teste prévio e possibilidade de voltar atrás.
+- **Eventos padronizados** — cada vendor descreve os mesmos dados de um jeito diferente; o CentralOps converte tudo para um formato único, para que um campo (por exemplo, "endereço de origem") signifique sempre a mesma coisa, venha de onde vier. Esse mapeamento é configurado pelo editor de mapeamento na tela **Normaliza -> Mapeamentos**, com versões, comparação entre versões, teste prévio e possibilidade de voltar atrás.
 - **Isolamento por cliente** — em ambientes multi-tenant, cada organização vê apenas seus próprios eventos. Novos clientes podem ser detectados automaticamente e só entram após aprovação de uma pessoa.
-- **Quarentena de eventos com problema** — eventos que chegam fora do esperado não são descartados em silêncio: ficam na tela **Normalização -> Quarentena**, com o motivo do problema, e podem ser reprocessados depois de corrigir o mapeamento.
-- **Campos novos detectados (drift)** — quando um vendor passa a enviar campos que ainda não estão mapeados, eles aparecem em **Normalização -> Drift Explorer** para você revisar e incorporar, sem perder informação.
-- **Entrega a vários destinos** — o administrador define, em **Operação -> Roteamento**, regras que decidem para onde cada evento vai, e em **Operação -> Destinos** quais são esses destinos (Wazuh, Splunk, Elastic, S3, Microsoft Sentinel, Kafka, syslog e outros). Um mesmo evento pode ser enviado a vários destinos ao mesmo tempo. Sempre há um destino padrão de segurança, para que nenhum evento se perca.
+- **Quarentena de eventos com problema** — eventos que chegam fora do esperado não são descartados em silêncio: ficam na tela **Normaliza -> Quarentena**, com o motivo do problema, e podem ser reprocessados depois de corrigir o mapeamento.
+- **Campos novos detectados (drift)** — quando um vendor passa a enviar campos que ainda não estão mapeados, eles aparecem em **Normaliza -> Drift** para você revisar e incorporar, sem perder informação.
+- **Entrega a vários destinos** — o administrador define, em **Roteia -> Rotas**, regras que decidem para onde cada evento vai, e em **Roteia -> Destinos** quais são esses destinos (Wazuh, Splunk, Elastic, S3, Microsoft Sentinel, Kafka, syslog e outros). Um mesmo evento pode ser enviado a vários destinos ao mesmo tempo. Evento sem rota que case vai para o destino de fallback, se houver um configurado, ou para a DLQ: fica retido e replayável, nunca descartado em silêncio.
 - **Mascaramento de dados pessoais por destino** — dados sensíveis (como e-mail, IP e telefone) podem ser mascarados antes da entrega, e cada destino pode receber uma versão diferente (por exemplo, o SIEM recebe a versão mascarada e o data lake a versão completa).
-- **Acompanhamento da saúde do pipeline** — em **Normalização -> Saúde do Pipeline** você vê se a coleta, a padronização e a entrega estão fluindo bem. Quando um destino fica instável, a plataforma se protege e segura os envios até ele se recuperar; os eventos pendentes entram numa fila de reenvio e são entregues automaticamente depois.
-- **Investigação e resposta** — busque eventos em **Operação -> Investigações**, aplique bloqueios em **Operação -> Resposta** e consulte o que já passou em **Operação -> Histórico**.
+- **Acompanhamento da saúde do pipeline** — em **Visão geral -> Saúde do pipeline** você vê se a coleta, a padronização e a entrega estão fluindo bem. Quando um destino fica instável, a plataforma se protege e segura os envios até ele se recuperar; os eventos pendentes entram numa fila de reenvio e são entregues automaticamente depois.
+- **Investigação** — consulte detecções em **Detecta -> Detecções**, mantenha o catálogo de consultas curadas em **Detecta -> Queries salvas** e veja o que já passou em **Visão geral -> Histórico**. A busca pelo evento em si acontece no destino.
 - **Auditoria completa** — quem fez o quê e quando, com trilha exportável para fins de conformidade.
 
 ## Como os dados fluem
@@ -62,7 +62,7 @@ Em alto nível, todo evento percorre quatro etapas dentro do CentralOps:
 3. **Roteamento** — as regras decidem para quais destinos o evento deve ir.
 4. **Entrega** — o evento é enviado simultaneamente aos destinos escolhidos, com o mascaramento de dados pessoais aplicado conforme cada rota.
 
-> As regras de roteamento, os destinos e o fluxo de dados em tempo real só aparecem para administradores, nos respectivos itens do grupo **Operação**.
+> As regras de roteamento, os destinos e o fluxo de dados em tempo real só aparecem para administradores, nos respectivos itens do grupo **Roteia**.
 
 ## Saiba mais
 

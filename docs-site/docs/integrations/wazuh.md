@@ -30,7 +30,7 @@ Os certificados, endereços de rede e credenciais de serviço são definidos pel
 
 ## Passo 1: Criar a integração de coleta
 
-1. Acesse o menu **Visão geral → Integrações**.
+1. Acesse o menu **Coleta → Integrações**.
 2. Clique em **Adicionar integração**.
 3. No seletor de plataforma, escolha **Wazuh** e avance.
 4. Preencha os dados do **Manager**:
@@ -48,8 +48,8 @@ Os certificados, endereços de rede e credenciais de serviço são definidos pel
 
 ## Passo 2: Confirmar que a coleta está funcionando
 
-1. Acesse **Normalização → Saúde do Pipeline** e localize a integração Wazuh. O status deve aparecer como **Ativo**.
-2. Acesse **Operação → Investigações** (a tela de busca) e filtre por `platform:wazuh`.
+1. Acesse **Visão geral → Saúde do pipeline** e localize a integração Wazuh. O status deve aparecer como **Ativo**.
+2. Pesquise no destino que recebeu os eventos, filtrando por `platform:wazuh`.
 3. Você verá os alertas coletados do Wazuh já normalizados no formato canônico do CentralOps.
 
 **O que o CentralOps coleta:** a cada poucos minutos, ele lê os alertas mais recentes do Wazuh Indexer e os normaliza automaticamente — convertendo campos como data/hora, severidade e título para o formato padronizado da plataforma. Você não precisa configurar nada para isso: a coleta começa assim que a integração é salva e validada.
@@ -71,12 +71,12 @@ Se você roteá-lo para um syslog cujo host coincida com o host do manager Wazuh
 A partir da versão 2.0, o CentralOps roteia eventos normalizados para **vários destinos em paralelo** (Wazuh, Splunk, S3, Sentinel e outros). O Wazuh é apenas um dos destinos possíveis — não o destino único.
 
 :::note[Disponível apenas para administradores]
-As telas **Destinos**, **Roteamento** e **Fluxo de dados** só aparecem para administradores da plataforma. Se você não as vê no menu, fale com um administrador.
+As telas **Destinos**, **Rotas** e **Fluxo de dados** só aparecem para administradores da plataforma. Se você não as vê no menu, fale com um administrador.
 :::
 
 ### 3.1 Criar o destino Wazuh
 
-1. Acesse **Operação → Destinos**.
+1. Acesse **Roteia → Destinos**.
 2. Clique em **Adicionar destino**.
 3. Escolha o tipo de envio: **Syslog RFC 5424** (recomendado para Wazuh) ou **JSONL** como alternativa.
 4. Preencha:
@@ -89,7 +89,7 @@ As telas **Destinos**, **Roteamento** e **Fluxo de dados** só aparecem para adm
 
 A regra de roteamento define **quais eventos** vão para o destino Wazuh.
 
-1. Acesse **Operação → Roteamento**.
+1. Acesse **Roteia → Rotas**.
 2. Clique em **Adicionar rota**.
 3. Configure a regra:
    - **Nome** (ex.: `Enviar ao Wazuh`).
@@ -132,7 +132,7 @@ Para mais detalhes sobre condições e roteamento, veja [Roteamento](../outputs/
 | **Credenciais inválidas** (não autorizado) | Verifique se o usuário e a senha estão corretos e se o usuário tem permissão de leitura no Wazuh. Se a senha foi alterada recentemente, atualize-a na integração. |
 | **Erro de certificado SSL** | Se o Wazuh usa um certificado próprio, o certificado correto precisa estar provisionado pela equipe de infraestrutura — fale com o administrador da plataforma. Não desative a verificação de SSL em produção. |
 | **Indexer sobrecarregado** (muitas requisições ou cluster instável) | Esse é um limite do lado do Wazuh, geralmente por falta de espaço ou capacidade. Acione o administrador do Wazuh para liberar espaço ou aumentar a capacidade do Indexer. |
-| **Eventos coletados, mas não chegam no Wazuh como destino** | Em **Operação → Roteamento**, confirme que existe uma rota apontando para o destino Wazuh e que a condição inclui os seus eventos. Em **Operação → Destinos**, confirme que o destino Wazuh está saudável. Para mais sinais, veja **Normalização → Saúde do Pipeline**. |
+| **Eventos coletados, mas não chegam no Wazuh como destino** | Em **Roteia → Rotas**, confirme que existe uma rota apontando para o destino Wazuh e que a condição inclui os seus eventos. Em **Roteia → Destinos**, confirme que o destino Wazuh está saudável. Para mais sinais, veja **Visão geral → Saúde do pipeline**. |
 
 ## Próximos passos
 

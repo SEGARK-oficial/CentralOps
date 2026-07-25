@@ -8,17 +8,17 @@ description: Catálogo dos operadores disponíveis no editor de mapeamento — o
 
 Operadores são as transformações que você aplica a cada campo ao montar um mapeamento de normalização. Eles convertem o valor que o fornecedor envia (uma data em texto, um "true"/"false", uma pontuação de 0 a 1) no formato que o CentralOps espera para busca e correlação.
 
-Você usa estes operadores no **editor de mapeamento**, dentro do menu **Normalização -> Mappings**, ao definir como cada campo de origem vira um campo normalizado.
+Você usa estes operadores no **editor de mapeamento**, dentro do menu **Normaliza -> Mapeamentos**, ao definir como cada campo de origem vira um campo normalizado.
 
 ## Quando usar
 
 - **Onboarding de um novo fornecedor.** Você adicionou uma integração e os eventos chegam com datas em texto, severidade como string e pontuações em escala diferente. Use os operadores de conversão para colocar tudo no padrão antes de salvar o mapeamento.
-- **Eventos caindo na fila de quarentena.** Em **Normalização -> Quarentena** você vê eventos rejeitados porque um campo não pôde ser convertido (ex.: uma data inválida). Esta página ajuda a identificar qual operador estava envolvido e como ajustar a regra.
+- **Eventos caindo na fila de quarentena.** Em **Normaliza -> Quarentena** você vê eventos rejeitados porque um campo não pôde ser convertido (ex.: uma data inválida). Esta página ajuda a identificar qual operador estava envolvido e como ajustar a regra.
 - **Refino de um mapeamento existente.** Os alertas de um fornecedor estão com texto em caixa mista, espaços sobrando ou listas com itens repetidos, atrapalhando filtros e agrupamentos. Use operadores como minúscula, remover espaços ou remover duplicados para deixar os dados consistentes.
 
 ## O que acontece quando uma conversão falha
 
-Quando um operador não consegue converter um valor (por exemplo, uma data em formato inválido ou um texto onde se esperava um número), o evento é enviado para a **fila de quarentena** com o motivo da falha. Ele não é descartado: você pode revisar e reprocessar esses eventos em **Normalização -> Quarentena** depois de corrigir o mapeamento.
+Quando um operador não consegue converter um valor (por exemplo, uma data em formato inválido ou um texto onde se esperava um número), o evento é enviado para a **fila de quarentena** com o motivo da falha. Ele não é descartado: você pode revisar e reprocessar esses eventos em **Normaliza -> Quarentena** depois de corrigir o mapeamento.
 
 Ao longo desta página, "vai para quarentena" significa exatamente isso — o evento fica retido e visível na tela de Quarentena até você ajustar a regra e reprocessar.
 

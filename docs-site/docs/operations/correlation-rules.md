@@ -12,9 +12,9 @@ As regras de correlação estão em **Beta**. O motor **não** observa o pipelin
 
 Uma **regra de correlação** examina os resultados de uma busca federada — que podem vir de múltiplas fontes ao mesmo tempo — e abre uma **Detecção** (um alerta de análise) quando um padrão específico aparece naquele conjunto de resultados. Por exemplo: "se o mesmo IP falhar em fazer login 5 vezes em 5 minutos dentro dos resultados desta busca, abrir uma detecção".
 
-Diferente dos eventos coletados das fontes (que você pesquisa em [Investigações](./search.md)), as Detecções vêm de análise: correlação, busca em tempo real ou agendamentos. Você gerencia aqui regras de **tipo threshold** — o tipo mais comum. Tipos mais avançados (sequência de eventos, agregações) estão no nosso roadmap.
+Diferente dos eventos coletados das fontes (que você pesquisa pela [busca de eventos](./search.md)), as Detecções vêm de análise: correlação, busca em tempo real ou agendamentos. Você gerencia aqui regras de **tipo threshold** — o tipo mais comum. Tipos mais avançados (sequência de eventos, agregações) estão no nosso roadmap.
 
-Para acessar, use o menu **Conhecimento → Correlação**.
+Para acessar, use o menu **Detecta → Correlação**.
 
 **Quem pode ver:** todos os perfis com acesso de leitura ou superior. Apenas **Engineer** e acima conseguem criar, editar ou excluir regras.
 
@@ -34,7 +34,7 @@ Você define a regra com `eval_mode='batch'`. Uma regra habilitada é avaliada *
 
 - O pipeline de coleta **não** avalia regras de correlação. Eventos ingeridos não passam pelo motor.
 - **Não** há agendamento próprio (nenhuma entrada de scheduler cria buscas para alimentar as regras).
-- Rodar uma busca federada é a única forma de disparar a avaliação — via **Operação → Busca federada**.
+- Rodar uma busca federada é a única forma de disparar a avaliação — via **Detecta → Busca federada**.
 
 Consequência prática: o alcance temporal da sua regra é o alcance da busca. Uma regra de "10 falhas em 5 minutos" não vê nada que esteja fora do intervalo e dos filtros da busca que a acionou.
 
@@ -225,7 +225,7 @@ Quando uma regra dispara, é criada uma **Detecção** com:
 - **Chave de dedup**: inclui a chave de agrupamento, garantindo que eventos do mesmo grupo não geram duplicatas enquanto a supressão estiver ativa.
 - **Contagem (`count`)**: começa em 1 e é incrementada a cada **nova avaliação da regra** que reincide na mesma chave de dedup. Ela **não** reflete quantos eventos foram correlacionados — para isso, olhe os eventos no detalhe da Detecção. Veja [Detecções](./detections.md#deduplicação-e-supressão).
 
-Você vê as Detecções em **Operação → Detecções**.
+Você vê as Detecções em **Detecta → Detecções**.
 
 ## Diagnóstico: por que a regra não dispara
 
@@ -250,7 +250,7 @@ O `Status` da regra é "Desativada" (cinza). Regras desativadas não são avalia
 
 A regra está em batch, mas você nunca rodou uma busca federada que pudesse acioná-la.
 
-**Diagnóstico:** vá em **Operação → Busca federada**, execute uma busca que cubra as fontes e período de interesse, e aguarde conclusão. A regra é avaliada ao final.
+**Diagnóstico:** vá em **Detecta → Busca federada**, execute uma busca que cubra as fontes e período de interesse, e aguarde conclusão. A regra é avaliada ao final.
 
 ### 4. Where_json não compila
 
@@ -320,7 +320,7 @@ Modo inflight: você configurou `group_by_field` apontando para um campo que nã
 
 ### Criar uma regra para detectar brute-force
 
-1. Abra **Conhecimento → Correlação**.
+1. Abra **Detecta → Correlação**.
 2. Clique em **+ Nova regra**.
 3. Preencha:
    - **Nome**: "Brute-force SSH"
@@ -335,13 +335,13 @@ Modo inflight: você configurou `group_by_field` apontando para um campo que nã
 
 4. Clique **Salvar**.
 
-5. Abra **Operação → Busca federada** e execute uma busca que cubra as fontes e o período de interesse.
+5. Abra **Detecta → Busca federada** e execute uma busca que cubra as fontes e o período de interesse.
 
 Quando essa busca terminar, a regra é avaliada sobre os resultados dela: se houver 10 ou mais falhas de SSH do mesmo IP dentro de uma janela de 5 minutos, uma Detecção é criada. Repita a busca sempre que quiser reavaliar — a regra não roda sozinha.
 
 ### Revisar e triagem de uma Detecção gerada
 
-1. Abra **Operação → Detecções**.
+1. Abra **Detecta → Detecções**.
 2. Filtre por status "open".
 3. Clique em uma Detecção com `source = "correlation"`.
 4. No detalhe, veja a regra que a gerou e os eventos que acionaram.
@@ -349,7 +349,7 @@ Quando essa busca terminar, a regra é avaliada sobre os resultados dela: se hou
 
 ### Ajustar uma regra que gera muitos falsos positivos
 
-1. Abra **Conhecimento → Correlação**.
+1. Abra **Detecta → Correlação**.
 2. Clique em editar na regra problemática.
 3. **Confira primeiro o campo de timestamp.** Se estiver vazio, a janela não está sendo aplicada e a regra conta todos os eventos do grupo no resultado da busca — essa é a causa mais comum de falso positivo. Preencha com um campo que exista nos eventos daquela fonte.
 4. Aumente `min_count` (ex.: de 5 para 10).
@@ -359,6 +359,6 @@ Quando essa busca terminar, a regra é avaliada sobre os resultados dela: se hou
 
 ## Próximos passos
 
-- **Quer triagem as Detecções geradas?** Vá em **Operação → Detecções** ([Detecções](./detections.md)).
-- **Quer que suas regras rodem?** Execute uma **Operação → Busca federada** ([Busca federada](./detections.md)) — é o que dispara a avaliação das regras habilitadas.
-- **Quer ver todos os eventos?** Vá em **Operação → Investigações** ([Investigações](./search.md)).
+- **Quer triagem as Detecções geradas?** Vá em **Detecta → Detecções** ([Detecções](./detections.md)).
+- **Quer que suas regras rodem?** Execute uma **Detecta → Busca federada** ([Busca federada](./federated-search.md)) — é o que dispara a avaliação das regras habilitadas.
+- **Quer ver todos os eventos?** Pesquise no destino que os recebeu. Veja [onde pesquisar eventos](./search.md).

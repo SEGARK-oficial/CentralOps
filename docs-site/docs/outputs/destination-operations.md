@@ -8,7 +8,7 @@ description: Acompanhe a saúde dos destinos, investigue falhas, reenvie eventos
 
 Esta tela mostra a saúde de cada destino para onde o CentralOps envia eventos — conectividade, proteção contra destino instável e fila de reenvio — e permite gerenciar as credenciais de cada um.
 
-Os destinos são gerenciados pelo administrador da plataforma no menu **Operação → Destinos**. Analistas e engenheiros podem acompanhar a saúde e a fila de reenvio; ações que mexem em credenciais (rotacionar, revogar) são restritas ao administrador.
+Os destinos são gerenciados pelo administrador da plataforma no menu **Roteia → Destinos**. Analistas e engenheiros podem acompanhar a saúde e a fila de reenvio; ações que mexem em credenciais (rotacionar, revogar) são restritas ao administrador.
 
 ## Quando usar
 
@@ -18,7 +18,7 @@ Os destinos são gerenciados pelo administrador da plataforma no menu **Operaç�
 
 ## Saúde geral dos destinos
 
-Vá ao menu **Operação → Destinos**. A coluna de status mostra um indicador colorido para cada destino:
+Vá ao menu **Roteia → Destinos**. A coluna de status mostra um indicador colorido para cada destino:
 
 | Indicador | Significado | O que fazer |
 |-----------|-------------|-------------|
@@ -34,7 +34,7 @@ A tela lista todos os destinos visíveis à sua organização com status, evento
 
 Antes de colocar um destino em produção, valide a conexão:
 
-1. Vá ao menu **Operação → Destinos** e selecione o destino.
+1. Vá ao menu **Roteia → Destinos** e selecione o destino.
 2. Use o botão de **Testar** conexão.
 3. A plataforma abre uma conexão temporária só para o teste e verifica:
    - se a rede responde (nome do host resolve, porta aberta);
@@ -144,7 +144,7 @@ Um destino **sem credencial** fica desabilitado automaticamente, pois não tem c
 
 Use a rotação para trocar o token ou a senha **sem apagar** o destino:
 
-1. Vá ao menu **Operação → Destinos** e abra o destino.
+1. Vá ao menu **Roteia → Destinos** e abra o destino.
 2. Acesse a área de credencial do destino.
 3. Escolha **rotacionar** a credencial.
 4. Cole o novo token ou senha.
@@ -212,7 +212,7 @@ Rotacione a credencial (cole o novo token e confirme). O destino volta a operar 
 ### Eventos por segundo em zero — nada sendo entregue
 
 1. Confirme que o destino está **habilitado** e **saudável**.
-2. Confirme que existe uma regra de roteamento ativa enviando eventos para esse destino. O roteamento é gerenciado pelo administrador no menu **Operação → Roteamento**.
+2. Confirme que existe uma regra de roteamento ativa enviando eventos para esse destino. O roteamento é gerenciado pelo administrador no menu **Roteia → Rotas**.
 3. Verifique se os eventos não estão sendo reduzidos por sobrecarga (estado de vazão nas métricas do destino).
 
 ### Erro ao usar a credencial ("não foi possível descriptografar")

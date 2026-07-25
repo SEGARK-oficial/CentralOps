@@ -11,7 +11,7 @@ Um **destino** Elasticsearch / OpenSearch envia os eventos já normalizados pelo
 A entrega é feita sem duplicação: se o mesmo evento for reenviado (por exemplo, após uma instabilidade de rede), ele não aparece duas vezes no índice.
 
 :::note[Quem configura]
-Criar e editar destinos é uma tarefa de **administrador**. As telas de **Destinos**, **Roteamento** e **Fluxo de dados** só aparecem para quem tem perfil de admin. Analistas e operadores conseguem acompanhar a saúde do destino, mas não criá-lo.
+Criar e editar destinos é uma tarefa de **administrador**. As telas de **Destinos**, **Rotas** e **Fluxo de dados** só aparecem para quem tem perfil de admin. Analistas e operadores conseguem acompanhar a saúde do destino, mas não criá-lo.
 :::
 
 ## Quando usar
@@ -37,7 +37,7 @@ Se o cluster usa um certificado emitido por uma autoridade certificadora (CA) pr
 
 ## Como criar o destino
 
-Vá ao menu **Visão geral → Integrações** para confirmar que seus coletores estão ativos e, em seguida, ao menu **Operação → Destinos** para criar o destino.
+Vá ao menu **Coleta → Integrações** para confirmar que seus coletores estão ativos e, em seguida, ao menu **Roteia → Destinos** para criar o destino.
 
 ### 1. Iniciar um novo destino
 
@@ -89,7 +89,7 @@ Esse fluxo é conduzido pelo administrador da plataforma a partir das telas de a
 
 ### Indicador de saúde
 
-Na tela **Operação → Destinos**, cada destino mostra um indicador de saúde:
+Na tela **Roteia → Destinos**, cada destino mostra um indicador de saúde:
 
 | Cor | Significado |
 |-----|-------------|
@@ -126,7 +126,7 @@ Se o problema persistir mesmo após verificar esses pontos, acione o administrad
 
 ### Centralizar vários coletores em um só cluster
 
-1. Em **Visão geral → Integrações**, confirme que os coletores (por exemplo, Sophos e Wazuh) estão ativos e coletando.
+1. Em **Coleta → Integrações**, confirme que os coletores (por exemplo, Sophos e Wazuh) estão ativos e coletando.
 2. Crie um único destino Elasticsearch apontando para o cluster central.
 3. No Kibana (ou OpenSearch Dashboards), monte um painel unificado. Você consegue separar os eventos por plataforma de origem usando os campos que o CentralOps preenche em cada evento.
 
@@ -144,7 +144,7 @@ Se o problema persistir mesmo após verificar esses pontos, acione o administrad
 
 ## Próximos passos
 
-- **Confirmar que os dados estão chegando?** Vá ao menu **Operação → Investigações** e busque pelos eventos.
-- **Eventos sem entrega?** Abra o destino em **Operação → Destinos** e revise a fila de reenvio.
+- **Confirmar que os dados estão chegando?** Vá ao menu **Detecta → Queries salvas** e busque pelos eventos.
+- **Eventos sem entrega?** Abra o destino em **Roteia → Destinos** e revise a fila de reenvio.
 - **Adicionar outro destino?** Veja [Destinos: Visão Geral](./overview.md).
 - **Entender como os eventos são direcionados?** Veja [Roteamento](./routing.md).

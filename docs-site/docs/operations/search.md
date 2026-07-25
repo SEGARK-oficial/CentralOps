@@ -1,17 +1,27 @@
 ---
 sidebar_position: 4
-title: Investigações
-description: Busca flexível por eventos já entregues aos seus destinos, com filtros, intervalos de tempo e exportação
+title: Onde pesquisar eventos
+description: Por que a busca acontece no destino, o que o console oferece e como escrever consultas que aproveitam a normalização
 ---
 
-# Investigações
+# Onde pesquisar eventos
 
-A tela **Investigações** é onde você procura por eventos de segurança que já foram coletados e entregues aos seus destinos. Você monta a busca combinando filtros (severidade, plataforma de origem, destino, intervalo de tempo) e palavras-chave, e recebe os eventos correspondentes em uma lista paginada.
+:::warning O console não pesquisa eventos
+Na edição Community **não existe tela de busca de eventos**. O CentralOps é o pipeline: ele coleta, padroniza e **entrega**. Quem guarda o evento e responde a consultas é o **destino** para onde você o roteou (seu SIEM, data lake ou bucket). É lá que a busca acontece.
 
-Para abrir, acesse o menu **Operação → Investigações**.
+O que o console oferece:
+
+- **Detecta → Detecções**: o que as regras dispararam.
+- **Detecta → Queries salvas**: um **catálogo** de definições de consulta, para a equipe curar e reaproveitar o texto das buscas. Não roda consulta nem exibe evento.
+- **Detecta → Busca federada** (somente **Enterprise**): consulta os destinos no lugar onde o dado está, sem movê-lo.
+
+As telas "Investigações" e "Resposta", citadas em versões antigas desta documentação, nunca existiram.
+:::
+
+Esta página explica **onde** pesquisar cada coisa e como montar consultas que aproveitam a normalização: como tudo chega ao destino no mesmo schema, uma consulta escrita uma vez serve para eventos de qualquer fornecedor.
 
 :::info[Busca ao vivo federada (multi-vendor)]
-A tela de Investigações cobre **eventos já entregues** aos seus destinos. Se você precisa rodar uma **busca ao vivo** direto nas suas integrações (Sophos, Wazuh, CrowdStrike, Defender etc.) de forma federada e assíncrona, veja [Busca Federada](./federated-search.md).
+A busca de eventos cobre **eventos já entregues** aos seus destinos. Se você precisa rodar uma **busca ao vivo** direto nas suas integrações (Sophos, Wazuh, CrowdStrike, Defender etc.) de forma federada e assíncrona, veja [Busca federada](./federated-search.md).
 :::
 
 ## Quando usar
@@ -23,7 +33,7 @@ A tela de Investigações cobre **eventos já entregues** aos seus destinos. Se 
 ## Permissões necessárias
 
 :::note[Rodar query AO VIVO exige Operator ou superior]
-A tela de Investigações permite buscar eventos **já entregues aos seus destinos** com filtros e palavras-chave. Se o seu papel é Viewer, você consegue ver os resultados já coletados sem restrição.
+A busca de eventos permite buscar eventos **já entregues aos seus destinos** com filtros e palavras-chave. Se o seu papel é Viewer, você consegue ver os resultados já coletados sem restrição.
 
 Porém, **rodar uma busca AO VIVO na fonte** (que dispara coleta no cliente e custa $) exige papel **Operator** ou superior. Se você tentar buscar e receber erro 403, é porque sua conta está como Viewer. Peça ao administrador para promovê-lo a Operator.
 :::
@@ -147,7 +157,7 @@ Quando você monta uma busca complexa que vai repetir, dê um nome e salve-a par
 2. Use a opção de salvar a busca na própria tela.
 3. Dê um nome descritivo, por exemplo "Ransomware últimas 24h para o SOC".
 
-As buscas salvas ficam reunidas no menu **Conhecimento → Queries Salvas**, prontas para serem aplicadas novamente com um clique.
+As definições de consulta curadas pela equipe ficam reunidas em **Detecta → Queries salvas**. É um catálogo: você mantém ali o texto da consulta e a documentação dela, para reaplicar no destino sem reescrever do zero.
 
 ## Agendar uma busca
 
@@ -155,7 +165,7 @@ As buscas salvas ficam reunidas no menu **Conhecimento → Queries Salvas**, pro
 
 Você pode pedir para uma busca rodar automaticamente em intervalos definidos (por exemplo, diariamente às 08:00) e receber o resultado por e-mail quando houver correspondência.
 
-Os agendamentos são gerenciados no menu **Conhecimento → Agendamentos** (visível apenas para administradores). Lá você define o nome, a busca e a frequência.
+Os agendamentos são gerenciados no menu **Detecta → Agendamentos** (visível apenas para administradores). Lá você define o nome, a busca e a frequência.
 
 ## Exportar resultados
 
@@ -173,11 +183,11 @@ Use a opção de download na tela para baixar o resultado da busca em um destes 
 |---------------|---------|
 | **Janela de busca** | A busca cobre os eventos recentes (cerca de 7 dias). Para dados mais antigos, veja abaixo. |
 | **Limite por busca** | Há um limite de eventos retornados por busca. Se a busca for muito ampla e ultrapassar o limite, a tela mostra um aviso — refine os filtros (período, severidade, destino) para chegar ao que procura. |
-| **Agregações avançadas** | A tela de Investigações não faz somatórios, gráficos ou estatísticas. Para esse tipo de análise, use o painel nativo do destino para onde os eventos foram enviados — por exemplo, Kibana quando o destino é Elastic, ou a interface do Splunk quando o destino é Splunk. A lista de destinos configurados está em **Operação → Destinos** (visível apenas para administradores). |
+| **Agregações avançadas** | A busca de eventos não faz somatórios, gráficos ou estatísticas. Para esse tipo de análise, use o painel nativo do destino para onde os eventos foram enviados — por exemplo, Kibana quando o destino é Elastic, ou a interface do Splunk quando o destino é Splunk. A lista de destinos configurados está em **Roteia → Destinos** (visível apenas para administradores). |
 
 ### Dados anteriores à janela de busca
 
-A tela de Investigações alcança apenas os eventos mais recentes. Para consultar eventos mais antigos, acesse-os diretamente no destino de longa duração que o administrador configurou (por exemplo, um bucket S3 ou um cluster Elastic). A retenção de longo prazo (meses ou anos) depende de haver um destino de armazenamento configurado — a configuração de destinos fica em **Operação → Destinos** (visível apenas para administradores).
+A busca de eventos alcança apenas os eventos mais recentes. Para consultar eventos mais antigos, acesse-os diretamente no destino de longa duração que o administrador configurou (por exemplo, um bucket S3 ou um cluster Elastic). A retenção de longo prazo (meses ou anos) depende de haver um destino de armazenamento configurado — a configuração de destinos fica em **Roteia → Destinos** (visível apenas para administradores).
 
 > O tempo exato da janela de busca e a retenção de longo prazo são definidos pela equipe de infraestrutura no momento do deploy. Se precisar alterá-los, fale com o administrador da plataforma.
 
@@ -193,8 +203,8 @@ A tela de Investigações alcança apenas os eventos mais recentes. Para consult
 
 ## Próximos passos
 
-- **Quer triar as detecções geradas por regras e buscas?** Vá a **Operação → Detecções** ([Detecções](./detections.md)).
-- **Precisa salvar e reaproveitar buscas?** Vá a **Conhecimento → Queries Salvas**.
-- **Quer agendar uma busca recorrente?** Vá a **Conhecimento → Agendamentos** (somente administradores).
-- **Precisa revisar para onde os eventos vão?** Os administradores encontram a configuração em **Operação → Destinos** e **Operação → Roteamento**.
+- **Quer triar as detecções geradas por regras e buscas?** Vá a **Detecta → Detecções** ([Detecções](./detections.md)).
+- **Precisa guardar e reaproveitar o texto de uma consulta?** Vá a **Detecta → Queries salvas**.
+- **Quer agendar uma busca recorrente?** Vá a **Detecta → Agendamentos** (somente administradores).
+- **Precisa revisar para onde os eventos vão?** Os administradores encontram a configuração em **Roteia → Destinos** e **Roteia → Rotas**.
 - **Os dados que procura estão num destino externo?** Consulte o painel nativo desse destino (por exemplo, Kibana para Elastic, Splunk para Splunk).

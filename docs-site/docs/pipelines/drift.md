@@ -32,7 +32,7 @@ A detecção de campos novos é **isolada por organização**. Você só enxerga
 
 ## Onde encontrar na interface
 
-Acesse o menu **Normalização -> Drift Explorer**. O Dashboard (menu **Visão geral -> Dashboard**) também costuma destacar os campos novos em um cartão de resumo, com atalho para a tela completa.
+Acesse o menu **Normaliza -> Drift**. O Dashboard (menu **Visão geral -> Dashboard**) também costuma destacar os campos novos em um cartão de resumo, com atalho para a tela completa.
 
 A tela lista os campos detectados com as seguintes informações:
 
@@ -65,7 +65,7 @@ Quando um campo novo aparece, você tem três caminhos.
 
 Use quando o campo é mesmo irrelevante (por exemplo, um identificador interno do fornecedor que não agrega à investigação).
 
-1. Na tela **Normalização -> Drift Explorer**, localize o campo.
+1. Na tela **Normaliza -> Drift**, localize o campo.
 2. Use a ação de **ignorar** na linha do campo.
 3. O status muda para **ignorado** e o campo deixa de aparecer na lista de novos. Os dados originais continuam preservados, caso você precise revisar depois.
 
@@ -73,24 +73,24 @@ Use quando o campo é mesmo irrelevante (por exemplo, um identificador interno d
 
 Use quando você já ajustou a regra de mapeamento para aproveitar o campo e quer apenas tirá-lo da lista de pendências.
 
-1. Anote o campo que apareceu em **Normalização -> Drift Explorer**.
-2. Vá ao menu **Normalização -> Mappings** e abra a regra de mapeamento do fornecedor correspondente.
+1. Anote o campo que apareceu em **Normaliza -> Drift**.
+2. Vá ao menu **Normaliza -> Mapeamentos** e abra a regra de mapeamento do fornecedor correspondente.
 3. No editor de mapeamento, inclua o campo desejado e salve. O CentralOps cria uma nova versão da regra.
-4. Volte a **Normalização -> Drift Explorer** e use a ação de **marcar como mapeado** na linha do campo.
+4. Volte a **Normaliza -> Drift** e use a ação de **marcar como mapeado** na linha do campo.
 5. O status passa a **mapeado** e o campo sai da lista de pendências.
 
 ### Opção C: incluir o campo nos eventos normalizados
 
-Use quando o campo é importante e você quer que ele passe a aparecer em todos os eventos daqui para frente. O fluxo é o mesmo da Opção B — o ponto central é, no editor de mapeamento (**Normalização -> Mappings**), criar a regra que leva o campo de origem para um campo do evento normalizado e salvar a nova versão.
+Use quando o campo é importante e você quer que ele passe a aparecer em todos os eventos daqui para frente. O fluxo é o mesmo da Opção B — o ponto central é, no editor de mapeamento (**Normaliza -> Mapeamentos**), criar a regra que leva o campo de origem para um campo do evento normalizado e salvar a nova versão.
 
 Depois de salvar:
 
 - Os eventos **novos** já passam a incluir o campo.
-- Para recuperar eventos antigos que ficaram retidos por falta desse campo, reprocesse-os pela tela **Normalização -> Quarentena**. Veja [Quarentena](../operations/quarantine.md).
+- Para recuperar eventos antigos que ficaram retidos por falta desse campo, reprocesse-os pela tela **Normaliza -> Quarentena**. Veja [Quarentena](../operations/quarantine.md).
 
 ## Filtros disponíveis
 
-A tela **Normalização -> Drift Explorer** permite filtrar a lista para focar no que importa:
+A tela **Normaliza -> Drift** permite filtrar a lista para focar no que importa:
 
 - **Por fornecedor** — responde perguntas como "quais campos novos a Sophos começou a mandar?".
 - **Por status** — **novo** (visto mas ainda não tratado), **ignorado** (você decidiu descartar) ou **mapeado** (você já incorporou).
@@ -108,25 +108,25 @@ A disponibilidade das ações em massa pode variar conforme a versão da platafo
 
 ### O fornecedor atualizou os campos enviados
 
-1. Abra **Normalização -> Drift Explorer**.
+1. Abra **Normaliza -> Drift**.
 2. Filtre por fornecedor (ex.: Sophos).
 3. Revise os campos novos e identifique quais são relevantes.
-4. Para os relevantes, ajuste a regra em **Normalização -> Mappings** e salve.
-5. Marque esses campos como mapeados na tela Drift Explorer.
-6. Se houver eventos retidos por falta desses campos, reprocesse-os em **Normalização -> Quarentena**.
+4. Para os relevantes, ajuste a regra em **Normaliza -> Mapeamentos** e salve.
+5. Marque esses campos como mapeados na tela Drift.
+6. Se houver eventos retidos por falta desses campos, reprocesse-os em **Normaliza -> Quarentena**.
 
 ### "Que dados estou perdendo?"
 
-1. Abra **Normalização -> Drift Explorer**.
+1. Abra **Normaliza -> Drift**.
 2. Ordene pela coluna **Contagem** (do mais frequente para o menos).
 3. Os campos do topo são os candidatos mais fortes a serem incorporados.
 4. Decida campo a campo: ignorar ou incluir no mapeamento.
 
 ### Auditoria de completude
 
-1. Abra **Normalização -> Drift Explorer** e filtre por status **ignorado**.
+1. Abra **Normaliza -> Drift** e filtre por status **ignorado**.
 2. Revise: esses campos são mesmo irrelevantes ou apenas faltou mapeá-los?
-3. Para os que faltam, ajuste a regra em **Normalização -> Mappings**.
+3. Para os que faltam, ajuste a regra em **Normaliza -> Mapeamentos**.
 
 ## Retenção dos registros
 

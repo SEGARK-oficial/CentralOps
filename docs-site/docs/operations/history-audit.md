@@ -6,7 +6,7 @@ description: Veja quem fez o quê e quando na plataforma, com filtros, exportaç
 
 # Histórico e Auditoria
 
-A tela **Operação -> Histórico** registra, de forma imutável, todas as ações e mudanças feitas na plataforma: quem fez, o quê e quando. É a sua trilha de auditoria para investigar mudanças, atender compliance e apoiar análises pós-incidente.
+A tela **Visão geral -> Histórico** registra, de forma imutável, todas as ações e mudanças feitas na plataforma: quem fez, o quê e quando. É a sua trilha de auditoria para investigar mudanças, atender compliance e apoiar análises pós-incidente.
 
 Os registros ficam disponíveis por **365 dias** (para atender LGPD/GDPR). Operadores e analistas veem as ações da sua organização; administradores também veem os eventos de sistema e de gestão de usuários.
 
@@ -42,7 +42,7 @@ A trilha cobre as ações feitas em cada área da plataforma.
 - Descarte em massa.
 - Reprocessamento em massa.
 
-### Drift Explorer
+### Drift
 
 - Marcar um campo novo detectado como ignorado.
 - Marcar um campo novo detectado como mapeado.
@@ -71,7 +71,7 @@ Cada registro de auditoria mostra a configuração do destino, mas **nunca exibe
 
 Quando um evento é rejeitado por um destino instável, ele vai para a fila de reenvio. O Histórico registra:
 
-- O **reprocessamento** desses eventos, feito pelo botão de reprocessar na tela de **Operação -> Destinos**.
+- O **reprocessamento** desses eventos, feito pelo botão de reprocessar na tela de **Roteia -> Destinos**.
 - Quem reprocessou, quando, quantos eventos foram reenviados e para qual destino.
 
 ### Usuários (só admin)
@@ -127,7 +127,7 @@ A rotação de chaves e a configuração do cofre de chaves são definidas pela 
 
 Pergunta: "Alguém alterou o mapeamento do Sophos?"
 
-1. Abra **Operação -> Histórico**.
+1. Abra **Visão geral -> Histórico**.
 2. Filtre por **Tipo = mapeamento** e **Ação = editar**.
 3. Localize a edição na lista — por exemplo, "Sophos alerts v3 -> v4", às 10:30, pelo usuário "alice".
 4. Clique para expandir e ver exatamente o que mudou.
@@ -136,7 +136,7 @@ Pergunta: "Alguém alterou o mapeamento do Sophos?"
 
 Pergunta: "Quando o destino Splunk foi criado? Quem editou?"
 
-1. Em **Operação -> Histórico**, filtre por **Tipo = destino** e busque por "Splunk".
+1. Em **Visão geral -> Histórico**, filtre por **Tipo = destino** e busque por "Splunk".
 2. Você vê os eventos de criação, edição e teste.
 3. Expanda cada versão para ver a configuração registrada — sempre **sem as credenciais**.
 
@@ -144,7 +144,7 @@ Pergunta: "Quando o destino Splunk foi criado? Quem editou?"
 
 Pergunta: "A rota de PII foi alterada. Como volto?"
 
-1. Abra **Operação -> Roteamento**.
+1. Abra **Roteia -> Rotas**.
 2. Clique na rota e abra a opção de auditoria dentro dela.
 3. Veja o histórico de condição, destinos e regra de redação de PII.
 4. Restaure a versão anterior. A restauração também fica registrada no Histórico (quem, quando, de qual versão para qual).
@@ -153,14 +153,14 @@ Pergunta: "A rota de PII foi alterada. Como volto?"
 
 Pergunta: "Que ações a alice fez esta semana?"
 
-1. Em **Operação -> Histórico**, filtre por **Usuário = alice** e **Data = últimos 7 dias**.
+1. Em **Visão geral -> Histórico**, filtre por **Usuário = alice** e **Data = últimos 7 dias**.
 2. Revise todas as ações — por exemplo, 3 edições de mapeamento, 2 reprocessamentos da fila de reenvio e 1 edição de rota.
 
 ### Investigar um possível incidente
 
 Pergunta: "Quando a integração 'Backdoor Defender' foi criada?"
 
-1. Em **Operação -> Histórico**, filtre por **Tipo = integração** e busque pelo nome.
+1. Em **Visão geral -> Histórico**, filtre por **Tipo = integração** e busque pelo nome.
 2. Veja a criação — por exemplo, em 25/04/2026 às 14:32, pelo usuário "bob".
 3. Compare a data/hora com os alertas do seu SIEM. Uma integração criada durante um ataque pode indicar acesso indevido.
 
@@ -168,7 +168,7 @@ Pergunta: "Quando a integração 'Backdoor Defender' foi criada?"
 
 Pergunta: "Quem acessou os dados do cliente X?"
 
-1. Em **Operação -> Histórico**, filtre pela organização "cliente-x".
+1. Em **Visão geral -> Histórico**, filtre pela organização "cliente-x".
 2. Veja todas as ações relacionadas a esse cliente.
 3. Exporte o relatório para o time de GRC.
 
@@ -210,6 +210,6 @@ Cada usuário vê apenas os registros da sua própria organização. O administr
 
 ## Próximos passos
 
-- **Precisa investigar uma mudança?** Use os filtros em **Operação -> Histórico**.
+- **Precisa investigar uma mudança?** Use os filtros em **Visão geral -> Histórico**.
 - **Precisa de um relatório de compliance?** Filtre o período e clique em **Download -> PDF**.
 - **Trabalhando com destinos ou rotas?** Veja [Destinos](../outputs/destinations.md) e [Roteamento e redação de PII](../outputs/routing.md).

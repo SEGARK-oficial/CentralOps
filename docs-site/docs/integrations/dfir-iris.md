@@ -52,7 +52,7 @@ Para organizações que chegam via integração Sophos Central Partner, a associ
 
 Para tentar de novo as organizações que já estão aprovadas, use a opção de **sincronizar/atualizar a integração** na tela da integração Sophos:
 
-1. Vá em **Visão geral → Integrações**.
+1. Vá em **Coleta → Integrações**.
 2. Abra a integração Sophos Central correspondente.
 3. Acione a opção de **atualizar/sincronizar** agora.
 
@@ -60,7 +60,7 @@ Para tentar de novo as organizações que já estão aprovadas, use a opção de
 
 Para organizações que você cadastra à mão (Sophos fora do modelo Partner, Wazuh, ou qualquer outro vendor), faça a associação a partir da própria organização:
 
-1. Vá em **Visão geral → Organizações** *(disponível apenas para administradores)*.
+1. Vá em **Administração → Organizações** *(disponível apenas para administradores)*.
 2. Abra a organização desejada.
 3. Acione a opção de **associar ao IRIS** (sincronizar o cliente no IRIS).
 
@@ -74,7 +74,7 @@ Se você habilitou o IRIS quando já tinha muitas organizações cadastradas, re
 
 Para confirmar que uma organização ficou corretamente vinculada ao IRIS:
 
-1. Vá em **Visão geral → Organizações**.
+1. Vá em **Administração → Organizações**.
 2. Abra a organização.
 3. Verifique, na tela da organização, se ela aparece **associada ao IRIS** (com o cliente correspondente).
 

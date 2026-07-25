@@ -1,12 +1,12 @@
 ---
 sidebar_position: 1
-title: Collectors
+title: Coletores
 description: Como o CentralOps coleta eventos dos seus fornecedores de forma contínua e o que você acompanha na interface.
 ---
 
-# Collectors
+# Coletores
 
-Os **Collectors** são o que mantém o CentralOps puxando eventos das suas integrações de segurança (Sophos, Microsoft Defender, NinjaOne e outros) de forma contínua e automática. Você não dispara a coleta manualmente: cada integração tem o seu próprio ritmo, e a plataforma busca os eventos novos em segundo plano, no intervalo configurado para aquela origem.
+Os **Coletores** são o que mantém o CentralOps puxando eventos das suas integrações de segurança (Sophos, Microsoft Defender, NinjaOne e outros) de forma contínua e automática. Você não dispara a coleta manualmente: cada integração tem o seu próprio ritmo, e a plataforma busca os eventos novos em segundo plano, no intervalo configurado para aquela origem.
 
 Esta página explica o que os coletores fazem, quando a coleta acontece e onde você acompanha tudo pela interface.
 
@@ -48,11 +48,11 @@ A plataforma trata as origens com prioridades diferentes:
 
 ### Status de cada integração
 
-No menu **Visão geral -> Integrações** você vê a lista de origens conectadas e o estado de cada uma. Quando uma integração entra em erro (por exemplo, credencial expirada ou inválida), ela aparece sinalizada e o administrador é notificado para reconectar.
+No menu **Coleta -> Integrações** você vê a lista de origens conectadas e o estado de cada uma. Quando uma integração entra em erro (por exemplo, credencial expirada ou inválida), ela aparece sinalizada e o administrador é notificado para reconectar.
 
 ### Saúde da coleta
 
-No menu **Normalização -> Saúde do Pipeline** você acompanha se a coleta está fluindo:
+No menu **Visão geral -> Saúde do pipeline** você acompanha se a coleta está fluindo:
 
 - Se há acúmulo de eventos aguardando processamento (sinal de que a entrada está mais rápida que o processamento em segundo plano).
 - Alertas de erro de integração, com a origem afetada.
@@ -62,7 +62,7 @@ Use essa tela como primeira parada quando suspeitar que algum fornecedor parou d
 
 ### Coletores
 
-No menu **Operação -> Collectors** você vê o panorama da coleta por integração — quais estão ativas, quando ocorreu a última coleta e quantos eventos vieram. É a visão consolidada para a triagem do dia a dia.
+No menu **Coleta -> Coletores** você vê o panorama da coleta por integração — quais estão ativas, quando ocorreu a última coleta e quantos eventos vieram. É a visão consolidada para a triagem do dia a dia.
 
 ## O que a plataforma faz quando algo dá errado
 
@@ -78,12 +78,12 @@ Quando você precisa trazer eventos de um período passado — por exemplo, depo
 
 ## Dimensionamento e desempenho
 
-A capacidade de coleta (quantos eventos a plataforma processa em paralelo) é definida pela equipe de infraestrutura no momento do deploy. Se você notar acúmulo constante de eventos na tela **Normalização -> Saúde do Pipeline** mesmo em operação normal, fale com o administrador da plataforma para avaliar o dimensionamento. Não há ação de escalonamento na interface do usuário.
+A capacidade de coleta (quantos eventos a plataforma processa em paralelo) é definida pela equipe de infraestrutura no momento do deploy. Se você notar acúmulo constante de eventos na tela **Visão geral -> Saúde do pipeline** mesmo em operação normal, fale com o administrador da plataforma para avaliar o dimensionamento. Não há ação de escalonamento na interface do usuário.
 
 ## Próximos passos
 
-- **Acompanhar a saúde do pipeline:** menu **Normalização -> Saúde do Pipeline**.
+- **Acompanhar a saúde do pipeline:** menu **Visão geral -> Saúde do pipeline**.
 - **Coleta chegando com horas de atraso:** veja [Eventos chegando horas depois](../runbooks/collection-lag-backlog.md).
-- **Ver e gerenciar as integrações conectadas:** menu **Visão geral -> Integrações**.
+- **Ver e gerenciar as integrações conectadas:** menu **Coleta -> Integrações**.
 - **Entender como os eventos são normalizados:** veja [Normalização](../normalization/overview.md).
 - **Entender para onde os eventos vão depois da coleta:** veja [Destinos](../outputs/destinations.md) e [Roteamento](../outputs/routing.md).
