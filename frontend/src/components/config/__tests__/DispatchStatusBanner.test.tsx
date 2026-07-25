@@ -118,28 +118,11 @@ async function renderCollectorTab(config: CollectorConfig) {
   await act(async () => {
     fireEvent.click(collectorTab)
   })
-  await waitFor(() => screen.getByTestId("destinations-cta"))
+  await waitFor(() => screen.getByTestId("collector-config-form"))
 }
 
-describe("CollectorConfigForm — CTA de destinos", () => {
+describe("CollectorConfigForm - campos globais", () => {
   beforeEach(() => vi.clearAllMocks())
-
-  it("exibe o Notice CTA apontando para /destinations", async () => {
-    await renderCollectorTab(makeConfig())
-
-    const cta = screen.getByTestId("destinations-cta")
-    expect(cta).toBeInTheDocument()
-    expect(cta).toHaveTextContent(/Destinos/i)
-  })
-
-  it("o CTA contém um link para /destinations", async () => {
-    await renderCollectorTab(makeConfig())
-
-    const cta = screen.getByTestId("destinations-cta")
-    const link = cta.querySelector("a")
-    expect(link).not.toBeNull()
-    expect(link).toHaveAttribute("href", "/destinations")
-  })
 
   it("seção 'Buffer & Dedupe' permanece visível", async () => {
     await renderCollectorTab(makeConfig())
@@ -206,7 +189,7 @@ describe("CollectorConfigForm — CTA de destinos", () => {
     )
     const collectorTab = await screen.findByRole("tab", { name: /Coleta & Entrega/i })
     await act(async () => { fireEvent.click(collectorTab) })
-    await waitFor(() => screen.getByTestId("destinations-cta"))
+    await waitFor(() => screen.getByTestId("collector-config-form"))
 
     const batchInput = screen.getByLabelText(/Tamanho do lote/i)
     await act(async () => {

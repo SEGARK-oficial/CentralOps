@@ -215,22 +215,13 @@ export const RouteForm: React.FC<RouteFormProps> = ({ mode, route, loading, onCa
             <span className="font-normal text-text-secondary">{t("routeForm.reductionLegendOptional")}</span>
           </legend>
 
-          {/* ADR-0015 inverteu os defaults: REDUCTION_SAMPLE_ENABLED (core/config.py:423),
-              REDUCTION_SUPPRESS_ENABLED (:451) e REDUCTION_TRIM_ENABLED (:440) nascem ON
-              — só REDUCTION_AGGREGATE_ENABLED (:464) segue OFF; o fail-safe global é
-              REDUCTION_SAMPLE_PROTECT_DETECTION (:429).
-              O portão que importa é o default POR-ROTA (sample_percent=100,
-              suppress_allow=0), e não a flag global. O texto anterior afirmava o
-              contrário e induzia o operador a achar que "Evitado" deveria ser zero.
-              Aviso ainda estático, mas já existe fonte real: GET /collectors/cost-summary
-              devolve `levers` com o estado das flags no processo que respondeu
-              (backend/app/routers/collectors.py:421-429). Próximo passo é trocar este
-              texto fixo por leitura desse campo — fora do escopo desta PR porque
-              mudaria o comportamento do formulário e exigiria teste. */}
-          <Notice variant="info" title={t("routeForm.reductionFlagsNoticeTitle")}>
-            {t("routeForm.reductionFlagsNoticeBody")}
-          </Notice>
-
+          {/* Havia aqui um aviso explicando as flags REDUCTION_*_ENABLED e citando o
+              ADR-0015. Saiu por dois motivos: falava em nome de variável de ambiente e
+              número de ADR, que é vocabulário nosso e não do operador; e o que ele tinha
+              de útil já está no helper de cada campo ("100 = sem amostragem",
+              "0 = supressão desligada"), ao lado do controle em vez de num bloco acima.
+              Se um dia valer mostrar o estado real das alavancas, a fonte existe:
+              GET /collectors/cost-summary devolve `levers`. Texto fixo, não. */}
           <Checkbox
             label={t("routeForm.protectDetectionLabel")}
             description={t("routeForm.protectDetectionDescription")}

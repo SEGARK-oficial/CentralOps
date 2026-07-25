@@ -154,8 +154,16 @@ export const CollectorConfigForm: React.FC<Props> = ({
     await onSave(payload)
   }
 
+  // O testid na raiz do formulário existe porque os testes precisam de uma âncora de
+  // "a aba terminou de carregar". Antes eles esperavam pelo aviso de destinos, que era
+  // conteúdo e sumiu junto com ele. Âncora de estrutura não morre quando a copy muda.
   return (
-    <form onSubmit={handleSubmit} className="space-y-8" aria-busy={loading}>
+    <form
+      onSubmit={handleSubmit}
+      className="space-y-8"
+      aria-busy={loading}
+      data-testid="collector-config-form"
+    >
       {/* Banner de estado da config */}
       {config && !config.is_persisted && (
         <Notice variant="warning" title={t("collector.envBanner.title")}>
@@ -163,14 +171,11 @@ export const CollectorConfigForm: React.FC<Props> = ({
         </Notice>
       )}
 
-      <Notice variant="info" data-testid="destinations-cta">
-        <Trans
-          i18nKey="collector.destinationsCta"
-          t={t}
-          components={{ a: <a href="/destinations" className="underline hover:no-underline font-medium" /> }}
-        />
-      </Notice>
-
+      {/* Saiu daqui o aviso de que a configuração de destino "foi movida para a página
+          Destinos". Era uma migalha de migração de várias versões atrás: quem usa o
+          produto hoje nunca viu a configuração no lugar antigo, então o aviso só
+          ocupava espaço no topo do formulário anunciando uma mudança que, para o
+          leitor, sempre foi o estado normal das coisas. */}
       {feedback && (
         <Notice variant={feedback.type === "success" ? "success" : "danger"}>
           {feedback.message}

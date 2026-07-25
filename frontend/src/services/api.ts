@@ -1153,6 +1153,34 @@ export async function getMappingVersions(mappingId: string, options?: Pick<ApiRe
   return apiRequest<MappingVersion[]>(`/mappings/${mappingId}/versions`, options)
 }
 
+export interface MappingSamplesResponse {
+  vendor: string
+  event_type: string
+  total_in_reservoir: number
+  items: Record<string, unknown>[]
+}
+
+/**
+ * GET /mappings/samples — ring buffer de eventos brutos por tenant, no Redis,
+ * alimentado pelo pipeline a cada evento pós-dedupe.
+ *
+ * Nunca devolve 404: reservoir vazio é lista vazia com `total_in_reservoir: 0`.
+ *
+ * `org_id` não é opcional por capricho. O reservoir é escopado por organização, e
+ * um admin GLOBAL tem `organization_id = null`: sem o parâmetro explícito o backend
+ * resolve a org efetiva como None e devolve vazio sem sequer consultar o Redis. O
+ * chamador precisa nomear o tenant cujas amostras quer ver.
+ */
+export async function getMappingSamples(
+  params: { vendor: string; event_type: string; limit?: number; org_id?: number | null },
+  options?: Pick<ApiRequestOptions, "signal">,
+) {
+  const qs = new URLSearchParams({ vendor: params.vendor, event_type: params.event_type })
+  qs.set("limit", String(params.limit ?? 10))
+  if (params.org_id != null) qs.set("org_id", String(params.org_id))
+  return apiRequest<MappingSamplesResponse>(`/mappings/samples?${qs.toString()}`, options)
+}
+
 export async function postMappingDryRun(
   payload: {
     /** Lista de regras (interno). Wrap em dict v2 antes de enviar. */

@@ -168,7 +168,6 @@
       "title": "Configuração definida na instalação",
       "body": "Os valores vêm do arquivo <code>{{envFile}}</code>. Salve para editá-los aqui; as mudanças valem em 30 segundos."
     },
-    "destinationsCta": "A configuração do destino de entrega (ex.: wazuh-default) foi movida para a página <a>Destinos</a>.",
     "testResult": {
       "healthy": "Saudável",
       "error": "Erro"

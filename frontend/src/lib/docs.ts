@@ -12,18 +12,26 @@ const DOCS_BASE_URL =
 
 /**
  * Converte um path tipo `normalization/dsl-spec.md` num link do portal:
- * `https://.../docs/normalization/dsl-spec`. O Docusaurus serve sem extensão.
+ * `https://.../normalization/dsl-spec`. O Docusaurus serve sem extensão.
+ *
+ * SEM o segmento `/docs`: o site usa `routeBasePath: '/'`, então as páginas ficam
+ * na raiz. O `/docs/` que havia aqui dava 404 em TODOS os links de documentação do
+ * produto de uma vez, e como não há plugin de redirect, era 404 duro. A canônica do
+ * próprio portal (`og:url`) e o sitemap.xml confirmam o caminho sem prefixo.
  */
 export function docsUrl(path: string, anchor?: string): string {
   const cleanPath = path.replace(/^\/+/, "").replace(/\.mdx?$/, "")
-  const base = `${DOCS_BASE_URL}/docs/${cleanPath}`
+  const base = `${DOCS_BASE_URL}/${cleanPath}`
   return anchor ? `${base}#${anchor}` : base
 }
 
 /** Atalhos pras docs mais referenciadas. */
 export const DOCS = {
   mappingEditorGuide: docsUrl("normalization/dsl-spec"),
-  ruleAnatomy: docsUrl("normalization/dsl-spec", "anatomia-de-uma-regra"),
+  // A seção foi reescrita e virou "Estrutura de uma regra": a âncora anterior
+  // (`anatomia-de-uma-regra`) não existe mais na página publicada.
+  ruleAnatomy: docsUrl("normalization/dsl-spec", "estrutura-de-uma-regra"),
   howMappingWorks: docsUrl("normalization/overview"),
   editionsUpgrade: docsUrl("editions/upgrade"),
+  backfill: docsUrl("pipelines/backfill"),
 } as const

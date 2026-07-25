@@ -5,6 +5,7 @@ import { useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Button } from "@/components/ui/Button/Button"
 import { Notice } from "@/components/ui/Notice/Notice"
+import { DOCS } from "@/lib/docs"
 import { listPlatformsStreams } from "@/services/api"
 import type { BackfillJob, CreateBackfillJobRequest } from "@/types"
 
@@ -131,8 +132,12 @@ export const BackfillForm: React.FC<BackfillFormProps> = ({
     >
       <Notice variant="info">
         {t("backfill.form.info", { maxDays: MAX_WINDOW_DAYS })}{" "}
+        {/* O href era `/docs/collector/backfill.md`: caminho relativo à origem do APP
+            (caía numa rota inexistente do SPA), num diretório que não existe no portal,
+            com uma extensão que o Docusaurus não serve. Três erros no mesmo link, e
+            fora do `docs.ts`, que é justamente quem deveria centralizar isto. */}
         <a
-          href="/docs/collector/backfill.md"
+          href={DOCS.backfill}
           className="underline hover:no-underline"
           target="_blank"
           rel="noopener noreferrer"

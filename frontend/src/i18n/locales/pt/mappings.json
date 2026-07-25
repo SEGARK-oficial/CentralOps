@@ -78,8 +78,13 @@
       "manual": "Manual"
     },
     "reservoir": {
-      "title": "Amostras do reservoir indisponíveis",
-      "description": "Amostras automáticas vêm em breve. Por ora, cole um JSON no modo Manual."
+      "title": "Ainda não há amostras coletadas",
+      "description": "As amostras aparecem aqui assim que eventos desta integração passarem pelo pipeline. Enquanto isso, cole um evento no modo Manual.",
+      "error": "Não foi possível carregar as amostras.",
+      "retry": "Tentar de novo",
+      "sampleIndex": "Amostra {{index}}",
+      "pickOrgTitle": "Escolha uma organização",
+      "pickOrgDescription": "As amostras são guardadas por organização. Use o filtro no topo para escolher qual delas inspecionar."
     },
     "manual": {
       "inputLabel": "Cole o JSON do evento aqui",
@@ -332,7 +337,7 @@
     "calculating": "Calculando normalização...",
     "empty": {
       "title": "Forneça uma amostra para ver a normalização.",
-      "description": "Cole um JSON no painel Payload (modo Manual) ou aguarde a integração com o reservoir."
+      "description": "Escolha uma amostra no painel Payload ou cole um evento no modo Manual."
     }
   },
   "templatePicker": {

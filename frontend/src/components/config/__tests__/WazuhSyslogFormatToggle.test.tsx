@@ -114,7 +114,7 @@ async function renderConfigCollectorTab() {
   await act(async () => {
     fireEvent.click(collectorTab)
   })
-  await waitFor(() => screen.getByTestId("destinations-cta"))
+  await waitFor(() => screen.getByTestId("collector-config-form"))
 }
 
 describe("CollectorConfigForm — seções globais", () => {

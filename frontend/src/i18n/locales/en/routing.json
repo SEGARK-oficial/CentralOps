@@ -357,8 +357,6 @@
     "piiDescriptionSuffix": " to be on.",
     "reductionLegend": "Volume reduction",
     "reductionLegendOptional": "(cost savings, optional)",
-    "reductionFlagsNoticeTitle": "What actually turns these levers on",
-    "reductionFlagsNoticeBody": "The REDUCTION_*_ENABLED flags for sample, suppress and trim ship ON (ADR-0015). This route decides: sample_percent at 100 and suppress_allow at 0 drop nothing. Aggregation stays off.",
     "protectDetectionLabel": "Protect detection (protect_detection)",
     "protectDetectionDescription": "On by default: this route is never sampled, suppressed, or stripped of raw.",
     "unprotectedWarningTitle": "Detection protection is off",

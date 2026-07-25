@@ -357,8 +357,6 @@
     "piiDescriptionSuffix": " ligado.",
     "reductionLegend": "Redução de volume",
     "reductionLegendOptional": "(economia de custo, opcional)",
-    "reductionFlagsNoticeTitle": "O que ativa estas alavancas",
-    "reductionFlagsNoticeBody": "As flags REDUCTION_*_ENABLED de sample, suppress e trim já vêm LIGADAS (ADR-0015). Quem decide é esta rota: sample_percent em 100 e suppress_allow em 0 não descartam nada. Agregação segue desligada.",
     "protectDetectionLabel": "Proteger detecção (protect_detection)",
     "protectDetectionDescription": "Ligado por padrão: esta rota nunca é amostrada, suprimida nem perde o bruto.",
     "unprotectedWarningTitle": "Proteção de detecção desligada",

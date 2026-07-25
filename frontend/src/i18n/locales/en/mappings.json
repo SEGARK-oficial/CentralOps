@@ -78,8 +78,13 @@
       "manual": "Manual"
     },
     "reservoir": {
-      "title": "Reservoir samples unavailable",
-      "description": "Automatic samples are coming. For now, paste a JSON in Manual mode."
+      "title": "No samples collected yet",
+      "description": "Samples show up here once events from this integration flow through the pipeline. Meanwhile, paste an event in Manual mode.",
+      "error": "Could not load the samples.",
+      "retry": "Try again",
+      "sampleIndex": "Sample {{index}}",
+      "pickOrgTitle": "Pick an organization",
+      "pickOrgDescription": "Samples are stored per organization. Use the filter at the top to choose which one to inspect."
     },
     "manual": {
       "inputLabel": "Paste the event JSON here",
@@ -332,7 +337,7 @@
     "calculating": "Calculating normalization...",
     "empty": {
       "title": "Provide a sample to see the normalization.",
-      "description": "Paste a JSON in the Payload panel (Manual mode) or wait for the reservoir integration."
+      "description": "Pick a sample in the Payload panel or paste an event in Manual mode."
     }
   },
   "templatePicker": {

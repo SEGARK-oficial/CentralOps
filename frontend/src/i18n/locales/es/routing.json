@@ -357,8 +357,6 @@
     "piiDescriptionSuffix": " activado.",
     "reductionLegend": "Reducción de volumen",
     "reductionLegendOptional": "(ahorro de costo, opcional)",
-    "reductionFlagsNoticeTitle": "Qué activa realmente estas palancas",
-    "reductionFlagsNoticeBody": "Las flags REDUCTION_*_ENABLED de sample, suppress y trim vienen ACTIVADAS (ADR-0015). Decide esta ruta: sample_percent en 100 y suppress_allow en 0 no descartan nada. La agregación sigue apagada.",
     "protectDetectionLabel": "Proteger detección (protect_detection)",
     "protectDetectionDescription": "Activado por defecto: esta ruta nunca se muestrea, se suprime ni pierde el bruto.",
     "unprotectedWarningTitle": "Protección de detección desactivada",

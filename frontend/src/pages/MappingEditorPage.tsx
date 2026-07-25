@@ -11,6 +11,7 @@ import { ArrowLeftIcon, GitBranchIcon, HistoryIcon, ClipboardListIcon, PencilIco
 import { useMapping } from "@/hooks/useMapping"
 import { useMappingDryRun } from "@/hooks/useMappingDryRun"
 import { usePlatform } from "@/contexts/PlatformContext"
+import { useAuth } from "@/contexts/AuthContext"
 import { useDiscoveredFields } from "@/hooks/useDiscoveredFields"
 import { usePermission } from "@/hooks/usePermission"
 import { ApiRequestError } from "@/services/api"
@@ -60,6 +61,12 @@ export const MappingEditorPage: React.FC = () => {
   // amostras o dry-run deve usar (o filtro global de org). Sem isto, o dry-run
   // do admin (org=None) lê reservoir vazio e o painel não mostra o envelope.
   const { selectedOrgId } = usePlatform()
+  // Admin global (organization_id nulo) com o filtro em "todas as organizações" não
+  // nomeia tenant algum, e o reservoir é por tenant: a consulta voltaria vazia e a UI
+  // afirmaria que não há amostras. O painel precisa saber a diferença entre "não há"
+  // e "você não disse de quem".
+  const { user } = useAuth()
+  const needsOrgChoice = user?.organization_id == null && selectedOrgId == null
 
   const { data: mapping, isLoading, error: mappingError, refetch } = useMapping(id ?? "")
 
@@ -146,9 +153,21 @@ export const MappingEditorPage: React.FC = () => {
   // não trocar de identidade enquanto o usuário digita na textarea de
   // commit do SaveModal — evita cascata de re-renders no MappingDiffModal
   // aninhado e a perda de foco resultante.
+  //
+  // O spread de `currentVersion.rules` NÃO é decorativo. O dict v2 é aberto e carrega
+  // blocos que este editor não edita — hoje `raw_reduction`, presente em 10 dos 16
+  // mappings de fábrica. Montar o payload como um literal `{preprocess, rules}` fazia
+  // o save APAGAR esses blocos sem aviso e sem diff visível: bastava abrir o
+  // sophos.detection no editor e salvar para perder as 6 specs de poda do raw. O
+  // backend já preserva o que recebe (mappings.py `_normalize_rules_to_v2`); o
+  // problema era o cliente nunca mandar.
   const savePayload: MappingPayload = useMemo(
-    () => ({ preprocess: draftPreprocess, rules: draftRules ?? currentRules }),
-    [draftPreprocess, draftRules, currentRules],
+    () => ({
+      ...(currentVersion?.rules ?? {}),
+      preprocess: draftPreprocess,
+      rules: draftRules ?? currentRules,
+    }),
+    [currentVersion?.rules, draftPreprocess, draftRules, currentRules],
   )
 
   // ── Debounce de regras para o dry-run ─────────────────────────────────────
@@ -181,8 +200,18 @@ export const MappingEditorPage: React.FC = () => {
     // Caso edit mode com draftRules: a atualização debounced é feita em
     // handleRulesChange para garantir que cada keystroke cancele o timer
     // anterior. Não fazer nada aqui nesse branch para evitar dobrar timers.
+    //
+    // `currentVersion?.id` na lista de dependências conserta um bug pré-existente:
+    // `effectiveRules` nasce de `useState(activeRules)`, avaliado no primeiro render,
+    // quando o mapping AINDA ESTÁ CARREGANDO e `activeRules` é `[]`. Sem esta
+    // dependência nada disparava a ressincronização depois que as regras chegavam,
+    // então em modo de VISUALIZAÇÃO o dry-run batia no guarda `if (!rules.length)`
+    // e nunca rodava: fornecer uma amostra não produzia envelope algum, e só entrar
+    // em modo de edição (que muda `editorMode` e reexecuta este efeito) destravava.
+    // Depende do `id` da versão, e não de `activeRules`, porque durante o load o
+    // `?? []` cria um array novo a cada render e realimentaria o próprio estado.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [editorMode, draftRules === null])
+  }, [editorMode, draftRules === null, currentVersion?.id])
 
   // Callback estável para RulesEditor: atualiza draftRules imediatamente (UI
   // responsiva) e agenda atualização de effectiveRules com debounce (dry-run).
@@ -540,7 +569,13 @@ export const MappingEditorPage: React.FC = () => {
         <TabsPanel value="editor">
           <MappingEditorLayout
             payload={
-              <PayloadPanel onRawEventChange={handleRawEventChange} />
+              <PayloadPanel
+                onRawEventChange={handleRawEventChange}
+                vendor={mapping.vendor}
+                eventType={mapping.event_type}
+                orgId={selectedOrgId}
+                needsOrgChoice={needsOrgChoice}
+              />
             }
             rules={
               <>

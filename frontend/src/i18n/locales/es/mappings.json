@@ -78,8 +78,13 @@
       "manual": "Manual"
     },
     "reservoir": {
-      "title": "Muestras del reservoir no disponibles",
-      "description": "Muestras automáticas, pronto. Por ahora, pegue un JSON en modo Manual."
+      "title": "Todavía no hay muestras recolectadas",
+      "description": "Las muestras aparecen aquí cuando eventos de esta integración pasen por el pipeline. Mientras tanto, pega un evento en modo Manual.",
+      "error": "No se pudieron cargar las muestras.",
+      "retry": "Intentar de nuevo",
+      "sampleIndex": "Muestra {{index}}",
+      "pickOrgTitle": "Elige una organización",
+      "pickOrgDescription": "Las muestras se guardan por organización. Usa el filtro de arriba para elegir cuál inspeccionar."
     },
     "manual": {
       "inputLabel": "Pegue aquí el JSON del evento",
@@ -332,7 +337,7 @@
     "calculating": "Calculando normalización...",
     "empty": {
       "title": "Proporcione una muestra para ver la normalización.",
-      "description": "Pegue un JSON en el panel Payload (modo Manual) o espere la integración con el reservoir."
+      "description": "Elige una muestra en el panel Payload o pega un evento en modo Manual."
     }
   },
   "templatePicker": {

@@ -77,17 +77,21 @@ export const Header: React.FC<HeaderProps> = ({
         </h1>
       </div>
 
-      {/* Busca / paleta de comandos */}
+      {/* Paleta de comandos.
+          Era um campo de 256px com a palavra "Buscar" dentro, que lê como busca de
+          DADOS — e a paleta só navega entre páginas, todas já visíveis na sidebar ao
+          lado. Prometia procurar evento, integração, host, e entregava um atalho de
+          navegação. Virou botão compacto: mantém o ⌘K de quem tem o hábito, sem
+          reservar o melhor espaço da barra nem fazer promessa que não cumpre. */}
       <button
         type="button"
         onClick={openCommandPalette}
         aria-label={t("header.search")}
         aria-keyshortcuts="Meta+K Control+K"
-        className="ml-auto flex h-9 shrink-0 items-center gap-2 rounded-md border border-border px-2.5 text-sm text-sidebar-text transition-colors hover:border-border-hover hover:text-sidebar-text-active focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500 sm:w-64"
+        className="ml-auto inline-flex h-9 shrink-0 items-center gap-1.5 rounded-md border border-border px-2 text-sidebar-text transition-colors hover:border-border-hover hover:text-sidebar-text-active focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500"
       >
         <SearchIcon size={16} aria-hidden="true" className="shrink-0" />
-        <span className="hidden flex-1 text-left sm:inline">{t("header.search")}</span>
-        <kbd className="hidden shrink-0 rounded border border-border px-1.5 py-0.5 font-mono text-[11px] text-sidebar-text sm:inline">
+        <kbd className="hidden shrink-0 font-mono text-[11px] text-sidebar-text sm:inline">
           {shortcut}
         </kbd>
       </button>
