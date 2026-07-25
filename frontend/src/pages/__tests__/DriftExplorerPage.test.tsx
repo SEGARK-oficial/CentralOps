@@ -108,7 +108,7 @@ beforeEach(() => {
 describe("DriftExplorerPage", () => {
   it("renderiza o page header com título correto", () => {
     renderPage()
-    expect(screen.getByText("Drift Explorer")).toBeInTheDocument()
+    expect(screen.getByRole("heading", { name: "Drift" })).toBeInTheDocument()
     expect(screen.getByText("Campos do raw que nenhum mapping consome")).toBeInTheDocument()
   })
 
@@ -255,14 +255,14 @@ describe("DriftExplorerPage", () => {
     )
   })
 
-  it("botão resetar filtros aparece quando há filtro ativo", async () => {
+  it("botão de limpar filtros aparece quando há filtro ativo", async () => {
     renderPage()
 
     const novosButton = screen.getByRole("button", { name: /novos/i })
     fireEvent.click(novosButton)
 
     await waitFor(() =>
-      expect(screen.getByRole("button", { name: /resetar filtros/i })).toBeInTheDocument(),
+      expect(screen.getByRole("button", { name: /limpar filtros/i })).toBeInTheDocument(),
     )
   })
 

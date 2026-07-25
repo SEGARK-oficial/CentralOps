@@ -307,7 +307,7 @@ describe("MappingEditorPage", () => {
     fireEvent.change(textarea, { target: { value: "{ invalido }" } })
 
     await waitFor(() => {
-      expect(screen.getByText("JSON inválido — verifique a sintaxe.")).toBeInTheDocument()
+      expect(screen.getByText("JSON inválido. Verifique a sintaxe.")).toBeInTheDocument()
     })
   })
 
@@ -568,7 +568,7 @@ describe("MappingEditorPage", () => {
     // O link aponta para o portal Docusaurus público (CentralOps-docs).
     // A URL exata é mantida em src/lib/docs.ts.
     const href = link.getAttribute("href") ?? ""
-    expect(href).toMatch(/CentralOps-docs\/docs\/normalization\//)
+    expect(href).toMatch(/docs\.segark\.com\/docs\/normalization\//)
     expect(href).toMatch(/^https?:\/\//)
     expect(link).toHaveAttribute("target", "_blank")
     expect(link).toHaveAttribute("rel", "noopener noreferrer")
