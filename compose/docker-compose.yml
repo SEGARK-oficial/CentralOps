@@ -42,7 +42,10 @@ services:
       - OTEL_METRIC_EXPORT_INTERVAL_MS=${OTEL_METRIC_EXPORT_INTERVAL_MS:-15000}
       - COST_METERING_ENABLED=${COST_METERING_ENABLED:-true}
       - APP_ENV=${APP_ENV:-production}
-      - APP_COMPANY_NAME=${APP_COMPANY_NAME:-Sua Empresa}
+      # Default = nome do produto. O literal "Sua Empresa" aqui sobrescrevia o
+      # default do codigo e vazava texto de rascunho para o header e o login de
+      # toda instalacao que nao personalizasse a marca.
+      - APP_COMPANY_NAME=${APP_COMPANY_NAME:-CentralOps}
       - APP_COMPANY_PORTAL_NAME=${APP_COMPANY_PORTAL_NAME:-Portal de Login}
       # TLS termina no `frontend`; com HTTPS na borda (default), cookie Secure.
       # Para rodar a stack em HTTP puro (dev), setar SESSION_SECURE_COOKIE=0
