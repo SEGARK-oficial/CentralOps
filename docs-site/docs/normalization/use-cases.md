@@ -1,18 +1,18 @@
 ---
 sidebar_position: 5
 title: "Casos de Uso — Guias Passo a Passo"
-description: "Como criar, testar e ativar um mapeamento na tela de Mappings, com três exemplos reais de vendor"
+description: "Como criar, testar e ativar um mapeamento na tela de Mapeamentos, com três exemplos reais de vendor"
 ---
 
 # Casos de Uso — Guias Passo a Passo
 
 Esta página mostra, passo a passo na interface, como criar e ativar um mapeamento que transforma os eventos de um vendor no formato padronizado do CentralOps. Use exemplos reais (Microsoft Defender, Sophos e um vendor novo do zero) para guiar você do primeiro evento recebido até o evento normalizado pronto para ser entregue aos destinos.
 
-Um mapeamento diz ao CentralOps **quais campos do evento original correspondem a quais campos do formato padrão** (severidade, dispositivo, usuário, indicadores). Você cria e edita tudo isso por formulários na tela de Mappings — não é preciso escrever nenhum código.
+Um mapeamento diz ao CentralOps **quais campos do evento original correspondem a quais campos do formato padrão** (severidade, dispositivo, usuário, indicadores). Você cria e edita tudo isso por formulários na tela de Mapeamentos — não é preciso escrever nenhum código.
 
 ## Quando usar
 
-- **Onboarding de um novo vendor:** você acabou de conectar uma integração (por exemplo, um EDR novo) e os eventos chegam, mas com campos do vendor. Você precisa criar um mapeamento para que severidade, host e indicadores apareçam corretamente nas Investigações.
+- **Onboarding de um novo vendor:** você acabou de conectar uma integração (por exemplo, um EDR novo) e os eventos chegam, mas com campos do vendor. Você precisa criar um mapeamento para que severidade, host e indicadores apareçam corretamente nos destinos, que é onde você pesquisa o evento.
 - **Campos faltando nos alertas:** os analistas reclamam que o nome do host ou o usuário não aparece num alerta de phishing. Você abre o mapeamento daquele vendor, identifica o campo de origem que está sem ligação e corrige.
 - **Vendor mudou o formato:** o fornecedor passou a enviar a severidade como texto ("high") em vez de número, e os eventos começaram a cair na Quarentena. Você ajusta a conversão de severidade no mapeamento e reprocessa.
 
@@ -20,7 +20,7 @@ Um mapeamento diz ao CentralOps **quais campos do evento original correspondem a
 
 ## Antes de começar: o ciclo de um mapeamento
 
-Todo mapeamento segue o mesmo ciclo na tela **Normalização -> Mappings**:
+Todo mapeamento segue o mesmo ciclo na tela **Normaliza -> Mapeamentos**:
 
 1. **Criar / abrir** o mapeamento do vendor.
 2. **Ligar os campos** de origem (do vendor) aos campos de destino (formato padrão).
@@ -66,7 +66,7 @@ Um alerta de detecção do Defender traz uma lista de evidências, e cada evidê
 
 ### Passos na interface
 
-1. Vá em **Normalização -> Mappings** e clique para criar um novo mapeamento.
+1. Vá em **Normaliza -> Mapeamentos** e clique para criar um novo mapeamento.
 2. Selecione o vendor (Microsoft Defender) e o tipo de evento de detecção.
 3. Preencha os campos básicos:
    - **Severidade:** o Defender envia texto ("informational", "low", "medium", "high", "critical"). Configure a conversão para a escala padrão de severidade do CentralOps.
@@ -84,12 +84,12 @@ Um alerta de detecção do Defender traz uma lista de evidências, e cada evidê
 
 ### Resultado esperado
 
-Depois de ativado, um alerta de "credential dumping" do Defender chega às Investigações já com:
+Depois de ativado, um alerta de "credential dumping" do Defender chega normalizado já com:
 
 - severidade padronizada,
 - status (verdadeiro/falso positivo) traduzido,
 - host, sistema operacional e analista responsável preenchidos,
-- e uma lista de indicadores com o arquivo `lsass.dmp`, seu hash, o processo `ntdsutil.exe`, a linha de comando e o usuário — cada um pesquisável nas Investigações.
+- e uma lista de indicadores com o arquivo `lsass.dmp`, seu hash, o processo `ntdsutil.exe`, a linha de comando e o usuário, cada um pesquisável no destino para onde o CentralOps entregou o evento (seu SIEM, data lake ou bucket).
 
 > **Sobre a escala de severidade:** cada vendor usa uma escala própria. O mapeamento traduz a escala do vendor para a escala padronizada do CentralOps. Confira sempre na simulação se "medium", "high" etc. caíram no nível esperado.
 
@@ -107,7 +107,7 @@ O Sophos entrega a detecção como um evento "plano", mas os detalhes mais útei
 
 ### Passos na interface
 
-1. Em **Normalização -> Mappings**, crie um novo mapeamento para o Sophos (tipo detecção).
+1. Em **Normaliza -> Mapeamentos**, crie um novo mapeamento para o Sophos (tipo detecção).
 2. Habilite o **pré-processamento do campo aninhado**: indique qual campo do evento contém os detalhes de e-mail empacotados, para que o CentralOps o expanda e disponibilize os campos internos (IP, remetente, destinatários, anexos) para o mapeamento.
 3. Preencha os campos básicos (tipo, horário, identificador, título, dispositivo).
    - **Severidade:** o Sophos envia um número. Ligue diretamente ao campo de severidade — confira na simulação se a faixa numérica do Sophos faz sentido na escala padrão (veja a nota abaixo).
@@ -151,7 +151,7 @@ Os alertas do Sophos são mais simples que as detecções: todos os dados já v�
 
 ### Passos na interface
 
-1. Crie o mapeamento de alerta do Sophos em **Normalização -> Mappings**.
+1. Crie o mapeamento de alerta do Sophos em **Normaliza -> Mapeamentos**.
 2. Configure o **horário** com um valor alternativo: use o horário de criação como principal e o de registro como reserva.
 3. Configure a **severidade por texto**, traduzindo "critical/high/medium/low/info" para a escala padronizada.
 4. Ligue **dispositivo** (nome, host, tipo) e **usuário** (nome, ID) aos campos do agente e da pessoa.
@@ -190,7 +190,7 @@ Essa tabela de correspondência é o que você vai reproduzir nos formulários d
 
 ### Passo 3: Monte o mapeamento inicial
 
-1. Em **Normalização -> Mappings**, crie um novo mapeamento e selecione o vendor Acme.
+1. Em **Normaliza -> Mapeamentos**, crie um novo mapeamento e selecione o vendor Acme.
 2. Preencha primeiro os **campos obrigatórios** (tipo, horário, identificador, severidade) — assim você falha cedo se algo estiver faltando.
 3. Em seguida, ligue **dispositivo** e **usuário**.
 4. Por fim, configure os **indicadores** (nome do processo, caminho do arquivo, hash).
@@ -203,7 +203,7 @@ Essa tabela de correspondência é o que você vai reproduzir nos formulários d
 3. Revise o resultado:
    - **Todos os eventos passaram?** Procure campos marcados como "100% valor padrão" — sinal de que a ligação não pegou nada e você precisa ajustar a origem.
    - **Algum evento foi para a Quarentena?** Veja o motivo — normalmente é um campo obrigatório ausente ou uma conversão (ex.: de horário) que falhou.
-   - **Algum campo do vendor ficou de fora?** O **Drift Explorer** (em Normalização -> Drift Explorer) lista os campos novos/não usados. Decida quais valem a pena mapear.
+   - **Algum campo do vendor ficou de fora?** A tela de **Drift** (em Normaliza -> Drift) lista os campos novos/não usados. Decida quais valem a pena mapear.
 
 ### Passo 5: Itere com base nos achados
 
@@ -226,7 +226,7 @@ Quando a simulação mostrar cobertura razoável (a maioria dos campos mapeada o
    - Se nenhuma regra se aplicar, o evento segue para o **destino padrão**, garantindo que nada se perca.
    - Um mesmo evento pode ser enviado a **vários destinos ao mesmo tempo** (por exemplo, um caminho para o SIEM principal e outro para armazenamento de baixo custo).
 
-> A criação e a ativação de regras de roteamento e a configuração de destinos são feitas pelo administrador, nas telas **Operação -> Roteamento** e **Operação -> Destinos** (visíveis apenas para administradores). Consulte [Roteamento e Destinos](../outputs/routing.md) e [Destinos](../outputs/destinations.md).
+> A criação e a ativação de regras de roteamento e a configuração de destinos são feitas pelo administrador, nas telas **Roteia -> Rotas** e **Roteia -> Destinos** (visíveis apenas para administradores). Consulte [Roteamento e Destinos](../outputs/routing.md) e [Destinos](../outputs/destinations.md).
 
 ---
 
@@ -234,11 +234,11 @@ Quando a simulação mostrar cobertura razoável (a maioria dos campos mapeada o
 
 | Fase | Ação | Onde, na interface | Esforço |
 |------|------|--------------------|---------|
-| Descoberta | Revisar eventos de amostra e os campos do vendor | Normalização -> Mappings / Drift Explorer | ~5 min |
-| Esqueleto | Preencher os campos obrigatórios (tipo, horário, ID, severidade) | Normalização -> Mappings | ~5 min |
-| Mapeamento | Ligar dispositivo, usuário e indicadores | Normalização -> Mappings | ~10 min |
-| Testes | Rodar Dry Run, revisar drift e iterar | Mappings + Drift Explorer | ~10 min |
-| Ativação | Salvar e ativar o mapeamento | Normalização -> Mappings | ~5 min |
+| Descoberta | Revisar eventos de amostra e os campos do vendor | Normaliza -> Mapeamentos / Drift | ~5 min |
+| Esqueleto | Preencher os campos obrigatórios (tipo, horário, ID, severidade) | Normaliza -> Mapeamentos | ~5 min |
+| Mapeamento | Ligar dispositivo, usuário e indicadores | Normaliza -> Mapeamentos | ~10 min |
+| Testes | Rodar Dry Run, revisar drift e iterar | Mapeamentos + Drift | ~10 min |
+| Ativação | Salvar e ativar o mapeamento | Normaliza -> Mapeamentos | ~5 min |
 | **Total** | | | **~35 min** |
 
 **Dicas:**

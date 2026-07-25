@@ -39,7 +39,7 @@ A 0,47× o relógio, o coletor **perde 32 minutos a cada hora**. Não adianta es
 
 ## Passo 1: confirme que é atraso de dado, não de coleta
 
-Abra **Normalização → Saúde do Pipeline** e olhe os dois números do card:
+Abra **Visão geral → Saúde do pipeline** e olhe os dois números do card:
 
 | Última coleta | Atraso dos dados | Leitura |
 |---|---|---|
@@ -73,7 +73,7 @@ Quando um ciclo demora mais que o intervalo agendado, o seguinte é **pulado**. 
 
 Esta é a pergunta que decide o resto. Se a maior parte do que está sendo coletado é descartada logo depois, você não tem um problema de capacidade — tem um problema de **onde o descarte acontece**.
 
-1. Abra **Operação → Roteamento** e leia as regras que se aplicam a essa integração.
+1. Abra **Roteia → Rotas** e leia as regras que se aplicam a essa integração.
 2. Identifique as que **descartam** por severidade, tipo ou fornecedor.
 3. Estime a proporção: se uma regra descarta tudo abaixo de determinada severidade, essa é a fatia que está sendo transportada à toa. No incidente, eram 97,6%.
 
@@ -91,7 +91,7 @@ Empurre o corte que o roteamento já faz para dentro da consulta ao fornecedor. 
 
 O procedimento, a tabela de níveis do Wazuh e as ressalvas de fidelidade estão em **[Filtro de coleta](../pipelines/collection-filters.md)**. Em resumo:
 
-1. **Visão geral → Integrações**, abra a integração para editar, seção **Filtros de coleta**.
+1. **Coleta → Integrações**, abra a integração para editar, seção **Filtros de coleta**.
 2. Configure o filtro espelhando a regra de descarte que você já tem (para o Wazuh: nível mínimo **7** equivale a descartar severidade Informativo e Baixo).
 3. Salve. Vale a partir do próximo ciclo.
 4. Volte à Saúde do Pipeline e acompanhe a etiqueta **Backlog**: ela sumir é o sinal de que a coleta alcançou o presente.
@@ -107,21 +107,21 @@ Repare que são duas coisas diferentes na mesma tela: a **etiqueta** reflete só
 :::warning[O filtro não recupera o passado e não devolve o que pular]
 O filtro age nas consultas seguintes. O acúmulo que já existe **continua tendo de ser drenado** — o filtro só faz a drenagem ser muito mais rápida, porque cada ciclo passa a trazer só o que interessa.
 
-E o que for filtrado **nunca entra na plataforma**: não aparece na captura ao vivo, não gera campo novo no Drift Explorer e não fica disponível para uma rota futura. Os eventos continuam no Wazuh de origem. Leia a seção de fidelidade em [Filtro de coleta](../pipelines/collection-filters.md) antes de ligar.
+E o que for filtrado **nunca entra na plataforma**: não aparece na captura ao vivo, não gera campo novo no Drift e não fica disponível para uma rota futura. Os eventos continuam no Wazuh de origem. Leia a seção de fidelidade em [Filtro de coleta](../pipelines/collection-filters.md) antes de ligar.
 :::
 
 ## Passo 5 (emergência): pular o backlog
 
 Reservado para quando o atraso é grande demais para drenar e **ver o presente vale mais que recuperar o passado** — por exemplo, um plantão cego para o que está acontecendo agora.
 
-**Existe botão para isso — não mexa no banco nem no Redis.** Em **Operação → Collectors**, localize a linha daquela integração e daquele fluxo, clique em **Reset** e confirme em **Zerar cursor?**. É uma ação de **administrador da plataforma**; para os demais perfis a chamada é recusada.
+**Existe botão para isso — não mexa no banco nem no Redis.** Em **Coleta → Coletores**, localize a linha daquela integração e daquele fluxo, clique em **Reset** e confirme em **Zerar cursor?**. É uma ação de **administrador da plataforma**; para os demais perfis a chamada é recusada.
 
 O botão apaga a posição de coleta nos **dois** lugares onde ela vive — o banco (fonte da verdade, usada no boot frio) e o Redis (caminho rápido, lido a cada ciclo) — numa única operação. É exatamente o par que precisa cair junto: um ciclo que ainda encontrasse a posição antiga no Redis a regravaria no banco por cima, e o reset teria sido inócuo.
 
 :::danger[O Reset apaga mais do que a posição de coleta]
 Ele remove a **linha inteira** de estado daquele `(integração, fluxo)`, não só o cursor. Vão junto o **total acumulado de eventos coletados**, o horário da **última coleta bem-sucedida**, o **último erro** e a contagem de **falhas consecutivas**.
 
-Enquanto o próximo ciclo não gravar a linha de novo, o fluxo **desaparece da tela de Collectors** e, se for o único fluxo daquela integração, o card em Saúde do Pipeline volta a **Desconhecido** — o estado de "nunca coletou". Anote antes de clicar os números que você pretende comparar depois.
+Enquanto o próximo ciclo não gravar a linha de novo, o fluxo **desaparece da tela de Coletores** e, se for o único fluxo daquela integração, o card em Saúde do Pipeline volta a **Desconhecido** — o estado de "nunca coletou". Anote antes de clicar os números que você pretende comparar depois.
 :::
 
 :::warning[Ele não salta para o presente — recomeça no lookback padrão do fornecedor]

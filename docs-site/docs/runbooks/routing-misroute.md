@@ -11,7 +11,7 @@ O roteamento decide, regra a regra, para quais destinos cada evento vai — ou s
 Esta página é um guia de diagnóstico por sintoma. Para entender como o roteamento funciona como um todo (prioridade, regras exclusivas, descarte, percentual gradual), veja antes **[Roteamento por regra](../outputs/routing.md)**.
 
 :::info[Tela só de administrador]
-As telas de **Roteamento**, **Destinos** e **Fluxo de dados** ficam no grupo **Operação** do menu e só aparecem para administradores da plataforma. Se você não as vê, peça a um administrador para conduzir os passos abaixo.
+As telas de **Rotas**, **Destinos** e **Fluxo de dados** ficam no grupo **Roteia** do menu e só aparecem para administradores da plataforma. Se você não as vê, peça a um administrador para conduzir os passos abaixo.
 :::
 
 ## Quando usar
@@ -40,7 +40,7 @@ Para tudo que é **casamento de condição e destino**, a ferramenta principal d
 
 ### Diagnóstico
 
-Vá a **Operação -> Roteamento** e siga, na ordem:
+Vá a **Roteia -> Rotas** e siga, na ordem:
 
 1. **A regra está ativa?** Localize a regra na lista e confira o status. Se estiver inativa, regras inativas são puladas na avaliação — esse já é o motivo. Pule para a ação **1A**.
 2. **A regra está batendo no evento?** Use a **simulação** ("dry-run") com eventos recentes. Para o evento que você esperava rotear, veja o resultado:
@@ -55,7 +55,7 @@ Vá a **Operação -> Roteamento** e siga, na ordem:
 
 #### 1A. Reativar a regra
 
-Na lista de **Operação -> Roteamento**, mude o status da regra para **ativa**. Depois, rode a **simulação** novamente com eventos recentes e confirme que o evento agora vai para o destino certo antes de considerar resolvido.
+Na lista de **Roteia -> Rotas**, mude o status da regra para **ativa**. Depois, rode a **simulação** novamente com eventos recentes e confirme que o evento agora vai para o destino certo antes de considerar resolvido.
 
 #### 1B. Corrigir a condição
 
@@ -71,14 +71,14 @@ Depois de salvar, rode a **simulação** outra vez para confirmar que o evento p
 
 As regras são avaliadas **da menor prioridade para a maior**. Se uma regra anterior é **exclusiva** (faz a avaliação parar no primeiro acerto) e a condição dela já cobre todos os casos da sua regra, a sua regra nunca chega a ser avaliada.
 
-1. Em **Operação -> Roteamento**, veja se a sua regra está marcada como **inalcançável** na lista.
+1. Em **Roteia -> Rotas**, veja se a sua regra está marcada como **inalcançável** na lista.
 2. Olhe a lista na ordem de prioridade e procure uma regra anterior, **exclusiva**, cuja condição seja mais ampla e "engula" os eventos da sua regra. Exemplo: uma regra exclusiva de prioridade alta que pega "todo evento da Sophos" vai sempre cobrir uma regra posterior só para "Sophos com severidade 5".
 
 ### Ações
 
 #### 2A. Reordenar as regras
 
-Na lista de **Operação -> Roteamento**, **arraste** a sua regra para uma posição anterior à da regra que a estava bloqueando. As prioridades são reajustadas automaticamente conforme você reordena. Em seguida, confirme que a marca de **inalcançável** desapareceu.
+Na lista de **Roteia -> Rotas**, **arraste** a sua regra para uma posição anterior à da regra que a estava bloqueando. As prioridades são reajustadas automaticamente conforme você reordena. Em seguida, confirme que a marca de **inalcançável** desapareceu.
 
 > O **catch-all (destino-padrão de segurança) é configurado por você**: uma regra pega-tudo (condição vazia, menor prioridade) ou um destino marcado como padrão. Se não houver catch-all, eventos não-roteados não somem — vão à DLQ com o motivo `unrouted` (visíveis e reprocessáveis). Se existir uma regra pega-tudo, mantenha-a como a última (menor prioridade) para não sombrear as demais.
 
@@ -94,7 +94,7 @@ Se não fizer sentido reordenar, abra a regra que estava bloqueando e marque-a c
 
 Um evento chega a vários destinos quando mais de uma regra bate nele e nenhuma dessas regras é **exclusiva** — ou seja, cada uma envia para o seu destino e deixa a avaliação seguir.
 
-1. Em **Operação -> Roteamento**, abra a regra suspeita e confira se ela está marcada como **não exclusiva**.
+1. Em **Roteia -> Rotas**, abra a regra suspeita e confira se ela está marcada como **não exclusiva**.
 2. Rode a **simulação** com eventos recentes e veja, para o evento em questão, **quantos destinos** ele recebe. Se forem mais do que você quer, há regras sobrepostas batendo no mesmo evento.
 
 ### Ações
@@ -115,15 +115,15 @@ Se o envio simultâneo é desejado, mas algumas regras erradas estão batendo, m
 
 O contador **Descartados** conta uma coisa só: eventos apagados por uma regra com ação **Descartar**. Se o número está maior do que você espera, a causa está na condição de alguma dessas regras.
 
-1. Em **Operação -> Roteamento**, procure regras com ação **Descartar** e confira a condição de cada uma.
+1. Em **Roteia -> Rotas**, procure regras com ação **Descartar** e confira a condição de cada uma.
 2. Rode a **simulação** com eventos recentes e veja **quantos eventos** estão sendo descartados. Se for mais do que o esperado, identifique qual regra de descarte está batendo nos eventos que você quer preservar comparando a condição dela com as características desses eventos.
-3. Para ter o panorama de quais regras mais descartam, use **Operação -> Fluxo de dados**.
+3. Para ter o panorama de quais regras mais descartam, use **Roteia -> Fluxo de dados**.
 
 Se **nenhuma** regra de descarte bate nos eventos que sumiram, esse contador não vai explicar nada — o corte veio de outra alavanca. Vá para o [Sintoma 5](#sintoma-5-o-volume-caiu-e-não-há-regra-de-descarte).
 
 ### Ações
 
-- **Desativar a regra de descarte** se ela não deveria estar agindo: mude o status para inativa na lista de **Operação -> Roteamento**.
+- **Desativar a regra de descarte** se ela não deveria estar agindo: mude o status para inativa na lista de **Roteia -> Rotas**.
 - **Afinar a condição** se o descarte é válido, mas amplo demais: abra a regra e restrinja a condição para que ela pegue só o ruído que você realmente quer cortar (por exemplo, apenas a fonte ruidosa, com a severidade mais baixa).
 
 Em ambos os casos, rode a **simulação** depois e confirme que a contagem de descartados voltou ao esperado.
@@ -145,7 +145,7 @@ Duas alavancas de redução de custo apagam eventos sem que nenhuma regra de des
 Não existe um padrão de barras que revele o problema — nem "Bateram alto com Enviados baixo", nem nada parecido. Numa regra de encaminhamento, **Enviados é sempre igual a Bateram**, com ou sem amostragem. Não perca tempo procurando o sinal no gráfico: vá direto para a captura ao vivo (passo 4).
 :::
 
-Siga nesta ordem, em **Operação -> Roteamento**, abrindo a rota suspeita:
+Siga nesta ordem, em **Roteia -> Rotas**, abrindo a rota suspeita:
 
 1. **Olhe Permitidos por janela (`suppress_allow`).** Zero significa supressão desligada — é o padrão de fábrica de toda rota. Qualquer valor maior que zero quer dizer que só essa quantidade de eventos com a mesma **Chave de supressão** (`suppress_key`) passa a cada janela (30 segundos por padrão); o resto é apagado. Anote também qual é a chave configurada — é ela que decide o que a plataforma considera "o mesmo evento". A primeira ocorrência de cada assinatura sempre passa.
 2. **Olhe Amostragem %.** 100 mantém tudo. Abaixo disso, só essa fração dos eventos que batem na regra chega aos destinos.
@@ -162,8 +162,8 @@ Mitigação imediata, da mais cirúrgica para a mais ampla:
 
 | O que fazer | Efeito | Onde |
 |---|---|---|
-| Zerar **Permitidos por janela** (`suppress_allow`) | Desliga a supressão só nessa rota | **Operação -> Roteamento**, na própria rota |
-| Religar **Proteger detecção** (`protect_detection`) | A rota volta a nunca ser amostrada, suprimida nem ter o evento bruto descartado | **Operação -> Roteamento**, na própria rota |
+| Zerar **Permitidos por janela** (`suppress_allow`) | Desliga a supressão só nessa rota | **Roteia -> Rotas**, na própria rota |
+| Religar **Proteger detecção** (`protect_detection`) | A rota volta a nunca ser amostrada, suprimida nem ter o evento bruto descartado | **Roteia -> Rotas**, na própria rota |
 | Pedir ao administrador `REDUCTION_SUPPRESS_ENABLED=false` | Kill-switch de ambiente: desliga a supressão em **todas** as rotas de uma vez | Variável de ambiente, definida no deploy |
 
 Prefira as duas primeiras: são por rota, valem para os eventos novos assim que você salva, e você mesmo faz. O kill-switch de ambiente serve para quando a queda é ampla e você precisa estancar antes de descobrir qual rota é a culpada — e ele precisa do administrador da plataforma.
@@ -188,7 +188,7 @@ No extremo, se **nenhum** label da chave resolver no evento, a assinatura não i
 
 Uma regra pode estar configurada para se aplicar a **só uma parte dos eventos** (percentual gradual). Nesse caso, apenas essa fração dos eventos que batem na regra vai para os destinos dela; o restante "cai" para a próxima regra ou para o destino-padrão. Isso é o esperado durante uma migração de destino feita com segurança.
 
-Em **Operação -> Roteamento**, abra a regra e veja o percentual gradual configurado. Se estiver, por exemplo, em 10%, só 10% dos eventos seguem por essa regra — o que é normal no começo de uma migração.
+Em **Roteia -> Rotas**, abra a regra e veja o percentual gradual configurado. Se estiver, por exemplo, em 10%, só 10% dos eventos seguem por essa regra — o que é normal no começo de uma migração.
 
 ### Ação
 
@@ -204,7 +204,7 @@ Como o tratamento é determinístico, um mesmo evento sempre recebe a mesma deci
 
 ## Prevenção
 
-Antes de salvar uma regra nova, confira na própria tela de **Operação -> Roteamento**:
+Antes de salvar uma regra nova, confira na própria tela de **Roteia -> Rotas**:
 
 - **A condição é válida?** A tela valida enquanto você digita. Use a **simulação** com eventos recentes antes de salvar.
 - **O destino existe?** Selecione o destino na lista de destinos disponíveis da regra, em vez de digitar nomes à mão.
@@ -215,8 +215,8 @@ Antes de salvar uma regra nova, confira na própria tela de **Operação -> Rote
 
 ### Monitoramento contínuo
 
-- Acompanhe o gráfico de cada regra (contagens **Bateram / Enviados / Descartados**) na tela de **Operação -> Roteamento**. Lembre-se de que **nem supressão nem amostragem entram em "Descartados"** — e a supressão não entra em nenhuma das três. Para enxergá-las, use a [captura ao vivo](../operations/live-capture.md).
-- Para a visão de ponta a ponta — vazão por destino, regras que mais descartam e o desenho do fluxo entre integrações e destinos — use **Operação -> Fluxo de dados**.
+- Acompanhe o gráfico de cada regra (contagens **Bateram / Enviados / Descartados**) na tela de **Roteia -> Rotas**. Lembre-se de que **nem supressão nem amostragem entram em "Descartados"** — e a supressão não entra em nenhuma das três. Para enxergá-las, use a [captura ao vivo](../operations/live-capture.md).
+- Para a visão de ponta a ponta — vazão por destino, regras que mais descartam e o desenho do fluxo entre integrações e destinos — use **Roteia -> Fluxo de dados**.
 - Toda alteração de regra fica **registrada no histórico** (quem, quando e o quê). Se uma mudança recente causou o problema, você pode abrir o histórico da regra e **restaurar uma versão anterior**. Ao restaurar, o sistema revalida a regra — destinos (um destino pode ter sido apagado nesse intervalo), a especificação de redação de PII e a chave de supressão. Se a versão antiga tiver uma chave de supressão inválida, a restauração é recusada em vez de reativar uma rota quebrada.
 
 ## Quando escalar

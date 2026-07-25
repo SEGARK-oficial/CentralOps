@@ -17,9 +17,9 @@ Conecte o CrowdStrike Falcon ao CentralOps para coletar automaticamente as detec
 
 ## Quem pode fazer o quê
 
-- **Administrador da plataforma:** cria e edita a integração (menu **Visão geral -> Integrações**).
-- **Operador ou superior:** rodam consultas FQL ao vivo (menu **Operação -> Busca Federada**).
-- **Demais perfis:** visualizam os alertas já coletados (tela **Operação -> Investigações**).
+- **Administrador da plataforma:** cria e edita a integração (menu **Coleta -> Integrações**).
+- **Operador ou superior:** rodam consultas FQL ao vivo (menu **Detecta -> Busca federada**).
+- **Demais perfis:** visualizam os alertas já coletados (tela **Detecta -> Queries salvas**).
 
 ## Pré-requisitos
 
@@ -70,7 +70,7 @@ Anote a URL correta para usar no próximo passo — usar a URL errada resultará
 
 ## Passo 3: Criar a integração no CentralOps
 
-1. No menu lateral, vá em **Visão geral -> Integrações**.
+1. No menu lateral, vá em **Coleta -> Integrações**.
 2. Clique para adicionar uma nova integração.
 3. Escolha **CrowdStrike Falcon** na lista de plataformas e avance.
 4. Preencha os campos do formulário:
@@ -91,12 +91,12 @@ Anote a URL correta para usar no próximo passo — usar a URL errada resultará
 
 ## Passo 4: Acompanhar a primeira coleta
 
-A primeira coleta acontece automaticamente, poucos minutos depois de salvar. Acompanhe o status na própria tela da integração, em **Visão geral -> Integrações**.
+A primeira coleta acontece automaticamente, poucos minutos depois de salvar. Acompanhe o status na própria tela da integração, em **Coleta -> Integrações**.
 
 Quando houver detecções recentes no Falcon:
 
 - O status da integração muda para ativo e o indicador de saúde fica verde.
-- Os eventos ficam pesquisáveis em **Operação -> Investigações**.
+- Os eventos ficam pesquisáveis no destino para onde suas rotas os enviam.
 
 Se nada aparecer depois de alguns minutos, veja a seção [Solução de problemas](#solução-de-problemas) abaixo.
 
@@ -104,7 +104,7 @@ Se nada aparecer depois de alguns minutos, veja a seção [Solução de problema
 
 Se você precisa investigar um indicador específico ou procurar eventos mais recentes sem esperar a próxima coleta automática:
 
-1. No menu, vá em **Operação -> Busca Federada** (disponível para Operador ou superior).
+1. No menu, vá em **Detecta -> Busca federada** (disponível para Operador ou superior).
 2. Selecione **CrowdStrike Falcon** como a integração.
 3. Escolha o intervalo de tempo (até 7 dias).
 4. Escreva sua consulta em **FQL** (Falcon Query Language). Exemplos:
@@ -132,7 +132,7 @@ Cada alerta do CrowdStrike chega ao CentralOps com informações como:
 | Endereço IP de origem | `192.168.1.100` |
 | Timestamp | `2026-04-27T10:00:00Z` |
 
-O CentralOps converte esses dados para o formato padronizado da plataforma, de modo que os alertas do Falcon podem ser pesquisados e correlacionados com as demais fontes. Se algum campo não puder ser convertido, o evento vai para a **Quarentena** (menu **Normalização -> Quarentena**), onde você pode revisar e reprocessar.
+O CentralOps converte esses dados para o formato padronizado da plataforma, de modo que os alertas do Falcon podem ser pesquisados e correlacionados com as demais fontes. Se algum campo não puder ser convertido, o evento vai para a **Quarentena** (menu **Normaliza -> Quarentena**), onde você pode revisar e reprocessar.
 
 ## Capacidades de consulta
 
@@ -144,16 +144,16 @@ A integração CrowdStrike suporta:
 | **Janela máxima** | 7 dias — o Falcon não retorna alertas mais antigos que isso. |
 | **Modo de execução** | Síncrono — a resposta chega em poucos segundos. |
 
-Para rodar uma consulta, acesse **Operação -> Busca Federada** e selecione CrowdStrike como integração.
+Para rodar uma consulta, acesse **Detecta -> Busca federada** e selecione CrowdStrike como integração.
 
 ## Solução de problemas
 
 | Sintoma | Causa provável | O que fazer |
 |---|---|---|
-| Erro de credenciais inválidas ao testar a conexão | Client ID ou Client Secret incorretos, ou expirados | Gere uma nova chave no Falcon, apague a antiga e atualize os valores na integração do CentralOps (**Visão geral -> Integrações**). Teste a conexão de novo. |
+| Erro de credenciais inválidas ao testar a conexão | Client ID ou Client Secret incorretos, ou expirados | Gere uma nova chave no Falcon, apague a antiga e atualize os valores na integração do CentralOps (**Coleta -> Integrações**). Teste a conexão de novo. |
 | Erro de autenticação ao testar (HTTP 401 ou 403) | Base URL errada para a sua região | Confira em qual URL você acessa o Falcon (falcon.crowdstrike.com, falcon.us-2, falcon.eu-1, etc.) e coloque a base URL correspondente no Passo 2. |
-| Nenhum evento aparecendo | O Falcon não tem detecções recentes, ou o evento foi para a quarentena | Confirme no console Falcon se há detecções recentes. Se houver, aguarde alguns minutos. Se ainda assim nada aparecer em **Operação -> Investigações**, verifique a tela **Normalização -> Quarentena**. |
-| Volume de eventos muito baixo | O Falcon está limitando as requisições de API (rate limit) | Abra **Normalização -> Saúde do Pipeline** e veja a integração do CrowdStrike para confirmar o limite de taxa. O intervalo de coleta é definido pela equipe de infraestrutura no momento do deploy. Se precisar ajustá-lo, fale com o administrador da plataforma. |
+| Nenhum evento aparecendo | O Falcon não tem detecções recentes, ou o evento foi para a quarentena | Confirme no console Falcon se há detecções recentes. Se houver, aguarde alguns minutos. Se ainda assim nada aparecer em **Detecta -> Queries salvas**, verifique a tela **Normaliza -> Quarentena**. |
+| Volume de eventos muito baixo | O Falcon está limitando as requisições de API (rate limit) | Abra **Visão geral -> Saúde do pipeline** e veja a integração do CrowdStrike para confirmar o limite de taxa. O intervalo de coleta é definido pela equipe de infraestrutura no momento do deploy. Se precisar ajustá-lo, fale com o administrador da plataforma. |
 | Consulta FQL retorna erro "Invalid filter" | Sintaxe FQL inválida | Confira a [documentação oficial de FQL](https://developer.crowdstrike.com/falcon/documentation/#tag/query-events-get-events) ou reduza a complexidade (tente `event_type:ProcessRollup2` antes de filtros mais complexos). |
 
 ## Streams disponíveis

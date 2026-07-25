@@ -188,7 +188,7 @@ time to become fully ready.
    # edition=community        (or "edition=enterprise plan=... features=..." on an EE stack)
    ```
 
-2. **Overall health** — open **Operations → Data flow** (`/flow`) and **Normalization →
+2. **Overall health** — open **Route → Data flow** (`/flow`) and **Overview →
    Pipeline health** (`/pipeline-health`) and confirm events keep flowing normally.
 
 :::note[How NOT to check version/edition]
@@ -295,7 +295,7 @@ It exists for a concrete case: when routing discards most of what comes in, the 
 is spending every cycle hauling noise — and that is the cause of collections that never
 catch up to the present. Read [Collection filter](../pipelines/collection-filters)
 before turning it on: what is filtered at the source **never enters the platform** (it does
-not show up in live capture, does not raise a new field in the Drift Explorer, and is not
+not show up in live capture, does not raise a new field in Drift, and is not
 available to a future route), and turning it on or off **is not retroactive**.
 
 **Concurrent cycles of the same stream are now skipped.** When a collection cycle takes
@@ -388,8 +388,8 @@ automatic changelog (marked as `⚠ BREAKING CHANGE`) — it is what made the re
   (`application/vnd.centralops.v1+json`) was removed.
 - The **MCP tool `list_integration_alerts`** was removed.
 
-**What to do:** triage is now vendor-neutral, via **Operations → Investigations /
-Federated search** and **Detections**. If you have automations or integrations hitting the
+**What to do:** triage is now vendor-neutral, via **Detect → Federated search**
+(Enterprise) and **Detect → Detections**. If you have automations or integrations hitting the
 alerts endpoints (or the Accept v1 path of `/dashboard/summary`), **migrate them** to
 those paths before upgrading.
 
@@ -401,8 +401,8 @@ change** — only the "alerts" read surface is gone.
 **New (nothing to configure — already on):**
 
 - **Robust CSV export from Federated search**, with localized labels (PT/EN/ES) — under
-  **Operations → Investigations**.
-- **A `/flow` map that scales.** The **Data flow** view (Operations → Data flow)
+  **Detect → Federated search**.
+- **A `/flow` map that scales.** The **Data flow** view (Route → Data flow)
   collapses dense columns into an expandable **"+N"** node and fits itself to the screen
   (fit-to-view), with path highlight on hover — readable even with dozens of
   sources/routes/destinations.
@@ -411,7 +411,7 @@ change** — only the "alerts" read surface is gone.
 - **Wazuh detection-mapping validation** + a fix for a missing seed definition.
 
 **Cost metering on by default.** `COST_METERING_ENABLED` now defaults to **`true`**. As a
-result, the **"Volume & cost reduction"** card starts showing up under **Operations →
+result, the **"Volume & cost reduction"** card starts showing up under **Route →
 Data flow**: on Community it shows the volume, the percentage and the bytes saved; on
 Enterprise it adds the **US$** figure (from the `cost_per_gb` configured on each
 destination). To turn it off, set `COST_METERING_ENABLED=false`.
@@ -419,8 +419,7 @@ destination). To turn it off, set `COST_METERING_ENABLED=false`.
 **Operational fixes** (informational — nothing to do):
 
 - Collectors no longer enter a **RedBeat crash-loop** (lock, loop-cap and idempotent
-  scheduler registration fixed). See also **Observability** (Operations → Observability)
-  to track Beat health.
+  scheduler registration fixed). See also **Observability** to track Beat health.
 - The **collection soft-timeout** no longer poisons the database connection pool (pool
   disposal + early initialization avoid `UnboundLocalError`).
 - An **empty `SESSION_SECURE_COOKIE`** no longer breaks boot; OCSF resource path anchoring

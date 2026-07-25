@@ -33,7 +33,7 @@ Toda organização nova começa com estes prazos. Eles servem para a maioria dos
 Cada organização pode ter seus próprios prazos, sobrescrevendo os padrões. Esta configuração é de administrador.
 
 :::note[Ainda não há tela para isso]
-A configuração de retenção por organização existe na plataforma, mas **não foi exposta na interface** — não há área de retenção em **Visão geral → Organizações**. Enquanto ela não chega, o ajuste é feito pela API, por quem tem permissão de administrar organizações.
+A configuração de retenção por organização existe na plataforma, mas **não foi exposta na interface** — não há área de retenção em **Administração → Organizações**. Enquanto ela não chega, o ajuste é feito pela API, por quem tem permissão de administrar organizações.
 :::
 
 ### Passo a passo
@@ -79,9 +79,9 @@ Um arranjo típico usa o **Roteamento** para enviar o mesmo dado a destinos com 
 - Eventos mais críticos vão para um **SIEM** com retenção curta (por exemplo, 30 dias), para análise imediata.
 - Os demais eventos vão para um **armazenamento de longa duração** com retenção longa (por exemplo, 2 anos), como arquivo histórico.
 
-Para montar esse arranjo, configure as regras na tela de **Roteamento** e o prazo de cada destino na tela de **Destinos**. A remoção de dados sensíveis (redação de PII) também é configurada por rota — veja [Roteamento](../outputs/routing.md).
+Para montar esse arranjo, configure as regras na tela de **Rotas** e o prazo de cada destino na tela de **Destinos**. A remoção de dados sensíveis (redação de PII) também é configurada por rota — veja [Roteamento](../outputs/routing.md).
 
-> Para definir o prazo de retenção de um destino de armazenamento, abra **Operação → Destinos**, selecione o destino e ajuste o prazo de retenção. Destinos sem essa opção (SIEMs, barramentos) gerenciam a retenção pelo próprio lado.
+> Para definir o prazo de retenção de um destino de armazenamento, abra **Roteia → Destinos**, selecione o destino e ajuste o prazo de retenção. Destinos sem essa opção (SIEMs, barramentos) gerenciam a retenção pelo próprio lado.
 
 ## Conferir que a política está ativa e funcionando
 
@@ -93,7 +93,7 @@ Consulte `GET /api/organizations/{id}/retention`. São esses os prazos que a lim
 
 Toda mudança de prazo fica registrada. Para auditar:
 
-1. Abra **Operação → Histórico**.
+1. Abra **Visão geral → Histórico**.
 2. Localize os registros de alteração da configuração de retenção. Cada registro mostra **quem** alterou, **qual organização** e os **novos valores**.
 
 ### Se dados antigos ainda aparecem
@@ -102,7 +102,7 @@ Se você esperava que certos dados já tivessem sumido e eles continuam aparecen
 
 1. **Confira o prazo configurado** (`GET /api/organizations/{id}/retention`). Um prazo maior do que o esperado (por exemplo, 365 em vez de 30 dias) faz os dados ficarem mais tempo.
 2. **Lembre-se de que a limpeza roda uma vez por dia.** Dados que acabaram de vencer só somem na próxima execução diária.
-3. **Para objetos antigos em um destino de armazenamento**, confirme em **Operação → Destinos** que aquele destino tem um prazo de retenção definido. Sem prazo definido, a plataforma não apaga nada lá.
+3. **Para objetos antigos em um destino de armazenamento**, confirme em **Roteia → Destinos** que aquele destino tem um prazo de retenção definido. Sem prazo definido, a plataforma não apaga nada lá.
 4. Se mesmo assim os dados persistirem além do prazo, fale com o administrador da plataforma.
 
 ## Retenção e compliance

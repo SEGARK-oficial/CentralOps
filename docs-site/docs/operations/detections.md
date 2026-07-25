@@ -6,9 +6,9 @@ description: Alertas de 1ª classe originários de queries e correlações, com 
 
 # Detecções
 
-A tela **Detecções** mostra alertas duráveis gerados por buscas de segurança (scheduled queries e correlações cross-source). Cada alerta aqui é um registro consultável, com status de triagem (aberto, reconhecido ou fechado) e supressão automática de ruído. Diferente dos eventos brutos de coleta (pesquisáveis em **Operação → Investigações**), as Detecções são análises de 1ª classe, produzidas pelo motor de IA e regras que você configurar.
+A tela **Detecções** mostra alertas duráveis gerados por buscas de segurança (scheduled queries e correlações cross-source). Cada alerta aqui é um registro consultável, com status de triagem (aberto, reconhecido ou fechado) e supressão automática de ruído. Diferente dos eventos brutos de coleta (pesquisáveis pela [busca de eventos](./search.md)), as Detecções são análises de 1ª classe, produzidas pelo motor de IA e regras que você configurar.
 
-Para acessar, use o menu **Operação → Detecções**.
+Para acessar, use o menu **Detecta → Detecções**.
 
 **Quem pode ver:** todos os perfis autenticados, escopado pela organização. Apenas **Operator e superiores** conseguem mudar o status (triagem).
 
@@ -90,7 +90,7 @@ Isso importa especialmente nas detecções de **correlação**: ali o `count` re
 
 ### Ver detecções abertas do dia
 
-1. No menu, abra **Operação → Detecções**.
+1. No menu, abra **Detecta → Detecções**.
 2. Filtre **Status** = Aberta.
 3. Filtre **Data** = Últimas 24h.
 4. Confirme. A lista mostra apenas as detecções abertas recentes.
@@ -136,12 +136,12 @@ Clique no alerta para ver:
 
 ## O que esperar (e limites)
 
-- **Apenas triagem aqui.** Esta tela serve para reconhecer e fechar alertas de análise. Não é o lugar para investigar eventos brutos — vá em **Operação → Investigações** para dados completos.
+- **Apenas triagem aqui.** Esta tela serve para reconhecer e fechar alertas de análise. Não é o lugar para investigar eventos brutos — use a [busca de eventos](./search.md) para dados completos.
 - **Dedup inteligente.** Alertas com o mesmo padrão (dedup_key) em um intervalo curto são agrupados. Após a janela de supressão (padrão 1 hora), um novo alerta da mesma regra é legítimo.
-- **Retenção.** Detecções são armazenadas de forma durável. Eventos muito antigos podem não aparecer em buscas rápidas — use as telas de **Investigações** ou os destinos configurados para histórico de longo prazo.
+- **Retenção.** Detecções são armazenadas de forma durável. Eventos muito antigos podem não aparecer em buscas rápidas — use a [busca de eventos](./search.md) ou os destinos configurados para histórico de longo prazo.
 
 ## Próximos passos
 
-- **Investigar a raiz de um alerta?** Vá em **Operação → Investigações** ([Investigações](./search.md)) para buscar os eventos de coleta que geraram a detecção.
-- **Criar ou editar regras de correlação?** Vá em **Conhecimento → Correlação** (visível apenas a Engineer e acima).
-- **Executar uma busca on-demand?** Vá em **Operação → Busca Federada** ([Busca Federada](./search.md)).
+- **Investigar a raiz de um alerta?** Pesquise no destino os eventos de coleta que geraram a detecção. Veja [onde pesquisar eventos](./search.md).
+- **Criar ou editar regras de correlação?** Vá em **Detecta → Correlação** (visível apenas a Engineer e acima).
+- **Executar uma busca on-demand?** Vá em **Detecta → Busca federada** ([Busca federada](./federated-search.md)).

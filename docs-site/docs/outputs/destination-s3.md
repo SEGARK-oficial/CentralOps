@@ -45,7 +45,7 @@ A escolha entre usar a identidade gerenciada da nuvem (sem chave explícita) ou 
 
 ## Passo 1: Criar o destino
 
-1. No menu lateral, abra **Operação → Destinos**.
+1. No menu lateral, abra **Roteia → Destinos**.
 2. Clique no botão de criar um novo destino.
 3. Em tipo de destino, escolha a opção de **S3 / Object Store**.
 4. Dê um nome claro ao destino (por exemplo, "Data Lake - Produção"), que ajude a identificá-lo depois nas telas de roteamento e de saúde.
@@ -79,7 +79,7 @@ Ao concluir, salve o destino.
 
 Criar o destino apenas o registra; ele só recebe eventos depois que você cria uma regra de roteamento apontando para ele.
 
-1. No menu lateral, abra **Operação → Roteamento**.
+1. No menu lateral, abra **Roteia → Rotas**.
 2. Crie uma nova regra de envio.
 3. Defina, na regra:
    - **A condição** — quais eventos vão para este destino. Deixe sem condição para enviar tudo, ou filtre (por exemplo, apenas eventos de severidade alta).
@@ -88,7 +88,7 @@ Criar o destino apenas o registra; ele só recebe eventos depois que você cria 
 
 ## Passo 5: Confirmar que os dados estão chegando
 
-1. No menu lateral, abra **Normalização → Saúde do Pipeline**.
+1. No menu lateral, abra **Visão geral → Saúde do pipeline**.
 2. Localize o seu destino S3 na lista.
 3. O status deve aparecer como **Ativo** (verde). Se aparecer inativo ou com erro, a credencial pode não ter sido resolvida — veja [Resolução de problemas](#resolução-de-problemas).
 
@@ -96,7 +96,7 @@ Depois disso, os arquivos passam a aparecer no bucket, separados por organizaç�
 
 ## Retenção e remoção de dados
 
-O destino S3 oferece dois controles importantes para conformidade, disponíveis na própria tela do destino, em **Operação → Destinos**:
+O destino S3 oferece dois controles importantes para conformidade, disponíveis na própria tela do destino, em **Roteia → Destinos**:
 
 ### Aplicar a retenção (limpeza de dados antigos)
 
@@ -115,12 +115,12 @@ Quando for necessário atender a um pedido de exclusão sob a LGPD, o destino pe
 | **"Sem credencial S3" / destino inativo** | A credencial não foi resolvida. Se o acesso for por identidade gerenciada da nuvem, confirme que a opção correspondente está marcada. Se for por chave, confirme que a parte secreta foi guardada no cofre. Em seguida, use o botão de testar a conexão. |
 | **"Acesso negado" / chave inválida** | A credencial ou a permissão está incorreta. Confirme o identificador da chave e peça à equipe de nuvem que verifique se a permissão de leitura, gravação, listagem e exclusão no bucket está concedida. Se você usa um armazenamento não-AWS, confirme com a equipe se o endereço (endpoint) está correto. |
 | **"Conexão recusada" / tempo esgotado** | A plataforma não conseguiu alcançar o armazenamento. Geralmente é rede ou firewall bloqueando o acesso — algo que a equipe de infraestrutura precisa verificar. O CentralOps tenta reenviar automaticamente quando o problema é temporário. |
-| **Os arquivos não aparecem no bucket** | Confirme em **Normalização → Saúde do Pipeline** que o destino está **Ativo**. Verifique também em **Normalização → Quarentena** se os eventos não foram retidos por algum problema de normalização. Lembre-se de que os arquivos são organizados pela data do evento, então procure na pasta da data correspondente. |
+| **Os arquivos não aparecem no bucket** | Confirme em **Visão geral → Saúde do pipeline** que o destino está **Ativo**. Verifique também em **Normaliza → Quarentena** se os eventos não foram retidos por algum problema de normalização. Lembre-se de que os arquivos são organizados pela data do evento, então procure na pasta da data correspondente. |
 | **Eventos duplicados no bucket** | É esperado em reenvios parciais (alguns eventos voltando pela fila de reenvio). A remoção de duplicados é feita na hora da consulta, pelo identificador único de cada evento. O reenvio de um mesmo lote completo nunca duplica. |
 
 ## Consultar dados já gravados (search-in-place)
 
-Depois que os eventos estão no bucket S3, você pode fazer buscas estruturadas diretamente nos arquivos guardados, sem reingerir ou carregar tudo novamente. Use a tela **Operação → Busca federada** e selecione a integração de origem S3/Lake.
+Depois que os eventos estão no bucket S3, você pode fazer buscas estruturadas diretamente nos arquivos guardados, sem reingerir ou carregar tudo novamente. Use a tela **Detecta → Busca federada** e selecione a integração de origem S3/Lake.
 
 O dialeto é **Filtros JSON estruturados** — uma sintaxe simples de key/value que não requer SQL:
 

@@ -11,14 +11,14 @@ Conecte o Sophos Central ao CentralOps para coletar automaticamente os alertas e
 ## Quando usar
 
 - **Centralizar a detecção do Sophos no SOC.** Traga as detecções de malware e comportamento do Sophos Central para o CentralOps e analise-as ao lado das outras fontes, sem precisar abrir o console do Sophos para cada alerta.
-- **Correlacionar ameaças entre fornecedores.** Cruze os alertas do Sophos com eventos de outras integrações para investigar um incidente de ponta a ponta na tela de **Investigações**.
+- **Correlacionar ameaças entre fornecedores.** Com tudo normalizado no mesmo schema, os alertas do Sophos cruzam com os de outras integrações no seu destino, sem precisar traduzir campos.
 - **Encaminhar para SIEM e resposta.** Depois de coletados, os eventos do Sophos seguem pelas regras de roteamento para os seus destinos (SIEM, data lake, automação de resposta), permitindo alertar e responder de forma centralizada.
 - **Acompanhar cases de XDR/MDR.** Se você usa Managed Threat Response, traga também os cases de XDR para acompanhar investigações gerenciadas dentro do CentralOps.
 
 ## Quem pode fazer o quê
 
-- **Administrador da plataforma:** cria e edita a integração (menu **Visão geral -> Integrações**).
-- **Demais perfis:** visualizam os alertas e cases já coletados (tela **Operação -> Investigações**).
+- **Administrador da plataforma:** cria e edita a integração (menu **Coleta -> Integrações**).
+- **Demais perfis:** visualizam os alertas e cases já coletados (tela **Detecta -> Queries salvas**).
 
 ## Pré-requisitos
 
@@ -60,7 +60,7 @@ Anote os dois para usar no próximo passo.
 
 ## Passo 3: Criar a integração no CentralOps
 
-1. No menu lateral, vá em **Visão geral -> Integrações**.
+1. No menu lateral, vá em **Coleta -> Integrações**.
 2. Clique para adicionar uma nova integração.
 3. Escolha **Sophos Central** na lista de plataformas e avance.
 4. Preencha os campos do formulário:
@@ -81,12 +81,12 @@ Anote os dois para usar no próximo passo.
 
 ## Passo 4: Acompanhar a primeira coleta
 
-A primeira coleta acontece automaticamente, poucos minutos depois de salvar. Acompanhe o status na própria tela da integração, em **Visão geral -> Integrações**.
+A primeira coleta acontece automaticamente, poucos minutos depois de salvar. Acompanhe o status na própria tela da integração, em **Coleta -> Integrações**.
 
 Quando houver alertas recentes no Sophos:
 
 - O status da integração muda para ativo e o indicador de saúde fica verde.
-- Os eventos ficam pesquisáveis em **Operação -> Investigações**.
+- Os eventos ficam pesquisáveis no destino para onde suas rotas os enviam.
 
 Se nada aparecer depois de alguns minutos, veja a seção [Solução de problemas](#solução-de-problemas) abaixo.
 
@@ -96,7 +96,7 @@ Se você usa **Managed Threat Response / XDR** e quer trazer os cases para o Cen
 
 1. No Sophos, edite a credencial de API criada no Passo 1 e adicione a permissão `cases:read`.
 2. Salve no Sophos.
-3. Volte à integração no CentralOps (**Visão geral -> Integrações**) e teste a conexão novamente para validar a nova permissão.
+3. Volte à integração no CentralOps (**Coleta -> Integrações**) e teste a conexão novamente para validar a nova permissão.
 
 A partir daí, os cases passam a ser coletados automaticamente, junto com os alertas.
 
@@ -114,15 +114,15 @@ Cada alerta do Sophos chega ao CentralOps com informações como:
 | Endereço IP de origem | `192.168.1.100` |
 | Data e hora | `2026-04-27T10:00:00Z` |
 
-O CentralOps converte esses dados para o formato padronizado da plataforma, de modo que os alertas do Sophos podem ser pesquisados e correlacionados com as demais fontes. Se algum campo não puder ser convertido, o evento vai para a **Quarentena** (menu **Normalização -> Quarentena**), onde você pode revisar e reprocessar.
+O CentralOps converte esses dados para o formato padronizado da plataforma, de modo que os alertas do Sophos podem ser pesquisados e correlacionados com as demais fontes. Se algum campo não puder ser convertido, o evento vai para a **Quarentena** (menu **Normaliza -> Quarentena**), onde você pode revisar e reprocessar.
 
 ## Solução de problemas
 
 | Sintoma | Causa provável | O que fazer |
 |---|---|---|
-| Erro de credenciais inválidas ao testar a conexão | Client ID ou Client Secret incorretos ou expirados | Gere uma nova credencial no Sophos, apague a antiga e atualize os valores na integração do CentralOps (**Visão geral -> Integrações**). Teste a conexão de novo. |
-| Nenhum evento aparecendo | O Sophos não tem alertas recentes, ou o evento foi para a quarentena | Confirme no console do Sophos se há alertas recentes. Se houver, aguarde alguns minutos. Se ainda assim nada aparecer em **Operação -> Investigações**, verifique a tela **Normalização -> Quarentena**. |
-| Volume de eventos muito baixo | O Sophos está limitando as requisições de API (rate limit) | Abra **Normalização -> Saúde do Pipeline** e veja a integração do Sophos para confirmar o limite de taxa. O intervalo de coleta é definido pela equipe de infraestrutura no momento do deploy. Se precisar ajustá-lo, fale com o administrador da plataforma. Para um limite muito agressivo, considere contatar o suporte do Sophos. |
+| Erro de credenciais inválidas ao testar a conexão | Client ID ou Client Secret incorretos ou expirados | Gere uma nova credencial no Sophos, apague a antiga e atualize os valores na integração do CentralOps (**Coleta -> Integrações**). Teste a conexão de novo. |
+| Nenhum evento aparecendo | O Sophos não tem alertas recentes, ou o evento foi para a quarentena | Confirme no console do Sophos se há alertas recentes. Se houver, aguarde alguns minutos. Se ainda assim nada aparecer em **Detecta -> Queries salvas**, verifique a tela **Normaliza -> Quarentena**. |
+| Volume de eventos muito baixo | O Sophos está limitando as requisições de API (rate limit) | Abra **Visão geral -> Saúde do pipeline** e veja a integração do Sophos para confirmar o limite de taxa. O intervalo de coleta é definido pela equipe de infraestrutura no momento do deploy. Se precisar ajustá-lo, fale com o administrador da plataforma. Para um limite muito agressivo, considere contatar o suporte do Sophos. |
 | Integração parada por erro de token | A renovação automática do acesso falhou | O CentralOps tenta renovar o acesso sozinho. Se continuar falhando, gere uma nova credencial no Sophos e atualize a integração, testando a conexão em seguida. |
 
 ## Streams disponíveis

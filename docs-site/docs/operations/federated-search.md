@@ -8,15 +8,15 @@ description: Consulte várias integrações ao vivo com um comando nativo, em di
 
 A tela **Busca federada** permite enviar um comando de busca nativo (SQL, DSL, FQL, KQL ou filtros estruturados) para várias integrações ao mesmo tempo, sem reingerir dados. O job roda de forma **assíncrona** — você submete, acompanha o progresso por fonte e recebe o resultado parcial ou completo quando pronto.
 
-Para acessar, use o menu **Operação → Busca federada**.
+Para acessar, use o menu **Detecta → Busca federada**.
 
-**Quando usar:** quando você precisa fazer uma busca sofisticada que exige sintaxe nativa de cada plataforma (por exemplo, uma agregação OpenSearch DSL no Wazuh e uma consulta FQL no CrowdStrike ao mesmo tempo), ou quando a janela de dados nas **Investigações** não é suficiente e você precisa buscar ao vivo.
+**Quando usar:** quando você precisa fazer uma busca sofisticada que exige sintaxe nativa de cada plataforma (por exemplo, uma agregação OpenSearch DSL no Wazuh e uma consulta FQL no CrowdStrike ao mesmo tempo), ou quando a janela de dados da [busca de eventos](./search.md) não é suficiente e você precisa buscar ao vivo.
 
 **Quem pode ver:** perfis com permissão `query.run` (Operator ou superior), org-scoped (cada um vê só sua organização).
 
 ## Antes de começar
 
-- **Qual integração você quer buscar?** Verifique que está ativa em **Operação → Integrações**.
+- **Qual integração você quer buscar?** Verifique que está ativa em **Coleta → Integrações**.
 - **Qual dialeto usa?** Cada plataforma tem seu próprio:
   - **Wazuh** — OpenSearch DSL
   - **Sophos** — XDR Data Lake (assíncrono, até 30 dias)
@@ -37,7 +37,7 @@ Três áreas principais:
 
 ### Submeter uma busca
 
-1. Abra **Operação → Busca federada**.
+1. Abra **Detecta → Busca federada**.
 2. Marque as integrações que quer consultar (ex.: Wazuh + CrowdStrike).
 3. No seletor **Dialeto**, escolha (o sistema sugere com base nas integrações selecionadas).
 4. Defina a janela:
@@ -166,7 +166,7 @@ Se receber erro de quota ou timeout, revise o statement (torne mais específico)
 
 ## Próximos passos
 
-- **Quer salvar essa busca para reutilizar?** Salve-a como uma **Regra de Correlação** em **Conhecimento → Correlação** (requer `query.save`).
-- **Precisa revisar alertas de detecção?** Vá em **Operação → Detecções**.
-- **Quer buscar dados já entregues (não ao vivo)?** Use **Operação → Investigações** (mais rápido, sem custo).
+- **Quer salvar essa busca para reutilizar?** Salve-a como uma **Regra de Correlação** em **Detecta → Correlação** (requer `query.save`).
+- **Precisa revisar alertas de detecção?** Vá em **Detecta → Detecções**.
+- **Quer buscar dados já entregues (não ao vivo)?** Pesquise direto no destino que os recebeu. Veja [onde pesquisar eventos](./search.md).
 - **Dados mais antigos?** Consulte diretamente o destino (ex.: Kibana para Elastic, Splunk para Splunk).

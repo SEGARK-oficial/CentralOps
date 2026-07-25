@@ -33,7 +33,7 @@ Os dados da Organização A são **completamente invisíveis** para a Organizaç
 
 ## Acessar a tela
 
-No menu lateral, vá em **Visão geral -> Organizações**.
+No menu lateral, vá em **Administração -> Organizações**.
 
 A tela mostra uma tabela com todas as organizações:
 
@@ -48,7 +48,7 @@ A tela mostra uma tabela com todas as organizações:
 
 ## Criar uma organização
 
-1. Na tela **Visão geral -> Organizações**, clique no botão de criar nova organização.
+1. Na tela **Administração -> Organizações**, clique no botão de criar nova organização.
 2. Preencha o formulário:
    - **Nome**: o nome do cliente ou departamento (ex.: "Acme Corporation").
    - **Identificador**: um apelido curto e único. Ele é sugerido automaticamente a partir do nome, mas você pode ajustá-lo. Use apenas letras minúsculas e hifens, sem espaços.
@@ -112,7 +112,7 @@ Quando um cliente cancela o contrato e pede a exclusão dos dados, o administrad
 4. Informe o motivo (ex.: "Cliente cancelado em 2026-04-25").
 5. Confirme.
 
-A exclusão roda em segundo plano e passa pelos estados **pendente**, **em andamento** e **concluída**. Você pode acompanhar o andamento em **Operação -> Histórico**, filtrando pelas ações de exclusão de dados.
+A exclusão roda em segundo plano e passa pelos estados **pendente**, **em andamento** e **concluída**. Você pode acompanhar o andamento em **Visão geral -> Histórico**, filtrando pelas ações de exclusão de dados.
 
 ### O que é apagado
 
@@ -241,6 +241,6 @@ Os itens abaixo ainda não existem e estão no roadmap. Não conte com eles hoje
 ## Próximos passos
 
 - **Gerenciar usuários da organização?** Veja [Usuários](./users-and-roles.md).
-- **Integrações da organização?** Vá em **Visão geral -> Integrações**.
-- **Destinos e roteamento?** Vá em **Operação -> Destinos** ou veja [Roteamento](../outputs/routing.md).
+- **Integrações da organização?** Vá em **Coleta -> Integrações**.
+- **Destinos e roteamento?** Vá em **Roteia -> Destinos** ou veja [Roteamento](../outputs/routing.md).
 - **Retenção de dados?** Veja [Compliance > Retenção](../compliance/retention.md).

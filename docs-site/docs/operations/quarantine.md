@@ -8,7 +8,7 @@ description: Triagem de eventos que falharam na validação antes de chegar aos 
 
 A tela de **Quarentena** reúne os eventos que não conseguiram ser processados pela plataforma — porque vieram malformados, perderam um campo obrigatório ou bateram contra uma regra de mapeamento desatualizada. Em vez de descartar esses eventos silenciosamente, o CentralOps os guarda aqui para que você decida o que fazer: descartar o que é ruído ou reprocessar depois de corrigir a regra de mapeamento.
 
-A Quarentena fica no menu **Normalização -> Quarentena**.
+A Quarentena fica no menu **Normaliza -> Quarentena**.
 
 :::note[Quem pode agir]
 Qualquer pessoa com acesso de leitura consegue ver a fila e abrir os detalhes de um evento. As ações de descartar e reprocessar exigem permissão de operação. Se os botões aparecerem desabilitados para você, fale com o administrador da plataforma.
@@ -39,7 +39,7 @@ São duas situações diferentes, em pontos diferentes do caminho do evento:
 
 | | Quarentena | Fila de reenvio (por destino) |
 | --- | --- | --- |
-| **Onde fica** | Menu **Normalização -> Quarentena** | Menu **Operação -> Destinos**, dentro de cada destino |
+| **Onde fica** | Menu **Normaliza -> Quarentena** | Menu **Roteia -> Destinos**, dentro de cada destino |
 | **O que aconteceu** | O evento **não conseguiu sair** da plataforma: falhou na leitura, normalização ou validação. | O evento foi processado e enviado, mas um **destino específico recusou** a entrega (conexão fora do ar, formato incompatível, destino temporariamente protegido). |
 | **Como resolver** | Descartar o evento ou corrigir a regra de mapeamento e reprocessar. | Reenviar o evento ao destino depois que ele voltar a funcionar. |
 
@@ -51,7 +51,7 @@ A fila de reenvio é descrita em [Destinos e Roteamento](../outputs/destinations
 
 ### Passo 1 — Abrir a Quarentena
 
-Vá ao menu **Normalização -> Quarentena**. A lista mostra, para cada evento:
+Vá ao menu **Normaliza -> Quarentena**. A lista mostra, para cada evento:
 
 - Quando foi recebido.
 - De qual fornecedor / integração veio.
@@ -74,7 +74,7 @@ Vá ao menu **Normalização -> Quarentena**. A lista mostra, para cada evento:
 
 **Reprocessar** — para eventos que falharam por causa de uma regra de mapeamento e que você já corrigiu.
 
-- Pré-requisito: você (ou alguém do time) já ajustou a regra de mapeamento na tela **Normalização -> Mappings**.
+- Pré-requisito: você (ou alguém do time) já ajustou a regra de mapeamento na tela **Normaliza -> Mapeamentos**.
 - O evento volta para o processamento em segundo plano, é normalizado de novo com a regra atualizada e segue para os destinos configurados.
 
 ### Passo 4 — Confirmar que funcionou
@@ -83,7 +83,7 @@ Depois de reprocessar:
 
 - **Funcionou:** o evento desaparece da quarentena e é entregue aos destinos.
 - **Falhou de novo:** o evento volta para a quarentena com um novo erro. Volte ao passo 2.
-- **Foi entregue, mas um destino recusou:** o evento aparece na fila de reenvio daquele destino (menu **Operação -> Destinos**).
+- **Foi entregue, mas um destino recusou:** o evento aparece na fila de reenvio daquele destino (menu **Roteia -> Destinos**).
 
 ## Corrigir a regra de mapeamento e reprocessar
 
@@ -91,7 +91,7 @@ O caso mais comum é um evento que falhou porque o fornecedor passou a enviar um
 
 1. Na **Quarentena**, abra o evento e leia o erro (por exemplo, "campo obrigatório 'severity' ausente").
 2. Veja o conteúdo original do evento. Suponha que ele traz a severidade em um campo chamado `alert_level` em vez de `severity`.
-3. Vá ao menu **Normalização -> Mappings** e abra a regra do fornecedor correspondente.
+3. Vá ao menu **Normaliza -> Mapeamentos** e abra a regra do fornecedor correspondente.
 4. No editor de mapeamento, aponte o campo de severidade para `alert_level` e salve uma nova versão da regra.
 5. Volte à **Quarentena**, abra o evento e clique em reprocessar.
 6. Após alguns segundos, o evento sai da quarentena e é enviado normalmente.
@@ -124,7 +124,7 @@ Comece sempre validando com um único evento antes de reprocessar centenas.
 **Sintoma:** muitos eventos do mesmo fornecedor em quarentena com o erro "campo X ausente".
 
 1. Abra três eventos diferentes e compare o conteúdo original — procure um campo novo que antes não existia, ou um campo que sumiu.
-2. Vá ao menu **Normalização -> Mappings**, abra a regra do fornecedor e ajuste o campo afetado.
+2. Vá ao menu **Normaliza -> Mapeamentos**, abra a regra do fornecedor e ajuste o campo afetado.
 3. Reprocesse **um** evento para confirmar.
 4. Se funcionou, volte à Quarentena e reprocesse o lote em massa.
 

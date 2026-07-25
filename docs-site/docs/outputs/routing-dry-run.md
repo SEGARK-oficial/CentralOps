@@ -8,7 +8,7 @@ description: Simule uma mudança de rota antes de ativar, visualize o caminho Co
 
 Antes de uma regra de roteamento entrar no ar, você pode simular o que ela faria com eventos reais, acompanhar pela tela de **Fluxo de dados** para onde tudo está indo, e — se algo der errado — voltar a rota a uma versão anterior. São três ferramentas que tornam mudanças de roteamento seguras: **simular (teste)**, **visualizar o fluxo** e **reverter**.
 
-**Quem usa**: estas ferramentas estão disponíveis apenas para administradores da plataforma. As telas de **Roteamento**, **Fluxo de dados** e **Destinos** aparecem somente no perfil de administrador.
+**Quem usa**: estas ferramentas estão disponíveis apenas para administradores da plataforma. As telas de **Rotas**, **Fluxo de dados** e **Destinos** aparecem somente no perfil de administrador.
 
 ## Quando usar
 
@@ -28,7 +28,7 @@ Para ver o **desfecho real** de um evento — inclusive **Suprimido**, **Amostra
 
 ### Como simular
 
-1. Abra o menu **Operação → Roteamento**.
+1. Abra o menu **Roteia → Rotas**.
 2. Crie uma regra nova ou abra uma existente para editar.
 3. Preencha a regra: nome, condição (qual evento ela pega), ação (encaminhar ou descartar), destino(s), prioridade e percentual de canário.
 4. Antes de salvar, use a opção de **simular** a regra. O CentralOps reúne uma amostra de eventos recentes e mostra para onde cada um iria.
@@ -55,7 +55,7 @@ A tela de **Fluxo de dados** mostra, em tempo real, o caminho dos eventos: quais
 
 ### Como abrir
 
-Abra o menu **Operação → Fluxo de dados**.
+Abra o menu **Roteia → Fluxo de dados**.
 
 Você vê um diagrama com:
 
@@ -95,7 +95,7 @@ Toda alteração em uma regra de roteamento fica registrada no histórico daquel
 
 ### Como reverter
 
-1. Abra o menu **Operação → Roteamento** e selecione a regra que deseja reverter.
+1. Abra o menu **Roteia → Rotas** e selecione a regra que deseja reverter.
 2. Abra o histórico de versões da regra. Cada entrada é um ponto de restauração com **data, hora e quem fez a alteração**, da mais recente para a mais antiga.
 3. Identifique a versão que estava funcionando (por exemplo, a anterior à mudança que causou o problema).
 4. Confirme a reversão dessa versão. A regra passa a valer com aquela configuração, e a reversão entra no histórico como uma **nova** entrada — nada é apagado, então a trilha de mudanças fica completa para auditoria.
@@ -149,7 +149,7 @@ Para qualquer alteração de roteamento, siga este ciclo:
 **Causa provável**: o destino foi desativado, a credencial expirou ou o endereço está incorreto.
 
 **Como corrigir**:
-1. Abra o menu **Operação → Destinos** e clique no destino.
+1. Abra o menu **Roteia → Destinos** e clique no destino.
 2. Use o botão de **testar conexão** para validar credencial e endereço.
 3. Se falhar, corrija os dados e salve.
 4. Volte e faça uma **simulação** para confirmar que a regra ainda aponta para um destino válido.

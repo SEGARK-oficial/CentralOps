@@ -188,8 +188,8 @@ un corto período para quedar totalmente lista.
    # edition=community        (o "edition=enterprise plan=... features=..." en una stack EE)
    ```
 
-2. **Salud general** — abre **Operación → Flujo de datos** (`/flow`) y **Normalización →
-   Salud del Pipeline** (`/pipeline-health`) y confirma que los eventos siguen fluyendo
+2. **Salud general** — abre **Enruta → Flujo de datos** (`/flow`) y **Visión general →
+   Salud del pipeline** (`/pipeline-health`) y confirma que los eventos siguen fluyendo
    con normalidad.
 
 :::note[Cómo NO verificar versión/edición]
@@ -298,7 +298,7 @@ recolector está gastando cada ciclo transportando ruido — y esa es la causa d
 recolecciones que no alcanzan el presente. Lee
 [Filtro de recolección](../pipelines/collection-filters) antes de encenderlo: lo que se
 filtra en el origen **nunca entra en la plataforma** (no aparece en la captura en vivo, no
-genera campo nuevo en el Drift Explorer, no queda disponible para una ruta futura), y
+genera campo nuevo en Drift, no queda disponible para una ruta futura), y
 encenderlo o apagarlo **no es retroactivo**.
 
 **Los ciclos concurrentes del mismo stream ahora se saltan.** Cuando un ciclo de
@@ -392,8 +392,8 @@ el release pasara a `2.0.0`. Lo que sale:
   (`application/vnd.centralops.v1+json`) fue eliminado.
 - La herramienta **MCP `list_integration_alerts`** fue eliminada.
 
-**Qué hacer:** el triaje ahora es vendor-neutral, vía **Operación → Investigaciones /
-Búsqueda federada** y **Detecciones**. Si tienes automatizaciones o integraciones que
+**Qué hacer:** el triaje ahora es vendor-neutral, vía **Detecta → Búsqueda federada**
+(Enterprise) y **Detecta → Detecciones**. Si tienes automatizaciones o integraciones que
 llaman a los endpoints de alerts (o al camino Accept v1 de `/dashboard/summary`),
 **migralas** a esos caminos antes de actualizar.
 
@@ -405,8 +405,8 @@ salió la superficie de lectura de "alertas".
 **Novedades (nada que configurar — ya vienen activas):**
 
 - **Exportación CSV robusta de la Búsqueda federada**, con etiquetas localizadas
-  (PT/EN/ES) — en **Operación → Investigaciones**.
-- **Mapa de flujo `/flow` que escala.** El **Flujo de datos** (Operación → Flujo de datos)
+  (PT/EN/ES) — en **Detecta → Búsqueda federada**.
+- **Mapa de flujo `/flow` que escala.** El **Flujo de datos** (Enruta → Flujo de datos)
   colapsa columnas densas en un nodo **"+N"** expansible y se ajusta solo a la pantalla
   (fit-to-view), con resaltado de camino al pasar el mouse — legible incluso con decenas de
   fuentes/rutas/destinos.
@@ -417,7 +417,7 @@ salió la superficie de lectura de "alertas".
 
 **Metering de costo activado por defecto.** `COST_METERING_ENABLED` ahora viene en
 **`true`** por defecto. Con eso, el card **"Reducción de volumen y costo"** empieza a
-aparecer en **Operación → Flujo de datos**: en Community muestra el volumen, el porcentaje
+aparecer en **Enruta → Flujo de datos**: en Community muestra el volumen, el porcentaje
 y los bytes ahorrados; en Enterprise suma el valor en **US$** (a partir del `cost_per_gb`
 configurado en cada destino). Para desactivarlo, define `COST_METERING_ENABLED=false`.
 
@@ -425,7 +425,7 @@ configurado en cada destino). Para desactivarlo, define `COST_METERING_ENABLED=f
 
 - Los colectores ya no entran en **crash-loop de RedBeat** (lock, límite de bucle y
   registro idempotente del scheduler corregidos). Ver también
-  **Observabilidad** (Operación → Observabilidad) para seguir la salud del Beat.
+  **Observabilidad** para seguir la salud del Beat.
 - El **soft-timeout de recolección** ya no envenena el pool de conexiones de la base de
   datos (dispose del pool + inicialización temprana evitan `UnboundLocalError`).
 - Un `SESSION_SECURE_COOKIE` **vacío** ya no tumba el arranque; se corrigió el anclaje de

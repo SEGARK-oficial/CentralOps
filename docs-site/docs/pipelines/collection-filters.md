@@ -54,7 +54,7 @@ As duas coisas parecem iguais no resultado (o evento não chega ao destino) e s�
 Esta é a diferença que custa caro se for descoberta depois. O evento não filtrado não é "descartado mais cedo" — ele simplesmente **não existe** para o CentralOps:
 
 - **não aparece na captura ao vivo** — nem se você abrir a captura no minuto seguinte;
-- **não gera campo novo no Drift Explorer** — se o fornecedor passar a mandar um campo só nos eventos filtrados, você não fica sabendo;
+- **não gera campo novo no Drift** — se o fornecedor passar a mandar um campo só nos eventos filtrados, você não fica sabendo;
 - **não fica disponível para uma rota futura** — criar amanhã uma regra que precisa desses eventos não os traz de volta;
 - **não conta em nenhum relatório** de volume ou de redução da plataforma.
 
@@ -72,7 +72,7 @@ Para recuperar de propósito um intervalo que ficou de fora, o caminho é explí
 
 ## Como configurar
 
-1. Vá ao menu **Visão geral → Integrações**.
+1. Vá ao menu **Coleta → Integrações**.
 2. Abra a integração para **editar** e localize a seção **Filtros de coleta**.
 3. Ajuste o filtro do fluxo desejado. Ao ligar um filtro, a tela pede uma **confirmação** explícita — é a última parada antes de a plataforma deixar de coletar algo.
 4. Salve. Para voltar atrás, use **Remover filtro** (ou **Remover todos os filtros**).
@@ -119,7 +119,7 @@ O que **não** fazer é usar o filtro para experimentar um corte novo: aí o ris
 
 ### Confira se surtiu efeito
 
-Depois de salvar, acompanhe em **Normalização → Saúde do Pipeline** o card daquela integração:
+Depois de salvar, acompanhe em **Visão geral → Saúde do pipeline** o card daquela integração:
 
 - **Eventos/min** cai — é o esperado, e é o filtro funcionando.
 - **Backlog** deve deixar de aparecer. **É esta a prova de que o filtro resolveu**: a etiqueta some no primeiro ciclo que termina sem bater o teto de eventos, ou seja, quando a coleta passou a dar conta do volume da origem.

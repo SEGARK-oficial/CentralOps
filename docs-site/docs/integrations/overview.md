@@ -34,7 +34,7 @@ Estas são as plataformas das quais o CentralOps coleta eventos hoje:
 
 As fontes marcadas como **push** não têm API de coleta — elas *empurram* os dados para o CentralOps por um edge-collector (Vector/Fluent Bit). A configuração é diferente das demais: veja [Ingestão push](./push-ingestion.md).
 
-Para configurar qualquer uma delas, abra o menu **Visão geral -> Integrações**, clique em "Criar integração" e escolha o vendor desejado. Você encontrará os guias de cada um na seção [Vendors suportados](./adding-new-vendor.md). Várias têm páginas próprias de configuração:
+Para configurar qualquer uma delas, abra o menu **Coleta -> Integrações**, clique em "Criar integração" e escolha o vendor desejado. Você encontrará os guias de cada um na seção [Vendors suportados](./adding-new-vendor.md). Várias têm páginas próprias de configuração:
 
 - [Integração Sophos](./sophos.md)
 - [Integração Wazuh](./wazuh.md)
@@ -64,7 +64,7 @@ Depois de coletados e normalizados, os eventos são encaminhados para um ou mais
 | Google SecOps (Chronicle) | Enviar eventos para o SIEM do Google (Chronicle/SecOps). |
 | Amazon Security Lake | Gravar eventos em Parquet OCSF no data lake de segurança da AWS. |
 
-A criação e a manutenção dos destinos ficam disponíveis para o administrador no menu **Operação -> Destinos**. Para detalhes de cada destino, veja [Destinos](../outputs/destinations.md).
+A criação e a manutenção dos destinos ficam disponíveis para o administrador no menu **Roteia -> Destinos**. Para detalhes de cada destino, veja [Destinos](../outputs/destinations.md).
 
 ## Capacidades de consulta (Query)
 
@@ -80,7 +80,7 @@ Algumas plataformas de coleta e dados permitem que você execute buscas em tempo
 
 **Lake não é uma plataforma de coleta** — é um destino consultável. Se você configurou o CentralOps para armazenar eventos em S3 ou AWS Security Lake (via destino), pode depois buscá-los no lugar onde estão, sem reingerir.
 
-Para rodar uma busca federada, abra **Operação -> Busca federada**. Cada integração com capacidade de query mostra os dialetos suportados. Para ver o catálogo completo de dialetos e janelas de tempo, use **Integração -> Capacidades de consulta** ou navegue até a página da integração específica:
+Para rodar uma busca federada, abra **Detecta -> Busca federada**. Cada integração com capacidade de query mostra os dialetos suportados. Para ver o catálogo completo de dialetos e janelas de tempo, use **Integração -> Capacidades de consulta** ou navegue até a página da integração específica:
 
 - [Integração CrowdStrike](./crowdstrike.md)
 - [Integração Microsoft Defender](./microsoft-defender.md)
@@ -94,7 +94,7 @@ O administrador define **rotas** que decidem para quais destinos cada evento vai
 - **Remoção de dados pessoais (PII) por rota**: o mesmo evento pode chegar completo a um destino e com os dados pessoais removidos em outro.
 - **Migração gradual entre destinos**: dá para liberar uma rota aos poucos para fazer um corte controlado de um SIEM para outro.
 
-A configuração de rotas fica no menu **Operação -> Roteamento** (somente administrador). Para detalhes, veja [Roteamento](../outputs/routing.md) e [Remoção de PII](../outputs/pii-redaction.md).
+A configuração de rotas fica no menu **Roteia -> Rotas** (somente administrador). Para detalhes, veja [Roteamento](../outputs/routing.md) e [Remoção de PII](../outputs/pii-redaction.md).
 
 ## O que acontece depois de criar uma integração
 
@@ -104,9 +104,9 @@ Você não precisa acompanhar nada manualmente — o CentralOps cuida da coleta 
 2. **A coleta começa automaticamente.** A partir daí, o CentralOps puxa novos eventos em intervalos regulares (tipicamente a cada poucos minutos), sem você precisar acionar nada. Eventos repetidos são descartados, então o mesmo alerta não aparece duas vezes.
 3. **Os eventos são normalizados.** Cada evento coletado é convertido para o formato padrão do CentralOps. Se algum evento não puder ser convertido (por exemplo, um formato inesperado), ele vai para a **Quarentena**, onde pode ser revisado e reprocessado.
 4. **Os eventos são entregues aos destinos.** Conforme as rotas definidas, cada evento é enviado para um ou mais destinos, com ou sem remoção de dados pessoais.
-5. **Você acompanha o resultado na interface.** Os eventos passam a aparecer na tela de busca em **Operação -> Investigações**. A saúde da coleta fica visível na própria tela de Integrações.
+5. **Você acompanha o resultado na interface.** A saúde da coleta fica visível na própria tela de Integrações, e o volume por fonte em **Visão geral -> Saúde do pipeline**. Os eventos em si aparecem no destino para onde foram roteados.
 
-Para acompanhar a etapa de normalização e a entrega, use também **Normalização -> Saúde do Pipeline** e **Normalização -> Quarentena**.
+Para acompanhar a etapa de normalização e a entrega, use também **Visão geral -> Saúde do pipeline** e **Normaliza -> Quarentena**.
 
 ## Acompanhar a saúde de uma integração
 
@@ -118,7 +118,7 @@ Cada integração de coleta mostra um indicador de saúde:
 | Amarelo | Coleta mais lenta ou erros esporádicos (geralmente limite de requisições do vendor). |
 | Vermelho | Coleta parada há vários minutos ou erro crítico (por exemplo, credencial inválida). |
 
-Para ver o indicador e o último erro, abra o menu **Visão geral -> Integrações** e clique na integração.
+Para ver o indicador e o último erro, abra o menu **Coleta -> Integrações** e clique na integração.
 
 ## O que cada perfil pode fazer
 
@@ -140,7 +140,7 @@ As credenciais que você informa são guardadas de forma segura:
 
 Para trocar uma credencial (por exemplo, um novo segredo do Sophos) sem interromper a coleta:
 
-1. Abra o menu **Visão geral -> Integrações** e clique na integração.
+1. Abra o menu **Coleta -> Integrações** e clique na integração.
 2. Use a opção de editar credenciais.
 3. Informe o novo segredo e salve.
 4. O CentralOps valida e substitui a credencial se ela estiver correta.
@@ -155,7 +155,7 @@ Para trocar uma credencial (por exemplo, um novo segredo do Sophos) sem interrom
 
 ## Próximos passos
 
-- **Conectar um vendor?** Abra **Visão geral -> Integrações** e clique em "Criar integração". Todos os vendors suportados aparecem ali.
+- **Conectar um vendor?** Abra **Coleta -> Integrações** e clique em "Criar integração". Todos os vendors suportados aparecem ali.
 - **Ver o guia de configuração do Sophos?** Veja [Integração Sophos](./sophos.md).
 - **Ver o guia de configuração do Wazuh?** Veja [Integração Wazuh](./wazuh.md).
 - **Entender os destinos?** Veja [Destinos](../outputs/destinations.md).

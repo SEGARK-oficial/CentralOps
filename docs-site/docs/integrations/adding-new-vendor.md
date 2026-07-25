@@ -22,14 +22,14 @@ A lista viva e sempre atualizada está na própria interface — ela reflete exa
 
 | O que você quer ver | Onde olhar na interface |
 | --- | --- |
-| Vendors de **entrada** (origens de coleta) | Menu **Visão geral -> Integrações**, ao criar uma nova integração: a lista de plataformas disponíveis aparece para escolha. |
-| **Destinos** de saída (para onde os eventos vão) | Menu **Operação -> Destinos** (apenas administradores), ao criar um novo destino: os tipos disponíveis aparecem para escolha. |
+| Vendors de **entrada** (origens de coleta) | Menu **Coleta -> Integrações**, ao criar uma nova integração: a lista de plataformas disponíveis aparece para escolha. |
+| **Destinos** de saída (para onde os eventos vão) | Menu **Roteia -> Destinos** (apenas administradores), ao criar um novo destino: os tipos disponíveis aparecem para escolha. |
 
 Se um vendor ou destino aparece nessas telas, ele está pronto para uso — basta configurá-lo seguindo o guia da integração correspondente.
 
 ## Vendors de entrada já suportados
 
-Plataformas de origem que a equipe já integrou. A lista pode crescer; confira sempre a tela **Visão geral -> Integrações** para o que está disponível na sua instância.
+Plataformas de origem que a equipe já integrou. A lista pode crescer; confira sempre a tela **Coleta -> Integrações** para o que está disponível na sua instância.
 
 | Vendor | Categoria | O que coleta |
 | --- | --- | --- |
@@ -46,7 +46,7 @@ Para conectar qualquer um deles, siga o guia [Visão geral de integrações](./o
 
 ## Destinos de saída já suportados
 
-Para onde o CentralOps entrega os eventos normalizados. Um mesmo evento pode ir para vários destinos ao mesmo tempo (envio simultâneo a vários destinos), conforme as regras definidas em **Operação -> Roteamento**.
+Para onde o CentralOps entrega os eventos normalizados. Um mesmo evento pode ir para vários destinos ao mesmo tempo (envio simultâneo a vários destinos), conforme as regras definidas em **Roteia -> Rotas**.
 
 | Destino | Para que serve |
 | --- | --- |
@@ -63,7 +63,7 @@ Para onde o CentralOps entrega os eventos normalizados. Um mesmo evento pode ir 
 | Google SecOps (Chronicle) | Enviar eventos para o SIEM do Google (Chronicle/SecOps). |
 | Amazon Security Lake | Gravar eventos em Parquet OCSF no data lake de segurança da AWS. |
 
-A configuração de cada destino é feita pela interface, em **Operação -> Destinos** (apenas administradores). Depois de criar o destino, você o utiliza nas regras de **Operação -> Roteamento**. Veja o guia de [Roteamento](../outputs/routing.md) para definir quem recebe quais eventos.
+A configuração de cada destino é feita pela interface, em **Roteia -> Destinos** (apenas administradores). Depois de criar o destino, você o utiliza nas regras de **Roteia -> Rotas**. Veja o guia de [Roteamento](../outputs/routing.md) para definir quem recebe quais eventos.
 
 ## Como solicitar um novo vendor ou destino
 
@@ -83,16 +83,16 @@ Envie essas informações pelo canal de suporte combinado com a sua organizaçã
 ## Perguntas frequentes
 
 **Preciso instalar algo ou rodar comandos para um novo vendor aparecer?**
-Não. Toda a habilitação é feita pela equipe da plataforma no momento da implantação. Quando um vendor ou destino fica disponível, ele aparece sozinho nas telas **Visão geral -> Integrações** e **Operação -> Destinos**.
+Não. Toda a habilitação é feita pela equipe da plataforma no momento da implantação. Quando um vendor ou destino fica disponível, ele aparece sozinho nas telas **Coleta -> Integrações** e **Roteia -> Destinos**.
 
 **Posso definir como o destino se conecta (porta, TLS, tamanho de lote)?**
-Os parâmetros que você pode ajustar aparecem no formulário de criação do destino, em **Operação -> Destinos**. Os ajustes de infraestrutura mais profundos são definidos pela equipe de infraestrutura no momento do deploy. Se precisar alterá-los, fale com o administrador da plataforma.
+Os parâmetros que você pode ajustar aparecem no formulário de criação do destino, em **Roteia -> Destinos**. Os ajustes de infraestrutura mais profundos são definidos pela equipe de infraestrutura no momento do deploy. Se precisar alterá-los, fale com o administrador da plataforma.
 
 **Um destino instável vai derrubar a entrega para os outros?**
-Não. A plataforma tem proteção contra destino instável: se um destino fica indisponível, os eventos ficam guardados em uma fila de reenvio e os demais destinos continuam recebendo normalmente. Você acompanha o estado da entrega em **Normalização -> Saúde do Pipeline**.
+Não. A plataforma tem proteção contra destino instável: se um destino fica indisponível, os eventos ficam guardados em uma fila de reenvio e os demais destinos continuam recebendo normalmente. Você acompanha o estado da entrega em **Visão geral -> Saúde do pipeline**.
 
 ## Onde continuar
 
 - [Visão geral de integrações](./overview.md) — como conectar um vendor já suportado.
 - [Roteamento](../outputs/routing.md) — definir quais destinos recebem quais eventos.
-- Telas de operação: **Visão geral -> Integrações**, **Operação -> Destinos** e **Operação -> Roteamento** (as duas últimas apenas para administradores).
+- Telas de operação: **Coleta -> Integrações**, **Roteia -> Destinos** e **Roteia -> Rotas** (as duas últimas apenas para administradores).

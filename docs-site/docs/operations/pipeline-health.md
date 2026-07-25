@@ -8,7 +8,7 @@ description: Acompanhe em tempo real a saúde da coleta de eventos e da entrega 
 
 A tela **Saúde do Pipeline** mostra, em um único painel, se os eventos estão sendo **coletados** das suas integrações e **entregues** aos destinos configurados — para você detectar problemas antes que virem perda de dados.
 
-Você a encontra no menu **Normalização → Saúde do Pipeline**.
+Você a encontra no menu **Visão geral → Saúde do pipeline**.
 
 ## Quando usar
 
@@ -134,7 +134,7 @@ Use os botões acima dos cards:
 
 1. O card está vermelho: a **Última coleta** passou de 5 minutos, ou houve 3 falhas seguidas.
 2. Abra os detalhes e leia o último erro.
-3. Se for **"401 Unauthorized"**, as credenciais expiraram. Vá ao menu **Visão geral → Integrações** ([Integrações](../integrations/overview.md)), abra a integração e atualize as credenciais.
+3. Se for **"401 Unauthorized"**, as credenciais expiraram. Vá ao menu **Coleta → Integrações** ([Integrações](../integrations/overview.md)), abra a integração e atualize as credenciais.
 4. Se for **"429 Too Many Requests"**, o fabricante limitou a taxa de chamadas. A frequência de coleta é definida na configuração da integração — reduza-a se o erro persistir.
 5. Use **testar a conexão**. Se passar, foi um erro passageiro: clique em **retomar**.
 
@@ -196,7 +196,7 @@ Quando um destino começa a falhar repetidamente, o CentralOps ativa automaticam
 
 ### Ronda matinal
 
-1. Abra **Normalização → Saúde do Pipeline**.
+1. Abra **Visão geral → Saúde do pipeline**.
 2. Todas as integrações em verde? A coleta está rodando.
 3. Passe os olhos no **Atraso dos dados** de cada card, mesmo nos verdes: é o número que diz se o que você está vendo é de agora. Minutos, tudo bem; horas **com a etiqueta Backlog**, investigue. Horas **sem** Backlog é fonte sem eventos no período — o normal em fluxos com [filtro de coleta](../pipelines/collection-filters.md) ligado.
 4. Todos os destinos em verde? Não há risco de perda de eventos.
@@ -218,14 +218,14 @@ Quando um destino começa a falhar repetidamente, o CentralOps ativa automaticam
    - Corrija a causa e use **reprocessar a fila de reenvio**.
 3. **Se a integração está em vermelho (não coleta):**
    - Veja o último erro (401? 429? tempo esgotado?).
-   - Teste a conexão. Se falhar por credencial, atualize-a em **Visão geral → Integrações**.
+   - Teste a conexão. Se falhar por credencial, atualize-a em **Coleta → Integrações**.
 
 ### "Eventos em quarentena"
 
 1. O card de integração mostra "Quarentena (24h)" maior que zero.
 2. Abra os detalhes para ver os eventos recentes.
 3. Causa comum: um campo obrigatório do padrão de normalização ficou faltando, ou o fabricante enviou um valor inválido.
-4. Vá ao menu **Normalização → Quarentena** para revisar, reprocessar ou descartar esses eventos. Veja [Quarentena](./quarantine.md).
+4. Vá ao menu **Normaliza → Quarentena** para revisar, reprocessar ou descartar esses eventos. Veja [Quarentena](./quarantine.md).
 
 ### "A fila de reenvio de um destino está crescendo"
 
@@ -245,8 +245,8 @@ Quando um destino começa a falhar repetidamente, o CentralOps ativa automaticam
 
 ## Próximos passos
 
-- **Integração com problema?** Vá a **Visão geral → Integrações** ([Integrações](../integrations/overview.md)).
+- **Integração com problema?** Vá a **Coleta → Integrações** ([Integrações](../integrations/overview.md)).
 - **Eventos chegando com horas de atraso?** Veja [Eventos chegando horas depois](../runbooks/collection-lag-backlog.md) e [Filtro de coleta](../pipelines/collection-filters.md).
-- **Evento em quarentena?** Vá a **Normalização → Quarentena** ([Quarentena](./quarantine.md)).
-- **Quer rotear eventos seletivamente?** Vá a **Operação → Roteamento** ([Roteamento](../outputs/routing.md)).
-- **Quer configurar novos destinos?** Vá a **Operação → Destinos** ([Destinos](../outputs/destinations.md)).
+- **Evento em quarentena?** Vá a **Normaliza → Quarentena** ([Quarentena](./quarantine.md)).
+- **Quer rotear eventos seletivamente?** Vá a **Roteia → Rotas** ([Roteamento](../outputs/routing.md)).
+- **Quer configurar novos destinos?** Vá a **Roteia → Destinos** ([Destinos](../outputs/destinations.md)).

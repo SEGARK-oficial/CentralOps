@@ -33,7 +33,7 @@ Para criar o destino, tenha em mãos:
 
 ## Criar o destino
 
-1. No menu lateral, abra **Operação → Destinos**.
+1. No menu lateral, abra **Roteia → Destinos**.
 2. Use a opção de criar um novo destino.
 3. Escolha o tipo **CrowdStrike Falcon Next-Gen SIEM**.
 4. Preencha os campos abaixo.
@@ -78,7 +78,7 @@ Os parâmetros finos desse comportamento são definidos pela equipe de infraestr
 
 ## Acompanhar a saúde do destino
 
-Abra **Operação → Destinos** e selecione o destino CrowdStrike Falcon Next-Gen SIEM.
+Abra **Roteia → Destinos** e selecione o destino CrowdStrike Falcon Next-Gen SIEM.
 
 O badge de saúde mostra a situação atual:
 
@@ -110,7 +110,7 @@ Para ver os eventos que não puderam ser entregues, abra a **fila de reenvio** n
 
 ## Próximos passos
 
-- **Confirmar que os dados estão chegando:** abra **Operação → Destinos**, selecione o Falcon Next-Gen SIEM e veja as métricas de eventos por segundo.
+- **Confirmar que os dados estão chegando:** abra **Roteia → Destinos**, selecione o Falcon Next-Gen SIEM e veja as métricas de eventos por segundo.
 - **Investigar eventos recusados:** abra a fila de reenvio na visão do destino.
 - **Adicionar outros destinos:** veja a [visão geral de destinos](./overview.md).
 - **Decidir quais eventos vão para cada destino:** use a tela de [Roteamento](./routing.md).

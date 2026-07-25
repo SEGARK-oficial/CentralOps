@@ -34,7 +34,7 @@ Esta tela só aparece para administradores da plataforma.
 
 ## Criar o destino
 
-1. No menu lateral, abra **Operação → Destinos**.
+1. No menu lateral, abra **Roteia → Destinos**.
 2. Use a opção de criar um novo destino.
 3. Escolha o tipo **Google SecOps (Chronicle)**.
 4. Preencha os campos abaixo.
@@ -77,7 +77,7 @@ Se o teste passar, salve. O destino fica **ativo** (badge verde).
 
 ## Acompanhar a saúde do destino
 
-Abra **Operação → Destinos** e selecione o seu destino Chronicle.
+Abra **Roteia → Destinos** e selecione o seu destino Chronicle.
 
 O badge de saúde mostra:
 
@@ -104,12 +104,12 @@ Para ver o que não foi entregue, abra a **fila de reenvio**. Cada item mostra o
 | **"Credencial inválida" / "401 Unauthorized"** | O JSON está corrompido, expirou ou a service account não tem a permissão `roles/chronicle.logsWriter`. Verifique na console do Google Cloud. |
 | **"Project/Instance não encontrado"** | Confirme que o Project ID e Instance ID estão corretos. Veja-os na console do Chronicle. |
 | **"Region inválida"** | A region deve ser `us`, `europe`, `asia-southeast1` ou outro valor válido para o Chronicle. Consulte a [documentação](https://cloud.google.com/chronicle/docs). |
-| **"Teste passa, mas eventos não chegam"** | O log type pode estar incorreto ou desabilitado no Chronicle. Confirme em **Operação → Destinos** que o tipo está correto. Se persistir, consulte o suporte do Chronicle. |
+| **"Teste passa, mas eventos não chegam"** | O log type pode estar incorreto ou desabilitado no Chronicle. Confirme em **Roteia → Destinos** que o tipo está correto. Se persistir, consulte o suporte do Chronicle. |
 | **google-auth não instalado** | O ambiente de backend precisa da biblioteca `google-auth`. Peça ao administrador da plataforma que instale `pip install -r requirements-sinks.txt`. |
 
 ## Próximos passos
 
-- **Confirmar que os dados estão chegando:** abra **Operação → Destinos**, selecione o Chronicle e veja as métricas de eventos por segundo.
+- **Confirmar que os dados estão chegando:** abra **Roteia → Destinos**, selecione o Chronicle e veja as métricas de eventos por segundo.
 - **Investigar eventos recusados:** abra a fila de reenvio na visão do destino.
 - **Adicionar outros destinos:** veja a [visão geral de destinos](./overview.md).
 - **Decidir quais eventos vão para cada destino:** use a tela de [Roteamento](./routing.md).

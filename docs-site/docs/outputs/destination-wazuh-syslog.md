@@ -8,7 +8,7 @@ description: Envie eventos como Syslog (RFC 3164/5424) para o Wazuh e SIEMs, ou 
 
 O CentralOps pode entregar os eventos normalizados a um destino externo em formato **Syslog** (padrões RFC 3164 e RFC 5424) ou gravá-los em **arquivo JSONL local**. É assim que você integra a plataforma ao Wazuh, ao Graylog, ao QRadar, ao Splunk e a qualquer SIEM que receba syslog — ou mantém uma cópia local de tudo que passou pela plataforma.
 
-> **Quem configura:** apenas o administrador cria e edita destinos e rotas (menu **Operação → Destinos** e **Operação → Roteamento**). Qualquer analista ou engenheiro pode acompanhar o status da entrega em **Normalização → Saúde do Pipeline**.
+> **Quem configura:** apenas o administrador cria e edita destinos e rotas (menu **Roteia → Destinos** e **Roteia → Rotas**). Qualquer analista ou engenheiro pode acompanhar o status da entrega em **Visão geral → Saúde do pipeline**.
 
 ## Quando usar
 
@@ -34,7 +34,7 @@ Em todos os modos, cada evento já sai **normalizado** e acompanhado dos metadad
 
 ### Como configurar
 
-1. Abra o menu **Operação → Destinos**.
+1. Abra o menu **Roteia → Destinos**.
 2. Adicione um novo destino e escolha o tipo **Syslog RFC 3164**.
 3. Preencha os campos de conexão:
 
@@ -45,7 +45,7 @@ Em todos os modos, cada evento já sai **normalizado** e acompanhado dos metadad
    | **Usar TLS** | Ative para criptografar a conexão. Recomendado sempre que o destino suportar. |
 
 4. Use a ação de **testar a conexão** na própria tela. Se o teste passar, salve o destino.
-5. Vá em **Operação → Roteamento** e crie uma rota que envie os eventos desejados para esse destino.
+5. Vá em **Roteia → Rotas** e crie uma rota que envie os eventos desejados para esse destino.
 
 > **Sobre o certificado (TLS):** se o seu SIEM usa um certificado público (Let's Encrypt, DigiCert, etc.), não é preciso fazer nada além de ativar o TLS. Se ele usa um certificado interno/próprio, o CentralOps precisa confiar na autoridade certificadora (CA) dele. **Essa CA é instalada na plataforma pela equipe de infraestrutura no momento do deploy.** Se o teste de conexão acusar erro de certificado, fale com o administrador da plataforma para que a CA do seu SIEM seja adicionada.
 
@@ -55,7 +55,7 @@ O Wazuh recebe o alerta como JSON e enxerga, além dos campos do evento, um bloc
 
 #### Rótulos de redução — leia antes de concluir qualquer coisa
 
-Se a rota que alimenta este destino tem redução de volume ligada (**Operação → Roteamento**), o mesmo bloco de metadados traz rótulos que **mudam a leitura do dado**:
+Se a rota que alimenta este destino tem redução de volume ligada (**Roteia → Rotas**), o mesmo bloco de metadados traz rótulos que **mudam a leitura do dado**:
 
 | Rótulo | O que significa | O que fazer com ele |
 |--------|-----------------|---------------------|
@@ -76,7 +76,7 @@ Se você coletou eventos **de um Wazuh** e está tentando roteá-los de volta **
 
 ### Como configurar
 
-O passo a passo é o mesmo do RFC 3164 — em **Operação → Destinos**, escolha o tipo **Syslog RFC 5424** e informe **Host**, **Porta** e **Usar TLS**. Depois crie a rota em **Operação → Roteamento**.
+O passo a passo é o mesmo do RFC 3164 — em **Roteia → Destinos**, escolha o tipo **Syslog RFC 5424** e informe **Host**, **Porta** e **Usar TLS**. Depois crie a rota em **Roteia → Rotas**.
 
 > **Não use RFC 5424 para Wazuh padrão.** O Wazuh, na configuração comum, não lê o JSON quando ele vem nesse formato. Para Wazuh, prefira o **RFC 3164**.
 
@@ -86,8 +86,8 @@ Neste modo, cada evento é gravado como uma linha de JSON em um arquivo no próp
 
 ### Como configurar
 
-1. Em **Operação → Destinos**, adicione um destino do tipo **Arquivo JSONL (local)**.
-2. Crie a rota correspondente em **Operação → Roteamento**.
+1. Em **Roteia → Destinos**, adicione um destino do tipo **Arquivo JSONL (local)**.
+2. Crie a rota correspondente em **Roteia → Rotas**.
 
 > **Onde os arquivos ficam e por quanto tempo:** a pasta de gravação e a política de retenção/limpeza dos arquivos JSONL são definidas pela equipe de infraestrutura no momento do deploy. Se precisar mudar o local, o período de retenção ou a compactação dos arquivos, fale com o administrador da plataforma.
 
@@ -101,7 +101,7 @@ Neste modo, cada evento é gravado como uma linha de JSON em um arquivo no próp
 
 Qualquer usuário pode verificar se os eventos estão saindo, sem precisar de acesso de administrador.
 
-1. Abra o menu **Normalização → Saúde do Pipeline**.
+1. Abra o menu **Visão geral → Saúde do pipeline**.
 2. Localize o destino ou a rota que você quer acompanhar.
 3. Observe o indicador de status:
    - **Verde / saudável** — os eventos estão sendo entregues normalmente.
@@ -113,11 +113,11 @@ Nessa tela você também acompanha o volume de eventos, a latência e a quantida
 
 | Sintoma | O que verificar |
 |---------|-----------------|
-| **O teste de conexão falha.** | Confirme **Host** e **Porta** na tela do destino (**Operação → Destinos**). Se o destino estiver em outra rede, o acesso de rede entre a plataforma e o SIEM é responsabilidade da equipe de infraestrutura — fale com o administrador. |
+| **O teste de conexão falha.** | Confirme **Host** e **Porta** na tela do destino (**Roteia → Destinos**). Se o destino estiver em outra rede, o acesso de rede entre a plataforma e o SIEM é responsabilidade da equipe de infraestrutura — fale com o administrador. |
 | **Erro de certificado no teste de conexão.** | O CentralOps não confia na autoridade certificadora do seu SIEM. Peça ao administrador da plataforma para adicionar a CA do destino. Veja a nota sobre certificado na seção do RFC 3164. |
-| **O teste passa, mas os eventos não chegam ao SIEM.** | Em **Operação → Roteamento**, confira se a rota não está com um filtro restritivo demais (por exemplo, filtrando só severidade "crítica" e descartando o resto). Em **Normalização → Saúde do Pipeline**, confirme que o destino está saudável e que há eventos saindo. |
+| **O teste passa, mas os eventos não chegam ao SIEM.** | Em **Roteia → Rotas**, confira se a rota não está com um filtro restritivo demais (por exemplo, filtrando só severidade "crítica" e descartando o resto). Em **Visão geral → Saúde do pipeline**, confirme que o destino está saudável e que há eventos saindo. |
 | **Os eventos chegam ao Wazuh, mas em formato inesperado.** | Confirme que a rota está usando **Syslog RFC 3164** (e não 5424). Se ainda assim o Wazuh não reconhecer o conteúdo, peça ao administrador do Wazuh para verificar o reconhecimento de eventos em JSON no receptor. |
-| **Espera de envio acumulando.** | Em **Normalização → Saúde do Pipeline**, um número alto de eventos em espera costuma indicar que o destino está lento ou indisponível. Verifique o status do destino e a mensagem de erro no indicador. |
+| **Espera de envio acumulando.** | Em **Visão geral → Saúde do pipeline**, um número alto de eventos em espera costuma indicar que o destino está lento ou indisponível. Verifique o status do destino e a mensagem de erro no indicador. |
 
 ## Casos de uso
 
@@ -151,6 +151,6 @@ O arquivo JSONL funciona como cache durável: se o syslog ficar indisponível, o
 
 ## Próximos passos
 
-- **Criar a rota de entrega:** menu **Operação → Roteamento**.
-- **Ajustar como os campos são mapeados:** menu **Normalização → Mappings**.
-- **Acompanhar a saúde da entrega:** menu **Normalização → Saúde do Pipeline**.
+- **Criar a rota de entrega:** menu **Roteia → Rotas**.
+- **Ajustar como os campos são mapeados:** menu **Normaliza → Mapeamentos**.
+- **Acompanhar a saúde da entrega:** menu **Visão geral → Saúde do pipeline**.

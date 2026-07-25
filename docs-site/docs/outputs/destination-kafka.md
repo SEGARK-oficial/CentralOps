@@ -11,7 +11,7 @@ O destino **Apache Kafka** publica os eventos já normalizados do CentralOps em 
 Cada evento vira uma mensagem no tópico. As mensagens são entregues de forma idempotente, ou seja, o CentralOps evita duplicar o mesmo evento no tópico mesmo quando precisa reenviar um lote.
 
 :::info[Quem configura]
-Criar e configurar destinos é uma tarefa de **administrador** da plataforma. As telas citadas aqui (**Destinos**, **Roteamento**, **Fluxo de dados**) só aparecem para administradores.
+Criar e configurar destinos é uma tarefa de **administrador** da plataforma. As telas citadas aqui (**Destinos**, **Rotas**, **Fluxo de dados**) só aparecem para administradores.
 :::
 
 ## Quando usar
@@ -45,7 +45,7 @@ Endereços dos brokers, tópico, protocolo, usuário e senha são fornecidos por
 
 ### 1. Abrir a tela de destinos
 
-No menu lateral, vá em **Operação → Destinos** e clique para adicionar um novo destino.
+No menu lateral, vá em **Roteia → Destinos** e clique para adicionar um novo destino.
 
 ### 2. Escolher o tipo
 
@@ -78,7 +78,7 @@ Salve o destino. Ele já fica disponível para ser usado no roteamento.
 
 Cadastrar o destino não envia eventos por si só. Você precisa criar uma regra de roteamento que aponte os eventos desejados para esse destino.
 
-1. No menu lateral, vá em **Operação → Roteamento** e crie uma nova regra.
+1. No menu lateral, vá em **Roteia → Rotas** e crie uma nova regra.
 2. Selecione a **origem** (o coletor ou a integração de onde vêm os eventos).
 3. Escolha o **destino** Kafka que você cadastrou.
 4. Defina um **filtro** se quiser enviar apenas parte dos eventos (por exemplo, somente os de severidade mais alta).
@@ -88,7 +88,7 @@ A partir daí, os eventos que casam com o filtro passam a ser publicados no tóp
 
 ### Acompanhar o fluxo
 
-Para visualizar os eventos saindo do CentralOps em direção ao Kafka, use a tela **Operação → Fluxo de dados**, que mostra o caminho dos eventos da origem até cada destino.
+Para visualizar os eventos saindo do CentralOps em direção ao Kafka, use a tela **Roteia → Fluxo de dados**, que mostra o caminho dos eventos da origem até cada destino.
 
 A conferência das mensagens dentro do próprio tópico Kafka é feita por quem opera o cluster, com as ferramentas de consumo do Kafka — isso fica fora da interface do CentralOps.
 
@@ -106,7 +106,7 @@ A proteção contra duplicados acontece no envio do CentralOps para o Kafka. Ela
 
 ## Acompanhar a saúde do destino
 
-Para ver se o destino está saudável, vá em **Normalização → Saúde do Pipeline** e localize o destino Kafka. Ali você acompanha indicadores como:
+Para ver se o destino está saudável, vá em **Visão geral → Saúde do pipeline** e localize o destino Kafka. Ali você acompanha indicadores como:
 
 - **Eventos aceitos** — quantos eventos foram publicados com sucesso.
 - **Eventos rejeitados** — quantos falharam (por exemplo, por autenticação ou broker indisponível).
@@ -125,7 +125,7 @@ A tabela abaixo separa o que **você resolve pela interface** do que precisa do 
 | **Tópico não existe** | Confirme o nome do tópico no campo de configuração. Se o nome estiver certo, o tópico ainda não foi criado no cluster — **peça ao administrador do cluster Kafka** para criá-lo, depois teste a conexão de novo. |
 | **Credencial inválida / falha de autenticação** | Verifique se o usuário e o mecanismo de autenticação estão corretos para esse cluster. Cadastre novamente a senha e clique em testar conexão. Se persistir, confirme as credenciais com o administrador do cluster Kafka. |
 | **Destino inativo até cadastrar a senha** | O destino fica inativo enquanto não houver uma credencial válida. Cadastre a senha no campo indicado e teste a conexão para reativá-lo. |
-| **Eventos não estão chegando ao destino** | Verifique se existe uma regra de roteamento ativa apontando para esse destino (**Operação → Roteamento**) e se o filtro não está excluindo os eventos. Acompanhe o caminho em **Operação → Fluxo de dados**. |
+| **Eventos não estão chegando ao destino** | Verifique se existe uma regra de roteamento ativa apontando para esse destino (**Roteia → Rotas**) e se o filtro não está excluindo os eventos. Acompanhe o caminho em **Roteia → Fluxo de dados**. |
 
 :::caution[Quando precisar da equipe de infraestrutura]
 A criação do tópico, dos usuários e a disponibilidade do cluster Kafka são responsabilidade de quem opera o Kafka. Esses pontos são definidos fora da plataforma. Se precisar deles, fale com o administrador da plataforma ou com o administrador do cluster Kafka.
@@ -135,4 +135,4 @@ A criação do tópico, dos usuários e a disponibilidade do cluster Kafka são 
 
 - **Eventos parando antes de chegar ao destino?** Veja [Quarentena](../operations/quarantine.md).
 - **Quer ajustar quais eventos vão para o Kafka?** Veja [Roteamento](./routing.md).
-- **Quer ver o caminho dos eventos até o destino?** Use a tela **Operação → Fluxo de dados**.
+- **Quer ver o caminho dos eventos até o destino?** Use a tela **Roteia → Fluxo de dados**.

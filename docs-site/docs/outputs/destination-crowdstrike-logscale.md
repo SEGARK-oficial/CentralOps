@@ -29,7 +29,7 @@ Para criar o destino, tenha em mãos:
 
 ## Criar o destino
 
-1. No menu lateral, abra **Visão geral -> Integrações** para confirmar que suas fontes já estão coletando, depois vá em **Operação -> Destinos**.
+1. No menu lateral, abra **Coleta -> Integrações** para confirmar que suas fontes já estão coletando, depois vá em **Roteia -> Destinos**.
 2. Use a opção de criar um novo destino.
 3. Escolha o tipo **CrowdStrike Falcon LogScale**.
 4. Preencha os campos abaixo.
@@ -75,7 +75,7 @@ Os parâmetros finos desse comportamento (tamanho de lote, número de tentativas
 
 ## Acompanhar a saúde do destino
 
-Abra **Operação -> Destinos** e selecione o destino LogScale.
+Abra **Roteia -> Destinos** e selecione o destino LogScale.
 
 O badge de saúde mostra a situação atual:
 
@@ -95,7 +95,7 @@ Na visão do destino você acompanha as métricas em tempo real:
 
 Para ver os eventos que não puderam ser entregues, abra a **fila de reenvio** na visão do destino. Cada item mostra o identificador do evento, o motivo da recusa informado pelo LogScale, o horário e o conteúdo exato que foi rejeitado — útil para entender e corrigir a causa.
 
-Para uma visão mais ampla de como os dados percorrem a plataforma até os destinos, use **Operação -> Fluxo de dados** e **Normalização -> Saúde do Pipeline**.
+Para uma visão mais ampla de como os dados percorrem a plataforma até os destinos, use **Roteia -> Fluxo de dados** e **Visão geral -> Saúde do pipeline**.
 
 ## Resolver problemas comuns
 
@@ -109,7 +109,7 @@ Para uma visão mais ampla de como os dados percorrem a plataforma até os desti
 
 ## Próximos passos
 
-- **Confirmar que os dados estão chegando:** abra **Operação -> Destinos**, selecione o LogScale e veja as métricas de eventos por segundo.
+- **Confirmar que os dados estão chegando:** abra **Roteia -> Destinos**, selecione o LogScale e veja as métricas de eventos por segundo.
 - **Investigar eventos recusados:** abra a fila de reenvio na visão do destino.
 - **Adicionar outros destinos:** veja a [visão geral de destinos](./overview.md).
 - **Decidir quais eventos vão para cada destino:** use a tela de [Roteamento](./routing.md).

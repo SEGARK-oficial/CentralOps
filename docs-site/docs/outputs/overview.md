@@ -28,11 +28,11 @@ O caminho de um evento é sempre o mesmo: **Coleta → Normalização → Roteam
 
 ### 1. Coleta
 
-Os coletores buscam os eventos nas ferramentas de origem (por exemplo, Sophos Central e Wazuh). Você acompanha e configura os coletores no menu **Operação → Collectors** e cadastra as origens em **Visão geral → Integrações**.
+Os coletores buscam os eventos nas ferramentas de origem (por exemplo, Sophos Central e Wazuh). Você acompanha e configura os coletores no menu **Coleta → Coletores** e cadastra as origens em **Coleta → Integrações**.
 
 ### 2. Normalização
 
-Eventos de qualquer origem são convertidos para um formato único e padronizado. Junto do evento vão **metadados internos** (plataforma, severidade, tipo de evento, origem) que o roteamento usa depois para decidir o caminho. Você gerencia as regras de conversão no menu **Normalização → Mappings**.
+Eventos de qualquer origem são convertidos para um formato único e padronizado. Junto do evento vão **metadados internos** (plataforma, severidade, tipo de evento, origem) que o roteamento usa depois para decidir o caminho. Você gerencia as regras de conversão no menu **Normaliza → Mapeamentos**.
 
 ### 3. Roteamento
 
@@ -42,7 +42,7 @@ Para cada evento, o sistema decide:
 - **Qual redação de PII** aplicar antes de enviar (pode ser diferente por destino).
 - Se o evento deve ser **descartado** (para cortar ruído ou economizar).
 
-As regras ficam no menu **Operação → Roteamento** (só admin).
+As regras ficam no menu **Roteia → Rotas** (só admin).
 
 ### 4. Destinos
 
@@ -53,7 +53,7 @@ Cada destino é independente:
 - Reporta a **própria saúde** (status, vazão, latência, erros).
 - Se um destino fica instável, isso **não afeta os outros**.
 
-Os destinos ficam no menu **Operação → Destinos** (só admin).
+Os destinos ficam no menu **Roteia → Destinos** (só admin).
 
 ## Tipos de destino disponíveis
 
@@ -111,7 +111,7 @@ Cada destino tem a **própria fila de reenvio**. Se um destino rejeita um evento
 
 ### Regra de roteamento
 
-Uma regra diz quais eventos vão para quais destinos. Você monta as regras no menu **Operação → Roteamento** (só admin). Cada regra tem:
+Uma regra diz quais eventos vão para quais destinos. Você monta as regras no menu **Roteia → Rotas** (só admin). Cada regra tem:
 
 | Campo | O que faz |
 |-------|-----------|
@@ -155,7 +155,7 @@ Quando um destino rejeita um evento, ele não é descartado: vai para a **fila d
 | Credencial inválida ou expirada | Não adianta repetir; o evento fica retido até você corrigir a credencial. |
 | Falha temporária do destino (sobrecarga, indisponibilidade momentânea) | O sistema tenta de novo sozinho, esperando cada vez um pouco mais entre as tentativas. |
 
-Eventos retidos na **normalização** ficam em **Normalização → Quarentena**. Já o que um **destino rejeitou** fica na fila de reenvio daquele destino, em **Operação → Destinos** — são duas filas diferentes, com causas diferentes.
+Eventos retidos na **normalização** ficam em **Normaliza → Quarentena**. Já o que um **destino rejeitou** fica na fila de reenvio daquele destino, em **Roteia → Destinos** — são duas filas diferentes, com causas diferentes.
 
 ### Saúde de cada destino
 
@@ -167,13 +167,13 @@ Cada destino tem o próprio painel de saúde, com:
 - **Fila**: tamanho da fila e se está acumulando.
 - **Último sucesso e último erro**: quando cada um aconteceu.
 
-Para ver o painel de um destino, vá a **Operação → Destinos**, abra o destino e veja a aba de saúde. Para a visão geral de todo o pipeline, use **Normalização → Saúde do Pipeline**. Veja também [Observabilidade](./observability.md).
+Para ver o painel de um destino, vá a **Roteia → Destinos**, abra o destino e veja a aba de saúde. Para a visão geral de todo o pipeline, use **Visão geral → Saúde do pipeline**. Veja também [Observabilidade](./observability.md).
 
 ## Configuração rápida
 
 ### 1. Criar um destino
 
-1. Vá a **Operação → Destinos** e inicie a criação de um novo destino.
+1. Vá a **Roteia → Destinos** e inicie a criação de um novo destino.
 2. Escolha o tipo na lista — a interface pede apenas os campos necessários para aquele tipo.
 3. Preencha o endereço, as credenciais e o formato.
 4. Use o **Teste de conexão** para confirmar que está acessível.
@@ -181,7 +181,7 @@ Para ver o painel de um destino, vá a **Operação → Destinos**, abra o desti
 
 ### 2. Criar uma regra de roteamento
 
-1. Vá a **Operação → Roteamento** e inicie uma nova regra.
+1. Vá a **Roteia → Rotas** e inicie uma nova regra.
 2. Dê um nome claro (por exemplo, "Sophos crítico para Sentinel").
 3. Defina a prioridade.
 4. Defina a condição (por exemplo, eventos do Sophos com severidade alta).
@@ -191,8 +191,8 @@ Para ver o painel de um destino, vá a **Operação → Destinos**, abra o desti
 
 ### 3. Conferir a saúde
 
-1. Vá a **Normalização → Saúde do Pipeline** para ver o status de cada destino.
-2. Para detalhes de um destino específico (vazão, fila, erros recentes), abra-o em **Operação → Destinos**.
+1. Vá a **Visão geral → Saúde do pipeline** para ver o status de cada destino.
+2. Para detalhes de um destino específico (vazão, fila, erros recentes), abra-o em **Roteia → Destinos**.
 
 ## O que acontece quando um evento é processado
 
@@ -202,7 +202,7 @@ Em linguagem de produto, sem detalhes técnicos:
 2. **Normalização** — o evento é convertido para o formato padrão e ganha os metadados internos que o roteamento usa.
 3. **Roteamento** — as regras são avaliadas por prioridade e definem para quais destinos o evento vai e qual redação aplicar a cada um.
 4. **Entrega** — para cada destino, o evento é agrupado em lote, formatado no formato daquele destino e enviado em segundo plano, com novas tentativas em caso de falha temporária.
-5. **Resultado** — eventos aceitos aparecem na vazão do destino; eventos rejeitados vão para a fila de reenvio e ficam visíveis em **Normalização → Quarentena**.
+5. **Resultado** — eventos aceitos aparecem na vazão do destino; eventos rejeitados vão para a fila de reenvio e ficam visíveis em **Normaliza → Quarentena**.
 
 ## Casos de uso detalhados
 
@@ -231,16 +231,16 @@ Tudo isso é feito ajustando o percentual gradual da regra — sem refazer a con
 
 ### O evento não chega ao destino
 
-1. Em **Operação → Roteamento**, revise a condição da regra — ela realmente bate com o evento que você espera?
-2. Em **Operação → Destinos**, abra o destino e use o **Teste de conexão**.
-3. Em **Normalização → Saúde do Pipeline**, verifique se o destino está com a fila acumulando.
-4. Em **Normalização → Quarentena**, veja se o evento foi retido e por quê.
+1. Em **Roteia → Rotas**, revise a condição da regra — ela realmente bate com o evento que você espera?
+2. Em **Roteia → Destinos**, abra o destino e use o **Teste de conexão**.
+3. Em **Visão geral → Saúde do pipeline**, verifique se o destino está com a fila acumulando.
+4. Em **Normaliza → Quarentena**, veja se o evento foi retido e por quê.
 
 ### A fila do destino está crescendo
 
 A fila cresce quando a entrega está mais lenta do que a chegada de eventos.
 
-1. Abra o destino em **Operação → Destinos** e veja o tamanho da fila na aba de saúde.
+1. Abra o destino em **Roteia → Destinos** e veja o tamanho da fila na aba de saúde.
 2. Aumente os **envios simultâneos** na configuração de entrega do destino, dentro do que o destino consegue aguentar.
 3. Verifique se o destino está respondendo: use o **Teste de conexão** no próprio destino para conferir se ele está acessível e respondendo rápido.
 
@@ -248,7 +248,7 @@ A fila cresce quando a entrega está mais lenta do que a chegada de eventos.
 
 Muitos eventos estão sendo rejeitados.
 
-1. Em **Operação → Destinos**, abra o destino e veja a fila de reenvio, agrupada por tipo de erro. (A Quarentena é outra coisa: ela guarda falhas de **normalização**, não rejeição de destino, e não tem filtro por destino.)
+1. Em **Roteia → Destinos**, abra o destino e veja a fila de reenvio, agrupada por tipo de erro. (A Quarentena é outra coisa: ela guarda falhas de **normalização**, não rejeição de destino, e não tem filtro por destino.)
 2. Se os eventos forem grandes demais, corte o payload bruto no mapeamento (bloco `raw_reduction`) ou ligue **Descartar o evento bruto** na regra daquele destino. Vale só para eventos novos — o que já está na fila não encolhe ao ser reprocessado. Não recorra à redação de PII para isso — ver [Redução de volume e custo](./reducao-de-volume.md).
 3. Se for falha de credencial, use o **Teste de conexão** do destino e atualize a credencial.
 

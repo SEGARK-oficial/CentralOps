@@ -109,7 +109,7 @@ A tabela mostra o que cada papel pode fazer. "✓" = permitido; "—" = não per
 - Ver detalhes de eventos em quarentena (somente leitura).
 - Ver campos novos detectados (somente leitura).
 - Consultar o Histórico de auditoria.
-- Buscar eventos na base histórica pelos filtros de **Investigações** (leitura de eventos JÁ ENTREGUES aos destinos).
+- Manter o catálogo de consultas curadas em **Detecta → Queries salvas** (leitura, sem disparar busca ao vivo na fonte).
 - Ver destinos, regras de roteamento e mappings (somente leitura).
 
 **Não pode**:
@@ -253,15 +253,15 @@ Ambas as permissões são **org-scoped fail-closed**: um Engineer da organizaç�
 
 A mudança vale imediatamente. A sessão ativa do usuário continua, mas o próximo acesso já usa o novo papel.
 
-## Service Accounts (tokens de automação)
+## Contas de serviço (tokens de automação)
 
-Os **Service Accounts** são tokens usados por automações (sem um usuário humano por trás), criados e gerenciados no menu **Administração → Service Accounts**.
+As **contas de serviço** são tokens usados por automações (sem um usuário humano por trás), criados e gerenciados no menu **Administração → Contas de serviço**.
 
 Um token de automação **nunca tem mais permissões do que o usuário que o criou**, e pode ser configurado com um acesso ainda mais restrito do que o desse usuário. Assim, mesmo que o token vaze, o estrago possível fica limitado ao escopo que você definiu.
 
 **Exemplo**: integrações com pipelines de CI/CD, webhooks de terceiros e automações de ponta a ponta, sem depender de credencial de uma pessoa.
 
-Para criar e gerenciar tokens, acesse o menu **Administração → Service Accounts**.
+Para criar e gerenciar tokens, acesse o menu **Administração → Contas de serviço**.
 
 ## Considerações de segurança
 

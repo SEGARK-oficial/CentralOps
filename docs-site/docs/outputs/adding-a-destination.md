@@ -8,7 +8,7 @@ description: O que são destinos no CentralOps, quais tipos existem e como o adm
 
 Um **destino** é para onde o CentralOps envia os eventos já normalizados depois de coletá-los: um SIEM, um servidor Syslog, um data lake, etc. Cada destino aparece no **catálogo** da plataforma com um nome legível e os campos que você precisa preencher para conectá-lo.
 
-Esta página explica, para o administrador, o que o catálogo de destinos oferece, quais tipos existem hoje e como configurar um destino pela interface web. A tela **Operação -> Destinos** só aparece para administradores.
+Esta página explica, para o administrador, o que o catálogo de destinos oferece, quais tipos existem hoje e como configurar um destino pela interface web. A tela **Roteia -> Destinos** só aparece para administradores.
 
 ## Quando usar
 
@@ -38,15 +38,15 @@ Você não precisa escrever nada: escolhe o tipo no catálogo, preenche os campo
 
 ## Como adicionar um destino (administrador)
 
-1. Abra o menu **Operação -> Destinos**.
+1. Abra o menu **Roteia -> Destinos**.
 2. Inicie a criação de um novo destino.
 3. **Escolha o tipo** no catálogo (por exemplo, Elasticsearch / OpenSearch ou Syslog).
 4. **Preencha os campos** do formulário daquele tipo. As credenciais sensíveis (chave de API, usuário e senha) são guardadas com segurança pela plataforma; você não vê o valor depois de salvo.
 5. Marque se a conexão deve usar **TLS** (recomendado para qualquer destino exposto na rede).
 6. Use **Testar conexão** para validar endereço, porta e credencial antes de salvar. O teste apenas verifica a conexão — nenhum evento é enviado nessa etapa.
-7. **Salve** o destino. A partir daí ele fica disponível para receber eventos conforme as regras definidas em **Operação -> Roteamento**.
+7. **Salve** o destino. A partir daí ele fica disponível para receber eventos conforme as regras definidas em **Roteia -> Rotas**.
 
-Depois de salvo, o destino aparece na própria tela de **Destinos** com seu status. Para começar a enviar eventos para ele, configure uma regra que o aponte em **Operação -> Roteamento**.
+Depois de salvo, o destino aparece na própria tela de **Destinos** com seu status. Para começar a enviar eventos para ele, configure uma regra que o aponte em **Roteia -> Rotas**.
 
 ### Preço por GB (opcional)
 
@@ -85,4 +85,4 @@ Você não precisa gerenciar nada disso manualmente, mas é útil saber o que a 
 
 Adicionar um **tipo** de destino novo ao catálogo (por exemplo, um serviço que ainda não está na lista acima) não é feito pela interface. É um trabalho da equipe da plataforma, que implementa o conector e o disponibiliza em uma nova versão.
 
-Se você precisa entregar eventos a um serviço que não aparece no catálogo, fale com o administrador da plataforma para avaliar a inclusão. Já configurar um destino de um tipo **existente** é feito por você mesmo, na tela **Operação -> Destinos**, como descrito acima.
+Se você precisa entregar eventos a um serviço que não aparece no catálogo, fale com o administrador da plataforma para avaliar a inclusão. Já configurar um destino de um tipo **existente** é feito por você mesmo, na tela **Roteia -> Destinos**, como descrito acima.

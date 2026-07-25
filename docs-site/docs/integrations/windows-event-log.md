@@ -16,9 +16,9 @@ O Windows Event Log é uma **fonte PUSH** que coleta eventos de segurança nativ
 
 ## Quem pode fazer o quê
 
-- **Administrador da plataforma:** cria a integração (menu **Visão geral -> Integrações**) e emite tokens de ingestão.
+- **Administrador da plataforma:** cria a integração (menu **Coleta -> Integrações**) e emite tokens de ingestão.
 - **Administrador de infraestrutura Windows:** configura o WEF/WEC no Active Directory e instala o Fluent Bit no servidor coletor.
-- **Operador ou superior:** visualiza os eventos (menu **Operação -> Investigações**).
+- **Operador ou superior:** visualiza os eventos (menu **Detecta -> Queries salvas**).
 
 ## Arquitetura: WEF → WEC → Fluent Bit → CentralOps
 
@@ -33,7 +33,7 @@ Você pode usar também **NXLog** como alternativa (input im_msvistalog → outp
 
 ## Passo 1: Criar a integração no CentralOps
 
-1. No menu lateral, vá em **Visão geral -> Integrações**.
+1. No menu lateral, vá em **Coleta -> Integrações**.
 2. Clique para adicionar uma nova integração.
 3. Escolha **Windows Event Log (WEC)** na lista.
 4. Preencha o nome (por exemplo, "Windows Security - Datacenter 01") e salve.
@@ -110,7 +110,7 @@ Após a configuração, os eventos de segurança de todos os endpoints começam 
    fluent-bit.exe -c fluent-bit-windows-wec.conf
    ```
 
-5. **Verifique** que os eventos começam a aparecer na tela **Operação -> Investigações** do CentralOps em poucos minutos.
+5. **Verifique** que os eventos começam a aparecer na tela **Detecta -> Queries salvas** do CentralOps em poucos minutos.
 
 ## O que é coletado
 
@@ -127,16 +127,16 @@ Cada evento do Security log chega ao CentralOps com informações como:
 | **IpAddress** | 192.168.1.100 |
 | **LogonType** | 2 (Interactive), 3 (Network), 5 (Service), etc. |
 
-Os eventos são normalizados para **OCSF Authentication** e ficam pesquisáveis em **Operação -> Investigações**.
+Os eventos são normalizados para **OCSF Authentication** e ficam pesquisáveis no destino que os recebeu.
 
 :::info[Quarentena]
-Se um evento chegar sem timestamp ou com campos faltando, ele será colocado em **Normalização -> Quarentena**. Revise e reprocesse se necessário.
+Se um evento chegar sem timestamp ou com campos faltando, ele será colocado em **Normaliza -> Quarentena**. Revise e reprocesse se necessário.
 :::
 
 ## Verificar que tudo está funcionando
 
-- **Na tela de integração:** abra **Visão geral -> Integrações**, selecione a integração Windows Event Log e veja o status da ingestão PUSH.
-- **Em Investigações:** vá em **Operação -> Investigações** e filtre por eventos "Windows" ou "Security".
+- **Na tela de integração:** abra **Coleta -> Integrações**, selecione a integração Windows Event Log e veja o status da ingestão PUSH.
+- **No seu destino:** filtre por eventos "Windows" ou "Security" para confirmar a chegada.
 - **Profundidade do buffer:** na aba **Ingestão push**, o gráfico mostra quantos eventos estão na fila aguardando processamento. Deve cair gradualmente para zero.
 
 ## Solução de problemas
@@ -145,12 +145,12 @@ Se um evento chegar sem timestamp ou com campos faltando, ele será colocado em 
 |---|---|---|
 | Erro 401 (não autorizado) ao enviar | Token incorreto ou expirado | Verifique no CentralOps se o token foi copiado integralmente. Se precisar, emita um novo na aba **Ingestão push**. |
 | Nenhum evento aparece | WEF não está ativo ou Fluent Bit não está rodando | Confirme que a assinatura WEF foi criada no WEC. Execute `wecutil.exe enum-subscription` para listar. Confirme que o Fluent Bit está rodando (verifique `tasklist \| findstr fluent`). |
-| Eventos na quarentena | Campo TimeCreated ou outro obrigatório faltando | Abra **Normalização -> Quarentena**, revise o evento rejeitado e verifique se o Fluent Bit está formatando corretamente o JSON. |
+| Eventos na quarentena | Campo TimeCreated ou outro obrigatório faltando | Abra **Normaliza -> Quarentena**, revise o evento rejeitado e verifique se o Fluent Bit está formatando corretamente o JSON. |
 | Fluent Bit fecha logo após iniciar | Erro na config | Verifique a sintaxe da config. Rode `fluent-bit.exe -c sua-config.conf -v` para ver logs detalhados. Confira a seção `[OUTPUT]` de forma especial. |
 
 ## Próximos passos
 
-- **Eventos aparecendo?** Veja o [Dashboard](../operations/dashboard.md) ou [Investigações](../operations/search.md).
+- **Eventos aparecendo?** Veja o [Dashboard](../operations/dashboard.md) ou a [saúde do pipeline](../operations/pipeline-health.md).
 - **Algo na quarentena?** Veja a [Quarentena](../operations/quarantine.md).
 - **Quer correlacionar com outras fontes?** Veja [Regras de Correlação](../operations/correlation-rules.md).
 - **Adicionar outro fornecedor?** Veja a [visão geral de Integrações](./overview.md).

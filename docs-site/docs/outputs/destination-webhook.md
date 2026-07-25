@@ -29,7 +29,7 @@ Esta tela só aparece para administradores da plataforma.
 
 ## Criar o destino
 
-1. No menu lateral, abra **Operação → Destinos**.
+1. No menu lateral, abra **Roteia → Destinos**.
 2. Use a opção de criar um novo destino.
 3. Escolha o tipo **Webhook Genérico**.
 4. Preencha os campos abaixo.
@@ -73,7 +73,7 @@ Se o teste passar, salve. O destino fica **ativo** (badge verde).
 
 ## Acompanhar a saúde do destino
 
-Abra **Operação → Destinos** e selecione o seu webhook.
+Abra **Roteia → Destinos** e selecione o seu webhook.
 
 O badge de saúde mostra:
 
@@ -104,7 +104,7 @@ Para ver o que não foi entregue, abra a **fila de reenvio**. Cada item mostra o
 
 ## Próximos passos
 
-- **Confirmar que os dados estão chegando:** abra **Operação → Destinos**, selecione o webhook e veja as métricas de eventos por segundo.
+- **Confirmar que os dados estão chegando:** abra **Roteia → Destinos**, selecione o webhook e veja as métricas de eventos por segundo.
 - **Investigar eventos recusados:** abra a fila de reenvio na visão do destino.
 - **Adicionar outros destinos:** veja a [visão geral de destinos](./overview.md).
 - **Decidir quais eventos vão para cada destino:** use a tela de [Roteamento](./routing.md).

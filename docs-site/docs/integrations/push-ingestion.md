@@ -16,13 +16,13 @@ Algumas fontes de segurança não têm uma API de polling — elas **empurram ev
 
 ## Quem pode fazer o quê
 
-- **Administrador da plataforma:** cria e edita a integração push (menu **Visão geral -> Integrações**), emite e rotaciona tokens.
+- **Administrador da plataforma:** cria e edita a integração push (menu **Coleta -> Integrações**), emite e rotaciona tokens.
 - **Operador de infraestrutura:** configura o edge-collector (Vector ou Fluent Bit) perto da fonte, usando o endpoint e o token fornecidos.
-- **Demais perfis:** visualizam e investigam os eventos coletados em **Operação -> Investigações**, como com qualquer outra fonte.
+- **Demais perfis:** acompanham a coleta em **Visão geral -> Saúde do pipeline** e pesquisam os eventos no destino, como com qualquer outra fonte.
 
 ## Passo 1: Criar a integração no CentralOps
 
-1. No menu lateral, vá em **Visão geral -> Integrações**.
+1. No menu lateral, vá em **Coleta -> Integrações**.
 2. Clique para adicionar uma nova integração.
 3. Escolha **Fortinet FortiGate** ou **Windows Event Log (WEC)** na lista.
 4. Preencha os campos:
@@ -80,13 +80,13 @@ Para instruções de instalação do Vector ou Fluent Bit, veja a documentação
 
 Assim que o edge-collector começar a enviar eventos:
 
-1. Abra **Visão geral -> Integrações** e selecione a integração.
+1. Abra **Coleta -> Integrações** e selecione a integração.
 2. No painel **Ingestão push**, você verá:
    - **Buffer atual** — quantos eventos estão na fila aguardando processamento.
    - **Taxa de ingestão** — eventos recebidos nos últimos minutos.
    - **Drops** (se houver) — quantos eventos foram descartados por limite de fila.
 
-3. Após ~20 segundos, os eventos devem ficar pesquisáveis em **Operação -> Investigações**.
+3. Após ~20 segundos, os eventos devem aparecer no destino para onde suas rotas os enviam.
 
 Se nada aparecer após alguns minutos, verifique a seção [Solução de problemas](#solução-de-problemas).
 
@@ -172,7 +172,7 @@ Cada integração push coleta tipos específicos de eventos:
 | **Fortinet FortiGate** | Logs de firewall (tráfego, ameaças, sessões) | [Fortinet FortiGate](./fortinet-fortigate.md) |
 | **Windows Event Log (WEC)** | Eventos do Windows (segurança, sistema, aplicação) | [Windows Event Log](./windows-event-log.md) |
 
-Os eventos são normalizados para o formato padrão do CentralOps, de modo que podem ser pesquisados e correlacionados com as demais fontes. Se um campo não puder ser convertido, o evento vai para a **Quarentena** (menu **Normalização -> Quarentena**), onde você pode revisar e reprocessar.
+Os eventos são normalizados para o formato padrão do CentralOps, de modo que podem ser pesquisados e correlacionados com as demais fontes. Se um campo não puder ser convertido, o evento vai para a **Quarentena** (menu **Normaliza -> Quarentena**), onde você pode revisar e reprocessar.
 
 ## Solução de problemas
 
@@ -180,13 +180,13 @@ Os eventos são normalizados para o formato padrão do CentralOps, de modo que p
 |---|---|---|
 | **Edge-collector não consegue conectar** | URL incorreta ou firewall bloqueando HTTPS para o CentralOps | Confirme que a URL está correta e completa (com `https://`). Verifique se há firewall bloqueando a porta 443 para o CentralOps. Teste: `curl -v https://sua-url/api/ingest/traffic`. |
 | **Erro 401 ou 403 ao enviar** | Token inválido, expirado ou já rotacionado | Confirme o token na integração. Se foi rotacionado recentemente, atualize o edge-collector com o novo token. |
-| **Buffer muito alto (muitos drops)** | Edge-collector enviando mais rápido que o CentralOps processa | Reduza a taxa de ingestão no edge-collector (batch size, flush interval). Verifique se os destinos (Splunk, S3, Kafka) estão lentos em **Operação -> Destinos**. |
-| **Nenhum evento aparecendo** | Edge-collector não está enviando ou eventos estão na quarentena | Confirme que o edge-collector está rodando e enviando (`curl` do teste acima). Se o teste retorna `"accepted":1`, mas os eventos não aparecem em **Operação -> Investigações**, verifique **Normalização -> Quarentena**. |
-| **Muitos eventos na quarentena** | Problema de normalização ou mapeamento de campos | Abra **Normalização -> Quarentena**, selecione um evento da integração push e veja o motivo do erro. Corrija o mapeamento de campos na integração se necessário. |
+| **Buffer muito alto (muitos drops)** | Edge-collector enviando mais rápido que o CentralOps processa | Reduza a taxa de ingestão no edge-collector (batch size, flush interval). Verifique se os destinos (Splunk, S3, Kafka) estão lentos em **Roteia -> Destinos**. |
+| **Nenhum evento aparecendo** | Edge-collector não está enviando ou eventos estão na quarentena | Confirme que o edge-collector está rodando e enviando (`curl` do teste acima). Se o teste retorna `"accepted":1`, mas os eventos não aparecem em **Detecta -> Queries salvas**, verifique **Normaliza -> Quarentena**. |
+| **Muitos eventos na quarentena** | Problema de normalização ou mapeamento de campos | Abra **Normaliza -> Quarentena**, selecione um evento da integração push e veja o motivo do erro. Corrija o mapeamento de campos na integração se necessário. |
 
 ## Próximos passos
 
 - **Configurar o edge-collector específico:** veja [Fortinet FortiGate](./fortinet-fortigate.md) ou [Windows Event Log](./windows-event-log.md).
 - **Eventos aparecendo?** Veja a [Quarentena](../operations/quarantine.md) para entender como lidar com eventos não normalizados.
-- **Monitorar a saúde da integração:** abra **Normalização -> Saúde do Pipeline** para métricas detalhadas.
+- **Monitorar a saúde da integração:** abra **Visão geral -> Saúde do pipeline** para métricas detalhadas.
 - **Rotear eventos para destinos:** use a tela de [Roteamento](../outputs/routing.md) para definir para onde os eventos vão após normalizados.

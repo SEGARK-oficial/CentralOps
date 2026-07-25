@@ -16,9 +16,9 @@ Conecte o Fortinet FortiGate ao CentralOps para coletar eventos de tráfego e se
 
 ## Quem pode fazer o quê
 
-- **Administrador da plataforma:** cria a integração e emite o token (menu **Visão geral -> Integrações**).
+- **Administrador da plataforma:** cria a integração e emite o token (menu **Coleta -> Integrações**).
 - **Administrador de infraestrutura:** configura o Vector near o FortiGate e valida a conectividade.
-- **Demais perfis:** visualizam os eventos já coletados (menu **Operação -> Investigações**).
+- **Demais perfis:** visualizam os eventos já coletados (menu **Detecta -> Queries salvas**).
 
 ## Pré-requisitos
 
@@ -31,7 +31,7 @@ Antes de começar, garanta que você tem:
 
 ## Passo 1: Criar a integração no CentralOps
 
-1. No menu lateral, vá em **Visão geral -> Integrações**.
+1. No menu lateral, vá em **Coleta -> Integrações**.
 2. Clique para adicionar uma nova integração.
 3. Escolha **Fortinet FortiGate** na lista de plataformas e avance.
 4. Preencha o campo abaixo:
@@ -111,12 +111,12 @@ Se o FortiGate não conseguir alcançar Vector, confirme:
 
 ### Via painel da integração
 
-1. Volte ao CentralOps, menu **Visão geral -> Integrações**, selecione a integração do FortiGate.
+1. Volte ao CentralOps, menu **Coleta -> Integrações**, selecione a integração do FortiGate.
 2. No painel **"Ingestão push"**, acompanhe a **profundidade da fila**: deve subir quando eventos chegam, depois descer ~20 segundos depois (enquanto Vector envia ao CentralOps).
 
-### Via tela de Investigações
+### Via busca de eventos
 
-1. Acesse **Operação -> Investigações**.
+1. Acesse **Detecta -> Queries salvas**.
 2. Procure por eventos com `type: network_activity` ou `source: fortigate`.
 3. Se nada aparecer, veja a seção [Solução de problemas](#solução-de-problemas).
 
@@ -139,7 +139,7 @@ Cada evento de tráfego do FortiGate normaliza para o padrão **OCSF Network Act
 | **user** | Usuário associado (se autenticado) | `domain\usuario` |
 | **timestamp** | Horário do evento | `2026-06-26T10:30:00Z` |
 
-O CentralOps converte automaticamente para OCSF. Se um evento não puder ser normalizado (por exemplo, campo timestamp inválido), vai para a **Quarentena** (menu **Normalização -> Quarentena**) para revisar.
+O CentralOps converte automaticamente para OCSF. Se um evento não puder ser normalizado (por exemplo, campo timestamp inválido), vai para a **Quarentena** (menu **Normaliza -> Quarentena**) para revisar.
 
 :::note[Timestamp obrigatório]
 Vector adiciona um timestamp ISO-8601 automaticamente. Confirme que o FortiGate está sincronizado com NTP.
@@ -151,7 +151,7 @@ Vector adiciona um timestamp ISO-8601 automaticamente. Confirme que o FortiGate 
 |---|---|---|
 | **Erro 401 (Unauthorized) no Vector** | Token inválido ou expirado | Volte ao passo 2, emita um novo token no painel da integração e atualize o `.env`. Reinicie Vector: `docker compose restart`. |
 | **Vector não recebe syslog (nenhum evento entrando)** | FortiGate não consegue alcançar Vector, ou firewall bloqueando UDP 5514 | Confirme o IP/nome de host no FortiGate. Teste conectividade: `telnet <IP_DO_VECTOR> 5514` (ou `nc -u` para UDP). Se bloqueado, libere na firewall. |
-| **Eventos na quarentena** | Formato ou timestamp inválido | Confirme que o FortiGate está com o formato "default" (pares key=value). Verifique sincronismo NTP do FortiGate. Abra **Normalização -> Quarentena** para ver o conteúdo rejeitado. |
+| **Eventos na quarentena** | Formato ou timestamp inválido | Confirme que o FortiGate está com o formato "default" (pares key=value). Verifique sincronismo NTP do FortiGate. Abra **Normaliza -> Quarentena** para ver o conteúdo rejeitado. |
 | **Fila de ingestão não drena (cresce continuamente)** | CentralOps indisponível ou URL errada | Confirme a URL no `.env` (sem typos). Teste com `curl`: `curl -X POST -H "Authorization: Bearer <token>" -d '{}' https://seu-dominio/api/ingest/traffic`. Se não responder, fale com o administrador da plataforma. |
 
 ## Próximos passos
