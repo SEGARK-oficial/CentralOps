@@ -1,5 +1,24 @@
 # Changelog
 
+## [2.4.0](https://github.com/SEGARK-oficial/CentralOps/compare/v2.3.0...v2.4.0) (2026-07-25)
+
+
+### Features
+
+* **frontend:** redesign do console alinhado ao site comercial ([ce5693a](https://github.com/SEGARK-oficial/CentralOps/commit/ce5693a001ff706324e597f167d72edfa22863af))
+* **frontend:** redesign do console alinhado ao site comercial ([554ddc6](https://github.com/SEGARK-oficial/CentralOps/commit/554ddc6a76da4e9a3f51c48859001366af3a966e))
+
+
+### Bug Fixes
+
+* 2.3.0 pendura o boot na migração — self-deadlock por segunda conexão ([ba11ebd](https://github.com/SEGARK-oficial/CentralOps/commit/ba11ebd5df4a5ded8784d4d35587adce017012de))
+* **config:** tira o placeholder "Sua Empresa" dos defaults de deploy ([31208cb](https://github.com/SEGARK-oficial/CentralOps/commit/31208cbf17331cde8b3a97f2c2eee3e69ce57bae))
+* **db:** não abrir segunda conexão dentro da transação de migração ([e88d09d](https://github.com/SEGARK-oficial/CentralOps/commit/e88d09de4370f12c85b50eeeb10deea457719309))
+* **deploy:** plumbar APP_DB_MIGRATION_LOCK_TIMEOUT_MS até o container ([5bbadd0](https://github.com/SEGARK-oficial/CentralOps/commit/5bbadd08dc667b112b78ec13b70ba4fc8b49dc95))
+* **flow:** ponto de status deixa de ser desenhado por cima do nome do nó ([eebbc7d](https://github.com/SEGARK-oficial/CentralOps/commit/eebbc7d3080561cbe0dd5bc9e2e049032be01eda))
+* **flow:** ponto de status deixa de ser desenhado por cima do nome do nó ([1e53491](https://github.com/SEGARK-oficial/CentralOps/commit/1e53491c28f6010786e342d961edef98abec9f3b))
+* **frontend:** liga o reservoir, conserta as URLs de docs e para de apagar raw_reduction ([8ffebaf](https://github.com/SEGARK-oficial/CentralOps/commit/8ffebaf7af544668fb9ca75f6d34349ade2c012e))
+
 ## [2.3.0](https://github.com/SEGARK-oficial/CentralOps/compare/v2.2.0...v2.3.0) (2026-07-24)
 
 
