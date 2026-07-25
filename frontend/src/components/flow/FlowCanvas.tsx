@@ -682,7 +682,13 @@ const NodeVisual = memo(function NodeVisual({ x, node }: { x: number; node: LNod
   const cy = top + h / 2
   const rx = 9
   const hasIcon = !!brand && !isOverflow
-  const textX = x + (hasIcon ? 34 : 15)
+  // O ponto de status ocupa a MESMA calha do ícone de marca (ambos centrados em
+  // x+19), então o texto começa em x+34 nos dois casos. Antes o ponto ficava em
+  // x+15 e o texto também: a primeira letra do nome nascia POR CIMA do ponto, o
+  // que se via em toda rota da coluna do meio. Alinhar as duas calhas conserta a
+  // colisão e, de quebra, deixa fontes e rotas com o texto na mesma coluna.
+  // O nó de overflow ("+N") não tem marcador, então recolhe para a borda.
+  const textX = x + (isOverflow ? 15 : 34)
   return (
     <>
       <rect
@@ -705,7 +711,7 @@ const NodeVisual = memo(function NodeVisual({ x, node }: { x: number; node: LNod
           </div>
         </foreignObject>
       ) : (
-        !isOverflow && <circle cx={x + 15} cy={cy} r={4} fill={color.dot} />
+        !isOverflow && <circle cx={x + 19} cy={cy} r={4} fill={color.dot} />
       )}
 
       <text x={textX} y={cy - (h > NODE_H_BASE ? 6 : 4)} fontSize="11.5" fontWeight="600" fill={color.text} dominantBaseline="middle">
