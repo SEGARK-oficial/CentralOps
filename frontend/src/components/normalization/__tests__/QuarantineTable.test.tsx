@@ -249,10 +249,11 @@ describe("QuarantineTable", () => {
         screen.queryByText("Nenhuma entrada em quarentena."),
       ).not.toBeInTheDocument()
 
-      // Total reflete o backend, não o length local
-      expect(
-        screen.getByText(/Mostrando 21 a 40 de 45 registros/i),
-      ).toBeInTheDocument()
+      // Total reflete o backend, não o length local.
+      // O rodapé do DataTable perdeu o "Mostrando…/registros": ao lado dos
+      // controles de página o intervalo já se explica. Casa só os números,
+      // porque as palavras de ligação mudam com o idioma.
+      expect(screen.getByText(/21\D+40\D+45/)).toBeInTheDocument()
     })
 
     it("renderiza items da última página parcial (total=45, page=3, 5 items)", () => {
@@ -264,9 +265,7 @@ describe("QuarantineTable", () => {
 
       expect(screen.getByText("Detalhe p3-0")).toBeInTheDocument()
       expect(screen.getByText("Detalhe p3-4")).toBeInTheDocument()
-      expect(
-        screen.getByText(/Mostrando 41 a 45 de 45 registros/i),
-      ).toBeInTheDocument()
+      expect(screen.getByText(/41\D+45\D+45/)).toBeInTheDocument()
     })
 
     it("clicar em próxima página chama onPaginationChange com current=2", () => {

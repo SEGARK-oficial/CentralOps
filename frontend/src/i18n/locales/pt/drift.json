@@ -1,7 +1,7 @@
 {
   "explorer": {
     "eyebrow": "Normalização",
-    "title": "Drift Explorer",
+    "title": "Drift",
     "description": "Campos do raw que nenhum mapping consome",
     "loadError": "Erro ao carregar dados de drift",
     "loading": "Carregando dados de drift...",
@@ -19,7 +19,7 @@
     "cardAria_other": "{{count}} campos {{label}}",
     "cardAriaError": "{{label}}: erro ao carregar",
     "loadError": "Não foi possível carregar os contadores",
-    "loadErrorBody": "Os totais por status não puderam ser carregados. Os valores mostrados podem estar incorretos — isto não significa ausência de drift."
+    "loadErrorBody": "Totais por status não carregaram. Os valores podem estar errados; drift pode existir."
   },
   "filters": {
     "status": {
@@ -38,8 +38,8 @@
     "eventTypeAriaLabel": "Filtrar por tipo de evento",
     "statusLabel": "Status",
     "statusGroupAriaLabel": "Filtrar por status",
-    "resetAriaLabel": "Resetar filtros",
-    "reset": "Resetar filtros"
+    "resetAriaLabel": "Limpar filtros",
+    "reset": "Limpar filtros"
   },
   "bulkBar": {
     "ignore": "Ignorar",
@@ -79,7 +79,7 @@
       "hoursAgo": "há {{count}}h",
       "daysAgo": "há {{count}}d"
     },
-    "emptyValue": "—",
+    "emptyValue": "n/d",
     "loadingRules": "Carregando regras...",
     "loadingRulesShort": "…",
     "noRulesConsume": "Nenhuma regra consome este campo",
@@ -177,7 +177,7 @@
         "hoursAgo": "há {{count}}h",
         "daysAgo": "há {{count}}d"
       },
-      "emptyValue": "—",
+      "emptyValue": "n/d",
       "columns": {
         "select": "Selecionar todas as linhas visíveis",
         "selectRow": "Selecionar entrada {{id}}",
@@ -215,7 +215,7 @@
         "discardDescription": "A entrada de quarentena para \"{{vendor}}{{eventTypeSuffix}}\" será descartada permanentemente.",
         "discardLabel": "Descartar",
         "reprocessTitle": "Reprocessar evento?",
-        "reprocessDescription": "O evento será revalidado contra o mapping atual. Se a normalização tiver sucesso, ele será enviado ao Wazuh. Caso contrário, permanecerá em quarentena com novo erro.",
+        "reprocessDescription": "Revalida contra o mapping atual. Se normalizar, vai ao Wazuh; se não, fica na quarentena.",
         "reprocessLabel": "Reprocessar"
       }
     }

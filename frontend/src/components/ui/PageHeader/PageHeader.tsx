@@ -18,17 +18,24 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
   eyebrow,
   className,
 }) => (
-  <div className={cn("flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between", className)}>
-    <div className="flex items-start gap-4">
+  <div className={cn("flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between", className)}>
+    <div className="flex items-start gap-3">
+      {/* Chip neutro: o ícone identifica a página, não sinaliza estágio nenhum.
+          Violeta em todo cabeçalho seria decoração, e decoração gasta o canal
+          de alarme. A elevação vem da hairline; a sombra saiu. */}
       {icon && (
-        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-primary-50 text-primary-700 shadow-sm ring-1 ring-primary-100">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-border bg-surface-tertiary text-text-secondary">
           {icon}
         </div>
       )}
       <div className="space-y-1">
-        {eyebrow && <div className="text-xs font-semibold uppercase tracking-[0.2em] text-text-tertiary">{eyebrow}</div>}
-        <h1 className="text-2xl font-bold tracking-tight text-text">{title}</h1>
-        {description && <p className="max-w-3xl text-sm leading-relaxed text-text-secondary">{description}</p>}
+        {/* Eyebrow é rótulo de dado: mono, como no resto do painel. */}
+        {eyebrow && (
+          <div className="font-mono text-[11px] font-medium uppercase tracking-[0.14em] text-text-tertiary">{eyebrow}</div>
+        )}
+        {/* Archivo entra aqui e em número grande. Só. */}
+        <h1 className="font-display text-2xl font-semibold tracking-tight text-text">{title}</h1>
+        {description && <p className="max-w-2xl text-sm leading-relaxed text-text-secondary">{description}</p>}
       </div>
     </div>
     {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}

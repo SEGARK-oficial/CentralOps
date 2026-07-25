@@ -7,7 +7,7 @@
     "tag_and_pass": "Tag and pass",
     "quarantine": "Quarantine",
     "fail_closed": "Drop (fail-closed)",
-    "tag_and_pass_hint": "Only tags and dispatches — never drops.",
+    "tag_and_pass_hint": "Only tags and dispatches. Never drops.",
     "quarantine_hint": "Sends to quarantine (recoverable); does not dispatch.",
     "fail_closed_hint": "Drops without quarantine."
   },
@@ -35,7 +35,7 @@
     "status": {
       "enabled": "OCSF validation on",
       "disabled": "OCSF validation off",
-      "disabledHint": "Validation is off — the counts reflect only what was already quarantined.",
+      "disabledHint": "Validation is off. The counts reflect only what was already quarantined.",
       "version": "OCSF version: {{version}}",
       "globalDefault": "Global default: {{mode}}"
     }

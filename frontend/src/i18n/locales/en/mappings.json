@@ -5,8 +5,8 @@
     "description": "Mappings that normalize events from your integrations into the standard format (OCSF).",
     "searchPlaceholder": "Search by vendor, type or description...",
     "searchAriaLabel": "Search mapping",
-    "resetFilters": "Reset filters",
-    "resetFiltersAriaLabel": "Reset filters",
+    "resetFilters": "Clear filters",
+    "resetFiltersAriaLabel": "Clear filters",
     "showAllVendors": "Show all available vendors",
     "loading": "Loading mappings...",
     "loadError": "Failed to load mappings",
@@ -32,7 +32,7 @@
     },
     "emptyNoActive": {
       "title": "No mappings for active integrations",
-      "description": "Default mappings appear here as soon as you connect an integration. Connect one in Integrations, or view all available mappings.",
+      "description": "Connect an integration and the default mappings show up here.",
       "showAll": "Show all available"
     }
   },
@@ -79,7 +79,7 @@
     },
     "reservoir": {
       "title": "Reservoir samples unavailable",
-      "description": "Automatic sample loading will be available soon. For now, use Manual mode to paste an event JSON and preview the simulation."
+      "description": "Automatic samples are coming. For now, paste a JSON in Manual mode."
     },
     "manual": {
       "inputLabel": "Paste the event JSON here",
@@ -89,7 +89,7 @@
     },
     "errors": {
       "notObject": "The payload must be a JSON object (key/value).",
-      "invalidJson": "Invalid JSON — check the syntax."
+      "invalidJson": "Invalid JSON. Check the syntax."
     }
   },
   "rulesEditor": {
@@ -194,32 +194,32 @@
         "description": "Path in the normalized envelope where the value goes. Use dot-path notation."
       },
       "source": {
-        "description": "JMESPath expression applied to the vendor's raw payload to extract the value. Supports nested paths, filters and functions."
+        "description": "JMESPath over the vendor's raw payload. Accepts nested paths, filters and functions."
       },
       "const": {
-        "description": "Constant value assigned to the target, regardless of the vendor payload. Useful for fixed metadata like the product name."
+        "description": "Fixed value on the target, ignoring the payload. For metadata like the product name."
       },
       "default": {
         "description": "Value used if the source does not exist or resolves to null. Without a default, the field is left absent."
       },
       "typeCast": {
-        "description": "Transformation applied AFTER source and value_map. Examples: iso_to_epoch converts ISO 8601 to epoch ms; to_int/to_str/to_bool perform type coercion."
+        "description": "Runs AFTER source and value_map. E.g. iso_to_epoch gives epoch ms."
       },
       "valueMap": {
-        "description": "JSON map {original_value: mapped_value} applied AFTER the source. Useful for converting severity strings into OCSF codes."
+        "description": "JSON map {original: mapped}, applied AFTER the source. Turns severity strings into OCSF codes."
       },
       "required": {
-        "description": "If checked and the value is null/absent after all transformations, the event goes to quarantine instead of being sent to the SIEM."
+        "description": "If checked and the value ends null, the event goes to quarantine, not the SIEM."
       }
     },
-    "castSignatureTitle": "{{description}} — Signature: {{signature}}",
+    "castSignatureTitle": "{{description}}. Signature: {{signature}}",
     "intentionalDefault": {
       "label": "Intentional default value (don't alert in simulation)",
-      "description": "Check this when the rule is an expected placeholder that always falls back to default — e.g. a required OCSF field we don't have from the vendor yet."
+      "description": "Check when the rule is meant to always fall back to default."
     },
     "whenCondition": {
       "label": "Condition (when)",
-      "description": "Optional predicate: if it evaluates to false, the rule is entirely skipped — the target is not written. Unlike default: the field is left absent from the output."
+      "description": "If false, the rule is skipped. Unlike default, the field is absent from the output."
     }
   },
   "arrayBuilder": {
@@ -230,7 +230,7 @@
     "moveItemDown": "Move item {{index}} down",
     "removeItem": "Remove item {{index}}",
     "dedupByHint": "List of observable fields, e.g.: \"value\" or \"value,type\"",
-    "skipNullAriaLabel": "skip_null — omit observables with null source",
+    "skipNullAriaLabel": "skip_null: omit observables with null source",
     "skipNullHint": "(omit when source is null)",
     "itemsCount": "Items ({{count}})",
     "columns": {
@@ -258,19 +258,19 @@
     "inValuesHint": "One value per line. Numbers are detected automatically.",
     "operators": {
       "exists": {
-        "label": "exists — field exists in the payload",
+        "label": "exists: field exists in the payload",
         "description": "True if the JMESPath resolves to any non-null value (including empty lists and objects)."
       },
       "equals": {
-        "label": "equals — value equals (type-strict)",
+        "label": "equals: value equals (type-strict)",
         "description": "True if the field's value exactly matches the given literal. Type-strict comparison: 3 ≠ \"3\"."
       },
       "in": {
-        "label": "in — value is in the list (type-strict)",
+        "label": "in: value is in the list (type-strict)",
         "description": "True if the field's value is in the list. One value per line. Numbers are parsed automatically."
       },
       "not": {
-        "label": "not — negates a sub-condition",
+        "label": "not: negates a sub-condition",
         "description": "Negates the sub-condition. Useful for expressing \"field does not exist\" or \"value is not X\"."
       }
     }
@@ -296,7 +296,7 @@
     "targetHint": "(must start with _)",
     "targetAriaLabel": "virtual field target",
     "targetMustStartWithUnderscore": "The target must start with \"_\".",
-    "tolerantAriaLabel": "tolerant — continue even if parsing fails",
+    "tolerantAriaLabel": "tolerant: continue even if parsing fails",
     "tolerantHint": "(continues even if the parse fails)",
     "moveUp": "Move operation up",
     "moveDown": "Move operation down"
@@ -308,15 +308,15 @@
     "ok": "{{count}} OK",
     "failures_one": "{{count}} failure",
     "failures_other": "{{count}} failures",
-    "warningsChipAriaLabel_one": "{{count}} rule with 100% fallback to default — click for details",
-    "warningsChipAriaLabel_other": "{{count}} rules with 100% fallback to default — click for details",
+    "warningsChipAriaLabel_one": "{{count}} rule with 100% fallback to default. Click for details",
+    "warningsChipAriaLabel_other": "{{count}} rules with 100% fallback to default. Click for details",
     "warningsChipLabel_one": "{{count}} rule 100% default",
     "warningsChipLabel_other": "{{count}} rules 100% default"
   },
   "defaultHitWarnings": {
     "title": "Rules with 100% fallback to default",
     "closeAriaLabel": "Close warnings panel",
-    "description": "These rules have their source resolving to null in 100% of samples. Check whether the JMESPath is correct, or mark it as intentional if it's an expected placeholder.",
+    "description": "Null in 100% of samples. Check the JMESPath, or mark it intentional.",
     "noWarnings": "No warnings.",
     "hitRatio": "{{hitCount}}/{{sampleSize}} samples fell back to default",
     "markIntentional": "Mark as intentional"
@@ -394,8 +394,8 @@
     },
     "rollback": {
       "messageTooShort": "The message must be at least 10 characters long.",
-      "success": "Rollback to v{{version}} completed successfully.",
-      "error": "Failed to perform rollback.",
+      "success": "Rolled back to v{{version}}.",
+      "error": "Rollback failed.",
       "errorTitle": "Rollback error",
       "confirmTitle": "Make v{{version}} the current version?",
       "confirmDescription": "This action will promote v{{version}} to the current version of the mapping. Existing versions will not be deleted.",
@@ -406,11 +406,11 @@
   },
   "diffModal": {
     "title": "Version diff",
-    "titleWithVersion": "Version diff — {{versionLabel}}",
+    "titleWithVersion": "Version diff: {{versionLabel}}",
     "loading": "Loading diff...",
     "noDiffAvailable": "No diff available.",
     "reorderedOnlyTitle": "Reordering only",
-    "reorderedOnlyDescription": "No rule changed — the rules were only reordered.",
+    "reorderedOnlyDescription": "No rule changed. They were only reordered.",
     "noChangesTitle": "No changes",
     "noChangesDescription": "Both versions are identical.",
     "added": "Added",

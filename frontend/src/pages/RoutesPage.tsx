@@ -87,6 +87,33 @@ function isCatchAll(r: Route): boolean {
   return r.is_final && r.enabled && Object.keys(r.condition).length === 0
 }
 
+// ── RouteActionBadge ──────────────────────────────────────────────────────
+
+/**
+ * Mesma ação, mesma matiz: este selo repete o `routeColorOf` do FlowCanvas.
+ *
+ * A tela de rotas pintava `route` de violeta e `drop` de vermelhão; o /flow, a
+ * um clique de distância, pintava os mesmos dois valores de ciano e teal. O
+ * operador via duas cores para a mesma coisa e tinha de reaprender a legenda ao
+ * trocar de tela.
+ *
+ *   route  → ciano, a matiz do estágio de roteamento (o token não tem escala de
+ *            estado, então o selo escreve `bg-stage-route/15` direto).
+ *   drop   → teal: descarte configurado é redução, é onde a conta cai, e é o que
+ *            o card DESCARTADO do /flow já mostra em teal.
+ *   off    → neutro. Rota desligada é configuração, não incidente; a própria
+ *            linha já carrega o selo "Desativada".
+ */
+const RouteActionBadge: React.FC<{ action: string; enabled: boolean }> = ({ action, enabled }) => {
+  if (!enabled) return <Badge variant="outline">{action}</Badge>
+  if (action === "drop") return <Badge variant="success">{action}</Badge>
+  return (
+    <Badge variant="default" className="bg-stage-route/15 text-stage-route">
+      {action}
+    </Badge>
+  )
+}
+
 // ── SortableRouteCard ─────────────────────────────────────────────────────
 
 interface SortableRouteCardProps {
@@ -182,8 +209,8 @@ const SortableRouteCard: React.FC<SortableRouteCardProps> = ({
                   {t("routesPage.systemBadge")}
                 </Badge>
               )}
-              <Badge variant={r.action === "drop" ? "danger" : "primary"}>{r.action}</Badge>
-              {r.is_final ? <Badge variant="outline">{t("routesPage.finalBadge")}</Badge> : <Badge variant="warning">{t("routesPage.cloneBadge")}</Badge>}
+              <RouteActionBadge action={r.action} enabled={r.enabled} />
+              {r.is_final ? <Badge variant="outline">{t("routesPage.finalBadge")}</Badge> : <Badge variant="outline">{t("routesPage.cloneBadge")}</Badge>}
               {catchAll && (
                 <Badge variant="success" dot>
                   {t("routesPage.defaultBadge")}

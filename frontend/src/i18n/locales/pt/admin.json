@@ -7,8 +7,8 @@
     "limitReachedTitle": "Limite do plano atingido ({{max}}). Faça upgrade para adicionar mais organizações.",
     "limitReachedNotice": {
       "title": "Limite de organizações do plano atingido",
-      "description_one": "Seu plano permite até {{max}} organização ativa (single-tenant). Desative uma organização existente ou faça upgrade do plano para adicionar mais.",
-      "description_other": "Seu plano permite até {{max}} organizações ativas. Desative uma organização existente ou faça upgrade do plano para adicionar mais."
+      "description_one": "Seu plano permite {{max}} organização ativa. Desative uma ou faça upgrade para adicionar mais.",
+      "description_other": "Seu plano permite {{max}} organizações ativas. Desative uma ou faça upgrade para adicionar mais."
     },
     "form": {
       "nameLabel": "Nome",
@@ -29,7 +29,7 @@
       "typeManualOnly": "Apenas manuais",
       "typeAutoOnly": "Apenas auto-gerenciadas"
     },
-    "autoManagedNote": "Organizações auto-gerenciadas (Sophos) não podem ser desativadas em massa — use o fluxo do Partner para mexer nelas.",
+    "autoManagedNote": "Organizações auto-gerenciadas (Sophos) não saem em lote. Use o fluxo do Partner.",
     "bulkBar": {
       "contextLabel": "organização(ões)",
       "deactivateSelected": "Desativar selecionadas"
@@ -48,7 +48,7 @@
       "integrationCount": "{{count}} integração(ões)",
       "deleteAriaLabel": "Excluir {{name}}",
       "deleteAutoManagedTitle": "Organizations auto-gerenciadas só são removidas via desativação do Partner",
-      "moreResultsNotice": "Exibindo os primeiros {{pageSize}} — refine os filtros para ver mais."
+      "moreResultsNotice": "Exibindo os primeiros {{pageSize}}. Refine os filtros para ver mais."
     },
     "empty": {
       "filteredTitle": "Nenhuma organização para os filtros aplicados",
@@ -58,7 +58,7 @@
     },
     "bulkDeactivateModal": {
       "title": "Desativar {{count}} organização(ões)?",
-      "description": "Esta ação marca as organizações selecionadas como <strong>inativas</strong>. Integrações ligadas continuam existindo, mas a org some das listas padrão.",
+      "description": "Marca as selecionadas como <strong>inativas</strong>. As integrações continuam, mas a org sai das listas padrão.",
       "autoIgnoredNote": "Auto-gerenciadas e já-inativas são automaticamente ignoradas pelo servidor.",
       "confirmWord": "DESATIVAR",
       "confirmTextLabel": "Para confirmar >10 itens, digite {{expected}}",
@@ -153,7 +153,7 @@
     "usernameLabel": "Usuário (login)",
     "roleLabel": "Papel",
     "organizationLabel": "Organização",
-    "organizationNone": "Nenhuma (global — só admin)",
+    "organizationNone": "Nenhuma (global, só admin)",
     "organizationInactiveSuffix": " (inativa)",
     "organizationHelp": "Usuários não-admin só enxergam dados da própria organização. Admin é global.",
     "passwordLabel": "Senha",
@@ -178,7 +178,7 @@
     "title": "Editar dados do usuário",
     "displayNameLabel": "Nome de exibição",
     "organizationLabel": "Organização",
-    "organizationNone": "Nenhuma (global — só admin)",
+    "organizationNone": "Nenhuma (global, só admin)",
     "organizationInactiveSuffix": " (inativa)",
     "newPasswordLabel": "Nova senha",
     "newPasswordHelp": "Opcional. Preencha apenas para redefinir.",
@@ -204,11 +204,11 @@
     "roleOptions": {
       "viewer": {
         "label": "Viewer",
-        "description": "Apenas leitura — dashboards, alertas, inventário."
+        "description": "Apenas leitura: dashboards, alertas, inventário."
       },
       "operator": {
         "label": "Operator",
-        "description": "Operações de resposta — bloqueios, quarentena, drift."
+        "description": "Operações de resposta: bloqueios, quarentena, drift."
       },
       "engineer": {
         "label": "Engineer",
@@ -216,7 +216,7 @@
       },
       "admin": {
         "label": "Admin",
-        "description": "Acesso total — usuários, configuração, todas as ações."
+        "description": "Acesso total: usuários, configuração, todas as ações."
       }
     },
     "errors": {
@@ -235,8 +235,8 @@
   },
   "serviceAccounts": {
     "eyebrow": "Administração",
-    "title": "Service Accounts",
-    "description": "Service Accounts são identidades 'robô' sem cookie de sessão. Use para integrações que precisam de credencial estável e revogável independente de qualquer humano (cron jobs, IASOC worker, etc).",
+    "title": "Contas de serviço",
+    "description": "Identidades de máquina, sem sessão de navegador. Para credenciais estáveis que não dependem de ninguém.",
     "newServiceAccount": "Novo Service Account",
     "closeAriaLabel": "Fechar aviso",
     "listTitle": "Service Accounts",
@@ -286,7 +286,7 @@
       "descriptionLabel": "Descrição (opcional)",
       "descriptionPlaceholder": "Para que serve este SA?",
       "roleLabel": "Role",
-      "roleHelp": "Define o teto de permissões dos tokens vinculados a este SA. Princípio do menor privilégio: prefira <code>viewer</code> ou <code>operator</code>.",
+      "roleHelp": "Teto de permissão dos tokens deste SA. Prefira <code>viewer</code> ou <code>operator</code>.",
       "submit": "Criar Service Account",
       "submitting": "Criando…",
       "errors": {
@@ -298,9 +298,9 @@
       "title": "Editar {{name}}",
       "descriptionLabel": "Descrição",
       "roleLabel": "Role",
-      "roleHelp": "Mudar role redefine o teto de permissões dos tokens existentes — sem revogar.",
+      "roleHelp": "Muda o teto de permissão dos tokens existentes. Nenhum token é revogado.",
       "activeLabel": "Service Account ativo",
-      "deactivateWarning": "Desativar invalida todos os tokens deste SA imediatamente (próxima request retorna 401). Reativar não revive tokens já revogados — emita novos.",
+      "deactivateWarning": "Todos os tokens deste SA passam a receber 401 na hora. Reativar não revive token revogado: emita novos.",
       "submit": "Salvar",
       "submitting": "Salvando…",
       "errors": {
@@ -308,7 +308,7 @@
       }
     },
     "tokensModal": {
-      "title": "Tokens — {{name}}",
+      "title": "Tokens de {{name}}",
       "boundTokens": "Tokens vinculados a <strong>{{name}}</strong> (role {{role}}).",
       "newToken": "Novo token",
       "ariaLabel": "Tokens de {{name}}",
@@ -359,8 +359,8 @@
   },
   "tokens": {
     "eyebrow": "Sua conta",
-    "title": "Personal Access Tokens",
-    "description": "Use Personal Access Tokens (PATs) para autenticar integrações non-browser (scripts, CI, pipelines). Cada token herda suas permissões atuais e pode ser revogado a qualquer momento.",
+    "title": "Tokens de API",
+    "description": "Autenticam scripts, CI e pipelines. O token herda suas permissões e pode ser revogado a qualquer momento.",
     "newToken": "Novo token",
     "closeAriaLabel": "Fechar aviso",
     "listTitle": "Seus tokens",
@@ -397,13 +397,13 @@
     },
     "revokeDialog": {
       "title": "Revogar token",
-      "description": "Revogar o token \"{{name}}\"? Integrações que usam esse token vão começar a receber 401 imediatamente. Esta ação é registrada no audit log."
+      "description": "Revogar \"{{name}}\"? As integrações que o usam recebem 401 na hora. Fica registrado na auditoria."
     },
     "createModal": {
       "titleCreated": "Token criado",
       "titleNew": "Novo Personal Access Token",
       "copyNow": "Copie o token agora.",
-      "copyNowDescription": "Por motivos de segurança, este token <strong>não será exibido novamente</strong>. Se você perder, terá que revogar e criar um novo.",
+      "copyNowDescription": "Este token <strong>não será exibido de novo</strong>. Se perder, revogue e crie outro.",
       "tokenLabel": "Token",
       "copied": "Copiado",
       "copy": "Copiar",
@@ -411,10 +411,10 @@
       "closeToFinish": "Feche para concluir.",
       "nameLabel": "Nome",
       "namePlaceholder": "ex: ci-deploy-bot, monitoring-poller",
-      "nameHelp": "Use um nome que identifique onde o token vai rodar — ajuda na auditoria e na rotação.",
+      "nameHelp": "Diga onde o token vai rodar. Facilita a auditoria e a rotação.",
       "expiryLabel": "Expira em",
       "eternalWarningTitle": "Token sem expiração",
-      "eternalWarningDescription": " — recomendamos definir uma data. Tokens eternos são alvo preferencial em vazamentos históricos.",
+      "eternalWarningDescription": ". Defina uma data de expiração. Token eterno é alvo fácil em vazamento antigo.",
       "scopesLabel": "Permissões (scopes)",
       "submit": "Criar token",
       "submitting": "Criando…",

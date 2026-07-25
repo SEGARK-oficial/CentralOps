@@ -79,8 +79,8 @@ describe("RouteForm — render padrão", () => {
     await waitFor(() => expect(mockedApi.listDestinations).toHaveBeenCalled())
 
     expect(screen.getByText("Redução de volume")).toBeInTheDocument()
-    expect(screen.getByText(/REDUCTION_SAMPLE_ENABLED/)).toBeInTheDocument()
-    expect(screen.getByText(/REDUCTION_SUPPRESS_ENABLED/)).toBeInTheDocument()
+    expect(screen.getByText(/REDUCTION_\*_ENABLED/)).toBeInTheDocument()
+    expect(screen.getByText(/sample, suppress e trim/)).toBeInTheDocument()
   })
 
   // Regressão: até a ADR-0015 o aviso afirmava que as flags nasciam DESLIGADAS.
@@ -90,11 +90,11 @@ describe("RouteForm — render padrão", () => {
     render(<RouteForm mode="edit" route={ROUTE_BASE} onCancel={vi.fn()} onSubmit={vi.fn()} />)
     await waitFor(() => expect(mockedApi.listDestinations).toHaveBeenCalled())
 
-    const notice = screen.getByText(/REDUCTION_SAMPLE_ENABLED/)
-    expect(notice).toHaveTextContent(/LIGADAS por padrão/i)
-    expect(notice).toHaveTextContent(/sample_percent nasce em 100/i)
-    expect(notice).toHaveTextContent(/suppress_allow nasce em 0/i)
-    expect(notice.textContent ?? "").not.toMatch(/ambas desligadas por padrão/i)
+    const notice = screen.getByText(/REDUCTION_\*_ENABLED/)
+    expect(notice).toHaveTextContent(/já vêm LIGADAS/i)
+    expect(notice).toHaveTextContent(/sample_percent em 100/i)
+    expect(notice).toHaveTextContent(/suppress_allow em 0/i)
+    expect(notice.textContent ?? "").not.toMatch(/desligadas por padrão/i)
   })
 
   it("não mostra o fieldset de redução quando action='drop'", async () => {
@@ -132,7 +132,7 @@ describe("RouteForm — opt-out consciente de protect_detection", () => {
     // Ainda marcado — o estado só muda após confirmação explícita.
     expect(protectCheckbox).toBeChecked()
     expect(screen.getByText("Desligar proteção de detecção?")).toBeInTheDocument()
-    expect(screen.getByText(/decisão consciente de risco/i)).toBeInTheDocument()
+    expect(screen.getByText(/o que se perde não volta/i)).toBeInTheDocument()
   })
 
   it("cancelar o diálogo mantém a rota protegida", async () => {

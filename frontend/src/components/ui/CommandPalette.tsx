@@ -223,7 +223,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
           </span>
 
           {/* Input de busca */}
-          <div className="flex items-center gap-2 px-4 py-3 border-b border-border">
+          <div className="flex items-center gap-2 px-3 py-2.5 border-b border-border">
             <SearchIcon size={16} className="text-text-tertiary shrink-0" aria-hidden="true" />
             <input
               ref={inputRef}
@@ -266,7 +266,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
                 <li key={groupName} role="presentation">
                   {/* Cabeçalho do grupo */}
                   <div
-                    className="px-4 py-1.5 text-xs font-semibold text-text-tertiary uppercase tracking-wider"
+                    className="px-3 py-1.5 font-mono text-[11px] font-medium uppercase tracking-[0.14em] text-text-tertiary"
                     aria-hidden="true"
                   >
                     {groupName}
@@ -281,7 +281,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
                           role="option"
                           aria-selected={isActive}
                           className={cn(
-                            "flex items-center gap-3 mx-2 px-3 py-2 rounded-md text-sm cursor-pointer",
+                            "flex items-center gap-2.5 mx-2 px-3 py-1.5 rounded-md text-sm cursor-pointer",
                             "text-text transition-colors",
                             isActive
                               ? "bg-primary-50 text-primary-700"
@@ -307,7 +307,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
           </ul>
 
           {/* Rodapé — dicas de teclado */}
-          <div className="flex items-center gap-4 px-4 py-2 border-t border-border text-xs text-text-tertiary">
+          <div className="flex items-center gap-4 px-3 py-1.5 border-t border-border text-xs text-text-tertiary">
             <span className="flex items-center gap-1">
               <kbd className="font-mono border border-border rounded px-1 py-0.5">↑↓</kbd>
               {t("commandPalette.footer.navigate")}

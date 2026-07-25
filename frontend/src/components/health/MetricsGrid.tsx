@@ -37,10 +37,10 @@ interface MetricCardProps {
 }
 
 const MetricCard: React.FC<MetricCardProps> = ({ label, value, testId, hint, footer }) => (
-  <Card padding="sm" className="shadow-sm" data-testid={testId}>
-    <div className="text-xs font-semibold uppercase tracking-wider text-text-tertiary">{label}</div>
-    <div className="mt-2 text-lg font-semibold text-text">{value}</div>
-    {hint && <div className="mt-1 text-xs text-text-secondary">{hint}</div>}
+  <Card padding="sm" data-testid={testId}>
+    <div className="font-mono text-[11px] uppercase tracking-[0.1em] text-text-tertiary">{label}</div>
+    <div className="mt-2 font-display text-2xl leading-none text-text">{value}</div>
+    {hint && <div className="mt-1.5 text-xs text-text-tertiary">{hint}</div>}
     {footer && <div className="mt-1.5">{footer}</div>}
   </Card>
 )

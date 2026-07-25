@@ -360,7 +360,7 @@ describe("CapturePanel", () => {
     render(<CapturePanel />)
 
     await waitFor(() =>
-      expect(screen.getByText("Sessão ativa — aguardando eventos")).toBeInTheDocument(),
+      expect(screen.getByText("Sessão ativa, aguardando eventos")).toBeInTheDocument(),
     )
     // O "porquê": captura reflete o pipeline + coletores rodam em ciclos.
     expect(screen.getByText(/a captura registra o que o pipeline processa/i)).toBeInTheDocument()
@@ -383,7 +383,7 @@ describe("CapturePanel", () => {
     render(<CapturePanel />)
 
     await waitFor(() =>
-      expect(screen.getByText(/já contabilizou 5 evento/i)).toBeInTheDocument(),
+      expect(screen.getByText(/já contou 5 evento/i)).toBeInTheDocument(),
     )
   })
 

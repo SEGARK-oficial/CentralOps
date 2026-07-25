@@ -263,11 +263,13 @@ describe("DestinationsPage — filtros", () => {
 
     await waitFor(() => {
       expect(screen.getByText(/Nenhum destino encontrado/i)).toBeInTheDocument()
-      expect(screen.getByText(/Limpar filtros/i)).toBeInTheDocument()
+      // Dois botões: o da toolbar e o do EmptyState. Fazem a MESMA coisa, logo
+      // levam o mesmo nome — a ação mantém o rótulo no fluxo inteiro.
+      expect(screen.getAllByText(/Limpar filtros/i).length).toBeGreaterThanOrEqual(1)
     })
   })
 
-  it("botão Resetar fica visível quando há filtro ativo", async () => {
+  it("botão de limpar filtros fica visível quando há filtro ativo", async () => {
     renderPage()
     await waitFor(() => expect(screen.getByText("Splunk HEC Prod")).toBeInTheDocument())
 
@@ -277,7 +279,8 @@ describe("DestinationsPage — filtros", () => {
     fireEvent.click(option)
 
     await waitFor(() => {
-      expect(screen.getByText("Resetar")).toBeInTheDocument()
+      // O rótulo diz o que acontece, não o que o sistema faz internamente.
+      expect(screen.getByText("Limpar filtros")).toBeInTheDocument()
     })
   })
 })

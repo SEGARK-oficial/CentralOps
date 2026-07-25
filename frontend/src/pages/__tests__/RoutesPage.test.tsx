@@ -503,7 +503,7 @@ describe("RoutesPage — proteção da rota de sistema", () => {
       expect(screen.getByTestId(`route-card-${SYSTEM_ROUTE_ID}`)).toBeInTheDocument()
     })
     const grip = screen.getByRole("button", {
-      name: /Rota de sistema — não pode ser reordenada/i,
+      name: /Rota de sistema, não reordenável/i,
     })
     expect(grip).toBeDisabled()
   })

@@ -90,22 +90,25 @@ export const Modal: React.FC<ModalProps> = ({
         escapam. `loop` faz o foco circular do último para o primeiro elemento.
       */}
       <FocusScope trapped loop>
+        {/* Modal flutua de verdade, então é um dos dois lugares onde a sombra
+            entra. A hairline vem junto: no ground escuro é ela que desenha a
+            aresta que a sombra não consegue. */}
         <div
           className={cn(
-            "w-full bg-surface rounded-lg shadow-xl animate-slide-up max-h-[90vh] flex flex-col",
+            "w-full bg-surface border border-border-hover rounded-lg shadow-xl animate-slide-up max-h-[90vh] flex flex-col",
             sizeMap[size],
           )}
           tabIndex={-1}
         >
           {title && (
-            <div className="flex items-center justify-between px-6 py-4 border-b border-border">
-              <h2 id={titleId} className="text-lg font-semibold text-text">{title}</h2>
+            <div className="flex items-center justify-between gap-4 px-5 py-3 border-b border-border">
+              <h2 id={titleId} className="text-base font-semibold text-text">{title}</h2>
               <Button variant="ghost" size="xs" onClick={onClose} aria-label={t("modal.closeAriaLabel")}>
-                <XIcon size={18} />
+                <XIcon size={16} />
               </Button>
             </div>
           )}
-          <div className="flex-1 overflow-y-auto p-6">{children}</div>
+          <div className="flex-1 overflow-y-auto p-5">{children}</div>
         </div>
       </FocusScope>
     </div>,

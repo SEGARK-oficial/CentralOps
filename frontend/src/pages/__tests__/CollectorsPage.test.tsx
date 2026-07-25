@@ -105,8 +105,8 @@ describe("CollectorsPage", () => {
       </MemoryRouter>,
     )
 
-    // Cabeçalho (RF: título "Collectors" no PageHeader)
-    expect(screen.getByText("Collectors")).toBeInTheDocument()
+    // Cabeçalho: o H1 segue o rótulo do menu ("Coletores"), não o nome interno.
+    expect(screen.getByRole("heading", { name: "Coletores" })).toBeInTheDocument()
 
     // KPIs vêm depois do fetch
     await waitFor(() =>

@@ -1,31 +1,26 @@
 {
   "dashboardPage": {
-    "eyebrow": "Overview",
     "title": "Dashboard",
-    "description": "Pipeline throughput and source health first; then actionable rankings of sources, destinations, quarantine, and routes.",
     "loading": "Loading dashboard...",
     "updating": "Updating...",
     "loadError": "Failed to load dashboard",
     "empty": {
       "title": "No data to display",
-      "description": "No summary available for the current scope. Adjust the global filter or try refreshing."
+      "description": "Adjust the global filter or refresh."
     },
     "scope": {
       "title": "Current scope",
-      "description": "The dashboard uses the application's global filter. Adjust client, platform, or integration in the top bar.",
       "client": "Client: {{value}}",
       "platform": "Platform: {{value}}",
       "integration": "Integration: {{value}}",
-      "counts": "Scope: {{orgs}} client(s) · {{integrations}} integration(s) ({{active}} active)",
-      "generatedAt": "Data generated: {{time}} ({{relative}})",
+      "counts": "{{orgs}} clients · {{integrations}} integrations · {{active}} active",
+      "generatedAt": "{{time}} · {{relative}}",
       "clear": "Clear scope",
       "allOrganizations": "All",
       "allPlatforms": "All",
       "allIntegrations": "All"
     },
     "timeWindow": {
-      "title": "Time window",
-      "description": "The window below adjusts the metrics and rankings shown on the dashboard.",
       "label": "Window",
       "options": {
         "24h": "24 hours",
@@ -35,11 +30,16 @@
     },
     "sourcesHealth": {
       "title": "Sources & health",
-      "description": "Degraded environments and the distribution of integrations by platform.",
-      "noDegraded": "No degraded environments in this scope.",
+      "noDegraded": "No degraded sources.",
       "noDetail": "No detailed message",
       "unnamedClient": "Client {{id}}",
-      "byPlatform": "Integrations by platform"
+      "byPlatform": "Integrations by platform",
+      "status": {
+        "degraded": "Degraded",
+        "error": "Error",
+        "unhealthy": "Unavailable",
+        "unknown": "Awaiting collection"
+      }
     },
     "dates": {
       "noData": "No data",
@@ -49,20 +49,32 @@
       "minutesAgo": "{{count}} min ago",
       "hoursAgo": "{{count}} h ago",
       "daysAgo": "{{count}} d ago"
+    },
+    "kpi": {
+      "severity": {
+        "warn": "attention",
+        "critical": "critical"
+      },
+      "gridAriaLabel": "Pipeline indicators",
+      "cardAriaLabel": "{{label}}: {{value}}",
+      "trendAriaLabel": "Trend {{trend}} {{value}}"
+    },
+    "buckets": {
+      "empty": "No data in this window."
     }
   },
   "flowPage": {
     "title": "Data flow",
-    "description": "From ingestion to delivery — sources, routing, and destinations with live throughput (60-minute window).",
+    "description": "From ingestion to delivery: sources, routing and destinations with live throughput (60 min).",
     "liveFeed": "Live feed",
     "loadError": "Failed to load the flow.",
     "notLoaded": "Couldn't load",
     "empty": {
       "title": "No flow to display",
-      "description": "Set up integrations (sources), routes, and destinations to see the platform's data flow."
+      "description": "Create integrations, routes and destinations to see the flow."
     },
     "stats": {
-      "ingest": "Ingest",
+      "ingest": "Collected",
       "routed": "Routed",
       "dropped": "Dropped",
       "delivered": "Delivered",
@@ -73,16 +85,15 @@
       "healthy": "healthy",
       "degraded": "degraded",
       "unavailable": "unavailable",
-      "legend": "width/speed ∝ throughput · scroll=zoom · drag=pan"
+      "legend": "width ∝ volume · scroll = zoom · drag = pan"
     }
   },
   "pipelineHealthPage": {
-    "title": "Pipeline Health",
+    "title": "Pipeline health",
     "loadError": "Failed to load",
     "loadHealthError": "Failed to load health data.",
     "loading": "Loading...",
     "updatedAt": "Updated at {{time}}",
-    "summary": "{{healthy}} healthy · {{degraded}} degraded · {{unhealthy}} unavailable · {{unknown}} awaiting collection",
     "filters": {
       "groupLabel": "Filter by status",
       "all": "All ({{count}})",
@@ -91,14 +102,14 @@
     },
     "empty": {
       "title": "No integration found",
-      "description": "No integration matches the selected filter. Adjust the filter to see other integrations."
+      "description": "Adjust the filter to see other integrations."
     },
     "card": {
       "eventsPerMinute": "Events/min",
       "lastCollection": "Last collection",
       "lastCollectionTitle": "When the collector last ran.",
       "dataLag": "Data lag",
-      "dataLagTitle": "How old the newest event already collected is. This is the one that exposes a lagging collector — the last collection may have just finished and still be processing yesterday.",
+      "dataLagTitle": "Age of the newest collected event. Exposes a collector that runs now, processes yesterday.",
       "backlog": "Backlog",
       "backlogTitle": "The last cycle stopped at the page cap: work was left for the next one.",
       "drift24h": "Drift (24h)",
@@ -115,15 +126,16 @@
       "healthy": "Healthy",
       "degraded": "Degraded",
       "unhealthy": "Unavailable",
-      "unknown": "Awaiting first collection"
+      "disabled": "Disabled",
+      "unknown": "Awaiting collection"
     },
     "statusCard": {
-      "title": "Pipeline Status",
+      "title": "Pipeline status",
       "description": {
-        "healthy": "The normalization pipeline is operating normally.",
-        "degraded": "The pipeline is running with degradation. Check recent errors.",
-        "unhealthy": "The pipeline is unavailable. Immediate action recommended.",
-        "unknown": "No collection has been performed yet. Awaiting first run."
+        "healthy": "Normalization running without errors.",
+        "degraded": "Running degraded. Check the recent errors.",
+        "unhealthy": "Pipeline is down. Check the collector now.",
+        "unknown": "No collection yet. Waiting for the first run."
       },
       "statusAriaLabel": "Status: {{status}}"
     },
@@ -154,7 +166,7 @@
       "title": "Last recorded error"
     },
     "mappedFieldRatio": {
-      "title": "Field Coverage",
+      "title": "Field coverage",
       "notCalculable": "Coverage not calculable (no mapping configured)",
       "mappedFields": "mapped fields",
       "ariaLabel": "Field coverage: {{percentage}}%"
@@ -163,7 +175,7 @@
       "ariaLabel": "Integration health metrics",
       "noDetailedMetrics": "This integration doesn't publish detailed metrics",
       "lastCollection": "Last collection {{relative}}",
-      "awaitingFirstCollection": "Awaiting first collection — within 5 minutes",
+      "awaitingFirstCollection": "Awaiting first collection, within 5 minutes",
       "severity": {
         "ok": "ok",
         "warn": "attention",
@@ -195,8 +207,8 @@
       "summaryMixed": "{{okCount}} healthy, {{nonOkCount}} needing attention"
     },
     "integrationPanel": {
-      "title": "Normalization Pipeline Health",
-      "updatedSecondsAgo": "Metrics updated {{seconds}}s ago — data cached for 60s",
+      "title": "Normalization pipeline health",
+      "updatedSecondsAgo": "Metrics from {{seconds}}s ago, 60s cache",
       "loadError": "Failed to load health data",
       "loading": "Loading metrics...",
       "refresh": "Refresh",
@@ -216,9 +228,9 @@
       "destinationAriaLabel": "Destination {{name}}",
       "metricsAriaLabel": "Destination metrics",
       "breaker": {
-        "closed": "Circuit closed",
-        "open": "Circuit open",
-        "halfOpen": "Half-open",
+        "closed": "Closed",
+        "open": "Open",
+        "halfOpen": "Half open",
         "ariaLabel": "Circuit breaker: {{label}}"
       }
     }
@@ -300,13 +312,13 @@
       "estimatedSavings": "Estimated savings",
       "perDay": "/ day",
       "enablePricing": "Enable US$ calculation (savings/ROI) with the Enterprise edition + per-GB pricing on the destination.",
-      "pricingUnconfigured": "Per-GB price not set on the destination — without it currency savings cannot be computed and stay at zero.",
+      "pricingUnconfigured": "The destination has no per-GB price. Without it currency savings stay at zero.",
       "unitRaw": "raw event, 1× per event",
       "unitEnvelope": "envelope, per delivery",
-      "unitMixed": "mixed bases — see breakdown",
+      "unitMixed": "mixed bases, see breakdown",
       "reductionBasis": "over delivered + avoided",
       "byReason": "By cause:",
-      "unitMismatch": "Avoided exceeds Collected because the metrics use different measurement bases (raw × envelope, per event × per delivery) — this is not double counting. Treat the numbers as an approximation until the bases are unified.",
+      "unitMismatch": "Avoided exceeds Collected because the bases differ: raw × envelope, event × delivery. Not double counting.",
       "reasons": {
         "trim": "trim",
         "sample": "sampling",

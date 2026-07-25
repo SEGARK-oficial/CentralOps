@@ -1,26 +1,36 @@
 /**
  * Testes de severity.ts (Fase 4 / C5)
- * Cobre: healthEncoding, alertEncoding, pipelineEncoding, StatusBadge.
+ * Cobre: healthEncoding, StatusBadge.
+ *
+ * ALERT_MAP e PIPELINE_MAP sairam do modulo: nao tinham call site e o
+ * PIPELINE_MAP ainda guardava o encoding antigo (route=violeta, drop=vermelhao),
+ * contradizendo o FlowCanvas. Os testes deles foram junto.
  */
 
 import { describe, it, expect } from "vitest"
-import {
-  healthEncoding,
-  alertEncoding,
-  pipelineEncoding,
-  HEALTH_MAP,
-  ALERT_MAP,
-  PIPELINE_MAP,
-  StatusBadge,
-} from "@/lib/severity"
+import { healthEncoding, HEALTH_MAP, StatusBadge } from "@/lib/severity"
 
 // ── healthEncoding ──────────────────────────────────────────────────────────
 
 describe("healthEncoding", () => {
-  it("healthy → badgeVariant success e label 'Saudável'", () => {
+  it("healthy → badgeVariant neutro (mesma leitura de HealthBadge/FlowCanvas)", () => {
     const enc = healthEncoding("healthy")
-    expect(enc.badgeVariant).toBe("success")
-    expect(enc.label).toBe("Saudável") // acento correto
+    expect(enc.badgeVariant).toBe("default")
+    // Nenhum token de matiz: saudável não pode sair teal em /destinations e
+    // cinza em /pipeline-health.
+    expect(enc.colorToken).not.toMatch(/success|warning|danger|primary/)
+    expect(enc.bgToken).not.toMatch(/success|warning|danger|primary/)
+  })
+
+  it("healthy reusa a chave do HealthBadge (as duas telas leem o mesmo texto)", () => {
+    expect(healthEncoding("healthy").labelKey).toBe("health.badge.healthy")
+    expect(healthEncoding("down").labelKey).toBe("health.badge.unhealthy")
+  })
+
+  it("nenhum nível carrega texto fixo no lugar da chave i18n", () => {
+    for (const enc of Object.values(HEALTH_MAP)) {
+      expect(enc.labelKey).toMatch(/^[a-z][\w.]*\.[\w]+$/)
+    }
   })
 
   it("degraded → badgeVariant warning", () => {
@@ -36,7 +46,25 @@ describe("healthEncoding", () => {
   })
 
   it("case-insensitive: 'Healthy' resolve igual a 'healthy'", () => {
-    expect(healthEncoding("Healthy").label).toBe(healthEncoding("healthy").label)
+    expect(healthEncoding("Healthy").labelKey).toBe(healthEncoding("healthy").labelKey)
+  })
+
+  it("'unhealthy' do contrato de destino resolve igual a 'down'", () => {
+    // Sem o alias caía no fallback: destino fora do ar saía "Aguardando coleta"
+    // em /destinations e "Indisponível" em /pipeline-health.
+    expect(healthEncoding("unhealthy")).toEqual(healthEncoding("down"))
+    expect(healthEncoding("unhealthy").badgeVariant).toBe("danger")
+  })
+
+  it("'disabled' é estado próprio e neutro, não 'down'", () => {
+    // Colapsar disabled em down acendia vermelhão e dizia "Indisponível" para um
+    // destino que o operador tinha acabado de desligar.
+    const enc = healthEncoding("disabled")
+    expect(enc.badgeVariant).toBe("outline")
+    expect(enc.labelKey).toBe("health.badge.disabled")
+    expect(enc.labelKey).not.toBe(healthEncoding("down").labelKey)
+    expect(enc.colorToken).not.toMatch(/success|warning|danger|primary/)
+    expect(enc.bgToken).not.toMatch(/success|warning|danger|primary/)
   })
 
   it("valor desconhecido → fallback unknown", () => {
@@ -65,81 +93,6 @@ describe("healthEncoding", () => {
   })
 })
 
-// ── alertEncoding ────────────────────────────────────────────────────────────
-
-describe("alertEncoding", () => {
-  it("ok → success", () => {
-    expect(alertEncoding("ok").badgeVariant).toBe("success")
-  })
-
-  it("warn → warning", () => {
-    expect(alertEncoding("warn").badgeVariant).toBe("warning")
-  })
-
-  it("error → danger", () => {
-    expect(alertEncoding("error").badgeVariant).toBe("danger")
-  })
-
-  it("critical → danger + label 'Crítico'", () => {
-    const enc = alertEncoding("critical")
-    expect(enc.badgeVariant).toBe("danger")
-    expect(enc.label).toBe("Crítico")
-  })
-
-  it("valor desconhecido → fallback error (danger)", () => {
-    expect(alertEncoding("unknown_level").badgeVariant).toBe("danger")
-  })
-
-  it("cada nível tem colorToken que começa com 'text-'", () => {
-    for (const enc of Object.values(ALERT_MAP)) {
-      expect(enc.colorToken).toMatch(/^text-/)
-    }
-  })
-
-  it("cada nível tem bgToken que começa com 'bg-'", () => {
-    for (const enc of Object.values(ALERT_MAP)) {
-      expect(enc.bgToken).toMatch(/^bg-/)
-    }
-  })
-})
-
-// ── pipelineEncoding ─────────────────────────────────────────────────────────
-
-describe("pipelineEncoding", () => {
-  it("route → primary", () => {
-    expect(pipelineEncoding("route").badgeVariant).toBe("primary")
-  })
-
-  it("drop → danger (não primary/azul — colorblind-safe)", () => {
-    const enc = pipelineEncoding("drop")
-    expect(enc.badgeVariant).toBe("danger")
-    // label nunca é igual ao de 'route' — diferenciação semântica
-    expect(enc.label).not.toBe(pipelineEncoding("route").label)
-  })
-
-  it("quarantine → warning", () => {
-    expect(pipelineEncoding("quarantine").badgeVariant).toBe("warning")
-  })
-
-  it("unknown → outline", () => {
-    expect(pipelineEncoding("unknown").badgeVariant).toBe("outline")
-  })
-
-  it("null → fallback unknown", () => {
-    expect(pipelineEncoding(null).badgeVariant).toBe("outline")
-  })
-
-  it("todos os statuses têm Icon ≠ undefined", () => {
-    for (const enc of Object.values(PIPELINE_MAP)) {
-      expect(enc.Icon).toBeDefined()
-    }
-  })
-
-  it("drop e route têm Icons diferentes (canal visual independente)", () => {
-    expect(pipelineEncoding("drop").iconName).not.toBe(pipelineEncoding("route").iconName)
-  })
-})
-
 // ── StatusBadge (componente) ─────────────────────────────────────────────────
 // Testamos apenas a forma (não renderizamos DOM aqui para manter como test puro .ts)
 
@@ -154,7 +107,7 @@ describe("StatusBadge export", () => {
     expect(enc).toHaveProperty("Icon")
     expect(enc).toHaveProperty("colorToken")
     expect(enc).toHaveProperty("bgToken")
-    expect(enc).toHaveProperty("label")
+    expect(enc).toHaveProperty("labelKey")
     expect(enc).toHaveProperty("badgeVariant")
     expect(enc).toHaveProperty("iconName")
   })

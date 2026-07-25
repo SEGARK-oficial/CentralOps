@@ -20,9 +20,14 @@ const checkboxVariants = cva(
         md: "h-5 w-5",
       },
       state: {
-        unchecked: "border-border bg-surface hover:border-border-hover",
-        checked: "border-primary-600 bg-primary-600 text-white",
-        indeterminate: "border-primary-600 bg-primary-600 text-white",
+        // Caixa vazia é limite de CONTROLE: `border-field` (3:1, WCAG 1.4.11).
+        // A hairline de 9% media 1.30:1 e sumia ao lado do Input.
+        // O hover NÃO mexe mais na borda: `border-hover` (16%) é mais FRACO que
+        // `border-field` (34%), então escurecia o limite no hover. A afordância
+        // passou para o fundo, que não tem esse compromisso.
+        unchecked: "border-border-field bg-surface hover:bg-surface-hover",
+        checked: "border-primary-600 bg-primary-600 text-text-inverse",
+        indeterminate: "border-primary-600 bg-primary-600 text-text-inverse",
         disabled: "border-border bg-surface-tertiary cursor-not-allowed opacity-60",
       },
     },

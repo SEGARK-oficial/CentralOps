@@ -338,7 +338,7 @@ describe("ArrayBuilderEditor — campos de nível de regra", () => {
     const onChange = vi.fn()
     renderEditor(EMPTY_RULE, onChange)
 
-    const skipNullCheckbox = screen.getByLabelText(/skip_null — omitir/i)
+    const skipNullCheckbox = screen.getByLabelText(/skip_null: omitir/i)
     fireEvent.click(skipNullCheckbox)
 
     const updatedRule = onChange.mock.calls[0][1] as ArrayBuilderRule

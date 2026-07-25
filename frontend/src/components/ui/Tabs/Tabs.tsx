@@ -60,7 +60,7 @@ export const Tabs: React.FC<TabsProps> = ({ value, onValueChange, children, clas
   )
   return (
     <TabsContext.Provider value={ctx}>
-      <div className={cn("flex flex-col gap-4", className)}>{children}</div>
+      <div className={cn("flex flex-col gap-3", className)}>{children}</div>
     </TabsContext.Provider>
   )
 }
@@ -161,7 +161,7 @@ export const TabsTrigger: React.FC<TabsTriggerProps> = ({
       onClick={() => !disabled && ctx.onValueChange(value)}
       className={cn(
         // focus-ring: estratégia única de foco do design system.
-        "inline-flex items-center gap-2 border-b-2 px-4 py-2.5 text-sm font-medium transition-colors focus-ring",
+        "inline-flex items-center gap-2 border-b-2 px-3 py-2 text-sm font-medium transition-colors focus-ring",
         "-mb-px", // alinha a border-b do trigger sobre a border-b do TabsList
         selected
           ? "border-primary-600 text-primary-700"

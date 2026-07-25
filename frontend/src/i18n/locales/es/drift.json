@@ -1,7 +1,7 @@
 {
   "explorer": {
     "eyebrow": "Normalización",
-    "title": "Drift Explorer",
+    "title": "Drift",
     "description": "Campos del raw que ningún mapping consume",
     "loadError": "Error al cargar los datos de drift",
     "loading": "Cargando datos de drift...",
@@ -19,7 +19,7 @@
     "cardAria_other": "{{count}} campos {{label}}",
     "cardAriaError": "{{label}}: error al cargar",
     "loadError": "No se pudieron cargar los contadores",
-    "loadErrorBody": "Los totales por estado no pudieron cargarse. Los valores mostrados pueden ser incorrectos — esto no significa que no haya drift."
+    "loadErrorBody": "Los totales por estado no cargaron. Los valores pueden estar mal; puede haber drift."
   },
   "filters": {
     "status": {
@@ -38,8 +38,8 @@
     "eventTypeAriaLabel": "Filtrar por tipo de evento",
     "statusLabel": "Estado",
     "statusGroupAriaLabel": "Filtrar por estado",
-    "resetAriaLabel": "Restablecer filtros",
-    "reset": "Restablecer filtros"
+    "resetAriaLabel": "Limpiar filtros",
+    "reset": "Limpiar filtros"
   },
   "bulkBar": {
     "ignore": "Ignorar",
@@ -79,7 +79,7 @@
       "hoursAgo": "hace {{count}}h",
       "daysAgo": "hace {{count}}d"
     },
-    "emptyValue": "—",
+    "emptyValue": "n/d",
     "loadingRules": "Cargando reglas...",
     "loadingRulesShort": "…",
     "noRulesConsume": "Ninguna regla consume este campo",
@@ -177,7 +177,7 @@
         "hoursAgo": "hace {{count}}h",
         "daysAgo": "hace {{count}}d"
       },
-      "emptyValue": "—",
+      "emptyValue": "n/d",
       "columns": {
         "select": "Seleccionar todas las filas visibles",
         "selectRow": "Seleccionar entrada {{id}}",
@@ -215,7 +215,7 @@
         "discardDescription": "La entrada de cuarentena para \"{{vendor}}{{eventTypeSuffix}}\" se descartará permanentemente.",
         "discardLabel": "Descartar",
         "reprocessTitle": "¿Reprocesar evento?",
-        "reprocessDescription": "El evento será revalidado contra el mapping actual. Si la normalización tiene éxito, se enviará a Wazuh. De lo contrario, permanecerá en cuarentena con un nuevo error.",
+        "reprocessDescription": "Revalida contra el mapping actual. Si normaliza, va a Wazuh; si no, sigue en cuarentena.",
         "reprocessLabel": "Reprocesar"
       }
     }

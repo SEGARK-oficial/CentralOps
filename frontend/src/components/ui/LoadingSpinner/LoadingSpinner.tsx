@@ -23,7 +23,9 @@ export const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({ size = "md", cla
       aria-live="polite"
       aria-busy="true"
     >
-      <svg className={cn("animate-spin text-primary-500", sizeMap[size])} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      {/* Neutro de propósito: esperar não é um estágio nem um alarme. Cor aqui
+          gastaria o canal que precisa sobrar para o âmbar e o vermelhão. */}
+      <svg className={cn("animate-spin text-text-tertiary", sizeMap[size])} viewBox="0 0 24 24" fill="none" aria-hidden="true">
         <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" className="opacity-25" />
         <path
           d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"

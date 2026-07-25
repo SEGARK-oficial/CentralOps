@@ -96,20 +96,57 @@ interface Edge {
 }
 
 // ── Color maps ────────────────────────────────────────────────────────────
-const STATUS_COLOR: Record<FlowNodeStatus | "drop" | "system", NodeColor> = {
-  healthy: { fill: "var(--color-success-50)", stroke: "var(--color-success-500)", text: "var(--color-success-700)", dot: "var(--color-success-500)", ribbon: "var(--color-success-500)" },
+// Nó saudável é NEUTRO. Pintar de teal tudo o que está em ordem gasta o canal
+// de alarme: num grafo com 30 nós saudáveis e um degradado, o degradado tem de
+// ser a única coisa colorida da coluna. Matiz aqui só sai por exceção.
+const NEUTRAL_NODE: NodeColor = {
+  fill: "var(--color-surface-tertiary)",
+  stroke: "var(--color-border-strong)",
+  text: "var(--color-text)",
+  dot: "var(--color-text-tertiary)",
+  ribbon: "var(--color-text-tertiary)",
+}
+
+const STATUS_COLOR: Record<FlowNodeStatus | "system", NodeColor> = {
+  healthy: NEUTRAL_NODE,
   degraded: { fill: "var(--color-warning-50)", stroke: "var(--color-warning-500)", text: "var(--color-warning-700)", dot: "var(--color-warning-500)", ribbon: "var(--color-warning-500)" },
   unhealthy: { fill: "var(--color-danger-50)", stroke: "var(--color-danger-500)", text: "var(--color-danger-700)", dot: "var(--color-danger-500)", ribbon: "var(--color-danger-500)" },
   unknown: { fill: "var(--color-surface-secondary)", stroke: "var(--color-border)", text: "var(--color-text-secondary)", dot: "var(--color-text-tertiary)", ribbon: "var(--color-text-tertiary)" },
-  drop: { fill: "var(--color-danger-50)", stroke: "var(--color-danger-500)", text: "var(--color-danger-700)", dot: "var(--color-danger-500)", ribbon: "var(--color-danger-500)" },
   system: { fill: "var(--color-surface-secondary)", stroke: "var(--color-border)", text: "var(--color-text-secondary)", dot: "var(--color-text-tertiary)", ribbon: "var(--color-text-tertiary)" },
 }
 
-const ROUTE_COLOR: NodeColor = { fill: "var(--color-primary-50)", stroke: "var(--color-primary-500)", text: "var(--color-primary-700)", dot: "var(--color-primary-500)", ribbon: "var(--color-primary-500)" }
+// A rota é o único nó com matiz permanente: ela É o estágio de roteamento, e é
+// onde o operador escolhe o que acontece com o dado. Logo, ciano: a mesma matiz
+// do KPI ROTEADOS e do cabeçalho da coluna. Violeta aqui dizia "normalizado"
+// numa coluna que não normaliza nada.
+// Ciano não tem escala de estado (não existe `--color-*-50` ciano). O sistema já
+// resolve isso no Badge com `bg-stage-route/15`; o preenchimento abaixo é o que
+// o Tailwind v4 gera para essa classe, então as duas superfícies casam.
+const CYAN_FILL = "var(--color-stage-route-50)"
+const ROUTE_COLOR: NodeColor = { fill: CYAN_FILL, stroke: "var(--color-stage-route)", text: "var(--color-stage-route)", dot: "var(--color-stage-route)", ribbon: "var(--color-stage-route)" }
+
+// Descarte CONFIGURADO é redução, não falha: é o estágio em que a conta cai, e
+// teal é a matiz desse estágio (success-500 ≡ --color-stage-reduce). Pintar de
+// vermelhão uma regra que o operador escreveu de propósito queima o canal de
+// alarme e contradiz o card DESCARTADO da mesma página, que já é teal.
+const DROP_COLOR: NodeColor = { fill: "var(--color-success-50)", stroke: "var(--color-success-500)", text: "var(--color-success-700)", dot: "var(--color-success-500)", ribbon: "var(--color-success-500)" }
+
+// Matiz do cabeçalho de coluna = estágio do pipeline. É o que dispensa legenda.
+// Destino NÃO é estágio: é o ponto de chegada, e o que ele tem a dizer é saúde,
+// canal que os próprios nós já usam. Cabeçalho neutro, então. Ciano fica
+// reservado ao trânsito, que é o que a coluna do meio faz.
+const COLUMN_HUE: Record<ColKind, string> = {
+  source: "var(--color-stage-collect)",
+  route: "var(--color-stage-route)",
+  dest: "var(--color-text-secondary)",
+}
 
 function routeColorOf(action: string, enabled: boolean): NodeColor {
+  // Rota desligada fica NEUTRA (e já carrega a tag OFF). Desabilitar é
+  // configuração, não incidente: vermelhão continua reservado a nó doente e a
+  // detecção disparada, senão toda rota parada vira alarme falso na varredura.
   if (!enabled) return STATUS_COLOR.unknown
-  if (action === "drop") return STATUS_COLOR.drop
+  if (action === "drop") return DROP_COLOR
   return ROUTE_COLOR
 }
 
@@ -141,7 +178,7 @@ function particleCount(rate: number, maxRate: number): number {
 }
 /**
  * Id de gradiente por PAR DE CORES (não por aresta). As cores das fitas vêm de um
- * conjunto pequeno e fixo de tokens (STATUS_COLOR + ROUTE_COLOR) — dezenas/centenas
+ * conjunto pequeno e fixo de tokens (STATUS_COLOR + ROUTE_COLOR + DROP_COLOR) — dezenas/centenas
  * de arestas colapsam em ≤ ~49 gradientes únicos no `<defs>`. Sanitiza as CSS vars
  * p/ um id SVG válido e estável.
  */
@@ -539,18 +576,24 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({ data, onSelectNode, clas
               <stop offset="100%" stopColor={g.to} />
             </linearGradient>
           ))}
-          <filter id="flow-node-shadow" x="-20%" y="-30%" width="140%" height="160%">
-            <feDropShadow dx="0" dy="1" stdDeviation="2" floodColor="#0f172a" floodOpacity="0.18" />
-          </filter>
         </defs>
 
         <g transform={`translate(${transform.tx} ${transform.ty}) scale(${transform.scale})`}>
           {([
-            [t("flow.canvas.columns.sources"), COL.source, sourceNodes.length],
-            [t("flow.canvas.columns.routing"), COL.route, routeNodes.length],
-            [t("flow.canvas.columns.destinations"), COL.dest, destNodes.length],
-          ] as [string, number, number][]).map(([label, x, count]) => (
-            <text key={label} x={x + 4} y={18} fontSize="10" fontWeight="700" letterSpacing="0.09em" fill="var(--color-text-tertiary)">
+            [t("flow.canvas.columns.sources"), COL.source, sourceNodes.length, "source"],
+            [t("flow.canvas.columns.routing"), COL.route, routeNodes.length, "route"],
+            [t("flow.canvas.columns.destinations"), COL.dest, destNodes.length, "dest"],
+          ] as [string, number, number, ColKind][]).map(([label, x, count, kind]) => (
+            <text
+              key={label}
+              x={x + 4}
+              y={18}
+              fontFamily="var(--font-mono)"
+              fontSize="10"
+              fontWeight="600"
+              letterSpacing="0.14em"
+              fill={COLUMN_HUE[kind]}
+            >
               {label.toUpperCase()} · {count}
             </text>
           ))}
@@ -652,7 +695,6 @@ const NodeVisual = memo(function NodeVisual({ x, node }: { x: number; node: LNod
         stroke={color.stroke}
         strokeWidth="1.5"
         strokeDasharray={isOverflow ? "5 4" : undefined}
-        filter="url(#flow-node-shadow)"
       />
       {!isOverflow && <rect x={x} y={top} width={3.5} height={h} rx={2} fill={color.dot} />}
 
@@ -669,7 +711,15 @@ const NodeVisual = memo(function NodeVisual({ x, node }: { x: number; node: LNod
       <text x={textX} y={cy - (h > NODE_H_BASE ? 6 : 4)} fontSize="11.5" fontWeight="600" fill={color.text} dominantBaseline="middle">
         {truncate(title, 17)}
       </text>
-      <text x={textX} y={cy + (h > NODE_H_BASE ? 9 : 10)} fontSize="9.5" fill="var(--color-text-tertiary)" dominantBaseline="middle">
+      {/* Vazão é dado: sai em mono, alinhada por coluna como num painel. */}
+      <text
+        x={textX}
+        y={cy + (h > NODE_H_BASE ? 9 : 10)}
+        fontFamily="var(--font-mono)"
+        fontSize="9.5"
+        fill="var(--color-text-tertiary)"
+        dominantBaseline="middle"
+      >
         {truncate(subtitle, 22)}
       </text>
       {tag && !isOverflow && (
@@ -677,9 +727,10 @@ const NodeVisual = memo(function NodeVisual({ x, node }: { x: number; node: LNod
           x={x + NODE_W - 10}
           y={cy + (h > NODE_H_BASE ? 9 : 10)}
           textAnchor="end"
+          fontFamily="var(--font-mono)"
           fontSize="8"
-          fontWeight="700"
-          letterSpacing="0.04em"
+          fontWeight="600"
+          letterSpacing="0.08em"
           fill="var(--color-text-tertiary)"
           opacity={0.75}
           dominantBaseline="middle"

@@ -1,7 +1,7 @@
 {
   "explorer": {
     "eyebrow": "Normalization",
-    "title": "Drift Explorer",
+    "title": "Drift",
     "description": "Raw fields not consumed by any mapping",
     "loadError": "Error loading drift data",
     "loading": "Loading drift data...",
@@ -19,7 +19,7 @@
     "cardAria_other": "{{count}} fields {{label}}",
     "cardAriaError": "{{label}}: failed to load",
     "loadError": "Could not load the counters",
-    "loadErrorBody": "The per-status totals could not be loaded. The values shown may be wrong — this does not mean there is no drift."
+    "loadErrorBody": "Per-status totals did not load. Values may be wrong; drift may still exist."
   },
   "filters": {
     "status": {
@@ -38,8 +38,8 @@
     "eventTypeAriaLabel": "Filter by event type",
     "statusLabel": "Status",
     "statusGroupAriaLabel": "Filter by status",
-    "resetAriaLabel": "Reset filters",
-    "reset": "Reset filters"
+    "resetAriaLabel": "Clear filters",
+    "reset": "Clear filters"
   },
   "bulkBar": {
     "ignore": "Ignore",
@@ -79,7 +79,7 @@
       "hoursAgo": "{{count}}h ago",
       "daysAgo": "{{count}}d ago"
     },
-    "emptyValue": "—",
+    "emptyValue": "n/a",
     "loadingRules": "Loading rules...",
     "loadingRulesShort": "…",
     "noRulesConsume": "No rule consumes this field",
@@ -177,7 +177,7 @@
         "hoursAgo": "{{count}}h ago",
         "daysAgo": "{{count}}d ago"
       },
-      "emptyValue": "—",
+      "emptyValue": "n/a",
       "columns": {
         "select": "Select all visible rows",
         "selectRow": "Select entry {{id}}",
@@ -215,7 +215,7 @@
         "discardDescription": "The quarantine entry for \"{{vendor}}{{eventTypeSuffix}}\" will be permanently discarded.",
         "discardLabel": "Discard",
         "reprocessTitle": "Reprocess event?",
-        "reprocessDescription": "The event will be revalidated against the current mapping. If normalization succeeds, it will be sent to Wazuh. Otherwise, it will remain in quarantine with a new error.",
+        "reprocessDescription": "Revalidated against the current mapping. Success goes to Wazuh; failure stays in quarantine.",
         "reprocessLabel": "Reprocess"
       }
     }

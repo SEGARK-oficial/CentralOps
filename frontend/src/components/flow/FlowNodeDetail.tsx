@@ -18,7 +18,7 @@ import { Badge } from "@/components/ui/Badge/Badge"
 import { Button } from "@/components/ui/Button/Button"
 import { Card } from "@/components/ui/Card/Card"
 import { fmtRate } from "@/lib/fmt"
-import { formatBytes, formatRelativeDate } from "@/lib/utils"
+import { cn, formatBytes, formatRelativeDate } from "@/lib/utils"
 import type { FlowNodeId } from "./FlowCanvas"
 import type { DestinationTap } from "@/types"
 
@@ -27,10 +27,14 @@ interface FlowNodeDetailProps {
   onClose: () => void
 }
 
-type StatusVariant = "success" | "warning" | "danger" | "default"
+type StatusVariant = "warning" | "danger" | "default"
 
+/**
+ * Saudável é NEUTRO, igual ao nó cinza que o operador clicou para abrir este
+ * painel. Teal significa "reduziu", não "continua ok". A badge verde antiga
+ * contradizia o próprio grafo, onde o mesmo nó saudável não tem matiz.
+ */
 function statusVariant(s: string): StatusVariant {
-  if (s === "healthy") return "success"
   if (s === "degraded") return "warning"
   if (s === "unhealthy") return "danger"
   return "default"
@@ -177,11 +181,21 @@ export const FlowNodeDetail: React.FC<FlowNodeDetailProps> = ({ node, onClose })
     return (
       <div className="space-y-4">
         <div className="flex flex-wrap items-center gap-2">
-          <Badge variant={r.enabled ? "primary" : "default"} size="sm">
+          {/* Rota ativa = estágio de roteamento, logo ciano, igual ao nó no
+              grafo. O ciano é a única matiz sem escala de estado, então entra
+              pelos tokens `stage-*`, como o Badge manda. Rota inativa fica
+              neutra: desligar é configuração, não incidente. */}
+          <Badge
+            variant="default"
+            size="sm"
+            className={r.enabled ? "bg-stage-route/15 text-stage-route" : undefined}
+          >
             {r.enabled ? t("flow.nodeDetail.active") : t("flow.nodeDetail.inactive")}
           </Badge>
           {r.is_system && <Badge variant="outline" size="sm">{t("flow.nodeDetail.system")}</Badge>}
-          {r.action === "drop" && <Badge variant="danger" size="sm">{t("flow.nodeDetail.drop")}</Badge>}
+          {/* Descarte é redução (teal), não falha. Mesma leitura do card
+              DESCARTADO em /flow e do nó de rota no grafo. */}
+          {r.action === "drop" && <Badge variant="success" size="sm">{t("flow.nodeDetail.drop")}</Badge>}
         </div>
         <Card padding="sm" className="space-y-3">
           <Row label={t("flow.nodeDetail.row.type")} value={t("flow.nodeDetail.kind.route")} icon={<NetworkIcon size={13} />} />
@@ -189,7 +203,7 @@ export const FlowNodeDetail: React.FC<FlowNodeDetailProps> = ({ node, onClose })
           <Row label={t("flow.nodeDetail.row.routedPerMinute")} value={`${fmtRate(r.routed_per_min)}/min`} />
           <Row label={t("flow.nodeDetail.row.matchedPerMinute")} value={`${fmtRate(r.matched_per_min)}/min`} />
           {r.drop_per_min > 0 && (
-            <Row label={t("flow.nodeDetail.row.droppedPerMinute")} value={`${fmtRate(r.drop_per_min)}/min`} className="text-danger-600" />
+            <Row label={t("flow.nodeDetail.row.droppedPerMinute")} value={`${fmtRate(r.drop_per_min)}/min`} className="text-success-700" />
           )}
           {r.destination_ids.length > 0 && (
             <div>
@@ -229,7 +243,7 @@ export const FlowNodeDetail: React.FC<FlowNodeDetailProps> = ({ node, onClose })
 
         {/* Live tap */}
         <div>
-          <h4 className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-text-secondary">
+          <h4 className="mb-2 flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-[0.1em] text-text-secondary">
             <ActivityIcon size={12} />
             {t("flow.nodeDetail.recentEvents")}
           </h4>
@@ -267,7 +281,7 @@ export const FlowNodeDetail: React.FC<FlowNodeDetailProps> = ({ node, onClose })
                       )}
                     </div>
                     {ts && (
-                      <span className="mt-0.5 block text-[10px] text-text-tertiary">
+                      <span className="mt-0.5 block font-mono text-[10px] text-text-tertiary">
                         {formatRelativeDate(ts)}
                       </span>
                     )}
@@ -293,9 +307,10 @@ export const FlowNodeDetail: React.FC<FlowNodeDetailProps> = ({ node, onClose })
 
   return createPortal(
     <div className="fixed inset-0 z-[1040]">
-      {/* Backdrop */}
+      {/* Backdrop — token do sistema, não preto solto: no ground ink-blue o
+          preto puro abre um buraco cinza que não pertence à paleta. */}
       <div
-        className="absolute inset-0 bg-black/40"
+        className="absolute inset-0 bg-overlay"
         onClick={onClose}
         aria-hidden="true"
       />
@@ -312,10 +327,10 @@ export const FlowNodeDetail: React.FC<FlowNodeDetailProps> = ({ node, onClose })
         {/* Header */}
         <div className="flex shrink-0 items-start justify-between gap-4 border-b border-border px-5 py-4">
           <div className="min-w-0">
-            <p className="text-xs font-semibold uppercase tracking-wider text-text-tertiary">
+            <p className="font-mono text-[11px] uppercase tracking-[0.1em] text-text-tertiary">
               {kindLabel}
             </p>
-            <h2 className="mt-0.5 truncate text-lg font-semibold text-text">{title}</h2>
+            <h2 className="mt-0.5 truncate font-display text-lg text-text">{title}</h2>
           </div>
           <Button variant="ghost" size="xs" onClick={onClose} aria-label={t("flow.nodeDetail.closeAriaLabel")}>
             <XIcon size={16} />
@@ -343,10 +358,14 @@ interface RowProps {
 }
 const Row: React.FC<RowProps> = ({ label, value, icon, className }) => (
   <div className="flex items-center justify-between gap-2 text-sm">
-    <span className="flex items-center gap-1 text-xs text-text-secondary">
+    <span className="flex items-center gap-1 text-xs text-text-tertiary">
       {icon}
       {label}
     </span>
-    <span className={`font-medium text-text ${className ?? ""}`}>{value}</span>
+    {/* Vazão, id e contagem em mono: alinham por coluna e leem como painel.
+        `cn` (twMerge) para que uma cor passada em `className` de fato SUBSTITUA
+        `text-text`. Concatenar string deixava as duas utilities de pé e a
+        ordem do CSS decidia, o que engolia a cor do chamador. */}
+    <span className={cn("font-mono text-sm text-text", className)}>{value}</span>
   </div>
 )

@@ -5,7 +5,7 @@
     "next": "Next"
   },
   "history": {
-    "title": "Activity History",
+    "title": "History",
     "subtitle": "View operations and searches performed in the system.",
     "loading": "Loading history...",
     "dismiss": "Dismiss",

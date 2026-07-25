@@ -3,8 +3,13 @@
  *
  * Layout: Coleta (source) → Rotas (nodes) → Destinos (sink nodes).
  * Arestas reais via <path> com curvas bezier.
- * Cor dos nós usa tokens do design system via healthEncoding/pipelineEncoding.
- * Destino marcado como "drop" recebe cor danger; outros success/outline.
+ *
+ * ATENÇÃO: nenhuma página renderiza este componente — só o próprio teste o
+ * importa, e já era assim antes do redesign. As cores NÃO vêm de
+ * `healthEncoding`/`pipelineEncoding` (como esta nota afirmava): são mapas
+ * locais logo abaixo, com fallback hex de tema CLARO que só apareceria se a
+ * variável CSS sumisse. Antes de ressuscitá-lo, trocar pelo FlowCanvas de
+ * `components/flow`, que é o que /flow usa hoje.
  * Aresta "fan-out" (is_final=false) marcada com tracejado.
  * Acessível: role="img" + aria-label descritivo como texto alternativo.
  *

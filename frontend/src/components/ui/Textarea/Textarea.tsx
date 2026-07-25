@@ -24,7 +24,8 @@ const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
             className={cn("text-sm font-medium text-text", disabled && "opacity-50", error && "text-danger-700")}
           >
             {label}
-            {required && <span className="ml-0.5 text-danger-500" aria-label="obrigatório">*</span>}
+            {/* `required` no textarea já anuncia; o asterisco é só a pista visual. */}
+            {required && <span className="ml-0.5 text-danger-500" aria-hidden="true">*</span>}
           </label>
         )}
 
@@ -37,10 +38,13 @@ const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
           aria-invalid={error ? "true" : "false"}
           aria-describedby={describedBy}
           className={cn(
-            "w-full rounded-md border border-border bg-surface px-3 py-2 text-sm text-text placeholder:text-text-tertiary",
-            "transition-colors focus:outline-none focus:border-primary-500 focus-visible:ring-2 focus-visible:ring-primary-500/40",
+            // Mesmo poço do Input, e o MESMO foco: este era o único primitivo
+            // que ainda tinha estratégia própria (border + ring) enquanto o
+            // resto usa `focus-ring`. Duas caras de foco no mesmo formulário.
+            "w-full rounded-md border border-border-field bg-surface-tertiary px-3 py-2 text-sm text-text placeholder:text-text-tertiary",
+            "transition-colors hover:border-border-field-hover focus-ring",
             "disabled:cursor-not-allowed disabled:opacity-50",
-            error && "border-danger-500 focus:border-danger-500 focus-visible:ring-danger-500/40",
+            error && "border-danger-500",
             className,
           )}
           {...props}

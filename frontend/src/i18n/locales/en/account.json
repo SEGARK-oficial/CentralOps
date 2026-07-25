@@ -1,7 +1,7 @@
 {
   "eyebrow": "Your account",
-  "title": "Account settings",
-  "description": "Manage your profile, language and password. Administrative settings like role and organization are managed by an administrator.",
+  "title": "Profile and security",
+  "description": "Your profile, language and password. Only an administrator changes role and organization.",
   "load": {
     "error": "Could not load your account. Please try again."
   },
@@ -11,7 +11,7 @@
     "username": "Username",
     "role": "Role",
     "scope": "Access scope",
-    "scopeGlobal": "Global — all organizations",
+    "scopeGlobal": "Global (all organizations)",
     "scopeOrg": "Scoped to {{org}}",
     "scopeNone": "No organization",
     "organization": "Organization",

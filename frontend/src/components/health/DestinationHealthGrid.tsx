@@ -20,19 +20,21 @@ import { Card } from "@/components/ui/Card/Card"
 import { Notice } from "@/components/ui/Notice/Notice"
 import { SkeletonCard } from "@/components/ui/Skeleton"
 import { fmtRate } from "@/lib/fmt"
-import { healthEncoding, StatusBadge } from "@/lib/severity"
+import { formatBytes } from "@/lib/utils"
+import { healthEncoding, StatusBadge, type HealthStatus } from "@/lib/severity"
 
 // ── mapeamento de DestinationHealthStatus → HealthStatus (severity.ts) ─────────
 
-function destinationStatusToHealth(
-  status: string | undefined | null,
-): "healthy" | "degraded" | "down" | "unknown" {
+// `disabled` já caiu em `down`: um destino que o operador desligou de propósito
+// acendia vermelhão e dizia "Indisponível". Desligar é configuração, não
+// incidente. Estado próprio e neutro, como a rota off no FlowCanvas.
+function destinationStatusToHealth(status: string | undefined | null): HealthStatus {
   switch (status) {
-    case "healthy":  return "healthy"
-    case "degraded": return "degraded"
-    case "unhealthy":
-    case "disabled": return "down"
-    default:         return "unknown"
+    case "healthy":   return "healthy"
+    case "degraded":  return "degraded"
+    case "unhealthy": return "down"
+    case "disabled":  return "disabled"
+    default:          return "unknown"
   }
 }
 
@@ -44,18 +46,23 @@ const BREAKER_LABEL_KEY: Record<string, string> = {
   half_open: "health.destinationGrid.breaker.halfOpen",
 }
 
+// Circuito fechado é o estado normal: fica neutro. Aberto e meio-aberto são os
+// dois que tiram o destino do ar, e são os únicos que ganham matiz.
+const BREAKER_CLS: Record<string, string> = {
+  closed: "bg-surface-tertiary text-text-secondary",
+  open: "bg-danger-50 text-danger-700",
+  half_open: "bg-warning-50 text-warning-700",
+}
+
 const BreakerBadge: React.FC<{ state: string | null }> = ({ state }) => {
   const { t } = useTranslation("dashboard")
   if (!state) return null
   const label = BREAKER_LABEL_KEY[state] ? t(BREAKER_LABEL_KEY[state]) : state
-  const variant = state === "closed" ? "success" : state === "open" ? "danger" : "warning"
   return (
     <span
-      className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium
-        ${variant === "success" ? "bg-success-50 text-success-700" : ""}
-        ${variant === "danger" ? "bg-danger-50 text-danger-700" : ""}
-        ${variant === "warning" ? "bg-warning-50 text-warning-700" : ""}
-      `}
+      className={`inline-flex items-center whitespace-nowrap rounded-full px-2 py-0.5 font-mono text-xs ${
+        BREAKER_CLS[state] ?? "bg-surface-tertiary text-text-secondary"
+      }`}
       aria-label={t("health.destinationGrid.breaker.ariaLabel", { label })}
     >
       {label}
@@ -78,51 +85,56 @@ const DestinationCard: React.FC<DestinationCardProps> = ({ destination, health }
   return (
     <Card
       padding="md"
-      className="shadow-sm flex flex-col gap-3"
+      className="flex flex-col gap-3"
       data-testid={`destination-card-${destination.id}`}
       role="article"
       aria-label={t("health.destinationGrid.destinationAriaLabel", { name: destination.name })}
     >
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0 flex items-center gap-2">
-          <ServerIcon size={16} className="shrink-0 text-text-secondary" aria-hidden="true" />
+          <ServerIcon size={15} className="shrink-0 text-stage-route" aria-hidden="true" />
           <div className="min-w-0">
             <h3 className="truncate font-semibold text-text">{destination.name}</h3>
-            <p className="text-xs text-text-tertiary">{destination.kind}</p>
+            <p className="truncate font-mono text-xs text-text-tertiary">{destination.kind}</p>
           </div>
         </div>
         <StatusBadge encoding={encoding} iconSize={13} />
       </div>
 
-      <dl className="grid grid-cols-2 gap-1 text-xs" aria-label={t("health.destinationGrid.metricsAriaLabel")}>
-        <dt className="text-text-secondary">{t("health.destinationGrid.eps")}</dt>
-        <dd className="font-medium text-text" data-testid={`dest-eps-${destination.id}`}>
+      <dl
+        className="grid grid-cols-2 gap-x-3 gap-y-1 font-mono text-xs"
+        aria-label={t("health.destinationGrid.metricsAriaLabel")}
+      >
+        <dt className="text-text-tertiary">{t("health.destinationGrid.eps")}</dt>
+        <dd className="text-right text-text" data-testid={`dest-eps-${destination.id}`}>
           {health?.eps !== null && health?.eps !== undefined
             ? fmtRate(health.eps)
             : "—"}
         </dd>
 
-        <dt className="text-text-secondary">{t("health.destinationGrid.bytesPerMinute")}</dt>
-        <dd className="font-medium text-text">
+        {/* Byte não é evento: `fmtRate` mostrava "8400k" para 8,4 MB. Volume em
+            bytes sai em unidade de byte. */}
+        <dt className="text-text-tertiary">{t("health.destinationGrid.bytesPerMinute")}</dt>
+        <dd className="text-right text-text">
           {health?.bytes_per_min !== null && health?.bytes_per_min !== undefined
-            ? fmtRate(health.bytes_per_min)
+            ? formatBytes(health.bytes_per_min)
             : "—"}
         </dd>
 
-        <dt className="text-text-secondary">{t("health.destinationGrid.dlq24h")}</dt>
-        <dd className="font-medium text-text">
+        <dt className="text-text-tertiary">{t("health.destinationGrid.dlq24h")}</dt>
+        <dd className="text-right text-text">
           {health ? String(health.dlq_24h) : "—"}
         </dd>
 
-        <dt className="text-text-secondary">{t("health.destinationGrid.circuitBreaker")}</dt>
-        <dd>
+        <dt className="text-text-tertiary">{t("health.destinationGrid.circuitBreaker")}</dt>
+        <dd className="text-right">
           <BreakerBadge state={health?.breaker_state ?? null} />
-          {!health?.breaker_state && <span className="font-medium text-text">—</span>}
+          {!health?.breaker_state && <span className="text-text">—</span>}
         </dd>
       </dl>
 
       {!destination.enabled && (
-        <p className="text-xs text-text-secondary italic">{t("health.destinationGrid.disabled")}</p>
+        <p className="text-xs text-text-tertiary">{t("health.destinationGrid.disabled")}</p>
       )}
     </Card>
   )

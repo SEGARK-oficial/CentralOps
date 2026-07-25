@@ -80,11 +80,13 @@ const RouteRow: React.FC<RouteRowProps> = ({ route, destinationMap, matchedDestI
       <div className="flex flex-wrap items-center gap-2">
         <RouteIcon size={14} className="shrink-0 text-primary-600" aria-hidden="true" />
         <span className="font-medium text-text">{route.name}</span>
-        <Badge variant={route.enabled ? "success" : "outline"} size="sm">
-          {route.enabled ? t("destinationsTab.enabled") : t("destinationsTab.disabled")}
-        </Badge>
+        {/* Habilitada é o repouso: não ganha selo, do mesmo jeito que em /routes.
+            Só o desvio aparece, então a linha sem selo lê como "está rodando". */}
+        {!route.enabled && (
+          <Badge variant="default" size="sm">{t("destinationsTab.disabled")}</Badge>
+        )}
         {route.is_final && (
-          <Badge variant="primary" size="sm">{t("destinationsTab.final")}</Badge>
+          <Badge variant="outline" size="sm">{t("destinationsTab.final")}</Badge>
         )}
         <span className="text-xs text-text-tertiary">{t("destinationsTab.priority", { value: route.priority })}</span>
       </div>

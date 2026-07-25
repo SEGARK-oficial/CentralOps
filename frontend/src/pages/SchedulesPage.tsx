@@ -927,7 +927,7 @@ export const SchedulesPage: React.FC = () => {
                             onClick={() => setHistoryStatusFilter(filter.value)}
                             className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
                               historyStatusFilter === filter.value
-                                ? "bg-primary-600 text-white"
+                                ? "bg-primary-600 text-text-inverse"
                                 : "text-text-secondary hover:bg-surface-tertiary hover:text-text"
                             }`}
                           >

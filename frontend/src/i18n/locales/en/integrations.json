@@ -1,8 +1,8 @@
 {
   "list": {
-    "eyebrow": "Operations",
+    "eyebrow": "Collect",
     "title": "Integrations",
-    "description": "Manage credentials, authentication status and capabilities of Sophos and Wazuh connections.",
+    "description": "Manage credentials, authentication status and capabilities of your source connections.",
     "newIntegration": "New integration",
     "editIntegration": "Edit integration",
     "loading": "Loading integrations...",
@@ -24,7 +24,7 @@
     },
     "activeOrgFilterBadge": "Active filter: org={{name}}",
     "activeOrgFilterNote": "Bulk actions and listing only consider integrations from the selected organization.",
-    "partnerBulkNote": "Partner integrations cannot be deactivated in bulk — use the individual deactivate button to trigger the cascade.",
+    "partnerBulkNote": "Partner integrations do not leave in bulk. Use the individual button to trigger the cascade.",
     "bulkContextLabel": "integration(s)",
     "bulkDeactivateSelected": "Deactivate selected",
     "emptyState": {
@@ -55,7 +55,7 @@
     "testing": "Testing...",
     "deactivateAriaLabel": "Deactivate {{name}}",
     "partialResultsTitle": "Partial results",
-    "partialResultsDescription": "Showing the first {{count}} — refine the filters to see more.",
+    "partialResultsDescription": "Showing the first {{count}}. Refine the filters to see more.",
     "operationSuccessTitle": "Operation completed",
     "operationErrorTitle": "Could not complete",
     "feedback": {
@@ -68,7 +68,7 @@
       "deactivateSuccess": "Integration deactivated successfully.",
       "deactivateError": "Failed to deactivate integration.",
       "deactivatePartnerError": "Failed to deactivate Partner.",
-      "syncStarted": "Sync started — updating tenants in the background.",
+      "syncStarted": "Sync started. Tenants are updating in the background.",
       "syncInProgress": "A sync is already in progress. Please wait for it to finish.",
       "syncError": "Failed to sync tenants.",
       "loadError": "Failed to load integrations.",
@@ -76,24 +76,24 @@
       "bulkDeactivated": "{{count}} integration(s) deactivated.",
       "bulkDeactivateError": "Failed to bulk deactivate.",
       "cascadeDeactivated": "Partner deactivated ({{affected}} integrations affected).",
-      "syncEnterpriseRequired": "Tenant import is an Enterprise feature — this instance is running the Community edition.",
+      "syncEnterpriseRequired": "Tenant import is an Enterprise feature. This instance runs the Community edition.",
       "syncLicenseRequired": "Tenant import requires an active Enterprise license covering the multi-tenant feature."
     },
     "bulkDialog": {
       "title": "Deactivate {{count}} integration(s)?",
-      "description": "This action marks the selected integrations as <strong>inactive</strong>. Collection jobs stop and the integration disappears from operational flows. Historical data is preserved.",
-      "note": "Already-inactive integrations are automatically skipped by the server. Partner integrations are blocked — use the individual flow to trigger the cascade.",
+      "description": "Marks the selected integrations <strong>inactive</strong>. Collection stops; history is kept.",
+      "note": "Already-inactive ones are skipped. Partner is blocked: use the individual flow.",
       "confirmTextLabel": "To confirm >10 items, type <0>{{text}}</0>",
       "confirmTextValue": "DEACTIVATE {{count}}"
     },
     "deactivateDialog": {
       "title": "Deactivate integration?",
-      "description": "Integration <strong>{{name}}</strong> will be marked as inactive and removed from operational flows. Historical data is preserved."
+      "description": "<strong>{{name}}</strong> goes inactive and leaves the flows. History is kept."
     },
     "cascadeDialog": {
       "title": "Deactivate Partner with active tenants?",
       "cascadeOperationTitle": "Cascade operation",
-      "description": "Integration <strong>{{name}}</strong> is a Sophos Partner with <strong>{{count}}</strong> active tenant(s). Confirming will deactivate (soft-delete) the Partner AND all child tenants. Historical data is preserved.",
+      "description": "<strong>{{name}}</strong> has <strong>{{count}}</strong> tenant(s). Deactivates them and the Partner; history is kept.",
       "childrenListTitle": "Tenants that will be deactivated",
       "confirmAndDeactivateAll": "Confirm and deactivate all"
     }
@@ -184,7 +184,7 @@
     }
   },
   "destinationsTab": {
-    "previewDescription": "<strong>Routing preview</strong> — the routes below match this integration and would send events to the indicated destinations. This is not a historical log; it is a simulation based on the routes' current conditions.",
+    "previewDescription": "<strong>Preview</strong>: these routes match and would send events to the destinations shown. Not a log.",
     "loadingAriaLabel": "Loading destinations…",
     "loadErrorTitle": "Failed to load destinations",
     "simulationLabel": "Simulation (1 synthetic event)",
@@ -197,7 +197,6 @@
     "matchingRoutesAriaLabel": "Routes matching this integration",
     "noDestinationsConfigured": "No destinations configured on this route.",
     "destinationsForRouteAriaLabel": "Destinations for route {{name}}",
-    "enabled": "Enabled",
     "disabled": "Disabled",
     "final": "Final",
     "priority": "Priority {{value}}"
@@ -218,8 +217,8 @@
     "statusInactive": "Inactive",
     "pushSource": {
       "title": "Push source (edge-collector ingestion)",
-      "intro": "This source <strong>pushes</strong> events to CentralOps — there are no poll credentials.",
-      "createHint": " Create the integration and then, on the detail screen, <strong>issue the ingestion token</strong> and configure your edge-collector (Vector/OTel) pointing to <code>POST /api/ingest/&lt;stream&gt;</code>. Ready-made snippets for FortiGate (syslog) and Windows Event Log (WEC) are generated automatically.",
+      "intro": "This source <strong>pushes</strong> events to CentralOps. There are no poll credentials.",
+      "createHint": " Create it, then on the detail screen <strong>issue the token</strong> and point your edge collector at <code>POST /api/ingest/&lt;stream&gt;</code>. That screen generates ready-made snippets for FortiGate (syslog) and Windows Event Log (WEC).",
       "editHint": " Manage the ingestion token and endpoint in this integration's ingestion tab."
     },
     "sophos": {
@@ -230,8 +229,8 @@
       "region": "Region",
       "regionHelper": "Optional. Automatically discovered on the first connection.",
       "importNoticeTitle": "How it works:",
-      "importNoticeBody": " when saved, the Sophos Central API will be queried and <em>all tenants</em> under this credential will be automatically imported as separate Organizations + Integrations. Region and tenant_id are discovered per child — do not fill them in manually.",
-      "enterpriseRequiredNote": "Automatic tenant import requires an Enterprise license. In Community you can create this integration and discover tenants, but they will not be imported."
+      "importNoticeBody": " on save, each tenant here becomes its own Organization + Integration. Region and tenant_id come from the API.",
+      "enterpriseRequiredNote": "Importing tenants requires Enterprise. On Community you can discover, not import."
     },
     "wazuh": {
       "indexerTitle": "Indexer API",
@@ -244,7 +243,7 @@
       "passwordHelper": "Leave blank to keep the current password.",
       "managerTitle": "Manager API",
       "optional": "Optional",
-      "managerDescription": "Server health and agent inventory. Does not collect alerts/detections — enable only if you want this management data.",
+      "managerDescription": "Server health and agent inventory. Collects no alerts or detections.",
       "enableManager": "Enable Manager",
       "managerUrl": "Manager URL",
       "managerUser": "Manager user",
@@ -272,22 +271,22 @@
       "activeSummary_one": "{{count}} active filter",
       "activeSummary_other": "{{count}} active filters",
       "streamLabel": "Stream: {{stream}}",
-      "noFilter": "No filter — collects everything",
+      "noFilter": "No filter (collects everything)",
       "active": "Filtering at the source",
       "reset": "Remove filter",
       "resetAll": "Remove all filters",
       "warningLabel": "Before turning this on",
       "notRetroactiveTitle": "Takes effect on the next cycle",
-      "notRetroactive": "Turning a filter on does not reprocess the past, and turning it off does not recover what was skipped. The events stay in the source system — the platform simply stops carrying them.",
+      "notRetroactive": "Turning it on will not reprocess the past; off will not recover what was skipped.",
       "range": "Between {{min}} and {{max}}. At {{noFilterValue}} nothing is filtered.",
       "rangeInvalid": "Enter a whole number between {{min}} and {{max}}.",
-      "enumNoFilterOption": "{{value}} — no filter",
+      "enumNoFilterOption": "{{value}} (no filter)",
       "boolOn": "On",
       "confirmTitle": "Turn this collection filter on?",
       "confirmNewValue": "{{label}}: {{value}}",
       "confirmSubmit": "Turn filter on",
       "loadErrorTitle": "Collection filters unavailable",
-      "loadError": "This integration's filters could not be read, so they are not shown here. Any filter already on remains in effect. Details: {{reason}}",
+      "loadError": "Filters could not be read. Any already on stays in effect. Details: {{reason}}",
       "saveError": "Collection filters were not saved and nothing else was changed. Details: {{reason}}"
     },
     "testResult": {
@@ -321,21 +320,21 @@
     "copy": "Copy",
     "copied": "Copied",
     "tokenLabel": "Ingestion token",
-    "tokenWarningTitle": "Copy it now — the token will not be shown again",
+    "tokenWarningTitle": "Copy it now, the token will not appear again",
     "tokenAlreadyIssued": "A token has already been issued. Rotate it to generate a new one (invalidates the previous one).",
     "tokenNotIssued": "No token issued yet.",
     "revoke": "Revoke",
     "issueToken": "Issue token",
     "rotateToken": "Rotate token",
-    "revokeConfirm": "Revoke the ingestion token? The edge-collector using it will immediately start receiving 401s. Use this if the token leaked.",
-    "revokeSuccess": "Token revoked. No active token — issue a new one to resume ingestion.",
+    "revokeConfirm": "Revoke the token? The edge collector gets 401 right away.",
+    "revokeSuccess": "Token revoked. With no active token, issue a new one to resume ingestion.",
     "issueError": "Failed to issue token.",
     "revokeError": "Failed to revoke token.",
     "edgeCollectorConfig": "Edge-collector configuration (Vector)"
   },
   "enterprisePanel": {
     "title": "Tenant import is an Enterprise feature",
-    "body": "This integration can discover the tenants under this credential, but importing them as Organizations + Integrations (multi-tenant materialization) requires an Enterprise license.",
+    "body": "Discovering tenants works. Importing them as Organizations + Integrations requires Enterprise.",
     "link": "Learn how to upgrade"
   }
 }

@@ -5,7 +5,7 @@
     "next": "Siguiente"
   },
   "history": {
-    "title": "Historial de Actividades",
+    "title": "Historial",
     "subtitle": "Visualice operaciones y búsquedas realizadas en el sistema.",
     "loading": "Cargando historial...",
     "dismiss": "Descartar",

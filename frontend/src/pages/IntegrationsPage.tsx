@@ -14,7 +14,7 @@ import {
   SparklesIcon,
 } from "lucide-react"
 import * as api from "@/services/api"
-import { authStatusLabel, authStatusVariant } from "@/lib/labels"
+import { authStatusLabelKey, authStatusVariant } from "@/lib/labels"
 import type { Integration } from "@/types"
 import { IntegrationForm } from "@/components/integrations/IntegrationForm"
 import { Badge } from "@/components/ui/Badge/Badge"
@@ -526,7 +526,11 @@ const IntegrationsPage: React.FC = () => {
                         >
                           {integration.name}
                         </h2>
-                        <Badge variant={integration.platform === "sophos" ? "primary" : "success"} size="sm">
+                        {/* Nome de fornecedor não é estágio nem estado. Pintar
+                            "fortinet" de teal faz teal parar de significar
+                            "reduzido"; a matiz fica reservada ao que está fora
+                            do normal. O nome já identifica o vendor. */}
+                        <Badge variant="outline" size="sm">
                           {integration.platform}
                         </Badge>
                         {(integration.kind === "partner" || integration.kind === "organization") && (
@@ -542,11 +546,14 @@ const IntegrationsPage: React.FC = () => {
                             {t("list.autoManaged")}
                           </Badge>
                         )}
-                        <Badge variant={integration.is_active ? "success" : "warning"} size="sm">
+                        {/* Ativo é o normal, e o normal é neutro. Inativo é
+                            escolha do operador, não falha. Muda o preenchimento,
+                            não a matiz. */}
+                        <Badge variant={integration.is_active ? "default" : "outline"} size="sm">
                           {integration.is_active ? t("form.statusActive") : t("form.statusInactive")}
                         </Badge>
                         <Badge variant={authStatusVariant(integration.auth_status)} size="sm">
-                          {authStatusLabel(integration.auth_status)}
+                          {t(authStatusLabelKey(integration.auth_status))}
                         </Badge>
                       </div>
 

@@ -49,41 +49,31 @@ export const ErrorState: React.FC<ErrorStateProps> = ({
       role="alert"
       aria-live="assertive"
       className={cn(
-        "flex flex-col items-center text-center",
+        // gap uniforme no lugar das margens por elemento: com margem, tirar a
+        // mensagem deixava um buraco e o botão precisava compensar na unha.
+        "flex flex-col items-center gap-3 text-center",
         isFullPage
           ? "min-h-screen justify-center px-6 py-12"
-          : "justify-center py-10 px-6",
+          : "justify-center py-8 px-6",
         className,
       )}
     >
-      {/* Ícone */}
-      <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-danger-500/10 text-danger-500">
-        <AlertTriangle className="h-6 w-6" aria-hidden="true" />
+      {/* Falha É estado, então ganha a matiz de estado. Vermelhão contido:
+          o alarme é o ícone, não o bloco inteiro. */}
+      <div className="flex h-9 w-9 items-center justify-center rounded-full bg-danger-500/10 text-danger-500">
+        <AlertTriangle className="h-5 w-5" aria-hidden="true" />
       </div>
 
-      {/* Título */}
-      <h3
-        className={cn(
-          "font-semibold text-text",
-          isFullPage ? "text-xl mb-2" : "text-base mb-1",
-        )}
-      >
+      <h3 className={cn("font-semibold text-text", isFullPage ? "text-xl" : "text-sm")}>
         {title}
       </h3>
 
-      {/* Mensagem */}
       {message && (
-        <p className="text-sm text-text-secondary max-w-sm mb-6">{message}</p>
+        <p className="max-w-sm text-xs leading-relaxed text-text-secondary">{message}</p>
       )}
 
-      {/* Botão de retry */}
       {onRetry && (
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={onRetry}
-          className={message ? "" : "mt-4"}
-        >
+        <Button variant="outline" size="sm" onClick={onRetry}>
           {t("errorState.retry")}
         </Button>
       )}

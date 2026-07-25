@@ -39,7 +39,7 @@
         "keywords": "mappings, mapeo, normalizacion"
       },
       "pipelineHealth": {
-        "label": "Salud del Pipeline",
+        "label": "Salud del pipeline",
         "keywords": "pipeline, health, salud, monitoreo"
       }
     }
@@ -48,39 +48,42 @@
     "openMenu": "Abrir menú de navegación",
     "closeMenu": "Cerrar menú de navegación",
     "expandSidebar": "Expandir menú lateral",
-    "collapseSidebar": "Contraer menú lateral"
+    "collapseSidebar": "Contraer menú lateral",
+    "search": "Buscar"
   },
   "navigation": {
     "ariaLabel": "Navegación principal",
     "groups": {
+      "collect": "Recolecta",
+      "normalize": "Normaliza",
+      "reduce": "Reduce",
+      "route": "Enruta",
+      "detect": "Detecta",
       "overview": "Visión general",
-      "operations": "Operación",
-      "normalization": "Normalización",
-      "knowledge": "Conocimiento",
       "administration": "Administración",
-      "account": "Tu cuenta"
+      "account": "Cuenta"
     },
     "items": {
       "dashboard": "Dashboard",
       "organizations": "Organizaciones",
       "integrations": "Integraciones",
-      "collectors": "Collectors",
+      "collectors": "Colectores",
       "destinations": "Destinos",
-      "routes": "Enrutamiento",
+      "routes": "Rutas",
       "flow": "Flujo de datos",
       "detections": "Detecciones",
       "history": "Historial",
-      "mappings": "Mappings",
-      "drift": "Drift Explorer",
+      "mappings": "Mapeos",
+      "drift": "Drift",
       "quarantine": "Cuarentena",
-      "health": "Salud del Pipeline",
-      "queries": "Consultas Guardadas",
+      "health": "Salud del pipeline",
+      "queries": "Consultas guardadas",
       "schedules": "Programaciones",
       "adminUsers": "Usuarios",
-      "serviceAccounts": "Cuentas de Servicio",
+      "serviceAccounts": "Cuentas de servicio",
       "ocsf": "Gobernanza OCSF",
       "config": "Configuración",
-      "account": "Configuración de la cuenta",
+      "account": "Perfil y seguridad",
       "tokens": "Tokens de API"
     }
   },
@@ -94,28 +97,32 @@
       "dashboard": "Dashboard",
       "organizations": "Organizaciones",
       "integrations": "Integraciones",
-      "collectors": "Collectors",
+      "collectors": "Colectores",
+      "destinations": "Destinos",
+      "routes": "Rutas",
       "flow": "Flujo de datos",
+      "detections": "Detecciones",
       "history": "Historial",
-      "mappings": "Mappings",
-      "drift": "Drift Explorer",
+      "mappings": "Mapeos",
+      "drift": "Drift",
       "quarantine": "Cuarentena",
-      "pipelineHealth": "Salud del Pipeline",
-      "queries": "Consultas Guardadas",
+      "pipelineHealth": "Salud del pipeline",
+      "queries": "Consultas guardadas",
       "schedules": "Programaciones",
-      "clients": "Clientes (Legacy)",
       "users": "Usuarios",
       "config": "Configuración",
       "admin": "Administración",
       "adminUsers": "Usuarios",
-      "adminServiceAccounts": "Cuentas de Servicio",
+      "adminServiceAccounts": "Cuentas de servicio",
+      "adminOcsf": "Gobernanza OCSF",
       "settings": "Cuenta",
+      "settingsAccount": "Perfil y seguridad",
       "settingsTokens": "Tokens de API"
     }
   },
   "globalFilters": {
     "label": "Filtros",
-    "loadFailed": "No se pudieron cargar los filtros globales.",
+    "loadFailed": "No se pudieron cargar los filtros.",
     "retry": "Reintentar",
     "clearFilters": "Limpiar filtros",
     "allOrganizations": "Todas las organizaciones",
@@ -129,7 +136,7 @@
     "ariaLabel": "Menú de la cuenta",
     "defaultName": "Usuario",
     "defaultRole": "user",
-    "account": "Configuración de la cuenta",
+    "account": "Perfil y seguridad",
     "tokens": "Tokens de API",
     "signOut": "Salir"
   }

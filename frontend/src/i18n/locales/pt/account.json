@@ -1,7 +1,7 @@
 {
   "eyebrow": "Sua conta",
-  "title": "Configurações da conta",
-  "description": "Gerencie seu perfil, idioma e senha. Configurações administrativas como papel e organização são geridas por um administrador.",
+  "title": "Perfil e segurança",
+  "description": "Seu perfil, idioma e senha. Papel e organização só um administrador muda.",
   "load": {
     "error": "Não foi possível carregar sua conta. Tente novamente."
   },
@@ -11,7 +11,7 @@
     "username": "Usuário",
     "role": "Papel",
     "scope": "Escopo de acesso",
-    "scopeGlobal": "Global — todas as organizações",
+    "scopeGlobal": "Global (todas as organizações)",
     "scopeOrg": "Restrito a {{org}}",
     "scopeNone": "Sem organização",
     "organization": "Organização",

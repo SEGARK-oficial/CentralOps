@@ -146,7 +146,7 @@ describe("IntegrationForm — Sophos", () => {
   it("tile Partner mostra nota de auto-discovery e NÃO mostra campo Região", async () => {
     renderForm()
     fireEvent.click(await screen.findByTestId("tile-card-sophos_partner"))
-    expect(screen.getByText(/todos os tenants/i)).toBeInTheDocument()
+    expect(screen.getByText(/cada tenant desta credencial/i)).toBeInTheDocument()
     expect(screen.queryByLabelText(/Região/)).not.toBeInTheDocument()
   })
 
@@ -158,10 +158,10 @@ describe("IntegrationForm — Sophos", () => {
     expect(within(baseTile).queryByText("Enterprise")).not.toBeInTheDocument()
   })
 
-  it("Community: selecionar sophos_partner exibe o aviso 'requer licença Enterprise'", async () => {
+  it("Community: selecionar sophos_partner exibe o aviso 'Importar tenants exige Enterprise'", async () => {
     renderForm()
     fireEvent.click(await screen.findByTestId("tile-card-sophos_partner"))
-    expect(screen.getByText(/requer licença Enterprise/i)).toBeInTheDocument()
+    expect(screen.getByText(/Importar tenants exige Enterprise/i)).toBeInTheDocument()
   })
 
   it("Enterprise: sem badge no tile partner e sem aviso de licença", async () => {
@@ -170,7 +170,7 @@ describe("IntegrationForm — Sophos", () => {
     const partnerTile = await screen.findByTestId("tile-card-sophos_partner")
     expect(within(partnerTile).queryByText("Enterprise")).not.toBeInTheDocument()
     fireEvent.click(partnerTile)
-    expect(screen.queryByText(/requer licença Enterprise/i)).not.toBeInTheDocument()
+    expect(screen.queryByText(/Importar tenants exige Enterprise/i)).not.toBeInTheDocument()
   })
 })
 

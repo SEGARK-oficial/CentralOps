@@ -68,6 +68,18 @@ void i18n
     },
   })
 
+// O <html lang> nasce fixo em "pt-BR" no index.html e nunca acompanhava o idioma
+// resolvido: um usuário com navegador en-US lia a tela em inglês enquanto o
+// documento se declarava português, e o leitor de tela aplicava fonética errada.
+// `resolvedLanguage` (não `language`) porque o detector devolve "en-US" e o
+// catálogo resolvido é "en".
+const syncDocumentLang = () => {
+  const lang = i18n.resolvedLanguage
+  if (lang) document.documentElement.lang = lang
+}
+syncDocumentLang()
+i18n.on("languageChanged", syncDocumentLang)
+
 if (import.meta.env.DEV) {
   ;(window as unknown as { i18n?: typeof i18n }).i18n = i18n
 }

@@ -76,17 +76,21 @@ function isExpired(token: ApiToken): boolean {
   return new Date(token.expires_at) <= new Date()
 }
 
+// Uma tabela de token é configuração, não telemetria. Token válido está em
+// repouso: neutro cheio. Revogado e expirado já não valem nada e ninguém precisa
+// correr atrás — neutro vazado. O único âmbar da coluna é o token sem validade,
+// que é risco de verdade e é o que a varredura tem de achar.
 function tokenStatusBadge(token: ApiToken, t: TFunction<"admin">): React.ReactNode {
   if (token.revoked_at) {
-    return <Badge variant="danger">{t("tokens.statusRevoked")}</Badge>
+    return <Badge variant="outline">{t("tokens.statusRevoked")}</Badge>
   }
   if (isExpired(token)) {
-    return <Badge variant="danger">{t("tokens.statusExpired")}</Badge>
+    return <Badge variant="outline">{t("tokens.statusExpired")}</Badge>
   }
   if (!token.expires_at) {
     return <Badge variant="warning">{t("tokens.statusEternal")}</Badge>
   }
-  return <Badge variant="success">{t("tokens.statusActive")}</Badge>
+  return <Badge variant="default">{t("tokens.statusActive")}</Badge>
 }
 
 function feedbackVariant(type: "success" | "error"): "success" | "danger" {

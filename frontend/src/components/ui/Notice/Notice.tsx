@@ -4,7 +4,10 @@ import { cn } from "@/lib/utils"
 
 type NoticeVariant = "info" | "success" | "warning" | "danger"
 
-interface NoticeProps extends React.HTMLAttributes<HTMLDivElement> {
+// `title` aqui é o cabeçalho do aviso (ReactNode), não o atributo `title` do
+// HTML (string). Sem o Omit, a interface conflitava com HTMLAttributes e o tsc
+// reprovava o arquivo (TS2430).
+interface NoticeProps extends Omit<React.HTMLAttributes<HTMLDivElement>, "title"> {
   variant?: NoticeVariant
   title?: React.ReactNode
   icon?: React.ReactNode
@@ -47,7 +50,7 @@ export const Notice: React.FC<NoticeProps> = ({
 
   return (
   <div
-    className={cn("flex items-start gap-3 rounded-lg px-4 py-3 text-sm", variantStyles[variant].wrapper, className)}
+    className={cn("flex items-start gap-2.5 rounded-md px-3.5 py-2.5 text-sm", variantStyles[variant].wrapper, className)}
     // role/aria-live derivam da variante; props (se passar role/aria-live) sobrescrevem.
     role={role}
     aria-live={ariaLive}
@@ -58,7 +61,7 @@ export const Notice: React.FC<NoticeProps> = ({
     </div>
     <div className="min-w-0 flex-1">
       {title && <div className="font-semibold">{title}</div>}
-      {children && <div className={cn(title && "mt-1", "leading-relaxed")}>{children}</div>}
+      {children && <div className={cn(title && "mt-0.5", "leading-relaxed")}>{children}</div>}
     </div>
     {action && <div className="shrink-0">{action}</div>}
   </div>
