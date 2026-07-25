@@ -29,6 +29,12 @@ A normalização atua automaticamente em todo alerta que entra na plataforma. Vo
 
 Cada origem de alertas tem um **mapeamento**: um conjunto de regras que diz "pegue este dado do alerta original e coloque-o neste campo padrão". A plataforma aplica o mapeamento a cada alerta que chega e produz a versão padronizada.
 
+O editor de mapeamento mostra as três coisas lado a lado: a amostra bruta que o fornecedor mandou, as regras que a traduzem e o envelope padronizado que sai do outro lado.
+
+![Editor de mapeamento com amostra, regras e envelope normalizado](/img/console/console-editor-mapping.png)
+
+O painel da esquerda traz amostras reais de eventos daquela origem, guardadas conforme o tráfego passa. Escolher uma dispara a simulação: o painel da direita mostra o resultado sem gravar nada, e o contador no topo diz quantas amostras passaram e quantas falharam. É assim que você confere uma regra antes de salvá-la.
+
 Os mapeamentos têm três características importantes:
 
 | Característica | O que significa para você |
