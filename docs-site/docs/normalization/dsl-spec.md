@@ -83,6 +83,48 @@ Cada regra responde duas perguntas: **de onde vem o valor** e **para onde ele va
 - Se a origem vier vazia, a regra passa para o **valor padrão** (se houver).
 - Uma lista vazia conta como valor preenchido — não é o mesmo que vazio.
 
+#### Expressões avançadas (JMESPath completo)
+
+O campo de origem não se limita aos três formatos acima. Ele é uma expressão
+**[JMESPath](https://jmespath.org/)** completa, e o motor não restringe nada:
+filtros, funções, pipes e seleções múltiplas funcionam todos.
+
+Isso importa na prática porque fornecedores usam marcadores para "campo vazio"
+em vez de omitir o campo. O Windows, por exemplo, manda `-` e `0x0`:
+
+| Expressão | Para que serve |
+|-----------|----------------|
+| `[data.win.eventdata.param2][?@!='-']\|[0]` | ignora o valor quando o Windows manda `-` (vazio) |
+| `([data.win.eventdata.subStatus][?@!='0x0'&&@!='0x00000000']\|[0]) \|\| data.win.eventdata.status` | usa `subStatus` só se for significativo; senão cai para `status` |
+| `to_number(data.win.eventdata.ipPort)` | converte texto para número dentro da própria expressão |
+
+Outras funções úteis: `length()`, `join()`, `sort_by()`, `keys()`, `contains()`.
+A [especificação oficial do JMESPath](https://jmespath.org/specification.html)
+vale integralmente.
+
+:::caution[Expressões avançadas custam desempenho]
+Só caminhos simples do tipo `a.b.c` (letras ASCII, números e `_`) usam o
+resolvedor rápido. **Qualquer** filtro, pipe ou função cai no interpretador
+completo do JMESPath — que já foi medido como 64% do tempo de normalização em um
+mapping grande.
+
+Use as formas avançadas onde elas se pagam (como o filtro de `-` acima, que um
+caminho simples não consegue expressar) e prefira `a.b.c` quando os dois
+resolvem. Em um mapping com mais de 100 regras, a diferença é visível.
+:::
+
+#### Ler o resultado do pré-processamento (`_`)
+
+Uma origem que **começa com `_`** não lê o evento original: lê o resultado das
+etapas de **pré-processamento** (`preprocess`). Use quando o valor precisa ser
+extraído antes — por exemplo, um JSON embutido dentro de um campo de texto.
+
+Essa é uma convenção do CentralOps, não do JMESPath.
+
+```json
+{ "target": "normalized.device.name", "source": "_parsed.hostname" }
+```
+
 > **Origem ou valor fixo, nunca os dois.** Cada regra usa **ou** um campo de origem **ou** um valor fixo. Se você preencher os dois, a validação acusa erro (ver [Quando algo dá errado](#quando-algo-dá-errado)).
 
 ---
