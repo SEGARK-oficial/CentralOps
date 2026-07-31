@@ -313,6 +313,7 @@
       "perDay": "/ day",
       "enablePricing": "Enable US$ calculation (savings/ROI) with the Enterprise edition + per-GB pricing on the destination.",
       "pricingUnconfigured": "The destination has no per-GB price. Without it currency savings stay at zero.",
+      "pricingLicenseRequired": "The Enterprise license is not active. Currency calculation stays unavailable until activation — the per-GB price on the destination is not the cause.",
       "unitRaw": "raw event, 1× per event",
       "unitEnvelope": "envelope, per delivery",
       "unitMixed": "mixed bases, see breakdown",

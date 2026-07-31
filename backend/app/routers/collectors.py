@@ -308,6 +308,13 @@ class CostSummary(BaseModel):
     window_minutes: int
     enabled: bool
     pricing_available: bool
+    # O pacote EE registra o pricer por PRESENÇA, não por licença — então
+    # ``pricing_available`` sozinho não diz se ele consegue precificar. Sem
+    # licença Enterprise válida o pricer levanta ``LicenseRequiredError`` e o
+    # bloco USD é omitido, resultado idêntico ao de "nenhum destino tem preço".
+    # Sem este campo a UI acusava falta de PREÇO num problema de LICENÇA.
+    # Mesmo vocabulário de ``TenantSyncStatus.license_required``.
+    pricing_license_required: bool = False
     # Estado REAL das flags de redução no processo que respondeu. Existe porque
     # até aqui nada expunha isso e a UI de rotas afirmava (errado) que as
     # alavancas nasciam desligadas — o operador não tinha como conferir.
@@ -356,6 +363,7 @@ def get_cost_summary(
         org_ids = sorted(allowed_org_ids)
 
     pricer = ee_hooks.get_cost_pricer()
+    pricing_license_required = False
     rows: List[CostSummaryRow] = []
     for oid in org_ids:
         key = str(oid)
@@ -398,6 +406,11 @@ def get_cost_summary(
                     savings_usd_per_day = round(
                         float(priced_sav["usd"]) * (1440.0 / _COST_WINDOW_MINUTES), 4
                     )
+            except ee_hooks.LicenseRequiredError:
+                # Artefato EE presente, licença ausente/expirada. É uma causa
+                # DISTINTA de "nenhum destino precificado" — engolir junto com o
+                # erro genérico fazia a UI culpar o preço por GB.
+                pricing_license_required = True
             except Exception:  # noqa: BLE001 — pricing é best-effort; nunca derruba o endpoint
                 logger.debug("cost_pricer falhou para org=%s", oid, exc_info=True)
         rows.append(
@@ -424,6 +437,7 @@ def get_cost_summary(
         window_minutes=_COST_WINDOW_MINUTES,
         enabled=metering.enabled(),
         pricing_available=pricer is not None,
+        pricing_license_required=pricing_license_required,
         levers={
             "trim": bool(getattr(_settings, "REDUCTION_TRIM_ENABLED", False)),
             "sample": bool(getattr(_settings, "REDUCTION_SAMPLE_ENABLED", False)),

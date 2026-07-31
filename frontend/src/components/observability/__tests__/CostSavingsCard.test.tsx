@@ -181,4 +181,37 @@ describe("CostSavingsCard — Economia estimada", () => {
     expect(await screen.findByText(/Economia estimada/i)).toBeInTheDocument()
     expect(screen.queryByTestId("pricing-unconfigured")).not.toBeInTheDocument()
   })
+
+  it("economia ZERO precificada não é tratada como preço ausente", async () => {
+    // `0` = o pricer respondeu e o resultado foi zero (valor legítimo).
+    // Só `null` significa "não foi possível precificar". Colapsar os dois
+    // mandava o operador reconfigurar um preço por GB que já estava salvo.
+    mockedApi.getCostSummary.mockResolvedValue(
+      summary({
+        pricing_available: true,
+        rows: [row({ bytes_saved: 300, savings_usd_per_day: 0, cost: { usd: 0, currency: "USD" } })],
+      }),
+    )
+    render(<CostSavingsCard />)
+
+    expect(await screen.findByText(/Economia estimada/i)).toBeInTheDocument()
+    expect(screen.queryByTestId("pricing-unconfigured")).not.toBeInTheDocument()
+  })
+
+  it("sem licença Enterprise acusa LICENÇA, não falta de preço", async () => {
+    // O pacote EE registra o pricer por PRESENÇA; sem licença ele levanta
+    // LicenseRequiredError e o USD some. Antes, a mesma mensagem culpava o
+    // preço por GB — mandando o operador para o lugar errado.
+    mockedApi.getCostSummary.mockResolvedValue(
+      summary({
+        pricing_available: true,
+        pricing_license_required: true,
+        rows: [row({ bytes_saved: 300, savings_usd_per_day: null })],
+      }),
+    )
+    render(<CostSavingsCard />)
+
+    expect(await screen.findByTestId("pricing-license-required")).toBeInTheDocument()
+    expect(screen.queryByTestId("pricing-unconfigured")).not.toBeInTheDocument()
+  })
 })

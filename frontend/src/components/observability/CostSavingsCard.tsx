@@ -91,10 +91,18 @@ export const CostSavingsCard: React.FC = () => {
   // Pricer EE registrado mas sem preço configurado devolve savings nulo em TODAS
   // as linhas. Exibir "US$ 0,00" nesse caso é indistinguível de "não economizou
   // nada" — o operador não tem como saber que falta preencher cost_per_gb.
+  //
+  // `null` e `0` são estados DIFERENTES e não podem colapsar na mesma mensagem:
+  // `null` = o pricer não pôde responder (sem preço, ou sem licença — o backend
+  // distingue via `pricing_license_required`); `0` = precificou e o resultado foi
+  // zero, o que é um valor legítimo. Acusar "falta preço por GB" no segundo caso
+  // manda o operador reconfigurar um preço que já está lá.
+  const pricingLicenseRequired = data.pricing_available && data.pricing_license_required
   const pricingUnconfigured =
     data.pricing_available &&
+    !pricingLicenseRequired &&
     totals.bytes_saved > 0 &&
-    data.rows.every((r) => r.savings_usd_per_day === null || r.savings_usd_per_day === 0)
+    data.rows.every((r) => r.savings_usd_per_day === null)
 
   return (
     <Card className="space-y-4">
@@ -152,6 +160,10 @@ export const CostSavingsCard: React.FC = () => {
       {!data.pricing_available ? (
         <p className="text-xs text-text-tertiary">
           {t("observability.costSavings.enablePricing")}
+        </p>
+      ) : pricingLicenseRequired ? (
+        <p className="text-xs text-text-tertiary" data-testid="pricing-license-required">
+          {t("observability.costSavings.pricingLicenseRequired")}
         </p>
       ) : pricingUnconfigured ? (
         <p className="text-xs text-text-tertiary" data-testid="pricing-unconfigured">

@@ -374,3 +374,45 @@ def test_cost_summary_exposes_real_lever_state_and_units(monkeypatch):
     assert out.units["bytes_saved"] == "mixed"
     # a nota não pode mais afirmar que nenhuma alavanca está ativa
     assert "sem alavanca de redução" not in out.note
+
+
+def test_cost_summary_flags_license_required_instead_of_swallowing(monkeypatch):
+    """Pricer EE presente mas sem licença levanta ``LicenseRequiredError``.
+
+    Antes, o ``except Exception`` genérico engolia junto com erro de dados: o
+    USD sumia e a UI acusava "o destino não tem preço por GB" — culpando o
+    preço num problema de LICENÇA. São causas distintas e precisam de sinais
+    distintos (mesmo vocabulário de ``TenantSyncStatus.license_required``).
+    """
+    _seed(monkeypatch, {
+        ("org", "1", "bytes_out"): 1_000_000_000,
+        ("org", "1", "bytes_saved"): 1_000_000_000,
+        ("org", "1", "events_out"): 50,
+    })
+
+    def _unlicensed(org, dest, gb):
+        raise ee_hooks.LicenseRequiredError("enterprise")
+
+    ee_hooks.register_cost_pricer(_unlicensed)
+    out = _call_endpoint(monkeypatch, [1])
+
+    assert out.pricing_available is True  # o artefato EE ESTÁ presente
+    assert out.pricing_license_required is True
+    assert out.rows[0].cost is None
+    assert out.rows[0].savings_usd_per_day is None
+    # e o volume continua sendo reportado normalmente
+    assert out.rows[0].bytes_saved == 1_000_000_000
+
+
+def test_cost_summary_license_required_stays_false_on_generic_error(monkeypatch):
+    """Erro de dados/DB não pode virar "licença ausente" — segue best-effort mudo."""
+    _seed(monkeypatch, {("org", "1", "bytes_out"): 1_000, ("org", "1", "events_out"): 5})
+
+    def _broken(org, dest, gb):
+        raise ValueError("delivery json podre")
+
+    ee_hooks.register_cost_pricer(_broken)
+    out = _call_endpoint(monkeypatch, [1])
+
+    assert out.pricing_license_required is False
+    assert out.rows[0].cost is None

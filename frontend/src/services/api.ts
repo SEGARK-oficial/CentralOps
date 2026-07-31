@@ -1976,6 +1976,9 @@ export interface CostSummary {
   window_minutes: number
   enabled: boolean
   pricing_available: boolean
+  /** Pricer EE registrado (o pacote está presente) mas a licença Enterprise não
+   *  está ativa — o bloco US$ é omitido por LICENÇA, não por falta de preço. */
+  pricing_license_required?: boolean
   /** Estado real das flags REDUCTION_* no backend que respondeu. */
   levers: Record<string, boolean>
   /** Base de medição de cada métrica (`raw_event`, `envelope_per_delivery`, …). */
