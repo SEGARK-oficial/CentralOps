@@ -84,6 +84,13 @@ const OUTCOME_TONES: Record<string, BadgeTone> = {
   residency_blocked: "warning",
   sampled_out: "warning",
   suppressed: "warning",
+  // COLETADO do vendor — o "como era antes", ponto de partida da trajetória.
+  // Neutro: não é sucesso nem problema, é o marco zero.
+  received: "default",
+  // Rejeitado pelo dedupe (já visto na janela de TTL). Antes deste desfecho o
+  // evento sumia SEM registro — o `continue` do dedupe acontece antes de
+  // qualquer tap, e essa é a causa nº1 de "meu evento não apareceu".
+  deduped: "warning",
 }
 
 function outcomeTone(outcome: string | null): BadgeTone {

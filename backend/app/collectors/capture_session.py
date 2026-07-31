@@ -33,6 +33,7 @@ from typing import Any, Dict, List, Mapping, Optional, Sequence
 
 import redis.asyncio as redis_async
 
+from . import capture_admission
 from .audit_buffer import _redact
 
 logger = logging.getLogger(__name__)
@@ -88,6 +89,13 @@ OUTCOME_SAMPLED_OUT = "sampled_out"
 OUTCOME_SUPPRESSED = "suppressed"
 #: Quarentenado na normalização/validação (mapping ausente, OCSF inválido, ...).
 OUTCOME_QUARANTINED = "quarantined"
+#: COLETADO do vendor, antes de qualquer normalização. É o "como era antes".
+OUTCOME_RECEIVED = "received"
+#: Rejeitado pelo dedupe (``claim()``) — já visto dentro da janela de TTL.
+#: Antes deste desfecho o evento sumia SEM registro: o ``continue`` do dedupe
+#: acontece antes de qualquer tap, e essa é a causa nº1 de "meu evento não
+#: apareceu". Era estruturalmente invisível.
+OUTCOME_DEDUPED = "deduped"
 
 #: Vocabulário fechado dos desfechos (a UI pode filtrar/agrupar por ele).
 OUTCOMES = frozenset(
@@ -101,8 +109,34 @@ OUTCOMES = frozenset(
         OUTCOME_SAMPLED_OUT,
         OUTCOME_SUPPRESSED,
         OUTCOME_QUARANTINED,
+        OUTCOME_RECEIVED,
+        OUTCOME_DEDUPED,
     }
 )
+
+# ── Estágio (stage) ────────────────────────────────────────────────────
+# ORTOGONAL a ``outcome``: o desfecho diz O QUE ACONTECEU, o estágio diz QUAL
+# TRANSFORMAÇÃO o payload gravado já sofreu. Sem ele a tela mente por omissão —
+# hoje o MESMO evento aparece com TRÊS normalizações diferentes na mesma lista,
+# sem rótulo: ``quarantined`` traz o raw íntegro, ``dropped``/``sampled_out``
+# trazem o envelope PRÉ-transformação-por-destino, e ``delivered`` traz PÓS
+# redação de PII, PÓS drop_raw e PÓS aggregate.
+STAGE_COLLECTED = "collected"
+STAGE_ROUTED = "routed"
+STAGE_DELIVERED = "delivered"
+
+STAGES = frozenset({STAGE_COLLECTED, STAGE_ROUTED, STAGE_DELIVERED})
+
+#: Forma do payload gravado, para a UI não prometer o que não tem.
+PAYLOAD_VENDOR_WIRE = "vendor_wire"
+PAYLOAD_VENDOR_RAW = "vendor_raw"
+PAYLOAD_ENVELOPE = "envelope"
+PAYLOAD_AGGREGATE_METRIC = "aggregate_metric"
+
+#: Versão do formato de entrada do ring. v2 é ADITIVO — nenhuma chave do v1 foi
+#: renomeada nem removida, e o payload continua em ``event``. Registros v1 vivos
+#: (TTL ≤ 3.900 s) seguem legíveis via :func:`normalize_entry`, sem migração.
+ENTRY_VERSION = 2
 
 
 class CaptureLimitReached(RuntimeError):
@@ -506,6 +540,44 @@ def _clip_for_ring(payload: Dict[str, Any]) -> tuple[str, Optional[Dict[str, Any
     return text, meta
 
 
+def _event_id_of(ev: Any) -> Optional[str]:
+    """``_centralops.event_id`` do envelope, quando houver.
+
+    NUNCA recomputa via ``compute_event_id``: com ``raw_reduction`` ativo, o
+    envelope foi construído sobre o raw REDUZIDO, então recomputar sobre o raw
+    original produziria um id diferente e quebraria a junção do jornal — em
+    silêncio, que é o pior modo de falha possível para uma chave de correlação.
+    """
+    if not isinstance(ev, Mapping):
+        return None
+    labels = ev.get("_centralops")
+    if not isinstance(labels, Mapping):
+        return None
+    eid = labels.get("event_id")
+    return str(eid) if eid else None
+
+
+def normalize_entry(entry: Dict[str, Any]) -> Dict[str, Any]:
+    """Preenche os campos do v2 numa entrada lida do ring, seja ela v1 ou v2.
+
+    Centraliza a retrocompatibilidade num ponto só, em vez de espalhar ``.get()``
+    com default por todo leitor. Registros v1 continuam no ring por até 3.900 s
+    após o deploy — e não há migração nem dual-write, porque o payload nunca saiu
+    da chave ``event``.
+    """
+    if entry.get("v"):
+        return entry
+    entry["v"] = 1
+    # v1 só existia no tap de roteamento e no de entrega; ambos gravavam o
+    # envelope pós-roteamento. ``routed`` é o rótulo honesto para os dois.
+    entry.setdefault("stage", STAGE_ROUTED)
+    entry.setdefault("payload_kind", PAYLOAD_ENVELOPE)
+    entry.setdefault("pii_redacted", False)
+    if "event_id" not in entry:
+        entry["event_id"] = _event_id_of(entry.get("event"))
+    return entry
+
+
 def _entries_for(
     m: Mapping[str, str],
     batch: Sequence[Any],
@@ -514,6 +586,14 @@ def _entries_for(
     destination_id: Optional[str],
     detail: Optional[str],
     route_id: Optional[str] = None,
+    *,
+    stage: str = STAGE_ROUTED,
+    payload_kind: str = PAYLOAD_ENVELOPE,
+    pii_redacted: bool = False,
+    event_ids: Optional[Sequence[Optional[str]]] = None,
+    destination_kind: Optional[str] = None,
+    dest_config_version: Optional[str] = None,
+    wires: Optional[Sequence[Optional[Dict[str, Any]]]] = None,
 ) -> List[str]:
     """Serializa os eventos do lote que passam pelo filtro de vendor DESTA sessão.
 
@@ -526,16 +606,36 @@ def _entries_for(
     e "por que foi dropado" sem parsear string livre."""
     vfilter = (m.get("vendor") or "").strip()
     out: List[str] = []
-    for ev in batch:
+    for idx, ev in enumerate(batch):
         vendor = _event_vendor(ev)
         if not _vendor_matches(vfilter, vendor):
             continue
+        # ``event_ids``/``wires`` são POR EVENTO (indexados pelo lote), ao
+        # contrário de route_id/destination_id, que são escalares do grupo. O
+        # id vem do caller quando ele o conhece antes do envelope existir (tap
+        # de coleta); senão é extraído do próprio envelope.
+        eid = (
+            event_ids[idx]
+            if event_ids is not None and idx < len(event_ids)
+            else _event_id_of(ev)
+        )
         payload: Dict[str, Any] = {
+            "v": ENTRY_VERSION,
             "event": _redact(ev),
             "vendor": vendor,
             "captured_at": now,
             "outcome": outcome,
+            "stage": stage,
+            "payload_kind": payload_kind,
+            "pii_redacted": pii_redacted,
+            "event_id": eid,
         }
+        if destination_kind:
+            payload["destination_kind"] = str(destination_kind)
+        if dest_config_version:
+            payload["dest_config_version"] = str(dest_config_version)
+        if wires is not None and idx < len(wires) and wires[idx] is not None:
+            payload["wire"] = wires[idx]
         if destination_id is not None:
             payload["destination_id"] = str(destination_id)
         if route_id:
@@ -569,6 +669,14 @@ def _decode_meta(meta: Mapping[Any, Any]) -> Dict[str, Any]:
         "expires_at": expires_at or None,
         "status": status,
         "event_count": int(m.get("event_count") or 0),
+        "capture_percent": int(m.get("capture_percent") or 100),
+        "max_eps": int(m.get("max_eps") or capture_admission.DEFAULT_MAX_EPS),
+        "capture_wire": str(m.get("capture_wire") or "0") == "1",
+        "ring_bytes": int(m.get("ring_bytes") or CAPTURE_SESSION_MAX_BYTES),
+        "ring_bytes_used": int(m.get("ring_bytes_used") or 0),
+        # "unavailable" quando o append caiu no fallback sem EVAL: o teto de
+        # bytes NÃO está sendo aplicado, e a UI precisa dizer isso.
+        "budget_enforcement": m.get("budget_enforcement") or "active",
     }
 
 
@@ -579,6 +687,9 @@ async def start_session(
     vendor: Optional[str] = None,
     duration_seconds: int = DEFAULT_DURATION_SECONDS,
     ring_size: int = DEFAULT_RING_SIZE,
+    capture_percent: int = capture_admission.DEFAULT_CAPTURE_PERCENT,
+    max_eps: int = capture_admission.DEFAULT_MAX_EPS,
+    capture_wire: bool = False,
 ) -> Dict[str, Any]:
     """Inicia uma sessão de captura escopada a ``org_id`` (e opcionalmente ``vendor``)."""
     # Anti-abuso: teto de sessões simultâneas por org.
@@ -612,6 +723,17 @@ async def start_session(
         "ring_size": str(size),
         "status": "active",
         "event_count": "0",
+        # Parâmetros lidos pelo WORKER a cada lote. Ficam no meta (que já viaja
+        # inteiro em ``active_sessions_sync``) para a decisão "admito? gravo
+        # wire?" não custar round-trip extra.
+        "capture_percent": str(max(1, min(int(capture_percent), 100))),
+        "max_eps": str(max(1, min(int(max_eps), capture_admission.MAX_EPS_CEILING))),
+        # OFF por default e deliberadamente: o custo de ``format()`` no
+        # dispatcher é opt-in, e uma sessão criada pelo fluxo de hoje mantém
+        # EXATAMENTE o custo de hoje.
+        "capture_wire": "1" if capture_wire else "0",
+        "ring_bytes": str(CAPTURE_SESSION_MAX_BYTES),
+        "ring_bytes_used": "0",
     }
     ttl = duration + GRACE_SECONDS
     # TTL do índice é FIXO (não regride p/ a janela da última sessão) — senão uma
@@ -696,7 +818,7 @@ async def read_events(
     events: List[Dict[str, Any]] = []
     for item in raw:
         try:
-            events.append(json.loads(_s(item)))
+            events.append(normalize_entry(json.loads(_s(item))))
         except Exception:  # pragma: no cover — entrada corrompida é ignorada
             continue
     return events
@@ -729,7 +851,7 @@ async def iter_events(
             return
         for item in raw:
             try:
-                yield json.loads(_s(item))
+                yield normalize_entry(json.loads(_s(item)))
             except Exception:  # pragma: no cover — entrada corrompida é ignorada
                 continue
         if len(raw) <= stop - start:  # última página (ring menor que o teto)
@@ -900,6 +1022,13 @@ def record_sync(
     route_id: Optional[str] = None,
     sessions: Optional[Sequence[Mapping[str, str]]] = None,
     redis: Any = None,
+    stage: str = STAGE_ROUTED,
+    payload_kind: str = PAYLOAD_ENVELOPE,
+    pii_redacted: bool = False,
+    event_ids: Optional[Sequence[Optional[str]]] = None,
+    destination_kind: Optional[str] = None,
+    dest_config_version: Optional[str] = None,
+    wires: Optional[Sequence[Optional[Dict[str, Any]]]] = None,
 ) -> None:
     """Versão SÍNCRONA de :func:`record` para os taps que rodam fora do event loop
     (roteamento no produtor, quarentena via ``asyncio.to_thread``). Mesmo ring, mesmo
@@ -925,7 +1054,12 @@ def record_sync(
             sid = m.get("id") or ""
             if not sid:
                 continue
-            entries = _entries_for(m, batch, now, outcome, destination_id, detail, route_id)
+            entries = _entries_for(
+                m, batch, now, outcome, destination_id, detail, route_id,
+                stage=stage, payload_kind=payload_kind, pii_redacted=pii_redacted,
+                event_ids=event_ids, destination_kind=destination_kind,
+                dest_config_version=dest_config_version, wires=wires,
+            )
             if not entries:
                 continue
             ring_size, evt_ttl, ring_bytes = _ring_params(m, now)

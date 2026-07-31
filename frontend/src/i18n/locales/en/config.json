@@ -426,6 +426,8 @@
       "confirm": "Delete"
     },
     "outcomes": {
+      "received": "Collected",
+      "deduped": "Duplicate (dedupe)",
       "delivered": "Delivered",
       "delivery_failed": "Delivery failed",
       "dropped": "Dropped",
