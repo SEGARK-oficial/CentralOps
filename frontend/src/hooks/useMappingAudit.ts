@@ -20,10 +20,18 @@ interface UseMappingAuditReturn {
   entries: MappingAuditEntry[]
   isLoading: boolean
   error: Error | null
+  /**
+   * Ações que o endpoint pode devolver, servidas pelo backend. Vazio enquanto
+   * carrega ou se o backend for anterior ao campo — o consumidor decide o
+   * fallback. Existe para o seletor de filtro não manter uma cópia própria da
+   * lista, que já divergiu do backend em três valores.
+   */
+  availableActions: string[]
 }
 
 export function useMappingAudit(id: string, params?: AuditParams): UseMappingAuditReturn {
   const [entries, setEntries] = useState<MappingAuditEntry[]>([])
+  const [availableActions, setAvailableActions] = useState<string[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<Error | null>(null)
 
@@ -45,15 +53,20 @@ export function useMappingAudit(id: string, params?: AuditParams): UseMappingAud
 
     getMappingAudit(id, resolvedParams, { signal: controller.signal })
       .then((result) => {
-        // Defensivo: garante que entries seja sempre array, mesmo se o service
-        // retornar undefined/null/objeto por mudança de contrato.
-        setEntries(Array.isArray(result) ? result : [])
+        // Defensivo: garante array mesmo se o service retornar
+        // undefined/null/formato antigo por mudança de contrato.
+        setEntries(Array.isArray(result?.items) ? result.items : [])
+        setAvailableActions(
+          Array.isArray(result?.availableActions) ? result.availableActions : [],
+        )
         setError(null)
       })
       .catch((e: unknown) => {
         if (e instanceof Error && e.name === "AbortError") return
         setError(e instanceof Error ? e : new Error(String(e)))
         setEntries([])
+        // NÃO zera availableActions: o seletor some da tela no meio de um
+        // erro de rede e o operador perde o filtro que estava usando.
       })
       .finally(() => {
         if (!controller.signal.aborted) setIsLoading(false)
@@ -63,5 +76,5 @@ export function useMappingAudit(id: string, params?: AuditParams): UseMappingAud
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, paramsKey])
 
-  return { entries, isLoading, error }
+  return { entries, isLoading, error, availableActions }
 }

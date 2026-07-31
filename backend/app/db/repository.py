@@ -2080,6 +2080,8 @@ class PredefinedQueryRepository:
         statement: str | None = None,
         table: str | None = None,
         client_ids: str | None = None,
+        dialect: str | None = None,
+        spec_kind: str | None = None,
     ) -> models.PredefinedQuery:
         if title is not None:
             query.title = title
@@ -2091,6 +2093,10 @@ class PredefinedQueryRepository:
             query.table = table
         if client_ids is not None:
             query.client_ids = client_ids
+        if dialect is not None:
+            query.dialect = dialect
+        if spec_kind is not None:
+            query.spec_kind = spec_kind
         self.db.commit()
         self.db.refresh(query)
         return query

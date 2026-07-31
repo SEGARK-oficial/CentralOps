@@ -258,6 +258,97 @@ def test_create_version_requires_admin(client_factory) -> None:
     assert r.status_code == 403
 
 
+# ── author_label: a coluna "Autor" das Versões ────────────────────────
+
+
+def test_version_author_label_resolves_human_name(client_factory) -> None:
+    """``author_user_id`` sozinho não identifica o ator — a UI mostrava o id
+    numérico cru na coluna Autor. ``author_label`` resolve o nome na leitura.
+    """
+    factory, Session = client_factory
+    client = factory()
+    _bootstrap_admin(client)
+
+    with Session() as db:
+        def_id = _seed_definition(
+            db, vendor="sophos", event_type="sophos.alert", class_uid=2004
+        )
+
+    r = client.post(
+        f"/api/mappings/{def_id}/versions",
+        json={"rules": _v2([{"target": "normalized.x", "const": 1}]), "commit_message": "c"},
+    )
+    assert r.status_code == 201, r.text
+    # display_name do bootstrap, não o id.
+    assert r.json()["author_label"] == "Admin"
+
+    listed = client.get(f"/api/mappings/{def_id}/versions").json()
+    assert listed[0]["author_label"] == "Admin"
+
+    detail = client.get(f"/api/mappings/{def_id}").json()
+    assert detail["versions"][0]["author_label"] == "Admin"
+
+
+def test_version_author_label_falls_back_to_audit_for_service_account(
+    client_factory,
+) -> None:
+    """Service account autentica como AppUser de id NEGATIVO inexistente, então
+    ``persistable_user_id`` grava ``author_user_id=NULL`` e a coluna Autor
+    ficava VAZIA para tudo que veio de MCP/API. O ator sobrevive na linha de
+    ``mapping_audit_log`` (``sa:<nome>``) — é de lá que o rótulo vem.
+    """
+    factory, Session = client_factory
+    client = factory()
+    _bootstrap_admin(client)
+
+    with Session() as db:
+        def_id = _seed_definition(
+            db, vendor="sophos", event_type="sophos.alert", class_uid=2004
+        )
+
+    version_id = client.post(
+        f"/api/mappings/{def_id}/versions",
+        json={"rules": _v2([{"target": "normalized.x", "const": 1}]), "commit_message": "c"},
+    ).json()["id"]
+
+    # Simula o que o shim de service account produz: FK nula, audit com nome.
+    with Session() as db:
+        v = db.get(models.MappingVersion, version_id)
+        v.author_user_id = None
+        row = (
+            db.query(models.MappingAuditLog)
+            .filter(models.MappingAuditLog.mapping_version_id == version_id)
+            .first()
+        )
+        assert row is not None, "create_version deve ter gravado audit"
+        row.user_id = None
+        row.username = "sa:iasoc-bot"
+        db.commit()
+
+    listed = client.get(f"/api/mappings/{def_id}/versions").json()
+    assert listed[0]["author_user_id"] is None
+    assert listed[0]["author_label"] == "sa:iasoc-bot"
+
+
+def test_version_author_label_is_null_for_seeded_version(client_factory) -> None:
+    """Versões de seed entram por SQL direto (sem FK e sem audit) — não há ator
+    a inventar. O rótulo fica null e a UI decide o fallback.
+    """
+    factory, Session = client_factory
+    client = factory()
+    _bootstrap_admin(client)
+
+    with Session() as db:
+        def_id = _seed_definition(
+            db, vendor="sophos", event_type="sophos.alert", class_uid=2004
+        )
+        _seed_version(db, definition_id=def_id, version_number=1, rules=[])
+
+    listed = client.get(f"/api/mappings/{def_id}/versions").json()
+    assert listed[0]["author_user_id"] is None
+    assert listed[0]["author_label"] is None
+
+
 def test_create_version_validates_dsl(client_factory) -> None:
     factory, Session = client_factory
     client = factory()
@@ -1240,3 +1331,63 @@ def test_dry_run_default_hit_warnings_present_in_schema(client_factory) -> None:
     data = r.json()
     assert "default_hit_warnings" in data
     assert data["default_hit_warnings"] == []
+
+
+# ── filtro de auditoria: vocabulário servido pelo backend ──────────────
+
+
+def test_audit_exposes_available_actions(client_factory) -> None:
+    """A UI monta o seletor de filtro a partir daqui, em vez de manter uma
+    cópia própria da lista — a cópia anterior divergiu em três valores."""
+    factory, Session = client_factory
+    client = factory()
+    _bootstrap_admin(client)
+
+    with Session() as db:
+        def_id = _seed_definition(
+            db, vendor="sophos", event_type="sophos.alert", class_uid=2004
+        )
+
+    body = client.get(f"/api/mappings/{def_id}/audit").json()
+    assert body["available_actions"] == [
+        "create_version",
+        "rollback",
+        "ignore_field",
+        "mark_mapped",
+        "delete_field",
+    ]
+
+
+def test_audit_rejects_unknown_action_instead_of_empty_table(client_factory) -> None:
+    """Regressão: o seletor oferecia ``version_created`` (o backend grava
+    ``create_version``), ``drift_detected`` e ``quarantine``. O filtro é
+    igualdade exata, então cada uma devolvia 200 com lista VAZIA — o operador
+    lia "não houve atividade" quando a opção simplesmente não existia.
+    """
+    factory, Session = client_factory
+    client = factory()
+    _bootstrap_admin(client)
+
+    with Session() as db:
+        def_id = _seed_definition(
+            db, vendor="sophos", event_type="sophos.alert", class_uid=2004
+        )
+    client.post(
+        f"/api/mappings/{def_id}/versions",
+        json={"rules": _v2([{"target": "normalized.x", "const": 1}]), "commit_message": "c"},
+    )
+
+    for dead in ("version_created", "drift_detected", "quarantine"):
+        r = client.get(f"/api/mappings/{def_id}/audit", params={"action": dead})
+        assert r.status_code == 422, f"{dead} deveria ser 422, veio {r.status_code}"
+
+    # Ação de quarentena EXISTE no vocabulário global, mas grava
+    # mapping_definition_id=NULL → é inalcançável por este endpoint. Oferecê-la
+    # aqui repetiria o bug com outro nome.
+    r = client.get(f"/api/mappings/{def_id}/audit", params={"action": "discard_quarantine"})
+    assert r.status_code == 422
+
+    # E a ação real continua funcionando.
+    ok = client.get(f"/api/mappings/{def_id}/audit", params={"action": "create_version"})
+    assert ok.status_code == 200, ok.text
+    assert ok.json()["total"] == 1

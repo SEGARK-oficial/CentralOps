@@ -426,6 +426,8 @@
       "confirm": "Eliminar"
     },
     "outcomes": {
+      "received": "Recolectado",
+      "deduped": "Duplicado (dedupe)",
       "delivered": "Entregado",
       "delivery_failed": "Fallo en la entrega",
       "dropped": "Descartado",
@@ -437,6 +439,31 @@
       "unrouted": "Sin destino",
       "unknown": "Desconocido",
       "unknownTooltip": "Evento grabado antes de que la captura registrara el desenlace."
+    },
+    "trajectory": {
+      "loading": "Cargando trayectoria…",
+      "errorTitle": "Error al cargar la trayectoria",
+      "empty": "Ningún registro de este evento en la ventana del ring.",
+      "rawEvicted": "El registro de recolección salió de la ventana del ring — el payload crudo (pre-normalización) ya no está disponible para este evento. Es el más antiguo del grupo y el primero en ser podado.",
+      "stages": "Etapas:",
+      "stage": {
+        "collected": "Recolectado",
+        "routed": "Enrutado",
+        "delivered": "Entregado"
+      },
+      "aggregated": "Agregado — el evento individual no sale en este destino",
+      "piiNotRedacted": "PII no redactada en este registro",
+      "wire": "Cómo salió en el cable",
+      "wireTruncated": "… truncado para visualización ({{bytes}} bytes en total)",
+      "noWirePreview": "Este destino escribe el LOTE entero (comprimido/columnar) — no existe representación por evento, así que no hay vista previa.",
+      "fidelity": {
+        "exact": "Exacto",
+        "nondeterministic": "No determinista",
+        "partial": "Parcial",
+        "not_representable": "Sin representación por evento",
+        "error": "Error al formatear"
+      },
+      "title": "Trayectoria del evento"
     }
   },
   "licensing": {

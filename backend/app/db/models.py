@@ -1964,8 +1964,10 @@ class MappingAuditLog(Base):
         index=True,
     )
     action = Column(String, nullable=False)
-    # "create_definition|create_version|set_current|rollback|ignore_field|
-    #  mark_mapped|delete_field|discard_quarantine|create_from_drift"
+    # Vocabulário em ``mapping_audit.ACTIONS`` (fonte única). NÃO repita a lista
+    # aqui: a versão anterior deste comentário citava três ações que o código
+    # nunca gravou (``create_definition``, ``set_current``, ``create_from_drift``)
+    # e omitia as três de reprocessamento de quarentena.
     user_id = Column(
         Integer,
         ForeignKey("app_users.id", ondelete="SET NULL"),

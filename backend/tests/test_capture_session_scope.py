@@ -461,3 +461,83 @@ def test_export_rejects_foreign_session(env) -> None:
         f"{BASE}/capture-sessions/{session['id']}/export?org_id={env['org_b']}"
     )
     assert r.status_code in (403, 404), r.text
+
+
+# ── filtros server-side validados ─────────────────────────────────────
+
+
+def test_events_rejects_unknown_outcome(env) -> None:
+    """422, não lista vazia.
+
+    O filtro é igualdade exata: um valor inexistente devolveria 200 com zero
+    eventos e o operador leria "não houve tráfego". É a mesma classe de bug que
+    o filtro de auditoria de mappings tinha — três das quatro opções ofereciam
+    ações que o backend nunca grava.
+    """
+    session = _start(env["ga"], env["org_a"])
+    r = env["ga"].get(
+        f"{BASE}/capture-sessions/{session['id']}/events"
+        f"?org_id={env['org_a']}&outcome=nao_existe"
+    )
+    assert r.status_code == 422, r.text
+    assert "nao_existe" in r.text
+
+
+def test_events_rejects_unknown_stage(env) -> None:
+    session = _start(env["ga"], env["org_a"])
+    r = env["ga"].get(
+        f"{BASE}/capture-sessions/{session['id']}/events"
+        f"?org_id={env['org_a']}&stage=inventado"
+    )
+    assert r.status_code == 422, r.text
+
+
+def test_events_accepts_the_new_outcomes(env) -> None:
+    """``received`` e ``deduped`` entraram no vocabulário fechado."""
+    session = _start(env["ga"], env["org_a"])
+    for outcome in ("received", "deduped", "delivered"):
+        r = env["ga"].get(
+            f"{BASE}/capture-sessions/{session['id']}/events"
+            f"?org_id={env['org_a']}&outcome={outcome}"
+        )
+        assert r.status_code == 200, f"{outcome}: {r.text}"
+
+
+def test_events_accepts_every_stage(env) -> None:
+    session = _start(env["ga"], env["org_a"])
+    for stage in ("collected", "routed", "delivered"):
+        r = env["ga"].get(
+            f"{BASE}/capture-sessions/{session['id']}/events"
+            f"?org_id={env['org_a']}&stage={stage}"
+        )
+        assert r.status_code == 200, f"{stage}: {r.text}"
+
+
+# ── trajetória por event_id ───────────────────────────────────────────
+
+
+def test_trajectory_requires_session_ownership(env) -> None:
+    """Mesmo gate dos demais endpoints de captura: nunca serve trajetória de
+    sessão de outra org. 403 (gate de org, que responde primeiro) ou 404 (posse
+    da sessão) — o que NÃO pode é 200."""
+    session = _start(env["ga"], env["org_b"])
+    r = env["scoped"].get(
+        f"{BASE}/capture-sessions/{session['id']}/events/qualquer?org_id={env['org_b']}"
+    )
+    assert r.status_code in (403, 404), r.text
+
+
+def test_trajectory_reports_incomplete_when_collected_is_missing(env) -> None:
+    """``complete=false`` é o que permite a UI dizer "o bruto saiu da janela do
+    ring" em vez de renderizar um painel vazio. O registro ``collected`` é o
+    mais VELHO do grupo e a primeira vítima da poda."""
+    session = _start(env["ga"], env["org_a"])
+    body = env["ga"].get(
+        f"{BASE}/capture-sessions/{session['id']}/events/nao-existe"
+        f"?org_id={env['org_a']}"
+    ).json()
+
+    assert body["event_id"] == "nao-existe"
+    assert body["count"] == 0
+    assert body["complete"] is False
+    assert body["stages_present"] == []

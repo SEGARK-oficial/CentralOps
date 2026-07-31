@@ -27,7 +27,7 @@ const ENTRIES: MappingAuditEntry[] = [
     id: "a1",
     mapping_definition_id: "m1",
     mapping_version_id: "v1",
-    action: "version_created",
+    action: "create_version",
     user_id: 1,
     username: "alice",
     user_role: "engineer",
@@ -43,7 +43,11 @@ beforeEach(() => {
 
 describe("useMappingAudit", () => {
   it("expõe entries como array quando service retorna entries", async () => {
-    mockedApi.getMappingAudit.mockResolvedValue(ENTRIES)
+    mockedApi.getMappingAudit.mockResolvedValue({
+      items: ENTRIES,
+      total: ENTRIES.length,
+      availableActions: ["create_version", "rollback"],
+    })
     const { result } = renderHook(() => useMappingAudit("m1"))
 
     await waitFor(() => expect(result.current.isLoading).toBe(false))
@@ -71,5 +75,43 @@ describe("useMappingAudit", () => {
     // se receber valor inesperado. Esse contrato é exercido pela tabela
     // que faz `.map()` em entries.
     expect(() => result.current.entries.map((e) => e.id)).not.toThrow()
+  })
+
+  it("expõe availableActions servidas pelo backend", async () => {
+    mockedApi.getMappingAudit.mockResolvedValue({
+      items: ENTRIES,
+      total: 1,
+      availableActions: ["create_version", "rollback", "ignore_field"],
+    })
+    const { result } = renderHook(() => useMappingAudit("m1"))
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false))
+    expect(result.current.availableActions).toEqual([
+      "create_version",
+      "rollback",
+      "ignore_field",
+    ])
+  })
+
+  it("preserva availableActions em erro de rede", async () => {
+    // O seletor de filtro não pode sumir da tela no meio de um erro — o
+    // operador perderia o filtro que estava usando.
+    mockedApi.getMappingAudit.mockResolvedValueOnce({
+      items: ENTRIES,
+      total: 1,
+      availableActions: ["create_version", "rollback"],
+    })
+    const { result, rerender } = renderHook(
+      ({ user }: { user?: string }) => useMappingAudit("m1", { username: user }),
+      { initialProps: {} as { user?: string } },
+    )
+    await waitFor(() => expect(result.current.availableActions).toHaveLength(2))
+
+    mockedApi.getMappingAudit.mockRejectedValueOnce(new Error("ECONNRESET"))
+    rerender({ user: "bob" })
+
+    await waitFor(() => expect(result.current.error).not.toBeNull())
+    expect(result.current.entries).toEqual([])
+    expect(result.current.availableActions).toEqual(["create_version", "rollback"])
   })
 })

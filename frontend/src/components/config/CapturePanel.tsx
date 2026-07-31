@@ -25,6 +25,7 @@ import { EmptyState } from "@/components/ui/EmptyState/EmptyState"
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner/LoadingSpinner"
 import { Modal } from "@/components/ui/Modal/Modal"
 import { Notice } from "@/components/ui/Notice/Notice"
+import { CaptureTrajectoryPanel } from "@/components/config/CaptureTrajectoryPanel"
 
 // Opções de duração da janela de captura (alinhadas ao backend: 1s–3600s).
 const DURATION_OPTIONS: Array<{ value: number; labelKey: string }> = [
@@ -84,6 +85,13 @@ const OUTCOME_TONES: Record<string, BadgeTone> = {
   residency_blocked: "warning",
   sampled_out: "warning",
   suppressed: "warning",
+  // COLETADO do vendor — o "como era antes", ponto de partida da trajetória.
+  // Neutro: não é sucesso nem problema, é o marco zero.
+  received: "default",
+  // Rejeitado pelo dedupe (já visto na janela de TTL). Antes deste desfecho o
+  // evento sumia SEM registro — o `continue` do dedupe acontece antes de
+  // qualquer tap, e essa é a causa nº1 de "meu evento não apareceu".
+  deduped: "warning",
 }
 
 function outcomeTone(outcome: string | null): BadgeTone {
@@ -1071,6 +1079,25 @@ export const CapturePanel: React.FC = () => {
                 </div>
               )
             })()}
+            {/* TRAJETÓRIA. O antes/depois acima é o payload DESTE registro; a
+                trajetória junta os registros de todos os estágios do MESMO
+                evento — que é o que responde "como entrou e como saiu de fato",
+                já que cada estágio guarda uma normalização diferente.
+                Só aparece com `event_id`: registros v1 e os três sites de
+                quarentena pré-envelope não têm identidade juntável, e inventar
+                uma seria pior que omitir a seção. */}
+            {inspected.event_id && selectedId && (
+              <div className="border-t border-border pt-3">
+                <span className="mb-2 block text-xs font-semibold uppercase tracking-wide text-text-secondary">
+                  {t("capture.trajectory.title")}
+                </span>
+                <CaptureTrajectoryPanel
+                  sessionId={selectedId!}
+                  eventId={inspected.event_id}
+                  orgId={orgScope}
+                />
+              </div>
+            )}
             <div className="flex justify-end">
               <Button
                 size="xs"

@@ -678,9 +678,12 @@ def update_route(
     is_global, caller_org = _resolve_scope(user)
 
     # Reassign de org: admin escopado não pode mover a rota para outra org
-    # (mesma regra do create — cross_org_create_denied).
+    # (mesma regra do create — cross_org_create_denied). ``model_fields_set``
+    # em vez de ``is not None`` porque ``organization_id: null`` EXPLÍCITO é
+    # uma promoção a rota GLOBAL — privilégio de admin de plataforma, não de
+    # admin escopado. Sem isso um admin de org escaparia do próprio escopo.
     if (
-        payload.organization_id is not None
+        "organization_id" in payload.model_fields_set
         and not is_global
         and payload.organization_id != caller_org
     ):
@@ -726,21 +729,25 @@ def update_route(
             payload.destination_ids, dest_repo, caller_org=caller_org, is_global=is_global
         )
 
-    # ``suppress_key`` é o único campo novo nullable-com-significado: ausente
-    # (não enviado) = mantém; ``null`` EXPLÍCITO = limpa a chave de supressão.
-    # ``model_fields_set`` (Pydantic v2) distingue "não enviado" de "enviado
-    # como null" — sem ele, ``payload.suppress_key is not None`` colapsaria os
-    # dois casos em _UNSET e um clear explícito nunca aplicaria (bug conhecido:
-    # ver CorrelationRuleRepository.update). Os outros 4 campos novos são
-    # colunas NOT NULL (sem estado "limpo"), então o idiom padrão
-    # ``is not None`` já usado por ``is_final``/``enabled``/``canary_percent``
-    # é suficiente — e preserva o fail-safe: ausência de ``protect_detection``
-    # nunca vira False, só um True/False EXPLÍCITO é aplicado.
-    _suppress_key_update = (
-        payload.suppress_key
-        if "suppress_key" in payload.model_fields_set
-        else repository._UNSET
-    )
+    # Campos NULLABLE-COM-SIGNIFICADO: ausente (não enviado) = mantém; ``null``
+    # EXPLÍCITO = limpa a coluna. ``model_fields_set`` (Pydantic v2) distingue
+    # os dois casos — sem ele, ``payload.X is not None`` colapsa ambos em _UNSET
+    # e um clear explícito nunca aplica (bug conhecido: ver
+    # CorrelationRuleRepository.update).
+    #
+    # A lista NÃO é só ``suppress_key``: ``pii_redaction`` (ADR-0003) e
+    # ``transform_ref`` já eram nullable antes do ADR-0015 e ficaram de fora do
+    # tratamento original — o PUT aceitava ``pii_redaction: null`` com HTTP 200
+    # e devolvia as regras antigas intactas.
+    #
+    # Colunas NOT NULL seguem no idiom ``is not None``: não têm estado "limpo",
+    # e isso preserva o fail-safe de ``protect_detection`` — ausência nunca
+    # rebaixa para False, só um True/False EXPLÍCITO é aplicado.
+    def _nullable(field: str) -> object:
+        if field in payload.model_fields_set:
+            return getattr(payload, field)
+        return repository._UNSET
+
     updated = repo.update(
         route_id,
         name=payload.name if payload.name is not None else repository._UNSET,
@@ -750,16 +757,16 @@ def update_route(
         destination_ids=payload.destination_ids if payload.destination_ids is not None else repository._UNSET,
         is_final=payload.is_final if payload.is_final is not None else repository._UNSET,
         canary_percent=payload.canary_percent if payload.canary_percent is not None else repository._UNSET,
-        transform_ref=payload.transform_ref if payload.transform_ref is not None else repository._UNSET,
-        pii_redaction=payload.pii_redaction if payload.pii_redaction is not None else repository._UNSET,
+        transform_ref=_nullable("transform_ref"),
+        pii_redaction=_nullable("pii_redaction"),
         protect_detection=payload.protect_detection if payload.protect_detection is not None else repository._UNSET,
         sample_percent=payload.sample_percent if payload.sample_percent is not None else repository._UNSET,
-        suppress_key=_suppress_key_update,
+        suppress_key=_nullable("suppress_key"),
         suppress_allow=payload.suppress_allow if payload.suppress_allow is not None else repository._UNSET,
         suppress_window_s=payload.suppress_window_s if payload.suppress_window_s is not None else repository._UNSET,
         drop_raw=payload.drop_raw if payload.drop_raw is not None else repository._UNSET,
         enabled=payload.enabled if payload.enabled is not None else repository._UNSET,
-        organization_id=payload.organization_id if payload.organization_id is not None else repository._UNSET,
+        organization_id=_nullable("organization_id"),
         actor=user.username,
     )
     if updated is None:

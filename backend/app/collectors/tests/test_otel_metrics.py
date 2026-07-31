@@ -234,7 +234,13 @@ def test_every_facade_maps_to_spec_and_vice_versa():
     # Existem porque as duas falhas eram INVISÍVEIS: cursor_lag deriva de
     # last_success_at, que é reescrito a cada ciclo bem-sucedido — marcava 0 num
     # coletor 15h atrasado (jul/2026). 48 → 50.
-    assert len(facade_names) == 50
+    # 50 → 51. +1: collector_capture_tap_disabled_total — o breaker do tap de
+    # captura ABRIU (Redis degradado ⇒ captura cega por uma janela, coleta
+    # preservada). Sem ela, "parei de ver eventos na captura" é indistinguível
+    # de "não houve tráfego", que é exatamente o sintoma que o tap existe para
+    # eliminar. Sem labels: o tap é estado de PROCESSO, e rotular por org daria
+    # cardinalidade ilimitada.
+    assert len(facade_names) == 51
     # O catálogo tem as síncronas + ao menos o observável collector_up.
     assert "collector_up" in otel_metrics._SPEC
     assert "collector_up" not in facade_names

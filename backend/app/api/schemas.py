@@ -31,6 +31,35 @@ TenantSelectionState = Literal["pending", "approved", "excluded"]
 SophosTenantUiState = Literal["pending", "approved", "excluded", "stale"]
 
 
+class StrictUpdateModel(BaseModel):
+    """Base dos corpos de UPDATE que carregam edição do operador.
+
+    ``extra="forbid"`` porque o default do Pydantic (``ignore``) transforma
+    "campo que o schema esqueceu de declarar" em DADO PERDIDO EM SILÊNCIO, com
+    HTTP 200. Duas ocorrências reais já custaram investigação:
+
+      * ``CollectorConfigUpdate`` não declarava ``dedupe_ttl_seconds`` — o
+        operador ajustava o TTL de dedupe para 4h, recebia 200, e o valor
+        efetivo continuava 24h;
+      * ``PredefinedQueryUpdate``/``PredefinedQueryBase`` não declaravam
+        ``dialect``/``spec_kind`` — a UI tinha seletor para ambos e a edição
+        nunca persistia.
+
+    Nos dois casos a coluna, a UI e o runtime estavam corretos; só o schema
+    ficou para trás, e o descarte mudo escondeu isso. Com ``forbid`` o mesmo
+    esquecimento vira 422 na primeira requisição — barulhento, e portanto
+    corrigível.
+
+    NÃO se aplica a ``SelfProfileUpdate``: lá a lista de permissão + descarte
+    silencioso é a defesa DELIBERADA contra mass-assignment (o cliente pode
+    devolver o objeto de usuário inteiro no PATCH, e recusar isso quebraria um
+    cliente legítimo sem ganho de segurança). Ver o teste
+    ``test_patch_ignores_privilege_fields_massassignment``.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+
 def _normalize_optional_text(value: Optional[str]) -> Optional[str]:
     if value is None:
         return None
@@ -80,7 +109,7 @@ class OrganizationRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
-class OrganizationUpdate(BaseModel):
+class OrganizationUpdate(StrictUpdateModel):
     name: Optional[str] = None
     description: Optional[str] = None
     is_active: Optional[bool] = None
@@ -133,7 +162,7 @@ class OrganizationRetentionConfigRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
-class OrganizationRetentionConfigUpdate(BaseModel):
+class OrganizationRetentionConfigUpdate(StrictUpdateModel):
     """Atualização parcial da configuração de retenção."""
 
     quarantine_retention_days: Optional[int] = Field(
@@ -347,7 +376,7 @@ class IntegrationRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
-class IntegrationUpdate(BaseModel):
+class IntegrationUpdate(StrictUpdateModel):
     name: Optional[str] = None
     is_active: Optional[bool] = None
 
@@ -545,7 +574,7 @@ class SelectTenantsResponse(BaseModel):
     license_required: bool = False
 
 
-class AutoApprovePolicyUpdate(BaseModel):
+class AutoApprovePolicyUpdate(StrictUpdateModel):
     auto_approve_new_tenants: bool
 
 
@@ -643,7 +672,7 @@ class IdentityConfigRead(BaseModel):
     entra_last_sync_summary: Optional[Dict[str, Any]] = None
 
 
-class IdentityConfigUpdate(BaseModel):
+class IdentityConfigUpdate(StrictUpdateModel):
     """Partial update. ``entra_client_secret`` só é gravado quando enviado
     não-vazio (mandar ausente/vazio preserva o secret atual)."""
 
@@ -820,7 +849,7 @@ class SessionUserRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
-class LocaleUpdate(BaseModel):
+class LocaleUpdate(StrictUpdateModel):
     """Corpo de PUT /auth/me/locale — o idioma escolhido no seletor do SPA."""
 
     locale: str = Field(pattern="^(pt|en|es)$")
@@ -871,7 +900,7 @@ class UserCreate(BaseModel):
         return value or None
 
 
-class UserUpdate(BaseModel):
+class UserUpdate(StrictUpdateModel):
     username: Optional[str] = None
     password: Optional[str] = None
     email: Optional[str] = None
@@ -1060,12 +1089,27 @@ class SearchResultRead(BaseModel):
 
 # ── Predefined Queries ────────────────────────────────────────────────
 
+#: Forma do statement (``collectors.capabilities.SPEC_*``). Conjunto FECHADO.
+QuerySpecKind = Literal["passthrough", "sigma", "ocsf_queryspec"]
+
+
 class PredefinedQueryBase(BaseModel):
     title: str
     description: Optional[str] = None
     statement: str
     table: str = "xdr_data"
     client_ids: Optional[List[int]] = None
+    # Dialeto do statement e forma do spec. As colunas existem desde o ADR-0007
+    # e o form da UI tem seletor para as duas, mas nenhum schema as declarava:
+    # o Pydantic descartava as chaves em silêncio no create E no update, e o
+    # serializer de leitura não as devolvia — a feature era inoperante ponta a
+    # ponta, com HTTP 200 em todas as etapas.
+    #
+    # ``dialect`` fica ``str`` (não Literal): o conjunto é EXTENSÍVEL por plugin
+    # de vendor (a UI monta as opções a partir de ``/query-capabilities``), e um
+    # Literal fechado aqui rejeitaria o dialeto de um plugin novo.
+    dialect: Optional[str] = None
+    spec_kind: Optional[QuerySpecKind] = None
     # Auditoria multi-tenant: dono da query. None → o servidor resolve (org do
     # criador escopado, ou derivada dos client_ids p/ admin global). Admin global
     # pode direcionar explicitamente a uma org.
@@ -1076,12 +1120,18 @@ class PredefinedQueryCreate(PredefinedQueryBase):
     pass
 
 
-class PredefinedQueryUpdate(BaseModel):
+class PredefinedQueryUpdate(StrictUpdateModel):
     title: Optional[str] = None
     description: Optional[str] = None
     statement: Optional[str] = None
     table: Optional[str] = None
     client_ids: Optional[List[int]] = None
+    # As colunas existem (models.PredefinedQuery.dialect/spec_kind) e o form de
+    # edição tem seletor para as duas — mas o schema não as declarava, então o
+    # Pydantic descartava as chaves em silêncio e a edição não persistia
+    # (HTTP 200, valor antigo de volta). Mesmo defeito do dedupe_ttl_seconds.
+    dialect: Optional[str] = None
+    spec_kind: Optional[QuerySpecKind] = None
 
 
 class PredefinedQueryRead(PredefinedQueryBase):
@@ -1180,7 +1230,7 @@ class EmailConfigBase(BaseModel):
         return value or None
 
 
-class EmailConfigUpdate(BaseModel):
+class EmailConfigUpdate(StrictUpdateModel):
     smtp_host: str | None = None
     smtp_port: int | None = None
     smtp_user: str | None = None
@@ -1485,7 +1535,7 @@ class IntegrationCollectionFiltersRead(BaseModel):
     available_filters: Dict[str, List[CollectionFilterFieldRead]] = Field(default_factory=dict)
 
 
-class IntegrationCollectionFiltersUpdate(BaseModel):
+class IntegrationCollectionFiltersUpdate(StrictUpdateModel):
     """Body do PUT — SUBSTITUI toda a configuração de filtros da integração.
 
     Não é merge: stream ausente do corpo perde os filtros que tinha, e ``{}``
@@ -1587,7 +1637,7 @@ class CollectorConfigBase(BaseModel):
         return _validate_rate_limits(v)
 
 
-class CollectorConfigUpdate(BaseModel):
+class CollectorConfigUpdate(StrictUpdateModel):
     """Partial update — todos os campos opcionais."""
 
     wazuh_syslog_host: Optional[str] = None
@@ -1601,6 +1651,10 @@ class CollectorConfigUpdate(BaseModel):
     collector_batch_size: Optional[int] = Field(default=None, ge=1, le=10_000)
     collector_batch_flush_seconds: Optional[int] = Field(default=None, ge=1, le=600)
     dedupe_ttl_days: Optional[int] = Field(default=None, ge=1, le=365)
+    # Espelha ``CollectorConfigBase.dedupe_ttl_seconds``. Sem este campo o PUT
+    # descartava o valor em silêncio (Pydantic ignora chave desconhecida) e o
+    # TTL efetivo ficava preso no derivado de ``dedupe_ttl_days``.
+    dedupe_ttl_seconds: Optional[int] = Field(default=None, ge=14_400, le=2_678_400)
 
     domain_concurrency_limits: Optional[Dict[str, int]] = None
     rate_limits_by_vendor: Optional[Dict[str, Dict[str, int]]] = None
@@ -1797,7 +1851,7 @@ class ServiceAccountCreate(BaseModel):
         return v
 
 
-class ServiceAccountUpdate(BaseModel):
+class ServiceAccountUpdate(StrictUpdateModel):
     """Payload de PATCH /api/v1/service-accounts/{id}.
 
     Tudo opcional — só campos enviados são atualizados. ``role`` muda

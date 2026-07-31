@@ -19,6 +19,7 @@ continua avançando.
 from __future__ import annotations
 
 import asyncio
+import functools
 import json
 import logging
 import ssl
@@ -37,6 +38,12 @@ from ..db import database, models
 from . import quarantine
 from .auth.oauth_cache import get_or_refresh_token, invalidate as invalidate_token
 from .base import CollectorContext
+# Import no TOPO, não dentro da função: ``likely_no_session`` é chamado POR EVENTO
+# no caminho de supressão. A sonda em si custa ~168 ns, mas um ``from ... import``
+# local dentro da função mais que dobra isso a cada evento. Sem ciclo:
+# ``capture_session`` importa apenas ``audit_buffer`` e ``core.config``.
+from . import capture_admission, capture_session
+from .capture_session import likely_no_session
 from .config_loader import get_collector_config
 from .domain_limiter import DomainLimiter
 from .metrics import (
@@ -221,6 +228,13 @@ def _capture_sync(
     detail: Optional[str] = None,
     route_id: Optional[str] = None,
     sessions: Optional[list] = None,
+    stage: str = capture_session.STAGE_ROUTED,
+    payload_kind: str = capture_session.PAYLOAD_ENVELOPE,
+    pii_redacted: bool = False,
+    event_ids: Optional[list] = None,
+    destination_kind: Optional[str] = None,
+    dest_config_version: Optional[str] = None,
+    wires: Optional[list] = None,
 ) -> None:
     """Registra o DESFECHO de um lote nas sessões de captura ativas (tap de ciclo de
     vida). BEST-EFFORT ABSOLUTO: engole TUDO — a captura nunca altera o resultado do
@@ -228,11 +242,47 @@ def _capture_sync(
 
     Fail-closed em ``org_id is None`` (nunca escreve num bucket compartilhado). Curto-
     circuita barato quando o org não tem sessão ativa (cache negativo em
-    ``capture_session``), então chamar isto no hot path é seguro."""
+    ``capture_session``), então chamar isto no hot path é seguro.
+
+    ADMISSÃO: antes de qualquer serialização (que é justamente o custo a evitar),
+    filtra o lote por ``capture_admission.admit`` — determinística por
+    ``event_id``, para que TODOS os estágios do mesmo evento recebam a mesma
+    decisão em processos diferentes. Sem isso o jornal deixaria de ser juntável.
+    """
     if not batch or org_id is None:
         return
+    # Short-circuit EM MEMÓRIA antes de qualquer I/O. Faltava aqui: só o wrapper
+    # async ``_capture_outcome`` tinha a sonda, e este caminho síncrono é o que o
+    # flush do buffer de coleta usa — a cada lote e no ``finally`` de cada ciclo.
+    # Sem ela, um org sem sessão paga uma tentativa de conexão por flush.
+    if sessions is None and likely_no_session(org_id):
+        return
     try:
-        from . import capture_session
+        metas = sessions if sessions is not None else capture_session.active_sessions_sync(org_id)
+        if not metas:
+            return
+        # A admissão é POR SESSÃO (cada uma tem sua taxa), mas o filtro do lote é
+        # o mais PERMISSIVO entre elas — ``_entries_for`` já filtra por vendor
+        # depois, e recortar aqui pela sessão mais restritiva perderia eventos
+        # que outra sessão queria.
+        widest_pct = 0
+        for m in metas:
+            pct, _eps, _wire = capture_admission.session_params(m)
+            widest_pct = max(widest_pct, pct)
+        if widest_pct < 100:
+            ids = event_ids or [capture_session._event_id_of(e) for e in batch]
+            keep = [
+                i for i, eid in enumerate(ids)
+                if capture_admission.admit(eid, widest_pct)
+            ]
+            if not keep:
+                return
+            if len(keep) != len(batch):
+                batch = [batch[i] for i in keep]
+                if event_ids is not None:
+                    event_ids = [event_ids[i] for i in keep]
+                if wires is not None:
+                    wires = [wires[i] for i in keep if i < len(wires)]
 
         capture_session.record_sync(
             batch,
@@ -241,7 +291,14 @@ def _capture_sync(
             destination_id=destination_id,
             detail=detail,
             route_id=route_id,
-            sessions=sessions,
+            sessions=metas,
+            stage=stage,
+            payload_kind=payload_kind,
+            pii_redacted=pii_redacted,
+            event_ids=event_ids,
+            destination_kind=destination_kind,
+            dest_config_version=dest_config_version,
+            wires=wires,
         )
     except Exception:  # noqa: BLE001 — captura nunca quebra o hot path
         logger.debug("capture: falha ao registrar outcome=%s (não-fatal)", outcome, exc_info=True)
@@ -254,9 +311,21 @@ async def _capture_outcome(
     *,
     destination_id: Optional[str] = None,
     detail: Optional[str] = None,
+    route_id: Optional[str] = None,
+    sessions: Optional[list] = None,
+    **kwargs: Any,
 ) -> None:
     """:func:`_capture_sync` fora do event loop (o cliente de captura é síncrono).
-    Best-effort — nunca levanta."""
+    Best-effort — nunca levanta.
+
+    ``**kwargs`` repassa os campos do jornal (``stage``, ``payload_kind``,
+    ``pii_redacted``, ``event_ids``, ``destination_kind``,
+    ``dest_config_version``, ``wires``) sem duplicar a assinatura em três
+    camadas — o contrato real é o de ``_capture_sync``.
+
+    ``sessions`` reusa uma resolução prévia de ``active_sessions_sync``. Sem ele
+    CADA chamada refaz 1 SMEMBERS + N HGETALL, e o dispatch chama duas vezes por
+    lote por destino (aceitos + falhados)."""
     if not batch or org_id is None:
         return
     # Short-circuit ANTES do hop de thread-pool. Sem sessão ativa conhecida, despachar
@@ -264,25 +333,107 @@ async def _capture_outcome(
     # direta) — e a SUPRESSÃO chama isto POR EVENTO dentro do laço de coleta, que é
     # justamente o caminho de alto volume. A sonda é em memória (zero I/O) e
     # conservadora: se não souber, segue o caminho normal.
-    from .capture_session import likely_no_session
-
     if likely_no_session(org_id):
         return
     try:
         await asyncio.to_thread(
-            _capture_sync,
-            batch,
-            org_id,
-            outcome,
-            destination_id=destination_id,
-            detail=detail,
+            functools.partial(
+                _capture_sync,
+                batch,
+                org_id,
+                outcome,
+                destination_id=destination_id,
+                detail=detail,
+                route_id=route_id,
+                sessions=sessions,
+                **kwargs,
+            )
         )
     except Exception:  # noqa: BLE001 — captura nunca quebra o hot path
         logger.debug("capture: falha ao registrar outcome=%s (não-fatal)", outcome, exc_info=True)
 
 
+#: Teto do buffer paralelo de captura no laço de coleta. O gatilho por CONTAGEM
+#: é OBRIGATÓRIO e não pode ser amarrado ao flush do ``batch``: eventos
+#: suprimidos, quarentenados e deduplicados fazem ``continue`` ANTES do
+#: ``batch.append``. Num stream de alta supressão/dedupe o ``batch`` fica vazio o
+#: ciclo inteiro, um flush amarrado a ele nunca dispararia, e o buffer acumularia
+#: referências ao raw de TODO o ``async for`` — OOM do worker disparado por abrir
+#: uma sessão de diagnóstico. O repo tem o caso concreto: backlog de 2,9M
+#: eventos com 97,6% descartável.
+CAPTURE_BUF_MAX = 100
+
+
+def _redact_secrets_text(text: str) -> str:
+    """Scrub de segredo sobre o TEXTO do wire, não sobre o objeto.
+
+    Aplicar ``_redact`` no objeto antes de formatar mudaria o que o formatter
+    produz e destruiria a fidelidade que o selo ``exact`` promete. Aplicar sobre
+    o texto preserva o byte formatado e ainda protege o token que alguns kinds
+    (webhook, HEC) carregam no próprio corpo.
+    """
+    try:
+        from ..core.logging_config import scrub_secrets_in_value
+
+        return scrub_secrets_in_value(text)
+    except Exception:  # noqa: BLE001 — nunca quebra a entrega
+        return text
+
+
+def _flush_capture_buf(
+    buf: list,
+    org_id: Optional[int],
+    vendor: Optional[str],
+    integration_id: Optional[int] = None,
+    stream: Optional[str] = None,
+) -> None:
+    """Escreve o buffer de ``received``/``deduped`` e o esvazia. Best-effort.
+
+    Monta um pseudo-envelope ``{_centralops, raw}`` porque nestes dois estágios o
+    envelope de verdade não existe (``deduped``) ou acabou de ser construído a
+    partir do raw REDUZIDO (``received``) — o valor do registro é justamente o
+    raw ANTES da normalização.
+    """
+    if not buf:
+        return
+    try:
+        by_outcome: Dict[str, list] = {}
+        for msg_id, raw, outcome in buf:
+            by_outcome.setdefault(outcome, []).append((msg_id, raw))
+        for outcome, items in by_outcome.items():
+            envs = [
+                {
+                    "_centralops": {
+                        "vendor": vendor,
+                        "event_id": mid,
+                        "organization_id": org_id,
+                        "integration_id": integration_id,
+                        "event_type": stream,
+                    },
+                    "raw": raw,
+                }
+                for mid, raw in items
+            ]
+            _capture_sync(
+                envs,
+                org_id,
+                outcome,
+                stage=capture_session.STAGE_COLLECTED,
+                payload_kind=capture_session.PAYLOAD_VENDOR_RAW,
+                event_ids=[mid for mid, _ in items],
+            )
+    except Exception:  # noqa: BLE001 — captura nunca quebra a coleta
+        logger.debug("capture: falha ao gravar o buffer de coleta", exc_info=True)
+    finally:
+        buf.clear()
+
+
 async def _capture_delivery_failed(
-    batch: list, destination_id: Optional[str], detail: str
+    batch: list,
+    destination_id: Optional[str],
+    detail: str,
+    *,
+    sessions: Optional[list] = None,
 ) -> None:
     """Atalho do desfecho ``delivery_failed`` (destino ausente, cross-tenant, breaker
     aberto, exceção de envio). Best-effort — nunca levanta nem mascara o erro real."""
@@ -295,6 +446,7 @@ async def _capture_delivery_failed(
             OUTCOME_DELIVERY_FAILED,
             destination_id=destination_id,
             detail=detail,
+            sessions=sessions,
         )
     except Exception:  # noqa: BLE001 — captura nunca quebra o dispatch
         logger.debug("capture: falha ao registrar delivery_failed (não-fatal)", exc_info=True)
@@ -348,13 +500,22 @@ def _make_quarantine_budget(
     return _ok
 
 
-async def _quarantine_async(*, capture_org_id: Optional[int] = None, **kwargs: Any) -> None:
+async def _quarantine_async(
+    *,
+    capture_org_id: Optional[int] = None,
+    capture_event_id: Optional[str] = None,
+    **kwargs: Any,
+) -> None:
     """Wrapper que roda o write síncrono em thread auxiliar.
 
     ``capture_org_id`` NÃO é repassado à quarentena — serve só para o tap de captura
     saber o tenant (vários call-sites não passam ``organization_id`` para a quarentena,
     e mudar isso alteraria as linhas gravadas na tabela). A captura roda DEPOIS do
-    write e é best-effort: nunca afeta a quarentena."""
+    write e é best-effort: nunca afeta a quarentena.
+
+    ``capture_event_id`` liga o registro à trajetória do evento. Só os call-sites
+    PÓS-envelope o têm; os três PRÉ-envelope não, e forçar um id ali seria
+    inventar identidade — o registro fica solto, e essa é a verdade."""
     await asyncio.to_thread(quarantine.send_to_quarantine, **kwargs)
     _org = capture_org_id if capture_org_id is not None else kwargs.get("organization_id")
     if _org is None:
@@ -377,6 +538,13 @@ async def _quarantine_async(*, capture_org_id: Optional[int] = None, **kwargs: A
         _org,
         OUTCOME_QUARANTINED,
         detail=f"{kwargs.get('error_kind') or 'quarantine'}: {kwargs.get('error_detail') or ''}",
+        # Quarentena guarda o raw ÍNTEGRO (pré-normalização) — é por isso que o
+        # estágio é ``collected`` e não ``routed``. Sem o rótulo, este registro
+        # aparecia na mesma lista que um ``delivered`` pós-redação, e nada dizia
+        # que eram normalizações diferentes do mesmo evento.
+        stage=capture_session.STAGE_COLLECTED,
+        payload_kind=capture_session.PAYLOAD_VENDOR_RAW,
+        event_ids=[capture_event_id] if capture_event_id else None,
     )
 
 
@@ -627,6 +795,17 @@ async def _run_collection_once(integration_id: int, stream: str) -> None:
     # limitada a ~``collector_batch_size``.
     unsettled_claims: set[str] = set()
     batch_msg_ids: list[str] = []
+    # Buffer PARALELO ao ``batch``, para os desfechos de coleta (received/deduped).
+    # Não pode ser o próprio ``batch``: o dedupe faz ``continue`` antes dele, e um
+    # evento deduplicado nunca chega lá. Instanciado ANTES do try (mesmo padrão de
+    # ``unsettled_claims``) para o ``finally`` conseguir dar o flush final.
+    capture_buf: list = []
+    # Contexto do flush, resolvido só depois de carregar a integração. Existe
+    # desde AQUI porque o ``finally`` roda mesmo quando a falha é anterior a
+    # isso (ex.: banco fora do ar) — ler ``organization_id`` direto ali daria
+    # UnboundLocalError e MASCARARIA o erro original, que é exatamente o que
+    # ``test_early_db_failure_reraises_original_error`` existe para impedir.
+    capture_ctx: Dict[str, Any] = {"org_id": None, "vendor": None}
     # metering IN batched (ADR-0011): acumula (eventos, bytes) por
     # (org, integração) e faz flush a cada 500 eventos/15s — o record_in
     # por-evento fazia 4 pipelines Redis SÍNCRONOS por evento e bloqueava o
@@ -681,6 +860,8 @@ async def _run_collection_once(integration_id: int, stream: str) -> None:
                 return
             platform = integration.platform
             organization_id = integration.organization_id
+            capture_ctx["org_id"] = organization_id
+            capture_ctx["vendor"] = platform
             organization_name: Optional[str] = (
                 integration.organization.name
                 if integration.organization is not None
@@ -849,6 +1030,19 @@ async def _run_collection_once(integration_id: int, stream: str) -> None:
                         ttl_seconds=config.effective_dedupe_ttl_seconds,
                     ):
                         DEDUPE_DROPS.labels(vendor=platform, stream=stream).inc()
+                        # TAP DE DEDUPE. Antes disto o evento sumia SEM registro
+                        # nenhum: o ``continue`` acontece antes de qualquer tap e
+                        # antes do envelope existir. É a causa nº1 de "meu evento
+                        # não apareceu" e era estruturalmente invisível.
+                        if not likely_no_session(organization_id):
+                            capture_buf.append(
+                                (msg_id, raw_event, capture_session.OUTCOME_DEDUPED)
+                            )
+                            if len(capture_buf) >= CAPTURE_BUF_MAX:
+                                _flush_capture_buf(
+                                    capture_buf, organization_id, platform,
+                                    integration_id, stream,
+                                )
                         continue
                     unsettled_claims.add(msg_id)
 
@@ -982,6 +1176,27 @@ async def _run_collection_once(integration_id: int, stream: str) -> None:
                         envelope_ctx,
                         vendor_msg_id=msg_id,
                     )
+                    # TAP `received` — o "como era ANTES da normalização". Guarda
+                    # a REFERÊNCIA ao raw ORIGINAL (não ``applied.reduced_raw``):
+                    # é o payload pré-``raw_reduction``, que é o mais próximo do
+                    # vendor que existe neste processo.
+                    #
+                    # ``msg_id`` é a chave de junção CORRETA: ``build_envelope``
+                    # acabou de recebê-lo como ``vendor_msg_id``, e
+                    # ``compute_event_id`` devolve esse valor quando ele é truthy
+                    # — logo ``envelope["_centralops"]["event_id"] == msg_id``
+                    # incondicionalmente aqui. NUNCA recomputar sobre o raw: com
+                    # ``raw_reduction`` ativo o envelope foi construído sobre o
+                    # raw REDUZIDO, e o id divergiria em silêncio.
+                    if not likely_no_session(organization_id):
+                        capture_buf.append(
+                            (msg_id, raw_event, capture_session.OUTCOME_RECEIVED)
+                        )
+                        if len(capture_buf) >= CAPTURE_BUF_MAX:
+                            _flush_capture_buf(
+                                capture_buf, organization_id, platform,
+                                integration_id, stream,
+                            )
                     # contabiliza os bytes evitados pelo trimming
                     # (raw_reduction). No-op (zero serialização) quando as flags
                     # REDUCTION_TRIM_ENABLED/COST_METERING_ENABLED estão off.
@@ -1085,6 +1300,7 @@ async def _run_collection_once(integration_id: int, stream: str) -> None:
                                 ):
                                     await _quarantine_async(
                                         capture_org_id=organization_id,
+                                        capture_event_id=msg_id,
                                         integration_id=integration_id,
                                         vendor=platform,
                                         event_type=event_type,
@@ -1118,6 +1334,7 @@ async def _run_collection_once(integration_id: int, stream: str) -> None:
                         ):
                             await _quarantine_async(
                                 capture_org_id=organization_id,
+                                capture_event_id=msg_id,
                                 integration_id=integration_id,
                                 vendor=platform,
                                 event_type=event_type,
@@ -1160,6 +1377,11 @@ async def _run_collection_once(integration_id: int, stream: str) -> None:
                                 organization_id,
                                 OUTCOME_SUPPRESSED,
                                 detail=f"route={_suppressed_by}",
+                                # Supressão acontece ANTES do fan-out por destino,
+                                # logo o envelope ainda é o roteado — sem redação
+                                # de PII por rota aplicada.
+                                stage=capture_session.STAGE_ROUTED,
+                                pii_redacted=False,
                             )
                             continue
 
@@ -1210,6 +1432,10 @@ async def _run_collection_once(integration_id: int, stream: str) -> None:
                         >= config.collector_batch_flush_seconds
                     ):
                         _enqueue_dispatch(batch, dispatch_routes)
+                        _flush_capture_buf(
+                            capture_buf, organization_id, platform,
+                            integration_id, stream,
+                        )
                         # Volume de source NO MINUTO EM QUE O EVENTO REALMENTE
                         # FLUIU. Antes esta série era gravada UMA vez, no fim do
                         # ciclo, com o total — atribuindo um ciclo de vários
@@ -1259,6 +1485,9 @@ async def _run_collection_once(integration_id: int, stream: str) -> None:
             if batch:
                 _enqueue_dispatch(batch, dispatch_routes)
                 _record_source_ingested(integration_id, len(batch))
+                _flush_capture_buf(
+                    capture_buf, organization_id, platform, integration_id, stream,
+                )
                 EVENTS_TOTAL.labels(
                     vendor=platform,
                     tenant=str(organization_id),
@@ -1351,6 +1580,13 @@ async def _run_collection_once(integration_id: int, stream: str) -> None:
         # ciclo falhou (exceção/soft-timeout). Best-effort — flush() engole tudo
         # internamente e NUNCA mascara o erro original em voo.
         _metering_in.flush()
+        # Idem para o buffer de captura: um ciclo que termina com menos de
+        # CAPTURE_BUF_MAX eventos no buffer não pode perdê-los, e um ciclo que
+        # falhou é justamente quando o operador mais precisa do registro.
+        _flush_capture_buf(
+            capture_buf, capture_ctx["org_id"], capture_ctx["vendor"],
+            integration_id, stream,
+        )
         # Flush ÚNICO da classificação em voo, no ``finally`` — cobre o caminho
         # feliz E o de exceção. Isso é obrigatório, não zelo: no data-plane
         # default uma exceção no meio do ciclo NÃO solta as claims de dedupe, o
@@ -1655,8 +1891,6 @@ def _capture_outcomes(org_id: Optional[int], result: Any) -> None:
     if org_id is None:
         return
     try:
-        from . import capture_session
-
         # 1 resolução por lote, reusada em todos os desfechos (evita reabrir o índice
         # do org a cada bucket). [] ⇒ nada a fazer (caso comum, curto-circuitado).
         sessions = capture_session.active_sessions_sync(org_id)
@@ -1667,31 +1901,52 @@ def _capture_outcomes(org_id: Optional[int], result: Any) -> None:
             if events:
                 _capture_sync(events, org_id, outcome, sessions=sessions)
 
-        # (envelope, route_id) → a rota responsável pelo drop, agora ESTRUTURADA
-        # (campo route_id), não mais texto em detail: é o que responde "por que foi
+        # AGRUPAR ANTES DE ESCREVER. Cada ``_capture_sync`` abre um pipeline Redis
+        # PRÓPRIO e SÍNCRONO, dentro do event loop da coleta — um por evento fazia
+        # um lote de 200 eventos numa rota ``action=drop`` custar até 200
+        # round-trips bloqueantes.
+        #
+        # A chave do agrupamento NÃO é arbitrária: ``_entries_for`` aplica
+        # ``route_id``/``destination_id``/``detail`` como ESCALARES a TODAS as
+        # entradas do lote. Agrupar por sessão (ou por qualquer chave mais grossa)
+        # gravaria todos os eventos com o MESMO route_id, corrompendo justamente o
+        # campo que responde "em qual rota bateu". Por isso a chave é exatamente a
+        # tupla de escalares que cada desfecho carrega.
+        def _emit_grouped(items, outcome: str, keyfn, kwargsfn) -> None:
+            groups: Dict[Any, list] = {}
+            for item in items or ():
+                groups.setdefault(keyfn(item), []).append(item[0])
+            for key, envs in groups.items():
+                _capture_sync(envs, org_id, outcome, sessions=sessions, **kwargsfn(key))
+
+        # (envelope, route_id) → a rota responsável pelo drop, ESTRUTURADA
+        # (campo route_id), não texto em detail: é o que responde "por que foi
         # dropado — qual regra o descartou".
-        for _env, _rid in getattr(result, "dropped_events", None) or ():
-            _capture_sync(
-                [_env], org_id, capture_session.OUTCOME_DROPPED,
-                route_id=_rid or None, sessions=sessions,
-            )
+        _emit_grouped(
+            getattr(result, "dropped_events", None),
+            capture_session.OUTCOME_DROPPED,
+            lambda it: it[1] or None,
+            lambda rid: {"route_id": rid},
+        )
         _emit(list(getattr(result, "unrouted_events", None) or ()), capture_session.OUTCOME_UNROUTED)
-        for _env, _reason in getattr(result, "loop_blocked_events", None) or ():
-            _capture_sync(
-                [_env], org_id, capture_session.OUTCOME_LOOP_BLOCKED,
-                detail=_reason, sessions=sessions,
-            )
-        for _env, _dest in getattr(result, "residency_blocked_events", None) or ():
-            _capture_sync(
-                [_env], org_id, capture_session.OUTCOME_RESIDENCY_BLOCKED,
-                destination_id=_dest, sessions=sessions,
-            )
-        for _env, _dest, _rid in getattr(result, "sampled_events", None) or ():
-            _capture_sync(
-                [_env], org_id, capture_session.OUTCOME_SAMPLED_OUT,
-                destination_id=_dest, route_id=_rid or None,
-                sessions=sessions,
-            )
+        _emit_grouped(
+            getattr(result, "loop_blocked_events", None),
+            capture_session.OUTCOME_LOOP_BLOCKED,
+            lambda it: it[1],
+            lambda reason: {"detail": reason},
+        )
+        _emit_grouped(
+            getattr(result, "residency_blocked_events", None),
+            capture_session.OUTCOME_RESIDENCY_BLOCKED,
+            lambda it: it[1],
+            lambda dest: {"destination_id": dest},
+        )
+        _emit_grouped(
+            getattr(result, "sampled_events", None),
+            capture_session.OUTCOME_SAMPLED_OUT,
+            lambda it: (it[1], it[2] or None),
+            lambda key: {"destination_id": key[0], "route_id": key[1]},
+        )
     except Exception:  # noqa: BLE001 — captura nunca quebra o roteamento
         logger.debug("capture: falha ao registrar desfechos do roteamento", exc_info=True)
 
@@ -2410,6 +2665,10 @@ async def dispatch_batch_to_destination(
     # backpressure/shadow). Lenient — never raises on a bad row.
     dcfg = parse_delivery_lenient(dest_config.kind, dest_config.delivery)
 
+    # Forma do payload nos registros de captura DESTE dispatch. Vira
+    # ``aggregate_metric`` se o coalesce reatribuir o lote (abaixo).
+    _cap_payload_kind = capture_session.PAYLOAD_ENVELOPE
+
     # agregação log→métrica ANTES do chunk (torna o rollup por-destino
     # real). Opt-in por-destino (aggregate.group_by não-vazio) + gated pelas flags. Fail-
     # open anti-OOM dentro de coalesce. Detecção nunca é agregada (é opt-in por-destino —
@@ -2426,6 +2685,11 @@ async def dispatch_batch_to_destination(
             batch, dcfg.aggregate.group_by, dcfg.aggregate.max_groups
         )
         if _agg_events:
+            # A partir daqui ``batch`` NÃO são mais os eventos originais: são
+            # metric-events sintéticos. O evento individual nunca sai por este
+            # destino, e nenhum desenho de captura recupera isso — o rótulo é a
+            # única forma honesta de a tela não prometer o que não existe.
+            _cap_payload_kind = capture_session.PAYLOAD_AGGREGATE_METRIC
             _agg_metering.record_saving(
                 dest_config.organization_id, destination_id, "aggregate", bytes_=float(_agg_bytes)
             )
@@ -2595,9 +2859,16 @@ async def dispatch_batch_to_destination(
         # derrubar a entrega.
         try:
             _cap_org = _batch_org_id(batch)
-            if _cap_org is not None:
+            if _cap_org is not None and not likely_no_session(_cap_org):
                 from .capture_session import OUTCOME_DELIVERED, OUTCOME_DELIVERY_FAILED
 
+                # UMA resolução por lote, reusada nos dois desfechos. Sem isto cada
+                # ``_capture_outcome`` refaz 1 SMEMBERS + N HGETALL, pagando também
+                # o hop de thread-pool duas vezes por lote por destino. Simetria
+                # com ``_capture_outcomes`` do roteamento, que já resolvia uma vez.
+                _cap_sessions = await asyncio.to_thread(
+                    capture_session.active_sessions_sync, _cap_org
+                )
                 _rejected_ids = rejected_event_ids if last_result is not None else set()
                 if last_result is None:
                     # nenhum chunk chegou a ser enviado (lote vazio) — nada a registrar.
@@ -2617,14 +2888,59 @@ async def dispatch_batch_to_destination(
                     ]
                 else:
                     _accepted_envs, _failed_envs = list(batch), []
+                # PÓS pii_redaction, PÓS drop_raw e PÓS aggregate — é o único
+                # ponto onde o payload é o que de fato foi para o destino.
+                # ``pii_redacted`` reflete a rota: um destino com redação ligada
+                # tem o envelope já redigido AQUI, mas NÃO nos registros
+                # pré-entrega (dropped/sampled_out), que trazem o dado em claro.
+                # WIRE, opt-in por sessão. Este é o ÚNICO ponto onde o ``target``
+                # construído e o lote PÓS-transformação coexistem — e portanto a
+                # única forma de o selo ``exact`` ser verdadeiro. Renderizar a
+                # partir da entrada do ring seria mentira: lá o payload já passou
+                # por ``_redact``, que reescreve toda string.
+                #
+                # OFF por default: com ``capture_wire=0`` o dispatcher não paga
+                # NADA a mais que hoje.
+                _cap_wires = None
+                if any(
+                    capture_admission.session_params(m)[2] for m in _cap_sessions
+                ):
+                    try:
+                        from .output import wire_preview
+
+                        _cap_wires = [
+                            wire_preview.render(target, _e) for _e in _accepted_envs
+                        ]
+                        # ``_redact`` sobre o TEXTO (não sobre o objeto): preserva
+                        # a fidelidade do que foi formatado e ainda scrubba
+                        # segredo — o wire de webhook/HEC carrega token no corpo
+                        # em alguns kinds.
+                        for _w in _cap_wires:
+                            if isinstance(_w, dict) and isinstance(_w.get("text"), str):
+                                _w["text"] = _redact_secrets_text(_w["text"])
+                    except Exception:  # noqa: BLE001 — wire nunca quebra a entrega
+                        _cap_wires = None
+                        logger.debug("capture: falha ao materializar wire", exc_info=True)
+
+                _cap_kw = dict(
+                    destination_id=dest_config.destination_id,
+                    sessions=_cap_sessions,
+                    stage=capture_session.STAGE_DELIVERED,
+                    payload_kind=_cap_payload_kind,
+                    pii_redacted=bool(getattr(dest_config, "pii_redaction", None)),
+                    destination_kind=getattr(dest_config, "kind", None),
+                    dest_config_version=str(
+                        getattr(dest_config, "config_version", "") or ""
+                    )
+                    or None,
+                )
                 await _capture_outcome(
                     _accepted_envs, _cap_org, OUTCOME_DELIVERED,
-                    destination_id=dest_config.destination_id,
+                    wires=_cap_wires, **_cap_kw
                 )
                 await _capture_outcome(
                     _failed_envs, _cap_org, OUTCOME_DELIVERY_FAILED,
-                    destination_id=dest_config.destination_id,
-                    detail="sink rejeitou/não aceitou o lote",
+                    detail="sink rejeitou/não aceitou o lote", **_cap_kw
                 )
         except Exception:  # noqa: BLE001 — captura nunca quebra a entrega
             logger.debug("capture: falha ao registrar desfecho de entrega", exc_info=True)

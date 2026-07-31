@@ -4,7 +4,7 @@
  * Sprint 2.
  */
 
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import type React from "react"
 import { useTranslation } from "react-i18next"
 import { DataTable } from "@/components/ui/DataTable/DataTable"
@@ -28,24 +28,39 @@ interface DateRange {
 
 export const MappingAuditTable: React.FC<MappingAuditTableProps> = ({ mappingId }) => {
   const { t } = useTranslation("mappings")
-  const ACTION_OPTIONS = [
-    { value: "", label: t("auditTable.filters.allActions") },
-    { value: "version_created", label: "version_created" },
-    { value: "rollback", label: "rollback" },
-    { value: "drift_detected", label: "drift_detected" },
-    { value: "quarantine", label: "quarantine" },
-  ]
   const [actionFilter, setActionFilter] = useState("")
   const [usernameFilter, setUsernameFilter] = useState("")
   const [dateRange, setDateRange] = useState<DateRange>({ from: null, to: null })
 
-  const { entries, isLoading, error } = useMappingAudit(mappingId, {
+  const { entries, isLoading, error, availableActions } = useMappingAudit(mappingId, {
     action: actionFilter || undefined,
     username: usernameFilter || undefined,
     from_ts: dateRange.from?.toISOString() || undefined,
     to_ts: dateRange.to?.toISOString() || undefined,
     limit: 100,
   })
+
+  // O seletor é montado a partir do que o BACKEND declara devolver
+  // (`available_actions`), não de uma lista mantida aqui. A lista local anterior
+  // oferecia `version_created`, `drift_detected` e `quarantine` — nenhuma delas
+  // é gravada pelo backend, e como o filtro é igualdade exata server-side, cada
+  // uma devolvia tabela vazia com HTTP 200. O operador lia isso como "não houve
+  // atividade" em vez de "essa opção não existe".
+  const actionOptions = useMemo(
+    () => [
+      { value: "", label: t("auditTable.filters.allActions") },
+      // `?? []` porque o seletor não pode derrubar a tela inteira se o hook
+      // devolver um shape inesperado — a tabela de auditoria é justamente
+      // aonde o operador vai quando algo já está errado.
+      ...(availableActions ?? []).map((a) => ({
+        value: a,
+        // Rótulo traduzido quando existir; o identificador cru é o fallback,
+        // então uma ação nova no backend aparece na hora, sem release de i18n.
+        label: t(`auditTable.actions.${a}`, { defaultValue: a }),
+      })),
+    ],
+    [availableActions, t],
+  )
 
   const columns: TableColumn<Record<string, unknown>>[] = [
     {
@@ -120,7 +135,7 @@ export const MappingAuditTable: React.FC<MappingAuditTableProps> = ({ mappingId 
         <div className="w-48">
           <Select
             label={t("auditTable.filters.actionLabel")}
-            options={ACTION_OPTIONS}
+            options={actionOptions}
             value={actionFilter}
             onValueChange={(v) => setActionFilter(String(v))}
             aria-label={t("auditTable.filters.actionAriaLabel")}

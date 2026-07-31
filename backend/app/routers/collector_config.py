@@ -27,7 +27,7 @@ from typing import Any, Dict, List, Optional, Set
 import redis.asyncio as redis_async
 from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy.orm import Session
 
 from ..api import schemas
@@ -544,6 +544,31 @@ class CaptureEventDetail(schemas.CaptureEvent):
     # bateu" e "por que foi dropado" sem parsear texto livre.
     route_id: Optional[str] = None
     detail: Optional[str] = None
+    # ── jornal (v2) ────────────────────────────────────────────────────
+    # TODOS opcionais com default: registros v1 continuam no ring por até
+    # 3.900 s após o deploy, e ``capture_session.normalize_entry`` preenche os
+    # defaults na leitura. Sem migração e sem backfill.
+    event_id: Optional[str] = None
+    #: ``collected`` | ``routed`` | ``delivered`` — QUAL transformação o payload
+    #: gravado já sofreu. Ortogonal a ``outcome``.
+    stage: str = "routed"
+    payload_kind: str = "envelope"
+    #: ``False`` nos registros PRÉ-entrega. Não é detalhe: a redação de PII é
+    #: por rota e alcança o bloco ``raw``, então um evento dropado mostra em
+    #: claro o que o destino teria recebido redigido.
+    pii_redacted: bool = False
+    destination_kind: Optional[str] = None
+    #: Versão da config do destino NO MOMENTO DA ENTREGA — permite a UI sinalizar
+    #: drift quando o preview sob demanda usar a config ATUAL.
+    dest_config_version: Optional[str] = None
+    #: ``{fidelity, encoding, note, text?, bytes, truncated}``. Ausente quando a
+    #: sessão não pediu wire.
+    wire: Optional[Dict[str, Any]] = None
+    #: Metadados do TAP (truncamento, blocos descartados). Fora de ``event``
+    #: de propósito: o export mascara ``event``, e isto não é dado do vendor.
+    capture_meta: Optional[Dict[str, Any]] = Field(default=None, alias="_capture")
+
+    model_config = ConfigDict(populate_by_name=True)
 
 
 class CaptureEventPage(BaseModel):
@@ -770,6 +795,48 @@ def _event_org_id(entry: Dict[str, Any]) -> Optional[int]:
         return None
 
 
+def _validate_capture_filters(outcome: Optional[str], stage: Optional[str]) -> None:
+    """422 para valor fora do vocabulário — NUNCA lista vazia em silêncio.
+
+    O filtro é igualdade exata, então um valor inexistente devolveria 200 com
+    zero eventos e o operador leria isso como "não houve tráfego". É a mesma
+    classe de bug que o filtro de auditoria de mappings tinha: três das quatro
+    opções ofereciam ações que o backend nunca grava.
+    """
+    if outcome and outcome not in capture_session.OUTCOMES:
+        raise ApiError(
+            "capture.unknown_outcome",
+            422,
+            messages={
+                "pt": "desfecho desconhecido: {value}. Válidos: {allowed}",
+                "en": "unknown outcome: {value}. Valid: {allowed}",
+                "es": "desenlace desconocido: {value}. Válidos: {allowed}",
+            },
+            params={"value": outcome, "allowed": ", ".join(sorted(capture_session.OUTCOMES))},
+        )
+    if stage and stage not in capture_session.STAGES:
+        raise ApiError(
+            "capture.unknown_stage",
+            422,
+            messages={
+                "pt": "estágio desconhecido: {value}. Válidos: {allowed}",
+                "en": "unknown stage: {value}. Valid: {allowed}",
+                "es": "etapa desconocida: {value}. Válidos: {allowed}",
+            },
+            params={"value": stage, "allowed": ", ".join(sorted(capture_session.STAGES))},
+        )
+
+
+def _matches_capture_filters(
+    entry: Dict[str, Any], outcome: Optional[str], stage: Optional[str]
+) -> bool:
+    if outcome and (entry.get("outcome") or "unknown") != outcome:
+        return False
+    if stage and (entry.get("stage") or "routed") != stage:
+        return False
+    return True
+
+
 @router.get(
     "/capture-sessions/{session_id}/events",
     response_model=CaptureEventPage,
@@ -778,6 +845,8 @@ async def get_capture_events(
     session_id: str,
     limit: int = Query(default=200, ge=1, le=20000),
     org_id: Optional[int] = None,
+    outcome: Optional[str] = Query(default=None),
+    stage: Optional[str] = Query(default=None),
     user: models.AppUser = Depends(app_auth.require_admin_user),
 ) -> CaptureEventPage:
     """Eventos da sessão + contadores.
@@ -788,6 +857,7 @@ async def get_capture_events(
     revela tráfego que entrou mas NÃO foi entregue (drop/sem-destino/quarentena/…).
     O ring é único para toda a subárvore coberta (``scope_org_ids``); cada evento traz
     o ``organization_id`` de origem."""
+    _validate_capture_filters(outcome, stage)
     effective_org = _capture_effective_org(org_id, user)
     redis = await _redis_client()
     try:
@@ -802,18 +872,33 @@ async def get_capture_events(
     outcome_counts: Dict[str, int] = {}
     items: List[CaptureEventDetail] = []
     for e in events:
-        outcome = _event_outcome(e)
-        outcome_counts[outcome] = outcome_counts.get(outcome, 0) + 1
+        # ``outcome_counts`` conta a PÁGINA INTEIRA, antes do filtro: é o
+        # breakdown que diz ao operador o que existe para filtrar. Contá-lo
+        # depois faria o painel mostrar só a faceta já selecionada.
+        ev_outcome = _event_outcome(e)
+        outcome_counts[ev_outcome] = outcome_counts.get(ev_outcome, 0) + 1
+        if not _matches_capture_filters(e, outcome, stage):
+            continue
         items.append(
             CaptureEventDetail(
                 event=e.get("event") or {},
                 vendor=e.get("vendor"),
                 captured_at=e.get("captured_at"),
                 organization_id=_event_org_id(e),
-                outcome=outcome,
+                outcome=ev_outcome,
                 destination_id=e.get("destination_id"),
                 route_id=e.get("route_id"),
                 detail=e.get("detail"),
+                # ``read_events`` já passou cada entrada por ``normalize_entry``,
+                # então os defaults do v1 chegam aqui preenchidos.
+                event_id=e.get("event_id"),
+                stage=e.get("stage") or "routed",
+                payload_kind=e.get("payload_kind") or "envelope",
+                pii_redacted=bool(e.get("pii_redacted")),
+                destination_kind=e.get("destination_kind"),
+                dest_config_version=e.get("dest_config_version"),
+                wire=e.get("wire"),
+                capture_meta=e.get("_capture"),
             )
         )
     return CaptureEventPage(
@@ -827,7 +912,97 @@ async def get_capture_events(
     )
 
 
-_EXPORT_MAX_ROWS = 50_000
+class CaptureTrajectory(BaseModel):
+    """Todos os registros de UM evento, ordenados no tempo — a trajetória.
+
+    ``complete`` é o campo que permite a UI dizer "o bruto saiu da janela do
+    ring" em vez de mostrar um buraco mudo: o registro ``collected`` é o mais
+    VELHO do grupo e, portanto, a primeira vítima da poda.
+    """
+
+    event_id: str
+    session_id: str
+    count: int
+    complete: bool
+    stages_present: List[str] = Field(default_factory=list)
+    events: List[CaptureEventDetail] = Field(default_factory=list)
+
+
+@router.get(
+    "/capture-sessions/{session_id}/events/{event_id}",
+    response_model=CaptureTrajectory,
+)
+async def get_capture_trajectory(
+    session_id: str,
+    event_id: str,
+    org_id: Optional[int] = None,
+    user: models.AppUser = Depends(app_auth.require_admin_user),
+) -> CaptureTrajectory:
+    """Junta a trajetória de um evento a partir do ring.
+
+    O ring é UMA lista FIFO por sessão, compartilhada por todos os estágios e
+    destinos: com fan-out N, um evento gera 1+N entradas INTERCALADAS com as de
+    todos os outros. Ler por página (o caminho normal da UI) faz a junção
+    degradar exatamente no volume em que ela é necessária — daí este endpoint,
+    que varre o ring inteiro filtrando por ``event_id``.
+
+    Varredura O(ring) por clique do operador, no processo da API. Aceitável
+    porque é sob demanda; se medir mal em produção, o follow-up é um hash
+    auxiliar por ``event_id`` — otimizar antes seria adicionar uma chave nova
+    (e mais superfície de expiração) sem evidência.
+    """
+    effective_org = _capture_effective_org(org_id, user)
+    redis = await _redis_client()
+    try:
+        await _owned_capture_or_404(redis, session_id, effective_org)
+        found: List[Dict[str, Any]] = []
+        async for entry in capture_session.iter_events(redis, session_id):
+            if (entry.get("event_id") or "") == event_id:
+                found.append(entry)
+    finally:
+        await redis.aclose()
+
+    # Mais ANTIGO primeiro: a trajetória se lê no sentido do pipeline
+    # (collected → routed → delivered), não no do ring (que é LIFO).
+    found.sort(key=lambda e: float(e.get("captured_at") or 0))
+    stages = [s for s in ("collected", "routed", "delivered")
+              if any((e.get("stage") or "routed") == s for e in found)]
+    return CaptureTrajectory(
+        event_id=event_id,
+        session_id=session_id,
+        count=len(found),
+        # Sem um registro ``collected`` não há "como era antes" — e a UI precisa
+        # DIZER isso, em vez de renderizar um painel vazio.
+        complete="collected" in stages,
+        stages_present=stages,
+        events=[
+            CaptureEventDetail(
+                event=e.get("event") or {},
+                vendor=e.get("vendor"),
+                captured_at=e.get("captured_at"),
+                organization_id=_event_org_id(e),
+                outcome=_event_outcome(e),
+                destination_id=e.get("destination_id"),
+                route_id=e.get("route_id"),
+                detail=e.get("detail"),
+                event_id=e.get("event_id"),
+                stage=e.get("stage") or "routed",
+                payload_kind=e.get("payload_kind") or "envelope",
+                pii_redacted=bool(e.get("pii_redacted")),
+                destination_kind=e.get("destination_kind"),
+                dest_config_version=e.get("dest_config_version"),
+                wire=e.get("wire"),
+                capture_meta=e.get("_capture"),
+            )
+            for e in found
+        ],
+    )
+
+
+# Alinhado ao teto do ring. Com 50.000 o branch de truncamento era INALCANÇÁVEL
+# pelo caminho HTTP — ``iter_events`` já clampa em ``MAX_RING_SIZE``, então o
+# header dizia "não truncado" por coincidência, não por contrato.
+_EXPORT_MAX_ROWS = capture_session.MAX_RING_SIZE
 
 
 @router.get("/capture-sessions/{session_id}/export")
@@ -850,6 +1025,12 @@ async def export_capture_events(
     está SAINDO do sistema; os SEGREDOS já foram scrubbados na gravação do ring."""
     from ..collectors import capture_export
 
+    if not mask:
+        # Ver na tela (inspetor in-app, escopado à própria org) e EXTRAIR um
+        # arquivo sem máscara são coisas diferentes: o arquivo sai do sistema e
+        # sobrevive a ele. Reusa o escopo global em vez de criar uma Permission
+        # nova — uma Permission dedicada é mais precisa e fica como follow-up.
+        tenant.require_global_scope(user)
     effective_org = _capture_effective_org(org_id, user)
     redis = await _redis_client()
     # Valida posse ANTES de abrir o stream (404 vira corpo de erro limpo, não um
@@ -905,6 +1086,10 @@ async def export_capture_events(
         headers={
             "Content-Disposition": f'attachment; filename="{filename}"',
             "X-CentralOps-Export-Max-Rows": str(_EXPORT_MAX_ROWS),
+            # O arquivo sai mascarado por default. Sem este header, quem consome
+            # o export por script não tem como saber se está lendo dado real ou
+            # ``[PII]`` — e mascarado é indistinguível de "o vendor mandou isso".
+            "X-CentralOps-Export-Masked": "true" if mask else "false",
         },
     )
 

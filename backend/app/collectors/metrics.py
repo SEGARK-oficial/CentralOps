@@ -177,6 +177,10 @@ BYTES_SAVED = _instrument("collector_bytes_saved_total")
 SUPPRESSED = _instrument("collector_suppressed_total")
 SHADOW_EVENTS = _instrument("collector_shadow_events_total")
 SHADOW_LATENCY = _instrument("collector_shadow_format_latency_seconds")
+# Captura ao vivo: breaker do tap ABRIU (Redis degradado ⇒ captura cega por uma
+# janela de cooldown, coleta preservada). Incrementa 1 POR ABERTURA, não por
+# falha — alertar em `increase() > 0` é o sinal de "estou perdendo captura".
+CAPTURE_TAP_DISABLED = _instrument("collector_capture_tap_disabled_total")
 DISPATCH_SHED_TOTAL = _instrument("collector_dispatch_shed_total")
 QUEUE_DEPTH = _instrument("collector_dispatch_queue_depth")
 BREAKER_STATE = _instrument("collector_destination_breaker_state")

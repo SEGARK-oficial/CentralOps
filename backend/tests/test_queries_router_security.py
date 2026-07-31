@@ -261,3 +261,64 @@ def test_delete_query_requires_mapping_write(client_factory, role: str) -> None:
 
     r = user_client.delete(f"/api/queries/{query_id}")
     assert r.status_code == 403, f"role={role} deveria ser 403 ao deletar, got {r.status_code}"
+
+
+# ── dialect / spec_kind: round-trip completo ──────────────────────────
+
+
+def test_dialect_and_spec_kind_round_trip(client_factory) -> None:
+    """Regressão: as colunas existiam desde o ADR-0007 e o form da UI tinha
+    seletor para as duas, mas NENHUM schema as declarava — o Pydantic
+    descartava as chaves no create e no update, e o serializer de leitura não
+    as devolvia. A feature era inoperante ponta a ponta, com HTTP 200 em todas
+    as etapas (mesmo defeito de ``dedupe_ttl_seconds``).
+    """
+    factory, Session = client_factory
+    client = factory()
+    _bootstrap_admin(client)
+
+    created = client.post(
+        "/api/queries/",
+        json={**_NEW_QUERY_PAYLOAD, "dialect": "kql", "spec_kind": "sigma"},
+    )
+    assert created.status_code in (200, 201), created.text
+    body = created.json()
+    assert body["dialect"] == "kql"
+    assert body["spec_kind"] == "sigma"
+    qid = body["id"]
+
+    # Releitura independente: prova que foi ao banco, não só ecoado.
+    got = client.get("/api/queries/").json()
+    row = next(q for q in got if q["id"] == qid)
+    assert row["dialect"] == "kql"
+    assert row["spec_kind"] == "sigma"
+
+    # E o UPDATE persiste a troca.
+    updated = client.put(f"/api/queries/{qid}", json={"dialect": "fql"})
+    assert updated.status_code == 200, updated.text
+    assert updated.json()["dialect"] == "fql"
+    assert updated.json()["spec_kind"] == "sigma"  # não tocado por este PUT
+
+    again = client.get("/api/queries/").json()
+    assert next(q for q in again if q["id"] == qid)["dialect"] == "fql"
+
+
+def test_create_without_spec_kind_keeps_column_default(client_factory) -> None:
+    factory, _ = client_factory
+    client = factory()
+    _bootstrap_admin(client)
+
+    r = client.post("/api/queries/", json=_NEW_QUERY_PAYLOAD)
+    assert r.status_code in (200, 201), r.text
+    assert r.json()["spec_kind"] == "passthrough"
+
+
+def test_update_rejects_unknown_field(client_factory) -> None:
+    """``StrictUpdateModel``: campo desconhecido é 422, não descarte mudo."""
+    factory, _ = client_factory
+    client = factory()
+    _bootstrap_admin(client)
+
+    qid = client.post("/api/queries/", json=_NEW_QUERY_PAYLOAD).json()["id"]
+    r = client.put(f"/api/queries/{qid}", json={"titulo": "typo no nome do campo"})
+    assert r.status_code == 422

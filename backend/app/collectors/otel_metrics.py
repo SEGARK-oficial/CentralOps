@@ -123,6 +123,10 @@ _SPEC: Dict[str, Dict[str, Any]] = {
     "collector_suppressed_total": {"kind": "counter", "unit": "1", "labels": ("route_id",)},
     "collector_shadow_events_total": {"kind": "counter", "unit": "1", "labels": ("destination_id", "kind")},
     "collector_shadow_format_latency_seconds": {"kind": "histogram", "unit": "s", "labels": ("destination_id", "kind"), "buckets": (0.0005, 0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1, 2)},
+    # Captura ao vivo: o breaker do tap ABRIU (Redis degradado). SEM labels — o
+    # tap é estado de PROCESSO, não por org/sessão, e rotular por org daria
+    # cardinalidade ilimitada num contador que só interessa como "está cego?".
+    "collector_capture_tap_disabled_total": {"kind": "counter", "unit": "1", "labels": ()},
     "collector_dispatch_shed_total": {"kind": "counter", "unit": "1", "labels": ("destination_id", "reason")},
     "collector_dispatch_queue_depth": {"kind": "gauge", "unit": "1", "labels": ("queue",)},
     "collector_destination_breaker_state": {"kind": "gauge", "unit": "1", "labels": ("destination_id", "kind")},

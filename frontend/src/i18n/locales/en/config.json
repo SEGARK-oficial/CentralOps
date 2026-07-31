@@ -426,6 +426,8 @@
       "confirm": "Delete"
     },
     "outcomes": {
+      "received": "Collected",
+      "deduped": "Duplicate (dedupe)",
       "delivered": "Delivered",
       "delivery_failed": "Delivery failed",
       "dropped": "Dropped",
@@ -437,6 +439,31 @@
       "unrouted": "No destination",
       "unknown": "Unknown",
       "unknownTooltip": "Event recorded before the capture started tracking outcomes."
+    },
+    "trajectory": {
+      "loading": "Loading trajectory…",
+      "errorTitle": "Failed to load the trajectory",
+      "empty": "No records for this event in the ring window.",
+      "rawEvicted": "The collection record left the ring window — the raw (pre-normalization) payload is no longer available for this event. It is the oldest of the group and the first to be pruned.",
+      "stages": "Stages:",
+      "stage": {
+        "collected": "Collected",
+        "routed": "Routed",
+        "delivered": "Delivered"
+      },
+      "aggregated": "Aggregated — the individual event is not delivered to this destination",
+      "piiNotRedacted": "PII not redacted in this record",
+      "wire": "As it went on the wire",
+      "wireTruncated": "… truncated for display ({{bytes}} bytes total)",
+      "noWirePreview": "This destination writes the whole BATCH (compressed/columnar) — there is no per-event representation, so there is no preview.",
+      "fidelity": {
+        "exact": "Exact",
+        "nondeterministic": "Non-deterministic",
+        "partial": "Partial",
+        "not_representable": "No per-event representation",
+        "error": "Formatting error"
+      },
+      "title": "Event trajectory"
     }
   },
   "licensing": {

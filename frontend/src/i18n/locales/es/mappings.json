@@ -382,6 +382,7 @@
     "diffVersionLabel": "v{{version}} → nueva"
   },
   "versionsTable": {
+    "authorUnknown": "Sistema",
     "current": "actual",
     "compare": "Comparar",
     "makeCurrent": "Hacer actual",
@@ -441,7 +442,14 @@
       "periodAriaLabel": "Filtrar por período"
     },
     "loadErrorTitle": "Error al cargar la auditoría",
-    "emptyMessage": "No se encontraron registros de auditoría"
+    "emptyMessage": "No se encontraron registros de auditoría",
+    "actions": {
+      "create_version": "Versión creada",
+      "rollback": "Rollback",
+      "ignore_field": "Campo ignorado",
+      "mark_mapped": "Campo mapeado",
+      "delete_field": "Campo eliminado"
+    }
   },
   "jmespathInput": {
     "suggestionsAriaLabel": "Sugerencias de campos JMESPath"
