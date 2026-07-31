@@ -938,6 +938,12 @@ async def export_capture_events(
     está SAINDO do sistema; os SEGREDOS já foram scrubbados na gravação do ring."""
     from ..collectors import capture_export
 
+    if not mask:
+        # Ver na tela (inspetor in-app, escopado à própria org) e EXTRAIR um
+        # arquivo sem máscara são coisas diferentes: o arquivo sai do sistema e
+        # sobrevive a ele. Reusa o escopo global em vez de criar uma Permission
+        # nova — uma Permission dedicada é mais precisa e fica como follow-up.
+        tenant.require_global_scope(user)
     effective_org = _capture_effective_org(org_id, user)
     redis = await _redis_client()
     # Valida posse ANTES de abrir o stream (404 vira corpo de erro limpo, não um

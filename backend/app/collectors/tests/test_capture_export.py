@@ -89,3 +89,147 @@ def test_mask_pii_is_recursive_and_non_mutating():
     assert masked["list"][0]["ip"] == "[PII]"
     # original intacto
     assert original["a"]["user"] == "alice"
+
+
+# ── máscara PII: OCSF por CAMINHO, estrutura preservada ───────────────
+
+_OCSF = {
+    "_centralops": {"organization_id": 7, "vendor": "sophos", "collector_host": "worker-01"},
+    "normalized": {
+        "class_uid": 1001,
+        "actor": {"user": {"name": "ana.silva", "uid": "S-1-5-21-99", "type": "User"}},
+        "process": {"cmd_line": "powershell.exe -enc SQBFAFgA", "pid": 4242},
+        "device": {"name": "DESKTOP-ABC", "os": {"name": "Windows"}},
+        "src_endpoint": {"ip": "10.0.0.5", "port": 443},
+    },
+    "raw": {"srcip": "10.0.0.5", "message": "ok"},
+}
+
+
+def test_ocsf_paths_are_masked() -> None:
+    """A lista por NOME é vendor-raw-shaped e não fala OCSF: tem
+    ``command_line``, mas o OCSF usa ``cmd_line``; tem ``hostname``, mas o OCSF
+    usa ``device.name``. Sem os caminhos, quem exportava levava command lines e
+    hostnames EM CLARO num arquivo baixável."""
+    out = ex.mask_pii(_OCSF)
+    n = out["normalized"]
+    assert n["process"]["cmd_line"] == "[PII]"
+    assert n["device"]["name"] == "[PII]"
+    assert n["src_endpoint"]["ip"] == "[PII]"
+
+
+def test_masking_preserves_structure_instead_of_collapsing_it() -> None:
+    """Antes, ``actor.user`` inteiro virava a string ``"[PII]"`` e levava junto
+    ``uid`` e ``type`` — justamente o que o analista usa para correlacionar."""
+    out = ex.mask_pii(_OCSF)
+    user = out["normalized"]["actor"]["user"]
+    assert isinstance(user, dict), "a subárvore não pode virar string"
+    assert user["name"] == "[PII]"
+    assert user["uid"] == "[PII]"
+    # O campo que NÃO é PII sobrevive intacto.
+    assert user["type"] == "User"
+
+
+def test_non_pii_siblings_survive() -> None:
+    out = ex.mask_pii(_OCSF)
+    n = out["normalized"]
+    assert n["class_uid"] == 1001
+    assert n["process"]["pid"] == 4242
+    assert n["device"]["os"]["name"] == "Windows"
+    assert n["src_endpoint"]["port"] == 443
+
+
+def test_collector_host_is_masked() -> None:
+    out = ex.mask_pii(_OCSF)
+    assert out["_centralops"]["collector_host"] == "[PII]"
+
+
+def test_raw_block_still_masked_by_field_name() -> None:
+    """No ``raw`` os caminhos do vendor são desconhecíveis — lá o casamento por
+    NOME continua sendo a única ferramenta."""
+    out = ex.mask_pii(_OCSF)
+    assert out["raw"]["srcip"] == "[PII]"
+    assert out["raw"]["message"] == "ok"
+
+
+def test_mask_does_not_mutate_the_original() -> None:
+    import copy
+
+    antes = copy.deepcopy(_OCSF)
+    ex.mask_pii(_OCSF)
+    assert _OCSF == antes
+
+
+# ── contrato do export ────────────────────────────────────────────────
+
+
+def test_first_eight_csv_columns_are_frozen() -> None:
+    """Quem já tem script consumindo o export não pode quebrar: as colunas
+    novas vão ANEXADAS ao fim."""
+    assert ex.CSV_COLUMNS[:8] == [
+        "captured_at", "organization_id", "vendor", "outcome",
+        "route_id", "destination_id", "detail", "event_json",
+    ]
+
+
+def test_new_csv_columns_are_scalars() -> None:
+    """Payload no CSV vira célula gigante — o estruturado é assunto do NDJSON."""
+    entry = {
+        "event": _OCSF, "vendor": "sophos", "captured_at": 1.0, "outcome": "delivered",
+        "event_id": "e-1", "stage": "delivered", "payload_kind": "envelope",
+        "pii_redacted": True,
+        "wire": {"fidelity": "exact", "text": "x" * 5000, "encoding": "json"},
+    }
+    row = ex._row_for_csv(entry, mask=True)
+    assert row["event_id"] == "e-1"
+    assert row["stage"] == "delivered"
+    assert row["pii_redacted"] is True
+    # Só o NÍVEL do wire, nunca o texto.
+    assert row["wire_fidelity"] == "exact"
+    assert "x" * 5000 not in str(row)
+
+
+def test_ndjson_has_organization_id_parity_with_csv() -> None:
+    entry = {"event": _OCSF, "vendor": "sophos", "captured_at": 1.0, "outcome": "delivered"}
+    rec = json.loads(ex.ndjson_line(entry, mask=True))
+    assert rec["organization_id"] == 7
+
+
+def test_ndjson_carries_the_wire_when_present() -> None:
+    entry = {
+        "event": _OCSF, "vendor": "x", "captured_at": 1.0, "outcome": "delivered",
+        "wire": {"fidelity": "not_representable", "note": "lote em gzip"},
+    }
+    rec = json.loads(ex.ndjson_line(entry, mask=True))
+    assert rec["wire"]["fidelity"] == "not_representable"
+    # ``not_representable`` NÃO tem texto — mostrar fragmento induziria a
+    # comparação errada.
+    assert "text" not in rec["wire"]
+
+
+def test_ndjson_omits_wire_when_absent() -> None:
+    entry = {"event": _OCSF, "vendor": "x", "captured_at": 1.0, "outcome": "delivered"}
+    rec = json.loads(ex.ndjson_line(entry, mask=True))
+    assert "wire" not in rec
+
+
+def test_detail_url_credentials_are_redacted() -> None:
+    """``detail`` traz URL de sink rotineiramente (é o que a mensagem de erro
+    do sink carrega). O scrub geral do repo NÃO pega credencial em URL —
+    verificado: cobre token estilo Vault e nada mais."""
+    entry = {
+        "event": {}, "vendor": "x", "captured_at": 1.0, "outcome": "delivery_failed",
+        "detail": "falha ao POSTar em https://user:senha123@sink.example/ingest",
+    }
+    row = ex._row_for_csv(entry, mask=True)
+    assert "senha123" not in row["detail"]
+    assert "sink.example" in row["detail"], "o host tem de sobreviver — é diagnóstico"
+
+
+def test_detail_is_untouched_when_mask_is_off() -> None:
+    entry = {
+        "event": {}, "vendor": "x", "captured_at": 1.0, "outcome": "delivery_failed",
+        "detail": "erro cru",
+    }
+    row = ex._row_for_csv(entry, mask=False)
+    assert row["detail"] == "erro cru"
