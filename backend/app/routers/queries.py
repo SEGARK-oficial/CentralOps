@@ -43,6 +43,8 @@ def _db_to_schema(q: models.PredefinedQuery) -> schemas.PredefinedQueryRead:
         table=q.table,
         client_ids=ids,
         organization_id=q.organization_id,
+        dialect=q.dialect,
+        spec_kind=q.spec_kind,
     )
 
 
@@ -98,6 +100,9 @@ def create_query(
         table=data.table,
         client_ids=','.join(str(cid) for cid in (data.client_ids or [])) if data.client_ids else None,
         organization_id=org_id,
+        dialect=data.dialect,
+        # Preserva o default da coluna ("passthrough") quando o cliente omite.
+        **({"spec_kind": data.spec_kind} if data.spec_kind is not None else {}),
     )
     q = repo.add(db_query)
     return _db_to_schema(q)
@@ -172,6 +177,8 @@ def update_query(
         statement=data.statement,
         table=data.table,
         client_ids=client_ids,
+        dialect=data.dialect,
+        spec_kind=data.spec_kind,
     )
     return _db_to_schema(updated)
 

@@ -12,6 +12,8 @@ from typing import Any, Dict, List, Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from .schemas import StrictUpdateModel
+
 
 class RouteCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=255)
@@ -102,7 +104,7 @@ class RouteCreate(BaseModel):
         return self
 
 
-class RouteUpdate(BaseModel):
+class RouteUpdate(StrictUpdateModel):
     name: Optional[str] = Field(default=None, min_length=1, max_length=255)
     condition: Optional[Dict[str, Any]] = None
     destination_ids: Optional[List[str]] = None

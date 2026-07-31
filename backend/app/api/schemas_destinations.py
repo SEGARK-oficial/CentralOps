@@ -16,6 +16,8 @@ from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from .schemas import StrictUpdateModel
+
 from ..collectors.output.destinations import registry as _registry
 
 
@@ -101,7 +103,7 @@ class DestinationCreate(BaseModel):
         return self
 
 
-class DestinationUpdate(BaseModel):
+class DestinationUpdate(StrictUpdateModel):
     """Partial-update payload for PUT /collectors/destinations/{id}.
 
     All fields are optional. Unset fields are not mutated (``_UNSET``
