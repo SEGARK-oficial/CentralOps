@@ -54,6 +54,18 @@ MAX_DETAIL_CHARS = 200
 # passar de 8 KiB reais. Nunca usar ``decode(..., "ignore")``: corta codepoint no meio.
 MAX_FIELD_BYTES = 8192
 MAX_ENTRY_BYTES = 65_536
+# Teto de bytes RESIDENTES por sessão. O ring de captura divide o Redis com o
+# dedupe, que roda sob ``volatile-lru`` — e as chaves de dedupe TAMBÉM têm TTL,
+# logo são candidatas à mesma evicção. Evictar dedupe significa REENTREGA
+# silenciosa de log de segurança (há incidente documentado de 310k chaves).
+# Um diagnóstico não pode ser a causa de entrega duplicada.
+# 24 MiB acomoda o ring DEFAULT cheio (5.000 × ~3,4 KB = 17 MB) sem nunca morder:
+# o teto só age em quem sobe o ring, e aí ENCURTA o ring — nunca encerra a sessão.
+CAPTURE_SESSION_MAX_BYTES = 25_165_824
+# Teto GLOBAL de sessões simultâneas. Sem ele, N orgs × 5 sessões crescem
+# linearmente contra um Redis compartilhado de 512 MB. 8 × 24 MiB = 192 MiB =
+# 37,5% do maxmemory, determinístico.
+MAX_ACTIVE_SESSIONS_GLOBAL = 8
 
 
 # ── Desfechos (outcome) ────────────────────────────────────────────────
@@ -107,6 +119,31 @@ def _events_key(session_id: str) -> str:
 
 def _org_index_key(org_id: int) -> str:
     return f"capture:sessions:org:{org_id}"
+
+
+def _global_index_key() -> str:
+    """Índice de TODAS as sessões ativas, para o teto global de memória."""
+    return "capture:sessions:global"
+
+
+async def _prune_global_index(redis: redis_async.Redis) -> int:
+    """Poda ids cujo meta já sumiu e devolve quantas sessões AINDA vivem.
+
+    Sem a poda o índice acumularia ids mortos e, com um teto de 8, bloquearia
+    novas sessões PARA SEMPRE depois das 8 primeiras expirarem — um teto de
+    memória viraria uma negação de serviço da própria feature. O índice tem TTL
+    próprio, mas ele só cobre o caso de abandono total; dentro da janela é esta
+    poda que mantém a contagem honesta.
+    """
+    ids = await redis.smembers(_global_index_key())
+    alive = 0
+    for raw_id in ids:
+        sid = _s(raw_id)
+        if await redis.exists(_meta_key(sid)):
+            alive += 1
+        else:
+            await redis.srem(_global_index_key(), sid)
+    return alive
 
 
 def _s(value: Any) -> str:
@@ -287,7 +324,7 @@ def _session_is_active(m: Mapping[str, str], now: float) -> bool:
 
 
 def _ring_params(m: Mapping[str, str], now: float) -> tuple:
-    """(ring_size clampado, TTL do ring de eventos) da sessão."""
+    """(ring_size clampado, TTL do ring de eventos, teto de bytes) da sessão."""
     try:
         ring_size = int(m.get("ring_size") or DEFAULT_RING_SIZE)
     except (TypeError, ValueError):
@@ -299,7 +336,97 @@ def _ring_params(m: Mapping[str, str], now: float) -> tuple:
         GRACE_SECONDS,
         int(float(m.get("expires_at") or now) - now) + GRACE_SECONDS,
     )
-    return ring_size, evt_ttl
+    try:
+        ring_bytes = int(m.get("ring_bytes") or CAPTURE_SESSION_MAX_BYTES)
+    except (TypeError, ValueError):
+        ring_bytes = CAPTURE_SESSION_MAX_BYTES
+    ring_bytes = max(64 * 1024, min(ring_bytes, CAPTURE_SESSION_MAX_BYTES))
+    return ring_size, evt_ttl, ring_bytes
+
+
+# ── Append atômico com orçamento de bytes RESIDENTES ───────────────────
+# ``LTRIM`` descarta entradas SEM devolver nem contar o que descartou — logo
+# qualquer ``HINCRBY bytes_escritos`` mede bytes CUMULATIVOS, não residência, e
+# um teto sobre esse número dispararia com o ring pela metade, matando a sessão
+# no meio do troubleshooting. A única forma de a contabilidade ser EXATA é
+# evictar com ``RPOP`` e DECREMENTAR pelo tamanho do que saiu — o que exige
+# atomicidade, e portanto um script.
+#
+# De quebra colapsa 5 round-trips em 1. O fallback (abaixo) preserva o
+# comportamento anterior e MARCA a degradação no meta, nunca em silêncio.
+_APPEND_LUA = """
+local events_key = KEYS[1]
+local meta_key = KEYS[2]
+local ring_size = tonumber(ARGV[1])
+local ring_bytes = tonumber(ARGV[2])
+local ttl = tonumber(ARGV[3])
+local outcome = ARGV[4]
+local n = 0
+local added = 0
+for i = 5, #ARGV do
+  redis.call('LPUSH', events_key, ARGV[i])
+  added = added + string.len(ARGV[i])
+  n = n + 1
+end
+redis.call('HINCRBY', meta_key, 'event_count', n)
+redis.call('HINCRBY', meta_key, 'outcome:' .. outcome, n)
+local used = redis.call('HINCRBY', meta_key, 'ring_bytes_used', added)
+while redis.call('LLEN', events_key) > ring_size do
+  local popped = redis.call('RPOP', events_key)
+  if not popped then break end
+  used = redis.call('HINCRBY', meta_key, 'ring_bytes_used', -string.len(popped))
+end
+while used > ring_bytes do
+  local popped = redis.call('RPOP', events_key)
+  if not popped then break end
+  used = redis.call('HINCRBY', meta_key, 'ring_bytes_used', -string.len(popped))
+end
+redis.call('EXPIRE', events_key, ttl)
+redis.call('EXPIRE', meta_key, ttl)
+return {n, used}
+"""
+_append_sha: Optional[str] = None
+
+
+def _append_entries(r: Any, sid: str, entries: List[str], *, ring_size: int,
+                    evt_ttl: int, ring_bytes: int, outcome: str) -> None:
+    """Append + poda por CONTAGEM e por BYTES RESIDENTES, atômico.
+
+    Cai no pipeline de comandos anterior se o EVAL falhar por qualquer motivo
+    (script desabilitado, CROSSSLOT em cluster, fake de teste sem suporte),
+    gravando ``budget_enforcement=unavailable`` no meta — a UI exibe. Degradação
+    ANUNCIADA; o que não pode acontecer é o operador achar que o teto está valendo.
+    """
+    global _append_sha
+    args = [ring_size, ring_bytes, evt_ttl, outcome, *entries]
+    try:
+        if _append_sha is None:
+            _append_sha = r.script_load(_APPEND_LUA)
+        r.evalsha(_append_sha, 2, _events_key(sid), _meta_key(sid), *args)
+        return
+    except Exception as exc:  # noqa: BLE001 — qualquer falha cai no fallback
+        msg = str(exc).upper()
+        if "NOSCRIPT" in msg:
+            try:
+                _append_sha = r.script_load(_APPEND_LUA)
+                r.evalsha(_append_sha, 2, _events_key(sid), _meta_key(sid), *args)
+                return
+            except Exception:  # noqa: BLE001
+                pass
+        logger.debug("capture: EVAL indisponível, usando fallback (%s)", exc)
+
+    pipe = r.pipeline()
+    pipe.lpush(_events_key(sid), *entries)
+    pipe.ltrim(_events_key(sid), 0, ring_size - 1)
+    pipe.expire(_events_key(sid), evt_ttl)
+    pipe.hincrby(_meta_key(sid), "event_count", len(entries))
+    # Contador POR DESFECHO no meta: sobrevive à poda do ring (o ltrim
+    # descarta eventos antigos, o contador não), então a UI distingue
+    # "sessão ativa e nada aconteceu" de "houve tráfego, mas rolou".
+    pipe.hincrby(_meta_key(sid), f"outcome:{outcome}", len(entries))
+    # O teto de BYTES não vale neste caminho — e o operador precisa saber.
+    pipe.hset(_meta_key(sid), "budget_enforcement", "unavailable")
+    pipe.execute()
 
 
 def _dumps(payload: Mapping[str, Any]) -> str:
@@ -460,6 +587,17 @@ async def start_session(
         raise CaptureLimitReached(
             f"limite de {MAX_SESSIONS_PER_ORG} sessões de captura simultâneas atingido"
         )
+    # Teto GLOBAL. O por-org sozinho não limita nada: N orgs × 5 sessões crescem
+    # linearmente contra um Redis COMPARTILHADO com o dedupe. A mensagem diz
+    # "global" explicitamente — dizer "da sua org" mandaria o operador fechar
+    # sessões que não são a causa.
+    active_global = await _prune_global_index(redis)
+    if active_global >= MAX_ACTIVE_SESSIONS_GLOBAL:
+        raise CaptureLimitReached(
+            f"limite GLOBAL de {MAX_ACTIVE_SESSIONS_GLOBAL} sessões de captura "
+            "simultâneas atingido (todas as organizações somadas) — aguarde uma "
+            "sessão encerrar"
+        )
     duration = max(1, min(int(duration_seconds), MAX_DURATION_SECONDS))
     size = max(1, min(int(ring_size), MAX_RING_SIZE))
     now = time.time()
@@ -484,6 +622,8 @@ async def start_session(
     pipe.expire(_meta_key(session_id), ttl)
     pipe.sadd(_org_index_key(org_id), session_id)
     pipe.expire(_org_index_key(org_id), index_ttl)
+    pipe.sadd(_global_index_key(), session_id)
+    pipe.expire(_global_index_key(), index_ttl)
     await pipe.execute()
     # invalida o cache negativo DESTE processo (os demais convergem pelo TTL curto).
     reset_session_cache(org_id)
@@ -530,6 +670,11 @@ async def stop_session(
     if int(m.get("org_id") or -1) != int(org_id):
         return False
     await redis.hset(_meta_key(session_id), "status", "stopped")
+    # Libera o slot do teto GLOBAL na hora. O meta continua vivo até o TTL (os
+    # eventos seguem legíveis para revisão), então sem este SREM uma sessão
+    # parada seguraria o slot por até 1h — o operador pararia a sessão e mesmo
+    # assim não conseguiria abrir outra.
+    await redis.srem(_global_index_key(), session_id)
     return True
 
 
@@ -539,6 +684,7 @@ async def delete_session(redis: redis_async.Redis, session_id: str, org_id: int)
     pipe.delete(_meta_key(session_id))
     pipe.delete(_events_key(session_id))
     pipe.srem(_org_index_key(org_id), session_id)
+    pipe.srem(_global_index_key(), session_id)
     await pipe.execute()
 
 
@@ -729,7 +875,7 @@ async def record(
             entries = _entries_for(m, batch, now, outcome, destination_id, detail, route_id)
             if not entries:
                 continue
-            ring_size, evt_ttl = _ring_params(m, now)
+            ring_size, evt_ttl, _ring_bytes = _ring_params(m, now)
             pipe = redis.pipeline()
             pipe.lpush(_events_key(sid), *entries)
             pipe.ltrim(_events_key(sid), 0, ring_size - 1)
@@ -782,17 +928,12 @@ def record_sync(
             entries = _entries_for(m, batch, now, outcome, destination_id, detail, route_id)
             if not entries:
                 continue
-            ring_size, evt_ttl = _ring_params(m, now)
-            pipe = r.pipeline()
-            pipe.lpush(_events_key(sid), *entries)
-            pipe.ltrim(_events_key(sid), 0, ring_size - 1)
-            pipe.expire(_events_key(sid), evt_ttl)
-            pipe.hincrby(_meta_key(sid), "event_count", len(entries))
-            # Contador POR DESFECHO no meta: sobrevive à poda do ring (o ltrim
-            # descarta eventos antigos, o contador não), então a UI distingue
-            # "sessão ativa e nada aconteceu" de "houve tráfego, mas rolou".
-            pipe.hincrby(_meta_key(sid), f"outcome:{outcome}", len(entries))
-            pipe.execute()
+            ring_size, evt_ttl, ring_bytes = _ring_params(m, now)
+            _append_entries(
+                r, sid, entries,
+                ring_size=ring_size, evt_ttl=evt_ttl,
+                ring_bytes=ring_bytes, outcome=outcome,
+            )
         _tap_ok()
     except Exception as exc:  # pragma: no cover — captura nunca quebra a coleta
         _tap_failed()

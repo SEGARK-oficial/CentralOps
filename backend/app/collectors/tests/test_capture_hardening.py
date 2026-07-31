@@ -29,7 +29,12 @@ from backend.app.collectors import capture_session as cs
 
 
 @pytest.fixture(autouse=True)
-def _clean_breaker():
+def _clean_module_state(monkeypatch):
+    # ``_append_sha`` é estado de MÓDULO, como o breaker: o SHA é por servidor
+    # Redis, e um fake diferente por teste invalida o anterior. Em produção o
+    # caso equivalente (reconectar em outro servidor) é coberto pelo ramo
+    # NOSCRIPT de ``_append_entries``.
+    monkeypatch.setattr(cs, "_append_sha", None)
     cs.reset_tap_breaker()
     cs.reset_session_cache()
     yield
@@ -336,3 +341,156 @@ def test_sampled_events_group_by_destination_and_route(monkeypatch) -> None:
         d = json.loads(raw)
         pairs.add((d["destination_id"], d["route_id"]))
     assert pairs == {("d0", "r0"), ("d1", "r1")}
+
+
+# ── orçamento de bytes RESIDENTES ─────────────────────────────────────
+
+
+class _LuaRedis:
+    """Fake com LIST + HASH suficiente para exercitar o script de append.
+
+    Implementa o script em Python com a MESMA semântica, porque o objetivo do
+    teste é a CONTABILIDADE (residência vs. cumulativo), não o dialeto Lua.
+    """
+
+    def __init__(self):
+        self.lists: dict = {}
+        self.hashes: dict = {}
+        self.sha = None
+
+    def script_load(self, src):
+        self.sha = "sha-1"
+        return self.sha
+
+    def evalsha(self, sha, nkeys, events_key, meta_key, *args):
+        assert sha == self.sha
+        ring_size, ring_bytes, ttl, outcome = int(args[0]), int(args[1]), int(args[2]), args[3]
+        entries = list(args[4:])
+        lst = self.lists.setdefault(events_key, [])
+        h = self.hashes.setdefault(meta_key, {})
+        added = 0
+        for e in entries:
+            lst.insert(0, e)
+            added += len(e)
+        h["event_count"] = h.get("event_count", 0) + len(entries)
+        h[f"outcome:{outcome}"] = h.get(f"outcome:{outcome}", 0) + len(entries)
+        used = h.get("ring_bytes_used", 0) + added
+        while len(lst) > ring_size:
+            used -= len(lst.pop())
+        while used > ring_bytes and lst:
+            used -= len(lst.pop())
+        h["ring_bytes_used"] = used
+        return [len(entries), used]
+
+
+def _session(ring_size=10_000, ring_bytes=None):
+    m = {"id": "s1", "vendor": "", "ring_size": str(ring_size), "expires_at": "9e9"}
+    if ring_bytes is not None:
+        m["ring_bytes"] = str(ring_bytes)
+    return m
+
+
+def test_ring_budget_measures_residency_not_cumulative_writes() -> None:
+    """O teste central do orçamento.
+
+    ``LTRIM`` descarta SEM contar, então um contador de bytes ESCRITOS mede
+    acumulado: escrever 40 MiB e medir daria 40 MiB mesmo com o ring podado.
+    A contabilidade tem de ser de RESIDÊNCIA.
+    """
+    r = _LuaRedis()
+    budget = 200_000
+    entry = "x" * 10_000
+    for _ in range(100):  # 1 MB escrito, muito acima do teto
+        cs._append_entries(
+            r, "s1", [entry],
+            ring_size=10_000, evt_ttl=100, ring_bytes=budget, outcome="delivered",
+        )
+
+    used = r.hashes["capture:session:s1:meta"]["ring_bytes_used"]
+    assert used <= budget, f"residência {used} estourou o teto {budget}"
+    residente = sum(len(e) for e in r.lists["capture:session:s1:events"])
+    assert used == residente, "contador divergiu do que está de fato no ring"
+
+
+def test_budget_shortens_the_ring_never_kills_the_session() -> None:
+    r = _LuaRedis()
+    for i in range(50):
+        cs._append_entries(
+            r, "s1", ["y" * 10_000],
+            ring_size=10_000, evt_ttl=100, ring_bytes=100_000, outcome="delivered",
+        )
+    # Continua gravando (a última entrada está lá) — o teto ENCURTA, não encerra.
+    assert len(r.lists["capture:session:s1:events"]) > 0
+    assert r.hashes["capture:session:s1:meta"]["event_count"] == 50
+
+
+def test_count_cap_still_applies() -> None:
+    r = _LuaRedis()
+    for i in range(20):
+        cs._append_entries(
+            r, "s1", [f"e{i}"],
+            ring_size=5, evt_ttl=100, ring_bytes=10**9, outcome="delivered",
+        )
+    assert len(r.lists["capture:session:s1:events"]) == 5
+
+
+class _NoEvalRedis:
+    """Redis sem suporte a EVAL (ou cluster com CROSSSLOT)."""
+
+    def __init__(self):
+        self.calls = []
+        self.hset_args = []
+
+    def script_load(self, src):
+        raise RuntimeError("ERR unknown command 'SCRIPT'")
+
+    def pipeline(self):
+        return self
+
+    def lpush(self, *a, **k):
+        self.calls.append("lpush")
+
+    def ltrim(self, *a, **k):
+        self.calls.append("ltrim")
+
+    def expire(self, *a, **k):
+        pass
+
+    def hincrby(self, *a, **k):
+        pass
+
+    def hset(self, key, field, value):
+        self.hset_args.append((field, value))
+
+    def execute(self):
+        self.calls.append("execute")
+
+
+def test_falls_back_and_announces_when_eval_unavailable(monkeypatch) -> None:
+    """Degradação ANUNCIADA. O que não pode acontecer é o operador achar que o
+    teto de bytes está valendo quando não está."""
+    monkeypatch.setattr(cs, "_append_sha", None)
+    r = _NoEvalRedis()
+    cs._append_entries(
+        r, "s1", ["a"],
+        ring_size=10, evt_ttl=100, ring_bytes=1000, outcome="delivered",
+    )
+    assert "lpush" in r.calls and "execute" in r.calls
+    assert ("budget_enforcement", "unavailable") in r.hset_args
+
+
+def test_ring_params_clamps_budget_to_the_hard_ceiling() -> None:
+    _, _, rb = cs._ring_params({"ring_bytes": str(10**12)}, 0.0)
+    assert rb == cs.CAPTURE_SESSION_MAX_BYTES
+    _, _, rb2 = cs._ring_params({}, 0.0)
+    assert rb2 == cs.CAPTURE_SESSION_MAX_BYTES
+
+
+def test_global_ceiling_is_smaller_than_maxmemory() -> None:
+    """8 × 24 MiB = 192 MiB contra os 512 MB do Redis compartilhado com o
+    dedupe. Se alguém subir os tetos, este teste é o freio."""
+    total = cs.MAX_ACTIVE_SESSIONS_GLOBAL * cs.CAPTURE_SESSION_MAX_BYTES
+    assert total <= 200 * 1024 * 1024, (
+        f"teto global de captura ({total} B) grande demais para um Redis de "
+        "512 MB compartilhado com o dedupe — evictar dedupe é reentrega silenciosa"
+    )
