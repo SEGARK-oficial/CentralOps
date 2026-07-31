@@ -48,29 +48,92 @@ Cada linha é um evento, com o **desfecho** — o que de fato aconteceu com ele:
 
 Esse é o valor central da tela: antes dela, tudo que era coletado mas **não** entregue ficava invisível, e "não capturei nada" era indistinguível de "morreu no meio do caminho".
 
-## Ver a transformação (antes e depois)
+## Ver a transformação (a trajetória do evento)
 
-Clique em **Inspecionar** numa linha. O painel mostra lado a lado:
+Clique em **Inspecionar** numa linha. Além do payload daquele registro, o painel
+monta a **trajetória**: os registros de todos os estágios do MESMO evento, em
+ordem de pipeline.
 
-- **Como recebemos** — o payload original do fornecedor.
-- **Como está sendo mandado** — o evento normalizado em OCSF.
+| Estágio | O que o payload é |
+|---|---|
+| **Coletado** | O bruto do fornecedor, antes de qualquer normalização. |
+| **Roteado** | O envelope depois de normalizar, antes das transformações por destino. |
+| **Entregue** | O que de fato saiu, por destino — depois de redação de PII, descarte de bruto e agregação. |
 
-É assim que se confere se uma regra de mapeamento fez o que você esperava, sem precisar ler um JSON gigante de uma vez.
+Isso existe porque o mesmo evento aparece com **três normalizações diferentes**
+na lista, e antes nada as distinguia. Comparar um registro "em quarentena" com
+um "entregue" era comparar coisas incomparáveis.
 
-Quando o desfecho tem uma regra de roteamento associada (descarte, amostragem), o identificador dela aparece como etiqueta — respondendo direto "qual regra apagou meu evento?".
+### O que a tela admite (e por quê)
 
-:::warning[O "antes" pode já vir podado]
-Se o mapeamento tem um bloco `raw_reduction`, o payload que você vê em "como recebemos" já pode estar sem os campos podados. Se um campo que o fornecedor manda não aparece nem aí, verifique a poda do mapeamento antes de concluir que o fornecedor não enviou. Veja [Especificação da DSL](../normalization/dsl-spec.md).
+:::warning[Não é bit a bit]
+"Coletado" é o objeto **depois do parse**, não os bytes do fio. Para as fontes
+que buscamos por API, o payload é desserializado no coletor: espaçamento, ordem
+das chaves e escapes do fornecedor deixam de existir antes de qualquer ponto do
+pipeline. Dois coletores ainda pré-processam o payload (o do Wazuh desembrulha o
+resultado do índice; o do CloudWatch injeta campos). O único caminho onde os
+bytes exatos existem é a ingestão por push.
 :::
+
+:::warning[O "coletado" pode não estar mais lá]
+Ele é o registro mais **antigo** da trajetória e, portanto, o primeiro a sair
+quando o anel de retenção enche. A tela diz isso explicitamente em vez de
+mostrar um painel vazio — painel vazio seria lido como "o fornecedor não mandou
+nada".
+:::
+
+:::warning[Registros pré-entrega não passaram pela redação de PII]
+A redação é configurada **por rota**, e ela também alcança o bloco bruto. Um
+evento descartado, amostrado para fora ou suprimido aparece aqui **em claro** —
+inclusive o que o destino teria recebido redigido. Esses registros levam a
+etiqueta "PII não redigida".
+:::
+
+:::warning[Com agregação, o evento individual não existe no destino]
+Quando um destino tem agregação ligada, o lote é colapsado em métricas
+sintéticas antes de sair. O evento original não é entregue individualmente, e
+nenhum recurso da captura recupera isso. O registro é marcado como agregado.
+:::
+
+### Como saiu no fio
+
+Quando a sessão é iniciada com a opção de wire, o registro de entrega carrega o
+payload formatado para aquele destino — com um **nível de fidelidade**, porque
+"o que o formatador produz" não é o byte entregue para todos os destinos:
+
+| Nível | Significado |
+|---|---|
+| **Exato** | É o payload por evento. A nota diz qual é o empacotamento do lote em volta. |
+| **Não determinístico** | Syslog: carimbo de tempo, hostname e PID são recalculados a cada envio — a linha exibida nunca será idêntica à entregue. |
+| **Parcial** | Falta um pedaço com significado (a linha de ação do `_bulk`, que define a idempotência; o envelope de requisição do OTLP). |
+| **Sem representação por evento** | O destino grava o **lote inteiro** comprimido ou colunar (S3, Security Lake). Não existe wire por evento, então **não há prévia** — mostrar um fragmento induziria à comparação errada. |
 
 ## Exportar o que foi capturado
 
 Os botões **Exportar CSV** e **NDJSON** baixam a sessão inteira.
 
-- **CSV** — abre direto no Excel, com uma linha por evento e colunas de desfecho, rota e destino. É o formato para análise rápida ou para anexar num chamado.
-- **NDJSON** — uma linha JSON por evento, para processar com ferramentas de linha de comando ou reprocessar.
+- **CSV** — abre direto no Excel. Uma linha por evento, com colunas de desfecho,
+  rota, destino, **estágio**, **identificador do evento** e **nível de fidelidade
+  do wire**. As colunas originais mantêm a ordem: planilhas e scripts que já
+  consomem o arquivo continuam funcionando.
+- **NDJSON** — uma linha JSON por evento, com a trajetória completa: estágio,
+  tipo de payload, se passou pela redação, versão da configuração do destino no
+  momento da entrega e o bloco de wire quando existir.
 
-Os dados pessoais são **mascarados** no arquivo exportado. O arquivo sai do sistema, então essa proteção é aplicada por padrão.
+Use o identificador do evento para juntar as linhas dos vários estágios do mesmo
+evento no arquivo exportado.
+
+Os dados pessoais são **mascarados** no arquivo, incluindo campos OCSF por
+caminho (linha de comando, nome de dispositivo, endereços). A máscara preserva a
+**estrutura**: um identificador de usuário vira `[PII]` mas continua existindo,
+para a correlação não se perder. Exportar **sem** máscara exige permissão de
+plataforma — ver na tela e extrair um arquivo são coisas diferentes.
+
+:::info[A captura pode ser amostrada]
+Uma sessão pode ser iniciada capturando uma fração do tráfego. Quando isso
+acontece, **a ausência de um evento não prova que ele não passou**. A tela
+sinaliza a taxa efetiva.
+:::
 
 ## Limites e privacidade
 

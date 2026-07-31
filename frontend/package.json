@@ -13,7 +13,8 @@
     "e2e:headed": "npm --prefix ../e2e run test:headed",
     "e2e:report": "npm --prefix ../e2e run report",
     "e2e:up": "docker compose -f ../compose/docker-compose.e2e.yml up --build -d",
-    "e2e:down": "docker compose -f ../compose/docker-compose.e2e.yml down -v"
+    "e2e:down": "docker compose -f ../compose/docker-compose.e2e.yml down -v",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

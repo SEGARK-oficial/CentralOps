@@ -511,3 +511,33 @@ def test_events_accepts_every_stage(env) -> None:
             f"?org_id={env['org_a']}&stage={stage}"
         )
         assert r.status_code == 200, f"{stage}: {r.text}"
+
+
+# ── trajetória por event_id ───────────────────────────────────────────
+
+
+def test_trajectory_requires_session_ownership(env) -> None:
+    """Mesmo gate dos demais endpoints de captura: nunca serve trajetória de
+    sessão de outra org. 403 (gate de org, que responde primeiro) ou 404 (posse
+    da sessão) — o que NÃO pode é 200."""
+    session = _start(env["ga"], env["org_b"])
+    r = env["scoped"].get(
+        f"{BASE}/capture-sessions/{session['id']}/events/qualquer?org_id={env['org_b']}"
+    )
+    assert r.status_code in (403, 404), r.text
+
+
+def test_trajectory_reports_incomplete_when_collected_is_missing(env) -> None:
+    """``complete=false`` é o que permite a UI dizer "o bruto saiu da janela do
+    ring" em vez de renderizar um painel vazio. O registro ``collected`` é o
+    mais VELHO do grupo e a primeira vítima da poda."""
+    session = _start(env["ga"], env["org_a"])
+    body = env["ga"].get(
+        f"{BASE}/capture-sessions/{session['id']}/events/nao-existe"
+        f"?org_id={env['org_a']}"
+    ).json()
+
+    assert body["event_id"] == "nao-existe"
+    assert body["count"] == 0
+    assert body["complete"] is False
+    assert body["stages_present"] == []

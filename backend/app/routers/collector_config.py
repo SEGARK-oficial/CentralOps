@@ -912,6 +912,93 @@ async def get_capture_events(
     )
 
 
+class CaptureTrajectory(BaseModel):
+    """Todos os registros de UM evento, ordenados no tempo — a trajetória.
+
+    ``complete`` é o campo que permite a UI dizer "o bruto saiu da janela do
+    ring" em vez de mostrar um buraco mudo: o registro ``collected`` é o mais
+    VELHO do grupo e, portanto, a primeira vítima da poda.
+    """
+
+    event_id: str
+    session_id: str
+    count: int
+    complete: bool
+    stages_present: List[str] = Field(default_factory=list)
+    events: List[CaptureEventDetail] = Field(default_factory=list)
+
+
+@router.get(
+    "/capture-sessions/{session_id}/events/{event_id}",
+    response_model=CaptureTrajectory,
+)
+async def get_capture_trajectory(
+    session_id: str,
+    event_id: str,
+    org_id: Optional[int] = None,
+    user: models.AppUser = Depends(app_auth.require_admin_user),
+) -> CaptureTrajectory:
+    """Junta a trajetória de um evento a partir do ring.
+
+    O ring é UMA lista FIFO por sessão, compartilhada por todos os estágios e
+    destinos: com fan-out N, um evento gera 1+N entradas INTERCALADAS com as de
+    todos os outros. Ler por página (o caminho normal da UI) faz a junção
+    degradar exatamente no volume em que ela é necessária — daí este endpoint,
+    que varre o ring inteiro filtrando por ``event_id``.
+
+    Varredura O(ring) por clique do operador, no processo da API. Aceitável
+    porque é sob demanda; se medir mal em produção, o follow-up é um hash
+    auxiliar por ``event_id`` — otimizar antes seria adicionar uma chave nova
+    (e mais superfície de expiração) sem evidência.
+    """
+    effective_org = _capture_effective_org(org_id, user)
+    redis = await _redis_client()
+    try:
+        await _owned_capture_or_404(redis, session_id, effective_org)
+        found: List[Dict[str, Any]] = []
+        async for entry in capture_session.iter_events(redis, session_id):
+            if (entry.get("event_id") or "") == event_id:
+                found.append(entry)
+    finally:
+        await redis.aclose()
+
+    # Mais ANTIGO primeiro: a trajetória se lê no sentido do pipeline
+    # (collected → routed → delivered), não no do ring (que é LIFO).
+    found.sort(key=lambda e: float(e.get("captured_at") or 0))
+    stages = [s for s in ("collected", "routed", "delivered")
+              if any((e.get("stage") or "routed") == s for e in found)]
+    return CaptureTrajectory(
+        event_id=event_id,
+        session_id=session_id,
+        count=len(found),
+        # Sem um registro ``collected`` não há "como era antes" — e a UI precisa
+        # DIZER isso, em vez de renderizar um painel vazio.
+        complete="collected" in stages,
+        stages_present=stages,
+        events=[
+            CaptureEventDetail(
+                event=e.get("event") or {},
+                vendor=e.get("vendor"),
+                captured_at=e.get("captured_at"),
+                organization_id=_event_org_id(e),
+                outcome=_event_outcome(e),
+                destination_id=e.get("destination_id"),
+                route_id=e.get("route_id"),
+                detail=e.get("detail"),
+                event_id=e.get("event_id"),
+                stage=e.get("stage") or "routed",
+                payload_kind=e.get("payload_kind") or "envelope",
+                pii_redacted=bool(e.get("pii_redacted")),
+                destination_kind=e.get("destination_kind"),
+                dest_config_version=e.get("dest_config_version"),
+                wire=e.get("wire"),
+                capture_meta=e.get("_capture"),
+            )
+            for e in found
+        ],
+    )
+
+
 # Alinhado ao teto do ring. Com 50.000 o branch de truncamento era INALCANÇÁVEL
 # pelo caminho HTTP — ``iter_events`` já clampa em ``MAX_RING_SIZE``, então o
 # header dizia "não truncado" por coincidência, não por contrato.

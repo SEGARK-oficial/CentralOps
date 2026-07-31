@@ -439,6 +439,31 @@
       "unrouted": "Sem destino",
       "unknown": "Desconhecido",
       "unknownTooltip": "Evento gravado antes de a captura registrar o desfecho."
+    },
+    "trajectory": {
+      "loading": "Carregando trajetória…",
+      "errorTitle": "Erro ao carregar a trajetória",
+      "empty": "Nenhum registro deste evento na janela do ring.",
+      "rawEvicted": "O registro de coleta saiu da janela do ring — o payload bruto (pré-normalização) não está mais disponível para este evento. Ele é o mais antigo do grupo e o primeiro a ser podado.",
+      "stages": "Estágios:",
+      "stage": {
+        "collected": "Coletado",
+        "routed": "Roteado",
+        "delivered": "Entregue"
+      },
+      "aggregated": "Agregado — o evento individual não sai neste destino",
+      "piiNotRedacted": "PII não redigida neste registro",
+      "wire": "Como saiu no fio",
+      "wireTruncated": "… truncado para exibição ({{bytes}} bytes no total)",
+      "noWirePreview": "Este destino grava o LOTE inteiro (comprimido/colunar) — não existe representação por evento, então não há prévia.",
+      "fidelity": {
+        "exact": "Exato",
+        "nondeterministic": "Não determinístico",
+        "partial": "Parcial",
+        "not_representable": "Sem representação por evento",
+        "error": "Erro ao formatar"
+      },
+      "title": "Trajetória do evento"
     }
   },
   "licensing": {

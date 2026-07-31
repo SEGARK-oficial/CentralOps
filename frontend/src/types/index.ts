@@ -1102,11 +1102,64 @@ export interface CaptureSessionList {
   sessions: CaptureSession[]
 }
 
+/** Fidelidade do "como saiu no fio", por destino. Nunca um selo único: a
+ *  diferença entre estes níveis é o que separa "posso diffar contra o meu SIEM"
+ *  de "isto é uma aproximação". */
+export type WireFidelity =
+  | "exact"
+  | "nondeterministic"
+  | "partial"
+  | "not_representable"
+  | "error"
+
+export interface CaptureWire {
+  fidelity: WireFidelity
+  encoding: "json" | "ndjson" | "text" | "binary"
+  /** O que FALTA para ser o byte exato. Sempre presente quando não é `exact`. */
+  note?: string | null
+  /** Ausente em `not_representable` e `error` — de propósito: quando a unidade
+   *  do fio é o lote, um fragmento por evento induz a comparação errada. */
+  text?: string
+  /** Tamanho ANTES do teto de exibição. */
+  bytes?: number
+  truncated?: boolean
+}
+
+/** QUAL transformação o payload gravado já sofreu. Ortogonal a `outcome`. */
+export type CaptureStage = "collected" | "routed" | "delivered"
+
+export type CapturePayloadKind =
+  | "vendor_wire"
+  | "vendor_raw"
+  | "envelope"
+  | "aggregate_metric"
+
 export interface CaptureEvent {
   event: Record<string, unknown>
   vendor?: string | null
   /** epoch seconds */
   captured_at?: number | null
+  organization_id?: number | null
+  outcome?: string
+  destination_id?: string | null
+  route_id?: string | null
+  detail?: string | null
+  /** Chave de junção da trajetória. Copiada do envelope, nunca recomputada. */
+  event_id?: string | null
+  stage?: CaptureStage
+  payload_kind?: CapturePayloadKind
+  /** `false` nos registros PRÉ-entrega. Não é detalhe: a redação de PII é por
+   *  rota e alcança o bloco `raw`, então um evento dropado exibe em claro o que
+   *  o destino teria recebido redigido. */
+  pii_redacted?: boolean
+  destination_kind?: string | null
+  /** Versão da config do destino NA ENTREGA — permite sinalizar drift quando o
+   *  preview sob demanda usar a config ATUAL. */
+  dest_config_version?: string | null
+  wire?: CaptureWire | null
+  /** Metadados do TAP (truncamento, blocos descartados). Fora de `event` de
+   *  propósito: o export mascara `event`, e isto não é dado do vendor. */
+  _capture?: Record<string, unknown> | null
 }
 
 export interface CaptureEventList {
@@ -1115,10 +1168,29 @@ export interface CaptureEventList {
   events: CaptureEvent[]
 }
 
+/** Todos os registros de UM evento, em ordem de pipeline. */
+export interface CaptureTrajectory {
+  event_id: string
+  session_id: string
+  count: number
+  /** `false` = não há registro `collected`. O bruto saiu da janela do ring —
+   *  a UI diz isso em vez de renderizar um painel vazio. */
+  complete: boolean
+  stages_present: CaptureStage[]
+  events: CaptureEvent[]
+}
+
 export interface CaptureSessionStartRequest {
   vendor?: string
   duration_seconds?: number
   ring_size?: number
+  /** Amostragem determinística por hash do event_id (1-100). */
+  capture_percent?: number
+  /** Backstop de CPU por sessão. */
+  max_eps?: number
+  /** Materializa o payload de wire no dispatch. OFF por default: o custo de
+   *  `format()` é opt-in. */
+  capture_wire?: boolean
 }
 
 export type Optional<T, K extends keyof T> = Omit<T, K> & Partial<Pick<T, K>>
