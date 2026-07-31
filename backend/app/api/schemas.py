@@ -1601,6 +1601,10 @@ class CollectorConfigUpdate(BaseModel):
     collector_batch_size: Optional[int] = Field(default=None, ge=1, le=10_000)
     collector_batch_flush_seconds: Optional[int] = Field(default=None, ge=1, le=600)
     dedupe_ttl_days: Optional[int] = Field(default=None, ge=1, le=365)
+    # Espelha ``CollectorConfigBase.dedupe_ttl_seconds``. Sem este campo o PUT
+    # descartava o valor em silêncio (Pydantic ignora chave desconhecida) e o
+    # TTL efetivo ficava preso no derivado de ``dedupe_ttl_days``.
+    dedupe_ttl_seconds: Optional[int] = Field(default=None, ge=14_400, le=2_678_400)
 
     domain_concurrency_limits: Optional[Dict[str, int]] = None
     rate_limits_by_vendor: Optional[Dict[str, Dict[str, int]]] = None
