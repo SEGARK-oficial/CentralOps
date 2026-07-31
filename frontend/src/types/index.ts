@@ -1332,6 +1332,13 @@ export interface MappingVersion {
   /** Shape v2: { preprocess, rules }. Sempre dict. */
   rules: MappingPayload
   author_user_id: number | null
+  /**
+   * Rótulo humano do autor, resolvido pelo backend: usuário (display_name ou
+   * username), `sa:<nome>` para service account (MCP/API), ou null para
+   * versões de seed. `author_user_id` sozinho não identifica o ator — é null
+   * sempre que a autoria não veio de uma linha de `app_users`.
+   */
+  author_label: string | null
   commit_message: string
   diff_from_previous: unknown
   dry_run_stats: unknown

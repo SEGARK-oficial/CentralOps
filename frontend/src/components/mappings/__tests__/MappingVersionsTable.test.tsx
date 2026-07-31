@@ -34,6 +34,7 @@ const V1: MappingVersion = {
   version_number: 1,
   rules: { preprocess: [], rules: [{ target: "a", source: "x" }] },
   author_user_id: null,
+  author_label: null,
   commit_message: "Versão inicial",
   diff_from_previous: null,
   dry_run_stats: null,
@@ -46,6 +47,7 @@ const V2: MappingVersion = {
   version_number: 2,
   rules: { preprocess: [], rules: [{ target: "b", source: "y" }] },
   author_user_id: 1,
+  author_label: "Ana Diretora",
   commit_message: "Segunda versão",
   diff_from_previous: null,
   dry_run_stats: null,
@@ -154,6 +156,19 @@ describe("MappingVersionsTable", () => {
     renderTable()
     expect(screen.getByText("Versão inicial")).toBeInTheDocument()
     expect(screen.getByText("Segunda versão")).toBeInTheDocument()
+  })
+
+  it("coluna Autor mostra o rótulo humano, nunca o id numérico", () => {
+    renderTable()
+    expect(screen.getByText("Ana Diretora")).toBeInTheDocument()
+    // author_user_id=1 não pode vazar como texto da coluna.
+    expect(screen.queryByText("1")).not.toBeInTheDocument()
+  })
+
+  it("coluna Autor cai no fallback quando não há autor resolvido", () => {
+    // author_label null = versão de seed, ou usuário deletado.
+    renderTable()
+    expect(screen.getByText("Sistema")).toBeInTheDocument()
   })
 
   it("seleção de 2 versões mostra botão 'Comparar selecionadas'", () => {

@@ -140,9 +140,11 @@ export const MappingVersionsTable: React.FC<MappingVersionsTableProps> = ({
     {
       key: "author",
       title: t("versionsTable.columns.author"),
-      dataIndex: "author_username",
+      dataIndex: "author_label",
       render: (value: unknown) => (
-        <span className="text-sm text-text-secondary">{(value as string) ?? "—"}</span>
+        <span className="text-sm text-text-secondary">
+          {((value as string) || "").trim() || t("versionsTable.authorUnknown")}
+        </span>
       ),
     },
     {
@@ -215,7 +217,9 @@ export const MappingVersionsTable: React.FC<MappingVersionsTableProps> = ({
   const tableData: Record<string, unknown>[] = versions.map((v) => ({
     id: v.id,
     version_number: v.version_number,
-    author_username: v.author_user_id ? String(v.author_user_id) : null,
+    // Rótulo resolvido pelo backend (usuário, ``sa:<nome>`` de service account
+    // ou null p/ versões de seed). NUNCA o id cru: a coluna é "Autor".
+    author_label: v.author_label ?? null,
     commit_message: v.commit_message,
     created_at: v.created_at,
   }))

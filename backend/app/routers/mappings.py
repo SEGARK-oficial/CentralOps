@@ -26,7 +26,7 @@ from __future__ import annotations
 import json
 import logging
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Sequence
 
 import redis.asyncio as redis_async
 from fastapi import APIRouter, Depends, Query, Response, status
@@ -78,6 +78,11 @@ class MappingVersionRead(BaseModel):
     # DSL v2: dict com ``preprocess`` (opcional) e ``rules`` (obrigatório).
     rules: Dict[str, Any]
     author_user_id: Optional[int]
+    # Rótulo humano do autor, resolvido na leitura. ``author_user_id`` sozinho
+    # não basta: é NULL para service account (id negativo do shim não é
+    # persistível), para versões de seed e após deleção do usuário
+    # (ON DELETE SET NULL). Ver ``_resolve_author_labels``.
+    author_label: Optional[str] = None
     commit_message: str
     diff_from_previous: Optional[Any]
     dry_run_stats: Optional[Any]
@@ -267,7 +272,66 @@ class TypeCastDescriptor(BaseModel):
 # ── Helpers ───────────────────────────────────────────────────────────
 
 
-def _serialize_version(v: models.MappingVersion) -> MappingVersionRead:
+def _resolve_author_labels(
+    db: Session, versions: Sequence[models.MappingVersion]
+) -> Dict[str, Optional[str]]:
+    """Rótulo humano do autor por ``version.id``, resolvido em lote.
+
+    ``mapping_versions`` guarda só a FK ``author_user_id`` — ao contrário de
+    ``mapping_audit_log`` / ``audit_log``, que desnormalizam ``username`` +
+    ``user_role`` justamente para sobreviver a ator sem linha em ``app_users``.
+    Enquanto essa paridade não existe no schema, resolvemos na leitura:
+
+    1. FK preenchida → ``display_name`` ou ``username`` de ``app_users``;
+    2. FK NULL → ``username`` da linha de ``mapping_audit_log`` ligada por
+       ``mapping_version_id`` (é lá que o ator de service account sobrevive,
+       como ``sa:<nome>``, gravado por ``_audit``);
+    3. sem nenhum dos dois (versões de seed inseridas por SQL direto) → None,
+       e a UI decide o rótulo de fallback.
+
+    Duas queries por listagem, ambas batched.
+    """
+    labels: Dict[str, Optional[str]] = {v.id: None for v in versions}
+    if not versions:
+        return labels
+
+    user_ids = {v.author_user_id for v in versions if v.author_user_id is not None}
+    by_user: Dict[int, str] = {}
+    if user_ids:
+        for uid, username, display_name in (
+            db.query(models.AppUser.id, models.AppUser.username, models.AppUser.display_name)
+            .filter(models.AppUser.id.in_(user_ids))
+            .all()
+        ):
+            by_user[uid] = display_name or username
+
+    orphan_ids = [v.id for v in versions if v.author_user_id is None]
+    by_version: Dict[str, str] = {}
+    if orphan_ids:
+        for version_id, username in (
+            db.query(models.MappingAuditLog.mapping_version_id, models.MappingAuditLog.username)
+            .filter(
+                models.MappingAuditLog.mapping_version_id.in_(orphan_ids),
+                models.MappingAuditLog.username.isnot(None),
+            )
+            .order_by(models.MappingAuditLog.created_at.asc())
+            .all()
+        ):
+            # asc + setdefault → o PRIMEIRO ator da versão (quem a criou),
+            # não quem mexeu nela depois.
+            by_version.setdefault(version_id, username)
+
+    for v in versions:
+        if v.author_user_id is not None:
+            labels[v.id] = by_user.get(v.author_user_id)
+        else:
+            labels[v.id] = by_version.get(v.id)
+    return labels
+
+
+def _serialize_version(
+    v: models.MappingVersion, author_label: Optional[str] = None
+) -> MappingVersionRead:
     try:
         raw_rules = json.loads(v.rules)
     except (TypeError, ValueError):
@@ -279,6 +343,7 @@ def _serialize_version(v: models.MappingVersion) -> MappingVersionRead:
         version_number=v.version_number,
         rules=rules,
         author_user_id=v.author_user_id,
+        author_label=author_label,
         commit_message=v.commit_message,
         diff_from_previous=json.loads(v.diff_from_previous) if v.diff_from_previous else None,
         dry_run_stats=json.loads(v.dry_run_stats) if v.dry_run_stats else None,
@@ -990,7 +1055,8 @@ def get_definition(
         .all()
     )
     base = _serialize_definition(defn).model_dump()
-    base["versions"] = [_serialize_version(v) for v in versions]
+    labels = _resolve_author_labels(db, versions)
+    base["versions"] = [_serialize_version(v, labels.get(v.id)) for v in versions]
     return MappingDefinitionDetail(**base)
 
 
@@ -1017,7 +1083,8 @@ def list_versions(
         .order_by(models.MappingVersion.version_number.desc())
         .all()
     )
-    return [_serialize_version(v) for v in rows]
+    labels = _resolve_author_labels(db, rows)
+    return [_serialize_version(v, labels.get(v.id)) for v in rows]
 
 
 @router.get(
@@ -1041,7 +1108,7 @@ def get_version(
                 "es": "Versión de mapping no encontrada.",
             },
         )
-    return _serialize_version(version)
+    return _serialize_version(version, _resolve_author_labels(db, [version]).get(version.id))
 
 
 @router.post(
@@ -1160,7 +1227,9 @@ async def create_version(
     if previous_current:
         default_engine.invalidate(previous_current)
 
-    return _serialize_version(version)
+    # Resolve pelo mesmo caminho da leitura: para service account a FK é NULL
+    # e o ator só existe na linha de audit que ``_audit`` acabou de gravar.
+    return _serialize_version(version, _resolve_author_labels(db, [version]).get(version.id))
 
 
 @router.post("/dry-run", response_model=DryRunResult)

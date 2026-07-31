@@ -258,6 +258,97 @@ def test_create_version_requires_admin(client_factory) -> None:
     assert r.status_code == 403
 
 
+# ── author_label: a coluna "Autor" das Versões ────────────────────────
+
+
+def test_version_author_label_resolves_human_name(client_factory) -> None:
+    """``author_user_id`` sozinho não identifica o ator — a UI mostrava o id
+    numérico cru na coluna Autor. ``author_label`` resolve o nome na leitura.
+    """
+    factory, Session = client_factory
+    client = factory()
+    _bootstrap_admin(client)
+
+    with Session() as db:
+        def_id = _seed_definition(
+            db, vendor="sophos", event_type="sophos.alert", class_uid=2004
+        )
+
+    r = client.post(
+        f"/api/mappings/{def_id}/versions",
+        json={"rules": _v2([{"target": "normalized.x", "const": 1}]), "commit_message": "c"},
+    )
+    assert r.status_code == 201, r.text
+    # display_name do bootstrap, não o id.
+    assert r.json()["author_label"] == "Admin"
+
+    listed = client.get(f"/api/mappings/{def_id}/versions").json()
+    assert listed[0]["author_label"] == "Admin"
+
+    detail = client.get(f"/api/mappings/{def_id}").json()
+    assert detail["versions"][0]["author_label"] == "Admin"
+
+
+def test_version_author_label_falls_back_to_audit_for_service_account(
+    client_factory,
+) -> None:
+    """Service account autentica como AppUser de id NEGATIVO inexistente, então
+    ``persistable_user_id`` grava ``author_user_id=NULL`` e a coluna Autor
+    ficava VAZIA para tudo que veio de MCP/API. O ator sobrevive na linha de
+    ``mapping_audit_log`` (``sa:<nome>``) — é de lá que o rótulo vem.
+    """
+    factory, Session = client_factory
+    client = factory()
+    _bootstrap_admin(client)
+
+    with Session() as db:
+        def_id = _seed_definition(
+            db, vendor="sophos", event_type="sophos.alert", class_uid=2004
+        )
+
+    version_id = client.post(
+        f"/api/mappings/{def_id}/versions",
+        json={"rules": _v2([{"target": "normalized.x", "const": 1}]), "commit_message": "c"},
+    ).json()["id"]
+
+    # Simula o que o shim de service account produz: FK nula, audit com nome.
+    with Session() as db:
+        v = db.get(models.MappingVersion, version_id)
+        v.author_user_id = None
+        row = (
+            db.query(models.MappingAuditLog)
+            .filter(models.MappingAuditLog.mapping_version_id == version_id)
+            .first()
+        )
+        assert row is not None, "create_version deve ter gravado audit"
+        row.user_id = None
+        row.username = "sa:iasoc-bot"
+        db.commit()
+
+    listed = client.get(f"/api/mappings/{def_id}/versions").json()
+    assert listed[0]["author_user_id"] is None
+    assert listed[0]["author_label"] == "sa:iasoc-bot"
+
+
+def test_version_author_label_is_null_for_seeded_version(client_factory) -> None:
+    """Versões de seed entram por SQL direto (sem FK e sem audit) — não há ator
+    a inventar. O rótulo fica null e a UI decide o fallback.
+    """
+    factory, Session = client_factory
+    client = factory()
+    _bootstrap_admin(client)
+
+    with Session() as db:
+        def_id = _seed_definition(
+            db, vendor="sophos", event_type="sophos.alert", class_uid=2004
+        )
+        _seed_version(db, definition_id=def_id, version_number=1, rules=[])
+
+    listed = client.get(f"/api/mappings/{def_id}/versions").json()
+    assert listed[0]["author_user_id"] is None
+    assert listed[0]["author_label"] is None
+
+
 def test_create_version_validates_dsl(client_factory) -> None:
     factory, Session = client_factory
     client = factory()

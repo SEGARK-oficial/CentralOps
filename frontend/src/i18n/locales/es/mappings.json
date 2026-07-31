@@ -382,6 +382,7 @@
     "diffVersionLabel": "v{{version}} → nueva"
   },
   "versionsTable": {
+    "authorUnknown": "Sistema",
     "current": "actual",
     "compare": "Comparar",
     "makeCurrent": "Hacer actual",
