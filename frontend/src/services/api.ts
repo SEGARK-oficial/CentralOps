@@ -1217,6 +1217,14 @@ export interface MappingAuditListResponse {
   items: MappingAuditEntry[]
   limit: number
   offset: number
+  /**
+   * Ações que ESTE endpoint pode devolver, servidas pelo backend
+   * (`db/mapping_audit.DEFINITION_SCOPED_ACTIONS`). A UI monta o seletor de
+   * filtro a partir daqui em vez de manter a própria cópia — a cópia anterior
+   * oferecia três ações que o backend nunca grava e, como o filtro é igualdade
+   * exata, escolhê-las devolvia tabela vazia sem erro.
+   */
+  available_actions?: string[]
 }
 
 export async function getMappingAudit(
@@ -1230,7 +1238,7 @@ export async function getMappingAudit(
     to_ts?: string
   },
   options?: Pick<ApiRequestOptions, "signal">,
-): Promise<MappingAuditEntry[]> {
+): Promise<{ items: MappingAuditEntry[]; total: number; availableActions: string[] }> {
   const sp = new URLSearchParams()
   if (params?.limit) sp.set("limit", String(params.limit))
   if (params?.offset) sp.set("offset", String(params.offset))
@@ -1246,8 +1254,15 @@ export async function getMappingAudit(
     `/mappings/${id}/audit${qs ? `?${qs}` : ""}`,
     options,
   )
-  if (Array.isArray(response)) return response
-  return response?.items ?? []
+  if (Array.isArray(response)) {
+    return { items: response, total: response.length, availableActions: [] }
+  }
+  return {
+    items: response?.items ?? [],
+    total: response?.total ?? 0,
+    // Backend anterior ao campo → lista vazia, e a UI cai no fallback estático.
+    availableActions: response?.available_actions ?? [],
+  }
 }
 
 // ── Sprint 2: criar versão, rollback, diff ────────────────────────────────────

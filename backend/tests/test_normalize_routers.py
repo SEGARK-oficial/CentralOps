@@ -1331,3 +1331,63 @@ def test_dry_run_default_hit_warnings_present_in_schema(client_factory) -> None:
     data = r.json()
     assert "default_hit_warnings" in data
     assert data["default_hit_warnings"] == []
+
+
+# ── filtro de auditoria: vocabulário servido pelo backend ──────────────
+
+
+def test_audit_exposes_available_actions(client_factory) -> None:
+    """A UI monta o seletor de filtro a partir daqui, em vez de manter uma
+    cópia própria da lista — a cópia anterior divergiu em três valores."""
+    factory, Session = client_factory
+    client = factory()
+    _bootstrap_admin(client)
+
+    with Session() as db:
+        def_id = _seed_definition(
+            db, vendor="sophos", event_type="sophos.alert", class_uid=2004
+        )
+
+    body = client.get(f"/api/mappings/{def_id}/audit").json()
+    assert body["available_actions"] == [
+        "create_version",
+        "rollback",
+        "ignore_field",
+        "mark_mapped",
+        "delete_field",
+    ]
+
+
+def test_audit_rejects_unknown_action_instead_of_empty_table(client_factory) -> None:
+    """Regressão: o seletor oferecia ``version_created`` (o backend grava
+    ``create_version``), ``drift_detected`` e ``quarantine``. O filtro é
+    igualdade exata, então cada uma devolvia 200 com lista VAZIA — o operador
+    lia "não houve atividade" quando a opção simplesmente não existia.
+    """
+    factory, Session = client_factory
+    client = factory()
+    _bootstrap_admin(client)
+
+    with Session() as db:
+        def_id = _seed_definition(
+            db, vendor="sophos", event_type="sophos.alert", class_uid=2004
+        )
+    client.post(
+        f"/api/mappings/{def_id}/versions",
+        json={"rules": _v2([{"target": "normalized.x", "const": 1}]), "commit_message": "c"},
+    )
+
+    for dead in ("version_created", "drift_detected", "quarantine"):
+        r = client.get(f"/api/mappings/{def_id}/audit", params={"action": dead})
+        assert r.status_code == 422, f"{dead} deveria ser 422, veio {r.status_code}"
+
+    # Ação de quarentena EXISTE no vocabulário global, mas grava
+    # mapping_definition_id=NULL → é inalcançável por este endpoint. Oferecê-la
+    # aqui repetiria o bug com outro nome.
+    r = client.get(f"/api/mappings/{def_id}/audit", params={"action": "discard_quarantine"})
+    assert r.status_code == 422
+
+    # E a ação real continua funcionando.
+    ok = client.get(f"/api/mappings/{def_id}/audit", params={"action": "create_version"})
+    assert ok.status_code == 200, ok.text
+    assert ok.json()["total"] == 1

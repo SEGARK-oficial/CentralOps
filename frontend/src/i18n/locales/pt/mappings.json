@@ -442,7 +442,14 @@
       "periodAriaLabel": "Filtrar por período"
     },
     "loadErrorTitle": "Erro ao carregar auditoria",
-    "emptyMessage": "Nenhum registro de auditoria encontrado"
+    "emptyMessage": "Nenhum registro de auditoria encontrado",
+    "actions": {
+      "create_version": "Versão criada",
+      "rollback": "Rollback",
+      "ignore_field": "Campo ignorado",
+      "mark_mapped": "Campo mapeado",
+      "delete_field": "Campo removido"
+    }
   },
   "jmespathInput": {
     "suggestionsAriaLabel": "Sugestões de campos JMESPath"

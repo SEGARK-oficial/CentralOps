@@ -17,12 +17,14 @@ beforeAll(() => {
 vi.mock("@/hooks/useMappingAudit")
 const mockedUseAudit = vi.mocked(auditHooks.useMappingAudit)
 
+const AVAILABLE = ["create_version", "rollback", "ignore_field"]
+
 const ENTRIES: MappingAuditEntry[] = [
   {
     id: "a1",
     mapping_definition_id: "m1",
     mapping_version_id: "v1",
-    action: "version_created",
+    action: "create_version",
     user_id: 1,
     username: "alice",
     user_role: "engineer",
@@ -46,14 +48,14 @@ const ENTRIES: MappingAuditEntry[] = [
 
 beforeEach(() => {
   vi.clearAllMocks()
-  mockedUseAudit.mockReturnValue({ entries: ENTRIES, isLoading: false, error: null })
+  mockedUseAudit.mockReturnValue({ entries: ENTRIES, isLoading: false, error: null, availableActions: AVAILABLE })
 })
 
 describe("MappingAuditTable", () => {
   it("renderiza entradas de auditoria", () => {
     render(<MappingAuditTable mappingId="m1" />)
 
-    expect(screen.getByText("version_created")).toBeInTheDocument()
+    expect(screen.getByText("create_version")).toBeInTheDocument()
     expect(screen.getByText("rollback")).toBeInTheDocument()
     expect(screen.getByText("alice")).toBeInTheDocument()
     expect(screen.getByText("bob")).toBeInTheDocument()
@@ -84,7 +86,7 @@ describe("MappingAuditTable", () => {
   })
 
   it("exibe loading spinner quando isLoading=true", () => {
-    mockedUseAudit.mockReturnValue({ entries: [], isLoading: true, error: null })
+    mockedUseAudit.mockReturnValue({ entries: [], isLoading: true, error: null, availableActions: AVAILABLE })
     render(<MappingAuditTable mappingId="m1" />)
     // O DataTable não escreve mais "Carregando dados..." ao lado do spinner:
     // o spinner já diz isso. O anúncio para leitor de tela continua, via o
@@ -98,6 +100,7 @@ describe("MappingAuditTable", () => {
   it("exibe notice de erro quando error está presente", () => {
     mockedUseAudit.mockReturnValue({
       entries: [],
+      availableActions: AVAILABLE,
       isLoading: false,
       error: new Error("Falha ao carregar"),
     })
@@ -107,8 +110,38 @@ describe("MappingAuditTable", () => {
   })
 
   it("exibe mensagem de vazio quando sem entries", () => {
-    mockedUseAudit.mockReturnValue({ entries: [], isLoading: false, error: null })
+    mockedUseAudit.mockReturnValue({ entries: [], isLoading: false, error: null, availableActions: AVAILABLE })
     render(<MappingAuditTable mappingId="m1" />)
     expect(screen.getByText("Nenhum registro de auditoria encontrado")).toBeInTheDocument()
+  })
+
+  it("monta o seletor de ação a partir do backend, não de uma lista local", () => {
+    render(<MappingAuditTable mappingId="m1" />)
+    fireEvent.click(screen.getByLabelText("Filtrar por ação"))
+    const labels = screen.getAllByRole("option").map((o) => o.textContent?.trim())
+
+    // Uma opção por ação servida pelo backend, mais "todas".
+    expect(labels).toHaveLength(AVAILABLE.length + 1)
+    expect(labels).toContain("Versão criada") // create_version, traduzido
+    expect(labels).toContain("Campo ignorado") // ignore_field, traduzido
+
+    // E nenhuma das três que o backend NUNCA grava. Como o filtro é igualdade
+    // exata server-side, oferecê-las devolvia tabela vazia com HTTP 200 —
+    // lido pelo operador como "não houve atividade".
+    expect(labels).not.toContain("version_created")
+    expect(labels).not.toContain("drift_detected")
+    expect(labels).not.toContain("quarantine")
+  })
+
+  it("não quebra quando o backend não serve available_actions", () => {
+    // Backend antigo (campo ausente) → só a opção "todas", sem crash.
+    mockedUseAudit.mockReturnValue({
+      entries: ENTRIES,
+      isLoading: false,
+      error: null,
+      availableActions: [],
+    })
+    render(<MappingAuditTable mappingId="m1" />)
+    expect(screen.getByLabelText("Filtrar por ação")).toBeInTheDocument()
   })
 })

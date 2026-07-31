@@ -49,7 +49,7 @@ from ..core import auth as app_auth
 from ..core import tenant
 from ..core.config import settings
 from ..core.errors import ApiError
-from ..db import database, models
+from ..db import database, mapping_audit, models
 
 logger = logging.getLogger(__name__)
 
@@ -227,6 +227,13 @@ class MappingAuditListResponse(BaseModel):
     items: List[MappingAuditEntry]
     limit: int
     offset: int
+    # Ações que ESTE endpoint pode devolver, para a UI montar o seletor de filtro
+    # a partir do servidor em vez de manter uma cópia própria. A cópia anterior
+    # (hardcoded no TSX) oferecia três ações que o backend nunca grava e o filtro
+    # é igualdade exata — selecioná-las devolvia tabela vazia em silêncio.
+    available_actions: List[str] = Field(
+        default_factory=lambda: list(mapping_audit.DEFINITION_SCOPED_ACTIONS)
+    )
 
 
 # ── Schema do reservoir de amostras ──────────────────────────────────
@@ -1472,6 +1479,24 @@ def list_audit(
     )
 
     if action:
+        # Ação fora do vocabulário é BUG DO CLIENTE, não resultado legítimo. O
+        # filtro é igualdade exata: sem esta guarda, um valor inexistente devolve
+        # 200 com lista vazia e o operador lê isso como "não houve atividade".
+        # Foi exatamente o que aconteceu com o seletor da UI por três ações.
+        if action not in mapping_audit.DEFINITION_SCOPED_ACTIONS:
+            raise ApiError(
+                "mapping.audit_unknown_action",
+                422,
+                messages={
+                    "pt": "ação desconhecida: {value}. Válidas: {allowed}",
+                    "en": "unknown action: {value}. Valid: {allowed}",
+                    "es": "acción desconocida: {value}. Válidas: {allowed}",
+                },
+                params={
+                    "value": action,
+                    "allowed": ", ".join(mapping_audit.DEFINITION_SCOPED_ACTIONS),
+                },
+            )
         q = q.filter(models.MappingAuditLog.action == action)
     if username:
         q = q.filter(models.MappingAuditLog.username == username)
@@ -1519,4 +1544,5 @@ def list_audit(
         items=[_serialize_audit_entry(r) for r in rows],
         limit=limit,
         offset=offset,
+        available_actions=list(mapping_audit.DEFINITION_SCOPED_ACTIONS),
     )

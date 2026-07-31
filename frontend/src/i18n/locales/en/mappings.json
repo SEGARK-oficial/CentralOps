@@ -442,7 +442,14 @@
       "periodAriaLabel": "Filter by period"
     },
     "loadErrorTitle": "Failed to load audit log",
-    "emptyMessage": "No audit records found"
+    "emptyMessage": "No audit records found",
+    "actions": {
+      "create_version": "Version created",
+      "rollback": "Rollback",
+      "ignore_field": "Field ignored",
+      "mark_mapped": "Field mapped",
+      "delete_field": "Field deleted"
+    }
   },
   "jmespathInput": {
     "suggestionsAriaLabel": "JMESPath field suggestions"
