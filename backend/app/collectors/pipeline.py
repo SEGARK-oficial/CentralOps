@@ -37,6 +37,11 @@ from ..db import database, models
 from . import quarantine
 from .auth.oauth_cache import get_or_refresh_token, invalidate as invalidate_token
 from .base import CollectorContext
+# Import no TOPO, não dentro da função: ``likely_no_session`` é chamado POR EVENTO
+# no caminho de supressão. A sonda em si custa ~168 ns, mas um ``from ... import``
+# local dentro da função mais que dobra isso a cada evento. Sem ciclo:
+# ``capture_session`` importa apenas ``audit_buffer`` e ``core.config``.
+from .capture_session import likely_no_session
 from .config_loader import get_collector_config
 from .domain_limiter import DomainLimiter
 from .metrics import (
@@ -254,9 +259,15 @@ async def _capture_outcome(
     *,
     destination_id: Optional[str] = None,
     detail: Optional[str] = None,
+    route_id: Optional[str] = None,
+    sessions: Optional[list] = None,
 ) -> None:
     """:func:`_capture_sync` fora do event loop (o cliente de captura é síncrono).
-    Best-effort — nunca levanta."""
+    Best-effort — nunca levanta.
+
+    ``sessions`` reusa uma resolução prévia de ``active_sessions_sync``. Sem ele
+    CADA chamada refaz 1 SMEMBERS + N HGETALL, e o dispatch chama duas vezes por
+    lote por destino (aceitos + falhados)."""
     if not batch or org_id is None:
         return
     # Short-circuit ANTES do hop de thread-pool. Sem sessão ativa conhecida, despachar
@@ -264,8 +275,6 @@ async def _capture_outcome(
     # direta) — e a SUPRESSÃO chama isto POR EVENTO dentro do laço de coleta, que é
     # justamente o caminho de alto volume. A sonda é em memória (zero I/O) e
     # conservadora: se não souber, segue o caminho normal.
-    from .capture_session import likely_no_session
-
     if likely_no_session(org_id):
         return
     try:
@@ -276,13 +285,19 @@ async def _capture_outcome(
             outcome,
             destination_id=destination_id,
             detail=detail,
+            route_id=route_id,
+            sessions=sessions,
         )
     except Exception:  # noqa: BLE001 — captura nunca quebra o hot path
         logger.debug("capture: falha ao registrar outcome=%s (não-fatal)", outcome, exc_info=True)
 
 
 async def _capture_delivery_failed(
-    batch: list, destination_id: Optional[str], detail: str
+    batch: list,
+    destination_id: Optional[str],
+    detail: str,
+    *,
+    sessions: Optional[list] = None,
 ) -> None:
     """Atalho do desfecho ``delivery_failed`` (destino ausente, cross-tenant, breaker
     aberto, exceção de envio). Best-effort — nunca levanta nem mascara o erro real."""
@@ -295,6 +310,7 @@ async def _capture_delivery_failed(
             OUTCOME_DELIVERY_FAILED,
             destination_id=destination_id,
             detail=detail,
+            sessions=sessions,
         )
     except Exception:  # noqa: BLE001 — captura nunca quebra o dispatch
         logger.debug("capture: falha ao registrar delivery_failed (não-fatal)", exc_info=True)
@@ -1667,31 +1683,52 @@ def _capture_outcomes(org_id: Optional[int], result: Any) -> None:
             if events:
                 _capture_sync(events, org_id, outcome, sessions=sessions)
 
-        # (envelope, route_id) → a rota responsável pelo drop, agora ESTRUTURADA
-        # (campo route_id), não mais texto em detail: é o que responde "por que foi
+        # AGRUPAR ANTES DE ESCREVER. Cada ``_capture_sync`` abre um pipeline Redis
+        # PRÓPRIO e SÍNCRONO, dentro do event loop da coleta — um por evento fazia
+        # um lote de 200 eventos numa rota ``action=drop`` custar até 200
+        # round-trips bloqueantes.
+        #
+        # A chave do agrupamento NÃO é arbitrária: ``_entries_for`` aplica
+        # ``route_id``/``destination_id``/``detail`` como ESCALARES a TODAS as
+        # entradas do lote. Agrupar por sessão (ou por qualquer chave mais grossa)
+        # gravaria todos os eventos com o MESMO route_id, corrompendo justamente o
+        # campo que responde "em qual rota bateu". Por isso a chave é exatamente a
+        # tupla de escalares que cada desfecho carrega.
+        def _emit_grouped(items, outcome: str, keyfn, kwargsfn) -> None:
+            groups: Dict[Any, list] = {}
+            for item in items or ():
+                groups.setdefault(keyfn(item), []).append(item[0])
+            for key, envs in groups.items():
+                _capture_sync(envs, org_id, outcome, sessions=sessions, **kwargsfn(key))
+
+        # (envelope, route_id) → a rota responsável pelo drop, ESTRUTURADA
+        # (campo route_id), não texto em detail: é o que responde "por que foi
         # dropado — qual regra o descartou".
-        for _env, _rid in getattr(result, "dropped_events", None) or ():
-            _capture_sync(
-                [_env], org_id, capture_session.OUTCOME_DROPPED,
-                route_id=_rid or None, sessions=sessions,
-            )
+        _emit_grouped(
+            getattr(result, "dropped_events", None),
+            capture_session.OUTCOME_DROPPED,
+            lambda it: it[1] or None,
+            lambda rid: {"route_id": rid},
+        )
         _emit(list(getattr(result, "unrouted_events", None) or ()), capture_session.OUTCOME_UNROUTED)
-        for _env, _reason in getattr(result, "loop_blocked_events", None) or ():
-            _capture_sync(
-                [_env], org_id, capture_session.OUTCOME_LOOP_BLOCKED,
-                detail=_reason, sessions=sessions,
-            )
-        for _env, _dest in getattr(result, "residency_blocked_events", None) or ():
-            _capture_sync(
-                [_env], org_id, capture_session.OUTCOME_RESIDENCY_BLOCKED,
-                destination_id=_dest, sessions=sessions,
-            )
-        for _env, _dest, _rid in getattr(result, "sampled_events", None) or ():
-            _capture_sync(
-                [_env], org_id, capture_session.OUTCOME_SAMPLED_OUT,
-                destination_id=_dest, route_id=_rid or None,
-                sessions=sessions,
-            )
+        _emit_grouped(
+            getattr(result, "loop_blocked_events", None),
+            capture_session.OUTCOME_LOOP_BLOCKED,
+            lambda it: it[1],
+            lambda reason: {"detail": reason},
+        )
+        _emit_grouped(
+            getattr(result, "residency_blocked_events", None),
+            capture_session.OUTCOME_RESIDENCY_BLOCKED,
+            lambda it: it[1],
+            lambda dest: {"destination_id": dest},
+        )
+        _emit_grouped(
+            getattr(result, "sampled_events", None),
+            capture_session.OUTCOME_SAMPLED_OUT,
+            lambda it: (it[1], it[2] or None),
+            lambda key: {"destination_id": key[0], "route_id": key[1]},
+        )
     except Exception:  # noqa: BLE001 — captura nunca quebra o roteamento
         logger.debug("capture: falha ao registrar desfechos do roteamento", exc_info=True)
 
@@ -2595,9 +2632,17 @@ async def dispatch_batch_to_destination(
         # derrubar a entrega.
         try:
             _cap_org = _batch_org_id(batch)
-            if _cap_org is not None:
+            if _cap_org is not None and not likely_no_session(_cap_org):
+                from . import capture_session
                 from .capture_session import OUTCOME_DELIVERED, OUTCOME_DELIVERY_FAILED
 
+                # UMA resolução por lote, reusada nos dois desfechos. Sem isto cada
+                # ``_capture_outcome`` refaz 1 SMEMBERS + N HGETALL, pagando também
+                # o hop de thread-pool duas vezes por lote por destino. Simetria
+                # com ``_capture_outcomes`` do roteamento, que já resolvia uma vez.
+                _cap_sessions = await asyncio.to_thread(
+                    capture_session.active_sessions_sync, _cap_org
+                )
                 _rejected_ids = rejected_event_ids if last_result is not None else set()
                 if last_result is None:
                     # nenhum chunk chegou a ser enviado (lote vazio) — nada a registrar.
@@ -2620,11 +2665,13 @@ async def dispatch_batch_to_destination(
                 await _capture_outcome(
                     _accepted_envs, _cap_org, OUTCOME_DELIVERED,
                     destination_id=dest_config.destination_id,
+                    sessions=_cap_sessions,
                 )
                 await _capture_outcome(
                     _failed_envs, _cap_org, OUTCOME_DELIVERY_FAILED,
                     destination_id=dest_config.destination_id,
                     detail="sink rejeitou/não aceitou o lote",
+                    sessions=_cap_sessions,
                 )
         except Exception:  # noqa: BLE001 — captura nunca quebra a entrega
             logger.debug("capture: falha ao registrar desfecho de entrega", exc_info=True)

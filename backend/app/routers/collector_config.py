@@ -827,7 +827,10 @@ async def get_capture_events(
     )
 
 
-_EXPORT_MAX_ROWS = 50_000
+# Alinhado ao teto do ring. Com 50.000 o branch de truncamento era INALCANÇÁVEL
+# pelo caminho HTTP — ``iter_events`` já clampa em ``MAX_RING_SIZE``, então o
+# header dizia "não truncado" por coincidência, não por contrato.
+_EXPORT_MAX_ROWS = capture_session.MAX_RING_SIZE
 
 
 @router.get("/capture-sessions/{session_id}/export")
@@ -905,6 +908,10 @@ async def export_capture_events(
         headers={
             "Content-Disposition": f'attachment; filename="{filename}"',
             "X-CentralOps-Export-Max-Rows": str(_EXPORT_MAX_ROWS),
+            # O arquivo sai mascarado por default. Sem este header, quem consome
+            # o export por script não tem como saber se está lendo dado real ou
+            # ``[PII]`` — e mascarado é indistinguível de "o vendor mandou isso".
+            "X-CentralOps-Export-Masked": "true" if mask else "false",
         },
     )
 

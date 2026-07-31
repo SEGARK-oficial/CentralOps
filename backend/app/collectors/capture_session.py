@@ -48,6 +48,12 @@ GRACE_SECONDS = 300
 MAX_SESSIONS_PER_ORG = 5
 # Teto do texto livre de ``detail`` (motivo curto) — o ring não é lugar de stacktrace.
 MAX_DETAIL_CHARS = 200
+# Teto por CAMPO (em chars, via ``quarantine._reduce_structure``) e por ENTRADA
+# serializada (em bytes). O de entrada é o guard DURO; o de campo é otimização —
+# ``_reduce_structure`` corta por caractere, então uma string toda acentuada pode
+# passar de 8 KiB reais. Nunca usar ``decode(..., "ignore")``: corta codepoint no meio.
+MAX_FIELD_BYTES = 8192
+MAX_ENTRY_BYTES = 65_536
 
 
 # ── Desfechos (outcome) ────────────────────────────────────────────────
@@ -132,9 +138,72 @@ def _mark_absent(org_id: Any, now: float) -> None:
         key = int(org_id)
     except (TypeError, ValueError):
         return
-    if len(_no_session_until) >= _NO_SESSION_CACHE_MAX:  # pragma: no cover — guarda
-        _no_session_until.clear()
+    if len(_no_session_until) >= _NO_SESSION_CACHE_MAX:
+        # Evicta o decil MAIS ANTIGO, não o cache inteiro. Um ``clear()`` manda
+        # 10.000 orgs de volta ao Redis no MESMO instante (thundering herd) —
+        # justo no momento em que o cache está sob pressão.
+        victims = sorted(_no_session_until, key=_no_session_until.__getitem__)
+        for victim in victims[: max(1, _NO_SESSION_CACHE_MAX // 10)]:
+            _no_session_until.pop(victim, None)
     _no_session_until[key] = now + _NO_SESSION_TTL_SECONDS
+
+
+# ── Breaker do tap ─────────────────────────────────────────────────────
+# O tap grava com um cliente Redis SÍNCRONO, e o tap de roteamento roda DENTRO
+# do event loop da coleta. O ``try/except`` best-effort protege contra EXCEÇÃO,
+# não contra LATÊNCIA: sem ``socket_timeout`` (o estado anterior), um Redis lento
+# — não caído — pendura a coleta inteira, e o ciclo estoura o soft-timeout do
+# Celery, cuja consequência documentada é reversão de cursor (perda de janela).
+#
+# Timeout sozinho não basta: ele converte um hang indeterminado numa parada
+# DETERMINÍSTICA e repetida. Com 5 sessões e 3 falhas até abrir, o pior caso de
+# loop bloqueado é 3 × 0,25 s × 5 = 3,75 s por janela de 30 s — ~200× melhor que
+# o infinito anterior, mas ainda alto o bastante para exigir o breaker.
+_TAP_SOCKET_TIMEOUT_SECONDS = 0.25
+_TAP_FAIL_THRESHOLD = 3
+_TAP_COOLDOWN_SECONDS = 30.0
+_tap_fails = 0
+_tap_blind_until = 0.0
+
+
+def _tap_blind(now: Optional[float] = None) -> bool:
+    """True enquanto o breaker está aberto (captura cega, coleta protegida)."""
+    return _tap_blind_until > (now if now is not None else time.monotonic())
+
+
+def _tap_ok() -> None:
+    """Sucesso no Redis: zera o contador de falhas consecutivas."""
+    global _tap_fails
+    _tap_fails = 0
+
+
+def _tap_failed() -> None:
+    """Falha (exceção OU timeout). Abre o breaker no limiar."""
+    global _tap_fails, _tap_blind_until
+    _tap_fails += 1
+    if _tap_fails >= _TAP_FAIL_THRESHOLD and not _tap_blind():
+        _tap_blind_until = time.monotonic() + _TAP_COOLDOWN_SECONDS
+        try:
+            from .metrics import CAPTURE_TAP_DISABLED
+
+            CAPTURE_TAP_DISABLED.inc()
+        except Exception:  # noqa: BLE001 — métrica nunca quebra o hot path
+            pass
+        # UM warning por cooldown, não por falha: sob Redis morto isto seria
+        # ruído de milhares de linhas/s no caminho de coleta.
+        logger.warning(
+            "capture: tap DESABILITADO por %.0fs após %d falhas consecutivas de Redis "
+            "(a captura fica cega; a coleta segue normal)",
+            _TAP_COOLDOWN_SECONDS,
+            _tap_fails,
+        )
+
+
+def reset_tap_breaker() -> None:
+    """Zera o breaker. Estado de módulo — usado pelos testes."""
+    global _tap_fails, _tap_blind_until
+    _tap_fails = 0
+    _tap_blind_until = 0.0
 
 
 def reset_session_cache(org_id: Optional[int] = None) -> None:
@@ -170,8 +239,19 @@ def _sync_redis():
 
             from ..core.config import settings
 
+            # ``socket_timeout`` é OBRIGATÓRIO aqui, e é o valor mais agressivo
+            # do repo (o cliente geral usa 5 s, o Celery 10 s) porque este é o
+            # ÚNICO cliente chamado de dentro do event loop da coleta. Captura é
+            # diagnóstico: perder um registro é infinitamente melhor que atrasar
+            # a coleta. ``retry_on_timeout=False`` pelo mesmo motivo — um retry
+            # dobraria a janela de bloqueio.
             _sync_client = redis_sync.from_url(
-                settings.REDIS_URL or "redis://localhost:6379/0", decode_responses=True
+                settings.REDIS_URL or "redis://localhost:6379/0",
+                decode_responses=True,
+                socket_timeout=_TAP_SOCKET_TIMEOUT_SECONDS,
+                socket_connect_timeout=_TAP_SOCKET_TIMEOUT_SECONDS,
+                retry_on_timeout=False,
+                health_check_interval=30,
             )
             _sync_client_pid = pid
     return _sync_client
@@ -222,6 +302,83 @@ def _ring_params(m: Mapping[str, str], now: float) -> tuple:
     return ring_size, evt_ttl
 
 
+def _dumps(payload: Mapping[str, Any]) -> str:
+    """Serializa uma entrada do ring com o MESMO codec do resto do pipeline.
+
+    O ``json`` do stdlib escapa não-ASCII (``\\uXXXX``), inflando payload pt-BR/es
+    em ~1,29× — enquanto ``_envelope_bytes`` (routing/engine.py) e a entrega usam
+    orjson com UTF-8 bruto. Sem isto o orçamento de bytes do ring mediria uma
+    unidade diferente da contabilidade de custo do sistema.
+    """
+    from .output._fastjson import dumps_bytes
+
+    return dumps_bytes(payload).decode("utf-8")
+
+
+def _clip_for_ring(payload: Dict[str, Any]) -> tuple[str, Optional[Dict[str, Any]]]:
+    """Serializa respeitando ``MAX_ENTRY_BYTES``, em CASCATA e sempre JSON válido.
+
+    Antes disto não havia teto nenhum no caminho de captura — só ``detail`` era
+    truncado (200 chars) e o evento entrava inteiro. Um CloudWatch/Defender de
+    centenas de KB tornava a estimativa "ring_size × tamanho típico" inválida, e o
+    pior caso era ilimitado por design.
+
+    Cascata: (1) reduz a ESTRUTURA reusando ``quarantine._reduce_structure``, que
+    já clipa string e limita lista preservando o shape; (2) se ainda estourar,
+    substitui o bloco ``raw`` inteiro por um marcador; (3) depois ``normalized``.
+    ``_centralops`` NUNCA é descartado — sem ele o registro perde a identidade e
+    deixa de ser juntável.
+
+    NUNCA cortar a string JÁ SERIALIZADA: isso produz JSON inválido, e o repo tem
+    o incidente documentado (``quarantine.py``: quebrou o reprocesso).
+
+    Devolve ``(json, meta_de_corte_ou_None)``. O meta vai para o namespace
+    ``_capture`` da ENTRADA, jamais dentro de ``event`` — o export mascara
+    ``entry["event"]``, e metadado do tap não pode ser confundido com dado do
+    vendor.
+    """
+    text = _dumps(payload)
+    if len(text.encode("utf-8")) <= MAX_ENTRY_BYTES:
+        return text, None
+
+    from .quarantine import _reduce_structure
+
+    notes: List[Dict[str, Any]] = []
+    dropped: List[str] = []
+    original_bytes = len(text.encode("utf-8"))
+    event = payload.get("event")
+
+    if isinstance(event, dict):
+        payload = dict(payload)
+        payload["event"] = _reduce_structure(
+            event, str_cap=MAX_FIELD_BYTES, array_cap=200
+        )
+        notes.append({"path": "event", "how": "reduce_structure"})
+        text = _dumps(payload)
+
+        for block in ("raw", "normalized"):
+            if len(text.encode("utf-8")) <= MAX_ENTRY_BYTES:
+                break
+            blk = payload["event"].get(block)
+            if blk is None:
+                continue
+            payload["event"] = dict(payload["event"])
+            payload["event"][block] = {
+                "__truncated__": True,
+                "reason": "entry_cap",
+            }
+            dropped.append(block)
+            text = _dumps(payload)
+
+    meta = {
+        "truncated": notes,
+        "dropped_blocks": dropped,
+        "original_bytes": original_bytes,
+        "kept_bytes": len(text.encode("utf-8")),
+    }
+    return text, meta
+
+
 def _entries_for(
     m: Mapping[str, str],
     batch: Sequence[Any],
@@ -258,7 +415,14 @@ def _entries_for(
             payload["route_id"] = str(route_id)
         if detail:
             payload["detail"] = str(detail)[:MAX_DETAIL_CHARS]
-        out.append(json.dumps(payload, separators=(",", ":"), default=str))
+        text, clip_meta = _clip_for_ring(payload)
+        if clip_meta is not None:
+            # Re-serializa com o marcador. O ``_capture`` fica FORA de ``event``
+            # de propósito: o export mascara ``entry["event"]``, e um metadado do
+            # tap não pode ser lido como dado do vendor.
+            payload["_capture"] = clip_meta
+            text, _ = _clip_for_ring(payload)
+        out.append(text)
     return out
 
 
@@ -476,8 +640,14 @@ def likely_no_session(org_id: Any) -> bool:
     medido 130× mais caro que a chamada síncrona direta.
 
     CONSERVADORA: devolve False quando não sabemos (cache frio/expirado ou erro), aí o
-    caminho normal decide. Nunca levanta."""
+    caminho normal decide. Nunca levanta.
+
+    EXCEÇÃO à conservadoria: com o breaker ABERTO devolve True incondicionalmente.
+    Aí não é mais "não sei" — sabemos que o Redis está degradado, e insistir custa
+    ``socket_timeout`` por chamada dentro do event loop da coleta."""
     try:
+        if _tap_blind():
+            return True
         return _absent_cached(org_id, time.time())
     except Exception:  # noqa: BLE001 — sonda best-effort; na dúvida, não pula
         return False
@@ -487,6 +657,8 @@ def active_sessions_sync(org_id: Any, *, redis: Any = None) -> List[Dict[str, st
     """Versão SÍNCRONA de :func:`active_sessions` (produtor/roteamento). Best-effort."""
     try:
         now = time.time()
+        if _tap_blind():
+            return []
         if _absent_cached(org_id, now):
             return []
         r = redis if redis is not None else _sync_redis()
@@ -508,8 +680,10 @@ def active_sessions_sync(org_id: Any, *, redis: Any = None) -> List[Dict[str, st
             out.append(m)
         if not out:
             _mark_absent(org_id, now)
+        _tap_ok()
         return out
     except Exception as exc:  # pragma: no cover — nunca quebra a coleta/roteamento
+        _tap_failed()
         _mark_absent(org_id, time.time())  # ver :func:`active_sessions`
         logger.debug("capture_session.active_sessions_sync falhou (não-fatal): %s", exc)
         return []
@@ -586,6 +760,11 @@ def record_sync(
     contrato best-effort — NUNCA levanta."""
     if not batch:
         return
+    # Breaker: com o Redis degradado, cada chamada custaria ``socket_timeout``
+    # DENTRO do event loop da coleta. ``sessions=`` pré-resolvido não protege —
+    # o LPUSH acontece de qualquer forma.
+    if _tap_blind():
+        return
     try:
         r = redis if redis is not None else _sync_redis()
         metas = (
@@ -614,5 +793,7 @@ def record_sync(
             # "sessão ativa e nada aconteceu" de "houve tráfego, mas rolou".
             pipe.hincrby(_meta_key(sid), f"outcome:{outcome}", len(entries))
             pipe.execute()
+        _tap_ok()
     except Exception as exc:  # pragma: no cover — captura nunca quebra a coleta
+        _tap_failed()
         logger.debug("capture_session.record_sync falhou (não-fatal): %s", exc)
