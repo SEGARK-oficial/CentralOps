@@ -149,7 +149,12 @@ class Destination(Protocol):
     #: chave do ``DestinationRegistry`` — "wazuh_syslog" | "jsonl" | "splunk_hec" | ...
     kind: str
 
-    def format(self, envelope: Mapping[str, Any]) -> "bytes | dict": ...
+    # ``str`` no contrato porque DOIS kinds já o devolvem hoje
+    # (``syslog_rfc3164``/``syslog_rfc5424``, cujo framing legado depende
+    # disso). O único consumidor até agora tratava ``str`` por acidente, e o
+    # shadow do pipeline descarta o retorno — o tipo nunca foi exercitado.
+    # Alargar é menos arriscado que forçar ``.encode()`` nos dois senders.
+    def format(self, envelope: Mapping[str, Any]) -> "bytes | str | dict": ...
 
     async def send_batch(self, batch: List[Mapping[str, Any]]) -> DeliveryResult: ...
 

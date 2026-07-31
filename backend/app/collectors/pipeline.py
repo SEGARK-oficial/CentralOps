@@ -364,6 +364,22 @@ async def _capture_outcome(
 CAPTURE_BUF_MAX = 100
 
 
+def _redact_secrets_text(text: str) -> str:
+    """Scrub de segredo sobre o TEXTO do wire, não sobre o objeto.
+
+    Aplicar ``_redact`` no objeto antes de formatar mudaria o que o formatter
+    produz e destruiria a fidelidade que o selo ``exact`` promete. Aplicar sobre
+    o texto preserva o byte formatado e ainda protege o token que alguns kinds
+    (webhook, HEC) carregam no próprio corpo.
+    """
+    try:
+        from ..core.logging_config import scrub_secrets_in_value
+
+        return scrub_secrets_in_value(text)
+    except Exception:  # noqa: BLE001 — nunca quebra a entrega
+        return text
+
+
 def _flush_capture_buf(
     buf: list,
     org_id: Optional[int],
@@ -2877,6 +2893,35 @@ async def dispatch_batch_to_destination(
                 # ``pii_redacted`` reflete a rota: um destino com redação ligada
                 # tem o envelope já redigido AQUI, mas NÃO nos registros
                 # pré-entrega (dropped/sampled_out), que trazem o dado em claro.
+                # WIRE, opt-in por sessão. Este é o ÚNICO ponto onde o ``target``
+                # construído e o lote PÓS-transformação coexistem — e portanto a
+                # única forma de o selo ``exact`` ser verdadeiro. Renderizar a
+                # partir da entrada do ring seria mentira: lá o payload já passou
+                # por ``_redact``, que reescreve toda string.
+                #
+                # OFF por default: com ``capture_wire=0`` o dispatcher não paga
+                # NADA a mais que hoje.
+                _cap_wires = None
+                if any(
+                    capture_admission.session_params(m)[2] for m in _cap_sessions
+                ):
+                    try:
+                        from .output import wire_preview
+
+                        _cap_wires = [
+                            wire_preview.render(target, _e) for _e in _accepted_envs
+                        ]
+                        # ``_redact`` sobre o TEXTO (não sobre o objeto): preserva
+                        # a fidelidade do que foi formatado e ainda scrubba
+                        # segredo — o wire de webhook/HEC carrega token no corpo
+                        # em alguns kinds.
+                        for _w in _cap_wires:
+                            if isinstance(_w, dict) and isinstance(_w.get("text"), str):
+                                _w["text"] = _redact_secrets_text(_w["text"])
+                    except Exception:  # noqa: BLE001 — wire nunca quebra a entrega
+                        _cap_wires = None
+                        logger.debug("capture: falha ao materializar wire", exc_info=True)
+
                 _cap_kw = dict(
                     destination_id=dest_config.destination_id,
                     sessions=_cap_sessions,
@@ -2890,7 +2935,8 @@ async def dispatch_batch_to_destination(
                     or None,
                 )
                 await _capture_outcome(
-                    _accepted_envs, _cap_org, OUTCOME_DELIVERED, **_cap_kw
+                    _accepted_envs, _cap_org, OUTCOME_DELIVERED,
+                    wires=_cap_wires, **_cap_kw
                 )
                 await _capture_outcome(
                     _failed_envs, _cap_org, OUTCOME_DELIVERY_FAILED,
