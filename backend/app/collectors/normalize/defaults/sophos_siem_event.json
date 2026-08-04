@@ -46,6 +46,7 @@
     { "target": "normalized.metadata.uid", "source": "id", "default": null },
 
     {
+      "_comment": "enum fechado do schema oficial: NONE|LOW|MEDIUM|HIGH|CRITICAL (pre_cast lowercase)",
       "target": "normalized.severity_id",
       "source": "severity",
       "pre_cast": "lowercase",
@@ -54,8 +55,6 @@
         "high": 4,
         "medium": 3,
         "low": 2,
-        "info": 1,
-        "informational": 1,
         "none": 1
       },
       "default": 0,
@@ -97,6 +96,7 @@
       "default": null
     },
     {
+      "_comment": "source_info e mapa livre string->string; 'ip' e a chave usual mas nao e garantida pelo schema",
       "target": "normalized.device.ip",
       "source": "source_info.ip",
       "default": null
@@ -136,16 +136,6 @@
       "default": null
     },
     {
-      "target": "normalized.unmapped.threat_id",
-      "source": "threat_id || data.threat_id",
-      "default": null
-    },
-    {
-      "target": "normalized.unmapped.threat_status",
-      "source": "data.threat_status",
-      "default": null
-    },
-    {
       "target": "normalized.unmapped.origin",
       "source": "origin",
       "default": null
@@ -161,13 +151,14 @@
       "default": null
     },
     {
-      "target": "normalized.unmapped.endpoint_platform",
-      "source": "endpoint_platform",
+      "_comment": "objeto {items:[{descriptor,result,type}], totalItems:int} — NAO e array",
+      "target": "normalized.unmapped.core_remedy_items",
+      "source": "core_remedy_items.items",
       "default": null
     },
     {
-      "target": "normalized.unmapped.core_remedy_items",
-      "source": "core_remedy_items",
+      "target": "normalized.unmapped.core_remedy_total",
+      "source": "core_remedy_items.totalItems",
       "default": null
     },
     {
@@ -176,18 +167,25 @@
       "default": null
     },
     {
-      "target": "normalized.unmapped.dhcp_stats",
-      "source": "dhcp_stats",
+      "target": "normalized.unmapped.amsi_threat_data",
+      "source": "amsi_threat_data",
       "default": null
     },
     {
-      "target": "normalized.unmapped.suser",
-      "source": "suser",
+      "_comment": "array de {property,type} com enum de ~25 tipos (IPS_*, AMSI_*, HMPA_*, CORE_EVENT_*)",
+      "target": "normalized.unmapped.details",
+      "source": "details",
       "default": null
     },
     {
-      "target": "normalized.unmapped.duid",
-      "source": "duid",
+      "target": "normalized.unmapped.whitelist_properties",
+      "source": "whitelist_properties",
+      "default": null
+    },
+    {
+      "_comment": "mapa livre string->string no schema; a chave depende do tipo de evento",
+      "target": "normalized.unmapped.source_info",
+      "source": "source_info",
       "default": null
     },
 
@@ -234,7 +232,9 @@
     }
   ],
   "raw_reduction": [
-    { "path": "core_remedy_items", "max_items": 20 },
-    { "path": "ips_threat_data", "max_bytes": 4096 }
+    { "path": "core_remedy_items.items", "max_items": 20 },
+    { "path": "details", "max_items": 30 },
+    { "path": "whitelist_properties", "max_items": 20 },
+    { "path": "ips_threat_data.rawData", "max_bytes": 4096 }
   ]
 }

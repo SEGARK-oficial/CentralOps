@@ -1,7 +1,7 @@
 {
   "id": "siem-evt-small-001",
   "customer_id": "cust-001",
-  "severity": "medium",
+  "severity": "MEDIUM",
   "group": "WEB",
   "type": "Event::Endpoint::WebControlViolation",
   "name": "'https://example.invalid' blocked due to category 'Personals'",

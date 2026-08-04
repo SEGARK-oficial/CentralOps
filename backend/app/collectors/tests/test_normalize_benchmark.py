@@ -56,7 +56,8 @@ _FIXTURES = {
         # cabe em Detection Finding e motivou o mapping para Base Event.
         "id": "siem-evt-001",
         "customer_id": "cust-001",
-        "severity": "medium",
+        # enum oficial: NONE|LOW|MEDIUM|HIGH|CRITICAL (o mapping faz lowercase)
+        "severity": "MEDIUM",
         "group": "WEB",
         "type": "Event::Endpoint::WebControlViolation",
         "name": "'https://example.invalid' blocked due to category 'Personals'",

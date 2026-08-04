@@ -32,16 +32,20 @@ backfill possível. Duas consequências de projeto:
 cases. Enquanto ``has_more`` for verdadeiro seguimos paginando; o cursor
 devolvido é o ponto de retomada.
 
-.. warning::
-   O contrato exato deste endpoint NÃO foi verificado contra a documentação
-   oficial nesta implementação — ``developer.sophos.com`` é uma SPA e não
-   renderiza para leitura automatizada. Nomes de parâmetro (``limit``,
-   ``cursor``, ``from_date``) e de campo de resposta (``has_more``,
-   ``next_cursor``, ``items``) seguem o cliente oficial
-   ``sophos/Sophos-Central-SIEM-Integration`` e a integração Elastic
-   ``sophos_central``. O parsing abaixo é deliberadamente TOLERANTE a variações
-   de nome (ver ``_extract_cursor``/``_extract_items``) justamente por isso.
-   Valide contra um tenant real antes de confiar em produção.
+**Contrato.** Verificado contra a especificação OAS 3.0 oficial em
+``developer.sophos.com/docs/siem-v1/1`` (rota ``/events`` e tipo
+``LegacyEventEntity``). Pontos que divergem dos outros coletores Sophos e que
+custaram um bug antes da verificação:
+
+- ``from_date`` é ``integer (int64)`` — **Unix timestamp em segundos**, não uma
+  string ISO como o ``from`` de ``/common/v1/alerts``. É ignorado quando
+  ``cursor`` está presente.
+- ``limit`` aceita ``200..1000`` (default 200): valores abaixo de 200 são
+  rejeitados.
+- Um ``cursor`` fora das últimas 24h NÃO devolve erro — a resposta silenciosamente
+  volta para a janela de 24h ("Response will default to last 24 hours if cursor
+  is not within last 24 hours").
+- ``severity`` é um enum fechado: ``NONE, LOW, MEDIUM, HIGH, CRITICAL``.
 """
 
 from __future__ import annotations
@@ -59,7 +63,8 @@ from .sophos import _parse_retry_after, _safe_cursor_ts
 
 logger = logging.getLogger(__name__)
 
-#: Máximo documentado pelo cliente oficial da Sophos para este endpoint.
+#: ``limit``: a doc oficial define ``200 <= value <= 1000`` (default 200). Valor
+#: abaixo de 200 é rejeitado — não reduza isto pensando em "páginas menores".
 _PAGE_SIZE = 1000
 
 #: Teto de páginas por CICLO Celery. Mesmo motivo dos demais coletores: sem ele,
@@ -81,6 +86,21 @@ class SophosSiemRateLimitedError(VendorRateLimitedError):
 def _default_lookback_iso() -> str:
     dt = datetime.now(timezone.utc) - _COLD_START_LOOKBACK
     return dt.isoformat(timespec="seconds").replace("+00:00", "Z")
+
+
+def _iso_to_epoch_seconds(value: str) -> int:
+    """ISO-8601 canônico -> epoch em SEGUNDOS.
+
+    ``from_date`` deste endpoint é ``integer (int64)``, "Unix timestamp in UTC" —
+    NÃO uma string ISO como em ``/common/v1/alerts`` (``from``) e
+    ``/cases/v1/cases`` (``createdAfter``). Mandar ISO aqui é 400 garantido.
+    Mantemos o cursor interno em ISO (é o formato que o watermark, o backfill e
+    o resto do pipeline entendem) e convertemos só na hora do request.
+    """
+    dt = datetime.fromisoformat(value[:-1] + "+00:00" if value.endswith("Z") else value)
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return int(dt.timestamp())
 
 
 def _extract_items(payload: Dict[str, Any]) -> list:
@@ -152,11 +172,12 @@ class SophosSiemEventsCollector(BaseCollector):
 
             params: Dict[str, Any] = {"limit": _PAGE_SIZE}
             if page_cursor:
-                # Cursor VENCE a janela: reenviar ``from_date`` junto pode ser
-                # rejeitado ou reiniciar a paginação, dependendo do vendor.
+                # A doc é explícita: "from_date ... Ignored if cursor is set".
+                # Mandar os dois só adicionaria ruído.
                 params["cursor"] = page_cursor
             else:
-                params["from_date"] = from_ts
+                # int, não ISO — ver ``_iso_to_epoch_seconds``.
+                params["from_date"] = _iso_to_epoch_seconds(from_ts)
 
             started = time.monotonic()
             stale_cursor = False
@@ -175,10 +196,14 @@ class SophosSiemEventsCollector(BaseCollector):
                             "sophos siem events: HTTP %s params=%s body=%s",
                             resp.status, params, body_preview,
                         )
-                        # AUTO-CURA do cursor de paginação: encerramos o ciclo
-                        # SEM levantar, para que a escrita final abaixo persista
-                        # ``page_cursor=None``. Levantar faria o pipeline
-                        # regravar ``cursor_before`` e a chave morta voltaria.
+                        # AUTO-CURA do cursor de paginação. A doc diz que um
+                        # cursor fora das 24h faz a resposta voltar
+                        # silenciosamente para a janela padrão (não é erro), mas
+                        # um cursor MALFORMADO ainda cai em 400 — e nesse caso
+                        # encerramos o ciclo SEM levantar, para que a escrita
+                        # final persista ``page_cursor=None``. Levantar faria o
+                        # pipeline regravar ``cursor_before`` e a chave morta
+                        # voltaria a cada ciclo, exigindo reset manual.
                         if resp.status == 400 and page_cursor:
                             stale_cursor = True
                             logger.warning(
@@ -247,8 +272,9 @@ class SophosSiemEventsCollector(BaseCollector):
         sozinho é a identidade correta — compor com data reintroduziria o mesmo
         evento a cada re-leitura de janela.
         """
-        event_id = event.get("id") or event.get("event_id") or ""
-        return str(event_id)
+        # ``id`` é o único identificador do LegacyEventEntity — não existe
+        # ``event_id`` no schema oficial.
+        return str(event.get("id") or "")
 
     @classmethod
     def watermark_at(cls, cursor: Optional[Dict[str, Any]]) -> Optional[datetime]:

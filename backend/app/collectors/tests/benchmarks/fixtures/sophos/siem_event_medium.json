@@ -1,7 +1,7 @@
 {
   "id": "siem-evt-medium-001",
   "customer_id": "cust-001",
-  "severity": "medium",
+  "severity": "MEDIUM",
   "group": "WEB",
   "type": "Event::Endpoint::WebControlViolation",
   "name": "'https://example.invalid' blocked due to category 'Personals'",
@@ -17,12 +17,15 @@
   },
   "origin": "web_control",
   "appSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-  "endpoint_platform": "windows",
-  "suser": "CORP\\user.one",
-  "duid": "d-0001",
   "threat": "",
-  "data": {
-    "threat_status": "cleaned",
-    "threat_id": "t-77"
-  }
+  "details": [
+    {
+      "property": "req-001",
+      "type": "CORE_EVENT_REQUEST_ID"
+    },
+    {
+      "property": "200",
+      "type": "CORE_EVENT_RESPONSE_STATUS"
+    }
+  ]
 }

@@ -221,6 +221,73 @@ class TestRateLimit:
         assert exc.value.retry_after == 17
 
 
+class TestContratoOficialDoEndpoint:
+    """Fixa o que a spec OAS 3.0 oficial define, e que difere dos outros streams.
+
+    Verificado em developer.sophos.com/docs/siem-v1/1 (rota /events + tipo
+    LegacyEventEntity). Cada asserção aqui corresponde a uma linha da doc — e a
+    primeira delas cobre um bug real: a implementação inicial mandava ISO string
+    em ``from_date``, que a API define como Unix timestamp inteiro.
+    """
+
+    def test_iso_para_epoch_em_segundos(self):
+        from ..vendors.sophos_siem import _iso_to_epoch_seconds
+
+        # 2026-07-30T12:00:00Z
+        assert _iso_to_epoch_seconds("2026-07-30T12:00:00Z") == 1785412800
+        # offset não-UTC converte para o mesmo instante
+        assert _iso_to_epoch_seconds("2026-07-30T09:00:00-03:00") == 1785412800
+        # naive é assumido UTC
+        assert _iso_to_epoch_seconds("2026-07-30T12:00:00") == 1785412800
+
+    @pytest.mark.asyncio
+    async def test_from_date_vai_como_inteiro_e_nao_iso(self) -> None:
+        capturado: dict = {}
+
+        with aioresponses() as mocked:
+            mocked.get(_URL_RE, payload={"items": [], "has_more": False})
+            async with aiohttp.ClientSession() as session:
+                ctx = _ctx(session, cursor={"from_ts": "2026-07-30T12:00:00Z"})
+                await _drain(SophosSiemEventsCollector(ctx))
+                for req, calls in mocked.requests.items():
+                    capturado["url"] = str(req[1])
+
+        url = capturado["url"]
+        assert "from_date=1785412800" in url, (
+            f"from_date precisa ser epoch inteiro; URL foi {url}"
+        )
+        assert "2026-07-30T12" not in url, "ISO vazou para o query param"
+
+    @pytest.mark.asyncio
+    async def test_cursor_suprime_from_date(self) -> None:
+        """A doc: 'from_date ... Ignored if cursor is set'."""
+        capturado: dict = {}
+        with aioresponses() as mocked:
+            mocked.get(_URL_RE, payload={"items": [], "has_more": False})
+            async with aiohttp.ClientSession() as session:
+                ctx = _ctx(session, cursor={"from_ts": "2026-07-30T12:00:00Z",
+                                            "page_cursor": "abc"})
+                await _drain(SophosSiemEventsCollector(ctx))
+                for req, _ in mocked.requests.items():
+                    capturado["url"] = str(req[1])
+
+        assert "cursor=abc" in capturado["url"]
+        assert "from_date" not in capturado["url"]
+
+    def test_limit_respeita_o_minimo_de_200(self):
+        """A doc define 200 <= limit <= 1000. Abaixo de 200 é rejeitado."""
+        from ..vendors import sophos_siem
+
+        assert 200 <= sophos_siem._PAGE_SIZE <= 1000
+
+    def test_cold_start_cabe_na_retencao_de_24h(self):
+        """from_date 'Must be within last 24 hours' — um lookback maior seria
+        recusado ou silenciosamente truncado."""
+        from ..vendors import sophos_siem
+
+        assert sophos_siem._COLD_START_LOOKBACK.total_seconds() < 24 * 3600
+
+
 class TestToleranciaDeContrato:
     """O contrato do endpoint não pôde ser verificado na doc oficial.
 
@@ -257,7 +324,9 @@ class TestIdentidadeDoEvento:
         mesmo evento a cada re-leitura de janela."""
         c = SophosSiemEventsCollector.__new__(SophosSiemEventsCollector)
         assert c.extract_message_id({"id": "evt-1", "created_at": "x"}) == "evt-1"
-        assert c.extract_message_id({"event_id": "evt-2"}) == "evt-2"
+        # ``id`` é o único identificador do LegacyEventEntity — não há fallback
+        # para ``event_id``, que não existe no schema oficial.
+        assert c.extract_message_id({"event_id": "evt-2"}) == ""
 
     def test_watermark_le_from_ts(self):
         wm = SophosSiemEventsCollector.watermark_at({"from_ts": "2026-04-23T10:00:00Z"})
