@@ -38,7 +38,7 @@ from typing import Any, AsyncIterator, Dict
 
 from ..base import BaseCollector
 from ._sophos_common import resolve_sophos_domain
-from .sophos import _normalize_ts  # normalização de timestamp compartilhada
+from .sophos import _normalize_ts, _safe_cursor_ts  # timestamp compartilhado
 from ..metrics import API_LATENCY
 
 logger = logging.getLogger(__name__)
@@ -87,11 +87,16 @@ class SophosCasesCollector(BaseCollector):
         #   2. cursor["backfill_from_ts"] — janela explícita do backfill
         #      (gravada por collect_backfill_job em backfill_tasks.py:240-244)
         #   3. _default_lookback_iso() — cold-start sem cursor (1h atrás)
-        # Sophos rejeita timestamps com microsegundos (ver sophos.py).
-        created_after: str = _normalize_ts(
+        # Sophos só aceita UTC/segundos/``Z``; qualquer outra forma responde 400
+        # em todo ciclo seguinte e o caminho de erro do pipeline regrava o cursor
+        # anterior, travando o feed até um reset manual. ``_safe_cursor_ts``
+        # descarta o valor impróprio em favor do lookback (ver sophos.py).
+        _fallback = _default_lookback_iso()
+        created_after: str = _safe_cursor_ts(
             cursor.get("created_after")
             or cursor.get("backfill_from_ts")
-            or _default_lookback_iso()
+            or _fallback,
+            _fallback,
         )
         # Janela superior — só populada em backfill. Limita a coleta ao
         # to_ts solicitado em vez de paginar até o presente.
@@ -151,7 +156,13 @@ class SophosCasesCollector(BaseCollector):
             total_collected += len(items)
             for ev in items:
                 raw_updated = ev.get("updatedAt") or ev.get("createdAt") or latest_updated
-                updated = _normalize_ts(raw_updated) if isinstance(raw_updated, str) else latest_updated
+                # Canonicaliza antes de comparar: a comparação é lexicográfica e
+                # só é monotônica porque os dois lados estão em UTC/``Z``.
+                updated = (
+                    _safe_cursor_ts(raw_updated, latest_updated)
+                    if isinstance(raw_updated, str)
+                    else latest_updated
+                )
                 if updated > latest_updated:
                     latest_updated = updated
                 yield ev

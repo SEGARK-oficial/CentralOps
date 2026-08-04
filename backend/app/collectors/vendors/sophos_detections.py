@@ -46,7 +46,7 @@ from typing import Any, AsyncIterator, Dict, Optional
 from ..base import BaseCollector
 from ..metrics import API_LATENCY
 from ._sophos_common import resolve_sophos_domain
-from .sophos import _normalize_ts  # normalização de timestamp compartilhada
+from .sophos import _normalize_ts, _safe_cursor_ts  # timestamp compartilhado
 
 logger = logging.getLogger(__name__)
 
@@ -111,9 +111,10 @@ class SophosDetectionsCollector(BaseCollector):
         """
         cursor = self.ctx.cursor or {}
         run_id: Optional[str] = cursor.get("run_id")
-        from_ts: str = _normalize_ts(
-            cursor.get("from_ts") or _default_lookback_iso()
-        )
+        # Guard fail-safe do cursor: um ``from`` fora de UTC/segundos/``Z`` gera
+        # 400 permanente (ver sophos.py). Descarta em favor do lookback.
+        _fallback = _default_lookback_iso()
+        from_ts: str = _safe_cursor_ts(cursor.get("from_ts") or _fallback, _fallback)
         page: int = int(cursor.get("page") or 1)
 
         base_url = f"https://{self.domain}/detections/v1/queries/detections"
@@ -193,7 +194,13 @@ class SophosDetectionsCollector(BaseCollector):
 
             for ev in items:
                 raw_ts = ev.get("time") or latest_ts
-                ts = _normalize_ts(raw_ts) if isinstance(raw_ts, str) else latest_ts
+                # Canonicaliza antes de comparar (comparação lexicográfica só é
+                # monotônica com os dois lados em UTC/``Z``).
+                ts = (
+                    _safe_cursor_ts(raw_ts, latest_ts)
+                    if isinstance(raw_ts, str)
+                    else latest_ts
+                )
                 if ts > latest_ts:
                     latest_ts = ts
                 yield ev

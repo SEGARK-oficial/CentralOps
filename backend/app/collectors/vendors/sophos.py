@@ -14,6 +14,7 @@ coordenar o backoff entre todos os workers.
 from __future__ import annotations
 
 import logging
+import re
 import time
 from datetime import datetime, timedelta, timezone
 from typing import Any, AsyncIterator, Dict
@@ -83,13 +84,16 @@ class SophosAlertsCollector(BaseCollector):
 
     async def collect(self) -> AsyncIterator[Dict[str, Any]]:
         cursor = self.ctx.cursor or {}
-        # Sanitiza cursor: Sophos rejeita timestamps com microsegundos
-        # ("Timestamp ... is not in the right format"). Eventos de alguns
-        # tenants retornam ``createdAt`` com microsegundos; se o cursor
-        # herdou esse valor antes do fix, precisa ser normalizado antes
-        # de ir pro query param ``from``.
-        from_ts: str = _normalize_ts(
-            cursor.get("from_ts") or _default_lookback_iso()
+        # AUTO-CURA de cursor envenenado. Sophos só aceita ``from`` em UTC com
+        # precisão de segundos; qualquer outra forma responde 400 em TODA
+        # requisição seguinte, e o caminho de erro do pipeline regrava o cursor
+        # anterior byte-a-byte (pipeline.py, ``cursor_before``) — o feed fica
+        # travado até alguém zerar o coletor à mão. Aqui o valor inválido é
+        # descartado em favor do lookback padrão: perde-se no máximo uma janela
+        # (o dedupe absorve a re-leitura), em vez do feed inteiro.
+        _fallback = _default_lookback_iso()
+        from_ts: str = _safe_cursor_ts(
+            cursor.get("from_ts") or _fallback, _fallback
         )
         page_key: str | None = cursor.get("pageFromKey")
         latest_ts = from_ts
@@ -115,6 +119,8 @@ class SophosAlertsCollector(BaseCollector):
                 params["pageFromKey"] = page_key
 
             started = time.monotonic()
+            stale_page_key = False
+            payload: Dict[str, Any] = {}
             async with self.ctx.domain_limiter.slot(self.domain):
                 async with self.ctx.session.get(
                     base_url, headers=self.ctx.headers, params=params
@@ -134,8 +140,30 @@ class SophosAlertsCollector(BaseCollector):
                             "sophos alerts: HTTP %s params=%s body=%s",
                             resp.status, params, body_preview,
                         )
-                    resp.raise_for_status()
-                    payload = await resp.json()
+                        # AUTO-CURA do cursor de paginação. ``pageFromKey`` é
+                        # opaco e tem validade do lado do vendor; reenviar um
+                        # expirado dá 400 em TODO ciclo seguinte. Encerramos o
+                        # ciclo SEM levantar, de propósito: no caminho de
+                        # exceção o pipeline regrava ``cursor_before``
+                        # byte-a-byte e a chave morta voltaria: o feed só
+                        # destravaria com reset manual. Saindo limpo, a escrita
+                        # final abaixo persiste ``pageFromKey=None`` e o próximo
+                        # ciclo recomeça pela janela (o dedupe absorve a
+                        # re-leitura).
+                        if resp.status == 400 and page_key:
+                            stale_page_key = True
+                            logger.warning(
+                                "sophos alerts: 400 com pageFromKey — chave "
+                                "descartada, próximo ciclo reinicia de from=%s "
+                                "(integration=%s)",
+                                from_ts, self.ctx.integration_id,
+                            )
+                    if not stale_page_key:
+                        resp.raise_for_status()
+                        payload = await resp.json()
+            if stale_page_key:
+                page_key = None
+                break
 
             API_LATENCY.labels(vendor=self.platform, stream=self.stream).observe(
                 time.monotonic() - started
@@ -144,7 +172,16 @@ class SophosAlertsCollector(BaseCollector):
             items = payload.get("items") or []
             for ev in items:
                 raw_created = ev.get("createdAt") or ev.get("raisedAt") or latest_ts
-                created = _normalize_ts(raw_created) if isinstance(raw_created, str) else latest_ts
+                # Canonicaliza ANTES de comparar. A comparação é lexicográfica,
+                # o que só é correto porque ``_safe_cursor_ts`` garante o mesmo
+                # formato UTC/``Z`` nos dois lados — com um ``-03:00`` no meio,
+                # ``'...T18:56:10-03:00' < '...T18:56:10Z'`` e o watermark
+                # andaria para trás (ou congelaria).
+                created = (
+                    _safe_cursor_ts(raw_created, latest_ts)
+                    if isinstance(raw_created, str)
+                    else latest_ts
+                )
                 if created > latest_ts:
                     latest_ts = created
                 yield ev
@@ -200,27 +237,79 @@ def _default_lookback_iso() -> str:
     return dt.isoformat(timespec="seconds").replace("+00:00", "Z")
 
 
-def _normalize_ts(value: str) -> str:
-    """Remove microsegundos de um timestamp ISO-8601.
+#: Único formato que a Sophos aceita em ``from``/``createdAfter``: UTC, precisão
+#: de segundos, sufixo ``Z``. Usado para *verificar* a saída de ``_normalize_ts``
+#: — se algo escapar dela, o guard de cursor abaixo prefere o cold start a
+#: gravar um valor que envenena todas as coletas seguintes.
+_CANON_TS_RE = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$")
 
-    Sophos rejeita ``2026-04-23T18:56:10.439851Z`` com
-    ``validationException: Timestamp ... is not in the right format``.
-    Aceita apenas precisão de segundos: ``2026-04-23T18:56:10Z``.
-    Alguns tenants devolvem ``createdAt`` com microsegundos nos próprios
-    eventos — se herdado no cursor, estraga a próxima coleta.
+#: ``...+0000`` / ``...-0300`` (offset ISO-8601 sem dois-pontos) -> grupos para
+#: reinserir o separador antes de ``datetime.fromisoformat``.
+_OFFSET_NO_COLON_RE = re.compile(r"(.*)([+-]\d{2})(\d{2})$")
+
+
+def _normalize_ts(value: str) -> str:
+    """Canonicaliza um timestamp ISO-8601 para ``YYYY-MM-DDTHH:MM:SSZ`` (UTC).
+
+    Sophos rejeita qualquer outra forma com ``validationException: Timestamp
+    ... is not in the right format``, e o valor entra no cursor a partir do
+    ``createdAt`` do próprio evento — então um único evento fora do formato
+    envenena TODAS as coletas seguintes daquele tenant (a versão anterior
+    tratava só microsegundos e deixava passar offset não-UTC, naive e ``+0000``,
+    o que produzia 400 permanente "depois de um tempo").
+
+    Converte para UTC de verdade: ``...T18:56:10-03:00`` vira
+    ``...T21:56:10Z``, não ``...T18:56:10-03:00``. Um valor naive (sem fuso) é
+    assumido UTC — é o que a Sophos documenta para os campos de data.
     """
     if not isinstance(value, str) or not value:
         return value
+    raw = value.strip()
     try:
-        # Python >=3.11 aceita ``Z`` nativamente. Para versões antigas,
-        # trocamos por ``+00:00`` primeiro.
-        normalized = value.replace("Z", "+00:00")
-        dt = datetime.fromisoformat(normalized)
-        return dt.isoformat(timespec="seconds").replace("+00:00", "Z")
+        candidate = raw[:-1] + "+00:00" if raw.endswith("Z") else raw
+        # ``+0000`` -> ``+00:00``. ``fromisoformat`` só aceita offset sem
+        # dois-pontos a partir do 3.11; tratamos aqui para o resultado não
+        # depender da versão do interpretador (o backend roda 3.12, mas um
+        # ambiente de teste mais antigo cairia no fallback silenciosamente).
+        candidate = _OFFSET_NO_COLON_RE.sub(r"\1\2:\3", candidate)
+        dt = datetime.fromisoformat(candidate)
     except ValueError:
-        # Se não parsear, devolve como está — deixa a API rejeitar com
-        # mensagem clara, melhor que mascarar um cursor corrompido.
+        # Não parseia: devolve como veio. O chamador decide — o guard de
+        # cursor descarta em vez de persistir.
         return value
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    else:
+        dt = dt.astimezone(timezone.utc)
+    return dt.isoformat(timespec="seconds").replace("+00:00", "Z")
+
+
+def _safe_cursor_ts(value: str, fallback: str) -> str:
+    """``value`` canonicalizado, ou ``fallback`` se ele não for utilizável.
+
+    Fail-safe do cursor: gravar um timestamp que a Sophos rejeita transforma um
+    evento malformado num 400 permanente, curável só por reset manual. Recoletar
+    uma janela (o dedupe do pipeline absorve) é sempre melhor que parar o feed.
+    """
+    canon = _normalize_ts(value)
+    # Forma E validade. A regex sozinha aceitaria ``2026-13-45T99:99:99Z``, que
+    # tem o shape certo mas é uma data impossível: ``_normalize_ts`` não
+    # consegue parseá-la e a devolve crua (passthrough), então o valor chegaria
+    # ao query param e a API responderia 400 — exatamente o que este guard
+    # existe para impedir.
+    if isinstance(canon, str) and _CANON_TS_RE.match(canon):
+        try:
+            datetime.fromisoformat(canon[:-1] + "+00:00")
+        except ValueError:
+            pass
+        else:
+            return canon
+    logger.warning(
+        "sophos: timestamp fora do formato aceito (%r) — descartado do cursor "
+        "em favor de %r; sem isto o próximo ciclo receberia HTTP 400 permanente",
+        value, fallback,
+    )
+    return fallback
 
 
 def _parse_retry_after(value: str | None) -> int:
