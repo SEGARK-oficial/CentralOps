@@ -31,6 +31,7 @@ from typing import Any, Dict, List, Optional, Sequence
 import redis.asyncio as redis_async
 from fastapi import APIRouter, Depends, Query, Response, status
 from pydantic import BaseModel, Field
+import sqlalchemy as sa
 from sqlalchemy.orm import Session, joinedload
 
 from ..collectors.normalize import sample_reservoir
@@ -108,6 +109,15 @@ class CreateVersionRequest(BaseModel):
     """
     rules: Dict[str, Any] = Field(...)
     commit_message: str = Field(..., min_length=1, max_length=2000)
+    #: Concorrência otimista (opt-in). Quando presente, o commit só é promovido
+    #: se ``definition.current_version_id`` ainda for exatamente este valor —
+    #: caso contrário 409. Existe porque a edição incremental lê as regras,
+    #: calcula um patch por ÍNDICE e só então commita: se outra pessoa promover
+    #: uma versão nesse intervalo, os índices passam a apontar para outras
+    #: regras e o commit sobrescreveria o trabalho dela silenciosamente.
+    #: Opcional por compatibilidade — a UI não envia e mantém o comportamento
+    #: de sempre (last-write-wins).
+    base_version_id: Optional[str] = None
 
 
 class DryRunRequest(BaseModel):
@@ -1140,6 +1150,30 @@ async def create_version(
                 "es": "Definición de mapping no encontrada.",
             },
         )
+    # Pré-checagem barata da concorrência otimista: falhar aqui evita rodar o
+    # dry-run inteiro (que carrega amostras do reservatório) só para descobrir o
+    # conflito no fim. NÃO é a trava — entre esta linha e a promoção há I/O, e a
+    # garantia real é o UPDATE condicional mais abaixo.
+    if payload.base_version_id is not None and defn.current_version_id != payload.base_version_id:
+        raise ApiError(
+            "mapping.stale_base",
+            status.HTTP_409_CONFLICT,
+            messages={
+                "pt": (
+                    "O mapping mudou desde a leitura (versão atual: {current}). "
+                    "Releia e refaça a edição — NÃO repita o commit."
+                ),
+                "en": (
+                    "Mapping changed since read (current version: {current}). "
+                    "Re-read and redo the edit — do NOT retry the commit."
+                ),
+                "es": (
+                    "El mapping cambió desde la lectura (versión actual: {current}). "
+                    "Vuelve a leer y rehaz la edición — NO repitas el commit."
+                ),
+            },
+            params={"current": defn.current_version_id},
+        )
 
     rules_payload = _normalize_rules_to_v2(payload.rules)
 
@@ -1216,7 +1250,43 @@ async def create_version(
     db.flush()  # garante version.id
 
     previous_current = defn.current_version_id
-    defn.current_version_id = version.id
+    if payload.base_version_id is not None:
+        # Trava real da concorrência otimista: UPDATE condicional. A
+        # pré-checagem lá em cima é check-then-act — há I/O (dry-run, carga de
+        # amostras) entre ela e este ponto, então só o WHERE no banco garante
+        # que ninguém promoveu outra versão nesse intervalo.
+        promoted = db.execute(
+            sa.update(models.MappingDefinition)
+            .where(models.MappingDefinition.id == definition_id)
+            .where(models.MappingDefinition.current_version_id == payload.base_version_id)
+            .values(current_version_id=version.id)
+        ).rowcount
+        if not promoted:
+            db.rollback()
+            raise ApiError(
+                "mapping.stale_base",
+                status.HTTP_409_CONFLICT,
+                messages={
+                    "pt": (
+                        "O mapping foi alterado por outra sessão durante este commit. "
+                        "Releia e refaça a edição — NÃO repita o commit."
+                    ),
+                    "en": (
+                        "The mapping was changed by another session during this commit. "
+                        "Re-read and redo the edit — do NOT retry the commit."
+                    ),
+                    "es": (
+                        "El mapping fue modificado por otra sesión durante este commit. "
+                        "Vuelve a leer y rehaz la edición — NO repitas el commit."
+                    ),
+                },
+                params={"current": None},
+            )
+        db.refresh(defn)
+    else:
+        # Caminho legado (a UI não envia base_version_id): last-write-wins,
+        # comportamento inalterado.
+        defn.current_version_id = version.id
 
     # Audit + invalidate cache do engine para o version_id antigo.
     _audit(
