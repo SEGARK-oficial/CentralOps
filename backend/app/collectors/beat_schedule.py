@@ -105,6 +105,20 @@ def _static_entries() -> Dict[str, Any]:
             "schedule": timedelta(seconds=60),
             "options": {"queue": "maintenance", "expires": 55},
         },
+        # Reconciliação das entries dinâmicas do RedBeat. Sem ela, uma
+        # integração ativa cuja entry não foi escrita (Redis fora do ar no
+        # create, caminho de reativação que não registrava, etc.) fica
+        # invisível para o scheduler até alguém REINICIAR o Beat — que é o
+        # único outro momento em que ``sync_all_active_integrations()`` roda.
+        # Com ela, o pior caso vira ~10 min de atraso em vez de "até o próximo
+        # deploy". Idempotente por ``_existing_entry_matches``: entries
+        # inalteradas NÃO são re-salvas, senão o reagendamento periódico
+        # mataria de fome todo stream com intervalo > 10 min.
+        "reconcile-beat-entries": {
+            "task": "collectors.reconcile_beat_entries",
+            "schedule": timedelta(minutes=10),
+            "options": {"queue": "maintenance", "expires": 540},
+        },
     }
 
     # The Sophos partner-sync beat entry is an Enterprise feature, registered by the

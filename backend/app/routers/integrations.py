@@ -683,7 +683,19 @@ def create_integration(
                 "use POST /integrations/{id}/sync-tenants para retry",
                 integration.id, exc_info=True,
             )
-        return _serialize(integration, current_user)
+        # Só um PARENT (partner/organization) encerra aqui: os filhos dele — e as
+        # entries de RedBeat deles — saem da task de sync assíncrona.
+        # Um card que declara ``discover:children`` mas é criado como
+        # ``kind=tenant`` precisa seguir para o fluxo genérico abaixo. É o caso do
+        # card base "sophos", que declara a capability para habilitar a descoberta
+        # nas VARIANTES MSSP, mas cujo create normal é um tenant. Sem esta
+        # condição ele retornava 201 aqui e nunca alcançava
+        # ``_trigger_initial_collection``/``_register_in_beat``: a integração
+        # nascia ativa e saudável, porém SEM entry no scheduler — só passava a
+        # coletar quando alguém reiniciava o Beat (que re-sincroniza tudo no
+        # import). Era o "integração nova nunca coleta".
+        if requested_kind != "tenant":
+            return _serialize(integration, current_user)
 
     # ── Validação imediata de credenciais (best-effort, plugin-driven) ────
     # Plataformas com BaseProvider rico validam creds na criação (Sophos também
@@ -1732,7 +1744,22 @@ def update_integration(
             update_kwargs["auth_status"] = "unknown"
             update_kwargs["last_error"] = None
 
+    was_active = bool(integration.is_active)
     integration = repo.update(integration, **update_kwargs)
+
+    # Espelha o ciclo de vida no scheduler. A desativação em massa já chamava
+    # ``_deregister_from_beat``; a reativação por aqui não recriava a entry, e a
+    # integração voltava a ficar ``is_active=True`` sem nunca ser agendada — só
+    # o restart do Beat (que re-sincroniza tudo no import) a ressuscitava.
+    # Fire-and-forget como no create: falha de scheduler não invalida um PUT
+    # cujo efeito no banco já foi commitado.
+    if "is_active" in payload:
+        now_active = bool(integration.is_active)
+        if now_active and not was_active:
+            _register_in_beat(integration.id)
+        elif was_active and not now_active:
+            _deregister_from_beat(integration.id)
+
     return _serialize(integration, current_user)
 
 
