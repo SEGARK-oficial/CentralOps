@@ -62,6 +62,7 @@ _EVENT_TYPE_BASE: Dict[_MappingKey, str] = {
     ("sophos", "sophos.alert"): "alert",
     ("sophos", "sophos.case"): "case",
     ("sophos", "sophos.detection"): "detection",
+    ("sophos", "sophos.siem_event"): "siem_event",
     ("microsoft_defender", "defender.alert"): "alert",
     ("microsoft_defender", "defender.incident"): "incident",
     ("ninjaone", "ninjaone.activity"): "activity",

@@ -21,6 +21,7 @@ from . import defender  # noqa: F401        — microsoft_defender/incidents
 from . import defender_alerts  # noqa: F401 — microsoft_defender/alerts (v2)
 from . import ninjaone  # noqa: F401        — ninjaone/activities
 from . import sophos_detections  # noqa: F401 — sophos/detections (XDR async runs)
+from . import sophos_siem  # noqa: F401      — sophos/siem_events (SIEM v1, retenção ~24h)
 from . import wazuh_detections  # noqa: F401  — wazuh/detections (pull do Indexer)
 from . import crowdstrike  # noqa: F401      — crowdstrike/detections (Alerts API v2)
 from . import entra_id  # noqa: F401         — entra_id/signins+audit (Graph)

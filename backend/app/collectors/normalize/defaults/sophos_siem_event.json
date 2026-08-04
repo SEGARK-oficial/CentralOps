@@ -1,0 +1,240 @@
+{
+  "_comment": [
+    "Sophos Central SIEM v1 — /siem/v1/events. Telemetria de endpoint (web control,",
+    "update status, compliance, threat), disjunta dos feeds de finding que os outros",
+    "3 streams Sophos cobrem.",
+    "",
+    "POR QUE Base Event (class_uid 0) E NAO Detection Finding (2004): este feed e",
+    "HETEROGENEO por natureza — um unico stream carrega Event::Endpoint::",
+    "WebControlViolation (que em OCSF seria HTTP Activity 4002), ::Compliant /",
+    "::NonCompliant (Compliance Finding 2003), ::UpdateSuccess / ::UpdateFailure",
+    "(Application Lifecycle 6002) e ::Threat::* (Detection Finding 2004). Uma",
+    "MappingDefinition carrega UM class_uid, entao emitir 2004 para todos seria",
+    "declarar que um bloqueio de web e uma deteccao de ameaca — poluindo qualquer",
+    "contagem de deteccoes no destino. Base Event 0 e a saida honesta do OCSF para",
+    "log heterogeneo (mesmo padrao ja adotado em aws_cloudwatch_event.json), e o",
+    "tipo real fica preservado em unmapped.event_type / unmapped.event_group para",
+    "quem quiser rotear no destino.",
+    "",
+    "Quando o roteamento de classe por conteudo existir (exige MappingDefinition",
+    "multi-classe), este mapping deve ser dividido por tipo de evento."
+  ],
+  "rules": [
+    { "target": "normalized.class_uid", "const": 0, "required": true },
+    { "target": "normalized.class_name", "const": "Base Event" },
+    { "target": "normalized.category_uid", "const": 0, "required": true },
+    { "target": "normalized.category_name", "const": "Uncategorized" },
+    { "target": "normalized.activity_id", "const": 0, "required": true },
+    { "target": "normalized.activity_name", "const": "Unknown" },
+    { "target": "normalized.type_uid", "const": 0, "required": true },
+
+    {
+      "target": "normalized.time",
+      "source": "created_at || when",
+      "type_cast": "iso_to_epoch",
+      "required": true
+    },
+    {
+      "target": "normalized.metadata.original_time",
+      "source": "when || created_at",
+      "default": null
+    },
+    { "target": "normalized.metadata.version", "const": "1.8.0" },
+    { "target": "normalized.metadata.product.name", "const": "Sophos Central" },
+    { "target": "normalized.metadata.product.vendor_name", "const": "Sophos" },
+    { "target": "normalized.metadata.log_name", "const": "siem/v1/events" },
+    { "target": "normalized.metadata.uid", "source": "id", "default": null },
+
+    {
+      "target": "normalized.severity_id",
+      "source": "severity",
+      "pre_cast": "lowercase",
+      "value_map": {
+        "critical": 5,
+        "high": 4,
+        "medium": 3,
+        "low": 2,
+        "info": 1,
+        "informational": 1,
+        "none": 1
+      },
+      "default": 0,
+      "required": true
+    },
+    { "target": "normalized.severity", "source": "severity", "default": null },
+
+    {
+      "target": "normalized.message",
+      "source": "name || type",
+      "default": null
+    },
+
+    {
+      "target": "normalized.device.uid",
+      "source": "endpoint_id",
+      "default": null
+    },
+    {
+      "target": "normalized.device.type",
+      "source": "endpoint_type",
+      "default": null
+    },
+    {
+      "target": "normalized.device.type_id",
+      "source": "endpoint_type",
+      "pre_cast": "lowercase",
+      "value_map": {
+        "computer": 1,
+        "server": 2,
+        "mobile": 3,
+        "securityappliance": 4
+      },
+      "default": 0
+    },
+    {
+      "target": "normalized.device.hostname",
+      "source": "location",
+      "default": null
+    },
+    {
+      "target": "normalized.device.ip",
+      "source": "source_info.ip",
+      "default": null
+    },
+
+    {
+      "target": "normalized.actor.user.name",
+      "source": "source",
+      "default": null
+    },
+    {
+      "target": "normalized.actor.user.uid",
+      "source": "user_id",
+      "default": null
+    },
+
+    {
+      "target": "normalized.cloud.org.uid",
+      "source": "customer_id",
+      "default": null
+    },
+    { "target": "normalized.cloud.provider", "const": "Sophos Central" },
+
+    {
+      "target": "normalized.unmapped.event_type",
+      "source": "type",
+      "default": null
+    },
+    {
+      "target": "normalized.unmapped.event_group",
+      "source": "group",
+      "default": null
+    },
+    {
+      "target": "normalized.unmapped.threat",
+      "source": "threat",
+      "default": null
+    },
+    {
+      "target": "normalized.unmapped.threat_id",
+      "source": "threat_id || data.threat_id",
+      "default": null
+    },
+    {
+      "target": "normalized.unmapped.threat_status",
+      "source": "data.threat_status",
+      "default": null
+    },
+    {
+      "target": "normalized.unmapped.origin",
+      "source": "origin",
+      "default": null
+    },
+    {
+      "target": "normalized.unmapped.app_sha256",
+      "source": "appSha256",
+      "default": null
+    },
+    {
+      "target": "normalized.unmapped.app_certs",
+      "source": "appCerts",
+      "default": null
+    },
+    {
+      "target": "normalized.unmapped.endpoint_platform",
+      "source": "endpoint_platform",
+      "default": null
+    },
+    {
+      "target": "normalized.unmapped.core_remedy_items",
+      "source": "core_remedy_items",
+      "default": null
+    },
+    {
+      "target": "normalized.unmapped.ips_threat_data",
+      "source": "ips_threat_data",
+      "default": null
+    },
+    {
+      "target": "normalized.unmapped.dhcp_stats",
+      "source": "dhcp_stats",
+      "default": null
+    },
+    {
+      "target": "normalized.unmapped.suser",
+      "source": "suser",
+      "default": null
+    },
+    {
+      "target": "normalized.unmapped.duid",
+      "source": "duid",
+      "default": null
+    },
+
+    {
+      "target": "normalized.observables",
+      "kind": "array_builder",
+      "items": [
+        {
+          "name": "device.uid",
+          "type": "Endpoint",
+          "type_id": 20,
+          "source": "endpoint_id",
+          "skip_null": true
+        },
+        {
+          "name": "device.hostname",
+          "type": "Hostname",
+          "type_id": 1,
+          "source": "location",
+          "skip_null": true
+        },
+        {
+          "name": "device.ip",
+          "type": "IP Address",
+          "type_id": 2,
+          "source": "source_info.ip",
+          "skip_null": true
+        },
+        {
+          "name": "actor.user.name",
+          "type": "User Name",
+          "type_id": 4,
+          "source": "source",
+          "skip_null": true
+        },
+        {
+          "name": "unmapped.app_sha256",
+          "type": "Hash",
+          "type_id": 8,
+          "source": "appSha256",
+          "skip_null": true
+        }
+      ]
+    }
+  ],
+  "raw_reduction": [
+    { "path": "core_remedy_items", "max_items": 20 },
+    { "path": "ips_threat_data", "max_bytes": 4096 }
+  ]
+}

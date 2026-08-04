@@ -1,0 +1,161 @@
+{
+  "id": "siem-evt-large-001",
+  "customer_id": "cust-001",
+  "severity": "high",
+  "group": "MALWARE",
+  "type": "Event::Endpoint::Threat::Detected",
+  "name": "'https://example.invalid' blocked due to category 'Personals'",
+  "when": "2026-07-30T12:00:00.123456Z",
+  "created_at": "2026-07-30T12:00:05Z",
+  "endpoint_id": "endpoint-001",
+  "endpoint_type": "computer",
+  "location": "HOST-01",
+  "source": "user.one",
+  "user_id": "user-001",
+  "source_info": {
+    "ip": "10.0.0.5"
+  },
+  "origin": "web_control",
+  "appSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "endpoint_platform": "windows",
+  "suser": "CORP\\user.one",
+  "duid": "d-0001",
+  "threat": "Troj/Agent-XYZ",
+  "data": {
+    "threat_status": "cleaned",
+    "threat_id": "t-77"
+  },
+  "appCerts": [
+    {
+      "signer": "Signer 0",
+      "thumbprint": "0000000000000000000000000000000000000000",
+      "valid": true
+    },
+    {
+      "signer": "Signer 1",
+      "thumbprint": "0000000000000000000000000000000000000001",
+      "valid": true
+    },
+    {
+      "signer": "Signer 2",
+      "thumbprint": "0000000000000000000000000000000000000002",
+      "valid": true
+    },
+    {
+      "signer": "Signer 3",
+      "thumbprint": "0000000000000000000000000000000000000003",
+      "valid": true
+    },
+    {
+      "signer": "Signer 4",
+      "thumbprint": "0000000000000000000000000000000000000004",
+      "valid": true
+    },
+    {
+      "signer": "Signer 5",
+      "thumbprint": "0000000000000000000000000000000000000005",
+      "valid": true
+    }
+  ],
+  "core_remedy_items": [
+    {
+      "type": "file",
+      "action": "deleted",
+      "descriptor": "C:\\\\temp\\\\payload_0.exe",
+      "result": "success",
+      "processPath": "C:\\\\Windows\\\\proc_0.exe"
+    },
+    {
+      "type": "file",
+      "action": "deleted",
+      "descriptor": "C:\\\\temp\\\\payload_1.exe",
+      "result": "success",
+      "processPath": "C:\\\\Windows\\\\proc_1.exe"
+    },
+    {
+      "type": "file",
+      "action": "deleted",
+      "descriptor": "C:\\\\temp\\\\payload_2.exe",
+      "result": "success",
+      "processPath": "C:\\\\Windows\\\\proc_2.exe"
+    },
+    {
+      "type": "file",
+      "action": "deleted",
+      "descriptor": "C:\\\\temp\\\\payload_3.exe",
+      "result": "success",
+      "processPath": "C:\\\\Windows\\\\proc_3.exe"
+    },
+    {
+      "type": "file",
+      "action": "deleted",
+      "descriptor": "C:\\\\temp\\\\payload_4.exe",
+      "result": "success",
+      "processPath": "C:\\\\Windows\\\\proc_4.exe"
+    },
+    {
+      "type": "file",
+      "action": "deleted",
+      "descriptor": "C:\\\\temp\\\\payload_5.exe",
+      "result": "success",
+      "processPath": "C:\\\\Windows\\\\proc_5.exe"
+    },
+    {
+      "type": "file",
+      "action": "deleted",
+      "descriptor": "C:\\\\temp\\\\payload_6.exe",
+      "result": "success",
+      "processPath": "C:\\\\Windows\\\\proc_6.exe"
+    },
+    {
+      "type": "file",
+      "action": "deleted",
+      "descriptor": "C:\\\\temp\\\\payload_7.exe",
+      "result": "success",
+      "processPath": "C:\\\\Windows\\\\proc_7.exe"
+    },
+    {
+      "type": "file",
+      "action": "deleted",
+      "descriptor": "C:\\\\temp\\\\payload_8.exe",
+      "result": "success",
+      "processPath": "C:\\\\Windows\\\\proc_8.exe"
+    },
+    {
+      "type": "file",
+      "action": "deleted",
+      "descriptor": "C:\\\\temp\\\\payload_9.exe",
+      "result": "success",
+      "processPath": "C:\\\\Windows\\\\proc_9.exe"
+    },
+    {
+      "type": "file",
+      "action": "deleted",
+      "descriptor": "C:\\\\temp\\\\payload_10.exe",
+      "result": "success",
+      "processPath": "C:\\\\Windows\\\\proc_10.exe"
+    },
+    {
+      "type": "file",
+      "action": "deleted",
+      "descriptor": "C:\\\\temp\\\\payload_11.exe",
+      "result": "success",
+      "processPath": "C:\\\\Windows\\\\proc_11.exe"
+    }
+  ],
+  "ips_threat_data": {
+    "detectionName": "IPS/Exploit-Generic",
+    "localPort": 443,
+    "remotePort": 51234,
+    "remoteIp": "203.0.113.9",
+    "localIp": "10.0.0.5",
+    "protocol": "TCP",
+    "direction": "inbound",
+    "payload": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+  },
+  "dhcp_stats": {
+    "lease": "10.0.0.5",
+    "server": "10.0.0.1",
+    "renewals": 3
+  }
+}

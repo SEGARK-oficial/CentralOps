@@ -225,6 +225,12 @@ _CURSORES_DE_TETO: Dict[Tuple[str, str], Dict[str, Any]] = {
     ("wazuh", "detections"): {"from_ts": "2026-07-24T10:00:00.000+0000"},
     ("sophos", "alerts"): {"from_ts": "2026-07-24T10:00:00Z", "pageFromKey": "pk-42"},
     ("sophos", "cases"): {"created_after": "2026-07-24T10:00:00Z", "page": 7},
+    # SIEM v1: ao bater o teto, ``from_ts`` fica na janela ORIGINAL de propósito
+    # (o feed não garante ordenação por data) e a retomada vai em ``page_cursor``.
+    ("sophos", "siem_events"): {
+        "from_ts": "2026-07-24T10:00:00Z",
+        "page_cursor": "opaque-cursor-42",
+    },
     ("sophos", "detections"): {
         "run_id": "run-1",
         "from_ts": "2026-07-24T10:00:00Z",

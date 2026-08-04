@@ -50,6 +50,27 @@ _FIXTURES = {
         "person": {"id": "u1", "name": "alice"},
         "product": "Endpoint",
     },
+    ("sophos", "sophos.siem_event"): {
+        # /siem/v1/events — feed heterogêneo de telemetria de endpoint. O
+        # exemplo é um WebControlViolation, que é justamente o tipo que NÃO
+        # cabe em Detection Finding e motivou o mapping para Base Event.
+        "id": "siem-evt-001",
+        "customer_id": "cust-001",
+        "severity": "medium",
+        "group": "WEB",
+        "type": "Event::Endpoint::WebControlViolation",
+        "name": "'https://example.invalid' blocked due to category 'Personals'",
+        "when": "2026-07-30T12:00:00.123456Z",
+        "created_at": "2026-07-30T12:00:05Z",
+        "endpoint_id": "endpoint-001",
+        "endpoint_type": "computer",
+        "location": "HOST-01",
+        "source": "user.one",
+        "user_id": "user-001",
+        "source_info": {"ip": "10.0.0.5"},
+        "origin": "web_control",
+        "appSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    },
     ("sophos", "sophos.case"): {
         "id": "case-001",
         "createdAt": "2026-04-23T10:00:00Z",
