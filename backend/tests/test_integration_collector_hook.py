@@ -85,6 +85,22 @@ def _wazuh_payload(org_id: int, name: str = "Wazuh Test") -> dict[str, Any]:
     }
 
 
+def _sophos_payload(org_id: int, name: str = "Sophos Test") -> dict[str, Any]:
+    """Card BASE ``sophos`` — o create normal de um tenant, sem ``kind`` no body.
+
+    Diferente do wazuh, este card declara a capability ``discover:children``
+    (para habilitar a descoberta de tenants nas variantes MSSP). Era exatamente
+    isso que fazia o create cair no ramo de parent e retornar antes de agendar.
+    """
+    return {
+        "organization_id": org_id,
+        "name": name,
+        "platform": "sophos",
+        "client_id": "sophos-client-id",
+        "client_secret": "sophos-client-secret",
+    }
+
+
 def _make_fake_reg(stream: str, queue: str = "collect.bulk") -> MagicMock:
     reg = MagicMock()
     reg.stream = stream
@@ -255,3 +271,56 @@ class TestPostIntegrationWithHooks:
             resp = db_client.post("/api/integrations/", json=_wazuh_payload(org_id))
 
         assert resp.status_code == 200
+
+
+class TestPlatformWithDiscoverChildrenStillSchedulesTenant:
+    """Regressão: integração criada e ativa que NUNCA coletava.
+
+    O create encerrava no ramo de parent para qualquer plataforma que
+    declarasse ``discover:children`` — mas o card base ``sophos`` declara essa
+    capability e ainda assim é criado como ``kind=tenant``. O resultado era um
+    201 com a integração ativa e saudável, porém sem entry no RedBeat e sem
+    coleta inicial: só passava a coletar quando alguém reiniciava o Beat, que
+    re-sincroniza todas as integrações ativas no import.
+
+    A suíte não pegava isso porque todos os casos usavam payload wazuh, e
+    wazuh não declara ``discover:children`` — o ramo nunca era exercitado.
+    """
+
+    def test_sophos_tenant_agenda_coleta_e_registra_no_beat(self, db_client):
+        _bootstrap_admin(db_client)
+        org_id = _create_org(db_client)
+
+        with (
+            patch("backend.app.routers.integrations._trigger_initial_collection") as trigger,
+            patch("backend.app.routers.integrations._register_in_beat") as register,
+            # on_created() é no-op para kind=tenant, mas o create passa por ele
+            # porque o gate é puro por capability. Neutralizamos a rede.
+            patch("backend.app.routers.integrations.get_provider"),
+        ):
+            resp = db_client.post("/api/integrations/", json=_sophos_payload(org_id))
+
+        assert resp.status_code == 200, resp.text
+        integration_id = resp.json()["id"]
+
+        assert register.called, (
+            "integração sophos kind=tenant criada sem entry no RedBeat — "
+            "ela ficaria ativa e nunca seria coletada até um restart do Beat"
+        )
+        assert register.call_args.args[0] == integration_id
+        assert trigger.called, "primeira coleta nunca foi disparada"
+
+    def test_wazuh_segue_agendando(self, db_client):
+        """Guarda contra corrigir sophos quebrando o caminho comum."""
+        _bootstrap_admin(db_client)
+        org_id = _create_org(db_client)
+
+        with (
+            patch("backend.app.routers.integrations._trigger_initial_collection") as trigger,
+            patch("backend.app.routers.integrations._register_in_beat") as register,
+        ):
+            resp = db_client.post("/api/integrations/", json=_wazuh_payload(org_id))
+
+        assert resp.status_code == 200, resp.text
+        assert register.called
+        assert trigger.called

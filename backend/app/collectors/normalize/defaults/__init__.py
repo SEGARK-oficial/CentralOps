@@ -28,6 +28,7 @@ DEFAULT_MAPPING_FILES = {
     ("sophos", "sophos.alert"): "sophos_alert.json",
     ("sophos", "sophos.case"): "sophos_case.json",
     ("sophos", "sophos.detection"): "sophos_detection.json",
+    ("sophos", "sophos.siem_event"): "sophos_siem_event.json",
     ("microsoft_defender", "defender.alert"): "defender_alert.json",
     ("microsoft_defender", "defender.incident"): "defender_incident.json",
     ("ninjaone", "ninjaone.activity"): "ninjaone_activity.json",

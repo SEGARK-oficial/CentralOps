@@ -1,0 +1,191 @@
+{
+  "id": "siem-evt-large-001",
+  "customer_id": "cust-001",
+  "severity": "HIGH",
+  "group": "MALWARE",
+  "type": "Event::Endpoint::Threat::Detected",
+  "name": "'https://example.invalid' blocked due to category 'Personals'",
+  "when": "2026-07-30T12:00:00.123456Z",
+  "created_at": "2026-07-30T12:00:05Z",
+  "endpoint_id": "endpoint-001",
+  "endpoint_type": "computer",
+  "location": "HOST-01",
+  "source": "user.one",
+  "user_id": "user-001",
+  "source_info": {
+    "ip": "10.0.0.5"
+  },
+  "origin": "web_control",
+  "appSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "threat": "Troj/Agent-XYZ",
+  "details": [
+    {
+      "property": "val-0",
+      "type": "IPS_EXECUTABLE_PATH"
+    },
+    {
+      "property": "val-1",
+      "type": "IPS_EXECUTABLE_PID"
+    },
+    {
+      "property": "val-2",
+      "type": "IPS_REMOTE_IP"
+    },
+    {
+      "property": "val-3",
+      "type": "IPS_REMOTE_PORT"
+    },
+    {
+      "property": "val-4",
+      "type": "IPS_LOCAL_PORT"
+    },
+    {
+      "property": "val-5",
+      "type": "IPS_TECH_SUPPORT_ID"
+    },
+    {
+      "property": "val-6",
+      "type": "AMSI_PROCESS_NAME"
+    },
+    {
+      "property": "val-7",
+      "type": "AMSI_PROCESS_ID"
+    },
+    {
+      "property": "val-8",
+      "type": "AMSI_PARENT_PROCESS_PATH"
+    },
+    {
+      "property": "val-9",
+      "type": "HMPA_EVENT_TYPE"
+    },
+    {
+      "property": "val-10",
+      "type": "HMPA_PROCESS_PATH"
+    },
+    {
+      "property": "val-11",
+      "type": "CORE_EVENT_REQUEST_ID"
+    }
+  ],
+  "appCerts": [
+    {
+      "signer": "Signer 0",
+      "thumbprint": "0000000000000000000000000000000000000000"
+    },
+    {
+      "signer": "Signer 1",
+      "thumbprint": "0000000000000000000000000000000000000001"
+    },
+    {
+      "signer": "Signer 2",
+      "thumbprint": "0000000000000000000000000000000000000002"
+    },
+    {
+      "signer": "Signer 3",
+      "thumbprint": "0000000000000000000000000000000000000003"
+    },
+    {
+      "signer": "Signer 4",
+      "thumbprint": "0000000000000000000000000000000000000004"
+    },
+    {
+      "signer": "Signer 5",
+      "thumbprint": "0000000000000000000000000000000000000005"
+    }
+  ],
+  "core_remedy_items": {
+    "items": [
+      {
+        "descriptor": "C:\\temp\\payload_0.exe",
+        "result": "SUCCESS",
+        "type": "file"
+      },
+      {
+        "descriptor": "C:\\temp\\payload_1.exe",
+        "result": "FAILED_TO_DELETE",
+        "type": "file"
+      },
+      {
+        "descriptor": "C:\\temp\\payload_2.exe",
+        "result": "SUCCESS",
+        "type": "file"
+      },
+      {
+        "descriptor": "C:\\temp\\payload_3.exe",
+        "result": "FAILED_TO_DELETE",
+        "type": "file"
+      },
+      {
+        "descriptor": "C:\\temp\\payload_4.exe",
+        "result": "SUCCESS",
+        "type": "file"
+      },
+      {
+        "descriptor": "C:\\temp\\payload_5.exe",
+        "result": "FAILED_TO_DELETE",
+        "type": "file"
+      },
+      {
+        "descriptor": "C:\\temp\\payload_6.exe",
+        "result": "SUCCESS",
+        "type": "file"
+      },
+      {
+        "descriptor": "C:\\temp\\payload_7.exe",
+        "result": "FAILED_TO_DELETE",
+        "type": "file"
+      },
+      {
+        "descriptor": "C:\\temp\\payload_8.exe",
+        "result": "SUCCESS",
+        "type": "file"
+      },
+      {
+        "descriptor": "C:\\temp\\payload_9.exe",
+        "result": "FAILED_TO_DELETE",
+        "type": "file"
+      },
+      {
+        "descriptor": "C:\\temp\\payload_10.exe",
+        "result": "SUCCESS",
+        "type": "file"
+      },
+      {
+        "descriptor": "C:\\temp\\payload_11.exe",
+        "result": "FAILED_TO_DELETE",
+        "type": "file"
+      }
+    ],
+    "totalItems": 12
+  },
+  "ips_threat_data": {
+    "detectionType": 3,
+    "executableName": "svchost.exe",
+    "executablePath": "C:\\Windows\\System32\\svchost.exe",
+    "executablePid": "4412",
+    "executableVersion": "10.0.19041.1",
+    "localPort": "443",
+    "remotePort": "51234",
+    "remoteIp": "203.0.113.9",
+    "techSupportId": "ts-0001",
+    "rawData": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+  },
+  "amsi_threat_data": {
+    "parentProcessId": "980",
+    "parentProcessPath": "C:\\Windows\\explorer.exe",
+    "processId": "4412",
+    "processName": "powershell.exe",
+    "processPath": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe"
+  },
+  "whitelist_properties": [
+    {
+      "property": "e3b0c442",
+      "type": "SHA_256"
+    },
+    {
+      "property": "Contoso Ltd",
+      "type": "CERTIFICATE_SIGNER"
+    }
+  ]
+}

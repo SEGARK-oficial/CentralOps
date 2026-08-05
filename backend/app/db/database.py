@@ -1253,6 +1253,11 @@ def _run_lightweight_migrations() -> None:
                 ("sophos", "sophos.alert", 2004, "Sophos Central — alerts (Detection Finding)"),
                 ("sophos", "sophos.case", 2005, "Sophos Central — cases (Incident Finding, MDR/XDR)"),
                 ("sophos", "sophos.detection", 2004, "Sophos Central — detections (XDR async runs)"),
+                # class_uid 0 (Base Event) é deliberado: o feed SIEM v1 é
+                # heterogêneo (web control, update, compliance, threat) e uma
+                # definição carrega um único class_uid — ver o _comment do
+                # mapping default.
+                ("sophos", "sophos.siem_event", 0, "Sophos Central — SIEM v1 events (telemetria de endpoint)"),
                 ("microsoft_defender", "defender.incident", 2005, "Microsoft Defender — incidents (Incident Finding)"),
                 ("microsoft_defender", "defender.alert", 2004, "Microsoft Defender — alerts (Detection Finding)"),
                 ("ninjaone", "ninjaone.activity", 6003, "NinjaOne — activities (API Activity)"),
