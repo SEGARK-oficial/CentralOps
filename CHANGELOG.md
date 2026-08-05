@@ -1,5 +1,33 @@
 # Changelog
 
+## [2.5.0](https://github.com/SEGARK-oficial/CentralOps/compare/v2.4.0...v2.5.0) (2026-08-05)
+
+
+### Features
+
+* **capture:** export carrega o jornal e a mascara de PII passa a falar OCSF ([afaffe9](https://github.com/SEGARK-oficial/CentralOps/commit/afaffe99a1efa31028cdee6804cca8880029d51b))
+* **capture:** fidelidade do wire por destino e filtros validados na API ([ec80970](https://github.com/SEGARK-oficial/CentralOps/commit/ec809708e6e2a9b2911f1c55d1054e46d37b7ff5))
+* **capture:** jornal por evento — estagio, tap de dedupe e admissao ([a7df04b](https://github.com/SEGARK-oficial/CentralOps/commit/a7df04bd325582ee4f209d4b4ffc338aeebe3045))
+* **capture:** trajetoria do evento na UI, export parametrizado e docs honestas ([d20f0d2](https://github.com/SEGARK-oficial/CentralOps/commit/d20f0d249a36681fc726ad71380d447a90d6704c))
+* **mappings:** concorrência otimista opcional no commit de versão ([d80c2e0](https://github.com/SEGARK-oficial/CentralOps/commit/d80c2e075963cdb41d7e32920d00c1c4d7fdccda))
+* **sophos:** coletar /siem/v1/events (telemetria de endpoint) ([ec16495](https://github.com/SEGARK-oficial/CentralOps/commit/ec16495c76e0feacd2c1b38e6fd7edbbde5e0fa9))
+
+
+### Bug Fixes
+
+* 4 bugs do console (TTL de dedupe, limpar PII em rotas, autor das versões, economia em moeda) ([288487a](https://github.com/SEGARK-oficial/CentralOps/commit/288487a39061e410e7a0698a1a99ae2f219ec27e))
+* **api:** recusa campo desconhecido em UPDATE e conserta dialect/spec_kind ([51fc7bc](https://github.com/SEGARK-oficial/CentralOps/commit/51fc7bcd1aaa97030b3f59890f5bc3b38ceb4803))
+* **capture:** impede o tap de diagnostico de derrubar a coleta ([e895bea](https://github.com/SEGARK-oficial/CentralOps/commit/e895bea5cdef6424cb2d27abcdd5cc6b4c45e813))
+* **capture:** orcamento de bytes RESIDENTES e teto global de sessoes ([61e9159](https://github.com/SEGARK-oficial/CentralOps/commit/61e915922fbfb555751447fa0bf9c9137b7dbf1f))
+* **config:** faz o PUT persistir dedupe_ttl_seconds ([d3bc947](https://github.com/SEGARK-oficial/CentralOps/commit/d3bc9473aca157c812575ff43f3a1cbdfbc03d8c))
+* **flow:** nao culpa o preco por GB quando a causa e licenca ou zero legitimo ([1d19dd3](https://github.com/SEGARK-oficial/CentralOps/commit/1d19dd3d3536377b7b38014e234cbe9e49113034))
+* **integrations:** integração nova nunca coletava sem reiniciar o Beat ([9278881](https://github.com/SEGARK-oficial/CentralOps/commit/9278881f471835a4a806f45d4b3b60bb3a6cd09f))
+* **mappings:** resolve o autor das versoes em vez de expor o id cru ([21d183f](https://github.com/SEGARK-oficial/CentralOps/commit/21d183ff086bf25272f98a5f69079b2bf4160a64))
+* **mappings:** serve o vocabulario de acoes da auditoria pelo backend ([68329d1](https://github.com/SEGARK-oficial/CentralOps/commit/68329d137cd5d57105e023cd847a1725e90e0bc1))
+* **routes:** permite limpar campos nullable via null explicito no PUT ([3b03992](https://github.com/SEGARK-oficial/CentralOps/commit/3b0399236b2d687a892e68687b92e8e445c4cc78))
+* **sophos:** alinhar /siem/v1/events ao contrato OAS oficial ([334ef4c](https://github.com/SEGARK-oficial/CentralOps/commit/334ef4c0d1f7aceeeed2a300cdfbe84044554cfe))
+* **sophos:** curar cursor envenenado que causava 400 permanente ([af0de83](https://github.com/SEGARK-oficial/CentralOps/commit/af0de839999c1b7bb1eb0c8dfa3799f4ff246fd9))
+
 ## [2.4.0](https://github.com/SEGARK-oficial/CentralOps/compare/v2.3.0...v2.4.0) (2026-07-25)
 
 
