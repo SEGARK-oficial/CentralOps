@@ -11,7 +11,8 @@ psycopg2-binary>=2.9
 httpx
 pydantic
 pydantic-settings
-cryptography>=48.0.1  # GHSA-537c-gmf6-5ccf (OpenSSL vulnerável nas wheels) → 48.0.1
+cryptography>=50.0.0  # GHSA-537c-gmf6-5ccf (OpenSSL vulnerável nas wheels) → 48.0.1;
+                      # CVE-2026-69247 (fix 50.0.0) e CVE-2026-69249 (fix 49.0.0) → 50.0.0
 pyjwt[crypto]>=2.8  # Validação de id_token OIDC (login Microsoft Entra — Fase 1)
 argon2-cffi>=23.1  # Personal Access Tokens (Fase 1) — hash Argon2id para PATs
 redis>=5.0.0
@@ -21,7 +22,8 @@ python-json-logger>=2.0
 celery>=5.3,<6
 celery-redbeat>=2.2,<3  # Redis-backed dynamic Beat scheduler (Fase 1.3)
 aiokafka>=0.10,<0.12  # Onda 3 — data-plane durável (producer/consumer Kafka/Redpanda)
-aiohttp>=3.14.1  # 3.14.1+ corrige 11 CVEs (CVE-2026-*) do 3.13.5. O cap <3.14
+aiohttp>=3.14.3  # 3.14.1+ corrige 11 CVEs (CVE-2026-*) do 3.13.5; 3.14.3 fecha
+                 # CVE-2026-69244 (HIGH), que o gate Trivy do build acusa. O cap <3.14
                  # antigo existia por causa do aioresponses (abandonado em 0.7.8,
                  # incompatível com o stream_writer obrigatório do 3.14); os mocks
                  # HTTP dos coletores migraram para o helper interno
