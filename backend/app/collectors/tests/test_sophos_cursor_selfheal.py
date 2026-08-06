@@ -18,11 +18,10 @@ persistir no cursor um valor que a API rejeitaria.
 
 from __future__ import annotations
 
-import re
 
 import pytest
 
-from app.collectors.vendors.sophos import (
+from ..vendors.sophos import (
     _CANON_TS_RE,
     _default_lookback_iso,
     _normalize_ts,

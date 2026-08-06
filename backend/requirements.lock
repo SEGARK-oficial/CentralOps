@@ -1,13 +1,11 @@
 aiohappyeyeballs==2.6.1
     # via aiohttp
-aiohttp==3.14.1
+aiohttp==3.14.3
     # via -r requirements.txt
 aiokafka==0.11.0
-    # via -r requirements.txt  # Onda 3 — data-plane durável
+    # via -r requirements.txt
 aiosignal==1.4.0
     # via aiohttp
-async-timeout==5.0.1
-    # via aiokafka
 alembic==1.18.4
     # via -r requirements.txt
 amqp==5.3.1
@@ -25,6 +23,8 @@ argon2-cffi==25.1.0
     # via -r requirements.txt
 argon2-cffi-bindings==25.1.0
     # via argon2-cffi
+async-timeout==5.0.1
+    # via aiokafka
 attrs==26.1.0
     # via aiohttp
 billiard==4.2.4
@@ -56,8 +56,10 @@ click-plugins==1.1.1.2
     # via celery
 click-repl==0.3.0
     # via celery
-cryptography==48.0.1
-    # via -r requirements.txt
+cryptography==50.0.0
+    # via
+    #   -r requirements.txt
+    #   pyjwt
 fakeredis[lua]==2.35.1
     # via -r requirements.txt
 fastapi==0.136.1
@@ -101,23 +103,21 @@ orjson==3.11.9
     # via -r requirements.txt
 packaging==26.2
     # via
-    #   aioresponses
+    #   aiokafka
     #   kombu
     #   pytest
 pluggy==1.6.0
     # via pytest
-prometheus-client==0.25.0
-    # via -r requirements.txt
-python-json-logger==4.1.0
-    # via -r requirements.txt
 prompt-toolkit==3.0.52
     # via click-repl
-psycopg2-binary==2.9.10
-    # via -r requirements.txt
 propcache==0.4.1
     # via
     #   aiohttp
     #   yarl
+psycopg2-binary==2.9.10
+    # via -r requirements.txt
+py-cpuinfo==9.0.0
+    # via pytest-benchmark
 pycparser==3.0
     # via cffi
 pydantic==2.13.3
@@ -137,33 +137,50 @@ pytest==9.0.3
     # via
     #   -r requirements.txt
     #   pytest-asyncio
+    #   pytest-benchmark
 pytest-asyncio==1.3.0
     # via -r requirements.txt
+pytest-benchmark==5.2.3
+    # via -r requirements.txt
 python-dateutil==2.9.0.post0
-    # via celery
+    # via
+    #   celery
+    #   celery-redbeat
 python-dotenv==1.2.2
     # via
     #   pydantic-settings
     #   uvicorn
+python-json-logger==4.1.0
+    # via -r requirements.txt
 pyyaml==6.0.3
     # via uvicorn
 redis==7.4.0
     # via
     #   -r requirements.txt
+    #   celery-redbeat
     #   fakeredis
 six==1.17.0
     # via python-dateutil
 sortedcontainers==2.4.0
     # via fakeredis
 sqlalchemy==2.0.49
-    # via -r requirements.txt
+    # via
+    #   -r requirements.txt
+    #   alembic
 starlette==1.3.1
-    # via fastapi
+    # via
+    #   -r requirements.txt
+    #   fastapi
 tenacity==9.1.4
-    # via -r requirements.txt
+    # via
+    #   -r requirements.txt
+    #   celery-redbeat
 typing-extensions==4.15.0
     # via
+    #   aiohttp
+    #   aiokafka
     #   aiosignal
+    #   alembic
     #   anyio
     #   fastapi
     #   pydantic

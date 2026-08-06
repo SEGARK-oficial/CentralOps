@@ -60,7 +60,7 @@ RUN if [ "$INSTALL_OTEL" = "true" ]; then \
 # acusa como HIGH no site-packages copiado para a imagem final: força as versões
 # CORRIGIDAS. wheel CVE-2026-24049 (escalada via wheel malicioso) → 0.46.2;
 # jaraco.context CVE-2026-23949 (path traversal em tar) → 6.1.0.
-RUN pip install --no-cache-dir --upgrade "setuptools" "wheel>=0.46.2" "jaraco.context>=6.1.0"
+RUN pip install --no-cache-dir --upgrade "setuptools>=78.1.1" "wheel>=0.46.2" "jaraco.context>=6.1.0"
 
 # ── Stage 4: Cython compile ──────────────────────────────────────────────────
 # Bullseye (not slim) — Cython needs gcc/g++/python3-dev to build .so.
@@ -127,7 +127,7 @@ RUN apt-get update && \
 # (vendado no setuptools). O runtime usa /opt/venv, mas o scanner varre o FS todo
 # — então corrigimos a cópia do sistema também. `python` aqui ainda é /usr/local
 # (o PATH do venv só entra abaixo).
-RUN python -m pip install --no-cache-dir --upgrade pip setuptools "wheel>=0.46.2"
+RUN python -m pip install --no-cache-dir --upgrade pip "setuptools>=78.1.1" "wheel>=0.46.2"
 
 COPY --from=backend-deps /opt/venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
@@ -155,6 +155,28 @@ COPY scripts/start-collector.sh /usr/local/bin/start-collector.sh
 COPY scripts/cops-celery.sh /usr/local/bin/cops-celery
 RUN sed -i 's/\r$//' /usr/local/bin/start-api.sh /usr/local/bin/start-collector.sh /usr/local/bin/cops-celery \
     && chmod +x /usr/local/bin/start-api.sh /usr/local/bin/start-collector.sh /usr/local/bin/cops-celery
+
+# Remove o pip da imagem de RUNTIME. Nada aqui o usa — os entrypoints chamam
+# uvicorn/celery direto de /opt/venv/bin — e mantê-lo custa duas coisas:
+#
+#  1. CVEs que não temos como corrigir. O pip VENDORIZA cópias de bibliotecas em
+#     ``pip/_vendor/`` e as declara em ``pip/_vendor/vendor.txt``, que o Trivy lê
+#     como se fossem pacotes instalados: hoje ``msgpack==1.1.2``
+#     (GHSA-6v7p-g79w-8964) e ``setuptools==70.3.0`` (CVE-2025-47273), ambos HIGH.
+#     A versão é escolhida pelo pip upstream — não há pin nosso que resolva, e os
+#     setuptools de verdade da imagem estão em 83.0.0.
+#  2. Superfície de ataque: um pip presente transforma execução de código
+#     arbitrário em instalação de pacote arbitrário.
+#
+# Se algum dia um entrypoint precisar instalar algo em runtime, isto tem de ser
+# revisto — mas instalar pacote em produção não deveria ser um requisito.
+RUN python -m pip uninstall -y pip 2>/dev/null || true; \
+    rm -rf /opt/venv/lib/python3.11/site-packages/pip \
+           /opt/venv/lib/python3.11/site-packages/pip-*.dist-info \
+           /opt/venv/bin/pip /opt/venv/bin/pip3 /opt/venv/bin/pip3.11 \
+           /usr/local/lib/python3.11/site-packages/pip \
+           /usr/local/lib/python3.11/site-packages/pip-*.dist-info \
+           /usr/local/bin/pip /usr/local/bin/pip3 /usr/local/bin/pip3.11
 
 # roda NON-ROOT (uid 10001, grupo 0 — compatível com runAsNonRoot
 # do k8s e plataformas de uid arbitrário/OpenShift). Em prod a APP_MASTER_KEY vem

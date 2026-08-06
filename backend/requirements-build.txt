@@ -3,5 +3,8 @@
 # Not installed into the runtime image (the compiled .so files do not
 # depend on Cython at runtime).
 cython>=3.0,<4
-setuptools>=68
+# >=78.1.1 fecha CVE-2025-47273 (path traversal no PackageIndex), HIGH no gate
+# Trivy. Um piso frouxo (>=68) deixa o pip aceitar o que já estiver instalado —
+# inclusive uma versão vulnerável herdada da imagem base.
+setuptools>=78.1.1
 wheel>=0.42
