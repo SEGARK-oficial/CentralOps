@@ -9,6 +9,13 @@ operador lia "nenhuma atividade" quando a opção simplesmente não existia.
 Estes testes travam a fonte única (``db/mapping_audit.py``) contra os literais
 que os routers realmente gravam. Um ``action="..."`` novo sem entrada na lista
 quebra aqui, e não em produção.
+
+Os casos que fazem varredura TEXTUAL do fonte levam ``@pytest.mark.source_only``:
+o gate de pytest da imagem roda com ``-m "not source_only"`` porque
+``compose/cython-build.sh`` APAGA os ``.py`` depois de compilá-los em ``.so``
+(``app/routers`` está entre os alvos). Sem o marcador eles morrem com
+``FileNotFoundError`` na imagem — foi o que quebrou o ee-ci. As asserções sobre o
+vocabulário em si não leem disco e seguem valendo lá.
 """
 from __future__ import annotations
 
@@ -51,6 +58,7 @@ def _literal_actions() -> set[str]:
     return found
 
 
+@pytest.mark.source_only
 def test_every_written_action_is_in_the_vocabulary() -> None:
     written = _literal_actions()
     assert written, "varredura não achou nenhum action= — o regex quebrou"
@@ -62,6 +70,7 @@ def test_every_written_action_is_in_the_vocabulary() -> None:
     )
 
 
+@pytest.mark.source_only
 def test_vocabulary_has_no_dead_entries() -> None:
     """O inverso: nada na lista que o código não grave.
 
@@ -99,6 +108,7 @@ def test_no_duplicates() -> None:
     assert len(mapping_audit.ACTIONS) == len(set(mapping_audit.ACTIONS))
 
 
+@pytest.mark.source_only
 @pytest.mark.parametrize("action", mapping_audit.DEFINITION_SCOPED_ACTIONS)
 def test_definition_scoped_actions_are_written_with_a_definition_id(action: str) -> None:
     """Cada ação escopada precisa ter um writer que preencha
