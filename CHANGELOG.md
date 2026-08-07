@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.5.1](https://github.com/SEGARK-oficial/CentralOps/compare/v2.5.0...v2.5.1) (2026-08-06)
+
+
+### Bug Fixes
+
+* **deps:** zerar HIGH/CRITICAL no gate Trivy da imagem ([650f67a](https://github.com/SEGARK-oficial/CentralOps/commit/650f67a03c1116019addc32e541bd16cd039165f))
+* **deps:** zerar HIGH/CRITICAL no gate Trivy da imagem ([239f8f5](https://github.com/SEGARK-oficial/CentralOps/commit/239f8f5af629765e75604a17bf893d9a86b7d72d))
+
 ## [2.5.0](https://github.com/SEGARK-oficial/CentralOps/compare/v2.4.0...v2.5.0) (2026-08-05)
 
 
