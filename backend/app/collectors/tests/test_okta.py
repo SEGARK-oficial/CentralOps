@@ -102,7 +102,11 @@ async def test_paginates_via_link_header_and_stops_on_empty() -> None:
 
     assert [e["uuid"] for e in collected] == ["u1", "u2"]
     # cursor = URL do next link (retomada incremental)
-    assert ctx.cursor == {"next_url": next2}
+    # ``since`` viaja junto com o link opaco desde a auto-cura de 4xx: é o piso
+    # de retomada quando o vendor recusa o ``next_url`` (ver
+    # test_cursor_selfheal_4xx). O link continua sendo o que manda no fluxo normal.
+    assert ctx.cursor["next_url"] == next2
+    assert ctx.cursor.get("since"), "o piso temporal precisa ser persistido"
     assert collector.domain == "acme.okta.com"
     assert collector.extract_message_id(collected[0]) == "u1"
 
@@ -146,7 +150,8 @@ async def test_caps_pages_per_cycle_and_saves_resumable_cursor(monkeypatch) -> N
     # PAROU no teto: 3 páginas × 2 eventos = 6 (não seguiu Link infinitamente).
     assert len(collected) == 3 * 2
     # cursor = next_url da PRÓXIMA página (a Link da 3ª resposta) → resumível, não watermark.
-    assert ctx.cursor == {"next_url": _page_link(3)}
+    assert ctx.cursor["next_url"] == _page_link(3)
+    assert ctx.cursor.get("since"), "o piso temporal precisa sobreviver ao teto por ciclo"
 
 
 def test_registered_zero_core_with_ssws_probe() -> None:

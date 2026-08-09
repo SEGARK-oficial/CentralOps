@@ -25,6 +25,7 @@ from urllib.parse import urlparse
 
 from ..base import BaseCollector
 from ..metrics import API_LATENCY
+from ._cursor_selfheal import is_stale_cursor_response, log_stale_cursor
 from ._rate_limit import VendorRateLimitedError
 
 logger = logging.getLogger(__name__)
@@ -100,10 +101,14 @@ class OktaSystemLogCollector(BaseCollector):
         cursor = self.ctx.cursor or {}
         # Retoma da URL do next link salvo; no cold start, monta a janela polling.
         url: Optional[str] = cursor.get("next_url")
+        # Janela de retomada guardada em PARALELO ao ``next_url``. O cursor antes
+        # só carregava o link, então um link recusado pelo vendor não tinha para
+        # onde voltar — e como o caminho de erro do pipeline regrava o cursor
+        # anterior, o link morto era reenviado a cada ciclo indefinidamente.
+        since_floor: str = cursor.get("since") or _default_lookback_iso()
         if not url:
-            since = cursor.get("since") or _default_lookback_iso()
             url = (
-                f"{self._base}/api/v1/logs?since={since}"
+                f"{self._base}/api/v1/logs?since={since_floor}"
                 f"&sortOrder=ASCENDING&limit={_PAGE_SIZE}"
             )
 
@@ -112,15 +117,40 @@ class OktaSystemLogCollector(BaseCollector):
             await self.ctx.rate_limiter.acquire(self.ctx.integration_id, self.platform)
 
             started = time.monotonic()
+            stale_link = False
+            events: Any = []
+            next_url: Optional[str] = None
             async with self.ctx.domain_limiter.slot(self.domain):
                 async with self.ctx.session.get(url, headers=headers) as resp:
                     if resp.status == 429:
                         retry_after = _parse_rate_limit_reset(resp.headers)
                         await self.ctx.rate_limiter.backoff(self.platform, retry_after)
                         raise OktaRateLimitedError(retry_after)
-                    resp.raise_for_status()
-                    events = await resp.json()
-                    next_url = _next_link(resp.headers)
+                    # Só trata como link morto quando estamos SEGUINDO um link do
+                    # vendor. Um 4xx na URL que nós montamos é erro de verdade
+                    # (janela, permissão, domínio) e precisa continuar subindo.
+                    if is_stale_cursor_response(
+                        resp.status, has_opaque_token=bool(cursor.get("next_url"))
+                    ):
+                        stale_link = True
+                        log_stale_cursor(
+                            "okta system_log",
+                            status=resp.status,
+                            integration_id=self.ctx.integration_id,
+                            token_field="next_url",
+                            resume_from=since_floor,
+                            body_preview=(await resp.text())[:200],
+                        )
+                    else:
+                        resp.raise_for_status()
+                        events = await resp.json()
+                        next_url = _next_link(resp.headers)
+            if stale_link:
+                # Encerra por caminho normal para que a escrita abaixo persista o
+                # cursor sem o link: o próximo ciclo remonta a janela a partir de
+                # ``since_floor``. O dedupe do pipeline absorve a re-leitura.
+                self.ctx.cursor = {"since": since_floor}
+                return
 
             API_LATENCY.labels(vendor=self.platform, stream=self.stream).observe(
                 time.monotonic() - started
@@ -130,7 +160,7 @@ class OktaSystemLogCollector(BaseCollector):
                 # Modo polling: o next link sempre existe; array vazio = sem novos
                 # eventos → encerra o ciclo retomando deste ponto na próxima coleta.
                 if next_url:
-                    self.ctx.cursor = {"next_url": next_url}
+                    self.ctx.cursor = {"next_url": next_url, "since": since_floor}
                 break
 
             for ev in events:
@@ -139,7 +169,9 @@ class OktaSystemLogCollector(BaseCollector):
             if not next_url:
                 break
             url = next_url
-            self.ctx.cursor = {"next_url": next_url}
+            # ``since`` viaja junto: é o piso de retomada se este link for
+            # recusado num ciclo futuro (ver ``_cursor_selfheal``).
+            self.ctx.cursor = {"next_url": next_url, "since": since_floor}
 
             # Teto por ciclo: o cursor acima já aponta p/ a PRÓXIMA página (``next_url``,
             # resumível). Encerra o run graciosamente e devolve o slot do worker; o
