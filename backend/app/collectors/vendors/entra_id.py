@@ -27,6 +27,7 @@ from typing import Any, AsyncIterator, Dict, Optional
 
 from ..base import BaseCollector
 from ..metrics import API_LATENCY
+from ._cursor_selfheal import is_stale_cursor_response, log_stale_cursor
 from ._rate_limit import VendorRateLimitedError
 
 logger = logging.getLogger(__name__)
@@ -100,6 +101,8 @@ class EntraSignInsCollector(BaseCollector):
             await self.ctx.rate_limiter.acquire(self.ctx.integration_id, self.platform)
 
             started = time.monotonic()
+            stale_link = False
+            payload: Dict[str, Any] = {}
             async with self.ctx.domain_limiter.slot(self.domain):
                 async with self.ctx.session.get(
                     url, headers=self.ctx.headers, params=params
@@ -108,8 +111,29 @@ class EntraSignInsCollector(BaseCollector):
                         retry_after = _parse_retry_after(resp.headers.get("Retry-After"))
                         await self.ctx.rate_limiter.backoff(self.platform, retry_after)
                         raise EntraRateLimitedError(retry_after)
-                    resp.raise_for_status()
-                    payload = await resp.json()
+                    # ``@odata.nextLink`` é link opaco do Graph e tem validade.
+                    # Um 4xx nele travaria o stream: a exceção faz o pipeline
+                    # regravar o cursor anterior, reenviando o link morto todo
+                    # ciclo. Descartamos e voltamos ao ``$filter`` por ``last_ts``,
+                    # que o cursor já carrega ao lado do link.
+                    if is_stale_cursor_response(
+                        resp.status, has_opaque_token=bool(cursor.get("@odata.nextLink"))
+                    ):
+                        stale_link = True
+                        log_stale_cursor(
+                            f"entra_id {self.stream}",
+                            status=resp.status,
+                            integration_id=self.ctx.integration_id,
+                            token_field="@odata.nextLink",
+                            resume_from=last_ts,
+                            body_preview=(await resp.text())[:200],
+                        )
+                    else:
+                        resp.raise_for_status()
+                        payload = await resp.json()
+            if stale_link:
+                self.ctx.cursor = {self._CURSOR_FIELD: last_ts, "@odata.nextLink": None}
+                return
 
             API_LATENCY.labels(vendor=self.platform, stream=self.stream).observe(
                 time.monotonic() - started

@@ -45,6 +45,7 @@ from typing import Any, AsyncIterator, Dict, Optional
 
 from ..base import BaseCollector
 from ..metrics import API_LATENCY
+from ._cursor_selfheal import is_stale_cursor_response, log_stale_cursor
 from ._sophos_common import resolve_sophos_domain
 from .sophos import _normalize_ts, _safe_cursor_ts  # timestamp compartilhado
 
@@ -172,18 +173,33 @@ class SophosDetectionsCollector(BaseCollector):
             }
 
             started = time.monotonic()
+            stale_run = False
+            payload: Dict[str, Any] = {}
             async with self.ctx.domain_limiter.slot(self.domain):
                 async with self.ctx.session.get(
                     results_url, headers=self.ctx.headers, params=params
                 ) as resp:
-                    if 400 <= resp.status < 500 and resp.status != 401:
-                        body_preview = (await resp.text())[:500]
-                        logger.warning(
-                            "sophos detections: results HTTP %s run_id=%s page=%s body=%s",
-                            resp.status, run_id, page, body_preview,
+                    if is_stale_cursor_response(resp.status, has_opaque_token=bool(run_id)):
+                        # O run do Data Lake expirou ou foi invalidado. Encerramos
+                        # o ciclo SEM levantar: no caminho de exceção o pipeline
+                        # regrava ``cursor_before``, o ``run_id`` morto voltaria e
+                        # cada ciclo recriaria o run só para tomar o mesmo 4xx na
+                        # mesma página — o feed ficaria parado até um reset manual
+                        # (observado em produção com 400 em .../results?page=6).
+                        stale_run = True
+                        log_stale_cursor(
+                            "sophos detections",
+                            status=resp.status,
+                            integration_id=self.ctx.integration_id,
+                            token_field=f"run_id={run_id} page={page}",
+                            resume_from=from_ts,
+                            body_preview=(await resp.text())[:200],
                         )
-                    resp.raise_for_status()
-                    payload = await resp.json()
+                    else:
+                        resp.raise_for_status()
+                        payload = await resp.json()
+            if stale_run:
+                break
 
             API_LATENCY.labels(vendor=self.platform, stream=self.stream).observe(
                 time.monotonic() - started

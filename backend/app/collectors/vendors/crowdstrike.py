@@ -39,6 +39,7 @@ from ..capabilities import (
     QueryCapability,
 )
 from ..metrics import API_LATENCY
+from ._cursor_selfheal import is_stale_cursor_response, log_stale_cursor
 from ._rate_limit import VendorRateLimitedError
 
 logger = logging.getLogger(__name__)
@@ -157,6 +158,8 @@ class CrowdStrikeDetectionsCollector(BaseCollector):
                 body["after"] = after
 
             started = time.monotonic()
+            stale_after = False
+            payload: Dict[str, Any] = {}
             async with self.ctx.domain_limiter.slot(self.domain):
                 async with self.ctx.session.post(
                     url, json=body, headers=self.ctx.headers
@@ -165,8 +168,26 @@ class CrowdStrikeDetectionsCollector(BaseCollector):
                         retry_after = _parse_retry_after(resp.headers)
                         await self.ctx.rate_limiter.backoff(self.platform, retry_after)
                         raise CrowdStrikeRateLimitedError(retry_after)
-                    resp.raise_for_status()
-                    payload = await resp.json()
+                    # ``after`` é token opaco do vendor: quando expira, o 4xx
+                    # sobe, o pipeline regrava o cursor anterior e o token morto
+                    # é reenviado para sempre. Descartamos e recomeçamos pela
+                    # janela ``created_after``, que o cursor já carrega.
+                    if is_stale_cursor_response(resp.status, has_opaque_token=bool(after)):
+                        stale_after = True
+                        log_stale_cursor(
+                            "crowdstrike detections",
+                            status=resp.status,
+                            integration_id=self.ctx.integration_id,
+                            token_field="after",
+                            resume_from=created_after,
+                            body_preview=(await resp.text())[:200],
+                        )
+                    else:
+                        resp.raise_for_status()
+                        payload = await resp.json()
+            if stale_after:
+                self.ctx.cursor = {"created_after": created_after, "after": None}
+                return
 
             API_LATENCY.labels(vendor=self.platform, stream=self.stream).observe(
                 time.monotonic() - started
