@@ -24,6 +24,7 @@ ignorado. O evento SEMPRE segue. Enriquecimento é observador, nunca porteiro �
 
 from __future__ import annotations
 
+import copy
 from dataclasses import dataclass, field
 from typing import Any, Dict, Mapping, MutableMapping, Optional, Sequence, Tuple
 
@@ -235,6 +236,18 @@ def _write_outputs(
                 # (`override: true`), e é a escolha certa aqui: o enriquecimento
                 # nunca deve apagar o que o vendor afirmou.
                 continue
+        if isinstance(payload, (dict, list)):
+            # Copiar ANTES de escrever. As três fontes de `payload` são objetos
+            # COMPARTILHADOS: a linha da tabela residente (viva pelo ciclo inteiro,
+            # todos os eventos com a mesma chave), o valor do lote remoto (todos os
+            # eventos com a mesma chave) e `out.default` (constante compilada, viva
+            # para sempre). Escrever a referência faria uma regra cujo target fica
+            # SOB o de outra mutar o objeto compartilhado — o evento seguinte
+            # herdaria o campo mesmo com o gate `when` falso, com `_sources` mentindo
+            # sobre a origem; e dois outputs com o mesmo `from` produziriam envelope
+            # auto-referente, cujo `dumps_bytes` derruba o lote inteiro no despacho.
+            # Escalar (o caso comum: um site, uma criticidade, um score) não paga nada.
+            payload = copy.deepcopy(payload)
         if _set_path(envelope, out.target_path, payload):
             wrote = True
     return wrote

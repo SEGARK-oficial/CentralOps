@@ -27,7 +27,7 @@ from dataclasses import dataclass, replace
 from typing import Any, Dict, List, Mapping, MutableMapping, Optional, Sequence, Tuple
 
 from ..normalize.dotpath import compile_source  # noqa: F401  (reexport p/ testes)
-from .applier import ApplyStats, apply, extract_key
+from .applier import ApplyStats, apply, evaluate_when, extract_key
 from .cache import CacheState, EnrichCache, L1Cache, build_redis_client, cache_key
 from .contract import EnrichContext, EnricherRegistration, LookupTable
 from .dsl import CompiledEnrichRule, CompiledPolicy, compile_policy
@@ -442,7 +442,15 @@ class EnrichRuntime:
                         await cache.release_single_flight(ck[key])
 
             for key in owned:
-                rows[(rule.rule_id, key)] = resolved.get(key)
+                # `in`, não `.get()`: chave que o provedor OMITIU do retorno é
+                # UNKNOWN (cota 429, erro por chave, corte por max_keys_per_batch),
+                # e gravá-la como None aqui a transformaria em miss CONFIRMADO —
+                # o applier aplicaria `on_miss` e fabricaria veredito limpo com
+                # proveniência falsa. Ausente do mapa ⇒ BulkResolution.get devolve
+                # (False, None) ⇒ o applier pula sem contar miss. Mesmo predicado
+                # da escrita do cache logo abaixo, pelo mesmo motivo.
+                if key in resolved:
+                    rows[(rule.rule_id, key)] = resolved[key]
 
             if cache is not None:
                 # Só o que o provedor DE FATO respondeu. Chave ausente do retorno é
@@ -618,14 +626,29 @@ def _settings():
 def _distinct_keys(
     batch: Sequence[Mapping[str, Any]], rule: CompiledEnrichRule
 ) -> List[str]:
-    """Chaves DISTINTAS do lote para uma regra.
+    """Chaves DISTINTAS do lote para uma regra, JÁ FILTRADAS pelo gate ``when``.
 
     É a economia central do seam remoto: 200 eventos de um mesmo host colapsam em
     UMA chave, logo UMA chamada. Sem dedup aqui, "bulk" seria só um laço com nome
     melhor. Ordem estável (dict preserva inserção) para o teste ser determinístico.
+
+    O gate roda AQUI, não só no applier: no seam remoto o `when` é o controle de
+    custo e de EGRESSO (ADR-LOCAL-0002 §4.1). Avaliá-lo apenas na escrita deixaria
+    a chamada externa já ter acontecido — o indicador do cliente sairia para o
+    terceiro e a cota seria gasta justamente com o que a política proibia consultar,
+    sem nada aparecer no payload para o operador perceber.
+
+    A chave entra se QUALQUER evento do lote passar o gate: dedup não pode descartar
+    a chave de um evento que passa por causa de outro, com a mesma chave, que não passa.
     """
     seen: Dict[str, None] = {}
     for envelope in batch:
+        if rule.when is not None:
+            try:
+                if not evaluate_when(rule.when, envelope):
+                    continue
+            except Exception:  # noqa: BLE001 — predicado nunca derruba o lote
+                continue
         key = extract_key(envelope, rule)
         if key is not None:
             seen.setdefault(key, None)

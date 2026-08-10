@@ -845,3 +845,113 @@ def test_bulk_resolution_distinguishes_unresolved_from_miss():
     assert res.get("r1", "a") == (True, {"score": 1})
     assert res.get("r1", "b") == (True, None)      # miss confirmado
     assert res.get("r1", "c") == (False, None)     # não resolvida (cota/erro)
+
+
+# ── Regressões da revisão adversarial (ago/2026) ─────────────────────────────
+# Os quatro defeitos abaixo passaram pela suíte original porque cada UNIDADE
+# estava correta e o erro morava no CHAMADOR. `test_bulk_resolution_distinguishes
+# _unresolved_from_miss`, logo acima, é o exemplo: a estrutura sempre soube
+# separar UNKNOWN de MISS — quem preenchia é que não sabia.
+
+
+def test_distinct_keys_respects_the_when_gate():
+    """Chave gatada por ``when`` NÃO pode ser enviada ao enricher remoto.
+
+    No seam remoto o ``when`` é o controle de EGRESSO, não só de escrita
+    (ADR-LOCAL-0002 §4.1): avaliá-lo apenas no applier deixaria a chamada externa
+    já ter acontecido — o indicador do cliente sairia para o terceiro e a cota
+    seria gasta com o que a política proibia consultar, sem nada no payload
+    denunciando isso.
+    """
+    from backend.app.collectors.enrich.runtime import _distinct_keys
+
+    policy = compile_policy([
+        _rule(
+            id="vt",
+            enricher="virustotal",
+            mode="remote",
+            when={"lacks_tag": ["asset_known"]},
+            outputs=[{"from": "malicious", "target": "_centralops.enrichment.vt.m"}],
+        )
+    ])
+    rule = policy.remote_rules()[0]
+
+    gated = _envelope("10.0.0.1")
+    gated["_centralops"]["enrichment_tags"] = ["asset_known"]  # gate FALSO
+    allowed = _envelope("10.0.0.2")                            # gate VERDADEIRO
+
+    assert _distinct_keys([gated], rule) == []
+    assert _distinct_keys([allowed], rule) == ["10.0.0.2"]
+    # Dedup não pode descartar a chave de quem passa por causa de quem não passa.
+    same_key_gated = _envelope("10.0.0.2")
+    same_key_gated["_centralops"]["enrichment_tags"] = ["asset_known"]
+    assert _distinct_keys([same_key_gated, allowed], rule) == ["10.0.0.2"]
+
+
+def test_key_omitted_by_provider_stays_unknown_not_confirmed_miss():
+    """Chave que o provedor OMITIU não pode virar miss confirmado.
+
+    Omissão = cota 429, erro por chave, corte por ``max_keys_per_batch``. Gravá-la
+    como ``None`` faria o applier rodar ``on_miss`` e FABRICAR veredito limpo com
+    proveniência falsa — um "0 detecções" que o analista leria como consultado.
+    """
+    from backend.app.collectors.enrich.runtime import BulkResolution
+
+    owned = ["a", "b", "c"]
+    resolved = {"a": {"malicious": 3}, "b": None}  # "c" omitida pelo provedor
+
+    rows = {}
+    for key in owned:
+        if key in resolved:            # ← o predicado corrigido
+            rows[("vt", key)] = resolved[key]
+
+    res = BulkResolution(rows)
+    assert res.get("vt", "a") == (True, {"malicious": 3})  # hit
+    assert res.get("vt", "b") == (True, None)              # miss CONFIRMADO
+    assert res.get("vt", "c") == (False, None)             # UNKNOWN — applier pula
+
+
+def test_written_value_is_copied_not_aliased_to_the_resident_table():
+    """Escrever a referência da linha da tabela corrompe o estado residente.
+
+    Consequências reais, todas reproduzidas: a linha da tabela é mutada; o evento
+    seguinte herda o campo mesmo com o gate FALSO (bypass silencioso de ``when``,
+    com ``_sources`` mentindo sobre a origem); e dois outputs com o mesmo ``from``
+    produzem envelope auto-referente, cujo dump derruba o lote inteiro no despacho.
+    """
+    rows = {"10.0.0.1": {"asset": {"site": "matriz"}, "zone": "dmz"}}
+    table = DictLookupTable(rows)
+
+    policy = compile_policy([
+        _rule(
+            id="a",
+            enricher="table_exact",
+            table="t",
+            outputs=[{"from": "asset", "target": "_centralops.enrichment.asset"}],
+        )
+    ])
+    stats = ApplyStats()
+    env = _envelope("10.0.0.1")
+    apply(env, policy.local_rules(), TableResolution({"a": table}), stats)
+
+    written = env["_centralops"]["enrichment"]["asset"]
+    assert written == {"site": "matriz"}
+    # O valor escrito NÃO é o objeto da tabela.
+    assert written is not rows["10.0.0.1"]["asset"]
+    written["contaminado"] = True
+    assert "contaminado" not in rows["10.0.0.1"]["asset"], (
+        "mutar o valor escrito no evento alterou a tabela residente"
+    )
+
+
+def test_dsl_rejects_unknown_key_inside_when():
+    """O gate era o único objeto da DSL sem recusa de chave desconhecida.
+
+    Sem ela, ``lacks_tags`` (plural, digitado por engano) compilava com o gate
+    reduzido a ``exists`` e a condição escrita pelo operador sumia sem 422 nem log
+    — fail-OPEN no campo que decide egresso, numa DSL vendida como fail-closed.
+    """
+    with pytest.raises(EnrichmentConfigError, match="desconhecida"):
+        compile_policy([
+            _rule(when={"exists": "normalized.src_endpoint.ip", "lacks_tags": ["x"]})
+        ])

@@ -522,10 +522,18 @@ def _account_enrichment_bytes(
         return
     try:
         cc = envelope.get("_centralops") or {}
-        payload = {
-            "enrichment": cc.get("enrichment"),
-            "enrichment_tags": cc.get("enrichment_tags"),
-        }
+        enrichment = cc.get("enrichment")
+        tags = cc.get("enrichment_tags")
+        if enrichment is None and tags is None:
+            # Evento NÃO enriquecido não acrescentou byte nenhum. Sem este corte,
+            # serializar `{"enrichment":null,"enrichment_tags":null}` cobra 42 B
+            # fixos de todo evento do lote — inclusive numa política 100% local,
+            # porque o `finally` de `_enrich_remote_batch` chama isto para o lote
+            # inteiro. O erro escalaria com o volume TOTAL, não com o enriquecido,
+            # num KPI que nasce ligado (COST_METERING_ENABLED=True por default) e
+            # que o dry-run, medindo por diff real, reporta como 0 no mesmo evento.
+            return
+        payload = {"enrichment": enrichment, "enrichment_tags": tags}
         from .output._fastjson import dumps_bytes
 
         accumulator.add(organization_id, "enrichment", float(len(dumps_bytes(payload))))
@@ -1633,7 +1641,12 @@ async def _run_collection_once(integration_id: int, stream: str) -> None:
                             organization_id, integration_id,
                             _enrich_apply, _enrich_stats, _metering_added,
                         )
-                        _enqueue_dispatch(batch, dispatch_routes)
+                        _enqueue_dispatch(
+                            batch, dispatch_routes,
+                            enrich_skip_reason=(
+                                None if _enrich_policy is not None else "no_policy"
+                            ),
+                        )
                         _flush_capture_buf(
                             capture_buf, organization_id, platform,
                             integration_id, stream,
@@ -1694,7 +1707,12 @@ async def _run_collection_once(integration_id: int, stream: str) -> None:
                     organization_id, integration_id,
                     _enrich_apply, _enrich_stats, _metering_added,
                 )
-                _enqueue_dispatch(batch, dispatch_routes)
+                _enqueue_dispatch(
+                    batch, dispatch_routes,
+                    enrich_skip_reason=(
+                        None if _enrich_policy is not None else "no_policy"
+                    ),
+                )
                 _record_source_ingested(integration_id, len(batch))
                 _flush_capture_buf(
                     capture_buf, organization_id, platform, integration_id, stream,
@@ -1863,6 +1881,8 @@ async def _run_collection_once(integration_id: int, stream: str) -> None:
 def _enqueue_dispatch(
     batch: list[Dict[str, Any]],
     routes: Optional[list[Any]] = None,
+    *,
+    enrich_skip_reason: Optional[str] = "producer_unsupported",
 ) -> None:
     """Publica lote pelo ROTEAMENTO (modelo único).
 
@@ -1883,13 +1903,22 @@ def _enqueue_dispatch(
     # scheduler) não passam pelo enriquecimento — ver ``enrich.note_unenriched``.
     # A omissão é MARCADA no envelope, nunca silenciosa: sem isso, um evento sem
     # contexto no destino é indistinguível de um que foi enriquecido e não casou.
-    # Lotes vindos do laço de coleta já têm ``enrichment`` e são ignorados aqui.
-    try:
-        from .enrich.runtime import note_unenriched
+    #
+    # O motivo vem do CALLER, não de inferência sobre o envelope. Inferir por
+    # ``"enrichment" in cc`` rotularia como ``producer_unsupported`` todo evento que
+    # PASSOU pelo enriquecimento e não casou nenhuma regra — a chave só nasce quando
+    # alguma regra ESCREVE. O resultado era um envelope autocontraditório entregue ao
+    # SIEM (``enrichment_tags`` presente ao lado de ``enrichment_skipped:
+    # producer_unsupported``) e, numa org com a flag ligada e sem política, o
+    # rótulo errado em 100% do tráfego. O laço de coleta passa ``None`` (rodou) ou
+    # ``no_policy``; só os produtores bulk ficam com o default.
+    if enrich_skip_reason is not None:
+        try:
+            from .enrich.runtime import note_unenriched
 
-        note_unenriched(batch, "producer_unsupported")
-    except Exception:  # noqa: BLE001 — marcação nunca bloqueia o despacho
-        logger.debug("enrich: falha ao marcar lote não-enriquecido", exc_info=True)
+            note_unenriched(batch, enrich_skip_reason)
+        except Exception:  # noqa: BLE001 — marcação nunca bloqueia o despacho
+            logger.debug("enrich: falha ao marcar lote não-enriquecido", exc_info=True)
     _enqueue_routed(batch, routes)
 
 

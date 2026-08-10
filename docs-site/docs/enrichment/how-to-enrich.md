@@ -279,7 +279,11 @@ O console lê o mesmo estado que a API acabou de escrever — não precisa de ne
 
 ## Usando uma fonte pronta (OpenCTI, VirusTotal)
 
-O mesmo formato de regra vale para os enrichers do catálogo — só muda o `enricher` e, em vez de `table`, você configura a fonte com suas próprias credenciais (isso é feito na configuração do enricher, fora do escopo deste guia rápido).
+:::warning[Estas duas ainda não são utilizáveis nesta versão]
+OpenCTI e VirusTotal aparecem no catálogo, mas **ainda não existe onde informar a URL da instância ou a chave de API** — nem no console, nem na API, nem na regra. Uma regra que os use falha fail-closed (o evento segue sem contexto; nada é perdido e nenhum indicador sai para terceiro). Fornecer configuração e referência de segredo por regra é a próxima fase do ADR-LOCAL-0002. O que está completo hoje são as tabelas do cliente (`table_exact` / `table_cidr`) — o exemplo acima.
+:::
+
+O mesmo formato de regra vale para os enrichers do catálogo — só muda o `enricher` e, em vez de `table`, você configura a fonte com suas próprias credenciais.
 
 Duas diferenças importantes a considerar antes de usar uma fonte externa:
 

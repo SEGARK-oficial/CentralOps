@@ -182,6 +182,13 @@ def _compile_when(raw: Any, where: str) -> Optional[CompiledWhen]:
     if not isinstance(raw, Mapping):
         raise EnrichmentConfigError(f"{where}.when: deve ser objeto")
 
+    # O gate era o ÚNICO objeto da DSL sem esta recusa — regra, key, output e
+    # política já a fazem. Sem ela, `{"exists": ..., "lacks_tags": [...]}` (plural
+    # digitado por engano) compilava com o gate reduzido a `exists`, e a condição
+    # que o operador escreveu sumia sem 422, log ou aviso: fail-OPEN no compilador
+    # que o ADR vende como fail-closed, no campo que decide egresso.
+    _reject_unknown(raw, _WHEN_KEYS, f"{where}.when")
+
     present = _WHEN_KEYS & set(raw.keys())
     if not present:
         raise EnrichmentConfigError(
