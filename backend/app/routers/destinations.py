@@ -1,7 +1,5 @@
 """REST endpoints for Destinations CRUD.
 
-Endpoints (all admin-only):
-
 - ``GET  /api/collectors/destinations``              — list (org-scoped)
 - ``POST /api/collectors/destinations``              — create
 - ``GET  /api/collectors/destinations/destination-types`` — catalog
@@ -9,6 +7,16 @@ Endpoints (all admin-only):
 - ``PUT  /api/collectors/destinations/{id}``         — partial update
 - ``DELETE /api/collectors/destinations/{id}``       — hard delete
 - ``POST /api/collectors/destinations/{id}/test``    — live probe
+
+RBAC — LEITURA e ESCRITA são separadas:
+  - GETs de configuração/observabilidade (list, get, destination-types, health,
+    health em lote, dlq, metrics) exigem ``destination.read`` (viewer+).
+  - Toda ESCRITA (create/update/delete, test, shadow, dlq/reprocess, rotação e
+    revogação de credencial) segue exigindo ``user.manage`` via
+    ``require_admin_user``.
+  - Exceções que PERMANECEM admin apesar de serem GET, por classe de dado:
+    ``/{id}/tap`` (tap ao vivo do que está trafegando), ``/{id}/credential/audit``,
+    ``/{id}/audit``, ``/{id}/lineage`` e o lineage por evento.
 
 Security invariants:
   - ``hec_token`` / ``secret_ref`` NEVER appear in responses, logs, or audit.
@@ -227,7 +235,9 @@ def _assert_mutable(
 
 @router.get("/destination-types", response_model=List[DestinationTypeRead])
 def get_destination_types(
-    _: models.AppUser = Depends(app_auth.require_admin_user),
+    _: models.AppUser = Depends(
+        app_auth.require_permission(app_auth.Permission.DESTINATION_READ)
+    ),
 ) -> List[DestinationTypeRead]:
     """Return the catalog of registered destination kinds.
 
@@ -343,7 +353,9 @@ def list_destinations(
     include_disabled: bool = Query(default=False),
     offset: int = Query(default=0, ge=0),
     limit: int = Query(default=50, ge=1, le=200),
-    user: models.AppUser = Depends(app_auth.require_admin_user),
+    user: models.AppUser = Depends(
+        app_auth.require_permission(app_auth.Permission.DESTINATION_READ)
+    ),
     repo: repository.DestinationRepository = Depends(_get_repo),
 ) -> List[DestinationRead]:
     """List destinations visible to the caller.
@@ -380,7 +392,9 @@ def list_destinations(
 @router.get("/health", response_model=DestinationHealthBatchResponse)
 async def destinations_health_batch(
     include_disabled: bool = Query(default=True),
-    user: models.AppUser = Depends(app_auth.require_admin_user),
+    user: models.AppUser = Depends(
+        app_auth.require_permission(app_auth.Permission.DESTINATION_READ)
+    ),
     repo: repository.DestinationRepository = Depends(_get_repo),
 ) -> DestinationHealthBatchResponse:
     """Batch health for EVERY destination visible to the caller — one call feeds
@@ -391,7 +405,7 @@ async def destinations_health_batch(
     their org's destinations + global rows). Each item has the same shape as the
     single ``GET /{id}/health`` (status/breaker_state/dlq/eps/bytes) plus
     name/kind. ``include_disabled`` defaults True so disabled destinations still
-    surface a ``disabled`` badge in the UI. Admin-only.
+    surface a ``disabled`` badge in the UI. Requires ``destination.read``.
     """
     is_global, caller_org = _resolve_scope(user)
 
@@ -445,7 +459,9 @@ async def destinations_health_batch(
 @router.get("/{destination_id}", response_model=DestinationRead)
 def get_destination(
     destination_id: str,
-    user: models.AppUser = Depends(app_auth.require_admin_user),
+    user: models.AppUser = Depends(
+        app_auth.require_permission(app_auth.Permission.DESTINATION_READ)
+    ),
     repo: repository.DestinationRepository = Depends(_get_repo),
 ) -> DestinationRead:
     """Fetch a single destination by ID.
@@ -903,12 +919,14 @@ async def _compute_destination_health(
 @router.get("/{destination_id}/health", response_model=DestinationHealthResponse)
 async def destination_health(
     destination_id: str,
-    user: models.AppUser = Depends(app_auth.require_admin_user),
+    user: models.AppUser = Depends(
+        app_auth.require_permission(app_auth.Permission.DESTINATION_READ)
+    ),
     repo: repository.DestinationRepository = Depends(_get_repo),
 ) -> DestinationHealthResponse:
     """Health snapshot for a destination (DB DLQ counters + Redis breaker state).
 
-    Org-scoped + admin-only. Returns 404 for unknown/cross-tenant ids
+    Org-scoped, requires ``destination.read``. Returns 404 for unknown/cross-tenant ids
     (anti-enumeration). ``eps`` é COMPUTADO da janela de
     1h do store nativo (padrão AxoSyslog ``eps_last_*``), não mais null.
     """
@@ -938,11 +956,19 @@ def destination_dlq(
     destination_id: str,
     offset: int = Query(default=0, ge=0),
     limit: int = Query(default=50, ge=1, le=200),
-    user: models.AppUser = Depends(app_auth.require_admin_user),
+    user: models.AppUser = Depends(
+        app_auth.require_permission(app_auth.Permission.DESTINATION_READ)
+    ),
     repo: repository.DestinationRepository = Depends(_get_repo),
 ) -> DestinationDlqResponse:
     """Dead-letter entries for a destination with the rejected payload (drill-in)
-    + a breakdown by error_kind. Org-scoped + admin-only."""
+    + a breakdown by error_kind. Org-scoped, requires ``destination.read``.
+
+    Nota de sensibilidade: este drill-in devolve o PAYLOAD rejeitado (passado por
+    ``_redact``), e ``destination.read`` é concedida a partir de VIEWER. Fica na
+    MESMA linha já praticada por ``GET /api/quarantine/{id}``, que devolve o
+    ``raw_payload`` cru sob ``quarantine.read`` — também de viewer. O tap ao vivo
+    (``GET /{id}/tap``) é outra classe e segue exigindo admin."""
     _assert_visible(repo.get(destination_id), user)
 
     is_global, caller_org = _resolve_scope(user)
@@ -1064,13 +1090,15 @@ async def destination_metrics(
     destination_id: str,
     range_minutes: int = Query(default=60, ge=5, le=1440),
     step_seconds: int = Query(default=60, ge=15, le=3600),
-    user: models.AppUser = Depends(app_auth.require_admin_user),
+    user: models.AppUser = Depends(
+        app_auth.require_permission(app_auth.Permission.DESTINATION_READ)
+    ),
     repo: repository.DestinationRepository = Depends(_get_repo),
 ) -> DestinationMetricsResponse:
     """Observability for a destination — served from the NATIVE store (Redis
     rollups), so the UI's own dashboards work WITHOUT any external Prometheus.
     Returns per-minute time-series (events/rejected/latency) + the DB DLQ summary
-    + the live breaker state. Org-scoped + admin-only."""
+    + the live breaker state. Org-scoped, requires ``destination.read``."""
     _assert_visible(repo.get(destination_id), user)
 
     from ..collectors import observability_store as obs

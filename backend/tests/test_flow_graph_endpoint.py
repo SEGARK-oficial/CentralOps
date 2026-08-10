@@ -116,17 +116,29 @@ def _seed_route(
 
 
 class _FakeUser:
-    """Non-global admin bound to one org (org-scope path driver)."""
+    """Non-global admin bound to one org (org-scope path driver).
 
-    def __init__(self, organization_id: int) -> None:
+    ``role`` importa de fato agora: o override é em ``get_current_user``, então o
+    request passa pelo gate de permissão real (ver ``_override_user_to_org``)."""
+
+    def __init__(self, organization_id: int, role: str = "admin") -> None:
         self.organization_id = organization_id
-        self.role = "operator"
+        self.role = role
         self.is_global = False
-        self.username = "scoped-operator"
+        self.username = f"scoped-{role}"
 
 
-def _override_user_to_org(org_id: int) -> None:
-    app.dependency_overrides[app_auth.require_admin_user] = lambda: _FakeUser(org_id)
+def _override_user_to_org(org_id: int, role: str = "admin") -> None:
+    """Override em ``get_current_user``, NÃO no gate de permissão.
+
+    ``/flow`` exige ``route.read`` via ``require_permission`` — uma CLOSURE nova
+    por chamada da factory, logo não endereçável como chave de
+    ``dependency_overrides``. ``get_current_user`` é o seam comum aos dois gates,
+    então o override troca só QUEM é o caller e o request continua passando pelo
+    check de permissão de verdade — antes, sobrescrever ``require_admin_user``
+    PULAVA o check.
+    """
+    app.dependency_overrides[app_auth.get_current_user] = lambda: _FakeUser(org_id, role)
 
 
 # ── shape & sanity ─────────────────────────────────────────
@@ -265,7 +277,7 @@ def test_flow_empty_org_returns_empty_subsystems(client_factory) -> None:
         for field in ("ingest_eps", "routed_per_min", "drop_per_min", "delivered_eps"):
             assert body["totals"][field] == 0.0
     finally:
-        app.dependency_overrides.pop(app_auth.require_admin_user, None)
+        app.dependency_overrides.pop(app_auth.get_current_user, None)
 
 
 # ── Org-scope ─────────────────────────────────────────────────────────
@@ -299,7 +311,7 @@ def test_flow_org_scoping(client_factory) -> None:
         assert ra in route_ids, "org A's route must be visible"
         assert rb not in route_ids, "org B's route must NOT leak into org A's flow"
     finally:
-        app.dependency_overrides.pop(app_auth.require_admin_user, None)
+        app.dependency_overrides.pop(app_auth.get_current_user, None)
 
 
 # ── Source fields ─────────────────────────────────────────────────────
