@@ -7,7 +7,8 @@
   "tabs": {
     "catalog": "Catálogo ({{count}})",
     "tables": "Tabelas ({{count}})",
-    "policies": "Políticas ({{count}})"
+    "policies": "Políticas ({{count}})",
+    "sources": "Fontes ({{count}})"
   },
   "mode": {
     "local": "por evento",
@@ -135,8 +136,40 @@
         "hits": "hit(s)",
         "misses": "miss(es)",
         "errors": "erro(s)"
-      }
+      },
+      "source": "Fonte configurada",
+      "sourceNone": "(selecione)",
+      "sourceRequired": "Obrigatória: este enricher precisa de credencial.",
+      "sourceHint": "A credencial fica na fonte, nunca na regra."
     }
   },
-  "errorTitle": "Falha ao carregar o enriquecimento"
+  "errorTitle": "Falha ao carregar o enriquecimento",
+  "sources": {
+    "emptyTitle": "Nenhuma fonte configurada",
+    "emptyDescription": "Uma fonte é a instância de um enricher nesta organização — o endereço e a credencial com que ele roda aqui.",
+    "secretConfigured": "credencial cadastrada",
+    "secretMissing": "sem credencial",
+    "disabled": "desabilitada",
+    "deleteAction": "Apagar fonte",
+    "deleteConfirm": {
+      "title": "Apagar fonte",
+      "description": "Isso remove \"{{name}}\" e a credencial associada. Só é possível se nenhuma política a referenciar."
+    },
+    "form": {
+      "createTitle": "Nova fonte",
+      "editTitle": "Editar fonte — {{name}}",
+      "name": "Nome",
+      "nameRequired": "Informe um nome para a fonte.",
+      "nameImmutable": "O nome não muda depois de criado — as regras o citam.",
+      "organizationRequired": "Selecione uma organização — a credencial fica vinculada a ela.",
+      "enricher": "Enricher",
+      "description": "Descrição",
+      "configLegend": "Configuração",
+      "secret": "Credencial",
+      "secretRequired": "Este enricher exige uma credencial.",
+      "secretHint": "Enviada uma única vez e cifrada pelo servidor; a API nunca a devolve. Exigida: {{names}}.",
+      "secretKeepPlaceholder": "•••••••• (deixe vazio para manter)",
+      "create": "Nova fonte"
+    }
+  }
 }

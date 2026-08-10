@@ -141,6 +141,11 @@ def _rule(**over):
     base = {
         "id": "r1",
         "enricher": "opencti",
+        # opencti/virustotal declaram ``required_secrets``, e a DSL passou a exigir
+        # ``source`` para eles: uma regra que precisa de credencial e não aponta uma
+        # fonte configurada da org nunca poderia rodar, então é 422 no commit em vez
+        # de no-op silencioso no ciclo.
+        "source": "fonte-de-teste",
         "key": {"source": "normalized.src_endpoint.ip", "kind": "ip"},
         "outputs": [{"from": "score", "target": "_centralops.enrichment.src.ti.score"}],
     }

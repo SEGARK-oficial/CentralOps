@@ -11,6 +11,7 @@ import {
   LockIcon,
   PlusIcon,
   Trash2Icon,
+  KeyRoundIcon,
 } from "lucide-react"
 import { PageHeader } from "@/components/ui/PageHeader/PageHeader"
 import { Button } from "@/components/ui/Button/Button"
@@ -26,13 +27,17 @@ import { CreateTableModal } from "@/components/enrichment/CreateTableModal"
 import { TableVersionsModal } from "@/components/enrichment/TableVersionsModal"
 import { CreatePolicyModal } from "@/components/enrichment/CreatePolicyModal"
 import { PolicyVersionsModal } from "@/components/enrichment/PolicyVersionsModal"
+import { SourceFormModal } from "@/components/enrichment/SourceFormModal"
 import {
+  deleteEnrichmentSource,
   deleteEnrichmentTable,
   listEnrichers,
   listEnrichmentPolicies,
+  listEnrichmentSources,
   listEnrichmentTables,
   type EnricherCatalogItem as Enricher,
   type EnrichmentPolicy as EnrichPolicy,
+  type EnrichmentSource as EnrichSource,
   type EnrichmentTable as EnrichTable,
 } from "@/services/api"
 
@@ -91,10 +96,11 @@ function fmtBytes(n: number): string {
 
 export function EnrichmentPage(): React.ReactElement {
   const { t } = useTranslation("enrichment")
-  const [tab, setTab] = useState<"catalog" | "tables" | "policies">("catalog")
+  const [tab, setTab] = useState<"catalog" | "sources" | "tables" | "policies">("catalog")
   const [enrichers, setEnrichers] = useState<Enricher[]>([])
   const [tables, setTables] = useState<EnrichTable[]>([])
   const [policies, setPolicies] = useState<EnrichPolicy[]>([])
+  const [sources, setSources] = useState<EnrichSource[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -105,6 +111,12 @@ export function EnrichmentPage(): React.ReactElement {
   const [deleting, setDeleting] = useState(false)
   const [deleteError, setDeleteError] = useState<string | null>(null)
 
+  const [sourceFormOpen, setSourceFormOpen] = useState(false)
+  const [sourceEditing, setSourceEditing] = useState<EnrichSource | null>(null)
+  const [sourceDeleteTarget, setSourceDeleteTarget] = useState<EnrichSource | null>(null)
+  const [sourceDeleting, setSourceDeleting] = useState(false)
+  const [sourceDeleteError, setSourceDeleteError] = useState<string | null>(null)
+
   const [createPolicyOpen, setCreatePolicyOpen] = useState(false)
   const [policyVersionsFor, setPolicyVersionsFor] = useState<EnrichPolicy | null>(null)
 
@@ -112,14 +124,16 @@ export function EnrichmentPage(): React.ReactElement {
     setLoading(true)
     setError(null)
     try {
-      const [e, tb, p] = await Promise.all([
+      const [e, tb, p, src] = await Promise.all([
         listEnrichers(),
         listEnrichmentTables(),
         listEnrichmentPolicies(),
+        listEnrichmentSources(),
       ])
       setEnrichers(e)
       setTables(tb)
       setPolicies(p)
+      setSources(src)
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
     } finally {
@@ -189,6 +203,9 @@ export function EnrichmentPage(): React.ReactElement {
                 <TabsTrigger value="catalog">
                   {t("tabs.catalog", { count: enrichers.length })}
                 </TabsTrigger>
+                <TabsTrigger value="sources">
+                  {t("tabs.sources", { count: sources.length })}
+                </TabsTrigger>
                 <TabsTrigger value="tables">
                   {t("tabs.tables", { count: tables.length })}
                 </TabsTrigger>
@@ -198,6 +215,19 @@ export function EnrichmentPage(): React.ReactElement {
               </TabsList>
             </Tabs>
 
+            {tab === "sources" && (
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={() => {
+                  setSourceEditing(null)
+                  setSourceFormOpen(true)
+                }}
+              >
+                <PlusIcon size={14} aria-hidden />
+                {t("sources.form.create")}
+              </Button>
+            )}
             {tab === "tables" && (
               <Button variant="primary" size="sm" onClick={() => setCreateTableOpen(true)}>
                 <PlusIcon size={14} aria-hidden />
@@ -265,6 +295,84 @@ export function EnrichmentPage(): React.ReactElement {
                 </section>
               ))}
             </div>
+          ) : tab === "sources" ? (
+            sources.length === 0 ? (
+              <EmptyState
+                icon={<KeyRoundIcon size={28} aria-hidden />}
+                title={t("sources.emptyTitle")}
+                description={t("sources.emptyDescription")}
+                action={
+                  <Button
+                    variant="primary"
+                    onClick={() => {
+                      setSourceEditing(null)
+                      setSourceFormOpen(true)
+                    }}
+                  >
+                    <PlusIcon size={14} aria-hidden />
+                    {t("sources.form.create")}
+                  </Button>
+                }
+              />
+            ) : (
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {sources.map((src) => (
+                  <Card
+                    key={src.id}
+                    className="flex cursor-pointer flex-col gap-3 p-4 transition-colors hover:border-primary-300"
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => {
+                      setSourceEditing(src)
+                      setSourceFormOpen(true)
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault()
+                        setSourceEditing(src)
+                        setSourceFormOpen(true)
+                      }
+                    }}
+                    data-testid={`source-card-${src.name}`}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <h3 className="truncate font-medium">{src.name}</h3>
+                        <p className="font-mono text-xs text-muted">{src.enricher}</p>
+                        <p className="text-xs text-muted">
+                          {t("tables.org", { id: src.organization_id })}
+                        </p>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="xs"
+                        aria-label={t("sources.deleteAction")}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setSourceDeleteError(null)
+                          setSourceDeleteTarget(src)
+                        }}
+                      >
+                        <Trash2Icon size={12} aria-hidden />
+                      </Button>
+                    </div>
+                    {src.description ? (
+                      <p className="text-sm text-muted">{src.description}</p>
+                    ) : null}
+                    <div className="mt-auto flex flex-wrap items-center gap-2">
+                      <Badge variant={src.secret_configured ? "success" : "warning"}>
+                        {src.secret_configured
+                          ? t("sources.secretConfigured")
+                          : t("sources.secretMissing")}
+                      </Badge>
+                      {!src.enabled && (
+                        <Badge variant="default">{t("sources.disabled")}</Badge>
+                      )}
+                    </div>
+                  </Card>
+                ))}
+              </div>
+            )
           ) : tab === "tables" ? (
             tables.length === 0 ? (
               <EmptyState
@@ -419,6 +527,57 @@ export function EnrichmentPage(): React.ReactElement {
         }}
       />
 
+      {/* ── Modais de fonte configurada ─────────────────────────────────── */}
+      <SourceFormModal
+        open={sourceFormOpen}
+        source={sourceEditing}
+        enrichers={enrichers}
+        onClose={() => {
+          setSourceFormOpen(false)
+          setSourceEditing(null)
+        }}
+        onSaved={() => {
+          setSourceFormOpen(false)
+          setSourceEditing(null)
+          void load()
+        }}
+      />
+      <ConfirmDialog
+        open={sourceDeleteTarget != null}
+        title={t("sources.deleteConfirm.title")}
+        description={
+          <div className="space-y-2">
+            <p>
+              {t("sources.deleteConfirm.description", {
+                name: sourceDeleteTarget?.name ?? "",
+              })}
+            </p>
+            {sourceDeleteError && <Notice variant="danger" title={sourceDeleteError} />}
+          </div>
+        }
+        confirmVariant="danger"
+        confirmLabel={t("common:actions.delete")}
+        loading={sourceDeleting}
+        onConfirm={async () => {
+          if (!sourceDeleteTarget) return
+          setSourceDeleting(true)
+          setSourceDeleteError(null)
+          try {
+            await deleteEnrichmentSource(sourceDeleteTarget.id)
+            setSourceDeleteTarget(null)
+            void load()
+          } catch (err) {
+            setSourceDeleteError(err instanceof Error ? err.message : String(err))
+          } finally {
+            setSourceDeleting(false)
+          }
+        }}
+        onClose={() => {
+          setSourceDeleteTarget(null)
+          setSourceDeleteError(null)
+        }}
+      />
+
       {/* ── Modais de política ──────────────────────────────────────────── */}
       <CreatePolicyModal
         open={createPolicyOpen}
@@ -434,6 +593,7 @@ export function EnrichmentPage(): React.ReactElement {
         policy={policyVersionsFor}
         enrichers={enrichers}
         tables={tables}
+        sources={sources}
         onClose={() => setPolicyVersionsFor(null)}
         onChanged={() => {
           void load()

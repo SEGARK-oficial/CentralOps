@@ -2152,6 +2152,58 @@ class ApiToken(Base):
 
 # ── Enriquecimento em stream (ADR-LOCAL-0002) ─────────────────────────
 
+class EnrichmentSource(Base):
+    """Instância CONFIGURADA de um enricher do catálogo, escopada a uma org.
+
+    É para o enricher o que ``Destination`` é para o sink: o registry diz o que um
+    *kind* sabe fazer (``config_schema``, ``required_secrets``); esta linha diz
+    com QUE credencial e contra QUE endpoint ele roda **nesta organização**.
+
+    **Por que uma linha em vez de config embutida na regra.** A regra é JSON que
+    o admin da org escreve pela API. ``secret_ref`` NÃO é um ponteiro para um
+    cofre com controle de acesso — é o **próprio ciphertext**
+    (``integration_secrets.py:95``: ``secret_ref=encrypt(plaintext)``), e resolver
+    é ``backend.decrypt(ref)``, sem noção de organização. Aceitar ``secret_ref``
+    vindo do corpo da requisição deixaria um admin da Org A colar o ciphertext da
+    Org B e USAR a credencial dela — a cota, a identidade e o egresso do vizinho,
+    sem nunca ver o texto claro. Guardando a referência numa linha escopada por
+    org e citando-a por NOME na regra, o vínculo credencial↔org passa a ser do
+    servidor. É o mesmo motivo pelo qual ``table`` é citada por nome.
+
+    **A API nunca devolve ``secret_ref``** — expõe ``secret_configured: bool``,
+    como ``Integration`` faz com ``manager_api_password_configured``.
+    """
+
+    __tablename__ = "enrichment_sources"
+    __table_args__ = (
+        UniqueConstraint("organization_id", "name", name="uq_enrich_source_org_name"),
+        Index("ix_enrich_source_org_enricher", "organization_id", "enricher"),
+    )
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid4()))
+    organization_id = Column(
+        Integer,
+        ForeignKey("organizations.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    #: Nome citado pela regra (``source: "opencti-interno"``). Único POR ORG.
+    name = Column(String, nullable=False)
+    #: Chave do enricher no registry (``opencti``, ``virustotal``, ...).
+    enricher = Column(String, nullable=False)
+    description = Column(Text, nullable=True)
+    #: JSON validado contra o ``config_schema`` do enricher NO COMMIT, não em
+    #: runtime — config torta tem que falhar para quem a escreveu, não no ciclo.
+    config = Column(Text, nullable=False, default="{}")
+    #: Ciphertext, JAMAIS o segredo em claro; escrito só pelo servidor.
+    secret_ref = Column(String, nullable=True)
+    enabled = Column(Boolean, default=True, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(
+        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
+    )
+
+
 class EnrichmentPolicy(Base):
     """Política de enriquecimento de UMA organização.
 

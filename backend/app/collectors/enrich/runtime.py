@@ -187,6 +187,9 @@ class EnrichRuntime:
         self._cache_bytes = 0
         self._disabled_this_cycle: set = set()
         self._seen_org_id: Optional[int] = None
+        #: nome da fonte → (config, secret_ref), resolvido 1×/ciclo. Zerado em
+        #: ``begin_cycle``/``end_cycle`` — credencial nunca atravessa ciclo.
+        self._sources_this_cycle: Dict[str, Tuple[Mapping[str, Any], Optional[str]]] = {}
         #: Cache L1/L2 de VALORES resolvidos (remoto). Distinto de ``_cache``, que
         #: é o LRU de TABELAS residentes — reusar o mesmo nome apagaria o LRU.
         self._kv_cache: Optional[EnrichCache] = None
@@ -197,10 +200,85 @@ class EnrichRuntime:
         assert_mono_tenant(self._seen_org_id, organization_id)
         self._seen_org_id = organization_id
         self._disabled_this_cycle = set()
+        # Fontes configuradas são por ORG e por CICLO. Zerar aqui (e não só em
+        # ``end_cycle``) garante que um ciclo novo nunca enxergue a credencial
+        # resolvida do ciclo anterior, mesmo que ``end_cycle`` não tenha rodado
+        # por causa de uma exceção no meio da coleta.
+        self._sources_this_cycle = {}
 
     def end_cycle(self) -> None:
         self._seen_org_id = None
         self._disabled_this_cycle = set()
+        self._sources_this_cycle = {}
+
+    # ── fontes configuradas (instâncias de enricher escopadas à org) ─────────
+    def _resolve_source(
+        self, organization_id: int, source_name: str
+    ) -> Tuple[Mapping[str, Any], Optional[str]]:
+        """``(config, secret_ref)`` da ``EnrichmentSource`` DESTA org.
+
+        **O filtro por ``organization_id`` é a propriedade de segurança**, não uma
+        conveniência de query. ``secret_ref`` é o próprio ciphertext e o cofre
+        (``core.secrets``) não conhece organização: resolver a fonte por nome
+        global entregaria a credencial do vizinho a quem escrevesse o nome certo.
+        Aqui o nome só é procurado dentro da org do ciclo — e o ciclo é
+        mono-tenant por invariante (``assert_mono_tenant``).
+
+        Cacheado por ciclo: é 1 SELECT por fonte por ciclo, nunca por lote.
+        """
+        cached = self._sources_this_cycle.get(source_name)
+        if cached is not None:
+            return cached
+
+        import json as _json
+
+        from ...db import models
+        from ...db.database import SessionLocal
+
+        config: Mapping[str, Any] = {}
+        secret_ref: Optional[str] = None
+        with SessionLocal() as db:
+            row = (
+                db.query(models.EnrichmentSource)
+                .filter(
+                    models.EnrichmentSource.organization_id == organization_id,
+                    models.EnrichmentSource.name == source_name,
+                    models.EnrichmentSource.enabled.is_(True),
+                )
+                .first()
+            )
+            if row is None:
+                # Fail-closed e ALTO: a regra cita uma fonte que não existe nesta
+                # org (apagada, renomeada, ou de outro tenant). Devolver config
+                # vazia faria o enricher levantar um erro genérico bem longe daqui.
+                raise LookupError(
+                    f"fonte de enriquecimento {source_name!r} não existe (ou está "
+                    f"desabilitada) na organização {organization_id}"
+                )
+            try:
+                config = _json.loads(row.config or "{}")
+            except Exception as exc:  # noqa: BLE001
+                raise LookupError(
+                    f"config da fonte {source_name!r} não é JSON válido"
+                ) from exc
+            secret_ref = row.secret_ref
+
+        resolved = (config, secret_ref)
+        self._sources_this_cycle[source_name] = resolved
+        return resolved
+
+    def _ctx_for_rule(
+        self, ctx: EnrichContext, rule: CompiledEnrichRule
+    ) -> EnrichContext:
+        """Contexto da regra: tabela, config e credencial da fonte citada.
+
+        A config e a credencial vêm da LINHA escopada à org, nunca do JSON da
+        regra — ver ``models.EnrichmentSource``.
+        """
+        if not rule.source:
+            return replace(ctx, table=rule.table)
+        config, secret_ref = self._resolve_source(ctx.organization_id, rule.source)
+        return replace(ctx, table=rule.table, config=config, secret_ref=secret_ref)
 
     # ── carga de tabela ──────────────────────────────────────────────────────
     async def load_tables(
@@ -246,10 +324,11 @@ class EnrichRuntime:
             self._cache.move_to_end(cache_key)
             return cached.table
 
-        instance = reg.factory(dict(ctx.config or {}))
-        # A tabela vem da REGRA, não da config: a mesma instância de ``table_cidr``
-        # serve N tabelas diferentes numa mesma política.
-        rule_ctx = replace(ctx, table=rule.table)
+        # A tabela vem da REGRA; a config e a credencial, da FONTE configurada
+        # desta org. A mesma instância de ``table_cidr`` serve N tabelas numa
+        # mesma política, e o mesmo ``opencti`` serve N instâncias distintas.
+        rule_ctx = self._ctx_for_rule(ctx, rule)
+        instance = reg.factory(dict(rule_ctx.config or {}))
         started = time.monotonic()
         table = await instance.load(rule_ctx)
         elapsed_ms = (time.monotonic() - started) * 1000.0
@@ -411,11 +490,25 @@ class EnrichRuntime:
             if not owned:
                 continue
 
-            instance = reg.factory(dict(ctx.config or {}))
+            try:
+                rule_ctx = self._ctx_for_rule(ctx, rule)
+            except LookupError as exc:
+                # Fonte inexistente/desabilitada nesta org. Desabilita o enricher
+                # no ciclo em vez de tentar a cada lote — e o lote SEGUE, sem
+                # enriquecimento, porque enriquecimento é observador.
+                _count_error(rule.enricher, "config")
+                self._disabled_this_cycle.add(rule.enricher)
+                logger.warning(
+                    "enrich: %s — regra %r desabilitada neste ciclo",
+                    exc, rule.rule_id,
+                    extra={"event": "enrich.source_unresolved"},
+                )
+                continue
+            instance = reg.factory(dict(rule_ctx.config or {}))
             started = time.monotonic()
             try:
                 resolved = await asyncio.wait_for(
-                    instance.resolve(owned, ctx), timeout=remaining
+                    instance.resolve(owned, rule_ctx), timeout=remaining
                 )
             except asyncio.TimeoutError:
                 _count_error(rule.enricher, "timeout")

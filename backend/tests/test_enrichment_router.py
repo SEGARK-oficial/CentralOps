@@ -381,3 +381,213 @@ def test_duplicate_name_in_same_org_is_rejected(client_factory) -> None:
     r = client.post(f"{_BASE}/tables", json=payload)
     assert r.status_code == 422
     assert "já existe" in r.text
+
+
+# ── fontes configuradas: o segredo nunca sai, e nunca cruza a org ───────────
+
+def test_source_secret_is_never_returned_by_the_api(client_factory) -> None:
+    """``secret_ref`` é o CIPHERTEXT, e o cofre não conhece organização.
+
+    ``core.secrets.backend.decrypt(ciphertext)`` não recebe org: qualquer blob
+    válido decifra. Se a API devolvesse a referência, um admin da Org A copiaria
+    a da Org B e passaria a USAR a credencial dela — a cota, a identidade e o
+    egresso do vizinho — sem nunca ver o texto claro. Por isso a resposta expõe
+    só ``secret_configured``.
+    """
+    factory, _ = client_factory
+    client = factory()
+    _bootstrap_admin(client)
+    org = _org(client, "SecretOrg")
+
+    r = client.post(
+        f"{_BASE}/sources",
+        json={
+            "name": "vt-prod",
+            "enricher": "virustotal",
+            "organization_id": org,
+            "secret": "chave-super-secreta-123",
+        },
+    )
+    assert r.status_code == 201, r.text
+    body = r.json()
+    assert body["secret_configured"] is True
+    assert "secret_ref" not in body
+    assert "secret" not in body
+    assert "chave-super-secreta-123" not in r.text
+
+    listed = client.get(f"{_BASE}/sources").text
+    assert "chave-super-secreta-123" not in listed
+    assert "secret_ref" not in listed
+
+
+def test_source_is_scoped_to_its_organization(client_factory) -> None:
+    """Mesmo nome em orgs distintas é legítimo; a resolução é sempre (org, nome)."""
+    factory, _ = client_factory
+    client = factory()
+    _bootstrap_admin(client)
+    org_a = _org(client, "SrcOrgA")
+    org_b = _org(client, "SrcOrgB")
+
+    for org in (org_a, org_b):
+        assert client.post(
+            f"{_BASE}/sources",
+            json={
+                "name": "vt",
+                "enricher": "virustotal",
+                "organization_id": org,
+                "secret": f"chave-da-org-{org}",
+            },
+        ).status_code == 201
+
+    rows = client.get(f"{_BASE}/sources").json()
+    assert sorted(s["organization_id"] for s in rows) == sorted([org_a, org_b])
+    assert {s["name"] for s in rows} == {"vt"}
+
+
+def test_source_config_is_validated_against_the_enricher_schema(client_factory) -> None:
+    """Config inválida é 422 no commit, não erro de rede no meio do ciclo."""
+    factory, _ = client_factory
+    client = factory()
+    _bootstrap_admin(client)
+    org = _org(client, "CfgOrg")
+
+    r = client.post(
+        f"{_BASE}/sources",
+        json={
+            "name": "octi",
+            "enricher": "opencti",
+            "organization_id": org,
+            "config": {"url": "https://octi.interno", "page_size": 999_999},
+            "secret": "tok",
+        },
+    )
+    assert r.status_code == 422
+    assert "page_size" in r.text
+
+
+def test_source_url_goes_through_the_egress_guard(client_factory) -> None:
+    """SSRF: a `url` da fonte vira `aiohttp.post` COM o token no Authorization.
+
+    Sem o guard, `file://`, credencial embutida ou um host de metadados de nuvem
+    viraria exfiltração de credencial. O projeto já tem `normalize_service_url`
+    protegendo okta/crowdstrike/veeam/wazuh; enrichment passou a usar o mesmo.
+    """
+    factory, _ = client_factory
+    client = factory()
+    _bootstrap_admin(client)
+    org = _org(client, "SsrfOrg")
+
+    for bad in ("file:///etc/passwd", "https://user:senha@octi.interno"):
+        r = client.post(
+            f"{_BASE}/sources",
+            json={
+                "name": f"octi-{abs(hash(bad)) % 9999}",
+                "enricher": "opencti",
+                "organization_id": org,
+                "config": {"url": bad},
+                "secret": "tok",
+            },
+        )
+        assert r.status_code == 422, f"{bad} deveria ser recusada, veio {r.status_code}"
+
+
+def test_enricher_requiring_secret_needs_a_source_in_the_rule(client_factory) -> None:
+    """Regra que precisa de credencial e não cita fonte nunca poderia rodar.
+
+    422 no commit em vez de no-op silencioso no ciclo — a lição do rótulo
+    `producer_unsupported`: falha invisível é pior que falha barulhenta.
+    """
+    factory, _ = client_factory
+    client = factory()
+    _bootstrap_admin(client)
+    org = _org(client, "NeedSrcOrg")
+    pol = client.post(
+        f"{_BASE}/policies", json={"name": "p", "organization_id": org}
+    ).json()["id"]
+
+    r = client.post(
+        f"{_BASE}/policies/{pol}/versions",
+        json={
+            "rules": [
+                {
+                    "id": "vt",
+                    "enricher": "virustotal",
+                    "key": {"source": "normalized.src_endpoint.ip", "kind": "ip"},
+                    "outputs": [
+                        {"from": "malicious", "target": "_centralops.enrichment.vt.m"}
+                    ],
+                }
+            ],
+            "commit_message": "sem fonte",
+        },
+    )
+    assert r.status_code == 422
+    assert "source" in r.text
+
+
+def test_source_in_use_cannot_be_deleted(client_factory) -> None:
+    """Apagar fonte em uso quebraria a regra em SILÊNCIO a cada ciclo."""
+    factory, _ = client_factory
+    client = factory()
+    _bootstrap_admin(client)
+    org = _org(client, "InUseOrg")
+    client.post(
+        f"{_BASE}/sources",
+        json={
+            "name": "vt", "enricher": "virustotal",
+            "organization_id": org, "secret": "tok",
+        },
+    )
+    src_id = client.get(f"{_BASE}/sources").json()[0]["id"]
+    pol = client.post(
+        f"{_BASE}/policies", json={"name": "p", "organization_id": org}
+    ).json()["id"]
+    ver = client.post(
+        f"{_BASE}/policies/{pol}/versions",
+        json={
+            "rules": [
+                {
+                    "id": "vt", "enricher": "virustotal", "source": "vt",
+                    "key": {"source": "normalized.src_endpoint.ip", "kind": "ip"},
+                    "outputs": [
+                        {"from": "malicious", "target": "_centralops.enrichment.vt.m"}
+                    ],
+                }
+            ],
+            "commit_message": "usa a fonte",
+        },
+    )
+    assert ver.status_code == 201, ver.text
+
+    r = client.delete(f"{_BASE}/sources/{src_id}")
+    assert r.status_code == 422
+    assert "é usada" in r.text
+
+
+def test_config_cannot_carry_a_secret_reference(client_factory) -> None:
+    """A credencial entra SÓ pelo campo ``secret``, cifrado pelo servidor.
+
+    ``core.secrets.backend.decrypt(ciphertext)`` não recebe organização: qualquer
+    blob válido decifra. Enquanto os schemas tinham ``api_key_secret_ref`` /
+    ``token_secret_ref``, a config — escrita por um admin de org via API — vencia a
+    referência do servidor (``ref = secret_ref or ctx.secret_ref``), então colar o
+    ciphertext da Org B dava acesso à credencial dela. Os campos saíram do schema e
+    a rota recusa qualquer chave com "secret".
+    """
+    factory, _ = client_factory
+    client = factory()
+    _bootstrap_admin(client)
+    org = _org(client, "NoSecretInCfgOrg")
+
+    r = client.post(
+        f"{_BASE}/sources",
+        json={
+            "name": "vt-hack",
+            "enricher": "virustotal",
+            "organization_id": org,
+            "config": {"api_key_secret_ref": "ciphertext-roubado-de-outra-org"},
+            "secret": "minha-propria-chave",
+        },
+    )
+    assert r.status_code == 422, r.text
+    assert "secret" in r.text

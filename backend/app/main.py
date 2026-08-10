@@ -77,6 +77,10 @@ AUDIT_REDACTED_FIELDS = {
     "master_key",
     "password",
     "refresh_token",
+    #: campo write-only de ``POST/PATCH /collectors/enrichment/sources`` — a
+    #: credencial em claro trafega UMA vez e não pode ficar no audit_logs.
+    "secret",
+    "secret_ref",
     "session",
     "smtp_password",
     "token",

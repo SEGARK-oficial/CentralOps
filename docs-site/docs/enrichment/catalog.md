@@ -36,8 +36,8 @@ Veja o passo a passo completo em [Como enriquecer um evento](./how-to-enrich.md)
 
 ## OpenCTI — `opencti`
 
-:::warning[Ainda não utilizável nesta versão]
-O enricher está no catálogo e o formato de configuração abaixo é o que ele espera, mas **ainda não existe onde informar essa configuração** — nem no console, nem na API, nem na regra da política. Uma regra que use `opencti` falha na carga da tabela (fail-closed: o evento segue sem contexto, nada é perdido). O caminho para fornecer configuração e referência de segredo por regra é a próxima fase do ADR-LOCAL-0002. Até lá, use as tabelas do cliente (`table_exact` / `table_cidr`), que estão completas.
+:::tip[Configure em Enriquecimento → Fontes antes de usar numa regra]
+Este enricher precisa saber o endereço da sua instância e ter uma credencial. Isso é uma **fonte configurada**: crie uma em **Enriquecimento → Fontes**, e depois a regra da política só cita o nome dela. A credencial vai uma única vez, o servidor a cifra, e nem a API nem a tela a devolvem — o que você vê depois é só "credencial cadastrada".
 :::
 
 | | |
@@ -78,8 +78,8 @@ O schema GraphQL do OpenCTI mudou entre as versões 5.x e 6.x. Se a sincronizaç
 
 ## VirusTotal — `virustotal`
 
-:::warning[Ainda não utilizável nesta versão]
-Mesma situação do OpenCTI: o enricher está no catálogo e o formato abaixo é o que ele espera, mas **ainda não existe onde informar a chave de API** — nem no console, nem na API, nem na regra da política. Uma regra que use `virustotal` falha no lote (fail-closed: o evento segue sem contexto, nada é perdido, e nenhum indicador sai para o terceiro). Fornecer configuração e referência de segredo por regra é a próxima fase do ADR-LOCAL-0002.
+:::tip[Configure em Enriquecimento → Fontes antes de usar numa regra]
+Como o OpenCTI, este enricher exige credencial. Crie uma **fonte configurada** em **Enriquecimento → Fontes** com a sua chave de API; a regra depois cita só o nome dela. A chave sobe uma única vez e é cifrada pelo servidor — a API nunca a devolve.
 :::
 
 | | |

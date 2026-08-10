@@ -7,7 +7,8 @@
   "tabs": {
     "catalog": "Catalog ({{count}})",
     "tables": "Tables ({{count}})",
-    "policies": "Policies ({{count}})"
+    "policies": "Policies ({{count}})",
+    "sources": "Sources ({{count}})"
   },
   "mode": {
     "local": "per event",
@@ -135,8 +136,40 @@
         "hits": "hit(s)",
         "misses": "miss(es)",
         "errors": "error(s)"
-      }
+      },
+      "source": "Configured source",
+      "sourceNone": "(select)",
+      "sourceRequired": "Required: this enricher needs a credential.",
+      "sourceHint": "The credential lives in the source, never in the rule."
     }
   },
-  "errorTitle": "Failed to load enrichment"
+  "errorTitle": "Failed to load enrichment",
+  "sources": {
+    "emptyTitle": "No configured sources",
+    "emptyDescription": "A source is an instance of an enricher in this organization — the endpoint and credential it runs with here.",
+    "secretConfigured": "credential set",
+    "secretMissing": "no credential",
+    "disabled": "disabled",
+    "deleteAction": "Delete source",
+    "deleteConfirm": {
+      "title": "Delete source",
+      "description": "This removes \"{{name}}\" and its credential. Only possible if no policy references it."
+    },
+    "form": {
+      "createTitle": "New source",
+      "editTitle": "Edit source — {{name}}",
+      "name": "Name",
+      "nameRequired": "Enter a name for the source.",
+      "nameImmutable": "The name cannot change after creation — rules reference it.",
+      "organizationRequired": "Select an organization — the credential is bound to it.",
+      "enricher": "Enricher",
+      "description": "Description",
+      "configLegend": "Configuration",
+      "secret": "Credential",
+      "secretRequired": "This enricher requires a credential.",
+      "secretHint": "Sent once and encrypted by the server; the API never returns it. Required: {{names}}.",
+      "secretKeepPlaceholder": "•••••••• (leave empty to keep)",
+      "create": "New source"
+    }
+  }
 }

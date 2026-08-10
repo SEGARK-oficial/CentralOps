@@ -6,12 +6,19 @@ import { Button } from "@/components/ui/Button/Button"
 import { Input } from "@/components/ui/Input/Input"
 import { Select } from "@/components/ui/Select/Select"
 import { Badge } from "@/components/ui/Badge/Badge"
-import type { EnricherCatalogItem, EnrichmentRule, EnrichmentTable } from "@/services/api"
+import type {
+  EnricherCatalogItem,
+  EnrichmentRule,
+  EnrichmentSource,
+  EnrichmentTable,
+} from "@/services/api"
 
 interface PolicyRuleEditorProps {
   rules: EnrichmentRule[]
   enrichers: EnricherCatalogItem[]
   tables: EnrichmentTable[]
+  /** Fontes configuradas da org — quem exige credencial escolhe uma daqui. */
+  sources?: EnrichmentSource[]
   onChange: (rules: EnrichmentRule[]) => void
 }
 
@@ -47,6 +54,7 @@ export const PolicyRuleEditor: React.FC<PolicyRuleEditorProps> = ({
   rules,
   enrichers,
   tables,
+  sources = [],
   onChange,
 }) => {
   const { t } = useTranslation("enrichment")
@@ -112,6 +120,9 @@ export const PolicyRuleEditor: React.FC<PolicyRuleEditorProps> = ({
         {rules.map((rule, index) => {
           const enricher = enricherOf(rule.enricher)
           const usesTable = tables.length > 0 // enricher de tabela é o caso mais comum; campo sempre disponível
+          // Enricher que declara required_secrets NÃO roda sem fonte — a DSL
+          // recusa no commit, então mostrar o campo aqui evita o 422.
+          const needsSource = (enricher?.required_secrets?.length ?? 0) > 0
           return (
             <div
               key={`rule-${index}`}
@@ -128,7 +139,7 @@ export const PolicyRuleEditor: React.FC<PolicyRuleEditorProps> = ({
                   <Select
                     label={t("policies.versions.enricher")}
                     value={rule.enricher}
-                    onValueChange={(v) => updateRule(index, { enricher: String(v) })}
+                    onValueChange={(v) => updateRule(index, { enricher: String(v), source: null })}
                     options={enricherOptions}
                     size="sm"
                   />
@@ -153,6 +164,26 @@ export const PolicyRuleEditor: React.FC<PolicyRuleEditorProps> = ({
                   options={[{ value: "", label: t("policies.versions.tableNone") }, ...tableOptions]}
                   size="sm"
                   helperText={t("policies.versions.tableHint")}
+                />
+              )}
+
+              {/* Fonte configurada: obrigatória para enricher com credencial. A
+                  regra cita o NOME; a credencial vive na linha escopada à org e
+                  nunca trafega no JSON da política. */}
+              {needsSource && (
+                <Select
+                  label={t("policies.versions.source")}
+                  value={rule.source ?? ""}
+                  onValueChange={(v) => updateRule(index, { source: String(v) || null })}
+                  options={[
+                    { value: "", label: t("policies.versions.sourceNone") },
+                    ...sources
+                      .filter((s) => s.enricher === rule.enricher)
+                      .map((s) => ({ value: s.name, label: s.name })),
+                  ]}
+                  size="sm"
+                  error={!rule.source ? t("policies.versions.sourceRequired") : undefined}
+                  helperText={t("policies.versions.sourceHint")}
                 />
               )}
 

@@ -2437,6 +2437,8 @@ export async function getOcsfCompliance() {
 // O catálogo é lido do registry do backend: adicionar uma fonte de
 // enriquecimento NÃO toca o frontend.
 
+import type { JsonSchema } from "@/types"
+
 export interface EnricherCatalogItem {
   name: string
   label: string
@@ -2455,6 +2457,65 @@ export interface EnricherCatalogItem {
   egress: "none" | "internal" | "third_party"
   required_secrets: string[]
   output_fields: Record<string, string>
+  /** `model_json_schema` do enricher — dirige o formulário da fonte configurada. */
+  config_schema?: JsonSchema | null
+}
+
+/** Instância configurada de um enricher, escopada à organização. */
+export interface EnrichmentSource {
+  id: string
+  organization_id: number
+  name: string
+  enricher: string
+  description: string | null
+  config: Record<string, unknown>
+  /** Booleano — a API NUNCA devolve a referência do segredo. */
+  secret_configured: boolean
+  enabled: boolean
+}
+
+export interface EnrichmentSourceCreateRequest {
+  name: string
+  enricher: string
+  organization_id: number
+  description?: string | null
+  config?: Record<string, unknown>
+  /** Write-only: trafega em claro UMA vez; o servidor cifra e nunca devolve. */
+  secret?: string | null
+  enabled?: boolean
+}
+
+export interface EnrichmentSourceUpdateRequest {
+  description?: string | null
+  config?: Record<string, unknown>
+  /** `undefined` mantém o segredo; `""` remove; string nova substitui. */
+  secret?: string | null
+  enabled?: boolean
+}
+
+export async function listEnrichmentSources() {
+  return apiRequest<EnrichmentSource[]>("/collectors/enrichment/sources")
+}
+
+export async function createEnrichmentSource(data: EnrichmentSourceCreateRequest) {
+  return apiRequest<EnrichmentSource>("/collectors/enrichment/sources", {
+    method: "POST",
+    body: JSON.stringify(data),
+  })
+}
+
+export async function updateEnrichmentSource(
+  id: string,
+  data: EnrichmentSourceUpdateRequest,
+) {
+  return apiRequest<EnrichmentSource>(`/collectors/enrichment/sources/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  })
+}
+
+export async function deleteEnrichmentSource(id: string) {
+  return apiRequest<void>(`/collectors/enrichment/sources/${id}`, { method: "DELETE" })
 }
 
 export interface EnrichmentTable {
@@ -2585,6 +2646,8 @@ export interface EnrichmentRule {
   id: string
   enricher: string
   table?: string | null
+  /** Nome da `EnrichmentSource` desta org. A credencial NUNCA vai na regra. */
+  source?: string | null
   key: { source: string; kind: string; normalize?: string[] }
   when?: Record<string, unknown> | null
   outputs: Array<{ from: string; target: string; default?: unknown }>

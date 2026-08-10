@@ -279,11 +279,46 @@ O console lê o mesmo estado que a API acabou de escrever — não precisa de ne
 
 ## Usando uma fonte pronta (OpenCTI, VirusTotal)
 
-:::warning[Estas duas ainda não são utilizáveis nesta versão]
-OpenCTI e VirusTotal aparecem no catálogo, mas **ainda não existe onde informar a URL da instância ou a chave de API** — nem no console, nem na API, nem na regra. Uma regra que os use falha fail-closed (o evento segue sem contexto; nada é perdido e nenhum indicador sai para terceiro). Fornecer configuração e referência de segredo por regra é a próxima fase do ADR-LOCAL-0002. O que está completo hoje são as tabelas do cliente (`table_exact` / `table_cidr`) — o exemplo acima.
+O mesmo formato de regra vale para os enrichers do catálogo — só muda o `enricher` e, em vez de `table`, a regra cita uma **fonte configurada** com `source`.
+
+### Antes: crie a fonte
+
+Uma fonte é a instância de um enricher **nesta organização**: o endereço com que ele fala e a credencial com que ele autentica. Em **Enriquecimento → Fontes**, clique em **Nova fonte**, escolha o enricher, preencha a configuração (o formulário sai do próprio schema do enricher) e informe a credencial.
+
+```bash
+curl -s -X POST "$HOST/api/collectors/enrichment/sources" \
+  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -d '{
+    "name": "vt-producao",
+    "enricher": "virustotal",
+    "secret": "sua-chave-de-api"
+  }'
+```
+
+:::caution[A credencial sobe uma vez e não volta]
+`secret` é write-only: o servidor cifra e guarda; a resposta traz apenas `secret_configured: true`. Isso não é conveniência — a referência cifrada **é** o segredo utilizável, e o cofre a decifra sem verificar de que organização ela veio. Se a API a devolvesse, um administrador poderia colá-la em outra organização e usar a credencial alheia. Para trocar a chave, envie um `secret` novo; para removê-la, envie `""`.
 :::
 
-O mesmo formato de regra vale para os enrichers do catálogo — só muda o `enricher` e, em vez de `table`, você configura a fonte com suas próprias credenciais.
+Vale o mesmo para a configuração: campos com "secret" no nome são **recusados** no corpo de `config` (422). A credencial entra só pelo campo `secret`.
+
+### Depois: a regra cita a fonte pelo nome
+
+```json
+{
+  "id": "vt",
+  "enricher": "virustotal",
+  "source": "vt-producao",
+  "when": { "lacks_tag": ["asset_known"] },
+  "key": { "source": "normalized.src_endpoint.ip", "kind": "ip" },
+  "outputs": [
+    { "from": "malicious", "target": "_centralops.enrichment.vt.malicious" }
+  ]
+}
+```
+
+Enricher que exige credencial **sem** `source` é recusado no commit com 422 — em vez de virar uma política publicada que não faz nada.
+
+O `when` acima não é decoração: no seam remoto ele decide **quais chaves saem** para o terceiro, não apenas o que é escrito no evento. Sem ele, o lote inteiro é consultado.
 
 Duas diferenças importantes a considerar antes de usar uma fonte externa:
 

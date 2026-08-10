@@ -88,6 +88,46 @@ class EnricherCatalogItem(BaseModel):
     config_schema: Optional[Dict[str, Any]] = None
 
 
+class SourceCreate(BaseModel):
+    """Instância configurada de um enricher, escopada à organização.
+
+    ``secret`` é WRITE-ONLY e vem em texto claro **uma única vez**: o servidor o
+    cifra e guarda o ciphertext em ``secret_ref``. O cliente jamais recebe a
+    referência de volta (ver :class:`SourceRead`) — como o cofre não conhece
+    organização (``core.secrets.backend.decrypt(ciphertext)``), devolver o
+    ciphertext permitiria a um admin colá-lo noutra org e usar a credencial alheia.
+    """
+
+    name: str = Field(..., min_length=1, max_length=120)
+    enricher: str = Field(..., min_length=1, max_length=120)
+    organization_id: Optional[int] = None
+    description: Optional[str] = None
+    config: Dict[str, Any] = Field(default_factory=dict)
+    secret: Optional[str] = Field(None, max_length=8192)
+    enabled: bool = True
+
+
+class SourceUpdate(BaseModel):
+    description: Optional[str] = None
+    config: Optional[Dict[str, Any]] = None
+    #: ``None`` = mantém o segredo atual; string vazia = REMOVE.
+    secret: Optional[str] = Field(None, max_length=8192)
+    enabled: Optional[bool] = None
+
+
+class SourceRead(BaseModel):
+    id: str
+    organization_id: int
+    name: str
+    enricher: str
+    description: Optional[str] = None
+    config: Dict[str, Any] = Field(default_factory=dict)
+    #: Booleano, NUNCA o ``secret_ref`` — mesmo padrão de
+    #: ``Integration.manager_api_password_configured``.
+    secret_configured: bool = False
+    enabled: bool = True
+
+
 class TableCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=120)
     organization_id: Optional[int] = None
@@ -263,6 +303,20 @@ def _visible_org_filter(query, model, user: models.AppUser, db: Session):
     return query.filter(model.organization_id.in_(sorted(orgs)))
 
 
+def _encrypt_secret(plaintext: str) -> str:
+    """Cifra a credencial. O que vai para o banco é o ciphertext, nunca o claro.
+
+    Mesmo caminho de ``destinations.py`` (``get_default_backend().encrypt(...)``).
+    A cifragem acontece SÓ aqui, no servidor: o cliente manda o segredo em claro
+    uma única vez e nunca o recebe de volta — o cofre não conhece organização
+    (``core.secrets.backend.decrypt(ciphertext)``), então devolver o ciphertext
+    deixaria um admin colá-lo noutra org e usar a credencial do vizinho.
+    """
+    from ..core import secrets as secrets_mod
+
+    return secrets_mod.get_default_backend().encrypt(plaintext)
+
+
 def _bad_request(code: str, detail: str) -> ApiError:
     return ApiError(
         code,
@@ -306,6 +360,156 @@ def _table_read(db: Session, row: models.EnrichmentTable) -> TableRead:
         entry_count=entry_count,
         approx_bytes=approx,
     )
+
+
+# ── fontes configuradas (instâncias de enricher por org) ────────────────────
+
+def _source_read(row: Any) -> SourceRead:
+    """Serializa SEM o ``secret_ref``. Ver :class:`SourceRead`."""
+    try:
+        cfg = json.loads(row.config or "{}")
+    except Exception:  # noqa: BLE001 — config torta não pode derrubar a listagem
+        cfg = {}
+    return SourceRead(
+        id=row.id,
+        organization_id=row.organization_id,
+        name=row.name,
+        enricher=row.enricher,
+        description=row.description,
+        config=cfg,
+        secret_configured=bool(row.secret_ref),
+        enabled=bool(row.enabled),
+    )
+
+
+def _validate_source_config(enricher: str, cfg: Dict[str, Any]) -> Dict[str, Any]:
+    """Valida a config contra o ``config_schema`` do enricher — 422 no commit.
+
+    Validar aqui, e não no ciclo, é o que faz uma URL inválida ou um campo
+    obrigatório ausente falharem para QUEM ESCREVEU a config. O mesmo schema
+    aplica o guard de egresso (``normalize_service_url`` no validator de ``url``
+    do OpenCTI), então SSRF é recusado antes de virar linha no banco.
+    """
+    try:
+        reg = enrich_registry.require(enricher)
+    except Exception as exc:  # noqa: BLE001
+        raise _bad_request(
+            "enrichment.unknown_enricher",
+            f"enricher {enricher!r} não existe; veja GET /enrichment/enrichers",
+        ) from exc
+    # Defesa em profundidade: a credencial entra SÓ pelo campo ``secret``, que o
+    # servidor cifra. Se um enricher (ou um plugin EE amanhã) reintroduzir um
+    # ``*_secret_ref`` no schema, aceitá-lo pela config reabriria o buraco
+    # cross-tenant — ``core.secrets`` decifra qualquer ciphertext sem olhar org,
+    # então o admin da Org A colaria o blob da Org B e usaria a credencial dela.
+    offending = sorted(k for k in cfg if "secret" in k.lower())
+    if offending:
+        raise _bad_request(
+            "enrichment.secret_in_config",
+            f"campo(s) {offending} não podem vir na config — use o campo 'secret', "
+            f"que o servidor cifra e vincula a esta organização",
+        )
+    schema = getattr(reg, "config_schema", None)
+    if schema is None:
+        return dict(cfg)
+    try:
+        return schema(**cfg).model_dump(mode="json")
+    except Exception as exc:  # noqa: BLE001 — ValidationError e ValueError do guard
+        raise _bad_request("enrichment.invalid_source_config", str(exc)) from exc
+
+
+@router.get("/sources", response_model=List[SourceRead])
+def list_sources(
+    user: models.AppUser = Depends(app_auth.require_admin_user),
+    db: Session = Depends(_db),
+) -> List[SourceRead]:
+    q = _visible_org_filter(db.query(models.EnrichmentSource), models.EnrichmentSource, user, db)
+    return [_source_read(r) for r in q.order_by(models.EnrichmentSource.name).all()]
+
+
+@router.post("/sources", response_model=SourceRead, status_code=status.HTTP_201_CREATED)
+def create_source(
+    payload: SourceCreate,
+    user: models.AppUser = Depends(app_auth.require_admin_user),
+    db: Session = Depends(_db),
+) -> SourceRead:
+    org_id = _resolve_target_org(user, payload.organization_id)
+    exists = (
+        db.query(models.EnrichmentSource)
+        .filter(
+            models.EnrichmentSource.organization_id == org_id,
+            models.EnrichmentSource.name == payload.name,
+        )
+        .first()
+    )
+    if exists is not None:
+        raise _bad_request(
+            "enrichment.source_exists",
+            f"já existe uma fonte chamada {payload.name!r} nesta organização",
+        )
+    cfg = _validate_source_config(payload.enricher, payload.config)
+    reg = enrich_registry.require(payload.enricher)
+    if getattr(reg, "required_secrets", ()) and not payload.secret:
+        raise _bad_request(
+            "enrichment.secret_required",
+            f"o enricher {payload.enricher!r} exige credencial "
+            f"({', '.join(reg.required_secrets)})",
+        )
+    row = models.EnrichmentSource(
+        organization_id=org_id,
+        name=payload.name,
+        enricher=payload.enricher,
+        description=payload.description,
+        config=json.dumps(cfg),
+        secret_ref=_encrypt_secret(payload.secret) if payload.secret else None,
+        enabled=payload.enabled,
+    )
+    db.add(row)
+    db.commit()
+    db.refresh(row)
+    return _source_read(row)
+
+
+@router.patch("/sources/{source_id}", response_model=SourceRead)
+def update_source(
+    source_id: str,
+    payload: SourceUpdate,
+    user: models.AppUser = Depends(app_auth.require_admin_user),
+    db: Session = Depends(_db),
+) -> SourceRead:
+    row = _assert_visible(db.get(models.EnrichmentSource, source_id), user, "source")
+    if payload.description is not None:
+        row.description = payload.description
+    if payload.config is not None:
+        row.config = json.dumps(_validate_source_config(row.enricher, payload.config))
+    if payload.secret is not None:
+        # "" = remover explicitamente; None (ausente) = manter o que já está lá.
+        row.secret_ref = _encrypt_secret(payload.secret) if payload.secret else None
+    if payload.enabled is not None:
+        row.enabled = payload.enabled
+    db.commit()
+    db.refresh(row)
+    return _source_read(row)
+
+
+@router.delete("/sources/{source_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_source(
+    source_id: str,
+    user: models.AppUser = Depends(app_auth.require_admin_user),
+    db: Session = Depends(_db),
+) -> None:
+    row = _assert_visible(db.get(models.EnrichmentSource, source_id), user, "source")
+    # Mesma disciplina do delete de tabela: apagar uma fonte em uso quebraria a
+    # regra em silêncio a cada ciclo, e o operador só descobriria pelo evento sem
+    # contexto no destino.
+    users = _policies_referencing_source(db, row.organization_id, row.name)
+    if users:
+        raise _bad_request(
+            "enrichment.source_in_use",
+            f"fonte {row.name!r} é usada pela(s) política(s): {', '.join(users)}",
+        )
+    db.delete(row)
+    db.commit()
 
 
 @router.get("/tables", response_model=List[TableRead])
@@ -379,8 +583,25 @@ def delete_table(
     db.commit()
 
 
+def _policies_referencing_source(db: Session, org_id: int, source_name: str) -> List[str]:
+    """Nomes das políticas cuja versão VIGENTE cita a fonte configurada."""
+    return _policies_referencing_field(db, org_id, "source", source_name)
+
+
 def _policies_referencing_table(db: Session, org_id: int, table_name: str) -> List[str]:
     """Nomes das políticas cuja versão VIGENTE referencia a tabela."""
+    return _policies_referencing_field(db, org_id, "table", table_name)
+
+
+def _policies_referencing_field(
+    db: Session, org_id: int, field: str, value: str
+) -> List[str]:
+    """Políticas da org cuja versão vigente tem alguma regra com ``field == value``.
+
+    O filtro por ``organization_id`` não é otimização: uma política de OUTRA org
+    que cite o mesmo nome não pode contar como "em uso" aqui, senão o delete
+    passaria a vazar a existência de recurso alheio pela mensagem de erro.
+    """
     names: List[str] = []
     policies = (
         db.query(models.EnrichmentPolicy)
@@ -403,7 +624,7 @@ def _policies_referencing_table(db: Session, org_id: int, table_name: str) -> Li
             continue
         rules = doc.get("enrichment", doc) if isinstance(doc, dict) else doc
         if isinstance(rules, list) and any(
-            isinstance(r, dict) and r.get("table") == table_name for r in rules
+            isinstance(r, dict) and r.get(field) == value for r in rules
         ):
             names.append(str(p.name))
     return names

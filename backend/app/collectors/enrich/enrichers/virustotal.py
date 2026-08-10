@@ -54,9 +54,6 @@ _KIND_TO_PATH: Mapping[str, str] = {
 
 
 class VirusTotalConfig(BaseModel):
-    api_key_secret_ref: Optional[str] = Field(
-        None, description="Referência da API key no cofre de segredos"
-    )
     #: Tipo de chave que ESTA instância resolve. Uma instância por tipo mantém o
     #: contrato bulk simples (uma lista homogênea de chaves) e evita adivinhar o
     #: endpoint pelo formato da string — heurística que erra em hash vs domínio.
@@ -127,10 +124,10 @@ class VirusTotalEnricher:
     async def resolve(
         self, keys: Sequence[str], ctx: EnrichContext
     ) -> Mapping[str, Optional[Mapping[str, Any]]]:
-        api_key = await _resolve_api_key(self._cfg.api_key_secret_ref, ctx)
+        api_key = await _resolve_api_key(ctx)
         if not api_key:
             raise PermissionError(
-                "VirusTotal sem API key: configure `api_key_secret_ref` apontando "
+                "VirusTotal sem API key: cadastre a credencial na fonte configurada "
                 "para o cofre de segredos"
             )
 
@@ -221,9 +218,18 @@ async def _fetch(
     }
 
 
-async def _resolve_api_key(secret_ref: Optional[str], ctx: EnrichContext) -> Optional[str]:
-    """Resolve a API key no cofre. 1×/lote, JAMAIS por evento."""
-    ref = secret_ref or ctx.secret_ref
+async def _resolve_api_key(ctx: EnrichContext) -> Optional[str]:
+    """Resolve a credencial no cofre. 1×/lote, JAMAIS por evento.
+
+    **A referência vem SÓ do servidor** (``ctx.secret_ref``, preenchido a partir da
+    ``EnrichmentSource`` escopada à org). Antes havia um campo ``*_secret_ref`` na
+    config, e a config é escrita por um admin de organização via API — como
+    ``core.secrets`` decifra qualquer ciphertext sem noção de org
+    (``backend.decrypt(ciphertext)``), aceitar a referência pela config deixaria
+    colar o blob da Org B e USAR a credencial dela. O campo foi removido do schema
+    e ``_validate_source_config`` recusa qualquer chave com "secret".
+    """
+    ref = ctx.secret_ref
     if not ref:
         return None
     from ....core import secrets as secrets_mod

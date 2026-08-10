@@ -41,7 +41,7 @@ SOURCES_PATH: Tuple[str, ...] = ("_centralops", "enrichment", "_sources")
 
 _RULE_KEYS: frozenset[str] = frozenset(
     {
-        "id", "enricher", "table", "key", "when", "outputs", "tags",
+        "id", "enricher", "table", "source", "key", "when", "outputs", "tags",
         "on_miss", "on_multi", "on_error", "overwrite", "mode",
         "ttl_s", "negative_ttl_s", "entry_ttl_s",
     }
@@ -110,6 +110,11 @@ class CompiledEnrichRule:
     rule_id: str
     enricher: str
     table: Optional[str]
+    #: Nome da ``EnrichmentSource`` (instância configurada) desta org. Citado por
+    #: NOME, nunca com a config embutida: ``secret_ref`` é o próprio ciphertext,
+    #: então aceitá-lo no corpo da regra deixaria um admin usar a credencial de
+    #: outra org. O runtime resolve o nome DENTRO da org do ciclo.
+    source: Optional[str]
     #: resolvedor JMESPath/dot-path já compilado (fast-path quando ``a.b.c``).
     key_source: Any
     key_source_str: str
@@ -412,10 +417,27 @@ def _compile_rule(raw: Any, index: int, seen_ids: set) -> CompiledEnrichRule:
     if table is not None and (not isinstance(table, str) or not table.strip()):
         raise EnrichmentConfigError(f"{where}: 'table' deve ser string não-vazia quando presente")
 
+    source = raw.get("source")
+    if source is not None and (not isinstance(source, str) or not source.strip()):
+        raise EnrichmentConfigError(
+            f"{where}: 'source' deve ser string não-vazia quando presente"
+        )
+    # Enricher que exige segredo não roda sem uma fonte configurada. Recusar AQUI,
+    # no commit, em vez de deixar levantar no ciclo: o operador que escreveu a
+    # regra vê o 422 com o nome do que falta; a falha em runtime só apareceria
+    # como evento sem contexto, horas depois, para outra pessoa.
+    if getattr(reg, "required_secrets", ()) and not source:
+        raise EnrichmentConfigError(
+            f"{where}: o enricher {enricher!r} exige credencial, então a regra "
+            f"precisa de 'source' apontando uma fonte configurada desta organização "
+            f"(segredo exigido: {', '.join(reg.required_secrets)})."
+        )
+
     return CompiledEnrichRule(
         rule_id=rule_id,
         enricher=enricher,
         table=table.strip() if isinstance(table, str) else None,
+        source=source.strip() if isinstance(source, str) else None,
         key_source=key_source,
         key_source_str=key_source_str,
         key_kind=key_kind,
@@ -481,6 +503,7 @@ def describe_policy(policy: CompiledPolicy) -> Dict[str, Any]:
                 "id": r.rule_id,
                 "enricher": r.enricher,
                 "table": r.table,
+                "source": r.source,
                 "mode": r.mode,
                 "key": {"source": r.key_source_str, "kind": r.key_kind},
                 "targets": [".".join(o.target_path) for o in r.outputs],

@@ -7,7 +7,8 @@
   "tabs": {
     "catalog": "Catálogo ({{count}})",
     "tables": "Tablas ({{count}})",
-    "policies": "Políticas ({{count}})"
+    "policies": "Políticas ({{count}})",
+    "sources": "Fuentes ({{count}})"
   },
   "mode": {
     "local": "por evento",
@@ -135,8 +136,40 @@
         "hits": "hit(s)",
         "misses": "miss(es)",
         "errors": "error(es)"
-      }
+      },
+      "source": "Fuente configurada",
+      "sourceNone": "(seleccione)",
+      "sourceRequired": "Obligatoria: este enricher necesita credencial.",
+      "sourceHint": "La credencial vive en la fuente, nunca en la regla."
     }
   },
-  "errorTitle": "Error al cargar el enriquecimiento"
+  "errorTitle": "Error al cargar el enriquecimiento",
+  "sources": {
+    "emptyTitle": "Ninguna fuente configurada",
+    "emptyDescription": "Una fuente es la instancia de un enricher en esta organización — la dirección y la credencial con las que se ejecuta aquí.",
+    "secretConfigured": "credencial registrada",
+    "secretMissing": "sin credencial",
+    "disabled": "deshabilitada",
+    "deleteAction": "Eliminar fuente",
+    "deleteConfirm": {
+      "title": "Eliminar fuente",
+      "description": "Esto elimina \"{{name}}\" y su credencial. Solo es posible si ninguna política la referencia."
+    },
+    "form": {
+      "createTitle": "Nueva fuente",
+      "editTitle": "Editar fuente — {{name}}",
+      "name": "Nombre",
+      "nameRequired": "Indique un nombre para la fuente.",
+      "nameImmutable": "El nombre no cambia tras la creación — las reglas lo citan.",
+      "organizationRequired": "Seleccione una organización — la credencial queda vinculada a ella.",
+      "enricher": "Enricher",
+      "description": "Descripción",
+      "configLegend": "Configuración",
+      "secret": "Credencial",
+      "secretRequired": "Este enricher requiere una credencial.",
+      "secretHint": "Se envía una sola vez y el servidor la cifra; la API nunca la devuelve. Requerida: {{names}}.",
+      "secretKeepPlaceholder": "•••••••• (déjelo vacío para mantener)",
+      "create": "Nueva fuente"
+    }
+  }
 }

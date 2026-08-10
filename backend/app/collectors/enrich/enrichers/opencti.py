@@ -36,7 +36,7 @@ import logging
 from typing import Any, Dict, Mapping, Optional
 
 import aiohttp
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from ..contract import EnrichContext, EnricherCapabilities, EnricherRegistration
 from ..registry import register
@@ -86,10 +86,7 @@ class OpenCTIConfig(BaseModel):
     """Config do enricher. Validada no commit da política, não em runtime."""
 
     url: str = Field(..., description="Base da instância OpenCTI, ex.: https://opencti.interno")
-    #: Referência ao cofre. NUNCA o token em claro — o runtime resolve 1×/ciclo.
-    token_secret_ref: Optional[str] = Field(
-        None, description="Referência do token de API no cofre de segredos"
-    )
+
     page_size: int = Field(500, ge=1, le=5000)
     #: Teto de páginas por atualização. Sem ele, uma instância grande drenaria a
     #: tabela inteira num ciclo — o mesmo poison-loop que já derrubou coletores.
@@ -102,6 +99,33 @@ class OpenCTIConfig(BaseModel):
     query: Optional[str] = Field(
         None, description="Sobrescreve a query GraphQL (saída para schemas divergentes)"
     )
+
+    @field_validator("url")
+    @classmethod
+    def _validate_url(cls, v: str) -> str:
+        """Passa a URL pelo guard de egresso do projeto (``core.url_policy``).
+
+        Sem isto, a `url` — que passa a vir da fonte configurada por um admin de
+        organização — iria direto para ``aiohttp.post`` COM o token no header
+        ``Authorization``. Um endereço `http://169.254.169.254/…` ou um host
+        externo qualquer transformaria o enricher em SSRF **com exfiltração de
+        credencial**. O mesmo guard já protege okta, crowdstrike, veeam e wazuh
+        (`normalize_service_url` recusa esquema fora de http/https, credencial
+        embutida, query/fragment e path, e aplica as allowlists de host/CIDR de
+        `OUTBOUND_URL_ALLOWED_*`).
+
+        Validar no schema — e não no call-site — faz o 422 chegar a quem escreveu
+        a config, no commit, em vez de virar um erro de rede no meio do ciclo.
+        """
+        from ....core.url_policy import normalize_service_url
+
+        try:
+            normalized = normalize_service_url(v)
+        except ValueError as exc:
+            raise ValueError(f"url inválida: {exc}") from exc
+        if not normalized:
+            raise ValueError("url é obrigatória")
+        return normalized
 
 
 _CAPS = EnricherCapabilities(
@@ -129,7 +153,7 @@ class OpenCTIEnricher:
         self._cfg = OpenCTIConfig(**dict(config or {}))
 
     async def load(self, ctx: EnrichContext) -> DictLookupTable:
-        token = await _resolve_token(self._cfg.token_secret_ref, ctx)
+        token = await _resolve_token(ctx)
         rows: Dict[str, Dict[str, Any]] = {}
         headers = {"Content-Type": "application/json"}
         if token:
@@ -232,9 +256,18 @@ def _parse_node(node: Mapping[str, Any], min_score: int) -> Optional[tuple]:
     }
 
 
-async def _resolve_token(secret_ref: Optional[str], ctx: EnrichContext) -> Optional[str]:
-    """Resolve o token no cofre. 1×/carga, JAMAIS por evento."""
-    ref = secret_ref or ctx.secret_ref
+async def _resolve_token(ctx: EnrichContext) -> Optional[str]:
+    """Resolve a credencial no cofre. 1×/carga, JAMAIS por evento.
+
+    **A referência vem SÓ do servidor** (``ctx.secret_ref``, preenchido a partir da
+    ``EnrichmentSource`` escopada à org). Antes havia um campo ``*_secret_ref`` na
+    config, e a config é escrita por um admin de organização via API — como
+    ``core.secrets`` decifra qualquer ciphertext sem noção de org
+    (``backend.decrypt(ciphertext)``), aceitar a referência pela config deixaria
+    colar o blob da Org B e USAR a credencial dela. O campo foi removido do schema
+    e ``_validate_source_config`` recusa qualquer chave com "secret".
+    """
+    ref = ctx.secret_ref
     if not ref:
         return None
     try:

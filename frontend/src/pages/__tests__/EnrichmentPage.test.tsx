@@ -14,7 +14,12 @@ import { render, screen, fireEvent, waitFor, within } from "@testing-library/rea
 import { describe, it, expect, vi, beforeAll, beforeEach } from "vitest"
 import EnrichmentPage from "@/pages/EnrichmentPage"
 import * as api from "@/services/api"
-import type { EnricherCatalogItem, EnrichmentPolicy, EnrichmentTable } from "@/services/api"
+import type {
+  EnricherCatalogItem,
+  EnrichmentPolicy,
+  EnrichmentSource,
+  EnrichmentTable,
+} from "@/services/api"
 import i18n from "@/i18n"
 
 beforeAll(async () => {
@@ -101,16 +106,23 @@ const policy: EnrichmentPolicy = {
 function mockLoad({
   tables = [],
   policies = [],
-}: { tables?: EnrichmentTable[]; policies?: EnrichmentPolicy[] } = {}) {
+  sources = [],
+}: {
+  tables?: EnrichmentTable[]
+  policies?: EnrichmentPolicy[]
+  sources?: EnrichmentSource[]
+} = {}) {
   mockedApi.listEnrichers.mockResolvedValue(enrichers)
   mockedApi.listEnrichmentTables.mockResolvedValue(tables)
   mockedApi.listEnrichmentPolicies.mockResolvedValue(policies)
+  mockedApi.listEnrichmentSources.mockResolvedValue(sources)
 }
 
 beforeEach(() => {
   vi.clearAllMocks()
   mockedApi.listEnrichmentTableVersions.mockResolvedValue([])
   mockedApi.listEnrichmentPolicyVersions.mockResolvedValue([])
+  mockedApi.listEnrichmentSources.mockResolvedValue([])
 })
 
 describe("EnrichmentPage", () => {
@@ -222,6 +234,7 @@ describe("EnrichmentPage", () => {
     mockedApi.listEnrichers.mockRejectedValue(new Error("falha ao carregar enrichers"))
     mockedApi.listEnrichmentTables.mockResolvedValue([])
     mockedApi.listEnrichmentPolicies.mockResolvedValue([])
+    mockedApi.listEnrichmentSources.mockResolvedValue([])
     render(<EnrichmentPage />)
 
     expect(await screen.findByText(/falha ao carregar enrichers/i)).toBeInTheDocument()
@@ -230,5 +243,60 @@ describe("EnrichmentPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Tentar novamente" }))
 
     expect(await screen.findByText("Tabela CIDR")).toBeInTheDocument()
+  })
+})
+
+describe("EnrichmentPage — fontes configuradas", () => {
+  const source: EnrichmentSource = {
+    id: "s1",
+    organization_id: 1,
+    name: "vt-prod",
+    enricher: "virustotal",
+    description: "Reputação em produção",
+    config: { max_keys_per_batch: 25 },
+    secret_configured: true,
+    enabled: true,
+  }
+
+  it("mostra estado vazio e abre o formulário de criação", async () => {
+    mockLoad()
+    render(<EnrichmentPage />)
+    await screen.findByText("Tabela CIDR")
+
+    fireEvent.click(screen.getByRole("tab", { name: /Fontes/i }))
+
+    expect(await screen.findByText("Nenhuma fonte configurada")).toBeInTheDocument()
+    fireEvent.click(screen.getAllByRole("button", { name: "Nova fonte" })[0])
+
+    expect(await screen.findByRole("dialog", { name: "Nova fonte" })).toBeInTheDocument()
+  })
+
+  it("nunca renderiza a referência do segredo, só o indicador booleano", async () => {
+    mockLoad({ sources: [source] })
+    const { container } = render(<EnrichmentPage />)
+    await screen.findByText("Tabela CIDR")
+
+    fireEvent.click(screen.getByRole("tab", { name: /Fontes/i }))
+    await screen.findByTestId("source-card-vt-prod")
+
+    expect(screen.getByText("credencial cadastrada")).toBeInTheDocument()
+    // O cofre decifra qualquer ciphertext sem olhar org: a referência não pode
+    // chegar ao cliente, senão é copiável para outra organização.
+    expect(container.innerHTML).not.toContain("secret_ref")
+  })
+
+  it("card de fonte é alcançável por teclado", async () => {
+    mockLoad({ sources: [source] })
+    render(<EnrichmentPage />)
+    await screen.findByText("Tabela CIDR")
+
+    fireEvent.click(screen.getByRole("tab", { name: /Fontes/i }))
+    const card = await screen.findByTestId("source-card-vt-prod")
+    expect(card).toHaveAttribute("tabindex", "0")
+
+    fireEvent.keyDown(card, { key: "Enter" })
+    expect(
+      await screen.findByRole("dialog", { name: /Editar fonte/i }),
+    ).toBeInTheDocument()
   })
 })

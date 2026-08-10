@@ -276,6 +276,7 @@ def test_remote_enrichment_is_disabled_without_dedicated_redis(monkeypatch):
         {
             "id": "vt",
             "enricher": "virustotal",
+            "source": "fonte-de-teste",
             "key": {"source": "normalized.src_endpoint.ip", "kind": "ip"},
             "outputs": [
                 {"from": "malicious", "target": "_centralops.enrichment.vt.m"}
