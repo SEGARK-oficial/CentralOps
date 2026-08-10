@@ -108,6 +108,14 @@ const config: Config = {
           label: 'Mappings',
         },
         {
+          // Posicionado logo após "Mappings" (normalização): no pipeline real,
+          // enriquecimento roda sobre o evento já normalizado, antes de roteá-lo.
+          type: 'docSidebar',
+          sidebarId: 'enrichmentSidebar',
+          position: 'left',
+          label: 'Enriquecimento',
+        },
+        {
           type: 'docSidebar',
           sidebarId: 'runbooksSidebar',
           position: 'left',

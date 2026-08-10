@@ -125,6 +125,12 @@
      Referenciáveis como `text-stage-collect`, `bg-stage-route`, etc. */
   --color-stage-collect: oklch(0.805 0.145 68);
   --color-stage-normalize: oklch(0.702 0.176 285);
+  /* Enriquece — o estágio novo (ADR-LOCAL-0002). Azul informativo, entre o
+     violeta da normalização (285) e o ciano do roteamento (213): a leitura é
+     "já normalizado, ainda não roteado". Mantém ~30-40 graus de distância dos
+     dois vizinhos, que é o que os separa no rail sem introduzir uma sexta
+     família de cor no produto. */
+  --color-stage-enrich: oklch(0.760 0.140 255);
   --color-stage-reduce: oklch(0.802 0.152 166);
   --color-stage-route: oklch(0.805 0.122 213);
   /* Ciano é a única matiz de estágio sem escala de estado, então o preenchimento

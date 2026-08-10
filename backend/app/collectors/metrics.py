@@ -173,6 +173,18 @@ ROUTE_EVENTS = _instrument("collector_route_events_total")
 EVENTS_DROPPED = _instrument("collector_events_dropped_total")
 # bytes lógicos evitados por uma alavanca, por destino+razão (o $ é EE).
 BYTES_SAVED = _instrument("collector_bytes_saved_total")
+# bytes lógicos ACRESCENTADOS por um estágio que agrega dado (enriquecimento).
+# Sem esta contraparte a % de redução cai sem termo que explique (ADR-LOCAL-0002).
+BYTES_ADDED = _instrument("collector_bytes_added_total")
+# ── Enriquecimento em stream (ADR-LOCAL-0002) ──────────────────────────────
+ENRICH_EVENTS = _instrument("collector_enrich_events_total")
+ENRICH_LOOKUPS = _instrument("collector_enrich_lookups_total")
+ENRICH_CACHE = _instrument("collector_enrich_cache_total")
+ENRICH_RESOLVE_LATENCY = _instrument("collector_enrich_resolve_seconds")
+ENRICH_ERRORS = _instrument("collector_enrich_errors_total")
+ENRICH_TABLE_BYTES = _instrument("collector_enrich_table_bytes")
+ENRICH_TABLE_ENTRIES = _instrument("collector_enrich_table_entries")
+ENRICH_BUDGET_EXHAUSTED = _instrument("collector_enrich_budget_exhausted_total")
 # eventos suprimidos por assinatura (rate-limit por rota).
 SUPPRESSED = _instrument("collector_suppressed_total")
 SHADOW_EVENTS = _instrument("collector_shadow_events_total")

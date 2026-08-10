@@ -1,0 +1,142 @@
+{
+  "title": "Enriquecimiento",
+  "description": "Agregue contexto al evento dentro del pipeline — antes del enrutamiento y la detección.",
+  "actions": {
+    "refresh": "Actualizar"
+  },
+  "tabs": {
+    "catalog": "Catálogo ({{count}})",
+    "tables": "Tablas ({{count}})",
+    "policies": "Políticas ({{count}})"
+  },
+  "mode": {
+    "local": "por evento",
+    "remote": "por lote"
+  },
+  "egress": {
+    "none": "sin egreso",
+    "internal": "interno",
+    "thirdParty": "envía a terceros",
+    "warning_one": "{{count}} fuente envía indicadores de su entorno a un servicio externo. Requiere opt-in por organización.",
+    "warning_other": "{{count}} fuentes envían indicadores de su entorno a servicios externos. Requieren opt-in por organización."
+  },
+  "tables": {
+    "emptyTitle": "Aún no hay tablas",
+    "emptyDescription": "Las tablas del cliente (CMDB, plan de red, allowlist) se cotejan por clave exacta o por el prefijo CIDR más específico.",
+    "org": "Organización {{id}}",
+    "entries": "Entradas",
+    "size": "Tamaño",
+    "noVersion": "sin versión publicada",
+    "mode": {
+      "exact": "clave exacta",
+      "cidr": "CIDR"
+    },
+    "form": {
+      "createTitle": "Nueva tabla",
+      "name": "Nombre",
+      "nameRequired": "Indique un nombre para la tabla.",
+      "description": "Descripción",
+      "matchMode": "Tipo de coincidencia",
+      "matchModeExactHint": "Compara la clave del evento por igualdad exacta.",
+      "matchModeCidrHint": "Compara una IP por el prefijo de red MÁS ESPECÍFICO que la contiene.",
+      "keyKind": "Tipo de clave",
+      "create": "Nueva tabla",
+      "organization": "Organización",
+      "organizationPlaceholder": "Seleccione la organización",
+      "organizationRequired": "Seleccione una organización — no existe tabla de enriquecimiento global."
+    },
+    "deleteAction": "Eliminar tabla",
+    "deleteConfirm": {
+      "title": "Eliminar tabla",
+      "description": "Esto elimina \"{{name}}\" y todo su historial de versiones. Solo es posible si ninguna política la referencia."
+    },
+    "versions": {
+      "title": "Versiones — {{name}}",
+      "publishNew": "Publicar nueva versión",
+      "rowsLabel": "Filas (JSON)",
+      "rowsHelperExact": "Objeto {clave: {campo: valor}}. La clave se compara por igualdad exacta.",
+      "rowsHelperCidr": "Objeto {cidr: {campo: valor}}. Cada clave debe ser una IP o un rango CIDR (ej.: 10.0.5.0/24).",
+      "mustBeObject": "El contenido debe ser un objeto {clave: {campo: valor}}, no una lista.",
+      "invalidJson": "JSON inválido — revise comas y llaves.",
+      "commitMessage": "Mensaje del commit",
+      "commitMessageRequired": "Describa el cambio antes de publicar.",
+      "commitMessagePlaceholder": "ej.: inventario inicial",
+      "publish": "Publicar versión",
+      "published": "Versión publicada",
+      "publishedDetail": "{{entries}} entrada(s) publicada(s); {{invalid}} fila(s) inválida(s) descartada(s).",
+      "history": "Historial de versiones",
+      "empty": "Aún no hay versiones publicadas.",
+      "current": "vigente",
+      "invalidCount": "{{count}} inválida(s)",
+      "entriesShort": "{{count}} entradas",
+      "rollback": "Revertir a esta"
+    }
+  },
+  "policies": {
+    "emptyTitle": "Aún no hay políticas",
+    "emptyDescription": "La política define qué reglas de enriquecimiento se ejecutan y dónde se escribe el resultado.",
+    "rules_one": "{{count}} regla",
+    "rules_other": "{{count}} reglas",
+    "enabled": "activa",
+    "disabled": "inactiva",
+    "noVersion": "sin versión publicada",
+    "form": {
+      "createTitle": "Nueva política",
+      "name": "Nombre",
+      "nameRequired": "Indique un nombre para la política.",
+      "organizationRequired": "Seleccione una organización — no existe una política de enriquecimiento global.",
+      "description": "Descripción",
+      "create": "Nueva política"
+    },
+    "versions": {
+      "title": "Versiones — {{name}}",
+      "enabledNow": "Esta política está ACTIVA — se aplica a eventos nuevos de esta organización.",
+      "disabledNow": "Esta política está inactiva.",
+      "needsVersionToEnable": "Publique una versión antes de habilitar.",
+      "enable": "Habilitar",
+      "disable": "Deshabilitar",
+      "publishNew": "Publicar nueva versión",
+      "published": "Versión publicada",
+      "publishedDetail": "{{count}} regla(s) publicada(s).",
+      "rules": "Reglas",
+      "ruleCount": "{{count}} regla(s)",
+      "rulesEmpty": "Agregue al menos una regla antes de publicar.",
+      "ruleId": "Id de la regla",
+      "enricher": "Enricher",
+      "removeRule": "Quitar regla",
+      "table": "Tabla",
+      "tableNone": "(ninguna)",
+      "tableHint": "Solo la usan los enrichers de tabla (table_exact, table_cidr).",
+      "keySource": "Origen de la clave",
+      "keySourceHint": "Ruta dentro del evento normalizado, ej.: normalized.src_endpoint.ip",
+      "keyKind": "Tipo de clave",
+      "outputs": "Salidas",
+      "addOutput": "Agregar salida",
+      "outputFrom": "Campo del resultado",
+      "outputTarget": "Escribe en",
+      "removeOutput": "Quitar salida",
+      "tags": "Tags (separadas por coma)",
+      "tagsHint": "Se escriben en _centralops.enrichment_tags — usable en condiciones de otras reglas y en rutas.",
+      "onMiss": "Si no encuentra",
+      "onError": "Si falla",
+      "addRule": "Agregar regla",
+      "publish": "Publicar versión",
+      "dryRun": {
+        "title": "Probar antes de publicar",
+        "run": "Probar",
+        "hint": "Aplica las reglas anteriores a un evento de ejemplo, sin publicar nada ni tocar tráfico real.",
+        "sample": "Evento de ejemplo (JSON)",
+        "tables": "Tablas simuladas (opcional, JSON)",
+        "tablesHint": "{id_regla: {clave: {campo: valor}}} — prueba sin publicar la tabla real.",
+        "needsRules": "Agregue al menos una regla antes de probar.",
+        "invalidSample": "El evento de ejemplo no es un JSON válido.",
+        "invalidTables": "Las tablas simuladas no son un JSON válido.",
+        "bytesAdded": "+{{count}} bytes",
+        "hits": "hit(s)",
+        "misses": "miss(es)",
+        "errors": "error(es)"
+      }
+    }
+  },
+  "errorTitle": "Error al cargar el enriquecimiento"
+}

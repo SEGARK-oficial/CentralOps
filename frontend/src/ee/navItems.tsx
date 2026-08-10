@@ -26,10 +26,11 @@ export interface EeNavItem {
   icon: ReactNode
 }
 
-/** Grupos da sidebar: cinco estágios do pipeline + três neutros. */
+/** Grupos da sidebar: SEIS estágios do pipeline + três neutros. */
 export type NavGroupKey =
   | "collect"
   | "normalize"
+  | "enrich"
   | "reduce"
   | "route"
   | "detect"

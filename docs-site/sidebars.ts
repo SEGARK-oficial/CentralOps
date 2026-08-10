@@ -129,6 +129,19 @@ const sidebars: SidebarsConfig = {
     },
   ],
 
+  enrichmentSidebar: [
+    {
+      type: 'category',
+      label: 'Enriquecimento',
+      collapsed: false,
+      items: [
+        'enrichment/overview',
+        'enrichment/how-to-enrich',
+        'enrichment/catalog',
+      ],
+    },
+  ],
+
   outputsSidebar: [
     {
       type: 'category',

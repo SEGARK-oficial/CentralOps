@@ -133,7 +133,19 @@ describe("Navigation — grupos por estágio do pipeline", () => {
     const labels = Array.from(container.querySelectorAll(".font-mono")).map((el) => el.textContent)
 
     // A âncora (visão geral) não tem rótulo mono: é o topo do rail, não um estágio.
-    expect(labels).toEqual(["Coleta", "Normaliza", "Roteia", "Detecta", "Administração"])
+    // "Enriquece" entra entre Normaliza e Roteia porque é a ordem REAL no
+    // pipeline: enriquece sobre o envelope já normalizado e ANTES do fan-out,
+    // para que a detecção em voo enxergue o contexto (ADR-LOCAL-0002).
+    // "Reduz" continua ausente: grupo sem item não renderiza, e ainda não há
+    // tela de redução no Community.
+    expect(labels).toEqual([
+      "Coleta",
+      "Normaliza",
+      "Enriquece",
+      "Roteia",
+      "Detecta",
+      "Administração",
+    ])
   })
 
   it("dá a cada grupo de estágio a matiz do seu estágio", () => {

@@ -118,6 +118,38 @@ _SPEC: Dict[str, Dict[str, Any]] = {
     # a tradução em US$ é EE (seam ee_hooks.cost_pricer). ``destination_id`` = "-"
     # quando pré-fan-out (trim no normalize, ainda sem destino).
     "collector_bytes_saved_total": {"kind": "counter", "unit": "By", "labels": ("destination_id", "reason")},
+    # ── Enriquecimento (ADR-LOCAL-0002) ────────────────────────────────────
+    # Contraparte de bytes_saved: sem ela, um estágio que ACRESCENTE volume
+    # derruba a % de redução sem nenhum termo que explique de onde veio.
+    "collector_bytes_added_total": {"kind": "counter", "unit": "By", "labels": ("destination_id", "reason")},
+    # Eventos que passaram pelo aplicador e receberam ao menos um campo.
+    "collector_enrich_events_total": {"kind": "counter", "unit": "1", "labels": ("org_id", "rule_id")},
+    # Desfecho por regra. ``outcome`` ∈ {hit, miss, skipped, error, degraded}.
+    # É a série que responde "meu enriquecimento está funcionando?" — um
+    # miss_rate de 100% é indistinguível de "regra nunca avaliada" sem ela.
+    "collector_enrich_lookups_total": {"kind": "counter", "unit": "1", "labels": ("enricher", "outcome")},
+    # Cache: ``layer`` ∈ {l1, l2}. hit/miss separados por outcome acima seria
+    # ambíguo (miss de cache ≠ miss de lookup), por isso série própria.
+    "collector_enrich_cache_total": {"kind": "counter", "unit": "1", "labels": ("enricher", "layer", "result")},
+    # Latência da RESOLUÇÃO (I/O), não da aplicação. A aplicação é pura e
+    # medida em benchmark, não em produção — instrumentá-la custaria mais que
+    # ela própria.
+    "collector_enrich_resolve_seconds": {
+        "kind": "histogram", "unit": "s", "labels": ("enricher",),
+        "buckets": (0.005, 0.01, 0.05, 0.1, 0.25, 0.5, 1, 2, 5),
+    },
+    # Erros com causa. ``reason`` ∈ {timeout, http, auth, rate_limit, budget,
+    # circuit_open, parse}. ``budget`` é o desabilitador de runtime que protege
+    # o laço de um enricher "local" que mentiu sobre não fazer I/O.
+    "collector_enrich_errors_total": {"kind": "counter", "unit": "1", "labels": ("enricher", "reason")},
+    # Bytes residentes das tabelas carregadas, por enricher. É a métrica que o
+    # HPA NÃO enxerga (escala só por CPU) — logo é a única forma de ver a
+    # pressão de memória antes do cgroup-OOM.
+    "collector_enrich_table_bytes": {"kind": "gauge", "unit": "By", "labels": ("enricher", "org_id")},
+    "collector_enrich_table_entries": {"kind": "gauge", "unit": "1", "labels": ("enricher", "org_id")},
+    # Ciclos em que o orçamento de enriquecimento remoto não coube e o estágio
+    # foi desligado para o ciclo INTEIRO (gate binário — nunca parcial).
+    "collector_enrich_budget_exhausted_total": {"kind": "counter", "unit": "1", "labels": ("org_id",)},
     # eventos SUPRIMIDOS por assinatura (rate-limit por rota). A 1ª
     # ocorrência da janela passa (preservando detecção); as repetições são suprimidas.
     "collector_suppressed_total": {"kind": "counter", "unit": "1", "labels": ("route_id",)},

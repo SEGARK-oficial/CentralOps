@@ -232,8 +232,16 @@ class TestCoberturaDaAuditoria:
         ("entra_id", "@odata.nextLink"),
     ]
 
+    @pytest.mark.source_only
     @pytest.mark.parametrize("module,field", OPAQUE_TOKEN_COLLECTORS)
     def test_coletor_com_token_opaco_trata_4xx(self, module, field):
+        # ``source_only``: este teste LÊ O FONTE do coletor
+        # (``Path(mod.__file__).read_text()``). Na imagem de produção
+        # ``compose/cython-build.sh`` compila ``app/collectors`` inteiro e REMOVE
+        # os ``.py``, então ``__file__`` aponta para um ``.so`` e a leitura
+        # explode. Sem o marcador, o gate compilado do build reprova — e como o
+        # gate roda dentro do ``docker compose build``, o efeito é que NENHUMA
+        # imagem sobe. Mesma disciplina de ``test_adr0015_inflight_matcher.py``.
         import importlib
         from pathlib import Path
 
