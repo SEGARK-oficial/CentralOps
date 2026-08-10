@@ -43,6 +43,11 @@ def _rule(idx: int, *, when: Any = None) -> Dict[str, Any]:
     rule: Dict[str, Any] = {
         "id": f"r{idx}",
         "enricher": "opencti",
+        # opencti declara ``required_secrets``, e a DSL exige ``source`` para esses:
+        # a credencial vive numa ``EnrichmentSource`` escopada à org, nunca no JSON
+        # da regra. O benchmark mede o applier, que nunca resolve a fonte — o nome
+        # aqui só satisfaz o compilador.
+        "source": "fonte-de-bench",
         "key": {
             "source": "normalized.src_endpoint.ip",
             "kind": "ip",
