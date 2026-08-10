@@ -500,6 +500,105 @@ def _make_quarantine_budget(
     return _ok
 
 
+def _account_enrichment_bytes(
+    accumulator: Any, envelope: Mapping[str, Any], organization_id: Optional[int]
+) -> None:
+    """Contabiliza os bytes que o enriquecimento ACRESCENTOU a este evento.
+
+    **Aproximação deliberada, e por quê.** O número exato exigiria serializar o
+    envelope antes E depois (2 dumps por evento). Aqui serializa-se apenas a
+    SUBÁRVORE escrita — ``_centralops.enrichment`` + ``enrichment_tags`` — o que é
+    1 dump sobre alguns bytes em vez de 2 sobre o envelope inteiro. Medido em
+    envelopes reais, o enriquecimento de uma regra com 3 saídas acrescenta 177 B
+    num envelope de 2.289-7.674 B (2,3%-7,7%); a subárvore responde por ~162 B
+    desses, e a diferença é a chave do pai mais separadores. Sub-conta ~8%, na
+    direção segura, e custa uma fração do preço da medição exata.
+
+    No-op imediato com ``COST_METERING_ENABLED=false`` (o ``add`` do acumulador
+    retorna antes de qualquer alocação), então o custo com metering desligado é
+    uma comparação.
+    """
+    if organization_id is None or not metering.enabled():
+        return
+    try:
+        cc = envelope.get("_centralops") or {}
+        enrichment = cc.get("enrichment")
+        tags = cc.get("enrichment_tags")
+        if enrichment is None and tags is None:
+            # Evento NÃO enriquecido não acrescentou byte nenhum. Sem este corte,
+            # serializar `{"enrichment":null,"enrichment_tags":null}` cobra 42 B
+            # fixos de todo evento do lote — inclusive numa política 100% local,
+            # porque o `finally` de `_enrich_remote_batch` chama isto para o lote
+            # inteiro. O erro escalaria com o volume TOTAL, não com o enriquecido,
+            # num KPI que nasce ligado (COST_METERING_ENABLED=True por default) e
+            # que o dry-run, medindo por diff real, reporta como 0 no mesmo evento.
+            return
+        payload = {"enrichment": enrichment, "enrichment_tags": tags}
+        from .output._fastjson import dumps_bytes
+
+        accumulator.add(organization_id, "enrichment", float(len(dumps_bytes(payload))))
+    except Exception:  # noqa: BLE001 — metering é best-effort; nunca quebra a coleta
+        logger.debug("enrich: falha ao contabilizar bytes acrescentados", exc_info=True)
+
+
+async def _enrich_remote_batch(
+    runtime: Any,
+    policy: Any,
+    batch: list,
+    organization_id: Optional[int],
+    integration_id: Optional[int],
+    apply_fn: Any,
+    stats: Any,
+    added_accumulator: Any = None,
+) -> None:
+    """Seam E2 — enriquecimento REMOTO, no flush do lote (ADR-LOCAL-0002).
+
+    Resolve em BULK as chaves DISTINTAS do lote e aplica o mesmo ``apply`` do seam
+    local, só que sobre um mapa já resolvido. Um aplicador, dois seams: o que muda é
+    quem preencheu a resolução, nunca como o evento é escrito.
+
+    A economia é o dedup de chaves: 200 eventos do mesmo host colapsam em UMA
+    chamada. Sem isso, "bulk" seria um laço com nome melhor.
+
+    No-op imediato quando não há política, não há regra remota, ou o lote está
+    vazio — o custo com a feature desligada é uma comparação com None.
+    """
+    if runtime is None or policy is None or not batch or apply_fn is None:
+        return
+    try:
+        if policy.has_remote:
+            from .enrich.contract import EnrichContext
+
+            resolution = await runtime.resolve_remote(
+                policy,
+                batch,
+                EnrichContext(
+                    organization_id=int(organization_id),
+                    integration_id=integration_id,
+                ),
+                budget_s=float(settings.ENRICH_REMOTE_BATCH_BUDGET_S),
+            )
+            remote_rules = policy.remote_rules()
+            for env in batch:
+                apply_fn(env, remote_rules, resolution, stats)
+    except Exception:  # noqa: BLE001 — fail-open: o lote segue sem enriquecimento
+        logger.warning(
+            "enrich: falha na resolução remota do lote — seguindo sem ela",
+            extra={"event": "enrich.remote_batch_failed"},
+            exc_info=True,
+        )
+    finally:
+        # Contabilidade de bytes acrescentados: UMA vez por evento, AQUI, sobre o
+        # envelope final. Creditar no seam local e de novo no remoto somaria a
+        # parte local duas vezes; medir só o delta do remoto exigiria um dump
+        # extra por evento. Fazer no flush resolve os dois: é exato e é 1 dump.
+        # No ``finally`` porque um lote que já foi enriquecido localmente tem de
+        # ser contabilizado mesmo quando a resolução remota falha.
+        if added_accumulator is not None:
+            for env in batch:
+                _account_enrichment_bytes(added_accumulator, env, organization_id)
+
+
 async def _quarantine_async(
     *,
     capture_org_id: Optional[int] = None,
@@ -824,6 +923,26 @@ async def _run_collection_once(integration_id: int, stream: str) -> None:
     _inflight_org_id: Optional[int] = None
     from .inflight.runtime import flush_inflight
 
+    # ADR-LOCAL-0002 — MESMA razão, uma linha acima, e verificada da pior forma:
+    # inicializar estes nomes DEPOIS da resolução da org (dentro do try) fez
+    # ``test_pipeline_early_failure_reraise`` e ``test_cost_metering_batching``
+    # falharem com ``UnboundLocalError: _enrich_stats``, que é precisamente o
+    # mascaramento do erro original descrito acima. O comentário existia; o bug
+    # foi reintroduzido assim mesmo. Por isso o guard de posição em
+    # ``tests/test_adr_local_0002_enrich.py`` compara ÍNDICES, não só presença.
+    _enrich_policy = None
+    _enrich_local_res = None
+    _enrich_stats = None
+    _enrich_runtime = None
+    _enrich_apply = None
+    _emit_enrich_stats = None
+    # Contabilidade dos bytes ACRESCENTADOS (ADR-LOCAL-0002, Fase 0). Instanciado
+    # incondicionalmente e ANTES do try, como ``_metering_in``: o ``finally`` o
+    # flusha. Sem esta contabilidade o enriquecimento derruba ``reduction_pct``
+    # sem nenhum termo que explique a piora — que é precisamente o motivo de a
+    # Fase 0 ter vindo antes da Fase 1 no ADR.
+    _metering_added = metering.AddedVolumeAccumulator()
+
     try:
         # ── 1. Carrega Integration (session efêmera) ──────────────────
         with database.SessionLocal() as db:
@@ -959,6 +1078,52 @@ async def _run_collection_once(integration_id: int, stream: str) -> None:
         # Instanciado SÓ quando há regra: com a tupla vazia o hot path fica
         # byte-idêntico ao anterior (R2) e o flush é curto-circuitado.
         _inflight_acc = InflightAccumulator() if _inflight_rules.rules else None
+
+        # ── Enriquecimento em stream (ADR-LOCAL-0002) ───────────────────────
+        # Mesma disciplina dos três irmãos acima: carga 1x por ciclo, OFF do
+        # event loop, fail-safe para None. ``load_policy_for_org`` já devolve
+        # None quando ENRICHMENT_ENABLED=False, então com a flag desligada o
+        # custo total desta feature é UM lookup em sys.modules por ciclo — o
+        # hot path fica byte-idêntico (nenhum objeto instanciado, nenhuma
+        # chamada nova no laço; ver os `is not None` nos call-sites).
+        #
+        # Os nomes já foram inicializados ANTES do ``try`` (ver o bloco junto de
+        # ``_inflight_*``): o ``finally`` e os dois flushes os referenciam, e uma
+        # falha nos passos 1-3 os deixaria unbound.
+        _enrich_tables: dict = {}
+        if settings.ENRICHMENT_ENABLED and organization_id is not None:
+            from .enrich import enrichers as _enrich_plugins  # noqa: F401 (registro)
+            from .enrich.applier import ApplyStats as _ApplyStats
+            from .enrich.applier import apply as _enrich_apply
+            from .enrich.contract import EnrichContext as _EnrichContext
+            from .enrich.runtime import (
+                EnrichRuntime as _EnrichRuntime,
+                TableResolution as _TableResolution,
+                emit_apply_stats as _emit_enrich_stats,
+                load_policy_for_org as _load_enrich_policy,
+            )
+
+            _enrich_policy = await asyncio.to_thread(_load_enrich_policy, organization_id)
+            if _enrich_policy is not None and _enrich_policy.rules:
+                _enrich_runtime = _EnrichRuntime(
+                    max_table_bytes=settings.ENRICH_MAX_TABLE_BYTES,
+                    lru_bytes=settings.ENRICH_LRU_BYTES,
+                )
+                # Mecaniza a invariante mono-tenant de :885 — toda a conta de
+                # memória do enriquecimento local depende dela, e até aqui ela
+                # era só um comentário.
+                _enrich_runtime.begin_cycle(organization_id)
+                _enrich_ctx = _EnrichContext(
+                    organization_id=organization_id,
+                    integration_id=integration_id,
+                )
+                _enrich_tables = await _enrich_runtime.load_tables(
+                    _enrich_policy, _enrich_ctx
+                )
+                _enrich_local_res = _TableResolution(_enrich_tables)
+                _enrich_stats = _ApplyStats()
+            else:
+                _enrich_policy = None
 
         if not registry_has(platform, stream):
             logger.error(
@@ -1385,6 +1550,46 @@ async def _run_collection_once(integration_id: int, stream: str) -> None:
                             )
                             continue
 
+                    # ── Enriquecimento LOCAL, por evento (ADR-LOCAL-0002) ─
+                    # Posição deliberada, e cada vizinho explica um porquê:
+                    #   • DEPOIS do dedupe (:1026) → não gasta lookup em evento
+                    #     duplicado;
+                    #   • DEPOIS da supressão (o `continue` logo acima) → não
+                    #     gasta lookup em evento que não vai a lugar nenhum;
+                    #   • ANTES da classificação em voo (logo abaixo) → o campo
+                    #     enriquecido ALIMENTA a detecção. Esta é a razão de o
+                    #     enriquecimento local existir como estágio separado do
+                    #     remoto: o remoto resolve só no flush e chegaria tarde;
+                    #   • ANTES do fan-out (routing/engine.py) → 1 lookup por
+                    #     evento, não N (até 16 destinos).
+                    #
+                    # PURO por contrato: ``apply`` não faz I/O (guard de CI em
+                    # tests/test_adr_local_0002_enrich.py). Escreve SÓ sob
+                    # ``_centralops.enrichment*`` — o corpo ``normalized`` já
+                    # passou pelo gate OCSF em :1255 e mutá-lo faria
+                    # ``ocsf_valid`` descrever um payload que não é o entregue.
+                    #
+                    # Mesmo fail-open do detector: envolvido em try, sem
+                    # `continue`/`return`. Enriquecimento é observador, nunca
+                    # porteiro — um enricher quebrado custa um log, não o evento.
+                    if _enrich_local_res is not None:
+                        try:
+                            # A contabilidade de bytes NÃO acontece aqui: ela roda
+                            # no flush, sobre o envelope final, para não somar duas
+                            # vezes o que o seam remoto também escreve.
+                            _enrich_apply(
+                                envelope,
+                                _enrich_policy.local_rules(),
+                                _enrich_local_res,
+                                _enrich_stats,
+                            )
+                        except Exception:  # noqa: BLE001
+                            logger.debug(
+                                "enrich: falha aplicando regras locais",
+                                extra={"event": "enrich.apply_failed"},
+                                exc_info=True,
+                            )
+
                     # ── Classificação em voo ─────────────────────────────
                     # Posição deliberada: DEPOIS da supressão (que preserva a 1ª
                     # ocorrência por assinatura — pipeline.py, comentário do
@@ -1431,7 +1636,17 @@ async def _run_collection_once(integration_id: int, stream: str) -> None:
                         or (time.monotonic() - last_flush)
                         >= config.collector_batch_flush_seconds
                     ):
-                        _enqueue_dispatch(batch, dispatch_routes)
+                        await _enrich_remote_batch(
+                            _enrich_runtime, _enrich_policy, batch,
+                            organization_id, integration_id,
+                            _enrich_apply, _enrich_stats, _metering_added,
+                        )
+                        _enqueue_dispatch(
+                            batch, dispatch_routes,
+                            enrich_skip_reason=(
+                                None if _enrich_policy is not None else "no_policy"
+                            ),
+                        )
                         _flush_capture_buf(
                             capture_buf, organization_id, platform,
                             integration_id, stream,
@@ -1483,7 +1698,21 @@ async def _run_collection_once(integration_id: int, stream: str) -> None:
                 raise
 
             if batch:
-                _enqueue_dispatch(batch, dispatch_routes)
+                # Flush TERMINAL. É o esquecido clássico: uma página que encerra a
+                # coleta nunca atinge ``collector_batch_size`` nem o timeout, então
+                # um estágio ligado só no flush condicional acima deixaria de rodar
+                # justamente no último lote de todo ciclo.
+                await _enrich_remote_batch(
+                    _enrich_runtime, _enrich_policy, batch,
+                    organization_id, integration_id,
+                    _enrich_apply, _enrich_stats, _metering_added,
+                )
+                _enqueue_dispatch(
+                    batch, dispatch_routes,
+                    enrich_skip_reason=(
+                        None if _enrich_policy is not None else "no_policy"
+                    ),
+                )
                 _record_source_ingested(integration_id, len(batch))
                 _flush_capture_buf(
                     capture_buf, organization_id, platform, integration_id, stream,
@@ -1580,6 +1809,10 @@ async def _run_collection_once(integration_id: int, stream: str) -> None:
         # ciclo falhou (exceção/soft-timeout). Best-effort — flush() engole tudo
         # internamente e NUNCA mascara o erro original em voo.
         _metering_in.flush()
+        # Idem para o acréscimo do enriquecimento: um ciclo que falhou no meio já
+        # entregou eventos enriquecidos, e não contabilizá-los faria a % de redução
+        # subir artificialmente justo no ciclo com problema.
+        _metering_added.flush()
         # Idem para o buffer de captura: um ciclo que termina com menos de
         # CAPTURE_BUF_MAX eventos no buffer não pode perdê-los, e um ciclo que
         # falhou é justamente quando o operador mais precisa do registro.
@@ -1587,6 +1820,19 @@ async def _run_collection_once(integration_id: int, stream: str) -> None:
             capture_buf, capture_ctx["org_id"], capture_ctx["vendor"],
             integration_id, stream,
         )
+        # Métricas do enriquecimento no ``finally``, pelo mesmo motivo dos irmãos:
+        # um ciclo que falhou é justamente quando o operador precisa saber quantos
+        # eventos foram enriquecidos antes de o erro acontecer. ``end_cycle`` limpa
+        # o estado por-ciclo (guard mono-tenant, enrichers desabilitados) para que
+        # o próximo ciclo neste MESMO fork comece limpo — o fork atende até 500
+        # tasks (celery_app.py:239) e vê organizações sortidas.
+        if _enrich_stats is not None and _emit_enrich_stats is not None:
+            try:
+                _emit_enrich_stats(_enrich_stats, organization_id)
+            except Exception:  # noqa: BLE001 — métrica nunca mascara o erro em voo
+                logger.debug("enrich: falha ao emitir stats", exc_info=True)
+        if _enrich_runtime is not None:
+            _enrich_runtime.end_cycle()
         # Flush ÚNICO da classificação em voo, no ``finally`` — cobre o caminho
         # feliz E o de exceção. Isso é obrigatório, não zelo: no data-plane
         # default uma exceção no meio do ciclo NÃO solta as claims de dedupe, o
@@ -1635,6 +1881,8 @@ async def _run_collection_once(integration_id: int, stream: str) -> None:
 def _enqueue_dispatch(
     batch: list[Dict[str, Any]],
     routes: Optional[list[Any]] = None,
+    *,
+    enrich_skip_reason: Optional[str] = "producer_unsupported",
 ) -> None:
     """Publica lote pelo ROTEAMENTO (modelo único).
 
@@ -1651,6 +1899,26 @@ def _enqueue_dispatch(
     """
     if routes is None:
         routes = _load_routes_for_org(_batch_org_id(batch))
+    # Produtores SÍNCRONOS (backfill, replay de quarentena, reprocessamento,
+    # scheduler) não passam pelo enriquecimento — ver ``enrich.note_unenriched``.
+    # A omissão é MARCADA no envelope, nunca silenciosa: sem isso, um evento sem
+    # contexto no destino é indistinguível de um que foi enriquecido e não casou.
+    #
+    # O motivo vem do CALLER, não de inferência sobre o envelope. Inferir por
+    # ``"enrichment" in cc`` rotularia como ``producer_unsupported`` todo evento que
+    # PASSOU pelo enriquecimento e não casou nenhuma regra — a chave só nasce quando
+    # alguma regra ESCREVE. O resultado era um envelope autocontraditório entregue ao
+    # SIEM (``enrichment_tags`` presente ao lado de ``enrichment_skipped:
+    # producer_unsupported``) e, numa org com a flag ligada e sem política, o
+    # rótulo errado em 100% do tráfego. O laço de coleta passa ``None`` (rodou) ou
+    # ``no_policy``; só os produtores bulk ficam com o default.
+    if enrich_skip_reason is not None:
+        try:
+            from .enrich.runtime import note_unenriched
+
+            note_unenriched(batch, enrich_skip_reason)
+        except Exception:  # noqa: BLE001 — marcação nunca bloqueia o despacho
+            logger.debug("enrich: falha ao marcar lote não-enriquecido", exc_info=True)
     _enqueue_routed(batch, routes)
 
 

@@ -1,0 +1,175 @@
+{
+  "title": "Enrichment",
+  "description": "Add context to events inside the pipeline — before routing and detection.",
+  "actions": {
+    "refresh": "Refresh"
+  },
+  "tabs": {
+    "catalog": "Catalog ({{count}})",
+    "tables": "Tables ({{count}})",
+    "policies": "Policies ({{count}})",
+    "sources": "Sources ({{count}})"
+  },
+  "mode": {
+    "local": "per event",
+    "remote": "per batch"
+  },
+  "egress": {
+    "none": "no egress",
+    "internal": "internal",
+    "thirdParty": "sends to third party",
+    "warning_one": "{{count}} source sends indicators from your environment to an external service. Requires per-organization opt-in.",
+    "warning_other": "{{count}} sources send indicators from your environment to external services. They require per-organization opt-in."
+  },
+  "tables": {
+    "emptyTitle": "No tables yet",
+    "emptyDescription": "Customer tables (CMDB, network plan, allowlist) are matched by exact key or by the most specific CIDR prefix.",
+    "org": "Organization {{id}}",
+    "entries": "Entries",
+    "size": "Size",
+    "noVersion": "no published version",
+    "mode": {
+      "exact": "exact key",
+      "cidr": "CIDR"
+    },
+    "form": {
+      "createTitle": "New table",
+      "name": "Name",
+      "nameRequired": "Enter a name for the table.",
+      "description": "Description",
+      "matchMode": "Match type",
+      "matchModeExactHint": "Compares the event's key by exact equality.",
+      "matchModeCidrHint": "Compares an IP by the MOST SPECIFIC network prefix that contains it.",
+      "keyKind": "Key type",
+      "create": "New table",
+      "organization": "Organization",
+      "organizationPlaceholder": "Select an organization",
+      "organizationRequired": "Select an organization — there is no global enrichment table."
+    },
+    "deleteAction": "Delete table",
+    "deleteConfirm": {
+      "title": "Delete table",
+      "description": "This removes \"{{name}}\" and its whole version history. Only possible if no policy references it."
+    },
+    "versions": {
+      "title": "Versions — {{name}}",
+      "publishNew": "Publish a new version",
+      "rowsLabel": "Rows (JSON)",
+      "rowsHelperExact": "Object {key: {field: value}}. The key is compared by exact equality.",
+      "rowsHelperCidr": "Object {cidr: {field: value}}. Each key must be an IP or a CIDR range (e.g. 10.0.5.0/24).",
+      "mustBeObject": "The content must be an object {key: {field: value}}, not a list.",
+      "invalidJson": "Invalid JSON — check commas and braces.",
+      "commitMessage": "Commit message",
+      "commitMessageRequired": "Describe the change before publishing.",
+      "commitMessagePlaceholder": "e.g.: initial inventory",
+      "publish": "Publish version",
+      "published": "Version published",
+      "publishedDetail": "{{entries}} entrie(s) published; {{invalid}} invalid row(s) discarded.",
+      "history": "Version history",
+      "empty": "No version published yet.",
+      "current": "current",
+      "invalidCount": "{{count}} invalid",
+      "entriesShort": "{{count}} entries",
+      "rollback": "Roll back to this"
+    }
+  },
+  "policies": {
+    "emptyTitle": "No policies yet",
+    "emptyDescription": "A policy defines which enrichment rules run and where the result is written.",
+    "rules_one": "{{count}} rule",
+    "rules_other": "{{count}} rules",
+    "enabled": "active",
+    "disabled": "inactive",
+    "noVersion": "no published version",
+    "form": {
+      "createTitle": "New policy",
+      "name": "Name",
+      "nameRequired": "Enter a name for the policy.",
+      "organizationRequired": "Select an organization — there is no global enrichment policy.",
+      "description": "Description",
+      "create": "New policy"
+    },
+    "versions": {
+      "title": "Versions — {{name}}",
+      "enabledNow": "This policy is ACTIVE — it applies to new events for this organization.",
+      "disabledNow": "This policy is disabled.",
+      "needsVersionToEnable": "Publish a version before enabling.",
+      "enable": "Enable",
+      "disable": "Disable",
+      "publishNew": "Publish a new version",
+      "published": "Version published",
+      "publishedDetail": "{{count}} rule(s) published.",
+      "rules": "Rules",
+      "ruleCount": "{{count}} rule(s)",
+      "rulesEmpty": "Add at least one rule before publishing.",
+      "ruleId": "Rule id",
+      "enricher": "Enricher",
+      "removeRule": "Remove rule",
+      "table": "Table",
+      "tableNone": "(none)",
+      "tableHint": "Only used by table enrichers (table_exact, table_cidr).",
+      "keySource": "Key source",
+      "keySourceHint": "Path inside the normalized event, e.g.: normalized.src_endpoint.ip",
+      "keyKind": "Key type",
+      "outputs": "Outputs",
+      "addOutput": "Add output",
+      "outputFrom": "Result field",
+      "outputTarget": "Writes to",
+      "removeOutput": "Remove output",
+      "tags": "Tags (comma-separated)",
+      "tagsHint": "Written to _centralops.enrichment_tags — usable in other rules' conditions and in routes.",
+      "onMiss": "On miss",
+      "onError": "On error",
+      "addRule": "Add rule",
+      "publish": "Publish version",
+      "dryRun": {
+        "title": "Test before publishing",
+        "run": "Test",
+        "hint": "Applies the rules above to a sample event, without publishing anything or touching real traffic.",
+        "sample": "Sample event (JSON)",
+        "tables": "Simulated tables (optional, JSON)",
+        "tablesHint": "{rule_id: {key: {field: value}}} — test without publishing the real table.",
+        "needsRules": "Add at least one rule before testing.",
+        "invalidSample": "The sample event is not valid JSON.",
+        "invalidTables": "The simulated tables are not valid JSON.",
+        "bytesAdded": "+{{count}} bytes",
+        "hits": "hit(s)",
+        "misses": "miss(es)",
+        "errors": "error(s)"
+      },
+      "source": "Configured source",
+      "sourceNone": "(select)",
+      "sourceRequired": "Required: this enricher needs a credential.",
+      "sourceHint": "The credential lives in the source, never in the rule."
+    }
+  },
+  "errorTitle": "Failed to load enrichment",
+  "sources": {
+    "emptyTitle": "No configured sources",
+    "emptyDescription": "A source is an instance of an enricher in this organization — the endpoint and credential it runs with here.",
+    "secretConfigured": "credential set",
+    "secretMissing": "no credential",
+    "disabled": "disabled",
+    "deleteAction": "Delete source",
+    "deleteConfirm": {
+      "title": "Delete source",
+      "description": "This removes \"{{name}}\" and its credential. Only possible if no policy references it."
+    },
+    "form": {
+      "createTitle": "New source",
+      "editTitle": "Edit source — {{name}}",
+      "name": "Name",
+      "nameRequired": "Enter a name for the source.",
+      "nameImmutable": "The name cannot change after creation — rules reference it.",
+      "organizationRequired": "Select an organization — the credential is bound to it.",
+      "enricher": "Enricher",
+      "description": "Description",
+      "configLegend": "Configuration",
+      "secret": "Credential",
+      "secretRequired": "This enricher requires a credential.",
+      "secretHint": "Sent once and encrypted by the server; the API never returns it. Required: {{names}}.",
+      "secretKeepPlaceholder": "•••••••• (leave empty to keep)",
+      "create": "New source"
+    }
+  }
+}

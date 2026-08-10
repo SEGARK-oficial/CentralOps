@@ -2432,3 +2432,293 @@ export async function getOcsfCompliance() {
     forbiddenRedirectTo: ADMIN_REDIRECT_PATH,
   })
 }
+
+// ── Enriquecimento em stream (ADR-LOCAL-0002) ──────────────────────────────
+// O catálogo é lido do registry do backend: adicionar uma fonte de
+// enriquecimento NÃO toca o frontend.
+
+import type { JsonSchema } from "@/types"
+
+export interface EnricherCatalogItem {
+  name: string
+  label: string
+  category: string
+  description: string
+  icon_id: string | null
+  docs_url: string | null
+  tier: string
+  order: number
+  mode: "local" | "remote"
+  key_kinds: string[]
+  supports_bulk: boolean
+  suggested_ttl_s: number
+  license: string
+  /** "none" | "internal" | "third_party" — consentimento de privacidade. */
+  egress: "none" | "internal" | "third_party"
+  required_secrets: string[]
+  output_fields: Record<string, string>
+  /** `model_json_schema` do enricher — dirige o formulário da fonte configurada. */
+  config_schema?: JsonSchema | null
+}
+
+/** Instância configurada de um enricher, escopada à organização. */
+export interface EnrichmentSource {
+  id: string
+  organization_id: number
+  name: string
+  enricher: string
+  description: string | null
+  config: Record<string, unknown>
+  /** Booleano — a API NUNCA devolve a referência do segredo. */
+  secret_configured: boolean
+  enabled: boolean
+}
+
+export interface EnrichmentSourceCreateRequest {
+  name: string
+  enricher: string
+  organization_id: number
+  description?: string | null
+  config?: Record<string, unknown>
+  /** Write-only: trafega em claro UMA vez; o servidor cifra e nunca devolve. */
+  secret?: string | null
+  enabled?: boolean
+}
+
+export interface EnrichmentSourceUpdateRequest {
+  description?: string | null
+  config?: Record<string, unknown>
+  /** `undefined` mantém o segredo; `""` remove; string nova substitui. */
+  secret?: string | null
+  enabled?: boolean
+}
+
+export async function listEnrichmentSources() {
+  return apiRequest<EnrichmentSource[]>("/collectors/enrichment/sources")
+}
+
+export async function createEnrichmentSource(data: EnrichmentSourceCreateRequest) {
+  return apiRequest<EnrichmentSource>("/collectors/enrichment/sources", {
+    method: "POST",
+    body: JSON.stringify(data),
+  })
+}
+
+export async function updateEnrichmentSource(
+  id: string,
+  data: EnrichmentSourceUpdateRequest,
+) {
+  return apiRequest<EnrichmentSource>(`/collectors/enrichment/sources/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  })
+}
+
+export async function deleteEnrichmentSource(id: string) {
+  return apiRequest<void>(`/collectors/enrichment/sources/${id}`, { method: "DELETE" })
+}
+
+export interface EnrichmentTable {
+  id: string
+  organization_id: number
+  name: string
+  description: string | null
+  match_mode: "exact" | "cidr"
+  key_kind: string
+  current_version_id: string | null
+  entry_count: number
+  approx_bytes: number
+}
+
+export interface EnrichmentPolicy {
+  id: string
+  organization_id: number
+  name: string
+  description: string | null
+  enabled: boolean
+  current_version_id: string | null
+  rule_count: number
+}
+
+export async function listEnrichers() {
+  return apiRequest<EnricherCatalogItem[]>("/collectors/enrichment/enrichers")
+}
+
+export async function listEnrichmentTables() {
+  return apiRequest<EnrichmentTable[]>("/collectors/enrichment/tables")
+}
+
+export async function listEnrichmentPolicies() {
+  return apiRequest<EnrichmentPolicy[]>("/collectors/enrichment/policies")
+}
+
+// ── Tabelas: escrita ────────────────────────────────────────────────────────
+
+export interface EnrichmentTableCreateRequest {
+  name: string
+  organization_id?: number | null
+  description?: string | null
+  match_mode: "exact" | "cidr"
+  key_kind: string
+}
+
+export interface EnrichmentTableVersion {
+  id: string
+  version_number: number
+  entry_count: number
+  approx_bytes: number
+  commit_message: string
+  author_user_id: number | null
+  created_at: string | null
+  is_current: boolean
+  invalid_rows: number
+}
+
+export async function createEnrichmentTable(data: EnrichmentTableCreateRequest) {
+  return apiRequest<EnrichmentTable>("/collectors/enrichment/tables", {
+    method: "POST",
+    body: JSON.stringify(data),
+  })
+}
+
+export async function deleteEnrichmentTable(id: string) {
+  return apiRequest<void>(`/collectors/enrichment/tables/${id}`, { method: "DELETE" })
+}
+
+export async function listEnrichmentTableVersions(tableId: string) {
+  return apiRequest<EnrichmentTableVersion[]>(`/collectors/enrichment/tables/${tableId}/versions`)
+}
+
+export async function commitEnrichmentTableVersion(
+  tableId: string,
+  data: { rows: Record<string, Record<string, unknown>>; commit_message: string },
+) {
+  return apiRequest<EnrichmentTableVersion>(`/collectors/enrichment/tables/${tableId}/versions`, {
+    method: "POST",
+    body: JSON.stringify(data),
+  })
+}
+
+export async function rollbackEnrichmentTable(tableId: string, versionId: string) {
+  return apiRequest<EnrichmentTable>(`/collectors/enrichment/tables/${tableId}/rollback`, {
+    method: "POST",
+    body: JSON.stringify({ version_id: versionId }),
+  })
+}
+
+// ── Políticas: escrita ──────────────────────────────────────────────────────
+
+export interface EnrichmentPolicyCreateRequest {
+  name: string
+  organization_id?: number | null
+  description?: string | null
+}
+
+export interface EnrichmentPolicyVersion {
+  id: string
+  version_number: number
+  commit_message: string
+  author_user_id: number | null
+  created_at: string | null
+  is_current: boolean
+  summary: {
+    version: number
+    rule_count: number
+    has_local: boolean
+    has_remote: boolean
+    rules: Array<{
+      id: string
+      enricher: string
+      table: string | null
+      mode: string
+      key: { source: string; kind: string }
+      targets: string[]
+      tags: string[]
+      on_miss: string
+      on_multi: string
+      on_error: string
+    }>
+  } | null
+}
+
+/** Uma regra de política, no formato aceito por `POST .../policies/{id}/versions`. */
+export interface EnrichmentRule {
+  id: string
+  enricher: string
+  table?: string | null
+  /** Nome da `EnrichmentSource` desta org. A credencial NUNCA vai na regra. */
+  source?: string | null
+  key: { source: string; kind: string; normalize?: string[] }
+  when?: Record<string, unknown> | null
+  outputs: Array<{ from: string; target: string; default?: unknown }>
+  tags?: string[]
+  on_miss?: "skip" | "default" | "tag"
+  on_multi?: "first" | "error" | "array"
+  on_error?: "skip" | "tag"
+  overwrite?: boolean
+  mode?: "local" | "remote"
+  ttl_s?: number
+  negative_ttl_s?: number
+  entry_ttl_s?: number
+}
+
+export async function createEnrichmentPolicy(data: EnrichmentPolicyCreateRequest) {
+  return apiRequest<EnrichmentPolicy>("/collectors/enrichment/policies", {
+    method: "POST",
+    body: JSON.stringify(data),
+  })
+}
+
+export async function listEnrichmentPolicyVersions(policyId: string) {
+  return apiRequest<EnrichmentPolicyVersion[]>(`/collectors/enrichment/policies/${policyId}/versions`)
+}
+
+export async function commitEnrichmentPolicyVersion(
+  policyId: string,
+  data: { rules: EnrichmentRule[]; commit_message: string },
+) {
+  return apiRequest<EnrichmentPolicyVersion>(`/collectors/enrichment/policies/${policyId}/versions`, {
+    method: "POST",
+    body: JSON.stringify(data),
+  })
+}
+
+export async function rollbackEnrichmentPolicy(policyId: string, versionId: string) {
+  return apiRequest<EnrichmentPolicy>(`/collectors/enrichment/policies/${policyId}/rollback`, {
+    method: "POST",
+    body: JSON.stringify({ version_id: versionId }),
+  })
+}
+
+export async function setEnrichmentPolicyEnabled(policyId: string, enabled: boolean) {
+  return apiRequest<EnrichmentPolicy>(
+    `/collectors/enrichment/policies/${policyId}/enable?enabled=${enabled ? "true" : "false"}`,
+    { method: "POST" },
+  )
+}
+
+// ── Dry-run ──────────────────────────────────────────────────────────────────
+
+export interface EnrichmentDryRunRequest {
+  rules: EnrichmentRule[]
+  sample: Record<string, unknown>
+  tables?: Record<string, Record<string, unknown>>
+}
+
+export interface EnrichmentDryRunResponse {
+  ok: boolean
+  summary: EnrichmentPolicyVersion["summary"]
+  enriched: Record<string, unknown>
+  hits: Record<string, number>
+  misses: Record<string, number>
+  skipped: Record<string, number>
+  errors: Record<string, number>
+  bytes_added: number
+}
+
+export async function dryRunEnrichment(data: EnrichmentDryRunRequest) {
+  return apiRequest<EnrichmentDryRunResponse>("/collectors/enrichment/dry-run", {
+    method: "POST",
+    body: JSON.stringify(data),
+  })
+}

@@ -578,6 +578,39 @@ class Settings(BaseSettings):
     # Versão-alvo do schema OCSF vendorado (global; per-org fica para depois).
     OCSF_VALIDATION_VERSION: str = "1.8.0"
 
+    # ── Enriquecimento em stream (ADR-LOCAL-0002) ──────────────────────────
+    # OFF por default: com a flag desligada nenhum call-site novo é executado no
+    # laço de coleta e o hot path é byte-idêntico ao anterior.
+    ENRICHMENT_ENABLED: bool = False
+    # Teto de bytes RESIDENTES de UMA tabela, por FORK. O default é conservador
+    # de propósito: o serviço ``collect.bulk`` roda ``--concurrency=8`` sob
+    # ``memory: 2g`` (compose/docker-compose.yml:422,476) com ~200 MiB/fork de
+    # baseline — 8 × 1,6 GiB já ocupa o limite. 32 MiB/fork = 256 MiB/container.
+    # Estourar RECUSA a carga com log fail-loud; nunca descobrir o teto via OOM
+    # (o HPA escala só por CPU, então a memória não gera sinal nenhum).
+    ENRICH_MAX_TABLE_BYTES: int = 32 * 1024 * 1024
+    # Teto do LRU de tabelas por fork, em BYTES (não em número de entradas: 6
+    # tabelas de 10 MB e 6 de 200 MB ocupariam "o mesmo" espaço).
+    ENRICH_LRU_BYTES: int = 64 * 1024 * 1024
+    # Orçamento de resolução REMOTA por lote. Estourou ⇒ gate BINÁRIO: o lote
+    # inteiro segue sem enriquecimento remoto, nunca um prefixo arbitrário —
+    # enriquecer os N primeiros produz roteamento não-determinístico, e o dedupe
+    # (pipeline.py:1026, TTL 1 dia) impede reprocessar o restante.
+    ENRICH_REMOTE_BATCH_BUDGET_S: float = 0.3
+    # Orçamento de resolução remota por CICLO.
+    ENRICH_CYCLE_BUDGET_S: float = 30.0
+    # Redis DEDICADO do cache de enriquecimento (L2). VAZIO por default e isso é
+    # fail-closed deliberado: sem ele o enriquecimento REMOTO não roda. Cair no
+    # REDIS_URL principal colocaria chaves com TTL na instância que roda
+    # `--maxmemory 512mb --maxmemory-policy volatile-lru` junto do dedupe — cuja
+    # evicção é silenciosa e reaparece como REENTREGA no SIEM. DB lógico não isola
+    # memória; a política de eviction é global por instância.
+    ENRICH_REDIS_URL: str = ""
+    ENRICH_L1_MAX_ENTRIES: int = 10_000
+    # Espera máxima pelo par que detém o single-flight. Curta de propósito: o
+    # orçamento do lote inteiro é de 300 ms.
+    ENRICH_SINGLEFLIGHT_WAIT_MS: int = 50
+
     @field_validator("OCSF_DEFAULT_ENFORCEMENT")
     @classmethod
     def _validate_ocsf_enforcement(cls, value: str) -> str:

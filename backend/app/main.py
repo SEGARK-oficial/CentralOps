@@ -25,7 +25,7 @@ from .db.database import SessionLocal
 from .collectors.celery_app import celery_app  # noqa: F401
 from .routers import (
     api_tokens, auth, backfill, collector_config, collectors, config_bundle,
-    dashboard, destinations, detections, drift, emails, health, history, identity_config,
+    dashboard, destinations, detections, drift, emails, enrichment, health, history, identity_config,
     ingest, integrations, internal, iris, mappings, ocsf, organizations, pipeline_health, providers,
     quarantine, queries, results, routes, scheduled_queries,
     service_accounts, sso,
@@ -77,6 +77,10 @@ AUDIT_REDACTED_FIELDS = {
     "master_key",
     "password",
     "refresh_token",
+    #: campo write-only de ``POST/PATCH /collectors/enrichment/sources`` — a
+    #: credencial em claro trafega UMA vez e não pode ficar no audit_logs.
+    "secret",
+    "secret_ref",
     "session",
     "smtp_password",
     "token",
@@ -389,6 +393,9 @@ app.include_router(detections.router, prefix="/api", dependencies=protected_api)
 app.include_router(collectors.router, prefix="/api", dependencies=protected_api)
 app.include_router(collector_config.router, prefix="/api", dependencies=protected_api)
 app.include_router(destinations.router, prefix="/api", dependencies=protected_api)
+# Enriquecimento em stream (ADR-LOCAL-0002): catálogo plugin-driven + tabelas do
+# cliente e políticas versionadas, ambas ORG-ESCOPADAS (não existe recurso global).
+app.include_router(enrichment.router, prefix="/api", dependencies=protected_api)
 app.include_router(destinations.lineage_router, prefix="/api", dependencies=protected_api)
 app.include_router(routes.router, prefix="/api", dependencies=protected_api)
 app.include_router(config_bundle.router, prefix="/api", dependencies=protected_api)

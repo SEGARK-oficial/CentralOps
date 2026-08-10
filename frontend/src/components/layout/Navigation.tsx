@@ -22,6 +22,7 @@ import {
   PackageXIcon,
   HeartPulseIcon,
   LayoutTemplateIcon,
+  SparklesIcon,
   XIcon,
 } from "lucide-react"
 import { useAuth } from "@/contexts/AuthContext"
@@ -49,7 +50,7 @@ import { cn } from "@/lib/utils"
  * com névoa nas duas pontas quando há mais conteúdo naquela direção.
  */
 
-type StageKey = "collect" | "normalize" | "reduce" | "route" | "detect"
+type StageKey = "collect" | "normalize" | "enrich" | "reduce" | "route" | "detect"
 
 interface NavItem {
   key: string
@@ -73,6 +74,7 @@ interface NavGroup {
 const STAGE_BAR: Record<StageKey, string> = {
   collect: "bg-stage-collect",
   normalize: "bg-stage-normalize",
+  enrich: "bg-stage-enrich",
   reduce: "bg-stage-reduce",
   route: "bg-stage-route",
   detect: "bg-stage-detect",
@@ -241,6 +243,24 @@ export const Navigation: React.FC<NavigationProps> = ({ open = false, onClose, c
           ? [{ key: "ocsf", label: t("navigation.items.ocsf"), path: "/admin/ocsf", icon: <ShieldCheckIcon size={18} /> }]
           : []),
       ],
+    },
+    {
+      // Enriquece — entre normalizar e reduzir, que é a ordem real no pipeline:
+      // o enriquecimento roda sobre o envelope já normalizado e ANTES do
+      // fan-out/redução, para que a detecção em voo enxergue o contexto.
+      key: "enrich",
+      stage: "enrich",
+      label: t("navigation.groups.enrich"),
+      items: isAdmin
+        ? [
+            {
+              key: "enrichment",
+              label: t("navigation.items.enrichment"),
+              path: "/enrichment",
+              icon: <SparklesIcon size={18} />,
+            },
+          ]
+        : [],
     },
     {
       key: "reduce",

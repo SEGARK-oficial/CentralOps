@@ -2148,3 +2148,208 @@ class ApiToken(Base):
             name="ck_api_tokens_owner_xor",
         ),
     )
+
+
+# ── Enriquecimento em stream (ADR-LOCAL-0002) ─────────────────────────
+
+class EnrichmentSource(Base):
+    """Instância CONFIGURADA de um enricher do catálogo, escopada a uma org.
+
+    É para o enricher o que ``Destination`` é para o sink: o registry diz o que um
+    *kind* sabe fazer (``config_schema``, ``required_secrets``); esta linha diz
+    com QUE credencial e contra QUE endpoint ele roda **nesta organização**.
+
+    **Por que uma linha em vez de config embutida na regra.** A regra é JSON que
+    o admin da org escreve pela API. ``secret_ref`` NÃO é um ponteiro para um
+    cofre com controle de acesso — é o **próprio ciphertext**
+    (``integration_secrets.py:95``: ``secret_ref=encrypt(plaintext)``), e resolver
+    é ``backend.decrypt(ref)``, sem noção de organização. Aceitar ``secret_ref``
+    vindo do corpo da requisição deixaria um admin da Org A colar o ciphertext da
+    Org B e USAR a credencial dela — a cota, a identidade e o egresso do vizinho,
+    sem nunca ver o texto claro. Guardando a referência numa linha escopada por
+    org e citando-a por NOME na regra, o vínculo credencial↔org passa a ser do
+    servidor. É o mesmo motivo pelo qual ``table`` é citada por nome.
+
+    **A API nunca devolve ``secret_ref``** — expõe ``secret_configured: bool``,
+    como ``Integration`` faz com ``manager_api_password_configured``.
+    """
+
+    __tablename__ = "enrichment_sources"
+    __table_args__ = (
+        UniqueConstraint("organization_id", "name", name="uq_enrich_source_org_name"),
+        Index("ix_enrich_source_org_enricher", "organization_id", "enricher"),
+    )
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid4()))
+    organization_id = Column(
+        Integer,
+        ForeignKey("organizations.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    #: Nome citado pela regra (``source: "opencti-interno"``). Único POR ORG.
+    name = Column(String, nullable=False)
+    #: Chave do enricher no registry (``opencti``, ``virustotal``, ...).
+    enricher = Column(String, nullable=False)
+    description = Column(Text, nullable=True)
+    #: JSON validado contra o ``config_schema`` do enricher NO COMMIT, não em
+    #: runtime — config torta tem que falhar para quem a escreveu, não no ciclo.
+    config = Column(Text, nullable=False, default="{}")
+    #: Ciphertext, JAMAIS o segredo em claro; escrito só pelo servidor.
+    secret_ref = Column(String, nullable=True)
+    enabled = Column(Boolean, default=True, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(
+        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
+    )
+
+
+class EnrichmentPolicy(Base):
+    """Política de enriquecimento de UMA organização.
+
+    Escopo por org é OBRIGATÓRIO e é a diferença estrutural em relação a
+    ``MappingDefinition``, que **não tem** ``organization_id``
+    (unique só em vendor+event_type). Um CMDB ou uma allowlist de cliente numa
+    tabela global vazaria entre tenants — foi a primeira razão pela qual o ADR
+    descartou estender a DSL de mapping.
+
+    Uma política ATIVA por org: o ponteiro ``current_version_id`` é a fonte da
+    verdade do que roda em produção, exatamente como
+    ``MappingDefinition.current_version_id``. Resolver por "maior número de
+    versão" seria errado — rollback re-aponta para uma versão ANTIGA.
+    """
+
+    __tablename__ = "enrichment_policies"
+    __table_args__ = (
+        UniqueConstraint("organization_id", "name", name="uq_enrich_policy_org_name"),
+        Index("ix_enrich_policy_org_enabled", "organization_id", "enabled"),
+    )
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid4()))
+    organization_id = Column(
+        Integer,
+        ForeignKey("organizations.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    name = Column(String, nullable=False)
+    description = Column(Text, nullable=True)
+    #: OFF por default: criar a política não a coloca no hot path.
+    enabled = Column(Boolean, default=False, nullable=False)
+    current_version_id = Column(String, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(
+        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
+    )
+
+
+class EnrichmentPolicyVersion(Base):
+    """Versão IMUTÁVEL de uma política. Append-only, como ``MappingVersion``.
+
+    A imutabilidade não é purismo: é o que permite o **point-in-time** do
+    backfill. Enriquecimento é time-dependent (um IP que era de um datacenter em
+    maio é de outro em agosto), e reprocessar 90 dias com a política de hoje
+    produziria atribuição errada. Resolver a versão por ``as_of`` só funciona se
+    versões antigas nunca forem reescritas.
+    """
+
+    __tablename__ = "enrichment_policy_versions"
+    __table_args__ = (
+        UniqueConstraint(
+            "policy_id", "version_number", name="uq_enrich_version_policy_num"
+        ),
+        Index("ix_enrich_version_policy_created", "policy_id", "created_at"),
+    )
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid4()))
+    policy_id = Column(
+        String,
+        ForeignKey("enrichment_policies.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    version_number = Column(Integer, nullable=False)
+    #: Documento JSON ``{"version": 1, "enrichment": [...]}``, validado por
+    #: ``enrich.dsl.compile_policy`` ANTES do commit (422 em regra inválida).
+    rules = Column(Text, nullable=False)
+    #: ``auth.persistable_user_id()`` — NUNCA o id cru de service account, que é
+    #: negativo e inexistente em ``app_users`` (FK violation + audit perdido).
+    author_user_id = Column(
+        Integer, ForeignKey("app_users.id", ondelete="SET NULL"), nullable=True
+    )
+    commit_message = Column(Text, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+
+class EnrichmentTable(Base):
+    """Tabela de lookup do cliente (CMDB, allowlist, watchlist, plano de rede).
+
+    ``match_mode`` decide a estrutura materializada em memória:
+    ``exact`` → dict; ``cidr`` → radix tree com longest-prefix. O segundo é o
+    diferencial competitivo — nem Vector nem Cribl fazem longest-prefix
+    nativamente — e resolve NetBox, Spamhaus DROP e plano de endereçamento
+    corporativo com a mesma primitiva.
+    """
+
+    __tablename__ = "enrichment_tables"
+    __table_args__ = (
+        UniqueConstraint("organization_id", "name", name="uq_enrich_table_org_name"),
+    )
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid4()))
+    organization_id = Column(
+        Integer,
+        ForeignKey("organizations.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    name = Column(String, nullable=False)
+    description = Column(Text, nullable=True)
+    #: "exact" | "cidr"
+    match_mode = Column(String, default="exact", nullable=False)
+    #: ∈ ``enrich.contract.KEY_KINDS``
+    key_kind = Column(String, default="ip", nullable=False)
+    current_version_id = Column(String, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(
+        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
+    )
+
+
+class EnrichmentTableVersion(Base):
+    """Conteúdo imutável de uma versão de tabela.
+
+    ``rows`` é o JSON completo ``{chave: {campo: valor}}``. Guardar o corpo
+    inteiro (em vez de uma tabela de linhas) é deliberado: a carga é
+    ``1 SELECT``/ciclo em vez de ``N`` linhas paginadas, e a versão é a unidade
+    de troca atômica — o runtime cacheia por ``(table_id, version_id)`` e faz
+    swap de PONTEIRO, sem janela de indisponibilidade.
+
+    ``entry_count`` e ``approx_bytes`` são materializados no commit para que a
+    API possa recusar uma tabela acima do teto SEM carregá-la — descobrir o
+    limite por OOM no worker é o modo de falha que esses campos evitam.
+    """
+
+    __tablename__ = "enrichment_table_versions"
+    __table_args__ = (
+        UniqueConstraint(
+            "table_id", "version_number", name="uq_enrich_tblver_table_num"
+        ),
+    )
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid4()))
+    table_id = Column(
+        String,
+        ForeignKey("enrichment_tables.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    version_number = Column(Integer, nullable=False)
+    rows = Column(Text, nullable=False)
+    entry_count = Column(Integer, default=0, nullable=False)
+    approx_bytes = Column(Integer, default=0, nullable=False)
+    author_user_id = Column(
+        Integer, ForeignKey("app_users.id", ondelete="SET NULL"), nullable=True
+    )
+    commit_message = Column(Text, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)

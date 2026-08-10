@@ -240,7 +240,19 @@ def test_every_facade_maps_to_spec_and_vice_versa():
     # de "não houve tráfego", que é exatamente o sintoma que o tap existe para
     # eliminar. Sem labels: o tap é estado de PROCESSO, e rotular por org daria
     # cardinalidade ilimitada.
-    assert len(facade_names) == 51
+    # 51 → 60. +9: enriquecimento em stream (ADR-LOCAL-0002).
+    # ``collector_bytes_added_total`` é a contraparte que FALTAVA a
+    # ``bytes_saved``: sem ela, um estágio que ACRESCENTA volume derruba
+    # ``reduction_pct`` sem nenhum termo capaz de explicar de onde veio a piora —
+    # o metering só sabia subtrair. As outras 8 respondem "meu enriquecimento
+    # está funcionando?": eventos enriquecidos, desfecho por regra (hit/miss/
+    # skipped/error — miss e skipped SEPARADOS, senão uma regra não-avaliada
+    # aparece como 100% de miss num enricher que funciona), cache por camada,
+    # latência da resolução, erros por causa, bytes/entradas residentes por
+    # tabela (é a única visão de pressão de memória, porque o HPA escala só por
+    # CPU e não gera sinal nenhum antes do cgroup-OOM) e ciclos em que o
+    # orçamento remoto estourou.
+    assert len(facade_names) == 60
     # O catálogo tem as síncronas + ao menos o observável collector_up.
     assert "collector_up" in otel_metrics._SPEC
     assert "collector_up" not in facade_names
@@ -273,6 +285,13 @@ def test_histogram_buckets_match_prometheus_legacy():
         # Custo do structural gate OCSF no hot path (caminho válido).
         # Buckets espelham collector_normalize_latency_seconds (mesma escala sub-ms→s).
         "collector_ocsf_validate_latency_seconds": (0.0005, 0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1),
+        # Latência da RESOLUÇÃO do enriquecimento (I/O), não da aplicação — a
+        # aplicação é pura e medida em benchmark, e instrumentá-la custaria mais
+        # que ela própria (~4 µs/regra). Buckets espelham
+        # ``collector_delivery_latency_seconds``: é a mesma escala de chamada de
+        # rede a terceiro (o VirusTotal responde em dezenas a centenas de ms; a
+        # carga de tabela do OpenCTI, em segundos).
+        "collector_enrich_resolve_seconds": (0.005, 0.01, 0.05, 0.1, 0.25, 0.5, 1, 2, 5),
     }
     hist = {n for n, s in otel_metrics._SPEC.items() if s["kind"] == "histogram"}
     assert hist == set(legacy), "conjunto de histogramas divergiu do legado"

@@ -286,6 +286,18 @@ class CostSummaryRow(BaseModel):
     # redaction). Existe porque as causas NÃO compartilham base de medição — ver
     # o bloco `units` do envelope — e um total único esconde essa mistura.
     bytes_saved_by_reason: Dict[str, int] = {}
+    # Volume ACRESCENTADO por estágios que agregam dado (hoje só enriquecimento).
+    # Contraparte de ``bytes_saved`` — sem ela o card de redução piorava sozinho e
+    # nada no payload dizia por quê (ADR-LOCAL-0002, Fase 0).
+    bytes_added: int = 0
+    bytes_added_by_reason: Dict[str, int] = {}
+    # Redução LÍQUIDA = (bytes_saved - bytes_added) / (bytes_out + bytes_saved).
+    # Exposta AO LADO da bruta, nunca no lugar: as duas juntas é que tornam o
+    # efeito legível. Pode ser NEGATIVA quando se acrescenta mais do que se corta —
+    # isso é informação, não erro. Mesma ressalva de unidade de ``reduction_pct``,
+    # agravada: ``bytes_added`` é pré-fan-out (1× por evento) e ``bytes_out`` é por
+    # entrega, então a líquida é OTIMISTA para evento que vai a N destinos.
+    reduction_pct_net: Optional[float] = None
     # % de volume evitado = bytes_saved / (bytes_out + bytes_saved). None sem base.
     # ATENÇÃO: o denominador é CONTRAFACTUAL ("o que seria entregue"), não o
     # volume coletado — por isso nunca passa de 100% mesmo com as unidades
@@ -386,13 +398,42 @@ def get_cost_summary(
                 )
             )
         }
-        if not (bytes_in or bytes_out or events_in or events_out or bytes_saved):
+        # Bytes ACRESCENTADOS por estágios que agregam dado (ADR-LOCAL-0002).
+        # Contraparte de bytes_saved: sem ela, ligar enriquecimento derruba a %
+        # de redução e NADA no payload explica de onde veio a piora.
+        bytes_added = int(
+            obs.read_window_total("org", key, "bytes_added", minutes=_COST_WINDOW_MINUTES)
+        )
+        added_by_reason = {
+            reason: total
+            for reason in metering.ADDING_REASONS
+            if (
+                total := int(
+                    obs.read_window_total(
+                        "org", key, f"bytes_added:{reason}", minutes=_COST_WINDOW_MINUTES
+                    )
+                )
+            )
+        }
+        if not (bytes_in or bytes_out or events_in or events_out or bytes_saved or bytes_added):
             continue  # sem dado na janela → omite a org
         out_in_byte_ratio = (bytes_out / bytes_in) if bytes_in else None
         # % de volume evitado pelas alavancas: bytes_saved sobre o que
         # SERIA entregue (entregue + evitado). None quando não há base.
         _reduction_base = bytes_out + bytes_saved
         reduction_pct = round(bytes_saved / _reduction_base, 4) if _reduction_base else None
+        # Redução LÍQUIDA: desconta o que foi acrescentado. Exposta ao lado da
+        # bruta, nunca no lugar dela — as duas juntas é que tornam o efeito do
+        # enriquecimento legível ("reduzi 40%, dos quais 3 pontos voltaram como
+        # contexto"). Pode ser NEGATIVA, e isso é informação, não erro.
+        #
+        # RESSALVA DE UNIDADE (a mesma de record_trim_saving): ``bytes_added`` é
+        # medido PRÉ-fan-out, uma vez por evento, enquanto ``bytes_out`` é contado
+        # por ENTREGA. Num evento que vai a N destinos o custo real do acréscimo é
+        # N×, então a líquida é OTIMISTA nesse caso.
+        reduction_pct_net = (
+            round((bytes_saved - bytes_added) / _reduction_base, 4) if _reduction_base else None
+        )
 
         cost: Optional[CostUsd] = None
         savings_usd_per_day: Optional[float] = None
@@ -426,6 +467,9 @@ def get_cost_summary(
                 bytes_saved_by_reason=by_reason,
                 unit_mismatch=bool(bytes_in and bytes_saved > bytes_in),
                 reduction_pct=reduction_pct,
+                bytes_added=bytes_added,
+                bytes_added_by_reason=added_by_reason,
+                reduction_pct_net=reduction_pct_net,
                 savings_usd_per_day=savings_usd_per_day,
                 cost=cost,
             )

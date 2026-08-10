@@ -55,11 +55,30 @@ SAVING_REASONS: Tuple[str, ...] = (
     "trim", "sample", "suppress", "drop", "aggregate", "redaction", "raw_drop",
 )
 
+_M_BYTES_ADDED = "bytes_added"
+
+# Contraparte de ``SAVING_REASONS`` — vocabulário FECHADO de causas de ACRÉSCIMO
+# de volume, pela mesma razão (o ``reason`` vira sufixo de chave Redis).
+#
+# Por que isto existe (ADR-LOCAL-0002, Fase 0): até aqui o metering só sabia
+# SUBTRAIR. ``reduction_pct = bytes_saved / (bytes_out + bytes_saved)`` não tinha
+# nenhum termo capaz de explicar um aumento, então qualquer estágio que
+# ACRESCENTE bytes ao envelope — enriquecimento é o caso — derrubaria o KPI que o
+# produto vende sem deixar rastro do porquê. Medir o acréscimo é o que permite
+# exibir "Redução BRUTA" e "Redução LÍQUIDA" lado a lado em vez de um número só
+# que piorou sozinho.
+ADDING_REASONS: Tuple[str, ...] = ("enrichment",)
+
 
 def _reason_metric(reason: str) -> Optional[str]:
     """Nome da série por-causa (``bytes_saved:trim``), ou None se o reason não
     estiver na allow-list."""
     return f"{_M_BYTES_SAVED}:{reason}" if reason in SAVING_REASONS else None
+
+
+def _added_reason_metric(reason: str) -> Optional[str]:
+    """Nome da série por-causa do lado do ACRÉSCIMO (``bytes_added:enrichment``)."""
+    return f"{_M_BYTES_ADDED}:{reason}" if reason in ADDING_REASONS else None
 
 
 def enabled() -> bool:
@@ -108,6 +127,114 @@ def record_saving(
         logger.debug(
             "metering.record_saving falhou (org=%s reason=%s)", organization_id, reason, exc_info=True
         )
+
+
+def record_addition(
+    organization_id: Optional[int],
+    destination_id: Optional[str],
+    reason: str,
+    *,
+    bytes_: float,
+) -> None:
+    """Contabiliza o VOLUME LÓGICO ACRESCENTADO ao envelope por um estágio que
+    agrega dado (hoje só ``enrichment``). Espelho exato de :func:`record_saving`.
+
+    **Unidade — leia antes de comparar com ``bytes_saved``.** O que se mede aqui é o
+    delta de serialização do envelope PRÉ-fan-out: o custo é pago UMA vez por evento,
+    enquanto ``bytes_out`` é contado por ENTREGA. Um evento enriquecido que vai a N
+    destinos custa N× no denominador e 1× aqui. Portanto:
+
+        redução BRUTA   = bytes_saved / (bytes_out + bytes_saved)
+        redução LÍQUIDA = (bytes_saved - bytes_added) / (bytes_out + bytes_saved)
+
+    A líquida SUB-estima o custo do acréscimo quando há fan-out. É o mesmo viés já
+    documentado em :func:`record_trim_saving`, e é assimétrico na direção segura:
+    nunca faz o enriquecimento parecer mais barato do que a conta por-entrega diria...
+    ao contrário, o valor honesto exigiria multiplicar por N. Quem quiser o número
+    por-entrega deve usar ``bytes_added`` × fan-out da rota, não este campo cru.
+
+    Mesmo contrato defensivo do lado da economia: no-op flag-off, fail-closed em org
+    ausente (nunca escreve num bucket compartilhado/nulo — anti cross-tenant), e
+    best-effort (jamais levanta no hot path)."""
+    if not enabled() or organization_id is None or not bytes_:
+        return
+    try:
+        from .. import metrics
+
+        dest_label = str(destination_id) if destination_id is not None else "-"
+        metrics.BYTES_ADDED.labels(destination_id=dest_label, reason=reason).inc(float(bytes_))
+
+        from .. import observability_store as obs
+
+        if destination_id is not None:
+            obs.record_counter(_KIND_DEST, str(destination_id), _M_BYTES_ADDED, float(bytes_))
+        obs.record_counter(_KIND_ORG, str(organization_id), _M_BYTES_ADDED, float(bytes_))
+        reason_metric = _added_reason_metric(reason)
+        if reason_metric is not None:
+            obs.record_counter(_KIND_ORG, str(organization_id), reason_metric, float(bytes_))
+    except Exception:  # noqa: BLE001 — metering é best-effort; nunca quebra a coleta/entrega
+        logger.debug(
+            "metering.record_addition falhou (org=%s reason=%s)",
+            organization_id, reason, exc_info=True,
+        )
+
+
+class AddedVolumeAccumulator:
+    """Batcher do acréscimo de bytes para o laço async de coleta.
+
+    Clone deliberado de :class:`InVolumeAccumulator`, e pelo MESMO motivo medido: um
+    ``record_addition`` por evento faria pipelines Redis SÍNCRONOS dentro do event
+    loop (o caso do ``record_in`` custou ~0,8 ms/evento, ~8 s bloqueados num ciclo de
+    10k). Aqui soma ``bytes`` por ``(org_id, reason)`` — na prática 1 par por ciclo,
+    porque o ciclo é mono-tenant — e só toca o Redis no flush.
+
+    Contrato idêntico ao do irmão: ``add`` é no-op imediato flag-off; nada levanta; e
+    o dono do ciclo DEVE instanciar ANTES do ``try`` e chamar :meth:`flush` num
+    ``finally`` — inclusive em exceção/soft-timeout, para gravar o parcial sem
+    mascarar o erro original.
+    """
+
+    __slots__ = ("_flush_events", "_flush_seconds", "_clock", "_pending", "_pending_events", "_last_flush")
+
+    def __init__(
+        self,
+        *,
+        flush_events: int = 500,
+        flush_seconds: float = 15.0,
+        clock: Callable[[], float] = time.monotonic,
+    ) -> None:
+        self._flush_events = int(flush_events)
+        self._flush_seconds = float(flush_seconds)
+        self._clock = clock
+        self._pending: Dict[Tuple[Optional[int], str], float] = {}
+        self._pending_events = 0
+        self._last_flush = clock()
+
+    def add(self, organization_id: Optional[int], reason: str, bytes_: float) -> None:
+        """Acumula. No-op flag-off (early-return antes de qualquer alocação)."""
+        if not enabled() or organization_id is None or not bytes_:
+            return
+        key = (organization_id, reason)
+        self._pending[key] = self._pending.get(key, 0.0) + float(bytes_)
+        self._pending_events += 1
+        if self._pending_events >= self._flush_events:
+            self.flush()
+        elif (self._clock() - self._last_flush) >= self._flush_seconds:
+            self.flush()
+
+    def flush(self) -> None:
+        """Escreve o acumulado e zera. Idempotente e à prova de exceção."""
+        if not self._pending:
+            self._last_flush = self._clock()
+            self._pending_events = 0
+            return
+        pending, self._pending = self._pending, {}
+        self._pending_events = 0
+        self._last_flush = self._clock()
+        for (org_id, reason), total in pending.items():
+            # ``destination_id=None``: o enriquecimento é PRÉ-fan-out, não há
+            # destino atribuível neste ponto (mesma escolha do trim).
+            record_addition(org_id, None, reason, bytes_=total)
 
 
 def record_trim_saving(organization_id: Optional[int], raw: Any, reduced: Any) -> None:

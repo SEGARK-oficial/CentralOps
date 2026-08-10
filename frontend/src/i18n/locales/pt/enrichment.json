@@ -1,0 +1,175 @@
+{
+  "title": "Enriquecimento",
+  "description": "Acrescente contexto ao evento dentro do pipeline — antes do roteamento e da detecção.",
+  "actions": {
+    "refresh": "Atualizar"
+  },
+  "tabs": {
+    "catalog": "Catálogo ({{count}})",
+    "tables": "Tabelas ({{count}})",
+    "policies": "Políticas ({{count}})",
+    "sources": "Fontes ({{count}})"
+  },
+  "mode": {
+    "local": "por evento",
+    "remote": "por lote"
+  },
+  "egress": {
+    "none": "sem egresso",
+    "internal": "interno",
+    "thirdParty": "envia a terceiro",
+    "warning_one": "{{count}} fonte envia indicadores do seu ambiente para um serviço externo. Exige opt-in por organização.",
+    "warning_other": "{{count}} fontes enviam indicadores do seu ambiente para serviços externos. Exigem opt-in por organização."
+  },
+  "tables": {
+    "emptyTitle": "Nenhuma tabela ainda",
+    "emptyDescription": "Tabelas do cliente (CMDB, plano de rede, allowlist) são casadas por chave exata ou pelo prefixo CIDR mais específico.",
+    "org": "Organização {{id}}",
+    "entries": "Entradas",
+    "size": "Tamanho",
+    "noVersion": "sem versão publicada",
+    "mode": {
+      "exact": "chave exata",
+      "cidr": "CIDR"
+    },
+    "form": {
+      "createTitle": "Nova tabela",
+      "name": "Nome",
+      "nameRequired": "Informe um nome para a tabela.",
+      "description": "Descrição",
+      "matchMode": "Tipo de casamento",
+      "matchModeExactHint": "Compara a chave do evento por igualdade exata.",
+      "matchModeCidrHint": "Compara um IP pelo prefixo de rede MAIS ESPECÍFICO que o contém.",
+      "keyKind": "Tipo de chave",
+      "create": "Nova tabela",
+      "organization": "Organização",
+      "organizationPlaceholder": "Selecione a organização",
+      "organizationRequired": "Selecione uma organização — não existe tabela de enriquecimento global."
+    },
+    "deleteAction": "Apagar tabela",
+    "deleteConfirm": {
+      "title": "Apagar tabela",
+      "description": "Isso remove \"{{name}}\" e todo o histórico de versões. Só é possível se nenhuma política a referenciar."
+    },
+    "versions": {
+      "title": "Versões — {{name}}",
+      "publishNew": "Publicar nova versão",
+      "rowsLabel": "Linhas (JSON)",
+      "rowsHelperExact": "Objeto {chave: {campo: valor}}. A chave é comparada por igualdade exata.",
+      "rowsHelperCidr": "Objeto {cidr: {campo: valor}}. Cada chave deve ser um IP ou uma faixa CIDR (ex.: 10.0.5.0/24).",
+      "mustBeObject": "O conteúdo deve ser um objeto {chave: {campo: valor}}, não uma lista.",
+      "invalidJson": "JSON inválido — confira vírgulas e chaves.",
+      "commitMessage": "Mensagem do commit",
+      "commitMessageRequired": "Descreva a mudança antes de publicar.",
+      "commitMessagePlaceholder": "ex.: inventário inicial",
+      "publish": "Publicar versão",
+      "published": "Versão publicada",
+      "publishedDetail": "{{entries}} entrada(s) publicada(s); {{invalid}} linha(s) inválida(s) descartada(s).",
+      "history": "Histórico de versões",
+      "empty": "Nenhuma versão publicada ainda.",
+      "current": "vigente",
+      "invalidCount": "{{count}} inválida(s)",
+      "entriesShort": "{{count}} entradas",
+      "rollback": "Reverter para esta"
+    }
+  },
+  "policies": {
+    "emptyTitle": "Nenhuma política ainda",
+    "emptyDescription": "A política define quais regras de enriquecimento rodam e onde o resultado é escrito.",
+    "rules_one": "{{count}} regra",
+    "rules_other": "{{count}} regras",
+    "enabled": "ativa",
+    "disabled": "inativa",
+    "noVersion": "sem versão publicada",
+    "form": {
+      "createTitle": "Nova política",
+      "name": "Nome",
+      "nameRequired": "Informe um nome para a política.",
+      "organizationRequired": "Selecione uma organização — não existe política de enriquecimento global.",
+      "description": "Descrição",
+      "create": "Nova política"
+    },
+    "versions": {
+      "title": "Versões — {{name}}",
+      "enabledNow": "Esta política está ATIVA — vale para eventos novos desta organização.",
+      "disabledNow": "Esta política está inativa.",
+      "needsVersionToEnable": "Publique uma versão antes de habilitar.",
+      "enable": "Habilitar",
+      "disable": "Desabilitar",
+      "publishNew": "Publicar nova versão",
+      "published": "Versão publicada",
+      "publishedDetail": "{{count}} regra(s) publicada(s).",
+      "rules": "Regras",
+      "ruleCount": "{{count}} regra(s)",
+      "rulesEmpty": "Adicione ao menos uma regra antes de publicar.",
+      "ruleId": "Id da regra",
+      "enricher": "Enricher",
+      "removeRule": "Remover regra",
+      "table": "Tabela",
+      "tableNone": "(nenhuma)",
+      "tableHint": "Só usado por enrichers de tabela (table_exact, table_cidr).",
+      "keySource": "Origem da chave",
+      "keySourceHint": "Caminho dentro do evento normalizado, ex.: normalized.src_endpoint.ip",
+      "keyKind": "Tipo da chave",
+      "outputs": "Saídas",
+      "addOutput": "Adicionar saída",
+      "outputFrom": "Campo do resultado",
+      "outputTarget": "Grava em",
+      "removeOutput": "Remover saída",
+      "tags": "Tags (separadas por vírgula)",
+      "tagsHint": "Vão para _centralops.enrichment_tags — usável em condições de outras regras e em rotas.",
+      "onMiss": "Se não encontrar",
+      "onError": "Se der erro",
+      "addRule": "Adicionar regra",
+      "publish": "Publicar versão",
+      "dryRun": {
+        "title": "Testar antes de publicar",
+        "run": "Testar",
+        "hint": "Aplica as regras acima a um evento de exemplo, sem publicar nada e sem tocar em tráfego real.",
+        "sample": "Evento de exemplo (JSON)",
+        "tables": "Tabelas simuladas (opcional, JSON)",
+        "tablesHint": "{regra_id: {chave: {campo: valor}}} — testa sem precisar publicar a tabela de verdade.",
+        "needsRules": "Adicione ao menos uma regra antes de testar.",
+        "invalidSample": "O evento de exemplo não é um JSON válido.",
+        "invalidTables": "As tabelas simuladas não são um JSON válido.",
+        "bytesAdded": "+{{count}} bytes",
+        "hits": "hit(s)",
+        "misses": "miss(es)",
+        "errors": "erro(s)"
+      },
+      "source": "Fonte configurada",
+      "sourceNone": "(selecione)",
+      "sourceRequired": "Obrigatória: este enricher precisa de credencial.",
+      "sourceHint": "A credencial fica na fonte, nunca na regra."
+    }
+  },
+  "errorTitle": "Falha ao carregar o enriquecimento",
+  "sources": {
+    "emptyTitle": "Nenhuma fonte configurada",
+    "emptyDescription": "Uma fonte é a instância de um enricher nesta organização — o endereço e a credencial com que ele roda aqui.",
+    "secretConfigured": "credencial cadastrada",
+    "secretMissing": "sem credencial",
+    "disabled": "desabilitada",
+    "deleteAction": "Apagar fonte",
+    "deleteConfirm": {
+      "title": "Apagar fonte",
+      "description": "Isso remove \"{{name}}\" e a credencial associada. Só é possível se nenhuma política a referenciar."
+    },
+    "form": {
+      "createTitle": "Nova fonte",
+      "editTitle": "Editar fonte — {{name}}",
+      "name": "Nome",
+      "nameRequired": "Informe um nome para a fonte.",
+      "nameImmutable": "O nome não muda depois de criado — as regras o citam.",
+      "organizationRequired": "Selecione uma organização — a credencial fica vinculada a ela.",
+      "enricher": "Enricher",
+      "description": "Descrição",
+      "configLegend": "Configuração",
+      "secret": "Credencial",
+      "secretRequired": "Este enricher exige uma credencial.",
+      "secretHint": "Enviada uma única vez e cifrada pelo servidor; a API nunca a devolve. Exigida: {{names}}.",
+      "secretKeepPlaceholder": "•••••••• (deixe vazio para manter)",
+      "create": "Nova fonte"
+    }
+  }
+}

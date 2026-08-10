@@ -41,6 +41,10 @@
       "pipelineHealth": {
         "label": "Saúde do pipeline",
         "keywords": "pipeline, health, saude, monitoramento"
+      },
+      "enrichment": {
+        "label": "Enriquecimento",
+        "keywords": "enriquecimento, enrich, contexto, threat intel, cmdb"
       }
     }
   },
@@ -56,6 +60,7 @@
     "groups": {
       "collect": "Coleta",
       "normalize": "Normaliza",
+      "enrich": "Enriquece",
       "reduce": "Reduz",
       "route": "Roteia",
       "detect": "Detecta",
@@ -84,7 +89,8 @@
       "ocsf": "Governança OCSF",
       "config": "Configurações",
       "account": "Perfil e segurança",
-      "tokens": "Tokens de API"
+      "tokens": "Tokens de API",
+      "enrichment": "Enriquecimento"
     }
   },
   "breadcrumbs": {

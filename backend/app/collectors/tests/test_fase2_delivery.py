@@ -41,17 +41,20 @@ from backend.app.db import models
 
 
 @pytest.fixture()
-def static_db():
+def static_db(threadsafe_sqlite_engine):
     """In-memory SQLite with StaticPool so all callers share the same DB.
 
     Returns (TestingSessionLocal, engine).  Patches database.SessionLocal so
     delivery.py and pipeline.py see the seeded rows.
     """
-    engine = create_engine(
-        "sqlite:///:memory:",
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
-    )
+    # Engine com conexão POR THREAD (conftest.make_threadsafe_sqlite_engine).
+    # O par `:memory:` + StaticPool que estava aqui compartilha UMA conexão entre
+    # todas as sessões, e ``_load_destination_config`` lê o DB de dentro de
+    # ``asyncio.to_thread`` — N destinos no lote = N leituras simultâneas na mesma
+    # conexão sqlite3. Medido: 2.400 leituras concorrentes produziam linha
+    # "inexistente", coluna vazia e InterfaceError/IndexError, que eram os dois
+    # flakes intermitentes da suíte. Ver o docstring do helper.
+    engine = threadsafe_sqlite_engine
     TestingSessionLocal = sessionmaker(
         autocommit=False, autoflush=False, bind=engine
     )

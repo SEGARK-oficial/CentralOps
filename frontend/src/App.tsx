@@ -45,6 +45,7 @@ const DetectionsPage = lazy(() => import("./pages/DetectionsPage"))
 const ConfigPage = lazy(() => import("./pages/ConfigPage"))
 const CollectorsPage = lazy(() => import("./pages/CollectorsPage"))
 const DestinationsPage = lazy(() => import("./pages/DestinationsPage"))
+const EnrichmentPage = lazy(() => import("./pages/EnrichmentPage"))
 const DestinationDetailPage = lazy(() => import("./pages/DestinationDetailPage"))
 const RoutesPage = lazy(() => import("./pages/RoutesPage"))
 const FlowPage = lazy(() => import("./pages/FlowPage"))
@@ -311,6 +312,17 @@ const AppRoutes: React.FC = () => {
 
         {/* Operations */}
         <Route path="collectors" element={<CollectorsPage />} />
+        {/* Enriquecimento (ADR-LOCAL-0002): catálogo plugin-driven, tabelas do
+            cliente e políticas versionadas. Admin — a política decide o que sai
+            do ambiente do cliente para terceiros. */}
+        <Route
+          path="enrichment"
+          element={
+            <RoleGuard role="admin">
+              <EnrichmentPage />
+            </RoleGuard>
+          }
+        />
         <Route
           path="destinations"
           element={
