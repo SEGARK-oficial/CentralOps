@@ -122,6 +122,20 @@ class Permission(StrEnum):
     DRIFT_IGNORE = "drift.ignore"
     DRIFT_MARK_MAPPED = "drift.mark_mapped"
     DRIFT_DELETE = "drift.delete"
+    # Leitura de destinos e de rotas. Sem elas, os GETs de destino/rota caíam
+    # em ``require_admin_user`` (= USER_MANAGE) por falta de permissão fina: ler
+    # a contagem de DLQ ou o estado do circuit breaker exigia um token com poder
+    # de CRIAR E REMOVER USUÁRIOS. Um alvo desproporcional para o caso de uso
+    # típico — Zabbix, script de health check, dashboard externo.
+    #
+    # Escrita (criar/editar/deletar destino e rota) segue em USER_MANAGE, como
+    # antes: só a LEITURA foi separada.
+    #
+    # Concedidas a partir de VIEWER — é o que a matriz documentada em
+    # docs-site/docs/concepts/rbac.md já afirmava ("Ver destinos" / "Ver regras
+    # de roteamento" ✓ para todos os papéis); o código é que divergia.
+    DESTINATION_READ = "destination.read"
+    ROUTE_READ = "route.read"
     USER_MANAGE = "user.manage"
     SECRET_READ = "secret.read"
     AUDIT_READ = "audit.read"
@@ -157,6 +171,8 @@ ROLE_PERMISSIONS: dict[str, frozenset[str]] = {
         Permission.QUARANTINE_READ,
         Permission.DRIFT_READ,
         Permission.AUDIT_READ,
+        Permission.DESTINATION_READ,
+        Permission.ROUTE_READ,
     }),
     UserRole.OPERATOR: frozenset({
         Permission.MAPPING_READ,
@@ -167,6 +183,8 @@ ROLE_PERMISSIONS: dict[str, frozenset[str]] = {
         Permission.DRIFT_READ,
         Permission.DRIFT_IGNORE,
         Permission.AUDIT_READ,
+        Permission.DESTINATION_READ,
+        Permission.ROUTE_READ,
         # Operator pode emitir tokens com internal.tenant.read
         # (caso típico: Service Account).
         Permission.INTERNAL_TENANT_READ,
@@ -187,6 +205,8 @@ ROLE_PERMISSIONS: dict[str, frozenset[str]] = {
         Permission.DRIFT_MARK_MAPPED,
         Permission.DRIFT_DELETE,
         Permission.AUDIT_READ,
+        Permission.DESTINATION_READ,
+        Permission.ROUTE_READ,
         Permission.INTERNAL_TENANT_READ,
         # ADR-0015: testar regra contra amostras reais. Quem escreve a regra.
         Permission.CORRELATION_PREVIEW,

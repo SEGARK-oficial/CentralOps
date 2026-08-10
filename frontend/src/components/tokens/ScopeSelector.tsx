@@ -36,6 +36,8 @@ const SCOPE_CATEGORIES: Record<string, string> = {
   "drift.ignore": "Quarantine & Drift",
   "drift.mark_mapped": "Quarantine & Drift",
   "drift.delete": "Quarantine & Drift",
+  "destination.read": "Destinos & Rotas",
+  "route.read": "Destinos & Rotas",
   "user.manage": "Administração",
   "secret.read": "Administração",
   "audit.read": "Administração",
@@ -45,6 +47,7 @@ const SCOPE_CATEGORIES: Record<string, string> = {
 
 const CATEGORY_ORDER = [
   "Integrações",
+  "Destinos & Rotas",
   "Mappings",
   "Quarantine & Drift",
   "Administração",
@@ -67,6 +70,8 @@ const SCOPE_DESCRIPTIONS: Partial<Record<ScopeName, string>> = {
   "drift.ignore": "Marcar drift como ignorado",
   "drift.mark_mapped": "Marcar drift como mapeado",
   "drift.delete": "Deletar entradas de drift",
+  "destination.read": "Ler destinos, health, DLQ e métricas",
+  "route.read": "Ler rotas, topologia e flow",
   "user.manage": "CRUD de usuários e Service Accounts",
   "secret.read": "Ver client_secrets cifrados",
   "audit.read": "Listar audit log",

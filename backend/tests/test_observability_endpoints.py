@@ -5,8 +5,8 @@
 
 Mirrors the conventions of test_destinations_router.py / test_routes_router.py:
 single StaticPool engine shared across all clients in a test, bootstrap admin,
-seed via the API. Org-scoping is exercised by overriding ``require_admin_user``
-with a non-global admin bound to a specific org (admins are otherwise always
+seed via the API. Org-scoping is exercised by overriding ``get_current_user``
+with a non-global caller bound to a specific org (admins are otherwise always
 global-scoped, so the override is the only way to drive the org-scope path at
 the endpoint layer — same property the repository-level scope tests assert).
 """
@@ -121,18 +121,33 @@ def _seed_route(
 class _FakeUser:
     """Minimal AppUser stand-in for a NON-global admin bound to one org.
 
-    ``has_global_scope`` returns False for role!=admin without is_global, so this
-    drives the org-scope path at the endpoint layer (real admins are global)."""
+    ``has_global_scope`` é False para admin com ``organization_id`` setado e
+    ``is_global=False`` — o ADMIN-DE-ORG descrito em ``core/tenant.py``. É o que
+    drena o caminho de org-scope na camada de endpoint (admin de plataforma é
+    sempre global).
 
-    def __init__(self, organization_id: int) -> None:
+    ``role`` importa de fato agora: o override é em ``get_current_user``, então o
+    request passa pelo gate real. Default ``admin`` para que os testes de ESCRITA
+    (que exigem ``user.manage``) cheguem à validação cross-org que querem provar."""
+
+    def __init__(self, organization_id: int, role: str = "admin") -> None:
         self.organization_id = organization_id
-        self.role = "operator"
+        self.role = role
         self.is_global = False
-        self.username = "scoped-operator"
+        self.username = f"scoped-{role}"
 
 
-def _override_user_to_org(org_id: int) -> None:
-    app.dependency_overrides[app_auth.require_admin_user] = lambda: _FakeUser(org_id)
+def _override_user_to_org(org_id: int, role: str = "admin") -> None:
+    """Override em ``get_current_user``, NÃO no gate de permissão.
+
+    Estes endpoints exigem ``destination.read``/``route.read`` via
+    ``require_permission`` — uma CLOSURE nova por chamada da factory, logo não
+    endereçável como chave de ``dependency_overrides``. ``get_current_user`` é o
+    seam comum aos dois gates, então o override troca só QUEM é o caller e o
+    request continua passando pelo check de permissão de verdade
+    — antes, sobrescrever ``require_admin_user`` PULAVA o check.
+    """
+    app.dependency_overrides[app_auth.get_current_user] = lambda: _FakeUser(org_id, role)
 
 
 # ── Entregável 1: batch destination health ────────────────────────────
@@ -227,7 +242,7 @@ def test_batch_health_org_scoping(client_factory) -> None:
         assert dg in ids, "global (NULL) destination must be visible"
         assert db_ not in ids, "org B's destination must NOT be visible to org A"
     finally:
-        app.dependency_overrides.pop(app_auth.require_admin_user, None)
+        app.dependency_overrides.pop(app_auth.get_current_user, None)
 
 
 # ── Entregável 2: routing topology ────────────────────────────────────
@@ -307,7 +322,7 @@ def test_topology_org_scoping(client_factory) -> None:
         assert db_ not in dest_ids, "org B's destination leaked into topology"
         assert rb not in route_ids, "org B's route leaked into topology"
     finally:
-        app.dependency_overrides.pop(app_auth.require_admin_user, None)
+        app.dependency_overrides.pop(app_auth.get_current_user, None)
 
 
 # ── Defesa-em-profundidade: rota não pode referenciar destino cross-org ──
@@ -353,7 +368,7 @@ def test_route_create_rejects_cross_org_destination(client_factory) -> None:
         )
         assert r_ok.status_code == 201, r_ok.text
     finally:
-        app.dependency_overrides.pop(app_auth.require_admin_user, None)
+        app.dependency_overrides.pop(app_auth.get_current_user, None)
 
 
 def test_route_update_rejects_cross_org_destination(client_factory) -> None:
@@ -379,4 +394,4 @@ def test_route_update_rejects_cross_org_destination(client_factory) -> None:
         assert r.json()["error"]["code"] == "route.destination_not_found"
         assert r.json()["error"]["details"]["destination_id"] == db_
     finally:
-        app.dependency_overrides.pop(app_auth.require_admin_user, None)
+        app.dependency_overrides.pop(app_auth.get_current_user, None)
