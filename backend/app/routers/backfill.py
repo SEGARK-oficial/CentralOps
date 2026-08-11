@@ -143,6 +143,14 @@ class BackfillDiagnostics(BaseModel):
     oldest_pending_age_seconds: Optional[int] = None
     healthy: bool
     diagnosis: str
+    # Broker QUE ESTA API USA (senha mascarada). A inspeção de workers é um
+    # broadcast que sai por ELE: uma lista vazia de workers só prova "ninguém
+    # respondeu NESTE broker", nunca "os workers estão offline". Sem expor a URL,
+    # os dois casos são indistinguíveis para quem lê o diagnóstico.
+    api_broker_url: Optional[str] = None
+    # True = a URL acima foi derivada do REDIS_URL (CELERY_BROKER_URL ausente no
+    # ambiente deste processo) — a principal causa de broker divergente.
+    api_broker_from_fallback: bool = False
 
 
 # ── Helpers ────────────────────────────────────────────────────────────
@@ -158,10 +166,13 @@ def _compute_stall(job: models.BackfillJob, now: datetime) -> tuple[bool, Option
         age = (now - job.requested_at).total_seconds()
         if age > _STALL_THRESHOLD_SECONDS:
             return True, (
-                f"Job 'pending' há {int(age)}s sem iniciar. Causa provável: nenhum "
-                "worker consome a fila 'collect.backfill'. Cheque "
-                "GET /api/backfill-jobs/diagnostics e o serviço worker-bulk "
-                "(deve incluir -Q ...,collect.backfill)."
+                f"Job 'pending' há {int(age)}s sem iniciar — a task foi publicada e "
+                "ninguém a consumiu. Duas causas possíveis, nesta ordem: (1) a API "
+                "publica num broker DIFERENTE do que os workers consomem — compare "
+                "CELERY_BROKER_URL entre o serviço da API e os workers; (2) nenhum "
+                "worker inclui a fila 'collect.backfill' (compose: worker-bulk com "
+                "-Q collect.bulk,collect.backfill). GET /api/backfill-jobs/diagnostics "
+                "mostra o broker da API e distingue os dois casos."
             )
     if job.status == "running" and job.started_at is not None:
         running_for = (now - job.started_at).total_seconds()
@@ -202,6 +213,24 @@ def _serialize_job(
         stalled=stalled,
         stall_reason=stall_reason,
     )
+
+
+def _api_broker_provenance() -> tuple[Optional[str], bool]:
+    """Broker que ESTA API usa (senha mascarada) + se veio de fallback.
+
+    Nunca levanta: é contexto de diagnóstico, e um diagnóstico que quebra por não
+    conseguir se descrever é pior que um diagnóstico incompleto.
+    """
+    try:
+        from ..collectors.celery_app import (
+            BROKER_FROM_FALLBACK,
+            celery_app,
+            sanitize_broker_url,
+        )
+
+        return sanitize_broker_url(celery_app.connection().as_uri()), BROKER_FROM_FALLBACK
+    except Exception:  # noqa: BLE001
+        return None, False
 
 
 def _do_inspect(timeout: float) -> tuple[List[str], List[str]]:
@@ -534,6 +563,8 @@ def backfill_diagnostics(
         int((now - oldest_pending).total_seconds()) if oldest_pending else None
     )
 
+    api_broker_url, api_broker_from_fallback = _api_broker_provenance()
+
     try:
         workers_online, consumers = _inspect_backfill_workers()
         broker_reachable = True
@@ -552,10 +583,26 @@ def backfill_diagnostics(
         )
     elif not workers_online:
         healthy = False
+        # NÃO afirme "os workers estão offline": tudo o que sabemos é que ninguém
+        # respondeu ao broadcast NESTE broker. Se os workers estiverem vivos em
+        # OUTRO broker, a coleta segue normal (quem a enfileira é o beat, que fica
+        # do lado deles) e só as tasks publicadas pela API somem — sintoma que já
+        # custou horas de investigação apontando para o worker errado.
         diagnosis = (
-            "Nenhum worker Celery respondeu ao ping — os workers podem estar "
-            "offline ou apontando para outro broker."
+            f"Nenhum worker respondeu no broker desta API ({api_broker_url}). "
+            "Isso significa 'ninguém escuta AQUI' — não necessariamente que os "
+            "workers caíram. Compare o broker dos dois lados antes de mexer neles: "
+            "`docker compose exec <serviço> python -c \"from app.collectors.celery_app "
+            'import celery_app; print(celery_app.connection().as_uri())"` na API e '
+            "num worker. Se as URLs diferirem, a API publica onde ninguém consome e "
+            "os jobs ficam 'pending' para sempre."
         )
+        if api_broker_from_fallback:
+            diagnosis += (
+                " ATENÇÃO: CELERY_BROKER_URL não está definida neste processo — a URL "
+                "acima foi DERIVADA do REDIS_URL e quase certamente diverge dos "
+                "workers. Defina-a explicitamente no serviço da API."
+            )
     elif not consumers:
         healthy = False
         diagnosis = (
@@ -594,6 +641,8 @@ def backfill_diagnostics(
         oldest_pending_age_seconds=oldest_age,
         healthy=healthy,
         diagnosis=diagnosis,
+        api_broker_url=api_broker_url,
+        api_broker_from_fallback=api_broker_from_fallback,
     )
 
 

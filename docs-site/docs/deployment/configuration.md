@@ -6,9 +6,21 @@ description: Referência das variáveis de ambiente do CentralOps — o que é o
 
 # Configuração
 
-O CentralOps é configurado por **variáveis de ambiente**. Em Docker Compose elas vêm do
-arquivo `.env`; em Kubernetes, de um `Secret`/`ConfigMap`. Esta página é a referência —
-comece pelo `.env.example`, que traz todas com comentários.
+O CentralOps é configurado por **variáveis de ambiente**. Em Docker Compose elas vêm de
+`compose/.env`; em Kubernetes, de um `Secret`/`ConfigMap`.
+
+O repositório traz dois arquivos de exemplo, com papéis distintos:
+
+| Arquivo | Papel |
+| --- | --- |
+| `compose/.env.example` | **Quickstart** — o que você copia e edita para subir a stack. |
+| `.env.example` (raiz) | **Referência completa** — consulta. Variáveis que não aparecem no compose (rate limit, lockout de auth, PII, Vault/KMS, sessão, proxies confiáveis) só estão documentadas aqui. |
+
+:::caution[O `.env` fica em `compose/`, não na raiz]
+O Compose lê o `.env` do diretório do arquivo compose. Um `.env` criado na raiz do
+repositório é **ignorado em silêncio** — a stack sobe usando os defaults como se o
+arquivo não existisse. Copie sempre com `cp compose/.env.example compose/.env`.
+:::
 
 :::info[Mínimo obrigatório]
 Para subir em produção você precisa apenas de **`POSTGRES_PASSWORD`** e, idealmente, de

@@ -7,8 +7,20 @@ description: Reference for CentralOps environment variables — what is required
 # Configuration
 
 CentralOps is configured through **environment variables**. In Docker Compose they come from
-the `.env` file; in Kubernetes, from a `Secret`/`ConfigMap`. This page is the reference —
-start with `.env.example`, which ships all of them with comments.
+`compose/.env`; in Kubernetes, from a `Secret`/`ConfigMap`.
+
+The repository ships two example files, with distinct roles:
+
+| File | Role |
+| --- | --- |
+| `compose/.env.example` | **Quickstart** — the one you copy and edit to bring the stack up. |
+| `.env.example` (repo root) | **Full reference** — for lookup. Variables that never reach the compose file (rate limiting, auth lockout, PII, Vault/KMS, sessions, trusted proxies) are documented only here. |
+
+:::caution[The `.env` lives in `compose/`, not the repo root]
+Compose reads `.env` from the compose file's directory. A `.env` created at the repo
+root is **silently ignored** — the stack boots on defaults as if the file did not
+exist. Always copy it with `cp compose/.env.example compose/.env`.
+:::
 
 :::info[Bare minimum]
 To go live in production you only need **`POSTGRES_PASSWORD`** and, ideally, an
