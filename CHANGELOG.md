@@ -1,5 +1,31 @@
 # Changelog
 
+## [2.6.0](https://github.com/SEGARK-oficial/CentralOps/compare/v2.5.1...v2.6.0) (2026-08-11)
+
+
+### Features
+
+* **auth:** separa leitura de destinos e rotas de user.manage ([1257d93](https://github.com/SEGARK-oficial/CentralOps/commit/1257d9339ab19d4dc1beef5d455b496dd6770495))
+* **auth:** separa leitura de destinos e rotas de user.manage ([0a406d2](https://github.com/SEGARK-oficial/CentralOps/commit/0a406d2b45db7094eaad7ace75c958aca641b200))
+* **enrichment:** enricher TAXII 2.1, um conector para qualquer TIP ([26851cb](https://github.com/SEGARK-oficial/CentralOps/commit/26851cb778cf70a3754090bee5ff9e27dd9ff18b))
+* **enrichment:** enriquecimento em stream (ADR-LOCAL-0002) ([46d2772](https://github.com/SEGARK-oficial/CentralOps/commit/46d27728b5335348c2986d621269c0425ec4b792))
+* **enrichment:** enriquecimento em stream (ADR-LOCAL-0002) ([07aea9a](https://github.com/SEGARK-oficial/CentralOps/commit/07aea9a08b961a9b317f617d2e5f6b9be12cfa7d))
+* **enrichment:** fonte configurada por org — habilita OpenCTI e VirusTotal ([9543a47](https://github.com/SEGARK-oficial/CentralOps/commit/9543a47bb29dc79289f7a6a06355040b5736af53))
+* **enrichment:** fonte MSP, teste de conexão, presets OpenCTI e UI refeita ([1b21b14](https://github.com/SEGARK-oficial/CentralOps/commit/1b21b147abf5387a7c63d12c00e6a3a07963f4de))
+* **enrichment:** fonte MSP, teste de conexão, presets OpenCTI e UI refeita ([ccdc1d7](https://github.com/SEGARK-oficial/CentralOps/commit/ccdc1d7763960aedbd016518c701702522e2c49b))
+
+
+### Bug Fixes
+
+* **backfill:** commita o job antes de publicar a task, e para de gravar id de SA em FK ([edc3a15](https://github.com/SEGARK-oficial/CentralOps/commit/edc3a15340f257eb3ec3ac5e49813550d026adfe))
+* **backfill:** commita o job antes de publicar a task, e para de gravar id de SA em FK ([a625d9f](https://github.com/SEGARK-oficial/CentralOps/commit/a625d9feea643584a48ac186524c4eed42e9110a))
+* **collectors:** curar cursor opaco recusado pelo vendor (4xx) ([082cb3c](https://github.com/SEGARK-oficial/CentralOps/commit/082cb3c5e7863e52f0d2850815f8f8f2c1e54004))
+* **collectors:** curar cursor opaco recusado pelo vendor (4xx) ([b6003e4](https://github.com/SEGARK-oficial/CentralOps/commit/b6003e47bf945f6dcb50f7a2d6dbddbad89aeb7e))
+* **compose:** API publica no mesmo broker Celery que os workers ([61bab74](https://github.com/SEGARK-oficial/CentralOps/commit/61bab7458dbde593dc4192c3fd0ef6c73c3a29a4))
+* **compose:** API publica no mesmo broker Celery que os workers ([c75a9a4](https://github.com/SEGARK-oficial/CentralOps/commit/c75a9a47deb58a8cd31a80c19e396f60c4d6ec76))
+* **enrichment:** corrige egresso não-gatado, UNKNOWN colapsado e aliasing de tabela ([b65e9b0](https://github.com/SEGARK-oficial/CentralOps/commit/b65e9b056c28d61e9eb26685e980b4b9468ef550))
+* **enrichment:** ícone dos botões empilhava acima do texto ([500f991](https://github.com/SEGARK-oficial/CentralOps/commit/500f991913435bbfa45749215a20346f75a8caed))
+
 ## [2.5.1](https://github.com/SEGARK-oficial/CentralOps/compare/v2.5.0...v2.5.1) (2026-08-06)
 
 
