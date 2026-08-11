@@ -197,13 +197,20 @@ export function EnrichmentPage(): React.ReactElement {
         actions={
           <>
             {primaryAction && (
-              <Button variant="primary" onClick={primaryAction.onClick}>
-                <PlusIcon size={16} aria-hidden />
+              <Button
+                variant="primary"
+                onClick={primaryAction.onClick}
+                leftIcon={<PlusIcon size={16} />}
+              >
                 {primaryAction.label}
               </Button>
             )}
-            <Button variant="secondary" onClick={() => void load()} disabled={loading}>
-              <RefreshCcwIcon size={16} aria-hidden />
+            <Button
+              variant="secondary"
+              onClick={() => void load()}
+              disabled={loading}
+              leftIcon={<RefreshCcwIcon size={16} />}
+            >
               {t("actions.refresh")}
             </Button>
           </>
@@ -285,8 +292,8 @@ export function EnrichmentPage(): React.ReactElement {
                       setSourceEditing(null)
                       setSourceFormOpen(true)
                     }}
+                    leftIcon={<PlusIcon size={14} />}
                   >
-                    <PlusIcon size={14} aria-hidden />
                     {t("sources.form.create")}
                   </Button>
                 }
@@ -357,8 +364,11 @@ export function EnrichmentPage(): React.ReactElement {
                 title={t("tables.emptyTitle")}
                 description={t("tables.emptyDescription")}
                 action={
-                  <Button variant="primary" onClick={() => setCreateTableOpen(true)}>
-                    <PlusIcon size={14} aria-hidden />
+                  <Button
+                    variant="primary"
+                    onClick={() => setCreateTableOpen(true)}
+                    leftIcon={<PlusIcon size={14} />}
+                  >
                     {t("tables.form.create")}
                   </Button>
                 }
@@ -430,8 +440,11 @@ export function EnrichmentPage(): React.ReactElement {
               title={t("policies.emptyTitle")}
               description={t("policies.emptyDescription")}
               action={
-                <Button variant="primary" onClick={() => setCreatePolicyOpen(true)}>
-                  <PlusIcon size={14} aria-hidden />
+                <Button
+                  variant="primary"
+                  onClick={() => setCreatePolicyOpen(true)}
+                  leftIcon={<PlusIcon size={14} />}
+                >
                   {t("policies.form.create")}
                 </Button>
               }

@@ -255,8 +255,14 @@ export const PolicyVersionsModal: React.FC<PolicyVersionsModalProps> = ({
               <span className="text-xs font-semibold uppercase tracking-wide text-muted">
                 {t("policies.versions.dryRun.title")}
               </span>
-              <Button type="button" variant="outline" size="sm" loading={dryRunning} onClick={handleDryRun}>
-                <PlayIcon size={12} aria-hidden />
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                loading={dryRunning}
+                onClick={handleDryRun}
+                leftIcon={<PlayIcon size={12} />}
+              >
                 {t("policies.versions.dryRun.run")}
               </Button>
             </div>
