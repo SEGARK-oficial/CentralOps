@@ -397,6 +397,181 @@ def test_create_backfill_dispatches_celery_task(client_factory) -> None:
     assert body["celery_task_id"] == "celery-task-xyz-123"
 
 
+def test_create_backfill_commits_job_before_dispatching_task(
+    client_factory,
+) -> None:
+    """O job precisa estar COMMITADO antes da task ser publicada.
+
+    Regressão real (PROD ago/2026): o endpoint fazia ``flush()`` (INSERT dentro
+    da transação, invisível a outras conexões), publicava a task e só então
+    commitava. O worker — outro processo, outra conexão — vencia a corrida,
+    não achava o job e encerrava como sucesso. O backfill nunca rodava.
+
+    Aqui o ``apply_async`` mockado consulta o banco por uma conexão NOVA no
+    exato instante do dispatch: se o job não estiver visível, é a corrida.
+    """
+    factory, Session = client_factory
+    client = factory()
+    _bootstrap_admin(client)
+
+    with Session() as db:
+        org_id, int_id = _seed_org_and_integration(db)
+
+    from backend.app.collectors import registry as collector_registry
+    streams_available = collector_registry.supported_streams("sophos")
+    if not streams_available:
+        pytest.skip("Nenhum stream registrado para sophos — skipping")
+
+    visivel_no_dispatch: dict = {}
+
+    def _fake_apply_async(*, kwargs, queue):
+        job_id = kwargs["job_id"]
+        with Session() as probe:  # conexão independente, como a do worker
+            found = probe.get(models.BackfillJob, job_id)
+            visivel_no_dispatch["found"] = found is not None
+            visivel_no_dispatch["status"] = getattr(found, "status", None)
+        result = MagicMock()
+        result.id = "celery-task-race"
+        return result
+
+    with patch.object(
+        _backfill_tasks_mod.collect_backfill_job,
+        "apply_async",
+        side_effect=_fake_apply_async,
+    ):
+        r = client.post(
+            f"/api/integrations/{int_id}/backfill",
+            json=_valid_backfill_payload(streams=[streams_available[0]]),
+        )
+
+    assert r.status_code == 201, r.text
+    assert visivel_no_dispatch.get("found") is True, (
+        "job NÃO estava visível para outra conexão quando a task foi publicada "
+        "— a corrida que fazia o worker retornar not_found voltou"
+    )
+    assert visivel_no_dispatch.get("status") == "pending"
+
+    # celery_task_id é gravado no commit seguinte e precisa persistir.
+    with Session() as db:
+        job = db.get(models.BackfillJob, r.json()["id"])
+        assert job.celery_task_id == "celery-task-race"
+
+
+def test_enqueue_failure_marks_job_failed_instead_of_leaving_it_pending(
+    client_factory,
+) -> None:
+    """Broker fora do ar não pode deixar um job 'pending' órfão.
+
+    Commitar antes de publicar (o fix da corrida) torna o job durável ANTES do
+    enfileiramento. Se o ``apply_async`` falhar depois disso, deixar o job em
+    'pending' recriaria exatamente o sintoma que o fix combate: um job que nunca
+    roda, e cujo stall_reason culpa broker/worker em vez da causa real.
+    """
+    factory, Session = client_factory
+    client = factory()
+    _bootstrap_admin(client)
+
+    with Session() as db:
+        org_id, int_id = _seed_org_and_integration(db)
+
+    from backend.app.collectors import registry as collector_registry
+    streams_available = collector_registry.supported_streams("sophos")
+    if not streams_available:
+        pytest.skip("Nenhum stream registrado para sophos — skipping")
+
+    with patch.object(
+        _backfill_tasks_mod.collect_backfill_job,
+        "apply_async",
+        side_effect=ConnectionError("Redis down"),
+    ):
+        r = client.post(
+            f"/api/integrations/{int_id}/backfill",
+            json=_valid_backfill_payload(streams=[streams_available[0]]),
+        )
+
+    assert r.status_code == 503, r.text
+
+    with Session() as db:
+        jobs = (
+            db.query(models.BackfillJob)
+            .filter(models.BackfillJob.integration_id == int_id)
+            .all()
+        )
+        assert len(jobs) == 1
+        job = jobs[0]
+        assert job.status == "failed", (
+            f"job ficou '{job.status}' — um 'pending' órfão aqui é indistinguível "
+            "do bug original para quem olha a UI"
+        )
+        assert "enfileirar" in (job.last_error or "").lower()
+        assert job.finished_at is not None
+
+
+def test_create_backfill_as_service_account_does_not_violate_user_fk(
+    client_factory,
+) -> None:
+    """SA autentica como shim com id NEGATIVO — não pode ir para uma coluna FK.
+
+    Regressão real (PROD ago/2026): ``requested_by_user_id=user.id`` gravava -1
+    e o Postgres derrubava a transação com ForeignKeyViolation → 500 ao criar
+    backfill via MCP/PAT. Mesmo bug já corrigido antes em ``create_version``; o
+    fix canônico é ``auth.persistable_user_id``.
+    """
+    factory, Session = client_factory
+    client = factory()
+    _bootstrap_admin(client)
+
+    with Session() as db:
+        org_id, int_id = _seed_org_and_integration(db)
+
+    from backend.app.collectors import registry as collector_registry
+    streams_available = collector_registry.supported_streams("sophos")
+    if not streams_available:
+        pytest.skip("Nenhum stream registrado para sophos — skipping")
+
+    r = client.post(
+        "/api/v1/service-accounts",
+        json={"name": f"bf-{uuid4().hex[:6]}", "role": "admin"},
+    )
+    assert r.status_code == 201, r.text
+    sa_id = r.json()["id"]
+
+    rt = client.post(
+        f"/api/v1/service-accounts/{sa_id}/tokens",
+        json={"name": "tok", "is_eternal": True},
+    )
+    assert rt.status_code == 201, rt.text
+    raw_token = rt.json()["token"]
+
+    client.post("/api/auth/logout", json={})
+
+    with _patch_celery_task():
+        r = client.post(
+            f"/api/integrations/{int_id}/backfill",
+            json=_valid_backfill_payload(streams=[streams_available[0]]),
+            headers={"Authorization": f"Bearer {raw_token}"},
+        )
+
+    assert r.status_code == 201, r.text
+    body = r.json()
+
+    with Session() as db:
+        job = db.get(models.BackfillJob, body["id"])
+        assert job is not None
+        # None (não o id negativo do shim) é o que a FK aceita.
+        assert job.requested_by_user_id is None
+        # A atribuição fica preservada no audit log via username.
+        audit = (
+            db.query(models.MappingAuditLog)
+            .filter(models.MappingAuditLog.action == "backfill_requested")
+            .order_by(models.MappingAuditLog.id.desc())
+            .first()
+        )
+        assert audit is not None
+        assert audit.user_id is None
+        assert audit.username.startswith("sa:")
+
+
 # ── Testes de listagem ────────────────────────────────────────────────
 
 

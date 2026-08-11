@@ -205,6 +205,66 @@ def test_bulk_discard_happy_path(client_factory) -> None:
             assert json.loads(a.detail).get("bulk") is True
 
 
+def test_bulk_discard_as_service_account_persists_audit_without_fk_violation(
+    client_factory,
+) -> None:
+    """SA autentica com id NEGATIVO — a auditoria não pode violar a FK.
+
+    Regressão da MESMA família que já quebrou ``create_version`` (mapping,
+    jul/2026) e ``create_backfill_job`` (ago/2026): ``user_id=user.id`` gravava
+    o id sintético do shim de SA, que não existe em ``app_users``. O Postgres
+    derruba a transação com ForeignKeyViolation → 500, e a operação inteira se
+    perde. O fix canônico é ``auth.persistable_user_id``.
+
+    Aqui o caminho é exercitado ponta a ponta: PAT de SA → endpoint → auditoria
+    persistida com ``user_id`` NULL e a atribuição preservada no ``username``.
+    """
+    factory, Session = client_factory
+    client = factory()
+    _bootstrap_admin(client)
+
+    with Session() as db:
+        ids = [_seed_event(db) for _ in range(2)]
+
+    r = client.post(
+        "/api/v1/service-accounts",
+        json={"name": f"qtn-{uuid4().hex[:6]}", "role": "admin"},
+    )
+    assert r.status_code == 201, r.text
+    sa_id = r.json()["id"]
+
+    rt = client.post(
+        f"/api/v1/service-accounts/{sa_id}/tokens",
+        json={"name": "tok", "is_eternal": True},
+    )
+    assert rt.status_code == 201, rt.text
+    raw_token = rt.json()["token"]
+
+    # Logout: a partir daqui só o Bearer do SA autentica.
+    client.post("/api/auth/logout", json={})
+
+    r = client.post(
+        "/api/quarantine/bulk/discard",
+        json={"ids": ids},
+        headers={"Authorization": f"Bearer {raw_token}"},
+    )
+    assert r.status_code == 200, r.text
+    assert r.json()["discarded"] == 2
+
+    with Session() as db:
+        audits = (
+            db.query(models.MappingAuditLog)
+            .filter_by(action="discard_quarantine")
+            .all()
+        )
+        assert len(audits) == 2, "auditoria sumiu — a transação foi revertida?"
+        for a in audits:
+            # None é o que a FK aceita; o id negativo do shim seria violação.
+            assert a.user_id is None
+            # A atribuição não se perde: fica no snapshot de username.
+            assert a.username.startswith("sa:")
+
+
 def test_bulk_discard_idempotent_with_unknown_ids(client_factory) -> None:
     factory, Session = client_factory
     client = factory()

@@ -514,8 +514,27 @@ def collect_backfill_job(self, job_id: str) -> Dict[str, Any]:
     with database.SessionLocal() as db:
         job = db.get(models.BackfillJob, job_id)
         if job is None:
+            # "Não encontrado" quase nunca é definitivo: o publisher pode ainda
+            # não ter commitado (ou há lag de réplica). Antes isto retornava
+            # sucesso e a task morria em silêncio — sem retry, sem DLQ, e o job
+            # ficava 'pending' para sempre. Retry com backoff dá tempo à
+            # transação; só depois de esgotar é que viramos not_found.
+            if self.request.retries < self.max_retries:
+                delay = 2 ** self.request.retries  # 1s, 2s, 4s
+                logger.warning(
+                    "backfill job ainda não visível; reagendando",
+                    extra={
+                        "event": "backfill.job_not_visible_retry",
+                        "job_id": job_id,
+                        "retry": self.request.retries + 1,
+                        "delay_s": delay,
+                    },
+                )
+                raise self.retry(countdown=delay)
+
             logger.error(
-                "backfill job não encontrado",
+                "backfill job não encontrado após %s tentativas",
+                self.max_retries,
                 extra={"event": "backfill.job_not_found", "job_id": job_id},
             )
             return {"status": "not_found"}

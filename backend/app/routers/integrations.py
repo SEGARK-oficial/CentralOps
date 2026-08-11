@@ -1305,7 +1305,7 @@ def select_tenants(
         parent_id=integration.id,
         external_ids=valid_ids,
         state=body.state,
-        decided_by_user_id=current_user.id,
+        decided_by_user_id=app_auth.persistable_user_id(current_user),
     )
     response.processed = len(updated)
 
@@ -1488,7 +1488,7 @@ def bulk_deactivate_integrations(
             try:
                 db.add(
                     models.AuditLog(
-                        user_id=current_user.id,
+                        user_id=app_auth.persistable_user_id(current_user),
                         username=current_user.username,
                         user_role=current_user.role,
                         action="bulk_deactivate_integration",
