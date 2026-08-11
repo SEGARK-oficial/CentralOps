@@ -294,6 +294,34 @@ def test_collect_backfill_job_handles_errors_marks_failed(
         assert "Erro simulado" in (fresh.last_error or "")
 
 
+def test_job_not_yet_visible_retries_instead_of_dying_silently(
+    session_factory,
+) -> None:
+    """Job ausente = provável corrida com o commit do publisher, não fim de linha.
+
+    Regressão real (PROD ago/2026): o endpoint publicava a task ANTES do commit.
+    O worker vencia a corrida (lookup em ~60ms), não achava o job e retornava
+    ``{'status': 'not_found'}`` — que o Celery registra como SUCESSO. Sem retry,
+    sem DLQ: o backfill ficava 'pending' para sempre e nada indicava falha.
+    """
+    from celery.exceptions import Retry
+
+    engine, TestingSessionLocal = session_factory
+    inexistente = str(uuid4())
+
+    with patch(
+        "backend.app.collectors.backfill_tasks.database.SessionLocal",
+        TestingSessionLocal,
+    ):
+        from backend.app.collectors.backfill_tasks import collect_backfill_job
+
+        # .run() executa o corpo com self bindado; retry() levanta Retry em vez
+        # de reenfileirar de fato. Tipo exato — um AttributeError qualquer não
+        # pode passar por "retentou".
+        with pytest.raises(Retry):
+            collect_backfill_job.run(job_id=inexistente)
+
+
 def test_collect_backfill_job_skips_if_not_pending_or_running(
     session_factory,
 ) -> None:

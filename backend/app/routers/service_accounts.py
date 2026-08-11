@@ -129,7 +129,7 @@ def create_service_account(
             # current_user pode ser shim de SA (id negativo) — preserva
             # rastreabilidade gravando created_by_user_id apenas pra users
             # reais; SA não pode criar outro SA via PAT/scope (defensivo).
-            created_by_user_id=current_user.id if current_user.id > 0 else None,
+            created_by_user_id=app_auth.persistable_user_id(current_user),
         )
     except ValueError as exc:
         raise ApiError(

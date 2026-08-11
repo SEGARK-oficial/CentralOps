@@ -333,7 +333,11 @@ def _audit_backfill(
         models.MappingAuditLog(
             integration_id=integration_id,
             action=action,
-            user_id=user.id,
+            # Service account autentica como shim transient de AppUser com id
+            # NEGATIVO que não existe na tabela — gravar o id cru viola a FK e
+            # derruba a transação inteira. persistable_user_id devolve None
+            # nesse caso; a atribuição fica preservada em username='sa:<name>'.
+            user_id=app_auth.persistable_user_id(user),
             username=user.username,
             user_role=user.role,
             detail=detail_payload,
@@ -447,23 +451,17 @@ def create_backfill_job(
         from_ts=from_ts_naive,
         to_ts=to_ts_naive,
         status="pending",
-        requested_by_user_id=user.id,
+        # Ver a nota em _audit_backfill: id de shim de SA é negativo e viola a FK.
+        requested_by_user_id=app_auth.persistable_user_id(user),
         requested_at=now,
     )
     db.add(job)
-    db.flush()  # garante job.id
+    # flush popula job.id (default Python-side, avaliado só no INSERT) para a
+    # auditoria abaixo referenciá-lo. Continua DENTRO da transação — o commit,
+    # que é o que torna a linha visível a outras conexões, vem depois.
+    db.flush()
 
-    # Despacha task Celery na fila dedicada de backfill.
-    # Import tardio evita ciclo de importação app ↔ collectors.
-    from ..collectors.backfill_tasks import collect_backfill_job
-
-    result = collect_backfill_job.apply_async(
-        kwargs={"job_id": job.id},
-        queue="collect.backfill",
-    )
-    job.celery_task_id = result.id
-
-    # Auditoria antes do commit.
+    # Auditoria na MESMA transação do job.
     _audit_backfill(
         db,
         action="backfill_requested",
@@ -475,6 +473,63 @@ def create_backfill_job(
         to_ts=to_ts_naive,
     )
 
+    # COMMIT ANTES de publicar a task — nunca o contrário.
+    #
+    # ``flush()`` só emite o INSERT dentro da transação aberta: a linha não é
+    # visível para NENHUMA outra conexão até o commit. Publicando a task antes,
+    # abria-se uma corrida contra o worker — que roda em outro processo, com
+    # outra conexão. Ele vencia (o lookup leva ~60ms), não achava o job e
+    # retornava ``not_found``, encerrando a task como SUCESSO: sem retry, sem
+    # DLQ, o backfill simplesmente nunca rodava.
+    #
+    # A corrida ficou latente enquanto a API publicava num broker sem consumidor
+    # (a mensagem nunca chegava a ninguém); ao corrigir o broker, ela passou a
+    # disparar quase sempre.
+    db.commit()
+    db.refresh(job)
+
+    # Despacha task Celery na fila dedicada de backfill.
+    # Import tardio evita ciclo de importação app ↔ collectors.
+    from ..collectors.backfill_tasks import collect_backfill_job
+
+    try:
+        result = collect_backfill_job.apply_async(
+            kwargs={"job_id": job.id},
+            queue="collect.backfill",
+        )
+    except Exception as exc:  # noqa: BLE001 — broker fora do ar, serialização, etc.
+        # Commitar antes de publicar tirou a corrida, mas abriu esta janela: o
+        # job JÁ é durável quando o enfileiramento falha. Deixá-lo 'pending'
+        # recriaria o sintoma que este fix combate — um job que nunca roda e
+        # cuja mensagem de stall culpa o broker/worker. Marcamos 'failed' com a
+        # causa real: some da fila de espera e fica auto-explicativo na UI.
+        job.status = "failed"
+        job.last_error = f"Falha ao enfileirar a task de backfill: {exc!r}"
+        job.finished_at = datetime.utcnow()
+        db.commit()
+        logger.exception(
+            "backfill: falha ao enfileirar task job_id=%s integration_id=%s",
+            job.id, integration_id,
+        )
+        raise ApiError(
+            "backfill.enqueue_failed",
+            status.HTTP_503_SERVICE_UNAVAILABLE,
+            messages={
+                "pt": "Não foi possível enfileirar o backfill (broker indisponível). O job foi marcado como 'failed'; tente novamente.",
+                "en": "Could not enqueue the backfill (broker unavailable). The job was marked 'failed'; please retry.",
+                "es": "No se pudo encolar el backfill (broker no disponible). El job se marcó como 'failed'; inténtalo de nuevo.",
+            },
+        ) from exc
+
+    # celery_task_id é gravado DEPOIS: o job já está durável e elegível. Se esta
+    # segunda escrita falhar, perde-se só a capacidade de revogar a task por id
+    # (o cancel continua funcionando — o worker checa job.status a cada stream).
+    #
+    # O UPDATE toca só esta coluna (sem version_id_col, o SQLAlchemy não reescreve
+    # as demais), então o worker pode já ter movido o job para 'running' aqui sem
+    # que o commit o atropele. O refresh abaixo relê o estado corrente — a resposta
+    # reflete o job real, não o snapshot de antes do dispatch.
+    job.celery_task_id = result.id
     db.commit()
     db.refresh(job)
 

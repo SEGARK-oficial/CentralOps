@@ -360,6 +360,22 @@ class ApiTokenService:
                     "token name already in use for this service account"
                 )
 
+        # ApiToken é XOR: pertence a um user OU a um service account. Um shim de
+        # SA chegando como ``user`` (id negativo, ver auth._build_sa_appuser_shim)
+        # não pode virar user_id — violaria a FK. Mas aqui NÃO cabe o
+        # persistable_user_id: anular o id deixaria user_id E service_account_id
+        # nulos, criando um token ÓRFÃO — sem dono, impossível de listar ou
+        # revogar. Pior que falhar. O caminho correto para o SA é
+        # POST /api/v1/service-accounts/{id}/tokens, que preenche
+        # service_account_id; falhamos alto apontando para ele.
+        from ..core.auth import persistable_user_id  # import tardio: evita ciclo
+
+        if user is not None and persistable_user_id(user) is None:
+            raise ValueError(
+                "service accounts cannot create personal tokens — use "
+                "POST /api/v1/service-accounts/{id}/tokens"
+            )
+
         raw_token = _generate_raw_token()
         token = models.ApiToken(
             user_id=user.id if user is not None else None,

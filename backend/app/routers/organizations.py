@@ -343,7 +343,7 @@ def bulk_deactivate_organizations(
         deactivated_count += 1
         audit_entries.append(
             models.AuditLog(
-                user_id=current_user.id,
+                user_id=app_auth.persistable_user_id(current_user),
                 username=current_user.username,
                 user_role=current_user.role,
                 action="bulk_deactivate_organization",
@@ -766,7 +766,7 @@ def update_retention_config(
 
     # Audit log.
     audit = models.AuditLog(
-        user_id=current_user.id,
+        user_id=app_auth.persistable_user_id(current_user),
         username=current_user.username,
         user_role=current_user.role,
         action="update_retention_config",
@@ -871,7 +871,7 @@ def request_data_deletion(
     job = models.DataDeletionJob(
         organization_id=org_id,
         organization_slug=org.slug,
-        requested_by_user_id=current_user.id,
+        requested_by_user_id=app_auth.persistable_user_id(current_user),
         requested_by_username=current_user.username,
         reason=payload.reason,
         status="pending",
@@ -882,7 +882,7 @@ def request_data_deletion(
 
     # Audit log antes de despachar — garante rastreabilidade mesmo se Celery falhar.
     audit = models.AuditLog(
-        user_id=current_user.id,
+        user_id=app_auth.persistable_user_id(current_user),
         username=current_user.username,
         user_role=current_user.role,
         action="request_data_deletion",

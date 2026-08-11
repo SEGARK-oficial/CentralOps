@@ -157,7 +157,7 @@ def _audit_drift(
                 mapping_definition_id=definition_id,
                 mapping_version_id=None,
                 action=action,
-                user_id=user.id,
+                user_id=app_auth.persistable_user_id(user),
                 username=user.username,
                 user_role=user.role,
                 detail=detail or json.dumps({
