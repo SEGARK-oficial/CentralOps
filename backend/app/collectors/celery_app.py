@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 from typing import TYPE_CHECKING
 
 from celery import Celery
@@ -30,27 +31,81 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+# ── Proveniência da config do Celery ───────────────────────────────────
+# ``True`` = a URL foi DERIVADA do REDIS_URL porque a env var explícita não veio
+# do ambiente. O diagnóstico de backfill lê estas flags para distinguir "os
+# workers estão offline" de "esta API está falando com OUTRO broker" — dois
+# sintomas idênticos pela ótica do inspect, com causas e correções opostas.
+BROKER_FROM_FALLBACK = False
+RESULT_BACKEND_FROM_FALLBACK = False
 
-def _broker_url() -> str:
-    if settings.CELERY_BROKER_URL:
-        return settings.CELERY_BROKER_URL
-    # Fallback: se só REDIS_URL estiver setado, usa db 1 do mesmo host.
+
+def sanitize_broker_url(url: str) -> str:
+    """URL de broker sem a senha — segura para log, API e mensagem de erro."""
+    try:
+        from kombu.utils.url import maybe_sanitize_url
+
+        return maybe_sanitize_url(url)
+    except Exception:  # noqa: BLE001 — sanitizar nunca pode derrubar o caller
+        return re.sub(r"//[^@/]*@", "//**@", url)
+
+
+def _derive_from_redis_url(db_index: int) -> str:
+    """Deriva uma URL Celery do ``REDIS_URL`` trocando só o número do DB."""
     base = settings.REDIS_URL or "redis://localhost:6379/0"
-    # Troca o número do DB por 1 (pragmático — assumimos sufixo /N).
+    # Troca o número do DB (pragmático — assumimos sufixo /N).
     if base.rstrip("/").rsplit("/", 1)[-1].isdigit():
         root, _ = base.rsplit("/", 1)
-        return f"{root}/1"
-    return f"{base.rstrip('/')}/1"
+        return f"{root}/{db_index}"
+    return f"{base.rstrip('/')}/{db_index}"
+
+
+def _warn_derived(kind: str, env_var: str, derived: str) -> None:
+    """Avisa alto que a config do Celery foi ADIVINHADA, não configurada.
+
+    Derivar do ``REDIS_URL`` é conveniente em dev (um Redis só para tudo), mas em
+    qualquer deploy com control-plane isolado (o serviço ``redis-control``) a URL
+    derivada aponta para o Redis de CACHE — onde nenhum worker escuta. O processo
+    sobe limpo, publica tasks no vazio e elas somem sem erro nenhum. Este WARNING
+    é o único sinal antes do sintoma aparecer como "job pending para sempre".
+    """
+    logger.warning(
+        "CELERY: %s DERIVADO do REDIS_URL (%s não veio do ambiente) → %s. "
+        "Se os workers usam um broker dedicado (ex.: redis-control), este "
+        "processo está publicando/inspecionando no Redis ERRADO e as tasks "
+        "somem em silêncio. Defina %s explicitamente e mantenha-a idêntica "
+        "em TODOS os serviços que falam Celery.",
+        kind,
+        env_var,
+        sanitize_broker_url(derived),
+        env_var,
+    )
+
+
+def _broker_url() -> str:
+    global BROKER_FROM_FALLBACK
+
+    if settings.CELERY_BROKER_URL:
+        return settings.CELERY_BROKER_URL
+    derived = _derive_from_redis_url(1)
+    # A função é chamada mais de uma vez no boot (broker + redbeat_redis_url) —
+    # avisa só na primeira, senão o log vira ruído e o operador aprende a ignorar.
+    if not BROKER_FROM_FALLBACK:
+        BROKER_FROM_FALLBACK = True
+        _warn_derived("broker", "CELERY_BROKER_URL", derived)
+    return derived
 
 
 def _result_backend() -> str:
+    global RESULT_BACKEND_FROM_FALLBACK
+
     if settings.CELERY_RESULT_BACKEND:
         return settings.CELERY_RESULT_BACKEND
-    base = settings.REDIS_URL or "redis://localhost:6379/0"
-    if base.rstrip("/").rsplit("/", 1)[-1].isdigit():
-        root, _ = base.rsplit("/", 1)
-        return f"{root}/2"
-    return f"{base.rstrip('/')}/2"
+    derived = _derive_from_redis_url(2)
+    if not RESULT_BACKEND_FROM_FALLBACK:
+        RESULT_BACKEND_FROM_FALLBACK = True
+        _warn_derived("result backend", "CELERY_RESULT_BACKEND", derived)
+    return derived
 
 
 # ``__package__`` resolve em runtime: ``backend.app.collectors`` quando

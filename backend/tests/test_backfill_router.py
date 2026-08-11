@@ -676,6 +676,56 @@ def test_diagnostics_no_consumer_is_unhealthy(client_factory) -> None:
     assert "NENHUM consome" in body["diagnosis"]
 
 
+def test_diagnostics_no_workers_blames_the_broker_not_the_workers(
+    client_factory,
+) -> None:
+    """Zero workers no broadcast NÃO autoriza dizer "os workers estão offline".
+
+    Regressão real (PROD v2.5.1): a API publicava em ``redis:6379/1`` e os
+    workers consumiam ``redis-control:6379/1``. Os 7 workers estavam vivos e a
+    coleta rodando, mas o broadcast de inspeção — que sai pelo broker DA API —
+    voltava vazio. O diagnóstico afirmava "workers podem estar offline" e mandou
+    a investigação para o lado errado por horas.
+
+    O endpoint precisa expor o broker que ELE usa e enquadrar o resultado como
+    "ninguém respondeu AQUI", que é tudo o que ele de fato sabe.
+    """
+    factory, Session = client_factory
+    client = factory()
+    _bootstrap_admin(client)
+    with Session() as db:
+        _org_id, int_id = _seed_org_and_integration(db)
+    _seed_job(Session, int_id, status="pending", requested_age_s=300)
+
+    with patch(
+        "backend.app.routers.backfill._inspect_backfill_workers",
+        return_value=([], []),  # ninguém respondeu NESTE broker
+    ), patch(
+        "backend.app.routers.backfill._api_broker_provenance",
+        return_value=("redis://:**@redis:6379/1", True),
+    ):
+        r = client.get("/api/backfill-jobs/diagnostics")
+
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["healthy"] is False
+    # O broker da API é exposto — sem ele os dois casos são indistinguíveis.
+    assert body["api_broker_url"] == "redis://:**@redis:6379/1"
+    assert body["api_broker_from_fallback"] is True
+    assert "redis:6379/1" in body["diagnosis"]
+    # E o fallback é chamado pelo nome, porque é a causa mais provável.
+    assert "CELERY_BROKER_URL" in body["diagnosis"]
+
+
+def test_diagnostics_never_leaks_the_broker_password(client_factory) -> None:
+    """``api_broker_url`` é exposto na API — a senha do Redis não pode ir junto."""
+    from backend.app.collectors.celery_app import sanitize_broker_url
+
+    masked = sanitize_broker_url("redis://:supersecret@redis-control:6379/1")
+    assert "supersecret" not in masked
+    assert "redis-control:6379/1" in masked
+
+
 def test_diagnostics_healthy_with_consumer(client_factory) -> None:
     """Consumidor da fila presente e sem pending velho → healthy."""
     factory, Session = client_factory

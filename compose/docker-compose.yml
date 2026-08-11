@@ -53,6 +53,16 @@ services:
       - SESSION_SECURE_COOKIE=${SESSION_SECURE_COOKIE:-1}
       - CORS_ORIGINS=${CORS_ORIGINS:-}
       - REDIS_URL=${REDIS_URL:-redis://:${REDIS_PASSWORD:?REDIS_PASSWORD obrigatorio - gere com openssl rand -base64 24 e coloque no .env}@redis:6379/0}
+      # A API PUBLICA tasks (backfill, coletar-agora, reprocess de quarentena,
+      # drain de DLQ, data deletion, sync Entra) — logo precisa do MESMO broker
+      # que os workers consomem. Sem estas duas, ``_broker_url()`` cai no
+      # fallback silencioso que deriva do REDIS_URL acima (redis:6379/1) e a API
+      # publica num Redis onde NENHUM worker escuta: a task some sem erro, o job
+      # fica ``pending`` para sempre e o diagnóstico reporta "workers offline"
+      # (o broadcast de inspeção sai pelo broker errado). Mantenha em sincronia
+      # com os serviços collector-worker-* / collector-*-dispatcher / beat.
+      - CELERY_BROKER_URL=${CELERY_BROKER_URL:-redis://:${REDIS_PASSWORD:?REDIS_PASSWORD obrigatorio - gere com openssl rand -base64 24 e coloque no .env}@redis-control:6379/1}
+      - CELERY_RESULT_BACKEND=${CELERY_RESULT_BACKEND:-redis://:${REDIS_PASSWORD:?REDIS_PASSWORD obrigatorio - gere com openssl rand -base64 24 e coloque no .env}@redis-control:6379/2}
       # Default: Postgres do compose. Override via .env pra apontar pra
       # outro host ou voltar a SQLite (sqlite:////app/data/sophos.db).
       - DATABASE_URL=${DATABASE_URL:-postgresql+psycopg2://${POSTGRES_USER:-centralops}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD obrigatorio - gere com openssl rand -base64 24 e coloque no .env}@postgres:5432/${POSTGRES_DB:-centralops}}
