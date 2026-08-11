@@ -591,3 +591,72 @@ def test_config_cannot_carry_a_secret_reference(client_factory) -> None:
     )
     assert r.status_code == 422, r.text
     assert "secret" in r.text
+
+
+# ── fonte multi-org (MSP) e gate de edição ──────────────────────────────────
+
+def test_sharing_a_source_requires_enterprise(client_factory, monkeypatch) -> None:
+    """Compartilhar entre orgs é EE. Na Community a fonte atende uma org.
+
+    Não é trava artificial: o escopo de subárvore que faz a matriz enxergar as
+    filhas já é EE (`core/tenant.py` usa resolver FLAT no Core), então em CE nem
+    existe como escolher a filha.
+    """
+    from backend.app.core import edition
+
+    factory, _ = client_factory
+    client = factory()
+    _bootstrap_admin(client)
+    matriz = _org(client, "MatrizCE")
+    filha = _org(client, "FilhaCE")
+
+    monkeypatch.setattr(edition, "feature_enabled", lambda name: False)
+    r = client.post(
+        f"{_BASE}/sources",
+        json={
+            "name": "vt-msp", "enricher": "virustotal",
+            "organization_id": matriz, "secret": "tok",
+            "shared_organization_ids": [filha],
+        },
+    )
+    assert r.status_code == 403, r.text
+    assert "Enterprise" in r.text
+
+
+def test_source_shared_with_child_orgs_and_editable_afterwards(
+    client_factory, monkeypatch
+) -> None:
+    """Com EE a matriz escolhe as filhas, e a lista muda depois da criação."""
+    from backend.app.core import edition
+
+    factory, _ = client_factory
+    client = factory()
+    _bootstrap_admin(client)
+    matriz = _org(client, "MatrizEE")
+    filha_a = _org(client, "FilhaA")
+    filha_b = _org(client, "FilhaB")
+
+    monkeypatch.setattr(edition, "feature_enabled", lambda name: True)
+    created = client.post(
+        f"{_BASE}/sources",
+        json={
+            "name": "vt-msp", "enricher": "virustotal",
+            "organization_id": matriz, "secret": "tok",
+            "shared_organization_ids": [filha_a],
+        },
+    )
+    assert created.status_code == 201, created.text
+    assert created.json()["shared_organization_ids"] == [filha_a]
+    src_id = created.json()["id"]
+
+    # A lista é editável: era a filha A, passa a ser A e B.
+    upd = client.patch(
+        f"{_BASE}/sources/{src_id}",
+        json={"shared_organization_ids": [filha_a, filha_b]},
+    )
+    assert upd.status_code == 200, upd.text
+    assert upd.json()["shared_organization_ids"] == sorted([filha_a, filha_b])
+
+    # E dá para tirar todas, voltando a atender só a dona.
+    upd2 = client.patch(f"{_BASE}/sources/{src_id}", json={"shared_organization_ids": []})
+    assert upd2.json()["shared_organization_ids"] == []

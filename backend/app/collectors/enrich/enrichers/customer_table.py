@@ -249,7 +249,7 @@ register(
         label="Tabela do cliente (chave exata)",
         category="Tabela do cliente",
         description=(
-            "Sua própria tabela de contexto — CSV/JSON versionado na UI — casada por "
+            "Sua própria tabela de contexto, versionada na UI e casada por "
             "igualdade de chave. Sem rede, sem terceiros, sem rate limit."
         ),
         icon_id="table",

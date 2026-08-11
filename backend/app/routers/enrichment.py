@@ -40,12 +40,13 @@ from sqlalchemy.orm import Session
 from ..collectors.enrich import enrichers as _enrichers  # noqa: F401 — dispara registro
 from ..collectors.enrich import registry as enrich_registry
 from ..collectors.enrich.applier import ApplyStats, apply as apply_enrichment
-from ..collectors.enrich.contract import EnrichmentConfigError
+from ..collectors.enrich.contract import EnrichContext, EnrichmentConfigError
 from ..collectors.enrich.dsl import compile_policy, describe_policy
 from ..collectors.enrich.radix import parse_network
 from ..collectors.enrich.runtime import DictLookupTable, TableResolution, estimate_bytes
 from ..core import auth as app_auth
 from ..core import tenant
+from ..core import edition
 from ..core.config import settings
 from ..core.errors import ApiError
 from ..core.tenant import has_global_scope
@@ -105,6 +106,9 @@ class SourceCreate(BaseModel):
     config: Dict[str, Any] = Field(default_factory=dict)
     secret: Optional[str] = Field(None, max_length=8192)
     enabled: bool = True
+    #: Orgs FILHAS que também usam esta fonte. A org dona entra sempre, não
+    #: precisa ser repetida aqui. Lista com item exige a feature ``multi_tenant``.
+    shared_organization_ids: List[int] = Field(default_factory=list)
 
 
 class SourceUpdate(BaseModel):
@@ -113,6 +117,8 @@ class SourceUpdate(BaseModel):
     #: ``None`` = mantém o segredo atual; string vazia = REMOVE.
     secret: Optional[str] = Field(None, max_length=8192)
     enabled: Optional[bool] = None
+    #: ``None`` mantém a lista atual; lista substitui (a dona é preservada).
+    shared_organization_ids: Optional[List[int]] = None
 
 
 class SourceRead(BaseModel):
@@ -122,10 +128,23 @@ class SourceRead(BaseModel):
     enricher: str
     description: Optional[str] = None
     config: Dict[str, Any] = Field(default_factory=dict)
-    #: Booleano, NUNCA o ``secret_ref`` — mesmo padrão de
+    #: Booleano, NUNCA o ``secret_ref``. Mesmo padrão de
     #: ``Integration.manager_api_password_configured``.
     secret_configured: bool = False
     enabled: bool = True
+    #: Filhas que usam a fonte (sem a dona). Editável depois da criação.
+    shared_organization_ids: List[int] = Field(default_factory=list)
+
+
+class SourceTestResult(BaseModel):
+    ok: bool
+    #: Mensagem pronta para a UI. Em falha, o motivo real do provedor.
+    message: str
+    #: Quantos registros a fonte devolveu na sondagem, quando aplicável.
+    sample_count: Optional[int] = None
+    #: Amostra pequena do que veio, para o operador conferir o formato.
+    sample: Optional[Dict[str, Any]] = None
+    elapsed_ms: Optional[float] = None
 
 
 class TableCreate(BaseModel):
@@ -364,12 +383,19 @@ def _table_read(db: Session, row: models.EnrichmentTable) -> TableRead:
 
 # ── fontes configuradas (instâncias de enricher por org) ────────────────────
 
-def _source_read(row: Any) -> SourceRead:
+def _source_read(db: Session, row: Any) -> SourceRead:
     """Serializa SEM o ``secret_ref``. Ver :class:`SourceRead`."""
     try:
         cfg = json.loads(row.config or "{}")
     except Exception:  # noqa: BLE001 — config torta não pode derrubar a listagem
         cfg = {}
+    shared = [
+        o.organization_id
+        for o in db.query(models.EnrichmentSourceOrg)
+        .filter(models.EnrichmentSourceOrg.source_id == row.id)
+        .all()
+        if o.organization_id != row.organization_id
+    ]
     return SourceRead(
         id=row.id,
         organization_id=row.organization_id,
@@ -379,7 +405,70 @@ def _source_read(row: Any) -> SourceRead:
         config=cfg,
         secret_configured=bool(row.secret_ref),
         enabled=bool(row.enabled),
+        shared_organization_ids=sorted(shared),
     )
+
+
+def _sync_source_orgs(
+    db: Session,
+    row: Any,
+    user: models.AppUser,
+    shared_ids: Optional[List[int]],
+) -> None:
+    """Reescreve a lista de orgs da fonte. A dona nunca sai.
+
+    Três recusas, nesta ordem:
+
+    1. **Compartilhar exige Enterprise.** Sem ``multi_tenant`` a fonte atende só a
+       dona. Não é trava artificial: o escopo de subárvore que faz a matriz
+       enxergar as filhas já é EE, então em CE não existe nem como escolhê-las.
+    2. **Cada org da lista precisa estar na subárvore de quem edita.** Sem isso um
+       admin de MSP compartilharia a própria credencial com um tenant de outra
+       árvore, e o join do runtime passaria a servi-la.
+    3. **Nome único por org.** O runtime resolve por ``(org, nome)``; duas fontes
+       homônimas visíveis para a mesma org tornariam a escolha arbitrária.
+    """
+    if shared_ids is None:
+        return
+    wanted = {int(i) for i in shared_ids if int(i) != int(row.organization_id)}
+
+    if wanted and not edition.feature_enabled("multi_tenant"):
+        raise ApiError(
+            "enrichment.source_sharing_requires_enterprise",
+            status.HTTP_403_FORBIDDEN,
+            messages={
+                "pt": "Compartilhar uma fonte entre organizações exige a edição Enterprise. Na Community cada fonte atende uma organização.",
+                "en": "Sharing a source across organizations requires the Enterprise edition. In Community each source serves one organization.",
+                "es": "Compartir una fuente entre organizaciones requiere la edición Enterprise. En Community cada fuente atiende a una organización.",
+            },
+        )
+
+    for org_id in sorted(wanted):
+        tenant.require_subtree_access(user, org_id, db)
+        clash = (
+            db.query(models.EnrichmentSource)
+            .join(
+                models.EnrichmentSourceOrg,
+                models.EnrichmentSourceOrg.source_id == models.EnrichmentSource.id,
+            )
+            .filter(
+                models.EnrichmentSourceOrg.organization_id == org_id,
+                models.EnrichmentSource.name == row.name,
+                models.EnrichmentSource.id != row.id,
+            )
+            .first()
+        )
+        if clash is not None:
+            raise _bad_request(
+                "enrichment.source_name_clash",
+                f"a organização {org_id} já enxerga outra fonte chamada {row.name!r}",
+            )
+
+    db.query(models.EnrichmentSourceOrg).filter(
+        models.EnrichmentSourceOrg.source_id == row.id
+    ).delete(synchronize_session=False)
+    for org_id in sorted(wanted | {int(row.organization_id)}):
+        db.add(models.EnrichmentSourceOrg(source_id=row.id, organization_id=org_id))
 
 
 def _validate_source_config(enricher: str, cfg: Dict[str, Any]) -> Dict[str, Any]:
@@ -424,7 +513,7 @@ def list_sources(
     db: Session = Depends(_db),
 ) -> List[SourceRead]:
     q = _visible_org_filter(db.query(models.EnrichmentSource), models.EnrichmentSource, user, db)
-    return [_source_read(r) for r in q.order_by(models.EnrichmentSource.name).all()]
+    return [_source_read(db, r) for r in q.order_by(models.EnrichmentSource.name).all()]
 
 
 @router.post("/sources", response_model=SourceRead, status_code=status.HTTP_201_CREATED)
@@ -465,9 +554,11 @@ def create_source(
         enabled=payload.enabled,
     )
     db.add(row)
+    db.flush()  # precisa do id antes de gravar a lista de orgs
+    _sync_source_orgs(db, row, user, payload.shared_organization_ids)
     db.commit()
     db.refresh(row)
-    return _source_read(row)
+    return _source_read(db, row)
 
 
 @router.patch("/sources/{source_id}", response_model=SourceRead)
@@ -487,9 +578,90 @@ def update_source(
         row.secret_ref = _encrypt_secret(payload.secret) if payload.secret else None
     if payload.enabled is not None:
         row.enabled = payload.enabled
+    _sync_source_orgs(db, row, user, payload.shared_organization_ids)
     db.commit()
     db.refresh(row)
-    return _source_read(row)
+    return _source_read(db, row)
+
+
+@router.post("/sources/{source_id}/test", response_model=SourceTestResult)
+def test_source(
+    source_id: str,
+    user: models.AppUser = Depends(app_auth.require_admin_user),
+    db: Session = Depends(_db),
+) -> SourceTestResult:
+    """Sonda a fonte de verdade: credencial, endpoint e formato do retorno.
+
+    Existe porque hoje a única forma de descobrir que a chave está errada é ver
+    eventos saindo sem contexto, horas depois, no destino. O erro do provedor
+    (401, DNS, TLS, schema GraphQL divergente) fica no log do worker, longe de
+    quem cadastrou a credencial.
+
+    Roda em modo REDUZIDO: uma página, poucos registros. Não persiste nada e não
+    toca em tráfego real, então é seguro apertar o botão quantas vezes quiser.
+    """
+    import asyncio
+    import time
+
+    row = _assert_visible(db.get(models.EnrichmentSource, source_id), user, "source")
+    try:
+        reg = enrich_registry.require(row.enricher)
+    except Exception as exc:  # noqa: BLE001
+        return SourceTestResult(ok=False, message=f"enricher {row.enricher!r} não existe: {exc}")
+
+    try:
+        cfg = json.loads(row.config or "{}")
+    except Exception as exc:  # noqa: BLE001
+        return SourceTestResult(ok=False, message=f"config não é JSON válido: {exc}")
+
+    # Sondagem barata: 1 página curta. Sem isto, "testar" numa instância grande
+    # baixaria a base inteira e o botão viraria um DoS contra o próprio cliente.
+    probe_cfg = dict(cfg)
+    probe_cfg.setdefault("page_size", 5)
+    probe_cfg["max_pages"] = 1
+
+    ctx = EnrichContext(
+        organization_id=int(row.organization_id),
+        config=probe_cfg,
+        secret_ref=row.secret_ref,
+    )
+    started = time.monotonic()
+    try:
+        instance = reg.factory(probe_cfg)
+    except Exception as exc:  # noqa: BLE001 — ValidationError do config_schema
+        return SourceTestResult(ok=False, message=f"config recusada: {exc}")
+
+    try:
+        if hasattr(instance, "load"):
+            table = asyncio.run(instance.load(ctx))
+            rows = getattr(table, "_rows", {}) or {}
+            first = next(iter(rows.items()), None)
+            return SourceTestResult(
+                ok=True,
+                message="Conexão ok.",
+                sample_count=len(rows),
+                sample={first[0]: first[1]} if first else None,
+                elapsed_ms=(time.monotonic() - started) * 1000.0,
+            )
+        # Enricher remoto: resolve uma chave sabidamente inexistente. O que
+        # importa é a credencial ser aceita, não haver resultado.
+        probe_key = "8.8.8.8"
+        resolved = asyncio.run(instance.resolve([probe_key], ctx))
+        return SourceTestResult(
+            ok=True,
+            message="Credencial aceita pelo provedor.",
+            sample_count=len(resolved or {}),
+            sample={probe_key: (resolved or {}).get(probe_key)},
+            elapsed_ms=(time.monotonic() - started) * 1000.0,
+        )
+    except PermissionError as exc:
+        return SourceTestResult(ok=False, message=f"Credencial recusada: {exc}")
+    except Exception as exc:  # noqa: BLE001 — o motivo real ajuda mais que 500
+        return SourceTestResult(
+            ok=False,
+            message=f"{type(exc).__name__}: {exc}",
+            elapsed_ms=(time.monotonic() - started) * 1000.0,
+        )
 
 
 @router.delete("/sources/{source_id}", status_code=status.HTTP_204_NO_CONTENT)

@@ -1,6 +1,6 @@
 {
   "title": "Enriquecimento",
-  "description": "Acrescente contexto ao evento dentro do pipeline — antes do roteamento e da detecção.",
+  "description": "Acrescente contexto ao evento dentro do pipeline, antes do roteamento e da detecção.",
   "actions": {
     "refresh": "Atualizar"
   },
@@ -44,7 +44,7 @@
       "create": "Nova tabela",
       "organization": "Organização",
       "organizationPlaceholder": "Selecione a organização",
-      "organizationRequired": "Selecione uma organização — não existe tabela de enriquecimento global."
+      "organizationRequired": "Selecione uma organização. Não existe tabela de enriquecimento global."
     },
     "deleteAction": "Apagar tabela",
     "deleteConfirm": {
@@ -52,13 +52,13 @@
       "description": "Isso remove \"{{name}}\" e todo o histórico de versões. Só é possível se nenhuma política a referenciar."
     },
     "versions": {
-      "title": "Versões — {{name}}",
+      "title": "Versões de {{name}}",
       "publishNew": "Publicar nova versão",
       "rowsLabel": "Linhas (JSON)",
       "rowsHelperExact": "Objeto {chave: {campo: valor}}. A chave é comparada por igualdade exata.",
       "rowsHelperCidr": "Objeto {cidr: {campo: valor}}. Cada chave deve ser um IP ou uma faixa CIDR (ex.: 10.0.5.0/24).",
       "mustBeObject": "O conteúdo deve ser um objeto {chave: {campo: valor}}, não uma lista.",
-      "invalidJson": "JSON inválido — confira vírgulas e chaves.",
+      "invalidJson": "JSON inválido. Confira vírgulas e chaves.",
       "commitMessage": "Mensagem do commit",
       "commitMessageRequired": "Descreva a mudança antes de publicar.",
       "commitMessagePlaceholder": "ex.: inventário inicial",
@@ -85,13 +85,13 @@
       "createTitle": "Nova política",
       "name": "Nome",
       "nameRequired": "Informe um nome para a política.",
-      "organizationRequired": "Selecione uma organização — não existe política de enriquecimento global.",
+      "organizationRequired": "Selecione uma organização. Não existe política de enriquecimento global.",
       "description": "Descrição",
       "create": "Nova política"
     },
     "versions": {
-      "title": "Versões — {{name}}",
-      "enabledNow": "Esta política está ATIVA — vale para eventos novos desta organização.",
+      "title": "Versões de {{name}}",
+      "enabledNow": "Política ativa. Vale para eventos novos desta organização.",
       "disabledNow": "Esta política está inativa.",
       "needsVersionToEnable": "Publique uma versão antes de habilitar.",
       "enable": "Habilitar",
@@ -117,7 +117,7 @@
       "outputTarget": "Grava em",
       "removeOutput": "Remover saída",
       "tags": "Tags (separadas por vírgula)",
-      "tagsHint": "Vão para _centralops.enrichment_tags — usável em condições de outras regras e em rotas.",
+      "tagsHint": "Vão para _centralops.enrichment_tags, usável em condições de outras regras e em rotas.",
       "onMiss": "Se não encontrar",
       "onError": "Se der erro",
       "addRule": "Adicionar regra",
@@ -128,7 +128,7 @@
         "hint": "Aplica as regras acima a um evento de exemplo, sem publicar nada e sem tocar em tráfego real.",
         "sample": "Evento de exemplo (JSON)",
         "tables": "Tabelas simuladas (opcional, JSON)",
-        "tablesHint": "{regra_id: {chave: {campo: valor}}} — testa sem precisar publicar a tabela de verdade.",
+        "tablesHint": "{regra_id: {chave: {campo: valor}}}. Testa sem publicar a tabela de verdade.",
         "needsRules": "Adicione ao menos uma regra antes de testar.",
         "invalidSample": "O evento de exemplo não é um JSON válido.",
         "invalidTables": "As tabelas simuladas não são um JSON válido.",
@@ -146,7 +146,7 @@
   "errorTitle": "Falha ao carregar o enriquecimento",
   "sources": {
     "emptyTitle": "Nenhuma fonte configurada",
-    "emptyDescription": "Uma fonte é a instância de um enricher nesta organização — o endereço e a credencial com que ele roda aqui.",
+    "emptyDescription": "Uma fonte é a instância de um enricher nesta organização: o endereço e a credencial com que ele roda aqui.",
     "secretConfigured": "credencial cadastrada",
     "secretMissing": "sem credencial",
     "disabled": "desabilitada",
@@ -157,11 +157,11 @@
     },
     "form": {
       "createTitle": "Nova fonte",
-      "editTitle": "Editar fonte — {{name}}",
+      "editTitle": "Editar fonte {{name}}",
       "name": "Nome",
       "nameRequired": "Informe um nome para a fonte.",
-      "nameImmutable": "O nome não muda depois de criado — as regras o citam.",
-      "organizationRequired": "Selecione uma organização — a credencial fica vinculada a ela.",
+      "nameImmutable": "O nome não muda depois de criado, porque as regras o citam.",
+      "organizationRequired": "Selecione uma organização. A credencial fica vinculada a ela.",
       "enricher": "Enricher",
       "description": "Descrição",
       "configLegend": "Configuração",
@@ -169,7 +169,23 @@
       "secretRequired": "Este enricher exige uma credencial.",
       "secretHint": "Enviada uma única vez e cifrada pelo servidor; a API nunca a devolve. Exigida: {{names}}.",
       "secretKeepPlaceholder": "•••••••• (deixe vazio para manter)",
-      "create": "Nova fonte"
+      "create": "Nova fonte",
+      "sharedOrgs": "Organizações filhas",
+      "sharedOrgsHint": "A fonte atende sempre a organização dona. Marque as filhas que também devem usar esta credencial. Compartilhar exige a edição Enterprise."
+    },
+    "test": {
+      "title": "Testar conexão",
+      "run": "Testar",
+      "hint": "Consulta a fonte de verdade com a credencial gravada, em modo reduzido. Não publica nada.",
+      "sampleCount": "{{count}} registro(s) na amostra."
     }
+  },
+  "catalog": {
+    "searchPlaceholder": "Buscar fonte de enriquecimento",
+    "empty": "Nenhuma fonte encontrada."
+  },
+  "scope": {
+    "title": "Você está vendo uma organização",
+    "body": "Um token com escopo de organização enxerga só a própria. Para acompanhar vários clientes num SOC, use um token de escopo global ou a edição Enterprise, que habilita a visão da subárvore."
   }
 }

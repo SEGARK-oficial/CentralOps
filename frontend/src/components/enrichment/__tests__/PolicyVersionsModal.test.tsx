@@ -117,7 +117,7 @@ describe("PolicyVersionsModal", () => {
       />,
     )
 
-    expect(await screen.findByText(/está ATIVA/i)).toBeInTheDocument()
+    expect(await screen.findByText(/Política ativa/i)).toBeInTheDocument()
     const toggle = screen.getByRole("button", { name: "Desabilitar" })
     expect(toggle).not.toBeDisabled()
   })

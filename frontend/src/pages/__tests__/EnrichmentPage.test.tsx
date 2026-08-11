@@ -168,7 +168,7 @@ describe("EnrichmentPage", () => {
     fireEvent.click(screen.getByRole("tab", { name: /Tabelas/i }))
     fireEvent.click(await screen.findByTestId("table-card-rede-corp"))
 
-    expect(await screen.findByRole("dialog", { name: "Versões — rede-corp" })).toBeInTheDocument()
+    expect(await screen.findByRole("dialog", { name: "Versões de rede-corp" })).toBeInTheDocument()
   })
 
   it("apaga uma tabela via ConfirmDialog sem abrir o modal de versões", async () => {
@@ -181,7 +181,7 @@ describe("EnrichmentPage", () => {
     const card = await screen.findByTestId("table-card-rede-corp")
     fireEvent.click(within(card).getByRole("button", { name: "Apagar tabela" }))
 
-    expect(screen.queryByRole("dialog", { name: "Versões — rede-corp" })).not.toBeInTheDocument()
+    expect(screen.queryByRole("dialog", { name: "Versões de rede-corp" })).not.toBeInTheDocument()
     const confirmDialog = await screen.findByRole("dialog", { name: "Apagar tabela" })
     fireEvent.click(within(confirmDialog).getByRole("button", { name: "Excluir" }))
 
@@ -227,7 +227,7 @@ describe("EnrichmentPage", () => {
     fireEvent.click(screen.getByRole("tab", { name: /Políticas/i }))
     fireEvent.click(await screen.findByTestId("policy-card-contexto-de-ativo"))
 
-    expect(await screen.findByRole("dialog", { name: "Versões — contexto-de-ativo" })).toBeInTheDocument()
+    expect(await screen.findByRole("dialog", { name: "Versões de contexto-de-ativo" })).toBeInTheDocument()
   })
 
   it("mostra ErrorState com retry quando o carregamento falha", async () => {
@@ -256,6 +256,7 @@ describe("EnrichmentPage — fontes configuradas", () => {
     config: { max_keys_per_batch: 25 },
     secret_configured: true,
     enabled: true,
+    shared_organization_ids: [],
   }
 
   it("mostra estado vazio e abre o formulário de criação", async () => {

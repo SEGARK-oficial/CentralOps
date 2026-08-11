@@ -2180,6 +2180,10 @@ class EnrichmentSource(Base):
         Index("ix_enrich_source_org_enricher", "organization_id", "enricher"),
     )
 
+    #: ``organization_id`` é a org DONA (quem cadastrou e paga a credencial).
+    #: Quem pode USAR está em :class:`EnrichmentSourceOrg`, que sempre inclui a
+    #: dona. Ver a docstring daquela classe para o porquê de duas coisas.
+
     id = Column(String, primary_key=True, default=lambda: str(uuid4()))
     organization_id = Column(
         Integer,
@@ -2202,6 +2206,45 @@ class EnrichmentSource(Base):
     updated_at = Column(
         DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
     )
+
+
+class EnrichmentSourceOrg(Base):
+    """Quais organizações podem USAR uma fonte. Sempre inclui a org dona.
+
+    Existe para o caso MSP: a matriz cadastra a chave do VirusTotal uma vez e
+    escolhe quais clientes filhos ela atende. Sem isto, a alternativa seria copiar
+    a fonte para cada filha, e aí rotacionar a credencial vira N edições, com o
+    risco de esquecer uma e ficar com um tenant chamando a API com chave revogada.
+
+    Uma linha por org (em vez de uma coluna JSON na fonte) porque a pergunta do
+    caminho quente é "que fonte chamada X esta org pode usar?", e isso é um join
+    indexado. Guardar a lista como JSON obrigaria a varrer todas as fontes.
+
+    **Compartilhar com mais de uma org é Enterprise** (``feature multi_tenant``).
+    Na edição Community a fonte atende só a org dona, porque o próprio escopo de
+    subárvore que torna a hierarquia visível já é EE (``core/tenant.py``: o
+    resolver default do Core é FLAT).
+    """
+
+    __tablename__ = "enrichment_source_orgs"
+    __table_args__ = (
+        UniqueConstraint("source_id", "organization_id", name="uq_enrich_srcorg"),
+        Index("ix_enrich_srcorg_org", "organization_id"),
+    )
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid4()))
+    source_id = Column(
+        String,
+        ForeignKey("enrichment_sources.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    organization_id = Column(
+        Integer,
+        ForeignKey("organizations.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
 
 class EnrichmentPolicy(Base):

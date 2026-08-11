@@ -18,6 +18,7 @@ import type {
   EnrichmentPolicy,
   EnrichmentPolicyVersion,
   EnrichmentRule,
+  EnrichmentSource,
   EnrichmentTable,
 } from "@/services/api"
 
@@ -26,6 +27,7 @@ interface PolicyVersionsModalProps {
   policy: EnrichmentPolicy | null
   enrichers: EnricherCatalogItem[]
   tables: EnrichmentTable[]
+  sources?: EnrichmentSource[]
   onClose: () => void
   onChanged: () => void
 }
@@ -54,6 +56,7 @@ export const PolicyVersionsModal: React.FC<PolicyVersionsModalProps> = ({
   policy,
   enrichers,
   tables,
+  sources = [],
   onClose,
   onChanged,
 }) => {
@@ -238,7 +241,13 @@ export const PolicyVersionsModal: React.FC<PolicyVersionsModalProps> = ({
             </Notice>
           )}
 
-          <PolicyRuleEditor rules={rules} enrichers={enrichers} tables={tables} onChange={setRules} />
+          <PolicyRuleEditor
+            rules={rules}
+            enrichers={enrichers}
+            tables={tables}
+            sources={sources}
+            onChange={setRules}
+          />
 
           {/* Dry-run */}
           <div className="space-y-3 rounded-md bg-surface-secondary p-3">
