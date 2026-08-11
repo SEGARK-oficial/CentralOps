@@ -216,8 +216,8 @@ export const PolicyRuleEditor: React.FC<PolicyRuleEditorProps> = ({
                     size="xs"
                     onClick={() => addOutput(index)}
                     data-testid={`add-output-${index}`}
+                    leftIcon={<PlusIcon size={12} />}
                   >
-                    <PlusIcon size={12} aria-hidden />
                     {t("policies.versions.addOutput")}
                   </Button>
                 </div>
@@ -286,8 +286,14 @@ export const PolicyRuleEditor: React.FC<PolicyRuleEditorProps> = ({
         })}
       </div>
 
-      <Button type="button" variant="outline" size="sm" onClick={addRule} data-testid="add-rule">
-        <PlusIcon size={14} aria-hidden />
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        onClick={addRule}
+        data-testid="add-rule"
+        leftIcon={<PlusIcon size={14} />}
+      >
         {t("policies.versions.addRule")}
       </Button>
     </section>

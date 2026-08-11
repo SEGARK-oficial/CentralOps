@@ -6,9 +6,6 @@ import {
   RefreshCcwIcon,
   TableIcon,
   NetworkIcon,
-  ShieldAlertIcon,
-  GlobeIcon,
-  LockIcon,
   PlusIcon,
   Trash2Icon,
   KeyRoundIcon,
@@ -27,6 +24,8 @@ import { CreateTableModal } from "@/components/enrichment/CreateTableModal"
 import { TableVersionsModal } from "@/components/enrichment/TableVersionsModal"
 import { CreatePolicyModal } from "@/components/enrichment/CreatePolicyModal"
 import { PolicyVersionsModal } from "@/components/enrichment/PolicyVersionsModal"
+import { usePlatform } from "@/contexts/PlatformContext"
+import { TileGallery } from "@/components/shared/TileGallery"
 import { SourceFormModal } from "@/components/enrichment/SourceFormModal"
 import {
   deleteEnrichmentSource,
@@ -58,34 +57,6 @@ import {
  * lista e abre os modais certos.
  */
 
-type Egress = "none" | "internal" | "third_party"
-
-/** Selo de egresso. Cores seguem a semântica já usada no produto para risco. */
-function EgressBadge({ egress }: { egress: Egress }): React.ReactElement {
-  const { t } = useTranslation("enrichment")
-  if (egress === "third_party") {
-    return (
-      <Badge variant="danger" className="gap-1">
-        <GlobeIcon size={12} aria-hidden />
-        {t("egress.thirdParty")}
-      </Badge>
-    )
-  }
-  if (egress === "internal") {
-    return (
-      <Badge variant="primary" className="gap-1">
-        <LockIcon size={12} aria-hidden />
-        {t("egress.internal")}
-      </Badge>
-    )
-  }
-  return (
-    <Badge variant="success" className="gap-1">
-      <LockIcon size={12} aria-hidden />
-      {t("egress.none")}
-    </Badge>
-  )
-}
 
 function fmtBytes(n: number): string {
   if (!n) return "0 B"
@@ -96,6 +67,7 @@ function fmtBytes(n: number): string {
 
 export function EnrichmentPage(): React.ReactElement {
   const { t } = useTranslation("enrichment")
+  const { organizations } = usePlatform()
   const [tab, setTab] = useState<"catalog" | "sources" | "tables" | "policies">("catalog")
   const [enrichers, setEnrichers] = useState<Enricher[]>([])
   const [tables, setTables] = useState<EnrichTable[]>([])
@@ -111,6 +83,8 @@ export function EnrichmentPage(): React.ReactElement {
   const [deleting, setDeleting] = useState(false)
   const [deleteError, setDeleteError] = useState<string | null>(null)
 
+  const [catalogPick, setCatalogPick] = useState<string>("")
+  const [sourcePreselect, setSourcePreselect] = useState<string | null>(null)
   const [sourceFormOpen, setSourceFormOpen] = useState(false)
   const [sourceEditing, setSourceEditing] = useState<EnrichSource | null>(null)
   const [sourceDeleteTarget, setSourceDeleteTarget] = useState<EnrichSource | null>(null)
@@ -145,16 +119,34 @@ export function EnrichmentPage(): React.ReactElement {
     void load()
   }, [load])
 
-  /** Agrupa por categoria preservando a ordem que o backend definiu. */
-  const byCategory = useMemo(() => {
-    const groups = new Map<string, Enricher[]>()
-    for (const e of [...enrichers].sort((a, b) => a.order - b.order || a.label.localeCompare(b.label))) {
-      const list = groups.get(e.category) ?? []
-      list.push(e)
-      groups.set(e.category, list)
-    }
-    return [...groups.entries()]
-  }, [enrichers])
+  // Tiles do catálogo. Continua 100% plugin-driven: o que a galeria mostra vem
+  // do registry do backend, então um enricher novo não toca este arquivo.
+  const catalogTiles = useMemo(
+    () =>
+      [...enrichers]
+        .sort((a, b) => a.order - b.order || a.label.localeCompare(b.label))
+        .map((e) => ({
+          id: e.name,
+          label: e.label,
+          description: e.description,
+          category: e.category,
+          icon: <SparklesIcon size={18} className="text-stage-enrich" aria-hidden />,
+          // O selo de egresso vira badge do tile: é consentimento de privacidade
+          // e precisa estar visível na ESCOLHA, não escondido depois.
+          badge:
+            e.egress === "third_party"
+              ? t("egress.thirdParty")
+              : e.egress === "internal"
+                ? t("egress.internal")
+                : t("egress.none"),
+          badgeTone: (e.egress === "third_party"
+            ? "warning"
+            : e.egress === "internal"
+              ? "primary"
+              : "success") as "warning" | "primary" | "success",
+        })),
+    [enrichers, t],
+  )
 
   const thirdPartyCount = useMemo(
     () => enrichers.filter((e) => e.egress === "third_party").length,
@@ -179,6 +171,23 @@ export function EnrichmentPage(): React.ReactElement {
     }
   }
 
+  // Uma ação primária por aba, no header. Antes ela vivia numa segunda linha
+  // abaixo das abas, e as duas linhas de botão empilhavam sem hierarquia.
+  const primaryAction =
+    tab === "sources"
+      ? {
+          label: t("sources.form.create"),
+          onClick: () => {
+            setSourceEditing(null)
+            setSourceFormOpen(true)
+          },
+        }
+      : tab === "tables"
+        ? { label: t("tables.form.create"), onClick: () => setCreateTableOpen(true) }
+        : tab === "policies"
+          ? { label: t("policies.form.create"), onClick: () => setCreatePolicyOpen(true) }
+          : null
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -186,10 +195,25 @@ export function EnrichmentPage(): React.ReactElement {
         description={t("description")}
         icon={<SparklesIcon size={20} className="text-stage-enrich" aria-hidden />}
         actions={
-          <Button variant="secondary" onClick={() => void load()} disabled={loading}>
-            <RefreshCcwIcon size={16} aria-hidden />
-            {t("actions.refresh")}
-          </Button>
+          <>
+            {primaryAction && (
+              <Button
+                variant="primary"
+                onClick={primaryAction.onClick}
+                leftIcon={<PlusIcon size={16} />}
+              >
+                {primaryAction.label}
+              </Button>
+            )}
+            <Button
+              variant="secondary"
+              onClick={() => void load()}
+              disabled={loading}
+              leftIcon={<RefreshCcwIcon size={16} />}
+            >
+              {t("actions.refresh")}
+            </Button>
+          </>
         }
       />
 
@@ -197,50 +221,31 @@ export function EnrichmentPage(): React.ReactElement {
         <ErrorState title={t("errorTitle")} message={error} onRetry={() => void load()} />
       ) : (
         <>
-          <div className="flex items-center justify-between gap-3">
-            <Tabs value={tab} onValueChange={(v) => setTab(v as typeof tab)}>
-              <TabsList ariaLabel={t("title")}>
-                <TabsTrigger value="catalog">
-                  {t("tabs.catalog", { count: enrichers.length })}
-                </TabsTrigger>
-                <TabsTrigger value="sources">
-                  {t("tabs.sources", { count: sources.length })}
-                </TabsTrigger>
-                <TabsTrigger value="tables">
-                  {t("tabs.tables", { count: tables.length })}
-                </TabsTrigger>
-                <TabsTrigger value="policies">
-                  {t("tabs.policies", { count: policies.length })}
-                </TabsTrigger>
-              </TabsList>
-            </Tabs>
+          <Tabs value={tab} onValueChange={(v) => setTab(v as typeof tab)}>
+            <TabsList ariaLabel={t("title")}>
+              <TabsTrigger value="catalog">
+                {t("tabs.catalog", { count: enrichers.length })}
+              </TabsTrigger>
+              <TabsTrigger value="sources">
+                {t("tabs.sources", { count: sources.length })}
+              </TabsTrigger>
+              <TabsTrigger value="tables">
+                {t("tabs.tables", { count: tables.length })}
+              </TabsTrigger>
+              <TabsTrigger value="policies">
+                {t("tabs.policies", { count: policies.length })}
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
 
-            {tab === "sources" && (
-              <Button
-                variant="primary"
-                size="sm"
-                onClick={() => {
-                  setSourceEditing(null)
-                  setSourceFormOpen(true)
-                }}
-              >
-                <PlusIcon size={14} aria-hidden />
-                {t("sources.form.create")}
-              </Button>
-            )}
-            {tab === "tables" && (
-              <Button variant="primary" size="sm" onClick={() => setCreateTableOpen(true)}>
-                <PlusIcon size={14} aria-hidden />
-                {t("tables.form.create")}
-              </Button>
-            )}
-            {tab === "policies" && (
-              <Button variant="primary" size="sm" onClick={() => setCreatePolicyOpen(true)}>
-                <PlusIcon size={14} aria-hidden />
-                {t("policies.form.create")}
-              </Button>
-            )}
-          </div>
+          {/* Escopo: o resolver do Core é FLAT (core/tenant.py), então um token
+              escopado enxerga UMA organização. Sem este aviso, um MSP olha uma
+              lista curta e conclui que perdeu dado. */}
+          {!loading && organizations.length <= 1 && (
+            <Notice variant="info" title={t("scope.title")}>
+              {t("scope.body")}
+            </Notice>
+          )}
 
           {loading ? (
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -249,51 +254,30 @@ export function EnrichmentPage(): React.ReactElement {
               <SkeletonCard />
             </div>
           ) : tab === "catalog" ? (
-            <div className="space-y-6">
+            <div className="space-y-4">
               {thirdPartyCount > 0 ? (
-                <p className="flex items-start gap-2 text-sm text-muted">
-                  <ShieldAlertIcon size={16} className="mt-0.5 shrink-0" aria-hidden />
-                  {t("egress.warning", { count: thirdPartyCount })}
-                </p>
+                <Notice variant="warning" title={t("egress.warning", { count: thirdPartyCount })} />
               ) : null}
 
-              {byCategory.map(([category, items]) => (
-                <section key={category} className="space-y-3">
-                  <h2 className="text-sm font-medium text-muted">{category}</h2>
-                  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                    {items.map((e) => (
-                      <Card key={e.name} className="flex flex-col gap-3 p-4">
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="min-w-0">
-                            <h3 className="truncate font-medium">{e.label}</h3>
-                            <p className="font-mono text-xs text-muted">{e.name}</p>
-                          </div>
-                          <Badge variant={e.tier === "stable" ? "success" : "default"}>
-                            {e.tier}
-                          </Badge>
-                        </div>
-
-                        <p className="text-sm text-muted">{e.description}</p>
-
-                        <div className="mt-auto flex flex-wrap items-center gap-2">
-                          <EgressBadge egress={e.egress} />
-                          {/* local = roda POR EVENTO e alimenta a detecção em voo;
-                              remote = resolve no fim do lote. A diferença muda o
-                              que o operador pode fazer com o campo. */}
-                          <Badge variant={e.mode === "local" ? "primary" : "warning"}>
-                            {t(`mode.${e.mode}`)}
-                          </Badge>
-                          {e.key_kinds.map((k) => (
-                            <Badge key={k} variant="outline" className="font-mono text-[11px]">
-                              {k}
-                            </Badge>
-                          ))}
-                        </div>
-                      </Card>
-                    ))}
-                  </div>
-                </section>
-              ))}
+              {/* Mesma galeria das integrações e dos destinos. O catálogo é
+                  escolha de fonte, não leitura: com galeria o operador busca,
+                  filtra por categoria e SELECIONA, e o card selecionado abre o
+                  cadastro já com o enricher preenchido. */}
+              <TileGallery
+                tiles={catalogTiles}
+                value={catalogPick}
+                onChange={(id) => {
+                  setCatalogPick(id)
+                  setSourceEditing(null)
+                  setSourcePreselect(id)
+                  setSourceFormOpen(true)
+                }}
+                showSearch
+                searchPlaceholder={t("catalog.searchPlaceholder")}
+                ariaLabel={t("tabs.catalog", { count: enrichers.length })}
+                emptyLabel={t("catalog.empty")}
+                columns={3}
+              />
             </div>
           ) : tab === "sources" ? (
             sources.length === 0 ? (
@@ -308,8 +292,8 @@ export function EnrichmentPage(): React.ReactElement {
                       setSourceEditing(null)
                       setSourceFormOpen(true)
                     }}
+                    leftIcon={<PlusIcon size={14} />}
                   >
-                    <PlusIcon size={14} aria-hidden />
                     {t("sources.form.create")}
                   </Button>
                 }
@@ -380,8 +364,11 @@ export function EnrichmentPage(): React.ReactElement {
                 title={t("tables.emptyTitle")}
                 description={t("tables.emptyDescription")}
                 action={
-                  <Button variant="primary" onClick={() => setCreateTableOpen(true)}>
-                    <PlusIcon size={14} aria-hidden />
+                  <Button
+                    variant="primary"
+                    onClick={() => setCreateTableOpen(true)}
+                    leftIcon={<PlusIcon size={14} />}
+                  >
                     {t("tables.form.create")}
                   </Button>
                 }
@@ -453,8 +440,11 @@ export function EnrichmentPage(): React.ReactElement {
               title={t("policies.emptyTitle")}
               description={t("policies.emptyDescription")}
               action={
-                <Button variant="primary" onClick={() => setCreatePolicyOpen(true)}>
-                  <PlusIcon size={14} aria-hidden />
+                <Button
+                  variant="primary"
+                  onClick={() => setCreatePolicyOpen(true)}
+                  leftIcon={<PlusIcon size={14} />}
+                >
                   {t("policies.form.create")}
                 </Button>
               }
@@ -531,14 +521,20 @@ export function EnrichmentPage(): React.ReactElement {
       <SourceFormModal
         open={sourceFormOpen}
         source={sourceEditing}
+        preselectEnricher={sourcePreselect}
         enrichers={enrichers}
+        organizations={organizations}
         onClose={() => {
           setSourceFormOpen(false)
           setSourceEditing(null)
+          setSourcePreselect(null)
+          setCatalogPick("")
         }}
         onSaved={() => {
           setSourceFormOpen(false)
           setSourceEditing(null)
+          setSourcePreselect(null)
+          setCatalogPick("")
           void load()
         }}
       />

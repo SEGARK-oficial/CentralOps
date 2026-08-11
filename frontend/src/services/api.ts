@@ -2472,6 +2472,8 @@ export interface EnrichmentSource {
   /** Booleano — a API NUNCA devolve a referência do segredo. */
   secret_configured: boolean
   enabled: boolean
+  /** Filhas que também usam esta fonte (MSP). Vazio = só a dona. */
+  shared_organization_ids: number[]
 }
 
 export interface EnrichmentSourceCreateRequest {
@@ -2483,6 +2485,7 @@ export interface EnrichmentSourceCreateRequest {
   /** Write-only: trafega em claro UMA vez; o servidor cifra e nunca devolve. */
   secret?: string | null
   enabled?: boolean
+  shared_organization_ids?: number[]
 }
 
 export interface EnrichmentSourceUpdateRequest {
@@ -2491,6 +2494,7 @@ export interface EnrichmentSourceUpdateRequest {
   /** `undefined` mantém o segredo; `""` remove; string nova substitui. */
   secret?: string | null
   enabled?: boolean
+  shared_organization_ids?: number[]
 }
 
 export async function listEnrichmentSources() {
@@ -2512,6 +2516,22 @@ export async function updateEnrichmentSource(
     method: "PATCH",
     body: JSON.stringify(data),
   })
+}
+
+export interface EnrichmentSourceTestResult {
+  ok: boolean
+  message: string
+  sample_count?: number | null
+  sample?: Record<string, unknown> | null
+  elapsed_ms?: number | null
+}
+
+/** Sonda a fonte de verdade (1 página curta). Não persiste nada. */
+export async function testEnrichmentSource(id: string) {
+  return apiRequest<EnrichmentSourceTestResult>(
+    `/collectors/enrichment/sources/${id}/test`,
+    { method: "POST" },
+  )
 }
 
 export async function deleteEnrichmentSource(id: string) {

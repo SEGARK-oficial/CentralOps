@@ -1,6 +1,6 @@
 {
   "title": "Enriquecimiento",
-  "description": "Agregue contexto al evento dentro del pipeline — antes del enrutamiento y la detección.",
+  "description": "Agregue contexto al evento dentro del pipeline, antes del enrutamiento y la detección.",
   "actions": {
     "refresh": "Actualizar"
   },
@@ -44,7 +44,7 @@
       "create": "Nueva tabla",
       "organization": "Organización",
       "organizationPlaceholder": "Seleccione la organización",
-      "organizationRequired": "Seleccione una organización — no existe tabla de enriquecimiento global."
+      "organizationRequired": "Seleccione una organización. No existe tabla de enriquecimiento global."
     },
     "deleteAction": "Eliminar tabla",
     "deleteConfirm": {
@@ -52,13 +52,13 @@
       "description": "Esto elimina \"{{name}}\" y todo su historial de versiones. Solo es posible si ninguna política la referencia."
     },
     "versions": {
-      "title": "Versiones — {{name}}",
+      "title": "Versiones de {{name}}",
       "publishNew": "Publicar nueva versión",
       "rowsLabel": "Filas (JSON)",
       "rowsHelperExact": "Objeto {clave: {campo: valor}}. La clave se compara por igualdad exacta.",
       "rowsHelperCidr": "Objeto {cidr: {campo: valor}}. Cada clave debe ser una IP o un rango CIDR (ej.: 10.0.5.0/24).",
       "mustBeObject": "El contenido debe ser un objeto {clave: {campo: valor}}, no una lista.",
-      "invalidJson": "JSON inválido — revise comas y llaves.",
+      "invalidJson": "JSON inválido. Revise comas y llaves.",
       "commitMessage": "Mensaje del commit",
       "commitMessageRequired": "Describa el cambio antes de publicar.",
       "commitMessagePlaceholder": "ej.: inventario inicial",
@@ -85,13 +85,13 @@
       "createTitle": "Nueva política",
       "name": "Nombre",
       "nameRequired": "Indique un nombre para la política.",
-      "organizationRequired": "Seleccione una organización — no existe una política de enriquecimiento global.",
+      "organizationRequired": "Seleccione una organización. No existe una política de enriquecimiento global.",
       "description": "Descripción",
       "create": "Nueva política"
     },
     "versions": {
-      "title": "Versiones — {{name}}",
-      "enabledNow": "Esta política está ACTIVA — se aplica a eventos nuevos de esta organización.",
+      "title": "Versiones de {{name}}",
+      "enabledNow": "Política activa. Se aplica a eventos nuevos de esta organización.",
       "disabledNow": "Esta política está inactiva.",
       "needsVersionToEnable": "Publique una versión antes de habilitar.",
       "enable": "Habilitar",
@@ -117,7 +117,7 @@
       "outputTarget": "Escribe en",
       "removeOutput": "Quitar salida",
       "tags": "Tags (separadas por coma)",
-      "tagsHint": "Se escriben en _centralops.enrichment_tags — usable en condiciones de otras reglas y en rutas.",
+      "tagsHint": "Se escriben en _centralops.enrichment_tags, usable en condiciones de otras reglas y en rutas.",
       "onMiss": "Si no encuentra",
       "onError": "Si falla",
       "addRule": "Agregar regla",
@@ -128,7 +128,7 @@
         "hint": "Aplica las reglas anteriores a un evento de ejemplo, sin publicar nada ni tocar tráfico real.",
         "sample": "Evento de ejemplo (JSON)",
         "tables": "Tablas simuladas (opcional, JSON)",
-        "tablesHint": "{id_regla: {clave: {campo: valor}}} — prueba sin publicar la tabla real.",
+        "tablesHint": "{id_regla: {clave: {campo: valor}}}. Prueba sin publicar la tabla real.",
         "needsRules": "Agregue al menos una regla antes de probar.",
         "invalidSample": "El evento de ejemplo no es un JSON válido.",
         "invalidTables": "Las tablas simuladas no son un JSON válido.",
@@ -146,7 +146,7 @@
   "errorTitle": "Error al cargar el enriquecimiento",
   "sources": {
     "emptyTitle": "Ninguna fuente configurada",
-    "emptyDescription": "Una fuente es la instancia de un enricher en esta organización — la dirección y la credencial con las que se ejecuta aquí.",
+    "emptyDescription": "Una fuente es la instancia de un enricher en esta organización: la dirección y la credencial con las que se ejecuta aquí.",
     "secretConfigured": "credencial registrada",
     "secretMissing": "sin credencial",
     "disabled": "deshabilitada",
@@ -157,11 +157,11 @@
     },
     "form": {
       "createTitle": "Nueva fuente",
-      "editTitle": "Editar fuente — {{name}}",
+      "editTitle": "Editar fuente {{name}}",
       "name": "Nombre",
       "nameRequired": "Indique un nombre para la fuente.",
-      "nameImmutable": "El nombre no cambia tras la creación — las reglas lo citan.",
-      "organizationRequired": "Seleccione una organización — la credencial queda vinculada a ella.",
+      "nameImmutable": "El nombre no cambia tras la creación, porque las reglas lo citan.",
+      "organizationRequired": "Seleccione una organización. La credencial queda vinculada a ella.",
       "enricher": "Enricher",
       "description": "Descripción",
       "configLegend": "Configuración",
@@ -169,7 +169,23 @@
       "secretRequired": "Este enricher requiere una credencial.",
       "secretHint": "Se envía una sola vez y el servidor la cifra; la API nunca la devuelve. Requerida: {{names}}.",
       "secretKeepPlaceholder": "•••••••• (déjelo vacío para mantener)",
-      "create": "Nueva fuente"
+      "create": "Nueva fuente",
+      "sharedOrgs": "Organizaciones hijas",
+      "sharedOrgsHint": "La fuente siempre atiende a la organización propietaria. Marque las hijas que también deben usar esta credencial. Compartir requiere la edición Enterprise."
+    },
+    "test": {
+      "title": "Probar conexión",
+      "run": "Probar",
+      "hint": "Consulta la fuente real con la credencial guardada, en modo reducido. No publica nada.",
+      "sampleCount": "{{count}} registro(s) en la muestra."
     }
+  },
+  "catalog": {
+    "searchPlaceholder": "Buscar fuente de enriquecimiento",
+    "empty": "Ninguna fuente encontrada."
+  },
+  "scope": {
+    "title": "Está viendo una organización",
+    "body": "Un token con alcance de organización solo ve la suya. Para seguir varios clientes en un SOC, use un token de alcance global o la edición Enterprise, que habilita la vista del subárbol."
   }
 }

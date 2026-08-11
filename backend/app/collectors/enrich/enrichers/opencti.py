@@ -33,7 +33,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import Any, Dict, Mapping, Optional
+from typing import Any, Dict, Literal, Mapping, Optional
 
 import aiohttp
 from pydantic import BaseModel, Field, field_validator
@@ -41,15 +41,17 @@ from pydantic import BaseModel, Field, field_validator
 from ..contract import EnrichContext, EnricherCapabilities, EnricherRegistration
 from ..registry import register
 from ..runtime import DictLookupTable
+from ..stix import extract_observable_from_pattern, is_expired
 
 logger = logging.getLogger(__name__)
 
-#: Query default. ``first``/``after`` é a paginação por cursor do OpenCTI (Relay).
-#: Pede o mínimo necessário: buscar campos que não viram output é banda e memória
-#: gastas em toda atualização de tabela.
-_DEFAULT_QUERY = """
-query CentralOpsObservables($first: Int!, $after: ID) {
-  stixCyberObservables(first: $first, after: $after, orderBy: created_at, orderMode: desc) {
+#: Query dos OBSERVÁVEIS, com filtro de tipo no servidor. Pedir só o tipo que a
+#: regra usa é a diferença entre baixar a base inteira e baixar o que interessa:
+#: numa instância com 800 mil observáveis, uma tabela de IP não precisa carregar
+#: hashes e URLs para depois descartá-los no cliente.
+_OBSERVABLE_QUERY = """
+query CentralOpsObservables($first: Int!, $after: ID, $types: [String]) {
+  stixCyberObservables(first: $first, after: $after, types: $types, orderBy: created_at, orderMode: desc) {
     edges {
       node {
         id
@@ -58,6 +60,7 @@ query CentralOpsObservables($first: Int!, $after: ID) {
         x_opencti_score
         created_at
         updated_at
+        createdBy { ... on Identity { name } }
         objectMarking { edges { node { definition } } }
         objectLabel { edges { node { value } } }
       }
@@ -66,6 +69,61 @@ query CentralOpsObservables($first: Int!, $after: ID) {
   }
 }
 """
+
+#: Query dos INDICADORES. É o que muda o enriquecimento de "esse IP aparece na
+#: base" para "esse IP é C2 conhecido, ativo, com confiança 80". Traz três coisas
+#: que o observável não tem e que decidem se vale alertar:
+#:
+#: - ``revoked`` e ``valid_until``: intel expirada é a maior fonte de falso
+#:   positivo em feed de TI. Sem isso o alerta dispara por um IP que foi C2 há
+#:   dois anos e hoje é de um CDN.
+#: - ``confidence`` e ``x_opencti_detection``: separa o que o analista marcou
+#:   como acionável do que entrou por importação automática.
+#: - ``killChainPhases``: dá a fase (C2, entrega, exfiltração), que é o que
+#:   transforma o hit em contexto acionável no SIEM.
+_INDICATOR_QUERY = """
+query CentralOpsIndicators($first: Int!, $after: ID) {
+  indicators(first: $first, after: $after, orderBy: created_at, orderMode: desc) {
+    edges {
+      node {
+        id
+        name
+        pattern
+        pattern_type
+        x_opencti_main_observable_type
+        x_opencti_score
+        x_opencti_detection
+        confidence
+        revoked
+        valid_from
+        valid_until
+        created_at
+        updated_at
+        createdBy { ... on Identity { name } }
+        objectMarking { edges { node { definition } } }
+        objectLabel { edges { node { value } } }
+        killChainPhases { edges { node { phase_name kill_chain_name } } }
+      }
+    }
+    pageInfo { endCursor hasNextPage }
+  }
+}
+"""
+
+#: Preset → tipos de observável do OpenCTI. Evita que o operador precise saber
+#: que "sha256" se chama ``StixFile`` no vocabulário STIX.
+_PRESETS: Mapping[str, tuple] = {
+    "ip": ("IPv4-Addr", "IPv6-Addr"),
+    "domain": ("Domain-Name", "Hostname"),
+    "url": ("Url",),
+    "file_hash": ("StixFile", "Artifact"),
+    "mac": ("Mac-Addr",),
+    #: Tudo o que sabemos mapear. Útil para uma tabela única, ao custo de carregar
+    #: a base inteira.
+    "all_observables": tuple(),
+    #: Indicadores STIX em vez de observáveis. Ver ``_INDICATOR_QUERY``.
+    "indicators": tuple(),
+}
 
 #: Tipos de observável do OpenCTI → ``key_kind`` da nossa DSL. O mapa é explícito
 #: porque um tipo não mapeado deve ser IGNORADO, não adivinhado: indexar um
@@ -87,6 +145,16 @@ class OpenCTIConfig(BaseModel):
 
     url: str = Field(..., description="Base da instância OpenCTI, ex.: https://opencti.interno")
 
+    #: O que buscar. Escolher o tipo aqui filtra NO SERVIDOR: uma tabela de IP não
+    #: baixa hashes para descartar depois. ``indicators`` muda a fonte de
+    #: observáveis para indicadores STIX, que trazem validade e fase de kill chain.
+    #: ``Literal`` e não ``pattern``: o ``model_json_schema()`` do Pydantic emite
+    #: ``enum`` para Literal e apenas uma string com regex para pattern. A UI é
+    #: dirigida por esse schema, então com pattern o campo virava caixa de texto
+    #: livre e o operador tinha que digitar o valor certo de cabeça.
+    preset: Literal[
+        "ip", "domain", "url", "file_hash", "mac", "all_observables", "indicators"
+    ] = Field("ip", description="O que buscar no OpenCTI")
     page_size: int = Field(500, ge=1, le=5000)
     #: Teto de páginas por atualização. Sem ele, uma instância grande drenaria a
     #: tabela inteira num ciclo — o mesmo poison-loop que já derrubou coletores.
@@ -159,7 +227,13 @@ class OpenCTIEnricher:
         if token:
             headers["Authorization"] = f"Bearer {token}"
 
-        query = self._cfg.query or _DEFAULT_QUERY
+        is_indicators = self._cfg.preset == "indicators"
+        # `query` custom continua vencendo: é a saída para instâncias 5.x/6.x com
+        # schema divergente, e sem ela o operador ficaria preso ao nosso palpite.
+        query = self._cfg.query or (
+            _INDICATOR_QUERY if is_indicators else _OBSERVABLE_QUERY
+        )
+        types = list(_PRESETS.get(self._cfg.preset, ()))
         endpoint = self._cfg.url.rstrip("/") + "/graphql"
         timeout = aiohttp.ClientTimeout(total=self._cfg.timeout_s)
         connector = aiohttp.TCPConnector(ssl=None if self._cfg.verify_tls else False)
@@ -167,10 +241,13 @@ class OpenCTIEnricher:
         async with aiohttp.ClientSession(timeout=timeout, connector=connector) as session:
             cursor: Optional[str] = None
             for page in range(self._cfg.max_pages):
-                payload = {
-                    "query": query,
-                    "variables": {"first": self._cfg.page_size, "after": cursor},
+                variables: Dict[str, Any] = {
+                    "first": self._cfg.page_size,
+                    "after": cursor,
                 }
+                if types:
+                    variables["types"] = types
+                payload = {"query": query, "variables": variables}
                 async with session.post(endpoint, json=payload, headers=headers) as resp:
                     if resp.status == 401 or resp.status == 403:
                         raise PermissionError(
@@ -186,11 +263,18 @@ class OpenCTIEnricher:
                         f"OpenCTI GraphQL devolveu erros: {body['errors'][:2]}"
                     )
 
-                container = (body.get("data") or {}).get("stixCyberObservables") or {}
+                data = body.get("data") or {}
+                container = (
+                    data.get("indicators") if is_indicators
+                    else data.get("stixCyberObservables")
+                ) or {}
                 edges = container.get("edges") or []
                 for edge in edges:
                     node = (edge or {}).get("node") or {}
-                    parsed = _parse_node(node, self._cfg.min_score)
+                    parsed = (
+                        _parse_indicator(node, self._cfg.min_score) if is_indicators
+                        else _parse_node(node, self._cfg.min_score)
+                    )
                     if parsed is not None:
                         key, value = parsed
                         rows[key] = value
@@ -250,6 +334,67 @@ def _parse_node(node: Mapping[str, Any], min_score: int) -> Optional[tuple]:
         "opencti_id": node.get("id"),
         "created_at": node.get("created_at"),
         "updated_at": node.get("updated_at"),
+        "created_by": ((node.get("createdBy") or {}) or {}).get("name"),
+        "markings": [m for m in markings if m],
+        "labels": [lb for lb in labels if lb],
+        "source": "opencti",
+    }
+
+
+def _parse_indicator(node: Mapping[str, Any], min_score: int) -> Optional[tuple]:
+    """Converte um Indicator STIX numa linha da tabela.
+
+    Descarta o que não deve gerar alerta: revogado, fora da validade, abaixo do
+    score, ou com padrão composto que não sabemos casar. Intel expirada é a maior
+    fonte de falso positivo em feed de TI, e filtrar aqui (na carga) custa nada,
+    enquanto filtrar no evento custaria uma condição por regra que ninguém lembra
+    de escrever.
+    """
+    if node.get("revoked") is True:
+        return None
+
+    parsed = extract_observable_from_pattern(str(node.get("pattern") or ""))
+    if parsed is None:
+        return None
+    kind, value = parsed
+
+    try:
+        score_i = int(node.get("x_opencti_score") or 0)
+    except (TypeError, ValueError):
+        score_i = 0
+    if score_i < min_score:
+        return None
+
+    valid_until = node.get("valid_until")
+    if is_expired(valid_until):
+        return None
+
+    markings = [
+        (n or {}).get("node", {}).get("definition")
+        for n in ((node.get("objectMarking") or {}).get("edges") or [])
+    ]
+    labels = [
+        (n or {}).get("node", {}).get("value")
+        for n in ((node.get("objectLabel") or {}).get("edges") or [])
+    ]
+    phases = [
+        (n or {}).get("node", {}).get("phase_name")
+        for n in ((node.get("killChainPhases") or {}).get("edges") or [])
+    ]
+
+    return value.strip().lower(), {
+        "score": score_i,
+        "kind": kind,
+        "opencti_id": node.get("id"),
+        "indicator_name": node.get("name"),
+        "confidence": node.get("confidence"),
+        "detection": bool(node.get("x_opencti_detection")),
+        "valid_from": node.get("valid_from"),
+        "valid_until": valid_until,
+        "kill_chain_phases": [p for p in phases if p],
+        "created_by": ((node.get("createdBy") or {}) or {}).get("name"),
+        "created_at": node.get("created_at"),
+        "updated_at": node.get("updated_at"),
         "markings": [m for m in markings if m],
         "labels": [lb for lb in labels if lb],
         "source": "opencti",
@@ -307,7 +452,14 @@ register(
             "updated_at": "Última atualização",
             "markings": "Marcações TLP/PAP",
             "labels": "Rótulos atribuídos no OpenCTI",
-            "source": "Constante 'opencti' — proveniência",
+            "created_by": "Quem reportou (feed ou analista)",
+            "source": "Constante 'opencti', proveniência",
+            "indicator_name": "Nome do indicador (preset indicators)",
+            "confidence": "Confiança 0-100 (preset indicators)",
+            "detection": "Marcado como acionável para detecção (preset indicators)",
+            "valid_from": "Início da validade (preset indicators)",
+            "valid_until": "Fim da validade (preset indicators)",
+            "kill_chain_phases": "Fases da kill chain, ex.: command-and-control (preset indicators)",
         },
     )
 )

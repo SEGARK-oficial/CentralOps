@@ -145,7 +145,11 @@ export const JsonSchemaForm: React.FC<JsonSchemaFormProps> = ({
           <Input
             key={key}
             id={id}
-            label={label + (isRequired ? " *" : "")}
+            // Sem o " *" manual: o Input já desenha o marcador de obrigatório a
+            // partir de `required`. Concatenar os dois rendia "Url * *" em todo
+            // campo obrigatório, aqui e no formulário de destinos. O Select
+            // acima mantém o manual porque não tem a prop `required`.
+            label={label}
             type={isNumber ? "number" : "text"}
             disabled={disabled}
             required={isRequired}

@@ -238,10 +238,20 @@ class EnrichRuntime:
         config: Mapping[str, Any] = {}
         secret_ref: Optional[str] = None
         with SessionLocal() as db:
+            # Join pela lista de orgs, NÃO por ``EnrichmentSource.organization_id``:
+            # numa MSP a fonte pertence à matriz e atende as filhas escolhidas. A
+            # dona também está na lista, então este join cobre os dois casos com
+            # uma query só. O filtro por org continua sendo a propriedade de
+            # segurança: sem ele, o nome da fonte viraria um espaço global e um
+            # tenant usaria a credencial do vizinho.
             row = (
                 db.query(models.EnrichmentSource)
+                .join(
+                    models.EnrichmentSourceOrg,
+                    models.EnrichmentSourceOrg.source_id == models.EnrichmentSource.id,
+                )
                 .filter(
-                    models.EnrichmentSource.organization_id == organization_id,
+                    models.EnrichmentSourceOrg.organization_id == organization_id,
                     models.EnrichmentSource.name == source_name,
                     models.EnrichmentSource.enabled.is_(True),
                 )

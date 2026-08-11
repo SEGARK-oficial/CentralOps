@@ -1,6 +1,6 @@
 {
   "title": "Enrichment",
-  "description": "Add context to events inside the pipeline — before routing and detection.",
+  "description": "Add context to events inside the pipeline, before routing and detection.",
   "actions": {
     "refresh": "Refresh"
   },
@@ -44,7 +44,7 @@
       "create": "New table",
       "organization": "Organization",
       "organizationPlaceholder": "Select an organization",
-      "organizationRequired": "Select an organization — there is no global enrichment table."
+      "organizationRequired": "Select an organization. There is no global enrichment table."
     },
     "deleteAction": "Delete table",
     "deleteConfirm": {
@@ -52,13 +52,13 @@
       "description": "This removes \"{{name}}\" and its whole version history. Only possible if no policy references it."
     },
     "versions": {
-      "title": "Versions — {{name}}",
+      "title": "Versions of {{name}}",
       "publishNew": "Publish a new version",
       "rowsLabel": "Rows (JSON)",
       "rowsHelperExact": "Object {key: {field: value}}. The key is compared by exact equality.",
       "rowsHelperCidr": "Object {cidr: {field: value}}. Each key must be an IP or a CIDR range (e.g. 10.0.5.0/24).",
       "mustBeObject": "The content must be an object {key: {field: value}}, not a list.",
-      "invalidJson": "Invalid JSON — check commas and braces.",
+      "invalidJson": "Invalid JSON. Check commas and braces.",
       "commitMessage": "Commit message",
       "commitMessageRequired": "Describe the change before publishing.",
       "commitMessagePlaceholder": "e.g.: initial inventory",
@@ -85,13 +85,13 @@
       "createTitle": "New policy",
       "name": "Name",
       "nameRequired": "Enter a name for the policy.",
-      "organizationRequired": "Select an organization — there is no global enrichment policy.",
+      "organizationRequired": "Select an organization. There is no global enrichment policy.",
       "description": "Description",
       "create": "New policy"
     },
     "versions": {
-      "title": "Versions — {{name}}",
-      "enabledNow": "This policy is ACTIVE — it applies to new events for this organization.",
+      "title": "Versions of {{name}}",
+      "enabledNow": "Policy active. It applies to new events for this organization.",
       "disabledNow": "This policy is disabled.",
       "needsVersionToEnable": "Publish a version before enabling.",
       "enable": "Enable",
@@ -117,7 +117,7 @@
       "outputTarget": "Writes to",
       "removeOutput": "Remove output",
       "tags": "Tags (comma-separated)",
-      "tagsHint": "Written to _centralops.enrichment_tags — usable in other rules' conditions and in routes.",
+      "tagsHint": "Written to _centralops.enrichment_tags, usable in other rules' conditions and in routes.",
       "onMiss": "On miss",
       "onError": "On error",
       "addRule": "Add rule",
@@ -128,7 +128,7 @@
         "hint": "Applies the rules above to a sample event, without publishing anything or touching real traffic.",
         "sample": "Sample event (JSON)",
         "tables": "Simulated tables (optional, JSON)",
-        "tablesHint": "{rule_id: {key: {field: value}}} — test without publishing the real table.",
+        "tablesHint": "{rule_id: {key: {field: value}}}. Tests without publishing the real table.",
         "needsRules": "Add at least one rule before testing.",
         "invalidSample": "The sample event is not valid JSON.",
         "invalidTables": "The simulated tables are not valid JSON.",
@@ -146,7 +146,7 @@
   "errorTitle": "Failed to load enrichment",
   "sources": {
     "emptyTitle": "No configured sources",
-    "emptyDescription": "A source is an instance of an enricher in this organization — the endpoint and credential it runs with here.",
+    "emptyDescription": "A source is an instance of an enricher in this organization: the endpoint and credential it runs with here.",
     "secretConfigured": "credential set",
     "secretMissing": "no credential",
     "disabled": "disabled",
@@ -157,11 +157,11 @@
     },
     "form": {
       "createTitle": "New source",
-      "editTitle": "Edit source — {{name}}",
+      "editTitle": "Edit source {{name}}",
       "name": "Name",
       "nameRequired": "Enter a name for the source.",
-      "nameImmutable": "The name cannot change after creation — rules reference it.",
-      "organizationRequired": "Select an organization — the credential is bound to it.",
+      "nameImmutable": "The name cannot change after creation, because rules reference it.",
+      "organizationRequired": "Select an organization. The credential is bound to it.",
       "enricher": "Enricher",
       "description": "Description",
       "configLegend": "Configuration",
@@ -169,7 +169,23 @@
       "secretRequired": "This enricher requires a credential.",
       "secretHint": "Sent once and encrypted by the server; the API never returns it. Required: {{names}}.",
       "secretKeepPlaceholder": "•••••••• (leave empty to keep)",
-      "create": "New source"
+      "create": "New source",
+      "sharedOrgs": "Child organizations",
+      "sharedOrgsHint": "The source always serves the owning organization. Check the children that should also use this credential. Sharing requires the Enterprise edition."
+    },
+    "test": {
+      "title": "Test connection",
+      "run": "Test",
+      "hint": "Queries the real source with the stored credential, in reduced mode. Publishes nothing.",
+      "sampleCount": "{{count}} record(s) in the sample."
     }
+  },
+  "catalog": {
+    "searchPlaceholder": "Search enrichment source",
+    "empty": "No source found."
+  },
+  "scope": {
+    "title": "You are seeing one organization",
+    "body": "An organization-scoped token only sees its own. To follow several customers in a SOC, use a global-scoped token or the Enterprise edition, which enables the subtree view."
   }
 }

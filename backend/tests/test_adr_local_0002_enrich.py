@@ -960,3 +960,66 @@ def test_dsl_rejects_unknown_key_inside_when():
         compile_policy([
             _rule(when={"exists": "normalized.src_endpoint.ip", "lacks_tags": ["x"]})
         ])
+
+
+def test_shared_source_resolves_for_child_org_only(enrich_db):
+    """A fonte da matriz resolve para a filha na lista, e não para uma org de fora.
+
+    Prova que o compartilhamento MSP não afrouxa o isolamento: o join do runtime
+    é pela lista de orgs, então quem não está nela continua recebendo LookupError.
+    """
+    from backend.app.collectors.enrich.runtime import EnrichRuntime
+
+    Session, m = enrich_db
+    MATRIZ, FILHA, DE_FORA = 1, 2, 3
+    with Session() as db:
+        src = m.EnrichmentSource(
+            id="src-msp",
+            organization_id=MATRIZ,
+            name="vt-compartilhada",
+            enricher="virustotal",
+            config='{"max_keys_per_batch": 10}',
+            secret_ref="ciphertext-fake",
+            enabled=True,
+        )
+        db.add(src)
+        for org in (MATRIZ, FILHA):
+            db.add(m.EnrichmentSourceOrg(source_id="src-msp", organization_id=org))
+        db.commit()
+
+    rt = EnrichRuntime(max_table_bytes=1_000_000, lru_bytes=1_000_000)
+    for org in (MATRIZ, FILHA):
+        cfg, ref = rt._resolve_source(org, "vt-compartilhada")
+        assert ref == "ciphertext-fake"
+        assert cfg["max_keys_per_batch"] == 10
+        rt._sources_this_cycle = {}  # o cache é por ciclo
+
+    with pytest.raises(LookupError, match="não existe"):
+        rt._resolve_source(DE_FORA, "vt-compartilhada")
+
+
+def test_source_cache_is_cleared_between_cycles(enrich_db):
+    """Credencial resolvida não pode atravessar ciclo.
+
+    O ciclo é mono-tenant, então uma entrada sobrevivente seria a credencial de
+    uma org servida no ciclo da próxima.
+    """
+    from backend.app.collectors.enrich.runtime import EnrichRuntime
+
+    Session, m = enrich_db
+    with Session() as db:
+        db.add(m.EnrichmentSource(
+            id="src-1", organization_id=1, name="f", enricher="virustotal",
+            config="{}", secret_ref="ref-1", enabled=True,
+        ))
+        db.add(m.EnrichmentSourceOrg(source_id="src-1", organization_id=1))
+        db.commit()
+
+    rt = EnrichRuntime(max_table_bytes=1_000, lru_bytes=1_000)
+    rt.begin_cycle(1)
+    rt._resolve_source(1, "f")
+    assert rt._sources_this_cycle, "deveria ter cacheado dentro do ciclo"
+    rt.end_cycle()
+    assert rt._sources_this_cycle == {}
+    rt.begin_cycle(1)
+    assert rt._sources_this_cycle == {}

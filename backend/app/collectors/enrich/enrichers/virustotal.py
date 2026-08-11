@@ -250,7 +250,7 @@ register(
         description=(
             "Reputação de IP, domínio ou hash pela API v3 do VirusTotal. Resolvido "
             "em lote no fim do ciclo, com deduplicação de chaves e teto por lote. "
-            "ATENÇÃO: a chave pública permite 4 consultas/minuto — use um `when` "
+            "ATENÇÃO: a chave pública permite 4 consultas por minuto, use um `when` "
             "restritivo. Indicadores do seu ambiente são enviados a um terceiro."
         ),
         icon_id="virustotal",
@@ -267,7 +267,7 @@ register(
             "reputation": "Score de reputação da comunidade VirusTotal",
             "last_analysis_date": "Epoch da última análise",
             "tags": "Tags atribuídas pelo VirusTotal",
-            "source": "Constante 'virustotal' — proveniência",
+            "source": "Constante 'virustotal', proveniência",
         },
     )
 )
