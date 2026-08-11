@@ -41,6 +41,7 @@ from pydantic import BaseModel, Field, field_validator
 from ..contract import EnrichContext, EnricherCapabilities, EnricherRegistration
 from ..registry import register
 from ..runtime import DictLookupTable
+from ..stix import extract_observable_from_pattern, is_expired
 
 logger = logging.getLogger(__name__)
 
@@ -340,32 +341,6 @@ def _parse_node(node: Mapping[str, Any], min_score: int) -> Optional[tuple]:
     }
 
 
-def _extract_observable_from_pattern(pattern: str) -> Optional[tuple]:
-    """Tira o valor de um padrão STIX simples, ex.: ``[ipv4-addr:value = '1.2.3.4']``.
-
-    Só os padrões de um termo. Padrão composto (``AND``/``OR``) não vira chave de
-    tabela: casar um evento contra ele exigiria avaliar a expressão STIX, e meia
-    avaliação daria hit errado em silêncio. Esses são pulados de propósito.
-    """
-    import re
-
-    m = re.fullmatch(
-        r"\s*\[\s*([a-z0-9-]+):(?:value|hashes\.'?[A-Za-z0-9-]+'?)\s*=\s*'([^']+)'\s*\]\s*",
-        pattern or "",
-    )
-    if not m:
-        return None
-    stix_type, value = m.group(1), m.group(2)
-    kind = {
-        "ipv4-addr": "ip", "ipv6-addr": "ip",
-        "domain-name": "domain", "hostname": "domain",
-        "url": "url", "file": "file_hash", "mac-addr": "mac",
-    }.get(stix_type)
-    if kind is None:
-        return None
-    return kind, value
-
-
 def _parse_indicator(node: Mapping[str, Any], min_score: int) -> Optional[tuple]:
     """Converte um Indicator STIX numa linha da tabela.
 
@@ -378,7 +353,7 @@ def _parse_indicator(node: Mapping[str, Any], min_score: int) -> Optional[tuple]
     if node.get("revoked") is True:
         return None
 
-    parsed = _extract_observable_from_pattern(str(node.get("pattern") or ""))
+    parsed = extract_observable_from_pattern(str(node.get("pattern") or ""))
     if parsed is None:
         return None
     kind, value = parsed
@@ -391,15 +366,8 @@ def _parse_indicator(node: Mapping[str, Any], min_score: int) -> Optional[tuple]
         return None
 
     valid_until = node.get("valid_until")
-    if isinstance(valid_until, str) and valid_until:
-        from datetime import datetime, timezone
-
-        try:
-            exp = datetime.fromisoformat(valid_until.replace("Z", "+00:00"))
-            if exp < datetime.now(timezone.utc):
-                return None
-        except ValueError:
-            pass  # data ilegível não descarta o indicador; só não dá para expirar
+    if is_expired(valid_until):
+        return None
 
     markings = [
         (n or {}).get("node", {}).get("definition")

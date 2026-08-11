@@ -15,7 +15,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-_MODULES = ("customer_table", "opencti", "virustotal")
+_MODULES = ("customer_table", "opencti", "taxii", "virustotal")
 
 for _name in _MODULES:
     try:

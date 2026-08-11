@@ -6,7 +6,7 @@ description: O que cada fonte de enriquecimento faz, que campos devolve, e o que
 
 # Catálogo de fontes
 
-Esta página descreve as quatro fontes de enriquecimento disponíveis hoje. A lista **não é fixa no código do console**, a tela em **Enriquece → Enrichment → Catalog** sempre reflete exatamente o que a sua instalação tem registrado, então use `GET /collectors/enrichment/enrichers` (ou a própria tela) como fonte da verdade se este texto ficar desatualizado.
+Esta página descreve as cinco fontes de enriquecimento disponíveis hoje. A lista **não é fixa no código do console**, a tela em **Enriquece → Enrichment → Catalog** sempre reflete exatamente o que a sua instalação tem registrado, então use `GET /collectors/enrichment/enrichers` (ou a própria tela) como fonte da verdade se este texto ficar desatualizado.
 
 ## Tabela do cliente (chave exata), `table_exact`
 
@@ -33,6 +33,61 @@ Os campos que ele devolve são exatamente os que você colocou em cada linha da 
 Casa um IP contra a sua tabela de faixas de rede (CIDR), sempre pelo prefixo **mais específico**. Se a tabela tem `10.0.0.0/16` e `10.0.5.0/24`, um evento com IP `10.0.5.7` recebe o resultado do `/24`, não o do `/16`. É a fonte certa para plano de endereçamento corporativo, inventário de rede exportado de uma ferramenta de gestão, ou listas de bloqueio distribuídas em CIDR.
 
 Veja o passo a passo completo em [Como enriquecer um evento](./how-to-enrich.md).
+
+## TAXII 2.1, `taxii`
+
+:::tip[Um conector, qualquer plataforma de threat intel]
+TAXII 2.1 é padrão OASIS, e MISP, OpenCTI, Anomali, ThreatConnect e EclecticIQ falam todos ele. Se a sua plataforma expõe uma coleção TAXII, este enricher a consome sem precisar de conector específico. Suporte a STIX/TAXII 2.1 é critério de avaliação padrão de TIP no mercado.
+:::
+
+| | |
+|---|---|
+| Modo | por evento |
+| Egresso | interno (buscamos a lista; nada do seu ambiente sai) |
+| Tipos de chave | `ip`, `domain`, `url`, `file_hash`, `mac` |
+| Requer configuração externa? | Sim, URL do servidor, id da coleção e credencial |
+
+Baixa periodicamente uma coleção TAXII e a materializa como tabela local. Por rodar **por evento**, alimenta as regras de detecção em pipeline.
+
+Quando usar este em vez do conector do OpenCTI: sempre que a plataforma não for OpenCTI, ou quando você quiser evitar acoplamento à API interna dele. O conector do OpenCTI fala GraphQL, que é a API deles e mudou de schema entre 5.x e 6.x. Em compensação, ele traz campos próprios (score do OpenCTI, marcações TLP resolvidas) que o TAXII entrega de forma menos completa, porque as dependências dentro do bundle nem sempre vêm resolvidas.
+
+**Campos que devolve:**
+
+| Campo | Descrição |
+|---|---|
+| `kind` | Tipo de chave normalizado |
+| `stix_id` | Id do Indicator STIX |
+| `indicator_name` | Nome do indicador |
+| `confidence` | Confiança 0 a 100 |
+| `valid_from` / `valid_until` | Janela de validade |
+| `kill_chain_phases` | Fases, ex.: `command-and-control` |
+| `labels` | Rótulos STIX, ex.: `malicious-activity` |
+| `has_markings` | Há marcação (TLP) a respeitar |
+| `created` / `modified` | Datas do objeto STIX |
+| `source` | Sempre `"taxii"` |
+
+**Configuração:**
+
+| Campo | Obrigatório | O que é |
+|---|---|---|
+| `url` | Sim | Só o endereço base, ex.: `https://tip.exemplo` |
+| `api_root` | Não (padrão `/taxii2/`) | Caminho da api-root. Varia por plataforma (`/taxii2/`, `/api/v21/`) |
+| `collection` | Sim | Id da coleção a consumir |
+| `auth_mode` | Não (padrão `bearer`) | `bearer`, `basic` ou `none`. O padrão OASIS sugere `basic`; plataformas comerciais costumam usar `bearer` |
+| `username` | Só para `basic` | O usuário. A senha é a credencial da fonte |
+| `min_confidence` | Não (padrão 0) | Piso de confiança do indicador |
+| `page_size` / `max_pages` | Não | Paginação e teto por carga |
+
+:::note[Por que `url` e `api_root` são campos separados]
+O guard de egresso do projeto recusa URL com caminho, de propósito, e é ele que aplica a allowlist de host e CIDR. Como a api-root do TAXII sempre tem caminho, juntar os dois exigiria afrouxar o guard justamente no campo que viaja com a credencial no header `Authorization`. Separados, a base passa pela allowlist e o caminho é validado à parte.
+:::
+
+**O que é descartado na carga**, e por quê:
+
+- Indicador **revogado** ou **fora da validade**. Intel vencida é a maior fonte de falso positivo num feed, e filtrar aqui evita depender de alguém lembrar de escrever a condição em toda regra nova.
+- Indicador **abaixo do `min_confidence`**.
+- Padrão STIX **composto** (`AND`/`OR`). Casar um evento contra ele exigiria avaliar a expressão inteira; avaliar só o primeiro termo daria hit errado em silêncio.
+- Objetos que não são `indicator`. O filtro `match[type]=indicator` roda **no servidor**, então malware, campanhas e relacionamentos nem trafegam.
 
 ## OpenCTI, `opencti`
 
