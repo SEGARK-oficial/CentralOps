@@ -310,6 +310,7 @@ class EnrichRuntime:
                     extra={"event": "enrich.unknown_enricher", "enricher": rule.enricher},
                 )
                 continue
+            started = time.monotonic()
             try:
                 table = await self._load_one(reg, rule, ctx)
             except Exception as exc:  # noqa: BLE001 — carga é best-effort
@@ -320,9 +321,24 @@ class EnrichRuntime:
                     extra={"event": "enrich.load_failed", "enricher": rule.enricher},
                     exc_info=True,
                 )
+                # O motivo REAL do provedor (401, DNS, schema) vai para o log de
+                # atividade. Sem isto ele só existe aqui, no log do worker, longe
+                # de quem cadastrou a fonte.
+                await _activity(
+                    ctx.organization_id, "table_load", ok=False,
+                    rule_id=rule.rule_id, enricher=rule.enricher, source=rule.source,
+                    reason=_error_reason(exc), detail=f"{type(exc).__name__}: {exc}",
+                    latency_ms=(time.monotonic() - started) * 1000.0,
+                )
                 continue
             if table is not None:
                 tables[rule.rule_id] = table
+                await _activity(
+                    ctx.organization_id, "table_load", ok=True,
+                    rule_id=rule.rule_id, enricher=rule.enricher, source=rule.source,
+                    entries=_table_len(table),
+                    latency_ms=(time.monotonic() - started) * 1000.0,
+                )
         return tables
 
     async def _load_one(
@@ -418,6 +434,20 @@ class EnrichRuntime:
                 "dedupe sob volatile-lru.",
                 extra={"event": "enrich.remote_disabled_no_l2"},
             )
+            # Sem isto a aba de Consultas diz "nenhuma falha, a consulta está de
+            # pé" enquanto NADA remoto roda. É a classe exata de diagnóstico
+            # enterrado no log do worker que este log existe para eliminar.
+            for rule in remote_rules:
+                await _activity(
+                    ctx.organization_id, "remote_batch", ok=False,
+                    rule_id=rule.rule_id, enricher=rule.enricher, source=rule.source,
+                    reason="no_l2_cache",
+                    detail=(
+                        "ENRICH_REDIS_URL não configurada: o enriquecimento remoto "
+                        "fica desligado (o local segue). Aponte para uma instância "
+                        "Redis dedicada."
+                    ),
+                )
             return BulkResolution(rows)
 
         deadline = time.monotonic() + budget_s
@@ -476,6 +506,16 @@ class EnrichRuntime:
                     rule.rule_id,
                     extra={"event": "enrich.budget_exhausted", "rule_id": rule.rule_id},
                 )
+                await _activity(
+                    ctx.organization_id, "remote_batch", ok=False,
+                    rule_id=rule.rule_id, enricher=rule.enricher, source=rule.source,
+                    reason="budget_exhausted", keys=len(keys),
+                    detail=(
+                        f"orçamento de {budget_s:.1f}s do lote esgotado antes desta "
+                        "regra; o lote inteiro segue sem enriquecimento remoto "
+                        "(gate binário). Ajuste ENRICH_REMOTE_BATCH_BUDGET_S."
+                    ),
+                )
                 break
 
             # Single-flight POR CHAVE: quem não pega o lock espera um pouco pelo
@@ -513,6 +553,11 @@ class EnrichRuntime:
                     exc, rule.rule_id,
                     extra={"event": "enrich.source_unresolved"},
                 )
+                await _activity(
+                    ctx.organization_id, "remote_batch", ok=False,
+                    rule_id=rule.rule_id, enricher=rule.enricher, source=rule.source,
+                    reason="config", detail=str(exc), keys=len(owned),
+                )
                 continue
             instance = reg.factory(dict(rule_ctx.config or {}))
             started = time.monotonic()
@@ -529,6 +574,13 @@ class EnrichRuntime:
                     rule.enricher, remaining,
                     extra={"event": "enrich.remote_timeout", "enricher": rule.enricher},
                 )
+                await _activity(
+                    ctx.organization_id, "remote_batch", ok=False,
+                    rule_id=rule.rule_id, enricher=rule.enricher, source=rule.source,
+                    reason="timeout", keys=len(owned),
+                    detail=f"orçamento de {remaining:.1f}s esgotado",
+                    latency_ms=(time.monotonic() - started) * 1000.0,
+                )
                 continue
             except Exception as exc:  # noqa: BLE001 — provedor fora do ar é normal
                 _count_error(rule.enricher, _error_reason(exc))
@@ -536,6 +588,15 @@ class EnrichRuntime:
                     "enricher remoto %r falhou: %s", rule.enricher, exc,
                     extra={"event": "enrich.remote_failed", "enricher": rule.enricher},
                     exc_info=True,
+                )
+                # É AQUI que 401 de token errado e DNS quebrado ficam visíveis para
+                # quem cadastrou a fonte. Sem isto, só no log do worker.
+                await _activity(
+                    ctx.organization_id, "remote_batch", ok=False,
+                    rule_id=rule.rule_id, enricher=rule.enricher, source=rule.source,
+                    reason=_error_reason(exc), detail=f"{type(exc).__name__}: {exc}",
+                    keys=len(owned),
+                    latency_ms=(time.monotonic() - started) * 1000.0,
                 )
                 continue
             finally:
@@ -564,6 +625,17 @@ class EnrichRuntime:
                     ttl_s=ttl,
                     negative_ttl_s=nttl,
                 )
+
+            # `entries` conta o que o provedor DE FATO respondeu, não o que foi
+            # perguntado: consulta que volta com 0 de 40 chaves é sucesso de
+            # transporte e sintoma de coleção/filtro errado, e o operador precisa
+            # ver essa diferença.
+            await _activity(
+                ctx.organization_id, "remote_batch", ok=True,
+                rule_id=rule.rule_id, enricher=rule.enricher, source=rule.source,
+                keys=len(owned), entries=sum(1 for k in owned if k in resolved),
+                latency_ms=(time.monotonic() - started) * 1000.0,
+            )
 
         return BulkResolution(rows)
 
@@ -831,8 +903,51 @@ def _error_reason(exc: BaseException) -> str:
     return "unknown"
 
 
+async def _activity(org_id, kind, **kw) -> None:
+    """Encaminha para o log de atividade sem acoplar o runtime a ele.
+
+    ``asyncio.to_thread`` porque o cliente do ``observability_store`` é SÍNCRONO
+    (``observability_store.py:64``) e os dois chamadores são corrotinas: chamada
+    direta seguraria o event loop no round-trip do Redis. Mesmo padrão de
+    ``destinations.py:1125``.
+
+    Import local e try/except: observabilidade nunca derruba a coleta.
+    """
+    try:
+        from .activity import record
+
+        await asyncio.to_thread(lambda: record(org_id, kind, **kw))
+    except Exception:  # noqa: BLE001
+        logger.debug("enrich: falha ao registrar atividade", exc_info=True)
+
+
+def _table_len(table) -> Optional[int]:
+    """Quantas entradas a tabela carregou.
+
+    ``entry_count`` faz parte do protocolo ``LookupTable`` (``contract.py:167``),
+    mas o ``getattr`` protege implementações de terceiros: a carga não pode
+    quebrar porque a contagem para o log não existe.
+    """
+    try:
+        n = getattr(table, "entry_count", None)
+        return int(n) if isinstance(n, int) else None
+    except Exception:  # noqa: BLE001
+        return None
+
+
 def emit_apply_stats(stats: ApplyStats, org_id: int) -> None:
-    """Traduz o que o aplicador acumulou em métricas. Chamado 1×/ciclo."""
+    """Traduz o que o aplicador acumulou em métricas. Chamado 1×/ciclo.
+
+    **Dois destinos, de propósito.** OTel serve painel (Grafana), mas é NO-OP com
+    ``OTEL_ENABLED`` desligado, que é o default: numa instalação típica esses
+    contadores não existem em lugar nenhum. O ``observability_store`` é o que a
+    própria UI lê, então é ele que responde "essa integração está funcionando?"
+    sem depender de stack de observabilidade montada.
+
+    Escrever aqui, e não no applier, é a decisão de custo: ``applier.apply`` roda
+    1× por evento no seam local e mais 1× no remoto. O ``ApplyStats`` existe
+    justamente para agregar em memória e gravar uma vez por ciclo.
+    """
     try:
         from .. import metrics
 
@@ -848,6 +963,22 @@ def emit_apply_stats(stats: ApplyStats, org_id: int) -> None:
                 metrics.ENRICH_LOOKUPS.labels(enricher=rule_id, outcome=outcome).inc(n)
     except Exception:  # noqa: BLE001
         logger.debug("enrich: falha ao emitir stats de aplicação", exc_info=True)
+
+    try:
+        from .. import observability_store as obs
+
+        for bucket, outcome in (
+            (stats.hits, "hit"),
+            (stats.misses, "miss"),
+            (stats.skipped, "skipped"),
+            (stats.errors, "error"),
+        ):
+            for rule_id, n in bucket.items():
+                # `oid` = org:regra. Agregar por org perderia justamente o que o
+                # operador quer saber: QUAL regra parou de casar.
+                obs.record_counter("enrich", f"{org_id}:{rule_id}", outcome, float(n))
+    except Exception:  # noqa: BLE001 — best-effort; nunca derruba o ciclo
+        logger.debug("enrich: falha ao gravar contadores de aplicação", exc_info=True)
 
 
 __all__.append("apply")

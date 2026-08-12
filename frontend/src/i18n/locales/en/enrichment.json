@@ -8,7 +8,8 @@
     "catalog": "Catalog ({{count}})",
     "tables": "Tables ({{count}})",
     "policies": "Policies ({{count}})",
-    "sources": "Sources ({{count}})"
+    "sources": "Sources ({{count}})",
+    "execution": "Execution"
   },
   "mode": {
     "local": "per event",
@@ -116,8 +117,8 @@
       "outputFrom": "Result field",
       "outputTarget": "Writes to",
       "removeOutput": "Remove output",
-      "tags": "Tags (comma-separated)",
-      "tagsHint": "Written to _centralops.enrichment_tags, usable in other rules' conditions and in routes.",
+      "tags": "Tags",
+      "tagsHint": "Written to _centralops.enrichment_tags, usable in other rules' conditions and in routes. Enter or comma adds one.",
       "onMiss": "On miss",
       "onError": "On error",
       "addRule": "Add rule",
@@ -140,7 +141,34 @@
       "source": "Configured source",
       "sourceNone": "(select)",
       "sourceRequired": "Required: this enricher needs a credential.",
-      "sourceHint": "The credential lives in the source, never in the rule."
+      "sourceHint": "The credential lives in the source, never in the rule.",
+      "editingFrom": "Editing from v{{version}}",
+      "replaceWarning": "Publishing replaces every rule in the policy. The editor opens with the current version's rules, so keep the ones that should stay in effect.",
+      "loadIntoEditor": "Load into editor",
+      "removeTag": "Remove the {{tag}} tag",
+      "addAlternative": "Add alternative",
+      "outputFromNone": "(pick a field)",
+      "outputTargetSuffix": "Path after the prefix",
+      "outputDefault": "Default",
+      "outputDefaultPlaceholder": "empty",
+      "onMissNeedsDefault": "Set a default value on an output to use this option.",
+      "when": {
+        "label": "When to apply",
+        "hint": "One condition per rule. For alternatives, chain rules: one tags the event, the next reacts to that tag.",
+        "always": "Always",
+        "exists": "If the field exists",
+        "equals": "If the field equals",
+        "in": "If the field is in the list",
+        "not": "If NOT (inverts the condition)",
+        "hasTag": "If the event already has the tag",
+        "lacksTag": "If the event does NOT have the tag",
+        "hasTagField": "Required tags",
+        "lacksTagField": "Blocking tags",
+        "tagRequired": "Pick at least one tag, otherwise the condition will not compile.",
+        "emptySource": "Fill in the field path. Without it the condition compiles but never matches, and the rule vanishes from the panels as if no event had the field.",
+        "emptyValues": "Add at least one value. An empty list compiles but never matches, so the rule never runs."
+      },
+      "cannotChain": "This rule already has another condition. A gate has a single key, so chaining would erase the condition you wrote."
     }
   },
   "errorTitle": "Failed to load enrichment",
@@ -182,10 +210,47 @@
   },
   "catalog": {
     "searchPlaceholder": "Search enrichment source",
-    "empty": "No source found."
+    "empty": "No source found.",
+    "mode": {
+      "local": "per event",
+      "remote": "per batch"
+    }
   },
   "scope": {
     "title": "You are seeing one organization",
     "body": "An organization-scoped token only sees its own. To follow several customers in a SOC, use a global-scoped token or the Enterprise edition, which enables the subtree view."
+  },
+  "execution": {
+    "organization": "Organization",
+    "range": "Window",
+    "rangeOption": "last {{count}} min",
+    "onlyFailures": "Failures only ({{count}})",
+    "emptyTitle": "Nothing recorded yet",
+    "emptyBody": "The log appears after the first collection cycle with an active policy. If you already enabled one and nothing shows up, check that the policy is enabled and that an integration is collecting.",
+    "hitRate": "Match rate per rule",
+    "hitRateHint": "A falling match rate with working queries points to a change in the source data format, not the credential.",
+    "noRules": "No enabled policy with a published version in this organization.",
+    "silent": "Did not run in this window",
+    "hit": "matched",
+    "miss": "no match",
+    "error": "errors:",
+    "queries": "Queries",
+    "queriesHint": "One record per table load (one per cycle) and per remote query (one per batch). There is no per-event record.",
+    "noQueries": "No queries in this window.",
+    "noFailures": "No failures. The query path is up.",
+    "kind": {
+      "table_load": "table load",
+      "remote_batch": "remote query"
+    },
+    "entries": "{{count}} entries",
+    "keys": "{{count}} keys",
+    "agoSeconds": "{{count}}s ago",
+    "agoMinutes": "{{count}}min ago",
+    "agoHours": "{{count}}h ago",
+    "retentionTitle": "The log keeps the last 200 queries per organization, for 24 hours",
+    "retentionBody": "It is for immediate diagnosis. For long-term history, use the metrics exported through OpenTelemetry.",
+    "activePolicy": "Active: {{name}}",
+    "unanswered": "unanswered",
+    "hitRateHintUnanswered": "Some queries went unanswered in this window: the match rate is diluted by a credential, network or budget failure, not by a change in the data. Check Queries before touching the rules."
   }
 }

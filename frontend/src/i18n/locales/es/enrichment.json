@@ -8,7 +8,8 @@
     "catalog": "Catálogo ({{count}})",
     "tables": "Tablas ({{count}})",
     "policies": "Políticas ({{count}})",
-    "sources": "Fuentes ({{count}})"
+    "sources": "Fuentes ({{count}})",
+    "execution": "Ejecución"
   },
   "mode": {
     "local": "por evento",
@@ -116,8 +117,8 @@
       "outputFrom": "Campo del resultado",
       "outputTarget": "Escribe en",
       "removeOutput": "Quitar salida",
-      "tags": "Tags (separadas por coma)",
-      "tagsHint": "Se escriben en _centralops.enrichment_tags, usable en condiciones de otras reglas y en rutas.",
+      "tags": "Etiquetas",
+      "tagsHint": "Se escriben en _centralops.enrichment_tags, usable en condiciones de otras reglas y en rutas. Enter o coma agrega una.",
       "onMiss": "Si no encuentra",
       "onError": "Si falla",
       "addRule": "Agregar regla",
@@ -140,7 +141,34 @@
       "source": "Fuente configurada",
       "sourceNone": "(seleccione)",
       "sourceRequired": "Obligatoria: este enricher necesita credencial.",
-      "sourceHint": "La credencial vive en la fuente, nunca en la regla."
+      "sourceHint": "La credencial vive en la fuente, nunca en la regla.",
+      "editingFrom": "Editando desde v{{version}}",
+      "replaceWarning": "Publicar reemplaza todas las reglas de la política. El editor abre con las reglas de la versión vigente, así que conserve las que deben seguir vigentes.",
+      "loadIntoEditor": "Cargar en el editor",
+      "removeTag": "Quitar la etiqueta {{tag}}",
+      "addAlternative": "Agregar alternativa",
+      "outputFromNone": "(elija un campo)",
+      "outputTargetSuffix": "Ruta después del prefijo",
+      "outputDefault": "Predeterminado",
+      "outputDefaultPlaceholder": "vacío",
+      "onMissNeedsDefault": "Defina un valor predeterminado en algún output para usar esta opción.",
+      "when": {
+        "label": "Cuándo aplicar",
+        "hint": "Una condición por regla. Para alternativas, encadene reglas: una etiqueta el evento, la siguiente reacciona a esa etiqueta.",
+        "always": "Siempre",
+        "exists": "Si el campo existe",
+        "equals": "Si el campo es igual a",
+        "in": "Si el campo está en la lista",
+        "not": "Si NO (invierte la condición)",
+        "hasTag": "Si el evento ya tiene la etiqueta",
+        "lacksTag": "Si el evento NO tiene la etiqueta",
+        "hasTagField": "Etiquetas requeridas",
+        "lacksTagField": "Etiquetas que bloquean",
+        "tagRequired": "Elija al menos una etiqueta, si no la condición no compila.",
+        "emptySource": "Complete la ruta del campo. Sin ella la condición compila pero nunca coincide, y la regla desaparece de los paneles como si ningún evento tuviera el campo.",
+        "emptyValues": "Agregue al menos un valor. Una lista vacía compila pero nunca coincide, así que la regla nunca se ejecuta."
+      },
+      "cannotChain": "Esta regla ya tiene otra condición. Un gate tiene una sola clave, así que encadenar borraría la condición que escribió."
     }
   },
   "errorTitle": "Error al cargar el enriquecimiento",
@@ -182,10 +210,47 @@
   },
   "catalog": {
     "searchPlaceholder": "Buscar fuente de enriquecimiento",
-    "empty": "Ninguna fuente encontrada."
+    "empty": "Ninguna fuente encontrada.",
+    "mode": {
+      "local": "por evento",
+      "remote": "por lote"
+    }
   },
   "scope": {
     "title": "Está viendo una organización",
     "body": "Un token con alcance de organización solo ve la suya. Para seguir varios clientes en un SOC, use un token de alcance global o la edición Enterprise, que habilita la vista del subárbol."
+  },
+  "execution": {
+    "organization": "Organización",
+    "range": "Ventana",
+    "rangeOption": "últimos {{count}} min",
+    "onlyFailures": "Solo fallas ({{count}})",
+    "emptyTitle": "Nada registrado todavía",
+    "emptyBody": "El registro aparece tras el primer ciclo de recolección con una política activa. Si ya la activó y no aparece nada, verifique que la política esté habilitada y que haya una integración recolectando.",
+    "hitRate": "Aprovechamiento por regla",
+    "hitRateHint": "Una tasa de acierto en caída con consultas funcionando indica un cambio en el formato del dato de origen, no en la credencial.",
+    "noRules": "Ninguna política habilitada con versión publicada en esta organización.",
+    "silent": "No se ejecutó en la ventana",
+    "hit": "acierto",
+    "miss": "sin coincidencia",
+    "error": "errores:",
+    "queries": "Consultas",
+    "queriesHint": "Un registro por carga de tabla (una por ciclo) y por consulta remota (una por lote). No hay registro por evento.",
+    "noQueries": "Ninguna consulta en la ventana.",
+    "noFailures": "Ninguna falla. La consulta está funcionando.",
+    "kind": {
+      "table_load": "carga de tabla",
+      "remote_batch": "consulta remota"
+    },
+    "entries": "{{count}} entrada(s)",
+    "keys": "{{count}} clave(s)",
+    "agoSeconds": "hace {{count}}s",
+    "agoMinutes": "hace {{count}}min",
+    "agoHours": "hace {{count}}h",
+    "retentionTitle": "El registro guarda las últimas 200 consultas por organización, durante 24 horas",
+    "retentionBody": "Sirve para diagnóstico inmediato. Para histórico largo, use las métricas exportadas por OpenTelemetry.",
+    "activePolicy": "Vigente: {{name}}",
+    "unanswered": "sin respuesta",
+    "hitRateHintUnanswered": "Hay consultas sin respuesta en la ventana: el porcentaje de acierto está diluido por falla de credencial, red o presupuesto, no por un cambio en el dato. Revise Consultas antes de tocar las reglas."
   }
 }

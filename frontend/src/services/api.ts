@@ -2693,6 +2693,77 @@ export async function listEnrichmentPolicyVersions(policyId: string) {
   return apiRequest<EnrichmentPolicyVersion[]>(`/collectors/enrichment/policies/${policyId}/versions`)
 }
 
+/**
+ * Regras CRUAS de uma versão, para carregar no editor.
+ *
+ * Não dá para editar a partir do `summary` da listagem: ele achata cada output
+ * em `targets` (perde o `from`) e não carrega o `when`. Publicar em cima dele
+ * apagaria a condição que estava na versão.
+ */
+export async function getEnrichmentPolicyVersion(policyId: string, versionId: string) {
+  return apiRequest<{ id: string; version_number: number; rules: EnrichmentRule[] }>(
+    `/collectors/enrichment/policies/${policyId}/versions/${versionId}`,
+  )
+}
+
+export interface EnrichmentRuleMetrics {
+  rule_id: string
+  enricher?: string | null
+  source?: string | null
+  hit: number
+  miss: number
+  skipped: number
+  error: number
+}
+
+export interface EnrichmentActivityEntry {
+  ts: number
+  kind: "table_load" | "remote_batch"
+  ok: boolean
+  rule_id?: string | null
+  enricher?: string | null
+  source?: string | null
+  reason?: string | null
+  detail?: string | null
+  keys?: number | null
+  entries?: number | null
+  latency_ms?: number | null
+}
+
+/** Contadores por regra na janela. O teto de 180 min vem da retenção do store. */
+export async function getEnrichmentMetrics(params: {
+  organization_id?: number
+  range_minutes?: number
+}) {
+  const qs = new URLSearchParams()
+  if (params.organization_id != null) qs.set("organization_id", String(params.organization_id))
+  if (params.range_minutes != null) qs.set("range_minutes", String(params.range_minutes))
+  return apiRequest<{
+    organization_id: number
+    range_minutes: number
+    /** Política efetivamente aplicada. `null` = nenhuma habilitada com versão. */
+    policy_name?: string | null
+    rules: EnrichmentRuleMetrics[]
+  }>(`/collectors/enrichment/metrics?${qs.toString()}`)
+}
+
+/** Últimas tentativas de consulta (uma por ciclo ou por lote, nunca por evento). */
+export async function getEnrichmentActivity(params: {
+  organization_id?: number
+  limit?: number
+  kind?: string
+  only_failures?: boolean
+}) {
+  const qs = new URLSearchParams()
+  if (params.organization_id != null) qs.set("organization_id", String(params.organization_id))
+  if (params.limit != null) qs.set("limit", String(params.limit))
+  if (params.kind) qs.set("kind", params.kind)
+  if (params.only_failures) qs.set("only_failures", "true")
+  return apiRequest<{ organization_id: number; entries: EnrichmentActivityEntry[] }>(
+    `/collectors/enrichment/activity?${qs.toString()}`,
+  )
+}
+
 export async function commitEnrichmentPolicyVersion(
   policyId: string,
   data: { rules: EnrichmentRule[]; commit_message: string },
