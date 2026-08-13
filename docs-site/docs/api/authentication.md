@@ -6,12 +6,16 @@ description: Como criar um token do CentralOps, usá-lo no header, e o que acont
 
 # Autenticação
 
-A API usa um token no header `Authorization`. Não há login por usuário e senha em chamada de API, não há troca de código, não há refresh token.
+A API usa um token no header `Authorization`. Não há troca de código nem refresh token: o token é a credencial inteira, em toda requisição.
+
+(Existe um `POST /api/auth/login` com usuário e senha, mas ele serve ao console: devolve um cookie de sessão. Para automação, use token.)
 
 ```bash
 curl -H "Authorization: Bearer copsk_SEU_TOKEN_AQUI" \
-     https://centralops.example.com/api/integrations
+     https://centralops.example.com/api/integrations/
 ```
+
+A barra no final não é enfeite. Sem ela o servidor devolve `307` para a versão com barra, e o `curl` acima, sem `-L`, entrega corpo vazio sem erro nenhum. Veja [Convenções](conventions.md#barra-no-final-da-url).
 
 O token começa sempre com `copsk_`. Se o seu não começa, ele não é um token de gestão. Veja a comparação das duas famílias na [visão geral](overview.md#dois-tipos-de-token-e-eles-não-se-substituem).
 
@@ -52,7 +56,7 @@ Campos aceitos:
 
 | Campo | Obrigatório | O que faz |
 |-------|-------------|-----------|
-| `name` | sim | Identifica o token na listagem e na revogação. |
+| `name` | sim | Identifica o token na listagem e na revogação. Máximo de 100 caracteres, e **único por dono**. |
 | `expires_at` | não | Data e hora em que o token para de funcionar. Precisa estar no futuro. |
 | `is_eternal` | não | `true` cria um token sem validade. Não pode vir junto com `expires_at`. |
 | `scopes` | não | Restringe o token a um subconjunto das permissões do dono. Sem isso, o token herda tudo. |
@@ -110,6 +114,15 @@ curl -H "Authorization: Bearer $TOKEN" \
 
 Revogar devolve `204` sem corpo. A partir daí, qualquer chamada com aquele token recebe `401`.
 
+:::caution[O nome continua ocupado depois de revogar]
+Revogar não apaga a linha, apenas marca a data de revogação. A restrição de nome único por dono continua valendo sobre ela.
+
+Isso quebra a rotação mais natural, que é criar o novo com o mesmo nome e só depois revogar o antigo: a criação falha com `400` porque o nome já existe. Duas saídas:
+
+- Revogue o antigo primeiro, aceitando a janela sem token. Mesmo assim o nome segue ocupado, então você ainda precisa de um nome novo.
+- Melhor: coloque a data no nome, como `zabbix-2026-08`, e a rotação nunca esbarra nisso.
+:::
+
 ## Contas de serviço
 
 Um token pessoal morre junto com a conta de quem o criou. Se a pessoa sai da empresa e o usuário é desativado, toda automação que dependia daquele token para de funcionar, e o motivo não é óbvio para quem está de plantão.
@@ -117,10 +130,10 @@ Um token pessoal morre junto com a conta de quem o criou. Se a pessoa sai da emp
 Para automação que precisa sobreviver a mudança de time, use uma **conta de serviço**. Ela não é uma pessoa, não faz login no console, e existe só para carregar tokens.
 
 ```bash
-# Criar a conta
+# Criar a conta, sempre dizendo a que organização ela pertence
 curl -X POST https://centralops.example.com/api/v1/service-accounts \
   -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
-  -d '{"name": "monitoramento-zabbix", "role": "viewer"}'
+  -d '{"name": "monitoramento-zabbix", "role": "viewer", "organization_id": 7}'
 
 # Emitir um token para ela
 curl -X POST https://centralops.example.com/api/v1/service-accounts/3/tokens \
@@ -128,7 +141,15 @@ curl -X POST https://centralops.example.com/api/v1/service-accounts/3/tokens \
   -d '{"name": "zabbix-prod", "expires_at": "2027-01-01T00:00:00Z"}'
 ```
 
-Desativar a conta de serviço invalida todos os tokens dela de uma vez, e a resposta passa a ser `401` com `Service account is inactive`.
+:::danger[Conta de serviço sem `organization_id` não enxerga nada]
+O campo `organization_id` é opcional no esquema, e omiti-lo cria uma conta de **plataforma**, sem organização.
+
+O resultado não é "vê tudo", é o oposto. A autenticação materializa a conta com escopo global desligado, e um papel não administrativo sem organização resolve para um conjunto vazio de organizações. O token autentica com `200`, e toda listagem volta vazia. Você vai procurar o erro na permissão, e ele está aqui.
+
+Diga sempre a organização, a menos que você esteja criando de propósito uma conta administrativa de plataforma.
+:::
+
+Desativar a conta de serviço invalida todos os tokens dela de uma vez. A resposta passa a ser `401` com `Invalid or expired API token`, a mesma mensagem de um token errado: pela resposta você não distingue conta desativada de token inválido.
 
 ## Cookie e Bearer na mesma requisição
 
@@ -144,11 +165,11 @@ O fluxo Bearer não devolve `set-cookie`. Ele é sem estado, e cada requisição
 |--------|----------|-----------------|
 | `401` | `Invalid or expired API token` | Token errado, revogado ou vencido. |
 | `401` | `User is inactive` | O token é válido, mas o usuário dono foi desativado. |
-| `401` | `Service account is inactive` | O token é válido, mas a conta de serviço foi desativada. |
+| `401` | `Invalid or expired API token` | A conta de serviço dona do token foi desativada. O resolver descarta o token antes de chegar a uma mensagem específica, então a resposta é a mesma de token inválido. |
 | `403` | varia | O token autenticou, mas falta permissão ou o recurso é de outra organização. Veja [Permissões e escopo](permissions.md). |
 | `429` | `Token rate limit exceeded` | Excesso de requisições. Veja abaixo. |
 
-Todo `401` volta com o header `WWW-Authenticate: Bearer realm="centralops"`.
+Os `401` do caminho Bearer voltam com o header `WWW-Authenticate: Bearer realm="centralops"`. Os `401` de sessão por cookie não trazem esse header, então a presença dele é um sinal útil de qual caminho de autenticação respondeu.
 
 :::caution[Um token `copsk_` inválido não cai para o cookie]
 Se o header traz um token que começa com `copsk_` e ele não é válido, a resposta é `401` na hora. O sistema não tenta o cookie como alternativa, de propósito: cair para o cookie faria um token quebrado parecer que funciona, e você só descobriria em produção, quando não houvesse cookie nenhum.
@@ -156,20 +177,13 @@ Se o header traz um token que começa com `copsk_` e ele não é válido, a resp
 
 ## Limite de requisições
 
-Cada token tem quatro janelas simultâneas. Os valores padrão:
+**60 requisições por minuto, por token.** Uma janela deslizante única, contada por token e não por usuário: cada token tem o próprio orçamento.
 
-| Janela | Limite |
-|--------|--------|
-| por segundo | 10 |
-| por minuto | 100 |
-| por hora | 1.000 |
-| por dia | 50.000 |
+Esse número é fixo no código. Não há variável de ambiente que o ajuste.
 
-O administrador da instância pode mudar esses números na configuração.
+Ao estourar, a resposta é `429` com o header `Retry-After` em segundos. Respeite o `Retry-After` em vez de repetir em laço apertado: insistir só empurra a janela para frente.
 
-Ao estourar qualquer uma das janelas, a resposta é `429` com o header `Retry-After` em segundos. Respeite o `Retry-After` em vez de repetir em laço apertado: a contagem é por token, e insistir só empurra a janela para frente.
-
-Para monitoramento, uma coleta a cada 60 segundos fica muito abaixo do limite. O que costuma estourar é varredura de recurso um a um. Prefira os endpoints de lote quando existirem, e eles estão marcados na [referência](reference.md).
+Sessenta por minuto dá folga para um monitor que consulta a cada 5 ou 10 segundos, e é apertado para varredura de recurso um a um. Se você precisa do estado de 40 destinos, use o endpoint que devolve todos de uma vez em vez de 40 chamadas: além do limite, cada requisição tem custo real de CPU no servidor, explicado em [Convenções](conventions.md#limite-de-requisições).
 
 ## Guardando o token
 

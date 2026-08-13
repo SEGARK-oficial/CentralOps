@@ -10,7 +10,7 @@ Cada receita traz o papel e os scopes mínimos, os endpoints e o que observar na
 
 ```bash
 export CENTRALOPS_URL="https://centralops.example.com"
-export CENTRALOPS_TOKEN="copsk_..."
+export TOKEN="copsk_..."
 ```
 
 ## Monitoramento externo, somente leitura
@@ -19,11 +19,17 @@ O caso do Zabbix, do Grafana ou do script de plantão: perguntar de tempos em te
 
 **Token:** papel `viewer`, com scopes `integration.read`, `destination.read` e `route.read`.
 
-Esse é o menor conjunto que enxerga coleta e entrega. Ele não escreve nada, não lê credencial e não administra conta.
+Esse é o menor conjunto que enxerga coleta e entrega. Ele não lê credencial e não administra conta.
+
+:::caution[Esse token ainda consegue disparar coleta]
+Disparar um ciclo de coleta (`POST /api/collectors/state/{id}/{stream}/trigger`) exige apenas token válido, sem permissão específica. Nenhum recorte por scope fecha essa porta, porque não há permissão para recortar.
+
+Na prática o risco é baixo, já que disparar coleta não destrói nada, mas consome quota do fornecedor. Vale saber que "somente leitura" aqui significa "não altera configuração", não "não causa efeito nenhum".
+:::
 
 ```bash
 curl -X POST "$CENTRALOPS_URL/api/v1/tokens" \
-  -H "Authorization: Bearer $CENTRALOPS_TOKEN" -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
   -d '{
     "name": "zabbix-producao",
     "expires_at": "2027-01-01T00:00:00Z",
@@ -57,6 +63,8 @@ Esta é a diferença que já custou 15 horas de atraso passando por saudável em
 `watermark_at` responde "até quando ele chegou?". É a idade do dado mais recente que efetivamente passou. Se ele está três horas atrás, você está três horas atrás, não importa quantos ciclos tiveram sucesso.
 
 Alerte pela idade de `watermark_at`. Use `last_run_capped` como sinal de apoio: verdadeiro significa que o ciclo parou no teto e ainda há backlog, ou seja, a distância não vai fechar sozinha no ritmo atual.
+
+Um detalhe antes de sair alertando: `watermark_at` é **legitimamente nulo** para coletores cujo cursor não é uma data. Nem todo fornecedor pagina por tempo, e nesses o campo nunca é preenchido. Tratar nulo como "infinitamente atrasado" gera alarme falso permanente. Ou você exclui esses fluxos da regra, ou trata nulo como "não aplicável" e cai para `consecutive_failures` neles.
 :::
 
 ```bash
@@ -101,7 +109,7 @@ Agrega coleta, quarentena e campos novos por integração. Lembre que a resposta
 
 ### Ritmo sugerido
 
-Um intervalo de 60 segundos é folgado e fica muito longe do limite de requisições. As três chamadas acima somam três requisições por ciclo, contra um teto padrão de 100 por minuto.
+Um intervalo de 60 segundos é folgado. As três chamadas acima somam três requisições por ciclo, contra um teto de **60 por minuto** naquele token. Mesmo a cada 10 segundos você fica em 18 por minuto, com margem.
 
 ## Destravar um coletor parado
 
@@ -144,10 +152,10 @@ curl -s -H "Authorization: Bearer $TOKEN" \
 # Depois de corrigir o mapping, reprocessar em lote
 curl -X POST -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
   "$CENTRALOPS_URL/api/quarantine/bulk/reprocess" \
-  -d '{"ids": [101, 102, 103]}'
+  -d '{"ids": ["3f2a1c8e-...", "9b7d4e02-...", "c14f8a55-..."]}'
 ```
 
-O campo do corpo chama `ids`, tanto no reprocessamento quanto no descarte. Não é `event_ids`.
+Dois detalhes que derrubam a primeira tentativa: o campo chama `ids` (não `event_ids`), e os identificadores são **strings**, porque o id de um evento em quarentena é um UUID, não um número. Vale igual para o descarte.
 
 :::danger[Descartar apaga de verdade]
 `bulk/discard` remove os eventos definitivamente. Não existe lixeira nem desfazer.
@@ -170,14 +178,17 @@ O lote aceita até 500 identificadores por chamada.
 curl -X POST -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
   "$CENTRALOPS_URL/api/integrations/42/backfill" \
   -d '{
-    "stream": "detections",
+    "streams": ["detections"],
     "from_ts": "2026-08-01T00:00:00Z",
     "to_ts": "2026-08-07T00:00:00Z"
   }'
 
-# Acompanhar
-curl -s -H "Authorization: Bearer $TOKEN" "$CENTRALOPS_URL/api/backfill-jobs/17"
+# Acompanhar. O id do trabalho é um UUID em texto, devolvido na criação.
+curl -s -H "Authorization: Bearer $TOKEN" \
+  "$CENTRALOPS_URL/api/backfill-jobs/3f2a1c8e-5b40-4c9a-9f11-7d2e6a8b0c34"
 ```
+
+O campo é `streams`, no plural e como **lista**, mesmo para um fluxo só. `stream` no singular devolve `422`.
 
 Limites que o servidor aplica:
 
@@ -189,7 +200,7 @@ Cancelar não interrompe na hora. O trabalhador termina a página atual e sai li
 
 ```bash
 curl -X POST -H "Authorization: Bearer $TOKEN" \
-  "$CENTRALOPS_URL/api/backfill-jobs/17/cancel"
+  "$CENTRALOPS_URL/api/backfill-jobs/3f2a1c8e-5b40-4c9a-9f11-7d2e6a8b0c34/cancel"
 ```
 
 :::tip[Se o backfill parece nunca começar]
@@ -204,19 +215,29 @@ Ele exige permissão de administrador. É o primeiro lugar a olhar quando uma ta
 
 ## Inventário para auditoria
 
-**Token:** papel `viewer`, scopes `integration.read`, `mapping.read` e `audit.read`.
+**Token para o inventário:** papel `viewer` basta.
 
 ```bash
 # O que está configurado
 curl -s -H "Authorization: Bearer $TOKEN" "$CENTRALOPS_URL/api/integrations/" \
 | jq -r '.[] | [.id, .name, .platform, .is_active] | @tsv'
-
-# Quem mudou o quê
-curl -s -H "Authorization: Bearer $TOKEN" \
-  "$CENTRALOPS_URL/api/history/?limit=100"
 ```
 
-Se o seu token tem escopo global e a listagem voltou vazia, você provavelmente esqueceu de nomear a organização. Veja [a explicação em Permissões](permissions.md#a-resposta-vazia-que-parece-não-tem-dado).
+**Para a trilha de auditoria, o token precisa ser de admin.** Não existe recorte por scope que resolva isso:
+
+```bash
+curl -s -H "Authorization: Bearer $TOKEN" "$CENTRALOPS_URL/api/history/audit"
+```
+
+:::caution[`GET /api/history/` não é a trilha de auditoria da plataforma]
+São duas coisas diferentes, e a confusão faz você concluir que "não há registro".
+
+`GET /api/history/` devolve, para quem **não** é admin, apenas as entradas do próprio usuário. Um token de auditoria com papel `viewer` recebe uma lista quase vazia, e a causa não é escopo de organização.
+
+A trilha completa está em `GET /api/history/audit` (e `/audit/csv` para exportar), e as duas exigem `user.manage`.
+
+O `GET /api/history/` também **não aceita parâmetro nenhum**: um `?limit=100` é ignorado em silêncio e a resposta traz a tabela inteira.
+:::
 
 ## Um roteiro de verificação para automação nova
 

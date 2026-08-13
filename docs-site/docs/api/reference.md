@@ -6,20 +6,31 @@ description: Todos os endpoints da API agrupados pelo caminho que um evento perc
 
 # Referência de endpoints
 
-São 217 operações. Esta página agrupa todas pelo estágio do pipeline a que pertencem, porque é assim que você vai procurar na prática: o problema aparece em um estágio, e você quer os endpoints daquele estágio.
+São 215 operações em 174 caminhos. As tabelas somam 217 linhas porque duas delas, o início e o retorno do fluxo de SSO, pertencem a duas famílias e aparecem nas duas.
+
+Esta página agrupa todas pelo estágio do pipeline a que pertencem, porque é assim que você vai procurar na prática: o problema aparece em um estágio, e você quer os endpoints daquele estágio.
 
 ## Como ler as tabelas
 
-A coluna **Permissão** traz o que o endpoint exige **além** de um token válido. Ela foi extraída da árvore de dependências da aplicação, não de leitura de código, então bate com o que roda.
+A coluna **Exige** foi extraída da árvore de dependências da aplicação em execução, não de leitura de código.
 
-- Uma permissão nomeada (`integration.write`, por exemplo) significa que o papel do dono do token precisa tê-la, e o token não pode tê-la recortado por scope.
-- **`autenticado`** significa que basta um token válido. O recorte por organização continua valendo: você só vê o que está no seu escopo.
-- **`admin global`** significa que não basta ser admin, é preciso escopo de plataforma. Admin de uma organização recebe `403`.
+- Uma permissão nomeada, como `integration.write`, significa que o papel do dono do token precisa tê-la.
+- **`autenticado`** significa que basta um token válido, sem permissão específica. O recorte por organização continua valendo: você só vê o que está no seu escopo.
+- **`pública`** significa exatamente isso: responde sem token nenhum. São 8 no total, e vale saber quais são.
+- **`+ escopo global`** significa que ser admin não basta, é preciso escopo de plataforma. Admin de uma organização recebe `403`.
+
+:::caution[Um gate que a extração não enxerga]
+A árvore de dependências não vê verificação escrita dentro do corpo do handler. O caso conhecido é a exigência de escopo global, que em 14 rotas é chamada no corpo, e essas 14 estão marcadas acima porque foram procuradas à parte.
+
+Se você encontrar um `403` num endpoint marcado apenas como `autenticado`, a causa provável é um gate desse tipo. Vale reportar para a doc ser corrigida.
+:::
 
 :::caution[Quase metade da API é de administrador]
-92 das 217 operações exigem `user.manage`, a permissão de criar e remover usuários. Isso inclui coisas que não parecem administrativas, como toda a família de enriquecimento e boa parte da escrita de destinos e rotas.
+92 das 215 operações exigem `user.manage`, a permissão de criar e remover usuários. Isso inclui coisas que não parecem administrativas, como toda a família de enriquecimento e boa parte da escrita de destinos e rotas.
 
-Vale conferir esta página **antes** de decidir o papel de um token de automação. Se a tarefa cair numa dessas 92, não existe recorte por scope que resolva: o papel do dono precisa ser admin.
+Vale conferir esta página **antes** de decidir o papel de um token de automação. Some a isso as três permissões que só o papel `admin` tem (`integration.write`, `org.manage`, `secret.read`) e a conta fica maior ainda.
+
+Se a tarefa cair numa dessas, não existe recorte por scope que resolva: o papel do dono precisa ser admin.
 :::
 
 Os caminhos estão exatamente como o servidor os declara, incluindo a barra final quando existe. Copie daqui em vez de digitar, por causa do redirecionamento explicado em [Convenções](conventions.md#barra-no-final-da-url).
@@ -32,17 +43,19 @@ Tudo que traz evento para dentro: as integrações com fornecedores, o estado de
 
 **Pontos de atenção nesta área:**
 
-- `POST /api/collectors/integrations/{id}/trigger` dispara coleta de verdade contra a API do fornecedor e consome a quota dele. A resposta devolve só o identificador da tarefa, não o resultado.
+- `POST /api/collectors/state/{integration_id}/{stream}/trigger` dispara coleta de verdade contra a API do fornecedor e consome a quota dele. A resposta devolve só o identificador da tarefa, não o resultado. Repare que o fluxo faz parte do caminho, e que a rota exige apenas token válido: qualquer papel consegue disparar coleta.
 - `reset-cursor` faz o coletor recomeçar a partir da janela padrão do fornecedor, tipicamente uma hora atrás. Isso gera duplicidade temporária até o prazo de deduplicação passar. É a operação certa para destravar um coletor parado, e é a única desta família que usa `integration.reset`.
 - O backfill tem limites rígidos: janela máxima de 90 dias, e a data inicial não pode estar mais de 90 dias no passado. Integração pai de MSSP é recusada com `422`, porque ela não tem fluxo próprio.
 - `test-connection` abre conexão real com o fornecedor e registra o resultado no histórico de saúde.
 - `DELETE` de integração tem limite de 5 por minuto por usuário. Uma integração pai com filhas ativas devolve `409`, a menos que você peça cascata.
-- `pipeline-health` não consulta o fornecedor: ele agrega o que já está no banco, com cache de 60 segundos **por usuário**. Duas leituras seguidas devolvem o mesmo instante de cache, então um número parado pode ser cache e não estagnação.
+- `pipeline-health` não consulta o fornecedor: ele agrega o que já está no banco, com cache de 60 segundos. No agregado de todas as integrações a chave de cache é **por usuário**; no de uma integração só, a chave é por integração e o cache é compartilhado entre usuários. Nos dois casos um número parado pode ser cache e não estagnação, e o campo `cached_at` diz de quando é.
 - Duas rotas degradam em silêncio sem a edição Enterprise: sincronizar tenants responde `200` com um aviso no corpo em vez de erro, e a seleção de tenants grava a escolha sem materializar nada.
+
+- `POST /api/ingest/{stream}` aparece como **pública** na tabela, e isso merece explicação: ela não é aberta, ela usa **outro sistema de autenticação**. Em vez de token de gestão, ela valida o token de ingestão da própria integração, que não passa pela árvore de permissões. Veja a comparação na [visão geral](overview.md#dois-tipos-de-token-e-eles-não-se-substituem).
 
 #### integrations (18)
 
-| Endpoint | Permissão |
+| Endpoint | Exige |
 |---|---|
 | `GET /api/integrations/` | autenticado |
 | `POST /api/integrations/` | `integration.write` |
@@ -65,7 +78,7 @@ Tudo que traz evento para dentro: as integrações com fornecedores, o estado de
 
 #### collectors (7)
 
-| Endpoint | Permissão |
+| Endpoint | Exige |
 |---|---|
 | `GET /api/collectors/cost-summary` | autenticado |
 | `GET /api/collectors/platforms-streams` | autenticado |
@@ -77,7 +90,7 @@ Tudo que traz evento para dentro: as integrações com fornecedores, o estado de
 
 #### providers (3)
 
-| Endpoint | Permissão |
+| Endpoint | Exige |
 |---|---|
 | `GET /api/providers/platforms` | autenticado |
 | `GET /api/providers/query-capabilities` | autenticado |
@@ -85,7 +98,7 @@ Tudo que traz evento para dentro: as integrações com fornecedores, o estado de
 
 #### backfill (5)
 
-| Endpoint | Permissão |
+| Endpoint | Exige |
 |---|---|
 | `GET /api/backfill-jobs/diagnostics` | `user.manage` |
 | `GET /api/backfill-jobs/{job_id}` | `integration.read` |
@@ -95,31 +108,31 @@ Tudo que traz evento para dentro: as integrações com fornecedores, o estado de
 
 #### collector-config (10)
 
-| Endpoint | Permissão |
+| Endpoint | Exige |
 |---|---|
 | `GET /api/collectors/config` | `user.manage` |
-| `PUT /api/collectors/config` | `user.manage` |
+| `PUT /api/collectors/config` | `user.manage` + escopo global |
 | `GET /api/collectors/config/capture-sessions` | `user.manage` |
 | `POST /api/collectors/config/capture-sessions` | `user.manage` |
 | `DELETE /api/collectors/config/capture-sessions/{session_id}` | `user.manage` |
 | `GET /api/collectors/config/capture-sessions/{session_id}/events` | `user.manage` |
 | `GET /api/collectors/config/capture-sessions/{session_id}/events/{event_id}` | `user.manage` |
-| `GET /api/collectors/config/capture-sessions/{session_id}/export` | `user.manage` |
+| `GET /api/collectors/config/capture-sessions/{session_id}/export` | `user.manage` + escopo global |
 | `POST /api/collectors/config/capture-sessions/{session_id}/stop` | `user.manage` |
 | `GET /api/collectors/config/capture-vendors` | `user.manage` |
 
 #### ingest (4)
 
-| Endpoint | Permissão |
+| Endpoint | Exige |
 |---|---|
 | `GET /api/ingest/integrations/{integration_id}` | `user.manage` |
 | `DELETE /api/ingest/integrations/{integration_id}/token` | `user.manage` |
 | `POST /api/ingest/integrations/{integration_id}/token` | `user.manage` |
-| `POST /api/ingest/{stream}` | autenticado |
+| `POST /api/ingest/{stream}` | **pública** |
 
 #### pipeline-health (2)
 
-| Endpoint | Permissão |
+| Endpoint | Exige |
 |---|---|
 | `GET /api/integrations/pipeline-health` | `integration.read` |
 | `GET /api/integrations/{integration_id}/pipeline-health` | `integration.read` |
@@ -141,7 +154,7 @@ Como o evento cru vira OCSF, e o que fazer quando não vira: mappings e versões
 
 #### mappings (12)
 
-| Endpoint | Permissão |
+| Endpoint | Exige |
 |---|---|
 | `GET /api/mappings` | `mapping.read` |
 | `POST /api/mappings/dry-run` | `mapping.read` |
@@ -158,7 +171,7 @@ Como o evento cru vira OCSF, e o que fazer quando não vira: mappings e versões
 
 #### ocsf (3)
 
-| Endpoint | Permissão |
+| Endpoint | Exige |
 |---|---|
 | `GET /api/ocsf/compliance` | `user.manage` |
 | `GET /api/ocsf/policies` | `user.manage` |
@@ -166,7 +179,7 @@ Como o evento cru vira OCSF, e o que fazer quando não vira: mappings e versões
 
 #### drift (6)
 
-| Endpoint | Permissão |
+| Endpoint | Exige |
 |---|---|
 | `GET /api/drift` | `drift.read` |
 | `POST /api/drift/bulk/ignore` | `drift.ignore` |
@@ -177,7 +190,7 @@ Como o evento cru vira OCSF, e o que fazer quando não vira: mappings e versões
 
 #### quarantine (7)
 
-| Endpoint | Permissão |
+| Endpoint | Exige |
 |---|---|
 | `GET /api/quarantine` | `quarantine.read` |
 | `POST /api/quarantine/bulk/discard` | `quarantine.discard` |
@@ -202,7 +215,7 @@ Acrescenta contexto ao evento já normalizado, antes de ele ser roteado.
 
 #### enrichment (24)
 
-| Endpoint | Permissão |
+| Endpoint | Exige |
 |---|---|
 | `GET /api/collectors/enrichment/activity` | `user.manage` |
 | `POST /api/collectors/enrichment/dry-run` | `user.manage` |
@@ -249,7 +262,7 @@ Para onde o evento vai e se chegou: regras de rota, destinos, saúde da entrega 
 
 #### routes (13)
 
-| Endpoint | Permissão |
+| Endpoint | Exige |
 |---|---|
 | `GET /api/collectors/routes` | `route.read` |
 | `POST /api/collectors/routes` | `user.manage` |
@@ -267,7 +280,7 @@ Para onde o evento vai e se chegou: regras de rota, destinos, saúde da entrega 
 
 #### destinations (20)
 
-| Endpoint | Permissão |
+| Endpoint | Exige |
 |---|---|
 | `GET /api/collectors/destinations` | `destination.read` |
 | `POST /api/collectors/destinations` | `user.manage` |
@@ -296,7 +309,7 @@ Consulta ao vivo na fonte do cliente, agendamentos, resultados e triagem de dete
 
 **Pontos de atenção nesta área:**
 
-- `query.run` executa consulta no ambiente do fornecedor. Isso pode gerar custo e carga no cliente. Não coloque essa permissão em token de automação que não precisa dela.
+- `query.run` protege exatamente uma rota nesta superfície: a mudança de status de uma detecção. A execução de consulta ao vivo contra o fornecedor é Enterprise, então no Community essa permissão é mais estreita do que o nome sugere.
 - Criar agendamento é o gatilho de execução recorrente, e o resultado sai por e-mail só para destinatários da mesma organização.
 - O eixo de permissão muda dentro da mesma família: criar agendamento exige `query.save`, mas listar e ver histórico exigem `mapping.read`.
 - Ler o histórico de resultados **poda** resultados vencidos como efeito colateral.
@@ -306,7 +319,7 @@ Consulta ao vivo na fonte do cliente, agendamentos, resultados e triagem de dete
 
 #### queries (5)
 
-| Endpoint | Permissão |
+| Endpoint | Exige |
 |---|---|
 | `GET /api/queries/` | `mapping.read` |
 | `POST /api/queries/` | `query.save` |
@@ -316,7 +329,7 @@ Consulta ao vivo na fonte do cliente, agendamentos, resultados e triagem de dete
 
 #### schedules (4)
 
-| Endpoint | Permissão |
+| Endpoint | Exige |
 |---|---|
 | `GET /api/schedules/` | `mapping.read` |
 | `POST /api/schedules/` | `query.save` |
@@ -325,7 +338,7 @@ Consulta ao vivo na fonte do cliente, agendamentos, resultados e triagem de dete
 
 #### results (3)
 
-| Endpoint | Permissão |
+| Endpoint | Exige |
 |---|---|
 | `GET /api/search/history` | autenticado |
 | `GET /api/search/history/result/{search_id}` | autenticado |
@@ -333,7 +346,7 @@ Consulta ao vivo na fonte do cliente, agendamentos, resultados e triagem de dete
 
 #### history (3)
 
-| Endpoint | Permissão |
+| Endpoint | Exige |
 |---|---|
 | `GET /api/history/` | autenticado |
 | `GET /api/history/audit` | `user.manage` |
@@ -341,7 +354,7 @@ Consulta ao vivo na fonte do cliente, agendamentos, resultados e triagem de dete
 
 #### detections (3)
 
-| Endpoint | Permissão |
+| Endpoint | Exige |
 |---|---|
 | `GET /api/detections` | autenticado |
 | `GET /api/detections/{detection_id}` | autenticado |
@@ -364,11 +377,11 @@ Usuários, organizações, tokens, contas de serviço, identidade, licença e co
 
 #### auth (18)
 
-| Endpoint | Permissão |
+| Endpoint | Exige |
 |---|---|
 | `GET /api/auth/admin-access` | `user.manage` |
-| `POST /api/auth/bootstrap` | autenticado |
-| `POST /api/auth/login` | autenticado |
+| `POST /api/auth/bootstrap` | **pública** |
+| `POST /api/auth/login` | **pública** |
 | `POST /api/auth/logout` | autenticado |
 | `GET /api/auth/me` | autenticado |
 | `PATCH /api/auth/me` | autenticado |
@@ -377,9 +390,9 @@ Usuários, organizações, tokens, contas de serviço, identidade, licença e co
 | `GET /api/auth/me/profile` | autenticado |
 | `POST /api/auth/me/sessions/revoke-others` | autenticado |
 | `GET /api/auth/permissions` | autenticado |
-| `GET /api/auth/sso/callback` | autenticado |
-| `GET /api/auth/sso/login` | autenticado |
-| `GET /api/auth/status` | autenticado |
+| `GET /api/auth/sso/callback` | **pública** |
+| `GET /api/auth/sso/login` | **pública** |
+| `GET /api/auth/status` | **pública** |
 | `GET /api/auth/users` | `user.manage` |
 | `POST /api/auth/users` | `user.manage` |
 | `DELETE /api/auth/users/{user_id}` | `user.manage` |
@@ -387,12 +400,12 @@ Usuários, organizações, tokens, contas de serviço, identidade, licença e co
 
 #### organizations (11)
 
-| Endpoint | Permissão |
+| Endpoint | Exige |
 |---|---|
 | `GET /api/organizations/` | autenticado |
-| `POST /api/organizations/` | `user.manage` |
+| `POST /api/organizations/` | `user.manage` + escopo global |
 | `POST /api/organizations/bulk/deactivate` | `user.manage` |
-| `DELETE /api/organizations/{org_id}` | `user.manage` |
+| `DELETE /api/organizations/{org_id}` | `user.manage` + escopo global |
 | `GET /api/organizations/{org_id}` | autenticado |
 | `PUT /api/organizations/{org_id}` | `user.manage` |
 | `GET /api/organizations/{org_id}/customer-mappings` | `org.manage` |
@@ -403,7 +416,7 @@ Usuários, organizações, tokens, contas de serviço, identidade, licença e co
 
 #### api-tokens (4)
 
-| Endpoint | Permissão |
+| Endpoint | Exige |
 |---|---|
 | `GET /api/v1/tokens` | autenticado |
 | `POST /api/v1/tokens` | autenticado |
@@ -412,7 +425,7 @@ Usuários, organizações, tokens, contas de serviço, identidade, licença e co
 
 #### service-accounts (8)
 
-| Endpoint | Permissão |
+| Endpoint | Exige |
 |---|---|
 | `GET /api/v1/service-accounts` | `user.manage` |
 | `POST /api/v1/service-accounts` | `user.manage` |
@@ -425,62 +438,62 @@ Usuários, organizações, tokens, contas de serviço, identidade, licença e co
 
 #### identity (5)
 
-| Endpoint | Permissão |
+| Endpoint | Exige |
 |---|---|
-| `GET /api/identity/config` | `user.manage` |
-| `PUT /api/identity/config` | `user.manage` |
-| `POST /api/identity/config/sync` | `user.manage` |
-| `GET /api/identity/config/sync-status` | `user.manage` |
-| `POST /api/identity/config/test` | `user.manage` |
+| `GET /api/identity/config` | `user.manage` + escopo global |
+| `PUT /api/identity/config` | `user.manage` + escopo global |
+| `POST /api/identity/config/sync` | `user.manage` + escopo global |
+| `GET /api/identity/config/sync-status` | `user.manage` + escopo global |
+| `POST /api/identity/config/test` | `user.manage` + escopo global |
 
 #### sso (2)
 
-| Endpoint | Permissão |
+| Endpoint | Exige |
 |---|---|
-| `GET /api/auth/sso/callback` | autenticado |
-| `GET /api/auth/sso/login` | autenticado |
+| `GET /api/auth/sso/callback` | **pública** |
+| `GET /api/auth/sso/login` | **pública** |
 
 #### emails (6)
 
-| Endpoint | Permissão |
+| Endpoint | Exige |
 |---|---|
 | `GET /api/emails/` | `user.manage` |
-| `POST /api/emails/` | `user.manage` |
+| `POST /api/emails/` | `user.manage` + escopo global |
 | `GET /api/emails/config` | `user.manage` |
-| `PUT /api/emails/config` | `user.manage` |
+| `PUT /api/emails/config` | `user.manage` + escopo global |
 | `POST /api/emails/test` | `user.manage` |
-| `DELETE /api/emails/{email_id}` | `user.manage` |
+| `DELETE /api/emails/{email_id}` | `user.manage` + escopo global |
 
 #### licenses (3)
 
-| Endpoint | Permissão |
+| Endpoint | Exige |
 |---|---|
-| `DELETE /api/licenses` | `user.manage` |
-| `POST /api/licenses/activate` | `user.manage` |
+| `DELETE /api/licenses` | `user.manage` + escopo global |
+| `POST /api/licenses/activate` | `user.manage` + escopo global |
 | `GET /api/licenses/status` | autenticado |
 
 #### edition (1)
 
-| Endpoint | Permissão |
+| Endpoint | Exige |
 |---|---|
 | `GET /api/edition` | autenticado |
 
 #### config-bundle (2)
 
-| Endpoint | Permissão |
+| Endpoint | Exige |
 |---|---|
 | `GET /api/collectors/config/export` | `user.manage` |
 | `POST /api/collectors/config/import` | `user.manage` |
 
 #### dashboard (1)
 
-| Endpoint | Permissão |
+| Endpoint | Exige |
 |---|---|
 | `GET /api/dashboard/summary` | autenticado |
 
 #### iris (1)
 
-| Endpoint | Permissão |
+| Endpoint | Exige |
 |---|---|
 | `GET /api/iris/health` | `org.manage` |
 
@@ -492,11 +505,11 @@ Ela aceita dois modos de autenticação: token com `internal.tenant.read`, ou um
 
 #### internal (3)
 
-| Endpoint | Permissão |
+| Endpoint | Exige |
 |---|---|
-| `GET /api/internal/tenants/by-iris-customer/{iris_customer_id}` | autenticado |
-| `GET /api/internal/tenants/by-sophos-tenant/{external_id}` | autenticado |
-| `GET /api/internal/tenants/{organization_id}` | autenticado |
+| `GET /api/internal/tenants/by-iris-customer/{iris_customer_id}` | `internal.tenant.read` ou chave interna |
+| `GET /api/internal/tenants/by-sophos-tenant/{external_id}` | `internal.tenant.read` ou chave interna |
+| `GET /api/internal/tenants/{organization_id}` | `internal.tenant.read` ou chave interna |
 
 ## A lista sempre atual
 

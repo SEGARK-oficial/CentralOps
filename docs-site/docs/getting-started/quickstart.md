@@ -26,7 +26,7 @@ Tempo estimado: cerca de 15 minutos. Você precisa de uma conta **administradora
 
 Ainda não tem as credenciais do Sophos? Siga o [Guia de integração Sophos](../integrations/sophos.md) e volte aqui.
 
-:::info O caminho tem quatro peças, não duas
+:::info[O caminho tem quatro peças, não duas]
 Coletar não basta para entregar. Um evento só chega ao seu SIEM se existir **uma integração** que o traga, **um destino** que o receba e **uma rota** que ligue os dois. Não existe destino de fábrica nem regra que mande tudo para algum lugar por padrão: sem uma rota que case, o evento vai para o destino de fallback ou para a DLQ. Os passos 2, 3 e 4 montam exatamente essas três peças.
 :::
 

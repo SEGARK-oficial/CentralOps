@@ -32,7 +32,7 @@ Esta tabela é gerada a partir do código, não escrita à mão.
 | Permissão | Viewer | Operator | Engineer | Admin | O que libera |
 |---|:--:|:--:|:--:|:--:|---|
 | `integration.read` | sim | sim | sim | sim | Ver integrações e o estado da coleta |
-| `integration.pause` | nao | sim | sim | sim | Pausar e retomar uma coleta |
+| `integration.pause` | nao | sim | sim | sim | Existe no enum, mas **nenhum endpoint a usa**. Ligar e desligar coleta é feito pelo `PUT` da integração, que exige `integration.write`. |
 | `integration.reset` | nao | sim | sim | sim | Zerar o cursor de coleta |
 | `integration.write` | nao | nao | nao | sim | Criar, editar e apagar integração, incluindo credencial |
 | `mapping.read` | sim | sim | sim | sim | Ver mappings e versões |
@@ -46,13 +46,13 @@ Esta tabela é gerada a partir do código, não escrita à mão.
 | `drift.delete` | nao | nao | sim | sim | Apagar entrada de campo detectado |
 | `destination.read` | sim | sim | sim | sim | Ver destinos, saúde e contagem de DLQ |
 | `route.read` | sim | sim | sim | sim | Ver regras de roteamento |
-| `audit.read` | sim | sim | sim | sim | Ler o histórico de mudanças |
+| `audit.read` | sim | sim | sim | sim | Cobre **um** endpoint: a auditoria de um mapping. A trilha da plataforma exige `user.manage`. |
 | `query.run` | nao | sim | sim | sim | Rodar consulta ao vivo na fonte do cliente |
 | `query.save` | nao | nao | sim | sim | Salvar consulta e agendamento |
-| `correlation.preview` | nao | nao | sim | sim | Testar regra de correlação contra amostras reais |
+| `correlation.preview` | nao | nao | sim | sim | Nenhum endpoint do Core a consome. As regras de correlação são Enterprise. |
 | `internal.tenant.read` | nao | sim | sim | sim | Resolução de tenant entre serviços |
 | `user.manage` | nao | nao | nao | sim | Criar, editar e remover usuários |
-| `org.manage` | nao | nao | nao | sim | Criar e editar organizações |
+| `org.manage` | nao | nao | nao | sim | Apagar os DADOS de uma organização. Criar, editar e apagar a organização em si exigem `user.manage`, e criar ou apagar exigem ainda escopo global. |
 | `secret.read` | nao | nao | nao | sim | Ler referência de credencial guardada no cofre |
 
 :::caution[Três permissões custam dinheiro ou tocam dado de cliente]
@@ -87,8 +87,22 @@ efetiva = scopes do token ∩ permissões do papel
 
 Duas consequências práticas:
 
-- Pedir um scope que o papel não tem **não concede nada**. Um viewer que emite token com `scopes: ["user.manage"]` continua sem `user.manage`. O token não escala privilégio.
+- Pedir um scope que o papel não tem **não concede nada** na hora de usar. Um viewer com token `scopes: ["user.manage"]` continua sem `user.manage` em cada requisição.
 - Se o dono for rebaixado depois, o token encolhe junto, na hora. Não existe permissão congelada no momento da emissão.
+
+:::danger[O recorte por scope não contém quem tem o token]
+Emitir token exige apenas estar autenticado, sem permissão específica. Um token restrito a `["mapping.read"]` pode chamar `POST /api/v1/tokens` e criar **outro** token, sem scope nenhum, que sai com o papel inteiro do dono.
+
+Ou seja, o recorte por scope protege contra uso acidental e contra um vazamento que o atacante não perceba. Ele **não** é uma fronteira de contenção: quem tem o token restrito consegue, em uma chamada, um token sem restrição.
+
+Se você precisa de contenção real, o papel do dono é que precisa ser pequeno. Use uma conta de serviço com o papel mínimo em vez de restringir por scope um token de admin.
+:::
+
+:::caution[A interseção tem uma exceção conhecida: `secret.read`]
+A visibilidade de campos de credencial nas leituras de integração é decidida olhando direto o papel do dono, sem passar pelo cálculo de scopes.
+
+Na prática, um token de um admin restrito a `["integration.read"]` continua enxergando os campos protegidos por `secret.read` nessas respostas. O recorte não vale ali.
+:::
 
 Para ver a lista de scopes válidos:
 
@@ -112,35 +126,47 @@ Além de "o que pode fazer", existe "sobre quais organizações". Duas proprieda
 | `admin` | `is_global = true` **ou** `organization_id` vazio |
 | `viewer`, `operator`, `engineer` | somente com `is_global = true` |
 
-Um admin com organização definida e `is_global = false` é um **admin de organização**: administra a própria organização (e as filhas dela, em hierarquia de MSP), não a plataforma.
+Um admin com organização definida e `is_global = false` é um **admin de organização**: administra a própria organização, não a plataforma.
 
 Um viewer, operator ou engineer com `is_global = true` é o analista que monitora todos os clientes com as permissões do próprio papel, sem poder administrativo.
+
+:::caution[Ver as organizações filhas é recurso Enterprise]
+Na edição Community, quem não tem escopo global enxerga **somente a própria organização**, e nada das filhas. A visibilidade de subárvore, que é o caso de uso de MSP e revenda, depende de um resolvedor que o pacote Enterprise registra.
+
+A degradação não gera erro: a mesma automação rodando contra uma instância Community simplesmente devolve menos linhas. Ela subexpõe em vez de vazar, o que é o lado seguro, mas nada avisa que faltou dado.
+:::
 
 ### A resposta vazia que parece "não tem dado"
 
 Esta é a pegadinha que mais custa tempo, e ela não gera erro nenhum.
 
-Quando um token de escopo global chama um endpoint de dado de tenant **sem nomear a organização**, o sistema não agrega os tenants todos. Ele resolve para a organização do próprio dono, que num usuário global é vazia, e devolve `200` com resultado vazio.
+Quando um token de escopo global chama um endpoint de dado de tenant **sem nomear a organização**, o sistema não agrega os tenants todos. Ele resolve para a organização do próprio dono. Num admin de plataforma essa organização é vazia, e a resposta volta `200` com resultado vazio.
+
+(Escopo global e organização vazia não são a mesma coisa: um usuário com `is_global = true` pode ter organização definida, e aí a resposta vem daquela organização, não de todas.)
 
 Você lê "0 resultados" e conclui que não há dado. Na verdade a pergunta é que não nomeou o cliente.
 
 ```bash
 # Token global, sem dizer a organização: volta vazio
 curl -H "Authorization: Bearer $TOKEN" \
-     "https://centralops.example.com/api/mappings/samples?vendor=sophos"
+     "https://centralops.example.com/api/mappings/samples?vendor=sophos&event_type=detections"
 
 # Mesma pergunta, nomeando o tenant: volta o dado
 curl -H "Authorization: Bearer $TOKEN" \
-     "https://centralops.example.com/api/mappings/samples?vendor=sophos&organization_id=7"
+     "https://centralops.example.com/api/mappings/samples?vendor=sophos&event_type=detections&org_id=7"
 ```
 
-A regra prática: se você usa token global e uma leitura de dado de tenant voltou vazia, **mande `organization_id` antes de concluir qualquer coisa**.
+Repare em dois detalhes que custam uma tentativa cada: `event_type` é obrigatório neste endpoint (sem ele a resposta é `422`, não uma lista vazia), e o parâmetro de organização aqui chama **`org_id`**, não `organization_id`.
 
-Os nomes dos parâmetros não são uniformes na API. Alguns endpoints usam `organization_id`, outros usam `org_id`. A [referência](reference.md) traz o nome certo por endpoint.
+A regra prática: se você usa token global e uma leitura de dado de tenant voltou vazia, **nomeie a organização antes de concluir qualquer coisa**.
+
+Os nomes não são uniformes na API. Alguns endpoints usam `organization_id`, outros `org_id`, e o mesmo recurso pode usar um nome na query e outro no corpo. A [referência](reference.md) e o esquema OpenAPI trazem o nome certo por endpoint. Parâmetro com nome errado costuma ser ignorado em silêncio.
 
 ### Cruzar organizações
 
-Um token escopado a uma organização que tenta ler dado de outra recebe `403`. Isso vale para todos os endpoints, e é aplicado no backend. Não existe caminho pela interface que contorne.
+Um token escopado a uma organização que tenta ler dado de outra é barrado no backend, e não existe caminho pela interface que contorne.
+
+A resposta, porém, **não é sempre `403`**. Vários endpoints devolvem `404` de propósito, para não confirmar que o recurso existe. Ao tratar erro em automação, considere as duas.
 
 ## Descobrir o que o token pode
 
@@ -173,6 +199,7 @@ Um detalhe de robustez que também surpreende: se o campo de scopes do token fic
 | Monitorar e destravar coletor parado | `operator` | acima, mais `integration.reset`, `integration.pause` |
 | Limpar quarentena no plantão | `operator` | `quarantine.read`, `quarantine.discard` |
 | Publicar mapping por pipeline | `engineer` | `mapping.read`, `mapping.write` |
-| Inventário e auditoria | `viewer` | `audit.read`, `integration.read`, `mapping.read` |
+| Inventário e auditoria de mappings | `viewer` | `audit.read`, `integration.read`, `mapping.read` |
+| Trilha de auditoria da plataforma | `admin` | não há recorte: exige `user.manage` |
 
 Para o caso de monitoramento, [Receitas](recipes.md) traz o passo a passo completo com um exemplo de coleta periódica.

@@ -19,13 +19,15 @@ Esta seção é para quem tem um token na mão (ou vai criar um) e quer automati
 
 ## Endereço base
 
-Todos os endpoints ficam sob `/api`, no mesmo host do console:
+Quase todos os endpoints ficam sob `/api`, no mesmo host do console:
 
 ```
 https://centralops.example.com/api
 ```
 
 Não existe subdomínio separado nem porta diferente para a API. Se o console abre em `https://centralops.example.com`, a API responde em `https://centralops.example.com/api`.
+
+As exceções ficam na raiz, fora do `/api`: `/livez` e `/readyz`, que são as sondas de saúde, públicas e sem token. São elas que você aponta num balanceador ou num healthcheck de contêiner.
 
 :::caution[O versionamento não é uniforme, e isso é fato, não recomendação]
 Só a gestão de tokens e de contas de serviço vive sob `/api/v1` (12 operações). Todo o resto responde direto em `/api`, sem número de versão no caminho.
@@ -44,9 +46,11 @@ Esta é a confusão mais comum, e ela custa tempo porque o erro que ela produz �
 | **Representa** | Uma pessoa ou uma conta de serviço | Uma integração específica |
 | **Respeita papel e permissão?** | Sim | Não se aplica |
 | **Onde nasce** | Perfil do usuário, ou contas de serviço | Na própria integração de push |
-| **Usado em** | Todos os endpoints desta seção | Só `POST /api/ingest` |
+| **Usado em** | Todos os endpoints desta seção | Só `POST /api/ingest/{stream}` |
 
-Um token `copsk_` não autentica em `/api/ingest`, e um token `coi_` não lista integração nenhuma. Se você recebeu `401` num endpoint que jurava estar certo, confira antes de tudo qual das duas famílias está no header.
+Um token `copsk_` não autentica no envio de eventos, e um token `coi_` não lista integração nenhuma. Se você recebeu `401` num endpoint que jurava estar certo, confira antes de tudo qual das duas famílias está no header.
+
+Repare que o caminho de envio exige o segmento do fluxo: é `POST /api/ingest/{stream}`, não `POST /api/ingest`. Os endpoints que **gerenciam** o token de ingestão ficam sob `/api/ingest/integrations/{id}/token` e usam o token de gestão, como o resto da API.
 
 A ingestão por push tem documentação própria em [Ingestão por push](../integrations/push-ingestion.md). O resto desta seção trata do token de gestão.
 
@@ -71,7 +75,13 @@ Duas caixas de escape completam o desenho:
 
 Requisição e resposta são JSON. Mande `Content-Type: application/json` em tudo que tenha corpo.
 
-Alguns poucos endpoints de exportação devolvem CSV ou NDJSON. Eles estão marcados na referência.
+Alguns poucos endpoints de exportação devolvem CSV ou NDJSON.
+
+:::caution[O esquema OpenAPI declara essas exportações como JSON]
+Os endpoints que devolvem CSV ou NDJSON aparecem no esquema como `application/json`, porque o tipo real é definido na resposta e não na declaração da rota.
+
+Isso quebra cliente gerado automaticamente: ele tenta interpretar CSV como JSON e falha. Se a sua automação baixa export, trate esses endpoints à mão em vez de pelo cliente gerado.
+:::
 
 ## Por onde começar
 
@@ -81,6 +91,8 @@ Alguns poucos endpoints de exportação devolvem CSV ou NDJSON. Eles estão marc
 4. [Referência](reference.md): o mapa completo, por família.
 5. [Receitas](recipes.md): tarefas prontas, com `curl`, para os casos mais pedidos.
 
-:::tip[Explorando ao vivo]
-A instância publica o esquema OpenAPI e uma interface interativa. Veja [Esquema OpenAPI](openapi.md) para os endereços e para gerar um cliente na sua linguagem.
+:::tip[A lista sempre atual vem da sua instância]
+A aplicação gera um esquema OpenAPI a partir do próprio código. Ele é a fonte que nunca fica desatualizada.
+
+Um aviso para poupar tempo: pelo endereço público ele **não** responde, porque o nginx da stack bloqueia `/openapi.json` e `/docs` na borda. [Esquema OpenAPI](openapi.md) mostra como pegá-lo mesmo assim e o que ajustar antes de gerar um cliente.
 :::

@@ -22,14 +22,23 @@ O nível intermediário explica por que muitos endpoints de leitura funcionam co
 
 ## Sondas de saúde
 
+A aplicação expõe `/livez` (o processo está de pé) e `/readyz` (está pronto para receber tráfego). As duas são públicas, sem token e sem o prefixo `/api`.
+
+:::danger[No endereço público elas não existem, e `/health` engana]
+O nginx da stack não tem rota para `/livez` nem `/readyz`. As duas caem no roteamento do site e devolvem a página do console, com `200`. Um monitor que só olhe o código de status vai considerar tudo saudável para sempre, inclusive com a API morta.
+
+Pior: `/health` **existe** no nginx e devolve a palavra `healthy` sem consultar coisa alguma. Ele prova que o nginx subiu, e só isso.
+
+Para sondar de verdade, bata no processo da API dentro da rede da stack:
+
 ```bash
-curl https://centralops.example.com/livez    # o processo está de pé
-curl https://centralops.example.com/readyz   # está pronto para receber tráfego
+docker compose exec centralops curl -sf http://127.0.0.1:8000/readyz
 ```
 
-As duas são **públicas, sem token e sem o prefixo `/api`**. São as certas para healthcheck de balanceador e de container.
+É esse o alvo certo no healthcheck do contêiner e no balanceador interno.
+:::
 
-Não confunda com `/api/integrations/pipeline-health`, que é outra coisa: essa responde se o **pipeline de dados** está saudável, exige token, e é a que interessa para monitoramento de operação.
+Para monitoramento de operação, a pergunta é outra e a resposta está em `/api/integrations/pipeline-health`: ela diz se o **pipeline de dados** está saudável, exige token, e responde normalmente pelo endereço público.
 
 ## Formato de erro
 
@@ -39,13 +48,22 @@ O corpo de erro segue o padrão do FastAPI:
 { "detail": "Invalid or expired API token" }
 ```
 
-Alguns endpoints usam erro com código estável, mais fácil de tratar em automação:
+Alguns endpoints acrescentam um envelope com código estável, ao lado do `detail`:
 
 ```json
-{ "detail": { "code": "enrichment.source_sharing_requires_enterprise", "message": "..." } }
+{
+  "error": {
+    "code": "enrichment.source_sharing_requires_enterprise",
+    "message": "Compartilhar fonte entre organizações exige Enterprise.",
+    "details": {}
+  },
+  "detail": "Compartilhar fonte entre organizações exige Enterprise."
+}
 ```
 
-Prefira casar pelo `code` quando ele existir. As mensagens de texto podem mudar de redação e são traduzidas; os códigos não.
+O `code` fica em `error.code`, na raiz, **nunca dentro de `detail`**. O campo `detail` é sempre uma string, mantido para compatibilidade com o formato padrão do FastAPI.
+
+Prefira casar por `error.code` quando ele existir: as mensagens mudam de redação e são traduzidas, os códigos não.
 
 ### Status que você vai encontrar
 
@@ -61,7 +79,7 @@ Prefira casar pelo `code` quando ele existir. As mensagens de texto podem mudar 
 | `404` | Não existe **ou** está fora do seu escopo. Veja abaixo. |
 | `409` | Conflito. Por exemplo, apagar integração pai que ainda tem filhas ativas. |
 | `422` | O corpo não bate com o esquema. |
-| `429` | Limite de requisições estourado. Respeite o `Retry-After`. |
+| `429` | Passou de 60 requisições no minuto, naquele token. Respeite o `Retry-After`. |
 | `503` | Dependência fora do ar (Redis, banco, serviço externo). |
 
 :::caution[`404` nem sempre quer dizer que não existe]
@@ -79,7 +97,7 @@ Toda resposta traz `X-Correlation-Id`. Se você mandar esse header na requisiç�
 ```bash
 curl -i -H "Authorization: Bearer $TOKEN" \
      -H "X-Correlation-Id: minha-automacao-2026-08-13-001" \
-     https://centralops.example.com/api/integrations
+     https://centralops.example.com/api/integrations/
 ```
 
 Registre esse valor no log da sua automação. Na hora de pedir suporte, ele liga a sua chamada à linha de log do servidor sem precisar adivinhar por horário.
@@ -88,20 +106,27 @@ Registre esse valor no log da sua automação. Na hora de pedir suporte, ele lig
 
 Não é uniforme, e fingir que é levaria você a escrever um cliente que quebra na metade dos endpoints.
 
-**Padrão mais comum: `limit` e `offset`.** Cerca de 16 endpoints. A resposta é um objeto:
+**16 endpoints aceitam `limit`.** Desses, só 8 aceitam `offset` também. Nos outros 8 você consegue limitar o tamanho, e não consegue avançar: não há segunda página.
+
+Entre os que têm `limit` e `offset`, metade responde com este envelope:
 
 ```json
 { "total": 431, "items": [ ... ], "limit": 50, "offset": 0 }
 ```
 
-**Padrão minoritário: `page` e `size`.** Poucos endpoints, entre eles a listagem de organizações.
+A outra metade responde de outro jeito, às vezes com array puro. Confira o esquema do endpoint antes de assumir que existe `total`.
 
-**A maioria das listagens não pagina.** Devolve um array puro, com tudo.
+**3 endpoints usam `page` e `size`.**
+
+**As demais listagens não paginam.** Devolvem um array puro.
+
+:::caution[Array puro nem sempre significa "tudo"]
+Vários endpoints que devolvem array aplicam um `limit` padrão silencioso, por exemplo 100. Você recebe uma lista aparentemente completa, sem `total` e sem indicação de que foi cortada.
+
+Se a contagem bater exatamente num número redondo como 100, desconfie: peça um `limit` maior e compare.
 
 :::caution[Com `page` e `size` você não sabe quantas páginas existem]
-Nos endpoints que usam `page` e `size`, o corpo **não traz `total`**. A única forma de saber que acabou é pedir a próxima página e receber um array vazio.
-
-A exceção é a listagem de organizações, que devolve `X-Total-Count`, `X-Page` e `X-Size` como headers de resposta.
+Dos 3 endpoints com `page` e `size`, um devolve `total`, `page` e `size` no corpo (a lista de tenants de uma integração) e outro devolve `X-Total-Count`, `X-Page` e `X-Size` como headers (a lista de organizações). No restante, a única forma de saber que acabou é pedir a próxima página e receber vazio.
 :::
 
 :::caution[Paginar por `offset` durante gravação pula e repete registros]
@@ -132,7 +157,9 @@ O formato de entrada é ISO 8601. Em UTC:
 Na saída existem duas formas na mesma API. Campos gerados pelo pipeline saem com `Z` e precisão de segundos. Campos vindos direto do banco saem sem fuso e com microssegundos. Ao comparar datas de origens diferentes, normalize antes.
 
 :::danger[Data inválida não dá erro, o filtro some]
-Se você mandar uma data que o servidor não consegue interpretar (`13/08/2026`, `2026-13-45`, `ontem`), a resposta **não** é `422`. O filtro simplesmente deixa de ser aplicado, e você recebe `200` com o conjunto inteiro, achando que filtrou.
+Em alguns endpoints, entre eles os de auditoria, uma data que o servidor não consegue interpretar (`13/08/2026`, `2026-13-45`, `ontem`) **não** gera `422`. O filtro simplesmente deixa de ser aplicado, e você recebe `200` com o conjunto inteiro, achando que filtrou.
+
+Outros endpoints tipam a data no esquema e devolvem `422` normalmente. Como o comportamento varia, não dá para confiar que uma data ruim sempre acusa.
 
 Além disso, o deslocamento de fuso é descartado: `2026-08-13T00:00:00-03:00` é tratado como meia-noite **UTC**, não como três da manhã UTC.
 
@@ -149,7 +176,9 @@ Use a URL exata da referência, e configure o seu cliente para preservar os head
 
 ## Chamando de um navegador
 
-O CORS está configurado sem `expose_headers`. Na prática, JavaScript rodando em **outra origem** não consegue ler nenhum header customizado da resposta: `X-Total-Count`, `X-Page`, `X-Size`, `X-Correlation-Id` e até `Retry-After` voltam como `null` em `response.headers.get()`.
+Antes dos headers, a lista de origens permitidas: por padrão ela traz apenas endereços de desenvolvimento local. Uma página hospedada em outro domínio é barrada no CORS antes de qualquer outra coisa, e o administrador precisa acrescentar a origem na configuração.
+
+Passada essa barreira, vem a segunda: o CORS está configurado sem `expose_headers`. JavaScript em **outra origem** não consegue ler nenhum header customizado da resposta. `X-Total-Count`, `X-Page`, `X-Size`, `X-Correlation-Id` e até `Retry-After` voltam como `null` em `response.headers.get()`.
 
 Isso não aparece hoje no console porque ele é servido pelo mesmo processo, ou seja, mesma origem. Se você for construir uma página em outro domínio, conte apenas com o corpo da resposta.
 
@@ -171,11 +200,13 @@ Mande JSON compacto, em uma linha, ou NDJSON de verdade.
 
 ## Limite de requisições
 
-Quatro janelas por token, com os padrões: 10 por segundo, 100 por minuto, 1.000 por hora, 50.000 por dia. Estourar qualquer uma devolve `429` com `Retry-After` em segundos.
+**60 requisições por minuto, por token.** Uma janela deslizante única, fixa no código, sem variável de ambiente que a ajuste. Estourar devolve `429` com `Retry-After` em segundos.
 
 Além do limite, vale saber o custo de cada chamada: **cada requisição autenticada por token verifica um hash Argon2id**, que é deliberadamente caro (algo como 50 ms e dezenas de megabytes de memória), e não há cache dessa verificação. Cada chamada também grava a data do último uso do token no banco.
 
-A consequência prática: polling agressivo consome CPU e memória do servidor mesmo quando a resposta é pequena. Para monitoramento, um intervalo de 60 segundos é folgado e barato. Prefira os endpoints de lote, marcados na referência, a varrer recurso por recurso.
+A consequência prática: polling agressivo consome CPU e memória do servidor mesmo quando a resposta é pequena. Para monitoramento, um intervalo de 60 segundos é folgado e barato.
+
+Prefira endpoints que devolvem tudo de uma vez a varrer recurso por recurso. Os principais são `GET /api/collectors/destinations/health` (todos os destinos), `GET /api/integrations/pipeline-health` (todas as integrações) e `GET /api/collectors/state` (todos os coletores). Trinta destinos em uma chamada em vez de trinta chamadas é a diferença entre caber e estourar o limite.
 
 ## Escritas que doem
 
