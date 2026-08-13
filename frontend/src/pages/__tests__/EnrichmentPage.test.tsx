@@ -123,6 +123,12 @@ beforeEach(() => {
   mockedApi.listEnrichmentTableVersions.mockResolvedValue([])
   mockedApi.listEnrichmentPolicyVersions.mockResolvedValue([])
   mockedApi.listEnrichmentSources.mockResolvedValue([])
+  // O modal de versões hidrata o editor a partir da versão vigente ao abrir.
+  mockedApi.getEnrichmentPolicyVersion.mockResolvedValue({
+    id: "v1",
+    version_number: 1,
+    rules: [],
+  })
 })
 
 describe("EnrichmentPage", () => {

@@ -11,14 +11,26 @@ Este guia cria, do zero, um enriquecimento completo: uma tabela com o plano de e
 **Quem usa**: enriquecimento é recurso de administrador, escopado por organização.
 
 :::tip[Dois jeitos de fazer o mesmo fluxo]
-As telas do console (**Enriquece → Enrichment**) já têm formulário completo para criar tabela, publicar dados, escrever política e testar antes de publicar, é o caminho mais direto para a maioria dos casos, e o que este guia mostra primeiro. Para automação, scripts, CI ou importação em massa, a API REST expõe exatamente os mesmos passos; a segunda metade deste guia mostra o mesmo exemplo com `curl`.
+As telas do console (**Enriquece → Enriquecimento**) já têm formulário completo para criar tabela, publicar dados, escrever política e testar antes de publicar, é o caminho mais direto para a maioria dos casos, e o que este guia mostra primeiro. Para automação, scripts, CI ou importação em massa, a API REST expõe exatamente os mesmos passos; a segunda metade deste guia mostra o mesmo exemplo com `curl`.
 :::
+
+## Antes de começar: a chave mestra
+
+O enriquecimento inteiro está atrás de `ENRICHMENT_ENABLED`, que vem **desligada** de fábrica (`ENRICHMENT_ENABLED: bool = False`). Com ela desligada, tudo neste guia funciona no console (criar tabela, publicar política, habilitar, testar com dry-run) e **nada acontece com o tráfego real**: o worker nem carrega a política.
+
+Ligue no ambiente do worker antes de esperar resultado:
+
+```bash
+ENRICHMENT_ENABLED=true
+```
+
+O enriquecimento **remoto** tem um segundo requisito, `ENRICH_REDIS_URL`, apontando para uma instância Redis dedicada. Sem ela, os enrichers locais (tabelas, OpenCTI, TAXII) funcionam e os remotos (VirusTotal) ficam desligados. A aba **Execução** reporta isso explicitamente, com o motivo, em vez de deixar parecer que a consulta está de pé.
 
 ## Pelo console
 
 ### 1. Veja o que já está disponível
 
-Abra **Enriquece → Enrichment**. A aba **Catalog** lista toda fonte de enriquecimento disponível na sua instância, plugin-driven, então o que aparece aqui reflete exatamente o que o backend tem registrado. Para este exemplo, você vai usar **Tabela do cliente (CIDR)**, a fonte que casa um IP contra a sua própria tabela, pelo prefixo de rede **mais específico**.
+Abra **Enriquece → Enriquecimento**. A aba **Catálogo** lista toda fonte de enriquecimento disponível na sua instância, plugin-driven, então o que aparece aqui reflete exatamente o que o backend tem registrado. Para este exemplo, você vai usar **Tabela do cliente (CIDR)**, a fonte que casa um IP contra a sua própria tabela, pelo prefixo de rede **mais específico**.
 
 ![Catálogo de fontes de enriquecimento](/img/console/console-enriquecimento-catalogo.png)
 
@@ -26,7 +38,7 @@ Repare no selo de egresso em cada card: fontes marcadas **sem egresso** nunca en
 
 ### 2. Crie a tabela
 
-Na aba **Tables**, clique em **New table**. Escolha a organização, dê um nome (`rede-corporativa`), uma descrição, e o tipo de casamento:
+Na aba **Tabelas**, clique em **Nova tabela**. Escolha a organização, dê um nome (`rede-corporativa`), uma descrição, e o tipo de casamento:
 
 | Tipo de casamento | Como casa | Use para |
 |---|---|---|
@@ -53,7 +65,7 @@ Cada versão publicada fica guardada no histórico, publicar uma nova não apaga
 
 ### 4. Crie a política e escreva a regra
 
-Na aba **Policies**, clique em **New policy** e dê um nome (`contexto-de-ativo`). Criar a política **não a habilita**, ela só passa a valer depois do passo 6.
+Na aba **Políticas**, clique em **Nova política** e dê um nome (`contexto-de-ativo`). Criar a política **não a habilita**, ela só passa a valer depois do passo 6.
 
 Clique na política recém-criada e, no editor de regras, clique em **Adicionar regra**. Cada regra tem os mesmos cinco campos do formato da API, enricher, tabela, origem da chave, saídas, só que como formulário em vez de JSON:
 
@@ -63,7 +75,31 @@ Clique na política recém-criada e, no editor de regras, clique em **Adicionar 
 - **Saídas**: campo do resultado `site` grava em `_centralops.enrichment.src.site`; adicione uma segunda saída para `criticality`
 - **Se não encontrar**: `tag`, em vez de não fazer nada, marca o evento com uma tag de "não reconhecido", útil para depois rotear esses eventos para revisão
 
-Repare que todo campo "Grava em" começa com `_centralops.enrichment`, é a regra fixa do sistema: o enriquecimento nunca escreve em cima do evento normalizado, só na seção reservada a ele (veja [O que é o enriquecimento](./overview.md#onde-o-resultado-é-escrito)).
+O prefixo `_centralops.enrichment.` do campo "Grava em" é fixo e não editável. Não é preferência de estilo: fora dessa raiz o enriquecimento escreveria em cima do evento normalizado, e o dado não ficaria sob a redação de PII (veja [O que é o enriquecimento](./overview.md#onde-o-resultado-é-escrito)).
+
+Dois campos evitam erro que não dá erro:
+
+- **Campo do resultado** vira uma lista quando o enricher declara o que devolve. Nomear um campo que a fonte não retorna não causa falha: a regra roda, não acha nada, e nada é escrito.
+- **Tags** entram como chips, com sugestão das tags que as outras regras já usam. `asset_conhecido` e `asset_known` são tags diferentes para o runtime, e a regra que consome a tag errada simplesmente para de casar, sem erro em lugar nenhum.
+
+### 4.1. Condições: quando a regra roda
+
+Cada regra tem um campo **Quando aplicar**. Por padrão é "Sempre". As outras opções olham para dois lugares diferentes:
+
+| Condição | Olha para | Exemplo |
+|---|---|---|
+| Se o campo existir / for igual a / estiver na lista | O evento | só consultar TI quando `normalized.src_endpoint.ip` existir |
+| Se NÃO | Inverte qualquer uma acima | pular quando o IP for interno |
+| Se o evento já tiver a tag / NÃO tiver a tag | Tags que regras **anteriores** escreveram | só consultar a fonte paga quando o CMDB local não achou |
+
+**Uma condição por regra.** Não existe "E"/"OU" no formato, e isso é deliberado: condição composta se escreve encadeando regras, uma marcando com tag e a seguinte reagindo a essa tag. O botão **Adicionar alternativa** monta esse par para você, com a tag já casando dos dois lados, que é a parte fácil de errar à mão.
+
+O caso comum é a cascata "primeiro o barato, depois o caro":
+
+1. Regra `cmdb` consulta a tabela local e marca `achou_no_cmdb` quando acerta.
+2. Regra `ti-remota` roda com **Se o evento NÃO tiver a tag** `achou_no_cmdb`.
+
+Assim a consulta paga só sai para o que a tabela local não resolveu.
 
 ### 5. Teste antes de publicar
 
@@ -77,11 +113,31 @@ O resultado mostra o evento **depois** de enriquecido, quantos hits/misses/erros
 
 Escreva uma mensagem de commit e clique **Publicar versão**. Com uma versão publicada, o botão **Habilitar** no topo do modal fica disponível, clique nele para a política passar a valer para eventos novos desta organização.
 
+:::warning[Uma política por organização]
+O worker aplica **uma só** política por organização: a mais antiga que estiver habilitada e tiver versão publicada. Habilitar uma segunda não soma nada, e a segunda simplesmente não roda.
+
+Isso costuma aparecer como "editei a política e não mudou nada": a edição foi na política errada. A aba **Execução** mostra qual está valendo, no selo ao lado de "Aproveitamento por regra". Para trocar qual vale, desabilite a antiga.
+:::
+
+:::warning[Publicar substitui todas as regras]
+Publicar não faz merge: a versão nova é a lista inteira de regras do editor. Por isso o editor **abre já com as regras da versão vigente**, e o selo "Editando a partir da vN" no topo diz de onde elas vieram. Apagar uma regra do editor e publicar é como se remove uma regra; nada mais some sozinho.
+
+No histórico, **Carregar no editor** traz as regras de qualquer versão antiga para revisar e publicar por cima. É diferente de **Reverter para esta**, que troca a versão vigente na hora, sem passar pelo editor.
+:::
+
 ![Tabela publicada e política ativa](/img/console/console-enriquecimento-politicas.png)
 
 ### 7. Acompanhe
 
-As mesmas abas **Tables** e **Policies** mostram o estado sempre atualizado: entradas e tamanho de cada tabela, se uma política está ativa, quantas regras tem. É a mesma tela do passo 1, não tem uma tela "de resultado" separada, o estado É a tela.
+As abas **Tabelas** e **Políticas** mostram o estado da configuração: entradas e tamanho de cada tabela, se uma política está ativa, quantas regras tem.
+
+Para saber se o enriquecimento está **de fato funcionando**, use a aba **Execução**. Ela responde duas perguntas diferentes, de propósito:
+
+**Consultas** lista cada tentativa de ir buscar dado, com a mensagem do provedor quando falha. É aqui que aparecem token errado (`401 Unauthorized`), DNS quebrado e coleção TAXII vazia, sem precisar abrir log de worker. Há um registro por carga de tabela (uma por ciclo de coleta) e um por consulta remota (uma por lote). Não há registro por evento, e isso é limite de projeto: gravar por evento transformaria o log de diagnóstico em gargalo do caminho quente.
+
+**Aproveitamento por regra** mostra quanto cada regra casou na janela. Uma regra que vinha em 90% de acerto e foi a zero **com as consultas funcionando** mudou de formato na origem, não de credencial. Regra que não disparou nenhuma vez aparece como "Não disparou na janela", não como 0% de acerto: as duas situações pedem ações opostas, e confundi-las manda você mexer na tabela quando o problema é a política estar desligada.
+
+O log guarda as últimas 200 consultas por organização, por 24 horas. Serve para diagnóstico imediato; para histórico longo, use as métricas exportadas por OpenTelemetry.
 
 ## Via API (automação e scripts)
 
@@ -270,10 +326,10 @@ A partir daqui, todo evento novo dessa organização passa pela regra.
 
 ### 8. Confirme no console
 
-O console lê o mesmo estado que a API acabou de escrever, não precisa de nenhum passo extra para "sincronizar". Abra **Enriquece → Enrichment** e confira:
+O console lê o mesmo estado que a API acabou de escrever, não precisa de nenhum passo extra para "sincronizar". Abra **Enriquece → Enriquecimento** e confira:
 
-- Na aba **Tables**, `rede-corporativa` aparece com 3 entradas.
-- Na aba **Policies**, `contexto-de-ativo` aparece como **active**, com 1 regra.
+- Na aba **Tabelas**, `rede-corporativa` aparece com 3 entradas.
+- Na aba **Políticas**, `contexto-de-ativo` aparece como **active**, com 1 regra.
 
 ![Tabela publicada e política ativa](/img/console/console-enriquecimento-politicas.png)
 
@@ -364,13 +420,31 @@ Duas diferenças importantes a considerar antes de usar uma fonte externa:
 
 ### A política não faz nada depois de habilitada
 
-**Causa mais provável**: a política foi habilitada sem nenhuma versão publicada, ou a tabela referenciada por uma regra não existe (ou não tem versão publicada).
+Abra a aba **Execução** e olhe **Consultas** primeiro. O que você vê ali separa os dois casos:
 
-**Como conferir**: `GET /collectors/enrichment/policies/{id}`, se `current_version_id` estiver vazio, publique uma versão (passo 5). Confira também a tabela: se aparecer o selo **no published version** na aba **Tables**, volte ao passo 3.
+| O que aparece | O que é | O que fazer |
+|---|---|---|
+| Nada registrado | Nenhum ciclo rodou com a política ativa, ou `ENRICHMENT_ENABLED` está desligada | Confira a flag mestra, se há integração coletando, e se a política está habilitada |
+| Consulta com erro (`401`, DNS, timeout) | Credencial ou rede | Corrija a fonte na aba **Fontes** e use **Testar conexão** |
+| Consulta OK, regra em "Não disparou" | O gate nunca passou, ou o campo da chave nunca existiu no evento | Revise **Quando aplicar** (a tag que ela espera pode nunca ser escrita, e um gate com campo ou lista vazia nunca casa) e confira **Origem da chave** contra um evento real no dry-run |
+| Consulta OK, acerto em 0% | A chave existe mas não casa com o conteúdo da tabela | Compare o valor real do campo com as chaves publicadas na tabela |
+| Badge "sem resposta" na regra | A consulta não respondeu: credencial, rede, orçamento ou cache remoto ausente | Veja o motivo em **Consultas**; o percentual de acerto está diluído e não indica problema de dado |
+
+Se a aba estiver totalmente vazia: a política pode ter sido habilitada sem nenhuma versão publicada, ou a tabela referenciada por uma regra não existe. Confira com `GET /api/collectors/enrichment/policies/{id}`, se `current_version_id` estiver vazio, publique uma versão (passo 5); e se aparecer o selo **sem versão publicada** na aba **Tabelas**, volte ao passo 3.
+
+### Regras sumiram depois que publiquei
+
+Publicar substitui a lista inteira de regras da política, não faz merge. Se o editor tinha menos regras que a versão anterior, a versão nova ficou com menos regras.
+
+Recupere pelo histórico: **Carregar no editor** na versão que estava certa, confira as regras e publique de novo. Nenhuma versão antiga é apagada, então nada foi perdido de verdade.
+
+### A consulta funciona mas o acerto caiu
+
+Consulta respondendo e acerto em queda é problema de **dado**, não de credencial: o formato do campo na origem provavelmente mudou. Rode o dry-run com um evento recente e compare o valor real do campo em **Origem da chave** com o que existe como chave na tabela.
 
 ### Publicar a versão da política dá 422 "tabela inexistente"
 
-A regra referencia, em `table`, um nome que não existe **nesta organização**. Tabelas não são compartilhadas entre organizações, confira o nome exato na aba **Tables** ou via `GET /collectors/enrichment/tables`.
+A regra referencia, em `table`, um nome que não existe **nesta organização**. Tabelas não são compartilhadas entre organizações, confira o nome exato na aba **Tabelas** ou via `GET /api/collectors/enrichment/tables`.
 
 ### Não consigo apagar uma tabela
 

@@ -29,9 +29,10 @@ subárvore.
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from fastapi import APIRouter, Depends, Query, status
 from pydantic import BaseModel, Field
@@ -1150,9 +1151,75 @@ def list_policy_versions(
             author_user_id=v.author_user_id,
             created_at=v.created_at.isoformat() if v.created_at else None,
             is_current=(str(v.id) == str(row.current_version_id)),
+            summary=_safe_summary(v.rules),
         )
         for v in versions
     ]
+
+
+def _safe_summary(raw: Any) -> Optional[Dict[str, Any]]:
+    """Resumo de uma versão, ou ``None`` se ela não compilar mais.
+
+    Fail-open **só aqui**. Uma versão antiga pode citar um enricher que saiu do
+    catálogo, ou um vocabulário que mudou entre releases; recompilá-la para
+    montar o histórico faria uma release nova apagar a lista de versões de quem
+    tem política velha. O commit continua fail-closed: lá, regra que não compila
+    é 422 e não entra.
+    """
+    try:
+        doc = json.loads(raw or "{}")
+        return describe_policy(compile_policy(doc))
+    except Exception:  # noqa: BLE001
+        return None
+
+
+@router.get("/policies/{policy_id}/versions/{version_id}")
+def get_policy_version(
+    policy_id: str,
+    version_id: str,
+    user: models.AppUser = Depends(app_auth.require_admin_user),
+    db: Session = Depends(_db),
+) -> Dict[str, Any]:
+    """Regras CRUAS de uma versão, para carregar no editor.
+
+    Existe porque o ``summary`` NÃO serve para editar: ele achata cada output em
+    ``targets`` (perde o ``from``) e nem sequer carrega o ``when``. Editar a
+    partir dele publicaria uma versão sem a condição que estava lá.
+
+    Devolve o documento como foi gravado, sem recompilar, para que o editor
+    receba exatamente o que o autor escreveu.
+    """
+    policy = _assert_visible(db.get(models.EnrichmentPolicy, policy_id), user, "policy")
+    version = (
+        db.query(models.EnrichmentPolicyVersion)
+        .filter(
+            models.EnrichmentPolicyVersion.id == version_id,
+            # Filtro duplo: sem o `policy_id` o id da versão viraria IDOR entre
+            # políticas (e entre orgs, já que a visibilidade foi checada na política).
+            models.EnrichmentPolicyVersion.policy_id == policy.id,
+        )
+        .first()
+    )
+    if version is None:
+        raise ApiError(
+            "enrichment.version_not_found",
+            status.HTTP_404_NOT_FOUND,
+            messages={
+                "pt": "Versão não encontrada nesta política.",
+                "en": "Version not found in this policy.",
+                "es": "Versión no encontrada en esta política.",
+            },
+        )
+    try:
+        doc = json.loads(version.rules or "{}")
+    except json.JSONDecodeError as exc:
+        raise _bad_request("enrichment.version_corrupt", f"versão ilegível: {exc}") from exc
+    rules = doc.get("enrichment", doc) if isinstance(doc, dict) else doc
+    return {
+        "id": str(version.id),
+        "version_number": int(version.version_number),
+        "rules": rules if isinstance(rules, list) else [],
+    }
 
 
 @router.post("/policies/{policy_id}/rollback", response_model=PolicyRead)
@@ -1220,3 +1287,199 @@ def dry_run(
         errors=dict(stats.errors),
         bytes_added=max(after - before, 0),
     )
+
+
+# ── observabilidade: "esse enriquecimento está funcionando?" ────────────────
+#
+# Duas superfícies, com origens e cardinalidades diferentes de propósito:
+#
+# - ``/metrics``  = contadores agregados POR REGRA (hit/miss/skipped/error),
+#   escritos 1×/ciclo por ``runtime.emit_apply_stats``. Responde "a regra ainda
+#   casa?" — regra que passa de 90% de hit para 0% mudou de schema na origem.
+# - ``/activity`` = ring das últimas TENTATIVAS DE CONSULTA, escrito por
+#   ``enrich.activity``. Responde "por que parou?" — traz o 401, o DNS, a
+#   coleção TAXII vazia. Um registro por ciclo (tabela) ou por lote (remoto),
+#   nunca por evento.
+#
+# Separar as duas é o que evita a leitura errada mais comum: hit em queda com
+# consulta OK é problema de dado; consulta falhando é problema de credencial ou
+# de rede, e a ação do operador é outra.
+
+
+class RuleMetrics(BaseModel):
+    rule_id: str
+    enricher: Optional[str] = None
+    source: Optional[str] = None
+    hit: float = 0.0
+    miss: float = 0.0
+    skipped: float = 0.0
+    error: float = 0.0
+
+
+class EnrichmentMetricsResponse(BaseModel):
+    organization_id: int
+    range_minutes: int
+    #: Política efetivamente aplicada. ``None`` = nenhuma habilitada com versão.
+    policy_name: Optional[str] = None
+    rules: List[RuleMetrics]
+
+
+class ActivityEntry(BaseModel):
+    ts: float
+    kind: str
+    ok: bool
+    rule_id: Optional[str] = None
+    enricher: Optional[str] = None
+    source: Optional[str] = None
+    reason: Optional[str] = None
+    detail: Optional[str] = None
+    keys: Optional[int] = None
+    entries: Optional[int] = None
+    latency_ms: Optional[float] = None
+
+
+class EnrichmentActivityResponse(BaseModel):
+    organization_id: int
+    entries: List[ActivityEntry]
+
+
+def _rules_of_org(db: Session, org_id: int) -> Tuple[Optional[str], List[Dict[str, Any]]]:
+    """Regras da política que o worker DE FATO aplica nesta org.
+
+    Espelha ``runtime.load_policy_for_org`` (``runtime.py:718``), que pega a
+    PRIMEIRA política habilitada por ordem de criação e ignora as demais. Listar
+    todas as políticas aqui produziria duas mentiras de uma vez: regras que nunca
+    rodam apareceriam com números, e o ``rule_id`` só é único DENTRO de uma
+    versão (``dsl.py:307``), então duas políticas com ``regra-1`` leriam o mesmo
+    contador e mostrariam o resultado uma da outra.
+
+    Devolve ``(nome da política, regras)``. O nome vai para a UI porque "só a
+    primeira política habilitada vale" é a regra menos óbvia desta feature.
+    """
+    policy = (
+        db.query(models.EnrichmentPolicy)
+        .filter(
+            models.EnrichmentPolicy.organization_id == org_id,
+            models.EnrichmentPolicy.enabled.is_(True),
+        )
+        .order_by(models.EnrichmentPolicy.created_at.asc())
+        .first()
+    )
+    if policy is None or not policy.current_version_id:
+        return None, []
+
+    ver = (
+        db.query(models.EnrichmentPolicyVersion)
+        .filter(models.EnrichmentPolicyVersion.id == policy.current_version_id)
+        .first()
+    )
+    if ver is None:
+        return policy.name, []
+
+    try:
+        compiled = compile_policy(json.loads(ver.rules or "{}"))
+    except Exception:  # noqa: BLE001 — versão que não compila mais não derruba o painel
+        return policy.name, []
+
+    return policy.name, [
+        {
+            "rule_id": rule.rule_id,
+            "enricher": rule.enricher,
+            "source": getattr(rule, "source", None),
+        }
+        for rule in compiled.rules
+    ]
+
+
+@router.get("/metrics", response_model=EnrichmentMetricsResponse)
+async def enrichment_metrics(
+    organization_id: Optional[int] = Query(default=None),
+    range_minutes: int = Query(default=60, ge=5, le=180),
+    user: models.AppUser = Depends(app_auth.require_admin_user),
+    db: Session = Depends(_db),
+) -> EnrichmentMetricsResponse:
+    """Contadores por regra na janela. Escopado à org, como todo o resto aqui.
+
+    O teto de 180 minutos não é arbitrário: o ``observability_store`` guarda as
+    séries por 3 horas (``_TTL_SECONDS``). Aceitar uma janela maior devolveria
+    zero para a parte já expirada, indistinguível de "a regra não disparou".
+    """
+    org_id = _resolve_target_org(user, organization_id)
+    policy_name, rules = _rules_of_org(db, org_id)
+    if not rules:
+        return EnrichmentMetricsResponse(
+            organization_id=org_id,
+            range_minutes=range_minutes,
+            policy_name=policy_name,
+            rules=[],
+        )
+
+    from ..collectors import observability_store as obs
+
+    def _read() -> List[RuleMetrics]:
+        rows: List[RuleMetrics] = []
+        for meta in rules:
+            oid = f"{org_id}:{meta['rule_id']}"
+            rows.append(
+                RuleMetrics(
+                    rule_id=meta["rule_id"],
+                    enricher=meta["enricher"],
+                    source=meta["source"],
+                    **{
+                        outcome: obs.read_window_total(
+                            "enrich", oid, outcome, minutes=range_minutes
+                        )
+                        for outcome in ("hit", "miss", "skipped", "error")
+                    },
+                )
+            )
+        return rows
+
+    # O cliente do store é síncrono e são 4 leituras por regra; numa org com
+    # dezenas de regras isso seguraria o event loop por vários round-trips.
+    return EnrichmentMetricsResponse(
+        organization_id=org_id,
+        range_minutes=range_minutes,
+        policy_name=policy_name,
+        rules=await asyncio.to_thread(_read),
+    )
+
+
+@router.get("/activity", response_model=EnrichmentActivityResponse)
+async def enrichment_activity(
+    organization_id: Optional[int] = Query(default=None),
+    limit: int = Query(default=100, ge=1, le=200),
+    kind: Optional[str] = Query(default=None),
+    only_failures: bool = Query(default=False),
+    user: models.AppUser = Depends(app_auth.require_admin_user),
+    db: Session = Depends(_db),
+) -> EnrichmentActivityResponse:
+    """Últimas tentativas de consulta, mais recente primeiro.
+
+    Filtra em memória, não no Redis: o ring tem 200 posições e uma lista dessas
+    não justifica índice. Filtrar na leitura também mantém ``only_failures``
+    honesto — ele nunca esconde uma falha que ficou fora de um índice parcial.
+    """
+    org_id = _resolve_target_org(user, organization_id)
+
+    from ..collectors.enrich import activity as enrich_activity
+
+    entries = await asyncio.to_thread(enrich_activity.read_recent, org_id, limit)
+    if kind:
+        entries = [e for e in entries if e.get("kind") == kind]
+    if only_failures:
+        entries = [e for e in entries if not e.get("ok")]
+
+    # Uma entrada por vez: schema do ring pode evoluir, e uma linha antiga sem
+    # campo obrigatório não pode derrubar a aba inteira. Mesma filosofia do
+    # resto do módulo: observabilidade nunca derruba o que observa.
+    parsed: List[ActivityEntry] = []
+    for e in entries:
+        if not isinstance(e, dict):
+            continue
+        try:
+            parsed.append(ActivityEntry(**e))
+        except Exception:  # noqa: BLE001
+            logger.debug("enrichment.activity: entrada ilegível descartada", exc_info=True)
+
+    return EnrichmentActivityResponse(organization_id=org_id, entries=parsed)

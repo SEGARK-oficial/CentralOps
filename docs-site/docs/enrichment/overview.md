@@ -33,7 +33,7 @@ Nem todo enriquecimento acontece na mesma hora. Isso importa porque muda **o que
 | Exemplos | Tabelas do cliente, OpenCTI | VirusTotal |
 | Por quê | A fonte já está toda carregada em memória, não precisa esperar rede | A fonte exige uma chamada de rede por indicador, e isso não pode acontecer um a um sem travar o pipeline inteiro |
 
-Na tela de catálogo, cada card mostra o selo **per event** ou **per batch**, é essa a diferença que ele indica.
+Na tela de catálogo, cada card diz **por evento** ou **por lote** no começo da descrição, é essa a diferença que isso indica.
 
 Na prática: se você quer que uma regra de detecção reaja a "esse IP é reconhecidamente malicioso", o enricher precisa ser dos que rodam **por evento**. Um enricher **por lote** ainda enriquece o evento antes dele chegar ao destino, só não chega a tempo de influenciar a detecção que rodou dentro do próprio pipeline.
 
@@ -51,9 +51,9 @@ Cada card do catálogo mostra um selo de egresso:
 
 | Selo | Significado |
 |---|---|
-| 🔒 **no egress** | Não faz nenhuma chamada externa, tabelas do cliente |
-| 🔒 **internal** | Consulta um serviço, mas é **seu** (ex.: sua própria instância OpenCTI), nada sai para fora da sua infraestrutura |
-| 🌐 **sends to third party** | Envia o indicador a um serviço de **terceiro** (ex.: VirusTotal) |
+| **sem egresso** | Não faz nenhuma chamada externa, tabelas do cliente |
+| **interno** | Consulta um serviço, mas é **seu** (ex.: sua própria instância OpenCTI), nada sai para fora da sua infraestrutura |
+| **envia a terceiro** | Envia o indicador a um serviço de **terceiro** (ex.: VirusTotal) |
 
 :::caution[Trate o selo de egresso como decisão de privacidade, não como detalhe técnico]
 Antes de habilitar uma regra que usa um enricher com egresso a terceiro, confirme que sua organização pode enviar aquele tipo de indicador para fora, em alguns ambientes (dados de cliente sob NDA, setores regulados) isso pode não ser aceitável. O aviso aparece destacado no topo do catálogo sempre que há pelo menos uma fonte assim.
@@ -69,17 +69,19 @@ Duas saídas: usar um token de **escopo global**, ou a edição Enterprise, que 
 
 ## As telas do console
 
-O console tem quatro abas em **Enriquece → Enrichment**:
+O console tem cinco abas em **Enriquece → Enriquecimento**:
 
-- **Catalog**, todas as fontes de enriquecimento disponíveis, com modo (por evento/por lote), tipos de chave que aceita e selo de egresso. Clicar num card já abre o cadastro de fonte com o enricher escolhido.
-- **Sources**, as fontes configuradas: a instância de um enricher nesta organização, com o endereço e a credencial. Enrichers que exigem credencial (OpenCTI, VirusTotal) precisam de uma fonte antes de aparecerem numa regra. O botão **Testar** consulta o serviço de verdade e devolve o erro real do provedor, sem publicar nada.
-- **Tables**, as tabelas que sua organização já criou, com quantidade de entradas e tamanho. O botão **New table** cria uma tabela, e cada card abre o histórico de versões, publicar dados novos ou reverter para uma versão anterior é tudo formulário, sem precisar de API.
+- **Catálogo**, todas as fontes de enriquecimento disponíveis, com modo (por evento/por lote), tipos de chave que aceita e selo de egresso. Clicar num card já abre o cadastro de fonte com o enricher escolhido.
+- **Fontes**, as fontes configuradas: a instância de um enricher nesta organização, com o endereço e a credencial. Enrichers que exigem credencial (OpenCTI, VirusTotal) precisam de uma fonte antes de aparecerem numa regra. O botão **Testar** consulta o serviço de verdade e devolve o erro real do provedor, sem publicar nada.
+- **Tabelas**, as tabelas que sua organização já criou, com quantidade de entradas e tamanho. O botão **Nova tabela** cria uma tabela, e cada card abre o histórico de versões, publicar dados novos ou reverter para uma versão anterior é tudo formulário, sem precisar de API.
 
   ![Tabelas de enriquecimento da organização](/img/console/console-enriquecimento-tabelas.png)
 
-- **Policies**, as políticas já criadas, se estão ativas e quantas regras têm. O botão **New policy** cria uma política, e cada card abre o editor de regras, escrever regras, testar com dry-run e habilitar são passos do mesmo modal.
+- **Políticas**, as políticas já criadas, se estão ativas e quantas regras têm. O botão **Nova política** cria uma política, e cada card abre o editor de regras, escrever regras, testar com dry-run e habilitar são passos do mesmo modal. O editor abre já com as regras da versão vigente, porque publicar substitui a lista inteira, não faz merge.
 
   ![Políticas de enriquecimento](/img/console/console-enriquecimento-politicas.png)
+
+- **Execução**, para responder "isso está funcionando?". Mostra qual política está de fato valendo (o worker aplica uma por organização, a mais antiga habilitada). Lista cada tentativa de consulta com a mensagem do provedor quando falha, e o aproveitamento de cada regra na janela. As duas leituras juntas distinguem problema de credencial (a consulta falha) de problema de dado (a consulta funciona e o acerto cai), que pedem ações opostas.
 
 O guia [Como enriquecer um evento](./how-to-enrich.md) mostra o passo a passo completo pelo console, com a API REST como alternativa para automação e scripts.
 

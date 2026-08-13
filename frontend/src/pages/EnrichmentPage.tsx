@@ -19,6 +19,7 @@ import { SkeletonCard } from "@/components/ui/Skeleton"
 import { ErrorState } from "@/components/ui/ErrorState"
 import { Notice } from "@/components/ui/Notice/Notice"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/Tabs/Tabs"
+import { ExecutionPanel } from "@/components/enrichment/ExecutionPanel"
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog/ConfirmDialog"
 import { CreateTableModal } from "@/components/enrichment/CreateTableModal"
 import { TableVersionsModal } from "@/components/enrichment/TableVersionsModal"
@@ -67,8 +68,8 @@ function fmtBytes(n: number): string {
 
 export function EnrichmentPage(): React.ReactElement {
   const { t } = useTranslation("enrichment")
-  const { organizations } = usePlatform()
-  const [tab, setTab] = useState<"catalog" | "sources" | "tables" | "policies">("catalog")
+  const { organizations, selectedOrgId } = usePlatform()
+  const [tab, setTab] = useState<"catalog" | "sources" | "tables" | "policies" | "execution">("catalog")
   const [enrichers, setEnrichers] = useState<Enricher[]>([])
   const [tables, setTables] = useState<EnrichTable[]>([])
   const [policies, setPolicies] = useState<EnrichPolicy[]>([])
@@ -128,7 +129,11 @@ export function EnrichmentPage(): React.ReactElement {
         .map((e) => ({
           id: e.name,
           label: e.label,
-          description: e.description,
+          // O modo entra na descrição, não em badge: o tile só tem um badge e
+          // ele é do egresso. Ainda assim precisa aparecer na ESCOLHA, porque
+          // enricher por lote não alimenta a detecção em voo e tem orçamento
+          // de tempo por lote, o que muda o que se pode esperar dele.
+          description: `${t(`catalog.mode.${e.mode}`)} · ${e.description}`,
           category: e.category,
           icon: <SparklesIcon size={18} className="text-stage-enrich" aria-hidden />,
           // O selo de egresso vira badge do tile: é consentimento de privacidade
@@ -235,6 +240,9 @@ export function EnrichmentPage(): React.ReactElement {
               <TabsTrigger value="policies">
                 {t("tabs.policies", { count: policies.length })}
               </TabsTrigger>
+              {/* Última aba porque é onde se volta DEPOIS de configurar, para
+                  conferir se a consulta está de pé. */}
+              <TabsTrigger value="execution">{t("tabs.execution")}</TabsTrigger>
             </TabsList>
           </Tabs>
 
@@ -434,6 +442,8 @@ export function EnrichmentPage(): React.ReactElement {
                 ))}
               </div>
             )
+          ) : tab === "execution" ? (
+            <ExecutionPanel organizations={organizations} selectedOrgId={selectedOrgId} />
           ) : policies.length === 0 ? (
             <EmptyState
               icon={<SparklesIcon size={28} aria-hidden />}

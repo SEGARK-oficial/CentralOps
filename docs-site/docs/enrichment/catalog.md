@@ -6,7 +6,7 @@ description: O que cada fonte de enriquecimento faz, que campos devolve, e o que
 
 # Catálogo de fontes
 
-Esta página descreve as cinco fontes de enriquecimento disponíveis hoje. A lista **não é fixa no código do console**, a tela em **Enriquece → Enrichment → Catalog** sempre reflete exatamente o que a sua instalação tem registrado, então use `GET /collectors/enrichment/enrichers` (ou a própria tela) como fonte da verdade se este texto ficar desatualizado.
+Esta página descreve as cinco fontes de enriquecimento disponíveis hoje. A lista **não é fixa no código do console**, a tela em **Enriquece → Enriquecimento → Catálogo** sempre reflete exatamente o que a sua instalação tem registrado, então use `GET /api/collectors/enrichment/enrichers` (ou a própria tela) como fonte da verdade se este texto ficar desatualizado.
 
 ## Tabela do cliente (chave exata), `table_exact`
 
