@@ -1,0 +1,80 @@
+name: workflows guard
+
+# Um workflow com YAML inválido falha de um jeito que ninguém vê: o GitHub
+# aborta o run na largada, com ZERO jobs e ZERO log. Na lista de Actions aparece
+# um X vermelho igual a qualquer outro, e `gh run view` não tem o que mostrar.
+#
+# Foi assim que o ci.yml — que é o gate de Cython, unit sweep, migração Postgres,
+# E2E e a publicação da imagem `latest` — ficou três semanas sem rodar uma única
+# vez sem que nada acusasse. Uma continuação de linha com `\` na coluna 1 dentro
+# de um `run: |` encerrou o bloco literal e invalidou o arquivo.
+#
+# Um workflow quebrado não consegue se validar (ele não roda). Então esta
+# checagem precisa morar FORA do ci.yml, e é por isso que ela é um guard próprio.
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/**"
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/**"
+  workflow_dispatch:
+
+concurrency:
+  group: workflows-guard-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  parse:
+    name: Todo workflow é YAML válido e tem jobs
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - name: Parse de todo .github/workflows/*.yml
+        run: |
+          python3 - <<'EOF'
+          import pathlib
+          import sys
+
+          import yaml
+
+          falhas = []
+          arquivos = sorted(
+              p
+              for p in pathlib.Path(".github/workflows").iterdir()
+              if p.suffix in (".yml", ".yaml")
+          )
+          if not arquivos:
+              print("::error::Nenhum workflow encontrado. O caminho mudou?")
+              sys.exit(1)
+
+          for caminho in arquivos:
+              try:
+                  doc = yaml.safe_load(caminho.read_text(encoding="utf-8"))
+              except yaml.YAMLError as exc:
+                  falhas.append(f"{caminho}: YAML inválido -> {exc}")
+                  continue
+              if not isinstance(doc, dict):
+                  falhas.append(f"{caminho}: não é um mapa no topo")
+                  continue
+              # `on:` sem aspas é o booleano True em YAML 1.1, que é como o
+              # PyYAML lê. O GitHub aceita as duas formas, então aceitamos também.
+              if "on" not in doc and True not in doc:
+                  falhas.append(f"{caminho}: sem gatilho `on:`")
+              jobs = doc.get("jobs")
+              # Arquivo que parseia mas não declara job nenhum roda vazio e
+              # reporta verde: o mesmo verde-sem-conteúdo que os guards existem
+              # para recusar.
+              if not isinstance(jobs, dict) or not jobs:
+                  falhas.append(f"{caminho}: sem jobs")
+                  continue
+              print(f"  ok  {caminho.name}  ({len(jobs)} job(s))")
+
+          if falhas:
+              for f in falhas:
+                  print(f"::error::{f}")
+              sys.exit(1)
+          print(f"\n{len(arquivos)} workflows válidos.")
+          EOF
