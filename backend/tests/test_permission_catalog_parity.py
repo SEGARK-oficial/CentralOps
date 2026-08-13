@@ -100,3 +100,85 @@ def test_matrix_endpoint_serves_the_same_permissions() -> None:
     # admin tem todas por construção (`{p for p in Permission}`), então a união
     # das roles é exatamente o enum.
     assert {str(p) for p in served} == _backend_permissions()
+
+
+# ── o eixo das permissões de operação ───────────────────────────────────────
+#
+# Estes travam a intenção, não a implementação: se alguém repontar um endpoint
+# de leitura de volta para ``user.manage``, o monitor read-only volta a exigir
+# um token capaz de administrar contas — que é o defeito que estas permissões
+# existem para corrigir.
+
+
+def test_monitoramento_readonly_nao_exige_gerenciar_usuarios() -> None:
+    """Um perfil de leitura enxerga a ENTREGA sem poder mexer em usuários.
+
+    Era o caso do template de Zabbix: para ler contagem de DLQ e estado de
+    breaker, o token precisava de ``user.manage``. O repo de observabilidade
+    chegou a dividir em dois templates por causa disso.
+    """
+    viewer = app_auth.ROLE_PERMISSIONS["viewer"]
+
+    assert app_auth.Permission.DESTINATION_READ in viewer
+    assert app_auth.Permission.ROUTE_READ in viewer
+    # E continua sem NENHUM poder de escrita ou de administração.
+    assert app_auth.Permission.USER_MANAGE not in viewer
+    assert app_auth.Permission.INTEGRATION_WRITE not in viewer
+    assert app_auth.Permission.SECRET_READ not in viewer
+
+
+def test_reset_de_coletor_nao_exige_gerenciar_usuarios() -> None:
+    """Destravar coletor é trabalho de operator, não de quem administra contas."""
+    operator = app_auth.ROLE_PERMISSIONS["operator"]
+
+    assert app_auth.Permission.INTEGRATION_RESET in operator
+    assert app_auth.Permission.USER_MANAGE not in operator
+
+
+def test_viewer_nao_reseta_coletor() -> None:
+    """Reset re-coleta e gera duplicidade temporária: não é leitura."""
+    assert app_auth.Permission.INTEGRATION_RESET not in app_auth.ROLE_PERMISSIONS["viewer"]
+
+
+@pytest.mark.parametrize(
+    "router_name, read_perm, escrita_sensivel",
+    [
+        ("destinations", "DESTINATION_READ", ("tap", "credential", "dlq/reprocess")),
+        ("routes", "ROUTE_READ", ("dry-run", "reorder", "rollback")),
+    ],
+)
+def test_apenas_leitura_foi_afrouxada(
+    router_name: str, read_perm: str, escrita_sensivel: tuple[str, ...]
+) -> None:
+    """Nenhum POST/PUT/DELETE caiu para a permissão de leitura.
+
+    O risco de um repoint em massa é levar junto uma escrita. Este teste lê o
+    router e falha se qualquer verbo mutante estiver atrás da permissão de
+    leitura, ou se o data-tap (que mostra payload de evento de CLIENTE) sair
+    de ``user.manage``.
+    """
+    src = (_REPO / "backend" / "app" / "routers" / f"{router_name}.py").read_text(
+        encoding="utf-8"
+    ).split("\n")
+
+    infratores: list[str] = []
+    for i, line in enumerate(src):
+        m = re.match(r'@router\.(post|put|patch|delete)\("([^"]*)"', line.strip())
+        if not m:
+            continue
+        trecho = "\n".join(src[i : i + 25])
+        if f"Permission.{read_perm}" in trecho:
+            infratores.append(f"{m.group(1).upper()} {m.group(2)}")
+
+    assert not infratores, (
+        f"Verbos mutantes atrás de {read_perm} em {router_name}.py: {infratores}. "
+        "Leitura afrouxada não pode arrastar escrita junto."
+    )
+
+    # O tap e as operações de credencial precisam continuar acima da leitura.
+    for i, line in enumerate(src):
+        if any(alvo in line for alvo in escrita_sensivel) and line.strip().startswith("@router"):
+            trecho = "\n".join(src[i : i + 25])
+            assert f"Permission.{read_perm}" not in trecho, (
+                f"{line.strip()} não pode estar em {read_perm}."
+            )

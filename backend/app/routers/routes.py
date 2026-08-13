@@ -234,7 +234,7 @@ def list_routes(
     include_disabled: bool = Query(default=True),
     offset: int = Query(default=0, ge=0),
     limit: int = Query(default=200, ge=1, le=500),
-    user: models.AppUser = Depends(app_auth.require_admin_user),
+    user: models.AppUser = Depends(app_auth.require_permission(app_auth.Permission.ROUTE_READ)),
     repo: repository.RouteRepository = Depends(_get_repo),
 ) -> List[RouteRead]:
     is_global, caller_org = _resolve_scope(user)
@@ -324,7 +324,7 @@ def create_route(
 
 @router.get("/topology", response_model=RoutingTopologyResponse)
 async def routing_topology(
-    user: models.AppUser = Depends(app_auth.require_admin_user),
+    user: models.AppUser = Depends(app_auth.require_permission(app_auth.Permission.ROUTE_READ)),
     repo: repository.RouteRepository = Depends(_get_repo),
     dest_repo: repository.DestinationRepository = Depends(_get_dest_repo),
 ) -> RoutingTopologyResponse:
@@ -431,7 +431,7 @@ def _pipeline_status_to_flow(status: str) -> str:
 
 @router.get("/flow", response_model=FlowGraphResponse)
 async def flow_graph(
-    user: models.AppUser = Depends(app_auth.require_admin_user),
+    user: models.AppUser = Depends(app_auth.require_permission(app_auth.Permission.ROUTE_READ)),
     repo: repository.RouteRepository = Depends(_get_repo),
     dest_repo: repository.DestinationRepository = Depends(_get_dest_repo),
     db: Session = Depends(database.get_session),
@@ -656,7 +656,7 @@ async def flow_graph(
 @router.get("/{route_id}", response_model=RouteRead)
 def get_route(
     route_id: str,
-    user: models.AppUser = Depends(app_auth.require_admin_user),
+    user: models.AppUser = Depends(app_auth.require_permission(app_auth.Permission.ROUTE_READ)),
     repo: repository.RouteRepository = Depends(_get_repo),
 ) -> RouteRead:
     row = _assert_visible(repo.get(route_id), user)
@@ -1139,7 +1139,7 @@ def rollback_route(
 async def route_metrics(
     route_id: str,
     range_minutes: int = Query(default=60, ge=5, le=1440),
-    user: models.AppUser = Depends(app_auth.require_admin_user),
+    user: models.AppUser = Depends(app_auth.require_permission(app_auth.Permission.ROUTE_READ)),
     repo: repository.RouteRepository = Depends(_get_repo),
 ) -> RouteMetricsResponse:
     """Per-route time-series (matched/route/drop events per minute) from the
@@ -1157,7 +1157,7 @@ async def route_metrics(
 @router.get("/{route_id}/health", response_model=RouteHealthResponse)
 async def route_health(
     route_id: str,
-    user: models.AppUser = Depends(app_auth.require_admin_user),
+    user: models.AppUser = Depends(app_auth.require_permission(app_auth.Permission.ROUTE_READ)),
     repo: repository.RouteRepository = Depends(_get_repo),
 ) -> RouteHealthResponse:
     """Per-route health (paridade rota↔destino): EPS de eventos
@@ -1195,7 +1195,7 @@ async def route_health(
 @router.get("/{route_id}/audit", response_model=List[RouteAuditRead])
 def route_audit(
     route_id: str,
-    user: models.AppUser = Depends(app_auth.require_admin_user),
+    user: models.AppUser = Depends(app_auth.require_permission(app_auth.Permission.ROUTE_READ)),
     repo: repository.RouteRepository = Depends(_get_repo),
 ) -> List[RouteAuditRead]:
     _assert_visible(repo.get(route_id), user)

@@ -443,6 +443,7 @@
   "permissions": {
     "categories": {
       "administration": "Administração",
+      "delivery": "Entrega",
       "detection": "Detecção e consultas",
       "integrations": "Integrações",
       "internal": "API interna",
@@ -452,12 +453,14 @@
     "descriptions": {
       "audit.read": "Ler o log de auditoria",
       "correlation.preview": "Testar regra de correlação contra amostras reais de evento",
+      "destination.read": "Ver destinos, saúde de entrega, DLQ e métricas (sem alterar)",
       "drift.delete": "Apagar entradas do inventário de drift",
       "drift.ignore": "Marcar um campo novo como ignorado de propósito",
       "drift.mark_mapped": "Marcar um campo novo como já mapeado",
       "drift.read": "Ver campos novos que a origem passou a enviar",
       "integration.pause": "Pausar e retomar a coleta de uma integração",
       "integration.read": "Ver integrações conectadas, saúde e capacidades",
+      "integration.reset": "Zerar o cursor de coleta para re-coletar do início da janela",
       "integration.write": "Criar, editar e remover integrações",
       "internal.tenant.read": "Consumir a API interna de tenants (integração máquina a máquina)",
       "mapping.read": "Ver mappings, versões e diffs entre elas",
@@ -468,6 +471,7 @@
       "quarantine.read": "Ver eventos que falharam na normalização",
       "query.run": "Executar consulta ao vivo na fonte do cliente (custa e toca o tenant)",
       "query.save": "Salvar consultas e agendá-las para rodar sozinhas",
+      "route.read": "Ver rotas, topologia e fluxo de entrega (sem alterar)",
       "secret.read": "Ver credenciais cifradas das integrações",
       "user.manage": "Criar, editar e desativar usuários e contas de serviço"
     }

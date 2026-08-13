@@ -443,6 +443,7 @@
   "permissions": {
     "categories": {
       "administration": "Administration",
+      "delivery": "Delivery",
       "detection": "Detection and queries",
       "integrations": "Integrations",
       "internal": "Internal API",
@@ -452,12 +453,14 @@
     "descriptions": {
       "audit.read": "Read the audit log",
       "correlation.preview": "Test a correlation rule against real event samples",
+      "destination.read": "View destinations, delivery health, DLQ and metrics (read-only)",
       "drift.delete": "Delete entries from the drift inventory",
       "drift.ignore": "Mark a new field as deliberately ignored",
       "drift.mark_mapped": "Mark a new field as already mapped",
       "drift.read": "View new fields the source started sending",
       "integration.pause": "Pause and resume collection for an integration",
       "integration.read": "View connected integrations, health and capabilities",
+      "integration.reset": "Reset the collection cursor to re-collect from the start of the window",
       "integration.write": "Create, edit and remove integrations",
       "internal.tenant.read": "Consume the internal tenants API (machine-to-machine)",
       "mapping.read": "View mappings, versions and diffs between them",
@@ -468,6 +471,7 @@
       "quarantine.read": "View events that failed normalization",
       "query.run": "Run a live query against the customer's source (costs money, touches the tenant)",
       "query.save": "Save queries and schedule them to run on their own",
+      "route.read": "View routes, topology and delivery flow (read-only)",
       "secret.read": "View encrypted integration credentials",
       "user.manage": "Create, edit and deactivate users and service accounts"
     }

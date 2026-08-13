@@ -1518,32 +1518,58 @@ class KeySourceSuggestionsResponse(BaseModel):
     suggestions: List[KeySourceSuggestion]
 
 
-#: Fallback quando a org ainda não conectou nada. São os caminhos OCSF que os
-#: enrichers deste produto sabem consumir (ver `key_kinds` no catálogo), não um
-#: dump do schema: sugerir um campo que nenhum enricher aceita como chave só
-#: adiciona ruído ao formulário.
+#: Fallback quando a org ainda não conectou nada.
+#:
+#: **Verificado contra os mappings que o produto entrega**, não escrito de
+#: memória do schema OCSF. A primeira versão desta lista tinha 8 de 16 caminhos
+#: que NENHUM mapping escreve (`file.hash.sha256`, `file.name`, `url.text`,
+#: `container.uid`...) — e o widget existe justamente para impedir que o
+#: operador escolha um caminho morto. Sugerir um caminho inexistente aqui é
+#: pior que não sugerir nada: vem com aparência de validado.
+#:
+#: O teste `test_fallback_so_tem_caminho_que_algum_mapping_escreve` compara
+#: esta lista com os `target` reais e falha se algum fantasma voltar.
 _COMMON_OCSF_KEY_PATHS: Tuple[str, ...] = (
+    # Rede
     "normalized.src_endpoint.ip",
     "normalized.dst_endpoint.ip",
     "normalized.device.ip",
-    "normalized.src_endpoint.hostname",
     "normalized.device.hostname",
-    "normalized.actor.user.name",
-    "normalized.actor.user.email_addr",
-    "normalized.user.name",
-    "normalized.file.hash.sha256",
-    "normalized.file.hash.md5",
-    "normalized.file.name",
-    "normalized.url.hostname",
-    "normalized.url.text",
+    "normalized.dst_endpoint.hostname",
     "normalized.device.mac",
-    "normalized.vulnerability.cve.uid",
-    "normalized.container.uid",
+    # Identidade
+    "normalized.actor.user.name",
+    "normalized.user.name",
+    "normalized.process.user.name",
+    "normalized.actor.user.uid",
+    # Arquivo e processo (o hash real é `process.file.hashes`, não `file.hash.*`)
+    "normalized.process.file.hashes",
+    "normalized.process.file.name",
+    "normalized.process.name",
+    # Web
+    "normalized.url.hostname",
+    "normalized.url.url",
+    # Ativo
+    "normalized.device.uid",
 )
 
 
+def _rule_can_be_key(rule: Dict[str, Any]) -> bool:
+    """Uma regra de mapping cujo alvo serve de CHAVE de enriquecimento?
+
+    Regra puramente CONSTANTE não serve: o valor é o mesmo em todo evento
+    daquele vendor, então casar por ele é casar tudo ou nada. É o caso do Base
+    Event obrigatório (``class_uid``, ``category_uid``, ``metadata.version``),
+    que TODO mapping escreve — e que, por isso mesmo, encabeçava a lista quando
+    a ordenação era só "quantos mappings escrevem".
+
+    Função nomeada em vez de condição inline porque é a invariante que o teste
+    trava; embutida no laço, uma remoção acidental passava despercebida.
+    """
+    return not ("const" in rule and not rule.get("source"))
+
+
 def _mapped_normalized_paths(db: Session, org_id: int) -> Dict[str, Dict[str, Any]]:
-    return {}  # MUTANT
     """Caminhos ``normalized.*`` que os mappings ATIVOS desta org escrevem.
 
     Espelha o gating de ``mappings.list_definitions`` (``only_active``): o
@@ -1593,10 +1619,37 @@ def _mapped_normalized_paths(db: Session, org_id: int) -> Dict[str, Dict[str, An
             target = rule.get("target")
             if not isinstance(target, str) or not target.startswith("normalized."):
                 continue
+            if not _rule_can_be_key(rule):
+                continue
             entry = found.setdefault(target, {"rule_count": 0, "vendors": set()})
             entry["rule_count"] += 1
             entry["vendors"].add(definition.vendor)
     return found
+
+
+#: Tokens que denunciam um campo IDENTIFICADOR — o que serve de chave. Derivado
+#: dos ``key_kinds`` que os enrichers aceitam (ip, domain, url, file_hash, cve,
+#: mac, user, container_id), não de gosto pessoal.
+_KEYISH_TOKENS: Tuple[str, ...] = (
+    "ip", "hostname", "mac", "hash", "uid", "user", "url", "domain",
+    "name", "cve", "email", "container",
+)
+
+
+def _key_relevance(path: str) -> int:
+    """Menor = mais provável de ser a chave. Usado só para ORDENAR a lista.
+
+    Ordenar por popularidade sozinha põe o Base Event no topo: o campo que
+    TODOS os mappings escrevem é justamente o metadado constante. Quem abre o
+    seletor quer `src_endpoint.ip`, não `category_uid`.
+    """
+    # `unmapped.*` PRIMEIRO: é o balde do que ninguém modelou. Um
+    # `unmapped.src_ip` até é um IP, mas perde para o `src_endpoint.ip`
+    # modelado — checar "parece chave" antes empataria os dois no topo.
+    if ".unmapped." in path:
+        return 2
+    folha = path.rsplit(".", 1)[-1].lower()
+    return 0 if any(tok in folha for tok in _KEYISH_TOKENS) else 1
 
 
 @router.get("/key-sources", response_model=KeySourceSuggestionsResponse)
@@ -1624,10 +1677,11 @@ def list_key_sources(
                     rule_count=int(meta["rule_count"]),
                     vendors=sorted(meta["vendors"]),
                 )
-                # Mais regras primeiro (campo mais popular do inventário real),
-                # empate resolvido alfabeticamente para a lista ser estável.
+                # Primeiro o que PARECE chave, depois o mais popular dentro
+                # dessa faixa, e alfabético no empate para a lista ser estável.
                 for path, meta in sorted(
-                    mapped.items(), key=lambda kv: (-kv[1]["rule_count"], kv[0])
+                    mapped.items(),
+                    key=lambda kv: (_key_relevance(kv[0]), -kv[1]["rule_count"], kv[0]),
                 )
             ],
         )

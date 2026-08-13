@@ -126,7 +126,12 @@ class _FakeUser:
 
 
 def _override_user_to_org(org_id: int) -> None:
-    app.dependency_overrides[app_auth.require_admin_user] = lambda: _FakeUser(org_id)
+    # `get_current_user` é a dependência RAIZ: `require_admin_user` e
+    # `require_permission(...)` os dois a consomem. Sobrescrever a raiz faz o
+    # usuário falso valer para qualquer guard, em vez de amarrar o teste a um
+    # guard específico — foi o que quebrou quando as leituras de destino/rota
+    # saíram de `user.manage` para `destination.read`/`route.read`.
+    app.dependency_overrides[app_auth.get_current_user] = lambda: _FakeUser(org_id)
 
 
 # ── shape & sanity ─────────────────────────────────────────
@@ -265,7 +270,7 @@ def test_flow_empty_org_returns_empty_subsystems(client_factory) -> None:
         for field in ("ingest_eps", "routed_per_min", "drop_per_min", "delivered_eps"):
             assert body["totals"][field] == 0.0
     finally:
-        app.dependency_overrides.pop(app_auth.require_admin_user, None)
+        app.dependency_overrides.pop(app_auth.get_current_user, None)
 
 
 # ── Org-scope ─────────────────────────────────────────────────────────
@@ -299,7 +304,7 @@ def test_flow_org_scoping(client_factory) -> None:
         assert ra in route_ids, "org A's route must be visible"
         assert rb not in route_ids, "org B's route must NOT leak into org A's flow"
     finally:
-        app.dependency_overrides.pop(app_auth.require_admin_user, None)
+        app.dependency_overrides.pop(app_auth.get_current_user, None)
 
 
 # ── Source fields ─────────────────────────────────────────────────────

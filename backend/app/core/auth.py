@@ -135,6 +135,28 @@ class Permission(StrEnum):
     # / INTEGRATION_WRITE. ACTION_BLOCK removido: response actions descontinuadas.
     QUERY_RUN = "query.run"
     QUERY_SAVE = "query.save"
+    # Leitura de ENTREGA (destinos e rotas). Existem porque, sem elas, ver
+    # contagem de DLQ ou estado de breaker exigia ``user.manage`` — a permissão
+    # de criar e remover USUÁRIOS. Um monitor externo (Zabbix, SNOC) que só
+    # queria saber se a entrega está de pé precisava de um token capaz de
+    # administrar contas, e o eixo estava errado: ler saúde de destino não tem
+    # relação nenhuma com gerenciar gente.
+    #
+    # Seguro afrouxar: ``DestinationRead`` omite ``secret_ref`` de propósito e
+    # expõe só ``has_secret``; credencial de destino vive no cofre
+    # (``registry.secret_ref``), nunca dentro de ``config``.
+    #
+    # A ESCRITA (criar, editar, apagar, rotacionar credencial, reprocessar DLQ)
+    # e o data-tap (``/{id}/tap``, que mostra payload de evento de cliente)
+    # seguem em ``user.manage``.
+    DESTINATION_READ = "destination.read"
+    ROUTE_READ = "route.read"
+    # Zerar o cursor de coleta. Era ``user.manage`` pelo mesmo erro de eixo:
+    # para destravar um coletor parado, o operador precisava poder apagar
+    # usuários. É operação de COLETOR, vizinha de ``integration.pause`` — que o
+    # operator já tem, e cujo raio de dano é maior (pausar interrompe o fluxo;
+    # resetar re-coleta e o dedupe absorve a duplicidade).
+    INTEGRATION_RESET = "integration.reset"
     # ADR-0015 Fase 3 — testar uma regra de correlação contra AMOSTRAS REAIS do
     # reservoir. Permissão PRÓPRIA, e não reuso de outra, por um motivo de
     # segurança: o preview toca payload de evento de cliente.
@@ -157,6 +179,11 @@ ROLE_PERMISSIONS: dict[str, frozenset[str]] = {
         Permission.QUARANTINE_READ,
         Permission.DRIFT_READ,
         Permission.AUDIT_READ,
+        # Observador puro enxerga a entrega ponta a ponta. É o papel do monitor
+        # externo e do analista que só acompanha: nenhuma escrita, nenhum
+        # payload de cliente.
+        Permission.DESTINATION_READ,
+        Permission.ROUTE_READ,
     }),
     UserRole.OPERATOR: frozenset({
         Permission.MAPPING_READ,
@@ -173,6 +200,11 @@ ROLE_PERMISSIONS: dict[str, frozenset[str]] = {
         # Operator (responder SOC) roda query/hunt ao vivo.
         # Salvar query e block (destrutivo) ficam acima (engineer/admin).
         Permission.QUERY_RUN,
+        Permission.DESTINATION_READ,
+        Permission.ROUTE_READ,
+        # Destravar coletor parado é exatamente o trabalho do responder de
+        # plantão, e ele já pode pausar/retomar a mesma integração.
+        Permission.INTEGRATION_RESET,
     }),
     UserRole.ENGINEER: frozenset({
         Permission.MAPPING_READ,
@@ -194,6 +226,9 @@ ROLE_PERMISSIONS: dict[str, frozenset[str]] = {
         # (destrutivo) segue só admin por padrão (concedível a operator via policy).
         Permission.QUERY_RUN,
         Permission.QUERY_SAVE,
+        Permission.DESTINATION_READ,
+        Permission.ROUTE_READ,
+        Permission.INTEGRATION_RESET,
     }),
     UserRole.ADMIN: frozenset({p for p in Permission}),
 }

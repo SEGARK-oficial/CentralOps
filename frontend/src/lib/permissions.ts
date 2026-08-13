@@ -19,6 +19,7 @@ export type PermissionCategory =
   | "integrations"
   | "mappings"
   | "quarantineDrift"
+  | "delivery"
   | "detection"
   | "administration"
   | "internal"
@@ -28,6 +29,7 @@ export const PERMISSION_CATEGORY_ORDER: PermissionCategory[] = [
   "integrations",
   "mappings",
   "quarantineDrift",
+  "delivery",
   "detection",
   "administration",
   "internal",
@@ -42,6 +44,7 @@ export const PERMISSION_CATALOG: Record<string, PermissionCategory> = {
   "integration.read": "integrations",
   "integration.write": "integrations",
   "integration.pause": "integrations",
+  "integration.reset": "integrations",
 
   "mapping.read": "mappings",
   "mapping.write": "mappings",
@@ -53,6 +56,9 @@ export const PERMISSION_CATALOG: Record<string, PermissionCategory> = {
   "drift.ignore": "quarantineDrift",
   "drift.mark_mapped": "quarantineDrift",
   "drift.delete": "quarantineDrift",
+
+  "destination.read": "delivery",
+  "route.read": "delivery",
 
   "query.run": "detection",
   "query.save": "detection",

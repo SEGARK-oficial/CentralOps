@@ -571,7 +571,9 @@ def test_key_sources_usa_catalogo_quando_org_nao_tem_integracao(client_factory) 
     # Só caminhos que ALGUM enricher aceita como chave — sugerir campo que
     # nenhum enricher consome só polui o formulário.
     assert "normalized.src_endpoint.ip" in paths
-    assert "normalized.file.hash.sha256" in paths
+    # O hash real dos mappings é `process.file.hashes`; `file.hash.sha256` não
+    # existe em nenhum deles (era um dos 8 fantasmas da primeira versão).
+    assert "normalized.process.file.hashes" in paths
     assert all(p.startswith("normalized.") for p in paths)
 
 
@@ -584,3 +586,94 @@ def test_key_sources_e_escopado_por_organizacao(client_factory) -> None:
     r = client.get(f"{_BASE}/key-sources", params={"organization_id": org_a})
     assert r.status_code == 200
     assert r.json()["organization_id"] == org_a
+
+
+def _targets_dos_mappings_shipped() -> set[str]:
+    """Todo ``normalized.*`` que os mappings entregues com o produto escrevem."""
+    import pathlib
+
+    base = pathlib.Path(__file__).resolve().parents[1] / "app" / "collectors" / "normalize" / "defaults"
+    alvos: set[str] = set()
+    for arquivo in base.glob("*.json"):
+        try:
+            doc = json.loads(arquivo.read_text(encoding="utf-8"))
+        except Exception:  # noqa: BLE001
+            continue
+        regras = doc.get("rules") if isinstance(doc, dict) else doc
+        if not isinstance(regras, list):
+            continue
+        for regra in regras:
+            if not isinstance(regra, dict):
+                continue
+            alvo = regra.get("target")
+            if isinstance(alvo, str) and alvo.startswith("normalized."):
+                alvos.add(alvo)
+    return alvos
+
+
+def test_fallback_so_tem_caminho_que_algum_mapping_escreve() -> None:
+    """O fallback não pode conter campo que nenhum evento vai ter.
+
+    A primeira versão desta lista tinha 8 de 16 caminhos inexistentes
+    (`file.hash.sha256`, `file.name`, `url.text`, `container.uid`...), escritos
+    de memória do schema OCSF em vez de verificados. Sugerir caminho morto é
+    pior que não sugerir: ele chega ao operador com aparência de validado, a
+    regra publica com 201 e nunca casa.
+    """
+    from backend.app.routers.enrichment import _COMMON_OCSF_KEY_PATHS
+
+    reais = _targets_dos_mappings_shipped()
+    assert reais, "nenhum mapping default encontrado — teste perdeu a referência"
+
+    fantasmas = sorted(p for p in _COMMON_OCSF_KEY_PATHS if p not in reais)
+    assert not fantasmas, (
+        f"Caminhos que nenhum mapping shipped escreve: {fantasmas}. "
+        "Verifique contra os `target` reais em normalize/defaults/."
+    )
+
+
+def test_sugestao_nao_encabeca_com_constante_do_base_event(client_factory) -> None:
+    """Campo constante não é chave: casa tudo ou nada.
+
+    Ordenar só por popularidade punha o Base Event no topo — `class_uid`,
+    `category_uid`, `metadata.version` são escritos por TODO mapping justamente
+    por serem obrigatórios e fixos. Quem abre o seletor quer `src_endpoint.ip`.
+    """
+    from backend.app.routers.enrichment import _key_relevance
+
+    # Identificadores vêm antes de qualquer metadado.
+    assert _key_relevance("normalized.src_endpoint.ip") < _key_relevance(
+        "normalized.metadata.version"
+    )
+    assert _key_relevance("normalized.process.file.hashes") < _key_relevance(
+        "normalized.severity"
+    )
+    # `unmapped.*` é o balde do que ninguém modelou: último lugar a procurar.
+    assert _key_relevance("normalized.unmapped.src_ip") > _key_relevance(
+        "normalized.src_endpoint.ip"
+    )
+
+
+def test_regra_constante_nao_entra_como_chave() -> None:
+    """Constante casa tudo ou nada, então não é chave.
+
+    Trava a exclusão em si, não a ordenação: sem ela, `class_uid` e
+    `metadata.version` voltam para a lista — e como todo mapping os escreve,
+    voltam para o TOPO dela.
+    """
+    from backend.app.routers.enrichment import _rule_can_be_key
+
+    # Base Event: valor fixo, escrito por todos os mappings.
+    assert not _rule_can_be_key({"target": "normalized.class_uid", "const": 2004})
+    assert not _rule_can_be_key(
+        {"target": "normalized.metadata.product.name", "const": "Okta"}
+    )
+    # Campo que vem do evento: serve.
+    assert _rule_can_be_key(
+        {"target": "normalized.src_endpoint.ip", "source": "data.srcip"}
+    )
+    # `const` como DEFAULT de um campo que também tem origem: continua servindo,
+    # porque o valor varia com o evento.
+    assert _rule_can_be_key(
+        {"target": "normalized.severity", "source": "data.sev", "const": "Unknown"}
+    )

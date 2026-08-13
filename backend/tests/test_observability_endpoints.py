@@ -124,15 +124,24 @@ class _FakeUser:
     ``has_global_scope`` returns False for role!=admin without is_global, so this
     drives the org-scope path at the endpoint layer (real admins are global)."""
 
-    def __init__(self, organization_id: int) -> None:
+    def __init__(self, organization_id: int, role: str = "operator") -> None:
         self.organization_id = organization_id
-        self.role = "operator"
+        # Papel configurável: leitura escopada é cenário de OPERATOR; recusar
+        # destino de outra org na ESCRITA é cenário de ADMIN-DE-ORG, que é quem
+        # pode escrever. Antes o override substituía o próprio `require_admin_user`,
+        # então o papel não importava — agora o guard roda de verdade.
+        self.role = role
         self.is_global = False
-        self.username = "scoped-operator"
+        self.username = f"scoped-{role}"
 
 
-def _override_user_to_org(org_id: int) -> None:
-    app.dependency_overrides[app_auth.require_admin_user] = lambda: _FakeUser(org_id)
+def _override_user_to_org(org_id: int, role: str = "operator") -> None:
+    # `get_current_user` é a dependência RAIZ: `require_admin_user` e
+    # `require_permission(...)` os dois a consomem. Sobrescrever a raiz faz o
+    # usuário falso valer para qualquer guard, em vez de amarrar o teste a um
+    # guard específico — foi o que quebrou quando as leituras de destino/rota
+    # saíram de `user.manage` para `destination.read`/`route.read`.
+    app.dependency_overrides[app_auth.get_current_user] = lambda: _FakeUser(org_id, role)
 
 
 # ── Entregável 1: batch destination health ────────────────────────────
@@ -227,7 +236,7 @@ def test_batch_health_org_scoping(client_factory) -> None:
         assert dg in ids, "global (NULL) destination must be visible"
         assert db_ not in ids, "org B's destination must NOT be visible to org A"
     finally:
-        app.dependency_overrides.pop(app_auth.require_admin_user, None)
+        app.dependency_overrides.pop(app_auth.get_current_user, None)
 
 
 # ── Entregável 2: routing topology ────────────────────────────────────
@@ -307,7 +316,7 @@ def test_topology_org_scoping(client_factory) -> None:
         assert db_ not in dest_ids, "org B's destination leaked into topology"
         assert rb not in route_ids, "org B's route leaked into topology"
     finally:
-        app.dependency_overrides.pop(app_auth.require_admin_user, None)
+        app.dependency_overrides.pop(app_auth.get_current_user, None)
 
 
 # ── Defesa-em-profundidade: rota não pode referenciar destino cross-org ──
@@ -337,7 +346,7 @@ def test_route_create_rejects_cross_org_destination(client_factory) -> None:
     assert rg.status_code == 201, rg.text
 
     try:
-        _override_user_to_org(org_a)
+        _override_user_to_org(org_a, role="admin")
         # Org A → destino da org B: 422 "not found" (sem revelar existência).
         r_bad = client.post(
             "/api/collectors/routes",
@@ -353,7 +362,7 @@ def test_route_create_rejects_cross_org_destination(client_factory) -> None:
         )
         assert r_ok.status_code == 201, r_ok.text
     finally:
-        app.dependency_overrides.pop(app_auth.require_admin_user, None)
+        app.dependency_overrides.pop(app_auth.get_current_user, None)
 
 
 def test_route_update_rejects_cross_org_destination(client_factory) -> None:
@@ -370,7 +379,7 @@ def test_route_update_rejects_cross_org_destination(client_factory) -> None:
     ra = _seed_route(client, name="A Upd Route", dest_id=da, organization_id=org_a)
 
     try:
-        _override_user_to_org(org_a)
+        _override_user_to_org(org_a, role="admin")
         r = client.put(
             f"/api/collectors/routes/{ra}",
             json={"destination_ids": [db_]},
@@ -379,4 +388,4 @@ def test_route_update_rejects_cross_org_destination(client_factory) -> None:
         assert r.json()["error"]["code"] == "route.destination_not_found"
         assert r.json()["error"]["details"]["destination_id"] == db_
     finally:
-        app.dependency_overrides.pop(app_auth.require_admin_user, None)
+        app.dependency_overrides.pop(app_auth.get_current_user, None)
