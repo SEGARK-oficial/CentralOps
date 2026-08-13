@@ -263,6 +263,22 @@ Um token de automação **nunca tem mais permissões do que o usuário que o cri
 
 Para criar e gerenciar tokens, acesse o menu **Administração → Contas de serviço**.
 
+## Posso criar papéis personalizados?
+
+Não, e na maioria dos casos você não precisa. Os quatro papéis são fixos, mas o controle fino existe em outra camada.
+
+**Para automação, use scopes de token.** Ao criar um token (de usuário ou de conta de serviço), escolha **Restringir a scopes específicos** e marque só o que aquela automação precisa. A permissão efetiva é a interseção entre o papel do dono e os scopes marcados, então um token de um Engineer pode ficar com um único scope, `quarantine.read`. Isso é mais granular do que qualquer papel personalizado seria: são 20 scopes combináveis livremente, por token, sem afetar mais ninguém.
+
+:::warning[Restringir sem marcar nada não restringe]
+Um token em modo restrito com zero scopes marcados equivale a herdar o papel inteiro. O console bloqueia esse envio justamente porque o resultado seria o oposto do pretendido.
+:::
+
+**Para separar clientes, use escopo de organização.** Um usuário escopado só enxerga a própria organização (e, no Enterprise, a subárvore dela). Isso já resolve o caso "esta pessoa só cuida do cliente X" sem inventar papel novo.
+
+**O que um papel personalizado resolveria** é um recorte de permissões que nenhum dos quatro papéis dá e que precise valer para uma PESSOA, de forma duradoura, em toda sessão dela. Por exemplo: "pode reverter mapping mas não editar". Hoje isso se aproxima escolhendo o papel imediatamente acima e auditando o uso.
+
+Papéis personalizados exigiriam tabela de papéis, tabela de junção com permissões, migração dos quatro atuais, e trocar a consulta em memória por consulta ao banco no caminho de toda requisição autenticada, além de refletir isso no mapeamento de papéis do SSO (`entra_role_map`). É mudança de arquitetura no núcleo de segurança, não configuração: se o seu caso não é coberto pelas duas alternativas acima, abra uma issue descrevendo o recorte que falta.
+
 ## Considerações de segurança
 
 - **Menor privilégio**: sempre atribua o menor papel que permita a pessoa fazer o trabalho dela.

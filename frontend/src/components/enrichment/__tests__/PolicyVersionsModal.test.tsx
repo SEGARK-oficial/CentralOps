@@ -111,6 +111,11 @@ beforeEach(() => {
   // O arquivo não tem `clearMocks` global: sem isto, `mock.calls[0]` de um
   // teste é a chamada de OUTRO, e as asserções passam ou falham por acidente.
   vi.clearAllMocks()
+  mockedApi.listEnrichmentKeySources.mockResolvedValue({
+    organization_id: 1,
+    from_active_mappings: false,
+    suggestions: [],
+  })
   mockedApi.getEnrichmentPolicyVersion.mockResolvedValue({
     id: "v2",
     version_number: 2,

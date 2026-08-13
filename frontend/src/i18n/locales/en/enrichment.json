@@ -168,7 +168,8 @@
         "emptySource": "Fill in the field path. Without it the condition compiles but never matches, and the rule vanishes from the panels as if no event had the field.",
         "emptyValues": "Add at least one value. An empty list compiles but never matches, so the rule never runs."
       },
-      "cannotChain": "This rule already has another condition. A gate has a single key, so chaining would erase the condition you wrote."
+      "cannotChain": "This rule already has another condition. A gate has a single key, so chaining would erase the condition you wrote.",
+      "keySourceHintMapped": "Suggestions come from the fields this organization's active mappings actually write. A path outside the list compiles but never matches."
     }
   },
   "errorTitle": "Failed to load enrichment",

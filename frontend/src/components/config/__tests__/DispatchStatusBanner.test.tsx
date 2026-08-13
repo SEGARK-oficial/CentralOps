@@ -101,7 +101,6 @@ function setupMocks(config: CollectorConfig) {
   mockedApi.getEmailConfig.mockResolvedValue(emailConfig)
   mockedApi.listEmails.mockResolvedValue([])
   mockedApi.getCollectorConfig.mockResolvedValue(config)
-  mockedApi.testCollectorConfig.mockResolvedValue({ mode: "syslog", results: [] })
   mockedApi.updateCollectorConfig.mockResolvedValue(config)
   mockedApi.listCollectorVendors.mockResolvedValue([])
   mockedApi.listDestinations.mockResolvedValue([])

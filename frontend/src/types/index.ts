@@ -1047,17 +1047,6 @@ export interface UpdateCollectorConfigRequest {
   rate_limits_by_vendor?: Record<string, CollectorRateLimits>
 }
 
-export interface CollectorConfigTestResult {
-  component: "syslog" | "jsonl"
-  status: "healthy" | "error" | "skipped"
-  details: Record<string, unknown>
-}
-
-export interface CollectorConfigTestResponse {
-  mode: DispatchMode
-  results: CollectorConfigTestResult[]
-}
-
 // ── Edição / licença (open-core) ─────────────────────────────
 // Espelha o backend GET /api/edition. NÃO expõe o customer id (sub) por design.
 export interface EditionStatus {

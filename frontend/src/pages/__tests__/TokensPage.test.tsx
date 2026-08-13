@@ -111,6 +111,30 @@ describe("TokensPage", () => {
     expect(screen.getByText(/sem expiração/i)).toBeInTheDocument()
   })
 
+  it("bloqueia criar token 'least privilege' com zero scopes marcados", async () => {
+    // O backend trata `[]` e `null` igual (`effective_scopes` faz
+    // `if not token_scopes`, e `not []` é verdadeiro em Python), então um token
+    // submetido nesse estado herdaria a role INTEIRA enquanto a tela diz
+    // "least privilege". O usuário receberia o OPOSTO do que pediu.
+    ;(api.listApiTokens as ReturnType<typeof vi.fn>).mockResolvedValueOnce([])
+    render(<TokensPage />)
+    await waitFor(() => screen.getByText(/Nenhum token criado/i))
+    fireEvent.click(screen.getAllByRole("button", { name: /Novo token/i })[0])
+
+    fireEvent.change(screen.getByLabelText(/Nome/i), { target: { value: "bot" } })
+
+    // Escolhe restringir e NÃO marca nenhum scope.
+    await screen.findByText(/Restringir a scopes específicos/i)
+    fireEvent.click(screen.getByText(/Restringir a scopes específicos/i))
+
+    fireEvent.click(screen.getByRole("button", { name: /Criar token/i }))
+
+    await waitFor(() =>
+      expect(screen.getByText(/não marcou nenhum/i)).toBeInTheDocument(),
+    )
+    expect(api.createApiToken).not.toHaveBeenCalled()
+  })
+
   it("expoe raw token uma unica vez apos criar", async () => {
     ;(api.listApiTokens as ReturnType<typeof vi.fn>)
       .mockResolvedValueOnce([])

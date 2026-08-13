@@ -97,7 +97,6 @@ function setupDefaultMocks(config: CollectorConfig = baseCollectorConfig) {
   mockedApi.getEmailConfig.mockResolvedValue(emailConfig)
   mockedApi.listEmails.mockResolvedValue([])
   mockedApi.getCollectorConfig.mockResolvedValue(config)
-  mockedApi.testCollectorConfig.mockResolvedValue({ mode: "syslog", results: [] })
   mockedApi.updateCollectorConfig.mockResolvedValue(config)
   mockedApi.listCollectorVendors.mockResolvedValue([])
   mockedApi.listDestinations.mockResolvedValue([])
@@ -186,29 +185,15 @@ describe("CollectorConfigForm — seções globais", () => {
     })
   })
 
-  it("botão Testar chama o endpoint de test", async () => {
+  it("não expõe mais o botão Testar", async () => {
+    // `POST /collectors/config/test` sondava `wazuh_syslog_host`, campo que
+    // nenhum formulário expõe e que nenhum despachante lê desde que a saída
+    // passou a ser o sistema de Destinos. Em instalação nova ele respondia
+    // "wazuh_syslog_host não configurado" em 100% dos cliques. Quem testa o
+    // caminho de saída de verdade é `POST /api/destinations/{id}/test`.
     await renderConfigCollectorTab()
 
-    const testBtn = screen.getByRole("button", { name: /^Testar$/i })
-    expect(testBtn).not.toBeDisabled()
-
-    await act(async () => { fireEvent.click(testBtn) })
-
-    await waitFor(() => {
-      expect(mockedApi.testCollectorConfig).toHaveBeenCalled()
-    })
-  })
-
-  it("botão Testar fica desabilitado quando há mudanças não salvas", async () => {
-    await renderConfigCollectorTab()
-
-    const batchInput = screen.getByLabelText(/Tamanho do lote/i)
-    await act(async () => {
-      fireEvent.change(batchInput, { target: { value: "999" } })
-    })
-
-    const testBtn = screen.getByRole("button", { name: /^Testar$/i })
-    expect(testBtn).toBeDisabled()
+    expect(screen.queryByRole("button", { name: /^Testar$/i })).not.toBeInTheDocument()
   })
 
   it("campo TTL é acessível via teclado (focus/change)", async () => {

@@ -522,3 +522,65 @@ def test_orcamento_esgotado_aparece_no_log(fake_redis, monkeypatch) -> None:
     assert len(entries) == 1
     assert entries[0]["reason"] == "budget_exhausted"
     assert "ENRICH_REMOTE_BATCH_BUDGET_S" in entries[0]["detail"]
+
+
+# ── sugestões de caminho para `key.source` ──────────────────────────────────
+
+def test_key_sources_vem_dos_mappings_ativos_da_org(client_factory) -> None:
+    """A lista é o inventário REAL da org, não um catálogo estático.
+
+    Errar o caminho da chave não dá 422: a regra publica e nunca casa. A única
+    defesa é oferecer o que a organização de fato produz.
+    """
+    from backend.app.db import models
+
+    client = client_factory()
+    _bootstrap_admin(client)
+    org = _org(client, "IotaKeys")
+
+    # Integração ATIVA + mapping do mesmo vendor: é isso que torna o campo real.
+    from backend.app.db.database import SessionLocal  # noqa: F401 — só documenta a origem
+    r = client.post(
+        "/api/integrations",
+        json={
+            "name": "sophos-1", "platform": "sophos", "organization_id": org,
+            "client_id": "x", "client_secret": "y",
+        },
+    )
+    assert r.status_code in (200, 201), r.text
+
+    r = client.get(f"{_BASE}/key-sources", params={"organization_id": org})
+    assert r.status_code == 200, r.text
+    body = r.json()
+    # Sem mapping publicado para o vendor, cai no catálogo comum — e DIZ isso,
+    # em vez de apresentar o fallback como se fosse o inventário do cliente.
+    assert body["from_active_mappings"] is False
+    assert any(s["path"] == "normalized.src_endpoint.ip" for s in body["suggestions"])
+
+
+def test_key_sources_usa_catalogo_quando_org_nao_tem_integracao(client_factory) -> None:
+    client = client_factory()
+    _bootstrap_admin(client)
+    org = _org(client, "KappaKeys")
+
+    r = client.get(f"{_BASE}/key-sources", params={"organization_id": org})
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["from_active_mappings"] is False
+    paths = [s["path"] for s in body["suggestions"]]
+    # Só caminhos que ALGUM enricher aceita como chave — sugerir campo que
+    # nenhum enricher consome só polui o formulário.
+    assert "normalized.src_endpoint.ip" in paths
+    assert "normalized.file.hash.sha256" in paths
+    assert all(p.startswith("normalized.") for p in paths)
+
+
+def test_key_sources_e_escopado_por_organizacao(client_factory) -> None:
+    """Um admin escopado não descobre o inventário de campos de outra org."""
+    client = client_factory()
+    _bootstrap_admin(client)
+    org_a = _org(client, "LambdaKeys")
+
+    r = client.get(f"{_BASE}/key-sources", params={"organization_id": org_a})
+    assert r.status_code == 200
+    assert r.json()["organization_id"] == org_a

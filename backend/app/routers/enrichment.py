@@ -1483,3 +1483,157 @@ async def enrichment_activity(
             logger.debug("enrichment.activity: entrada ilegível descartada", exc_info=True)
 
     return EnrichmentActivityResponse(organization_id=org_id, entries=parsed)
+
+
+# ── caminhos sugeridos para `key.source` ─────────────────────────────────────
+#
+# Errar o caminho da chave é o erro MAIS CARO desta feature, e o mais silencioso:
+# `normalized.src_endpoint.ipp` compila, publica com 201, e simplesmente nunca
+# casa. Não há 422, não há erro no log, e nos painéis a regra aparece com zero
+# em tudo — indistinguível de "nenhum evento tinha o campo".
+#
+# A defesa é oferecer os caminhos que de fato EXISTEM. A fonte autoritativa é o
+# que os mappings da organização escrevem: se nenhuma regra de normalização
+# popula `normalized.file.hash.sha256`, nenhum evento desta org terá esse campo,
+# e uma regra de enriquecimento apontando para lá está morta desde o commit.
+
+
+class KeySourceSuggestion(BaseModel):
+    path: str
+    #: Quantas regras de mapping escrevem neste caminho. Ordena por relevância:
+    #: um campo que 8 vendors populam é mais provável de ser o certo.
+    rule_count: int = 0
+    #: Vendors que escrevem aqui. Ajuda a decidir quando dois caminhos parecem
+    #: equivalentes ("qual desses meu Sophos preenche?").
+    vendors: List[str] = Field(default_factory=list)
+
+
+class KeySourceSuggestionsResponse(BaseModel):
+    organization_id: int
+    #: `true` quando as sugestões vieram dos mappings ATIVOS da org. `false` =
+    #: a org ainda não tem integração ativa e a lista é o catálogo OCSF comum.
+    #: A UI usa isto para dizer de onde a sugestão veio, em vez de fingir que
+    #: um fallback estático é o inventário real do cliente.
+    from_active_mappings: bool
+    suggestions: List[KeySourceSuggestion]
+
+
+#: Fallback quando a org ainda não conectou nada. São os caminhos OCSF que os
+#: enrichers deste produto sabem consumir (ver `key_kinds` no catálogo), não um
+#: dump do schema: sugerir um campo que nenhum enricher aceita como chave só
+#: adiciona ruído ao formulário.
+_COMMON_OCSF_KEY_PATHS: Tuple[str, ...] = (
+    "normalized.src_endpoint.ip",
+    "normalized.dst_endpoint.ip",
+    "normalized.device.ip",
+    "normalized.src_endpoint.hostname",
+    "normalized.device.hostname",
+    "normalized.actor.user.name",
+    "normalized.actor.user.email_addr",
+    "normalized.user.name",
+    "normalized.file.hash.sha256",
+    "normalized.file.hash.md5",
+    "normalized.file.name",
+    "normalized.url.hostname",
+    "normalized.url.text",
+    "normalized.device.mac",
+    "normalized.vulnerability.cve.uid",
+    "normalized.container.uid",
+)
+
+
+def _mapped_normalized_paths(db: Session, org_id: int) -> Dict[str, Dict[str, Any]]:
+    return {}  # MUTANT
+    """Caminhos ``normalized.*`` que os mappings ATIVOS desta org escrevem.
+
+    Espelha o gating de ``mappings.list_definitions`` (``only_active``): o
+    catálogo de mappings é global por ``(vendor, event_type)``, mas só o vendor
+    que a org de fato conectou produz evento — sugerir os outros seria oferecer
+    campo que nunca vai existir nos dados dela.
+
+    Percorre regras escalares e ``array_builder``, que também escrevem em
+    ``normalized.*`` (``engine.py:562``).
+    """
+    active_platforms = {
+        p
+        for (p,) in db.query(models.Integration.platform)
+        .filter(
+            models.Integration.is_active.is_(True),
+            models.Integration.organization_id == org_id,
+        )
+        .distinct()
+        .all()
+        if p
+    }
+    if not active_platforms:
+        return {}
+
+    defs = (
+        db.query(models.MappingDefinition)
+        .filter(models.MappingDefinition.vendor.in_(active_platforms))
+        .all()
+    )
+
+    found: Dict[str, Dict[str, Any]] = {}
+    for definition in defs:
+        version = definition.current_version
+        if version is None:
+            continue
+        try:
+            doc = json.loads(version.rules or "{}")
+        except (TypeError, ValueError):
+            # Versão ilegível é problema DAQUELE mapping, não desta lista.
+            continue
+        rules = doc.get("rules") if isinstance(doc, dict) else doc
+        if not isinstance(rules, list):
+            continue
+        for rule in rules:
+            if not isinstance(rule, dict):
+                continue
+            target = rule.get("target")
+            if not isinstance(target, str) or not target.startswith("normalized."):
+                continue
+            entry = found.setdefault(target, {"rule_count": 0, "vendors": set()})
+            entry["rule_count"] += 1
+            entry["vendors"].add(definition.vendor)
+    return found
+
+
+@router.get("/key-sources", response_model=KeySourceSuggestionsResponse)
+def list_key_sources(
+    organization_id: Optional[int] = Query(default=None),
+    user: models.AppUser = Depends(app_auth.require_admin_user),
+    db: Session = Depends(_db),
+) -> KeySourceSuggestionsResponse:
+    """Caminhos que a organização de fato produz, para o campo ``key.source``.
+
+    Escopado como todo o resto deste router: a org vem de
+    ``_resolve_target_org``, então um admin escopado não descobre o inventário
+    de campos de outra organização por este endpoint.
+    """
+    org_id = _resolve_target_org(user, organization_id)
+
+    mapped = _mapped_normalized_paths(db, org_id)
+    if mapped:
+        return KeySourceSuggestionsResponse(
+            organization_id=org_id,
+            from_active_mappings=True,
+            suggestions=[
+                KeySourceSuggestion(
+                    path=path,
+                    rule_count=int(meta["rule_count"]),
+                    vendors=sorted(meta["vendors"]),
+                )
+                # Mais regras primeiro (campo mais popular do inventário real),
+                # empate resolvido alfabeticamente para a lista ser estável.
+                for path, meta in sorted(
+                    mapped.items(), key=lambda kv: (-kv[1]["rule_count"], kv[0])
+                )
+            ],
+        )
+
+    return KeySourceSuggestionsResponse(
+        organization_id=org_id,
+        from_active_mappings=False,
+        suggestions=[KeySourceSuggestion(path=p) for p in _COMMON_OCSF_KEY_PATHS],
+    )

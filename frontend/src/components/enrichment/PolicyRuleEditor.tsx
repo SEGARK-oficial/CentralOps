@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/Button/Button"
 import { Input } from "@/components/ui/Input/Input"
 import { Select } from "@/components/ui/Select/Select"
 import { Badge } from "@/components/ui/Badge/Badge"
+import { JMESPathInput } from "@/components/mappings/JMESPathInput"
 import { EnrichWhenBuilder } from "./EnrichWhenBuilder"
 import { TagChipsInput } from "./TagChipsInput"
 import type {
@@ -69,6 +70,13 @@ interface PolicyRuleEditorProps {
   tables: EnrichmentTable[]
   /** Fontes configuradas da org — quem exige credencial escolhe uma daqui. */
   sources?: EnrichmentSource[]
+  /**
+   * Caminhos que a organização de fato produz, para sugerir em `key.source`.
+   * Vem de `GET /collectors/enrichment/key-sources`.
+   */
+  keySources?: string[]
+  /** `true` quando `keySources` veio dos mappings ativos, não do catálogo comum. */
+  keySourcesFromMappings?: boolean
   onChange: (rules: EnrichmentRule[]) => void
 }
 
@@ -128,6 +136,8 @@ export const PolicyRuleEditor: React.FC<PolicyRuleEditorProps> = ({
   enrichers,
   tables,
   sources = [],
+  keySources = [],
+  keySourcesFromMappings = false,
   onChange,
 }) => {
   const { t } = useTranslation("enrichment")
@@ -248,6 +258,31 @@ export const PolicyRuleEditor: React.FC<PolicyRuleEditorProps> = ({
    * numa tag é silencioso: a tag "errada" é válida e a regra que a consome
    * simplesmente para de casar, sem erro em lugar nenhum.
    */
+  /**
+   * Caminhos oferecidos no campo "Origem da chave", em ordem de confiança.
+   *
+   * 1. O que as OUTRAS regras desta política já usam. É grátis (já está em
+   *    memória) e é o mais contextual: reusar a mesma chave entre regras com
+   *    enrichers diferentes é o padrão mais comum.
+   * 2. O que a organização de fato produz, vindo dos mappings ativos dela.
+   *
+   * Deduplicado preservando a ordem, então um caminho que aparece nos dois
+   * lugares fica no topo uma vez só.
+   */
+  const keySourceOptions = useMemo(() => {
+    const seen = new Set<string>()
+    const out: string[] = []
+    for (const path of [...rules.map((r) => r.key?.source), ...keySources]) {
+      if (!path || seen.has(path)) continue
+      seen.add(path)
+      out.push(path)
+    }
+    return out
+  }, [rules, keySources])
+
+  /** `true` quando a lista reflete o inventário REAL da org, não o catálogo. */
+  const keySourceHint = keySourcesFromMappings
+
   const tagSuggestions = useMemo(() => {
     const out = new Set<string>(RUNTIME_TAGS)
     for (const r of rules) {
@@ -349,12 +384,26 @@ export const PolicyRuleEditor: React.FC<PolicyRuleEditorProps> = ({
               )}
 
               <div className="grid gap-3 sm:grid-cols-2">
-                <Input
+                {/* Combobox, não texto livre: um caminho errado aqui NÃO dá
+                    422. A regra publica com 201 e simplesmente nunca casa, e
+                    nos painéis aparece com zero em tudo — indistinguível de
+                    "nenhum evento tinha o campo". Sugerir o que a organização
+                    de fato produz é a única defesa possível. Degrada para
+                    texto livre quando não há sugestão (org sem integração
+                    ativa e sem fallback), que é o comportamento do próprio
+                    JMESPathInput. */}
+                <JMESPathInput
                   label={t("policies.versions.keySource")}
                   value={rule.key.source}
-                  onChange={(e) => updateRule(index, { key: { ...rule.key, source: e.target.value } })}
-                  className="font-mono text-xs"
-                  helperText={t("policies.versions.keySourceHint")}
+                  onChange={(next) => updateRule(index, { key: { ...rule.key, source: next } })}
+                  suggestions={keySourceOptions}
+                  inputClassName="font-mono text-xs"
+                  helperText={
+                    keySourceHint
+                      ? t("policies.versions.keySourceHintMapped")
+                      : t("policies.versions.keySourceHint")
+                  }
+                  placeholder="normalized.src_endpoint.ip"
                 />
                 <Select
                   label={t("policies.versions.keyKind")}

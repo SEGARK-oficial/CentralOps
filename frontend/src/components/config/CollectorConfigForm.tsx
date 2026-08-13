@@ -4,11 +4,8 @@ import type React from "react"
 import { useEffect, useMemo, useState } from "react"
 import { Trans, useTranslation } from "react-i18next"
 import {
-  CheckCircle2Icon,
-  AlertTriangleIcon,
   DatabaseIcon,
   NetworkIcon,
-  PlayIcon,
   PlusIcon,
   TrashIcon,
 } from "lucide-react"
@@ -20,7 +17,6 @@ import { Select } from "@/components/ui/Select/Select"
 import { listCollectorVendors } from "@/services/api"
 import type {
   CollectorConfig,
-  CollectorConfigTestResponse,
   CollectorRateLimits,
   CollectorVendor,
   UpdateCollectorConfigRequest,
@@ -30,11 +26,8 @@ interface Props {
   config: CollectorConfig | null
   loading?: boolean
   saving?: boolean
-  testing?: boolean
-  testResult?: CollectorConfigTestResponse | null
   feedback?: { type: "success" | "error"; message: string } | null
   onSave: (data: UpdateCollectorConfigRequest) => Promise<boolean>
-  onTest: () => Promise<boolean>
 }
 
 interface FormValues {
@@ -107,11 +100,8 @@ export const CollectorConfigForm: React.FC<Props> = ({
   config,
   loading = false,
   saving = false,
-  testing = false,
-  testResult,
   feedback,
   onSave,
-  onTest,
 }) => {
   const { t } = useTranslation("config")
   const initial = useMemo(() => valuesFromConfig(config), [config])
@@ -180,22 +170,6 @@ export const CollectorConfigForm: React.FC<Props> = ({
         <Notice variant={feedback.type === "success" ? "success" : "danger"}>
           {feedback.message}
         </Notice>
-      )}
-
-      {/* Resultados do teste */}
-      {testResult && testResult.results.length > 0 && (
-        <div className="space-y-2">
-          {testResult.results.map((r) => (
-            <Notice
-              key={r.component}
-              variant={r.status === "healthy" ? "success" : "danger"}
-              title={`${r.component.toUpperCase()} · ${r.status === "healthy" ? t("collector.testResult.healthy") : t("collector.testResult.error")}`}
-              icon={r.status === "healthy" ? <CheckCircle2Icon size={16} /> : <AlertTriangleIcon size={16} />}
-            >
-              <pre className="whitespace-pre-wrap text-xs">{JSON.stringify(r.details, null, 2)}</pre>
-            </Notice>
-          ))}
-        </div>
       )}
 
       {/* ── Buffer / Dedupe ─────────────────────────────────────── */}
@@ -288,18 +262,6 @@ export const CollectorConfigForm: React.FC<Props> = ({
           )}
         </div>
         <div className="flex gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            leftIcon={<PlayIcon size={14} />}
-            loading={testing}
-            onClick={() => void onTest()}
-            disabled={loading || dirty}
-            title={dirty ? t("collector.testTooltipDirty") : t("collector.testTooltipClean")}
-          >
-            {t("collector.test")}
-          </Button>
           <Button
             type="submit"
             size="sm"

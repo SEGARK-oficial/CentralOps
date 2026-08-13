@@ -80,6 +80,9 @@ export const PolicyVersionsModal: React.FC<PolicyVersionsModalProps> = ({
   /** Política que o modal está mostrando agora. Ver o efeito abaixo. */
   const openedPolicyRef = useRef<string | null>(null)
   const [loadingRules, setLoadingRules] = useState(false)
+  /** Caminhos que a org produz, para sugerir em `key.source`. */
+  const [keySources, setKeySources] = useState<string[]>([])
+  const [keySourcesFromMappings, setKeySourcesFromMappings] = useState(false)
   const [hydrateError, setHydrateError] = useState<string | null>(null)
   /** Versão de onde as regras do editor vieram. Só serve para rotular a UI. */
   const [loadedVersionNumber, setLoadedVersionNumber] = useState<number | null>(null)
@@ -154,6 +157,29 @@ export const PolicyVersionsModal: React.FC<PolicyVersionsModalProps> = ({
   // tivesse começado a editar depois de publicar.
   const policyId = policy?.id ?? null
   const currentVersionId = policy?.current_version_id ?? null
+
+  // Sugestões de caminho são da org DA POLÍTICA, não a do usuário: um admin
+  // global editando a política do cliente X tem que ver os campos do X.
+  useEffect(() => {
+    if (!open || !policy) return
+    let cancelled = false
+    api
+      .listEnrichmentKeySources({ organization_id: policy.organization_id })
+      .then((res) => {
+        if (cancelled) return
+        setKeySources(res.suggestions.map((s) => s.path))
+        setKeySourcesFromMappings(res.from_active_mappings)
+      })
+      .catch(() => {
+        // Sem sugestão o campo degrada para texto livre, que é o que ele era
+        // antes. Falhar aqui não pode impedir a edição da política.
+        if (!cancelled) {
+          setKeySources([])
+          setKeySourcesFromMappings(false)
+        }
+      })
+    return () => { cancelled = true }
+  }, [open, policy])
 
   useEffect(() => {
     if (!open || !policyId) {
@@ -357,6 +383,8 @@ export const PolicyVersionsModal: React.FC<PolicyVersionsModalProps> = ({
               enrichers={enrichers}
               tables={tables}
               sources={sources}
+              keySources={keySources}
+              keySourcesFromMappings={keySourcesFromMappings}
               onChange={setRules}
             />
           )}

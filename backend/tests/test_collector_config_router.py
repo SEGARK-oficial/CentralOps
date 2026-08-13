@@ -228,79 +228,34 @@ def test_put_accepts_valid_maps(client_factory) -> None:
     assert body["domain_concurrency_limits"]["microsoft_defender"] == 30
 
 
-# ── /test ─────────────────────────────────────────────────────────────
+# ── /test REMOVIDO (ago/2026) ─────────────────────────────────────────
+#
+# ``POST /collectors/config/test`` sondava ``wazuh_syslog_host`` e
+# ``wazuh_dispatch_mode``: campos que NENHUM formulário expõe e que NENHUM
+# despachante lê desde que a saída passou a ser o sistema de Destinos
+# (``collectors/output/destinations/``). Numa instalação nova esses campos são
+# NULL, então o botão respondia "wazuh_syslog_host não configurado" em 100% dos
+# cliques, para sempre. Quem testa o caminho de saída de verdade é
+# ``POST /api/destinations/{id}/test``.
 
 
-def test_test_endpoint_jsonl_only_when_mode_excludes_syslog(
-    client_factory, tmp_path
-) -> None:
+def test_test_endpoint_no_longer_exists(client_factory) -> None:
+    """404, não 405: a rota sumiu inteira, não só o método.
+
+    Trava a remoção. Se alguém reintroduzir o endpoint sem reintroduzir também
+    um caminho de saída que ele de fato exercite, este teste avisa.
+    """
     factory, _ = client_factory
     client = factory()
     _bootstrap_admin(client)
 
-    # Configura modo jsonl + dir temp writable
-    r = client.put(
-        "/api/collectors/config",
-        json={
-            "wazuh_dispatch_mode": "jsonl",
-            "collector_jsonl_dir": str(tmp_path),
-        },
-    )
-    assert r.status_code == 200
-
     r = client.post("/api/collectors/config/test")
-    assert r.status_code == 200, r.text
-    body = r.json()
-    assert body["mode"] == "jsonl"
-    components = [x["component"] for x in body["results"]]
-    assert components == ["jsonl"]  # só jsonl — syslog não testado
-    assert body["results"][0]["status"] == "healthy"
+    assert r.status_code == 404, r.text
 
 
-def test_test_endpoint_syslog_error_when_host_unreachable(client_factory) -> None:
-    factory, _ = client_factory
-    client = factory()
-    _bootstrap_admin(client)
+def test_dispatch_probe_helpers_are_gone() -> None:
+    """Os helpers de sondagem saíram junto — sem código morto de rede."""
+    from backend.app.routers import collector_config as mod
 
-    # Configura host inválido + modo syslog
-    r = client.put(
-        "/api/collectors/config",
-        json={
-            "wazuh_dispatch_mode": "syslog",
-            "wazuh_syslog_host": "host-que-nao-existe.invalido",
-            "wazuh_syslog_port": 6514,
-            "wazuh_syslog_use_tls": False,
-        },
-    )
-    assert r.status_code == 200
-
-    r = client.post("/api/collectors/config/test")
-    assert r.status_code == 200, r.text
-    body = r.json()
-    assert body["mode"] == "syslog"
-    syslog_result = next(x for x in body["results"] if x["component"] == "syslog")
-    assert syslog_result["status"] == "error"
-    assert "reason" in syslog_result["details"]
-
-
-def test_test_endpoint_jsonl_error_on_nonwritable_dir(client_factory) -> None:
-    factory, _ = client_factory
-    client = factory()
-    _bootstrap_admin(client)
-
-    # /root/nao-existe: impossível criar
-    r = client.put(
-        "/api/collectors/config",
-        json={
-            "wazuh_dispatch_mode": "jsonl",
-            "collector_jsonl_dir": "/dev/null/impossivel",
-        },
-    )
-    assert r.status_code == 200
-    r = client.post("/api/collectors/config/test")
-    assert r.status_code == 200
-    body = r.json()
-    jsonl_result = next(x for x in body["results"] if x["component"] == "jsonl")
-    assert jsonl_result["status"] == "error"
-
-
+    for name in ("_test_syslog", "_test_jsonl", "_build_probe_message"):
+        assert not hasattr(mod, name), f"{name} deveria ter sido removido"

@@ -54,12 +54,9 @@ export const ConfigPage: React.FC = () => {
     config: collectorConfig,
     loading: collectorLoading,
     saving: collectorSaving,
-    testing: collectorTesting,
-    testResult: collectorTestResult,
     error: collectorError,
     feedback: collectorFeedback,
     saveConfig: saveCollectorConfig,
-    runTest: runCollectorTest,
   } = useCollectorConfig()
 
   const {
@@ -218,11 +215,8 @@ export const ConfigPage: React.FC = () => {
                 config={collectorConfig}
                 loading={collectorLoading}
                 saving={collectorSaving}
-                testing={collectorTesting}
-                testResult={collectorTestResult}
                 feedback={collectorFeedback}
                 onSave={saveCollectorConfig}
-                onTest={runCollectorTest}
               />
             </CardContent>
           </Card>

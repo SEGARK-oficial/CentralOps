@@ -168,10 +168,6 @@
       "title": "Configuration set during installation",
       "body": "The values come from <code>{{envFile}}</code>. Save to edit them here; changes apply within 30 seconds."
     },
-    "testResult": {
-      "healthy": "Healthy",
-      "error": "Error"
-    },
     "sections": {
       "bufferDedupe": {
         "title": "Buffer & Dedupe",
@@ -219,9 +215,6 @@
       "configureDefaultRatesTooltip": "Configure {{vendor}} with default limits"
     },
     "unsavedChanges": "Unsaved changes",
-    "test": "Test",
-    "testTooltipDirty": "Save before testing",
-    "testTooltipClean": "Test the saved config now",
     "saveConfig": "Save configuration"
   },
   "identity": {
