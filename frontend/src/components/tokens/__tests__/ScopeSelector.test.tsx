@@ -54,16 +54,32 @@ describe("ScopeSelector", () => {
   })
 
   it("switching to restrict mode reveals scope checkboxes", async () => {
-    const onChange = vi.fn()
-    render(<ScopeSelector value={null} onChange={onChange} />)
+    // Regressão: `value === [] || value === null` colapsavam no mesmo estado
+    // visual ("herdar" continuava marcado, grid nunca abria) porque o radio
+    // de restringir era calculado só a partir de `value`, e `onChange([])`
+    // produz um `value` que passa exatamente por esse buraco. O teste
+    // ANTERIOR mascarava isto montando uma instância NOVA com
+    // `requireExplicit` em vez de deixar a MESMA instância re-renderizar —
+    // por isso re-render aqui, não `render()` de novo.
+    let currentValue: ScopeName[] | null = null
+    const onChange = vi.fn((next: ScopeName[] | null) => {
+      currentValue = next
+    })
+
+    const { rerender } = render(
+      <ScopeSelector value={currentValue} onChange={onChange} />,
+    )
     await screen.findByText(/Restringir a scopes específicos/i)
 
     fireEvent.click(screen.getByText(/Restringir a scopes específicos/i))
     expect(onChange).toHaveBeenCalledWith([])
 
-    // ``requireExplicit`` opens the grid without the inherit toggle —
-    // simulates the "restrict mode" state without re-render gymnastics.
-    render(<ScopeSelector value={[]} onChange={onChange} requireExplicit />)
+    rerender(<ScopeSelector value={currentValue} onChange={onChange} />)
+
+    const restrict = screen.getByLabelText(/Restringir a scopes específicos/i, {
+      exact: false,
+    }) as HTMLInputElement
+    expect(restrict.checked).toBe(true)
     await waitFor(() =>
       expect(screen.getAllByRole("checkbox").length).toBeGreaterThan(0),
     )
@@ -87,7 +103,12 @@ describe("ScopeSelector", () => {
     expect(onChange).toHaveBeenCalledWith(["mapping.read"])
   })
 
-  it("toggling the only selected scope back to empty calls onChange(null)", async () => {
+  it("toggling the only selected scope back to empty stays em modo restrito (não vira herdar)", async () => {
+    // Antes: esvaziar a seleção chamava `onChange(null)`, que troca o radio de
+    // volta para "herdar" SOZINHO — sem nenhum clique do usuário no radio de
+    // herdar, e herdar é a role INTEIRA, o oposto de restringir. Ficar em `[]`
+    // preserva a escolha explícita; o aviso de "zero = herda tudo" é quem
+    // avisa o usuário, não uma troca de radio pelas costas dele.
     const onChange = vi.fn()
     render(<ScopeSelector value={["mapping.read"]} onChange={onChange} />)
     await waitFor(() =>
@@ -99,8 +120,18 @@ describe("ScopeSelector", () => {
       c.parentElement?.textContent?.includes("mapping.read"),
     )
     fireEvent.click(mappingReadCb!)
-    // Empty list → null pra sinalizar full inherit (legacy Fase 1).
-    expect(onChange).toHaveBeenCalledWith(null)
+    expect(onChange).toHaveBeenCalledWith([])
+  })
+
+  it("mostra aviso quando o modo restrito fica com zero scopes marcados", async () => {
+    // O backend trata lista vazia igual a ausente (`not token_scopes` é
+    // verdadeiro pra `[]` e pra `None` em Python) — token com zero marcado
+    // sai IDÊNTICO a herdar tudo, não a "sem acesso nenhum". Sem aviso isso
+    // parece least privilege e na prática libera a role inteira.
+    render(<ScopeSelector value={[]} onChange={() => {}} requireExplicit />)
+    expect(
+      await screen.findByText(/equivale a herdar tudo/i),
+    ).toBeInTheDocument()
   })
 
   it("requireExplicit=true hides the inherit option", async () => {
@@ -108,8 +139,11 @@ describe("ScopeSelector", () => {
       <ScopeSelector value={[]} onChange={() => {}} requireExplicit />,
     )
     await screen.findByText(/Restringir a scopes específicos/i)
+    // `queryByRole` em vez de `queryByText`: o aviso de "zero scopes" também
+    // menciona herdar em prosa quando `!requireExplicit`, então checar por
+    // texto solto pegaria essa menção em vez do radio que deve sumir.
     expect(
-      screen.queryByText(/Herdar permissões da conta/i),
+      screen.queryByRole("radio", { name: /Herdar permissões da conta/i }),
     ).not.toBeInTheDocument()
   })
 
@@ -136,6 +170,32 @@ describe("ScopeSelector", () => {
     expect(cb).toBeDisabled()
     fireEvent.click(cb)
     expect(onChange).not.toHaveBeenCalled()
+  })
+
+  it("clicar em restringir marca o radio e permite marcar um scope, sem requireExplicit", async () => {
+    // Reproduz o fluxo real do modal de criação de token (TokensPage.tsx não
+    // passa `requireExplicit`): estado inicial null (herdar), clique em
+    // "Restringir", clique num scope — tudo na MESMA instância do componente,
+    // como o React realmente re-renderiza em produção.
+    let currentValue: ScopeName[] | null = null
+    const onChange = vi.fn((next: ScopeName[] | null) => {
+      currentValue = next
+    })
+    const { rerender } = render(
+      <ScopeSelector value={currentValue} onChange={onChange} />,
+    )
+    await screen.findByText(/Restringir a scopes específicos/i)
+
+    fireEvent.click(screen.getByText(/Restringir a scopes específicos/i))
+    rerender(<ScopeSelector value={currentValue} onChange={onChange} />)
+
+    const checkboxes = screen.getAllByRole("checkbox")
+    const mappingReadCb = checkboxes.find((c) =>
+      c.parentElement?.textContent?.includes("mapping.read"),
+    )
+    expect(mappingReadCb).toBeTruthy()
+    fireEvent.click(mappingReadCb!)
+    expect(onChange).toHaveBeenLastCalledWith(["mapping.read"])
   })
 
   it("displays a counter when at least one scope is selected", async () => {

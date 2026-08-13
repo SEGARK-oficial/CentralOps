@@ -1034,6 +1034,14 @@ const CreateSaTokenModal: React.FC<CreateSaTokenModalProps> = ({
       setError(t("serviceAccounts.createTokenModal.errors.nameRequired"))
       return
     }
+    // Mesma trava do /tokens: `[]` significa "escolhi restringir e não marquei
+    // nada", e o backend trataria isso como herdar a role inteira. Numa Service
+    // Account, que existe justamente para ter poder mínimo, deixar passar seria
+    // entregar o oposto do que a tela promete.
+    if (scopes !== null && scopes.length === 0) {
+      setError(t("serviceAccounts.createTokenModal.errors.scopesEmpty"))
+      return
+    }
     setCreating(true)
     setError(null)
     try {

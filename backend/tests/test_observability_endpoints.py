@@ -5,8 +5,8 @@
 
 Mirrors the conventions of test_destinations_router.py / test_routes_router.py:
 single StaticPool engine shared across all clients in a test, bootstrap admin,
-seed via the API. Org-scoping is exercised by overriding ``get_current_user``
-with a non-global caller bound to a specific org (admins are otherwise always
+seed via the API. Org-scoping is exercised by overriding ``require_admin_user``
+with a non-global admin bound to a specific org (admins are otherwise always
 global-scoped, so the override is the only way to drive the org-scope path at
 the endpoint layer — same property the repository-level scope tests assert).
 """
@@ -121,32 +121,26 @@ def _seed_route(
 class _FakeUser:
     """Minimal AppUser stand-in for a NON-global admin bound to one org.
 
-    ``has_global_scope`` é False para admin com ``organization_id`` setado e
-    ``is_global=False`` — o ADMIN-DE-ORG descrito em ``core/tenant.py``. É o que
-    drena o caminho de org-scope na camada de endpoint (admin de plataforma é
-    sempre global).
+    ``has_global_scope`` returns False for role!=admin without is_global, so this
+    drives the org-scope path at the endpoint layer (real admins are global)."""
 
-    ``role`` importa de fato agora: o override é em ``get_current_user``, então o
-    request passa pelo gate real. Default ``admin`` para que os testes de ESCRITA
-    (que exigem ``user.manage``) cheguem à validação cross-org que querem provar."""
-
-    def __init__(self, organization_id: int, role: str = "admin") -> None:
+    def __init__(self, organization_id: int, role: str = "operator") -> None:
         self.organization_id = organization_id
+        # Papel configurável: leitura escopada é cenário de OPERATOR; recusar
+        # destino de outra org na ESCRITA é cenário de ADMIN-DE-ORG, que é quem
+        # pode escrever. Antes o override substituía o próprio `require_admin_user`,
+        # então o papel não importava — agora o guard roda de verdade.
         self.role = role
         self.is_global = False
         self.username = f"scoped-{role}"
 
 
-def _override_user_to_org(org_id: int, role: str = "admin") -> None:
-    """Override em ``get_current_user``, NÃO no gate de permissão.
-
-    Estes endpoints exigem ``destination.read``/``route.read`` via
-    ``require_permission`` — uma CLOSURE nova por chamada da factory, logo não
-    endereçável como chave de ``dependency_overrides``. ``get_current_user`` é o
-    seam comum aos dois gates, então o override troca só QUEM é o caller e o
-    request continua passando pelo check de permissão de verdade
-    — antes, sobrescrever ``require_admin_user`` PULAVA o check.
-    """
+def _override_user_to_org(org_id: int, role: str = "operator") -> None:
+    # `get_current_user` é a dependência RAIZ: `require_admin_user` e
+    # `require_permission(...)` os dois a consomem. Sobrescrever a raiz faz o
+    # usuário falso valer para qualquer guard, em vez de amarrar o teste a um
+    # guard específico — foi o que quebrou quando as leituras de destino/rota
+    # saíram de `user.manage` para `destination.read`/`route.read`.
     app.dependency_overrides[app_auth.get_current_user] = lambda: _FakeUser(org_id, role)
 
 
@@ -352,7 +346,7 @@ def test_route_create_rejects_cross_org_destination(client_factory) -> None:
     assert rg.status_code == 201, rg.text
 
     try:
-        _override_user_to_org(org_a)
+        _override_user_to_org(org_a, role="admin")
         # Org A → destino da org B: 422 "not found" (sem revelar existência).
         r_bad = client.post(
             "/api/collectors/routes",
@@ -385,7 +379,7 @@ def test_route_update_rejects_cross_org_destination(client_factory) -> None:
     ra = _seed_route(client, name="A Upd Route", dest_id=da, organization_id=org_a)
 
     try:
-        _override_user_to_org(org_a)
+        _override_user_to_org(org_a, role="admin")
         r = client.put(
             f"/api/collectors/routes/{ra}",
             json={"destination_ids": [db_]},

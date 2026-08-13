@@ -168,7 +168,8 @@
         "emptySource": "Complete la ruta del campo. Sin ella la condición compila pero nunca coincide, y la regla desaparece de los paneles como si ningún evento tuviera el campo.",
         "emptyValues": "Agregue al menos un valor. Una lista vacía compila pero nunca coincide, así que la regla nunca se ejecuta."
       },
-      "cannotChain": "Esta regla ya tiene otra condición. Un gate tiene una sola clave, así que encadenar borraría la condición que escribió."
+      "cannotChain": "Esta regla ya tiene otra condición. Un gate tiene una sola clave, así que encadenar borraría la condición que escribió.",
+      "keySourceHintMapped": "Las sugerencias vienen de los campos que los mappings activos de esta organización realmente escriben. Una ruta fuera de la lista compila pero nunca coincide."
     }
   },
   "errorTitle": "Error al cargar el enriquecimiento",

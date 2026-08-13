@@ -116,29 +116,22 @@ def _seed_route(
 
 
 class _FakeUser:
-    """Non-global admin bound to one org (org-scope path driver).
+    """Non-global admin bound to one org (org-scope path driver)."""
 
-    ``role`` importa de fato agora: o override é em ``get_current_user``, então o
-    request passa pelo gate de permissão real (ver ``_override_user_to_org``)."""
-
-    def __init__(self, organization_id: int, role: str = "admin") -> None:
+    def __init__(self, organization_id: int) -> None:
         self.organization_id = organization_id
-        self.role = role
+        self.role = "operator"
         self.is_global = False
-        self.username = f"scoped-{role}"
+        self.username = "scoped-operator"
 
 
-def _override_user_to_org(org_id: int, role: str = "admin") -> None:
-    """Override em ``get_current_user``, NÃO no gate de permissão.
-
-    ``/flow`` exige ``route.read`` via ``require_permission`` — uma CLOSURE nova
-    por chamada da factory, logo não endereçável como chave de
-    ``dependency_overrides``. ``get_current_user`` é o seam comum aos dois gates,
-    então o override troca só QUEM é o caller e o request continua passando pelo
-    check de permissão de verdade — antes, sobrescrever ``require_admin_user``
-    PULAVA o check.
-    """
-    app.dependency_overrides[app_auth.get_current_user] = lambda: _FakeUser(org_id, role)
+def _override_user_to_org(org_id: int) -> None:
+    # `get_current_user` é a dependência RAIZ: `require_admin_user` e
+    # `require_permission(...)` os dois a consomem. Sobrescrever a raiz faz o
+    # usuário falso valer para qualquer guard, em vez de amarrar o teste a um
+    # guard específico — foi o que quebrou quando as leituras de destino/rota
+    # saíram de `user.manage` para `destination.read`/`route.read`.
+    app.dependency_overrides[app_auth.get_current_user] = lambda: _FakeUser(org_id)
 
 
 # ── shape & sanity ─────────────────────────────────────────

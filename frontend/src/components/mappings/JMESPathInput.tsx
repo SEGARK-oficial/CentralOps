@@ -24,7 +24,17 @@ interface JMESPathInputProps {
   onChange: (value: string) => void
   suggestions: string[]
   placeholder?: string
+  /** Classe do WRAPPER (posicionamento). Para estilizar o campo, `inputClassName`. */
   className?: string
+  /**
+   * Classe do `<input>` em si. Existe porque `className` cai no wrapper: sem
+   * separar as duas, um consumidor que passa `font-mono` estiliza a caixa
+   * errada e o caminho perde a fonte monoespaçada que o torna legível.
+   */
+  inputClassName?: string
+  /** Rótulo associado por `htmlFor` — paridade com o `Input` do design system. */
+  label?: string
+  helperText?: string
 }
 
 const JMESPathInputInner: React.FC<JMESPathInputProps> = ({
@@ -34,6 +44,9 @@ const JMESPathInputInner: React.FC<JMESPathInputProps> = ({
   suggestions,
   placeholder,
   className,
+  inputClassName,
+  label,
+  helperText,
 }) => {
   const { t } = useTranslation("mappings")
   const autoId = useId()
@@ -128,6 +141,14 @@ const JMESPathInputInner: React.FC<JMESPathInputProps> = ({
 
   return (
     <div ref={containerRef} className={cn("relative", className)}>
+      {label && (
+        <label
+          htmlFor={inputId}
+          className="mb-1.5 block text-sm font-medium text-text"
+        >
+          {label}
+        </label>
+      )}
       {/* role="combobox" envolve o input, não o input em si — ARIA 1.2 */}
       <div
         role="combobox"
@@ -151,9 +172,12 @@ const JMESPathInputInner: React.FC<JMESPathInputProps> = ({
           className={cn(
             "w-full h-9 px-3 text-sm rounded-md border border-border bg-surface text-text placeholder:text-text-tertiary",
             "transition-colors focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20",
+            inputClassName,
           )}
         />
       </div>
+
+      {helperText && <p className="mt-1 text-xs text-muted">{helperText}</p>}
 
       {showDropdown && (
         <ul

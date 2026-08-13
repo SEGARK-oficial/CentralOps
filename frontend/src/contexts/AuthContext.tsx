@@ -121,6 +121,16 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       // If the session is already gone, we still clear the local state.
     }
     setUser(null)
+    // `PlatformContext` guarda a org/plataforma/integração selecionada em
+    // localStorage para sobreviver a um F5. Sem limpar aqui, a seleção
+    // sobrevive TAMBÉM à troca de usuário: o próximo login nesta aba (outro
+    // operador, outra sessão) herda a org de quem saiu, e o dashboard nega
+    // acesso à própria org de quem entrou — porque o filtro enviado é de
+    // outra pessoa. `PlatformContext` também reconcilia isso ao carregar as
+    // orgs do usuário atual; isto aqui é a defesa na origem.
+    localStorage.removeItem("centralops_org_id")
+    localStorage.removeItem("centralops_platform")
+    localStorage.removeItem("centralops_integration_id")
   }
 
   useEffect(() => {

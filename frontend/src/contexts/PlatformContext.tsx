@@ -8,6 +8,7 @@ import type React from "react"
 import { createContext, useContext, useCallback, useEffect, useState, useMemo } from "react"
 import type { Integration, Organization, PlatformType } from "@/types"
 import * as api from "@/services/api"
+import { useAuth } from "./AuthContext"
 
 interface PlatformContextValue {
   // Data
@@ -39,7 +40,12 @@ interface PlatformContextValue {
 
 const PlatformContext = createContext<PlatformContextValue | null>(null)
 
+/** Dono da seleção guardada em localStorage. Ver o efeito de reconciliação. */
+const SCOPE_OWNER_KEY = "centralops_scope_owner"
+
 export const PlatformProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { user } = useAuth()
+  const userId = user?.id ?? null
   const [organizations, setOrganizations] = useState<Organization[]>([])
   const [integrations, setIntegrations] = useState<Integration[]>([])
   const [loading, setLoading] = useState(true)
@@ -117,6 +123,35 @@ export const PlatformProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     () => integrations.find((i) => i.id === selectedIntegrationId) ?? null,
     [integrations, selectedIntegrationId],
   )
+
+  // A seleção pertence a UM usuário, e o localStorage não sabe disso.
+  //
+  // O sintoma: um admin navega para a org 5, cria um operator escopado à org 8
+  // e loga como ele NA MESMA ABA. `selectedOrgId` continua 5, `DashboardPage`
+  // envia `organization_id: 5`, e o backend responde 403 "You do not have
+  // access to this organization" — sobre uma org que o operator de fato não
+  // pode ver, enquanto a org DELE estava correta o tempo todo.
+  //
+  // Marcar o DONO da seleção é o que resolve. Conferir contra a lista de
+  // organizações carregada seria um proxy ruim, com dois falso-positivos caros:
+  //   - `listOrganizations()` é chamado sem paginação e o backend usa `size=50`
+  //     por padrão (`routers/organizations.py`). Num MSP com mais de 50 orgs,
+  //     uma org válida fora da primeira página não estaria na lista, e a
+  //     seleção seria apagada a cada montagem do provider.
+  //   - Quando o fetch FALHA a lista também fica vazia, o que é ausência de
+  //     informação, não prova de que a org sumiu.
+  // A identidade do dono não sofre de nenhum dos dois: ou é o mesmo usuário, ou
+  // não é.
+  //
+  // Limpa também quando a marca está AUSENTE (build anterior a esta, que já
+  // podia ter deixado seleção salva): custa uma re-seleção logo após o deploy,
+  // contra o risco de reproduzir o 403 que trava o dashboard.
+  useEffect(() => {
+    if (!userId) return
+    if (localStorage.getItem(SCOPE_OWNER_KEY) === userId) return
+    localStorage.setItem(SCOPE_OWNER_KEY, userId)
+    clearFilters()
+  }, [userId, clearFilters])
 
   useEffect(() => {
     if (selectedIntegrationId && !integrations.some((integration) => integration.id === selectedIntegrationId)) {

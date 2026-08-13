@@ -1,4 +1,5 @@
 import type React from "react"
+import { Fragment } from "react"
 import { useTranslation } from "react-i18next"
 import { CheckIcon, XIcon } from "lucide-react"
 import { Badge } from "@/components/ui/Badge/Badge"
@@ -6,6 +7,11 @@ import { LoadingSpinner } from "@/components/ui/LoadingSpinner/LoadingSpinner"
 import { Modal } from "@/components/ui/Modal/Modal"
 import { Notice } from "@/components/ui/Notice/Notice"
 import { usePermissionsMatrix } from "@/hooks/usePermissionsMatrix"
+import {
+  categoryLabelKeyOf,
+  descriptionKeyOf,
+  groupByCategory,
+} from "@/lib/permissions"
 import type { UserRole } from "@/types"
 
 const ROLE_ORDER: UserRole[] = ["viewer", "operator", "engineer", "admin"]
@@ -60,22 +66,43 @@ export const RolePermissionsViewer: React.FC<RolePermissionsViewerProps> = ({ op
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
-                {allPerms.map((perm) => (
-                  <tr key={perm} className="hover:bg-surface-tertiary/40">
-                    <td className="px-4 py-2 font-mono text-text">{perm}</td>
-                    {ROLE_ORDER.map((role) => {
-                      const has = matrix[role]?.includes(perm)
-                      return (
-                        <td key={role} className="px-4 py-2 text-center">
-                          {has ? (
-                            <CheckIcon size={14} className="mx-auto text-success-600" aria-label={t("rolePermissionsViewer.hasPermissionAriaLabel", { role, perm })} />
-                          ) : (
-                            <XIcon size={14} className="mx-auto text-text-tertiary" aria-label={t("rolePermissionsViewer.noPermissionAriaLabel", { role, perm })} />
-                          )}
+                {/* Agrupado e descrito: a matriz sempre foi FIEL (vem de
+                    `ROLE_PERMISSIONS` via `GET /auth/permissions`), mas listar
+                    `internal.tenant.read` cru não responde a pergunta que o
+                    admin tem na hora de escolher um papel — "o que essa pessoa
+                    vai conseguir fazer?". */}
+                {groupByCategory(allPerms).map(({ category, permissions }) => (
+                  <Fragment key={category}>
+                    <tr className="bg-surface-tertiary/60">
+                      <th
+                        scope="colgroup"
+                        colSpan={ROLE_ORDER.length + 1}
+                        className="px-4 py-1.5 text-left text-[11px] font-semibold uppercase tracking-wider text-text-secondary"
+                      >
+                        {t(categoryLabelKeyOf(category))}
+                      </th>
+                    </tr>
+                    {permissions.map((perm) => (
+                      <tr key={perm} className="hover:bg-surface-tertiary/40">
+                        <td className="px-4 py-2">
+                          <div className="text-text">{t(descriptionKeyOf(perm))}</div>
+                          <code className="font-mono text-[11px] text-text-tertiary">{perm}</code>
                         </td>
-                      )
-                    })}
-                  </tr>
+                        {ROLE_ORDER.map((role) => {
+                          const has = matrix[role]?.includes(perm)
+                          return (
+                            <td key={role} className="px-4 py-2 text-center">
+                              {has ? (
+                                <CheckIcon size={14} className="mx-auto text-success-600" aria-label={t("rolePermissionsViewer.hasPermissionAriaLabel", { role, perm })} />
+                              ) : (
+                                <XIcon size={14} className="mx-auto text-text-tertiary" aria-label={t("rolePermissionsViewer.noPermissionAriaLabel", { role, perm })} />
+                              )}
+                            </td>
+                          )
+                        })}
+                      </tr>
+                    ))}
+                  </Fragment>
                 ))}
               </tbody>
             </table>

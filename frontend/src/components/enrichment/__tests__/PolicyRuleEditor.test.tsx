@@ -370,4 +370,70 @@ describe("PolicyRuleEditor", () => {
     // fica desabilitada na tela mas o valor continua indo no payload.
     expect(next.on_miss).toBe("skip")
   })
+  // ── sugestão anti-erro para a origem da chave ────────────────────────────
+
+  it("sugere os caminhos que a organização de fato produz", async () => {
+    // Um caminho errado aqui NÃO dá 422: a regra publica com 201 e nunca casa,
+    // aparecendo com zero em tudo nos painéis — indistinguível de "nenhum
+    // evento tinha o campo". Sugerir o inventário real é a única defesa.
+    // O campo é CONTROLADO: o filtro usa a prop `value`, não o texto digitado
+    // (o pai é quem decide o valor). Por isso a regra já entra com o prefixo.
+    render(
+      <PolicyRuleEditor
+        rules={[baseRule({ key: { source: "normalized.actor", kind: "ip" } })]}
+        enrichers={enrichers}
+        tables={tables}
+        keySources={["normalized.actor.user.name", "normalized.file.hash.sha256"]}
+        keySourcesFromMappings
+        onChange={vi.fn()}
+      />,
+    )
+
+    fireEvent.focus(screen.getByLabelText("Origem da chave"))
+
+    expect(await screen.findByRole("option", { name: "normalized.actor.user.name" })).toBeInTheDocument()
+    // O que não casa com o prefixo fica fora — é filtro, não uma lista fixa.
+    expect(screen.queryByRole("option", { name: "normalized.file.hash.sha256" })).not.toBeInTheDocument()
+  })
+
+  it("inclui os caminhos já usados por outras regras da política", async () => {
+    // Reusar a mesma chave entre regras com enrichers diferentes é o padrão
+    // mais comum, e essa fonte é grátis: já está em memória.
+    render(
+      <PolicyRuleEditor
+        rules={[
+          baseRule({ id: "r1", key: { source: "normalized.dst_endpoint.ip", kind: "ip" } }),
+          baseRule({ id: "r2", key: { source: "", kind: "ip" } }),
+        ]}
+        enrichers={enrichers}
+        tables={tables}
+        onChange={vi.fn()}
+      />,
+    )
+
+    const campos = screen.getAllByLabelText("Origem da chave")
+    fireEvent.focus(campos[1])
+
+    expect(await screen.findByRole("option", { name: "normalized.dst_endpoint.ip" })).toBeInTheDocument()
+  })
+
+  it("continua aceitando caminho livre quando não há sugestão", () => {
+    // Org sem integração ativa e sem catálogo: o campo tem que seguir editável,
+    // nunca virar um seletor que impede escrever o caminho certo.
+    const onChange = vi.fn()
+    render(
+      <PolicyRuleEditor
+        rules={[baseRule()]}
+        enrichers={enrichers}
+        tables={tables}
+        keySources={[]}
+        onChange={onChange}
+      />,
+    )
+
+    fireEvent.change(screen.getByLabelText("Origem da chave"), {
+      target: { value: "normalized.campo.novo" },
+    })
+    expect(onChange.mock.calls[0][0][0].key.source).toBe("normalized.campo.novo")
+  })
 })

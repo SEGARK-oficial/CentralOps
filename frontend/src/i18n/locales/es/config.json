@@ -168,10 +168,6 @@
       "title": "Configuración definida en la instalación",
       "body": "Los valores vienen de <code>{{envFile}}</code>. Guarde para editarlos aquí; los cambios aplican en 30 segundos."
     },
-    "testResult": {
-      "healthy": "Saludable",
-      "error": "Error"
-    },
     "sections": {
       "bufferDedupe": {
         "title": "Buffer y Dedupe",
@@ -219,9 +215,6 @@
       "configureDefaultRatesTooltip": "Configurar {{vendor}} con límites predeterminados"
     },
     "unsavedChanges": "Cambios sin guardar",
-    "test": "Probar",
-    "testTooltipDirty": "Guarde antes de probar",
-    "testTooltipClean": "Prueba la configuración guardada ahora",
     "saveConfig": "Guardar configuración"
   },
   "identity": {

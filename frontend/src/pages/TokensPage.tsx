@@ -492,6 +492,16 @@ const CreateTokenModal: React.FC<CreateTokenModalProps> = ({
       setError(t("tokens.createModal.errors.nameRequired"))
       return
     }
+    // Modo restrito com zero scopes: `[]` (escolheu restringir, não marcou
+    // nada) é distinto de `null` (escolheu herdar). O backend trata os dois
+    // igual — `effective_scopes` faz `if not token_scopes`, e `not []` é
+    // verdadeiro — então submeter aqui criaria um token com a role INTEIRA
+    // enquanto a tela diz "least privilege". Bloquear é o único desfecho
+    // honesto: o usuário pediu o oposto do que receberia.
+    if (scopes !== null && scopes.length === 0) {
+      setError(t("tokens.createModal.errors.scopesEmpty"))
+      return
+    }
     setCreating(true)
     setError(null)
     try {

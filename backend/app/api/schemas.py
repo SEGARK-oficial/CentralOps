@@ -1683,21 +1683,6 @@ class CollectorConfigRead(CollectorConfigBase):
     updated_at: Optional[datetime] = None
 
 
-class CollectorConfigTestResult(BaseModel):
-    """Resultado de teste por componente (syslog ou jsonl)."""
-
-    component: Literal["syslog", "jsonl"]
-    status: Literal["healthy", "error", "skipped"]
-    details: Dict[str, Any] = Field(default_factory=dict)
-
-
-class CollectorConfigTestResponse(BaseModel):
-    """Retorno do endpoint ``POST /api/collectors/config/test``."""
-
-    mode: DispatchMode
-    results: List[CollectorConfigTestResult] = Field(default_factory=list)
-
-
 # ── Captura ao vivo / "listening" (sessões de captura) ─────────
 
 

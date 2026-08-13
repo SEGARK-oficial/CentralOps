@@ -120,6 +120,11 @@ function mockLoad({
 
 beforeEach(() => {
   vi.clearAllMocks()
+  mockedApi.listEnrichmentKeySources.mockResolvedValue({
+    organization_id: 1,
+    from_active_mappings: false,
+    suggestions: [],
+  })
   mockedApi.listEnrichmentTableVersions.mockResolvedValue([])
   mockedApi.listEnrichmentPolicyVersions.mockResolvedValue([])
   mockedApi.listEnrichmentSources.mockResolvedValue([])

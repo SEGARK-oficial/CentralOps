@@ -168,7 +168,8 @@
         "emptySource": "Preencha o caminho do campo. Sem ele a condição compila mas nunca casa, e a regra some dos painéis como se nenhum evento tivesse o campo.",
         "emptyValues": "Adicione ao menos um valor. Lista vazia compila mas nunca casa, e a regra nunca roda."
       },
-      "cannotChain": "Esta regra já tem outra condição. Um gate tem uma chave só, então encadear apagaria a condição que você escreveu."
+      "cannotChain": "Esta regra já tem outra condição. Um gate tem uma chave só, então encadear apagaria a condição que você escreveu.",
+      "keySourceHintMapped": "Sugestões vêm dos campos que os mappings ativos desta organização de fato escrevem. Um caminho fora da lista compila mas nunca casa."
     }
   },
   "errorTitle": "Falha ao carregar o enriquecimento",

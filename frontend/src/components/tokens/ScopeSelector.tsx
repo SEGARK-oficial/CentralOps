@@ -2,12 +2,19 @@
 
 import type React from "react"
 import { useEffect, useMemo, useState } from "react"
+import { useTranslation } from "react-i18next"
 import { LockIcon, ShieldCheckIcon } from "lucide-react"
 
 import * as api from "@/services/api"
 import type { ScopeName } from "@/types"
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner/LoadingSpinner"
 import { Notice } from "@/components/ui/Notice/Notice"
+import {
+  PERMISSION_CATEGORY_ORDER,
+  categoryLabelKeyOf,
+  categoryOf,
+  descriptionKeyOf,
+} from "@/lib/permissions"
 
 interface ScopeSelectorProps {
   /** Currently selected scopes. ``null`` means "full inherit" (no checkboxes
@@ -21,73 +28,35 @@ interface ScopeSelectorProps {
   requireExplicit?: boolean
 }
 
-// Agrupamento estável (não vem do backend — categoria é detalhe de UI).
-// Scopes desconhecidos vão pra "Outros" automaticamente.
-const SCOPE_CATEGORIES: Record<string, string> = {
-  "mapping.read": "Mappings",
-  "mapping.write": "Mappings",
-  "mapping.rollback": "Mappings",
-  "integration.read": "Integrações",
-  "integration.write": "Integrações",
-  "integration.pause": "Integrações",
-  "quarantine.read": "Quarantine & Drift",
-  "quarantine.discard": "Quarantine & Drift",
-  "drift.read": "Quarantine & Drift",
-  "drift.ignore": "Quarantine & Drift",
-  "drift.mark_mapped": "Quarantine & Drift",
-  "drift.delete": "Quarantine & Drift",
-  "destination.read": "Destinos & Rotas",
-  "route.read": "Destinos & Rotas",
-  "user.manage": "Administração",
-  "secret.read": "Administração",
-  "audit.read": "Administração",
-  "org.manage": "Administração",
-  "internal.tenant.read": "Internal API",
-}
-
-const CATEGORY_ORDER = [
-  "Integrações",
-  "Destinos & Rotas",
-  "Mappings",
-  "Quarantine & Drift",
-  "Administração",
-  "Internal API",
-  "Outros",
-]
-
-/** Brief description shown next to each scope. Hardcoded — não vem do
- *  backend pra evitar i18n round-trip. Mantido em sync com docs/api-tokens.md. */
-const SCOPE_DESCRIPTIONS: Partial<Record<ScopeName, string>> = {
-  "mapping.read": "Listar mappings, ver versões e diffs",
-  "mapping.write": "Editar mappings (commit de versão)",
-  "mapping.rollback": "Reverter mapping pra versão anterior",
-  "integration.read": "Ler integrações, health, capabilities",
-  "integration.write": "Criar/editar/deletar integrações",
-  "integration.pause": "Pausar/retomar integração ativa",
-  "quarantine.read": "Listar/inspecionar eventos quarantine",
-  "quarantine.discard": "Descartar/reprocessar quarantine",
-  "drift.read": "Ler campos drift descobertos",
-  "drift.ignore": "Marcar drift como ignorado",
-  "drift.mark_mapped": "Marcar drift como mapeado",
-  "drift.delete": "Deletar entradas de drift",
-  "destination.read": "Ler destinos, health, DLQ e métricas",
-  "route.read": "Ler rotas, topologia e flow",
-  "user.manage": "CRUD de usuários e Service Accounts",
-  "secret.read": "Ver client_secrets cifrados",
-  "audit.read": "Listar audit log",
-  "org.manage": "CRUD de organizations",
-  "internal.tenant.read": "Consumir /api/internal/tenants/* (IASOC)",
-}
-
 export const ScopeSelector: React.FC<ScopeSelectorProps> = ({
   value,
   onChange,
   disabled = false,
   requireExplicit = false,
 }) => {
+  const { t } = useTranslation("admin")
   const [available, setAvailable] = useState<ScopeName[] | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+
+  /**
+   * Qual radio o usuário ESCOLHEU, independente de `value`.
+   *
+   * `value` sozinho não basta: `null` (herdar) e `[]` (restringir, zero scopes
+   * marcados ainda) são visualmente indistinguíveis a partir dele, e ambos
+   * caem no mesmo "sem scopes selecionados". Clicar em "Restringir" chamava
+   * `onChange([])`, o componente re-renderizava com `value=[]`, e o cálculo
+   * antigo (`value === null || value.length === 0`) lia isso como "ainda é
+   * herdar" — o clique não tinha efeito visível nenhum: nem o radio marcava,
+   * nem o grid de checkboxes abria.
+   *
+   * O componente remonta a cada abertura do modal (o `Modal` pai desmonta os
+   * filhos quando fechado), então este estado nasce correto a cada vez.
+   */
+  const [mode, setMode] = useState<"inherit" | "restrict">(
+    value !== null && value.length > 0 ? "restrict" : "inherit",
+  )
+  const restricting = mode === "restrict" || requireExplicit
 
   useEffect(() => {
     let cancelled = false
@@ -112,20 +81,19 @@ export const ScopeSelector: React.FC<ScopeSelectorProps> = ({
   }, [])
 
   // Agrupa scopes carregados pelas categorias.
+  // Categoria e descrição vêm do catálogo compartilhado com a matriz de
+  // /admin/users. Antes eram duas cópias, e elas divergiram: `query.run`,
+  // `query.save` e `correlation.preview` existiam no backend e caíam em
+  // "Outros" aqui, sem descrição nenhuma.
   const grouped = useMemo(() => {
-    if (!available) return new Map<string, ScopeName[]>()
     const m = new Map<string, ScopeName[]>()
-    for (const cat of CATEGORY_ORDER) m.set(cat, [])
+    if (!available) return m
+    for (const cat of PERMISSION_CATEGORY_ORDER) m.set(cat, [])
     for (const scope of available) {
-      const cat = SCOPE_CATEGORIES[scope] ?? "Outros"
-      const list = m.get(cat) ?? []
-      list.push(scope)
-      m.set(cat, list)
+      m.get(categoryOf(scope))?.push(scope)
     }
     return m
   }, [available])
-
-  const fullInherit = value === null || value.length === 0
 
   const toggleScope = (scope: ScopeName) => {
     if (disabled) return
@@ -133,17 +101,24 @@ export const ScopeSelector: React.FC<ScopeSelectorProps> = ({
     const next = current.includes(scope)
       ? current.filter((s) => s !== scope)
       : [...current, scope]
-    // Empty list when allowed → null (semantically same, more explicit).
-    if (next.length === 0 && !requireExplicit) {
-      onChange(null)
-    } else {
-      onChange(next)
-    }
+    // Fica em modo restrito mesmo em zero scopes: o usuário ESCOLHEU
+    // restringir, e voltar sozinho para "herdar" trocaria o radio marcado sem
+    // nenhum clique dele — pior, herdar é a role INTEIRA, o oposto de
+    // restringir. Ver aviso abaixo: 0 marcado ainda assim equivale a herdar
+    // no backend (`effective_scopes`: lista vazia é tratada como ausente).
+    onChange(next)
   }
 
   const setFullInherit = () => {
     if (disabled || requireExplicit) return
+    setMode("inherit")
     onChange(null)
+  }
+
+  const setRestrict = () => {
+    if (disabled) return
+    setMode("restrict")
+    onChange(value ?? [])
   }
 
   if (loading) {
@@ -169,7 +144,7 @@ export const ScopeSelector: React.FC<ScopeSelectorProps> = ({
         <label className="flex items-start gap-2 rounded-md border border-border p-3 cursor-pointer hover:bg-bg-subtle">
           <input
             type="radio"
-            checked={fullInherit}
+            checked={mode === "inherit"}
             onChange={setFullInherit}
             disabled={disabled}
             className="mt-1"
@@ -191,8 +166,8 @@ export const ScopeSelector: React.FC<ScopeSelectorProps> = ({
       <label className="flex items-start gap-2 rounded-md border border-border p-3 cursor-pointer hover:bg-bg-subtle">
         <input
           type="radio"
-          checked={!fullInherit || requireExplicit}
-          onChange={() => !disabled && onChange(value ?? [])}
+          checked={restricting}
+          onChange={setRestrict}
           disabled={disabled}
           className="mt-1"
         />
@@ -208,15 +183,15 @@ export const ScopeSelector: React.FC<ScopeSelectorProps> = ({
         </div>
       </label>
 
-      {(!fullInherit || requireExplicit) && (
+      {restricting && (
         <div className="space-y-3 rounded-md border border-border-strong bg-bg p-3">
-          {CATEGORY_ORDER.map((cat) => {
+          {PERMISSION_CATEGORY_ORDER.map((cat) => {
             const scopes = grouped.get(cat)
             if (!scopes || scopes.length === 0) return null
             return (
               <div key={cat}>
                 <div className="text-xs font-semibold uppercase tracking-wider text-text-secondary">
-                  {cat}
+                  {t(categoryLabelKeyOf(cat))}
                 </div>
                 <div className="mt-1 grid gap-1">
                   {scopes.map((scope) => (
@@ -233,11 +208,9 @@ export const ScopeSelector: React.FC<ScopeSelectorProps> = ({
                       />
                       <div className="flex-1 text-sm">
                         <code className="font-mono text-xs">{scope}</code>
-                        {SCOPE_DESCRIPTIONS[scope] && (
-                          <span className="ml-2 text-xs text-text-secondary">
-                            {SCOPE_DESCRIPTIONS[scope]}
-                          </span>
-                        )}
+                        <span className="ml-2 text-xs text-text-secondary">
+                          {t(descriptionKeyOf(scope))}
+                        </span>
                       </div>
                     </label>
                   ))}
@@ -245,10 +218,21 @@ export const ScopeSelector: React.FC<ScopeSelectorProps> = ({
               </div>
             )
           })}
-          {value && value.length > 0 && (
+          {value && value.length > 0 ? (
             <div className="border-t pt-2 text-xs text-text-secondary">
               <strong>{value.length}</strong>{" "}
               {value.length === 1 ? "scope" : "scopes"} selecionado(s)
+            </div>
+          ) : (
+            // O backend trata lista vazia igual a ausente (`effective_scopes`:
+            // `if not token_scopes`, e `not []` é `True` em Python) — token com
+            // zero marcado sai idêntico a "herdar", não a "sem acesso nenhum".
+            // Sem este aviso, restringir e não marcar nada parece least
+            // privilege e na prática libera a role inteira.
+            <div className="border-t pt-2 text-xs text-warning-600">
+              {requireExplicit
+                ? "Nenhum scope marcado ainda equivale a herdar tudo. Marque ao menos um."
+                : "Nenhum scope marcado ainda equivale a herdar tudo. Marque ao menos um, ou escolha herdar as permissões da conta acima."}
             </div>
           )}
         </div>

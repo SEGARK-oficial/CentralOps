@@ -21,7 +21,6 @@ import type {
   BootstrapAdminRequest,
   CollectionState,
   CollectorConfig,
-  CollectorConfigTestResponse,
   CollectorSummary,
   CollectorTriggerResponse,
   CollectorVendor,
@@ -960,13 +959,6 @@ export async function updateCollectorConfig(data: UpdateCollectorConfigRequest) 
   return apiRequest<CollectorConfig>("/collectors/config", {
     method: "PUT",
     body: JSON.stringify(data),
-    forbiddenRedirectTo: ADMIN_REDIRECT_PATH,
-  })
-}
-
-export async function testCollectorConfig() {
-  return apiRequest<CollectorConfigTestResponse>("/collectors/config/test", {
-    method: "POST",
     forbiddenRedirectTo: ADMIN_REDIRECT_PATH,
   })
 }
@@ -2700,6 +2692,29 @@ export async function listEnrichmentPolicyVersions(policyId: string) {
  * em `targets` (perde o `from`) e não carrega o `when`. Publicar em cima dele
  * apagaria a condição que estava na versão.
  */
+export interface EnrichmentKeySourceSuggestion {
+  path: string
+  rule_count: number
+  vendors: string[]
+}
+
+/**
+ * Caminhos que a organização de fato produz, para o campo `key.source`.
+ *
+ * `from_active_mappings=false` significa que a org ainda não tem integração
+ * ativa e a lista é o catálogo OCSF comum — a UI deve dizer isso, em vez de
+ * apresentar um fallback estático como se fosse o inventário do cliente.
+ */
+export async function listEnrichmentKeySources(params: { organization_id?: number }) {
+  const qs = new URLSearchParams()
+  if (params.organization_id != null) qs.set("organization_id", String(params.organization_id))
+  return apiRequest<{
+    organization_id: number
+    from_active_mappings: boolean
+    suggestions: EnrichmentKeySourceSuggestion[]
+  }>(`/collectors/enrichment/key-sources?${qs.toString()}`)
+}
+
 export async function getEnrichmentPolicyVersion(policyId: string, versionId: string) {
   return apiRequest<{ id: string; version_number: number; rules: EnrichmentRule[] }>(
     `/collectors/enrichment/policies/${policyId}/versions/${versionId}`,

@@ -353,7 +353,8 @@
       "submitting": "Creando…",
       "errors": {
         "nameRequired": "El nombre es obligatorio",
-        "createFailed": "Error al crear el token"
+        "createFailed": "Error al crear el token",
+        "scopesEmpty": "Eligió restringir a scopes específicos pero no marcó ninguno. Un token sin scopes marcados hereda TODOS los permisos de la cuenta, lo opuesto a least privilege. Marque al menos un scope, o elija heredar los permisos de la cuenta."
       }
     }
   },
@@ -420,7 +421,8 @@
       "submitting": "Creando…",
       "errors": {
         "nameRequired": "El nombre es obligatorio",
-        "createFailed": "Error al crear el token"
+        "createFailed": "Error al crear el token",
+        "scopesEmpty": "Eligió restringir a scopes específicos pero no marcó ninguno. Un token sin scopes marcados hereda TODOS los permisos de la cuenta, lo opuesto a least privilege. Marque al menos un scope, o elija heredar los permisos de la cuenta."
       }
     },
     "expiryOptions": {
@@ -437,5 +439,41 @@
     "90d": "90 días",
     "1y": "1 año",
     "never": "Nunca"
+  },
+  "permissions": {
+    "categories": {
+      "administration": "Administración",
+      "delivery": "Entrega",
+      "detection": "Detección y consultas",
+      "integrations": "Integraciones",
+      "internal": "API interna",
+      "mappings": "Normalización",
+      "quarantineDrift": "Cuarentena y drift"
+    },
+    "descriptions": {
+      "audit.read": "Leer el log de auditoría",
+      "correlation.preview": "Probar una regla de correlación contra muestras reales de evento",
+      "destination.read": "Ver destinos, salud de entrega, DLQ y métricas (solo lectura)",
+      "drift.delete": "Eliminar entradas del inventario de drift",
+      "drift.ignore": "Marcar un campo nuevo como ignorado a propósito",
+      "drift.mark_mapped": "Marcar un campo nuevo como ya mapeado",
+      "drift.read": "Ver campos nuevos que la fuente empezó a enviar",
+      "integration.pause": "Pausar y reanudar la recolección de una integración",
+      "integration.read": "Ver integraciones conectadas, salud y capacidades",
+      "integration.reset": "Reiniciar el cursor de recolección para volver a recolectar desde el inicio de la ventana",
+      "integration.write": "Crear, editar y eliminar integraciones",
+      "internal.tenant.read": "Consumir la API interna de tenants (máquina a máquina)",
+      "mapping.read": "Ver mappings, versiones y diffs entre ellas",
+      "mapping.rollback": "Revertir un mapping a una versión anterior",
+      "mapping.write": "Publicar una nueva versión de un mapping",
+      "org.manage": "Crear, editar y desactivar organizaciones",
+      "quarantine.discard": "Descartar o reprocesar eventos en cuarentena",
+      "quarantine.read": "Ver eventos que fallaron en la normalización",
+      "query.run": "Ejecutar consulta en vivo en la fuente del cliente (cuesta y toca el tenant)",
+      "query.save": "Guardar consultas y programarlas para ejecutarse solas",
+      "route.read": "Ver rutas, topología y flujo de entrega (solo lectura)",
+      "secret.read": "Ver credenciales cifradas de las integraciones",
+      "user.manage": "Crear, editar y desactivar usuarios y cuentas de servicio"
+    }
   }
 }

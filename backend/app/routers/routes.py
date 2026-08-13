@@ -1,16 +1,10 @@
 """REST endpoints for Routes CRUD (motor de roteamento).
 
-Org-scoped (anti-enumeration). Every mutation appends a RouteAuditLog row
-(governance + rollback). O roteamento é GA (modelo único, sem flag): cada rota
-criada/editada aqui passa a valer no próximo ciclo de despacho (vendor-neutral:
-wazuh-default é um Destination real, sem lane especial; fallback resolve via
-is_default do org).
-
-RBAC — LEITURA e ESCRITA são separadas:
-  - GETs de configuração/observabilidade (list, get, ``/topology``, ``/flow``,
-    ``/{id}/health``, ``/{id}/metrics``) exigem ``route.read`` (viewer+).
-  - Toda ESCRITA (create/update/delete, dry-run, reorder, rollback) e o
-    ``/{id}/audit`` seguem exigindo ``user.manage`` via ``require_admin_user``.
+All admin-only, org-scoped (anti-enumeration). Every mutation appends a
+RouteAuditLog row (governance + rollback). O roteamento é GA (modelo único, sem
+flag): cada rota criada/editada aqui passa a valer no próximo ciclo de despacho
+(vendor-neutral: wazuh-default é um Destination real, sem lane
+especial; fallback resolve via is_default do org).
 """
 
 from __future__ import annotations
@@ -240,9 +234,7 @@ def list_routes(
     include_disabled: bool = Query(default=True),
     offset: int = Query(default=0, ge=0),
     limit: int = Query(default=200, ge=1, le=500),
-    user: models.AppUser = Depends(
-        app_auth.require_permission(app_auth.Permission.ROUTE_READ)
-    ),
+    user: models.AppUser = Depends(app_auth.require_permission(app_auth.Permission.ROUTE_READ)),
     repo: repository.RouteRepository = Depends(_get_repo),
 ) -> List[RouteRead]:
     is_global, caller_org = _resolve_scope(user)
@@ -332,9 +324,7 @@ def create_route(
 
 @router.get("/topology", response_model=RoutingTopologyResponse)
 async def routing_topology(
-    user: models.AppUser = Depends(
-        app_auth.require_permission(app_auth.Permission.ROUTE_READ)
-    ),
+    user: models.AppUser = Depends(app_auth.require_permission(app_auth.Permission.ROUTE_READ)),
     repo: repository.RouteRepository = Depends(_get_repo),
     dest_repo: repository.DestinationRepository = Depends(_get_dest_repo),
 ) -> RoutingTopologyResponse:
@@ -441,15 +431,13 @@ def _pipeline_status_to_flow(status: str) -> str:
 
 @router.get("/flow", response_model=FlowGraphResponse)
 async def flow_graph(
-    user: models.AppUser = Depends(
-        app_auth.require_permission(app_auth.Permission.ROUTE_READ)
-    ),
+    user: models.AppUser = Depends(app_auth.require_permission(app_auth.Permission.ROUTE_READ)),
     repo: repository.RouteRepository = Depends(_get_repo),
     dest_repo: repository.DestinationRepository = Depends(_get_dest_repo),
     db: Session = Depends(database.get_session),
 ) -> FlowGraphResponse:
     """Full flow graph for the /flow page: SOURCES → ROUTES → DESTINATIONS with
-    live volume and health.  Org-scoped, 60-min window, requires ``route.read``.
+    live volume and health.  Org-scoped, 60-min window, admin-only.
 
     Sources (integrations visible to the caller) use pipeline-health metrics
     (events_per_minute from the 5-min Redis snapshot, status from DB indicators).
@@ -668,9 +656,7 @@ async def flow_graph(
 @router.get("/{route_id}", response_model=RouteRead)
 def get_route(
     route_id: str,
-    user: models.AppUser = Depends(
-        app_auth.require_permission(app_auth.Permission.ROUTE_READ)
-    ),
+    user: models.AppUser = Depends(app_auth.require_permission(app_auth.Permission.ROUTE_READ)),
     repo: repository.RouteRepository = Depends(_get_repo),
 ) -> RouteRead:
     row = _assert_visible(repo.get(route_id), user)
@@ -1153,9 +1139,7 @@ def rollback_route(
 async def route_metrics(
     route_id: str,
     range_minutes: int = Query(default=60, ge=5, le=1440),
-    user: models.AppUser = Depends(
-        app_auth.require_permission(app_auth.Permission.ROUTE_READ)
-    ),
+    user: models.AppUser = Depends(app_auth.require_permission(app_auth.Permission.ROUTE_READ)),
     repo: repository.RouteRepository = Depends(_get_repo),
 ) -> RouteMetricsResponse:
     """Per-route time-series (matched/route/drop events per minute) from the
@@ -1173,9 +1157,7 @@ async def route_metrics(
 @router.get("/{route_id}/health", response_model=RouteHealthResponse)
 async def route_health(
     route_id: str,
-    user: models.AppUser = Depends(
-        app_auth.require_permission(app_auth.Permission.ROUTE_READ)
-    ),
+    user: models.AppUser = Depends(app_auth.require_permission(app_auth.Permission.ROUTE_READ)),
     repo: repository.RouteRepository = Depends(_get_repo),
 ) -> RouteHealthResponse:
     """Per-route health (paridade rota↔destino): EPS de eventos
@@ -1213,7 +1195,7 @@ async def route_health(
 @router.get("/{route_id}/audit", response_model=List[RouteAuditRead])
 def route_audit(
     route_id: str,
-    user: models.AppUser = Depends(app_auth.require_admin_user),
+    user: models.AppUser = Depends(app_auth.require_permission(app_auth.Permission.ROUTE_READ)),
     repo: repository.RouteRepository = Depends(_get_repo),
 ) -> List[RouteAuditRead]:
     _assert_visible(repo.get(route_id), user)

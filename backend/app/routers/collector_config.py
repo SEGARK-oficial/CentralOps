@@ -6,22 +6,22 @@ Endpoints (todos admin-only):
   (``is_persisted``, ``config_version``).
 - ``PUT /api/collectors/config`` — update parcial; invalida cache Redis
   para propagar aos workers em até 30s.
-- ``POST /api/collectors/config/test`` — valida destino atual rodando
-  probe real (Syslog TCP/TLS + JSONL write) conforme ``dispatch_mode``.
 
-Gerencia os mesmos parâmetros que o ``.env`` segue — mas com UI, sem
-restart de container e com teste ao vivo.
+Gerencia os mesmos parâmetros que o ``.env`` segue — mas com UI e sem
+restart de container.
+
+**Removido em ago/2026: ``POST /config/test``.** Ele sondava
+``wazuh_syslog_host``/``wazuh_dispatch_mode``, que nenhum formulário expõe e
+nenhum despachante lê desde que a saída passou a ser o sistema de Destinos
+(``collectors/output/destinations/``). Numa instalação nova esses campos são
+NULL, então o botão respondia "wazuh_syslog_host não configurado" em 100% dos
+cliques, sempre. Testar o caminho de saída de verdade é
+``POST /api/destinations/{id}/test``, que sonda o destino configurado.
 """
 
 from __future__ import annotations
 
-import asyncio
-import json
 import logging
-import os
-import socket
-import ssl
-from datetime import datetime
 from typing import Any, Dict, List, Optional, Set
 
 import redis.asyncio as redis_async
@@ -134,201 +134,6 @@ async def update_config(
         snapshot.config_version,
     )
     return result
-
-
-# ── POST /test ────────────────────────────────────────────────────────
-
-
-def _error_details(exc: BaseException) -> Dict[str, Any]:
-    """Sanitiza exceção para o response — sem stack trace completo."""
-    return {
-        "error_class": type(exc).__name__,
-        "reason": str(exc)[:300],
-    }
-
-
-async def _test_syslog(snapshot: CollectorConfigSnapshot) -> schemas.CollectorConfigTestResult:
-    """Abre conexão TCP (+TLS opcional), envia probe RFC 5424, fecha."""
-    if not snapshot.wazuh_syslog_host:
-        return schemas.CollectorConfigTestResult(
-            component="syslog",
-            status="error",
-            details={"reason": "wazuh_syslog_host não configurado"},
-        )
-
-    # Valida CA bundle antes de tentar conectar (evita erro confuso do TLS).
-    ssl_ctx = None
-    if snapshot.wazuh_syslog_use_tls:
-        try:
-            ssl_ctx = (
-                ssl.create_default_context(cafile=snapshot.wazuh_ca_bundle)
-                if snapshot.wazuh_ca_bundle
-                else ssl.create_default_context()
-            )
-            ssl_ctx.minimum_version = ssl.TLSVersion.TLSv1_2
-        except (FileNotFoundError, ssl.SSLError) as exc:
-            # Não retornar o caminho absoluto do CA bundle no body (vaza
-            # layout interno do filesystem do container). O log do servidor
-            # captura para o operador.
-            logger.warning(
-                "collector test: invalid CA bundle path=%s exc=%s",
-                snapshot.wazuh_ca_bundle, exc,
-            )
-            return schemas.CollectorConfigTestResult(
-                component="syslog",
-                status="error",
-                details={"reason": "CA bundle inválido (ver log do servidor)"},
-            )
-
-    writer = None
-    try:
-        _, writer = await asyncio.wait_for(
-            asyncio.open_connection(
-                snapshot.wazuh_syslog_host,
-                snapshot.wazuh_syslog_port,
-                ssl=ssl_ctx,
-                server_hostname=(
-                    snapshot.wazuh_syslog_host if ssl_ctx else None
-                ),
-            ),
-            timeout=8.0,
-        )
-        # RFC 5424 probe curto. Octet-counting framing (RFC 6587).
-        msg = _build_probe_message()
-        frame = f"{len(msg)} ".encode("ascii") + msg
-        writer.write(frame)
-        await asyncio.wait_for(writer.drain(), timeout=3.0)
-        return schemas.CollectorConfigTestResult(
-            component="syslog",
-            status="healthy",
-            details={
-                "host": snapshot.wazuh_syslog_host,
-                "port": snapshot.wazuh_syslog_port,
-                "tls": snapshot.wazuh_syslog_use_tls,
-                "bytes_sent": len(frame),
-            },
-        )
-    except asyncio.TimeoutError:
-        return schemas.CollectorConfigTestResult(
-            component="syslog",
-            status="error",
-            details={
-                "reason": "timeout após 8s — host inacessível ou firewall bloqueado",
-                "host": snapshot.wazuh_syslog_host,
-                "port": snapshot.wazuh_syslog_port,
-            },
-        )
-    except ssl.SSLError as exc:
-        # Hint detalhado sobre o downstream fica só no log; resposta HTTP
-        # genérica para não documentar a topologia.
-        logger.warning(
-            "collector test: SSL error against syslog host=%s port=%s exc=%s "
-            "(consider stunnel/rsyslog if downstream lacks TLS)",
-            snapshot.wazuh_syslog_host, snapshot.wazuh_syslog_port, exc,
-        )
-        return schemas.CollectorConfigTestResult(
-            component="syslog",
-            status="error",
-            details=_error_details(exc),
-        )
-    except (ConnectionRefusedError, OSError, socket.gaierror) as exc:
-        return schemas.CollectorConfigTestResult(
-            component="syslog",
-            status="error",
-            details=_error_details(exc),
-        )
-    finally:
-        if writer is not None:
-            try:
-                writer.close()
-                await writer.wait_closed()
-            except Exception:  # pragma: no cover
-                pass
-
-
-def _build_probe_message() -> bytes:
-    now = datetime.utcnow().isoformat(timespec="seconds") + "Z"
-    hostname = socket.gethostname()
-    body = json.dumps(
-        {
-            "_centralops": {
-                "probe": True,
-                "collected_at": now,
-                "integration_id": 0,
-                "customer_id": "_probe",
-                "platform": "centralops",
-                "stream": "config-probe",
-            },
-            "message": "CentralOps collector config probe",
-        },
-        separators=(",", ":"),
-    )
-    sd = '[centralops@32473 probe="true"]'
-    line = f"<134>1 {now} {hostname} centralops-collector-probe - - {sd} {body}"
-    return line.encode("utf-8")
-
-
-def _test_jsonl(snapshot: CollectorConfigSnapshot) -> schemas.CollectorConfigTestResult:
-    """Verifica existência/permissão de escrita no diretório JSONL."""
-    target_dir = snapshot.collector_jsonl_dir
-    probe_file = os.path.join(target_dir, ".centralops-probe")
-
-    try:
-        os.makedirs(target_dir, exist_ok=True)
-        with open(probe_file, "w") as fh:
-            fh.write("probe")
-        os.remove(probe_file)
-        return schemas.CollectorConfigTestResult(
-            component="jsonl",
-            status="healthy",
-            details={"directory": target_dir, "writable": True},
-        )
-    except PermissionError as exc:
-        # "container" / "volume" são detalhes de deploy; o operador pode
-        # rodar fora de container. Mensagem genérica + log do path real.
-        logger.warning(
-            "collector test: jsonl dir not writable dir=%s exc=%s",
-            target_dir, exc,
-        )
-        return schemas.CollectorConfigTestResult(
-            component="jsonl",
-            status="error",
-            details={
-                **_error_details(exc),
-                "directory": target_dir,
-                "hint": "Verifique permissões do diretório destino",
-            },
-        )
-    except OSError as exc:
-        return schemas.CollectorConfigTestResult(
-            component="jsonl",
-            status="error",
-            details={**_error_details(exc), "directory": target_dir},
-        )
-
-
-@router.post("/test", response_model=schemas.CollectorConfigTestResponse)
-async def test_config(
-    _: models.AppUser = Depends(app_auth.require_admin_user),
-    db: Session = Depends(database.get_session),
-) -> schemas.CollectorConfigTestResponse:
-    """Testa a config **atualmente salva** no banco (não o request body).
-
-    Executa condicionalmente conforme ``wazuh_dispatch_mode``:
-    - ``syslog`` → testa só Syslog TCP/TLS.
-    - ``jsonl`` → testa só diretório JSONL.
-    - ``both``  → testa ambos.
-    """
-    snapshot = load_from_db_session(db)
-    mode = snapshot.wazuh_dispatch_mode
-    results = []
-
-    if mode in ("syslog", "both"):
-        results.append(await _test_syslog(snapshot))
-    if mode in ("jsonl", "both"):
-        results.append(_test_jsonl(snapshot))
-
-    return schemas.CollectorConfigTestResponse(mode=mode, results=results)
 
 
 # ── Captura ao vivo / "listening" (sessões de captura sob demanda) ────────────

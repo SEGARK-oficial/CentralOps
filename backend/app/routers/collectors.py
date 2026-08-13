@@ -740,7 +740,9 @@ def trigger_collection(
 @router.delete(
     "/state/{integration_id}/{stream}/cursor",
     status_code=204,
-    dependencies=[Depends(app_auth.require_admin_user)],
+    dependencies=[
+        Depends(app_auth.require_permission(app_auth.Permission.INTEGRATION_RESET))
+    ],
 )
 def reset_cursor(
     integration_id: int,
@@ -751,9 +753,16 @@ def reset_cursor(
 ) -> None:
     """Zera o cursor persistido **e** o cursor hot em Redis (se disponível).
 
-    Admin-only — reset faz re-coletar a partir do lookback padrão do
-    vendor (geralmente 1 hora) e pode causar duplicidade temporária até
-    o TTL de dedupe expirar.
+    Exige ``integration.reset`` (operator em diante). Antes era
+    ``require_admin_user``, ou seja ``user.manage``: para destravar um coletor
+    parado o operador precisava poder criar e apagar USUÁRIOS. O eixo estava
+    errado — isto é operação de coletor, vizinha de ``integration.pause``, que
+    o operator já tem e cujo raio de dano é maior (pausar interrompe o fluxo;
+    resetar re-coleta e o dedupe absorve a duplicidade).
+
+    Continua sendo destrutivo o bastante para não ser leitura: re-coleta a
+    partir do lookback padrão do vendor (geralmente 1 hora) e pode causar
+    duplicidade temporária até o TTL de dedupe expirar.
     """
     integration = integration_repo.get(integration_id)
     if integration is None:
