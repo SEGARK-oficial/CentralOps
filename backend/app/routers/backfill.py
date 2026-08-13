@@ -143,6 +143,14 @@ class BackfillDiagnostics(BaseModel):
     oldest_pending_age_seconds: Optional[int] = None
     healthy: bool
     diagnosis: str
+    # Broker QUE ESTA API USA (senha mascarada). A inspeção de workers é um
+    # broadcast que sai por ELE: uma lista vazia de workers só prova "ninguém
+    # respondeu NESTE broker", nunca "os workers estão offline". Sem expor a URL,
+    # os dois casos são indistinguíveis para quem lê o diagnóstico.
+    api_broker_url: Optional[str] = None
+    # True = a URL acima foi derivada do REDIS_URL (CELERY_BROKER_URL ausente no
+    # ambiente deste processo) — a principal causa de broker divergente.
+    api_broker_from_fallback: bool = False
 
 
 # ── Helpers ────────────────────────────────────────────────────────────
@@ -158,10 +166,13 @@ def _compute_stall(job: models.BackfillJob, now: datetime) -> tuple[bool, Option
         age = (now - job.requested_at).total_seconds()
         if age > _STALL_THRESHOLD_SECONDS:
             return True, (
-                f"Job 'pending' há {int(age)}s sem iniciar. Causa provável: nenhum "
-                "worker consome a fila 'collect.backfill'. Cheque "
-                "GET /api/backfill-jobs/diagnostics e o serviço worker-bulk "
-                "(deve incluir -Q ...,collect.backfill)."
+                f"Job 'pending' há {int(age)}s sem iniciar — a task foi publicada e "
+                "ninguém a consumiu. Duas causas possíveis, nesta ordem: (1) a API "
+                "publica num broker DIFERENTE do que os workers consomem — compare "
+                "CELERY_BROKER_URL entre o serviço da API e os workers; (2) nenhum "
+                "worker inclui a fila 'collect.backfill' (compose: worker-bulk com "
+                "-Q collect.bulk,collect.backfill). GET /api/backfill-jobs/diagnostics "
+                "mostra o broker da API e distingue os dois casos."
             )
     if job.status == "running" and job.started_at is not None:
         running_for = (now - job.started_at).total_seconds()
@@ -202,6 +213,24 @@ def _serialize_job(
         stalled=stalled,
         stall_reason=stall_reason,
     )
+
+
+def _api_broker_provenance() -> tuple[Optional[str], bool]:
+    """Broker que ESTA API usa (senha mascarada) + se veio de fallback.
+
+    Nunca levanta: é contexto de diagnóstico, e um diagnóstico que quebra por não
+    conseguir se descrever é pior que um diagnóstico incompleto.
+    """
+    try:
+        from ..collectors.celery_app import (
+            BROKER_FROM_FALLBACK,
+            celery_app,
+            sanitize_broker_url,
+        )
+
+        return sanitize_broker_url(celery_app.connection().as_uri()), BROKER_FROM_FALLBACK
+    except Exception:  # noqa: BLE001
+        return None, False
 
 
 def _do_inspect(timeout: float) -> tuple[List[str], List[str]]:
@@ -304,7 +333,11 @@ def _audit_backfill(
         models.MappingAuditLog(
             integration_id=integration_id,
             action=action,
-            user_id=user.id,
+            # Service account autentica como shim transient de AppUser com id
+            # NEGATIVO que não existe na tabela — gravar o id cru viola a FK e
+            # derruba a transação inteira. persistable_user_id devolve None
+            # nesse caso; a atribuição fica preservada em username='sa:<name>'.
+            user_id=app_auth.persistable_user_id(user),
             username=user.username,
             user_role=user.role,
             detail=detail_payload,
@@ -418,23 +451,17 @@ def create_backfill_job(
         from_ts=from_ts_naive,
         to_ts=to_ts_naive,
         status="pending",
-        requested_by_user_id=user.id,
+        # Ver a nota em _audit_backfill: id de shim de SA é negativo e viola a FK.
+        requested_by_user_id=app_auth.persistable_user_id(user),
         requested_at=now,
     )
     db.add(job)
-    db.flush()  # garante job.id
+    # flush popula job.id (default Python-side, avaliado só no INSERT) para a
+    # auditoria abaixo referenciá-lo. Continua DENTRO da transação — o commit,
+    # que é o que torna a linha visível a outras conexões, vem depois.
+    db.flush()
 
-    # Despacha task Celery na fila dedicada de backfill.
-    # Import tardio evita ciclo de importação app ↔ collectors.
-    from ..collectors.backfill_tasks import collect_backfill_job
-
-    result = collect_backfill_job.apply_async(
-        kwargs={"job_id": job.id},
-        queue="collect.backfill",
-    )
-    job.celery_task_id = result.id
-
-    # Auditoria antes do commit.
+    # Auditoria na MESMA transação do job.
     _audit_backfill(
         db,
         action="backfill_requested",
@@ -446,6 +473,63 @@ def create_backfill_job(
         to_ts=to_ts_naive,
     )
 
+    # COMMIT ANTES de publicar a task — nunca o contrário.
+    #
+    # ``flush()`` só emite o INSERT dentro da transação aberta: a linha não é
+    # visível para NENHUMA outra conexão até o commit. Publicando a task antes,
+    # abria-se uma corrida contra o worker — que roda em outro processo, com
+    # outra conexão. Ele vencia (o lookup leva ~60ms), não achava o job e
+    # retornava ``not_found``, encerrando a task como SUCESSO: sem retry, sem
+    # DLQ, o backfill simplesmente nunca rodava.
+    #
+    # A corrida ficou latente enquanto a API publicava num broker sem consumidor
+    # (a mensagem nunca chegava a ninguém); ao corrigir o broker, ela passou a
+    # disparar quase sempre.
+    db.commit()
+    db.refresh(job)
+
+    # Despacha task Celery na fila dedicada de backfill.
+    # Import tardio evita ciclo de importação app ↔ collectors.
+    from ..collectors.backfill_tasks import collect_backfill_job
+
+    try:
+        result = collect_backfill_job.apply_async(
+            kwargs={"job_id": job.id},
+            queue="collect.backfill",
+        )
+    except Exception as exc:  # noqa: BLE001 — broker fora do ar, serialização, etc.
+        # Commitar antes de publicar tirou a corrida, mas abriu esta janela: o
+        # job JÁ é durável quando o enfileiramento falha. Deixá-lo 'pending'
+        # recriaria o sintoma que este fix combate — um job que nunca roda e
+        # cuja mensagem de stall culpa o broker/worker. Marcamos 'failed' com a
+        # causa real: some da fila de espera e fica auto-explicativo na UI.
+        job.status = "failed"
+        job.last_error = f"Falha ao enfileirar a task de backfill: {exc!r}"
+        job.finished_at = datetime.utcnow()
+        db.commit()
+        logger.exception(
+            "backfill: falha ao enfileirar task job_id=%s integration_id=%s",
+            job.id, integration_id,
+        )
+        raise ApiError(
+            "backfill.enqueue_failed",
+            status.HTTP_503_SERVICE_UNAVAILABLE,
+            messages={
+                "pt": "Não foi possível enfileirar o backfill (broker indisponível). O job foi marcado como 'failed'; tente novamente.",
+                "en": "Could not enqueue the backfill (broker unavailable). The job was marked 'failed'; please retry.",
+                "es": "No se pudo encolar el backfill (broker no disponible). El job se marcó como 'failed'; inténtalo de nuevo.",
+            },
+        ) from exc
+
+    # celery_task_id é gravado DEPOIS: o job já está durável e elegível. Se esta
+    # segunda escrita falhar, perde-se só a capacidade de revogar a task por id
+    # (o cancel continua funcionando — o worker checa job.status a cada stream).
+    #
+    # O UPDATE toca só esta coluna (sem version_id_col, o SQLAlchemy não reescreve
+    # as demais), então o worker pode já ter movido o job para 'running' aqui sem
+    # que o commit o atropele. O refresh abaixo relê o estado corrente — a resposta
+    # reflete o job real, não o snapshot de antes do dispatch.
+    job.celery_task_id = result.id
     db.commit()
     db.refresh(job)
 
@@ -534,6 +618,8 @@ def backfill_diagnostics(
         int((now - oldest_pending).total_seconds()) if oldest_pending else None
     )
 
+    api_broker_url, api_broker_from_fallback = _api_broker_provenance()
+
     try:
         workers_online, consumers = _inspect_backfill_workers()
         broker_reachable = True
@@ -552,10 +638,26 @@ def backfill_diagnostics(
         )
     elif not workers_online:
         healthy = False
+        # NÃO afirme "os workers estão offline": tudo o que sabemos é que ninguém
+        # respondeu ao broadcast NESTE broker. Se os workers estiverem vivos em
+        # OUTRO broker, a coleta segue normal (quem a enfileira é o beat, que fica
+        # do lado deles) e só as tasks publicadas pela API somem — sintoma que já
+        # custou horas de investigação apontando para o worker errado.
         diagnosis = (
-            "Nenhum worker Celery respondeu ao ping — os workers podem estar "
-            "offline ou apontando para outro broker."
+            f"Nenhum worker respondeu no broker desta API ({api_broker_url}). "
+            "Isso significa 'ninguém escuta AQUI' — não necessariamente que os "
+            "workers caíram. Compare o broker dos dois lados antes de mexer neles: "
+            "`docker compose exec <serviço> python -c \"from app.collectors.celery_app "
+            'import celery_app; print(celery_app.connection().as_uri())"` na API e '
+            "num worker. Se as URLs diferirem, a API publica onde ninguém consome e "
+            "os jobs ficam 'pending' para sempre."
         )
+        if api_broker_from_fallback:
+            diagnosis += (
+                " ATENÇÃO: CELERY_BROKER_URL não está definida neste processo — a URL "
+                "acima foi DERIVADA do REDIS_URL e quase certamente diverge dos "
+                "workers. Defina-a explicitamente no serviço da API."
+            )
     elif not consumers:
         healthy = False
         diagnosis = (
@@ -594,6 +696,8 @@ def backfill_diagnostics(
         oldest_pending_age_seconds=oldest_age,
         healthy=healthy,
         diagnosis=diagnosis,
+        api_broker_url=api_broker_url,
+        api_broker_from_fallback=api_broker_from_fallback,
     )
 
 

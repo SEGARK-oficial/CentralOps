@@ -383,7 +383,7 @@ def bulk_discard(
                 mapping_definition_id=None,
                 mapping_version_id=ev.mapping_version_id,
                 action="discard_quarantine",
-                user_id=user.id,
+                user_id=app_auth.persistable_user_id(user),
                 username=user.username,
                 user_role=user.role,
                 detail=json.dumps({
@@ -469,7 +469,7 @@ def bulk_reprocess(
             mapping_definition_id=None,
             mapping_version_id=None,
             action="bulk_reprocess_quarantine",
-            user_id=user.id,
+            user_id=app_auth.persistable_user_id(user),
             username=user.username,
             user_role=user.role,
             detail=json.dumps({
@@ -547,7 +547,7 @@ def discard(
             mapping_definition_id=None,
             mapping_version_id=ev.mapping_version_id,
             action="discard_quarantine",
-            user_id=user.id,
+            user_id=app_auth.persistable_user_id(user),
             username=user.username,
             user_role=user.role,
             detail=json.dumps({
@@ -704,7 +704,7 @@ def reprocess(
                 mapping_version_id=result.mapping_version_id,
                 integration_id=ev.integration_id,
                 action="reprocess_quarantine_failed",
-                user_id=user.id,
+                user_id=app_auth.persistable_user_id(user),
                 username=user.username,
                 user_role=user.role,
                 detail=json.dumps({
@@ -776,7 +776,7 @@ def reprocess(
             mapping_version_id=result.mapping_version_id,
             integration_id=ev.integration_id,
             action="reprocess_quarantine_success",
-            user_id=user.id,
+            user_id=app_auth.persistable_user_id(user),
             username=user.username,
             user_role=user.role,
             detail=json.dumps({

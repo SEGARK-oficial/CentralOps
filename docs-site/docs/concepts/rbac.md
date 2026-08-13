@@ -263,6 +263,31 @@ Um token de automação **nunca tem mais permissões do que o usuário que o cri
 
 Para criar e gerenciar tokens, acesse o menu **Administração → Contas de serviço**.
 
+### Token de monitoramento (somente leitura)
+
+Para monitoração externa — Zabbix, um script de health check, um dashboard de
+terceiros — restrinja o token aos scopes de leitura em vez de herdar as
+permissões da conta:
+
+| Scope | Libera |
+|-------|--------|
+| `destination.read` | listar destinos, saúde, contagem de DLQ, métricas e estado do circuit breaker |
+| `route.read` | listar rotas, topologia, flow e saúde/métricas por rota |
+
+Um token com esses dois scopes **lê** o estado do pipeline e recebe 403 em
+qualquer escrita — criar/editar/excluir destino ou rota, reprocessar DLQ, girar
+credencial — e também em `Administração → Usuários`. Se o token vazar, o alcance
+é leitura de configuração e de indicadores operacionais.
+
+Duas leituras ficam **fora** desses scopes por expor outra classe de dado, e
+seguem exigindo Admin: o **tap ao vivo** de um destino (mostra o que está
+trafegando naquele momento) e o **histórico de acesso a credenciais**.
+
+Se o mesmo perfil também precisa **destravar coletor parado**, acrescente
+`integration.reset` (Operator em diante). Ela zera o cursor de coleta, o que faz
+re-coletar a janela e pode gerar duplicidade temporária até o TTL de deduplicação
+expirar — por isso não está entre os scopes de leitura.
+
 ## Posso criar papéis personalizados?
 
 Não, e na maioria dos casos você não precisa. Os quatro papéis são fixos, mas o controle fino existe em outra camada.

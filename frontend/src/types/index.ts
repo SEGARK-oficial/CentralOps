@@ -1569,6 +1569,8 @@ export type ScopeName =
   | "drift.ignore"
   | "drift.mark_mapped"
   | "drift.delete"
+  | "destination.read"
+  | "route.read"
   | "user.manage"
   | "secret.read"
   | "audit.read"
