@@ -46,7 +46,7 @@ O que você pode ajustar por essa tela:
 | Remoção de duplicados | Por quanto tempo eventos idênticos são considerados repetidos e descartados. |
 | Limites de taxa por fornecedor | Quantos eventos por minuto cada integração (Sophos, Microsoft Defender, NinjaOne, etc.) pode enviar. |
 
-**Testar antes de salvar**: a tela permite validar a conexão com o destino na hora, sem reiniciar nada. Faça isso sempre que mudar endereço, porta ou TLS.
+Estes parâmetros valem para a coleta como um todo. Para testar o caminho de **saída** (endereço, porta, TLS de um destino), use o botão **Testar** na tela de Destinos, que sonda o destino configurado.
 
 :::note[Limites de taxa]
 Os limites de taxa por fornecedor têm um valor padrão definido pela equipe de infraestrutura no momento do deploy. Se precisar de um limite diferente, fale com o administrador da plataforma.
