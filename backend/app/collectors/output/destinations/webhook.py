@@ -20,6 +20,7 @@ import aiohttp
 from pydantic import BaseModel, Field
 
 from ..base import DeliveryResult, RejectedEvent, TestResult
+from ..payload_shape import DESCRICAO as PAYLOAD_DESCRICAO, PayloadShape, render_payload
 from .registry import DestinationConfig, DestinationRegistration, register
 
 logger = logging.getLogger(__name__)
@@ -43,7 +44,15 @@ class WebhookConfig(BaseModel):
         description="Como autenticar: sem autenticação, Bearer token ou Basic",
     )
     wrap: str = Field(default="array", description="array | ndjson — formato do corpo do lote")
-    body: str = Field(default="envelope", description="envelope | normalized — o que enviar por evento")
+    payload: Optional[PayloadShape] = Field(
+        default=None,
+        description=PAYLOAD_DESCRICAO,
+    )
+    #: Nome histórico de ``payload``, que aceitava "normalized". Continua
+    #: declarado para que config já gravada siga valendo: se ele sumisse do
+    #: schema, o Pydantic descartaria a chave e todo destino configurado com
+    #: "normalized" voltaria a mandar o envelope, em silêncio.
+    body: Optional[str] = Field(default=None, deprecated=True, description="Use payload.")
     headers: dict = Field(default_factory=dict, description="Headers extras (ex: X-Api-Key)")
     verify_tls: bool = Field(default=True, description="Verificar certificado TLS")
 
@@ -77,9 +86,7 @@ class WebhookClient:
 
     def format(self, envelope: Mapping[str, Any]) -> dict:
         """Canônico → wire: envelope inteiro ou só o OCSF ``normalized``."""
-        if self._body == "normalized":
-            return dict(envelope.get("normalized") or {})
-        return dict(envelope)
+        return render_payload(envelope, self._body)
 
     def _auth_header(self) -> dict:
         if self._auth_mode == "bearer" and self._secret:
@@ -164,7 +171,8 @@ def _factory(config: DestinationConfig, secrets: Optional[Any] = None) -> Webhoo
             logger.warning("webhook: falha ao decifrar credencial (%s) — sem auth", type(exc).__name__)
     return WebhookClient(
         url=cfg.url, method=cfg.method, auth_mode=cfg.auth_mode, wrap=cfg.wrap,
-        body=cfg.body, headers=cfg.headers, verify_tls=cfg.verify_tls, secret=secret,
+        # ``payload`` vence; ``body`` é o nome histórico e cobre config antiga.
+        body=cfg.payload or cfg.body, headers=cfg.headers, verify_tls=cfg.verify_tls, secret=secret,
     )
 
 

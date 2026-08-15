@@ -37,6 +37,7 @@ from typing import Any, List, Mapping, Optional
 
 import aiohttp
 
+from .payload_shape import render_payload
 from .base import DeliveryResult, RejectedEvent, TestResult
 
 logger = logging.getLogger(__name__)
@@ -57,6 +58,7 @@ def format_hec_event(
     index: Optional[str] = None,
     source: Optional[str] = None,
     host: Optional[str] = None,
+    payload: str = "envelope",
 ) -> dict:
     """Embala um envelope canônico no wrapper HEC do Splunk.
 
@@ -78,12 +80,16 @@ def format_hec_event(
         index: nome do índice Splunk (omitido quando None).
         source: campo source do HEC (omitido quando None).
         host: campo host do HEC (omitido quando None).
+        payload: ``envelope`` (canônico) ou ``ocsf`` (só o evento OCSF 1.8).
 
     Returns:
         Dict pronto para ``json.dumps`` e POST ao HEC.
     """
     wrapper: dict[str, Any] = {
-        "event": envelope,
+        # ``payload="ocsf"`` entrega só o evento OCSF 1.8 dentro do wrapper HEC,
+        # que é o que um índice modelado a partir do schema OCSF espera. O
+        # default continua sendo o envelope canônico.
+        "event": render_payload(envelope, payload),
         "sourcetype": sourcetype,
     }
     if index is not None:
@@ -94,6 +100,8 @@ def format_hec_event(
         wrapper["host"] = host
     # Expõe o event_id como campo indexado para dedup no indexer.
     # O HEC não faz dedup automático: este campo é para uso em queries Splunk.
+    # Lido do envelope mesmo em modo ``ocsf``: é metadado de TRANSPORTE, vai em
+    # ``fields`` e não dentro do evento, então não contamina o OCSF entregue.
     meta = envelope.get("_centralops") or {}
     event_id = meta.get("event_id")
     if event_id:
@@ -132,6 +140,7 @@ class SplunkHecClient:
         host: Optional[str] = None,
         verify_tls: bool = True,
         ca_bundle: Optional[str] = None,
+        payload: str = "envelope",
     ) -> None:
         self._url = url.rstrip("/") + "/services/collector"
         self._token = token
@@ -139,6 +148,7 @@ class SplunkHecClient:
         self._sourcetype = sourcetype
         self._source = source
         self._host = host
+        self._payload = payload
         self._verify_tls = verify_tls
         self._ca_bundle = ca_bundle
         self._session: Optional[aiohttp.ClientSession] = None
@@ -151,6 +161,7 @@ class SplunkHecClient:
             index=self._index,
             source=self._source,
             host=self._host,
+            payload=self._payload,
         )
 
     def _build_ssl(self) -> Any:
@@ -192,6 +203,7 @@ class SplunkHecClient:
                 index=self._index,
                 source=self._source,
                 host=self._host,
+                payload=self._payload,
             ),
             separators=(",", ":"),
             default=str,
