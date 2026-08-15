@@ -20,13 +20,27 @@ const config: Config = {
   projectName: 'CentralOps',
   trailingSlash: false,
 
-  onBrokenLinks: 'warn',
-  onBrokenMarkdownLinks: 'warn',
+  // 'throw' e não 'warn': com aviso, um link quebrado não falha o build, e como
+  // o build da doc só rodava em push para main, o erro só aparecia PUBLICADO.
+  // Foi assim que três admonitions quebradas ficaram no ar. Verificado antes de
+  // endurecer: os três locales constroem sem nenhum link quebrado hoje.
+  onBrokenLinks: 'throw',
 
-  // .md = CommonMark (não MDX): docs em prosa usam {chaves}/<colchetes> livremente
-  // sem o parser tentar avaliá-los como JSX. Nenhum doc usa import/componente MDX.
   markdown: {
+    // .md = CommonMark (não MDX): docs em prosa usam {chaves}/<colchetes>
+    // livremente sem o parser tentar avaliá-los como JSX. Nenhum doc usa
+    // import/componente MDX.
+    //
+    // Consequência que já custou caro: em CommonMark, `:::info Titulo` NÃO é
+    // diretiva. O admonition inteiro vira parágrafo literal, com os `:::` à
+    // mostra, e o build não reclama. A forma correta leva colchetes:
+    // `:::info[Titulo]`.
     format: 'detect',
+    hooks: {
+      // Migrado de `siteConfig.onBrokenMarkdownLinks`, que o Docusaurus
+      // deprecou e remove na v4.
+      onBrokenMarkdownLinks: 'throw',
+    },
   },
 
   i18n: {

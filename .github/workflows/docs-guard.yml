@@ -1,0 +1,77 @@
+name: docs guard
+
+# Constrói o site da documentação em PR, o que antes só acontecia em push para
+# main. Sem este gate, erro de documentação só aparecia PUBLICADO.
+#
+# Dois defeitos reais nasceram desse buraco:
+#
+#   - Três admonitions escritas na forma `:::info Titulo` (com espaço em vez de
+#     colchete) viraram parágrafo literal, com os `:::` à mostra no site. O
+#     build não reclama disso, porque em CommonMark aquilo é texto válido.
+#   - Link quebrado passava batido, porque `onBrokenLinks` estava em `warn`.
+#     Agora está em `throw`, e é este workflow que dá consequência a isso.
+#
+# O passo do admonition existe porque o build NÃO cobre esse caso. Ele é a parte
+# que o Docusaurus não consegue reclamar sozinho.
+
+on:
+  pull_request:
+    paths:
+      - 'docs-site/**'
+      - '.github/workflows/docs-guard.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'docs-site/**'
+      - '.github/workflows/docs-guard.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: docs-guard-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Site constrói nos 3 idiomas, sem link quebrado
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: docs-site/package-lock.json
+
+      - name: Instalar dependências
+        working-directory: docs-site
+        run: npm ci
+
+      - name: Admonition com título precisa de colchete
+        run: |
+          # Em `.md` o Docusaurus usa CommonMark (markdown.format: 'detect'), e
+          # ali `:::info Titulo` não é diretiva: o bloco inteiro vira parágrafo
+          # literal, com os `:::` visíveis. A forma correta é `:::info[Titulo]`.
+          # O build aceita as duas, então esta checagem é a única barreira.
+          if grep -rnE '^:::(tip|info|note|caution|warning|danger)[[:space:]]+[^[]' \
+               docs-site/docs docs-site/i18n --include='*.md'; then
+            echo "::error::Admonition com título separado por espaço. Em CommonMark isso vira TEXTO, com os ::: à mostra. Use :::tipo[Titulo]."
+            exit 1
+          fi
+          echo "Nenhuma admonition na forma que degrada."
+
+      - name: Construir os 3 idiomas
+        working-directory: docs-site
+        # Sem `--locale`: constrói pt-BR, en e es, igual ao deploy. Um locale
+        # pode ter link quebrado que o default não tem.
+        run: npm run build
+
+      - name: Nenhum ":::" vazou para o HTML
+        run: |
+          # Rede de segurança do passo anterior: se alguma forma nova de
+          # degradação aparecer, ela chega ao HTML como texto literal.
+          if grep -rl ':::' docs-site/build --include='*.html'; then
+            echo "::error::Marcador ::: literal no HTML publicado. Alguma diretiva não foi interpretada."
+            exit 1
+          fi
+          echo "Nenhum marcador vazado."
