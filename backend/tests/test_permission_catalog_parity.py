@@ -15,6 +15,17 @@ Python E os arquivos do frontend ao mesmo tempo. O Vite recusa importar de fora
 da raiz do projeto (``fs.allow``), e afrouxar isso por causa de um teste seria
 trocar uma trava de segurança do bundler por conveniência. Aqui os dois lados
 são só arquivos.
+
+**Por que parte dos testes é ``source_only``.** A imagem Cython carrega só o
+backend compilado: não existe ``frontend/`` lá dentro, e o ``.py`` dos routers
+virou ``.so``. Todo teste daqui que ABRE um arquivo está marcado e sai do sweep
+da imagem; ele roda no job de árvore de fontes, sobre o checkout cru, que é onde
+os dois lados existem.
+
+Os testes que só olham o enum e ``ROLE_PERMISSIONS`` continuam SEM marcador de
+propósito: são o eixo do RBAC e valem tanto no artefato compilado quanto no
+fonte. Marcar o módulo inteiro teria tirado essa proteção do que vai para
+produção.
 """
 
 from __future__ import annotations
@@ -52,6 +63,7 @@ def _descriptions(locale: str) -> dict[str, str]:
     return data.get("permissions", {}).get("descriptions", {})
 
 
+@pytest.mark.source_only  # abre arquivo; na imagem Cython ele não existe
 def test_catalog_covers_every_backend_permission() -> None:
     """Permissão sem categoria cai num balde genérico e aparece crua na tela."""
     missing = sorted(_backend_permissions() - _catalog_permissions())
@@ -62,6 +74,7 @@ def test_catalog_covers_every_backend_permission() -> None:
     )
 
 
+@pytest.mark.source_only  # abre arquivo; na imagem Cython ele não existe
 def test_catalog_does_not_invent_permissions() -> None:
     """Divergência ao contrário: linha fantasma numa matriz que se diz fiel."""
     extra = sorted(_catalog_permissions() - _backend_permissions())
@@ -71,6 +84,7 @@ def test_catalog_does_not_invent_permissions() -> None:
     )
 
 
+@pytest.mark.source_only  # abre arquivo; na imagem Cython ele não existe
 @pytest.mark.parametrize("locale", _LOCALES)
 def test_every_permission_has_a_human_description(locale: str) -> None:
     """A matriz responde "o que essa pessoa vai poder fazer?", não lista slugs."""
@@ -80,6 +94,7 @@ def test_every_permission_has_a_human_description(locale: str) -> None:
     )
 
 
+@pytest.mark.source_only  # abre arquivo; na imagem Cython ele não existe
 @pytest.mark.parametrize("locale", _LOCALES)
 def test_descriptions_do_not_outlive_the_permission(locale: str) -> None:
     extra = sorted(set(_descriptions(locale)) - _backend_permissions())
@@ -140,6 +155,7 @@ def test_viewer_nao_reseta_coletor() -> None:
     assert app_auth.Permission.INTEGRATION_RESET not in app_auth.ROLE_PERMISSIONS["viewer"]
 
 
+@pytest.mark.source_only  # abre arquivo; na imagem Cython ele não existe
 @pytest.mark.parametrize(
     "router_name, read_perm, escrita_sensivel",
     [

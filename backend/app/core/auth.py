@@ -122,14 +122,21 @@ class Permission(StrEnum):
     DRIFT_IGNORE = "drift.ignore"
     DRIFT_MARK_MAPPED = "drift.mark_mapped"
     DRIFT_DELETE = "drift.delete"
-    # Leitura de destinos e de rotas. Sem elas, os GETs de destino/rota caíam
-    # em ``require_admin_user`` (= USER_MANAGE) por falta de permissão fina: ler
-    # a contagem de DLQ ou o estado do circuit breaker exigia um token com poder
-    # de CRIAR E REMOVER USUÁRIOS. Um alvo desproporcional para o caso de uso
-    # típico — Zabbix, script de health check, dashboard externo.
+    # Leitura de ENTREGA (destinos e rotas). Sem elas, os GETs de destino/rota
+    # caíam em ``require_admin_user`` (= USER_MANAGE) por falta de permissão
+    # fina: ler a contagem de DLQ ou o estado do circuit breaker exigia um token
+    # com poder de CRIAR E REMOVER USUÁRIOS. O eixo estava errado — ler saúde de
+    # entrega não tem relação nenhuma com gerenciar gente — e o alvo era
+    # desproporcional para o caso de uso típico: Zabbix, script de health check,
+    # dashboard externo.
     #
-    # Escrita (criar/editar/deletar destino e rota) segue em USER_MANAGE, como
-    # antes: só a LEITURA foi separada.
+    # Seguro afrouxar: ``DestinationRead`` omite ``secret_ref`` de propósito e
+    # expõe só ``has_secret``; credencial de destino vive no cofre
+    # (``registry.secret_ref``), nunca dentro de ``config``.
+    #
+    # A ESCRITA (criar, editar, apagar, rotacionar credencial, reprocessar DLQ)
+    # e o data-tap (``/{id}/tap``, que mostra payload de evento de cliente)
+    # seguem em ``user.manage``: só a LEITURA foi separada.
     #
     # Concedidas a partir de VIEWER — é o que a matriz documentada em
     # docs-site/docs/concepts/rbac.md já afirmava ("Ver destinos" / "Ver regras
@@ -149,22 +156,6 @@ class Permission(StrEnum):
     # / INTEGRATION_WRITE. ACTION_BLOCK removido: response actions descontinuadas.
     QUERY_RUN = "query.run"
     QUERY_SAVE = "query.save"
-    # Leitura de ENTREGA (destinos e rotas). Existem porque, sem elas, ver
-    # contagem de DLQ ou estado de breaker exigia ``user.manage`` — a permissão
-    # de criar e remover USUÁRIOS. Um monitor externo (Zabbix, SNOC) que só
-    # queria saber se a entrega está de pé precisava de um token capaz de
-    # administrar contas, e o eixo estava errado: ler saúde de destino não tem
-    # relação nenhuma com gerenciar gente.
-    #
-    # Seguro afrouxar: ``DestinationRead`` omite ``secret_ref`` de propósito e
-    # expõe só ``has_secret``; credencial de destino vive no cofre
-    # (``registry.secret_ref``), nunca dentro de ``config``.
-    #
-    # A ESCRITA (criar, editar, apagar, rotacionar credencial, reprocessar DLQ)
-    # e o data-tap (``/{id}/tap``, que mostra payload de evento de cliente)
-    # seguem em ``user.manage``.
-    DESTINATION_READ = "destination.read"
-    ROUTE_READ = "route.read"
     # Zerar o cursor de coleta. Era ``user.manage`` pelo mesmo erro de eixo:
     # para destravar um coletor parado, o operador precisava poder apagar
     # usuários. É operação de COLETOR, vizinha de ``integration.pause`` — que o

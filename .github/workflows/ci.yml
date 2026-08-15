@@ -153,9 +153,15 @@ jobs:
             backend/tests backend/app/collectors/tests \
             | tee /tmp/source_only.log
           # Fail-closed: seleção vazia é indistinguível de "tudo passou".
+          #
+          # A mensagem fica numa linha só de propósito. Quebrá-la com `\` custou
+          # este workflow inteiro: num bloco literal (`run: |`), o YAML termina o
+          # bloco na primeira linha indentada MENOS que ele. A continuação estava
+          # na coluna 1, então o parser saía do script e tentava ler o resto da
+          # frase como chave de mapa — arquivo inválido, e o GitHub passou a
+          # abortar o run inteiro na largada, sem job nenhum e sem log.
           if grep -qE "no tests ran|collected 0 items" /tmp/source_only.log; then
-            echo "::error::Nenhum teste source_only foi selecionado — o marcador \
-sumiu ou o caminho mudou. Recusando o verde vazio."
+            echo "::error::Nenhum teste source_only foi selecionado — o marcador sumiu ou o caminho mudou. Recusando o verde vazio."
             exit 1
           fi
 
