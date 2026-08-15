@@ -6,7 +6,7 @@ description: Por que a busca acontece no destino, o que o console oferece e como
 
 # Onde pesquisar eventos
 
-:::warning O console não pesquisa eventos
+:::warning[O console não pesquisa eventos]
 Na edição Community **não existe tela de busca de eventos**. O CentralOps é o pipeline: ele coleta, padroniza e **entrega**. Quem guarda o evento e responde a consultas é o **destino** para onde você o roteou (seu SIEM, data lake ou bucket). É lá que a busca acontece.
 
 O que o console oferece:

@@ -83,7 +83,7 @@ As três primeiras telas ficam fixas no topo, acima de um separador e **sem cabe
 
 Sua conta (perfil, senha e sessões) fica no **menu do avatar**, no canto superior direito, não no menu lateral.
 
-:::info Console ocioso é um console saudável
+:::info[Console ocioso é um console saudável]
 O que está em repouso não recebe cor. Uma rota habilitada não ganha selo, uma integração saudável não fica verde. Você varre a tela procurando o que **não** está neutro: âmbar pede atenção, vermelho já falhou. É por isso que o âmbar registra quando aparece.
 :::
 

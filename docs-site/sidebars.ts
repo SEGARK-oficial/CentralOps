@@ -220,6 +220,23 @@ const sidebars: SidebarsConfig = {
       ],
     },
   ],
+
+  apiSidebar: [
+    {
+      type: 'category',
+      label: 'API',
+      collapsed: false,
+      items: [
+        'api/overview',
+        'api/authentication',
+        'api/permissions',
+        'api/conventions',
+        'api/reference',
+        'api/openapi',
+        'api/recipes',
+      ],
+    },
+  ],
 };
 
 export default sidebars;

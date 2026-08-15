@@ -121,6 +121,12 @@ const config: Config = {
           position: 'left',
           label: 'Runbooks',
         },
+        {
+          type: 'docSidebar',
+          sidebarId: 'apiSidebar',
+          position: 'left',
+          label: 'API',
+        },
         // Seletor de idioma (pt-BR / en / es).
         {
           type: 'localeDropdown',
