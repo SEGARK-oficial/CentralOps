@@ -23,7 +23,7 @@ interface JsonSchemaFormProps {
   idPrefix?: string
 }
 
-type Scalar = "string" | "number" | "integer" | "boolean" | "enum"
+type Scalar = "string" | "number" | "integer" | "boolean" | "enum" | "stringmap"
 
 interface ResolvedField {
   scalar: Scalar | null // null = nested/unsupported → não renderiza
@@ -52,8 +52,26 @@ function resolveField(prop: JsonSchemaProperty): ResolvedField {
     }
   }
 
-  // Objeto aninhado ($ref / allOf-ref / type:object) → não suportado aqui.
-  if (effective.$ref || Array.isArray(effective.allOf) || effective.type === "object") {
+  // Modelo aninhado ($ref / allOf-ref) → o backend aplica os defaults por kind
+  // e valida, então omitir aqui é seguro (ex.: delivery.breaker).
+  if (effective.$ref || Array.isArray(effective.allOf)) {
+    return { scalar: null }
+  }
+
+  // Mapa livre string→string (`dict` no Pydantic). Sem este ramo o campo era
+  // pulado, e isso tinha consequência real: `headers` do webhook e do OTLP
+  // ficavam inatingíveis pela tela, então não havia como definir um header de
+  // API key nem um `X-Source-Type` que o destino exigisse. A única saída era
+  // PATCH manual na API.
+  if (effective.type === "object") {
+    const extras = effective.additionalProperties
+    const ehMapaLivre =
+      extras === true ||
+      extras === undefined ||
+      (typeof extras === "object" && extras !== null && (extras as JsonSchemaProperty).type === "string")
+    if (ehMapaLivre) {
+      return { scalar: "stringmap", description: prop.description ?? effective.description, default: effective.default }
+    }
     return { scalar: null }
   }
 
@@ -104,6 +122,82 @@ export const JsonSchemaForm: React.FC<JsonSchemaFormProps> = ({
         const isRequired = required.has(key)
         const id = `${idPrefix}-${key}`
         const current = values[key] !== undefined ? values[key] : field.default
+
+        if (field.scalar === "stringmap") {
+          const mapa = (current && typeof current === "object" ? current : {}) as Record<string, string>
+          const linhas = Object.entries(mapa)
+
+          const gravar = (proximas: [string, string][]) => {
+            const obj: Record<string, string> = {}
+            for (const [k, v] of proximas) {
+              // Chave vazia é descartada: ela não vira header nenhum e deixá-la
+              // no objeto faria o operador achar que gravou algo.
+              if (k.trim()) obj[k.trim()] = v
+            }
+            set(key, obj)
+          }
+
+          return (
+            <fieldset key={key} className="space-y-2 rounded-lg border border-border p-3">
+              <legend className="px-1 text-sm font-medium text-text">
+                {label}
+                {isRequired ? " *" : ""}
+              </legend>
+              {field.description && (
+                <p className="text-xs text-text-tertiary">{field.description}</p>
+              )}
+
+              {linhas.length === 0 && (
+                <p className="text-xs text-text-tertiary">Nenhum item. Use o botão abaixo para acrescentar.</p>
+              )}
+
+              {linhas.map(([k, v], i) => (
+                <div key={`${id}-${i}`} className="flex items-start gap-2">
+                  <Input
+                    aria-label={`${label} — chave ${i + 1}`}
+                    placeholder="Nome"
+                    value={k}
+                    disabled={disabled}
+                    onChange={(e) => {
+                      const proximas = [...linhas] as [string, string][]
+                      proximas[i] = [e.target.value, v]
+                      gravar(proximas)
+                    }}
+                  />
+                  <Input
+                    aria-label={`${label} — valor ${i + 1}`}
+                    placeholder="Valor"
+                    value={v}
+                    disabled={disabled}
+                    onChange={(e) => {
+                      const proximas = [...linhas] as [string, string][]
+                      proximas[i] = [k, e.target.value]
+                      gravar(proximas)
+                    }}
+                  />
+                  <button
+                    type="button"
+                    disabled={disabled}
+                    aria-label={`Remover ${k || `item ${i + 1}`}`}
+                    className="mt-1 rounded px-2 py-1 text-sm text-text-secondary hover:bg-surface-tertiary"
+                    onClick={() => gravar(linhas.filter((_, j) => j !== i) as [string, string][])}
+                  >
+                    Remover
+                  </button>
+                </div>
+              ))}
+
+              <button
+                type="button"
+                disabled={disabled}
+                className="rounded border border-border px-2 py-1 text-sm text-text hover:bg-surface-tertiary"
+                onClick={() => gravar([...(linhas as [string, string][]), ["", ""]])}
+              >
+                Acrescentar
+              </button>
+            </fieldset>
+          )
+        }
 
         if (field.scalar === "boolean") {
           return (

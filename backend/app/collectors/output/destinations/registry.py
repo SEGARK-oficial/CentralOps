@@ -92,6 +92,19 @@ class DestinationRegistration:
     capabilities: frozenset = frozenset()
     #: nomes lógicos de segredos exigidos (token HEC, app Entra, ...).
     required_secrets: Tuple[str, ...] = ()
+    #: nomes lógicos de segredos ACEITOS mas não obrigatórios.
+    #:
+    #: Existe porque ``required_secrets`` sozinho só modela dois estados, e o
+    #: terceiro é comum: o destino aceita credencial mas funciona sem ela. O
+    #: webhook genérico é o caso, e a ausência deste campo tinha uma
+    #: consequência concreta: a UI decidia mostrar o input de credencial por
+    #: ``required_secrets.length > 0``, então quem escolhia autenticação Bearer
+    #: não encontrava onde colar o token. O runtime já montava o header
+    #: corretamente; faltava o campo na tela.
+    #:
+    #: Marcar o webhook como *required* não serviria: quebraria todo destino
+    #: legítimo sem autenticação.
+    optional_secrets: Tuple[str, ...] = ()
     #: rótulo legível para o catálogo da UI.
     label: str = ""
     #: defaults de ``DeliveryConfig`` por kind. Deep-merged
@@ -126,6 +139,7 @@ class DestinationRegistration:
             "default_queue": self.default_queue,
             "capabilities": sorted(self.capabilities),
             "required_secrets": list(self.required_secrets),
+            "optional_secrets": list(self.optional_secrets),
             "config_schema": self.config_schema.model_json_schema(),
             "delivery_schema": DeliveryConfig.model_json_schema(),
             "delivery_defaults": dict(self.delivery_defaults),

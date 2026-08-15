@@ -149,6 +149,7 @@ const sidebars: SidebarsConfig = {
       collapsed: false,
       items: [
         'outputs/overview',
+        'outputs/ocsf-nativo',
         {
           type: 'category',
           label: 'Destinos',

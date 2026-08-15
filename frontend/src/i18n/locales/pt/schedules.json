@@ -36,7 +36,9 @@
     "loadSchedulesError": "Falha ao carregar agendamentos.",
     "loadEmailsError": "Falha ao carregar emails de notificação.",
     "refreshError": "Falha ao atualizar dados de agendamento.",
-    "loadHistoryError": "Falha ao carregar o histórico do agendamento."
+    "loadHistoryError": "Falha ao carregar o histórico do agendamento.",
+    "updateSuccess": "Agendamento atualizado.",
+    "updateError": "Falha ao atualizar o agendamento."
   },
   "form": {
     "title": "Novo agendamento",
@@ -61,7 +63,9 @@
       "runEvery": "Executar a cada",
       "notifyByEmail": "Notificar por email quando houver resultados",
       "configuredEmails": "Emails configurados:"
-    }
+    },
+    "editTitle": "Editar agendamento",
+    "submitEdit": "Salvar alterações"
   },
   "activeList": {
     "title": "Agendamentos ativos",

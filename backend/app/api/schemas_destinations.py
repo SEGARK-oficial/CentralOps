@@ -346,6 +346,10 @@ class DestinationTypeRead(BaseModel):
     default_queue: str
     capabilities: List[str]
     required_secrets: List[str]
+    #: Segredos ACEITOS mas não obrigatórios. A UI mostra o campo de
+    #: credencial quando required OU optional tem algo; sem isto ela
+    #: escondia o input e não havia onde colar o token do webhook.
+    optional_secrets: List[str] = []
     config_schema: Dict[str, Any]
     # delivery policy schema + per-kind defaults (UI renders the
     # delivery form from this, same as config_schema for the config form).

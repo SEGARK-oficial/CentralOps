@@ -22,6 +22,7 @@ from typing import Any, Optional
 from pydantic import BaseModel, Field
 
 from ..splunk_hec_sender import SplunkHecClient
+from ..payload_shape import DESCRICAO as PAYLOAD_DESCRICAO, PayloadShape
 from .registry import DestinationConfig, DestinationRegistration, register
 
 logger = logging.getLogger(__name__)
@@ -42,6 +43,7 @@ class SplunkHecConfig(BaseModel):
     sourcetype: str = Field(default="centralops", description="Sourcetype HEC")
     source: Optional[str] = Field(default=None, description="Campo source do HEC")
     host: Optional[str] = Field(default=None, description="Campo host do HEC")
+    payload: PayloadShape = Field(default="envelope", description=PAYLOAD_DESCRICAO)
     verify_tls: bool = Field(default=True, description="Verificar certificado TLS")
     ca_bundle: Optional[str] = Field(
         default=None,
@@ -77,6 +79,7 @@ def _factory(config: DestinationConfig, secrets: Optional[Any] = None) -> Splunk
         sourcetype=cfg.sourcetype,
         source=cfg.source,
         host=cfg.host,
+        payload=cfg.payload,
         verify_tls=cfg.verify_tls,
         ca_bundle=cfg.ca_bundle,
     )

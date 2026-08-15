@@ -2,7 +2,14 @@ import logging
 from datetime import datetime
 from typing import Optional, List, Any, Dict, Literal
 
-from pydantic import AliasChoices, BaseModel, ConfigDict, Field, field_validator
+from pydantic import (
+    AliasChoices,
+    BaseModel,
+    ConfigDict,
+    Field,
+    field_validator,
+    model_validator,
+)
 import re
 
 from ..core.url_policy import normalize_service_url
@@ -1068,8 +1075,24 @@ class AuditLogRead(BaseModel):
 
 
 class SearchResultRead(BaseModel):
+    """Uma execução de query, agendada ou manual.
+
+    **Sobre ``client_id``.** A coluna do model chama-se ``integration_id`` desde
+    o rename de "client" para "integration". Este schema continuou declarando
+    ``client_id``, e como ``from_attributes`` casa por NOME, o Pydantic procurava
+    um atributo que não existe e caía no default: ``client_id`` saía ``None`` em
+    **toda** resposta de histórico. A tela que resolve o nome do ambiente a
+    partir dele mostrava "Ambiente não informado" sempre, para todo mundo.
+
+    O campo canônico agora é ``integration_id``. ``client_id`` continua na
+    resposta, preenchido com o mesmo valor, para não quebrar quem já lê essa
+    chave. Ele está depreciado e sai numa versão futura.
+    """
+
     id: int
     search_id: str
+    integration_id: int | None = None
+    # Espelho depreciado de ``integration_id``. Ver docstring.
     client_id: int | None = None
     schedule_id: int | None = None
     status: str
@@ -1085,6 +1108,19 @@ class SearchResultRead(BaseModel):
     created_at: Optional[datetime] = None
 
     model_config = ConfigDict(from_attributes=True)
+
+    @model_validator(mode="after")
+    def _espelha_integration_id(self) -> "SearchResultRead":
+        """Mantém os dois campos com o mesmo valor, venha de onde vier.
+
+        Serve para os dois sentidos: lendo do ORM (que só tem
+        ``integration_id``) e de um dict legado (que só tem ``client_id``).
+        """
+        if self.integration_id is None and self.client_id is not None:
+            self.integration_id = self.client_id
+        elif self.client_id is None and self.integration_id is not None:
+            self.client_id = self.integration_id
+        return self
 
 
 # ── Predefined Queries ────────────────────────────────────────────────
@@ -1175,6 +1211,56 @@ class ScheduledQueryBase(BaseModel):
         if not normalized:
             raise ValueError("at least one client must be selected")
 
+        return normalized
+
+
+class ScheduledQueryUpdate(StrictUpdateModel):
+    """Edição de um agendamento que já existe.
+
+    Antes disto não havia rota de update: o operador que errasse o intervalo, a
+    janela ou a lista de integrações precisava apagar o agendamento e criar
+    outro, perdendo o histórico junto (o ``schedule_id`` dos resultados aponta
+    para a linha apagada).
+
+    Todo campo é opcional e só o que vier é aplicado, então dá para mexer no
+    intervalo sem reenviar a lista de integrações. Herda ``extra="forbid"``:
+    chave desconhecida vira 422 em vez de sumir com 200.
+    """
+
+    query_id: Optional[int] = None
+    client_ids: Optional[List[int]] = None
+    interval_value: Optional[int] = Field(default=None, gt=0)
+    interval_unit: Optional[ScheduleTimeUnit] = None
+    lookback_value: Optional[int] = Field(default=None, gt=0)
+    lookback_unit: Optional[ScheduleTimeUnit] = None
+    notify_on_results: Optional[bool] = None
+
+    @field_validator("interval_unit", "lookback_unit", mode="before")
+    @classmethod
+    def normalize_schedule_unit(cls, v: Any) -> Any:
+        if isinstance(v, str):
+            return v.strip().lower()
+        return v
+
+    @field_validator("client_ids")
+    @classmethod
+    def validate_client_ids(cls, v: Optional[List[int]]) -> Optional[List[int]]:
+        """Mesma regra do create, e uma a mais: lista vazia é recusada.
+
+        Um agendamento sem integração nenhuma não roda em lugar nenhum. Aceitar
+        a lista vazia produziria um agendamento vivo que nunca faz nada, e o
+        operador só descobriria pela ausência de resultado.
+        """
+        if v is None:
+            return None
+        if not v:
+            raise ValueError("client_ids must not be empty")
+        normalized: List[int] = []
+        for item in v:
+            if not isinstance(item, int) or isinstance(item, bool) or item <= 0:
+                raise ValueError("client_ids must contain positive integers")
+            if item not in normalized:
+                normalized.append(item)
         return normalized
 
 

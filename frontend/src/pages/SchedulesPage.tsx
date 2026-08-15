@@ -12,6 +12,7 @@ import {
   ChevronRightIcon,
   DownloadIcon,
   EyeIcon,
+  PencilIcon,
   RefreshCcwIcon,
   SearchIcon,
   Trash2Icon,
@@ -201,6 +202,9 @@ export const SchedulesPage: React.FC = () => {
   const [notificationRecipientsCount, setNotificationRecipientsCount] = useState(0)
   const [feedback, setFeedback] = useState<Feedback>(null)
   const [deleteCandidate, setDeleteCandidate] = useState<Schedule | null>(null)
+  // Agendamento sendo editado. O MESMO formulário serve criar e editar: um
+  // segundo form divergiria em validação e unidades na primeira mudança.
+  const [editingSchedule, setEditingSchedule] = useState<Schedule | null>(null)
   const [deletingScheduleId, setDeletingScheduleId] = useState<number | null>(null)
   const [previewItem, setPreviewItem] = useState<SearchHistoryItem | null>(null)
   const [historyRequestVersion, setHistoryRequestVersion] = useState(0)
@@ -208,6 +212,7 @@ export const SchedulesPage: React.FC = () => {
   const [historySearch, setHistorySearch] = useState("")
   const [historyPage, setHistoryPage] = useState(1)
   const historySectionRef = useRef<HTMLDivElement | null>(null)
+  const formSectionRef = useRef<HTMLDivElement | null>(null)
 
   const selectedSchedule = schedules.find((schedule) => schedule.id === selectedScheduleId) || null
 
@@ -253,10 +258,11 @@ export const SchedulesPage: React.FC = () => {
       return errors
     },
     onSubmit: async (values) => {
+      const editando = editingSchedule
       try {
         setFeedback(null)
 
-        await api.createSchedule({
+        const payload = {
           query_id: Number(values.query_id),
           client_ids: values.client_ids,
           interval_value: Number(values.interval_value),
@@ -264,17 +270,50 @@ export const SchedulesPage: React.FC = () => {
           lookback_value: Number(values.lookback_value),
           lookback_unit: values.lookback_unit,
           notify_on_results: values.notify_on_results,
-        })
+        }
 
-        setFeedback({ type: "success", message: t("schedules:feedback.createSuccess") })
+        if (editando) {
+          await api.updateSchedule(editando.id, payload)
+          setFeedback({ type: "success", message: t("schedules:feedback.updateSuccess") })
+          setEditingSchedule(null)
+        } else {
+          await api.createSchedule(payload)
+          setFeedback({ type: "success", message: t("schedules:feedback.createSuccess") })
+        }
+
         resetScheduleForm()
         await refreshSchedules()
       } catch (error) {
-        const message = error instanceof Error ? error.message : t("schedules:feedback.createError")
+        const padrao = editando
+          ? t("schedules:feedback.updateError")
+          : t("schedules:feedback.createError")
+        const message = error instanceof Error ? error.message : padrao
         setFeedback({ type: "error", message })
       }
     },
   })
+
+  function startEditing(schedule: Schedule) {
+    setFeedback(null)
+    setEditingSchedule(schedule)
+    // Carrega o agendamento no formulário. As integrações passam pelo filtro de
+    // disponibilidade: uma que foi desautenticada depois de agendada não pode
+    // voltar num PUT, senão o backend recusa o lote inteiro por causa dela.
+    setScheduleFieldValue("query_id", String(schedule.query_id))
+    setScheduleFieldValue("client_ids", getValidClientIds(schedule.client_ids))
+    setScheduleFieldValue("interval_value", String(schedule.interval_value))
+    setScheduleFieldValue("interval_unit", schedule.interval_unit)
+    setScheduleFieldValue("lookback_value", String(schedule.lookback_value ?? schedule.days_back ?? 1))
+    setScheduleFieldValue("lookback_unit", schedule.lookback_unit ?? "days")
+    setScheduleFieldValue("notify_on_results", Boolean(schedule.notify_on_results))
+    formSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })
+  }
+
+  function cancelEditing() {
+    setEditingSchedule(null)
+    resetScheduleForm()
+    setFeedback(null)
+  }
 
   function getValidClientIds(candidateIds: number[]) {
     const availableClientIds = new Set(availableClients.map((client) => client.id))
@@ -516,7 +555,7 @@ export const SchedulesPage: React.FC = () => {
       if (historyStatusFilter === "error" && !isErrorStatus(item.status)) return false
       if (historyStatusFilter === "running" && (isSuccessfulStatus(item.status) || isErrorStatus(item.status))) return false
       if (search) {
-        const environment = (getClientName(item.client_id) || "").toLowerCase()
+        const environment = (getClientName(item.integration_id ?? item.client_id) || "").toLowerCase()
         if (!environment.includes(search) && !item.search_id.toLowerCase().includes(search)) return false
       }
       return true
@@ -591,8 +630,11 @@ export const SchedulesPage: React.FC = () => {
 
       <div className="space-y-6">
         <Card className="shadow-sm">
+          <div ref={formSectionRef} />
           <CardHeader>
-            <CardTitle>{t("schedules:form.title")}</CardTitle>
+            <CardTitle>
+              {editingSchedule ? t("schedules:form.editTitle") : t("schedules:form.title")}
+            </CardTitle>
             <CardDescription>{t("schedules:form.description")}</CardDescription>
           </CardHeader>
           <CardContent>
@@ -697,9 +739,19 @@ export const SchedulesPage: React.FC = () => {
                   </span>
                 </label>
 
-                <div className="flex justify-end md:col-span-2">
+                <div className="flex justify-end gap-2 md:col-span-2">
+                  {editingSchedule && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      onClick={cancelEditing}
+                      disabled={isScheduleSubmitting}
+                    >
+                      {t("common:actions.cancel")}
+                    </Button>
+                  )}
                   <Button type="submit" loading={isScheduleSubmitting} disabled={!readyToCreate || formBusy}>
-                    {t("schedules:form.submit")}
+                    {editingSchedule ? t("schedules:form.submitEdit") : t("schedules:form.submit")}
                   </Button>
                 </div>
               </form>
@@ -848,6 +900,15 @@ export const SchedulesPage: React.FC = () => {
                         </Button>
                         <Button
                           size="sm"
+                          variant="ghost"
+                          leftIcon={<PencilIcon size={14} />}
+                          onClick={() => startEditing(schedule)}
+                          disabled={isScheduleSubmitting}
+                        >
+                          {t("common:actions.edit")}
+                        </Button>
+                        <Button
+                          size="sm"
                           variant="danger"
                           leftIcon={<Trash2Icon size={14} />}
                           onClick={() => setDeleteCandidate(schedule)}
@@ -971,7 +1032,7 @@ export const SchedulesPage: React.FC = () => {
                             </thead>
                             <tbody className="divide-y divide-border bg-surface">
                               {paginatedHistory.map((historyItem) => {
-                                const environment = getClientName(historyItem.client_id)
+                                const environment = getClientName(historyItem.integration_id ?? historyItem.client_id)
                                 return (
                                   <tr key={historyItem.id} className="transition-colors hover:bg-surface-tertiary/40">
                                     <td className={`${tdCls} whitespace-nowrap`}>{formatDateTime(historyItem.created_at, t)}</td>

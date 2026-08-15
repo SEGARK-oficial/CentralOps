@@ -18,6 +18,7 @@ from typing import Any, Optional
 from pydantic import BaseModel, Field
 
 from ..clickhouse_sender import ClickHouseClient
+from ..payload_shape import DESCRICAO as PAYLOAD_DESCRICAO, PayloadShape
 from .registry import DestinationConfig, DestinationRegistration, register
 
 logger = logging.getLogger(__name__)
@@ -36,6 +37,7 @@ class ClickHouseConfig(BaseModel):
     database: str = Field(default="default", description="Banco de destino")
     table: str = Field(default="centralops_events", description="Tabela de destino")
     username: str = Field(default="default", description="Usuário ClickHouse")
+    payload: PayloadShape = Field(default="envelope", description=PAYLOAD_DESCRICAO)
     skip_unknown_fields: bool = Field(
         default=True,
         description="Ignora campos do envelope ausentes na tabela (input_format_skip_unknown_fields) "
@@ -74,6 +76,7 @@ def _factory(config: DestinationConfig, secrets: Optional[Any] = None) -> ClickH
         username=cfg.username,
         skip_unknown_fields=cfg.skip_unknown_fields,
         async_insert=cfg.async_insert,
+        payload=cfg.payload,
         verify_tls=cfg.verify_tls,
         ca_bundle=cfg.ca_bundle,
     )

@@ -34,6 +34,7 @@ from typing import Any, List, Mapping, Optional
 import aiohttp
 
 from .base import DeliveryResult, RejectedEvent, TestResult
+from .payload_shape import render_payload
 
 logger = logging.getLogger(__name__)
 
@@ -61,6 +62,7 @@ class ClickHouseClient:
         username: str = "default",
         skip_unknown_fields: bool = True,
         async_insert: bool = False,
+        payload: str = "envelope",
         verify_tls: bool = True,
         ca_bundle: Optional[str] = None,
     ) -> None:
@@ -70,6 +72,7 @@ class ClickHouseClient:
         self._table = table
         self._username = username
         self._skip_unknown_fields = skip_unknown_fields
+        self._payload = payload
         self._async_insert = async_insert
         self._verify_tls = verify_tls
         self._ca_bundle = ca_bundle
@@ -98,9 +101,15 @@ class ClickHouseClient:
         return f"{self._base}/?{urllib.parse.urlencode(params)}"
 
     def format(self, envelope: Mapping[str, Any]) -> dict:
-        """Canônico → linha ``JSONEachRow``. O envelope canônico é a própria linha;
-        a tabela alvo deve ter colunas correspondentes (ou ``skip_unknown_fields``)."""
-        return dict(envelope)
+        """Canônico → linha ``JSONEachRow``.
+
+        Com ``payload="ocsf"`` a linha é o evento OCSF 1.8 puro, que é o que
+        uma tabela criada a partir do schema OCSF espera. Com o default
+        ``envelope``, a linha é o envelope canônico e a tabela precisa ter as
+        colunas dele (ou ``skip_unknown_fields``, que descarta o que não
+        conhece).
+"""
+        return render_payload(envelope, self._payload)
 
     def _serialize(self, batch: List[Mapping[str, Any]]) -> str:
         return "\n".join(
