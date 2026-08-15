@@ -1,5 +1,19 @@
 # Changelog
 
+## [2.7.0](https://github.com/SEGARK-oficial/CentralOps/compare/v2.6.0...v2.7.0) (2026-08-15)
+
+
+### Features
+
+* **enrichment:** editar regras publicadas e ver se a consulta está de pé ([#34](https://github.com/SEGARK-oficial/CentralOps/issues/34)) ([0edd40a](https://github.com/SEGARK-oficial/CentralOps/commit/0edd40a45011c456edaace51b68f4b59b2b35375))
+
+
+### Bug Fixes
+
+* **ci:** restaura o ci.yml (YAML inválido desde 19/jul) e o enum de RBAC que ele deixou passar ([#37](https://github.com/SEGARK-oficial/CentralOps/issues/37)) ([2732836](https://github.com/SEGARK-oficial/CentralOps/commit/2732836936fad020babb5723a3864762dc35681f))
+* **rbac:** escopo por dono, least privilege real, reset de coletor e catálogo de permissões ([#36](https://github.com/SEGARK-oficial/CentralOps/issues/36)) ([537559c](https://github.com/SEGARK-oficial/CentralOps/commit/537559c4e8f724471835b9d1fb037b4fa3c5f3a8))
+* **schedules,destinations:** editar agendamento, ambiente no histórico, credencial do webhook e OCSF 1.8 nos sinks ([#39](https://github.com/SEGARK-oficial/CentralOps/issues/39)) ([20cce99](https://github.com/SEGARK-oficial/CentralOps/commit/20cce99edd2ae8ca5022d1f19472d39a1825c5be))
+
 ## [2.6.0](https://github.com/SEGARK-oficial/CentralOps/compare/v2.5.1...v2.6.0) (2026-08-11)
 
 
