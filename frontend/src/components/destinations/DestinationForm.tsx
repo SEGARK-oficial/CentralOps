@@ -71,13 +71,20 @@ export const DestinationForm: React.FC<DestinationFormProps> = ({
       cost: { ...((prev.cost ?? {}) as Record<string, unknown>), [field]: value },
     }))
   }
-  // campo de credencial DATA-DRIVEN — aparece quando o kind declara
-  // QUALQUER ``required_secrets`` (não só "hec_token"), de modo que Elastic
-  // (api_key), OTLP (bearer) etc. sejam configuráveis pela mesma UI. O backend
-  // cifra o valor para ``secret_ref`` independentemente do kind.
+  // Campo de credencial DATA-DRIVEN: aparece quando o kind declara QUALQUER
+  // segredo, obrigatório OU opcional. O backend cifra o valor em ``secret_ref``
+  // independentemente do kind.
+  //
+  // O ramo "opcional" existe por um defeito concreto: o webhook genérico aceita
+  // Bearer e Basic no runtime, mas declarava a lista de segredos vazia. Como a
+  // condição olhava só os obrigatórios, o input nunca era desenhado e não havia
+  // NENHUM lugar na tela para colar o token. Quem escolhia Bearer salvava um
+  // destino que respondia 401 sem explicação.
   const requiredSecrets = selectedType?.required_secrets ?? []
-  const requiresSecret = requiredSecrets.length > 0
-  const secretLabelName = requiredSecrets[0] ?? "credencial"
+  const optionalSecrets = selectedType?.optional_secrets ?? []
+  const secretIsRequired = requiredSecrets.length > 0
+  const acceptsSecret = secretIsRequired || optionalSecrets.length > 0
+  const secretLabelName = requiredSecrets[0] ?? optionalSecrets[0] ?? "credencial"
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -147,18 +154,22 @@ export const DestinationForm: React.FC<DestinationFormProps> = ({
         data-testid="destination-form-kind"
       />
 
-      {requiresSecret && (
+      {acceptsSecret && (
         <Input
           label={
             mode === "create"
-              ? `Credencial — ${secretLabelName} *`
-              : `Nova credencial (${secretLabelName}) — deixe vazio para manter`
+              ? `Credencial (${secretLabelName})${secretIsRequired ? " *" : ""}`
+              : `Nova credencial (${secretLabelName}). Deixe vazio para manter a atual`
           }
           type="password"
           value={hecToken}
           onChange={(e) => setHecToken(e.target.value)}
           placeholder={destination?.has_secret ? "•••••••• (configurada)" : "Valor da credencial"}
-          helperText="Cifrada no cofre — nunca exibida após salvar."
+          helperText={
+            secretIsRequired
+              ? "Cifrada no cofre. Nunca exibida depois de salvar."
+              : "Opcional. Preencha se o destino exigir autenticação. Cifrada no cofre."
+          }
           disabled={loading}
           autoComplete="new-password"
         />

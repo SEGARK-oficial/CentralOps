@@ -215,6 +215,142 @@ def list_schedules(
     ]
 
 
+@router.put("/{sched_id}", response_model=schemas.ScheduledQueryRead)
+def update_schedule(
+    sched_id: int,
+    data: schemas.ScheduledQueryUpdate,
+    db: Session = Depends(database.get_session),
+    repo: repository.ScheduledQueryRepository = Depends(get_repo),
+    qrepo: repository.PredefinedQueryRepository = Depends(get_query_repo),
+    integration_repo: repository.IntegrationRepository = Depends(get_integration_repo),
+    # Mesma permissão do create: mexer em agendamento é QUERY_SAVE (engineer+).
+    current_user: models.AppUser = Depends(require_permission(Permission.QUERY_SAVE)),
+):
+    """Edita um agendamento existente, inclusive um que já está rodando.
+
+    Sem esta rota o operador que errasse o intervalo precisava apagar e recriar,
+    e o histórico ia junto: os resultados guardam ``schedule_id``, que passava a
+    apontar para uma linha que não existe mais.
+
+    **Editar não dispara execução.** O create roda o agendamento na hora, o
+    update não. A diferença é deliberada: corrigir um horário ou acrescentar um
+    destinatário chamaria a API do fornecedor a cada gravação, gastando quota
+    dele por uma edição de texto. Quem quiser rodar agora tem o disparo manual.
+    """
+    sched = repo.get(sched_id)
+    # 404 (e não 403) fora do escopo: confirmar existência permitiria varrer
+    # ids de outras organizações. Mesmo critério do delete.
+    if not sched or not tenant.can_access_organization(current_user, sched.organization_id):
+        raise ApiError(
+            "schedule.not_found",
+            404,
+            messages={
+                "pt": "Agendamento não encontrado.",
+                "en": "Schedule not found.",
+                "es": "Programación no encontrada.",
+            },
+        )
+
+    campos = data.model_dump(exclude_unset=True)
+    if not campos:
+        raise ApiError(
+            "schedule.nothing_to_update",
+            400,
+            messages={
+                "pt": "Nenhum campo para atualizar.",
+                "en": "No fields to update.",
+                "es": "Ningún campo para actualizar.",
+            },
+        )
+
+    # ── query ────────────────────────────────────────────────────────────
+    query = qrepo.get(campos["query_id"]) if "query_id" in campos else qrepo.get(sched.query_id)
+    if not query:
+        raise ApiError(
+            "query.not_found",
+            404,
+            messages={
+                "pt": "Query não encontrada.",
+                "en": "Query not found.",
+                "es": "Consulta no encontrada.",
+            },
+        )
+    # Trocar a query não pode ser um caminho para alcançar query de outra org.
+    if not tenant.can_access_organization(current_user, getattr(query, "organization_id", None)):
+        raise ApiError(
+            "query.not_found",
+            404,
+            messages={
+                "pt": "Query não encontrada.",
+                "en": "Query not found.",
+                "es": "Consulta no encontrada.",
+            },
+        )
+    if "query_id" in campos:
+        sched.query_id = query.id
+
+    # ── integrações ──────────────────────────────────────────────────────
+    if "client_ids" in campos:
+        missing_ids, invalid_ids = _validate_schedule_client_ids(
+            campos["client_ids"], current_user, integration_repo
+        )
+        if missing_ids:
+            raise ApiError(
+                "schedule.sophos_integration_not_found",
+                404,
+                messages={
+                    "pt": "Integração(ões) Sophos não encontrada(s): {ids}",
+                    "en": "Sophos integration(s) not found: {ids}",
+                    "es": "Integración(es) Sophos no encontrada(s): {ids}",
+                },
+                params={"ids": ", ".join(str(i) for i in missing_ids)},
+            )
+        if invalid_ids:
+            raise ApiError(
+                "schedule.integration_incomplete_auth",
+                400,
+                messages={
+                    "pt": "Integração(ões) sem autenticação completa para agendamento: {ids}",
+                    "en": "Integration(s) without complete authentication for scheduling: {ids}",
+                    "es": "Integración(es) sin autenticación completa para la programación: {ids}",
+                },
+                params={"ids": ", ".join(str(i) for i in invalid_ids)},
+            )
+        sched.client_ids = ",".join(str(c) for c in campos["client_ids"])
+
+    # ── cadência ─────────────────────────────────────────────────────────
+    # Valor e unidade formam UM par: mudar só o valor tem que reaproveitar a
+    # unidade guardada, senão "de 6 horas para 12" viraria 12 do default.
+    intervalo_mudou = "interval_value" in campos or "interval_unit" in campos
+    if intervalo_mudou:
+        valor = campos.get("interval_value", sched.interval_value or 1)
+        unidade = campos.get("interval_unit", sched.interval_unit or "hours")
+        delta = _convert_to_timedelta(valor, unidade)
+        sched.interval_value = valor
+        sched.interval_unit = unidade
+        sched.interval_minutes = int(delta.total_seconds() / 60)
+        # Reagenda a partir de AGORA. Manter o ``next_run`` antigo faria um
+        # agendamento que mudou de 24h para 15min esperar o dia inteiro antes
+        # de honrar a cadência nova, e o operador leria isso como "não pegou".
+        sched.next_run = datetime.utcnow() + delta
+
+    if "lookback_value" in campos or "lookback_unit" in campos:
+        valor = campos.get("lookback_value", sched.lookback_value or 1)
+        unidade = campos.get("lookback_unit", sched.lookback_unit or "days")
+        sched.lookback_value = valor
+        sched.lookback_unit = unidade
+        sched.days_back = max(
+            1, math.ceil(_convert_to_timedelta(valor, unidade).total_seconds() / 86400)
+        )
+
+    if "notify_on_results" in campos:
+        sched.notify_on_results = campos["notify_on_results"]
+
+    db.commit()
+    db.refresh(sched)
+    return _serialize_schedule(sched, query_title=query.title)
+
+
 @router.delete("/{sched_id}")
 def delete_schedule(
     sched_id: int,

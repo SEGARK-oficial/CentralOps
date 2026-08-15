@@ -516,7 +516,7 @@ export const SchedulesPage: React.FC = () => {
       if (historyStatusFilter === "error" && !isErrorStatus(item.status)) return false
       if (historyStatusFilter === "running" && (isSuccessfulStatus(item.status) || isErrorStatus(item.status))) return false
       if (search) {
-        const environment = (getClientName(item.client_id) || "").toLowerCase()
+        const environment = (getClientName(item.integration_id ?? item.client_id) || "").toLowerCase()
         if (!environment.includes(search) && !item.search_id.toLowerCase().includes(search)) return false
       }
       return true
@@ -971,7 +971,7 @@ export const SchedulesPage: React.FC = () => {
                             </thead>
                             <tbody className="divide-y divide-border bg-surface">
                               {paginatedHistory.map((historyItem) => {
-                                const environment = getClientName(historyItem.client_id)
+                                const environment = getClientName(historyItem.integration_id ?? historyItem.client_id)
                                 return (
                                   <tr key={historyItem.id} className="transition-colors hover:bg-surface-tertiary/40">
                                     <td className={`${tdCls} whitespace-nowrap`}>{formatDateTime(historyItem.created_at, t)}</td>

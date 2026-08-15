@@ -14,7 +14,7 @@ from __future__ import annotations
 import base64
 import json
 import logging
-from typing import Any, List, Mapping, Optional
+from typing import Any, List, Literal, Mapping, Optional
 
 import aiohttp
 from pydantic import BaseModel, Field
@@ -33,7 +33,15 @@ class WebhookConfig(BaseModel):
 
     url: str = Field(description="URL HTTP de destino (POST)")
     method: str = Field(default="POST", description="Método HTTP (POST|PUT)")
-    auth_mode: str = Field(default="none", description="none | bearer | basic")
+    # Literal, e não ``str``, para o JSON Schema sair com ``enum``: a UI
+    # renderiza Select só quando encontra enum, e com ``str`` isto virava
+    # caixa de texto livre. Um typo ("Bearer", "berer") passava pelo
+    # Pydantic e caía no ramo neutro de ``_auth_header``, que devolve {}:
+    # a autenticação sumia sem erro nenhum, e o destino respondia 401.
+    auth_mode: Literal["none", "bearer", "basic"] = Field(
+        default="none",
+        description="Como autenticar: sem autenticação, Bearer token ou Basic",
+    )
     wrap: str = Field(default="array", description="array | ndjson — formato do corpo do lote")
     body: str = Field(default="envelope", description="envelope | normalized — o que enviar por evento")
     headers: dict = Field(default_factory=dict, description="Headers extras (ex: X-Api-Key)")
@@ -167,7 +175,11 @@ register(
         config_schema=WebhookConfig,
         default_queue="dispatch.webhook",
         capabilities=frozenset({"tls", "batch", "test", "at_least_once"}),
-        required_secrets=(),  # auth é opcional
+        required_secrets=(),
+        # Aceita credencial sem exigir: com ``auth_mode`` em bearer ou
+        # basic o segredo é necessário, com "none" não. Ver a nota em
+        # ``DestinationRegistration.optional_secrets``.
+        optional_secrets=("auth_token",),
         label="Generic Webhook",
         delivery_defaults={"concurrency": 8},
         # Campos de catálogo self-describing (galeria de destinos).

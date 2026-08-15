@@ -769,6 +769,17 @@ export interface AuditFilters {
 export interface SearchHistoryItem {
   id: number
   search_id: string
+  /** Integração que executou a query. Campo canônico. */
+  integration_id?: number
+  /**
+   * Espelho depreciado de `integration_id`.
+   *
+   * A coluna virou `integration_id` no backend e este nome ficou órfão,
+   * devolvendo `undefined` em toda resposta: era a causa de a coluna
+   * "Query / Ambiente" mostrar "Ambiente não informado" para todo mundo.
+   * O backend agora preenche os dois com o mesmo valor. Prefira
+   * `integration_id` em código novo.
+   */
   client_id?: number
   schedule_id?: number
   status: string
@@ -1709,6 +1720,8 @@ export interface DestinationType {
   default_queue: string
   capabilities: string[]
   required_secrets: string[]
+  /** Segredos aceitos sem serem obrigatórios (ex.: webhook com Bearer). */
+  optional_secrets?: string[]
   config_schema: JsonSchema
   delivery_schema: JsonSchema
   delivery_defaults: Record<string, unknown>
