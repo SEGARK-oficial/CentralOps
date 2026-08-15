@@ -57,7 +57,7 @@ def normalizar_shape(valor: Any) -> PayloadShape:
     return "ocsf" if v == "ocsf" else "envelope"
 
 
-def render_payload(envelope: Mapping[str, Any], shape: Any = "envelope") -> dict:
+def render_payload(envelope: Mapping[str, Any], shape: Any = "envelope") -> Any:
     """Envelope canônico → o corpo que vai no fio.
 
     Em ``ocsf``, devolve o evento normalizado. Se ele estiver ausente (evento
@@ -65,8 +65,15 @@ def render_payload(envelope: Mapping[str, Any], shape: Any = "envelope") -> dict
     envelope: mandar o envelope aqui entregaria silenciosamente o formato
     errado a um consumidor que declarou esperar OCSF, e um campo a mais numa
     tabela estrita derruba o lote inteiro.
+
+    **Não copia.** Devolve o próprio objeto, e isso é contrato, não detalhe: o
+    wrapper do HEC aninha o envelope por REFERÊNCIA, e há teste de contrato de
+    fio que compara identidade (``wrapper["event"] is envelope``). Copiar aqui
+    quebrava esses testes e ainda pagava uma cópia de dicionário por evento no
+    caminho quente, sem ganho: todos os chamadores serializam em seguida e
+    nenhum muta o resultado.
     """
     if normalizar_shape(shape) == "ocsf":
         normalizado = envelope.get("normalized")
-        return dict(normalizado) if isinstance(normalizado, Mapping) else {}
-    return dict(envelope)
+        return normalizado if isinstance(normalizado, Mapping) else {}
+    return envelope
