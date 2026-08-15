@@ -38,6 +38,7 @@ import type {
   TenantSelectionState,
   CreateQueryRequest,
   CreateScheduleRequest,
+  UpdateScheduleRequest,
   CreateUserRequest,
   EmailConfig,
   EmailRecipient,
@@ -476,6 +477,20 @@ export async function listSchedules() {
 export async function createSchedule(data: CreateScheduleRequest) {
   return apiRequest<Schedule>("/schedules/", {
     method: "POST",
+    body: JSON.stringify(data),
+    forbiddenRedirectTo: ADMIN_REDIRECT_PATH,
+  })
+}
+
+/**
+ * Edita um agendamento existente, inclusive um que já está rodando.
+ *
+ * Só os campos enviados são aplicados. Editar NÃO dispara execução: o backend
+ * reagenda quando a cadência muda e fica inerte quando não muda.
+ */
+export async function updateSchedule(id: number, data: UpdateScheduleRequest) {
+  return apiRequest<Schedule>(`/schedules/${id}`, {
+    method: "PUT",
     body: JSON.stringify(data),
     forbiddenRedirectTo: ADMIN_REDIRECT_PATH,
   })

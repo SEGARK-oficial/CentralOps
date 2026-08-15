@@ -36,7 +36,9 @@
     "loadSchedulesError": "Error al cargar las programaciones.",
     "loadEmailsError": "Error al cargar los emails de notificación.",
     "refreshError": "Error al actualizar los datos de la programación.",
-    "loadHistoryError": "Error al cargar el historial de la programación."
+    "loadHistoryError": "Error al cargar el historial de la programación.",
+    "updateSuccess": "Programación actualizada.",
+    "updateError": "No se pudo actualizar la programación."
   },
   "form": {
     "title": "Nueva programación",
@@ -61,7 +63,9 @@
       "runEvery": "Ejecutar cada",
       "notifyByEmail": "Notificar por email cuando haya resultados",
       "configuredEmails": "Emails configurados:"
-    }
+    },
+    "editTitle": "Editar programación",
+    "submitEdit": "Guardar cambios"
   },
   "activeList": {
     "title": "Programaciones activas",

@@ -856,6 +856,20 @@ export interface CreateScheduleRequest {
   days_back?: number
 }
 
+/**
+ * Edição de agendamento. Todo campo é opcional: só o que vier é aplicado, então
+ * dá para mudar o intervalo sem reenviar a lista de integrações.
+ */
+export interface UpdateScheduleRequest {
+  query_id?: number
+  client_ids?: number[]
+  interval_value?: number
+  interval_unit?: ScheduleTimeUnit
+  lookback_value?: number
+  lookback_unit?: ScheduleTimeUnit
+  notify_on_results?: boolean
+}
+
 export interface EmailRecipient {
   id: number
   email: string

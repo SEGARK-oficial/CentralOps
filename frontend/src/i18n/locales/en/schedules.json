@@ -36,7 +36,9 @@
     "loadSchedulesError": "Failed to load schedules.",
     "loadEmailsError": "Failed to load notification emails.",
     "refreshError": "Failed to refresh schedule data.",
-    "loadHistoryError": "Failed to load schedule history."
+    "loadHistoryError": "Failed to load schedule history.",
+    "updateSuccess": "Schedule updated.",
+    "updateError": "Failed to update the schedule."
   },
   "form": {
     "title": "New schedule",
@@ -61,7 +63,9 @@
       "runEvery": "Run every",
       "notifyByEmail": "Notify by email when there are results",
       "configuredEmails": "Configured emails:"
-    }
+    },
+    "editTitle": "Edit schedule",
+    "submitEdit": "Save changes"
   },
   "activeList": {
     "title": "Active schedules",
