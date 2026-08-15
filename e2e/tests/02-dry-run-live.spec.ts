@@ -48,7 +48,19 @@ test("dry-run live atualiza painel direito apos edicao", async ({ page }) => {
   // Então a ordem aqui é: carregar uma vez para o app carimbar a marca, gravar
   // o filtro, e recarregar. No segundo load a marca casa e a seleção sobrevive.
   // Fazer assim também evita depender do id do usuário, que o teste não conhece.
+  //
+  // O `waitForFunction` NÃO é enfeite. O efeito de reconciliação começa com
+  // `if (!userId) return`, e o `goto` resolve no evento de load, antes de a
+  // autenticação terminar. Gravar o filtro logo após o `goto` cai numa corrida:
+  // a auth resolve depois, o efeito roda, não acha a marca e limpa justamente o
+  // que o teste acabou de gravar. Esperar a marca APARECER é o sinal de que o
+  // efeito já rodou e não vai rodar de novo para este usuário.
   await page.goto("/mappings");
+  await page.waitForFunction(
+    () => window.localStorage.getItem("centralops_scope_owner") !== null,
+    undefined,
+    { timeout: 15_000 },
+  );
   await page.evaluate((id) => {
     window.localStorage.setItem("centralops_org_id", id);
   }, orgId);
