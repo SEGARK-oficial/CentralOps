@@ -445,9 +445,25 @@ def _dispatch_scheduled_query_alert(
     to_ts: str,
     record: Optional[models.SearchResult],
 ) -> None:
-    """Despacha alerta syslog (Critical) quando uma scheduled query retorna resultados."""
+    """Despacha o evento de uma scheduled query que retornou resultados.
+
+    O evento sai como **OCSF 1.8 Scheduled Job Activity (class_uid 1006)**.
+
+    Antes ele não era OCSF: o bloco ``normalized`` tinha três chaves
+    (``severity_id``, ``message`` e um ``metadata`` com nomes próprios) e faltava
+    toda a identidade da classe. Isso importava de verdade para os destinos que
+    entregam só o ``normalized`` (Chronicle, Security Lake, Datadog, webhook em
+    modo OCSF): eles recebiam um objeto sem ``class_uid`` e sem ``time``, que um
+    consumidor de OCSF não consegue classificar. O Security Lake ainda deriva a
+    partição do campo ``time``, que não existia.
+
+    A classe 1006 já estava vendorizada no manifesto 1.8.0 e não era usada por
+    ninguém. ``activity_id=6`` (Start) é o mais próximo de "o job executou": o
+    OCSF não tem um id de "Run", e o desfecho vai em ``status_id``.
+    """
     from .normalize.envelope import EnvelopeContext, build_envelope
     from .normalize.ocsf import SEVERITY_ID
+    from .normalize.ocsf.classes import CLASS_UID_SCHEDULED_JOB_ACTIVITY
     from .pipeline import _enqueue_dispatch
 
     # customer_id do envelope = Organization.id interno (não mais IRIS).
@@ -463,15 +479,55 @@ def _dispatch_scheduled_query_alert(
         stream="scheduled_query",
         event_type="centralops.scheduled_query.match",
         mapping_version_id=None,
+        platform=integration.platform,
+        # Sem isto o evento sai com organization_id=None e o roteador casa
+        # SOMENTE rotas globais: uma rota criada pelo próprio tenant nunca
+        # recebia o resultado da scheduled query dele. O comentário abaixo do
+        # dispatch admitia o furo e o adiava; a org está aqui o tempo todo.
+        organization_id=getattr(integration, "organization_id", None),
+        data_geography=getattr(integration, "data_geography", None),
     )
 
+    agora_ms = int(datetime.utcnow().timestamp() * 1000)
+    activity_id = 6  # Start — o OCSF 1.8 não tem "Run" nesta classe.
+
     normalized = {
-        "severity_id": SEVERITY_ID["critical"],  # 5 → syslog crit (PRI=130)
+        # ── identidade OCSF (o que faltava por inteiro) ──────────────────
+        "class_uid": CLASS_UID_SCHEDULED_JOB_ACTIVITY,
+        "category_uid": 1,
+        "activity_id": activity_id,
+        # type_uid = class_uid * 100 + activity_id, como manda a spec.
+        "type_uid": CLASS_UID_SCHEDULED_JOB_ACTIVITY * 100 + activity_id,
+        # Milissegundos. Segundos aqui seria erro de 1000x, que este repo já
+        # pagou uma vez em 16 mappings.
+        "time": agora_ms,
+        "status_id": 1,  # Success: a consulta rodou e devolveu resultado.
+        # Mantido em crítico de propósito: é o valor que vira o PRI do syslog,
+        # e mexer nele mudaria o alerta de quem já depende dele.
+        "severity_id": SEVERITY_ID["critical"],
+        "metadata": {
+            "version": "1.8.0",
+            "product": {"name": "CentralOps", "vendor_name": "CentralOps"},
+            "logged_time": agora_ms,
+        },
+        # ── obrigatórios da classe ───────────────────────────────────────
+        "device": {
+            "hostname": ctx.collector_host,
+            "type_id": 0,  # Unknown: é o coletor, não um ativo do cliente.
+        },
+        "job": {
+            "name": query_def.title,
+            "desc": getattr(query_def, "description", None) or query_def.title,
+        },
         "message": (
             f"Scheduled query '{query_def.title}' encontrou {len(items)} "
             f"resultado(s) para {integration.name}"
         ),
-        "metadata": {
+        # ── contexto que existia e não saía ──────────────────────────────
+        # Sob ``unmapped`` porque não são campos da classe 1006: é onde o OCSF
+        # manda pôr o que é específico do produto, em vez de inventar campo de
+        # primeiro nível que nenhum consumidor sabe ler.
+        "unmapped": {
             "schedule_id": sched.id,
             "query_id": query_def.id,
             "query_title": query_def.title,
@@ -479,6 +535,17 @@ def _dispatch_scheduled_query_alert(
             "from": from_ts,
             "to": to_ts,
             "search_result_id": record.id if record is not None else None,
+            "integration_id": integration.id,
+            "integration_name": integration.name,
+            "platform": integration.platform,
+            "organization_id": getattr(integration, "organization_id", None),
+            "dialect": getattr(record, "language", None),
+            "ocsf_mapping_version": getattr(record, "ocsf_mapping_version", None),
+            "statement": query_def.statement,
+            "table": query_def.table,
+            # Mesma chave da Detection durável gravada logo antes, para dar ao
+            # destino como correlacionar o evento com o registro interno.
+            "dedup_key": f"sched:{sched.id}:integ:{integration.id}",
         },
     }
 
@@ -494,10 +561,8 @@ def _dispatch_scheduled_query_alert(
     # routing. With no
     # matching routes the batch follows the configured vendor-neutral fallback
     # (``Destination.is_default``) or, absent one, lands in the DLQ as ``unrouted``
-    # (no hardcoded wazuh-default). NOTE: this envelope carries
-    # organization_id=None, so under routing it matches GLOBAL routes only
-    # (tenant-scoped routing of scheduled-query results would need org_id set on
-    # the EnvelopeContext — future).
+    # (no hardcoded wazuh-default). O envelope agora carrega ``organization_id``
+    # da integração, então rota criada pelo tenant casa o evento dele.
     _enqueue_dispatch([envelope])
 
 
