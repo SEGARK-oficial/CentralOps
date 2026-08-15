@@ -21,6 +21,7 @@ os.environ.setdefault("APP_MASTER_KEY", "test-master-key-for-centralops-suite-12
 os.environ.setdefault("APP_ENV", "test")
 os.environ.setdefault("SESSION_SECURE_COOKIE", "false")
 
+import ast
 import inspect
 
 import pytest
@@ -100,29 +101,79 @@ def test_release_happens_before_the_redis_client_is_closed():
     assert src.index("release_many") < src.index("await redis.aclose()")
 
 
+def _sites_de_handoff_e_liquidacao() -> tuple[list[int], list[int]]:
+    """Acha por AST os hand-offs duráveis e as liquidações de claim.
+
+    Por AST, e não por casamento de string, por um motivo aprendido na prática:
+    a versão anterior deste guard procurava o texto literal
+    ``_enqueue_dispatch(batch, dispatch_routes)``. O commit b65e9b0 quebrou a
+    chamada em várias linhas e acrescentou um kwarg. A string sumiu, os dois
+    call sites continuaram lá, e o guard passou a falhar sem que nada de
+    semântico tivesse mudado.
+
+    Um guard que quebra com formatação treina o time a ignorá-lo, e um guard
+    ignorado é pior que nenhum: ele ocupa o lugar de um que funcionaria.
+    """
+    arvore = ast.parse(inspect.getsource(pipeline).lstrip())
+    alvo = next(
+        n for n in ast.walk(arvore)
+        if isinstance(n, (ast.AsyncFunctionDef, ast.FunctionDef))
+        and n.name == "_run_collection_once"
+    )
+
+    handoffs: list[int] = []
+    liquidacoes: list[int] = []
+    for n in ast.walk(alvo):
+        if not isinstance(n, ast.Call):
+            continue
+        f = n.func
+        if isinstance(f, ast.Name) and f.id == "_enqueue_dispatch":
+            handoffs.append(n.lineno)
+        if (
+            isinstance(f, ast.Attribute)
+            and f.attr == "difference_update"
+            and isinstance(f.value, ast.Name)
+            and f.value.id == "unsettled_claims"
+        ):
+            liquidacoes.append(n.lineno)
+    return sorted(handoffs), sorted(liquidacoes)
+
+
 @pytest.mark.source_only  # lê o .py; na imagem Cython o fonte não existe
 def test_settlement_happens_after_the_durable_handoff():
     """Liquidar ANTES do ``_enqueue_dispatch`` converteria falha de enqueue em
-    perda: a claim ficaria de pé e o retry descartaria o evento."""
-    src = inspect.getsource(pipeline._run_collection_once)
-    first_dispatch = src.index("_enqueue_dispatch(batch, dispatch_routes)")
-    first_settle = src.index("unsettled_claims.difference_update")
-    assert first_settle > first_dispatch, (
-        "a liquidação precede o hand-off durável — inverte a direção do risco"
-    )
+    perda: a claim ficaria de pé e o retry descartaria o evento como duplicado,
+    sem exceção, sem DLQ e sem métrica que distinga isso de dedupe legítimo.
+    """
+    handoffs, liquidacoes = _sites_de_handoff_e_liquidacao()
+
+    assert handoffs, "nenhum hand-off encontrado: o guard perdeu o alvo"
+    for handoff, liquidacao in zip(handoffs, liquidacoes):
+        assert liquidacao > handoff, (
+            f"liquidação na linha {liquidacao} precede o hand-off da linha "
+            f"{handoff}: inverte a direção do risco e vira perda silenciosa"
+        )
 
 
 @pytest.mark.source_only  # lê o .py; na imagem Cython o fonte não existe
 def test_every_dispatch_site_settles():
-    """São dois: o flush por tamanho/tempo dentro do laço e o dreno TERMINAL.
+    """Todo hand-off tem a sua liquidação, um para um.
 
+    Hoje são dois: o flush por tamanho/tempo dentro do laço e o dreno TERMINAL.
     Sem o terminal, uma integração que devolve poucos eventos e encerra a página
-    nunca atinge o batch nem o gatilho de tempo (que é avaliado dentro do corpo
-    do laço, não por timer) — e as claims desses eventos seriam soltas à toa.
+    nunca atinge o batch nem o gatilho de tempo (avaliado dentro do corpo do
+    laço, não por timer) e as claims desses eventos seriam soltas à toa.
+
+    A asserção é sobre a IGUALDADE entre as duas contagens, não sobre o número
+    dois: um terceiro site de despacho é legítimo, desde que ele também liquide.
     """
-    src = inspect.getsource(pipeline._run_collection_once)
-    assert src.count("_enqueue_dispatch(batch, dispatch_routes)") == 2
-    assert src.count("unsettled_claims.difference_update(batch_msg_ids)") == 2
+    handoffs, liquidacoes = _sites_de_handoff_e_liquidacao()
+
+    assert len(handoffs) == len(liquidacoes), (
+        f"{len(handoffs)} hand-off(s) para {len(liquidacoes)} liquidação(ões). "
+        f"Hand-offs nas linhas {handoffs}, liquidações em {liquidacoes}. "
+        "Um despacho sem liquidação solta a claim à toa e o evento é reentregue."
+    )
 
 
 @pytest.mark.source_only  # lê o .py; na imagem Cython o fonte não existe
