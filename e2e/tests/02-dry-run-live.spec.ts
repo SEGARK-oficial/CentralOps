@@ -29,19 +29,30 @@ import { test, expect } from "@playwright/test";
 import { readFileSync } from "node:fs";
 
 test("dry-run live atualiza painel direito apos edicao", async ({ page }) => {
-  // o reservoir é por-org e o admin é GLOBAL (org=None). Para o
-  // dry-run achar a amostra, o admin precisa nomear o tenant via o filtro de org
-  // (selectedOrgId → localStorage centralops_org_id), que o editor repassa ao
-  // /api/mappings/dry-run. O orgId vem do seed.ts (e2e/.e2e-org-id), a MESMA org
-  // sob a qual o seed-redis-e2e.sh populou o reservoir. cwd=e2e/ (CJS e ESM ok).
+  // O orgId vem do seed.ts (e2e/.e2e-org-id): a MESMA org sob a qual o
+  // seed-redis-e2e.sh populou o reservoir. cwd=e2e/ (CJS e ESM ok).
   const orgId = readFileSync(".e2e-org-id", "utf8").trim();
-  // Seta o filtro de org do admin ANTES da app carregar (PlatformContext lê o
-  // localStorage na init). Sem isto o dry-run do admin global lê reservoir vazio.
-  await page.addInitScript((id) => {
+
+  // O filtro de org precisa estar posto ANTES do dry-run: o reservoir é por-org
+  // e o admin é GLOBAL (org=None), então sem nomear o tenant a leitura é
+  // fail-closed e devolve amostra vazia (não erro), o que faz o envelope sair
+  // sem `class_uid` e este teste falhar por um motivo que não é o dele.
+  //
+  // Semear o localStorage antes do primeiro load NÃO funciona mais. O
+  // PlatformContext reconcilia a seleção guardada com a IDENTIDADE do dono
+  // (`centralops_scope_owner`): quando a marca está ausente, ele assume que a
+  // seleção pode ter sobrado de outro usuário e limpa, o que é deliberado e
+  // existe para não reproduzir o 403 que travava o dashboard depois de trocar
+  // de conta.
+  //
+  // Então a ordem aqui é: carregar uma vez para o app carimbar a marca, gravar
+  // o filtro, e recarregar. No segundo load a marca casa e a seleção sobrevive.
+  // Fazer assim também evita depender do id do usuário, que o teste não conhece.
+  await page.goto("/mappings");
+  await page.evaluate((id) => {
     window.localStorage.setItem("centralops_org_id", id);
   }, orgId);
-
-  await page.goto("/mappings");
+  await page.reload();
 
   // Aguarda listagem — garante que seed rodou e API está respondendo
   await expect(page.getByRole("table")).toBeVisible({ timeout: 10_000 });
