@@ -69,8 +69,11 @@ class NanoConfig(BaseModel):
     """
 
     url: str = Field(
-        description="Endereço HTTP do ClickHouse do nano, com a porta 8123 "
-        "(ex: http://nano.interno:8123). A porta 9000 é o protocolo nativo e não serve aqui."
+        description="Endereço da interface HTTP do ClickHouse do nano: 8123 em texto "
+        "claro (ex: http://nano.interno:8123) ou 8443 com TLS "
+        "(ex: https://nano.interno:8443). Confira qual das duas o seu deploy "
+        "PUBLICOU: é comum o compose expor só a 8443 para fora do host. A porta "
+        "9000 é o protocolo nativo e não serve aqui."
     )
     source_type: str = Field(
         description="Rótulo minúsculo deste feed no nano (ex: centralops_sophos). "
