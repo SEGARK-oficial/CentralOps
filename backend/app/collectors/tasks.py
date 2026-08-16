@@ -47,6 +47,23 @@ logger = logging.getLogger(__name__)
 # NOTE: BreakerOpen é TERMINAL e NÃO deve estar aqui.
 _RETRYABLE = (ConnectionError, TimeoutError, OSError, VendorAuthError, TransientDeliveryError)
 
+# ── Dreno da DLQ ─────────────────────────────────────────────────────────────
+# Números escolhidos contra os limites reais do worker, não por gosto.
+#
+# 500 por execução a ~0,3s de ida e volta por LOTE (não por evento) fecha em
+# segundos, muito abaixo do ``task_soft_time_limit`` de 12 min. O que matava a
+# versão anterior era despachar um evento por requisição: 2.000 eventos viravam
+# ~10 min e a task era morta no meio.
+_DRENO_MAX_POR_EXECUCAO = 500
+# Abaixo do default de ``batch.max_items`` (500) de propósito: o lote do dreno
+# concorre com o tráfego vivo pelo mesmo destino, então ele pede menos por vez.
+_DRENO_TAMANHO_LOTE = 100
+# Espera entre continuações no caminho normal.
+_DRENO_ESPERA_S = 5
+# Espera depois de ceder ao disjuntor. Maior que o cooldown de 30s do breaker,
+# para a próxima leva não chegar junto com a sonda de half-open da ingestão.
+_DRENO_ESPERA_DISJUNTOR_S = 60
+
 
 def _dispose_db_pool_after_interrupt() -> None:
     """Descarta o pool de DB deste processo após um soft-timeout.
@@ -436,56 +453,72 @@ def drain_destination_dlq(
     org_id: Optional[int] = None,
     global_scope: bool = True,
 ) -> dict:
-    """DLQ drain / reprocess task.
+    """Reenvia eventos da DLQ para o destino, em lotes, sem atropelar a ingestão.
 
-    Re-delivers dead-lettered events to their destination via the existing
-    ``dispatch_batch_to_destination`` send path (reuse, not rewrite).
+    A versão anterior tinha três defeitos que só apareciam com DLQ grande, e que
+    juntos faziam o contador **subir** enquanto o operador clicava em reprocessar:
 
-    Per-event outcome:
-      - **Success**: the DLQ row is hard-deleted (event is now in flight again).
-      - **Failure**: the DLQ row stays; ``error_detail`` is updated so the
-        operator can see the latest failure reason and retry later.
+    1. **Um evento por requisição.** ``dispatch_batch_to_destination(dest,
+       [envelope])`` dentro do laço. Com ida e volta de ~0,3s, alguns milhares de
+       eventos viravam dezenas de minutos, e o ``task_time_limit`` (15 min) matava
+       a task no meio. O sink é ``JSONEachRow``, feito para lote.
+    2. **Sem teto por execução.** Buscava tudo e tentava tudo numa tacada.
+    3. **Disputava o disjuntor com o tráfego vivo.** O disjuntor é por destino e
+       compartilhado. O dreno saturava o destino, os lotes da ingestão normal
+       batiam no disjuntor aberto e viravam ``breaker_open`` mais rápido do que o
+       dreno drenava. Reprocessar aumentava a fila.
 
-    Idempotent and safe for re-entrance:
-      - Rows already deleted by a concurrent invocation are silently skipped.
-      - The unique constraint on ``(destination_id, event_id)`` prevents
-        double-writes if the event ends up DLQ'd again during re-delivery.
+    Agora: lotes de ``_DRENO_TAMANHO_LOTE``, teto de ``_DRENO_MAX_POR_EXECUCAO``
+    por execução com continuação reagendada, e **cede a vez** na primeira recusa
+    do disjuntor em vez de insistir.
+
+    **Como o desfecho é decidido, sem perder evento.** A linha é carimbada com o
+    ``error_kind`` sentinela ANTES do despacho e só é apagada se o carimbo
+    sobreviver. Rejeição reescreve a linha (ver ``persist_rejected_to_dlq``), o
+    que apaga o carimbo e preserva o evento com o motivo verdadeiro. Nada é
+    apagado antes de confirmar, então task morta no meio não perde nada: as
+    linhas ficam com o sentinela e a próxima execução as pega de novo.
 
     Args:
-        destination_id: The destination to drain.
-        event_ids:      Specific event_ids to drain; ``None`` → all rows.
-        org_id:         Org scope for the DLQ query (matches what the endpoint
-                        resolved for the requesting user).
-        global_scope:   When True the DLQ query is unscoped (global admin).
+        destination_id: destino a drenar.
+        event_ids:      event_ids específicos; ``None`` → todas as linhas.
+        org_id:         escopo de org da consulta (o que o endpoint resolveu).
+        global_scope:   True quando o chamador é admin de plataforma.
     """
     from ..db import database, repository
     from .delivery import persist_batch_dlq
 
     delivered = 0
     failed = 0
+    restantes: list[str] = []
+    cedeu_ao_disjuntor = False
 
     with database.SessionLocal() as db:
         repo = repository.DestinationRepository(db)
-        rows = repo.list_dlq_for_reprocess(
+        linhas = repo.list_dlq_for_reprocess(
             destination_id,
             event_ids=event_ids or None,
             org_id=org_id,
             global_scope=global_scope,
         )
 
-        for dlq_row in rows:
-            dlq_id = str(dlq_row.id)
-            raw_payload = dlq_row.payload
-            if not raw_payload:
-                # Row has no payload — nothing to redeliver; remove it.
+        # Teto por execução. Sem ele, um DLQ de milhares de eventos vira uma
+        # task de dezenas de minutos que o ``task_time_limit`` mata no meio.
+        alvo, sobra = linhas[:_DRENO_MAX_POR_EXECUCAO], linhas[_DRENO_MAX_POR_EXECUCAO:]
+        restantes = [str(r.event_id) for r in sobra]
+
+        # Decodifica antes de despachar: payload inválido não deve consumir
+        # espaço de lote nem tentativa de rede.
+        candidatos: list[dict] = []
+        for linha in alvo:
+            dlq_id = str(linha.id)
+            if not linha.payload:
                 repo.delete_dlq_entry(dlq_id)
                 delivered += 1
                 continue
-
             try:
-                envelope = json.loads(str(raw_payload))
+                envelope = json.loads(str(linha.payload))
             except (TypeError, ValueError):
-                # Malformed JSON — update error and skip rather than crash the task.
                 repo.update_dlq_error(
                     dlq_id,
                     error_kind="reprocess_parse_error",
@@ -493,76 +526,98 @@ def drain_destination_dlq(
                 )
                 failed += 1
                 continue
+            candidatos.append(
+                {
+                    "dlq_id": dlq_id,
+                    "event_id": str(linha.event_id),
+                    "org": linha.organization_id,
+                    "envelope": envelope,
+                }
+            )
 
-            event_id = str(dlq_row.event_id)
-            row_org = dlq_row.organization_id
+        for inicio in range(0, len(candidatos), _DRENO_TAMANHO_LOTE):
+            lote = candidatos[inicio : inicio + _DRENO_TAMANHO_LOTE]
+            ids_lote = [c["dlq_id"] for c in lote]
+            envelopes = [c["envelope"] for c in lote]
 
-            # Apaga ANTES de despachar, e isso é o ponto do conserto.
-            #
-            # Antes: a linha era apagada quando o despacho "não levantava". Só
-            # que os sinks NÃO levantam por contrato, eles devolvem
-            # ``DeliveryResult``. Numa rejeição determinística (4xx), o caminho
-            # de despacho tentava regravar a MESMA (destination_id, event_id) na
-            # DLQ, batia no unique, era engolido pelo ``except IntegrityError``
-            # e voltava sem exceção. Resultado: reprocessar contra um destino
-            # ainda quebrado APAGAVA a evidência em vez de preservá-la.
-            #
-            # Apagando primeiro, a regravação encontra o caminho livre e a linha
-            # volta com o erro NOVO e verdadeiro. A janela entre o delete e o
-            # desfecho é o custo, e ela é coberta pelo ``except`` abaixo.
-            repo.delete_dlq_entry(dlq_id)
+            # Carimba ANTES de despachar. Se depois o carimbo sobreviveu,
+            # ninguém reescreveu a linha e o evento saiu; se mudou, o destino
+            # recusou de novo e o motivo verdadeiro já está gravado.
+            repo.marcar_dlq_em_reprocesso(ids_lote)
 
             try:
                 run_coro_blocking(
-                    dispatch_batch_to_destination(destination_id, [envelope]),
+                    dispatch_batch_to_destination(destination_id, envelopes),
                     timeout=DISPATCH_RESULT_TIMEOUT,
                 )
-            except Exception as exc:
-                # Erro transitório propagado. A linha já foi apagada, então
-                # recolocamos com o motivo real em vez de perder o evento.
-                error_detail = f"reprocess attempt failed: {type(exc).__name__}: {exc}"[:500]
+            except circuit_breaker.BreakerOpen:
+                # CEDE A VEZ. O disjuntor é compartilhado com a ingestão viva, e
+                # insistir aqui era o que fazia a DLQ CRESCER durante um
+                # reprocesso: o dreno saturava o destino, os lotes novos batiam
+                # no disjuntor aberto e viravam mais linhas de ``breaker_open``
+                # do que o dreno conseguia drenar. Parar na primeira recusa e
+                # reagendar devolve a prioridade para o tráfego em tempo real.
                 persist_batch_dlq(
-                    [envelope],
+                    envelopes,
+                    destination_id=destination_id,
+                    error_kind="breaker_open",
+                    organization_id=lote[0]["org"] if lote else None,
+                )
+                cedeu_ao_disjuntor = True
+                # Tudo daqui em diante (inclusive este lote) fica para a próxima.
+                restantes = [c["event_id"] for c in candidatos[inicio:]] + restantes
+                break
+            except Exception as exc:
+                detalhe = f"reprocess attempt failed: {type(exc).__name__}: {exc}"[:500]
+                persist_batch_dlq(
+                    envelopes,
                     destination_id=destination_id,
                     error_kind="reprocess_failed",
-                    organization_id=row_org,
-                    error_detail=error_detail,
+                    organization_id=lote[0]["org"] if lote else None,
+                    error_detail=detalhe,
                 )
-                failed += 1
+                failed += len(lote)
                 logger.warning(
-                    "drain_destination_dlq: re-delivery failed dlq_id=%s destination_id=%s: %s",
-                    dlq_id,
-                    destination_id,
-                    error_detail,
+                    "drain_destination_dlq: lote falhou destination_id=%s n=%d: %s",
+                    destination_id, len(lote), detalhe,
                 )
                 continue
 
-            # Sem exceção ainda NÃO significa entregue. O sinal confiável é a
-            # ausência de uma linha nova para o mesmo evento: se o destino
-            # rejeitou, o caminho de despacho acabou de gravar uma.
-            if repo.dlq_entry_exists(destination_id, event_id):
-                failed += 1
-                logger.warning(
-                    "drain_destination_dlq: destino rejeitou de novo dlq_id=%s "
-                    "destination_id=%s event_id=%s — evento PRESERVADO na DLQ",
-                    dlq_id,
-                    destination_id,
-                    event_id,
-                )
-                continue
+            # Resolve o desfecho POR EVENTO: numa rejeição parcial só as linhas
+            # recusadas perdem o carimbo.
+            kinds = repo.dlq_error_kinds(ids_lote)
+            entregues = [
+                i for i in ids_lote
+                if kinds.get(i, repository.DestinationRepository.DLQ_KIND_EM_REPROCESSO)
+                == repository.DestinationRepository.DLQ_KIND_EM_REPROCESSO
+            ]
+            repo.delete_dlq_entries(entregues)
+            delivered += len(entregues)
+            failed += len(ids_lote) - len(entregues)
 
-            delivered += 1
-            logger.info(
-                "drain_destination_dlq: delivered dlq_id=%s destination_id=%s event_id=%s",
-                dlq_id,
-                destination_id,
-                event_id,
-            )
+    if restantes:
+        # Continuação: reagenda o resto em vez de estourar o tempo da task. O
+        # atraso maior quando o disjuntor recusou dá espaço para o destino se
+        # recuperar antes da próxima leva.
+        drain_destination_dlq.apply_async(
+            kwargs={
+                "destination_id": destination_id,
+                "event_ids": restantes,
+                "org_id": org_id,
+                "global_scope": global_scope,
+            },
+            queue="dispatch.dlq",
+            countdown=_DRENO_ESPERA_DISJUNTOR_S if cedeu_ao_disjuntor else _DRENO_ESPERA_S,
+        )
 
     logger.info(
-        "drain_destination_dlq: done destination_id=%s delivered=%d failed=%d",
-        destination_id,
-        delivered,
-        failed,
+        "drain_destination_dlq: done destination_id=%s delivered=%d failed=%d "
+        "restantes=%d cedeu_ao_disjuntor=%s",
+        destination_id, delivered, failed, len(restantes), cedeu_ao_disjuntor,
     )
-    return {"delivered": delivered, "failed": failed}
+    return {
+        "delivered": delivered,
+        "failed": failed,
+        "remaining": len(restantes),
+        "yielded_to_breaker": cedeu_ao_disjuntor,
+    }

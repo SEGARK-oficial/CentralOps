@@ -218,10 +218,36 @@ def persist_rejected_to_dlq(
                         session.add(row)
                         session.flush()
                 except IntegrityError:
-                    # (destination_id, event_id) already present — skip.
+                    # (destination_id, event_id) já existe. ATUALIZA em vez de
+                    # pular, por dois motivos.
+                    #
+                    # O operador: pular deixava o motivo VELHO na tela. Um evento
+                    # que falhou por breaker e depois passou a falhar por schema
+                    # continuava dizendo "breaker", e a investigação começava no
+                    # lugar errado.
+                    #
+                    # O dreno: ele carimba a linha com o sentinela
+                    # ``reprocessing`` antes de reenviar, e decide o desfecho
+                    # olhando se o carimbo sobreviveu. Se aqui a gente pulasse,
+                    # o carimbo sobreviveria a uma REJEIÇÃO e o dreno apagaria
+                    # um evento que o destino recusou.
+                    #
+                    # Continua idempotente: uma linha por (destination_id,
+                    # event_id), agora com o motivo mais recente.
+                    session.query(models.DestinationDeadLetter).filter(
+                        models.DestinationDeadLetter.destination_id
+                        == dest_config.destination_id,
+                        models.DestinationDeadLetter.event_id == rej.event_id,
+                    ).update(
+                        {
+                            models.DestinationDeadLetter.error_kind: rej.error_kind,
+                            models.DestinationDeadLetter.error_detail: rej.reason,
+                        },
+                        synchronize_session=False,
+                    )
                     logger.debug(
                         "persist_rejected_to_dlq: (destination_id=%s, event_id=%s) "
-                        "já existe — skipping (E1 idempotente)",
+                        "já existia — motivo atualizado",
                         dest_config.destination_id,
                         rej.event_id,
                     )
@@ -317,7 +343,22 @@ def persist_batch_dlq(
                         session.add(row)
                         session.flush()
                 except IntegrityError:
-                    # Idempotent — duplicate (destination_id, event_id).
+                    # Já existe (destination_id, event_id): atualiza o motivo em
+                    # vez de descartar. Mesma razão de
+                    # ``persist_rejected_to_dlq`` — deixar o motivo velho na tela
+                    # manda a investigação para o lugar errado, e o dreno usa a
+                    # mudança do ``error_kind`` como sinal de que o destino
+                    # recusou de novo.
+                    session.query(models.DestinationDeadLetter).filter(
+                        models.DestinationDeadLetter.destination_id == destination_id,
+                        models.DestinationDeadLetter.event_id == event_id,
+                    ).update(
+                        {
+                            models.DestinationDeadLetter.error_kind: error_kind,
+                            models.DestinationDeadLetter.error_detail: detalhe,
+                        },
+                        synchronize_session=False,
+                    )
                     continue
 
             session.commit()
