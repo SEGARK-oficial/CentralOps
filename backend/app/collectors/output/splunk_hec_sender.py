@@ -37,7 +37,7 @@ from typing import Any, List, Mapping, Optional
 
 import aiohttp
 
-from .payload_shape import render_payload
+from .payload_shape import render_payload, wrap_payload
 from .base import DeliveryResult, RejectedEvent, TestResult
 
 logger = logging.getLogger(__name__)
@@ -85,19 +85,29 @@ def format_hec_event(
     Returns:
         Dict pronto para ``json.dumps`` e POST ao HEC.
     """
-    wrapper: dict[str, Any] = {
-        # ``payload="ocsf"`` entrega só o evento OCSF 1.8 dentro do wrapper HEC,
-        # que é o que um índice modelado a partir do schema OCSF espera. O
-        # default continua sendo o envelope canônico.
-        "event": render_payload(envelope, payload),
-        "sourcetype": sourcetype,
-    }
+    # Ordem de inserção preservada de propósito (event, sourcetype, index,
+    # source, host, fields): há teste de contrato de fio que compara os bytes
+    # serializados, e dict do Python mantém ordem de inserção.
+    #
+    # ``payload="ocsf"`` entrega só o evento OCSF 1.8 dentro do wrapper HEC, que
+    # é o que um índice modelado a partir do schema OCSF espera. O default
+    # continua sendo o envelope canônico.
+    #
+    # O wrapper sai de ``wrap_payload`` em vez de ser montado aqui: este era o
+    # ÚNICO sink que sabia envelopar, e o custo disso foi um destino de tabela
+    # coluna-wrapper ser impossível de configurar. A primitiva agora é
+    # compartilhada; o HEC é só o chamador com ``event_key`` fixo, porque
+    # "event" é o contrato do protocolo e não uma escolha do operador.
+    extras: dict[str, str] = {"sourcetype": sourcetype}
     if index is not None:
-        wrapper["index"] = index
+        extras["index"] = index
     if source is not None:
-        wrapper["source"] = source
+        extras["source"] = source
     if host is not None:
-        wrapper["host"] = host
+        extras["host"] = host
+    wrapper: dict[str, Any] = wrap_payload(
+        render_payload(envelope, payload), event_key="event", row_fields=extras
+    )
     # Expõe o event_id como campo indexado para dedup no indexer.
     # O HEC não faz dedup automático: este campo é para uso em queries Splunk.
     # Lido do envelope mesmo em modo ``ocsf``: é metadado de TRANSPORTE, vai em

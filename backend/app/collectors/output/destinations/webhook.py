@@ -14,13 +14,21 @@ from __future__ import annotations
 import base64
 import json
 import logging
-from typing import Any, List, Literal, Mapping, Optional
+from typing import Any, Dict, List, Literal, Mapping, Optional
 
 import aiohttp
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 from ..base import DeliveryResult, RejectedEvent, TestResult
-from ..payload_shape import DESCRICAO as PAYLOAD_DESCRICAO, PayloadShape, render_payload
+from ..payload_shape import (
+    DESCRICAO as PAYLOAD_DESCRICAO,
+    DESCRICAO_EVENT_KEY,
+    DESCRICAO_ROW_FIELDS,
+    DESCRICAO_ROW_SHAPE,
+    PayloadShape,
+    RowShape,
+    render_row,
+)
 from .registry import DestinationConfig, DestinationRegistration, register
 
 logger = logging.getLogger(__name__)
@@ -43,11 +51,63 @@ class WebhookConfig(BaseModel):
         default="none",
         description="Como autenticar: sem autenticação, Bearer token ou Basic",
     )
-    wrap: str = Field(default="array", description="array | ndjson — formato do corpo do lote")
+    # ``Literal`` pelo mesmo motivo de ``auth_mode``: é o que faz o JSON Schema
+    # sair com ``enum`` e a UI renderizar Select em vez de caixa de texto, que é
+    # o que impede um valor novo errado de nascer.
+    #
+    # O validador ``mode="before"`` existe para NÃO quebrar destino já gravado:
+    # esta config é revalidada a cada entrega, na fábrica, não só no save. Um
+    # ``wrap`` fora da lista (a caixa de texto antiga aceitava qualquer coisa)
+    # hoje cai em array silenciosamente; se o ``Literal`` passasse a levantar, a
+    # atualização derrubaria a entrega desse destino em vez de corrigi-la. O
+    # normalizador mantém o comportamento antigo e registra no log.
+    wrap: Literal["array", "ndjson"] = Field(
+        default="array", description="Formato do corpo do lote: array JSON ou NDJSON"
+    )
     payload: Optional[PayloadShape] = Field(
         default=None,
         description=PAYLOAD_DESCRICAO,
     )
+    row_shape: RowShape = Field(default="flat", description=DESCRICAO_ROW_SHAPE)
+    event_key: str = Field(default="event", description=DESCRICAO_EVENT_KEY)
+    # ``Dict[str, str]`` e não ``dict`` cru: é o que faz o JSON Schema sair com
+    # ``additionalProperties: {"type": "string"}``. O ``headers`` ao lado é dict
+    # cru por histórico, e o resultado é ``additionalProperties: true``; as duas
+    # formas caem no mesmo editor de pares na UI, mas só a tipada recusa um
+    # valor não-textual antes de virar corpo de requisição.
+    row_fields: Dict[str, str] = Field(default_factory=dict, description=DESCRICAO_ROW_FIELDS)
+
+    @field_validator("wrap", mode="before")
+    @classmethod
+    def _normaliza_wrap(cls, valor: Any) -> Any:
+        if not isinstance(valor, str):
+            return valor
+        v = valor.strip().lower()
+        if v in {"array", "ndjson"}:
+            return v
+        logger.warning(
+            "webhook: wrap=%r fora da lista — usando 'array' (comportamento anterior)", valor
+        )
+        return "array"
+
+    @model_validator(mode="after")
+    def _barreiras(self) -> "WebhookConfig":
+        if self.row_shape == "wrapped":
+            if not self.event_key.strip():
+                raise ValueError("com row_shape='wrapped', event_key é obrigatório")
+        elif self.row_fields:
+            raise ValueError(
+                "row_fields só tem efeito com row_shape='wrapped'; hoje seria ignorado "
+                "em silêncio. Mude row_shape para 'wrapped' ou limpe row_fields"
+            )
+        for chave in self.row_fields:
+            if not str(chave).strip():
+                raise ValueError("row_fields tem uma coluna sem nome")
+            if chave == self.event_key:
+                raise ValueError(
+                    f"row_fields não pode redefinir a chave do evento ({self.event_key!r})"
+                )
+        return self
     #: Nome histórico de ``payload``, que aceitava "normalized". Continua
     #: declarado para que config já gravada siga valendo: se ele sumisse do
     #: schema, o Pydantic descartaria a chave e todo destino configurado com
@@ -70,6 +130,9 @@ class WebhookClient:
         auth_mode: str = "none",
         wrap: str = "array",
         body: str = "envelope",
+        row_shape: str = "flat",
+        event_key: str = "event",
+        row_fields: Optional[Mapping[str, str]] = None,
         headers: Optional[dict] = None,
         verify_tls: bool = True,
         secret: Optional[str] = None,
@@ -79,14 +142,29 @@ class WebhookClient:
         self._auth_mode = auth_mode
         self._wrap = wrap
         self._body = body
+        self._row_shape = row_shape
+        self._event_key = event_key
+        self._row_fields = dict(row_fields or {})
         self._extra_headers = dict(headers or {})
         self._verify_tls = verify_tls
         self._secret = secret
         self._session: Optional[aiohttp.ClientSession] = None
 
-    def format(self, envelope: Mapping[str, Any]) -> dict:
-        """Canônico → wire: envelope inteiro ou só o OCSF ``normalized``."""
-        return render_payload(envelope, self._body)
+    def format(self, envelope: Mapping[str, Any]) -> Any:
+        """Canônico → wire.
+
+        ``body``/``payload`` decide o conteúdo (envelope canônico ou OCSF puro);
+        ``row_shape`` decide a forma (o conteúdo no topo, ou aninhado sob
+        ``event_key`` com as chaves de ``row_fields`` ao lado). Serve endpoint
+        que espera o evento embrulhado, incluindo um Vector configurado assim.
+        """
+        return render_row(
+            envelope,
+            payload=self._body,
+            row_shape=self._row_shape,
+            event_key=self._event_key,
+            row_fields=self._row_fields,
+        )
 
     def _auth_header(self) -> dict:
         if self._auth_mode == "bearer" and self._secret:
@@ -172,7 +250,9 @@ def _factory(config: DestinationConfig, secrets: Optional[Any] = None) -> Webhoo
     return WebhookClient(
         url=cfg.url, method=cfg.method, auth_mode=cfg.auth_mode, wrap=cfg.wrap,
         # ``payload`` vence; ``body`` é o nome histórico e cobre config antiga.
-        body=cfg.payload or cfg.body, headers=cfg.headers, verify_tls=cfg.verify_tls, secret=secret,
+        body=cfg.payload or cfg.body,
+        row_shape=cfg.row_shape, event_key=cfg.event_key, row_fields=cfg.row_fields,
+        headers=cfg.headers, verify_tls=cfg.verify_tls, secret=secret,
     )
 
 

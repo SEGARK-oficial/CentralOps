@@ -160,6 +160,7 @@ const sidebars: SidebarsConfig = {
             'outputs/destination-splunk-hec',
             'outputs/destination-elastic',
             'outputs/destination-clickhouse',
+            'outputs/destination-nano',
             'outputs/destination-crowdstrike-ngsiem',
             'outputs/destination-crowdstrike-logscale',
             'outputs/destination-s3',

@@ -20,9 +20,9 @@ Esta tela só aparece para administradores da plataforma.
 
 Para criar o destino, tenha em mãos:
 
-- **Endereço do HEC no Splunk** — a URL e a porta da sua instância (por exemplo, `https://splunk.exemplo.com:8088`). Quem administra o Splunk fornece esse endereço.
-- **Token HEC** — uma credencial gerada no Splunk. O CentralOps guarda esse token de forma criptografada; ele nunca aparece em tela depois de salvo.
-- **Índice de destino** (opcional) — o índice do Splunk onde os eventos devem cair. Se deixar em branco, o CentralOps usa o índice padrão do próprio token.
+- **Endereço do HEC no Splunk**: a URL e a porta da sua instância (por exemplo, `https://splunk.exemplo.com:8088`). Quem administra o Splunk fornece esse endereço.
+- **Token HEC**: uma credencial gerada no Splunk. O CentralOps guarda esse token de forma criptografada; ele nunca aparece em tela depois de salvo.
+- **Índice de destino** (opcional), o índice do Splunk onde os eventos devem cair. Se deixar em branco, o CentralOps usa o índice padrão do próprio token.
 
 > O token e o endereço do HEC são gerados no Splunk pela equipe que administra aquele ambiente. No CentralOps você apenas informa esses valores ao criar o destino.
 
@@ -46,25 +46,29 @@ Para criar o destino, tenha em mãos:
 
 ### Sobre a verificação TLS e certificados próprios
 
-Mantenha **Verificar TLS** ativado sempre que possível — ele garante que o CentralOps está mesmo falando com o seu Splunk.
+Mantenha **Verificar TLS** ativado sempre que possível, ele garante que o CentralOps está mesmo falando com o seu Splunk.
 
 Se o seu Splunk usa um certificado próprio (autoassinado ou de uma autoridade interna), a confiança nesse certificado é definida pela equipe de infraestrutura no momento do deploy. Se a conexão segura falhar por causa do certificado, fale com o administrador da plataforma para que ele registre o certificado correto. Você não precisa lidar com arquivos de certificado pela interface.
 
-### Testar e salvar
+### Salvar o destino
 
-Antes de salvar, use o botão **Testar conexão**. O CentralOps verifica, de uma só vez:
+Clique em **Salvar** para criar o destino. Ele já fica **ativo** (badge verde) e começa a receber os eventos roteados para ele.
 
-- se consegue alcançar o endereço do HEC;
+### Testar a conexão
+
+Após criar o destino, abra a página de detalhes e use o botão **Testar** (ícone de play) no cabeçalho. O CentralOps verifica:
+
+- conectividade com a instância do Splunk HEC;
 - se o token é aceito pelo Splunk;
 - se o formato dos eventos é aceito.
 
-Se o teste passar, salve. O destino já fica **ativo** (badge verde) e começa a receber os eventos roteados para ele.
+Se o teste passar, a conexão está OK. Se falhar, o relatório detalhado ajuda a identificar o problema.
 
-> O teste de conexão substitui qualquer verificação manual: não é preciso checar conectividade por fora da plataforma.
+> O teste de conexão valida a configuração sem enviar dados reais, use antes de ativar o roteamento para esse destino em produção.
 
 ## Como os eventos são entregues
 
-Você não precisa configurar nada do funcionamento interno — ele já vem ajustado para entrega eficiente ao Splunk. Vale apenas entender o comportamento:
+Você não precisa configurar nada do funcionamento interno, ele já vem ajustado para entrega eficiente ao Splunk. Vale apenas entender o comportamento:
 
 - **Envio em lotes.** Os eventos são agrupados e enviados em blocos, o que é mais eficiente do que enviar um a um.
 - **Nova tentativa automática.** Se o Splunk recusar ou ficar indisponível por um instante, o CentralOps tenta reenviar sozinho, esperando um pouco mais entre cada tentativa.
@@ -88,12 +92,12 @@ O badge de saúde mostra a situação atual:
 
 Na visão do destino você acompanha as métricas em tempo real:
 
-- **Eventos por segundo** — ritmo de entrega na última hora.
-- **Volume** — quanto dado está saindo na última hora.
-- **Latência média** — quanto o Splunk leva para responder.
-- **Itens na fila de reenvio (24h)** — quantos eventos foram recusados no último dia.
+- **Eventos por segundo**: ritmo de entrega na última hora.
+- **Volume**: quanto dado está saindo na última hora.
+- **Latência média**: quanto o Splunk leva para responder.
+- **Itens na fila de reenvio (24h)**: quantos eventos foram recusados no último dia.
 
-Para ver os eventos que não puderam ser entregues, abra a **fila de reenvio** na visão do destino. Cada item mostra o identificador do evento, o motivo da recusa informado pelo Splunk, o horário e o conteúdo exato que foi rejeitado — útil para entender e corrigir a causa.
+Para ver os eventos que não puderam ser entregues, abra a **fila de reenvio** na visão do destino. Cada item mostra o identificador do evento, o motivo da recusa informado pelo Splunk, o horário e o conteúdo exato que foi rejeitado, útil para entender e corrigir a causa.
 
 Para uma visão mais ampla de como os dados percorrem a plataforma até os destinos, use **Roteia -> Fluxo de dados** e **Visão geral -> Saúde do pipeline**.
 
@@ -105,7 +109,7 @@ Para uma visão mais ampla de como os dados percorrem a plataforma até os desti
 | **Token recusado (erro de autenticação)** | O token foi colado por inteiro? Ele pode ter sido revogado ou expirado no Splunk. Peça à equipe do Splunk para confirmar ou gerar um novo, e atualize o destino. |
 | **Eventos recusados por formato inválido** | Abra a fila de reenvio e veja o conteúdo recusado. Em geral é o índice que não existe/está desabilitado no Splunk, ou um evento maior que o limite aceito. Ajuste no Splunk e os próximos envios voltam a passar. |
 | **Envio pausado / "muitas requisições"** | O Splunk pode estar sobrecarregado ou ter atingido a cota de ingestão do token. A proteção contra destino instável volta a tentar sozinha após um curto intervalo; se persistir, acione a equipe do Splunk para revisar capacidade ou cota. |
-| **Falha de certificado seguro (TLS)** | Acontece quando o Splunk usa um certificado próprio que a plataforma ainda não reconhece. Essa confiança é configurada no deploy — fale com o administrador da plataforma. |
+| **Falha de certificado seguro (TLS)** | Acontece quando o Splunk usa um certificado próprio que a plataforma ainda não reconhece. Essa confiança é configurada no deploy, fale com o administrador da plataforma. |
 
 ## Próximos passos
 

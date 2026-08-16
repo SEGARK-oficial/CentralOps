@@ -234,6 +234,7 @@ def _register_builtins() -> None:
     from . import chronicle  # noqa: F401        (side-effect: register)
     from . import security_lake  # noqa: F401    (side-effect: register)
     from . import clickhouse  # noqa: F401       (side-effect: register — analítico colunar)
+    from . import nano  # noqa: F401             (side-effect: register — OCSF direto, preset do ClickHouse)
     from . import crowdstrike_logscale  # noqa: F401  (side-effect: register — Falcon LogScale)
     from . import crowdstrike_ngsiem  # noqa: F401    (side-effect: register — Falcon NG-SIEM)
 

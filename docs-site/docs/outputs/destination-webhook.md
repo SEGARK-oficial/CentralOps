@@ -1,12 +1,12 @@
 ---
 sidebar_position: 17
 title: "Destino: Webhook Genérico"
-description: Envie eventos para qualquer endpoint HTTP — integre com SOAR, automação e serviços ad-hoc.
+description: Envie eventos para qualquer endpoint HTTP, integre com SOAR, automação e serviços ad-hoc.
 ---
 
 # Destino: Webhook Genérico
 
-O destino **Webhook Genérico** encaminha seus eventos normalizados para qualquer endpoint HTTP. Use-o para alimentar plataformas de automação de segurança (SOAR), sistemas de reação customizados ou qualquer serviço que exponha um endpoint POST/PUT HTTP — sem precisar de um plugin dedicado para cada vendor.
+O destino **Webhook Genérico** encaminha seus eventos normalizados para qualquer endpoint HTTP. Use-o para alimentar plataformas de automação de segurança (SOAR), sistemas de reação customizados ou qualquer serviço que exponha um endpoint POST/PUT HTTP, sem precisar de um plugin dedicado para cada vendor.
 
 Esta tela só aparece para administradores da plataforma.
 
@@ -20,11 +20,11 @@ Esta tela só aparece para administradores da plataforma.
 ## O que você precisa antes de começar
 
 - **URL do endpoint HTTP.** A URL completa, incluindo `https://` e a porta se não for 443 (por exemplo, `https://soar.exemplo.com/api/events`).
-- **Método HTTP** (padrão: POST) — POST para a maioria dos casos; mude para PUT se o endpoint exigir.
+- **Método HTTP** (padrão: POST), POST para a maioria dos casos; mude para PUT se o endpoint exigir.
 - **Autenticação** (se necessária):
-  - **Sem autenticação** — nenhuma credencial (token, user:pass).
-  - **Bearer token** — para OAuth2 ou token-based (ex.: `Authorization: Bearer <token>`).
-  - **Basic Auth** — para user:password (HTTP Basic).
+  - **Sem autenticação**: nenhuma credencial (token, user:pass).
+  - **Bearer token**: para OAuth2 ou token-based (ex.: `Authorization: Bearer <token>`).
+  - **Basic Auth**: para user:password (HTTP Basic).
 - **A credencial secreta** (token ou user:pass), se aplicável.
 
 ## Criar o destino
@@ -54,15 +54,19 @@ Esta tela só aparece para administradores da plataforma.
 
 **Basic Auth:** escolha `basic`, informar em formato `usuario:senha` na credencial. O CentralOps faz a codificação automática.
 
-### Testar e salvar
+### Salvar o destino
 
-Antes de salvar, use o botão **Testar conexão**. O CentralOps envia um lote vazio para verificar:
+Clique em **Salvar** para criar o destino. Ele já fica **ativo** (badge verde).
+
+### Testar a conexão
+
+Após criar o destino, abra a página de detalhes e use o botão **Testar** (ícone de play) no cabeçalho. O CentralOps verifica:
 
 - se consegue alcançar o endpoint;
 - se a autenticação é aceita;
 - se o formato é válido.
 
-Se o teste passar, salve. O destino fica **ativo** (badge verde).
+Se o teste passar, a conexão está OK. Se falhar, o relatório detalhado ajuda a identificar o problema.
 
 ## Como os eventos são entregues
 
@@ -86,9 +90,9 @@ O badge de saúde mostra:
 
 Na visão do destino você acompanha:
 
-- **Eventos por segundo** — taxa de entrega na última hora.
-- **Latência média** — tempo de resposta do endpoint.
-- **Itens na fila de reenvio (24h)** — eventos recusados.
+- **Eventos por segundo**: taxa de entrega na última hora.
+- **Latência média**: tempo de resposta do endpoint.
+- **Itens na fila de reenvio (24h)**: eventos recusados.
 
 Para ver o que não foi entregue, abra a **fila de reenvio**. Cada item mostra o motivo (ex.: "HTTP 401", "erro de conexão") e o conteúdo exato, útil para debugar.
 
@@ -99,7 +103,7 @@ Para ver o que não foi entregue, abra a **fila de reenvio**. Cada item mostra o
 | **"Não conecta ao endpoint"** | A URL está correta e completa? O endpoint está no ar? Se há firewall, peça à equipe de infraestrutura que libere o acesso. O CentralOps tenta reenviar automaticamente problemas transitórios. |
 | **"401 Unauthorized" / "403 Forbidden"** | Confirme o modo de autenticação (none, bearer, basic) e o valor da credencial. Bearer ou basic estão corretos? Teste o endpoint fora do CentralOps com a mesma credencial para confirmar. |
 | **"400 Bad Request" / "413 Payload Too Large"** | O endpoint recusou o formato. Mude entre `array` e `ndjson` ou entre `envelope` e `normalized` e tente novamente. Abra a fila de reenvio para ver o payload rejeitado. |
-| **Eventos recusados por erro de formato** | Consulte a fila de reenvio para ver o conteúdo exato e o motivo. Pode ser um campo que o endpoint não espera — mude o corpo para `normalized` (só OCSF) em vez de `envelope` (completo). |
+| **Eventos recusados por erro de formato** | Consulte a fila de reenvio para ver o conteúdo exato e o motivo. Pode ser um campo que o endpoint não espera, mude o corpo para `normalized` (só OCSF) em vez de `envelope` (completo). |
 | **Muitos eventos na fila de reenvio** | O destino pode estar lento ou sobrecarregado. O CentralOps para temporariamente e retoma sozinho. Se persistir, verifique a latência média e a capacidade do endpoint. |
 
 ## Próximos passos
