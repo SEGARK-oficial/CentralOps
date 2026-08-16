@@ -104,6 +104,34 @@ export function ClickHouseIcon({ size = 28, className }: BrandSvgProps): React.R
   )
 }
 
+export function NanoIcon({ size = 28, className }: BrandSvgProps): React.ReactElement {
+  return (
+    <svg
+      viewBox="0 0 110.53 110.53"
+      width={size}
+      height={size}
+      aria-hidden="true"
+      className={className}
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      {/* nano: traçado em degrau mais o ponto azul da marca.
+          A forma vem branca na marca original, feita para fundo escuro. Aqui
+          ela usa currentColor para não sumir no tema claro; o ponto mantém o
+          azul, que é o que identifica a marca à distância. */}
+      <path
+        d="M88.43,11.05c0-6.08-4.97-11.05-11.05-11.05h-44.21c-6.08,0-11.05,4.97-11.05,11.05s-4.97,11.05-11.05,11.05S0,27.08,0,33.16v22.11c0,6.08,4.97,11.05,11.05,11.05s11.05-4.97,11.05-11.05v-22.11c0-6.08,4.97-11.05,11.05-11.05h44.21c6.08,0,11.05,4.97,11.05,11.05v66.32c0,6.08,4.97,11.05,11.05,11.05s11.05-4.97,11.05-11.05V33.16c0-6.08-4.97-11.05-11.05-11.05s-11.05-4.97-11.05-11.05Z"
+        fill="currentColor"
+        fillRule="evenodd"
+      />
+      <path
+        d="M22.11,99.48c0-6.08-4.97-11.05-11.05-11.05S0,93.4,0,99.48s4.97,11.05,11.05,11.05,11.05-4.97,11.05-11.05Z"
+        fill="#3C99D5"
+        fillRule="evenodd"
+      />
+    </svg>
+  )
+}
+
 export function CrowdStrikeIcon({ size = 28, className }: BrandSvgProps): React.ReactElement {
   return (
     <svg
@@ -529,6 +557,7 @@ export const BRAND_IDS: ReadonlySet<string> = new Set([
   "splunk",
   "elastic",
   "clickhouse",
+  "nano",
   "crowdstrike",
   "datadog",
   "opentelemetry",
@@ -559,6 +588,7 @@ const BRAND_RENDERERS: Record<string, BrandRenderer> = {
   splunk: (s, c) => <SplunkIcon size={s} className={c} />,
   elastic: (s, c) => <ElasticIcon size={s} className={c} />,
   clickhouse: (s, c) => <ClickHouseIcon size={s} className={c} />,
+  nano: (s, c) => <NanoIcon size={s} className={c} />,
   crowdstrike: (s, c) => <CrowdStrikeIcon size={s} className={c} />,
   datadog: (s, c) => <DatadogIcon size={s} className={c} />,
   opentelemetry: (s, c) => <OpenTelemetryIcon size={s} className={c} />,

@@ -84,6 +84,8 @@ Você não precisa gerenciar nada disso manualmente, mas é útil saber o que a 
 | "Testar conexão" falha com erro de conexão / tempo esgotado | Endereço ou porta errados, ou o destino está inacessível pela rede. | Verifique endereço e porta; confirme com o responsável pelo destino se ele está acessível. |
 | Erro relacionado a certificado ao usar TLS | O certificado do destino não é confiável no ambiente. | Confirme com o administrador da plataforma; o ajuste de certificados é feito no ambiente. |
 | Eventos parados na fila de reenvio | O destino rejeitou os eventos ou ficou indisponível. | Corrija a causa (credencial, formato, disponibilidade) e reprocese a fila de reenvio na tela de **Destinos**. |
+| A fila de reenvio não zera logo depois de você clicar em reprocessar | Normal com fila grande. O reprocesso trabalha em levas de 500 eventos e reagenda o resto sozinho, para não estourar o tempo da tarefa. Acompanhe o número: ele deve cair a cada leva. |
+| A fila de reenvio **cresce** durante um reprocesso | O destino ainda está recusando ou indisponível. O reprocesso cede a vez ao tráfego novo quando encontra o destino em proteção, então a fila só volta a cair depois que a causa raiz for resolvida. Corrija o destino primeiro, use **Testar conexão** para confirmar, e só então reprocesse. |
 
 ## Adicionar um novo tipo de destino ao catálogo
 

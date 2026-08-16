@@ -2819,9 +2819,15 @@ class DestinationRepository:
     ) -> list[models.DestinationDeadLetter]:
         """Return DLQ rows for a destination, optionally filtered by event_ids.
 
-        Used exclusively by the drain/reprocess path.  No pagination — the
-        caller (Celery task) processes the full set in one invocation; the
-        endpoint caps the trigger via the 500-row org-scoped bound.
+        Usado só pelo caminho de dreno/reprocesso. Devolve o conjunto INTEIRO,
+        sem paginação, e isso é de propósito: quem aplica o teto é a task
+        ``drain_destination_dlq`` (``_DRENO_MAX_POR_EXECUCAO``), que processa uma
+        fatia e reagenda o resto.
+
+        O texto anterior aqui dizia que "o endpoint limita o gatilho a 500 linhas
+        por escopo de org". Esse limite nunca existiu no endpoint. A frase
+        descrevia uma proteção imaginária, e enquanto ela esteve escrita ninguém
+        procurou o teto que faltava.
         """
         q = self._dlq_org_scope(
             self.db.query(models.DestinationDeadLetter).filter(
@@ -2847,28 +2853,62 @@ class DestinationRepository:
         self.db.commit()
         return True
 
-    def dlq_entry_exists(self, destination_id: str, event_id: str) -> bool:
-        """Existe linha de DLQ para este par destino/evento?
+    #: ``error_kind`` que o dreno carimba ANTES de reenviar, para saber depois
+    #: se o destino recusou de novo. Ver ``marcar_dlq_em_reprocesso``.
+    DLQ_KIND_EM_REPROCESSO = "reprocessing"
 
-        É o sinal que o dreno usa para saber se a reentrega funcionou. Não dá
-        para usar "o despacho não levantou": os sinks não levantam por contrato,
-        devolvem ``DeliveryResult``, então uma rejeição determinística volta em
-        silêncio. Se o destino recusou, o caminho de despacho acabou de gravar
-        uma linha aqui, e é isso que esta consulta enxerga.
+    def marcar_dlq_em_reprocesso(self, dlq_ids: list[str]) -> int:
+        """Carimba as linhas com o sentinela, antes do reenvio. Devolve quantas.
 
-        Depende de o dreno ter APAGADO a linha antiga antes de despachar, senão
-        o unique em ``(destination_id, event_id)`` faria a regravação ser pulada
-        e esta consulta encontraria a linha velha, indistinguível da nova.
+        É a metade que torna o resultado do reenvio observável. A outra é
+        ``persist_rejected_to_dlq``, que passou a SOBRESCREVER a linha existente
+        em vez de pular no conflito de unique. Juntas, elas dão ao dreno um
+        sinal confiável: se depois do despacho a linha ainda tem o sentinela,
+        ninguém a reescreveu e o evento saiu; se tem outro ``error_kind``, o
+        destino recusou de novo e o motivo verdadeiro já está gravado.
+
+        O caminho anterior apagava a linha ANTES de despachar para liberar o
+        unique. Funcionava, mas abria uma janela: task morta no meio (o
+        ``task_time_limit`` de 15 min é alcançável com DLQ grande) perdia o que
+        estava em voo. Carimbar não apaga nada, então não há o que perder.
         """
-        return (
-            self.db.query(models.DestinationDeadLetter.id)
-            .filter(
-                models.DestinationDeadLetter.destination_id == destination_id,
-                models.DestinationDeadLetter.event_id == event_id,
+        if not dlq_ids:
+            return 0
+        n = (
+            self.db.query(models.DestinationDeadLetter)
+            .filter(models.DestinationDeadLetter.id.in_(dlq_ids))
+            .update(
+                {models.DestinationDeadLetter.error_kind: self.DLQ_KIND_EM_REPROCESSO},
+                synchronize_session=False,
             )
-            .first()
-            is not None
         )
+        self.db.commit()
+        return int(n)
+
+    def dlq_error_kinds(self, dlq_ids: list[str]) -> dict[str, str]:
+        """``{dlq_id: error_kind}`` para as linhas que AINDA existem."""
+        if not dlq_ids:
+            return {}
+        linhas = (
+            self.db.query(
+                models.DestinationDeadLetter.id, models.DestinationDeadLetter.error_kind
+            )
+            .filter(models.DestinationDeadLetter.id.in_(dlq_ids))
+            .all()
+        )
+        return {str(i): str(k or "") for i, k in linhas}
+
+    def delete_dlq_entries(self, dlq_ids: list[str]) -> int:
+        """Apaga em lote as linhas confirmadamente reentregues."""
+        if not dlq_ids:
+            return 0
+        n = (
+            self.db.query(models.DestinationDeadLetter)
+            .filter(models.DestinationDeadLetter.id.in_(dlq_ids))
+            .delete(synchronize_session=False)
+        )
+        self.db.commit()
+        return int(n)
 
     def update_dlq_error(self, dlq_id: str, *, error_kind: str, error_detail: str) -> bool:
         """Update the error fields on a DLQ row after a failed re-delivery attempt.

@@ -12,7 +12,7 @@ Esta tela só aparece para administradores da plataforma.
 
 ## Por que um destino próprio para o nano
 
-O nano é um SIEM que, por desenho, **não repassa o evento por seu pipeline de parsing**. Ele recebe OCSF já normalizado (da mesma forma que Tenzir, Cribl e Axoflow o recebem) e oferece a camada de correlação, detecção e investigação.
+O nano é um SIEM que, por desenho, aceita **OCSF já normalizado sem repassar o evento pelo pipeline de parsing dele**, e oferece a camada de correlação, detecção e investigação por cima disso. Como o CentralOps já normaliza para OCSF 1.8, valida contra o manifesto, enriquece e reduz, esse é o encaixe natural entre os dois.
 
 O CentralOps é, por construção, uma camada de normalização: coleta do vendor, mapeia para OCSF 1.8, valida contra o manifesto, enriquece e reduz. Essa postura bate com a do nano, e este kind é o atalho que evita errar qualquer uma de cinco decisões acopladas.
 
@@ -37,7 +37,7 @@ Referência oficial: [nano SIEM, OCSF direct integration](https://nano.rs/docs/o
 
 Para criar o destino, tenha em mãos:
 
-- **Endereço HTTP do nano**: a URL da instância nano, porta 8123, com `http://` ou `https://` (por exemplo, `https://nano.interno:8123`). Quem administra o nano fornece esse endereço. Se apenas lhe derem a porta 9000, saiba que é o protocolo nativo TCP, procure a HTTP, que costuma estar no mesmo host na porta 8123.
+- **Endereço da interface HTTP do nano**: o ClickHouse expõe a interface HTTP em duas portas, a 8123 em texto claro e a 8443 com TLS. Confira qual delas o deploy do nano **publicou** para fora do host, porque é comum o compose publicar só a 8443. Se a 9000 for a única que responde, ela não serve: é o protocolo nativo TCP, binário, e este destino fala HTTP.
 - **Usuário de ingestão**: geralmente `nanosiem_ingest`, um usuário INSERT-only criado no nano. Nunca use o usuário da aplicação (que lê e escreve o banco inteiro).
 - **Senha do usuário**: a `CLICKHOUSE_INGEST_PASSWORD` gerada pelo instalador do nano. O CentralOps guarda essa senha de forma criptografada; ela nunca aparece em tela depois de salvo.
 - **Rótulo do feed**: um identificador minúsculo para esta origem no nano (ex.: `centralops_sophos`, `centralops_wazuh`). É a chave de escopo das detecções, sem ele as linhas caem como `unknown` e as regras com escopo de fonte ignoram tudo.
@@ -54,12 +54,12 @@ Para criar o destino, tenha em mãos:
 | Campo | O que informar |
 |-------|----------------|
 | **Nome** | Um nome que ajude a identificar este destino (ex.: "nano SIEM Produção"). |
-| **URL** | O endereço HTTP do nano com porta 8123 (ex.: `https://nano.interno:8123`). Não use a porta 9000 (protocolo nativo). |
+| **URL** | A interface HTTP do ClickHouse do nano: `http://host:8123` ou `https://host:8443`. Use a que estiver publicada no host. Não use a 9000, que é o protocolo nativo. |
 | **Rótulo da origem** | Identificador minúsculo deste feed no nano (ex: `centralops_sophos`). É a chave de escopo das detecções e painéis, sem ele as linhas caem como `unknown`. |
 | **Usuário** | Padrão: `nanosiem_ingest`. Mude apenas se o nano usou outro nome para o usuário de ingestão. |
 | **Senha** | A senha do usuário de ingestão. Fica criptografada após salvar. |
 | **Banco** | Padrão: `nanosiem`. Mude apenas se sua instância usa banco diferente. |
-| **Tabela** | Padrão: `ocsf_logs_raw`. Use essa tabela para ingestão OCSF. A tabela `ocsf_logs_native_raw` é para o sink nativo do Tenzir (protocolo TCP na porta 9000), não para o caminho HTTP. |
+| **Tabela** | Padrão: `ocsf_logs_raw`. Use essa tabela para ingestão OCSF. A `ocsf_logs_native_raw` é do protocolo nativo do ClickHouse (TCP na porta 9000), não do caminho HTTP. |
 | **Verificar TLS** | Mantenha ativado para garantir uma conexão segura. |
 | **CA bundle** | Caminho para certificado customizado (opcional). Normalmente definido pela equipe de infraestrutura no momento do deploy. |
 
@@ -157,9 +157,11 @@ Para uma visão mais ampla de como os dados percorrem a plataforma até os desti
 | Sintoma | O que verificar |
 |---------|-----------------|
 | **Não conecta ao nano, "You must use port 8123 for HTTP"** | Você usou a porta 9000? Aquela é o protocolo nativo TCP do ClickHouse, só para clientes nativos. Este destino fala HTTP. Use 8123 (ou 8443 com TLS). |
+| **`Cannot connect to host … Connect call failed`** | Quase sempre a porta existe no container mas **não foi publicada** no host. Confira com `docker ps` na máquina do nano: uma porta publicada aparece como `0.0.0.0:8443->8443/tcp`, enquanto uma só exposta internamente aparece como `8123/tcp`, sem o `0.0.0.0:`. É comum o deploy publicar apenas a 8443. Nesse caso use `https://host:8443` e desligue a verificação de TLS se o certificado for autoassinado. |
 | **Não conecta ao nano** | A URL está completa, com `https://` (ou `http://`) e a porta correta? O nano está no ar? Se houver firewall entre as redes, o time de infraestrutura precisa liberar o acesso à porta. |
 | **Usuário/senha recusados (erro 401 ou 403)** | O usuário `nanosiem_ingest` existe no nano? A senha foi digitada corretamente? O usuário tem permissão de INSERT na tabela? Verifique no nano e atualize o destino. |
 | **Teste falha com "banco/tabela não encontrados"** | O banco `nanosiem` e a tabela `ocsf_logs_raw` existem? Verifique no nano. Se não existem, o instalador do nano pode não ter criado o schema ainda. |
+| **Reenviou o mesmo lote e não apareceu nada de novo** | Não é bug, é a deduplicação por bloco do ClickHouse. A documentação do nano diz que reenviar um lote byte a byte idêntico é confirmado com sucesso e não grava nada. Isso torna o retry seguro, e também significa que repetir um teste com o mesmo evento não produz linha nova. Para testar de novo, mude algum campo (o `time`, por exemplo). |
 | **Linhas caem como "unknown" no nano** | O rótulo foi digitado idêntico dos dois lados? Na regra de detecção do nano você usar `source_type=centralops_sophos` mas aqui digitou `centralops_sophos` com maiúscula? Confirme a grafia minúscula. |
 | **Envio pausado / "muitas requisições"** | O nano/ClickHouse pode estar sobrecarregado. A proteção contra destino instável volta a tentar sozinha após um curto intervalo; se persistir, acione a equipe do nano para revisar carga. |
 | **Falha de certificado seguro (TLS)** | Acontece quando o nano usa um certificado próprio que a plataforma ainda não reconhece. Essa confiança é configurada no deploy, fale com o administrador da plataforma. |

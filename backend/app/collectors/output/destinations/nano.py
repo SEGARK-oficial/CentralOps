@@ -1,8 +1,9 @@
 """Kind ``nano`` — nano SIEM por ingestão OCSF direta.
 
 O nano é um SIEM cujo armazenamento é ClickHouse e que aceita OCSF já
-normalizado, sem passar pelo pipeline de parsing dele. É a mesma postura que
-Tenzir e Cribl ocupam ali: quem já normalizou entrega OCSF pronto, e o nano fica
+normalizado, sem passar pelo pipeline de parsing dele. Ele publica dois caminhos
+de entrada: um para quem manda dado cru e quer que o nano parseie, e outro para
+quem já normalizou e entrega OCSF pronto. Este destino é o segundo, e o nano fica
 como camada de busca, detecção e correlação.
 
 O CentralOps é, por construção, uma camada de normalização: coleta do vendor,
@@ -27,8 +28,8 @@ e com que rótulo.
 este módulo é só um schema de config e uma fábrica: reusa ``ClickHouseClient``
 inteiro, com autenticação por header, TLS, CA bundle, classificação de DLQ,
 disjuntor e leitura de ``X-ClickHouse-Summary``. Duplicar o sender para mudar um
-dicionário seria o começo de ``clickhouse_hyperdx``, ``clickhouse_signoz`` e do
-resto do catálogo apodrecendo.
+dicionário seria abrir a porta para um kind por produto que fala ClickHouse,
+com o catálogo apodrecendo em cópias do mesmo sender.
 
 Referência: https://nano.rs/docs/ocsf/integrations/direct-ocsf/
 """
@@ -68,8 +69,11 @@ class NanoConfig(BaseModel):
     """
 
     url: str = Field(
-        description="Endereço HTTP do ClickHouse do nano, com a porta 8123 "
-        "(ex: http://nano.interno:8123). A porta 9000 é o protocolo nativo e não serve aqui."
+        description="Endereço da interface HTTP do ClickHouse do nano: 8123 em texto "
+        "claro (ex: http://nano.interno:8123) ou 8443 com TLS "
+        "(ex: https://nano.interno:8443). Confira qual das duas o seu deploy "
+        "PUBLICOU: é comum o compose expor só a 8443 para fora do host. A porta "
+        "9000 é o protocolo nativo e não serve aqui."
     )
     source_type: str = Field(
         description="Rótulo minúsculo deste feed no nano (ex: centralops_sophos). "
@@ -80,7 +84,7 @@ class NanoConfig(BaseModel):
     table: str = Field(
         default="ocsf_logs_raw",
         description="Tabela de aterrissagem. Use ocsf_logs_raw: a ocsf_logs_native_raw "
-        "existe para o sink nativo do Tenzir na porta 9000, não para o caminho HTTP.",
+        "existe para o protocolo nativo na porta 9000, não para o caminho HTTP.",
     )
     username: str = Field(
         default="nanosiem_ingest",
@@ -103,8 +107,8 @@ class NanoConfig(BaseModel):
             raise ValueError("porta inválida na url")
         if porta == _PORTA_NATIVA:
             raise ValueError(
-                "porta 9000 é o protocolo nativo TCP do ClickHouse, usado pelo sink nativo "
-                "do Tenzir. Este destino fala HTTP: use 8123 (ou 8443 com TLS)"
+                "porta 9000 é o protocolo nativo TCP do ClickHouse, que é binário e exige "
+                "driver próprio. Este destino fala HTTP: use 8123 (ou 8443 com TLS)"
             )
 
         # Nome qualificado no campo errado. Os identificadores são citados com
