@@ -12,7 +12,7 @@ Esta tela só aparece para administradores da plataforma.
 
 ## Por que um destino próprio para o nano
 
-O nano é um SIEM que, por desenho, **não repassa o evento por seu pipeline de parsing**. Ele recebe OCSF já normalizado (da mesma forma que Tenzir, Cribl e Axoflow o recebem) e oferece a camada de correlação, detecção e investigação.
+O nano é um SIEM que, por desenho, aceita **OCSF já normalizado sem repassar o evento pelo pipeline de parsing dele**, e oferece a camada de correlação, detecção e investigação por cima disso. Como o CentralOps já normaliza para OCSF 1.8, valida contra o manifesto, enriquece e reduz, esse é o encaixe natural entre os dois.
 
 O CentralOps é, por construção, uma camada de normalização: coleta do vendor, mapeia para OCSF 1.8, valida contra o manifesto, enriquece e reduz. Essa postura bate com a do nano, e este kind é o atalho que evita errar qualquer uma de cinco decisões acopladas.
 
@@ -59,7 +59,7 @@ Para criar o destino, tenha em mãos:
 | **Usuário** | Padrão: `nanosiem_ingest`. Mude apenas se o nano usou outro nome para o usuário de ingestão. |
 | **Senha** | A senha do usuário de ingestão. Fica criptografada após salvar. |
 | **Banco** | Padrão: `nanosiem`. Mude apenas se sua instância usa banco diferente. |
-| **Tabela** | Padrão: `ocsf_logs_raw`. Use essa tabela para ingestão OCSF. A tabela `ocsf_logs_native_raw` é para o sink nativo do Tenzir (protocolo TCP na porta 9000), não para o caminho HTTP. |
+| **Tabela** | Padrão: `ocsf_logs_raw`. Use essa tabela para ingestão OCSF. A `ocsf_logs_native_raw` é do protocolo nativo do ClickHouse (TCP na porta 9000), não do caminho HTTP. |
 | **Verificar TLS** | Mantenha ativado para garantir uma conexão segura. |
 | **CA bundle** | Caminho para certificado customizado (opcional). Normalmente definido pela equipe de infraestrutura no momento do deploy. |
 

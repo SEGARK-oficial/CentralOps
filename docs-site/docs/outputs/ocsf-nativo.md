@@ -6,7 +6,7 @@ description: Como apontar destinos para um consumidor que espera OCSF puro sem o
 
 # Entregar OCSF 1.8 puro
 
-Alguns destinos esperam **um evento OCSF e nada mais**. É o caso de um SIEM nativo de OCSF, de uma tabela cujo DDL foi escrito a partir do schema OCSF, ou de uma esteira montada com Cribl ou Tenzir.
+Alguns destinos esperam **um evento OCSF e nada mais**. É o caso de um SIEM nativo de OCSF, de uma tabela cujo DDL foi escrito a partir do schema OCSF, ou de um data lake que já recebe tudo normalizado.
 
 Para esses, o envelope canônico do CentralOps atrapalha: ele traz o namespace `_centralops` e o `raw` do fornecedor ao lado do evento normalizado.
 
@@ -95,7 +95,7 @@ ORDER BY tuple();
 :::tip[Por que duas topologias]
 A primeira (flat) é o padrão para quem quer buscar por campos OCSF como `class_uid` ou `device.hostname`.
 
-A segunda (wrapped) é comum em SIEMs que recebem evento serializado (como String/JSON) e usam a coluna de rótulo para escopo de detecção e painéis. Exemplo: nano SIEM, Tenzir no Tenzir Lake, Cribl com transformação pré-aplicada.
+A segunda (wrapped) é comum em SIEMs que guardam o evento serializado numa coluna só (String ou JSON) e usam a coluna de rótulo para escopo de detecção e painéis. É o caso do nano SIEM.
 :::
 
 ## Modo de falha: entrega silenciosa de linhas vazias

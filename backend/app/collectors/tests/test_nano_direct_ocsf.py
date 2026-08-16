@@ -138,7 +138,7 @@ def _params(cliente: ClickHouseClient) -> dict:
 
 
 def test_o_nano_aponta_para_a_tabela_do_caminho_http() -> None:
-    """``ocsf_logs_native_raw`` é do sink NATIVO do Tenzir na 9000, não daqui."""
+    """``ocsf_logs_native_raw`` é do protocolo NATIVO na 9000, não do caminho HTTP."""
     assert _params(_cliente_nano())["query"] == (
         "INSERT INTO `nanosiem`.`ocsf_logs_raw` FORMAT JSONEachRow"
     )
@@ -243,8 +243,8 @@ def test_o_nano_exige_credencial_no_catalogo() -> None:
 def test_o_nano_reusa_o_cliente_do_clickhouse() -> None:
     """Se um dia virar sender próprio, este teste falha e a decisão vira consciente.
 
-    Duplicar o sender para mudar um dicionário seria o começo de
-    ``clickhouse_hyperdx``, ``clickhouse_signoz`` e do catálogo apodrecendo.
+    Duplicar o sender para mudar um dicionário abriria a porta para um kind por
+    produto que fala ClickHouse, com o catálogo apodrecendo em cópias.
     """
     assert isinstance(_cliente_nano(), ClickHouseClient)
 

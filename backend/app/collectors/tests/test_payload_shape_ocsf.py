@@ -119,8 +119,8 @@ def test_hec_default_continua_mandando_o_envelope() -> None:
 
 def test_clickhouse_em_modo_ocsf_grava_a_linha_ocsf() -> None:
     # Tabela com nome NEUTRO de propósito. Antes este teste usava
-    # ``ocsf_logs_native_raw``, que é a tabela do sink NATIVO do Tenzir na porta
-    # 9000 e é coluna-wrapper: travar a combinação flat contra aquele nome
+    # ``ocsf_logs_native_raw``, que é a tabela do protocolo NATIVO na porta 9000
+    # e é coluna-wrapper: travar a combinação flat contra aquele nome
     # insinuava que ela funciona, e ela grava linha vazia. O comportamento
     # testado continua certo, e é para tabela com uma coluna por campo OCSF.
     from backend.app.collectors.output.clickhouse_sender import ClickHouseClient
