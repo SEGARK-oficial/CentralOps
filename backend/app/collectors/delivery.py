@@ -239,12 +239,37 @@ def persist_rejected_to_dlq(
         return False
 
 
+#: Texto do ``error_detail`` por ``error_kind`` no fallback de lote inteiro.
+#:
+#: Existe porque o texto era HARDCODED como "exhausted retries" para os quatro
+#: chamadores, e em três deles nenhum retry aconteceu. Num incidente real, 10.852
+#: linhas de ``breaker_open`` afirmavam ter esgotado tentativas sem terem sido
+#: enviadas uma única vez, o que manda a investigação para o lugar errado: quem
+#: lê "esgotou retries" procura o defeito no destino, e o defeito estava na
+#: configuração local que abriu o disjuntor.
+_DETALHE_POR_KIND = {
+    "breaker_open": (
+        "disjuntor aberto para este destino — o lote NÃO foi enviado. "
+        "Corrija a causa das falhas anteriores e reprocesse."
+    ),
+    "exhausted": "esgotou as tentativas de reenvio ao destino",
+    "destination_missing": (
+        "o destino não existe mais quando o lote foi despachado — nada foi enviado"
+    ),
+    "cross_tenant_destination": (
+        "bloqueio fail-closed: o destino é de outra organização — nada foi enviado"
+    ),
+}
+_DETALHE_PADRAO = "lote inteiro para DLQ (sem detalhe por evento)"
+
+
 def persist_batch_dlq(
     batch: list[dict],
     *,
     destination_id: str,
     error_kind: str,
     organization_id: Optional[int] = None,
+    error_detail: Optional[str] = None,
 ) -> bool:
     """Whole-batch DLQ fallback used by ``dispatch_to_dlq`` task (CHUNK C).
 
@@ -252,12 +277,19 @@ def persist_batch_dlq(
     ``_centralops.event_id`` for dedup; generates a fallback UUID-style key
     when absent (envelope antigo / malformed).
 
+    ``error_detail`` explícito vence; sem ele, o texto é derivado de
+    ``error_kind`` (ver ``_DETALHE_POR_KIND``) em vez de afirmar retry que não
+    houve. ``persist_rejected_to_dlq`` já aceitava detalhe por evento; esta era
+    a face do lote que não aceitava.
+
     Returns ``True`` on commit, ``False`` on failure (best-effort: the caller
     logs and the message has already exhausted retries). Idempotent + race-safe
     via INSERT-and-catch on a per-row SAVEPOINT.
     """
     if not batch:
         return True
+
+    detalhe = error_detail or _DETALHE_POR_KIND.get(error_kind, _DETALHE_PADRAO)
 
     import uuid
 
@@ -277,7 +309,7 @@ def persist_batch_dlq(
                     event_id=event_id,
                     organization_id=organization_id,
                     error_kind=error_kind,
-                    error_detail="exhausted retries — whole-batch DLQ fallback",
+                    error_detail=detalhe,
                     payload=payload_json,
                 )
                 try:

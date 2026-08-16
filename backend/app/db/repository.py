@@ -2847,6 +2847,29 @@ class DestinationRepository:
         self.db.commit()
         return True
 
+    def dlq_entry_exists(self, destination_id: str, event_id: str) -> bool:
+        """Existe linha de DLQ para este par destino/evento?
+
+        É o sinal que o dreno usa para saber se a reentrega funcionou. Não dá
+        para usar "o despacho não levantou": os sinks não levantam por contrato,
+        devolvem ``DeliveryResult``, então uma rejeição determinística volta em
+        silêncio. Se o destino recusou, o caminho de despacho acabou de gravar
+        uma linha aqui, e é isso que esta consulta enxerga.
+
+        Depende de o dreno ter APAGADO a linha antiga antes de despachar, senão
+        o unique em ``(destination_id, event_id)`` faria a regravação ser pulada
+        e esta consulta encontraria a linha velha, indistinguível da nova.
+        """
+        return (
+            self.db.query(models.DestinationDeadLetter.id)
+            .filter(
+                models.DestinationDeadLetter.destination_id == destination_id,
+                models.DestinationDeadLetter.event_id == event_id,
+            )
+            .first()
+            is not None
+        )
+
     def update_dlq_error(self, dlq_id: str, *, error_kind: str, error_detail: str) -> bool:
         """Update the error fields on a DLQ row after a failed re-delivery attempt.
 

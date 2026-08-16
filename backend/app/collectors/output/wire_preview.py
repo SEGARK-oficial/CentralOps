@@ -80,7 +80,14 @@ WIRE_FIDELITY: Dict[str, WireSpec] = {
         FIDELITY_EXACT, "json", "o corpo real é o array JSON do lote",
     ),
     "clickhouse": WireSpec(
-        FIDELITY_EXACT, "ndjson", "insert JSONEachRow; o corpo é o lote concatenado",
+        FIDELITY_EXACT, "ndjson",
+        "insert JSONEachRow; o corpo é o lote concatenado. A linha reflete "
+        "'payload' (o conteúdo) e 'row_shape' (a forma ao redor dele)",
+    ),
+    "nano": WireSpec(
+        FIDELITY_EXACT, "ndjson",
+        "insert JSONEachRow no ClickHouse do nano; a linha é sempre "
+        '{"event": <ocsf>, "source_type": "<feed>"}',
     ),
     "crowdstrike_logscale": WireSpec(
         FIDELITY_EXACT, "json", "o corpo real é o array JSON do lote",

@@ -459,6 +459,7 @@ def drain_destination_dlq(
         global_scope:   When True the DLQ query is unscoped (global admin).
     """
     from ..db import database, repository
+    from .delivery import persist_batch_dlq
 
     delivered = 0
     failed = 0
@@ -493,26 +494,38 @@ def drain_destination_dlq(
                 failed += 1
                 continue
 
+            event_id = str(dlq_row.event_id)
+            row_org = dlq_row.organization_id
+
+            # Apaga ANTES de despachar, e isso é o ponto do conserto.
+            #
+            # Antes: a linha era apagada quando o despacho "não levantava". Só
+            # que os sinks NÃO levantam por contrato, eles devolvem
+            # ``DeliveryResult``. Numa rejeição determinística (4xx), o caminho
+            # de despacho tentava regravar a MESMA (destination_id, event_id) na
+            # DLQ, batia no unique, era engolido pelo ``except IntegrityError``
+            # e voltava sem exceção. Resultado: reprocessar contra um destino
+            # ainda quebrado APAGAVA a evidência em vez de preservá-la.
+            #
+            # Apagando primeiro, a regravação encontra o caminho livre e a linha
+            # volta com o erro NOVO e verdadeiro. A janela entre o delete e o
+            # desfecho é o custo, e ela é coberta pelo ``except`` abaixo.
+            repo.delete_dlq_entry(dlq_id)
+
             try:
                 run_coro_blocking(
                     dispatch_batch_to_destination(destination_id, [envelope]),
                     timeout=DISPATCH_RESULT_TIMEOUT,
                 )
-                # Successful delivery — remove from DLQ.
-                repo.delete_dlq_entry(dlq_id)
-                delivered += 1
-                logger.info(
-                    "drain_destination_dlq: delivered dlq_id=%s destination_id=%s event_id=%s",
-                    dlq_id,
-                    destination_id,
-                    str(dlq_row.event_id),
-                )
             except Exception as exc:
-                # Keep the row; update the error so the operator can triage.
+                # Erro transitório propagado. A linha já foi apagada, então
+                # recolocamos com o motivo real em vez de perder o evento.
                 error_detail = f"reprocess attempt failed: {type(exc).__name__}: {exc}"[:500]
-                repo.update_dlq_error(
-                    dlq_id,
+                persist_batch_dlq(
+                    [envelope],
+                    destination_id=destination_id,
                     error_kind="reprocess_failed",
+                    organization_id=row_org,
                     error_detail=error_detail,
                 )
                 failed += 1
@@ -522,6 +535,29 @@ def drain_destination_dlq(
                     destination_id,
                     error_detail,
                 )
+                continue
+
+            # Sem exceção ainda NÃO significa entregue. O sinal confiável é a
+            # ausência de uma linha nova para o mesmo evento: se o destino
+            # rejeitou, o caminho de despacho acabou de gravar uma.
+            if repo.dlq_entry_exists(destination_id, event_id):
+                failed += 1
+                logger.warning(
+                    "drain_destination_dlq: destino rejeitou de novo dlq_id=%s "
+                    "destination_id=%s event_id=%s — evento PRESERVADO na DLQ",
+                    dlq_id,
+                    destination_id,
+                    event_id,
+                )
+                continue
+
+            delivered += 1
+            logger.info(
+                "drain_destination_dlq: delivered dlq_id=%s destination_id=%s event_id=%s",
+                dlq_id,
+                destination_id,
+                event_id,
+            )
 
     logger.info(
         "drain_destination_dlq: done destination_id=%s delivered=%d failed=%d",

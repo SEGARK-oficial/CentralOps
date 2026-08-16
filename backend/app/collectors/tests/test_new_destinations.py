@@ -152,13 +152,48 @@ async def test_clickhouse_send_batch_paths(sample_event: dict) -> None:
     assert res.rejected and res.rejected[0].error_kind == "auth"
 
 
+def _mock_session_sequencia(respostas: list) -> MagicMock:
+    """Sessão que devolve uma resposta DIFERENTE por chamada.
+
+    O ``test()`` do ClickHouse faz duas consultas (``SELECT 1`` e depois
+    ``system.columns``), então um mock que repete a mesma resposta responde
+    "tabela sem coluna nenhuma" no segundo passo.
+    """
+    fila = list(respostas)
+    session = MagicMock()
+    session.closed = False
+    session.get = MagicMock(side_effect=lambda *a, **k: fila.pop(0))
+    session.post = MagicMock(side_effect=lambda *a, **k: fila.pop(0))
+    session.close = AsyncMock()
+    return session
+
+
 @pytest.mark.asyncio
 async def test_clickhouse_test_probe() -> None:
-    c = ClickHouseClient(url="https://ch:8443", password="pw")
-    c._session = _mock_session(_mock_response(200, text=""))
+    """O probe passou de um passo para três.
+
+    Antes era só ``SELECT 1``, o que dizia "conectei" e mais nada. Ele não
+    pegava tabela inexistente nem, pior, formato de linha incompatível com as
+    colunas, que é o caso em que o INSERT responde 200 e grava linhas vazias.
+    """
+    # Caminho feliz: conecta, a tabela existe, e as colunas batem com o formato.
+    c = ClickHouseClient(url="https://ch:8443", password="pw", table="centralops_events")
+    c._session = _mock_session_sequencia(
+        [_mock_response(200, text="1\n"), _mock_response(200, text="_centralops\nnormalized\nraw\n")]
+    )
     assert (await c.test()).ok is True
+
+    # Credencial inválida ainda reprova no primeiro passo.
     c._session = _mock_session(_mock_response(401, text="bad"))
     assert (await c.test()).ok is False
+
+    # Conecta, mas a tabela não existe: antes isto passava como "ok".
+    c._session = _mock_session_sequencia(
+        [_mock_response(200, text="1\n"), _mock_response(200, text="")]
+    )
+    resultado = await c.test()
+    assert resultado.ok is False
+    assert "centralops_events" in resultado.detail
 
 
 @pytest.mark.asyncio

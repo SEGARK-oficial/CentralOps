@@ -34,12 +34,21 @@ from typing import Any, List, Mapping, Optional
 import aiohttp
 
 from .base import DeliveryResult, RejectedEvent, TestResult
-from .payload_shape import render_payload
+from .payload_shape import normalizar_row_shape, render_row
 
 logger = logging.getLogger(__name__)
 
 # Status HTTP que indicam erro transitório (retry com backoff).
 _RETRYABLE_STATUS = {429, 500, 502, 503, 504}
+
+# Envelope sintético usado por ``chaves_emitidas`` para descobrir, sem tráfego
+# real, quais chaves de topo a config atual produz. Só a FORMA importa: os
+# valores nunca saem daqui.
+_ENVELOPE_SONDA: Mapping[str, Any] = {
+    "_centralops": {"event_id": "probe"},
+    "normalized": {"class_uid": 0, "time": 0},
+    "raw": {},
+}
 
 
 class ClickHouseClient:
@@ -63,6 +72,9 @@ class ClickHouseClient:
         skip_unknown_fields: bool = True,
         async_insert: bool = False,
         payload: str = "envelope",
+        row_shape: str = "flat",
+        event_key: str = "event",
+        row_fields: Optional[Mapping[str, str]] = None,
         verify_tls: bool = True,
         ca_bundle: Optional[str] = None,
     ) -> None:
@@ -73,6 +85,9 @@ class ClickHouseClient:
         self._username = username
         self._skip_unknown_fields = skip_unknown_fields
         self._payload = payload
+        self._row_shape = normalizar_row_shape(row_shape)
+        self._event_key = event_key
+        self._row_fields = dict(row_fields or {})
         self._async_insert = async_insert
         self._verify_tls = verify_tls
         self._ca_bundle = ca_bundle
@@ -90,8 +105,14 @@ class ClickHouseClient:
 
     def _endpoint(self) -> str:
         params = {"query": self._insert_query()}
-        if self._skip_unknown_fields:
-            params["input_format_skip_unknown_fields"] = "1"
+        # Sempre EXPLÍCITO, nos dois estados. Antes o parâmetro só era
+        # acrescentado quando ligado; desligar o toggle apenas o omitia, e o
+        # default do SERVIDOR é 1, então "não ignorar campos desconhecidos"
+        # nunca chegava a valer. O controle existia na UI e era decorativo.
+        # Mandar 0 devolve o caminho barulhento (erro 117, "Unknown field found
+        # while parsing JSONEachRow format"), que é a saída de emergência de
+        # quem desconfia que está gravando linha vazia.
+        params["input_format_skip_unknown_fields"] = "1" if self._skip_unknown_fields else "0"
         if self._async_insert:
             # async_insert + wait_for_async_insert=1: o servidor agrupa micro-lotes
             # mas a resposta só volta quando persistido (mantém a semântica de
@@ -100,16 +121,37 @@ class ClickHouseClient:
             params["wait_for_async_insert"] = "1"
         return f"{self._base}/?{urllib.parse.urlencode(params)}"
 
-    def format(self, envelope: Mapping[str, Any]) -> dict:
+    def format(self, envelope: Mapping[str, Any]) -> Any:
         """Canônico → linha ``JSONEachRow``.
 
-        Com ``payload="ocsf"`` a linha é o evento OCSF 1.8 puro, que é o que
-        uma tabela criada a partir do schema OCSF espera. Com o default
-        ``envelope``, a linha é o envelope canônico e a tabela precisa ter as
-        colunas dele (ou ``skip_unknown_fields``, que descarta o que não
-        conhece).
-"""
-        return render_payload(envelope, self._payload)
+        Dois eixos independentes. ``payload`` decide o CONTEÚDO: com ``ocsf`` a
+        linha carrega o evento OCSF 1.8 puro, com ``envelope`` o canônico.
+        ``row_shape`` decide a FORMA: com ``flat`` as chaves do conteúdo são as
+        colunas, com ``wrapped`` o conteúdo inteiro vai sob ``event_key`` e as
+        outras colunas vêm de ``row_fields``.
+
+        A combinação importa e o erro é silencioso: ``flat`` contra uma tabela
+        coluna-wrapper faz o ClickHouse descartar tudo (``skip_unknown_fields``)
+        e gravar linhas vazias respondendo 200. Quem barra isso é ``test()``.
+        """
+        return render_row(
+            envelope,
+            payload=self._payload,
+            row_shape=self._row_shape,
+            event_key=self._event_key,
+            row_fields=self._row_fields,
+        )
+
+    def chaves_emitidas(self) -> set:
+        """As chaves de topo que ``format()`` produz para a config atual.
+
+        Descobre a forma pelo próprio caminho de renderização, contra um
+        envelope sintético, em vez de reimplementar a lógica: se ``format``
+        mudar e isto não acompanhar, o teste de forma passa a mentir. Usado por
+        ``test()`` para comparar com as colunas reais da tabela.
+        """
+        linha = self.format(_ENVELOPE_SONDA)
+        return set(linha.keys()) if isinstance(linha, Mapping) else set()
 
     def _serialize(self, batch: List[Mapping[str, Any]]) -> str:
         return "\n".join(
@@ -121,6 +163,59 @@ class ClickHouseClient:
     def _event_id(event: Mapping[str, Any]) -> str:
         meta = event.get("_centralops") or {}
         return str(meta.get("event_id") or "?")
+
+    def _resultado_de_sucesso(self, resp: Any, batch: List[Mapping[str, Any]]) -> DeliveryResult:
+        """2xx → quantas linhas o servidor diz ter escrito, não quantas mandamos.
+
+        O ClickHouse devolve ``X-ClickHouse-Summary`` com ``written_rows``. Sem
+        ler isso, "200" é assumido como "tudo gravado", e existe uma classe de
+        falha em que o servidor aceita e escreve menos, ou nada.
+
+        **Fail-open quando o header não vem**, e isso é deliberado: nem toda
+        versão nem todo proxy o repassa, e transformar ausência de header em
+        falha quebraria entrega que está funcionando. O header é evidência
+        quando presente, não requisito.
+
+        Isto NÃO pega o caso "N linhas gravadas, todas vazias" — ali
+        ``written_rows == len(batch)``. Quem pega aquele é ``test()``.
+        """
+        bruto = None
+        try:
+            bruto = resp.headers.get("X-ClickHouse-Summary")
+        except Exception:  # pragma: no cover — headers ilegíveis
+            bruto = None
+        if not bruto:
+            return DeliveryResult.ok(len(batch))
+        try:
+            escritas = int(json.loads(bruto).get("written_rows", -1))
+        except (ValueError, TypeError, AttributeError):
+            return DeliveryResult.ok(len(batch))
+        if escritas < 0 or escritas == len(batch):
+            return DeliveryResult.ok(len(batch))
+        if escritas == 0 and batch:
+            logger.warning(
+                "clickhouse: servidor respondeu 2xx com written_rows=0 para lote de %d "
+                "(tabela=%s.%s) — tratando como rejeição",
+                len(batch), self._database, self._table,
+            )
+            return DeliveryResult(
+                accepted=0,
+                rejected=[
+                    RejectedEvent(
+                        event_id=self._event_id(ev),
+                        reason="ClickHouse respondeu 2xx mas written_rows=0",
+                        error_kind="schema_rejected",
+                        retryable=False,
+                    )
+                    for ev in batch
+                ],
+                retryable=False,
+            )
+        logger.warning(
+            "clickhouse: written_rows=%d difere do lote=%d (tabela=%s.%s)",
+            escritas, len(batch), self._database, self._table,
+        )
+        return DeliveryResult.ok(escritas)
 
     # ── Sessão ────────────────────────────────────────────────────────────
     def _build_ssl(self) -> Any:
@@ -159,7 +254,7 @@ class ClickHouseClient:
                     logger.warning("clickhouse: status transitório %s — retryable", status)
                     return DeliveryResult(accepted=0, retryable=True)
                 if 200 <= status < 300:
-                    return DeliveryResult.ok(len(batch))
+                    return self._resultado_de_sucesso(resp, batch)
 
                 # 4xx determinístico: parse/DDL (schema_rejected) ou auth.
                 body = ""
@@ -200,25 +295,114 @@ class ClickHouseClient:
                 retryable=False,
             )
 
-    async def test(self) -> TestResult:
-        """Probe: ``SELECT 1`` via HTTP. ``200`` → ok; ``401/403`` → credencial
-        inválida; conexão/timeout → falha de rede. Nunca levanta."""
-        endpoint = f"{self._base}/?{urllib.parse.urlencode({'query': 'SELECT 1'})}"
+    @staticmethod
+    def _literal_sql(valor: str) -> str:
+        """Escapa uma string para literal SQL do ClickHouse (aspas simples)."""
+        return valor.replace("\\", "\\\\").replace("'", "\\'")
+
+    async def _consulta(self, sql: str) -> tuple:
+        """Executa uma consulta de leitura. Devolve ``(status, corpo)``."""
+        endpoint = f"{self._base}/?{urllib.parse.urlencode({'query': sql})}"
         session = self._get_session()
+        async with session.get(endpoint) as resp:
+            try:
+                corpo = await resp.text()
+            except Exception:  # pragma: no cover — corpo ilegível
+                corpo = ""
+            return resp.status, corpo
+
+    async def test(self) -> TestResult:
+        """Probe em três passos, parando no primeiro que falha. Nunca levanta.
+
+        1. **Conectividade e credencial** (``SELECT 1``). É o único passo que
+           funciona com qualquer permissão, por isso vem primeiro. Já pega o
+           erro clássico de apontar para a porta 9000: o servidor nativo devolve
+           4xx com "You must use port 8123 for HTTP", e o corpo vai na mensagem.
+
+        2. **A tabela existe, e quais colunas tem** (``system.columns``). Se o
+           usuário não puder ler o catálogo (um usuário INSERT-only não pode),
+           o passo é **inconclusivo, não falha**, e o texto diz qual GRANT
+           habilita a verificação. Mentir aqui seria pior que não verificar.
+
+        3. **A forma casa com a tabela.** Compara ``chaves_emitidas()`` com as
+           colunas reais. É o passo que pega o modo de falha que motivou tudo
+           isto: ``flat`` contra tabela coluna-wrapper, em que o INSERT responde
+           200 e grava linhas vazias, sem nenhum sinal de erro em lugar nenhum.
+        """
+        # ── Passo 1: conectividade e credencial ───────────────────────────
         try:
-            async with session.get(endpoint) as resp:
-                if resp.status in {401, 403}:
-                    return TestResult.failed("credencial ClickHouse inválida (401/403)")
-                if 200 <= resp.status < 300:
-                    return TestResult.passed(f"ClickHouse ok: {self._base}")
-                detail = ""
-                try:
-                    detail = (await resp.text())[:300]
-                except Exception:  # pragma: no cover
-                    detail = f"HTTP {resp.status}"
-                return TestResult.failed(f"ClickHouse respondeu status={resp.status}: {detail!r}")
+            status, corpo = await self._consulta("SELECT 1")
         except (aiohttp.ClientConnectionError, aiohttp.ServerTimeoutError) as exc:
             return TestResult.failed(f"erro de conexão ao ClickHouse: {exc}")
+        if status in {401, 403}:
+            return TestResult.failed("credencial ClickHouse inválida (401/403)")
+        if not (200 <= status < 300):
+            return TestResult.failed(
+                f"ClickHouse respondeu status={status}: {corpo[:300]!r}"
+            )
+
+        alvo = f"{self._database}.{self._table}"
+
+        # ── Passo 2: tabela e colunas ─────────────────────────────────────
+        sql = (
+            "SELECT name FROM system.columns WHERE database = "
+            f"'{self._literal_sql(self._database)}' AND table = "
+            f"'{self._literal_sql(self._table)}' FORMAT TSV"
+        )
+        try:
+            status, corpo = await self._consulta(sql)
+        except (aiohttp.ClientConnectionError, aiohttp.ServerTimeoutError) as exc:
+            return TestResult.failed(f"erro de conexão ao ClickHouse: {exc}")
+
+        if not (200 <= status < 300):
+            if status in {401, 403} or "ACCESS_DENIED" in corpo or "Not enough privileges" in corpo:
+                return TestResult.passed(
+                    f"Conectou em {self._base}. Não foi possível ler o schema de {alvo} "
+                    f"(usuário {self._username} sem permissão no catálogo), então a "
+                    "verificação de colunas NÃO rodou. Para habilitá-la: "
+                    f"GRANT SHOW COLUMNS ON {self._database}.* TO {self._username}"
+                )
+            return TestResult.failed(
+                f"não foi possível consultar o schema de {alvo}: HTTP {status} {corpo[:200]!r}"
+            )
+
+        colunas = {linha.strip() for linha in corpo.splitlines() if linha.strip()}
+        if not colunas:
+            return TestResult.failed(
+                f"banco/tabela não encontrados: {alvo}. Confira os campos Banco e Tabela "
+                "separadamente — o nome qualificado inteiro no campo Tabela vira um nome "
+                "literal com ponto e não resolve."
+            )
+
+        # ── Passo 3: a forma casa com a tabela ────────────────────────────
+        emitidas = self.chaves_emitidas()
+        if self._row_shape == "wrapped":
+            faltando = sorted(k for k in emitidas if k not in colunas)
+            if faltando:
+                return TestResult.failed(
+                    f"a tabela {alvo} não tem a(s) coluna(s) {faltando}. Com row_shape=wrapped "
+                    f"o evento vai em '{self._event_key}' e cada chave de row_fields precisa "
+                    f"existir como coluna. Colunas da tabela: {sorted(colunas)}"
+                )
+            return TestResult.passed(
+                f"ClickHouse ok: {alvo}, forma wrapped, colunas {sorted(emitidas)} conferem."
+            )
+
+        comuns = emitidas & colunas
+        if not comuns:
+            return TestResult.failed(
+                f"nenhuma chave do formato configurado corresponde a uma coluna de {alvo}. "
+                "Com skip_unknown_fields ligado o INSERT responderia 200 e gravaria linhas "
+                f"VAZIAS. Colunas da tabela: {sorted(colunas)}. Se a tabela tem uma coluna de "
+                "evento mais colunas de rótulo, use row_shape=wrapped."
+            )
+        descartadas = sorted(emitidas - colunas)
+        if descartadas:
+            return TestResult.passed(
+                f"ClickHouse ok: {alvo}. Aviso: {len(descartadas)} chave(s) não têm coluna e "
+                f"serão descartadas: {descartadas[:12]}"
+            )
+        return TestResult.passed(f"ClickHouse ok: {alvo}, todas as chaves têm coluna.")
 
     async def close(self) -> None:
         if self._session is not None and not self._session.closed:

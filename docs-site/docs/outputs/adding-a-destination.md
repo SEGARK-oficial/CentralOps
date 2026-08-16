@@ -43,10 +43,14 @@ Você não precisa escrever nada: escolhe o tipo no catálogo, preenche os campo
 3. **Escolha o tipo** no catálogo (por exemplo, Elasticsearch / OpenSearch ou Syslog).
 4. **Preencha os campos** do formulário daquele tipo. As credenciais sensíveis (chave de API, usuário e senha) são guardadas com segurança pela plataforma; você não vê o valor depois de salvo.
 5. Marque se a conexão deve usar **TLS** (recomendado para qualquer destino exposto na rede).
-6. Use **Testar conexão** para validar endereço, porta e credencial antes de salvar. O teste apenas verifica a conexão — nenhum evento é enviado nessa etapa.
-7. **Salve** o destino. A partir daí ele fica disponível para receber eventos conforme as regras definidas em **Roteia -> Rotas**.
+6. **Salve** o destino. A partir daí ele fica disponível para receber eventos conforme as regras definidas em **Roteia -> Rotas**.
+7. Abra o destino recém-criado e use **Testar conexão** para validar endereço, porta e credencial. O teste não envia evento nenhum.
 
 Depois de salvo, o destino aparece na própria tela de **Destinos** com seu status. Para começar a enviar eventos para ele, configure uma regra que o aponte em **Roteia -> Rotas**.
+
+:::caution[Teste depois de salvar, não antes]
+O botão **Testar conexão** fica na página do destino, não no formulário de criação. Salvar um destino não faz mal: enquanto nenhuma rota apontar para ele, nada é entregue. Então salve, teste, e só depois crie a rota.
+:::
 
 ### Preço por GB (opcional)
 

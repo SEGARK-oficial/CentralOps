@@ -1,7 +1,7 @@
 ---
 sidebar_position: 4
 title: Entregar OCSF 1.8 puro
-description: Como apontar HTTP, Splunk HEC ou ClickHouse para um consumidor que espera OCSF e nada mais, sem o envelope do CentralOps.
+description: Como apontar destinos para um consumidor que espera OCSF puro sem o envelope do CentralOps, em duas topologias distintas.
 ---
 
 # Entregar OCSF 1.8 puro
@@ -34,20 +34,104 @@ Se o consumidor for tolerante, ele **descarta em silêncio** o que não reconhec
 Se for estrito, **um campo a mais derruba o lote inteiro**. A entrega para, e o erro aponta para o consumidor, não para a origem, então a investigação começa no lugar errado.
 :::
 
+## Duas topologias de consumidor
+
+O CentralOps suporta **dois jeitos diferentes** de entregar OCSF, dependendo de como a tabela do consumidor foi modelada.
+
+### Topologia 1: Uma coluna por campo OCSF
+
+A tabela tem uma coluna para cada campo do evento normalizado.
+
+**Configuração:**
+- `payload`: `ocsf`
+- `row_shape`: `flat` (padrão)
+
+**Linha emitida:**
+
+```json
+{"class_uid": 1006, "time": 1786000000000, "metadata": {...}, "device": {...}}
+```
+
+**Exemplo de DDL para ClickHouse:**
+
+```sql
+CREATE TABLE events_ocsf (
+    class_uid UInt16,
+    time UInt64,
+    metadata String,
+    device String,
+    actor String,
+    ...mais campos OCSF...
+) ENGINE = MergeTree
+ORDER BY (time, class_uid);
+```
+
+### Topologia 2: Uma coluna de evento mais rótulos
+
+A tabela tem **uma coluna que recebe o evento inteiro** mais colunas de rótulo (ex.: `source_type`, `collector_id`).
+
+**Configuração:**
+- `payload`: `ocsf`
+- `row_shape`: `wrapped`
+- `event_key`: nome da coluna que recebe o evento (ex: `event`)
+- `row_fields`: pares coluna=valor para os rótulos (ex: `source_type=sophos_central`)
+
+**Linha emitida:**
+
+```json
+{"event": {"class_uid": 1006, "time": 1786000000000, "...": "..."}, "source_type": "sophos_central"}
+```
+
+**Exemplo de DDL para ClickHouse:**
+
+```sql
+CREATE TABLE events_wrapped (
+    event String,
+    source_type String
+) ENGINE = MergeTree
+ORDER BY tuple();
+```
+
+:::tip[Por que duas topologias]
+A primeira (flat) é o padrão para quem quer buscar por campos OCSF como `class_uid` ou `device.hostname`.
+
+A segunda (wrapped) é comum em SIEMs que recebem evento serializado (como String/JSON) e usam a coluna de rótulo para escopo de detecção e painéis. Exemplo: nano SIEM, Tenzir no Tenzir Lake, Cribl com transformação pré-aplicada.
+:::
+
+## Modo de falha: entrega silenciosa de linhas vazias
+
+Se você escolher a forma errada para a tabela, o resultado é particularmente silencioso:
+
+- A tabela espera `flat` (coluna por campo).
+- Você configura `wrapped` (evento aninhado + rótulos).
+- As chaves emitidas são `event` e `source_type`.
+- A tabela não tem essas colunas, tem `class_uid`, `time`, `metadata`, etc.
+- Com `skip_unknown_fields=1` (padrão), o ClickHouse descarta as chaves desconhecidas.
+- HTTP responde **200**, `written_rows=1`.
+- Você vê entregue, o consumidor vê recebido, mas a linha está vazia.
+
+**O teste de conexão do CentralOps pega esse erro**: ele compara as colunas emitidas com as da tabela real e falha explicitamente.
+
 ## Onde configurar
 
-O campo chama-se **Payload** no formulário do destino, e existe em três tipos:
+O campo **Payload** existe em três tipos de destino:
 
-| Destino | Onde o formato se aplica |
-|---|---|
-| **HTTP (webhook genérico)** | O corpo do POST, em array ou NDJSON |
-| **Splunk HEC** | O conteúdo do campo `event` dentro do wrapper HEC |
-| **ClickHouse** | Cada linha do `INSERT ... FORMAT JSONEachRow` |
+| Destino | Como configurar |
+|---------|-----------------|
+| **HTTP (webhook genérico)** | Campo `Payload` no formulário. Afeta o corpo do POST (array ou NDJSON). |
+| **Splunk HEC** | Campo `Payload` no formulário. Afeta o conteúdo do campo `event` dentro do wrapper HEC. |
+| **ClickHouse** | Campo `Payload` no formulário. Afeta cada linha do `INSERT ... FORMAT JSONEachRow`. |
 
 As opções são duas:
 
 - **`envelope`** (padrão): o canônico, com `_centralops` e `raw`. É o que serve para investigar e correlacionar dentro da plataforma.
 - **`ocsf`**: só o evento OCSF 1.8.
+
+Com `row_shape=wrapped`, os campos adicionais são:
+
+- **`Forma da linha`**: escolha `wrapped`.
+- **`Coluna do evento`**: nome da coluna que recebe o evento inteiro (ex: `event`).
+- **`Colunas de rótulo`**: pares `coluna=valor` literais (ex: `source_type=sophos`, um por linha).
 
 Nada mais muda. Autenticação, lote, retentativa e disjuntor continuam iguais.
 
@@ -57,30 +141,53 @@ O "OCSF puro" é literalmente o bloco que o pipeline já normalizou e validou co
 Isso também quer dizer que a qualidade do que sai depende do mapping do fornecedor. Se um campo não está no OCSF entregue, ele não está no mapping.
 :::
 
-## Exemplo: ClickHouse com tabela modelada em OCSF
+## Exemplo: ClickHouse com tabela flat (coluna por campo)
 
-Um consumidor comum expõe uma tabela própria para ingestão OCSF. A configuração fica assim:
+Você criou uma tabela modelada a partir do schema OCSF, com coluna para cada campo.
 
 | Campo | Valor |
 |---|---|
-| URL | `https://SEU-HOST:8123` |
-| Banco | `nome_do_banco` |
-| Tabela | `nome_da_tabela_ocsf` |
-| Usuário | `usuario_de_ingestao` |
-| Credencial | a senha do usuário (fica cifrada no cofre) |
+| URL | `https://198.51.100.10:8443` |
+| Banco | `siem_database` |
+| Tabela | `events_ocsf_native` |
+| Usuário | `ocsf_ingest` |
 | **Payload** | **`ocsf`** |
+| **Forma da linha** | **`flat`** |
 
-Duas coisas que evitam uma investigação longa:
+Coisas que evitam investigação longa:
 
 **O CentralOps fala com o ClickHouse pela interface HTTP** (porta 8123 por padrão), não pelo protocolo nativo (9000). Se a documentação do seu destino só cita a porta nativa, procure a HTTP: ela costuma estar habilitada no mesmo serviço. Um destino que só publique a 9000 não é alcançável por este sink.
 
 **`Ignorar campos desconhecidos` continua ligado por padrão.** Com `payload: ocsf` isso vira uma rede de proteção útil, porque a tabela pode não ter coluna para todo campo OCSF. Mas ele também esconde erro de modelagem: se você suspeita que está perdendo campo, desligue temporariamente e veja o que o servidor recusa.
 
+## Exemplo: ClickHouse com tabela wrapped (evento aninhado + rótulos)
+
+Sua tabela tem uma coluna JSON para o evento e colunas para rótulos.
+
+| Campo | Valor |
+|---|---|
+| URL | `https://198.51.100.10:8443` |
+| Banco | `siem_database` |
+| Tabela | `events_wrapped` |
+| Usuário | `ocsf_ingest` |
+| **Payload** | **`ocsf`** |
+| **Forma da linha** | **`wrapped`** |
+| **Coluna do evento** | **`event`** |
+| **Colunas de rótulo** | **`source_type=sophos_central`** (um por linha) |
+
+Com essa configuração, a linha emitida é:
+
+```json
+{"event": {"class_uid": 1006, ...}, "source_type": "sophos_central"}
+```
+
+As colunas `event` e `source_type` precisam existir na tabela. O teste de conexão valida isso.
+
 ## Exemplo: HTTP com Bearer
 
 | Campo | Valor |
 |---|---|
-| URL | `https://SEU-HOST/ingest` |
+| URL | `https://198.51.100.1/api/ingest` |
 | Método | `POST` |
 | Modo de autenticação | `bearer` |
 | Credencial | o token (fica cifrado no cofre) |
@@ -98,7 +205,7 @@ Escolha `bearer` ou `basic` na lista. Antes o campo aceitava texto livre, e um v
 
 | Campo | Valor |
 |---|---|
-| URL | `https://SEU-HOST:8088` |
+| URL | `https://198.51.100.1:8088` |
 | Sourcetype | um sourcetype que descreva OCSF na sua convenção |
 | Credencial | o token HEC |
 | **Payload** | **`ocsf`** |
@@ -107,11 +214,11 @@ O identificador do evento continua indo em `fields`, fora do evento. Ele é meta
 
 ## Conferindo que funcionou
 
-Depois de salvar, use o **testar conexão** do destino. Ele abre conexão real e reporta o que o outro lado respondeu.
+Depois de salvar, use o **Testar** na página de detalhes do destino. Ele abre conexão real e reporta o que o outro lado respondeu.
 
-Para conferir o formato, e não só a conectividade, o caminho mais direto é a **linhagem do evento**: escolha um evento recente e veja o que foi entregue àquele destino.
+Para conferir o formato, use o botão **Simular** (ícone de olho), ele mostra a linha exata que será emitida, sem entregar.
 
-Se o consumidor aceitar o lote mas os eventos aparecerem vazios ou sem classificação, o suspeito costuma ser o mapping do fornecedor, não o destino. Um evento que não passou pela normalização é entregue vazio de propósito em modo `ocsf`, justamente para não mandar o formato errado em silêncio.
+Se o consumidor aceita o lote mas os eventos aparecerem vazios ou sem classificação, o suspeito costuma ser o mapping do fornecedor, não o destino. Um evento que não passou pela normalização é entregue vazio de propósito em modo `ocsf`, justamente para não mandar o formato errado em silêncio.
 
 ## Compatibilidade
 

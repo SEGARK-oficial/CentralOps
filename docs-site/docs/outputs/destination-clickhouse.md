@@ -20,10 +20,10 @@ Esta tela só aparece para administradores da plataforma.
 
 Para criar o destino, tenha em mãos:
 
-- **Endereço do ClickHouse** — a URL da sua instância, incluindo a porta HTTPS (por exemplo, `https://clickhouse.exemplo.com:8443`). Quem administra o ClickHouse fornece esse endereço.
-- **Usuário** — geralmente `default` ou um usuário dedicado criado no ClickHouse.
-- **Senha do usuário** — o CentralOps guarda essa senha de forma criptografada; ela nunca aparece em tela depois de salvo.
-- **Banco (database) e tabela** — o banco de dados padrão é `default` e a tabela padrão é `centralops_events`. A tabela deve ter colunas que correspondam aos campos dos eventos normalizados (ou deixe "Ignorar campos desconhecidos" ligado para flexibilidade).
+- **Endereço do ClickHouse**: a URL da sua instância, incluindo a porta HTTPS (por exemplo, `https://clickhouse.exemplo.com:8443`). Quem administra o ClickHouse fornece esse endereço.
+- **Usuário**: geralmente `default` ou um usuário dedicado criado no ClickHouse.
+- **Senha do usuário**: o CentralOps guarda essa senha de forma criptografada; ela nunca aparece em tela depois de salvo.
+- **Banco (database) e tabela**: o banco de dados padrão é `default` e a tabela padrão é `centralops_events`. A tabela deve ter colunas que correspondam aos campos dos eventos normalizados (ou deixe "Ignorar campos desconhecidos" ligado para flexibilidade).
 
 > A tabela no ClickHouse é criada pela equipe que administra aquele ambiente, ou você a cria antes via SQL. No CentralOps você apenas informa qual banco e tabela usar.
 
@@ -39,35 +39,50 @@ Para criar o destino, tenha em mãos:
 | **Nome** | Um nome que ajude a identificar este destino (ex.: "ClickHouse Análise"). |
 | **URL** | O endereço completo da instância ClickHouse, com `https://` e a porta (ex.: `https://clickhouse.exemplo.com:8443`). |
 | **Banco** | O banco de dados no ClickHouse (padrão: `default`). |
-| **Tabela** | O nome da tabela (padrão: `centralops_events`). |
+| **Tabela** | O nome da tabela (padrão: `centralops_events`). Informe APENAS o nome da tabela, se precisar especificar o banco, use o campo Banco, não qualifique o nome aqui. |
 | **Usuário** | O usuário ClickHouse (padrão: `default`). |
 | **Senha** | A senha do usuário. Fica criptografada após salvar. |
-| **Ignorar campos desconhecidos** | Recomendado ligado — o CentralOps não falha se há colunas na tabela que não existem nos eventos (valores padrão são ignorados na INSERT). |
+| **Payload** | O que enviar por evento: `envelope` (canônico do CentralOps, com `_centralops` e `raw`) ou `ocsf` (apenas o evento OCSF 1.8, para consumidor nativo de OCSF). Padrão: `envelope`. |
+| **Forma da linha** | `flat` (padrão): as chaves do evento são colunas da tabela. `wrapped`: o evento vai inteiro em UMA coluna, definida pelo campo "Coluna do evento", mais colunas de rótulo. |
+| **Coluna do evento** | Só com forma `wrapped`: nome da coluna que recebe o evento inteiro (ex: `event`). |
+| **Colunas de rótulo** | Só com forma `wrapped`: pares `coluna=valor` separados por linha, para colunas fixas ao lado do evento (ex: `source_type=meu_feed`). Sem template, valores literais apenas. |
+| **Ignorar campos desconhecidos** | Recomendado ligado, o CentralOps não falha se há colunas na tabela que não existem nos eventos (valores padrão são ignorados na INSERT). |
 | **async_insert** | Por padrão desligado. Quando ligado, usa o modo de INSERT assíncrono do ClickHouse (ainda aguarda persistência). |
 | **Verificar TLS** | Mantenha ativado para garantir uma conexão segura. |
 | **CA bundle** | Caminho para certificado customizado (opcional). Normalmente definido pela equipe de infraestrutura no momento do deploy. |
 
 ### Sobre a verificação TLS e certificados próprios
 
-Mantenha **Verificar TLS** ativado sempre que possível — ele garante que o CentralOps está mesmo falando com o seu ClickHouse.
+Mantenha **Verificar TLS** ativado sempre que possível, ele garante que o CentralOps está mesmo falando com o seu ClickHouse.
 
 Se o seu ClickHouse usa um certificado próprio (autoassinado ou de uma autoridade interna), a confiança nesse certificado é definida pela equipe de infraestrutura no momento do deploy. Se a conexão segura falhar por causa do certificado, fale com o administrador da plataforma para que ele registre o certificado correto. Você não precisa lidar com arquivos de certificado pela interface.
 
-### Testar e salvar
+### Salvar o destino
 
-Antes de salvar, use o botão **Testar conexão**. O CentralOps verifica, de uma só vez:
+Clique em **Salvar** para criar o destino. Ele já fica **ativo** (badge verde) e começa a receber os eventos roteados para ele.
 
-- se consegue alcançar a instância do ClickHouse;
-- se o usuário e a senha são aceitos;
-- se o banco e a tabela existem e têm as colunas esperadas.
+### Testar a conexão
 
-Se o teste passar, salve. O destino já fica **ativo** (badge verde) e começa a receber os eventos roteados para ele.
+Após criar o destino, abra a página de detalhes e use o botão **Testar** (ícone de play) no cabeçalho. O CentralOps verifica:
 
-> O teste de conexão substitui qualquer verificação manual: não é preciso checar conectividade por fora da plataforma.
+- conectividade com a instância do ClickHouse;
+- credencial (usuário e senha);
+- existência do banco e tabela;
+- compatibilidade entre as colunas emitidas e as da tabela (detecta o erro silencioso de forma+payload incompatíveis).
+
+Se o teste passar, a conexão está OK. Se falhar, o relatório detalhado ajuda a identificar o problema: falta de permissão, tabela não encontrada, ou incompatibilidade de esquema.
+
+> O teste de conexão valida a configuração sem enviar dados reais, use antes de ativar o roteamento para esse destino em produção.
+
+### Simular a forma da linha
+
+Use o botão **Simular** (ícone de olho) para visualizar exatamente qual será a linha JSON enviada ao ClickHouse, com sua configuração atual de `payload` e `row_shape`. Isso ajuda a confirmar que o formato casa com a tabela antes de ativar o roteamento.
+
+A simulação mostra a forma sem enviar dados, é apenas uma prévia para verificação.
 
 ## Como os eventos são entregues
 
-Você não precisa configurar nada do funcionamento interno — ele já vem ajustado para entrega eficiente ao ClickHouse. Vale apenas entender o comportamento:
+Você não precisa configurar nada do funcionamento interno, ele já vem ajustado para entrega eficiente ao ClickHouse. Vale apenas entender o comportamento:
 
 - **Envio em lotes.** Os eventos são agrupados e enviados em blocos, o que é mais eficiente do que enviar um a um. Cada linha do INSERT é um evento em formato JSON.
 - **Nova tentativa automática.** Se o ClickHouse recusar ou ficar indisponível por um instante, o CentralOps tenta reenviar sozinho, esperando um pouco mais entre cada tentativa.
@@ -91,12 +106,12 @@ O badge de saúde mostra a situação atual:
 
 Na visão do destino você acompanha as métricas em tempo real:
 
-- **Eventos por segundo** — ritmo de entrega na última hora.
-- **Volume** — quanto dado está saindo na última hora.
-- **Latência média** — quanto o ClickHouse leva para responder.
-- **Itens na fila de reenvio (24h)** — quantos eventos foram recusados no último dia.
+- **Eventos por segundo**: ritmo de entrega na última hora.
+- **Volume**: quanto dado está saindo na última hora.
+- **Latência média**: quanto o ClickHouse leva para responder.
+- **Itens na fila de reenvio (24h)**: quantos eventos foram recusados no último dia.
 
-Para ver os eventos que não puderam ser entregues, abra a **fila de reenvio** na visão do destino. Cada item mostra o identificador do evento, o motivo da recusa informado pelo ClickHouse, o horário e o conteúdo exato que foi rejeitado — útil para entender e corrigir a causa.
+Para ver os eventos que não puderam ser entregues, abra a **fila de reenvio** na visão do destino. Cada item mostra o identificador do evento, o motivo da recusa informado pelo ClickHouse, o horário e o conteúdo exato que foi rejeitado, útil para entender e corrigir a causa.
 
 Para uma visão mais ampla de como os dados percorrem a plataforma até os destinos, use **Roteia -> Fluxo de dados** e **Visão geral -> Saúde do pipeline**.
 
@@ -104,12 +119,14 @@ Para uma visão mais ampla de como os dados percorrem a plataforma até os desti
 
 | Sintoma | O que verificar |
 |---------|-----------------|
+| **Não conecta ao ClickHouse, "You must use port 8123 for HTTP"** | Você usou a porta 9000? Aquela é o protocolo nativo TCP do ClickHouse, só para clientes nativos. Este destino fala HTTP. Use 8123 (ou 8443 com TLS). |
 | **Não conecta ao ClickHouse** | A URL está completa, com `https://` e a porta correta? O ClickHouse está no ar? Se houver firewall entre as redes, o time de infraestrutura precisa liberar o acesso à porta. |
+| **Teste falha com "banco/tabela não encontrados"** | Você digitou o nome qualificado (`database.table`) no campo Tabela? Separe: `database` no campo Banco, `table` no campo Tabela. O ClickHouse cita os identificadores com crase separadamente, então um ponto no nome vira parte LITERAL do identificador. |
 | **Usuário/senha recusados (erro 401 ou 403)** | O usuário existe no ClickHouse? A senha foi digitada corretamente? O usuário tem permissão de INSERT na tabela? Verifique no ClickHouse e atualize o destino. |
-| **Tabela não encontrada (erro 60)** | O banco e a tabela existem? Verifique com `SELECT * FROM database.table LIMIT 1` no ClickHouse. Se não existem, crie-os primeiro. |
+| **Teste falha com "nenhuma chave corresponde" ou "linhas VAZIAS"** | A forma (`flat` ou `wrapped`) não casa com a tabela. Se a tabela tem uma coluna de evento mais colunas de rótulo, use forma `wrapped`. Se tem uma coluna por campo OCSF, use `flat`. Use o botão Simular (ícone de olho) para ver qual linha será emitida. |
 | **Eventos recusados por coluna faltante** | A tabela tem todas as colunas que os eventos normalizados usam, ou "Ignorar campos desconhecidos" está ligado? Se há campos novos que você quer guardar, adicione as colunas na tabela no ClickHouse. |
 | **Envio pausado / "muitas requisições"** | O ClickHouse pode estar sobrecarregado. A proteção contra destino instável volta a tentar sozinha após um curto intervalo; se persistir, acione a equipe do ClickHouse para revisar carga ou limites. |
-| **Falha de certificado seguro (TLS)** | Acontece quando o ClickHouse usa um certificado próprio que a plataforma ainda não reconhece. Essa confiança é configurada no deploy — fale com o administrador da plataforma. |
+| **Falha de certificado seguro (TLS)** | Acontece quando o ClickHouse usa um certificado próprio que a plataforma ainda não reconhece. Essa confiança é configurada no deploy, fale com o administrador da plataforma. |
 
 ## Próximos passos
 
