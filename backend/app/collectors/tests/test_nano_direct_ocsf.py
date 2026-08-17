@@ -182,7 +182,11 @@ def test_chaves_emitidas_reflete_a_config_e_nao_uma_lista_fixa() -> None:
     [
         ({"url": "http://h:9000", "source_type": "x"}, "porta 9000"),
         ({"url": "h:8123", "source_type": "x"}, "http://"),
-        ({"url": "http://h:8123", "source_type": ""}, "obrigatório"),
+        # Os DOIS rótulos vazios. O literal deixou de ser obrigatório sozinho
+        # quando ``source_type_from`` passou a existir, mas ficar sem rótulo
+        # nenhum continua sendo o pior desfecho: tudo cai em 'unknown' no nano
+        # e as detecções com escopo de fonte ignoram o feed inteiro.
+        ({"url": "http://h:8123", "source_type": ""}, "informe um rótulo"),
         ({"url": "http://h:8123", "source_type": "meu feed"}, "espaço"),
         ({"url": "http://h:8123", "source_type": "MeuFeed"}, "minúsculo"),
         (
@@ -222,10 +226,21 @@ def test_a_mensagem_da_tabela_com_ponto_entrega_os_dois_campos() -> None:
 
 
 def test_o_nano_pede_so_dois_campos() -> None:
-    """Plug and play é isto: onde, e com que rótulo. O resto tem default certo."""
+    """Plug and play é isto: onde, e com que rótulo. O resto tem default certo.
+
+    ``url`` é o único ``required`` do JSON Schema porque o rótulo tem DUAS
+    formas — fixo (``source_type``) ou derivado (``source_type_from``) — e
+    "exatamente um dos dois" não se expressa em ``required``. Quem cobra é o
+    ``model_validator``, coberto no parametrizado acima; se ele sumir, o campo
+    vira opcional de verdade e o feed inteiro cai em 'unknown'.
+    """
     schema = registry.get("nano").describe()["config_schema"]
 
-    assert sorted(schema["required"]) == ["source_type", "url"]
+    assert sorted(schema["required"]) == ["url"]
+    assert {"source_type", "source_type_from"} <= set(schema["properties"])
+
+    with pytest.raises(ValidationError):
+        NanoConfig(url="http://nano.interno:8123")
 
     cfg = NanoConfig(url="http://nano.interno:8123", source_type="meu_feed")
     assert cfg.database == "nanosiem"

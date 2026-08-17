@@ -26,7 +26,7 @@ from __future__ import annotations
 import json
 import logging
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Sequence
+from typing import Any, Dict, List, Optional, Sequence, Set
 
 import redis.asyncio as redis_async
 from fastapi import APIRouter, Depends, Query, Response, status
@@ -605,13 +605,27 @@ def _extract_rules_list(rules_or_dict: Any) -> List[Dict[str, Any]]:
     return []
 
 
-def _emitted_class_uid(rules_payload: Any) -> Optional[int]:
-    """The ``class_uid`` a mapping emits via a ``const`` rule (or None if dynamic)."""
+def _emitted_class_uids(rules_payload: Any) -> Set[int]:
+    """TODA ``class_uid`` que o mapping consegue emitir. Vazio = indeterminável.
+
+    Lia só ``const`` e devolvia ``None`` para qualquer mapping que decidisse a
+    classe por evento — e ``None`` desliga a checagem de mismatch inteira. Ou
+    seja: o único jeito de um mapping ser conferido contra a classe que ele
+    declara era ser de classe única. Feed heterogêneo, que é justamente onde
+    errar a classe custa caro, passava sem conferência.
+
+    Um mapping por evento emite um CONJUNTO (``{0, 2004}`` no caso do
+    ``sophos.siem_event``), então a pergunta certa não é "o emitido é igual ao
+    declarado" e sim "o declarado está entre os emitidos".
+    """
+    emitidas: Set[int] = set()
     for rule in _extract_rules_list(rules_payload):
-        if isinstance(rule, dict) and rule.get("target") == "normalized.class_uid":
-            const = rule.get("const")
-            return const if isinstance(const, int) else None
-    return None
+        if not isinstance(rule, dict) or rule.get("target") != "normalized.class_uid":
+            continue
+        candidatos = [rule.get("const"), rule.get("default")]
+        candidatos.extend((rule.get("value_map") or {}).values())
+        emitidas.update(v for v in candidatos if isinstance(v, int))
+    return emitidas
 
 
 def _ocsf_validate_commit(
@@ -646,12 +660,24 @@ def _ocsf_validate_commit(
             else:
                 by_reason[res.reason] = by_reason.get(res.reason, 0) + 1
 
-        emitted = _emitted_class_uid(rules_payload)
-        # class_uid the mapping emits must match the class it declares (if both known).
+        emitidas = _emitted_class_uids(rules_payload)
+        # A classe declarada precisa estar ENTRE as que o mapping emite. Num
+        # mapping de classe única o conjunto tem um elemento e isto é a
+        # igualdade de antes; num mapping por evento, é a pergunta que faz
+        # sentido — declarar 2005 emitindo {0, 2004} continua sendo erro.
         class_uid_mismatch = (
             declared_class_uid is not None
-            and emitted is not None
-            and emitted != declared_class_uid
+            and bool(emitidas)
+            and declared_class_uid not in emitidas
+        )
+        # Compatibilidade do campo persistido: int quando a classe é única,
+        # lista ordenada quando o mapping decide por evento. Quem lê o stats
+        # precisa saber a diferença — devolver só o primeiro esconderia
+        # exatamente a informação nova.
+        emitted: Any = (
+            next(iter(emitidas))
+            if len(emitidas) == 1
+            else (sorted(emitidas) or None)
         )
         # out_of_scope is graceful (not a hard defect); real invalids are the rest.
         hard_invalid = sum(

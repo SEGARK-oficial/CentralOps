@@ -194,30 +194,80 @@ def test_reason_constants_never_carry_a_value() -> None:
 
 # ── the guarantee: no default mapping is structurally invalid ──────────
 
-def _const_identity(dsl: object) -> dict:
-    """Build a minimal normalized event from a default mapping's ``const`` identity
-    rules (class_uid/category_uid/type_uid/activity_id/severity_id)."""
+#: Campos que compõem a identidade estrutural OCSF do evento.
+_IDENTIDADE = ("class_uid", "category_uid", "type_uid", "activity_id", "severity_id")
+
+
+def _identidades_alcancaveis(dsl: object) -> dict[str, dict]:
+    """Uma identidade POR RAMO que o mapping consegue emitir, não só a constante.
+
+    A versão anterior lia apenas ``const``. Um mapping que decide a classe por
+    evento (``source`` + ``value_map``) não tem ``const`` nenhum, então a
+    identidade saía vazia, o validador respondia ``unknown_class`` e o teste
+    reprovava — sem que houvesse nada de errado com o mapping. O incentivo era
+    contornar o guard, e quem contornasse levaria junto a única checagem de que
+    ligar a validação OCSF não quarentena o stream inteiro.
+
+    Agora cada chave do ``value_map`` vira um ramo próprio, mais o ramo do miss
+    (``default``). Um mapping com 7 grupos é validado 8 vezes, e a divergência
+    entre mapas paralelos — ``class_uid`` conhece um grupo que ``type_uid`` não
+    conhece — aparece como identidade inválida naquele ramo específico.
+    """
     rules = dsl.get("rules") if isinstance(dsl, dict) else dsl
-    out: dict = {}
+    consts: dict = {}
+    mapeadas: dict[str, dict] = {}
+    defaults: dict = {}
+
     for rule in rules or []:
         if not isinstance(rule, dict):
             continue
         tgt = rule.get("target", "")
-        if tgt.startswith("normalized.") and "const" in rule:
-            out[tgt[len("normalized."):]] = rule["const"]
-    return out
+        if not tgt.startswith("normalized."):
+            continue
+        campo = tgt[len("normalized."):]
+        if "const" in rule:
+            consts[campo] = rule["const"]
+            continue
+        if campo not in _IDENTIDADE:
+            continue
+        if rule.get("value_map"):
+            mapeadas[campo] = dict(rule["value_map"])
+        if rule.get("default") is not None:
+            defaults[campo] = rule["default"]
+
+    if not mapeadas:
+        return {"const": consts}
+
+    ramos: dict[str, dict] = {}
+    for chave in sorted({k for m in mapeadas.values() for k in m}):
+        ident = dict(consts)
+        for campo, mapa in mapeadas.items():
+            # Chave ausente NESTE mapa cai no default dele — é exatamente o que
+            # o motor faz em runtime, e é assim que a divergência vira erro.
+            valor = mapa.get(chave, defaults.get(campo))
+            if valor is not None:
+                ident[campo] = valor
+        ramos[chave] = ident
+    ramos["<miss>"] = {**consts, **defaults}
+    return ramos
 
 
 @pytest.mark.parametrize("vendor,event_type", sorted(DEFAULT_MAPPING_FILES))
 def test_no_default_mapping_is_structurally_invalid(vendor: str, event_type: str) -> None:
     """Every seeded default mapping's emitted OCSF identity must pass the structural
-    gate — i.e. turning validation ON would quarantine ZERO defaults."""
-    ident = _const_identity(load_default_rules(vendor, event_type))
-    # severity_id is 'src'-mapped on some vendors (resolved at runtime); inject a
-    # valid runtime value so the test isolates the IDENTITY invariants.
-    ident.setdefault("severity_id", 1)
-    r = V.validate_normalized(ident)
-    assert r.valid, f"{vendor}/{event_type} → {r.reason} (identity {ident})"
+    gate — i.e. turning validation ON would quarantine ZERO defaults.
+
+    Checks EVERY reachable branch, not just the constant one: a mapping that
+    routes class per event is valid on one branch and can be broken on another.
+    """
+    ramos = _identidades_alcancaveis(load_default_rules(vendor, event_type))
+    assert ramos, f"{vendor}/{event_type}: mapping sem identidade alcançável"
+    for nome, ident in ramos.items():
+        # severity_id is 'src'-mapped on some vendors (resolved at runtime); inject a
+        # valid runtime value so the test isolates the IDENTITY invariants.
+        ident.setdefault("severity_id", 1)
+        r = V.validate_normalized(ident)
+        assert r.valid, f"{vendor}/{event_type} ramo {nome} → {r.reason} (identity {ident})"
 
 
 # ── manifest hygiene ──────────────────────────────────────────────────────────

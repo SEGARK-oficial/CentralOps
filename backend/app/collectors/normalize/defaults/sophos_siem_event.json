@@ -1,32 +1,144 @@
 {
   "_comment": [
-    "Sophos Central SIEM v1 — /siem/v1/events. Telemetria de endpoint (web control,",
-    "update status, compliance, threat), disjunta dos feeds de finding que os outros",
-    "3 streams Sophos cobrem.",
+    "Sophos Central SIEM v1 — /siem/v1/events. Stream HETEROGENEO: um unico feed",
+    "carrega deteccao de malware/PUA, bloqueio de aplicacao e de periferico,",
+    "violacao de web control, resultado de update, scan concluido, conectividade",
+    "de firewall e sincronismo de AD.",
     "",
-    "POR QUE Base Event (class_uid 0) E NAO Detection Finding (2004): este feed e",
-    "HETEROGENEO por natureza — um unico stream carrega Event::Endpoint::",
-    "WebControlViolation (que em OCSF seria HTTP Activity 4002), ::Compliant /",
-    "::NonCompliant (Compliance Finding 2003), ::UpdateSuccess / ::UpdateFailure",
-    "(Application Lifecycle 6002) e ::Threat::* (Detection Finding 2004). Uma",
-    "MappingDefinition carrega UM class_uid, entao emitir 2004 para todos seria",
-    "declarar que um bloqueio de web e uma deteccao de ameaca — poluindo qualquer",
-    "contagem de deteccoes no destino. Base Event 0 e a saida honesta do OCSF para",
-    "log heterogeneo (mesmo padrao ja adotado em aws_cloudwatch_event.json), e o",
-    "tipo real fica preservado em unmapped.event_type / unmapped.event_group para",
-    "quem quiser rotear no destino.",
+    "A VERSAO ANTERIOR CARIMBAVA class_uid=0 EM 100% DO STREAM, com a",
+    "justificativa de que 'uma MappingDefinition carrega UM class_uid'. Essa",
+    "premissa e FALSA: class_uid e uma regra como qualquer outra e aceita",
+    "value_map, entao a classe pode ser decidida POR EVENTO. O custo do erro foi",
+    "medido: deteccao de PUA (Event::Endpoint::CorePuaDetection, severity medium)",
+    "aterrissava no destino como Base Event, invisivel para toda regra e todo",
+    "painel que filtra por Detection Finding.",
     "",
-    "Quando o roteamento de classe por conteudo existir (exige MappingDefinition",
-    "multi-classe), este mapping deve ser dividido por tipo de evento."
+    "POR QUE A CHAVE E `group` E NAO `type`. Os dois estao no evento. `type` e",
+    "preciso e INSTAVEL: e uma lista aberta de ~100 valores que a Sophos aumenta",
+    "sem aviso, e o modo de falha de uma chave que falta e cair no default em",
+    "silencio. `group` e um enum curto (as amostras de producao mostram",
+    "PROTECTION, UPDATING, PUA, APPLICATION_CONTROL, WEB, PERIPHERALS,",
+    "CONNECTIVITY, AD_SYNC) e muda em ordens de grandeza menos. Sobre 150 eventos",
+    "reais de dois tenants, `group` classificou 100% corretamente, incluindo tipos",
+    "que NAO estavam em nenhum mapa por `type`.",
+    "",
+    "ONDE ISTO AINDA PODE FICAR PARA TRAS: um `group` novo de seguranca cai em",
+    "Base Event, em silencio. O censo custa uma consulta, porque o grupo cru vai",
+    "preservado em unmapped.event_group:",
+    "  SELECT unmapped.event_group, count() WHERE class_uid = 0 GROUP BY 1",
+    "Um grupo de seguranca aparecendo ai e um membro que falta no value_map.",
+    "",
+    "class_uid/activity_id/type_uid usam a MESMA chave de proposito: a identidade",
+    "type_uid == class_uid*100 + activity_id precisa valer evento a evento, e",
+    "mapas com chaves divergentes sao a maneira mais facil de quebra-la. Ha teste",
+    "que verifica a identidade sobre fixtures de producao."
   ],
   "rules": [
-    { "target": "normalized.class_uid", "const": 0, "required": true },
-    { "target": "normalized.class_name", "const": "Base Event" },
-    { "target": "normalized.category_uid", "const": 0, "required": true },
-    { "target": "normalized.category_name", "const": "Uncategorized" },
-    { "target": "normalized.activity_id", "const": 0, "required": true },
-    { "target": "normalized.activity_name", "const": "Unknown" },
-    { "target": "normalized.type_uid", "const": 0, "required": true },
+    {
+      "_comment": "GRUPOS DE FINDING. Fora desta lista o evento e telemetria e fica em Base Event (0), que e o fallback OFICIAL do OCSF para log heterogeneo.",
+      "target": "normalized.class_uid",
+      "source": "group",
+      "value_map": {
+        "MALWARE": 2004,
+        "PUA": 2004,
+        "APPLICATION_CONTROL": 2004,
+        "WEB": 2004,
+        "PERIPHERALS": 2004,
+        "DATA_LOSS_PREVENTION": 2004,
+        "RUNTIME_DETECTIONS": 2004
+      },
+      "default": 0,
+      "required": true
+    },
+    {
+      "target": "normalized.class_name",
+      "source": "group",
+      "value_map": {
+        "MALWARE": "Detection Finding",
+        "PUA": "Detection Finding",
+        "APPLICATION_CONTROL": "Detection Finding",
+        "WEB": "Detection Finding",
+        "PERIPHERALS": "Detection Finding",
+        "DATA_LOSS_PREVENTION": "Detection Finding",
+        "RUNTIME_DETECTIONS": "Detection Finding"
+      },
+      "default": "Base Event"
+    },
+    {
+      "target": "normalized.category_uid",
+      "source": "group",
+      "value_map": {
+        "MALWARE": 2,
+        "PUA": 2,
+        "APPLICATION_CONTROL": 2,
+        "WEB": 2,
+        "PERIPHERALS": 2,
+        "DATA_LOSS_PREVENTION": 2,
+        "RUNTIME_DETECTIONS": 2
+      },
+      "default": 0,
+      "required": true
+    },
+    {
+      "target": "normalized.category_name",
+      "source": "group",
+      "value_map": {
+        "MALWARE": "Findings",
+        "PUA": "Findings",
+        "APPLICATION_CONTROL": "Findings",
+        "WEB": "Findings",
+        "PERIPHERALS": "Findings",
+        "DATA_LOSS_PREVENTION": "Findings",
+        "RUNTIME_DETECTIONS": "Findings"
+      },
+      "default": "Uncategorized"
+    },
+    {
+      "_comment": "1 = Create. O feed SIEM entrega o evento uma vez, no momento em que acontece; nao ha ciclo de vida (Update/Close) como no stream de alert.",
+      "target": "normalized.activity_id",
+      "source": "group",
+      "value_map": {
+        "MALWARE": 1,
+        "PUA": 1,
+        "APPLICATION_CONTROL": 1,
+        "WEB": 1,
+        "PERIPHERALS": 1,
+        "DATA_LOSS_PREVENTION": 1,
+        "RUNTIME_DETECTIONS": 1
+      },
+      "default": 0,
+      "required": true
+    },
+    {
+      "target": "normalized.activity_name",
+      "source": "group",
+      "value_map": {
+        "MALWARE": "Create",
+        "PUA": "Create",
+        "APPLICATION_CONTROL": "Create",
+        "WEB": "Create",
+        "PERIPHERALS": "Create",
+        "DATA_LOSS_PREVENTION": "Create",
+        "RUNTIME_DETECTIONS": "Create"
+      },
+      "default": "Unknown"
+    },
+    {
+      "_comment": "type_uid = class_uid*100 + activity_id: 2004*100+1 = 200401; 0*100+0 = 0.",
+      "target": "normalized.type_uid",
+      "source": "group",
+      "value_map": {
+        "MALWARE": 200401,
+        "PUA": 200401,
+        "APPLICATION_CONTROL": 200401,
+        "WEB": 200401,
+        "PERIPHERALS": 200401,
+        "DATA_LOSS_PREVENTION": 200401,
+        "RUNTIME_DETECTIONS": 200401
+      },
+      "default": 0,
+      "required": true
+    },
 
     {
       "target": "normalized.time",
@@ -44,6 +156,12 @@
     { "target": "normalized.metadata.product.vendor_name", "const": "Sophos" },
     { "target": "normalized.metadata.log_name", "const": "siem/v1/events" },
     { "target": "normalized.metadata.uid", "source": "id", "default": null },
+    {
+      "_comment": "Sem event_code nada a jusante distingue um tipo de siem_event de outro: `group` decide a CLASSE, mas so o `type` diz qual evento foi.",
+      "target": "normalized.metadata.event_code",
+      "source": "type",
+      "default": null
+    },
 
     {
       "_comment": "enum fechado do schema oficial: NONE|LOW|MEDIUM|HIGH|CRITICAL (pre_cast lowercase)",
@@ -61,23 +179,54 @@
       "required": true
     },
     { "target": "normalized.severity", "source": "severity", "default": null },
+    { "target": "normalized.message", "source": "name || type", "default": null },
 
     {
-      "target": "normalized.message",
-      "source": "name || type",
+      "_comment": "finding_info e content-required da 2004. Emitido para TODO evento (inclusive Base Event) de proposito: o custo e um objeto pequeno, e a alternativa — emitir so quando a classe e 2004 — nao e expressavel numa regra e produziria finding sem titulo no dia em que um grupo novo entrar no mapa.",
+      "target": "normalized.finding_info.title",
+      "source": "name",
+      "fallback_source": ["type"],
+      "default": "Sophos SIEM Event",
+      "required": true
+    },
+    { "target": "normalized.finding_info.uid", "source": "id", "default": null },
+    { "target": "normalized.finding_info.desc", "source": "name", "default": null },
+    {
+      "target": "normalized.finding_info.created_time",
+      "source": "created_at",
+      "type_cast": "iso_to_epoch",
       "default": null
     },
 
     {
-      "target": "normalized.device.uid",
-      "source": "endpoint_id",
+      "_comment": "3 = Suppressed no enum de finding.json: o produto VIU e NAO bloqueou.",
+      "target": "normalized.status_id",
+      "source": "type",
+      "value_map": {
+        "Event::Endpoint::Device::AlertedOnly": 3,
+        "Event::Endpoint::Application::Allowed": 3,
+        "Event::Endpoint::DataLossPreventionUserAllowed": 3
+      },
       "default": null
     },
     {
-      "target": "normalized.device.type",
-      "source": "endpoint_type",
+      "_comment": "1 = Allowed, 2 = Blocked. Miss aqui e inofensivo (null), diferente de class_uid — por isso este mapa pode ser por `type`, que e mais preciso.",
+      "target": "normalized.disposition_id",
+      "source": "type",
+      "value_map": {
+        "Event::Endpoint::Application::Blocked": 2,
+        "Event::Endpoint::Device::Blocked": 2,
+        "Event::Endpoint::WebFilteringBlocked": 2,
+        "Event::Endpoint::Threat::CleanedUp": 2,
+        "Event::Endpoint::Device::AlertedOnly": 1,
+        "Event::Endpoint::Application::Allowed": 1,
+        "Event::Endpoint::DataLossPreventionUserAllowed": 1
+      },
       "default": null
     },
+
+    { "target": "normalized.device.uid", "source": "endpoint_id", "default": null },
+    { "target": "normalized.device.type", "source": "endpoint_type", "default": null },
     {
       "target": "normalized.device.type_id",
       "source": "endpoint_type",
@@ -91,8 +240,15 @@
       "default": 0
     },
     {
+      "_comment": "`location` NAO e sempre hostname: na familia Event::Firewall::* ele carrega o SERIAL do appliance, e hostname_t so aceita hostname. So aceita `location` quando ha endpoint_id (evento de endpoint).",
       "target": "normalized.device.hostname",
-      "source": "location",
+      "source": "[endpoint_id && location][?@!=null && @!=`false`] | [0]",
+      "default": null
+    },
+    {
+      "_comment": "O outro lado da mesma regra: sem endpoint_id, `location` e o serial do appliance.",
+      "target": "normalized.device.serial_number",
+      "source": "[(!endpoint_id) && location][?@!=null && @!=`false`] | [0]",
       "default": null
     },
     {
@@ -101,55 +257,22 @@
       "source": "source_info.ip",
       "default": null
     },
-
-    {
-      "target": "normalized.actor.user.name",
-      "source": "source",
-      "default": null
-    },
-    {
-      "target": "normalized.actor.user.uid",
-      "source": "user_id",
-      "default": null
-    },
-
-    {
-      "target": "normalized.cloud.org.uid",
-      "source": "customer_id",
-      "default": null
-    },
+    { "target": "normalized.actor.user.name", "source": "source", "default": null },
+    { "target": "normalized.actor.user.uid", "source": "user_id", "default": null },
+    { "target": "normalized.cloud.org.uid", "source": "customer_id", "default": null },
     { "target": "normalized.cloud.provider", "const": "Sophos Central" },
 
+    { "target": "normalized.unmapped.event_type", "source": "type", "default": null },
     {
-      "target": "normalized.unmapped.event_type",
-      "source": "type",
-      "default": null
-    },
-    {
+      "_comment": "A chave da classificacao vai preservada crua: e o que permite auditar o value_map de class_uid direto no destino.",
       "target": "normalized.unmapped.event_group",
       "source": "group",
       "default": null
     },
-    {
-      "target": "normalized.unmapped.threat",
-      "source": "threat",
-      "default": null
-    },
-    {
-      "target": "normalized.unmapped.origin",
-      "source": "origin",
-      "default": null
-    },
-    {
-      "target": "normalized.unmapped.app_sha256",
-      "source": "appSha256",
-      "default": null
-    },
-    {
-      "target": "normalized.unmapped.app_certs",
-      "source": "appCerts",
-      "default": null
-    },
+    { "target": "normalized.unmapped.threat", "source": "threat", "default": null },
+    { "target": "normalized.unmapped.origin", "source": "origin", "default": null },
+    { "target": "normalized.unmapped.app_sha256", "source": "appSha256", "default": null },
+    { "target": "normalized.unmapped.app_certs", "source": "appCerts", "default": null },
     {
       "_comment": "objeto {items:[{descriptor,result,type}], totalItems:int} — NAO e array",
       "target": "normalized.unmapped.core_remedy_items",
@@ -161,16 +284,8 @@
       "source": "core_remedy_items.totalItems",
       "default": null
     },
-    {
-      "target": "normalized.unmapped.ips_threat_data",
-      "source": "ips_threat_data",
-      "default": null
-    },
-    {
-      "target": "normalized.unmapped.amsi_threat_data",
-      "source": "amsi_threat_data",
-      "default": null
-    },
+    { "target": "normalized.unmapped.ips_threat_data", "source": "ips_threat_data", "default": null },
+    { "target": "normalized.unmapped.amsi_threat_data", "source": "amsi_threat_data", "default": null },
     {
       "_comment": "array de {property,type} com enum de ~25 tipos (IPS_*, AMSI_*, HMPA_*, CORE_EVENT_*)",
       "target": "normalized.unmapped.details",
@@ -204,7 +319,7 @@
           "name": "device.hostname",
           "type": "Hostname",
           "type_id": 1,
-          "source": "location",
+          "source": "[endpoint_id && location][?@!=null && @!=`false`] | [0]",
           "skip_null": true
         },
         {

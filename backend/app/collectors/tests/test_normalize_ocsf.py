@@ -61,12 +61,27 @@ def _rule_list(dsl: object) -> list:
     return []
 
 
-def _emitted_class_uid(dsl: object) -> object:
-    """class_uid ``const`` que o mapping emite (v1 e v2), ou ``None``."""
+def _emitted_class_uids(dsl: object) -> set:
+    """TODA class_uid alcançável do mapping, não só a constante.
+
+    Antes isto lia apenas ``const`` e devolvia um valor. Um mapping que decide a
+    classe por evento (``source`` + ``value_map``, que é o caminho normal para
+    um feed heterogêneo) devolvia ``None`` e escapava inteiro do guard — as
+    classes que ele emite de fato nunca eram conferidas contra
+    ``ALLOWED_CLASS_UIDS``. Exatamente o que este teste existe para impedir.
+    """
+    alcancaveis: set = set()
     for rule in _rule_list(dsl):
-        if isinstance(rule, dict) and rule.get("target") == "normalized.class_uid":
-            return rule.get("const")
-    return None
+        if not isinstance(rule, dict) or rule.get("target") != "normalized.class_uid":
+            continue
+        if "const" in rule:
+            alcancaveis.add(rule["const"])
+        alcancaveis.update((rule.get("value_map") or {}).values())
+        # ``default`` é o ramo do miss — o mais fácil de esquecer e o que mais
+        # eventos costuma receber.
+        if rule.get("default") is not None:
+            alcancaveis.add(rule["default"])
+    return alcancaveis
 
 
 def test_allowed_class_uids_cover_all_default_mappings() -> None:
@@ -78,12 +93,14 @@ def test_allowed_class_uids_cover_all_default_mappings() -> None:
     missing: dict[str, object] = {}
     for (vendor, event_type) in DEFAULT_MAPPING_FILES:
         dsl = load_default_rules(vendor, event_type)
-        uid = _emitted_class_uid(dsl)
-        assert uid is not None, (
-            f"{vendor}/{event_type}: mapping default não emite um class_uid const"
+        uids = _emitted_class_uids(dsl)
+        assert uids, (
+            f"{vendor}/{event_type}: mapping default não emite class_uid algum "
+            "(nem const, nem value_map, nem default)"
         )
-        if uid not in ALLOWED_CLASS_UIDS:
-            missing[f"{vendor}/{event_type}"] = uid
+        fora = uids - set(ALLOWED_CLASS_UIDS)
+        if fora:
+            missing[f"{vendor}/{event_type}"] = sorted(fora)
     assert not missing, (
         f"class_uid emitido por mapping default mas AUSENTE de ALLOWED_CLASS_UIDS "
         f"(adicione em ocsf/classes.py CLASS_NAMES): {missing}"

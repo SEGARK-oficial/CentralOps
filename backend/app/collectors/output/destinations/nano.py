@@ -24,6 +24,23 @@ Com o kind ``clickhouse`` genérico isso são seis campos que o operador precisa
 acertar juntos, lendo a documentação do nano em outra aba. Aqui são dois: onde,
 e com que rótulo.
 
+**Um destino para N tenants (``source_type_from``).** ``source_type`` literal
+custa um destino, uma rota e um segredo por cliente. Em 50 ou 100 isso não é
+administrável — e o pior é que o modo de falha é humano: alguém aponta a rota do
+cliente B para o destino do cliente A e os eventos aterrissam com o rótulo
+errado, sem erro em lugar nenhum.
+
+``source_type_from`` deriva o rótulo do próprio evento, então uma stack nano
+única serve todos. O par natural é ``organization_vendor``
+(``acme_sophos``, ``acme_wazuh``, ``beta_sophos``): separa por tenant, que é o
+que importa para escopo, e mantém o vendor visível, que é o que as regras de
+detecção filtram. ``source_type`` continua aceito e vira o FALLBACK — o rótulo
+que sai quando o evento não carrega a origem.
+
+Isto não substitui isolamento: um único ClickHouse com todos os tenants na mesma
+tabela é uma decisão de topologia, e quem consulta lá vê tudo. O rótulo separa
+os dados; quem separa o ACESSO é a política do lado do nano.
+
 **Por que NÃO é um sender novo.** A entrega é idêntica à do ClickHouse, então
 este módulo é só um schema de config e uma fábrica: reusa ``ClickHouseClient``
 inteiro, com autenticação por header, TLS, CA bundle, classificação de DLQ,
@@ -43,6 +60,7 @@ from typing import Any, Optional
 from pydantic import BaseModel, Field, model_validator
 
 from ..clickhouse_sender import ClickHouseClient
+from ..payload_shape import RowFieldSource
 from .registry import DestinationConfig, DestinationRegistration, register
 
 logger = logging.getLogger(__name__)
@@ -76,9 +94,19 @@ class NanoConfig(BaseModel):
         "9000 é o protocolo nativo e não serve aqui."
     )
     source_type: str = Field(
-        description="Rótulo minúsculo deste feed no nano (ex: centralops_sophos). "
+        default="",
+        description="Rótulo minúsculo FIXO deste feed no nano (ex: centralops_sophos). "
         "É a chave de escopo das detecções e dos painéis do lado do nano: sem ela "
-        "as linhas caem como 'unknown' e as regras com escopo de fonte ignoram todas."
+        "as linhas caem como 'unknown' e as regras com escopo de fonte ignoram todas. "
+        "Deixe vazio se for usar 'Rótulo derivado de'; se preencher os dois, este "
+        "vira o valor de reserva.",
+    )
+    source_type_from: Optional[RowFieldSource] = Field(
+        default=None,
+        description="Rótulo derivado de cada evento, em vez de fixo — é o que permite "
+        "UMA stack nano servir vários clientes. Use 'organization_vendor' para "
+        "separar por cliente mantendo o vendor visível (acme_sophos, beta_wazuh). "
+        "O valor é normalizado para minúsculo com underscore automaticamente.",
     )
     database: str = Field(default="nanosiem", description="Banco do nano (padrão nanosiem)")
     table: str = Field(
@@ -123,8 +151,17 @@ class NanoConfig(BaseModel):
             raise ValueError("'database' não pode conter ponto")
 
         rotulo = self.source_type
+        if not rotulo.strip() and self.source_type_from is None:
+            # Recusar os dois vazios é o ponto: sem rótulo o nano joga tudo no
+            # balde 'unknown' e TODA regra com escopo de fonte ignora o feed —
+            # entrega verde, detecção zero.
+            raise ValueError(
+                "informe um rótulo: 'source_type' para valor fixo, ou "
+                "'source_type_from' para derivar de cada evento (recomendado "
+                "quando o mesmo nano recebe mais de um cliente)"
+            )
         if not rotulo.strip():
-            raise ValueError("source_type é obrigatório")
+            return self
         if rotulo != rotulo.strip() or any(c.isspace() for c in rotulo):
             raise ValueError("source_type não pode ter espaço")
         if rotulo != rotulo.lower():
@@ -161,7 +198,13 @@ def _factory(config: DestinationConfig, secrets: Optional[Any] = None) -> ClickH
         payload=_PAYLOAD,
         row_shape=_ROW_SHAPE,
         event_key=_EVENT_KEY,
-        row_fields={"source_type": cfg.source_type},
+        # Literal só quando existe: mandar ``{"source_type": ""}`` gravaria
+        # string vazia, que do lado do nano é indistinguível de coluna nunca
+        # preenchida — o oposto do sentinela 'unresolved', que é consultável.
+        row_fields=({"source_type": cfg.source_type} if cfg.source_type else {}),
+        row_fields_from=(
+            {"source_type": cfg.source_type_from} if cfg.source_type_from else {}
+        ),
         # Barulhento de propósito. A forma da linha é 100% controlada por este
         # módulo e casa exatamente com as colunas publicadas do nano, então um
         # campo desconhecido significa que o schema do outro lado mudou. Com o

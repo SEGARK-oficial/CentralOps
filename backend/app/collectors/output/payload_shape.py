@@ -44,10 +44,30 @@ dado não existe. Foi medido, não deduzido.
 
 ``row_shape`` existe para tornar essa segunda topologia declarável em vez de
 impossível. O default é ``flat``, byte-idêntico ao comportamento anterior.
+
+**Pergunta 3, de onde vem o rótulo (``row_fields_from``).** ``row_fields`` é
+literal: o mesmo texto em toda linha. Isso resolve um destino por feed e cria um
+problema de escala assim que o mesmo destino serve vários tenants — a saída é
+uma rota (e um destino, e um segredo) por cliente, o que não fecha em 50 ou 100.
+
+``row_fields_from`` deriva o valor da coluna **do próprio evento**, por um enum
+FECHADO de origens do envelope. Um destino serve N tenants e cada linha sai
+rotulada com a origem certa. O enum é fechado de propósito e isto não é
+provisório: uma linguagem de expressão aqui viraria um segundo motor de
+transformação no caminho quente, livre para divergir do normalizador, e sem
+lugar para validar. Origem que falta se adiciona ao enum, em código, com teste.
+
+Precedência por coluna: derivado → o literal de ``row_fields`` (se houver) →
+``"unresolved"``. O último degrau é um sentinela, não um default disfarçado:
+``WHERE source_type = 'unresolved'`` encontra exatamente as linhas em que a
+derivação não achou nada. Cair para string vazia deixaria isso indistinguível de
+uma coluna que o destino nunca preencheu.
 """
 
 from __future__ import annotations
 
+import re
+from functools import lru_cache
 from typing import Any, Dict, Literal, Mapping, Optional
 
 #: Formato do corpo por evento. ``Literal`` (e não ``str``) porque o JSON Schema
@@ -87,6 +107,155 @@ DESCRICAO_ROW_FIELDS = (
     "e valor=texto literal (ex: source_type = meu_feed). Sem template e sem "
     "substituição."
 )
+
+
+#: Origens de rótulo derivável, enum FECHADO. Ver "Pergunta 3" no topo.
+#:
+#: Os três compostos existem porque um destino pode ter UMA só coluna de rótulo
+#: (o ``source_type`` do nano é o caso que motivou isto) e mesmo assim precisar
+#: separar por dois eixos. Sem eles a única saída seria concatenar em runtime,
+#: que é a linguagem de expressão que este módulo recusa. Composição nova é
+#: membro novo aqui, não sintaxe nova.
+RowFieldSource = Literal[
+    "organization",
+    "organization_vendor",
+    "organization_stream",
+    "vendor",
+    "platform",
+    "integration",
+    "stream",
+    "event_type",
+]
+
+#: Valor emitido quando a derivação não acha nada E não há literal de fallback.
+#: Sentinela consultável, não default silencioso — ver docstring do módulo.
+ROW_FIELD_NAO_RESOLVIDO = "unresolved"
+
+DESCRICAO_ROW_FIELDS_FROM = (
+    "Só com row_shape='wrapped': colunas cujo valor é DERIVADO de cada evento, "
+    "chave=coluna e valor=origem. Permite um único destino servir vários "
+    "tenants — cada linha sai rotulada com a origem dela. Tem precedência "
+    "sobre row_fields na mesma coluna; se a origem vier vazia, cai no literal "
+    "de row_fields e, na falta dele, em 'unresolved'."
+)
+
+_NAO_SLUG = re.compile(r"[^a-z0-9]+")
+
+
+@lru_cache(maxsize=4096)
+def slugificar_rotulo(bruto: str) -> str:
+    """Texto livre → rótulo estável em ``[a-z0-9_]``.
+
+    Destinos que usam o rótulo como chave de partição ou de dicionário
+    costumam rejeitar (ou pior, aceitar e truncar) espaço, maiúscula e
+    acentuação. Normalizar aqui é o que permite derivar de campos escritos por
+    humanos sem exigir que o operador discipline o nome da organização.
+
+    Memoizado porque roda por evento no caminho quente e o domínio é minúsculo:
+    o número de tenants vezes o de vendors. ``maxsize`` generoso pelo mesmo
+    motivo — a chave é o texto de origem, não o evento.
+    """
+    reduzido = _NAO_SLUG.sub("_", bruto.strip().lower()).strip("_")
+    return reduzido
+
+
+def _texto(valor: Any) -> str:
+    """Valor do envelope → texto slugificado, ou ``""`` se não der para usar.
+
+    ``int`` passa porque ``integration_id`` e ``organization_id`` são numéricos
+    e são rótulos legítimos. ``bool`` não, apesar de ser ``int`` em Python:
+    ``"true"`` nunca é um rótulo de origem útil e deixar passar mascararia um
+    campo trocado.
+    """
+    if isinstance(valor, bool) or valor is None:
+        return ""
+    if isinstance(valor, (int, float)):
+        return str(valor)
+    if not isinstance(valor, str):
+        return ""
+    return slugificar_rotulo(valor)
+
+
+def _organizacao(meta: Mapping[str, Any]) -> str:
+    """Rótulo do tenant: slug, e só o id como último recurso.
+
+    Slug e não ``customer_name``: ``name`` é editável na tela, e um rename
+    mudaria o rótulo de todo evento NOVO sem tocar nos antigos — o histórico do
+    lado do consumidor parte em dois, sem erro em lugar nenhum. O slug é único,
+    indexado e não muda por renomeação de fachada.
+
+    ``org_<id>`` quando não há slug (envelope antigo, fluxo que não carrega a
+    organização) é feio de propósito: continua isolando o tenant corretamente e
+    aparece na consulta como algo que alguém precisa arrumar.
+    """
+    slug = _texto(meta.get("organization_slug"))
+    if slug:
+        return slug
+    oid = _texto(meta.get("organization_id"))
+    return f"org_{oid}" if oid else ""
+
+
+def _juntar(*partes: str) -> str:
+    """Compõe rótulo só quando TODAS as partes existem.
+
+    Meio-rótulo é pior que rótulo nenhum: ``acme_`` e ``acme`` parecem o mesmo
+    tenant numa listagem e são chaves diferentes na tabela. Faltando qualquer
+    parte, devolve vazio e a precedência cai para o literal ou o sentinela.
+    """
+    return "_".join(partes) if all(partes) else ""
+
+
+def derivar_valor(envelope: Mapping[str, Any], origem: Any) -> str:
+    """Envelope + origem do enum → o texto do rótulo. ``""`` = não resolveu.
+
+    Origem desconhecida devolve ``""`` em vez de levantar: esta função roda por
+    evento e por destino, e config inválida vinda do banco (destino salvo por
+    uma versão mais nova, enum renomeado) não pode derrubar a entrega. O guard
+    que recusa origem inválida vive no schema do destino, na escrita.
+    """
+    meta = envelope.get("_centralops")
+    if not isinstance(meta, Mapping):
+        return ""
+    if origem == "organization":
+        return _organizacao(meta)
+    if origem == "vendor":
+        return _texto(meta.get("vendor"))
+    if origem == "platform":
+        return _texto(meta.get("platform"))
+    if origem == "integration":
+        iid = _texto(meta.get("integration_id"))
+        return f"integration_{iid}" if iid else ""
+    if origem == "stream":
+        return _texto(meta.get("stream"))
+    if origem == "event_type":
+        return _texto(meta.get("event_type"))
+    if origem == "organization_vendor":
+        return _juntar(_organizacao(meta), _texto(meta.get("vendor")))
+    if origem == "organization_stream":
+        return _juntar(_organizacao(meta), _texto(meta.get("stream")))
+    return ""
+
+
+def derivar_row_fields(
+    envelope: Mapping[str, Any],
+    row_fields_from: Optional[Mapping[str, str]],
+    *,
+    estaticos: Optional[Mapping[str, str]] = None,
+) -> Dict[str, str]:
+    """As colunas derivadas deste evento, já com a precedência aplicada.
+
+    Devolve dicionário vazio quando não há nada declarado — o caminho quente de
+    quem não usa a feature não paga nada além de um ``if``.
+    """
+    if not row_fields_from:
+        return {}
+    resolvidos: Dict[str, str] = {}
+    for coluna, origem in row_fields_from.items():
+        valor = derivar_valor(envelope, origem)
+        if not valor:
+            valor = (estaticos or {}).get(coluna) or ROW_FIELD_NAO_RESOLVIDO
+        resolvidos[coluna] = valor
+    return resolvidos
 
 
 def normalizar_row_shape(valor: Any) -> RowShape:
@@ -136,17 +305,29 @@ def render_row(
     row_shape: Any = "flat",
     event_key: str = "event",
     row_fields: Optional[Mapping[str, str]] = None,
+    row_fields_from: Optional[Mapping[str, str]] = None,
 ) -> Any:
     """Envelope canônico → a linha que vai no fio. Ponto de entrada único.
 
     Existe para que nenhum sink reimplemente o ramo ``wrapped``: quando cada um
     monta o próprio wrapper, eles divergem, e foi exatamente assim que o HEC
     acabou sendo o único que sabia envelopar.
+
+    A mesma coluna declarada nos dois lados resolve pelo derivado; o literal
+    vira o fallback dela (ver ``derivar_row_fields``). A ordem de declaração de
+    ``row_fields`` é preservada — sobrescrever chave existente num ``dict`` não
+    a move — porque há teste que compara os bytes serializados.
     """
     corpo = render_payload(envelope, payload)
-    if normalizar_row_shape(row_shape) == "wrapped":
+    if normalizar_row_shape(row_shape) != "wrapped":
+        return corpo
+    if not row_fields_from:
         return wrap_payload(corpo, event_key=event_key, row_fields=row_fields)
-    return corpo
+    campos: Dict[str, str] = dict(row_fields or {})
+    campos.update(
+        derivar_row_fields(envelope, row_fields_from, estaticos=row_fields)
+    )
+    return wrap_payload(corpo, event_key=event_key, row_fields=campos)
 
 
 def normalizar_shape(valor: Any) -> PayloadShape:

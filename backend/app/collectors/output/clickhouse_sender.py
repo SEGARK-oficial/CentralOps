@@ -75,6 +75,7 @@ class ClickHouseClient:
         row_shape: str = "flat",
         event_key: str = "event",
         row_fields: Optional[Mapping[str, str]] = None,
+        row_fields_from: Optional[Mapping[str, str]] = None,
         verify_tls: bool = True,
         ca_bundle: Optional[str] = None,
     ) -> None:
@@ -88,6 +89,7 @@ class ClickHouseClient:
         self._row_shape = normalizar_row_shape(row_shape)
         self._event_key = event_key
         self._row_fields = dict(row_fields or {})
+        self._row_fields_from = dict(row_fields_from or {})
         self._async_insert = async_insert
         self._verify_tls = verify_tls
         self._ca_bundle = ca_bundle
@@ -128,7 +130,9 @@ class ClickHouseClient:
         linha carrega o evento OCSF 1.8 puro, com ``envelope`` o canônico.
         ``row_shape`` decide a FORMA: com ``flat`` as chaves do conteúdo são as
         colunas, com ``wrapped`` o conteúdo inteiro vai sob ``event_key`` e as
-        outras colunas vêm de ``row_fields``.
+        outras colunas vêm de ``row_fields`` (literal) e ``row_fields_from``
+        (derivado do próprio evento — é o que deixa UM destino servir N tenants
+        com a linha rotulada corretamente).
 
         A combinação importa e o erro é silencioso: ``flat`` contra uma tabela
         coluna-wrapper faz o ClickHouse descartar tudo (``skip_unknown_fields``)
@@ -140,6 +144,7 @@ class ClickHouseClient:
             row_shape=self._row_shape,
             event_key=self._event_key,
             row_fields=self._row_fields,
+            row_fields_from=self._row_fields_from,
         )
 
     def chaves_emitidas(self) -> set:
@@ -381,8 +386,9 @@ class ClickHouseClient:
             if faltando:
                 return TestResult.failed(
                     f"a tabela {alvo} não tem a(s) coluna(s) {faltando}. Com row_shape=wrapped "
-                    f"o evento vai em '{self._event_key}' e cada chave de row_fields precisa "
-                    f"existir como coluna. Colunas da tabela: {sorted(colunas)}"
+                    f"o evento vai em '{self._event_key}' e cada chave de row_fields e "
+                    f"row_fields_from precisa existir como coluna. "
+                    f"Colunas da tabela: {sorted(colunas)}"
                 )
             return TestResult.passed(
                 f"ClickHouse ok: {alvo}, forma wrapped, colunas {sorted(emitidas)} conferem."

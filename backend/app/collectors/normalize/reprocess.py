@@ -224,10 +224,30 @@ def attempt_reprocess(
     # agora SEMPRE resolvem ao reprocessar (org.id sempre existe).
     envelope_customer_id: Optional[int] = organization_id
 
+    # Slug do tenant: rótulo estável para destinos que derivam a origem por
+    # evento (ver ``EnvelopeContext.organization_slug``). Resolvido aqui, e não
+    # recebido por parâmetro, porque os dois chamadores de produção têm só o
+    # ``organization_id`` em mãos — pedir o slug a eles empurraria a mesma
+    # consulta para dois lugares. É uma leitura de UMA coluna indexada por PK,
+    # na mesma sessão que a função já usa para resolver o mapping.
+    #
+    # Sem isto o evento reprocessado sai com rótulo ``unresolved`` no destino
+    # enquanto o MESMO evento pela coleta ao vivo sai com o slug: a divergência
+    # apareceria só na tabela do cliente, semanas depois.
+    organization_slug: Optional[str] = None
+    if organization_id is not None:
+        organization_slug = db.scalar(
+            select(models.Organization.slug).where(
+                models.Organization.id == organization_id
+            )
+        )
+
     ctx = EnvelopeContext(
         vendor=vendor,
         integration_id=integration_id,
         customer_id=envelope_customer_id,
+        organization_id=organization_id,
+        organization_slug=organization_slug,
         stream=effective_stream,
         event_type=event_type,
         mapping_version_id=version.id,
