@@ -40,6 +40,10 @@ _DEFAULT_DRIFT_DAYS = 90
 _DEFAULT_HISTORY_DAYS = 30
 _DEFAULT_SEARCH_RESULT_DAYS = 7
 _DEFAULT_AUDIT_LOG_DAYS = 365
+#: DLQ de destino. Curto de propósito: a linha carrega o envelope canônico
+#: inteiro, e o valor forense de um evento não entregue cai rápido. Ver o
+#: docstring de ``prune_expired_destination_dlq``.
+_DEFAULT_DLQ_DAYS = 30
 
 # Diretório onde o audit master de deleção é gravado.
 _DELETION_AUDIT_DIR = Path(
@@ -275,6 +279,89 @@ def prune_expired_audit_logs(self: Any) -> dict[str, int]:
 
 
 @shared_task(bind=True, queue="maintenance")
+def prune_expired_destination_dlq(self: Any) -> dict[str, int]:
+    """Deleta linhas expiradas de ``destination_dlq``.
+
+    A DLQ de destino era a ÚNICA tabela de crescimento ilimitado que ficou de
+    fora do ``prune_all``. Ela cresce por definição durante qualquer incidente
+    de entrega: um destino fora do ar por algumas horas gera uma linha por
+    evento não entregue, cada uma carregando o envelope canônico COMPLETO em
+    ``payload``. Num incidente real observado, 2 mil eventos em poucas horas.
+
+    Duas diferenças frente às outras tasks de purge, e as duas importam.
+
+    **Varre também o que não tem org.** As demais tasks iteram organizações e
+    filtram por elas, o que deixaria de fora exatamente as linhas de destino
+    GLOBAL (``organization_id IS NULL``), que num MSSP costumam ser a maioria
+    do volume. Aqui há uma segunda passada explícita para elas, usando o
+    default de plataforma.
+
+    **Retenção curta de propósito.** O default é menor que o dos outros
+    domínios porque o valor forense de um evento não entregue cai rápido: ou
+    ele foi reprocessado em dias, ou a causa raiz mudou e o reenvio já não faz
+    sentido. Guardar envelope completo por meses é custo de banco sem retorno.
+
+    O operador que precisar de mais tempo sobe ``dlq_retention_days`` na
+    configuração de retenção da org.
+    """
+    totals: dict[str, int] = {}
+
+    with database.SessionLocal() as db:
+        orgs = db.query(models.Organization).filter(
+            models.Organization.is_active.is_(True)
+        ).all()
+
+        for org in orgs:
+            retention_days = _get_retention_days(
+                db, org.id, "dlq_retention_days", _DEFAULT_DLQ_DAYS
+            )
+            cutoff = datetime.utcnow() - timedelta(days=retention_days)
+            result = db.execute(
+                delete(models.DestinationDeadLetter).where(
+                    models.DestinationDeadLetter.organization_id == org.id,
+                    models.DestinationDeadLetter.created_at < cutoff,
+                )
+            )
+            deleted = result.rowcount
+            if deleted:
+                totals[str(org.id)] = deleted
+                logger.info(
+                    "purge destination DLQ concluído",
+                    extra={
+                        "event": "retention.destination_dlq_purge",
+                        "org_id": org.id,
+                        "deleted": deleted,
+                        "cutoff": cutoff.isoformat(),
+                    },
+                )
+
+        # Linhas de destino global (org NULL). Sem esta passada, o caso que
+        # mais cresce num MSSP nunca seria podado.
+        cutoff_global = datetime.utcnow() - timedelta(days=_DEFAULT_DLQ_DAYS)
+        result = db.execute(
+            delete(models.DestinationDeadLetter).where(
+                models.DestinationDeadLetter.organization_id.is_(None),
+                models.DestinationDeadLetter.created_at < cutoff_global,
+            )
+        )
+        deleted_global = result.rowcount
+        if deleted_global:
+            totals["global"] = deleted_global
+            logger.info(
+                "purge destination DLQ (global) concluído",
+                extra={
+                    "event": "retention.destination_dlq_purge_global",
+                    "deleted": deleted_global,
+                    "cutoff": cutoff_global.isoformat(),
+                },
+            )
+
+        db.commit()
+
+    return totals
+
+
+@shared_task(bind=True, queue="maintenance")
 def prune_expired_search_results(self: Any) -> dict[str, int]:
     """Deleta SearchResult expirados conforme retenção de cada org.
 
@@ -451,6 +538,9 @@ def prune_all(self: Any) -> dict[str, dict[str, int]]:
         ("history", prune_expired_history),
         ("search_results", prune_expired_search_results),
         ("audit_logs", prune_expired_audit_logs),
+        # DLQ de destino: era a única tabela de crescimento ilimitado fora
+        # deste wrapper, e a que mais cresce durante incidente de entrega.
+        ("destination_dlq", prune_expired_destination_dlq),
         # tiering: expira objetos em destinos de armazenamento (S3) por
         # retention_days. Roda no mesmo ciclo diário.
         ("destination_retention", enforce_destination_retention),

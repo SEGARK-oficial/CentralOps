@@ -18,6 +18,7 @@ from sqlalchemy.orm import Session
 
 from ..core import auth as app_auth
 from ..core.config import settings
+from ..core.tenant import has_global_scope
 from ..db import models, repository
 
 
@@ -134,10 +135,20 @@ class AuditService:
         actor_username = username if username is not None else getattr(user, "username", None)
         actor_role = user_role if user_role is not None else getattr(user, "role", None)
 
+        # Org do ator, carimbada na linha. É o que torna a trilha escopável por
+        # tenant na leitura. Usuário de escopo GLOBAL grava NULL de propósito:
+        # a ação dele não pertence a nenhum cliente, e atribuí-la a um daria
+        # atribuição falsa numa trilha de auditoria.
+        actor_org: int | None = None
+        if user is not None and not has_global_scope(user):
+            raw_org = getattr(user, "organization_id", None)
+            actor_org = int(raw_org) if raw_org is not None else None
+
         log = models.AuditLog(
             user_id=actor_user_id,
             username=actor_username,
             user_role=actor_role,
+            organization_id=actor_org,
             action=action,
             endpoint=endpoint,
             method=method,

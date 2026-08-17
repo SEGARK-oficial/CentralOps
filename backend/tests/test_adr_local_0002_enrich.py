@@ -415,16 +415,71 @@ def test_pipeline_wires_both_seams_in_the_right_places():
 
 
 @pytest.mark.source_only
-def test_enrichment_is_off_by_default_and_guarded_in_the_hot_path():
-    """Flag OFF ⇒ nenhum objeto instanciado e nenhuma chamada nova no laço."""
-    from backend.app.core.config import settings
+def test_enrichment_flag_off_deixa_o_hot_path_intocado():
+    """Flag OFF ⇒ nenhum objeto instanciado e nenhuma chamada nova no laço.
 
-    assert settings.ENRICHMENT_ENABLED is False
+    Este teste chamava-se ``..._is_off_by_default_and_guarded_in_the_hot_path``
+    e afirmava ``ENRICHMENT_ENABLED is False``. O default virou True em ago/2026,
+    porque o console ganhou página de enriquecimento e a flag OFF fazia o
+    operador publicar política que não rodava, em silêncio.
+
+    O que o teste protegia de verdade era a SEGUNDA metade do nome, e ela segue
+    intacta: a flag desligada tem que zerar o custo. O default era o meio, não o
+    fim, e travá-lo passou a impedir a correção em vez de proteger o produto.
+
+    A verificação do desligamento saiu do default e virou COMPORTAMENTAL (ver
+    ``test_flag_off_desliga_o_subsistema_de_verdade`` abaixo), o que tem mais
+    dentes: antes bastava a constante estar False, agora o off precisa mesmo
+    desligar.
+    """
     src = Path(Path(applier_mod.__file__).parent.parent / "pipeline.py").read_text()
     # O call-site por evento é guardado por `is not None`, não pela flag: ler
     # settings por evento seria um atributo a mais no caminho quente.
     assert "if _enrich_local_res is not None:" in src
     assert "if settings.ENRICHMENT_ENABLED and organization_id is not None:" in src
+
+
+def test_flag_off_desliga_o_subsistema_ANTES_de_tocar_o_banco(monkeypatch):
+    """O off-switch funciona, independente de qual seja o default.
+
+    É o que a asserção do default garantia por procuração, agora medido.
+
+    O sinal NÃO pode ser "devolveu None": esta função devolve None também
+    quando não há política, quando a org é None e quando o banco falha (ela é
+    fail-closed em tudo). A primeira versão deste teste afirmava só isso, e
+    passou numa mutação que REMOVIA o gate da flag. Teste verde pelo motivo
+    errado é pior que teste ausente.
+
+    O sinal com dentes é o curto-circuito: com a flag desligada, a função
+    retorna sem NENHUMA sessão de banco.
+
+    E o espião REGISTRA em vez de levantar. A segunda versão deste teste usava
+    uma ``SessionLocal`` que lançava ``AssertionError``, e continuou passando
+    sob mutação: a função tem um ``except Exception`` amplo (fail-closed de
+    propósito, um problema de banco não pode derrubar a coleta) que engolia o
+    próprio sentinela e devolvia None. Contador não é engolível.
+    """
+    from backend.app.collectors.enrich import runtime as enrich_runtime
+    from backend.app.core.config import settings
+    from backend.app.db import database as db_module
+
+    chamadas = []
+
+    def _espiao(*_a, **_k):
+        chamadas.append(1)
+        raise RuntimeError("não deveria chegar aqui")
+
+    monkeypatch.setattr(settings, "ENRICHMENT_ENABLED", False, raising=False)
+    monkeypatch.setattr(db_module, "SessionLocal", _espiao)
+
+    # Org VÁLIDA de propósito: assim quem barra é a flag, não o fail-closed de
+    # org ausente.
+    resultado = enrich_runtime.load_policy_for_org(1)
+
+    assert chamadas == [], (
+        "abriu sessão de banco com ENRICHMENT_ENABLED=False — o gate da flag sumiu"
+    )
+    assert resultado is None
 
 
 @pytest.mark.source_only

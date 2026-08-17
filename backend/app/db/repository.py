@@ -1499,6 +1499,19 @@ class AuditLogRepository:
             .order_by(models.AuditLog.created_at.desc(), models.AuditLog.id.desc())
         )
 
+        # DOIS EIXOS INDEPENDENTES, e colar os dois foi o defeito.
+        #
+        # Eixo 1, QUAIS USUÁRIOS: ``include_all=False`` mostra só as ações do
+        # próprio visualizador; ``True`` mostra as de todo mundo.
+        #
+        # Eixo 2, QUAL TENANT: sempre limitado à org do visualizador quando ele
+        # é escopado, INDEPENDENTE de ``include_all``.
+        #
+        # Antes existia só o eixo 1, e o endpoint de auditoria passa
+        # ``include_all=True``. Com isso o único filtro era pulado e um admin
+        # de org enxergava a atividade administrativa de todos os tenants:
+        # usuário, IP, endpoint, horário. Num MSSP isso é vazamento de
+        # reconhecimento entre clientes concorrentes.
         if viewer and not include_all:
             visibility_filters = []
             if getattr(viewer, "id", None) is not None:
@@ -1511,6 +1524,26 @@ class AuditLogRepository:
                 )
             if visibility_filters:
                 query = query.filter(or_(*visibility_filters))
+
+        # Eixo 2. Fail-closed em dois pontos.
+        #
+        # Escopado SEM org resolvida não vê nada, em vez de ver tudo: usuário
+        # nesse estado é configuração incompleta, e o default seguro para
+        # trilha de auditoria é o silêncio.
+        #
+        # E ``organization_id IS NULL`` fica de fora do escopo, o que cobre
+        # tanto a ação de admin de plataforma quanto a linha gravada antes da
+        # coluna existir. Consequência aceita e documentada: o histórico
+        # pré-migração só aparece para admin de plataforma.
+        # Import tardio: ``core.tenant`` importa ``db.models``, e este módulo
+        # também mora em ``db`` — no topo, o ciclo fecha.
+        from ..core.tenant import has_global_scope
+
+        if viewer is not None and not has_global_scope(viewer):
+            raw_org = getattr(viewer, "organization_id", None)
+            if raw_org is None:
+                return []
+            query = query.filter(models.AuditLog.organization_id == int(raw_org))
 
         if username:
             query = query.filter(func.lower(models.AuditLog.username).contains(username.strip().lower()))

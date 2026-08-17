@@ -597,6 +597,7 @@ register(
         icon_id="amazons3",
         tier="stable",
         order=70,
+        requires_modules=("aioboto3",),
         description="Amazon S3 ou compatível — objetos NDJSON particionados (data lake / arquivo frio).",
     )
 )

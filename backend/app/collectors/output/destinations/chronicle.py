@@ -214,6 +214,7 @@ register(
         icon_id="chronicle",
         tier="stable",
         order=40,
+        requires_modules=("google.auth",),
         description="Google Security Operations (Chronicle) — ingestão de logs unstructured/UDM.",
     )
 )

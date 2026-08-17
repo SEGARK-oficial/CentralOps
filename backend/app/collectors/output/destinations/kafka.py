@@ -473,6 +473,7 @@ register(
         icon_id="apachekafka",
         tier="beta",
         order=90,
+        requires_modules=("aiokafka",),
         description="Apache Kafka — barramento de eventos (NDJSON) para fan-out downstream.",
     )
 )

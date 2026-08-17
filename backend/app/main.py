@@ -94,12 +94,44 @@ AUDIT_REDACTED_FIELDS = {
     "tenant_id",
 }
 
+#: SUFIXOS de nome de campo que denunciam credencial, independente do prefixo.
+#:
+#: A lista acima é de igualdade exata, e por isso perdia todo nome composto que
+#: ninguém tinha previsto. Caso real: ``hec_token`` (destino Splunk HEC) não
+#: estava lá, e ``token`` estar não ajudava, porque a comparação é exata. O
+#: token inteiro ia para ``audit_logs.request_payload`` em texto claro.
+#:
+#: Trocar igualdade por sufixo fecha a classe em vez do caso. Todo
+#: ``<qualquer_coisa>_token``, ``_password``, ``_secret``, ``_key``,
+#: ``_credential`` e ``_passphrase`` passa a ser redactado sem precisar que
+#: alguém lembre de cadastrar o campo novo.
+#:
+#: O custo é redactar um campo inofensivo cujo nome termine assim. Para uma
+#: trilha de auditoria, redactar demais é erro barato e vazar é caro.
+AUDIT_REDACTED_SUFFIXES = (
+    "_token",
+    "_password",
+    "_secret",
+    "_key",
+    "_credential",
+    "_credentials",
+    "_passphrase",
+    "_apikey",
+    "_api_key",
+)
+
+
+def _e_campo_sensivel(key: str) -> bool:
+    """Nome de campo denuncia credencial? Igualdade exata OU sufixo conhecido."""
+    k = key.lower()
+    return k in AUDIT_REDACTED_FIELDS or k.endswith(AUDIT_REDACTED_SUFFIXES)
+
 
 def _redact_audit_payload(value):
     if isinstance(value, dict):
         redacted = {}
         for key, item in value.items():
-            if key.lower() in AUDIT_REDACTED_FIELDS:
+            if _e_campo_sensivel(str(key)):
                 redacted[key] = "[REDACTED]"
             else:
                 redacted[key] = _redact_audit_payload(item)

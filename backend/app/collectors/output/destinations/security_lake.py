@@ -259,6 +259,8 @@ register(
         icon_id="amazonsecuritylake",
         tier="beta",
         order=80,
+        # Parquet OCSF: precisa dos DOIS (upload + serialização colunar).
+        requires_modules=("aioboto3", "pyarrow"),
         description="Amazon Security Lake — eventos OCSF em Parquet sobre S3.",
     )
 )
