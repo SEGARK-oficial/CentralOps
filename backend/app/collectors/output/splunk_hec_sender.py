@@ -151,6 +151,7 @@ class SplunkHecClient:
         verify_tls: bool = True,
         ca_bundle: Optional[str] = None,
         payload: str = "envelope",
+        channel: Optional[str] = None,
     ) -> None:
         self._url = url.rstrip("/") + "/services/collector"
         self._token = token
@@ -161,6 +162,7 @@ class SplunkHecClient:
         self._payload = payload
         self._verify_tls = verify_tls
         self._ca_bundle = ca_bundle
+        self._channel = channel
         self._session: Optional[aiohttp.ClientSession] = None
 
     def format(self, envelope: Mapping[str, Any]) -> dict:
@@ -192,6 +194,20 @@ class SplunkHecClient:
             headers = {"Content-Type": "application/json"}
             if self._token:
                 headers["Authorization"] = f"Splunk {self._token}"
+            # ``X-Splunk-Request-Channel``: obrigatório em implementações HEC
+            # que fazem indexer acknowledgement, e em algumas que o exigem
+            # SEMPRE. Sem ele o servidor responde 400 com
+            # ``{"text":"Data channel is missing","code":10}`` — e o erro só
+            # aparece DEPOIS da autenticação passar, então parece config de
+            # credencial quando não é.
+            #
+            # O canal identifica o PRODUTOR, não a requisição: o Splunk
+            # correlaciona acks por ele e limita quantos canais concorrentes
+            # mantém. Gerar um por POST faria o servidor despejar canais
+            # antigos e perder ack. Por isso é estável por destino — ver
+            # ``_canal_estavel`` na factory do kind.
+            if self._channel:
+                headers["X-Splunk-Request-Channel"] = self._channel
             connector = aiohttp.TCPConnector(ssl=self._build_ssl())
             self._session = aiohttp.ClientSession(
                 headers=headers,

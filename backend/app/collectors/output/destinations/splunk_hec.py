@@ -17,6 +17,7 @@ por item (DeliveryResult) e não se encaixa no modelo all-or-nothing do legado.
 from __future__ import annotations
 
 import logging
+import uuid
 from typing import Any, Optional
 
 from pydantic import BaseModel, Field
@@ -28,6 +29,25 @@ from .registry import DestinationConfig, DestinationRegistration, register
 logger = logging.getLogger(__name__)
 
 KIND = "splunk_hec"
+
+#: Namespace fixo para derivar o GUID do canal a partir do id do destino.
+#: Qualquer UUID constante serve; o que importa é NÃO mudar, senão o canal de
+#: todo destino existente muda junto no próximo deploy.
+_NS_CANAL = uuid.UUID("6f9619ff-8b86-d011-b42d-00c04fc964ff")
+
+
+def _canal_estavel(destination_id: str) -> str:
+    """GUID de canal derivado do id do destino.
+
+    Determinístico de propósito. O canal identifica o PRODUTOR e o servidor
+    correlaciona acknowledgements por ele; um GUID novo a cada reinício do
+    collector faria o servidor tratar cada boot como um cliente diferente e
+    descartar os acks pendentes do anterior.
+
+    Derivar do ``destination_id`` (que já é único e estável) evita mais um
+    campo obrigatório no formulário para uma informação que o sistema já tem.
+    """
+    return str(uuid.uuid5(_NS_CANAL, destination_id or "sem-destination-id"))
 
 
 class SplunkHecConfig(BaseModel):
@@ -44,6 +64,13 @@ class SplunkHecConfig(BaseModel):
     source: Optional[str] = Field(default=None, description="Campo source do HEC")
     host: Optional[str] = Field(default=None, description="Campo host do HEC")
     payload: PayloadShape = Field(default="envelope", description=PAYLOAD_DESCRICAO)
+    channel: Optional[str] = Field(
+        default=None,
+        description="GUID do canal HEC (X-Splunk-Request-Channel). Deixe vazio: é "
+        "derivado do id do destino, estável entre reinícios. Preencha só se o lado "
+        "do coletor exigir um GUID específico. Servidores HEC que fazem indexer "
+        "acknowledgement recusam o envio sem ele (400, code 10).",
+    )
     verify_tls: bool = Field(default=True, description="Verificar certificado TLS")
     ca_bundle: Optional[str] = Field(
         default=None,
@@ -82,6 +109,7 @@ def _factory(config: DestinationConfig, secrets: Optional[Any] = None) -> Splunk
         payload=cfg.payload,
         verify_tls=cfg.verify_tls,
         ca_bundle=cfg.ca_bundle,
+        channel=cfg.channel or _canal_estavel(config.destination_id),
     )
 
 

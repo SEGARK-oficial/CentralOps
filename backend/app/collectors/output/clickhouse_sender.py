@@ -41,6 +41,19 @@ logger = logging.getLogger(__name__)
 # Status HTTP que indicam erro transitório (retry com backoff).
 _RETRYABLE_STATUS = {429, 500, 502, 503, 504}
 
+#: Sufixo obrigatório de TODO resultado de sucesso do ``test()``.
+#:
+#: Os três passos do teste são de LEITURA; nada neles executa um INSERT. O que
+#: só falha na escrita — materialized view encadeada rodando com a permissão de
+#: quem insere, constraint, TTL, cota — passa incólume e o operador lê "ok" como
+#: "está entregando". Foi medido: ~90% dos lotes de um destino com os três
+#: passos verdes morriam em ACCESS_DENIED numa MV. Nomear o limite não conserta
+#: a entrega, mas impede a leitura errada — e aponta onde está a verdade.
+LIMITE_DO_TESTE = (
+    " Este teste NÃO executa INSERT: materialized view encadeada, constraint e "
+    "cota só falham na escrita. Confirme a entrega pela DLQ do destino."
+)
+
 # Envelope sintético usado por ``chaves_emitidas`` para descobrir, sem tráfego
 # real, quais chaves de topo a config atual produz. Só a FORMA importa: os
 # valores nunca saem daqui.
@@ -333,6 +346,25 @@ class ClickHouseClient:
            colunas reais. É o passo que pega o modo de falha que motivou tudo
            isto: ``flat`` contra tabela coluna-wrapper, em que o INSERT responde
            200 e grava linhas vazias, sem nenhum sinal de erro em lugar nenhum.
+
+        **O QUE ESTE TESTE NÃO PROVA, e por que isso é declarado em vez de
+        escondido.** Os três passos são LEITURA. O que só acontece no INSERT
+        de verdade fica fora do alcance de todos eles:
+
+        * materialized views encadeadas na tabela de destino — elas rodam com
+          as permissões de QUEM INSERE, e uma tabela intermediária sem
+          ``SELECT`` derruba o INSERT com ``ACCESS_DENIED`` (497);
+        * constraints, TTL e defaults que só são avaliados na escrita;
+        * cota e limite de conexão do usuário sob carga real.
+
+        Medido em produção: um destino cujos três passos passavam perdeu ~90%
+        dos lotes por uma MV encadeada exigindo ``SELECT`` numa tabela de
+        agregação que o usuário de ingestão não tinha. Conexão, tabela e
+        colunas estavam corretas — a tela dizia OK enquanto a DLQ subia para
+        milhares. Não há INSERT em seco no ClickHouse, então este teste não
+        tem como cobrir isso; o que ele PODE fazer é não deixar o operador ler
+        "ok" como "está entregando". Por isso o texto de sucesso nomeia o
+        limite, e a DLQ continua sendo a fonte de verdade sobre entrega.
         """
         # ── Passo 1: conectividade e credencial ───────────────────────────
         try:
@@ -392,6 +424,7 @@ class ClickHouseClient:
                 )
             return TestResult.passed(
                 f"ClickHouse ok: {alvo}, forma wrapped, colunas {sorted(emitidas)} conferem."
+                + LIMITE_DO_TESTE
             )
 
         comuns = emitidas & colunas
@@ -406,9 +439,11 @@ class ClickHouseClient:
         if descartadas:
             return TestResult.passed(
                 f"ClickHouse ok: {alvo}. Aviso: {len(descartadas)} chave(s) não têm coluna e "
-                f"serão descartadas: {descartadas[:12]}"
+                f"serão descartadas: {descartadas[:12]}" + LIMITE_DO_TESTE
             )
-        return TestResult.passed(f"ClickHouse ok: {alvo}, todas as chaves têm coluna.")
+        return TestResult.passed(
+            f"ClickHouse ok: {alvo}, todas as chaves têm coluna." + LIMITE_DO_TESTE
+        )
 
     async def close(self) -> None:
         if self._session is not None and not self._session.closed:

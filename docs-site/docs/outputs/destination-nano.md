@@ -1,175 +1,229 @@
 ---
 sidebar_position: 12
 title: "Destino: nano SIEM"
-description: Envie eventos normalizados ao nano SIEM via ingestão OCSF direta para análise imediata.
+description: Entregue eventos já normalizados ao nano SIEM, escolhendo entre os dois caminhos de entrega e sabendo o que cada um cobra em troca.
 ---
 
 # Destino: nano SIEM
 
-O destino **nano SIEM** entrega os eventos já normalizados pelo CentralOps diretamente para o nano, um SIEM leve cuja camada de armazenamento é ClickHouse e cuja ingestão fala OCSF. Você cria e gerencia tudo pela interface, na tela de Destinos.
+O nano é um SIEM leve que guarda os eventos em ClickHouse e aceita OCSF pronto. Como o CentralOps já coleta do fabricante, normaliza para OCSF 1.8, enriquece e reduz, o encaixe é direto: você entrega o evento normalizado e o nano cuida da busca, da detecção e da investigação.
 
 Esta tela só aparece para administradores da plataforma.
 
-## Por que um destino próprio para o nano
+![Tela de Destinos do console](/img/console/console-destinos.png)
 
-O nano é um SIEM que, por desenho, aceita **OCSF já normalizado sem repassar o evento pelo pipeline de parsing dele**, e oferece a camada de correlação, detecção e investigação por cima disso. Como o CentralOps já normaliza para OCSF 1.8, valida contra o manifesto, enriquece e reduz, esse é o encaixe natural entre os dois.
+## Dois caminhos, e eles não são equivalentes
 
-O CentralOps é, por construção, uma camada de normalização: coleta do vendor, mapeia para OCSF 1.8, valida contra o manifesto, enriquece e reduz. Essa postura bate com a do nano, e este kind é o atalho que evita errar qualquer uma de cinco decisões acopladas.
+O nano abre duas portas de entrada e a escolha entre elas tem consequência. Leia esta seção antes de criar o destino, porque trocar de caminho depois significa refazer configuração dos dois lados.
 
-Se você tivesse que usar o ClickHouse genérico, precisaria acertar juntos:
-- porta HTTP 8123 (não nativa 9000);
-- banco `nanosiem`, tabela `ocsf_logs_raw`;
-- conteúdo OCSF puro (não envelope);
-- forma wrapped (evento aninhado + rótulo);
-- usuário `nanosiem_ingest` (INSERT-only);
+| | **Entrega direta** | **Entrega por coletor (HEC)** |
+|---|---|---|
+| Como funciona | O CentralOps grava direto no banco do nano | O CentralOps entrega para o serviço do nano, que grava |
+| O que você configura no nano | Um usuário de banco com permissão de escrita | Um token de ingestão e um arquivo de tradução |
+| Quem grava | O CentralOps, com credencial de banco | O próprio nano, com as credenciais dele |
+| Latência | Menor: um salto a menos | Um pouco maior |
+| Se o nano mudar por dentro | A entrega pode parar | Segue funcionando |
+| Precisa de permissão de banco | Sim | Não |
 
-Aqui são dois campos: onde falar com o nano, e com que rótulo.
+### Quando escolher a entrega direta
 
-Referência oficial: [nano SIEM, OCSF direct integration](https://nano.rs/docs/ocsf/integrations/direct-ocsf/)
+É o caminho mais curto e o de menor latência. O evento sai do CentralOps e entra no banco do nano sem intermediário.
 
-## Quando usar
+O que você ganha:
 
-- **Ingerir eventos normalizados sem processamento adicional.** O nano não mexe no OCSF, você entrega pronto, e a plataforma cuida de correlação, detecção e busca.
-- **Usar ClickHouse para análise de dados brutos.** A tabela `ocsf_logs_raw` do nano aceita consultas SQL diretas. Você monta dashboards, alertas e relatórios no ClickHouse.
-- **Escopo de detecção por fonte.** O rótulo `source_type` é a chave de escopo das regras de detecção do nano, cada feed tem seu contexto isolado.
+- **Nada é reprocessado.** O nano recebe exatamente o OCSF que o CentralOps produziu.
+- **Menos partes móveis.** Não há arquivo de tradução para manter.
+- **Um salto a menos**, o que aparece na latência quando o volume é alto.
 
-## O que você precisa antes de começar
+O que você paga:
 
-Para criar o destino, tenha em mãos:
+- **Depende de permissões de banco.** O usuário de ingestão precisa poder escrever na tabela de destino **e** ter acesso a algumas tabelas internas que o nano usa para montar as estatísticas dele. Se faltar qualquer uma, a gravação é recusada. Veja [Quando a gravação é recusada por permissão](#quando-a-gravacao-e-recusada-por-permissao).
+- **Acompanha as mudanças internas do nano.** Uma atualização que mexa na estrutura interna pode exigir ajuste de permissão de novo.
+- **A conexão pode estar perfeita e a gravação falhar mesmo assim.** É o ponto que mais confunde, e está explicado em [O que o teste de conexão não diz](#o-que-o-teste-de-conexao-nao-diz).
 
-- **Endereço da interface HTTP do nano**: o ClickHouse expõe a interface HTTP em duas portas, a 8123 em texto claro e a 8443 com TLS. Confira qual delas o deploy do nano **publicou** para fora do host, porque é comum o compose publicar só a 8443. Se a 9000 for a única que responde, ela não serve: é o protocolo nativo TCP, binário, e este destino fala HTTP.
-- **Usuário de ingestão**: geralmente `nanosiem_ingest`, um usuário INSERT-only criado no nano. Nunca use o usuário da aplicação (que lê e escreve o banco inteiro).
-- **Senha do usuário**: a `CLICKHOUSE_INGEST_PASSWORD` gerada pelo instalador do nano. O CentralOps guarda essa senha de forma criptografada; ela nunca aparece em tela depois de salvo.
-- **Rótulo do feed**: um identificador minúsculo para esta origem no nano (ex.: `centralops_sophos`, `centralops_wazuh`). É a chave de escopo das detecções, sem ele as linhas caem como `unknown` e as regras com escopo de fonte ignoram tudo.
+### Quando escolher a entrega por coletor
 
-> O instalador do nano gera a credencial `CLICKHOUSE_INGEST_PASSWORD` para o usuário `nanosiem_ingest`. No CentralOps você apenas informa esse valor ao criar o destino.
+Aqui o CentralOps conversa com o serviço de ingestão do nano, e quem grava no banco é o nano.
 
-## Criar o destino
+O que você ganha:
 
-1. No menu lateral, abra **Coleta -> Integrações** para confirmar que suas fontes já estão coletando, depois vá em **Roteia -> Destinos**.
-2. Use a opção de criar um novo destino.
-3. Escolha o tipo **nano SIEM**.
-4. Preencha os campos abaixo.
+- **Nenhuma permissão de banco.** Você usa um token de ingestão. O problema de permissão simplesmente não existe nesse caminho.
+- **Resistente a mudanças internas.** Se o nano reorganizar as tabelas dele, a sua entrega continua de pé.
+- **Erros mais legíveis.** O serviço responde com mensagens de aplicação, não com erro de banco.
+
+O que você paga:
+
+- **Um arquivo de tradução do lado do nano.** Ele não reprocessa nada, só converte o formato de entrega para o formato que o nano guarda. Está descrito no [passo a passo](#caminho-b-entrega-por-coletor-hec).
+- **Um salto a mais**, e portanto um pouco mais de latência.
+
+**Na dúvida, escolha a entrega por coletor.** Ela custa um arquivo a mais e devolve independência: sua ingestão deixa de depender de como o nano está organizado por dentro.
+
+## O que ter em mãos
+
+Para os dois caminhos:
+
+- **O endereço do nano na sua rede.**
+- **Um rótulo para esta origem**, em letras minúsculas, sem espaço (por exemplo `centralops_sophos`). É por ele que você separa e filtra os dados dentro do nano.
+
+Só para a entrega direta:
+
+- **Usuário e senha de ingestão do nano.** O instalador cria esse usuário e gera a senha.
+
+Só para a entrega por coletor:
+
+- **O token de ingestão do nano.**
+
+> A senha e o token ficam guardados de forma criptografada. Depois de salvar, eles não aparecem mais em tela.
+
+## Caminho A: entrega direta
+
+1. No menu lateral, abra **Roteia → Destinos**.
+2. Crie um destino novo e escolha o tipo **nano SIEM**.
+3. Preencha:
 
 | Campo | O que informar |
-|-------|----------------|
-| **Nome** | Um nome que ajude a identificar este destino (ex.: "nano SIEM Produção"). |
-| **URL** | A interface HTTP do ClickHouse do nano: `http://host:8123` ou `https://host:8443`. Use a que estiver publicada no host. Não use a 9000, que é o protocolo nativo. |
-| **Rótulo da origem** | Identificador minúsculo deste feed no nano (ex: `centralops_sophos`). É a chave de escopo das detecções e painéis, sem ele as linhas caem como `unknown`. |
-| **Usuário** | Padrão: `nanosiem_ingest`. Mude apenas se o nano usou outro nome para o usuário de ingestão. |
-| **Senha** | A senha do usuário de ingestão. Fica criptografada após salvar. |
-| **Banco** | Padrão: `nanosiem`. Mude apenas se sua instância usa banco diferente. |
-| **Tabela** | Padrão: `ocsf_logs_raw`. Use essa tabela para ingestão OCSF. A `ocsf_logs_native_raw` é do protocolo nativo do ClickHouse (TCP na porta 9000), não do caminho HTTP. |
-| **Verificar TLS** | Mantenha ativado para garantir uma conexão segura. |
-| **CA bundle** | Caminho para certificado customizado (opcional). Normalmente definido pela equipe de infraestrutura no momento do deploy. |
+|---|---|
+| **Nome** | Algo que ajude a reconhecer o destino depois, como "nano SIEM Produção". |
+| **URL** | O endereço do nano com a porta da interface web do banco: `http://seu-nano:8123`, ou `https://seu-nano:8443` se for com TLS. Confira qual delas o seu deploy publicou. |
+| **Rótulo da origem** | Minúsculo, sem espaço. Use um por feed. |
+| **Rótulo derivado de** | Deixe vazio por enquanto. Volte aqui depois de ler [Um destino para vários clientes](#um-destino-para-varios-clientes). |
+| **Usuário** | O usuário de ingestão do nano. |
+| **Senha** | A senha desse usuário. |
+| **Banco** e **Tabela** | Os valores já vêm preenchidos com o padrão do nano. Só mude se a sua instalação usar outros. |
+| **Verificar TLS** | Deixe ligado. Desligue apenas se o nano usar certificado próprio e a conexão falhar por causa dele. |
 
-### Sobre o rótulo da origem
+4. Salve. O destino nasce ativo e passa a receber o que for roteado para ele.
 
-O campo **Rótulo da origem** (`source_type`) precisa ser:
-- **Minúsculo.** O nano separa as facetas de detecção por caixa. Um valor `Sophos_Central` será interpretado diferente de `sophos_central`. Se você digitar maiúscula, o salvar falha com uma mensagem clara.
-- **Sem espaço.** Um rótulo como `sophos central` não é válido.
-- **Único por feed.** Cada feed (Sophos, Wazuh, CrowdStrike) deve ter seu próprio rótulo. Reuse o mesmo rótulo para N coletores da mesma plataforma.
-
-Se você suspeitar que as linhas caem como `unknown`, confirme que o rótulo foi digitado idêntico dos dois lados: no CentralOps (este destino) e na configuração das regras e painéis do nano.
-
-### Sobre a verificação TLS e certificados próprios
-
-Mantenha **Verificar TLS** ativado sempre que possível, ele garante que o CentralOps está mesmo falando com seu nano.
-
-Se o nano usa um certificado próprio (autoassinado ou de uma autoridade interna), a confiança nesse certificado é definida pela equipe de infraestrutura no momento do deploy. Se a conexão segura falhar por causa do certificado, fale com o administrador da plataforma para que ele registre o certificado correto. Você não precisa lidar com arquivos de certificado pela interface.
-
-### Salvar o destino
-
-Clique em **Salvar** para criar o destino. Ele já fica **ativo** (badge verde) e começa a receber os eventos roteados para ele.
-
-### Testar a conexão
-
-Após criar o destino, abra a página de detalhes e use o botão **Testar** (ícone de play) no cabeçalho. O CentralOps verifica:
-
-- conectividade com a instância do nano;
-- credencial (usuário e senha);
-- existência do banco e tabela;
-- compatibilidade entre as colunas emitidas e as da tabela.
-
-Se o teste passar, a conexão está OK. Se falhar, o relatório detalhado ajuda a identificar o problema: porta errada, tabela não encontrada, colunas incompatíveis.
-
-> O teste de conexão valida a configuração sem enviar dados reais, use antes de ativar o roteamento para esse destino em produção.
-
-:::info[O resultado normal aqui é "passou, com uma ressalva"]
-O `nanosiem_ingest` é INSERT-only por desenho: ele não lê o catálogo do banco. Então os dois últimos itens da lista acima não rodam, e o teste diz isso em vez de fingir que verificou. Passar com essa ressalva é o resultado esperado, não um defeito.
-
-Se quiser a verificação completa de banco, tabela e colunas, dê a permissão de leitura de schema no ClickHouse do nano:
-
-```sql
-GRANT SHOW COLUMNS ON nanosiem.* TO nanosiem_ingest
-```
-
-Isso não dá acesso a conteúdo de log, só a nomes de coluna.
+:::caution[Uma porta que parece certa e não é]
+Se você tentar apontar para a porta 9000, o salvamento é recusado com uma explicação. Aquela porta usa um protocolo diferente e não serve para este caminho. Use 8123, ou 8443 com TLS.
 :::
 
-### Simular a forma da linha
+## Caminho B: entrega por coletor (HEC) {#caminho-b-entrega-por-coletor-hec}
 
-Use o botão **Simular** (ícone de olho) para visualizar exatamente qual será a linha JSON enviada ao nano. Com a configuração padrão, será:
+Este caminho usa o tipo de destino **Splunk HEC**, porque o nano fala o mesmo protocolo de coleta.
 
-```json
-{"event": {"class_uid": 1006, "time": 1786000000000, ...}, "source_type": "seu_rotulo"}
-```
+1. No menu lateral, abra **Roteia → Destinos**.
+2. Crie um destino novo e escolha o tipo **Splunk HEC**.
+3. Preencha:
 
-A simulação mostra a forma sem enviar dados, é apenas uma prévia para verificação.
+| Campo | O que informar |
+|---|---|
+| **Nome** | Algo como "nano SIEM (coletor)". |
+| **URL** | O endereço do nano com a porta do coletor: `https://seu-nano:8088`. |
+| **Token** | O token de ingestão do nano. |
+| **Sourcetype** | O rótulo desta origem, minúsculo e sem espaço. É o mesmo papel do rótulo da origem no outro caminho. |
+| **Payload** | **OCSF.** Esse campo é o que mais importa aqui: escolher a outra opção faz o nano receber um formato que ele não sabe guardar, e a tradução recusa o evento. |
+| **Canal** | Deixe vazio. O CentralOps preenche sozinho com um identificador estável. |
+| **Verificar TLS** | Deixe ligado, com a mesma ressalva de certificado próprio. |
+
+4. Salve.
+
+5. **Instale o arquivo de tradução no nano.** Sem ele, os eventos chegam mas o nano não sabe onde guardá-los. O arquivo pega o que o CentralOps entrega e converte para a forma que o nano armazena. Ele não reinterpreta o conteúdo: o evento já vem normalizado, e reprocessar seria refazer um trabalho que já foi feito, com risco de o resultado divergir.
+
+O arquivo faz quatro coisas:
+
+- Reaproveita o evento como está, sem tocar no conteúdo.
+- Copia o rótulo da origem para o campo que o nano usa para separar as fontes.
+- Converte o horário do evento para o formato que o nano espera.
+- Reaproveita o identificador do evento, para que um mesmo evento entregue duas vezes não vire duas linhas.
+
+Ele também recusa o evento, em vez de guardar torto, se perceber que o **Payload** ficou na opção errada. É melhor ver um erro contado do que descobrir semanas depois que uma parte dos dados entrou sem classificação.
+
+[Baixe o arquivo de tradução](/files/nano-centralops.vrl) e coloque-o na pasta de tradutores do nano. Se a sua instalação tiver o caminho diferente do padrão, quem administra o nano sabe onde é.
+
+## Um destino para vários clientes {#um-destino-para-varios-clientes}
+
+Se você atende mais de um cliente, o rótulo fixo vira um problema de escala: um destino, uma rota e uma credencial por cliente. Em dez ainda dá; em cinquenta, não.
+
+O campo **Rótulo derivado de** resolve isso. Em vez de escrever o rótulo, você escolhe de onde ele sai, e cada evento entregue leva o rótulo do cliente que o originou. Um destino só atende todos.
+
+A opção mais usada é **organização + fabricante**, que produz rótulos como `acme_sophos` e `beta_wazuh`. Ela separa por cliente, que é o que importa para o escopo, e mantém o fabricante visível, que é o que costuma aparecer nos filtros.
+
+O **Rótulo da origem** continua útil junto: ele vira o valor de reserva, usado quando o evento não trouxer a informação de origem.
+
+:::tip[Isso muda como escrever as regras no nano]
+Com rótulo derivado, cada cliente passa a ter o seu. Uma regra escrita para um rótulo específico deixa de enxergar todos os outros, em silêncio.
+
+Escreva as regras filtrando pelo **conteúdo** do evento (tipo, severidade, categoria) e use o rótulo apenas como coluna de resultado, para saber de quem é. Assim uma regra atende todos os clientes, que é justamente o motivo de normalizar antes de entregar.
+:::
+
+## Testar a conexão
+
+Na página do destino, use o botão **Testar**. Ele verifica se o nano responde, se a credencial é aceita e se o formato combina com o que está do outro lado.
+
+### O que o teste não diz {#o-que-o-teste-de-conexao-nao-diz}
+
+O teste faz perguntas ao nano; ele não grava nada. Isso significa que **passar no teste não é prova de que os eventos estão sendo guardados**. Existe uma situação real em que o teste passa e a gravação falha: quando o endereço, a credencial e o formato estão todos corretos, mas o nano recusa a escrita por permissão.
+
+Por isso o resultado do teste diz o que ele não cobre e aponta onde está a resposta de verdade: a **fila de reenvio** do destino. Se ela está vazia e o contador de eventos sobe, está entregando. Se ela cresce, não está — independentemente do que o teste disse.
+
+Confira sempre os dois.
+
+## Confirmar que os dados chegaram
+
+Abra **Roteia → Destinos**, selecione o destino e veja o contador de eventos e a fila de reenvio.
+
+Do lado do nano, procure pelo rótulo que você configurou. Os eventos ficam na tabela de logs consolidada.
+
+:::warning[Não procure na tabela de entrada]
+A tabela onde o CentralOps escreve é apenas uma porta de entrada: por desenho ela **não guarda nada**, só repassa. Consultá-la vai devolver zero mesmo quando tudo estiver funcionando, e é um jeito fácil de concluir errado que a integração está parada.
+
+Procure na tabela de logs, filtrando pelo seu rótulo.
+:::
+
+## Quando a gravação é recusada por permissão {#quando-a-gravacao-e-recusada-por-permissao}
+
+Isso vale apenas para a **entrega direta**.
+
+Ao receber um evento, o nano não só guarda a linha: ele também atualiza algumas tabelas internas de estatística. Essa atualização acontece com as permissões de quem está gravando, ou seja, o seu usuário de ingestão. Se faltar acesso a qualquer uma dessas tabelas internas, o nano recusa o evento inteiro.
+
+Como isso aparece na prática:
+
+- o teste de conexão passa;
+- a fila de reenvio cresce sem parar;
+- os eventos que chegam a entrar são só uma fração do que foi enviado.
+
+O que fazer: peça a quem administra o nano para conceder ao usuário de ingestão o acesso de leitura às tabelas de agregação. Em algumas instalações o usuário é criado por arquivo de configuração, e nesse caso o ajuste precisa ser feito nesse arquivo, no servidor, e não por comando.
+
+Nenhum evento se perde enquanto isso: eles ficam na fila de reenvio e são entregues quando a permissão for corrigida.
+
+**Se este problema aparecer, considere migrar para a entrega por coletor.** Ela não depende de permissão de banco, então esse modo de falha deixa de existir.
 
 ## Como os eventos são entregues
 
-Você não precisa configurar nada do funcionamento interno, ele já vem ajustado para entrega eficiente ao nano. Vale apenas entender o comportamento:
+Você não precisa configurar nada disso, mas ajuda saber o que esperar:
 
-- **Envio em lotes.** Os eventos são agrupados e enviados em blocos, o que é mais eficiente do que enviar um a um. Cada linha do INSERT é um evento em formato JSON.
-- **Nova tentativa automática.** Se o nano recusar ou ficar indisponível por um instante, o CentralOps tenta reenviar sozinho, esperando um pouco mais entre cada tentativa.
-- **Proteção contra destino instável.** Se o nano começar a falhar de forma persistente, o CentralOps pausa o envio por um curto período e volta a tentar automaticamente.
-- **Entrega ao menos uma vez.** Em uma queda no momento errado, um evento pode chegar duplicado. Cada evento carrega um identificador único (`_centralops.event_id` no envelope), então você pode fazer dedup no ClickHouse.
+- **Vão em lotes**, o que é mais eficiente do que um a um.
+- **Se falhar, tenta de novo sozinho**, esperando um pouco mais a cada tentativa.
+- **Se o nano ficar instável**, o envio pausa por um curto período e volta automaticamente, para não piorar a situação do outro lado.
+- **Um evento pode chegar duplicado** numa queda no momento errado. Cada evento carrega um identificador próprio, o que permite identificar repetições.
 
-O payload é **sempre OCSF** (`normalized` do pipeline), nunca envelope canônico. A forma é **sempre wrapped** (evento aninhado + rótulo). Esses valores são fixos por design do nano e não são editáveis.
+## Acompanhar a saúde
 
-## Acompanhar a saúde do destino
-
-Abra **Roteia -> Destinos** e selecione o destino nano.
-
-O badge de saúde mostra a situação atual:
-
-| Cor | Significado |
-|-----|-------------|
-| Verde | Eventos sendo entregues normalmente, sem itens na fila de reenvio. |
-| Amarelo | Eventos chegando, mas há itens parados na fila de reenvio. |
-| Vermelho | Envio pausado pela proteção contra destino instável ou nano indisponível. |
+| Cor | O que significa |
+|---|---|
+| Verde | Entregando normalmente, sem nada parado. |
+| Amarelo | Entregando, mas há itens na fila de reenvio. |
+| Vermelho | Envio pausado, ou o nano indisponível. |
 | Cinza | Destino desativado. |
 
-Na visão do destino você acompanha as métricas em tempo real:
+A fila de reenvio mostra cada evento recusado com o motivo, o horário e o conteúdo exato. É por onde se começa qualquer investigação de entrega.
 
-- **Eventos por segundo**: ritmo de entrega na última hora.
-- **Volume**: quanto dado está saindo na última hora.
-- **Latência média**: quanto o nano leva para responder.
-- **Itens na fila de reenvio (24h)**: quantos eventos foram recusados no último dia.
+## Problemas comuns
 
-Para ver os eventos que não puderam ser entregues, abra a **fila de reenvio** na visão do destino. Cada item mostra o identificador do evento, o motivo da recusa informado pelo nano/ClickHouse, o horário e o conteúdo exato que foi rejeitado, útil para entender e corrigir a causa.
-
-Para uma visão mais ampla de como os dados percorrem a plataforma até os destinos, use **Roteia -> Fluxo de dados** e **Visão geral -> Saúde do pipeline**.
-
-## Resolver problemas comuns
-
-| Sintoma | O que verificar |
-|---------|-----------------|
-| **Não conecta ao nano, "You must use port 8123 for HTTP"** | Você usou a porta 9000? Aquela é o protocolo nativo TCP do ClickHouse, só para clientes nativos. Este destino fala HTTP. Use 8123 (ou 8443 com TLS). |
-| **`Cannot connect to host … Connect call failed`** | Quase sempre a porta existe no container mas **não foi publicada** no host. Confira com `docker ps` na máquina do nano: uma porta publicada aparece como `0.0.0.0:8443->8443/tcp`, enquanto uma só exposta internamente aparece como `8123/tcp`, sem o `0.0.0.0:`. É comum o deploy publicar apenas a 8443. Nesse caso use `https://host:8443` e desligue a verificação de TLS se o certificado for autoassinado. |
-| **Não conecta ao nano** | A URL está completa, com `https://` (ou `http://`) e a porta correta? O nano está no ar? Se houver firewall entre as redes, o time de infraestrutura precisa liberar o acesso à porta. |
-| **Usuário/senha recusados (erro 401 ou 403)** | O usuário `nanosiem_ingest` existe no nano? A senha foi digitada corretamente? O usuário tem permissão de INSERT na tabela? Verifique no nano e atualize o destino. |
-| **Teste falha com "banco/tabela não encontrados"** | O banco `nanosiem` e a tabela `ocsf_logs_raw` existem? Verifique no nano. Se não existem, o instalador do nano pode não ter criado o schema ainda. |
-| **Reenviou o mesmo lote e não apareceu nada de novo** | Não é bug, é a deduplicação por bloco do ClickHouse. A documentação do nano diz que reenviar um lote byte a byte idêntico é confirmado com sucesso e não grava nada. Isso torna o retry seguro, e também significa que repetir um teste com o mesmo evento não produz linha nova. Para testar de novo, mude algum campo (o `time`, por exemplo). |
-| **Linhas caem como "unknown" no nano** | O rótulo foi digitado idêntico dos dois lados? Na regra de detecção do nano você usar `source_type=centralops_sophos` mas aqui digitou `centralops_sophos` com maiúscula? Confirme a grafia minúscula. |
-| **Envio pausado / "muitas requisições"** | O nano/ClickHouse pode estar sobrecarregado. A proteção contra destino instável volta a tentar sozinha após um curto intervalo; se persistir, acione a equipe do nano para revisar carga. |
-| **Falha de certificado seguro (TLS)** | Acontece quando o nano usa um certificado próprio que a plataforma ainda não reconhece. Essa confiança é configurada no deploy, fale com o administrador da plataforma. |
+| O que você vê | O que verificar |
+|---|---|
+| **Consultei a tabela e está vazia** | Confira se você não está consultando a tabela de entrada, que por desenho não guarda nada. Procure na tabela de logs, filtrando pelo seu rótulo. |
+| **O teste passa mas a fila de reenvio cresce** | Quase sempre é permissão no nano. Veja [Quando a gravação é recusada por permissão](#quando-a-gravacao-e-recusada-por-permissao). |
+| **Não conecta** | O endereço está completo, com `http://` ou `https://` e a porta? A porta está publicada para fora do host? É comum o deploy publicar só uma delas. |
+| **Usuário ou senha recusados** | O usuário existe no nano e a senha confere? Ela pode ter sido regerada em uma reinstalação. |
+| **Reenviei o mesmo lote e nada apareceu** | Não é erro. O nano ignora um lote idêntico reenviado, o que torna a repetição segura. Para testar de novo, use um evento diferente. |
+| **Os dados aparecem sem classificação de origem** | O rótulo foi escrito igual dos dois lados? Ele diferencia maiúscula de minúscula. |
+| **Depois de ligar o rótulo derivado, as regras pararam** | Esperado: o rótulo mudou. Reescreva as regras filtrando por conteúdo em vez de por rótulo. |
+| **Falha de certificado** | Acontece quando o nano usa certificado próprio. Fale com quem cuida do deploy, ou desligue a verificação de TLS se for um ambiente interno controlado. |
 
 ## Próximos passos
 
-- **Confirmar que os dados estão chegando:** abra **Roteia -> Destinos**, selecione o nano e veja as métricas de eventos por segundo. Verifique também a tabela `ocsf_logs_raw` no nano: `SELECT COUNT(*) FROM ocsf_logs_raw WHERE source_type = 'seu_rotulo'`.
-- **Investigar eventos recusados:** abra a fila de reenvio na visão do destino.
-- **Montar detecções no nano:** use a interface de detecção do nano com escopo `source_type=seu_rotulo`.
-- **Adicionar outros destinos:** veja a [visão geral de destinos](./overview.md).
-- **Decidir quais eventos vão para cada destino:** use a tela de [Roteamento](./routing.md).
+- **Escolher o que vai para cada destino:** [Roteamento](./routing.md).
+- **Ver outros destinos disponíveis:** [visão geral](./overview.md).
+- **Entender a fila de reenvio:** [operação de destinos](./destination-operations.md).
