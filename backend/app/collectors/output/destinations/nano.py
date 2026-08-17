@@ -82,8 +82,24 @@ class NanoConfig(BaseModel):
 
     A senha fica em ``secret_ref`` (cofre), nunca aqui. É a
     ``CLICKHOUSE_INGEST_PASSWORD`` gerada pelo instalador do nano, do usuário
-    ``nanosiem_ingest``, que é INSERT-only por desenho e não consegue ler
-    conteúdo de log nem escrever em outras tabelas.
+    ``nanosiem_ingest``.
+
+    **O que esse usuário realmente pode fazer** (medido numa instalação
+    26.5.1, não deduzido do nome): além do INSERT na tabela de aterrissagem,
+    ele tem ``SELECT`` em ``ocsf_logs``, ``ocsf_logs_raw`` e
+    ``ocsf_logs_native_raw``, mais ``SELECT``/``dictGet`` em uma lista de
+    tabelas de agregação e dicionários. Ou seja: NÃO é INSERT-only e LÊ
+    conteúdo de log. A versão anterior deste docstring afirmava o contrário —
+    era dedução a partir do nome, e estava errada. Quem trata essa credencial
+    como "não vê dado" está dimensionando o risco para menos.
+
+    A lista de grants importa por um motivo operacional: a tabela de
+    aterrissagem do nano é ``Engine=Null`` e existe só para alimentar uma
+    cadeia de materialized views. O INSERT roda com as permissões DESTE
+    usuário ao longo de toda a cadeia, então basta uma tabela intermediária
+    sem grant para todo INSERT que a alcance falhar com ``ACCESS_DENIED``
+    (código 497) — enquanto conexão, tabela e colunas seguem perfeitas. Ver a
+    ressalva de ``ClickHouseClient.test()``.
     """
 
     url: str = Field(
@@ -116,8 +132,10 @@ class NanoConfig(BaseModel):
     )
     username: str = Field(
         default="nanosiem_ingest",
-        description="Usuário de ingestão do nano (INSERT-only). Nunca use o usuário "
-        "da aplicação: ele lê e escreve o banco inteiro.",
+        description="Usuário de ingestão do nano. Apesar do nome, ele NÃO é "
+        "INSERT-only: também lê as tabelas de log. Ainda assim é o certo aqui — o "
+        "usuário da aplicação tem ALTER e DROP no banco inteiro, e o admin é "
+        "superusuário do cluster.",
     )
     verify_tls: bool = Field(default=True, description="Verificar certificado TLS (só com https)")
     ca_bundle: Optional[str] = Field(
