@@ -111,18 +111,35 @@ def test_org_inativa_nao_bloqueia_a_poda_global(sessao) -> None:
     assert _restantes(sessao) == set()
 
 
-def test_a_poda_entra_no_prune_all(sessao) -> None:
+def test_a_poda_entra_no_prune_all(sessao, monkeypatch) -> None:
     """Sem estar no wrapper, a task existiria e nunca seria agendada.
 
     Esse foi exatamente o defeito: a função de purge de search_results também
     já existia antes de alguém notar que ninguém a chamava.
+
+    A verificação é COMPORTAMENTAL, não por leitura de código-fonte. A primeira
+    versão usava ``inspect.getsource(prune_all)`` e casava a string do nome, o
+    que tem dois problemas: quebra na imagem compilada (Cython não devolve
+    fonte, e o gate reprovou por isso) e passaria com o nome aparecendo só num
+    comentário. Chamar o wrapper e exigir a invocação real resolve os dois.
     """
-    import inspect
+    chamou = []
+    original = retention_tasks.prune_expired_destination_dlq.run
 
-    fonte = inspect.getsource(retention_tasks.prune_all)
+    def _espiao():
+        chamou.append(1)
+        return original()
 
-    assert "prune_expired_destination_dlq" in fonte
-    assert "destination_dlq" in fonte
+    monkeypatch.setattr(
+        retention_tasks.prune_expired_destination_dlq, "run", _espiao
+    )
+
+    resultado = retention_tasks.prune_all.run()
+
+    assert chamou == [1], "prune_all não invocou a poda do DLQ"
+    assert "destination_dlq" in resultado, (
+        f"a chave do DLQ não apareceu no relatório: {sorted(resultado)}"
+    )
 
 
 def test_a_retencao_do_dlq_e_mais_curta_que_a_de_auditoria(sessao) -> None:

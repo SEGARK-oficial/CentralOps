@@ -21,7 +21,6 @@ padrão a desliga ou a descarta. O operador não tem como perceber.
 
 from __future__ import annotations
 
-import json
 import os
 from pathlib import Path
 
@@ -39,12 +38,19 @@ from backend.app.core.config import settings
 # ── 1. raw_reduction sobrevive ao seeder ──────────────────────────────
 
 def _arquivos_default() -> dict[tuple[str, str], dict]:
-    base = Path(mapping_defaults.__file__).parent
+    """Lê os mappings default pelo MESMO mecanismo da produção.
+
+    ``importlib.resources`` em vez de ``Path(__file__).parent``: na imagem
+    compilada o módulo é ``.so`` e o caminho derivado dele não é confiável.
+    ``load_default_rules`` usa ``resources.files``, então usar o mesmo aqui
+    garante que o teste lê exatamente o que o seeder vai ler.
+    """
     out = {}
-    for chave, nome in mapping_defaults.DEFAULT_MAPPING_FILES.items():
-        caminho = base / nome
-        if caminho.exists():
-            out[chave] = json.loads(caminho.read_text(encoding="utf-8"))
+    for chave in mapping_defaults.DEFAULT_MAPPING_FILES:
+        try:
+            out[chave] = mapping_defaults.load_default_rules(*chave)
+        except (FileNotFoundError, ValueError):
+            continue
     return out
 
 
@@ -169,11 +175,17 @@ def test_sdk_ausente_derruba_available(monkeypatch) -> None:
     assert "s3" in registry.all_kinds()
 
 
+@pytest.mark.source_only
 def test_o_dockerfile_instala_os_extras_de_sinks() -> None:
     """A imagem publicada precisa entregar o catálogo que ela anuncia.
 
     Sem isto, ``available`` viraria só um rótulo honesto sobre um produto
     incompleto. O objetivo é que ele seja verdadeiro E positivo.
+
+    ``source_only`` porque lê ``compose/Dockerfile``: a imagem compilada não
+    carrega a árvore do repositório, e o gate do Cython reprova com
+    ``FileNotFoundError``. É o mesmo motivo dos demais testes que inspecionam
+    arquivo de build.
     """
     raiz = Path(__file__).resolve().parents[2]
     dockerfile = (raiz / "compose" / "Dockerfile").read_text(encoding="utf-8")
