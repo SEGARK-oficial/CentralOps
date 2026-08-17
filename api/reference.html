@@ -1,0 +1,1335 @@
+<!doctype html><html lang=pt-BR dir=ltr class="docs-wrapper plugin-docs plugin-id-default docs-version-current docs-doc-page docs-doc-id-api/reference" data-has-hydrated=false><head><meta charset=UTF-8><meta name=generator content="Docusaurus v3.10.0"><title data-rh=true>Referência de endpoints | CentralOps</title><meta data-rh=true name=viewport content="width=device-width, initial-scale=1.0"/><meta data-rh=true name=twitter:card content=summary_large_image /><meta data-rh=true property=og:image content=https://docs.segark.com/img/centralops-social-card.png /><meta data-rh=true name=twitter:image content=https://docs.segark.com/img/centralops-social-card.png /><meta data-rh=true property=og:url content=https://docs.segark.com/api/reference /><meta data-rh=true property=og:locale content=pt_BR /><meta data-rh=true property=og:locale:alternate content=en /><meta data-rh=true property=og:locale:alternate content=es /><meta data-rh=true name=docusaurus_locale content=pt-BR /><meta data-rh=true name=docsearch:language content=pt-BR /><meta data-rh=true name=docusaurus_version content=current /><meta data-rh=true name=docusaurus_tag content=docs-default-current /><meta data-rh=true name=docsearch:version content=current /><meta data-rh=true name=docsearch:docusaurus_tag content=docs-default-current /><meta data-rh=true property=og:title content="Referência de endpoints | CentralOps"/><meta data-rh=true name=description content="Todos os endpoints da API agrupados pelo caminho que um evento percorre, com a permissão exigida por cada um."/><meta data-rh=true property=og:description content="Todos os endpoints da API agrupados pelo caminho que um evento percorre, com a permissão exigida por cada um."/><link data-rh=true rel=icon href=/img/favicon.ico /><link data-rh=true rel=canonical href=https://docs.segark.com/api/reference /><link data-rh=true rel=alternate href=https://docs.segark.com/api/reference hreflang=pt-BR /><link data-rh=true rel=alternate href=https://docs.segark.com/en/api/reference hreflang=en /><link data-rh=true rel=alternate href=https://docs.segark.com/es/api/reference hreflang=es /><link data-rh=true rel=alternate href=https://docs.segark.com/api/reference hreflang=x-default /><script data-rh=true type=application/ld+json>{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","item":"https://docs.segark.com/api/reference","name":"Referência de endpoints","position":1}]}</script><link rel=stylesheet href=/assets/css/styles.65a61132.css /><script src=/assets/js/runtime~main.2ed8b8c1.js defer></script><script src=/assets/js/main.eab0db4a.js defer></script></head><body><svg style="display: none;"><defs>
+<symbol id=theme-svg-external-link viewBox="0 0 24 24"><path fill=currentColor d="M21 13v10h-21v-19h12v2h-10v15h17v-8h2zm3-12h-10.988l4.035 4-6.977 7.07 2.828 2.828 6.977-7.07 4.125 4.172v-11z"/></symbol>
+</defs></svg>
+<script>!function(){var t=function(){try{return new URLSearchParams(window.location.search).get("docusaurus-theme")}catch(t){}}()||function(){try{return window.localStorage.getItem("theme-cee")}catch(t){}}();document.documentElement.setAttribute("data-theme",t||(window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light")),document.documentElement.setAttribute("data-theme-choice",t||"system")}(),function(){try{for(var[t,e]of new URLSearchParams(window.location.search).entries())if(t.startsWith("docusaurus-data-")){var a=t.replace("docusaurus-data-","data-");document.documentElement.setAttribute(a,e)}}catch(t){}}()</script><div id=__docusaurus><link rel=preload as=image href=/img/logo.svg /><div role=region aria-label="Pular para o conteúdo principal"><a class=skipToContent_fXgn href=#__docusaurus_skipToContent_fallback>Pular para o conteúdo principal</a></div><nav aria-label="Navegação principal" class="theme-layout-navbar navbar navbar--fixed-top"><div class=navbar__inner><div class="theme-layout-navbar-left navbar__items"><button aria-label="Alternar painel de navegação" aria-expanded=false class="navbar__toggle clean-btn" type=button><svg width=30 height=30 viewBox="0 0 30 30" aria-hidden=true><path stroke=currentColor stroke-linecap=round stroke-miterlimit=10 stroke-width=2 d="M4 7h22M4 15h22M4 23h22"/></svg></button><a class=navbar__brand href=/><div class=navbar__logo><img src=/img/logo.svg alt=CentralOps class="themedComponent_mlkZ themedComponent--light_NVdE"/><img src=/img/logo.svg alt=CentralOps class="themedComponent_mlkZ themedComponent--dark_xIcU"/></div><b class="navbar__title text--truncate">CentralOps</b></a><a class="navbar__item navbar__link" href=/>Começar</a><a class="navbar__item navbar__link" href=/outputs/overview>Saídas & Rotas</a><a class="navbar__item navbar__link" href=/operations/dashboard>Operação</a><a class="navbar__item navbar__link" href=/administration/users-and-roles>Administração</a><a class="navbar__item navbar__link" href=/normalization/overview>Mappings</a><a class="navbar__item navbar__link" href=/enrichment/overview>Enriquecimento</a><a class="navbar__item navbar__link" href=/runbooks/dispatcher>Runbooks</a><a aria-current=page class="navbar__item navbar__link navbar__link--active" href=/api/overview>API</a></div><div class="theme-layout-navbar-right navbar__items navbar__items--right"><div class="navbar__item dropdown dropdown--hoverable dropdown--right"><a href=# aria-haspopup=true aria-expanded=false role=button class=navbar__link><svg viewBox="0 0 24 24" width=20 height=20 aria-hidden=true class=iconLanguage_nlXk><path fill=currentColor d="M12.87 15.07l-2.54-2.51.03-.03c1.74-1.94 2.98-4.17 3.71-6.53H17V4h-7V2H8v2H1v1.99h11.17C11.5 7.92 10.44 9.75 9 11.35 8.07 10.32 7.3 9.19 6.69 8h-2c.73 1.63 1.73 3.17 2.98 4.56l-5.09 5.02L4 19l5-5 3.11 3.11.76-2.04zM18.5 10h-2L12 22h2l1.12-3h4.75L21 22h2l-4.5-12zm-2.62 7l1.62-4.33L19.12 17h-3.24z"/></svg>Português</a><ul class=dropdown__menu><li><a href=/api/reference target=_self rel="noopener noreferrer" class="dropdown__link dropdown__link--active" lang=pt-BR>Português</a><li><a href=/en/api/reference target=_self rel="noopener noreferrer" class=dropdown__link lang=en>English</a><li><a href=/es/api/reference target=_self rel="noopener noreferrer" class=dropdown__link lang=es>Español</a></ul></div><div class="toggle_vylO colorModeToggle_DEke"><button class="clean-btn toggleButton_gllP toggleButtonDisabled_aARS" type=button disabled title="modo do sistema" aria-label="Mudar entre modo claro e escuro (modo do sistema está ativo)"><svg viewBox="0 0 24 24" width=24 height=24 aria-hidden=true class="toggleIcon_g3eP lightToggleIcon_pyhR"><path fill=currentColor d="M12,9c1.65,0,3,1.35,3,3s-1.35,3-3,3s-3-1.35-3-3S10.35,9,12,9 M12,7c-2.76,0-5,2.24-5,5s2.24,5,5,5s5-2.24,5-5 S14.76,7,12,7L12,7z M2,13l2,0c0.55,0,1-0.45,1-1s-0.45-1-1-1l-2,0c-0.55,0-1,0.45-1,1S1.45,13,2,13z M20,13l2,0c0.55,0,1-0.45,1-1 s-0.45-1-1-1l-2,0c-0.55,0-1,0.45-1,1S19.45,13,20,13z M11,2v2c0,0.55,0.45,1,1,1s1-0.45,1-1V2c0-0.55-0.45-1-1-1S11,1.45,11,2z M11,20v2c0,0.55,0.45,1,1,1s1-0.45,1-1v-2c0-0.55-0.45-1-1-1C11.45,19,11,19.45,11,20z M5.99,4.58c-0.39-0.39-1.03-0.39-1.41,0 c-0.39,0.39-0.39,1.03,0,1.41l1.06,1.06c0.39,0.39,1.03,0.39,1.41,0s0.39-1.03,0-1.41L5.99,4.58z M18.36,16.95 c-0.39-0.39-1.03-0.39-1.41,0c-0.39,0.39-0.39,1.03,0,1.41l1.06,1.06c0.39,0.39,1.03,0.39,1.41,0c0.39-0.39,0.39-1.03,0-1.41 L18.36,16.95z M19.42,5.99c0.39-0.39,0.39-1.03,0-1.41c-0.39-0.39-1.03-0.39-1.41,0l-1.06,1.06c-0.39,0.39-0.39,1.03,0,1.41 s1.03,0.39,1.41,0L19.42,5.99z M7.05,18.36c0.39-0.39,0.39-1.03,0-1.41c-0.39-0.39-1.03-0.39-1.41,0l-1.06,1.06 c-0.39,0.39-0.39,1.03,0,1.41s1.03,0.39,1.41,0L7.05,18.36z"/></svg><svg viewBox="0 0 24 24" width=24 height=24 aria-hidden=true class="toggleIcon_g3eP darkToggleIcon_wfgR"><path fill=currentColor d="M9.37,5.51C9.19,6.15,9.1,6.82,9.1,7.5c0,4.08,3.32,7.4,7.4,7.4c0.68,0,1.35-0.09,1.99-0.27C17.45,17.19,14.93,19,12,19 c-3.86,0-7-3.14-7-7C5,9.07,6.81,6.55,9.37,5.51z M12,3c-4.97,0-9,4.03-9,9s4.03,9,9,9s9-4.03,9-9c0-0.46-0.04-0.92-0.1-1.36 c-0.98,1.37-2.58,2.26-4.4,2.26c-2.98,0-5.4-2.42-5.4-5.4c0-1.81,0.89-3.42,2.26-4.4C12.92,3.04,12.46,3,12,3L12,3z"/></svg><svg viewBox="0 0 24 24" width=24 height=24 aria-hidden=true class="toggleIcon_g3eP systemToggleIcon_QzmC"><path fill=currentColor d="m12 21c4.971 0 9-4.029 9-9s-4.029-9-9-9-9 4.029-9 9 4.029 9 9 9zm4.95-13.95c1.313 1.313 2.05 3.093 2.05 4.95s-0.738 3.637-2.05 4.95c-1.313 1.313-3.093 2.05-4.95 2.05v-14c1.857 0 3.637 0.737 4.95 2.05z"/></svg></button></div><div class=navbarSearchContainer_Bca1><div class=navbar__search><span aria-label="expand searchbar" role=button class=search-icon tabindex=0></span><input id=search_input_react type=search placeholder=Loading... aria-label=Search class="navbar__search-input search-bar" disabled/></div></div></div></div><div role=presentation class=navbar-sidebar__backdrop></div></nav><div id=__docusaurus_skipToContent_fallback class="theme-layout-main main-wrapper mainWrapper_z2l0"><div class=docsWrapper_hBAB><button aria-label="Voltar para o topo" class="clean-btn theme-back-to-top-button backToTopButton_sjWU" type=button></button><div class=docRoot_UBD9><aside class="theme-doc-sidebar-container docSidebarContainer_YfHR"><div class=sidebarViewport_aRkj><div class=sidebar_njMd><nav aria-label="Painel lateral de documentos" class="menu thin-scrollbar menu_SIkG"><ul class="theme-doc-sidebar-menu menu__list"><li class="theme-doc-sidebar-item-category theme-doc-sidebar-item-category-level-1 menu__list-item"><div class=menu__list-item-collapsible><a class="categoryLink_byQd menu__link menu__link--sublist menu__link--sublist-caret menu__link--active" role=button aria-expanded=true href=/api/overview><span title=API class=categoryLinkLabel_W154>API</span></a></div><ul class=menu__list><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/api/overview><span title="Visão geral da API" class=linkLabel_WmDU>Visão geral da API</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/api/authentication><span title=Autenticação class=linkLabel_WmDU>Autenticação</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/api/permissions><span title="Permissões e escopo" class=linkLabel_WmDU>Permissões e escopo</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/api/conventions><span title=Convenções class=linkLabel_WmDU>Convenções</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class="menu__link menu__link--active" aria-current=page tabindex=0 href=/api/reference><span title="Referência de endpoints" class=linkLabel_WmDU>Referência de endpoints</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/api/openapi><span title="Esquema OpenAPI" class=linkLabel_WmDU>Esquema OpenAPI</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/api/recipes><span title=Receitas class=linkLabel_WmDU>Receitas</span></a></ul></ul></nav></div></div></aside><main class=docMainContainer_TBSr><div class="container padding-top--md padding-bottom--lg"><div class=row><div class="col docItemCol_VOVn"><div class=docItemContainer_Djhp><article><nav class="theme-doc-breadcrumbs breadcrumbsContainer_Z_bl" aria-label=Trilha><ul class=breadcrumbs><li class=breadcrumbs__item><a aria-label="Página Inicial" class=breadcrumbs__link href=/><svg viewBox="0 0 24 24" class=breadcrumbHomeIcon_YNFT><path d="M10 19v-5h4v5c0 .55.45 1 1 1h3c.55 0 1-.45 1-1v-7h1.7c.46 0 .68-.57.33-.87L12.67 3.6c-.38-.34-.96-.34-1.34 0l-8.36 7.53c-.34.3-.13.87.33.87H5v7c0 .55.45 1 1 1h3c.55 0 1-.45 1-1z" fill=currentColor /></svg></a><li class=breadcrumbs__item><span class=breadcrumbs__link>API</span><li class="breadcrumbs__item breadcrumbs__item--active"><span class=breadcrumbs__link>Referência de endpoints</span></ul></nav><div class="tocCollapsible_ETCw theme-doc-toc-mobile tocMobile_ITEo"><button type=button class="clean-btn tocCollapsibleButton_TO0P">Nesta página</button></div><div class="theme-doc-markdown markdown"><header><h1>Referência de endpoints</h1></header>
+<p>São 215 operações em 174 caminhos. As tabelas somam 217 linhas porque duas delas, o início e o retorno do fluxo de SSO, pertencem a duas famílias e aparecem nas duas.</p>
+<p>Esta página agrupa todas pelo estágio do pipeline a que pertencem, porque é assim que você vai procurar na prática: o problema aparece em um estágio, e você quer os endpoints daquele estágio.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=como-ler-as-tabelas>Como ler as tabelas<a href=#como-ler-as-tabelas class=hash-link aria-label="Link direto para Como ler as tabelas" title="Link direto para Como ler as tabelas" translate=no>​</a></h2>
+<p>A coluna <strong>Exige</strong> foi extraída da árvore de dependências da aplicação em execução, não de leitura de código.</p>
+<ul>
+<li class="">Uma permissão nomeada, como <code>integration.write</code>, significa que o papel do dono do token precisa tê-la.</li>
+<li class=""><strong><code>autenticado</code></strong> significa que basta um token válido, sem permissão específica. O recorte por organização continua valendo: você só vê o que está no seu escopo.</li>
+<li class=""><strong><code>pública</code></strong> significa exatamente isso: responde sem token nenhum. São 8 no total, e vale saber quais são.</li>
+<li class=""><strong><code>+ escopo global</code></strong> significa que ser admin não basta, é preciso escopo de plataforma. Admin de uma organização recebe <code>403</code>.</li>
+</ul>
+<div class="theme-admonition theme-admonition-caution admonition_xJq3 alert alert--warning"><div class=admonitionHeading_Gvgb><span class=admonitionIcon_Rf37><svg viewBox="0 0 16 16"><path fill-rule=evenodd d="M8.893 1.5c-.183-.31-.52-.5-.887-.5s-.703.19-.886.5L.138 13.499a.98.98 0 0 0 0 1.001c.193.31.53.501.886.501h13.964c.367 0 .704-.19.877-.5a1.03 1.03 0 0 0 .01-1.002L8.893 1.5zm.133 11.497H6.987v-2.003h2.039v2.003zm0-3.004H6.987V5.987h2.039v4.006z"/></svg></span>Um gate que a extração não enxerga</div><div class=admonitionContent_BuS1><p>A árvore de dependências não vê verificação escrita dentro do corpo do handler. O caso conhecido é a exigência de escopo global, que em 14 rotas é chamada no corpo, e essas 14 estão marcadas acima porque foram procuradas à parte.<p>Se você encontrar um <code>403</code> num endpoint marcado apenas como <code>autenticado</code>, a causa provável é um gate desse tipo. Vale reportar para a doc ser corrigida.</div></div>
+<div class="theme-admonition theme-admonition-caution admonition_xJq3 alert alert--warning"><div class=admonitionHeading_Gvgb><span class=admonitionIcon_Rf37><svg viewBox="0 0 16 16"><path fill-rule=evenodd d="M8.893 1.5c-.183-.31-.52-.5-.887-.5s-.703.19-.886.5L.138 13.499a.98.98 0 0 0 0 1.001c.193.31.53.501.886.501h13.964c.367 0 .704-.19.877-.5a1.03 1.03 0 0 0 .01-1.002L8.893 1.5zm.133 11.497H6.987v-2.003h2.039v2.003zm0-3.004H6.987V5.987h2.039v4.006z"/></svg></span>Quase metade da API é de administrador</div><div class=admonitionContent_BuS1><p>92 das 215 operações exigem <code>user.manage</code>, a permissão de criar e remover usuários. Isso inclui coisas que não parecem administrativas, como toda a família de enriquecimento e boa parte da escrita de destinos e rotas.<p>Vale conferir esta página <strong>antes</strong> de decidir o papel de um token de automação. Some a isso as três permissões que só o papel <code>admin</code> tem (<code>integration.write</code>, <code>org.manage</code>, <code>secret.read</code>) e a conta fica maior ainda.<p>Se a tarefa cair numa dessas, não existe recorte por scope que resolva: o papel do dono precisa ser admin.</div></div>
+<p>Os caminhos estão exatamente como o servidor os declara, incluindo a barra final quando existe. Copie daqui em vez de digitar, por causa do redirecionamento explicado em <a class="" href=/api/conventions#barra-no-final-da-url>Convenções</a>.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=coleta>Coleta<a href=#coleta class=hash-link aria-label="Link direto para Coleta" title="Link direto para Coleta" translate=no>​</a></h2>
+<p>Tudo que traz evento para dentro: as integrações com fornecedores, o estado de cada coletor, recoleta histórica e a ingestão por push.</p>
+<p>É aqui que você olha quando a pergunta é "o dado está entrando?".</p>
+<p><strong>Pontos de atenção nesta área:</strong></p>
+<ul>
+<li class="">
+<p><code>POST /api/collectors/state/{integration_id}/{stream}/trigger</code> dispara coleta de verdade contra a API do fornecedor e consome a quota dele. A resposta devolve só o identificador da tarefa, não o resultado. Repare que o fluxo faz parte do caminho, e que a rota exige apenas token válido: qualquer papel consegue disparar coleta.</p>
+</li>
+<li class="">
+<p><code>reset-cursor</code> faz o coletor recomeçar a partir da janela padrão do fornecedor, tipicamente uma hora atrás. Isso gera duplicidade temporária até o prazo de deduplicação passar. É a operação certa para destravar um coletor parado, e é a única desta família que usa <code>integration.reset</code>.</p>
+</li>
+<li class="">
+<p>O backfill tem limites rígidos: janela máxima de 90 dias, e a data inicial não pode estar mais de 90 dias no passado. Integração pai de MSSP é recusada com <code>422</code>, porque ela não tem fluxo próprio.</p>
+</li>
+<li class="">
+<p><code>test-connection</code> abre conexão real com o fornecedor e registra o resultado no histórico de saúde.</p>
+</li>
+<li class="">
+<p><code>DELETE</code> de integração tem limite de 5 por minuto por usuário. Uma integração pai com filhas ativas devolve <code>409</code>, a menos que você peça cascata.</p>
+</li>
+<li class="">
+<p><code>pipeline-health</code> não consulta o fornecedor: ele agrega o que já está no banco, com cache de 60 segundos. No agregado de todas as integrações a chave de cache é <strong>por usuário</strong>; no de uma integração só, a chave é por integração e o cache é compartilhado entre usuários. Nos dois casos um número parado pode ser cache e não estagnação, e o campo <code>cached_at</code> diz de quando é.</p>
+</li>
+<li class="">
+<p>Duas rotas degradam em silêncio sem a edição Enterprise: sincronizar tenants responde <code>200</code> com um aviso no corpo em vez de erro, e a seleção de tenants grava a escolha sem materializar nada.</p>
+</li>
+<li class="">
+<p><code>POST /api/ingest/{stream}</code> aparece como <strong>pública</strong> na tabela, e isso merece explicação: ela não é aberta, ela usa <strong>outro sistema de autenticação</strong>. Em vez de token de gestão, ela valida o token de ingestão da própria integração, que não passa pela árvore de permissões. Veja a comparação na <a class="" href=/api/overview#dois-tipos-de-token-e-eles-n%C3%A3o-se-substituem>visão geral</a>.</p>
+</li>
+</ul>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id=integrations-18>integrations (18)<a href=#integrations-18 class=hash-link aria-label="Link direto para integrations (18)" title="Link direto para integrations (18)" translate=no>​</a></h4>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Endpoint<th>Exige<tbody><tr><td><code>GET /api/integrations/</code><td>autenticado<tr><td><code>POST /api/integrations/</code><td><code>integration.write</code><tr><td><code>POST /api/integrations/bulk/deactivate</code><td><code>integration.write</code><tr><td><code>GET /api/integrations/platforms</code><td>autenticado<tr><td><code>DELETE /api/integrations/{integration_id}</code><td><code>integration.write</code><tr><td><code>GET /api/integrations/{integration_id}</code><td>autenticado<tr><td><code>PUT /api/integrations/{integration_id}</code><td><code>integration.write</code><tr><td><code>PATCH /api/integrations/{integration_id}/auto-approve-policy</code><td><code>integration.write</code><tr><td><code>GET /api/integrations/{integration_id}/collection-filters</code><td><code>integration.read</code><tr><td><code>PUT /api/integrations/{integration_id}/collection-filters</code><td><code>integration.write</code><tr><td><code>GET /api/integrations/{integration_id}/discovered-tenants</code><td>autenticado<tr><td><code>GET /api/integrations/{integration_id}/health</code><td>autenticado<tr><td><code>GET /api/integrations/{integration_id}/overview</code><td>autenticado<tr><td><code>GET /api/integrations/{integration_id}/sophos-tenants</code><td><code>integration.read</code><tr><td><code>GET /api/integrations/{integration_id}/sync-status</code><td>autenticado<tr><td><code>POST /api/integrations/{integration_id}/sync-tenants</code><td><code>integration.write</code><tr><td><code>POST /api/integrations/{integration_id}/tenants/select</code><td><code>integration.write</code><tr><td><code>POST /api/integrations/{integration_id}/test-connection</code><td><code>integration.write</code></table>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id=collectors-7>collectors (7)<a href=#collectors-7 class=hash-link aria-label="Link direto para collectors (7)" title="Link direto para collectors (7)" translate=no>​</a></h4>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Endpoint<th>Exige<tbody><tr><td><code>GET /api/collectors/cost-summary</code><td>autenticado<tr><td><code>GET /api/collectors/platforms-streams</code><td>autenticado<tr><td><code>GET /api/collectors/state</code><td>autenticado<tr><td><code>DELETE /api/collectors/state/{integration_id}/{stream}/cursor</code><td><code>integration.reset</code><tr><td><code>POST /api/collectors/state/{integration_id}/{stream}/trigger</code><td>autenticado<tr><td><code>GET /api/collectors/summary</code><td>autenticado<tr><td><code>GET /api/collectors/vendors</code><td>autenticado</table>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id=providers-3>providers (3)<a href=#providers-3 class=hash-link aria-label="Link direto para providers (3)" title="Link direto para providers (3)" translate=no>​</a></h4>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Endpoint<th>Exige<tbody><tr><td><code>GET /api/providers/platforms</code><td>autenticado<tr><td><code>GET /api/providers/query-capabilities</code><td>autenticado<tr><td><code>POST /api/providers/{platform}/test-connection</code><td>autenticado</table>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id=backfill-5>backfill (5)<a href=#backfill-5 class=hash-link aria-label="Link direto para backfill (5)" title="Link direto para backfill (5)" translate=no>​</a></h4>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Endpoint<th>Exige<tbody><tr><td><code>GET /api/backfill-jobs/diagnostics</code><td><code>user.manage</code><tr><td><code>GET /api/backfill-jobs/{job_id}</code><td><code>integration.read</code><tr><td><code>POST /api/backfill-jobs/{job_id}/cancel</code><td><code>integration.write</code><tr><td><code>POST /api/integrations/{integration_id}/backfill</code><td><code>integration.write</code><tr><td><code>GET /api/integrations/{integration_id}/backfill-jobs</code><td><code>integration.read</code></table>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id=collector-config-10>collector-config (10)<a href=#collector-config-10 class=hash-link aria-label="Link direto para collector-config (10)" title="Link direto para collector-config (10)" translate=no>​</a></h4>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Endpoint<th>Exige<tbody><tr><td><code>GET /api/collectors/config</code><td><code>user.manage</code><tr><td><code>PUT /api/collectors/config</code><td><code>user.manage</code> + escopo global<tr><td><code>GET /api/collectors/config/capture-sessions</code><td><code>user.manage</code><tr><td><code>POST /api/collectors/config/capture-sessions</code><td><code>user.manage</code><tr><td><code>DELETE /api/collectors/config/capture-sessions/{session_id}</code><td><code>user.manage</code><tr><td><code>GET /api/collectors/config/capture-sessions/{session_id}/events</code><td><code>user.manage</code><tr><td><code>GET /api/collectors/config/capture-sessions/{session_id}/events/{event_id}</code><td><code>user.manage</code><tr><td><code>GET /api/collectors/config/capture-sessions/{session_id}/export</code><td><code>user.manage</code> + escopo global<tr><td><code>POST /api/collectors/config/capture-sessions/{session_id}/stop</code><td><code>user.manage</code><tr><td><code>GET /api/collectors/config/capture-vendors</code><td><code>user.manage</code></table>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id=ingest-4>ingest (4)<a href=#ingest-4 class=hash-link aria-label="Link direto para ingest (4)" title="Link direto para ingest (4)" translate=no>​</a></h4>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Endpoint<th>Exige<tbody><tr><td><code>GET /api/ingest/integrations/{integration_id}</code><td><code>user.manage</code><tr><td><code>DELETE /api/ingest/integrations/{integration_id}/token</code><td><code>user.manage</code><tr><td><code>POST /api/ingest/integrations/{integration_id}/token</code><td><code>user.manage</code><tr><td><code>POST /api/ingest/{stream}</code><td><strong>pública</strong></table>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id=pipeline-health-2>pipeline-health (2)<a href=#pipeline-health-2 class=hash-link aria-label="Link direto para pipeline-health (2)" title="Link direto para pipeline-health (2)" translate=no>​</a></h4>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Endpoint<th>Exige<tbody><tr><td><code>GET /api/integrations/pipeline-health</code><td><code>integration.read</code><tr><td><code>GET /api/integrations/{integration_id}/pipeline-health</code><td><code>integration.read</code></table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=normalização>Normalização<a href=#normalização class=hash-link aria-label="Link direto para Normalização" title="Link direto para Normalização" translate=no>​</a></h2>
+<p>Como o evento cru vira OCSF, e o que fazer quando não vira: mappings e versões, campos novos detectados, e a quarentena.</p>
+<p>É aqui que você olha quando o dado entrou mas não chegou ao destino no formato certo.</p>
+<p><strong>Pontos de atenção nesta área:</strong></p>
+<ul>
+<li class="">Descartar quarentena é remoção definitiva, sem lixeira. O registro de auditoria e a remoção acontecem na mesma transação.</li>
+<li class="">Descartar e reprocessar compartilham a <strong>mesma</strong> permissão. Quem pode reprocessar pode apagar.</li>
+<li class="">O descarte em lote aceita até 500 identificadores. Identificador de outra organização aparece como "não encontrado" na lista de erros, em vez de <code>403</code>, para não permitir varredura.</li>
+<li class="">Se o reprocessamento falhar na normalização, o evento continua na quarentena com o erro atualizado. Ele não é marcado como reprocessado.</li>
+<li class="">Eventos em quarentena expiram sozinhos pelo prazo de retenção, por padrão 7 dias.</li>
+<li class="">Publicar uma versão de mapping vale para os coletores em cerca de 30 segundos. Não há janela de confirmação.</li>
+</ul>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id=mappings-12>mappings (12)<a href=#mappings-12 class=hash-link aria-label="Link direto para mappings (12)" title="Link direto para mappings (12)" translate=no>​</a></h4>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Endpoint<th>Exige<tbody><tr><td><code>GET /api/mappings</code><td><code>mapping.read</code><tr><td><code>POST /api/mappings/dry-run</code><td><code>mapping.read</code><tr><td><code>GET /api/mappings/normalize/type-casts</code><td><code>mapping.read</code><tr><td><code>GET /api/mappings/samples</code><td><code>mapping.read</code><tr><td><code>GET /api/mappings/{definition_id}</code><td><code>mapping.read</code><tr><td><code>GET /api/mappings/{definition_id}/audit</code><td><code>audit.read</code><tr><td><code>GET /api/mappings/{definition_id}/discover-fields</code><td><code>mapping.read</code><tr><td><code>POST /api/mappings/{definition_id}/rollback</code><td><code>mapping.rollback</code><tr><td><code>GET /api/mappings/{definition_id}/versions</code><td><code>mapping.read</code><tr><td><code>POST /api/mappings/{definition_id}/versions</code><td><code>mapping.write</code><tr><td><code>GET /api/mappings/{definition_id}/versions/{version_a_id}/diff/{version_b_id}</code><td><code>mapping.read</code><tr><td><code>GET /api/mappings/{definition_id}/versions/{version_id}</code><td><code>mapping.read</code></table>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id=ocsf-3>ocsf (3)<a href=#ocsf-3 class=hash-link aria-label="Link direto para ocsf (3)" title="Link direto para ocsf (3)" translate=no>​</a></h4>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Endpoint<th>Exige<tbody><tr><td><code>GET /api/ocsf/compliance</code><td><code>user.manage</code><tr><td><code>GET /api/ocsf/policies</code><td><code>user.manage</code><tr><td><code>PUT /api/ocsf/policies/{org_id}</code><td><code>user.manage</code></table>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id=drift-6>drift (6)<a href=#drift-6 class=hash-link aria-label="Link direto para drift (6)" title="Link direto para drift (6)" translate=no>​</a></h4>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Endpoint<th>Exige<tbody><tr><td><code>GET /api/drift</code><td><code>drift.read</code><tr><td><code>POST /api/drift/bulk/ignore</code><td><code>drift.ignore</code><tr><td><code>POST /api/drift/bulk/mark_mapped</code><td><code>drift.mark_mapped</code><tr><td><code>DELETE /api/drift/{field_id}</code><td><code>drift.delete</code><tr><td><code>POST /api/drift/{field_id}/ignore</code><td><code>drift.ignore</code><tr><td><code>POST /api/drift/{field_id}/mark_mapped</code><td><code>drift.mark_mapped</code></table>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id=quarantine-7>quarantine (7)<a href=#quarantine-7 class=hash-link aria-label="Link direto para quarantine (7)" title="Link direto para quarantine (7)" translate=no>​</a></h4>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Endpoint<th>Exige<tbody><tr><td><code>GET /api/quarantine</code><td><code>quarantine.read</code><tr><td><code>POST /api/quarantine/bulk/discard</code><td><code>quarantine.discard</code><tr><td><code>GET /api/quarantine/bulk/ids</code><td><code>quarantine.read</code><tr><td><code>POST /api/quarantine/bulk/reprocess</code><td><code>quarantine.discard</code><tr><td><code>GET /api/quarantine/{event_id}</code><td><code>quarantine.read</code><tr><td><code>POST /api/quarantine/{event_id}/discard</code><td><code>quarantine.discard</code><tr><td><code>POST /api/quarantine/{event_id}/reprocess</code><td><code>quarantine.discard</code></table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=enriquecimento>Enriquecimento<a href=#enriquecimento class=hash-link aria-label="Link direto para Enriquecimento" title="Link direto para Enriquecimento" translate=no>​</a></h2>
+<p>Acrescenta contexto ao evento já normalizado, antes de ele ser roteado.</p>
+<p><strong>Pontos de atenção nesta área:</strong></p>
+<ul>
+<li class="">A família inteira exige <code>user.manage</code>. Não há permissão de leitura separada para enriquecimento.</li>
+<li class="">Tabela e política pertencem <strong>sempre</strong> a uma organização. Não existe recurso global aqui, e a organização é obrigatória.</li>
+<li class="">Compartilhar uma fonte entre organizações exige a edição Enterprise. Sem ela, a resposta é <code>403</code> com o código <code>enrichment.source_sharing_requires_enterprise</code>.</li>
+<li class="">O ensaio a seco (<code>dry-run</code>) exercita apenas as regras locais. As regras que consultam serviço externo voltam marcadas como ignoradas, para não gastar cota a cada tecla do operador. <strong>Um ensaio verde não prova que a fonte remota responde</strong>; para isso existe o teste da fonte.</li>
+<li class="">As métricas têm teto de 180 minutos, porque a série viva só guarda três horas. Pedir uma janela maior devolveria zero, que é indistinguível de "a regra não disparou".</li>
+<li class="">Uma regra inválida é recusada na publicação, com <code>422</code>. Ela não falha depois, no processamento.</li>
+</ul>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id=enrichment-24>enrichment (24)<a href=#enrichment-24 class=hash-link aria-label="Link direto para enrichment (24)" title="Link direto para enrichment (24)" translate=no>​</a></h4>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Endpoint<th>Exige<tbody><tr><td><code>GET /api/collectors/enrichment/activity</code><td><code>user.manage</code><tr><td><code>POST /api/collectors/enrichment/dry-run</code><td><code>user.manage</code><tr><td><code>GET /api/collectors/enrichment/enrichers</code><td><code>user.manage</code><tr><td><code>GET /api/collectors/enrichment/key-sources</code><td><code>user.manage</code><tr><td><code>GET /api/collectors/enrichment/metrics</code><td><code>user.manage</code><tr><td><code>GET /api/collectors/enrichment/policies</code><td><code>user.manage</code><tr><td><code>POST /api/collectors/enrichment/policies</code><td><code>user.manage</code><tr><td><code>POST /api/collectors/enrichment/policies/{policy_id}/enable</code><td><code>user.manage</code><tr><td><code>POST /api/collectors/enrichment/policies/{policy_id}/rollback</code><td><code>user.manage</code><tr><td><code>GET /api/collectors/enrichment/policies/{policy_id}/versions</code><td><code>user.manage</code><tr><td><code>POST /api/collectors/enrichment/policies/{policy_id}/versions</code><td><code>user.manage</code><tr><td><code>GET /api/collectors/enrichment/policies/{policy_id}/versions/{version_id}</code><td><code>user.manage</code><tr><td><code>GET /api/collectors/enrichment/sources</code><td><code>user.manage</code><tr><td><code>POST /api/collectors/enrichment/sources</code><td><code>user.manage</code><tr><td><code>DELETE /api/collectors/enrichment/sources/{source_id}</code><td><code>user.manage</code><tr><td><code>PATCH /api/collectors/enrichment/sources/{source_id}</code><td><code>user.manage</code><tr><td><code>POST /api/collectors/enrichment/sources/{source_id}/test</code><td><code>user.manage</code><tr><td><code>GET /api/collectors/enrichment/tables</code><td><code>user.manage</code><tr><td><code>POST /api/collectors/enrichment/tables</code><td><code>user.manage</code><tr><td><code>DELETE /api/collectors/enrichment/tables/{table_id}</code><td><code>user.manage</code><tr><td><code>GET /api/collectors/enrichment/tables/{table_id}</code><td><code>user.manage</code><tr><td><code>POST /api/collectors/enrichment/tables/{table_id}/rollback</code><td><code>user.manage</code><tr><td><code>GET /api/collectors/enrichment/tables/{table_id}/versions</code><td><code>user.manage</code><tr><td><code>POST /api/collectors/enrichment/tables/{table_id}/versions</code><td><code>user.manage</code></table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=roteamento-e-entrega>Roteamento e entrega<a href=#roteamento-e-entrega class=hash-link aria-label="Link direto para Roteamento e entrega" title="Link direto para Roteamento e entrega" translate=no>​</a></h2>
+<p>Para onde o evento vai e se chegou: regras de rota, destinos, saúde da entrega e fila de mortos.</p>
+<p>É aqui que você olha quando o dado foi normalizado mas não apareceu no SIEM.</p>
+<p><strong>Pontos de atenção nesta área:</strong></p>
+<ul>
+<li class="">Criar um destino habilitado cria junto uma rota que já começa a receber evento no ciclo seguinte. Não existe passo de ativação.</li>
+<li class="">Toda rota criada ou editada vale no próximo ciclo de despacho, sem confirmação.</li>
+<li class="">Reordenar rotas exige a lista completa e ordenada. Um identificador fora do seu escopo devolve <code>403</code>, e um inexistente devolve <code>404</code> desfazendo tudo.</li>
+<li class=""><code>POST /{id}/test</code> abre conexão real com o destino e decifra a credencial em memória pela duração do teste.</li>
+<li class="">Revogar a credencial de um destino também <strong>desabilita</strong> o destino. A entrega para até você configurar a nova chave.</li>
+<li class="">Reprocessar a fila de mortos de um destino global reenvia os eventos de <strong>todas</strong> as organizações.</li>
+<li class="">Credenciais nunca aparecem em resposta, log ou auditoria. As leituras expõem apenas se existe credencial, não qual é.</li>
+<li class="">A linhagem depende de um recurso opcional. Com ele desligado, a resposta é uma lista <strong>vazia</strong>, não um erro: vazio aqui não significa "não entregou". Ela vive em cache com prazo de cerca de 7 dias e não serve como arquivo de conformidade.</li>
+<li class="">Na saúde de uma rota, zero eventos casados aparece como ociosa, não como doente.</li>
+</ul>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id=routes-13>routes (13)<a href=#routes-13 class=hash-link aria-label="Link direto para routes (13)" title="Link direto para routes (13)" translate=no>​</a></h4>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Endpoint<th>Exige<tbody><tr><td><code>GET /api/collectors/routes</code><td><code>route.read</code><tr><td><code>POST /api/collectors/routes</code><td><code>user.manage</code><tr><td><code>POST /api/collectors/routes/dry-run</code><td><code>user.manage</code><tr><td><code>GET /api/collectors/routes/flow</code><td><code>route.read</code><tr><td><code>POST /api/collectors/routes/reorder</code><td><code>user.manage</code><tr><td><code>GET /api/collectors/routes/topology</code><td><code>route.read</code><tr><td><code>DELETE /api/collectors/routes/{route_id}</code><td><code>user.manage</code><tr><td><code>GET /api/collectors/routes/{route_id}</code><td><code>route.read</code><tr><td><code>PUT /api/collectors/routes/{route_id}</code><td><code>user.manage</code><tr><td><code>GET /api/collectors/routes/{route_id}/audit</code><td><code>route.read</code><tr><td><code>GET /api/collectors/routes/{route_id}/health</code><td><code>route.read</code><tr><td><code>GET /api/collectors/routes/{route_id}/metrics</code><td><code>route.read</code><tr><td><code>POST /api/collectors/routes/{route_id}/rollback</code><td><code>user.manage</code></table>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id=destinations-20>destinations (20)<a href=#destinations-20 class=hash-link aria-label="Link direto para destinations (20)" title="Link direto para destinations (20)" translate=no>​</a></h4>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Endpoint<th>Exige<tbody><tr><td><code>GET /api/collectors/destinations</code><td><code>destination.read</code><tr><td><code>POST /api/collectors/destinations</code><td><code>user.manage</code><tr><td><code>GET /api/collectors/destinations/destination-types</code><td><code>destination.read</code><tr><td><code>GET /api/collectors/destinations/health</code><td><code>destination.read</code><tr><td><code>DELETE /api/collectors/destinations/{destination_id}</code><td><code>user.manage</code><tr><td><code>GET /api/collectors/destinations/{destination_id}</code><td><code>destination.read</code><tr><td><code>PUT /api/collectors/destinations/{destination_id}</code><td><code>user.manage</code><tr><td><code>GET /api/collectors/destinations/{destination_id}/audit</code><td><code>destination.read</code><tr><td><code>GET /api/collectors/destinations/{destination_id}/credential/audit</code><td><code>user.manage</code><tr><td><code>POST /api/collectors/destinations/{destination_id}/credential/revoke</code><td><code>user.manage</code><tr><td><code>POST /api/collectors/destinations/{destination_id}/credential/rotate</code><td><code>user.manage</code><tr><td><code>GET /api/collectors/destinations/{destination_id}/dlq</code><td><code>destination.read</code><tr><td><code>POST /api/collectors/destinations/{destination_id}/dlq/reprocess</code><td><code>user.manage</code><tr><td><code>GET /api/collectors/destinations/{destination_id}/health</code><td><code>destination.read</code><tr><td><code>GET /api/collectors/destinations/{destination_id}/lineage</code><td><code>destination.read</code><tr><td><code>GET /api/collectors/destinations/{destination_id}/metrics</code><td><code>destination.read</code><tr><td><code>POST /api/collectors/destinations/{destination_id}/shadow</code><td><code>user.manage</code><tr><td><code>GET /api/collectors/destinations/{destination_id}/tap</code><td><code>user.manage</code><tr><td><code>POST /api/collectors/destinations/{destination_id}/test</code><td><code>user.manage</code><tr><td><code>GET /api/collectors/lineage/{event_id}</code><td><code>user.manage</code></table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=consulta-e-detecção>Consulta e detecção<a href=#consulta-e-detecção class=hash-link aria-label="Link direto para Consulta e detecção" title="Link direto para Consulta e detecção" translate=no>​</a></h2>
+<p>Consulta ao vivo na fonte do cliente, agendamentos, resultados e triagem de detecções.</p>
+<p><strong>Pontos de atenção nesta área:</strong></p>
+<ul>
+<li class=""><code>query.run</code> protege exatamente uma rota nesta superfície: a mudança de status de uma detecção. A execução de consulta ao vivo contra o fornecedor é Enterprise, então no Community essa permissão é mais estreita do que o nome sugere.</li>
+<li class="">Criar agendamento é o gatilho de execução recorrente, e o resultado sai por e-mail só para destinatários da mesma organização.</li>
+<li class="">O eixo de permissão muda dentro da mesma família: criar agendamento exige <code>query.save</code>, mas listar e ver histórico exigem <code>mapping.read</code>.</li>
+<li class="">Ler o histórico de resultados <strong>poda</strong> resultados vencidos como efeito colateral.</li>
+<li class="">O arquivo CSV de um resultado expira antes do resultado em si. Passado o prazo, o download devolve <code>410</code> enquanto o JSON continua visível.</li>
+<li class="">Agendamento fora do seu escopo devolve <code>404</code>, não <code>403</code>, para não confirmar que existe.</li>
+<li class="">Em detecções, ler exige apenas token válido, mas mudar o status exige <code>query.run</code>.</li>
+</ul>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id=queries-5>queries (5)<a href=#queries-5 class=hash-link aria-label="Link direto para queries (5)" title="Link direto para queries (5)" translate=no>​</a></h4>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Endpoint<th>Exige<tbody><tr><td><code>GET /api/queries/</code><td><code>mapping.read</code><tr><td><code>POST /api/queries/</code><td><code>query.save</code><tr><td><code>DELETE /api/queries/{query_id}</code><td><code>query.save</code><tr><td><code>GET /api/queries/{query_id}</code><td><code>mapping.read</code><tr><td><code>PUT /api/queries/{query_id}</code><td><code>query.save</code></table>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id=schedules-4>schedules (4)<a href=#schedules-4 class=hash-link aria-label="Link direto para schedules (4)" title="Link direto para schedules (4)" translate=no>​</a></h4>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Endpoint<th>Exige<tbody><tr><td><code>GET /api/schedules/</code><td><code>mapping.read</code><tr><td><code>POST /api/schedules/</code><td><code>query.save</code><tr><td><code>DELETE /api/schedules/{sched_id}</code><td><code>query.save</code><tr><td><code>GET /api/schedules/{sched_id}/history</code><td><code>mapping.read</code></table>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id=results-3>results (3)<a href=#results-3 class=hash-link aria-label="Link direto para results (3)" title="Link direto para results (3)" translate=no>​</a></h4>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Endpoint<th>Exige<tbody><tr><td><code>GET /api/search/history</code><td>autenticado<tr><td><code>GET /api/search/history/result/{search_id}</code><td>autenticado<tr><td><code>GET /api/search/history/result/{search_id}/csv</code><td>autenticado</table>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id=history-3>history (3)<a href=#history-3 class=hash-link aria-label="Link direto para history (3)" title="Link direto para history (3)" translate=no>​</a></h4>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Endpoint<th>Exige<tbody><tr><td><code>GET /api/history/</code><td>autenticado<tr><td><code>GET /api/history/audit</code><td><code>user.manage</code><tr><td><code>GET /api/history/audit/csv</code><td><code>user.manage</code></table>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id=detections-3>detections (3)<a href=#detections-3 class=hash-link aria-label="Link direto para detections (3)" title="Link direto para detections (3)" translate=no>​</a></h4>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Endpoint<th>Exige<tbody><tr><td><code>GET /api/detections</code><td>autenticado<tr><td><code>GET /api/detections/{detection_id}</code><td>autenticado<tr><td><code>PATCH /api/detections/{detection_id}</code><td><code>query.run</code></table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=administração>Administração<a href=#administração class=hash-link aria-label="Link direto para Administração" title="Link direto para Administração" translate=no>​</a></h2>
+<p>Usuários, organizações, tokens, contas de serviço, identidade, licença e configuração da plataforma.</p>
+<p><strong>Pontos de atenção nesta área:</strong></p>
+<ul>
+<li class="">Apagar os dados de uma organização é irreversível e exige um texto de confirmação exato no corpo. A limpeza do índice de busca é feita com melhor esforço: se ele estiver fora do ar, o trabalho termina como parcial e o resto conclui.</li>
+<li class="">Apagar uma organização exige escopo <strong>global</strong>. Ser admin daquela organização não basta.</li>
+<li class="">Criar organização encosta na licença, porque respeita o teto de organizações do plano.</li>
+<li class="">Ativar ou desativar licença muda em tempo real o que a instância inteira pode fazer, e exige admin com escopo global. Um token de licença inválido é recusado com <code>400</code> e nunca é armazenado.</li>
+<li class="">No estado da licença, <code>expired_in_grace</code> verdadeiro significa licença <strong>já vencida</strong>, ainda dentro da carência. As funções continuam ligadas e vão cair depois. Tratar isso como "tudo certo" é o erro clássico.</li>
+<li class="">O histórico geral pede apenas token válido, mas a trilha de auditoria e o CSV dela exigem <code>user.manage</code>.</li>
+<li class="">A captura ao vivo grava <strong>eventos reais do cliente</strong>, com dados pessoais. A exportação vem mascarada por padrão, e desligar a máscara tira o dado cru do sistema.</li>
+<li class="">A verificação do IRIS faz chamada de saída a cada chamada, então não convém colocá-la em monitor de alta frequência. O estado "não configurado" é válido e não é erro.</li>
+</ul>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id=auth-18>auth (18)<a href=#auth-18 class=hash-link aria-label="Link direto para auth (18)" title="Link direto para auth (18)" translate=no>​</a></h4>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Endpoint<th>Exige<tbody><tr><td><code>GET /api/auth/admin-access</code><td><code>user.manage</code><tr><td><code>POST /api/auth/bootstrap</code><td><strong>pública</strong><tr><td><code>POST /api/auth/login</code><td><strong>pública</strong><tr><td><code>POST /api/auth/logout</code><td>autenticado<tr><td><code>GET /api/auth/me</code><td>autenticado<tr><td><code>PATCH /api/auth/me</code><td>autenticado<tr><td><code>PUT /api/auth/me/locale</code><td>autenticado<tr><td><code>POST /api/auth/me/password</code><td>autenticado<tr><td><code>GET /api/auth/me/profile</code><td>autenticado<tr><td><code>POST /api/auth/me/sessions/revoke-others</code><td>autenticado<tr><td><code>GET /api/auth/permissions</code><td>autenticado<tr><td><code>GET /api/auth/sso/callback</code><td><strong>pública</strong><tr><td><code>GET /api/auth/sso/login</code><td><strong>pública</strong><tr><td><code>GET /api/auth/status</code><td><strong>pública</strong><tr><td><code>GET /api/auth/users</code><td><code>user.manage</code><tr><td><code>POST /api/auth/users</code><td><code>user.manage</code><tr><td><code>DELETE /api/auth/users/{user_id}</code><td><code>user.manage</code><tr><td><code>PUT /api/auth/users/{user_id}</code><td><code>user.manage</code></table>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id=organizations-11>organizations (11)<a href=#organizations-11 class=hash-link aria-label="Link direto para organizations (11)" title="Link direto para organizations (11)" translate=no>​</a></h4>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Endpoint<th>Exige<tbody><tr><td><code>GET /api/organizations/</code><td>autenticado<tr><td><code>POST /api/organizations/</code><td><code>user.manage</code> + escopo global<tr><td><code>POST /api/organizations/bulk/deactivate</code><td><code>user.manage</code><tr><td><code>DELETE /api/organizations/{org_id}</code><td><code>user.manage</code> + escopo global<tr><td><code>GET /api/organizations/{org_id}</code><td>autenticado<tr><td><code>PUT /api/organizations/{org_id}</code><td><code>user.manage</code><tr><td><code>GET /api/organizations/{org_id}/customer-mappings</code><td><code>org.manage</code><tr><td><code>DELETE /api/organizations/{org_id}/data</code><td><code>org.manage</code><tr><td><code>GET /api/organizations/{org_id}/retention</code><td><code>integration.read</code><tr><td><code>PUT /api/organizations/{org_id}/retention</code><td><code>org.manage</code><tr><td><code>POST /api/organizations/{org_id}/sync-iris-customer</code><td><code>org.manage</code></table>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id=api-tokens-4>api-tokens (4)<a href=#api-tokens-4 class=hash-link aria-label="Link direto para api-tokens (4)" title="Link direto para api-tokens (4)" translate=no>​</a></h4>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Endpoint<th>Exige<tbody><tr><td><code>GET /api/v1/tokens</code><td>autenticado<tr><td><code>POST /api/v1/tokens</code><td>autenticado<tr><td><code>GET /api/v1/tokens/scopes</code><td>autenticado<tr><td><code>DELETE /api/v1/tokens/{token_id}</code><td>autenticado</table>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id=service-accounts-8>service-accounts (8)<a href=#service-accounts-8 class=hash-link aria-label="Link direto para service-accounts (8)" title="Link direto para service-accounts (8)" translate=no>​</a></h4>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Endpoint<th>Exige<tbody><tr><td><code>GET /api/v1/service-accounts</code><td><code>user.manage</code><tr><td><code>POST /api/v1/service-accounts</code><td><code>user.manage</code><tr><td><code>DELETE /api/v1/service-accounts/{service_account_id}</code><td><code>user.manage</code><tr><td><code>GET /api/v1/service-accounts/{service_account_id}</code><td><code>user.manage</code><tr><td><code>PATCH /api/v1/service-accounts/{service_account_id}</code><td><code>user.manage</code><tr><td><code>GET /api/v1/service-accounts/{service_account_id}/tokens</code><td><code>user.manage</code><tr><td><code>POST /api/v1/service-accounts/{service_account_id}/tokens</code><td><code>user.manage</code><tr><td><code>DELETE /api/v1/service-accounts/{service_account_id}/tokens/{token_id}</code><td><code>user.manage</code></table>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id=identity-5>identity (5)<a href=#identity-5 class=hash-link aria-label="Link direto para identity (5)" title="Link direto para identity (5)" translate=no>​</a></h4>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Endpoint<th>Exige<tbody><tr><td><code>GET /api/identity/config</code><td><code>user.manage</code> + escopo global<tr><td><code>PUT /api/identity/config</code><td><code>user.manage</code> + escopo global<tr><td><code>POST /api/identity/config/sync</code><td><code>user.manage</code> + escopo global<tr><td><code>GET /api/identity/config/sync-status</code><td><code>user.manage</code> + escopo global<tr><td><code>POST /api/identity/config/test</code><td><code>user.manage</code> + escopo global</table>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id=sso-2>sso (2)<a href=#sso-2 class=hash-link aria-label="Link direto para sso (2)" title="Link direto para sso (2)" translate=no>​</a></h4>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Endpoint<th>Exige<tbody><tr><td><code>GET /api/auth/sso/callback</code><td><strong>pública</strong><tr><td><code>GET /api/auth/sso/login</code><td><strong>pública</strong></table>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id=emails-6>emails (6)<a href=#emails-6 class=hash-link aria-label="Link direto para emails (6)" title="Link direto para emails (6)" translate=no>​</a></h4>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Endpoint<th>Exige<tbody><tr><td><code>GET /api/emails/</code><td><code>user.manage</code><tr><td><code>POST /api/emails/</code><td><code>user.manage</code> + escopo global<tr><td><code>GET /api/emails/config</code><td><code>user.manage</code><tr><td><code>PUT /api/emails/config</code><td><code>user.manage</code> + escopo global<tr><td><code>POST /api/emails/test</code><td><code>user.manage</code><tr><td><code>DELETE /api/emails/{email_id}</code><td><code>user.manage</code> + escopo global</table>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id=licenses-3>licenses (3)<a href=#licenses-3 class=hash-link aria-label="Link direto para licenses (3)" title="Link direto para licenses (3)" translate=no>​</a></h4>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Endpoint<th>Exige<tbody><tr><td><code>DELETE /api/licenses</code><td><code>user.manage</code> + escopo global<tr><td><code>POST /api/licenses/activate</code><td><code>user.manage</code> + escopo global<tr><td><code>GET /api/licenses/status</code><td>autenticado</table>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id=edition-1>edition (1)<a href=#edition-1 class=hash-link aria-label="Link direto para edition (1)" title="Link direto para edition (1)" translate=no>​</a></h4>
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Endpoint<th>Exige<tbody><tr><td><code>GET /api/edition</code><td>autenticado</table>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id=config-bundle-2>config-bundle (2)<a href=#config-bundle-2 class=hash-link aria-label="Link direto para config-bundle (2)" title="Link direto para config-bundle (2)" translate=no>​</a></h4>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Endpoint<th>Exige<tbody><tr><td><code>GET /api/collectors/config/export</code><td><code>user.manage</code><tr><td><code>POST /api/collectors/config/import</code><td><code>user.manage</code></table>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id=dashboard-1>dashboard (1)<a href=#dashboard-1 class=hash-link aria-label="Link direto para dashboard (1)" title="Link direto para dashboard (1)" translate=no>​</a></h4>
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Endpoint<th>Exige<tbody><tr><td><code>GET /api/dashboard/summary</code><td>autenticado</table>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id=iris-1>iris (1)<a href=#iris-1 class=hash-link aria-label="Link direto para iris (1)" title="Link direto para iris (1)" translate=no>​</a></h4>
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Endpoint<th>Exige<tbody><tr><td><code>GET /api/iris/health</code><td><code>org.manage</code></table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=interno>Interno<a href=#interno class=hash-link aria-label="Link direto para Interno" title="Link direto para Interno" translate=no>​</a></h2>
+<p>Resolução de tenant entre serviços. <strong>Não é superfície pública</strong>, e não deve ser usada por integração de cliente.</p>
+<p>Ela aceita dois modos de autenticação: token com <code>internal.tenant.read</code>, ou uma chave compartilhada em header, que a própria documentação do código marca como obsoleta. Se os dois vierem, o token vence. A resposta traz caminho de credencial e identificador do fornecedor, ou seja, dado sensível de tenant.</p>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id=internal-3>internal (3)<a href=#internal-3 class=hash-link aria-label="Link direto para internal (3)" title="Link direto para internal (3)" translate=no>​</a></h4>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Endpoint<th>Exige<tbody><tr><td><code>GET /api/internal/tenants/by-iris-customer/{iris_customer_id}</code><td><code>internal.tenant.read</code> ou chave interna<tr><td><code>GET /api/internal/tenants/by-sophos-tenant/{external_id}</code><td><code>internal.tenant.read</code> ou chave interna<tr><td><code>GET /api/internal/tenants/{organization_id}</code><td><code>internal.tenant.read</code> ou chave interna</table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=a-lista-sempre-atual>A lista sempre atual<a href=#a-lista-sempre-atual class=hash-link aria-label="Link direto para A lista sempre atual" title="Link direto para A lista sempre atual" translate=no>​</a></h2>
+<p>Esta página é escrita à mão e pode ficar para trás do código. A fonte que nunca fica é o esquema publicado pela própria instância. Veja <a class="" href=/api/openapi>Esquema OpenAPI</a> para consultá-lo e gerar um cliente.</div></article><nav class="docusaurus-mt-lg pagination-nav" aria-label="Páginas de documento"><a class="pagination-nav__link pagination-nav__link--prev" href=/api/conventions><div class=pagination-nav__sublabel>Anterior</div><div class=pagination-nav__label>Convenções</div></a><a class="pagination-nav__link pagination-nav__link--next" href=/api/openapi><div class=pagination-nav__sublabel>Próxima</div><div class=pagination-nav__label>Esquema OpenAPI</div></a></nav></div></div><div class="col col--3"><div class="tableOfContents_bqdL thin-scrollbar theme-doc-toc-desktop"><ul class="table-of-contents table-of-contents__left-border"><li><a href=#como-ler-as-tabelas class="table-of-contents__link toc-highlight">Como ler as tabelas</a><li><a href=#coleta class="table-of-contents__link toc-highlight">Coleta</a><li><a href=#normalização class="table-of-contents__link toc-highlight">Normalização</a><li><a href=#enriquecimento class="table-of-contents__link toc-highlight">Enriquecimento</a><li><a href=#roteamento-e-entrega class="table-of-contents__link toc-highlight">Roteamento e entrega</a><li><a href=#consulta-e-detecção class="table-of-contents__link toc-highlight">Consulta e detecção</a><li><a href=#administração class="table-of-contents__link toc-highlight">Administração</a><li><a href=#interno class="table-of-contents__link toc-highlight">Interno</a><li><a href=#a-lista-sempre-atual class="table-of-contents__link toc-highlight">A lista sempre atual</a></ul></div></div></div></div></main></div></div></div><footer class="theme-layout-footer footer footer--dark"><div class="container container-fluid"><div class="row footer__links"><div class="theme-layout-footer-column col footer__col"><div class=footer__title>Documentação</div><ul class="footer__items clean-list"><li class=footer__item><a class=footer__link-item href=/getting-started/overview>Começar</a><li class=footer__item><a class=footer__link-item href=/operations/dashboard>Operação diária</a><li class=footer__item><a class=footer__link-item href=/normalization/overview>Mappings (CML)</a><li class=footer__item><a class=footer__link-item href=/runbooks/dispatcher>Runbooks</a></ul></div><div class="theme-layout-footer-column col footer__col"><div class=footer__title>Plataforma</div><ul class="footer__items clean-list"><li class=footer__item><a class=footer__link-item href=/concepts/architecture>Arquitetura</a><li class=footer__item><a class=footer__link-item href=/concepts/rbac>RBAC</a><li class=footer__item><a class=footer__link-item href=/integrations/overview>Integrações</a><li class=footer__item><a class=footer__link-item href=/compliance/retention>Compliance</a></ul></div><div class="theme-layout-footer-column col footer__col"><div class=footer__title>Recursos</div><ul class="footer__items clean-list"><li class=footer__item><a class=footer__link-item href=/getting-started/quickstart>Quickstart</a><li class=footer__item><a class=footer__link-item href=/normalization/cookbook>DSL Cookbook</a><li class=footer__item><a class=footer__link-item href=/normalization/troubleshooting>Troubleshooting</a></ul></div></div><div class="footer__bottom text--center"><div class=footer__copyright>Copyright © 2026 CentralOps. Built with Docusaurus.</div></div></div></footer></div></body>

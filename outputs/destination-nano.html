@@ -1,0 +1,322 @@
+<!doctype html><html lang=pt-BR dir=ltr class="docs-wrapper plugin-docs plugin-id-default docs-version-current docs-doc-page docs-doc-id-outputs/destination-nano" data-has-hydrated=false><head><meta charset=UTF-8><meta name=generator content="Docusaurus v3.10.0"><title data-rh=true>Destino: nano SIEM | CentralOps</title><meta data-rh=true name=viewport content="width=device-width, initial-scale=1.0"/><meta data-rh=true name=twitter:card content=summary_large_image /><meta data-rh=true property=og:image content=https://docs.segark.com/img/centralops-social-card.png /><meta data-rh=true name=twitter:image content=https://docs.segark.com/img/centralops-social-card.png /><meta data-rh=true property=og:url content=https://docs.segark.com/outputs/destination-nano /><meta data-rh=true property=og:locale content=pt_BR /><meta data-rh=true property=og:locale:alternate content=en /><meta data-rh=true property=og:locale:alternate content=es /><meta data-rh=true name=docusaurus_locale content=pt-BR /><meta data-rh=true name=docsearch:language content=pt-BR /><meta data-rh=true name=docusaurus_version content=current /><meta data-rh=true name=docusaurus_tag content=docs-default-current /><meta data-rh=true name=docsearch:version content=current /><meta data-rh=true name=docsearch:docusaurus_tag content=docs-default-current /><meta data-rh=true property=og:title content="Destino: nano SIEM | CentralOps"/><meta data-rh=true name=description content="Entregue eventos já normalizados ao nano SIEM, escolhendo entre os dois caminhos de entrega e sabendo o que cada um cobra em troca."/><meta data-rh=true property=og:description content="Entregue eventos já normalizados ao nano SIEM, escolhendo entre os dois caminhos de entrega e sabendo o que cada um cobra em troca."/><link data-rh=true rel=icon href=/img/favicon.ico /><link data-rh=true rel=canonical href=https://docs.segark.com/outputs/destination-nano /><link data-rh=true rel=alternate href=https://docs.segark.com/outputs/destination-nano hreflang=pt-BR /><link data-rh=true rel=alternate href=https://docs.segark.com/en/outputs/destination-nano hreflang=en /><link data-rh=true rel=alternate href=https://docs.segark.com/es/outputs/destination-nano hreflang=es /><link data-rh=true rel=alternate href=https://docs.segark.com/outputs/destination-nano hreflang=x-default /><script data-rh=true type=application/ld+json>{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","item":"https://docs.segark.com/outputs/destination-nano","name":"Destino: nano SIEM","position":1}]}</script><link rel=stylesheet href=/assets/css/styles.65a61132.css /><script src=/assets/js/runtime~main.2ed8b8c1.js defer></script><script src=/assets/js/main.eab0db4a.js defer></script></head><body><svg style="display: none;"><defs>
+<symbol id=theme-svg-external-link viewBox="0 0 24 24"><path fill=currentColor d="M21 13v10h-21v-19h12v2h-10v15h17v-8h2zm3-12h-10.988l4.035 4-6.977 7.07 2.828 2.828 6.977-7.07 4.125 4.172v-11z"/></symbol>
+</defs></svg>
+<script>!function(){var t=function(){try{return new URLSearchParams(window.location.search).get("docusaurus-theme")}catch(t){}}()||function(){try{return window.localStorage.getItem("theme-cee")}catch(t){}}();document.documentElement.setAttribute("data-theme",t||(window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light")),document.documentElement.setAttribute("data-theme-choice",t||"system")}(),function(){try{for(var[t,e]of new URLSearchParams(window.location.search).entries())if(t.startsWith("docusaurus-data-")){var a=t.replace("docusaurus-data-","data-");document.documentElement.setAttribute(a,e)}}catch(t){}}()</script><div id=__docusaurus><link rel=preload as=image href=/img/logo.svg /><div role=region aria-label="Pular para o conteúdo principal"><a class=skipToContent_fXgn href=#__docusaurus_skipToContent_fallback>Pular para o conteúdo principal</a></div><nav aria-label="Navegação principal" class="theme-layout-navbar navbar navbar--fixed-top"><div class=navbar__inner><div class="theme-layout-navbar-left navbar__items"><button aria-label="Alternar painel de navegação" aria-expanded=false class="navbar__toggle clean-btn" type=button><svg width=30 height=30 viewBox="0 0 30 30" aria-hidden=true><path stroke=currentColor stroke-linecap=round stroke-miterlimit=10 stroke-width=2 d="M4 7h22M4 15h22M4 23h22"/></svg></button><a class=navbar__brand href=/><div class=navbar__logo><img src=/img/logo.svg alt=CentralOps class="themedComponent_mlkZ themedComponent--light_NVdE"/><img src=/img/logo.svg alt=CentralOps class="themedComponent_mlkZ themedComponent--dark_xIcU"/></div><b class="navbar__title text--truncate">CentralOps</b></a><a class="navbar__item navbar__link" href=/>Começar</a><a aria-current=page class="navbar__item navbar__link navbar__link--active" href=/outputs/overview>Saídas & Rotas</a><a class="navbar__item navbar__link" href=/operations/dashboard>Operação</a><a class="navbar__item navbar__link" href=/administration/users-and-roles>Administração</a><a class="navbar__item navbar__link" href=/normalization/overview>Mappings</a><a class="navbar__item navbar__link" href=/enrichment/overview>Enriquecimento</a><a class="navbar__item navbar__link" href=/runbooks/dispatcher>Runbooks</a><a class="navbar__item navbar__link" href=/api/overview>API</a></div><div class="theme-layout-navbar-right navbar__items navbar__items--right"><div class="navbar__item dropdown dropdown--hoverable dropdown--right"><a href=# aria-haspopup=true aria-expanded=false role=button class=navbar__link><svg viewBox="0 0 24 24" width=20 height=20 aria-hidden=true class=iconLanguage_nlXk><path fill=currentColor d="M12.87 15.07l-2.54-2.51.03-.03c1.74-1.94 2.98-4.17 3.71-6.53H17V4h-7V2H8v2H1v1.99h11.17C11.5 7.92 10.44 9.75 9 11.35 8.07 10.32 7.3 9.19 6.69 8h-2c.73 1.63 1.73 3.17 2.98 4.56l-5.09 5.02L4 19l5-5 3.11 3.11.76-2.04zM18.5 10h-2L12 22h2l1.12-3h4.75L21 22h2l-4.5-12zm-2.62 7l1.62-4.33L19.12 17h-3.24z"/></svg>Português</a><ul class=dropdown__menu><li><a href=/outputs/destination-nano target=_self rel="noopener noreferrer" class="dropdown__link dropdown__link--active" lang=pt-BR>Português</a><li><a href=/en/outputs/destination-nano target=_self rel="noopener noreferrer" class=dropdown__link lang=en>English</a><li><a href=/es/outputs/destination-nano target=_self rel="noopener noreferrer" class=dropdown__link lang=es>Español</a></ul></div><div class="toggle_vylO colorModeToggle_DEke"><button class="clean-btn toggleButton_gllP toggleButtonDisabled_aARS" type=button disabled title="modo do sistema" aria-label="Mudar entre modo claro e escuro (modo do sistema está ativo)"><svg viewBox="0 0 24 24" width=24 height=24 aria-hidden=true class="toggleIcon_g3eP lightToggleIcon_pyhR"><path fill=currentColor d="M12,9c1.65,0,3,1.35,3,3s-1.35,3-3,3s-3-1.35-3-3S10.35,9,12,9 M12,7c-2.76,0-5,2.24-5,5s2.24,5,5,5s5-2.24,5-5 S14.76,7,12,7L12,7z M2,13l2,0c0.55,0,1-0.45,1-1s-0.45-1-1-1l-2,0c-0.55,0-1,0.45-1,1S1.45,13,2,13z M20,13l2,0c0.55,0,1-0.45,1-1 s-0.45-1-1-1l-2,0c-0.55,0-1,0.45-1,1S19.45,13,20,13z M11,2v2c0,0.55,0.45,1,1,1s1-0.45,1-1V2c0-0.55-0.45-1-1-1S11,1.45,11,2z M11,20v2c0,0.55,0.45,1,1,1s1-0.45,1-1v-2c0-0.55-0.45-1-1-1C11.45,19,11,19.45,11,20z M5.99,4.58c-0.39-0.39-1.03-0.39-1.41,0 c-0.39,0.39-0.39,1.03,0,1.41l1.06,1.06c0.39,0.39,1.03,0.39,1.41,0s0.39-1.03,0-1.41L5.99,4.58z M18.36,16.95 c-0.39-0.39-1.03-0.39-1.41,0c-0.39,0.39-0.39,1.03,0,1.41l1.06,1.06c0.39,0.39,1.03,0.39,1.41,0c0.39-0.39,0.39-1.03,0-1.41 L18.36,16.95z M19.42,5.99c0.39-0.39,0.39-1.03,0-1.41c-0.39-0.39-1.03-0.39-1.41,0l-1.06,1.06c-0.39,0.39-0.39,1.03,0,1.41 s1.03,0.39,1.41,0L19.42,5.99z M7.05,18.36c0.39-0.39,0.39-1.03,0-1.41c-0.39-0.39-1.03-0.39-1.41,0l-1.06,1.06 c-0.39,0.39-0.39,1.03,0,1.41s1.03,0.39,1.41,0L7.05,18.36z"/></svg><svg viewBox="0 0 24 24" width=24 height=24 aria-hidden=true class="toggleIcon_g3eP darkToggleIcon_wfgR"><path fill=currentColor d="M9.37,5.51C9.19,6.15,9.1,6.82,9.1,7.5c0,4.08,3.32,7.4,7.4,7.4c0.68,0,1.35-0.09,1.99-0.27C17.45,17.19,14.93,19,12,19 c-3.86,0-7-3.14-7-7C5,9.07,6.81,6.55,9.37,5.51z M12,3c-4.97,0-9,4.03-9,9s4.03,9,9,9s9-4.03,9-9c0-0.46-0.04-0.92-0.1-1.36 c-0.98,1.37-2.58,2.26-4.4,2.26c-2.98,0-5.4-2.42-5.4-5.4c0-1.81,0.89-3.42,2.26-4.4C12.92,3.04,12.46,3,12,3L12,3z"/></svg><svg viewBox="0 0 24 24" width=24 height=24 aria-hidden=true class="toggleIcon_g3eP systemToggleIcon_QzmC"><path fill=currentColor d="m12 21c4.971 0 9-4.029 9-9s-4.029-9-9-9-9 4.029-9 9 4.029 9 9 9zm4.95-13.95c1.313 1.313 2.05 3.093 2.05 4.95s-0.738 3.637-2.05 4.95c-1.313 1.313-3.093 2.05-4.95 2.05v-14c1.857 0 3.637 0.737 4.95 2.05z"/></svg></button></div><div class=navbarSearchContainer_Bca1><div class=navbar__search><span aria-label="expand searchbar" role=button class=search-icon tabindex=0></span><input id=search_input_react type=search placeholder=Loading... aria-label=Search class="navbar__search-input search-bar" disabled/></div></div></div></div><div role=presentation class=navbar-sidebar__backdrop></div></nav><div id=__docusaurus_skipToContent_fallback class="theme-layout-main main-wrapper mainWrapper_z2l0"><div class=docsWrapper_hBAB><button aria-label="Voltar para o topo" class="clean-btn theme-back-to-top-button backToTopButton_sjWU" type=button></button><div class=docRoot_UBD9><aside class="theme-doc-sidebar-container docSidebarContainer_YfHR"><div class=sidebarViewport_aRkj><div class=sidebar_njMd><nav aria-label="Painel lateral de documentos" class="menu thin-scrollbar menu_SIkG"><ul class="theme-doc-sidebar-menu menu__list"><li class="theme-doc-sidebar-item-category theme-doc-sidebar-item-category-level-1 menu__list-item"><div class=menu__list-item-collapsible><a class="categoryLink_byQd menu__link menu__link--sublist menu__link--sublist-caret menu__link--active" role=button aria-expanded=true href=/outputs/overview><span title="Saídas & Roteamento" class=categoryLinkLabel_W154>Saídas & Roteamento</span></a></div><ul class=menu__list><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/outputs/overview><span title="Saídas e Roteamento (visão geral)" class=linkLabel_WmDU>Saídas e Roteamento (visão geral)</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/outputs/ocsf-nativo><span title="Entregar OCSF 1.8 puro" class=linkLabel_WmDU>Entregar OCSF 1.8 puro</span></a><li class="theme-doc-sidebar-item-category theme-doc-sidebar-item-category-level-2 menu__list-item"><div class=menu__list-item-collapsible><a class="categoryLink_byQd menu__link menu__link--sublist menu__link--sublist-caret menu__link--active" role=button aria-expanded=true tabindex=0 href=/outputs/destinations><span title=Destinos class=categoryLinkLabel_W154>Destinos</span></a></div><ul class=menu__list><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class=menu__link tabindex=0 href=/outputs/destinations><span title="Destinos (catálogo e como configurar)" class=linkLabel_WmDU>Destinos (catálogo e como configurar)</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class=menu__link tabindex=0 href=/outputs/destination-wazuh-syslog><span title="Destino: Syslog e JSONL" class=linkLabel_WmDU>Destino: Syslog e JSONL</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class=menu__link tabindex=0 href=/outputs/destination-splunk-hec><span title="Destino: Splunk HEC" class=linkLabel_WmDU>Destino: Splunk HEC</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class=menu__link tabindex=0 href=/outputs/destination-elastic><span title="Destino: Elasticsearch / OpenSearch" class=linkLabel_WmDU>Destino: Elasticsearch / OpenSearch</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class=menu__link tabindex=0 href=/outputs/destination-clickhouse><span title="Destino: ClickHouse" class=linkLabel_WmDU>Destino: ClickHouse</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class="menu__link menu__link--active" aria-current=page tabindex=0 href=/outputs/destination-nano><span title="Destino: nano SIEM" class=linkLabel_WmDU>Destino: nano SIEM</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class=menu__link tabindex=0 href=/outputs/destination-crowdstrike-ngsiem><span title="Destino: CrowdStrike Falcon Next-Gen SIEM" class=linkLabel_WmDU>Destino: CrowdStrike Falcon Next-Gen SIEM</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class=menu__link tabindex=0 href=/outputs/destination-crowdstrike-logscale><span title="Destino: CrowdStrike Falcon LogScale" class=linkLabel_WmDU>Destino: CrowdStrike Falcon LogScale</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class=menu__link tabindex=0 href=/outputs/destination-s3><span title="Destino: S3 / Object Store (data lake)" class=linkLabel_WmDU>Destino: S3 / Object Store (data lake)</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class=menu__link tabindex=0 href=/outputs/destination-sentinel><span title="Destino: Microsoft Sentinel" class=linkLabel_WmDU>Destino: Microsoft Sentinel</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class=menu__link tabindex=0 href=/outputs/destination-kafka><span title="Destino: Apache Kafka" class=linkLabel_WmDU>Destino: Apache Kafka</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class=menu__link tabindex=0 href=/outputs/destination-otlp><span title="Destino: OTLP" class=linkLabel_WmDU>Destino: OTLP</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class=menu__link tabindex=0 href=/outputs/destination-operations><span title="Operar destinos (saúde, fila de reenvio, métricas)" class=linkLabel_WmDU>Operar destinos (saúde, fila de reenvio, métricas)</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class=menu__link tabindex=0 href=/outputs/destination-webhook><span title="Destino: Webhook Genérico" class=linkLabel_WmDU>Destino: Webhook Genérico</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class=menu__link tabindex=0 href=/outputs/destination-datadog><span title="Destino: Datadog Logs" class=linkLabel_WmDU>Destino: Datadog Logs</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class=menu__link tabindex=0 href=/outputs/destination-chronicle><span title="Destino: Google SecOps (Chronicle)" class=linkLabel_WmDU>Destino: Google SecOps (Chronicle)</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class=menu__link tabindex=0 href=/outputs/destination-security-lake><span title="Destino: Amazon Security Lake (OCSF Parquet)" class=linkLabel_WmDU>Destino: Amazon Security Lake (OCSF Parquet)</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class=menu__link tabindex=0 href=/outputs/adding-a-destination><span title="Destinos — catálogo e tipos disponíveis" class=linkLabel_WmDU>Destinos — catálogo e tipos disponíveis</span></a></ul><li class="theme-doc-sidebar-item-category theme-doc-sidebar-item-category-level-2 menu__list-item"><div class=menu__list-item-collapsible><a class="categoryLink_byQd menu__link menu__link--sublist menu__link--sublist-caret" role=button aria-expanded=true tabindex=0 href=/outputs/routing><span title=Roteamento class=categoryLinkLabel_W154>Roteamento</span></a></div><ul class=menu__list><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class=menu__link tabindex=0 href=/outputs/routing><span title="Roteamento por regra" class=linkLabel_WmDU>Roteamento por regra</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class=menu__link tabindex=0 href=/outputs/routing-canary><span title="Cutover gradual de SIEM (canary)" class=linkLabel_WmDU>Cutover gradual de SIEM (canary)</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class=menu__link tabindex=0 href=/outputs/routing-dry-run><span title="Testar rotas, ver o fluxo e reverter mudanças" class=linkLabel_WmDU>Testar rotas, ver o fluxo e reverter mudanças</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class=menu__link tabindex=0 href=/outputs/reducao-de-volume><span title="Redução de volume" class=linkLabel_WmDU>Redução de volume</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class=menu__link tabindex=0 href=/outputs/pii-redaction><span title="Redação de dados pessoais por rota (LGPD/GDPR)" class=linkLabel_WmDU>Redação de dados pessoais por rota (LGPD/GDPR)</span></a></ul><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/outputs/observability><span title="Observabilidade dos destinos" class=linkLabel_WmDU>Observabilidade dos destinos</span></a></ul></ul></nav></div></div></aside><main class=docMainContainer_TBSr><div class="container padding-top--md padding-bottom--lg"><div class=row><div class="col docItemCol_VOVn"><div class=docItemContainer_Djhp><article><nav class="theme-doc-breadcrumbs breadcrumbsContainer_Z_bl" aria-label=Trilha><ul class=breadcrumbs><li class=breadcrumbs__item><a aria-label="Página Inicial" class=breadcrumbs__link href=/><svg viewBox="0 0 24 24" class=breadcrumbHomeIcon_YNFT><path d="M10 19v-5h4v5c0 .55.45 1 1 1h3c.55 0 1-.45 1-1v-7h1.7c.46 0 .68-.57.33-.87L12.67 3.6c-.38-.34-.96-.34-1.34 0l-8.36 7.53c-.34.3-.13.87.33.87H5v7c0 .55.45 1 1 1h3c.55 0 1-.45 1-1z" fill=currentColor /></svg></a><li class=breadcrumbs__item><span class=breadcrumbs__link>Saídas & Roteamento</span><li class=breadcrumbs__item><span class=breadcrumbs__link>Destinos</span><li class="breadcrumbs__item breadcrumbs__item--active"><span class=breadcrumbs__link>Destino: nano SIEM</span></ul></nav><div class="tocCollapsible_ETCw theme-doc-toc-mobile tocMobile_ITEo"><button type=button class="clean-btn tocCollapsibleButton_TO0P">Nesta página</button></div><div class="theme-doc-markdown markdown"><header><h1>Destino: nano SIEM</h1></header>
+<p>O nano é um SIEM leve que guarda os eventos em ClickHouse e aceita OCSF pronto. Como o CentralOps já coleta do fabricante, normaliza para OCSF 1.8, enriquece e reduz, o encaixe é direto: você entrega o evento normalizado e o nano cuida da busca, da detecção e da investigação.</p>
+<p>Esta tela só aparece para administradores da plataforma.</p>
+<p><img decoding=async loading=lazy alt="Tela de Destinos do console" src=/assets/images/console-destinos-4e489b1b34df25e47b5191c5104b98d4.png width=2880 height=1800 class=img_ev3q /></p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=dois-caminhos-e-eles-não-são-equivalentes>Dois caminhos, e eles não são equivalentes<a href=#dois-caminhos-e-eles-não-são-equivalentes class=hash-link aria-label="Link direto para Dois caminhos, e eles não são equivalentes" title="Link direto para Dois caminhos, e eles não são equivalentes" translate=no>​</a></h2>
+<p>O nano abre duas portas de entrada e a escolha entre elas tem consequência. Leia esta seção antes de criar o destino, porque trocar de caminho depois significa refazer configuração dos dois lados.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th><th><strong>Entrega direta</strong><th><strong>Entrega por coletor (HEC)</strong><tbody><tr><td>Como funciona<td>O CentralOps grava direto no banco do nano<td>O CentralOps entrega para o serviço do nano, que grava<tr><td>O que você configura no nano<td>Um usuário de banco com permissão de escrita<td>Um token de ingestão e um arquivo de tradução<tr><td>Quem grava<td>O CentralOps, com credencial de banco<td>O próprio nano, com as credenciais dele<tr><td>Latência<td>Menor: um salto a menos<td>Um pouco maior<tr><td>Se o nano mudar por dentro<td>A entrega pode parar<td>Segue funcionando<tr><td>Precisa de permissão de banco<td>Sim<td>Não</table>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=quando-escolher-a-entrega-direta>Quando escolher a entrega direta<a href=#quando-escolher-a-entrega-direta class=hash-link aria-label="Link direto para Quando escolher a entrega direta" title="Link direto para Quando escolher a entrega direta" translate=no>​</a></h3>
+<p>É o caminho mais curto e o de menor latência. O evento sai do CentralOps e entra no banco do nano sem intermediário.</p>
+<p>O que você ganha:</p>
+<ul>
+<li class=""><strong>Nada é reprocessado.</strong> O nano recebe exatamente o OCSF que o CentralOps produziu.</li>
+<li class=""><strong>Menos partes móveis.</strong> Não há arquivo de tradução para manter.</li>
+<li class=""><strong>Um salto a menos</strong>, o que aparece na latência quando o volume é alto.</li>
+</ul>
+<p>O que você paga:</p>
+<ul>
+<li class=""><strong>Depende de permissões de banco.</strong> O usuário de ingestão precisa poder escrever na tabela de destino <strong>e</strong> ter acesso a algumas tabelas internas que o nano usa para montar as estatísticas dele. Se faltar qualquer uma, a gravação é recusada. Veja <a href=#quando-a-gravacao-e-recusada-por-permissao class="">Quando a gravação é recusada por permissão</a>.</li>
+<li class=""><strong>Acompanha as mudanças internas do nano.</strong> Uma atualização que mexa na estrutura interna pode exigir ajuste de permissão de novo.</li>
+<li class=""><strong>A conexão pode estar perfeita e a gravação falhar mesmo assim.</strong> É o ponto que mais confunde, e está explicado em <a href=#o-que-o-teste-de-conexao-nao-diz class="">O que o teste de conexão não diz</a>.</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=quando-escolher-a-entrega-por-coletor>Quando escolher a entrega por coletor<a href=#quando-escolher-a-entrega-por-coletor class=hash-link aria-label="Link direto para Quando escolher a entrega por coletor" title="Link direto para Quando escolher a entrega por coletor" translate=no>​</a></h3>
+<p>Aqui o CentralOps conversa com o serviço de ingestão do nano, e quem grava no banco é o nano.</p>
+<p>O que você ganha:</p>
+<ul>
+<li class=""><strong>Nenhuma permissão de banco.</strong> Você usa um token de ingestão. O problema de permissão simplesmente não existe nesse caminho.</li>
+<li class=""><strong>Resistente a mudanças internas.</strong> Se o nano reorganizar as tabelas dele, a sua entrega continua de pé.</li>
+<li class=""><strong>Erros mais legíveis.</strong> O serviço responde com mensagens de aplicação, não com erro de banco.</li>
+</ul>
+<p>O que você paga:</p>
+<ul>
+<li class=""><strong>Um arquivo de tradução do lado do nano.</strong> Ele não reprocessa nada, só converte o formato de entrega para o formato que o nano guarda. Está descrito no <a href=#caminho-b-entrega-por-coletor-hec class="">passo a passo</a>.</li>
+<li class=""><strong>Um salto a mais</strong>, e portanto um pouco mais de latência.</li>
+</ul>
+<p><strong>Na dúvida, escolha a entrega por coletor.</strong> Ela custa um arquivo a mais e devolve independência: sua ingestão deixa de depender de como o nano está organizado por dentro.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=o-que-ter-em-mãos>O que ter em mãos<a href=#o-que-ter-em-mãos class=hash-link aria-label="Link direto para O que ter em mãos" title="Link direto para O que ter em mãos" translate=no>​</a></h2>
+<p>Para os dois caminhos:</p>
+<ul>
+<li class=""><strong>O endereço do nano na sua rede.</strong></li>
+<li class=""><strong>Um rótulo para esta origem</strong>, em letras minúsculas, sem espaço (por exemplo <code>centralops_sophos</code>). É por ele que você separa e filtra os dados dentro do nano.</li>
+</ul>
+<p>Só para a entrega direta:</p>
+<ul>
+<li class=""><strong>Usuário e senha de ingestão do nano.</strong> O instalador cria esse usuário e gera a senha.</li>
+</ul>
+<p>Só para a entrega por coletor:</p>
+<ul>
+<li class=""><strong>O token de ingestão do nano.</strong></li>
+</ul>
+<blockquote>
+<p>A senha e o token ficam guardados de forma criptografada. Depois de salvar, eles não aparecem mais em tela.</p>
+</blockquote>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=caminho-a-entrega-direta>Caminho A: entrega direta<a href=#caminho-a-entrega-direta class=hash-link aria-label="Link direto para Caminho A: entrega direta" title="Link direto para Caminho A: entrega direta" translate=no>​</a></h2>
+<ol>
+<li class="">No menu lateral, abra <strong>Roteia → Destinos</strong>.</li>
+<li class="">Crie um destino novo e escolha o tipo <strong>nano SIEM</strong>.</li>
+<li class="">Preencha:</li>
+</ol>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Campo<th>O que informar<tbody><tr><td><strong>Nome</strong><td>Algo que ajude a reconhecer o destino depois, como "nano SIEM Produção".<tr><td><strong>URL</strong><td>O endereço do nano com a porta da interface web do banco: <code>http://seu-nano:8123</code>, ou <code>https://seu-nano:8443</code> se for com TLS. Confira qual delas o seu deploy publicou.<tr><td><strong>Rótulo da origem</strong><td>Minúsculo, sem espaço. Use um por feed.<tr><td><strong>Rótulo derivado de</strong><td>Deixe vazio por enquanto. Volte aqui depois de ler <a href=#um-destino-para-varios-clientes class="">Um destino para vários clientes</a>.<tr><td><strong>Usuário</strong><td>O usuário de ingestão do nano.<tr><td><strong>Senha</strong><td>A senha desse usuário.<tr><td><strong>Banco</strong> e <strong>Tabela</strong><td>Os valores já vêm preenchidos com o padrão do nano. Só mude se a sua instalação usar outros.<tr><td><strong>Verificar TLS</strong><td>Deixe ligado. Desligue apenas se o nano usar certificado próprio e a conexão falhar por causa dele.</table>
+<ol start=4>
+<li class="">Salve. O destino nasce ativo e passa a receber o que for roteado para ele.</li>
+</ol>
+<div class="theme-admonition theme-admonition-caution admonition_xJq3 alert alert--warning"><div class=admonitionHeading_Gvgb><span class=admonitionIcon_Rf37><svg viewBox="0 0 16 16"><path fill-rule=evenodd d="M8.893 1.5c-.183-.31-.52-.5-.887-.5s-.703.19-.886.5L.138 13.499a.98.98 0 0 0 0 1.001c.193.31.53.501.886.501h13.964c.367 0 .704-.19.877-.5a1.03 1.03 0 0 0 .01-1.002L8.893 1.5zm.133 11.497H6.987v-2.003h2.039v2.003zm0-3.004H6.987V5.987h2.039v4.006z"/></svg></span>Uma porta que parece certa e não é</div><div class=admonitionContent_BuS1><p>Se você tentar apontar para a porta 9000, o salvamento é recusado com uma explicação. Aquela porta usa um protocolo diferente e não serve para este caminho. Use 8123, ou 8443 com TLS.</div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=caminho-b-entrega-por-coletor-hec>Caminho B: entrega por coletor (HEC)<a href=#caminho-b-entrega-por-coletor-hec class=hash-link aria-label="Link direto para Caminho B: entrega por coletor (HEC)" title="Link direto para Caminho B: entrega por coletor (HEC)" translate=no>​</a></h2>
+<p>Este caminho usa o tipo de destino <strong>Splunk HEC</strong>, porque o nano fala o mesmo protocolo de coleta.</p>
+<ol>
+<li class="">No menu lateral, abra <strong>Roteia → Destinos</strong>.</li>
+<li class="">Crie um destino novo e escolha o tipo <strong>Splunk HEC</strong>.</li>
+<li class="">Preencha:</li>
+</ol>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Campo<th>O que informar<tbody><tr><td><strong>Nome</strong><td>Algo como "nano SIEM (coletor)".<tr><td><strong>URL</strong><td>O endereço do nano com a porta do coletor: <code>https://seu-nano:8088</code>.<tr><td><strong>Token</strong><td>O token de ingestão do nano.<tr><td><strong>Sourcetype</strong><td>O rótulo desta origem, minúsculo e sem espaço. É o mesmo papel do rótulo da origem no outro caminho.<tr><td><strong>Payload</strong><td><strong>OCSF.</strong> Esse campo é o que mais importa aqui: escolher a outra opção faz o nano receber um formato que ele não sabe guardar, e a tradução recusa o evento.<tr><td><strong>Canal</strong><td>Deixe vazio. O CentralOps preenche sozinho com um identificador estável.<tr><td><strong>Verificar TLS</strong><td>Deixe ligado, com a mesma ressalva de certificado próprio.</table>
+<ol start=4>
+<li class="">
+<p>Salve.</p>
+</li>
+<li class="">
+<p><strong>Instale o arquivo de tradução no nano.</strong> Sem ele, os eventos chegam mas o nano não sabe onde guardá-los. O arquivo pega o que o CentralOps entrega e converte para a forma que o nano armazena. Ele não reinterpreta o conteúdo: o evento já vem normalizado, e reprocessar seria refazer um trabalho que já foi feito, com risco de o resultado divergir.</p>
+</li>
+</ol>
+<p>O arquivo faz quatro coisas:</p>
+<ul>
+<li class="">Reaproveita o evento como está, sem tocar no conteúdo.</li>
+<li class="">Copia o rótulo da origem para o campo que o nano usa para separar as fontes.</li>
+<li class="">Converte o horário do evento para o formato que o nano espera.</li>
+<li class="">Reaproveita o identificador do evento, para que um mesmo evento entregue duas vezes não vire duas linhas.</li>
+</ul>
+<p>Ele também recusa o evento, em vez de guardar torto, se perceber que o <strong>Payload</strong> ficou na opção errada. É melhor ver um erro contado do que descobrir semanas depois que uma parte dos dados entrou sem classificação.</p>
+<p><a href=/assets/files/nano-centralops-259c806b14deb27d9637fad97ebd1b8f.vrl target=_blank class="">Baixe o arquivo de tradução</a> e coloque-o na pasta de tradutores do nano. Se a sua instalação tiver o caminho diferente do padrão, quem administra o nano sabe onde é.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=um-destino-para-varios-clientes>Um destino para vários clientes<a href=#um-destino-para-varios-clientes class=hash-link aria-label="Link direto para Um destino para vários clientes" title="Link direto para Um destino para vários clientes" translate=no>​</a></h2>
+<p>Se você atende mais de um cliente, o rótulo fixo vira um problema de escala: um destino, uma rota e uma credencial por cliente. Em dez ainda dá; em cinquenta, não.</p>
+<p>O campo <strong>Rótulo derivado de</strong> resolve isso. Em vez de escrever o rótulo, você escolhe de onde ele sai, e cada evento entregue leva o rótulo do cliente que o originou. Um destino só atende todos.</p>
+<p>A opção mais usada é <strong>organização + fabricante</strong>, que produz rótulos como <code>acme_sophos</code> e <code>beta_wazuh</code>. Ela separa por cliente, que é o que importa para o escopo, e mantém o fabricante visível, que é o que costuma aparecer nos filtros.</p>
+<p>O <strong>Rótulo da origem</strong> continua útil junto: ele vira o valor de reserva, usado quando o evento não trouxer a informação de origem.</p>
+<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class=admonitionHeading_Gvgb><span class=admonitionIcon_Rf37><svg viewBox="0 0 12 16"><path fill-rule=evenodd d="M6.5 0C3.48 0 1 2.19 1 5c0 .92.55 2.25 1 3 1.34 2.25 1.78 2.78 2 4v1h5v-1c.22-1.22.66-1.75 2-4 .45-.75 1-2.08 1-3 0-2.81-2.48-5-5.5-5zm3.64 7.48c-.25.44-.47.8-.67 1.11-.86 1.41-1.25 2.06-1.45 3.23-.02.05-.02.11-.02.17H5c0-.06 0-.13-.02-.17-.2-1.17-.59-1.83-1.45-3.23-.2-.31-.42-.67-.67-1.11C2.44 6.78 2 5.65 2 5c0-2.2 2.02-4 4.5-4 1.22 0 2.36.42 3.22 1.19C10.55 2.94 11 3.94 11 5c0 .66-.44 1.78-.86 2.48zM4 14h5c-.23 1.14-1.3 2-2.5 2s-2.27-.86-2.5-2z"/></svg></span>Isso muda como escrever as regras no nano</div><div class=admonitionContent_BuS1><p>Com rótulo derivado, cada cliente passa a ter o seu. Uma regra escrita para um rótulo específico deixa de enxergar todos os outros, em silêncio.<p>Escreva as regras filtrando pelo <strong>conteúdo</strong> do evento (tipo, severidade, categoria) e use o rótulo apenas como coluna de resultado, para saber de quem é. Assim uma regra atende todos os clientes, que é justamente o motivo de normalizar antes de entregar.</div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=testar-a-conexão>Testar a conexão<a href=#testar-a-conexão class=hash-link aria-label="Link direto para Testar a conexão" title="Link direto para Testar a conexão" translate=no>​</a></h2>
+<p>Na página do destino, use o botão <strong>Testar</strong>. Ele verifica se o nano responde, se a credencial é aceita e se o formato combina com o que está do outro lado.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=o-que-o-teste-de-conexao-nao-diz>O que o teste não diz<a href=#o-que-o-teste-de-conexao-nao-diz class=hash-link aria-label="Link direto para O que o teste não diz" title="Link direto para O que o teste não diz" translate=no>​</a></h3>
+<p>O teste faz perguntas ao nano; ele não grava nada. Isso significa que <strong>passar no teste não é prova de que os eventos estão sendo guardados</strong>. Existe uma situação real em que o teste passa e a gravação falha: quando o endereço, a credencial e o formato estão todos corretos, mas o nano recusa a escrita por permissão.</p>
+<p>Por isso o resultado do teste diz o que ele não cobre e aponta onde está a resposta de verdade: a <strong>fila de reenvio</strong> do destino. Se ela está vazia e o contador de eventos sobe, está entregando. Se ela cresce, não está — independentemente do que o teste disse.</p>
+<p>Confira sempre os dois.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=confirmar-que-os-dados-chegaram>Confirmar que os dados chegaram<a href=#confirmar-que-os-dados-chegaram class=hash-link aria-label="Link direto para Confirmar que os dados chegaram" title="Link direto para Confirmar que os dados chegaram" translate=no>​</a></h2>
+<p>Abra <strong>Roteia → Destinos</strong>, selecione o destino e veja o contador de eventos e a fila de reenvio.</p>
+<p>Do lado do nano, procure pelo rótulo que você configurou. Os eventos ficam na tabela de logs consolidada.</p>
+<div class="theme-admonition theme-admonition-warning admonition_xJq3 alert alert--warning"><div class=admonitionHeading_Gvgb><span class=admonitionIcon_Rf37><svg viewBox="0 0 16 16"><path fill-rule=evenodd d="M8.893 1.5c-.183-.31-.52-.5-.887-.5s-.703.19-.886.5L.138 13.499a.98.98 0 0 0 0 1.001c.193.31.53.501.886.501h13.964c.367 0 .704-.19.877-.5a1.03 1.03 0 0 0 .01-1.002L8.893 1.5zm.133 11.497H6.987v-2.003h2.039v2.003zm0-3.004H6.987V5.987h2.039v4.006z"/></svg></span>Não procure na tabela de entrada</div><div class=admonitionContent_BuS1><p>A tabela onde o CentralOps escreve é apenas uma porta de entrada: por desenho ela <strong>não guarda nada</strong>, só repassa. Consultá-la vai devolver zero mesmo quando tudo estiver funcionando, e é um jeito fácil de concluir errado que a integração está parada.<p>Procure na tabela de logs, filtrando pelo seu rótulo.</div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=quando-a-gravacao-e-recusada-por-permissao>Quando a gravação é recusada por permissão<a href=#quando-a-gravacao-e-recusada-por-permissao class=hash-link aria-label="Link direto para Quando a gravação é recusada por permissão" title="Link direto para Quando a gravação é recusada por permissão" translate=no>​</a></h2>
+<p>Isso vale apenas para a <strong>entrega direta</strong>.</p>
+<p>Ao receber um evento, o nano não só guarda a linha: ele também atualiza algumas tabelas internas de estatística. Essa atualização acontece com as permissões de quem está gravando, ou seja, o seu usuário de ingestão. Se faltar acesso a qualquer uma dessas tabelas internas, o nano recusa o evento inteiro.</p>
+<p>Como isso aparece na prática:</p>
+<ul>
+<li class="">o teste de conexão passa;</li>
+<li class="">a fila de reenvio cresce sem parar;</li>
+<li class="">os eventos que chegam a entrar são só uma fração do que foi enviado.</li>
+</ul>
+<p>O que fazer: peça a quem administra o nano para conceder ao usuário de ingestão o acesso de leitura às tabelas de agregação. Em algumas instalações o usuário é criado por arquivo de configuração, e nesse caso o ajuste precisa ser feito nesse arquivo, no servidor, e não por comando.</p>
+<p>Nenhum evento se perde enquanto isso: eles ficam na fila de reenvio e são entregues quando a permissão for corrigida.</p>
+<p><strong>Se este problema aparecer, considere migrar para a entrega por coletor.</strong> Ela não depende de permissão de banco, então esse modo de falha deixa de existir.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=como-os-eventos-são-entregues>Como os eventos são entregues<a href=#como-os-eventos-são-entregues class=hash-link aria-label="Link direto para Como os eventos são entregues" title="Link direto para Como os eventos são entregues" translate=no>​</a></h2>
+<p>Você não precisa configurar nada disso, mas ajuda saber o que esperar:</p>
+<ul>
+<li class=""><strong>Vão em lotes</strong>, o que é mais eficiente do que um a um.</li>
+<li class=""><strong>Se falhar, tenta de novo sozinho</strong>, esperando um pouco mais a cada tentativa.</li>
+<li class=""><strong>Se o nano ficar instável</strong>, o envio pausa por um curto período e volta automaticamente, para não piorar a situação do outro lado.</li>
+<li class=""><strong>Um evento pode chegar duplicado</strong> numa queda no momento errado. Cada evento carrega um identificador próprio, o que permite identificar repetições.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=acompanhar-a-saúde>Acompanhar a saúde<a href=#acompanhar-a-saúde class=hash-link aria-label="Link direto para Acompanhar a saúde" title="Link direto para Acompanhar a saúde" translate=no>​</a></h2>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Cor<th>O que significa<tbody><tr><td>Verde<td>Entregando normalmente, sem nada parado.<tr><td>Amarelo<td>Entregando, mas há itens na fila de reenvio.<tr><td>Vermelho<td>Envio pausado, ou o nano indisponível.<tr><td>Cinza<td>Destino desativado.</table>
+<p>A fila de reenvio mostra cada evento recusado com o motivo, o horário e o conteúdo exato. É por onde se começa qualquer investigação de entrega.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=problemas-comuns>Problemas comuns<a href=#problemas-comuns class=hash-link aria-label="Link direto para Problemas comuns" title="Link direto para Problemas comuns" translate=no>​</a></h2>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>O que você vê<th>O que verificar<tbody><tr><td><strong>Consultei a tabela e está vazia</strong><td>Confira se você não está consultando a tabela de entrada, que por desenho não guarda nada. Procure na tabela de logs, filtrando pelo seu rótulo.<tr><td><strong>O teste passa mas a fila de reenvio cresce</strong><td>Quase sempre é permissão no nano. Veja <a href=#quando-a-gravacao-e-recusada-por-permissao class="">Quando a gravação é recusada por permissão</a>.<tr><td><strong>Não conecta</strong><td>O endereço está completo, com <code>http://</code> ou <code>https://</code> e a porta? A porta está publicada para fora do host? É comum o deploy publicar só uma delas.<tr><td><strong>Usuário ou senha recusados</strong><td>O usuário existe no nano e a senha confere? Ela pode ter sido regerada em uma reinstalação.<tr><td><strong>Reenviei o mesmo lote e nada apareceu</strong><td>Não é erro. O nano ignora um lote idêntico reenviado, o que torna a repetição segura. Para testar de novo, use um evento diferente.<tr><td><strong>Os dados aparecem sem classificação de origem</strong><td>O rótulo foi escrito igual dos dois lados? Ele diferencia maiúscula de minúscula.<tr><td><strong>Depois de ligar o rótulo derivado, as regras pararam</strong><td>Esperado: o rótulo mudou. Reescreva as regras filtrando por conteúdo em vez de por rótulo.<tr><td><strong>Falha de certificado</strong><td>Acontece quando o nano usa certificado próprio. Fale com quem cuida do deploy, ou desligue a verificação de TLS se for um ambiente interno controlado.</table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=próximos-passos>Próximos passos<a href=#próximos-passos class=hash-link aria-label="Link direto para Próximos passos" title="Link direto para Próximos passos" translate=no>​</a></h2>
+<ul>
+<li class=""><strong>Escolher o que vai para cada destino:</strong> <a class="" href=/outputs/routing>Roteamento</a>.</li>
+<li class=""><strong>Ver outros destinos disponíveis:</strong> <a class="" href=/outputs/overview>visão geral</a>.</li>
+<li class=""><strong>Entender a fila de reenvio:</strong> <a class="" href=/outputs/destination-operations>operação de destinos</a>.</li>
+</ul></div></article><nav class="docusaurus-mt-lg pagination-nav" aria-label="Páginas de documento"><a class="pagination-nav__link pagination-nav__link--prev" href=/outputs/destination-clickhouse><div class=pagination-nav__sublabel>Anterior</div><div class=pagination-nav__label>Destino: ClickHouse</div></a><a class="pagination-nav__link pagination-nav__link--next" href=/outputs/destination-crowdstrike-ngsiem><div class=pagination-nav__sublabel>Próxima</div><div class=pagination-nav__label>Destino: CrowdStrike Falcon Next-Gen SIEM</div></a></nav></div></div><div class="col col--3"><div class="tableOfContents_bqdL thin-scrollbar theme-doc-toc-desktop"><ul class="table-of-contents table-of-contents__left-border"><li><a href=#dois-caminhos-e-eles-não-são-equivalentes class="table-of-contents__link toc-highlight">Dois caminhos, e eles não são equivalentes</a><ul><li><a href=#quando-escolher-a-entrega-direta class="table-of-contents__link toc-highlight">Quando escolher a entrega direta</a><li><a href=#quando-escolher-a-entrega-por-coletor class="table-of-contents__link toc-highlight">Quando escolher a entrega por coletor</a></ul><li><a href=#o-que-ter-em-mãos class="table-of-contents__link toc-highlight">O que ter em mãos</a><li><a href=#caminho-a-entrega-direta class="table-of-contents__link toc-highlight">Caminho A: entrega direta</a><li><a href=#caminho-b-entrega-por-coletor-hec class="table-of-contents__link toc-highlight">Caminho B: entrega por coletor (HEC)</a><li><a href=#um-destino-para-varios-clientes class="table-of-contents__link toc-highlight">Um destino para vários clientes</a><li><a href=#testar-a-conexão class="table-of-contents__link toc-highlight">Testar a conexão</a><ul><li><a href=#o-que-o-teste-de-conexao-nao-diz class="table-of-contents__link toc-highlight">O que o teste não diz</a></ul><li><a href=#confirmar-que-os-dados-chegaram class="table-of-contents__link toc-highlight">Confirmar que os dados chegaram</a><li><a href=#quando-a-gravacao-e-recusada-por-permissao class="table-of-contents__link toc-highlight">Quando a gravação é recusada por permissão</a><li><a href=#como-os-eventos-são-entregues class="table-of-contents__link toc-highlight">Como os eventos são entregues</a><li><a href=#acompanhar-a-saúde class="table-of-contents__link toc-highlight">Acompanhar a saúde</a><li><a href=#problemas-comuns class="table-of-contents__link toc-highlight">Problemas comuns</a><li><a href=#próximos-passos class="table-of-contents__link toc-highlight">Próximos passos</a></ul></div></div></div></div></main></div></div></div><footer class="theme-layout-footer footer footer--dark"><div class="container container-fluid"><div class="row footer__links"><div class="theme-layout-footer-column col footer__col"><div class=footer__title>Documentação</div><ul class="footer__items clean-list"><li class=footer__item><a class=footer__link-item href=/getting-started/overview>Começar</a><li class=footer__item><a class=footer__link-item href=/operations/dashboard>Operação diária</a><li class=footer__item><a class=footer__link-item href=/normalization/overview>Mappings (CML)</a><li class=footer__item><a class=footer__link-item href=/runbooks/dispatcher>Runbooks</a></ul></div><div class="theme-layout-footer-column col footer__col"><div class=footer__title>Plataforma</div><ul class="footer__items clean-list"><li class=footer__item><a class=footer__link-item href=/concepts/architecture>Arquitetura</a><li class=footer__item><a class=footer__link-item href=/concepts/rbac>RBAC</a><li class=footer__item><a class=footer__link-item href=/integrations/overview>Integrações</a><li class=footer__item><a class=footer__link-item href=/compliance/retention>Compliance</a></ul></div><div class="theme-layout-footer-column col footer__col"><div class=footer__title>Recursos</div><ul class="footer__items clean-list"><li class=footer__item><a class=footer__link-item href=/getting-started/quickstart>Quickstart</a><li class=footer__item><a class=footer__link-item href=/normalization/cookbook>DSL Cookbook</a><li class=footer__item><a class=footer__link-item href=/normalization/troubleshooting>Troubleshooting</a></ul></div></div><div class="footer__bottom text--center"><div class=footer__copyright>Copyright © 2026 CentralOps. Built with Docusaurus.</div></div></div></footer></div></body>

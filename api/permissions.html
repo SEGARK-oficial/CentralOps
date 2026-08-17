@@ -1,0 +1,364 @@
+<!doctype html><html lang=pt-BR dir=ltr class="docs-wrapper plugin-docs plugin-id-default docs-version-current docs-doc-page docs-doc-id-api/permissions" data-has-hydrated=false><head><meta charset=UTF-8><meta name=generator content="Docusaurus v3.10.0"><title data-rh=true>Permissões e escopo | CentralOps</title><meta data-rh=true name=viewport content="width=device-width, initial-scale=1.0"/><meta data-rh=true name=twitter:card content=summary_large_image /><meta data-rh=true property=og:image content=https://docs.segark.com/img/centralops-social-card.png /><meta data-rh=true name=twitter:image content=https://docs.segark.com/img/centralops-social-card.png /><meta data-rh=true property=og:url content=https://docs.segark.com/api/permissions /><meta data-rh=true property=og:locale content=pt_BR /><meta data-rh=true property=og:locale:alternate content=en /><meta data-rh=true property=og:locale:alternate content=es /><meta data-rh=true name=docusaurus_locale content=pt-BR /><meta data-rh=true name=docsearch:language content=pt-BR /><meta data-rh=true name=docusaurus_version content=current /><meta data-rh=true name=docusaurus_tag content=docs-default-current /><meta data-rh=true name=docsearch:version content=current /><meta data-rh=true name=docsearch:docusaurus_tag content=docs-default-current /><meta data-rh=true property=og:title content="Permissões e escopo | CentralOps"/><meta data-rh=true name=description content="O que o seu token pode fazer, como restringir por scope, e por que uma resposta vazia nem sempre significa que não há dados."/><meta data-rh=true property=og:description content="O que o seu token pode fazer, como restringir por scope, e por que uma resposta vazia nem sempre significa que não há dados."/><link data-rh=true rel=icon href=/img/favicon.ico /><link data-rh=true rel=canonical href=https://docs.segark.com/api/permissions /><link data-rh=true rel=alternate href=https://docs.segark.com/api/permissions hreflang=pt-BR /><link data-rh=true rel=alternate href=https://docs.segark.com/en/api/permissions hreflang=en /><link data-rh=true rel=alternate href=https://docs.segark.com/es/api/permissions hreflang=es /><link data-rh=true rel=alternate href=https://docs.segark.com/api/permissions hreflang=x-default /><script data-rh=true type=application/ld+json>{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","item":"https://docs.segark.com/api/permissions","name":"Permissões e escopo","position":1}]}</script><link rel=stylesheet href=/assets/css/styles.65a61132.css /><script src=/assets/js/runtime~main.2ed8b8c1.js defer></script><script src=/assets/js/main.eab0db4a.js defer></script></head><body><svg style="display: none;"><defs>
+<symbol id=theme-svg-external-link viewBox="0 0 24 24"><path fill=currentColor d="M21 13v10h-21v-19h12v2h-10v15h17v-8h2zm3-12h-10.988l4.035 4-6.977 7.07 2.828 2.828 6.977-7.07 4.125 4.172v-11z"/></symbol>
+</defs></svg>
+<script>!function(){var t=function(){try{return new URLSearchParams(window.location.search).get("docusaurus-theme")}catch(t){}}()||function(){try{return window.localStorage.getItem("theme-cee")}catch(t){}}();document.documentElement.setAttribute("data-theme",t||(window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light")),document.documentElement.setAttribute("data-theme-choice",t||"system")}(),function(){try{for(var[t,e]of new URLSearchParams(window.location.search).entries())if(t.startsWith("docusaurus-data-")){var a=t.replace("docusaurus-data-","data-");document.documentElement.setAttribute(a,e)}}catch(t){}}()</script><div id=__docusaurus><link rel=preload as=image href=/img/logo.svg /><div role=region aria-label="Pular para o conteúdo principal"><a class=skipToContent_fXgn href=#__docusaurus_skipToContent_fallback>Pular para o conteúdo principal</a></div><nav aria-label="Navegação principal" class="theme-layout-navbar navbar navbar--fixed-top"><div class=navbar__inner><div class="theme-layout-navbar-left navbar__items"><button aria-label="Alternar painel de navegação" aria-expanded=false class="navbar__toggle clean-btn" type=button><svg width=30 height=30 viewBox="0 0 30 30" aria-hidden=true><path stroke=currentColor stroke-linecap=round stroke-miterlimit=10 stroke-width=2 d="M4 7h22M4 15h22M4 23h22"/></svg></button><a class=navbar__brand href=/><div class=navbar__logo><img src=/img/logo.svg alt=CentralOps class="themedComponent_mlkZ themedComponent--light_NVdE"/><img src=/img/logo.svg alt=CentralOps class="themedComponent_mlkZ themedComponent--dark_xIcU"/></div><b class="navbar__title text--truncate">CentralOps</b></a><a class="navbar__item navbar__link" href=/>Começar</a><a class="navbar__item navbar__link" href=/outputs/overview>Saídas & Rotas</a><a class="navbar__item navbar__link" href=/operations/dashboard>Operação</a><a class="navbar__item navbar__link" href=/administration/users-and-roles>Administração</a><a class="navbar__item navbar__link" href=/normalization/overview>Mappings</a><a class="navbar__item navbar__link" href=/enrichment/overview>Enriquecimento</a><a class="navbar__item navbar__link" href=/runbooks/dispatcher>Runbooks</a><a aria-current=page class="navbar__item navbar__link navbar__link--active" href=/api/overview>API</a></div><div class="theme-layout-navbar-right navbar__items navbar__items--right"><div class="navbar__item dropdown dropdown--hoverable dropdown--right"><a href=# aria-haspopup=true aria-expanded=false role=button class=navbar__link><svg viewBox="0 0 24 24" width=20 height=20 aria-hidden=true class=iconLanguage_nlXk><path fill=currentColor d="M12.87 15.07l-2.54-2.51.03-.03c1.74-1.94 2.98-4.17 3.71-6.53H17V4h-7V2H8v2H1v1.99h11.17C11.5 7.92 10.44 9.75 9 11.35 8.07 10.32 7.3 9.19 6.69 8h-2c.73 1.63 1.73 3.17 2.98 4.56l-5.09 5.02L4 19l5-5 3.11 3.11.76-2.04zM18.5 10h-2L12 22h2l1.12-3h4.75L21 22h2l-4.5-12zm-2.62 7l1.62-4.33L19.12 17h-3.24z"/></svg>Português</a><ul class=dropdown__menu><li><a href=/api/permissions target=_self rel="noopener noreferrer" class="dropdown__link dropdown__link--active" lang=pt-BR>Português</a><li><a href=/en/api/permissions target=_self rel="noopener noreferrer" class=dropdown__link lang=en>English</a><li><a href=/es/api/permissions target=_self rel="noopener noreferrer" class=dropdown__link lang=es>Español</a></ul></div><div class="toggle_vylO colorModeToggle_DEke"><button class="clean-btn toggleButton_gllP toggleButtonDisabled_aARS" type=button disabled title="modo do sistema" aria-label="Mudar entre modo claro e escuro (modo do sistema está ativo)"><svg viewBox="0 0 24 24" width=24 height=24 aria-hidden=true class="toggleIcon_g3eP lightToggleIcon_pyhR"><path fill=currentColor d="M12,9c1.65,0,3,1.35,3,3s-1.35,3-3,3s-3-1.35-3-3S10.35,9,12,9 M12,7c-2.76,0-5,2.24-5,5s2.24,5,5,5s5-2.24,5-5 S14.76,7,12,7L12,7z M2,13l2,0c0.55,0,1-0.45,1-1s-0.45-1-1-1l-2,0c-0.55,0-1,0.45-1,1S1.45,13,2,13z M20,13l2,0c0.55,0,1-0.45,1-1 s-0.45-1-1-1l-2,0c-0.55,0-1,0.45-1,1S19.45,13,20,13z M11,2v2c0,0.55,0.45,1,1,1s1-0.45,1-1V2c0-0.55-0.45-1-1-1S11,1.45,11,2z M11,20v2c0,0.55,0.45,1,1,1s1-0.45,1-1v-2c0-0.55-0.45-1-1-1C11.45,19,11,19.45,11,20z M5.99,4.58c-0.39-0.39-1.03-0.39-1.41,0 c-0.39,0.39-0.39,1.03,0,1.41l1.06,1.06c0.39,0.39,1.03,0.39,1.41,0s0.39-1.03,0-1.41L5.99,4.58z M18.36,16.95 c-0.39-0.39-1.03-0.39-1.41,0c-0.39,0.39-0.39,1.03,0,1.41l1.06,1.06c0.39,0.39,1.03,0.39,1.41,0c0.39-0.39,0.39-1.03,0-1.41 L18.36,16.95z M19.42,5.99c0.39-0.39,0.39-1.03,0-1.41c-0.39-0.39-1.03-0.39-1.41,0l-1.06,1.06c-0.39,0.39-0.39,1.03,0,1.41 s1.03,0.39,1.41,0L19.42,5.99z M7.05,18.36c0.39-0.39,0.39-1.03,0-1.41c-0.39-0.39-1.03-0.39-1.41,0l-1.06,1.06 c-0.39,0.39-0.39,1.03,0,1.41s1.03,0.39,1.41,0L7.05,18.36z"/></svg><svg viewBox="0 0 24 24" width=24 height=24 aria-hidden=true class="toggleIcon_g3eP darkToggleIcon_wfgR"><path fill=currentColor d="M9.37,5.51C9.19,6.15,9.1,6.82,9.1,7.5c0,4.08,3.32,7.4,7.4,7.4c0.68,0,1.35-0.09,1.99-0.27C17.45,17.19,14.93,19,12,19 c-3.86,0-7-3.14-7-7C5,9.07,6.81,6.55,9.37,5.51z M12,3c-4.97,0-9,4.03-9,9s4.03,9,9,9s9-4.03,9-9c0-0.46-0.04-0.92-0.1-1.36 c-0.98,1.37-2.58,2.26-4.4,2.26c-2.98,0-5.4-2.42-5.4-5.4c0-1.81,0.89-3.42,2.26-4.4C12.92,3.04,12.46,3,12,3L12,3z"/></svg><svg viewBox="0 0 24 24" width=24 height=24 aria-hidden=true class="toggleIcon_g3eP systemToggleIcon_QzmC"><path fill=currentColor d="m12 21c4.971 0 9-4.029 9-9s-4.029-9-9-9-9 4.029-9 9 4.029 9 9 9zm4.95-13.95c1.313 1.313 2.05 3.093 2.05 4.95s-0.738 3.637-2.05 4.95c-1.313 1.313-3.093 2.05-4.95 2.05v-14c1.857 0 3.637 0.737 4.95 2.05z"/></svg></button></div><div class=navbarSearchContainer_Bca1><div class=navbar__search><span aria-label="expand searchbar" role=button class=search-icon tabindex=0></span><input id=search_input_react type=search placeholder=Loading... aria-label=Search class="navbar__search-input search-bar" disabled/></div></div></div></div><div role=presentation class=navbar-sidebar__backdrop></div></nav><div id=__docusaurus_skipToContent_fallback class="theme-layout-main main-wrapper mainWrapper_z2l0"><div class=docsWrapper_hBAB><button aria-label="Voltar para o topo" class="clean-btn theme-back-to-top-button backToTopButton_sjWU" type=button></button><div class=docRoot_UBD9><aside class="theme-doc-sidebar-container docSidebarContainer_YfHR"><div class=sidebarViewport_aRkj><div class=sidebar_njMd><nav aria-label="Painel lateral de documentos" class="menu thin-scrollbar menu_SIkG"><ul class="theme-doc-sidebar-menu menu__list"><li class="theme-doc-sidebar-item-category theme-doc-sidebar-item-category-level-1 menu__list-item"><div class=menu__list-item-collapsible><a class="categoryLink_byQd menu__link menu__link--sublist menu__link--sublist-caret menu__link--active" role=button aria-expanded=true href=/api/overview><span title=API class=categoryLinkLabel_W154>API</span></a></div><ul class=menu__list><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/api/overview><span title="Visão geral da API" class=linkLabel_WmDU>Visão geral da API</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/api/authentication><span title=Autenticação class=linkLabel_WmDU>Autenticação</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class="menu__link menu__link--active" aria-current=page tabindex=0 href=/api/permissions><span title="Permissões e escopo" class=linkLabel_WmDU>Permissões e escopo</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/api/conventions><span title=Convenções class=linkLabel_WmDU>Convenções</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/api/reference><span title="Referência de endpoints" class=linkLabel_WmDU>Referência de endpoints</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/api/openapi><span title="Esquema OpenAPI" class=linkLabel_WmDU>Esquema OpenAPI</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/api/recipes><span title=Receitas class=linkLabel_WmDU>Receitas</span></a></ul></ul></nav></div></div></aside><main class=docMainContainer_TBSr><div class="container padding-top--md padding-bottom--lg"><div class=row><div class="col docItemCol_VOVn"><div class=docItemContainer_Djhp><article><nav class="theme-doc-breadcrumbs breadcrumbsContainer_Z_bl" aria-label=Trilha><ul class=breadcrumbs><li class=breadcrumbs__item><a aria-label="Página Inicial" class=breadcrumbs__link href=/><svg viewBox="0 0 24 24" class=breadcrumbHomeIcon_YNFT><path d="M10 19v-5h4v5c0 .55.45 1 1 1h3c.55 0 1-.45 1-1v-7h1.7c.46 0 .68-.57.33-.87L12.67 3.6c-.38-.34-.96-.34-1.34 0l-8.36 7.53c-.34.3-.13.87.33.87H5v7c0 .55.45 1 1 1h3c.55 0 1-.45 1-1z" fill=currentColor /></svg></a><li class=breadcrumbs__item><span class=breadcrumbs__link>API</span><li class="breadcrumbs__item breadcrumbs__item--active"><span class=breadcrumbs__link>Permissões e escopo</span></ul></nav><div class="tocCollapsible_ETCw theme-doc-toc-mobile tocMobile_ITEo"><button type=button class="clean-btn tocCollapsibleButton_TO0P">Nesta página</button></div><div class="theme-doc-markdown markdown"><header><h1>Permissões e escopo</h1></header>
+<p>O que um token pode fazer sai de três coisas, aplicadas nesta ordem:</p>
+<ol>
+<li class=""><strong>O papel</strong> de quem emitiu o token. Define o teto.</li>
+<li class=""><strong>Os scopes</strong> do token. Recortam abaixo do teto, nunca acima.</li>
+<li class=""><strong>O escopo de organização</strong> do dono. Define de quais tenants ele enxerga dados.</li>
+</ol>
+<p>Errar qualquer uma das três produz um erro diferente, e a diferença importa na hora de depurar. Papel e scope insuficientes dão <code>403</code>. Escopo de organização errado costuma dar <code>403</code> também, mas em algumas leituras dá <strong><code>200</code> com lista vazia</strong>, que engana bem mais.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=os-quatro-papéis>Os quatro papéis<a href=#os-quatro-papéis class=hash-link aria-label="Link direto para Os quatro papéis" title="Link direto para Os quatro papéis" translate=no>​</a></h2>
+<p>Não é possível criar papel personalizado. São estes quatro, fixos no código. A granularidade fina vem dos scopes do token, explicados adiante.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Papel<th>Ideia<th>Permissões<tbody><tr><td><code>viewer</code><td>Só olha<td>7<tr><td><code>operator</code><td>Opera o dia a dia, não muda regra<td>13<tr><td><code>engineer</code><td>Mexe em normalização e detecção<td>19<tr><td><code>admin</code><td>Tudo, incluindo usuários e credenciais<td>23</table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=a-matriz-completa>A matriz completa<a href=#a-matriz-completa class=hash-link aria-label="Link direto para A matriz completa" title="Link direto para A matriz completa" translate=no>​</a></h2>
+<p>Esta tabela é gerada a partir do código, não escrita à mão.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Permissão<th style=text-align:center>Viewer<th style=text-align:center>Operator<th style=text-align:center>Engineer<th style=text-align:center>Admin<th>O que libera<tbody><tr><td><code>integration.read</code><td style=text-align:center>sim<td style=text-align:center>sim<td style=text-align:center>sim<td style=text-align:center>sim<td>Ver integrações e o estado da coleta<tr><td><code>integration.pause</code><td style=text-align:center>nao<td style=text-align:center>sim<td style=text-align:center>sim<td style=text-align:center>sim<td>Existe no enum, mas <strong>nenhum endpoint a usa</strong>. Ligar e desligar coleta é feito pelo <code>PUT</code> da integração, que exige <code>integration.write</code>.<tr><td><code>integration.reset</code><td style=text-align:center>nao<td style=text-align:center>sim<td style=text-align:center>sim<td style=text-align:center>sim<td>Zerar o cursor de coleta<tr><td><code>integration.write</code><td style=text-align:center>nao<td style=text-align:center>nao<td style=text-align:center>nao<td style=text-align:center>sim<td>Criar, editar e apagar integração, incluindo credencial<tr><td><code>mapping.read</code><td style=text-align:center>sim<td style=text-align:center>sim<td style=text-align:center>sim<td style=text-align:center>sim<td>Ver mappings e versões<tr><td><code>mapping.write</code><td style=text-align:center>nao<td style=text-align:center>nao<td style=text-align:center>sim<td style=text-align:center>sim<td>Editar mapping e publicar versão<tr><td><code>mapping.rollback</code><td style=text-align:center>nao<td style=text-align:center>nao<td style=text-align:center>sim<td style=text-align:center>sim<td>Voltar para uma versão anterior<tr><td><code>quarantine.read</code><td style=text-align:center>sim<td style=text-align:center>sim<td style=text-align:center>sim<td style=text-align:center>sim<td>Ver eventos que a normalização recusou<tr><td><code>quarantine.discard</code><td style=text-align:center>nao<td style=text-align:center>sim<td style=text-align:center>sim<td style=text-align:center>sim<td>Descartar e reprocessar quarentena<tr><td><code>drift.read</code><td style=text-align:center>sim<td style=text-align:center>sim<td style=text-align:center>sim<td style=text-align:center>sim<td>Ver campos novos detectados<tr><td><code>drift.ignore</code><td style=text-align:center>nao<td style=text-align:center>sim<td style=text-align:center>sim<td style=text-align:center>sim<td>Marcar campo como ignorado<tr><td><code>drift.mark_mapped</code><td style=text-align:center>nao<td style=text-align:center>nao<td style=text-align:center>sim<td style=text-align:center>sim<td>Marcar campo como já mapeado<tr><td><code>drift.delete</code><td style=text-align:center>nao<td style=text-align:center>nao<td style=text-align:center>sim<td style=text-align:center>sim<td>Apagar entrada de campo detectado<tr><td><code>destination.read</code><td style=text-align:center>sim<td style=text-align:center>sim<td style=text-align:center>sim<td style=text-align:center>sim<td>Ver destinos, saúde e contagem de DLQ<tr><td><code>route.read</code><td style=text-align:center>sim<td style=text-align:center>sim<td style=text-align:center>sim<td style=text-align:center>sim<td>Ver regras de roteamento<tr><td><code>audit.read</code><td style=text-align:center>sim<td style=text-align:center>sim<td style=text-align:center>sim<td style=text-align:center>sim<td>Cobre <strong>um</strong> endpoint: a auditoria de um mapping. A trilha da plataforma exige <code>user.manage</code>.<tr><td><code>query.run</code><td style=text-align:center>nao<td style=text-align:center>sim<td style=text-align:center>sim<td style=text-align:center>sim<td>Rodar consulta ao vivo na fonte do cliente<tr><td><code>query.save</code><td style=text-align:center>nao<td style=text-align:center>nao<td style=text-align:center>sim<td style=text-align:center>sim<td>Salvar consulta e agendamento<tr><td><code>correlation.preview</code><td style=text-align:center>nao<td style=text-align:center>nao<td style=text-align:center>sim<td style=text-align:center>sim<td>Nenhum endpoint do Core a consome. As regras de correlação são Enterprise.<tr><td><code>internal.tenant.read</code><td style=text-align:center>nao<td style=text-align:center>sim<td style=text-align:center>sim<td style=text-align:center>sim<td>Resolução de tenant entre serviços<tr><td><code>user.manage</code><td style=text-align:center>nao<td style=text-align:center>nao<td style=text-align:center>nao<td style=text-align:center>sim<td>Criar, editar e remover usuários<tr><td><code>org.manage</code><td style=text-align:center>nao<td style=text-align:center>nao<td style=text-align:center>nao<td style=text-align:center>sim<td>Apagar os DADOS de uma organização. Criar, editar e apagar a organização em si exigem <code>user.manage</code>, e criar ou apagar exigem ainda escopo global.<tr><td><code>secret.read</code><td style=text-align:center>nao<td style=text-align:center>nao<td style=text-align:center>nao<td style=text-align:center>sim<td>Ler referência de credencial guardada no cofre</table>
+<div class="theme-admonition theme-admonition-caution admonition_xJq3 alert alert--warning"><div class=admonitionHeading_Gvgb><span class=admonitionIcon_Rf37><svg viewBox="0 0 16 16"><path fill-rule=evenodd d="M8.893 1.5c-.183-.31-.52-.5-.887-.5s-.703.19-.886.5L.138 13.499a.98.98 0 0 0 0 1.001c.193.31.53.501.886.501h13.964c.367 0 .704-.19.877-.5a1.03 1.03 0 0 0 .01-1.002L8.893 1.5zm.133 11.497H6.987v-2.003h2.039v2.003zm0-3.004H6.987V5.987h2.039v4.006z"/></svg></span>Três permissões custam dinheiro ou tocam dado de cliente</div><div class=admonitionContent_BuS1><p><code>query.run</code> roda consulta na fonte do fornecedor, o que pode gerar custo e carga no ambiente do cliente. <code>correlation.preview</code> lê amostras reais de evento. <code>secret.read</code> alcança referência de credencial.<p>Não coloque nenhuma das três num token de automação que não precisa delas, mesmo que o papel do dono as tenha.</div></div>
+<p>Escrever destino e escrever rota continuam exigindo <code>user.manage</code>, sem permissão própria. Só a <strong>leitura</strong> dessas duas áreas foi separada em <code>destination.read</code> e <code>route.read</code>, justamente para que um monitor não precise de um token capaz de administrar contas.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=restringir-o-token-por-scope>Restringir o token por scope<a href=#restringir-o-token-por-scope class=hash-link aria-label="Link direto para Restringir o token por scope" title="Link direto para Restringir o token por scope" translate=no>​</a></h2>
+<p>Por padrão, um token herda <strong>todas</strong> as permissões do papel do dono. Se um admin cria um token sem pensar, esse token pode apagar usuário.</p>
+<p>Para restringir, mande <code>scopes</code> na criação:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style=--prism-color:#393A34;--prism-background-color:#f6f8fa><div class=codeBlockContent_QJqH><pre tabindex=0 class="prism-code language-bash codeBlock_bY9V thin-scrollbar" style=color:#393A34;background-color:#f6f8fa><code class=codeBlockLines_e6Vv><div class=token-line style=color:#393A34><span class="token function" style=color:#d73a49>curl</span><span class="token plain"> </span><span class="token parameter variable" style=color:#36acaa>-X</span><span class="token plain"> POST https://centralops.example.com/api/v1/tokens </span><span class="token punctuation" style=color:#393A34>\</span><span class="token plain"></span><br/></div><div class=token-line style=color:#393A34><span class="token plain">  </span><span class="token parameter variable" style=color:#36acaa>-H</span><span class="token plain"> </span><span class="token string" style=color:#e3116c>"Authorization: Bearer </span><span class="token string variable" style=color:#36acaa>$TOKEN</span><span class="token string" style=color:#e3116c>"</span><span class="token plain"> </span><span class="token parameter variable" style=color:#36acaa>-H</span><span class="token plain"> </span><span class="token string" style=color:#e3116c>"Content-Type: application/json"</span><span class="token plain"> </span><span class="token punctuation" style=color:#393A34>\</span><span class="token plain"></span><br/></div><div class=token-line style=color:#393A34><span class="token plain">  </span><span class="token parameter variable" style=color:#36acaa>-d</span><span class="token plain"> </span><span class="token string" style=color:#e3116c>'{</span><br/></div><div class=token-line style=color:#393A34><span class="token string" style=color:#e3116c>    "name": "monitor-somente-leitura",</span><br/></div><div class=token-line style=color:#393A34><span class="token string" style=color:#e3116c>    "expires_at": "2027-01-01T00:00:00Z",</span><br/></div><div class=token-line style=color:#393A34><span class="token string" style=color:#e3116c>    "scopes": ["destination.read", "route.read", "integration.read"]</span><br/></div><div class=token-line style=color:#393A34><span class="token string" style=color:#e3116c>  }'</span><br/></div></code></pre></div></div>
+<p>A permissão efetiva é a <strong>interseção</strong> entre os scopes do token e as permissões do papel do dono:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style=--prism-color:#393A34;--prism-background-color:#f6f8fa><div class=codeBlockContent_QJqH><pre tabindex=0 class="prism-code language-text codeBlock_bY9V thin-scrollbar" style=color:#393A34;background-color:#f6f8fa><code class=codeBlockLines_e6Vv><div class=token-line style=color:#393A34><span class="token plain">efetiva = scopes do token ∩ permissões do papel</span><br/></div></code></pre></div></div>
+<p>Duas consequências práticas:</p>
+<ul>
+<li class="">Pedir um scope que o papel não tem <strong>não concede nada</strong> na hora de usar. Um viewer com token <code>scopes: ["user.manage"]</code> continua sem <code>user.manage</code> em cada requisição.</li>
+<li class="">Se o dono for rebaixado depois, o token encolhe junto, na hora. Não existe permissão congelada no momento da emissão.</li>
+</ul>
+<div class="theme-admonition theme-admonition-danger admonition_xJq3 alert alert--danger"><div class=admonitionHeading_Gvgb><span class=admonitionIcon_Rf37><svg viewBox="0 0 12 16"><path fill-rule=evenodd d="M5.05.31c.81 2.17.41 3.38-.52 4.31C3.55 5.67 1.98 6.45.9 7.98c-1.45 2.05-1.7 6.53 3.53 7.7-2.2-1.16-2.67-4.52-.3-6.61-.61 2.03.53 3.33 1.94 2.86 1.39-.47 2.3.53 2.27 1.67-.02.78-.31 1.44-1.13 1.81 3.42-.59 4.78-3.42 4.78-5.56 0-2.84-2.53-3.22-1.25-5.61-1.52.13-2.03 1.13-1.89 2.75.09 1.08-1.02 1.8-1.86 1.33-.67-.41-.66-1.19-.06-1.78C8.18 5.31 8.68 2.45 5.05.32L5.03.3l.02.01z"/></svg></span>O recorte por scope não contém quem tem o token</div><div class=admonitionContent_BuS1><p>Emitir token exige apenas estar autenticado, sem permissão específica. Um token restrito a <code>["mapping.read"]</code> pode chamar <code>POST /api/v1/tokens</code> e criar <strong>outro</strong> token, sem scope nenhum, que sai com o papel inteiro do dono.<p>Ou seja, o recorte por scope protege contra uso acidental e contra um vazamento que o atacante não perceba. Ele <strong>não</strong> é uma fronteira de contenção: quem tem o token restrito consegue, em uma chamada, um token sem restrição.<p>Se você precisa de contenção real, o papel do dono é que precisa ser pequeno. Use uma conta de serviço com o papel mínimo em vez de restringir por scope um token de admin.</div></div>
+<div class="theme-admonition theme-admonition-caution admonition_xJq3 alert alert--warning"><div class=admonitionHeading_Gvgb><span class=admonitionIcon_Rf37><svg viewBox="0 0 16 16"><path fill-rule=evenodd d="M8.893 1.5c-.183-.31-.52-.5-.887-.5s-.703.19-.886.5L.138 13.499a.98.98 0 0 0 0 1.001c.193.31.53.501.886.501h13.964c.367 0 .704-.19.877-.5a1.03 1.03 0 0 0 .01-1.002L8.893 1.5zm.133 11.497H6.987v-2.003h2.039v2.003zm0-3.004H6.987V5.987h2.039v4.006z"/></svg></span>cuidado</div><div class=admonitionContent_BuS1><mdxadmonitiontitle>A interseção tem uma exceção conhecida: <code>secret.read</code></mdxadmonitiontitle><p>A visibilidade de campos de credencial nas leituras de integração é decidida olhando direto o papel do dono, sem passar pelo cálculo de scopes.<p>Na prática, um token de um admin restrito a <code>["integration.read"]</code> continua enxergando os campos protegidos por <code>secret.read</code> nessas respostas. O recorte não vale ali.</div></div>
+<p>Para ver a lista de scopes válidos:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style=--prism-color:#393A34;--prism-background-color:#f6f8fa><div class=codeBlockContent_QJqH><pre tabindex=0 class="prism-code language-bash codeBlock_bY9V thin-scrollbar" style=color:#393A34;background-color:#f6f8fa><code class=codeBlockLines_e6Vv><div class=token-line style=color:#393A34><span class="token function" style=color:#d73a49>curl</span><span class="token plain"> </span><span class="token parameter variable" style=color:#36acaa>-H</span><span class="token plain"> </span><span class="token string" style=color:#e3116c>"Authorization: Bearer </span><span class="token string variable" style=color:#36acaa>$TOKEN</span><span class="token string" style=color:#e3116c>"</span><span class="token plain"> </span><span class="token punctuation" style=color:#393A34>\</span><span class="token plain"></span><br/></div><div class=token-line style=color:#393A34><span class="token plain">     https://centralops.example.com/api/v1/tokens/scopes</span><br/></div></code></pre></div></div>
+<div class="theme-admonition theme-admonition-danger admonition_xJq3 alert alert--danger"><div class=admonitionHeading_Gvgb><span class=admonitionIcon_Rf37><svg viewBox="0 0 12 16"><path fill-rule=evenodd d="M5.05.31c.81 2.17.41 3.38-.52 4.31C3.55 5.67 1.98 6.45.9 7.98c-1.45 2.05-1.7 6.53 3.53 7.7-2.2-1.16-2.67-4.52-.3-6.61-.61 2.03.53 3.33 1.94 2.86 1.39-.47 2.3.53 2.27 1.67-.02.78-.31 1.44-1.13 1.81 3.42-.59 4.78-3.42 4.78-5.56 0-2.84-2.53-3.22-1.25-5.61-1.52.13-2.03 1.13-1.89 2.75.09 1.08-1.02 1.8-1.86 1.33-.67-.41-.66-1.19-.06-1.78C8.18 5.31 8.68 2.45 5.05.32L5.03.3l.02.01z"/></svg></span>Lista de scopes vazia não é "nenhuma permissão", é "todas"</div><div class=admonitionContent_BuS1><p>O backend trata <code>scopes: []</code> igual a não ter mandado o campo. Nos dois casos o token sai com o papel inteiro.<p>Se a intenção era um token sem poder nenhum, <code>[]</code> faz o oposto exato disso, em silêncio. Ou você lista pelo menos um scope, ou não use o campo e assuma que o token herda tudo.</div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=escopo-de-organização>Escopo de organização<a href=#escopo-de-organização class=hash-link aria-label="Link direto para Escopo de organização" title="Link direto para Escopo de organização" translate=no>​</a></h2>
+<p>Além de "o que pode fazer", existe "sobre quais organizações". Duas propriedades do dono decidem:</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Papel<th>Enxerga todas as organizações quando<tbody><tr><td><code>admin</code><td><code>is_global = true</code> <strong>ou</strong> <code>organization_id</code> vazio<tr><td><code>viewer</code>, <code>operator</code>, <code>engineer</code><td>somente com <code>is_global = true</code></table>
+<p>Um admin com organização definida e <code>is_global = false</code> é um <strong>admin de organização</strong>: administra a própria organização, não a plataforma.</p>
+<p>Um viewer, operator ou engineer com <code>is_global = true</code> é o analista que monitora todos os clientes com as permissões do próprio papel, sem poder administrativo.</p>
+<div class="theme-admonition theme-admonition-caution admonition_xJq3 alert alert--warning"><div class=admonitionHeading_Gvgb><span class=admonitionIcon_Rf37><svg viewBox="0 0 16 16"><path fill-rule=evenodd d="M8.893 1.5c-.183-.31-.52-.5-.887-.5s-.703.19-.886.5L.138 13.499a.98.98 0 0 0 0 1.001c.193.31.53.501.886.501h13.964c.367 0 .704-.19.877-.5a1.03 1.03 0 0 0 .01-1.002L8.893 1.5zm.133 11.497H6.987v-2.003h2.039v2.003zm0-3.004H6.987V5.987h2.039v4.006z"/></svg></span>Ver as organizações filhas é recurso Enterprise</div><div class=admonitionContent_BuS1><p>Na edição Community, quem não tem escopo global enxerga <strong>somente a própria organização</strong>, e nada das filhas. A visibilidade de subárvore, que é o caso de uso de MSP e revenda, depende de um resolvedor que o pacote Enterprise registra.<p>A degradação não gera erro: a mesma automação rodando contra uma instância Community simplesmente devolve menos linhas. Ela subexpõe em vez de vazar, o que é o lado seguro, mas nada avisa que faltou dado.</div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=a-resposta-vazia-que-parece-não-tem-dado>A resposta vazia que parece "não tem dado"<a href=#a-resposta-vazia-que-parece-não-tem-dado class=hash-link aria-label='Link direto para A resposta vazia que parece "não tem dado"' title='Link direto para A resposta vazia que parece "não tem dado"' translate=no>​</a></h3>
+<p>Esta é a pegadinha que mais custa tempo, e ela não gera erro nenhum.</p>
+<p>Quando um token de escopo global chama um endpoint de dado de tenant <strong>sem nomear a organização</strong>, o sistema não agrega os tenants todos. Ele resolve para a organização do próprio dono. Num admin de plataforma essa organização é vazia, e a resposta volta <code>200</code> com resultado vazio.</p>
+<p>(Escopo global e organização vazia não são a mesma coisa: um usuário com <code>is_global = true</code> pode ter organização definida, e aí a resposta vem daquela organização, não de todas.)</p>
+<p>Você lê "0 resultados" e conclui que não há dado. Na verdade a pergunta é que não nomeou o cliente.</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style=--prism-color:#393A34;--prism-background-color:#f6f8fa><div class=codeBlockContent_QJqH><pre tabindex=0 class="prism-code language-bash codeBlock_bY9V thin-scrollbar" style=color:#393A34;background-color:#f6f8fa><code class=codeBlockLines_e6Vv><div class=token-line style=color:#393A34><span class="token comment" style=color:#999988;font-style:italic># Token global, sem dizer a organização: volta vazio</span><span class="token plain"></span><br/></div><div class=token-line style=color:#393A34><span class="token plain"></span><span class="token function" style=color:#d73a49>curl</span><span class="token plain"> </span><span class="token parameter variable" style=color:#36acaa>-H</span><span class="token plain"> </span><span class="token string" style=color:#e3116c>"Authorization: Bearer </span><span class="token string variable" style=color:#36acaa>$TOKEN</span><span class="token string" style=color:#e3116c>"</span><span class="token plain"> </span><span class="token punctuation" style=color:#393A34>\</span><span class="token plain"></span><br/></div><div class=token-line style=color:#393A34><span class="token plain">     </span><span class="token string" style=color:#e3116c>"https://centralops.example.com/api/mappings/samples?vendor=sophos&event_type=detections"</span><span class="token plain"></span><br/></div><div class=token-line style=color:#393A34><span class="token plain" style=display:inline-block></span><br/></div><div class=token-line style=color:#393A34><span class="token plain"></span><span class="token comment" style=color:#999988;font-style:italic># Mesma pergunta, nomeando o tenant: volta o dado</span><span class="token plain"></span><br/></div><div class=token-line style=color:#393A34><span class="token plain"></span><span class="token function" style=color:#d73a49>curl</span><span class="token plain"> </span><span class="token parameter variable" style=color:#36acaa>-H</span><span class="token plain"> </span><span class="token string" style=color:#e3116c>"Authorization: Bearer </span><span class="token string variable" style=color:#36acaa>$TOKEN</span><span class="token string" style=color:#e3116c>"</span><span class="token plain"> </span><span class="token punctuation" style=color:#393A34>\</span><span class="token plain"></span><br/></div><div class=token-line style=color:#393A34><span class="token plain">     </span><span class="token string" style=color:#e3116c>"https://centralops.example.com/api/mappings/samples?vendor=sophos&event_type=detections&org_id=7"</span><br/></div></code></pre></div></div>
+<p>Repare em dois detalhes que custam uma tentativa cada: <code>event_type</code> é obrigatório neste endpoint (sem ele a resposta é <code>422</code>, não uma lista vazia), e o parâmetro de organização aqui chama <strong><code>org_id</code></strong>, não <code>organization_id</code>.</p>
+<p>A regra prática: se você usa token global e uma leitura de dado de tenant voltou vazia, <strong>nomeie a organização antes de concluir qualquer coisa</strong>.</p>
+<p>Os nomes não são uniformes na API. Alguns endpoints usam <code>organization_id</code>, outros <code>org_id</code>, e o mesmo recurso pode usar um nome na query e outro no corpo. A <a class="" href=/api/reference>referência</a> e o esquema OpenAPI trazem o nome certo por endpoint. Parâmetro com nome errado costuma ser ignorado em silêncio.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=cruzar-organizações>Cruzar organizações<a href=#cruzar-organizações class=hash-link aria-label="Link direto para Cruzar organizações" title="Link direto para Cruzar organizações" translate=no>​</a></h3>
+<p>Um token escopado a uma organização que tenta ler dado de outra é barrado no backend, e não existe caminho pela interface que contorne.</p>
+<p>A resposta, porém, <strong>não é sempre <code>403</code></strong>. Vários endpoints devolvem <code>404</code> de propósito, para não confirmar que o recurso existe. Ao tratar erro em automação, considere as duas.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=descobrir-o-que-o-token-pode>Descobrir o que o token pode<a href=#descobrir-o-que-o-token-pode class=hash-link aria-label="Link direto para Descobrir o que o token pode" title="Link direto para Descobrir o que o token pode" translate=no>​</a></h2>
+<p>Aqui vem uma limitação que vale conhecer antes de perder tempo: <strong>nenhum endpoint responde "o que este token pode fazer".</strong> Os dois candidatos óbvios respondem outra coisa.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Endpoint<th>O que ele realmente devolve<tbody><tr><td><code>GET /api/auth/permissions</code><td>A matriz inteira de papel × permissão. Uma tabela de referência, igual para todo mundo. Não olha o seu token.<tr><td><code>GET /api/auth/me</code><td>O perfil e as permissões <strong>do dono</strong> do token, pelo papel dele. Ignora os scopes da credencial que você usou.</table>
+<p>O segundo engana de verdade. Um token restrito a <code>["mapping.read"]</code>, emitido por um admin, faz <code>/api/auth/me</code> responder com as 23 permissões. Um cliente que se autoconfigure lendo essa resposta vai habilitar funções que tomam <code>403</code> no primeiro uso.</p>
+<p>Enquanto isso não muda, trate os scopes que você pediu na criação como a fonte da verdade, e valide com uma chamada real ao endpoint que interessa antes de colocar a automação em produção.</p>
+<div class="theme-admonition theme-admonition-danger admonition_xJq3 alert alert--danger"><div class=admonitionHeading_Gvgb><span class=admonitionIcon_Rf37><svg viewBox="0 0 12 16"><path fill-rule=evenodd d="M5.05.31c.81 2.17.41 3.38-.52 4.31C3.55 5.67 1.98 6.45.9 7.98c-1.45 2.05-1.7 6.53 3.53 7.7-2.2-1.16-2.67-4.52-.3-6.61-.61 2.03.53 3.33 1.94 2.86 1.39-.47 2.3.53 2.27 1.67-.02.78-.31 1.44-1.13 1.81 3.42-.59 4.78-3.42 4.78-5.56 0-2.84-2.53-3.22-1.25-5.61-1.52.13-2.03 1.13-1.89 2.75.09 1.08-1.02 1.8-1.86 1.33-.67-.41-.66-1.19-.06-1.78C8.18 5.31 8.68 2.45 5.05.32L5.03.3l.02.01z"/></svg></span>A criação não recusa scope fora do papel</div><div class=admonitionContent_BuS1><p><code>POST /api/v1/tokens</code> valida apenas que cada scope existe. Ele <strong>não</strong> checa se cabe no papel do dono.<p>Um viewer que peça <code>scopes: ["user.manage"]</code> recebe <code>201 Created</code>, com o scope gravado. O token não ganha o poder (a interseção com o papel continua valendo em cada requisição), mas nada avisa no momento da emissão: você descobre no <code>403</code>, em produção.<p>Confira contra a matriz acima antes de emitir.</div></div>
+<p>Um detalhe de robustez que também surpreende: se o campo de scopes do token ficar corrompido no banco, o sistema lê como "sem restrição" e o token passa a valer o papel inteiro. A falha <strong>escala</strong> a credencial em vez de degradá-la. É mais um motivo para o papel do dono ser o menor possível, em vez de confiar só no recorte por scope.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=escolhendo-o-perfil-certo>Escolhendo o perfil certo<a href=#escolhendo-o-perfil-certo class=hash-link aria-label="Link direto para Escolhendo o perfil certo" title="Link direto para Escolhendo o perfil certo" translate=no>​</a></h2>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Você quer<th>Papel<th>Scopes sugeridos<tbody><tr><td>Monitorar saúde, sem tocar em nada<td><code>viewer</code><td><code>destination.read</code>, <code>route.read</code>, <code>integration.read</code><tr><td>Monitorar e destravar coletor parado<td><code>operator</code><td>acima, mais <code>integration.reset</code>, <code>integration.pause</code><tr><td>Limpar quarentena no plantão<td><code>operator</code><td><code>quarantine.read</code>, <code>quarantine.discard</code><tr><td>Publicar mapping por pipeline<td><code>engineer</code><td><code>mapping.read</code>, <code>mapping.write</code><tr><td>Inventário e auditoria de mappings<td><code>viewer</code><td><code>audit.read</code>, <code>integration.read</code>, <code>mapping.read</code><tr><td>Trilha de auditoria da plataforma<td><code>admin</code><td>não há recorte: exige <code>user.manage</code></table>
+<p>Para o caso de monitoramento, <a class="" href=/api/recipes>Receitas</a> traz o passo a passo completo com um exemplo de coleta periódica.</div></article><nav class="docusaurus-mt-lg pagination-nav" aria-label="Páginas de documento"><a class="pagination-nav__link pagination-nav__link--prev" href=/api/authentication><div class=pagination-nav__sublabel>Anterior</div><div class=pagination-nav__label>Autenticação</div></a><a class="pagination-nav__link pagination-nav__link--next" href=/api/conventions><div class=pagination-nav__sublabel>Próxima</div><div class=pagination-nav__label>Convenções</div></a></nav></div></div><div class="col col--3"><div class="tableOfContents_bqdL thin-scrollbar theme-doc-toc-desktop"><ul class="table-of-contents table-of-contents__left-border"><li><a href=#os-quatro-papéis class="table-of-contents__link toc-highlight">Os quatro papéis</a><li><a href=#a-matriz-completa class="table-of-contents__link toc-highlight">A matriz completa</a><li><a href=#restringir-o-token-por-scope class="table-of-contents__link toc-highlight">Restringir o token por scope</a><li><a href=#escopo-de-organização class="table-of-contents__link toc-highlight">Escopo de organização</a><ul><li><a href=#a-resposta-vazia-que-parece-não-tem-dado class="table-of-contents__link toc-highlight">A resposta vazia que parece "não tem dado"</a><li><a href=#cruzar-organizações class="table-of-contents__link toc-highlight">Cruzar organizações</a></ul><li><a href=#descobrir-o-que-o-token-pode class="table-of-contents__link toc-highlight">Descobrir o que o token pode</a><li><a href=#escolhendo-o-perfil-certo class="table-of-contents__link toc-highlight">Escolhendo o perfil certo</a></ul></div></div></div></div></main></div></div></div><footer class="theme-layout-footer footer footer--dark"><div class="container container-fluid"><div class="row footer__links"><div class="theme-layout-footer-column col footer__col"><div class=footer__title>Documentação</div><ul class="footer__items clean-list"><li class=footer__item><a class=footer__link-item href=/getting-started/overview>Começar</a><li class=footer__item><a class=footer__link-item href=/operations/dashboard>Operação diária</a><li class=footer__item><a class=footer__link-item href=/normalization/overview>Mappings (CML)</a><li class=footer__item><a class=footer__link-item href=/runbooks/dispatcher>Runbooks</a></ul></div><div class="theme-layout-footer-column col footer__col"><div class=footer__title>Plataforma</div><ul class="footer__items clean-list"><li class=footer__item><a class=footer__link-item href=/concepts/architecture>Arquitetura</a><li class=footer__item><a class=footer__link-item href=/concepts/rbac>RBAC</a><li class=footer__item><a class=footer__link-item href=/integrations/overview>Integrações</a><li class=footer__item><a class=footer__link-item href=/compliance/retention>Compliance</a></ul></div><div class="theme-layout-footer-column col footer__col"><div class=footer__title>Recursos</div><ul class="footer__items clean-list"><li class=footer__item><a class=footer__link-item href=/getting-started/quickstart>Quickstart</a><li class=footer__item><a class=footer__link-item href=/normalization/cookbook>DSL Cookbook</a><li class=footer__item><a class=footer__link-item href=/normalization/troubleshooting>Troubleshooting</a></ul></div></div><div class="footer__bottom text--center"><div class=footer__copyright>Copyright © 2026 CentralOps. Built with Docusaurus.</div></div></div></footer></div></body>

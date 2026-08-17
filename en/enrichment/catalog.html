@@ -1,0 +1,480 @@
+<!doctype html><html lang=en dir=ltr class="docs-wrapper plugin-docs plugin-id-default docs-version-current docs-doc-page docs-doc-id-enrichment/catalog" data-has-hydrated=false><head><meta charset=UTF-8><meta name=generator content="Docusaurus v3.10.0"><title data-rh=true>Catálogo de fontes | CentralOps</title><meta data-rh=true name=viewport content="width=device-width, initial-scale=1.0"/><meta data-rh=true name=twitter:card content=summary_large_image /><meta data-rh=true property=og:image content=https://docs.segark.com/en/img/centralops-social-card.png /><meta data-rh=true name=twitter:image content=https://docs.segark.com/en/img/centralops-social-card.png /><meta data-rh=true property=og:url content=https://docs.segark.com/en/enrichment/catalog /><meta data-rh=true property=og:locale content=en /><meta data-rh=true property=og:locale:alternate content=pt_BR /><meta data-rh=true property=og:locale:alternate content=es /><meta data-rh=true name=docusaurus_locale content=en /><meta data-rh=true name=docsearch:language content=en /><meta data-rh=true name=docusaurus_version content=current /><meta data-rh=true name=docusaurus_tag content=docs-default-current /><meta data-rh=true name=docsearch:version content=current /><meta data-rh=true name=docsearch:docusaurus_tag content=docs-default-current /><meta data-rh=true property=og:title content="Catálogo de fontes | CentralOps"/><meta data-rh=true name=description content="O que cada fonte de enriquecimento faz, que campos devolve, e o que ela exige para funcionar"/><meta data-rh=true property=og:description content="O que cada fonte de enriquecimento faz, que campos devolve, e o que ela exige para funcionar"/><link data-rh=true rel=icon href=/en/img/favicon.ico /><link data-rh=true rel=canonical href=https://docs.segark.com/en/enrichment/catalog /><link data-rh=true rel=alternate href=https://docs.segark.com/enrichment/catalog hreflang=pt-BR /><link data-rh=true rel=alternate href=https://docs.segark.com/en/enrichment/catalog hreflang=en /><link data-rh=true rel=alternate href=https://docs.segark.com/es/enrichment/catalog hreflang=es /><link data-rh=true rel=alternate href=https://docs.segark.com/enrichment/catalog hreflang=x-default /><script data-rh=true type=application/ld+json>{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","item":"https://docs.segark.com/en/enrichment/catalog","name":"Catálogo de fontes","position":1}]}</script><link rel=stylesheet href=/en/assets/css/styles.65a61132.css /><script src=/en/assets/js/runtime~main.42e24aae.js defer></script><script src=/en/assets/js/main.2d271aa3.js defer></script></head><body><svg style="display: none;"><defs>
+<symbol id=theme-svg-external-link viewBox="0 0 24 24"><path fill=currentColor d="M21 13v10h-21v-19h12v2h-10v15h17v-8h2zm3-12h-10.988l4.035 4-6.977 7.07 2.828 2.828 6.977-7.07 4.125 4.172v-11z"/></symbol>
+</defs></svg>
+<script>!function(){var t=function(){try{return new URLSearchParams(window.location.search).get("docusaurus-theme")}catch(t){}}()||function(){try{return window.localStorage.getItem("theme-797")}catch(t){}}();document.documentElement.setAttribute("data-theme",t||(window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light")),document.documentElement.setAttribute("data-theme-choice",t||"system")}(),function(){try{for(var[t,e]of new URLSearchParams(window.location.search).entries())if(t.startsWith("docusaurus-data-")){var a=t.replace("docusaurus-data-","data-");document.documentElement.setAttribute(a,e)}}catch(t){}}()</script><div id=__docusaurus><link rel=preload as=image href=/en/img/logo.svg /><div role=region aria-label="Skip to main content"><a class=skipToContent_fXgn href=#__docusaurus_skipToContent_fallback>Skip to main content</a></div><nav aria-label=Main class="theme-layout-navbar navbar navbar--fixed-top"><div class=navbar__inner><div class="theme-layout-navbar-left navbar__items"><button aria-label="Toggle navigation bar" aria-expanded=false class="navbar__toggle clean-btn" type=button><svg width=30 height=30 viewBox="0 0 30 30" aria-hidden=true><path stroke=currentColor stroke-linecap=round stroke-miterlimit=10 stroke-width=2 d="M4 7h22M4 15h22M4 23h22"/></svg></button><a class=navbar__brand href=/en/><div class=navbar__logo><img src=/en/img/logo.svg alt=CentralOps class="themedComponent_mlkZ themedComponent--light_NVdE"/><img src=/en/img/logo.svg alt=CentralOps class="themedComponent_mlkZ themedComponent--dark_xIcU"/></div><b class="navbar__title text--truncate">CentralOps</b></a><a class="navbar__item navbar__link" href=/en/>Get started</a><a class="navbar__item navbar__link" href=/en/outputs/overview>Outputs & Routing</a><a class="navbar__item navbar__link" href=/en/operations/dashboard>Operations</a><a class="navbar__item navbar__link" href=/en/administration/users-and-roles>Administration</a><a class="navbar__item navbar__link" href=/en/normalization/overview>Mappings</a><a aria-current=page class="navbar__item navbar__link navbar__link--active" href=/en/enrichment/overview>Enriquecimento</a><a class="navbar__item navbar__link" href=/en/runbooks/dispatcher>Runbooks</a><a class="navbar__item navbar__link" href=/en/api/overview>API</a></div><div class="theme-layout-navbar-right navbar__items navbar__items--right"><div class="navbar__item dropdown dropdown--hoverable dropdown--right"><a href=# aria-haspopup=true aria-expanded=false role=button class=navbar__link><svg viewBox="0 0 24 24" width=20 height=20 aria-hidden=true class=iconLanguage_nlXk><path fill=currentColor d="M12.87 15.07l-2.54-2.51.03-.03c1.74-1.94 2.98-4.17 3.71-6.53H17V4h-7V2H8v2H1v1.99h11.17C11.5 7.92 10.44 9.75 9 11.35 8.07 10.32 7.3 9.19 6.69 8h-2c.73 1.63 1.73 3.17 2.98 4.56l-5.09 5.02L4 19l5-5 3.11 3.11.76-2.04zM18.5 10h-2L12 22h2l1.12-3h4.75L21 22h2l-4.5-12zm-2.62 7l1.62-4.33L19.12 17h-3.24z"/></svg>English</a><ul class=dropdown__menu><li><a href=/enrichment/catalog target=_self rel="noopener noreferrer" class=dropdown__link lang=pt-BR>Português</a><li><a href=/en/enrichment/catalog target=_self rel="noopener noreferrer" class="dropdown__link dropdown__link--active" lang=en>English</a><li><a href=/es/enrichment/catalog target=_self rel="noopener noreferrer" class=dropdown__link lang=es>Español</a></ul></div><div class="toggle_vylO colorModeToggle_DEke"><button class="clean-btn toggleButton_gllP toggleButtonDisabled_aARS" type=button disabled title="system mode" aria-label="Switch between dark and light mode (currently system mode)"><svg viewBox="0 0 24 24" width=24 height=24 aria-hidden=true class="toggleIcon_g3eP lightToggleIcon_pyhR"><path fill=currentColor d="M12,9c1.65,0,3,1.35,3,3s-1.35,3-3,3s-3-1.35-3-3S10.35,9,12,9 M12,7c-2.76,0-5,2.24-5,5s2.24,5,5,5s5-2.24,5-5 S14.76,7,12,7L12,7z M2,13l2,0c0.55,0,1-0.45,1-1s-0.45-1-1-1l-2,0c-0.55,0-1,0.45-1,1S1.45,13,2,13z M20,13l2,0c0.55,0,1-0.45,1-1 s-0.45-1-1-1l-2,0c-0.55,0-1,0.45-1,1S19.45,13,20,13z M11,2v2c0,0.55,0.45,1,1,1s1-0.45,1-1V2c0-0.55-0.45-1-1-1S11,1.45,11,2z M11,20v2c0,0.55,0.45,1,1,1s1-0.45,1-1v-2c0-0.55-0.45-1-1-1C11.45,19,11,19.45,11,20z M5.99,4.58c-0.39-0.39-1.03-0.39-1.41,0 c-0.39,0.39-0.39,1.03,0,1.41l1.06,1.06c0.39,0.39,1.03,0.39,1.41,0s0.39-1.03,0-1.41L5.99,4.58z M18.36,16.95 c-0.39-0.39-1.03-0.39-1.41,0c-0.39,0.39-0.39,1.03,0,1.41l1.06,1.06c0.39,0.39,1.03,0.39,1.41,0c0.39-0.39,0.39-1.03,0-1.41 L18.36,16.95z M19.42,5.99c0.39-0.39,0.39-1.03,0-1.41c-0.39-0.39-1.03-0.39-1.41,0l-1.06,1.06c-0.39,0.39-0.39,1.03,0,1.41 s1.03,0.39,1.41,0L19.42,5.99z M7.05,18.36c0.39-0.39,0.39-1.03,0-1.41c-0.39-0.39-1.03-0.39-1.41,0l-1.06,1.06 c-0.39,0.39-0.39,1.03,0,1.41s1.03,0.39,1.41,0L7.05,18.36z"/></svg><svg viewBox="0 0 24 24" width=24 height=24 aria-hidden=true class="toggleIcon_g3eP darkToggleIcon_wfgR"><path fill=currentColor d="M9.37,5.51C9.19,6.15,9.1,6.82,9.1,7.5c0,4.08,3.32,7.4,7.4,7.4c0.68,0,1.35-0.09,1.99-0.27C17.45,17.19,14.93,19,12,19 c-3.86,0-7-3.14-7-7C5,9.07,6.81,6.55,9.37,5.51z M12,3c-4.97,0-9,4.03-9,9s4.03,9,9,9s9-4.03,9-9c0-0.46-0.04-0.92-0.1-1.36 c-0.98,1.37-2.58,2.26-4.4,2.26c-2.98,0-5.4-2.42-5.4-5.4c0-1.81,0.89-3.42,2.26-4.4C12.92,3.04,12.46,3,12,3L12,3z"/></svg><svg viewBox="0 0 24 24" width=24 height=24 aria-hidden=true class="toggleIcon_g3eP systemToggleIcon_QzmC"><path fill=currentColor d="m12 21c4.971 0 9-4.029 9-9s-4.029-9-9-9-9 4.029-9 9 4.029 9 9 9zm4.95-13.95c1.313 1.313 2.05 3.093 2.05 4.95s-0.738 3.637-2.05 4.95c-1.313 1.313-3.093 2.05-4.95 2.05v-14c1.857 0 3.637 0.737 4.95 2.05z"/></svg></button></div><div class=navbarSearchContainer_Bca1><div class=navbar__search><span aria-label="expand searchbar" role=button class=search-icon tabindex=0></span><input id=search_input_react type=search placeholder=Loading... aria-label=Search class="navbar__search-input search-bar" disabled/></div></div></div></div><div role=presentation class=navbar-sidebar__backdrop></div></nav><div id=__docusaurus_skipToContent_fallback class="theme-layout-main main-wrapper mainWrapper_z2l0"><div class=docsWrapper_hBAB><button aria-label="Scroll back to top" class="clean-btn theme-back-to-top-button backToTopButton_sjWU" type=button></button><div class=docRoot_UBD9><aside class="theme-doc-sidebar-container docSidebarContainer_YfHR"><div class=sidebarViewport_aRkj><div class=sidebar_njMd><nav aria-label="Docs sidebar" class="menu thin-scrollbar menu_SIkG"><ul class="theme-doc-sidebar-menu menu__list"><li class="theme-doc-sidebar-item-category theme-doc-sidebar-item-category-level-1 menu__list-item"><div class=menu__list-item-collapsible><a class="categoryLink_byQd menu__link menu__link--sublist menu__link--sublist-caret menu__link--active" role=button aria-expanded=true href=/en/enrichment/overview><span title=Enriquecimento class=categoryLinkLabel_W154>Enriquecimento</span></a></div><ul class=menu__list><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/en/enrichment/overview><span title="O que é o enriquecimento" class=linkLabel_WmDU>O que é o enriquecimento</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/en/enrichment/how-to-enrich><span title="Como enriquecer um evento" class=linkLabel_WmDU>Como enriquecer um evento</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class="menu__link menu__link--active" aria-current=page tabindex=0 href=/en/enrichment/catalog><span title="Catálogo de fontes" class=linkLabel_WmDU>Catálogo de fontes</span></a></ul></ul></nav></div></div></aside><main class=docMainContainer_TBSr><div class="container padding-top--md padding-bottom--lg"><div class=row><div class="col docItemCol_VOVn"><div class=docItemContainer_Djhp><article><nav class="theme-doc-breadcrumbs breadcrumbsContainer_Z_bl" aria-label=Breadcrumbs><ul class=breadcrumbs><li class=breadcrumbs__item><a aria-label="Home page" class=breadcrumbs__link href=/en/><svg viewBox="0 0 24 24" class=breadcrumbHomeIcon_YNFT><path d="M10 19v-5h4v5c0 .55.45 1 1 1h3c.55 0 1-.45 1-1v-7h1.7c.46 0 .68-.57.33-.87L12.67 3.6c-.38-.34-.96-.34-1.34 0l-8.36 7.53c-.34.3-.13.87.33.87H5v7c0 .55.45 1 1 1h3c.55 0 1-.45 1-1z" fill=currentColor /></svg></a><li class=breadcrumbs__item><span class=breadcrumbs__link>Enriquecimento</span><li class="breadcrumbs__item breadcrumbs__item--active"><span class=breadcrumbs__link>Catálogo de fontes</span></ul></nav><div class="tocCollapsible_ETCw theme-doc-toc-mobile tocMobile_ITEo"><button type=button class="clean-btn tocCollapsibleButton_TO0P">On this page</button></div><div class="theme-doc-markdown markdown"><header><h1>Catálogo de fontes</h1></header>
+<p>Esta página descreve as cinco fontes de enriquecimento disponíveis hoje. A lista <strong>não é fixa no código do console</strong>, a tela em <strong>Enriquece → Enriquecimento → Catálogo</strong> sempre reflete exatamente o que a sua instalação tem registrado, então use <code>GET /api/collectors/enrichment/enrichers</code> (ou a própria tela) como fonte da verdade se este texto ficar desatualizado.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=tabela-do-cliente-chave-exata-table_exact>Tabela do cliente (chave exata), <code>table_exact</code><a href=#tabela-do-cliente-chave-exata-table_exact class=hash-link aria-label="Direct link to tabela-do-cliente-chave-exata-table_exact" title="Direct link to tabela-do-cliente-chave-exata-table_exact" translate=no>​</a></h2>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th><th><tbody><tr><td>Modo<td>por evento<tr><td>Egresso<td>nenhum<tr><td>Tipos de chave<td><code>ip</code>, <code>domain</code>, <code>url</code>, <code>file_hash</code>, <code>cve</code>, <code>mac</code>, <code>user</code>, <code>container_id</code><tr><td>Requer configuração externa?<td>Não</table>
+<p>Casa a chave do evento contra a <strong>sua própria tabela</strong>, por igualdade exata. É o enricher genérico: como você define os campos da tabela livremente, ele serve para qualquer contexto que você já tenha em planilha ou export de outro sistema, usuário → departamento, hostname → dono, hash → veredito interno, CVE → prioridade de patch da sua empresa.</p>
+<p>Os campos que ele devolve são exatamente os que você colocou em cada linha da tabela, não há uma lista fixa.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=tabela-do-cliente-cidr-prefixo-mais-específico-table_cidr>Tabela do cliente (CIDR, prefixo mais específico), <code>table_cidr</code><a href=#tabela-do-cliente-cidr-prefixo-mais-específico-table_cidr class=hash-link aria-label="Direct link to tabela-do-cliente-cidr-prefixo-mais-específico-table_cidr" title="Direct link to tabela-do-cliente-cidr-prefixo-mais-específico-table_cidr" translate=no>​</a></h2>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th><th><tbody><tr><td>Modo<td>por evento<tr><td>Egresso<td>nenhum<tr><td>Tipos de chave<td><code>ip</code><tr><td>Requer configuração externa?<td>Não</table>
+<p>Casa um IP contra a sua tabela de faixas de rede (CIDR), sempre pelo prefixo <strong>mais específico</strong>. Se a tabela tem <code>10.0.0.0/16</code> e <code>10.0.5.0/24</code>, um evento com IP <code>10.0.5.7</code> recebe o resultado do <code>/24</code>, não o do <code>/16</code>. É a fonte certa para plano de endereçamento corporativo, inventário de rede exportado de uma ferramenta de gestão, ou listas de bloqueio distribuídas em CIDR.</p>
+<p>Veja o passo a passo completo em <a class="" href=/en/enrichment/how-to-enrich>Como enriquecer um evento</a>.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=taxii-21-taxii>TAXII 2.1, <code>taxii</code><a href=#taxii-21-taxii class=hash-link aria-label="Direct link to taxii-21-taxii" title="Direct link to taxii-21-taxii" translate=no>​</a></h2>
+<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class=admonitionHeading_Gvgb><span class=admonitionIcon_Rf37><svg viewBox="0 0 12 16"><path fill-rule=evenodd d="M6.5 0C3.48 0 1 2.19 1 5c0 .92.55 2.25 1 3 1.34 2.25 1.78 2.78 2 4v1h5v-1c.22-1.22.66-1.75 2-4 .45-.75 1-2.08 1-3 0-2.81-2.48-5-5.5-5zm3.64 7.48c-.25.44-.47.8-.67 1.11-.86 1.41-1.25 2.06-1.45 3.23-.02.05-.02.11-.02.17H5c0-.06 0-.13-.02-.17-.2-1.17-.59-1.83-1.45-3.23-.2-.31-.42-.67-.67-1.11C2.44 6.78 2 5.65 2 5c0-2.2 2.02-4 4.5-4 1.22 0 2.36.42 3.22 1.19C10.55 2.94 11 3.94 11 5c0 .66-.44 1.78-.86 2.48zM4 14h5c-.23 1.14-1.3 2-2.5 2s-2.27-.86-2.5-2z"/></svg></span>Um conector, qualquer plataforma de threat intel</div><div class=admonitionContent_BuS1><p>TAXII 2.1 é padrão OASIS, e MISP, OpenCTI, Anomali, ThreatConnect e EclecticIQ falam todos ele. Se a sua plataforma expõe uma coleção TAXII, este enricher a consome sem precisar de conector específico. Suporte a STIX/TAXII 2.1 é critério de avaliação padrão de TIP no mercado.</div></div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th><th><tbody><tr><td>Modo<td>por evento<tr><td>Egresso<td>interno (buscamos a lista; nada do seu ambiente sai)<tr><td>Tipos de chave<td><code>ip</code>, <code>domain</code>, <code>url</code>, <code>file_hash</code>, <code>mac</code><tr><td>Requer configuração externa?<td>Sim, URL do servidor, id da coleção e credencial</table>
+<p>Baixa periodicamente uma coleção TAXII e a materializa como tabela local. Por rodar <strong>por evento</strong>, alimenta as regras de detecção em pipeline.</p>
+<p>Quando usar este em vez do conector do OpenCTI: sempre que a plataforma não for OpenCTI, ou quando você quiser evitar acoplamento à API interna dele. O conector do OpenCTI fala GraphQL, que é a API deles e mudou de schema entre 5.x e 6.x. Em compensação, ele traz campos próprios (score do OpenCTI, marcações TLP resolvidas) que o TAXII entrega de forma menos completa, porque as dependências dentro do bundle nem sempre vêm resolvidas.</p>
+<p><strong>Campos que devolve:</strong></p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Campo<th>Descrição<tbody><tr><td><code>kind</code><td>Tipo de chave normalizado<tr><td><code>stix_id</code><td>Id do Indicator STIX<tr><td><code>indicator_name</code><td>Nome do indicador<tr><td><code>confidence</code><td>Confiança 0 a 100<tr><td><code>valid_from</code> / <code>valid_until</code><td>Janela de validade<tr><td><code>kill_chain_phases</code><td>Fases, ex.: <code>command-and-control</code><tr><td><code>labels</code><td>Rótulos STIX, ex.: <code>malicious-activity</code><tr><td><code>has_markings</code><td>Há marcação (TLP) a respeitar<tr><td><code>created</code> / <code>modified</code><td>Datas do objeto STIX<tr><td><code>source</code><td>Sempre <code>"taxii"</code></table>
+<p><strong>Configuração:</strong></p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Campo<th>Obrigatório<th>O que é<tbody><tr><td><code>url</code><td>Sim<td>Só o endereço base, ex.: <code>https://tip.exemplo</code><tr><td><code>api_root</code><td>Não (padrão <code>/taxii2/</code>)<td>Caminho da api-root. Varia por plataforma (<code>/taxii2/</code>, <code>/api/v21/</code>)<tr><td><code>collection</code><td>Sim<td>Id da coleção a consumir<tr><td><code>auth_mode</code><td>Não (padrão <code>bearer</code>)<td><code>bearer</code>, <code>basic</code> ou <code>none</code>. O padrão OASIS sugere <code>basic</code>; plataformas comerciais costumam usar <code>bearer</code><tr><td><code>username</code><td>Só para <code>basic</code><td>O usuário. A senha é a credencial da fonte<tr><td><code>min_confidence</code><td>Não (padrão 0)<td>Piso de confiança do indicador<tr><td><code>page_size</code> / <code>max_pages</code><td>Não<td>Paginação e teto por carga</table>
+<div class="theme-admonition theme-admonition-note admonition_xJq3 alert alert--secondary"><div class=admonitionHeading_Gvgb><span class=admonitionIcon_Rf37><svg viewBox="0 0 14 16"><path fill-rule=evenodd d="M6.3 5.69a.942.942 0 0 1-.28-.7c0-.28.09-.52.28-.7.19-.18.42-.28.7-.28.28 0 .52.09.7.28.18.19.28.42.28.7 0 .28-.09.52-.28.7a1 1 0 0 1-.7.3c-.28 0-.52-.11-.7-.3zM8 7.99c-.02-.25-.11-.48-.31-.69-.2-.19-.42-.3-.69-.31H6c-.27.02-.48.13-.69.31-.2.2-.3.44-.31.69h1v3c.02.27.11.5.31.69.2.2.42.31.69.31h1c.27 0 .48-.11.69-.31.2-.19.3-.42.31-.69H8V7.98v.01zM7 2.3c-3.14 0-5.7 2.54-5.7 5.68 0 3.14 2.56 5.7 5.7 5.7s5.7-2.55 5.7-5.7c0-3.15-2.56-5.69-5.7-5.69v.01zM7 .98c3.86 0 7 3.14 7 7s-3.14 7-7 7-7-3.12-7-7 3.14-7 7-7z"/></svg></span>note</div><div class=admonitionContent_BuS1><mdxadmonitiontitle>Por que <code>url</code> e <code>api_root</code> são campos separados</mdxadmonitiontitle><p>O guard de egresso do projeto recusa URL com caminho, de propósito, e é ele que aplica a allowlist de host e CIDR. Como a api-root do TAXII sempre tem caminho, juntar os dois exigiria afrouxar o guard justamente no campo que viaja com a credencial no header <code>Authorization</code>. Separados, a base passa pela allowlist e o caminho é validado à parte.</div></div>
+<p><strong>O que é descartado na carga</strong>, e por quê:</p>
+<ul>
+<li class="">Indicador <strong>revogado</strong> ou <strong>fora da validade</strong>. Intel vencida é a maior fonte de falso positivo num feed, e filtrar aqui evita depender de alguém lembrar de escrever a condição em toda regra nova.</li>
+<li class="">Indicador <strong>abaixo do <code>min_confidence</code></strong>.</li>
+<li class="">Padrão STIX <strong>composto</strong> (<code>AND</code>/<code>OR</code>). Casar um evento contra ele exigiria avaliar a expressão inteira; avaliar só o primeiro termo daria hit errado em silêncio.</li>
+<li class="">Objetos que não são <code>indicator</code>. O filtro <code>match[type]=indicator</code> roda <strong>no servidor</strong>, então malware, campanhas e relacionamentos nem trafegam.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=opencti-opencti>OpenCTI, <code>opencti</code><a href=#opencti-opencti class=hash-link aria-label="Direct link to opencti-opencti" title="Direct link to opencti-opencti" translate=no>​</a></h2>
+<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class=admonitionHeading_Gvgb><span class=admonitionIcon_Rf37><svg viewBox="0 0 12 16"><path fill-rule=evenodd d="M6.5 0C3.48 0 1 2.19 1 5c0 .92.55 2.25 1 3 1.34 2.25 1.78 2.78 2 4v1h5v-1c.22-1.22.66-1.75 2-4 .45-.75 1-2.08 1-3 0-2.81-2.48-5-5.5-5zm3.64 7.48c-.25.44-.47.8-.67 1.11-.86 1.41-1.25 2.06-1.45 3.23-.02.05-.02.11-.02.17H5c0-.06 0-.13-.02-.17-.2-1.17-.59-1.83-1.45-3.23-.2-.31-.42-.67-.67-1.11C2.44 6.78 2 5.65 2 5c0-2.2 2.02-4 4.5-4 1.22 0 2.36.42 3.22 1.19C10.55 2.94 11 3.94 11 5c0 .66-.44 1.78-.86 2.48zM4 14h5c-.23 1.14-1.3 2-2.5 2s-2.27-.86-2.5-2z"/></svg></span>Configure em Enriquecimento → Fontes antes de usar numa regra</div><div class=admonitionContent_BuS1><p>Este enricher precisa saber o endereço da sua instância e ter uma credencial. Isso é uma <strong>fonte configurada</strong>: crie uma em <strong>Enriquecimento → Fontes</strong>, e depois a regra da política só cita o nome dela. A credencial vai uma única vez, o servidor a cifra, e nem a API nem a tela a devolvem, o que você vê depois é só "credencial cadastrada".</div></div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th><th><tbody><tr><td>Modo<td>por evento<tr><td>Egresso<td>interno (a instância é sua)<tr><td>Tipos de chave<td><code>ip</code>, <code>domain</code>, <code>url</code>, <code>file_hash</code>, <code>mac</code><tr><td>Requer configuração externa?<td>Sim. URL da sua instância + token de API</table>
+<p>Sincroniza periodicamente os indicadores (observáveis) da sua instância própria do OpenCTI para uma tabela local, e casa a chave do evento contra ela. Por rodar <strong>por evento</strong>, o resultado alimenta as regras de detecção em pipeline, diferente de uma consulta remota, que chegaria tarde demais para isso. Como a instância é sua, nenhum dado do seu ambiente sai para fora.</p>
+<p><strong>Campos que devolve:</strong></p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Campo<th>Descrição<tbody><tr><td><code>score</code><td>Score do OpenCTI (0 a 100)<tr><td><code>entity_type</code><td>Tipo do observável (<code>IPv4-Addr</code>, <code>Domain-Name</code>, <code>StixFile</code>, ...)<tr><td><code>kind</code><td>Tipo de chave normalizado (<code>ip</code>, <code>domain</code>, <code>url</code>, <code>file_hash</code>, <code>mac</code>)<tr><td><code>opencti_id</code><td>Id interno do observável no OpenCTI<tr><td><code>created_at</code> / <code>updated_at</code><td>Datas de criação e última atualização<tr><td><code>markings</code><td>Marcações TLP/PAP<tr><td><code>labels</code><td>Rótulos atribuídos no OpenCTI<tr><td><code>created_by</code><td>Quem reportou o indicador (o feed ou o analista)<tr><td><code>source</code><td>Sempre <code>"opencti"</code>, indica de onde veio o dado</table>
+<p><strong>Configuração:</strong></p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Campo<th>Obrigatório<th>O que é<tbody><tr><td><code>url</code><td>Sim<td>Endereço base da sua instância, ex.: <code>https://opencti.interno</code><tr><td><code>preset</code><td>Não (padrão <code>ip</code>)<td>O que buscar. Veja a tabela abaixo<tr><td><code>page_size</code><td>Não (padrão 500)<td>Itens por página ao sincronizar<tr><td><code>max_pages</code><td>Não (padrão 40)<td>Teto de páginas por atualização. Protege contra uma instância muito grande drenar o ciclo inteiro<tr><td><code>min_score</code><td>Não (padrão 0)<td>Só traz indicadores com score igual ou acima deste valor</table>
+<p>A credencial não aparece aqui: ela é um campo próprio da fonte configurada, não da configuração.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=escolha-o-preset-pelo-tipo-de-indicador>Escolha o preset pelo tipo de indicador<a href=#escolha-o-preset-pelo-tipo-de-indicador class=hash-link aria-label="Direct link to Escolha o preset pelo tipo de indicador" title="Direct link to Escolha o preset pelo tipo de indicador" translate=no>​</a></h3>
+<p>O preset filtra <strong>no servidor do OpenCTI</strong>. Uma tabela de IP não baixa hashes e URLs para descartar depois, o que muda bastante o tempo de sincronização numa base grande.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Preset<th>Traz<tbody><tr><td><code>ip</code><td><code>IPv4-Addr</code> e <code>IPv6-Addr</code><tr><td><code>domain</code><td><code>Domain-Name</code> e <code>Hostname</code><tr><td><code>url</code><td><code>Url</code><tr><td><code>file_hash</code><td><code>StixFile</code> e <code>Artifact</code> (SHA-256, MD5, ...)<tr><td><code>mac</code><td><code>Mac-Addr</code><tr><td><code>all_observables</code><td>Todos os tipos acima numa tabela só<tr><td><code>indicators</code><td>Indicadores STIX em vez de observáveis. Veja abaixo</table>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=o-preset-indicators-é-o-que-muda-o-jogo>O preset <code>indicators</code> é o que muda o jogo<a href=#o-preset-indicators-é-o-que-muda-o-jogo class=hash-link aria-label="Direct link to o-preset-indicators-é-o-que-muda-o-jogo" title="Direct link to o-preset-indicators-é-o-que-muda-o-jogo" translate=no>​</a></h3>
+<p>Um observável responde "esse IP está na base". Um indicador responde "esse IP é C2 conhecido, ativo, com confiança 80". A diferença aparece em quatro campos extras:</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Campo<th>Por que importa<tbody><tr><td><code>valid_until</code> e <code>revoked</code><td>Indicador expirado ou revogado é <strong>descartado na carga</strong>. Intel vencida é a maior fonte de falso positivo em feed de threat intel: sem esse corte, o alerta dispara por um IP que foi C2 há dois anos e hoje pertence a uma CDN<tr><td><code>confidence</code><td>Separa o que um analista marcou como confiável do que entrou por importação automática<tr><td><code>detection</code><td>O indicador foi marcado como acionável para detecção<tr><td><code>kill_chain_phases</code><td>A fase (<code>command-and-control</code>, <code>delivery</code>, <code>exfiltration</code>). É o que transforma um hit em contexto acionável no SIEM</table>
+<p>Indicadores com padrão STIX composto (<code>AND</code>/<code>OR</code>) são pulados de propósito: casar um evento contra eles exigiria avaliar a expressão inteira, e uma avaliação parcial daria hit errado em silêncio.</p>
+<div class="theme-admonition theme-admonition-caution admonition_xJq3 alert alert--warning"><div class=admonitionHeading_Gvgb><span class=admonitionIcon_Rf37><svg viewBox="0 0 16 16"><path fill-rule=evenodd d="M8.893 1.5c-.183-.31-.52-.5-.887-.5s-.703.19-.886.5L.138 13.499a.98.98 0 0 0 0 1.001c.193.31.53.501.886.501h13.964c.367 0 .704-.19.877-.5a1.03 1.03 0 0 0 .01-1.002L8.893 1.5zm.133 11.497H6.987v-2.003h2.039v2.003zm0-3.004H6.987V5.987h2.039v4.006z"/></svg></span>Confira a query contra a sua versão do OpenCTI antes de usar em produção</div><div class=admonitionContent_BuS1><p>O schema GraphQL do OpenCTI mudou entre as versões 5.x e 6.x. Se a sincronização não trouxer nada, esse é o primeiro lugar a checar. O campo <code>query</code> na configuração aceita uma query própria, que é a saída para instâncias divergentes.</div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=virustotal-virustotal>VirusTotal, <code>virustotal</code><a href=#virustotal-virustotal class=hash-link aria-label="Direct link to virustotal-virustotal" title="Direct link to virustotal-virustotal" translate=no>​</a></h2>
+<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class=admonitionHeading_Gvgb><span class=admonitionIcon_Rf37><svg viewBox="0 0 12 16"><path fill-rule=evenodd d="M6.5 0C3.48 0 1 2.19 1 5c0 .92.55 2.25 1 3 1.34 2.25 1.78 2.78 2 4v1h5v-1c.22-1.22.66-1.75 2-4 .45-.75 1-2.08 1-3 0-2.81-2.48-5-5.5-5zm3.64 7.48c-.25.44-.47.8-.67 1.11-.86 1.41-1.25 2.06-1.45 3.23-.02.05-.02.11-.02.17H5c0-.06 0-.13-.02-.17-.2-1.17-.59-1.83-1.45-3.23-.2-.31-.42-.67-.67-1.11C2.44 6.78 2 5.65 2 5c0-2.2 2.02-4 4.5-4 1.22 0 2.36.42 3.22 1.19C10.55 2.94 11 3.94 11 5c0 .66-.44 1.78-.86 2.48zM4 14h5c-.23 1.14-1.3 2-2.5 2s-2.27-.86-2.5-2z"/></svg></span>Configure em Enriquecimento → Fontes antes de usar numa regra</div><div class=admonitionContent_BuS1><p>Como o OpenCTI, este enricher exige credencial. Crie uma <strong>fonte configurada</strong> em <strong>Enriquecimento → Fontes</strong> com a sua chave de API; a regra depois cita só o nome dela. A chave sobe uma única vez e é cifrada pelo servidor, a API nunca a devolve.</div></div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th><th><tbody><tr><td>Modo<td><strong>por lote</strong><tr><td>Egresso<td><strong>envia a terceiro</strong><tr><td>Tipos de chave<td><code>ip</code>, <code>domain</code>, <code>file_hash</code><tr><td>Requer configuração externa?<td>Sim, chave de API</table>
+<p>Consulta a reputação de um indicador na API v3 do VirusTotal. Por rodar por lote, o resultado chega ao evento antes de ele ser roteado, mas <strong>não</strong> alimenta as regras de detecção em pipeline, que já rodaram por evento antes desse enriquecimento acontecer.</p>
+<p><strong>Campos que devolve:</strong></p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Campo<th>Descrição<tbody><tr><td><code>malicious</code> / <code>suspicious</code> / <code>harmless</code> / <code>undetected</code><td>Quantas engines classificaram o indicador em cada categoria<tr><td><code>total_engines</code><td>Total de engines que responderam<tr><td><code>malicious_ratio</code><td><code>malicious / total_engines</code>, de 0.0 a 1.0<tr><td><code>reputation</code><td>Score de reputação da comunidade VirusTotal<tr><td><code>last_analysis_date</code><td>Data (epoch) da última análise<tr><td><code>tags</code><td>Tags atribuídas pelo VirusTotal<tr><td><code>source</code><td>Sempre <code>"virustotal"</code></table>
+<p><strong>Configuração:</strong></p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Campo<th>Obrigatório<th>O que é<tbody><tr><td><code>key_kind</code><td>Não (padrão <code>ip</code>)<td><code>ip</code>, <code>domain</code> ou <code>file_hash</code>. Uma instância do enricher resolve um tipo por vez<tr><td><code>max_keys_per_batch</code><td>Não (padrão 25)<td>Teto de indicadores consultados por lote</table>
+<p>A chave de API não aparece na tabela porque não é configuração: é o campo <strong>Credencial</strong> da fonte, que sobe uma vez e o servidor cifra.</p>
+<div class="theme-admonition theme-admonition-danger admonition_xJq3 alert alert--danger"><div class=admonitionHeading_Gvgb><span class=admonitionIcon_Rf37><svg viewBox="0 0 12 16"><path fill-rule=evenodd d="M5.05.31c.81 2.17.41 3.38-.52 4.31C3.55 5.67 1.98 6.45.9 7.98c-1.45 2.05-1.7 6.53 3.53 7.7-2.2-1.16-2.67-4.52-.3-6.61-.61 2.03.53 3.33 1.94 2.86 1.39-.47 2.3.53 2.27 1.67-.02.78-.31 1.44-1.13 1.81 3.42-.59 4.78-3.42 4.78-5.56 0-2.84-2.53-3.22-1.25-5.61-1.52.13-2.03 1.13-1.89 2.75.09 1.08-1.02 1.8-1.86 1.33-.67-.41-.66-1.19-.06-1.78C8.18 5.31 8.68 2.45 5.05.32L5.03.3l.02.01z"/></svg></span>A chave pública libera só 4 consultas por minuto</div><div class=admonitionContent_BuS1><p>Sem um <code>when</code> restritivo na regra, um lote de 200 eventos com indicadores distintos consome a cota diária de uma chave gratuita em segundos. Restrinja a regra para consultar só o que precisa, por exemplo apenas indicadores que uma regra anterior já marcou como desconhecido.<p>O gate <code>when</code> é avaliado <strong>antes</strong> da chamada, então o que ele barra não sai da sua infraestrutura nem gasta cota.<p>Toda consulta ao VirusTotal envia um indicador do seu ambiente (um IP, um hash) para fora. Confirme que isso é aceitável para o tipo de dado antes de habilitar.</div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=próximos-passos>Próximos passos<a href=#próximos-passos class=hash-link aria-label="Direct link to Próximos passos" title="Direct link to Próximos passos" translate=no>​</a></h2>
+<ul>
+<li class=""><strong>Ainda não configurou nada?</strong> Comece por <a class="" href=/en/enrichment/how-to-enrich>Como enriquecer um evento</a>.</li>
+<li class=""><strong>Quer entender os conceitos primeiro?</strong> Veja <a class="" href=/en/enrichment/overview>O que é o enriquecimento</a>.</li>
+</ul></div></article><nav class="docusaurus-mt-lg pagination-nav" aria-label="Docs pages"><a class="pagination-nav__link pagination-nav__link--prev" href=/en/enrichment/how-to-enrich><div class=pagination-nav__sublabel>Previous</div><div class=pagination-nav__label>Como enriquecer um evento</div></a></nav></div></div><div class="col col--3"><div class="tableOfContents_bqdL thin-scrollbar theme-doc-toc-desktop"><ul class="table-of-contents table-of-contents__left-border"><li><a href=#tabela-do-cliente-chave-exata-table_exact class="table-of-contents__link toc-highlight">Tabela do cliente (chave exata), <code>table_exact</code></a><li><a href=#tabela-do-cliente-cidr-prefixo-mais-específico-table_cidr class="table-of-contents__link toc-highlight">Tabela do cliente (CIDR, prefixo mais específico), <code>table_cidr</code></a><li><a href=#taxii-21-taxii class="table-of-contents__link toc-highlight">TAXII 2.1, <code>taxii</code></a><li><a href=#opencti-opencti class="table-of-contents__link toc-highlight">OpenCTI, <code>opencti</code></a><ul><li><a href=#escolha-o-preset-pelo-tipo-de-indicador class="table-of-contents__link toc-highlight">Escolha o preset pelo tipo de indicador</a><li><a href=#o-preset-indicators-é-o-que-muda-o-jogo class="table-of-contents__link toc-highlight">O preset <code>indicators</code> é o que muda o jogo</a></ul><li><a href=#virustotal-virustotal class="table-of-contents__link toc-highlight">VirusTotal, <code>virustotal</code></a><li><a href=#próximos-passos class="table-of-contents__link toc-highlight">Próximos passos</a></ul></div></div></div></div></main></div></div></div><footer class="theme-layout-footer footer footer--dark"><div class="container container-fluid"><div class="row footer__links"><div class="theme-layout-footer-column col footer__col"><div class=footer__title>Documentação</div><ul class="footer__items clean-list"><li class=footer__item><a class=footer__link-item href=/en/getting-started/overview>Começar</a><li class=footer__item><a class=footer__link-item href=/en/operations/dashboard>Operação diária</a><li class=footer__item><a class=footer__link-item href=/en/normalization/overview>Mappings (CML)</a><li class=footer__item><a class=footer__link-item href=/en/runbooks/dispatcher>Runbooks</a></ul></div><div class="theme-layout-footer-column col footer__col"><div class=footer__title>Plataforma</div><ul class="footer__items clean-list"><li class=footer__item><a class=footer__link-item href=/en/concepts/architecture>Arquitetura</a><li class=footer__item><a class=footer__link-item href=/en/concepts/rbac>RBAC</a><li class=footer__item><a class=footer__link-item href=/en/integrations/overview>Integrações</a><li class=footer__item><a class=footer__link-item href=/en/compliance/retention>Compliance</a></ul></div><div class="theme-layout-footer-column col footer__col"><div class=footer__title>Recursos</div><ul class="footer__items clean-list"><li class=footer__item><a class=footer__link-item href=/en/getting-started/quickstart>Quickstart</a><li class=footer__item><a class=footer__link-item href=/en/normalization/cookbook>DSL Cookbook</a><li class=footer__item><a class=footer__link-item href=/en/normalization/troubleshooting>Troubleshooting</a></ul></div></div><div class="footer__bottom text--center"><div class=footer__copyright>Copyright © 2026 CentralOps. Built with Docusaurus.</div></div></div></footer></div></body>
