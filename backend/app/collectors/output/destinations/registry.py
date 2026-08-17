@@ -127,13 +127,45 @@ class DestinationRegistration:
     tier: str = "stable"
     #: posição de exibição na galeria (menor primeiro), depois label.
     order: int = 100
+    #: módulos de SDK que este kind precisa em runtime para entregar.
+    #:
+    #: Existe porque o catálogo mentia. Os kinds importam o SDK TARDIAMENTE
+    #: (dentro do factory), de propósito, para o módulo registrar mesmo sem o
+    #: pacote e para os testes poderem mockar. O efeito colateral é que o kind
+    #: aparece na galeria mesmo quando a entrega é impossível: o operador
+    #: escolhia S3, salvava, criava rota, e só descobria no DLQ que faltava
+    #: ``aioboto3`` na imagem.
+    #:
+    #: Declarar aqui deixa ``describe()`` reportar ``available`` de verdade,
+    #: e a resposta vale para a imagem que está RODANDO, não para a que
+    #: alguém pretendia construir. Vazio = puro HTTP, sempre disponível.
+    requires_modules: Tuple[str, ...] = ()
+
+    def missing_modules(self) -> List[str]:
+        """SDKs declarados que NÃO estão importáveis neste processo."""
+        import importlib.util
+
+        faltando: List[str] = []
+        for mod in self.requires_modules:
+            try:
+                if importlib.util.find_spec(mod) is None:
+                    faltando.append(mod)
+            except (ImportError, ValueError):
+                # ``find_spec`` levanta ValueError para pacote com __spec__
+                # None e ImportError quando o PAI não existe. Nos dois casos o
+                # módulo não está utilizável, que é a pergunta que importa.
+                faltando.append(mod)
+        return faltando
 
     def describe(self) -> Dict[str, Any]:
         """Forma serializável para o endpoint de catálogo (UI lê isto)."""
         # Import tardio: delivery_config importa o registry (lazy) → sem ciclo.
         from ..delivery_config import DeliveryConfig
 
+        faltando = self.missing_modules()
         return {
+            "available": not faltando,
+            "missing_modules": faltando,
             "kind": self.kind,
             "label": self.label or self.kind,
             "default_queue": self.default_queue,

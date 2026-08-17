@@ -1329,13 +1329,36 @@ def _run_lightweight_migrations() -> None:
 
                     # Backend padroniza shape v2 (dict). Mappings default em
                     # disco podem estar em formato list (legado): wrap.
+                    #
+                    # PRESERVA TODOS OS BLOCOS TOP-LEVEL. A versão anterior
+                    # reconstruía o dict com apenas ``preprocess`` e ``rules``,
+                    # descartando em silêncio o resto da DSL v2, e o que mais
+                    # dói é o ``raw_reduction``: 11 dos mappings default em
+                    # disco declaram poda de payload, e nenhuma delas chegava
+                    # ao banco. Instalação nova nascia sem redução nenhuma, o
+                    # operador não tinha como saber, e o produto entregava
+                    # payload inteiro para destinos com limite de tamanho (o
+                    # Wazuh trunca em silêncio acima de ~64 KiB).
+                    #
+                    # É a MESMA regressão que ``_normalize_rules_to_v2`` já
+                    # corrigiu no caminho de CRUD (ver o docstring dela em
+                    # routers/mappings.py). Lá foi consertado quando o
+                    # ``sophos.detection`` perdeu 3 specs em produção; aqui
+                    # ficou, porque é outro caminho e ninguém ligou os dois.
+                    #
+                    # Repassar as chaves desconhecidas em vez de listá-las
+                    # também torna isto forward-compatible com bloco novo da
+                    # DSL, sem precisar editar o seeder de novo.
                     if isinstance(rules, list):
                         rules_payload = {"preprocess": [], "rules": rules}
                     elif isinstance(rules, dict):
                         rules_payload = {
-                            "preprocess": list(rules.get("preprocess") or []),
-                            "rules": list(rules.get("rules") or []),
+                            k: v
+                            for k, v in rules.items()
+                            if k not in ("preprocess", "rules")
                         }
+                        rules_payload["preprocess"] = list(rules.get("preprocess") or [])
+                        rules_payload["rules"] = list(rules.get("rules") or [])
                     else:
                         continue
 
@@ -2064,6 +2087,43 @@ def _run_lightweight_migrations() -> None:
     # O gatilho ORIGINAL do isolamento (o ROLLBACK que ``inspect(engine)``
     # disparava dentro do bloco grande sob StaticPool, descartando writes
     # pendentes) deixou de existir na 2.3.1, com a troca por ``inspect(conn)``.
+    # ── audit_logs.organization_id ────────────────────────────────────────
+    # Escopo de tenant na trilha de auditoria. Sem esta coluna a leitura não
+    # tinha por onde filtrar, e ``AuditLogRepository.list`` devolvia a
+    # atividade de TODOS os tenants para qualquer admin. Ver o comentário do
+    # campo em ``models.AuditLog``.
+    #
+    # Linha antiga fica com NULL de propósito: não dá para inferir a org do
+    # ator retroativamente (o ``user_id`` pode ter sido apagado, e a org do
+    # usuário pode ter mudado desde então). Inventar um valor aqui seria pior
+    # que assumir o desconhecido, porque criaria atribuição falsa numa trilha
+    # de auditoria. A leitura escopada esconde NULL, então o histórico
+    # pré-migração fica visível só para admin de plataforma.
+    _al_inspector = inspect(engine)
+    if "audit_logs" in set(_al_inspector.get_table_names()):
+        _al_cols = {c["name"] for c in _al_inspector.get_columns("audit_logs")}
+        if "organization_id" not in _al_cols:
+            _al_sqlite = engine.dialect.name == "sqlite"
+            with _migration_txn() as al_conn:
+                if _al_sqlite:
+                    # SQLite não adiciona FK via ALTER — coluna pura; FK no ORM.
+                    al_conn.execute(
+                        text("ALTER TABLE audit_logs ADD COLUMN organization_id INTEGER")
+                    )
+                else:
+                    al_conn.execute(
+                        text(
+                            "ALTER TABLE audit_logs ADD COLUMN organization_id INTEGER "
+                            "REFERENCES organizations(id) ON DELETE SET NULL"
+                        )
+                    )
+                al_conn.execute(
+                    text(
+                        "CREATE INDEX IF NOT EXISTS ix_audit_logs_organization_id "
+                        "ON audit_logs (organization_id)"
+                    )
+                )
+
     inspector = inspect(engine)
     if "unknown_fields" in set(inspector.get_table_names()):
         _uf_cols = {c["name"] for c in inspector.get_columns("unknown_fields")}

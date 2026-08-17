@@ -47,7 +47,20 @@ ENV PATH="/opt/venv/bin:$PATH"
 # (no-op em runtime quando OTEL_ENABLED=false → zero overhead). Build com
 # --build-arg INSTALL_OTEL=false para uma imagem mínima sem opentelemetry-*.
 ARG INSTALL_OTEL=true
-COPY backend/requirements.txt backend/requirements.lock* backend/requirements-otel.txt ./
+# INSTALL_SINKS: mesma razão do INSTALL_OTEL, e o motivo é concreto. O catálogo
+# de destinos oferece 17 kinds, mas 3 deles (s3, security_lake, chronicle)
+# importam SDK que só existia em requirements-sinks.txt, que a imagem nunca
+# instalava. O operador escolhia S3 na galeria e recebia "aioboto3 não
+# instalado". Oferecer o que a imagem não entrega é pior que não oferecer.
+#
+# aiokafka já estava no lock, então kafka sempre funcionou. São exatamente
+# estes três que ficavam de fora.
+#
+# Build com --build-arg INSTALL_SINKS=false para imagem mínima (o registro dos
+# kinds continua; a indisponibilidade passa a ser reportada pelo catálogo, ver
+# ``DestinationRegistration.requires_modules``).
+ARG INSTALL_SINKS=true
+COPY backend/requirements.txt backend/requirements.lock* backend/requirements-otel.txt backend/requirements-sinks.txt ./
 RUN if [ -f requirements.lock ]; then \
       pip install --no-cache-dir -r requirements.lock; \
     else \
@@ -55,6 +68,9 @@ RUN if [ -f requirements.lock ]; then \
     fi
 RUN if [ "$INSTALL_OTEL" = "true" ]; then \
       pip install --no-cache-dir -r requirements-otel.txt; \
+    fi
+RUN if [ "$INSTALL_SINKS" = "true" ]; then \
+      pip install --no-cache-dir -r requirements-sinks.txt; \
     fi
 # Ferramentas de build que VÊM na imagem base (não estão no lock) e que o Trivy
 # acusa como HIGH no site-packages copiado para a imagem final: força as versões

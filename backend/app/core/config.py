@@ -579,9 +579,26 @@ class Settings(BaseSettings):
     OCSF_VALIDATION_VERSION: str = "1.8.0"
 
     # ── Enriquecimento em stream (ADR-LOCAL-0002) ──────────────────────────
-    # OFF por default: com a flag desligada nenhum call-site novo é executado no
-    # laço de coleta e o hot path é byte-idêntico ao anterior.
-    ENRICHMENT_ENABLED: bool = False
+    # ON por default desde 2026-08. Nasceu OFF, e fazia sentido enquanto a
+    # feature não tinha superfície de operação: com a flag desligada nenhum
+    # call-site novo roda no laço de coleta e o hot path fica byte-idêntico.
+    #
+    # O que mudou: existe a página de enriquecimento no console, com editor,
+    # catálogo de fontes, publicação e versionamento. Com a flag OFF, o
+    # operador monta a política, publica, e NADA acontece. Sem erro, sem aviso,
+    # sem contador. É a classe de falha silenciosa que este produto persegue em
+    # todo lugar, e estava embutida no próprio default.
+    #
+    # Ligar não liga enriquecimento nenhum sozinho. Só habilita o subsistema:
+    # ``load_policy_for_org`` devolve None quando a org não tem política
+    # habilitada, e o applier é curto-circuitado quando a política não tem
+    # regra (pipeline.py, ``_enrich_policy is not None and _enrich_policy.rules``).
+    #
+    # Custo honesto de quem NÃO usa: uma consulta indexada por org por ciclo de
+    # coleta, executada via ``to_thread`` (fora do event loop). Não é por
+    # evento. Quem quiser zero custo desliga a flag, e o comportamento antigo
+    # volta inteiro.
+    ENRICHMENT_ENABLED: bool = True
     # Teto de bytes RESIDENTES de UMA tabela, por FORK. O default é conservador
     # de propósito: o serviço ``collect.bulk`` roda ``--concurrency=8`` sob
     # ``memory: 2g`` (compose/docker-compose.yml:422,476) com ~200 MiB/fork de

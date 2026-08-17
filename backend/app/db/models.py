@@ -729,6 +729,21 @@ class AuditLog(Base):
     )
     username = Column(String, nullable=True)
     user_role = Column(String, nullable=True)
+    #: Org do ATOR no momento da ação. Sem esta coluna não existe como
+    #: escopar a trilha por tenant, e num MSSP o admin de um cliente enxergava
+    #: a atividade administrativa de todos os outros: quem entrou, de qual IP,
+    #: em qual endpoint. É reconhecimento de graça sobre a base inteira.
+    #:
+    #: NULL tem dois significados legítimos e ambos são tratados como "não é
+    #: de nenhum tenant": ação de usuário global (admin de plataforma) e linha
+    #: gravada ANTES desta coluna existir. A leitura escopada esconde os dois,
+    #: que é a escolha fail-closed. Ver ``AuditLogRepository.list``.
+    organization_id = Column(
+        Integer,
+        ForeignKey("organizations.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
     action = Column(String, nullable=False)
     endpoint = Column(String, nullable=False)
     method = Column(String, nullable=True)
