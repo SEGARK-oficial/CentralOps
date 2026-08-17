@@ -470,12 +470,16 @@ def _dispatch_scheduled_query_alert(
     org = integration.organization
     customer_id = getattr(org, "id", None) if org is not None else None
     customer_name = getattr(org, "name", None) if org is not None else None
+    # Slug: rótulo estável do tenant no destino. Ver
+    # ``EnvelopeContext.organization_slug``.
+    organization_slug = getattr(org, "slug", None) if org is not None else None
 
     ctx = EnvelopeContext(
         vendor="centralops",
         integration_id=integration.id,
         customer_id=customer_id,
         customer_name=customer_name,
+        organization_slug=organization_slug,
         stream="scheduled_query",
         event_type="centralops.scheduled_query.match",
         mapping_version_id=None,

@@ -24,8 +24,10 @@ from ..payload_shape import (
     DESCRICAO as PAYLOAD_DESCRICAO,
     DESCRICAO_EVENT_KEY,
     DESCRICAO_ROW_FIELDS,
+    DESCRICAO_ROW_FIELDS_FROM,
     DESCRICAO_ROW_SHAPE,
     PayloadShape,
+    RowFieldSource,
     RowShape,
     render_row,
 )
@@ -76,6 +78,9 @@ class WebhookConfig(BaseModel):
     # formas caem no mesmo editor de pares na UI, mas só a tipada recusa um
     # valor não-textual antes de virar corpo de requisição.
     row_fields: Dict[str, str] = Field(default_factory=dict, description=DESCRICAO_ROW_FIELDS)
+    row_fields_from: Dict[str, RowFieldSource] = Field(
+        default_factory=dict, description=DESCRICAO_ROW_FIELDS_FROM
+    )
 
     @field_validator("wrap", mode="before")
     @classmethod
@@ -95,12 +100,12 @@ class WebhookConfig(BaseModel):
         if self.row_shape == "wrapped":
             if not self.event_key.strip():
                 raise ValueError("com row_shape='wrapped', event_key é obrigatório")
-        elif self.row_fields:
+        elif self.row_fields or self.row_fields_from:
             raise ValueError(
-                "row_fields só tem efeito com row_shape='wrapped'; hoje seria ignorado "
-                "em silêncio. Mude row_shape para 'wrapped' ou limpe row_fields"
+                "row_fields/row_fields_from só têm efeito com row_shape='wrapped'; hoje "
+                "seriam ignorados em silêncio. Mude row_shape para 'wrapped' ou limpe-os"
             )
-        for chave in self.row_fields:
+        for chave in (*self.row_fields, *self.row_fields_from):
             if not str(chave).strip():
                 raise ValueError("row_fields tem uma coluna sem nome")
             if chave == self.event_key:
@@ -133,6 +138,7 @@ class WebhookClient:
         row_shape: str = "flat",
         event_key: str = "event",
         row_fields: Optional[Mapping[str, str]] = None,
+        row_fields_from: Optional[Mapping[str, str]] = None,
         headers: Optional[dict] = None,
         verify_tls: bool = True,
         secret: Optional[str] = None,
@@ -145,6 +151,7 @@ class WebhookClient:
         self._row_shape = row_shape
         self._event_key = event_key
         self._row_fields = dict(row_fields or {})
+        self._row_fields_from = dict(row_fields_from or {})
         self._extra_headers = dict(headers or {})
         self._verify_tls = verify_tls
         self._secret = secret
@@ -164,6 +171,7 @@ class WebhookClient:
             row_shape=self._row_shape,
             event_key=self._event_key,
             row_fields=self._row_fields,
+            row_fields_from=self._row_fields_from,
         )
 
     def _auth_header(self) -> dict:
@@ -252,6 +260,7 @@ def _factory(config: DestinationConfig, secrets: Optional[Any] = None) -> Webhoo
         # ``payload`` vence; ``body`` é o nome histórico e cobre config antiga.
         body=cfg.payload or cfg.body,
         row_shape=cfg.row_shape, event_key=cfg.event_key, row_fields=cfg.row_fields,
+        row_fields_from=cfg.row_fields_from,
         headers=cfg.headers, verify_tls=cfg.verify_tls, secret=secret,
     )
 

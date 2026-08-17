@@ -23,8 +23,10 @@ from ..payload_shape import (
     DESCRICAO as PAYLOAD_DESCRICAO,
     DESCRICAO_EVENT_KEY,
     DESCRICAO_ROW_FIELDS,
+    DESCRICAO_ROW_FIELDS_FROM,
     DESCRICAO_ROW_SHAPE,
     PayloadShape,
+    RowFieldSource,
     RowShape,
 )
 from .registry import DestinationConfig, DestinationRegistration, register
@@ -64,6 +66,9 @@ class ClickHouseConfig(BaseModel):
     row_shape: RowShape = Field(default="flat", description=DESCRICAO_ROW_SHAPE)
     event_key: str = Field(default="event", description=DESCRICAO_EVENT_KEY)
     row_fields: Dict[str, str] = Field(default_factory=dict, description=DESCRICAO_ROW_FIELDS)
+    row_fields_from: Dict[str, RowFieldSource] = Field(
+        default_factory=dict, description=DESCRICAO_ROW_FIELDS_FROM
+    )
     verify_tls: bool = Field(default=True, description="Verificar certificado TLS")
     ca_bundle: Optional[str] = Field(
         default=None, description="Path do CA bundle PEM customizado (apenas com verify_tls=True)"
@@ -114,20 +119,30 @@ class ClickHouseConfig(BaseModel):
         else:
             # Recusar em vez de ignorar: campo preenchido que não tem efeito é
             # a mesma armadilha silenciosa, só que na config em vez de no fio.
-            if self.row_fields:
-                raise ValueError(
-                    "row_fields só tem efeito com row_shape='wrapped'; hoje seria ignorado "
-                    "em silêncio. Mude row_shape para 'wrapped' ou limpe row_fields"
-                )
-        for chave in self.row_fields:
-            if not chave.strip():
-                raise ValueError("row_fields tem uma coluna sem nome")
-            if chave != chave.strip() or any(c.isspace() for c in chave):
-                raise ValueError(f"nome de coluna inválido em row_fields: {chave!r}")
-            if chave == self.event_key:
-                raise ValueError(
-                    f"row_fields não pode redefinir a coluna do evento ({self.event_key!r})"
-                )
+            for campo, valor in (
+                ("row_fields", self.row_fields),
+                ("row_fields_from", self.row_fields_from),
+            ):
+                if valor:
+                    raise ValueError(
+                        f"{campo} só tem efeito com row_shape='wrapped'; hoje seria "
+                        f"ignorado em silêncio. Mude row_shape para 'wrapped' ou "
+                        f"limpe {campo}"
+                    )
+        for campo, mapa in (
+            ("row_fields", self.row_fields),
+            ("row_fields_from", self.row_fields_from),
+        ):
+            for chave in mapa:
+                if not chave.strip():
+                    raise ValueError(f"{campo} tem uma coluna sem nome")
+                if chave != chave.strip() or any(c.isspace() for c in chave):
+                    raise ValueError(f"nome de coluna inválido em {campo}: {chave!r}")
+                if chave == self.event_key:
+                    raise ValueError(
+                        f"{campo} não pode redefinir a coluna do evento "
+                        f"({self.event_key!r})"
+                    )
         return self
 
 
@@ -157,6 +172,7 @@ def _factory(config: DestinationConfig, secrets: Optional[Any] = None) -> ClickH
         row_shape=cfg.row_shape,
         event_key=cfg.event_key,
         row_fields=cfg.row_fields,
+        row_fields_from=cfg.row_fields_from,
         verify_tls=cfg.verify_tls,
         ca_bundle=cfg.ca_bundle,
     )

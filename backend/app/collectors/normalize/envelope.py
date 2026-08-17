@@ -88,6 +88,15 @@ class EnvelopeContext:
     # chave de isolamento event-level (auditoria/lineage por org). Optional
     # porque fluxos de teste/legados podem não tê-lo.
     organization_id: Optional[int] = None
+    # Slug da organização (``Organization.slug``, único e indexado). É o que
+    # serve de RÓTULO estável quando um destino deriva o nome do tenant por
+    # evento (ver ``row_fields_from`` em ``output/payload_shape.py``).
+    #
+    # Existe separado de ``customer_name`` de propósito: ``name`` é editável na
+    # tela e um rename mudaria o rótulo de todo evento novo, partindo o
+    # histórico do lado do consumidor sem erro nenhum. Slug não muda por
+    # renomeação de fachada.
+    organization_slug: Optional[str] = None
     # data_geography herdada da Integration (Sophos dataRegion /
     # campo manual). Propagada no envelope para que o engine de roteamento
     # possa aplicar enforcement de residência por destino sem lookup em DB por evento.
@@ -177,6 +186,9 @@ def build_envelope(
         # ``normalized.severity_id`` — mesma fonte de verdade do ``pri_for_event``
         # (severity_map), aqui só exposto para o roteador sem reler ``normalized``.
         "organization_id": ctx.organization_id,
+        # Rótulo estável do tenant para destinos que derivam o nome da origem
+        # por evento. Ver ``EnvelopeContext.organization_slug``.
+        "organization_slug": ctx.organization_slug,
         "severity_id": normalized_block.get("severity_id"),
         "stream": ctx.stream,
         "event_type": ctx.event_type,

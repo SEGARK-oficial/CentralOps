@@ -112,6 +112,10 @@ def build_preview_envelope(
     integration_id: int,
     organization_id: int,
     organization_name: Optional[str],
+    # Opcional para não quebrar chamador existente, mas o preview MENTE sem
+    # ele quando o destino deriva rótulo por evento: a linha sai
+    # ``unresolved`` na tela e com o slug em produção.
+    organization_slug: Optional[str] = None,
     customer_id: Optional[str],
     stream: str,
     event_type: str,
@@ -157,6 +161,7 @@ def build_preview_envelope(
         integration_id=integration_id,
         customer_id=customer_id,
         customer_name=organization_name,
+        organization_slug=organization_slug,
         stream=stream,
         event_type=event_type,
         mapping_version_id=mapping_version_id,

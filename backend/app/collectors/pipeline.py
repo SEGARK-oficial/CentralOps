@@ -986,6 +986,16 @@ async def _run_collection_once(integration_id: int, stream: str) -> None:
                 if integration.organization is not None
                 else None
             )
+            # Slug, não nome, é o que serve de RÓTULO estável no destino.
+            # ``name`` é editável pelo operador e um rename mudaria o rótulo de
+            # todo evento novo, partindo o histórico do lado do consumidor sem
+            # aviso. O slug é único, indexado e não muda por renomeação de
+            # fachada. Ver ``row_fields_from`` em ``output/payload_shape.py``.
+            organization_slug: Optional[str] = (
+                integration.organization.slug
+                if integration.organization is not None
+                else None
+            )
             # data_geography da integração (Sophos dataRegion ou
             # campo manual). Propagada no envelope para enforcement de residência.
             integration_data_geography: Optional[str] = getattr(
@@ -1323,6 +1333,7 @@ async def _run_collection_once(integration_id: int, stream: str) -> None:
                         # = Organization.id interno (resolvido acima).
                         customer_id=envelope_customer_id,
                         customer_name=organization_name,
+                        organization_slug=organization_slug,
                         stream=stream,
                         event_type=event_type,
                         mapping_version_id=mapping_version_id,

@@ -203,6 +203,13 @@ async def run_backfill_collection_once(
                 if integration.organization is not None
                 else None
             )
+            # Slug (não ``name``) é o rótulo estável do tenant no destino —
+            # ver ``EnvelopeContext.organization_slug``.
+            organization_slug: Optional[str] = (
+                integration.organization.slug
+                if integration.organization is not None
+                else None
+            )
             # ``customer_id`` do envelope = ``Organization.id`` interno
             # (mesma semântica do ``pipeline.py`` — backfill é o mesmo fluxo, só
             # com janela histórica). Sem dependência do IRIS.
@@ -369,9 +376,18 @@ async def run_backfill_collection_once(
                         # = Organization.id interno (resolvido acima).
                         customer_id=envelope_customer_id,
                         customer_name=organization_name,
+                        organization_slug=organization_slug,
                         stream=stream,
                         event_type=event_type,
                         mapping_version_id=mapping_version_id,
+                        # ``organization_id`` e ``platform`` faltavam aqui e o
+                        # ``pipeline.py`` sempre os enviou. Sem eles o evento de
+                        # backfill sai com org None e o roteador casa SOMENTE
+                        # rotas globais — o mesmo furo já corrigido em
+                        # ``scheduler_tasks.py``. Coleta ao vivo e backfill do
+                        # MESMO integration precisam sair idênticos.
+                        organization_id=organization_id,
+                        platform=platform,
                     )
                     envelope = build_envelope(
                         raw_event,
