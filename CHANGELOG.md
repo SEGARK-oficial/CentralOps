@@ -1,5 +1,20 @@
 # Changelog
 
+## [2.8.0](https://github.com/SEGARK-oficial/CentralOps/compare/v2.7.0...v2.8.0) (2026-08-17)
+
+
+### Features
+
+* **destinos:** OCSF direto para tabela coluna-wrapper e destino nano ([#41](https://github.com/SEGARK-oficial/CentralOps/issues/41)) ([b242f59](https://github.com/SEGARK-oficial/CentralOps/commit/b242f596c1f90fc7a1940230f803c953416f08ca))
+* um destino nano para N clientes (row_fields_from) + siem_event classifica por evento ([#45](https://github.com/SEGARK-oficial/CentralOps/issues/45)) ([1637fc7](https://github.com/SEGARK-oficial/CentralOps/commit/1637fc7b033d4481adc2c25db2bf36982b766d7e))
+
+
+### Bug Fixes
+
+* **dlq:** reprocesso não atropela a ingestão + ícone do nano e porta 8443 ([#43](https://github.com/SEGARK-oficial/CentralOps/issues/43)) ([e739caf](https://github.com/SEGARK-oficial/CentralOps/commit/e739caf5992a9994a15302e242cd4caefb88cd5d))
+* **nano:** "Testar conexão" verde enquanto 90% dos INSERTs morriam ([#46](https://github.com/SEGARK-oficial/CentralOps/issues/46)) ([a1f819d](https://github.com/SEGARK-oficial/CentralOps/commit/a1f819d5a3eaa55491aa03bc9ef981894c653d7f))
+* **segurança:** vazamento cross-tenant no audit + 4 features que não entregavam ([#44](https://github.com/SEGARK-oficial/CentralOps/issues/44)) ([0d04579](https://github.com/SEGARK-oficial/CentralOps/commit/0d04579197b537f2e01bb32f29b0067219a3bfec))
+
 ## [2.7.0](https://github.com/SEGARK-oficial/CentralOps/compare/v2.6.0...v2.7.0) (2026-08-15)
 
 
