@@ -210,19 +210,83 @@ def test_query_service_orchestrator_not_importable_in_community() -> None:
         importlib.import_module("backend.app.services.query_service")
 
 
+def _mounted_paths(app) -> set[str]:
+    """Os paths REALMENTE montados no app.
+
+    ``app.routes`` deixou de ser a lista achatada de rotas. A partir do FastAPI
+    0.14x, ``include_router`` guarda um wrapper (``_IncludedRouter``) e as rotas
+    seguem vivendo no router original, com o prefixo aplicado só na resolução.
+    Um ``getattr(route, "path", "")`` sobre essa lista devolve **string vazia**
+    para todo router incluído.
+
+    Isso não quebrou só o assert positivo daqui — teria sido barulhento e fácil.
+    Quebrou os NEGATIVOS em silêncio: ``not any(p.startswith("/api/query-jobs"))``
+    passa sempre quando nenhum path é visível, e o gate que existe para pegar
+    superfície EE vazando no artefato Community passou a aprovar qualquer coisa.
+    Ver ``test_boundary_gate_actually_sees_mounted_routes``, que injeta um
+    vazamento sintético justamente para esta função não poder voltar a cegar.
+
+    Percorre em vez de ler ``app.openapi()`` porque o schema omite as rotas com
+    ``include_in_schema=False`` — 6 delas neste app — e uma rota EE escondida é
+    exatamente o que um gate de fronteira não pode deixar passar.
+    """
+    paths: set[str] = set()
+    for route in app.routes:
+        direct = getattr(route, "path", None)
+        if direct:
+            paths.add(direct)
+            continue
+        original = getattr(route, "original_router", None)
+        if original is None:
+            continue
+        prefix = getattr(getattr(route, "include_context", None), "prefix", "") or ""
+        for sub in getattr(original, "routes", ()):
+            sub_path = getattr(sub, "path", None)
+            if sub_path:
+                paths.add(f"{prefix}{sub_path}")
+    return paths
+
+
 def test_core_app_keeps_detections_but_not_federated_query() -> None:
     """O app Community monta ``/api/detections`` (triagem = SOC base; o scheduler
     Community emite Detection) mas NÃO ``/api/query-jobs`` nem ``/api/correlation-rules``
     (trava EE — montados só por ``centralops_ee.activate``)."""
     from backend.app.main import app
 
-    paths = {getattr(r, "path", "") for r in app.routes}
+    paths = _mounted_paths(app)
     assert any(p.startswith("/api/detections") for p in paths), (
         "detections deveria permanecer no Community (triagem base)"
     )
     assert not any(p.startswith("/api/query-jobs") for p in paths), "/api/query-jobs vazou no Community"
     assert not any(p.startswith("/api/correlation-rules") for p in paths), (
         "/api/correlation-rules vazou no Community"
+    )
+
+
+def test_boundary_gate_actually_sees_mounted_routes() -> None:
+    """O gate acima só vale se ``_mounted_paths`` enxergar o que está montado.
+
+    Existe porque a versão anterior parou de enxergar e ninguém soube: os
+    asserts negativos continuaram verdes por não haver path nenhum para
+    comparar. Um gate de fronteira que aprova por cegueira é pior que gate
+    nenhum, então aqui um vazamento sintético é montado de propósito e o teste
+    exige que ele seja detectado.
+    """
+    from fastapi import APIRouter, FastAPI
+
+    probe = FastAPI()
+    leaked = APIRouter(prefix="/query-jobs")
+
+    @leaked.get("/")
+    def _leaked_endpoint() -> dict:  # pragma: no cover - nunca chamado
+        return {}
+
+    probe.include_router(leaked, prefix="/api")
+
+    paths = _mounted_paths(probe)
+    assert any(p.startswith("/api/query-jobs") for p in paths), (
+        "_mounted_paths não enxerga rota montada via include_router — o gate "
+        "de fronteira está cego e seus asserts negativos passam por vacuidade"
     )
 
 
