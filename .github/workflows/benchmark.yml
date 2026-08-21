@@ -86,7 +86,7 @@ jobs:
           "$PYENV_ROOT/shims/python" --version || echo "WARN: pyenv python não encontrado em $PYENV_ROOT/shims"
 
       - name: Install backend requirements
-        run: pip install -r backend/requirements.txt
+        run: pip install -r backend/requirements.lock
 
       # ── WARN: runner speed mismatch ────────────────────────────────────────
       # Print a visible reminder before any benchmark runs. If this job fails
@@ -185,7 +185,7 @@ jobs:
           "$PYENV_ROOT/shims/python" --version || echo "WARN: pyenv python não encontrado em $PYENV_ROOT/shims"
 
       - name: Install backend requirements
-        run: pip install -r backend/requirements.txt
+        run: pip install -r backend/requirements.lock
 
       # Same flags as the gate run, but writes straight to baseline.json so the
       # downloaded artifact is a drop-in replacement for the committed file.

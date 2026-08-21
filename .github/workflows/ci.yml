@@ -137,7 +137,7 @@ jobs:
         with:
           python-version: "3.12"
       - name: Instalar dependências
-        run: pip install --no-cache-dir -q -r backend/requirements.txt
+        run: pip install --no-cache-dir -q -r backend/requirements.lock
       - name: Rodar os guards de árvore de fontes
         env:
           APP_MASTER_KEY: ci-source-tree-guards-master-key-32chars
@@ -199,7 +199,7 @@ jobs:
             -e CENTRALOPS_TEST_PG_DSN="postgresql://postgres:postgres@${PG}:5432/centralops_test" \
             -e APP_MASTER_KEY=test-master-key-for-centralops-suite-12345 -e APP_ENV=test \
             python:3.11-slim \
-            bash -c "pip install --no-cache-dir -q -r backend/requirements.txt && python -m pytest -m pg -v -p no:cacheprovider backend/tests"
+            bash -c "pip install --no-cache-dir -q -r backend/requirements.lock && python -m pytest -m pg -v -p no:cacheprovider backend/tests"
       - name: Tear down Postgres
         if: always()
         run: |

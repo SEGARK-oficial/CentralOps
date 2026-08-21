@@ -1,40 +1,66 @@
-fastapi
-# starlette é transitivo (via fastapi), mas fixamos um FLOOR de segurança:
+# Dependências DIRETAS do backend, pinadas em ``==`` nas mesmas versões do
+# ``requirements.lock``.
+#
+# Por que pinado e não ``>=``: o CI e a imagem instalam ESTE arquivo, não o
+# lock (ver .github/workflows/ci.yml). Com as diretas abertas, cada build
+# resolvia o que estivesse publicado no dia — uma superfície de supply chain
+# aberta, e uma mudança de API entrando sem ninguém escolher. Foi assim que o
+# ``fastapi`` saltou de 0.136 para 0.14x e o gate de fronteira open-core cegou
+# em silêncio (``include_router`` deixou de achatar ``app.routes``).
+#
+# Os ``>=`` que existiam aqui viraram comentário: o motivo de cada FLOOR (quase
+# sempre um CVE) é a informação que não pode se perder na hora de subir versão.
+# O pin nunca pode ficar ABAIXO do floor documentado.
+#
+# Como subir uma versão:
+#   1. edite o pin aqui;
+#   2. regenere o lock:  pip-compile requirements.txt -o requirements.lock
+#   3. o teste ``tests/test_requirements_lock.py`` trava os dois alinhados.
+#
+# Nota: as ~50 dependências TRANSITIVAS ficam pinadas apenas no lock. Fechar
+# isso por completo exige o CI instalar o ``requirements.lock``; ele não pode
+# ser usado como ``-c`` porque tem extras (``uvicorn[standard]``) e o pip
+# recusa: "Constraints cannot have extras".
+
+fastapi==0.136.1
+# starlette é transitivo (via fastapi), mas pinado aqui por segurança:
 # CVE-2026-48818 (SSRF/NTLM via UNC em StaticFiles) + CVE-2026-54283 → fix 1.3.1.
-starlette>=1.3.1
-uvicorn[standard]
-sqlalchemy
-alembic>=1.13  # P1 — migrações de schema (baseline+stamp; revisions futuras)
+starlette==1.3.1  # FLOOR: >=1.3.1
+uvicorn[standard]==0.46.0
+sqlalchemy==2.0.49
+alembic==1.18.4  # FLOOR: >=1.13 — migrações de schema (baseline+stamp)
 # Driver Postgres — necessário quando DATABASE_URL=postgresql+psycopg2://...
 # A versão "binary" inclui libpq pré-compilada; não precisa libpq-dev no Docker.
-psycopg2-binary>=2.9
-httpx
-pydantic
-pydantic-settings
-cryptography>=50.0.0  # GHSA-537c-gmf6-5ccf (OpenSSL vulnerável nas wheels) → 48.0.1;
-                      # CVE-2026-69247 (fix 50.0.0) e CVE-2026-69249 (fix 49.0.0) → 50.0.0
-pyjwt[crypto]>=2.8  # Validação de id_token OIDC (login Microsoft Entra — Fase 1)
-argon2-cffi>=23.1  # Personal Access Tokens (Fase 1) — hash Argon2id para PATs
-redis>=5.0.0
-python-json-logger>=2.0
+psycopg2-binary==2.9.10  # FLOOR: >=2.9
+httpx==0.28.1
+pydantic==2.13.3
+pydantic-settings==2.14.0
+cryptography==50.0.0  # FLOOR: >=50.0.0 — GHSA-537c-gmf6-5ccf (OpenSSL vulnerável
+                      # nas wheels) → 48.0.1; CVE-2026-69247 (fix 50.0.0) e
+                      # CVE-2026-69249 (fix 49.0.0) → 50.0.0
+pyjwt[crypto]==2.13.0  # FLOOR: >=2.8 — validação de id_token OIDC (Entra, Fase 1)
+argon2-cffi==25.1.0  # FLOOR: >=23.1 — hash Argon2id para PATs (Fase 1)
+redis==7.4.0  # FLOOR: >=5.0.0
+python-json-logger==4.1.0  # FLOOR: >=2.0
 
 # ── Collector subsystem ───────────────────────────────────────────────
-celery>=5.3,<6
-celery-redbeat>=2.2,<3  # Redis-backed dynamic Beat scheduler (Fase 1.3)
-aiokafka>=0.10,<0.12  # Onda 3 — data-plane durável (producer/consumer Kafka/Redpanda)
-aiohttp>=3.14.3  # 3.14.1+ corrige 11 CVEs (CVE-2026-*) do 3.13.5; 3.14.3 fecha
-                 # CVE-2026-69244 (HIGH), que o gate Trivy do build acusa. O cap <3.14
-                 # antigo existia por causa do aioresponses (abandonado em 0.7.8,
-                 # incompatível com o stream_writer obrigatório do 3.14); os mocks
-                 # HTTP dos coletores migraram para o helper interno
+celery==5.6.3  # FLOOR: >=5.3,<6
+celery-redbeat==2.3.3  # FLOOR: >=2.2,<3 — Beat dinâmico em Redis (Fase 1.3)
+aiokafka==0.11.0  # FLOOR: >=0.10,<0.12 — data-plane durável (Kafka/Redpanda)
+aiohttp==3.14.3  # FLOOR: >=3.14.3 — 3.14.1+ corrige 11 CVEs (CVE-2026-*) do
+                 # 3.13.5; 3.14.3 fecha CVE-2026-69244 (HIGH), que o gate Trivy
+                 # do build acusa. O cap <3.14 antigo existia por causa do
+                 # aioresponses (abandonado em 0.7.8, incompatível com o
+                 # stream_writer obrigatório do 3.14); os mocks HTTP dos
+                 # coletores migraram para o helper interno
                  # app/collectors/tests/_aiohttp_mock.py, então o cap caiu.
-tenacity>=8.2
+tenacity==9.1.4  # FLOOR: >=8.2
 # prometheus-client REMOVIDO : instrumentação migrou p/ OTel-native
 # (OTLP-push). Endpoint Prometheus /metrics de compat, se desejado, é exposto
 # pelo OTel Collector — ver compose/otel-collector-config.yaml. Pacotes OTel são
 # extras opcionais em requirements-otel.txt.
-jmespath>=1.0  # DSL de mapping no normalize/engine
-orjson>=3.9    # Serialização JSON de alta performance no hot path
+jmespath==1.1.0  # FLOOR: >=1.0 — DSL de mapping no normalize/engine
+orjson==3.11.9   # FLOOR: >=3.9 — serialização JSON de alta performance no hot path
 # OTel tracing distribuído  é OPCIONAL e gated por OTEL_ENABLED.
 # Fora da imagem base (deploy leve). Para ligar o tracing:
 # pip install -r requirements-otel.txt
@@ -44,7 +70,7 @@ orjson>=3.9    # Serialização JSON de alta performance no hot path
 # (kept light — install extras via requirements-dev.txt if needed)
 # Mock HTTP dos coletores: helper interno app/collectors/tests/_aiohttp_mock.py
 # (substituiu o aioresponses, abandonado e incompatível com aiohttp >= 3.14).
-fakeredis[lua]>=2.20
-pytest>=8.0
-pytest-asyncio>=0.23
-pytest-benchmark>=4.0  # Fase 0 baseline benchmarks (benchmarks/ suite)
+fakeredis[lua]==2.35.1  # FLOOR: >=2.20
+pytest==9.0.3  # FLOOR: >=8.0
+pytest-asyncio==1.3.0  # FLOOR: >=0.23
+pytest-benchmark==5.2.3  # FLOOR: >=4.0 — baseline benchmarks (benchmarks/ suite)

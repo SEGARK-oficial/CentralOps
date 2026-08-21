@@ -87,7 +87,7 @@ jobs:
             -e APP_MASTER_KEY=test-master-key-for-centralops-suite-12345 \
             -e APP_ENV=test \
             python:3.11-slim \
-            bash -c "pip install --no-cache-dir -q -r backend/requirements.txt && python -m pytest -m pg -v backend/tests"
+            bash -c "pip install --no-cache-dir -q -r backend/requirements.lock && python -m pytest -m pg -v backend/tests"
 
       - name: Tear down Postgres
         if: always()
