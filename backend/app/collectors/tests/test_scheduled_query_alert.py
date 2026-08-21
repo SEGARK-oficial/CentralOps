@@ -396,7 +396,10 @@ class TestDispatchScheduledQueryAlertEnvelope:
                 record=record,  # type: ignore[arg-type]
             )
 
-        assert len(captured_envelopes) == 1
+        # Dois eventos por execução com resultados: o 1006 (o job rodou) e o
+        # 2004 (o achado, com a tabela). O 1006 é o primeiro e segue idêntico —
+        # regra escrita sobre ele não muda de comportamento.
+        assert len(captured_envelopes) == 2
         envelope = captured_envelopes[0]
 
         meta = envelope["_centralops"]
@@ -548,5 +551,8 @@ class TestDispatchScheduledQueryAlertEnvelope:
 
         mock_enqueue.assert_called_once()
         batch = mock_enqueue.call_args.args[0]
-        assert len(batch) == 1
+        # Os dois eventos saem no MESMO batch — uma ida ao dispatcher, e as
+        # duas entregas seguem o mesmo caminho de roteamento.
+        assert len(batch) == 2
         assert batch[0]["_centralops"]["stream"] == "scheduled_query"
+        assert batch[1]["_centralops"]["stream"] == "scheduled_query"
