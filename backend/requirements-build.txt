@@ -2,7 +2,21 @@
 # extension modules from .py sources before they enter the final image.
 # Not installed into the runtime image (the compiled .so files do not
 # depend on Cython at runtime).
-cython>=3.0,<4
+# TETO FECHADO em 3.3 — o range antigo (`<4`) era frouxo e o Cython 3.3.0
+# quebra a compilação deste projeto: `CompileError` SEM mensagem (o Cython
+# levanta `CompileError(None, pyx_file)` e o traceback termina em
+# `TypeError: NoneType object is not iterable`), reportada contra
+# `app/collectors/registry.py` — mas o nome é enganoso, porque `cythonize`
+# compila num pool de processos e atribui o erro ao item errado.
+#
+# Reproduzido: `3d2e4a1a`, que passou no CI em 19/08, falha hoje sem NENHUMA
+# mudança de código — é a dependência que se moveu, não o repositório. Com
+# este teto, os mesmos 233 módulos compilam.
+#
+# Subir o teto exige provar o build do estágio `backend-compile` numa máquina
+# SEM cache de layer; o CI do Core mascarou a quebra por ter cache, e quem
+# pagou foi o CI do EE, que builda limpo.
+cython>=3.0,<3.3
 # >=78.1.1 fecha CVE-2025-47273 (path traversal no PackageIndex), HIGH no gate
 # Trivy. Um piso frouxo (>=68) deixa o pip aceitar o que já estiver instalado —
 # inclusive uma versão vulnerável herdada da imagem base.
