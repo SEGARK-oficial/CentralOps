@@ -28,6 +28,8 @@ from backend.app.collectors.inflight.matcher import (
     evaluate_inflight,
 )
 from backend.app.collectors.inflight.runtime import (
+    GROUP_VALUE_DIGEST_BYTES,
+    GROUP_VALUE_DIGEST_SEP,
     INFLIGHT_ALLOWED_OPS,
     REJECT_REASONS,
     InflightAccumulator,
@@ -255,7 +257,10 @@ def test_unresolved_group_by_is_an_error_not_a_generic_detection():
     r = _rule(CompiledClause(("a",), "eq", "x"), group_by=("ausente",))
     acc.add(r, {"a": "x"}, organization_id=1)
     assert acc.pending == {}
-    assert acc.errors["group_by_unresolved"] == 1
+    # ``errors`` é ANINHADO (razão → rule_id → contagem): o total por razão é o
+    # que vai para o OTel, o breakdown por regra é o que responde "qual regra
+    # está apontando para o campo errado?".
+    assert acc.errors["group_by_unresolved"] == {1: 1}
 
 
 def test_key_cap_counts_overflow_and_never_loses_the_match_count():
@@ -270,12 +275,102 @@ def test_key_cap_counts_overflow_and_never_loses_the_match_count():
 
 
 def test_group_value_is_truncated_into_the_dedup_key():
+    cap = int(settings.INFLIGHT_MAX_GROUP_VALUE_LEN)
     acc = InflightAccumulator()
     r = _rule(CompiledClause(("a",), "eq", "x"), group_by=("u",))
     acc.add(r, {"a": "x", "u": "z" * 5000}, organization_id=1)
     key = next(iter(acc.pending))
     assert len(key) < 5000
-    assert len(key.split(":")[-1]) == int(settings.INFLIGHT_MAX_GROUP_VALUE_LEN)
+    token = key.split(":")[-1]
+    # O corte continua acontecendo (o valor de 5000 chars NÃO entra inteiro no
+    # índice B-tree), mas o token agora leva o sufixo de digest — ver
+    # ``test_truncated_group_values_do_not_merge_two_entities``.
+    assert token.startswith("z" * cap + GROUP_VALUE_DIGEST_SEP)
+    assert len(token) == cap + 1 + 2 * GROUP_VALUE_DIGEST_BYTES
+
+
+# ── C1: truncar não pode FUNDIR duas entidades numa Detection ───────────────
+#
+# O token vai inteiro para a dedup_key, que é PERSISTIDA em
+# ``Detection.dedup_key`` e governa a supressão. Antes do sufixo de digest,
+# dois valores distintos com o mesmo prefixo de ``INFLIGHT_MAX_GROUP_VALUE_LEN``
+# chars viravam UMA Detection em silêncio — medido em produção: 83,2% dos
+# valores de ``rawData.cmdline`` passam do teto (2 colisões reais) e 6,3% dos de
+# ``rawData.parent_cmdline`` (9 colisões reais).
+
+
+def test_truncated_group_values_do_not_merge_two_entities():
+    cap = int(settings.INFLIGHT_MAX_GROUP_VALUE_LEN)
+    prefixo = "/usr/bin/java -Xmx4g " + "A" * cap  # > cap, compartilhado
+    acc = InflightAccumulator()
+    r = _rule(CompiledClause(("a",), "eq", "x"), group_by=("u",))
+    acc.add(r, {"a": "x", "u": prefixo + " --tenant=alpha"}, organization_id=1)
+    acc.add(r, {"a": "x", "u": prefixo + " --tenant=beta"}, organization_id=1)
+
+    assert len(acc.pending) == 2, (
+        "dois valores de group_by distintos que só divergem DEPOIS do corte "
+        "têm de gerar duas Detections — fundi-las esconde uma entidade dentro "
+        "do alerta da outra"
+    )
+    t1, t2 = (k.split(":")[-1] for k in acc.pending)
+    assert t1[:cap] == t2[:cap], "o prefixo legível é o mesmo, por construção"
+    assert t1 != t2, "o sufixo de digest é o que separa as duas entidades"
+    assert acc.errors["group_value_truncated"] == {1: 2}
+
+
+def test_group_value_below_the_cap_keeps_the_key_byte_identical():
+    """Espelho POSITIVO do teste acima: o par que impede que ele passe por
+    vacuidade se o ramo de corte deixar de existir. Valor abaixo do teto não
+    ganha sufixo — a chave é a MESMA de antes desta mudança, e nenhuma
+    dedup_key já persistida em produção muda de identidade."""
+    cap = int(settings.INFLIGHT_MAX_GROUP_VALUE_LEN)
+    acc = InflightAccumulator()
+    r = _rule(CompiledClause(("a",), "eq", "x"), group_by=("u",))
+    acc.add(r, {"a": "x", "u": "svc-backup"}, organization_id=1)
+    acc.add(r, {"a": "x", "u": "b" * cap}, organization_id=1)  # EXATAMENTE no teto
+
+    chaves = set(acc.pending)
+    assert chaves == {"inflight:1:1:svc-backup", "inflight:1:1:" + "b" * cap}
+    assert GROUP_VALUE_DIGEST_SEP not in "".join(k.split(":")[-1] for k in chaves)
+    assert "group_value_truncated" not in acc.errors
+
+
+def test_digest_is_deterministic_across_accumulators():
+    """Sem determinismo a supressão deixa de suprimir: a mesma entidade
+    produziria dedup_key diferente a cada ciclo/worker e o operador receberia o
+    mesmo alerta para sempre."""
+    valor = "x" * 400 + "cauda"
+    r = _rule(CompiledClause(("a",), "eq", "x"), group_by=("u",))
+    chaves = []
+    for _ in range(2):
+        acc = InflightAccumulator()
+        acc.add(r, {"a": "x", "u": valor}, organization_id=1)
+        chaves.append(next(iter(acc.pending)))
+    assert chaves[0] == chaves[1]
+
+
+def test_truncated_and_untruncated_token_spaces_cannot_collide():
+    """Invariante das duas constantes novas: todo token CORTADO é mais longo
+    que o teto e todo token NÃO cortado é ≤ teto, logo os dois espaços são
+    disjuntos por comprimento — um valor curto nunca consegue imitar o token de
+    um valor longo escrevendo o separador na mão."""
+    cap = int(settings.INFLIGHT_MAX_GROUP_VALUE_LEN)
+    assert GROUP_VALUE_DIGEST_BYTES > 0
+    assert GROUP_VALUE_DIGEST_SEP not in "0123456789abcdef", (
+        "o separador tem de estar FORA do alfabeto hex para o operador enxergar "
+        "onde termina o prefixo legível"
+    )
+    sufixo = 1 + 2 * GROUP_VALUE_DIGEST_BYTES
+    assert cap + sufixo > cap
+
+    acc = InflightAccumulator()
+    r = _rule(CompiledClause(("a",), "eq", "x"), group_by=("u",))
+    # Um valor curto que TENTA imitar o formato do token cortado.
+    impostor = "a" * 10 + GROUP_VALUE_DIGEST_SEP + "0" * (2 * GROUP_VALUE_DIGEST_BYTES)
+    assert len(impostor) <= cap
+    acc.add(r, {"a": "x", "u": impostor}, organization_id=1)
+    acc.add(r, {"a": "x", "u": "a" * 10 + "B" * cap}, organization_id=1)
+    assert len(acc.pending) == 2
 
 
 def test_dedup_key_is_org_scoped():

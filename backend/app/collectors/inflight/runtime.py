@@ -22,9 +22,10 @@ produção — o laço de coleta awaitando I/O de escrita proporcional ao backlo
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 import logging
-from typing import Any, Iterable, Mapping, Optional
+from typing import Any, Mapping, Optional
 
 from ...core.config import settings
 from .matcher import CompiledClause, CompiledInflightRule, CompiledRuleSet
@@ -48,7 +49,53 @@ NEGATIVE_OPS = frozenset({"ne", "nin"})
 
 #: Enum FECHADO de razões de rejeição — vira label de métrica, logo nunca pode
 #: conter valor vindo de evento ou nome de regra (esses vão no log).
+#: Governa APENAS ``collector_inflight_rules_rejected_total`` (falha de
+#: COMPILAÇÃO, 1x por ciclo na carga). Não se mistura com ``ERROR_REASONS``,
+#: que é a outra série e o outro momento (avaliação/flush).
 REJECT_REASONS = ("bad_json", "empty_where", "unknown_op", "over_cap", "truncated")
+
+#: Enum FECHADO de razões de ERRO de avaliação/flush — label de
+#: ``collector_inflight_errors_total``. Mesma disciplina do enum acima: nunca
+#: carrega valor de evento nem nome de regra.
+#:
+#: ``rule_id`` deliberadamente NÃO entra como label desta série: é id global,
+#: multiplicaria a cardinalidade por ``reason`` e o lado OTLP não tem TTL para
+#: envelhecer a série de uma regra apagada — a mesma recusa já escrita para
+#: ``collector_capture_tap_disabled_total``. O breakdown por regra vai para o
+#: ``observability_store`` (Redis, TTL 25h), que é de onde a UI lê.
+#:
+#: ``matcher`` é o único reason escrito de FORA deste módulo
+#: (``pipeline.py``, no ``except`` que envolve ``evaluate_ruleset``) e o único
+#: NÃO atribuível a uma regra: a exceção nasce antes de se saber qual regra
+#: estava sendo avaliada, então não há ``rule_id`` honesto para carregar. Ele
+#: pertence ao enum mesmo assim, porque chega a ``INFLIGHT_ERRORS.labels()`` em
+#: produção — deixá-lo de fora tornaria a palavra "FECHADO" acima falsa, e um
+#: invariante que é só comentário é exatamente a dívida que este arquivo existe
+#: para não repetir.
+ERROR_REASONS = (
+    "group_by_unresolved",
+    "key_cap",
+    "flush_lost",
+    "group_value_truncated",
+    "matcher",
+)
+
+#: Razões que NÃO descem ao ``observability_store`` por regra, porque não há
+#: ``rule_id`` honesto para carregar. Declarado aqui, e não escondido num teste,
+#: para que a pergunta "por que esta razão não aparece no breakdown da UI?"
+#: tenha resposta no mesmo lugar onde o enum vive. Uma razão nova escrita de
+#: fora deste módulo entra AQUI ou ganha ``rule_id`` — nunca some em silêncio.
+UNATTRIBUTED_ERROR_REASONS = ("matcher",)
+
+#: Bytes do digest anexado ao token de group_by quando há corte (16 chars hex).
+#: 64 bits é folgado para o universo real (chaves distintas por regra/ciclo é
+#: teto de 2 dígitos), e o custo do sufixo entra no índice B-tree de
+#: ``ix_detections_org_dedup`` — por isso curto, não sha256 inteiro.
+GROUP_VALUE_DIGEST_BYTES = 8
+
+#: Separador prefixo↔digest. Fora do alfabeto hex de propósito: o operador que
+#: lê a dedup_key precisa enxergar onde o valor legível termina.
+GROUP_VALUE_DIGEST_SEP = "~"
 
 #: Granularidade dos contadores de disparo por regra (``observability_store``,
 #: kind="rule") — HORÁRIA, não per-minute (default do store). Uma janela de
@@ -281,18 +328,39 @@ def load_inflight_rules_for_org(
     return CompiledRuleSet(rules=tuple(compiled), share_paths=share)
 
 
+def _group_value_digest(value: str) -> str:
+    """Digest curto e determinístico do valor COMPLETO de group_by.
+
+    Sem sal e sem estado de propósito: a MESMA entidade tem de produzir a mesma
+    ``dedup_key`` em qualquer worker e em qualquer ciclo, ou a supressão deixa
+    de suprimir e o operador recebe o mesmo alerta a cada ciclo. ``blake2s`` e
+    não sha256 porque o requisito aqui é injetividade prática, não resistência
+    a adversário — e é mais barato no ramo em que roda.
+
+    ``surrogatepass``: o valor vem do evento e pode carregar surrogate solto
+    vindo de JSON malformado; ``encode`` estrito levantaria dentro de ``add``,
+    que roda no laço de coleta.
+    """
+    return hashlib.blake2s(
+        value.encode("utf-8", "surrogatepass"), digest_size=GROUP_VALUE_DIGEST_BYTES
+    ).hexdigest()
+
+
 class InflightAccumulator:
     """Matches do ciclo, em memória. Nada aqui toca I/O."""
 
-    __slots__ = ("pending", "matches", "errors", "overflow", "_keys_per_rule", "_logged_overflow")
+    __slots__ = ("pending", "matches", "errors", "overflow", "_keys_per_rule", "_logged_once")
 
     def __init__(self) -> None:
         #: dedup_key → payload da Detection a criar
         self.pending: dict[str, dict[str, Any]] = {}
         #: rule_id → nº de eventos casados (pode ser >> len(pending))
         self.matches: dict[int, int] = {}
-        #: razão → contagem
-        self.errors: dict[str, int] = {}
+        #: razão → rule_id → contagem. ANINHADO: o total por razão continua
+        #: sendo o que vai para o OTel (cardinalidade intacta), e o breakdown
+        #: por regra — que responde "QUAL regra parou de alertar?" — vai para o
+        #: observability_store. Ver ``count_error``.
+        self.errors: dict[str, dict[int, int]] = {}
         #: rule_id → matches perdidos por teto de chaves
         self.overflow: dict[int, int] = {}
         #: rule_id → nº de chaves distintas já criadas. Contador dedicado, e não
@@ -300,7 +368,31 @@ class InflightAccumulator:
         #: POR EVENTO CASADO, um custo que cresce ao longo do ciclo dentro do
         #: laço de coleta — exatamente o que R1 existe para impedir.
         self._keys_per_rule: dict[int, int] = {}
-        self._logged_overflow: set[int] = set()
+        #: (razão, rule_id) já avisado neste ciclo. Chaveado pela DUPLA e não só
+        #: pelo rule_id: uma regra pode estourar o teto de chaves E truncar o
+        #: valor de group_by no mesmo ciclo, e calar o segundo aviso porque o
+        #: primeiro saiu esconderia justamente a causa que o operador procura.
+        self._logged_once: set[tuple[str, int]] = set()
+
+    def count_error(self, reason: str, rule_id: int, amount: int = 1) -> None:
+        """Contabiliza ``amount`` erros de ``reason`` ATRIBUÍDOS a uma regra.
+
+        ``reason`` deve pertencer a ``ERROR_REASONS`` — é label de métrica. O
+        ``rule_id`` NÃO vira label (ver o comentário do enum); ele só desce até
+        o ``observability_store`` no flush.
+        """
+        by_rule = self.errors.setdefault(reason, {})
+        by_rule[rule_id] = by_rule.get(rule_id, 0) + amount
+
+    def _warn_once(self, reason: str, rule_id: int, message: str, *args: Any) -> None:
+        """Rate-limit de log por (razão, regra) por CICLO — sem isso um evento
+        ruim repetido troca degradação de detecção por amplificação de escrita
+        no log, que é o dano maior."""
+        token = (reason, rule_id)
+        if token in self._logged_once:
+            return
+        self._logged_once.add(token)
+        logger.warning(message, *args)
 
     def add(
         self,
@@ -321,11 +413,41 @@ class InflightAccumulator:
                 # Agrupar os não-resolvidos numa Detection genérica esconderia
                 # "regra apontando para campo errado" dentro de um alerta que
                 # parece legítimo. Vira erro contado, não alerta.
-                self.errors["group_by_unresolved"] = (
-                    self.errors.get("group_by_unresolved", 0) + 1
-                )
+                self.count_error("group_by_unresolved", rule.rule_id)
                 return
-            token = str(raw)[: int(settings.INFLIGHT_MAX_GROUP_VALUE_LEN)]
+            value = str(raw)
+            cap = int(settings.INFLIGHT_MAX_GROUP_VALUE_LEN)
+            token = value[:cap]
+            if len(value) > cap:
+                # FUSÃO SILENCIOSA DE ENTIDADES. Este token vai inteiro para a
+                # dedup_key, que é PERSISTIDA em ``Detection.dedup_key`` e
+                # governa a supressão: dois valores de group_by distintos que
+                # compartilhassem o prefixo cortado viravam UMA única Detection,
+                # sem erro nenhum — a segunda entidade some dentro do alerta da
+                # primeira.
+                #
+                # Não é hipótese, foi MEDIDO em dado real de produção: com
+                # group_by em ``rawData.cmdline``, 83,2% dos valores passam do
+                # teto e 2 colisões reais foram observadas; em
+                # ``rawData.parent_cmdline``, 6,3% passam e 9 colisões reais.
+                #
+                # O digest do valor COMPLETO restaura a injetividade; o prefixo
+                # segue legível para quem investiga. Só neste ramo raro — o
+                # caminho comum (valor abaixo do teto) continua sendo uma fatia
+                # de string e produz a chave byte-idêntica à de antes. O digest
+                # NUNCA vira label de métrica.
+                token = f"{token}{GROUP_VALUE_DIGEST_SEP}{_group_value_digest(value)}"
+                self.count_error("group_value_truncated", rule.rule_id)
+                self._warn_once(
+                    "group_value_truncated", rule.rule_id,
+                    "inflight: regra %s (%s) — valor de group_by com %d chars "
+                    "excede o teto de %d; a dedup_key passa a levar sufixo de "
+                    "digest para não fundir entidades distintas numa Detection. "
+                    "Sai só o COMPRIMENTO: o valor vem do evento e não entra em "
+                    "log. group_by de alta cardinalidade textual (cmdline) é o "
+                    "caso típico.",
+                    rule.rule_id, rule.name, len(value), cap,
+                )
 
         key = f"inflight:{organization_id}:{rule.rule_id}:{token}"
         if key in self.pending:
@@ -334,19 +456,18 @@ class InflightAccumulator:
         # O teto é sobre CHAVES DISTINTAS, não sobre matches: a variável
         # perigosa é a cardinalidade do group_by, não a taxa de acerto. Uma
         # regra que casa 100% dos eventos com group_by=None gera UMA chave.
-        cap = int(settings.INFLIGHT_MAX_DEDUP_KEYS_PER_RULE_PER_CYCLE)
-        if self._keys_per_rule.get(rule.rule_id, 0) >= cap:
+        key_cap = int(settings.INFLIGHT_MAX_DEDUP_KEYS_PER_RULE_PER_CYCLE)
+        if self._keys_per_rule.get(rule.rule_id, 0) >= key_cap:
             self.overflow[rule.rule_id] = self.overflow.get(rule.rule_id, 0) + 1
-            self.errors["key_cap"] = self.errors.get("key_cap", 0) + 1
-            if rule.rule_id not in self._logged_overflow:
-                self._logged_overflow.add(rule.rule_id)
-                logger.warning(
-                    "inflight: regra %s (%s) atingiu o teto de %d chaves de dedup "
-                    "no ciclo — matches seguem contados, nenhuma Detection nova é "
-                    "criada, nenhum evento é descartado. Teto atingido costuma "
-                    "indicar group_by_field de alta cardinalidade.",
-                    rule.rule_id, rule.name, cap,
-                )
+            self.count_error("key_cap", rule.rule_id)
+            self._warn_once(
+                "key_cap", rule.rule_id,
+                "inflight: regra %s (%s) atingiu o teto de %d chaves de dedup "
+                "no ciclo — matches seguem contados, nenhuma Detection nova é "
+                "criada, nenhum evento é descartado. Teto atingido costuma "
+                "indicar group_by_field de alta cardinalidade.",
+                rule.rule_id, rule.name, key_cap,
+            )
             return
 
         self._keys_per_rule[rule.rule_id] = self._keys_per_rule.get(rule.rule_id, 0) + 1
@@ -427,6 +548,13 @@ async def flush_inflight(
     ESTRUTURAL (dedup + teto de chaves por regra/ciclo + group_by não
     resolvido) — matches alto com ``overflow`` alto é o diagnóstico de que a
     cardinalidade do group_by estourou o teto, não um bug.
+
+    Os ERROS seguem a mesma divisão, e é aqui que ela paga: o OTel recebe
+    ``collector_inflight_errors_total{reason}`` exatamente como antes (soma do
+    dict interno — zero mudança de cardinalidade), enquanto o breakdown
+    ``err_{reason}`` por regra vai para o observability_store. Sem ele,
+    "1200 group_by_unresolved" é um número que não aponta para nenhuma regra e
+    o operador não tem o que corrigir.
     """
     if acc is None or organization_id is None:
         return
@@ -437,8 +565,20 @@ async def flush_inflight(
         try:
             await asyncio.to_thread(_flush_sync, acc.pending, int(organization_id))
         except Exception:  # noqa: BLE001
-            # A perda é CONTADA, não presumida.
-            INFLIGHT_ERRORS.labels(reason="flush_lost").inc(len(acc.pending))
+            # A perda é CONTADA, não presumida — e ATRIBUÍDA. "Perdi 900
+            # Detections" não diz QUAL regra parou de alertar; ``item["rule"]``
+            # já carrega a regra compilada, então agrupar por ``rule_id`` aqui
+            # não custa nenhuma volta ao banco.
+            try:
+                for item in acc.pending.values():
+                    acc.count_error("flush_lost", int(item["rule"].rule_id))
+            except Exception:  # noqa: BLE001
+                # Best-effort dentro de best-effort: quem estoura aqui é o
+                # CONTADOR do prejuízo, e ele não pode agravar o prejuízo
+                # levantando dentro do ``finally`` do ciclo de coleta.
+                logger.debug(
+                    "inflight: falha atribuindo flush_lost por regra", exc_info=True
+                )
             logger.exception(
                 "inflight: flush falhou — %d Detection(s) perdida(s) (org %s)",
                 len(acc.pending), organization_id,
@@ -449,10 +589,24 @@ async def flush_inflight(
         _record_rule_metric("matches", rule_id, count)
     for rule_id, count in acc.overflow.items():
         _record_rule_metric("overflow", rule_id, count)
-    for reason, count in acc.errors.items():
-        INFLIGHT_ERRORS.labels(reason=reason).inc(count)
-
-
-def iter_reject_reasons() -> Iterable[str]:
-    """Para o teste que trava o enum fechado de labels."""
-    return REJECT_REASONS
+    for reason, by_rule in acc.errors.items():
+        # DUAS superfícies, uma passada. OTel recebe SÓ ``reason``, somando o
+        # dict interno: ``sum by (reason)`` fica idêntico ao de antes desta
+        # mudança e a cardinalidade não se mexe. O breakdown por regra desce
+        # para o observability_store, onde há TTL de 25h para envelhecer a
+        # série de uma regra apagada — o que o OTLP não tem.
+        if isinstance(by_rule, dict):
+            total = sum(by_rule.values())
+            per_rule = tuple(by_rule.items())
+        else:
+            # Forma legada (razão → int) escrita por call site fora deste
+            # módulo — hoje ``pipeline.py`` com reason="matcher", que não é
+            # atribuível a uma regra (a exceção veio do matcher, antes de saber
+            # qual). Aceitar as duas formas aqui é o que impede um ``sum`` sobre
+            # int de levantar DENTRO do ``finally`` do ciclo e mascarar a
+            # exceção original que estivesse se propagando.
+            total, per_rule = int(by_rule), ()
+        if total:
+            INFLIGHT_ERRORS.labels(reason=reason).inc(total)
+        for rule_id, count in per_rule:
+            _record_rule_metric(f"err_{reason}", rule_id, count)

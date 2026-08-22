@@ -72,7 +72,9 @@
     },
     "actions": {
       "edit": "Editar",
-      "remove": "Eliminar"
+      "remove": "Eliminar",
+      "metrics": "Métricas",
+      "metricsAriaLabel": "Ver contadores de 24 h de la regla {{name}}"
     },
     "loading": "Cargando reglas...",
     "empty": {
@@ -92,6 +94,10 @@
       "title": "Eliminar regla de correlación",
       "description": "¿Eliminar la regla <strong>{{name}}</strong>? Las detecciones futuras generadas por ella se detendrán.",
       "confirmLabel": "Eliminar regla"
+    },
+    "inflight": {
+      "notEvaluatedBadge": "No evaluada",
+      "notEvaluatedTooltip": "Regla habilitada, en modo en vuelo, que NO entra en el ciclo de evaluación. Dos causas posibles: quedó por encima del tope de reglas por ciclo (el corte es por id ascendente, así que las más recientes caen primero) o el filtro (where) no compila. El aviso encima de la tabla dice cuál de las dos y cuántas reglas."
     }
   },
   "form": {
@@ -281,6 +287,69 @@
       "pathNotFound": "Campo \"{{path}}\" no encontrado en ninguna muestra. La ruta puede estar mal.",
       "pathFoundNoMatch": "El campo existe en {{resolved}} de {{total}} muestra(s), pero el valor no coincide con el operador.",
       "noObserved": "ninguno"
+    }
+  },
+  "limits": {
+    "truncated": {
+      "title": "Reglas habilitadas que no se están evaluando",
+      "description": "{{truncated}} de {{total}} regla(s) en vuelo habilitadas quedaron FUERA del tope de {{cap}} por ciclo. El corte es por id ascendente: las descartadas son las MÁS RECIENTES, incluida la regla que acabas de crear. Aparecen habilitadas en la lista y nunca disparan."
+    },
+    "uncompilable": {
+      "description": "{{uncompilable}} regla(s) están DENTRO del tope y aun así se descartan al cargar el ciclo, porque su filtro (where) no compila. Subir el tope no arregla esta causa: corrige el filtro."
+    },
+    "disabled": {
+      "title": "Evaluación en vuelo apagada",
+      "description": "El tope de reglas por ciclo está en 0 en este entorno: es un kill-switch, no ausencia de reglas. Las {{total}} regla(s) en vuelo habilitadas siguen guardadas y ninguna se evalúa mientras el tope sea 0."
+    },
+    "capSource": "Tope leído por el proceso de la API: {{cap}} por ciclo, frente a {{creationCap}} de creación. Si la variable se declara solo en los workers, el colector puede estar cortando en otro número.",
+    "loadError": {
+      "title": "No se pudieron leer los topes de evaluación",
+      "description": "Sin ellos esta pantalla no puede explicar por qué una regla habilitada nunca dispara. Detalle: {{message}}"
+    }
+  },
+  "metrics": {
+    "heading": "Contadores de la regla {{name}}",
+    "window": "Ventana de {{hours}} h, leída del almacén de observabilidad.",
+    "description": "Ventana leída del almacén de observabilidad.",
+    "loading": "Leyendo contadores...",
+    "loadError": {
+      "title": "Fallo al leer los contadores",
+      "description": "No se pudo completar la lectura de los contadores de esta regla."
+    },
+    "unavailable": {
+      "title": "Lectura no disponible",
+      "description": "El almacén de observabilidad no respondió. Los guiones de abajo significan desconocido, nunca cero: la regla pudo haber disparado y la lectura pudo haber fallado."
+    },
+    "unknownTooltip": "No se pudo leer esta serie. Esto NO es cero: la regla pudo haber disparado y la lectura pudo haber fallado.",
+    "unknownHint": "Sin lectura — valor desconocido.",
+    "matches": {
+      "label": "Coincidencias (matches)",
+      "zero": "Nunca disparó en esta ventana.",
+      "hint": "Eventos que coincidieron. Puede superar el número de detecciones: la deduplicación y el tope de claves están en medio."
+    },
+    "overflow": {
+      "label": "Descartados por tope de claves (overflow)",
+      "zero": "Ninguna clave descartada en esta ventana.",
+      "hint": "Coincidencias perdidas porque el ciclo superó el tope de claves distintas."
+    },
+    "cardinality": {
+      "title": "Cardinalidad del group_by",
+      "description": "Coincidencias altas CON overflow alto son diagnóstico de cardinalidad de {{field}}, no un bug: el ciclo corta las claves distintas por regla y descarta el excedente. Reduce la cardinalidad del campo o lee las coincidencias como piso, nunca como total."
+    },
+    "errors": {
+      "heading": "Errores atribuidos a esta regla",
+      "empty": "Ninguna razón de error se atribuye a esta regla.",
+      "footnote": "Solo aparecen aquí las razones atribuibles a una regla; los fallos anteriores a la elección de la regla no tienen dueño y quedan fuera.",
+      "reason": {
+        "group_by_unresolved": "Campo de group_by no encontrado en el evento",
+        "key_cap": "Tope de claves distintas alcanzado en el ciclo",
+        "flush_lost": "Contador perdido al descargar el ciclo",
+        "group_value_truncated": "Valor de group_by truncado (clave demasiado larga)",
+        "fallback": "Razón: {{reason}}"
+      }
+    },
+    "actions": {
+      "closeAriaLabel": "Cerrar los contadores de la regla"
     }
   }
 }

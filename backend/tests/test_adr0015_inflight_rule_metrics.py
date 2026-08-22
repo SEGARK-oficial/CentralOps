@@ -191,3 +191,285 @@ async def test_flush_inflight_still_persists_detections_when_observability_store
     await flush_inflight(acc, organization_id=1)
 
     assert written == ["inflight:1:1:*"]
+
+
+# ── Erro ATRIBUÍVEL por regra (B + C2) ──────────────────────────────────────
+#
+# ``rule_id`` NÃO é label de ``collector_inflight_errors_total`` — é id global,
+# multiplicaria a cardinalidade por ``reason`` e o lado OTLP não tem TTL para
+# envelhecer a série de uma regra apagada. O breakdown por regra desce para o
+# observability_store (Redis, TTL 25h), que é de onde a UI lê. O OTel continua
+# recebendo só ``reason``, com a MESMA soma de antes.
+
+
+def _rule(rule_id: int, group_by: tuple[str, ...] | None = ("u",)) -> "CompiledInflightRule":
+    from backend.app.collectors.inflight.matcher import CompiledInflightRule
+
+    return CompiledInflightRule(
+        rule_id=rule_id, name=f"r{rule_id}", severity_id=4,
+        suppression_window_seconds=3600, group_by_path=group_by, clauses=(),
+    )
+
+
+def _long_value(sufixo: str) -> str:
+    from backend.app.core.config import settings
+
+    return "A" * (int(settings.INFLIGHT_MAX_GROUP_VALUE_LEN) + 1) + sufixo
+
+
+@pytest.mark.asyncio
+async def test_all_four_error_reasons_are_attributed_to_a_rule(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Os quatro caminhos ATRIBUÍVEIS de ``ERROR_REASONS``, exercitados pela
+    API pública, e
+    a forma aninhada (razão → rule_id → contagem) em cada um. É o teste que
+    torna o enum verificável: um reason novo que não passe por ``count_error``
+    fica de fora do breakdown e a UI não o mostra."""
+    from backend.app.collectors.inflight import runtime as runtime_mod
+    from backend.app.collectors.inflight.runtime import (
+        ERROR_REASONS,
+        UNATTRIBUTED_ERROR_REASONS,
+    )
+    from backend.app.core.config import settings
+
+    key_cap = int(settings.INFLIGHT_MAX_DEDUP_KEYS_PER_RULE_PER_CYCLE)
+    acc = InflightAccumulator()
+
+    # 1) group_by_unresolved — regra 10 aponta para campo que o evento não tem.
+    acc.add(_rule(10, group_by=("ausente",)), {"u": "x"}, organization_id=1)
+    acc.add(_rule(10, group_by=("ausente",)), {"u": "y"}, organization_id=1)
+
+    # 2) key_cap — regra 11 estoura o teto de chaves distintas do ciclo.
+    for i in range(key_cap + 3):
+        acc.add(_rule(11), {"u": f"user{i}"}, organization_id=1)
+
+    # 3) group_value_truncated — regra 12 com valor acima do teto de chars.
+    acc.add(_rule(12), {"u": _long_value("alpha")}, organization_id=1)
+    acc.add(_rule(12), {"u": _long_value("beta")}, organization_id=1)
+
+    assert acc.errors["group_by_unresolved"] == {10: 2}
+    assert acc.errors["key_cap"] == {11: 3}
+    assert acc.errors["group_value_truncated"] == {12: 2}
+
+    # 4) flush_lost — a escrita das Detections falha; a perda é atribuída por
+    #    regra a partir de ``item["rule"]``, sem volta ao banco.
+    def _boom_flush(*_a: object, **_k: object) -> int:
+        raise RuntimeError("Postgres indisponível")
+
+    monkeypatch.setattr(runtime_mod, "_flush_sync", _boom_flush)
+    monkeypatch.setattr(obs, "record_counter", lambda *a, **k: None)
+
+    pendentes_por_regra: dict[int, int] = {}
+    for item in acc.pending.values():
+        rid = item["rule"].rule_id
+        pendentes_por_regra[rid] = pendentes_por_regra.get(rid, 0) + 1
+
+    await flush_inflight(acc, organization_id=1)
+
+    assert acc.errors["flush_lost"] == pendentes_por_regra
+    assert sum(acc.errors["flush_lost"].values()) == len(acc.pending), (
+        "o total por razão tem de continuar batendo com o que o OTel recebia "
+        "antes do breakdown (uma perda por Detection pendente)"
+    )
+    # ANTI-VACUIDADE: os quatro ATRIBUÍVEIS, não três — e nenhum reason fora do
+    # enum. ``matcher`` fica de fora de propósito: ele é escrito pelo ``except``
+    # de ``pipeline.py``, que não sabe qual regra estava sendo avaliada quando a
+    # exceção subiu, e por isso é o único reason sem breakdown por regra. A
+    # distinção é declarada em ``UNATTRIBUTED_ERROR_REASONS`` — se alguém
+    # acrescentar um reason externo sem declará-lo lá, este assert reprova.
+    atribuiveis = set(ERROR_REASONS) - set(UNATTRIBUTED_ERROR_REASONS)
+    assert set(acc.errors) == atribuiveis
+    assert len(atribuiveis) == 4
+
+
+@pytest.mark.asyncio
+async def test_flush_inflight_writes_err_breakdown_to_the_observability_store(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """É deste Redis que a UI lê. Sem estas chaves, "1200 group_by_unresolved"
+    é um número que não aponta para regra nenhuma e o operador não tem o que
+    corrigir."""
+    r = _fake_redis()
+    monkeypatch.setattr(obs, "_redis", lambda: r)
+
+    acc = InflightAccumulator()
+    acc.count_error("group_by_unresolved", 101, 12)
+    acc.count_error("key_cap", 101, 3)
+    acc.count_error("group_value_truncated", 202, 7)
+    acc.count_error("flush_lost", 202, 5)
+
+    await flush_inflight(acc, organization_id=7)
+
+    assert _read_rule_window("101", "err_group_by_unresolved") == 12.0
+    assert _read_rule_window("101", "err_key_cap") == 3.0
+    assert _read_rule_window("202", "err_group_value_truncated") == 7.0
+    assert _read_rule_window("202", "err_flush_lost") == 5.0
+    # Espelho negativo COM par positivo acima: o breakdown é POR REGRA, então a
+    # regra que não errou daquele jeito não pode ganhar chave.
+    assert _read_rule_window("101", "err_flush_lost") == 0.0
+    assert _read_rule_window("202", "err_key_cap") == 0.0
+    assert sorted(r.keys("obs:rule:*")) == [
+        "obs:rule:101:err_group_by_unresolved",
+        "obs:rule:101:err_key_cap",
+        "obs:rule:202:err_flush_lost",
+        "obs:rule:202:err_group_value_truncated",
+    ]
+
+
+@pytest.mark.asyncio
+async def test_otel_error_series_keeps_reason_only_and_the_same_total(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A metade que NÃO pode mudar: ``sum by (reason)`` idêntico ao de antes e
+    zero label novo. Espia ``otel_metrics.count`` direto — com
+    ``OTEL_ENABLED=False`` (default) a fachada de ``metrics.py`` chega até lá,
+    mas o emit vira no-op dentro dela."""
+    from backend.app.collectors import otel_metrics
+
+    emitidos: list[tuple[str, dict]] = []
+    monkeypatch.setattr(
+        otel_metrics, "count",
+        lambda name, value=1, attrs=None: emitidos.append((name, dict(attrs or {}), value)),
+    )
+    monkeypatch.setattr(obs, "record_counter", lambda *a, **k: None)
+
+    acc = InflightAccumulator()
+    acc.count_error("key_cap", 1, 4)
+    acc.count_error("key_cap", 2, 6)  # MESMA razão, outra regra
+
+    await flush_inflight(acc, organization_id=1)
+
+    erros = [e for e in emitidos if e[0] == "collector_inflight_errors_total"]
+    assert len(erros) == 1, "duas regras, UMA série — a cardinalidade não mudou"
+    assert erros[0][1] == {"reason": "key_cap"}, "rule_id NUNCA vira label aqui"
+    assert erros[0][2] == 10, "o total por razão soma as regras"
+
+
+def test_error_reasons_is_disjoint_from_reject_reasons() -> None:
+    """São duas séries e dois momentos: ``rules_rejected`` é falha de
+    COMPILAÇÃO (1x por ciclo, na carga); ``errors`` é falha de AVALIAÇÃO/flush.
+    Um nome em comum tornaria os dois painéis indistinguíveis."""
+    from backend.app.collectors.inflight.runtime import ERROR_REASONS, REJECT_REASONS
+
+    assert set(ERROR_REASONS) & set(REJECT_REASONS) == set()
+    assert len(set(ERROR_REASONS)) == len(ERROR_REASONS)  # sem duplicata
+
+
+def test_warning_is_emitted_once_per_reason_and_rule_per_cycle(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Rate-limit de log por (razão, regra). CONTAGEM, não ``not any(...)``: um
+    assert negativo aqui aprovaria por vacuidade se o log parasse de sair."""
+    import logging as _logging
+
+    from backend.app.core.config import settings
+
+    key_cap = int(settings.INFLIGHT_MAX_DEDUP_KEYS_PER_RULE_PER_CYCLE)
+    acc = InflightAccumulator()
+
+    with caplog.at_level(_logging.WARNING):
+        for i in range(key_cap + 40):
+            # As duas regras truncam o valor E estouram o teto de chaves no
+            # MESMO ciclo — é por isso que ``_logged_once`` é chaveado pela
+            # DUPLA: chavear só por rule_id calaria o segundo aviso.
+            acc.add(_rule(21), {"u": _long_value(f"a{i}")}, organization_id=1)
+            acc.add(_rule(22), {"u": _long_value(f"b{i}")}, organization_id=1)
+
+    truncamento = [rec for rec in caplog.records if "digest" in rec.msg]
+    teto = [rec for rec in caplog.records if "teto de %d chaves" in rec.msg]
+
+    assert len(truncamento) == 2, "1 aviso de truncamento por regra, não por evento"
+    assert len(teto) == 2, "1 aviso de teto por regra, não por evento"
+    assert {rec.args[0] for rec in truncamento} == {21, 22}
+    assert {rec.args[0] for rec in teto} == {21, 22}
+
+    # O log é rate-limited; o CONTADOR não — é ele que a UI soma.
+    assert acc.errors["group_value_truncated"] == {21: key_cap + 40, 22: key_cap + 40}
+    assert acc.errors["key_cap"] == {21: 40, 22: 40}
+
+    # O valor vindo do evento JAMAIS entra no log: só o comprimento.
+    for rec in truncamento:
+        assert "AAAA" not in rec.getMessage()
+        assert int(settings.INFLIGHT_MAX_GROUP_VALUE_LEN) + 3 in rec.args
+
+
+@pytest.mark.asyncio
+async def test_err_breakdown_failure_does_not_change_what_flush_inflight_does(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """``_record_rule_metric`` explodindo (Redis fora) é um EXTRA best-effort:
+    não pode derrubar o flush, nem tirar do OTel o que ele receberia."""
+    from backend.app.collectors import otel_metrics
+
+    emitidos: list[tuple[str, dict, float]] = []
+    monkeypatch.setattr(
+        otel_metrics, "count",
+        lambda name, value=1, attrs=None: emitidos.append((name, dict(attrs or {}), value)),
+    )
+
+    def _boom(*_a: object, **_k: object) -> None:
+        raise RuntimeError("observability_store indisponível")
+
+    monkeypatch.setattr(obs, "record_counter", _boom)
+
+    acc = InflightAccumulator()
+    acc.count_error("group_by_unresolved", 9, 3)
+    acc.matches[9] = 3
+
+    await flush_inflight(acc, organization_id=1)  # não pode levantar
+
+    erros = [e for e in emitidos if e[0] == "collector_inflight_errors_total"]
+    matches = [e for e in emitidos if e[0] == "collector_inflight_matches_total"]
+    assert erros == [("collector_inflight_errors_total", {"reason": "group_by_unresolved"}, 3)]
+    assert matches == [("collector_inflight_matches_total", {"rule_id": "9"}, 3)]
+
+
+def test_record_rule_metric_swallows_a_broken_store(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Guard direto da função: ela roda dentro do ``finally`` do ciclo de
+    coleta, e uma exceção nova ali SUBSTITUI a exceção original que estivesse
+    se propagando (semântica de ``finally`` do Python)."""
+    from backend.app.collectors.inflight import runtime as runtime_mod
+
+    chamadas: list[tuple] = []
+
+    def _boom(*a: object, **k: object) -> None:
+        chamadas.append((a, k))
+        raise RuntimeError("Redis fora")
+
+    monkeypatch.setattr(obs, "record_counter", _boom)
+
+    assert runtime_mod._record_rule_metric("err_key_cap", 1, 2) is None
+    # Par positivo: a função REALMENTE tentou gravar — sem isto, um ``return``
+    # antecipado passaria por este teste sem tocar no store.
+    assert len(chamadas) == 1
+
+
+@pytest.mark.asyncio
+async def test_legacy_flat_error_shape_still_emits_and_never_raises(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """``pipeline.py`` ainda escreve ``acc.errors["matcher"] = int`` (call site
+    fora deste módulo). Um ``sum`` sobre int levantaria DENTRO do ``finally``
+    do ciclo e mascararia a exceção original — por isso o flush aceita as duas
+    formas. Este teste é o que trava esse contrato até o call site migrar para
+    ``count_error``."""
+    from backend.app.collectors import otel_metrics
+
+    emitidos: list[tuple[str, dict, float]] = []
+    monkeypatch.setattr(
+        otel_metrics, "count",
+        lambda name, value=1, attrs=None: emitidos.append((name, dict(attrs or {}), value)),
+    )
+    monkeypatch.setattr(obs, "record_counter", lambda *a, **k: None)
+
+    acc = InflightAccumulator()
+    acc.errors["matcher"] = 7  # forma legada, plana
+    acc.count_error("key_cap", 3, 2)  # forma canônica, aninhada
+
+    await flush_inflight(acc, organization_id=1)
+
+    erros = {e[1]["reason"]: e[2] for e in emitidos if e[0] == "collector_inflight_errors_total"}
+    assert erros == {"matcher": 7, "key_cap": 2}
