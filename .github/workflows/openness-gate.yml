@@ -6,6 +6,10 @@ name: Open-core gate
 # git, sem instalar Python) — roda em paralelo ao build. A contraparte de runtime
 # (activate_enterprise → Community quando o EE está ausente) é coberta por
 # backend/tests/test_open_core_boundary.py na suíte do ci.yml.
+#
+# O gate também guarda a outra metade de "público": nenhum DADO real (dataset de
+# coleta, SQLite e sidecars) rastreado no índice — espelhado em
+# backend/tests/test_no_committed_data.py.
 
 on:
   pull_request:
@@ -166,3 +170,41 @@ jobs:
             exit 1
           fi
           echo "OK — motor de busca federada ausente do core Community."
+
+      - name: Nenhum dado real (dataset/SQLite) commitado
+        run: |
+          set -euo pipefail
+          # Repo PÚBLICO (AGPLv3): um .ndjson de coleta ou um sidecar SQLite commitado
+          # publica evento de cliente, e o histórico do git não esquece. O .gitignore
+          # sozinho NÃO protege — arquivo já rastreado continua rastreado depois de
+          # ignorado (foi exatamente assim que backend/data/sophos.db-shm entrou aqui).
+          # Por isso o gate olha o ÍNDICE (git ls-files), não o working tree.
+          # Este step vive no openness-gate e não em source-tree-guards porque
+          # source-tree-guards NÃO está no needs do publish (ci.yml:422) — falhar lá
+          # deixa o check vermelho mas NÃO impede a promoção da imagem para latest.
+          # Os dois arquivos que carregam a lista de padrões saem da varredura por
+          # construção, para que ampliar a lista nunca faça o guard reprovar a si mesmo.
+          pattern='(\.ndjson|\.db|\.db-wal|\.db-shm|\.db-journal)$|\.sqlite[^/.]*$|^backend/data/|(^|/)(ds-bruto|ds-anon|dataset-local)/'
+          allow='^backend/app/collectors/tests/fixtures/curated/[^/]+\.ndjson$'
+          # ``|| true`` obrigatório: grep sai 1 quando NÃO acha nada — com set -e isso
+          # mataria o step justamente no caso bom (repo limpo).
+          hits="$(git ls-files -z \
+                  -- ':!.github/workflows/openness-gate.yml' \
+                     ':!backend/tests/test_no_committed_data.py' \
+                  | tr '\0' '\n' | grep -E "$pattern" || true)"
+          offenders="$(printf '%s\n' "$hits" | grep -vE "$allow" || true)"
+          # Testar com whitespace REMOVIDO: com "$hits" vazio o printf ainda emite uma
+          # linha só-de-newline, e um ``[ -n "$offenders" ]`` cru aprovaria isso como
+          # "achei ofensor" — o gate reprovaria o repo limpo.
+          if [ -n "${offenders//[$'\t\r\n ']/}" ]; then
+            echo "::error::dado real rastreado neste repo PÚBLICO (AGPLv3):"
+            printf '%s\n' "$offenders"
+            echo "Por quê: .ndjson de coleta, backend/data/, ds-bruto/, ds-anon/, dataset-local/ e"
+            echo "arquivos SQLite (.db/.db-wal/.db-shm/.sqlite*) carregam evento de cliente."
+            echo "Saída: (1) mover o arquivo para FORA do repo e rodar 'git rm --cached <arquivo>'"
+            echo "(remover do índice não basta se já foi para main — avise antes de publicar), ou"
+            echo "(2) se for fixture de teste, anonimizar e commitar como"
+            echo "backend/app/collectors/tests/fixtures/curated/<nome>.ndjson — a ÚNICA allowlist."
+            exit 1
+          fi
+          echo "OK — nenhum arquivo de dado rastreado."

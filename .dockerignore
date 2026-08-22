@@ -48,6 +48,23 @@ Thumbs.db
 *.log
 logs/
 
+# ── Dado de cliente: o .gitignore NÃO alcança a imagem ───────────────────────
+#
+# ``compose/Dockerfile`` faz ``COPY backend/ ./backend/`` sobre o contexto de
+# build, que é o DISCO — não o índice do git. Um shard de dataset ou um SQLite
+# de desenvolvimento nunca rastreado passa ileso pelo guard de commit e ainda
+# assim é assado na imagem publicada. Estes padrões são a segunda porta.
+*.ndjson
+*.db
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3
+backend/data/
+**/ds-bruto/
+**/ds-anon/
+**/dataset-local/
+
 # Environment files
 .env
 .env.local
