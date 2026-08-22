@@ -2311,6 +2311,19 @@ export interface CorrelationRuleRead {
   where: WhereFilter[]
   suppression_window_seconds?: number
   created_at?: string
+  /**
+   * ADR-0015 — a regra está HABILITADA e mesmo assim não é avaliada no ciclo em
+   * voo. Duas causas caem neste mesmo `true`, porque terminam no mesmo lugar (a
+   * regra verde que nunca dispara): ela ficou fora do teto de regras por ciclo,
+   * ou o `where` dela não compila. Quem precisa distinguir lê os contadores
+   * SEPARADOS de `CorrelationLimitsRead` — juntá-los ali esconderia a segunda.
+   *
+   * Opcional porque só vem calculado com `include_inflight_status=true`. Sem o
+   * opt-in o backend devolve `false`, e esse `false` significa NÃO CALCULADO,
+   * nunca "está rodando": quem for renderizar o aviso tem de ter pedido o
+   * cálculo, senão pinta de verde uma regra que ninguém avaliou.
+   */
+  not_evaluated_inflight?: boolean
 }
 
 export interface CorrelationRuleCreate {
@@ -2349,6 +2362,14 @@ export interface CorrelationRulePreviewRequest {
   vendor: string
   event_type: string
   where: WhereFilter[]
+  /**
+   * Vocabulário cobrado da regra. OMITIR NÃO É NEUTRO: o backend assume
+   * `inflight` (10 operadores) — default OPOSTO ao da criação de regra, que
+   * nasce `batch` (7). Um formulário em modo batch que não manda o campo recebe
+   * um veredito verde para uma regra que o motor batch descarta no 1º filtro.
+   * Mande sempre o modo do formulário.
+   */
+  eval_mode?: "batch" | "inflight"
   limit?: number
   organization_id?: number
 }
@@ -2386,6 +2407,78 @@ export interface CorrelationRulePreviewResult {
   clauses: CorrelationRuleClauseVerdict[]
   /** Só presente quando `state === "invalid"`: "bad_json"|"empty_where"|"unknown_op"|"over_cap". */
   reason: string | null
+  /**
+   * Modo em que o veredito foi PRODUZIDO — vem em TODOS os estados, inclusive
+   * `empty`/`unavailable`/`invalid`. Renderize junto do número: a mesma regra
+   * muda de veredito conforme o modo (`exists` é legítimo em voo e inexistente
+   * no batch), então "0 de 25" sem o modo não responde a pergunta seguinte.
+   */
+  eval_mode: "batch" | "inflight"
+}
+
+/**
+ * Resposta de GET /correlation-rules/limits (ADR-0015) — por que a regra que o
+ * operador acabou de escrever pode não estar rodando.
+ *
+ * Os tetos são POR ORG e a resposta é sempre de UMA org: não existe agregação
+ * cross-tenant aqui, porque a soma de tetos não descreve organização nenhuma.
+ */
+export interface CorrelationLimitsRead {
+  organization_id: number
+  /** Teto de CRIAÇÃO. É 4x o de avaliação, e essa distância É o problema. */
+  creation_cap: number
+  /**
+   * Teto de AVALIAÇÃO por ciclo COMO O PROCESSO DA API O LÊ — o nome longo é do
+   * backend e existe porque o campo pode mentir: a var não é hot-reloadable e,
+   * se um dia for declarada só nos workers, a API segue respondendo o default
+   * enquanto o coletor corta em outro número. Ao exibir, diga de onde veio.
+   */
+  inflight_cap_as_seen_by_api: number
+  /**
+   * `false` ⇒ teto 0, avaliação em voo DESLIGADA neste processo. Campo próprio
+   * e não um `0` para a UI interpretar: 0 é kill-switch legítimo de ambiente, e
+   * ler "0 avaliadas" como "nenhuma regra" é a resposta errada para o operador
+   * que TEM regras e desligou o motor.
+   */
+  inflight_evaluation_enabled: boolean
+  /** Regras em voo habilitadas, sem teto nenhum — impede "desligada" de virar "você não tem regras". */
+  inflight_enabled_total: number
+  /** Quantas ficam FORA da janela do teto. Como o corte é por id ASC, são as MAIS RECENTES. */
+  truncated_count: number
+  /** Quantas, DENTRO do teto, não compilam. Causa distinta: elevar o teto não conserta esta. */
+  uncompilable_count: number
+}
+
+/**
+ * Resposta de GET /correlation-rules/{id}/metrics (ADR-0015).
+ *
+ * TODA métrica é `number | null`, e `null` é valor de primeira classe:
+ *   - `0`    = a série foi lida e soma zero — "esta regra não disparou";
+ *   - `null` = a leitura FALHOU (store fora do ar) — "não sei".
+ *
+ * Renderizar `null` como 0 destrói o único motivo de o backend usar a leitura
+ * estrita: pinta a tela de "0 disparos" durante uma indisponibilidade do Redis,
+ * que é o pior desfecho num contador usado para decidir desligar uma regra.
+ */
+export interface CorrelationRuleMetricsRead {
+  rule_id: number
+  organization_id: number
+  range_minutes: number
+  /** Eventos casados na janela. Pode ser >> nº de Detections (dedup + teto de chaves no meio). */
+  matches: number | null
+  /**
+   * Matches DESCARTADOS por estouro do teto de chaves distintas no ciclo.
+   * Vai SEMPRE ao lado de `matches`: no dataset de produção uma regra com
+   * `group_by` de alta cardinalidade estoura o teto em 74% dos ciclos (máx. 192
+   * chaves contra teto de 50). `matches` alto COM `overflow` alto é diagnóstico
+   * de cardinalidade, não bug — e é indetectável olhando só para `matches`.
+   */
+  overflow: number | null
+  /**
+   * razão → contagem, só para as razões atribuíveis a uma regra. Dict aberto de
+   * propósito: uma razão nova nasce visível aqui em vez de precisar de um campo.
+   */
+  errors: Record<string, number | null>
 }
 
 // ── OCSF governance ────────────────────────────────────────────

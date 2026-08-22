@@ -1,9 +1,16 @@
-*.db
+# ``*.db`` sozinho NÃO pega os sidecars do SQLite: o WAL e o shared-memory index
+# nascem como ``<nome>.db-wal``/``<nome>.db-shm``, e foi assim que
+# ``backend/data/sophos.db-shm`` acabou rastreado neste repo PÚBLICO. O glob
+# aberto (``*.db*``) fecha a família inteira.
+*.db*
 __pycache__/
 .env
 node_modules/
 frontend/dist/
+# ``/data/`` é ancorado na RAIZ do repo — não cobria ``backend/data/``, que é
+# onde o SQLite de desenvolvimento realmente vive.
 /data/
+backend/data/
 .DS_Store
 # E2E — Playwright
 e2e/.auth/*.json
@@ -26,3 +33,24 @@ login_result.png
 # Helm — saída renderizada (helm template) não vai pro repo; renderize sob demanda
 kubernetes/helm/*/rendered.yaml
 kubernetes/helm/**/rendered.yaml
+
+# ── Evento de cliente: fecha por padrão, abre por exceção nomeada ─────────────
+#
+# Este repo é PÚBLICO (AGPLv3). Um NDJSON de evento é, por construção, payload
+# de fornecedor com PII embutida — hostname, usuário, IP, linha de comando.
+#
+# Fechar aqui NÃO é redundante com a anonimização da ferramenta local: medido em
+# amostra de 200 eventos ``wazuh.detection``, o pseudonimizador troca o que
+# reconhece por NOME de campo ou por FORMATO, e por isso deixa passar texto livre
+# (``full_log``, 200/200 byte-idênticos) e nomes curtos (``agent.name``, 200/200)
+# — 82% das strings sobrevivem intactas. Dataset anonimizado NÃO é dataset
+# publicável; o gate é este arquivo, não o anonimizador.
+#
+# A negação abaixo é DELIBERADAMENTE estreita: abre um diretório de fixture
+# curada por vez, com nome explícito, para que "adicionar fixture" seja uma
+# decisão visível no diff — nunca um efeito colateral de ``git add .``.
+*.ndjson
+**/ds-bruto/
+**/ds-anon/
+**/dataset-local/
+!backend/app/collectors/tests/fixtures/curated/*.ndjson
