@@ -39,11 +39,39 @@ TAGS_PATH: Tuple[str, ...] = ("_centralops", "enrichment_tags")
 #: Obrigatório para auditoria e para backfill point-in-time ser explicável.
 SOURCES_PATH: Tuple[str, ...] = ("_centralops", "enrichment", "_sources")
 
+#: Chaves que a DSL RECONHECE mas RECUSA, com o motivo que vai na mensagem do 422.
+#:
+#: Elas ficam FORA de ``_RULE_KEYS`` e são checadas ANTES dele. As duas metades
+#: dessa decisão importam. Fora da allowlist porque ``_reject_unknown`` imprime
+#: "Permitidas: [...]" — anunciar ali um campo que sempre dá 422 mandaria o
+#: operador escrever exatamente o que vai ser recusado. Checadas antes porque
+#: cair no ``_reject_unknown`` renderia "chave desconhecida", e quem digitou
+#: ``entry_ttl_s`` iria caçar erro de digitação num campo que digitou CERTO: o
+#: campo existiu no vocabulário e foi retirado, e só uma mensagem própria diz isso.
+_INERT_RULE_KEYS: Dict[str, str] = {
+    # Nunca teve leitor. Foi aceito com 200 OK e não expirou nada — o mesmo
+    # "skip com aparência de configuração ativa" que faz ``on_miss='default'``
+    # sem default ser 422 mais abaixo. Implementar de verdade não é um if: pede
+    # carimbo de tempo por LINHA em ``DictLookupTable`` (até 200k linhas) e
+    # checagem de validade dentro de ``lookup()``, no caminho quente de
+    # ~4,2 µs/op — e uma fonte de validade por linha que nenhum loader produz.
+    "entry_ttl_s": (
+        "'entry_ttl_s' não é implementado e foi retirado do vocabulário. Nenhum "
+        "ponto do pipeline lê este campo: declarar um valor não expira nada, não "
+        "muda o cache e não muda o lookup — é knob inerte com aparência de "
+        "configuração ativa. Para validade de cache use 'ttl_s' (quanto tempo o "
+        "ACERTO vale) ou 'negative_ttl_s' (quanto tempo o MISS vale), que são "
+        "lidos de fato em EnrichRuntime.resolve_remote (runtime.py:469-473) e "
+        "aplicados em EnrichCache.put_many (cache.py:208-237). Expiração por "
+        "LINHA da tabela não existe nesta versão."
+    ),
+}
+
 _RULE_KEYS: frozenset[str] = frozenset(
     {
         "id", "enricher", "table", "source", "key", "when", "outputs", "tags",
         "on_miss", "on_multi", "on_error", "overwrite", "mode",
-        "ttl_s", "negative_ttl_s", "entry_ttl_s",
+        "ttl_s", "negative_ttl_s",
     }
 )
 _KEY_KEYS: frozenset[str] = frozenset({"source", "kind", "normalize"})
@@ -130,7 +158,6 @@ class CompiledEnrichRule:
     mode: str
     ttl_s: Optional[int]
     negative_ttl_s: Optional[int]
-    entry_ttl_s: Optional[int]
 
 
 @dataclass(frozen=True, slots=True)
@@ -229,6 +256,17 @@ def _reject_unknown(got: Mapping[str, Any], allowed: frozenset, where: str) -> N
         )
 
 
+def _reject_inert(got: Mapping[str, Any], where: str) -> None:
+    """422 em chave conhecida-porém-inerte, com a mensagem própria dela.
+
+    Roda ANTES de ``_reject_unknown``: se a ordem invertesse, o campo cairia no
+    erro genérico e a explicação de por que ele sumiu nunca chegaria a quem precisa.
+    """
+    for key, reason in _INERT_RULE_KEYS.items():
+        if key in got:
+            raise EnrichmentConfigError(f"{where}: {reason}")
+
+
 def _compile_target(raw: Any, where: str) -> Tuple[str, ...]:
     """Valida e tokeniza o ``target``.
 
@@ -308,6 +346,7 @@ def _compile_rule(raw: Any, index: int, seen_ids: set) -> CompiledEnrichRule:
     where = f"enrichment[{index}]"
     if not isinstance(raw, Mapping):
         raise EnrichmentConfigError(f"{where}: regra deve ser objeto")
+    _reject_inert(raw, where)
     _reject_unknown(raw, _RULE_KEYS, where)
 
     rule_id = raw.get("id")
@@ -452,7 +491,6 @@ def _compile_rule(raw: Any, index: int, seen_ids: set) -> CompiledEnrichRule:
         mode=mode,
         ttl_s=_opt_int("ttl_s"),
         negative_ttl_s=_opt_int("negative_ttl_s"),
-        entry_ttl_s=_opt_int("entry_ttl_s"),
     )
 
 
