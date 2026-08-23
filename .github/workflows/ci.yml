@@ -425,7 +425,17 @@ jobs:
   # cuidar só de RELEASES (tags v*).
   publish:
     name: Publish (Trivy gate + promote tested image + cosign)
-    needs: [build, pg-migrations, e2e]
+    # ``source-tree-guards`` entra aqui, e a ausência dele era um buraco real:
+    # os testes ``source_only`` NÃO rodam dentro da imagem (lá o ``.py`` não
+    # existe), então este job é o ÚNICO lugar que os executa. Fora do ``needs``,
+    # eles reprovavam o check do PR e a imagem subia para ``latest`` assim mesmo.
+    #
+    # O que estava desprotegido não é detalhe: entre esses guards está o que
+    # reprova ``import redis|httpx|sqlalchemy`` em ``inflight/matcher.py`` — a
+    # restrição R1 do ADR-0015, que é a fronteira objetiva entre este produto e
+    # um SIEM. Um import acrescentado ali custa um round-trip por evento no
+    # gargalo do pipeline, e era publicável.
+    needs: [build, pg-migrations, e2e, source-tree-guards]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 20
