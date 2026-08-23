@@ -572,6 +572,70 @@ class Settings(BaseSettings):
     # protege escrita REAL: o valor vem do evento e entra num índice B-tree
     # (ix_detections_org_dedup).
     INFLIGHT_MAX_GROUP_VALUE_LEN: int = 200
+    # A detecção em voo SAI como evento OCSF 2004 (Detection Finding), roteado
+    # pelo caminho normal de dispatch. Sem isto a detecção só existe numa tabela
+    # que a UI do EE lê, e a pergunta que elimina o produto numa POC — "onde
+    # chega o alerta? meu SOC vive no Splunk/Sentinel" — não tem resposta.
+    #
+    # OFF por default, e isto NÃO é timidez: ligar a emissão numa instalação
+    # existente acrescenta eventos ao SIEM do cliente, ou seja, muda o VOLUME e
+    # o CUSTO dele sem que ele tenha pedido. ADR-0015 §7 é explícita sobre não
+    # inverter default que afeta dado. Quem quer, liga.
+    INFLIGHT_EMIT_OCSF_EVENT: bool = False
+    # Teto de eventos de detecção emitidos por CICLO de coleta. O teto
+    # estrutural que já existe (RULES_PER_CYCLE × DEDUP_KEYS_PER_RULE = 2500)
+    # é alto demais para servir de proteção: a 1 ciclo/2min seriam 75k eventos
+    # de alerta por hora, por integração, entrando na fatura do cliente.
+    #
+    # Deliberadamente NÃO há validador de boot como o de
+    # ``_validate_inflight_budget``: lá o número protege o HOT PATH deste
+    # produto (elevá-lo degrada a ingestão de todos os tenants do worker, e
+    # falhar o boot é o único jeito de o erro ser barato); aqui o número protege
+    # o SIEM do cliente e degrada com GRAÇA — no teto a emissão para, conta em
+    # ``collector_inflight_events_not_emitted_total{reason="cycle_cap"}`` e a
+    # Detection continua sendo gravada. Derrubar a ingestão inteira por causa
+    # desse knob seria trocar um dano pequeno por um grande.
+    INFLIGHT_EMIT_MAX_EVENTS_PER_CYCLE: int = 200
+    # Teto GLOBAL de Detections gravadas por FLUSH (1 flush por ciclo, por org).
+    # Os dois tetos acima limitam POR REGRA e não somam a nada: 50 regras × 50
+    # chaves = 2500 chaves pendentes num único flush, e
+    # ``DetectionRepository.record`` COMMITA POR CHAVE — em Postgres são 5
+    # round-trips por chave (pg_advisory_xact_lock, SELECT da janela de
+    # supressão, INSERT/UPDATE, COMMIT, refresh), ou seja até 12.500 round-trips
+    # EM SÉRIE dentro do ``finally`` do ciclo de coleta. A 5 ms de RTT isso é
+    # ~60 s por ciclo, por org, de trabalho serial que não coleta nada — dentro
+    # do ``task_soft_time_limit`` de 12 min, mas com a forma exata do poison-loop
+    # já vivido em produção (o ciclo estoura, faz rollback e não coleta).
+    #
+    # DEGRADAÇÃO DECLARADA, porque descartar em silêncio seria trocar um
+    # problema de performance por PERDA DE DETECÇÃO — a mesma classe de erro que
+    # ``flush_lost`` acabou de curar. No teto, as chaves excedentes não viram
+    # Detection e: (1) a perda é contada em
+    # ``collector_inflight_errors_total{reason="flush_cap"}`` com breakdown POR
+    # REGRA no observability_store; (2) sai um WARNING 1x por ciclo; (3)
+    # ``acc.matches`` fica intacto, então a regra não parece morta; (4) a
+    # seleção é ROUND-ROBIN entre as regras — uma regra de alta cardinalidade
+    # não consome o orçamento e cala as outras.
+    #
+    # Por que perder detecção em vez de gravar tudo: o excedente não tem para
+    # onde ser adiado. O acumulador morre com o ciclo, os eventos do cliente já
+    # foram despachados muito antes e as claims de dedupe fazem o retry
+    # descartá-los — um "carry-over" exigiria estado durável, isto é,
+    # exatamente as escritas que este teto existe para limitar. Gravar tudo
+    # trocaria uma perda LIMITADA de detecção de uma org por uma perda
+    # ILIMITADA de COLETA de todos os tenants daquele worker.
+    #
+    # 500 = 10× ``INFLIGHT_MAX_DEDUP_KEYS_PER_RULE_PER_CYCLE`` (dez regras podem
+    # estourar o próprio teto antes de este morder) e 1/5 do teto estrutural
+    # (2500), então ele de fato morde antes do pior caso em vez de ser
+    # decorativo. As duas invariantes são verificadas em
+    # backend/tests/test_adr0015_inflight_flush_cap.py.
+    #
+    # Sem validador de boot, pelo mesmo critério escrito acima para
+    # ``INFLIGHT_EMIT_MAX_EVENTS_PER_CYCLE``: este número degrada com GRAÇA (no
+    # teto a coleta segue e só a detecção excedente se perde), e derrubar o boot
+    # por causa dele trocaria um dano pequeno por um grande.
+    INFLIGHT_MAX_DETECTIONS_PER_FLUSH: int = 500
     # Gate de commit: 422 em ``create_version`` quando o mapping emite OCSF
     # inválido. OFF = permissivo (só grava ``ocsf_validation_stats``, não bloqueia).
     OCSF_MAPPING_GATE_ENABLED: bool = False

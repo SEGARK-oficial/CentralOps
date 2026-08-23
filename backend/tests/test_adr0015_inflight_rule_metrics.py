@@ -275,10 +275,34 @@ async def test_all_four_error_reasons_are_attributed_to_a_rule(
     ja_gravadas = tuple(list(acc.pending)[:2])
     assert len(ja_gravadas) == 2
 
+    # 5) emit_failed — as Detections COMMITADAS antes da falha são duráveis, e
+    #    portanto têm de sair também como evento OCSF 2004. A exceção carrega os
+    #    tickets delas exatamente por isso; aqui o DESPACHO é que falha, e a
+    #    perda da entrega é atribuída à regra dona do ticket. Sem este ramo, o
+    #    reason ficaria declarado no enum e sem nenhum call site exercitado — a
+    #    forma de vacuidade que este arquivo inteiro existe para não ter.
+    tickets = tuple(
+        runtime_mod.DetectionEmit(
+            dedup_key=chave,
+            detection_id=100 + i,
+            rule_id=acc.pending[chave]["rule"].rule_id,
+            rule_name=acc.pending[chave]["rule"].name,
+            severity_id=4,
+            integration_id=None,
+            source=acc.pending[chave].get("source") or {},
+        )
+        for i, chave in enumerate(ja_gravadas)
+    )
+
     def _boom_flush(*_a: object, **_k: object) -> int:
-        raise runtime_mod.InflightFlushInterrupted(ja_gravadas)
+        raise runtime_mod.InflightFlushInterrupted(ja_gravadas, tickets)
+
+    def _boom_dispatch(_envelopes: object) -> None:
+        raise RuntimeError("broker de dispatch fora do ar")
 
     monkeypatch.setattr(runtime_mod, "_flush_sync", _boom_flush)
+    monkeypatch.setattr(runtime_mod, "_dispatch_sync", _boom_dispatch)
+    monkeypatch.setattr(settings, "INFLIGHT_EMIT_OCSF_EVENT", True)
     monkeypatch.setattr(obs, "record_counter", lambda *a, **k: None)
 
     perdidas_por_regra: dict[int, int] = {}
@@ -297,15 +321,47 @@ async def test_all_four_error_reasons_are_attributed_to_a_rule(
     # como falha e não como silêncio: contar ``pending`` inteiro reportaria
     # perda de Detections que estão no banco.
     assert sum(acc.errors["flush_lost"].values()) != len(acc.pending)
-    # ANTI-VACUIDADE: os quatro ATRIBUÍVEIS, não três — e nenhum reason fora do
-    # enum. ``matcher`` fica de fora de propósito: ele é escrito pelo ``except``
+    # A entrega ao SIEM falhou para os DOIS tickets das Detections que já
+    # estavam commitadas, e a falha é ATRIBUÍDA — "perdi 2 eventos" não diz qual
+    # regra parou de chegar no destino.
+    esperado_emit: dict[int, int] = {}
+    for chave in ja_gravadas:
+        rid = int(acc.pending[chave]["rule"].rule_id)
+        esperado_emit[rid] = esperado_emit.get(rid, 0) + 1
+    assert acc.errors["emit_failed"] == esperado_emit
+    # CONTAGEM, não presença: as duas chaves são da MESMA regra, então um
+    # ``count_error`` chamado uma vez só por regra passaria num assert de
+    # chaves e esconderia metade da perda de entrega.
+    assert sum(esperado_emit.values()) == len(ja_gravadas) == 2
+
+    # 6) flush_cap — o teto GLOBAL de Detections por flush. Exercitado num
+    #    acumulador À PARTE, e isso não é conveniência: o teto corta
+    #    ``acc.pending`` ANTES da escrita, então fazê-lo morder no acumulador
+    #    acima mudaria toda a aritmética de ``flush_lost`` verificada logo
+    #    antes — o teste passaria a medir o corte no lugar da perda, que são
+    #    duas perdas DIFERENTES e não podem se sobrepor.
+    acc_teto = InflightAccumulator()
+    for i in range(6):
+        acc_teto.add(_rule(13), {"u": f"entidade{i}"}, organization_id=1)
+    monkeypatch.setattr(settings, "INFLIGHT_MAX_DETECTIONS_PER_FLUSH", 2)
+    monkeypatch.setattr(runtime_mod, "_flush_sync", lambda _p, _o: ())
+
+    await flush_inflight(acc_teto, organization_id=1)
+
+    # CONTAGEM por regra, não presença: 6 chaves pendentes, 2 cabem, 4 se
+    # perdem — e a perda é atribuída à regra que a produziu, que é a única
+    # forma de o operador achar a de alta cardinalidade.
+    assert acc_teto.errors["flush_cap"] == {13: 4}
+
+    # ANTI-VACUIDADE: os SEIS ATRIBUÍVEIS, e nenhum reason fora do enum.
+    # ``matcher`` fica de fora de propósito: ele é escrito pelo ``except``
     # de ``pipeline.py``, que não sabe qual regra estava sendo avaliada quando a
     # exceção subiu, e por isso é o único reason sem breakdown por regra. A
     # distinção é declarada em ``UNATTRIBUTED_ERROR_REASONS`` — se alguém
     # acrescentar um reason externo sem declará-lo lá, este assert reprova.
     atribuiveis = set(ERROR_REASONS) - set(UNATTRIBUTED_ERROR_REASONS)
-    assert set(acc.errors) == atribuiveis
-    assert len(atribuiveis) == 4
+    assert set(acc.errors) | set(acc_teto.errors) == atribuiveis
+    assert len(atribuiveis) == 6
 
 
 @pytest.mark.asyncio

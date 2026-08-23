@@ -104,6 +104,38 @@ _SPEC: Dict[str, Dict[str, Any]] = {
     # = o store inteiro caiu; UMA só subindo = uma chave específica quebrada.
     "collector_inflight_rule_metric_write_failures_total": {
         "kind": "counter", "unit": "1", "labels": ("metric",)},
+    # Eventos OCSF 2004 (Detection Finding) que a classificação em voo entregou
+    # ao roteamento. SEM labels: ``rule_id`` é id global (a mesma recusa já
+    # escrita para ``collector_inflight_errors_total``) e ``org_id`` daria uma
+    # série por tenant numa métrica que o operador lê como total do worker. O
+    # breakdown por regra vive no observability_store, que tem TTL.
+    "collector_inflight_events_emitted_total": {
+        "kind": "counter", "unit": "1", "labels": ()},
+    # A Detection foi gravada e o evento NÃO saiu — de propósito, não por falha
+    # (falha é ``collector_inflight_errors_total{reason="emit_failed"}``). É a
+    # série que responde "por que meu SIEM recebeu 1 alerta se a regra casou 40
+    # vezes?": ``suppressed`` = a janela de supressão da regra agrupou o match
+    # numa Detection que já existia; ``loop_guard`` = o evento que casou já era
+    # um evento de detecção emitido por este produto; ``cycle_cap`` = teto de
+    # emissão por ciclo. ``reason`` é enum FECHADO (``EMIT_SKIP_REASONS``) e
+    # jamais interpola valor de evento.
+    "collector_inflight_events_not_emitted_total": {
+        "kind": "counter", "unit": "1", "labels": ("reason",)},
+    # Duração do FLUSH das Detections (a escrita, não o ciclo inteiro). 1x por
+    # ciclo, por org. Existe porque o teto global
+    # (``INFLIGHT_MAX_DETECTIONS_PER_FLUSH``) só avisa DEPOIS de morder: sem
+    # esta série o operador não tem como ver que está se aproximando do
+    # penhasco — ``record`` commita por chave, então o custo cresce LINEAR com
+    # a cardinalidade do group_by e some dentro da duração da task, que é
+    # dominada pela coleta. SEM LABELS: ``org_id`` daria uma série por tenant
+    # numa métrica que o operador lê como saúde do worker, e ``rule_id`` é id
+    # global (a mesma recusa já escrita para
+    # ``collector_inflight_errors_total``). Buckets na escala de round-trip de
+    # Postgres em série: sub-10 ms é um flush de poucas chaves, >5 s já é o
+    # regime em que o teto começa a fazer sentido.
+    "collector_inflight_flush_seconds": {
+        "kind": "histogram", "unit": "s", "labels": (),
+        "buckets": (0.01, 0.05, 0.1, 0.5, 1, 2, 5, 10, 30)},
     "collector_quarantine_total": {"kind": "counter", "unit": "1", "labels": ("vendor", "event_type", "error_kind")},
     "collector_normalize_latency_seconds": {"kind": "histogram", "unit": "s", "labels": ("vendor", "event_type"), "buckets": (0.0005, 0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1)},
     # conformidade OCSF (tag-and-pass). ``reason`` é enum FECHADO

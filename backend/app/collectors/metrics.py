@@ -157,6 +157,18 @@ INFLIGHT_ERRORS = _instrument("collector_inflight_errors_total")
 INFLIGHT_METRIC_WRITE_FAILURES = _instrument(
     "collector_inflight_rule_metric_write_failures_total"
 )
+# A detecção em voo SAINDO como evento OCSF 2004, roteada. Emitidas 1x por
+# CICLO junto do flush — nunca por evento (R1). ``emitted`` é o par POSITIVO de
+# ``not_emitted``: sem ele, um "0 eventos emitidos" seria indistinguível de
+# "a feature está desligada" e de "o call site sumiu".
+INFLIGHT_EVENTS_EMITTED = _instrument("collector_inflight_events_emitted_total")
+INFLIGHT_EVENTS_NOT_EMITTED = _instrument(
+    "collector_inflight_events_not_emitted_total"
+)
+# Quanto tempo o flush levou GRAVANDO Detections. É o par de medição do teto
+# global: o teto conta o que já se perdeu, este histograma mostra a
+# aproximação. 1x por ciclo, nunca por evento (R1).
+INFLIGHT_FLUSH_SECONDS = _instrument("collector_inflight_flush_seconds")
 NORMALIZE_LATENCY = _instrument("collector_normalize_latency_seconds")
 # conformidade OCSF (tag-and-pass). reason ∈ validator.OCSF_REASONS.
 OCSF_VALID = _instrument("collector_ocsf_valid_total")
