@@ -107,6 +107,14 @@ def _install_fake_db(monkeypatch: pytest.MonkeyPatch, rows: list) -> None:
             # > cap ⇒ dispara o aviso de truncamento de REGRAS.
             return len(rows) + 7
 
+        def list_inflight_cut_for_org(
+            self, _org: int, limit: int, max_rows: int
+        ) -> list:
+            # O complemento das 7 fantasmas que ``count`` promete acima. O
+            # dublê precisa responder: sem ele o aviso cai no ramo degradado e
+            # o teste passaria sem nunca exercitar o caminho real.
+            return [_row(900 + i, "[]") for i in range(7)][:max_rows]
+
         def count_enabled_for_org(self, _org: int) -> int:
             return len(rows)
 
@@ -192,6 +200,11 @@ async def _exercise(monkeypatch: pytest.MonkeyPatch, record_counter=None) -> Non
     # que foi exatamente o furo encontrado em revisão. Um guard que só enxerga
     # os call sites do próprio módulo promete mais do que entrega.
     acc.errors["matcher"] = acc.errors.get("matcher", 0) + 1                  # noqa: E501
+    # ``mark_failed`` tem a MESMA origem externa e a mesma forma plana: é o
+    # ``except`` que envolve a escrita de ``_centralops.detection_matched`` em
+    # ``pipeline.py``. Reproduzida aqui pelo mesmo motivo da linha acima — sem
+    # ela a igualdade abaixo aprovaria um enum com a razão faltando.
+    acc.errors["mark_failed"] = acc.errors.get("mark_failed", 0) + 1
 
     monkeypatch.setattr(runtime_mod, "_flush_sync", _boom)
     await flush_inflight(acc, organization_id=7)

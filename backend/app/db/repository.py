@@ -1981,6 +1981,34 @@ class DetectionRepository:
         return detection
 
 
+def _inflight_eval_order() -> tuple:
+    """A ordem de AVALIAÇÃO das regras em voo, escrita UMA vez.
+
+    Dois consumidores dependem dela e NÃO podem discordar:
+    ``list_inflight_for_org`` (quem roda) e ``list_inflight_cut_for_org`` (quem
+    ficou de fora, que alimenta o aviso do worker e o selo "Não avaliada" da
+    tela). Derivar o segundo por conta própria — "são as N de maior id" — é
+    como o selo passaria a mentir no dia em que alguém usasse
+    ``eval_priority``: marcaria como não-avaliada uma regra que está rodando.
+    É a mesma classe de divergência silenciosa que o vocabulário
+    batch×inflight já produziu uma vez (ver ``test_adr0015_operator_parity``).
+
+    ``eval_priority DESC`` primeiro (maior prioridade sobrevive ao teto),
+    ``id ASC`` como DESEMPATE — e o desempate é obrigatório, não decorativo:
+    sem ele duas réplicas de worker ordenariam regras de mesma prioridade como
+    o plano do banco bem entendesse, e Detections do mesmo evento nasceriam com
+    ``first_seen`` divergente sob concorrência. ``id`` é único, logo a ordem é
+    TOTAL — não existe par de linhas que o banco possa alternar.
+
+    Empatadas em 0 (o default de toda linha, nova ou migrada), a expressão
+    degenera exatamente em ``id ASC`` — a ordem anterior a este campo.
+    """
+    return (
+        models.CorrelationRule.eval_priority.desc(),
+        models.CorrelationRule.id.asc(),
+    )
+
+
 class CorrelationRuleRepository:
     """Regras de correlação cross-source. Org-scoped fail-closed."""
 
@@ -2028,29 +2056,67 @@ class CorrelationRuleRepository:
             .all()
         )
 
+    def _inflight_query(self, organization_id: int):
+        """O filtro das regras em voo da org. Compartilhado pelas 3 consultas
+        abaixo para que "quem roda", "quem foi cortada" e "quantas são" jamais
+        respondam sobre populações diferentes."""
+        return self.db.query(models.CorrelationRule).filter(
+            models.CorrelationRule.organization_id == organization_id,
+            models.CorrelationRule.enabled.is_(True),
+            models.CorrelationRule.eval_mode == "inflight",
+        )
+
     def list_inflight_for_org(
         self, organization_id: int, limit: int
     ) -> list[models.CorrelationRule]:
-        """Regras em modo ``inflight`` da org (ADR-0015 Fase 1).
+        """Regras em modo ``inflight`` da org que SOBREVIVEM ao teto do ciclo.
 
         Método SEPARADO de ``list_enabled_for_org`` de propósito: aquele é o
-        caminho batch/EE e não pode mudar de comportamento. Ordenado por ``id``
-        para que a compilação seja determinística entre workers — duas réplicas
-        avaliando regras em ordens diferentes produziriam Detections com
-        ``first_seen`` divergente sob concorrência.
+        caminho batch/EE e não pode mudar de comportamento.
+
+        A ordem vem de ``_inflight_eval_order`` e é DETERMINÍSTICA E TOTAL —
+        requisito, não estética: duas réplicas avaliando regras em ordens
+        diferentes produziriam Detections com ``first_seen`` divergente sob
+        concorrência. Antes de ``eval_priority`` ela era só ``id ASC``, e o
+        efeito colateral era o pior desta feature: acima do teto as descartadas
+        eram sempre as MAIS RECENTES, isto é, a regra recém-escrita que o
+        operador estava testando.
 
         ``limit`` é teto DURO de avaliação por ciclo; ``max(0, ...)`` e não
         ``max(1, ...)`` porque 0 é o kill-switch de ambiente.
         """
         return (
-            self.db.query(models.CorrelationRule)
-            .filter(
-                models.CorrelationRule.organization_id == organization_id,
-                models.CorrelationRule.enabled.is_(True),
-                models.CorrelationRule.eval_mode == "inflight",
-            )
-            .order_by(models.CorrelationRule.id.asc())
+            self._inflight_query(organization_id)
+            .order_by(*_inflight_eval_order())
             .limit(max(0, limit))
+            .all()
+        )
+
+    def list_inflight_cut_for_org(
+        self, organization_id: int, limit: int, max_rows: int
+    ) -> list[models.CorrelationRule]:
+        """O COMPLEMENTO exato de ``list_inflight_for_org``: quem NÃO roda.
+
+        Mesmo filtro, mesma ordem, ``OFFSET`` no lugar do ``LIMIT`` — por
+        construção, ``survivors + cut`` é a população inteira e a interseção é
+        vazia. É o que impede o aviso do worker (e o selo "Não avaliada" da
+        tela) de responder por uma política de corte diferente da que o motor
+        de fato aplica.
+
+        NÃO roda no ciclo normal: o chamador só a consulta quando já sabe que
+        houve truncamento, ou seja, no estado quebrado, 1x por ciclo.
+
+        ``max_rows`` é teto de LEITURA, não de política — nada é decidido por
+        ele, ele só impede que um diagnóstico paginue a org inteira para dentro
+        de uma linha de log. O chamador passa o teto de criação
+        (``CORRELATION_MAX_RULES_PER_ORG``), que é o tamanho máximo real da
+        população; a constante mora lá e não é reinventada aqui.
+        """
+        return (
+            self._inflight_query(organization_id)
+            .order_by(*_inflight_eval_order())
+            .offset(max(0, limit))
+            .limit(max(0, max_rows))
             .all()
         )
 
@@ -2058,20 +2124,12 @@ class CorrelationRuleRepository:
         """Quantas regras EM VOO habilitadas a org tem, sem o teto por ciclo.
 
         Existe para tornar visível o truncamento: ``list_inflight_for_org``
-        aplica ``INFLIGHT_MAX_RULES_PER_CYCLE`` com ``order_by(id ASC)``, então
-        acima do teto as regras descartadas são as mais RECENTES. Comparar este
-        total com o teto é a única forma de o operador saber que a regra que ele
-        acabou de criar não está sendo avaliada.
+        aplica ``INFLIGHT_MAX_RULES_PER_CYCLE`` sobre uma ordem que hoje o
+        operador controla (``eval_priority DESC, id ASC``). Comparar este total
+        com o teto continua sendo o que diz QUANTAS regras ficaram de fora —
+        QUAIS é ``list_inflight_cut_for_org`` quem responde.
         """
-        return (
-            self.db.query(models.CorrelationRule)
-            .filter(
-                models.CorrelationRule.organization_id == organization_id,
-                models.CorrelationRule.enabled.is_(True),
-                models.CorrelationRule.eval_mode == "inflight",
-            )
-            .count()
-        )
+        return self._inflight_query(organization_id).count()
 
     def count_enabled_for_org(self, organization_id: int) -> int:
         """Quantas regras habilitadas a org tem, INDEPENDENTE de ``eval_mode``.

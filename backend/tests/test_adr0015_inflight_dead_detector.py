@@ -77,6 +77,11 @@ def _install_db(monkeypatch: pytest.MonkeyPatch, rows: list, *, boom: bool = Fal
         def count_inflight_for_org(self, _org: int) -> int:
             return len(rows)
 
+        def list_inflight_cut_for_org(
+            self, _org: int, limit: int, max_rows: int
+        ) -> list:
+            return rows[limit:][:max_rows]
+
         def count_enabled_for_org(self, _org: int) -> int:
             return len(rows)
 

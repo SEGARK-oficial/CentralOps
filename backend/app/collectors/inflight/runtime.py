@@ -107,6 +107,18 @@ REJECT_REASONS = (
 #: Detection. É ATRIBUÍVEL (o item pendente carrega a regra compilada), então
 #: ganha breakdown por regra — a pergunta que ele responde é "qual regra comeu
 #: o orçamento de escrita do ciclo?", e um total sem regra não responde nada.
+#: ``mark_failed`` é a falha ao gravar a MARCA de detecção no envelope
+#: (``_centralops.detection_matched``, escrita pelo ``pipeline.py`` quando o
+#: evento casa). Vizinha de ``matcher`` na origem — call site FORA deste módulo,
+#: forma plana, sem ``rule_id`` — e por isso entra em
+#: ``UNATTRIBUTED_ERROR_REASONS``: a marca é UMA escrita para as N regras que
+#: casaram, então atribuí-la a uma delas seria inventar culpado.
+#:
+#: Existe separada de ``matcher`` porque responde a outra pergunta. ``matcher``
+#: diz "a avaliação quebrou, este evento não foi classificado"; ``mark_failed``
+#: diz "classificou, a Detection foi gravada, mas o evento saiu SEM a marca" —
+#: e o sintoma é uma rota condicionada à detecção que deixa de entregar. Somá-la
+#: em ``matcher`` mandaria o operador depurar a regra em vez do envelope.
 ERROR_REASONS = (
     "group_by_unresolved",
     "key_cap",
@@ -115,6 +127,7 @@ ERROR_REASONS = (
     "group_value_truncated",
     "matcher",
     "emit_failed",
+    "mark_failed",
 )
 
 #: Razões que NÃO descem ao ``observability_store`` por regra, porque não há
@@ -122,7 +135,7 @@ ERROR_REASONS = (
 #: para que a pergunta "por que esta razão não aparece no breakdown da UI?"
 #: tenha resposta no mesmo lugar onde o enum vive. Uma razão nova escrita de
 #: fora deste módulo entra AQUI ou ganha ``rule_id`` — nunca some em silêncio.
-UNATTRIBUTED_ERROR_REASONS = ("matcher",)
+UNATTRIBUTED_ERROR_REASONS = ("matcher", "mark_failed")
 
 #: Bytes do digest anexado ao token de group_by quando há corte (16 chars hex).
 #: 64 bits é folgado para o universo real (chaves distintas por regra/ciclo é
@@ -309,6 +322,63 @@ def _as_float(value: Any) -> Optional[float]:
         return None
 
 
+#: Quantas regras cortadas o aviso de truncamento NOMEIA. Teto de LOG, não de
+#: política: nada é decidido por ele — a decisão de quem roda é a cláusula de
+#: ordenação do repositório. Existe porque a população cortada pode chegar a
+#: ``CORRELATION_MAX_RULES_PER_ORG - INFLIGHT_MAX_RULES_PER_CYCLE`` (150 nos
+#: defaults) e uma linha de log com 150 ids não é lida por ninguém; 10 é o que
+#: cabe num alerta e já responde "cadê a regra que acabei de escrever?".
+#: O total exato continua no próprio texto e na métrica ``truncated`` — o corte
+#: aqui nunca esconde QUANTAS, só QUAIS além das 10 primeiras.
+CUT_RULES_NAMED_IN_LOG = 10
+
+
+def _describe_cut_rules(repo: Any, organization_id: int, cap: int) -> str:
+    """Trecho de log nomeando as regras que ficaram FORA do teto.
+
+    Lê pelo ``list_inflight_cut_for_org``, que aplica a MESMA ordenação da
+    consulta que escolheu as sobreviventes — derivar a lista aqui ("são as de
+    maior id") reintroduziria a divergência que ``eval_priority`` acabou de
+    fechar, e o aviso passaria a acusar regras que estão rodando.
+
+    À prova de falha por construção: roda DENTRO do ``try`` que protege a carga,
+    cujo ``except`` devolve ruleset VAZIO e desliga a avaliação do ciclo
+    inteiro. Um diagnóstico que derrubasse a detecção seria uma troca terrível,
+    então qualquer erro daqui vira texto degradado — o total de cortadas e a
+    métrica ``truncated`` já saíram no chamador e não dependem desta função.
+
+    Ids e nomes vão para o LOG, nunca para label de métrica: ``id`` é global e
+    ``name`` é texto do cliente — os dois explodiriam a cardinalidade da série,
+    recusa já escrita em ``ERROR_REASONS``.
+    """
+    try:
+        cut = repo.list_inflight_cut_for_org(
+            organization_id,
+            limit=cap,
+            max_rows=int(settings.CORRELATION_MAX_RULES_PER_ORG),
+        )
+    except Exception:  # noqa: BLE001 — diagnóstico nunca derruba a carga
+        logger.debug(
+            "inflight: falha listando as regras cortadas (org %s)",
+            organization_id, exc_info=True,
+        )
+        return "não foi possível listar quais ficaram de fora"
+    if not cut:
+        # Chegar aqui com o chamador tendo visto ``total > cap`` significa que
+        # as duas consultas discordam (linhas mudaram entre elas, ou a ordem
+        # deixou de ser complementar). Dizer "nenhuma" seria contradizer o
+        # número que a mesma linha de log acabou de imprimir.
+        return "a lista das cortadas veio vazia, o que contradiz o total acima"
+    nomeadas = cut[:CUT_RULES_NAMED_IN_LOG]
+    trecho = ", ".join(
+        f"{getattr(r, 'id', '?')} ({getattr(r, 'name', '?')})" for r in nomeadas
+    )
+    restantes = len(cut) - len(nomeadas)
+    if restantes > 0:
+        trecho += f" e mais {restantes}"
+    return f"fora do teto: {trecho}"
+
+
 def load_inflight_rules_for_org(
     organization_id: Optional[int],
 ) -> CompiledRuleSet:
@@ -349,25 +419,33 @@ def load_inflight_rules_for_org(
                 return CompiledRuleSet(rules=(), share_paths=False)
             rows = repo.list_inflight_for_org(organization_id, limit=cap)
             if len(rows) >= cap:
-                # TRUNCAMENTO SILENCIOSO — o pior modo de falha desta feature.
+                # TRUNCAMENTO — o pior modo de falha desta feature enquanto era
+                # SILENCIOSO, e ainda o mais caro depois de audível.
                 #
                 # ``CORRELATION_MAX_RULES_PER_ORG`` (200) governa a CRIAÇÃO;
                 # ``INFLIGHT_MAX_RULES_PER_CYCLE`` (50) governa a AVALIAÇÃO. Um
-                # cliente pode criar 200 regras em voo e apenas 50 rodam. E como
-                # a query ordena por ``id ASC``, as descartadas são sempre as
-                # MAIS RECENTES — exatamente a regra que o operador acabou de
-                # escrever e está testando. Sem este aviso ela fica verde na
-                # lista, nunca dispara, e nada no sistema diz por quê.
+                # cliente pode criar 200 regras em voo e apenas 50 rodam.
+                #
+                # QUAIS 50 é decisão do operador desde ``eval_priority``: a
+                # ordem é ``eval_priority DESC, id ASC``, então quem não mexeu
+                # em nada continua com o corte por ``id ASC`` de antes (todas
+                # empatadas em 0) e quem precisa fixar a regra recém-escrita
+                # sobe a prioridade dela. Por isso o aviso NÃO diz mais "são as
+                # mais recentes" — diria mentira na primeira org que usasse o
+                # campo. Ele NOMEIA as cortadas, lidas com a MESMA cláusula de
+                # ordenação que escolheu as sobreviventes.
                 total = repo.count_inflight_for_org(organization_id)
                 if total > cap:
                     INFLIGHT_RULES_REJECTED.labels(reason="truncated").inc(total - cap)
                     logger.warning(
-                        "inflight: org %s tem %d regras em voo mas só as %d de "
-                        "MENOR id são avaliadas por ciclo "
-                        "(INFLIGHT_MAX_RULES_PER_CYCLE=%d) — %d regra(s) NÃO "
-                        "estão sendo avaliadas, e são as mais RECENTES. "
-                        "Desabilite regras antigas ou eleve o teto.",
-                        organization_id, total, cap, cap, total - cap,
+                        "inflight: org %s tem %d regras em voo e o teto por "
+                        "ciclo é %d (INFLIGHT_MAX_RULES_PER_CYCLE) — %d regra(s) "
+                        "NÃO estão sendo avaliadas. A ordem de sobrevivência é "
+                        "eval_priority DESC, id ASC; %s. Suba eval_priority das "
+                        "regras que precisam rodar, desabilite as demais ou "
+                        "eleve o teto.",
+                        organization_id, total, cap, total - cap,
+                        _describe_cut_rules(repo, organization_id, cap),
                     )
             if not rows:
                 # Diagnóstico do caso mais comum de suporte: o operador criou a

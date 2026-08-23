@@ -963,6 +963,33 @@ class CorrelationRule(Base):
     # (NULL ⇒ uma Detection por regra por janela de supressão). ``where_json``
     # aceita ``in``/``nin``/``exists`` SÓ neste modo.
     eval_mode = Column(String, nullable=False, default="batch")  # batch | inflight
+    # PRIORIDADE DE AVALIAÇÃO em modo ``inflight``. MAIOR roda primeiro, e é
+    # quem SOBREVIVE ao teto ``INFLIGHT_MAX_RULES_PER_CYCLE``. Sem ela o corte
+    # era por ``id ASC``, ou seja, descartava sempre a regra MAIS RECENTE — a
+    # que o operador acabou de escrever e está testando. Ele a via habilitada
+    # na lista e nada acontecia.
+    #
+    # DEFAULT 0 para TODA regra, nova ou existente, é o que preserva o
+    # comportamento de hoje: com o campo empatado em 0 a ordenação degenera
+    # exatamente no desempate ``id ASC``, byte-idêntica à anterior. Nenhuma
+    # instalação muda de conjunto avaliado sem alguém digitar um número.
+    #
+    # ``nullable=False`` é LOAD-BEARING, não higiene: ``ORDER BY x DESC`` põe
+    # NULL em posições OPOSTAS nos dois dialetos (Postgres = NULLS FIRST, ou
+    # seja no TOPO; SQLite trata NULL como o menor, ou seja no FIM). Uma coluna
+    # anulável aqui faria as regras legadas rodarem primeiro em produção e
+    # último no teste — divergência que só aparece no deploy, a mesma forma do
+    # ``DATETIME`` vs ``TIMESTAMP`` das migrações leves.
+    #
+    # Por que campo NOVO e não reuso de ``severity_id``: aquele descreve a
+    # SAÍDA (quão grave é a Detection emitida) e seu domínio é OCSF, onde
+    # ``99`` (Other) e ``0`` (Unknown) ordenam ACIMA de ``6`` (Fatal) — um
+    # ``ORDER BY`` numérico sobre ele estaria errado justamente nos dois
+    # valores que significam "não sei". Pior: acoplaria "quão alto o alerta
+    # grita" a "a regra chega a rodar", e baixar a severidade de uma regra
+    # barulhenta a tiraria da avaliação em SILÊNCIO — trocaria o modo de falha
+    # mudo atual por outro igualmente mudo.
+    eval_priority = Column(Integer, nullable=False, default=0, server_default=_sa_text("0"))
     # ── threshold ────────────────────────────────────────────────────────
     # Campo (dotted path) p/ agrupar (ex.: "agent.name", "host", "data.srcip").
     group_by_field = Column(String, nullable=True)
