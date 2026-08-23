@@ -135,10 +135,18 @@ async def _exercise(monkeypatch: pytest.MonkeyPatch, record_counter=None) -> Non
     ``record_counter`` é parâmetro e não um patch fixo aqui dentro: quem quiser
     ESPIAR o observability_store precisa que o espião sobreviva a esta função —
     patchar por último venceria o do teste, silenciosamente.
+
+    O duplo DEFAULT devolve ``False``, ou seja, simula o store RECUSANDO a
+    escrita. Não é capricho: ``collector_inflight_rule_metric_write_failures_
+    total`` só é emitida quando uma escrita se perde, e o guard de igualdade
+    abaixo exige que TODA série ``collector_inflight_*`` do catálogo seja
+    exercitada aqui. Com um duplo que "grava" (ou que devolve ``None``, isto é,
+    sem veredito), a série ficaria fora do exercício e o guard reprovaria — que
+    é exatamente o que ele deve fazer.
     """
     _install_fake_db(monkeypatch, _rows_covering_every_reject_reason())
     monkeypatch.setattr(
-        obs, "record_counter", record_counter or (lambda *a, **k: None)
+        obs, "record_counter", record_counter or (lambda *a, **k: False)
     )
 
     ruleset = load_inflight_rules_for_org(organization_id=7)

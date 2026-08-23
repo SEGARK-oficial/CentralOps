@@ -253,3 +253,38 @@ def test_best_effort_never_raises() -> None:
         obs.set_gauge("dest", "d1", "queue_depth", 1)  # must not raise
         assert obs.read_series("dest", "d1", ["sent"], now=NOW) == {"sent": []}
         assert obs.read_gauges("dest", "d1", ["x"]) == {"x": None}
+
+
+def test_record_counter_reports_whether_the_write_landed() -> None:
+    """Engolir a exceção mantém o contrato best-effort; engolir também o
+    VEREDITO deixava a perda invisível. A chave nunca nasce, e do lado da
+    leitura ausência de chave é o MESMO estado que "o contador é zero" — nem
+    ``read_window_total`` nem ``read_window_total_strict`` os separam. Quem
+    precisa distinguir só consegue no lado da escrita, com este booleano.
+
+    Os dois casos juntos, e não só o negativo: um ``return False`` incondicional
+    passaria por "falha devolve False" e faria todo ciclo saudável reportar
+    prejuízo."""
+
+    class _Boom:
+        def pipeline(self):
+            raise RuntimeError("redis down")
+
+    r = _fake()
+    with patch.object(obs, "_redis", return_value=r):
+        assert obs.record_counter("dest", "d1", "sent", 1, now=NOW) is True
+    with patch.object(obs, "_redis", return_value=_Boom()):
+        assert obs.record_counter("dest", "d1", "sent", 1, now=NOW) is False
+
+
+def test_record_counter_reports_a_discarded_zero_as_written() -> None:
+    """``value == 0`` sai antes de tocar o Redis (:114). Devolver ``False`` ali
+    faria todo chamador que conta falha reportar prejuízo onde escrita nenhuma
+    chegou a ser pedida — nada a gravar não é perda."""
+
+    class _Boom:
+        def pipeline(self):  # pragma: no cover — não deve ser alcançado
+            raise AssertionError("zero não pode chegar ao Redis")
+
+    with patch.object(obs, "_redis", return_value=_Boom()):
+        assert obs.record_counter("dest", "d1", "sent", 0, now=NOW) is True
