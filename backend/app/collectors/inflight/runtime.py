@@ -372,7 +372,10 @@ class InflightAccumulator:
         #: pelo rule_id: uma regra pode estourar o teto de chaves E truncar o
         #: valor de group_by no mesmo ciclo, e calar o segundo aviso porque o
         #: primeiro saiu esconderia justamente a causa que o operador procura.
-        self._logged_once: set[tuple[str, int]] = set()
+        #: ``rule_id=None`` é a razão NÃO atribuível a uma regra (falha do
+        #: observability_store, que é um só para todas) — ali a dupla degenera
+        #: em "1 aviso por razão por ciclo", que é exatamente o rate certo.
+        self._logged_once: set[tuple[str, Optional[int]]] = set()
 
     def count_error(self, reason: str, rule_id: int, amount: int = 1) -> None:
         """Contabiliza ``amount`` erros de ``reason`` ATRIBUÍDOS a uma regra.
@@ -384,10 +387,17 @@ class InflightAccumulator:
         by_rule = self.errors.setdefault(reason, {})
         by_rule[rule_id] = by_rule.get(rule_id, 0) + amount
 
-    def _warn_once(self, reason: str, rule_id: int, message: str, *args: Any) -> None:
+    def _warn_once(
+        self, reason: str, rule_id: Optional[int], message: str, *args: Any
+    ) -> None:
         """Rate-limit de log por (razão, regra) por CICLO — sem isso um evento
         ruim repetido troca degradação de detecção por amplificação de escrita
-        no log, que é o dano maior."""
+        no log, que é o dano maior.
+
+        ``rule_id=None`` para a razão que NÃO é atribuível a uma regra: N regras
+        falhando no mesmo ciclo por causa do mesmo Redis fora são N sintomas de
+        UMA causa, e um aviso por regra ali seria a amplificação que esta função
+        existe para impedir."""
         token = (reason, rule_id)
         if token in self._logged_once:
             return
@@ -477,41 +487,90 @@ class InflightAccumulator:
         }
 
 
+class InflightFlushInterrupted(Exception):
+    """Falha no MEIO da escrita das Detections, carregando o que já foi gravado.
+
+    ``DetectionRepository.record`` faz ``commit`` POR CHAVE: quando a escrita da
+    n-ésima Detection estoura, as n-1 anteriores já estão DURÁVEIS no banco e
+    não são perda. Contá-las mesmo assim inflava ``flush_lost``, que é
+    justamente a série que responde "quanto de detecção o cliente deixou de
+    receber" — um número inflado ali manda investigar prejuízo que não houve, e
+    corrói a confiança no único contador que mede o dano real.
+
+    O prejuízo viaja NESTA exceção porque o ``written`` que ``_flush_sync``
+    devolve não sobrevive ao ``raise``: ``asyncio.to_thread`` propaga o objeto
+    de exceção e descarta o valor de retorno. A alternativa — um out-param —
+    mudaria a assinatura de ``_flush_sync``, que é ponto de monkeypatch em
+    testes deste repo e do EE; um duplo com a assinatura antiga passaria a
+    estourar ``TypeError`` dentro do ``finally`` do ciclo de coleta.
+    """
+
+    def __init__(self, written_keys: tuple[str, ...]) -> None:
+        super().__init__(
+            f"flush interrompido após {len(written_keys)} Detection(s) gravada(s)"
+        )
+        #: ``dedup_key`` das Detections que JÁ foram commitadas antes da falha.
+        self.written_keys = written_keys
+
+
 def _flush_sync(pending: dict[str, dict[str, Any]], organization_id: int) -> int:
-    """Escreve as Detections. SÍNCRONA, roda em thread. Devolve quantas gravou."""
+    """Escreve as Detections. SÍNCRONA, roda em thread. Devolve quantas gravou.
+
+    Em falha levanta ``InflightFlushInterrupted`` com as chaves já commitadas,
+    encadeada (``from``) na exceção original — o ``logger.exception`` do call
+    site continua imprimindo a causa verdadeira, e a contagem de perda deixa de
+    ser um chute sobre ``pending`` inteiro.
+    """
     from ...db import database, repository
 
-    written = 0
-    with database.SessionLocal() as db:
-        repo = repository.DetectionRepository(db)
-        for dedup_key, item in pending.items():
-            rule: CompiledInflightRule = item["rule"]
-            repo.record(
-                organization_id=organization_id,
-                source="inflight",
-                dedup_key=dedup_key,
-                severity_id=rule.severity_id,
-                rule_id=str(rule.rule_id),
-                rule_name=rule.name,
-                integration_id=item.get("integration_id"),
-                suppression_window_seconds=rule.suppression_window_seconds,
-            )
-            written += 1
-    return written
+    written: list[str] = []
+    try:
+        with database.SessionLocal() as db:
+            repo = repository.DetectionRepository(db)
+            for dedup_key, item in pending.items():
+                rule: CompiledInflightRule = item["rule"]
+                repo.record(
+                    organization_id=organization_id,
+                    source="inflight",
+                    dedup_key=dedup_key,
+                    severity_id=rule.severity_id,
+                    rule_id=str(rule.rule_id),
+                    rule_name=rule.name,
+                    integration_id=item.get("integration_id"),
+                    suppression_window_seconds=rule.suppression_window_seconds,
+                )
+                # DEPOIS do ``record``, nunca antes: ``record`` commita, então a
+                # chave só entra aqui quando a linha está durável. Registrar
+                # antes traria de volta a mentira, com o sinal invertido —
+                # perda real contada como gravação.
+                written.append(dedup_key)
+    except Exception as exc:  # noqa: BLE001 — reembalado, não engolido
+        raise InflightFlushInterrupted(tuple(written)) from exc
+    return len(written)
 
 
-def _record_rule_metric(metric: str, rule_id: int, count: int) -> None:
+def _record_rule_metric(metric: str, rule_id: int, count: int) -> bool:
     """Escreve UM contador de regra no observability_store (kind="rule").
+    Devolve se a gravação foi CONFIRMADA — é esse veredito que
+    ``_mirror_rule_metric`` transforma em métrica de perda.
+
     Best-effort e nunca deixa vazar: ``observability_store.record_counter`` já
     engole exceções internamente (é o contrato do módulo), mas esta função
     ainda envolve a chamada — inclusive o próprio ``import`` — em try/except,
     porque roda dentro do ``finally`` de ``flush_inflight`` e uma falha aqui
     JAMAIS pode mascarar a exceção original do ciclo de coleta nem derrubá-lo.
+
+    ``is not False`` e não ``is True``: ``record_counter`` só passou a devolver
+    veredito agora, e ela é ponto de monkeypatch em dezenas de testes deste repo
+    e do EE, cujos duplos devolvem ``None``. Ler ``None`` como falha inverteria
+    o sinal e faria a série de perda contar prejuízo que não houve — o mesmo
+    erro de que ``flush_lost`` acabou de ser curado, com o sinal trocado. Sem
+    veredito ⇒ nada a reportar.
     """
     try:
         from .. import observability_store as obs
 
-        obs.record_counter(
+        gravou = obs.record_counter(
             "rule",
             str(rule_id),
             metric,
@@ -520,9 +579,75 @@ def _record_rule_metric(metric: str, rule_id: int, count: int) -> None:
             bucket_seconds=RULE_METRIC_BUCKET_SECONDS,
         )
     except Exception:  # noqa: BLE001 — best-effort, nunca derruba o flush
+        # O traceback fica em DEBUG porque sai POR CHAMADA (nº de regras ×
+        # famílias de contador): promovê-lo a WARNING seria exatamente a
+        # amplificação de escrita no log que o rate-limit existe para evitar. A
+        # linha que o OPERADOR precisa ver sobe a WARNING uma vez por ciclo, em
+        # ``_mirror_rule_metric``.
         logger.debug(
             "inflight: falha gravando '%s' no observability_store (rule %s)",
             metric, rule_id, exc_info=True,
+        )
+        return False
+    return gravou is not False
+
+
+def _mirror_rule_metric(
+    acc: InflightAccumulator, metric: str, rule_id: int, count: int
+) -> None:
+    """Espelha um contador de regra e CONTA a escrita que se perdeu.
+
+    DEGRADAÇÃO DECLARADA — o que o operador vê quando o Redis cai NA ESCRITA: a
+    chave ``obs:rule:{rule_id}:{metric}`` nunca é criada. Depois, na leitura, o
+    endpoint ENCONTRA a ausência (não um erro): ``read_window_total_strict``
+    varre um hash vazio e soma ``0.0`` sem levantar nada, e a UI escreve
+    "0 disparos" para uma regra que disparou. É a mentira que o ``strict`` foi
+    escrito para matar, um passo antes de onde ele age.
+
+    Por que o ``strict`` da leitura NÃO alcança, e não é questão de melhorá-lo:
+    ele distingue "não sei" de "zero" quando é a LEITURA que falha. Aqui a
+    leitura funciona perfeitamente — o que falta é o DADO. Ausência de chave e
+    "a regra não disparou" são literalmente o mesmo estado no Redis, então
+    nenhuma leitura, por mais estrita, consegue separá-los. A perda só é
+    conhecível no lado que a produz, e é por isso que ela é contada aqui.
+
+    Deliberadamente NÃO se tenta inferir buraco na série do lado da leitura: um
+    heurístico ali transformaria toda regra genuinamente muda em suspeita de
+    falha, e trocar um falso "0" por um falso "não sei" não é progresso. O
+    objetivo é tornar a perda VISÍVEL (``increase(collector_inflight_rule_
+    metric_write_failures_total) > 0`` ⇒ "o contador de disparos está
+    sub-reportando agora"), não adivinhá-la.
+
+    O contador do OTel (``INFLIGHT_MATCHES``) NÃO cobre esse buraco: ele é
+    no-op quando ``OTEL_ENABLED=False``, que é o default da instalação padrão —
+    justamente a razão de este espelhamento existir.
+    """
+    if _record_rule_metric(metric, rule_id, count):
+        return
+    try:
+        from ..metrics import INFLIGHT_METRIC_WRITE_FAILURES
+
+        INFLIGHT_METRIC_WRITE_FAILURES.labels(metric=metric).inc()
+        # ``rule_id=None``: o aviso é 1x por CICLO e não por regra. Quem falhou
+        # foi o STORE, que é um só — N regras falhando são N sintomas de UMA
+        # causa. Mesma razão pela qual ``rule_id`` não é label da série.
+        acc._warn_once(
+            "obs_store_write_failed", None,
+            "inflight: o observability_store recusou a escrita dos contadores "
+            "por regra neste ciclo (1ª família a falhar: '%s') — os disparos "
+            "deste ciclo NÃO entram na série que a UI lê e vão aparecer como "
+            "'0 disparos' para regras que dispararam. A leitura strict não "
+            "alcança: ausência de chave é indistinguível de regra muda. "
+            "Ver collector_inflight_rule_metric_write_failures_total.",
+            metric,
+        )
+    except Exception:  # noqa: BLE001
+        # Best-effort dentro de best-effort, como na atribuição de
+        # ``flush_lost``: quem estoura aqui é o CONTADOR do prejuízo, e ele não
+        # pode agravá-lo levantando dentro do ``finally`` do ciclo de coleta.
+        logger.debug(
+            "inflight: falha contabilizando a perda de escrita de '%s'",
+            metric, exc_info=True,
         )
 
 
@@ -555,6 +680,20 @@ async def flush_inflight(
     ``err_{reason}`` por regra vai para o observability_store. Sem ele,
     "1200 group_by_unresolved" é um número que não aponta para nenhuma regra e
     o operador não tem o que corrigir.
+
+    O espelhamento é best-effort mas não é MUDO: toda escrita que o store
+    recusar é contada em ``collector_inflight_rule_metric_write_failures_total``
+    e avisada em WARNING 1x por ciclo (ver ``_mirror_rule_metric``). Sem isso a
+    perda era invisível dos dois lados — a chave não nascia na escrita e a
+    leitura encontrava a AUSÊNCIA, que soma 0.0 sem erro e vira "a regra não
+    disparou" na tela do operador.
+
+    ``flush_lost`` conta a perda REAL, não ``len(acc.pending)``:
+    ``DetectionRepository.record`` commita por chave, então uma falha no meio da
+    escrita deixa parte das Detections DURÁVEIS no banco. Elas voltam em
+    ``InflightFlushInterrupted.written_keys`` e saem da conta. Só o caminho em
+    que a exceção nasce FORA do laço de escrita continua contando tudo — e ali
+    o log diz explicitamente que o número é um teto, não uma medida.
     """
     if acc is None or organization_id is None:
         return
@@ -564,13 +703,27 @@ async def flush_inflight(
     if acc.pending:
         try:
             await asyncio.to_thread(_flush_sync, acc.pending, int(organization_id))
-        except Exception:  # noqa: BLE001
+        except Exception as exc:  # noqa: BLE001
             # A perda é CONTADA, não presumida — e ATRIBUÍDA. "Perdi 900
             # Detections" não diz QUAL regra parou de alertar; ``item["rule"]``
             # já carrega a regra compilada, então agrupar por ``rule_id`` aqui
             # não custa nenhuma volta ao banco.
+            #
+            # E CONTADA sobre o que de fato se perdeu: ``record`` commita por
+            # chave, então numa falha no meio do laço as Detections anteriores
+            # estão no banco. Elas chegam aqui em ``written_keys`` e saem da
+            # conta. Antes, ``pending`` inteiro virava ``flush_lost`` e a série
+            # reportava prejuízo maior que o real.
+            medido = isinstance(exc, InflightFlushInterrupted)
+            gravadas = frozenset(exc.written_keys) if medido else frozenset()
+            # Aritmética pura ANTES do laço guardado abaixo: é o número que vai
+            # para o log, e ele não pode depender de a atribuição por regra ter
+            # ido até o fim.
+            perdidas = sum(1 for key in acc.pending if key not in gravadas)
             try:
-                for item in acc.pending.values():
+                for dedup_key, item in acc.pending.items():
+                    if dedup_key in gravadas:
+                        continue
                     acc.count_error("flush_lost", int(item["rule"].rule_id))
             except Exception:  # noqa: BLE001
                 # Best-effort dentro de best-effort: quem estoura aqui é o
@@ -579,16 +732,36 @@ async def flush_inflight(
                 logger.debug(
                     "inflight: falha atribuindo flush_lost por regra", exc_info=True
                 )
-            logger.exception(
-                "inflight: flush falhou — %d Detection(s) perdida(s) (org %s)",
-                len(acc.pending), organization_id,
-            )
+            if medido:
+                # ``len(acc.pending) - perdidas`` e não ``len(gravadas)``: as
+                # duas contagens só coincidem quando todo ``written_key`` está
+                # em ``pending``, e a soma no log tem de fechar sempre.
+                logger.exception(
+                    "inflight: flush interrompido — %d de %d Detection(s) já "
+                    "estavam COMMITADAS (não são perda), %d perdida(s) (org %s)",
+                    len(acc.pending) - perdidas, len(acc.pending), perdidas,
+                    organization_id,
+                )
+            else:
+                # DEGRADAÇÃO DECLARADA: a exceção não nasceu dentro do laço de
+                # escrita (``_flush_sync`` substituído por um duplo, falha ao
+                # despachar para a thread, ...), então não existe medida de
+                # quantas foram gravadas. Conta tudo como perda — pessimismo do
+                # lado certo, porque calar perda que houve é pior que reportar
+                # perda que não houve — e o log diz que o número é um TETO, para
+                # ninguém tratá-lo como medição.
+                logger.exception(
+                    "inflight: flush falhou por fora do laço de escrita — até "
+                    "%d Detection(s) perdida(s) (org %s); o número é um TETO, "
+                    "este caminho não sabe quantas já haviam sido gravadas",
+                    perdidas, organization_id,
+                )
 
     for rule_id, count in acc.matches.items():
         INFLIGHT_MATCHES.labels(rule_id=str(rule_id)).inc(count)
-        _record_rule_metric("matches", rule_id, count)
+        _mirror_rule_metric(acc, "matches", rule_id, count)
     for rule_id, count in acc.overflow.items():
-        _record_rule_metric("overflow", rule_id, count)
+        _mirror_rule_metric(acc, "overflow", rule_id, count)
     for reason, by_rule in acc.errors.items():
         # DUAS superfícies, uma passada. OTel recebe SÓ ``reason``, somando o
         # dict interno: ``sum by (reason)`` fica idêntico ao de antes desta
@@ -609,4 +782,4 @@ async def flush_inflight(
         if total:
             INFLIGHT_ERRORS.labels(reason=reason).inc(total)
         for rule_id, count in per_rule:
-            _record_rule_metric(f"err_{reason}", rule_id, count)
+            _mirror_rule_metric(acc, f"err_{reason}", rule_id, count)

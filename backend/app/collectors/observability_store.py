@@ -102,7 +102,7 @@ def record_counter(
     now: Optional[float] = None,
     ttl_seconds: int = _TTL_SECONDS,
     bucket_seconds: int = _BUCKET_SECONDS,
-) -> None:
+) -> bool:
     """Accumulate ``value`` into the current bucket of ``metric``. Best-effort
     (never raises). ``ttl_seconds``/``bucket_seconds`` default to the original
     3h/per-minute pair — pass them explicitly for a different retention/
@@ -110,9 +110,21 @@ def record_counter(
     window; per-minute buckets would need 1440 fields per hash for the same
     window). A caller that reads this series back MUST pass the matching
     ``bucket_seconds`` to ``read_window_total``/``read_series``, or the window
-    cutoff will be computed against the wrong epoch alignment."""
+    cutoff will be computed against the wrong epoch alignment.
+
+    Devolve ``True`` quando a gravação foi confirmada e ``False`` quando ela se
+    perdeu. Engolir a exceção mantém o contrato best-effort (nenhum hot path
+    cai porque o Redis caiu), mas engolir TAMBÉM o veredito deixava a perda
+    invisível: a chave nunca nasce, e do lado da leitura ausência de chave é
+    indistinguível de "o contador é zero mesmo" — nem ``read_window_total`` nem
+    ``read_window_total_strict`` alcançam esse buraco. Quem precisa distinguir
+    conta a falha no lado da ESCRITA, que é o único que sabe que ela houve.
+    Chamador que não se importa segue ignorando o retorno, sem mudança."""
     if value == 0:
-        return
+        # Nada a gravar não é perda — ``True``. Devolver ``False`` aqui faria
+        # todo chamador que conta falha reportar prejuízo onde não houve escrita
+        # nenhuma pedida.
+        return True
     try:
         b = str(_bucket_epoch(now, bucket_seconds))
         key = _key(kind, oid, metric)
@@ -123,6 +135,8 @@ def record_counter(
         pipe.execute()
     except Exception:
         logger.debug("observability_store.record_counter falhou (%s/%s/%s)", kind, oid, metric, exc_info=True)
+        return False
+    return True
 
 
 def record_latency(kind: str, oid: str, seconds: float, *, now: Optional[float] = None) -> None:

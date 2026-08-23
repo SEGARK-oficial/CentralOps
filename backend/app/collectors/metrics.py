@@ -149,6 +149,14 @@ INFLIGHT_RULES_LOADED = _instrument("collector_inflight_rules_loaded")
 INFLIGHT_RULES_REJECTED = _instrument("collector_inflight_rules_rejected_total")
 INFLIGHT_MATCHES = _instrument("collector_inflight_matches_total")
 INFLIGHT_ERRORS = _instrument("collector_inflight_errors_total")
+# Escrita do contador por regra no observability_store que se PERDEU. É a face
+# de ESCRITA do zero-vs-null: a leitura já devolve `null` quando o Redis cai
+# (`read_window_total_strict`), mas se o Redis cair na ESCRITA a chave nunca
+# nasce e a leitura encontra a AUSÊNCIA — que soma 0.0 sem erro nenhum e vira
+# "a regra não disparou". Só o lado que escreve sabe que houve perda.
+INFLIGHT_METRIC_WRITE_FAILURES = _instrument(
+    "collector_inflight_rule_metric_write_failures_total"
+)
 NORMALIZE_LATENCY = _instrument("collector_normalize_latency_seconds")
 # conformidade OCSF (tag-and-pass). reason ∈ validator.OCSF_REASONS.
 OCSF_VALID = _instrument("collector_ocsf_valid_total")

@@ -252,7 +252,15 @@ def test_every_facade_maps_to_spec_and_vice_versa():
     # tabela (é a única visão de pressão de memória, porque o HPA escala só por
     # CPU e não gera sinal nenhum antes do cgroup-OOM) e ciclos em que o
     # orçamento remoto estourou.
-    assert len(facade_names) == 60
+    # 60 → 61. +1: collector_inflight_rule_metric_write_failures_total — a
+    # escrita do contador de disparos POR REGRA no observability_store que se
+    # PERDEU. É a face de ESCRITA do zero-vs-null: a leitura já sabe devolver
+    # "não sei" quando o Redis cai (``read_window_total_strict``), mas se o
+    # Redis cai na ESCRITA a chave nunca nasce e a leitura encontra a AUSÊNCIA,
+    # que soma 0.0 sem erro nenhum e vira "a regra não disparou" na tela. Nenhuma
+    # leitura separa esses dois estados — no Redis eles são o MESMO estado —, e
+    # por isso a perda tem de ser contada no lado que a produz.
+    assert len(facade_names) == 61
     # O catálogo tem as síncronas + ao menos o observável collector_up.
     assert "collector_up" in otel_metrics._SPEC
     assert "collector_up" not in facade_names

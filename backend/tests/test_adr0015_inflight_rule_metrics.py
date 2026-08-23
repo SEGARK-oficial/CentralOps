@@ -225,7 +225,19 @@ async def test_all_four_error_reasons_are_attributed_to_a_rule(
     API pública, e
     a forma aninhada (razão → rule_id → contagem) em cada um. É o teste que
     torna o enum verificável: um reason novo que não passe por ``count_error``
-    fica de fora do breakdown e a UI não o mostra."""
+    fica de fora do breakdown e a UI não o mostra.
+
+    POR QUE O NÚMERO DE ``flush_lost`` MUDOU: este teste afirmava
+    ``sum(flush_lost) == len(acc.pending)`` — e com isso consagrava uma
+    SOBRECONTAGEM. ``DetectionRepository.record`` commita POR CHAVE, então uma
+    falha no meio da escrita deixa as Detections anteriores DURÁVEIS no banco;
+    contá-las como perda inflava a única série que mede o dano ao cliente e
+    mandava investigar prejuízo que não houve. ``_flush_sync`` agora devolve as
+    chaves já commitadas em ``InflightFlushInterrupted.written_keys``, e a
+    contagem passa a ser ``pendentes − gravadas``. O total por razão que o OTel
+    recebe continua sendo a soma do dict interno (cardinalidade intacta) — o que
+    mudou foi o VALOR, que deixou de mentir para mais.
+    """
     from backend.app.collectors.inflight import runtime as runtime_mod
     from backend.app.collectors.inflight.runtime import (
         ERROR_REASONS,
@@ -252,26 +264,39 @@ async def test_all_four_error_reasons_are_attributed_to_a_rule(
     assert acc.errors["key_cap"] == {11: 3}
     assert acc.errors["group_value_truncated"] == {12: 2}
 
-    # 4) flush_lost — a escrita das Detections falha; a perda é atribuída por
-    #    regra a partir de ``item["rule"]``, sem volta ao banco.
+    # 4) flush_lost — a escrita das Detections falha DEPOIS de commitar parte
+    #    delas. A perda é atribuída por regra a partir de ``item["rule"]``, sem
+    #    volta ao banco, e SÓ sobre o que não foi gravado.
+    #
+    #    As duas primeiras chaves pendentes são da regra 11 (foi ela que
+    #    populou ``pending`` primeiro), então a regra 11 ainda perde e a 12
+    #    perde tudo — as duas continuam no breakdown. Uma falha que "gravasse"
+    #    uma regra inteira transformaria este teste num teste de 3 razões.
+    ja_gravadas = tuple(list(acc.pending)[:2])
+    assert len(ja_gravadas) == 2
+
     def _boom_flush(*_a: object, **_k: object) -> int:
-        raise RuntimeError("Postgres indisponível")
+        raise runtime_mod.InflightFlushInterrupted(ja_gravadas)
 
     monkeypatch.setattr(runtime_mod, "_flush_sync", _boom_flush)
     monkeypatch.setattr(obs, "record_counter", lambda *a, **k: None)
 
-    pendentes_por_regra: dict[int, int] = {}
-    for item in acc.pending.values():
+    perdidas_por_regra: dict[int, int] = {}
+    for dedup_key, item in acc.pending.items():
+        if dedup_key in ja_gravadas:
+            continue
         rid = item["rule"].rule_id
-        pendentes_por_regra[rid] = pendentes_por_regra.get(rid, 0) + 1
+        perdidas_por_regra[rid] = perdidas_por_regra.get(rid, 0) + 1
+    assert set(perdidas_por_regra) == {11, 12}, "as duas regras têm de perder algo"
 
     await flush_inflight(acc, organization_id=1)
 
-    assert acc.errors["flush_lost"] == pendentes_por_regra
-    assert sum(acc.errors["flush_lost"].values()) == len(acc.pending), (
-        "o total por razão tem de continuar batendo com o que o OTel recebia "
-        "antes do breakdown (uma perda por Detection pendente)"
-    )
+    assert acc.errors["flush_lost"] == perdidas_por_regra
+    assert sum(acc.errors["flush_lost"].values()) == len(acc.pending) - len(ja_gravadas)
+    # O número VELHO, escrito por extenso para que um revert do contrato apareça
+    # como falha e não como silêncio: contar ``pending`` inteiro reportaria
+    # perda de Detections que estão no banco.
+    assert sum(acc.errors["flush_lost"].values()) != len(acc.pending)
     # ANTI-VACUIDADE: os quatro ATRIBUÍVEIS, não três — e nenhum reason fora do
     # enum. ``matcher`` fica de fora de propósito: ele é escrito pelo ``except``
     # de ``pipeline.py``, que não sabe qual regra estava sendo avaliada quando a
@@ -430,7 +455,13 @@ def test_record_rule_metric_swallows_a_broken_store(
 ) -> None:
     """Guard direto da função: ela roda dentro do ``finally`` do ciclo de
     coleta, e uma exceção nova ali SUBSTITUI a exceção original que estivesse
-    se propagando (semântica de ``finally`` do Python)."""
+    se propagando (semântica de ``finally`` do Python).
+
+    Engolir a exceção continua sendo o contrato; o que mudou é que a função
+    passou a DEVOLVER o veredito, em vez de descartá-lo junto. Era o descarte
+    do veredito que deixava a perda invisível: quem chama precisa saber que a
+    chave não foi criada, porque do lado da leitura ausência de chave é
+    indistinguível de "a regra não disparou"."""
     from backend.app.collectors.inflight import runtime as runtime_mod
 
     chamadas: list[tuple] = []
@@ -441,10 +472,43 @@ def test_record_rule_metric_swallows_a_broken_store(
 
     monkeypatch.setattr(obs, "record_counter", _boom)
 
-    assert runtime_mod._record_rule_metric("err_key_cap", 1, 2) is None
+    assert runtime_mod._record_rule_metric("err_key_cap", 1, 2) is False
     # Par positivo: a função REALMENTE tentou gravar — sem isto, um ``return``
     # antecipado passaria por este teste sem tocar no store.
     assert len(chamadas) == 1
+
+
+def test_record_rule_metric_reports_a_confirmed_write(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """PAR POSITIVO do guard acima: sem ele, um ``return False`` incondicional
+    passaria — e o contador de perda acusaria prejuízo em todo ciclo saudável,
+    trocando cegueira por ruído permanente.
+
+    Store REAL (fakeredis) e não um duplo que devolve ``True``: o veredito tem
+    de vir da ida ao Redis, que é o que a produção faz."""
+    from backend.app.collectors.inflight import runtime as runtime_mod
+
+    r = _fake_redis()
+    monkeypatch.setattr(obs, "_redis", lambda: r)
+
+    assert runtime_mod._record_rule_metric("err_key_cap", 1, 2) is True
+    assert _read_rule_window("1", "err_key_cap") == 2.0
+
+
+def test_record_rule_metric_treats_a_verdictless_double_as_written(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """``record_counter`` só passou a devolver veredito agora, e é ponto de
+    monkeypatch em dezenas de testes deste repo e do EE, cujos duplos devolvem
+    ``None``. Ler ``None`` como falha inverteria o sinal da série de perda —
+    contaria prejuízo que não houve, que é o mesmo erro de que ``flush_lost``
+    acabou de ser curado, com o sinal trocado. Sem veredito ⇒ nada a reportar."""
+    from backend.app.collectors.inflight import runtime as runtime_mod
+
+    monkeypatch.setattr(obs, "record_counter", lambda *a, **k: None)
+
+    assert runtime_mod._record_rule_metric("err_key_cap", 1, 2) is True
 
 
 @pytest.mark.asyncio

@@ -87,6 +87,23 @@ _SPEC: Dict[str, Dict[str, Any]] = {
         "kind": "counter", "unit": "1", "labels": ("rule_id",)},
     "collector_inflight_errors_total": {
         "kind": "counter", "unit": "1", "labels": ("reason",)},
+    # Escrita do contador POR REGRA no observability_store que se PERDEU (Redis
+    # fora, chave com tipo errado, ...). Existe porque essa perda é invisível de
+    # todo outro ângulo: a chave simplesmente não nasce, e do lado da leitura
+    # ausência de chave é indistinguível de "a regra não disparou" — nem o
+    # ``read_window_total_strict`` (que só sabe distinguir falha DE LEITURA)
+    # alcança. Sem esta série, o operador vê "0 disparos" para uma regra que
+    # disparou, sem nenhum sinal de que o número não vale.
+    #
+    # ``metric`` (∈ {matches, overflow, err_<reason∈ERROR_REASONS>}) e NÃO
+    # ``rule_id``: rule_id é id global, multiplicaria a cardinalidade e o OTLP
+    # não tem TTL para envelhecer a série de uma regra apagada — a mesma recusa
+    # já escrita para ``collector_inflight_errors_total``. ``metric`` é enum
+    # FECHADO derivado de constantes do módulo (nunca valor de evento) e é o
+    # eixo que responde a pergunta de triagem: todas as famílias subindo juntas
+    # = o store inteiro caiu; UMA só subindo = uma chave específica quebrada.
+    "collector_inflight_rule_metric_write_failures_total": {
+        "kind": "counter", "unit": "1", "labels": ("metric",)},
     "collector_quarantine_total": {"kind": "counter", "unit": "1", "labels": ("vendor", "event_type", "error_kind")},
     "collector_normalize_latency_seconds": {"kind": "histogram", "unit": "s", "labels": ("vendor", "event_type"), "buckets": (0.0005, 0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1)},
     # conformidade OCSF (tag-and-pass). ``reason`` é enum FECHADO
