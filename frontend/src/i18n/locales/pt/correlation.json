@@ -3,14 +3,20 @@
     "eyebrow": "Detecção",
     "badgeBeta": "Beta",
     "title": "Regras de correlação",
-    "description": "Regras threshold cross-source, avaliadas ao fim de cada busca federada.",
+    "description": "Regras de correlação avaliadas por evento no pipeline (modo em voo) ou sobre o resultado de uma busca federada (modo batch).",
     "actions": {
       "newRule": "Nova regra",
       "closeForm": "Fechar formulário"
     },
     "betaNotice": {
-      "title": "Beta: a avaliação não é contínua",
-      "body": "A regra só roda quando uma <strong>busca federada termina</strong>, e só sobre os resultados dela. Sem busca, nenhuma detecção nasce. Não use como sua única cobertura."
+      "noInflight": {
+        "title": "Beta: a avaliação não é contínua",
+        "body": "A regra só roda quando uma <strong>busca federada termina</strong>, e só sobre os resultados dela. Sem busca, nenhuma detecção nasce. Não use como sua única cobertura."
+      },
+      "withInflight": {
+        "title": "Beta: o gatilho depende do modo da regra",
+        "body": "O modo <strong>em voo</strong> avalia no pipeline, evento a evento, durante a coleta. O modo <strong>batch</strong> só roda quando uma busca federada termina, e só sobre os resultados dela — sem busca, essas regras não geram detecção."
+      }
     },
     "kpi": {
       "total": "Total de regras",
@@ -34,11 +40,11 @@
     },
     "createCard": {
       "title": "Nova regra",
-      "description": "Configure os critérios de correlação aplicados aos resultados de cada busca federada concluída."
+      "description": "Configure os critérios de correlação e escolha o modo: avaliação sobre o resultado de cada busca federada concluída (batch) ou por evento no pipeline (em voo)."
     },
     "catalogCard": {
       "title": "Catálogo de regras",
-      "description": "Regras de correlação da plataforma. As habilitadas entram na próxima busca federada."
+      "description": "Regras de correlação da plataforma. O modo define quando cada regra habilitada é avaliada: na próxima busca federada (batch) ou no próximo ciclo de coleta (em voo)."
     },
     "search": {
       "placeholder": "Buscar por nome, descrição ou campo de agrupamento…",
@@ -114,9 +120,24 @@
       "severity": {
         "label": "Severidade (OCSF)"
       },
+      "evalMode": {
+        "label": "Modo de avaliação",
+        "option": {
+          "batch": "Em lote — ao fim de cada busca federada",
+          "inflight": "Em voo — no pipeline de ingestão"
+        },
+        "explain": {
+          "batch": "Em lote: a regra só roda quando uma busca federada TERMINA, e só sobre os resultados dela. Ela conta ocorrências — precisa de N eventos no mesmo grupo dentro da janela. Sem busca, nenhuma detecção nasce.",
+          "inflight": "Em voo: a regra é avaliada evento a evento no pipeline de ingestão, ANTES de o dado chegar ao SIEM. Não há contagem nem janela — o primeiro evento que casar o filtro já vira detecção."
+        },
+        "ignoredFields": "Em voo o motor IGNORA mínimo de eventos, janela e campo de timestamp; por isso eles somem daqui. Os valores continuam salvos e voltam a valer se você trocar para em lote.",
+        "opsCaveat": "O motor em voo ainda entende os operadores in, nin e existe — a API de regras não: pedir um deles é 422. O construtor abaixo oferece só os 7 que passam hoje, e valem para os dois modos."
+      },
       "groupBy": {
         "label": "Agrupar por (dotted-path)",
-        "placeholder": "Ex: source.ip"
+        "placeholder": "Ex: source.ip",
+        "helperTextBatch": "Campo do evento usado para agrupar ocorrências dentro da janela. O mínimo de eventos é contado POR grupo.",
+        "helperTextInflight": "Em voo não há agregação: este campo vira a chave de DEDUP da detecção. Cada valor distinto abre uma detecção por janela de supressão — campo de alta cardinalidade (linha de comando, por exemplo) estoura o teto de chaves do ciclo e o excedente é descartado."
       },
       "minCount": {
         "label": "Mín. de eventos"
@@ -144,7 +165,8 @@
       "groupByRequired": "Campo de agrupamento é obrigatório",
       "minCountMin": "Mínimo de 1 evento",
       "windowMin": "Janela mínima de 10 segundos",
-      "timestampRequired": "Obrigatório quando há janela. Sem ele a janela é ignorada"
+      "timestampRequired": "Obrigatório quando há janela. Sem ele a janela é ignorada",
+      "whereRequiredInflight": "Em voo, pelo menos um filtro é obrigatório: sem filtro a regra casaria 100% dos eventos, e a API recusa a gravação."
     },
     "actions": {
       "cancel": "Cancelar"
@@ -158,9 +180,6 @@
       "description": {
         "placeholder": "Contexto e objetivo da regra"
       },
-      "groupBy": {
-        "helperText": "Campo do evento usado para agrupar ocorrências na janela."
-      },
       "suppression": {
         "helperText": "Intervalo mínimo entre detecções repetidas."
       }
@@ -171,6 +190,11 @@
   },
   "editForm": {
     "modalTitle": "Editar regra de correlação",
+    "evalModeChange": {
+      "title": "Isto muda a semântica da regra, não um valor",
+      "toInflight": "Passa a ser avaliada evento a evento no pipeline de ingestão, antes do SIEM. O mínimo de {{minCount}} evento(s) e a janela de {{window}}s DEIXAM de valer: cada evento que casar o filtro vira detecção, e o volume pode subir muito. O campo de agrupamento deixa de agregar e passa a ser a chave de dedup. Vale a partir do próximo ciclo de coleta.",
+      "toBatch": "Sai do pipeline de ingestão e volta a rodar só quando uma busca federada TERMINA, sobre os resultados dela. O mínimo de {{minCount}} evento(s), a janela de {{window}}s e o campo de timestamp VOLTAM a valer. Sem busca federada, ela para de gerar detecções."
+    },
     "actions": {
       "submit": "Salvar alterações"
     }

@@ -3,14 +3,20 @@
     "eyebrow": "Detección",
     "badgeBeta": "Beta",
     "title": "Reglas de correlación",
-    "description": "Reglas de umbral cross-source, evaluadas al final de cada búsqueda federada.",
+    "description": "Reglas de correlación evaluadas por evento en el pipeline (modo en vuelo) o sobre el resultado de una búsqueda federada (modo batch).",
     "actions": {
       "newRule": "Nueva regla",
       "closeForm": "Cerrar formulario"
     },
     "betaNotice": {
-      "title": "Beta: la evaluación no es continua",
-      "body": "La regla solo corre cuando <strong>termina una búsqueda federada</strong>, y solo sobre sus resultados. Sin búsqueda, no hay detección. No la use como única cobertura."
+      "noInflight": {
+        "title": "Beta: la evaluación no es continua",
+        "body": "La regla solo corre cuando <strong>termina una búsqueda federada</strong>, y solo sobre sus resultados. Sin búsqueda, no hay detección. No la use como única cobertura."
+      },
+      "withInflight": {
+        "title": "Beta: el disparador depende del modo de la regla",
+        "body": "El modo <strong>en vuelo</strong> evalúa en el pipeline, evento a evento, durante la recolección. El modo <strong>batch</strong> solo corre cuando termina una búsqueda federada, y solo sobre sus resultados — sin búsqueda, esas reglas no generan detección."
+      }
     },
     "kpi": {
       "total": "Total de reglas",
@@ -34,11 +40,11 @@
     },
     "createCard": {
       "title": "Nueva regla",
-      "description": "Configure los criterios de correlación aplicados a los resultados de cada búsqueda federada completada."
+      "description": "Configure los criterios de correlación y elija el modo: evaluación sobre el resultado de cada búsqueda federada completada (batch) o por evento en el pipeline (en vuelo)."
     },
     "catalogCard": {
       "title": "Catálogo de reglas",
-      "description": "Las reglas de correlación de la plataforma. Las habilitadas entran en la próxima búsqueda."
+      "description": "Las reglas de correlación de la plataforma. El modo define cuándo se evalúa cada regla habilitada: en la próxima búsqueda federada (batch) o en el próximo ciclo de recolección (en vuelo)."
     },
     "search": {
       "placeholder": "Buscar por nombre, descripción o campo de agrupación…",
@@ -114,9 +120,24 @@
       "severity": {
         "label": "Severidad (OCSF)"
       },
+      "evalMode": {
+        "label": "Modo de evaluación",
+        "option": {
+          "batch": "Por lotes — al final de cada búsqueda federada",
+          "inflight": "En vuelo — dentro del pipeline de ingesta"
+        },
+        "explain": {
+          "batch": "Por lotes: la regla solo se ejecuta cuando una búsqueda federada TERMINA, y solo sobre sus resultados. Cuenta ocurrencias: necesita N eventos en el mismo grupo dentro de la ventana. Sin búsqueda, no nace ninguna detección.",
+          "inflight": "En vuelo: la regla se evalúa evento por evento dentro del pipeline de ingesta, ANTES de que el dato llegue al SIEM. No hay conteo ni ventana: el primer evento que case con el filtro ya se convierte en detección."
+        },
+        "ignoredFields": "En vuelo el motor IGNORA mín. de eventos, ventana y campo de timestamp; por eso desaparecen de aquí. Los valores siguen guardados y vuelven a valer si cambia a por lotes.",
+        "opsCaveat": "El motor en vuelo entiende además los operadores in, nin y existe — la API de reglas no: pedir uno de ellos es 422. El constructor de abajo ofrece solo los 7 que pasan hoy, y valen para los dos modos."
+      },
       "groupBy": {
         "label": "Agrupar por (ruta con puntos)",
-        "placeholder": "Ej.: source.ip"
+        "placeholder": "Ej.: source.ip",
+        "helperTextBatch": "Campo del evento usado para agrupar ocurrencias dentro de la ventana. El mínimo de eventos se cuenta POR grupo.",
+        "helperTextInflight": "En vuelo no hay agregación: este campo se convierte en la clave de DEDUP de la detección. Cada valor distinto abre una detección por ventana de supresión; un campo de alta cardinalidad (una línea de comandos, por ejemplo) revienta el tope de claves del ciclo y el excedente se descarta."
       },
       "minCount": {
         "label": "Mín. de eventos"
@@ -144,7 +165,8 @@
       "groupByRequired": "El campo de agrupación es obligatorio",
       "minCountMin": "Mínimo de 1 evento",
       "windowMin": "Ventana mínima de 10 segundos",
-      "timestampRequired": "Obligatorio cuando hay ventana. Sin él la ventana se ignora"
+      "timestampRequired": "Obligatorio cuando hay ventana. Sin él la ventana se ignora",
+      "whereRequiredInflight": "En vuelo al menos un filtro es obligatorio: sin filtro la regla casaría con el 100% de los eventos, y la API rechaza guardarla."
     },
     "actions": {
       "cancel": "Cancelar"
@@ -158,9 +180,6 @@
       "description": {
         "placeholder": "Contexto y objetivo de la regla"
       },
-      "groupBy": {
-        "helperText": "Campo del evento usado para agrupar ocurrencias dentro de la ventana."
-      },
       "suppression": {
         "helperText": "Intervalo mínimo entre detecciones repetidas."
       }
@@ -171,6 +190,11 @@
   },
   "editForm": {
     "modalTitle": "Editar regla de correlación",
+    "evalModeChange": {
+      "title": "Esto cambia la semántica de la regla, no un valor",
+      "toInflight": "Pasa a evaluarse evento por evento dentro del pipeline de ingesta, antes del SIEM. El mínimo de {{minCount}} evento(s) y la ventana de {{window}}s DEJAN de valer: cada evento que case con el filtro se vuelve detección, y el volumen puede subir mucho. El campo de agrupación deja de agregar y pasa a ser la clave de dedup. Vale a partir del próximo ciclo de recolección.",
+      "toBatch": "Sale del pipeline de ingesta y vuelve a ejecutarse solo cuando una búsqueda federada TERMINA, sobre sus resultados. El mínimo de {{minCount}} evento(s), la ventana de {{window}}s y el campo de timestamp VUELVEN a valer. Sin búsqueda federada, deja de generar detecciones."
+    },
     "actions": {
       "submit": "Guardar cambios"
     }

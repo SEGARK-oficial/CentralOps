@@ -3,14 +3,20 @@
     "eyebrow": "Detection",
     "badgeBeta": "Beta",
     "title": "Correlation rules",
-    "description": "Cross-source threshold rules, evaluated at the end of each federated search.",
+    "description": "Correlation rules evaluated per event in the pipeline (in-flight mode) or over the results of a federated search (batch mode).",
     "actions": {
       "newRule": "New rule",
       "closeForm": "Close form"
     },
     "betaNotice": {
-      "title": "Beta: evaluation is not continuous",
-      "body": "A rule only runs when a <strong>federated search finishes</strong>, and only over its results. No search, no detection. Do not rely on this as your only coverage."
+      "noInflight": {
+        "title": "Beta: evaluation is not continuous",
+        "body": "A rule only runs when a <strong>federated search finishes</strong>, and only over its results. No search, no detection. Do not rely on this as your only coverage."
+      },
+      "withInflight": {
+        "title": "Beta: the trigger depends on the rule's mode",
+        "body": "The <strong>in-flight</strong> mode evaluates in the pipeline, event by event, during collection. The <strong>batch</strong> mode only runs when a federated search finishes, and only over its results — no search, no detection from those rules."
+      }
     },
     "kpi": {
       "total": "Total rules",
@@ -34,11 +40,11 @@
     },
     "createCard": {
       "title": "New rule",
-      "description": "Configure the correlation criteria applied to the results of each completed federated search."
+      "description": "Configure the correlation criteria and pick the mode: evaluation over the results of each completed federated search (batch) or per event in the pipeline (in-flight)."
     },
     "catalogCard": {
       "title": "Rule catalog",
-      "description": "The platform's correlation rules. Enabled ones join the next federated search."
+      "description": "The platform's correlation rules. The mode sets when each enabled rule is evaluated: on the next federated search (batch) or in the next collection cycle (in-flight)."
     },
     "search": {
       "placeholder": "Search by name, description or group-by field…",
@@ -114,9 +120,24 @@
       "severity": {
         "label": "Severity (OCSF)"
       },
+      "evalMode": {
+        "label": "Evaluation mode",
+        "option": {
+          "batch": "Batch — at the end of each federated search",
+          "inflight": "In-flight — inside the ingestion pipeline"
+        },
+        "explain": {
+          "batch": "Batch: the rule only runs when a federated search FINISHES, and only over its results. It counts occurrences — it needs N events in the same group within the window. With no search, no detection is born.",
+          "inflight": "In-flight: the rule is evaluated event by event inside the ingestion pipeline, BEFORE the data reaches the SIEM. There is no counting and no window — the first event matching the filter already becomes a detection."
+        },
+        "ignoredFields": "In-flight the engine IGNORES min. events, window and timestamp field; that is why they disappear from here. The values stay saved and apply again if you switch back to batch.",
+        "opsCaveat": "The in-flight engine also understands the in, nin and exists operators — the rules API does not: asking for one of them is a 422. The builder below offers only the 7 that pass today, and they hold in both modes."
+      },
       "groupBy": {
         "label": "Group by (dotted path)",
-        "placeholder": "E.g.: source.ip"
+        "placeholder": "E.g.: source.ip",
+        "helperTextBatch": "Event field used to group occurrences within the window. The minimum event count is counted PER group.",
+        "helperTextInflight": "In-flight there is no aggregation: this field becomes the DEDUP key of the detection. Each distinct value opens one detection per suppression window — a high-cardinality field (a command line, for instance) blows the per-cycle key cap and the excess is discarded."
       },
       "minCount": {
         "label": "Min. events"
@@ -144,7 +165,8 @@
       "groupByRequired": "Group-by field is required",
       "minCountMin": "Minimum of 1 event",
       "windowMin": "Minimum window of 10 seconds",
-      "timestampRequired": "Required when there is a window. Without it the window is ignored"
+      "timestampRequired": "Required when there is a window. Without it the window is ignored",
+      "whereRequiredInflight": "In-flight at least one filter is required: with no filter the rule would match 100% of events, and the API refuses to store it."
     },
     "actions": {
       "cancel": "Cancel"
@@ -158,9 +180,6 @@
       "description": {
         "placeholder": "Context and purpose of the rule"
       },
-      "groupBy": {
-        "helperText": "Event field used to group occurrences within the window."
-      },
       "suppression": {
         "helperText": "Minimum interval between repeated detections."
       }
@@ -171,6 +190,11 @@
   },
   "editForm": {
     "modalTitle": "Edit correlation rule",
+    "evalModeChange": {
+      "title": "This changes the rule's semantics, not a value",
+      "toInflight": "It starts being evaluated event by event inside the ingestion pipeline, before the SIEM. The minimum of {{minCount}} event(s) and the {{window}}s window STOP applying: every event matching the filter becomes a detection, and volume may rise sharply. The group-by field stops aggregating and becomes the dedup key. Effective from the next collection cycle.",
+      "toBatch": "It leaves the ingestion pipeline and goes back to running only when a federated search FINISHES, over its results. The minimum of {{minCount}} event(s), the {{window}}s window and the timestamp field APPLY again. With no federated search, it stops producing detections."
+    },
     "actions": {
       "submit": "Save changes"
     }
