@@ -1,9 +1,18 @@
 from __future__ import annotations
 
 import json
-from sqlalchemy import func, or_, select
+from sqlalchemy import func, or_, select, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
+
+#: Namespace do advisory lock que serializa o dedup de ``Detection``. O
+#: ``pg_advisory_xact_lock`` de duas chaves separa espaços de lock por
+#: convenção: o primeiro argumento é o namespace, o segundo o objeto. Sem
+#: namespace próprio, um ``hashtext`` que colidisse com outro lock do sistema
+#: faria dois subsistemas sem relação esperarem um pelo outro — e o sintoma
+#: seria latência sem causa aparente, não erro.
+_DETECTION_DEDUP_LOCK_NAMESPACE = 0x0DEDE0
+
 from datetime import datetime, timedelta
 
 from ..core.crypto import encrypt
@@ -1859,6 +1868,35 @@ class DetectionRepository:
         suppression_window_seconds: int = 3600,
     ) -> models.Detection:
         now = datetime.utcnow()
+
+        # Serializa o read-then-write abaixo por (org, dedup_key).
+        #
+        # Sem isto, duas tasks que casam a MESMA chave no mesmo instante fazem
+        # ambas o SELECT, nenhuma acha linha dentro da janela, e ambas inserem —
+        # duas Detections para o evento que a supressão existe para agrupar. O
+        # dano não é a linha extra: é a supressão anti-spam deixar de suprimir
+        # exatamente quando há volume, que é quando ela importa.
+        #
+        # A janela é real e não teórica: o ciclo de coleta é por INTEGRAÇÃO e as
+        # regras são carregadas por ORG, então N integrações da mesma org avaliam
+        # o mesmo conjunto de regras em paralelo, cada uma no seu worker.
+        #
+        # NÃO é UniqueConstraint, e a diferença é o produto inteiro: a unicidade
+        # de ``(organization_id, dedup_key)`` está AUSENTE DE PROPÓSITO (ver o
+        # docstring de ``models.Detection``) — passada a janela de supressão, uma
+        # segunda Detection com a mesma chave é o comportamento correto. Um
+        # índice único faria a regra disparar uma vez e nunca mais.
+        #
+        # Escopo de transação: liberado no ``commit`` de qualquer um dos dois
+        # ramos, que é onde a seção crítica termina. Postgres-only; o SQLite é
+        # single-writer (WAL + ``timeout``) e serializa a escrita por conta
+        # própria — declarado aqui para ninguém ler o ``if`` como esquecimento.
+        if self.db.get_bind().dialect.name == "postgresql":
+            self.db.execute(
+                text("SELECT pg_advisory_xact_lock(:ns, hashtext(:k))"),
+                {"ns": _DETECTION_DEDUP_LOCK_NAMESPACE, "k": f"{organization_id}:{dedup_key}"},
+            )
+
         existing = (
             self.db.query(models.Detection)
             .filter(
