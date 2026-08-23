@@ -13,10 +13,16 @@ Cython, onde ``runtime.py`` é ``.so`` e nenhuma leitura de fonte é possível �
 é lá que a divergência entre catálogo e call site custaria caro.
 
 ARMADILHA que este arquivo tem de driblar: ``OTEL_ENABLED`` é ``False`` por
-default e ``otel_metrics.count``/``set_gauge`` viram no-op ANTES de tocar o
-instrumento. A fachada de ``metrics.py`` chega até elas, mas nada sai do outro
-lado — então a espionagem é sobre ``otel_metrics.count``/``set_gauge`` direto,
-nunca sobre o instrumento.
+default e ``otel_metrics.count``/``set_gauge``/``record`` viram no-op ANTES de
+tocar o instrumento. A fachada de ``metrics.py`` chega até elas, mas nada sai do
+outro lado — então a espionagem é sobre essas três funções direto, nunca sobre o
+instrumento.
+
+``record`` (histograma) entrou na espionagem junto com a primeira série
+``collector_inflight_*`` que é histograma. Enquanto não havia nenhuma, o guard
+de igualdade contra ``_SPEC`` prometia cobrir "toda série collector_inflight_*"
+e teria REPROVADO a primeira delas por um motivo falso — não porque o call site
+errou, mas porque a sonda era cega para o TIPO do instrumento.
 """
 
 from __future__ import annotations
@@ -123,8 +129,12 @@ def emitidos(monkeypatch: pytest.MonkeyPatch) -> list[tuple[str, dict]]:
     def _set_gauge(name: str, value: float, attrs: dict | None = None) -> None:
         capturado.append((name, dict(attrs or {})))
 
+    def _record(name: str, value: float, attrs: dict | None = None) -> None:
+        capturado.append((name, dict(attrs or {})))
+
     monkeypatch.setattr(otel_metrics, "count", _count)
     monkeypatch.setattr(otel_metrics, "set_gauge", _set_gauge)
+    monkeypatch.setattr(otel_metrics, "record", _record)
     return capturado
 
 
@@ -185,6 +195,79 @@ async def _exercise(monkeypatch: pytest.MonkeyPatch, record_counter=None) -> Non
 
     monkeypatch.setattr(runtime_mod, "_flush_sync", _boom)
     await flush_inflight(acc, organization_id=7)
+
+    # ── Fase 2: a detecção SAINDO como evento OCSF 2004 ─────────────────
+    #
+    # Dois flushes a mais, e não um: as três séries/razões desta fase não cabem
+    # no mesmo ciclo. Um flush em que o dispatch FALHA nunca emite
+    # ``events_emitted_total``, e um em que ele funciona nunca emite
+    # ``errors_total{reason="emit_failed"}``. Cada flush usa um acumulador
+    # NOVO, o que também mantém de pé o invariante "cada razão sai UMA vez por
+    # flush" verificado mais abaixo.
+    monkeypatch.setattr(settings, "INFLIGHT_EMIT_OCSF_EVENT", True)
+
+    def _ticket(rid: int, *, self_emitted: bool) -> runtime_mod.DetectionEmit:
+        return runtime_mod.DetectionEmit(
+            dedup_key=f"inflight:7:{rid}:*",
+            detection_id=rid,
+            rule_id=rid,
+            rule_name=f"r{rid}",
+            severity_id=4,
+            integration_id=1,
+            source={"self_emitted": self_emitted, "platform": "sophos"},
+        )
+
+    # (a) dispatch OK, com um ticket barrado pelo guard de laço ⇒
+    #     events_emitted_total + events_not_emitted_total{loop_guard}.
+    acc_ok = InflightAccumulator()
+    acc_ok.pending["inflight:7:20:*"] = {"rule": _rule(20), "integration_id": 1}
+    acc_ok.pending["inflight:7:21:*"] = {"rule": _rule(21), "integration_id": 1}
+    monkeypatch.setattr(
+        runtime_mod, "_flush_sync",
+        lambda _p, _o: (_ticket(20, self_emitted=False), _ticket(21, self_emitted=True)),
+    )
+    monkeypatch.setattr(runtime_mod, "_dispatch_sync", lambda _envelopes: None)
+    await flush_inflight(acc_ok, organization_id=7)
+
+    # (b) dispatch FALHA ⇒ errors_total{reason="emit_failed"} + o breakdown
+    #     por regra (o reason é ATRIBUÍVEL: o ticket carrega o rule_id).
+    acc_falha = InflightAccumulator()
+    acc_falha.pending["inflight:7:22:*"] = {"rule": _rule(22), "integration_id": 1}
+
+    def _dispatch_boom(_envelopes: object) -> None:
+        raise RuntimeError("broker fora")
+
+    monkeypatch.setattr(
+        runtime_mod, "_flush_sync", lambda _p, _o: (_ticket(22, self_emitted=False),)
+    )
+    monkeypatch.setattr(runtime_mod, "_dispatch_sync", _dispatch_boom)
+    await flush_inflight(acc_falha, organization_id=7)
+
+    # (c) teto GLOBAL de escrita por flush ⇒ errors_total{reason="flush_cap"}.
+    #     Acumulador NOVO porque o teto corta ``pending`` ANTES da escrita: se
+    #     mordesse num dos flushes acima, mudaria a contagem de ``flush_lost`` e
+    #     de ``emit_failed`` que eles existem para produzir.
+    acc_teto = InflightAccumulator()
+    for i in range(4):
+        acc_teto.add(_rule(30), {"u": f"entidade{i}"}, organization_id=7)
+    monkeypatch.setattr(settings, "INFLIGHT_MAX_DETECTIONS_PER_FLUSH", 1)
+    monkeypatch.setattr(runtime_mod, "_flush_sync", lambda _p, _o: ())
+    await flush_inflight(acc_teto, organization_id=7)
+
+    # ── Fase 3: a CARGA falhando ⇒ rules_rejected{reason="load_failed"} ──
+    #
+    # Por último de propósito: derruba a sessão de DB, e nada depois dela
+    # precisa do banco. É o caminho do ``except`` amplo da carga, que devolve
+    # ruleset vazio — o gauge ``rules_loaded`` sai zerado junto, e é o PAR
+    # (gauge 0 + este contador) que distingue "detector morto" de "org sem
+    # regra". Ver test_adr0015_inflight_dead_detector.py.
+    from backend.app.db import database as _database
+
+    def _sem_banco() -> None:
+        raise RuntimeError("Postgres fora")
+
+    monkeypatch.setattr(_database, "SessionLocal", _sem_banco)
+    assert load_inflight_rules_for_org(organization_id=7).rules == ()
 
 
 # ── 1. Paridade: label emitido ≡ label declarado em otel_metrics._SPEC ──────

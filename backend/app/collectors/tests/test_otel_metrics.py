@@ -260,7 +260,21 @@ def test_every_facade_maps_to_spec_and_vice_versa():
     # que soma 0.0 sem erro nenhum e vira "a regra não disparou" na tela. Nenhuma
     # leitura separa esses dois estados — no Redis eles são o MESMO estado —, e
     # por isso a perda tem de ser contada no lado que a produz.
-    assert len(facade_names) == 61
+    # 61 → 63. +2: a detecção em voo SAINDO como evento OCSF 2004 —
+    # collector_inflight_events_{emitted,not_emitted}_total. As duas andam em
+    # par de propósito: sozinho, "emitted=0" é indistinguível de feature
+    # desligada, de call site removido e de "nenhuma regra casou"; ``not_emitted
+    # {reason}`` separa o que NÃO saiu de propósito (supressão da regra, guard
+    # de laço, teto por ciclo) do que FALHOU, que é
+    # collector_inflight_errors_total{reason="emit_failed"}.
+    # 63 → 64. +1: collector_inflight_flush_seconds — quanto tempo o flush levou
+    # GRAVANDO Detections. ``DetectionRepository.record`` commita POR CHAVE (5
+    # round-trips de Postgres cada), e o pior caso estrutural são 2500 chaves em
+    # SÉRIE dentro do ``finally`` do ciclo de coleta. O teto global
+    # (INFLIGHT_MAX_DETECTIONS_PER_FLUSH) conta o que JÁ se perdeu; esta série é
+    # o único sinal da APROXIMAÇÃO — sem ela o custo some dentro de
+    # collector_task_duration_seconds, que é dominada pela coleta.
+    assert len(facade_names) == 64
     # O catálogo tem as síncronas + ao menos o observável collector_up.
     assert "collector_up" in otel_metrics._SPEC
     assert "collector_up" not in facade_names
@@ -300,6 +314,12 @@ def test_histogram_buckets_match_prometheus_legacy():
         # rede a terceiro (o VirusTotal responde em dezenas a centenas de ms; a
         # carga de tabela do OpenCTI, em segundos).
         "collector_enrich_resolve_seconds": (0.005, 0.01, 0.05, 0.1, 0.25, 0.5, 1, 2, 5),
+        # Duração do FLUSH das Detections em voo — escritas SERIAIS no Postgres
+        # (``record`` commita por chave), não latência de rede a terceiro. Por
+        # isso a escala começa mais alta que a dos histogramas de normalização
+        # e vai até 30 s: é aí que o teto global por flush passa a ser a única
+        # coisa entre o subsistema e o soft-timeout do ciclo de coleta.
+        "collector_inflight_flush_seconds": (0.01, 0.05, 0.1, 0.5, 1, 2, 5, 10, 30),
     }
     hist = {n for n, s in otel_metrics._SPEC.items() if s["kind"] == "histogram"}
     assert hist == set(legacy), "conjunto de histogramas divergiu do legado"

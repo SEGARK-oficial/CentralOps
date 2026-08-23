@@ -10,7 +10,16 @@ Fluxo por ciclo de coleta:
    Abre e fecha a própria sessão (não há sessão de DB aberta no hot path).
 2. ``InflightAccumulator.add`` — por evento, só quando há match. Em memória.
 3. ``flush_inflight`` — 1x, no ``finally`` do ciclo. Escreve as Detections
-   off-loop e emite as métricas de fim de ciclo.
+   off-loop, EMITE cada Detection nova como evento OCSF 2004 pelo caminho normal
+   de dispatch (atrás de ``INFLIGHT_EMIT_OCSF_EVENT``, OFF por default) e emite
+   as métricas de fim de ciclo.
+
+Por que a detecção SAI como evento, e não só como linha: enquanto ela só existe
+numa tabela que a UI lê, a resposta para "onde chega o alerta? meu SOC vive no
+Splunk/Sentinel" é "em lugar nenhum". A emissão reusa a máquina que o
+``scheduled_query`` já tinha testada em produção (``_dispatch_scheduled_query_
+alert`` → ``_enqueue_dispatch``), e paga R1 pelo mesmo motivo do flush: é 1x por
+CICLO, em bulk, nunca por evento.
 
 Por que acumular em vez de escrever por match: ``DetectionRepository.record``
 faz SELECT + commit + refresh, ou seja ≥3 round-trips de Postgres por chamada.
@@ -25,6 +34,9 @@ import asyncio
 import hashlib
 import json
 import logging
+import time
+from dataclasses import dataclass
+from datetime import datetime, timezone
 from typing import Any, Mapping, Optional
 
 from ...core.config import settings
@@ -49,10 +61,20 @@ NEGATIVE_OPS = frozenset({"ne", "nin"})
 
 #: Enum FECHADO de razões de rejeição — vira label de métrica, logo nunca pode
 #: conter valor vindo de evento ou nome de regra (esses vão no log).
-#: Governa APENAS ``collector_inflight_rules_rejected_total`` (falha de
-#: COMPILAÇÃO, 1x por ciclo na carga). Não se mistura com ``ERROR_REASONS``,
-#: que é a outra série e o outro momento (avaliação/flush).
-REJECT_REASONS = ("bad_json", "empty_where", "unknown_op", "over_cap", "truncated")
+#: Governa APENAS ``collector_inflight_rules_rejected_total``, a série da
+#: CARGA (1x por ciclo). Não se mistura com ``ERROR_REASONS``, que é a outra
+#: série e o outro momento (avaliação/flush).
+#:
+#: ``load_failed`` é a única razão que não é falha de COMPILAÇÃO de uma regra:
+#: é o banco fora, com o ``except`` amplo da carga devolvendo ruleset VAZIO.
+#: Mora aqui, e não numa série nova, porque é o mesmo momento e o mesmo eixo de
+#: leitura ("por que a carga não entregou regra?") — e porque uma série nova
+#: por causa disso precisaria de label de org, que é id global. O que a separa
+#: de "a org não tem regra em voo" é o PAR: gauge ``rules_loaded`` em 0 (que a
+#: carga passou a emitir também neste caminho) mais este contador subindo.
+REJECT_REASONS = (
+    "bad_json", "empty_where", "unknown_op", "over_cap", "truncated", "load_failed",
+)
 
 #: Enum FECHADO de razões de ERRO de avaliação/flush — label de
 #: ``collector_inflight_errors_total``. Mesma disciplina do enum acima: nunca
@@ -72,12 +94,27 @@ REJECT_REASONS = ("bad_json", "empty_where", "unknown_op", "over_cap", "truncate
 #: produção — deixá-lo de fora tornaria a palavra "FECHADO" acima falsa, e um
 #: invariante que é só comentário é exatamente a dívida que este arquivo existe
 #: para não repetir.
+#:
+#: ``emit_failed`` é a falha da EMISSÃO do evento OCSF 2004 (a Detection foi
+#: gravada, o evento não saiu). É ATRIBUÍVEL — o ticket de emissão carrega o
+#: ``rule_id`` —, então ganha breakdown por regra e NÃO entra em
+#: ``UNATTRIBUTED_ERROR_REASONS``: a pergunta que ele responde é "qual regra
+#: parou de chegar no meu SIEM?", e um total sem regra não responde nada.
+#:
+#: ``flush_cap`` é o teto GLOBAL de Detections por flush
+#: (``INFLIGHT_MAX_DETECTIONS_PER_FLUSH``). Vizinho de ``key_cap`` no espírito
+#: e de ``flush_lost`` na consequência: a chave existia, casou, e NÃO virou
+#: Detection. É ATRIBUÍVEL (o item pendente carrega a regra compilada), então
+#: ganha breakdown por regra — a pergunta que ele responde é "qual regra comeu
+#: o orçamento de escrita do ciclo?", e um total sem regra não responde nada.
 ERROR_REASONS = (
     "group_by_unresolved",
     "key_cap",
+    "flush_cap",
     "flush_lost",
     "group_value_truncated",
     "matcher",
+    "emit_failed",
 )
 
 #: Razões que NÃO descem ao ``observability_store`` por regra, porque não há
@@ -112,6 +149,51 @@ RULE_METRIC_TTL_SECONDS = 25 * 60 * 60
 
 #: Janela que a UI lê — "disparos nas últimas 24h" por regra.
 RULE_METRIC_WINDOW_MINUTES = 24 * 60
+
+# ── A detecção SAINDO como evento OCSF 2004 ──────────────────────────────
+#
+# Enum FECHADO de motivos para a Detection ter sido gravada e o evento NÃO ter
+# saído — motivos DELIBERADOS, não falhas (falha é ``emit_failed``, acima).
+# É label de ``collector_inflight_events_not_emitted_total``, logo mesma
+# disciplina dos enums vizinhos: nunca carrega valor de evento nem nome de regra.
+EMIT_SKIP_REASONS = ("suppressed", "loop_guard", "cycle_cap")
+
+#: ``event_type`` do evento emitido. É a MARCA de auto-identificação usada pelo
+#: guard de laço (ver ``_is_self_emitted``) — trocá-la sem trocar o guard
+#: reabriria a cascata em silêncio, por isso as duas coisas vivem juntas aqui.
+DETECTION_EVENT_TYPE = "centralops.inflight.detection"
+
+#: ``stream`` e ``vendor`` do evento emitido. ``vendor`` é "centralops" (quem
+#: PRODUZIU o achado) enquanto ``platform`` do envelope permanece a da
+#: integração de origem (sobre QUEM é o achado) — mesma divisão que
+#: ``_dispatch_scheduled_query_alert`` já usa, e é ela que faz a rota do cliente
+#: para aquela plataforma também receber a detecção dela.
+DETECTION_EVENT_STREAM = "inflight_detection"
+DETECTION_EVENT_VENDOR = "centralops"
+
+#: Teto de caracteres de TODO campo textual do evento emitido que veio do evento
+#: do cliente (ou de texto que o operador escreveu). É o MESMO 120 de
+#: ``preview._OBSERVED_MAXLEN``, e pela mesma razão declarada lá: o objetivo é
+#: dar ao analista o que IDENTIFICA a entidade, não exportar o payload do
+#: cliente para fora. Um teste amarra os dois números — se divergirem, a
+#: disciplina de truncamento passa a depender de por onde o dado saiu.
+DETECTION_EVENT_TEXT_MAXLEN = 120
+
+#: Teto de bytes do evento emitido, serializado. NÃO é enforcement em runtime, e
+#: isso é deliberado: o evento é limitado POR CONSTRUÇÃO (todo campo textual
+#: passa por ``_evidence_text``; o resto são escalares e uma ``dedup_key`` já
+#: capada por ``INFLIGHT_MAX_GROUP_VALUE_LEN``), então um ``json.dumps`` de
+#: verificação por evento seria custo sem poder de decisão. O número existe para
+#: ancorar a comparação com o limite REAL de destino — ``OS_MAXSTR`` = 65536 do
+#: Wazuh, acima do qual o ``analysisd`` TRUNCA em silêncio — e um teste constrói
+#: o pior caso possível e mede contra ele.
+#:
+#: MEDIDO, não estimado: um evento realista em ASCII ocupa ~1,5 KiB; com TODOS
+#: os campos textuais no máximo em ASCII, ~3,9 KiB; e no pior caso patológico —
+#: todo campo no máximo com caractere astral de 4 bytes, porque o truncamento é
+#: em CARACTERES e o teto é em BYTES — 10,8 KiB. Daí os 12 KiB, que continuam a
+#: um quinto do OS_MAXSTR.
+DETECTION_EVENT_MAX_BYTES = 12 * 1024
 
 
 def validate_where_json(raw: Optional[str]) -> tuple[list[dict], Optional[str]]:
@@ -258,6 +340,12 @@ def load_inflight_rules_for_org(
                         "INFLIGHT_MAX_RULES_PER_CYCLE=0 desliga a avaliação",
                         total, organization_id,
                     )
+                # O gauge SAI aqui também. Kill-switch ligado é detector
+                # parado, e um gauge congelado no último valor conhecido diria
+                # "12 regras carregadas" com nada avaliando — a mesma mentira
+                # do caminho de banco fora, logo abaixo. Sem contador de falha:
+                # desligar é ato deliberado do operador, não degradação.
+                INFLIGHT_RULES_LOADED.labels(org_id=str(organization_id)).set(0)
                 return CompiledRuleSet(rules=(), share_paths=False)
             rows = repo.list_inflight_for_org(organization_id, limit=cap)
             if len(rows) >= cap:
@@ -294,6 +382,29 @@ def load_inflight_rules_for_org(
                 INFLIGHT_RULES_LOADED.labels(org_id=str(organization_id)).set(0)
                 return CompiledRuleSet(rules=(), share_paths=False)
     except Exception:  # noqa: BLE001 — coleta nunca cai por causa do detector
+        # DETECTOR MORTO ≠ ORG SEM REGRA — e até aqui o produto não sabia
+        # dizer a diferença. O ruleset vazio devolvido logo abaixo desliga a
+        # avaliação do ciclo INTEIRO; sem as duas linhas abaixo o gauge
+        # continuaria marcando o último valor conhecido (o OTLP não expira
+        # série, ninguém reescreve o ponto) e o painel mostraria "12 regras
+        # carregadas" com o detector parado. É exatamente a forma do watermark
+        # que reportava ``healthy`` com 15h de atraso (incidente jul/2026):
+        # a degradação não mente, ela simplesmente não fala.
+        #
+        # O zero SOZINHO também não resolveria — ele é indistinguível de "esta
+        # org não tem regra em voo", que é o caso mais comum e é saudável. O
+        # que separa os dois é o PAR: gauge em 0 E
+        # ``rules_rejected{reason="load_failed"}`` subindo.
+        #
+        # Guardado no próprio try porque esta é a rede de segurança da coleta:
+        # a métrica do fracasso não pode virar o fracasso.
+        try:
+            INFLIGHT_RULES_LOADED.labels(org_id=str(organization_id)).set(0)
+            INFLIGHT_RULES_REJECTED.labels(reason="load_failed").inc()
+        except Exception:  # noqa: BLE001
+            logger.debug(
+                "inflight: falha emitindo o sinal de detector morto", exc_info=True
+            )
         logger.exception("inflight: falha carregando regras (org %s)", organization_id)
         return CompiledRuleSet(rules=(), share_paths=False)
 
@@ -344,6 +455,169 @@ def _group_value_digest(value: str) -> str:
     return hashlib.blake2s(
         value.encode("utf-8", "surrogatepass"), digest_size=GROUP_VALUE_DIGEST_BYTES
     ).hexdigest()
+
+
+def _evidence_text(value: Any) -> Optional[str]:
+    """Texto que vai SAIR do produto, truncado. ``None`` continua ``None``.
+
+    Devolver ``None`` em vez de ``""`` (que é o que ``preview._truncate`` faz,
+    porque lá o destino é uma tabela na tela) é o que mantém honesto o evento
+    entregue ao SIEM: ausente e vazio são estados diferentes, e um campo que o
+    evento de origem não tinha não pode chegar ao analista como string vazia —
+    ele leria "existe e está em branco".
+    """
+    if value is None:
+        return None
+    text = str(value)
+    if len(text) <= DETECTION_EVENT_TEXT_MAXLEN:
+        return text
+    return text[:DETECTION_EVENT_TEXT_MAXLEN] + "…"
+
+
+def _is_self_emitted(envelope: Mapping[str, Any]) -> bool:
+    """O evento que casou JÁ ERA um evento de detecção emitido por este produto?
+
+    GUARD DE LAÇO — a conclusão da investigação, escrita aqui porque é onde ela
+    é acionada:
+
+    Pelo desenho atual a cascata NÃO é alcançável por dentro. ``_enqueue_dispatch``
+    é SAÍDA e só saída: ele chama ``_enqueue_routed`` → ``route_batch`` →
+    ``dispatch_to_destination`` (ou o tópico Kafka que o dispatcher consome), e
+    nenhum desses caminhos volta a ``run_collection_once``, que é o ÚNICO lugar
+    onde o matcher em voo roda. Emitir daqui não realimenta a ingestão.
+
+    O que é alcançável é a reentrada pela PORTA DA FRENTE, e ela não é
+    hipotética neste repo: ``POST /api/ingest/{stream}`` empurra para o buffer
+    Redis que o ``PushBufferCollector`` drena DENTRO do ``run_collection_once``
+    normal — "reaproveitando 100% do pipeline existente", nas palavras do
+    próprio módulo. Um destino apontado para o ``/api/ingest`` da própria
+    instalação (ou para um manager Wazuh que também é FONTE coletada — o laço
+    que ``_load_wazuh_loop_destination_ids`` já existe para cortar) devolve o
+    evento emitido à ingestão, onde ele é indistinguível de um evento de vendor.
+    A partir daí uma regra larga o casa, gera Detection, que emite outro evento.
+
+    Por isso a marca é carregada no próprio evento e checada em DOIS níveis:
+    ``_centralops.event_type`` (reentrada que preserve o envelope) e
+    ``raw._centralops.event_type`` (reentrada em que o envelope inteiro vira o
+    ``raw`` do evento novo, que é o formato do push-ingest). O guard corta a
+    cascata na profundidade 1: a Detection continua sendo GRAVADA — o detector é
+    observador, nunca porteiro (R3) —, só o evento não sai de novo.
+
+    O que este guard NÃO cobre, dito por escrito para ninguém o superestimar: um
+    destino que entregue SÓ o bloco ``normalized`` (Chronicle, Security Lake,
+    webhook em modo OCSF) e cujo consumidor reingira aquilo por outra rota perde
+    o ``_centralops`` e leva junto a marca. Sobra a marca dentro de
+    ``normalized.unmapped.centralops_detection``, que é o que a checagem de
+    ``raw`` alcança quando o payload volta como raw; fora disso, o corte tem de
+    ser feito na rota (não emitir para um destino que reingere).
+    """
+    if not isinstance(envelope, Mapping):
+        return False
+    meta = envelope.get("_centralops")
+    if isinstance(meta, Mapping) and meta.get("event_type") == DETECTION_EVENT_TYPE:
+        return True
+    raw = envelope.get("raw")
+    if isinstance(raw, Mapping):
+        inner = raw.get("_centralops")
+        if isinstance(inner, Mapping) and inner.get("event_type") == DETECTION_EVENT_TYPE:
+            return True
+        unmapped = raw.get("unmapped")
+        if isinstance(unmapped, Mapping) and unmapped.get("centralops_detection"):
+            return True
+    return False
+
+
+def _event_source_pointer(
+    envelope: Mapping[str, Any],
+    group_path: Optional[tuple[str, ...]],
+    group_value: Optional[str],
+) -> dict[str, Any]:
+    """PONTEIRO para o evento que casou — deliberadamente NÃO a evidência dele.
+
+    A DECISÃO, e o que ela custa, porque um alerta que chega vazio reprova no
+    primeiro clique do analista:
+
+    O que NÃO vai junto é o envelope do evento (``raw`` + ``normalized``), e por
+    três razões independentes, cada uma suficiente sozinha:
+
+    1. PII. O envelope carrega o payload do cliente inteiro. O evento de
+       detecção é roteado por conta própria, e uma rota que case ``class_uid
+       2004`` pode entregá-lo a um destino para onde o evento de origem NUNCA
+       iria — anexar o payload transformaria a emissão de alerta num canal de
+       exfiltração criado por configuração de rota, sem que ninguém tivesse
+       decidido isso. O truncamento aqui segue a MESMA disciplina do preview
+       (``_OBSERVED_MAXLEN``), que é o precedente do repo para dado de cliente
+       que sai do produto.
+    2. TAMANHO. O ``raw`` não tem teto no CentralOps; o teto real é do destino
+       (``OS_MAXSTR`` = 65536, acima do qual o ``analysisd`` do Wazuh TRUNCA em
+       silêncio). Um evento de detecção que estoura vira alerta cortado ao meio,
+       que é pior que alerta sem evidência: parece completo.
+    3. CUSTO. Duplicar o evento dobra os bytes que o cliente paga, na exata
+       feature que este produto vende como redução de custo.
+
+    O QUE FALTA, dito por escrito: o analista recebe o suficiente para PIVOTAR
+    (``event_id``, integração, plataforma, stream, instante e a entidade do
+    ``group_by``) e NÃO recebe o evento. Se ele já não tiver o evento de origem
+    no SIEM — porque a rota daquele stream não entrega lá, ou porque uma redução
+    apagou o campo —, o ponteiro aponta para o nada. Fechar isso exige um campo
+    de evidência com política própria (quais campos, por regra, com allowlist),
+    o que é a fase seguinte; entregar o envelope inteiro agora não seria a fase
+    seguinte, seria as três razões acima de uma vez.
+
+    Custo em CPU: ~10 ``dict.get`` UMA VEZ POR CHAVE NOVA do ciclo (nunca por
+    evento — o call site já retornou antes quando a chave repete), logo limitado
+    por ``INFLIGHT_MAX_DEDUP_KEYS_PER_RULE_PER_CYCLE``, não pela taxa de
+    eventos. R1 intacto. Incondicional (não olha a flag de emissão) de
+    propósito: um ponteiro construído só quando a flag está ligada faria um
+    ``flush`` que começa com a flag desligada e termina com ela ligada produzir
+    tickets pela metade.
+    """
+    meta = envelope.get("_centralops") if isinstance(envelope, Mapping) else None
+    meta = meta if isinstance(meta, Mapping) else {}
+    norm = envelope.get("normalized") if isinstance(envelope, Mapping) else None
+    norm = norm if isinstance(norm, Mapping) else {}
+    event_time = norm.get("time")
+    class_uid = norm.get("class_uid")
+    return {
+        "event_id": _evidence_text(meta.get("event_id")),
+        "vendor": _evidence_text(meta.get("vendor")),
+        "platform": _evidence_text(meta.get("platform")),
+        "stream": _evidence_text(meta.get("stream")),
+        "event_type": _evidence_text(meta.get("event_type")),
+        # Sem ``bool`` no isinstance: ``True`` é ``int`` em Python e viraria
+        # ``time: 1`` — epoch 1ms de 1970, um instante plausível o bastante para
+        # ninguém desconfiar dele na tela do analista.
+        "event_time": (
+            event_time
+            if isinstance(event_time, (int, float)) and not isinstance(event_time, bool)
+            else None
+        ),
+        "event_class_uid": (
+            class_uid if isinstance(class_uid, int) and not isinstance(class_uid, bool)
+            else None
+        ),
+        # Identidade do tenant COPIADA do evento de origem em vez de relida do
+        # banco: é o mesmo tenant por construção (a regra é carregada por org) e
+        # uma consulta aqui seria I/O novo num caminho que existe para não ter.
+        "customer_name": _evidence_text(meta.get("customer_name")),
+        "organization_slug": _evidence_text(meta.get("organization_slug")),
+        "data_geography": _evidence_text(meta.get("data_geography")),
+        # ``_evidence_text`` também aqui, e não é simetria decorativa: este é o
+        # ÚNICO campo textual do evento cuja origem não é o evento, e sim a
+        # CONFIGURAÇÃO — ``CorrelationRule.group_by_field`` é ``Column(String)``
+        # sem teto, e ``compile_rule`` não valida comprimento. Um dot-path
+        # absurdo escrito por engano na regra aparece três vezes no evento
+        # (aqui, na ``message`` e em ``finding_info.desc``) e sozinho estoura
+        # ``DETECTION_EVENT_MAX_BYTES`` — medido: 4.000 chars levam o evento a
+        # ~13 KiB contra um teto de 12 KiB.
+        #
+        # Não é exfiltração (é texto do operador, não do evento), mas falsifica
+        # a invariante que este módulo declara — "o tamanho é limitado POR
+        # CONSTRUÇÃO" — e teto que depende de ninguém digitar demais não é teto.
+        "group_field": _evidence_text(".".join(group_path)) if group_path else None,
+        "group_value": _evidence_text(group_value),
+        "self_emitted": _is_self_emitted(envelope),
+    }
 
 
 class InflightAccumulator:
@@ -415,6 +689,7 @@ class InflightAccumulator:
 
         self.matches[rule.rule_id] = self.matches.get(rule.rule_id, 0) + 1
 
+        group_value: Optional[str] = None
         if rule.group_by_path is None:
             token = "*"
         else:
@@ -426,6 +701,7 @@ class InflightAccumulator:
                 self.count_error("group_by_unresolved", rule.rule_id)
                 return
             value = str(raw)
+            group_value = value
             cap = int(settings.INFLIGHT_MAX_GROUP_VALUE_LEN)
             token = value[:cap]
             if len(value) > cap:
@@ -484,6 +760,12 @@ class InflightAccumulator:
         self.pending[key] = {
             "rule": rule,
             "integration_id": integration_id,
+            # Capturado AQUI e não no flush porque aqui é o único ponto em que o
+            # envelope do evento que casou ainda está à mão — o flush roda em
+            # thread, depois do laço de coleta, e só enxerga ``pending``. Ver
+            # ``_event_source_pointer`` para o que entra, o que NÃO entra e por
+            # quê; e note que isto roda 1x por chave nova, nunca por evento.
+            "source": _event_source_pointer(envelope, rule.group_by_path, group_value),
         }
 
 
@@ -505,31 +787,170 @@ class InflightFlushInterrupted(Exception):
     estourar ``TypeError`` dentro do ``finally`` do ciclo de coleta.
     """
 
-    def __init__(self, written_keys: tuple[str, ...]) -> None:
+    def __init__(
+        self,
+        written_keys: tuple[str, ...],
+        emits: "tuple[DetectionEmit, ...]" = (),
+    ) -> None:
         super().__init__(
             f"flush interrompido após {len(written_keys)} Detection(s) gravada(s)"
         )
         #: ``dedup_key`` das Detections que JÁ foram commitadas antes da falha.
         self.written_keys = written_keys
+        #: Tickets de emissão das Detections NOVAS entre as já commitadas. Viaja
+        #: aqui pelo MESMO motivo de ``written_keys``: o ``return`` não sobrevive
+        #: ao ``raise`` e ``asyncio.to_thread`` descarta o valor de retorno.
+        #: Sem isto, uma falha na n-ésima escrita calaria o evento das n-1
+        #: Detections que estão DURÁVEIS no banco — perda de alerta silenciosa
+        #: no exato ciclo em que algo já deu errado. Default ``()`` para que
+        #: qualquer construção existente (inclusive em teste) siga válida.
+        self.emits = emits
 
 
-def _flush_sync(pending: dict[str, dict[str, Any]], organization_id: int) -> int:
-    """Escreve as Detections. SÍNCRONA, roda em thread. Devolve quantas gravou.
+@dataclass(frozen=True)
+class DetectionEmit:
+    """Ticket de emissão de UMA Detection recém-CRIADA.
 
-    Em falha levanta ``InflightFlushInterrupted`` com as chaves já commitadas,
-    encadeada (``from``) na exceção original — o ``logger.exception`` do call
-    site continua imprimindo a causa verdadeira, e a contagem de perda deixa de
-    ser um chute sobre ``pending`` inteiro.
+    Existe porque a emissão do evento OCSF acontece fora da thread que escreveu
+    a Detection, e tudo que ela precisa saber (identidade da regra, chave, e o
+    ponteiro capturado lá atrás no ``add``) morreria com o ``pending`` se não
+    fosse carregado explicitamente.
+
+    ``frozen``: o ticket atravessa uma fronteira de thread. Um dict mutável ali
+    convidaria alguém a "só completar um campo" no lado de cá, e o campo
+    completado não teria nenhuma relação com a linha que foi gravada.
+    """
+
+    dedup_key: str
+    detection_id: Optional[int]
+    rule_id: int
+    rule_name: str
+    severity_id: int
+    integration_id: Optional[int]
+    source: Mapping[str, Any]
+
+
+def _apply_flush_cap(acc: InflightAccumulator) -> int:
+    """Corta ``acc.pending`` no teto GLOBAL de Detections por flush. Devolve o
+    nº de chaves descartadas.
+
+    POR QUE EXISTE. ``INFLIGHT_MAX_RULES_PER_CYCLE`` e
+    ``INFLIGHT_MAX_DEDUP_KEYS_PER_RULE_PER_CYCLE`` limitam POR REGRA e não somam
+    a nada: 50 × 50 = 2500 chaves num único flush, e ``record`` COMMITA POR
+    CHAVE — em Postgres 5 round-trips por chave (advisory lock, SELECT da
+    janela, INSERT/UPDATE, COMMIT, refresh), até 12.500 em SÉRIE dentro do
+    ``finally`` do ciclo de coleta. Não é o hot path por evento, e por isso
+    passou despercebido; é trabalho serial que não coleta nada, e que numa org
+    com group_by de alta cardinalidade cresce sozinho.
+
+    DEGRADAÇÃO DECLARADA — o excedente NÃO vira Detection, e isso é perda de
+    detecção, não de performance. Ela é aceita, e não escondida: cada chave
+    descartada é contada em ``flush_cap`` ATRIBUÍDA à regra (logo desce ao
+    ``observability_store`` como ``err_flush_cap`` e aparece na UI), sai um
+    WARNING 1x por ciclo, e ``acc.matches`` fica INTACTO — a regra não parece
+    morta, ela parece o que é: casando mais do que cabe gravar.
+
+    Por que não gravar tudo: o excedente não tem para onde ser adiado. O
+    acumulador morre com o ciclo, os eventos do cliente já foram despachados
+    muito antes disto rodar, e as claims de dedupe fazem o retry descartá-los —
+    um carry-over exigiria estado durável, isto é, exatamente as escritas que
+    este teto limita. Sem teto, uma org troca a COLETA de todos os tenants
+    daquele worker por detecções que ela mesma não vai ler.
+    """
+    cap = max(0, int(settings.INFLIGHT_MAX_DETECTIONS_PER_FLUSH))
+    total = len(acc.pending)
+    if total <= cap:
+        # Caminho de todo mundo: um ``len()`` por ciclo. Nenhuma cópia, nenhuma
+        # varredura, nenhum objeto novo — o custo desta feature na instalação
+        # que nunca chega perto do teto é esta comparação.
+        return 0
+
+    # ROUND-ROBIN entre as regras, e não "as ``cap`` primeiras de ``pending``".
+    # ``pending`` é ordenado por INSERÇÃO, então cortar a cauda entregaria o
+    # orçamento inteiro à regra que casou primeiro: uma regra ruidosa recém
+    # publicada calaria TODAS as outras — inclusive as de volume baixo e
+    # severidade alta, que são justamente as que o operador não pode perder. É
+    # a mesma armadilha já escrita para o truncamento de REGRAS na carga ("as
+    # descartadas são sempre as mais recentes"), com o eixo trocado.
+    #
+    # Roda 1x por ciclo, SÓ quando o teto morde, e é O(total) com ``total``
+    # limitado pelo teto estrutural (2500).
+    por_regra: dict[int, list[str]] = {}
+    for chave, item in acc.pending.items():
+        por_regra.setdefault(int(item["rule"].rule_id), []).append(chave)
+
+    mantidas: set[str] = set()
+    rodada = 0
+    while len(mantidas) < cap:
+        avancou = False
+        for chaves in por_regra.values():
+            if rodada >= len(chaves):
+                continue
+            avancou = True
+            mantidas.add(chaves[rodada])
+            if len(mantidas) >= cap:
+                break
+        if not avancou:  # pragma: no cover — total > cap garante rodadas
+            break
+        rodada += 1
+
+    descartadas: dict[int, int] = {}
+    for chave in list(acc.pending):
+        if chave in mantidas:
+            continue
+        descartadas[int(acc.pending[chave]["rule"].rule_id)] = (
+            descartadas.get(int(acc.pending[chave]["rule"].rule_id), 0) + 1
+        )
+        del acc.pending[chave]
+
+    for rule_id, quantas in descartadas.items():
+        acc.count_error("flush_cap", rule_id, quantas)
+
+    perdidas = total - len(acc.pending)
+    # ``rule_id=None``: N regras cortadas no mesmo ciclo são N sintomas de UMA
+    # causa (o orçamento do flush), e um aviso por regra seria a amplificação de
+    # log que ``_warn_once`` existe para impedir. Só INTEIROS nos args — nome de
+    # regra e valor de group_by vêm do evento e não entram neste log.
+    acc._warn_once(
+        "flush_cap", None,
+        "inflight: teto global de %d Detection(s) por flush atingido — %d de %d "
+        "chave(s) pendentes NÃO viraram Detection neste ciclo, em %d regra(s). "
+        "Os matches seguem contados e nenhum evento do cliente foi tocado: o "
+        "que se perdeu foi DETECÇÃO. O orçamento é dividido em round-robin "
+        "entre as regras, então nenhuma regra sozinha cala as outras. Veja "
+        "err_flush_cap por regra para achar a de alta cardinalidade, ou eleve "
+        "INFLIGHT_MAX_DETECTIONS_PER_FLUSH sabendo que cada chave custa 5 "
+        "round-trips de Postgres em série no fim do ciclo de coleta.",
+        cap, perdidas, total, len(descartadas),
+    )
+    return perdidas
+
+
+def _flush_sync(
+    pending: dict[str, dict[str, Any]], organization_id: int
+) -> tuple[DetectionEmit, ...]:
+    """Escreve as Detections. SÍNCRONA, roda em thread.
+
+    Devolve UM ticket por Detection NOVA (ver ``DetectionEmit``) — antes devolvia
+    a CONTAGEM de gravadas, que nenhum call site lia. As duas grandezas não são
+    a mesma: um match que cai dentro da janela de supressão é gravado (bumpa
+    ``count``/``last_seen``) e NÃO gera ticket.
+
+    Em falha levanta ``InflightFlushInterrupted`` com as chaves já commitadas e
+    os tickets já produzidos, encadeada (``from``) na exceção original — o
+    ``logger.exception`` do call site continua imprimindo a causa verdadeira, e a
+    contagem de perda deixa de ser um chute sobre ``pending`` inteiro.
     """
     from ...db import database, repository
 
     written: list[str] = []
+    emits: list[DetectionEmit] = []
     try:
         with database.SessionLocal() as db:
             repo = repository.DetectionRepository(db)
             for dedup_key, item in pending.items():
                 rule: CompiledInflightRule = item["rule"]
-                repo.record(
+                det = repo.record(
                     organization_id=organization_id,
                     source="inflight",
                     dedup_key=dedup_key,
@@ -544,9 +965,35 @@ def _flush_sync(pending: dict[str, dict[str, Any]], organization_id: int) -> int
                 # antes traria de volta a mentira, com o sinal invertido —
                 # perda real contada como gravação.
                 written.append(dedup_key)
+                # ``count == 1`` é o ÚNICO sinal de que ESTA chamada CRIOU a
+                # linha: dentro da janela de supressão, ``record`` devolve a
+                # Detection que já existia com ``count`` incrementado. Emitir
+                # também no bump trocaria a janela que o operador configurou
+                # (1h por default) por um evento a cada ciclo de coleta (2 min)
+                # — ~30x o volume de alerta que ele pediu, no SIEM dele. A
+                # supressão é o contrato anti-spam da feature; a emissão não
+                # pode ser a porta dos fundos que a anula.
+                #
+                # O OCSF 2004 tem ``activity_id`` 2 (Update) e 3 (Close), então
+                # emitir o ciclo de vida completo seria legítimo em tese. Não é
+                # o que se entrega agora, e por escrito: ``Update`` a cada ciclo
+                # é exatamente o volume que o parágrafo acima recusa, e ``Close``
+                # não tem gatilho — nada no produto fecha uma Detection hoje.
+                if getattr(det, "count", None) == 1:
+                    emits.append(
+                        DetectionEmit(
+                            dedup_key=dedup_key,
+                            detection_id=getattr(det, "id", None),
+                            rule_id=rule.rule_id,
+                            rule_name=rule.name,
+                            severity_id=rule.severity_id,
+                            integration_id=item.get("integration_id"),
+                            source=item.get("source") or {},
+                        )
+                    )
     except Exception as exc:  # noqa: BLE001 — reembalado, não engolido
-        raise InflightFlushInterrupted(tuple(written)) from exc
-    return len(written)
+        raise InflightFlushInterrupted(tuple(written), tuple(emits)) from exc
+    return tuple(emits)
 
 
 def _record_rule_metric(metric: str, rule_id: int, count: int) -> bool:
@@ -651,6 +1098,299 @@ def _mirror_rule_metric(
         )
 
 
+def _coerce_emits(value: Any) -> "tuple[tuple[DetectionEmit, ...], bool]":
+    """``(tickets, conhecidos)`` a partir do que ``_flush_sync`` devolveu.
+
+    ``conhecidos=False`` quando a resposta NÃO tem a forma de tickets — que é o
+    que um duplo antigo de ``_flush_sync`` devolve, porque até esta mudança a
+    função devolvia um ``int`` e ela é ponto de monkeypatch em dezenas de testes
+    deste repo e do EE.
+
+    A distinção entre ``()`` e "não sei" é o ponto inteiro desta função, e é a
+    mesma lição do ``is not False`` de ``_record_rule_metric``: ler um retorno
+    legado como "nenhuma Detection nova" faria a contagem de ``suppressed``
+    reportar TODO o ``pending`` como suprimido — prejuízo inventado na série que
+    existe justamente para explicar alerta que não chegou.
+    """
+    if isinstance(value, tuple) and all(isinstance(v, DetectionEmit) for v in value):
+        return value, True
+    return (), False
+
+
+def _build_detection_event(
+    emit: DetectionEmit, organization_id: int, now_ms: int
+) -> dict[str, Any]:
+    """Ticket → envelope com ``normalized`` OCSF 1.8 **Detection Finding (2004)**.
+
+    Espelha ``_dispatch_scheduled_query_alert`` (scheduler_tasks.py) porque o
+    contrato é o mesmo, testado e em produção no caminho ao lado: identidade
+    completa da classe (``class_uid``/``category_uid``/``activity_id``/
+    ``type_uid``), ``time`` em MILISSEGUNDOS e o tenant no envelope.
+
+    ``activity_id=1`` (Create) e não 6/"Start" como na 1006: a 2004 tem
+    semântica de CICLO DE VIDA do achado (Create/Update/Close), e o que acabou
+    de acontecer é a criação de um achado.
+
+    O contexto específico do produto vai sob ``normalized.unmapped`` — é onde o
+    OCSF manda pôr o que não é campo da classe, em vez de inventar campo de
+    primeiro nível que nenhum consumidor sabe ler.
+
+    Por que ``unmapped`` e NÃO ``raw``, apesar de a 2004 ter ``evidences[]``:
+      * ``raw`` some. Destino com ``payload="ocsf"`` (Chronicle, Security Lake,
+        webhook em modo OCSF) entrega SÓ o bloco ``normalized``; ``drop_raw`` e
+        ``raw_reduction`` apagam o resto. Dado de triagem que vive no ``raw`` é
+        dado que o analista não recebe — a armadilha já paga neste repo.
+      * ``evidences[]`` é um array de Evidence Artifacts (process, file, url,
+        …), não um saco de chaves. O que existe aqui é um PONTEIRO, não um
+        artefato; enfiá-lo em ``evidences`` produziria objeto estruturalmente
+        inválido que o consumidor TENTA parsear — pior que campo ausente.
+    """
+    from ..normalize import OCSF_VERSION
+    from ..normalize.envelope import EnvelopeContext, build_envelope
+    from ..normalize.ocsf.classes import (
+        ACTIVITY_ID_DETECTION_FINDING,
+        CATEGORY_UID_FINDINGS,
+        CLASS_UID_DETECTION_FINDING,
+        SEVERITY_ID,
+        STATUS_ID,
+        is_valid_severity_id,
+    )
+
+    src = emit.source or {}
+    activity_id = ACTIVITY_ID_DETECTION_FINDING["create"]
+    # ``severity_id`` vem de coluna do banco e NÃO é validado na escrita. Um
+    # valor fora do enum universal derruba o evento no GATE-3 do validador
+    # estrutural — o alerta sumiria por causa de um número que o operador digitou
+    # numa tela. Cai para "high", que é o mesmo default da coluna.
+    severity_id = (
+        emit.severity_id
+        if is_valid_severity_id(emit.severity_id)
+        else SEVERITY_ID["high"]
+    )
+
+    ctx = EnvelopeContext(
+        vendor=DETECTION_EVENT_VENDOR,
+        # Integração de ORIGEM, não uma sintética: é o que faz a rota que o
+        # cliente já criou para aquela integração também receber a detecção
+        # dela. ``None`` só acontece em fluxo sem integração (teste/legado).
+        integration_id=emit.integration_id,
+        # ``customer_id`` do envelope = ``Organization.id`` interno.
+        customer_id=organization_id,
+        customer_name=src.get("customer_name"),
+        organization_slug=src.get("organization_slug"),
+        stream=DETECTION_EVENT_STREAM,
+        event_type=DETECTION_EVENT_TYPE,
+        mapping_version_id=None,
+        # ``platform`` da ORIGEM (sobre quem é o achado) enquanto ``vendor`` é
+        # "centralops" (quem produziu o achado).
+        platform=src.get("platform") or DETECTION_EVENT_VENDOR,
+        # Sem isto o evento sai com ``organization_id=None`` e o roteador casa
+        # SOMENTE rotas globais: a rota criada pelo próprio tenant nunca receberia
+        # a detecção dele. O caminho da scheduled query já pagou exatamente esse
+        # bug e deixou o comentário; não se repete aqui.
+        organization_id=organization_id,
+        data_geography=src.get("data_geography"),
+    )
+
+    message = (
+        f"Regra em voo '{_evidence_text(emit.rule_name)}' casou "
+        f"({src.get('group_field') or 'sem group_by'}"
+        f"={src.get('group_value') or '*'})"
+    )
+
+    normalized: dict[str, Any] = {
+        # ── identidade OCSF ──────────────────────────────────────────────
+        "class_uid": CLASS_UID_DETECTION_FINDING,
+        "category_uid": CATEGORY_UID_FINDINGS,
+        "activity_id": activity_id,
+        # type_uid = class_uid * 100 + activity_id, como manda a spec.
+        "type_uid": CLASS_UID_DETECTION_FINDING * 100 + activity_id,
+        # MILISSEGUNDOS. Segundos aqui seria o erro de 1000x que este repo já
+        # pagou uma vez em 16 mappings — e o Security Lake deriva a partição
+        # deste campo.
+        "time": now_ms,
+        "severity_id": severity_id,
+        "status_id": STATUS_ID["new"],
+        "metadata": {
+            "version": OCSF_VERSION,
+            "product": {"name": "CentralOps", "vendor_name": "CentralOps"},
+            "logged_time": now_ms,
+        },
+        # ── obrigatório da classe (manifesto 1.8.0) ──────────────────────
+        "finding_info": {
+            # A MESMA ``dedup_key`` da linha em ``detections``: é o que permite
+            # ao destino correlacionar o alerta com o registro interno, e ao
+            # suporte responder "este alerta é qual linha do banco?".
+            "uid": emit.dedup_key,
+            "title": _evidence_text(emit.rule_name),
+            "desc": message,
+            "created_time": now_ms,
+            "types": ["inflight"],
+        },
+        "message": message,
+        # ── contexto do produto ──────────────────────────────────────────
+        "unmapped": {
+            # Marca de auto-identificação: é ela que o guard de laço procura
+            # quando este evento volta pela porta da frente como ``raw`` de um
+            # push-ingest. Ver ``_is_self_emitted``.
+            "centralops_detection": True,
+            "detection_id": emit.detection_id,
+            "dedup_key": emit.dedup_key,
+            "rule_id": emit.rule_id,
+            "rule_name": _evidence_text(emit.rule_name),
+            "source": "inflight",
+            "organization_id": organization_id,
+            "integration_id": emit.integration_id,
+            # PONTEIRO para o evento que casou — ver ``_event_source_pointer``
+            # para o que ele NÃO carrega e por quê.
+            "source_event_id": src.get("event_id"),
+            "source_vendor": src.get("vendor"),
+            "source_platform": src.get("platform"),
+            "source_stream": src.get("stream"),
+            "source_event_type": src.get("event_type"),
+            "source_event_time": src.get("event_time"),
+            "source_class_uid": src.get("event_class_uid"),
+            "group_field": src.get("group_field"),
+            "group_value": src.get("group_value"),
+        },
+    }
+
+    # ``raw`` VAZIO, e é a decisão do parágrafo de ``_event_source_pointer``
+    # materializada: nada do payload do cliente viaja neste evento.
+    uid = (
+        emit.detection_id
+        if emit.detection_id is not None
+        else _group_value_digest(emit.dedup_key)
+    )
+    return build_envelope(
+        {}, normalized, ctx, vendor_msg_id=f"inflight-det-{uid}"
+    )
+
+
+def _dispatch_sync(envelopes: list[dict[str, Any]]) -> None:
+    """Entrega o lote ao roteamento. SÍNCRONA, roda em thread.
+
+    Duas razões para existir em vez de chamar ``_enqueue_dispatch`` direto:
+
+    1. ``_enqueue_dispatch`` faz I/O SÍNCRONO (resolve rotas no banco, publica
+       task Celery). Chamá-lo de dentro de ``flush_inflight`` — que roda no
+       event loop do coletor — bloquearia o loop no ``finally`` do ciclo, que é
+       a forma exata do poison-loop que R1 existe para impedir.
+    2. É o ponto de monkeypatch dos testes, e mantém o import do ``pipeline``
+       (que importa este módulo de volta) tardio e fora do escopo de módulo.
+
+    O lote inteiro numa chamada só, e não uma por evento: ``_enqueue_dispatch``
+    com ``routes=None`` RESOLVE AS ROTAS NO BANCO por chamada — emitir um a um
+    seria uma consulta por alerta.
+    """
+    from ..pipeline import _enqueue_dispatch
+
+    # ``enrich_skip_reason`` fica no default ``producer_unsupported``, e é a
+    # verdade: este evento nasce DEPOIS do estágio de enriquecimento, não passou
+    # por ele. Marcar é obrigatório — sem a marca, um evento sem contexto no
+    # destino é indistinguível de um que foi enriquecido e não casou regra.
+    _enqueue_dispatch(envelopes)
+
+
+async def _emit_detection_events(
+    acc: InflightAccumulator,
+    emits: "tuple[DetectionEmit, ...]",
+    organization_id: int,
+    *,
+    suppressed: int = 0,
+) -> None:
+    """Emite as detecções do ciclo como eventos OCSF 2004, roteadas. Best-effort.
+
+    R3 É INVIOLÁVEL AQUI: esta função é chamada de dentro do flush, que roda no
+    ``finally`` do ciclo de coleta. Ela NUNCA levanta — toda falha é CONTADA
+    (``collector_inflight_errors_total{reason="emit_failed"}`` + breakdown por
+    regra no observability_store) e logada, e o evento original do cliente já
+    seguiu para o destino muito antes disto rodar. O emissor é um observador,
+    como o matcher: nunca porteiro.
+
+    1x por CICLO e em BULK, nunca por evento — a mesma forma que o
+    ``scheduled_query`` usa. É isso que mantém R1 de pé com um caminho de saída
+    novo.
+    """
+    from ..metrics import INFLIGHT_EVENTS_EMITTED, INFLIGHT_EVENTS_NOT_EMITTED
+
+    if suppressed > 0:
+        INFLIGHT_EVENTS_NOT_EMITTED.labels(reason="suppressed").inc(suppressed)
+
+    cap = int(settings.INFLIGHT_EMIT_MAX_EVENTS_PER_CYCLE)
+    lote: list[tuple[DetectionEmit, dict[str, Any]]] = []
+    loop_guard = 0
+    cycle_cap = 0
+    # UM relógio para o ciclo inteiro: ``time`` e ``logged_time`` de todos os
+    # eventos do mesmo flush têm de ser comparáveis entre si, e chamar
+    # ``utcnow`` por evento produziria uma ordenação artificial no destino que
+    # não corresponde a nada que aconteceu.
+    now_ms = int(datetime.now(timezone.utc).timestamp() * 1000)
+
+    for emit in emits:
+        if (emit.source or {}).get("self_emitted"):
+            loop_guard += 1
+            continue
+        # ``>=`` com ``cap=0`` é KILL-SWITCH de emissão sem mexer na flag: nada
+        # sai, tudo é contado em ``cycle_cap``, as Detections seguem gravadas.
+        if len(lote) >= cap:
+            cycle_cap += 1
+            continue
+        try:
+            lote.append((emit, _build_detection_event(emit, organization_id, now_ms)))
+        except Exception:  # noqa: BLE001 — a Detection já está gravada
+            acc.count_error("emit_failed", emit.rule_id)
+            logger.debug(
+                "inflight: falha montando o evento de detecção (regra %s)",
+                emit.rule_id, exc_info=True,
+            )
+
+    if loop_guard:
+        INFLIGHT_EVENTS_NOT_EMITTED.labels(reason="loop_guard").inc(loop_guard)
+        acc._warn_once(
+            "loop_guard", None,
+            "inflight: %d detecção(ões) deste ciclo casaram um evento que o "
+            "PRÓPRIO produto emitiu — o evento novo NÃO foi emitido, para não "
+            "abrir cascata. A Detection foi gravada normalmente. Se isto se "
+            "repete, há um destino devolvendo evento à ingestão (ex.: rota "
+            "apontada para o /api/ingest desta instalação, ou manager Wazuh "
+            "que também é fonte coletada).",
+            loop_guard,
+        )
+    if cycle_cap:
+        INFLIGHT_EVENTS_NOT_EMITTED.labels(reason="cycle_cap").inc(cycle_cap)
+        acc._warn_once(
+            "cycle_cap", None,
+            "inflight: teto de %d evento(s) de detecção por ciclo atingido — "
+            "%d detecção(ões) foram GRAVADAS e não saíram como evento. As "
+            "Detections estão íntegras; só a entrega ao destino foi cortada. "
+            "Teto atingido costuma indicar regra de alta cardinalidade recém "
+            "publicada (INFLIGHT_EMIT_MAX_EVENTS_PER_CYCLE).",
+            cap, cycle_cap,
+        )
+
+    if not lote:
+        return
+
+    try:
+        await asyncio.to_thread(_dispatch_sync, [env for _, env in lote])
+    except Exception:  # noqa: BLE001 — R3: a coleta não cai por causa do alerta
+        # ATRIBUÍDA, não só contada: "perdi 40 eventos" não diz qual regra parou
+        # de chegar no SIEM. O ticket já carrega o ``rule_id``, então agrupar
+        # aqui não custa nenhuma volta ao banco.
+        for emit, _env in lote:
+            acc.count_error("emit_failed", emit.rule_id)
+        logger.exception(
+            "inflight: falha ao despachar %d evento(s) de detecção (org %s) — "
+            "as Detections estão GRAVADAS, o que se perdeu foi a entrega ao "
+            "destino. Ver collector_inflight_errors_total{reason=\"emit_failed\"}",
+            len(lote), organization_id,
+        )
+        return
+
+    INFLIGHT_EVENTS_EMITTED.inc(len(lote))
+
+
 async def flush_inflight(
     acc: Optional[InflightAccumulator], organization_id: Optional[int]
 ) -> None:
@@ -688,6 +1428,13 @@ async def flush_inflight(
     leitura encontrava a AUSÊNCIA, que soma 0.0 sem erro e vira "a regra não
     disparou" na tela do operador.
 
+    EMISSÃO (``INFLIGHT_EMIT_OCSF_EVENT``, OFF por default): cada Detection
+    NOVA — nunca um bump dentro da janela de supressão — sai também como evento
+    OCSF 2004 pelo roteamento normal. É best-effort no sentido forte de R3:
+    falha ali é contada em ``emit_failed`` e logada, e não toca nem no evento do
+    cliente (que já foi entregue muito antes) nem na Detection (que já está
+    durável). Ver ``_emit_detection_events``.
+
     ``flush_lost`` conta a perda REAL, não ``len(acc.pending)``:
     ``DetectionRepository.record`` commita por chave, então uma falha no meio da
     escrita deixa parte das Detections DURÁVEIS no banco. Elas voltam em
@@ -698,11 +1445,46 @@ async def flush_inflight(
     if acc is None or organization_id is None:
         return
 
-    from ..metrics import INFLIGHT_ERRORS, INFLIGHT_MATCHES
+    from ..metrics import INFLIGHT_ERRORS, INFLIGHT_FLUSH_SECONDS, INFLIGHT_MATCHES
+
+    # Tickets de emissão. ``_emits_known`` separa "nenhuma Detection nova" de
+    # "não sei" — ver ``_coerce_emits``.
+    _emits: tuple[DetectionEmit, ...] = ()
+    _emits_known = False
+    _suppressed = 0
+
+    # Teto GLOBAL de escrita, ANTES de qualquer contabilidade: o que ele corta
+    # sai de ``pending``, e é isso que mantém coerente todo o resto — o
+    # ``flush_lost`` abaixo mede sobre ``pending``, e uma chave cortada aqui
+    # contada lá viraria perda DUPLA na mesma série. O que ela perdeu já está
+    # contado, e por outra razão. Ver ``_apply_flush_cap``.
+    #
+    # Guardado porque roda FORA do ``try`` que contabiliza ``flush_lost``: uma
+    # exceção aqui pularia a escrita inteira E a contagem da perda, isto é, o
+    # pior dos dois mundos — nenhuma Detection gravada e nenhuma série dizendo
+    # que faltou algo. Falhando, o teto simplesmente não corta: escrever tudo é
+    # LENTO, perder tudo em silêncio é o que este subsistema não pode fazer. A
+    # direção da degradação é a decisão; o ``except`` só a executa.
+    try:
+        _apply_flush_cap(acc)
+    except Exception:  # noqa: BLE001
+        logger.exception(
+            "inflight: teto global de flush falhou (org %s) — o flush segue SEM "
+            "corte, com até %d Detection(s) a gravar em série",
+            organization_id, len(acc.pending),
+        )
 
     if acc.pending:
+        _inicio = time.monotonic()
         try:
-            await asyncio.to_thread(_flush_sync, acc.pending, int(organization_id))
+            _resultado = await asyncio.to_thread(
+                _flush_sync, acc.pending, int(organization_id)
+            )
+            _emits, _emits_known = _coerce_emits(_resultado)
+            if _emits_known:
+                # Toda chave de ``pending`` que não virou ticket foi gravada como
+                # BUMP dentro da janela de supressão da regra.
+                _suppressed = max(0, len(acc.pending) - len(_emits))
         except Exception as exc:  # noqa: BLE001
             # A perda é CONTADA, não presumida — e ATRIBUÍDA. "Perdi 900
             # Detections" não diz QUAL regra parou de alertar; ``item["rule"]``
@@ -716,6 +1498,14 @@ async def flush_inflight(
             # reportava prejuízo maior que o real.
             medido = isinstance(exc, InflightFlushInterrupted)
             gravadas = frozenset(exc.written_keys) if medido else frozenset()
+            if medido:
+                # As Detections commitadas ANTES da falha são duráveis — o
+                # alerta delas tem de sair. Calá-las por causa de um erro que
+                # veio depois seria perder alerta exatamente no ciclo em que
+                # algo já deu errado, que é quando o operador mais precisa dele.
+                _emits, _emits_known = _coerce_emits(exc.emits)
+                if _emits_known:
+                    _suppressed = max(0, len(gravadas) - len(_emits))
             # Aritmética pura ANTES do laço guardado abaixo: é o número que vai
             # para o log, e ele não pode depender de a atribuição por regra ter
             # ido até o fim.
@@ -756,6 +1546,40 @@ async def flush_inflight(
                     "este caminho não sabe quantas já haviam sido gravadas",
                     perdidas, organization_id,
                 )
+        finally:
+            # Medida nos DOIS caminhos, e é no de falha que ela importa: um
+            # flush que estoura o soft-timeout só existe no ramo de exceção, e
+            # medir só o caminho feliz esconderia exatamente o percentil que
+            # manda elevar (ou baixar) o teto. Sem labels — ver o catálogo.
+            # ``otel_metrics.record`` nunca levanta, então isto é seguro dentro
+            # de um ``finally`` que roda no ``finally`` do ciclo de coleta.
+            INFLIGHT_FLUSH_SECONDS.observe(time.monotonic() - _inicio)
+
+    # ── A detecção SAINDO como evento OCSF 2004, roteada ────────────────
+    # ANTES dos laços de métrica abaixo, e não depois: o ``emit_failed`` que a
+    # emissão escreve em ``acc.errors`` é justamente o que aqueles laços levam
+    # ao OTel e ao breakdown por regra. Invertida a ordem, a falha da entrega
+    # ficaria contada só em memória e morreria com o ciclo.
+    #
+    # Flag OFF (o default) ⇒ nem os tickets são olhados: nenhum evento novo,
+    # nenhuma série nova, nenhum comportamento novo numa instalação que não
+    # pediu. Ver ``INFLIGHT_EMIT_OCSF_EVENT``.
+    if _emits_known and settings.INFLIGHT_EMIT_OCSF_EVENT:
+        try:
+            await _emit_detection_events(
+                acc, _emits, int(organization_id), suppressed=_suppressed
+            )
+        except Exception:  # noqa: BLE001
+            # ``_emit_detection_events`` já é fechada por dentro (toda falha
+            # conhecida é contada lá). Esta rede é para o que não se previu, e
+            # existe por uma razão só: R3 — nada da emissão pode levantar do
+            # ``finally`` do ciclo de coleta e mascarar a exceção que estava se
+            # propagando.
+            logger.exception(
+                "inflight: emissão do evento de detecção falhou fora do "
+                "caminho contado (org %s) — as Detections seguem gravadas",
+                organization_id,
+            )
 
     for rule_id, count in acc.matches.items():
         INFLIGHT_MATCHES.labels(rule_id=str(rule_id)).inc(count)
