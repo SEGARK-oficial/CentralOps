@@ -55,7 +55,27 @@ def _get_engine_kwargs() -> dict:
     }
 
 
-engine = create_engine(DATABASE_URL, **_get_engine_kwargs())
+# ``hide_parameters=True``: os VALORES do statement nunca entram na exceção.
+#
+# Sem isto, todo ``IntegrityError``/``DataError`` do SQLAlchemy carrega
+# ``[parameters: (...)]`` no próprio ``str(exc)`` — e qualquer ``logger.exception``
+# que capture essa exceção despeja os valores da linha no log. Numa plataforma de
+# segurança isso é PII de cliente saindo pelo caminho mais discreto que existe: o
+# tratamento de erro, que só roda quando algo já deu errado e ninguém está olhando.
+#
+# Reproduzido no detector em voo: uma falha de FK no flush de Detection colocava a
+# ``dedup_key`` — que embute o valor de ``group_by``, tipicamente usuário ou host —
+# e o nome da regra num traceback de ~5,5 KB. Este repositório é PÚBLICO e o log
+# vai para agregador externo; nenhum dos dois é lugar para valor de evento.
+#
+# O diagnóstico NÃO se perde, e isso foi medido: com a flag ligada o log continua
+# trazendo o tipo da exceção, a constraint violada e o SQL com placeholders. O que
+# some são só os valores — que é exatamente o que se quer que suma.
+#
+# Global de propósito, e não um ``try/except`` cirúrgico no ponto que vazou: o
+# mesmo ``IntegrityError`` é logado em dezenas de lugares, e fechar um call site
+# por vez deixa os outros abertos sem que ninguém perceba.
+engine = create_engine(DATABASE_URL, hide_parameters=True, **_get_engine_kwargs())
 
 # ── WAL mode para SQLite: elimina "database is locked" em writes concorrentes ──
 # WAL (Write-Ahead Logging) permite leitores simultâneos sem bloquear writers.
