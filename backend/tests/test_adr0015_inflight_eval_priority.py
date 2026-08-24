@@ -71,6 +71,7 @@ from backend.app.collectors.inflight.runtime import (
 from backend.app.core.config import settings
 from backend.app.db import database as _db_module
 from backend.app.db import models, repository
+from backend.app.db.models import Base
 
 ORG_ID = 1
 WHERE_OK = '[{"field":"a","op":"eq","value":"x"}]'
@@ -647,6 +648,12 @@ def test_o_desempate_por_id_sobrevive_num_postgres_de_verdade() -> None:
         with Session() as db:
             db.query(models.CorrelationRule).delete()
             db.query(models.Organization).filter_by(id=ORG_ID).delete()
+            db.commit()
+            # A org tem de existir ANTES das regras: no Postgres a FK é aplicada
+            # de verdade. O fixture de SQLite deste arquivo já semeia a org, e
+            # este teste usa engine próprio — foi por isso que ele quebrou no
+            # gate `pg` e passou despercebido localmente, onde o marker o pula.
+            db.add(models.Organization(id=ORG_ID, name="Org", slug="org-pg"))
             db.commit()
 
         _semear(Session, [(90, 0), (30, 0), (70, 0), (10, 0), (50, 0)])
