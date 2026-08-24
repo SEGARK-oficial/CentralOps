@@ -46,7 +46,7 @@ Uma **regra** mapeia eventos para um ou mais destinos. Ao criar ou editar uma re
 
 ### Características que você pode usar na condição
 
-A condição de uma regra compara características do evento já normalizado. São **nove**, e a lista é fechada — não existem outras:
+A condição de uma regra compara características do evento já normalizado. São **dez**, e a lista é fechada — não existem outras:
 
 | Característica | O que é | Exemplos |
 |---------------|---------|----------|
@@ -59,8 +59,20 @@ A condição de uma regra compara características do evento já normalizado. S�
 | **Integração** (`integration_id`) | A integração específica que coletou o evento. Use quando você tem várias integrações do mesmo fornecedor e quer tratar só uma delas. | uma das suas integrações |
 | **Cliente** (`customer_id`) | Identificador do cliente/tenant no sistema. | usado em cenários multi-tenant |
 | **Geografia** (`data_geography`) | A região de origem do evento. | `US`, `EU`, `APAC`, `global` |
+| **Casou detecção** (`detection_matched`) | Se o evento casou alguma regra de detecção em voo. É a única característica que não descreve a ORIGEM do evento, e sim o que a plataforma descobriu sobre ele. | `true` (casou) ou ausente (não casou) |
 
-Guarde os nomes entre crases: **essa mesma lista de nove é o único vocabulário aceito também na chave de supressão** — veja [Reduzir ruído repetitivo](#reduzir-ruído-repetitivo-supressão).
+Guarde os nomes entre crases: **essa mesma lista de dez é o único vocabulário aceito também na chave de supressão** — veja [Reduzir ruído repetitivo](#reduzir-ruído-repetitivo-supressão).
+
+### Rotear pelo que a detecção encontrou
+
+`detection_matched` é diferente das outras nove: ela não diz de onde o evento veio, diz que ele **casou uma regra de detecção**. A plataforma detecta antes de rotear, então essa informação já existe no momento em que a rota decide o destino.
+
+É o que torna possível o padrão que economiza mais dinheiro: **detectar sobre todo o volume e mandar ao SIEM caro só o que interessa.** Uma regra com condição `detection_matched = casou` e destino no SIEM; outra, de prioridade mais baixa, mandando o resto ao armazenamento barato. O evento que não casou nada nunca chega a ser cobrado pelo SIEM — mas foi analisado.
+
+Duas coisas sobre como ela se escreve:
+
+- **É só "casou" ou "não casou".** Não existe condição por identificador de regra nem por severidade da detecção — de propósito: uma característica com valores ilimitados transformaria a tela de condição num campo livre e amarraria suas rotas a IDs de regras que mudam.
+- **"Não casou" é AUSÊNCIA, e se escreve com o operador `existe`.** O evento que casou carrega a marca; o que não casou simplesmente não a tem. Para a rota do "resto", use `detection_matched` com o operador **existe = falso**. Tentar `detection_matched = falso` é recusado na hora de salvar, com erro: esse valor não existe em evento nenhum e a rota nunca entregaria nada — antes que você descubra isso pelo painel vazio três dias depois.
 
 ---
 
@@ -148,7 +160,7 @@ Três campos definem o comportamento:
 
 ### A chave de supressão só aceita características de roteamento
 
-Esta é a parte que mais gera engano. A assinatura é montada a partir das **mesmas nove características usadas na condição da regra** — as da tabela em [Características que você pode usar na condição](#características-que-você-pode-usar-na-condição): `vendor`, `platform`, `organization_id`, `severity_id`, `stream`, `event_type`, `integration_id`, `customer_id` e `data_geography`. Você as informa separadas por vírgula (ex.: `vendor,severity_id`).
+Esta é a parte que mais gera engano. A assinatura é montada a partir das **mesmas dez características usadas na condição da regra** — as da tabela em [Características que você pode usar na condição](#características-que-você-pode-usar-na-condição): `vendor`, `platform`, `organization_id`, `severity_id`, `stream`, `event_type`, `integration_id`, `customer_id`, `data_geography` e `detection_matched`. Você as informa separadas por vírgula (ex.: `vendor,severity_id`).
 
 **Campos do log não valem.** `src_ip`, `dst_ip`, `user`, `agent.name`, `rule.id` e afins **não** existem nesse vocabulário. Se você tentar usá-los, a plataforma recusa a configuração com erro — antes, ela aceitava em silêncio e o resultado era desastroso: todos os eventos caíam na mesma assinatura e praticamente **todo o tráfego era descartado**.
 

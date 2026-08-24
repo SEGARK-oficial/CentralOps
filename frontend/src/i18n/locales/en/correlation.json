@@ -103,7 +103,7 @@
     },
     "inflight": {
       "notEvaluatedBadge": "Not evaluated",
-      "notEvaluatedTooltip": "Enabled in-flight rule that does NOT enter the evaluation cycle. Two possible causes: it fell above the per-cycle rule cap (the cut is by ascending id, so the newest ones drop first), or its filter (where) does not compile. The notice above the table says which one, and how many rules."
+      "notEvaluatedTooltip": "Enabled in-flight rule that does NOT enter the evaluation cycle. Two possible causes: it fell above the per-cycle rule cap (the highest evaluation priority survives; ties break toward the oldest), or its filter (where) does not compile. The notice above the table says which one, and how many rules."
     }
   },
   "form": {
@@ -316,7 +316,7 @@
   "limits": {
     "truncated": {
       "title": "Enabled rules that are not being evaluated",
-      "description": "{{truncated}} of {{total}} enabled in-flight rule(s) fell OUTSIDE the per-cycle cap of {{cap}}. The cut is by ascending id: the dropped ones are the NEWEST, including the rule you just created. They show as enabled in the list and never fire."
+      "description": "{{truncated}} of {{total}} enabled in-flight rule(s) fell OUTSIDE the per-cycle cap of {{cap}}. The HIGHEST evaluation priority survives; ties break toward the oldest. The dropped ones show as enabled in the list and never fire — raise the evaluation priority of the rule that must run."
     },
     "uncompilable": {
       "description": "{{uncompilable}} rule(s) are INSIDE the cap and still get dropped when the cycle loads them, because their filter (where) does not compile. Raising the cap does not fix this cause: fix the filter."

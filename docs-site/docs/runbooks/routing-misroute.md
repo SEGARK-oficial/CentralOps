@@ -174,7 +174,7 @@ Uma ressalva: a proteção **não** alcança a agregação. A agregação é opt
 
 #### O risco de uma chave de supressão grossa demais
 
-A **Chave de supressão** só aceita **labels de roteamento**: `vendor`, `platform`, `organization_id`, `severity_id`, `stream`, `event_type`, `integration_id`, `customer_id` e `data_geography`. Um campo do log (`src_ip`, `user`, `dst_ip`) é recusado com erro de validação — não é possível suprimir "por IP de origem".
+A **Chave de supressão** só aceita **labels de roteamento**: `vendor`, `platform`, `organization_id`, `severity_id`, `stream`, `event_type`, `integration_id`, `customer_id`, `data_geography` e `detection_matched`. Um campo do log (`src_ip`, `user`, `dst_ip`) é recusado com erro de validação — não é possível suprimir "por IP de origem".
 
 Quanto menos labels na chave, mais eventos diferentes colapsam na mesma assinatura. Uma chave só com `vendor` trata **todo** o tráfego daquele fornecedor como se fosse um evento repetido: com **Permitidos por janela** em 5, passam 5 eventos a cada 30 segundos para o fornecedor inteiro, e todo o resto é apagado. Componha a chave com labels suficientes para separar de fato o ruído repetido do sinal.
 

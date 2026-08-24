@@ -14,13 +14,28 @@ import type { RouteCondition } from "@/types"
 const FIELDS = [
   "severity_id",
   "vendor",
+  "platform",
   "organization_id",
   "event_type",
   "stream",
   "integration_id",
   "customer_id",
+  "data_geography",
+  "detection_matched",
 ] as const
 const NUMERIC = new Set(["severity_id", "organization_id", "integration_id", "customer_id"])
+
+// Campos cujo valor é BOOLEANO no envelope. Sem isto, `coerce` devolveria a
+// string "true" (ele só converte NUMERIC) e a condição seria gravada como
+// `{"detection_matched": "true"}` — que compila, salva, aparece verde na lista
+// e NUNCA casa, porque `compare_values` compara por igualdade nativa e
+// `"true" != True`. Contador de rota em zero, indistinguível de "não houve
+// detecção nenhuma".
+//
+// O backend passou a recusar essa forma com 422, então hoje o sintoma seria um
+// erro na hora de salvar em vez de uma rota morta — melhor, mas ainda assim um
+// erro que a tela pode simplesmente não cometer.
+const BOOLEAN = new Set(["detection_matched"])
 
 type Op = ConditionOperator
 interface Clause {
@@ -30,6 +45,7 @@ interface Clause {
 }
 
 function coerce(field: string, raw: string): unknown {
+  if (BOOLEAN.has(field)) return raw.trim().toLowerCase() === "true"
   return NUMERIC.has(field) && raw.trim() !== "" && !Number.isNaN(Number(raw)) ? Number(raw) : raw
 }
 

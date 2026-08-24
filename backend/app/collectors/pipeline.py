@@ -82,6 +82,13 @@ from .inflight.matcher import CompiledRuleSet as _CompiledRuleSet
 
 _EMPTY_RULESET = _CompiledRuleSet(rules=(), share_paths=False)
 
+# Nome do rótulo de detecção, importado da FONTE (o engine de roteamento) e
+# ligado a um global de módulo. Não é micro-otimização: quem escreve e quem
+# avalia a condição têm de concordar no mesmo texto, e um literal repetido aqui
+# falharia CALADO — a rota compilaria, ficaria verde na UI e nunca entregaria.
+# O alias local também evita um lookup de atributo por evento casado.
+from .routing.engine import DETECTION_MATCHED_FIELD as _DETECTION_MATCHED_FIELD
+
 
 class VendorAuthError(Exception):
     """Levantada quando o vendor responde ``401`` — sinaliza que o cache
@@ -1610,16 +1617,60 @@ async def _run_collection_once(integration_id: int, stream: str) -> None:
                     # falso-negativo silencioso; classificar antes da supressão
                     # produziria Detection sobre evento que nunca chega ao SIEM.
                     #
-                    # R3 — FAIL-OPEN NA ENTREGA: nada aqui tem `continue`,
-                    # `return` ou mutação do envelope. Uma regra que explode
-                    # custa um log e o evento segue no batch. O detector é
-                    # observador, nunca porteiro.
+                    # R3 — FAIL-OPEN NA ENTREGA: nada aqui tem `continue` nem
+                    # `return`. Uma regra que explode custa um log e o evento
+                    # segue no batch. O detector é observador, nunca porteiro.
+                    #
+                    # A PROMESSA SOBRE O ENVELOPE MUDOU, e é mais estreita do
+                    # que "não muta": este bloco ACRESCENTA um único metadado do
+                    # PRODUTO em `_centralops` e nada mais. Jamais dado do
+                    # cliente, jamais remoção, jamais `raw`/`normalized` — que
+                    # já passaram pelo gate OCSF (:1255) e cujo conteúdo é o que
+                    # o destino recebe. Guard de comportamento em
+                    # tests/test_deteccao_como_condicao_de_rota.py, por
+                    # igualdade PROFUNDA dos dois blocos antes e depois.
+                    #
+                    # POR QUE ESCREVER: sem a marca, o pipeline detecta ANTES de
+                    # rotear e joga o resultado fora na hora de decidir para
+                    # onde manda. Com ela, "casou uma regra" vira condição de
+                    # rota (routing.engine.DETECTION_MATCHED_FIELD) e dá para
+                    # detectar sobre o dado que vai ser descartado e mandar só o
+                    # que interessa ao SIEM caro.
+                    #
+                    # R1 — CUSTO NO CAMINHO SEM MATCH: a marca é por evento
+                    # CASADO, não por evento. `evaluate_ruleset` já devolve uma
+                    # tupla materializada, então o `if` abaixo troca o
+                    # GET_ITER/FOR_ITER de uma tupla vazia por um teste de
+                    # verdade — quem não casa não paga escrita, nem `try`, nem
+                    # dict store. Medido antes/depois: sem diferença fora do
+                    # ruído.
                     if _inflight_acc is not None:
                         try:
-                            for _rule in evaluate_ruleset(envelope, _inflight_rules):
-                                _inflight_acc.add(
-                                    _rule, envelope, organization_id, integration_id
-                                )
+                            _matched_rules = evaluate_ruleset(envelope, _inflight_rules)
+                            if _matched_rules:
+                                # `try` PRÓPRIO, e não o de fora, por dois
+                                # motivos: (a) uma falha ao marcar não pode
+                                # custar a Detection — `acc.add` roda logo
+                                # abaixo de qualquer jeito; (b) contá-la como
+                                # `errors["matcher"]` mentiria sobre QUAL peça
+                                # quebrou, e o operador debugaria a regra errada.
+                                # Só pode levantar com envelope malformado
+                                # (`_centralops` ausente ou não-dict), o que em
+                                # produção não ocorre — `build_envelope` sempre
+                                # o popula.
+                                try:
+                                    envelope["_centralops"][
+                                        _DETECTION_MATCHED_FIELD
+                                    ] = True
+                                except Exception:  # noqa: BLE001
+                                    _inflight_acc.errors["mark_failed"] = (
+                                        _inflight_acc.errors.get("mark_failed", 0)
+                                        + 1
+                                    )
+                                for _rule in _matched_rules:
+                                    _inflight_acc.add(
+                                        _rule, envelope, organization_id, integration_id
+                                    )
                         except Exception:  # noqa: BLE001
                             # Rate-limit de log por ciclo: sem isso, uma regra
                             # ruim trocaria degradação de detecção por

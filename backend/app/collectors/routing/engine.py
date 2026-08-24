@@ -33,6 +33,26 @@ from .pii_redaction import CompiledRedactionRule, apply_pii_redaction
 
 # ── Vocabulary ─────────────────────────────────────────────────────────
 
+#: Nome do rótulo que o detector em voo escreve no envelope quando o evento
+#: CASOU pelo menos uma regra (``pipeline.py``, bloco de classificação em voo).
+#: Existe como constante — e não literal repetido — porque três lugares têm de
+#: concordar no MESMO texto: quem ESCREVE (pipeline), quem VALIDA a condição
+#: (``validate_condition``) e quem AVALIA (``matches``). Um typo em qualquer um
+#: deles não levanta: a rota compila, aparece verde na UI e nunca entrega.
+#:
+#: O rótulo é ADITIVO e o valor é ``True`` — nunca ``False``. Um evento que não
+#: casou NÃO carrega a chave (ver R1: a escrita mora onde já se sabe que casou,
+#: então o caminho sem match não paga escrita nenhuma). AUSÊNCIA É O "não
+#: casou", exatamente como ``_centralops.enrichment*`` — "a chave só nasce
+#: quando alguma regra ESCREVE" (``pipeline._enqueue_dispatch``).
+#:
+#: Consequência para quem escreve condição: ``{"detection_matched": True}`` casa
+#: só os detectados; o complemento se escreve ``{"exists": False}`` (o operador
+#: que fala de ausência), NÃO ``{"eq": False}`` — esse valor não existe no
+#: envelope e a rota nunca casaria. ``validate_condition`` recusa ``eq/ne:
+#: False`` por isso mesmo.
+DETECTION_MATCHED_FIELD = "detection_matched"
+
 #: Routing labels available in a condition — the documented ``_centralops``
 #: fields. Kept to an allowlist for predictability + a clean UI.
 ALLOWED_FIELDS = frozenset(
@@ -50,8 +70,36 @@ ALLOWED_FIELDS = frozenset(
         "customer_id",
         # data_geography from the origin integration (Sophos dataRegion)
         "data_geography",
+        # A DETECÇÃO VIRA CONDIÇÃO DE ROTA. Único label da allowlist que não
+        # descreve a ORIGEM do evento e sim o que o produto DESCOBRIU sobre ele
+        # — é o que permite "detectar sobre o dado que você vai descartar e
+        # mandar só os 2% interessantes para o SIEM caro". Boolean, cardinalidade
+        # 2, sem ``rule_id``/severidade: id de regra em condição de rota viraria
+        # acoplamento global e cardinalidade aberta na UI.
+        DETECTION_MATCHED_FIELD,
     }
 )
+
+#: Labels de domínio BOOLEANO. Não é decoração: o vocabulário de operadores
+#: (``compare_values``) compara por igualdade NATIVA, sem coerção — ``True`` não
+#: casa ``"true"``. A UI de condição de rota (``RouteConditionEditor.tsx``) só
+#: produz um bool de verdade no operador ``exists``; em todo o resto o valor sai
+#: do ``<Input>`` como STRING (ou número, para os campos numéricos). Logo
+#: ``{"detection_matched": "true"}`` — a forma que o editor emitiria hoje num
+#: ``eq`` — compilaria, salvaria e NUNCA casaria, com contador zerado
+#: indistinguível de "não houve detecção".
+#:
+#: ``validate_condition`` fecha isso na escrita: valor não-bool nestes campos é
+#: 422 explícito. Mesmo remédio que ``validate_suppress_key`` aplica ao
+#: ``suppress_key`` degenerado — o extremo que falhava calado vira erro de
+#: configuração visível.
+_BOOLEAN_FIELDS = frozenset({DETECTION_MATCHED_FIELD})
+
+#: Operadores de ORDEM não têm significado num domínio de dois valores. Em
+#: Python ``True > False`` é legal (bool é int), então ``{"gte": False}`` não
+#: levanta — casa "qualquer valor presente" e o autor jura ter escrito outra
+#: coisa. Recusar é mais barato que explicar depois.
+_ORDERING_OPS = frozenset({"gt", "gte", "lt", "lte"})
 
 #: Some routes spell the tenant label ``org_id``; the canonical envelope field
 #: is ``organization_id``. We accept ``org_id`` as a write-time ALIAS in route
@@ -787,6 +835,55 @@ def validate_suppress_key(suppress_key: Any) -> None:
             )
 
 
+def _reject_unmatchable_boolean(field_name: str, spec: Any) -> None:
+    """Recusa, na ESCRITA, as cláusulas que um label booleano-e-aditivo aceita e
+    nunca honra. Só se aplica a ``_BOOLEAN_FIELDS``.
+
+    O label vale ``True`` ou está AUSENTE — ``False`` não existe no envelope.
+    Isso torna quatro escritas plausíveis em armadilhas silenciosas, todas
+    compiláveis e todas verdes na UI:
+
+    * ``"true"`` / ``1`` (string ou int no lugar do bool) — ``compare_values``
+      compara sem coerção, então NUNCA casa. É a forma que o ``<Input>`` do
+      editor de condição emite hoje, o que faz desta a falha mais provável.
+    * ``{"eq": False}`` — o valor não existe no envelope: nunca casa.
+    * ``{"ne": False}`` — casa TUDO (o presente por desigualdade, o ausente por
+      vacuidade de ``ne``): um filtro que não filtra.
+    * ``gt/gte/lt/lte`` — ordem sobre dois valores; legal em Python (bool é int),
+      sem significado aqui.
+
+    O complemento legítimo ("não casou") se escreve ``{"exists": False}``, que é
+    o operador que fala de ausência e já é booleano nos dois lados (validador e
+    editor). Nenhum operador novo é inventado.
+    """
+    def _bad(detail: str) -> None:
+        raise ValueError(
+            f"routing field {field_name!r} is a boolean detection mark ({detail}); "
+            "it is present as True only when the event matched a detection rule and "
+            "ABSENT otherwise — write {\"eq\": true} / true for matched and "
+            "{\"exists\": false} for not-matched"
+        )
+
+    if not isinstance(spec, Mapping):
+        # eq shorthand escalar.
+        if spec is not True:
+            _bad(f"got {spec!r}")
+        return
+    for op, val in spec.items():
+        if op in _ORDERING_OPS:
+            _bad(f"operator {op!r} orders a two-valued domain")
+        if op in ("eq", "ne") and val is not True:
+            _bad(f"operator {op!r} got {val!r}")
+        if op in ("in", "nin"):
+            # ``isinstance(val, (list, tuple))`` já é garantido pelo validador
+            # genérico, mas este helper roda ANTES dele no laço — checar aqui
+            # evita um TypeError no ``any`` de um valor não-iterável.
+            if not isinstance(val, (list, tuple)) or not val:
+                _bad(f"operator {op!r} requires a non-empty list")
+            if any(v is not True for v in val):
+                _bad(f"operator {op!r} got {list(val)!r}")
+
+
 def validate_condition(condition: Any) -> None:
     """Raise ``ValueError`` if ``condition`` is not a valid label-driven matcher.
 
@@ -796,10 +893,13 @@ def validate_condition(condition: Any) -> None:
         raise ValueError("condition must be a JSON object")
     for field_name, spec in condition.items():
         # Aliases (``org_id``) are accepted and resolve to a canonical field.
-        if _canonical_field(field_name) not in ALLOWED_FIELDS:
+        canonical = _canonical_field(field_name)
+        if canonical not in ALLOWED_FIELDS:
             raise ValueError(
                 f"unknown routing field {field_name!r}; allowed: {sorted(ALLOWED_FIELDS)}"
             )
+        if canonical in _BOOLEAN_FIELDS:
+            _reject_unmatchable_boolean(field_name, spec)
         if isinstance(spec, Mapping):
             if not spec:
                 raise ValueError(f"empty operator map for field {field_name!r}")

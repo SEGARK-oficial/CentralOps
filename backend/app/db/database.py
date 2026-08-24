@@ -725,6 +725,24 @@ def _run_lightweight_migrations() -> None:
                         "ADD COLUMN eval_mode VARCHAR NOT NULL DEFAULT 'batch'"
                     )
                 )
+            # Prioridade de avaliação em voo. DEFAULT 0 em TODA linha existente
+            # é o que torna esta migração invisível: empatadas em 0, as regras
+            # saem na mesma ordem de antes (o desempate é ``id ASC``), então
+            # nenhuma instalação muda de conjunto avaliado só por subir de
+            # versão. Ver ``CorrelationRule.eval_priority``.
+            #
+            # ``NOT NULL`` não é higiene: ``ORDER BY ... DESC`` coloca NULL no
+            # TOPO no Postgres e no FIM no SQLite, então uma coluna anulável
+            # inverteria a prioridade das regras legadas entre o teste e a
+            # produção. Default CONSTANTE ⇒ no Postgres ≥11 o ADD COLUMN não
+            # reescreve a tabela.
+            if "eval_priority" not in corr_rule_columns:
+                conn.execute(
+                    text(
+                        "ALTER TABLE correlation_rules "
+                        "ADD COLUMN eval_priority INTEGER NOT NULL DEFAULT 0"
+                    )
+                )
 
         # Preferência de idioma da UI por usuário (nullable =
         # seguir o Accept-Language do navegador). Sincronizada pelo seletor do SPA.

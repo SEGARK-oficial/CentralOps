@@ -103,7 +103,7 @@
     },
     "inflight": {
       "notEvaluatedBadge": "Não avaliada",
-      "notEvaluatedTooltip": "Regra habilitada, em modo em voo, que NÃO entra no ciclo de avaliação. Duas causas possíveis: ela ficou acima do teto de regras por ciclo (o corte é por id crescente, então as mais recentes caem primeiro) ou o filtro (where) não compila. O aviso acima da tabela diz qual das duas e quantas regras."
+      "notEvaluatedTooltip": "Regra habilitada, em modo em voo, que NÃO entra no ciclo de avaliação. Duas causas possíveis: ela ficou acima do teto de regras por ciclo (sobrevivem as de maior prioridade de avaliação; empate desempata pela mais antiga) ou o filtro (where) não compila. O aviso acima da tabela diz qual das duas e quantas regras."
     }
   },
   "form": {
@@ -316,7 +316,7 @@
   "limits": {
     "truncated": {
       "title": "Regras habilitadas que não estão sendo avaliadas",
-      "description": "{{truncated}} de {{total}} regra(s) em voo habilitadas ficaram FORA do teto de {{cap}} por ciclo. O corte é por id crescente: as descartadas são as MAIS RECENTES, inclusive a regra que você acabou de criar. Elas aparecem habilitadas na lista e nunca disparam."
+      "description": "{{truncated}} de {{total}} regra(s) em voo habilitadas ficaram FORA do teto de {{cap}} por ciclo. Sobrevivem as de MAIOR prioridade de avaliação; empate desempata pela mais antiga. As descartadas aparecem habilitadas na lista e nunca disparam — suba a prioridade de avaliação da regra que precisa rodar."
     },
     "uncompilable": {
       "description": "{{uncompilable}} regra(s) estão DENTRO do teto e mesmo assim são descartadas na carga do ciclo, porque o filtro (where) não compila. Elevar o teto não conserta esta causa: corrija o filtro."

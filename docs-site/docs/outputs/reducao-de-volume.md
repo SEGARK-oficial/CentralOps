@@ -69,7 +69,7 @@ Se o mapeamento declara a poda, ela é aplicada. A chave de ambiente corresponde
 | **Permitidos por janela** | Quantos eventos de cada assinatura passam. **0 = desligada** (é o padrão). |
 | **Janela (s)** | De quanto em quanto tempo a contagem reinicia. Padrão: 30 segundos. |
 
-**A chave só aceita as nove características de roteamento** (fornecedor, plataforma, organização, severidade, fluxo, tipo de evento, integração, cliente e geografia). Um campo do log — `src_ip`, `user`, `dst_ip` — é **recusado com erro** na hora de salvar. Também são recusadas características que são únicas por evento, como o identificador do evento e o horário de coleta: uma assinatura única por evento nunca suprimiria nada.
+**A chave só aceita as dez características de roteamento** (fornecedor, plataforma, organização, severidade, fluxo, tipo de evento, integração, cliente, geografia e casou-detecção). Um campo do log — `src_ip`, `user`, `dst_ip` — é **recusado com erro** na hora de salvar. Também são recusadas características que são únicas por evento, como o identificador do evento e o horário de coleta: uma assinatura única por evento nunca suprimiria nada.
 
 **Proteção de detecção:** sim. Uma regra protegida nunca suprime, mesmo que os campos estejam preenchidos.
 
