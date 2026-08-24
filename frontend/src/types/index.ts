@@ -2303,6 +2303,21 @@ export interface CorrelationRuleRead {
    * `group_by_field` muda de papel: vira o seletor da chave de dedup da
    * Detection (ausente ⇒ uma Detection por regra por janela de supressão).
    */
+  /**
+   * ADR-0015 — quem sobrevive ao teto de avaliação por ciclo
+   * (`INFLIGHT_MAX_RULES_PER_CYCLE`, 50 no default), na ordem
+   * `eval_priority DESC, id ASC`. Só tem efeito em `inflight`; em `batch` a
+   * regra é avaliada sempre e o campo fica inerte.
+   *
+   * Toda regra nasce com 0, então sem ninguém digitar um número o corte fica
+   * sendo o histórico — as de MENOR id, isto é, as mais antigas — e a regra
+   * recém-escrita é a primeira a ficar de fora. NEGATIVO é válido e útil:
+   * rebaixa a regra sem desabilitá-la, cedendo a vaga no teto.
+   *
+   * Faixa: int32 com sinal, porque a coluna é `Column(Integer)` (4 bytes no
+   * Postgres). Fora dela a API devolve 422.
+   */
+  eval_priority: number
   eval_mode: "batch" | "inflight"
   group_by_field?: string | null
   min_count: number
@@ -2339,6 +2354,8 @@ export interface CorrelationRuleCreate {
   suppression_window_seconds?: number
   /** ADR-0015. Omitido ⇒ "batch" (nenhuma regra entra no hot path por omissão). */
   eval_mode?: "batch" | "inflight"
+  /** ADR-0015. Omitido ⇒ 0, o mesmo `server_default` da coluna. Ver `CorrelationRuleRead`. */
+  eval_priority?: number
   organization_id?: number
 }
 
@@ -2349,6 +2366,11 @@ export interface CorrelationRuleUpdate {
   severity_id?: number
   /** ADR-0015. Ausente no PATCH ⇒ mantém o modo atual. */
   eval_mode?: "batch" | "inflight"
+  /**
+   * ADR-0015. Ausente no PATCH ⇒ mantém a prioridade atual; enviar `0` REBAIXA
+   * para o default, e é um valor, não um sinônimo de ausente.
+   */
+  eval_priority?: number
   group_by_field?: string
   min_count?: number
   window_seconds?: number
