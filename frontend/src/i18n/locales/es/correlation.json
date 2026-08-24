@@ -58,6 +58,7 @@
       "name": "Nombre",
       "status": "Estado",
       "severity": "Severidad",
+      "evalPriority": "Prioridad",
       "groupBy": "Agrupar por",
       "minCount": "Mín. eventos",
       "window": "Ventana (s)",
@@ -89,6 +90,7 @@
     },
     "mobile": {
       "severity": "Severidad: {{value}}",
+      "evalPriority": "Prioridad: {{value}}",
       "minCount": "Mín: {{value}} eventos",
       "window": "Ventana: {{value}}s",
       "groupBy": "Agrupar:"
@@ -104,7 +106,8 @@
     "inflight": {
       "notEvaluatedBadge": "No evaluada",
       "notEvaluatedTooltip": "Regla habilitada, en modo en vuelo, que NO entra en el ciclo de evaluación. Dos causas posibles: quedó por encima del tope de reglas por ciclo (sobreviven las de mayor prioridad de evaluación; el empate se resuelve por la más antigua) o el filtro (where) no compila. El aviso encima de la tabla dice cuál de las dos y cuántas reglas."
-    }
+    },
+    "evalPriorityTooltip": "Orden de evaluación en vuelo: mayor prioridad se ejecuta primero; el empate se resuelve por la más antigua. Sin efecto en lote."
   },
   "form": {
     "field": {
@@ -132,6 +135,11 @@
         },
         "ignoredFields": "En vuelo el motor IGNORA mín. de eventos, ventana y campo de timestamp; por eso desaparecen de aquí. Los valores siguen guardados y vuelven a valer si cambia a por lotes.",
         "opsCaveat": "El motor en vuelo entiende además los operadores in, nin y existe — la API de reglas no: pedir uno de ellos es 422. El constructor de abajo ofrece solo los 7 que pasan hoy, y valen para los dos modos."
+      },
+      "evalPriority": {
+        "label": "Prioridad de evaluación",
+        "helperTextInflight": "Solo las {{cap}} reglas en vuelo de MAYOR prioridad se ejecutan en cada ciclo; el empate se resuelve por la más antigua. Toda regla nace en 0, así que sin un número aquí la tuya es la primera en quedar fuera. Negativo es válido: degrada la regla sin deshabilitarla.",
+        "helperTextBatch": "Sin efecto en lote — la regla se evalúa siempre. El valor se conserva y vuelve a aplicarse si cambias el modo a en vuelo."
       },
       "groupBy": {
         "label": "Agrupar por (ruta con puntos)",
@@ -166,7 +174,8 @@
       "minCountMin": "Mínimo de 1 evento",
       "windowMin": "Ventana mínima de 10 segundos",
       "timestampRequired": "Obligatorio cuando hay ventana. Sin él la ventana se ignora",
-      "whereRequiredInflight": "En vuelo al menos un filtro es obligatorio: sin filtro la regla casaría con el 100% de los eventos, y la API rechaza guardarla."
+      "whereRequiredInflight": "En vuelo al menos un filtro es obligatorio: sin filtro la regla casaría con el 100% de los eventos, y la API rechaza guardarla.",
+      "evalPriorityRange": "Usa un número entero entre {{min}} y {{max}}"
     },
     "actions": {
       "cancel": "Cancelar"

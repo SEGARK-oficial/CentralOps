@@ -58,6 +58,7 @@
       "name": "Nome",
       "status": "Status",
       "severity": "Severidade",
+      "evalPriority": "Prioridade",
       "groupBy": "Agrupar por",
       "minCount": "Mín. eventos",
       "window": "Janela (s)",
@@ -89,6 +90,7 @@
     },
     "mobile": {
       "severity": "Severidade: {{value}}",
+      "evalPriority": "Prioridade: {{value}}",
       "minCount": "Mín: {{value}} eventos",
       "window": "Janela: {{value}}s",
       "groupBy": "Agrupar:"
@@ -104,7 +106,8 @@
     "inflight": {
       "notEvaluatedBadge": "Não avaliada",
       "notEvaluatedTooltip": "Regra habilitada, em modo em voo, que NÃO entra no ciclo de avaliação. Duas causas possíveis: ela ficou acima do teto de regras por ciclo (sobrevivem as de maior prioridade de avaliação; empate desempata pela mais antiga) ou o filtro (where) não compila. O aviso acima da tabela diz qual das duas e quantas regras."
-    }
+    },
+    "evalPriorityTooltip": "Ordem de avaliação em voo: maior prioridade roda primeiro; empate desempata pela mais antiga. Sem efeito em lote."
   },
   "form": {
     "field": {
@@ -132,6 +135,11 @@
         },
         "ignoredFields": "Em voo o motor IGNORA mínimo de eventos, janela e campo de timestamp; por isso eles somem daqui. Os valores continuam salvos e voltam a valer se você trocar para em lote.",
         "opsCaveat": "O motor em voo ainda entende os operadores in, nin e existe — a API de regras não: pedir um deles é 422. O construtor abaixo oferece só os 7 que passam hoje, e valem para os dois modos."
+      },
+      "evalPriority": {
+        "label": "Prioridade de avaliação",
+        "helperTextInflight": "Só as {{cap}} regras em voo de MAIOR prioridade rodam a cada ciclo; empate desempata pela mais antiga. Toda regra nasce em 0, então sem um número aqui a sua é a primeira a ficar de fora. Negativo é válido: rebaixa a regra sem desabilitá-la.",
+        "helperTextBatch": "Sem efeito em lote — a regra é avaliada sempre. O valor fica guardado e volta a valer se você trocar o modo para em voo."
       },
       "groupBy": {
         "label": "Agrupar por (dotted-path)",
@@ -166,7 +174,8 @@
       "minCountMin": "Mínimo de 1 evento",
       "windowMin": "Janela mínima de 10 segundos",
       "timestampRequired": "Obrigatório quando há janela. Sem ele a janela é ignorada",
-      "whereRequiredInflight": "Em voo, pelo menos um filtro é obrigatório: sem filtro a regra casaria 100% dos eventos, e a API recusa a gravação."
+      "whereRequiredInflight": "Em voo, pelo menos um filtro é obrigatório: sem filtro a regra casaria 100% dos eventos, e a API recusa a gravação.",
+      "evalPriorityRange": "Use um número inteiro entre {{min}} e {{max}}"
     },
     "actions": {
       "cancel": "Cancelar"

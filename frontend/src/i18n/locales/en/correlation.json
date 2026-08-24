@@ -58,6 +58,7 @@
       "name": "Name",
       "status": "Status",
       "severity": "Severity",
+      "evalPriority": "Priority",
       "groupBy": "Group by",
       "minCount": "Min. events",
       "window": "Window (s)",
@@ -89,6 +90,7 @@
     },
     "mobile": {
       "severity": "Severity: {{value}}",
+      "evalPriority": "Priority: {{value}}",
       "minCount": "Min: {{value}} events",
       "window": "Window: {{value}}s",
       "groupBy": "Group by:"
@@ -104,7 +106,8 @@
     "inflight": {
       "notEvaluatedBadge": "Not evaluated",
       "notEvaluatedTooltip": "Enabled in-flight rule that does NOT enter the evaluation cycle. Two possible causes: it fell above the per-cycle rule cap (the highest evaluation priority survives; ties break toward the oldest), or its filter (where) does not compile. The notice above the table says which one, and how many rules."
-    }
+    },
+    "evalPriorityTooltip": "In-flight evaluation order: higher priority runs first; ties break toward the oldest. No effect in batch."
   },
   "form": {
     "field": {
@@ -132,6 +135,11 @@
         },
         "ignoredFields": "In-flight the engine IGNORES min. events, window and timestamp field; that is why they disappear from here. The values stay saved and apply again if you switch back to batch.",
         "opsCaveat": "The in-flight engine also understands the in, nin and exists operators — the rules API does not: asking for one of them is a 422. The builder below offers only the 7 that pass today, and they hold in both modes."
+      },
+      "evalPriority": {
+        "label": "Evaluation priority",
+        "helperTextInflight": "Only the {{cap}} in-flight rules with the HIGHEST priority run each cycle; ties break toward the oldest. Every rule starts at 0, so without a number here yours is the first to be dropped. Negative is valid: it demotes the rule without disabling it.",
+        "helperTextBatch": "No effect in batch — the rule is always evaluated. The value is kept and applies again if you switch the mode to in-flight."
       },
       "groupBy": {
         "label": "Group by (dotted path)",
@@ -166,7 +174,8 @@
       "minCountMin": "Minimum of 1 event",
       "windowMin": "Minimum window of 10 seconds",
       "timestampRequired": "Required when there is a window. Without it the window is ignored",
-      "whereRequiredInflight": "In-flight at least one filter is required: with no filter the rule would match 100% of events, and the API refuses to store it."
+      "whereRequiredInflight": "In-flight at least one filter is required: with no filter the rule would match 100% of events, and the API refuses to store it.",
+      "evalPriorityRange": "Use a whole number between {{min}} and {{max}}"
     },
     "actions": {
       "cancel": "Cancel"
