@@ -221,6 +221,47 @@ describe("CollectorsPage", () => {
     )
   })
 
+  // ── O badge não pode inventar saúde a partir de timestamp ilegível ────────
+
+  it("timestamp NO FUTURO não vira 'Ativo' verde", async () => {
+    // O `Math.max(0, …)` achatava qualquer futuro em 0 min e caía no ramo
+    // verde. Enquanto a API serializava naive-UTC sem fuso, TODA coleta das
+    // últimas horas caía aqui num browser a oeste de UTC — foi assim que uma
+    // linha apareceu "Ativo" durante um apagão de coleta (ago/2026). A causa
+    // está corrigida no servidor; esta guarda cobre o skew de relógio que
+    // sobra.
+    mockedApi.listCollectionState.mockResolvedValue([
+      { ...sampleStates[0], last_success_at: agoIso(-3 * 3600) },
+    ])
+
+    render(
+      <MemoryRouter>
+        <CollectorsPage />
+      </MemoryRouter>,
+    )
+
+    await screen.findByText("ACME Corp")
+    expect(screen.getByText("Relógio fora de sincronia")).toBeInTheDocument()
+    expect(screen.queryByText("Ativo")).not.toBeInTheDocument()
+  })
+
+  it("coleta recente de verdade continua 'Ativo'", async () => {
+    // Controle POSITIVO do teste acima: sem ele, uma guarda larga demais
+    // apagaria o verde de toda a frota e o par passaria assim mesmo.
+    mockedApi.listCollectionState.mockResolvedValue([
+      { ...sampleStates[0], last_success_at: agoIso(30) },
+    ])
+
+    render(
+      <MemoryRouter>
+        <CollectorsPage />
+      </MemoryRouter>,
+    )
+
+    await screen.findByText("ACME Corp")
+    expect(screen.getByText("Ativo")).toBeInTheDocument()
+  })
+
   // ── "Quando rodou" × "de quando é o dado" ──────────────────────────────────
   // Esta é a única visão do produto por (integração, FLUXO): a Saúde do Pipeline
   // agrega N fluxos pelo pior e não diz qual. É aqui que o culpado tem nome.

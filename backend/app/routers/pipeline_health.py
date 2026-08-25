@@ -26,6 +26,7 @@ from sqlalchemy.orm import Session
 from ..core import auth as app_auth
 from ..core import tenant
 from ..core.config import settings
+from ..core.datetime_utils import UtcDateTime
 from ..core.errors import ApiError
 from ..db import database, models
 
@@ -53,6 +54,15 @@ _SNAPSHOT_TTL = 300  # 5 minutos
 # (``CollectorRegistration.schedule``). Um env que afrouxa o limiar sem mexer na
 # cadência só serve para silenciar o sinal.
 _BACKLOG_LAG_THRESHOLD_SECONDS = 30 * 60
+
+#: Quantas CADÊNCIAS um stream pode perder antes de ser considerado PARADO.
+#: Três ciclos não é jitter de scheduler nem um ciclo que atrasou — é falha.
+_STALE_STREAM_CADENCE_FACTOR = 3
+
+#: Piso absoluto do limiar acima. Sem ele, um stream de cadência curta (push
+#: drena buffer a cada 20s) dispararia com 1 min de atraso e o indicador
+#: queimaria na primeira semana.
+_STALE_STREAM_MIN_SECONDS = 300
 
 
 # ── Schemas ───────────────────────────────────────────────────────────
@@ -84,6 +94,15 @@ class IntegrationPipelineHealth(BaseModel):
     coleta terminou agora?", ``watermark_lag_seconds`` responde "até onde na linha
     do tempo do fornecedor nós chegamos?". Foi por só existir a primeira que um
     coletor 15h atrasado reportou ``lag_seconds: 0`` e ``healthy`` por semanas.
+
+    ``stale_stream`` é a terceira pergunta, e agrega pelo PIOR: "algum stream
+    parou de rodar?". As outras duas não a respondem. ``lag_seconds`` é cego
+    porque os streams vivos reescrevem o máximo a cada ciclo; e
+    ``watermark_lag_seconds`` também é, porque um stream parado mantém o watermark
+    parado, que é indistinguível de uma fonte sem eventos no período. Só a
+    comparação de CADA stream com a PRÓPRIA cadência separa "não veio nada" de
+    "não rodou" — um limiar único não serve, porque a frota vai de 20s (push) a
+    horas (bulk).
     """
 
     integration_id: int
@@ -104,11 +123,25 @@ class IntegrationPipelineHealth(BaseModel):
     #: funcionando); é o par com ``watermark_lag_seconds`` que caracteriza.
     backlog_detected: bool
     last_error: Optional[str]
-    last_success_at: Optional[datetime]
+    last_success_at: Optional[UtcDateTime]
+    #: Nome do stream PARADO — o que mais perdeu ciclos em relação à PRÓPRIA
+    #: cadência. ``None`` = nenhum stream desta integração está parado.
+    #:
+    #: Existe porque ``lag_seconds`` agrega por ``max(last_success_at)`` e
+    #: portanto é cego para o caso em que UM stream morre enquanto os irmãos
+    #: seguem coletando: os vivos reescrevem o máximo a cada ciclo e o card
+    #: responde ``healthy``. Incidente ago/2026 — integração com 4 streams,
+    #: um deles parado há 364 min, ``status: healthy, lag_seconds: 18``.
+    #:
+    #: Sem default de propósito (mesmo motivo de ``watermark_lag_seconds``):
+    #: entrada de cache da versão anterior falha a validação e é recomputada.
+    stale_stream: Optional[str]
+    #: ``agora − last_success_at`` do stream nomeado em ``stale_stream``.
+    stale_stream_lag_seconds: Optional[int]
     mapped_field_ratio: Optional[float]
     drift_count_24h: int
     quarantine_count_24h: int
-    cached_at: datetime
+    cached_at: UtcDateTime
 
 
 class BulkPipelineHealthResponse(BaseModel):
@@ -116,10 +149,77 @@ class BulkPipelineHealthResponse(BaseModel):
 
     items: List[IntegrationPipelineHealth]
     total: int
-    cached_at: datetime
+    cached_at: UtcDateTime
 
 
 # ── Lógica pura (sem cache — testável isolada) ────────────────────────
+
+
+def _worst_stale_stream(
+    db: Session,
+    integration_id: int,
+    platform: Optional[str],
+    now: datetime,
+) -> "tuple[Optional[str], Optional[int]]":
+    """O stream que mais perdeu ciclos em relação à PRÓPRIA cadência.
+
+    Retorna ``(stream, lag_seconds)`` ou ``(None, None)`` quando nenhum stream
+    passou do limiar. O limiar é por stream —
+    ``max(_STALE_STREAM_MIN_SECONDS, cadência × _STALE_STREAM_CADENCE_FACTOR)`` —
+    porque a frota vai de 20s a horas: um valor único ou não pega o stream de
+    cadência longa, ou pinta de vermelho todo stream de cadência curta.
+
+    Ordena por RAZÃO (atraso ÷ limiar), não por segundos absolutos. Um stream de
+    1 min parado há 10 (10× a própria cadência, quebrado) importa mais que um de
+    1h parado há 70 (1,2×, provavelmente só jitter) — mesmo o segundo tendo o
+    número maior. O campo devolvido continua em segundos, que é o que o operador
+    lê.
+
+    Fail-open em duas frentes, ambas deliberadas: stream que o registry não
+    resolve é PULADO (sem cadência não há limiar, e inventar um alarmaria por
+    ruído), e ``last_success_at IS NULL`` também (nunca coletou não tem baseline
+    de onde medir — esse caso já é ``unknown`` no nível da integração).
+    """
+    if not platform:
+        return (None, None)
+
+    try:  # lazy: routers não importa collectors no topo (peso de import + ciclo)
+        from ..collectors.registry import get as _registry_get
+    except Exception:  # pragma: no cover — sem registry não há cadência a comparar
+        return (None, None)
+
+    rows = db.execute(
+        select(
+            models.CollectionState.stream,
+            models.CollectionState.last_success_at,
+        ).where(
+            models.CollectionState.integration_id == integration_id,
+            models.CollectionState.last_success_at.isnot(None),
+        )
+    ).all()
+
+    worst_stream: Optional[str] = None
+    worst_lag: Optional[int] = None
+    worst_ratio = 1.0  # só entra quem PASSOU do próprio limiar (razão > 1)
+
+    for row in rows:
+        try:
+            cadence = int(_registry_get(platform, row.stream).schedule.total_seconds())
+        except Exception:  # noqa: BLE001 — stream fora do registry: sem limiar
+            continue
+        if cadence <= 0:
+            continue
+        threshold = max(
+            _STALE_STREAM_MIN_SECONDS, cadence * _STALE_STREAM_CADENCE_FACTOR
+        )
+        lag = max(0, int((now - row.last_success_at).total_seconds()))
+        ratio = lag / threshold
+        if ratio > worst_ratio:
+            worst_ratio = ratio
+            worst_stream = row.stream
+            worst_lag = lag
+
+    return (worst_stream, worst_lag)
 
 
 def _determine_status(
@@ -129,14 +229,23 @@ def _determine_status(
     last_error: Optional[str],
     backlog_detected: bool = False,
     backlog_lag_seconds: Optional[int] = None,
+    stale_stream: Optional[str] = None,
 ) -> Literal["healthy", "degraded", "unhealthy", "unknown"]:
     """Determina status de saúde a partir dos indicadores do pipeline.
 
     Regras (em ordem de prioridade):
     1. ``unknown`` — nunca coletou (last_success_at IS NULL).
-    2. ``unhealthy`` — lag > 300s OU consecutive_failures >= 3.
+    2. ``unhealthy`` — lag > 300s OU consecutive_failures >= 3 OU algum stream
+       parado (``stale_stream``).
     3. ``degraded`` — backlog confirmado OU last_error presente.
     4. ``healthy`` — caso contrário.
+
+    **Stream parado é ``unhealthy``, e não ``degraded``.** A régua da regra 2 é
+    "parou de coletar", e é exatamente isso que aconteceu — só que num stream, e
+    não na integração inteira. Rebaixar para ``degraded`` porque os irmãos ainda
+    coletam é a mesma anistia que ``max(last_success_at)`` já dava, com outro
+    nome. Repare que ``lag_seconds`` sozinho NUNCA pega este caso: ele é o
+    máximo, e os streams vivos o reescrevem a cada ciclo.
 
     **Backlog confirmado exige as DUAS condições**: o último ciclo parou no teto
     de páginas (``backlog_detected``) E o watermark está mais de
@@ -168,6 +277,8 @@ def _determine_status(
     if lag_seconds is not None and lag_seconds > 300:
         return "unhealthy"
     if consecutive_failures_max >= 3:
+        return "unhealthy"
+    if stale_stream is not None:
         return "unhealthy"
     if (
         backlog_detected
@@ -393,6 +504,13 @@ def compute_pipeline_health(
         )
     ).scalar_one()
 
+    # ── Stream parado ─────────────────────────────────────────────────
+    # Depois de ``vendor`` estar resolvido: o limiar sai da cadência declarada
+    # pelo registry, que é indexada por (platform, stream).
+    stale_stream, stale_stream_lag_seconds = _worst_stale_stream(
+        db, integration_id, vendor, now
+    )
+
     # ── Determina status ──────────────────────────────────────────────
     health_status = _determine_status(
         last_success_at=max_success,
@@ -401,6 +519,7 @@ def compute_pipeline_health(
         last_error=last_error,
         backlog_detected=backlog_detected,
         backlog_lag_seconds=backlog_lag_seconds,
+        stale_stream=stale_stream,
     )
 
     return IntegrationPipelineHealth(
@@ -412,6 +531,8 @@ def compute_pipeline_health(
         backlog_detected=backlog_detected,
         last_error=last_error,
         last_success_at=max_success,
+        stale_stream=stale_stream,
+        stale_stream_lag_seconds=stale_stream_lag_seconds,
         mapped_field_ratio=mapped_field_ratio,
         drift_count_24h=drift_count_24h,
         quarantine_count_24h=quarantine_count_24h,

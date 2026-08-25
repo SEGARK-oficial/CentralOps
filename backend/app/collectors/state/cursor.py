@@ -85,10 +85,35 @@ class CursorStore:
         payload = json.dumps(cursor, separators=(",", ":"), default=str)
 
         # Hot path primeiro — se Postgres falhar, ainda temos o cursor em Redis.
-        await self.redis.set(
-            HOT_KEY.format(integration_id=integration_id, stream=stream),
-            payload,
-        )
+        #
+        # BEST-EFFORT (ago/2026). Antes esta escrita não tinha guarda, e um Redis
+        # que RECUSA ESCRITA — MISCONF por disco cheio, réplica READONLY, failover
+        # em curso — levantava aqui e o ``upsert`` abaixo NUNCA rodava. O detalhe
+        # que transformou isso num apagão de horas: o registro do ERRO de um ciclo
+        # também passa por este mesmo método, então a falha apagava o próprio
+        # rastro. ``consecutive_failures`` ficava em 0 e ``last_error`` em NULL
+        # enquanto a coleta estava parada, e todo painel lia "saudável" — inclusive
+        # a regra de ``pipeline_health`` que escala para ``unhealthy`` em 3 falhas
+        # consecutivas, que nunca chegou a contar a primeira.
+        #
+        # O Postgres é a fonte da verdade e agora é gravado SEMPRE. Divergir dele o
+        # hot path custa no máximo uma re-coleta da borda no ciclo seguinte (o
+        # ``load`` lê o Redis primeiro, e a dedupe absorve a sobreposição) — preço
+        # muito menor que perder o sinal de que a coleta morreu.
+        try:
+            await self.redis.set(
+                HOT_KEY.format(integration_id=integration_id, stream=stream),
+                payload,
+            )
+        except Exception:  # noqa: BLE001 — degradar, nunca suprimir o registro
+            logger.warning(
+                "cursor: falha ao gravar o hot path (integration=%s stream=%s) — "
+                "o estado vai para o Postgres mesmo assim; o próximo ciclo relê o "
+                "cursor ANTIGO do Redis e a dedupe absorve a sobreposição",
+                integration_id,
+                stream,
+                exc_info=True,
+            )
 
         with database.SessionLocal() as db:
             repo = CollectionStateRepository(db)

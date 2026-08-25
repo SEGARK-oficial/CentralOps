@@ -879,6 +879,12 @@ def test_pipeline_health_response_schema_complete(client_factory: Any) -> None:
         "backlog_detected",
         "last_error",
         "last_success_at",
+        # Nomeiam o stream que PAROU. ``lag_seconds`` agrega por
+        # ``max(last_success_at)`` e por isso é cego quando UM stream morre e os
+        # irmãos seguem coletando — os vivos reescrevem o máximo a cada ciclo.
+        # Ver test_pipeline_health_stale_stream.py.
+        "stale_stream",
+        "stale_stream_lag_seconds",
         "mapped_field_ratio",
         "drift_count_24h",
         "quarantine_count_24h",

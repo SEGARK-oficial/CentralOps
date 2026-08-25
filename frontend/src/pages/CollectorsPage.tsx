@@ -68,6 +68,13 @@ function hasBacklog(row: CollectionState): boolean {
   return Boolean(row.last_run_capped) && lag !== null && lag > BACKLOG_LAG_THRESHOLD_SECONDS
 }
 
+/**
+ * Folga para skew de relógio entre o servidor e a máquina do operador antes de
+ * tratar um timestamp futuro como suspeito. 2 min cobre drift de NTP e o
+ * round-trip da resposta sem transformar ruído em alarme.
+ */
+const CLOCK_SKEW_TOLERANCE_MS = 2 * 60_000
+
 /** Decide a cor do badge conforme "idade" da última coleta bem-sucedida. */
 function healthBadge(
   row: CollectionState,
@@ -79,10 +86,19 @@ function healthBadge(
   if (!row.last_success_at) {
     return { variant: "outline", label: t("collectorsPage.health.noCollection") }
   }
-  const minutes = Math.max(
-    0,
-    Math.floor((Date.now() - new Date(row.last_success_at).getTime()) / 60_000),
-  )
+  const ageMs = Date.now() - new Date(row.last_success_at).getTime()
+  // Timestamp NO FUTURO não é "coletou agora" — é relógio divergente, e dizer
+  // "Ativo" nesse caso é afirmar saúde a partir de um dado que não dá para
+  // interpretar. O `Math.max(0, …)` abaixo achatava qualquer futuro em 0 min e
+  // caía no ramo verde: enquanto a API serializava naive-UTC sem fuso (corrigido
+  // em core/datetime_utils.UtcDateTime), TODA linha coletada nas últimas horas
+  // aparecia verde num browser a oeste de UTC. A causa foi removida no servidor;
+  // esta guarda cobre o que sobra — skew real entre o relógio do host e o do
+  // operador — em vez de deixar o mesmo silêncio à espera de outra origem.
+  if (ageMs < -CLOCK_SKEW_TOLERANCE_MS) {
+    return { variant: "warning", label: t("collectorsPage.health.clockFuture") }
+  }
+  const minutes = Math.max(0, Math.floor(ageMs / 60_000))
   if (minutes <= 10) return { variant: "success", label: t("collectorsPage.health.active") }
   if (minutes <= 60) return { variant: "warning", label: t("collectorsPage.health.minutesAgo", { minutes }) }
   return { variant: "danger", label: t("collectorsPage.health.minutesAgo", { minutes }) }

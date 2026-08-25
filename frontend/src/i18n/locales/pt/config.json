@@ -113,7 +113,8 @@
       "failures": "Falhas: {{count}}",
       "noCollection": "Sem coleta",
       "active": "Ativo",
-      "minutesAgo": "{{minutes}} min atrás"
+      "minutesAgo": "{{minutes}} min atrás",
+      "clockFuture": "Relógio fora de sincronia"
     },
     "resetModal": {
       "title": "Zerar cursor?",

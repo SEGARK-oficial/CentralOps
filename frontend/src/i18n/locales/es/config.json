@@ -113,7 +113,8 @@
       "failures": "Fallos: {{count}}",
       "noCollection": "Sin recolección",
       "active": "Activo",
-      "minutesAgo": "hace {{minutes}} min"
+      "minutesAgo": "hace {{minutes}} min",
+      "clockFuture": "Reloj desincronizado"
     },
     "resetModal": {
       "title": "¿Reiniciar cursor?",
