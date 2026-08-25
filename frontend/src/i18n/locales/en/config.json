@@ -113,7 +113,8 @@
       "failures": "Failures: {{count}}",
       "noCollection": "No collection",
       "active": "Active",
-      "minutesAgo": "{{minutes}} min ago"
+      "minutesAgo": "{{minutes}} min ago",
+      "clockFuture": "Clock out of sync"
     },
     "resetModal": {
       "title": "Reset cursor?",

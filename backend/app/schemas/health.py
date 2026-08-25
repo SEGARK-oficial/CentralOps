@@ -10,6 +10,8 @@ from typing import List, Literal, Optional
 
 from pydantic import BaseModel, Field
 
+from ..core.datetime_utils import UtcDateTime
+
 
 class HealthMetric(BaseModel):
     """Unidade atômica de saúde de um provider.
@@ -40,6 +42,6 @@ class HealthResponse(BaseModel):
 
     schema_version: Literal[2] = 2
     platform: str
-    last_collection_at: Optional[datetime] = None
-    last_success_at: Optional[datetime] = None
+    last_collection_at: Optional[UtcDateTime] = None
+    last_success_at: Optional[UtcDateTime] = None
     metrics: List[HealthMetric] = Field(default_factory=list)

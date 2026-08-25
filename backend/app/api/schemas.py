@@ -12,6 +12,7 @@ from pydantic import (
 )
 import re
 
+from ..core.datetime_utils import UtcDateTime
 from ..core.url_policy import normalize_service_url
 from ..core.config import settings
 
@@ -1513,15 +1514,15 @@ class CollectionStateRead(BaseModel):
     platform: Optional[str] = None
     stream: str
     cursor: Optional[Dict[str, Any]] = None
-    last_success_at: Optional[datetime] = None
-    last_attempt_at: Optional[datetime] = None
+    last_success_at: Optional[UtcDateTime] = None
+    last_attempt_at: Optional[UtcDateTime] = None
     # Instante do FORNECEDOR até onde o cursor consumiu. É a ÚNICA medida de
     # atraso que não mente: ``last_success_at`` é reescrito com ``agora`` a cada
     # ciclo sem erro, mesmo quando o ciclo processou o dia anterior.
     #
     # ``None`` quando não medível (cursor não temporal, ou nada coletado ainda) —
     # a tela deve OMITIR a coluna nesse caso, nunca renderizar 0.
-    watermark_at: Optional[datetime] = None
+    watermark_at: Optional[UtcDateTime] = None
     # O último ciclo parou no teto de páginas ⇒ sobrou trabalho para o próximo.
     # Só junto com ``watermark_at`` atrasado é que caracteriza backlog: um stream
     # sem eventos mantém o watermark legitimamente parado.
@@ -1529,7 +1530,7 @@ class CollectionStateRead(BaseModel):
     last_error: Optional[str] = None
     consecutive_failures: int = 0
     events_collected_total: int = 0
-    updated_at: Optional[datetime] = None
+    updated_at: Optional[UtcDateTime] = None
 
     model_config = ConfigDict(from_attributes=True)
 
