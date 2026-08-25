@@ -30,6 +30,44 @@ services:
       target: final
     image: ${IMAGE_NAME:-centralops}:${IMAGE_TAG:-latest}
     environment:
+      # ── Features dos ADRs — declaradas em TODOS os serviços da app ──────
+      #
+      # Elas não estavam em serviço NENHUM, e o efeito era pior que um default
+      # ruim: como não há `env_file:` no compose, o `compose/.env` só serve para
+      # interpolar `${VAR}` AQUI. Uma linha `OCSF_VALIDATION_ENABLED=true` no
+      # `.env` não virava variável do processo — era no-op MUDO. Não existia
+      # caminho suportado para ligar nem para DESLIGAR nada disto.
+      #
+      # TUDO OU NADA, e o critério não é estético: `GET /correlation-rules/limits`
+      # devolve `inflight_cap_as_seen_by_api`, e o nome já admite o problema —
+      # quem AVALIA é o worker, quem RESPONDE é a API, e as duas leem a var em
+      # processos diferentes. Declarar só nos workers (o gesto natural, "é config
+      # de coletor") faz a API responder 50 com confiança total enquanto o
+      # coletor corta em outro número: `truncated_count` vira ficção. É a forma
+      # exata do incidente do broker partido. Guarda: os testes de paridade de
+      # compose no Core e no EE.
+      #
+      # Todos os defaults abaixo REPETEM o default do código, então subir a stack
+      # sem `.env` produz exatamente o comportamento de antes deste bloco.
+      #
+      # ADR-0012 — validação OCSF. Nasce desligada. `tag_and_pass` marca e deixa
+      # passar; `quarantine`/`drop` retêm. Não ligue enforcement sem antes medir
+      # o volume de inválidos.
+      - OCSF_VALIDATION_ENABLED=${OCSF_VALIDATION_ENABLED:-false}
+      - OCSF_DEFAULT_ENFORCEMENT=${OCSF_DEFAULT_ENFORCEMENT:-tag_and_pass}
+      # ADR-0015 — detecção em voo. O teto é por CICLO e o corte é por
+      # `eval_priority DESC, id ASC`: acima dele a regra fica verde na lista e
+      # nunca dispara.
+      - INFLIGHT_MAX_RULES_PER_CYCLE=${INFLIGHT_MAX_RULES_PER_CYCLE:-50}
+      - INFLIGHT_MAX_WHERE_CLAUSES=${INFLIGHT_MAX_WHERE_CLAUSES:-10}
+      # Emitir a Detection como evento OCSF 2004 para os destinos. MUDA VOLUME E
+      # CUSTO do SIEM do cliente — por isso nasce desligada, e por isso se liga
+      # por ambiente e nunca invertendo o default no código.
+      - INFLIGHT_EMIT_OCSF_EVENT=${INFLIGHT_EMIT_OCSF_EVENT:-false}
+      # Teto de regras por org (4x o de avaliação, de propósito).
+      - CORRELATION_MAX_RULES_PER_ORG=${CORRELATION_MAX_RULES_PER_ORG:-200}
+      # ADR-LOCAL-0002 — enriquecimento. Nasce LIGADO (a doc dizia o contrário).
+      - ENRICHMENT_ENABLED=${ENRICHMENT_ENABLED:-true}
       - DEBUG_REQUESTS=${DEBUG_REQUESTS:-0}
       - APP_MASTER_KEY=${APP_MASTER_KEY:-}
       # 5 — observabilidade OTLP-PUSH p/ o Collector externo
@@ -337,6 +375,44 @@ services:
       - --concurrency=4
       - --loglevel=info
     environment:
+      # ── Features dos ADRs — declaradas em TODOS os serviços da app ──────
+      #
+      # Elas não estavam em serviço NENHUM, e o efeito era pior que um default
+      # ruim: como não há `env_file:` no compose, o `compose/.env` só serve para
+      # interpolar `${VAR}` AQUI. Uma linha `OCSF_VALIDATION_ENABLED=true` no
+      # `.env` não virava variável do processo — era no-op MUDO. Não existia
+      # caminho suportado para ligar nem para DESLIGAR nada disto.
+      #
+      # TUDO OU NADA, e o critério não é estético: `GET /correlation-rules/limits`
+      # devolve `inflight_cap_as_seen_by_api`, e o nome já admite o problema —
+      # quem AVALIA é o worker, quem RESPONDE é a API, e as duas leem a var em
+      # processos diferentes. Declarar só nos workers (o gesto natural, "é config
+      # de coletor") faz a API responder 50 com confiança total enquanto o
+      # coletor corta em outro número: `truncated_count` vira ficção. É a forma
+      # exata do incidente do broker partido. Guarda: os testes de paridade de
+      # compose no Core e no EE.
+      #
+      # Todos os defaults abaixo REPETEM o default do código, então subir a stack
+      # sem `.env` produz exatamente o comportamento de antes deste bloco.
+      #
+      # ADR-0012 — validação OCSF. Nasce desligada. `tag_and_pass` marca e deixa
+      # passar; `quarantine`/`drop` retêm. Não ligue enforcement sem antes medir
+      # o volume de inválidos.
+      - OCSF_VALIDATION_ENABLED=${OCSF_VALIDATION_ENABLED:-false}
+      - OCSF_DEFAULT_ENFORCEMENT=${OCSF_DEFAULT_ENFORCEMENT:-tag_and_pass}
+      # ADR-0015 — detecção em voo. O teto é por CICLO e o corte é por
+      # `eval_priority DESC, id ASC`: acima dele a regra fica verde na lista e
+      # nunca dispara.
+      - INFLIGHT_MAX_RULES_PER_CYCLE=${INFLIGHT_MAX_RULES_PER_CYCLE:-50}
+      - INFLIGHT_MAX_WHERE_CLAUSES=${INFLIGHT_MAX_WHERE_CLAUSES:-10}
+      # Emitir a Detection como evento OCSF 2004 para os destinos. MUDA VOLUME E
+      # CUSTO do SIEM do cliente — por isso nasce desligada, e por isso se liga
+      # por ambiente e nunca invertendo o default no código.
+      - INFLIGHT_EMIT_OCSF_EVENT=${INFLIGHT_EMIT_OCSF_EVENT:-false}
+      # Teto de regras por org (4x o de avaliação, de propósito).
+      - CORRELATION_MAX_RULES_PER_ORG=${CORRELATION_MAX_RULES_PER_ORG:-200}
+      # ADR-LOCAL-0002 — enriquecimento. Nasce LIGADO (a doc dizia o contrário).
+      - ENRICHMENT_ENABLED=${ENRICHMENT_ENABLED:-true}
       - SERVICE_ROLE=worker
       - APP_MASTER_KEY=${APP_MASTER_KEY:-}
       # 5 — observabilidade OTLP-PUSH p/ o Collector externo
@@ -432,6 +508,44 @@ services:
       - --concurrency=8
       - --loglevel=info
     environment:
+      # ── Features dos ADRs — declaradas em TODOS os serviços da app ──────
+      #
+      # Elas não estavam em serviço NENHUM, e o efeito era pior que um default
+      # ruim: como não há `env_file:` no compose, o `compose/.env` só serve para
+      # interpolar `${VAR}` AQUI. Uma linha `OCSF_VALIDATION_ENABLED=true` no
+      # `.env` não virava variável do processo — era no-op MUDO. Não existia
+      # caminho suportado para ligar nem para DESLIGAR nada disto.
+      #
+      # TUDO OU NADA, e o critério não é estético: `GET /correlation-rules/limits`
+      # devolve `inflight_cap_as_seen_by_api`, e o nome já admite o problema —
+      # quem AVALIA é o worker, quem RESPONDE é a API, e as duas leem a var em
+      # processos diferentes. Declarar só nos workers (o gesto natural, "é config
+      # de coletor") faz a API responder 50 com confiança total enquanto o
+      # coletor corta em outro número: `truncated_count` vira ficção. É a forma
+      # exata do incidente do broker partido. Guarda: os testes de paridade de
+      # compose no Core e no EE.
+      #
+      # Todos os defaults abaixo REPETEM o default do código, então subir a stack
+      # sem `.env` produz exatamente o comportamento de antes deste bloco.
+      #
+      # ADR-0012 — validação OCSF. Nasce desligada. `tag_and_pass` marca e deixa
+      # passar; `quarantine`/`drop` retêm. Não ligue enforcement sem antes medir
+      # o volume de inválidos.
+      - OCSF_VALIDATION_ENABLED=${OCSF_VALIDATION_ENABLED:-false}
+      - OCSF_DEFAULT_ENFORCEMENT=${OCSF_DEFAULT_ENFORCEMENT:-tag_and_pass}
+      # ADR-0015 — detecção em voo. O teto é por CICLO e o corte é por
+      # `eval_priority DESC, id ASC`: acima dele a regra fica verde na lista e
+      # nunca dispara.
+      - INFLIGHT_MAX_RULES_PER_CYCLE=${INFLIGHT_MAX_RULES_PER_CYCLE:-50}
+      - INFLIGHT_MAX_WHERE_CLAUSES=${INFLIGHT_MAX_WHERE_CLAUSES:-10}
+      # Emitir a Detection como evento OCSF 2004 para os destinos. MUDA VOLUME E
+      # CUSTO do SIEM do cliente — por isso nasce desligada, e por isso se liga
+      # por ambiente e nunca invertendo o default no código.
+      - INFLIGHT_EMIT_OCSF_EVENT=${INFLIGHT_EMIT_OCSF_EVENT:-false}
+      # Teto de regras por org (4x o de avaliação, de propósito).
+      - CORRELATION_MAX_RULES_PER_ORG=${CORRELATION_MAX_RULES_PER_ORG:-200}
+      # ADR-LOCAL-0002 — enriquecimento. Nasce LIGADO (a doc dizia o contrário).
+      - ENRICHMENT_ENABLED=${ENRICHMENT_ENABLED:-true}
       - SERVICE_ROLE=worker
       - APP_MASTER_KEY=${APP_MASTER_KEY:-}
       # 5 — observabilidade OTLP-PUSH p/ o Collector externo
@@ -514,6 +628,44 @@ services:
       - --concurrency=4
       - --loglevel=info
     environment:
+      # ── Features dos ADRs — declaradas em TODOS os serviços da app ──────
+      #
+      # Elas não estavam em serviço NENHUM, e o efeito era pior que um default
+      # ruim: como não há `env_file:` no compose, o `compose/.env` só serve para
+      # interpolar `${VAR}` AQUI. Uma linha `OCSF_VALIDATION_ENABLED=true` no
+      # `.env` não virava variável do processo — era no-op MUDO. Não existia
+      # caminho suportado para ligar nem para DESLIGAR nada disto.
+      #
+      # TUDO OU NADA, e o critério não é estético: `GET /correlation-rules/limits`
+      # devolve `inflight_cap_as_seen_by_api`, e o nome já admite o problema —
+      # quem AVALIA é o worker, quem RESPONDE é a API, e as duas leem a var em
+      # processos diferentes. Declarar só nos workers (o gesto natural, "é config
+      # de coletor") faz a API responder 50 com confiança total enquanto o
+      # coletor corta em outro número: `truncated_count` vira ficção. É a forma
+      # exata do incidente do broker partido. Guarda: os testes de paridade de
+      # compose no Core e no EE.
+      #
+      # Todos os defaults abaixo REPETEM o default do código, então subir a stack
+      # sem `.env` produz exatamente o comportamento de antes deste bloco.
+      #
+      # ADR-0012 — validação OCSF. Nasce desligada. `tag_and_pass` marca e deixa
+      # passar; `quarantine`/`drop` retêm. Não ligue enforcement sem antes medir
+      # o volume de inválidos.
+      - OCSF_VALIDATION_ENABLED=${OCSF_VALIDATION_ENABLED:-false}
+      - OCSF_DEFAULT_ENFORCEMENT=${OCSF_DEFAULT_ENFORCEMENT:-tag_and_pass}
+      # ADR-0015 — detecção em voo. O teto é por CICLO e o corte é por
+      # `eval_priority DESC, id ASC`: acima dele a regra fica verde na lista e
+      # nunca dispara.
+      - INFLIGHT_MAX_RULES_PER_CYCLE=${INFLIGHT_MAX_RULES_PER_CYCLE:-50}
+      - INFLIGHT_MAX_WHERE_CLAUSES=${INFLIGHT_MAX_WHERE_CLAUSES:-10}
+      # Emitir a Detection como evento OCSF 2004 para os destinos. MUDA VOLUME E
+      # CUSTO do SIEM do cliente — por isso nasce desligada, e por isso se liga
+      # por ambiente e nunca invertendo o default no código.
+      - INFLIGHT_EMIT_OCSF_EVENT=${INFLIGHT_EMIT_OCSF_EVENT:-false}
+      # Teto de regras por org (4x o de avaliação, de propósito).
+      - CORRELATION_MAX_RULES_PER_ORG=${CORRELATION_MAX_RULES_PER_ORG:-200}
+      # ADR-LOCAL-0002 — enriquecimento. Nasce LIGADO (a doc dizia o contrário).
+      - ENRICHMENT_ENABLED=${ENRICHMENT_ENABLED:-true}
       - SERVICE_ROLE=worker
       - APP_MASTER_KEY=${APP_MASTER_KEY:-}
       # 5 — observabilidade OTLP-PUSH p/ o Collector externo
@@ -589,6 +741,44 @@ services:
       - --concurrency=4
       - --loglevel=info
     environment:
+      # ── Features dos ADRs — declaradas em TODOS os serviços da app ──────
+      #
+      # Elas não estavam em serviço NENHUM, e o efeito era pior que um default
+      # ruim: como não há `env_file:` no compose, o `compose/.env` só serve para
+      # interpolar `${VAR}` AQUI. Uma linha `OCSF_VALIDATION_ENABLED=true` no
+      # `.env` não virava variável do processo — era no-op MUDO. Não existia
+      # caminho suportado para ligar nem para DESLIGAR nada disto.
+      #
+      # TUDO OU NADA, e o critério não é estético: `GET /correlation-rules/limits`
+      # devolve `inflight_cap_as_seen_by_api`, e o nome já admite o problema —
+      # quem AVALIA é o worker, quem RESPONDE é a API, e as duas leem a var em
+      # processos diferentes. Declarar só nos workers (o gesto natural, "é config
+      # de coletor") faz a API responder 50 com confiança total enquanto o
+      # coletor corta em outro número: `truncated_count` vira ficção. É a forma
+      # exata do incidente do broker partido. Guarda: os testes de paridade de
+      # compose no Core e no EE.
+      #
+      # Todos os defaults abaixo REPETEM o default do código, então subir a stack
+      # sem `.env` produz exatamente o comportamento de antes deste bloco.
+      #
+      # ADR-0012 — validação OCSF. Nasce desligada. `tag_and_pass` marca e deixa
+      # passar; `quarantine`/`drop` retêm. Não ligue enforcement sem antes medir
+      # o volume de inválidos.
+      - OCSF_VALIDATION_ENABLED=${OCSF_VALIDATION_ENABLED:-false}
+      - OCSF_DEFAULT_ENFORCEMENT=${OCSF_DEFAULT_ENFORCEMENT:-tag_and_pass}
+      # ADR-0015 — detecção em voo. O teto é por CICLO e o corte é por
+      # `eval_priority DESC, id ASC`: acima dele a regra fica verde na lista e
+      # nunca dispara.
+      - INFLIGHT_MAX_RULES_PER_CYCLE=${INFLIGHT_MAX_RULES_PER_CYCLE:-50}
+      - INFLIGHT_MAX_WHERE_CLAUSES=${INFLIGHT_MAX_WHERE_CLAUSES:-10}
+      # Emitir a Detection como evento OCSF 2004 para os destinos. MUDA VOLUME E
+      # CUSTO do SIEM do cliente — por isso nasce desligada, e por isso se liga
+      # por ambiente e nunca invertendo o default no código.
+      - INFLIGHT_EMIT_OCSF_EVENT=${INFLIGHT_EMIT_OCSF_EVENT:-false}
+      # Teto de regras por org (4x o de avaliação, de propósito).
+      - CORRELATION_MAX_RULES_PER_ORG=${CORRELATION_MAX_RULES_PER_ORG:-200}
+      # ADR-LOCAL-0002 — enriquecimento. Nasce LIGADO (a doc dizia o contrário).
+      - ENRICHMENT_ENABLED=${ENRICHMENT_ENABLED:-true}
       - SERVICE_ROLE=worker
       - APP_MASTER_KEY=${APP_MASTER_KEY:-}
       # 5 — observabilidade OTLP-PUSH p/ o Collector externo
@@ -660,6 +850,44 @@ services:
       - --concurrency=8     # W6: dobra throughput de dispatch por processo
       - --loglevel=info
     environment:
+      # ── Features dos ADRs — declaradas em TODOS os serviços da app ──────
+      #
+      # Elas não estavam em serviço NENHUM, e o efeito era pior que um default
+      # ruim: como não há `env_file:` no compose, o `compose/.env` só serve para
+      # interpolar `${VAR}` AQUI. Uma linha `OCSF_VALIDATION_ENABLED=true` no
+      # `.env` não virava variável do processo — era no-op MUDO. Não existia
+      # caminho suportado para ligar nem para DESLIGAR nada disto.
+      #
+      # TUDO OU NADA, e o critério não é estético: `GET /correlation-rules/limits`
+      # devolve `inflight_cap_as_seen_by_api`, e o nome já admite o problema —
+      # quem AVALIA é o worker, quem RESPONDE é a API, e as duas leem a var em
+      # processos diferentes. Declarar só nos workers (o gesto natural, "é config
+      # de coletor") faz a API responder 50 com confiança total enquanto o
+      # coletor corta em outro número: `truncated_count` vira ficção. É a forma
+      # exata do incidente do broker partido. Guarda: os testes de paridade de
+      # compose no Core e no EE.
+      #
+      # Todos os defaults abaixo REPETEM o default do código, então subir a stack
+      # sem `.env` produz exatamente o comportamento de antes deste bloco.
+      #
+      # ADR-0012 — validação OCSF. Nasce desligada. `tag_and_pass` marca e deixa
+      # passar; `quarantine`/`drop` retêm. Não ligue enforcement sem antes medir
+      # o volume de inválidos.
+      - OCSF_VALIDATION_ENABLED=${OCSF_VALIDATION_ENABLED:-false}
+      - OCSF_DEFAULT_ENFORCEMENT=${OCSF_DEFAULT_ENFORCEMENT:-tag_and_pass}
+      # ADR-0015 — detecção em voo. O teto é por CICLO e o corte é por
+      # `eval_priority DESC, id ASC`: acima dele a regra fica verde na lista e
+      # nunca dispara.
+      - INFLIGHT_MAX_RULES_PER_CYCLE=${INFLIGHT_MAX_RULES_PER_CYCLE:-50}
+      - INFLIGHT_MAX_WHERE_CLAUSES=${INFLIGHT_MAX_WHERE_CLAUSES:-10}
+      # Emitir a Detection como evento OCSF 2004 para os destinos. MUDA VOLUME E
+      # CUSTO do SIEM do cliente — por isso nasce desligada, e por isso se liga
+      # por ambiente e nunca invertendo o default no código.
+      - INFLIGHT_EMIT_OCSF_EVENT=${INFLIGHT_EMIT_OCSF_EVENT:-false}
+      # Teto de regras por org (4x o de avaliação, de propósito).
+      - CORRELATION_MAX_RULES_PER_ORG=${CORRELATION_MAX_RULES_PER_ORG:-200}
+      # ADR-LOCAL-0002 — enriquecimento. Nasce LIGADO (a doc dizia o contrário).
+      - ENRICHMENT_ENABLED=${ENRICHMENT_ENABLED:-true}
       - SERVICE_ROLE=worker
       - APP_MASTER_KEY=${APP_MASTER_KEY:-}
       # 5 — observabilidade OTLP-PUSH p/ o Collector externo
@@ -734,6 +962,44 @@ services:
     # tanto compilado quanto em .py (dev). (collectors/ é compilado; db/ não.)
     command: ["python", "-c", "from app.collectors.dataplane.dispatcher import main; main()"]
     environment:
+      # ── Features dos ADRs — declaradas em TODOS os serviços da app ──────
+      #
+      # Elas não estavam em serviço NENHUM, e o efeito era pior que um default
+      # ruim: como não há `env_file:` no compose, o `compose/.env` só serve para
+      # interpolar `${VAR}` AQUI. Uma linha `OCSF_VALIDATION_ENABLED=true` no
+      # `.env` não virava variável do processo — era no-op MUDO. Não existia
+      # caminho suportado para ligar nem para DESLIGAR nada disto.
+      #
+      # TUDO OU NADA, e o critério não é estético: `GET /correlation-rules/limits`
+      # devolve `inflight_cap_as_seen_by_api`, e o nome já admite o problema —
+      # quem AVALIA é o worker, quem RESPONDE é a API, e as duas leem a var em
+      # processos diferentes. Declarar só nos workers (o gesto natural, "é config
+      # de coletor") faz a API responder 50 com confiança total enquanto o
+      # coletor corta em outro número: `truncated_count` vira ficção. É a forma
+      # exata do incidente do broker partido. Guarda: os testes de paridade de
+      # compose no Core e no EE.
+      #
+      # Todos os defaults abaixo REPETEM o default do código, então subir a stack
+      # sem `.env` produz exatamente o comportamento de antes deste bloco.
+      #
+      # ADR-0012 — validação OCSF. Nasce desligada. `tag_and_pass` marca e deixa
+      # passar; `quarantine`/`drop` retêm. Não ligue enforcement sem antes medir
+      # o volume de inválidos.
+      - OCSF_VALIDATION_ENABLED=${OCSF_VALIDATION_ENABLED:-false}
+      - OCSF_DEFAULT_ENFORCEMENT=${OCSF_DEFAULT_ENFORCEMENT:-tag_and_pass}
+      # ADR-0015 — detecção em voo. O teto é por CICLO e o corte é por
+      # `eval_priority DESC, id ASC`: acima dele a regra fica verde na lista e
+      # nunca dispara.
+      - INFLIGHT_MAX_RULES_PER_CYCLE=${INFLIGHT_MAX_RULES_PER_CYCLE:-50}
+      - INFLIGHT_MAX_WHERE_CLAUSES=${INFLIGHT_MAX_WHERE_CLAUSES:-10}
+      # Emitir a Detection como evento OCSF 2004 para os destinos. MUDA VOLUME E
+      # CUSTO do SIEM do cliente — por isso nasce desligada, e por isso se liga
+      # por ambiente e nunca invertendo o default no código.
+      - INFLIGHT_EMIT_OCSF_EVENT=${INFLIGHT_EMIT_OCSF_EVENT:-false}
+      # Teto de regras por org (4x o de avaliação, de propósito).
+      - CORRELATION_MAX_RULES_PER_ORG=${CORRELATION_MAX_RULES_PER_ORG:-200}
+      # ADR-LOCAL-0002 — enriquecimento. Nasce LIGADO (a doc dizia o contrário).
+      - ENRICHMENT_ENABLED=${ENRICHMENT_ENABLED:-true}
       - SERVICE_ROLE=kafka-dispatcher
       - APP_MASTER_KEY=${APP_MASTER_KEY:-}
       # 5 — observabilidade OTLP-PUSH p/ o Collector externo
@@ -802,6 +1068,44 @@ services:
       # O arquivo celerybeat-schedule do PersistentScheduler não é mais usado.
       - --loglevel=info
     environment:
+      # ── Features dos ADRs — declaradas em TODOS os serviços da app ──────
+      #
+      # Elas não estavam em serviço NENHUM, e o efeito era pior que um default
+      # ruim: como não há `env_file:` no compose, o `compose/.env` só serve para
+      # interpolar `${VAR}` AQUI. Uma linha `OCSF_VALIDATION_ENABLED=true` no
+      # `.env` não virava variável do processo — era no-op MUDO. Não existia
+      # caminho suportado para ligar nem para DESLIGAR nada disto.
+      #
+      # TUDO OU NADA, e o critério não é estético: `GET /correlation-rules/limits`
+      # devolve `inflight_cap_as_seen_by_api`, e o nome já admite o problema —
+      # quem AVALIA é o worker, quem RESPONDE é a API, e as duas leem a var em
+      # processos diferentes. Declarar só nos workers (o gesto natural, "é config
+      # de coletor") faz a API responder 50 com confiança total enquanto o
+      # coletor corta em outro número: `truncated_count` vira ficção. É a forma
+      # exata do incidente do broker partido. Guarda: os testes de paridade de
+      # compose no Core e no EE.
+      #
+      # Todos os defaults abaixo REPETEM o default do código, então subir a stack
+      # sem `.env` produz exatamente o comportamento de antes deste bloco.
+      #
+      # ADR-0012 — validação OCSF. Nasce desligada. `tag_and_pass` marca e deixa
+      # passar; `quarantine`/`drop` retêm. Não ligue enforcement sem antes medir
+      # o volume de inválidos.
+      - OCSF_VALIDATION_ENABLED=${OCSF_VALIDATION_ENABLED:-false}
+      - OCSF_DEFAULT_ENFORCEMENT=${OCSF_DEFAULT_ENFORCEMENT:-tag_and_pass}
+      # ADR-0015 — detecção em voo. O teto é por CICLO e o corte é por
+      # `eval_priority DESC, id ASC`: acima dele a regra fica verde na lista e
+      # nunca dispara.
+      - INFLIGHT_MAX_RULES_PER_CYCLE=${INFLIGHT_MAX_RULES_PER_CYCLE:-50}
+      - INFLIGHT_MAX_WHERE_CLAUSES=${INFLIGHT_MAX_WHERE_CLAUSES:-10}
+      # Emitir a Detection como evento OCSF 2004 para os destinos. MUDA VOLUME E
+      # CUSTO do SIEM do cliente — por isso nasce desligada, e por isso se liga
+      # por ambiente e nunca invertendo o default no código.
+      - INFLIGHT_EMIT_OCSF_EVENT=${INFLIGHT_EMIT_OCSF_EVENT:-false}
+      # Teto de regras por org (4x o de avaliação, de propósito).
+      - CORRELATION_MAX_RULES_PER_ORG=${CORRELATION_MAX_RULES_PER_ORG:-200}
+      # ADR-LOCAL-0002 — enriquecimento. Nasce LIGADO (a doc dizia o contrário).
+      - ENRICHMENT_ENABLED=${ENRICHMENT_ENABLED:-true}
       - SERVICE_ROLE=beat
       - APP_MASTER_KEY=${APP_MASTER_KEY:-}
       # 5 — observabilidade OTLP-PUSH p/ o Collector externo

@@ -41,6 +41,7 @@ from typing import Any, Mapping, Optional
 
 from ...core.config import settings
 from .matcher import CompiledClause, CompiledInflightRule, CompiledRuleSet
+from ..normalize.envelope import ENVELOPE_ROOTS
 
 logger = logging.getLogger(__name__)
 
@@ -74,6 +75,12 @@ NEGATIVE_OPS = frozenset({"ne", "nin"})
 #: carga passou a emitir também neste caminho) mais este contador subindo.
 REJECT_REASONS = (
     "bad_json", "empty_where", "unknown_op", "over_cap", "truncated", "load_failed",
+    # ``group_by_field`` cujo primeiro segmento não é chave de topo do envelope.
+    # Rejeitar na COMPILAÇÃO e não na avaliação é a diferença entre um sinal e
+    # um silêncio: rejeitada, a regra entra em ``uncompilable_count`` e ganha o
+    # selo "Não avaliada" na tela; aceita, ela contava match a cada evento e
+    # produzia Detection nenhuma, para sempre.
+    "group_by_root",
 )
 
 #: Enum FECHADO de razões de ERRO de avaliação/flush — label de
@@ -294,6 +301,22 @@ def compile_rule(row: Any) -> tuple[Optional[CompiledInflightRule], Optional[str
         )
 
     group_by = getattr(row, "group_by_field", None)
+    if group_by:
+        # O primeiro segmento decide TUDO: ``_resolve`` parte da raiz do
+        # envelope, que tem exatamente as chaves de ``ENVELOPE_ROOTS``. Um path
+        # que comece em qualquer outra coisa resolve ``None`` em 100% dos
+        # eventos — não é "raro", é impossível de acertar.
+        #
+        # Isto vale SÓ para o modo em voo. Em lote o motor roda sobre resultados
+        # de busca federada (``correlation_engine.extract_path``), onde um
+        # ``source.ip`` pode ser perfeitamente válido — e este ``compile_rule``
+        # nunca vê regra em lote.
+        #
+        # Custa uma comparação de string por regra por CICLO, não por evento
+        # (R1 do ADR-0015: zero I/O novo no caminho do evento).
+        raiz = str(group_by).split(".", 1)[0]
+        if raiz not in ENVELOPE_ROOTS:
+            return None, "group_by_root"
     return (
         CompiledInflightRule(
             rule_id=int(row.id),

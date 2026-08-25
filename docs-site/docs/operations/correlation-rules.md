@@ -49,7 +49,21 @@ Você define a regra com `eval_mode='inflight'`. A regra é avaliada **por event
 Vantagens: latência em tempo real, não depende de buscas manuais.
 
 Limitações importantes:
-- **Sem janela de tempo.** Um inflight roda sobre um único evento por vez, logo `window_seconds` e `timestamp_field` são ignorados. Agrupar por `group_by_field` (ex.: `source.ip`) tira vários eventos do mesmo IP no mesmo ciclo de coleta, mas não numa janela temporal no sentido de "últimas 5 minutos" — é "neste ciclo de coleta".
+:::caution[Em voo, todo caminho parte da RAIZ do envelope]
+O motor em voo resolve `group_by_field` e o `field` de cada cláusula a partir da
+raiz do envelope, que tem exatamente três chaves: **`_centralops`**,
+**`normalized`** e **`raw`**. Um caminho que comece em qualquer outra coisa —
+`source.ip`, `user.name`, `severity_id` — resolve vazio em **todo** evento.
+
+Desde a v2.9, uma regra em voo com `group_by_field` fora dessas raízes é
+**recusada na compilação** (`group_by_root`) e aparece com o selo **Não
+avaliada** na lista, em vez de contar match e nunca disparar.
+
+No modo **em lote** é diferente: lá o motor roda sobre o resultado de uma busca
+federada, e os caminhos são os do documento retornado pelo SIEM.
+:::
+
+- **Sem janela de tempo.** Um inflight roda sobre um único evento por vez, logo `window_seconds` e `timestamp_field` são ignorados. Agrupar por `group_by_field` (ex.: `normalized.src_endpoint.ip`) tira vários eventos do mesmo IP no mesmo ciclo de coleta, mas não numa janela temporal no sentido de "últimas 5 minutos" — é "neste ciclo de coleta".
 - **Sem contagem de threshold.** Não existe `min_count`. Cada evento casado gera uma Detection (ou é descartado por supressão de dedup).
 - **Operadores diferentes.** Inflight suporta três operadores extras: `in`, `nin`, `exists`. Batch não tem esses.
 - **Cardinalidade limitada.** O máximo de chaves de dedup por regra por ciclo é 50. Se uma regra gera mais de 50 variações (ex.: 100 IPs diferentes num ciclo), os matches seguem contados mas nenhuma Detection nova é criada após a 50ª chave.
@@ -83,8 +97,8 @@ Operadores suportados:
 | `ne` | Diferente | `{ "field": "user.name", "op": "ne", "value": "admin" }` | Vacuidade: campo ausente ≠ admin. Auto-injeta `exists=true`. |
 | `contains` | Contém (substring) | `{ "field": "message", "op": "contains", "value": "error" }` | Busca a string dentro da string do evento. |
 | `gt`, `lt`, `gte`, `lte` | Maior, menor, etc. | `{ "field": "severity", "op": "gte", "value": 3 }` | Coagem lado esquerdo a float. "5" vs 3 funciona. |
-| `in` (inflight) | Está em lista | `{ "field": "source.ip", "op": "in", "value": ["10.0.0.1", "10.0.0.2"] }` | **JSON array, não CSV string.** Rejeita `"10.0.0.1,10.0.0.2"`. |
-| `nin` (inflight) | Não está em lista | `{ "field": "source.ip", "op": "nin", "value": ["10.0.0.1"] }` | Vacuidade + allowlist. Auto-injeta `exists=true`. |
+| `in` (inflight) | Está em lista | `{ "field": "normalized.src_endpoint.ip", "op": "in", "value": ["10.0.0.1", "10.0.0.2"] }` | **JSON array, não CSV string.** Rejeita `"10.0.0.1,10.0.0.2"`. |
+| `nin` (inflight) | Não está em lista | `{ "field": "normalized.src_endpoint.ip", "op": "nin", "value": ["10.0.0.1"] }` | Vacuidade + allowlist. Auto-injeta `exists=true`. |
 | `exists` (inflight) | Campo existe | `{ "field": "user.id", "op": "exists", "value": true }` | True/false. Raro usar manualmente (auto-injetado). |
 
 ### Gotchas e armadilhas
@@ -93,11 +107,11 @@ Operadores suportados:
 
 Errado:
 ```json
-{ "field": "source.ip", "op": "in", "value": "10.0.0.1,10.0.0.2" }
+{ "field": "normalized.src_endpoint.ip", "op": "in", "value": "10.0.0.1,10.0.0.2" }
 ```
 Isto é rejeitado na compilação (`bad_json`). Se você quer múltiplos valores, use um array:
 ```json
-{ "field": "source.ip", "op": "in", "value": ["10.0.0.1", "10.0.0.2"] }
+{ "field": "normalized.src_endpoint.ip", "op": "in", "value": ["10.0.0.1", "10.0.0.2"] }
 ```
 
 **Operadores negativos (ne, nin) casam por vacuidade — mas é seguro**
@@ -178,7 +192,7 @@ Mostra todas as regras da sua organização:
 | **Nome** | Identificador da regra (ex.: "Múltiplas falhas de login"). |
 | **Status** | Ativa (verde) ou desativada (cinza). Regras desativadas não disparam. |
 | **Tipo** | Sempre "threshold" por enquanto. |
-| **Grupo** | Campo pelo qual agrupa (ex.: `source.ip`). |
+| **Grupo** | Campo pelo qual agrupa. Em lote, o campo do documento (ex.: `source.ip`); em voo, a partir da raiz do envelope (ex.: `normalized.src_endpoint.ip`). |
 | **Limite** | Número mínimo de eventos para disparar. |
 | **Janela** | Período em segundos no qual conta eventos. |
 | **Ações** | Editar, desativar/ativar, ou excluir. |
@@ -189,7 +203,7 @@ Mostra todas as regras da sua organização:
 2. Preencha o formulário:
    - **Nome**: descrição curta e única (ex.: "Brute-force SSH").
    - **Descrição** (opcional): mais contexto (ex.: "Múltiplas tentativas falhadas em um curto espaço de tempo").
-   - **Campo de agrupamento**: qual campo usar para agrupar (ex.: `source.ip`, `user.name`). Use notação com ponto para campos aninhados.
+   - **Campo de agrupamento**: qual campo usar para agrupar. Use notação com ponto para campos aninhados, e **o caminho depende do modo**: em **lote** é o campo do documento retornado pela busca (ex.: `source.ip`); em **voo** parte da raiz do envelope (ex.: `normalized.src_endpoint.ip`) — um caminho fora de `_centralops`/`normalized`/`raw` faz a regra ser recusada.
    - **Limite mínimo**: quantos eventos no mínimo para disparar (padrão: 5).
    - **Janela de tempo**: quantos segundos de história examinar dentro do resultado da busca (padrão: 300 = 5 min).
    - **Campo de timestamp**: qual campo do evento datar para aplicar a janela (ex.: `event.timestamp`). **Obrigatório sempre que a janela for maior que zero** — sem ele a janela é desligada e a regra conta todos os eventos do grupo no resultado da busca.
@@ -302,7 +316,7 @@ Modo inflight: você configurou `group_by_field` apontando para um campo que nã
 - **50 regras por ciclo**: máximo de regras inflight carregadas e avaliadas num ciclo de coleta. A carga ordena e corta no teto — **sem offset, sem cursor e sem rotação**. Não há ondas nem fila: o **mesmo** conjunto roda em todo ciclo e as excedentes **nunca** são avaliadas; esperar não resolve. **Quem sobrevive ao corte é decisão sua**, pelo campo `eval_priority` da regra (ordem: `eval_priority` **decrescente**, `id` crescente como desempate). Toda regra nasce com `eval_priority = 0`, então sem nenhuma prioridade definida o corte fica sendo o histórico — as de **menor `id`**, isto é, as mais antigas — e a regra que você acabou de escrever é a primeira a ficar de fora. Suba a `eval_priority` dela para fixá-la — hoje pelo `PATCH` da regra na API; o campo ainda **não** aparece no formulário da tela. O worker emite um `warning` a cada ciclo truncado **nomeando as regras cortadas**, e a tela **Detecta → Correlação** marca a linha com o selo **Não avaliada**.
 - **10 cláusulas por regra**: máximo de predicados no `where_json` de uma regra inflight. Uma regra com 11 cláusulas é rejeitada em compile-time.
 - **500 comparações por evento (orçamento validado no boot)**: o produto `INFLIGHT_MAX_RULES_PER_CYCLE × INFLIGHT_MAX_WHERE_CLAUSES` não pode passar de 500 — é o trabalho máximo do matcher no hot path. **Não existe acumulador em tempo de execução**: nenhuma regra é descartada por causa das cláusulas de outra, e o teto de cláusulas é medido regra a regra (ver o item acima). O guard é de **boot** — elevar os dois tetos além de 500 no `.env` faz a aplicação **não subir**, com o erro apontando qual reduzir.
-- **50 chaves de dedup por regra por ciclo**: se uma regra gera mais de 50 variações (ex.: 100 IPs diferentes num ciclo usando `group_by_field="source.ip"`), as primeiras 50 geram Detections, as demais não — mas **todos os matches seguem sendo contados nos logs**. Nenhum evento é perdido. Isto costuma indicar que `group_by_field` tem cardinalidade muito alta (ex.: um ID único por evento). Ajuste a regra ou revise o agrupamento.
+- **50 chaves de dedup por regra por ciclo**: se uma regra gera mais de 50 variações (ex.: 100 IPs diferentes num ciclo usando `group_by_field="normalized.src_endpoint.ip"`), as primeiras 50 geram Detections, as demais não — mas **todos os matches seguem sendo contados nos logs**. Nenhum evento é perdido. Isto costuma indicar que `group_by_field` tem cardinalidade muito alta (ex.: um ID único por evento). Ajuste a regra ou revise o agrupamento.
 
 :::note[O que fazer ao atingir tetos]
 - **Muitas regras?** Suba a `eval_priority` das que precisam rodar (via `PATCH` na API — o campo ainda não está no formulário) — elas passam à frente no corte, e as demais continuam salvas e visíveis. Depois revise quais ainda fazem sentido e desabilite as menos importantes.
@@ -325,7 +339,7 @@ Modo inflight: você configurou `group_by_field` apontando para um campo que nã
 3. Preencha:
    - **Nome**: "Brute-force SSH"
    - **Descrição**: "Múltiplas conexões SSH falhadas do mesmo IP"
-   - **Campo de agrupamento**: `source.ip`
+   - **Campo de agrupamento**: `normalized.src_endpoint.ip`
    - **Limite mínimo**: 10
    - **Janela de tempo**: 300 (5 minutos)
    - **Campo de timestamp**: `event.timestamp` (sem ele a janela de 5 minutos não é aplicada)

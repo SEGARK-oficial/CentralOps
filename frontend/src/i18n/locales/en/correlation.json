@@ -143,7 +143,7 @@
       },
       "groupBy": {
         "label": "Group by (dotted path)",
-        "placeholder": "E.g.: source.ip",
+        "placeholder": "E.g.: normalized.src_endpoint.ip",
         "helperTextBatch": "Event field used to group occurrences within the window. The minimum event count is counted PER group.",
         "helperTextInflight": "In-flight there is no aggregation: this field becomes the DEDUP key of the detection. Each distinct value opens one detection per suppression window — a high-cardinality field (a command line, for instance) blows the per-cycle key cap and the excess is discarded."
       },
