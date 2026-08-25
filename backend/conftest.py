@@ -37,6 +37,11 @@ _SOURCE_ONLY_FILES = frozenset(
         # Greps the live filesystem for ``@shared_task(queue="…")`` strings;
         # the .py sources are gone in the compiled image.
         "tests/test_compose_celery_queues_consumed.py",
+        # Lê compose/docker-compose.yml para exigir healthcheck de consumer nos
+        # workers e prova de ESCRITA nos Redis. O compose não é copiado para a
+        # imagem — sem o skip o gate compilado quebra em FileNotFoundError.
+        # Roda no CI não-compilado, onde o arquivo existe.
+        "tests/test_compose_liveness_guards.py",
         # Opens app/routers/integrations.py via os.path.dirname(__file__)
         # to grep for hard-coded patterns; .py source missing in image.
         "app/collectors/tests/test_h2_m1_m2_security_fixes.py",

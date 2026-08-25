@@ -268,8 +268,16 @@ services:
           memory: 768m
         reservations:
           memory: 128m
+    # PROVA DE ESCRITA, não PING. `PING` é comando de LEITURA e responde PONG
+    # normalmente com o Redis em MISCONF — o estado em que ele RECUSA toda
+    # escrita porque não consegue persistir (disco cheio, falha de RDB/AOF).
+    # Em ago/2026 as duas instâncias ficaram `(healthy)` por horas recusando
+    # 100% das escritas: o cursor de coleta não gravava, o ACK do Celery não
+    # gravava, e o healthcheck aprovava. Um SET com TTL curto falha exatamente
+    # nesse cenário — e também quando o `noeviction` do control-plane enche,
+    # que é igualmente uma parada de fato.
     healthcheck:
-      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:?REDIS_PASSWORD obrigatorio - gere com openssl rand -base64 24 e coloque no .env}", "ping"]
+      test: ["CMD-SHELL", "test \"$$(redis-cli --no-auth-warning -a '${REDIS_PASSWORD:?REDIS_PASSWORD obrigatorio - gere com openssl rand -base64 24 e coloque no .env}' SET __healthcheck__ 1 EX 30)\" = OK"]
       interval: 5s
       timeout: 3s
       retries: 10
@@ -310,8 +318,16 @@ services:
           memory: 384m
         reservations:
           memory: 64m
+    # PROVA DE ESCRITA, não PING. `PING` é comando de LEITURA e responde PONG
+    # normalmente com o Redis em MISCONF — o estado em que ele RECUSA toda
+    # escrita porque não consegue persistir (disco cheio, falha de RDB/AOF).
+    # Em ago/2026 as duas instâncias ficaram `(healthy)` por horas recusando
+    # 100% das escritas: o cursor de coleta não gravava, o ACK do Celery não
+    # gravava, e o healthcheck aprovava. Um SET com TTL curto falha exatamente
+    # nesse cenário — e também quando o `noeviction` do control-plane enche,
+    # que é igualmente uma parada de fato.
     healthcheck:
-      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:?REDIS_PASSWORD obrigatorio - gere com openssl rand -base64 24 e coloque no .env}", "ping"]
+      test: ["CMD-SHELL", "test \"$$(redis-cli --no-auth-warning -a '${REDIS_PASSWORD:?REDIS_PASSWORD obrigatorio - gere com openssl rand -base64 24 e coloque no .env}' SET __healthcheck__ 1 EX 30)\" = OK"]
       interval: 5s
       timeout: 3s
       retries: 10
@@ -479,6 +495,29 @@ services:
         reservations:
           cpus: '0.25'
           memory: 256m
+    # Liveness pelo CONSUMER, não pelo processo (paridade com a livenessProbe do
+    # Helm, workers-deployment.yaml). `docker compose ps` mostrava `Up` para um
+    # worker cujo consumer Celery já tinha morrido com `Unrecoverable error` —
+    # o pool fica de pé, a fila não é consumida e NADA denuncia. Foi assim que a
+    # coleta de um vendor inteiro ficou ~6h parada (ago/2026): o `restart:
+    # unless-stopped` abaixo só age se o processo SAIR, e ele não saiu.
+    # `inspect ping` responde pelo mesmo caminho que o worker usa para consumir,
+    # então ele falha exatamente quando o consumer está morto.
+    #
+    # ⚠️ HONESTIDADE (mesma ressalva do collector-beat): sob `docker compose up`
+    # puro, `unhealthy` NÃO reinicia — dá observabilidade (`ps` passa a mostrar
+    # `(unhealthy)`) e gating de `depends_on`. Para AUTO-recuperar, suba o perfil
+    # `autoheal` (`--profile autoheal`), ou rode em Swarm/k8s.
+    #
+    # start_period cobre o boot: o entrypoint roda migração antes do exec.
+    healthcheck:
+      test: ["CMD-SHELL", "celery -A app.collectors.celery_app inspect ping -d priority@$$(hostname) --timeout 10 2>/dev/null | grep -q pong"]
+      interval: 60s
+      timeout: 20s
+      retries: 3
+      start_period: 120s
+    labels:
+      autoheal: "true"
     restart: unless-stopped
 
   collector-worker-bulk:
@@ -601,6 +640,15 @@ services:
         reservations:
           cpus: '0.5'
           memory: 512m
+    # Liveness pelo CONSUMER — ver collector-worker-priority.
+    healthcheck:
+      test: ["CMD-SHELL", "celery -A app.collectors.celery_app inspect ping -d bulk@$$(hostname) --timeout 10 2>/dev/null | grep -q pong"]
+      interval: 60s
+      timeout: 20s
+      retries: 3
+      start_period: 120s
+    labels:
+      autoheal: "true"
     restart: unless-stopped
 
   # ── P2: housekeeping/compliance ISOLADO do backfill ────────────
@@ -717,6 +765,15 @@ services:
         reservations:
           cpus: '0.25'
           memory: 128m
+    # Liveness pelo CONSUMER — ver collector-worker-priority.
+    healthcheck:
+      test: ["CMD-SHELL", "celery -A app.collectors.celery_app inspect ping -d maintenance@$$(hostname) --timeout 10 2>/dev/null | grep -q pong"]
+      interval: 60s
+      timeout: 20s
+      retries: 3
+      start_period: 120s
+    labels:
+      autoheal: "true"
     restart: unless-stopped
 
   collector-worker-query:
@@ -827,6 +884,15 @@ services:
         reservations:
           cpus: '0.25'
           memory: 256m
+    # Liveness pelo CONSUMER — ver collector-worker-priority.
+    healthcheck:
+      test: ["CMD-SHELL", "celery -A app.collectors.celery_app inspect ping -d query@$$(hostname) --timeout 10 2>/dev/null | grep -q pong"]
+      interval: 60s
+      timeout: 20s
+      retries: 3
+      start_period: 120s
+    labels:
+      autoheal: "true"
     restart: unless-stopped
 
   collector-dispatcher:
@@ -936,6 +1002,15 @@ services:
         condition: service_healthy
       centralops:
         condition: service_started
+    # Liveness pelo CONSUMER — ver collector-worker-priority.
+    healthcheck:
+      test: ["CMD-SHELL", "celery -A app.collectors.celery_app inspect ping -d dispatch@$$(hostname) --timeout 10 2>/dev/null | grep -q pong"]
+      interval: 60s
+      timeout: 20s
+      retries: 3
+      start_period: 120s
+    labels:
+      autoheal: "true"
     restart: unless-stopped
     deploy:
       replicas: ${COLLECTOR_DISPATCHER_REPLICAS:-2}   # W7: 2 replicas por default
@@ -1190,7 +1265,30 @@ services:
         reservations:
           cpus: '0.25'
           memory: 64m
+    labels:
+      autoheal: "true"
     restart: unless-stopped
+
+  # ── Auto-recuperação de container unhealthy (OPT-IN, comentado) ──────
+  # Os healthchecks dos workers/beat/redis DETECTAM a parada, mas `docker compose
+  # up` puro não age sobre `unhealthy` — ele só reporta. Quem quiser fechar o laço
+  # sem migrar para Swarm/k8s descomenta o bloco abaixo: o autoheal reinicia todo
+  # container com a label `autoheal=true` (já aplicada nos workers e no beat).
+  #
+  # ⚠️ LEIA ANTES DE DESCOMENTAR: isto monta o socket do Docker no container, o
+  # que equivale a dar ROOT no host a quem comprometer essa imagem. É por isso
+  # que vem desligado e não num profile: a decisão é do operador, não do default.
+  # Em Swarm/k8s não use — lá o orquestrador já reinicia por probe, sem socket.
+  #
+  # autoheal:
+  #   image: willfarrell/autoheal:1.2.0
+  #   environment:
+  #     - AUTOHEAL_CONTAINER_LABEL=autoheal
+  #     - AUTOHEAL_INTERVAL=30
+  #     - AUTOHEAL_START_PERIOD=300
+  #   volumes:
+  #     - /var/run/docker.sock:/var/run/docker.sock
+  #   restart: unless-stopped
 
   flower:
     image: mher/flower:2.0
