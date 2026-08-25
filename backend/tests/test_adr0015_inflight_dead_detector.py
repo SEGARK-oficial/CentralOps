@@ -50,7 +50,10 @@ def _row(rid: int) -> types.SimpleNamespace:
     return types.SimpleNamespace(
         id=rid, name=f"regra-{rid}", severity_id=4,
         where_json='[{"field":"a","op":"eq","value":"x"}]',
-        suppression_window_seconds=3600, group_by_field="u",
+        suppression_window_seconds=3600,
+        # `raw.` não é enfeite: em voo o group_by resolve a partir da RAIZ do
+        # envelope, e um nome solto é recusado na compilação (`group_by_root`).
+        group_by_field="raw.u",
     )
 
 

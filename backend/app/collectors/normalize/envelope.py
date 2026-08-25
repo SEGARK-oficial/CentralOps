@@ -136,6 +136,20 @@ def compute_event_id(raw: Mapping[str, Any], vendor_msg_id: Optional[str]) -> st
     return f"sha256:{digest}"
 
 
+#: As chaves de TOPO que ``build_envelope`` produz — o contrato inteiro contra o
+#: qual qualquer dot-path do pipeline é resolvido.
+#:
+#: Existe como constante porque há consumidores FORA deste módulo que precisam
+#: recusar um path antes de resolvê-lo. O caso que a motivou: um
+#: ``group_by_field`` de regra em voo cujo primeiro segmento não é uma destas
+#: três chaves NUNCA resolve — ``_resolve`` parte da raiz do envelope — e o
+#: efeito era match contado e Detection nenhuma, em silêncio.
+#:
+#: Se ``build_envelope`` ganhar ou perder uma chave de topo, esta tupla tem de
+#: acompanhar; ``test_adr0015_inflight_group_by_root`` amarra as duas.
+ENVELOPE_ROOTS = ("_centralops", "normalized", "raw")
+
+
 def build_envelope(
     raw: Mapping[str, Any],
     normalized: Mapping[str, Any],

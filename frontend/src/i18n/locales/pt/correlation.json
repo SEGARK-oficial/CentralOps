@@ -143,7 +143,7 @@
       },
       "groupBy": {
         "label": "Agrupar por (dotted-path)",
-        "placeholder": "Ex: source.ip",
+        "placeholder": "Ex: normalized.src_endpoint.ip",
         "helperTextBatch": "Campo do evento usado para agrupar ocorrências dentro da janela. O mínimo de eventos é contado POR grupo.",
         "helperTextInflight": "Em voo não há agregação: este campo vira a chave de DEDUP da detecção. Cada valor distinto abre uma detecção por janela de supressão — campo de alta cardinalidade (linha de comando, por exemplo) estoura o teto de chaves do ciclo e o excedente é descartado."
       },

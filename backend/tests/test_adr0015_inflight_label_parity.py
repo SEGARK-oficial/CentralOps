@@ -74,11 +74,17 @@ def _rows_covering_every_reject_reason() -> list[types.SimpleNamespace]:
         _row(2, "[]"),                                              # empty_where
         _row(3, '[{"field":"a","op":"regex","value":"x"}]'),        # unknown_op
         _row(4, "[" + ",".join([ok[1:-1]] * (cap_clauses + 1)) + "]"),  # over_cap
+        # group_by_root: o where compila, o group_by é que não — primeiro
+        # segmento fora das raízes do envelope, que resolve None em TODO evento.
+        _row(5, ok, group_by="host"),
     ]
     # As válidas: precisam existir para o gauge ``rules_loaded`` sair > 0 e para
     # ``len(rows) >= cap`` disparar ``truncated``.
     cap_rules = int(settings.INFLIGHT_MAX_RULES_PER_CYCLE)
-    rows += [_row(100 + i, ok, group_by="u") for i in range(cap_rules - len(rows))]
+    # `raw.` é obrigatório: em voo o group_by resolve a partir da RAIZ do
+    # envelope, e um nome solto é recusado na compilação (`group_by_root`) —
+    # o que zeraria o gauge que este arquivo existe para medir.
+    rows += [_row(100 + i, ok, group_by="raw.u") for i in range(cap_rules - len(rows))]
     return rows
 
 
