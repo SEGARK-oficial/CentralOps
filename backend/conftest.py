@@ -153,9 +153,33 @@ if _COMPILED:
 
 
 def pytest_collection_modifyitems(config, items):
-    if not _COMPILED:
-        return
+    """Aplica o marcador ``source_only`` SEMPRE, e o skip só na árvore compilada.
+
+    A ordem das duas coisas é o conserto. Antes, a função inteira começava com
+    ``if not _COMPILED: return`` e aplicava ``pytest.mark.skip`` — nunca o
+    marcador. O efeito era que os arquivos de ``_SOURCE_ONLY_FILES`` **não
+    rodavam em gate nenhum**:
+
+      * no gate da imagem (``compose/cython-tests.sh``, ``-m "not source_only"``)
+        eram coletados — porque nunca receberam o marcador — e então pulados
+        pelo skip;
+      * no gate de fontes (``ci.yml``, ``-m source_only``) não eram
+        SELECIONADOS, pela mesma razão: sem marcador, ``-m source_only`` não os
+        casa.
+
+    Eram 72 testes em silêncio, e o mais caro deles é
+    ``test_compose_celery_queues_consumed.py`` — a guarda contra fila declarada
+    e não consumida, que é exatamente a classe do incidente de broker partido.
+
+    Marcar SEMPRE inverte os dois lados de uma vez: o gate de fontes passa a
+    selecioná-los, e o da imagem passa a DESSELECIONÁ-LOS (melhor que coletar e
+    pular — não paga o import nem arrisca o ``OSError`` de ``getsource``).
+
+    O skip por ``_COMPILED`` fica como segunda linha: se alguém rodar a suíte
+    dentro da imagem SEM o ``-m``, o marcador sozinho não protegeria.
+    """
     backend_root = Path(__file__).parent.resolve()
+    source_only_marker = pytest.mark.source_only
     skip_marker = pytest.mark.skip(
         reason="source_only: incompatible with .so tree (see backend/conftest.py)"
     )
@@ -164,14 +188,9 @@ def pytest_collection_modifyitems(config, items):
             rel = Path(item.fspath).resolve().relative_to(backend_root).as_posix()
         except ValueError:
             continue
-        if rel in _SOURCE_ONLY_FILES:
-            item.add_marker(skip_marker)
-            continue
-        # Granular skip: (file, test_function_name) tuple.
-        if (rel, item.name) in _SOURCE_ONLY_NODES:
-            item.add_marker(skip_marker)
-            continue
-        if any(m.name == "source_only" for m in item.iter_markers()):
+        if rel in _SOURCE_ONLY_FILES or (rel, item.name) in _SOURCE_ONLY_NODES:
+            item.add_marker(source_only_marker)
+        if _COMPILED and any(m.name == "source_only" for m in item.iter_markers()):
             item.add_marker(skip_marker)
 
 
