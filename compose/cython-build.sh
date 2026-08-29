@@ -111,13 +111,15 @@ fi
 
 echo "cython-build: compiling ${COUNT} module(s)…"
 
-# Paralelismo do compile. CUIDADO com `nproc` aqui: em LXC do Proxmox o
-# `cores:` é quota CFS (cpu.max), NÃO cpuset — então sched_getaffinity, e por
-# consequência `nproc`, devolve a contagem de cores do HOST, não a da máquina.
-# Num host de 32 cores isso dispara 32 gcc dentro de um runner de 8GB e mata o
-# build por OOM, com um erro do compilador que não menciona memória em lugar
-# nenhum. O teto torna o consumo previsível em qualquer runner; CYTHON_JOBS
-# sobrepõe quando o operador sabe mais que a heurística.
+# Paralelismo do compile. CUIDADO com `nproc` aqui: quando o limite de CPU do
+# container é quota CFS (`cpu.max`) e não `cpuset`, sched_getaffinity — e por
+# consequência `nproc` — devolve a contagem de cores do HOST, não o limite que
+# o container realmente tem. Numa máquina host de 32 cores isso dispara 32 gcc
+# dentro de um build limitado a 8GB e mata tudo por OOM, com um erro de
+# compilador que não menciona memória em lugar nenhum. Vários runtimes de
+# container limitam CPU exatamente assim. O teto torna o consumo previsível em
+# qualquer runner; CYTHON_JOBS sobrepõe quando o operador sabe mais que a
+# heurística.
 _DETECTED="$(nproc 2>/dev/null || echo 2)"
 _MAX_PROC="${CYTHON_MAX_JOBS:-4}"
 if [[ -n "${CYTHON_JOBS:-}" ]]; then
