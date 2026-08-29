@@ -22,10 +22,23 @@
 # (O workflow runner-maintenance.yml roda isto on-demand/best-effort, mas só
 #  alcança o runner em que o job cair — o cron de host cobre as duas máquinas.)
 
+# CALIBRAGEM (ago/2026): os defaults antigos eram só por IDADE (72h/7d), o que
+# não limita NADA quando o disco é pequeno — 7 dias de cache do BuildKit não cabem
+# em 50GB, por mais novo que o cache seja. O que torna o consumo previsível é o
+# teto por TAMANHO (CACHE_KEEP), com a idade servindo só de desempate. Referência
+# medida: imagem da API 1.63GB, node:20 1.59GB, um run limpo do CE ocupa ~23-26GB
+# e o EE ~16-19GB; como os dois repos caem no mesmo pool, os working sets somam.
 set -uo pipefail
 
-IMAGE_AGE="${IMAGE_AGE:-72h}"
-CACHE_AGE="${CACHE_AGE:-168h}"
+IMAGE_AGE="${IMAGE_AGE:-48h}"
+CACHE_AGE="${CACHE_AGE:-72h}"
+# Teto de tamanho do cache do BuildKit. É ESTE número que dá previsibilidade:
+# sem ele o cache cresce até o disco acabar, só que mais devagar.
+CACHE_KEEP="${CACHE_KEEP:-10GB}"
+# Piso de alerta: abaixo disto o script grita, porque o próximo job vai recusar
+# rodar (ver o preflight nos workflows) e é melhor saber pelo cron às 02:00 do
+# que por um CI vermelho às 09:00.
+MIN_FREE_GB="${MIN_FREE_GB:-12}"
 
 log() { printf '[%s] %s\n' "$(date -u +'%Y-%m-%dT%H:%M:%SZ')" "$*"; }
 
@@ -44,10 +57,23 @@ docker system prune -f >/dev/null 2>&1 || true
 log "image prune (imagens não-usadas > ${IMAGE_AGE})…"
 docker image prune -a -f --filter "until=${IMAGE_AGE}" >/dev/null 2>&1 || true
 
-log "buildx cache prune (> ${CACHE_AGE})…"
+log "buildx cache prune (idade > ${CACHE_AGE})…"
 docker buildx prune -f --filter "until=${CACHE_AGE}" >/dev/null 2>&1 || true
+
+log "buildx cache prune (teto de tamanho: ${CACHE_KEEP})…"
+docker buildx prune -f --keep-storage="${CACHE_KEEP}" >/dev/null 2>&1 || true
 
 log "==== disco DEPOIS ===="
 df -h / 2>/dev/null || true
 docker system df 2>/dev/null || true
-log "manutenção concluída."
+
+# Alerta operacional: a poda rodou e MESMO ASSIM o disco está no vermelho. Isso
+# não é higiene, é capacidade — e o CI vai começar a recusar jobs. Sai com código
+# 1 para que o cron/monitoramento consiga distinguir "limpei" de "não coube".
+FREE_GB="$(df -BG --output=avail / | tail -1 | tr -dc '0-9')"
+if [ "${FREE_GB:-0}" -lt "$MIN_FREE_GB" ]; then
+  log "ALERTA: $(hostname) com ${FREE_GB}GB livres, abaixo do piso de ${MIN_FREE_GB}GB."
+  log "A poda não resolve: esta máquina precisa de mais disco."
+  exit 1
+fi
+log "manutenção concluída — ${FREE_GB}GB livres."

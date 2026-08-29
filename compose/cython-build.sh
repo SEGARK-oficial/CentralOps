@@ -111,7 +111,23 @@ fi
 
 echo "cython-build: compiling ${COUNT} module(s)…"
 
-NUM_PROC="$(nproc 2>/dev/null || echo 2)"
+# Paralelismo do compile. CUIDADO com `nproc` aqui: em LXC do Proxmox o
+# `cores:` é quota CFS (cpu.max), NÃO cpuset — então sched_getaffinity, e por
+# consequência `nproc`, devolve a contagem de cores do HOST, não a da máquina.
+# Num host de 32 cores isso dispara 32 gcc dentro de um runner de 8GB e mata o
+# build por OOM, com um erro do compilador que não menciona memória em lugar
+# nenhum. O teto torna o consumo previsível em qualquer runner; CYTHON_JOBS
+# sobrepõe quando o operador sabe mais que a heurística.
+_DETECTED="$(nproc 2>/dev/null || echo 2)"
+_MAX_PROC="${CYTHON_MAX_JOBS:-4}"
+if [[ -n "${CYTHON_JOBS:-}" ]]; then
+    NUM_PROC="${CYTHON_JOBS}"
+elif (( _DETECTED > _MAX_PROC )); then
+    NUM_PROC="${_MAX_PROC}"
+    echo "cython-build: nproc=${_DETECTED} acima do teto — usando -j${NUM_PROC}"
+else
+    NUM_PROC="${_DETECTED}"
+fi
 
 # Write target list to a file to avoid argv length limits and quoting
 # issues passing hundreds of paths through bash -> python.

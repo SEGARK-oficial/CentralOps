@@ -26,8 +26,16 @@ permissions:
 jobs:
   build-and-publish:
     name: Build and publish docs to GitHub Pages
-    runs-on: ubuntu-latest
+    runs-on: ${{ fromJSON(github.event.pull_request.head.repo.fork && '["ubuntu-latest"]' || '["self-hosted","Linux","X64"]') }}
     steps:
+      # Runner self-hosted: um container que rodou como ROOT pode ter deixado
+      # arquivo no workspace (ex.: __pycache__) que o actions/checkout — que roda
+      # como github-runner — não consegue apagar (EACCES). Devolve a posse ANTES
+      # do checkout. INLINE de propósito: uma action local só existe DEPOIS do
+      # checkout, e é o checkout que quebra. No-op em GitHub-hosted.
+      - name: Preflight do runner (posse do workspace)
+        if: runner.environment == 'self-hosted'
+        run: sudo chown -R "$(id -u):$(id -g)" "$GITHUB_WORKSPACE" 2>/dev/null || true
       - name: Checkout
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
 

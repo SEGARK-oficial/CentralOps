@@ -20,7 +20,16 @@ export default defineConfig({
   testDir: "./tests",
   fullyParallel: true,
   retries: process.env.CI ? 2 : 0,
-  workers: process.env.CI ? 4 : 2,
+  // PW_WORKERS existe por causa do runner self-hosted: cada worker sobe um
+  // Chromium (~400-600MB) E divide a máquina com o stack docker do E2E
+  // (backend+frontend+postgres+redis, ~1.5GB). Em 4 workers o pico passa de
+  // 4GB — que é OOM numa LXC de 8GB rodando mais alguma coisa. O default
+  // preserva o comportamento antigo em runner GitHub-hosted.
+  workers: process.env.PW_WORKERS
+    ? Number(process.env.PW_WORKERS)
+    : process.env.CI
+      ? 4
+      : 2,
   reporter: [
     ["html", { open: "never" }],
     ["github"],
