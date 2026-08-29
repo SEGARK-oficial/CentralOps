@@ -51,7 +51,7 @@ jobs:
           if [ "$(avail)" -lt "$MIN_FREE_GB" ]; then
             echo "::warning::Disco abaixo do piso — podando (escopado, do mais barato ao mais caro)."
             docker system prune -f >/dev/null 2>&1 || true
-            [ "$(avail)" -lt "$MIN_FREE_GB" ] && docker buildx prune -f --keep-storage=8GB >/dev/null 2>&1 || true
+            [ "$(avail)" -lt "$MIN_FREE_GB" ] && docker buildx prune -f >/dev/null 2>&1 || true  # sem flag de tamanho: em emergencia o alvo e liberar
             [ "$(avail)" -lt "$MIN_FREE_GB" ] && docker image prune -a -f --filter until=24h >/dev/null 2>&1 || true
             [ "$(avail)" -lt "$MIN_FREE_GB" ] && docker image prune -a -f >/dev/null 2>&1 || true
             echo "$(hostname): $(avail)GB livres apos poda"
@@ -114,7 +114,7 @@ jobs:
           if [ "$(avail)" -lt "$MIN_FREE_GB" ]; then
             echo "::warning::Disco abaixo do piso — podando (escopado, do mais barato ao mais caro)."
             docker system prune -f >/dev/null 2>&1 || true
-            [ "$(avail)" -lt "$MIN_FREE_GB" ] && docker buildx prune -f --keep-storage=8GB >/dev/null 2>&1 || true
+            [ "$(avail)" -lt "$MIN_FREE_GB" ] && docker buildx prune -f >/dev/null 2>&1 || true  # sem flag de tamanho: em emergencia o alvo e liberar
             [ "$(avail)" -lt "$MIN_FREE_GB" ] && docker image prune -a -f --filter until=24h >/dev/null 2>&1 || true
             [ "$(avail)" -lt "$MIN_FREE_GB" ] && docker image prune -a -f >/dev/null 2>&1 || true
             echo "$(hostname): $(avail)GB livres apos poda"

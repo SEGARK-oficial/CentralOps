@@ -60,8 +60,22 @@ docker image prune -a -f --filter "until=${IMAGE_AGE}" >/dev/null 2>&1 || true
 log "buildx cache prune (idade > ${CACHE_AGE})…"
 docker buildx prune -f --filter "until=${CACHE_AGE}" >/dev/null 2>&1 || true
 
-log "buildx cache prune (teto de tamanho: ${CACHE_KEEP})…"
-docker buildx prune -f --keep-storage="${CACHE_KEEP}" >/dev/null 2>&1 || true
+# TETO DE TAMANHO — o flag mudou de nome e a semântica mudou junto, então a
+# escolha aqui é deliberada e não cosmética:
+#   buildx antigo:  --keep-storage N   = "mantenha no máximo N"  (TETO)
+#   buildx novo:    --keep-storage N   → alias de --reserved-space N
+#                                      = "sempre preserve N"      (PISO!)
+#                   --max-used-space N = "mantenha no máximo N"   (TETO)
+# Usar o nome antigo num buildx novo inverte a intenção: em vez de limitar o
+# cache, garante que ele nunca desça de N. Por isso detectamos o flag em vez de
+# assumir a versão.
+if docker buildx prune --help 2>&1 | grep -q -- '--max-used-space'; then
+  log "buildx cache prune (teto ${CACHE_KEEP}, via --max-used-space)…"
+  docker buildx prune -f --max-used-space="${CACHE_KEEP}" >/dev/null 2>&1 || true
+else
+  log "buildx cache prune (teto ${CACHE_KEEP}, via --keep-storage legado)…"
+  docker buildx prune -f --keep-storage="${CACHE_KEEP}" >/dev/null 2>&1 || true
+fi
 
 log "==== disco DEPOIS ===="
 df -h / 2>/dev/null || true
