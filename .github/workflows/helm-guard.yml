@@ -32,7 +32,22 @@ jobs:
       # checkout, e é o checkout que quebra. No-op em GitHub-hosted.
       - name: Preflight do runner (posse do workspace)
         if: runner.environment == 'self-hosted'
-        run: sudo chown -R "$(id -u):$(id -g)" "$GITHUB_WORKSPACE" 2>/dev/null || true
+        run: |
+          # NÃO usar `|| true` sozinho: sudo sem senha ausente faria o passo passar
+          # VERDE com o chown nunca executado, e o EACCES apareceria depois num job
+          # sem relação. Testa primeiro e RECLAMA alto.
+          if sudo -n true 2>/dev/null; then
+            # NÃO usar `|| true` aqui: sudo sem senha ausente faria o passo passar
+          # VERDE com o chown nunca executado — e o EACCES só apareceria muito
+          # depois, num job sem relação. Testa primeiro e RECLAMA alto.
+          if sudo -n true 2>/dev/null; then
+            sudo chown -R "$(id -u):$(id -g)" "$GITHUB_WORKSPACE" 2>/dev/null || true
+          else
+            echo "::warning title=sudo sem senha ausente::O usuario '$(id -un)' em $(hostname) nao tem NOPASSWD. O chown do workspace nao roda (EACCES futuro) e 'playwright install --with-deps' falha. Configure /etc/sudoers.d/ para este usuario."
+          fi
+          else
+            echo "::warning title=sudo sem senha ausente::O usuario '$(id -un)' em $(hostname) nao tem NOPASSWD. O chown do workspace nao roda (EACCES futuro) e 'playwright install --with-deps' falha. Configure /etc/sudoers.d/ para este usuario."
+          fi
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
       - uses: azure/setup-helm@1a275c3b69536ee54be43f2070a358922e12c8d4 # v4.3.1
         with:

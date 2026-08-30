@@ -45,7 +45,14 @@ jobs:
           MIN_FREE_GB: "12"
         run: |
           set -uo pipefail
-          sudo chown -R "$(id -u):$(id -g)" "$GITHUB_WORKSPACE" 2>/dev/null || true
+          # NÃO usar `|| true` aqui: sudo sem senha ausente faria o passo passar
+          # VERDE com o chown nunca executado — e o EACCES só apareceria muito
+          # depois, num job sem relação. Testa primeiro e RECLAMA alto.
+          if sudo -n true 2>/dev/null; then
+            sudo chown -R "$(id -u):$(id -g)" "$GITHUB_WORKSPACE" 2>/dev/null || true
+          else
+            echo "::warning title=sudo sem senha ausente::O usuario '$(id -un)' em $(hostname) nao tem NOPASSWD. O chown do workspace nao roda (EACCES futuro) e 'playwright install --with-deps' falha. Configure /etc/sudoers.d/ para este usuario."
+          fi
           avail() { df -BG --output=avail / | tail -1 | tr -dc '0-9'; }
           echo "$(hostname): $(avail)GB livres antes"
           if [ "$(avail)" -lt "$MIN_FREE_GB" ]; then
@@ -108,7 +115,14 @@ jobs:
           MIN_FREE_GB: "12"
         run: |
           set -uo pipefail
-          sudo chown -R "$(id -u):$(id -g)" "$GITHUB_WORKSPACE" 2>/dev/null || true
+          # NÃO usar `|| true` aqui: sudo sem senha ausente faria o passo passar
+          # VERDE com o chown nunca executado — e o EACCES só apareceria muito
+          # depois, num job sem relação. Testa primeiro e RECLAMA alto.
+          if sudo -n true 2>/dev/null; then
+            sudo chown -R "$(id -u):$(id -g)" "$GITHUB_WORKSPACE" 2>/dev/null || true
+          else
+            echo "::warning title=sudo sem senha ausente::O usuario '$(id -un)' em $(hostname) nao tem NOPASSWD. O chown do workspace nao roda (EACCES futuro) e 'playwright install --with-deps' falha. Configure /etc/sudoers.d/ para este usuario."
+          fi
           avail() { df -BG --output=avail / | tail -1 | tr -dc '0-9'; }
           echo "$(hostname): $(avail)GB livres antes"
           if [ "$(avail)" -lt "$MIN_FREE_GB" ]; then
