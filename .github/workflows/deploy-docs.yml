@@ -26,8 +26,31 @@ permissions:
 jobs:
   build-and-publish:
     name: Build and publish docs to GitHub Pages
-    runs-on: ubuntu-latest
+    runs-on: ${{ fromJSON(github.event.pull_request.head.repo.fork && '["ubuntu-latest"]' || '["self-hosted","Linux","X64"]') }}
     steps:
+      # Runner self-hosted: um container que rodou como ROOT pode ter deixado
+      # arquivo no workspace (ex.: __pycache__) que o actions/checkout — que roda
+      # como github-runner — não consegue apagar (EACCES). Devolve a posse ANTES
+      # do checkout. INLINE de propósito: uma action local só existe DEPOIS do
+      # checkout, e é o checkout que quebra. No-op em GitHub-hosted.
+      - name: Preflight do runner (posse do workspace)
+        if: runner.environment == 'self-hosted'
+        run: |
+          # NÃO usar `|| true` sozinho: sudo sem senha ausente faria o passo passar
+          # VERDE com o chown nunca executado, e o EACCES apareceria depois num job
+          # sem relação. Testa primeiro e RECLAMA alto.
+          if sudo -n true 2>/dev/null; then
+            # NÃO usar `|| true` aqui: sudo sem senha ausente faria o passo passar
+          # VERDE com o chown nunca executado — e o EACCES só apareceria muito
+          # depois, num job sem relação. Testa primeiro e RECLAMA alto.
+          if sudo -n true 2>/dev/null; then
+            sudo chown -R "$(id -u):$(id -g)" "$GITHUB_WORKSPACE" 2>/dev/null || true
+          else
+            echo "::warning title=sudo sem senha ausente::O usuario '$(id -un)' em $(hostname) nao tem NOPASSWD. O chown do workspace nao roda (EACCES futuro) e 'playwright install --with-deps' falha. Configure /etc/sudoers.d/ para este usuario."
+          fi
+          else
+            echo "::warning title=sudo sem senha ausente::O usuario '$(id -un)' em $(hostname) nao tem NOPASSWD. O chown do workspace nao roda (EACCES futuro) e 'playwright install --with-deps' falha. Configure /etc/sudoers.d/ para este usuario."
+          fi
       - name: Checkout
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
 

@@ -37,10 +37,50 @@ env:
 jobs:
   # ── Job 1: setup de autenticação (roda antes dos shards) ─────────────────────
   e2e-setup:
-    runs-on: ubuntu-latest
+    runs-on: ${{ fromJSON(github.event.pull_request.head.repo.fork && '["ubuntu-latest"]' || '["self-hosted","Linux","X64"]') }}
     timeout-minutes: 15
 
     steps:
+      # Runner self-hosted: (a) devolve a posse do workspace — container root
+      # deixa arquivo que o checkout não apaga (EACCES); (b) garante piso de
+      # disco. Este job puxa/constrói imagem, e quando /var/lib/docker enche o
+      # sintoma NÃO é "disco cheio": é um COPY que falha, um pull truncado, um
+      # pytest com I/O error — o diagnóstico vai parar no lugar errado. Aqui a
+      # falha é explícita e ANTES de qualquer trabalho.
+      # INLINE de propósito: uma action local só existe DEPOIS do checkout, e é
+      # exatamente o checkout que quebra com ENOSPC/EACCES. No-op em
+      # GitHub-hosted (runner efêmero, sempre limpo).
+      - name: Preflight do runner (posse do workspace + piso de disco)
+        if: runner.environment == 'self-hosted'
+        env:
+          MIN_FREE_GB: "12"
+        run: |
+          set -uo pipefail
+          # NÃO usar `|| true` aqui: sudo sem senha ausente faria o passo passar
+          # VERDE com o chown nunca executado — e o EACCES só apareceria muito
+          # depois, num job sem relação. Testa primeiro e RECLAMA alto.
+          if sudo -n true 2>/dev/null; then
+            sudo chown -R "$(id -u):$(id -g)" "$GITHUB_WORKSPACE" 2>/dev/null || true
+          else
+            echo "::warning title=sudo sem senha ausente::O usuario '$(id -un)' em $(hostname) nao tem NOPASSWD. O chown do workspace nao roda (EACCES futuro) e 'playwright install --with-deps' falha. Configure /etc/sudoers.d/ para este usuario."
+          fi
+          avail() { df -BG --output=avail / | tail -1 | tr -dc '0-9'; }
+          echo "$(hostname): $(avail)GB livres antes"
+          if [ "$(avail)" -lt "$MIN_FREE_GB" ]; then
+            echo "::warning::Disco abaixo do piso — podando (escopado, do mais barato ao mais caro)."
+            docker system prune -f >/dev/null 2>&1 || true
+            [ "$(avail)" -lt "$MIN_FREE_GB" ] && docker buildx prune -f >/dev/null 2>&1 || true  # sem flag de tamanho: em emergencia o alvo e liberar
+            [ "$(avail)" -lt "$MIN_FREE_GB" ] && docker image prune -a -f --filter until=24h >/dev/null 2>&1 || true
+            [ "$(avail)" -lt "$MIN_FREE_GB" ] && docker image prune -a -f >/dev/null 2>&1 || true
+            echo "$(hostname): $(avail)GB livres apos poda"
+          fi
+          if [ "$(avail)" -lt "$MIN_FREE_GB" ]; then
+            MSG="$(hostname) tem $(avail)GB livres e este job exige ${MIN_FREE_GB}GB."
+            MSG="${MSG} A poda nao resolveu: falta CAPACIDADE, nao limpeza."
+            MSG="${MSG} Recusando rodar para nao morrer no meio do build."
+            echo "::error title=Runner sem disco::${MSG}"
+            exit 1
+          fi
       - name: Checkout
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
 
@@ -138,7 +178,7 @@ jobs:
   # ── Job 2: shards de teste (dependem do setup) ────────────────────────────────
   e2e:
     needs: e2e-setup
-    runs-on: ubuntu-latest
+    runs-on: ${{ fromJSON(github.event.pull_request.head.repo.fork && '["ubuntu-latest"]' || '["self-hosted","Linux","X64"]') }}
     timeout-minutes: 30
 
     strategy:
@@ -148,6 +188,46 @@ jobs:
         shard: ${{ (github.event_name == 'pull_request') && fromJSON('[1, 2]') || fromJSON('[1, 2, 3, 4]') }}
 
     steps:
+      # Runner self-hosted: (a) devolve a posse do workspace — container root
+      # deixa arquivo que o checkout não apaga (EACCES); (b) garante piso de
+      # disco. Este job puxa/constrói imagem, e quando /var/lib/docker enche o
+      # sintoma NÃO é "disco cheio": é um COPY que falha, um pull truncado, um
+      # pytest com I/O error — o diagnóstico vai parar no lugar errado. Aqui a
+      # falha é explícita e ANTES de qualquer trabalho.
+      # INLINE de propósito: uma action local só existe DEPOIS do checkout, e é
+      # exatamente o checkout que quebra com ENOSPC/EACCES. No-op em
+      # GitHub-hosted (runner efêmero, sempre limpo).
+      - name: Preflight do runner (posse do workspace + piso de disco)
+        if: runner.environment == 'self-hosted'
+        env:
+          MIN_FREE_GB: "12"
+        run: |
+          set -uo pipefail
+          # NÃO usar `|| true` aqui: sudo sem senha ausente faria o passo passar
+          # VERDE com o chown nunca executado — e o EACCES só apareceria muito
+          # depois, num job sem relação. Testa primeiro e RECLAMA alto.
+          if sudo -n true 2>/dev/null; then
+            sudo chown -R "$(id -u):$(id -g)" "$GITHUB_WORKSPACE" 2>/dev/null || true
+          else
+            echo "::warning title=sudo sem senha ausente::O usuario '$(id -un)' em $(hostname) nao tem NOPASSWD. O chown do workspace nao roda (EACCES futuro) e 'playwright install --with-deps' falha. Configure /etc/sudoers.d/ para este usuario."
+          fi
+          avail() { df -BG --output=avail / | tail -1 | tr -dc '0-9'; }
+          echo "$(hostname): $(avail)GB livres antes"
+          if [ "$(avail)" -lt "$MIN_FREE_GB" ]; then
+            echo "::warning::Disco abaixo do piso — podando (escopado, do mais barato ao mais caro)."
+            docker system prune -f >/dev/null 2>&1 || true
+            [ "$(avail)" -lt "$MIN_FREE_GB" ] && docker buildx prune -f >/dev/null 2>&1 || true  # sem flag de tamanho: em emergencia o alvo e liberar
+            [ "$(avail)" -lt "$MIN_FREE_GB" ] && docker image prune -a -f --filter until=24h >/dev/null 2>&1 || true
+            [ "$(avail)" -lt "$MIN_FREE_GB" ] && docker image prune -a -f >/dev/null 2>&1 || true
+            echo "$(hostname): $(avail)GB livres apos poda"
+          fi
+          if [ "$(avail)" -lt "$MIN_FREE_GB" ]; then
+            MSG="$(hostname) tem $(avail)GB livres e este job exige ${MIN_FREE_GB}GB."
+            MSG="${MSG} A poda nao resolveu: falta CAPACIDADE, nao limpeza."
+            MSG="${MSG} Recusando rodar para nao morrer no meio do build."
+            echo "::error title=Runner sem disco::${MSG}"
+            exit 1
+          fi
       - name: Checkout
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
 
