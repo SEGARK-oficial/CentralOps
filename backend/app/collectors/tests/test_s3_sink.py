@@ -436,16 +436,20 @@ async def test_test_head_bucket_error_failed(client: S3Client) -> None:
 async def test_prune_expired_deletes_old_keeps_new(client: S3Client) -> None:
     """Objetos mais antigos que retention são deletados; recentes preservados."""
     now = datetime.now(timezone.utc)
+    # As duas datas da key saem de ``now``. Antes a key do objeto "novo" era o
+    # literal ``2026/06/01`` enquanto só o ``LastModified`` era relativo — e como
+    # ``prune_expired`` decide pela DATA DA KEY (ver a docstring dele: usar
+    # ``LastModified`` abriria buraco de retenção numa reentrega), o literal era a
+    # única coisa que importava. Ele venceu os 90 dias de ``retention_days`` em
+    # 2026-08-30 e o teste passou a falhar todo dia a partir dali: o objeto "novo"
+    # também expirava, ``deleted`` virava 2. Data literal em teste de expiração é
+    # um teste com prazo de validade.
+    old_key = f"centralops/org=42/{now - timedelta(days=400):%Y/%m/%d}/old.ndjson.gz"
+    new_key = f"centralops/org=42/{now - timedelta(days=1):%Y/%m/%d}/new.ndjson.gz"
     fake = FakeS3Client(
         objects={
-            "centralops/org=42/2020/01/01/old.ndjson.gz": {
-                "Body": b"x",
-                "LastModified": now - timedelta(days=400),
-            },
-            "centralops/org=42/2026/06/01/new.ndjson.gz": {
-                "Body": b"y",
-                "LastModified": now - timedelta(days=1),
-            },
+            old_key: {"Body": b"x", "LastModified": now - timedelta(days=400)},
+            new_key: {"Body": b"y", "LastModified": now - timedelta(days=1)},
         }
     )
     _patch_client(client, fake)
@@ -453,8 +457,8 @@ async def test_prune_expired_deletes_old_keeps_new(client: S3Client) -> None:
     deleted = await client.prune_expired(retention_days=90)
 
     assert deleted == 1
-    assert "centralops/org=42/2020/01/01/old.ndjson.gz" not in fake.objects
-    assert "centralops/org=42/2026/06/01/new.ndjson.gz" in fake.objects
+    assert old_key not in fake.objects
+    assert new_key in fake.objects
 
 
 @pytest.mark.asyncio
