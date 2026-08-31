@@ -561,13 +561,100 @@ def _dispatch_scheduled_query_alert(
     )
     envelope = build_envelope(raw, normalized, ctx, vendor_msg_id=vendor_msg_id)
 
+    # ── o achado, com a tabela dentro ────────────────────────────────────
+    # O 1006 acima diz que o job rodou e quantas linhas vieram; as linhas em si
+    # viajavam só no ``raw``, e o ``raw`` é a primeira coisa que some no
+    # caminho: uma rota com ``drop_raw`` o remove, e um destino com
+    # ``payload="ocsf"`` entrega apenas ``envelope["normalized"]``. O alerta
+    # crítico chegava dizendo "encontrei 1 resultado" sem dizer qual.
+    #
+    # O 2004 leva a mesma tabela mapeada em OCSF 1.8, dentro do ``normalized``,
+    # onde nenhuma das duas coisas a alcança. É um evento A MAIS, não um
+    # substituto: o 1006 continua idêntico, e quem já tem regra escrita sobre
+    # ele não precisa saber que isto existe.
+    finding_envelope = _build_scheduled_query_finding(
+        integration=integration,
+        sched=sched,
+        query_def=query_def,
+        items=items,
+        ctx=ctx,
+        occurred_ms=agora_ms,
+        base_unmapped=normalized["unmapped"],
+        record=record,
+    )
+
     # Funnel through the shared helper so ALL producers inherit
     # routing. With no
     # matching routes the batch follows the configured vendor-neutral fallback
     # (``Destination.is_default``) or, absent one, lands in the DLQ as ``unrouted``
     # (no hardcoded wazuh-default). O envelope agora carrega ``organization_id``
     # da integração, então rota criada pelo tenant casa o evento dele.
-    _enqueue_dispatch([envelope])
+    _enqueue_dispatch([envelope, finding_envelope])
+
+
+def _build_scheduled_query_finding(
+    *,
+    integration: models.Integration,
+    sched: models.ScheduledQuery,
+    query_def: models.PredefinedQuery,
+    items: list,
+    ctx,
+    occurred_ms: int,
+    base_unmapped: dict,
+    record: Optional[models.SearchResult],
+) -> dict:
+    """Envelope do ``Detection Finding`` (2004) com as linhas do resultado.
+
+    Reusa o ``EnvelopeContext`` do 1006 — mesmo tenant, mesma integração, mesmo
+    stream — trocando apenas o ``event_type``, para que uma rota já existente
+    por ``stream``/``organization_id`` continue casando os dois eventos e quem
+    quiser separá-los tenha por onde.
+    """
+    from dataclasses import replace
+
+    from .normalize.envelope import build_envelope
+    from .normalize.ocsf import SEVERITY_ID
+    from .normalize.ocsf.query_rows import build_finding_normalized
+
+    dedup_key = base_unmapped.get("dedup_key")
+    # ``uid`` do achado: a chave de dedup da Detection durável mais o id do run.
+    # Duas execuções do mesmo schedule são achados distintos e precisam de uids
+    # distintos, senão o consumidor colapsa os dois no mesmo registro.
+    finding_uid = (
+        f"{dedup_key}:{record.id}" if record is not None and dedup_key else str(dedup_key)
+    )
+
+    # O statement sai do ``unmapped`` do achado. Ele já viaja inteiro no 1006 e
+    # no ``SearchResult``, e uma hunt real passa de 4 KiB — repeti-lo aqui é o
+    # dobro do texto no fio para zero informação nova, comendo a margem que
+    # existe para as evidências dentro do OS_MAXSTR do Wazuh. ``query_id`` e
+    # ``search_result_id`` continuam no evento: quem precisar do SQL chega nele.
+    finding_unmapped = {k: v for k, v in base_unmapped.items() if k != "statement"}
+
+    normalized = build_finding_normalized(
+        rows=items,
+        finding_uid=finding_uid,
+        title=query_def.title,
+        description=getattr(query_def, "description", None),
+        severity_id=SEVERITY_ID["critical"],
+        query_id=getattr(query_def, "id", None),
+        occurred_ms=occurred_ms,
+        unmapped=finding_unmapped,
+    )
+
+    finding_ctx = replace(ctx, event_type="centralops.scheduled_query.finding")
+    # ``vendor_msg_id`` distinto do 1006: os dois saem da mesma execução, e um
+    # id compartilhado faria o dedup do destino descartar o segundo como
+    # repetição do primeiro — justamente o que carrega a tabela.
+    vendor_msg_id = (
+        f"sched-{sched.id}-{record.id}-finding"
+        if record is not None
+        else f"sched-{sched.id}-finding"
+    )
+    # ``raw`` vazio de propósito: as linhas já estão mapeadas no ``normalized``,
+    # e repetir os mesmos itens no bruto dobraria o evento no fio sem acrescentar
+    # informação. O bruto continua saindo no 1006, para quem o consome.
+    return build_envelope({}, normalized, finding_ctx, vendor_msg_id=vendor_msg_id)
 
 
 # ── Retention diária ─────────────────────────────────────────────────
