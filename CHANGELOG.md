@@ -1,5 +1,25 @@
 # Changelog
 
+## [2.9.0](https://github.com/SEGARK-oficial/CentralOps/compare/v2.8.0...v2.9.0) (2026-08-31)
+
+
+### Features
+
+* **correlação:** cópia do console para a prioridade de avaliação ([#57](https://github.com/SEGARK-oficial/CentralOps/issues/57)) ([4bf4af7](https://github.com/SEGARK-oficial/CentralOps/commit/4bf4af7c647325e4e0febb818a308c06ce4b33b5))
+* **correlação:** os tipos do console enxergam a coluna que decide quem roda ([#56](https://github.com/SEGARK-oficial/CentralOps/issues/56)) ([de9e937](https://github.com/SEGARK-oficial/CentralOps/commit/de9e937f31cb12f2a0ce678de24fb9720c6666c3))
+* **deteccao:** a Detection em voo sai como evento OCSF 2004 roteado ([#54](https://github.com/SEGARK-oficial/CentralOps/issues/54)) ([66a49e8](https://github.com/SEGARK-oficial/CentralOps/commit/66a49e82084d3580761e8cc37a94931cb49c198e))
+
+
+### Bug Fixes
+
+* **build:** pina Cython abaixo de 3.3 — 3.3.0 quebra a compilacao ([#49](https://github.com/SEGARK-oficial/CentralOps/issues/49)) ([d1b034e](https://github.com/SEGARK-oficial/CentralOps/commit/d1b034e2814da09bd01db4ded65104badff1a839))
+* **ci:** o publish promovia imagem que um gate havia reprovado ([#53](https://github.com/SEGARK-oficial/CentralOps/issues/53)) ([9a01db1](https://github.com/SEGARK-oficial/CentralOps/commit/9a01db1b8d84b953617dffe08d483c883fe45195))
+* **inflight:** a Detection agora e gravada em teste, e a perda deixa de mentir ([#51](https://github.com/SEGARK-oficial/CentralOps/issues/51)) ([6ee76f1](https://github.com/SEGARK-oficial/CentralOps/commit/6ee76f168d0a2e9f9bd70d55dffb20934b03a962))
+* **inflight:** honestidade do detector em voo e fronteira de dado do repo público ([#47](https://github.com/SEGARK-oficial/CentralOps/issues/47)) ([eb63558](https://github.com/SEGARK-oficial/CentralOps/commit/eb63558894a35f69e59372af3b40abc83aa94428))
+* o release de teste passa a exercitar as features (flags, guardas e group_by em voo) ([#58](https://github.com/SEGARK-oficial/CentralOps/issues/58)) ([62df20d](https://github.com/SEGARK-oficial/CentralOps/commit/62df20d2a00a2012ffe5b7bbbb6e6298b3b65348))
+* **observabilidade:** a coleta parou por 6h e nenhuma tela disse isso ([#59](https://github.com/SEGARK-oficial/CentralOps/issues/59)) ([ac340c6](https://github.com/SEGARK-oficial/CentralOps/commit/ac340c6704ca7526a6e039f0ce01f8e799c7a015))
+* **seguranca:** excecao de banco carregava os VALORES da linha para o log ([#52](https://github.com/SEGARK-oficial/CentralOps/issues/52)) ([9020d0a](https://github.com/SEGARK-oficial/CentralOps/commit/9020d0a39e26eef832c1722e4f694b0cfe4d4e71))
+
 ## [2.8.0](https://github.com/SEGARK-oficial/CentralOps/compare/v2.7.0...v2.8.0) (2026-08-17)
 
 
