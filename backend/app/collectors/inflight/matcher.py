@@ -61,6 +61,12 @@ class CompiledInflightRule:
     #: que colapsa a regra inteira em UMA Detection por ciclo.
     group_by_path: tuple[str, ...] | None
     clauses: tuple[CompiledClause, ...]
+    #: A Detection desta regra sai como evento OCSF 2004 roteado (W1.4). É
+    #: decisão POR REGRA; ``INFLIGHT_EMIT_OCSF_EVENT`` (env) é o "emite tudo".
+    #: Default ``False`` para toda construção existente seguir válida.
+    emit_event: bool = False
+    #: Teto de chaves de dedup por ciclo desta regra (W1.5). ``None`` = env.
+    max_dedup_keys: int | None = None
 
 
 @dataclass(frozen=True, slots=True)

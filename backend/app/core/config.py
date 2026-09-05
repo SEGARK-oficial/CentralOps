@@ -567,7 +567,16 @@ class Settings(BaseSettings):
     # é a CARDINALIDADE do group_by_field, não a taxa de match: uma regra que
     # casa 100% dos eventos com group_by=None gera UMA chave. No teto, os matches
     # seguem contados e nenhum evento é descartado — só não há Detection nova.
-    INFLIGHT_MAX_DEDUP_KEYS_PER_RULE_PER_CYCLE: int = 50
+    #
+    # 256, não 50 (W1.5): medido contra 121k eventos reais, ``sophos.siem_event``
+    # agrupado por ``endpoint_id`` chega a 192 chaves em ciclos de 200 eventos e
+    # estourava o antigo teto em 74% deles — ou seja, a regra mais óbvia do
+    # stream de maior volume perdia chaves em silêncio na maioria dos ciclos.
+    # 256 cobre o máximo observado com folga e continua limitado por
+    # ``INFLIGHT_MAX_DETECTIONS_PER_FLUSH`` por cima. ``CorrelationRule.
+    # max_dedup_keys`` sobrepõe por regra: o número certo depende do par
+    # (stream, group_by), e só a regra sabe qual é.
+    INFLIGHT_MAX_DEDUP_KEYS_PER_RULE_PER_CYCLE: int = 256
     # Truncamento do valor de group_by dentro do dedup_key. É o único teto que
     # protege escrita REAL: o valor vem do evento e entra num índice B-tree
     # (ix_detections_org_dedup).
@@ -625,10 +634,13 @@ class Settings(BaseSettings):
     # trocaria uma perda LIMITADA de detecção de uma org por uma perda
     # ILIMITADA de COLETA de todos os tenants daquele worker.
     #
-    # 500 = 10× ``INFLIGHT_MAX_DEDUP_KEYS_PER_RULE_PER_CYCLE`` (dez regras podem
-    # estourar o próprio teto antes de este morder) e 1/5 do teto estrutural
-    # (2500), então ele de fato morde antes do pior caso em vez de ser
-    # decorativo. As duas invariantes são verificadas em
+    # 500 ≥ ``INFLIGHT_MAX_DEDUP_KEYS_PER_RULE_PER_CYCLE`` (UMA regra pode
+    # encher o próprio teto de 256 antes de este morder) e bem abaixo do teto
+    # estrutural (50 × 256 = 12.800), então ele de fato morde antes do pior
+    # caso em vez de ser decorativo. Não sobe junto com o teto por regra de
+    # propósito: o custo que ele contém é SERIAL (``record`` commita por chave,
+    # 5 round-trips no Postgres) e não fica mais barato porque uma regra tem
+    # mais chaves. As duas invariantes são verificadas em
     # backend/tests/test_adr0015_inflight_flush_cap.py.
     #
     # Sem validador de boot, pelo mesmo critério escrito acima para

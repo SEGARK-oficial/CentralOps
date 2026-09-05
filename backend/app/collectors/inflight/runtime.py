@@ -176,7 +176,11 @@ RULE_METRIC_WINDOW_MINUTES = 24 * 60
 # saído — motivos DELIBERADOS, não falhas (falha é ``emit_failed``, acima).
 # É label de ``collector_inflight_events_not_emitted_total``, logo mesma
 # disciplina dos enums vizinhos: nunca carrega valor de evento nem nome de regra.
-EMIT_SKIP_REASONS = ("suppressed", "loop_guard", "cycle_cap")
+#: ``rule_opt_out`` (W1.4) = a Detection nasceu de uma regra que NÃO pediu
+#: emissão, e o interruptor global está desligado. Só é contado quando ALGUMA
+#: regra do ciclo pediu — sem isso o emissor nem é chamado, e uma instalação
+#: que não usa a feature não ganha série nova.
+EMIT_SKIP_REASONS = ("suppressed", "loop_guard", "cycle_cap", "rule_opt_out")
 
 #: ``event_type`` do evento emitido. É a MARCA de auto-identificação usada pelo
 #: guard de laço (ver ``_is_self_emitted``) — trocá-la sem trocar o guard
@@ -333,6 +337,12 @@ def compile_rule(row: Any) -> tuple[Optional[CompiledInflightRule], Optional[str
             ),
             group_by_path=tuple(str(group_by).split(".")) if group_by else None,
             clauses=tuple(compiled),
+            emit_event=bool(getattr(row, "emit_event", False) or False),
+            # ``or None`` de propósito: 0 não é "sem teto", é "usa o env" — um
+            # teto de zero chaves seria uma regra que nunca gera Detection.
+            max_dedup_keys=(
+                int(_mdk) if (_mdk := getattr(row, "max_dedup_keys", None)) else None
+            ),
         ),
         None,
     )
@@ -843,7 +853,13 @@ class InflightAccumulator:
         # O teto é sobre CHAVES DISTINTAS, não sobre matches: a variável
         # perigosa é a cardinalidade do group_by, não a taxa de acerto. Uma
         # regra que casa 100% dos eventos com group_by=None gera UMA chave.
-        key_cap = int(settings.INFLIGHT_MAX_DEDUP_KEYS_PER_RULE_PER_CYCLE)
+        # A REGRA pode ter o seu teto (W1.5): o número certo depende do par
+        # (stream, group_by) — 192 chaves/ciclo em ``sophos.siem_event`` por
+        # ``endpoint_id`` contra 15 em ``wazuh.detection`` por ``agent.id``.
+        key_cap = int(
+            getattr(rule, "max_dedup_keys", None)
+            or settings.INFLIGHT_MAX_DEDUP_KEYS_PER_RULE_PER_CYCLE
+        )
         if self._keys_per_rule.get(rule.rule_id, 0) >= key_cap:
             self.overflow[rule.rule_id] = self.overflow.get(rule.rule_id, 0) + 1
             self.count_error("key_cap", rule.rule_id)
@@ -929,6 +945,9 @@ class DetectionEmit:
     severity_id: int
     integration_id: Optional[int]
     source: Mapping[str, Any]
+    #: A regra pediu emissão (W1.4). Viaja no ticket porque a decisão é
+    #: tomada no emissor, que só vê tickets — não regras.
+    emit_event: bool = False
 
 
 def _apply_flush_cap(acc: InflightAccumulator) -> int:
@@ -1090,6 +1109,7 @@ def _flush_sync(
                             severity_id=rule.severity_id,
                             integration_id=item.get("integration_id"),
                             source=item.get("source") or {},
+                            emit_event=bool(getattr(rule, "emit_event", False)),
                         )
                     )
     except Exception as exc:  # noqa: BLE001 — reembalado, não engolido
@@ -1419,9 +1439,14 @@ async def _emit_detection_events(
         INFLIGHT_EVENTS_NOT_EMITTED.labels(reason="suppressed").inc(suppressed)
 
     cap = int(settings.INFLIGHT_EMIT_MAX_EVENTS_PER_CYCLE)
+    # Global ON = "emite tudo" (o interruptor de ambiente, como antes). OFF =
+    # sai só o que a REGRA pediu (``emit_event``): é o operador, por regra,
+    # quem decide o que chega ao SIEM e paga volume por isso (W1.4).
+    global_on = bool(settings.INFLIGHT_EMIT_OCSF_EVENT)
     lote: list[tuple[DetectionEmit, dict[str, Any]]] = []
     loop_guard = 0
     cycle_cap = 0
+    rule_opt_out = 0
     # UM relógio para o ciclo inteiro: ``time`` e ``logged_time`` de todos os
     # eventos do mesmo flush têm de ser comparáveis entre si, e chamar
     # ``utcnow`` por evento produziria uma ordenação artificial no destino que
@@ -1429,6 +1454,9 @@ async def _emit_detection_events(
     now_ms = int(datetime.now(timezone.utc).timestamp() * 1000)
 
     for emit in emits:
+        if not global_on and not emit.emit_event:
+            rule_opt_out += 1
+            continue
         if (emit.source or {}).get("self_emitted"):
             loop_guard += 1
             continue
@@ -1458,6 +1486,9 @@ async def _emit_detection_events(
             "que também é fonte coletada).",
             loop_guard,
         )
+    if rule_opt_out:
+        # Sem aviso: não é anomalia, é a escolha do operador por regra.
+        INFLIGHT_EVENTS_NOT_EMITTED.labels(reason="rule_opt_out").inc(rule_opt_out)
     if cycle_cap:
         INFLIGHT_EVENTS_NOT_EMITTED.labels(reason="cycle_cap").inc(cycle_cap)
         acc._warn_once(
@@ -1662,10 +1693,14 @@ async def flush_inflight(
     # ao OTel e ao breakdown por regra. Invertida a ordem, a falha da entrega
     # ficaria contada só em memória e morreria com o ciclo.
     #
-    # Flag OFF (o default) ⇒ nem os tickets são olhados: nenhum evento novo,
-    # nenhuma série nova, nenhum comportamento novo numa instalação que não
-    # pediu. Ver ``INFLIGHT_EMIT_OCSF_EVENT``.
-    if _emits_known and settings.INFLIGHT_EMIT_OCSF_EVENT:
+    # Flag OFF (o default) E nenhuma regra pedindo ⇒ nem os tickets são
+    # olhados: nenhum evento novo, nenhuma série nova, nenhum comportamento
+    # novo numa instalação que não pediu. Ver ``INFLIGHT_EMIT_OCSF_EVENT`` e
+    # ``CorrelationRule.emit_event`` (W1.4): a regra que pediu emite mesmo com
+    # a flag global desligada — e SÓ ela.
+    if _emits_known and (
+        settings.INFLIGHT_EMIT_OCSF_EVENT or any(e.emit_event for e in _emits)
+    ):
         try:
             await _emit_detection_events(
                 acc, _emits, int(organization_id), suppressed=_suppressed
