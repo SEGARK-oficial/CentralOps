@@ -134,7 +134,7 @@
           "inflight": "Em voo: a regra é avaliada evento a evento no pipeline de ingestão, ANTES de o dado chegar ao SIEM. Não há contagem nem janela — o primeiro evento que casar o filtro já vira detecção."
         },
         "ignoredFields": "Em voo o motor IGNORA mínimo de eventos, janela e campo de timestamp; por isso eles somem daqui. Os valores continuam salvos e voltam a valer se você trocar para em lote.",
-        "opsCaveat": "O motor em voo ainda entende os operadores in, nin e existe — a API de regras não: pedir um deles é 422. O construtor abaixo oferece só os 7 que passam hoje, e valem para os dois modos."
+        "opsCaveat": "Em voo o construtor oferece também os operadores em, não em e existe. Em lote eles não existem: mudar a regra para lote com um deles é 422."
       },
       "evalPriority": {
         "label": "Prioridade de avaliação",
@@ -145,7 +145,9 @@
         "label": "Agrupar por (dotted-path)",
         "placeholder": "Ex: normalized.src_endpoint.ip",
         "helperTextBatch": "Campo do evento usado para agrupar ocorrências dentro da janela. O mínimo de eventos é contado POR grupo.",
-        "helperTextInflight": "Em voo não há agregação: este campo vira a chave de DEDUP da detecção. Cada valor distinto abre uma detecção por janela de supressão — campo de alta cardinalidade (linha de comando, por exemplo) estoura o teto de chaves do ciclo e o excedente é descartado."
+        "helperTextInflight": "Em voo não há agregação: este campo vira a chave de DEDUP da detecção. Cada valor distinto abre uma detecção por janela de supressão — campo de alta cardinalidade (linha de comando, por exemplo) estoura o teto de chaves do ciclo e o excedente é descartado.",
+        "hintMapped": "Sugestões vêm dos campos que esta organização de fato produz. O caminho precisa começar por normalized., _centralops. ou raw.",
+        "hintCatalog": "Esta organização ainda não tem integração ativa; a lista é o catálogo OCSF comum. O caminho precisa começar por normalized., _centralops. ou raw."
       },
       "minCount": {
         "label": "Mín. de eventos"
@@ -175,7 +177,8 @@
       "windowMin": "Janela mínima de 10 segundos",
       "timestampRequired": "Obrigatório quando há janela. Sem ele a janela é ignorada",
       "whereRequiredInflight": "Em voo, pelo menos um filtro é obrigatório: sem filtro a regra casaria 100% dos eventos, e a API recusa a gravação.",
-      "evalPriorityRange": "Use um número inteiro entre {{min}} e {{max}}"
+      "evalPriorityRange": "Use um número inteiro entre {{min}} e {{max}}",
+      "pathRoot": "Em voo o caminho resolve da raiz do envelope: comece por normalized., _centralops. ou raw. (ex.: normalized.{{path}})"
     },
     "actions": {
       "cancel": "Cancelar"
@@ -224,7 +227,8 @@
     "field": {
       "label": "Campo",
       "placeholder": "ex: event.severity",
-      "ariaLabel": "Campo do filtro {{index}}"
+      "ariaLabel": "Campo do filtro {{index}}",
+      "hintMapped": "Sugestões vêm dos campos que esta organização de fato produz."
     },
     "operator": {
       "label": "Operador",
@@ -233,7 +237,10 @@
     "value": {
       "label": "Valor",
       "placeholder": "ex: critical",
-      "ariaLabel": "Valor do filtro {{index}}"
+      "ariaLabel": "Valor do filtro {{index}}",
+      "placeholderList": "valores separados por vírgula, ex: 4625, 4624",
+      "existsTrue": "presente",
+      "existsFalse": "ausente"
     },
     "remove": "Remover",
     "removeAriaLabel": "Remover filtro {{index}}",
@@ -245,7 +252,10 @@
       "gt": "> (maior que)",
       "lt": "< (menor que)",
       "gte": "≥ (maior ou igual)",
-      "lte": "≤ (menor ou igual)"
+      "lte": "≤ (menor ou igual)",
+      "in": "em (lista)",
+      "nin": "não em (lista)",
+      "exists": "existe"
     }
   },
   "preview": {

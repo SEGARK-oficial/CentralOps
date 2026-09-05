@@ -958,6 +958,103 @@ async def get_samples(
     )
 
 
+# ── Inventário de caminhos para quem escreve regra sobre o envelope ───────────
+
+
+class KeySourceItem(BaseModel):
+    path: str
+    #: Quantas regras de mapping escrevem neste caminho (só em ``mapped``).
+    rule_count: int = 0
+    #: Vendors que escrevem aqui (só em ``mapped``).
+    vendors: List[str] = Field(default_factory=list)
+    #: ``mapped`` = a org produz DE FATO (mappings ativos); ``catalog`` = a org
+    #: ainda não conectou nada e isto é o catálogo OCSF comum; ``envelope`` =
+    #: rótulo ``_centralops.*`` que o roteamento aceita em condição.
+    kind: str
+
+
+class MappingKeySourcesResponse(BaseModel):
+    organization_id: int
+    #: ``true`` quando a lista veio dos mappings ATIVOS da org. A UI usa isto
+    #: para dizer de onde a sugestão veio, em vez de apresentar um fallback
+    #: estático como se fosse o inventário do cliente.
+    from_active_mappings: bool
+    #: Raízes válidas para um path que resolve sobre o envelope
+    #: (``_centralops`` | ``normalized`` | ``raw``). A UI valida o prefixo
+    #: ANTES do 422 do backend, com esta lista e não com uma cópia dela.
+    roots: List[str]
+    suggestions: List[KeySourceItem]
+
+
+@router.get("/key-sources", response_model=MappingKeySourcesResponse)
+def list_key_sources(
+    organization_id: Optional[int] = Query(default=None),
+    db: Session = Depends(database.get_session),
+    user: models.AppUser = Depends(app_auth.require_permission(app_auth.Permission.MAPPING_READ)),
+) -> MappingKeySourcesResponse:
+    """Caminhos que a organização de fato produz, para quem escreve regra.
+
+    É a mesma lista que o enriquecimento usa em ``key.source``
+    (``/collectors/enrichment/key-sources``), exposta aqui com a permissão de
+    LEITURA de mapping — quem escreve regra de correlação não é necessariamente
+    admin. A correlação precisa dela porque ``group_by_field`` e ``where.field``
+    de uma regra em voo resolvem da RAIZ do envelope: ``source.ip`` nunca
+    resolve, o match é contado antes da falha e a Detection nunca nasce. O
+    seletor alimentado por este endpoint é o que impede o path errado de
+    chegar ao banco.
+
+    Escopo: espelha ``/mappings/samples`` — não-global só enxerga a própria
+    subárvore (``require_subtree_access``); global precisa nomear a org, porque
+    o inventário é por org e não existe "inventário de todas".
+    """
+    from ..services import key_sources as ks
+
+    is_global = tenant.has_global_scope(user)
+    if organization_id is not None and not is_global:
+        tenant.require_subtree_access(user, int(organization_id), db)
+    effective = organization_id if organization_id is not None else user.organization_id
+    if effective is None:
+        raise ApiError(
+            "mapping.organization_required",
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            messages={
+                "pt": "organization_id é obrigatório: o inventário de campos é por organização.",
+                "en": "organization_id is required: the field inventory is per organization.",
+                "es": "organization_id es obligatorio: el inventario de campos es por organización.",
+            },
+        )
+    org_id = int(effective)
+
+    mapped = ks.mapped_normalized_paths(db, org_id)
+    if mapped:
+        suggestions = [
+            KeySourceItem(
+                path=path,
+                rule_count=int(meta["rule_count"]),
+                vendors=sorted(meta["vendors"]),
+                kind="mapped",
+            )
+            # Primeiro o que PARECE chave, depois o mais popular dentro dessa
+            # faixa, e alfabético no empate — a mesma ordem do enriquecimento.
+            for path, meta in sorted(
+                mapped.items(),
+                key=lambda kv: (ks.key_relevance(kv[0]), -kv[1]["rule_count"], kv[0]),
+            )
+        ]
+    else:
+        suggestions = [KeySourceItem(path=p, kind="catalog") for p in ks.COMMON_OCSF_KEY_PATHS]
+    # Rótulos do envelope por último: são poucos, fixos, e quem os quer sabe o
+    # nome — mas SEM eles o operador que digita ``_centralops.vendor`` recebe
+    # "não está no inventário" de uma lista que se diz completa.
+    suggestions.extend(KeySourceItem(path=p, kind="envelope") for p in ks.ENVELOPE_LABEL_PATHS)
+    return MappingKeySourcesResponse(
+        organization_id=org_id,
+        from_active_mappings=bool(mapped),
+        roots=list(ks.ROOTS),
+        suggestions=suggestions,
+    )
+
+
 @router.get(
     "/normalize/type-casts",
     response_model=List[TypeCastDescriptor],

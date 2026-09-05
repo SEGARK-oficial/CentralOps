@@ -134,7 +134,7 @@
           "inflight": "En vuelo: la regla se evalúa evento por evento dentro del pipeline de ingesta, ANTES de que el dato llegue al SIEM. No hay conteo ni ventana: el primer evento que case con el filtro ya se convierte en detección."
         },
         "ignoredFields": "En vuelo el motor IGNORA mín. de eventos, ventana y campo de timestamp; por eso desaparecen de aquí. Los valores siguen guardados y vuelven a valer si cambia a por lotes.",
-        "opsCaveat": "El motor en vuelo entiende además los operadores in, nin y existe — la API de reglas no: pedir uno de ellos es 422. El constructor de abajo ofrece solo los 7 que pasan hoy, y valen para los dos modos."
+        "opsCaveat": "En vuelo el constructor ofrece además los operadores en, no en y existe. En lote no existen: cambiar a lote una regla que usa uno de ellos es 422."
       },
       "evalPriority": {
         "label": "Prioridad de evaluación",
@@ -145,7 +145,9 @@
         "label": "Agrupar por (ruta con puntos)",
         "placeholder": "Ej.: normalized.src_endpoint.ip",
         "helperTextBatch": "Campo del evento usado para agrupar ocurrencias dentro de la ventana. El mínimo de eventos se cuenta POR grupo.",
-        "helperTextInflight": "En vuelo no hay agregación: este campo se convierte en la clave de DEDUP de la detección. Cada valor distinto abre una detección por ventana de supresión; un campo de alta cardinalidad (una línea de comandos, por ejemplo) revienta el tope de claves del ciclo y el excedente se descarta."
+        "helperTextInflight": "En vuelo no hay agregación: este campo se convierte en la clave de DEDUP de la detección. Cada valor distinto abre una detección por ventana de supresión; un campo de alta cardinalidad (una línea de comandos, por ejemplo) revienta el tope de claves del ciclo y el excedente se descarta.",
+        "hintMapped": "Las sugerencias vienen de los campos que esta organización realmente produce. La ruta debe empezar por normalized., _centralops. o raw.",
+        "hintCatalog": "Esta organización aún no tiene integración activa; la lista es el catálogo OCSF común. La ruta debe empezar por normalized., _centralops. o raw."
       },
       "minCount": {
         "label": "Mín. de eventos"
@@ -175,7 +177,8 @@
       "windowMin": "Ventana mínima de 10 segundos",
       "timestampRequired": "Obligatorio cuando hay ventana. Sin él la ventana se ignora",
       "whereRequiredInflight": "En vuelo al menos un filtro es obligatorio: sin filtro la regla casaría con el 100% de los eventos, y la API rechaza guardarla.",
-      "evalPriorityRange": "Usa un número entero entre {{min}} y {{max}}"
+      "evalPriorityRange": "Usa un número entero entre {{min}} y {{max}}",
+      "pathRoot": "En vuelo la ruta se resuelve desde la raíz del sobre: empieza por normalized., _centralops. o raw. (ej.: normalized.{{path}})"
     },
     "actions": {
       "cancel": "Cancelar"
@@ -224,7 +227,8 @@
     "field": {
       "label": "Campo",
       "placeholder": "ej.: event.severity",
-      "ariaLabel": "Campo del filtro {{index}}"
+      "ariaLabel": "Campo del filtro {{index}}",
+      "hintMapped": "Las sugerencias vienen de los campos que esta organización realmente produce."
     },
     "operator": {
       "label": "Operador",
@@ -233,7 +237,10 @@
     "value": {
       "label": "Valor",
       "placeholder": "ej.: critical",
-      "ariaLabel": "Valor del filtro {{index}}"
+      "ariaLabel": "Valor del filtro {{index}}",
+      "placeholderList": "valores separados por coma, ej.: 4625, 4624",
+      "existsTrue": "presente",
+      "existsFalse": "ausente"
     },
     "remove": "Eliminar",
     "removeAriaLabel": "Eliminar filtro {{index}}",
@@ -245,7 +252,10 @@
       "gt": "> (mayor que)",
       "lt": "< (menor que)",
       "gte": "≥ (mayor o igual)",
-      "lte": "≤ (menor o igual)"
+      "lte": "≤ (menor o igual)",
+      "in": "en (lista)",
+      "nin": "no en (lista)",
+      "exists": "existe"
     }
   },
   "preview": {
