@@ -691,6 +691,18 @@ class Settings(BaseSettings):
     # Espera máxima pelo par que detém o single-flight. Curta de propósito: o
     # orçamento do lote inteiro é de 300 ms.
     ENRICH_SINGLEFLIGHT_WAIT_MS: int = 50
+    # Circuit breaker por (org, fonte) dos enrichers REMOTOS, no Redis L2 —
+    # compartilhado entre workers, como o dos destinos. Sem ele, um provedor
+    # fora do ar era re-tentado em TODO ciclo (a cada ~2 min) e consumia o
+    # orçamento do lote antes de falhar; `_disabled_this_cycle` zera a cada
+    # ciclo e não é memória. Abre após N falhas consecutivas na janela; o
+    # cooldown DOBRA a cada reabertura até o teto (2 → 4 → … → 32 min) e o
+    # meio-aberto deixa UMA sonda passar por cooldown. Falha do Redis é
+    # fail-open (enriquecer é observador; o breaker é otimização, não gate).
+    ENRICH_BREAKER_FAILURE_THRESHOLD: int = 3
+    ENRICH_BREAKER_WINDOW_S: int = 600
+    ENRICH_BREAKER_COOLDOWN_S: int = 120
+    ENRICH_BREAKER_MAX_COOLDOWN_S: int = 1920
 
     @field_validator("OCSF_DEFAULT_ENFORCEMENT")
     @classmethod
