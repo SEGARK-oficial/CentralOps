@@ -2274,13 +2274,27 @@ export interface DetectionStatusUpdate {
   status: DetectionStatus
 }
 
-export type WhereOp = "eq" | "ne" | "contains" | "gt" | "lt" | "gte" | "lte"
+/**
+ * Operadores de filtro. Os 7 primeiros valem nos dois modos; `in`, `nin` e
+ * `exists` só existem no motor EM VOO (`INFLIGHT_ALLOWED_OPS`) — o motor em lote
+ * descarta o item inteiro no primeiro operador que não entende, e a API recusa
+ * com 422 uma regra batch que os use.
+ */
+export type WhereOp = "eq" | "ne" | "contains" | "gt" | "lt" | "gte" | "lte" | "in" | "nin" | "exists"
 
-/** Filtro de uma regra de correlação (where_json). */
+/** Operadores que só o motor em voo entende. */
+export const INFLIGHT_ONLY_OPS: readonly WhereOp[] = ["in", "nin", "exists"]
+
+/**
+ * Filtro de uma regra de correlação (where_json). O TIPO do valor segue o
+ * operador — e isso não é conveniência: `in`/`nin` precisam de lista (uma
+ * string "a,b" viraria lista de 3 caracteres) e `exists` precisa de booleano
+ * (a string "false" é verdadeira). O backend valida o par op/valor.
+ */
 export interface WhereFilter {
   field: string
   op: WhereOp
-  value: string
+  value: string | string[] | boolean
 }
 
 /** Regra de correlação cross-source. rule_type='threshold' (MVP). */

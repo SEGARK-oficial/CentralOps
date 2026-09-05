@@ -1484,6 +1484,44 @@ export interface DiscoverFieldsResponse {
   fields: DiscoveredField[]
 }
 
+/** Um caminho do inventário de campos da organização (`GET /mappings/key-sources`). */
+export interface MappingKeySource {
+  path: string
+  rule_count: number
+  vendors: string[]
+  /**
+   * `mapped` = a org produz de fato (mappings ativos); `catalog` = ainda não
+   * conectou nada e isto é o catálogo OCSF comum; `envelope` = rótulo
+   * `_centralops.*` que o roteamento aceita em condição.
+   */
+  kind: "mapped" | "catalog" | "envelope"
+}
+
+export interface MappingKeySourcesResponse {
+  organization_id: number
+  from_active_mappings: boolean
+  /** Raízes válidas de um path sobre o envelope (`_centralops` | `normalized` | `raw`). */
+  roots: string[]
+  suggestions: MappingKeySource[]
+}
+
+/**
+ * GET /mappings/key-sources — caminhos que a organização de fato produz, para
+ * quem escreve regra sobre o envelope (correlação em voo: `group_by_field` e
+ * `where.field`). Mesma lista do enriquecimento, com permissão de LEITURA de
+ * mapping. Sem `organization_id` o backend usa a org do usuário; um global
+ * precisa nomear a org (422).
+ */
+export async function listMappingKeySources(
+  params: { organization_id?: number } = {},
+  options?: Pick<ApiRequestOptions, "signal">,
+): Promise<MappingKeySourcesResponse> {
+  const qs = new URLSearchParams()
+  if (params.organization_id != null) qs.set("organization_id", String(params.organization_id))
+  const suffix = qs.toString() ? `?${qs.toString()}` : ""
+  return apiRequest<MappingKeySourcesResponse>(`/mappings/key-sources${suffix}`, options)
+}
+
 /**
  * GET /mappings/{id}/discover-fields — alimenta o autocomplete de JMESPath
  * no editor de regras. Se o drift ainda não tiver eventos coletados, o
