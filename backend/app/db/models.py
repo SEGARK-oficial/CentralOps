@@ -1173,91 +1173,6 @@ class ActionRun(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
 
-# ── Threat Intel Middleware ─────────────────────────────────────────
-
-class ThreatIntelConfig(Base):
-    """Singleton global de configuração do Threat Intel. Linha id=1."""
-    __tablename__ = "threat_intel_config"
-
-    id = Column(Integer, primary_key=True)
-    enabled = Column(Boolean, nullable=False, default=True)
-    cache_ttl_days = Column(Integer, nullable=False, default=7)
-    blacklist_update_interval_seconds = Column(Integer, nullable=False, default=3600)
-    blacklist_confidence_minimum = Column(Integer, nullable=False, default=80)
-    blacklist_limit = Column(Integer, nullable=False, default=10000)
-    abuseipdb_max_age_days = Column(Integer, nullable=False, default=30)
-    threat_score_critical = Column(Integer, nullable=False, default=80)
-    threat_score_high = Column(Integer, nullable=False, default=40)
-    otx_pulse_high = Column(Integer, nullable=False, default=5)
-    external_timeout_seconds = Column(Integer, nullable=False, default=5)
-    last_blacklist_refresh_at = Column(DateTime, nullable=True)
-    last_blacklist_size = Column(Integer, nullable=True)
-    last_blacklist_error = Column(Text, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
-
-
-class ThreatIntelApiKey(Base):
-    """Pool de chaves de API com rotação e tracking de cota."""
-    __tablename__ = "threat_intel_api_keys"
-
-    id = Column(Integer, primary_key=True, index=True)
-    provider = Column(String, nullable=False, index=True)  # "abuseipdb" | "otx"
-    label = Column(String, nullable=True)
-    api_key = Column(String, nullable=False)  # encrypt() via core/crypto.py
-    is_active = Column(Boolean, nullable=False, default=True)
-    exhausted_until = Column(DateTime, nullable=True)
-    last_used_at = Column(DateTime, nullable=True)
-    last_error = Column(Text, nullable=True)
-    requests_count = Column(Integer, nullable=False, default=0)
-    exhausted_count = Column(Integer, nullable=False, default=0)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
-
-
-class ThreatIntelToken(Base):
-    """Bearer tokens dedicados (Graylog). Plaintext exibido apenas na criação."""
-    __tablename__ = "threat_intel_tokens"
-
-    id = Column(Integer, primary_key=True, index=True)
-    label = Column(String, nullable=False)
-    token_hash = Column(String, unique=True, nullable=False, index=True)  # sha256
-    token_prefix = Column(String, nullable=False)  # primeiros 8 chars (referência UI)
-    is_active = Column(Boolean, nullable=False, default=True)
-    last_used_at = Column(DateTime, nullable=True)
-    requests_count = Column(Integer, nullable=False, default=0)
-    created_by = Column(
-        Integer,
-        ForeignKey("app_users.id", ondelete="SET NULL"),
-        nullable=True,
-    )
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    revoked_at = Column(DateTime, nullable=True)
-
-
-class ThreatIntelQuery(Base):
-    """Histórico de consultas para UI de auditoria. Pruned por retention."""
-    __tablename__ = "threat_intel_queries"
-
-    id = Column(Integer, primary_key=True, index=True)
-    ip_address = Column(String, nullable=False, index=True)
-    tier = Column(String, nullable=False)  # "tier0" | "tier1" | "tier2" | "private" | "disabled"
-    threat_level = Column(String, nullable=False)  # CRITICAL | HIGH | LOW | SAFE
-    otx_pulse_count = Column(Integer, nullable=True)
-    abuse_score = Column(Integer, nullable=True)
-    abuse_country = Column(String, nullable=True)
-    abuse_usage_type = Column(String, nullable=True)
-    response_time_ms = Column(Integer, nullable=True)
-    quota_exceeded = Column(Boolean, nullable=False, default=False)
-    token_id = Column(
-        Integer,
-        ForeignKey("threat_intel_tokens.id", ondelete="SET NULL"),
-        nullable=True,
-    )
-    source_ip = Column(String, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
-
-
 # ── Collector subsystem config ──────────────────────────────────────
 
 class CollectorConfig(Base):
@@ -2158,7 +2073,7 @@ class ApiToken(Base):
       antigos com ``expires_at IS NULL`` são tratados como eternos pela
       query do housekeeping.
 
-    Diferenças intencionais frente a ``ThreatIntelToken`` (que usa SHA-256):
+    Decisões (o token do Threat Intel legado, hoje removido, usava SHA-256):
     PAT são alvo de alto valor (acesso ao app inteiro com a role do dono),
     enquanto threat-intel tokens são credenciais read-only de feed externo
     e baixo valor se vazadas. Por isso PATs usam Argon2id (~50 ms/verify),

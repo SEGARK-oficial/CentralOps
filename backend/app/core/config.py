@@ -68,9 +68,8 @@ class Settings(BaseSettings):
             )
         return value
 
-    # ── Redis (Threat Intel cache + blacklist) ────────────────────────
+    # ── Redis ─────────────────────────────────────────────────────────
     REDIS_URL: Optional[str] = None  # ex: redis://redis:6379/0; vazio = fallback in-memory
-    THREAT_INTEL_QUERY_RETENTION_DAYS: int = 30
 
     # ── CORS ──────────────────────────────────────────────────────────
     CORS_ORIGINS: Union[List[str], str] = "http://localhost:3000,http://127.0.0.1:3000,http://localhost:5173,http://127.0.0.1:5173"
@@ -715,6 +714,12 @@ class Settings(BaseSettings):
     ENRICH_BREAKER_WINDOW_S: int = 600
     ENRICH_BREAKER_COOLDOWN_S: int = 120
     ENRICH_BREAKER_MAX_COOLDOWN_S: int = 1920
+    # Diretório das bases MaxMind (.mmdb) do enricher ``geoip``. A base NÃO vem
+    # com o produto (EULA GeoLite2 / GeoIP2 comercial): o operador baixa com a
+    # própria conta e monta aqui. A fonte aponta só o NOME do arquivo — um
+    # caminho livre na config (escrita por admin de org via API) seria ler
+    # qualquer arquivo do worker que o parser mmdb aceitasse.
+    ENRICH_GEOIP_DIR: str = "/var/lib/centralops/geoip"
 
     @field_validator("OCSF_DEFAULT_ENFORCEMENT")
     @classmethod

@@ -41,7 +41,6 @@ Os campos sensíveis de cada integração são protegidos, tanto nas colunas da 
 | **Segredos de destino** | `destination.secret_ref` | Token Splunk HEC, AWS Access Key, Chave de Kafka |
 | **Identidade (SSO)** | `identity_config.entra_client_secret` | Microsoft Entra ID client secret |
 | **Email** | `email_config.smtp_password` | Senha SMTP da plataforma |
-| **Threat Intel** | `threat_intel_api_key.api_key` | VirusTotal, etc. |
 | **Colunas legadas** (deprecadas) | `integrations.{client_secret, manager_api_username, ...}` | Sophos/Wazuh pré-F1b (hoje NULL na maioria) |
 
 ## Conferir quais integrações têm credenciais
@@ -82,7 +81,6 @@ Quando a equipe de infraestrutura rotaciona a chave de criptografia (KMS provide
    - `destination.secret_ref` (novos destinos pluggable)
    - `identity_config.entra_client_secret` (Entra ID)
    - `email_config.smtp_password` (SMTP)
-   - `threat_intel_api_key.api_key` (Threat Intel)
    - Colunas legadas em `integrations` (se houver)
 
 Se um operador **não rodar `reencrypt_secrets.py`** após mudar a chave do KMS:

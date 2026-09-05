@@ -25,7 +25,7 @@ Três decisões que não são detalhe:
    "não conheço" — cacheável com TTL curto) e ``UNKNOWN`` (não resolvemos: cota,
    timeout, erro). Colapsar MISS e UNKNOWN faria uma cota estourada virar "indicador
    limpo" no cache pelas próximas 6 horas — falso negativo de segurança que se
-   propaga. É o bug que ``services/threat_intel/cache.py:33,39`` tem hoje.
+   propaga. Era o bug do ``services/threat_intel`` legado, removido em W4.3.
 
 3. **Single-flight por CHAVE, nunca por lote.** Travar em ``sha1(chaves_do_lote)``
    não previne stampede nenhum: basta um evento diferir e o hash muda, e os dois

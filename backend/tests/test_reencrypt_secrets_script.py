@@ -28,7 +28,6 @@ from backend.app.db.models import (  # noqa: E402
     Integration,
     IntegrationCredential,
     Organization,
-    ThreatIntelApiKey,
 )
 from backend.app.db.database import Base  # noqa: E402
 
@@ -67,12 +66,6 @@ def _seed_db(db_file: Path, legacy: LocalFernetBackend) -> None:
             )
         )
         session.add(EmailConfig(smtp_password=legacy.encrypt("smtp-pass-value")))
-        session.add(
-            ThreatIntelApiKey(
-                provider="abuseipdb",
-                api_key=legacy.encrypt("abuseipdb-key-12345"),
-            )
-        )
         session.commit()
     engine.dispose()
 
@@ -96,8 +89,8 @@ class TestReencryptDryRun:
         )
 
         assert report.dry_run is True
-        # 3 colunas cifradas na Integration, 1 no EmailConfig, 1 no ThreatIntelApiKey.
-        assert report.total_migrated() == 5
+        # 3 colunas cifradas na Integration, 1 no EmailConfig.
+        assert report.total_migrated() == 4
         assert report.total_failed() == 0
 
         # Valores no banco não foram alterados — ainda "enc::".
@@ -329,43 +322,6 @@ class TestReencryptMigration:
             config = session.query(EmailConfig).first()
             assert config is not None
             assert config.smtp_password.startswith("kmsenc::")
-        engine.dispose()
-
-    def test_migrates_threat_intel_api_key(self, tmp_path: Path) -> None:
-        """Re-encrypt deve migrar api_key do ThreatIntelApiKey."""
-        db_file = tmp_path / "migrate-ti.db"
-        legacy = LocalFernetBackend()
-
-        engine = _make_engine(db_file)
-        Base.metadata.create_all(bind=engine)
-        Session = sessionmaker(bind=engine)
-        with Session() as session:
-            session.add(
-                ThreatIntelApiKey(
-                    provider="abuseipdb",
-                    api_key=legacy.encrypt("abuseipdb-key-12345"),
-                )
-            )
-            session.commit()
-        engine.dispose()
-
-        kms_key = str(tmp_path / "ti.key")
-        report = run_reencrypt(
-            from_backend_name="local_fernet",
-            to_backend_name="kms_wrapped_fernet",
-            database_url=f"sqlite:///{db_file}",
-            dry_run=False,
-            kms_key_path=kms_key,
-        )
-
-        assert report.stats_by_model["ThreatIntelApiKey"].migrated == 1
-
-        engine = _make_engine(db_file)
-        Session = sessionmaker(bind=engine)
-        with Session() as session:
-            key = session.query(ThreatIntelApiKey).first()
-            assert key is not None
-            assert key.api_key.startswith("kmsenc::")
         engine.dispose()
 
 

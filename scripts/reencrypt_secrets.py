@@ -35,7 +35,6 @@ Colunas cifradas por modelo
 - ``IntegrationCredential``: secret_ref (store vendor-neutro de fonte
 - ``Destination``: secret_ref (store vendor-neutro de destino
 - ``EmailConfig``: smtp_password.
-- ``ThreatIntelApiKey``: api_key.
 
 F1.5 (P0): SEM ``IntegrationCredential``/``Destination`` aqui, uma
 rotação de key Transit re-cifrava só as colunas legadas e deixava os stores
@@ -137,7 +136,6 @@ _ENCRYPTED_COLUMNS: dict[str, list[str]] = {
         "refresh_token",
     ],
     "EmailConfig": ["smtp_password"],
-    "ThreatIntelApiKey": ["api_key"],
     # 5: stores vendor-neutros (1 ciphertext por linha em ``secret_ref``).
     # Imprescindíveis na rotação de key — sem eles o store fica órfão (P0).
     "IntegrationCredential": ["secret_ref"],
@@ -287,7 +285,6 @@ def run_reencrypt(
     model_map: dict[str, type] = {
         "Integration": _models_module.Integration,
         "EmailConfig": _models_module.EmailConfig,
-        "ThreatIntelApiKey": _models_module.ThreatIntelApiKey,
         "IntegrationCredential": _models_module.IntegrationCredential,
         "Destination": _models_module.Destination,
         "IdentityConfig": _models_module.IdentityConfig,

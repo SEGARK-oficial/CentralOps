@@ -55,6 +55,9 @@ aiohttp==3.14.3  # FLOOR: >=3.14.3 — 3.14.1+ corrige 11 CVEs (CVE-2026-*) do
                  # coletores migraram para o helper interno
                  # app/collectors/tests/_aiohttp_mock.py, então o cap caiu.
 tenacity==9.1.4  # FLOOR: >=8.2
+maxminddb==2.8.2  # FLOOR: >=2.6 — leitor .mmdb do enricher geoip (GeoIP/ASN local).
+                  # Só o LEITOR: a base MaxMind não é embarcada (EULA), o operador
+                  # monta em ENRICH_GEOIP_DIR.
 # prometheus-client REMOVIDO : instrumentação migrou p/ OTel-native
 # (OTLP-push). Endpoint Prometheus /metrics de compat, se desejado, é exposto
 # pelo OTel Collector — ver compose/otel-collector-config.yaml. Pacotes OTel são
