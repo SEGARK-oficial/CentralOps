@@ -62,7 +62,9 @@
       "groupBy": "Agrupar por",
       "minCount": "Mín. eventos",
       "window": "Ventana (s)",
-      "actions": "Acciones"
+      "actions": "Acciones",
+      "schedule": "Programación",
+      "emit": "SIEM"
     },
     "idLabel": "ID #{{id}}",
     "toggle": {
@@ -107,7 +109,10 @@
       "notEvaluatedBadge": "No evaluada",
       "notEvaluatedTooltip": "Regla habilitada, en modo en vuelo, que NO entra en el ciclo de evaluación. Dos causas posibles: quedó por encima del tope de reglas por ciclo (sobreviven las de mayor prioridad de evaluación; el empate se resuelve por la más antigua) o el filtro (where) no compila. El aviso encima de la tabla dice cuál de las dos y cuántas reglas."
     },
-    "evalPriorityTooltip": "Orden de evaluación en vuelo: mayor prioridad se ejecuta primero; el empate se resuelve por la más antigua. Sin efecto en lote."
+    "evalPriorityTooltip": "Orden de evaluación en vuelo: mayor prioridad se ejecuta primero; el empate se resuelve por la más antigua. Sin efecto en lote.",
+    "scheduleManual": "manual",
+    "emitOn": "envía",
+    "emitOff": "—"
   },
   "form": {
     "field": {
@@ -163,6 +168,35 @@
         "label": "Campo de timestamp",
         "placeholder": "Ej.: event.timestamp",
         "helperText": "Campo que aplica la ventana. Sin él la ventana se apaga y la regla cuenta todo."
+      },
+      "emitEvent": {
+        "label": "Enviar la detección al SIEM (evento OCSF 2004)",
+        "helperText": "Activado, cada detección nueva de esta regla sale como evento enrutado — llega adonde las rutas indiquen. Desactivado, la detección solo existe en la consola. Es por regla: tú eliges qué paga volumen en el SIEM."
+      },
+      "schedule": {
+        "label": "Ejecutar cada",
+        "helperText": "La regla gana su propia búsqueda: cada período el pipeline ejecuta la consulta guardada elegida y evalúa esta regla sobre el resultado. Manual = solo cuando alguien ejecuta una búsqueda federada.",
+        "manual": "Manual (solo en la búsqueda federada)",
+        "every5m": "5 minutos",
+        "every15m": "15 minutos",
+        "every1h": "1 hora",
+        "every6h": "6 horas",
+        "every24h": "24 horas",
+        "queryLabel": "Búsqueda guardada que alimenta la regla",
+        "queryPlaceholder": "Elige una búsqueda guardada",
+        "queryHelperText": "Debe tener integraciones objetivo. Su statement y dialecto son lo que se ejecuta.",
+        "queryNone": "Ninguna búsqueda guardada con objetivos",
+        "lookbackLabel": "Ventana de la búsqueda (segundos)",
+        "lookbackHelperText": "Vacío = ventana de la regla + un período, para que ningún evento caiga entre dos ciclos.",
+        "lastRun": "Último tick",
+        "nextRun": "Próximo tick",
+        "lastJob": "Job",
+        "lastError": "Error del último tick",
+        "neverRan": "nunca ejecutó"
+      },
+      "maxDedupKeys": {
+        "label": "Tope de claves por ciclo",
+        "helperText": "Vacío = tope del entorno (256). Medido en datos reales: agrupar sophos.siem_event por endpoint_id llega a 192 claves por ciclo — por encima del tope, los matches se siguen contando y no nace detección nueva."
       }
     },
     "status": {
@@ -178,7 +212,9 @@
       "timestampRequired": "Obligatorio cuando hay ventana. Sin él la ventana se ignora",
       "whereRequiredInflight": "En vuelo al menos un filtro es obligatorio: sin filtro la regla casaría con el 100% de los eventos, y la API rechaza guardarla.",
       "evalPriorityRange": "Usa un número entero entre {{min}} y {{max}}",
-      "pathRoot": "En vuelo la ruta se resuelve desde la raíz del sobre: empieza por normalized., _centralops. o raw. (ej.: normalized.{{path}})"
+      "pathRoot": "En vuelo la ruta se resuelve desde la raíz del sobre: empieza por normalized., _centralops. o raw. (ej.: normalized.{{path}})",
+      "scheduleQueryRequired": "Elige la búsqueda guardada que alimenta la regla",
+      "scheduleBatchOnly": "La programación solo aplica en lote; en vuelo la regla corre por evento"
     },
     "actions": {
       "cancel": "Cancelar"

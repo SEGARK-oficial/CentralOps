@@ -32,6 +32,7 @@ os.environ.setdefault("APP_ENV", "test")
 
 import json
 import time as _time
+from dataclasses import replace
 from datetime import datetime, timedelta
 from typing import Any
 from uuid import uuid4
@@ -838,6 +839,17 @@ async def test_emitted_skip_reasons_equal_the_closed_enum(
     acc.add(_rule(rule_id=3), _envelope(org_id=org_id, user="c"),
             organization_id=org_id)
     acc.add(_rule(rule_id=4), _envelope(org_id=org_id, user="d"),
+            organization_id=org_id)
+    await flush_inflight(acc, organization_id=org_id)
+
+    # (d) rule_opt_out (W1.4) — flag global OFF, uma regra pediu emissão e a
+    # outra não. A que pediu sai (é o que faz o emissor rodar); a outra é
+    # contada como opt-out, não como falha.
+    monkeypatch.setattr(settings, "INFLIGHT_EMIT_OCSF_EVENT", False)
+    acc = InflightAccumulator()
+    acc.add(replace(_rule(rule_id=5), emit_event=True),
+            _envelope(org_id=org_id, user="e"), organization_id=org_id)
+    acc.add(_rule(rule_id=6), _envelope(org_id=org_id, user="f"),
             organization_id=org_id)
     await flush_inflight(acc, organization_id=org_id)
 

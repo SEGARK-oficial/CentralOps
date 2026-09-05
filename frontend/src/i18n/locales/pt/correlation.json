@@ -62,7 +62,9 @@
       "groupBy": "Agrupar por",
       "minCount": "Mín. eventos",
       "window": "Janela (s)",
-      "actions": "Ações"
+      "actions": "Ações",
+      "schedule": "Agendamento",
+      "emit": "SIEM"
     },
     "idLabel": "ID #{{id}}",
     "toggle": {
@@ -107,7 +109,10 @@
       "notEvaluatedBadge": "Não avaliada",
       "notEvaluatedTooltip": "Regra habilitada, em modo em voo, que NÃO entra no ciclo de avaliação. Duas causas possíveis: ela ficou acima do teto de regras por ciclo (sobrevivem as de maior prioridade de avaliação; empate desempata pela mais antiga) ou o filtro (where) não compila. O aviso acima da tabela diz qual das duas e quantas regras."
     },
-    "evalPriorityTooltip": "Ordem de avaliação em voo: maior prioridade roda primeiro; empate desempata pela mais antiga. Sem efeito em lote."
+    "evalPriorityTooltip": "Ordem de avaliação em voo: maior prioridade roda primeiro; empate desempata pela mais antiga. Sem efeito em lote.",
+    "scheduleManual": "manual",
+    "emitOn": "envia",
+    "emitOff": "—"
   },
   "form": {
     "field": {
@@ -163,6 +168,35 @@
         "label": "Campo de timestamp",
         "placeholder": "Ex: event.timestamp",
         "helperText": "Campo que aplica a janela. Sem ele a janela desliga e a regra conta tudo."
+      },
+      "emitEvent": {
+        "label": "Enviar a detecção ao SIEM (evento OCSF 2004)",
+        "helperText": "Ligado, cada detecção nova desta regra sai como evento roteado — chega onde as rotas mandam. Desligado, a detecção só existe no console. É por regra: você escolhe o que paga volume no SIEM."
+      },
+      "schedule": {
+        "label": "Executar a cada",
+        "helperText": "A regra ganha a própria busca: a cada período o pipeline roda a query salva escolhida e avalia esta regra sobre o resultado. Manual = só quando alguém executa uma busca federada.",
+        "manual": "Manual (só na busca federada)",
+        "every5m": "5 minutos",
+        "every15m": "15 minutos",
+        "every1h": "1 hora",
+        "every6h": "6 horas",
+        "every24h": "24 horas",
+        "queryLabel": "Busca salva que alimenta a regra",
+        "queryPlaceholder": "Escolha uma busca salva",
+        "queryHelperText": "Precisa ter integrações-alvo. O statement e o dialeto dela são o que roda.",
+        "queryNone": "Nenhuma busca salva com alvos",
+        "lookbackLabel": "Janela da busca (segundos)",
+        "lookbackHelperText": "Vazio = janela da regra + um período, para nenhum evento cair entre dois ciclos.",
+        "lastRun": "Último tick",
+        "nextRun": "Próximo tick",
+        "lastJob": "Job",
+        "lastError": "Erro do último tick",
+        "neverRan": "nunca rodou"
+      },
+      "maxDedupKeys": {
+        "label": "Teto de chaves por ciclo",
+        "helperText": "Vazio = teto do ambiente (256). Medido em dado real: agrupar sophos.siem_event por endpoint_id chega a 192 chaves por ciclo — acima do teto, matches seguem contados e nenhuma detecção nova nasce."
       }
     },
     "status": {
@@ -178,7 +212,9 @@
       "timestampRequired": "Obrigatório quando há janela. Sem ele a janela é ignorada",
       "whereRequiredInflight": "Em voo, pelo menos um filtro é obrigatório: sem filtro a regra casaria 100% dos eventos, e a API recusa a gravação.",
       "evalPriorityRange": "Use um número inteiro entre {{min}} e {{max}}",
-      "pathRoot": "Em voo o caminho resolve da raiz do envelope: comece por normalized., _centralops. ou raw. (ex.: normalized.{{path}})"
+      "pathRoot": "Em voo o caminho resolve da raiz do envelope: comece por normalized., _centralops. ou raw. (ex.: normalized.{{path}})",
+      "scheduleQueryRequired": "Escolha a busca salva que alimenta a regra",
+      "scheduleBatchOnly": "Agendamento só vale em lote; em voo a regra roda por evento"
     },
     "actions": {
       "cancel": "Cancelar"

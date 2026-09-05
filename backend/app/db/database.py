@@ -523,6 +523,10 @@ _EXPECTED_FK_ONDELETE_RULES: tuple[tuple[str, str, str, str, str], ...] = (
     ("search_results", "integration_id", "integrations", "id", "SET NULL"),
     ("search_results", "user_id", "app_users", "id", "SET NULL"),
     ("search_results", "schedule_id", "scheduled_queries", "id", "SET NULL"),
+    # Agendamento de correlação em lote (W1.1): apagar a query salva ou a regra
+    # NÃO apaga a regra/o job — só desliga o vínculo.
+    ("correlation_rules", "schedule_query_id", "predefined_queries", "id", "SET NULL"),
+    ("query_jobs", "correlation_rule_id", "correlation_rules", "id", "SET NULL"),
     ("threat_intel_tokens", "created_by", "app_users", "id", "SET NULL"),
     ("threat_intel_queries", "token_id", "threat_intel_tokens", "id", "SET NULL"),
     ("mapping_versions", "author_user_id", "app_users", "id", "SET NULL"),
@@ -743,6 +747,39 @@ def _run_lightweight_migrations() -> None:
                         "ADD COLUMN eval_priority INTEGER NOT NULL DEFAULT 0"
                     )
                 )
+            # Emissão por regra (ADR-0015 W1.4). ``DEFAULT false`` e nunca
+            # ``0``: Postgres rejeita inteiro em BOOLEAN. Toda regra existente
+            # acorda SEM emitir — byte-idêntico ao comportamento anterior.
+            if "emit_event" not in corr_rule_columns:
+                conn.execute(
+                    text(
+                        "ALTER TABLE correlation_rules "
+                        "ADD COLUMN emit_event BOOLEAN NOT NULL DEFAULT false"
+                    )
+                )
+            # Agendamento em lote (W1.1) + teto por regra (W1.5). Todas
+            # anuláveis: NULL = "manual" / "usa o env", que é o estado de toda
+            # regra legada. TIMESTAMP e não DATETIME — o SQLite aceita os dois
+            # e o Postgres só o primeiro; é o gotcha que já quebrou boot em prod.
+            for col, ddl in (
+                ("schedule_seconds", "INTEGER"),
+                ("schedule_query_id", "INTEGER REFERENCES predefined_queries(id) ON DELETE SET NULL"),
+                ("schedule_lookback_seconds", "INTEGER"),
+                ("schedule_next_run_at", "TIMESTAMP"),
+                ("schedule_last_run_at", "TIMESTAMP"),
+                ("schedule_last_job_id", "VARCHAR"),
+                ("schedule_last_error", "TEXT"),
+                ("max_dedup_keys", "INTEGER"),
+            ):
+                if col not in corr_rule_columns:
+                    conn.execute(text(f"ALTER TABLE correlation_rules ADD COLUMN {col} {ddl}"))
+            # O beat varre por ``schedule_next_run_at <= now`` a cada minuto.
+            conn.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS ix_correlation_rules_schedule_next_run_at "
+                    "ON correlation_rules (schedule_next_run_at)"
+                )
+            )
 
         # Preferência de idioma da UI por usuário (nullable =
         # seguir o Accept-Language do navegador). Sincronizada pelo seletor do SPA.
@@ -895,6 +932,21 @@ def _run_lightweight_migrations() -> None:
                 conn.execute(text("ALTER TABLE query_jobs ADD COLUMN spec_kind VARCHAR DEFAULT 'passthrough'"))
             if "original_statement" not in qj_columns:
                 conn.execute(text("ALTER TABLE query_jobs ADD COLUMN original_statement TEXT"))
+            # Job submetido pelo agendamento de uma regra de correlação (W1.1):
+            # o finish avalia SÓ essa regra. NULL = job humano, como sempre.
+            if "correlation_rule_id" not in qj_columns:
+                conn.execute(
+                    text(
+                        "ALTER TABLE query_jobs ADD COLUMN correlation_rule_id INTEGER "
+                        "REFERENCES correlation_rules(id) ON DELETE SET NULL"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "CREATE INDEX IF NOT EXISTS ix_query_jobs_correlation_rule_id "
+                        "ON query_jobs (correlation_rule_id)"
+                    )
+                )
 
         if "audit_logs" in table_names:
             audit_log_columns = {column["name"] for column in inspector.get_columns("audit_logs")}
