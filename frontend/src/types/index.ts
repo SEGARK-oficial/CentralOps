@@ -2341,6 +2341,28 @@ export interface CorrelationRuleRead {
   suppression_window_seconds?: number
   created_at?: string
   /**
+   * ADR-0015 W1.4 — a Detection desta regra sai como evento OCSF 2004 roteado
+   * (chega ao SIEM). Decisão POR REGRA; o env `INFLIGHT_EMIT_OCSF_EVENT` é o
+   * "emite tudo". Só tem efeito em `inflight`.
+   */
+  emit_event?: boolean
+  /**
+   * W1.1 — agendamento em lote: a regra `batch` ganha a própria busca. A cada
+   * `schedule_seconds` o beat submete a query salva `schedule_query_id` sobre
+   * `[now - lookback, now]` e o finish avalia só esta regra. `null` = manual.
+   */
+  schedule_seconds?: number | null
+  schedule_query_id?: number | null
+  /** `null` = automático (`window_seconds` + período). */
+  schedule_lookback_seconds?: number | null
+  /** Observabilidade do agendamento: rodou? quando? qual job? deu erro? */
+  schedule_next_run_at?: string | null
+  schedule_last_run_at?: string | null
+  schedule_last_job_id?: string | null
+  schedule_last_error?: string | null
+  /** W1.5 — teto de chaves de dedup por ciclo desta regra. `null` = env (256). */
+  max_dedup_keys?: number | null
+  /**
    * ADR-0015 — a regra está HABILITADA e mesmo assim não é avaliada no ciclo em
    * voo. Duas causas caem neste mesmo `true`, porque terminam no mesmo lugar (a
    * regra verde que nunca dispara): ela ficou fora do teto de regras por ciclo,
@@ -2370,6 +2392,14 @@ export interface CorrelationRuleCreate {
   eval_mode?: "batch" | "inflight"
   /** ADR-0015. Omitido ⇒ 0, o mesmo `server_default` da coluna. Ver `CorrelationRuleRead`. */
   eval_priority?: number
+  /** W1.4 — só em `inflight`. Default false. */
+  emit_event?: boolean
+  /** W1.1 — só em `batch`; vai JUNTO com `schedule_query_id` (422 se um só). */
+  schedule_seconds?: number
+  schedule_query_id?: number
+  schedule_lookback_seconds?: number
+  /** W1.5 — só em `inflight`. Vazio = env. */
+  max_dedup_keys?: number
   organization_id?: number
 }
 
@@ -2391,6 +2421,14 @@ export interface CorrelationRuleUpdate {
   timestamp_field?: string
   where?: WhereFilter[]
   suppression_window_seconds?: number
+  emit_event?: boolean
+  /** `0` = DESLIGAR o agendamento (o backend ignora `null` no PATCH). */
+  schedule_seconds?: number
+  schedule_query_id?: number
+  /** `0` = voltar ao automático. */
+  schedule_lookback_seconds?: number
+  /** `0` = voltar ao teto do env. */
+  max_dedup_keys?: number
 }
 
 /** Payload de POST /correlation-rules/preview (ADR-0015, Fase 3). */
