@@ -330,7 +330,23 @@
     "revokeSuccess": "Token revocado. Sin token activo, emita uno nuevo para reanudar la ingesta.",
     "issueError": "Error al emitir el token.",
     "revokeError": "Error al revocar el token.",
-    "edgeCollectorConfig": "Configuración del edge-collector (Vector)"
+    "edgeCollectorConfig": "Configuración del edge-collector (Vector)",
+    "customStreams": {
+      "title": "Streams de esta fuente",
+      "empty": "Aún no hay streams. Crea el primero para que el endpoint acepte eventos.",
+      "help": "Cada stream es su propio mapping OCSF. El edge-collector hace POST en /api/ingest/<stream>; refina el mapping en Normalización → Mappings.",
+      "nameLabel": "Nombre del stream",
+      "namePlaceholder": "ej.: firewall-x",
+      "nameHelper": "a-z, 0-9, '_' y '-' (se convierte en la ruta del endpoint)",
+      "classLabel": "Clase OCSF",
+      "descriptionLabel": "Descripción (opcional)",
+      "create": "Crear stream",
+      "created": "Stream {{stream}} creado. El endpoint ya acepta eventos.",
+      "createError": "Error al crear el stream.",
+      "openMapping": "Abrir mapping",
+      "loadError": "Error al cargar los streams."
+    },
+    "edgeCollectorConfigGeneric": "Ejemplo de envío (curl / cualquier edge-collector)"
   },
   "enterprisePanel": {
     "title": "La importación de tenants es una función Enterprise",

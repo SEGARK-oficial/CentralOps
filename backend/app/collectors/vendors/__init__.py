@@ -31,3 +31,4 @@ from . import aws_cloudwatch  # noqa: F401    — aws_cloudwatch/events (Logs Fi
 from . import veeam  # noqa: F401             — veeam/sessions (VBR REST, OAuth2 password)
 from . import lake  # noqa: F401             — lake (search-in-place no S3)
 from . import push_ingest  # noqa: F401      — fortigate/windows_event_log (PUSH/ingest)
+from . import custom_json  # noqa: F401      — custom_json/<stream dinâmico> (PUSH/ingest genérico)

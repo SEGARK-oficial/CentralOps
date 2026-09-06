@@ -1171,6 +1171,143 @@ def discover_fields(
     return DiscoverFieldsResponse(fields=fields)
 
 
+# ── Streams da fonte genérica (custom_json) ─────────────────────────────
+# Rotas ESTÁTICAS: precisam vir antes de ``/{definition_id}``.
+
+
+class CustomStreamCreate(BaseModel):
+    stream: str = Field(..., min_length=1, max_length=63, description="slug: a-z 0-9 _ -")
+    ocsf_class_uid: int
+    description: Optional[str] = Field(None, max_length=500)
+
+
+class CustomStreamRead(BaseModel):
+    stream: str
+    event_type: str
+    definition_id: str
+    ocsf_class_uid: int
+    ocsf_class_name: str
+    description: Optional[str]
+    current_version_id: Optional[str]
+    #: Caminho relativo do endpoint de ingestão deste stream.
+    endpoint: str
+
+
+def _custom_stream_read(defn: models.MappingDefinition) -> Optional[CustomStreamRead]:
+    from ..collectors.normalize.ocsf.classes import class_name_for
+    from ..collectors.vendors import custom_json
+
+    name = custom_json.stream_name(defn.event_type)
+    if name is None:
+        return None
+    return CustomStreamRead(
+        stream=name,
+        event_type=defn.event_type,
+        definition_id=defn.id,
+        ocsf_class_uid=defn.ocsf_class_uid,
+        ocsf_class_name=class_name_for(defn.ocsf_class_uid),
+        description=defn.description,
+        current_version_id=defn.current_version_id,
+        endpoint=f"/api/ingest/{name}",
+    )
+
+
+@router.get("/custom-streams", response_model=List[CustomStreamRead])
+def list_custom_streams(
+    db: Session = Depends(database.get_session),
+    _: models.AppUser = Depends(app_auth.require_permission(app_auth.Permission.MAPPING_READ)),
+) -> List[CustomStreamRead]:
+    """Streams da plataforma ``custom_json`` — um por definição de mapping
+    ``vendor=custom_json``. É a mesma lista que o registry de collectors enxerga."""
+    from ..collectors.vendors import custom_json
+
+    rows = (
+        db.query(models.MappingDefinition)
+        .filter(models.MappingDefinition.vendor == custom_json.PLATFORM)
+        .order_by(models.MappingDefinition.event_type)
+        .all()
+    )
+    return [r for r in (_custom_stream_read(d) for d in rows) if r is not None]
+
+
+@router.post(
+    "/custom-streams",
+    response_model=CustomStreamRead,
+    status_code=status.HTTP_201_CREATED,
+)
+def create_custom_stream(
+    payload: CustomStreamCreate,
+    db: Session = Depends(database.get_session),
+    user: models.AppUser = Depends(app_auth.require_permission(app_auth.Permission.MAPPING_WRITE)),
+) -> CustomStreamRead:
+    """Cria um stream da fonte genérica: definição ``custom_json.<stream>`` +
+    versão 1 (esqueleto OCSF válido) já promovida. A partir daí o endpoint
+    ``POST /api/ingest/<stream>`` aceita eventos de qualquer integração
+    ``custom_json`` e o mapping é refinado na tela de mappings.
+
+    Mappings são globais (como as demais definições): o stream nasce para toda
+    a instalação, e cada integração ``custom_json`` (por org) tem o próprio
+    token de ingestão."""
+    from ..collectors.vendors import custom_json
+
+    try:
+        defn = custom_json.create_stream(
+            db,
+            stream=payload.stream,
+            ocsf_class_uid=payload.ocsf_class_uid,
+            description=payload.description,
+            author_user_id=app_auth.persistable_user_id(user),
+        )
+    except custom_json.InvalidStreamName as exc:
+        raise ApiError(
+            "mapping.invalid_stream_name",
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            messages={
+                "pt": "Nome de stream inválido: {error}",
+                "en": "Invalid stream name: {error}",
+                "es": "Nombre de stream inválido: {error}",
+            },
+            params={"error": str(exc)},
+        )
+    except custom_json.InvalidClassUid as exc:
+        raise ApiError(
+            "mapping.invalid_class_uid",
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            messages={
+                "pt": "Classe OCSF não suportada: {error}",
+                "en": "Unsupported OCSF class: {error}",
+                "es": "Clase OCSF no soportada: {error}",
+            },
+            params={"error": str(exc)},
+        )
+    except custom_json.StreamExists:
+        raise ApiError(
+            "mapping.stream_exists",
+            status.HTTP_409_CONFLICT,
+            messages={
+                "pt": "Já existe um stream com esse nome.",
+                "en": "A stream with that name already exists.",
+                "es": "Ya existe un stream con ese nombre.",
+            },
+        )
+    _audit(
+        db,
+        definition_id=defn.id,
+        version_id=defn.current_version_id,
+        action=mapping_audit.CREATE_VERSION,
+        user=user,
+        detail=f"custom_json: stream {payload.stream!r} criado (class_uid {payload.ocsf_class_uid})",
+    )
+    db.commit()
+    db.refresh(defn)
+    # O beat precisa de uma entry por stream: re-registra as integrações
+    # custom_json ativas (best-effort — sem Redis, a reconciliação corrige).
+    custom_json.reschedule_active_integrations(db)
+    read = _custom_stream_read(defn)
+    assert read is not None
+    return read
+
+
 @router.get("/{definition_id}", response_model=MappingDefinitionDetail)
 def get_definition(
     definition_id: str,

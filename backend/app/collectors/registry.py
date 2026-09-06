@@ -264,6 +264,24 @@ class PlatformRegistration:
 
 _REGISTRY: Dict[Tuple[str, str], CollectorRegistration] = {}
 _PLATFORM_REGISTRY: Dict[str, PlatformRegistration] = {}
+# Plataformas cujos streams vivem no BANCO, não em código (``custom_json``): o
+# resolver é chamado antes de responder "não existe" e antes de iterar. Ele
+# registra o que faltar (idempotente) e cacheia a consulta — ver o módulo dono.
+_STREAM_RESOLVERS: Dict[str, Callable[[], Any]] = {}
+
+
+def register_stream_resolver(platform: str, resolver: Callable[[], Any]) -> None:
+    _STREAM_RESOLVERS[platform] = resolver
+
+
+def _resolve_dynamic(platform: str) -> None:
+    fn = _STREAM_RESOLVERS.get(platform)
+    if fn is None:
+        return
+    try:
+        fn()
+    except Exception:  # noqa: BLE001 — resolver com banco fora não derruba o chamador
+        logger.warning("registry: resolver de streams de %r falhou", platform, exc_info=True)
 
 
 def register(reg: CollectorRegistration) -> None:
@@ -278,6 +296,8 @@ def register(reg: CollectorRegistration) -> None:
 
 
 def get(platform: str, stream: str) -> CollectorRegistration:
+    if (platform, stream) not in _REGISTRY:
+        _resolve_dynamic(platform)
     try:
         return _REGISTRY[(platform, stream)]
     except KeyError as exc:
@@ -288,11 +308,20 @@ def get(platform: str, stream: str) -> CollectorRegistration:
 
 
 def has(platform: str, stream: str) -> bool:
+    if (platform, stream) not in _REGISTRY:
+        _resolve_dynamic(platform)
+    return (platform, stream) in _REGISTRY
+
+
+def is_registered(platform: str, stream: str) -> bool:
+    """Checagem ESTÁTICA, sem consultar o resolver. É o que o próprio resolver
+    usa: ``has()`` chamaria o resolver de novo — reentrância no lock dele."""
     return (platform, stream) in _REGISTRY
 
 
 def iter_for_platform(platform: str) -> Iterator[CollectorRegistration]:
-    for reg in _REGISTRY.values():
+    _resolve_dynamic(platform)
+    for reg in list(_REGISTRY.values()):
         if reg.platform == platform:
             yield reg
 
@@ -355,6 +384,7 @@ def clear() -> None:
     """Apenas para testes unitários."""
     _REGISTRY.clear()
     _PLATFORM_REGISTRY.clear()
+    _STREAM_RESOLVERS.clear()
 
 
 # ── Resolução de provider (registry de fonte ÚNICO) ─────────────
