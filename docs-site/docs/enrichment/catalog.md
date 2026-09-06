@@ -6,7 +6,7 @@ description: O que cada fonte de enriquecimento faz, que campos devolve, e o que
 
 # Catálogo de fontes
 
-Esta página descreve as seis fontes de enriquecimento disponíveis hoje. A lista **não é fixa no código do console**, a tela em **Enriquece → Enriquecimento → Catálogo** sempre reflete exatamente o que a sua instalação tem registrado, então use `GET /api/collectors/enrichment/enrichers` (ou a própria tela) como fonte da verdade se este texto ficar desatualizado.
+Esta página descreve as nove fontes de enriquecimento disponíveis hoje. A lista **não é fixa no código do console**, a tela em **Enriquece → Enriquecimento → Catálogo** sempre reflete exatamente o que a sua instalação tem registrado, então use `GET /api/collectors/enrichment/enrichers` (ou a própria tela) como fonte da verdade se este texto ficar desatualizado.
 
 ## Tabela do cliente (chave exata), `table_exact`
 
@@ -226,6 +226,88 @@ Sem um `when` restritivo na regra, um lote de 200 eventos com indicadores distin
 O gate `when` é avaliado **antes** da chamada, então o que ele barra não sai da sua infraestrutura nem gasta cota.
 
 Toda consulta ao VirusTotal envia um indicador do seu ambiente (um IP, um hash) para fora. Confirme que isso é aceitável para o tipo de dado antes de habilitar.
+:::
+
+## AbuseIPDB, `abuseipdb`
+
+:::tip[Configure em Enriquecimento → Fontes antes de usar numa regra]
+Exige chave de API. Crie a **fonte configurada** com a chave; a regra cita só o nome dela.
+:::
+
+| | |
+|---|---|
+| Modo | **por lote** |
+| Egresso | **envia a terceiro** |
+| Tipos de chave | `ip` |
+| Requer configuração externa? | Sim, chave de API (plano gratuito: 1.000 consultas/dia) |
+
+Reputação de IP por relatos da comunidade: `abuse_confidence_score` (0–100), quantos relatos e de quantos usuários, a última data, e o contexto de rede (ISP, tipo de uso, país, Tor). **IPs privados, loopback e link-local nunca saem** para o provedor.
+
+**MISS tem semântica:** a API responde para qualquer IP público, inclusive um sem nenhum relato. Um IP sem relatos, ou com score abaixo de `min_confidence_score`, é tratado como **não encontrado** — assim o negative caching funciona e a regra só casa o que interessa. Para "qualquer relato", deixe `min_confidence_score` em 0; para "provável abuso", use 75.
+
+| Campo | Descrição |
+|---|---|
+| `abuse_confidence_score` | Confiança de abuso, 0 a 100 |
+| `total_reports` / `num_distinct_users` | Relatos na janela e usuários distintos |
+| `last_reported_at` | Último relato (ISO) |
+| `country_code` / `usage_type` / `isp` / `domain` / `hostnames` | Contexto de rede |
+| `is_tor` / `is_whitelisted` | Nó Tor; allowlist do provedor |
+| `source` | Sempre `"abuseipdb"` |
+
+**Configuração:** `max_age_days` (padrão 90), `min_confidence_score` (padrão 0), `max_keys_per_batch` (padrão 25), `requests_per_minute` (60) e `requests_per_day` (1.000, o plano gratuito). Com N workers usando a mesma chave, divida as cotas por N.
+
+## AlienVault OTX, `otx`
+
+:::tip[Configure em Enriquecimento → Fontes antes de usar numa regra]
+Exige chave de API (gratuita). Uma instância resolve um tipo de chave por vez: crie uma fonte por tipo se precisar de IP e domínio.
+:::
+
+| | |
+|---|---|
+| Modo | **por lote** |
+| Egresso | **envia a terceiro** |
+| Tipos de chave | `ip`, `domain`, `file_hash`, `url` |
+| Requer configuração externa? | Sim, chave de API |
+
+Pulses da comunidade OTX que citam o indicador: quantos, os nomes mais recentes, adversário, famílias de malware, tags e setores; mais `reputation` e se o OTX considera o indicador **benigno** (`whitelisted`, com as fontes em `validation`). **MISS = nenhum pulse**; um indicador que aparece só na allowlist do OTX também é MISS, para que uma regra "casou pulse" nunca dispare por ele.
+
+| Campo | Descrição |
+|---|---|
+| `pulse_count` / `pulses` | Quantos pulses e os nomes (até `max_pulses`) |
+| `tags` / `adversaries` / `malware_families` / `industries` | União do que os pulses declaram |
+| `first_seen` / `last_seen` | Pulse mais antigo e modificação mais recente |
+| `reputation` | Reputação OTX |
+| `whitelisted` / `validation` | O OTX considera benigno; fontes da allowlist |
+| `source` | Sempre `"otx"` |
+
+**Configuração:** `key_kind` (padrão `ip`), `max_pulses` (5), `max_keys_per_batch` (25), `requests_per_minute` (60). URLs são escapadas no caminho; IPv6 é detectado pelo valor.
+
+## GreyNoise, `greynoise`
+
+| | |
+|---|---|
+| Modo | **por lote** |
+| Egresso | **envia a terceiro** |
+| Tipos de chave | `ip` |
+| Requer configuração externa? | Opcional no plano community (sem chave, ~50/dia; com chave gratuita, ~100/dia); obrigatória no enterprise |
+
+O enricher de **redução de ruído**: `noise` = o IP está escaneando a internet inteira (não é tráfego dirigido a você); `riot` = é um serviço legítimo conhecido (CDN, DNS público, atualização de SO). Os dois são motivo para não acordar o analista, e por isso o GreyNoise costuma ser a **primeira** regra da política, marcando o evento com uma tag que as regras seguintes usam no `when` para pular a consulta cara.
+
+`tier: community` usa `/v3/community/<ip>`; `tier: enterprise` usa `/v2/noise/context/<ip>` e devolve também actor, tags de comportamento, CVEs exploradas, VPN/bot/spoofable, ASN, país e organização. **MISS = o GreyNoise nunca viu o IP**, que é informação: tráfego dirigido, não ruído. Por isso o negative TTL é curto (1 h).
+
+| Campo | Descrição |
+|---|---|
+| `noise` / `riot` / `classification` | Ruído de internet; serviço conhecido; `benign`/`malicious`/`unknown` |
+| `name` / `link` | Serviço (riot) ou actor (enterprise); página no GreyNoise |
+| `first_seen` / `last_seen` | Observações |
+| `tags` / `cve` / `vpn` / `bot` / `spoofable` | Comportamento (enterprise) |
+| `country_code` / `asn` / `organization` | Rede (enterprise) |
+| `tier` / `source` | De onde veio; sempre `"greynoise"` |
+
+**Configuração:** `tier` (padrão `community`), `max_keys_per_batch` (25), `requests_per_minute` (10), `requests_per_day` (100). No enterprise, suba as cotas para o seu plano.
+
+:::warning[Comum aos quatro provedores remotos]
+A cota é respeitada **antes** da requisição: o que passa do limite fica sem enriquecimento neste ciclo e é reperguntado no próximo, nunca gravado como "limpo". Um 429 trava o lote pelo `Retry-After` do provedor e abre o breaker da fonte; credencial recusada aparece como erro de autenticação no registro de atividade, não como "nada casou". IPs privados nunca saem da sua infraestrutura.
 :::
 
 ## Próximos passos
