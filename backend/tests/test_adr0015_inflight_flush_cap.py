@@ -1,11 +1,11 @@
 """Teto GLOBAL de Detections por flush: invariantes (R8) e degradação declarada.
 
 O buraco que este teto fecha: ``INFLIGHT_MAX_RULES_PER_CYCLE`` (50) e
-``INFLIGHT_MAX_DEDUP_KEYS_PER_RULE_PER_CYCLE`` (50) limitam POR REGRA e não
-somam a nada. 50 × 50 = 2500 chaves pendentes num único flush, e
+``INFLIGHT_MAX_DEDUP_KEYS_PER_RULE_PER_CYCLE`` (256, W1.5) limitam POR REGRA e
+não somam a nada. 50 × 256 = 12.800 chaves pendentes num único flush, e
 ``DetectionRepository.record`` COMMITA POR CHAVE — em Postgres são 5 round-trips
 por chave (``pg_advisory_xact_lock``, SELECT da janela, INSERT/UPDATE, COMMIT,
-refresh), ou seja até 12.500 EM SÉRIE dentro do ``finally`` do ciclo de coleta,
+refresh), ou seja até 64.000 EM SÉRIE dentro do ``finally`` do ciclo de coleta,
 por org. Não é hot path por evento, e foi por isso que passou despercebido; é
 trabalho serial que não coleta nada e cresce sozinho com a cardinalidade do
 group_by.
@@ -104,7 +104,7 @@ def test_the_global_cap_actually_binds_below_the_structural_ceiling() -> None:
         int(settings.INFLIGHT_MAX_RULES_PER_CYCLE)
         * int(settings.INFLIGHT_MAX_DEDUP_KEYS_PER_RULE_PER_CYCLE)
     )
-    assert estrutural == 2500, (
+    assert estrutural == 50 * 256 == 12_800, (
         "o pior caso mudou; recalcule o teto global antes de mexer nos outros"
     )
     assert int(settings.INFLIGHT_MAX_DETECTIONS_PER_FLUSH) < estrutural

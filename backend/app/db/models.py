@@ -859,6 +859,14 @@ class QueryJob(Base):
     # JSON list dos integration_id alvo (fan-out). Mesmo org (validado no submit).
     integration_ids = Column(Text, nullable=False)
     allow_partial_results = Column(Boolean, nullable=False, default=False)
+    # Job submetido pelo AGENDAMENTO de uma regra de correlação em lote
+    # (``CorrelationRule.schedule_*``): o finish avalia SÓ essa regra, não
+    # todas as da org — a busca é dela, com o statement e a janela dela. NULL
+    # = job humano/ad-hoc, avaliado por todas as regras como sempre.
+    correlation_rule_id = Column(
+        Integer, ForeignKey("correlation_rules.id", ondelete="SET NULL"),
+        nullable=True, index=True,
+    )
     status = Column(String, nullable=False, default="submitted")
     total_results = Column(Integer, nullable=False, default=0)
     # JSON {integration_id: {status, count, error, partial}} — facets por fonte.
@@ -990,6 +998,43 @@ class CorrelationRule(Base):
     # barulhenta a tiraria da avaliação em SILÊNCIO — trocaria o modo de falha
     # mudo atual por outro igualmente mudo.
     eval_priority = Column(Integer, nullable=False, default=0, server_default=_sa_text("0"))
+    # ── emissão POR REGRA (ADR-0015, W1.4) ───────────────────────────────
+    # A Detection em voo sai como evento OCSF 2004 roteado quando ESTA regra
+    # pede — ``INFLIGHT_EMIT_OCSF_EVENT`` (env) continua existindo como
+    # interruptor global "emite tudo", mas a decisão de produto é por regra:
+    # é o operador, na tela, que escolhe qual alerta chega ao SIEM e paga
+    # volume por ele. DEFAULT false = byte-idêntico: nenhuma instalação passa
+    # a emitir evento novo por subir de versão (ADR-0015 §7). ``DEFAULT false``
+    # e NUNCA ``0`` — Postgres rejeita inteiro em BOOLEAN (gotcha já pago em
+    # ``protect_detection``).
+    emit_event = Column(Boolean, nullable=False, default=False, server_default=_sa_text("false"))
+    # ── agendamento em LOTE (W1.1) ───────────────────────────────────────
+    # Regra ``batch`` só rodava no finish de um ``QueryJob`` criado por um
+    # humano em ``POST /query-jobs``. Estes campos fazem a regra ter a PRÓPRIA
+    # busca: a cada ``schedule_seconds`` o beat do EE submete um QueryJob com
+    # o statement da ``PredefinedQuery`` apontada, janela ``[now - lookback,
+    # now]``, e o finish avalia SÓ esta regra (``QueryJob.correlation_rule_id``).
+    # ``NULL`` em ``schedule_seconds`` = manual, exatamente como hoje.
+    # ``schedule_lookback_seconds`` NULL ⇒ ``window_seconds + schedule_seconds``
+    # (a janela da regra mais um período, para nenhum evento cair entre dois
+    # ciclos). Os ``schedule_last_*`` são observabilidade, não política: é o
+    # que faz a tela responder "rodou? quando? qual job? deu erro?".
+    schedule_seconds = Column(Integer, nullable=True)
+    schedule_query_id = Column(
+        Integer, ForeignKey("predefined_queries.id", ondelete="SET NULL"), nullable=True,
+    )
+    schedule_lookback_seconds = Column(Integer, nullable=True)
+    schedule_next_run_at = Column(DateTime, nullable=True, index=True)
+    schedule_last_run_at = Column(DateTime, nullable=True)
+    schedule_last_job_id = Column(String, nullable=True)
+    schedule_last_error = Column(Text, nullable=True)
+    # ── teto de chaves de dedup POR REGRA (W1.5) ──────────────────────────
+    # ``NULL`` = o env ``INFLIGHT_MAX_DEDUP_KEYS_PER_RULE_PER_CYCLE``. Medido
+    # contra 121k eventos reais: ``sophos.siem_event`` agrupado por
+    # ``endpoint_id`` chega a 192 chaves/ciclo e estoura o antigo teto de 50 em
+    # 74% dos ciclos — o número certo depende do par (stream, group_by), e só a
+    # regra sabe qual é. O teto GLOBAL por flush segue valendo por cima.
+    max_dedup_keys = Column(Integer, nullable=True)
     # ── threshold ────────────────────────────────────────────────────────
     # Campo (dotted path) p/ agrupar (ex.: "agent.name", "host", "data.srcip").
     group_by_field = Column(String, nullable=True)

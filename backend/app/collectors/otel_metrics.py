@@ -117,8 +117,9 @@ _SPEC: Dict[str, Dict[str, Any]] = {
     # vezes?": ``suppressed`` = a janela de supressão da regra agrupou o match
     # numa Detection que já existia; ``loop_guard`` = o evento que casou já era
     # um evento de detecção emitido por este produto; ``cycle_cap`` = teto de
-    # emissão por ciclo. ``reason`` é enum FECHADO (``EMIT_SKIP_REASONS``) e
-    # jamais interpola valor de evento.
+    # emissão por ciclo; ``rule_opt_out`` = a regra não pediu emissão e o
+    # interruptor global está desligado (W1.4). ``reason`` é enum FECHADO
+    # (``EMIT_SKIP_REASONS``) e jamais interpola valor de evento.
     "collector_inflight_events_not_emitted_total": {
         "kind": "counter", "unit": "1", "labels": ("reason",)},
     # Duração do FLUSH das Detections (a escrita, não o ciclo inteiro). 1x por

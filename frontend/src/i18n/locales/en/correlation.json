@@ -62,7 +62,9 @@
       "groupBy": "Group by",
       "minCount": "Min. events",
       "window": "Window (s)",
-      "actions": "Actions"
+      "actions": "Actions",
+      "schedule": "Schedule",
+      "emit": "SIEM"
     },
     "idLabel": "ID #{{id}}",
     "toggle": {
@@ -107,7 +109,10 @@
       "notEvaluatedBadge": "Not evaluated",
       "notEvaluatedTooltip": "Enabled in-flight rule that does NOT enter the evaluation cycle. Two possible causes: it fell above the per-cycle rule cap (the highest evaluation priority survives; ties break toward the oldest), or its filter (where) does not compile. The notice above the table says which one, and how many rules."
     },
-    "evalPriorityTooltip": "In-flight evaluation order: higher priority runs first; ties break toward the oldest. No effect in batch."
+    "evalPriorityTooltip": "In-flight evaluation order: higher priority runs first; ties break toward the oldest. No effect in batch.",
+    "scheduleManual": "manual",
+    "emitOn": "sends",
+    "emitOff": "—"
   },
   "form": {
     "field": {
@@ -163,6 +168,35 @@
         "label": "Timestamp field",
         "placeholder": "E.g.: event.timestamp",
         "helperText": "Field the window uses. Without it the window is off and every event counts."
+      },
+      "emitEvent": {
+        "label": "Send the detection to the SIEM (OCSF 2004 event)",
+        "helperText": "On, each new detection from this rule leaves as a routed event — it lands wherever the routes say. Off, the detection only exists in the console. Per rule: you choose what pays volume in the SIEM."
+      },
+      "schedule": {
+        "label": "Run every",
+        "helperText": "The rule gets its own search: every period the pipeline runs the chosen saved query and evaluates this rule on the result. Manual = only when someone runs a federated search.",
+        "manual": "Manual (federated search only)",
+        "every5m": "5 minutes",
+        "every15m": "15 minutes",
+        "every1h": "1 hour",
+        "every6h": "6 hours",
+        "every24h": "24 hours",
+        "queryLabel": "Saved search that feeds the rule",
+        "queryPlaceholder": "Pick a saved search",
+        "queryHelperText": "Must have target integrations. Its statement and dialect are what runs.",
+        "queryNone": "No saved search with targets",
+        "lookbackLabel": "Search window (seconds)",
+        "lookbackHelperText": "Empty = rule window + one period, so no event falls between two cycles.",
+        "lastRun": "Last tick",
+        "nextRun": "Next tick",
+        "lastJob": "Job",
+        "lastError": "Last tick error",
+        "neverRan": "never ran"
+      },
+      "maxDedupKeys": {
+        "label": "Key cap per cycle",
+        "helperText": "Empty = environment cap (256). Measured on real data: grouping sophos.siem_event by endpoint_id reaches 192 keys per cycle — above the cap, matches keep counting and no new detection is created."
       }
     },
     "status": {
@@ -178,7 +212,9 @@
       "timestampRequired": "Required when there is a window. Without it the window is ignored",
       "whereRequiredInflight": "In-flight at least one filter is required: with no filter the rule would match 100% of events, and the API refuses to store it.",
       "evalPriorityRange": "Use a whole number between {{min}} and {{max}}",
-      "pathRoot": "In-flight the path resolves from the envelope root: start with normalized., _centralops. or raw. (e.g.: normalized.{{path}})"
+      "pathRoot": "In-flight the path resolves from the envelope root: start with normalized., _centralops. or raw. (e.g.: normalized.{{path}})",
+      "scheduleQueryRequired": "Pick the saved search that feeds the rule",
+      "scheduleBatchOnly": "Scheduling only applies in batch; in-flight the rule runs per event"
     },
     "actions": {
       "cancel": "Cancel"

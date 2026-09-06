@@ -1764,9 +1764,11 @@ class QueryJobRepository:
         allow_partial_results: bool = False,
         spec_kind: str = "passthrough",
         original_statement: str | None = None,
+        correlation_rule_id: int | None = None,
     ) -> models.QueryJob:
         job = models.QueryJob(
             job_id=job_id,
+            correlation_rule_id=correlation_rule_id,
             organization_id=organization_id,
             user_id=user_id,
             dialect=dialect,
@@ -2055,6 +2057,57 @@ class CorrelationRuleRepository:
             .limit(max(1, limit))
             .all()
         )
+
+    # ── agendamento em lote (W1.1) ───────────────────────────────────────
+    def list_due_scheduled(
+        self, now: datetime, limit: int = 200
+    ) -> list[models.CorrelationRule]:
+        """Regras ``batch`` habilitadas com agendamento cuja hora chegou.
+
+        ``schedule_next_run_at IS NULL`` também conta: é a regra que acabou de
+        ganhar agendamento e ainda não rodou — o primeiro tick a pega. Ordem
+        por ``next_run_at`` para que, num backlog (beat parado), a mais
+        atrasada rode primeiro; ``limit`` é teto por tick, não política.
+        """
+        return (
+            self.db.query(models.CorrelationRule)
+            .filter(
+                models.CorrelationRule.enabled.is_(True),
+                models.CorrelationRule.eval_mode == "batch",
+                models.CorrelationRule.schedule_seconds.isnot(None),
+                models.CorrelationRule.schedule_query_id.isnot(None),
+                or_(
+                    models.CorrelationRule.schedule_next_run_at.is_(None),
+                    models.CorrelationRule.schedule_next_run_at <= now,
+                ),
+            )
+            .order_by(
+                models.CorrelationRule.schedule_next_run_at.asc().nullsfirst(),
+                models.CorrelationRule.id.asc(),
+            )
+            .limit(max(1, limit))
+            .all()
+        )
+
+    def mark_schedule_run(
+        self,
+        rule: models.CorrelationRule,
+        *,
+        ran_at: datetime,
+        next_run_at: datetime,
+        job_id: str | None = None,
+        error: str | None = None,
+    ) -> None:
+        """Registra o tick. ``next_run_at`` avança SEMPRE — inclusive em erro —
+        senão uma query salva inválida viraria laço apertado a cada minuto."""
+        rule.schedule_last_run_at = ran_at
+        rule.schedule_next_run_at = next_run_at
+        if job_id is not None:
+            rule.schedule_last_job_id = job_id
+        # Erro é sobrescrito a cada tick (inclusive por ``None`` no sucesso):
+        # o campo responde "o ÚLTIMO tick deu erro?", não "algum dia deu".
+        rule.schedule_last_error = (error or "")[:2000] or None
+        self.db.commit()
 
     def _inflight_query(self, organization_id: int):
         """O filtro das regras em voo da org. Compartilhado pelas 3 consultas
