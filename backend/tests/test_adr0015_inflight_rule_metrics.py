@@ -353,15 +353,29 @@ async def test_all_four_error_reasons_are_attributed_to_a_rule(
     # forma de o operador achar a de alta cardinalidade.
     assert acc_teto.errors["flush_cap"] == {13: 4}
 
-    # ANTI-VACUIDADE: os SEIS ATRIBUÍVEIS, e nenhum reason fora do enum.
+    # Janela deslizante (W1.6): abaixo do mínimo na janela (caminho real, com
+    # Redis falso) e Redis indisponível (fail-closed) — os dois atribuíveis.
+    from backend.app.collectors.inflight.matcher import CompiledInflightRule as _CIR
+
+    acc_win = InflightAccumulator()
+    regra_janela = _CIR(rule_id=14, name="r14", severity_id=4, suppression_window_seconds=3600,
+                        group_by_path=("u",), clauses=(), min_count=3, window_seconds=60)
+    acc_win.add(regra_janela, {"u": "alice"}, organization_id=1)  # 1 < 3 ⇒ window_below
+    acc_win.count_error("window_unavailable", 15)
+    monkeypatch.setattr(obs, "_redis", lambda: fakeredis.FakeRedis(decode_responses=True))
+    monkeypatch.setattr(runtime_mod, "_flush_sync", lambda _p, _o: ())
+    await flush_inflight(acc_win, organization_id=1)
+    assert acc_win.errors["window_below"] == {14: 1}
+    assert acc_win.errors["window_unavailable"] == {15: 1}
+    # ANTI-VACUIDADE: os OITO ATRIBUÍVEIS, e nenhum reason fora do enum.
     # ``matcher`` fica de fora de propósito: ele é escrito pelo ``except``
     # de ``pipeline.py``, que não sabe qual regra estava sendo avaliada quando a
     # exceção subiu, e por isso é o único reason sem breakdown por regra. A
     # distinção é declarada em ``UNATTRIBUTED_ERROR_REASONS`` — se alguém
     # acrescentar um reason externo sem declará-lo lá, este assert reprova.
     atribuiveis = set(ERROR_REASONS) - set(UNATTRIBUTED_ERROR_REASONS)
-    assert set(acc.errors) | set(acc_teto.errors) == atribuiveis
-    assert len(atribuiveis) == 6
+    assert set(acc.errors) | set(acc_teto.errors) | set(acc_win.errors) == atribuiveis
+    assert len(atribuiveis) == 8
 
 
 @pytest.mark.asyncio

@@ -136,9 +136,9 @@
         },
         "explain": {
           "batch": "Batch: the rule only runs when a federated search FINISHES, and only over its results. It counts occurrences — it needs N events in the same group within the window. With no search, no detection is born.",
-          "inflight": "In-flight: the rule is evaluated event by event inside the ingestion pipeline, BEFORE the data reaches the SIEM. There is no counting and no window — the first event matching the filter already becomes a detection."
+          "inflight": "In-flight: the rule is evaluated event by event in the ingestion pipeline, BEFORE data reaches the SIEM. With min = 1 the first matching event becomes a detection; with min > 1 and a window, the detection is born when the sliding count for the group key reaches the minimum."
         },
-        "ignoredFields": "In-flight the engine IGNORES min. events, window and timestamp field; that is why they disappear from here. The values stay saved and apply again if you switch back to batch.",
+        "ignoredFields": "In-flight the timestamp field is ignored: the sliding window uses the receive clock and per-group-key counters in Redis. Min and window apply; min = 1 or window = 0 turns counting off.",
         "opsCaveat": "In-flight the builder also offers the in, not in and exists operators. Batch does not have them: switching a rule that uses one to batch is a 422."
       },
       "evalPriority": {
@@ -159,7 +159,8 @@
       },
       "window": {
         "label": "Window (seconds)",
-        "helperText": "Requires a timestamp field below."
+        "helperText": "Requires a timestamp field below.",
+        "inflightHelper": "In-flight: fires when ≥ min events for the same group key fit in the window (sliding count, up to 1 h). Leave min = 1 to fire on the first event."
       },
       "suppression": {
         "label": "Suppression (seconds)"
@@ -214,7 +215,9 @@
       "evalPriorityRange": "Use a whole number between {{min}} and {{max}}",
       "pathRoot": "In-flight the path resolves from the envelope root: start with normalized., _centralops. or raw. (e.g.: normalized.{{path}})",
       "scheduleQueryRequired": "Pick the saved search that feeds the rule",
-      "scheduleBatchOnly": "Scheduling only applies in batch; in-flight the rule runs per event"
+      "scheduleBatchOnly": "Scheduling only applies in batch; in-flight the rule runs per event",
+      "windowInflightRange": "In-flight the window goes from 10 s to 3600 s (1 h). For longer windows use batch mode.",
+      "minCountNeedsWindow": "A min count above 1 requires a window in seconds."
     },
     "actions": {
       "cancel": "Cancel"

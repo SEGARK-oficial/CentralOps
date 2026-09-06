@@ -57,10 +57,10 @@ _INFLIGHT_SERIES = tuple(
 )
 
 
-def _row(rid: int, where_json: str, group_by: str | None = None) -> types.SimpleNamespace:
+def _row(rid: int, where_json: str, group_by: str | None = None, **extra: object) -> types.SimpleNamespace:
     return types.SimpleNamespace(
         id=rid, name=f"regra-{rid}", where_json=where_json, severity_id=4,
-        suppression_window_seconds=3600, group_by_field=group_by,
+        suppression_window_seconds=3600, group_by_field=group_by, **extra,
     )
 
 
@@ -77,6 +77,10 @@ def _rows_covering_every_reject_reason() -> list[types.SimpleNamespace]:
         # group_by_root: o where compila, o group_by é que não — primeiro
         # segmento fora das raízes do envelope, que resolve None em TODO evento.
         _row(5, ok, group_by="host"),
+        # Janela deslizante (W1.6) fora dos tetos: o where e o group_by
+        # compilam; a janela (ou a contagem) é que não cabe.
+        _row(6, ok, group_by="raw.u", min_count=5, window_seconds=int(settings.INFLIGHT_MAX_WINDOW_SECONDS) + 1),
+        _row(7, ok, group_by="raw.u", min_count=int(settings.INFLIGHT_MAX_WINDOW_COUNT) + 1, window_seconds=60),
     ]
     # As válidas: precisam existir para o gauge ``rules_loaded`` sair > 0 e para
     # ``len(rows) >= cap`` disparar ``truncated``.
@@ -178,10 +182,13 @@ async def _exercise(monkeypatch: pytest.MonkeyPatch, record_counter=None) -> Non
 
     from backend.app.collectors.inflight.matcher import CompiledInflightRule
 
-    def _rule(rid: int, group_by: tuple[str, ...] | None = ("u",)) -> CompiledInflightRule:
+    def _rule(
+        rid: int, group_by: tuple[str, ...] | None = ("u",), *, min_count: int = 1, window_seconds: int = 0,
+    ) -> CompiledInflightRule:
         return CompiledInflightRule(
             rule_id=rid, name=f"r{rid}", severity_id=4,
             suppression_window_seconds=3600, group_by_path=group_by, clauses=(),
+            min_count=min_count, window_seconds=window_seconds,
         )
 
     key_cap = int(settings.INFLIGHT_MAX_DEDUP_KEYS_PER_RULE_PER_CYCLE)
@@ -192,6 +199,11 @@ async def _exercise(monkeypatch: pytest.MonkeyPatch, record_counter=None) -> Non
     for i in range(key_cap + 2):                                              # key_cap
         acc.add(_rule(11), {"u": f"user{i}"}, organization_id=7)
     acc.add(_rule(12), {"u": "A" * (val_cap + 1)}, organization_id=7)         # group_value_truncated
+    # window_below (W1.6): 1 hit numa regra que pede 3 na janela, com Redis falso.
+    import fakeredis as _fakeredis
+
+    monkeypatch.setattr(obs, "_redis", lambda: _fakeredis.FakeRedis(decode_responses=True))
+    acc.add(_rule(13, min_count=3, window_seconds=60), {"u": "w"}, organization_id=7)
 
     def _boom(*_a: object, **_k: object) -> int:                              # flush_lost
         raise RuntimeError("Postgres indisponível")
@@ -241,6 +253,14 @@ async def _exercise(monkeypatch: pytest.MonkeyPatch, record_counter=None) -> Non
     acc_ok = InflightAccumulator()
     acc_ok.pending["inflight:7:20:*"] = {"rule": _rule(20), "integration_id": 1}
     acc_ok.pending["inflight:7:21:*"] = {"rule": _rule(21), "integration_id": 1}
+    # window_unavailable (W1.6): regra com janela + Redis fora ⇒ fail-closed.
+    acc_ok.pending["inflight:7:22:*"] = {"rule": _rule(22, min_count=2, window_seconds=60), "integration_id": 1, "hits": 1}
+
+    class _BrokenRedis:
+        def pipeline(self):
+            raise ConnectionError("redis fora")
+
+    monkeypatch.setattr(obs, "_redis", lambda: _BrokenRedis())
     monkeypatch.setattr(
         runtime_mod, "_flush_sync",
         lambda _p, _o: (_ticket(20, self_emitted=False), _ticket(21, self_emitted=True)),

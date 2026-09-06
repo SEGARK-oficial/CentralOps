@@ -67,6 +67,11 @@ class CompiledInflightRule:
     emit_event: bool = False
     #: Teto de chaves de dedup por ciclo desta regra (W1.5). ``None`` = env.
     max_dedup_keys: int | None = None
+    #: Janela deslizante (W1.6): só vira Detection quando ``min_count`` matches
+    #: da mesma chave de dedup cabem em ``window_seconds``. ``min_count <= 1``
+    #: ou ``window_seconds == 0`` = comportamento clássico (1 match = Detection).
+    min_count: int = 1
+    window_seconds: int = 0
 
 
 @dataclass(frozen=True, slots=True)

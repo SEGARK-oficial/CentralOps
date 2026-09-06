@@ -136,9 +136,9 @@
         },
         "explain": {
           "batch": "Por lotes: la regla solo se ejecuta cuando una búsqueda federada TERMINA, y solo sobre sus resultados. Cuenta ocurrencias: necesita N eventos en el mismo grupo dentro de la ventana. Sin búsqueda, no nace ninguna detección.",
-          "inflight": "En vuelo: la regla se evalúa evento por evento dentro del pipeline de ingesta, ANTES de que el dato llegue al SIEM. No hay conteo ni ventana: el primer evento que case con el filtro ya se convierte en detección."
+          "inflight": "En vuelo: la regla se evalúa evento a evento en el pipeline de ingestión, ANTES de que el dato llegue al SIEM. Con mínimo = 1 el primer evento que coincida ya es detección; con mínimo > 1 y ventana, la detección nace cuando el conteo deslizante de la clave de agrupación alcanza el mínimo."
         },
-        "ignoredFields": "En vuelo el motor IGNORA mín. de eventos, ventana y campo de timestamp; por eso desaparecen de aquí. Los valores siguen guardados y vuelven a valer si cambia a por lotes.",
+        "ignoredFields": "En vuelo el campo de timestamp se ignora: la ventana deslizante usa el reloj de recepción y contadores por clave de agrupación en Redis. Mínimo y ventana aplican; mínimo = 1 o ventana = 0 desactiva el conteo.",
         "opsCaveat": "En vuelo el constructor ofrece además los operadores en, no en y existe. En lote no existen: cambiar a lote una regla que usa uno de ellos es 422."
       },
       "evalPriority": {
@@ -159,7 +159,8 @@
       },
       "window": {
         "label": "Ventana (segundos)",
-        "helperText": "Requiere un campo de timestamp a continuación."
+        "helperText": "Requiere un campo de timestamp a continuación.",
+        "inflightHelper": "En vuelo: dispara cuando ≥ mínimo de eventos de la misma clave de agrupación caben en la ventana (conteo deslizante, hasta 1 h). Deje mínimo = 1 para disparar en el primer evento."
       },
       "suppression": {
         "label": "Supresión (segundos)"
@@ -214,7 +215,9 @@
       "evalPriorityRange": "Usa un número entero entre {{min}} y {{max}}",
       "pathRoot": "En vuelo la ruta se resuelve desde la raíz del sobre: empieza por normalized., _centralops. o raw. (ej.: normalized.{{path}})",
       "scheduleQueryRequired": "Elige la búsqueda guardada que alimenta la regla",
-      "scheduleBatchOnly": "La programación solo aplica en lote; en vuelo la regla corre por evento"
+      "scheduleBatchOnly": "La programación solo aplica en lote; en vuelo la regla corre por evento",
+      "windowInflightRange": "En vuelo la ventana va de 10 s a 3600 s (1 h). Para ventanas mayores use el modo por lotes.",
+      "minCountNeedsWindow": "Un mínimo de eventos mayor que 1 exige una ventana en segundos."
     },
     "actions": {
       "cancel": "Cancelar"
