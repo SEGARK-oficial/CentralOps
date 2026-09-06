@@ -1180,6 +1180,35 @@ class ActionRun(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
 
+# ── Receptor syslog (W3.2) ──────────────────────────────────────────
+
+class SyslogSource(Base):
+    """Uma fonte que fala syslog com o receptor nativo: quem (CIDR de origem +
+    porta/transporte de escuta) e para qual integração PUSH os eventos vão.
+
+    A credencial é a REDE, não um token: porta 514 não tem cabeçalho. Por isso
+    o CIDR é obrigatório e ``0.0.0.0/0`` é recusado pela API — aceitar de
+    qualquer IP é aceitar da internet inteira. ``classifier_json`` decide o
+    ``stream`` por conteúdo (``collectors/classify``); ``default_stream`` é o
+    que vale quando nenhuma regra casa."""
+    __tablename__ = "syslog_sources"
+    __table_args__ = (
+        Index("ix_syslog_sources_integration", "integration_id"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    organization_id = Column(Integer, ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
+    integration_id = Column(Integer, ForeignKey("integrations.id", ondelete="CASCADE"), nullable=False)
+    name = Column(String, nullable=False)
+    source_cidr = Column(String, nullable=False)  # "203.0.113.7/32", "10.0.0.0/24", "2001:db8::/48"
+    listen_port = Column(Integer, nullable=True)  # NULL = qualquer porta do receptor
+    transport = Column(String, nullable=False, default="any", server_default="any")  # any|udp|tcp|tls
+    default_stream = Column(String, nullable=False)
+    classifier_json = Column(Text, nullable=True)  # {"rules":[{"when","stream"}]}
+    enabled = Column(Boolean, nullable=False, default=True, server_default=_sa_text("true"))
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+
 # ── Collector subsystem config ──────────────────────────────────────
 
 class CollectorConfig(Base):

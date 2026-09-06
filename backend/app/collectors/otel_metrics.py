@@ -227,6 +227,10 @@ _SPEC: Dict[str, Dict[str, Any]] = {
     # ou evento acima do teto por-evento. ``reason`` = parse|type|oversize. Distinto de
     # ``dropped`` (backpressure) — aqui a borda mandou algo que o servidor não normaliza.
     "collector_ingest_malformed_total": {"kind": "counter", "unit": "1", "labels": ("vendor", "stream", "reason")},
+    # Receptor syslog: cada mensagem recebida, por transporte e destino
+    # (accepted | unknown_source | unclassified | dropped_memory). ``unknown_source``
+    # crescendo é alguém apontando syslog para nós sem fonte cadastrada.
+    "collector_syslog_received_total": {"kind": "counter", "unit": "1", "labels": ("transport", "outcome")},
     # data-plane Kafka (produce/consume/lag). ``outcome`` do
     # produce: ok|error; do consume: ok|transient|failed|invalid. ``lag`` (gauge por
     # partição) = highwater − position do consumer group (alerta no Grafana/KEDA).

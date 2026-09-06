@@ -1129,6 +1129,58 @@ services:
           cpus: '0.25'
           memory: 256m
 
+  # Receptor syslog nativo (W3.2): UDP/TCP 514 e TLS 6514 → parse → buffer de
+  # ingestão da integração dona do CIDR. Réplica ÚNICA: a porta UDP não é
+  # compartilhável; para escalar, ponha um balanceador L4 na frente ou use o
+  # edge-collector (Vector) apontando para POST /api/ingest.
+  syslog-receiver:
+    stop_grace_period: 30s
+    image: ${IMAGE_NAME:-centralops}:${IMAGE_TAG:-latest}
+    entrypoint: ["/usr/local/bin/start-collector.sh"]
+    command: ["python", "-c", "from app.syslog.server import main; main()"]
+    ports:
+      - "${SYSLOG_UDP_PORT:-514}:514/udp"
+      - "${SYSLOG_TCP_PORT:-514}:514/tcp"
+      - "${SYSLOG_TLS_PORT:-6514}:6514/tcp"
+    environment:
+      - SERVICE_ROLE=syslog-receiver
+      - SYSLOG_BIND=0.0.0.0
+      - SYSLOG_UDP_PORT=514
+      - SYSLOG_TCP_PORT=514
+      - SYSLOG_TLS_PORT=6514
+      - SYSLOG_TLS_CERT=${SYSLOG_TLS_CERT:-}
+      - SYSLOG_TLS_KEY=${SYSLOG_TLS_KEY:-}
+      - SYSLOG_TLS_CA=${SYSLOG_TLS_CA:-}
+      - SYSLOG_SOURCE_REFRESH_S=${SYSLOG_SOURCE_REFRESH_S:-15}
+      - APP_MASTER_KEY=${APP_MASTER_KEY:-}
+      - APP_ENV=${APP_ENV:-production}
+      - OTEL_ENABLED=${OTEL_ENABLED:-false}
+      - OTEL_EXPORTER_OTLP_ENDPOINT=${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+      - OTEL_METRIC_EXPORT_INTERVAL_MS=${OTEL_METRIC_EXPORT_INTERVAL_MS:-15000}
+      - DATABASE_URL=${DATABASE_URL:-postgresql+psycopg2://${POSTGRES_USER:-centralops}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD obrigatorio - gere com openssl rand -base64 24 e coloque no .env}@postgres:5432/${POSTGRES_DB:-centralops}}
+      - REDIS_URL=${REDIS_URL:-redis://:${REDIS_PASSWORD:?REDIS_PASSWORD obrigatorio - gere com openssl rand -base64 24 e coloque no .env}@redis:6379/0}
+    working_dir: /app
+    volumes:
+      - ../certs:/certs:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      centralops:
+        condition: service_started
+    restart: unless-stopped
+    profiles: ["syslog"]
+    deploy:
+      replicas: 1
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256m
+        reservations:
+          cpus: '0.1'
+          memory: 64m
+
   collector-beat:
     # o beat só agenda (não executa tasks longas); 30s sobra.
     stop_grace_period: 30s

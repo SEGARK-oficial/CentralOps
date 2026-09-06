@@ -352,5 +352,55 @@
     "title": "La importación de tenants es una función Enterprise",
     "body": "Descubrir tenants funciona. Importarlos como Organizations + Integrations exige Enterprise.",
     "link": "Descubra cómo actualizar"
+  },
+  "syslog": {
+    "title": "Fuentes syslog (receptor nativo)",
+    "help": "Equipos que hablan syslog directamente con CentralOps (UDP/TCP 514, TLS 6514), sin edge-collector. La red es la credencial: solo se acepta el CIDR registrado; el resto se descarta y se cuenta.",
+    "empty": "Sin fuentes. Sin fuente, todo lo que llega al puerto 514 se descarta como origen desconocido.",
+    "loadError": "Error al cargar las fuentes syslog.",
+    "col": {
+      "name": "Nombre",
+      "cidr": "Origen (CIDR)",
+      "port": "Puerto",
+      "anyPort": "cualquiera",
+      "transport": "Transporte",
+      "defaultStream": "Stream por defecto",
+      "rules": "Reglas",
+      "enabled": "activa",
+      "disabled": "inactiva"
+    },
+    "form": {
+      "name": "Nombre",
+      "cidr": "CIDR de origen",
+      "cidrPlaceholder": "ej.: 10.0.5.7/32 o 10.0.5.0/24",
+      "cidrHelper": "Solo se acepta esa red. 0.0.0.0/0 se rechaza.",
+      "port": "Puerto de escucha (opcional)",
+      "portHelper": "Vacío = cualquier puerto del receptor.",
+      "transport": "Transporte",
+      "transportAny": "cualquiera",
+      "defaultStream": "Stream por defecto",
+      "rulesTitle": "Clasificación por contenido",
+      "rulesHelp": "La primera regla que coincide decide el stream. Use @fortigate, @paloalto, @cisco_asa, @pfsense, @linux_auth, @windows_vector o una expresión JMESPath sobre la línea parseada (msg, app, host, facility, sd…).",
+      "whenPlaceholder": "@fortigate o contains(msg, 'devname=')",
+      "addRule": "Agregar regla",
+      "removeRule": "Quitar",
+      "create": "Registrar fuente",
+      "created": "Fuente {{name}} registrada. El receptor la ve en hasta 15 s.",
+      "createError": "Error al registrar la fuente.",
+      "deleteConfirm": "¿Quitar la fuente {{name}}? Los mensajes de ese origen pasarán a descartarse.",
+      "deleteError": "Error al quitar la fuente."
+    },
+    "test": {
+      "title": "Probar una línea",
+      "placeholder": "Pegue una línea syslog tal como la envía el equipo…",
+      "run": "Probar",
+      "stream": "Stream elegido",
+      "matched": "coincidió la regla",
+      "noMatch": "ninguna regla coincidió, aplica el predeterminado",
+      "format": "Formato",
+      "host": "Host",
+      "app": "App"
+    },
+    "docs": "Cómo configurar el receptor (puertos, TLS, mTLS)"
   }
 }

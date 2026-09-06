@@ -352,5 +352,55 @@
     "title": "Importação de tenants é um recurso Enterprise",
     "body": "Descobrir tenants funciona. Importá-los como Organizations e Integrations exige Enterprise.",
     "link": "Saiba como fazer upgrade"
+  },
+  "syslog": {
+    "title": "Fontes syslog (receptor nativo)",
+    "help": "Aparelhos que falam syslog direto com o CentralOps (UDP/TCP 514, TLS 6514), sem edge-collector. A rede é a credencial: só o CIDR cadastrado é aceito; o resto é descartado e contado.",
+    "empty": "Nenhuma fonte cadastrada. Sem fonte, tudo que chegar na porta 514 é descartado como origem desconhecida.",
+    "loadError": "Falha ao carregar as fontes syslog.",
+    "col": {
+      "name": "Nome",
+      "cidr": "Origem (CIDR)",
+      "port": "Porta",
+      "anyPort": "qualquer",
+      "transport": "Transporte",
+      "defaultStream": "Stream padrão",
+      "rules": "Regras",
+      "enabled": "ativa",
+      "disabled": "inativa"
+    },
+    "form": {
+      "name": "Nome",
+      "cidr": "CIDR de origem",
+      "cidrPlaceholder": "ex.: 10.0.5.7/32 ou 10.0.5.0/24",
+      "cidrHelper": "Só essa rede é aceita. 0.0.0.0/0 é recusado.",
+      "port": "Porta de escuta (opcional)",
+      "portHelper": "Vazio = qualquer porta do receptor.",
+      "transport": "Transporte",
+      "transportAny": "qualquer",
+      "defaultStream": "Stream padrão",
+      "rulesTitle": "Classificação por conteúdo",
+      "rulesHelp": "A primeira regra que casa decide o stream. Use @fortigate, @paloalto, @cisco_asa, @pfsense, @linux_auth, @windows_vector ou uma expressão JMESPath sobre a linha parseada (msg, app, host, facility, sd…).",
+      "whenPlaceholder": "@fortigate ou contains(msg, 'devname=')",
+      "addRule": "Adicionar regra",
+      "removeRule": "Remover",
+      "create": "Cadastrar fonte",
+      "created": "Fonte {{name}} cadastrada. O receptor a enxerga em até 15 s.",
+      "createError": "Falha ao cadastrar a fonte.",
+      "deleteConfirm": "Remover a fonte {{name}}? Mensagens dessa origem passam a ser descartadas.",
+      "deleteError": "Falha ao remover a fonte."
+    },
+    "test": {
+      "title": "Testar uma linha",
+      "placeholder": "Cole uma linha syslog como o aparelho envia…",
+      "run": "Testar",
+      "stream": "Stream escolhido",
+      "matched": "casou a regra",
+      "noMatch": "nenhuma regra casou, vale o padrão",
+      "format": "Formato",
+      "host": "Host",
+      "app": "App"
+    },
+    "docs": "Como configurar o receptor (portas, TLS, mTLS)"
   }
 }

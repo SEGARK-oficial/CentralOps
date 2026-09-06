@@ -2044,6 +2044,71 @@ export async function issueIngestToken(integrationId: number): Promise<{ token: 
   })
 }
 
+// ── Receptor syslog nativo (fontes por CIDR + classificador) ──
+export interface SyslogClassifierRule {
+  when: string
+  stream: string
+}
+export interface SyslogSource {
+  id: number
+  organization_id: number
+  integration_id: number
+  platform: string
+  name: string
+  source_cidr: string
+  listen_port: number | null
+  transport: "any" | "udp" | "tcp" | "tls"
+  default_stream: string
+  classifier: { rules: SyslogClassifierRule[] }
+  enabled: boolean
+  created_at: string
+  updated_at: string
+}
+export interface SyslogSourceCreate {
+  integration_id: number
+  name: string
+  source_cidr: string
+  listen_port?: number | null
+  transport?: SyslogSource["transport"]
+  default_stream: string
+  classifier?: { rules: SyslogClassifierRule[] }
+  enabled?: boolean
+}
+export interface SyslogDetector {
+  name: string
+  label: string
+  when: string
+}
+export interface SyslogClassifyTest {
+  parsed: Record<string, unknown>
+  stream: string | null
+  matched_rule: boolean
+  trace: Array<{ when: string; stream: string; result: unknown; matched: boolean }>
+}
+
+export async function listSyslogSources(integrationId: number): Promise<SyslogSource[]> {
+  return apiRequest<SyslogSource[]>(`/syslog/sources?integration_id=${integrationId}`)
+}
+export async function createSyslogSource(payload: SyslogSourceCreate): Promise<SyslogSource> {
+  return apiRequest<SyslogSource>("/syslog/sources", { method: "POST", body: JSON.stringify(payload) })
+}
+export async function updateSyslogSource(id: number, payload: Partial<SyslogSourceCreate>): Promise<SyslogSource> {
+  return apiRequest<SyslogSource>(`/syslog/sources/${id}`, { method: "PATCH", body: JSON.stringify(payload) })
+}
+export async function deleteSyslogSource(id: number): Promise<void> {
+  await apiRequest<void>(`/syslog/sources/${id}`, { method: "DELETE" })
+}
+export async function listSyslogDetectors(): Promise<SyslogDetector[]> {
+  return apiRequest<SyslogDetector[]>("/syslog/classifiers")
+}
+export async function testSyslogClassifier(payload: {
+  line: string
+  classifier?: { rules: SyslogClassifierRule[] }
+  default_stream?: string
+}): Promise<SyslogClassifyTest> {
+  return apiRequest<SyslogClassifyTest>("/syslog/classify-test", { method: "POST", body: JSON.stringify(payload) })
+}
+
 // ── Streams da fonte genérica (custom_json) ──────────────────
 export interface CustomStream {
   stream: string

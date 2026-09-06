@@ -16,6 +16,8 @@ Algumas fontes de segurança não têm uma API de polling — elas **empurram ev
 
 Se o produto não está no catálogo mas exporta JSON, use a [fonte genérica](./custom-json.md): você cria o stream, o CentralOps cria o mapping, e o transporte é este mesmo.
 
+Aparelho que só fala syslog e nenhum lugar para rodar um agente? O [receptor syslog nativo](./syslog-receiver.md) escuta 514/6514 direto e escreve no mesmo buffer desta integração.
+
 ## Quem pode fazer o quê
 
 - **Administrador da plataforma:** cria e edita a integração push (menu **Coleta -> Integrações**), emite e rotaciona tokens.

@@ -352,5 +352,55 @@
     "title": "Tenant import is an Enterprise feature",
     "body": "Discovering tenants works. Importing them as Organizations + Integrations requires Enterprise.",
     "link": "Learn how to upgrade"
+  },
+  "syslog": {
+    "title": "Syslog sources (native receiver)",
+    "help": "Devices that speak syslog straight to CentralOps (UDP/TCP 514, TLS 6514), no edge-collector. The network is the credential: only the registered CIDR is accepted; everything else is dropped and counted.",
+    "empty": "No sources yet. Without a source, everything reaching port 514 is dropped as unknown origin.",
+    "loadError": "Failed to load syslog sources.",
+    "col": {
+      "name": "Name",
+      "cidr": "Origin (CIDR)",
+      "port": "Port",
+      "anyPort": "any",
+      "transport": "Transport",
+      "defaultStream": "Default stream",
+      "rules": "Rules",
+      "enabled": "enabled",
+      "disabled": "disabled"
+    },
+    "form": {
+      "name": "Name",
+      "cidr": "Source CIDR",
+      "cidrPlaceholder": "e.g. 10.0.5.7/32 or 10.0.5.0/24",
+      "cidrHelper": "Only this network is accepted. 0.0.0.0/0 is refused.",
+      "port": "Listen port (optional)",
+      "portHelper": "Empty = any receiver port.",
+      "transport": "Transport",
+      "transportAny": "any",
+      "defaultStream": "Default stream",
+      "rulesTitle": "Content classification",
+      "rulesHelp": "The first matching rule picks the stream. Use @fortigate, @paloalto, @cisco_asa, @pfsense, @linux_auth, @windows_vector or a JMESPath expression over the parsed line (msg, app, host, facility, sd…).",
+      "whenPlaceholder": "@fortigate or contains(msg, 'devname=')",
+      "addRule": "Add rule",
+      "removeRule": "Remove",
+      "create": "Register source",
+      "created": "Source {{name}} registered. The receiver picks it up within 15 s.",
+      "createError": "Failed to register the source.",
+      "deleteConfirm": "Remove source {{name}}? Messages from that origin will be dropped.",
+      "deleteError": "Failed to remove the source."
+    },
+    "test": {
+      "title": "Test a line",
+      "placeholder": "Paste a syslog line exactly as the device sends it…",
+      "run": "Test",
+      "stream": "Chosen stream",
+      "matched": "rule matched",
+      "noMatch": "no rule matched, default applies",
+      "format": "Format",
+      "host": "Host",
+      "app": "App"
+    },
+    "docs": "How to set up the receiver (ports, TLS, mTLS)"
   }
 }
