@@ -134,7 +134,7 @@
           "inflight": "In-flight: the rule is evaluated event by event inside the ingestion pipeline, BEFORE the data reaches the SIEM. There is no counting and no window — the first event matching the filter already becomes a detection."
         },
         "ignoredFields": "In-flight the engine IGNORES min. events, window and timestamp field; that is why they disappear from here. The values stay saved and apply again if you switch back to batch.",
-        "opsCaveat": "The in-flight engine also understands the in, nin and exists operators — the rules API does not: asking for one of them is a 422. The builder below offers only the 7 that pass today, and they hold in both modes."
+        "opsCaveat": "In-flight the builder also offers the in, not in and exists operators. Batch does not have them: switching a rule that uses one to batch is a 422."
       },
       "evalPriority": {
         "label": "Evaluation priority",
@@ -145,7 +145,9 @@
         "label": "Group by (dotted path)",
         "placeholder": "E.g.: normalized.src_endpoint.ip",
         "helperTextBatch": "Event field used to group occurrences within the window. The minimum event count is counted PER group.",
-        "helperTextInflight": "In-flight there is no aggregation: this field becomes the DEDUP key of the detection. Each distinct value opens one detection per suppression window — a high-cardinality field (a command line, for instance) blows the per-cycle key cap and the excess is discarded."
+        "helperTextInflight": "In-flight there is no aggregation: this field becomes the DEDUP key of the detection. Each distinct value opens one detection per suppression window — a high-cardinality field (a command line, for instance) blows the per-cycle key cap and the excess is discarded.",
+        "hintMapped": "Suggestions come from the fields this organization actually produces. The path must start with normalized., _centralops. or raw.",
+        "hintCatalog": "This organization has no active integration yet; the list is the common OCSF catalog. The path must start with normalized., _centralops. or raw."
       },
       "minCount": {
         "label": "Min. events"
@@ -175,7 +177,8 @@
       "windowMin": "Minimum window of 10 seconds",
       "timestampRequired": "Required when there is a window. Without it the window is ignored",
       "whereRequiredInflight": "In-flight at least one filter is required: with no filter the rule would match 100% of events, and the API refuses to store it.",
-      "evalPriorityRange": "Use a whole number between {{min}} and {{max}}"
+      "evalPriorityRange": "Use a whole number between {{min}} and {{max}}",
+      "pathRoot": "In-flight the path resolves from the envelope root: start with normalized., _centralops. or raw. (e.g.: normalized.{{path}})"
     },
     "actions": {
       "cancel": "Cancel"
@@ -224,7 +227,8 @@
     "field": {
       "label": "Field",
       "placeholder": "e.g.: event.severity",
-      "ariaLabel": "Filter {{index}} field"
+      "ariaLabel": "Filter {{index}} field",
+      "hintMapped": "Suggestions come from the fields this organization actually produces."
     },
     "operator": {
       "label": "Operator",
@@ -233,7 +237,10 @@
     "value": {
       "label": "Value",
       "placeholder": "e.g.: critical",
-      "ariaLabel": "Filter {{index}} value"
+      "ariaLabel": "Filter {{index}} value",
+      "placeholderList": "comma-separated values, e.g.: 4625, 4624",
+      "existsTrue": "present",
+      "existsFalse": "absent"
     },
     "remove": "Remove",
     "removeAriaLabel": "Remove filter {{index}}",
@@ -245,7 +252,10 @@
       "gt": "> (greater than)",
       "lt": "< (less than)",
       "gte": "≥ (greater than or equal)",
-      "lte": "≤ (less than or equal)"
+      "lte": "≤ (less than or equal)",
+      "in": "in (list)",
+      "nin": "not in (list)",
+      "exists": "exists"
     }
   },
   "preview": {

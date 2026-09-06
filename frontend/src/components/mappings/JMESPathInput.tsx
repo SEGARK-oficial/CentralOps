@@ -35,6 +35,18 @@ interface JMESPathInputProps {
   /** Rótulo associado por `htmlFor` — paridade com o `Input` do design system. */
   label?: string
   helperText?: string
+  /**
+   * Mensagem de erro de validação. Quando presente substitui o `helperText`,
+   * marca `aria-invalid` e a borda — paridade com o `Input` do design system,
+   * para que um formulário possa trocar `Input` por este sem perder o erro.
+   */
+  error?: string
+  required?: boolean
+  name?: string
+  onBlur?: React.FocusEventHandler<HTMLInputElement>
+  disabled?: boolean
+  /** Nome acessível quando não há `label` visível (linhas repetidas de um construtor). */
+  "aria-label"?: string
 }
 
 const JMESPathInputInner: React.FC<JMESPathInputProps> = ({
@@ -47,11 +59,18 @@ const JMESPathInputInner: React.FC<JMESPathInputProps> = ({
   inputClassName,
   label,
   helperText,
+  error,
+  required,
+  name,
+  onBlur,
+  disabled,
+  "aria-label": ariaLabel,
 }) => {
   const { t } = useTranslation("mappings")
   const autoId = useId()
   const inputId = externalId ?? `jmespath-input-${autoId.replace(/:/g, "")}`
   const listboxId = `${inputId}-listbox`
+  const errorId = error ? `${inputId}-error` : undefined
 
   const [open, setOpen] = useState(false)
   const [activeIndex, setActiveIndex] = useState(-1)
@@ -159,25 +178,39 @@ const JMESPathInputInner: React.FC<JMESPathInputProps> = ({
         <input
           ref={inputRef}
           id={inputId}
+          name={name}
           type="text"
           value={value}
           onChange={handleInputChange}
+          onBlur={onBlur}
           onFocus={() => { if (filtered.length > 0) setOpen(true) }}
           onKeyDown={handleKeyDown}
           placeholder={placeholder}
+          required={required}
+          disabled={disabled}
           autoComplete="off"
           aria-autocomplete="list"
           aria-controls={showDropdown ? listboxId : undefined}
           aria-activedescendant={activeOptionId}
+          aria-invalid={error ? "true" : "false"}
+          aria-describedby={errorId}
+          aria-label={ariaLabel}
           className={cn(
             "w-full h-9 px-3 text-sm rounded-md border border-border bg-surface text-text placeholder:text-text-tertiary",
             "transition-colors focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20",
+            error && "border-danger-500",
             inputClassName,
           )}
         />
       </div>
 
-      {helperText && <p className="mt-1 text-xs text-muted">{helperText}</p>}
+      {error ? (
+        <p id={errorId} role="alert" className="mt-1 text-xs text-danger-500">
+          {error}
+        </p>
+      ) : (
+        helperText && <p className="mt-1 text-xs text-muted">{helperText}</p>
+      )}
 
       {showDropdown && (
         <ul
