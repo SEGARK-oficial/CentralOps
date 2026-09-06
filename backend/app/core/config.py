@@ -729,6 +729,22 @@ class Settings(BaseSettings):
     # qualquer arquivo do worker que o parser mmdb aceitasse.
     ENRICH_GEOIP_DIR: str = "/var/lib/centralops/geoip"
 
+    # ── Receptor syslog nativo (W3.2) — processo próprio, fora da API ──────
+    # Porta 0/vazia desliga o listener. TLS só abre com cert+key; CA opcional
+    # liga mTLS (só quem apresenta certificado da CA fala com a porta).
+    SYSLOG_BIND: str = "0.0.0.0"
+    SYSLOG_UDP_PORT: int = 514
+    SYSLOG_TCP_PORT: int = 514
+    SYSLOG_TLS_PORT: int = 6514
+    SYSLOG_TLS_CERT: str = ""
+    SYSLOG_TLS_KEY: str = ""
+    SYSLOG_TLS_CA: str = ""
+    # Recarga da tabela de fontes (CIDR → integração) e lote para o Redis.
+    SYSLOG_SOURCE_REFRESH_S: int = 15
+    SYSLOG_BATCH_MAX: int = 500
+    SYSLOG_FLUSH_MS: int = 250
+    SYSLOG_MAX_LINE_BYTES: int = 64 * 1024
+
     @field_validator("OCSF_DEFAULT_ENFORCEMENT")
     @classmethod
     def _validate_ocsf_enforcement(cls, value: str) -> str:

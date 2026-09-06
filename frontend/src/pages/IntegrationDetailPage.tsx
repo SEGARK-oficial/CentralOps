@@ -20,6 +20,7 @@ import { HealthSummaryCard } from "@/components/health/HealthSummaryCard"
 import { IntegrationHealthPanel } from "@/components/health/IntegrationHealthPanel"
 import { IntegrationDestinationsTab } from "@/components/integrations/IntegrationDestinationsTab"
 import { IngestSourcePanel } from "@/components/integrations/IngestSourcePanel"
+import { SyslogSourcesPanel } from "@/components/integrations/SyslogSourcesPanel"
 import { IntegrationDetailExtraPanels } from "@/ee/integrationDetailSlots"
 import { IntegrationForm } from "@/components/integrations/IntegrationForm"
 import { Badge } from "@/components/ui/Badge/Badge"
@@ -299,6 +300,9 @@ const IntegrationDetailPage: React.FC = () => {
       {activeTab === "overview" && (
         <IngestSourcePanel integrationId={integrationId} platform={integration.platform} canManage={isAdmin} />
       )}
+
+      {/* Receptor syslog nativo — também auto-oculta para fontes pull. */}
+      {activeTab === "overview" && <SyslogSourcesPanel integrationId={integrationId} canManage={isAdmin} />}
 
       {activeTab === "overview" && !tabLoading && overviewError && (
         <Notice

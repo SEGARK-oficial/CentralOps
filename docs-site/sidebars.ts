@@ -94,6 +94,7 @@ const sidebars: SidebarsConfig = {
         'integrations/push-ingestion',
         'integrations/fortinet-fortigate',
         'integrations/windows-event-log',
+        'integrations/syslog-receiver',
         'integrations/custom-json',
         'integrations/adding-new-vendor',
       ],

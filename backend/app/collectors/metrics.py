@@ -223,6 +223,7 @@ INGEST_DROPPED = _instrument("collector_ingest_dropped_total")
 INGEST_BUFFER_DEPTH = _instrument("collector_ingest_buffer_depth")
 # Eventos rejeitados no parse (NDJSON malformado / não-objeto / acima do teto por-evento).
 INGEST_MALFORMED = _instrument("collector_ingest_malformed_total")
+SYSLOG_RECEIVED = _instrument("collector_syslog_received_total")
 # Data-plane Kafka.
 DATAPLANE_PRODUCED = _instrument("collector_dataplane_produced_total")
 DATAPLANE_PRODUCE_LATENCY = _instrument("collector_dataplane_produce_latency_seconds")

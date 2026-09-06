@@ -29,6 +29,7 @@ from .routers import (
     ingest, integrations, internal, iris, mappings, ocsf, organizations, pipeline_health, providers,
     quarantine, queries, results, routes, scheduled_queries,
     service_accounts, sso,
+    syslog_sources,
 )
 from .services.audit import AuditService
 from .services.scheduler import start_scheduler  # no-op (migrado para Celery Beat)
@@ -413,6 +414,8 @@ app.include_router(internal.router, prefix="/api")
 # ingestão (não por sessão), por isso fica FORA de ``protected_api``. As rotas de
 # gestão de token aplicam ``require_admin_user`` por-rota.
 app.include_router(ingest.router, prefix="/api")
+# Receptor syslog nativo: cadastro de fontes (CIDR → integração) e teste de linha.
+app.include_router(syslog_sources.router, prefix="/api", dependencies=protected_api)
 app.include_router(results.router, prefix="/api", dependencies=protected_api)
 app.include_router(history.router, prefix="/api", dependencies=protected_api)
 app.include_router(queries.router, prefix="/api", dependencies=protected_api)

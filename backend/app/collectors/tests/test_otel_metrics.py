@@ -276,7 +276,9 @@ def test_every_facade_maps_to_spec_and_vice_versa():
     # collector_task_duration_seconds, que é dominada pela coleta.
     # +1 (W4.5): collector_enrich_indicators_skipped_total — descartes na carga
     # e vencimento no HIT das tabelas de threat intel. 64 → 65.
-    assert len(facade_names) == 65
+    # +1 (W3.2): collector_syslog_received_total — cada mensagem do receptor
+    # syslog por transporte e destino (accepted/unknown_source/unclassified). 65 → 66.
+    assert len(facade_names) == 66
     # O catálogo tem as síncronas + ao menos o observável collector_up.
     assert "collector_up" in otel_metrics._SPEC
     assert "collector_up" not in facade_names
