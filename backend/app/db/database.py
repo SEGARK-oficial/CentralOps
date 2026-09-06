@@ -527,8 +527,6 @@ _EXPECTED_FK_ONDELETE_RULES: tuple[tuple[str, str, str, str, str], ...] = (
     # NÃO apaga a regra/o job — só desliga o vínculo.
     ("correlation_rules", "schedule_query_id", "predefined_queries", "id", "SET NULL"),
     ("query_jobs", "correlation_rule_id", "correlation_rules", "id", "SET NULL"),
-    ("threat_intel_tokens", "created_by", "app_users", "id", "SET NULL"),
-    ("threat_intel_queries", "token_id", "threat_intel_tokens", "id", "SET NULL"),
     ("mapping_versions", "author_user_id", "app_users", "id", "SET NULL"),
     ("quarantine_events", "mapping_version_id", "mapping_versions", "id", "SET NULL"),
     # Tenant da quarentena CASCADE com a org (erase-by-org).
@@ -779,6 +777,31 @@ def _run_lightweight_migrations() -> None:
                     "CREATE INDEX IF NOT EXISTS ix_correlation_rules_schedule_next_run_at "
                     "ON correlation_rules (schedule_next_run_at)"
                 )
+            )
+
+        # ADR-LOCAL-0002 (W4.3): o subsistema legado de Threat Intel
+        # (``services/threat_intel``, AbuseIPDB/OTX com cache MISS≡UNKNOWN)
+        # foi substituído pelo enriquecimento (``collectors/enrich``). As
+        # tabelas não têm mais modelo: instância que nasceu antes carrega
+        # 4 tabelas órfãs que nenhum código lê — e ``threat_intel_api_keys``
+        # guarda ciphertext que ``reencrypt_secrets.py`` não rotaciona mais.
+        # Derruba na ordem das FKs (queries → tokens) e loga cada DROP: é
+        # destrutivo, tem que aparecer no boot.
+        legacy_ti = [
+            t for t in (
+                "threat_intel_queries",
+                "threat_intel_tokens",
+                "threat_intel_api_keys",
+                "threat_intel_config",
+            )
+            if t in set(inspect(conn).get_table_names())
+        ]
+        for legacy_table in legacy_ti:
+            conn.execute(text(f"DROP TABLE {legacy_table}"))
+            logger.warning(
+                "migration: tabela legada %s removida (Threat Intel foi "
+                "substituído pelo enriquecimento)", legacy_table,
+                extra={"event": "migration.legacy_threat_intel_dropped", "table": legacy_table},
             )
 
         # Preferência de idioma da UI por usuário (nullable =
@@ -1296,30 +1319,6 @@ def _run_lightweight_migrations() -> None:
                     "WHERE external_provider IS NOT NULL AND external_id IS NOT NULL"
                 )
             )
-
-        # ── Threat Intel singleton config seed ──────────────────────
-        ti_table_names = set(inspect(conn).get_table_names())
-        if "threat_intel_config" in ti_table_names:
-            existing = conn.execute(
-                text("SELECT COUNT(*) AS n FROM threat_intel_config")
-            ).fetchone()
-            if existing and existing.n == 0:
-                now = datetime.utcnow()
-                conn.execute(
-                    text(
-                        """
-                        INSERT INTO threat_intel_config (
-                            id, enabled, cache_ttl_days, blacklist_update_interval_seconds,
-                            blacklist_confidence_minimum, blacklist_limit, abuseipdb_max_age_days,
-                            threat_score_critical, threat_score_high, otx_pulse_high,
-                            external_timeout_seconds, created_at, updated_at
-                        ) VALUES (
-                            1, TRUE, 7, 3600, 80, 10000, 30, 80, 40, 5, 5, :now, :now
-                        )
-                        """
-                    ),
-                    {"now": now},
-                )
 
         # ── Mapping definitions + versions seed (normalização)
         # Catálogo dos 5 streams + MappingVersion v1 com regras OCSF

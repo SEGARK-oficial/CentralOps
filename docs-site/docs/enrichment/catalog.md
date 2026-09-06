@@ -6,7 +6,7 @@ description: O que cada fonte de enriquecimento faz, que campos devolve, e o que
 
 # Catálogo de fontes
 
-Esta página descreve as cinco fontes de enriquecimento disponíveis hoje. A lista **não é fixa no código do console**, a tela em **Enriquece → Enriquecimento → Catálogo** sempre reflete exatamente o que a sua instalação tem registrado, então use `GET /api/collectors/enrichment/enrichers` (ou a própria tela) como fonte da verdade se este texto ficar desatualizado.
+Esta página descreve as seis fontes de enriquecimento disponíveis hoje. A lista **não é fixa no código do console**, a tela em **Enriquece → Enriquecimento → Catálogo** sempre reflete exatamente o que a sua instalação tem registrado, então use `GET /api/collectors/enrichment/enrichers` (ou a própria tela) como fonte da verdade se este texto ficar desatualizado.
 
 ## Tabela do cliente (chave exata), `table_exact`
 
@@ -33,6 +33,29 @@ Os campos que ele devolve são exatamente os que você colocou em cada linha da 
 Casa um IP contra a sua tabela de faixas de rede (CIDR), sempre pelo prefixo **mais específico**. Se a tabela tem `10.0.0.0/16` e `10.0.5.0/24`, um evento com IP `10.0.5.7` recebe o resultado do `/24`, não o do `/16`. É a fonte certa para plano de endereçamento corporativo, inventário de rede exportado de uma ferramenta de gestão, ou listas de bloqueio distribuídas em CIDR.
 
 Veja o passo a passo completo em [Como enriquecer um evento](./how-to-enrich.md).
+
+## GeoIP / ASN (MaxMind), `geoip`
+
+| | |
+|---|---|
+| Modo | por evento |
+| Egresso | nenhum |
+| Tipos de chave | `ip` |
+| Requer configuração externa? | Sim, uma base `.mmdb` montada no worker |
+
+País, cidade, coordenadas e ASN a partir de uma base MaxMind (`GeoLite2-City`, `GeoLite2-Country` ou `GeoLite2-ASN`, gratuitas com conta; ou as GeoIP2 comerciais). Não faz rede nenhuma: o arquivo é aberto por `mmap` e a consulta custa microssegundos, por isso é a fonte certa para alimentar a **detecção em voo** (`_centralops.enrichment.geo.country_iso ne "BR"` é uma regra válida).
+
+:::warning[A base não vem com o produto]
+A licença da MaxMind não permite redistribuir o arquivo. Baixe-o com a sua conta, monte o diretório no worker (`ENRICH_GEOIP_DIR`, padrão `/var/lib/centralops/geoip`) e, na fonte, informe **só o nome do arquivo** (`file: GeoLite2-City.mmdb`) e o `kind` (`city`, `country` ou `asn`). Um caminho com diretório é recusado. Para cidade e ASN no mesmo evento, crie duas fontes, uma por base.
+:::
+
+| Campo | Descrição |
+|---|---|
+| `country_iso` / `country_name` / `continent_code` | País (city, country) |
+| `city` / `subdivision` / `subdivision_iso` | Cidade e estado (city) |
+| `latitude` / `longitude` / `accuracy_radius_km` | Coordenadas aproximadas (city) |
+| `timezone` | Fuso IANA (city) |
+| `asn` / `asn_org` | Autonomous System e sua organização (asn) |
 
 ## TAXII 2.1, `taxii`
 

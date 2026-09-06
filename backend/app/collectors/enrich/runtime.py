@@ -344,7 +344,11 @@ class EnrichRuntime:
     async def _load_one(
         self, reg: EnricherRegistration, rule: CompiledEnrichRule, ctx: EnrichContext
     ) -> Optional[LookupTable]:
-        cache_key = (rule.enricher, ctx.organization_id, rule.table)
+        # A FONTE entra na chave: duas fontes do mesmo enricher na mesma org
+        # (GeoLite2-City e GeoLite2-ASN, ou dois servidores TAXII) são tabelas
+        # diferentes. Sem ela a segunda regra lia a tabela da primeira, e o
+        # sintoma era miss de 100% sem erro nenhum.
+        cache_key = (rule.enricher, ctx.organization_id, rule.table, rule.source)
         cached = self._cache.get(cache_key)
         if cached is not None:
             self._cache.move_to_end(cache_key)

@@ -9,8 +9,8 @@ Lookup performante:
   3. ``argon2.verify(stored_hash, raw)`` — único custo Argon2 por request.
   4. Atualiza ``last_used_at`` / ``last_used_ip`` / ``use_count`` (best-effort).
 
-Diferenças intencionais vs ``ThreatIntelToken``:
-  - Argon2id (vs sha256) — PATs têm acesso ao app inteiro, alvo de alto valor.
+Decisões (herdadas da comparação com o token do Threat Intel legado, hoje removido):
+  - Argon2id (não sha256) — PATs têm acesso ao app inteiro, alvo de alto valor.
   - Prefixo bem definido ``copsk_`` — facilita scanners (TruffleHog, gitleaks).
   - Expiração opcional (UI exibe warning quando is_eternal=True).
 
