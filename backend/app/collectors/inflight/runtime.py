@@ -81,6 +81,12 @@ REJECT_REASONS = (
     # selo "Não avaliada" na tela; aceita, ela contava match a cada evento e
     # produzia Detection nenhuma, para sempre.
     "group_by_root",
+    # Janela deslizante (W1.6) fora dos tetos: a regra é rejeitada na
+    # COMPILAÇÃO e ganha o selo "Não avaliada" — aceita, ela contaria matches
+    # que o Redis nunca somaria (janela grande demais) ou nunca alcançaria o
+    # mínimo (contagem impossível), em silêncio.
+    "window_over_cap",
+    "window_count_over_cap",
 )
 
 #: Enum FECHADO de razões de ERRO de avaliação/flush — label de
@@ -135,6 +141,12 @@ ERROR_REASONS = (
     "matcher",
     "emit_failed",
     "mark_failed",
+    # Janela em voo (W1.6): a chave não alcançou min_count na janela (não é
+    # erro, é o comportamento — mas é a razão pela qual "matches alto, zero
+    # Detection" é esperado numa regra com janela), e Redis indisponível para
+    # contar (fail-closed: a chave é descartada do flush).
+    "window_below",
+    "window_unavailable",
 )
 
 #: Razões que NÃO descem ao ``observability_store`` por regra, porque não há
@@ -321,6 +333,18 @@ def compile_rule(row: Any) -> tuple[Optional[CompiledInflightRule], Optional[str
         raiz = str(group_by).split(".", 1)[0]
         if raiz not in ENVELOPE_ROOTS:
             return None, "group_by_root"
+    # Janela deslizante (W1.6): só quando as DUAS pontas estão definidas. Um
+    # min_count sem janela seria "N em qualquer tempo" — o mesmo silêncio que
+    # o batch tem sem timestamp_field, e que o EE já barra na escrita.
+    _mc = int(getattr(row, "min_count", 1) or 1)
+    _win = int(getattr(row, "window_seconds", 0) or 0)
+    if _mc > 1 and _win > 0:
+        if _win > int(settings.INFLIGHT_MAX_WINDOW_SECONDS):
+            return None, "window_over_cap"
+        if _mc > int(settings.INFLIGHT_MAX_WINDOW_COUNT):
+            return None, "window_count_over_cap"
+    else:
+        _mc, _win = 1, 0
     return (
         CompiledInflightRule(
             rule_id=int(row.id),
@@ -343,6 +367,8 @@ def compile_rule(row: Any) -> tuple[Optional[CompiledInflightRule], Optional[str
             max_dedup_keys=(
                 int(_mdk) if (_mdk := getattr(row, "max_dedup_keys", None)) else None
             ),
+            min_count=_mc,
+            window_seconds=_win,
         ),
         None,
     )
@@ -848,6 +874,9 @@ class InflightAccumulator:
 
         key = f"inflight:{organization_id}:{rule.rule_id}:{token}"
         if key in self.pending:
+            # Mesma chave de novo no ciclo: a Detection já está pendente; o que
+            # muda é a CONTAGEM, que a janela deslizante (W1.6) soma no flush.
+            self.pending[key]["hits"] = int(self.pending[key].get("hits", 1)) + 1
             return
 
         # O teto é sobre CHAVES DISTINTAS, não sobre matches: a variável
@@ -883,6 +912,7 @@ class InflightAccumulator:
             # ``_event_source_pointer`` para o que entra, o que NÃO entra e por
             # quê; e note que isto roda 1x por chave nova, nunca por evento.
             "source": _event_source_pointer(envelope, rule.group_by_path, group_value),
+            "hits": 1,
         }
 
 
@@ -948,6 +978,57 @@ class DetectionEmit:
     #: A regra pediu emissão (W1.4). Viaja no ticket porque a decisão é
     #: tomada no emissor, que só vê tickets — não regras.
     emit_event: bool = False
+
+
+def _apply_sliding_windows(acc: InflightAccumulator) -> int:
+    """W1.6 — para as chaves de regras COM janela, soma os hits deste ciclo aos
+    buckets no Redis e mantém no ``pending`` só as que alcançaram ``min_count``.
+    Devolve quantas chaves foram retidas (abaixo do limiar ou sem Redis).
+
+    Roda ANTES do teto global de flush: uma chave que não vai virar Detection
+    não deve consumir vaga do teto. Fail-CLOSED sem Redis: descarta e conta
+    ``window_unavailable`` — emitir a cada match seria inundar o SIEM na hora
+    em que a infra está degradada."""
+    from . import window as _win
+
+    targets: dict[str, tuple[int, int, int]] = {}
+    for key, item in acc.pending.items():
+        rule = item["rule"]
+        if _win.windowed(rule):
+            targets[key] = (int(item.get("hits", 1)), int(rule.min_count), int(rule.window_seconds))
+    if not targets:
+        return 0
+    try:
+        from ..observability_store import _redis
+
+        totals = _win.apply_windows(_redis(), targets)
+    except Exception:  # noqa: BLE001 — Redis fora: fail-closed
+        for key in targets:
+            rule = acc.pending[key]["rule"]
+            acc.count_error("window_unavailable", rule.rule_id)
+            del acc.pending[key]
+        acc._warn_once(
+            "window_unavailable", None,
+            "inflight: Redis indisponível para a janela deslizante — %d chave(s) "
+            "de regras com janela descartadas neste flush (fail-closed: sem "
+            "contagem, sem Detection)", len(targets),
+        )
+        return len(targets)
+    held = 0
+    for key, (hits, min_count, win) in targets.items():
+        total = totals.get(key, 0)
+        item = acc.pending[key]
+        if total < min_count:
+            acc.count_error("window_below", item["rule"].rule_id)
+            del acc.pending[key]
+            held += 1
+            continue
+        src = item.get("source")
+        if isinstance(src, dict):
+            # Evidência: quantos matches na janela e qual janela — é o que
+            # explica "por que agora" na Detection.
+            src["window"] = {"count": int(total), "seconds": int(win), "min_count": int(min_count)}
+    return held
 
 
 def _apply_flush_cap(acc: InflightAccumulator) -> int:
@@ -1597,6 +1678,13 @@ async def flush_inflight(
     # que faltou algo. Falhando, o teto simplesmente não corta: escrever tudo é
     # LENTO, perder tudo em silêncio é o que este subsistema não pode fazer. A
     # direção da degradação é a decisão; o ``except`` só a executa.
+    try:
+        _apply_sliding_windows(acc)
+    except Exception:  # noqa: BLE001
+        logger.exception(
+            "inflight: janela deslizante falhou (org %s) — regras com janela "
+            "ficam de fora deste flush (fail-closed)", organization_id,
+        )
     try:
         _apply_flush_cap(acc)
     except Exception:  # noqa: BLE001

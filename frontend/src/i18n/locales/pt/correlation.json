@@ -136,9 +136,9 @@
         },
         "explain": {
           "batch": "Em lote: a regra só roda quando uma busca federada TERMINA, e só sobre os resultados dela. Ela conta ocorrências — precisa de N eventos no mesmo grupo dentro da janela. Sem busca, nenhuma detecção nasce.",
-          "inflight": "Em voo: a regra é avaliada evento a evento no pipeline de ingestão, ANTES de o dado chegar ao SIEM. Não há contagem nem janela — o primeiro evento que casar o filtro já vira detecção."
+          "inflight": "Em voo: a regra é avaliada evento a evento no pipeline de ingestão, ANTES de o dado chegar ao SIEM. Com mínimo = 1, o primeiro evento que casar já vira detecção; com mínimo > 1 e janela, a detecção nasce quando a contagem deslizante da chave de agrupamento alcança o mínimo."
         },
-        "ignoredFields": "Em voo o motor IGNORA mínimo de eventos, janela e campo de timestamp; por isso eles somem daqui. Os valores continuam salvos e voltam a valer se você trocar para em lote.",
+        "ignoredFields": "Em voo o campo de timestamp é ignorado: a janela deslizante usa o relógio de recepção e os contadores por chave de agrupamento no Redis. Mínimo e janela valem; mínimo = 1 ou janela = 0 desliga a contagem.",
         "opsCaveat": "Em voo o construtor oferece também os operadores em, não em e existe. Em lote eles não existem: mudar a regra para lote com um deles é 422."
       },
       "evalPriority": {
@@ -159,7 +159,8 @@
       },
       "window": {
         "label": "Janela (segundos)",
-        "helperText": "Exige um campo de timestamp abaixo."
+        "helperText": "Exige um campo de timestamp abaixo.",
+        "inflightHelper": "Em voo: dispara quando ≥ mínimo de eventos da mesma chave de agrupamento cabem na janela (contagem deslizante, até 1 h). Deixe mínimo = 1 para disparar no primeiro evento."
       },
       "suppression": {
         "label": "Supressão (segundos)"
@@ -214,7 +215,9 @@
       "evalPriorityRange": "Use um número inteiro entre {{min}} e {{max}}",
       "pathRoot": "Em voo o caminho resolve da raiz do envelope: comece por normalized., _centralops. ou raw. (ex.: normalized.{{path}})",
       "scheduleQueryRequired": "Escolha a busca salva que alimenta a regra",
-      "scheduleBatchOnly": "Agendamento só vale em lote; em voo a regra roda por evento"
+      "scheduleBatchOnly": "Agendamento só vale em lote; em voo a regra roda por evento",
+      "windowInflightRange": "Em voo a janela vai de 10 s a 3600 s (1 h). Para janelas maiores use o modo em lote.",
+      "minCountNeedsWindow": "Mínimo de eventos maior que 1 exige uma janela em segundos."
     },
     "actions": {
       "cancel": "Cancelar"

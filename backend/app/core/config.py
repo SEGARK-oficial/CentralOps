@@ -576,6 +576,14 @@ class Settings(BaseSettings):
     # max_dedup_keys`` sobrepõe por regra: o número certo depende do par
     # (stream, group_by), e só a regra sabe qual é.
     INFLIGHT_MAX_DEDUP_KEYS_PER_RULE_PER_CYCLE: int = 256
+    # Janela deslizante em voo (W1.6): ``min_count`` em ``window_seconds`` para
+    # regras inflight, com contadores por (regra, group_by) no Redis, escritos
+    # só no flush. Teto de 1 h: acima disso a regra pertence ao modo em lote
+    # (busca federada), que tem o histórico; e cada chave viva custa 11 GETs
+    # por flush. ``MAX_WINDOW_COUNT`` só evita um min_count digitado errado
+    # transformar a regra em "nunca dispara".
+    INFLIGHT_MAX_WINDOW_SECONDS: int = 3600
+    INFLIGHT_MAX_WINDOW_COUNT: int = 10000
     # Truncamento do valor de group_by dentro do dedup_key. É o único teto que
     # protege escrita REAL: o valor vem do evento e entra num índice B-tree
     # (ix_detections_org_dedup).
