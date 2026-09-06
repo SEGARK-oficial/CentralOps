@@ -45,6 +45,8 @@ def _db_to_schema(q: models.PredefinedQuery) -> schemas.PredefinedQueryRead:
         organization_id=q.organization_id,
         dialect=q.dialect,
         spec_kind=q.spec_kind,
+        severity_id=q.severity_id,
+        finding_shape=q.finding_shape,
     )
 
 
@@ -101,8 +103,10 @@ def create_query(
         client_ids=','.join(str(cid) for cid in (data.client_ids or [])) if data.client_ids else None,
         organization_id=org_id,
         dialect=data.dialect,
+        severity_id=data.severity_id,
         # Preserva o default da coluna ("passthrough") quando o cliente omite.
         **({"spec_kind": data.spec_kind} if data.spec_kind is not None else {}),
+        **({"finding_shape": data.finding_shape} if data.finding_shape is not None else {}),
     )
     q = repo.add(db_query)
     return _db_to_schema(q)
@@ -179,6 +183,8 @@ def update_query(
         client_ids=client_ids,
         dialect=data.dialect,
         spec_kind=data.spec_kind,
+        severity_id=data.severity_id,
+        finding_shape=data.finding_shape,
     )
     return _db_to_schema(updated)
 

@@ -136,9 +136,15 @@ def test_o_envelope_carrega_a_organizacao(evento) -> None:
     )
 
 
-def test_severidade_preservada(evento) -> None:
-    """Ela vira o PRI do syslog; mexer mudaria o alerta de quem já depende."""
-    assert evento["normalized"]["severity_id"] == 5
+def test_severidade_e_a_da_query(evento) -> None:
+    """Ela vira o PRI do syslog — e é a MESMA que a Detection grava.
+
+    Sem ``severity_id`` na query, vale o default global; com ele, vale ele.
+    Antes o evento saía Critical (5) fixo enquanto o banco dizia High (4).
+    """
+    from backend.app.core.config import settings
+
+    assert evento["normalized"]["severity_id"] == settings.QUERY_DETECTION_DEFAULT_SEVERITY_ID
 
 
 def test_o_raw_continua_com_teto_de_itens(evento) -> None:

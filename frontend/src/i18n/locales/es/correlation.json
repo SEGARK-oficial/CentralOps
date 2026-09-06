@@ -198,6 +198,30 @@
       "maxDedupKeys": {
         "label": "Tope de claves por ciclo",
         "helperText": "Vacío = tope del entorno (256). Medido en datos reales: agrupar sophos.siem_event por endpoint_id llega a 192 claves por ciclo — por encima del tope, los matches se siguen contando y no nace detección nueva."
+      },
+      "ruleType": {
+        "label": "Tipo de regla",
+        "option": {
+          "threshold": "Umbral — filtros + agrupación + conteo",
+          "sequence": "Secuencia entre fuentes — tramos con unión"
+        },
+        "explain": "Secuencia: cada tramo coincide con un evento de una fuente (p. ej. MFA falló en Okta; proceso sospechoso en Sophos). La regla dispara cuando todos los tramos se vieron para el mismo valor de unión dentro de la ventana. Solo en vuelo."
+      },
+      "legs": {
+        "heading": "Tramos de la secuencia",
+        "add": "Agregar tramo",
+        "remove": "Quitar tramo",
+        "removeAriaLabel": "Quitar tramo {{index}}",
+        "label": "Etiqueta",
+        "labelPlaceholder": "p. ej. okta_mfa_fail",
+        "stream": "Stream (opcional)",
+        "streamPlaceholder": "p. ej. okta.system_log",
+        "streamHelper": "Restringe el tramo a un stream; vacío = cualquier fuente que coincida con el filtro.",
+        "joinPath": "Ruta de unión en esta fuente",
+        "joinPathPlaceholder": "p. ej. normalized.user.name",
+        "joinPathHelper": "El campo cuyo VALOR une los tramos. Cada fuente tiene el suyo: Okta escribe normalized.user.name, Sophos escribe normalized.actor.user.name.",
+        "filters": "Filtros del tramo {{index}}",
+        "windowHelper": "Ventana en la que todos los tramos deben aparecer (10 s al tope). Obligatoria en la secuencia."
       }
     },
     "status": {
@@ -217,7 +241,12 @@
       "scheduleQueryRequired": "Elige la búsqueda guardada que alimenta la regla",
       "scheduleBatchOnly": "La programación solo aplica en lote; en vuelo la regla corre por evento",
       "windowInflightRange": "En vuelo la ventana va de 10 s a 3600 s (1 h). Para ventanas mayores use el modo por lotes.",
-      "minCountNeedsWindow": "Un mínimo de eventos mayor que 1 exige una ventana en segundos."
+      "minCountNeedsWindow": "Un mínimo de eventos mayor que 1 exige una ventana en segundos.",
+      "legsMinTwo": "Una secuencia necesita al menos 2 tramos.",
+      "legJoinPathRequired": "Tramo {{index}}: indique la ruta de unión.",
+      "legWhereRequired": "Tramo {{index}}: agregue al menos un filtro.",
+      "sequenceNeedsWindow": "Una secuencia exige una ventana entre 10 s y el tope.",
+      "sequenceInflightOnly": "La secuencia solo existe en vuelo."
     },
     "actions": {
       "cancel": "Cancelar"

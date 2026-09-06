@@ -362,6 +362,9 @@ async def test_all_four_error_reasons_are_attributed_to_a_rule(
                         group_by_path=("u",), clauses=(), min_count=3, window_seconds=60)
     acc_win.add(regra_janela, {"u": "alice"}, organization_id=1)  # 1 < 3 ⇒ window_below
     acc_win.count_error("window_unavailable", 15)
+    # Sequência entre fontes (X1): as duas razões são atribuíveis à regra.
+    acc_win.count_error("sequence_below", 16)
+    acc_win.count_error("sequence_unavailable", 17)
     monkeypatch.setattr(obs, "_redis", lambda: fakeredis.FakeRedis(decode_responses=True))
     monkeypatch.setattr(runtime_mod, "_flush_sync", lambda _p, _o: ())
     await flush_inflight(acc_win, organization_id=1)
@@ -375,7 +378,7 @@ async def test_all_four_error_reasons_are_attributed_to_a_rule(
     # acrescentar um reason externo sem declará-lo lá, este assert reprova.
     atribuiveis = set(ERROR_REASONS) - set(UNATTRIBUTED_ERROR_REASONS)
     assert set(acc.errors) | set(acc_teto.errors) | set(acc_win.errors) == atribuiveis
-    assert len(atribuiveis) == 8
+    assert len(atribuiveis) == 10
 
 
 @pytest.mark.asyncio

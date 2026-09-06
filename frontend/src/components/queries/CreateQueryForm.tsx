@@ -10,7 +10,21 @@ import { Input } from "@/components/ui/Input/Input"
 import { Notice } from "@/components/ui/Notice/Notice"
 import Select from "@/components/ui/Select/Select"
 import { Textarea } from "@/components/ui/Textarea/Textarea"
-import type { Client, CreateQueryRequest, QueryCapabilityRead, QueryDialect, QuerySpecKind } from "@/types"
+import type {
+  Client,
+  CreateQueryRequest,
+  QueryCapabilityRead,
+  QueryDialect,
+  QueryFindingShape,
+  QuerySpecKind,
+} from "@/types"
+import {
+  DEFAULT_QUERY_FINDING_SHAPE,
+  DEFAULT_QUERY_SEVERITY,
+  QUERY_FINDING_SHAPE_HELP,
+  QUERY_FINDING_SHAPE_OPTIONS,
+  QUERY_SEVERITY_OPTIONS,
+} from "./queryOptions"
 
 interface CreateQueryFormProps {
   clients: Client[]
@@ -27,6 +41,8 @@ const initialValues: CreateQueryRequest = {
   client_ids: [],
   dialect: undefined,
   spec_kind: undefined,
+  severity_id: DEFAULT_QUERY_SEVERITY,
+  finding_shape: DEFAULT_QUERY_FINDING_SHAPE,
 }
 
 const SPEC_KIND_OPTIONS = [
@@ -167,6 +183,28 @@ export const CreateQueryForm: React.FC<CreateQueryFormProps> = ({ clients, onSub
             }
             placeholder="Padrão (passthrough)"
             helperText="passthrough = query literal; sigma = tradução automática via pySigma."
+            disabled={formBusy}
+          />
+        </div>
+
+        <div>
+          <Select
+            label="Severidade do achado"
+            options={QUERY_SEVERITY_OPTIONS}
+            value={values.severity_id ?? DEFAULT_QUERY_SEVERITY}
+            onChange={(value) => setFieldValue("severity_id", Number(value))}
+            helperText="Vai na Detection e nos eventos enviados aos destinos (PRI do syslog, level da regra)."
+            disabled={formBusy}
+          />
+        </div>
+
+        <div>
+          <Select
+            label="Forma do achado nos destinos"
+            options={QUERY_FINDING_SHAPE_OPTIONS}
+            value={values.finding_shape ?? DEFAULT_QUERY_FINDING_SHAPE}
+            onChange={(value) => setFieldValue("finding_shape", value as QueryFindingShape)}
+            helperText={QUERY_FINDING_SHAPE_HELP}
             disabled={formBusy}
           />
         </div>

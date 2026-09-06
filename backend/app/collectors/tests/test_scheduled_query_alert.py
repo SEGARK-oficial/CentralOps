@@ -18,6 +18,7 @@ import os
 os.environ.setdefault("APP_MASTER_KEY", "test-master-key-for-centralops-suite-12345")
 os.environ.setdefault("APP_ENV", "test")
 
+import json
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
@@ -396,10 +397,11 @@ class TestDispatchScheduledQueryAlertEnvelope:
                 record=record,  # type: ignore[arg-type]
             )
 
-        # Dois eventos por execução com resultados: o 1006 (o job rodou) e o
-        # 2004 (o achado, com a tabela). O 1006 é o primeiro e segue idêntico —
-        # regra escrita sobre ele não muda de comportamento.
-        assert len(captured_envelopes) == 2
+        # Eventos por execução com resultados (forma default ``both``): o 1006
+        # (o job rodou), o 2004-resumo (a tabela em ``evidences[]``) e um 2004
+        # POR LINHA. O 1006 é o primeiro e segue identificável — regra escrita
+        # sobre ele não muda de comportamento.
+        assert len(captured_envelopes) == 2 + 2
         envelope = captured_envelopes[0]
 
         meta = envelope["_centralops"]
@@ -409,8 +411,16 @@ class TestDispatchScheduledQueryAlertEnvelope:
         assert meta["customer_id"] == 42
         assert meta["integration_id"] == 80
 
-        # severity_id Critical = 5
-        assert envelope["normalized"]["severity_id"] == 5
+        # A severidade é a da QUERY (default global ``QUERY_DETECTION_DEFAULT_
+        # SEVERITY_ID`` = 4), a mesma que a Detection grava — não mais Critical
+        # fixo enquanto o banco dizia High.
+        from backend.app.core.config import settings
+
+        assert envelope["normalized"]["severity_id"] == settings.QUERY_DETECTION_DEFAULT_SEVERITY_ID
+        assert all(
+            e["normalized"]["severity_id"] == settings.QUERY_DETECTION_DEFAULT_SEVERITY_ID
+            for e in captured_envelopes
+        )
 
     def test_envelope_vendor_msg_id_includes_sched_and_result_ids(self) -> None:
         integration = _FakeIntegration(id=81, org_id=10)
@@ -449,12 +459,15 @@ class TestDispatchScheduledQueryAlertEnvelope:
         assert "sched-5" in event_id
         assert "7" in event_id
 
-    def test_items_capped_at_50_in_raw(self) -> None:
+    def test_items_capped_by_bytes_in_raw(self) -> None:
+        # O corte era por CONTAGEM (50): 50 linhas com cmdline longa passam do
+        # OS_MAXSTR do Wazuh e o JSON chega cortado no meio, em silêncio. Agora
+        # é por bytes: 100 linhas pequenas cabem inteiras; linhas de 4 KiB não.
         integration = _FakeIntegration(id=82, org_id=10)
         sched = _FakeScheduledQuery(id=6)
         query_def = _FakePredefinedQuery()
         record = _FakeSearchResult(id=8)
-        big_items = [{"i": i} for i in range(100)]
+        big_items = [{"i": i, "blob": "x" * 4096} for i in range(100)]
 
         captured_envelopes: list[dict] = []
 
@@ -483,8 +496,14 @@ class TestDispatchScheduledQueryAlertEnvelope:
             )
 
         raw = captured_envelopes[0]["raw"]
-        assert len(raw["items"]) == 50
+        from backend.app.core.config import settings
+
         assert raw["items_truncated"] is True
+        assert 0 < len(raw["items"]) < 100
+        assert raw["items_included"] == len(raw["items"])
+        assert raw["items_total"] == 100
+        wire = len(json.dumps(raw["items"], separators=(",", ":")).encode("utf-8"))
+        assert wire <= settings.QUERY_RAW_ITEMS_MAX_BYTES
 
     def test_customer_id_none_when_org_missing(self) -> None:
         """Org sem id → customer_id=None no envelope (quarentena)."""
@@ -551,8 +570,8 @@ class TestDispatchScheduledQueryAlertEnvelope:
 
         mock_enqueue.assert_called_once()
         batch = mock_enqueue.call_args.args[0]
-        # Os dois eventos saem no MESMO batch — uma ida ao dispatcher, e as
-        # duas entregas seguem o mesmo caminho de roteamento.
-        assert len(batch) == 2
-        assert batch[0]["_centralops"]["stream"] == "scheduled_query"
-        assert batch[1]["_centralops"]["stream"] == "scheduled_query"
+        # Todos os eventos do run saem no MESMO batch — uma ida ao dispatcher,
+        # e as entregas seguem o mesmo caminho de roteamento: 1006, 2004-resumo
+        # e um 2004 por linha (1 linha aqui).
+        assert len(batch) == 3
+        assert all(e["_centralops"]["stream"] == "scheduled_query" for e in batch)

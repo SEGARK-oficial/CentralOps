@@ -769,6 +769,7 @@ def _run_lightweight_migrations() -> None:
                 ("schedule_last_error", "TEXT"),
                 ("max_dedup_keys", "INTEGER"),
                 ("template_key", "VARCHAR"),
+                ("legs_json", "TEXT"),
             ):
                 if col not in corr_rule_columns:
                     conn.execute(text(f"ALTER TABLE correlation_rules ADD COLUMN {col} {ddl}"))
@@ -1061,6 +1062,15 @@ def _run_lightweight_migrations() -> None:
             if "spec_kind" not in pq_columns:
                 conn.execute(
                     text("ALTER TABLE predefined_queries ADD COLUMN spec_kind VARCHAR DEFAULT 'passthrough'")
+                )
+            # Severidade da query e forma do achado no fio (summary|per_row|both).
+            # NULL = defaults do runtime, então linhas antigas não mudam de
+            # comportamento até alguém editar a query.
+            if "severity_id" not in pq_columns:
+                conn.execute(text("ALTER TABLE predefined_queries ADD COLUMN severity_id INTEGER"))
+            if "finding_shape" not in pq_columns:
+                conn.execute(
+                    text("ALTER TABLE predefined_queries ADD COLUMN finding_shape VARCHAR DEFAULT 'both'")
                 )
             conn.execute(
                 text(

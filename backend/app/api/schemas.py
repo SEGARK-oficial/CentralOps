@@ -1128,6 +1128,25 @@ class SearchResultRead(BaseModel):
 
 #: Forma do statement (``collectors.capabilities.SPEC_*``). Conjunto FECHADO.
 QuerySpecKind = Literal["passthrough", "sigma", "ocsf_queryspec"]
+#: Forma do achado que uma scheduled query emite para os destinos:
+#: ``summary`` = um Detection Finding (2004) por execução com a tabela em
+#: ``evidences[]``; ``per_row`` = um 2004 e uma Detection por LINHA, com
+#: device/actor/process no nível da classe (o que um SIEM que achata JSON
+#: consegue indexar); ``both`` = os dois.
+QueryFindingShape = Literal["summary", "per_row", "both"]
+
+#: Severidades OCSF aceitas numa query (``SEVERITY_ID`` do normalizador).
+_QUERY_SEVERITY_IDS = frozenset({0, 1, 2, 3, 4, 5, 6, 99})
+
+
+def _validate_query_severity(value: Optional[int]) -> Optional[int]:
+    if value is None:
+        return None
+    if value not in _QUERY_SEVERITY_IDS:
+        raise ValueError(
+            f"severity_id {value!r} fora do enum OCSF (0..6 ou 99)"
+        )
+    return value
 
 
 class PredefinedQueryBase(BaseModel):
@@ -1147,10 +1166,21 @@ class PredefinedQueryBase(BaseModel):
     # Literal fechado aqui rejeitaria o dialeto de um plugin novo.
     dialect: Optional[str] = None
     spec_kind: Optional[QuerySpecKind] = None
+    # Severidade OCSF da Detection e dos eventos desta query (None = default
+    # global). Validada contra o enum na ESCRITA: um valor fora dele derrubaria
+    # o evento no gate estrutural e o alerta sumiria por causa de um número
+    # digitado numa tela.
+    severity_id: Optional[int] = None
+    finding_shape: Optional[QueryFindingShape] = None
     # Auditoria multi-tenant: dono da query. None → o servidor resolve (org do
     # criador escopado, ou derivada dos client_ids p/ admin global). Admin global
     # pode direcionar explicitamente a uma org.
     organization_id: Optional[int] = None
+
+    @field_validator("severity_id")
+    @classmethod
+    def _severity_in_enum(cls, v: Optional[int]) -> Optional[int]:
+        return _validate_query_severity(v)
 
 
 class PredefinedQueryCreate(PredefinedQueryBase):
@@ -1169,6 +1199,13 @@ class PredefinedQueryUpdate(StrictUpdateModel):
     # (HTTP 200, valor antigo de volta). Mesmo defeito do dedupe_ttl_seconds.
     dialect: Optional[str] = None
     spec_kind: Optional[QuerySpecKind] = None
+    severity_id: Optional[int] = None
+    finding_shape: Optional[QueryFindingShape] = None
+
+    @field_validator("severity_id")
+    @classmethod
+    def _severity_in_enum(cls, v: Optional[int]) -> Optional[int]:
+        return _validate_query_severity(v)
 
 
 class PredefinedQueryRead(PredefinedQueryBase):

@@ -71,6 +71,22 @@ Quando uma query agendada encontra resultados, ela gera uma **Detecção de 1ª 
 
 Para criar ou gerenciar essas execuções programadas, use o menu **Detecta → Agendamentos** (disponível apenas para administradores). Os alertas produzidos por queries agendadas seguem as regras de roteamento configuradas — veja a página de Roteamento para entender como direcioná-los aos destinos certos. Para revisar as Detecções geradas, acesse o menu **Detecta → Detecções**.
 
+### O que chega aos destinos
+
+Cada execução com resultados emite, pela mesma via de roteamento dos eventos coletados, até três tipos de evento OCSF 1.8, todos com a **mesma severidade** configurada na query:
+
+| Evento | Classe OCSF | O que carrega |
+|--------|-------------|---------------|
+| Execução do job | Scheduled Job Activity (1006) | Que a query rodou, quantas linhas vieram, a janela consultada e a trilha até o resultado (`query_id`, `search_result_id`). As linhas vão em `raw`, cortadas por bytes. |
+| Achado-resumo | Detection Finding (2004) | A tabela inteira mapeada em OCSF dentro de `normalized.evidences[]`, com `count` = número de linhas e a soma dos eventos de telemetria em `unmapped.events_total`. |
+| Achado por linha | Detection Finding (2004) | Um evento por linha, com `device`, `actor` e `process` no nível da classe. É a forma que um SIEM que achata JSON (como o Wazuh) consegue indexar campo a campo. |
+
+A **forma do achado** é escolhida por query (`finding_shape`): `both` (padrão) emite o resumo e um evento por linha; `per_row` só os eventos por linha; `summary` só o resumo. Acima de `QUERY_FINDING_MAX_ROWS_PER_RUN` linhas (200 por padrão) o excedente é declarado nos eventos (`rows_over_cap`), nunca descartado em silêncio.
+
+Nas formas `both` e `per_row`, a **Detecção é por linha**: a chave de deduplicação inclui a identidade da linha (host, usuário, processo, hash), então a mesma entidade encontrada na execução seguinte incrementa a Detecção existente e sai como *Update*, enquanto uma entidade nova nasce como *Create*. A janela de supressão cobre ao menos duas cadências do agendamento.
+
+O texto SQL da query não sai nos eventos por padrão; `QUERY_EVENT_INCLUDE_STATEMENT=true` o inclui no evento de execução.
+
 ### Acompanhar a saúde de um agendamento
 
 Cada query agendada tem um indicador de **saúde** que mostra se está funcionando:

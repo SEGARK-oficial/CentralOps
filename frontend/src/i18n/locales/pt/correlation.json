@@ -198,6 +198,30 @@
       "maxDedupKeys": {
         "label": "Teto de chaves por ciclo",
         "helperText": "Vazio = teto do ambiente (256). Medido em dado real: agrupar sophos.siem_event por endpoint_id chega a 192 chaves por ciclo — acima do teto, matches seguem contados e nenhuma detecção nova nasce."
+      },
+      "ruleType": {
+        "label": "Tipo de regra",
+        "option": {
+          "threshold": "Limiar — filtros + agrupamento + contagem",
+          "sequence": "Sequência entre fontes — pernas com junção"
+        },
+        "explain": "Sequência: cada perna casa um evento de uma fonte (ex.: MFA falhou no Okta; processo suspeito no Sophos). A regra dispara quando todas as pernas foram vistas para o mesmo valor de junção dentro da janela. Só em voo."
+      },
+      "legs": {
+        "heading": "Pernas da sequência",
+        "add": "Adicionar perna",
+        "remove": "Remover perna",
+        "removeAriaLabel": "Remover perna {{index}}",
+        "label": "Rótulo",
+        "labelPlaceholder": "ex.: okta_mfa_fail",
+        "stream": "Stream (opcional)",
+        "streamPlaceholder": "ex.: okta.system_log",
+        "streamHelper": "Restringe a perna a um stream; vazio = qualquer fonte que case o filtro.",
+        "joinPath": "Caminho de junção nesta fonte",
+        "joinPathPlaceholder": "ex.: normalized.user.name",
+        "joinPathHelper": "O campo cujo VALOR junta as pernas. Cada fonte tem o seu: Okta grava normalized.user.name, Sophos grava normalized.actor.user.name.",
+        "filters": "Filtros da perna {{index}}",
+        "windowHelper": "Janela em que todas as pernas têm de aparecer (10 s ao teto). Obrigatória na sequência."
       }
     },
     "status": {
@@ -217,7 +241,12 @@
       "scheduleQueryRequired": "Escolha a busca salva que alimenta a regra",
       "scheduleBatchOnly": "Agendamento só vale em lote; em voo a regra roda por evento",
       "windowInflightRange": "Em voo a janela vai de 10 s a 3600 s (1 h). Para janelas maiores use o modo em lote.",
-      "minCountNeedsWindow": "Mínimo de eventos maior que 1 exige uma janela em segundos."
+      "minCountNeedsWindow": "Mínimo de eventos maior que 1 exige uma janela em segundos.",
+      "legsMinTwo": "Uma sequência precisa de ao menos 2 pernas.",
+      "legJoinPathRequired": "Perna {{index}}: informe o caminho de junção.",
+      "legWhereRequired": "Perna {{index}}: adicione ao menos um filtro.",
+      "sequenceNeedsWindow": "Uma sequência exige janela entre 10 s e o teto.",
+      "sequenceInflightOnly": "Sequência só existe em voo."
     },
     "actions": {
       "cancel": "Cancelar"

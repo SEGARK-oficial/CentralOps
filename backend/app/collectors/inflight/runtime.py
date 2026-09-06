@@ -87,6 +87,14 @@ REJECT_REASONS = (
     # mínimo (contagem impossível), em silêncio.
     "window_over_cap",
     "window_count_over_cap",
+    # Sequência entre fontes (X1): ``legs_json`` malformado ou com menos de 2
+    # pernas / perna sem ``where`` ou ``join_path`` / janela ausente
+    # (``bad_legs``); mais pernas que ``INFLIGHT_MAX_LEGS`` (``legs_over_cap``);
+    # ``join_path`` cujo primeiro segmento não é raiz do envelope (``join_root``
+    # — o mesmo silêncio de ``group_by_root``, com outro nome de campo).
+    "bad_legs",
+    "legs_over_cap",
+    "join_root",
 )
 
 #: Enum FECHADO de razões de ERRO de avaliação/flush — label de
@@ -147,6 +155,12 @@ ERROR_REASONS = (
     # contar (fail-closed: a chave é descartada do flush).
     "window_below",
     "window_unavailable",
+    # Sequência (X1): a chave de junção ainda não viu todas as pernas dentro da
+    # janela (``sequence_below``); Redis fora — sem estado não há como saber
+    # quais pernas já vieram, e emitir a cada perna seria alerta falso
+    # (``sequence_unavailable``, fail-closed como a janela).
+    "sequence_below",
+    "sequence_unavailable",
 )
 
 #: Razões que NÃO descem ao ``observability_store`` por regra, porque não há
@@ -250,15 +264,50 @@ def validate_where_json(raw: Optional[str]) -> tuple[list[dict], Optional[str]]:
     return clauses, None
 
 
-def compile_rule(row: Any) -> tuple[Optional[CompiledInflightRule], Optional[str]]:
-    """``CorrelationRule`` (ORM) → regra compilada, ou ``(None, razão)``.
+SEQUENCE_RULE_TYPE = "sequence"
 
-    Roda 1x por ciclo, fora do laço — pode ser generosa em validação.
+
+def validate_legs_json(raw: Optional[str]) -> tuple[list[dict], Optional[str]]:
+    """``(pernas, None)`` ou ``([], razão)``. Público: o CRUD do EE deve reusar
+    isto para rejeitar com 422 na escrita.
+
+    Uma perna é ``{"label"?, "stream"?, "where": [...], "join_path": "a.b"}``.
+    Mínimo de DUAS pernas: com uma, a "sequência" é uma regra clássica com
+    outro nome. Teto em ``INFLIGHT_MAX_LEGS``.
     """
-    clauses_raw, reason = validate_where_json(getattr(row, "where_json", None))
-    if reason is not None:
-        return None, reason
+    try:
+        parsed = json.loads(raw or "[]")
+    except (ValueError, TypeError):
+        return [], "bad_legs"
+    if not isinstance(parsed, list):
+        return [], "bad_legs"
+    legs = [leg for leg in parsed if isinstance(leg, dict)]
+    if len(legs) < 2 or len(legs) != len(parsed):
+        return [], "bad_legs"
+    if len(legs) > int(settings.INFLIGHT_MAX_LEGS):
+        return [], "legs_over_cap"
+    for leg in legs:
+        where = leg.get("where")
+        if not isinstance(where, list) or not [c for c in where if isinstance(c, dict)]:
+            return [], "bad_legs"
+        join_path = leg.get("join_path")
+        if not join_path or not isinstance(join_path, str):
+            return [], "bad_legs"
+        stream = leg.get("stream")
+        if stream is not None and (not isinstance(stream, str) or not stream.strip()):
+            return [], "bad_legs"
+    return legs, None
 
+
+def _compile_clauses(
+    clauses_raw: list[dict], rule_id: Any
+) -> tuple[Optional[tuple[CompiledClause, ...]], Optional[str]]:
+    """As cláusulas de UM ``where`` compiladas, ou ``(None, razão)``.
+
+    Extraído de ``compile_rule`` para a perna de uma sequência compilar pelo
+    MESMO caminho que a regra clássica — inclusive o ``exists`` auto-injetado
+    dos operadores negativos. Duas implementações do vocabulário divergiriam.
+    """
     cap = int(settings.INFLIGHT_MAX_WHERE_CLAUSES)
     if len(clauses_raw) > cap:
         return None, "over_cap"
@@ -313,8 +362,104 @@ def compile_rule(row: Any) -> tuple[Optional[CompiledInflightRule], Optional[str
         logger.debug(
             "inflight: regra %s — cláusula exists auto-injetada para %s "
             "(fecha o fail-open de allowlist em campo ausente)",
-            getattr(row, "id", "?"), ".".join(path),
+            rule_id, ".".join(path),
         )
+    return tuple(compiled), None
+
+
+def compile_row(row: Any) -> tuple[tuple[CompiledInflightRule, ...], Optional[str]]:
+    """``CorrelationRule`` (ORM) → as regras compiladas que ELA produz.
+
+    Uma regra clássica produz UMA; uma ``rule_type='sequence'`` produz uma POR
+    PERNA (mesmo ``rule_id``, ``leg_index`` 0..n-1). É o que a carga do ciclo
+    consome; ``compile_rule`` continua devolvendo uma só para quem valida.
+    """
+    if str(getattr(row, "rule_type", "") or "") == SEQUENCE_RULE_TYPE:
+        return _compile_sequence(row)
+    rule, reason = compile_rule(row)
+    return ((rule,) if rule is not None else ()), reason
+
+
+def _compile_sequence(row: Any) -> tuple[tuple[CompiledInflightRule, ...], Optional[str]]:
+    """Regra de sequência → uma ``CompiledInflightRule`` por perna.
+
+    Cada perna vira, para o matcher, uma regra comum: as cláusulas do ``where``
+    dela mais ``_centralops.stream == stream`` quando a perna nomeia a fonte.
+    ``group_by_path`` da perna é o ``join_path`` DELA — é assim que Okta
+    (``normalized.user.name``) e Sophos (``normalized.actor.user.name``) caem
+    na mesma chave de junção sem que ninguém precise alinhar os mappings.
+
+    A janela é obrigatória e é a de ``window_seconds`` da regra: "as pernas
+    dentro de W segundos" é a única semântica em que juntar fontes distintas
+    não é coincidência. Sem ordem entre pernas (v1 é CONJUNTO): a ordem exige
+    guardar o instante de cada perna e é a fase seguinte.
+    """
+    legs, reason = validate_legs_json(getattr(row, "legs_json", None))
+    if reason is not None:
+        return (), reason
+    window = int(getattr(row, "window_seconds", 0) or 0)
+    if window <= 0:
+        return (), "bad_legs"
+    if window > int(settings.INFLIGHT_MAX_WINDOW_SECONDS):
+        return (), "window_over_cap"
+
+    rule_id = int(row.id)
+    suppression = int(
+        _sup if (_sup := getattr(row, "suppression_window_seconds", None)) is not None else 3600
+    )
+    max_keys = int(_mdk) if (_mdk := getattr(row, "max_dedup_keys", None)) else None
+    compiled: list[CompiledInflightRule] = []
+    for index, leg in enumerate(legs):
+        clauses_raw = [c for c in leg["where"] if isinstance(c, dict)]
+        clauses, reason = _compile_clauses(clauses_raw, rule_id)
+        if clauses is None:
+            return (), reason
+        stream = leg.get("stream")
+        if stream:
+            clauses = clauses + (
+                CompiledClause(path=("_centralops", "stream"), op="eq", value=str(stream).strip()),
+            )
+        join_path = tuple(str(leg["join_path"]).split("."))
+        if join_path[0] not in ENVELOPE_ROOTS:
+            return (), "join_root"
+        compiled.append(
+            CompiledInflightRule(
+                rule_id=rule_id,
+                name=str(row.name),
+                severity_id=int(getattr(row, "severity_id", 4) or 4),
+                suppression_window_seconds=suppression,
+                group_by_path=join_path,
+                clauses=clauses,
+                emit_event=bool(getattr(row, "emit_event", False) or False),
+                max_dedup_keys=max_keys,
+                min_count=1,
+                window_seconds=window,
+                leg_index=index,
+                legs_total=len(legs),
+                leg_label=str(leg.get("label") or f"leg{index}"),
+            )
+        )
+    return tuple(compiled), None
+
+
+def compile_rule(row: Any) -> tuple[Optional[CompiledInflightRule], Optional[str]]:
+    """``CorrelationRule`` (ORM) → regra compilada, ou ``(None, razão)``.
+
+    Roda 1x por ciclo, fora do laço — pode ser generosa em validação. Para
+    uma ``rule_type='sequence'`` devolve a PRIMEIRA perna (o que basta a quem
+    valida na escrita); a carga do ciclo usa ``compile_row``.
+    """
+    if str(getattr(row, "rule_type", "") or "") == SEQUENCE_RULE_TYPE:
+        rules, reason = _compile_sequence(row)
+        return (rules[0] if rules else None), reason
+
+    clauses_raw, reason = validate_where_json(getattr(row, "where_json", None))
+    if reason is not None:
+        return None, reason
+    compiled_clauses, reason = _compile_clauses(clauses_raw, getattr(row, "id", "?"))
+    if compiled_clauses is None:
+        return None, reason
+    compiled = list(compiled_clauses)
 
     group_by = getattr(row, "group_by_field", None)
     if group_by:
@@ -547,15 +692,15 @@ def load_inflight_rules_for_org(
 
     compiled: list[CompiledInflightRule] = []
     for row in rows:
-        rule, reason = compile_rule(row)
-        if rule is None:
+        rules, reason = compile_row(row)
+        if not rules:
             INFLIGHT_RULES_REJECTED.labels(reason=reason).inc()
             logger.warning(
                 "inflight: regra %s (%s) rejeitada na compilação: %s",
                 getattr(row, "id", "?"), getattr(row, "name", "?"), reason,
             )
             continue
-        compiled.append(rule)
+        compiled.extend(rules)
 
     INFLIGHT_RULES_LOADED.labels(org_id=str(organization_id)).set(len(compiled))
 
@@ -872,11 +1017,25 @@ class InflightAccumulator:
                     rule.rule_id, rule.name, len(value), cap,
                 )
 
-        key = f"inflight:{organization_id}:{rule.rule_id}:{token}"
+        is_leg = rule.leg_index is not None
+        # Sequência: TODAS as pernas da regra caem na MESMA chave para o mesmo
+        # valor de junção — é a junção. ``seq`` no nome separa do espaço das
+        # regras clássicas, cuja chave é persistida como ``dedup_key``.
+        key = (
+            f"inflight:{organization_id}:{rule.rule_id}:seq:{token}"
+            if is_leg
+            else f"inflight:{organization_id}:{rule.rule_id}:{token}"
+        )
         if key in self.pending:
             # Mesma chave de novo no ciclo: a Detection já está pendente; o que
             # muda é a CONTAGEM, que a janela deslizante (W1.6) soma no flush.
             self.pending[key]["hits"] = int(self.pending[key].get("hits", 1)) + 1
+            if is_leg:
+                legs = self.pending[key].setdefault("legs", {})
+                if rule.leg_index not in legs:
+                    legs[rule.leg_index] = _event_source_pointer(
+                        envelope, rule.group_by_path, group_value
+                    )
             return
 
         # O teto é sobre CHAVES DISTINTAS, não sobre matches: a variável
@@ -914,6 +1073,13 @@ class InflightAccumulator:
             "source": _event_source_pointer(envelope, rule.group_by_path, group_value),
             "hits": 1,
         }
+        if is_leg:
+            # Ponteiro POR PERNA: é a evidência de "qual evento de qual fonte"
+            # que a Detection de sequência carrega, e o que vai ao Redis para
+            # a perna vista noutro ciclo (outra integração, outro worker).
+            self.pending[key]["legs"] = {
+                rule.leg_index: self.pending[key]["source"]
+            }
 
 
 class InflightFlushInterrupted(Exception):
@@ -1028,6 +1194,93 @@ def _apply_sliding_windows(acc: InflightAccumulator) -> int:
             # Evidência: quantos matches na janela e qual janela — é o que
             # explica "por que agora" na Detection.
             src["window"] = {"count": int(total), "seconds": int(win), "min_count": int(min_count)}
+    return held
+
+
+def _apply_sequences(acc: InflightAccumulator) -> int:
+    """X1 — para as chaves de regras de SEQUÊNCIA, junta as pernas vistas neste
+    ciclo às vistas antes (Redis) e mantém no ``pending`` só as chaves com
+    TODAS as pernas dentro da janela. Devolve quantas chaves foram retidas.
+
+    Estado: um HASH por chave de junção (``inflight:seq:{dedup_key}``), campo =
+    índice da perna, valor = ponteiro do evento que a casou, TTL = janela. A
+    perna vista de novo só renova o ponteiro. Quando a sequência fecha, o hash
+    é apagado — a próxima Detection exige pernas novas, não a mesma metade
+    reaproveitada indefinidamente.
+
+    Roda no flush, em DUAS pipelines (escrita, leitura), nunca por evento (R2).
+    Fail-CLOSED sem Redis, pelo mesmo motivo da janela deslizante: sem estado
+    não há como saber quais pernas já vieram, e emitir a cada perna é alerta
+    falso na hora em que a infra está degradada.
+    """
+    targets: dict[str, dict[str, Any]] = {}
+    for key, item in acc.pending.items():
+        rule = item["rule"]
+        if getattr(rule, "leg_index", None) is not None and int(getattr(rule, "legs_total", 0)) > 1:
+            targets[key] = item
+    if not targets:
+        return 0
+    try:
+        from ..observability_store import _redis
+
+        redis = _redis()
+        pipe = redis.pipeline()
+        for key, item in targets.items():
+            state_key = f"inflight:seq:{key}"
+            for leg_index, pointer in (item.get("legs") or {}).items():
+                pipe.hset(state_key, str(int(leg_index)), json.dumps(pointer, default=str))
+            pipe.expire(state_key, int(item["rule"].window_seconds) + 5)
+        pipe.execute()
+        pipe = redis.pipeline()
+        for key in targets:
+            pipe.hgetall(f"inflight:seq:{key}")
+        states = pipe.execute()
+    except Exception:  # noqa: BLE001 — Redis fora: fail-closed
+        for key, item in targets.items():
+            acc.count_error("sequence_unavailable", item["rule"].rule_id)
+            del acc.pending[key]
+        acc._warn_once(
+            "sequence_unavailable", None,
+            "inflight: Redis indisponível para a sequência entre fontes — %d "
+            "chave(s) de junção descartadas neste flush (fail-closed: sem "
+            "estado, sem Detection)", len(targets),
+        )
+        return len(targets)
+
+    held = 0
+    closed: list[str] = []
+    for (key, item), state in zip(targets.items(), states):
+        rule = item["rule"]
+        legs_seen: dict[int, Any] = {}
+        for field, raw in (state or {}).items():
+            try:
+                legs_seen[int(field)] = json.loads(raw)
+            except (TypeError, ValueError):
+                continue
+        if len(legs_seen) < int(rule.legs_total):
+            acc.count_error("sequence_below", rule.rule_id)
+            del acc.pending[key]
+            held += 1
+            continue
+        src = item.get("source")
+        if isinstance(src, dict):
+            # Evidência: UMA entrada por perna, na ordem das pernas — o
+            # ponteiro de cada evento que fechou a sequência, incluindo os de
+            # ciclos anteriores que só o Redis conhecia.
+            src["legs"] = [
+                dict(legs_seen[index], leg_index=index)
+                for index in sorted(legs_seen)
+            ]
+            src["sequence"] = {
+                "legs": int(rule.legs_total),
+                "window_seconds": int(rule.window_seconds),
+            }
+        closed.append(f"inflight:seq:{key}")
+    if closed:
+        try:
+            redis.delete(*closed)
+        except Exception:  # noqa: BLE001 — o TTL recolhe; só custaria um bump
+            logger.debug("inflight: falha apagando estado de sequência fechada", exc_info=True)
     return held
 
 
@@ -1394,11 +1647,20 @@ def _build_detection_event(
         data_geography=src.get("data_geography"),
     )
 
-    message = (
-        f"Regra em voo '{_evidence_text(emit.rule_name)}' casou "
-        f"({src.get('group_field') or 'sem group_by'}"
-        f"={src.get('group_value') or '*'})"
-    )
+    sequence = src.get("sequence") if isinstance(src.get("sequence"), Mapping) else None
+    if sequence:
+        message = (
+            f"Sequência em voo '{_evidence_text(emit.rule_name)}' fechou "
+            f"{int(sequence.get('legs') or 0)} perna(s) em "
+            f"{int(sequence.get('window_seconds') or 0)} s "
+            f"({src.get('group_field') or 'join'}={src.get('group_value') or '*'})"
+        )
+    else:
+        message = (
+            f"Regra em voo '{_evidence_text(emit.rule_name)}' casou "
+            f"({src.get('group_field') or 'sem group_by'}"
+            f"={src.get('group_value') or '*'})"
+        )
 
     normalized: dict[str, Any] = {
         # ── identidade OCSF ──────────────────────────────────────────────
@@ -1456,6 +1718,23 @@ def _build_detection_event(
             "group_value": src.get("group_value"),
         },
     }
+    if sequence:
+        # As pernas: um ponteiro por fonte (event_id, stream, instante) — o
+        # analista pivota para cada evento; nenhum payload viaja.
+        normalized["unmapped"]["sequence"] = dict(sequence)
+        normalized["unmapped"]["legs"] = [
+            {
+                "leg_index": leg.get("leg_index"),
+                "event_id": leg.get("event_id"),
+                "stream": leg.get("stream"),
+                "event_type": leg.get("event_type"),
+                "platform": leg.get("platform"),
+                "event_time": leg.get("event_time"),
+                "group_field": leg.get("group_field"),
+            }
+            for leg in (src.get("legs") or [])
+            if isinstance(leg, Mapping)
+        ]
 
     # ``raw`` VAZIO, e é a decisão do parágrafo de ``_event_source_pointer``
     # materializada: nada do payload do cliente viaja neste evento.
@@ -1678,6 +1957,13 @@ async def flush_inflight(
     # que faltou algo. Falhando, o teto simplesmente não corta: escrever tudo é
     # LENTO, perder tudo em silêncio é o que este subsistema não pode fazer. A
     # direção da degradação é a decisão; o ``except`` só a executa.
+    try:
+        _apply_sequences(acc)
+    except Exception:  # noqa: BLE001
+        logger.exception(
+            "inflight: sequência entre fontes falhou (org %s) — regras de "
+            "sequência ficam de fora deste flush (fail-closed)", organization_id,
+        )
     try:
         _apply_sliding_windows(acc)
     except Exception:  # noqa: BLE001

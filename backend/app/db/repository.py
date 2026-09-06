@@ -2264,6 +2264,8 @@ class PredefinedQueryRepository:
         client_ids: str | None = None,
         dialect: str | None = None,
         spec_kind: str | None = None,
+        severity_id: int | None = None,
+        finding_shape: str | None = None,
     ) -> models.PredefinedQuery:
         if title is not None:
             query.title = title
@@ -2279,6 +2281,10 @@ class PredefinedQueryRepository:
             query.dialect = dialect
         if spec_kind is not None:
             query.spec_kind = spec_kind
+        if severity_id is not None:
+            query.severity_id = severity_id
+        if finding_shape is not None:
+            query.finding_shape = finding_shape
         self.db.commit()
         self.db.refresh(query)
         return query

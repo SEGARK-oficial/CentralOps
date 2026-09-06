@@ -806,7 +806,23 @@ export interface Query {
   dialect?: QueryDialect
   /** passthrough (default) ou sigma. Opcional. */
   spec_kind?: QuerySpecKind
+  /**
+   * Severidade OCSF (0..6 ou 99) da Detection E dos eventos que esta query
+   * emite — o mesmo valor nos três. `null` = default global do servidor.
+   */
+  severity_id?: number | null
+  /** Forma do achado no fio. `null` = default do servidor (`both`). */
+  finding_shape?: QueryFindingShape | null
 }
+
+/**
+ * Como o resultado de uma scheduled query sai para os destinos:
+ * `summary` = um Detection Finding por execução com a tabela em `evidences[]`;
+ * `per_row` = um Detection Finding (e uma Detection) por LINHA, com
+ * device/actor/process no nível da classe — o que um SIEM que achata JSON
+ * consegue indexar; `both` = os dois.
+ */
+export type QueryFindingShape = "summary" | "per_row" | "both"
 
 export interface CreateQueryRequest {
   title: string
@@ -816,6 +832,8 @@ export interface CreateQueryRequest {
   client_ids?: number[]
   dialect?: QueryDialect
   spec_kind?: QuerySpecKind
+  severity_id?: number | null
+  finding_shape?: QueryFindingShape | null
 }
 
 export interface UpdateQueryRequest {
@@ -826,6 +844,8 @@ export interface UpdateQueryRequest {
   client_ids?: number[]
   dialect?: QueryDialect
   spec_kind?: QuerySpecKind
+  severity_id?: number | null
+  finding_shape?: QueryFindingShape | null
 }
 
 export interface Schedule {
@@ -2297,7 +2317,28 @@ export interface WhereFilter {
   value: string | string[] | boolean
 }
 
-/** Regra de correlação cross-source. rule_type='threshold' (MVP). */
+/**
+ * Tipo da regra. `threshold` = a clássica (AND de filtros + agrupamento +
+ * contagem). `sequence` = entre FONTES, só em voo: várias pernas, cada uma com
+ * o próprio filtro e o próprio caminho de junção, fechando quando todas foram
+ * vistas para o mesmo valor dentro de `window_seconds`.
+ */
+export type CorrelationRuleType = "threshold" | "sequence"
+
+/**
+ * Uma perna de uma regra `sequence` (X1). `join_path` é o caminho da entidade
+ * NESTA fonte — Okta escreve `normalized.user.name`, Sophos escreve
+ * `normalized.actor.user.name`; é assim que as duas caem na mesma chave.
+ * `stream` opcional restringe a perna a um stream (`_centralops.stream`).
+ */
+export interface SequenceLeg {
+  label?: string
+  stream?: string
+  where: WhereFilter[]
+  join_path: string
+}
+
+/** Regra de correlação cross-source. `rule_type` = threshold | sequence. */
 export interface CorrelationRuleRead {
   id: number
   organization_id: number
@@ -2305,7 +2346,9 @@ export interface CorrelationRuleRead {
   description?: string | null
   enabled: boolean
   severity_id: number
-  rule_type: string
+  rule_type: CorrelationRuleType | string
+  /** Pernas de uma regra `sequence`; vazio nas regras `threshold`. */
+  legs?: SequenceLeg[]
   /**
    * ADR-0015 — discriminador de execução da regra.
    * `batch` (default) = avaliada ao final de uma busca federada, sobre os
@@ -2382,7 +2425,12 @@ export interface CorrelationRuleCreate {
   description?: string
   enabled?: boolean
   severity_id?: number
-  group_by_field: string
+  /** Omitido ⇒ `threshold`. `sequence` exige `eval_mode: "inflight"` e `legs`. */
+  rule_type?: CorrelationRuleType
+  /** Só em `sequence`: 2 a `INFLIGHT_MAX_LEGS` pernas. */
+  legs?: SequenceLeg[]
+  /** Obrigatório em `threshold`; ignorado em `sequence` (a junção é por perna). */
+  group_by_field?: string
   min_count?: number
   window_seconds?: number
   timestamp_field?: string
@@ -2415,6 +2463,9 @@ export interface CorrelationRuleUpdate {
    * para o default, e é um valor, não um sinônimo de ausente.
    */
   eval_priority?: number
+  rule_type?: CorrelationRuleType
+  /** Substitui TODAS as pernas (não é diff). */
+  legs?: SequenceLeg[]
   group_by_field?: string
   min_count?: number
   window_seconds?: number
