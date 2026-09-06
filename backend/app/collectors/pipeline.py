@@ -1981,7 +1981,74 @@ def _enqueue_dispatch(
             note_unenriched(batch, enrich_skip_reason)
         except Exception:  # noqa: BLE001 — marcação nunca bloqueia o despacho
             logger.debug("enrich: falha ao marcar lote não-enriquecido", exc_info=True)
+    if settings.OCSF_VALIDATE_INTERNAL_PRODUCERS:
+        batch = _gate_internal_producers(batch)
+        if not batch:
+            return
     _enqueue_routed(batch, routes)
+
+
+#: ``_centralops.vendor`` de tudo que a própria CentralOps produz (1006 da
+#: scheduled query, 2004 do achado e da detecção em voo). É o critério do gate
+#: abaixo — evento de vendor NÃO passa por ele.
+INTERNAL_PRODUCER_VENDOR = "centralops"
+
+
+def _gate_internal_producers(batch: list[Dict[str, Any]]) -> list[Dict[str, Any]]:
+    """Gate estrutural OCSF (GATES 1-5) para os eventos que a CentralOps monta.
+
+    O hook de validação do laço de coleta (acima, no ``async for``) só vê o que
+    um coletor normalizou; o 1006/2004 da scheduled query, o 2004 em voo,
+    backfill e reprocesso entram por ``_enqueue_dispatch`` sem passar por ele.
+    Um Detection Finding que a própria CentralOps montou com ``severity_id``
+    fora do enum, ou ``type_uid`` que não bate com ``class_uid``, é bug do
+    builder — e chegava ao SIEM do cliente como se fosse dado.
+
+    FAIL-CLOSED e independente da política por org: o evento inválido é
+    descartado, contado em ``collector_ocsf_invalid_total`` com a razão, e
+    logado como ERRO com o id do evento (nunca o payload). ``out_of_scope``
+    (classe OCSF-válida não vendorada) passa, como no laço. Se o VALIDADOR
+    levantar, o evento passa e o erro vai ao log: uma exceção no gate não pode
+    virar detecção perdida.
+    """
+    kept: list[Dict[str, Any]] = []
+    registry = None
+    for envelope in batch:
+        cc = envelope.get("_centralops") if isinstance(envelope, dict) else None
+        if not isinstance(cc, dict) or cc.get("vendor") != INTERNAL_PRODUCER_VENDOR:
+            kept.append(envelope)
+            continue
+        event_type = str(cc.get("event_type") or "unknown")
+        try:
+            if registry is None:
+                registry = ocsf_validator.get_registry(settings.OCSF_VALIDATION_VERSION)
+            verdict = ocsf_validator.structural_gate(envelope.get("normalized") or {}, registry)
+        except Exception:  # noqa: BLE001 — validador quebrado não cala a detecção
+            logger.exception(
+                "ocsf: gate de produtor interno falhou; evento %s passa sem veredito",
+                cc.get("event_id"),
+            )
+            kept.append(envelope)
+            continue
+        if verdict.valid:
+            OCSF_VALID.labels(vendor=INTERNAL_PRODUCER_VENDOR, event_type=event_type).inc()
+            cc["ocsf_valid"] = True
+            kept.append(envelope)
+            continue
+        OCSF_INVALID.labels(
+            vendor=INTERNAL_PRODUCER_VENDOR, event_type=event_type, reason=verdict.reason
+        ).inc()
+        if not verdict.in_scope:
+            cc["ocsf_valid"] = False
+            kept.append(envelope)
+            continue
+        logger.error(
+            "ocsf: evento INTERNO inválido descartado (event_type=%s class_uid=%s "
+            "reason=%s missing=%s event_id=%s) — bug do produtor, não dado do cliente",
+            event_type, verdict.class_uid, verdict.reason,
+            ",".join(verdict.missing_required) or "-", cc.get("event_id"),
+        )
+    return kept
 
 
 def _compile_route_row(row: Any) -> Any:

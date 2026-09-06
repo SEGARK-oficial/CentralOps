@@ -1062,6 +1062,15 @@ def _run_lightweight_migrations() -> None:
                 conn.execute(
                     text("ALTER TABLE predefined_queries ADD COLUMN spec_kind VARCHAR DEFAULT 'passthrough'")
                 )
+            # Severidade da query e forma do achado no fio (summary|per_row|both).
+            # NULL = defaults do runtime, então linhas antigas não mudam de
+            # comportamento até alguém editar a query.
+            if "severity_id" not in pq_columns:
+                conn.execute(text("ALTER TABLE predefined_queries ADD COLUMN severity_id INTEGER"))
+            if "finding_shape" not in pq_columns:
+                conn.execute(
+                    text("ALTER TABLE predefined_queries ADD COLUMN finding_shape VARCHAR DEFAULT 'both'")
+                )
             conn.execute(
                 text(
                     "CREATE INDEX IF NOT EXISTS ix_predefined_queries_organization_id "

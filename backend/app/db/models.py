@@ -1077,6 +1077,16 @@ class PredefinedQuery(Base):
     # statement (passthrough | sigma | ocsf_queryspec). nullable p/ rows legadas.
     dialect = Column(String, nullable=True)
     spec_kind = Column(String, nullable=True, default="passthrough")
+    # Severidade OCSF (0..6/99) que a Detection E os eventos 1006/2004 desta
+    # query carregam — o MESMO valor nos três. Antes a Detection gravava o
+    # default (4) e os eventos saíam com 5 fixo: toda hunt virava CRITICAL no
+    # SIEM e a linha no banco dizia outra coisa. NULL = default global
+    # (``QUERY_DETECTION_DEFAULT_SEVERITY_ID``).
+    severity_id = Column(Integer, nullable=True)
+    # Forma do achado no fio: ``summary`` (um 2004 com a tabela em
+    # ``evidences[]``), ``per_row`` (um 2004 e uma Detection POR LINHA, com
+    # device/actor/process no nível da classe) ou ``both``. NULL = both.
+    finding_shape = Column(String, nullable=True, default="both")
     # Auditoria multi-tenant: dono do recurso. Usuário escopado (não-global)
     # só vê/edita queries da própria org; NULL = global (visível apenas a
     # admin/is_global). Nullable p/ reconciliar create_all com a migração leve.

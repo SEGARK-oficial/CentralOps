@@ -157,9 +157,14 @@ class TestFindingAggregates:
             "C2_DOMAIN_IN_CMDLINE",
         ]
 
-    def test_count_sums_event_counts(self) -> None:
+    def test_count_is_rows_and_events_total_sums_event_counts(self) -> None:
+        # ``count`` é o número de LINHAS (bate com ``result_count`` e
+        # ``items_count``); a soma dos ``Event Count`` é outra grandeza e vai em
+        # ``unmapped.events_total``. Antes ``count`` somava os eventos e um
+        # consumidor OCSF lia "4 achados" onde havia 2 linhas.
         finding = _finding([_ROW, _ROW])
-        assert finding["count"] == 4  # 2 + 2
+        assert finding["count"] == 2
+        assert finding["unmapped"]["events_total"] == 4  # 2 + 2
 
     def test_query_becomes_the_analytic(self) -> None:
         finding = _finding([_ROW])
@@ -206,7 +211,8 @@ class TestByteBudget:
         # SearchResult — e a discordância apareceria na triagem.
         rows = [{**_ROW, "Cmdline (Any)": f"x{i}" + "y" * 3000} for i in range(80)]
         finding = _finding(rows)
-        assert finding["count"] == 160  # 80 linhas × Event Count 2
+        assert finding["count"] == 80  # todas as linhas, inclusive as cortadas
+        assert finding["unmapped"]["events_total"] == 160  # 80 × Event Count 2
         assert len(finding["evidences"]) < 80
 
     def test_truncation_flag_present_even_when_false(self) -> None:
@@ -299,7 +305,12 @@ class TestBothEventsAreDispatched:
                 to_ts="2026-08-20T19:01:40Z",
                 record=_FakeSearchResult(id=539),
             )
-        return captured
+        # Esta classe olha o PAR (1006, 2004-resumo). Os eventos por linha
+        # (forma ``both``) vêm depois dos dois e têm a própria suíte.
+        assert captured[0]["normalized"]["class_uid"] == 1006
+        assert captured[1]["normalized"]["class_uid"] == 2004
+        assert "row_fingerprint" not in captured[1]["normalized"]["unmapped"]
+        return captured[:2]
 
     def test_job_event_and_finding_event(self) -> None:
         job, finding = self._dispatch([_ROW])
@@ -348,14 +359,22 @@ class TestBothEventsAreDispatched:
         for label in ("organization_id", "customer_id", "platform", "stream"):
             assert finding["_centralops"][label] == job["_centralops"][label]
 
-    def test_statement_not_repeated_in_the_finding_event(self) -> None:
-        # O 1006 carrega o statement inteiro (uma hunt real passa de 4 KiB). O
-        # 2004 herdava o mesmo ``unmapped`` e repetia o texto no fio, sem
-        # informação nova, comendo a margem sob o OS_MAXSTR do Wazuh.
+    def test_statement_only_leaves_when_asked_and_never_in_the_finding(self) -> None:
+        # O statement inteiro (uma hunt real passa de 4 KiB, com a lista de
+        # IOCs) saía no 1006 a cada run. Agora só com
+        # ``QUERY_EVENT_INCLUDE_STATEMENT``; o 2004 nunca o carrega — a trilha
+        # até o SQL (``query_id``, ``search_result_id``) continua no evento.
+        from backend.app.core.config import settings
+
         job, finding = self._dispatch([_ROW])
-        assert "statement" in job["normalized"]["unmapped"]
+        assert "statement" not in job["normalized"]["unmapped"]
         assert "statement" not in finding["normalized"]["unmapped"]
         assert "SELECT" not in json.dumps(finding)
+
+        with patch.object(settings, "QUERY_EVENT_INCLUDE_STATEMENT", True):
+            job, finding = self._dispatch([_ROW])
+        assert "SELECT" in job["normalized"]["unmapped"]["statement"]
+        assert "statement" not in finding["normalized"]["unmapped"]
         # A trilha até o SQL continua no evento.
         assert finding["normalized"]["unmapped"]["search_result_id"] == 539
         assert finding["normalized"]["finding_info"]["analytic"]["uid"] == "1"

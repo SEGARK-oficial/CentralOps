@@ -33,6 +33,8 @@ por bytes serializados, com o que ficou de fora declarado no evento.
 
 from __future__ import annotations
 
+import copy
+import hashlib
 import json
 import re
 from datetime import datetime, timezone
@@ -43,7 +45,10 @@ from .classes import CLASS_UID_DETECTION_FINDING
 __all__ = [
     "canonical_column",
     "row_to_evidence",
+    "evidence_fingerprint",
     "build_finding_normalized",
+    "build_row_finding_normalized",
+    "cap_rows_by_bytes",
     "MAX_EVIDENCES_BYTES",
 ]
 
@@ -168,6 +173,12 @@ _FIRST_SEEN_COLUMNS = frozenset({"first_seen", "first_seen_time", "first_event_t
 _LAST_SEEN_COLUMNS = frozenset({"last_seen", "last_seen_time", "last_event_time"})
 _COUNT_COLUMNS = frozenset({"event_count", "count", "hits", "occurrences"})
 _REASON_COLUMNS = frozenset({"match_reason", "reason", "matched_on", "detection_reason"})
+
+#: Tudo que descreve o RUN e não a entidade: fica fora da identidade da linha
+#: (ver :func:`evidence_fingerprint`), senão a mesma máquina com o mesmo
+#: processo viraria um achado novo a cada execução só porque ``Last Seen``
+#: andou.
+_AGGREGATE_COLUMNS = _FIRST_SEEN_COLUMNS | _LAST_SEEN_COLUMNS | _COUNT_COLUMNS | _REASON_COLUMNS
 
 #: Separador do ``ARRAY_JOIN`` que as hunts usam para concatenar motivos. Um
 #: ``finding_info.types[]`` com os motivos separados vale mais que uma string
@@ -353,11 +364,92 @@ def _derive_file_name(evidence: Dict[str, Any]) -> None:
             file_obj["name"] = basename
 
 
+# ── Identidade de uma linha entre execuções ──────────────────────────
+
+#: Comprimento do digest em BYTES (16 hex). Suficiente para não colidir em
+#: dezenas de milhares de linhas por schedule e curto o bastante para viver
+#: numa ``dedup_key`` legível.
+_FINGERPRINT_BYTES = 8
+
+
+def evidence_fingerprint(evidence: Mapping[str, Any], row: Mapping[str, Any]) -> str:
+    """Digest estável do que IDENTIFICA a linha, para dedup entre execuções.
+
+    A chave de dedup da scheduled query era por RUN (``sched:{s}:integ:{i}``):
+    cada execução criava uma Detection nova com as mesmas linhas, e a supressão
+    nunca bumpava porque a janela (1 h) era igual ao intervalo. Oito Detections
+    iguais por dia, e a entidade NOVA indistinguível das repetidas.
+
+    Identidade = os campos de ENTIDADE que o mapeamento resolveu (``device.uid``,
+    ``device.hostname``, ``actor.user.name``, ``process.name``,
+    ``process.file.path`` e os hashes). ``cmd_line`` fica de fora de propósito:
+    numa hunt agregada ele vem de ``ANY_VALUE`` e muda de run para run sem que
+    a entidade mude. Sem nenhum campo de entidade (schema desconhecido), a
+    identidade é a linha inteira MENOS os agregados do run — o que ainda
+    distingue duas linhas e ainda reconhece a mesma linha no run seguinte.
+
+    Puro e determinístico: a mesma linha produz o mesmo digest em qualquer
+    worker, o que é a única propriedade que a ``dedup_key`` persistida exige.
+    """
+    device = evidence.get("device") or {}
+    actor_user = (evidence.get("actor") or {}).get("user") or {}
+    process = evidence.get("process") or {}
+    file_obj = process.get("file") or {}
+    hashes = sorted(
+        str(h.get("value"))
+        for h in (file_obj.get("hashes") or [])
+        if isinstance(h, Mapping) and h.get("value")
+    )
+    identity: Dict[str, Any] = {
+        k: v
+        for k, v in {
+            "device.uid": device.get("uid"),
+            "device.hostname": device.get("hostname"),
+            "actor.user.name": actor_user.get("name"),
+            "process.name": process.get("name"),
+            "process.file.path": file_obj.get("path"),
+            "process.file.hashes": hashes or None,
+        }.items()
+        if v
+    }
+    if not identity:
+        identity = {
+            str(column): value
+            for column, value in row.items()
+            if not _is_empty(value)
+            and canonical_column(str(column)) not in _AGGREGATE_COLUMNS
+        }
+    payload = json.dumps(identity, sort_keys=True, separators=(",", ":"), default=str)
+    return hashlib.blake2s(payload.encode("utf-8"), digest_size=_FINGERPRINT_BYTES).hexdigest()
+
+
 # ── Tabela → bloco ``normalized`` do Detection Finding ───────────────
 
 
 def _serialized_size(obj: Any) -> int:
     return len(json.dumps(obj, separators=(",", ":"), default=str).encode("utf-8"))
+
+
+def cap_rows_by_bytes(
+    rows: Sequence[Mapping[str, Any]], max_bytes: int
+) -> Tuple[List[Mapping[str, Any]], bool]:
+    """Corta uma lista de linhas por BYTES serializados, não por contagem.
+
+    Devolve ``(linhas_que_cabem, truncou)``. A primeira linha entra mesmo
+    estourando, pelo mesmo motivo do orçamento de evidências: zero linhas é o
+    silêncio que este módulo existe para remover. ``max_bytes <= 0`` = sem teto.
+    """
+    if max_bytes <= 0:
+        return list(rows), False
+    kept: List[Mapping[str, Any]] = []
+    used = 2
+    for row in rows:
+        size = _serialized_size(row) + (1 if kept else 0)
+        if kept and used + size > max_bytes:
+            return kept, True
+        kept.append(row)
+        used += size
+    return kept, False
 
 
 def build_finding_normalized(
@@ -428,45 +520,25 @@ def build_finding_normalized(
         evidences.append(evidence)
         budget_used += size
 
-    finding_info: Dict[str, Any] = {"uid": finding_uid, "title": title}
-    if description:
-        finding_info["desc"] = description
-    if types:
-        finding_info["types"] = types
-    if first_seen is not None:
-        finding_info["first_seen_time"] = first_seen
-    if last_seen is not None:
-        finding_info["last_seen_time"] = last_seen
-    # A query agendada É a analítica que produziu o achado — ``type_id=1``
-    # (Rule). Aqui vai a IDENTIDADE dela (nome + uid), não o texto: o statement
-    # de uma hunt real passa de 4 KiB e já viaja no 1006 e no ``SearchResult``.
-    # Filtrar o statement que venha herdado em ``unmapped`` é responsabilidade
-    # de quem chama — este módulo não conhece as chaves do produtor.
-    analytic: Dict[str, Any] = {"name": title, "type_id": 1}
-    if query_id is not None:
-        analytic["uid"] = str(query_id)
-    finding_info["analytic"] = analytic
+    finding_info = _finding_info(
+        uid=finding_uid, title=title, description=description, types=types,
+        first_seen=first_seen, last_seen=last_seen, query_id=query_id,
+    )
 
-    activity_id = 1  # Create
-    normalized: Dict[str, Any] = {
-        "class_uid": CLASS_UID_DETECTION_FINDING,
-        "category_uid": 2,
-        "activity_id": activity_id,
-        "type_uid": CLASS_UID_DETECTION_FINDING * 100 + activity_id,
-        "time": occurred_ms,
-        "status_id": 1,  # New
-        "severity_id": severity_id,
-        "count": total_count,
-        "metadata": {
-            "version": "1.8.0",
-            "product": {"name": "CentralOps", "vendor_name": "CentralOps"},
-            "logged_time": occurred_ms,
-        },
-        "finding_info": finding_info,
-        "evidences": evidences,
-    }
+    normalized = _finding_identity(
+        occurred_ms=occurred_ms, severity_id=severity_id, activity_id=1, status_id=1,
+    )
+    # ``count`` é quantas LINHAS o achado tem — o número que bate com o
+    # ``result_count`` do ``SearchResult`` e com ``items_count``. A soma dos
+    # ``Event Count`` das linhas é outra grandeza (eventos de telemetria por
+    # trás do achado) e vai em ``unmapped.events_total``: pô-la em ``count``
+    # fazia um consumidor OCSF ler "9 achados" onde havia 2 linhas.
+    normalized["count"] = len(evidences) + dropped
+    normalized["finding_info"] = finding_info
+    normalized["evidences"] = evidences
 
     merged_unmapped: Dict[str, Any] = dict(unmapped or {})
+    merged_unmapped["events_total"] = total_count
     merged_unmapped["evidences_total"] = len(evidences) + dropped
     merged_unmapped["evidences_included"] = len(evidences)
     # Sempre presente, mesmo ``False``: um consumidor que precise saber se viu
@@ -476,3 +548,130 @@ def build_finding_normalized(
         merged_unmapped["evidences_dropped"] = dropped
     normalized["unmapped"] = merged_unmapped
     return normalized
+
+
+def _finding_info(
+    *,
+    uid: str,
+    title: str,
+    description: Optional[str],
+    types: Sequence[str],
+    first_seen: Optional[int],
+    last_seen: Optional[int],
+    query_id: Optional[int],
+) -> Dict[str, Any]:
+    finding_info: Dict[str, Any] = {"uid": uid, "title": title}
+    if description:
+        finding_info["desc"] = description
+    if types:
+        finding_info["types"] = list(types)
+    if first_seen is not None:
+        finding_info["first_seen_time"] = first_seen
+    if last_seen is not None:
+        finding_info["last_seen_time"] = last_seen
+    # A query agendada É a analítica que produziu o achado — ``type_id=1``
+    # (Rule). Aqui vai a IDENTIDADE dela (nome + uid), não o texto: o statement
+    # de uma hunt real passa de 4 KiB e já viaja no ``SearchResult``.
+    # Filtrar o statement que venha herdado em ``unmapped`` é responsabilidade
+    # de quem chama — este módulo não conhece as chaves do produtor.
+    analytic: Dict[str, Any] = {"name": title, "type_id": 1}
+    if query_id is not None:
+        analytic["uid"] = str(query_id)
+    finding_info["analytic"] = analytic
+    return finding_info
+
+
+def _finding_identity(
+    *, occurred_ms: int, severity_id: int, activity_id: int, status_id: int
+) -> Dict[str, Any]:
+    """Cabeçalho OCSF 1.8 de um Detection Finding, comum ao resumo e à linha."""
+    return {
+        "class_uid": CLASS_UID_DETECTION_FINDING,
+        "category_uid": 2,
+        "activity_id": activity_id,
+        "type_uid": CLASS_UID_DETECTION_FINDING * 100 + activity_id,
+        "time": occurred_ms,
+        "status_id": status_id,
+        "severity_id": severity_id,
+        "metadata": {
+            "version": "1.8.0",
+            "product": {"name": "CentralOps", "vendor_name": "CentralOps"},
+            "logged_time": occurred_ms,
+        },
+    }
+
+
+#: Objetos do Evidence Artifact que a classe 2004 também aceita no NÍVEL DA
+#: CLASSE. Promovê-los é o que faz a linha virar campo plano num destino que
+#: achata JSON: o analysisd do Wazuh entrega ``evidences[]`` como UMA string e
+#: nenhuma regra alcança ``evidences[0].device.hostname``; já
+#: ``normalized.device.hostname`` é um campo como outro qualquer.
+_PROMOTED_OBJECTS: Tuple[str, ...] = ("device", "actor", "process")
+
+
+def build_row_finding_normalized(
+    *,
+    row: Mapping[str, Any],
+    finding_uid_base: str,
+    title: str,
+    description: Optional[str],
+    severity_id: int,
+    query_id: Optional[int],
+    occurred_ms: int,
+    row_index: int,
+    rows_total: int,
+    rows_emitted: int,
+    activity_id: int = 1,
+    unmapped: Optional[Mapping[str, Any]] = None,
+) -> Tuple[Dict[str, Any], str]:
+    """UMA linha da tabela → ``normalized`` de um Detection Finding próprio.
+
+    Devolve ``(normalized, fingerprint)``. O ``fingerprint`` é a identidade da
+    linha (:func:`evidence_fingerprint`) e entra em ``finding_info.uid`` — o
+    mesmo digest que o produtor usa na ``dedup_key`` da Detection, para que o
+    alerta no destino e a linha no banco sejam a mesma coisa.
+
+    ``activity_id`` é do chamador porque só ele sabe se a Detection desta linha
+    acabou de nascer (1, Create) ou se um run anterior já a tinha e este apenas
+    bumpou a contagem (2, Update). O evento diz a verdade do banco.
+
+    Tudo que a linha tem viaja duas vezes de propósito: promovido ao nível da
+    classe (para o destino plano) E em ``evidences[0]`` (para o consumidor OCSF
+    que lê a classe como a spec manda). São ~1 KiB por linha; o custo do
+    silêncio era maior.
+    """
+    evidence, aggregates = row_to_evidence(row)
+    fingerprint = evidence_fingerprint(evidence, row)
+
+    normalized = _finding_identity(
+        occurred_ms=occurred_ms, severity_id=severity_id,
+        activity_id=activity_id, status_id=1,
+    )
+    normalized["count"] = 1
+    normalized["finding_info"] = _finding_info(
+        uid=f"{finding_uid_base}:{fingerprint}",
+        title=title,
+        description=description,
+        types=aggregates.get("types") or [],
+        first_seen=aggregates.get("first_seen"),
+        last_seen=aggregates.get("last_seen"),
+        query_id=query_id,
+    )
+    for key in _PROMOTED_OBJECTS:
+        if key in evidence:
+            normalized[key] = copy.deepcopy(evidence[key])
+    normalized["evidences"] = [evidence]
+
+    merged_unmapped: Dict[str, Any] = dict(unmapped or {})
+    merged_unmapped["row_fingerprint"] = fingerprint
+    merged_unmapped["row_index"] = row_index
+    merged_unmapped["rows_total"] = rows_total
+    merged_unmapped["rows_emitted"] = rows_emitted
+    merged_unmapped["rows_over_cap"] = max(0, rows_total - rows_emitted)
+    if aggregates.get("count") is not None:
+        merged_unmapped["events_total"] = int(aggregates["count"])
+    merged_unmapped["evidences_total"] = 1
+    merged_unmapped["evidences_included"] = 1
+    merged_unmapped["evidences_truncated"] = False
+    normalized["unmapped"] = merged_unmapped
+    return normalized, fingerprint

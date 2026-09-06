@@ -167,6 +167,22 @@ class Settings(BaseSettings):
     # Janela de supressão (s): match repetido do mesmo schedule dentro dela só
     # BUMPA count em vez de criar novo alerta (anti-spam).
     QUERY_DETECTION_SUPPRESSION_SECONDS: int = 3600
+    # Teto de LINHAS por execução que viram Detection própria + evento 2004
+    # próprio quando a query pede ``finding_shape`` per_row/both. Acima disto o
+    # excedente é DECLARADO (``rows_over_cap``) no evento-resumo e nos eventos
+    # por linha, nunca descartado em silêncio. 200 porque uma hunt que devolve
+    # mais do que isso deixou de ser um achado e virou um relatório — e 200
+    # Detections por run é o que um analista ainda consegue triar.
+    QUERY_FINDING_MAX_ROWS_PER_RUN: int = 200
+    # O statement SQL inteiro no ``unmapped`` do evento 1006 (uma hunt real passa
+    # de 4 KiB e carrega a lista de IOCs). OFF: o destino recebe ``query_id`` e
+    # ``search_result_id`` e chega ao SQL por eles. Ligar é decisão de quem quer
+    # o texto no SIEM, e paga o volume.
+    QUERY_EVENT_INCLUDE_STATEMENT: bool = False
+    # Orçamento em BYTES do ``raw.items`` do evento 1006. Era um corte por
+    # contagem (50 linhas), que não protege nada: 50 linhas com cmdline longa
+    # passam de OS_MAXSTR e o Wazuh trunca o JSON no meio, em silêncio.
+    QUERY_RAW_ITEMS_MAX_BYTES: int = 48 * 1024
     # Teto de regras de correlação por org — toda finalização de job avalia TODAS
     # as regras habilitadas da org (O(regras×eventos)); o cap evita fan-out ilimitado
     # no worker (rejeita criação acima disto + limita a avaliação).
@@ -524,6 +540,17 @@ class Settings(BaseSettings):
     # métricas de conformidade e ETIQUETA o envelope. A AÇÃO em evento inválido é
     # decidida pela política por-org, com fallback no default global abaixo.
     OCSF_VALIDATION_ENABLED: bool = False
+    # Gate estrutural para o que a PRÓPRIA CentralOps produz (1006 da scheduled
+    # query, 2004 do achado e da detecção em voo), aplicado em
+    # ``_enqueue_dispatch`` — o funil por onde todo produtor interno passa e
+    # que o hook do laço de coleta não cobre. Independente de
+    # ``OCSF_VALIDATION_ENABLED`` e da política por org, e FAIL-CLOSED: um
+    # evento interno estruturalmente inválido é bug do builder, não dado do
+    # cliente; descartá-lo com contador e log de erro é mais barato do que
+    # entregar ao SIEM um Detection Finding que nenhum consumidor classifica.
+    # Custa microssegundos por evento INTERNO (poucos por ciclo); eventos de
+    # vendor não passam por aqui.
+    OCSF_VALIDATE_INTERNAL_PRODUCERS: bool = True
     # Default GLOBAL de enforcement quando a org não tem linha em
     # ``organization_ocsf_policy``: tag_and_pass | quarantine | fail_closed.
     # Default SEGURO = tag_and_pass (nada é descartado). Vira ``quarantine`` na GA;

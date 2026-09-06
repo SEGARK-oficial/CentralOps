@@ -806,7 +806,23 @@ export interface Query {
   dialect?: QueryDialect
   /** passthrough (default) ou sigma. Opcional. */
   spec_kind?: QuerySpecKind
+  /**
+   * Severidade OCSF (0..6 ou 99) da Detection E dos eventos que esta query
+   * emite — o mesmo valor nos três. `null` = default global do servidor.
+   */
+  severity_id?: number | null
+  /** Forma do achado no fio. `null` = default do servidor (`both`). */
+  finding_shape?: QueryFindingShape | null
 }
+
+/**
+ * Como o resultado de uma scheduled query sai para os destinos:
+ * `summary` = um Detection Finding por execução com a tabela em `evidences[]`;
+ * `per_row` = um Detection Finding (e uma Detection) por LINHA, com
+ * device/actor/process no nível da classe — o que um SIEM que achata JSON
+ * consegue indexar; `both` = os dois.
+ */
+export type QueryFindingShape = "summary" | "per_row" | "both"
 
 export interface CreateQueryRequest {
   title: string
@@ -816,6 +832,8 @@ export interface CreateQueryRequest {
   client_ids?: number[]
   dialect?: QueryDialect
   spec_kind?: QuerySpecKind
+  severity_id?: number | null
+  finding_shape?: QueryFindingShape | null
 }
 
 export interface UpdateQueryRequest {
@@ -826,6 +844,8 @@ export interface UpdateQueryRequest {
   client_ids?: number[]
   dialect?: QueryDialect
   spec_kind?: QuerySpecKind
+  severity_id?: number | null
+  finding_shape?: QueryFindingShape | null
 }
 
 export interface Schedule {

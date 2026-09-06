@@ -11,7 +11,21 @@ import { Notice } from "@/components/ui/Notice/Notice"
 import Select from "@/components/ui/Select/Select"
 import { Textarea } from "@/components/ui/Textarea/Textarea"
 import { useForm } from "@/hooks/useForm"
-import type { Client, Query, QueryCapabilityRead, QueryDialect, QuerySpecKind } from "@/types"
+import type {
+  Client,
+  Query,
+  QueryCapabilityRead,
+  QueryDialect,
+  QueryFindingShape,
+  QuerySpecKind,
+} from "@/types"
+import {
+  DEFAULT_QUERY_FINDING_SHAPE,
+  DEFAULT_QUERY_SEVERITY,
+  QUERY_FINDING_SHAPE_HELP,
+  QUERY_FINDING_SHAPE_OPTIONS,
+  QUERY_SEVERITY_OPTIONS,
+} from "./queryOptions"
 
 const SPEC_KIND_OPTIONS = [
   { value: "", label: "Padrão (passthrough)" },
@@ -69,9 +83,13 @@ export const EditQueryModal: React.FC<EditQueryModalProps> = ({
       client_ids: [] as number[],
       dialect: undefined as QueryDialect | undefined,
       spec_kind: undefined as QuerySpecKind | undefined,
+      severity_id: DEFAULT_QUERY_SEVERITY as number,
+      finding_shape: DEFAULT_QUERY_FINDING_SHAPE as QueryFindingShape,
     },
     validate: validateForm,
     onSubmit: async (formData) => {
+      // O payload é allow-list COMPLETA: campo fora daqui volta ao default no
+      // servidor. Os dois novos entram na mesma lista da hidratação abaixo.
       await onSubmit({
         title: formData.title,
         description: formData.description,
@@ -80,6 +98,8 @@ export const EditQueryModal: React.FC<EditQueryModalProps> = ({
         client_ids: formData.client_ids,
         dialect: formData.dialect,
         spec_kind: formData.spec_kind,
+        severity_id: formData.severity_id,
+        finding_shape: formData.finding_shape,
       })
       onClose()
     },
@@ -104,6 +124,8 @@ export const EditQueryModal: React.FC<EditQueryModalProps> = ({
       setFieldValue("client_ids", query.client_ids || [])
       setFieldValue("dialect", query.dialect ?? undefined)
       setFieldValue("spec_kind", query.spec_kind ?? undefined)
+      setFieldValue("severity_id", query.severity_id ?? DEFAULT_QUERY_SEVERITY)
+      setFieldValue("finding_shape", query.finding_shape ?? DEFAULT_QUERY_FINDING_SHAPE)
       return
     }
 
@@ -208,6 +230,28 @@ export const EditQueryModal: React.FC<EditQueryModalProps> = ({
               }
               placeholder="Padrão (passthrough)"
               helperText="passthrough = query literal; sigma = tradução automática via pySigma."
+              disabled={formBusy}
+            />
+          </div>
+
+          <div>
+            <Select
+              label="Severidade do achado"
+              options={QUERY_SEVERITY_OPTIONS}
+              value={values.severity_id ?? DEFAULT_QUERY_SEVERITY}
+              onChange={(value) => setFieldValue("severity_id", Number(value))}
+              helperText="Vai na Detection e nos eventos enviados aos destinos (PRI do syslog, level da regra)."
+              disabled={formBusy}
+            />
+          </div>
+
+          <div>
+            <Select
+              label="Forma do achado nos destinos"
+              options={QUERY_FINDING_SHAPE_OPTIONS}
+              value={values.finding_shape ?? DEFAULT_QUERY_FINDING_SHAPE}
+              onChange={(value) => setFieldValue("finding_shape", value as QueryFindingShape)}
+              helperText={QUERY_FINDING_SHAPE_HELP}
               disabled={formBusy}
             />
           </div>
