@@ -40,8 +40,8 @@ from pydantic import BaseModel, Field, field_validator
 
 from ..contract import EnrichContext, EnricherCapabilities, EnricherRegistration
 from ..registry import register
-from ..runtime import DictLookupTable
-from ..stix import extract_observable_from_pattern, is_expired
+from ..runtime import ExpiringLookupTable, DictLookupTable
+from ..stix import _bump, extract_observable_from_pattern, is_expired
 
 logger = logging.getLogger(__name__)
 
@@ -223,6 +223,7 @@ class OpenCTIEnricher:
     async def load(self, ctx: EnrichContext) -> DictLookupTable:
         token = await _resolve_token(ctx)
         rows: Dict[str, Dict[str, Any]] = {}
+        stats: Dict[str, int] = {}
         headers = {"Content-Type": "application/json"}
         if token:
             headers["Authorization"] = f"Bearer {token}"
@@ -272,8 +273,8 @@ class OpenCTIEnricher:
                 for edge in edges:
                     node = (edge or {}).get("node") or {}
                     parsed = (
-                        _parse_indicator(node, self._cfg.min_score) if is_indicators
-                        else _parse_node(node, self._cfg.min_score)
+                        _parse_indicator(node, self._cfg.min_score, stats) if is_indicators
+                        else _parse_node(node, self._cfg.min_score, stats)
                     )
                     if parsed is not None:
                         key, value = parsed
@@ -293,17 +294,27 @@ class OpenCTIEnricher:
                     extra={"event": "enrich.opencti.truncated"},
                 )
 
-        return DictLookupTable(rows)
+        if stats:
+            logger.info(
+                "OpenCTI: %d observáveis carregados, descartados na carga: %s",
+                len(rows), dict(sorted(stats.items())),
+                extra={"event": "enrich.opencti.loaded", "skipped": stats},
+            )
+        return ExpiringLookupTable(rows, enricher="opencti", load_stats=stats)
 
 
-def _parse_node(node: Mapping[str, Any], min_score: int) -> Optional[tuple]:
+def _parse_node(
+    node: Mapping[str, Any], min_score: int, stats: Optional[Dict[str, int]] = None
+) -> Optional[tuple]:
     """Converte um nó do OpenCTI numa linha da tabela, ou ``None`` para descartar."""
     value = node.get("observable_value")
     if not isinstance(value, str) or not value.strip():
+        _bump(stats, "invalid_value")
         return None
     entity_type = str(node.get("entity_type") or "")
     kind = _ENTITY_TO_KIND.get(entity_type)
     if kind is None:
+        _bump(stats, "unsupported_type")
         return None
 
     score = node.get("x_opencti_score")
@@ -312,6 +323,7 @@ def _parse_node(node: Mapping[str, Any], min_score: int) -> Optional[tuple]:
     except (TypeError, ValueError):
         score_i = 0
     if score_i < min_score:
+        _bump(stats, "low_confidence")
         return None
 
     markings = [
@@ -341,7 +353,9 @@ def _parse_node(node: Mapping[str, Any], min_score: int) -> Optional[tuple]:
     }
 
 
-def _parse_indicator(node: Mapping[str, Any], min_score: int) -> Optional[tuple]:
+def _parse_indicator(
+    node: Mapping[str, Any], min_score: int, stats: Optional[Dict[str, int]] = None
+) -> Optional[tuple]:
     """Converte um Indicator STIX numa linha da tabela.
 
     Descarta o que não deve gerar alerta: revogado, fora da validade, abaixo do
@@ -351,10 +365,12 @@ def _parse_indicator(node: Mapping[str, Any], min_score: int) -> Optional[tuple]
     de escrever.
     """
     if node.get("revoked") is True:
+        _bump(stats, "revoked")
         return None
 
     parsed = extract_observable_from_pattern(str(node.get("pattern") or ""))
     if parsed is None:
+        _bump(stats, "unsupported_pattern")
         return None
     kind, value = parsed
 
@@ -363,10 +379,12 @@ def _parse_indicator(node: Mapping[str, Any], min_score: int) -> Optional[tuple]
     except (TypeError, ValueError):
         score_i = 0
     if score_i < min_score:
+        _bump(stats, "low_confidence")
         return None
 
     valid_until = node.get("valid_until")
     if is_expired(valid_until):
+        _bump(stats, "expired")
         return None
 
     markings = [

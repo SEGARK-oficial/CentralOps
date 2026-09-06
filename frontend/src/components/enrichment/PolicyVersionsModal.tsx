@@ -334,8 +334,13 @@ export const PolicyVersionsModal: React.FC<PolicyVersionsModalProps> = ({
         <div className="flex items-center justify-between rounded-lg border border-border p-4">
           <div>
             <p className="text-sm font-medium">
-              {policy.enabled ? t("policies.versions.enabledNow") : t("policies.versions.disabledNow")}
+              {policy.is_active
+                ? t("policies.versions.enabledNow")
+                : policy.enabled
+                  ? t("policies.versions.shadowedNow")
+                  : t("policies.versions.disabledNow")}
             </p>
+            <p className="text-xs text-muted">{t("policies.versions.onePerOrg")}</p>
             {!policy.current_version_id && (
               <p className="text-xs text-muted">{t("policies.versions.needsVersionToEnable")}</p>
             )}

@@ -38,7 +38,7 @@ from pydantic import BaseModel, Field, field_validator
 
 from ..contract import EnrichContext, EnricherCapabilities, EnricherRegistration
 from ..registry import register
-from ..runtime import DictLookupTable
+from ..runtime import ExpiringLookupTable, DictLookupTable
 from ..stix import parse_indicator
 
 logger = logging.getLogger(__name__)
@@ -168,6 +168,7 @@ class TaxiiEnricher:
         secret = await _resolve_secret(ctx)
         headers = {"Accept": _MEDIA_TYPE, **self._auth_header(secret)}
         rows: Dict[str, Dict[str, Any]] = {}
+        stats: Dict[str, int] = {}
         endpoint = self._objects_url()
 
         timeout = aiohttp.ClientTimeout(total=self._cfg.timeout_s)
@@ -203,7 +204,8 @@ class TaxiiEnricher:
                     if not isinstance(obj, Mapping):
                         continue
                     parsed = parse_indicator(
-                        obj, min_confidence=self._cfg.min_confidence, source_name="taxii"
+                        obj, min_confidence=self._cfg.min_confidence, source_name="taxii",
+                        stats=stats,
                     )
                     if parsed is not None:
                         key, value = parsed
@@ -232,7 +234,13 @@ class TaxiiEnricher:
                 self._cfg.max_pages, len(rows),
                 extra={"event": "enrich.taxii.truncated"},
             )
-        return DictLookupTable(rows)
+        if stats:
+            logger.info(
+                "TAXII: %d indicadores carregados, descartados na carga: %s",
+                len(rows), dict(sorted(stats.items())),
+                extra={"event": "enrich.taxii.loaded", "skipped": stats},
+            )
+        return ExpiringLookupTable(rows, enricher="taxii", load_stats=stats)
 
 
 async def _resolve_secret(ctx: EnrichContext) -> Optional[str]:

@@ -169,8 +169,12 @@
         "emptyValues": "Adicione ao menos um valor. Lista vazia compila mas nunca casa, e a regra nunca roda."
       },
       "cannotChain": "Esta regra já tem outra condição. Um gate tem uma chave só, então encadear apagaria a condição que você escreveu.",
-      "keySourceHintMapped": "Sugestões vêm dos campos que os mappings ativos desta organização de fato escrevem. Um caminho fora da lista compila mas nunca casa."
-    }
+      "keySourceHintMapped": "Sugestões vêm dos campos que os mappings ativos desta organização de fato escrevem. Um caminho fora da lista compila mas nunca casa.",
+      "shadowedNow": "Habilitada, mas outra política mais antiga está em vigor nesta organização. Desabilite-a para esta valer.",
+      "onePerOrg": "Só uma política é aplicada por organização: a habilitada mais antiga."
+    },
+    "active": "em vigor",
+    "shadowed": "habilitada, não aplicada"
   },
   "errorTitle": "Falha ao carregar o enriquecimento",
   "sources": {

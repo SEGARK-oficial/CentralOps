@@ -174,6 +174,15 @@ def create_organization(
     )
     try:
         org = repo.add(org)
+        # Pacote IOC → Detection já vem instalado (desabilitado) em toda org nova.
+        try:
+            from ..collectors.inflight.rule_pack import install_pack
+
+            install_pack(repo.db, org)
+            repo.db.commit()
+        except Exception:  # noqa: BLE001 — o pacote nunca impede criar a org
+            repo.db.rollback()
+            logger.warning("org.on_create: falha ao instalar o pacote IOC", exc_info=True)
     except IntegrityError:
         repo.db.rollback()
         raise ApiError(

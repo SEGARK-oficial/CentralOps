@@ -197,6 +197,11 @@ _SPEC: Dict[str, Dict[str, Any]] = {
     # pressão de memória antes do cgroup-OOM.
     "collector_enrich_table_bytes": {"kind": "gauge", "unit": "By", "labels": ("enricher", "org_id")},
     "collector_enrich_table_entries": {"kind": "gauge", "unit": "1", "labels": ("enricher", "org_id")},
+    # Indicadores que a carga DESCARTOU (revoked/expired/low_confidence/…) e os
+    # que venceram DEPOIS da carga e foram recusados no HIT (``expired_at_lookup``).
+    # É o "ciclo de vida" do STIX (W4.5): sem isto, um feed com 80% de intel
+    # vencida parece um feed de 20% do tamanho, sem ninguém saber por quê.
+    "collector_enrich_indicators_skipped_total": {"kind": "counter", "unit": "1", "labels": ("enricher", "reason")},
     # Ciclos em que o orçamento de enriquecimento remoto não coube e o estágio
     # foi desligado para o ciclo INTEIRO (gate binário — nunca parcial).
     "collector_enrich_budget_exhausted_total": {"kind": "counter", "unit": "1", "labels": ("org_id",)},

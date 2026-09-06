@@ -60,7 +60,11 @@ const enabledPolicy: EnrichmentPolicy = {
   enabled: true,
   current_version_id: "v2",
   rule_count: 2,
+  is_active: true,
 }
+
+// Dado legado: habilitada, mas OUTRA mais antiga é a que o worker aplica.
+const shadowedPolicy: EnrichmentPolicy = { ...enabledPolicy, id: "p3", name: "sombreada", is_active: false }
 
 const disabledNoVersionPolicy: EnrichmentPolicy = {
   id: "p2",
@@ -135,6 +139,24 @@ const dryRunResponse: EnrichmentDryRunResponse = {
 }
 
 describe("PolicyVersionsModal", () => {
+  it("política habilitada mas não aplicada diz que outra está em vigor", async () => {
+    mockedApi.listEnrichmentPolicyVersions.mockResolvedValue(versions)
+    render(
+      <PolicyVersionsModal
+        open
+        policy={shadowedPolicy}
+        enrichers={enrichers}
+        tables={tables}
+        onClose={vi.fn()}
+        onChanged={vi.fn()}
+      />,
+    )
+    expect(await screen.findByText(/outra política mais antiga está em vigor/i)).toBeInTheDocument()
+    expect(screen.getByText(/Só uma política é aplicada por organização/i)).toBeInTheDocument()
+    // O botão continua "Desabilitar": é assim que se libera a vaga para a outra.
+    expect(screen.getByRole("button", { name: "Desabilitar" })).toBeInTheDocument()
+  })
+
   it("mostra estado ativo e permite desabilitar", async () => {
     mockedApi.listEnrichmentPolicyVersions.mockResolvedValue(versions)
     render(

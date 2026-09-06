@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import re
 from datetime import datetime, timezone
-from typing import Any, Mapping, Optional, Tuple
+from typing import Any, Dict, Mapping, Optional, Tuple
 
 __all__ = [
     "STIX_TYPE_TO_KIND",
@@ -61,6 +61,22 @@ def extract_observable_from_pattern(pattern: str) -> Optional[Tuple[str, str]]:
     return kind, m.group(2)
 
 
+def valid_until_epoch(valid_until: Any) -> Optional[float]:
+    """``valid_until`` ISO-8601 → epoch (s), ou ``None`` se ausente/ilegível.
+
+    Pré-parseado UMA vez na carga para o :class:`~.runtime.ExpiringLookupTable`
+    comparar float no HIT em vez de reparsear a string por evento."""
+    if not isinstance(valid_until, str) or not valid_until:
+        return None
+    try:
+        exp = datetime.fromisoformat(valid_until.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if exp.tzinfo is None:
+        exp = exp.replace(tzinfo=timezone.utc)
+    return exp.timestamp()
+
+
 def is_expired(valid_until: Any, *, now: Optional[datetime] = None) -> bool:
     """O indicador passou da validade?
 
@@ -79,11 +95,25 @@ def is_expired(valid_until: Any, *, now: Optional[datetime] = None) -> bool:
     return exp < (now or datetime.now(timezone.utc))
 
 
+#: Motivos de descarte na carga (W4.5). São as chaves de ``stats`` em
+#: :func:`parse_indicator` e os labels da métrica
+#: ``collector_enrich_indicators_skipped``; a UI lê pelo log de atividade.
+SKIP_REASONS: Tuple[str, ...] = (
+    "not_indicator", "revoked", "expired", "low_confidence", "unsupported_pattern",
+)
+
+
+def _bump(stats: Optional[Dict[str, int]], reason: str) -> None:
+    if stats is not None:
+        stats[reason] = stats.get(reason, 0) + 1
+
+
 def parse_indicator(
     obj: Mapping[str, Any],
     *,
     min_confidence: int = 0,
     source_name: str = "taxii",
+    stats: Optional[Dict[str, int]] = None,
 ) -> Optional[Tuple[str, dict]]:
     """Indicator STIX 2.1 → ``(chave, linha)``, ou ``None`` para descartar.
 
@@ -100,10 +130,13 @@ def parse_indicator(
     miss de 100% sem erro nenhum.
     """
     if obj.get("type") != "indicator":
+        _bump(stats, "not_indicator")
         return None
     if obj.get("revoked") is True:
+        _bump(stats, "revoked")
         return None
     if is_expired(obj.get("valid_until")):
+        _bump(stats, "expired")
         return None
 
     try:
@@ -111,10 +144,12 @@ def parse_indicator(
     except (TypeError, ValueError):
         confidence = 0
     if confidence < min_confidence:
+        _bump(stats, "low_confidence")
         return None
 
     parsed = extract_observable_from_pattern(str(obj.get("pattern") or ""))
     if parsed is None:
+        _bump(stats, "unsupported_pattern")
         return None
     kind, value = parsed
 

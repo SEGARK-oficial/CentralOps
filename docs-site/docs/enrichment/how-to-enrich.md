@@ -114,9 +114,9 @@ O resultado mostra o evento **depois** de enriquecido, quantos hits/misses/erros
 Escreva uma mensagem de commit e clique **Publicar versão**. Com uma versão publicada, o botão **Habilitar** no topo do modal fica disponível, clique nele para a política passar a valer para eventos novos desta organização.
 
 :::warning[Uma política por organização]
-O worker aplica **uma só** política por organização: a mais antiga que estiver habilitada e tiver versão publicada. Habilitar uma segunda não soma nada, e a segunda simplesmente não roda.
+O worker aplica **uma só** política por organização. Por isso o console **recusa habilitar uma segunda** enquanto outra estiver em vigor (a API devolve `409 enrichment.policy_already_active` com o nome da vigente): para trocar, desabilite a antiga e habilite a nova.
 
-Isso costuma aparecer como "editei a política e não mudou nada": a edição foi na política errada. A aba **Execução** mostra qual está valendo, no selo ao lado de "Aproveitamento por regra". Para trocar qual vale, desabilite a antiga.
+Na aba **Políticas**, o selo diz o que está acontecendo, não só o que foi pedido: **em vigor** é a que o worker aplica; **habilitada, não aplicada** só aparece em instalações anteriores a esta regra, que ainda tenham duas ligadas — o worker aplica a mais antiga e avisa no log (`enrich.policy_shadowed`). A aba **Execução** mostra a mesma informação ao lado de "Aproveitamento por regra".
 :::
 
 :::warning[Publicar substitui todas as regras]
@@ -138,6 +138,26 @@ Para saber se o enriquecimento está **de fato funcionando**, use a aba **Execu�
 **Aproveitamento por regra** mostra quanto cada regra casou na janela. Uma regra que vinha em 90% de acerto e foi a zero **com as consultas funcionando** mudou de formato na origem, não de credencial. Regra que não disparou nenhuma vez aparece como "Não disparou na janela", não como 0% de acerto: as duas situações pedem ações opostas, e confundi-las manda você mexer na tabela quando o problema é a política estar desligada.
 
 O log guarda as últimas 200 consultas por organização, por 24 horas. Serve para diagnóstico imediato; para histórico longo, use as métricas exportadas por OpenTelemetry.
+
+Para fontes de threat intel (TAXII, OpenCTI), o registro de carga também diz **quanto foi descartado e por quê** (`descartados na carga: expired=4800, revoked=12`). Uma tabela pequena com muito descarte é um feed velho, não um feed pequeno. Um indicador que vence *depois* da carga deixa de casar na hora, sem esperar a próxima carga; isso aparece na métrica `collector_enrich_indicators_skipped_total{reason="expired_at_lookup"}`.
+
+### 8. Do IOC à Detection: o pacote embarcado
+
+Enriquecer só marca o evento. Para a marca virar um alerta, a detecção em voo precisa de uma regra, e a rota precisa mandar o alerta ao SIEM. As três peças já vêm ligadas por uma convenção de **tags**:
+
+| Tag na regra de enriquecimento | O que significa | Regra do pacote que dispara |
+|---|---|---|
+| `ioc:ip` | o IP casou uma lista de bloqueio ou um indicador | **[IOC] Endereço em lista de bloqueio** (agrupa por IP de origem) |
+| `ioc:hash` | o hash de arquivo casou um indicador | **[IOC] Hash de arquivo malicioso** (agrupa pelo host) |
+| `ioc:domain` | o domínio ou URL casou um indicador | **[IOC] Domínio de comando e controle** (agrupa pelo host) |
+
+Toda organização já tem essas três regras em **Detecção → Regras**, **desabilitadas**: ligar uma delas muda o que chega ao SIEM, e isso é decisão sua. Para usar:
+
+1. Na regra de enriquecimento que consulta a sua fonte de threat intel, acrescente `tags: ["ioc:ip"]` (ou `ioc:hash` / `ioc:domain`).
+2. Habilite a regra correspondente do pacote. Ela avalia `_centralops.enrichment_tags` por evento, no mesmo ciclo em que o enriquecimento rodou.
+3. Se quiser mandar **só o match** ao SIEM, crie uma rota com a condição `detection_matched` e deixe a rota padrão descartar o resto.
+
+Apagar uma regra do pacote é definitivo: o boot não a recria. Regras do pacote aparecem com `template_key` (`ioc.ip_blocklist`, `ioc.malicious_hash`, `ioc.c2_domain`) na API, para você distinguir das suas.
 
 ## Via API (automação e scripts)
 
