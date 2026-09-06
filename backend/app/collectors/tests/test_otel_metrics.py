@@ -274,7 +274,9 @@ def test_every_facade_maps_to_spec_and_vice_versa():
     # (INFLIGHT_MAX_DETECTIONS_PER_FLUSH) conta o que JÁ se perdeu; esta série é
     # o único sinal da APROXIMAÇÃO — sem ela o custo some dentro de
     # collector_task_duration_seconds, que é dominada pela coleta.
-    assert len(facade_names) == 64
+    # +1 (W4.5): collector_enrich_indicators_skipped_total — descartes na carga
+    # e vencimento no HIT das tabelas de threat intel. 64 → 65.
+    assert len(facade_names) == 65
     # O catálogo tem as síncronas + ao menos o observável collector_up.
     assert "collector_up" in otel_metrics._SPEC
     assert "collector_up" not in facade_names
