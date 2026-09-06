@@ -769,6 +769,7 @@ def _run_lightweight_migrations() -> None:
                 ("schedule_last_error", "TEXT"),
                 ("max_dedup_keys", "INTEGER"),
                 ("template_key", "VARCHAR"),
+                ("legs_json", "TEXT"),
             ):
                 if col not in corr_rule_columns:
                     conn.execute(text(f"ALTER TABLE correlation_rules ADD COLUMN {col} {ddl}"))

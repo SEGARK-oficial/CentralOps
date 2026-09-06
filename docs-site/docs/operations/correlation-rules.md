@@ -174,6 +174,38 @@ Se o campo estiver preenchido mas os valores forem inválidos ou ausentes nos ev
 
 Resultado: quando uma busca federada terminar, se o resultado contiver 5 ou mais eventos de autenticação do mesmo IP dentro de uma janela de 5 minutos, uma Detecção é aberta. A mesma regra não dispara novamente para aquele IP pelos próximos 60 minutos, mesmo que outras buscas sejam executadas.
 
+## Como funciona: tipo sequence (entre fontes, em voo)
+
+Uma regra `rule_type='sequence'` com `eval_mode='inflight'` junta eventos de **fontes diferentes** pela mesma entidade dentro de uma janela: por exemplo, uma falha de MFA no Okta e um processo suspeito no Sophos para o **mesmo usuário** em 15 minutos. Cada fonte é uma **perna**, e cada perna diz onde está a chave de junção nela — é isso que resolve o fato de o Okta escrever `normalized.user.name` e o Sophos escrever `normalized.actor.user.name`.
+
+```json
+{
+  "rule_type": "sequence",
+  "eval_mode": "inflight",
+  "window_seconds": 900,
+  "legs_json": [
+    { "label": "okta_mfa_fail", "stream": "okta.system_log",
+      "where": [ { "field": "normalized.class_uid", "op": "eq", "value": 3002 },
+                 { "field": "normalized.status_id", "op": "eq", "value": 2 } ],
+      "join_path": "normalized.user.name" },
+    { "label": "sophos_process", "stream": "sophos.siem_event",
+      "where": [ { "field": "normalized.class_uid", "op": "eq", "value": 2004 } ],
+      "join_path": "normalized.actor.user.name" }
+  ]
+}
+```
+
+1. **Cada perna é avaliada como uma regra comum** no ciclo de coleta da fonte dela (o `stream` da perna vira uma cláusula a mais). O caminho por evento continua puro: nada de estado nem I/O ali.
+2. **No fim do ciclo**, cada perna casada é anotada no Redis sob a chave (regra, valor de junção), com um ponteiro para o evento e TTL igual à janela. A perna do Sophos pode chegar num ciclo, num worker e numa integração diferentes da perna do Okta.
+3. **Dispara** quando todas as pernas foram vistas para o mesmo valor dentro da janela. A Detecção nasce com um ponteiro por perna (`unmapped.legs[]` no evento 2004): id do evento, stream, plataforma e instante de cada um. Nenhum payload de cliente viaja.
+4. **Fecha o estado**: a próxima Detecção da mesma entidade exige pernas novas.
+
+Limites: mínimo de 2 e máximo de `INFLIGHT_MAX_LEGS` (4) pernas; a janela é obrigatória e respeita `INFLIGHT_MAX_WINDOW_SECONDS`; sem Redis a regra não dispara (fail-closed, contado em `sequence_unavailable`); uma chave que ainda não fechou aparece em `sequence_below`. A v1 é um **conjunto**: a ordem entre as pernas não é exigida.
+
+:::note[Disponibilidade]
+O motor está no Core. O formulário de pernas na tela de regras chega com a versão do console Enterprise que expõe `rule_type` e `legs_json`; até lá, a regra pode ser criada pela API.
+:::
+
 ## Permissões
 
 | Ação | Permissão | Quem tem |
@@ -327,7 +359,7 @@ Modo inflight: você configurou `group_by_field` apontando para um campo que nã
 ### Roadmap
 
 - **Batch**: gatilho contínuo no pipeline (inflight já cobre isto). Agendamento próprio (sem precisar rodar busca manual).
-- **Tipo**: sequência de eventos (A → B → C), agregações (soma, média), regras SQL custom.
+- **Tipo**: sequência ORDENADA (A → B → C; a v1 do tipo `sequence` é conjunto, sem ordem), agregações (soma, média), regras SQL custom.
 - **Batch: sem `timestamp_field`**: fallback automático para timestamp de ingestão (hoje a janela é desligada em silêncio).
 
 ## Passo a passo

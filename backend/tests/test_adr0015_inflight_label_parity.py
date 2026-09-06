@@ -27,6 +27,7 @@ errou, mas porque a sonda era cega para o TIPO do instrumento.
 
 from __future__ import annotations
 
+import json
 import os
 
 os.environ.setdefault("APP_MASTER_KEY", "test-master-key-for-centralops-suite-12345")
@@ -81,6 +82,16 @@ def _rows_covering_every_reject_reason() -> list[types.SimpleNamespace]:
         # compilam; a janela (ou a contagem) é que não cabe.
         _row(6, ok, group_by="raw.u", min_count=5, window_seconds=int(settings.INFLIGHT_MAX_WINDOW_SECONDS) + 1),
         _row(7, ok, group_by="raw.u", min_count=int(settings.INFLIGHT_MAX_WINDOW_COUNT) + 1, window_seconds=60),
+        # Sequência entre fontes (X1): pernas malformadas, acima do teto e com
+        # junção fora da raiz do envelope.
+        _row(8, ok, rule_type="sequence", legs_json="[]", window_seconds=60),                 # bad_legs
+        _row(9, ok, rule_type="sequence", window_seconds=60, legs_json=json.dumps(
+            [{"where": [{"field": "a", "op": "eq", "value": "x"}], "join_path": "raw.u"}]
+            * (int(settings.INFLIGHT_MAX_LEGS) + 1)
+        )),                                                                                    # legs_over_cap
+        _row(10, ok, rule_type="sequence", window_seconds=60, legs_json=json.dumps(
+            [{"where": [{"field": "a", "op": "eq", "value": "x"}], "join_path": "u"}] * 2
+        )),                                                                                    # join_root
     ]
     # As válidas: precisam existir para o gauge ``rules_loaded`` sair > 0 e para
     # ``len(rows) >= cap`` disparar ``truncated``.
@@ -204,6 +215,14 @@ async def _exercise(monkeypatch: pytest.MonkeyPatch, record_counter=None) -> Non
 
     monkeypatch.setattr(obs, "_redis", lambda: _fakeredis.FakeRedis(decode_responses=True))
     acc.add(_rule(13, min_count=3, window_seconds=60), {"u": "w"}, organization_id=7)
+    # sequence_below (X1): só uma das duas pernas vista, com Redis falso.
+    acc.add(
+        CompiledInflightRule(
+            rule_id=14, name="r14", severity_id=4, suppression_window_seconds=3600,
+            group_by_path=("u",), clauses=(), window_seconds=60, leg_index=0, legs_total=2,
+        ),
+        {"u": "seq"}, organization_id=7,
+    )
 
     def _boom(*_a: object, **_k: object) -> int:                              # flush_lost
         raise RuntimeError("Postgres indisponível")
@@ -255,6 +274,12 @@ async def _exercise(monkeypatch: pytest.MonkeyPatch, record_counter=None) -> Non
     acc_ok.pending["inflight:7:21:*"] = {"rule": _rule(21), "integration_id": 1}
     # window_unavailable (W1.6): regra com janela + Redis fora ⇒ fail-closed.
     acc_ok.pending["inflight:7:22:*"] = {"rule": _rule(22, min_count=2, window_seconds=60), "integration_id": 1, "hits": 1}
+    # sequence_unavailable (X1): perna de sequência com o Redis fora.
+    _leg = CompiledInflightRule(
+        rule_id=23, name="r23", severity_id=4, suppression_window_seconds=3600,
+        group_by_path=("u",), clauses=(), window_seconds=60, leg_index=0, legs_total=2,
+    )
+    acc_ok.pending["inflight:7:23:seq:x"] = {"rule": _leg, "integration_id": 1, "hits": 1, "legs": {0: {}}}
 
     class _BrokenRedis:
         def pipeline(self):

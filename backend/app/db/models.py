@@ -1042,6 +1042,13 @@ class CorrelationRule(Base):
     # 74% dos ciclos — o número certo depende do par (stream, group_by), e só a
     # regra sabe qual é. O teto GLOBAL por flush segue valendo por cima.
     max_dedup_keys = Column(Integer, nullable=True)
+    # Sequência entre fontes (X1, só ``eval_mode='inflight'`` +
+    # ``rule_type='sequence'``): JSON com as PERNAS —
+    # ``[{"label","stream","where":[...],"join_path"}]``. Cada perna casa um
+    # evento de uma fonte; a regra dispara quando TODAS as pernas foram vistas
+    # com o mesmo valor de ``join_path`` dentro de ``window_seconds``. NULL nas
+    # regras clássicas.
+    legs_json = Column(Text, nullable=True)
     # ── threshold ────────────────────────────────────────────────────────
     # Campo (dotted path) p/ agrupar (ex.: "agent.name", "host", "data.srcip").
     group_by_field = Column(String, nullable=True)

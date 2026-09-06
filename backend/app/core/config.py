@@ -625,6 +625,13 @@ class Settings(BaseSettings):
     # o CUSTO dele sem que ele tenha pedido. ADR-0015 §7 é explícita sobre não
     # inverter default que afeta dado. Quem quer, liga.
     INFLIGHT_EMIT_OCSF_EVENT: bool = False
+    # Sequência entre fontes (X1): teto de PERNAS por regra ``rule_type=
+    # 'sequence'``. Cada perna é uma regra a mais para o matcher (custo por
+    # evento cresce com o número de pernas do conjunto, não com a janela) e
+    # um campo a mais no hash de estado por chave de junção. 4 cobre "MFA
+    # falhou + processo suspeito + IP novo + EDR" — acima disso a regra
+    # deixou de ser uma sequência e virou um relatório.
+    INFLIGHT_MAX_LEGS: int = 4
     # A TRIAGEM de uma Detection (open → ack → closed) sai como evento OCSF
     # 2004 de Update/Close pelo roteamento normal, com o mesmo
     # ``finding_info.uid`` (= ``dedup_key``) do achado original. É o que

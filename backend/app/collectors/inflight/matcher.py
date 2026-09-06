@@ -72,6 +72,15 @@ class CompiledInflightRule:
     #: ou ``window_seconds == 0`` = comportamento clássico (1 match = Detection).
     min_count: int = 1
     window_seconds: int = 0
+    #: Sequência entre fontes (X1): uma regra ``rule_type='sequence'`` é
+    #: EXPANDIDA na compilação em uma ``CompiledInflightRule`` por PERNA, todas
+    #: com o mesmo ``rule_id``. Para o matcher cada perna é uma regra comum
+    #: (AND das cláusulas dela); quem junta as pernas é o acumulador, pela
+    #: chave ``inflight:{org}:{rule}:seq:{valor_de_junção}``. ``None`` = regra
+    #: clássica, sem perna.
+    leg_index: int | None = None
+    legs_total: int = 0
+    leg_label: str = ""
 
 
 @dataclass(frozen=True, slots=True)
