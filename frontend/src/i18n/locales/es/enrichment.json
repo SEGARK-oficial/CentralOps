@@ -169,8 +169,12 @@
         "emptyValues": "Agregue al menos un valor. Una lista vacía compila pero nunca coincide, así que la regla nunca se ejecuta."
       },
       "cannotChain": "Esta regla ya tiene otra condición. Un gate tiene una sola clave, así que encadenar borraría la condición que escribió.",
-      "keySourceHintMapped": "Las sugerencias vienen de los campos que los mappings activos de esta organización realmente escriben. Una ruta fuera de la lista compila pero nunca coincide."
-    }
+      "keySourceHintMapped": "Las sugerencias vienen de los campos que los mappings activos de esta organización realmente escriben. Una ruta fuera de la lista compila pero nunca coincide.",
+      "shadowedNow": "Activada, pero otra política más antigua está vigente en esta organización. Desactívala para que esta se aplique.",
+      "onePerOrg": "Solo se aplica una política por organización: la activada más antigua."
+    },
+    "active": "vigente",
+    "shadowed": "activada, no aplicada"
   },
   "errorTitle": "Error al cargar el enriquecimiento",
   "sources": {

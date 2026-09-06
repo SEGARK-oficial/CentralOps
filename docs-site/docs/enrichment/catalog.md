@@ -107,7 +107,7 @@ O guard de egresso do projeto recusa URL com caminho, de propósito, e é ele qu
 
 **O que é descartado na carga**, e por quê:
 
-- Indicador **revogado** ou **fora da validade**. Intel vencida é a maior fonte de falso positivo num feed, e filtrar aqui evita depender de alguém lembrar de escrever a condição em toda regra nova.
+- Indicador **revogado** ou **fora da validade**. Intel vencida é a maior fonte de falso positivo num feed, e filtrar aqui evita depender de alguém lembrar de escrever a condição em toda regra nova. Cada descarte é **contado por motivo** (`expired`, `revoked`, `low_confidence`, `unsupported_pattern`) no registro de carga da aba Execução e na métrica `collector_enrich_indicators_skipped_total`; e um indicador que vence *depois* da carga deixa de casar no ato (`reason="expired_at_lookup"`), sem esperar a próxima carga.
 - Indicador **abaixo do `min_confidence`**.
 - Padrão STIX **composto** (`AND`/`OR`). Casar um evento contra ele exigiria avaliar a expressão inteira; avaliar só o primeiro termo daria hit errado em silêncio.
 - Objetos que não são `indicator`. O filtro `match[type]=indicator` roda **no servidor**, então malware, campanhas e relacionamentos nem trafegam.
@@ -173,7 +173,7 @@ Um observável responde "esse IP está na base". Um indicador responde "esse IP 
 
 | Campo | Por que importa |
 |---|---|
-| `valid_until` e `revoked` | Indicador expirado ou revogado é **descartado na carga**. Intel vencida é a maior fonte de falso positivo em feed de threat intel: sem esse corte, o alerta dispara por um IP que foi C2 há dois anos e hoje pertence a uma CDN |
+| `valid_until` e `revoked` | Indicador expirado ou revogado é **descartado na carga**, e o descarte é contado por motivo no registro de carga. Um indicador que vence depois da carga deixa de casar no ato (`expired_at_lookup`). Intel vencida é a maior fonte de falso positivo em feed de threat intel: sem esse corte, o alerta dispara por um IP que foi C2 há dois anos e hoje pertence a uma CDN |
 | `confidence` | Separa o que um analista marcou como confiável do que entrou por importação automática |
 | `detection` | O indicador foi marcado como acionável para detecção |
 | `kill_chain_phases` | A fase (`command-and-control`, `delivery`, `exfiltration`). É o que transforma um hit em contexto acionável no SIEM |

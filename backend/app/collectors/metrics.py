@@ -204,6 +204,7 @@ ENRICH_RESOLVE_LATENCY = _instrument("collector_enrich_resolve_seconds")
 ENRICH_ERRORS = _instrument("collector_enrich_errors_total")
 ENRICH_TABLE_BYTES = _instrument("collector_enrich_table_bytes")
 ENRICH_TABLE_ENTRIES = _instrument("collector_enrich_table_entries")
+ENRICH_INDICATORS_SKIPPED = _instrument("collector_enrich_indicators_skipped_total")
 ENRICH_BUDGET_EXHAUSTED = _instrument("collector_enrich_budget_exhausted_total")
 # eventos suprimidos por assinatura (rate-limit por rota).
 SUPPRESSED = _instrument("collector_suppressed_total")

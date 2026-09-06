@@ -114,6 +114,68 @@ class DictLookupTable:
         return self._bytes
 
 
+class ExpiringLookupTable(DictLookupTable):
+    """Tabela de indicadores que honra ``valid_until`` NO HIT (W4.5).
+
+    A carga já descarta o vencido; mas a tabela vive no cache por horas, e um
+    indicador com ``valid_until`` daqui a 20 minutos continuaria sendo HIT até a
+    próxima carga. Aqui o vencimento é checado no lookup, contra um epoch
+    pré-parseado (comparação de float, nada de ``fromisoformat`` por evento), e
+    contado em ``collector_enrich_indicators_skipped_total{reason="expired_at_lookup"}``.
+
+    ``load_stats`` carrega o que a carga descartou, por motivo; o runtime emite
+    isso na métrica e no log de atividade UMA vez por carga.
+    """
+
+    __slots__ = ("_expires", "_enricher", "load_stats")
+
+    def __init__(
+        self,
+        rows: Mapping[str, Any],
+        *,
+        enricher: str,
+        load_stats: Optional[Mapping[str, int]] = None,
+    ) -> None:
+        super().__init__(rows)
+        from .stix import valid_until_epoch
+
+        self._enricher = enricher
+        self.load_stats: Dict[str, int] = dict(load_stats or {})
+        expires: Dict[str, float] = {}
+        for key, row in self._rows.items():
+            if isinstance(row, Mapping):
+                ep = valid_until_epoch(row.get("valid_until"))
+                if ep is not None:
+                    expires[key] = ep
+        self._expires = expires
+
+    def lookup(self, key: str) -> Optional[Mapping[str, Any]]:
+        row = self._rows.get(key)
+        if row is None:
+            return None
+        exp = self._expires.get(key)
+        if exp is not None and exp < time.time():
+            _count_skipped(self._enricher, "expired_at_lookup")
+            return None
+        return row
+
+
+def _count_skipped(enricher: str, reason: str, n: int = 1) -> None:
+    try:
+        from .. import metrics
+
+        metrics.ENRICH_INDICATORS_SKIPPED.labels(enricher=enricher, reason=reason).inc(n)
+    except Exception:  # noqa: BLE001
+        logger.debug("enrich: falha ao contar indicador descartado", exc_info=True)
+
+
+def _load_stats_of(table: Any) -> Dict[str, int]:
+    stats = getattr(table, "load_stats", None)
+    if not isinstance(stats, Mapping):
+        return {}
+    return {str(k): int(v) for k, v in stats.items() if isinstance(v, int) and v > 0}
+
+
 class TableResolution:
     """:class:`~.contract.Resolution` do seam LOCAL — lê tabelas residentes."""
 
@@ -333,11 +395,18 @@ class EnrichRuntime:
                 continue
             if table is not None:
                 tables[rule.rule_id] = table
+                skipped = _load_stats_of(table)
                 await _activity(
                     ctx.organization_id, "table_load", ok=True,
                     rule_id=rule.rule_id, enricher=rule.enricher, source=rule.source,
                     entries=_table_len(table),
                     latency_ms=(time.monotonic() - started) * 1000.0,
+                    # "carregou 1.200" esconde "descartou 4.800 vencidos": o
+                    # motivo do descarte é o que explica uma tabela pequena.
+                    detail=(
+                        "descartados na carga: "
+                        + ", ".join(f"{k}={v}" for k, v in sorted(skipped.items()))
+                    ) if skipped else None,
                 )
         return tables
 
@@ -394,6 +463,8 @@ class EnrichRuntime:
             return None
 
         _set_table_gauges(rule.enricher, ctx.organization_id, table)
+        for reason, n in _load_stats_of(table).items():
+            _count_skipped(rule.enricher, reason, n)
         self._cache[cache_key] = _CachedTable(table=table, version=str(rule.table or ""))
         self._cache_bytes += table.approx_bytes
         self._evict_until_fits()
@@ -904,6 +975,25 @@ def load_policy_for_org(organization_id: Optional[int]) -> Optional[CompiledPoli
             )
             if policy_row is None:
                 return None
+            # Dado legado (anterior ao guard do enable) pode ter duas habilitadas;
+            # o runtime aplica a mais antiga. Dizer isso no log é o mínimo — a UI
+            # mostra ``is_active`` pela mesma ordenação.
+            extra_enabled = (
+                db.query(models.EnrichmentPolicy.id)
+                .filter(
+                    models.EnrichmentPolicy.organization_id == organization_id,
+                    models.EnrichmentPolicy.enabled.is_(True),
+                    models.EnrichmentPolicy.id != policy_row.id,
+                )
+                .count()
+            )
+            if extra_enabled:
+                logger.warning(
+                    "enrich: org %s tem %d política(s) habilitada(s) além de %r — só "
+                    "esta é aplicada. Desabilite as demais.",
+                    organization_id, extra_enabled, policy_row.name,
+                    extra={"event": "enrich.policy_shadowed", "org_id": organization_id},
+                )
             if not policy_row.current_version_id:
                 # Política habilitada sem versão vigente é erro de operação, e é
                 # exatamente o caso que vira ticket de suporte "liguei e não faz

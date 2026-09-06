@@ -768,6 +768,7 @@ def _run_lightweight_migrations() -> None:
                 ("schedule_last_job_id", "VARCHAR"),
                 ("schedule_last_error", "TEXT"),
                 ("max_dedup_keys", "INTEGER"),
+                ("template_key", "VARCHAR"),
             ):
                 if col not in corr_rule_columns:
                     conn.execute(text(f"ALTER TABLE correlation_rules ADD COLUMN {col} {ddl}"))
@@ -776,6 +777,12 @@ def _run_lightweight_migrations() -> None:
                 text(
                     "CREATE INDEX IF NOT EXISTS ix_correlation_rules_schedule_next_run_at "
                     "ON correlation_rules (schedule_next_run_at)"
+                )
+            )
+            conn.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS ix_correlation_rules_template_key "
+                    "ON correlation_rules (template_key)"
                 )
             )
 
@@ -1277,6 +1284,7 @@ def _run_lightweight_migrations() -> None:
                 ("auto_managed", "BOOLEAN", "FALSE"),
                 ("iris_customer_id", "INTEGER", None),
                 ("partner_integration_id", "INTEGER", None),
+                ("rule_packs_installed", "TEXT", None),
             )
             for col_name, col_type, default_sql in org_partner_columns:
                 if col_name in organization_columns:
@@ -1795,6 +1803,23 @@ def _run_lightweight_migrations() -> None:
                     "ON app_users (auth_provider, external_subject)"
                 )
             )
+
+        # ── Pacote IOC → Detection (W4.7) ─────────────────────────────
+        # Três regras inflight sobre ``_centralops.enrichment_tags``, DESABILITADAS,
+        # uma vez por org (marcador em organizations.rule_packs_installed). Roda
+        # numa Session sobre a MESMA conexão/transação da migração.
+        try:
+            from sqlalchemy.orm import Session as _PackSession
+
+            from ..collectors.inflight.rule_pack import install_pack_for_all_orgs
+
+            with _PackSession(bind=conn) as _pack_db:
+                _n = install_pack_for_all_orgs(_pack_db)
+                _pack_db.flush()
+            if _n:
+                logger.info("migration: pacote IOC instalado — %d regra(s) criada(s)", _n)
+        except Exception:  # noqa: BLE001 — pacote nunca impede o boot
+            logger.warning("migration: falha ao instalar o pacote IOC", exc_info=True)
 
         # ── Collector config singleton seed ─────────────────────────
         # Primeira subida popula a tabela com valores do ``.env`` atual

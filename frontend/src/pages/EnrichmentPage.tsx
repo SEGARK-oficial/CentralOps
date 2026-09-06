@@ -475,8 +475,12 @@ export function EnrichmentPage(): React.ReactElement {
                         {t("policies.rules", { count: p.rule_count })}
                       </p>
                     </div>
-                    <Badge variant={p.enabled ? "success" : "default"}>
-                      {p.enabled ? t("policies.enabled") : t("policies.disabled")}
+                    <Badge variant={p.is_active ? "success" : p.enabled ? "warning" : "default"}>
+                      {p.is_active
+                        ? t("policies.active")
+                        : p.enabled
+                          ? t("policies.shadowed")
+                          : t("policies.disabled")}
                     </Badge>
                   </div>
                   {p.description ? (

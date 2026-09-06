@@ -400,11 +400,19 @@ def test_metrics_reflete_so_a_politica_que_o_worker_aplica(client_factory, monke
                 "commit_message": name,
             },
         ).status_code in (200, 201)
-        assert client.post(f"{_BASE}/policies/{pid}/enable?enabled=true").status_code == 200
         return pid
 
-    _policy_with_rule("primeira")
-    _policy_with_rule("segunda")
+    primeira = _policy_with_rule("primeira")
+    segunda = _policy_with_rule("segunda")
+    assert client.post(f"{_BASE}/policies/{primeira}/enable?enabled=true").status_code == 200
+    # W4.6: a API agora RECUSA habilitar a segunda (409). "Duas habilitadas" só
+    # existe em dado legado — reproduz direto no banco, como uma instância antiga.
+    assert client.post(f"{_BASE}/policies/{segunda}/enable?enabled=true").status_code == 409
+    from backend.app.db import models as _models
+
+    db = next(app.dependency_overrides[get_session]())
+    db.get(_models.EnrichmentPolicy, segunda).enabled = True
+    db.commit()
 
     monkeypatch.setattr(
         "backend.app.collectors.observability_store.read_window_total",

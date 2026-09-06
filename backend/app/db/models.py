@@ -43,6 +43,10 @@ class Organization(Base):
     external_id = Column(String, nullable=True, index=True)  # Sophos tenant UUID
     auto_managed = Column(Boolean, nullable=False, default=False, server_default=_sa_text("false"))
     iris_customer_id = Column(Integer, nullable=True, index=True)
+    # Pacotes de regras embarcadas já instalados (JSON list, ex.: ["ioc-v1"]).
+    # Marcador de "já instalei", não de "as regras existem": apagar uma regra do
+    # pacote não a ressuscita no boot — ver ``collectors/inflight/rule_pack``.
+    rule_packs_installed = Column(Text, nullable=True)
     partner_integration_id = Column(
         Integer,
         ForeignKey(
@@ -1008,6 +1012,9 @@ class CorrelationRule(Base):
     # e NUNCA ``0`` — Postgres rejeita inteiro em BOOLEAN (gotcha já pago em
     # ``protect_detection``).
     emit_event = Column(Boolean, nullable=False, default=False, server_default=_sa_text("false"))
+    # Origem da regra quando veio de um pacote embarcado (``rule_pack.IOC_RULES``);
+    # NULL para regra escrita pelo operador.
+    template_key = Column(String, nullable=True, index=True)
     # ── agendamento em LOTE (W1.1) ───────────────────────────────────────
     # Regra ``batch`` só rodava no finish de um ``QueryJob`` criado por um
     # humano em ``POST /query-jobs``. Estes campos fazem a regra ter a PRÓPRIA

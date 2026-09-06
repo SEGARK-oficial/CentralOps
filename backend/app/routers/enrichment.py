@@ -201,6 +201,10 @@ class PolicyRead(BaseModel):
     enabled: bool
     current_version_id: Optional[str] = None
     rule_count: int = 0
+    #: A política que o worker DE FATO aplica nesta org (W4.6). ``enabled`` diz
+    #: o que o operador pediu; ``is_active`` diz o que acontece. Divergem só em
+    #: dado legado com duas habilitadas — o enable agora recusa a segunda.
+    is_active: bool = False
 
 
 class PolicyVersionCommit(BaseModel):
@@ -960,6 +964,21 @@ def rollback_table(
 
 # ── políticas ───────────────────────────────────────────────────────────────
 
+def _active_policy_id(db: Session, org_id: int) -> Optional[str]:
+    """A política que ``load_policy_for_org`` escolhe: a habilitada mais antiga.
+    Mesma ordenação do runtime — divergir aqui faria a UI mentir."""
+    row = (
+        db.query(models.EnrichmentPolicy.id)
+        .filter(
+            models.EnrichmentPolicy.organization_id == org_id,
+            models.EnrichmentPolicy.enabled.is_(True),
+        )
+        .order_by(models.EnrichmentPolicy.created_at.asc(), models.EnrichmentPolicy.id.asc())
+        .first()
+    )
+    return str(row[0]) if row else None
+
+
 def _policy_read(db: Session, row: models.EnrichmentPolicy) -> PolicyRead:
     rule_count = 0
     if row.current_version_id:
@@ -983,6 +1002,7 @@ def _policy_read(db: Session, row: models.EnrichmentPolicy) -> PolicyRead:
         enabled=bool(row.enabled),
         current_version_id=row.current_version_id,
         rule_count=rule_count,
+        is_active=bool(row.enabled) and _active_policy_id(db, int(row.organization_id)) == str(row.id),
     )
 
 
@@ -1044,6 +1064,31 @@ def set_policy_enabled(
             "enrichment.policy_without_version",
             "publique uma versão antes de habilitar a política",
         )
+    if enabled and not row.enabled:
+        # W4.6 — UMA política em vigor por org. O runtime sempre aplicou só a
+        # habilitada mais antiga e ignorava as demais em silêncio ("editei e não
+        # mudou nada"). Recusar a segunda torna a regra visível no ato.
+        other = (
+            db.query(models.EnrichmentPolicy)
+            .filter(
+                models.EnrichmentPolicy.organization_id == row.organization_id,
+                models.EnrichmentPolicy.enabled.is_(True),
+                models.EnrichmentPolicy.id != row.id,
+            )
+            .order_by(models.EnrichmentPolicy.created_at.asc())
+            .first()
+        )
+        if other is not None:
+            raise ApiError(
+                "enrichment.policy_already_active",
+                status.HTTP_409_CONFLICT,
+                messages={
+                    "pt": "A política {name} já está em vigor nesta organização. Desabilite-a antes de habilitar outra: só uma política é aplicada por organização.",
+                    "en": "Policy {name} is already active for this organization. Disable it before enabling another: only one policy is applied per organization.",
+                    "es": "La política {name} ya está vigente en esta organización. Desactívala antes de activar otra: solo se aplica una política por organización.",
+                },
+                params={"name": other.name},
+            )
     row.enabled = bool(enabled)
     db.commit()
     db.refresh(row)

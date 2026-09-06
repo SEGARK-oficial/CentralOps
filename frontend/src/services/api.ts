@@ -2684,6 +2684,8 @@ export interface EnrichmentPolicy {
   enabled: boolean
   current_version_id: string | null
   rule_count: number
+  /** A política que o worker aplica nesta org: só uma por organização. */
+  is_active?: boolean
 }
 
 export async function listEnrichers() {
