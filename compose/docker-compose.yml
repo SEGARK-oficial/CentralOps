@@ -1143,6 +1143,23 @@ services:
       - "${SYSLOG_TCP_PORT:-514}:514/tcp"
       - "${SYSLOG_TLS_PORT:-6514}:6514/tcp"
     environment:
+      # Flags de feature: os guards de paridade do compose exigem que TODO
+      # serviço da imagem da app declare o mesmo conjunto (sem env_file, o que
+      # não está aqui não chega ao processo — e declarar em uns e não em outros
+      # faz API e workers lerem valores diferentes em silêncio). O receptor não
+      # avalia OCSF nem regras em voo, mas importa os módulos que leem as flags.
+      - OCSF_VALIDATION_ENABLED=${OCSF_VALIDATION_ENABLED:-false}
+      - OCSF_DEFAULT_ENFORCEMENT=${OCSF_DEFAULT_ENFORCEMENT:-tag_and_pass}
+      - INFLIGHT_MAX_RULES_PER_CYCLE=${INFLIGHT_MAX_RULES_PER_CYCLE:-50}
+      - INFLIGHT_MAX_WHERE_CLAUSES=${INFLIGHT_MAX_WHERE_CLAUSES:-10}
+      - INFLIGHT_EMIT_OCSF_EVENT=${INFLIGHT_EMIT_OCSF_EVENT:-false}
+      - CORRELATION_MAX_RULES_PER_ORG=${CORRELATION_MAX_RULES_PER_ORG:-200}
+      - ENRICHMENT_ENABLED=${ENRICHMENT_ENABLED:-true}
+      # Broker explícito (guard test_compose_celery_broker_parity): sem a var,
+      # _broker_url() DERIVA do REDIS_URL e qualquer task publicada iria para
+      # o Redis de cache em vez do redis-control.
+      - CELERY_BROKER_URL=${CELERY_BROKER_URL:-redis://:${REDIS_PASSWORD:?REDIS_PASSWORD obrigatorio - gere com openssl rand -base64 24 e coloque no .env}@redis-control:6379/1}
+      - CELERY_RESULT_BACKEND=${CELERY_RESULT_BACKEND:-redis://:${REDIS_PASSWORD:?REDIS_PASSWORD obrigatorio - gere com openssl rand -base64 24 e coloque no .env}@redis-control:6379/2}
       - SERVICE_ROLE=syslog-receiver
       - SYSLOG_BIND=0.0.0.0
       - SYSLOG_UDP_PORT=514
@@ -1166,6 +1183,8 @@ services:
       postgres:
         condition: service_healthy
       redis:
+        condition: service_healthy
+      redis-control:
         condition: service_healthy
       centralops:
         condition: service_started
