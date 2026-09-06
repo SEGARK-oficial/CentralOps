@@ -2044,6 +2044,38 @@ export async function issueIngestToken(integrationId: number): Promise<{ token: 
   })
 }
 
+// ── Streams da fonte genérica (custom_json) ──────────────────
+export interface CustomStream {
+  stream: string
+  event_type: string
+  definition_id: string
+  ocsf_class_uid: number
+  ocsf_class_name: string
+  description: string | null
+  current_version_id: string | null
+  /** Caminho relativo do endpoint de ingestão deste stream. */
+  endpoint: string
+}
+
+export interface CustomStreamCreate {
+  stream: string
+  ocsf_class_uid: number
+  description?: string
+}
+
+/** Streams da plataforma custom_json (um por definição de mapping vendor=custom_json). */
+export async function listCustomStreams(): Promise<CustomStream[]> {
+  return apiRequest<CustomStream[]>("/mappings/custom-streams")
+}
+
+/** Cria um stream: definição custom_json.<stream> + versão 1 (esqueleto OCSF) promovida. */
+export async function createCustomStream(payload: CustomStreamCreate): Promise<CustomStream> {
+  return apiRequest<CustomStream>("/mappings/custom-streams", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  })
+}
+
 /** Revoga o token de ingestão SEM rotacionar (mata um token vazado). 204/404. */
 export async function revokeIngestToken(integrationId: number): Promise<void> {
   await apiRequest<void>(`/ingest/integrations/${integrationId}/token`, {

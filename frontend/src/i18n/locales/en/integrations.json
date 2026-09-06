@@ -330,7 +330,23 @@
     "revokeSuccess": "Token revoked. With no active token, issue a new one to resume ingestion.",
     "issueError": "Failed to issue token.",
     "revokeError": "Failed to revoke token.",
-    "edgeCollectorConfig": "Edge-collector configuration (Vector)"
+    "edgeCollectorConfig": "Edge-collector configuration (Vector)",
+    "customStreams": {
+      "title": "Streams of this source",
+      "empty": "No streams yet. Create the first one so the endpoint accepts events.",
+      "help": "Each stream is its own OCSF mapping. The edge-collector POSTs to /api/ingest/<stream>; refine the mapping under Normalization → Mappings.",
+      "nameLabel": "Stream name",
+      "namePlaceholder": "e.g. firewall-x",
+      "nameHelper": "a-z, 0-9, '_' and '-' (becomes the endpoint path)",
+      "classLabel": "OCSF class",
+      "descriptionLabel": "Description (optional)",
+      "create": "Create stream",
+      "created": "Stream {{stream}} created. The endpoint now accepts events.",
+      "createError": "Failed to create stream.",
+      "openMapping": "Open mapping",
+      "loadError": "Failed to load streams."
+    },
+    "edgeCollectorConfigGeneric": "Send example (curl / any edge-collector)"
   },
   "enterprisePanel": {
     "title": "Tenant import is an Enterprise feature",

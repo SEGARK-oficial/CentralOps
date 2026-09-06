@@ -14,6 +14,8 @@ Algumas fontes de segurança não têm uma API de polling — elas **empurram ev
 - **Reduzir latência de detecção.** Os eventos chegam ao CentralOps em menos de 20 segundos após serem gerados, permitindo resposta mais rápida.
 - **Coletar de fontes sem API.** Produtos como FortiGate (syslog) e Windows Event Log (WEC/WEF) só enviam dados via push nativo.
 
+Se o produto não está no catálogo mas exporta JSON, use a [fonte genérica](./custom-json.md): você cria o stream, o CentralOps cria o mapping, e o transporte é este mesmo.
+
 ## Quem pode fazer o quê
 
 - **Administrador da plataforma:** cria e edita a integração push (menu **Coleta -> Integrações**), emite e rotaciona tokens.
