@@ -45,6 +45,8 @@ Esta tela só aparece para administradores da plataforma.
 | **Corpo enviado** | `envelope` (padrão): evento completo com metadados, ou `normalized`: só o OCSF normalizado. |
 | **Headers extras** | Cabeçalhos HTTP adicionais em formato JSON (ex.: `{"X-Api-Key": "valor"}`). |
 | **Verificar TLS** | Mantenha ativado para garantir uma conexão segura. |
+| **Assinatura** | `none` (padrão) ou `hmac_sha256`: assina cada corpo com a credencial do destino como segredo compartilhado. Veja [Assinatura e idempotência](#assinatura-e-idempotência). |
+| **Idempotency-Key** | Ativado por padrão: cada lote leva uma chave determinística para o receptor não duplicar após um reenvio. |
 
 ### Autenticação
 
@@ -53,6 +55,34 @@ Esta tela só aparece para administradores da plataforma.
 **Bearer token:** escolha `bearer`, copie o token para a credencial e o CentralOps o enviará como `Authorization: Bearer <token>`.
 
 **Basic Auth:** escolha `basic`, informar em formato `usuario:senha` na credencial. O CentralOps faz a codificação automática.
+
+### Assinatura e idempotência
+
+Um SOAR precisa de duas garantias antes de abrir um caso a partir de um webhook: que o corpo veio de quem diz (assinatura) e que o reenvio de um lote após um 503 não abre dois casos (idempotência). O destino cobre as duas com cabeçalhos por requisição.
+
+**`X-CentralOps-Signature`** (com **Assinatura** = `hmac_sha256`): `t=<epoch em segundos>,v1=<hex>`, onde `v1` é `HMAC-SHA256(segredo, "<t>.<corpo exato>")`. O segredo é a **credencial do destino**. O arranjo recomendado para SOAR é **Modo de autenticação = `none`** e a credencial = o segredo compartilhado que o SOAR gerou. Com `bearer` ou `basic` o mesmo valor serve às duas coisas; o receptor já o conhece, então não há segredo novo, mas ele passa a ser também a chave de assinatura.
+
+Verificação no receptor, em Python:
+
+```python
+import hmac, hashlib, time
+
+def verify(secret: str, body: bytes, header: str, tolerance=300) -> bool:
+    parts = dict(p.split("=", 1) for p in header.split(","))
+    t = int(parts["t"])
+    if abs(time.time() - t) > tolerance:
+        return False  # replay
+    expected = hmac.new(secret.encode(), f"{t}.".encode() + body, hashlib.sha256).hexdigest()
+    return hmac.compare_digest(expected, parts["v1"])
+```
+
+Tines, Shuffle e XSOAR aceitam essa verificação numa ação de script na entrada do fluxo. O botão **Testar** envia um corpo vazio assinado, então o teste prova a verificação do receptor, não só a rota.
+
+**`Idempotency-Key`**: SHA-256 dos `_centralops.event_id` do lote, na ordem. O reenvio do mesmo lote repete a chave; guarde-a por algumas horas e descarte a repetição.
+
+### Ciclo de vida da Detecção
+
+Quando um analista muda o status de uma Detecção (aberta → reconhecida → fechada), o CentralOps pode emitir um Detection Finding (2004) de **Update** ou **Close** pelo roteamento normal, com o mesmo `finding_info.uid` do achado original. É o que permite ao SOAR fechar o caso que abriu. Ligue com `DETECTION_LIFECYCLE_EVENTS=true`; os eventos saem no stream `detection_lifecycle`, tipo `centralops.detection.status`, e uma rota por `event_type` os leva ao webhook.
 
 ### Salvar o destino
 

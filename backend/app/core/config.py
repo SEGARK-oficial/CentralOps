@@ -625,6 +625,12 @@ class Settings(BaseSettings):
     # o CUSTO dele sem que ele tenha pedido. ADR-0015 §7 é explícita sobre não
     # inverter default que afeta dado. Quem quer, liga.
     INFLIGHT_EMIT_OCSF_EVENT: bool = False
+    # A TRIAGEM de uma Detection (open → ack → closed) sai como evento OCSF
+    # 2004 de Update/Close pelo roteamento normal, com o mesmo
+    # ``finding_info.uid`` (= ``dedup_key``) do achado original. É o que
+    # permite a um SOAR fechar o caso que abriu. OFF por default pelo mesmo
+    # motivo de ``INFLIGHT_EMIT_OCSF_EVENT``: liga quem quer o volume.
+    DETECTION_LIFECYCLE_EVENTS: bool = False
     # Teto de eventos de detecção emitidos por CICLO de coleta. O teto
     # estrutural que já existe (RULES_PER_CYCLE × DEDUP_KEYS_PER_RULE = 2500)
     # é alto demais para servir de proteção: a 1 ciclo/2min seriam 75k eventos

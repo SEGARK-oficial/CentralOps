@@ -791,7 +791,11 @@ def _build_scheduled_query_row_findings(
     )
 
     base_key = str(base_unmapped["dedup_key"])
-    finding_uid_base = f"{base_key}:{record.id}" if record is not None else str(base_key)
+    # ``finding_info.uid`` da linha = a ``dedup_key`` da Detection dela, SEM o
+    # id do run: é a identidade que atravessa execuções (o Update do run
+    # seguinte e o Close da triagem apontam para o mesmo achado). O run fica
+    # em ``unmapped.search_result_id``.
+    finding_uid_base = base_key
     row_ctx = replace(ctx, event_type="centralops.scheduled_query.finding")
     inherited = {k: v for k, v in base_unmapped.items() if k != "statement"}
 

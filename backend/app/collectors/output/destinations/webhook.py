@@ -12,9 +12,12 @@ SDK externo (aiohttp puro). ``send_batch`` devolve ``DeliveryResult`` sem levant
 from __future__ import annotations
 
 import base64
+import hashlib
+import hmac
 import json
 import logging
-from typing import Any, Dict, List, Literal, Mapping, Optional
+import time
+from typing import Any, Dict, List, Literal, Mapping, Optional, Sequence
 
 import aiohttp
 from pydantic import BaseModel, Field, field_validator, model_validator
@@ -37,6 +40,56 @@ logger = logging.getLogger(__name__)
 
 KIND = "webhook"
 _RETRYABLE_STATUS = {429, 500, 502, 503, 504}
+
+#: Cabeçalho da assinatura: ``t=<epoch s>,v1=<hex hmac-sha256(secret, "t.body")>``.
+#: O ``t`` entra na assinatura para o receptor recusar replay fora da janela.
+SIGNATURE_HEADER = "X-CentralOps-Signature"
+#: Chave de idempotência do LOTE: o receptor que a guarda não abre dois casos
+#: quando o mesmo lote volta depois de um 503. Determinística sobre os ids dos
+#: eventos, na ordem — o retry do mesmo lote produz a mesma chave.
+IDEMPOTENCY_HEADER = "Idempotency-Key"
+SIGNATURE_VERSION = "v1"
+
+SigningMode = Literal["none", "hmac_sha256"]
+
+
+def sign_payload(secret: str, payload: str, timestamp: int) -> str:
+    """``t=<timestamp>,v1=<hex>`` sobre ``f"{timestamp}.{payload}"``, UTF-8.
+
+    Mesmo esquema do Stripe/GitHub: o receptor recalcula com o segredo
+    compartilhado e compara em tempo constante. Função de módulo, e não método,
+    para o receptor poder importá-la num teste e para a verificação ter um
+    lugar só.
+    """
+    message = f"{timestamp}.{payload}".encode("utf-8")
+    digest = hmac.new(secret.encode("utf-8"), message, hashlib.sha256).hexdigest()
+    return f"t={timestamp},{SIGNATURE_VERSION}={digest}"
+
+
+def verify_signature(secret: str, payload: str, header: str, *, tolerance_seconds: int = 300,
+                     now: Optional[int] = None) -> bool:
+    """Contraparte de :func:`sign_payload`, para o receptor (e para o teste).
+
+    Recusa assinatura malformada, digest divergente e ``t`` fora da janela de
+    tolerância — replay de um corpo legítimo capturado no fio.
+    """
+    try:
+        parts = dict(item.split("=", 1) for item in header.split(","))
+        timestamp = int(parts["t"])
+        expected = sign_payload(secret, payload, timestamp)
+    except (ValueError, KeyError, AttributeError):
+        return False
+    current = int(time.time()) if now is None else int(now)
+    if abs(current - timestamp) > tolerance_seconds:
+        return False
+    return hmac.compare_digest(expected, header)
+
+
+def batch_idempotency_key(event_ids: Sequence[str]) -> str:
+    """SHA-256 dos ids do lote, na ordem. Um lote de um evento é o id daquele
+    evento; um lote de N é a identidade dos N juntos."""
+    joined = "\n".join(str(e) for e in event_ids)
+    return hashlib.sha256(joined.encode("utf-8")).hexdigest()
 
 
 class WebhookConfig(BaseModel):
@@ -120,6 +173,20 @@ class WebhookConfig(BaseModel):
     body: Optional[str] = Field(default=None, deprecated=True, description="Use payload.")
     headers: dict = Field(default_factory=dict, description="Headers extras (ex: X-Api-Key)")
     verify_tls: bool = Field(default=True, description="Verificar certificado TLS")
+    # Assinatura do corpo com a CREDENCIAL do destino como segredo compartilhado
+    # (HMAC-SHA256, cabeçalho ``X-CentralOps-Signature: t=…,v1=…``). O destino
+    # tem UMA credencial; com ``auth_mode=none`` ela é só o segredo de
+    # assinatura, que é o modelo dos webhooks de SOAR (Tines, Shuffle, XSOAR).
+    # Com bearer/basic o mesmo valor serve às duas coisas — o receptor já o
+    # conhece, então não há segredo novo a proteger, mas vale dizer.
+    signing: SigningMode = Field(
+        default="none",
+        description="Assinar o corpo com HMAC-SHA256 usando a credencial como segredo (X-CentralOps-Signature)",
+    )
+    idempotency_key: bool = Field(
+        default=True,
+        description="Enviar Idempotency-Key por lote (hash dos ids dos eventos) para o receptor não duplicar",
+    )
 
 
 class WebhookClient:
@@ -142,6 +209,8 @@ class WebhookClient:
         headers: Optional[dict] = None,
         verify_tls: bool = True,
         secret: Optional[str] = None,
+        signing: str = "none",
+        idempotency_key: bool = True,
     ) -> None:
         self._url = url
         self._method = (method or "POST").upper()
@@ -155,6 +224,9 @@ class WebhookClient:
         self._extra_headers = dict(headers or {})
         self._verify_tls = verify_tls
         self._secret = secret
+        self._signing = signing
+        self._idempotency = idempotency_key
+        self._warned_unsigned = False
         self._session: Optional[aiohttp.ClientSession] = None
 
     def format(self, envelope: Mapping[str, Any]) -> Any:
@@ -182,6 +254,26 @@ class WebhookClient:
             return {"Authorization": f"Basic {token}"}
         return {}
 
+    def _request_headers(self, payload: str, event_ids: Sequence[str]) -> dict:
+        """Cabeçalhos POR REQUISIÇÃO: assinatura sobre este corpo e a chave
+        de idempotência deste lote. Os de sessão (auth, extras) ficam na
+        sessão; estes mudam a cada envio."""
+        headers: dict = {}
+        if self._signing == "hmac_sha256":
+            if self._secret:
+                headers[SIGNATURE_HEADER] = sign_payload(self._secret, payload, int(time.time()))
+            elif not self._warned_unsigned:
+                # Sem segredo não há assinatura possível; entregar sem ela é
+                # o receptor recusar com 401, que é barulhento — melhor que
+                # segurar o evento. O aviso sai UMA vez por cliente.
+                self._warned_unsigned = True
+                logger.warning(
+                    "webhook: signing=hmac_sha256 sem credencial — lote sai SEM assinatura"
+                )
+        if self._idempotency and event_ids:
+            headers[IDEMPOTENCY_HEADER] = batch_idempotency_key(event_ids)
+        return headers
+
     def _get_session(self) -> aiohttp.ClientSession:
         if self._session is None or self._session.closed:
             headers = {"Content-Type": "application/json", **self._extra_headers, **self._auth_header()}
@@ -204,8 +296,11 @@ class WebhookClient:
             return DeliveryResult.ok(0)
         payload = self._serialize(batch)
         session = self._get_session()
+        headers = self._request_headers(payload, [self._event_id(ev) for ev in batch])
         try:
-            async with session.request(self._method, self._url, data=payload) as resp:
+            async with session.request(
+                self._method, self._url, data=payload, headers=headers or None
+            ) as resp:
                 status = resp.status
                 if status in _RETRYABLE_STATUS:
                     return DeliveryResult(accepted=0, retryable=True)
@@ -227,10 +322,20 @@ class WebhookClient:
             return DeliveryResult(accepted=0, retryable=True)
 
     async def test(self) -> TestResult:
-        """Probe: POST de um array vazio. 2xx/4xx = alcançável; 401/403 = auth."""
+        """Probe: POST de um array vazio, ASSINADO quando a assinatura está
+        ligada — assim o teste prova a verificação do receptor, não só a rota.
+        2xx/4xx = alcançável; 401/403 = auth."""
+        if self._signing == "hmac_sha256" and not self._secret:
+            return TestResult.failed(
+                "assinatura HMAC ligada sem credencial: guarde o segredo compartilhado na credencial do destino"
+            )
         session = self._get_session()
+        payload = "[]"
+        headers = self._request_headers(payload, ["probe"])
         try:
-            async with session.request(self._method, self._url, data="[]") as resp:
+            async with session.request(
+                self._method, self._url, data=payload, headers=headers or None
+            ) as resp:
                 if resp.status in {401, 403}:
                     return TestResult.failed(f"autenticação rejeitada (HTTP {resp.status})")
                 if resp.status in _RETRYABLE_STATUS:
@@ -262,6 +367,7 @@ def _factory(config: DestinationConfig, secrets: Optional[Any] = None) -> Webhoo
         row_shape=cfg.row_shape, event_key=cfg.event_key, row_fields=cfg.row_fields,
         row_fields_from=cfg.row_fields_from,
         headers=cfg.headers, verify_tls=cfg.verify_tls, secret=secret,
+        signing=cfg.signing, idempotency_key=cfg.idempotency_key,
     )
 
 
@@ -271,7 +377,7 @@ register(
         factory=_factory,
         config_schema=WebhookConfig,
         default_queue="dispatch.webhook",
-        capabilities=frozenset({"tls", "batch", "test", "at_least_once"}),
+        capabilities=frozenset({"tls", "batch", "test", "at_least_once", "signed"}),
         required_secrets=(),
         # Aceita credencial sem exigir: com ``auth_mode`` em bearer ou
         # basic o segredo é necessário, com "none" não. Ver a nota em

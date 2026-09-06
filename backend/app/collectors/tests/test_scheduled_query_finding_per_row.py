@@ -316,7 +316,10 @@ class TestDispatchShapes:
         fingerprint = n["unmapped"]["row_fingerprint"]
         assert row_event["_centralops"]["event_id"] == f"sched-2-539-row-{fingerprint}"
         assert n["unmapped"]["dedup_key"] == f"sched:2:integ:9:{fingerprint}"
-        assert n["finding_info"]["uid"] == f"sched:2:integ:9:539:{fingerprint}"
+        # uid = dedup_key: a identidade que o Update do run seguinte e o Close
+        # da triagem vão repetir. O run fica em search_result_id.
+        assert n["finding_info"]["uid"] == n["unmapped"]["dedup_key"]
+        assert n["unmapped"]["search_result_id"] == 539
         # O evento por linha não repete o statement nem depende do raw.
         assert "statement" not in n["unmapped"]
         assert row_event["raw"] == {}

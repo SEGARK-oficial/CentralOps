@@ -131,4 +131,17 @@ def update_detection_status(
                 "es": "Detección no encontrada.",
             },
         )
-    return _to_read(repo.set_status(d, payload.status))
+    previous_status = d.status
+    updated = repo.set_status(d, payload.status)
+    if previous_status != updated.status:
+        # Best-effort e atrás de flag: a triagem no banco é a verdade; o evento
+        # é a notificação a quem abriu caso lá fora.
+        from ..collectors.detection_events import emit_status_event
+
+        emit_status_event(
+            db,
+            updated,
+            previous_status=previous_status,
+            actor_user_id=getattr(current_user, "id", None),
+        )
+    return _to_read(updated)
