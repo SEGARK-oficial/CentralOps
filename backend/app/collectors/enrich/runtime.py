@@ -540,6 +540,30 @@ class EnrichRuntime:
             if not owned:
                 continue
 
+            # ── Circuit breaker por (org, fonte) — W4.1 ────────────────────
+            # ANTES de resolver credencial e instanciar: um provedor que caiu
+            # há 2 minutos não paga nem o SELECT da fonte. Compartilhado no
+            # L2, então o 2º worker também não bate. Aberto ⇒ o enricher sai
+            # do ciclo inteiro (não só deste lote) e o motivo vai ao ring.
+            breaker_id = self._breaker_id(ctx, rule)
+            open_for = await self._breaker_is_open(cache, breaker_id)
+            if open_for is not None:
+                _count_error(rule.enricher, "breaker_open")
+                self._disabled_this_cycle.add(rule.enricher)
+                if cache is not None:
+                    for key in owned:
+                        await cache.release_single_flight(ck[key])
+                await _activity(
+                    ctx.organization_id, "remote_batch", ok=False,
+                    rule_id=rule.rule_id, enricher=rule.enricher, source=rule.source,
+                    reason="breaker_open", keys=len(owned),
+                    detail=(
+                        f"fonte em quarentena após falhas consecutivas; próxima "
+                        f"tentativa em ~{open_for}s (circuit breaker)"
+                    ),
+                )
+                continue
+
             try:
                 rule_ctx = self._ctx_for_rule(ctx, rule)
             except LookupError as exc:
@@ -568,6 +592,7 @@ class EnrichRuntime:
             except asyncio.TimeoutError:
                 _count_error(rule.enricher, "timeout")
                 self._disabled_this_cycle.add(rule.enricher)
+                await self._breaker_failure(cache, breaker_id, rule.enricher)
                 logger.warning(
                     "enricher remoto %r estourou o orçamento (%.1fs) — desabilitado "
                     "neste ciclo; o lote segue sem ele",
@@ -584,6 +609,15 @@ class EnrichRuntime:
                 continue
             except Exception as exc:  # noqa: BLE001 — provedor fora do ar é normal
                 _count_error(rule.enricher, _error_reason(exc))
+                # Cota (429 com Retry-After) abre na primeira: o provedor mandou
+                # esperar e insistir só antecipa o próximo 429. Erro comum conta
+                # para o limiar.
+                retry_after = getattr(exc, "retry_after_s", None)
+                await self._breaker_failure(
+                    cache, breaker_id, rule.enricher,
+                    open_now=retry_after is not None,
+                    min_cooldown_s=float(retry_after) if retry_after is not None else 0.0,
+                )
                 logger.warning(
                     "enricher remoto %r falhou: %s", rule.enricher, exc,
                     extra={"event": "enrich.remote_failed", "enricher": rule.enricher},
@@ -604,6 +638,8 @@ class EnrichRuntime:
                 if cache is not None:
                     for key in owned:
                         await cache.release_single_flight(ck[key])
+
+            await self._breaker_success(cache, breaker_id, rule.enricher)
 
             for key in owned:
                 # `in`, não `.get()`: chave que o provedor OMITIU do retorno é
@@ -664,6 +700,120 @@ class EnrichRuntime:
             singleflight_wait_ms=int(getattr(_s, "ENRICH_SINGLEFLIGHT_WAIT_MS", 50)),
         )
         return self._kv_cache
+
+    # ── circuit breaker por fonte (W4.1) ─────────────────────────────────────
+    #
+    # Reusa ``collectors.circuit_breaker`` — o mesmo que protege destinos e o
+    # dispatcher Kafka — em vez de um segundo breaker: mesma semântica
+    # (fechado → aberto → meio-aberto com UMA sonda por cooldown), mesma
+    # métrica (``kind="enrich"``), mesmo fail-open quando o Redis some. O que
+    # é próprio daqui: a chave inclui a ORG (a fonte é por org, e o breaker
+    # da org A não pode calar a fonte homônima da org B) e o cooldown DOBRA a
+    # cada reabertura, porque provedor de threat intel fora do ar costuma
+    # ficar fora por horas, não por 30 s.
+
+    @staticmethod
+    def _breaker_id(ctx: EnrichContext, rule: CompiledEnrichRule) -> str:
+        return f"enrich:{ctx.organization_id}:{rule.source or rule.enricher}"
+
+    @staticmethod
+    def _breaker_settings() -> Tuple[int, int, int, int]:
+        from ...core.config import settings as _s
+
+        return (
+            int(getattr(_s, "ENRICH_BREAKER_FAILURE_THRESHOLD", 3)),
+            int(getattr(_s, "ENRICH_BREAKER_WINDOW_S", 600)),
+            int(getattr(_s, "ENRICH_BREAKER_COOLDOWN_S", 120)),
+            int(getattr(_s, "ENRICH_BREAKER_MAX_COOLDOWN_S", 1920)),
+        )
+
+    async def _breaker_is_open(self, cache: Any, breaker_id: str) -> Optional[int]:
+        """``None`` = pode chamar (fechado, ou meio-aberto e ESTA é a sonda);
+        inteiro = segundos até a próxima sonda. Sem L2 não há breaker."""
+        if cache is None:
+            return None
+        from .. import circuit_breaker as cb
+
+        redis = cache._redis  # noqa: SLF001 — mesmo pacote de coleta
+        _, _, base_cd, _ = self._breaker_settings()
+        # A sonda meio-aberta vale pelo cooldown VIGENTE (o TTL da chave aberta),
+        # não por um número fixo: é o que garante UMA tentativa por cooldown.
+        try:
+            ttl = int(await redis.ttl(cb._key_open(breaker_id)))  # noqa: SLF001
+        except Exception:  # noqa: BLE001 — só informativo
+            ttl = -1
+        probe_ttl = ttl if ttl > 0 else base_cd
+        try:
+            await cb.check(redis, breaker_id, kind="enrich", probe_ttl_s=probe_ttl)
+            return None
+        except cb.BreakerOpen:
+            return max(ttl, 0)
+
+    async def _breaker_failure(
+        self,
+        cache: Any,
+        breaker_id: str,
+        enricher: str,
+        *,
+        open_now: bool = False,
+        min_cooldown_s: float = 0.0,
+    ) -> None:
+        """Conta a falha; abre se atingiu o limiar (ou já, com ``open_now``).
+
+        O cooldown é ``base × 2^(reaberturas)`` até o teto — ``breaker:{id}:trips``
+        guarda quantas vezes já abriu, com TTL de 2× o teto para que um
+        provedor que se recuperou de vez volte ao cooldown base.
+        """
+        if cache is None:
+            return
+        from .. import circuit_breaker as cb
+
+        redis = cache._redis  # noqa: SLF001
+        threshold, window_s, base_cd, max_cd = self._breaker_settings()
+        trips_key = f"{cb._key_open(breaker_id)}:trips"  # noqa: SLF001
+        try:
+            raw_trips = await redis.get(trips_key)
+            trips = int(raw_trips) if raw_trips else 0
+        except Exception:  # noqa: BLE001 — best-effort, como o próprio breaker
+            trips = 0
+        cooldown = min(base_cd * (2 ** trips), max_cd)
+        cooldown = int(max(cooldown, min_cooldown_s))
+        was_open = False
+        try:
+            was_open = bool(await redis.exists(cb._key_open(breaker_id)))  # noqa: SLF001
+        except Exception:  # noqa: BLE001
+            pass
+        # Se JÁ estava aberto, esta chamada era a SONDA meio-aberta — e falhou.
+        # Reabre já, sem esperar o contador (que pode ter expirado enquanto a
+        # fonte estava em quarentena): sonda falhada que fecha o breaker seria
+        # voltar à tempestade na cadência do limiar.
+        await cb.record_failure(
+            redis, breaker_id, kind="enrich",
+            threshold=1 if (open_now or was_open) else threshold,
+            cooldown_s=cooldown, window_s=window_s,
+        )
+        try:
+            is_open = bool(await redis.exists(cb._key_open(breaker_id)))  # noqa: SLF001
+            if is_open:
+                # Toda abertura (a primeira ou a reabertura após sonda falhada)
+                # conta uma viagem: é o expoente do próximo cooldown.
+                await redis.incr(trips_key)
+                await redis.expire(trips_key, max_cd * 2)
+                logger.warning(
+                    "enrich: fonte %s em quarentena por %ds (abertura #%d)",
+                    breaker_id, cooldown, trips + 1,
+                    extra={"event": "enrich.breaker_open", "enricher": enricher,
+                           "cooldown_s": cooldown},
+                )
+        except Exception:  # noqa: BLE001
+            pass
+
+    async def _breaker_success(self, cache: Any, breaker_id: str, enricher: str) -> None:
+        if cache is None:
+            return
+        from .. import circuit_breaker as cb
+
+        await cb.record_success(cache._redis, breaker_id, kind="enrich")  # noqa: SLF001
 
 
 #: Razões pelas quais um lote pode sair SEM enriquecimento. Vocabulário FECHADO
@@ -894,7 +1044,7 @@ def _error_reason(exc: BaseException) -> str:
         return "timeout"
     if "auth" in name or "unauthor" in name or "forbidden" in name:
         return "auth"
-    if "ratelimit" in name or "toomany" in name:
+    if "ratelimit" in name or "toomany" in name or "quota" in name:
         return "rate_limit"
     if "json" in name or "decode" in name or "parse" in name or "value" in name:
         return "parse"

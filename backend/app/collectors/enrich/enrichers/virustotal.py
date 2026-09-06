@@ -29,6 +29,7 @@ enricher devolve o que conseguiu, marca erro, e o applier degrada por ``on_error
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import logging
 from typing import Any, Dict, Mapping, Optional, Sequence
 
@@ -36,6 +37,7 @@ import aiohttp
 from pydantic import BaseModel, Field, field_validator
 
 from ..contract import EnrichContext, EnricherCapabilities, EnricherRegistration
+from ..ratelimit import buckets_for, parse_retry_after
 from ..registry import register
 
 logger = logging.getLogger(__name__)
@@ -65,6 +67,13 @@ class VirusTotalConfig(BaseModel):
     #: paralelismo alto só antecipa o 429.
     concurrency: int = Field(4, ge=1, le=32)
     timeout_s: float = Field(10.0, gt=0, le=60)
+    #: Cota da chave, RESPEITADA antes da requisição (token-bucket local, ver
+    #: ``enrich/ratelimit.py``). Defaults = chave pública (4/min, 500/dia).
+    #: Chave premium: suba os dois. N workers com a mesma chave: divida por N —
+    #: o bucket é por processo; quem para a tempestade entre processos é o
+    #: breaker por fonte, compartilhado no Redis.
+    requests_per_minute: int = Field(4, ge=1, le=100_000)
+    requests_per_day: Optional[int] = Field(500, ge=1, le=10_000_000)
 
     @field_validator("key_kind")
     @classmethod
@@ -91,7 +100,15 @@ class VirusTotalConfig(BaseModel):
 
 
 class VirusTotalQuotaExceeded(RuntimeError):
-    """429 da API. Classificado como ``rate_limit`` na métrica de erro."""
+    """429 da API. Classificado como ``rate_limit`` na métrica de erro.
+
+    ``retry_after_s`` carrega o ``Retry-After`` do provedor (ou 60 s): o bucket
+    local o respeita, e o breaker por fonte o usa como cooldown mínimo.
+    """
+
+    def __init__(self, message: str, *, retry_after_s: float = 60.0) -> None:
+        super().__init__(message)
+        self.retry_after_s = float(retry_after_s)
 
 
 _CAPS = EnricherCapabilities(
@@ -148,17 +165,56 @@ class VirusTotalEnricher:
         sem = asyncio.Semaphore(self._cfg.concurrency)
         out: Dict[str, Optional[Mapping[str, Any]]] = {}
 
+        # Cota ANTES da requisição. A identidade é um digest da chave (nunca a
+        # chave): duas fontes com a mesma credencial partilham o bucket, que é
+        # o que o provedor faz. Chave além da cota NÃO é consultada e fica
+        # ausente do mapa — UNKNOWN para o runtime, que a repergunta no próximo
+        # ciclo em vez de gravar "limpo" no cache.
+        quota = buckets_for(
+            hashlib.sha256(api_key.encode("utf-8")).hexdigest()[:16],
+            requests_per_minute=self._cfg.requests_per_minute,
+            requests_per_day=self._cfg.requests_per_day,
+        )
+        blocked = quota.minute.blocked_remaining()
+        if blocked > 0:
+            raise VirusTotalQuotaExceeded(
+                f"Retry-After do provedor ainda vigente por {blocked:.0f}s",
+                retry_after_s=blocked,
+            )
+        within_quota = [k for k in selected if quota.try_acquire()]
+        deferred = len(selected) - len(within_quota)
+        if deferred:
+            logger.info(
+                "VirusTotal: %d de %d chaves além da cota local (%d/min, %s/dia) — "
+                "ficam para o próximo ciclo, sem consulta.",
+                deferred, len(selected), self._cfg.requests_per_minute,
+                self._cfg.requests_per_day,
+                extra={"event": "enrich.virustotal.quota_deferred", "deferred": deferred},
+            )
+        if not within_quota:
+            return out
+
         async with aiohttp.ClientSession(timeout=timeout, headers=headers) as session:
 
             async def one(key: str) -> None:
                 async with sem:
+                    # Um 429 de uma chave anterior deste MESMO lote já travou o
+                    # bucket: as seguintes nem saem — insistir só antecipa o
+                    # próximo 429 e queima o que sobrou da cota.
+                    remaining = quota.minute.blocked_remaining()
+                    if remaining > 0:
+                        raise VirusTotalQuotaExceeded(
+                            f"Retry-After vigente por {remaining:.0f}s", retry_after_s=remaining
+                        )
                     try:
                         out[key] = await _fetch(session, path, key)
-                    except VirusTotalQuotaExceeded:
+                    except VirusTotalQuotaExceeded as exc:
                         # Não escreve a chave: ausência do mapa = "não resolvida",
                         # que o applier trata como skipped, não como miss. Contar
                         # cota estourada como "indicador limpo" seria um falso
-                        # negativo de segurança.
+                        # negativo de segurança. E o Retry-After trava o bucket:
+                        # as demais chaves deste lote nem tentam.
+                        quota.block_for(exc.retry_after_s)
                         raise
                     except Exception as exc:  # noqa: BLE001
                         logger.debug(
@@ -166,16 +222,22 @@ class VirusTotalEnricher:
                         )
 
             results = await asyncio.gather(
-                *(one(k) for k in selected), return_exceptions=True
+                *(one(k) for k in within_quota), return_exceptions=True
             )
 
-        if any(isinstance(r, VirusTotalQuotaExceeded) for r in results):
+        quota_hits = [r for r in results if isinstance(r, VirusTotalQuotaExceeded)]
+        if quota_hits:
             logger.warning(
                 "VirusTotal: cota esgotada (429) durante o lote — %d de %d chaves "
                 "resolvidas. Restrinja o `when` da regra ou use uma chave premium.",
-                len(out), len(selected),
+                len(out), len(within_quota),
                 extra={"event": "enrich.virustotal.quota"},
             )
+            if not out:
+                # Nada resolvido e o provedor mandou esperar: o runtime precisa
+                # saber (breaker + activity), não só o log. Com resultado
+                # parcial o lote segue — o que veio, veio.
+                raise quota_hits[0]
         return out
 
 
@@ -188,7 +250,10 @@ async def _fetch(
         if resp.status == 404:
             return None
         if resp.status == 429:
-            raise VirusTotalQuotaExceeded(f"429 em {path}/{key}")
+            raise VirusTotalQuotaExceeded(
+                f"429 em {path}/{key}",
+                retry_after_s=parse_retry_after(resp.headers.get("Retry-After")),
+            )
         if resp.status in (401, 403):
             raise PermissionError(f"VirusTotal recusou a API key (HTTP {resp.status})")
         resp.raise_for_status()
