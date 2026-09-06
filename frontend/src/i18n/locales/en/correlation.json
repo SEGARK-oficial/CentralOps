@@ -198,6 +198,30 @@
       "maxDedupKeys": {
         "label": "Key cap per cycle",
         "helperText": "Empty = environment cap (256). Measured on real data: grouping sophos.siem_event by endpoint_id reaches 192 keys per cycle — above the cap, matches keep counting and no new detection is created."
+      },
+      "ruleType": {
+        "label": "Rule type",
+        "option": {
+          "threshold": "Threshold — filters + grouping + count",
+          "sequence": "Cross-source sequence — legs with a join"
+        },
+        "explain": "Sequence: each leg matches one event from one source (e.g. MFA failed in Okta; suspicious process in Sophos). The rule fires when every leg has been seen for the same join value within the window. In-flight only."
+      },
+      "legs": {
+        "heading": "Sequence legs",
+        "add": "Add leg",
+        "remove": "Remove leg",
+        "removeAriaLabel": "Remove leg {{index}}",
+        "label": "Label",
+        "labelPlaceholder": "e.g. okta_mfa_fail",
+        "stream": "Stream (optional)",
+        "streamPlaceholder": "e.g. okta.system_log",
+        "streamHelper": "Restricts the leg to one stream; empty = any source matching the filter.",
+        "joinPath": "Join path in this source",
+        "joinPathPlaceholder": "e.g. normalized.user.name",
+        "joinPathHelper": "The field whose VALUE joins the legs. Each source has its own: Okta writes normalized.user.name, Sophos writes normalized.actor.user.name.",
+        "filters": "Leg {{index}} filters",
+        "windowHelper": "Window in which every leg must appear (10 s to the cap). Required for a sequence."
       }
     },
     "status": {
@@ -217,7 +241,12 @@
       "scheduleQueryRequired": "Pick the saved search that feeds the rule",
       "scheduleBatchOnly": "Scheduling only applies in batch; in-flight the rule runs per event",
       "windowInflightRange": "In-flight the window goes from 10 s to 3600 s (1 h). For longer windows use batch mode.",
-      "minCountNeedsWindow": "A min count above 1 requires a window in seconds."
+      "minCountNeedsWindow": "A min count above 1 requires a window in seconds.",
+      "legsMinTwo": "A sequence needs at least 2 legs.",
+      "legJoinPathRequired": "Leg {{index}}: enter the join path.",
+      "legWhereRequired": "Leg {{index}}: add at least one filter.",
+      "sequenceNeedsWindow": "A sequence requires a window between 10 s and the cap.",
+      "sequenceInflightOnly": "Sequences exist in-flight only."
     },
     "actions": {
       "cancel": "Cancel"
