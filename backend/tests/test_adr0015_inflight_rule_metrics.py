@@ -365,12 +365,17 @@ async def test_all_four_error_reasons_are_attributed_to_a_rule(
     # Sequência entre fontes (X1): as duas razões são atribuíveis à regra.
     acc_win.count_error("sequence_below", 16)
     acc_win.count_error("sequence_unavailable", 17)
+    # Ausência (ADR-0016): as quatro razões são atribuíveis à regra.
+    acc_win.count_error("absence_unavailable", 18)
+    acc_win.count_error("absence_key_cap", 19)
+    acc_win.count_error("absence_unobservable", 20)
+    acc_win.count_error("absence_source_lagging", 21)
     monkeypatch.setattr(obs, "_redis", lambda: fakeredis.FakeRedis(decode_responses=True))
     monkeypatch.setattr(runtime_mod, "_flush_sync", lambda _p, _o: ())
     await flush_inflight(acc_win, organization_id=1)
     assert acc_win.errors["window_below"] == {14: 1}
     assert acc_win.errors["window_unavailable"] == {15: 1}
-    # ANTI-VACUIDADE: os OITO ATRIBUÍVEIS, e nenhum reason fora do enum.
+    # ANTI-VACUIDADE: os CATORZE ATRIBUÍVEIS, e nenhum reason fora do enum.
     # ``matcher`` fica de fora de propósito: ele é escrito pelo ``except``
     # de ``pipeline.py``, que não sabe qual regra estava sendo avaliada quando a
     # exceção subiu, e por isso é o único reason sem breakdown por regra. A
@@ -378,7 +383,7 @@ async def test_all_four_error_reasons_are_attributed_to_a_rule(
     # acrescentar um reason externo sem declará-lo lá, este assert reprova.
     atribuiveis = set(ERROR_REASONS) - set(UNATTRIBUTED_ERROR_REASONS)
     assert set(acc.errors) | set(acc_teto.errors) | set(acc_win.errors) == atribuiveis
-    assert len(atribuiveis) == 10
+    assert len(atribuiveis) == 14
 
 
 @pytest.mark.asyncio

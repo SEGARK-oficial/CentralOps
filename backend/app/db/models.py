@@ -1049,6 +1049,10 @@ class CorrelationRule(Base):
     # com o mesmo valor de ``join_path`` dentro de ``window_seconds``. NULL nas
     # regras clássicas.
     legs_json = Column(Text, nullable=True)
+    # Ausência (ADR-0016): depois de quanto silêncio a chave vigiada deixa de
+    # ser esperada. NULL = 3 × ``window_seconds`` (o prazo). Só tem efeito em
+    # ``rule_type='absence'``.
+    absence_forget_seconds = Column(Integer, nullable=True)
     # ── threshold ────────────────────────────────────────────────────────
     # Campo (dotted path) p/ agrupar (ex.: "agent.name", "host", "data.srcip").
     group_by_field = Column(String, nullable=True)

@@ -124,7 +124,8 @@
     "scheduleManual": "manual",
     "emitOn": "envía",
     "emitOff": "—",
-    "sequenceLegs": "secuencia · {{legs}} tramos"
+    "sequenceLegs": "secuencia · {{legs}} tramos",
+    "absenceBadge": "ausencia · plazo {{window}}s"
   },
   "form": {
     "field": {
@@ -172,7 +173,8 @@
       "window": {
         "label": "Ventana (segundos)",
         "helperText": "Requiere un campo de timestamp a continuación.",
-        "inflightHelper": "En vuelo: dispara cuando ≥ mínimo de eventos de la misma clave de agrupación caben en la ventana (conteo deslizante, hasta 1 h). Deje mínimo = 1 para disparar en el primer evento."
+        "inflightHelper": "En vuelo: dispara cuando ≥ mínimo de eventos de la misma clave de agrupación caben en la ventana (conteo deslizante, hasta 1 h). Deje mínimo = 1 para disparar en el primer evento.",
+        "absenceHelper": "Silencio tolerado por clave (60 s a 7 días). Backup diario: 93600 (26 h)."
       },
       "suppression": {
         "label": "Supresión (segundos)"
@@ -215,9 +217,11 @@
         "label": "Tipo de regla",
         "option": {
           "threshold": "Umbral — filtros + agrupación + conteo",
-          "sequence": "Secuencia entre fuentes — tramos con unión"
+          "sequence": "Secuencia entre fuentes — tramos con unión",
+          "absence": "Ausencia — vigila un evento que debe seguir llegando"
         },
-        "explain": "Secuencia: cada tramo coincide con un evento de una fuente (p. ej. MFA falló en Okta; proceso sospechoso en Sophos). La regla dispara cuando todos los tramos se vieron para el mismo valor de unión dentro de la ventana. Solo en vuelo."
+        "explain": "Secuencia: cada tramo coincide con un evento de una fuente (p. ej. MFA falló en Okta; proceso sospechoso en Sophos). La regla dispara cuando todos los tramos se vieron para el mismo valor de unión dentro de la ventana. Solo en vuelo.",
+        "explainAbsence": "Ausencia: la regla aprende las claves que aparecen (ej.: cada cliente que crea un punto de restauración) y alerta cuando una clave conocida queda callada más que el plazo. Solo alerta si el motor prueba que estaba mirando; una clave olvidada sale de la vigilia sin alertar."
       },
       "legs": {
         "heading": "Tramos de la secuencia",
@@ -234,6 +238,10 @@
         "joinPathHelper": "El campo cuyo VALOR une los tramos. Cada fuente tiene el suyo: Okta escribe normalized.user.name, Sophos escribe normalized.actor.user.name.",
         "filters": "Filtros del tramo {{index}}",
         "windowHelper": "Ventana en la que todos los tramos deben aparecer (10 s al tope). Obligatoria en la secuencia."
+      },
+      "absenceForget": {
+        "label": "Olvidar después de (segundos)",
+        "helper": "Tras este silencio la clave deja de esperarse y su alerta se cierra. Vacío = 3 × el plazo. Un cliente que se fue no se vuelve una alerta eterna; un host efímero tampoco."
       }
     },
     "status": {
@@ -258,7 +266,11 @@
       "legJoinPathRequired": "Tramo {{index}}: indique la ruta de unión.",
       "legWhereRequired": "Tramo {{index}}: agregue al menos un filtro.",
       "sequenceNeedsWindow": "Una secuencia exige una ventana entre 10 s y el tope.",
-      "sequenceInflightOnly": "La secuencia solo existe en vuelo."
+      "sequenceInflightOnly": "La secuencia solo existe en vuelo.",
+      "absenceInflightOnly": "La ausencia solo existe en vuelo.",
+      "absenceWindowRange": "En la ausencia el plazo va de 60 s a 604800 s (7 días).",
+      "absenceForgetMin": "El olvido debe ser mayor o igual que el plazo.",
+      "absenceGroupByRequired": "La ausencia necesita una clave vigilada (agrupar por)."
     },
     "actions": {
       "cancel": "Cancelar"
@@ -433,6 +445,10 @@
       "title": "Detecciones que no llegan a ningún destino",
       "notEmitting": "{{rules}} regla(s) en vuelo habilitadas solo escriben la Detection en la base: la emisión como evento está apagada en la regla (\"enviar al SIEM\") y en el entorno (INFLIGHT_EMIT_OCSF_EVENT). Encienda una de las dos; si no, la alerta solo existe en esta pantalla.",
       "noRoute": "Hay reglas emitiendo eventos de detección, pero ninguna ruta habilitada los admite y no existe destino por defecto: el evento sale del pipeline a la cola de no enrutados. Cree una ruta con la condición detection_matched, o por stream/event_type de detección."
+    },
+    "absence": {
+      "unobservable": "{{rules}} regla(s) de ausencia quedaron sin latido del observador en el último tick: el motor no alerta hasta probar que estaba mirando (worker caído, regla fuera del tope por ciclo o Redis indisponible en el flush).",
+      "title": "Reglas de ausencia que el motor no pudo evaluar"
     }
   },
   "metrics": {
@@ -473,11 +489,24 @@
         "key_cap": "Tope de claves distintas alcanzado en el ciclo",
         "flush_lost": "Contador perdido al descargar el ciclo",
         "group_value_truncated": "Valor de group_by truncado (clave demasiado larga)",
-        "fallback": "Razón: {{reason}}"
+        "fallback": "Razón: {{reason}}",
+        "absence_unavailable": "Redis indisponible para la presencia",
+        "absence_key_cap": "Tope de claves vigiladas alcanzado",
+        "absence_unobservable": "Tick sin latido del observador",
+        "absence_source_lagging": "Fuente con backlog: regla retenida"
       }
     },
     "actions": {
       "closeAriaLabel": "Cerrar los contadores de la regla"
+    },
+    "absence": {
+      "tracked": "Claves vigiladas",
+      "silent": "Calladas ahora",
+      "state": "Último tick",
+      "stateOk": "evaluó",
+      "stateUnobservable": "sin latido",
+      "stateLagging": "fuente atrasada",
+      "stateUnavailable": "Redis indisponible"
     }
   },
   "studio": {
@@ -509,7 +538,8 @@
         "title": "Unión"
       },
       "window": {
-        "title": "Ventana"
+        "title": "Ventana",
+        "titleAbsence": "Plazo"
       },
       "detect": {
         "title": "Detección"
@@ -526,12 +556,14 @@
       },
       "filters": {
         "none": "Sin filtro",
-        "count": "{{count}} filtro(s)"
+        "count": "{{count}} filtro(s)",
+        "expected": "{{count}} condición(es) del evento esperado"
       },
       "group": {
         "empty": "Defina el campo",
         "dedup": "dedup por valor",
-        "aggregate": "agregación en la ventana"
+        "aggregate": "agregación en la ventana",
+        "watched": "clave vigilada"
       },
       "join": {
         "leg": "camino de unión",
@@ -543,14 +575,16 @@
         "threshold": "≥ {{min}} en {{window}}s",
         "sequence": "{{window}}s para todas las piernas",
         "timestamp": "por {{field}}",
-        "noTimestamp": "sin timestamp: ventana apagada"
+        "noTimestamp": "sin timestamp: ventana apagada",
+        "absence": "silencio > {{window}}s · olvidar tras {{forget}}s"
       },
       "detect": {
         "emit": "→ SIEM (OCSF 2004)",
         "dbOnly": "solo en la base",
         "batchDetection": "Detection al terminar la búsqueda",
         "suppression": "supresión {{seconds}}s",
-        "disabled": "deshabilitada"
+        "disabled": "deshabilitada",
+        "autoClose": "se cierra sola al volver"
       }
     },
     "section": {
@@ -559,17 +593,20 @@
         "descriptionInflight": "En vuelo la regla ve todo evento del pipeline. Restrinja a una fuente para reconocer solo lo que ella produce."
       },
       "filters": {
-        "description": "Condiciones que el evento debe cumplir. Pruebe contra muestras reales antes de guardar."
+        "description": "Condiciones que el evento debe cumplir. Pruebe contra muestras reales antes de guardar.",
+        "descriptionAbsence": "El evento que debe seguir llegando. Pruebe contra muestras para demostrar que existe y que la clave resuelve."
       },
       "group": {
-        "description": "La clave que junta los eventos: agregación por lotes, dedup en vuelo."
+        "description": "La clave que junta los eventos: agregación por lotes, dedup en vuelo.",
+        "descriptionAbsence": "La clave vigilada: cada valor distinto es una entidad que debe aparecer dentro del plazo."
       },
       "join": {
         "title": "Unión de las piernas",
         "description": "Cada pierna casa un evento de una fuente; la detección nace cuando todas aparecen con el MISMO valor de unión dentro de la ventana."
       },
       "window": {
-        "description": "Cuántos eventos, en cuánto tiempo."
+        "description": "Cuántos eventos, en cuánto tiempo.",
+        "descriptionAbsence": "Cuánto silencio puede tener una clave antes de alertar, y cuándo deja de esperarse."
       },
       "detect": {
         "description": "Lo que sale cuando la regla casa: severidad, prioridad, envío al SIEM y supresión."

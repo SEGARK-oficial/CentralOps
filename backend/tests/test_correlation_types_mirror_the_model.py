@@ -37,6 +37,11 @@ _TIPOS = (
 _DERIVADOS_CONHECIDOS = {
     # Coluna ``where_json`` (TEXT) desserializada para lista tipada.
     "where",
+    # Coluna ``legs_json`` (TEXT) desserializada para lista tipada de pernas da
+    # sequência (X1). Entrou no tipo em #72 sem entrar aqui, e o guarda ficou
+    # vermelho só no repositório: dentro da imagem ele se auto-pula (não há
+    # ``types/index.ts`` lá), então o CI nunca acusou.
+    "legs",
     # Metadado DERIVADO, sem coluna por trás — calculado por
     # ``_inflight_snapshot`` e só quando ``include_inflight_status=true``.
     "not_evaluated_inflight",

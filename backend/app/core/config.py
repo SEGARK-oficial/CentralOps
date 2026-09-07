@@ -632,6 +632,38 @@ class Settings(BaseSettings):
     # falhou + processo suspeito + IP novo + EDR" — acima disso a regra
     # deixou de ser uma sequência e virou um relatório.
     INFLIGHT_MAX_LEGS: int = 4
+    # ── Ausência de evento (ADR-0016) ──
+    # Liga o tique que decide silêncio. Sem regra ``rule_type='absence'`` o
+    # único custo é uma consulta indexada por minuto no worker de manutenção.
+    ABSENCE_RULES_ENABLED: bool = True
+    ABSENCE_TICK_SECONDS: int = 60
+    # Prazo máximo de silêncio que uma regra pode vigiar. Teto PRÓPRIO, e não
+    # os 3600 s de ``INFLIGHT_MAX_WINDOW_SECONDS``: aquele protege a memória dos
+    # buckets da janela deslizante; aqui o estado é UM timestamp por chave, e o
+    # caso de uso típico (backup diário) precisa de 26 h.
+    ABSENCE_MAX_WINDOW_SECONDS: int = 7 * 24 * 60 * 60
+    # Depois de quanto silêncio uma chave DEIXA de ser esperada. Sem isto um
+    # cliente que saiu vira alerta eterno. Default por regra = 3 × prazo.
+    ABSENCE_MAX_FORGET_SECONDS: int = 30 * 24 * 60 * 60
+    # Teto de chaves vigiadas por regra (tamanho do hash no Redis; o tique lê
+    # o hash inteiro a cada minuto). 5000 × ~100 B = 0,5 MB por regra.
+    ABSENCE_MAX_KEYS_PER_RULE: int = 5000
+    # Batimento do observador: se o flush não gravou ``meta.last_cycle`` há
+    # mais que isto, o tique NÃO alerta (worker parado, regra fora do teto por
+    # ciclo, Redis falhou no flush). Um alerta de ausência sem observador vivo
+    # diz que o backup falhou quando foi o coletor que parou.
+    ABSENCE_OBSERVER_MAX_AGE_SECONDS: int = 15 * 60
+    # Folga somada ao prazo antes de alertar: relógio de worker, latência de
+    # coleta, jitter do beat.
+    ABSENCE_GRACE_SECONDS: int = 300
+    # Teto GLOBAL de Detections novas por tique, compartilhado entre as regras:
+    # uma regra de alta cardinalidade que acorde calada inteira não gasta o
+    # tique das outras.
+    ABSENCE_MAX_ALERTS_PER_TICK: int = 200
+    # A chave que volta a aparecer fecha a própria Detection (e emite o 2004 de
+    # fechamento com DETECTION_LIFECYCLE_EVENTS). Um silêncio que acabou é um
+    # alerta resolvido por definição; quem prefere fechar à mão desliga.
+    ABSENCE_AUTO_CLOSE: bool = True
     # A TRIAGEM de uma Detection (open → ack → closed) sai como evento OCSF
     # 2004 de Update/Close pelo roteamento normal, com o mesmo
     # ``finding_info.uid`` (= ``dedup_key``) do achado original. É o que

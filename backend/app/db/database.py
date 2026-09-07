@@ -770,6 +770,8 @@ def _run_lightweight_migrations() -> None:
                 ("max_dedup_keys", "INTEGER"),
                 ("template_key", "VARCHAR"),
                 ("legs_json", "TEXT"),
+                # Ausência (ADR-0016): NULL = 3 × prazo.
+                ("absence_forget_seconds", "INTEGER"),
             ):
                 if col not in corr_rule_columns:
                     conn.execute(text(f"ALTER TABLE correlation_rules ADD COLUMN {col} {ddl}"))
