@@ -630,3 +630,41 @@ def test_politica_sem_versao_publicada_nao_pode_ser_duplicada(client_factory) ->
     )
     assert r.status_code == 422, r.text
     assert r.json()["error"]["code"] == "enrichment.policy_without_version"
+
+
+def test_prontidao_responde_no_idioma_da_requisicao(client_factory) -> None:
+    """A interface tem três idiomas; devolver português fixo quebra dois deles.
+
+    Encontrado olhando a tela montada: o título vinha "Enrichment" (do catálogo
+    de tradução do frontend) e os passos vinham em português (do backend), na
+    mesma página. O mecanismo já existia — ``request_locale`` alimenta o
+    ``ApiError`` em toda requisição —, só não estava sendo usado aqui.
+    """
+    factory, _ = client_factory
+    client = factory()
+    _bootstrap_admin(client)
+    org = _org(client, "Idioma")
+
+    r = client.get(
+        f"{_BASE}/readiness",
+        params={"organization_id": org},
+        headers={"Accept-Language": "en-US,en;q=0.9"},
+    )
+    assert r.status_code == 200, r.text
+    passos = {s["key"]: s for s in r.json()["steps"]}
+    assert passos["policy"]["title"] == "Enrichment policy"
+    assert passos["policy"]["action"]["label"] == "Create policy"
+    assert "No policy created" in passos["policy"]["detail"]
+
+    r = client.get(
+        f"{_BASE}/readiness",
+        params={"organization_id": org},
+        headers={"Accept-Language": "es-419,es;q=0.9"},
+    )
+    passos = {s["key"]: s for s in r.json()["steps"]}
+    assert passos["policy"]["title"] == "Política de enriquecimiento"
+
+    # E o default segue sendo português, como no resto da API.
+    r = client.get(f"{_BASE}/readiness", params={"organization_id": org})
+    passos = {s["key"]: s for s in r.json()["steps"]}
+    assert passos["policy"]["title"] == "Política de enriquecimento"

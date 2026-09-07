@@ -6,7 +6,6 @@ import {
   AlertTriangleIcon,
   CheckIcon,
   MinusIcon,
-  RefreshCcwIcon,
   XIcon,
 } from "lucide-react"
 import { Badge } from "@/components/ui/Badge/Badge"
@@ -50,6 +49,15 @@ interface Props {
   selectedOrgId?: number | null
   /** Leva o operador à aba certa desta mesma página. */
   onNavigateTab?: (tab: string) => void
+  /**
+   * Muda a cada clique no "Atualizar" do cabeçalho da página.
+   *
+   * O painel tinha um botão próprio, e a tela montada mostrou dois "Atualizar"
+   * lado a lado — cada um recarregando metade das coisas, sem o operador ter
+   * como saber qual. Um comando por vista: o do cabeçalho recarrega tudo,
+   * inclusive isto.
+   */
+  refreshToken?: number
 }
 
 const RANGE_MINUTES = 60
@@ -94,6 +102,7 @@ export const ReadinessPanel: React.FC<Props> = ({
   organizations = [],
   selectedOrgId = null,
   onNavigateTab,
+  refreshToken = 0,
 }) => {
   const { t } = useTranslation("enrichment")
   const navigate = useNavigate()
@@ -141,7 +150,10 @@ export const ReadinessPanel: React.FC<Props> = ({
     } finally {
       setLoading(false)
     }
-  }, [orgId])
+    // `refreshToken` entra nas dependências de propósito: é o que faz o
+    // "Atualizar" do cabeçalho alcançar este painel.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [orgId, refreshToken])
 
   useEffect(() => {
     void load()
@@ -194,14 +206,6 @@ export const ReadinessPanel: React.FC<Props> = ({
             />
           </div>
         )}
-        <Button
-          variant="secondary"
-          size="sm"
-          onClick={() => void load()}
-          leftIcon={<RefreshCcwIcon size={14} />}
-        >
-          {t("actions.refresh")}
-        </Button>
       </div>
 
       {/* O veredito vem antes dos números: quem abre esta tela quer saber se

@@ -106,6 +106,9 @@ export function EnrichmentPage(): React.ReactElement {
   //: lista recarregada já mostra o veredito na coluna — não é preciso guardar a
   //: resposta aqui.
   const [testingSourceId, setTestingSourceId] = useState<string | null>(null)
+  //: Incrementado pelo "Atualizar" do cabeçalho. Faz o comando alcançar os
+  //: painéis que têm carregamento próprio, sem duplicar o botão na tela.
+  const [refreshToken, setRefreshToken] = useState(0)
 
   const [createPolicyOpen, setCreatePolicyOpen] = useState(false)
   const [policyVersionsFor, setPolicyVersionsFor] = useState<EnrichPolicy | null>(null)
@@ -227,7 +230,10 @@ export function EnrichmentPage(): React.ReactElement {
             )}
             <Button
               variant="secondary"
-              onClick={() => void load()}
+              onClick={() => {
+                setRefreshToken((n) => n + 1)
+                void load()
+              }}
               disabled={loading}
               leftIcon={<RefreshCcwIcon size={16} />}
             >
@@ -284,6 +290,7 @@ export function EnrichmentPage(): React.ReactElement {
             <ReadinessPanel
               organizations={organizations}
               selectedOrgId={selectedOrgId}
+              refreshToken={refreshToken}
               onNavigateTab={(next) => setTab(next as typeof tab)}
             />
           ) : tab === "catalog" ? (

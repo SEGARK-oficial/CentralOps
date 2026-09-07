@@ -434,13 +434,21 @@ export const PolicyRuleEditor: React.FC<PolicyRuleEditorProps> = ({
                 {rule.outputs.map((out, oi) => {
                   const known = Object.keys(enricher?.output_fields ?? {})
                   return (
-                    <div key={`out-${oi}`} className="flex items-end gap-2">
+                    <div
+                      key={`out-${oi}`}
+                      // Grade, não linha de larguras fixas. Com o editor numa
+                      // coluna estreita (a página de política divide a tela com
+                      // o painel de teste), as frações `w-1/3` e `w-1/5`
+                      // espremiam "Grava em" e "Padrão" a ponto de mostrarem uma
+                      // letra. Aqui os campos quebram para a linha de baixo.
+                      className="grid items-end gap-2 [grid-template-columns:minmax(120px,1fr)_minmax(180px,2fr)_minmax(90px,0.8fr)_auto]"
+                    >
                       {/* O enricher declara os campos que devolve. Quando a
                           declaração existe, escolher da lista elimina o erro
                           mais comum: nomear um campo que o provedor não
                           retorna, que vira miss silencioso, não erro. */}
                       {known.length > 0 ? (
-                        <div className="w-1/3">
+                        <div>
                           <Select
                             label={oi === 0 ? t("policies.versions.outputFrom") : undefined}
                             value={out.from}
@@ -461,7 +469,7 @@ export const PolicyRuleEditor: React.FC<PolicyRuleEditorProps> = ({
                           value={out.from}
                           onChange={(e) => updateOutput(index, oi, { from: e.target.value })}
                           placeholder="site"
-                          className="w-1/3 font-mono text-xs"
+                          className="font-mono text-xs"
                         />
                       )}
 
@@ -469,7 +477,7 @@ export const PolicyRuleEditor: React.FC<PolicyRuleEditorProps> = ({
                           `_centralops.enrichment.` é 422 no commit, e pior,
                           fora dessa raiz o dado não é protegido pela redação
                           de PII. Deixar o campo livre convidava ao erro. */}
-                      <div className="flex-1">
+                      <div className="min-w-0">
                         {oi === 0 && (
                           <span className="mb-1.5 block text-sm font-medium text-text">
                             {t("policies.versions.outputTarget")}
@@ -510,7 +518,7 @@ export const PolicyRuleEditor: React.FC<PolicyRuleEditorProps> = ({
                           })
                         }
                         placeholder={t("policies.versions.outputDefaultPlaceholder")}
-                        className="w-1/5 font-mono text-xs"
+                        className="font-mono text-xs"
                       />
 
                       <Button

@@ -1,7 +1,7 @@
 import type React from "react"
 import { useEffect, useState } from "react"
 import { CrownIcon, ExternalLinkIcon, KeyRoundIcon, MailIcon, RadioIcon, SettingsIcon, ShieldCheckIcon, SparklesIcon, ZapIcon } from "lucide-react"
-import { Link } from "react-router-dom"
+import { Link, useSearchParams } from "react-router-dom"
 import { useTranslation } from "react-i18next"
 import { CapturePanel } from "@/components/config/CapturePanel"
 import { EditionInfoCard } from "@/components/config/EditionInfoCard"
@@ -22,9 +22,35 @@ import * as api from "@/services/api"
 
 type ConfigTab = "email" | "collector" | "identity" | "capture" | "enrichment" | "licensing"
 
+/** Fonte única das abas válidas — usada para validar o parâmetro da URL. */
+const CONFIG_TABS: ConfigTab[] = [
+  "email",
+  "collector",
+  "identity",
+  "capture",
+  "enrichment",
+  "licensing",
+]
+
 export const ConfigPage: React.FC = () => {
   const { t } = useTranslation("config")
-  const [tab, setTab] = useState<ConfigTab>("email")
+  // A aba vem da URL quando indicada. Sem isto, o botão da prontidão do
+  // enriquecimento ("Configuração › Enriquecimento") levava o operador à aba de
+  // e-mail e o deixava procurando — o link existia e não chegava a lugar nenhum.
+  const [searchParams, setSearchParams] = useSearchParams()
+  const requestedTab = searchParams.get("tab")
+  const [tab, setTab] = useState<ConfigTab>(
+    CONFIG_TABS.includes(requestedTab as ConfigTab)
+      ? (requestedTab as ConfigTab)
+      : "email",
+  )
+
+  // Mantém a URL em dia com a aba: recarregar volta ao mesmo lugar, e o
+  // endereço pode ser compartilhado.
+  function changeTab(next: ConfigTab) {
+    setTab(next)
+    setSearchParams({ tab: next }, { replace: true })
+  }
   const [activeDestCount, setActiveDestCount] = useState<number | null>(null)
 
   useEffect(() => {
@@ -147,7 +173,7 @@ export const ConfigPage: React.FC = () => {
       </div>
 
       {/* ── Abas (Email / Collector) ──────────────────────────────── */}
-      <Tabs value={tab} onValueChange={(v) => setTab(v as ConfigTab)}>
+      <Tabs value={tab} onValueChange={(v) => changeTab(v as ConfigTab)}>
         <TabsList ariaLabel={t("page.tabs.ariaLabel")}>
           <TabsTrigger value="email" icon={<MailIcon size={16} />}>
             {t("page.tabs.email")}

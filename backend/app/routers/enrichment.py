@@ -1715,6 +1715,25 @@ def list_key_sources(
 # ── prontidão ───────────────────────────────────────────────────────────────
 
 
+def _tr(pt: str, en: str, es: str, **params: Any) -> str:
+    """Texto no idioma DA REQUISIÇÃO.
+
+    A prontidão devolve frases prontas, não códigos: elas descrevem estado
+    computado no servidor (quais fontes falharam, com que mensagem do provedor)
+    e montar isso no cliente exigiria replicar a lógica em TypeScript, onde ela
+    sairia de sincronia na primeira mudança.
+
+    Devolver português fixo, porém, é o defeito que este helper corrige: a
+    interface tem três idiomas e um operador em inglês via metade da tela em
+    português. ``get_locale`` já é populado por ``Accept-Language`` em toda
+    requisição, e é o mesmo mecanismo que ``ApiError`` usa.
+    """
+    from ..core.request_locale import get_locale
+
+    texto = {"pt": pt, "en": en, "es": es}.get(get_locale(), pt)
+    return texto.format(**params) if params else texto
+
+
 class ReadinessAction(BaseModel):
     """Para onde a UI manda quem quer resolver o passo.
 
@@ -1806,13 +1825,17 @@ def enrichment_readiness(
             ReadinessStep(
                 key="policy",
                 status="blocked",
-                title="Política de enriquecimento",
-                detail=(
+                title=_tr("Política de enriquecimento", "Enrichment policy", "Política de enriquecimiento"),
+                detail=_tr(
                     "Nenhuma política criada. A política é o que diz quais regras "
-                    "rodam e onde o resultado é escrito."
+                    "rodam e onde o resultado é escrito.",
+                    "No policy created. The policy is what says which rules run "
+                    "and where the result is written.",
+                    "Ninguna política creada. La política dice qué reglas se "
+                    "ejecutan y dónde se escribe el resultado.",
                 ),
                 blocking=True,
-                action=ReadinessAction(label="Criar política", route="/enrichment?tab=policies"),
+                action=ReadinessAction(label=_tr("Criar política", "Create policy", "Crear política"), route="/enrichment?tab=policies"),
             )
         )
     elif not enabled_policies:
@@ -1820,14 +1843,18 @@ def enrichment_readiness(
             ReadinessStep(
                 key="policy",
                 status="blocked",
-                title="Política de enriquecimento",
-                detail=(
-                    f"{len(policies)} política(s) criada(s), nenhuma habilitada. "
-                    "Criar não habilita: publicar uma versão e habilitar são passos "
-                    "distintos."
+                title=_tr("Política de enriquecimento", "Enrichment policy", "Política de enriquecimiento"),
+                detail=_tr(
+                    "{n} política(s) criada(s), nenhuma habilitada. Criar não "
+                    "habilita: publicar uma versão e habilitar são passos distintos.",
+                    "{n} policy(ies) created, none enabled. Creating does not "
+                    "enable: publishing a version and enabling are separate steps.",
+                    "{n} política(s) creada(s), ninguna habilitada. Crear no "
+                    "habilita: publicar una versión y habilitar son pasos distintos.",
+                    n=len(policies),
                 ),
                 blocking=True,
-                action=ReadinessAction(label="Abrir políticas", route="/enrichment?tab=policies"),
+                action=ReadinessAction(label=_tr("Abrir políticas", "Open policies", "Abrir políticas"), route="/enrichment?tab=policies"),
             )
         )
     elif not active_rules:
@@ -1835,14 +1862,21 @@ def enrichment_readiness(
             ReadinessStep(
                 key="policy",
                 status="blocked",
-                title="Política de enriquecimento",
-                detail=(
-                    f"A política {enabled_policies[0].name!r} está habilitada mas não "
-                    "tem versão publicada com regras. Habilitada sem versão, o worker "
-                    "segue adiante em silêncio."
+                title=_tr("Política de enriquecimento", "Enrichment policy", "Política de enriquecimiento"),
+                detail=_tr(
+                    "A política {name} está habilitada mas não tem versão "
+                    "publicada com regras. Habilitada sem versão, a coleta segue "
+                    "adiante em silêncio.",
+                    "Policy {name} is enabled but has no published version with "
+                    "rules. Enabled without a version, collection carries on in "
+                    "silence.",
+                    "La política {name} está habilitada pero no tiene versión "
+                    "publicada con reglas. Habilitada sin versión, la recolección "
+                    "sigue en silencio.",
+                    name=enabled_policies[0].name,
                 ),
                 blocking=True,
-                action=ReadinessAction(label="Publicar versão", route="/enrichment?tab=policies"),
+                action=ReadinessAction(label=_tr("Publicar versão", "Publish a version", "Publicar versión"), route="/enrichment?tab=policies"),
             )
         )
     else:
@@ -1851,17 +1885,26 @@ def enrichment_readiness(
             # Só a mais antiga vale. É a regra menos óbvia da feature e a causa
             # clássica do "editei e não mudou nada".
             outras = ", ".join(p.name for p in enabled_policies[1:])
-            extra = (
-                f" Atenção: {outras} também está(ão) habilitada(s) e NÃO é(são) "
-                "aplicada(s) — vale uma por organização, a mais antiga."
+            extra = _tr(
+                " Atenção: {outras} também está(ão) habilitada(s) e NÃO é(são) "
+                "aplicada(s) — vale uma por organização, a mais antiga.",
+                " Note: {outras} is/are also enabled and is/are NOT applied — one "
+                "policy per organization applies, the oldest one.",
+                " Atención: {outras} también está(n) habilitada(s) y NO se "
+                "aplica(n) — vale una por organización, la más antigua.",
+                outras=outras,
             )
         steps.append(
             ReadinessStep(
                 key="policy",
                 status="warning" if extra else "ok",
-                title="Política em vigor",
-                detail=f"{active_name} · {len(active_rules)} regra(s).{extra}",
-                action=ReadinessAction(label="Abrir editor", route="/enrichment?tab=policies"),
+                title=_tr("Política em vigor", "Policy in effect", "Política vigente"),
+                detail=_tr(
+                    "{name} · {n} regra(s).", "{name} · {n} rule(s).",
+                    "{name} · {n} regla(s).", name=active_name, n=len(active_rules),
+                )
+                + extra,
+                action=ReadinessAction(label=_tr("Abrir editor", "Open editor", "Abrir editor"), route="/enrichment?tab=policies"),
             )
         )
 
@@ -1873,14 +1916,22 @@ def enrichment_readiness(
             ReadinessStep(
                 key="subsystem",
                 status="blocked",
-                title="Subsistema de enriquecimento",
-                detail=(
+                title=_tr("Subsistema de enriquecimento", "Enrichment subsystem", "Subsistema de enriquecimiento"),
+                detail=_tr(
                     "Desligado na instalação inteira. Nenhuma política roda, em "
-                    "nenhuma organização."
+                    "nenhuma organização.",
+                    "Off for the whole installation. No policy runs, in any "
+                    "organization.",
+                    "Apagado en toda la instalación. Ninguna política se ejecuta, "
+                    "en ninguna organización.",
                 ),
                 blocking=True,
                 action=ReadinessAction(
-                    label="Configuração › Enriquecimento",
+                    label=_tr(
+                        "Configuração › Enriquecimento",
+                        "Settings › Enrichment",
+                        "Configuración › Enriquecimiento",
+                    ),
                     route="/config?tab=enrichment",
                     scope="global",
                 ),
@@ -1891,15 +1942,26 @@ def enrichment_readiness(
             ReadinessStep(
                 key="cache_l2",
                 status="blocked",
-                title="Cache L2 dedicado (Redis)",
-                detail=(
-                    "Não configurado, e esta organização usa "
-                    f"{', '.join(remote_names)} — que resolve(m) por lote e não "
-                    "roda(m) sem ele. É ajuste de administrador global."
+                title=_tr("Cache dedicado (Redis)", "Dedicated cache (Redis)", "Caché dedicada (Redis)"),
+                detail=_tr(
+                    "Não configurado, e esta organização usa {names} — que "
+                    "resolve(m) por lote e não roda(m) sem ele. É ajuste de "
+                    "administrador global.",
+                    "Not configured, and this organization uses {names} — which "
+                    "resolve in batch and do not run without it. This is a global "
+                    "administrator setting.",
+                    "No configurado, y esta organización usa {names} — que "
+                    "resuelve(n) por lote y no funciona(n) sin él. Es un ajuste de "
+                    "administrador global.",
+                    names=", ".join(remote_names),
                 ),
                 blocking=True,
                 action=ReadinessAction(
-                    label="Configuração › Enriquecimento",
+                    label=_tr(
+                        "Configuração › Enriquecimento",
+                        "Settings › Enrichment",
+                        "Configuración › Enriquecimiento",
+                    ),
                     route="/config?tab=enrichment",
                     scope="global",
                 ),
@@ -1910,10 +1972,14 @@ def enrichment_readiness(
             ReadinessStep(
                 key="cache_l2",
                 status="not_applicable",
-                title="Cache L2 dedicado (Redis)",
-                detail=(
-                    "Não configurado, e nenhuma regra desta organização usa enricher "
-                    "por lote. Nada aqui está parado por causa disso."
+                title=_tr("Cache dedicado (Redis)", "Dedicated cache (Redis)", "Caché dedicada (Redis)"),
+                detail=_tr(
+                    "Não configurado, e nenhuma regra desta organização usa fonte "
+                    "por lote. Nada aqui está parado por causa disso.",
+                    "Not configured, and no rule in this organization uses a batch "
+                    "source. Nothing here is stopped because of it.",
+                    "No configurado, y ninguna regla de esta organización usa una "
+                    "fuente por lote. Nada aquí está detenido por eso.",
                 ),
             )
         )
@@ -1922,8 +1988,11 @@ def enrichment_readiness(
             ReadinessStep(
                 key="cache_l2",
                 status="ok",
-                title="Cache L2 dedicado (Redis)",
-                detail=f"Configurado em {cfg.redis_url_masked()}.",
+                title=_tr("Cache dedicado (Redis)", "Dedicated cache (Redis)", "Caché dedicada (Redis)"),
+                detail=_tr(
+                    "Configurado em {url}.", "Configured at {url}.",
+                    "Configurada en {url}.", url=cfg.redis_url_masked() or "",
+                ),
             )
         )
 
@@ -1957,29 +2026,34 @@ def enrichment_readiness(
             ReadinessStep(
                 key="sources",
                 status="not_applicable",
-                title="Fontes configuradas",
-                detail=(
+                title=_tr("Fontes configuradas", "Configured sources", "Fuentes configuradas"),
+                detail=_tr(
                     "Nenhuma regra desta organização cita fonte com credencial. "
-                    f"{len(sources)} fonte(s) cadastrada(s)."
+                    "{n} fonte(s) cadastrada(s).",
+                    "No rule in this organization references a source with "
+                    "credentials. {n} source(s) registered.",
+                    "Ninguna regla de esta organización cita una fuente con "
+                    "credencial. {n} fuente(s) registrada(s).",
+                    n=len(sources),
                 ),
             )
         )
     elif faltando or sem_credencial or desabilitada:
         problemas = []
         if faltando:
-            problemas.append(f"não cadastrada(s): {', '.join(faltando)}")
+            problemas.append(_tr("não cadastrada(s): {n}", "not registered: {n}", "no registrada(s): {n}", n=", ".join(faltando)))
         if sem_credencial:
-            problemas.append(f"sem credencial: {', '.join(sem_credencial)}")
+            problemas.append(_tr("sem credencial: {n}", "no credential: {n}", "sin credencial: {n}", n=", ".join(sem_credencial)))
         if desabilitada:
-            problemas.append(f"desabilitada(s): {', '.join(desabilitada)}")
+            problemas.append(_tr("desabilitada(s): {n}", "disabled: {n}", "deshabilitada(s): {n}", n=", ".join(desabilitada)))
         steps.append(
             ReadinessStep(
                 key="sources",
                 status="blocked",
-                title="Fontes configuradas",
+                title=_tr("Fontes configuradas", "Configured sources", "Fuentes configuradas"),
                 detail="; ".join(problemas) + ".",
                 blocking=True,
-                action=ReadinessAction(label="Abrir fontes", route="/enrichment?tab=sources"),
+                action=ReadinessAction(label=_tr("Abrir fontes", "Open sources", "Abrir fuentes"), route="/enrichment?tab=sources"),
             )
         )
     elif falhando or nunca_testada:
@@ -1989,16 +2063,16 @@ def enrichment_readiness(
             detalhes = "; ".join(
                 f"{n}: {(by_name[n].last_test_message or '')[:120]}" for n in falhando
             )
-            problemas.append(f"último teste falhou — {detalhes}")
+            problemas.append(_tr("último teste falhou — {d}", "last test failed — {d}", "la última prueba falló — {d}", d=detalhes))
         if nunca_testada:
-            problemas.append(f"nunca testada(s): {', '.join(nunca_testada)}")
+            problemas.append(_tr("nunca testada(s): {n}", "never tested: {n}", "nunca probada(s): {n}", n=", ".join(nunca_testada)))
         steps.append(
             ReadinessStep(
                 key="sources",
                 status="warning",
-                title="Fontes configuradas",
+                title=_tr("Fontes configuradas", "Configured sources", "Fuentes configuradas"),
                 detail="; ".join(problemas) + ".",
-                action=ReadinessAction(label="Abrir fontes", route="/enrichment?tab=sources"),
+                action=ReadinessAction(label=_tr("Abrir fontes", "Open sources", "Abrir fuentes"), route="/enrichment?tab=sources"),
             )
         )
     else:
@@ -2006,8 +2080,13 @@ def enrichment_readiness(
             ReadinessStep(
                 key="sources",
                 status="ok",
-                title="Fontes configuradas",
-                detail=f"{len(cited)} fonte(s) em uso, todas testadas com sucesso.",
+                title=_tr("Fontes configuradas", "Configured sources", "Fuentes configuradas"),
+                detail=_tr(
+                    "{n} fonte(s) em uso, todas testadas com sucesso.",
+                    "{n} source(s) in use, all tested successfully.",
+                    "{n} fuente(s) en uso, todas probadas con éxito.",
+                    n=len(cited),
+                ),
             )
         )
 
@@ -2034,27 +2113,32 @@ def enrichment_readiness(
             ReadinessStep(
                 key="tables",
                 status="not_applicable",
-                title="Tabelas do cliente",
-                detail=(
-                    "Nenhuma regra desta organização usa tabela. "
-                    f"{len(tables)} tabela(s) cadastrada(s)."
+                title=_tr("Tabelas do cliente", "Customer tables", "Tablas del cliente"),
+                detail=_tr(
+                    "Nenhuma regra desta organização usa tabela. {n} tabela(s) "
+                    "cadastrada(s).",
+                    "No rule in this organization uses a table. {n} table(s) "
+                    "registered.",
+                    "Ninguna regla de esta organización usa tabla. {n} tabla(s) "
+                    "registrada(s).",
+                    n=len(tables),
                 ),
             )
         )
     elif tbl_faltando or tbl_sem_versao:
         problemas = []
         if tbl_faltando:
-            problemas.append(f"não cadastrada(s): {', '.join(tbl_faltando)}")
+            problemas.append(_tr("não cadastrada(s): {n}", "not registered: {n}", "no registrada(s): {n}", n=", ".join(tbl_faltando)))
         if tbl_sem_versao:
-            problemas.append(f"sem versão publicada: {', '.join(tbl_sem_versao)}")
+            problemas.append(_tr("sem versão publicada: {n}", "no published version: {n}", "sin versión publicada: {n}", n=", ".join(tbl_sem_versao)))
         steps.append(
             ReadinessStep(
                 key="tables",
                 status="blocked",
-                title="Tabelas do cliente",
+                title=_tr("Tabelas do cliente", "Customer tables", "Tablas del cliente"),
                 detail="; ".join(problemas) + ".",
                 blocking=True,
-                action=ReadinessAction(label="Abrir tabelas", route="/enrichment?tab=tables"),
+                action=ReadinessAction(label=_tr("Abrir tabelas", "Open tables", "Abrir tablas"), route="/enrichment?tab=tables"),
             )
         )
     else:
@@ -2065,8 +2149,13 @@ def enrichment_readiness(
             ReadinessStep(
                 key="tables",
                 status="ok",
-                title="Tabelas do cliente",
-                detail=f"{total} tabela(s) em uso, todas com versão publicada.",
+                title=_tr("Tabelas do cliente", "Customer tables", "Tablas del cliente"),
+                detail=_tr(
+                    "{n} tabela(s) em uso, todas com versão publicada.",
+                    "{n} table(s) in use, all with a published version.",
+                    "{n} tabla(s) en uso, todas con versión publicada.",
+                    n=total,
+                ),
             )
         )
 
