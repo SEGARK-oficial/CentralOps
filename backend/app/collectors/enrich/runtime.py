@@ -800,6 +800,18 @@ class EnrichRuntime:
                 "enrich: configuração do cache L2 mudou — reconstruindo o cliente",
                 extra={"event": "enrich.l2_client_rebuilt"},
             )
+            # O cliente é ``redis.asyncio``: fechar exige o laço de eventos, e
+            # este método é síncrono. Agendar o fechamento quando há laço
+            # rodando evita deixar a conexão anterior pendurada num worker que
+            # vive por semanas; sem laço (testes chamando direto), o GC resolve.
+            _antigo = getattr(self._kv_cache, "_redis", None)
+            if _antigo is not None:
+                try:
+                    import asyncio as _asyncio
+
+                    _asyncio.get_running_loop().create_task(_antigo.aclose())
+                except Exception:  # noqa: BLE001 — melhor esforço, nunca fatal
+                    pass
             self._kv_cache = None
             self._kv_cache_version = None
 
