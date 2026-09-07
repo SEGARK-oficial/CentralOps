@@ -112,7 +112,8 @@
     "evalPriorityTooltip": "Orden de evaluación en vuelo: mayor prioridad se ejecuta primero; el empate se resuelve por la más antigua. Sin efecto en lote.",
     "scheduleManual": "manual",
     "emitOn": "envía",
-    "emitOff": "—"
+    "emitOff": "—",
+    "sequenceLegs": "secuencia · {{legs}} tramos"
   },
   "form": {
     "field": {
@@ -416,6 +417,11 @@
     "loadError": {
       "title": "No se pudieron leer los topes de evaluación",
       "description": "Sin ellos esta pantalla no puede explicar por qué una regla habilitada nunca dispara. Detalle: {{message}}"
+    },
+    "emission": {
+      "title": "Detecciones que no llegan a ningún destino",
+      "notEmitting": "{{rules}} regla(s) en vuelo habilitadas solo escriben la Detection en la base: la emisión como evento está apagada en la regla (\"enviar al SIEM\") y en el entorno (INFLIGHT_EMIT_OCSF_EVENT). Encienda una de las dos; si no, la alerta solo existe en esta pantalla.",
+      "noRoute": "Hay reglas emitiendo eventos de detección, pero ninguna ruta habilitada los admite y no existe destino por defecto: el evento sale del pipeline a la cola de no enrutados. Cree una ruta con la condición detection_matched, o por stream/event_type de detección."
     }
   },
   "metrics": {
