@@ -1731,7 +1731,18 @@ def _tr(pt: str, en: str, es: str, **params: Any) -> str:
     from ..core.request_locale import get_locale
 
     texto = {"pt": pt, "en": en, "es": es}.get(get_locale(), pt)
-    return texto.format(**params) if params else texto
+    if not params:
+        return texto
+    try:
+        return texto.format(**params)
+    except (KeyError, IndexError, ValueError):
+        # Um `{}` a mais numa das três traduções derrubaria a tela INTEIRA com
+        # 500, e por um defeito de texto. Devolver o template cru é feio e
+        # legível; virar erro não é nem uma coisa nem outra.
+        logger.warning(
+            "enrich: texto de prontidão com placeholder inconsistente: %r", texto
+        )
+        return texto
 
 
 class ReadinessAction(BaseModel):

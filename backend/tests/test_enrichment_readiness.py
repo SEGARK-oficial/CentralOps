@@ -668,3 +668,20 @@ def test_prontidao_responde_no_idioma_da_requisicao(client_factory) -> None:
     r = client.get(f"{_BASE}/readiness", params={"organization_id": org})
     passos = {s["key"]: s for s in r.json()["steps"]}
     assert passos["policy"]["title"] == "Política de enriquecimento"
+
+
+def test_texto_com_placeholder_torto_nao_derruba_a_tela() -> None:
+    """Um ``{}`` a mais numa das três traduções não pode virar 500.
+
+    O helper interpola com ``str.format``, e as três variantes de cada frase são
+    editadas à mão. Uma delas com um placeholder que a chamada não passa
+    levantaria ``KeyError`` e derrubaria a prontidão INTEIRA — por um defeito de
+    texto, na tela cujo propósito é dizer o que está quebrado.
+    """
+    from backend.app.routers.enrichment import _tr
+
+    assert _tr("olá {nome}", "hi {nome}", "hola {nome}", nome="ana") == "olá ana"
+    # Placeholder que ninguém passou: devolve o template, não explode.
+    assert _tr("faltou {ausente}", "missing {ausente}", "falta {ausente}", n=1) == (
+        "faltou {ausente}"
+    )
