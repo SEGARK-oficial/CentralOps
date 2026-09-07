@@ -92,6 +92,10 @@ def _rows_covering_every_reject_reason() -> list[types.SimpleNamespace]:
         _row(10, ok, rule_type="sequence", window_seconds=60, legs_json=json.dumps(
             [{"where": [{"field": "a", "op": "eq", "value": "x"}], "join_path": "u"}] * 2
         )),                                                                                    # join_root
+        # Ausência (ADR-0016): prazo abaixo do piso; prazo acima do teto PRÓPRIO.
+        _row(11, ok, rule_type="absence", group_by="raw.u", window_seconds=10),                # bad_absence
+        _row(12, ok, rule_type="absence", group_by="raw.u",
+             window_seconds=int(settings.ABSENCE_MAX_WINDOW_SECONDS) + 1),                    # absence_window_over_cap
     ]
     # As válidas: precisam existir para o gauge ``rules_loaded`` sair > 0 e para
     # ``len(rows) >= cap`` disparar ``truncated``.
@@ -243,6 +247,20 @@ async def _exercise(monkeypatch: pytest.MonkeyPatch, record_counter=None) -> Non
     # ela a igualdade abaixo aprovaria um enum com a razão faltando.
     acc.errors["mark_failed"] = acc.errors.get("mark_failed", 0) + 1
 
+    # Ausência (ADR-0016), lado do FLUSH: o teto de chaves vigiadas descarta a
+    # chave NOVA — caminho real, com Redis falso e teto 1.
+    _abs = CompiledInflightRule(
+        rule_id=15, name="r15", severity_id=4, suppression_window_seconds=3600,
+        group_by_path=("u",), clauses=(), window_seconds=120, absence=True, forget_seconds=360,
+    )
+    monkeypatch.setattr(settings, "ABSENCE_MAX_KEYS_PER_RULE", 1)
+    acc.add(_abs, {"u": "k1"}, organization_id=7)
+    acc.add(_abs, {"u": "k2"}, organization_id=7)                             # absence_key_cap
+    # Lado do TIQUE: as duas guardas gravam com a mesma forma atribuível
+    # (``count_error`` por regra) e chegam ao OTel pelo flush — reproduzidas
+    # aqui pelo mesmo motivo das linhas ``matcher``/``mark_failed`` acima.
+    acc.count_error("absence_unobservable", 16)
+    acc.count_error("absence_source_lagging", 17)
     monkeypatch.setattr(runtime_mod, "_flush_sync", _boom)
     await flush_inflight(acc, organization_id=7)
 
@@ -280,6 +298,14 @@ async def _exercise(monkeypatch: pytest.MonkeyPatch, record_counter=None) -> Non
         group_by_path=("u",), clauses=(), window_seconds=60, leg_index=0, legs_total=2,
     )
     acc_ok.pending["inflight:7:23:seq:x"] = {"rule": _leg, "integration_id": 1, "hits": 1, "legs": {0: {}}}
+    # absence_unavailable (ADR-0016): presença com o Redis fora ⇒ fail-closed.
+    acc_ok.pending["inflight:7:24:k"] = {
+        "rule": CompiledInflightRule(
+            rule_id=24, name="r24", severity_id=4, suppression_window_seconds=3600,
+            group_by_path=("u",), clauses=(), window_seconds=120, absence=True, forget_seconds=360,
+        ),
+        "integration_id": 1, "hits": 1, "token": "k",
+    }
 
     class _BrokenRedis:
         def pipeline(self):

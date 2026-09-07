@@ -81,6 +81,12 @@ class CompiledInflightRule:
     leg_index: int | None = None
     legs_total: int = 0
     leg_label: str = ""
+    #: Ausência (ADR-0016): a regra vigia o evento esperado em vez de contá-lo.
+    #: Para o matcher é uma regra comum; quem muda de papel é o flush (grava
+    #: presença, nunca Detection) e o tique (decide o silêncio). ``window_seconds``
+    #: é o PRAZO de silêncio tolerado e ``forget_seconds`` o esquecimento.
+    absence: bool = False
+    forget_seconds: int = 0
 
 
 @dataclass(frozen=True, slots=True)

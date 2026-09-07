@@ -206,6 +206,40 @@ Limites: mínimo de 2 e máximo de `INFLIGHT_MAX_LEGS` (4) pernas; a janela é o
 O motor está no Core. No console Enterprise, a sequência é montada no editor de regras (tipo **Sequência entre fontes**, uma pista por perna); a API expõe `rule_type` e `legs`.
 :::
 
+## Como funciona: tipo absence (ausência de evento, em voo)
+
+Uma regra `rule_type='absence'` com `eval_mode='inflight'` alerta quando um evento que **sempre chega deixa de chegar**: o cliente que não criou o ponto de restauração de hoje, o host que parou de mandar heartbeat. Os dois motores anteriores só acordam quando um evento chega; a ausência precisa de um relógio, e o motor tem um.
+
+```json
+{
+  "rule_type": "absence",
+  "eval_mode": "inflight",
+  "where": [
+    { "field": "_centralops.event_type", "op": "eq", "value": "sophos.detection" },
+    { "field": "normalized.metadata.event_code", "op": "eq", "value": "XDR-veeam-restorepointcreated" }
+  ],
+  "group_by_field": "_centralops.customer_name",
+  "window_seconds": 93600,
+  "absence_forget_seconds": 604800,
+  "suppression_window_seconds": 21600
+}
+```
+
+Os campos mudam de papel: `where` é o **evento esperado**, `group_by_field` é a **chave vigiada** (cada valor distinto é uma entidade que precisa aparecer), `window_seconds` é o **prazo** de silêncio tolerado (60 s a 7 dias — teto próprio, não os 3600 s da janela deslizante) e `absence_forget_seconds` diz depois de quanto silêncio a chave **deixa de ser esperada** (vazio = 3 × prazo). `suppression_window_seconds` é a cadência com que a mesma chave calada é reafirmada.
+
+1. **Cada evento é avaliado pelo matcher como qualquer regra em voo**; nada de estado nem I/O ali.
+2. **No fim do ciclo**, o flush grava no Redis o último avistamento de cada chave e um **batimento do observador** — mesmo num ciclo sem match. Presença nunca vira Detection.
+3. **A cada minuto**, um tique lê o hash de cada regra e decide: chave calada além do prazo (mais uma folga) vira Detection e sai como evento 2004 com `finding_info.types = ["inflight", "absence"]`; chave calada além do esquecimento sai da vigília sem alertar; chave que **voltou** fecha a própria Detection (e emite o 2004 de fechamento com `DETECTION_LIFECYCLE_EVENTS`).
+4. **O tique só alerta quando prova que estava olhando.** Batimento mais velho que `ABSENCE_OBSERVER_MAX_AGE_SECONDS` (15 min) ⇒ nenhum alerta para a regra, contado em `absence_unobservable`. Quando o `where` fixa `_centralops.stream`, o tique ainda confere o watermark do coletor: atraso além do prazo **com** teto atingido ⇒ regra segurada (`absence_source_lagging`). Redis fora em qualquer ponta ⇒ nenhum alerta.
+
+A vigília é **aprendida**: uma chave passa a ser esperada ao ser vista pela primeira vez. Um Redis esvaziado zera a vigília sem alarme falso — a ausência nunca alerta sobre o que não aprendeu. Uma chave vista uma única vez e nunca mais alerta ao fim do prazo; para um host efêmero isso é ruído, e o esquecimento é o botão que separa os dois casos.
+
+Limites: `ABSENCE_MAX_KEYS_PER_RULE` (5000) chaves vigiadas por regra (chaves novas além do teto são descartadas, `absence_key_cap`); `ABSENCE_MAX_ALERTS_PER_TICK` (200) Detections novas por tique, compartilhado entre as regras; a regra conta no teto de regras por ciclo como qualquer regra em voo. `ABSENCE_AUTO_CLOSE=false` desliga o fechamento automático.
+
+:::note[Disponibilidade]
+O motor (presença no flush, decisão do tique) está no Core. O tique roda no beat do console Enterprise, que também expõe o tipo **Ausência** no editor de regras.
+:::
+
 ## Permissões
 
 | Ação | Permissão | Quem tem |
@@ -344,6 +378,10 @@ Um campo do seu `where` está dentro de uma lista, ex.: `raw.events.0.type`.
 Modo inflight: você configurou `group_by_field` apontando para um campo que não existe ou está dentro de um array.
 
 **Diagnóstico:** cada evento casado produz uma Detection usando `group_by_field` como chave. Se o campo não existe no evento, a Detection não é criada — em vez disso, você vê um erro `group_by_unresolved` nos logs. Verifique o campo, ou deixe em branco (NULL) se quer uma Detection por regra por ciclo.
+
+### 9. Ausência: o observador estava parado
+
+Uma regra de ausência habilitada que não alerta pode estar **segurada de propósito**: o último tique não encontrou o batimento do observador (worker parado, regra fora do teto por ciclo, Redis indisponível no flush) ou a fonte fixada estava com backlog. Confira o contador `absence_unobservable` / `absence_source_lagging` nas métricas da regra e o estado do último tique. Isso não é "a fonte está calada"; é "o motor não pôde afirmar nada".
 
 ## Limites e roadmap
 

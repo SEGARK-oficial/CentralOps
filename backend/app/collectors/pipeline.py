@@ -1095,6 +1095,11 @@ async def _run_collection_once(integration_id: int, stream: str) -> None:
         # Instanciado SÓ quando há regra: com a tupla vazia o hot path fica
         # byte-idêntico ao anterior (R2) e o flush é curto-circuitado.
         _inflight_acc = InflightAccumulator() if _inflight_rules.rules else None
+        # Ausência (ADR-0016): o flush precisa saber quais regras de ausência
+        # foram CARREGADAS, e não só quais casaram — o batimento do observador
+        # (``meta.last_cycle``) sai mesmo num ciclo com zero matches.
+        if _inflight_acc is not None:
+            _inflight_acc.note_rules(_inflight_rules.rules)
 
         # ── Enriquecimento em stream (ADR-LOCAL-0002) ───────────────────────
         # Mesma disciplina dos três irmãos acima: carga 1x por ciclo, OFF do

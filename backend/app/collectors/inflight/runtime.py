@@ -95,6 +95,10 @@ REJECT_REASONS = (
     "bad_legs",
     "legs_over_cap",
     "join_root",
+    # Ausência (ADR-0016): sem group_by/where/prazo válido, ou esquecimento
+    # menor que o prazo; prazo acima do teto PRÓPRIO da ausência.
+    "bad_absence",
+    "absence_window_over_cap",
 )
 
 #: Enum FECHADO de razões de ERRO de avaliação/flush — label de
@@ -161,6 +165,12 @@ ERROR_REASONS = (
     # (``sequence_unavailable``, fail-closed como a janela).
     "sequence_below",
     "sequence_unavailable",
+    # Ausência (ADR-0016). Os dois primeiros saem do FLUSH (presença); os dois
+    # últimos do TIQUE (silêncio) — todos atribuíveis a uma regra.
+    "absence_unavailable",
+    "absence_key_cap",
+    "absence_unobservable",
+    "absence_source_lagging",
 )
 
 #: Razões que NÃO descem ao ``observability_store`` por regra, porque não há
@@ -265,6 +275,8 @@ def validate_where_json(raw: Optional[str]) -> tuple[list[dict], Optional[str]]:
 
 
 SEQUENCE_RULE_TYPE = "sequence"
+#: Ausência (ADR-0016). A compilação e o flush moram em ``.absence``.
+ABSENCE_RULE_TYPE = "absence"
 
 
 def validate_legs_json(raw: Optional[str]) -> tuple[list[dict], Optional[str]]:
@@ -452,6 +464,8 @@ def compile_rule(row: Any) -> tuple[Optional[CompiledInflightRule], Optional[str
     if str(getattr(row, "rule_type", "") or "") == SEQUENCE_RULE_TYPE:
         rules, reason = _compile_sequence(row)
         return (rules[0] if rules else None), reason
+    if str(getattr(row, "rule_type", "") or "") == ABSENCE_RULE_TYPE:
+        return _compile_absence(row)
 
     clauses_raw, reason = validate_where_json(getattr(row, "where_json", None))
     if reason is not None:
@@ -514,6 +528,60 @@ def compile_rule(row: Any) -> tuple[Optional[CompiledInflightRule], Optional[str
             ),
             min_count=_mc,
             window_seconds=_win,
+        ),
+        None,
+    )
+
+
+def _compile_absence(row: Any) -> tuple[Optional[CompiledInflightRule], Optional[str]]:
+    """``rule_type='absence'`` → regra compilada, ou ``(None, razão)``.
+
+    A ausência reaproveita as colunas com outro papel: ``where`` é o evento
+    ESPERADO, ``group_by_field`` a chave VIGIADA e ``window_seconds`` o PRAZO
+    de silêncio. Os três são obrigatórios — sem chave não há o que vigiar, sem
+    filtro a regra vigiaria todo evento, sem prazo não há silêncio. O prazo tem
+    teto próprio (``ABSENCE_MAX_WINDOW_SECONDS``), não o da janela deslizante.
+    """
+    from .absence import ABSENCE_MIN_WINDOW_SECONDS, forget_seconds_for
+
+    clauses_raw, reason = validate_where_json(getattr(row, "where_json", None))
+    if reason is not None:
+        return None, reason
+    compiled_clauses, reason = _compile_clauses(clauses_raw, getattr(row, "id", "?"))
+    if compiled_clauses is None:
+        return None, reason
+    group_by = getattr(row, "group_by_field", None)
+    if not group_by or not str(group_by).strip():
+        return None, "bad_absence"
+    if str(group_by).split(".", 1)[0] not in ENVELOPE_ROOTS:
+        return None, "group_by_root"
+    window = int(getattr(row, "window_seconds", 0) or 0)
+    if window < ABSENCE_MIN_WINDOW_SECONDS:
+        return None, "bad_absence"
+    if window > int(settings.ABSENCE_MAX_WINDOW_SECONDS):
+        return None, "absence_window_over_cap"
+    forget = forget_seconds_for(row, window)
+    if forget < window or forget > int(settings.ABSENCE_MAX_FORGET_SECONDS):
+        return None, "bad_absence"
+    return (
+        CompiledInflightRule(
+            rule_id=int(row.id),
+            name=str(row.name),
+            severity_id=int(getattr(row, "severity_id", 4) or 4),
+            suppression_window_seconds=int(
+                _sup if (_sup := getattr(row, "suppression_window_seconds", None)) is not None
+                else 3600
+            ),
+            group_by_path=tuple(str(group_by).split(".")),
+            clauses=tuple(compiled_clauses),
+            emit_event=bool(getattr(row, "emit_event", False) or False),
+            max_dedup_keys=(
+                int(_mdk) if (_mdk := getattr(row, "max_dedup_keys", None)) else None
+            ),
+            min_count=1,
+            window_seconds=window,
+            absence=True,
+            forget_seconds=forget,
         ),
         None,
     )
@@ -905,7 +973,7 @@ def _event_source_pointer(
 class InflightAccumulator:
     """Matches do ciclo, em memória. Nada aqui toca I/O."""
 
-    __slots__ = ("pending", "matches", "errors", "overflow", "_keys_per_rule", "_logged_once")
+    __slots__ = ("pending", "matches", "errors", "overflow", "_keys_per_rule", "_logged_once", "absence_rules")
 
     def __init__(self) -> None:
         #: dedup_key → payload da Detection a criar
@@ -932,6 +1000,16 @@ class InflightAccumulator:
         #: observability_store, que é um só para todas) — ali a dupla degenera
         #: em "1 aviso por razão por ciclo", que é exatamente o rate certo.
         self._logged_once: set[tuple[str, Optional[int]]] = set()
+        #: Regras de ausência CARREGADAS no ciclo (ADR-0016), por id — o flush
+        #: grava o batimento delas mesmo sem match. Preenchido por ``note_rules``.
+        self.absence_rules: dict[int, CompiledInflightRule] = {}
+
+    def note_rules(self, rules: Any) -> None:
+        """Registra as regras do ciclo cujo flush precisa acontecer SEM match:
+        hoje só as de ausência. Idempotente; ignora o resto."""
+        for rule in rules or ():
+            if bool(getattr(rule, "absence", False)):
+                self.absence_rules[int(rule.rule_id)] = rule
 
     def count_error(self, reason: str, rule_id: int, amount: int = 1) -> None:
         """Contabiliza ``amount`` erros de ``reason`` ATRIBUÍDOS a uma regra.
@@ -1072,6 +1150,9 @@ class InflightAccumulator:
             # quê; e note que isto roda 1x por chave nova, nunca por evento.
             "source": _event_source_pointer(envelope, rule.group_by_path, group_value),
             "hits": 1,
+            # O token da chave, para quem precisa dele sem re-parsear a chave
+            # (a presença da ausência grava por token).
+            "token": token,
         }
         if is_leg:
             # Ponteiro POR PERNA: é a evidência de "qual evento de qual fonte"
@@ -1648,7 +1729,16 @@ def _build_detection_event(
     )
 
     sequence = src.get("sequence") if isinstance(src.get("sequence"), Mapping) else None
-    if sequence:
+    absence = src.get("absence") if isinstance(src.get("absence"), Mapping) else None
+    if absence:
+        _silent = int(absence.get("silent_for_seconds") or 0)
+        _expected = int(absence.get("expected_within_seconds") or 0)
+        message = (
+            f"Ausência: regra '{_evidence_text(emit.rule_name)}' — "
+            f"{src.get('group_field') or 'chave'}={src.get('group_value') or '*'} "
+            f"sem o evento esperado há {_silent} s (esperado a cada {_expected} s)"
+        )
+    elif sequence:
         message = (
             f"Sequência em voo '{_evidence_text(emit.rule_name)}' fechou "
             f"{int(sequence.get('legs') or 0)} perna(s) em "
@@ -1689,7 +1779,7 @@ def _build_detection_event(
             "title": _evidence_text(emit.rule_name),
             "desc": message,
             "created_time": now_ms,
-            "types": ["inflight"],
+            "types": ["inflight", "absence"] if absence else ["inflight"],
         },
         "message": message,
         # ── contexto do produto ──────────────────────────────────────────
@@ -1718,6 +1808,8 @@ def _build_detection_event(
             "group_value": src.get("group_value"),
         },
     }
+    if absence:
+        normalized["unmapped"]["absence"] = dict(absence)
     if sequence:
         # As pernas: um ponteiro por fonte (event_id, stream, instante) — o
         # analista pivota para cada evento; nenhum payload viaja.
@@ -1957,6 +2049,18 @@ async def flush_inflight(
     # que faltou algo. Falhando, o teto simplesmente não corta: escrever tudo é
     # LENTO, perder tudo em silêncio é o que este subsistema não pode fazer. A
     # direção da degradação é a decisão; o ``except`` só a executa.
+    # Ausência (ADR-0016) PRIMEIRO: retira as chaves de presença do ``pending``
+    # antes de qualquer teto — presença nunca vira Detection no flush.
+    try:
+        from .absence import apply_absence_presence
+
+        apply_absence_presence(acc, int(organization_id))
+    except Exception:  # noqa: BLE001
+        logger.exception(
+            "inflight: presença da ausência falhou (org %s) — as regras de "
+            "ausência ficam sem batimento neste flush (fail-closed no tique)",
+            organization_id,
+        )
     try:
         _apply_sequences(acc)
     except Exception:  # noqa: BLE001

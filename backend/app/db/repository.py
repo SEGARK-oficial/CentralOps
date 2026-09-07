@@ -2059,6 +2059,28 @@ class CorrelationRuleRepository:
         )
 
     # ── agendamento em lote (W1.1) ───────────────────────────────────────
+    def list_absence_enabled(self, limit: int = 500) -> list[models.CorrelationRule]:
+        """Regras ``absence`` habilitadas (em voo por construção), para o tique.
+
+        Ordem por org e id: o tique compartilha um teto global de alertas e a
+        ordem tem de ser TOTAL para dois beats concorrentes não divergirem em
+        quem gastou o teto. ``limit`` é teto por tique, não política.
+        """
+        return (
+            self.db.query(models.CorrelationRule)
+            .filter(
+                models.CorrelationRule.enabled.is_(True),
+                models.CorrelationRule.rule_type == "absence",
+                models.CorrelationRule.eval_mode == "inflight",
+            )
+            .order_by(
+                models.CorrelationRule.organization_id.asc(),
+                models.CorrelationRule.id.asc(),
+            )
+            .limit(max(1, limit))
+            .all()
+        )
+
     def list_due_scheduled(
         self, now: datetime, limit: int = 200
     ) -> list[models.CorrelationRule]:

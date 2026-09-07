@@ -124,7 +124,8 @@
     "scheduleManual": "manual",
     "emitOn": "sends",
     "emitOff": "—",
-    "sequenceLegs": "sequence · {{legs}} legs"
+    "sequenceLegs": "sequence · {{legs}} legs",
+    "absenceBadge": "absence · deadline {{window}}s"
   },
   "form": {
     "field": {
@@ -172,7 +173,8 @@
       "window": {
         "label": "Window (seconds)",
         "helperText": "Requires a timestamp field below.",
-        "inflightHelper": "In-flight: fires when ≥ min events for the same group key fit in the window (sliding count, up to 1 h). Leave min = 1 to fire on the first event."
+        "inflightHelper": "In-flight: fires when ≥ min events for the same group key fit in the window (sliding count, up to 1 h). Leave min = 1 to fire on the first event.",
+        "absenceHelper": "Silence tolerated per key (60 s to 7 days). Daily backup: 93600 (26 h)."
       },
       "suppression": {
         "label": "Suppression (seconds)"
@@ -215,9 +217,11 @@
         "label": "Rule type",
         "option": {
           "threshold": "Threshold — filters + grouping + count",
-          "sequence": "Cross-source sequence — legs with a join"
+          "sequence": "Cross-source sequence — legs with a join",
+          "absence": "Absence — watches an event that must keep arriving"
         },
-        "explain": "Sequence: each leg matches one event from one source (e.g. MFA failed in Okta; suspicious process in Sophos). The rule fires when every leg has been seen for the same join value within the window. In-flight only."
+        "explain": "Sequence: each leg matches one event from one source (e.g. MFA failed in Okta; suspicious process in Sophos). The rule fires when every leg has been seen for the same join value within the window. In-flight only.",
+        "explainAbsence": "Absence: the rule learns the keys that show up (e.g. every customer that creates a restore point) and alerts when a known key stays silent past the deadline. It only alerts if the engine can prove it was watching; a forgotten key leaves the watch without alerting."
       },
       "legs": {
         "heading": "Sequence legs",
@@ -234,6 +238,10 @@
         "joinPathHelper": "The field whose VALUE joins the legs. Each source has its own: Okta writes normalized.user.name, Sophos writes normalized.actor.user.name.",
         "filters": "Leg {{index}} filters",
         "windowHelper": "Window in which every leg must appear (10 s to the cap). Required for a sequence."
+      },
+      "absenceForget": {
+        "label": "Forget after (seconds)",
+        "helper": "After this much silence the key is no longer expected and its alert closes. Empty = 3 × the deadline. A customer that left does not become a permanent alert; neither does an ephemeral host."
       }
     },
     "status": {
@@ -258,7 +266,11 @@
       "legJoinPathRequired": "Leg {{index}}: enter the join path.",
       "legWhereRequired": "Leg {{index}}: add at least one filter.",
       "sequenceNeedsWindow": "A sequence requires a window between 10 s and the cap.",
-      "sequenceInflightOnly": "Sequences exist in-flight only."
+      "sequenceInflightOnly": "Sequences exist in-flight only.",
+      "absenceInflightOnly": "Absence only exists in-flight.",
+      "absenceWindowRange": "For absence the deadline ranges from 60 s to 604800 s (7 days).",
+      "absenceForgetMin": "Forget-after must be greater than or equal to the deadline.",
+      "absenceGroupByRequired": "Absence needs a watched key (group by)."
     },
     "actions": {
       "cancel": "Cancel"
@@ -433,6 +445,10 @@
       "title": "Detections that reach no destination",
       "notEmitting": "{{rules}} enabled in-flight rule(s) only write the Detection to the database: emission as an event is off on the rule (\"send to SIEM\") and in the environment (INFLIGHT_EMIT_OCSF_EVENT). Turn one of them on, otherwise the alert exists only on this screen.",
       "noRoute": "Rules are emitting detection events, but no enabled route admits them and there is no default destination: the event leaves the pipeline into the unrouted queue. Create a route with the detection_matched condition, or by detection stream/event_type."
+    },
+    "absence": {
+      "unobservable": "{{rules}} absence rule(s) had no observer heartbeat on the last tick: the engine does not alert until it can prove it was watching (worker down, rule outside the per-cycle cap, or Redis unavailable at flush).",
+      "title": "Absence rules the engine could not evaluate"
     }
   },
   "metrics": {
@@ -473,11 +489,24 @@
         "key_cap": "Cap on distinct keys reached in the cycle",
         "flush_lost": "Counter lost while flushing the cycle",
         "group_value_truncated": "group_by value truncated (key too long)",
-        "fallback": "Reason: {{reason}}"
+        "fallback": "Reason: {{reason}}",
+        "absence_unavailable": "Redis unavailable for presence",
+        "absence_key_cap": "Watched-key cap reached",
+        "absence_unobservable": "Tick without observer heartbeat",
+        "absence_source_lagging": "Source backlog: rule held"
       }
     },
     "actions": {
       "closeAriaLabel": "Close the rule counters"
+    },
+    "absence": {
+      "tracked": "Watched keys",
+      "silent": "Silent now",
+      "state": "Last tick",
+      "stateOk": "evaluated",
+      "stateUnobservable": "no heartbeat",
+      "stateLagging": "source lagging",
+      "stateUnavailable": "Redis unavailable"
     }
   },
   "studio": {
@@ -509,7 +538,8 @@
         "title": "Join"
       },
       "window": {
-        "title": "Window"
+        "title": "Window",
+        "titleAbsence": "Deadline"
       },
       "detect": {
         "title": "Detection"
@@ -526,12 +556,14 @@
       },
       "filters": {
         "none": "No filter",
-        "count": "{{count}} filter(s)"
+        "count": "{{count}} filter(s)",
+        "expected": "{{count}} condition(s) of the expected event"
       },
       "group": {
         "empty": "Set the field",
         "dedup": "dedup by value",
-        "aggregate": "aggregation in the window"
+        "aggregate": "aggregation in the window",
+        "watched": "watched key"
       },
       "join": {
         "leg": "join path",
@@ -543,14 +575,16 @@
         "threshold": "≥ {{min}} in {{window}}s",
         "sequence": "{{window}}s for all legs",
         "timestamp": "by {{field}}",
-        "noTimestamp": "no timestamp: window off"
+        "noTimestamp": "no timestamp: window off",
+        "absence": "silence > {{window}}s · forget after {{forget}}s"
       },
       "detect": {
         "emit": "→ SIEM (OCSF 2004)",
         "dbOnly": "database only",
         "batchDetection": "Detection when the search ends",
         "suppression": "suppression {{seconds}}s",
-        "disabled": "disabled"
+        "disabled": "disabled",
+        "autoClose": "closes itself when the key returns"
       }
     },
     "section": {
@@ -559,17 +593,20 @@
         "descriptionInflight": "In-flight the rule sees every pipeline event. Restrict to one source to recognize only what it produces."
       },
       "filters": {
-        "description": "Conditions the event must satisfy. Test against real samples before saving."
+        "description": "Conditions the event must satisfy. Test against real samples before saving.",
+        "descriptionAbsence": "The event that must keep arriving. Test against samples to prove it exists and that the key resolves."
       },
       "group": {
-        "description": "The key that joins events: aggregation in batch, dedup in-flight."
+        "description": "The key that joins events: aggregation in batch, dedup in-flight.",
+        "descriptionAbsence": "The watched key: every distinct value is an entity that must show up within the deadline."
       },
       "join": {
         "title": "Leg join",
         "description": "Each leg matches one event from one source; the detection is born when all of them show up with the SAME join value within the window."
       },
       "window": {
-        "description": "How many events, in how much time."
+        "description": "How many events, in how much time.",
+        "descriptionAbsence": "How much silence a key may have before alerting, and when it stops being expected."
       },
       "detect": {
         "description": "What comes out when the rule matches: severity, priority, SIEM emission and suppression."

@@ -2323,7 +2323,13 @@ export interface WhereFilter {
  * o próprio filtro e o próprio caminho de junção, fechando quando todas foram
  * vistas para o mesmo valor dentro de `window_seconds`.
  */
-export type CorrelationRuleType = "threshold" | "sequence"
+/**
+ * `absence` (ADR-0016): vigia um evento que tem de continuar chegando. `where`
+ * é o evento ESPERADO, `group_by_field` a chave VIGIADA, `window_seconds` o
+ * PRAZO de silêncio (teto próprio de 7 d) e `absence_forget_seconds` diz
+ * depois de quanto silêncio a chave deixa de ser esperada. Só em voo.
+ */
+export type CorrelationRuleType = "threshold" | "sequence" | "absence"
 
 /**
  * Uma perna de uma regra `sequence` (X1). `join_path` é o caminho da entidade
@@ -2349,6 +2355,8 @@ export interface CorrelationRuleRead {
   rule_type: CorrelationRuleType | string
   /** Pernas de uma regra `sequence`; vazio nas regras `threshold`. */
   legs?: SequenceLeg[]
+  /** Ausência (ADR-0016): esquecimento em segundos. `null`/ausente = 3 × prazo. */
+  absence_forget_seconds?: number | null
   /**
    * ADR-0015 — discriminador de execução da regra.
    * `batch` (default) = avaliada ao final de uma busca federada, sobre os
@@ -2429,6 +2437,8 @@ export interface CorrelationRuleCreate {
   rule_type?: CorrelationRuleType
   /** Só em `sequence`: 2 a `INFLIGHT_MAX_LEGS` pernas. */
   legs?: SequenceLeg[]
+  /** Ausência (ADR-0016): esquecimento em segundos. `null`/ausente = 3 × prazo. */
+  absence_forget_seconds?: number | null
   /** Obrigatório em `threshold`; ignorado em `sequence` (a junção é por perna). */
   group_by_field?: string
   min_count?: number
@@ -2466,6 +2476,8 @@ export interface CorrelationRuleUpdate {
   rule_type?: CorrelationRuleType
   /** Substitui TODAS as pernas (não é diff). */
   legs?: SequenceLeg[]
+  /** Ausência (ADR-0016): esquecimento em segundos. `null`/ausente = 3 × prazo. */
+  absence_forget_seconds?: number | null
   group_by_field?: string
   min_count?: number
   window_seconds?: number
@@ -2566,6 +2578,13 @@ export interface CorrelationLimitsRead {
   detection_routes_count?: number
   /** Existe destino `is_default` habilitado (org ou global): evento sem rota ainda chega a algum lugar. */
   default_destination_exists?: boolean
+  /**
+   * ADR-0016 — regras de ausência habilitadas cujo último tique NÃO pôde
+   * avaliar (sem batimento do observador ou fonte atrasada). Não é "a fonte
+   * está calada": é "o motor não pôde afirmar nada". Opcional: API anterior
+   * ao motor de ausência não manda o campo.
+   */
+  absence_unobservable_rules?: number
   /** Teto de CRIAÇÃO. É 4x o de avaliação, e essa distância É o problema. */
   creation_cap: number
   /**
@@ -2620,6 +2639,15 @@ export interface CorrelationRuleMetricsRead {
    * propósito: uma razão nova nasce visível aqui em vez de precisar de um campo.
    */
   errors: Record<string, number | null>
+  /**
+   * ADR-0016 — só em regras `absence`, lidos do último tique: chaves vigiadas,
+   * chaves caladas agora, estado do tique (`ok` | `unobservable` | `lagging` |
+   * `unavailable`) e o instante dele (epoch s). `null`/ausente = não lido.
+   */
+  absence_tracked?: number | null
+  absence_silent?: number | null
+  absence_state?: string | null
+  absence_last_tick?: number | null
 }
 
 // ── OCSF governance ────────────────────────────────────────────
