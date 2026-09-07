@@ -8,7 +8,6 @@ import {
   NetworkIcon,
   PlusIcon,
   Trash2Icon,
-  KeyRoundIcon,
 } from "lucide-react"
 import { PageHeader } from "@/components/ui/PageHeader/PageHeader"
 import { Button } from "@/components/ui/Button/Button"
@@ -29,9 +28,11 @@ import { PolicyVersionsModal } from "@/components/enrichment/PolicyVersionsModal
 import { usePlatform } from "@/contexts/PlatformContext"
 import { TileGallery } from "@/components/shared/TileGallery"
 import { SourceFormModal } from "@/components/enrichment/SourceFormModal"
+import { SourcesTable } from "@/components/enrichment/SourcesTable"
 import {
   deleteEnrichmentSource,
   deleteEnrichmentTable,
+  testEnrichmentSource,
   listEnrichers,
   listEnrichmentPolicies,
   listEnrichmentSources,
@@ -98,6 +99,11 @@ export function EnrichmentPage(): React.ReactElement {
   const [sourceDeleteTarget, setSourceDeleteTarget] = useState<EnrichSource | null>(null)
   const [sourceDeleting, setSourceDeleting] = useState(false)
   const [sourceDeleteError, setSourceDeleteError] = useState<string | null>(null)
+
+  //: Fonte sendo sondada agora. O resultado é PERSISTIDO pelo backend, então a
+  //: lista recarregada já mostra o veredito na coluna — não é preciso guardar a
+  //: resposta aqui.
+  const [testingSourceId, setTestingSourceId] = useState<string | null>(null)
 
   const [createPolicyOpen, setCreatePolicyOpen] = useState(false)
   const [policyVersionsFor, setPolicyVersionsFor] = useState<EnrichPolicy | null>(null)
@@ -305,83 +311,38 @@ export function EnrichmentPage(): React.ReactElement {
               />
             </div>
           ) : tab === "sources" ? (
-            sources.length === 0 ? (
-              <EmptyState
-                icon={<KeyRoundIcon size={28} aria-hidden />}
-                title={t("sources.emptyTitle")}
-                description={t("sources.emptyDescription")}
-                action={
-                  <Button
-                    variant="primary"
-                    onClick={() => {
-                      setSourceEditing(null)
-                      setSourceFormOpen(true)
-                    }}
-                    leftIcon={<PlusIcon size={14} />}
-                  >
-                    {t("sources.form.create")}
-                  </Button>
+            <SourcesTable
+              sources={sources}
+              enrichers={enrichers}
+              organizations={organizations}
+              testingId={testingSourceId}
+              onCreate={() => {
+                setSourceEditing(null)
+                setSourceFormOpen(true)
+              }}
+              onEdit={(src) => {
+                setSourceEditing(src)
+                setSourceFormOpen(true)
+              }}
+              onDelete={(src) => {
+                setSourceDeleteError(null)
+                setSourceDeleteTarget(src)
+              }}
+              onTest={async (src) => {
+                setTestingSourceId(src.id)
+                try {
+                  // O veredito é gravado pelo backend; recarregar a lista faz a
+                  // coluna refletir o resultado sem estado duplicado aqui.
+                  await testEnrichmentSource(src.id)
+                } catch {
+                  // Falha de rede também vira veredito gravado no servidor; o
+                  // reload abaixo mostra o que de fato ficou registrado.
+                } finally {
+                  setTestingSourceId(null)
+                  void load()
                 }
-              />
-            ) : (
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {sources.map((src) => (
-                  <Card
-                    key={src.id}
-                    className="flex cursor-pointer flex-col gap-3 p-4 transition-colors hover:border-primary-300"
-                    role="button"
-                    tabIndex={0}
-                    onClick={() => {
-                      setSourceEditing(src)
-                      setSourceFormOpen(true)
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" || e.key === " ") {
-                        e.preventDefault()
-                        setSourceEditing(src)
-                        setSourceFormOpen(true)
-                      }
-                    }}
-                    data-testid={`source-card-${src.name}`}
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0">
-                        <h3 className="truncate font-medium">{src.name}</h3>
-                        <p className="font-mono text-xs text-muted">{src.enricher}</p>
-                        <p className="text-xs text-muted">
-                          {t("tables.org", { id: src.organization_id })}
-                        </p>
-                      </div>
-                      <Button
-                        variant="outline"
-                        size="xs"
-                        aria-label={t("sources.deleteAction")}
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          setSourceDeleteError(null)
-                          setSourceDeleteTarget(src)
-                        }}
-                      >
-                        <Trash2Icon size={12} aria-hidden />
-                      </Button>
-                    </div>
-                    {src.description ? (
-                      <p className="text-sm text-muted">{src.description}</p>
-                    ) : null}
-                    <div className="mt-auto flex flex-wrap items-center gap-2">
-                      <Badge variant={src.secret_configured ? "success" : "warning"}>
-                        {src.secret_configured
-                          ? t("sources.secretConfigured")
-                          : t("sources.secretMissing")}
-                      </Badge>
-                      {!src.enabled && (
-                        <Badge variant="default">{t("sources.disabled")}</Badge>
-                      )}
-                    </div>
-                  </Card>
-                ))}
-              </div>
-            )
+              }}
+            />
           ) : tab === "tables" ? (
             tables.length === 0 ? (
               <EmptyState

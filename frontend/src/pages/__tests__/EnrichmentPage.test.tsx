@@ -329,7 +329,7 @@ describe("EnrichmentPage — fontes configuradas", () => {
     await aguardaCarregar()
 
     fireEvent.click(screen.getByRole("tab", { name: /Fontes/i }))
-    await screen.findByTestId("source-card-vt-prod")
+    await screen.findByTestId("source-row-vt-prod")
 
     expect(screen.getByText("credencial cadastrada")).toBeInTheDocument()
     // O cofre decifra qualquer ciphertext sem olhar org: a referência não pode
@@ -337,16 +337,20 @@ describe("EnrichmentPage — fontes configuradas", () => {
     expect(container.innerHTML).not.toContain("secret_ref")
   })
 
-  it("card de fonte é alcançável por teclado", async () => {
+  it("fonte é alcançável por teclado", async () => {
+    // A lista deixou de ser um grid de cards com `tabindex` e `onKeyDown`
+    // manuais e passou a ser uma tabela cujo nome é um <button> nativo. A
+    // propriedade testada é a mesma — dá para chegar e acionar sem mouse —, só
+    // que agora vem do elemento certo, em vez de ser reconstruída à mão.
     mockLoad({ sources: [source] })
     render(<EnrichmentPage />)
     await aguardaCarregar()
 
     fireEvent.click(screen.getByRole("tab", { name: /Fontes/i }))
-    const card = await screen.findByTestId("source-card-vt-prod")
-    expect(card).toHaveAttribute("tabindex", "0")
+    const trigger = await screen.findByTestId("source-row-vt-prod")
+    expect(trigger.tagName).toBe("BUTTON")
 
-    fireEvent.keyDown(card, { key: "Enter" })
+    fireEvent.click(trigger)
     expect(
       await screen.findByRole("dialog", { name: /Editar fonte/i }),
     ).toBeInTheDocument()

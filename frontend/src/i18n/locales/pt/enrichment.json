@@ -212,6 +212,26 @@
       "run": "Testar",
       "hint": "Consulta a fonte de verdade com a credencial gravada, em modo reduzido. Não publica nada.",
       "sampleCount": "{{count}} registro(s) na amostra."
+    },
+    "table": {
+      "source": "Fonte",
+      "enricher": "Enricher",
+      "egress": "Egresso",
+      "credential": "Credencial",
+      "lastTest": "Último teste",
+      "usedBy": "Quem usa",
+      "search": "Buscar",
+      "filter": "Filtrar",
+      "filterAll": "Todas ({{count}})",
+      "filterProblem": "Com problema ({{count}})",
+      "filterThirdParty": "Enviam a terceiro",
+      "noMatch": "Nenhuma fonte corresponde ao filtro.",
+      "neverTested": "nunca testada",
+      "noSecretNeeded": "não exige",
+      "agoDays_one": "há {{count}} dia",
+      "agoDays_other": "há {{count}} dias",
+      "ownerPlusChildren_one": "{{owner}} + {{count}} filha",
+      "ownerPlusChildren_other": "{{owner}} + {{count}} filhas"
     }
   },
   "catalog": {

@@ -212,6 +212,26 @@
       "run": "Test",
       "hint": "Queries the real source with the stored credential, in reduced mode. Publishes nothing.",
       "sampleCount": "{{count}} record(s) in the sample."
+    },
+    "table": {
+      "source": "Source",
+      "enricher": "Enricher",
+      "egress": "Egress",
+      "credential": "Credential",
+      "lastTest": "Last test",
+      "usedBy": "Used by",
+      "search": "Search",
+      "filter": "Filter",
+      "filterAll": "All ({{count}})",
+      "filterProblem": "Needs attention ({{count}})",
+      "filterThirdParty": "Send to a third party",
+      "noMatch": "No source matches the filter.",
+      "neverTested": "never tested",
+      "noSecretNeeded": "not required",
+      "agoDays_one": "{{count}} day ago",
+      "agoDays_other": "{{count}} days ago",
+      "ownerPlusChildren_one": "{{owner}} + {{count}} child",
+      "ownerPlusChildren_other": "{{owner}} + {{count}} children"
     }
   },
   "catalog": {
