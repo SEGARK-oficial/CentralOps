@@ -112,7 +112,8 @@
     "evalPriorityTooltip": "In-flight evaluation order: higher priority runs first; ties break toward the oldest. No effect in batch.",
     "scheduleManual": "manual",
     "emitOn": "sends",
-    "emitOff": "—"
+    "emitOff": "—",
+    "sequenceLegs": "sequence · {{legs}} legs"
   },
   "form": {
     "field": {
@@ -416,6 +417,11 @@
     "loadError": {
       "title": "Could not read the evaluation caps",
       "description": "Without them this screen cannot explain why an enabled rule never fires. Detail: {{message}}"
+    },
+    "emission": {
+      "title": "Detections that reach no destination",
+      "notEmitting": "{{rules}} enabled in-flight rule(s) only write the Detection to the database: emission as an event is off on the rule (\"send to SIEM\") and in the environment (INFLIGHT_EMIT_OCSF_EVENT). Turn one of them on, otherwise the alert exists only on this screen.",
+      "noRoute": "Rules are emitting detection events, but no enabled route admits them and there is no default destination: the event leaves the pipeline into the unrouted queue. Create a route with the detection_matched condition, or by detection stream/event_type."
     }
   },
   "metrics": {

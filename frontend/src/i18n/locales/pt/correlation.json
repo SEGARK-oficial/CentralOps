@@ -112,7 +112,8 @@
     "evalPriorityTooltip": "Ordem de avaliação em voo: maior prioridade roda primeiro; empate desempata pela mais antiga. Sem efeito em lote.",
     "scheduleManual": "manual",
     "emitOn": "envia",
-    "emitOff": "—"
+    "emitOff": "—",
+    "sequenceLegs": "sequência · {{legs}} pernas"
   },
   "form": {
     "field": {
@@ -416,6 +417,11 @@
     "loadError": {
       "title": "Não foi possível ler os tetos de avaliação",
       "description": "Sem eles esta tela não consegue explicar por que uma regra habilitada não dispara. Detalhe: {{message}}"
+    },
+    "emission": {
+      "title": "Detecções que não chegam a nenhum destino",
+      "notEmitting": "{{rules}} regra(s) em voo habilitadas gravam a Detection só no banco: a emissão como evento está desligada na regra (\"enviar ao SIEM\") e no ambiente (INFLIGHT_EMIT_OCSF_EVENT). Ligue uma das duas, senão o alerta só existe nesta tela.",
+      "noRoute": "Há regras emitindo eventos de detecção, mas nenhuma rota habilitada os admite e não existe destino padrão: o evento sai do pipeline e cai na fila de não roteados. Crie uma rota com a condição detection_matched, ou por stream/event_type de detecção."
     }
   },
   "metrics": {

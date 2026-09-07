@@ -2550,6 +2550,22 @@ export interface CorrelationRulePreviewResult {
  */
 export interface CorrelationLimitsRead {
   organization_id: number
+  /**
+   * "Onde chega o alerta?" — regras em voo HABILITADAS cuja Detection fica só
+   * no banco: `emit_event` desligado na regra e `INFLIGHT_EMIT_OCSF_EVENT`
+   * desligado no ambiente. Opcional: um Core anterior a este campo não o manda.
+   */
+  inflight_rules_not_emitting?: number
+  /** `INFLIGHT_EMIT_OCSF_EVENT` como o processo da API o lê. */
+  emit_env_enabled?: boolean
+  /**
+   * Rotas habilitadas (da org ou globais, ação `route`, com destino) cuja
+   * condição admite eventos de detecção da CentralOps (`detection_matched`,
+   * `stream`/`event_type`/`vendor` de detecção, ou catch-all).
+   */
+  detection_routes_count?: number
+  /** Existe destino `is_default` habilitado (org ou global): evento sem rota ainda chega a algum lugar. */
+  default_destination_exists?: boolean
   /** Teto de CRIAÇÃO. É 4x o de avaliação, e essa distância É o problema. */
   creation_cap: number
   /**
