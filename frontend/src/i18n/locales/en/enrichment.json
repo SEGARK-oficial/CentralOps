@@ -113,6 +113,16 @@
         "empty_key": "empty key",
         "duplicate_key": "duplicate key"
       }
+    },
+    "table": {
+      "name": "Table",
+      "match": "Matching",
+      "version": "Current version",
+      "size": "Size",
+      "usedBy": "Used by",
+      "unused": "no rule",
+      "usedByRules_one": "{{count}} rule",
+      "usedByRules_other": "{{count}} rules"
     }
   },
   "policies": {
@@ -289,13 +299,17 @@
       "secretKeepPlaceholder": "•••••••• (leave empty to keep)",
       "create": "New source",
       "sharedOrgs": "Child organizations",
-      "sharedOrgsHint": "The source always serves the owning organization. Check the children that should also use this credential. Sharing requires the Enterprise edition."
+      "sharedOrgsHint": "The source always serves the owning organization. Check the children that should also use this credential. Sharing requires the Enterprise edition.",
+      "egressRequired": "Confirm sending indicators to a third party before saving.",
+      "egressAck": "I authorize sending this organization's indicators to {{name}}",
+      "egressAckHint": "Indicators that pass the rule's condition ({{kinds}}) leave your infrastructure. What the condition blocks never leaves."
     },
     "test": {
       "title": "Test connection",
       "run": "Test",
       "hint": "Queries the real source with the stored credential, in reduced mode. Publishes nothing.",
-      "sampleCount": "{{count}} record(s) in the sample."
+      "sampleCount": "{{count}} record(s) in the sample.",
+      "hintDraft": "Queries the provider with the values in this form, including a credential you have not saved yet. Nothing is written."
     },
     "table": {
       "source": "Source",
@@ -376,6 +390,16 @@
     "unanswered": "{{value}} unanswered",
     "recentFailures_one": "{{count}} recent failure",
     "recentFailures_other": "{{count}} recent failures",
-    "seeAll": "See all under Execution"
+    "seeAll": "See all under Execution",
+    "kpi": {
+      "lookups": "Lookups in window",
+      "hitRate": "Match rate",
+      "rules_one": "{{count}} rule in effect",
+      "rules_other": "{{count}} rules in effect",
+      "unanswered": "Unanswered",
+      "unansweredHint": "credential, network or budget",
+      "silent": "Silent rules",
+      "silentHint": "did not fire in the window"
+    }
   }
 }

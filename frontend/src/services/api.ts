@@ -2725,6 +2725,26 @@ export interface EnrichmentSourceTestResult {
   elapsed_ms?: number | null
 }
 
+/**
+ * Sonda uma fonte que AINDA NÃO EXISTE, com o que está no formulário.
+ *
+ * Nada é gravado — nem a fonte, nem o veredito. Sem `secret`, mas com
+ * `source_id`, o servidor usa a credencial já salva, para o operador testar
+ * sem redigitar a chave ao editar outro campo.
+ */
+export async function testEnrichmentSourceDraft(data: {
+  enricher: string
+  organization_id?: number | null
+  config?: Record<string, unknown>
+  secret?: string
+  source_id?: string
+}) {
+  return apiRequest<EnrichmentSourceTestResult>(
+    "/collectors/enrichment/sources/test-draft",
+    { method: "POST", body: JSON.stringify(data) },
+  )
+}
+
 /** Sonda a fonte de verdade (1 página curta). Não persiste nada. */
 export async function testEnrichmentSource(id: string) {
   return apiRequest<EnrichmentSourceTestResult>(

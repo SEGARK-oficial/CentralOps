@@ -113,6 +113,16 @@
         "empty_key": "chave vazia",
         "duplicate_key": "chave repetida"
       }
+    },
+    "table": {
+      "name": "Tabela",
+      "match": "Casamento",
+      "version": "Versão vigente",
+      "size": "Tamanho",
+      "usedBy": "Quem usa",
+      "unused": "nenhuma regra",
+      "usedByRules_one": "{{count}} regra",
+      "usedByRules_other": "{{count}} regras"
     }
   },
   "policies": {
@@ -289,13 +299,17 @@
       "secretKeepPlaceholder": "•••••••• (deixe vazio para manter)",
       "create": "Nova fonte",
       "sharedOrgs": "Organizações filhas",
-      "sharedOrgsHint": "A fonte atende sempre a organização dona. Marque as filhas que também devem usar esta credencial. Compartilhar exige a edição Enterprise."
+      "sharedOrgsHint": "A fonte atende sempre a organização dona. Marque as filhas que também devem usar esta credencial. Compartilhar exige a edição Enterprise.",
+      "egressRequired": "Confirme o envio de indicadores a terceiro antes de salvar.",
+      "egressAck": "Autorizo o envio de indicadores desta organização ao {{name}}",
+      "egressAckHint": "Os indicadores que passarem pela condição da regra ({{kinds}}) saem da sua infraestrutura. O que a condição barra não sai."
     },
     "test": {
       "title": "Testar conexão",
       "run": "Testar",
       "hint": "Consulta a fonte de verdade com a credencial gravada, em modo reduzido. Não publica nada.",
-      "sampleCount": "{{count}} registro(s) na amostra."
+      "sampleCount": "{{count}} registro(s) na amostra.",
+      "hintDraft": "Consulta o provedor com os valores deste formulário, inclusive a credencial ainda não salva. Nada é gravado."
     },
     "table": {
       "source": "Fonte",
@@ -376,6 +390,16 @@
     "unanswered": "{{value}} sem resposta",
     "recentFailures_one": "{{count}} falha recente",
     "recentFailures_other": "{{count}} falhas recentes",
-    "seeAll": "Ver todas em Execução"
+    "seeAll": "Ver todas em Execução",
+    "kpi": {
+      "lookups": "Consultas na janela",
+      "hitRate": "Acerto médio",
+      "rules_one": "{{count}} regra em vigor",
+      "rules_other": "{{count}} regras em vigor",
+      "unanswered": "Sem resposta",
+      "unansweredHint": "credencial, rede ou orçamento",
+      "silent": "Regras mudas",
+      "silentHint": "não dispararam na janela"
+    }
   }
 }

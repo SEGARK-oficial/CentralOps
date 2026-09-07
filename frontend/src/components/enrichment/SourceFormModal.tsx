@@ -64,6 +64,7 @@ export const SourceFormModal: React.FC<SourceFormModalProps> = ({
   const [error, setError] = useState<string | null>(null)
   const [testing, setTesting] = useState(false)
   const [testResult, setTestResult] = useState<api.EnrichmentSourceTestResult | null>(null)
+  const [egressAck, setEgressAck] = useState(false)
 
   // Depende de `source?.id`, não de `source`: o pai recria o objeto a cada
   // recarga da lista, e depender da identidade resetaria o que está sendo
@@ -91,6 +92,7 @@ export const SourceFormModal: React.FC<SourceFormModalProps> = ({
       if (preselectEnricher) setEnricher(preselectEnricher)
     }
     setTestResult(null)
+    setEgressAck(source != null)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, source?.id])
 
@@ -99,6 +101,20 @@ export const SourceFormModal: React.FC<SourceFormModalProps> = ({
     [enrichers, enricher],
   )
   const needsSecret = (selected?.required_secrets?.length ?? 0) > 0
+  /**
+   * Egresso a terceiro exige consentimento EXPLÍCITO nesta tela.
+   *
+   * O selo no catálogo diz que a fonte envia indicadores para fora, mas dizer
+   * não é o mesmo que obter consentimento. Cadastrar uma credencial de
+   * VirusTotal é a decisão que de fato manda IP e hash do cliente para um
+   * terceiro, e em ambiente regulado ou sob NDA essa decisão precisa ser
+   * deliberada — não um efeito colateral de preencher um formulário.
+   *
+   * Na EDIÇÃO a caixa já vem marcada: o consentimento foi dado quando a fonte
+   * foi criada, e reapresentá-lo em branco faria toda edição de porta parecer
+   * uma autorização nova.
+   */
+  const sendsToThirdParty = selected?.egress === "third_party"
 
   function handleClose() {
     if (submitting) return
@@ -117,6 +133,10 @@ export const SourceFormModal: React.FC<SourceFormModalProps> = ({
     }
     if (!isEdit && needsSecret && !secret.trim()) {
       setError(t("sources.form.secretRequired"))
+      return
+    }
+    if (sendsToThirdParty && !egressAck) {
+      setError(t("sources.form.egressRequired"))
       return
     }
     setSubmitting(true)
@@ -234,6 +254,33 @@ export const SourceFormModal: React.FC<SourceFormModalProps> = ({
           />
         )}
 
+        {/* Consentimento de egresso. Vem DEPOIS da credencial de propósito: é
+            ao cadastrar a chave que a decisão de mandar indicador para fora
+            passa a valer, e é aí que a pergunta faz sentido. */}
+        {sendsToThirdParty && (
+          <label
+            className="flex items-start gap-3 rounded-lg border border-warning-500/40 bg-warning-500/10 p-4"
+            data-testid="egress-ack"
+          >
+            <input
+              type="checkbox"
+              className="mt-0.5"
+              checked={egressAck}
+              onChange={(e) => setEgressAck(e.target.checked)}
+            />
+            <span>
+              <span className="block text-sm font-medium">
+                {t("sources.form.egressAck", { name: selected?.label ?? enricher })}
+              </span>
+              <span className="mt-0.5 block text-xs text-muted">
+                {t("sources.form.egressAckHint", {
+                  kinds: (selected?.key_kinds ?? []).join(", "),
+                })}
+              </span>
+            </span>
+          </label>
+        )}
+
         {/* Filhas que usam esta fonte. Só aparece quando há mais de uma org
             visível, e o backend recusa a lista sem a edição Enterprise. */}
         {(orgsProp?.length ?? 0) > 1 && organizationId != null && (
@@ -265,8 +312,11 @@ export const SourceFormModal: React.FC<SourceFormModalProps> = ({
           </fieldset>
         )}
 
-        {/* Testar só existe na edição: a sondagem usa a credencial JÁ gravada. */}
-        {isEdit && (
+        {/* Testar vale ANTES de salvar. Sem isto, o único jeito de descobrir
+            que a chave está errada era gravar, esperar o ciclo e ler a aba de
+            Execução — ou seja, o operador só sabia que errou depois de a
+            credencial já estar no banco e a política já publicada. */}
+        {(
           <div className="space-y-2 rounded-lg border border-border p-4">
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold uppercase tracking-wide text-muted">
@@ -281,7 +331,23 @@ export const SourceFormModal: React.FC<SourceFormModalProps> = ({
                   setTesting(true)
                   setTestResult(null)
                   try {
-                    setTestResult(await api.testEnrichmentSource(source!.id))
+                    // Editando uma fonte SEM mexer na credencial, a sondagem
+                    // com o registro salvo é a mais fiel: usa exatamente o que
+                    // o worker usaria. Em qualquer outro caso (criação, ou
+                    // credencial recém-digitada) vai pelo rascunho, que não
+                    // grava nada.
+                    const usaGravada = isEdit && !secret.trim()
+                    setTestResult(
+                      usaGravada
+                        ? await api.testEnrichmentSource(source!.id)
+                        : await api.testEnrichmentSourceDraft({
+                            enricher,
+                            organization_id: organizationId,
+                            config,
+                            ...(secret.trim() ? { secret: secret.trim() } : {}),
+                            ...(isEdit && source ? { source_id: source.id } : {}),
+                          }),
+                    )
                   } catch (err) {
                     setTestResult({
                       ok: false,
@@ -295,7 +361,11 @@ export const SourceFormModal: React.FC<SourceFormModalProps> = ({
                 {t("sources.test.run")}
               </Button>
             </div>
-            <p className="text-xs text-muted">{t("sources.test.hint")}</p>
+            <p className="text-xs text-muted">
+              {isEdit && !secret.trim()
+                ? t("sources.test.hint")
+                : t("sources.test.hintDraft")}
+            </p>
             {testResult && (
               <Notice
                 variant={testResult.ok ? "success" : "danger"}

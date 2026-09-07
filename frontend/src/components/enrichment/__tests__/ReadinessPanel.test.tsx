@@ -205,4 +205,34 @@ describe("ReadinessPanel", () => {
       }),
     )
   })
+  it("mostra os números da janela e omite a fileira quando não há o que contar", async () => {
+    // Uma fileira de zeros numa organização recém-configurada não informa
+    // nada e rouba o lugar do passo que de fato falta.
+    mount()
+    await screen.findByText(/Tudo pronto nesta organização/i)
+    expect(screen.queryByTestId("readiness-kpis")).not.toBeInTheDocument()
+  })
+
+  it("os KPIs vêm só das métricas, sem inventar contagem de eventos", async () => {
+    mockedApi.getEnrichmentMetrics.mockResolvedValue({
+      organization_id: 1,
+      range_minutes: 60,
+      policy_name: "p",
+      rules: [
+        { rule_id: "a", enricher: "table_cidr", source: null, hit: 90, miss: 10, skipped: 0, error: 0 },
+        { rule_id: "b", enricher: "virustotal", source: "vt", hit: 0, miss: 0, skipped: 100, error: 0 },
+        { rule_id: "c", enricher: "opencti", source: "cti", hit: 0, miss: 0, skipped: 0, error: 0 },
+      ],
+    })
+    mount()
+
+    const kpis = await screen.findByTestId("readiness-kpis")
+    expect(kpis).toHaveTextContent("200")  // consultas na janela
+    expect(kpis).toHaveTextContent("45%")  // acerto: 90 de 200
+    expect(kpis).toHaveTextContent("50%")  // sem resposta: 100 de 200
+    // A regra que não disparou é contada à parte: "0% de acerto" e "muda" são
+    // diagnósticos diferentes, e confundi-los manda o operador mexer na
+    // tabela quando o problema é a regra não estar rodando.
+    expect(kpis).toHaveTextContent(/Regras mudas/i)
+  })
 })

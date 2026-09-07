@@ -113,6 +113,16 @@
         "empty_key": "clave vacía",
         "duplicate_key": "clave repetida"
       }
+    },
+    "table": {
+      "name": "Tabla",
+      "match": "Coincidencia",
+      "version": "Versión vigente",
+      "size": "Tamaño",
+      "usedBy": "Quién la usa",
+      "unused": "ninguna regla",
+      "usedByRules_one": "{{count}} regla",
+      "usedByRules_other": "{{count}} reglas"
     }
   },
   "policies": {
@@ -289,13 +299,17 @@
       "secretKeepPlaceholder": "•••••••• (déjelo vacío para mantener)",
       "create": "Nueva fuente",
       "sharedOrgs": "Organizaciones hijas",
-      "sharedOrgsHint": "La fuente siempre atiende a la organización propietaria. Marque las hijas que también deben usar esta credencial. Compartir requiere la edición Enterprise."
+      "sharedOrgsHint": "La fuente siempre atiende a la organización propietaria. Marque las hijas que también deben usar esta credencial. Compartir requiere la edición Enterprise.",
+      "egressRequired": "Confirma el envío de indicadores a terceros antes de guardar.",
+      "egressAck": "Autorizo el envío de indicadores de esta organización a {{name}}",
+      "egressAckHint": "Los indicadores que pasen la condición de la regla ({{kinds}}) salen de tu infraestructura. Lo que la condición bloquea no sale."
     },
     "test": {
       "title": "Probar conexión",
       "run": "Probar",
       "hint": "Consulta la fuente real con la credencial guardada, en modo reducido. No publica nada.",
-      "sampleCount": "{{count}} registro(s) en la muestra."
+      "sampleCount": "{{count}} registro(s) en la muestra.",
+      "hintDraft": "Consulta al proveedor con los valores de este formulario, incluida una credencial aún no guardada. No se graba nada."
     },
     "table": {
       "source": "Fuente",
@@ -376,6 +390,16 @@
     "unanswered": "{{value}} sin respuesta",
     "recentFailures_one": "{{count}} fallo reciente",
     "recentFailures_other": "{{count}} fallos recientes",
-    "seeAll": "Ver todas en Ejecución"
+    "seeAll": "Ver todas en Ejecución",
+    "kpi": {
+      "lookups": "Consultas en la ventana",
+      "hitRate": "Acierto medio",
+      "rules_one": "{{count}} regla vigente",
+      "rules_other": "{{count}} reglas vigentes",
+      "unanswered": "Sin respuesta",
+      "unansweredHint": "credencial, red o presupuesto",
+      "silent": "Reglas mudas",
+      "silentHint": "no se dispararon en la ventana"
+    }
   }
 }

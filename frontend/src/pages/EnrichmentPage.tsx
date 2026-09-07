@@ -5,10 +5,7 @@ import { useNavigate } from "react-router-dom"
 import {
   SparklesIcon,
   RefreshCcwIcon,
-  TableIcon,
-  NetworkIcon,
   PlusIcon,
-  Trash2Icon,
 } from "lucide-react"
 import { PageHeader } from "@/components/ui/PageHeader/PageHeader"
 import { Button } from "@/components/ui/Button/Button"
@@ -30,9 +27,12 @@ import { usePlatform } from "@/contexts/PlatformContext"
 import { TileGallery } from "@/components/shared/TileGallery"
 import { SourceFormModal } from "@/components/enrichment/SourceFormModal"
 import { SourcesTable } from "@/components/enrichment/SourcesTable"
+import { TablesTable } from "@/components/enrichment/TablesTable"
 import {
   deleteEnrichmentSource,
   deleteEnrichmentTable,
+  getEnrichmentConfig,
+  getEnrichmentPolicyVersion,
   testEnrichmentSource,
   listEnrichers,
   listEnrichmentPolicies,
@@ -62,12 +62,6 @@ import {
  */
 
 
-function fmtBytes(n: number): string {
-  if (!n) return "0 B"
-  if (n < 1024) return `${n} B`
-  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KiB`
-  return `${(n / (1024 * 1024)).toFixed(1)} MiB`
-}
 
 export function EnrichmentPage(): React.ReactElement {
   const { t } = useTranslation("enrichment")
@@ -109,6 +103,10 @@ export function EnrichmentPage(): React.ReactElement {
   //: Incrementado pelo "Atualizar" do cabeçalho. Faz o comando alcançar os
   //: painéis que têm carregamento próprio, sem duplicar o botão na tela.
   const [refreshToken, setRefreshToken] = useState(0)
+  //: Teto por tabela, vindo da configuração da instalação. Sem ele a barra de
+  //: proporção compararia contra um número fixo aqui, que sairia de sincronia
+  //: na primeira vez que alguém editasse o limite no console.
+  const [maxTableBytes, setMaxTableBytes] = useState<number | undefined>(undefined)
 
   const [createPolicyOpen, setCreatePolicyOpen] = useState(false)
   const [policyVersionsFor, setPolicyVersionsFor] = useState<EnrichPolicy | null>(null)
@@ -127,6 +125,11 @@ export function EnrichmentPage(): React.ReactElement {
       setTables(tb)
       setPolicies(p)
       setSources(src)
+      // Só admin global lê a configuração; para os demais a barra de proporção
+      // cai no default do componente, que é o mesmo do servidor.
+      getEnrichmentConfig()
+        .then((cfg) => setMaxTableBytes(cfg.max_table_bytes))
+        .catch(() => setMaxTableBytes(undefined))
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
     } finally {
@@ -171,6 +174,44 @@ export function EnrichmentPage(): React.ReactElement {
     [enrichers, t],
   )
 
+  /**
+   * Quais REGRAS citam cada tabela, para a coluna "quem usa".
+   *
+   * Sai do `rule_count`/`summary` que a listagem de políticas já traz? Não: o
+   * resumo não carrega o campo `table`. Como a tela já tem as políticas em
+   * memória e o dado exato mora na versão vigente de cada uma, a lista é
+   * montada sob demanda a partir do que o editor busca — e degrada para vazio
+   * se a busca falhar, porque "não sei quem usa" é melhor que derrubar a aba.
+   */
+  const [tablesCitedBy, setTablesCitedBy] = useState<Record<string, string[]>>({})
+
+  useEffect(() => {
+    // Só a política EM VIGOR importa: regra de política desabilitada não roda,
+    // e contá-la faria a tabela parecer em uso quando não está.
+    const active = policies.find((p) => p.is_active)
+    if (!active?.current_version_id) {
+      setTablesCitedBy({})
+      return
+    }
+    let cancelled = false
+    getEnrichmentPolicyVersion(active.id, active.current_version_id)
+      .then((v) => {
+        if (cancelled) return
+        const map: Record<string, string[]> = {}
+        for (const r of v.rules ?? []) {
+          if (!r.table) continue
+          ;(map[r.table] ??= []).push(r.id)
+        }
+        setTablesCitedBy(map)
+      })
+      .catch(() => {
+        if (!cancelled) setTablesCitedBy({})
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [policies])
+
   const thirdPartyCount = useMemo(
     () => enrichers.filter((e) => e.egress === "third_party").length,
     [enrichers],
@@ -196,20 +237,24 @@ export function EnrichmentPage(): React.ReactElement {
 
   // Uma ação primária por aba, no header. Antes ela vivia numa segunda linha
   // abaixo das abas, e as duas linhas de botão empilhavam sem hierarquia.
-  const primaryAction =
-    tab === "sources"
-      ? {
-          label: t("sources.form.create"),
-          onClick: () => {
-            setSourceEditing(null)
-            setSourceFormOpen(true)
-          },
-        }
-      : tab === "tables"
-        ? { label: t("tables.form.create"), onClick: () => setCreateTableOpen(true) }
-        : tab === "policies"
-          ? { label: t("policies.form.create"), onClick: () => setCreatePolicyOpen(true) }
-          : null
+  /**
+   * Ação primária ESTÁVEL: sempre "Nova política", em todas as abas.
+   *
+   * Antes ela mudava de nome conforme a aba ("Nova fonte", "Nova tabela",
+   * "Nova política") e sumia em duas delas. O mesmo lugar do cabeçalho fazia
+   * três coisas diferentes e às vezes nenhuma, então o operador tinha de LER o
+   * botão antes de clicar — que é o oposto do que uma ação primária serve para
+   * ser.
+   *
+   * Política é a escolha certa para fixar: é a única entidade que faz o
+   * enriquecimento acontecer. Fonte e tabela são insumos dela, e criar as duas
+   * sem política não produz efeito nenhum. Elas continuam com botão próprio no
+   * estado vazio e no cabeçalho da lista, onde o contexto já é aquele.
+   */
+  const primaryAction = {
+    label: t("policies.form.create"),
+    onClick: () => setCreatePolicyOpen(true),
+  }
 
   return (
     <div className="space-y-6">
@@ -273,8 +318,16 @@ export function EnrichmentPage(): React.ReactElement {
 
           {/* Escopo: o resolver do Core é FLAT (core/tenant.py), então um token
               escopado enxerga UMA organização. Sem este aviso, um MSP olha uma
-              lista curta e conclui que perdeu dado. */}
-          {!loading && organizations.length <= 1 && (
+              lista curta e conclui que perdeu dado.
+              
+              Só nas abas em que a LISTA é o conteúdo, e onde uma lista curta
+              pode ser mal interpretada. Repeti-lo na visão geral, no catálogo
+              (que é global) e na execução (que já tem seletor de organização)
+              transformava o aviso em moldura permanente — e moldura permanente
+              é exatamente o que treina o olho a não ver avisos. */}
+          {!loading &&
+            organizations.length <= 1 &&
+            (tab === "sources" || tab === "tables" || tab === "policies") && (
             <Notice variant="info" title={t("scope.title")}>
               {t("scope.body")}
             </Notice>
@@ -353,82 +406,17 @@ export function EnrichmentPage(): React.ReactElement {
               }}
             />
           ) : tab === "tables" ? (
-            tables.length === 0 ? (
-              <EmptyState
-                icon={<TableIcon size={28} aria-hidden />}
-                title={t("tables.emptyTitle")}
-                description={t("tables.emptyDescription")}
-                action={
-                  <Button
-                    variant="primary"
-                    onClick={() => setCreateTableOpen(true)}
-                    leftIcon={<PlusIcon size={14} />}
-                  >
-                    {t("tables.form.create")}
-                  </Button>
-                }
-              />
-            ) : (
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {tables.map((tb) => (
-                  <Card
-                    key={tb.id}
-                    className="flex cursor-pointer flex-col gap-3 p-4 transition-colors hover:border-primary-300"
-                    onClick={() => setTableVersionsFor(tb)}
-                    data-testid={`table-card-${tb.name}`}
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0">
-                        <h3 className="truncate font-medium">{tb.name}</h3>
-                        <p className="text-xs text-muted">
-                          {t("tables.org", { id: tb.organization_id })}
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <Badge variant="outline" className="gap-1">
-                          {tb.match_mode === "cidr" ? (
-                            <NetworkIcon size={12} aria-hidden />
-                          ) : (
-                            <TableIcon size={12} aria-hidden />
-                          )}
-                          {t(`tables.mode.${tb.match_mode}`)}
-                        </Badge>
-                        <Button
-                          variant="outline"
-                          size="xs"
-                          aria-label={t("tables.deleteAction")}
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            setDeleteError(null)
-                            setDeleteTarget(tb)
-                          }}
-                        >
-                          <Trash2Icon size={12} aria-hidden />
-                        </Button>
-                      </div>
-                    </div>
-                    {tb.description ? (
-                      <p className="text-sm text-muted">{tb.description}</p>
-                    ) : null}
-                    <dl className="mt-auto grid grid-cols-2 gap-2 text-sm">
-                      <div>
-                        <dt className="text-xs text-muted">{t("tables.entries")}</dt>
-                        <dd className="font-mono">{tb.entry_count.toLocaleString()}</dd>
-                      </div>
-                      <div>
-                        <dt className="text-xs text-muted">{t("tables.size")}</dt>
-                        <dd className="font-mono">{fmtBytes(tb.approx_bytes)}</dd>
-                      </div>
-                    </dl>
-                    {!tb.current_version_id ? (
-                      /* Tabela sem versão publicada é o caso nº1 de suporte:
-                         a política a referencia e a carga falha a cada ciclo. */
-                      <Badge variant="warning">{t("tables.noVersion")}</Badge>
-                    ) : null}
-                  </Card>
-                ))}
-              </div>
-            )
+            <TablesTable
+              tables={tables}
+              citedBy={tablesCitedBy}
+              maxTableBytes={maxTableBytes}
+              onCreate={() => setCreateTableOpen(true)}
+              onOpen={(tb) => setTableVersionsFor(tb)}
+              onDelete={(tb) => {
+                setDeleteError(null)
+                setDeleteTarget(tb)
+              }}
+            />
           ) : tab === "execution" ? (
             <ExecutionPanel organizations={organizations} selectedOrgId={selectedOrgId} />
           ) : policies.length === 0 ? (

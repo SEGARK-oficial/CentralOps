@@ -705,3 +705,124 @@ def test_table_version_body_is_scoped_to_its_own_table(client_factory) -> None:
     r = client.get(f"{_BASE}/tables/{tabela_b}/versions/{versao_a}")
     assert r.status_code == 404, r.text
     assert r.json()["error"]["code"] == "enrichment.version_not_found"
+
+
+def test_test_draft_sonda_sem_gravar_nada(client_factory) -> None:
+    """Testar ANTES de salvar: nem a fonte, nem o veredito são persistidos.
+
+    O veredito NÃO é gravado de propósito. ``last_test_*`` descreve o estado de
+    uma fonte que existe; um rascunho não tem estado a descrever, e gravar ali
+    faria a lista mostrar "testada com sucesso" para uma configuração que o
+    operador abandonou sem salvar.
+    """
+    factory, SessionLocal = client_factory
+    client = factory()
+    _bootstrap_admin(client)
+    org = _org(client, "Rascunho")
+
+    r = client.post(
+        f"{_BASE}/sources/test-draft",
+        json={
+            "enricher": "opencti",
+            "organization_id": org,
+            "config": {"url": "https://cti.invalido.example"},
+            "secret": "token-de-teste",
+        },
+    )
+    assert r.status_code == 200, r.text
+    # A sondagem falha (o host não existe), e é isso que se quer ver: a
+    # mensagem do provedor, no formulário ainda aberto.
+    assert r.json()["ok"] is False
+    assert r.json()["message"]
+
+    from backend.app.db import models
+
+    with SessionLocal() as db:
+        assert db.query(models.EnrichmentSource).count() == 0, (
+            "a sondagem de rascunho criou uma fonte"
+        )
+
+
+def test_test_draft_recusa_enricher_com_credencial_sem_credencial(
+    client_factory,
+) -> None:
+    """Mensagem clara em vez de um erro de rede confuso do provedor."""
+    factory, _ = client_factory
+    client = factory()
+    _bootstrap_admin(client)
+    org = _org(client, "SemChave")
+
+    r = client.post(
+        f"{_BASE}/sources/test-draft",
+        json={
+            "enricher": "virustotal",
+            "organization_id": org,
+            "config": {},
+        },
+    )
+    assert r.status_code == 200, r.text
+    assert r.json()["ok"] is False
+    assert "exige credencial" in r.json()["message"]
+    assert "api_key" in r.json()["message"]
+
+
+def test_test_draft_reaproveita_a_credencial_gravada_quando_nao_redigitada(
+    client_factory,
+) -> None:
+    """Editar a porta não deveria obrigar a redigitar a chave.
+
+    O corpo sem ``secret`` mas com ``source_id`` usa a credencial que já está no
+    banco. O texto claro não volta pela API em nenhum dos ramos.
+    """
+    factory, _ = client_factory
+    client = factory()
+    _bootstrap_admin(client)
+    org = _org(client, "Reuso")
+    segredo = "token-secreto-do-cliente-123"
+
+    r = client.post(
+        f"{_BASE}/sources",
+        json={
+            "name": "cti",
+            "enricher": "opencti",
+            "organization_id": org,
+            "config": {"url": "https://cti.invalido.example"},
+            "secret": segredo,
+        },
+    )
+    assert r.status_code == 201, r.text
+    source_id = r.json()["id"]
+
+    r = client.post(
+        f"{_BASE}/sources/test-draft",
+        json={
+            "enricher": "opencti",
+            "organization_id": org,
+            "config": {"url": "https://cti.invalido.example"},
+            "source_id": source_id,
+        },
+    )
+    assert r.status_code == 200, r.text
+    assert segredo not in r.text, "a credencial gravada vazou na resposta da sonda"
+
+
+def test_rota_estatica_test_draft_nao_e_capturada_por_source_id(client_factory) -> None:
+    """``/sources/test-draft`` não pode ser lido como um id de fonte.
+
+    É a armadilha que já mordeu ``/key-sources`` em ``routers/mappings.py``:
+    rota estática anexada depois da paramétrica vira id e responde 404. Aqui os
+    formatos diferem em número de segmentos, mas o teste trava a propriedade em
+    vez de deixá-la depender de uma coincidência de roteamento.
+    """
+    factory, _ = client_factory
+    client = factory()
+    _bootstrap_admin(client)
+    org = _org(client, "Rota")
+
+    r = client.post(
+        f"{_BASE}/sources/test-draft",
+        json={"enricher": "geoip", "organization_id": org, "config": {}},
+    )
+    assert r.status_code == 200, r.text
+    # 404 aqui significaria que "test-draft" virou {source_id}.
+    assert r.json()["ok"] in (True, False)

@@ -152,6 +152,11 @@ beforeEach(() => {
     version_number: 1,
     rules: [],
   })
+  // A lista de tabelas mostra o tamanho contra o teto por tabela, que vem da
+  // configuração da instalação.
+  mockedApi.getEnrichmentConfig.mockResolvedValue({
+    max_table_bytes: 33554432,
+  } as never)
   // O modal de tabela busca o CORPO da versão vigente para diferenciar contra o
   // arquivo importado.
   mockedApi.getEnrichmentTableVersion.mockResolvedValue({
@@ -232,7 +237,7 @@ describe("EnrichmentPage", () => {
     await aguardaCarregar()
 
     fireEvent.click(screen.getByRole("tab", { name: /Tabelas/i }))
-    fireEvent.click(await screen.findByTestId("table-card-rede-corp"))
+    fireEvent.click(await screen.findByTestId("table-row-rede-corp"))
 
     expect(await screen.findByRole("dialog", { name: "Versões de rede-corp" })).toBeInTheDocument()
   })
@@ -244,8 +249,10 @@ describe("EnrichmentPage", () => {
     await aguardaCarregar()
 
     fireEvent.click(screen.getByRole("tab", { name: /Tabelas/i }))
-    const card = await screen.findByTestId("table-card-rede-corp")
-    fireEvent.click(within(card).getByRole("button", { name: "Apagar tabela" }))
+    // A lista substituiu o grid de cards: `table-row-*` é o botão do NOME, e o
+    // de apagar é a coluna de ação da mesma linha.
+    const linha = (await screen.findByTestId("table-row-rede-corp")).closest("tr")!
+    fireEvent.click(within(linha).getByRole("button", { name: "Apagar tabela" }))
 
     expect(screen.queryByRole("dialog", { name: "Versões de rede-corp" })).not.toBeInTheDocument()
     const confirmDialog = await screen.findByRole("dialog", { name: "Apagar tabela" })
@@ -263,8 +270,10 @@ describe("EnrichmentPage", () => {
     await aguardaCarregar()
 
     fireEvent.click(screen.getByRole("tab", { name: /Tabelas/i }))
-    const card = await screen.findByTestId("table-card-rede-corp")
-    fireEvent.click(within(card).getByRole("button", { name: "Apagar tabela" }))
+    // A lista substituiu o grid de cards: `table-row-*` é o botão do NOME, e o
+    // de apagar é a coluna de ação da mesma linha.
+    const linha = (await screen.findByTestId("table-row-rede-corp")).closest("tr")!
+    fireEvent.click(within(linha).getByRole("button", { name: "Apagar tabela" }))
     const confirmDialog = await screen.findByRole("dialog", { name: "Apagar tabela" })
     fireEvent.click(within(confirmDialog).getByRole("button", { name: "Excluir" }))
 

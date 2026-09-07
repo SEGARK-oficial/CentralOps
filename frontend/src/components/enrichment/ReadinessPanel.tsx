@@ -98,6 +98,39 @@ function StepIcon({ status }: { status: EnrichmentReadinessStep["status"] }) {
   )
 }
 
+/** Um número da janela, com a legenda que diz o que ele significa. */
+function Kpi({
+  label,
+  value,
+  hint,
+  tone,
+}: {
+  label: string
+  value: string
+  hint?: string
+  tone?: "ok" | "warn" | "bad"
+}) {
+  const color =
+    tone === "ok"
+      ? "text-success-500"
+      : tone === "warn"
+        ? "text-warning-500"
+        : tone === "bad"
+          ? "text-danger-500"
+          : "text-text"
+  return (
+    <div className="rounded-lg border border-border bg-surface p-3">
+      <p className="text-[11px] font-semibold uppercase tracking-wide text-muted">
+        {label}
+      </p>
+      {/* `tabular-nums` para os quatro números alinharem entre si mesmo
+          mudando de largura a cada recarga. */}
+      <p className={`mt-1 font-mono text-2xl tabular-nums ${color}`}>{value}</p>
+      {hint ? <p className="text-xs text-muted">{hint}</p> : null}
+    </div>
+  )
+}
+
 export const ReadinessPanel: React.FC<Props> = ({
   organizations = [],
   selectedOrgId = null,
@@ -159,17 +192,29 @@ export const ReadinessPanel: React.FC<Props> = ({
     void load()
   }, [load])
 
+  /**
+   * Números da janela, derivados APENAS do que a API de métricas entrega.
+   *
+   * A proposta previa também "eventos enriquecidos" e "bytes acrescentados".
+   * Os dois vivem na contabilidade por organização (`obs:org:*`), que é uma
+   * superfície DISJUNTA desta — e este produto já pagou o preço de misturar
+   * duas contabilidades sob um rótulo só. Mostrar aqui um número tirado de
+   * outra fonte daria um valor que não corresponde à legenda, o que é pior do
+   * que não mostrar.
+   */
   const totals = useMemo(() => {
     let hit = 0
     let total = 0
     let unanswered = 0
+    let silent = 0
     for (const m of metrics) {
       const t0 = m.hit + m.miss + m.skipped + m.error
       hit += m.hit
       total += t0
       unanswered += m.skipped
+      if (t0 === 0) silent += 1
     }
-    return { hit, total, unanswered }
+    return { hit, total, unanswered, silent }
   }, [metrics])
 
   function handleAction(step: EnrichmentReadinessStep) {
@@ -223,6 +268,40 @@ export const ReadinessPanel: React.FC<Props> = ({
         >
           {t("readiness.blockedBody")}
         </Notice>
+      )}
+
+      {/* Números da janela. Só aparecem quando há o que contar: uma fileira de
+          zeros numa organização recém-configurada não informa nada e ocupa o
+          lugar do passo que de fato falta. */}
+      {totals.total > 0 && (
+        <div
+          className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4"
+          data-testid="readiness-kpis"
+        >
+          <Kpi
+            label={t("readiness.kpi.lookups")}
+            value={totals.total.toLocaleString()}
+            hint={t("execution.rangeOption", { count: RANGE_MINUTES })}
+          />
+          <Kpi
+            label={t("readiness.kpi.hitRate")}
+            value={pct(totals.hit, totals.total)}
+            hint={t("readiness.kpi.rules", { count: metrics.length })}
+            tone="ok"
+          />
+          <Kpi
+            label={t("readiness.kpi.unanswered")}
+            value={pct(totals.unanswered, totals.total)}
+            hint={t("readiness.kpi.unansweredHint")}
+            tone={totals.unanswered > 0 ? "bad" : undefined}
+          />
+          <Kpi
+            label={t("readiness.kpi.silent")}
+            value={String(totals.silent)}
+            hint={t("readiness.kpi.silentHint")}
+            tone={totals.silent > 0 ? "warn" : undefined}
+          />
+        </div>
       )}
 
       <div className="grid gap-4 lg:grid-cols-2">

@@ -647,19 +647,42 @@ def _record_source_test(
 
 
 def _probe_source(row: models.EnrichmentSource) -> SourceTestResult:
-    """A sondagem em si. Sem I/O de banco — só devolve o veredito."""
-    import asyncio
-    import time
-
-    try:
-        reg = enrich_registry.require(row.enricher)
-    except Exception as exc:  # noqa: BLE001
-        return SourceTestResult(ok=False, message=f"enricher {row.enricher!r} não existe: {exc}")
-
+    """Sonda uma fonte JÁ GRAVADA, com a credencial que está no banco."""
     try:
         cfg = json.loads(row.config or "{}")
     except Exception as exc:  # noqa: BLE001
         return SourceTestResult(ok=False, message=f"config não é JSON válido: {exc}")
+    return _probe(
+        enricher=str(row.enricher),
+        cfg=cfg,
+        secret_ref=row.secret_ref,
+        organization_id=int(row.organization_id),
+    )
+
+
+def _probe(
+    *,
+    enricher: str,
+    cfg: Dict[str, Any],
+    secret_ref: Optional[str],
+    organization_id: int,
+) -> SourceTestResult:
+    """A sondagem em si. Sem I/O de banco — só devolve o veredito.
+
+    Recebe o ``secret_ref`` (ciphertext) em vez da linha porque o mesmo caminho
+    serve à sonda de RASCUNHO, em que a credencial acabou de ser digitada e
+    ainda não existe linha nenhuma. Cifrar o rascunho em memória, em vez de
+    passar o texto claro adiante, mantém uma única forma de segredo circulando
+    no servidor — o enricher recebe sempre um ciphertext e decifra do mesmo
+    jeito, esteja ele salvo ou não.
+    """
+    import asyncio
+    import time
+
+    try:
+        reg = enrich_registry.require(enricher)
+    except Exception as exc:  # noqa: BLE001
+        return SourceTestResult(ok=False, message=f"enricher {enricher!r} não existe: {exc}")
 
     # Sondagem barata: 1 página curta. Sem isto, "testar" numa instância grande
     # baixaria a base inteira e o botão viraria um DoS contra o próprio cliente.
@@ -668,9 +691,9 @@ def _probe_source(row: models.EnrichmentSource) -> SourceTestResult:
     probe_cfg["max_pages"] = 1
 
     ctx = EnrichContext(
-        organization_id=int(row.organization_id),
+        organization_id=int(organization_id),
         config=probe_cfg,
-        secret_ref=row.secret_ref,
+        secret_ref=secret_ref,
     )
     started = time.monotonic()
     try:
@@ -709,6 +732,69 @@ def _probe_source(row: models.EnrichmentSource) -> SourceTestResult:
             message=f"{type(exc).__name__}: {exc}",
             elapsed_ms=(time.monotonic() - started) * 1000.0,
         )
+
+
+class SourceTestDraftRequest(BaseModel):
+    """Sonda uma fonte que AINDA NÃO EXISTE, com o que está no formulário.
+
+    Sem isto, o único jeito de descobrir que a chave está errada era salvar,
+    esperar o ciclo e ler a aba de Execução — ou seja, o operador só sabia que
+    errou depois de a credencial já estar gravada e a política já publicada.
+    """
+
+    enricher: str = Field(..., min_length=1, max_length=120)
+    organization_id: Optional[int] = None
+    config: Dict[str, Any] = Field(default_factory=dict)
+    #: Texto claro, usado UMA vez e nunca persistido. ``None`` com
+    #: ``source_id`` preenchido reaproveita a credencial já gravada, para o
+    #: operador testar sem redigitar.
+    secret: Optional[str] = Field(None, max_length=8192)
+    #: Quando informado, a credencial gravada nesta fonte é usada como fallback.
+    source_id: Optional[str] = None
+
+
+@router.post("/sources/test-draft", response_model=SourceTestResult)
+def test_source_draft(
+    payload: SourceTestDraftRequest,
+    user: models.AppUser = Depends(app_auth.require_admin_user),
+    db: Session = Depends(_db),
+) -> SourceTestResult:
+    """Testa ANTES de salvar. Não grava nada — nem a fonte, nem o veredito.
+
+    O veredito não é persistido de propósito: ``last_test_*`` descreve o estado
+    de uma fonte que existe, e um rascunho não tem estado a descrever. Gravar
+    aqui faria a lista mostrar "testada com sucesso" para uma configuração que
+    o operador abandonou sem salvar.
+    """
+    org_id = _resolve_target_org(user, payload.organization_id)
+
+    secret_ref: Optional[str] = None
+    if payload.secret:
+        # Cifra o rascunho em memória: o caminho de sondagem recebe sempre um
+        # ciphertext, esteja a fonte salva ou não. Nada é gravado.
+        secret_ref = _encrypt_secret(payload.secret)
+    elif payload.source_id:
+        row = _assert_visible(
+            db.get(models.EnrichmentSource, payload.source_id), user, "source"
+        )
+        secret_ref = row.secret_ref
+
+    reg = enrich_registry.get(payload.enricher)
+    if reg is not None and getattr(reg, "required_secrets", ()) and not secret_ref:
+        return SourceTestResult(
+            ok=False,
+            message=(
+                f"Este enricher exige credencial ({', '.join(reg.required_secrets)}). "
+                "Preencha antes de testar."
+            ),
+        )
+
+    return _probe(
+        enricher=payload.enricher,
+        cfg=dict(payload.config or {}),
+        secret_ref=secret_ref,
+        organization_id=org_id,
+    )
 
 
 @router.delete("/sources/{source_id}", status_code=status.HTTP_204_NO_CONTENT)
