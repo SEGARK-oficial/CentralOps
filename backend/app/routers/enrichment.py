@@ -135,6 +135,12 @@ class SourceRead(BaseModel):
     enabled: bool = True
     #: Filhas que usam a fonte (sem a dona). Editável depois da criação.
     shared_organization_ids: List[int] = Field(default_factory=list)
+    #: Veredito da última sondagem. ``None`` em ``last_test_at`` significa NUNCA
+    #: TESTADA, que é diferente de "testada e falhou" — a UI mostra as duas
+    #: coisas de formas distintas porque a ação do operador é outra.
+    last_test_at: Optional[Any] = None
+    last_test_ok: Optional[bool] = None
+    last_test_message: Optional[str] = None
 
 
 class SourceTestResult(BaseModel):
@@ -411,6 +417,9 @@ def _source_read(db: Session, row: Any) -> SourceRead:
         secret_configured=bool(row.secret_ref),
         enabled=bool(row.enabled),
         shared_organization_ids=sorted(shared),
+        last_test_at=getattr(row, "last_test_at", None),
+        last_test_ok=getattr(row, "last_test_ok", None),
+        last_test_message=getattr(row, "last_test_message", None),
     )
 
 
@@ -602,13 +611,46 @@ def test_source(
     (401, DNS, TLS, schema GraphQL divergente) fica no log do worker, longe de
     quem cadastrou a credencial.
 
-    Roda em modo REDUZIDO: uma página, poucos registros. Não persiste nada e não
-    toca em tráfego real, então é seguro apertar o botão quantas vezes quiser.
+    Roda em modo REDUZIDO: uma página, poucos registros. Não toca em tráfego
+    real, então é seguro apertar o botão quantas vezes quiser.
+
+    **Persiste o VEREDITO** (nunca a credencial) em ``last_test_*``. Sem isso,
+    "testar" seria um gesto efêmero: a lista de fontes não teria como distinguir
+    uma fonte nunca testada de uma que falhou, que são situações com ações
+    opostas. A gravação acontece em TODOS os caminhos de saída — por isso a
+    sondagem vive numa função interna e o handler grava o que ela devolveu; um
+    ``return`` novo no meio do corpo, no formato anterior, sairia sem gravar e
+    ninguém notaria.
     """
+    row = _assert_visible(db.get(models.EnrichmentSource, source_id), user, "source")
+    result = _probe_source(row)
+    _record_source_test(db, row, result)
+    return result
+
+
+def _record_source_test(
+    db: Session, row: models.EnrichmentSource, result: SourceTestResult
+) -> None:
+    """Grava o veredito da sondagem. Best-effort: o resultado importa mais."""
+    from datetime import datetime as _dt
+
+    try:
+        row.last_test_at = _dt.utcnow()
+        row.last_test_ok = bool(result.ok)
+        # Truncada: a mensagem do provedor pode vir com um corpo inteiro de erro,
+        # e isto é lido numa célula de tabela.
+        row.last_test_message = (result.message or "")[:500] or None
+        db.commit()
+    except Exception:  # noqa: BLE001 — defensivo
+        logger.debug("enrich: falha ao gravar resultado do teste", exc_info=True)
+        db.rollback()
+
+
+def _probe_source(row: models.EnrichmentSource) -> SourceTestResult:
+    """A sondagem em si. Sem I/O de banco — só devolve o veredito."""
     import asyncio
     import time
 
-    row = _assert_visible(db.get(models.EnrichmentSource, source_id), user, "source")
     try:
         reg = enrich_registry.require(row.enricher)
     except Exception as exc:  # noqa: BLE001
@@ -1431,6 +1473,10 @@ def _rules_of_org(db: Session, org_id: int) -> Tuple[Optional[str], List[Dict[st
             "rule_id": rule.rule_id,
             "enricher": rule.enricher,
             "source": getattr(rule, "source", None),
+            # ``table`` entra porque a prontidão precisa saber QUAIS tabelas as
+            # regras vigentes citam: tabela citada e sem versão publicada faz a
+            # carga falhar a cada ciclo, sem erro visível na tela.
+            "table": getattr(rule, "table", None),
         }
         for rule in compiled.rules
     ]
@@ -1612,4 +1658,370 @@ def list_key_sources(
         organization_id=org_id,
         from_active_mappings=False,
         suggestions=[KeySourceSuggestion(path=p) for p in _COMMON_OCSF_KEY_PATHS],
+    )
+
+
+# ── prontidão ───────────────────────────────────────────────────────────────
+
+
+class ReadinessAction(BaseModel):
+    """Para onde a UI manda quem quer resolver o passo.
+
+    ``scope="global"`` marca o que um admin DE ORG não consegue resolver
+    sozinho. Sem isso a tela mandaria o operador a uma página que ele não pode
+    abrir, que é pior que não sugerir nada.
+    """
+
+    label: str
+    route: str
+    scope: str = "org"  # "org" | "global"
+
+
+class ReadinessStep(BaseModel):
+    key: str
+    #: "ok" | "warning" | "blocked" | "not_applicable"
+    status: str
+    title: str
+    detail: str
+    blocking: bool = False
+    action: Optional[ReadinessAction] = None
+
+
+class ReadinessResponse(BaseModel):
+    organization_id: int
+    #: ``True`` quando nenhum passo bloqueia. É o que a UI usa no cabeçalho.
+    ready: bool
+    steps: List[ReadinessStep]
+    #: Nome da política que o worker DE FATO aplica, ou ``None``.
+    active_policy_name: Optional[str] = None
+
+
+def _readiness_uses_remote(db: Session, org_id: int) -> Tuple[bool, List[str]]:
+    """``(usa enricher remoto?, nomes dos enrichers remotos citados)``.
+
+    Olha as REGRAS da política vigente, não o catálogo. É a diferença entre
+    dizer a verdade e alarmar sem motivo: uma organização que só usa tabelas do
+    cliente não é afetada pelo cache L2 estar ausente, e avisá-la disso
+    ensinaria o operador a ignorar o aviso — que é como um alerta útil morre.
+    """
+    _name, rules = _rules_of_org(db, org_id)
+    remotes: List[str] = []
+    for meta in rules:
+        try:
+            reg = enrich_registry.get(meta["enricher"])
+        except Exception:  # noqa: BLE001 — defensivo
+            reg = None
+        if reg is not None and getattr(getattr(reg, "caps", None), "mode", "") == "remote":
+            remotes.append(meta["enricher"])
+    return bool(remotes), sorted(set(remotes))
+
+
+@router.get("/readiness", response_model=ReadinessResponse)
+def enrichment_readiness(
+    organization_id: Optional[int] = Query(default=None),
+    user: models.AppUser = Depends(app_auth.require_admin_user),
+    db: Session = Depends(_db),
+) -> ReadinessResponse:
+    """"Está funcionando aqui, e o que falta?" — em quatro passos com ação.
+
+    É a resposta ao chamado nº 1 de suporte desta feature ("liguei e não faz
+    nada"), que hoje exige percorrer três abas e cruzar informação de duas
+    delas. Cada passo devolve o VEREDITO, o motivo em texto e para onde ir.
+
+    Nenhum passo aqui é um alerta genérico: um problema só aparece quando ele
+    de fato afeta ESTA organização. O cache L2 ausente, por exemplo, é silêncio
+    para quem só usa tabelas do cliente.
+    """
+    from ..collectors.enrich.config_loader import load_from_db_session as _load_cfg
+
+    org_id = _resolve_target_org(user, organization_id)
+    steps: List[ReadinessStep] = []
+
+    # ── 1. Política em vigor ────────────────────────────────────────────────
+    #
+    # Primeiro passo de propósito: sem política habilitada COM versão, nada mais
+    # importa, e os outros passos seriam ruído.
+    active_name, active_rules = _rules_of_org(db, org_id)
+    policies = (
+        db.query(models.EnrichmentPolicy)
+        .filter(models.EnrichmentPolicy.organization_id == org_id)
+        .order_by(models.EnrichmentPolicy.created_at.asc())
+        .all()
+    )
+    enabled_policies = [p for p in policies if p.enabled]
+
+    if not policies:
+        steps.append(
+            ReadinessStep(
+                key="policy",
+                status="blocked",
+                title="Política de enriquecimento",
+                detail=(
+                    "Nenhuma política criada. A política é o que diz quais regras "
+                    "rodam e onde o resultado é escrito."
+                ),
+                blocking=True,
+                action=ReadinessAction(label="Criar política", route="/enrichment?tab=policies"),
+            )
+        )
+    elif not enabled_policies:
+        steps.append(
+            ReadinessStep(
+                key="policy",
+                status="blocked",
+                title="Política de enriquecimento",
+                detail=(
+                    f"{len(policies)} política(s) criada(s), nenhuma habilitada. "
+                    "Criar não habilita: publicar uma versão e habilitar são passos "
+                    "distintos."
+                ),
+                blocking=True,
+                action=ReadinessAction(label="Abrir políticas", route="/enrichment?tab=policies"),
+            )
+        )
+    elif not active_rules:
+        steps.append(
+            ReadinessStep(
+                key="policy",
+                status="blocked",
+                title="Política de enriquecimento",
+                detail=(
+                    f"A política {enabled_policies[0].name!r} está habilitada mas não "
+                    "tem versão publicada com regras. Habilitada sem versão, o worker "
+                    "segue adiante em silêncio."
+                ),
+                blocking=True,
+                action=ReadinessAction(label="Publicar versão", route="/enrichment?tab=policies"),
+            )
+        )
+    else:
+        extra = ""
+        if len(enabled_policies) > 1:
+            # Só a mais antiga vale. É a regra menos óbvia da feature e a causa
+            # clássica do "editei e não mudou nada".
+            outras = ", ".join(p.name for p in enabled_policies[1:])
+            extra = (
+                f" Atenção: {outras} também está(ão) habilitada(s) e NÃO é(são) "
+                "aplicada(s) — vale uma por organização, a mais antiga."
+            )
+        steps.append(
+            ReadinessStep(
+                key="policy",
+                status="warning" if extra else "ok",
+                title="Política em vigor",
+                detail=f"{active_name} · {len(active_rules)} regra(s).{extra}",
+                action=ReadinessAction(label="Abrir editor", route="/enrichment?tab=policies"),
+            )
+        )
+
+    # ── 2. Cache L2 ─────────────────────────────────────────────────────────
+    cfg = _load_cfg(db)
+    uses_remote, remote_names = _readiness_uses_remote(db, org_id)
+    if not cfg.enabled:
+        steps.append(
+            ReadinessStep(
+                key="subsystem",
+                status="blocked",
+                title="Subsistema de enriquecimento",
+                detail=(
+                    "Desligado na instalação inteira. Nenhuma política roda, em "
+                    "nenhuma organização."
+                ),
+                blocking=True,
+                action=ReadinessAction(
+                    label="Configuração › Enriquecimento",
+                    route="/config?tab=enrichment",
+                    scope="global",
+                ),
+            )
+        )
+    if not cfg.redis_configured and uses_remote:
+        steps.append(
+            ReadinessStep(
+                key="cache_l2",
+                status="blocked",
+                title="Cache L2 dedicado (Redis)",
+                detail=(
+                    "Não configurado, e esta organização usa "
+                    f"{', '.join(remote_names)} — que resolve(m) por lote e não "
+                    "roda(m) sem ele. É ajuste de administrador global."
+                ),
+                blocking=True,
+                action=ReadinessAction(
+                    label="Configuração › Enriquecimento",
+                    route="/config?tab=enrichment",
+                    scope="global",
+                ),
+            )
+        )
+    elif not cfg.redis_configured:
+        steps.append(
+            ReadinessStep(
+                key="cache_l2",
+                status="not_applicable",
+                title="Cache L2 dedicado (Redis)",
+                detail=(
+                    "Não configurado, e nenhuma regra desta organização usa enricher "
+                    "por lote. Nada aqui está parado por causa disso."
+                ),
+            )
+        )
+    else:
+        steps.append(
+            ReadinessStep(
+                key="cache_l2",
+                status="ok",
+                title="Cache L2 dedicado (Redis)",
+                detail=f"Configurado em {cfg.redis_url_masked()}.",
+            )
+        )
+
+    # ── 3. Fontes ───────────────────────────────────────────────────────────
+    #
+    # Só as fontes que as REGRAS citam. Uma fonte cadastrada e não usada não é
+    # problema de ninguém.
+    cited = {meta["source"] for meta in active_rules if meta.get("source")}
+    sources = (
+        db.query(models.EnrichmentSource)
+        .filter(models.EnrichmentSource.organization_id == org_id)
+        .all()
+    )
+    by_name = {s.name: s for s in sources}
+    faltando = sorted(n for n in cited if n not in by_name)
+    sem_credencial = sorted(
+        n for n in cited if n in by_name and not by_name[n].secret_ref
+    )
+    nunca_testada = sorted(
+        n for n in cited if n in by_name and by_name[n].last_test_at is None
+    )
+    falhando = sorted(
+        n for n in cited if n in by_name and by_name[n].last_test_ok is False
+    )
+    desabilitada = sorted(
+        n for n in cited if n in by_name and not by_name[n].enabled
+    )
+
+    if not cited:
+        steps.append(
+            ReadinessStep(
+                key="sources",
+                status="not_applicable",
+                title="Fontes configuradas",
+                detail=(
+                    "Nenhuma regra desta organização cita fonte com credencial. "
+                    f"{len(sources)} fonte(s) cadastrada(s)."
+                ),
+            )
+        )
+    elif faltando or sem_credencial or desabilitada:
+        problemas = []
+        if faltando:
+            problemas.append(f"não cadastrada(s): {', '.join(faltando)}")
+        if sem_credencial:
+            problemas.append(f"sem credencial: {', '.join(sem_credencial)}")
+        if desabilitada:
+            problemas.append(f"desabilitada(s): {', '.join(desabilitada)}")
+        steps.append(
+            ReadinessStep(
+                key="sources",
+                status="blocked",
+                title="Fontes configuradas",
+                detail="; ".join(problemas) + ".",
+                blocking=True,
+                action=ReadinessAction(label="Abrir fontes", route="/enrichment?tab=sources"),
+            )
+        )
+    elif falhando or nunca_testada:
+        problemas = []
+        if falhando:
+            # A mensagem do provedor é o que permite agir sem abrir log.
+            detalhes = "; ".join(
+                f"{n}: {(by_name[n].last_test_message or '')[:120]}" for n in falhando
+            )
+            problemas.append(f"último teste falhou — {detalhes}")
+        if nunca_testada:
+            problemas.append(f"nunca testada(s): {', '.join(nunca_testada)}")
+        steps.append(
+            ReadinessStep(
+                key="sources",
+                status="warning",
+                title="Fontes configuradas",
+                detail="; ".join(problemas) + ".",
+                action=ReadinessAction(label="Abrir fontes", route="/enrichment?tab=sources"),
+            )
+        )
+    else:
+        steps.append(
+            ReadinessStep(
+                key="sources",
+                status="ok",
+                title="Fontes configuradas",
+                detail=f"{len(cited)} fonte(s) em uso, todas testadas com sucesso.",
+            )
+        )
+
+    # ── 4. Tabelas ──────────────────────────────────────────────────────────
+    #
+    # Tabela citada por regra e SEM versão publicada é o caso de suporte nº 2: a
+    # carga falha a cada ciclo e o evento sai sem contexto, sem erro visível.
+    tabelas_citadas = {meta.get("table") for meta in active_rules if meta.get("table")}
+    tables = (
+        db.query(models.EnrichmentTable)
+        .filter(models.EnrichmentTable.organization_id == org_id)
+        .all()
+    )
+    tbl_by_name = {t.name: t for t in tables}
+    tbl_faltando = sorted(n for n in tabelas_citadas if n not in tbl_by_name)
+    tbl_sem_versao = sorted(
+        n
+        for n in tabelas_citadas
+        if n in tbl_by_name and not tbl_by_name[n].current_version_id
+    )
+
+    if not tabelas_citadas:
+        steps.append(
+            ReadinessStep(
+                key="tables",
+                status="not_applicable",
+                title="Tabelas do cliente",
+                detail=(
+                    "Nenhuma regra desta organização usa tabela. "
+                    f"{len(tables)} tabela(s) cadastrada(s)."
+                ),
+            )
+        )
+    elif tbl_faltando or tbl_sem_versao:
+        problemas = []
+        if tbl_faltando:
+            problemas.append(f"não cadastrada(s): {', '.join(tbl_faltando)}")
+        if tbl_sem_versao:
+            problemas.append(f"sem versão publicada: {', '.join(tbl_sem_versao)}")
+        steps.append(
+            ReadinessStep(
+                key="tables",
+                status="blocked",
+                title="Tabelas do cliente",
+                detail="; ".join(problemas) + ".",
+                blocking=True,
+                action=ReadinessAction(label="Abrir tabelas", route="/enrichment?tab=tables"),
+            )
+        )
+    else:
+        total = sum(
+            1 for n in tabelas_citadas if tbl_by_name[n].current_version_id
+        )
+        steps.append(
+            ReadinessStep(
+                key="tables",
+                status="ok",
+                title="Tabelas do cliente",
+                detail=f"{total} tabela(s) em uso, todas com versão publicada.",
+            )
+        )
+
+    return ReadinessResponse(
+        organization_id=org_id,
+        ready=not any(s.blocking for s in steps),
+        steps=steps,
+        active_policy_name=active_name,
     )

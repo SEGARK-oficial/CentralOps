@@ -2665,6 +2665,14 @@ export interface EnrichmentSource {
   enabled: boolean
   /** Filhas que também usam esta fonte (MSP). Vazio = só a dona. */
   shared_organization_ids: number[]
+  /**
+   * Veredito da última sondagem. `null` em `last_test_at` significa NUNCA
+   * TESTADA, que é diferente de "testada e falhou": a primeira é um aviso, a
+   * segunda traz a mensagem do provedor e pede ação imediata.
+   */
+  last_test_at?: string | null
+  last_test_ok?: boolean | null
+  last_test_message?: string | null
 }
 
 export interface EnrichmentSourceCreateRequest {
@@ -2727,6 +2735,136 @@ export async function testEnrichmentSource(id: string) {
 
 export async function deleteEnrichmentSource(id: string) {
   return apiRequest<void>(`/collectors/enrichment/sources/${id}`, { method: "DELETE" })
+}
+
+// ── Prontidão e configuração de infraestrutura ──────────────────────────────
+
+export interface EnrichmentReadinessAction {
+  label: string
+  route: string
+  /** `global` marca o que um admin de organização não resolve sozinho. */
+  scope: "org" | "global"
+}
+
+export interface EnrichmentReadinessStep {
+  key: string
+  status: "ok" | "warning" | "blocked" | "not_applicable"
+  title: string
+  detail: string
+  blocking: boolean
+  action?: EnrichmentReadinessAction | null
+}
+
+export interface EnrichmentReadiness {
+  organization_id: number
+  ready: boolean
+  steps: EnrichmentReadinessStep[]
+  active_policy_name?: string | null
+}
+
+/** "Está funcionando aqui, e o que falta?" — a resposta em quatro passos. */
+export async function getEnrichmentReadiness(params: { organization_id?: number } = {}) {
+  const qs = params.organization_id != null ? `?organization_id=${params.organization_id}` : ""
+  return apiRequest<EnrichmentReadiness>(`/collectors/enrichment/readiness${qs}`)
+}
+
+export interface EnrichmentGeoipFile {
+  name: string
+  size_bytes: number
+  modified_at: number
+}
+
+export interface EnrichmentConfig {
+  is_persisted: boolean
+  config_version: string
+  enabled: boolean
+  redis_host: string | null
+  redis_port: number
+  redis_db: number
+  redis_use_tls: boolean
+  /** Booleano — a senha nunca volta pela API. */
+  redis_secret_configured: boolean
+  redis_url_masked: string | null
+  /** `false` ⇒ enrichers por lote desligados em TODAS as organizações. */
+  redis_configured: boolean
+  remote_batch_budget_ms: number
+  cycle_budget_ms: number
+  l1_max_entries: number
+  singleflight_wait_ms: number
+  breaker_failure_threshold: number
+  breaker_window_s: number
+  breaker_cooldown_s: number
+  breaker_max_cooldown_s: number
+  max_table_bytes: number
+  lru_bytes: number
+  /** Enrichers do catálogo que param sem o cache L2. Vem do registry. */
+  remote_enrichers: string[]
+  propagation_worst_case_s: number
+  geoip_dir: string | null
+  geoip_files: EnrichmentGeoipFile[]
+  updated_at?: string | null
+}
+
+/**
+ * Update PARCIAL. `redis_password` tem três estados e a diferença destrói dado
+ * se ignorada: ausente MANTÉM o segredo, string vazia REMOVE, string com
+ * conteúdo substitui.
+ */
+export type EnrichmentConfigUpdateRequest = Partial<
+  Pick<
+    EnrichmentConfig,
+    | "enabled"
+    | "redis_host"
+    | "redis_port"
+    | "redis_db"
+    | "redis_use_tls"
+    | "remote_batch_budget_ms"
+    | "cycle_budget_ms"
+    | "l1_max_entries"
+    | "singleflight_wait_ms"
+    | "breaker_failure_threshold"
+    | "breaker_window_s"
+    | "breaker_cooldown_s"
+    | "breaker_max_cooldown_s"
+    | "max_table_bytes"
+    | "lru_bytes"
+  >
+> & { redis_password?: string }
+
+export async function getEnrichmentConfig() {
+  return apiRequest<EnrichmentConfig>("/collectors/enrichment/config")
+}
+
+export async function updateEnrichmentConfig(data: EnrichmentConfigUpdateRequest) {
+  return apiRequest<EnrichmentConfig>("/collectors/enrichment/config", {
+    method: "PUT",
+    body: JSON.stringify(data),
+  })
+}
+
+export interface EnrichmentRedisTestResult {
+  ok: boolean
+  message: string
+  latency_ms?: number | null
+  maxmemory_policy?: string | null
+  maxmemory_bytes?: number | null
+  /** `null` = não deu para confirmar; `false` = É a instância principal. */
+  distinct_from_main?: boolean | null
+  warnings: string[]
+}
+
+/** Sonda com valores de RASCUNHO. Nada é persistido. */
+export async function testEnrichmentRedis(data: {
+  redis_host: string
+  redis_port: number
+  redis_db: number
+  redis_use_tls: boolean
+  redis_password?: string
+}) {
+  return apiRequest<EnrichmentRedisTestResult>(
+    "/collectors/enrichment/config/test-redis",
+    { method: "POST", body: JSON.stringify(data) },
+  )
 }
 
 export interface EnrichmentTable {

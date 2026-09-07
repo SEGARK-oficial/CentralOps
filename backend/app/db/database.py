@@ -1625,6 +1625,27 @@ def _run_lightweight_migrations() -> None:
                     )
                 )
 
+        # ── enrichment_sources: resultado da última sondagem ─
+        # TIMESTAMP, nunca DATETIME: o Postgres não conhece ``DATETIME`` e a
+        # suíte roda em SQLite, onde o tipo errado passa — o boot é que quebra,
+        # em produção, e só numa base que já existia (numa base nova o
+        # ``create_all`` cria a coluna com o tipo do model e este ALTER nem
+        # dispara). Já custou um incidente neste repositório.
+        if "enrichment_sources" in table_names:
+            es_cols = {col["name"] for col in inspector.get_columns("enrichment_sources")}
+            if "last_test_at" not in es_cols:
+                conn.execute(
+                    text("ALTER TABLE enrichment_sources ADD COLUMN last_test_at TIMESTAMP")
+                )
+            if "last_test_ok" not in es_cols:
+                conn.execute(
+                    text("ALTER TABLE enrichment_sources ADD COLUMN last_test_ok BOOLEAN")
+                )
+            if "last_test_message" not in es_cols:
+                conn.execute(
+                    text("ALTER TABLE enrichment_sources ADD COLUMN last_test_message TEXT")
+                )
+
         # ── api_tokens: PAT (Personal Access Tokens) ───────
         # Tabela criada via Base.metadata.create_all em initialize_database;
         # aqui só garantimos índices secundários e idempotência caso a
@@ -1905,6 +1926,75 @@ def _run_lightweight_migrations() -> None:
                             separators=(",", ":"),
                         ),
                         "now": now,
+                    },
+                )
+
+        # ── Enrichment config singleton seed ────────────────────────
+        # Primeira subida traduz o ``.env`` (inclusive ``ENRICH_REDIS_URL``, que
+        # é uma string única) para a linha id=1. Deploys seguintes preservam o
+        # que o operador editou no console.
+        #
+        # Migrar ``ENRICH_REDIS_URL`` aqui é o que impede a regressão silenciosa
+        # de uma instalação existente: quem já tinha o cache L2 configurado no
+        # arquivo não pode perdê-lo ao subir esta versão e descobrir, sem erro
+        # nenhum, que os enrichers por lote pararam.
+        ec_table_names = set(inspect(conn).get_table_names())
+        if "enrichment_config" in ec_table_names:
+            ec_existing = conn.execute(
+                text("SELECT COUNT(*) AS n FROM enrichment_config")
+            ).fetchone()
+            if ec_existing and ec_existing.n == 0:
+                from ..collectors.enrich.config_loader import _snapshot_from_env
+
+                # O snapshot de env já sabe fazer a tradução e já cifra a senha —
+                # reimplementar o parse aqui criaria a segunda cópia de uma regra
+                # que precisa valer nos dois lugares.
+                seed = _snapshot_from_env()
+                now_ec = datetime.utcnow()
+                conn.execute(
+                    text(
+                        """
+                        INSERT INTO enrichment_config (
+                            id, enabled,
+                            redis_host, redis_port, redis_db, redis_use_tls,
+                            redis_secret_ref,
+                            remote_batch_budget_ms, cycle_budget_ms,
+                            l1_max_entries, singleflight_wait_ms,
+                            breaker_failure_threshold, breaker_window_s,
+                            breaker_cooldown_s, breaker_max_cooldown_s,
+                            max_table_bytes, lru_bytes,
+                            created_at, updated_at
+                        ) VALUES (
+                            1, :enabled,
+                            :host, :port, :db, :tls,
+                            :secret,
+                            :batch_ms, :cycle_ms,
+                            :l1, :sf,
+                            :bt, :bw,
+                            :bc, :bmc,
+                            :mtb, :lru,
+                            :now, :now
+                        )
+                        """
+                    ),
+                    {
+                        "enabled": bool(seed.enabled),
+                        "host": seed.redis_host,
+                        "port": int(seed.redis_port),
+                        "db": int(seed.redis_db),
+                        "tls": bool(seed.redis_use_tls),
+                        "secret": seed.redis_secret_ref,
+                        "batch_ms": int(seed.remote_batch_budget_ms),
+                        "cycle_ms": int(seed.cycle_budget_ms),
+                        "l1": int(seed.l1_max_entries),
+                        "sf": int(seed.singleflight_wait_ms),
+                        "bt": int(seed.breaker_failure_threshold),
+                        "bw": int(seed.breaker_window_s),
+                        "bc": int(seed.breaker_cooldown_s),
+                        "bmc": int(seed.breaker_max_cooldown_s),
+                        "mtb": int(seed.max_table_bytes),
+                        "lru": int(seed.lru_bytes),
+                        "now": now_ec,
                     },
                 )
 

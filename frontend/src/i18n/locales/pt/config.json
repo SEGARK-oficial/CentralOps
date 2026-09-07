@@ -24,7 +24,8 @@
       "collector": "Coleta & Entrega",
       "identity": "Identidade & SSO",
       "capture": "Captura ao vivo",
-      "licensing": "Licenciamento"
+      "licensing": "Licenciamento",
+      "enrichment": "Enriquecimento"
     },
     "email": {
       "loadError": "Falha ao carregar configuração de email",
@@ -44,6 +45,73 @@
     "capture": {
       "cardTitle": "Captura ao vivo (\"modo escuta\")",
       "cardDescription": "Grava uma amostra do tráfego enviado aos destinos, com filtro por vendor. A sessão expira sozinha."
+    },
+    "enrichment": {
+      "cardTitle": "Enriquecimento",
+      "cardDescription": "Cache dedicado, orçamentos e limites do estágio de enriquecimento. Vale para todas as organizações.",
+      "loadError": "Falha ao carregar a configuração de enriquecimento",
+      "saved": "Configuração salva. Os workers refletem em até {{seconds}} segundos, sem reinício.",
+      "default": "padrão {{value}}",
+      "propagation": "Uma alteração chega a todos os workers em até {{seconds}} segundos.",
+      "discard": "Descartar",
+      "save": "Salvar",
+      "subsystem": {
+        "title": "Subsistema de enriquecimento",
+        "onHint": "Ligado. Cada organização com política habilitada tem o contexto anexado aos eventos.",
+        "offHint": "Desligado. Nenhuma política roda, em nenhuma organização — mesmo as habilitadas.",
+        "on": "ativo",
+        "off": "inativo",
+        "enable": "Ligar",
+        "disable": "Desligar"
+      },
+      "cache": {
+        "title": "Cache dedicado (Redis)",
+        "description": "Compartilhado entre os workers. É o que evita que cada worker repague a mesma consulta ao provedor.",
+        "configured": "Configurado",
+        "missingTitle": "Enriquecimento por lote desligado",
+        "missingBody": "Sem este cache, estas fontes não rodam em nenhuma organização: {{names}}.",
+        "missingBodyNoNames": "Sem este cache, as fontes que consultam serviços externos não rodam.",
+        "host": "Endereço",
+        "port": "Porta",
+        "db": "Banco lógico",
+        "password": "Senha",
+        "passwordKeep": "•••••••• (deixe vazio para manter)",
+        "passwordHint": "Enviada uma única vez e cifrada pelo servidor; a API nunca a devolve.",
+        "tls": "Conectar com TLS",
+        "test": "Testar conexão",
+        "testHint": "Conecta com os valores acima, inclusive a senha ainda não salva. Nada é gravado.",
+        "distinctOk": "instância dedicada confirmada",
+        "distinctBad": "é a mesma instância do cache principal",
+        "composeHint": "Para subir a instância dedicada que acompanha o produto: docker compose --profile enrich up -d redis-enrich"
+      },
+      "budgets": {
+        "title": "Orçamentos de consulta externa",
+        "description": "Estourou o orçamento, o lote inteiro segue sem consulta externa — nunca uma parte dele, que produziria roteamento imprevisível.",
+        "batch": "Por lote (ms)",
+        "cycle": "Por ciclo (ms)",
+        "l1": "Cache em memória (entradas)",
+        "singleflight": "Espera por consulta em andamento (ms)"
+      },
+      "breaker": {
+        "title": "Pausa automática de fonte com falha",
+        "description": "Por organização e fonte. A pausa dobra a cada reabertura, porque provedor fora do ar costuma ficar fora por horas.",
+        "threshold": "Pausa após (falhas)",
+        "window": "Janela de contagem (s)",
+        "cooldown": "Pausa inicial (s)",
+        "maxCooldown": "Pausa máxima (s)"
+      },
+      "tables": {
+        "title": "Tabelas do cliente",
+        "description": "Limites de memória. Estourar recusa a carga com erro visível, em vez de derrubar o worker por falta de memória.",
+        "perTable": "Máximo por tabela (MiB)",
+        "lru": "Cache de tabelas (MiB)",
+        "forkHint": "{{per}} MiB por processo × 8 processos = {{total}} MiB no contêiner de coleta."
+      },
+      "geoip": {
+        "title": "Bases GeoIP",
+        "description": "As bases não acompanham o produto (licença do fornecedor). O diretório é montado no deploy; aqui só aparece o que existe nele.",
+        "empty": "Nenhuma base encontrada neste diretório."
+      }
     }
   },
   "collectorsPage": {

@@ -1,12 +1,13 @@
 import type React from "react"
 import { useEffect, useState } from "react"
-import { CrownIcon, ExternalLinkIcon, KeyRoundIcon, MailIcon, RadioIcon, SettingsIcon, ShieldCheckIcon, ZapIcon } from "lucide-react"
+import { CrownIcon, ExternalLinkIcon, KeyRoundIcon, MailIcon, RadioIcon, SettingsIcon, ShieldCheckIcon, SparklesIcon, ZapIcon } from "lucide-react"
 import { Link } from "react-router-dom"
 import { useTranslation } from "react-i18next"
 import { CapturePanel } from "@/components/config/CapturePanel"
 import { EditionInfoCard } from "@/components/config/EditionInfoCard"
 import { CollectorConfigForm } from "@/components/config/CollectorConfigForm"
 import { EmailConfigForm } from "@/components/config/EmailConfigForm"
+import { EnrichmentConfigForm } from "@/components/config/EnrichmentConfigForm"
 import { IdentityConfigForm } from "@/components/config/IdentityConfigForm"
 import { LicenseActivationForm } from "@/components/config/LicenseActivationForm"
 import { Badge } from "@/components/ui/Badge/Badge"
@@ -19,7 +20,7 @@ import { useEmailConfig } from "@/hooks/useEmailConfig"
 import { useIdentityConfig } from "@/hooks/useIdentityConfig"
 import * as api from "@/services/api"
 
-type ConfigTab = "email" | "collector" | "identity" | "capture" | "licensing"
+type ConfigTab = "email" | "collector" | "identity" | "capture" | "enrichment" | "licensing"
 
 export const ConfigPage: React.FC = () => {
   const { t } = useTranslation("config")
@@ -160,6 +161,9 @@ export const ConfigPage: React.FC = () => {
           <TabsTrigger value="capture" icon={<RadioIcon size={16} />}>
             {t("page.tabs.capture")}
           </TabsTrigger>
+          <TabsTrigger value="enrichment" icon={<SparklesIcon size={16} />}>
+            {t("page.tabs.enrichment")}
+          </TabsTrigger>
           <TabsTrigger value="licensing" icon={<CrownIcon size={16} />}>
             {t("page.tabs.licensing")}
           </TabsTrigger>
@@ -259,6 +263,18 @@ export const ConfigPage: React.FC = () => {
             </CardHeader>
             <CardContent>
               <CapturePanel />
+            </CardContent>
+          </Card>
+        </TabsPanel>
+
+        <TabsPanel value="enrichment">
+          <Card className="shadow-sm">
+            <CardHeader>
+              <CardTitle>{t("page.enrichment.cardTitle")}</CardTitle>
+              <CardDescription>{t("page.enrichment.cardDescription")}</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <EnrichmentConfigForm />
             </CardContent>
           </Card>
         </TabsPanel>

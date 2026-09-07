@@ -24,7 +24,8 @@
       "collector": "Collection & Delivery",
       "identity": "Identity & SSO",
       "capture": "Live capture",
-      "licensing": "Licensing"
+      "licensing": "Licensing",
+      "enrichment": "Enrichment"
     },
     "email": {
       "loadError": "Failed to load email configuration",
@@ -44,6 +45,73 @@
     "capture": {
       "cardTitle": "Live capture (\"listening mode\")",
       "cardDescription": "Records a sample of the traffic sent to destinations, filterable by vendor. The session expires on its own."
+    },
+    "enrichment": {
+      "cardTitle": "Enrichment",
+      "cardDescription": "Dedicated cache, budgets and limits for the enrichment stage. Applies to every organization.",
+      "loadError": "Could not load the enrichment configuration",
+      "saved": "Configuration saved. Workers pick it up within {{seconds}} seconds, no restart.",
+      "default": "default {{value}}",
+      "propagation": "A change reaches every worker within {{seconds}} seconds.",
+      "discard": "Discard",
+      "save": "Save",
+      "subsystem": {
+        "title": "Enrichment subsystem",
+        "onHint": "On. Every organization with an enabled policy gets context attached to its events.",
+        "offHint": "Off. No policy runs, in any organization — not even the enabled ones.",
+        "on": "active",
+        "off": "inactive",
+        "enable": "Turn on",
+        "disable": "Turn off"
+      },
+      "cache": {
+        "title": "Dedicated cache (Redis)",
+        "description": "Shared across workers. It is what stops each worker from paying for the same provider lookup again.",
+        "configured": "Configured",
+        "missingTitle": "Batch enrichment is off",
+        "missingBody": "Without this cache these sources do not run, in any organization: {{names}}.",
+        "missingBodyNoNames": "Without this cache, sources that query external services do not run.",
+        "host": "Address",
+        "port": "Port",
+        "db": "Logical database",
+        "password": "Password",
+        "passwordKeep": "•••••••• (leave empty to keep)",
+        "passwordHint": "Sent once and encrypted by the server; the API never returns it.",
+        "tls": "Connect over TLS",
+        "test": "Test connection",
+        "testHint": "Connects using the values above, including a password you have not saved yet. Nothing is written.",
+        "distinctOk": "dedicated instance confirmed",
+        "distinctBad": "this is the main cache instance",
+        "composeHint": "To start the dedicated instance shipped with the product: docker compose --profile enrich up -d redis-enrich"
+      },
+      "budgets": {
+        "title": "External lookup budgets",
+        "description": "Once the budget is spent the whole batch continues without external lookups — never part of it, which would make routing unpredictable.",
+        "batch": "Per batch (ms)",
+        "cycle": "Per cycle (ms)",
+        "l1": "In-memory cache (entries)",
+        "singleflight": "Wait for in-flight lookup (ms)"
+      },
+      "breaker": {
+        "title": "Automatic pause for failing sources",
+        "description": "Per organization and source. The pause doubles on each reopen, because a provider that is down tends to stay down for hours.",
+        "threshold": "Pause after (failures)",
+        "window": "Counting window (s)",
+        "cooldown": "Initial pause (s)",
+        "maxCooldown": "Maximum pause (s)"
+      },
+      "tables": {
+        "title": "Customer tables",
+        "description": "Memory limits. Going over refuses the load with a visible error instead of killing the worker out of memory.",
+        "perTable": "Maximum per table (MiB)",
+        "lru": "Table cache (MiB)",
+        "forkHint": "{{per}} MiB per process × 8 processes = {{total}} MiB in the collection container."
+      },
+      "geoip": {
+        "title": "GeoIP databases",
+        "description": "The databases do not ship with the product (vendor licence). The directory is mounted at deploy time; this only shows what is in it.",
+        "empty": "No database found in this directory."
+      }
     }
   },
   "collectorsPage": {
