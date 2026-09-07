@@ -460,3 +460,21 @@ def test_runtime_sem_snapshot_usa_settings_como_antes(monkeypatch) -> None:
     )
     assert rt2.remote_batch_budget_s == pytest.approx(1.234)
     assert rt2._breaker_settings() == (3, 600, 120, 1920)
+
+
+def test_a_senha_do_cache_nao_chega_ao_audit_log() -> None:
+    """O log de auditoria grava o corpo da requisição — inclusive o PUT daqui.
+
+    A proteção existe e funciona, mas por uma COINCIDÊNCIA de nome:
+    ``redis_password`` termina em ``_password``, e é o sufixo que o redator
+    reconhece. Renomear o campo para ``redis_pass`` ou ``cache_auth`` mandaria a
+    senha em claro para ``audit_logs.request_payload`` sem nenhum erro — foi
+    exatamente assim que ``hec_token`` vazou antes de a regra virar sufixo.
+
+    Este teste transforma a coincidência em invariante.
+    """
+    from backend.app.main import _e_campo_sensivel
+
+    assert _e_campo_sensivel("redis_password") is True
+    # E o par que a sonda aceita no corpo também.
+    assert _e_campo_sensivel("secret") is True
