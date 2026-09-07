@@ -2763,6 +2763,48 @@ export interface EnrichmentReadiness {
 }
 
 /** "Está funcionando aqui, e o que falta?" — a resposta em quatro passos. */
+export interface EnrichmentDuplicatePreflight {
+  target_organization_id: number
+  ok: boolean
+  missing_tables: string[]
+  missing_sources: string[]
+  /** Existe no destino, mas sem versão publicada. Avisa, não bloqueia. */
+  tables_without_version: string[]
+  name_conflict: boolean
+}
+
+export interface EnrichmentDuplicateRequest {
+  target_organization_id: number
+  name?: string
+  commit_message?: string
+}
+
+/** Diz o que falta no destino ANTES de copiar. Não muda nada. */
+export async function preflightDuplicateEnrichmentPolicy(
+  policyId: string,
+  data: EnrichmentDuplicateRequest,
+) {
+  return apiRequest<EnrichmentDuplicatePreflight>(
+    `/collectors/enrichment/policies/${policyId}/duplicate-preflight`,
+    { method: "POST", body: JSON.stringify(data) },
+  )
+}
+
+/**
+ * Copia as regras para outra organização. A cópia nasce DESABILITADA: colocar
+ * regra no caminho quente de outro tenant é decisão de quem opera aquele
+ * tenant.
+ */
+export async function duplicateEnrichmentPolicy(
+  policyId: string,
+  data: EnrichmentDuplicateRequest,
+) {
+  return apiRequest<EnrichmentPolicy>(
+    `/collectors/enrichment/policies/${policyId}/duplicate`,
+    { method: "POST", body: JSON.stringify(data) },
+  )
+}
+
 export async function getEnrichmentReadiness(params: { organization_id?: number } = {}) {
   const qs = params.organization_id != null ? `?organization_id=${params.organization_id}` : ""
   return apiRequest<EnrichmentReadiness>(`/collectors/enrichment/readiness${qs}`)

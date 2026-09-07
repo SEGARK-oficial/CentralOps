@@ -238,6 +238,27 @@
       "diffRemoved_one": "−{{count}} rule ({{names}})",
       "diffRemoved_other": "−{{count}} rules ({{names}})",
       "diffReordered": "order changed"
+    },
+    "duplicate": {
+      "title": "Copy {{name}} to another organization",
+      "target": "Target organization",
+      "name": "Name of the copy",
+      "nameHint": "Must be unique within the target organization.",
+      "checking": "Checking what exists in the target…",
+      "readyTitle": "The target has everything these rules reference",
+      "readyBody": "The referenced tables and sources exist there, under the same names.",
+      "blockedTitle": "The target does not have what these rules reference yet",
+      "nameConflict": "A policy named \"{{name}}\" already exists in the target.",
+      "missingTables": "Missing tables: {{names}}.",
+      "missingSources": "Missing sources: {{names}}.",
+      "tablesWithoutVersionTitle": "Table with no published version in the target",
+      "tablesWithoutVersionBody": "{{names}} exists there but is empty. The copy is created anyway; publish its content before enabling, otherwise the lookup fails every cycle.",
+      "disabledTitle": "The copy starts inactive",
+      "disabledBody": "Copying does not put rules into production in the other organization. Whoever operates that customer decides when to enable it, and one policy applies per organization.",
+      "confirm": "Copy",
+      "noTargets": "There is no other visible organization to copy to.",
+      "commitMessage": "copied from {{name}}",
+      "action": "Copy to another organization"
     }
   },
   "errorTitle": "Failed to load enrichment",

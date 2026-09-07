@@ -467,3 +467,166 @@ def test_uma_org_nao_alcanca_a_tabela_da_outra_nem_para_publicar(
 
     # E a Org A segue pronta — o isolamento não é "nada funciona".
     assert _steps(client, a)["tables"]["status"] == "ok"
+
+
+# ── duplicar política para outra organização ────────────────────────────────
+#
+# É a versão Community — e manual — do mecanismo que a matriz usaria para
+# aplicar um modelo às filhas. Funciona pela mesma razão estrutural: a regra
+# cita tabela e fonte POR NOME, nunca por id, então o mesmo documento vale em
+# qualquer organização que tenha os nomes correspondentes.
+
+
+def test_duplicar_recusa_quando_falta_a_tabela_no_destino(client_factory) -> None:
+    """O modo de falha que este endpoint existe para evitar é MUDO.
+
+    Sem a checagem, a política nasceria válida no destino e a carga da tabela
+    falharia a cada ciclo — num log de worker que ninguém lê, com os eventos
+    saindo sem contexto e sem erro em tela nenhuma.
+    """
+    factory, _ = client_factory
+    client = factory()
+    _bootstrap_admin(client)
+    origem = _org(client, "Matriz1")
+    destino = _org(client, "Filial1")
+
+    _table(client, origem, "plano-de-rede", publish=True)
+    pid = _publish_policy(client, origem, [_table_rule("plano-de-rede")])
+
+    r = client.post(
+        f"{_BASE}/policies/{pid}/duplicate-preflight",
+        json={"target_organization_id": destino},
+    )
+    assert r.status_code == 200, r.text
+    assert r.json()["ok"] is False
+    assert r.json()["missing_tables"] == ["plano-de-rede"]
+
+    r = client.post(
+        f"{_BASE}/policies/{pid}/duplicate",
+        json={"target_organization_id": destino},
+    )
+    assert r.status_code == 422, r.text
+    assert r.json()["error"]["code"] == "enrichment.duplicate_blocked"
+    assert "plano-de-rede" in r.json()["detail"]
+
+
+def test_duplicar_cria_politica_DESABILITADA_com_a_primeira_versao(
+    client_factory,
+) -> None:
+    """Copiar não pode colocar regra no caminho quente de outro tenant sozinho.
+
+    Vale uma política por organização; habilitar a cópia enquanto outra já roda
+    seria uma surpresa cara, e a decisão é de quem opera aquela organização.
+    """
+    factory, _ = client_factory
+    client = factory()
+    _bootstrap_admin(client)
+    origem = _org(client, "Matriz2")
+    destino = _org(client, "Filial2")
+
+    _table(client, origem, "plano-de-rede", publish=True)
+    _table(client, destino, "plano-de-rede", publish=True)
+    pid = _publish_policy(client, origem, [_table_rule("plano-de-rede")], name="padrao")
+
+    r = client.post(
+        f"{_BASE}/policies/{pid}/duplicate-preflight",
+        json={"target_organization_id": destino},
+    )
+    assert r.json()["ok"] is True, r.text
+
+    r = client.post(
+        f"{_BASE}/policies/{pid}/duplicate",
+        json={"target_organization_id": destino, "commit_message": "padrão do SOC"},
+    )
+    assert r.status_code == 201, r.text
+    nova = r.json()
+    assert nova["organization_id"] == destino
+    assert nova["enabled"] is False, "a cópia entrou em vigor sozinha"
+    assert nova["current_version_id"], "a cópia nasceu sem versão publicada"
+    assert nova["rule_count"] == 1
+
+    # A original segue intocada e valendo.
+    assert _steps(client, origem)["policy"]["status"] == "ok"
+
+
+def test_duplicar_recusa_nome_ja_usado_no_destino(client_factory) -> None:
+    """Nome é único por organização; o 409 do banco viraria erro opaco."""
+    factory, _ = client_factory
+    client = factory()
+    _bootstrap_admin(client)
+    origem = _org(client, "Matriz3")
+    destino = _org(client, "Filial3")
+
+    _table(client, origem, "rede", publish=True)
+    _table(client, destino, "rede", publish=True)
+    pid = _publish_policy(client, origem, [_table_rule("rede")], name="padrao")
+
+    r = client.post(f"{_BASE}/policies", json={"name": "padrao", "organization_id": destino})
+    assert r.status_code == 201, r.text
+
+    r = client.post(
+        f"{_BASE}/policies/{pid}/duplicate-preflight",
+        json={"target_organization_id": destino},
+    )
+    assert r.json()["name_conflict"] is True
+    assert r.json()["ok"] is False
+
+    # Com outro nome, passa.
+    r = client.post(
+        f"{_BASE}/policies/{pid}/duplicate",
+        json={"target_organization_id": destino, "name": "padrao-copia"},
+    )
+    assert r.status_code == 201, r.text
+
+
+def test_tabela_sem_versao_no_destino_e_AVISO_e_nao_bloqueio(client_factory) -> None:
+    """Existir e estar publicada são coisas diferentes.
+
+    A tabela existir basta para a política ser válida; não ter versão publicada
+    impede o FUNCIONAMENTO, e é o operador do destino quem resolve isso. Barrar
+    a cópia aqui obrigaria a ordem inversa — publicar a tabela antes de saber
+    quais campos a política usa.
+    """
+    factory, _ = client_factory
+    client = factory()
+    _bootstrap_admin(client)
+    origem = _org(client, "Matriz4")
+    destino = _org(client, "Filial4")
+
+    _table(client, origem, "rede", publish=True)
+    _table(client, destino, "rede", publish=False)
+    pid = _publish_policy(client, origem, [_table_rule("rede")], name="p4")
+
+    r = client.post(
+        f"{_BASE}/policies/{pid}/duplicate-preflight",
+        json={"target_organization_id": destino},
+    )
+    assert r.status_code == 200, r.text
+    assert r.json()["ok"] is True
+    assert r.json()["tables_without_version"] == ["rede"]
+
+    r = client.post(
+        f"{_BASE}/policies/{pid}/duplicate", json={"target_organization_id": destino}
+    )
+    assert r.status_code == 201, r.text
+    # E a prontidão do destino já aponta o que falta lá.
+    st = _steps(client, destino)
+    assert st["policy"]["status"] == "blocked"  # cópia nasce desabilitada
+
+
+def test_politica_sem_versao_publicada_nao_pode_ser_duplicada(client_factory) -> None:
+    factory, _ = client_factory
+    client = factory()
+    _bootstrap_admin(client)
+    origem = _org(client, "Matriz5")
+    destino = _org(client, "Filial5")
+
+    r = client.post(f"{_BASE}/policies", json={"name": "vazia", "organization_id": origem})
+    assert r.status_code == 201, r.text
+    pid = r.json()["id"]
+
+    r = client.post(
+        f"{_BASE}/policies/{pid}/duplicate", json={"target_organization_id": destino}
+    )
+    assert r.status_code == 422, r.text
+    assert r.json()["error"]["code"] == "enrichment.policy_without_version"

@@ -2076,3 +2076,219 @@ def enrichment_readiness(
         steps=steps,
         active_policy_name=active_name,
     )
+
+
+# ── duplicar política para outra organização ────────────────────────────────
+
+
+class PolicyDuplicateRequest(BaseModel):
+    """Copia as regras de uma política para OUTRA organização.
+
+    Não é "compartilhar": cada organização fica com a própria política, com
+    versionamento e rollback próprios. É a versão manual — e disponível na
+    edição Community — do mecanismo que a matriz usa para aplicar um modelo às
+    filhas, e funciona pela mesma razão estrutural: a regra cita tabela e fonte
+    **por nome**, nunca por id, então o mesmo documento vale em qualquer
+    organização que tenha os nomes correspondentes.
+    """
+
+    target_organization_id: int
+    #: Vazio ⇒ mesmo nome da origem. Único por organização, então duplicar para
+    #: uma org que já tem uma política com esse nome exige outro.
+    name: Optional[str] = Field(None, max_length=120)
+    commit_message: str = Field("duplicada de outra organização", max_length=500)
+
+
+class PolicyDuplicatePreflight(BaseModel):
+    """O que falta na organização de destino para as regras funcionarem lá."""
+
+    target_organization_id: int
+    #: ``True`` quando nada impede a duplicação.
+    ok: bool
+    missing_tables: List[str] = Field(default_factory=list)
+    missing_sources: List[str] = Field(default_factory=list)
+    #: Tabelas que existem no destino mas ainda não têm versão publicada. Não
+    #: bloqueia a cópia — bloqueia o funcionamento, e por isso vira aviso.
+    tables_without_version: List[str] = Field(default_factory=list)
+    name_conflict: bool = False
+
+
+def _duplicate_preflight(
+    db: Session, compiled, target_org: int, name: str
+) -> PolicyDuplicatePreflight:
+    """Checa os pré-requisitos POR NOME na organização de destino.
+
+    Roda antes de copiar porque o modo de falha, se não rodasse, seria mudo: a
+    política nasceria válida no destino e a carga da tabela falharia a cada
+    ciclo, num log de worker que ninguém lê.
+    """
+    missing_tables = sorted(_missing_tables(db, target_org, compiled))
+
+    referenced_sources = {r.source for r in compiled.rules if getattr(r, "source", None)}
+    existing_sources = {
+        str(s.name)
+        for s in db.query(models.EnrichmentSource)
+        .filter(
+            models.EnrichmentSource.organization_id == target_org,
+            models.EnrichmentSource.name.in_(list(referenced_sources) or [""]),
+        )
+        .all()
+    }
+    # Uma fonte compartilhada PELA MATRIZ também atende a filha; ignorar isso
+    # marcaria como faltante uma credencial que de fato está disponível lá.
+    shared_sources = {
+        str(s.name)
+        for s in db.query(models.EnrichmentSource)
+        .join(
+            models.EnrichmentSourceOrg,
+            models.EnrichmentSourceOrg.source_id == models.EnrichmentSource.id,
+        )
+        .filter(
+            models.EnrichmentSourceOrg.organization_id == target_org,
+            models.EnrichmentSource.name.in_(list(referenced_sources) or [""]),
+        )
+        .all()
+    }
+    missing_sources = sorted(referenced_sources - existing_sources - shared_sources)
+
+    referenced_tables = {r.table for r in compiled.rules if r.table}
+    sem_versao = sorted(
+        str(t.name)
+        for t in db.query(models.EnrichmentTable)
+        .filter(
+            models.EnrichmentTable.organization_id == target_org,
+            models.EnrichmentTable.name.in_(list(referenced_tables) or [""]),
+        )
+        .all()
+        if not t.current_version_id
+    )
+
+    conflict = (
+        db.query(models.EnrichmentPolicy)
+        .filter(
+            models.EnrichmentPolicy.organization_id == target_org,
+            models.EnrichmentPolicy.name == name,
+        )
+        .first()
+        is not None
+    )
+
+    return PolicyDuplicatePreflight(
+        target_organization_id=target_org,
+        ok=not (missing_tables or missing_sources or conflict),
+        missing_tables=missing_tables,
+        missing_sources=missing_sources,
+        tables_without_version=sem_versao,
+        name_conflict=conflict,
+    )
+
+
+def _policy_current_rules(db: Session, policy: models.EnrichmentPolicy):
+    """``(documento, compilado)`` da versão vigente. 422 se não houver."""
+    if not policy.current_version_id:
+        raise _bad_request(
+            "enrichment.policy_without_version",
+            "esta política não tem versão publicada para copiar",
+        )
+    version = (
+        db.query(models.EnrichmentPolicyVersion)
+        .filter(models.EnrichmentPolicyVersion.id == policy.current_version_id)
+        .first()
+    )
+    if version is None:
+        raise _bad_request(
+            "enrichment.policy_without_version",
+            "a versão vigente desta política não foi encontrada",
+        )
+    doc = json.loads(version.rules or "{}")
+    return doc, compile_policy(doc)
+
+
+@router.post(
+    "/policies/{policy_id}/duplicate-preflight",
+    response_model=PolicyDuplicatePreflight,
+)
+def duplicate_policy_preflight(
+    policy_id: str,
+    payload: PolicyDuplicateRequest,
+    user: models.AppUser = Depends(app_auth.require_admin_user),
+    db: Session = Depends(_db),
+) -> PolicyDuplicatePreflight:
+    """Diz o que falta ANTES de copiar. Não muda nada."""
+    row = _assert_visible(db.get(models.EnrichmentPolicy, policy_id), user, "policy")
+    # O destino também precisa ser visível: sem esta checagem, o preflight
+    # responderia sobre a configuração de uma organização que o chamador não
+    # enxerga — vazamento por mensagem de erro. ``_resolve_target_org`` é o
+    # mesmo gate que a criação usa, e recusa org fora da subárvore.
+    target_org = _resolve_target_org(user, int(payload.target_organization_id))
+    _, compiled = _policy_current_rules(db, row)
+    return _duplicate_preflight(db, compiled, target_org, (payload.name or row.name))
+
+
+@router.post(
+    "/policies/{policy_id}/duplicate",
+    response_model=PolicyRead,
+    status_code=status.HTTP_201_CREATED,
+)
+def duplicate_policy(
+    policy_id: str,
+    payload: PolicyDuplicateRequest,
+    user: models.AppUser = Depends(app_auth.require_admin_user),
+    db: Session = Depends(_db),
+) -> PolicyRead:
+    """Cria, na organização de destino, uma política DESABILITADA com as mesmas
+    regras e a primeira versão já publicada.
+
+    Desabilitada de propósito: copiar não pode colocar regra no caminho quente
+    de outro tenant sem alguém decidir isso explicitamente. Vale uma política
+    por organização, e habilitar a cópia enquanto outra já roda seria uma
+    surpresa cara.
+    """
+    row = _assert_visible(db.get(models.EnrichmentPolicy, policy_id), user, "policy")
+    target_org = _resolve_target_org(user, int(payload.target_organization_id))
+    doc, compiled = _policy_current_rules(db, row)
+    name = (payload.name or row.name).strip()
+
+    pre = _duplicate_preflight(db, compiled, target_org, name)
+    if not pre.ok:
+        problemas: List[str] = []
+        if pre.name_conflict:
+            problemas.append(f"já existe uma política chamada {name!r} no destino")
+        if pre.missing_tables:
+            problemas.append(
+                f"tabela(s) inexistente(s) no destino: {', '.join(pre.missing_tables)}"
+            )
+        if pre.missing_sources:
+            problemas.append(
+                f"fonte(s) inexistente(s) no destino: {', '.join(pre.missing_sources)}"
+            )
+        raise _bad_request("enrichment.duplicate_blocked", "; ".join(problemas))
+
+    novo = models.EnrichmentPolicy(
+        organization_id=target_org,
+        name=name,
+        description=row.description,
+        enabled=False,
+    )
+    db.add(novo)
+    db.flush()
+
+    version = models.EnrichmentPolicyVersion(
+        policy_id=novo.id,
+        version_number=1,
+        rules=json.dumps(doc, sort_keys=True, separators=(",", ":")),
+        author_user_id=app_auth.persistable_user_id(user),
+        commit_message=payload.commit_message,
+    )
+    db.add(version)
+    db.flush()
+    novo.current_version_id = version.id
+    db.commit()
+    db.refresh(novo)
+    logger.info(
+        "enrichment: política %s duplicada de org=%s para org=%s",
+        name,
+        row.organization_id,
+        target_org,
+    )
+    return _policy_read(db, novo)

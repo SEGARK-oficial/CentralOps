@@ -238,6 +238,27 @@
       "diffRemoved_one": "−{{count}} regla ({{names}})",
       "diffRemoved_other": "−{{count}} reglas ({{names}})",
       "diffReordered": "orden modificado"
+    },
+    "duplicate": {
+      "title": "Copiar {{name}} a otra organización",
+      "target": "Organización de destino",
+      "name": "Nombre de la copia",
+      "nameHint": "Debe ser único dentro de la organización de destino.",
+      "checking": "Comprobando qué existe en el destino…",
+      "readyTitle": "El destino tiene todo lo que estas reglas citan",
+      "readyBody": "Las tablas y fuentes referenciadas existen allí, con los mismos nombres.",
+      "blockedTitle": "El destino aún no tiene lo que estas reglas citan",
+      "nameConflict": "Ya existe una política llamada \"{{name}}\" en el destino.",
+      "missingTables": "Tablas que faltan: {{names}}.",
+      "missingSources": "Fuentes que faltan: {{names}}.",
+      "tablesWithoutVersionTitle": "Tabla sin versión publicada en el destino",
+      "tablesWithoutVersionBody": "{{names}} existe allí pero está vacía. La copia se crea igual; publica su contenido antes de activarla, si no la búsqueda falla en cada ciclo.",
+      "disabledTitle": "La copia nace inactiva",
+      "disabledBody": "Copiar no pone reglas en producción en la otra organización. Quien opera ese cliente decide cuándo activarla, y se aplica una política por organización.",
+      "confirm": "Copiar",
+      "noTargets": "No hay otra organización visible para copiar.",
+      "commitMessage": "copiada de {{name}}",
+      "action": "Copiar a otra organización"
     }
   },
   "errorTitle": "Error al cargar el enriquecimiento",

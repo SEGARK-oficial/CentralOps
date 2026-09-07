@@ -16,6 +16,7 @@ import { Textarea } from "@/components/ui/Textarea/Textarea"
 import { JsonViewer } from "@/components/shared/JsonViewer"
 import { PolicyRuleEditor } from "@/components/enrichment/PolicyRuleEditor"
 import { PolicyDiff } from "@/components/enrichment/PolicyDiff"
+import { DuplicatePolicyModal } from "@/components/enrichment/DuplicatePolicyModal"
 import { usePlatform } from "@/contexts/PlatformContext"
 import * as api from "@/services/api"
 import type {
@@ -129,6 +130,7 @@ export function EnrichmentPolicyPage(): React.ReactElement {
   const [toggleError, setToggleError] = useState<string | null>(null)
   const [rollingBackId, setRollingBackId] = useState<string | null>(null)
   const [showHistory, setShowHistory] = useState(false)
+  const [duplicateOpen, setDuplicateOpen] = useState(false)
 
   const [sampleText, setSampleText] = useState(SAMPLE_PLACEHOLDER)
   const [sampleLabel, setSampleLabel] = useState<string | null>(null)
@@ -479,6 +481,11 @@ export function EnrichmentPolicyPage(): React.ReactElement {
             >
               {t("policies.page.history", { count: versions.length })}
             </Button>
+            {organizations.length > 1 && (
+              <Button variant="secondary" onClick={() => setDuplicateOpen(true)}>
+                {t("policies.duplicate.action")}
+              </Button>
+            )}
             <Button
               variant="ghost"
               onClick={() => navigate("/enrichment")}
@@ -661,6 +668,19 @@ export function EnrichmentPolicyPage(): React.ReactElement {
           </Card>
         </div>
       </div>
+
+      <DuplicatePolicyModal
+        open={duplicateOpen}
+        policy={policy}
+        organizations={organizations}
+        onClose={() => setDuplicateOpen(false)}
+        onDuplicated={(created) => {
+          setDuplicateOpen(false)
+          // Leva direto à cópia: ela nasce desabilitada e sem contexto local,
+          // então parar na política de origem esconderia o passo que falta.
+          navigate(`/enrichment/policies/${created.id}`)
+        }}
+      />
 
       {/* Rodapé fixo: o diff e a publicação ficam sempre à vista, porque a
           decisão de publicar depende de enxergar o que muda. */}
