@@ -9,7 +9,8 @@
     "tables": "Tablas ({{count}})",
     "policies": "Políticas ({{count}})",
     "sources": "Fuentes ({{count}})",
-    "execution": "Ejecución"
+    "execution": "Ejecución",
+    "overview": "Visión general"
   },
   "mode": {
     "local": "por evento",
@@ -257,5 +258,20 @@
     "activePolicy": "Vigente: {{name}}",
     "unanswered": "sin respuesta",
     "hitRateHintUnanswered": "Hay consultas sin respuesta en la ventana: el porcentaje de acierto está diluido por falla de credencial, red o presupuesto, no por un cambio en el dato. Revise Consultas antes de tocar las reglas."
+  },
+  "readiness": {
+    "readyTitle": "Todo listo en esta organización",
+    "readyBody": "La política {{name}} está vigente para los eventos nuevos.",
+    "blockedTitle_one": "{{count}} paso impide que el enriquecimiento funcione aquí",
+    "blockedTitle_other": "{{count}} pasos impiden que el enriquecimiento funcione aquí",
+    "blockedBody": "Mientras tanto, los eventos de esta organización llegan al destino sin el contexto.",
+    "stepsTitle": "Qué falta",
+    "globalScope": "requiere administrador global",
+    "hitRate": "Aprovechamiento",
+    "avgHit": "{{value}} de acierto",
+    "unanswered": "{{value}} sin respuesta",
+    "recentFailures_one": "{{count}} fallo reciente",
+    "recentFailures_other": "{{count}} fallos recientes",
+    "seeAll": "Ver todas en Ejecución"
   }
 }

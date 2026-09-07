@@ -20,6 +20,7 @@ import { ErrorState } from "@/components/ui/ErrorState"
 import { Notice } from "@/components/ui/Notice/Notice"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/Tabs/Tabs"
 import { ExecutionPanel } from "@/components/enrichment/ExecutionPanel"
+import { ReadinessPanel } from "@/components/enrichment/ReadinessPanel"
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog/ConfirmDialog"
 import { CreateTableModal } from "@/components/enrichment/CreateTableModal"
 import { TableVersionsModal } from "@/components/enrichment/TableVersionsModal"
@@ -69,7 +70,13 @@ function fmtBytes(n: number): string {
 export function EnrichmentPage(): React.ReactElement {
   const { t } = useTranslation("enrichment")
   const { organizations, selectedOrgId } = usePlatform()
-  const [tab, setTab] = useState<"catalog" | "sources" | "tables" | "policies" | "execution">("catalog")
+  // Ordem por FREQUÊNCIA de uso, não pela ordem das tabelas do banco. A visão
+  // geral responde "está funcionando aqui?", que é a razão pela qual alguém
+  // abre esta tela; o catálogo é o primeiro passo de "nova fonte" e por isso
+  // deixou de ser a aba de entrada.
+  const [tab, setTab] = useState<
+    "overview" | "policies" | "sources" | "tables" | "catalog" | "execution"
+  >("overview")
   const [enrichers, setEnrichers] = useState<Enricher[]>([])
   const [tables, setTables] = useState<EnrichTable[]>([])
   const [policies, setPolicies] = useState<EnrichPolicy[]>([])
@@ -228,8 +235,10 @@ export function EnrichmentPage(): React.ReactElement {
         <>
           <Tabs value={tab} onValueChange={(v) => setTab(v as typeof tab)}>
             <TabsList ariaLabel={t("title")}>
-              <TabsTrigger value="catalog">
-                {t("tabs.catalog", { count: enrichers.length })}
+              {/* Primeira porque é a pergunta que traz o operador até aqui. */}
+              <TabsTrigger value="overview">{t("tabs.overview")}</TabsTrigger>
+              <TabsTrigger value="policies">
+                {t("tabs.policies", { count: policies.length })}
               </TabsTrigger>
               <TabsTrigger value="sources">
                 {t("tabs.sources", { count: sources.length })}
@@ -237,10 +246,12 @@ export function EnrichmentPage(): React.ReactElement {
               <TabsTrigger value="tables">
                 {t("tabs.tables", { count: tables.length })}
               </TabsTrigger>
-              <TabsTrigger value="policies">
-                {t("tabs.policies", { count: policies.length })}
+              {/* O catálogo é leitura de apoio: quem chega nele está criando
+                  uma fonte, e esse fluxo começa no botão de Fontes. */}
+              <TabsTrigger value="catalog">
+                {t("tabs.catalog", { count: enrichers.length })}
               </TabsTrigger>
-              {/* Última aba porque é onde se volta DEPOIS de configurar, para
+              {/* Última porque é onde se volta DEPOIS de configurar, para
                   conferir se a consulta está de pé. */}
               <TabsTrigger value="execution">{t("tabs.execution")}</TabsTrigger>
             </TabsList>
@@ -261,6 +272,12 @@ export function EnrichmentPage(): React.ReactElement {
               <SkeletonCard />
               <SkeletonCard />
             </div>
+          ) : tab === "overview" ? (
+            <ReadinessPanel
+              organizations={organizations}
+              selectedOrgId={selectedOrgId}
+              onNavigateTab={(next) => setTab(next as typeof tab)}
+            />
           ) : tab === "catalog" ? (
             <div className="space-y-4">
               {thirdPartyCount > 0 ? (

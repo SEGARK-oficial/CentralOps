@@ -9,7 +9,8 @@
     "tables": "Tabelas ({{count}})",
     "policies": "Políticas ({{count}})",
     "sources": "Fontes ({{count}})",
-    "execution": "Execução"
+    "execution": "Execução",
+    "overview": "Visão geral"
   },
   "mode": {
     "local": "por evento",
@@ -257,5 +258,20 @@
     "activePolicy": "Vale: {{name}}",
     "unanswered": "sem resposta",
     "hitRateHintUnanswered": "Há consultas sem resposta na janela: o percentual de acerto está diluído por falha de credencial, rede ou orçamento, não por mudança no dado. Confira Consultas antes de mexer nas regras."
+  },
+  "readiness": {
+    "readyTitle": "Tudo pronto nesta organização",
+    "readyBody": "A política {{name}} está valendo para os eventos novos.",
+    "blockedTitle_one": "{{count}} passo impede o enriquecimento de rodar aqui",
+    "blockedTitle_other": "{{count}} passos impedem o enriquecimento de rodar aqui",
+    "blockedBody": "Enquanto isso, os eventos desta organização seguem para o destino sem o contexto.",
+    "stepsTitle": "O que falta",
+    "globalScope": "requer administrador global",
+    "hitRate": "Aproveitamento",
+    "avgHit": "{{value}} de acerto",
+    "unanswered": "{{value}} sem resposta",
+    "recentFailures_one": "{{count}} falha recente",
+    "recentFailures_other": "{{count}} falhas recentes",
+    "seeAll": "Ver todas em Execução"
   }
 }

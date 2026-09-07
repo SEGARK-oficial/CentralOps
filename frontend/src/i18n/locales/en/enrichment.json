@@ -9,7 +9,8 @@
     "tables": "Tables ({{count}})",
     "policies": "Policies ({{count}})",
     "sources": "Sources ({{count}})",
-    "execution": "Execution"
+    "execution": "Execution",
+    "overview": "Overview"
   },
   "mode": {
     "local": "per event",
@@ -257,5 +258,20 @@
     "activePolicy": "Active: {{name}}",
     "unanswered": "unanswered",
     "hitRateHintUnanswered": "Some queries went unanswered in this window: the match rate is diluted by a credential, network or budget failure, not by a change in the data. Check Queries before touching the rules."
+  },
+  "readiness": {
+    "readyTitle": "Everything is ready in this organization",
+    "readyBody": "Policy {{name}} is in effect for new events.",
+    "blockedTitle_one": "{{count}} step is stopping enrichment from running here",
+    "blockedTitle_other": "{{count}} steps are stopping enrichment from running here",
+    "blockedBody": "Meanwhile, this organization's events reach the destination without the context.",
+    "stepsTitle": "What is missing",
+    "globalScope": "needs a global administrator",
+    "hitRate": "Match rate",
+    "avgHit": "{{value}} matched",
+    "unanswered": "{{value}} unanswered",
+    "recentFailures_one": "{{count}} recent failure",
+    "recentFailures_other": "{{count}} recent failures",
+    "seeAll": "See all under Execution"
   }
 }
