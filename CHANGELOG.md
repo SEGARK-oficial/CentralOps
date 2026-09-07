@@ -1,5 +1,36 @@
 # Changelog
 
+## [2.9.0](https://github.com/SEGARK-oficial/CentralOps/compare/v2.8.0...v2.9.0) (2026-09-07)
+
+
+### Features
+
+* achado por linha em OCSF 2004, webhook assinado com ciclo de vida da Detection, e sequência entre fontes em voo ([#71](https://github.com/SEGARK-oficial/CentralOps/issues/71)) ([4f5b0d0](https://github.com/SEGARK-oficial/CentralOps/commit/4f5b0d0108bac0dcf5f3e33788c759503a1a761c))
+* **correlação:** "onde chega o alerta?" nos tipos e na cópia, e o spike X0 da sequência entre fontes ([#72](https://github.com/SEGARK-oficial/CentralOps/issues/72)) ([384d9d7](https://github.com/SEGARK-oficial/CentralOps/commit/384d9d7e0df6a03869c14f4e4f67f7798de5a78e))
+* **correlação:** cópia do console para a prioridade de avaliação ([#57](https://github.com/SEGARK-oficial/CentralOps/issues/57)) ([4bf4af7](https://github.com/SEGARK-oficial/CentralOps/commit/4bf4af7c647325e4e0febb818a308c06ce4b33b5))
+* **correlação:** emissão por regra, agendamento em lote (schema) e teto de chaves por regra ([#64](https://github.com/SEGARK-oficial/CentralOps/issues/64)) ([886e9af](https://github.com/SEGARK-oficial/CentralOps/commit/886e9af3bf962663c0779e2805ad3085c4bca97a))
+* **correlação:** inventário de campos para quem escreve regra, e os 10 operadores no tipo ([#62](https://github.com/SEGARK-oficial/CentralOps/issues/62)) ([cb1450d](https://github.com/SEGARK-oficial/CentralOps/commit/cb1450d47f2e893d2536156209a853aec58a368f))
+* **correlação:** janela deslizante em voo — min_count em window_seconds por chave (W1.6) ([#69](https://github.com/SEGARK-oficial/CentralOps/issues/69)) ([badd6a0](https://github.com/SEGARK-oficial/CentralOps/commit/badd6a087f64b0211bf9209f47a0e2df346d5c8b))
+* **correlação:** os tipos do console enxergam a coluna que decide quem roda ([#56](https://github.com/SEGARK-oficial/CentralOps/issues/56)) ([de9e937](https://github.com/SEGARK-oficial/CentralOps/commit/de9e937f31cb12f2a0ce678de24fb9720c6666c3))
+* **cti:** ciclo de vida STIX contado, uma política em vigor por org e o pacote IOC → Detection ([#67](https://github.com/SEGARK-oficial/CentralOps/issues/67)) ([9e5cb90](https://github.com/SEGARK-oficial/CentralOps/commit/9e5cb9094a2f2d62b0e764109040c121e0b5b881))
+* **deteccao:** a Detection em voo sai como evento OCSF 2004 roteado ([#54](https://github.com/SEGARK-oficial/CentralOps/issues/54)) ([66a49e8](https://github.com/SEGARK-oficial/CentralOps/commit/66a49e82084d3580761e8cc37a94931cb49c198e))
+* **enrich:** AbuseIPDB, OTX e GreyNoise sobre um esqueleto remoto comum (W4.4) ([#70](https://github.com/SEGARK-oficial/CentralOps/issues/70)) ([5360a74](https://github.com/SEGARK-oficial/CentralOps/commit/5360a742b4e7b1be14e73bef2849f76fa323abd4))
+* **enrich:** circuit breaker por fonte e cota local — provedor morto deixa de custar ciclo ([#63](https://github.com/SEGARK-oficial/CentralOps/issues/63)) ([2dc4909](https://github.com/SEGARK-oficial/CentralOps/commit/2dc4909957b378d81d14550ae8a663969325389c))
+* **enrich:** enricher GeoIP/ASN local (mmdb) e remoção do Threat Intel legado ([#65](https://github.com/SEGARK-oficial/CentralOps/issues/65)) ([70d8ce2](https://github.com/SEGARK-oficial/CentralOps/commit/70d8ce2db41537596bf5e6c7238ab8406a468ff4))
+* **ingest:** plataforma push genérica custom_json com streams dinâmicos ([#66](https://github.com/SEGARK-oficial/CentralOps/issues/66)) ([c286975](https://github.com/SEGARK-oficial/CentralOps/commit/c2869750e1b20374e74ccef181c4d9d96b3640c6))
+* **syslog:** receptor syslog nativo (UDP/TCP/TLS) e classificação por conteúdo ([#68](https://github.com/SEGARK-oficial/CentralOps/issues/68)) ([decb28d](https://github.com/SEGARK-oficial/CentralOps/commit/decb28d3e2b1bf04012ffe2425999aee2072cd18))
+
+
+### Bug Fixes
+
+* **build:** pina Cython abaixo de 3.3 — 3.3.0 quebra a compilacao ([#49](https://github.com/SEGARK-oficial/CentralOps/issues/49)) ([d1b034e](https://github.com/SEGARK-oficial/CentralOps/commit/d1b034e2814da09bd01db4ded65104badff1a839))
+* **ci:** o publish promovia imagem que um gate havia reprovado ([#53](https://github.com/SEGARK-oficial/CentralOps/issues/53)) ([9a01db1](https://github.com/SEGARK-oficial/CentralOps/commit/9a01db1b8d84b953617dffe08d483c883fe45195))
+* **inflight:** a Detection agora e gravada em teste, e a perda deixa de mentir ([#51](https://github.com/SEGARK-oficial/CentralOps/issues/51)) ([6ee76f1](https://github.com/SEGARK-oficial/CentralOps/commit/6ee76f168d0a2e9f9bd70d55dffb20934b03a962))
+* **inflight:** honestidade do detector em voo e fronteira de dado do repo público ([#47](https://github.com/SEGARK-oficial/CentralOps/issues/47)) ([eb63558](https://github.com/SEGARK-oficial/CentralOps/commit/eb63558894a35f69e59372af3b40abc83aa94428))
+* o release de teste passa a exercitar as features (flags, guardas e group_by em voo) ([#58](https://github.com/SEGARK-oficial/CentralOps/issues/58)) ([62df20d](https://github.com/SEGARK-oficial/CentralOps/commit/62df20d2a00a2012ffe5b7bbbb6e6298b3b65348))
+* **observabilidade:** a coleta parou por 6h e nenhuma tela disse isso ([#59](https://github.com/SEGARK-oficial/CentralOps/issues/59)) ([ac340c6](https://github.com/SEGARK-oficial/CentralOps/commit/ac340c6704ca7526a6e039f0ce01f8e799c7a015))
+* **seguranca:** excecao de banco carregava os VALORES da linha para o log ([#52](https://github.com/SEGARK-oficial/CentralOps/issues/52)) ([9020d0a](https://github.com/SEGARK-oficial/CentralOps/commit/9020d0a39e26eef832c1722e4f694b0cfe4d4e71))
+
 ## [2.8.0](https://github.com/SEGARK-oficial/CentralOps/compare/v2.7.0...v2.8.0) (2026-08-17)
 
 
