@@ -69,11 +69,13 @@ Duas saídas: usar um token de **escopo global**, ou a edição Enterprise, que 
 
 ## As telas do console
 
-O console tem cinco abas em **Enriquece → Enriquecimento**:
+O console tem seis abas em **Enriquece → Enriquecimento**:
+
+- **Visão geral**, a aba de entrada. Responde "está funcionando nesta organização, e o que falta?" numa lista de passos: subsistema ligado, cache dedicado, fontes e tabelas em ordem, política em vigor. Cada passo que bloqueia traz o motivo e o botão que leva ao lugar de resolver, e os que dependem de administrador global vêm marcados como tal. Um passo que não afeta a sua organização aparece em cinza, sem alarme — uma organização que só usa tabelas do cliente não é avisada sobre o cache de consultas externas.
 
 - **Catálogo**, todas as fontes de enriquecimento disponíveis, com modo (por evento/por lote), tipos de chave que aceita e selo de egresso. Clicar num card já abre o cadastro de fonte com o enricher escolhido.
-- **Fontes**, as fontes configuradas: a instância de um enricher nesta organização, com o endereço e a credencial. Enrichers que exigem credencial (OpenCTI, VirusTotal) precisam de uma fonte antes de aparecerem numa regra. O botão **Testar** consulta o serviço de verdade e devolve o erro real do provedor, sem publicar nada.
-- **Tabelas**, as tabelas que sua organização já criou, com quantidade de entradas e tamanho. O botão **Nova tabela** cria uma tabela, e cada card abre o histórico de versões, publicar dados novos ou reverter para uma versão anterior é tudo formulário, sem precisar de API.
+- **Fontes**, as fontes configuradas: a instância de um enricher nesta organização, com o endereço e a credencial. Enrichers que exigem credencial (OpenCTI, VirusTotal) precisam de uma fonte antes de aparecerem numa regra. A lista mostra, por fonte, o selo de egresso, se há credencial, o resultado do **último teste** com a mensagem do provedor, e com quantas organizações filhas ela é compartilhada. O botão **Testar** consulta o serviço de verdade e devolve o erro real do provedor, sem publicar nada; o resultado fica gravado, então "nunca testada" e "testada e falhando" são estados distintos na tela.
+- **Tabelas**, as tabelas que sua organização já criou, com quantidade de entradas e tamanho. O botão **Nova tabela** cria uma tabela, e cada card abre o histórico de versões, publicar dados novos ou reverter para uma versão anterior é tudo formulário, sem precisar de API. O conteúdo entra por **planilha (CSV)** ou por JSON: com CSV você escolhe a coluna da chave e quais colunas viram contexto, e a tela mostra, antes de publicar, quais linhas estão inválidas (com o número da linha e o motivo), o que é novo, o que muda e **o que sai da tabela**. Esse último ponto importa porque publicar substitui a versão inteira, não faz mesclagem.
 
   ![Tabelas de enriquecimento da organização](/img/console/console-enriquecimento-tabelas.png)
 
@@ -84,6 +86,19 @@ O console tem cinco abas em **Enriquece → Enriquecimento**:
 - **Execução**, para responder "isso está funcionando?". Mostra qual política está de fato valendo (o worker aplica uma por organização, a mais antiga habilitada). Lista cada tentativa de consulta com a mensagem do provedor quando falha, e o aproveitamento de cada regra na janela. As duas leituras juntas distinguem problema de credencial (a consulta falha) de problema de dado (a consulta funciona e o acerto cai), que pedem ações opostas.
 
 O guia [Como enriquecer um evento](./how-to-enrich.md) mostra o passo a passo completo pelo console, com a API REST como alternativa para automação e scripts.
+
+## Onde fica a configuração da instalação
+
+O enriquecimento por lote (VirusTotal, AbuseIPDB, OTX, GreyNoise) precisa de um **cache dedicado** compartilhado entre os processos de coleta. Sem ele essas fontes não rodam — é uma decisão de projeto, não uma falha: o cache do restante do produto guarda o controle de duplicidade, cuja remoção silenciosa reapareceria como evento reentregue no SIEM.
+
+Esse endereço, junto dos orçamentos de consulta, da pausa automática de fonte com falha e dos limites de memória das tabelas, fica em **Administração → Configuração → Enriquecimento**, e só um administrador global edita. São parâmetros da instalação inteira: um cache, um orçamento, um limite para todas as organizações.
+
+Duas coisas a saber sobre essa tela:
+
+- O botão **Testar conexão** usa os valores do formulário, inclusive uma senha que você ainda não salvou, e não grava nada. Ele também recusa apontar para a instância principal do produto e diz por quê.
+- A senha é enviada uma vez e cifrada pelo servidor; a API nunca a devolve. Deixar o campo vazio ao salvar **mantém** a que está lá.
+
+Uma alteração chega a todos os processos de coleta em segundos, sem reiniciar contêiner nenhum.
 
 ## Próximos passos
 

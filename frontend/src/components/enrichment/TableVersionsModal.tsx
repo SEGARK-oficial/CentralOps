@@ -8,6 +8,8 @@ import { Input } from "@/components/ui/Input/Input"
 import { Badge } from "@/components/ui/Badge/Badge"
 import { Notice } from "@/components/ui/Notice/Notice"
 import { SkeletonCard } from "@/components/ui/Skeleton"
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/Tabs/Tabs"
+import { CsvImportPanel } from "./CsvImportPanel"
 import * as api from "@/services/api"
 import type { EnrichmentTable, EnrichmentTableVersion } from "@/services/api"
 
@@ -46,6 +48,17 @@ export const TableVersionsModal: React.FC<TableVersionsModalProps> = ({
   const [loadingVersions, setLoadingVersions] = useState(false)
   const [listError, setListError] = useState<string | null>(null)
 
+  //: "csv" é o padrão porque CMDB, plano de rede e allowlist nascem em
+  //: planilha; o JSON continua para quem já exporta nesse formato ou automatiza.
+  const [inputMode, setInputMode] = useState<"csv" | "json">("csv")
+  const [csvRows, setCsvRows] = useState<Record<string, Record<string, string>> | null>(
+    null,
+  )
+  //: Corpo da versão vigente, para o diff do importador. Publicar SUBSTITUI a
+  //: versão inteira, então mostrar o que SAI é tão importante quanto o que entra.
+  const [currentRows, setCurrentRows] = useState<
+    Record<string, Record<string, unknown>>
+  >({})
   const [rowsText, setRowsText] = useState("")
   const [commitMessage, setCommitMessage] = useState("")
   const [publishing, setPublishing] = useState(false)
@@ -72,6 +85,18 @@ export const TableVersionsModal: React.FC<TableVersionsModalProps> = ({
       setCommitMessage("")
       setPublishError(null)
       setLastResult(null)
+      setCsvRows(null)
+      setInputMode("csv")
+      setCurrentRows({})
+      // Sem o corpo vigente o importador não tem contra o que diferenciar e o
+      // operador publicaria sem enxergar as remoções. Falhar aqui degrada para
+      // "sem diff"; nunca impede a publicação.
+      if (table.current_version_id) {
+        api
+          .getEnrichmentTableVersion(table.id, table.current_version_id)
+          .then((v) => setCurrentRows(v.rows ?? {}))
+          .catch(() => setCurrentRows({}))
+      }
     }
   }, [open, table, loadVersions])
 
@@ -79,6 +104,21 @@ export const TableVersionsModal: React.FC<TableVersionsModalProps> = ({
     e.preventDefault()
     if (!table) return
     setPublishError(null)
+
+    // O importador já entregou o corpo pronto e validado linha a linha; aqui só
+    // resta checar que existe algo para publicar.
+    if (inputMode === "csv") {
+      if (!csvRows || Object.keys(csvRows).length === 0) {
+        setPublishError(t("tables.csv.needsRows"))
+        return
+      }
+      if (!commitMessage.trim()) {
+        setPublishError(t("tables.versions.commitMessageRequired"))
+        return
+      }
+      await publish(csvRows)
+      return
+    }
 
     let rows: Record<string, Record<string, unknown>>
     try {
@@ -99,6 +139,12 @@ export const TableVersionsModal: React.FC<TableVersionsModalProps> = ({
       return
     }
 
+    await publish(rows)
+  }
+
+  /** O commit em si. Compartilhado pelos dois modos de entrada. */
+  async function publish(rows: Record<string, Record<string, unknown>>) {
+    if (!table) return
     setPublishing(true)
     try {
       const result = await api.commitEnrichmentTableVersion(table.id, {
@@ -107,7 +153,10 @@ export const TableVersionsModal: React.FC<TableVersionsModalProps> = ({
       })
       setLastResult(result)
       setRowsText("")
+      setCsvRows(null)
       setCommitMessage("")
+      // A versão recém-publicada vira a base do próximo diff.
+      setCurrentRows(rows)
       loadVersions()
       onChanged()
     } catch (err) {
@@ -152,19 +201,37 @@ export const TableVersionsModal: React.FC<TableVersionsModalProps> = ({
             </Notice>
           )}
 
-          <Textarea
-            label={t("tables.versions.rowsLabel")}
-            value={rowsText}
-            onChange={(e) => setRowsText(e.target.value)}
-            rows={8}
-            className="font-mono text-xs"
-            placeholder={table.match_mode === "cidr" ? EXAMPLE_CIDR : EXAMPLE_EXACT}
-            helperText={
-              table.match_mode === "cidr"
-                ? t("tables.versions.rowsHelperCidr")
-                : t("tables.versions.rowsHelperExact")
-            }
-          />
+          {/* Duas origens para o MESMO corpo. O CSV é o padrão porque é o
+              formato em que estas tabelas de fato existem; o JSON continua
+              para quem automatiza ou já exporta assim. */}
+          <Tabs value={inputMode} onValueChange={(v) => setInputMode(v as "csv" | "json")}>
+            <TabsList ariaLabel={t("tables.csv.modeLabel")}>
+              <TabsTrigger value="csv">{t("tables.csv.modeCsv")}</TabsTrigger>
+              <TabsTrigger value="json">{t("tables.csv.modeJson")}</TabsTrigger>
+            </TabsList>
+          </Tabs>
+
+          {inputMode === "csv" ? (
+            <CsvImportPanel
+              matchMode={table.match_mode}
+              currentRows={currentRows}
+              onChange={setCsvRows}
+            />
+          ) : (
+            <Textarea
+              label={t("tables.versions.rowsLabel")}
+              value={rowsText}
+              onChange={(e) => setRowsText(e.target.value)}
+              rows={8}
+              className="font-mono text-xs"
+              placeholder={table.match_mode === "cidr" ? EXAMPLE_CIDR : EXAMPLE_EXACT}
+              helperText={
+                table.match_mode === "cidr"
+                  ? t("tables.versions.rowsHelperCidr")
+                  : t("tables.versions.rowsHelperExact")
+              }
+            />
+          )}
 
           <Input
             label={t("tables.versions.commitMessage")}

@@ -144,6 +144,15 @@ beforeEach(() => {
     version_number: 1,
     rules: [],
   })
+  // O modal de tabela busca o CORPO da versão vigente para diferenciar contra o
+  // arquivo importado.
+  mockedApi.getEnrichmentTableVersion.mockResolvedValue({
+    id: "v1",
+    version_number: 1,
+    entry_count: 0,
+    approx_bytes: 0,
+    rows: {},
+  })
   // A aba de entrada agora é a visão geral, que consulta a prontidão. Sem
   // estes defaults todo teste começaria num ErrorState.
   mockedApi.getEnrichmentReadiness.mockResolvedValue({

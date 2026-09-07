@@ -2940,6 +2940,26 @@ export async function listEnrichmentTableVersions(tableId: string) {
   return apiRequest<EnrichmentTableVersion[]>(`/collectors/enrichment/tables/${tableId}/versions`)
 }
 
+export interface EnrichmentTableVersionDetail {
+  id: string
+  version_number: number
+  entry_count: number
+  approx_bytes: number
+  /** Corpo `{chave: {campo: valor}}` como foi gravado. */
+  rows: Record<string, Record<string, unknown>>
+}
+
+/**
+ * Conteúdo de UMA versão. A listagem devolve metadado; o corpo só vem por aqui,
+ * e é o que permite diferenciar o arquivo novo contra o que está valendo antes
+ * de publicar (publicar substitui a versão inteira).
+ */
+export async function getEnrichmentTableVersion(tableId: string, versionId: string) {
+  return apiRequest<EnrichmentTableVersionDetail>(
+    `/collectors/enrichment/tables/${tableId}/versions/${versionId}`,
+  )
+}
+
 export async function commitEnrichmentTableVersion(
   tableId: string,
   data: { rows: Record<string, Record<string, unknown>>; commit_message: string },

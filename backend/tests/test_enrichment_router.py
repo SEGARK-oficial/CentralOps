@@ -660,3 +660,48 @@ def test_source_shared_with_child_orgs_and_editable_afterwards(
     # E dá para tirar todas, voltando a atender só a dona.
     upd2 = client.patch(f"{_BASE}/sources/{src_id}", json={"shared_organization_ids": []})
     assert upd2.json()["shared_organization_ids"] == []
+
+
+def test_table_version_body_is_scoped_to_its_own_table(client_factory) -> None:
+    """O corpo de uma versão só é legível pela tabela que a contém.
+
+    O filtro por ``table_id`` ALÉM do id da versão não é redundante: sem ele, o
+    id de uma versão viraria IDOR entre tabelas — e portanto entre organizações,
+    já que a visibilidade é checada na TABELA, não na versão. É a mesma
+    disciplina do irmão ``get_policy_version``.
+    """
+    factory, _ = client_factory
+    client = factory()
+    _bootstrap_admin(client)
+    org_a = _org(client, "AlfaX")
+    org_b = _org(client, "BetaX")
+
+    r = client.post(
+        f"{_BASE}/tables",
+        json={"name": "rede", "organization_id": org_a, "match_mode": "cidr"},
+    )
+    assert r.status_code == 201, r.text
+    tabela_a = r.json()["id"]
+    r = client.post(
+        f"{_BASE}/tables/{tabela_a}/versions",
+        json={"rows": {"10.0.5.0/24": {"site": "filial"}}, "commit_message": "v1"},
+    )
+    assert r.status_code in (200, 201), r.text
+    versao_a = r.json()["id"]
+
+    r = client.post(
+        f"{_BASE}/tables",
+        json={"name": "rede", "organization_id": org_b, "match_mode": "cidr"},
+    )
+    assert r.status_code == 201, r.text
+    tabela_b = r.json()["id"]
+
+    # A própria tabela devolve o corpo.
+    r = client.get(f"{_BASE}/tables/{tabela_a}/versions/{versao_a}")
+    assert r.status_code == 200, r.text
+    assert r.json()["rows"] == {"10.0.5.0/24": {"site": "filial"}}
+
+    # A outra tabela, com o MESMO id de versão, não.
+    r = client.get(f"{_BASE}/tables/{tabela_b}/versions/{versao_a}")
+    assert r.status_code == 404, r.text
+    assert r.json()["error"]["code"] == "enrichment.version_not_found"

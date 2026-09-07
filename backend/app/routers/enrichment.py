@@ -972,6 +972,57 @@ def commit_table_version(
     )
 
 
+@router.get("/tables/{table_id}/versions/{version_id}")
+def get_table_version(
+    table_id: str,
+    version_id: str,
+    user: models.AppUser = Depends(app_auth.require_admin_user),
+    db: Session = Depends(_db),
+) -> Dict[str, Any]:
+    """Conteúdo CRU de uma versão de tabela.
+
+    Irmão de ``get_policy_version`` e existe pela mesma razão: a listagem de
+    versões devolve metadado (contagem, bytes, autor), não o corpo. Sem o corpo,
+    a importação não consegue diferenciar o arquivo novo contra o que está
+    valendo — e publicar SUBSTITUI a versão inteira, então o operador não teria
+    como perceber que exportou o arquivo errado antes de as chaves sumirem.
+
+    O filtro por ``table_id`` além do id da versão não é redundante: sem ele o
+    id da versão viraria IDOR entre tabelas, e portanto entre organizações, já
+    que a visibilidade foi checada na TABELA.
+    """
+    table = _assert_visible(db.get(models.EnrichmentTable, table_id), user, "table")
+    version = (
+        db.query(models.EnrichmentTableVersion)
+        .filter(
+            models.EnrichmentTableVersion.id == version_id,
+            models.EnrichmentTableVersion.table_id == table.id,
+        )
+        .first()
+    )
+    if version is None:
+        raise ApiError(
+            "enrichment.version_not_found",
+            status.HTTP_404_NOT_FOUND,
+            messages={
+                "pt": "Versão não encontrada nesta tabela.",
+                "en": "Version not found in this table.",
+                "es": "Versión no encontrada en esta tabla.",
+            },
+        )
+    try:
+        rows = json.loads(version.rows or "{}")
+    except Exception:  # noqa: BLE001 — corpo corrompido não derruba a tela
+        rows = {}
+    return {
+        "id": version.id,
+        "version_number": version.version_number,
+        "entry_count": version.entry_count,
+        "approx_bytes": version.approx_bytes,
+        "rows": rows,
+    }
+
+
 @router.post("/tables/{table_id}/rollback", response_model=TableRead)
 def rollback_table(
     table_id: str,
