@@ -247,7 +247,9 @@
       "diffChanged_other": "{{count}} changed ({{names}})",
       "diffRemoved_one": "−{{count}} rule ({{names}})",
       "diffRemoved_other": "−{{count}} rules ({{names}})",
-      "diffReordered": "order changed"
+      "diffReordered": "order changed",
+      "ruleIndex_one": "{{count}} rule in this policy",
+      "ruleIndex_other": "{{count}} rules in this policy"
     },
     "duplicate": {
       "title": "Copy {{name}} to another organization",
@@ -269,6 +271,32 @@
       "noTargets": "There is no other visible organization to copy to.",
       "commitMessage": "copied from {{name}}",
       "action": "Copy to another organization"
+    },
+    "summary": {
+      "path": {
+        "srcIp": "source IP",
+        "dstIp": "destination IP",
+        "srcHost": "source host",
+        "dstHost": "destination host",
+        "deviceIp": "device IP",
+        "deviceHost": "device host",
+        "user": "user",
+        "fileHash": "file hash",
+        "urlHost": "URL domain",
+        "url": "URL"
+      },
+      "when": {
+        "has_tag": "if it already has the mark",
+        "lacks_tag": "if it does not have the mark yet",
+        "exists": "if the field exists",
+        "equals": "if the field equals a value",
+        "in": "if the field is in a list",
+        "not": "if the condition does NOT hold"
+      },
+      "onMiss": {
+        "tag": "marks when nothing is found",
+        "default": "writes the default when nothing is found"
+      }
     }
   },
   "errorTitle": "Failed to load enrichment",

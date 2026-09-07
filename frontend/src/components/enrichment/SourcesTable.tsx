@@ -291,6 +291,20 @@ export const SourcesTable: React.FC<Props> = ({
             size="sm"
           />
         </div>
+        {/* A ação primária do cabeçalho é estável ("Nova política"), então
+            criar fonte precisa de um botão AQUI — onde o contexto já é o de
+            fontes. Sem ele, a aba com fontes cadastradas não tinha por onde
+            adicionar outra: o botão só existia no estado vazio. */}
+        <div className="ml-auto">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onCreate}
+            leftIcon={<PlusIcon size={14} />}
+          >
+            {t("sources.form.create")}
+          </Button>
+        </div>
       </div>
 
       <DataTable<EnrichmentSource>

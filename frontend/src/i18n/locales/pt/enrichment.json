@@ -247,7 +247,9 @@
       "diffChanged_other": "{{count}} alteradas ({{names}})",
       "diffRemoved_one": "−{{count}} regra ({{names}})",
       "diffRemoved_other": "−{{count}} regras ({{names}})",
-      "diffReordered": "ordem alterada"
+      "diffReordered": "ordem alterada",
+      "ruleIndex_one": "{{count}} regra nesta política",
+      "ruleIndex_other": "{{count}} regras nesta política"
     },
     "duplicate": {
       "title": "Copiar {{name}} para outra organização",
@@ -269,6 +271,32 @@
       "noTargets": "Não há outra organização visível para copiar.",
       "commitMessage": "copiada de {{name}}",
       "action": "Copiar para outra organização"
+    },
+    "summary": {
+      "path": {
+        "srcIp": "IP de origem",
+        "dstIp": "IP de destino",
+        "srcHost": "host de origem",
+        "dstHost": "host de destino",
+        "deviceIp": "IP do dispositivo",
+        "deviceHost": "host do dispositivo",
+        "user": "usuário",
+        "fileHash": "hash do arquivo",
+        "urlHost": "domínio da URL",
+        "url": "URL"
+      },
+      "when": {
+        "has_tag": "se já tiver a marca",
+        "lacks_tag": "se ainda não tiver a marca",
+        "exists": "se o campo existir",
+        "equals": "se o campo for igual a um valor",
+        "in": "se o campo estiver numa lista",
+        "not": "se a condição NÃO valer"
+      },
+      "onMiss": {
+        "tag": "marca quando não encontra",
+        "default": "escreve o padrão quando não encontra"
+      }
     }
   },
   "errorTitle": "Falha ao carregar o enriquecimento",

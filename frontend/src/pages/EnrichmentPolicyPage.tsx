@@ -16,6 +16,7 @@ import { Textarea } from "@/components/ui/Textarea/Textarea"
 import { JsonViewer } from "@/components/shared/JsonViewer"
 import { PolicyRuleEditor } from "@/components/enrichment/PolicyRuleEditor"
 import { PolicyDiff } from "@/components/enrichment/PolicyDiff"
+import { RuleSummary } from "@/components/enrichment/ruleSummary"
 import { DuplicatePolicyModal } from "@/components/enrichment/DuplicatePolicyModal"
 import { usePlatform } from "@/contexts/PlatformContext"
 import * as api from "@/services/api"
@@ -566,7 +567,36 @@ export function EnrichmentPolicyPage(): React.ReactElement {
 
       <div className="grid gap-4 xl:grid-cols-[1fr_400px]">
         <Card>
-          <div className="p-4">
+          <div className="space-y-3 p-4">
+            {/* Índice das regras. Com quatro ou mais, rolar o formulário para
+                achar "aquela do hash" é o que consome o tempo; aqui a lista
+                inteira cabe em quatro linhas legíveis e leva ao cartão certo. */}
+            {rules.length > 2 && (
+              <div className="rounded-lg border border-border-subtle p-3">
+                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">
+                  {t("policies.page.ruleIndex", { count: rules.length })}
+                </p>
+                <ul className="space-y-1.5">
+                  {rules.map((r, i) => (
+                    <li key={`idx-${r.id}-${i}`} className="flex flex-wrap items-baseline gap-2">
+                      <a
+                        href={`#rule-${i}`}
+                        className="font-mono text-xs text-stage-enrich hover:underline"
+                        onClick={(e) => {
+                          e.preventDefault()
+                          document
+                            .getElementById(`rule-${i}`)
+                            ?.scrollIntoView({ behavior: "smooth", block: "center" })
+                        }}
+                      >
+                        {r.id}
+                      </a>
+                      <RuleSummary rule={r} enrichers={enrichers} />
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
             <PolicyRuleEditor
               rules={rules}
               enrichers={enrichers}

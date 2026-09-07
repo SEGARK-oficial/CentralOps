@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/Badge/Badge"
 import { JMESPathInput } from "@/components/mappings/JMESPathInput"
 import { EnrichWhenBuilder } from "./EnrichWhenBuilder"
 import { TagChipsInput } from "./TagChipsInput"
+import { RuleSummary } from "./ruleSummary"
 import type {
   EnricherCatalogItem,
   EnrichmentRule,
@@ -322,7 +323,8 @@ export const PolicyRuleEditor: React.FC<PolicyRuleEditorProps> = ({
           return (
             <div
               key={`rule-${index}`}
-              className="space-y-3 rounded-lg border border-border p-4"
+              id={`rule-${index}`}
+              className="space-y-3 rounded-lg border border-border p-4 scroll-mt-4"
               data-testid={`rule-card-${index}`}
             >
               <div className="flex items-start justify-between gap-2">
@@ -352,37 +354,19 @@ export const PolicyRuleEditor: React.FC<PolicyRuleEditorProps> = ({
                 </Button>
               </div>
 
-              {usesTable && (
-                <Select
-                  label={t("policies.versions.table")}
-                  value={rule.table ?? ""}
-                  onValueChange={(v) => updateRule(index, { table: String(v) || null })}
-                  options={[{ value: "", label: t("policies.versions.tableNone") }, ...tableOptions]}
-                  size="sm"
-                  helperText={t("policies.versions.tableHint")}
-                />
-              )}
+              {/* A regra em uma linha, no vocabulário do operador.
+                  
+                  Os campos abaixo estão no vocabulário do MOTOR (`enricher`,
+                  `key.source`, `on_miss`), e nenhum deles, isolado, diz o que a
+                  regra faz — revisar quatro regras exigia ler doze campos e
+                  montar a frase de cabeça. O resumo não substitui o formulário:
+                  ele responde "é esta a regra?" antes de o olho descer para os
+                  campos. */}
+              <p data-testid={`rule-summary-${index}`}>
+                <RuleSummary rule={rule} enrichers={enrichers} />
+              </p>
 
-              {/* Fonte configurada: obrigatória para enricher com credencial. A
-                  regra cita o NOME; a credencial vive na linha escopada à org e
-                  nunca trafega no JSON da política. */}
-              {needsSource && (
-                <Select
-                  label={t("policies.versions.source")}
-                  value={rule.source ?? ""}
-                  onValueChange={(v) => updateRule(index, { source: String(v) || null })}
-                  options={[
-                    { value: "", label: t("policies.versions.sourceNone") },
-                    ...sources
-                      .filter((s) => s.enricher === rule.enricher)
-                      .map((s) => ({ value: s.name, label: s.name })),
-                  ]}
-                  size="sm"
-                  error={!rule.source ? t("policies.versions.sourceRequired") : undefined}
-                  helperText={t("policies.versions.sourceHint")}
-                />
-              )}
-
+              {/* ── 1. de onde vem a chave ─────────────────────────────────── */}
               <div className="grid gap-3 sm:grid-cols-2">
                 {/* Combobox, não texto livre: um caminho errado aqui NÃO dá
                     422. A regra publica com 201 e simplesmente nunca casa, e
@@ -415,6 +399,38 @@ export const PolicyRuleEditor: React.FC<PolicyRuleEditorProps> = ({
                   size="sm"
                 />
               </div>
+
+              {/* ── 2. onde consultar ─────────────────────────────────── */}
+              {usesTable && (
+                <Select
+                  label={t("policies.versions.table")}
+                  value={rule.table ?? ""}
+                  onValueChange={(v) => updateRule(index, { table: String(v) || null })}
+                  options={[{ value: "", label: t("policies.versions.tableNone") }, ...tableOptions]}
+                  size="sm"
+                  helperText={t("policies.versions.tableHint")}
+                />
+              )}
+
+              {/* Fonte configurada: obrigatória para enricher com credencial. A
+                  regra cita o NOME; a credencial vive na linha escopada à org e
+                  nunca trafega no JSON da política. */}
+              {needsSource && (
+                <Select
+                  label={t("policies.versions.source")}
+                  value={rule.source ?? ""}
+                  onValueChange={(v) => updateRule(index, { source: String(v) || null })}
+                  options={[
+                    { value: "", label: t("policies.versions.sourceNone") },
+                    ...sources
+                      .filter((s) => s.enricher === rule.enricher)
+                      .map((s) => ({ value: s.name, label: s.name })),
+                  ]}
+                  size="sm"
+                  error={!rule.source ? t("policies.versions.sourceRequired") : undefined}
+                  helperText={t("policies.versions.sourceHint")}
+                />
+              )}
 
               {/* Outputs */}
               <div className="space-y-2">

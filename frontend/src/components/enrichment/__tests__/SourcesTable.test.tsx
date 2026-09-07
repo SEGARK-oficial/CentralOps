@@ -195,4 +195,13 @@ describe("SourcesTable", () => {
     fireEvent.click(screen.getByRole("button", { name: "Nova fonte" }))
     expect(onCreate).toHaveBeenCalled()
   })
+  it("permite criar fonte mesmo com a lista cheia", async () => {
+    // Descoberto dirigindo a tela: ao fixar a ação primária do cabeçalho em
+    // "Nova política", a aba de Fontes ficou sem por onde adicionar outra —
+    // o botão só existia no estado vazio.
+    const onCreate = vi.fn()
+    mount([src()], { onCreate })
+    fireEvent.click(screen.getByRole("button", { name: "Nova fonte" }))
+    expect(onCreate).toHaveBeenCalled()
+  })
 })
