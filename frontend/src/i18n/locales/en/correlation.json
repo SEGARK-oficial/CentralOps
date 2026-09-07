@@ -20,7 +20,9 @@
     },
     "kpi": {
       "total": "Total rules",
-      "enabled": "Enabled"
+      "enabled": "Enabled",
+      "inflight": "In-flight",
+      "notEvaluated": "Not evaluated"
     },
     "loadError": {
       "title": "Failed to load rules"
@@ -50,6 +52,15 @@
       "placeholder": "Search by name, description or group-by field…",
       "ariaLabel": "Search correlation rules",
       "resultCount": "{{visible}} of {{total}} rule(s)"
+    },
+    "filter": {
+      "ariaLabel": "Filter by evaluation mode",
+      "all": "All",
+      "inflight": "In-flight",
+      "batch": "Batch"
+    },
+    "editCard": {
+      "title": "Edit rule"
     }
   },
   "table": {
@@ -273,8 +284,8 @@
     "modalTitle": "Edit correlation rule",
     "evalModeChange": {
       "title": "This changes the rule's semantics, not a value",
-      "toInflight": "It starts being evaluated event by event inside the ingestion pipeline, before the SIEM. The minimum of {{minCount}} event(s) and the {{window}}s window STOP applying: every event matching the filter becomes a detection, and volume may rise sharply. The group-by field stops aggregating and becomes the dedup key. Effective from the next collection cycle.",
-      "toBatch": "It leaves the ingestion pipeline and goes back to running only when a federated search FINISHES, over its results. The minimum of {{minCount}} event(s), the {{window}}s window and the timestamp field APPLY again. With no federated search, it stops producing detections."
+      "toInflight": "It starts being evaluated event by event inside the ingestion pipeline, before the SIEM. The timestamp field STOPS applying: the {{window}}s window switches to the reception clock and the minimum of {{minCount}} event(s) becomes a sliding count per key. The group-by field stops aggregating and becomes the dedup key. Effective from the next collection cycle.",
+      "toBatch": "It leaves the ingestion pipeline and goes back to running only when a federated search FINISHES, over its results. The timestamp field and the search aggregation APPLY again: minimum of {{minCount}} event(s) within the {{window}}s window. With no federated search, it stops producing detections."
     },
     "actions": {
       "submit": "Save changes"
@@ -467,6 +478,129 @@
     },
     "actions": {
       "closeAriaLabel": "Close the rule counters"
+    }
+  },
+  "studio": {
+    "actions": {
+      "backToList": "Back to catalog"
+    },
+    "canvas": {
+      "ariaLabel": "Rule flow",
+      "hint": "Each node is an engine stage, in the order it runs. Click to configure; arrow keys move between stages.",
+      "previewBadge": "{{matched}}/{{total}} match",
+      "state": {
+        "issues": "{{count}} pending item(s)",
+        "preview": "test: {{matched}} of {{total}} samples match",
+        "muted": "inert in this mode"
+      },
+      "addLegAria": "Add a leg to the flow"
+    },
+    "node": {
+      "source": {
+        "title": "Source"
+      },
+      "filters": {
+        "title": "Filters"
+      },
+      "group": {
+        "title": "Group"
+      },
+      "join": {
+        "title": "Join"
+      },
+      "window": {
+        "title": "Window"
+      },
+      "detect": {
+        "title": "Detection"
+      },
+      "leg": "Leg {{n}}"
+    },
+    "summary": {
+      "source": {
+        "manual": "Manual · when the federated search ends",
+        "scheduled": "Every {{cadence}}",
+        "scheduledNoQuery": "choose the saved search",
+        "allStreams": "All in-flight sources",
+        "anyStream": "Any source matching the filter"
+      },
+      "filters": {
+        "none": "No filter",
+        "count": "{{count}} filter(s)"
+      },
+      "group": {
+        "empty": "Set the field",
+        "dedup": "dedup by value",
+        "aggregate": "aggregation in the window"
+      },
+      "join": {
+        "leg": "join path",
+        "legEmpty": "Set the join",
+        "merge": "{{count}} leg(s) · same value",
+        "metaWindow": "within the window"
+      },
+      "window": {
+        "threshold": "≥ {{min}} in {{window}}s",
+        "sequence": "{{window}}s for all legs",
+        "timestamp": "by {{field}}",
+        "noTimestamp": "no timestamp: window off"
+      },
+      "detect": {
+        "emit": "→ SIEM (OCSF 2004)",
+        "dbOnly": "database only",
+        "batchDetection": "Detection when the search ends",
+        "suppression": "suppression {{seconds}}s",
+        "disabled": "disabled"
+      }
+    },
+    "section": {
+      "source": {
+        "descriptionBatch": "What feeds the rule: the federated search, manual or scheduled.",
+        "descriptionInflight": "In-flight the rule sees every pipeline event. Restrict to one source to recognize only what it produces."
+      },
+      "filters": {
+        "description": "Conditions the event must satisfy. Test against real samples before saving."
+      },
+      "group": {
+        "description": "The key that joins events: aggregation in batch, dedup in-flight."
+      },
+      "join": {
+        "title": "Leg join",
+        "description": "Each leg matches one event from one source; the detection is born when all of them show up with the SAME join value within the window."
+      },
+      "window": {
+        "description": "How many events, in how much time."
+      },
+      "detect": {
+        "description": "What comes out when the rule matches: severity, priority, SIEM emission and suppression."
+      },
+      "leg": {
+        "description": "Source, filter and join path of this leg."
+      }
+    },
+    "source": {
+      "streamLabel": "Source (stream)",
+      "anyStream": "Any source",
+      "streamHelper": "Adds the filter _centralops.stream = source; it also shows in the filter list."
+    },
+    "legs": {
+      "joinPaths": "Join paths",
+      "empty": "No legs yet. A sequence needs at least two."
+    },
+    "review": {
+      "title": "Before saving",
+      "ready": "Everything filled in. Ready to save.",
+      "pending": "{{count}} pending item(s)",
+      "goTo": "Go to {{section}}"
+    },
+    "fieldPicker": {
+      "kind": {
+        "mapped": "mapped",
+        "catalog": "catalog",
+        "envelope": "envelope"
+      },
+      "fromVendor": "from this source",
+      "notInInventory": "This path is not in this organization's inventory: the rule compiles, but may never resolve."
     }
   }
 }
