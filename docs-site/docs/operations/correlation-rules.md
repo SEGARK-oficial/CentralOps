@@ -203,7 +203,7 @@ Uma regra `rule_type='sequence'` com `eval_mode='inflight'` junta eventos de **f
 Limites: mínimo de 2 e máximo de `INFLIGHT_MAX_LEGS` (4) pernas; a janela é obrigatória e respeita `INFLIGHT_MAX_WINDOW_SECONDS`; sem Redis a regra não dispara (fail-closed, contado em `sequence_unavailable`); uma chave que ainda não fechou aparece em `sequence_below`. A v1 é um **conjunto**: a ordem entre as pernas não é exigida.
 
 :::note[Disponibilidade]
-O motor está no Core. O formulário de pernas na tela de regras chega com a versão do console Enterprise que expõe `rule_type` e `legs_json`; até lá, a regra pode ser criada pela API.
+O motor está no Core. No console Enterprise, a sequência é montada no editor de regras (tipo **Sequência entre fontes**, uma pista por perna); a API expõe `rule_type` e `legs`.
 :::
 
 ## Permissões
@@ -217,41 +217,50 @@ O motor está no Core. O formulário de pernas na tela de regras chega com a ver
 
 ### Lista de regras
 
-Mostra todas as regras da sua organização:
+Mostra todas as regras da sua organização. No topo, quatro contadores: total, habilitadas, em voo e **não avaliadas** (habilitadas que ficaram fora do teto por ciclo). A busca filtra por nome, descrição ou campo de agrupamento; ao lado dela, o filtro por modo (**Todas / Em voo / Em lote**).
 
 | Coluna | O que mostra |
 |--------|------------|
 | **Nome** | Identificador da regra (ex.: "Múltiplas falhas de login"). |
-| **Status** | Ativa (verde) ou desativada (cinza). Regras desativadas não disparam. |
-| **Tipo** | Sempre "threshold" por enquanto. |
-| **Grupo** | Campo pelo qual agrupa. Em lote, o campo do documento (ex.: `source.ip`); em voo, a partir da raiz do envelope (ex.: `normalized.src_endpoint.ip`). |
-| **Limite** | Número mínimo de eventos para disparar. |
-| **Janela** | Período em segundos no qual conta eventos. |
-| **Ações** | Editar, desativar/ativar, ou excluir. |
+| **Status** | Kill switch inline: habilitada (verde) ou desabilitada. O selo **Não avaliada** aparece na regra em voo que ficou fora do teto por ciclo ou cujo filtro não compila. |
+| **Severidade / Prioridade** | Severidade da Detecção e `eval_priority` (ordem de avaliação em voo). |
+| **Agrupar por** | Campo de agrupamento; numa sequência, o selo `sequência · N pernas`. |
+| **Agendamento / SIEM** | Cadência da busca própria (lote) e se a Detection sai como evento (voo). |
+| **Mín. eventos / Janela** | Contagem e janela em segundos. |
+| **Ações** | Métricas (contadores de 24 h), editar, remover. |
+
+### O editor (Studio)
+
+**+ Nova regra** e **Editar** abrem o mesmo editor, no lugar do catálogo. Ele tem três partes:
+
+1. **Cabeçalho** — nome, descrição, **modo de avaliação** (lote / voo) e, em voo, o **tipo** (limiar / sequência). Os dois modos ficam descritos lado a lado; o escolhido acende. Ao editar uma regra existente, trocar o modo mostra um aviso do que muda de semântica — avisa, não bloqueia.
+2. **Fluxo** — o grafo da regra, na ordem em que o motor roda: **Fonte → Filtros → Agrupar → Janela → Detecção**. Numa sequência, cada perna é uma pista (**Fonte → Filtros → Junção**) e todas convergem no nó **Junção**, seguido de **Janela → Detecção**; o nó tracejado **Adicionar perna** cria a próxima pista. Cada nó resume o que está configurado (ex.: `2 filtro(s)`, `≥ 5 em 300s`), mostra a contagem de pendências quando o envio é barrado e, depois de um teste contra amostras, quantas casaram (`12/50 casam`). Clicar num nó leva à seção que o configura; as setas do teclado movem entre nós.
+3. **Seções** — uma por nó, sempre visíveis, na mesma ordem do fluxo. À direita, o painel **Antes de salvar** lista as pendências por seção (com atalho para cada uma) e os botões de salvar/cancelar.
+
+O que cada seção configura:
+
+- **Fonte** — em **lote**, a busca que alimenta a regra: manual (só na busca federada) ou a cada N minutos com uma busca salva e a janela dela. Em **voo**, o stream de origem (`_centralops.stream`), escolhido entre os que a organização coleta; a escolha entra como o primeiro filtro e aparece também na lista de filtros — é uma verdade só, em duas vistas.
+- **Filtros** — as condições (`campo · operador · valor`). Os operadores `em`, `não em` e `existe` só existem em voo. Abaixo, **Testar contra amostras** roda a regra sobre uma amostra real do vendor e tipo escolhidos (pré-preenchidos pela fonte) e mostra, por cláusula, se o caminho resolveu e se o valor casou.
+- **Agrupar** — o campo de agrupamento: em lote, a chave da agregação; em voo, a chave de dedup da Detection. O seletor de campos vem do **inventário da organização** (`GET /mappings/key-sources`): cada sugestão diz se o caminho é **mapeado**, do **catálogo** OCSF ou um rótulo do **envelope**, e quais vendors o produzem; os caminhos do vendor da fonte escolhida sobem para o topo. Um caminho digitado que não consta no inventário recebe um aviso — a regra compila, mas pode nunca resolver.
+- **Junção** (sequência) — resume os caminhos de junção de cada perna e adiciona pernas. Em cada **perna**: rótulo, stream, o caminho de junção **daquela fonte** (ex.: `normalized.user.name` no Okta, `normalized.actor.user.name` no Sophos), os filtros e o teste contra amostras da própria perna.
+- **Janela** — mínimo de eventos e janela em segundos; em lote, o campo de timestamp (obrigatório sempre que houver janela). Em voo a janela vai de 10 s a 3600 s e usa o relógio de recepção.
+- **Detecção** — status, severidade OCSF, prioridade de avaliação, supressão e, em voo, o envio da Detection ao SIEM (evento OCSF 2004) e o teto de chaves por ciclo.
 
 ### Criar uma regra
 
 1. Clique em **+ Nova regra**.
-2. Preencha o formulário:
-   - **Nome**: descrição curta e única (ex.: "Brute-force SSH").
-   - **Descrição** (opcional): mais contexto (ex.: "Múltiplas tentativas falhadas em um curto espaço de tempo").
-   - **Campo de agrupamento**: qual campo usar para agrupar. Use notação com ponto para campos aninhados, e **o caminho depende do modo**: em **lote** é o campo do documento retornado pela busca (ex.: `source.ip`); em **voo** parte da raiz do envelope (ex.: `normalized.src_endpoint.ip`) — um caminho fora de `_centralops`/`normalized`/`raw` faz a regra ser recusada.
-   - **Limite mínimo**: quantos eventos no mínimo para disparar (padrão: 5).
-   - **Janela de tempo**: quantos segundos de história examinar dentro do resultado da busca (padrão: 300 = 5 min).
-   - **Campo de timestamp**: qual campo do evento datar para aplicar a janela (ex.: `event.timestamp`). **Obrigatório sempre que a janela for maior que zero** — sem ele a janela é desligada e a regra conta todos os eventos do grupo no resultado da busca.
-   - **Filtros** (opcional): adicione condições. Exemplo: `event.category eq "authentication"` — só conta eventos de autenticação.
-   - **Severidade**: nível da Detecção gerada (padrão: High). Escolha entre Low, Medium, High ou Critical.
-   - **Supressão**: quantos segundos para silenciar a regra depois que dispara para a mesma chave (padrão: 3600 = 1 hora).
+2. Dê nome à regra e escolha o **modo** (e, em voo, o **tipo**).
+3. Percorra o fluxo: fonte, filtros, agrupamento, janela, detecção. Use **Testar contra amostras** antes de salvar.
+4. Clique **Criar regra**. Se algo faltar, o nó correspondente acende e o painel **Antes de salvar** aponta a seção.
 
-3. Clique **Salvar**. A regra fica habilitada e passa a ser avaliada na próxima busca federada.
+Em lote a regra passa a ser avaliada na próxima busca federada; em voo, a partir do próximo ciclo de coleta.
 
 ### Editar uma regra
 
-1. Clique no nome da regra ou no botão de editar.
-2. Modifique os campos.
-3. Clique **Salvar**.
+1. Clique em **Editar** na linha da regra. O editor abre com o fluxo dela já montado.
+2. Modifique o que precisar e clique **Salvar alterações**.
 
-Se a regra está habilitada, as mudanças valem a partir da próxima busca federada — nada é reavaliado retroativamente sobre buscas já concluídas.
+Se a regra está habilitada, as mudanças valem a partir da próxima busca federada (lote) ou do próximo ciclo de coleta (voo) — nada é reavaliado retroativamente.
 
 ### Ativar / Desativar
 
@@ -345,13 +354,13 @@ Modo inflight: você configurou `group_by_field` apontando para um campo que nã
 
 ### Limites específicos do inflight
 
-- **50 regras por ciclo**: máximo de regras inflight carregadas e avaliadas num ciclo de coleta. A carga ordena e corta no teto — **sem offset, sem cursor e sem rotação**. Não há ondas nem fila: o **mesmo** conjunto roda em todo ciclo e as excedentes **nunca** são avaliadas; esperar não resolve. **Quem sobrevive ao corte é decisão sua**, pelo campo `eval_priority` da regra (ordem: `eval_priority` **decrescente**, `id` crescente como desempate). Toda regra nasce com `eval_priority = 0`, então sem nenhuma prioridade definida o corte fica sendo o histórico — as de **menor `id`**, isto é, as mais antigas — e a regra que você acabou de escrever é a primeira a ficar de fora. Suba a `eval_priority` dela para fixá-la — hoje pelo `PATCH` da regra na API; o campo ainda **não** aparece no formulário da tela. O worker emite um `warning` a cada ciclo truncado **nomeando as regras cortadas**, e a tela **Detecta → Correlação** marca a linha com o selo **Não avaliada**.
+- **50 regras por ciclo**: máximo de regras inflight carregadas e avaliadas num ciclo de coleta. A carga ordena e corta no teto — **sem offset, sem cursor e sem rotação**. Não há ondas nem fila: o **mesmo** conjunto roda em todo ciclo e as excedentes **nunca** são avaliadas; esperar não resolve. **Quem sobrevive ao corte é decisão sua**, pelo campo `eval_priority` da regra (ordem: `eval_priority` **decrescente**, `id` crescente como desempate). Toda regra nasce com `eval_priority = 0`, então sem nenhuma prioridade definida o corte fica sendo o histórico — as de **menor `id`**, isto é, as mais antigas — e a regra que você acabou de escrever é a primeira a ficar de fora. Suba a `eval_priority` dela para fixá-la — no campo **Prioridade de avaliação** da seção Detecção do editor, ou pelo `PATCH` da regra na API. O worker emite um `warning` a cada ciclo truncado **nomeando as regras cortadas**, e a tela **Detecta → Correlação** marca a linha com o selo **Não avaliada**.
 - **10 cláusulas por regra**: máximo de predicados no `where_json` de uma regra inflight. Uma regra com 11 cláusulas é rejeitada em compile-time.
 - **500 comparações por evento (orçamento validado no boot)**: o produto `INFLIGHT_MAX_RULES_PER_CYCLE × INFLIGHT_MAX_WHERE_CLAUSES` não pode passar de 500 — é o trabalho máximo do matcher no hot path. **Não existe acumulador em tempo de execução**: nenhuma regra é descartada por causa das cláusulas de outra, e o teto de cláusulas é medido regra a regra (ver o item acima). O guard é de **boot** — elevar os dois tetos além de 500 no `.env` faz a aplicação **não subir**, com o erro apontando qual reduzir.
 - **50 chaves de dedup por regra por ciclo**: se uma regra gera mais de 50 variações (ex.: 100 IPs diferentes num ciclo usando `group_by_field="normalized.src_endpoint.ip"`), as primeiras 50 geram Detections, as demais não — mas **todos os matches seguem sendo contados nos logs**. Nenhum evento é perdido. Isto costuma indicar que `group_by_field` tem cardinalidade muito alta (ex.: um ID único por evento). Ajuste a regra ou revise o agrupamento.
 
 :::note[O que fazer ao atingir tetos]
-- **Muitas regras?** Suba a `eval_priority` das que precisam rodar (via `PATCH` na API — o campo ainda não está no formulário) — elas passam à frente no corte, e as demais continuam salvas e visíveis. Depois revise quais ainda fazem sentido e desabilite as menos importantes.
+- **Muitas regras?** Suba a `eval_priority` das que precisam rodar (campo **Prioridade de avaliação** do editor, ou `PATCH` na API) — elas passam à frente no corte, e as demais continuam salvas e visíveis. Depois revise quais ainda fazem sentido e desabilite as menos importantes.
 - **Muitas cláusulas?** Simplifique a lógica do `where` — combine predicados ou use campos mais específicos.
 - **Muitas chaves de dedup?** Revise `group_by_field` — talvez esteja muito granular. Ex.: se agrupa por `user.id` e tem milhares de usuários por ciclo, cada um gera uma chave diferente. Considere agrupar por `user.department` ou deixar em branco (uma Detection por regra).
 :::

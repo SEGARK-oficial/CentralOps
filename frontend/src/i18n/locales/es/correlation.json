@@ -20,7 +20,9 @@
     },
     "kpi": {
       "total": "Total de reglas",
-      "enabled": "Habilitadas"
+      "enabled": "Habilitadas",
+      "inflight": "En vuelo",
+      "notEvaluated": "No evaluadas"
     },
     "loadError": {
       "title": "Error al cargar las reglas"
@@ -50,6 +52,15 @@
       "placeholder": "Buscar por nombre, descripción o campo de agrupación…",
       "ariaLabel": "Buscar reglas de correlación",
       "resultCount": "{{visible}} de {{total}} regla(s)"
+    },
+    "filter": {
+      "ariaLabel": "Filtrar por modo de evaluación",
+      "all": "Todas",
+      "inflight": "En vuelo",
+      "batch": "Por lotes"
+    },
+    "editCard": {
+      "title": "Editar regla"
     }
   },
   "table": {
@@ -273,8 +284,8 @@
     "modalTitle": "Editar regla de correlación",
     "evalModeChange": {
       "title": "Esto cambia la semántica de la regla, no un valor",
-      "toInflight": "Pasa a evaluarse evento por evento dentro del pipeline de ingesta, antes del SIEM. El mínimo de {{minCount}} evento(s) y la ventana de {{window}}s DEJAN de valer: cada evento que case con el filtro se vuelve detección, y el volumen puede subir mucho. El campo de agrupación deja de agregar y pasa a ser la clave de dedup. Vale a partir del próximo ciclo de recolección.",
-      "toBatch": "Sale del pipeline de ingesta y vuelve a ejecutarse solo cuando una búsqueda federada TERMINA, sobre sus resultados. El mínimo de {{minCount}} evento(s), la ventana de {{window}}s y el campo de timestamp VUELVEN a valer. Sin búsqueda federada, deja de generar detecciones."
+      "toInflight": "Pasa a evaluarse evento por evento dentro del pipeline de ingesta, antes del SIEM. El campo de timestamp DEJA de valer: la ventana de {{window}}s pasa a usar el reloj de recepción y el mínimo de {{minCount}} evento(s) se vuelve un conteo deslizante por clave. El campo de agrupación deja de agregar y pasa a ser la clave de dedup. Vale a partir del próximo ciclo de recolección.",
+      "toBatch": "Sale del pipeline de ingesta y vuelve a ejecutarse solo cuando una búsqueda federada TERMINA, sobre sus resultados. El campo de timestamp y la agregación de la búsqueda VUELVEN a valer: mínimo de {{minCount}} evento(s) en la ventana de {{window}}s. Sin búsqueda federada, deja de generar detecciones."
     },
     "actions": {
       "submit": "Guardar cambios"
@@ -467,6 +478,129 @@
     },
     "actions": {
       "closeAriaLabel": "Cerrar los contadores de la regla"
+    }
+  },
+  "studio": {
+    "actions": {
+      "backToList": "Volver al catálogo"
+    },
+    "canvas": {
+      "ariaLabel": "Flujo de la regla",
+      "hint": "Cada nodo es una etapa del motor, en el orden en que corre. Haga clic para configurar; las flechas del teclado mueven entre etapas.",
+      "previewBadge": "{{matched}}/{{total}} coinciden",
+      "state": {
+        "issues": "{{count}} pendiente(s)",
+        "preview": "prueba: {{matched}} de {{total}} muestras coinciden",
+        "muted": "inerte en este modo"
+      },
+      "addLegAria": "Agregar pierna al flujo"
+    },
+    "node": {
+      "source": {
+        "title": "Fuente"
+      },
+      "filters": {
+        "title": "Filtros"
+      },
+      "group": {
+        "title": "Agrupar"
+      },
+      "join": {
+        "title": "Unión"
+      },
+      "window": {
+        "title": "Ventana"
+      },
+      "detect": {
+        "title": "Detección"
+      },
+      "leg": "Pierna {{n}}"
+    },
+    "summary": {
+      "source": {
+        "manual": "Manual · al terminar la búsqueda federada",
+        "scheduled": "Cada {{cadence}}",
+        "scheduledNoQuery": "elija la búsqueda guardada",
+        "allStreams": "Todas las fuentes en vuelo",
+        "anyStream": "Cualquier fuente que case el filtro"
+      },
+      "filters": {
+        "none": "Sin filtro",
+        "count": "{{count}} filtro(s)"
+      },
+      "group": {
+        "empty": "Defina el campo",
+        "dedup": "dedup por valor",
+        "aggregate": "agregación en la ventana"
+      },
+      "join": {
+        "leg": "camino de unión",
+        "legEmpty": "Defina la unión",
+        "merge": "{{count}} pierna(s) · mismo valor",
+        "metaWindow": "dentro de la ventana"
+      },
+      "window": {
+        "threshold": "≥ {{min}} en {{window}}s",
+        "sequence": "{{window}}s para todas las piernas",
+        "timestamp": "por {{field}}",
+        "noTimestamp": "sin timestamp: ventana apagada"
+      },
+      "detect": {
+        "emit": "→ SIEM (OCSF 2004)",
+        "dbOnly": "solo en la base",
+        "batchDetection": "Detection al terminar la búsqueda",
+        "suppression": "supresión {{seconds}}s",
+        "disabled": "deshabilitada"
+      }
+    },
+    "section": {
+      "source": {
+        "descriptionBatch": "Quién alimenta la regla: la búsqueda federada, manual o programada.",
+        "descriptionInflight": "En vuelo la regla ve todo evento del pipeline. Restrinja a una fuente para reconocer solo lo que ella produce."
+      },
+      "filters": {
+        "description": "Condiciones que el evento debe cumplir. Pruebe contra muestras reales antes de guardar."
+      },
+      "group": {
+        "description": "La clave que junta los eventos: agregación por lotes, dedup en vuelo."
+      },
+      "join": {
+        "title": "Unión de las piernas",
+        "description": "Cada pierna casa un evento de una fuente; la detección nace cuando todas aparecen con el MISMO valor de unión dentro de la ventana."
+      },
+      "window": {
+        "description": "Cuántos eventos, en cuánto tiempo."
+      },
+      "detect": {
+        "description": "Lo que sale cuando la regla casa: severidad, prioridad, envío al SIEM y supresión."
+      },
+      "leg": {
+        "description": "Fuente, filtro y camino de unión de esta pierna."
+      }
+    },
+    "source": {
+      "streamLabel": "Fuente (stream)",
+      "anyStream": "Cualquier fuente",
+      "streamHelper": "Agrega el filtro _centralops.stream = fuente; también aparece en la lista de filtros."
+    },
+    "legs": {
+      "joinPaths": "Caminos de unión",
+      "empty": "Aún no hay piernas. Una secuencia necesita al menos dos."
+    },
+    "review": {
+      "title": "Antes de guardar",
+      "ready": "Todo completo. Listo para guardar.",
+      "pending": "{{count}} pendiente(s)",
+      "goTo": "Ir a {{section}}"
+    },
+    "fieldPicker": {
+      "kind": {
+        "mapped": "mapeado",
+        "catalog": "catálogo",
+        "envelope": "envelope"
+      },
+      "fromVendor": "de esta fuente",
+      "notInInventory": "Este camino no consta en el inventario de esta organización: la regla compila, pero puede no resolver nunca."
     }
   }
 }

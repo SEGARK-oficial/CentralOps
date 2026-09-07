@@ -20,7 +20,9 @@
     },
     "kpi": {
       "total": "Total de regras",
-      "enabled": "Habilitadas"
+      "enabled": "Habilitadas",
+      "inflight": "Em voo",
+      "notEvaluated": "Não avaliadas"
     },
     "loadError": {
       "title": "Falha ao carregar regras"
@@ -50,6 +52,15 @@
       "placeholder": "Buscar por nome, descrição ou campo de agrupamento…",
       "ariaLabel": "Buscar regras de correlação",
       "resultCount": "{{visible}} de {{total}} regra(s)"
+    },
+    "filter": {
+      "ariaLabel": "Filtrar por modo de avaliação",
+      "all": "Todas",
+      "inflight": "Em voo",
+      "batch": "Em lote"
+    },
+    "editCard": {
+      "title": "Editar regra"
     }
   },
   "table": {
@@ -273,8 +284,8 @@
     "modalTitle": "Editar regra de correlação",
     "evalModeChange": {
       "title": "Isto muda a semântica da regra, não um valor",
-      "toInflight": "Passa a ser avaliada evento a evento no pipeline de ingestão, antes do SIEM. O mínimo de {{minCount}} evento(s) e a janela de {{window}}s DEIXAM de valer: cada evento que casar o filtro vira detecção, e o volume pode subir muito. O campo de agrupamento deixa de agregar e passa a ser a chave de dedup. Vale a partir do próximo ciclo de coleta.",
-      "toBatch": "Sai do pipeline de ingestão e volta a rodar só quando uma busca federada TERMINA, sobre os resultados dela. O mínimo de {{minCount}} evento(s), a janela de {{window}}s e o campo de timestamp VOLTAM a valer. Sem busca federada, ela para de gerar detecções."
+      "toInflight": "Passa a ser avaliada evento a evento no pipeline de ingestão, antes do SIEM. O campo de timestamp DEIXA de valer: a janela de {{window}}s passa a usar o relógio de recepção e o mínimo de {{minCount}} evento(s) vira contagem deslizante por chave. O campo de agrupamento deixa de agregar e passa a ser a chave de dedup. Vale a partir do próximo ciclo de coleta.",
+      "toBatch": "Sai do pipeline de ingestão e volta a rodar só quando uma busca federada TERMINA, sobre os resultados dela. O campo de timestamp e a agregação da busca VOLTAM a valer: mínimo de {{minCount}} evento(s) na janela de {{window}}s. Sem busca federada, ela para de gerar detecções."
     },
     "actions": {
       "submit": "Salvar alterações"
@@ -467,6 +478,129 @@
     },
     "actions": {
       "closeAriaLabel": "Fechar contadores da regra"
+    }
+  },
+  "studio": {
+    "actions": {
+      "backToList": "Voltar ao catálogo"
+    },
+    "canvas": {
+      "ariaLabel": "Fluxo da regra",
+      "hint": "Cada nó é um estágio do motor, na ordem em que ele roda. Clique para configurar; as setas do teclado movem entre os estágios.",
+      "previewBadge": "{{matched}}/{{total}} casam",
+      "state": {
+        "issues": "{{count}} pendência(s)",
+        "preview": "teste: {{matched}} de {{total}} amostras casam",
+        "muted": "inerte neste modo"
+      },
+      "addLegAria": "Adicionar perna ao fluxo"
+    },
+    "node": {
+      "source": {
+        "title": "Fonte"
+      },
+      "filters": {
+        "title": "Filtros"
+      },
+      "group": {
+        "title": "Agrupar"
+      },
+      "join": {
+        "title": "Junção"
+      },
+      "window": {
+        "title": "Janela"
+      },
+      "detect": {
+        "title": "Detecção"
+      },
+      "leg": "Perna {{n}}"
+    },
+    "summary": {
+      "source": {
+        "manual": "Manual · ao fim da busca federada",
+        "scheduled": "A cada {{cadence}}",
+        "scheduledNoQuery": "escolha a busca salva",
+        "allStreams": "Todas as fontes em voo",
+        "anyStream": "Qualquer fonte que case o filtro"
+      },
+      "filters": {
+        "none": "Sem filtro",
+        "count": "{{count}} filtro(s)"
+      },
+      "group": {
+        "empty": "Defina o campo",
+        "dedup": "dedup por valor",
+        "aggregate": "agregação na janela"
+      },
+      "join": {
+        "leg": "caminho de junção",
+        "legEmpty": "Defina a junção",
+        "merge": "{{count}} perna(s) · mesmo valor",
+        "metaWindow": "dentro da janela"
+      },
+      "window": {
+        "threshold": "≥ {{min}} em {{window}}s",
+        "sequence": "{{window}}s para todas as pernas",
+        "timestamp": "por {{field}}",
+        "noTimestamp": "sem timestamp: janela desligada"
+      },
+      "detect": {
+        "emit": "→ SIEM (OCSF 2004)",
+        "dbOnly": "só no banco",
+        "batchDetection": "Detection ao fim da busca",
+        "suppression": "supressão {{seconds}}s",
+        "disabled": "desabilitada"
+      }
+    },
+    "section": {
+      "source": {
+        "descriptionBatch": "Quem alimenta a regra: a busca federada, manual ou agendada.",
+        "descriptionInflight": "Em voo a regra vê todo evento do pipeline. Restrinja a uma fonte para reconhecer só o que ela produz."
+      },
+      "filters": {
+        "description": "Condições que o evento precisa satisfazer. Teste contra amostras reais antes de salvar."
+      },
+      "group": {
+        "description": "A chave que junta os eventos: agregação em lote, dedup em voo."
+      },
+      "join": {
+        "title": "Junção das pernas",
+        "description": "Cada perna casa um evento de uma fonte; a detecção nasce quando todas aparecem com o MESMO valor de junção dentro da janela."
+      },
+      "window": {
+        "description": "Quantos eventos, em quanto tempo."
+      },
+      "detect": {
+        "description": "O que sai quando a regra casa: severidade, prioridade, envio ao SIEM e supressão."
+      },
+      "leg": {
+        "description": "Fonte, filtro e caminho de junção desta perna."
+      }
+    },
+    "source": {
+      "streamLabel": "Fonte (stream)",
+      "anyStream": "Qualquer fonte",
+      "streamHelper": "Adiciona o filtro _centralops.stream = fonte; ele também aparece na lista de filtros."
+    },
+    "legs": {
+      "joinPaths": "Caminhos de junção",
+      "empty": "Nenhuma perna ainda. Uma sequência precisa de ao menos duas."
+    },
+    "review": {
+      "title": "Antes de salvar",
+      "ready": "Tudo preenchido. Pronto para salvar.",
+      "pending": "{{count}} pendência(s)",
+      "goTo": "Ir para {{section}}"
+    },
+    "fieldPicker": {
+      "kind": {
+        "mapped": "mapeado",
+        "catalog": "catálogo",
+        "envelope": "envelope"
+      },
+      "fromVendor": "desta fonte",
+      "notInInventory": "Este caminho não consta no inventário desta organização: a regra compila, mas pode nunca resolver."
     }
   }
 }
