@@ -1103,11 +1103,16 @@ async def _run_collection_once(integration_id: int, stream: str) -> None:
 
         # ── Enriquecimento em stream (ADR-LOCAL-0002) ───────────────────────
         # Mesma disciplina dos três irmãos acima: carga 1x por ciclo, OFF do
-        # event loop, fail-safe para None. ``load_policy_for_org`` já devolve
-        # None quando ENRICHMENT_ENABLED=False, então com a flag desligada o
-        # custo total desta feature é UM lookup em sys.modules por ciclo — o
-        # hot path fica byte-idêntico (nenhum objeto instanciado, nenhuma
-        # chamada nova no laço; ver os `is not None` nos call-sites).
+        # event loop, fail-safe para None.
+        #
+        # CUSTO COM A FEATURE DESLIGADA. Antes de a configuração ir para o banco
+        # este comentário dizia "UM lookup em sys.modules por ciclo", e deixou de
+        # ser verdade: agora há também a resolução do snapshot, que é um lookup
+        # em dicionário enquanto o memo do processo está quente (5 s) e um GET no
+        # Redis quando não está. O que continua exato — e é o que importa — é que
+        # o LAÇO POR EVENTO fica byte-idêntico: nenhum objeto instanciado,
+        # nenhuma chamada nova, e os call-sites seguem guardados por
+        # ``is not None``. Nenhuma sessão de banco é aberta com a flag off.
         #
         # Os nomes já foram inicializados ANTES do ``try`` (ver o bloco junto de
         # ``_inflight_*``): o ``finally`` e os dois flushes os referenciam, e uma
