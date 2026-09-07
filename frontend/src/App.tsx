@@ -46,6 +46,7 @@ const ConfigPage = lazy(() => import("./pages/ConfigPage"))
 const CollectorsPage = lazy(() => import("./pages/CollectorsPage"))
 const DestinationsPage = lazy(() => import("./pages/DestinationsPage"))
 const EnrichmentPage = lazy(() => import("./pages/EnrichmentPage"))
+const EnrichmentPolicyPage = lazy(() => import("./pages/EnrichmentPolicyPage"))
 const DestinationDetailPage = lazy(() => import("./pages/DestinationDetailPage"))
 const RoutesPage = lazy(() => import("./pages/RoutesPage"))
 const FlowPage = lazy(() => import("./pages/FlowPage"))
@@ -320,6 +321,18 @@ const AppRoutes: React.FC = () => {
           element={
             <RoleGuard role="admin">
               <EnrichmentPage />
+            </RoleGuard>
+          }
+        />
+        {/* Editor de política em página própria. Ter URL não é conveniência: o
+            editor é onde se decide o que sai do ambiente do cliente, e sem
+            endereço não dá para revisar a quatro mãos nem voltar ao mesmo
+            ponto depois de recarregar. */}
+        <Route
+          path="enrichment/policies/:id"
+          element={
+            <RoleGuard role="admin">
+              <EnrichmentPolicyPage />
             </RoleGuard>
           }
         />

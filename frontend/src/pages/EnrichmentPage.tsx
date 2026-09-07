@@ -1,6 +1,7 @@
 import type React from "react"
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
+import { useNavigate } from "react-router-dom"
 import {
   SparklesIcon,
   RefreshCcwIcon,
@@ -71,6 +72,7 @@ function fmtBytes(n: number): string {
 export function EnrichmentPage(): React.ReactElement {
   const { t } = useTranslation("enrichment")
   const { organizations, selectedOrgId } = usePlatform()
+  const navigate = useNavigate()
   // Ordem por FREQUÊNCIA de uso, não pela ordem das tabelas do banco. A visão
   // geral responde "está funcionando aqui?", que é a razão pela qual alguém
   // abre esta tela; o catálogo é o primeiro passo de "nova fonte" e por isso
@@ -443,7 +445,7 @@ export function EnrichmentPage(): React.ReactElement {
                 <Card
                   key={p.id}
                   className="flex cursor-pointer flex-col gap-3 p-4 transition-colors hover:border-primary-300"
-                  onClick={() => setPolicyVersionsFor(p)}
+                  onClick={() => navigate(`/enrichment/policies/${p.id}`)}
                   data-testid={`policy-card-${p.name}`}
                 >
                   <div className="flex items-start justify-between gap-2">
@@ -572,8 +574,10 @@ export function EnrichmentPage(): React.ReactElement {
         onClose={() => setCreatePolicyOpen(false)}
         onCreated={(policy) => {
           setCreatePolicyOpen(false)
-          void load()
-          setPolicyVersionsFor(policy)
+          // Direto ao editor: criar uma política sem versão e sem regra não
+          // faz nada sozinho, e voltar para a lista esconderia o passo que
+          // falta.
+          navigate(`/enrichment/policies/${policy.id}`)
         }}
       />
       <PolicyVersionsModal

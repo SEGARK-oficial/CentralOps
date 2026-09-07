@@ -215,7 +215,30 @@
       "onePerOrg": "Only one policy is applied per organization: the oldest enabled one."
     },
     "active": "active",
-    "shadowed": "enabled, not applied"
+    "shadowed": "enabled, not applied",
+    "page": {
+      "notFound": "Policy not found in this organization.",
+      "subtitle": "Enrichment rules for {{org}}.",
+      "unpublished": "unpublished changes",
+      "history": "History ({{count}})",
+      "back": "Back",
+      "draftRestoredTitle": "You had unpublished changes here",
+      "draftRestoredBody": "The editor opened with what you were writing, not with what is live. Compare in the footer before publishing, or discard to go back to the current version.",
+      "discardDraft": "Discard changes",
+      "publishVersion": "Publish v{{version}}",
+      "useRealSample": "Use a real event",
+      "noSamples": "No recent event from this source to use as an example.",
+      "sampleSource": "Event source",
+      "diffNone": "Nothing to publish: identical to the current version.",
+      "diffLabel": "This publish:",
+      "diffAdded_one": "+{{count}} rule ({{names}})",
+      "diffAdded_other": "+{{count}} rules ({{names}})",
+      "diffChanged_one": "{{count}} changed ({{names}})",
+      "diffChanged_other": "{{count}} changed ({{names}})",
+      "diffRemoved_one": "−{{count}} rule ({{names}})",
+      "diffRemoved_other": "−{{count}} rules ({{names}})",
+      "diffReordered": "order changed"
+    }
   },
   "errorTitle": "Failed to load enrichment",
   "sources": {

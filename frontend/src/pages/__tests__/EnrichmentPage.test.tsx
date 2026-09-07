@@ -41,6 +41,14 @@ vi.mock("@/contexts/PlatformContext", () => ({
   usePlatform: () => platformContextValue,
 }))
 
+const navigate = vi.fn()
+vi.mock("react-router-dom", async () => {
+  const actual = await vi.importActual<typeof import("react-router-dom")>(
+    "react-router-dom",
+  )
+  return { ...actual, useNavigate: () => navigate }
+})
+
 /**
  * A página passou a conter navegação de verdade (a aba de visão geral manda o
  * operador para Configuração › Enriquecimento quando o passo bloqueado é de
@@ -277,7 +285,12 @@ describe("EnrichmentPage", () => {
     expect(await screen.findByRole("dialog", { name: "Nova política" })).toBeInTheDocument()
   })
 
-  it("abre o modal de versões ao clicar em uma política", async () => {
+  it("clicar numa política abre a PÁGINA do editor, não um modal", async () => {
+    // O editor saiu do modal e ganhou URL própria. Não é conveniência: é onde
+    // se decide o que sai do ambiente do cliente para terceiros, e sem endereço
+    // não dá para revisar a quatro mãos nem voltar ao mesmo ponto depois de
+    // recarregar. O rascunho, o diff contra a versão vigente e o histórico
+    // moram lá.
     mockLoad({ policies: [policy] })
     render(<EnrichmentPage />)
     await aguardaCarregar()
@@ -285,7 +298,10 @@ describe("EnrichmentPage", () => {
     fireEvent.click(screen.getByRole("tab", { name: /Políticas/i }))
     fireEvent.click(await screen.findByTestId("policy-card-contexto-de-ativo"))
 
-    expect(await screen.findByRole("dialog", { name: "Versões de contexto-de-ativo" })).toBeInTheDocument()
+    expect(navigate).toHaveBeenCalledWith("/enrichment/policies/p1")
+    expect(
+      screen.queryByRole("dialog", { name: "Versões de contexto-de-ativo" }),
+    ).not.toBeInTheDocument()
   })
 
   it("mostra ErrorState com retry quando o carregamento falha", async () => {

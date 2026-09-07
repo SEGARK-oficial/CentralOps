@@ -215,7 +215,30 @@
       "onePerOrg": "Solo se aplica una política por organización: la activada más antigua."
     },
     "active": "vigente",
-    "shadowed": "activada, no aplicada"
+    "shadowed": "activada, no aplicada",
+    "page": {
+      "notFound": "Política no encontrada en esta organización.",
+      "subtitle": "Reglas de enriquecimiento de {{org}}.",
+      "unpublished": "cambios sin publicar",
+      "history": "Historial ({{count}})",
+      "back": "Volver",
+      "draftRestoredTitle": "Tenías cambios sin publicar aquí",
+      "draftRestoredBody": "El editor abrió con lo que estabas escribiendo, no con lo que está vigente. Compara en el pie antes de publicar, o descarta para volver a la versión vigente.",
+      "discardDraft": "Descartar cambios",
+      "publishVersion": "Publicar v{{version}}",
+      "useRealSample": "Usar evento real",
+      "noSamples": "Ningún evento reciente de esta fuente para usar como ejemplo.",
+      "sampleSource": "Origen del evento",
+      "diffNone": "Nada que publicar: igual a la versión vigente.",
+      "diffLabel": "Esta publicación:",
+      "diffAdded_one": "+{{count}} regla ({{names}})",
+      "diffAdded_other": "+{{count}} reglas ({{names}})",
+      "diffChanged_one": "{{count}} modificada ({{names}})",
+      "diffChanged_other": "{{count}} modificadas ({{names}})",
+      "diffRemoved_one": "−{{count}} regla ({{names}})",
+      "diffRemoved_other": "−{{count}} reglas ({{names}})",
+      "diffReordered": "orden modificado"
+    }
   },
   "errorTitle": "Error al cargar el enriquecimiento",
   "sources": {
