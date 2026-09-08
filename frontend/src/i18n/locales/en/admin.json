@@ -291,6 +291,7 @@
       "submitting": "Creating…",
       "errors": {
         "nameRequired": "Name is required",
+        "nameInvalid": "Invalid name. Use only letters, numbers, dot, hyphen or underscore — no spaces.",
         "createFailed": "Failed to create SA"
       }
     },

@@ -291,6 +291,7 @@
       "submitting": "Criando…",
       "errors": {
         "nameRequired": "Nome é obrigatório",
+        "nameInvalid": "Nome inválido. Use apenas letras, números, ponto, hífen ou underscore — sem espaços.",
         "createFailed": "Falha ao criar SA"
       }
     },
