@@ -242,7 +242,18 @@ class EnrichRuntime:
     cgroup-OOM, e o HPA escala só por CPU (a memória não gera sinal nenhum).
     """
 
-    def __init__(self, *, max_table_bytes: int, lru_bytes: int) -> None:
+    def __init__(
+        self,
+        *,
+        max_table_bytes: int,
+        lru_bytes: int,
+        config: Optional[Any] = None,
+    ) -> None:
+        #: Snapshot de ``enrich.config_loader``, resolvido 1×/ciclo por quem
+        #: constrói o runtime. ``None`` ⇒ todo parâmetro cai em ``settings``,
+        #: que é o comportamento anterior a esta configuração viver no banco
+        #: (e o que os testes que instanciam o runtime direto continuam vendo).
+        self._config = config
         self._max_table_bytes = int(max_table_bytes)
         self._lru_bytes = int(lru_bytes)
         self._cache: "OrderedDict[Tuple[str, int, Optional[str]], _CachedTable]" = OrderedDict()
@@ -255,6 +266,25 @@ class EnrichRuntime:
         #: Cache L1/L2 de VALORES resolvidos (remoto). Distinto de ``_cache``, que
         #: é o LRU de TABELAS residentes — reusar o mesmo nome apagaria o LRU.
         self._kv_cache: Optional[EnrichCache] = None
+        #: ``config_version`` com que ``_kv_cache`` foi construído. Trocar host ou
+        #: ROTACIONAR a senha na UI muda a versão; sem comparar aqui, o worker
+        #: seguiria usando o cliente antigo — autenticado com a credencial
+        #: revogada — até o próximo restart do fork.
+        self._kv_cache_version: Optional[str] = None
+
+    @property
+    def remote_batch_budget_s(self) -> float:
+        """Orçamento do lote, do snapshot do ciclo ou de ``settings``.
+
+        Exposto como propriedade porque quem chama ``resolve_remote`` é o
+        pipeline, que não deve reabrir a config para descobrir um número que
+        este objeto já tem.
+        """
+        if self._config is not None:
+            return float(self._config.remote_batch_budget_s)
+        from ...core.config import settings as _s
+
+        return float(getattr(_s, "ENRICH_REMOTE_BATCH_BUDGET_S", 0.3) or 0.3)
 
     # ── ciclo ────────────────────────────────────────────────────────────────
     def begin_cycle(self, organization_id: int) -> None:
@@ -759,11 +789,45 @@ class EnrichRuntime:
         ``volatile-lru`` junto do dedupe, cuja evicção é silenciosa e volta como
         reentrega no SIEM.
         """
-        if self._kv_cache is not None:
+        version = self._config.config_version if self._config is not None else None
+        if self._kv_cache is not None and self._kv_cache_version == version:
             return self._kv_cache
+        if self._kv_cache is not None:
+            # A config mudou sob os pés deste fork (host novo, ou senha
+            # rotacionada). Descartar o cliente é o que faz a rotação valer sem
+            # redeploy — mantê-lo seguiria falando com a credencial revogada.
+            logger.info(
+                "enrich: configuração do cache L2 mudou — reconstruindo o cliente",
+                extra={"event": "enrich.l2_client_rebuilt"},
+            )
+            # O cliente é ``redis.asyncio``: fechar exige o laço de eventos, e
+            # este método é síncrono. Agendar o fechamento quando há laço
+            # rodando evita deixar a conexão anterior pendurada num worker que
+            # vive por semanas; sem laço (testes chamando direto), o GC resolve.
+            _antigo = getattr(self._kv_cache, "_redis", None)
+            if _antigo is not None:
+                try:
+                    import asyncio as _asyncio
+
+                    _asyncio.get_running_loop().create_task(_antigo.aclose())
+                except Exception:  # noqa: BLE001 — melhor esforço, nunca fatal
+                    pass
+            self._kv_cache = None
+            self._kv_cache_version = None
+
         from ...core.config import settings as _s
 
-        url = getattr(_s, "ENRICH_REDIS_URL", "") or ""
+        if self._config is not None:
+            url = self._config.redis_url() or ""
+            l1_max = int(self._config.l1_max_entries)
+            wait_ms = int(self._config.singleflight_wait_ms)
+        else:
+            # Sem snapshot injetado (testes que instanciam o runtime direto, e
+            # qualquer chamador anterior a esta feature): comportamento antigo.
+            url = getattr(_s, "ENRICH_REDIS_URL", "") or ""
+            l1_max = int(getattr(_s, "ENRICH_L1_MAX_ENTRIES", 10_000))
+            wait_ms = int(getattr(_s, "ENRICH_SINGLEFLIGHT_WAIT_MS", 50))
+
         if not url:
             return None
         client = build_redis_client(url)
@@ -771,9 +835,10 @@ class EnrichRuntime:
             return None
         self._kv_cache = EnrichCache(
             client,
-            l1=L1Cache(int(getattr(_s, "ENRICH_L1_MAX_ENTRIES", 10_000))),
-            singleflight_wait_ms=int(getattr(_s, "ENRICH_SINGLEFLIGHT_WAIT_MS", 50)),
+            l1=L1Cache(l1_max),
+            singleflight_wait_ms=wait_ms,
         )
+        self._kv_cache_version = version
         return self._kv_cache
 
     # ── circuit breaker por fonte (W4.1) ─────────────────────────────────────
@@ -791,8 +856,16 @@ class EnrichRuntime:
     def _breaker_id(ctx: EnrichContext, rule: CompiledEnrichRule) -> str:
         return f"enrich:{ctx.organization_id}:{rule.source or rule.enricher}"
 
-    @staticmethod
-    def _breaker_settings() -> Tuple[int, int, int, int]:
+    def _breaker_settings(self) -> Tuple[int, int, int, int]:
+        # Instância, não ``staticmethod``: precisa enxergar o snapshot do ciclo.
+        # Os call-sites já chamavam por ``self.``, então a troca é transparente.
+        if self._config is not None:
+            return (
+                int(self._config.breaker_failure_threshold),
+                int(self._config.breaker_window_s),
+                int(self._config.breaker_cooldown_s),
+                int(self._config.breaker_max_cooldown_s),
+            )
         from ...core.config import settings as _s
 
         return (
@@ -939,7 +1012,9 @@ def note_unenriched(batch: Sequence[MutableMapping[str, Any]], reason: str) -> i
     return marked
 
 
-def load_policy_for_org(organization_id: Optional[int]) -> Optional[CompiledPolicy]:
+def load_policy_for_org(
+    organization_id: Optional[int], *, enabled: Optional[bool] = None
+) -> Optional[CompiledPolicy]:
     """Política ATIVA da org, compilada. **SÍNCRONA** — chamar via ``to_thread``.
 
     Espelha ``inflight.runtime.load_inflight_rules_for_org`` linha a linha, e pelas
@@ -952,10 +1027,19 @@ def load_policy_for_org(organization_id: Optional[int]) -> Optional[CompiledPoli
     - resolve pelo **ponteiro** ``current_version_id``, nunca por "maior
       version_number": rollback re-aponta para uma versão ANTIGA, e ordenar por
       número entregaria a versão errada em produção sem nenhum erro.
+
+    ``enabled`` vem do snapshot que o chamador já resolveu uma vez por ciclo
+    (``enrich.config_loader``). Deixá-lo como parâmetro — em vez de ler a config
+    daqui — é o que preserva a propriedade que o subsistema desligado **não abre
+    conexão de banco**: resolver a flag lendo a tabela abriria a sessão ANTES de
+    descobrir que não havia nada a fazer, que é exatamente o custo que o gate
+    existe para evitar. ``None`` cai em ``settings``, o comportamento anterior.
     """
     if organization_id is None:
         return None
-    if not bool(getattr(_settings(), "ENRICHMENT_ENABLED", False)):
+    if enabled is None:
+        enabled = bool(getattr(_settings(), "ENRICHMENT_ENABLED", False))
+    if not enabled:
         return None
 
     import json as _json

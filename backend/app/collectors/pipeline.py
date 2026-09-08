@@ -583,7 +583,7 @@ async def _enrich_remote_batch(
                     organization_id=int(organization_id),
                     integration_id=integration_id,
                 ),
-                budget_s=float(settings.ENRICH_REMOTE_BATCH_BUDGET_S),
+                budget_s=runtime.remote_batch_budget_s,
             )
             remote_rules = policy.remote_rules()
             for env in batch:
@@ -1103,17 +1103,33 @@ async def _run_collection_once(integration_id: int, stream: str) -> None:
 
         # ── Enriquecimento em stream (ADR-LOCAL-0002) ───────────────────────
         # Mesma disciplina dos três irmãos acima: carga 1x por ciclo, OFF do
-        # event loop, fail-safe para None. ``load_policy_for_org`` já devolve
-        # None quando ENRICHMENT_ENABLED=False, então com a flag desligada o
-        # custo total desta feature é UM lookup em sys.modules por ciclo — o
-        # hot path fica byte-idêntico (nenhum objeto instanciado, nenhuma
-        # chamada nova no laço; ver os `is not None` nos call-sites).
+        # event loop, fail-safe para None.
+        #
+        # CUSTO COM A FEATURE DESLIGADA. Antes de a configuração ir para o banco
+        # este comentário dizia "UM lookup em sys.modules por ciclo", e deixou de
+        # ser verdade: agora há também a resolução do snapshot, que é um lookup
+        # em dicionário enquanto o memo do processo está quente (5 s) e um GET no
+        # Redis quando não está. O que continua exato — e é o que importa — é que
+        # o LAÇO POR EVENTO fica byte-idêntico: nenhum objeto instanciado,
+        # nenhuma chamada nova, e os call-sites seguem guardados por
+        # ``is not None``. Nenhuma sessão de banco é aberta com a flag off.
         #
         # Os nomes já foram inicializados ANTES do ``try`` (ver o bloco junto de
         # ``_inflight_*``): o ``finally`` e os dois flushes os referenciam, e uma
         # falha nos passos 1-3 os deixaria unbound.
         _enrich_tables: dict = {}
-        if settings.ENRICHMENT_ENABLED and organization_id is not None:
+        # A flag e os tetos vêm do snapshot (``enrichment_config``, editável no
+        # console), com o ``.env`` como seed e fallback. Resolver aqui, uma vez
+        # por ciclo, é o que mantém o gate barato: o memo de processo do loader
+        # responde em comparação de relógio na maioria dos ciclos, e o subsistema
+        # desligado segue sem abrir sessão de banco nenhuma.
+        # Import tardio, como todo o resto do enriquecimento neste arquivo: com o
+        # módulo já carregado é um lookup em ``sys.modules``, e mantém o pacote
+        # fora do import-time do pipeline.
+        from .enrich.config_loader import get_enrichment_config
+
+        _enrich_cfg = await get_enrichment_config(redis)
+        if _enrich_cfg.enabled and organization_id is not None:
             from .enrich import enrichers as _enrich_plugins  # noqa: F401 (registro)
             from .enrich.applier import ApplyStats as _ApplyStats
             from .enrich.applier import apply as _enrich_apply
@@ -1125,11 +1141,14 @@ async def _run_collection_once(integration_id: int, stream: str) -> None:
                 load_policy_for_org as _load_enrich_policy,
             )
 
-            _enrich_policy = await asyncio.to_thread(_load_enrich_policy, organization_id)
+            _enrich_policy = await asyncio.to_thread(
+                _load_enrich_policy, organization_id, enabled=True
+            )
             if _enrich_policy is not None and _enrich_policy.rules:
                 _enrich_runtime = _EnrichRuntime(
-                    max_table_bytes=settings.ENRICH_MAX_TABLE_BYTES,
-                    lru_bytes=settings.ENRICH_LRU_BYTES,
+                    max_table_bytes=_enrich_cfg.max_table_bytes,
+                    lru_bytes=_enrich_cfg.lru_bytes,
+                    config=_enrich_cfg,
                 )
                 # Mecaniza a invariante mono-tenant de :885 — toda a conta de
                 # memória do enriquecimento local depende dela, e até aqui ela

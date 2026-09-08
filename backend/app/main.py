@@ -25,7 +25,7 @@ from .db.database import SessionLocal
 from .collectors.celery_app import celery_app  # noqa: F401
 from .routers import (
     api_tokens, auth, backfill, collector_config, collectors, config_bundle,
-    dashboard, destinations, detections, drift, emails, enrichment, health, history, identity_config,
+    dashboard, destinations, detections, drift, emails, enrichment, enrichment_config, health, history, identity_config,
     ingest, integrations, internal, iris, mappings, ocsf, organizations, pipeline_health, providers,
     quarantine, queries, results, routes, scheduled_queries,
     service_accounts, sso,
@@ -431,6 +431,15 @@ app.include_router(destinations.router, prefix="/api", dependencies=protected_ap
 # Enriquecimento em stream (ADR-LOCAL-0002): catálogo plugin-driven + tabelas do
 # cliente e políticas versionadas, ambas ORG-ESCOPADAS (não existe recurso global).
 app.include_router(enrichment.router, prefix="/api", dependencies=protected_api)
+# Registrado DEPOIS de ``enrichment.router`` de propósito. Ambos vivem sob
+# ``/collectors/enrichment``; se este viesse antes, o prefixo mais específico
+# ``/config`` ainda resolveria, mas a ordem explícita documenta que não há
+# colisão de rota — não existe ``/{id}`` no router de enriquecimento capaz de
+# capturar "config" (as rotas com parâmetro são ``/tables/{id}`` e
+# ``/policies/{id}``, em subárvores distintas).
+app.include_router(
+    enrichment_config.router, prefix="/api", dependencies=protected_api
+)
 app.include_router(destinations.lineage_router, prefix="/api", dependencies=protected_api)
 app.include_router(routes.router, prefix="/api", dependencies=protected_api)
 app.include_router(config_bundle.router, prefix="/api", dependencies=protected_api)

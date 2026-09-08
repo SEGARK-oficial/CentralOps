@@ -1,14 +1,11 @@
 import type React from "react"
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
+import { useNavigate } from "react-router-dom"
 import {
   SparklesIcon,
   RefreshCcwIcon,
-  TableIcon,
-  NetworkIcon,
   PlusIcon,
-  Trash2Icon,
-  KeyRoundIcon,
 } from "lucide-react"
 import { PageHeader } from "@/components/ui/PageHeader/PageHeader"
 import { Button } from "@/components/ui/Button/Button"
@@ -20,6 +17,7 @@ import { ErrorState } from "@/components/ui/ErrorState"
 import { Notice } from "@/components/ui/Notice/Notice"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/Tabs/Tabs"
 import { ExecutionPanel } from "@/components/enrichment/ExecutionPanel"
+import { ReadinessPanel } from "@/components/enrichment/ReadinessPanel"
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog/ConfirmDialog"
 import { CreateTableModal } from "@/components/enrichment/CreateTableModal"
 import { TableVersionsModal } from "@/components/enrichment/TableVersionsModal"
@@ -28,9 +26,14 @@ import { PolicyVersionsModal } from "@/components/enrichment/PolicyVersionsModal
 import { usePlatform } from "@/contexts/PlatformContext"
 import { TileGallery } from "@/components/shared/TileGallery"
 import { SourceFormModal } from "@/components/enrichment/SourceFormModal"
+import { SourcesTable } from "@/components/enrichment/SourcesTable"
+import { TablesTable } from "@/components/enrichment/TablesTable"
 import {
   deleteEnrichmentSource,
   deleteEnrichmentTable,
+  getEnrichmentConfig,
+  getEnrichmentPolicyVersion,
+  testEnrichmentSource,
   listEnrichers,
   listEnrichmentPolicies,
   listEnrichmentSources,
@@ -59,17 +62,18 @@ import {
  */
 
 
-function fmtBytes(n: number): string {
-  if (!n) return "0 B"
-  if (n < 1024) return `${n} B`
-  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KiB`
-  return `${(n / (1024 * 1024)).toFixed(1)} MiB`
-}
 
 export function EnrichmentPage(): React.ReactElement {
   const { t } = useTranslation("enrichment")
   const { organizations, selectedOrgId } = usePlatform()
-  const [tab, setTab] = useState<"catalog" | "sources" | "tables" | "policies" | "execution">("catalog")
+  const navigate = useNavigate()
+  // Ordem por FREQUÊNCIA de uso, não pela ordem das tabelas do banco. A visão
+  // geral responde "está funcionando aqui?", que é a razão pela qual alguém
+  // abre esta tela; o catálogo é o primeiro passo de "nova fonte" e por isso
+  // deixou de ser a aba de entrada.
+  const [tab, setTab] = useState<
+    "overview" | "policies" | "sources" | "tables" | "catalog" | "execution"
+  >("overview")
   const [enrichers, setEnrichers] = useState<Enricher[]>([])
   const [tables, setTables] = useState<EnrichTable[]>([])
   const [policies, setPolicies] = useState<EnrichPolicy[]>([])
@@ -92,6 +96,18 @@ export function EnrichmentPage(): React.ReactElement {
   const [sourceDeleting, setSourceDeleting] = useState(false)
   const [sourceDeleteError, setSourceDeleteError] = useState<string | null>(null)
 
+  //: Fonte sendo sondada agora. O resultado é PERSISTIDO pelo backend, então a
+  //: lista recarregada já mostra o veredito na coluna — não é preciso guardar a
+  //: resposta aqui.
+  const [testingSourceId, setTestingSourceId] = useState<string | null>(null)
+  //: Incrementado pelo "Atualizar" do cabeçalho. Faz o comando alcançar os
+  //: painéis que têm carregamento próprio, sem duplicar o botão na tela.
+  const [refreshToken, setRefreshToken] = useState(0)
+  //: Teto por tabela, vindo da configuração da instalação. Sem ele a barra de
+  //: proporção compararia contra um número fixo aqui, que sairia de sincronia
+  //: na primeira vez que alguém editasse o limite no console.
+  const [maxTableBytes, setMaxTableBytes] = useState<number | undefined>(undefined)
+
   const [createPolicyOpen, setCreatePolicyOpen] = useState(false)
   const [policyVersionsFor, setPolicyVersionsFor] = useState<EnrichPolicy | null>(null)
 
@@ -109,6 +125,11 @@ export function EnrichmentPage(): React.ReactElement {
       setTables(tb)
       setPolicies(p)
       setSources(src)
+      // Só admin global lê a configuração; para os demais a barra de proporção
+      // cai no default do componente, que é o mesmo do servidor.
+      getEnrichmentConfig()
+        .then((cfg) => setMaxTableBytes(cfg.max_table_bytes))
+        .catch(() => setMaxTableBytes(undefined))
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
     } finally {
@@ -153,6 +174,44 @@ export function EnrichmentPage(): React.ReactElement {
     [enrichers, t],
   )
 
+  /**
+   * Quais REGRAS citam cada tabela, para a coluna "quem usa".
+   *
+   * Sai do `rule_count`/`summary` que a listagem de políticas já traz? Não: o
+   * resumo não carrega o campo `table`. Como a tela já tem as políticas em
+   * memória e o dado exato mora na versão vigente de cada uma, a lista é
+   * montada sob demanda a partir do que o editor busca — e degrada para vazio
+   * se a busca falhar, porque "não sei quem usa" é melhor que derrubar a aba.
+   */
+  const [tablesCitedBy, setTablesCitedBy] = useState<Record<string, string[]>>({})
+
+  useEffect(() => {
+    // Só a política EM VIGOR importa: regra de política desabilitada não roda,
+    // e contá-la faria a tabela parecer em uso quando não está.
+    const active = policies.find((p) => p.is_active)
+    if (!active?.current_version_id) {
+      setTablesCitedBy({})
+      return
+    }
+    let cancelled = false
+    getEnrichmentPolicyVersion(active.id, active.current_version_id)
+      .then((v) => {
+        if (cancelled) return
+        const map: Record<string, string[]> = {}
+        for (const r of v.rules ?? []) {
+          if (!r.table) continue
+          ;(map[r.table] ??= []).push(r.id)
+        }
+        setTablesCitedBy(map)
+      })
+      .catch(() => {
+        if (!cancelled) setTablesCitedBy({})
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [policies])
+
   const thirdPartyCount = useMemo(
     () => enrichers.filter((e) => e.egress === "third_party").length,
     [enrichers],
@@ -178,20 +237,24 @@ export function EnrichmentPage(): React.ReactElement {
 
   // Uma ação primária por aba, no header. Antes ela vivia numa segunda linha
   // abaixo das abas, e as duas linhas de botão empilhavam sem hierarquia.
-  const primaryAction =
-    tab === "sources"
-      ? {
-          label: t("sources.form.create"),
-          onClick: () => {
-            setSourceEditing(null)
-            setSourceFormOpen(true)
-          },
-        }
-      : tab === "tables"
-        ? { label: t("tables.form.create"), onClick: () => setCreateTableOpen(true) }
-        : tab === "policies"
-          ? { label: t("policies.form.create"), onClick: () => setCreatePolicyOpen(true) }
-          : null
+  /**
+   * Ação primária ESTÁVEL: sempre "Nova política", em todas as abas.
+   *
+   * Antes ela mudava de nome conforme a aba ("Nova fonte", "Nova tabela",
+   * "Nova política") e sumia em duas delas. O mesmo lugar do cabeçalho fazia
+   * três coisas diferentes e às vezes nenhuma, então o operador tinha de LER o
+   * botão antes de clicar — que é o oposto do que uma ação primária serve para
+   * ser.
+   *
+   * Política é a escolha certa para fixar: é a única entidade que faz o
+   * enriquecimento acontecer. Fonte e tabela são insumos dela, e criar as duas
+   * sem política não produz efeito nenhum. Elas continuam com botão próprio no
+   * estado vazio e no cabeçalho da lista, onde o contexto já é aquele.
+   */
+  const primaryAction = {
+    label: t("policies.form.create"),
+    onClick: () => setCreatePolicyOpen(true),
+  }
 
   return (
     <div className="space-y-6">
@@ -212,7 +275,10 @@ export function EnrichmentPage(): React.ReactElement {
             )}
             <Button
               variant="secondary"
-              onClick={() => void load()}
+              onClick={() => {
+                setRefreshToken((n) => n + 1)
+                void load()
+              }}
               disabled={loading}
               leftIcon={<RefreshCcwIcon size={16} />}
             >
@@ -228,8 +294,10 @@ export function EnrichmentPage(): React.ReactElement {
         <>
           <Tabs value={tab} onValueChange={(v) => setTab(v as typeof tab)}>
             <TabsList ariaLabel={t("title")}>
-              <TabsTrigger value="catalog">
-                {t("tabs.catalog", { count: enrichers.length })}
+              {/* Primeira porque é a pergunta que traz o operador até aqui. */}
+              <TabsTrigger value="overview">{t("tabs.overview")}</TabsTrigger>
+              <TabsTrigger value="policies">
+                {t("tabs.policies", { count: policies.length })}
               </TabsTrigger>
               <TabsTrigger value="sources">
                 {t("tabs.sources", { count: sources.length })}
@@ -237,10 +305,12 @@ export function EnrichmentPage(): React.ReactElement {
               <TabsTrigger value="tables">
                 {t("tabs.tables", { count: tables.length })}
               </TabsTrigger>
-              <TabsTrigger value="policies">
-                {t("tabs.policies", { count: policies.length })}
+              {/* O catálogo é leitura de apoio: quem chega nele está criando
+                  uma fonte, e esse fluxo começa no botão de Fontes. */}
+              <TabsTrigger value="catalog">
+                {t("tabs.catalog", { count: enrichers.length })}
               </TabsTrigger>
-              {/* Última aba porque é onde se volta DEPOIS de configurar, para
+              {/* Última porque é onde se volta DEPOIS de configurar, para
                   conferir se a consulta está de pé. */}
               <TabsTrigger value="execution">{t("tabs.execution")}</TabsTrigger>
             </TabsList>
@@ -248,8 +318,16 @@ export function EnrichmentPage(): React.ReactElement {
 
           {/* Escopo: o resolver do Core é FLAT (core/tenant.py), então um token
               escopado enxerga UMA organização. Sem este aviso, um MSP olha uma
-              lista curta e conclui que perdeu dado. */}
-          {!loading && organizations.length <= 1 && (
+              lista curta e conclui que perdeu dado.
+              
+              Só nas abas em que a LISTA é o conteúdo, e onde uma lista curta
+              pode ser mal interpretada. Repeti-lo na visão geral, no catálogo
+              (que é global) e na execução (que já tem seletor de organização)
+              transformava o aviso em moldura permanente — e moldura permanente
+              é exatamente o que treina o olho a não ver avisos. */}
+          {!loading &&
+            organizations.length <= 1 &&
+            (tab === "sources" || tab === "tables" || tab === "policies") && (
             <Notice variant="info" title={t("scope.title")}>
               {t("scope.body")}
             </Notice>
@@ -261,6 +339,13 @@ export function EnrichmentPage(): React.ReactElement {
               <SkeletonCard />
               <SkeletonCard />
             </div>
+          ) : tab === "overview" ? (
+            <ReadinessPanel
+              organizations={organizations}
+              selectedOrgId={selectedOrgId}
+              refreshToken={refreshToken}
+              onNavigateTab={(next) => setTab(next as typeof tab)}
+            />
           ) : tab === "catalog" ? (
             <div className="space-y-4">
               {thirdPartyCount > 0 ? (
@@ -288,160 +373,50 @@ export function EnrichmentPage(): React.ReactElement {
               />
             </div>
           ) : tab === "sources" ? (
-            sources.length === 0 ? (
-              <EmptyState
-                icon={<KeyRoundIcon size={28} aria-hidden />}
-                title={t("sources.emptyTitle")}
-                description={t("sources.emptyDescription")}
-                action={
-                  <Button
-                    variant="primary"
-                    onClick={() => {
-                      setSourceEditing(null)
-                      setSourceFormOpen(true)
-                    }}
-                    leftIcon={<PlusIcon size={14} />}
-                  >
-                    {t("sources.form.create")}
-                  </Button>
+            <SourcesTable
+              sources={sources}
+              enrichers={enrichers}
+              organizations={organizations}
+              testingId={testingSourceId}
+              onCreate={() => {
+                setSourceEditing(null)
+                setSourceFormOpen(true)
+              }}
+              onEdit={(src) => {
+                setSourceEditing(src)
+                setSourceFormOpen(true)
+              }}
+              onDelete={(src) => {
+                setSourceDeleteError(null)
+                setSourceDeleteTarget(src)
+              }}
+              onTest={async (src) => {
+                setTestingSourceId(src.id)
+                try {
+                  // O veredito é gravado pelo backend; recarregar a lista faz a
+                  // coluna refletir o resultado sem estado duplicado aqui.
+                  await testEnrichmentSource(src.id)
+                } catch {
+                  // Falha de rede também vira veredito gravado no servidor; o
+                  // reload abaixo mostra o que de fato ficou registrado.
+                } finally {
+                  setTestingSourceId(null)
+                  void load()
                 }
-              />
-            ) : (
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {sources.map((src) => (
-                  <Card
-                    key={src.id}
-                    className="flex cursor-pointer flex-col gap-3 p-4 transition-colors hover:border-primary-300"
-                    role="button"
-                    tabIndex={0}
-                    onClick={() => {
-                      setSourceEditing(src)
-                      setSourceFormOpen(true)
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" || e.key === " ") {
-                        e.preventDefault()
-                        setSourceEditing(src)
-                        setSourceFormOpen(true)
-                      }
-                    }}
-                    data-testid={`source-card-${src.name}`}
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0">
-                        <h3 className="truncate font-medium">{src.name}</h3>
-                        <p className="font-mono text-xs text-muted">{src.enricher}</p>
-                        <p className="text-xs text-muted">
-                          {t("tables.org", { id: src.organization_id })}
-                        </p>
-                      </div>
-                      <Button
-                        variant="outline"
-                        size="xs"
-                        aria-label={t("sources.deleteAction")}
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          setSourceDeleteError(null)
-                          setSourceDeleteTarget(src)
-                        }}
-                      >
-                        <Trash2Icon size={12} aria-hidden />
-                      </Button>
-                    </div>
-                    {src.description ? (
-                      <p className="text-sm text-muted">{src.description}</p>
-                    ) : null}
-                    <div className="mt-auto flex flex-wrap items-center gap-2">
-                      <Badge variant={src.secret_configured ? "success" : "warning"}>
-                        {src.secret_configured
-                          ? t("sources.secretConfigured")
-                          : t("sources.secretMissing")}
-                      </Badge>
-                      {!src.enabled && (
-                        <Badge variant="default">{t("sources.disabled")}</Badge>
-                      )}
-                    </div>
-                  </Card>
-                ))}
-              </div>
-            )
+              }}
+            />
           ) : tab === "tables" ? (
-            tables.length === 0 ? (
-              <EmptyState
-                icon={<TableIcon size={28} aria-hidden />}
-                title={t("tables.emptyTitle")}
-                description={t("tables.emptyDescription")}
-                action={
-                  <Button
-                    variant="primary"
-                    onClick={() => setCreateTableOpen(true)}
-                    leftIcon={<PlusIcon size={14} />}
-                  >
-                    {t("tables.form.create")}
-                  </Button>
-                }
-              />
-            ) : (
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {tables.map((tb) => (
-                  <Card
-                    key={tb.id}
-                    className="flex cursor-pointer flex-col gap-3 p-4 transition-colors hover:border-primary-300"
-                    onClick={() => setTableVersionsFor(tb)}
-                    data-testid={`table-card-${tb.name}`}
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0">
-                        <h3 className="truncate font-medium">{tb.name}</h3>
-                        <p className="text-xs text-muted">
-                          {t("tables.org", { id: tb.organization_id })}
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <Badge variant="outline" className="gap-1">
-                          {tb.match_mode === "cidr" ? (
-                            <NetworkIcon size={12} aria-hidden />
-                          ) : (
-                            <TableIcon size={12} aria-hidden />
-                          )}
-                          {t(`tables.mode.${tb.match_mode}`)}
-                        </Badge>
-                        <Button
-                          variant="outline"
-                          size="xs"
-                          aria-label={t("tables.deleteAction")}
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            setDeleteError(null)
-                            setDeleteTarget(tb)
-                          }}
-                        >
-                          <Trash2Icon size={12} aria-hidden />
-                        </Button>
-                      </div>
-                    </div>
-                    {tb.description ? (
-                      <p className="text-sm text-muted">{tb.description}</p>
-                    ) : null}
-                    <dl className="mt-auto grid grid-cols-2 gap-2 text-sm">
-                      <div>
-                        <dt className="text-xs text-muted">{t("tables.entries")}</dt>
-                        <dd className="font-mono">{tb.entry_count.toLocaleString()}</dd>
-                      </div>
-                      <div>
-                        <dt className="text-xs text-muted">{t("tables.size")}</dt>
-                        <dd className="font-mono">{fmtBytes(tb.approx_bytes)}</dd>
-                      </div>
-                    </dl>
-                    {!tb.current_version_id ? (
-                      /* Tabela sem versão publicada é o caso nº1 de suporte:
-                         a política a referencia e a carga falha a cada ciclo. */
-                      <Badge variant="warning">{t("tables.noVersion")}</Badge>
-                    ) : null}
-                  </Card>
-                ))}
-              </div>
-            )
+            <TablesTable
+              tables={tables}
+              citedBy={tablesCitedBy}
+              maxTableBytes={maxTableBytes}
+              onCreate={() => setCreateTableOpen(true)}
+              onOpen={(tb) => setTableVersionsFor(tb)}
+              onDelete={(tb) => {
+                setDeleteError(null)
+                setDeleteTarget(tb)
+              }}
+            />
           ) : tab === "execution" ? (
             <ExecutionPanel organizations={organizations} selectedOrgId={selectedOrgId} />
           ) : policies.length === 0 ? (
@@ -465,7 +440,7 @@ export function EnrichmentPage(): React.ReactElement {
                 <Card
                   key={p.id}
                   className="flex cursor-pointer flex-col gap-3 p-4 transition-colors hover:border-primary-300"
-                  onClick={() => setPolicyVersionsFor(p)}
+                  onClick={() => navigate(`/enrichment/policies/${p.id}`)}
                   data-testid={`policy-card-${p.name}`}
                 >
                   <div className="flex items-start justify-between gap-2">
@@ -594,8 +569,10 @@ export function EnrichmentPage(): React.ReactElement {
         onClose={() => setCreatePolicyOpen(false)}
         onCreated={(policy) => {
           setCreatePolicyOpen(false)
-          void load()
-          setPolicyVersionsFor(policy)
+          // Direto ao editor: criar uma política sem versão e sem regra não
+          // faz nada sozinho, e voltar para a lista esconderia o passo que
+          // falta.
+          navigate(`/enrichment/policies/${policy.id}`)
         }}
       />
       <PolicyVersionsModal

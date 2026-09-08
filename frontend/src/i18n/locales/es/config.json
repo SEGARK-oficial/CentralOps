@@ -24,7 +24,8 @@
       "collector": "Recolección y entrega",
       "identity": "Identidad y SSO",
       "capture": "Captura en vivo",
-      "licensing": "Licenciamiento"
+      "licensing": "Licenciamiento",
+      "enrichment": "Enriquecimiento"
     },
     "email": {
       "loadError": "Error al cargar la configuración de correo",
@@ -44,6 +45,73 @@
     "capture": {
       "cardTitle": "Captura en vivo (\"modo escucha\")",
       "cardDescription": "Graba una muestra del tráfico enviado a los destinos, con filtro por proveedor. La sesión expira sola."
+    },
+    "enrichment": {
+      "cardTitle": "Enriquecimiento",
+      "cardDescription": "Caché dedicada, presupuestos y límites de la etapa de enriquecimiento. Aplica a todas las organizaciones.",
+      "loadError": "No se pudo cargar la configuración de enriquecimiento",
+      "saved": "Configuración guardada. Los workers la aplican en hasta {{seconds}} segundos, sin reinicio.",
+      "default": "predeterminado {{value}}",
+      "propagation": "Un cambio llega a todos los workers en hasta {{seconds}} segundos.",
+      "discard": "Descartar",
+      "save": "Guardar",
+      "subsystem": {
+        "title": "Subsistema de enriquecimiento",
+        "onHint": "Activo. Cada organización con política habilitada recibe el contexto adjunto a sus eventos.",
+        "offHint": "Inactivo. Ninguna política se ejecuta, en ninguna organización, ni siquiera las habilitadas.",
+        "on": "activo",
+        "off": "inactivo",
+        "enable": "Activar",
+        "disable": "Desactivar"
+      },
+      "cache": {
+        "title": "Caché dedicada (Redis)",
+        "description": "Compartida entre los workers. Es lo que evita que cada worker vuelva a pagar la misma consulta al proveedor.",
+        "configured": "Configurada",
+        "missingTitle": "Enriquecimiento por lote desactivado",
+        "missingBody": "Sin esta caché estas fuentes no se ejecutan, en ninguna organización: {{names}}.",
+        "missingBodyNoNames": "Sin esta caché, las fuentes que consultan servicios externos no se ejecutan.",
+        "host": "Dirección",
+        "port": "Puerto",
+        "db": "Base lógica",
+        "password": "Contraseña",
+        "passwordKeep": "•••••••• (déjalo vacío para mantener)",
+        "passwordHint": "Se envía una sola vez y el servidor la cifra; la API nunca la devuelve.",
+        "tls": "Conectar con TLS",
+        "test": "Probar conexión",
+        "testHint": "Conecta con los valores de arriba, incluida una contraseña aún no guardada. No se graba nada.",
+        "distinctOk": "instancia dedicada confirmada",
+        "distinctBad": "es la misma instancia de la caché principal",
+        "composeHint": "Para levantar la instancia dedicada que acompaña al producto: docker compose --profile enrich up -d redis-enrich"
+      },
+      "budgets": {
+        "title": "Presupuestos de consulta externa",
+        "description": "Agotado el presupuesto, el lote entero sigue sin consulta externa, nunca una parte de él, lo que haría el enrutamiento impredecible.",
+        "batch": "Por lote (ms)",
+        "cycle": "Por ciclo (ms)",
+        "l1": "Caché en memoria (entradas)",
+        "singleflight": "Espera por consulta en curso (ms)"
+      },
+      "breaker": {
+        "title": "Pausa automática de fuente con fallos",
+        "description": "Por organización y fuente. La pausa se duplica en cada reapertura, porque un proveedor caído suele estarlo por horas.",
+        "threshold": "Pausar tras (fallos)",
+        "window": "Ventana de conteo (s)",
+        "cooldown": "Pausa inicial (s)",
+        "maxCooldown": "Pausa máxima (s)"
+      },
+      "tables": {
+        "title": "Tablas del cliente",
+        "description": "Límites de memoria. Excederlos rechaza la carga con un error visible en vez de tumbar el worker por falta de memoria.",
+        "perTable": "Máximo por tabla (MiB)",
+        "lru": "Caché de tablas (MiB)",
+        "forkHint": "{{per}} MiB por proceso × 8 procesos = {{total}} MiB en el contenedor de recolección."
+      },
+      "geoip": {
+        "title": "Bases GeoIP",
+        "description": "Las bases no vienen con el producto (licencia del proveedor). El directorio se monta en el despliegue; aquí solo aparece lo que hay en él.",
+        "empty": "No se encontró ninguna base en este directorio."
+      }
     }
   },
   "collectorsPage": {

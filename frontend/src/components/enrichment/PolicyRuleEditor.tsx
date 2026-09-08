@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/Badge/Badge"
 import { JMESPathInput } from "@/components/mappings/JMESPathInput"
 import { EnrichWhenBuilder } from "./EnrichWhenBuilder"
 import { TagChipsInput } from "./TagChipsInput"
+import { RuleSummary } from "./ruleSummary"
 import type {
   EnricherCatalogItem,
   EnrichmentRule,
@@ -322,7 +323,8 @@ export const PolicyRuleEditor: React.FC<PolicyRuleEditorProps> = ({
           return (
             <div
               key={`rule-${index}`}
-              className="space-y-3 rounded-lg border border-border p-4"
+              id={`rule-${index}`}
+              className="space-y-3 rounded-lg border border-border p-4 scroll-mt-4"
               data-testid={`rule-card-${index}`}
             >
               <div className="flex items-start justify-between gap-2">
@@ -352,37 +354,19 @@ export const PolicyRuleEditor: React.FC<PolicyRuleEditorProps> = ({
                 </Button>
               </div>
 
-              {usesTable && (
-                <Select
-                  label={t("policies.versions.table")}
-                  value={rule.table ?? ""}
-                  onValueChange={(v) => updateRule(index, { table: String(v) || null })}
-                  options={[{ value: "", label: t("policies.versions.tableNone") }, ...tableOptions]}
-                  size="sm"
-                  helperText={t("policies.versions.tableHint")}
-                />
-              )}
+              {/* A regra em uma linha, no vocabulário do operador.
+                  
+                  Os campos abaixo estão no vocabulário do MOTOR (`enricher`,
+                  `key.source`, `on_miss`), e nenhum deles, isolado, diz o que a
+                  regra faz — revisar quatro regras exigia ler doze campos e
+                  montar a frase de cabeça. O resumo não substitui o formulário:
+                  ele responde "é esta a regra?" antes de o olho descer para os
+                  campos. */}
+              <p data-testid={`rule-summary-${index}`}>
+                <RuleSummary rule={rule} enrichers={enrichers} />
+              </p>
 
-              {/* Fonte configurada: obrigatória para enricher com credencial. A
-                  regra cita o NOME; a credencial vive na linha escopada à org e
-                  nunca trafega no JSON da política. */}
-              {needsSource && (
-                <Select
-                  label={t("policies.versions.source")}
-                  value={rule.source ?? ""}
-                  onValueChange={(v) => updateRule(index, { source: String(v) || null })}
-                  options={[
-                    { value: "", label: t("policies.versions.sourceNone") },
-                    ...sources
-                      .filter((s) => s.enricher === rule.enricher)
-                      .map((s) => ({ value: s.name, label: s.name })),
-                  ]}
-                  size="sm"
-                  error={!rule.source ? t("policies.versions.sourceRequired") : undefined}
-                  helperText={t("policies.versions.sourceHint")}
-                />
-              )}
-
+              {/* ── 1. de onde vem a chave ─────────────────────────────────── */}
               <div className="grid gap-3 sm:grid-cols-2">
                 {/* Combobox, não texto livre: um caminho errado aqui NÃO dá
                     422. A regra publica com 201 e simplesmente nunca casa, e
@@ -416,6 +400,38 @@ export const PolicyRuleEditor: React.FC<PolicyRuleEditorProps> = ({
                 />
               </div>
 
+              {/* ── 2. onde consultar ─────────────────────────────────── */}
+              {usesTable && (
+                <Select
+                  label={t("policies.versions.table")}
+                  value={rule.table ?? ""}
+                  onValueChange={(v) => updateRule(index, { table: String(v) || null })}
+                  options={[{ value: "", label: t("policies.versions.tableNone") }, ...tableOptions]}
+                  size="sm"
+                  helperText={t("policies.versions.tableHint")}
+                />
+              )}
+
+              {/* Fonte configurada: obrigatória para enricher com credencial. A
+                  regra cita o NOME; a credencial vive na linha escopada à org e
+                  nunca trafega no JSON da política. */}
+              {needsSource && (
+                <Select
+                  label={t("policies.versions.source")}
+                  value={rule.source ?? ""}
+                  onValueChange={(v) => updateRule(index, { source: String(v) || null })}
+                  options={[
+                    { value: "", label: t("policies.versions.sourceNone") },
+                    ...sources
+                      .filter((s) => s.enricher === rule.enricher)
+                      .map((s) => ({ value: s.name, label: s.name })),
+                  ]}
+                  size="sm"
+                  error={!rule.source ? t("policies.versions.sourceRequired") : undefined}
+                  helperText={t("policies.versions.sourceHint")}
+                />
+              )}
+
               {/* Outputs */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
@@ -434,13 +450,21 @@ export const PolicyRuleEditor: React.FC<PolicyRuleEditorProps> = ({
                 {rule.outputs.map((out, oi) => {
                   const known = Object.keys(enricher?.output_fields ?? {})
                   return (
-                    <div key={`out-${oi}`} className="flex items-end gap-2">
+                    <div
+                      key={`out-${oi}`}
+                      // Grade, não linha de larguras fixas. Com o editor numa
+                      // coluna estreita (a página de política divide a tela com
+                      // o painel de teste), as frações `w-1/3` e `w-1/5`
+                      // espremiam "Grava em" e "Padrão" a ponto de mostrarem uma
+                      // letra. Aqui os campos quebram para a linha de baixo.
+                      className="grid items-end gap-2 [grid-template-columns:minmax(120px,1fr)_minmax(180px,2fr)_minmax(90px,0.8fr)_auto]"
+                    >
                       {/* O enricher declara os campos que devolve. Quando a
                           declaração existe, escolher da lista elimina o erro
                           mais comum: nomear um campo que o provedor não
                           retorna, que vira miss silencioso, não erro. */}
                       {known.length > 0 ? (
-                        <div className="w-1/3">
+                        <div>
                           <Select
                             label={oi === 0 ? t("policies.versions.outputFrom") : undefined}
                             value={out.from}
@@ -461,7 +485,7 @@ export const PolicyRuleEditor: React.FC<PolicyRuleEditorProps> = ({
                           value={out.from}
                           onChange={(e) => updateOutput(index, oi, { from: e.target.value })}
                           placeholder="site"
-                          className="w-1/3 font-mono text-xs"
+                          className="font-mono text-xs"
                         />
                       )}
 
@@ -469,7 +493,7 @@ export const PolicyRuleEditor: React.FC<PolicyRuleEditorProps> = ({
                           `_centralops.enrichment.` é 422 no commit, e pior,
                           fora dessa raiz o dado não é protegido pela redação
                           de PII. Deixar o campo livre convidava ao erro. */}
-                      <div className="flex-1">
+                      <div className="min-w-0">
                         {oi === 0 && (
                           <span className="mb-1.5 block text-sm font-medium text-text">
                             {t("policies.versions.outputTarget")}
@@ -510,7 +534,7 @@ export const PolicyRuleEditor: React.FC<PolicyRuleEditorProps> = ({
                           })
                         }
                         placeholder={t("policies.versions.outputDefaultPlaceholder")}
-                        className="w-1/5 font-mono text-xs"
+                        className="font-mono text-xs"
                       />
 
                       <Button

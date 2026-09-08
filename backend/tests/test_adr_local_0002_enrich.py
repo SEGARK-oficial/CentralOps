@@ -436,7 +436,11 @@ def test_enrichment_flag_off_deixa_o_hot_path_intocado():
     # O call-site por evento é guardado por `is not None`, não pela flag: ler
     # settings por evento seria um atributo a mais no caminho quente.
     assert "if _enrich_local_res is not None:" in src
-    assert "if settings.ENRICHMENT_ENABLED and organization_id is not None:" in src
+    # A flag saiu de ``settings`` e passou a vir do snapshot de
+    # ``enrichment_config`` (editável no console, com o ``.env`` como seed).
+    # O que este teste protege é a FORMA do gate — um só, por ciclo, antes de
+    # instanciar qualquer coisa —, não de onde o booleano vem.
+    assert "if _enrich_cfg.enabled and organization_id is not None:" in src
 
 
 def test_flag_off_desliga_o_subsistema_ANTES_de_tocar_o_banco(monkeypatch):

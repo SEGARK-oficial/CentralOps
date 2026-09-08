@@ -2665,6 +2665,14 @@ export interface EnrichmentSource {
   enabled: boolean
   /** Filhas que também usam esta fonte (MSP). Vazio = só a dona. */
   shared_organization_ids: number[]
+  /**
+   * Veredito da última sondagem. `null` em `last_test_at` significa NUNCA
+   * TESTADA, que é diferente de "testada e falhou": a primeira é um aviso, a
+   * segunda traz a mensagem do provedor e pede ação imediata.
+   */
+  last_test_at?: string | null
+  last_test_ok?: boolean | null
+  last_test_message?: string | null
 }
 
 export interface EnrichmentSourceCreateRequest {
@@ -2717,6 +2725,26 @@ export interface EnrichmentSourceTestResult {
   elapsed_ms?: number | null
 }
 
+/**
+ * Sonda uma fonte que AINDA NÃO EXISTE, com o que está no formulário.
+ *
+ * Nada é gravado — nem a fonte, nem o veredito. Sem `secret`, mas com
+ * `source_id`, o servidor usa a credencial já salva, para o operador testar
+ * sem redigitar a chave ao editar outro campo.
+ */
+export async function testEnrichmentSourceDraft(data: {
+  enricher: string
+  organization_id?: number | null
+  config?: Record<string, unknown>
+  secret?: string
+  source_id?: string
+}) {
+  return apiRequest<EnrichmentSourceTestResult>(
+    "/collectors/enrichment/sources/test-draft",
+    { method: "POST", body: JSON.stringify(data) },
+  )
+}
+
 /** Sonda a fonte de verdade (1 página curta). Não persiste nada. */
 export async function testEnrichmentSource(id: string) {
   return apiRequest<EnrichmentSourceTestResult>(
@@ -2727,6 +2755,178 @@ export async function testEnrichmentSource(id: string) {
 
 export async function deleteEnrichmentSource(id: string) {
   return apiRequest<void>(`/collectors/enrichment/sources/${id}`, { method: "DELETE" })
+}
+
+// ── Prontidão e configuração de infraestrutura ──────────────────────────────
+
+export interface EnrichmentReadinessAction {
+  label: string
+  route: string
+  /** `global` marca o que um admin de organização não resolve sozinho. */
+  scope: "org" | "global"
+}
+
+export interface EnrichmentReadinessStep {
+  key: string
+  status: "ok" | "warning" | "blocked" | "not_applicable"
+  title: string
+  detail: string
+  blocking: boolean
+  action?: EnrichmentReadinessAction | null
+}
+
+export interface EnrichmentReadiness {
+  organization_id: number
+  ready: boolean
+  steps: EnrichmentReadinessStep[]
+  active_policy_name?: string | null
+}
+
+/** "Está funcionando aqui, e o que falta?" — a resposta em quatro passos. */
+export interface EnrichmentDuplicatePreflight {
+  target_organization_id: number
+  ok: boolean
+  missing_tables: string[]
+  missing_sources: string[]
+  /** Existe no destino, mas sem versão publicada. Avisa, não bloqueia. */
+  tables_without_version: string[]
+  name_conflict: boolean
+}
+
+export interface EnrichmentDuplicateRequest {
+  target_organization_id: number
+  name?: string
+  commit_message?: string
+}
+
+/** Diz o que falta no destino ANTES de copiar. Não muda nada. */
+export async function preflightDuplicateEnrichmentPolicy(
+  policyId: string,
+  data: EnrichmentDuplicateRequest,
+) {
+  return apiRequest<EnrichmentDuplicatePreflight>(
+    `/collectors/enrichment/policies/${policyId}/duplicate-preflight`,
+    { method: "POST", body: JSON.stringify(data) },
+  )
+}
+
+/**
+ * Copia as regras para outra organização. A cópia nasce DESABILITADA: colocar
+ * regra no caminho quente de outro tenant é decisão de quem opera aquele
+ * tenant.
+ */
+export async function duplicateEnrichmentPolicy(
+  policyId: string,
+  data: EnrichmentDuplicateRequest,
+) {
+  return apiRequest<EnrichmentPolicy>(
+    `/collectors/enrichment/policies/${policyId}/duplicate`,
+    { method: "POST", body: JSON.stringify(data) },
+  )
+}
+
+export async function getEnrichmentReadiness(params: { organization_id?: number } = {}) {
+  const qs = params.organization_id != null ? `?organization_id=${params.organization_id}` : ""
+  return apiRequest<EnrichmentReadiness>(`/collectors/enrichment/readiness${qs}`)
+}
+
+export interface EnrichmentGeoipFile {
+  name: string
+  size_bytes: number
+  modified_at: number
+}
+
+export interface EnrichmentConfig {
+  is_persisted: boolean
+  config_version: string
+  enabled: boolean
+  redis_host: string | null
+  redis_port: number
+  redis_db: number
+  redis_use_tls: boolean
+  /** Booleano — a senha nunca volta pela API. */
+  redis_secret_configured: boolean
+  redis_url_masked: string | null
+  /** `false` ⇒ enrichers por lote desligados em TODAS as organizações. */
+  redis_configured: boolean
+  remote_batch_budget_ms: number
+  cycle_budget_ms: number
+  l1_max_entries: number
+  singleflight_wait_ms: number
+  breaker_failure_threshold: number
+  breaker_window_s: number
+  breaker_cooldown_s: number
+  breaker_max_cooldown_s: number
+  max_table_bytes: number
+  lru_bytes: number
+  /** Enrichers do catálogo que param sem o cache L2. Vem do registry. */
+  remote_enrichers: string[]
+  propagation_worst_case_s: number
+  geoip_dir: string | null
+  geoip_files: EnrichmentGeoipFile[]
+  updated_at?: string | null
+}
+
+/**
+ * Update PARCIAL. `redis_password` tem três estados e a diferença destrói dado
+ * se ignorada: ausente MANTÉM o segredo, string vazia REMOVE, string com
+ * conteúdo substitui.
+ */
+export type EnrichmentConfigUpdateRequest = Partial<
+  Pick<
+    EnrichmentConfig,
+    | "enabled"
+    | "redis_host"
+    | "redis_port"
+    | "redis_db"
+    | "redis_use_tls"
+    | "remote_batch_budget_ms"
+    | "cycle_budget_ms"
+    | "l1_max_entries"
+    | "singleflight_wait_ms"
+    | "breaker_failure_threshold"
+    | "breaker_window_s"
+    | "breaker_cooldown_s"
+    | "breaker_max_cooldown_s"
+    | "max_table_bytes"
+    | "lru_bytes"
+  >
+> & { redis_password?: string }
+
+export async function getEnrichmentConfig() {
+  return apiRequest<EnrichmentConfig>("/collectors/enrichment/config")
+}
+
+export async function updateEnrichmentConfig(data: EnrichmentConfigUpdateRequest) {
+  return apiRequest<EnrichmentConfig>("/collectors/enrichment/config", {
+    method: "PUT",
+    body: JSON.stringify(data),
+  })
+}
+
+export interface EnrichmentRedisTestResult {
+  ok: boolean
+  message: string
+  latency_ms?: number | null
+  maxmemory_policy?: string | null
+  maxmemory_bytes?: number | null
+  /** `null` = não deu para confirmar; `false` = É a instância principal. */
+  distinct_from_main?: boolean | null
+  warnings: string[]
+}
+
+/** Sonda com valores de RASCUNHO. Nada é persistido. */
+export async function testEnrichmentRedis(data: {
+  redis_host: string
+  redis_port: number
+  redis_db: number
+  redis_use_tls: boolean
+  redis_password?: string
+}) {
+  return apiRequest<EnrichmentRedisTestResult>(
+    "/collectors/enrichment/config/test-redis",
+    { method: "POST", body: JSON.stringify(data) },
+  )
 }
 
 export interface EnrichmentTable {
@@ -2751,6 +2951,70 @@ export interface EnrichmentPolicy {
   rule_count: number
   /** A política que o worker aplica nesta org: só uma por organização. */
   is_active?: boolean
+  /** Modelo da matriz (Enterprise). Não muda nada no runtime por si só. */
+  is_template?: boolean
+  /** Versão do modelo que originou a versão vigente, quando herdada. */
+  derived_from_version_id?: string | null
+}
+
+// ── Modelo da matriz (Enterprise) ───────────────────────────────────────────
+
+export interface EnrichmentTemplateTarget {
+  organization_id: number
+  organization_name?: string | null
+  /** `ready` | `blocked` | `overridden` | `up_to_date` | `applied` */
+  status: string
+  policy_id?: string | null
+  policy_name?: string | null
+  applied_version_id?: string | null
+  missing_tables: string[]
+  missing_sources: string[]
+  tables_without_version: string[]
+  /** Nome da política PRÓPRIA que vence o modelo, quando `overridden`. */
+  overriding_policy?: string | null
+}
+
+export interface EnrichmentTemplatePreflight {
+  template_policy_id: string
+  template_version_id?: string | null
+  targets: EnrichmentTemplateTarget[]
+}
+
+export interface EnrichmentTemplateApplyResult {
+  applied: EnrichmentTemplateTarget[]
+  skipped: EnrichmentTemplateTarget[]
+}
+
+/** Marca (ou desmarca) a política como modelo da matriz. */
+export async function setEnrichmentPolicyTemplate(policyId: string, isTemplate: boolean) {
+  return apiRequest<EnrichmentPolicy>(
+    `/collectors/enrichment/policies/${policyId}/template?is_template=${isTemplate}`,
+    { method: "POST" },
+  )
+}
+
+/** O que aconteceria em CADA filha. Não muda nada. */
+export async function preflightEnrichmentTemplate(policyId: string) {
+  return apiRequest<EnrichmentTemplatePreflight>(
+    `/collectors/enrichment/policies/${policyId}/template-preflight`,
+    { method: "POST" },
+  )
+}
+
+/**
+ * Publica uma versão derivada em cada filha escolhida.
+ *
+ * A decisão é recalculada no servidor: o que estava bloqueado entre a tela e o
+ * clique volta em `skipped`, e nada é escrito lá.
+ */
+export async function applyEnrichmentTemplate(
+  policyId: string,
+  data: { organization_ids: number[]; commit_message?: string },
+) {
+  return apiRequest<EnrichmentTemplateApplyResult>(
+    `/collectors/enrichment/policies/${policyId}/apply-template`,
+    { method: "POST", body: JSON.stringify(data) },
+  )
 }
 
 export async function listEnrichers() {
@@ -2800,6 +3064,26 @@ export async function deleteEnrichmentTable(id: string) {
 
 export async function listEnrichmentTableVersions(tableId: string) {
   return apiRequest<EnrichmentTableVersion[]>(`/collectors/enrichment/tables/${tableId}/versions`)
+}
+
+export interface EnrichmentTableVersionDetail {
+  id: string
+  version_number: number
+  entry_count: number
+  approx_bytes: number
+  /** Corpo `{chave: {campo: valor}}` como foi gravado. */
+  rows: Record<string, Record<string, unknown>>
+}
+
+/**
+ * Conteúdo de UMA versão. A listagem devolve metadado; o corpo só vem por aqui,
+ * e é o que permite diferenciar o arquivo novo contra o que está valendo antes
+ * de publicar (publicar substitui a versão inteira).
+ */
+export async function getEnrichmentTableVersion(tableId: string, versionId: string) {
+  return apiRequest<EnrichmentTableVersionDetail>(
+    `/collectors/enrichment/tables/${tableId}/versions/${versionId}`,
+  )
 }
 
 export async function commitEnrichmentTableVersion(

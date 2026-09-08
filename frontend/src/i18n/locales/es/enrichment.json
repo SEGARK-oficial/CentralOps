@@ -9,7 +9,8 @@
     "tables": "Tablas ({{count}})",
     "policies": "Políticas ({{count}})",
     "sources": "Fuentes ({{count}})",
-    "execution": "Ejecución"
+    "execution": "Ejecución",
+    "overview": "Visión general"
   },
   "mode": {
     "local": "por evento",
@@ -72,6 +73,56 @@
       "invalidCount": "{{count}} inválida(s)",
       "entriesShort": "{{count}} entradas",
       "rollback": "Revertir a esta"
+    },
+    "csv": {
+      "modeLabel": "Cómo enviar el contenido",
+      "modeCsv": "Planilla (CSV)",
+      "modeJson": "JSON",
+      "choose": "Elegir archivo",
+      "pasteLabel": "O pega el contenido",
+      "pasteHint": "La primera línea es el encabezado. El separador se detecta solo (coma, punto y coma, tabulación o barra vertical).",
+      "lines_one": "{{count}} línea",
+      "lines_other": "{{count}} líneas",
+      "delimiter": "separador \"{{value}}\"",
+      "keyColumn": "Columna de la clave",
+      "keyColumnHintCidr": "Cada valor debe ser una IP o un rango CIDR.",
+      "keyColumnHintExact": "Comparada por igualdad exacta con la clave del evento.",
+      "valueColumns": "Columnas que se vuelven contexto",
+      "valueColumnsHint": "Las no marcadas quedan fuera. Un campo de más ocupa memoria en el recolector sin servir a ninguna regla.",
+      "added_one": "{{count}} nueva",
+      "added_other": "{{count}} nuevas",
+      "changed_one": "{{count}} modificada",
+      "changed_other": "{{count}} modificadas",
+      "removed_one": "{{count}} eliminada",
+      "removed_other": "{{count}} eliminadas",
+      "invalid_one": "{{count}} inválida",
+      "invalid_other": "{{count}} inválidas",
+      "onlyProblems": "Solo lo que cambia o falla",
+      "state": "Estado",
+      "new": "nueva",
+      "updated": "modificada",
+      "same": "sin cambios",
+      "more": "… y {{count}} línea(s) más",
+      "needsRows": "Ninguna línea válida para publicar. Elige un archivo y la columna de la clave.",
+      "overLimitTitle": "Contenido por encima del límite por tabla",
+      "overLimitBody": "El servidor rechazaría esta versión. Quita columnas de contexto o divide la tabla.",
+      "removalTitle": "Esta publicación elimina entradas",
+      "removalBody": "{{count}} clave(s) desaparecen, entre ellas {{sample}}. Publicar reemplaza la versión entera: verifica que el archivo sea el correcto.",
+      "issue": {
+        "invalid_key": "clave inválida",
+        "empty_key": "clave vacía",
+        "duplicate_key": "clave repetida"
+      }
+    },
+    "table": {
+      "name": "Tabla",
+      "match": "Coincidencia",
+      "version": "Versión vigente",
+      "size": "Tamaño",
+      "usedBy": "Quién la usa",
+      "unused": "ninguna regla",
+      "usedByRules_one": "{{count}} regla",
+      "usedByRules_other": "{{count}} reglas"
     }
   },
   "policies": {
@@ -174,7 +225,116 @@
       "onePerOrg": "Solo se aplica una política por organización: la activada más antigua."
     },
     "active": "vigente",
-    "shadowed": "activada, no aplicada"
+    "shadowed": "activada, no aplicada",
+    "page": {
+      "notFound": "Política no encontrada en esta organización.",
+      "subtitle": "Reglas de enriquecimiento de {{org}}.",
+      "unpublished": "cambios sin publicar",
+      "history": "Historial ({{count}})",
+      "back": "Volver",
+      "draftRestoredTitle": "Tenías cambios sin publicar aquí",
+      "draftRestoredBody": "El editor abrió con lo que estabas escribiendo, no con lo que está vigente. Compara en el pie antes de publicar, o descarta para volver a la versión vigente.",
+      "discardDraft": "Descartar cambios",
+      "publishVersion": "Publicar v{{version}}",
+      "useRealSample": "Usar evento real",
+      "noSamples": "Ningún evento reciente de esta fuente para usar como ejemplo.",
+      "sampleSource": "Origen del evento",
+      "diffNone": "Nada que publicar: igual a la versión vigente.",
+      "diffLabel": "Esta publicación:",
+      "diffAdded_one": "+{{count}} regla ({{names}})",
+      "diffAdded_other": "+{{count}} reglas ({{names}})",
+      "diffChanged_one": "{{count}} modificada ({{names}})",
+      "diffChanged_other": "{{count}} modificadas ({{names}})",
+      "diffRemoved_one": "−{{count}} regla ({{names}})",
+      "diffRemoved_other": "−{{count}} reglas ({{names}})",
+      "diffReordered": "orden modificado",
+      "ruleIndex_one": "{{count}} regla en esta política",
+      "ruleIndex_other": "{{count}} reglas en esta política"
+    },
+    "duplicate": {
+      "title": "Copiar {{name}} a otra organización",
+      "target": "Organización de destino",
+      "name": "Nombre de la copia",
+      "nameHint": "Debe ser único dentro de la organización de destino.",
+      "checking": "Comprobando qué existe en el destino…",
+      "readyTitle": "El destino tiene todo lo que estas reglas citan",
+      "readyBody": "Las tablas y fuentes referenciadas existen allí, con los mismos nombres.",
+      "blockedTitle": "El destino aún no tiene lo que estas reglas citan",
+      "nameConflict": "Ya existe una política llamada \"{{name}}\" en el destino.",
+      "missingTables": "Tablas que faltan: {{names}}.",
+      "missingSources": "Fuentes que faltan: {{names}}.",
+      "tablesWithoutVersionTitle": "Tabla sin versión publicada en el destino",
+      "tablesWithoutVersionBody": "{{names}} existe allí pero está vacía. La copia se crea igual; publica su contenido antes de activarla, si no la búsqueda falla en cada ciclo.",
+      "disabledTitle": "La copia nace inactiva",
+      "disabledBody": "Copiar no pone reglas en producción en la otra organización. Quien opera ese cliente decide cuándo activarla, y se aplica una política por organización.",
+      "confirm": "Copiar",
+      "noTargets": "No hay otra organización visible para copiar.",
+      "commitMessage": "copiada de {{name}}",
+      "action": "Copiar a otra organización"
+    },
+    "summary": {
+      "path": {
+        "srcIp": "IP de origen",
+        "dstIp": "IP de destino",
+        "srcHost": "host de origen",
+        "dstHost": "host de destino",
+        "deviceIp": "IP del dispositivo",
+        "deviceHost": "host del dispositivo",
+        "user": "usuario",
+        "fileHash": "hash del archivo",
+        "urlHost": "dominio de la URL",
+        "url": "URL"
+      },
+      "when": {
+        "has_tag": "si ya tiene la marca",
+        "lacks_tag": "si aún no tiene la marca",
+        "exists": "si el campo existe",
+        "equals": "si el campo es igual a un valor",
+        "in": "si el campo está en una lista",
+        "not": "si la condición NO se cumple"
+      },
+      "onMiss": {
+        "tag": "marca cuando no encuentra",
+        "default": "escribe el valor por defecto cuando no encuentra"
+      }
+    },
+    "template": {
+      "title": "Plantilla de la matriz",
+      "badge": "plantilla",
+      "description": "Aplica las MISMAS reglas a las organizaciones filiales. Cada una recibe una versión propia, con historial y reversión propios: no existe una política que valga para todas a la vez. Funciona porque la regla cita tabla y fuente por NOMBRE, y el nombre se resuelve en cada organización.",
+      "mark": "Marcar como plantilla",
+      "unmark": "Dejar de ser plantilla",
+      "checking": "Comprobando qué existe en cada organización…",
+      "noChildren": "Esta organización no tiene filiales para recibir la plantilla.",
+      "org": "Organización",
+      "state": "Estado",
+      "detail": "Qué significa",
+      "apply_one": "Aplicar a {{count}} organización",
+      "apply_other": "Aplicar a {{count}} organizaciones",
+      "applyHint_one": "{{count}} organización puede recibirla ahora. La copia nace inactiva; la que ya ejecutaba la plantilla sigue ejecutándola, con la versión nueva.",
+      "applyHint_other": "{{count}} organizaciones pueden recibirla ahora. La copia nace inactiva; las que ya ejecutaban la plantilla siguen ejecutándola, con la versión nueva.",
+      "applied_one": "Aplicada a {{count}} organización",
+      "applied_other": "Aplicada a {{count}} organizaciones",
+      "skipped_one": "{{count}} organización fue omitida: mira el motivo en su fila.",
+      "skipped_other": "{{count}} organizaciones fueron omitidas: mira el motivo en cada fila.",
+      "commitMessage": "aplicada desde la plantilla {{name}}",
+      "ready": "tiene todo lo que las reglas citan",
+      "upToDate": "ya está en esta versión de la plantilla",
+      "overriddenBy": "tiene política propia vigente ({{name}}), que vence a la plantilla",
+      "missingTables": "faltan las tablas: {{names}}",
+      "missingSources": "faltan las fuentes: {{names}}",
+      "tablesWithoutVersion": "se aplica, pero aún no funciona: {{names}} no tiene versión publicada allí",
+      "status": {
+        "ready": "lista",
+        "up_to_date": "al día",
+        "blocked": "bloqueada",
+        "overridden": "sobrescrita",
+        "applied": "aplicada"
+      },
+      "communityTitle": "Aplicar esta política a varios clientes",
+      "communityBody": "En la edición Community, usa \"Copiar a otra organización\": una por vez, con la misma verificación de requisitos. La edición Enterprise marca la política como plantilla de la matriz y la aplica a todas las filiales a la vez, verificando cada organización.",
+      "communityLink": "Ver las ediciones"
+    }
   },
   "errorTitle": "Error al cargar el enriquecimiento",
   "sources": {
@@ -204,13 +364,37 @@
       "secretKeepPlaceholder": "•••••••• (déjelo vacío para mantener)",
       "create": "Nueva fuente",
       "sharedOrgs": "Organizaciones hijas",
-      "sharedOrgsHint": "La fuente siempre atiende a la organización propietaria. Marque las hijas que también deben usar esta credencial. Compartir requiere la edición Enterprise."
+      "sharedOrgsHint": "La fuente siempre atiende a la organización propietaria. Marque las hijas que también deben usar esta credencial. Compartir requiere la edición Enterprise.",
+      "egressRequired": "Confirma el envío de indicadores a terceros antes de guardar.",
+      "egressAck": "Autorizo el envío de indicadores de esta organización a {{name}}",
+      "egressAckHint": "Los indicadores que pasen la condición de la regla ({{kinds}}) salen de tu infraestructura. Lo que la condición bloquea no sale."
     },
     "test": {
       "title": "Probar conexión",
       "run": "Probar",
       "hint": "Consulta la fuente real con la credencial guardada, en modo reducido. No publica nada.",
-      "sampleCount": "{{count}} registro(s) en la muestra."
+      "sampleCount": "{{count}} registro(s) en la muestra.",
+      "hintDraft": "Consulta al proveedor con los valores de este formulario, incluida una credencial aún no guardada. No se graba nada."
+    },
+    "table": {
+      "source": "Fuente",
+      "enricher": "Enricher",
+      "egress": "Egreso",
+      "credential": "Credencial",
+      "lastTest": "Última prueba",
+      "usedBy": "Quién la usa",
+      "search": "Buscar",
+      "filter": "Filtrar",
+      "filterAll": "Todas ({{count}})",
+      "filterProblem": "Con problema ({{count}})",
+      "filterThirdParty": "Envían a terceros",
+      "noMatch": "Ninguna fuente coincide con el filtro.",
+      "neverTested": "nunca probada",
+      "noSecretNeeded": "no requiere",
+      "agoDays_one": "hace {{count}} día",
+      "agoDays_other": "hace {{count}} días",
+      "ownerPlusChildren_one": "{{owner}} + {{count}} filial",
+      "ownerPlusChildren_other": "{{owner}} + {{count}} filiales"
     }
   },
   "catalog": {
@@ -257,5 +441,30 @@
     "activePolicy": "Vigente: {{name}}",
     "unanswered": "sin respuesta",
     "hitRateHintUnanswered": "Hay consultas sin respuesta en la ventana: el porcentaje de acierto está diluido por falla de credencial, red o presupuesto, no por un cambio en el dato. Revise Consultas antes de tocar las reglas."
+  },
+  "readiness": {
+    "readyTitle": "Todo listo en esta organización",
+    "readyBody": "La política {{name}} está vigente para los eventos nuevos.",
+    "blockedTitle_one": "{{count}} paso impide que el enriquecimiento funcione aquí",
+    "blockedTitle_other": "{{count}} pasos impiden que el enriquecimiento funcione aquí",
+    "blockedBody": "Mientras tanto, los eventos de esta organización llegan al destino sin el contexto.",
+    "stepsTitle": "Qué falta",
+    "globalScope": "requiere administrador global",
+    "hitRate": "Aprovechamiento",
+    "avgHit": "{{value}} de acierto",
+    "unanswered": "{{value}} sin respuesta",
+    "recentFailures_one": "{{count}} fallo reciente",
+    "recentFailures_other": "{{count}} fallos recientes",
+    "seeAll": "Ver todas en Ejecución",
+    "kpi": {
+      "lookups": "Consultas en la ventana",
+      "hitRate": "Acierto medio",
+      "rules_one": "{{count}} regla vigente",
+      "rules_other": "{{count}} reglas vigentes",
+      "unanswered": "Sin respuesta",
+      "unansweredHint": "credencial, red o presupuesto",
+      "silent": "Reglas mudas",
+      "silentHint": "no se dispararon en la ventana"
+    }
   }
 }

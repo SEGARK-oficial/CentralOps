@@ -10,7 +10,8 @@
  * - Estado de erro mostra ErrorState com retry.
  */
 
-import { render, screen, fireEvent, waitFor, within } from "@testing-library/react"
+import { render as rtlRender, screen, fireEvent, waitFor, within } from "@testing-library/react"
+import { MemoryRouter } from "react-router-dom"
 import { describe, it, expect, vi, beforeAll, beforeEach } from "vitest"
 import EnrichmentPage from "@/pages/EnrichmentPage"
 import * as api from "@/services/api"
@@ -39,6 +40,23 @@ const platformContextValue: {
 vi.mock("@/contexts/PlatformContext", () => ({
   usePlatform: () => platformContextValue,
 }))
+
+const navigate = vi.fn()
+vi.mock("react-router-dom", async () => {
+  const actual = await vi.importActual<typeof import("react-router-dom")>(
+    "react-router-dom",
+  )
+  return { ...actual, useNavigate: () => navigate }
+})
+
+/**
+ * A página passou a conter navegação de verdade (a aba de visão geral manda o
+ * operador para Configuração › Enriquecimento quando o passo bloqueado é de
+ * administrador global), então o componente exige um Router. Envolver aqui é o
+ * acoplamento correto: na aplicação ele sempre está dentro de um.
+ */
+const render = (ui: React.ReactElement) =>
+  rtlRender(<MemoryRouter>{ui}</MemoryRouter>)
 
 const mockedApi = vi.mocked(api)
 
@@ -134,7 +152,49 @@ beforeEach(() => {
     version_number: 1,
     rules: [],
   })
+  // A lista de tabelas mostra o tamanho contra o teto por tabela, que vem da
+  // configuração da instalação.
+  mockedApi.getEnrichmentConfig.mockResolvedValue({
+    max_table_bytes: 33554432,
+  } as never)
+  // O modal de tabela busca o CORPO da versão vigente para diferenciar contra o
+  // arquivo importado.
+  mockedApi.getEnrichmentTableVersion.mockResolvedValue({
+    id: "v1",
+    version_number: 1,
+    entry_count: 0,
+    approx_bytes: 0,
+    rows: {},
+  })
+  // A aba de entrada agora é a visão geral, que consulta a prontidão. Sem
+  // estes defaults todo teste começaria num ErrorState.
+  mockedApi.getEnrichmentReadiness.mockResolvedValue({
+    organization_id: 1,
+    ready: true,
+    steps: [],
+    active_policy_name: "contexto-de-ativo",
+  })
+  mockedApi.getEnrichmentMetrics.mockResolvedValue({
+    organization_id: 1,
+    range_minutes: 60,
+    policy_name: "contexto-de-ativo",
+    rules: [],
+  })
+  mockedApi.getEnrichmentActivity.mockResolvedValue({
+    organization_id: 1,
+    entries: [],
+  })
 })
+
+/** Espera a página montar na aba de entrada (visão geral). */
+const aguardaCarregar = () => screen.findByTestId("readiness-panel")
+
+/** Vai para o catálogo, que deixou de ser a aba padrão. */
+const abreCatalogo = async () => {
+  await aguardaCarregar()
+  fireEvent.click(screen.getByRole("tab", { name: /Catálogo/i }))
+  return screen.findByText("Tabela CIDR")
+}
 
 describe("EnrichmentPage", () => {
   it("carrega catálogo, tabelas e políticas ao montar", async () => {
@@ -144,14 +204,14 @@ describe("EnrichmentPage", () => {
     await waitFor(() => expect(mockedApi.listEnrichers).toHaveBeenCalled())
     expect(mockedApi.listEnrichmentTables).toHaveBeenCalled()
     expect(mockedApi.listEnrichmentPolicies).toHaveBeenCalled()
-    expect(await screen.findByText("Tabela CIDR")).toBeInTheDocument()
+    expect(await abreCatalogo()).toBeInTheDocument()
   })
 
   it("mostra o catálogo agrupado por categoria com selo de egresso", async () => {
     mockLoad()
     render(<EnrichmentPage />)
 
-    expect(await screen.findByText("Tabela CIDR")).toBeInTheDocument()
+    expect(await abreCatalogo()).toBeInTheDocument()
     expect(screen.getByText("VirusTotal")).toBeInTheDocument()
     expect(screen.getByText("sem egresso")).toBeInTheDocument()
     expect(screen.getByText("envia a terceiro")).toBeInTheDocument()
@@ -161,7 +221,7 @@ describe("EnrichmentPage", () => {
   it("mostra estado vazio na aba tabelas e abre o modal de criação", async () => {
     mockLoad()
     render(<EnrichmentPage />)
-    await screen.findByText("Tabela CIDR")
+    await aguardaCarregar()
 
     fireEvent.click(screen.getByRole("tab", { name: /Tabelas/i }))
 
@@ -174,10 +234,10 @@ describe("EnrichmentPage", () => {
   it("abre o modal de versões ao clicar em uma tabela", async () => {
     mockLoad({ tables: [table] })
     render(<EnrichmentPage />)
-    await screen.findByText("Tabela CIDR")
+    await aguardaCarregar()
 
     fireEvent.click(screen.getByRole("tab", { name: /Tabelas/i }))
-    fireEvent.click(await screen.findByTestId("table-card-rede-corp"))
+    fireEvent.click(await screen.findByTestId("table-row-rede-corp"))
 
     expect(await screen.findByRole("dialog", { name: "Versões de rede-corp" })).toBeInTheDocument()
   })
@@ -186,11 +246,13 @@ describe("EnrichmentPage", () => {
     mockLoad({ tables: [table] })
     mockedApi.deleteEnrichmentTable.mockResolvedValue(undefined)
     render(<EnrichmentPage />)
-    await screen.findByText("Tabela CIDR")
+    await aguardaCarregar()
 
     fireEvent.click(screen.getByRole("tab", { name: /Tabelas/i }))
-    const card = await screen.findByTestId("table-card-rede-corp")
-    fireEvent.click(within(card).getByRole("button", { name: "Apagar tabela" }))
+    // A lista substituiu o grid de cards: `table-row-*` é o botão do NOME, e o
+    // de apagar é a coluna de ação da mesma linha.
+    const linha = (await screen.findByTestId("table-row-rede-corp")).closest("tr")!
+    fireEvent.click(within(linha).getByRole("button", { name: "Apagar tabela" }))
 
     expect(screen.queryByRole("dialog", { name: "Versões de rede-corp" })).not.toBeInTheDocument()
     const confirmDialog = await screen.findByRole("dialog", { name: "Apagar tabela" })
@@ -205,11 +267,13 @@ describe("EnrichmentPage", () => {
       new Error("tabela em uso pela política 'contexto-de-ativo'"),
     )
     render(<EnrichmentPage />)
-    await screen.findByText("Tabela CIDR")
+    await aguardaCarregar()
 
     fireEvent.click(screen.getByRole("tab", { name: /Tabelas/i }))
-    const card = await screen.findByTestId("table-card-rede-corp")
-    fireEvent.click(within(card).getByRole("button", { name: "Apagar tabela" }))
+    // A lista substituiu o grid de cards: `table-row-*` é o botão do NOME, e o
+    // de apagar é a coluna de ação da mesma linha.
+    const linha = (await screen.findByTestId("table-row-rede-corp")).closest("tr")!
+    fireEvent.click(within(linha).getByRole("button", { name: "Apagar tabela" }))
     const confirmDialog = await screen.findByRole("dialog", { name: "Apagar tabela" })
     fireEvent.click(within(confirmDialog).getByRole("button", { name: "Excluir" }))
 
@@ -220,7 +284,7 @@ describe("EnrichmentPage", () => {
   it("mostra estado vazio na aba políticas e abre o modal de criação", async () => {
     mockLoad()
     render(<EnrichmentPage />)
-    await screen.findByText("Tabela CIDR")
+    await aguardaCarregar()
 
     fireEvent.click(screen.getByRole("tab", { name: /Políticas/i }))
 
@@ -230,15 +294,23 @@ describe("EnrichmentPage", () => {
     expect(await screen.findByRole("dialog", { name: "Nova política" })).toBeInTheDocument()
   })
 
-  it("abre o modal de versões ao clicar em uma política", async () => {
+  it("clicar numa política abre a PÁGINA do editor, não um modal", async () => {
+    // O editor saiu do modal e ganhou URL própria. Não é conveniência: é onde
+    // se decide o que sai do ambiente do cliente para terceiros, e sem endereço
+    // não dá para revisar a quatro mãos nem voltar ao mesmo ponto depois de
+    // recarregar. O rascunho, o diff contra a versão vigente e o histórico
+    // moram lá.
     mockLoad({ policies: [policy] })
     render(<EnrichmentPage />)
-    await screen.findByText("Tabela CIDR")
+    await aguardaCarregar()
 
     fireEvent.click(screen.getByRole("tab", { name: /Políticas/i }))
     fireEvent.click(await screen.findByTestId("policy-card-contexto-de-ativo"))
 
-    expect(await screen.findByRole("dialog", { name: "Versões de contexto-de-ativo" })).toBeInTheDocument()
+    expect(navigate).toHaveBeenCalledWith("/enrichment/policies/p1")
+    expect(
+      screen.queryByRole("dialog", { name: "Versões de contexto-de-ativo" }),
+    ).not.toBeInTheDocument()
   })
 
   it("mostra ErrorState com retry quando o carregamento falha", async () => {
@@ -253,7 +325,9 @@ describe("EnrichmentPage", () => {
     mockLoad({ tables: [table] })
     fireEvent.click(screen.getByRole("button", { name: "Tentar novamente" }))
 
-    expect(await screen.findByText("Tabela CIDR")).toBeInTheDocument()
+    // Depois do retry a página volta para a aba de entrada; o catálogo está a
+    // um clique dali.
+    expect(await abreCatalogo()).toBeInTheDocument()
   })
 })
 
@@ -273,7 +347,7 @@ describe("EnrichmentPage — fontes configuradas", () => {
   it("mostra estado vazio e abre o formulário de criação", async () => {
     mockLoad()
     render(<EnrichmentPage />)
-    await screen.findByText("Tabela CIDR")
+    await aguardaCarregar()
 
     fireEvent.click(screen.getByRole("tab", { name: /Fontes/i }))
 
@@ -286,10 +360,10 @@ describe("EnrichmentPage — fontes configuradas", () => {
   it("nunca renderiza a referência do segredo, só o indicador booleano", async () => {
     mockLoad({ sources: [source] })
     const { container } = render(<EnrichmentPage />)
-    await screen.findByText("Tabela CIDR")
+    await aguardaCarregar()
 
     fireEvent.click(screen.getByRole("tab", { name: /Fontes/i }))
-    await screen.findByTestId("source-card-vt-prod")
+    await screen.findByTestId("source-row-vt-prod")
 
     expect(screen.getByText("credencial cadastrada")).toBeInTheDocument()
     // O cofre decifra qualquer ciphertext sem olhar org: a referência não pode
@@ -297,16 +371,20 @@ describe("EnrichmentPage — fontes configuradas", () => {
     expect(container.innerHTML).not.toContain("secret_ref")
   })
 
-  it("card de fonte é alcançável por teclado", async () => {
+  it("fonte é alcançável por teclado", async () => {
+    // A lista deixou de ser um grid de cards com `tabindex` e `onKeyDown`
+    // manuais e passou a ser uma tabela cujo nome é um <button> nativo. A
+    // propriedade testada é a mesma — dá para chegar e acionar sem mouse —, só
+    // que agora vem do elemento certo, em vez de ser reconstruída à mão.
     mockLoad({ sources: [source] })
     render(<EnrichmentPage />)
-    await screen.findByText("Tabela CIDR")
+    await aguardaCarregar()
 
     fireEvent.click(screen.getByRole("tab", { name: /Fontes/i }))
-    const card = await screen.findByTestId("source-card-vt-prod")
-    expect(card).toHaveAttribute("tabindex", "0")
+    const trigger = await screen.findByTestId("source-row-vt-prod")
+    expect(trigger.tagName).toBe("BUTTON")
 
-    fireEvent.keyDown(card, { key: "Enter" })
+    fireEvent.click(trigger)
     expect(
       await screen.findByRole("dialog", { name: /Editar fonte/i }),
     ).toBeInTheDocument()

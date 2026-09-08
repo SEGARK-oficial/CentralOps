@@ -333,6 +333,57 @@ services:
       retries: 10
     restart: unless-stopped
 
+  # ── Cache L2 do enriquecimento: TERCEIRA instância, e por quê ──────────
+  # Não é excesso de zelo: `maxmemory-policy` é GLOBAL por instância, e este
+  # cache é o único dos três em que TODA chave tem TTL. Em `redis` (dedup) a
+  # política é `volatile-lru`, e pôr o cache de enriquecimento lá o faria
+  # disputar memória com o dedup — cuja evicção é SILENCIOSA e reaparece como
+  # reentrega no SIEM (já custou um incidente de 310k chaves evictadas). Banco
+  # lógico diferente NÃO isola memória. Aqui `allkeys-lru` é o certo justamente
+  # porque não há nada sem TTL a preservar.
+  #
+  # Sem este serviço, os enrichers por LOTE (virustotal, abuseipdb, otx,
+  # greynoise) ficam desligados — fail-closed deliberado, ver
+  # `collectors/enrich/cache.py`. O endereço é configurado no console
+  # (Configuração › Enriquecimento), não por variável de ambiente; as variáveis
+  # abaixo servem só de SEED na primeira subida.
+  #
+  # `profiles` mantém o serviço opcional: quem não usa enricher remoto não paga
+  # o container. Para ligar: `docker compose --profile enrich up -d`.
+  redis-enrich:
+    image: redis:7-alpine
+    profiles: ["enrich"]
+    command:
+      - redis-server
+      # SEM appendonly: é cache puro, todo dado é reconstituível a partir do
+      # provedor. Persistir aqui compraria I/O e um AOF para crescer sem
+      # necessidade — o oposto das outras duas instâncias, que guardam estado.
+      - --appendonly
+      - "no"
+      - --save
+      - ""
+      - --requirepass
+      - ${REDIS_PASSWORD:?REDIS_PASSWORD obrigatorio - gere com openssl rand -base64 24 e coloque no .env}
+      - --maxmemory
+      - ${REDIS_ENRICH_MAXMEMORY:-256mb}
+      - --maxmemory-policy
+      - allkeys-lru
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 384m
+        reservations:
+          memory: 64m
+    # PROVA DE ESCRITA, não PING — mesmo raciocínio das outras duas instâncias:
+    # `PING` responde PONG com o Redis recusando 100% das escritas.
+    healthcheck:
+      test: ["CMD-SHELL", "test \"$$(redis-cli --no-auth-warning -a '${REDIS_PASSWORD:?REDIS_PASSWORD obrigatorio - gere com openssl rand -base64 24 e coloque no .env}' SET __healthcheck__ 1 EX 30)\" = OK"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
   # ── Onda 3 — broker do data-plane durável (Kafka-API) ──────
   # Redpanda é single-binary (sem ZooKeeper/JVM), ideal p/ self-host. Em PROD,
   # aponte os serviços p/ MSK/Redpanda Cloud/Confluent via KAFKA_BOOTSTRAP_SERVERS

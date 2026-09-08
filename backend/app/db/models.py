@@ -2261,6 +2261,16 @@ class EnrichmentSource(Base):
     #: Ciphertext, JAMAIS o segredo em claro; escrito só pelo servidor.
     secret_ref = Column(String, nullable=True)
     enabled = Column(Boolean, default=True, nullable=False)
+    #: Resultado da última sondagem (``POST /sources/{id}/test``).
+    #:
+    #: Persistir isto é o que transforma "testar" de gesto efêmero em ESTADO: uma
+    #: fonte nunca testada e uma fonte que falhou no último teste são situações
+    #: diferentes, exigem ações diferentes, e antes as duas apareciam iguais na
+    #: tela. ``last_test_message`` guarda a mensagem do PROVEDOR (o 401 com o
+    #: texto dele), que é o que permite agir sem abrir log de worker.
+    last_test_at = Column(DateTime, nullable=True)
+    last_test_ok = Column(Boolean, nullable=True)
+    last_test_message = Column(Text, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(
         DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
@@ -2339,6 +2349,18 @@ class EnrichmentPolicy(Base):
     #: OFF por default: criar a política não a coloca no hot path.
     enabled = Column(Boolean, default=False, nullable=False)
     current_version_id = Column(String, nullable=True)
+    #: MODELO da matriz (Enterprise). Continua sendo uma política normal da org
+    #: dona — pode inclusive estar em vigor lá. A marca só habilita o "aplicar
+    #: às filhas", que MATERIALIZA uma versão derivada em cada uma.
+    #:
+    #: Não existe política global, e esta marca não cria uma. O runtime segue
+    #: lendo a política da PRÓPRIA org pelo ponteiro ``current_version_id``: o
+    #: modelo é um gesto de autoria, não um segundo caminho de resolução. Foi
+    #: assim que a herança coube sem tocar o hot path — e é o que impede que um
+    #: CMDB de um cliente sirva de contexto para outro.
+    is_template = Column(
+        Boolean, nullable=False, default=False, server_default=_sa_text("false")
+    )
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(
         DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
@@ -2374,6 +2396,15 @@ class EnrichmentPolicyVersion(Base):
     #: Documento JSON ``{"version": 1, "enrichment": [...]}``, validado por
     #: ``enrich.dsl.compile_policy`` ANTES do commit (422 em regra inválida).
     rules = Column(Text, nullable=False)
+    #: Versão do MODELO da matriz que originou esta. ``None`` em versão escrita
+    #: à mão.
+    #:
+    #: Sem FK de propósito: a versão de origem vive noutra ORGANIZAÇÃO, e um
+    #: ``ON DELETE CASCADE`` faria apagar a política da matriz apagar o
+    #: histórico das filhas — destruindo a auditoria de quem nem participou da
+    #: decisão. O campo é rastro, não vínculo; um id órfão aqui significa
+    #: exatamente "o modelo de origem não existe mais", que é a verdade.
+    derived_from_version_id = Column(String, nullable=True)
     #: ``auth.persistable_user_id()`` — NUNCA o id cru de service account, que é
     #: negativo e inexistente em ``app_users`` (FK violation + audit perdido).
     author_user_id = Column(
@@ -2455,3 +2486,80 @@ class EnrichmentTableVersion(Base):
     )
     commit_message = Column(Text, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+
+class EnrichmentConfig(Base):
+    """Singleton (id=1) da configuração de INFRAESTRUTURA do enriquecimento.
+
+    Faz para o enriquecimento o que :class:`CollectorConfig` fez para a coleta:
+    tira do ``.env`` os parâmetros **runtime-mutáveis** e os coloca numa linha que
+    a UI edita, com os workers lendo por
+    ``backend.app.collectors.enrich.config_loader`` (cache Redis 30 s + memo de
+    processo + fallback a ``settings``). O ``.env`` continua valendo como **seed
+    inicial**, populado em ``database._run_lightweight_migrations``.
+
+    **Por que isto existe.** ``ENRICH_REDIS_URL`` vazia é fail-closed deliberado:
+    sem cache L2 dedicado o enriquecimento REMOTO não roda (``runtime.py``,
+    ``resolve_remote``). Só que a variável vivia exclusivamente no ``.env``, o
+    ``compose`` não a passava a serviço nenhum e a UI não a mencionava — então
+    cadastrar VirusTotal, publicar a política e habilitá-la produzia silêncio, e
+    o diagnóstico só aparecia como linha de falha na aba de Execução, depois do
+    primeiro ciclo. Metade do catálogo (``virustotal``, ``abuseipdb``, ``otx``,
+    ``greynoise``) dependia de um arquivo que o operador do console não edita.
+
+    **O que NÃO migra, e por quê.** ``ENRICH_GEOIP_DIR`` fica no deploy. O
+    diretório é lido pelo parser mmdb no worker, e um caminho livre escrito por
+    admin de org via API seria ler qualquer arquivo do worker que aquele parser
+    aceitasse (o mesmo raciocínio já está em ``core/config.py``). A UI mostra o
+    **estado** do diretório (arquivos e datas), nunca o edita.
+
+    **O segredo nunca sai.** ``redis_secret_ref`` guarda o ciphertext de
+    ``core.secrets`` (mesmo caminho de ``EnrichmentSource.secret_ref``), e a API
+    expõe apenas ``redis_secret_configured: bool`` — como ``Integration`` faz com
+    ``manager_api_password_configured``.
+    """
+
+    __tablename__ = "enrichment_config"
+
+    id = Column(Integer, primary_key=True)
+
+    #: Espelha ``ENRICHMENT_ENABLED``. Desligado, ``load_policy_for_org`` devolve
+    #: ``None`` para toda org e nenhuma política roda.
+    enabled = Column(Boolean, nullable=False, default=True, server_default=_sa_text("true"))
+
+    # ── Cache L2 dedicado (Redis) ────────────────────────────────────────────
+    #: Vazio ⇒ enriquecimento REMOTO desligado (fail-closed preservado).
+    redis_host = Column(String, nullable=True)
+    redis_port = Column(Integer, nullable=False, default=6379)
+    redis_db = Column(Integer, nullable=False, default=0)
+    redis_use_tls = Column(Boolean, nullable=False, default=False, server_default=_sa_text("false"))
+    #: Ciphertext de ``core.secrets``. JAMAIS o texto claro.
+    redis_secret_ref = Column(String, nullable=True)
+
+    # ── Orçamentos de resolução remota ───────────────────────────────────────
+    #: Em MILISSEGUNDOS na UI e no banco; o runtime consome em segundos. Guardar
+    #: inteiro evita o float com casas que aparecia no formulário.
+    remote_batch_budget_ms = Column(Integer, nullable=False, default=300)
+    cycle_budget_ms = Column(Integer, nullable=False, default=30_000)
+    l1_max_entries = Column(Integer, nullable=False, default=10_000)
+    singleflight_wait_ms = Column(Integer, nullable=False, default=50)
+
+    # ── Circuit breaker por (org, fonte) ─────────────────────────────────────
+    breaker_failure_threshold = Column(Integer, nullable=False, default=3)
+    breaker_window_s = Column(Integer, nullable=False, default=600)
+    breaker_cooldown_s = Column(Integer, nullable=False, default=120)
+    breaker_max_cooldown_s = Column(Integer, nullable=False, default=1920)
+
+    # ── Tabelas do cliente (memória por FORK) ────────────────────────────────
+    max_table_bytes = Column(Integer, nullable=False, default=32 * 1024 * 1024)
+    lru_bytes = Column(Integer, nullable=False, default=64 * 1024 * 1024)
+
+    #: ``auth.persistable_user_id()`` — nunca o id cru de service account, que é
+    #: negativo e inexistente em ``app_users`` (FK violation + audit perdido).
+    updated_by_user_id = Column(
+        Integer, ForeignKey("app_users.id", ondelete="SET NULL"), nullable=True
+    )
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(
+        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
+    )

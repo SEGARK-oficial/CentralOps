@@ -135,6 +135,12 @@ class SourceRead(BaseModel):
     enabled: bool = True
     #: Filhas que usam a fonte (sem a dona). Editável depois da criação.
     shared_organization_ids: List[int] = Field(default_factory=list)
+    #: Veredito da última sondagem. ``None`` em ``last_test_at`` significa NUNCA
+    #: TESTADA, que é diferente de "testada e falhou" — a UI mostra as duas
+    #: coisas de formas distintas porque a ação do operador é outra.
+    last_test_at: Optional[Any] = None
+    last_test_ok: Optional[bool] = None
+    last_test_message: Optional[str] = None
 
 
 class SourceTestResult(BaseModel):
@@ -205,6 +211,11 @@ class PolicyRead(BaseModel):
     #: o que o operador pediu; ``is_active`` diz o que acontece. Divergem só em
     #: dado legado com duas habilitadas — o enable agora recusa a segunda.
     is_active: bool = False
+    #: Modelo da matriz (Enterprise). Ver ``EnrichmentPolicy.is_template``.
+    is_template: bool = False
+    #: Versão do modelo que originou a versão VIGENTE desta política, quando ela
+    #: veio de uma aplicação. A UI usa para dizer "herdada, e desta versão".
+    derived_from_version_id: Optional[str] = None
 
 
 class PolicyVersionCommit(BaseModel):
@@ -411,6 +422,9 @@ def _source_read(db: Session, row: Any) -> SourceRead:
         secret_configured=bool(row.secret_ref),
         enabled=bool(row.enabled),
         shared_organization_ids=sorted(shared),
+        last_test_at=getattr(row, "last_test_at", None),
+        last_test_ok=getattr(row, "last_test_ok", None),
+        last_test_message=getattr(row, "last_test_message", None),
     )
 
 
@@ -602,22 +616,78 @@ def test_source(
     (401, DNS, TLS, schema GraphQL divergente) fica no log do worker, longe de
     quem cadastrou a credencial.
 
-    Roda em modo REDUZIDO: uma página, poucos registros. Não persiste nada e não
-    toca em tráfego real, então é seguro apertar o botão quantas vezes quiser.
+    Roda em modo REDUZIDO: uma página, poucos registros. Não toca em tráfego
+    real, então é seguro apertar o botão quantas vezes quiser.
+
+    **Persiste o VEREDITO** (nunca a credencial) em ``last_test_*``. Sem isso,
+    "testar" seria um gesto efêmero: a lista de fontes não teria como distinguir
+    uma fonte nunca testada de uma que falhou, que são situações com ações
+    opostas. A gravação acontece em TODOS os caminhos de saída — por isso a
+    sondagem vive numa função interna e o handler grava o que ela devolveu; um
+    ``return`` novo no meio do corpo, no formato anterior, sairia sem gravar e
+    ninguém notaria.
     """
-    import asyncio
-    import time
-
     row = _assert_visible(db.get(models.EnrichmentSource, source_id), user, "source")
-    try:
-        reg = enrich_registry.require(row.enricher)
-    except Exception as exc:  # noqa: BLE001
-        return SourceTestResult(ok=False, message=f"enricher {row.enricher!r} não existe: {exc}")
+    result = _probe_source(row)
+    _record_source_test(db, row, result)
+    return result
 
+
+def _record_source_test(
+    db: Session, row: models.EnrichmentSource, result: SourceTestResult
+) -> None:
+    """Grava o veredito da sondagem. Best-effort: o resultado importa mais."""
+    from datetime import datetime as _dt
+
+    try:
+        row.last_test_at = _dt.utcnow()
+        row.last_test_ok = bool(result.ok)
+        # Truncada: a mensagem do provedor pode vir com um corpo inteiro de erro,
+        # e isto é lido numa célula de tabela.
+        row.last_test_message = (result.message or "")[:500] or None
+        db.commit()
+    except Exception:  # noqa: BLE001 — defensivo
+        logger.debug("enrich: falha ao gravar resultado do teste", exc_info=True)
+        db.rollback()
+
+
+def _probe_source(row: models.EnrichmentSource) -> SourceTestResult:
+    """Sonda uma fonte JÁ GRAVADA, com a credencial que está no banco."""
     try:
         cfg = json.loads(row.config or "{}")
     except Exception as exc:  # noqa: BLE001
         return SourceTestResult(ok=False, message=f"config não é JSON válido: {exc}")
+    return _probe(
+        enricher=str(row.enricher),
+        cfg=cfg,
+        secret_ref=row.secret_ref,
+        organization_id=int(row.organization_id),
+    )
+
+
+def _probe(
+    *,
+    enricher: str,
+    cfg: Dict[str, Any],
+    secret_ref: Optional[str],
+    organization_id: int,
+) -> SourceTestResult:
+    """A sondagem em si. Sem I/O de banco — só devolve o veredito.
+
+    Recebe o ``secret_ref`` (ciphertext) em vez da linha porque o mesmo caminho
+    serve à sonda de RASCUNHO, em que a credencial acabou de ser digitada e
+    ainda não existe linha nenhuma. Cifrar o rascunho em memória, em vez de
+    passar o texto claro adiante, mantém uma única forma de segredo circulando
+    no servidor — o enricher recebe sempre um ciphertext e decifra do mesmo
+    jeito, esteja ele salvo ou não.
+    """
+    import asyncio
+    import time
+
+    try:
+        reg = enrich_registry.require(enricher)
+    except Exception as exc:  # noqa: BLE001
+        return SourceTestResult(ok=False, message=f"enricher {enricher!r} não existe: {exc}")
 
     # Sondagem barata: 1 página curta. Sem isto, "testar" numa instância grande
     # baixaria a base inteira e o botão viraria um DoS contra o próprio cliente.
@@ -626,9 +696,9 @@ def test_source(
     probe_cfg["max_pages"] = 1
 
     ctx = EnrichContext(
-        organization_id=int(row.organization_id),
+        organization_id=int(organization_id),
         config=probe_cfg,
-        secret_ref=row.secret_ref,
+        secret_ref=secret_ref,
     )
     started = time.monotonic()
     try:
@@ -667,6 +737,69 @@ def test_source(
             message=f"{type(exc).__name__}: {exc}",
             elapsed_ms=(time.monotonic() - started) * 1000.0,
         )
+
+
+class SourceTestDraftRequest(BaseModel):
+    """Sonda uma fonte que AINDA NÃO EXISTE, com o que está no formulário.
+
+    Sem isto, o único jeito de descobrir que a chave está errada era salvar,
+    esperar o ciclo e ler a aba de Execução — ou seja, o operador só sabia que
+    errou depois de a credencial já estar gravada e a política já publicada.
+    """
+
+    enricher: str = Field(..., min_length=1, max_length=120)
+    organization_id: Optional[int] = None
+    config: Dict[str, Any] = Field(default_factory=dict)
+    #: Texto claro, usado UMA vez e nunca persistido. ``None`` com
+    #: ``source_id`` preenchido reaproveita a credencial já gravada, para o
+    #: operador testar sem redigitar.
+    secret: Optional[str] = Field(None, max_length=8192)
+    #: Quando informado, a credencial gravada nesta fonte é usada como fallback.
+    source_id: Optional[str] = None
+
+
+@router.post("/sources/test-draft", response_model=SourceTestResult)
+def test_source_draft(
+    payload: SourceTestDraftRequest,
+    user: models.AppUser = Depends(app_auth.require_admin_user),
+    db: Session = Depends(_db),
+) -> SourceTestResult:
+    """Testa ANTES de salvar. Não grava nada — nem a fonte, nem o veredito.
+
+    O veredito não é persistido de propósito: ``last_test_*`` descreve o estado
+    de uma fonte que existe, e um rascunho não tem estado a descrever. Gravar
+    aqui faria a lista mostrar "testada com sucesso" para uma configuração que
+    o operador abandonou sem salvar.
+    """
+    org_id = _resolve_target_org(user, payload.organization_id)
+
+    secret_ref: Optional[str] = None
+    if payload.secret:
+        # Cifra o rascunho em memória: o caminho de sondagem recebe sempre um
+        # ciphertext, esteja a fonte salva ou não. Nada é gravado.
+        secret_ref = _encrypt_secret(payload.secret)
+    elif payload.source_id:
+        row = _assert_visible(
+            db.get(models.EnrichmentSource, payload.source_id), user, "source"
+        )
+        secret_ref = row.secret_ref
+
+    reg = enrich_registry.get(payload.enricher)
+    if reg is not None and getattr(reg, "required_secrets", ()) and not secret_ref:
+        return SourceTestResult(
+            ok=False,
+            message=(
+                f"Este enricher exige credencial ({', '.join(reg.required_secrets)}). "
+                "Preencha antes de testar."
+            ),
+        )
+
+    return _probe(
+        enricher=payload.enricher,
+        cfg=dict(payload.config or {}),
+        secret_ref=secret_ref,
+        organization_id=org_id,
+    )
 
 
 @router.delete("/sources/{source_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -930,6 +1063,57 @@ def commit_table_version(
     )
 
 
+@router.get("/tables/{table_id}/versions/{version_id}")
+def get_table_version(
+    table_id: str,
+    version_id: str,
+    user: models.AppUser = Depends(app_auth.require_admin_user),
+    db: Session = Depends(_db),
+) -> Dict[str, Any]:
+    """Conteúdo CRU de uma versão de tabela.
+
+    Irmão de ``get_policy_version`` e existe pela mesma razão: a listagem de
+    versões devolve metadado (contagem, bytes, autor), não o corpo. Sem o corpo,
+    a importação não consegue diferenciar o arquivo novo contra o que está
+    valendo — e publicar SUBSTITUI a versão inteira, então o operador não teria
+    como perceber que exportou o arquivo errado antes de as chaves sumirem.
+
+    O filtro por ``table_id`` além do id da versão não é redundante: sem ele o
+    id da versão viraria IDOR entre tabelas, e portanto entre organizações, já
+    que a visibilidade foi checada na TABELA.
+    """
+    table = _assert_visible(db.get(models.EnrichmentTable, table_id), user, "table")
+    version = (
+        db.query(models.EnrichmentTableVersion)
+        .filter(
+            models.EnrichmentTableVersion.id == version_id,
+            models.EnrichmentTableVersion.table_id == table.id,
+        )
+        .first()
+    )
+    if version is None:
+        raise ApiError(
+            "enrichment.version_not_found",
+            status.HTTP_404_NOT_FOUND,
+            messages={
+                "pt": "Versão não encontrada nesta tabela.",
+                "en": "Version not found in this table.",
+                "es": "Versión no encontrada en esta tabla.",
+            },
+        )
+    try:
+        rows = json.loads(version.rows or "{}")
+    except Exception:  # noqa: BLE001 — corpo corrompido não derruba a tela
+        rows = {}
+    return {
+        "id": version.id,
+        "version_number": version.version_number,
+        "entry_count": version.entry_count,
+        "approx_bytes": version.approx_bytes,
+        "rows": rows,
+    }
+
+
 @router.post("/tables/{table_id}/rollback", response_model=TableRead)
 def rollback_table(
     table_id: str,
@@ -981,6 +1165,7 @@ def _active_policy_id(db: Session, org_id: int) -> Optional[str]:
 
 def _policy_read(db: Session, row: models.EnrichmentPolicy) -> PolicyRead:
     rule_count = 0
+    derived_from: Optional[str] = None
     if row.current_version_id:
         v = (
             db.query(models.EnrichmentPolicyVersion)
@@ -988,6 +1173,7 @@ def _policy_read(db: Session, row: models.EnrichmentPolicy) -> PolicyRead:
             .first()
         )
         if v is not None:
+            derived_from = getattr(v, "derived_from_version_id", None)
             try:
                 doc = json.loads(v.rules or "{}")
                 rules = doc.get("enrichment", doc) if isinstance(doc, dict) else doc
@@ -1002,6 +1188,8 @@ def _policy_read(db: Session, row: models.EnrichmentPolicy) -> PolicyRead:
         enabled=bool(row.enabled),
         current_version_id=row.current_version_id,
         rule_count=rule_count,
+        is_template=bool(getattr(row, "is_template", False)),
+        derived_from_version_id=derived_from,
         is_active=bool(row.enabled) and _active_policy_id(db, int(row.organization_id)) == str(row.id),
     )
 
@@ -1431,6 +1619,10 @@ def _rules_of_org(db: Session, org_id: int) -> Tuple[Optional[str], List[Dict[st
             "rule_id": rule.rule_id,
             "enricher": rule.enricher,
             "source": getattr(rule, "source", None),
+            # ``table`` entra porque a prontidão precisa saber QUAIS tabelas as
+            # regras vigentes citam: tabela citada e sem versão publicada faz a
+            # carga falhar a cada ciclo, sem erro visível na tela.
+            "table": getattr(rule, "table", None),
         }
         for rule in compiled.rules
     ]
@@ -1613,3 +1805,1038 @@ def list_key_sources(
         from_active_mappings=False,
         suggestions=[KeySourceSuggestion(path=p) for p in _COMMON_OCSF_KEY_PATHS],
     )
+
+
+# ── prontidão ───────────────────────────────────────────────────────────────
+
+
+def _tr(pt: str, en: str, es: str, **params: Any) -> str:
+    """Texto no idioma DA REQUISIÇÃO.
+
+    A prontidão devolve frases prontas, não códigos: elas descrevem estado
+    computado no servidor (quais fontes falharam, com que mensagem do provedor)
+    e montar isso no cliente exigiria replicar a lógica em TypeScript, onde ela
+    sairia de sincronia na primeira mudança.
+
+    Devolver português fixo, porém, é o defeito que este helper corrige: a
+    interface tem três idiomas e um operador em inglês via metade da tela em
+    português. ``get_locale`` já é populado por ``Accept-Language`` em toda
+    requisição, e é o mesmo mecanismo que ``ApiError`` usa.
+    """
+    from ..core.request_locale import get_locale
+
+    texto = {"pt": pt, "en": en, "es": es}.get(get_locale(), pt)
+    if not params:
+        return texto
+    try:
+        return texto.format(**params)
+    except (KeyError, IndexError, ValueError):
+        # Um `{}` a mais numa das três traduções derrubaria a tela INTEIRA com
+        # 500, e por um defeito de texto. Devolver o template cru é feio e
+        # legível; virar erro não é nem uma coisa nem outra.
+        logger.warning(
+            "enrich: texto de prontidão com placeholder inconsistente: %r", texto
+        )
+        return texto
+
+
+class ReadinessAction(BaseModel):
+    """Para onde a UI manda quem quer resolver o passo.
+
+    ``scope="global"`` marca o que um admin DE ORG não consegue resolver
+    sozinho. Sem isso a tela mandaria o operador a uma página que ele não pode
+    abrir, que é pior que não sugerir nada.
+    """
+
+    label: str
+    route: str
+    scope: str = "org"  # "org" | "global"
+
+
+class ReadinessStep(BaseModel):
+    key: str
+    #: "ok" | "warning" | "blocked" | "not_applicable"
+    status: str
+    title: str
+    detail: str
+    blocking: bool = False
+    action: Optional[ReadinessAction] = None
+
+
+class ReadinessResponse(BaseModel):
+    organization_id: int
+    #: ``True`` quando nenhum passo bloqueia. É o que a UI usa no cabeçalho.
+    ready: bool
+    steps: List[ReadinessStep]
+    #: Nome da política que o worker DE FATO aplica, ou ``None``.
+    active_policy_name: Optional[str] = None
+
+
+def _readiness_uses_remote(db: Session, org_id: int) -> Tuple[bool, List[str]]:
+    """``(usa enricher remoto?, nomes dos enrichers remotos citados)``.
+
+    Olha as REGRAS da política vigente, não o catálogo. É a diferença entre
+    dizer a verdade e alarmar sem motivo: uma organização que só usa tabelas do
+    cliente não é afetada pelo cache L2 estar ausente, e avisá-la disso
+    ensinaria o operador a ignorar o aviso — que é como um alerta útil morre.
+    """
+    _name, rules = _rules_of_org(db, org_id)
+    remotes: List[str] = []
+    for meta in rules:
+        try:
+            reg = enrich_registry.get(meta["enricher"])
+        except Exception:  # noqa: BLE001 — defensivo
+            reg = None
+        if reg is not None and getattr(getattr(reg, "caps", None), "mode", "") == "remote":
+            remotes.append(meta["enricher"])
+    return bool(remotes), sorted(set(remotes))
+
+
+@router.get("/readiness", response_model=ReadinessResponse)
+def enrichment_readiness(
+    organization_id: Optional[int] = Query(default=None),
+    user: models.AppUser = Depends(app_auth.require_admin_user),
+    db: Session = Depends(_db),
+) -> ReadinessResponse:
+    """"Está funcionando aqui, e o que falta?" — em quatro passos com ação.
+
+    É a resposta ao chamado nº 1 de suporte desta feature ("liguei e não faz
+    nada"), que hoje exige percorrer três abas e cruzar informação de duas
+    delas. Cada passo devolve o VEREDITO, o motivo em texto e para onde ir.
+
+    Nenhum passo aqui é um alerta genérico: um problema só aparece quando ele
+    de fato afeta ESTA organização. O cache L2 ausente, por exemplo, é silêncio
+    para quem só usa tabelas do cliente.
+    """
+    from ..collectors.enrich.config_loader import load_from_db_session as _load_cfg
+
+    org_id = _resolve_target_org(user, organization_id)
+    steps: List[ReadinessStep] = []
+
+    # ── 1. Política em vigor ────────────────────────────────────────────────
+    #
+    # Primeiro passo de propósito: sem política habilitada COM versão, nada mais
+    # importa, e os outros passos seriam ruído.
+    active_name, active_rules = _rules_of_org(db, org_id)
+    policies = (
+        db.query(models.EnrichmentPolicy)
+        .filter(models.EnrichmentPolicy.organization_id == org_id)
+        .order_by(models.EnrichmentPolicy.created_at.asc())
+        .all()
+    )
+    enabled_policies = [p for p in policies if p.enabled]
+
+    if not policies:
+        steps.append(
+            ReadinessStep(
+                key="policy",
+                status="blocked",
+                title=_tr("Política de enriquecimento", "Enrichment policy", "Política de enriquecimiento"),
+                detail=_tr(
+                    "Nenhuma política criada. A política é o que diz quais regras "
+                    "rodam e onde o resultado é escrito.",
+                    "No policy created. The policy is what says which rules run "
+                    "and where the result is written.",
+                    "Ninguna política creada. La política dice qué reglas se "
+                    "ejecutan y dónde se escribe el resultado.",
+                ),
+                blocking=True,
+                action=ReadinessAction(label=_tr("Criar política", "Create policy", "Crear política"), route="/enrichment?tab=policies"),
+            )
+        )
+    elif not enabled_policies:
+        steps.append(
+            ReadinessStep(
+                key="policy",
+                status="blocked",
+                title=_tr("Política de enriquecimento", "Enrichment policy", "Política de enriquecimiento"),
+                detail=_tr(
+                    "{n} política(s) criada(s), nenhuma habilitada. Criar não "
+                    "habilita: publicar uma versão e habilitar são passos distintos.",
+                    "{n} policy(ies) created, none enabled. Creating does not "
+                    "enable: publishing a version and enabling are separate steps.",
+                    "{n} política(s) creada(s), ninguna habilitada. Crear no "
+                    "habilita: publicar una versión y habilitar son pasos distintos.",
+                    n=len(policies),
+                ),
+                blocking=True,
+                action=ReadinessAction(label=_tr("Abrir políticas", "Open policies", "Abrir políticas"), route="/enrichment?tab=policies"),
+            )
+        )
+    elif not active_rules:
+        steps.append(
+            ReadinessStep(
+                key="policy",
+                status="blocked",
+                title=_tr("Política de enriquecimento", "Enrichment policy", "Política de enriquecimiento"),
+                detail=_tr(
+                    "A política {name} está habilitada mas não tem versão "
+                    "publicada com regras. Habilitada sem versão, a coleta segue "
+                    "adiante em silêncio.",
+                    "Policy {name} is enabled but has no published version with "
+                    "rules. Enabled without a version, collection carries on in "
+                    "silence.",
+                    "La política {name} está habilitada pero no tiene versión "
+                    "publicada con reglas. Habilitada sin versión, la recolección "
+                    "sigue en silencio.",
+                    name=enabled_policies[0].name,
+                ),
+                blocking=True,
+                action=ReadinessAction(label=_tr("Publicar versão", "Publish a version", "Publicar versión"), route="/enrichment?tab=policies"),
+            )
+        )
+    else:
+        extra = ""
+        if len(enabled_policies) > 1:
+            # Só a mais antiga vale. É a regra menos óbvia da feature e a causa
+            # clássica do "editei e não mudou nada".
+            outras = ", ".join(p.name for p in enabled_policies[1:])
+            extra = _tr(
+                " Atenção: {outras} também está(ão) habilitada(s) e NÃO é(são) "
+                "aplicada(s) — vale uma por organização, a mais antiga.",
+                " Note: {outras} is/are also enabled and is/are NOT applied — one "
+                "policy per organization applies, the oldest one.",
+                " Atención: {outras} también está(n) habilitada(s) y NO se "
+                "aplica(n) — vale una por organización, la más antigua.",
+                outras=outras,
+            )
+        steps.append(
+            ReadinessStep(
+                key="policy",
+                status="warning" if extra else "ok",
+                title=_tr("Política em vigor", "Policy in effect", "Política vigente"),
+                detail=_tr(
+                    "{name} · {n} regra(s).", "{name} · {n} rule(s).",
+                    "{name} · {n} regla(s).", name=active_name, n=len(active_rules),
+                )
+                + extra,
+                action=ReadinessAction(label=_tr("Abrir editor", "Open editor", "Abrir editor"), route="/enrichment?tab=policies"),
+            )
+        )
+
+    # ── 2. Cache L2 ─────────────────────────────────────────────────────────
+    cfg = _load_cfg(db)
+    uses_remote, remote_names = _readiness_uses_remote(db, org_id)
+    if not cfg.enabled:
+        steps.append(
+            ReadinessStep(
+                key="subsystem",
+                status="blocked",
+                title=_tr("Subsistema de enriquecimento", "Enrichment subsystem", "Subsistema de enriquecimiento"),
+                detail=_tr(
+                    "Desligado na instalação inteira. Nenhuma política roda, em "
+                    "nenhuma organização.",
+                    "Off for the whole installation. No policy runs, in any "
+                    "organization.",
+                    "Apagado en toda la instalación. Ninguna política se ejecuta, "
+                    "en ninguna organización.",
+                ),
+                blocking=True,
+                action=ReadinessAction(
+                    label=_tr(
+                        "Configuração › Enriquecimento",
+                        "Settings › Enrichment",
+                        "Configuración › Enriquecimiento",
+                    ),
+                    route="/config?tab=enrichment",
+                    scope="global",
+                ),
+            )
+        )
+    if not cfg.redis_configured and uses_remote:
+        steps.append(
+            ReadinessStep(
+                key="cache_l2",
+                status="blocked",
+                title=_tr("Cache dedicado (Redis)", "Dedicated cache (Redis)", "Caché dedicada (Redis)"),
+                detail=_tr(
+                    "Não configurado, e esta organização usa {names} — que "
+                    "resolve(m) por lote e não roda(m) sem ele. É ajuste de "
+                    "administrador global.",
+                    "Not configured, and this organization uses {names} — which "
+                    "resolve in batch and do not run without it. This is a global "
+                    "administrator setting.",
+                    "No configurado, y esta organización usa {names} — que "
+                    "resuelve(n) por lote y no funciona(n) sin él. Es un ajuste de "
+                    "administrador global.",
+                    names=", ".join(remote_names),
+                ),
+                blocking=True,
+                action=ReadinessAction(
+                    label=_tr(
+                        "Configuração › Enriquecimento",
+                        "Settings › Enrichment",
+                        "Configuración › Enriquecimiento",
+                    ),
+                    route="/config?tab=enrichment",
+                    scope="global",
+                ),
+            )
+        )
+    elif not cfg.redis_configured:
+        steps.append(
+            ReadinessStep(
+                key="cache_l2",
+                status="not_applicable",
+                title=_tr("Cache dedicado (Redis)", "Dedicated cache (Redis)", "Caché dedicada (Redis)"),
+                detail=_tr(
+                    "Não configurado, e nenhuma regra desta organização usa fonte "
+                    "por lote. Nada aqui está parado por causa disso.",
+                    "Not configured, and no rule in this organization uses a batch "
+                    "source. Nothing here is stopped because of it.",
+                    "No configurado, y ninguna regla de esta organización usa una "
+                    "fuente por lote. Nada aquí está detenido por eso.",
+                ),
+            )
+        )
+    else:
+        steps.append(
+            ReadinessStep(
+                key="cache_l2",
+                status="ok",
+                title=_tr("Cache dedicado (Redis)", "Dedicated cache (Redis)", "Caché dedicada (Redis)"),
+                detail=_tr(
+                    "Configurado em {url}.", "Configured at {url}.",
+                    "Configurada en {url}.", url=cfg.redis_url_masked() or "",
+                ),
+            )
+        )
+
+    # ── 3. Fontes ───────────────────────────────────────────────────────────
+    #
+    # Só as fontes que as REGRAS citam. Uma fonte cadastrada e não usada não é
+    # problema de ninguém.
+    cited = {meta["source"] for meta in active_rules if meta.get("source")}
+    sources = (
+        db.query(models.EnrichmentSource)
+        .filter(models.EnrichmentSource.organization_id == org_id)
+        .all()
+    )
+    by_name = {s.name: s for s in sources}
+    faltando = sorted(n for n in cited if n not in by_name)
+    sem_credencial = sorted(
+        n for n in cited if n in by_name and not by_name[n].secret_ref
+    )
+    nunca_testada = sorted(
+        n for n in cited if n in by_name and by_name[n].last_test_at is None
+    )
+    falhando = sorted(
+        n for n in cited if n in by_name and by_name[n].last_test_ok is False
+    )
+    desabilitada = sorted(
+        n for n in cited if n in by_name and not by_name[n].enabled
+    )
+
+    if not cited:
+        steps.append(
+            ReadinessStep(
+                key="sources",
+                status="not_applicable",
+                title=_tr("Fontes configuradas", "Configured sources", "Fuentes configuradas"),
+                detail=_tr(
+                    "Nenhuma regra desta organização cita fonte com credencial. "
+                    "{n} fonte(s) cadastrada(s).",
+                    "No rule in this organization references a source with "
+                    "credentials. {n} source(s) registered.",
+                    "Ninguna regla de esta organización cita una fuente con "
+                    "credencial. {n} fuente(s) registrada(s).",
+                    n=len(sources),
+                ),
+            )
+        )
+    elif faltando or sem_credencial or desabilitada:
+        problemas = []
+        if faltando:
+            problemas.append(_tr("não cadastrada(s): {n}", "not registered: {n}", "no registrada(s): {n}", n=", ".join(faltando)))
+        if sem_credencial:
+            problemas.append(_tr("sem credencial: {n}", "no credential: {n}", "sin credencial: {n}", n=", ".join(sem_credencial)))
+        if desabilitada:
+            problemas.append(_tr("desabilitada(s): {n}", "disabled: {n}", "deshabilitada(s): {n}", n=", ".join(desabilitada)))
+        steps.append(
+            ReadinessStep(
+                key="sources",
+                status="blocked",
+                title=_tr("Fontes configuradas", "Configured sources", "Fuentes configuradas"),
+                detail="; ".join(problemas) + ".",
+                blocking=True,
+                action=ReadinessAction(label=_tr("Abrir fontes", "Open sources", "Abrir fuentes"), route="/enrichment?tab=sources"),
+            )
+        )
+    elif falhando or nunca_testada:
+        problemas = []
+        if falhando:
+            # A mensagem do provedor é o que permite agir sem abrir log.
+            detalhes = "; ".join(
+                f"{n}: {(by_name[n].last_test_message or '')[:120]}" for n in falhando
+            )
+            problemas.append(_tr("último teste falhou — {d}", "last test failed — {d}", "la última prueba falló — {d}", d=detalhes))
+        if nunca_testada:
+            problemas.append(_tr("nunca testada(s): {n}", "never tested: {n}", "nunca probada(s): {n}", n=", ".join(nunca_testada)))
+        steps.append(
+            ReadinessStep(
+                key="sources",
+                status="warning",
+                title=_tr("Fontes configuradas", "Configured sources", "Fuentes configuradas"),
+                detail="; ".join(problemas) + ".",
+                action=ReadinessAction(label=_tr("Abrir fontes", "Open sources", "Abrir fuentes"), route="/enrichment?tab=sources"),
+            )
+        )
+    else:
+        steps.append(
+            ReadinessStep(
+                key="sources",
+                status="ok",
+                title=_tr("Fontes configuradas", "Configured sources", "Fuentes configuradas"),
+                detail=_tr(
+                    "{n} fonte(s) em uso, todas testadas com sucesso.",
+                    "{n} source(s) in use, all tested successfully.",
+                    "{n} fuente(s) en uso, todas probadas con éxito.",
+                    n=len(cited),
+                ),
+            )
+        )
+
+    # ── 4. Tabelas ──────────────────────────────────────────────────────────
+    #
+    # Tabela citada por regra e SEM versão publicada é o caso de suporte nº 2: a
+    # carga falha a cada ciclo e o evento sai sem contexto, sem erro visível.
+    tabelas_citadas = {meta.get("table") for meta in active_rules if meta.get("table")}
+    tables = (
+        db.query(models.EnrichmentTable)
+        .filter(models.EnrichmentTable.organization_id == org_id)
+        .all()
+    )
+    tbl_by_name = {t.name: t for t in tables}
+    tbl_faltando = sorted(n for n in tabelas_citadas if n not in tbl_by_name)
+    tbl_sem_versao = sorted(
+        n
+        for n in tabelas_citadas
+        if n in tbl_by_name and not tbl_by_name[n].current_version_id
+    )
+
+    if not tabelas_citadas:
+        steps.append(
+            ReadinessStep(
+                key="tables",
+                status="not_applicable",
+                title=_tr("Tabelas do cliente", "Customer tables", "Tablas del cliente"),
+                detail=_tr(
+                    "Nenhuma regra desta organização usa tabela. {n} tabela(s) "
+                    "cadastrada(s).",
+                    "No rule in this organization uses a table. {n} table(s) "
+                    "registered.",
+                    "Ninguna regla de esta organización usa tabla. {n} tabla(s) "
+                    "registrada(s).",
+                    n=len(tables),
+                ),
+            )
+        )
+    elif tbl_faltando or tbl_sem_versao:
+        problemas = []
+        if tbl_faltando:
+            problemas.append(_tr("não cadastrada(s): {n}", "not registered: {n}", "no registrada(s): {n}", n=", ".join(tbl_faltando)))
+        if tbl_sem_versao:
+            problemas.append(_tr("sem versão publicada: {n}", "no published version: {n}", "sin versión publicada: {n}", n=", ".join(tbl_sem_versao)))
+        steps.append(
+            ReadinessStep(
+                key="tables",
+                status="blocked",
+                title=_tr("Tabelas do cliente", "Customer tables", "Tablas del cliente"),
+                detail="; ".join(problemas) + ".",
+                blocking=True,
+                action=ReadinessAction(label=_tr("Abrir tabelas", "Open tables", "Abrir tablas"), route="/enrichment?tab=tables"),
+            )
+        )
+    else:
+        total = sum(
+            1 for n in tabelas_citadas if tbl_by_name[n].current_version_id
+        )
+        steps.append(
+            ReadinessStep(
+                key="tables",
+                status="ok",
+                title=_tr("Tabelas do cliente", "Customer tables", "Tablas del cliente"),
+                detail=_tr(
+                    "{n} tabela(s) em uso, todas com versão publicada.",
+                    "{n} table(s) in use, all with a published version.",
+                    "{n} tabla(s) en uso, todas con versión publicada.",
+                    n=total,
+                ),
+            )
+        )
+
+    return ReadinessResponse(
+        organization_id=org_id,
+        ready=not any(s.blocking for s in steps),
+        steps=steps,
+        active_policy_name=active_name,
+    )
+
+
+# ── duplicar política para outra organização ────────────────────────────────
+
+
+class PolicyDuplicateRequest(BaseModel):
+    """Copia as regras de uma política para OUTRA organização.
+
+    Não é "compartilhar": cada organização fica com a própria política, com
+    versionamento e rollback próprios. É a versão manual — e disponível na
+    edição Community — do mecanismo que a matriz usa para aplicar um modelo às
+    filhas, e funciona pela mesma razão estrutural: a regra cita tabela e fonte
+    **por nome**, nunca por id, então o mesmo documento vale em qualquer
+    organização que tenha os nomes correspondentes.
+    """
+
+    target_organization_id: int
+    #: Vazio ⇒ mesmo nome da origem. Único por organização, então duplicar para
+    #: uma org que já tem uma política com esse nome exige outro.
+    name: Optional[str] = Field(None, max_length=120)
+    commit_message: str = Field("duplicada de outra organização", max_length=500)
+
+
+class PolicyDuplicatePreflight(BaseModel):
+    """O que falta na organização de destino para as regras funcionarem lá."""
+
+    target_organization_id: int
+    #: ``True`` quando nada impede a duplicação.
+    ok: bool
+    missing_tables: List[str] = Field(default_factory=list)
+    missing_sources: List[str] = Field(default_factory=list)
+    #: Tabelas que existem no destino mas ainda não têm versão publicada. Não
+    #: bloqueia a cópia — bloqueia o funcionamento, e por isso vira aviso.
+    tables_without_version: List[str] = Field(default_factory=list)
+    name_conflict: bool = False
+
+
+def _duplicate_preflight(
+    db: Session, compiled, target_org: int, name: str
+) -> PolicyDuplicatePreflight:
+    """Checa os pré-requisitos POR NOME na organização de destino.
+
+    Roda antes de copiar porque o modo de falha, se não rodasse, seria mudo: a
+    política nasceria válida no destino e a carga da tabela falharia a cada
+    ciclo, num log de worker que ninguém lê.
+    """
+    missing_tables = sorted(_missing_tables(db, target_org, compiled))
+
+    referenced_sources = {r.source for r in compiled.rules if getattr(r, "source", None)}
+    existing_sources = {
+        str(s.name)
+        for s in db.query(models.EnrichmentSource)
+        .filter(
+            models.EnrichmentSource.organization_id == target_org,
+            models.EnrichmentSource.name.in_(list(referenced_sources) or [""]),
+        )
+        .all()
+    }
+    # Uma fonte compartilhada PELA MATRIZ também atende a filha; ignorar isso
+    # marcaria como faltante uma credencial que de fato está disponível lá.
+    shared_sources = {
+        str(s.name)
+        for s in db.query(models.EnrichmentSource)
+        .join(
+            models.EnrichmentSourceOrg,
+            models.EnrichmentSourceOrg.source_id == models.EnrichmentSource.id,
+        )
+        .filter(
+            models.EnrichmentSourceOrg.organization_id == target_org,
+            models.EnrichmentSource.name.in_(list(referenced_sources) or [""]),
+        )
+        .all()
+    }
+    missing_sources = sorted(referenced_sources - existing_sources - shared_sources)
+
+    referenced_tables = {r.table for r in compiled.rules if r.table}
+    sem_versao = sorted(
+        str(t.name)
+        for t in db.query(models.EnrichmentTable)
+        .filter(
+            models.EnrichmentTable.organization_id == target_org,
+            models.EnrichmentTable.name.in_(list(referenced_tables) or [""]),
+        )
+        .all()
+        if not t.current_version_id
+    )
+
+    conflict = (
+        db.query(models.EnrichmentPolicy)
+        .filter(
+            models.EnrichmentPolicy.organization_id == target_org,
+            models.EnrichmentPolicy.name == name,
+        )
+        .first()
+        is not None
+    )
+
+    return PolicyDuplicatePreflight(
+        target_organization_id=target_org,
+        ok=not (missing_tables or missing_sources or conflict),
+        missing_tables=missing_tables,
+        missing_sources=missing_sources,
+        tables_without_version=sem_versao,
+        name_conflict=conflict,
+    )
+
+
+def _policy_current_rules(db: Session, policy: models.EnrichmentPolicy):
+    """``(documento, compilado)`` da versão vigente. 422 se não houver."""
+    if not policy.current_version_id:
+        raise _bad_request(
+            "enrichment.policy_without_version",
+            "esta política não tem versão publicada para copiar",
+        )
+    version = (
+        db.query(models.EnrichmentPolicyVersion)
+        .filter(models.EnrichmentPolicyVersion.id == policy.current_version_id)
+        .first()
+    )
+    if version is None:
+        raise _bad_request(
+            "enrichment.policy_without_version",
+            "a versão vigente desta política não foi encontrada",
+        )
+    doc = json.loads(version.rules or "{}")
+    return doc, compile_policy(doc)
+
+
+@router.post(
+    "/policies/{policy_id}/duplicate-preflight",
+    response_model=PolicyDuplicatePreflight,
+)
+def duplicate_policy_preflight(
+    policy_id: str,
+    payload: PolicyDuplicateRequest,
+    user: models.AppUser = Depends(app_auth.require_admin_user),
+    db: Session = Depends(_db),
+) -> PolicyDuplicatePreflight:
+    """Diz o que falta ANTES de copiar. Não muda nada."""
+    row = _assert_visible(db.get(models.EnrichmentPolicy, policy_id), user, "policy")
+    # O destino também precisa ser visível: sem esta checagem, o preflight
+    # responderia sobre a configuração de uma organização que o chamador não
+    # enxerga — vazamento por mensagem de erro. ``_resolve_target_org`` é o
+    # mesmo gate que a criação usa, e recusa org fora da subárvore.
+    target_org = _resolve_target_org(user, int(payload.target_organization_id))
+    _, compiled = _policy_current_rules(db, row)
+    return _duplicate_preflight(db, compiled, target_org, (payload.name or row.name))
+
+
+@router.post(
+    "/policies/{policy_id}/duplicate",
+    response_model=PolicyRead,
+    status_code=status.HTTP_201_CREATED,
+)
+def duplicate_policy(
+    policy_id: str,
+    payload: PolicyDuplicateRequest,
+    user: models.AppUser = Depends(app_auth.require_admin_user),
+    db: Session = Depends(_db),
+) -> PolicyRead:
+    """Cria, na organização de destino, uma política DESABILITADA com as mesmas
+    regras e a primeira versão já publicada.
+
+    Desabilitada de propósito: copiar não pode colocar regra no caminho quente
+    de outro tenant sem alguém decidir isso explicitamente. Vale uma política
+    por organização, e habilitar a cópia enquanto outra já roda seria uma
+    surpresa cara.
+    """
+    row = _assert_visible(db.get(models.EnrichmentPolicy, policy_id), user, "policy")
+    target_org = _resolve_target_org(user, int(payload.target_organization_id))
+    doc, compiled = _policy_current_rules(db, row)
+    name = (payload.name or row.name).strip()
+
+    pre = _duplicate_preflight(db, compiled, target_org, name)
+    if not pre.ok:
+        problemas: List[str] = []
+        if pre.name_conflict:
+            problemas.append(f"já existe uma política chamada {name!r} no destino")
+        if pre.missing_tables:
+            problemas.append(
+                f"tabela(s) inexistente(s) no destino: {', '.join(pre.missing_tables)}"
+            )
+        if pre.missing_sources:
+            problemas.append(
+                f"fonte(s) inexistente(s) no destino: {', '.join(pre.missing_sources)}"
+            )
+        raise _bad_request("enrichment.duplicate_blocked", "; ".join(problemas))
+
+    novo = models.EnrichmentPolicy(
+        organization_id=target_org,
+        name=name,
+        description=row.description,
+        enabled=False,
+    )
+    db.add(novo)
+    db.flush()
+
+    version = models.EnrichmentPolicyVersion(
+        policy_id=novo.id,
+        version_number=1,
+        rules=json.dumps(doc, sort_keys=True, separators=(",", ":")),
+        author_user_id=app_auth.persistable_user_id(user),
+        commit_message=payload.commit_message,
+    )
+    db.add(version)
+    db.flush()
+    novo.current_version_id = version.id
+    db.commit()
+    db.refresh(novo)
+    logger.info(
+        "enrichment: política %s duplicada de org=%s para org=%s",
+        name,
+        row.organization_id,
+        target_org,
+    )
+    return _policy_read(db, novo)
+
+
+# ── modelo da matriz: aplicar às organizações filhas (Enterprise) ───────────
+#
+# O runtime NÃO muda. ``load_policy_for_org`` continua lendo a política da
+# própria organização pelo ponteiro ``current_version_id``; a herança acontece
+# por MATERIALIZAÇÃO — cada filha ganha uma versão própria, com histórico e
+# rollback próprios — e não por um segundo caminho de resolução.
+#
+# Isso não é detalhe de implementação: um caminho "se não achar na org, procure
+# na matriz" faria a política da matriz valer em qualquer tenant cuja própria
+# política falhasse ao carregar, que é exatamente o vazamento cross-tenant que
+# esta feature inteira existe para não ter.
+
+
+class TemplateApplyTarget(BaseModel):
+    """Uma organização candidata a receber o modelo."""
+
+    organization_id: int
+    organization_name: Optional[str] = None
+    #: "ready" | "blocked" | "overridden" | "up_to_date"
+    status: str
+    #: Política da filha que receberia (ou já recebeu) o modelo.
+    policy_id: Optional[str] = None
+    policy_name: Optional[str] = None
+    #: Versão do modelo que a filha já tem aplicada, se houver.
+    applied_version_id: Optional[str] = None
+    missing_tables: List[str] = Field(default_factory=list)
+    missing_sources: List[str] = Field(default_factory=list)
+    tables_without_version: List[str] = Field(default_factory=list)
+    #: Nome da política PRÓPRIA que vence o modelo, quando ``overridden``.
+    overriding_policy: Optional[str] = None
+
+
+class TemplateApplyPreflight(BaseModel):
+    template_policy_id: str
+    template_version_id: Optional[str] = None
+    targets: List[TemplateApplyTarget] = Field(default_factory=list)
+
+
+class TemplateApplyRequest(BaseModel):
+    """Aplica a versão vigente do modelo às organizações escolhidas."""
+
+    organization_ids: List[int] = Field(default_factory=list)
+    commit_message: str = Field("aplicado do modelo da matriz", max_length=500)
+
+
+class TemplateApplyResult(BaseModel):
+    applied: List[TemplateApplyTarget] = Field(default_factory=list)
+    skipped: List[TemplateApplyTarget] = Field(default_factory=list)
+
+
+def _require_multi_tenant() -> None:
+    if not edition.feature_enabled("multi_tenant"):
+        raise ApiError(
+            "enrichment.template_requires_enterprise",
+            status.HTTP_403_FORBIDDEN,
+            messages={
+                "pt": (
+                    "Aplicar um modelo de política às organizações filhas exige a "
+                    "edição Enterprise. Na Community, use 'copiar para outra "
+                    "organização', que faz o mesmo uma de cada vez."
+                ),
+                "en": (
+                    "Applying a policy template to child organizations requires the "
+                    "Enterprise edition. In Community, use 'copy to another "
+                    "organization', which does the same one at a time."
+                ),
+                "es": (
+                    "Aplicar una plantilla de política a las organizaciones filiales "
+                    "requiere la edición Enterprise. En Community, usa 'copiar a otra "
+                    "organización', que hace lo mismo una por vez."
+                ),
+            },
+        )
+
+
+def _child_org_ids(db: Session, root_org_id: int) -> List[int]:
+    """Filhas DIRETAS e indiretas da matriz, sem ela própria.
+
+    Caminha ``parent_organization_id`` em vez de ler ``org_closure``: a closure
+    é materializada pelo EE e pode estar vazia numa base que acabou de ganhar a
+    licença, e o modelo precisa funcionar no primeiro uso.
+    """
+    try:
+        rows = db.query(
+            models.Organization.id, models.Organization.parent_organization_id
+        ).all()
+    except Exception:  # pragma: no cover — defensivo
+        return []
+    children: Dict[Optional[int], List[int]] = {}
+    for org_id, parent_id in rows:
+        children.setdefault(parent_id, []).append(int(org_id))
+    out: List[int] = []
+    frontier = [int(root_org_id)]
+    seen = {int(root_org_id)}
+    while frontier:
+        nxt: List[int] = []
+        for org_id in frontier:
+            for child in children.get(org_id, ()):
+                if child in seen:
+                    continue
+                seen.add(child)
+                out.append(child)
+                nxt.append(child)
+        frontier = nxt
+    return sorted(out)
+
+
+def _inherited_policy(
+    db: Session, org_id: int, template_name: str
+) -> Optional[models.EnrichmentPolicy]:
+    """A política da filha que carrega o modelo — casada por NOME.
+
+    Nome, e não um id de origem, porque é o nome que o operador reconhece e o
+    que a filha vê na lista. Guardar um vínculo por id obrigaria a criar a
+    política antes de saber se ela vai existir, e deixaria órfã toda cópia feita
+    à mão antes de o modelo existir.
+    """
+    return (
+        db.query(models.EnrichmentPolicy)
+        .filter(
+            models.EnrichmentPolicy.organization_id == org_id,
+            models.EnrichmentPolicy.name == template_name,
+        )
+        .first()
+    )
+
+
+def _template_target(
+    db: Session, template: models.EnrichmentPolicy, compiled, version_id: str, org_id: int
+) -> TemplateApplyTarget:
+    """Estado de UMA filha diante do modelo."""
+    org = db.get(models.Organization, org_id)
+    name = str(getattr(org, "name", "") or "") or None
+
+    herdada = _inherited_policy(db, org_id, str(template.name))
+
+    # Política PRÓPRIA habilitada vence o modelo. É a regra de precedência da
+    # proposta, e ela é observável: sem dizer "sobrescrita", aplicar o modelo
+    # aqui pareceria ter funcionado e nada mudaria no runtime, porque vale uma
+    # política por organização — a mais antiga habilitada.
+    propria = (
+        db.query(models.EnrichmentPolicy)
+        .filter(
+            models.EnrichmentPolicy.organization_id == org_id,
+            models.EnrichmentPolicy.enabled.is_(True),
+        )
+        .order_by(models.EnrichmentPolicy.created_at.asc())
+        .first()
+    )
+    if propria is not None and (herdada is None or propria.id != herdada.id):
+        return TemplateApplyTarget(
+            organization_id=org_id,
+            organization_name=name,
+            status="overridden",
+            policy_id=(herdada.id if herdada else None),
+            policy_name=(herdada.name if herdada else None),
+            overriding_policy=str(propria.name),
+        )
+
+    pre = _duplicate_preflight(db, compiled, org_id, str(template.name))
+    # ``name_conflict`` aqui NÃO bloqueia: a política homônima na filha é
+    # justamente a herdada, que vamos versionar em vez de recriar.
+    if pre.missing_tables or pre.missing_sources:
+        return TemplateApplyTarget(
+            organization_id=org_id,
+            organization_name=name,
+            status="blocked",
+            policy_id=(herdada.id if herdada else None),
+            policy_name=(herdada.name if herdada else None),
+            missing_tables=pre.missing_tables,
+            missing_sources=pre.missing_sources,
+            tables_without_version=pre.tables_without_version,
+        )
+
+    ja_aplicada: Optional[str] = None
+    if herdada is not None and herdada.current_version_id:
+        atual = db.get(models.EnrichmentPolicyVersion, herdada.current_version_id)
+        if atual is not None and atual.derived_from_version_id == version_id:
+            ja_aplicada = version_id
+
+    return TemplateApplyTarget(
+        organization_id=org_id,
+        organization_name=name,
+        status="up_to_date" if ja_aplicada else "ready",
+        policy_id=(herdada.id if herdada else None),
+        policy_name=(herdada.name if herdada else None),
+        applied_version_id=ja_aplicada,
+        tables_without_version=pre.tables_without_version,
+    )
+
+
+@router.post("/policies/{policy_id}/template", response_model=PolicyRead)
+def set_policy_template(
+    policy_id: str,
+    is_template: bool = Query(...),
+    user: models.AppUser = Depends(app_auth.require_admin_user),
+    db: Session = Depends(_db),
+) -> PolicyRead:
+    """Marca (ou desmarca) a política como modelo da matriz.
+
+    Marcar não muda NADA no runtime: a política segue valendo só na org dela. O
+    que a marca habilita é o "aplicar às filhas" — e é por isso que ela pode ser
+    retirada a qualquer momento sem efeito sobre as versões já aplicadas, que
+    são versões próprias de cada filha.
+
+    Exige que a organização tenha filhas: marcar como modelo uma política de
+    organização folha produziria um botão que nunca tem a quem aplicar.
+    """
+    _require_multi_tenant()
+    row = _assert_visible(db.get(models.EnrichmentPolicy, policy_id), user, "policy")
+
+    if is_template and not _child_org_ids(db, int(row.organization_id)):
+        raise _bad_request(
+            "enrichment.template_without_children",
+            "esta organização não tem organizações filhas para receber o modelo",
+        )
+
+    row.is_template = bool(is_template)
+    db.commit()
+    db.refresh(row)
+    return _policy_read(db, row)
+
+
+@router.post(
+    "/policies/{policy_id}/template-preflight", response_model=TemplateApplyPreflight
+)
+def template_apply_preflight(
+    policy_id: str,
+    user: models.AppUser = Depends(app_auth.require_admin_user),
+    db: Session = Depends(_db),
+) -> TemplateApplyPreflight:
+    """O que acontece em CADA filha se o modelo for aplicado. Não muda nada.
+
+    Roda antes porque o pré-requisito ausente, sem isto, viraria carga de tabela
+    falhando a cada ciclo em N organizações ao mesmo tempo — multiplicando por N
+    o modo de falha mudo que esta feature inteira persegue.
+    """
+    _require_multi_tenant()
+    row = _assert_visible(db.get(models.EnrichmentPolicy, policy_id), user, "policy")
+    if not row.is_template:
+        raise _bad_request(
+            "enrichment.not_a_template",
+            "esta política não está marcada como modelo da matriz",
+        )
+    _doc, compiled = _policy_current_rules(db, row)
+    version_id = str(row.current_version_id)
+
+    targets = [
+        _template_target(db, row, compiled, version_id, org_id)
+        for org_id in _child_org_ids(db, int(row.organization_id))
+    ]
+    return TemplateApplyPreflight(
+        template_policy_id=str(row.id),
+        template_version_id=version_id,
+        targets=targets,
+    )
+
+
+@router.post("/policies/{policy_id}/apply-template", response_model=TemplateApplyResult)
+def apply_template(
+    policy_id: str,
+    payload: TemplateApplyRequest,
+    user: models.AppUser = Depends(app_auth.require_admin_user),
+    db: Session = Depends(_db),
+) -> TemplateApplyResult:
+    """Publica uma versão DERIVADA em cada filha escolhida.
+
+    Nunca aplica onde o preflight bloqueia — e a decisão é recalculada aqui, não
+    herdada da chamada anterior: entre ver a tela e clicar, alguém pode ter
+    apagado a tabela que a regra cita, e aplicar mesmo assim colocaria N
+    organizações num estado que a tela acabara de dizer ser impossível.
+
+    A cópia criada nasce DESABILITADA, como em ``duplicate``. A já existente
+    mantém o estado que tinha: uma filha que já rodava o modelo continua
+    rodando, com a versão nova; uma que estava desligada segue desligada, e
+    quem opera aquele cliente decide quando ligar.
+    """
+    _require_multi_tenant()
+    row = _assert_visible(db.get(models.EnrichmentPolicy, policy_id), user, "policy")
+    if not row.is_template:
+        raise _bad_request(
+            "enrichment.not_a_template",
+            "esta política não está marcada como modelo da matriz",
+        )
+    doc, compiled = _policy_current_rules(db, row)
+    version_id = str(row.current_version_id)
+
+    filhas = set(_child_org_ids(db, int(row.organization_id)))
+    pedidas = [int(i) for i in payload.organization_ids]
+    fora = sorted(set(pedidas) - filhas)
+    if fora:
+        # Aplicar fora da subárvore seria escrever política na organização de
+        # outra árvore de tenants — o furo cross-tenant que a feature evita.
+        raise _bad_request(
+            "enrichment.template_target_outside_subtree",
+            f"organização(ões) fora da subárvore desta matriz: {fora}",
+        )
+
+    applied: List[TemplateApplyTarget] = []
+    skipped: List[TemplateApplyTarget] = []
+    rules_json = json.dumps(doc, sort_keys=True, separators=(",", ":"))
+
+    for org_id in sorted(set(pedidas)):
+        alvo = _template_target(db, row, compiled, version_id, org_id)
+        if alvo.status in ("blocked", "overridden", "up_to_date"):
+            skipped.append(alvo)
+            continue
+
+        herdada = _inherited_policy(db, org_id, str(row.name))
+        if herdada is None:
+            herdada = models.EnrichmentPolicy(
+                organization_id=org_id,
+                name=str(row.name),
+                description=row.description,
+                enabled=False,
+            )
+            db.add(herdada)
+            db.flush()
+
+        ultima = (
+            db.query(models.EnrichmentPolicyVersion)
+            .filter(models.EnrichmentPolicyVersion.policy_id == herdada.id)
+            .order_by(models.EnrichmentPolicyVersion.version_number.desc())
+            .first()
+        )
+        versao = models.EnrichmentPolicyVersion(
+            policy_id=herdada.id,
+            version_number=(int(ultima.version_number) + 1) if ultima else 1,
+            rules=rules_json,
+            author_user_id=app_auth.persistable_user_id(user),
+            commit_message=payload.commit_message,
+            derived_from_version_id=version_id,
+        )
+        db.add(versao)
+        db.flush()
+        herdada.current_version_id = versao.id
+
+        alvo.policy_id = str(herdada.id)
+        alvo.policy_name = str(herdada.name)
+        alvo.applied_version_id = version_id
+        alvo.status = "applied"
+        applied.append(alvo)
+
+    db.commit()
+    logger.info(
+        "enrichment: modelo %s aplicado a %d organização(ões), %d pulada(s)",
+        row.name,
+        len(applied),
+        len(skipped),
+    )
+    return TemplateApplyResult(applied=applied, skipped=skipped)

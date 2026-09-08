@@ -9,7 +9,8 @@
     "tables": "Tabelas ({{count}})",
     "policies": "Políticas ({{count}})",
     "sources": "Fontes ({{count}})",
-    "execution": "Execução"
+    "execution": "Execução",
+    "overview": "Visão geral"
   },
   "mode": {
     "local": "por evento",
@@ -72,6 +73,56 @@
       "invalidCount": "{{count}} inválida(s)",
       "entriesShort": "{{count}} entradas",
       "rollback": "Reverter para esta"
+    },
+    "csv": {
+      "modeLabel": "Como enviar o conteúdo",
+      "modeCsv": "Planilha (CSV)",
+      "modeJson": "JSON",
+      "choose": "Escolher arquivo",
+      "pasteLabel": "Ou cole o conteúdo",
+      "pasteHint": "Primeira linha é o cabeçalho. O separador é detectado sozinho (vírgula, ponto e vírgula, tabulação ou barra vertical).",
+      "lines_one": "{{count}} linha",
+      "lines_other": "{{count}} linhas",
+      "delimiter": "separador \"{{value}}\"",
+      "keyColumn": "Coluna da chave",
+      "keyColumnHintCidr": "Cada valor precisa ser um IP ou uma faixa CIDR.",
+      "keyColumnHintExact": "Comparada por igualdade exata com a chave do evento.",
+      "valueColumns": "Colunas que viram contexto",
+      "valueColumnsHint": "As não marcadas ficam de fora. Campo a mais ocupa memória no coletor sem servir a nenhuma regra.",
+      "added_one": "{{count}} nova",
+      "added_other": "{{count}} novas",
+      "changed_one": "{{count}} alterada",
+      "changed_other": "{{count}} alteradas",
+      "removed_one": "{{count}} removida",
+      "removed_other": "{{count}} removidas",
+      "invalid_one": "{{count}} inválida",
+      "invalid_other": "{{count}} inválidas",
+      "onlyProblems": "Só o que muda ou falha",
+      "state": "Estado",
+      "new": "nova",
+      "updated": "alterada",
+      "same": "inalterada",
+      "more": "… e mais {{count}} linha(s)",
+      "needsRows": "Nenhuma linha válida para publicar. Escolha um arquivo e a coluna da chave.",
+      "overLimitTitle": "Conteúdo acima do teto por tabela",
+      "overLimitBody": "O servidor recusaria esta versão. Reduza as colunas de contexto ou divida a tabela.",
+      "removalTitle": "Esta publicação remove entradas",
+      "removalBody": "{{count}} chave(s) some(m), entre elas {{sample}}. Publicar substitui a versão inteira — confira se o arquivo é o certo.",
+      "issue": {
+        "invalid_key": "chave inválida",
+        "empty_key": "chave vazia",
+        "duplicate_key": "chave repetida"
+      }
+    },
+    "table": {
+      "name": "Tabela",
+      "match": "Casamento",
+      "version": "Versão vigente",
+      "size": "Tamanho",
+      "usedBy": "Quem usa",
+      "unused": "nenhuma regra",
+      "usedByRules_one": "{{count}} regra",
+      "usedByRules_other": "{{count}} regras"
     }
   },
   "policies": {
@@ -174,7 +225,116 @@
       "onePerOrg": "Só uma política é aplicada por organização: a habilitada mais antiga."
     },
     "active": "em vigor",
-    "shadowed": "habilitada, não aplicada"
+    "shadowed": "habilitada, não aplicada",
+    "page": {
+      "notFound": "Política não encontrada nesta organização.",
+      "subtitle": "Regras de enriquecimento de {{org}}.",
+      "unpublished": "alterações não publicadas",
+      "history": "Histórico ({{count}})",
+      "back": "Voltar",
+      "draftRestoredTitle": "Você tinha alterações não publicadas aqui",
+      "draftRestoredBody": "O editor abriu com o que você estava escrevendo, não com o que está valendo em produção. Compare no rodapé antes de publicar, ou descarte para voltar à versão vigente.",
+      "discardDraft": "Descartar alterações",
+      "publishVersion": "Publicar v{{version}}",
+      "useRealSample": "Usar evento real",
+      "noSamples": "Nenhum evento recente desta origem para usar como exemplo.",
+      "sampleSource": "Origem do evento",
+      "diffNone": "Nada a publicar: igual à versão vigente.",
+      "diffLabel": "Esta publicação:",
+      "diffAdded_one": "+{{count}} regra ({{names}})",
+      "diffAdded_other": "+{{count}} regras ({{names}})",
+      "diffChanged_one": "{{count}} alterada ({{names}})",
+      "diffChanged_other": "{{count}} alteradas ({{names}})",
+      "diffRemoved_one": "−{{count}} regra ({{names}})",
+      "diffRemoved_other": "−{{count}} regras ({{names}})",
+      "diffReordered": "ordem alterada",
+      "ruleIndex_one": "{{count}} regra nesta política",
+      "ruleIndex_other": "{{count}} regras nesta política"
+    },
+    "duplicate": {
+      "title": "Copiar {{name}} para outra organização",
+      "target": "Organização de destino",
+      "name": "Nome da cópia",
+      "nameHint": "Precisa ser único dentro da organização de destino.",
+      "checking": "Conferindo o que existe no destino…",
+      "readyTitle": "O destino tem tudo o que estas regras citam",
+      "readyBody": "As tabelas e fontes referenciadas existem lá, com os mesmos nomes.",
+      "blockedTitle": "O destino ainda não tem o que estas regras citam",
+      "nameConflict": "Já existe uma política chamada \"{{name}}\" no destino.",
+      "missingTables": "Tabelas que faltam: {{names}}.",
+      "missingSources": "Fontes que faltam: {{names}}.",
+      "tablesWithoutVersionTitle": "Tabela sem versão publicada no destino",
+      "tablesWithoutVersionBody": "{{names}} existe lá mas está vazia. A cópia é criada assim mesmo; publique o conteúdo antes de habilitar, senão a busca falha a cada ciclo.",
+      "disabledTitle": "A cópia nasce inativa",
+      "disabledBody": "Copiar não coloca regra em produção na outra organização. Quem opera aquele cliente decide quando habilitar, e vale uma política por organização.",
+      "confirm": "Copiar",
+      "noTargets": "Não há outra organização visível para copiar.",
+      "commitMessage": "copiada de {{name}}",
+      "action": "Copiar para outra organização"
+    },
+    "summary": {
+      "path": {
+        "srcIp": "IP de origem",
+        "dstIp": "IP de destino",
+        "srcHost": "host de origem",
+        "dstHost": "host de destino",
+        "deviceIp": "IP do dispositivo",
+        "deviceHost": "host do dispositivo",
+        "user": "usuário",
+        "fileHash": "hash do arquivo",
+        "urlHost": "domínio da URL",
+        "url": "URL"
+      },
+      "when": {
+        "has_tag": "se já tiver a marca",
+        "lacks_tag": "se ainda não tiver a marca",
+        "exists": "se o campo existir",
+        "equals": "se o campo for igual a um valor",
+        "in": "se o campo estiver numa lista",
+        "not": "se a condição NÃO valer"
+      },
+      "onMiss": {
+        "tag": "marca quando não encontra",
+        "default": "escreve o padrão quando não encontra"
+      }
+    },
+    "template": {
+      "title": "Modelo da matriz",
+      "badge": "modelo",
+      "description": "Aplica as MESMAS regras às organizações filhas. Cada uma recebe uma versão própria, com histórico e reversão próprios — não existe política que valha para todas ao mesmo tempo. Funciona porque a regra cita tabela e fonte por NOME, e o nome é resolvido em cada organização.",
+      "mark": "Marcar como modelo",
+      "unmark": "Deixar de ser modelo",
+      "checking": "Conferindo o que existe em cada organização…",
+      "noChildren": "Esta organização não tem filhas para receber o modelo.",
+      "org": "Organização",
+      "state": "Estado",
+      "detail": "O que isso significa",
+      "apply_one": "Aplicar a {{count}} organização",
+      "apply_other": "Aplicar a {{count}} organizações",
+      "applyHint_one": "{{count}} organização pode receber agora. A cópia nasce inativa; quem já rodava o modelo continua rodando, com a versão nova.",
+      "applyHint_other": "{{count}} organizações podem receber agora. A cópia nasce inativa; quem já rodava o modelo continua rodando, com a versão nova.",
+      "applied_one": "Aplicado a {{count}} organização",
+      "applied_other": "Aplicado a {{count}} organizações",
+      "skipped_one": "{{count}} organização foi pulada: veja o motivo na linha dela.",
+      "skipped_other": "{{count}} organizações foram puladas: veja o motivo na linha de cada uma.",
+      "commitMessage": "aplicado do modelo {{name}}",
+      "ready": "tem tudo o que as regras citam",
+      "upToDate": "já está nesta versão do modelo",
+      "overriddenBy": "tem política própria em vigor ({{name}}), que vence o modelo",
+      "missingTables": "faltam as tabelas: {{names}}",
+      "missingSources": "faltam as fontes: {{names}}",
+      "tablesWithoutVersion": "aplica, mas não funciona ainda: {{names}} está sem versão publicada lá",
+      "status": {
+        "ready": "pronta",
+        "up_to_date": "em dia",
+        "blocked": "bloqueada",
+        "overridden": "sobrescrita",
+        "applied": "aplicada"
+      },
+      "communityTitle": "Aplicar esta política a vários clientes",
+      "communityBody": "Na edição Community, use \"Copiar para outra organização\" — uma de cada vez, com a mesma verificação de pré-requisitos. A edição Enterprise marca a política como modelo da matriz e aplica a todas as filhas de uma vez, com verificação por organização.",
+      "communityLink": "Ver as edições"
+    }
   },
   "errorTitle": "Falha ao carregar o enriquecimento",
   "sources": {
@@ -204,13 +364,37 @@
       "secretKeepPlaceholder": "•••••••• (deixe vazio para manter)",
       "create": "Nova fonte",
       "sharedOrgs": "Organizações filhas",
-      "sharedOrgsHint": "A fonte atende sempre a organização dona. Marque as filhas que também devem usar esta credencial. Compartilhar exige a edição Enterprise."
+      "sharedOrgsHint": "A fonte atende sempre a organização dona. Marque as filhas que também devem usar esta credencial. Compartilhar exige a edição Enterprise.",
+      "egressRequired": "Confirme o envio de indicadores a terceiro antes de salvar.",
+      "egressAck": "Autorizo o envio de indicadores desta organização ao {{name}}",
+      "egressAckHint": "Os indicadores que passarem pela condição da regra ({{kinds}}) saem da sua infraestrutura. O que a condição barra não sai."
     },
     "test": {
       "title": "Testar conexão",
       "run": "Testar",
       "hint": "Consulta a fonte de verdade com a credencial gravada, em modo reduzido. Não publica nada.",
-      "sampleCount": "{{count}} registro(s) na amostra."
+      "sampleCount": "{{count}} registro(s) na amostra.",
+      "hintDraft": "Consulta o provedor com os valores deste formulário, inclusive a credencial ainda não salva. Nada é gravado."
+    },
+    "table": {
+      "source": "Fonte",
+      "enricher": "Enricher",
+      "egress": "Egresso",
+      "credential": "Credencial",
+      "lastTest": "Último teste",
+      "usedBy": "Quem usa",
+      "search": "Buscar",
+      "filter": "Filtrar",
+      "filterAll": "Todas ({{count}})",
+      "filterProblem": "Com problema ({{count}})",
+      "filterThirdParty": "Enviam a terceiro",
+      "noMatch": "Nenhuma fonte corresponde ao filtro.",
+      "neverTested": "nunca testada",
+      "noSecretNeeded": "não exige",
+      "agoDays_one": "há {{count}} dia",
+      "agoDays_other": "há {{count}} dias",
+      "ownerPlusChildren_one": "{{owner}} + {{count}} filha",
+      "ownerPlusChildren_other": "{{owner}} + {{count}} filhas"
     }
   },
   "catalog": {
@@ -257,5 +441,30 @@
     "activePolicy": "Vale: {{name}}",
     "unanswered": "sem resposta",
     "hitRateHintUnanswered": "Há consultas sem resposta na janela: o percentual de acerto está diluído por falha de credencial, rede ou orçamento, não por mudança no dado. Confira Consultas antes de mexer nas regras."
+  },
+  "readiness": {
+    "readyTitle": "Tudo pronto nesta organização",
+    "readyBody": "A política {{name}} está valendo para os eventos novos.",
+    "blockedTitle_one": "{{count}} passo impede o enriquecimento de rodar aqui",
+    "blockedTitle_other": "{{count}} passos impedem o enriquecimento de rodar aqui",
+    "blockedBody": "Enquanto isso, os eventos desta organização seguem para o destino sem o contexto.",
+    "stepsTitle": "O que falta",
+    "globalScope": "requer administrador global",
+    "hitRate": "Aproveitamento",
+    "avgHit": "{{value}} de acerto",
+    "unanswered": "{{value}} sem resposta",
+    "recentFailures_one": "{{count}} falha recente",
+    "recentFailures_other": "{{count}} falhas recentes",
+    "seeAll": "Ver todas em Execução",
+    "kpi": {
+      "lookups": "Consultas na janela",
+      "hitRate": "Acerto médio",
+      "rules_one": "{{count}} regra em vigor",
+      "rules_other": "{{count}} regras em vigor",
+      "unanswered": "Sem resposta",
+      "unansweredHint": "credencial, rede ou orçamento",
+      "silent": "Regras mudas",
+      "silentHint": "não dispararam na janela"
+    }
   }
 }

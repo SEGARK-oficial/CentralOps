@@ -11,7 +11,7 @@
  */
 
 import { render, screen, fireEvent, waitFor } from "@testing-library/react"
-import { describe, it, expect, vi, beforeAll } from "vitest"
+import { describe, it, expect, vi, beforeAll, beforeEach } from "vitest"
 import { TableVersionsModal } from "../TableVersionsModal"
 import * as api from "@/services/api"
 import type { EnrichmentTable, EnrichmentTableVersion } from "@/services/api"
@@ -23,6 +23,36 @@ beforeAll(async () => {
 
 vi.mock("@/services/api")
 const mockedApi = vi.mocked(api)
+
+/**
+ * Seleciona a entrada por JSON.
+ *
+ * O modo padrão passou a ser a planilha, porque é o formato em que CMDB, plano
+ * de rede e allowlist de fato existem. O JSON continua, para quem automatiza ou
+ * já exporta assim — e é o que estes três testes exercitam.
+ */
+const escolheJson = () => {
+  fireEvent.click(screen.getByRole("tab", { name: "JSON" }))
+}
+
+beforeEach(() => {
+  // Limpa o HISTÓRICO de chamadas (não as implementações — isso seria
+  // `resetAllMocks`). Sem isto os casos acumulam chamadas entre si, e uma
+  // asserção sobre `mock.calls[0]` lê a requisição de OUTRO teste. Custou dois
+  // falsos negativos ao acrescentar os testes de publicação por planilha.
+  vi.clearAllMocks()
+  // O modal passou a buscar o CORPO da versão vigente para diferenciar contra o
+  // arquivo importado. Sem este default o auto-mock devolve `undefined` e o
+  // `.then` estoura — falha de teste, não de produto, mas que mascararia as
+  // outras seis asserções deste arquivo.
+  mockedApi.getEnrichmentTableVersion.mockResolvedValue({
+    id: "v2",
+    version_number: 2,
+    entry_count: 10,
+    approx_bytes: 100,
+    rows: { "10.0.5.7": { site: "filial-sp" } },
+  })
+})
 
 const table: EnrichmentTable = {
   id: "t1",
@@ -82,6 +112,7 @@ describe("TableVersionsModal", () => {
     mockedApi.listEnrichmentTableVersions.mockResolvedValue([])
     render(<TableVersionsModal open table={table} onClose={vi.fn()} onChanged={vi.fn()} />)
     await screen.findByText("Nenhuma versão publicada ainda.")
+    escolheJson()
 
     fireEvent.change(screen.getByLabelText("Linhas (JSON)"), { target: { value: "{ not valid json" } })
     fireEvent.change(screen.getByLabelText("Mensagem do commit"), { target: { value: "teste" } })
@@ -95,6 +126,7 @@ describe("TableVersionsModal", () => {
     mockedApi.listEnrichmentTableVersions.mockResolvedValue([])
     render(<TableVersionsModal open table={table} onClose={vi.fn()} onChanged={vi.fn()} />)
     await screen.findByText("Nenhuma versão publicada ainda.")
+    escolheJson()
 
     fireEvent.change(screen.getByLabelText("Linhas (JSON)"), {
       target: { value: '{"10.0.5.7": {"site": "filial-sp"}}' },
@@ -121,6 +153,7 @@ describe("TableVersionsModal", () => {
     const onChanged = vi.fn()
     render(<TableVersionsModal open table={table} onClose={vi.fn()} onChanged={onChanged} />)
     await screen.findByText("Nenhuma versão publicada ainda.")
+    escolheJson()
 
     fireEvent.change(screen.getByLabelText("Linhas (JSON)"), {
       target: { value: '{"10.0.5.7": {"site": "filial-sp"}}' },
@@ -149,5 +182,63 @@ describe("TableVersionsModal", () => {
 
     await waitFor(() => expect(mockedApi.rollbackEnrichmentTable).toHaveBeenCalledWith("t1", "v1"))
     expect(onChanged).toHaveBeenCalled()
+  })
+  it("publica a partir da planilha, que é o caminho padrão", async () => {
+    // Os testes acima exercitam o modo JSON, que agora é a alternativa. Sem
+    // este, o caminho que o operador de fato usa ficaria sem cobertura de
+    // ponta a ponta — e é nele que o corpo é montado no cliente, não colado.
+    mockedApi.listEnrichmentTableVersions.mockResolvedValue([])
+    mockedApi.commitEnrichmentTableVersion.mockResolvedValue({
+      id: "v3",
+      version_number: 3,
+      entry_count: 2,
+      approx_bytes: 80,
+      commit_message: "plano de setembro",
+      author_user_id: 1,
+      created_at: "2026-09-07T00:00:00Z",
+      is_current: true,
+      invalid_rows: 0,
+    })
+    const onChanged = vi.fn()
+    render(
+      <TableVersionsModal open table={table} onClose={vi.fn()} onChanged={onChanged} />,
+    )
+    await screen.findByText("Nenhuma versão publicada ainda.")
+
+    fireEvent.change(screen.getByLabelText(/Ou cole o conteúdo/i), {
+      target: { value: "chave;dono\nservidor-01;infra\nservidor-02;seguranca" },
+    })
+    fireEvent.change(screen.getByLabelText("Mensagem do commit"), {
+      target: { value: "plano de setembro" },
+    })
+    fireEvent.click(screen.getByRole("button", { name: "Publicar versão" }))
+
+    await waitFor(() =>
+      expect(mockedApi.commitEnrichmentTableVersion).toHaveBeenCalled(),
+    )
+    // O corpo enviado é o `{chave: {campo: valor}}` que a API espera, montado
+    // a partir das colunas — não o texto cru da planilha.
+    const [, payload] = mockedApi.commitEnrichmentTableVersion.mock.calls[0]
+    expect(payload.rows).toEqual({
+      "servidor-01": { dono: "infra" },
+      "servidor-02": { dono: "seguranca" },
+    })
+    expect(onChanged).toHaveBeenCalled()
+  })
+
+  it("não publica planilha sem nenhuma linha válida", async () => {
+    mockedApi.listEnrichmentTableVersions.mockResolvedValue([])
+    render(<TableVersionsModal open table={table} onClose={vi.fn()} onChanged={vi.fn()} />)
+    await screen.findByText("Nenhuma versão publicada ainda.")
+
+    fireEvent.change(screen.getByLabelText("Mensagem do commit"), {
+      target: { value: "vazio" },
+    })
+    fireEvent.click(screen.getByRole("button", { name: "Publicar versão" }))
+
+    expect(
+      await screen.findByText(/Nenhuma linha válida para publicar/i),
+    ).toBeInTheDocument()
+    expect(mockedApi.commitEnrichmentTableVersion).not.toHaveBeenCalled()
   })
 })
