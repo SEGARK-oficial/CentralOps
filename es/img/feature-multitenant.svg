@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 130" width="200" height="130" role="img" aria-labelledby="fv3t">
+  <title id="fv3t">Three tenants sharing one platform, each walled off from the others</title>
+  <!-- Multi-tenancy: one platform, three tenants. The dividing rules are the
+       point — the lanes never touch. Isolation drawn as separation, not as a
+       padlock icon. -->
+  <g stroke="var(--seg-line,#8A90A6)" stroke-opacity=".28" stroke-width="1.5" stroke-dasharray="4 5">
+    <line x1="8" y1="45" x2="192" y2="45"/>
+    <line x1="8" y1="85" x2="192" y2="85"/>
+  </g>
+
+  <g fill="none" stroke-linecap="round" stroke-width="5">
+    <path d="M14 24 H 74" stroke="var(--seg-collect,#F2A83C)" stroke-opacity=".42"/>
+    <path d="M14 65 H 74" stroke="var(--seg-collect,#F2A83C)" stroke-opacity=".42"/>
+    <path d="M14 105 H 74" stroke="var(--seg-collect,#F2A83C)" stroke-opacity=".42"/>
+    <path d="M104 24 H 186" stroke="var(--seg-route,#3BA9CC)" stroke-opacity=".5"/>
+    <path d="M104 65 H 186" stroke="var(--seg-route,#3BA9CC)" stroke-opacity=".5"/>
+    <path d="M104 105 H 186" stroke="var(--seg-route,#3BA9CC)" stroke-opacity=".5"/>
+  </g>
+
+  <!-- One gate per tenant: the same control point, enforced separately. -->
+  <g fill="var(--seg-normalize,#7C6BEA)">
+    <rect x="83" y="12" width="10" height="24" rx="5"/>
+    <rect x="83" y="53" width="10" height="24" rx="5"/>
+    <rect x="83" y="93" width="10" height="24" rx="5"/>
+  </g>
+
+  <g fill="var(--seg-collect,#F2A83C)">
+    <circle cx="36" cy="24" r="3.2"/><circle cx="36" cy="65" r="3.2"/><circle cx="36" cy="105" r="3.2"/>
+  </g>
+  <g fill="var(--seg-route,#3BA9CC)">
+    <circle cx="150" cy="24" r="3.2"/><circle cx="150" cy="65" r="3.2"/><circle cx="150" cy="105" r="3.2"/>
+  </g>
+</svg>
