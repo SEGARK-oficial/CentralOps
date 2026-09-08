@@ -1,5 +1,19 @@
 # Changelog
 
+## [2.10.0](https://github.com/SEGARK-oficial/CentralOps/compare/v2.9.0...v2.10.0) (2026-09-08)
+
+
+### Features
+
+* **correlation:** copy do Studio de regras (fluxo em grafo, inventário de campos) e docs da tela ([#73](https://github.com/SEGARK-oficial/CentralOps/issues/73)) ([618a504](https://github.com/SEGARK-oficial/CentralOps/commit/618a504dd621f609b2abce3d544b27f9a80cdec2))
+* **enrich:** configuração em banco, prontidão por organização e redesenho da UI ([#76](https://github.com/SEGARK-oficial/CentralOps/issues/76)) ([d7bd7f3](https://github.com/SEGARK-oficial/CentralOps/commit/d7bd7f3925b785679de6a013e34443f648ffe0eb))
+* **inflight:** motor de ausência de evento (ADR-0016) — rule_type absence ([#75](https://github.com/SEGARK-oficial/CentralOps/issues/75)) ([f5ca262](https://github.com/SEGARK-oficial/CentralOps/commit/f5ca2621e8c2f5edeed0d9c66fd47d51f1aea9c5))
+
+
+### Bug Fixes
+
+* **frontend:** erro legível ao criar Service Account com nome inválido ([#77](https://github.com/SEGARK-oficial/CentralOps/issues/77)) ([13c7ea3](https://github.com/SEGARK-oficial/CentralOps/commit/13c7ea3c1d255c4d0a222d6ec5f6e997d76660a4))
+
 ## [2.9.0](https://github.com/SEGARK-oficial/CentralOps/compare/v2.8.0...v2.9.0) (2026-09-07)
 
 
