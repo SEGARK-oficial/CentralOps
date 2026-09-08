@@ -291,6 +291,7 @@
       "submitting": "Creando…",
       "errors": {
         "nameRequired": "El nombre es obligatorio",
+        "nameInvalid": "Nombre inválido. Use solo letras, números, punto, guion o guion bajo — sin espacios.",
         "createFailed": "Error al crear la SA"
       }
     },

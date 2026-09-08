@@ -110,6 +110,31 @@ export class ApiRequestError extends Error {
   }
 }
 
+// FastAPI devolve 422 com `detail` = lista de erros do Pydantic
+// (`{type, loc, msg, input, ctx}`). Jogar esse array cru na tela via
+// JSON.stringify mostrava `[{"type":"value_error","loc":[...]}]` pro
+// usuário. Aqui vira "campo: mensagem" legível.
+const VALIDATION_LOC_PREFIXES = new Set(["body", "query", "path", "header", "cookie"])
+
+export function formatValidationDetail(detail: unknown): string | null {
+  if (!Array.isArray(detail)) return null
+  const parts: string[] = []
+  for (const item of detail) {
+    if (!item || typeof item !== "object") continue
+    const { loc, msg } = item as { loc?: unknown; msg?: unknown }
+    if (typeof msg !== "string" || !msg) continue
+    // Pydantic prefixa validador custom com "Value error, ".
+    const message = msg.replace(/^Value error,\s*/, "")
+    const segments = Array.isArray(loc) ? loc.map(String) : []
+    if (segments.length > 1 && VALIDATION_LOC_PREFIXES.has(segments[0])) {
+      segments.shift()
+    }
+    const field = segments.join(".")
+    parts.push(field ? `${field}: ${message}` : message)
+  }
+  return parts.length ? parts.join("; ") : null
+}
+
 // Helper para fazer requests
 async function apiRequest<T>(endpoint: string, options: ApiRequestOptions = {}): Promise<T> {
   const url = `${BASE_URL}${endpoint}`
@@ -163,6 +188,8 @@ async function apiRequest<T>(endpoint: string, options: ApiRequestOptions = {}):
         }
       } else if (typeof errorData?.detail === "string") {
         errorMessage = errorData.detail
+      } else if (Array.isArray(errorData?.detail)) {
+        errorMessage = formatValidationDetail(errorData.detail) ?? JSON.stringify(errorData.detail)
       } else if (errorData?.detail) {
         errorMessage = JSON.stringify(errorData.detail)
       } else if (typeof errorData?.message === "string") {

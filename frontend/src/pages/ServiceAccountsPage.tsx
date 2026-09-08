@@ -65,6 +65,11 @@ function expiryFromPreset(preset: ExpiryPreset): string | null {
   return d.toISOString()
 }
 
+// Espelha ServiceAccountCreate.validate_name no backend:
+// `c.isalnum() or c in "-_."`. O isalnum() do Python é Unicode-aware, então
+// o regex também é — ser mais estrito aqui recusaria nome que a API aceita.
+const SA_NAME_PATTERN = /^[\p{L}\p{N}._-]+$/u
+
 const ROLE_OPTIONS: ServiceAccount["role"][] = [
   "viewer",
   "operator",
@@ -535,14 +540,19 @@ const CreateServiceAccountModal: React.FC<CreateSaModalProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!name.trim()) {
+    const trimmedName = name.trim()
+    if (!trimmedName) {
       setError(t("serviceAccounts.createModal.errors.nameRequired"))
+      return
+    }
+    if (!SA_NAME_PATTERN.test(trimmedName)) {
+      setError(t("serviceAccounts.createModal.errors.nameInvalid"))
       return
     }
     setCreating(true)
     setError(null)
     const payload: ServiceAccountCreateRequest = {
-      name: name.trim(),
+      name: trimmedName,
       description: description.trim() || null,
       role,
     }
@@ -585,7 +595,12 @@ const CreateServiceAccountModal: React.FC<CreateSaModalProps> = ({
             data-form-type="other"
           />
           <p className="mt-1 text-xs text-text-secondary">
-            <Trans i18nKey="serviceAccounts.createModal.nameHelp" t={t} components={{ code: <code /> }} />
+            <Trans
+              i18nKey="serviceAccounts.createModal.nameHelp"
+              t={t}
+              shouldUnescape
+              components={{ code: <code /> }}
+            />
           </p>
         </div>
 

@@ -660,6 +660,7 @@ export const IntegrationForm: React.FC<IntegrationFormProps> = ({
             <Trans
               i18nKey="form.pushSource.createHint"
               t={t}
+              shouldUnescape
               components={{
                 strong: <strong />,
                 code: <code className="rounded bg-surface-tertiary px-1" />,

@@ -181,4 +181,76 @@ describe("ServiceAccountsPage", () => {
     // we can leverage, but more robust: count > 0).
     expect(screen.getAllByText(/admin/i).length).toBeGreaterThan(0)
   })
+
+  it("rejects an invalid name with a readable message and never calls the API", async () => {
+    ;(api.listServiceAccounts as ReturnType<typeof vi.fn>).mockResolvedValue([])
+
+    renderPage()
+    await screen.findByText(/Nenhum Service Account/i)
+
+    const buttons = screen.getAllByRole("button", { name: /Novo Service Account/i })
+    fireEvent.click(buttons[0])
+
+    const nameInput = await screen.findByPlaceholderText(
+      /iasoc-worker, grafana-bot/i,
+    )
+    // Nome com espaço: o backend recusa com 422 do Pydantic. Antes o array
+    // cru daquele 422 vazava pra tela.
+    fireEvent.change(nameInput, { target: { value: "MCP Claude" } })
+    fireEvent.click(screen.getByRole("button", { name: /Criar Service Account/i }))
+
+    expect(
+      await screen.findByText(/Nome inválido\. Use apenas letras, números/i),
+    ).toBeInTheDocument()
+    expect(api.createServiceAccount).not.toHaveBeenCalled()
+  })
+
+  it("accepts a valid name after an invalid one — the guard is not a dead end", async () => {
+    ;(api.listServiceAccounts as ReturnType<typeof vi.fn>)
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([mockSa({ name: "mcp-claude" })])
+    ;(api.createServiceAccount as ReturnType<typeof vi.fn>).mockResolvedValue(
+      mockSa({ name: "mcp-claude" }),
+    )
+
+    renderPage()
+    await screen.findByText(/Nenhum Service Account/i)
+    fireEvent.click(screen.getAllByRole("button", { name: /Novo Service Account/i })[0])
+
+    const nameInput = await screen.findByPlaceholderText(
+      /iasoc-worker, grafana-bot/i,
+    )
+    const submit = screen.getByRole("button", { name: /Criar Service Account/i })
+
+    fireEvent.change(nameInput, { target: { value: "MCP Claude" } })
+    fireEvent.click(submit)
+    await screen.findByText(/Nome inválido/i)
+
+    fireEvent.change(nameInput, { target: { value: "mcp-claude" } })
+    fireEvent.click(submit)
+
+    await waitFor(() =>
+      expect(api.createServiceAccount).toHaveBeenCalledWith({
+        name: "mcp-claude",
+        description: null,
+        role: "viewer",
+      }),
+    )
+  })
+
+  it("renders the name hint with real angle brackets, not HTML entities", async () => {
+    ;(api.listServiceAccounts as ReturnType<typeof vi.fn>).mockResolvedValue([])
+
+    renderPage()
+    await screen.findByText(/Nenhum Service Account/i)
+    fireEvent.click(screen.getAllByRole("button", { name: /Novo Service Account/i })[0])
+    await screen.findByPlaceholderText(/iasoc-worker, grafana-bot/i)
+
+    const codeTexts = Array.from(document.querySelectorAll("code")).map(
+      (el) => el.textContent,
+    )
+    // Positivo antes do negativo: sem isto, uma lista vazia aprovaria por vacuidade.
+    expect(codeTexts).toContain("sa:<nome>")
+    expect(codeTexts).not.toContain("sa:&lt;nome&gt;")
+  })
 })
