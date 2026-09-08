@@ -18,6 +18,7 @@ import { PolicyRuleEditor } from "@/components/enrichment/PolicyRuleEditor"
 import { PolicyDiff } from "@/components/enrichment/PolicyDiff"
 import { RuleSummary } from "@/components/enrichment/ruleSummary"
 import { DuplicatePolicyModal } from "@/components/enrichment/DuplicatePolicyModal"
+import { EnrichmentPolicyTemplatePanel } from "@/ee/enrichmentPolicySlots"
 import { usePlatform } from "@/contexts/PlatformContext"
 import * as api from "@/services/api"
 import type {
@@ -698,6 +699,14 @@ export function EnrichmentPolicyPage(): React.ReactElement {
           </Card>
         </div>
       </div>
+
+      {/* Seam Enterprise: na Community isto aponta o "copiar para outra
+          organização"; no build EE vira o painel do modelo da matriz. */}
+      <EnrichmentPolicyTemplatePanel
+        policy={policy}
+        organizations={organizations}
+        onChanged={() => void load()}
+      />
 
       <DuplicatePolicyModal
         open={duplicateOpen}

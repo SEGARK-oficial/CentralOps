@@ -297,6 +297,43 @@
         "tag": "marca cuando no encuentra",
         "default": "escribe el valor por defecto cuando no encuentra"
       }
+    },
+    "template": {
+      "title": "Plantilla de la matriz",
+      "badge": "plantilla",
+      "description": "Aplica las MISMAS reglas a las organizaciones filiales. Cada una recibe una versión propia, con historial y reversión propios: no existe una política que valga para todas a la vez. Funciona porque la regla cita tabla y fuente por NOMBRE, y el nombre se resuelve en cada organización.",
+      "mark": "Marcar como plantilla",
+      "unmark": "Dejar de ser plantilla",
+      "checking": "Comprobando qué existe en cada organización…",
+      "noChildren": "Esta organización no tiene filiales para recibir la plantilla.",
+      "org": "Organización",
+      "state": "Estado",
+      "detail": "Qué significa",
+      "apply_one": "Aplicar a {{count}} organización",
+      "apply_other": "Aplicar a {{count}} organizaciones",
+      "applyHint_one": "{{count}} organización puede recibirla ahora. La copia nace inactiva; la que ya ejecutaba la plantilla sigue ejecutándola, con la versión nueva.",
+      "applyHint_other": "{{count}} organizaciones pueden recibirla ahora. La copia nace inactiva; las que ya ejecutaban la plantilla siguen ejecutándola, con la versión nueva.",
+      "applied_one": "Aplicada a {{count}} organización",
+      "applied_other": "Aplicada a {{count}} organizaciones",
+      "skipped_one": "{{count}} organización fue omitida: mira el motivo en su fila.",
+      "skipped_other": "{{count}} organizaciones fueron omitidas: mira el motivo en cada fila.",
+      "commitMessage": "aplicada desde la plantilla {{name}}",
+      "ready": "tiene todo lo que las reglas citan",
+      "upToDate": "ya está en esta versión de la plantilla",
+      "overriddenBy": "tiene política propia vigente ({{name}}), que vence a la plantilla",
+      "missingTables": "faltan las tablas: {{names}}",
+      "missingSources": "faltan las fuentes: {{names}}",
+      "tablesWithoutVersion": "se aplica, pero aún no funciona: {{names}} no tiene versión publicada allí",
+      "status": {
+        "ready": "lista",
+        "up_to_date": "al día",
+        "blocked": "bloqueada",
+        "overridden": "sobrescrita",
+        "applied": "aplicada"
+      },
+      "communityTitle": "Aplicar esta política a varios clientes",
+      "communityBody": "En la edición Community, usa \"Copiar a otra organización\": una por vez, con la misma verificación de requisitos. La edición Enterprise marca la política como plantilla de la matriz y la aplica a todas las filiales a la vez, verificando cada organización.",
+      "communityLink": "Ver las ediciones"
     }
   },
   "errorTitle": "Error al cargar el enriquecimiento",

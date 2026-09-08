@@ -211,6 +211,11 @@ class PolicyRead(BaseModel):
     #: o que o operador pediu; ``is_active`` diz o que acontece. Divergem só em
     #: dado legado com duas habilitadas — o enable agora recusa a segunda.
     is_active: bool = False
+    #: Modelo da matriz (Enterprise). Ver ``EnrichmentPolicy.is_template``.
+    is_template: bool = False
+    #: Versão do modelo que originou a versão VIGENTE desta política, quando ela
+    #: veio de uma aplicação. A UI usa para dizer "herdada, e desta versão".
+    derived_from_version_id: Optional[str] = None
 
 
 class PolicyVersionCommit(BaseModel):
@@ -1160,6 +1165,7 @@ def _active_policy_id(db: Session, org_id: int) -> Optional[str]:
 
 def _policy_read(db: Session, row: models.EnrichmentPolicy) -> PolicyRead:
     rule_count = 0
+    derived_from: Optional[str] = None
     if row.current_version_id:
         v = (
             db.query(models.EnrichmentPolicyVersion)
@@ -1167,6 +1173,7 @@ def _policy_read(db: Session, row: models.EnrichmentPolicy) -> PolicyRead:
             .first()
         )
         if v is not None:
+            derived_from = getattr(v, "derived_from_version_id", None)
             try:
                 doc = json.loads(v.rules or "{}")
                 rules = doc.get("enrichment", doc) if isinstance(doc, dict) else doc
@@ -1181,6 +1188,8 @@ def _policy_read(db: Session, row: models.EnrichmentPolicy) -> PolicyRead:
         enabled=bool(row.enabled),
         current_version_id=row.current_version_id,
         rule_count=rule_count,
+        is_template=bool(getattr(row, "is_template", False)),
+        derived_from_version_id=derived_from,
         is_active=bool(row.enabled) and _active_policy_id(db, int(row.organization_id)) == str(row.id),
     )
 
@@ -2478,3 +2487,356 @@ def duplicate_policy(
         target_org,
     )
     return _policy_read(db, novo)
+
+
+# ── modelo da matriz: aplicar às organizações filhas (Enterprise) ───────────
+#
+# O runtime NÃO muda. ``load_policy_for_org`` continua lendo a política da
+# própria organização pelo ponteiro ``current_version_id``; a herança acontece
+# por MATERIALIZAÇÃO — cada filha ganha uma versão própria, com histórico e
+# rollback próprios — e não por um segundo caminho de resolução.
+#
+# Isso não é detalhe de implementação: um caminho "se não achar na org, procure
+# na matriz" faria a política da matriz valer em qualquer tenant cuja própria
+# política falhasse ao carregar, que é exatamente o vazamento cross-tenant que
+# esta feature inteira existe para não ter.
+
+
+class TemplateApplyTarget(BaseModel):
+    """Uma organização candidata a receber o modelo."""
+
+    organization_id: int
+    organization_name: Optional[str] = None
+    #: "ready" | "blocked" | "overridden" | "up_to_date"
+    status: str
+    #: Política da filha que receberia (ou já recebeu) o modelo.
+    policy_id: Optional[str] = None
+    policy_name: Optional[str] = None
+    #: Versão do modelo que a filha já tem aplicada, se houver.
+    applied_version_id: Optional[str] = None
+    missing_tables: List[str] = Field(default_factory=list)
+    missing_sources: List[str] = Field(default_factory=list)
+    tables_without_version: List[str] = Field(default_factory=list)
+    #: Nome da política PRÓPRIA que vence o modelo, quando ``overridden``.
+    overriding_policy: Optional[str] = None
+
+
+class TemplateApplyPreflight(BaseModel):
+    template_policy_id: str
+    template_version_id: Optional[str] = None
+    targets: List[TemplateApplyTarget] = Field(default_factory=list)
+
+
+class TemplateApplyRequest(BaseModel):
+    """Aplica a versão vigente do modelo às organizações escolhidas."""
+
+    organization_ids: List[int] = Field(default_factory=list)
+    commit_message: str = Field("aplicado do modelo da matriz", max_length=500)
+
+
+class TemplateApplyResult(BaseModel):
+    applied: List[TemplateApplyTarget] = Field(default_factory=list)
+    skipped: List[TemplateApplyTarget] = Field(default_factory=list)
+
+
+def _require_multi_tenant() -> None:
+    if not edition.feature_enabled("multi_tenant"):
+        raise ApiError(
+            "enrichment.template_requires_enterprise",
+            status.HTTP_403_FORBIDDEN,
+            messages={
+                "pt": (
+                    "Aplicar um modelo de política às organizações filhas exige a "
+                    "edição Enterprise. Na Community, use 'copiar para outra "
+                    "organização', que faz o mesmo uma de cada vez."
+                ),
+                "en": (
+                    "Applying a policy template to child organizations requires the "
+                    "Enterprise edition. In Community, use 'copy to another "
+                    "organization', which does the same one at a time."
+                ),
+                "es": (
+                    "Aplicar una plantilla de política a las organizaciones filiales "
+                    "requiere la edición Enterprise. En Community, usa 'copiar a otra "
+                    "organización', que hace lo mismo una por vez."
+                ),
+            },
+        )
+
+
+def _child_org_ids(db: Session, root_org_id: int) -> List[int]:
+    """Filhas DIRETAS e indiretas da matriz, sem ela própria.
+
+    Caminha ``parent_organization_id`` em vez de ler ``org_closure``: a closure
+    é materializada pelo EE e pode estar vazia numa base que acabou de ganhar a
+    licença, e o modelo precisa funcionar no primeiro uso.
+    """
+    try:
+        rows = db.query(
+            models.Organization.id, models.Organization.parent_organization_id
+        ).all()
+    except Exception:  # pragma: no cover — defensivo
+        return []
+    children: Dict[Optional[int], List[int]] = {}
+    for org_id, parent_id in rows:
+        children.setdefault(parent_id, []).append(int(org_id))
+    out: List[int] = []
+    frontier = [int(root_org_id)]
+    seen = {int(root_org_id)}
+    while frontier:
+        nxt: List[int] = []
+        for org_id in frontier:
+            for child in children.get(org_id, ()):
+                if child in seen:
+                    continue
+                seen.add(child)
+                out.append(child)
+                nxt.append(child)
+        frontier = nxt
+    return sorted(out)
+
+
+def _inherited_policy(
+    db: Session, org_id: int, template_name: str
+) -> Optional[models.EnrichmentPolicy]:
+    """A política da filha que carrega o modelo — casada por NOME.
+
+    Nome, e não um id de origem, porque é o nome que o operador reconhece e o
+    que a filha vê na lista. Guardar um vínculo por id obrigaria a criar a
+    política antes de saber se ela vai existir, e deixaria órfã toda cópia feita
+    à mão antes de o modelo existir.
+    """
+    return (
+        db.query(models.EnrichmentPolicy)
+        .filter(
+            models.EnrichmentPolicy.organization_id == org_id,
+            models.EnrichmentPolicy.name == template_name,
+        )
+        .first()
+    )
+
+
+def _template_target(
+    db: Session, template: models.EnrichmentPolicy, compiled, version_id: str, org_id: int
+) -> TemplateApplyTarget:
+    """Estado de UMA filha diante do modelo."""
+    org = db.get(models.Organization, org_id)
+    name = str(getattr(org, "name", "") or "") or None
+
+    herdada = _inherited_policy(db, org_id, str(template.name))
+
+    # Política PRÓPRIA habilitada vence o modelo. É a regra de precedência da
+    # proposta, e ela é observável: sem dizer "sobrescrita", aplicar o modelo
+    # aqui pareceria ter funcionado e nada mudaria no runtime, porque vale uma
+    # política por organização — a mais antiga habilitada.
+    propria = (
+        db.query(models.EnrichmentPolicy)
+        .filter(
+            models.EnrichmentPolicy.organization_id == org_id,
+            models.EnrichmentPolicy.enabled.is_(True),
+        )
+        .order_by(models.EnrichmentPolicy.created_at.asc())
+        .first()
+    )
+    if propria is not None and (herdada is None or propria.id != herdada.id):
+        return TemplateApplyTarget(
+            organization_id=org_id,
+            organization_name=name,
+            status="overridden",
+            policy_id=(herdada.id if herdada else None),
+            policy_name=(herdada.name if herdada else None),
+            overriding_policy=str(propria.name),
+        )
+
+    pre = _duplicate_preflight(db, compiled, org_id, str(template.name))
+    # ``name_conflict`` aqui NÃO bloqueia: a política homônima na filha é
+    # justamente a herdada, que vamos versionar em vez de recriar.
+    if pre.missing_tables or pre.missing_sources:
+        return TemplateApplyTarget(
+            organization_id=org_id,
+            organization_name=name,
+            status="blocked",
+            policy_id=(herdada.id if herdada else None),
+            policy_name=(herdada.name if herdada else None),
+            missing_tables=pre.missing_tables,
+            missing_sources=pre.missing_sources,
+            tables_without_version=pre.tables_without_version,
+        )
+
+    ja_aplicada: Optional[str] = None
+    if herdada is not None and herdada.current_version_id:
+        atual = db.get(models.EnrichmentPolicyVersion, herdada.current_version_id)
+        if atual is not None and atual.derived_from_version_id == version_id:
+            ja_aplicada = version_id
+
+    return TemplateApplyTarget(
+        organization_id=org_id,
+        organization_name=name,
+        status="up_to_date" if ja_aplicada else "ready",
+        policy_id=(herdada.id if herdada else None),
+        policy_name=(herdada.name if herdada else None),
+        applied_version_id=ja_aplicada,
+        tables_without_version=pre.tables_without_version,
+    )
+
+
+@router.post("/policies/{policy_id}/template", response_model=PolicyRead)
+def set_policy_template(
+    policy_id: str,
+    is_template: bool = Query(...),
+    user: models.AppUser = Depends(app_auth.require_admin_user),
+    db: Session = Depends(_db),
+) -> PolicyRead:
+    """Marca (ou desmarca) a política como modelo da matriz.
+
+    Marcar não muda NADA no runtime: a política segue valendo só na org dela. O
+    que a marca habilita é o "aplicar às filhas" — e é por isso que ela pode ser
+    retirada a qualquer momento sem efeito sobre as versões já aplicadas, que
+    são versões próprias de cada filha.
+
+    Exige que a organização tenha filhas: marcar como modelo uma política de
+    organização folha produziria um botão que nunca tem a quem aplicar.
+    """
+    _require_multi_tenant()
+    row = _assert_visible(db.get(models.EnrichmentPolicy, policy_id), user, "policy")
+
+    if is_template and not _child_org_ids(db, int(row.organization_id)):
+        raise _bad_request(
+            "enrichment.template_without_children",
+            "esta organização não tem organizações filhas para receber o modelo",
+        )
+
+    row.is_template = bool(is_template)
+    db.commit()
+    db.refresh(row)
+    return _policy_read(db, row)
+
+
+@router.post(
+    "/policies/{policy_id}/template-preflight", response_model=TemplateApplyPreflight
+)
+def template_apply_preflight(
+    policy_id: str,
+    user: models.AppUser = Depends(app_auth.require_admin_user),
+    db: Session = Depends(_db),
+) -> TemplateApplyPreflight:
+    """O que acontece em CADA filha se o modelo for aplicado. Não muda nada.
+
+    Roda antes porque o pré-requisito ausente, sem isto, viraria carga de tabela
+    falhando a cada ciclo em N organizações ao mesmo tempo — multiplicando por N
+    o modo de falha mudo que esta feature inteira persegue.
+    """
+    _require_multi_tenant()
+    row = _assert_visible(db.get(models.EnrichmentPolicy, policy_id), user, "policy")
+    if not row.is_template:
+        raise _bad_request(
+            "enrichment.not_a_template",
+            "esta política não está marcada como modelo da matriz",
+        )
+    _doc, compiled = _policy_current_rules(db, row)
+    version_id = str(row.current_version_id)
+
+    targets = [
+        _template_target(db, row, compiled, version_id, org_id)
+        for org_id in _child_org_ids(db, int(row.organization_id))
+    ]
+    return TemplateApplyPreflight(
+        template_policy_id=str(row.id),
+        template_version_id=version_id,
+        targets=targets,
+    )
+
+
+@router.post("/policies/{policy_id}/apply-template", response_model=TemplateApplyResult)
+def apply_template(
+    policy_id: str,
+    payload: TemplateApplyRequest,
+    user: models.AppUser = Depends(app_auth.require_admin_user),
+    db: Session = Depends(_db),
+) -> TemplateApplyResult:
+    """Publica uma versão DERIVADA em cada filha escolhida.
+
+    Nunca aplica onde o preflight bloqueia — e a decisão é recalculada aqui, não
+    herdada da chamada anterior: entre ver a tela e clicar, alguém pode ter
+    apagado a tabela que a regra cita, e aplicar mesmo assim colocaria N
+    organizações num estado que a tela acabara de dizer ser impossível.
+
+    A cópia criada nasce DESABILITADA, como em ``duplicate``. A já existente
+    mantém o estado que tinha: uma filha que já rodava o modelo continua
+    rodando, com a versão nova; uma que estava desligada segue desligada, e
+    quem opera aquele cliente decide quando ligar.
+    """
+    _require_multi_tenant()
+    row = _assert_visible(db.get(models.EnrichmentPolicy, policy_id), user, "policy")
+    if not row.is_template:
+        raise _bad_request(
+            "enrichment.not_a_template",
+            "esta política não está marcada como modelo da matriz",
+        )
+    doc, compiled = _policy_current_rules(db, row)
+    version_id = str(row.current_version_id)
+
+    filhas = set(_child_org_ids(db, int(row.organization_id)))
+    pedidas = [int(i) for i in payload.organization_ids]
+    fora = sorted(set(pedidas) - filhas)
+    if fora:
+        # Aplicar fora da subárvore seria escrever política na organização de
+        # outra árvore de tenants — o furo cross-tenant que a feature evita.
+        raise _bad_request(
+            "enrichment.template_target_outside_subtree",
+            f"organização(ões) fora da subárvore desta matriz: {fora}",
+        )
+
+    applied: List[TemplateApplyTarget] = []
+    skipped: List[TemplateApplyTarget] = []
+    rules_json = json.dumps(doc, sort_keys=True, separators=(",", ":"))
+
+    for org_id in sorted(set(pedidas)):
+        alvo = _template_target(db, row, compiled, version_id, org_id)
+        if alvo.status in ("blocked", "overridden", "up_to_date"):
+            skipped.append(alvo)
+            continue
+
+        herdada = _inherited_policy(db, org_id, str(row.name))
+        if herdada is None:
+            herdada = models.EnrichmentPolicy(
+                organization_id=org_id,
+                name=str(row.name),
+                description=row.description,
+                enabled=False,
+            )
+            db.add(herdada)
+            db.flush()
+
+        ultima = (
+            db.query(models.EnrichmentPolicyVersion)
+            .filter(models.EnrichmentPolicyVersion.policy_id == herdada.id)
+            .order_by(models.EnrichmentPolicyVersion.version_number.desc())
+            .first()
+        )
+        versao = models.EnrichmentPolicyVersion(
+            policy_id=herdada.id,
+            version_number=(int(ultima.version_number) + 1) if ultima else 1,
+            rules=rules_json,
+            author_user_id=app_auth.persistable_user_id(user),
+            commit_message=payload.commit_message,
+            derived_from_version_id=version_id,
+        )
+        db.add(versao)
+        db.flush()
+        herdada.current_version_id = versao.id
+
+        alvo.policy_id = str(herdada.id)
+        alvo.policy_name = str(herdada.name)
+        alvo.applied_version_id = version_id
+        alvo.status = "applied"
+        applied.append(alvo)
+
+    db.commit()
+    logger.info(
+        "enrichment: modelo %s aplicado a %d organização(ões), %d pulada(s)",
+        row.name,
+        len(applied),
+        len(skipped),
+    )
+    return TemplateApplyResult(applied=applied, skipped=skipped)

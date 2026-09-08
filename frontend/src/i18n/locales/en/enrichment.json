@@ -297,6 +297,43 @@
         "tag": "marks when nothing is found",
         "default": "writes the default when nothing is found"
       }
+    },
+    "template": {
+      "title": "Headquarters template",
+      "badge": "template",
+      "description": "Applies the SAME rules to child organizations. Each one gets its own version, with its own history and rollback — there is no policy that applies to all at once. It works because a rule references tables and sources by NAME, and the name is resolved in each organization.",
+      "mark": "Mark as template",
+      "unmark": "Stop being a template",
+      "checking": "Checking what exists in each organization…",
+      "noChildren": "This organization has no children to receive the template.",
+      "org": "Organization",
+      "state": "State",
+      "detail": "What this means",
+      "apply_one": "Apply to {{count}} organization",
+      "apply_other": "Apply to {{count}} organizations",
+      "applyHint_one": "{{count}} organization can receive it now. The copy starts inactive; one already running the template keeps running, with the new version.",
+      "applyHint_other": "{{count}} organizations can receive it now. The copy starts inactive; those already running the template keep running, with the new version.",
+      "applied_one": "Applied to {{count}} organization",
+      "applied_other": "Applied to {{count}} organizations",
+      "skipped_one": "{{count}} organization was skipped: see the reason on its row.",
+      "skipped_other": "{{count}} organizations were skipped: see the reason on each row.",
+      "commitMessage": "applied from template {{name}}",
+      "ready": "has everything the rules reference",
+      "upToDate": "already on this version of the template",
+      "overriddenBy": "has its own policy in effect ({{name}}), which wins over the template",
+      "missingTables": "missing tables: {{names}}",
+      "missingSources": "missing sources: {{names}}",
+      "tablesWithoutVersion": "applies, but does not work yet: {{names}} has no published version there",
+      "status": {
+        "ready": "ready",
+        "up_to_date": "up to date",
+        "blocked": "blocked",
+        "overridden": "overridden",
+        "applied": "applied"
+      },
+      "communityTitle": "Apply this policy to several customers",
+      "communityBody": "In the Community edition, use \"Copy to another organization\" — one at a time, with the same prerequisite check. The Enterprise edition marks the policy as a headquarters template and applies it to every child at once, checking each organization.",
+      "communityLink": "See the editions"
     }
   },
   "errorTitle": "Failed to load enrichment",

@@ -297,6 +297,43 @@
         "tag": "marca quando não encontra",
         "default": "escreve o padrão quando não encontra"
       }
+    },
+    "template": {
+      "title": "Modelo da matriz",
+      "badge": "modelo",
+      "description": "Aplica as MESMAS regras às organizações filhas. Cada uma recebe uma versão própria, com histórico e reversão próprios — não existe política que valha para todas ao mesmo tempo. Funciona porque a regra cita tabela e fonte por NOME, e o nome é resolvido em cada organização.",
+      "mark": "Marcar como modelo",
+      "unmark": "Deixar de ser modelo",
+      "checking": "Conferindo o que existe em cada organização…",
+      "noChildren": "Esta organização não tem filhas para receber o modelo.",
+      "org": "Organização",
+      "state": "Estado",
+      "detail": "O que isso significa",
+      "apply_one": "Aplicar a {{count}} organização",
+      "apply_other": "Aplicar a {{count}} organizações",
+      "applyHint_one": "{{count}} organização pode receber agora. A cópia nasce inativa; quem já rodava o modelo continua rodando, com a versão nova.",
+      "applyHint_other": "{{count}} organizações podem receber agora. A cópia nasce inativa; quem já rodava o modelo continua rodando, com a versão nova.",
+      "applied_one": "Aplicado a {{count}} organização",
+      "applied_other": "Aplicado a {{count}} organizações",
+      "skipped_one": "{{count}} organização foi pulada: veja o motivo na linha dela.",
+      "skipped_other": "{{count}} organizações foram puladas: veja o motivo na linha de cada uma.",
+      "commitMessage": "aplicado do modelo {{name}}",
+      "ready": "tem tudo o que as regras citam",
+      "upToDate": "já está nesta versão do modelo",
+      "overriddenBy": "tem política própria em vigor ({{name}}), que vence o modelo",
+      "missingTables": "faltam as tabelas: {{names}}",
+      "missingSources": "faltam as fontes: {{names}}",
+      "tablesWithoutVersion": "aplica, mas não funciona ainda: {{names}} está sem versão publicada lá",
+      "status": {
+        "ready": "pronta",
+        "up_to_date": "em dia",
+        "blocked": "bloqueada",
+        "overridden": "sobrescrita",
+        "applied": "aplicada"
+      },
+      "communityTitle": "Aplicar esta política a vários clientes",
+      "communityBody": "Na edição Community, use \"Copiar para outra organização\" — uma de cada vez, com a mesma verificação de pré-requisitos. A edição Enterprise marca a política como modelo da matriz e aplica a todas as filhas de uma vez, com verificação por organização.",
+      "communityLink": "Ver as edições"
     }
   },
   "errorTitle": "Falha ao carregar o enriquecimento",

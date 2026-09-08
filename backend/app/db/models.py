@@ -2349,6 +2349,18 @@ class EnrichmentPolicy(Base):
     #: OFF por default: criar a política não a coloca no hot path.
     enabled = Column(Boolean, default=False, nullable=False)
     current_version_id = Column(String, nullable=True)
+    #: MODELO da matriz (Enterprise). Continua sendo uma política normal da org
+    #: dona — pode inclusive estar em vigor lá. A marca só habilita o "aplicar
+    #: às filhas", que MATERIALIZA uma versão derivada em cada uma.
+    #:
+    #: Não existe política global, e esta marca não cria uma. O runtime segue
+    #: lendo a política da PRÓPRIA org pelo ponteiro ``current_version_id``: o
+    #: modelo é um gesto de autoria, não um segundo caminho de resolução. Foi
+    #: assim que a herança coube sem tocar o hot path — e é o que impede que um
+    #: CMDB de um cliente sirva de contexto para outro.
+    is_template = Column(
+        Boolean, nullable=False, default=False, server_default=_sa_text("false")
+    )
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(
         DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
@@ -2384,6 +2396,15 @@ class EnrichmentPolicyVersion(Base):
     #: Documento JSON ``{"version": 1, "enrichment": [...]}``, validado por
     #: ``enrich.dsl.compile_policy`` ANTES do commit (422 em regra inválida).
     rules = Column(Text, nullable=False)
+    #: Versão do MODELO da matriz que originou esta. ``None`` em versão escrita
+    #: à mão.
+    #:
+    #: Sem FK de propósito: a versão de origem vive noutra ORGANIZAÇÃO, e um
+    #: ``ON DELETE CASCADE`` faria apagar a política da matriz apagar o
+    #: histórico das filhas — destruindo a auditoria de quem nem participou da
+    #: decisão. O campo é rastro, não vínculo; um id órfão aqui significa
+    #: exatamente "o modelo de origem não existe mais", que é a verdade.
+    derived_from_version_id = Column(String, nullable=True)
     #: ``auth.persistable_user_id()`` — NUNCA o id cru de service account, que é
     #: negativo e inexistente em ``app_users`` (FK violation + audit perdido).
     author_user_id = Column(

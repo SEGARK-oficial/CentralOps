@@ -2951,6 +2951,70 @@ export interface EnrichmentPolicy {
   rule_count: number
   /** A política que o worker aplica nesta org: só uma por organização. */
   is_active?: boolean
+  /** Modelo da matriz (Enterprise). Não muda nada no runtime por si só. */
+  is_template?: boolean
+  /** Versão do modelo que originou a versão vigente, quando herdada. */
+  derived_from_version_id?: string | null
+}
+
+// ── Modelo da matriz (Enterprise) ───────────────────────────────────────────
+
+export interface EnrichmentTemplateTarget {
+  organization_id: number
+  organization_name?: string | null
+  /** `ready` | `blocked` | `overridden` | `up_to_date` | `applied` */
+  status: string
+  policy_id?: string | null
+  policy_name?: string | null
+  applied_version_id?: string | null
+  missing_tables: string[]
+  missing_sources: string[]
+  tables_without_version: string[]
+  /** Nome da política PRÓPRIA que vence o modelo, quando `overridden`. */
+  overriding_policy?: string | null
+}
+
+export interface EnrichmentTemplatePreflight {
+  template_policy_id: string
+  template_version_id?: string | null
+  targets: EnrichmentTemplateTarget[]
+}
+
+export interface EnrichmentTemplateApplyResult {
+  applied: EnrichmentTemplateTarget[]
+  skipped: EnrichmentTemplateTarget[]
+}
+
+/** Marca (ou desmarca) a política como modelo da matriz. */
+export async function setEnrichmentPolicyTemplate(policyId: string, isTemplate: boolean) {
+  return apiRequest<EnrichmentPolicy>(
+    `/collectors/enrichment/policies/${policyId}/template?is_template=${isTemplate}`,
+    { method: "POST" },
+  )
+}
+
+/** O que aconteceria em CADA filha. Não muda nada. */
+export async function preflightEnrichmentTemplate(policyId: string) {
+  return apiRequest<EnrichmentTemplatePreflight>(
+    `/collectors/enrichment/policies/${policyId}/template-preflight`,
+    { method: "POST" },
+  )
+}
+
+/**
+ * Publica uma versão derivada em cada filha escolhida.
+ *
+ * A decisão é recalculada no servidor: o que estava bloqueado entre a tela e o
+ * clique volta em `skipped`, e nada é escrito lá.
+ */
+export async function applyEnrichmentTemplate(
+  policyId: string,
+  data: { organization_ids: number[]; commit_message?: string },
+) {
+  return apiRequest<EnrichmentTemplateApplyResult>(
+    `/collectors/enrichment/policies/${policyId}/apply-template`,
+    { method: "POST", body: JSON.stringify(data) },
+  )
 }
 
 export async function listEnrichers() {

@@ -1646,6 +1646,29 @@ def _run_lightweight_migrations() -> None:
                     text("ALTER TABLE enrichment_sources ADD COLUMN last_test_message TEXT")
                 )
 
+        # ── enrichment: modelo da matriz (Enterprise) ────────
+        # BOOLEAN com DEFAULT FALSE (não 0): o Postgres recusa o inteiro.
+        if "enrichment_policies" in table_names:
+            ep_cols = {col["name"] for col in inspector.get_columns("enrichment_policies")}
+            if "is_template" not in ep_cols:
+                conn.execute(
+                    text(
+                        "ALTER TABLE enrichment_policies "
+                        "ADD COLUMN is_template BOOLEAN NOT NULL DEFAULT FALSE"
+                    )
+                )
+        if "enrichment_policy_versions" in table_names:
+            epv_cols = {
+                col["name"] for col in inspector.get_columns("enrichment_policy_versions")
+            }
+            if "derived_from_version_id" not in epv_cols:
+                conn.execute(
+                    text(
+                        "ALTER TABLE enrichment_policy_versions "
+                        "ADD COLUMN derived_from_version_id VARCHAR"
+                    )
+                )
+
         # ── api_tokens: PAT (Personal Access Tokens) ───────
         # Tabela criada via Base.metadata.create_all em initialize_database;
         # aqui só garantimos índices secundários e idempotência caso a
