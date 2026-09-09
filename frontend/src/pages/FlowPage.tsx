@@ -75,14 +75,23 @@ const FlowPage: React.FC = () => {
   const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const abortRef = useRef<AbortController | null>(null)
+  const inFlightRef = useRef(false)
 
   const [selectedNode, setSelectedNode] = useState<FlowNodeId | null>(null)
   const [feedOpen, setFeedOpen] = useState(false)
 
   const load = useCallback(async (silent: boolean) => {
+    // Um poll NUNCA atropela o anterior. `abort()` só cancela do lado do
+    // navegador — a request já em voo continua no backend segurando conexões
+    // de banco até terminar. Como o /flow pode demorar mais que POLL_MS num
+    // deployment grande, disparar por cima empilhava trabalho no servidor até
+    // esgotar o pool. Poll enquanto ocupado é simplesmente descartado; o
+    // próximo tick pega o estado novo.
+    if (silent && inFlightRef.current) return
     abortRef.current?.abort()
     const ctrl = new AbortController()
     abortRef.current = ctrl
+    inFlightRef.current = true
     if (silent) setRefreshing(true)
     else setLoading(true)
     try {
@@ -93,8 +102,14 @@ const FlowPage: React.FC = () => {
       if (err instanceof Error && err.name === "AbortError") return
       setError(err instanceof Error ? err.message : t("flowPage.loadError"))
     } finally {
-      setLoading(false)
-      setRefreshing(false)
+      // Só o load MAIS RECENTE zera o estado. Um refresh manual pode ter
+      // abortado este; nesse caso quem manda é o novo, e zerar aqui marcaria
+      // "livre" com uma request ainda em voo — reabrindo o empilhamento.
+      if (abortRef.current === ctrl) {
+        inFlightRef.current = false
+        setLoading(false)
+        setRefreshing(false)
+      }
     }
   }, [t])
 

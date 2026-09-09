@@ -555,6 +555,35 @@ def _bulk_cache_key(user_id: int) -> str:
     return f"pipeline_health_bulk:{user_id}"
 
 
+def _parse_snapshot(raw: Optional[str]) -> Optional[tuple[int, float]]:
+    """``(total, ts)`` do snapshot serializado; ``None`` se ausente/corrompido."""
+    if raw is None:
+        return None
+    try:
+        data = json.loads(raw)
+        return int(data["total"]), float(data["ts"])
+    except (ValueError, KeyError, TypeError):
+        return None
+
+
+def _epm_from_delta(
+    current_total: int, prev_total: int, prev_ts: float, now_ts: float
+) -> Optional[float]:
+    """Taxa em eventos/min entre dois snapshots.
+
+    ``None`` quando o par não é confiável: contador reiniciado pelo worker
+    (delta negativo — não soma lixo), clock inconsistente, ou janela curta
+    demais (< 10s) para uma média estável.
+    """
+    delta_events = current_total - prev_total
+    delta_seconds = now_ts - prev_ts
+    if delta_events < 0 or delta_seconds <= 0:
+        return None
+    if delta_seconds < 10:
+        return None
+    return round((delta_events / delta_seconds) * 60, 2)
+
+
 async def _get_events_per_minute(
     redis: redis_async.Redis,
     db: Session,
@@ -564,8 +593,10 @@ async def _get_events_per_minute(
 
     Aproximação baseada em deltas de ``CollectionState.events_collected_total``.
     Se snapshot não existe (primeira chamada), salva snapshot e retorna None.
-    Contadores reiniciados pelo worker podem produzir valor negativo — nesse
-    caso retorna None (não soma lixo).
+
+    Para MUITAS integrações de uma vez use ``get_events_per_minute_batch``:
+    esta variante faz 1 query + round-trips Redis POR integração, com a sessão
+    presa durante a I/O de rede.
     """
     snapshot_key = _snapshot_key(integration_id)
     now_ts = datetime.utcnow().timestamp()
@@ -584,27 +615,97 @@ async def _get_events_per_minute(
         await redis.set(snapshot_key, snapshot, ex=_SNAPSHOT_TTL + 30)
         return None
 
-    try:
-        data = json.loads(raw)
-        prev_total: int = int(data["total"])
-        prev_ts: float = float(data["ts"])
-    except (ValueError, KeyError, TypeError):
+    parsed = _parse_snapshot(raw)
+    if parsed is None:
         # Snapshot corrompido — descarta e recomeça
         await redis.delete(snapshot_key)
         return None
 
-    delta_events = current_total - prev_total
-    delta_seconds = now_ts - prev_ts
+    prev_total, prev_ts = parsed
+    return _epm_from_delta(current_total, prev_total, prev_ts, now_ts)
 
-    if delta_events < 0 or delta_seconds <= 0:
-        # Contador resetado ou clock inconsistente
-        return None
 
-    if delta_seconds < 10:
-        # Janela muito curta — pouca confiabilidade
-        return None
+async def get_events_per_minute_batch(
+    redis: redis_async.Redis,
+    db: Session,
+    integration_ids: "list[int]",
+) -> "dict[int, Optional[float]]":
+    """``_get_events_per_minute`` para várias integrações, a CUSTO FIXO.
 
-    return round((delta_events / delta_seconds) * 60, 2)
+    A variante single custa 1 query + 2 round-trips Redis por integração, e
+    mantém a sessão de banco aberta durante a I/O do Redis. Chamada em fan-out
+    isso faz o consumo de conexões escalar com o tamanho do deployment — foi o
+    que esgotou o pool e derrubou a API inteira a partir da tela /flow.
+
+    Aqui o custo não depende de quantas integrações existem: UMA query agregada
+    (``GROUP BY integration_id``), UM ``MGET`` e UM pipeline de escrita. A
+    sessão é usada só na query inicial e está livre antes de qualquer await de
+    rede — o chamador pode reusar a sessão da request, sem abrir efêmeras.
+
+    Falha de Redis degrada para ``None`` em todas as integrações (mesma
+    semântica da variante single), nunca levanta.
+    """
+    ids = list(dict.fromkeys(int(i) for i in integration_ids))
+    if not ids:
+        return {}
+
+    now_ts = datetime.utcnow().timestamp()
+
+    # Uma query pra todas. Depois desta linha o ``db`` não é mais tocado —
+    # nenhuma conexão fica presa durante os round-trips de Redis abaixo.
+    totals: dict[int, int] = {
+        int(row.integration_id): int(row.total or 0)
+        for row in db.execute(
+            select(
+                models.CollectionState.integration_id.label("integration_id"),
+                func.sum(models.CollectionState.events_collected_total).label("total"),
+            )
+            .where(models.CollectionState.integration_id.in_(ids))
+            .group_by(models.CollectionState.integration_id)
+        ).all()
+    }
+
+    keys = [_snapshot_key(i) for i in ids]
+    try:
+        raws = await redis.mget(keys)
+    except Exception:
+        logger.debug("epm_batch: MGET falhou — degradando para None", exc_info=True)
+        return {i: None for i in ids}
+
+    result: dict[int, Optional[float]] = {}
+    to_write: dict[str, str] = {}
+    to_delete: list[str] = []
+
+    for integ_id, key, raw in zip(ids, keys, raws):
+        current_total = totals.get(integ_id, 0)
+        parsed = _parse_snapshot(raw)
+        if parsed is None:
+            # Ausente (primeira chamada) → grava baseline. Corrompido → apaga.
+            if raw is None:
+                to_write[key] = json.dumps({"total": current_total, "ts": now_ts})
+            else:
+                to_delete.append(key)
+            result[integ_id] = None
+            continue
+        prev_total, prev_ts = parsed
+        result[integ_id] = _epm_from_delta(
+            current_total, prev_total, prev_ts, now_ts
+        )
+
+    if to_write or to_delete:
+        # Best-effort: o snapshot é uma otimização, não estado de negócio. Se a
+        # escrita falhar a próxima chamada simplesmente refaz o baseline.
+        try:
+            pipe = redis.pipeline()
+            for key, value in to_write.items():
+                pipe.set(key, value, ex=_SNAPSHOT_TTL + 30)
+            if to_delete:
+                pipe.delete(*to_delete)
+            await pipe.execute()
+        except Exception:
+            logger.debug("epm_batch: escrita de snapshot falhou", exc_info=True)
+
+    return result
 
 
 async def get_cached_pipeline_health(
