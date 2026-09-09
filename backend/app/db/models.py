@@ -12,6 +12,7 @@ from sqlalchemy import (
     text as _sa_text,
 )
 from sqlalchemy.orm import relationship
+from sqlalchemy.orm.exc import DetachedInstanceError
 from datetime import datetime
 from uuid import uuid4
 
@@ -328,7 +329,24 @@ class Integration(Base):
 
     @property
     def is_authenticated(self) -> bool:
-        return self.auth_status in {"healthy", "degraded"}
+        if self.auth_status in {"healthy", "degraded"}:
+            return True
+        # Filha de Partner/Organization NÃO tem credencial própria: o OAuth
+        # vive no pai e o provider lê de lá pra servir chamadas do tenant (ver
+        # ``IntegrationRepository.create_child``). Ela nasce ``auth_status=
+        # "unknown"`` e nada a promove — ``record_auth_state`` não tem
+        # chamador e não há health check periódico —, então sem herdar o
+        # estado do pai um tenant perfeitamente utilizável se reporta como
+        # não-autenticado pra sempre, sumindo das telas que filtram por isto.
+        if not self.parent_integration_id:
+            return False
+        try:
+            parent = self.parent
+        except DetachedInstanceError:
+            # Row destacada da sessão (ex.: providers após ``db.expunge_all()``):
+            # sem lazy-load possível, degrada pro estado próprio.
+            return False
+        return parent is not None and parent.auth_status in {"healthy", "degraded"}
 
     def _has_active_secret(self, logical_name: str) -> bool:
         """Presence-check de um segredo ATIVO no store ``integration_credentials``.
