@@ -505,6 +505,18 @@ class Settings(BaseSettings):
     # por-minuto (TTL 3h), então a janela só muda a LEITURA, não o armazenamento.
     # NÃO afeta o endpoint de saúde de rota (matched_1h, fixo em 1h por contrato).
     OBS_RATE_WINDOW_MINUTES: int = 5
+    # Teto de concorrência dos fan-outs por-nó das telas de topologia (/flow,
+    # /topology). O trabalho por nó é O(n_integrações)/O(n_rotas), então SEM teto
+    # o pico de conexões e de threads escala com o tamanho do deployment: um
+    # ambiente com 26 integrações pedia ~52 conexões de um pool de 40 e derrubava
+    # a API inteira (o pool é do processo, não do endpoint). Manter bem ABAIXO de
+    # pool_size + max_overflow — o custo é latência da tela, não correção.
+    FLOW_FANOUT_CONCURRENCY: int = 8
+    # Pool do SQLAlchemy. Exposto por env para o operador acompanhar o
+    # dimensionamento do Postgres (max_connections) sem rebuild da imagem.
+    DB_POOL_SIZE: int = 20
+    DB_MAX_OVERFLOW: int = 20
+    DB_POOL_TIMEOUT: int = 30
     # Head-sampling de TRACES (0..1). Default 1.0 (mantém tudo) deixando o
     # tail-sampling no Collector decidir (reter 100% de erro/DLQ, amostrar
     # sucesso). Baixe (ex.: 0.1) para reduzir egress na origem. ParentBased ⇒

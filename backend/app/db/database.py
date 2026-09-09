@@ -47,9 +47,9 @@ def _get_engine_kwargs() -> dict:
         }
     # pool_pre_ping descarta conexões mortas após idle; pool_recycle: 1h.
     return {
-        "pool_size": 20,
-        "max_overflow": 20,
-        "pool_timeout": 30,
+        "pool_size": int(getattr(settings, "DB_POOL_SIZE", 20) or 20),
+        "max_overflow": int(getattr(settings, "DB_MAX_OVERFLOW", 20) or 20),
+        "pool_timeout": int(getattr(settings, "DB_POOL_TIMEOUT", 30) or 30),
         "pool_recycle": 3600,
         "pool_pre_ping": True,
     }

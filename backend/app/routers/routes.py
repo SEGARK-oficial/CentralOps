@@ -71,6 +71,39 @@ from ..core.config import settings as _cfg  # noqa: E402
 
 _RWIN = int(getattr(_cfg, "OBS_RATE_WINDOW_MINUTES", 5) or 5)
 
+# Teto de concorrência dos fan-outs por-nó de /flow e /topology.
+#
+# Estes endpoints abrem uma corrotina POR integração/rota/destino. Sem teto o
+# pico de recursos escala com o tamanho do deployment, e o recurso estourado é
+# do PROCESSO INTEIRO — não do endpoint: o pool do SQLAlchemy (pool_size +
+# max_overflow) e o ThreadPoolExecutor default usado por ``asyncio.to_thread``.
+# Um ambiente com 26 integrações pedia ~52 conexões de um pool de 40; a partir
+# daí TODA request do processo passava a esperar ``pool_timeout`` e o /readyz
+# derrubava o healthcheck do container.
+_FANOUT_LIMIT = max(1, int(getattr(_cfg, "FLOW_FANOUT_CONCURRENCY", 8) or 8))
+
+# Semáforo de PROCESSO (não por request) para o fan-out que toca o BANCO.
+# Por-request não bastaria: N telas abertas simultaneamente multiplicariam o
+# teto por N e o pool voltaria a estourar. O limite global é o que garante a
+# propriedade que faltava — consumo de pool independente da carga.
+_DB_FANOUT_SEM = asyncio.Semaphore(_FANOUT_LIMIT)
+
+
+async def _gather_bounded(factories: List[Any], limit: int = _FANOUT_LIMIT) -> List[Any]:
+    """``asyncio.gather`` com teto de concorrência.
+
+    ``factories`` são callables sem argumento que devolvem a corrotina — a
+    corrotina só é criada quando há vaga, então nada fica alocado esperando.
+    Preserva a ordem de entrada, como o ``gather`` original.
+    """
+    sem = asyncio.Semaphore(max(1, limit))
+
+    async def _run(factory: Any) -> Any:
+        async with sem:
+            return await factory()
+
+    return list(await asyncio.gather(*[_run(f) for f in factories]))
+
 
 def _get_repo(db: Session = Depends(database.get_session)) -> repository.RouteRepository:
     return repository.RouteRepository(db)
@@ -375,7 +408,7 @@ async def routing_topology(
 
     # Paraleliza por rota (cada uma faz 3 leituras Redis): evita o N+1 serial.
     topo_routes: List[TopologyRoute] = list(
-        await asyncio.gather(*[_route_node(r) for r in route_rows])
+        await _gather_bounded([(lambda row=r: _route_node(row)) for r in route_rows])
     )
 
     # ── Destinations (same org-scope as list_destinations; include disabled) ──
@@ -406,7 +439,7 @@ async def routing_topology(
             )
 
     topo_dests: List[TopologyDestination] = list(
-        await asyncio.gather(*[_dest_node(d) for d in dest_rows])
+        await _gather_bounded([(lambda row=d: _dest_node(row)) for d in dest_rows])
     )
 
     return RoutingTopologyResponse(destinations=topo_dests, routes=topo_routes)
@@ -458,8 +491,8 @@ async def flow_graph(
     from ..collectors import observability_store as obs
     from ..routers.pipeline_health import (
         IntegrationPipelineHealth,
-        _get_events_per_minute,
         compute_pipeline_health,
+        get_events_per_minute_batch,
     )
     from ..routers.destinations import _compute_destination_health
     from sqlalchemy import select
@@ -499,20 +532,24 @@ async def flow_graph(
         except Exception:
             pass
 
+        # EPM de TODAS as integrações numa tacada, ANTES do fan-out: uma query
+        # agregada na sessão da própria request. A versão por-integração abria
+        # uma sessão efêmera por nó e a mantinha presa durante a I/O do Redis —
+        # era metade do consumo de pool que estourava o limite.
+        epm_by_integration: dict[int, Optional[float]] = {}
+        if _redis_source is not None:
+            try:
+                epm_by_integration = await get_events_per_minute_batch(
+                    _redis_source, db, [iid for iid, _, _ in integrations_raw]
+                )
+            except Exception:
+                logger.debug("flow: EPM em lote falhou — seguindo sem", exc_info=True)
+
         async def _source_node(
             integ_id: int, integ_name: str, integ_platform: str
         ) -> Optional[FlowSource]:
             try:
-                epm: Optional[float] = None
-                if _redis_source is not None:
-                    try:
-                        # _get_events_per_minute needs a DB session — open ephemeral.
-                        with database.SessionLocal() as _epm_db:
-                            epm = await _get_events_per_minute(
-                                _redis_source, _epm_db, integ_id
-                            )
-                    except Exception:
-                        pass
+                epm: Optional[float] = epm_by_integration.get(integ_id)
 
                 def _compute_sync() -> IntegrationPipelineHealth:
                     with database.SessionLocal() as _ph_db:
@@ -520,7 +557,13 @@ async def flow_graph(
                             _ph_db, integ_id, events_per_minute=epm
                         )
 
-                health: IntegrationPipelineHealth = await asyncio.to_thread(_compute_sync)
+                # Única parte que ainda toca o banco por nó (até 4 queries em
+                # thread separada) — sob o semáforo de processo, para o pico de
+                # conexões não escalar com o nº de integrações nem de requests.
+                async with _DB_FANOUT_SEM:
+                    health: IntegrationPipelineHealth = await asyncio.to_thread(
+                        _compute_sync
+                    )
                 # EPS de ingestão: PREFERE o counter nativo de source
                 # (obs:source:{id}:ingested, gravado na ingestão do pipeline —
                 # real-time, independente do path de coleta). Cai no snapshot
@@ -553,8 +596,11 @@ async def flow_graph(
                 )
                 return None
 
-        source_results = await asyncio.gather(
-            *[_source_node(iid, iname, iplatform) for iid, iname, iplatform in integrations_raw]
+        source_results = await _gather_bounded(
+            [
+                (lambda i=iid, n=iname, p=iplatform: _source_node(i, n, p))
+                for iid, iname, iplatform in integrations_raw
+            ]
         )
         flow_sources = [s for s in source_results if s is not None]
 
@@ -595,7 +641,9 @@ async def flow_graph(
                 is_system=rid in _SYSTEM_ROUTE_IDS,
             )
 
-        flow_routes = list(await asyncio.gather(*[_flow_route_node(r) for r in route_rows]))
+        flow_routes = await _gather_bounded(
+            [(lambda row=r: _flow_route_node(row)) for r in route_rows]
+        )
     except Exception:
         logger.warning("flow: falha ao coletar routes — degradando para []", exc_info=True)
 
@@ -628,7 +676,9 @@ async def flow_graph(
                     id=str(d.id), name=str(d.name), kind=str(d.kind), status="unknown"
                 )
 
-        flow_dests = list(await asyncio.gather(*[_flow_dest_node(d) for d in dest_rows]))
+        flow_dests = await _gather_bounded(
+            [(lambda row=d: _flow_dest_node(row)) for d in dest_rows]
+        )
     except Exception:
         logger.warning("flow: falha ao coletar destinations — degradando para []", exc_info=True)
 
