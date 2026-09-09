@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.10.1](https://github.com/SEGARK-oficial/CentralOps/compare/v2.10.0...v2.10.1) (2026-09-09)
+
+
+### Bug Fixes
+
+* destrava re-sync do IRIS e agendamentos em deploy Sophos Partner ([#78](https://github.com/SEGARK-oficial/CentralOps/issues/78)) ([6dfdae3](https://github.com/SEGARK-oficial/CentralOps/commit/6dfdae3344712edfef6c2fb1751b68667724f3b3))
+* **flow:** limita fan-out e agrega EPM — /flow esgotava o pool e derrubava a API ([#80](https://github.com/SEGARK-oficial/CentralOps/issues/80)) ([d247f89](https://github.com/SEGARK-oficial/CentralOps/commit/d247f89e95e6ba9725af6a07f14e3f8059f114f1))
+
 ## [2.10.0](https://github.com/SEGARK-oficial/CentralOps/compare/v2.9.0...v2.10.0) (2026-09-08)
 
 
