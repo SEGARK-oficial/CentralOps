@@ -316,6 +316,32 @@ class OrganizationRepository:
 
 # ── Destination customer mappings ──────────────────────────
 
+class DestinationCustomerIdConflictError(RuntimeError):
+    """``external_customer_id`` já pertence a OUTRA organização para este
+    ``destination_kind`` (viola ``uq_dest_customer_kind_extid``).
+
+    Cenário típico: o sistema externo (ex.: IRIS) foi reprovisionado do zero
+    e reatribuiu ids que já estavam gravados em mappings órfãos de outras
+    orgs. Só é levantado quando a org conflitante foi de fato identificada —
+    ``conflicting_organization_id`` nunca é ``None``.
+    """
+
+    def __init__(
+        self,
+        destination_kind: str,
+        external_customer_id: str,
+        conflicting_organization_id: int,
+    ) -> None:
+        self.destination_kind = destination_kind
+        self.external_customer_id = external_customer_id
+        self.conflicting_organization_id = conflicting_organization_id
+        super().__init__(
+            f"external_customer_id={external_customer_id!r} for "
+            f"destination_kind={destination_kind!r} is already claimed by "
+            f"organization_id={conflicting_organization_id!r}"
+        )
+
+
 class DestinationCustomerMappingRepository:
     """CRUD do mapeamento Organization → customer id externo por destino IR/SOAR.
 
@@ -368,13 +394,24 @@ class DestinationCustomerMappingRepository:
         colidem na UniqueConstraint (org+kind); o segundo captura o
         ``IntegrityError``, faz rollback e re-lê (read-after-conflict) →
         atualiza a linha existente em vez de quebrar o run do partner sync.
+
+        A tabela tem uma SEGUNDA UniqueConstraint, (destination_kind,
+        external_customer_id): um id externo pertence a no máximo UMA org por
+        destino. Ela colide quando o sistema externo é reprovisionado do zero
+        (ex.: IRIS recriado) e reatribui ids que já estão gravados em
+        mappings órfãos de OUTRAS orgs — tanto no INSERT (org nova) quanto no
+        UPDATE (org já mapeada, re-sync com ``force``). Nos dois casos
+        levanta ``DestinationCustomerIdConflictError`` (o caller decide como
+        expor isso) em vez de deixar o ``IntegrityError`` cru estourar como
+        500 sem tratamento — era exatamente isso que faltava antes.
         """
+        external_customer_id = str(external_customer_id)
         mapping = self.get(organization_id, destination_kind)
         if mapping is None:
             mapping = models.DestinationCustomerMapping(
                 organization_id=organization_id,
                 destination_kind=destination_kind,
-                external_customer_id=str(external_customer_id),
+                external_customer_id=external_customer_id,
             )
             self.db.add(mapping)
             try:
@@ -384,17 +421,53 @@ class DestinationCustomerMappingRepository:
                 # commit — re-lê e atualiza (idempotente sob concorrência).
                 self.db.rollback()
                 mapping = self.get(organization_id, destination_kind)
-                if mapping is None:  # pragma: no cover - colisão por outro motivo
-                    raise
-                mapping.external_customer_id = str(external_customer_id)
+                if mapping is None:
+                    # Não foi corrida em (org, kind). Provavelmente a OUTRA
+                    # constraint — mas só afirma isso se der pra CONFIRMAR
+                    # quem detém o id; senão deixa o erro original subir.
+                    conflict = self._conflict_error(
+                        destination_kind, external_customer_id
+                    )
+                    if conflict is None:
+                        raise
+                    raise conflict from None
+                mapping.external_customer_id = external_customer_id
                 mapping.updated_at = datetime.utcnow()
                 self.db.commit()
         else:
-            mapping.external_customer_id = str(external_customer_id)
+            mapping.external_customer_id = external_customer_id
             mapping.updated_at = datetime.utcnow()
-            self.db.commit()
+            try:
+                self.db.commit()
+            except IntegrityError:
+                self.db.rollback()
+                conflict = self._conflict_error(
+                    destination_kind, external_customer_id
+                )
+                if conflict is None:
+                    raise
+                raise conflict from None
         self.db.refresh(mapping)
         return mapping
+
+    def _conflict_error(
+        self, destination_kind: str, external_customer_id: str
+    ) -> DestinationCustomerIdConflictError | None:
+        """Traduz um ``IntegrityError`` já revertido em erro tipado — mas SÓ
+        quando outra org realmente detém ``external_customer_id`` neste
+        destino. ``None`` quando não há dono: aí o IntegrityError veio de
+        outra causa (FK de ``organization_id``, NOT NULL, ...) e o caller
+        re-levanta o original em vez de mascarar como "conflito de id" — um
+        erro enganoso manda quem depura pro caminho errado.
+        """
+        conflicting_organization_id = self.find_organization_id(
+            destination_kind, external_customer_id
+        )
+        if conflicting_organization_id is None:
+            return None
+        return DestinationCustomerIdConflictError(
+            destination_kind, external_customer_id, conflicting_organization_id
+        )
 
     def find_organization_id(
         self, destination_kind: str, external_customer_id: str

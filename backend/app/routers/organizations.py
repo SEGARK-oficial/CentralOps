@@ -509,6 +509,10 @@ def sync_iris_customer(
     Falha modes:
       - 503 quando ``DFIR_IRIS_URL``/``DFIR_IRIS_API_KEY`` não configurados.
       - 502 quando IRIS API rejeita ou timeout.
+      - 409 ``org.iris_customer_id_conflict`` quando o customer_id retornado
+        pelo IRIS já está preso a OUTRA org neste CentralOps — cenário comum
+        depois de reprovisionar o IRIS do zero (ids reatribuídos colidem com
+        mappings órfãos). Requer limpar o mapping antigo antes de repetir.
     """
     from ..services.iris_client import (
         IrisApiError,
@@ -599,7 +603,45 @@ def sync_iris_customer(
             params={"payload": repr(payload)},
         )
 
-    dcm_repo.set(org.id, "iris", customer_id)
+    try:
+        dcm_repo.set(org.id, "iris", customer_id)
+    except repository.DestinationCustomerIdConflictError as exc:
+        # customer_id do IRIS já pertence a OUTRA org neste CentralOps —
+        # típico quando o IRIS foi reprovisionado do zero e reatribuiu ids
+        # que ainda estavam presos a mappings órfãos (ver runbook IRIS).
+        # A org conflitante sempre vem identificada; só o nome pode faltar se
+        # a linha sumir entre a detecção e esta leitura.
+        conflicting_org = repo.get(exc.conflicting_organization_id)
+        conflicting_label = (
+            f"{conflicting_org.name} (id={conflicting_org.id})"
+            if conflicting_org is not None
+            else f"organization_id={exc.conflicting_organization_id}"
+        )
+        raise ApiError(
+            "org.iris_customer_id_conflict",
+            409,
+            messages={
+                "pt": (
+                    "O customer_id={customer_id} do IRIS já está vinculado a "
+                    "outra organização ({conflicting}). Isso costuma acontecer "
+                    "quando o IRIS foi reprovisionado e reatribuiu ids "
+                    "antigos — limpe o mapping órfão antes de tentar de novo."
+                ),
+                "en": (
+                    "IRIS customer_id={customer_id} is already linked to "
+                    "another organization ({conflicting}). This usually "
+                    "happens when IRIS was reprovisioned and reused old ids "
+                    "— clear the orphaned mapping before retrying."
+                ),
+                "es": (
+                    "El customer_id={customer_id} de IRIS ya está vinculado a "
+                    "otra organización ({conflicting}). Esto suele pasar "
+                    "cuando IRIS fue reprovisionado y reasignó ids antiguos "
+                    "— limpie el mapping huérfano antes de reintentar."
+                ),
+            },
+            params={"customer_id": customer_id, "conflicting": conflicting_label},
+        ) from exc
     logger.info(
         "iris_customer_linked",
         extra={
