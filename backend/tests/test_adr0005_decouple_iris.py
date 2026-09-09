@@ -21,6 +21,7 @@ from sqlalchemy.pool import StaticPool
 from backend.app.db import database, models
 from backend.app.db.models import Base
 from backend.app.db.repository import (
+    DestinationCustomerIdConflictError,
     DestinationCustomerMappingRepository,
     OrganizationRepository,
 )
@@ -88,18 +89,56 @@ def test_find_organization_id_by_external(db):
 
 def test_external_id_is_globally_unique_per_kind(db):
     """Um customer id externo pertence a no MÁXIMO uma org por destino — a
-    resolução inversa nunca cruza tenant por colisão de id (uq kind+extid)."""
-    from sqlalchemy.exc import IntegrityError
+    resolução inversa nunca cruza tenant por colisão de id (uq kind+extid).
 
+    set() detecta a colisão (INSERT: org2 ainda sem mapping) e levanta
+    DestinationCustomerIdConflictError já com rollback feito — não deixa o
+    IntegrityError cru escapar pro caller (era isso que virava 500 sem
+    tratamento no router antes do fix)."""
     org1 = _org(db, name="O1", slug="o1")
     org2 = _org(db, name="O2", slug="o2")
     repo = DestinationCustomerMappingRepository(db)
     repo.set(org1.id, "iris", 42)
-    with pytest.raises(IntegrityError):
+    with pytest.raises(DestinationCustomerIdConflictError) as excinfo:
         repo.set(org2.id, "iris", 42)  # MESMO id externo p/ outra org → rejeitado
-    db.rollback()
-    # A sessão segue usável após o rollback do set() (race-safe).
+    assert excinfo.value.conflicting_organization_id == org1.id
+    # A sessão já está usável (rollback interno) sem esforço do caller.
     assert repo.find_organization_id("iris", "42") == org1.id
+
+
+def test_external_id_conflict_on_update_is_caught(db):
+    """Mesma colisão, mas via UPDATE (org2 já tem mapping 'iris' e faz
+    force-resync pro id que org1 já possui) — era o branch SEM NENHUM
+    try/except antes do fix. Reproduz o cenário real: IRIS reprovisionado do
+    zero reatribui um customer_id que já está preso a um mapping órfão de
+    outra org."""
+    org1 = _org(db, name="O1", slug="o1")
+    org2 = _org(db, name="O2", slug="o2")
+    repo = DestinationCustomerMappingRepository(db)
+    repo.set(org1.id, "iris", 42)
+    repo.set(org2.id, "iris", 99)  # org2 já mapeada (kind='iris')
+    with pytest.raises(DestinationCustomerIdConflictError) as excinfo:
+        repo.set(org2.id, "iris", 42)  # force-resync pro id que org1 já tem
+    assert excinfo.value.conflicting_organization_id == org1.id
+    # UPDATE falhou antes de gravar — org2 mantém o mapping anterior intacto.
+    assert repo.get_external_id(org2.id, "iris") == "99"
+
+
+def test_integrity_error_de_outra_causa_nao_vira_conflito(db):
+    """IntegrityError que NÃO é colisão de (kind, external_id) sobe cru.
+
+    Guarda contra mascarar qualquer falha de integridade como "customer_id
+    já usado": um erro enganoso manda quem depura pro caminho errado. Aqui a
+    violação é NOT NULL em destination_kind — ninguém detém o external_id,
+    então set() re-levanta o IntegrityError original em vez de inventar um
+    conflito com organization_id=None."""
+    from sqlalchemy.exc import IntegrityError
+
+    org = _org(db)
+    repo = DestinationCustomerMappingRepository(db)
+    with pytest.raises(IntegrityError):
+        repo.set(org.id, None, 42)  # destination_kind NOT NULL → viola
+    db.rollback()
 
 
 # ── Resolução INBOUND via mapping (não mais pela coluna) ────────────────────
