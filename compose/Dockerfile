@@ -133,7 +133,20 @@ WORKDIR /app
 # apt-get upgrade: aplica patches de SO da base (Trivy-gate) — ex. libssh2-1t64
 # CVE-2026-55200/CVE-2026-7598 (HIGH, fixáveis). Sem isso, os pacotes ficam na
 # versão da imagem base mesmo após o apt-get install.
-RUN apt-get update && \
+#
+# SECURITY_EPOCH existe para INVALIDAR a camada abaixo. Sem ele o
+# ``apt-get upgrade`` é uma promessa que o cache não cumpre: esta camada vem
+# ANTES de qualquer COPY do nosso código, então nada no repositório a invalida,
+# e o ``cache-to: type=gha,mode=max`` dos workflows a reusa indefinidamente —
+# congelada nas versões de pacote do dia em que foi construída. Enquanto isso o
+# Debian publica ``+debNuM`` e o Trivy-gate, que só roda no publish, acorda
+# semanas depois bloqueando o release com CVE que o upgrade já resolveria.
+# Foi o que travou o 2.11.0: 13 CVEs (3 CRITICAL) em gzip, libpcre2, libsqlite3,
+# libssh2 e perl-base, todos com correção publicada e nenhum vindo do nosso
+# código. O CI passa o run_id, então RE-RODAR o job puxa os patches do dia.
+ARG SECURITY_EPOCH=dev
+RUN echo "security epoch: ${SECURITY_EPOCH}" && \
+    apt-get update && \
     apt-get upgrade -y && \
     apt-get install -y --no-install-recommends openssl curl && \
     rm -rf /var/lib/apt/lists/*
@@ -223,7 +236,11 @@ USER root
 # openssl = self-signed em ENABLE_HTTPS sem cert fornecido.
 # apk upgrade: puxa os patches de OS-CVE da base (ex.: c-ares) — o Trivy gate
 # barra HIGH/CRITICAL COM fix disponível, então mantemos os pacotes atualizados.
-RUN apk upgrade --no-cache && apk add --no-cache gettext openssl
+# SECURITY_EPOCH: mesma razão do estágio `final` — sem invalidar, esta camada
+# fica congelada no cache e o `apk upgrade` nunca volta a rodar.
+ARG SECURITY_EPOCH=dev
+RUN echo "security epoch: ${SECURITY_EPOCH}" && \
+    apk upgrade --no-cache && apk add --no-cache gettext openssl
 COPY --from=frontend-build /app/dist/ /usr/share/nginx/html/
 RUN mkdir -p /etc/nginx/templates /etc/nginx/ssl /etc/nginx/conf.d \
     && chown -R 101:0 /etc/nginx/ssl /etc/nginx/conf.d /usr/share/nginx/html \
