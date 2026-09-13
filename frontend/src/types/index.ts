@@ -649,6 +649,37 @@ export interface IdentityConnectionTestResult {
   detail: string
 }
 
+// ── Servidor MCP embutido (/api/mcp) ─────────────────────────
+
+export type McpResponseMode = "json" | "sse"
+
+export interface McpConfig {
+  enabled: boolean
+  response_mode: McpResponseMode
+  /** Caminho do endpoint do protocolo, relativo à origem (a UI monta a URL). */
+  endpoint_path: string
+  tools_count: number
+  is_persisted: boolean
+  updated_at?: string | null
+}
+
+export interface UpdateMcpConfigRequest {
+  enabled?: boolean
+  response_mode?: McpResponseMode
+}
+
+/** O que o próprio analista precisa para configurar um cliente MCP. */
+export interface McpStatus {
+  enabled: boolean
+  response_mode: McpResponseMode
+  endpoint_path: string
+  has_permission: boolean
+  required_permission: string
+  tools_count: number
+  server_name: string
+  server_version: string
+}
+
 // ── status de sync Graph ─────────────────────────────────────
 
 export interface EntraSyncSummary {

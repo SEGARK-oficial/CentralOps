@@ -2,10 +2,15 @@
 
 from __future__ import annotations
 
+import hmac
 import logging
+import secrets
+from contextlib import contextmanager
+from contextvars import ContextVar
+from dataclasses import dataclass
 from datetime import datetime, timedelta
 from enum import StrEnum
-from typing import Callable, Optional
+from typing import Callable, Iterator, Optional
 
 from fastapi import Depends, HTTPException, Request, Response, status
 from sqlalchemy.orm import Session
@@ -20,6 +25,54 @@ logger = logging.getLogger(__name__)
 
 # Prefixo Bearer obrigatório no header Authorization para PATs.
 _BEARER_SCHEME_PREFIX = "Bearer "
+
+
+# ── Chamadas internas pré-autenticadas (loopback do MCP) ──────────────
+#
+# O servidor MCP embutido executa cada ferramenta chamando a API REST por
+# loopback ASGI, no MESMO processo, em nome do analista que já foi autenticado
+# na borda ``/api/mcp`` (argon2, revogação, rate limit, scopes). Repetir tudo
+# isso a cada chamada interna custaria um argon2 por ferramenta e consumiria
+# o rate limit do token DUAS vezes por ação.
+#
+# O seam é deliberadamente estreito: só é honrado quando (a) este ContextVar
+# está setado — coisa que apenas código Python in-process consegue fazer, no
+# escopo da chamada da ferramenta — E (b) o Bearer recebido é IGUAL ao nonce
+# aleatório de uso único gerado para essa chamada. Um Bearer vindo da rede
+# nunca satisfaz (a); um nonce vazado nunca satisfaz (b) fora do seu escopo.
+# O principal resolvido é RE-LIDO do banco pelo id do token (revogação entre
+# a borda e a ferramenta continua valendo), e nada aqui concede além do que a
+# PAT já concedia — é o mesmo token, o mesmo usuário, o mesmo ``scopes_json``.
+
+#: Prefixo do nonce. Distinto de ``copsk_`` para que um nonce jamais seja
+#: confundido com uma PAT (nem pelo resolver, nem em log).
+INPROCESS_NONCE_PREFIX = "copsin_"
+
+
+@dataclass(frozen=True)
+class InProcessPrincipal:
+    token_id: int
+    nonce: str
+
+
+_INPROCESS_PRINCIPAL: ContextVar[InProcessPrincipal | None] = ContextVar(
+    "centralops_inprocess_principal", default=None
+)
+
+
+@contextmanager
+def inprocess_principal(token_id: int) -> Iterator[str]:
+    """Abre o escopo de chamadas internas em nome do ``ApiToken`` dado.
+
+    Devolve o nonce a enviar como ``Authorization: Bearer <nonce>`` nas
+    chamadas de loopback feitas DENTRO do ``with``. Fora dele o nonce é inerte.
+    """
+    nonce = INPROCESS_NONCE_PREFIX + secrets.token_urlsafe(32)
+    reset_token = _INPROCESS_PRINCIPAL.set(InProcessPrincipal(token_id=int(token_id), nonce=nonce))
+    try:
+        yield nonce
+    finally:
+        _INPROCESS_PRINCIPAL.reset(reset_token)
 
 
 # ── AppUser shim para Service Accounts ───────────────────────────────
@@ -174,6 +227,10 @@ class Permission(StrEnum):
     # Concedida a partir de ENGINEER (quem de fato escreve a regra).
     # Invariante travada em test_adr0015_preview_permission.py.
     CORRELATION_PREVIEW = "correlation.preview"
+    # Usar o servidor MCP embutido (/api/mcp) com a própria chave de API. NÃO
+    # concede nenhuma ação: cada ferramenta ainda passa pela permissão da rota
+    # REST que chama. É a chave de "este analista pode ligar um assistente".
+    MCP_USE = "mcp.use"
 
 
 # Matriz papel × permissão (hardcoded — fonte da verdade)
@@ -210,6 +267,8 @@ ROLE_PERMISSIONS: dict[str, frozenset[str]] = {
         # Destravar coletor parado é exatamente o trabalho do responder de
         # plantão, e ele já pode pausar/retomar a mesma integração.
         Permission.INTEGRATION_RESET,
+        # Assistente (MCP) com as permissões acima — nada além delas.
+        Permission.MCP_USE,
     }),
     UserRole.ENGINEER: frozenset({
         Permission.MAPPING_READ,
@@ -234,6 +293,8 @@ ROLE_PERMISSIONS: dict[str, frozenset[str]] = {
         Permission.QUERY_RUN,
         Permission.QUERY_SAVE,
         Permission.INTEGRATION_RESET,
+        # Quem autora mapping é quem mais ganha com o fluxo incremental do MCP.
+        Permission.MCP_USE,
     }),
     UserRole.ADMIN: frozenset({p for p in Permission}),
 }
@@ -395,6 +456,59 @@ def _populate_authenticated_state(
     request.state.authenticated_token_id = api_token.id if api_token else None
 
 
+def _user_from_api_token(api_token: models.ApiToken) -> models.AppUser:
+    """AppUser por trás de um ``ApiToken`` válido: usuário real ou shim de SA.
+
+    Lança 401 se o dono estiver inativo. Compartilhado pelo caminho Bearer
+    normal e pelo loopback in-process, para que os dois nunca divirjam.
+    """
+    if api_token.service_account_id is not None:
+        sa = api_token.service_account
+        if sa is None or not sa.is_active:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Service account is inactive",
+                headers={"WWW-Authenticate": 'Bearer realm="centralops"'},
+            )
+        return _build_sa_appuser_shim(sa)
+
+    user = api_token.user
+    if not user or not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User is inactive",
+            headers={"WWW-Authenticate": 'Bearer realm="centralops"'},
+        )
+    return user
+
+
+def _resolve_inprocess_user(
+    request: Request,
+    db: Session,
+    inprocess: InProcessPrincipal,
+) -> models.AppUser:
+    """Resolve o principal de uma chamada de loopback (nonce já conferido).
+
+    Re-lê o ``ApiToken`` pelo id — revogação/expiração entre a borda e a
+    ferramenta ainda derrubam a chamada — e pula apenas o que já foi pago na
+    borda: a verificação argon2, o rate limit e o ``record_usage``.
+    """
+    api_token = db.get(models.ApiToken, inprocess.token_id)
+    if (
+        api_token is None
+        or api_token.revoked_at is not None
+        or (api_token.expires_at is not None and api_token.expires_at <= datetime.utcnow())
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired API token",
+            headers={"WWW-Authenticate": 'Bearer realm="centralops"'},
+        )
+    user = _user_from_api_token(api_token)
+    _populate_authenticated_state(request, user, via="token", session=None, api_token=api_token)
+    return user
+
+
 def _resolve_bearer_user(
     request: Request,
     db: Session,
@@ -420,6 +534,18 @@ def _resolve_bearer_user(
     # Import local: evita ciclos backend.app.core.auth ↔ services.api_tokens.
     from ..services.api_tokens import ApiTokenService, TOKEN_RAW_PREFIX
 
+    # Loopback in-process (MCP): nonce de uso único no lugar da PAT. Ver o
+    # bloco ``inprocess_principal`` no topo do módulo para o porquê e os limites.
+    inprocess = _INPROCESS_PRINCIPAL.get()
+    if inprocess is not None and raw_token.startswith(INPROCESS_NONCE_PREFIX):
+        if not hmac.compare_digest(raw_token, inprocess.nonce):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid in-process credential",
+                headers={"WWW-Authenticate": 'Bearer realm="centralops"'},
+            )
+        return _resolve_inprocess_user(request, db, inprocess)
+
     if not raw_token.startswith(TOKEN_RAW_PREFIX):
         # Bearer scheme mas não é PAT — pode ser outra autenticação futura.
         # deixamos passar pra cookie tentar.
@@ -436,26 +562,7 @@ def _resolve_bearer_user(
             headers={"WWW-Authenticate": 'Bearer realm="centralops"'},
         )
 
-    # Resolver retorna ou (a) PAT pessoal — usa AppUser direto, ou
-    # (b) PAT de SA — constrói AppUser shim.
-    user: models.AppUser | None
-    if api_token.service_account_id is not None:
-        sa = api_token.service_account
-        if sa is None or not sa.is_active:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Service account is inactive",
-                headers={"WWW-Authenticate": 'Bearer realm="centralops"'},
-            )
-        user = _build_sa_appuser_shim(sa)
-    else:
-        user = api_token.user
-        if not user or not user.is_active:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="User is inactive",
-                headers={"WWW-Authenticate": 'Bearer realm="centralops"'},
-            )
+    user = _user_from_api_token(api_token)
 
     # Rate limit por token (PAT). Falha 429 antes de gravar uso.
     from .rate_limiter import token_rate_limiter

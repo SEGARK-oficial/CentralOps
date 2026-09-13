@@ -691,6 +691,28 @@ class IdentityConfig(Base):
     )
 
 
+class McpConfig(Base):
+    """Singleton (id=1) do servidor MCP embutido (``/api/mcp``), operado pela UI.
+
+    Mesmo padrão de ``IdentityConfig``: por-DEPLOY (não por-org). Desligado por
+    padrão — o admin liga em /config → Assistentes (MCP). Não há seed por env:
+    a decisão de expor uma superfície de automação é do operador, na tela.
+
+    ``response_mode``: ``json`` (Streamable HTTP com ``application/json``,
+    padrão) ou ``sse`` (``text/event-stream``).
+    """
+
+    __tablename__ = "mcp_config"
+
+    id = Column(Integer, primary_key=True)
+    enabled = Column(Boolean, nullable=False, default=False, server_default=_sa_text("false"))
+    response_mode = Column(String, nullable=False, default="json", server_default=_sa_text("'json'"))
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(
+        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
+    )
+
+
 class LicenseConfig(Base):
     """Singleton (id=1) da licença Enterprise ATIVADA pela UI.
 

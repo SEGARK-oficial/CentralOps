@@ -1,6 +1,6 @@
 import type React from "react"
 import { useEffect, useState } from "react"
-import { CrownIcon, ExternalLinkIcon, KeyRoundIcon, MailIcon, RadioIcon, SettingsIcon, ShieldCheckIcon, SparklesIcon, ZapIcon } from "lucide-react"
+import { BotIcon, CrownIcon, ExternalLinkIcon, KeyRoundIcon, MailIcon, RadioIcon, SettingsIcon, ShieldCheckIcon, SparklesIcon, ZapIcon } from "lucide-react"
 import { Link, useSearchParams } from "react-router-dom"
 import { useTranslation } from "react-i18next"
 import { CapturePanel } from "@/components/config/CapturePanel"
@@ -10,6 +10,7 @@ import { EmailConfigForm } from "@/components/config/EmailConfigForm"
 import { EnrichmentConfigForm } from "@/components/config/EnrichmentConfigForm"
 import { IdentityConfigForm } from "@/components/config/IdentityConfigForm"
 import { LicenseActivationForm } from "@/components/config/LicenseActivationForm"
+import { McpConfigForm } from "@/components/config/McpConfigForm"
 import { Badge } from "@/components/ui/Badge/Badge"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/Card/Card"
 import { Notice } from "@/components/ui/Notice/Notice"
@@ -18,9 +19,10 @@ import { Tabs, TabsList, TabsPanel, TabsTrigger } from "@/components/ui/Tabs/Tab
 import { useCollectorConfig } from "@/hooks/useCollectorConfig"
 import { useEmailConfig } from "@/hooks/useEmailConfig"
 import { useIdentityConfig } from "@/hooks/useIdentityConfig"
+import { useMcpConfig } from "@/hooks/useMcpConfig"
 import * as api from "@/services/api"
 
-type ConfigTab = "email" | "collector" | "identity" | "capture" | "enrichment" | "licensing"
+type ConfigTab = "email" | "collector" | "identity" | "capture" | "enrichment" | "mcp" | "licensing"
 
 /** Fonte única das abas válidas — usada para validar o parâmetro da URL. */
 const CONFIG_TABS: ConfigTab[] = [
@@ -29,6 +31,7 @@ const CONFIG_TABS: ConfigTab[] = [
   "identity",
   "capture",
   "enrichment",
+  "mcp",
   "licensing",
 ]
 
@@ -96,6 +99,15 @@ export const ConfigPage: React.FC = () => {
     saveConfig: saveIdentityConfig,
     testConnection: testIdentityConnection,
   } = useIdentityConfig()
+
+  const {
+    config: mcpConfig,
+    loading: mcpLoading,
+    saving: mcpSaving,
+    error: mcpError,
+    feedback: mcpFeedback,
+    saveConfig: saveMcpConfig,
+  } = useMcpConfig()
 
   return (
     <div className="space-y-6">
@@ -189,6 +201,9 @@ export const ConfigPage: React.FC = () => {
           </TabsTrigger>
           <TabsTrigger value="enrichment" icon={<SparklesIcon size={16} />}>
             {t("page.tabs.enrichment")}
+          </TabsTrigger>
+          <TabsTrigger value="mcp" icon={<BotIcon size={16} />}>
+            {t("page.tabs.mcp")}
           </TabsTrigger>
           <TabsTrigger value="licensing" icon={<CrownIcon size={16} />}>
             {t("page.tabs.licensing")}
@@ -301,6 +316,31 @@ export const ConfigPage: React.FC = () => {
             </CardHeader>
             <CardContent>
               <EnrichmentConfigForm />
+            </CardContent>
+          </Card>
+        </TabsPanel>
+
+        <TabsPanel value="mcp">
+          {mcpError && (
+            <Notice variant="danger" title={t("page.mcp.loadError")}>
+              {mcpError}
+            </Notice>
+          )}
+          <Card className="shadow-sm">
+            <CardHeader>
+              <CardTitle>{t("page.mcp.cardTitle")}</CardTitle>
+              <CardDescription>
+                {t("page.mcp.cardDescription")}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <McpConfigForm
+                config={mcpConfig}
+                loading={mcpLoading}
+                saving={mcpSaving}
+                feedback={mcpFeedback}
+                onSave={saveMcpConfig}
+              />
             </CardContent>
           </Card>
         </TabsPanel>

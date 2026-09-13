@@ -1,5 +1,5 @@
 ---
-sidebar_position: 6
+sidebar_position: 7
 title: Esquema OpenAPI
 description: Onde encontrar o esquema da sua instância, por que o endereço público não o serve, e o que ajustar antes de gerar um cliente.
 ---

@@ -26,7 +26,15 @@ import pytest
 from backend.app.collectors import tracing
 from backend.app.core.config import settings
 
-_HAS_OTEL = importlib.util.find_spec("opentelemetry") is not None
+# Sondar o SDK + exporter, não o namespace ``opentelemetry``: o servidor MCP
+# embutido (``mcp``) traz ``opentelemetry-api`` como dependência transitiva, então
+# o namespace existe em TODA imagem — mas ``init_tracing`` precisa do SDK
+# (``requirements-otel.txt``, opcional). Sondar só o namespace fazia este
+# arquivo esperar OTel ativo numa imagem em que ele corretamente degrada.
+_HAS_OTEL = (
+    importlib.util.find_spec("opentelemetry.sdk") is not None
+    and importlib.util.find_spec("opentelemetry.exporter.otlp.proto.http") is not None
+)
 
 
 @pytest.fixture(autouse=True)

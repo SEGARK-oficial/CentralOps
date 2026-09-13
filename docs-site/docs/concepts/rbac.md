@@ -90,6 +90,7 @@ A tabela mostra o que cada papel pode fazer. "✓" = permitido; "—" = não per
 | | Salvar query, agendamentos e correlações (query.save) | — | — | ✓ | ✓ |
 | | Criar/editar/excluir regras de correlação | — | — | ✓ | ✓ |
 | **Ações destrutivas** | Bloquear IP/hash (ACTION_BLOCK) | — | — | — | ✓ |
+| **Assistentes de IA (MCP)** | Conectar um assistente pelo servidor MCP com a própria chave (mcp.use) | — | ✓ | ✓ | ✓ |
 | **Administração** | Gerenciar usuários | — | — | — | ✓ |
 | | Gerenciar organizações | — | — | — | ✓* |
 | | Ver credenciais armazenadas | — | — | — | ✓ |
@@ -209,6 +210,15 @@ Quem tem `query.run`: **Operator**, Engineer, Admin.
 Quem tem `query.save`: **Engineer**, Admin.
 
 Ambas as permissões são **org-scoped fail-closed**: um Engineer da organização A não consegue fazer query ou criar correlação da organização B, mesmo que ambas estejam na mesma instância (multi-tenant).
+
+### mcp.use — Conectar um assistente de IA pelo servidor MCP (Operator+)
+
+- **O que libera**: autenticar no endpoint `/api/mcp` (protocolo MCP) com a própria chave de API e usar as ferramentas do CentralOps a partir de um assistente (Claude, Cursor, etc.).
+- **O que NÃO libera**: nenhuma ação. Cada ferramenta chama a API REST em nome do analista, então uma ferramenta de escrita continua exigindo a permissão da rota que ela chama (`mapping.write`, `quarantine.discard`...). Um Operator com `mcp.use` não publica mapping pelo assistente — recebe o mesmo `403` que receberia pelo REST.
+- **Revogar**: revogue a chave de API do analista (ou desative o usuário). Um token com scopes restritos precisa incluir `mcp.use` para entrar.
+- O servidor fica **desligado por padrão**; um admin de plataforma liga em Configurações › Assistentes (MCP). Veja [Servidor MCP](../api/mcp.md).
+
+Quem tem `mcp.use`: **Operator**, Engineer, Admin.
 
 ## Exemplos de atribuição
 

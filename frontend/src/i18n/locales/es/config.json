@@ -25,7 +25,8 @@
       "identity": "Identidad y SSO",
       "capture": "Captura en vivo",
       "licensing": "Licenciamiento",
-      "enrichment": "Enriquecimiento"
+      "enrichment": "Enriquecimiento",
+      "mcp": "Asistentes (MCP)"
     },
     "email": {
       "loadError": "Error al cargar la configuración de correo",
@@ -112,6 +113,11 @@
         "description": "Las bases no vienen con el producto (licencia del proveedor). El directorio se monta en el despliegue; aquí solo aparece lo que hay en él.",
         "empty": "No se encontró ninguna base en este directorio."
       }
+    },
+    "mcp": {
+      "loadError": "No se pudo cargar la configuración del servidor MCP",
+      "cardTitle": "Servidor MCP para asistentes de IA",
+      "cardDescription": "Expone las herramientas de CentralOps a asistentes (Claude, Cursor, etc.) mediante el protocolo MCP, en /api/mcp. Cada analista se conecta con su propia clave de API y actúa con sus propios permisos."
     }
   },
   "collectorsPage": {
@@ -656,5 +662,39 @@
       "successTitle": "Backfill creado con éxito",
       "successBody": "El backfill entró en la cola y comenzará en breve."
     }
+  },
+  "mcp": {
+    "enable": "Activar el servidor MCP",
+    "enableDescription": "Cuando está apagado, /api/mcp responde 404 para todos. Aplica en la siguiente solicitud, en todas las réplicas.",
+    "responseMode": "Modo de respuesta",
+    "responseModeHelp": "JSON es el valor predeterminado de Streamable HTTP y funciona con todos los clientes. SSE (text/event-stream) es para clientes que exigen streaming.",
+    "modeJson": "JSON (application/json)",
+    "modeSse": "SSE (text/event-stream)",
+    "stats": {
+      "status": "Estado",
+      "enabled": "Activado",
+      "disabled": "Desactivado",
+      "tools": "Herramientas expuestas",
+      "endpoint": "Endpoint"
+    },
+    "howItWorks": {
+      "title": "Cómo funciona",
+      "identity": "Autenticación con la clave de API del analista (Bearer). No se acepta cookie de sesión.",
+      "permission": "Requiere el permiso mcp.use (Operator, Engineer y Admin por defecto). Un token con scopes restringidos debe incluirlo.",
+      "contract": "Cada herramienta llama a la API REST en nombre del analista: nada más allá de lo que la misma clave haría vía REST.",
+      "audit": "Cada llamada se audita a nombre del analista (acción mcp.tool_call), más las filas de las rutas REST internas.",
+      "revoke": "Para revocar el acceso de alguien, revoque su clave en Configuración › Tokens de API (o desactive el usuario)."
+    },
+    "clientConfig": {
+      "title": "Configuración del cliente",
+      "description": "Cada analista genera su propia clave en Tokens de API y la coloca en lugar de <api-key>. Este snippet también aparece en la página de cuenta de cada usuario.",
+      "copy": "Copiar snippet",
+      "copied": "Copiado",
+      "jsonLabel": "Archivo de configuración (Claude Desktop, Cursor, VS Code…)",
+      "cliLabel": "Línea de comandos (Claude Code)"
+    },
+    "saveConfig": "Guardar configuración",
+    "saved": "Configuración guardada. Aplica en la siguiente solicitud.",
+    "saveError": "No se pudo guardar la configuración del MCP"
   }
 }

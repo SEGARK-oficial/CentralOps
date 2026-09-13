@@ -1,5 +1,5 @@
 ---
-sidebar_position: 7
+sidebar_position: 8
 title: Receitas
 description: Tarefas prontas com curl, do monitoramento externo ao destravamento de um coletor parado.
 ---

@@ -1,5 +1,5 @@
 ---
-sidebar_position: 5
+sidebar_position: 6
 title: Referência de endpoints
 description: Todos os endpoints da API agrupados pelo caminho que um evento percorre, com a permissão exigida por cada um.
 ---

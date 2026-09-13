@@ -71,5 +71,23 @@
     "error": "Could not sign out other sessions.",
     "confirmTitle": "Sign out other sessions?",
     "confirmDescription": "Every other device will be signed out. This session stays active."
+  },
+  "mcp": {
+    "title": "AI assistants (MCP)",
+    "subtitle": "Connect an assistant (Claude, Cursor, etc.) to CentralOps with your API key. It acts with your permissions and every action is recorded under your name.",
+    "status": "Status",
+    "enabled": "Server on",
+    "disabled": "Server off on this instance — ask an administrator to enable it under Settings › Assistants (MCP).",
+    "permission": "Your permission",
+    "permissionOk": "You can use MCP (mcp.use).",
+    "permissionMissing": "Your role does not include mcp.use — the server will reject your key.",
+    "endpoint": "Endpoint",
+    "tools": "{{count}} tools available",
+    "snippetHelp": "Create a key under API tokens and replace <api-key>. A token with restricted scopes must include mcp.use.",
+    "copy": "Copy snippet",
+    "copied": "Copied",
+    "manageTokens": "Manage API tokens",
+    "loadError": "Could not load the MCP status.",
+    "toolsLabel": "Tools"
   }
 }
