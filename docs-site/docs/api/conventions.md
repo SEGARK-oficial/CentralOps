@@ -1,5 +1,5 @@
 ---
-sidebar_position: 4
+sidebar_position: 5
 title: Convenções
 description: Paginação, erros, datas, redirecionamento e limites. O que vale para todo endpoint, incluindo o que não é uniforme.
 ---

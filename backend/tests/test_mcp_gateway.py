@@ -22,7 +22,6 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from sqlalchemy.pool import StaticPool
 
 from backend.app.db import models
 from backend.app.db.database import Base, get_session
@@ -35,11 +34,25 @@ USER_PASSWORD = "AnalystPassword123!"
 
 
 @pytest.fixture()
-def env():
+def env(tmp_path):
+    # SQLite em ARQUIVO, não ``:memory:`` + ``StaticPool``.
+    #
+    # ``:memory:`` exige StaticPool para que todas as sessões enxerguem o mesmo
+    # banco — e StaticPool serve UMA única conexão a todas elas. Aqui isso não
+    # é detalhe: além da sessão do request (injetada), o middleware de auditoria
+    # abre a PRÓPRIA ``SessionLocal()`` para gravar a linha, e o gateway abre
+    # mais uma. Duas Sessions sobre a mesma conexão disputam a transação: o
+    # ``commit()`` de uma descarta a linha pendente da outra, e o ``refresh()``
+    # que ``AuditLogRepository.add`` faz em seguida estoura com "Could not
+    # refresh instance". Passava localmente por sorte de escalonamento e
+    # reprovava na imagem compilada, onde o tempo é outro.
+    #
+    # Com arquivo cada Session tem conexão própria e transação isolada, que é o
+    # que produção faz (Postgres, pool de verdade) e o que o dev já usa
+    # (``backend/data/sophos.db``).
     engine = create_engine(
-        "sqlite:///:memory:",
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
+        f"sqlite:///{tmp_path / 'mcp-gateway-test.db'}",
+        connect_args={"check_same_thread": False, "timeout": 30},
     )
     TestingSession = sessionmaker(autocommit=False, autoflush=False, bind=engine)
     Base.metadata.create_all(bind=engine)
