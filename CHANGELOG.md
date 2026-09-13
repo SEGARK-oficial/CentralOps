@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.11.0](https://github.com/SEGARK-oficial/CentralOps/compare/v2.10.1...v2.11.0) (2026-09-13)
+
+
+### Features
+
+* **mcp:** servidor MCP embutido no core, autenticado pela chave do analista ([#81](https://github.com/SEGARK-oficial/CentralOps/issues/81)) ([11d4f3a](https://github.com/SEGARK-oficial/CentralOps/commit/11d4f3a9ef138432ebf576170a11666253f85393))
+
 ## [2.10.1](https://github.com/SEGARK-oficial/CentralOps/compare/v2.10.0...v2.10.1) (2026-09-09)
 
 
