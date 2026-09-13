@@ -71,5 +71,23 @@
     "error": "No se pudieron cerrar las otras sesiones.",
     "confirmTitle": "¿Cerrar otras sesiones?",
     "confirmDescription": "Se cerrará la sesión en todos los demás dispositivos. Esta sesión permanece activa."
+  },
+  "mcp": {
+    "title": "Asistentes de IA (MCP)",
+    "subtitle": "Conecte un asistente (Claude, Cursor, etc.) a CentralOps con su clave de API. Actúa con sus permisos y cada acción queda registrada a su nombre.",
+    "status": "Estado",
+    "enabled": "Servidor activado",
+    "disabled": "Servidor desactivado en esta instancia — pida a un administrador que lo active en Configuración › Asistentes (MCP).",
+    "permission": "Su permiso",
+    "permissionOk": "Puede usar MCP (mcp.use).",
+    "permissionMissing": "Su rol no incluye mcp.use — el servidor rechazará su clave.",
+    "endpoint": "Endpoint",
+    "tools": "{{count}} herramientas disponibles",
+    "snippetHelp": "Cree una clave en Tokens de API y reemplace <api-key>. Un token con scopes restringidos debe incluir mcp.use.",
+    "copy": "Copiar snippet",
+    "copied": "Copiado",
+    "manageTokens": "Administrar tokens de API",
+    "loadError": "No se pudo cargar el estado del MCP.",
+    "toolsLabel": "Herramientas"
   }
 }

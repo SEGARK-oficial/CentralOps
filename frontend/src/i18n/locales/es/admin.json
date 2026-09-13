@@ -444,6 +444,7 @@
   "permissions": {
     "categories": {
       "administration": "Administración",
+      "automation": "Automatización y asistentes",
       "delivery": "Entrega",
       "detection": "Detección y consultas",
       "integrations": "Integraciones",
@@ -467,6 +468,7 @@
       "mapping.read": "Ver mappings, versiones y diffs entre ellas",
       "mapping.rollback": "Revertir un mapping a una versión anterior",
       "mapping.write": "Publicar una nueva versión de un mapping",
+      "mcp.use": "Usar el servidor MCP (asistentes de IA) con su propia clave — no otorga ningún permiso más allá del rol",
       "org.manage": "Crear, editar y desactivar organizaciones",
       "quarantine.discard": "Descartar o reprocesar eventos en cuarentena",
       "quarantine.read": "Ver eventos que fallaron en la normalización",

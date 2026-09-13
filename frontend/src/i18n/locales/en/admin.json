@@ -444,6 +444,7 @@
   "permissions": {
     "categories": {
       "administration": "Administration",
+      "automation": "Automation and assistants",
       "delivery": "Delivery",
       "detection": "Detection and queries",
       "integrations": "Integrations",
@@ -467,6 +468,7 @@
       "mapping.read": "View mappings, versions and diffs between them",
       "mapping.rollback": "Roll a mapping back to a previous version",
       "mapping.write": "Publish a new mapping version",
+      "mcp.use": "Use the MCP server (AI assistants) with their own API key — grants no permission beyond the role's",
       "org.manage": "Create, edit and deactivate organizations",
       "quarantine.discard": "Discard or reprocess quarantined events",
       "quarantine.read": "View events that failed normalization",

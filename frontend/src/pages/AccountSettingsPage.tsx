@@ -4,8 +4,11 @@ import type React from "react"
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
 import {
+  BotIcon,
   BuildingIcon,
+  CheckIcon,
   ClockIcon,
+  CopyIcon,
   GlobeIcon,
   KeyRoundIcon,
   LogOutIcon,
@@ -15,10 +18,11 @@ import {
 
 import * as api from "@/services/api"
 import { ApiRequestError } from "@/services/api"
-import type { AccountProfile, SelfProfileUpdate } from "@/types"
+import type { AccountProfile, McpStatus, SelfProfileUpdate } from "@/types"
 import { useAuth } from "@/contexts/AuthContext"
+import { mcpEndpointUrl, mcpServersSnippet } from "@/lib/mcpSnippet"
 
-import { Button } from "@/components/ui/Button/Button"
+import { Button, buttonVariants } from "@/components/ui/Button/Button"
 import { Card } from "@/components/ui/Card/Card"
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog/ConfirmDialog"
 import { Input } from "@/components/ui/Input/Input"
@@ -92,6 +96,41 @@ export const AccountSettingsPage: React.FC = () => {
   // Sessions
   const [confirmSignOut, setConfirmSignOut] = useState(false)
   const [signingOut, setSigningOut] = useState(false)
+
+  // MCP (assistentes de IA) — estado do servidor e a permissão deste usuário.
+  const [mcpStatus, setMcpStatus] = useState<McpStatus | null>(null)
+  const [mcpError, setMcpError] = useState<string | null>(null)
+  const [mcpCopied, setMcpCopied] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      try {
+        const s = await api.getMcpStatus()
+        if (!cancelled && s) setMcpStatus(s)
+      } catch (e) {
+        if (!cancelled) setMcpError(errorMessage(e, t("mcp.loadError")))
+      }
+    })()
+    return () => { cancelled = true }
+  }, [t])
+
+  useEffect(() => {
+    if (!mcpCopied) return
+    const timer = setTimeout(() => setMcpCopied(false), 2000)
+    return () => clearTimeout(timer)
+  }, [mcpCopied])
+
+  const mcpSnippet = mcpStatus ? mcpServersSnippet(mcpStatus.endpoint_path, mcpStatus.server_name) : ""
+
+  const copyMcpSnippet = async () => {
+    try {
+      await navigator.clipboard.writeText(mcpSnippet)
+      setMcpCopied(true)
+    } catch {
+      /* clipboard indisponível: o <pre> continua selecionável */
+    }
+  }
 
   const seedForm = useCallback((p: AccountProfile) => {
     setDisplayName(p.display_name ?? "")
@@ -339,6 +378,69 @@ export const AccountSettingsPage: React.FC = () => {
             {formatMaybeDate(profile.last_login_at, t("summary.never"))}
           </SummaryItem>
         </dl>
+      </Card>
+
+      {/* ── AI assistants (MCP) ── */}
+      <Card data-testid="account-mcp-card">
+        <div className="border-b px-4 py-3">
+          <h2 className="flex items-center gap-2 text-sm font-semibold text-text">
+            <BotIcon size={16} aria-hidden="true" />
+            {t("mcp.title")}
+          </h2>
+          <p className="text-xs text-text-secondary">{t("mcp.subtitle")}</p>
+        </div>
+        <div className="space-y-4 p-4">
+          {mcpError && <Notice variant="danger">{mcpError}</Notice>}
+          {mcpStatus && (
+            <>
+              <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <SummaryItem icon={<BotIcon size={16} />} label={t("mcp.status")}>
+                  <span data-testid="account-mcp-status">
+                    {mcpStatus.enabled ? t("mcp.enabled") : t("mcp.disabled")}
+                  </span>
+                </SummaryItem>
+                <SummaryItem icon={<ShieldCheckIcon size={16} />} label={t("mcp.permission")}>
+                  <span data-testid="account-mcp-permission">
+                    {mcpStatus.has_permission ? t("mcp.permissionOk") : t("mcp.permissionMissing")}
+                  </span>
+                </SummaryItem>
+                <SummaryItem icon={<GlobeIcon size={16} />} label={t("mcp.endpoint")}>
+                  <span className="break-all font-mono text-xs">{mcpEndpointUrl(mcpStatus.endpoint_path)}</span>
+                </SummaryItem>
+                <SummaryItem icon={<KeyRoundIcon size={16} />} label={t("mcp.toolsLabel")}>
+                  {t("mcp.tools", { count: mcpStatus.tools_count })}
+                </SummaryItem>
+              </dl>
+              <div className="space-y-1">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-xs text-text-secondary">{t("mcp.snippetHelp")}</p>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="xs"
+                    leftIcon={mcpCopied ? <CheckIcon size={12} /> : <CopyIcon size={12} />}
+                    onClick={() => void copyMcpSnippet()}
+                  >
+                    {mcpCopied ? t("mcp.copied") : t("mcp.copy")}
+                  </Button>
+                </div>
+                <pre
+                  className="overflow-x-auto rounded-lg border border-border bg-surface-subtle p-3 font-mono text-xs text-text"
+                  data-testid="account-mcp-snippet"
+                >
+                  {mcpSnippet}
+                </pre>
+              </div>
+              <div>
+                {/* Âncora, não <Link>: a página é renderizada fora do Router nos
+                    testes e a rota de tokens é servida pelo mesmo SPA. */}
+                <a href="/settings/tokens" className={buttonVariants({ variant: "outline", size: "sm" })}>
+                  {t("mcp.manageTokens")}
+                </a>
+              </div>
+            </>
+          )}
+        </div>
       </Card>
 
       {/* ── Editable profile ── */}

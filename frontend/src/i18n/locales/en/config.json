@@ -25,7 +25,8 @@
       "identity": "Identity & SSO",
       "capture": "Live capture",
       "licensing": "Licensing",
-      "enrichment": "Enrichment"
+      "enrichment": "Enrichment",
+      "mcp": "Assistants (MCP)"
     },
     "email": {
       "loadError": "Failed to load email configuration",
@@ -112,6 +113,11 @@
         "description": "The databases do not ship with the product (vendor licence). The directory is mounted at deploy time; this only shows what is in it.",
         "empty": "No database found in this directory."
       }
+    },
+    "mcp": {
+      "loadError": "Failed to load the MCP server configuration",
+      "cardTitle": "MCP server for AI assistants",
+      "cardDescription": "Exposes CentralOps tools to assistants (Claude, Cursor, etc.) over the MCP protocol at /api/mcp. Each analyst connects with their own API key and acts with their own permissions."
     }
   },
   "collectorsPage": {
@@ -656,5 +662,39 @@
       "successTitle": "Backfill created successfully",
       "successBody": "The backfill has been queued and will start shortly."
     }
+  },
+  "mcp": {
+    "enable": "Enable the MCP server",
+    "enableDescription": "When off, /api/mcp answers 404 for everyone. Takes effect on the next request, on every replica.",
+    "responseMode": "Response mode",
+    "responseModeHelp": "JSON is the Streamable HTTP default and works with every client. SSE (text/event-stream) is for clients that require streaming.",
+    "modeJson": "JSON (application/json)",
+    "modeSse": "SSE (text/event-stream)",
+    "stats": {
+      "status": "Status",
+      "enabled": "On",
+      "disabled": "Off",
+      "tools": "Exposed tools",
+      "endpoint": "Endpoint"
+    },
+    "howItWorks": {
+      "title": "How it works",
+      "identity": "Authenticated by the analyst's API key (Bearer). Session cookies are not accepted.",
+      "permission": "Requires the mcp.use permission (Operator, Engineer and Admin by default). A token with restricted scopes must include it.",
+      "contract": "Every tool calls the REST API as the analyst: nothing beyond what the same key could do through REST.",
+      "audit": "Every call is audited under the analyst's name (action mcp.tool_call), plus the rows of the internal REST routes.",
+      "revoke": "To revoke someone's access, revoke their key under Settings › API tokens (or deactivate the user)."
+    },
+    "clientConfig": {
+      "title": "Client configuration",
+      "description": "Each analyst creates their own key under API tokens and puts it in place of <api-key>. This snippet is also shown on every user's account page.",
+      "copy": "Copy snippet",
+      "copied": "Copied",
+      "jsonLabel": "Configuration file (Claude Desktop, Cursor, VS Code…)",
+      "cliLabel": "Command line (Claude Code)"
+    },
+    "saveConfig": "Save configuration",
+    "saved": "Configuration saved. Takes effect on the next request.",
+    "saveError": "Failed to save the MCP configuration"
   }
 }

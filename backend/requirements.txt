@@ -62,6 +62,12 @@ maxminddb==2.8.2  # FLOOR: >=2.6 — leitor .mmdb do enricher geoip (GeoIP/ASN l
 # (OTLP-push). Endpoint Prometheus /metrics de compat, se desejado, é exposto
 # pelo OTel Collector — ver compose/otel-collector-config.yaml. Pacotes OTel são
 # extras opcionais em requirements-otel.txt.
+# Servidor MCP embutido (Streamable HTTP em /api/mcp, autenticado pela PAT do
+# analista). SDK oficial, pinado exato: a API do ``Server`` de baixo nível mudou
+# entre 1.x e 2.0 (decoradores → callbacks ``on_*``) e o gate de contrato em
+# ``tests/test_mcp_gateway.py`` fala o protocolo pelo CLIENTE do mesmo SDK —
+# um bump que quebre o servidor quebra o teste antes de chegar na imagem.
+mcp==2.2.0  # FLOOR: >=2.2.0 — API 2.x (on_list_tools/on_call_tool, ServerRequestContext.request)
 jmespath==1.1.0  # FLOOR: >=1.0 — DSL de mapping no normalize/engine
 orjson==3.11.9   # FLOOR: >=3.9 — serialização JSON de alta performance no hot path
 # OTel tracing distribuído  é OPCIONAL e gated por OTEL_ENABLED.

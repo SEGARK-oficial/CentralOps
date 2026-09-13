@@ -234,6 +234,7 @@ const sidebars: SidebarsConfig = {
         'api/overview',
         'api/authentication',
         'api/permissions',
+        'api/mcp',
         'api/conventions',
         'api/reference',
         'api/openapi',

@@ -21,9 +21,9 @@ Não é possível criar papel personalizado. São estes quatro, fixos no código
 | Papel | Ideia | Permissões |
 |-------|-------|------------|
 | `viewer` | Só olha | 7 |
-| `operator` | Opera o dia a dia, não muda regra | 13 |
-| `engineer` | Mexe em normalização e detecção | 19 |
-| `admin` | Tudo, incluindo usuários e credenciais | 23 |
+| `operator` | Opera o dia a dia, não muda regra | 14 |
+| `engineer` | Mexe em normalização e detecção | 20 |
+| `admin` | Tudo, incluindo usuários e credenciais | 24 |
 
 ## A matriz completa
 
@@ -50,6 +50,7 @@ Esta tabela é gerada a partir do código, não escrita à mão.
 | `query.run` | nao | sim | sim | sim | Rodar consulta ao vivo na fonte do cliente |
 | `query.save` | nao | nao | sim | sim | Salvar consulta e agendamento |
 | `correlation.preview` | nao | nao | sim | sim | Nenhum endpoint do Core a consome. As regras de correlação são Enterprise. |
+| `mcp.use` | nao | sim | sim | sim | Autenticar no [servidor MCP](mcp.md) (`/api/mcp`) com a própria chave. Não libera nenhuma ação: cada ferramenta exige a permissão da rota REST que chama. |
 | `internal.tenant.read` | nao | sim | sim | sim | Resolução de tenant entre serviços |
 | `user.manage` | nao | nao | nao | sim | Criar, editar e remover usuários |
 | `org.manage` | nao | nao | nao | sim | Apagar os DADOS de uma organização. Criar, editar e apagar a organização em si exigem `user.manage`, e criar ou apagar exigem ainda escopo global. |

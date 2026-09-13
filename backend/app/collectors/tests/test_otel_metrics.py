@@ -25,7 +25,15 @@ import pytest
 from backend.app.collectors import metrics, otel_metrics
 from backend.app.core.config import settings
 
-_HAS_OTEL = importlib.util.find_spec("opentelemetry") is not None
+# Sondar o SDK + exporter, não o namespace ``opentelemetry``: o servidor MCP
+# embutido (``mcp``) traz ``opentelemetry-api`` como dependência transitiva, então
+# o namespace existe em TODA imagem — mas ``init_metrics`` precisa do SDK
+# (``requirements-otel.txt``, opcional). Sondar só o namespace fazia este
+# arquivo esperar OTel ativo numa imagem em que ele corretamente degrada.
+_HAS_OTEL = (
+    importlib.util.find_spec("opentelemetry.sdk") is not None
+    and importlib.util.find_spec("opentelemetry.exporter.otlp.proto.http") is not None
+)
 
 # Valor de label do gauge de profundidade de fila usado abaixo. Atribuído via
 # VARIÁVEL (nunca como literal de task-route com chave/valor entre aspas) de

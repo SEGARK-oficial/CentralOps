@@ -46,6 +46,9 @@ import type {
   IntegrationHealth,
   IdentityConfig,
   IdentityConnectionTestResult,
+  McpConfig,
+  McpStatus,
+  UpdateMcpConfigRequest,
   EntraSyncStatus,
   EntraSyncTriggerResult,
   IntegrationOverview,
@@ -239,6 +242,24 @@ export async function testIdentityConnection() {
   return apiRequest<IdentityConnectionTestResult>("/identity/config/test", {
     method: "POST",
   })
+}
+
+// ── Servidor MCP embutido (/api/mcp) ──────────────────────────────────
+// Admin de plataforma: liga/desliga o endpoint e escolhe o modo de resposta.
+export async function getMcpConfig() {
+  return apiRequest<McpConfig>("/mcp/config")
+}
+
+export async function updateMcpConfig(data: UpdateMcpConfigRequest) {
+  return apiRequest<McpConfig>("/mcp/config", {
+    method: "PUT",
+    body: JSON.stringify(data),
+  })
+}
+
+// Qualquer usuário autenticado: o que ELE precisa para configurar um cliente.
+export async function getMcpStatus() {
+  return apiRequest<McpStatus>("/mcp/status")
 }
 
 // disparar sync manual de usuários do Entra via Graph

@@ -23,10 +23,11 @@ from .db.database import SessionLocal
 # silently used Celery's default app and tasks went to a broker no one
 # was listening on. See diagnóstico Erro A (Sophos partner sync).
 from .collectors.celery_app import celery_app  # noqa: F401
+from .mcp.gateway import MCP_ENDPOINT_PATH, McpGateway, mcp_runtime
 from .routers import (
     api_tokens, auth, backfill, collector_config, collectors, config_bundle,
     dashboard, destinations, detections, drift, emails, enrichment, enrichment_config, health, history, identity_config,
-    ingest, integrations, internal, iris, mappings, ocsf, organizations, pipeline_health, providers,
+    ingest, integrations, internal, iris, mappings, mcp_config, ocsf, organizations, pipeline_health, providers,
     quarantine, queries, results, routes, scheduled_queries,
     service_accounts, sso,
     syslog_sources,
@@ -230,7 +231,15 @@ async def lifespan(app: FastAPI):
         logging.getLogger(__name__).debug(
             "check de integridade de edição no boot falhou (não-fatal)", exc_info=True
         )
-    yield
+    # Servidor MCP embutido: os gerenciadores de sessão do SDK vivem no
+    # lifespan (task group). Ficar "pronto" não significa "exposto" — o gate
+    # em /api/mcp lê o toggle do banco a cada requisição.
+    async with mcp_runtime(app) as runtime:
+        app.state.mcp_runtime = runtime
+        try:
+            yield
+        finally:
+            app.state.mcp_runtime = None
 
 
 app = FastAPI(
@@ -331,6 +340,14 @@ async def security_headers(request: Request, call_next):
 @app.middleware("http")
 async def audit_api_requests(request: Request, call_next):
     if not request.url.path.startswith("/api") or request.method == "OPTIONS":
+        return await call_next(request)
+    # O gateway MCP audita por si: uma linha ``mcp.tool_call`` por ferramenta
+    # (com nome, resultado e duração) e ``mcp.denied`` nas recusas — mais as
+    # linhas normais das chamadas REST internas que cada ferramenta faz. Uma
+    # linha genérica por POST JSON-RPC aqui seria ruído (initialize,
+    # tools/list) e ainda leria o corpo inteiro para um payload que o
+    # transporte do SDK já limita.
+    if request.url.path == MCP_ENDPOINT_PATH:
         return await call_next(request)
 
     request, request_payload = await _capture_request_payload(request)
@@ -444,6 +461,14 @@ app.include_router(destinations.lineage_router, prefix="/api", dependencies=prot
 app.include_router(routes.router, prefix="/api", dependencies=protected_api)
 app.include_router(config_bundle.router, prefix="/api", dependencies=protected_api)
 app.include_router(identity_config.router, prefix="/api", dependencies=protected_api)
+# Servidor MCP embutido. O endpoint do protocolo (POST JSON-RPC, Streamable
+# HTTP) é um app ASGI cru em rota EXATA — não um Mount — para que
+# ``/api/mcp/config`` e ``/api/mcp/status`` (router abaixo, auditados pelo
+# middleware como qualquer rota) continuem resolvendo pelo FastAPI. O
+# gateway autentica por Bearer (PAT do analista) sozinho; ``protected_api``
+# não se aplica porque aceitaria cookie de sessão.
+app.add_route(MCP_ENDPOINT_PATH, McpGateway(app), methods=["GET", "POST", "DELETE"])
+app.include_router(mcp_config.router, prefix="/api", dependencies=protected_api)
 app.include_router(providers.router, prefix="/api", dependencies=protected_api)
 app.include_router(mappings.router, prefix="/api", dependencies=protected_api)
 app.include_router(quarantine.router, prefix="/api", dependencies=protected_api)

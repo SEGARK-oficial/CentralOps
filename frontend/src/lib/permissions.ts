@@ -21,6 +21,7 @@ export type PermissionCategory =
   | "quarantineDrift"
   | "delivery"
   | "detection"
+  | "automation"
   | "administration"
   | "internal"
 
@@ -31,6 +32,7 @@ export const PERMISSION_CATEGORY_ORDER: PermissionCategory[] = [
   "quarantineDrift",
   "delivery",
   "detection",
+  "automation",
   "administration",
   "internal",
 ]
@@ -63,6 +65,9 @@ export const PERMISSION_CATALOG: Record<string, PermissionCategory> = {
   "query.run": "detection",
   "query.save": "detection",
   "correlation.preview": "detection",
+
+  // Usar o servidor MCP com a própria chave — não concede nenhuma ação.
+  "mcp.use": "automation",
 
   "user.manage": "administration",
   "org.manage": "administration",

@@ -2709,6 +2709,34 @@ class IdentityConfigRepository:
         return row
 
 
+class McpConfigRepository:
+    """CRUD da tabela singleton ``mcp_config`` (linha id=1).
+
+    ``get()`` devolve ``None`` enquanto ninguém salvou — o gateway trata
+    ausência como DESLIGADO. ``update`` cria a linha na primeira escrita.
+    """
+
+    def __init__(self, db: Session) -> None:
+        self.db = db
+
+    def get(self) -> models.McpConfig | None:
+        return self.db.query(models.McpConfig).filter_by(id=1).first()
+
+    def update(self, **kwargs) -> models.McpConfig:
+        row = self.get()
+        if row is None:
+            row = models.McpConfig(id=1)
+            self.db.add(row)
+        for key, value in kwargs.items():
+            if value is _UNSET or not hasattr(row, key):
+                continue
+            setattr(row, key, value)
+        row.updated_at = datetime.utcnow()
+        self.db.commit()
+        self.db.refresh(row)
+        return row
+
+
 # ── Destination ───────────────────────────────────────────────────────
 
 

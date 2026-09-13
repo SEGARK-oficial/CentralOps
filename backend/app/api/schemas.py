@@ -1917,6 +1917,47 @@ class ApiTokenCreateResponse(BaseModel):
     api_token: ApiTokenRead
 
 
+# ── Servidor MCP embutido (/api/mcp) ───────────────────────
+
+
+class McpConfigRead(BaseModel):
+    """Config do servidor MCP (singleton por deploy). Admin de plataforma."""
+
+    enabled: bool = False
+    response_mode: Literal["json", "sse"] = "json"
+    #: Caminho do endpoint do protocolo, relativo à origem do CentralOps. A UI
+    #: monta a URL completa com a própria origem; o backend não adivinha host.
+    endpoint_path: str = "/api/mcp"
+    #: Ferramentas registradas (contagem) — para a tela dizer o que está exposto.
+    tools_count: int = 0
+    is_persisted: bool = False
+    updated_at: Optional[datetime] = None
+
+
+class McpConfigUpdate(StrictUpdateModel):
+    enabled: Optional[bool] = None
+    response_mode: Optional[Literal["json", "sse"]] = None
+
+
+class McpStatusRead(BaseModel):
+    """O que o PRÓPRIO analista precisa para configurar um cliente MCP.
+
+    Lido por qualquer usuário autenticado: diz se o servidor está ligado e se
+    o papel dele carrega ``mcp.use``. Nunca devolve chave — a PAT nasce em
+    ``POST /api/v1/tokens`` e é exibida uma única vez lá.
+    """
+
+    enabled: bool
+    response_mode: Literal["json", "sse"]
+    endpoint_path: str
+    has_permission: bool
+    #: Permissão exigida, para a UI apontar o que falta.
+    required_permission: str
+    tools_count: int
+    server_name: str
+    server_version: str
+
+
 # ── Service Accounts (credencial machine-to-machine) ───────
 
 
