@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.11.1](https://github.com/SEGARK-oficial/CentralOps/compare/v2.11.0...v2.11.1) (2026-09-13)
+
+
+### Bug Fixes
+
+* **build:** destrava o Trivy-gate — a camada de patch de SO ficava congelada no cache ([#83](https://github.com/SEGARK-oficial/CentralOps/issues/83)) ([4daa6ca](https://github.com/SEGARK-oficial/CentralOps/commit/4daa6ca7551d01dc9fa33c3ae28cb1990435ef51))
+
 ## [2.11.0](https://github.com/SEGARK-oficial/CentralOps/compare/v2.10.1...v2.11.0) (2026-09-13)
 
 
