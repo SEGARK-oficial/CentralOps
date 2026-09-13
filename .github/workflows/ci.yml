@@ -143,6 +143,12 @@ jobs:
           target: final
           push: true
           tags: ${{ steps.refs.outputs.api }}
+          # Invalida SÓ a camada de patch de SO (ver SECURITY_EPOCH no Dockerfile).
+          # run_id+run_attempt, e não run_id sozinho: re-executar um job preserva o
+          # run_id, então só com o attempt um "Re-run" puxa os pacotes do dia — que
+          # é exatamente o gesto de quem teve o release barrado pelo Trivy.
+          build-args: |
+            SECURITY_EPOCH=${{ github.run_id }}-${{ github.run_attempt }}
           cache-from: type=gha,scope=cython
           cache-to: type=gha,mode=max,scope=cython
           # SBOM + provenance anexados já AQUI: o job publish promove ESTA imagem
@@ -158,6 +164,7 @@ jobs:
           target: frontend
           build-args: |
             VITE_BACKEND_URL=/api
+            SECURITY_EPOCH=${{ github.run_id }}-${{ github.run_attempt }}
           push: true
           tags: ${{ steps.refs.outputs.frontend }}
           cache-from: type=gha,scope=frontend

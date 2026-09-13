@@ -159,6 +159,11 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          # Invalida SÓ a camada de patch de SO (ver SECURITY_EPOCH no Dockerfile):
+          # sem isto o `apt-get upgrade`/`apk upgrade` fica congelado no cache GHA.
+          # run_attempt entra para que um "Re-run" puxe os pacotes do dia.
+          build-args: |
+            SECURITY_EPOCH=${{ github.run_id }}-${{ github.run_attempt }}
           cache-from: type=gha,scope=${{ matrix.target }}
           cache-to: type=gha,mode=max,scope=${{ matrix.target }}
           # SBOM + provenance SLSA anexados à imagem (atestações
