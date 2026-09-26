@@ -1,8 +1,8 @@
 "use client"
 
 import type React from "react"
-import { useEffect, useRef, useState } from "react"
-import { createPortal } from "react-dom"
+import { useState } from "react"
+import { useTranslation } from "react-i18next"
 import {
   CheckCircleIcon,
   ClockIcon,
@@ -13,6 +13,7 @@ import type { DetectionRead, DetectionStatus } from "@/types"
 import { Badge } from "@/components/ui/Badge/Badge"
 import { Button } from "@/components/ui/Button/Button"
 import { Card } from "@/components/ui/Card/Card"
+import { Drawer } from "@/components/ui/Drawer/Drawer"
 import { Notice } from "@/components/ui/Notice/Notice"
 import { usePermission } from "@/hooks/usePermission"
 import { formatDate } from "@/lib/utils"
@@ -37,15 +38,15 @@ function severityBadgeVariant(severityId: number): BadgeVariant {
   return "danger"
 }
 
-function severityLabel(severityId: number): string {
+function severityLabel(t: (key: string, opts?: Record<string, unknown>) => string, severityId: number): string {
   switch (severityId) {
-    case 1: return "Informacional"
-    case 2: return "Baixa"
-    case 3: return "Média"
-    case 4: return "Alta"
-    case 5: return "Crítica"
-    case 6: return "Fatal"
-    default: return `Sev ${severityId}`
+    case 1: return t("detailsDrawer.severity.informational")
+    case 2: return t("detailsDrawer.severity.low")
+    case 3: return t("detailsDrawer.severity.medium")
+    case 4: return t("detailsDrawer.severity.high")
+    case 5: return t("detailsDrawer.severity.critical")
+    case 6: return t("detailsDrawer.severity.fatal")
+    default: return t("detailsDrawer.severity.unknown", { id: severityId })
   }
 }
 
@@ -58,20 +59,20 @@ function statusBadgeVariant(status: DetectionStatus): BadgeVariant {
   }
 }
 
-function statusLabel(status: DetectionStatus): string {
+function statusLabel(t: (key: string) => string, status: DetectionStatus): string {
   switch (status) {
-    case "open": return "Aberta"
-    case "ack": return "Reconhecida"
-    case "closed": return "Fechada"
+    case "open": return t("detailsDrawer.status.open")
+    case "ack": return t("detailsDrawer.status.ack")
+    case "closed": return t("detailsDrawer.status.closed")
     default: return status
   }
 }
 
-function sourceLabel(source: string): string {
+function sourceLabel(t: (key: string) => string, source: string): string {
   switch (source) {
-    case "scheduled_query": return "Query agendada"
-    case "live_query": return "Query live"
-    case "correlation": return "Correlação"
+    case "scheduled_query": return t("detailsDrawer.source.scheduledQuery")
+    case "live_query": return t("detailsDrawer.source.liveQuery")
+    case "correlation": return t("detailsDrawer.source.correlation")
     default: return source
   }
 }
@@ -92,66 +93,10 @@ export const DetectionDetailsDrawer: React.FC<DetectionDetailsDrawerProps> = ({
   onClose,
   onTriage,
 }) => {
-  const drawerRef = useRef<HTMLDivElement>(null)
-  const previousActiveElement = useRef<HTMLElement | null>(null)
   const [actionLoading, setActionLoading] = useState<DetectionStatus | null>(null)
+  const { t } = useTranslation("detections")
 
   const canTriage = usePermission("query.run")
-
-  useEffect(() => {
-    if (!open) return
-
-    previousActiveElement.current = document.activeElement as HTMLElement
-    const focusTimer = window.setTimeout(() => drawerRef.current?.focus(), 0)
-    document.body.style.overflow = "hidden"
-
-    const FOCUSABLE_SELECTOR =
-      'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), summary, details, [tabindex]:not([tabindex="-1"])'
-
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        event.preventDefault()
-        onClose()
-        return
-      }
-
-      if (event.key !== "Tab") return
-
-      const panel = drawerRef.current
-      if (!panel) return
-
-      const focusable = Array.from(panel.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)).filter(
-        (el) => el.offsetParent !== null || el === document.activeElement,
-      )
-      if (focusable.length === 0) {
-        event.preventDefault()
-        panel.focus()
-        return
-      }
-
-      const first = focusable[0]
-      const last = focusable[focusable.length - 1]
-      const active = document.activeElement
-
-      if (event.shiftKey) {
-        if (active === first || active === panel || !panel.contains(active)) {
-          event.preventDefault()
-          last.focus()
-        }
-      } else if (active === last || !panel.contains(active)) {
-        event.preventDefault()
-        first.focus()
-      }
-    }
-
-    document.addEventListener("keydown", handleKeyDown)
-    return () => {
-      window.clearTimeout(focusTimer)
-      document.removeEventListener("keydown", handleKeyDown)
-      document.body.style.overflow = ""
-      previousActiveElement.current?.focus()
-    }
-  }, [onClose, open])
 
   const handleTriage = async (status: DetectionStatus) => {
     if (!detection) return
@@ -163,97 +108,86 @@ export const DetectionDetailsDrawer: React.FC<DetectionDetailsDrawerProps> = ({
     }
   }
 
-  if (!open) return null
-
-  return createPortal(
-    <div className="fixed inset-0 z-modal-backdrop bg-black/45" onClick={onClose}>
-      <div
-        ref={drawerRef}
-        className="ml-auto h-full w-full sm:max-w-2xl lg:max-w-3xl"
-        onClick={(event) => event.stopPropagation()}
-        tabIndex={-1}
-        role="dialog"
-        aria-modal="true"
-        aria-label="Detalhes da detecção"
-      >
-        <div className="flex h-full w-full flex-col overflow-hidden border-l border-border bg-surface shadow-2xl">
-          {/* Header */}
-          <div className="shrink-0 border-b border-border px-6 py-5">
-            <div className="flex items-start justify-between gap-4">
-              <div className="min-w-0 space-y-2">
-                <div className="flex flex-wrap items-center gap-2">
-                  {detection && (
-                    <>
-                      <Badge variant={severityBadgeVariant(detection.severity_id)} size="sm">
-                        {severityLabel(detection.severity_id)}
-                      </Badge>
-                      <Badge variant={statusBadgeVariant(detection.status)} size="sm">
-                        {statusLabel(detection.status)}
-                      </Badge>
-                      <Badge variant="outline" size="sm">
-                        {sourceLabel(detection.source)}
-                      </Badge>
-                    </>
-                  )}
-                </div>
-                <div className="min-w-0">
-                  <h2 className="break-words text-xl font-semibold text-text">
-                    {detection?.rule_name || "Detecção"}
-                  </h2>
-                  {detection?.rule_id && (
-                    <p className="mt-1 font-mono text-sm text-text-secondary">
-                      {detection.rule_id}
-                    </p>
-                  )}
-                </div>
+  return (
+    <Drawer open={open} onClose={onClose} size="xl" ariaLabel={t("detailsDrawer.ariaLabel")} data-testid="detection-details-drawer">
+      <div className="flex h-full w-full flex-col overflow-hidden">
+        {/* Header */}
+        <div className="shrink-0 border-b border-border px-6 py-5">
+          <div className="flex items-start justify-between gap-4">
+            <div className="min-w-0 space-y-2">
+              <div className="flex flex-wrap items-center gap-2">
+                {detection && (
+                  <>
+                    <Badge variant={severityBadgeVariant(detection.severity_id)} size="sm">
+                      {severityLabel(t, detection.severity_id)}
+                    </Badge>
+                    <Badge variant={statusBadgeVariant(detection.status)} size="sm">
+                      {statusLabel(t, detection.status)}
+                    </Badge>
+                    <Badge variant="outline" size="sm">
+                      {sourceLabel(t, detection.source)}
+                    </Badge>
+                  </>
+                )}
               </div>
-              <Button variant="ghost" size="xs" onClick={onClose} aria-label="Fechar detalhes">
-                <XIcon size={18} />
-              </Button>
+              <div className="min-w-0">
+                <h2 className="break-words text-xl font-semibold text-text">
+                  {detection?.rule_name || t("detailsDrawer.fallbackTitle")}
+                </h2>
+                {detection?.rule_id && (
+                  <p className="mt-1 font-mono text-sm text-text-secondary">
+                    {detection.rule_id}
+                  </p>
+                )}
+              </div>
             </div>
+            <Button variant="ghost" size="xs" onClick={onClose} aria-label={t("detailsDrawer.closeAriaLabel")}>
+              <XIcon size={18} />
+            </Button>
           </div>
+        </div>
 
-          {/* Body */}
-          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-6 py-5">
-            {triageError && (
-              <Notice variant="danger" title="Falha na triagem">
-                {triageError}
-              </Notice>
-            )}
+        {/* Body */}
+        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-6 py-5">
+          {triageError && (
+            <Notice variant="danger" title={t("detailsDrawer.triageErrorTitle")}>
+              {triageError}
+            </Notice>
+          )}
 
-            {detection && (
-              <>
-                {/* Triage actions */}
-                {canTriage && (
-                  <Card padding="md" className="shadow-sm">
-                    <div className="flex items-center gap-2">
-                      <ShieldAlertIcon size={16} className="text-text-tertiary" />
-                      <h3 className={sectionTitleCls}>Triagem</h3>
-                    </div>
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      {detection.status !== "ack" && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          leftIcon={<ClockIcon size={14} />}
-                          loading={actionLoading === "ack"}
-                          disabled={triageLoading || actionLoading !== null}
-                          onClick={() => handleTriage("ack")}
-                        >
-                          Reconhecer (Ack)
-                        </Button>
-                      )}
-                      {detection.status !== "closed" && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          leftIcon={<CheckCircleIcon size={14} />}
-                          loading={actionLoading === "closed"}
-                          disabled={triageLoading || actionLoading !== null}
-                          onClick={() => handleTriage("closed")}
-                        >
-                          Fechar
-                        </Button>
+          {detection && (
+            <>
+              {/* Triage actions */}
+              {canTriage && (
+                <Card padding="md" className="shadow-sm">
+                  <div className="flex items-center gap-2">
+                    <ShieldAlertIcon size={16} className="text-text-tertiary" />
+                    <h3 className={sectionTitleCls}>{t("detailsDrawer.sections.triage")}</h3>
+                  </div>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {detection.status !== "ack" && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        leftIcon={<ClockIcon size={14} />}
+                        loading={actionLoading === "ack"}
+                        disabled={triageLoading || actionLoading !== null}
+                        onClick={() => handleTriage("ack")}
+                      >
+                        {t("detailsDrawer.actions.ack")}
+                      </Button>
+                    )}
+                    {detection.status !== "closed" && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        leftIcon={<CheckCircleIcon size={14} />}
+                        loading={actionLoading === "closed"}
+                        disabled={triageLoading || actionLoading !== null}
+                        onClick={() => handleTriage("closed")}
+                      >
+                        {t("detailsDrawer.actions.close")}
+                      </Button>
                       )}
                       {detection.status !== "open" && (
                         <Button
@@ -264,7 +198,7 @@ export const DetectionDetailsDrawer: React.FC<DetectionDetailsDrawerProps> = ({
                           disabled={triageLoading || actionLoading !== null}
                           onClick={() => handleTriage("open")}
                         >
-                          Reabrir
+                          {t("detailsDrawer.actions.reopen")}
                         </Button>
                       )}
                     </div>
@@ -275,28 +209,28 @@ export const DetectionDetailsDrawer: React.FC<DetectionDetailsDrawerProps> = ({
                 <Card padding="md" className="space-y-4 shadow-sm">
                   <div className="flex items-center gap-2">
                     <ShieldAlertIcon size={16} className="text-text-tertiary" />
-                    <h3 className={sectionTitleCls}>Identificação</h3>
+                    <h3 className={sectionTitleCls}>{t("detailsDrawer.sections.identification")}</h3>
                   </div>
                   <div className="grid gap-4 sm:grid-cols-2">
                     <div>
-                      <div className={labelCls}>ID</div>
+                      <div className={labelCls}>{t("detailsDrawer.fields.id")}</div>
                       <div className={`${valueCls} font-mono text-xs`}>{detection.id}</div>
                     </div>
                     <div>
-                      <div className={labelCls}>Organização</div>
+                      <div className={labelCls}>{t("detailsDrawer.fields.organization")}</div>
                       <div className={`${valueCls} font-mono text-xs`}>{detection.organization_id}</div>
                     </div>
                     <div className="sm:col-span-2">
-                      <div className={labelCls}>Dedup key</div>
+                      <div className={labelCls}>{t("detailsDrawer.fields.dedupKey")}</div>
                       <div className={`${valueCls} break-all font-mono text-xs`}>{detection.dedup_key}</div>
                     </div>
                     <div>
-                      <div className={labelCls}>Contagem</div>
+                      <div className={labelCls}>{t("detailsDrawer.fields.count")}</div>
                       <div className={valueCls}>{detection.count ?? 1}</div>
                     </div>
                     {detection.suppression_window_seconds != null && (
                       <div>
-                        <div className={labelCls}>Janela de supressão</div>
+                        <div className={labelCls}>{t("detailsDrawer.fields.suppressionWindow")}</div>
                         <div className={valueCls}>{detection.suppression_window_seconds}s</div>
                       </div>
                     )}
@@ -307,20 +241,20 @@ export const DetectionDetailsDrawer: React.FC<DetectionDetailsDrawerProps> = ({
                 <Card padding="md" className="space-y-4 shadow-sm">
                   <div className="flex items-center gap-2">
                     <ClockIcon size={16} className="text-text-tertiary" />
-                    <h3 className={sectionTitleCls}>Temporal</h3>
+                    <h3 className={sectionTitleCls}>{t("detailsDrawer.sections.temporal")}</h3>
                   </div>
                   <div className="grid gap-4 sm:grid-cols-2">
                     <div>
-                      <div className={labelCls}>Primeira vez vista</div>
+                      <div className={labelCls}>{t("detailsDrawer.fields.firstSeen")}</div>
                       <div className={valueCls}>{detection.first_seen ? formatDate(detection.first_seen) : "-"}</div>
                     </div>
                     <div>
-                      <div className={labelCls}>Última vez vista</div>
+                      <div className={labelCls}>{t("detailsDrawer.fields.lastSeen")}</div>
                       <div className={valueCls}>{detection.last_seen ? formatDate(detection.last_seen) : "-"}</div>
                     </div>
                     {detection.created_at && (
                       <div>
-                        <div className={labelCls}>Criado em</div>
+                        <div className={labelCls}>{t("detailsDrawer.fields.createdAt")}</div>
                         <div className={valueCls}>{formatDate(detection.created_at)}</div>
                       </div>
                     )}
@@ -331,36 +265,36 @@ export const DetectionDetailsDrawer: React.FC<DetectionDetailsDrawerProps> = ({
                 <Card padding="md" className="space-y-4 shadow-sm">
                   <div className="flex items-center gap-2">
                     <ShieldAlertIcon size={16} className="text-text-tertiary" />
-                    <h3 className={sectionTitleCls}>Contexto</h3>
+                    <h3 className={sectionTitleCls}>{t("detailsDrawer.sections.context")}</h3>
                   </div>
                   <div className="grid gap-4 sm:grid-cols-2">
                     {detection.dialect && (
                       <div>
-                        <div className={labelCls}>Dialeto</div>
+                        <div className={labelCls}>{t("detailsDrawer.fields.dialect")}</div>
                         <div className={`${valueCls} font-mono text-xs`}>{detection.dialect}</div>
                       </div>
                     )}
                     {detection.integration_id != null && (
                       <div>
-                        <div className={labelCls}>Integration ID</div>
+                        <div className={labelCls}>{t("detailsDrawer.fields.integrationId")}</div>
                         <div className={`${valueCls} font-mono text-xs`}>{detection.integration_id}</div>
                       </div>
                     )}
                     {detection.source !== "correlation" && detection.source_query_id != null && (
                       <div>
-                        <div className={labelCls}>Query ID</div>
+                        <div className={labelCls}>{t("detailsDrawer.fields.queryId")}</div>
                         <div className={`${valueCls} font-mono text-xs`}>{detection.source_query_id}</div>
                       </div>
                     )}
                     {detection.search_result_id != null && (
                       <div>
-                        <div className={labelCls}>Search result ID</div>
+                        <div className={labelCls}>{t("detailsDrawer.fields.searchResultId")}</div>
                         <div className={`${valueCls} font-mono text-xs`}>{detection.search_result_id}</div>
                       </div>
                     )}
                     {detection.ocsf_ref && (
                       <div className="sm:col-span-2">
-                        <div className={labelCls}>OCSF ref</div>
+                        <div className={labelCls}>{t("detailsDrawer.fields.ocsfRef")}</div>
                         <div className={`${valueCls} break-all font-mono text-xs`}>{detection.ocsf_ref}</div>
                       </div>
                     )}
@@ -370,9 +304,7 @@ export const DetectionDetailsDrawer: React.FC<DetectionDetailsDrawerProps> = ({
             )}
           </div>
         </div>
-      </div>
-    </div>,
-    document.body,
+    </Drawer>
   )
 }
 

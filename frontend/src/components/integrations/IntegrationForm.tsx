@@ -24,6 +24,7 @@ import {
   type CollectionFilterValues,
 } from "@/components/integrations/CollectionFiltersSection"
 import { brandIconFor } from "@/lib/brand-icons"
+import { safeExternalHref } from "@/lib/safeUrl"
 
 // Fonte única da verdade do ícone: o catálogo do backend (PlatformRegistration de
 // cada vendor) já declara `icon_id` como SLUG DE MARCA (ex.: "wazuh",
@@ -51,8 +52,12 @@ interface IntegrationFormProps {
   onSubmit: (payload: CreateIntegrationRequest | UpdateIntegrationRequest) => Promise<void>
 }
 
+// A11Y-15/LAY-23: mesmo tratamento visual do primitivo `Input`/`Select`
+// (`border-border-field` — não `border-border`, que dá 1.31:1 de contraste —
+// e `focus-ring`, a ÚNICA estratégia de foco do design system; o
+// `focus:border-primary-500` anterior não é acessível o bastante sozinho).
 const selectCls =
-  "h-9 w-full rounded-md border border-border bg-surface px-3 text-sm text-text transition-colors focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 disabled:cursor-not-allowed disabled:opacity-50"
+  "h-9 w-full rounded-md border border-border-field bg-surface-tertiary px-3 text-sm text-text transition-colors hover:border-border-field-hover focus-ring disabled:cursor-not-allowed disabled:opacity-50"
 
 // Platforms with custom form blocks — these bypass the generic DynamicAuthField renderer
 const CUSTOM_BLOCK_PLATFORMS = new Set<string>(["sophos", "wazuh"])
@@ -148,7 +153,10 @@ const DynamicAuthField: React.FC<DynamicAuthFieldProps> = ({ field, value, onCha
       required={field.required}
       disabled={disabled}
       helperText={field.help_text ?? undefined}
-      autoComplete={field.type === "secret" ? "off" : undefined}
+      // SEC-02/SEC-10: ver comentário em EnrichmentConfigForm — `off` não
+      // basta em campo de senha; `new-password` já seria o default do
+      // `Input`, mas explícito documenta a intenção do campo dinâmico.
+      autoComplete={field.type === "secret" ? "new-password" : undefined}
     />
   )
 }
@@ -620,10 +628,14 @@ export const IntegrationForm: React.FC<IntegrationFormProps> = ({
               emptyLabel={t("form.noPlatformFound")}
             />
           )}
-          {activePlatformDescriptor?.docs_url && (
+          {/* SEC-04: docs_url é servido pelo catálogo de plataformas — não é
+              digitado pelo usuário aqui, mas o catálogo em si já foi alvo de
+              plugin externo (ADR-0006/0007); `safeExternalHref` é a defesa em
+              profundidade contra um `javascript:`/`data:` colado ali. */}
+          {activePlatformDescriptor?.docs_url && safeExternalHref(activePlatformDescriptor.docs_url) && (
             <p className="text-xs text-text-secondary">
               <a
-                href={activePlatformDescriptor.docs_url}
+                href={safeExternalHref(activePlatformDescriptor.docs_url)}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-primary-600 underline hover:text-primary-700"

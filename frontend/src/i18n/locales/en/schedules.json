@@ -214,6 +214,44 @@
     "feedback": {
       "triageError": "Failed to update detection status",
       "loadError": "Failed to load detections"
+    },
+    "truncatedHint": "Showing the {{limit}} most recent — there may be more. Narrow the status filter to reduce the list.",
+    "table": {
+      "ariaLabel": "Detections list",
+      "columns": {
+        "severity": "Severity",
+        "source": "Source",
+        "rule": "Rule",
+        "status": "Status",
+        "occurrences": "Occurrences",
+        "lastSeen": "Last seen"
+      },
+      "rowAriaLabel": "View details for detection {{name}}",
+      "occurrenceCount_one": "{{count}} occurrence",
+      "occurrenceCount_other": "{{count}} occurrences",
+      "lastSeenLabel": "Last: {{date}}",
+      "loading": "Loading detections...",
+      "emptyTitle": "No detections found",
+      "emptyDescription": "Adjust the status filter or wait for new detections from scheduled queries and correlation rules."
+    },
+    "severity": {
+      "informational": "Informational",
+      "low": "Low",
+      "medium": "Medium",
+      "high": "High",
+      "critical": "Critical",
+      "fatal": "Fatal",
+      "unknown": "Sev {{id}}"
+    },
+    "source": {
+      "scheduled_query": "Scheduled query",
+      "live_query": "Live query",
+      "correlation": "Correlation"
+    },
+    "statusSingular": {
+      "open": "Open",
+      "ack": "Acknowledged",
+      "closed": "Closed"
     }
   }
 }

@@ -118,7 +118,10 @@ export const TabsList: React.FC<TabsListProps> = ({ children, className, ariaLab
       aria-label={ariaLabel}
       onKeyDown={handleKeyDown}
       className={cn(
-        "flex flex-wrap items-center gap-1 border-b border-border",
+        // LAY-21: `flex-wrap` empilhava as abas em 2+ linhas em telas
+        // estreitas ou com muitas abas — `flex-nowrap overflow-x-auto` rola
+        // horizontalmente em vez disso (padrão de tab bar).
+        "flex flex-nowrap items-center gap-1 overflow-x-auto border-b border-border",
         className,
       )}
     >
@@ -161,7 +164,9 @@ export const TabsTrigger: React.FC<TabsTriggerProps> = ({
       onClick={() => !disabled && ctx.onValueChange(value)}
       className={cn(
         // focus-ring: estratégia única de foco do design system.
-        "inline-flex items-center gap-2 border-b-2 px-3 py-2 text-sm font-medium transition-colors focus-ring",
+        // shrink-0: com o TabsList em overflow-x-auto (LAY-21), sem isso o
+        // flex comprimiria/truncaria os rótulos em vez de rolar.
+        "inline-flex shrink-0 items-center gap-2 border-b-2 px-3 py-2 text-sm font-medium transition-colors focus-ring",
         "-mb-px", // alinha a border-b do trigger sobre a border-b do TabsList
         selected
           ? "border-primary-600 text-primary-700"

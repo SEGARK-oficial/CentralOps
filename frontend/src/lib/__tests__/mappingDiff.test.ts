@@ -152,4 +152,109 @@ describe("computeDiff", () => {
     expect(diff.modified).toHaveLength(0)
     expect(diff.reordered_only).toBe(false)
   })
+
+  // BUG-01: campos antes ignorados por rulesEqual.
+  it("mudança em pre_cast detecta modificação", () => {
+    const a: MappingRule[] = [r({ target: "f", source: "s", pre_cast: "lowercase" })]
+    const b: MappingRule[] = [r({ target: "f", source: "s", pre_cast: "uppercase" })]
+    const diff = computeDiff(a, b)
+    expect(diff.modified).toHaveLength(1)
+  })
+
+  it("mudança em fallback_source detecta modificação", () => {
+    const a: MappingRule[] = [
+      r({ target: "f", source: "s", fallback_source: ["a", "b"] }),
+    ]
+    const b: MappingRule[] = [
+      r({ target: "f", source: "s", fallback_source: ["a", "c"] }),
+    ]
+    const diff = computeDiff(a, b)
+    expect(diff.modified).toHaveLength(1)
+  })
+
+  it("adicionar fallback_source antes ausente detecta modificação", () => {
+    const a: MappingRule[] = [r({ target: "f", source: "s" })]
+    const b: MappingRule[] = [r({ target: "f", source: "s", fallback_source: ["a"] })]
+    const diff = computeDiff(a, b)
+    expect(diff.modified).toHaveLength(1)
+  })
+
+  it("mudança em when detecta modificação", () => {
+    const a: MappingRule[] = [
+      r({ target: "f", source: "s", when: { exists: "raw.x" } }),
+    ]
+    const b: MappingRule[] = [
+      r({ target: "f", source: "s", when: { exists: "raw.y" } }),
+    ]
+    const diff = computeDiff(a, b)
+    expect(diff.modified).toHaveLength(1)
+  })
+
+  it("mudança em expected_always_default detecta modificação", () => {
+    const a: MappingRule[] = [r({ target: "f", source: "s" })]
+    const b: MappingRule[] = [
+      r({ target: "f", source: "s", expected_always_default: true }),
+    ]
+    const diff = computeDiff(a, b)
+    expect(diff.modified).toHaveLength(1)
+  })
+
+  it("ArrayBuilderRule: mudança em items detecta modificação", () => {
+    const a: MappingRule[] = [
+      {
+        target: "observables",
+        kind: "array_builder",
+        items: [{ name: "src_ip", type: "IP Address", type_id: 2, source: "src.ip" }],
+      },
+    ]
+    const b: MappingRule[] = [
+      {
+        target: "observables",
+        kind: "array_builder",
+        items: [{ name: "src_ip", type: "IP Address", type_id: 2, source: "src.ip2" }],
+      },
+    ]
+    const diff = computeDiff(a, b)
+    expect(diff.modified).toHaveLength(1)
+  })
+
+  it("ArrayBuilderRule: mudança em skip_null detecta modificação", () => {
+    const a: MappingRule[] = [
+      { target: "observables", kind: "array_builder", items: [], skip_null: true },
+    ]
+    const b: MappingRule[] = [
+      { target: "observables", kind: "array_builder", items: [], skip_null: false },
+    ]
+    const diff = computeDiff(a, b)
+    expect(diff.modified).toHaveLength(1)
+  })
+
+  it("ArrayBuilderRule: mudança em dedup_by detecta modificação", () => {
+    const a: MappingRule[] = [
+      { target: "observables", kind: "array_builder", items: [], dedup_by: ["value"] },
+    ]
+    const b: MappingRule[] = [
+      { target: "observables", kind: "array_builder", items: [], dedup_by: ["value", "type"] },
+    ]
+    const diff = computeDiff(a, b)
+    expect(diff.modified).toHaveLength(1)
+  })
+
+  it("ArrayBuilderRule idêntica (dedup_by ausente vs undefined) não gera modificação", () => {
+    const a: MappingRule[] = [{ target: "observables", kind: "array_builder", items: [] }]
+    const b: MappingRule[] = [
+      { target: "observables", kind: "array_builder", items: [], dedup_by: undefined },
+    ]
+    const diff = computeDiff(a, b)
+    expect(diff.modified).toHaveLength(0)
+  })
+
+  it("mudar de scalar para array_builder no mesmo target detecta modificação", () => {
+    const a: MappingRule[] = [r({ target: "observables", source: "x" })]
+    const b: MappingRule[] = [
+      { target: "observables", kind: "array_builder", items: [] },
+    ]
+    const diff = computeDiff(a, b)
+    expect(diff.modified).toHaveLength(1)
+  })
 })

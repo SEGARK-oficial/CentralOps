@@ -176,7 +176,7 @@ export const DestinationTypeGallery: React.FC<DestinationTypeGalleryProps> = ({
               >
                 <div className="flex w-full items-start justify-between gap-2">
                   {/* Chip claro fixo p/ logos de marca lerem em light + dark mode. */}
-                  <span className="flex h-11 w-11 items-center justify-center rounded-lg bg-white ring-1 ring-black/5 shadow-sm">
+                  <span className="flex h-11 w-11 items-center justify-center rounded-lg bg-white ring-1 ring-border shadow-sm">
                     {brandIconFor(iconId, { size: 26 })}
                   </span>
                   {tier && (

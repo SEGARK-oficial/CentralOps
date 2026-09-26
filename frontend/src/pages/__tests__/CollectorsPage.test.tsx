@@ -365,4 +365,56 @@ describe("CollectorsPage", () => {
     expect(screen.queryByText("Lag máximo (min)")).not.toBeInTheDocument()
     expect(screen.getByText(/não diz de quando é o dado/i)).toBeInTheDocument()
   })
+
+  // Pilar 4: falha do carregamento INICIAL não pode virar EmptyState mentiroso.
+  describe("ErrorState com retry no load inicial (Pilar 4)", () => {
+    it("mostra ErrorState com retry quando o load inicial falha", async () => {
+      mockedApi.listCollectionState.mockRejectedValue(new Error("timeout"))
+      render(
+        <MemoryRouter>
+          <CollectorsPage />
+        </MemoryRouter>,
+      )
+
+      await waitFor(() =>
+        expect(screen.getByText("Falha ao carregar dados do collector.")).toBeInTheDocument(),
+      )
+      expect(screen.getByText("timeout")).toBeInTheDocument()
+    })
+
+    it("Tentar novamente recarrega e mostra a tabela", async () => {
+      mockedApi.listCollectionState.mockRejectedValueOnce(new Error("timeout"))
+      render(
+        <MemoryRouter>
+          <CollectorsPage />
+        </MemoryRouter>,
+      )
+      await screen.findByText("timeout")
+
+      mockedApi.listCollectionState.mockResolvedValueOnce(sampleStates)
+      fireEvent.click(screen.getByRole("button", { name: /tentar novamente/i }))
+
+      await waitFor(() => expect(screen.getByText("ACME Sophos")).toBeInTheDocument())
+      expect(screen.queryByText("timeout")).not.toBeInTheDocument()
+    })
+
+    // Regressão: `loadAll` também roda pra refresh — se já havia tabela na
+    // tela, uma falha nesse refresh vira toast, não some com a tabela.
+    it("refresh manual que falha com a tabela já visível vira toast, não ErrorState", async () => {
+      render(
+        <MemoryRouter>
+          <CollectorsPage />
+        </MemoryRouter>,
+      )
+      await screen.findByText("ACME Sophos")
+
+      mockedApi.listCollectionState.mockRejectedValueOnce(new Error("falha no refresh"))
+      fireEvent.click(screen.getByRole("button", { name: /atualizar/i }))
+
+      await waitFor(() => expect(screen.getByText("falha no refresh")).toBeInTheDocument())
+      // A tabela continua visível.
+      expect(screen.getByText("ACME Sophos")).toBeInTheDocument()
+      expect(screen.queryByRole("button", { name: /tentar novamente/i })).not.toBeInTheDocument()
+    })
+  })
 })

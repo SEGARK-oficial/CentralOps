@@ -325,7 +325,7 @@ const DomainConcurrencyEditor: React.FC<{
   const edit = (key: string, n: number) => onChange({ ...value, [key]: n })
 
   return (
-    <div className="rounded-md border border-border bg-surface">
+    <div className="overflow-x-auto rounded-md border border-border bg-surface">
       <table className="w-full text-sm">
         <thead className="bg-surface-tertiary text-xs uppercase tracking-wider text-text-secondary">
           <tr>
@@ -357,7 +357,7 @@ const DomainConcurrencyEditor: React.FC<{
                   max={1000}
                   value={limit}
                   onChange={(e) => edit(vendor, Number(e.target.value))}
-                  className="h-8 w-28 rounded border border-border bg-surface px-2 text-sm"
+                  className="h-8 w-28 rounded border border-border-field bg-surface-tertiary px-2 text-sm text-text transition-colors hover:border-border-field-hover focus-ring"
                   aria-label={t("collector.table.concurrentLimitAriaLabel", { vendor })}
                 />
               </td>
@@ -401,7 +401,7 @@ const DomainConcurrencyEditor: React.FC<{
                     value={newVendor}
                     onChange={(e) => setNewVendor(e.target.value)}
                     placeholder={t("collector.table.customVendorPlaceholder")}
-                    className="h-8 flex-1 rounded border border-border bg-surface px-2 text-sm"
+                    className="h-8 flex-1 rounded border border-border-field bg-surface-tertiary px-2 text-sm text-text transition-colors hover:border-border-field-hover focus-ring"
                     onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), add())}
                     aria-label={t("collector.table.customVendorAriaLabel")}
                   />
@@ -487,7 +487,7 @@ const VendorLimitsEditor: React.FC<{
   }
 
   return (
-    <div className="rounded-md border border-border bg-surface">
+    <div className="overflow-x-auto rounded-md border border-border bg-surface">
       <table className="w-full text-sm">
         <thead className="bg-surface-tertiary text-xs uppercase tracking-wider text-text-secondary">
           <tr>
@@ -522,7 +522,7 @@ const VendorLimitsEditor: React.FC<{
                     max={100000}
                     value={limits[field] ?? 0}
                     onChange={(e) => edit(vendor, field, Number(e.target.value))}
-                    className="h-8 w-24 rounded border border-border bg-surface px-2 text-sm"
+                    className="h-8 w-24 rounded border border-border-field bg-surface-tertiary px-2 text-sm text-text transition-colors hover:border-border-field-hover focus-ring"
                     aria-label={t("collector.table.perFieldAriaLabel", {
                       field: t(`collector.table.${field === "per_second" ? "perSecond" : field === "per_minute" ? "perMinute" : "perHour"}`),
                       vendor,
@@ -570,7 +570,7 @@ const VendorLimitsEditor: React.FC<{
                     value={newVendor}
                     onChange={(e) => setNewVendor(e.target.value)}
                     placeholder={t("collector.table.customVendorPlaceholder")}
-                    className="h-8 flex-1 rounded border border-border bg-surface px-2 text-sm"
+                    className="h-8 flex-1 rounded border border-border-field bg-surface-tertiary px-2 text-sm text-text transition-colors hover:border-border-field-hover focus-ring"
                     onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), add())}
                     aria-label={t("collector.table.customVendorAriaLabel")}
                   />

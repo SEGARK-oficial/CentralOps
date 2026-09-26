@@ -15,8 +15,10 @@
 
 import type React from "react"
 import { memo, useState, useRef, useCallback, useId, useEffect } from "react"
+import { createPortal } from "react-dom"
 import { useTranslation } from "react-i18next"
 import { cn } from "@/lib/utils"
+import { getPortalPosition } from "@/lib/portal-positioning"
 
 interface JMESPathInputProps {
   id?: string
@@ -77,6 +79,10 @@ const JMESPathInputInner: React.FC<JMESPathInputProps> = ({
 
   const inputRef = useRef<HTMLInputElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
+  // LAY-39: a lista é portada pro <body> (ver render abaixo) — precisa da
+  // própria ref pro click-outside e pro cálculo de posição saberem dela.
+  const portalRef = useRef<HTMLUListElement>(null)
+  const [portalStyle, setPortalStyle] = useState<React.CSSProperties>({})
 
   const filtered = suggestions.filter(
     (s) => s.toLowerCase().includes(value.toLowerCase()) && s !== value,
@@ -84,10 +90,13 @@ const JMESPathInputInner: React.FC<JMESPathInputProps> = ({
 
   const showDropdown = open && filtered.length > 0
 
-  // Fecha o dropdown ao clicar fora
+  // Fecha o dropdown ao clicar fora (do input OU da lista portada).
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+      const target = e.target as Node
+      const inContainer = containerRef.current?.contains(target) ?? false
+      const inPortal = portalRef.current?.contains(target) ?? false
+      if (!inContainer && !inPortal) {
         setOpen(false)
         setActiveIndex(-1)
       }
@@ -95,6 +104,44 @@ const JMESPathInputInner: React.FC<JMESPathInputProps> = ({
     document.addEventListener("mousedown", handleClickOutside)
     return () => document.removeEventListener("mousedown", handleClickOutside)
   }, [])
+
+  // LAY-39: a lista de sugestões era `position:absolute` dentro do painel de
+  // regras (`overflow-auto`) — perto do fim da área visível, o dropdown
+  // aparecia CORTADO pelo próprio scroll container. Portal pro <body> com
+  // `position:fixed` (mesma técnica do Select — ver Select.tsx) escapa de
+  // qualquer ancestral com overflow clipping.
+  useEffect(() => {
+    if (!showDropdown || !containerRef.current) return
+
+    const updatePosition = () => {
+      if (!containerRef.current) return
+      const ESTIMATED_HEIGHT = 224 // max-h-56
+      const pos = getPortalPosition(containerRef.current, ESTIMATED_HEIGHT)
+      setPortalStyle({
+        position: "fixed",
+        top: pos.top,
+        left: pos.left,
+        width: pos.width,
+        zIndex: "var(--z-index-popover)",
+      })
+    }
+
+    updatePosition()
+
+    // Fecha em scroll — exceto scroll DENTRO da própria lista (ela rola
+    // internamente, `max-h-56 overflow-auto`).
+    const handleScroll = (event: Event) => {
+      const target = event.target as Node | null
+      if (target && portalRef.current?.contains(target)) return
+      setOpen(false)
+    }
+    window.addEventListener("scroll", handleScroll, { passive: true, capture: true })
+    window.addEventListener("resize", updatePosition, { passive: true })
+    return () => {
+      window.removeEventListener("scroll", handleScroll, { capture: true })
+      window.removeEventListener("resize", updatePosition)
+    }
+  }, [showDropdown])
 
   const handleInputChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -212,39 +259,44 @@ const JMESPathInputInner: React.FC<JMESPathInputProps> = ({
         helperText && <p className="mt-1 text-xs text-text-tertiary">{helperText}</p>
       )}
 
-      {showDropdown && (
-        <ul
-          id={listboxId}
-          role="listbox"
-          aria-label={t("jmespathInput.suggestionsAriaLabel")}
-          className={cn(
-            "absolute z-50 mt-1 w-full rounded-md border border-border bg-surface shadow-md",
-            "max-h-56 overflow-auto py-1 text-sm",
-          )}
-        >
-          {filtered.map((suggestion, i) => (
-            <li
-              key={suggestion}
-              id={`${listboxId}-option-${i}`}
-              role="option"
-              aria-selected={i === activeIndex}
-              onMouseDown={(e) => {
-                // Previne blur no input antes do click ser processado
-                e.preventDefault()
-                handleSelect(suggestion)
-              }}
-              className={cn(
-                "cursor-pointer px-3 py-1.5 font-mono text-xs",
-                i === activeIndex
-                  ? "bg-primary-100 text-primary-800"
-                  : "text-text hover:bg-surface-tertiary",
-              )}
-            >
-              {suggestion}
-            </li>
-          ))}
-        </ul>
-      )}
+      {showDropdown &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <ul
+            ref={portalRef}
+            id={listboxId}
+            role="listbox"
+            aria-label={t("jmespathInput.suggestionsAriaLabel")}
+            style={portalStyle}
+            className={cn(
+              "rounded-md border border-border bg-surface shadow-md",
+              "max-h-56 overflow-auto py-1 text-sm",
+            )}
+          >
+            {filtered.map((suggestion, i) => (
+              <li
+                key={suggestion}
+                id={`${listboxId}-option-${i}`}
+                role="option"
+                aria-selected={i === activeIndex}
+                onMouseDown={(e) => {
+                  // Previne blur no input antes do click ser processado
+                  e.preventDefault()
+                  handleSelect(suggestion)
+                }}
+                className={cn(
+                  "cursor-pointer px-3 py-1.5 font-mono text-xs",
+                  i === activeIndex
+                    ? "bg-primary-100 text-primary-800"
+                    : "text-text hover:bg-surface-tertiary",
+                )}
+              >
+                {suggestion}
+              </li>
+            ))}
+          </ul>,
+          document.body,
+        )}
     </div>
   )
 }

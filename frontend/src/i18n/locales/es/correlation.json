@@ -639,5 +639,108 @@
       "fromVendor": "de esta fuente",
       "notInInventory": "Este camino no consta en el inventario de esta organización: la regla compila, pero puede no resolver nunca."
     }
+  },
+  "queryJobs": {
+    "status": {
+      "submitted": "Enviado",
+      "running": "En ejecución",
+      "finished": "Completado",
+      "partial": "Parcial",
+      "failed": "Falló"
+    },
+    "common": {
+      "yes": "Sí",
+      "no": "No"
+    },
+    "table": {
+      "loading": "Cargando jobs...",
+      "empty": {
+        "title": "Aún no se realizó ninguna búsqueda",
+        "description": "Use el formulario de arriba para iniciar una búsqueda federada asíncrona."
+      },
+      "ariaLabel": "Jobs de búsqueda federada",
+      "column": {
+        "jobId": "Job ID",
+        "status": "Estado",
+        "dialect": "Dialecto",
+        "results": "Resultados",
+        "createdAt": "Creado el",
+        "details": "Detalles"
+      },
+      "view": "Ver",
+      "viewDetailsAriaLabel": "Ver detalles del job {{id}}",
+      "mobileCardAriaLabel": "Job {{id}} — {{status}}",
+      "resultsCount": "{{count}} resultado(s)"
+    },
+    "drawer": {
+      "ariaLabel": "Detalles del job de búsqueda federada",
+      "title": "Detalles del job",
+      "titleWithId": "Job {{id}}…",
+      "closeAriaLabel": "Cerrar detalles del job",
+      "selectPrompt": "Seleccione un job para ver los detalles.",
+      "notice": {
+        "finished": "{{total}} resultado(s) encontrado(s).",
+        "partial": "Búsqueda parcial: {{total}} resultado(s). Algunas fuentes fallaron.",
+        "failed": "La búsqueda falló. Vea el error abajo."
+      },
+      "summary": {
+        "heading": "Resumen",
+        "jobId": "Job ID",
+        "status": "Estado",
+        "dialect": "Dialecto",
+        "specKind": "Modo de traducción",
+        "totalResults": "Total de resultados",
+        "allowPartial": "Resultados parciales permitidos",
+        "windowStart": "Ventana — inicio",
+        "windowEnd": "Ventana — fin",
+        "finishedAt": "Completado el",
+        "errorMessage": "Mensaje de error"
+      },
+      "statement": {
+        "heading": "Statement"
+      },
+      "perSource": {
+        "heading": "Resultado por fuente",
+        "column": {
+          "integration": "Integración",
+          "status": "Estado",
+          "results": "Resultados",
+          "partial": "Parcial",
+          "error": "Error"
+        }
+      }
+    },
+    "page": {
+      "eyebrow": "Investigación",
+      "title": "Búsqueda federada",
+      "description": "Ejecute queries asíncronas en múltiples integraciones y siga el estado en tiempo real.",
+      "actions": {
+        "closeForm": "Cerrar formulario",
+        "newSearch": "Nueva búsqueda"
+      },
+      "feedback": {
+        "submitSuccess": "Búsqueda enviada. Siga el estado en la tabla de abajo.",
+        "successTitle": "Operación completada",
+        "errorTitle": "No se pudo completar",
+        "dismissAriaLabel": "Cerrar aviso"
+      },
+      "recentError": {
+        "title": "Error al cargar los jobs recientes"
+      },
+      "permission": {
+        "title": "Permiso necesario",
+        "body": "No tiene el permiso <code>query.run</code> para iniciar búsquedas federadas."
+      },
+      "createCard": {
+        "title": "Nueva búsqueda federada",
+        "description": "Seleccione integraciones, elija el dialecto y escriba el statement de la query."
+      },
+      "recentCard": {
+        "title": "Jobs recientes",
+        "description": "Últimos {{count}} job(s) de su organización.",
+        "refreshAriaLabel": "Actualizar lista de jobs",
+        "refresh": "Actualizar"
+      }
+    }
   }
 }

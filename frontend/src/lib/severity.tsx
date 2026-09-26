@@ -110,6 +110,43 @@ const HEALTH_MAP: Record<HealthStatus, SeverityEncoding> = {
   },
 }
 
+// -- DetectionSeverity (OCSF 1-6) ---------------------------------------------
+
+/**
+ * Encoding de severidade de uma Detection (OCSF 1=Informational … 6=Fatal).
+ *
+ * Domínio à parte do HealthStatus acima (severidade de EVENTO, não saúde de
+ * destino), mas a mesma regra colorblind-safe: variant + labelKey, nunca cor
+ * sozinha. DetectionsTable usava `variant="primary"` para a severidade 3
+ * (Média) — primary é VIOLETA, a cor semântica de normalize/OCSF/marca no
+ * design system, não um nível de risco. Aqui ela cai para neutro, como
+ * Informational/Low; só High (4) e Critical/Fatal (5-6) carregam matiz de
+ * alerta (warning/danger). Helper único para não deixar cada tela reinventar
+ * o mapeamento — DetectionDetailsDrawer (Sub 8) também consome daqui.
+ */
+const DETECTION_SEVERITY_LABEL_KEYS: Record<number, string> = {
+  1: "schedules:detections.severity.informational",
+  2: "schedules:detections.severity.low",
+  3: "schedules:detections.severity.medium",
+  4: "schedules:detections.severity.high",
+  5: "schedules:detections.severity.critical",
+  6: "schedules:detections.severity.fatal",
+}
+
+export interface DetectionSeverityEncoding {
+  badgeVariant: BadgeVariant
+  labelKey: string
+  /** Interpolação para o labelKey de fallback (severidade fora de 1-6). */
+  labelParams?: Record<string, unknown>
+}
+
+export function detectionSeverityEncoding(severityId: number): DetectionSeverityEncoding {
+  const badgeVariant: BadgeVariant = severityId <= 3 ? "default" : severityId === 4 ? "warning" : "danger"
+  const labelKey = DETECTION_SEVERITY_LABEL_KEYS[severityId]
+  if (labelKey) return { badgeVariant, labelKey }
+  return { badgeVariant, labelKey: "schedules:detections.severity.unknown", labelParams: { id: severityId } }
+}
+
 /**
  * O contrato de saúde de destino (`DestinationHealthStatus`) diz "unhealthy"
  * onde este mapa diz "down". Sem o alias o valor caía no fallback `unknown`: um
@@ -159,13 +196,17 @@ export function StatusBadge({
   const { t } = useTranslation("dashboard")
   const { Icon, labelKey, colorToken, bgToken } = encoding
   const label = t(labelKey)
+  // A11Y-34: `aria-label` num `<span>` sem `role` não é exposto de forma
+  // confiável ao leitor de tela (elemento genérico, fora da árvore de
+  // acessibilidade por padrão). O nome acessível vem do texto de verdade:
+  // visível quando `showLabel`, ou `sr-only` no modo ícone-apenas — os dois
+  // sempre entram na árvore, ao contrário do atributo.
   return (
     <span
       className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${bgToken} ${colorToken} ${className}`}
-      aria-label={label}
     >
       <Icon size={iconSize} aria-hidden="true" />
-      {showLabel && <span>{label}</span>}
+      {showLabel ? <span>{label}</span> : <span className="sr-only">{label}</span>}
     </span>
   ) as React.ReactElement
 }

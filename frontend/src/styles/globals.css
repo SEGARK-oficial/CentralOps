@@ -1,6 +1,8 @@
-@import url("https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&display=swap");
-@import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&display=swap");
-@import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&display=swap");
+/* LAY-11: os 3 @import de Google Fonts viraram um único <link> em
+   index.html (com preconnect + display=swap) — @import é render-blocking e
+   SERIAL (o browser só descobre o 2º @import depois de baixar e parsear o
+   1º), então 3 deles em cadeia atrasavam a 1ª pintura em 3 round-trips
+   sequenciais. Ver index.html para o <link> combinado. */
 @import "tailwindcss";
 
 /*
@@ -116,7 +118,12 @@
 
   --ink: oklch(0.975 0.005 265);
   --ink-2: oklch(0.795 0.017 265);
-  --ink-3: oklch(0.655 0.019 265);
+  /* A11Y-39: L=0.655 dava só 4.43:1 sobre --panel-raised (abaixo do 4.5:1 da
+     WCAG AA para texto normal — `text-text-tertiary` some, ex., no
+     `--ink-3` de rótulo mono/hint dentro de card elevado). L=0.67 mede
+     4.69:1 sobre --panel-raised (oklch 0.292) e 5.32:1 sobre --panel (oklch
+     0.252) — clareia sem mudar a leitura de "terciário, mais apagado". */
+  --ink-3: oklch(0.67 0.019 265);
 
   --line: oklch(1 0 0 / 9%);
   --line-strong: oklch(1 0 0 / 16%);

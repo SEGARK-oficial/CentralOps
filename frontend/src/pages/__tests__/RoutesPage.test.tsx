@@ -20,7 +20,7 @@ import React from "react"
 import { render, screen, fireEvent, waitFor, act } from "@testing-library/react"
 import { describe, it, expect, vi, beforeEach, beforeAll } from "vitest"
 import { MemoryRouter } from "react-router-dom"
-import RoutesPage, { SYSTEM_ROUTE_ID, isSystemRoute } from "@/pages/RoutesPage"
+import RoutesPage, { SYSTEM_ROUTE_ID, isSystemRoute, buildRouteDndAnnouncements } from "@/pages/RoutesPage"
 import * as api from "@/services/api"
 import i18n from "@/i18n"
 import type { Route, RouteAudit } from "@/types"
@@ -194,6 +194,25 @@ describe("RoutesPage — render padrão", () => {
     })
   })
 
+  // LAY-27: nome da rota e a condição JSON truncam em telas estreitas — sem
+  // `title`, o texto cortado é ilegível e não há como ver o resto.
+  it("nome truncado da rota tem title com o texto completo", async () => {
+    renderPage()
+    await waitFor(() => {
+      const heading = screen.getByRole("heading", { level: 2, name: "Sophos alto" })
+      expect(heading).toHaveAttribute("title", "Sophos alto")
+    })
+  })
+
+  it("condição truncada da rota tem title com o JSON completo", async () => {
+    renderPage()
+    await waitFor(() => {
+      const expected = JSON.stringify(ROUTE_SOPHOS.condition)
+      const code = screen.getByText(expected, { selector: "code" })
+      expect(code).toHaveAttribute("title", expected)
+    })
+  })
+
   it("não exibe aviso de rota padrão ausente quando há rota padrão final", async () => {
     renderPage()
     await waitFor(() => {
@@ -252,6 +271,34 @@ describe("RoutesPage — drag-reorder", () => {
     // Valida que a função existe e pode ser chamada (drag real é e2e)
     await mockedApi.reorderRoutes(["r-catchall", "r-sophos"])
     expect(mockedApi.reorderRoutes).toHaveBeenCalledWith(["r-catchall", "r-sophos"])
+  })
+
+  // A11Y-36: os textos default do @dnd-kit são em inglês genérico e não
+  // nomeiam a rota — testa a função pura que gera os anúncios traduzidos.
+  it("buildRouteDndAnnouncements nomeia a rota e a posição em cada fase do arrasto", () => {
+    const routes = [ROUTE_CATCH_ALL, ROUTE_SOPHOS]
+    const t = i18n.getFixedT("pt", "routing")
+    const announcements = buildRouteDndAnnouncements(routes, t)
+
+    expect(announcements.onDragStart({ active: { id: "r-sophos" } } as never)).toMatch(/Sophos alto/)
+
+    expect(
+      announcements.onDragOver({ active: { id: "r-sophos" }, over: { id: "r-catchall" } } as never),
+    ).toMatch(/Sophos alto.*Catch-all Wazuh/s)
+
+    expect(announcements.onDragOver({ active: { id: "r-sophos" }, over: null } as never)).toMatch(/Sophos alto/)
+
+    expect(
+      announcements.onDragEnd({ active: { id: "r-sophos" }, over: { id: "r-catchall" } } as never),
+    ).toMatch(/Sophos alto/)
+
+    expect(announcements.onDragCancel({ active: { id: "r-sophos" } } as never)).toMatch(/Sophos alto/)
+  })
+
+  it("buildRouteDndAnnouncements não quebra com um id desconhecido (fallback pro próprio id)", () => {
+    const t = i18n.getFixedT("pt", "routing")
+    const announcements = buildRouteDndAnnouncements([], t)
+    expect(announcements.onDragStart({ active: { id: "ghost" } } as never)).toMatch(/ghost/)
   })
 })
 

@@ -260,6 +260,23 @@ describe("Navigation — âncora fixa no topo", () => {
   })
 })
 
+describe("Navigation — A11Y-09 (inert no drawer fechado, abaixo de lg)", () => {
+  // O mock global de matchMedia (src/test/setup.ts) sempre devolve matches:false,
+  // então o hook useMediaQuery("(min-width: 1024px)") sempre resolve "não é desktop"
+  // neste arquivo — cenário exato do drawer mobile/tablet (<lg).
+  it("fica inert quando fechado (fora da viewport, mas ainda no DOM)", () => {
+    renderNav(false)
+    const nav = screen.getByRole("navigation")
+    expect(nav).toHaveAttribute("inert")
+  })
+
+  it("NÃO fica inert quando aberto", () => {
+    renderNav(true)
+    const nav = screen.getByRole("dialog")
+    expect(nav).not.toHaveAttribute("inert")
+  })
+})
+
 describe("Navigation — rail colapsável (desktop)", () => {
   it("aplica largura de rail (lg:w-16) quando collapsed=true", () => {
     render(

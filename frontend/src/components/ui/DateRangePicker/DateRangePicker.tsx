@@ -30,6 +30,28 @@ interface DateRangePickerProps {
 const POPOVER_WIDTH = 320
 const ESTIMATED_HEIGHT = 460
 
+/** Meia-noite local do dia — chave estável pra comparar/indexar datas (ignora hora). */
+const dayStamp = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime()
+
+const addDays = (date: Date, delta: number) => {
+  const next = new Date(date)
+  next.setDate(next.getDate() + delta)
+  return next
+}
+
+/** Navega N meses preservando o dia-do-mês (grudado no último dia se o mês destino for mais curto). */
+const addMonthsClamped = (date: Date, delta: number) => {
+  const day = date.getDate()
+  const next = new Date(date)
+  next.setDate(1)
+  next.setMonth(next.getMonth() + delta)
+  const lastDayOfTarget = new Date(next.getFullYear(), next.getMonth() + 1, 0).getDate()
+  next.setDate(Math.min(day, lastDayOfTarget))
+  return next
+}
+
+const isSameMonth = (a: Date, b: Date) => a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth()
+
 export const DateRangePicker: React.FC<DateRangePickerProps> = ({
   id,
   label,
@@ -52,6 +74,13 @@ export const DateRangePicker: React.FC<DateRangePickerProps> = ({
   const triggerRef = useRef<HTMLButtonElement>(null)
   const popoverRef = useRef<HTMLDivElement>(null)
   const generatedId = useId()
+
+  // A11Y-28: roving tabindex do calendário — só a célula "focada" (não
+  // necessariamente selecionada) tem tabIndex=0; as outras 41 ficam -1, então
+  // Tab entra/sai do grid em UMA parada, e as setas movem o foco por dentro.
+  const [focusedDate, setFocusedDate] = useState<Date>(() => value?.from ?? new Date())
+  const dayButtonRefs = useRef<Map<number, HTMLButtonElement>>(new Map())
+  const dayGridRef = useRef<HTMLDivElement>(null)
 
   const normalizedValue = value ?? { from: null, to: null }
   const triggerId = id || `drp-${generatedId.replace(/:/g, "")}`
@@ -98,13 +127,35 @@ export const DateRangePicker: React.FC<DateRangePickerProps> = ({
     }
   }, [isOpen])
 
+  // Ao abrir, o "cursor" do calendário parte do valor atual (ou hoje).
+  useEffect(() => {
+    if (isOpen) setFocusedDate(normalizedValue.from ?? new Date())
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen])
+
+  // Depois de uma navegação de mês disparada pelas SETAS (não pelos botões
+  // ‹ ›), o grid é outro (novo mês) e o botão do dia focado é um nó NOVO —
+  // precisa focar de novo. Só faz isso se o foco já estava dentro do grid
+  // (senão roubaria foco de um clique nos botões ‹ ›/quick range).
+  useEffect(() => {
+    if (!isOpen) return
+    if (!dayGridRef.current?.contains(document.activeElement)) return
+    dayButtonRefs.current.get(dayStamp(focusedDate))?.focus()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentMonth])
+
   // Popover acessível: foca o primeiro controle ao abrir, prende Tab e fecha no Escape.
   useEffect(() => {
     if (!isOpen) return
     const node = popoverRef.current
     const focusables = () =>
-      Array.from(node?.querySelectorAll<HTMLElement>('button, input, [tabindex]:not([tabindex="-1"])') ?? []).filter(
-        (el) => !el.hasAttribute("disabled") && el.offsetParent !== null,
+      Array.from(node?.querySelectorAll<HTMLElement>("button, input, [tabindex]") ?? []).filter(
+        // A11Y-28: com o roving tabindex do grid do calendário, só UMA
+        // célula por vez tem tabIndex 0 — as outras 30+ são `button` mas com
+        // tabIndex -1, e o seletor antigo (`button` sem filtro) as incluía
+        // todas, quebrando o wrap Shift+Tab/Tab do trap (ver comentário
+        // abaixo, no handler de Tab).
+        (el) => !el.hasAttribute("disabled") && el.offsetParent !== null && el.tabIndex !== -1,
       )
     const id = window.setTimeout(() => focusables()[0]?.focus(), 0)
     const onKeyDown = (e: KeyboardEvent) => {
@@ -198,8 +249,6 @@ export const DateRangePicker: React.FC<DateRangePickerProps> = ({
     setSelectingFrom(true)
   }
 
-  const dayStamp = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime()
-
   const isInRange = (d: Date) => {
     if (!normalizedValue.from || !normalizedValue.to) return false
     const s = dayStamp(d)
@@ -222,6 +271,38 @@ export const DateRangePicker: React.FC<DateRangePickerProps> = ({
       n.setMonth(prev.getMonth() + (dir === "prev" ? -1 : 1))
       return n
     })
+    // Mantém o "cursor" do roving tabindex no mesmo dia-do-mês (clampado),
+    // pra quem navega pelos botões ‹ › e depois entra no grid por Tab.
+    setFocusedDate((prev) => addMonthsClamped(prev, dir === "prev" ? -1 : 1))
+  }
+
+  // A11Y-28: roving tabindex + setas no grid do calendário (padrão APG de
+  // date picker). Só o dia em `focusedDate` tem tabIndex=0; ArrowLeft/Right
+  // andam 1 dia, ArrowUp/Down andam 1 semana, Home/End vão pro início/fim da
+  // semana visível, PageUp/PageDown trocam de mês preservando o dia.
+  const handleGridKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    let next: Date | null = null
+    switch (e.key) {
+      case "ArrowLeft": next = addDays(focusedDate, -1); break
+      case "ArrowRight": next = addDays(focusedDate, 1); break
+      case "ArrowUp": next = addDays(focusedDate, -7); break
+      case "ArrowDown": next = addDays(focusedDate, 7); break
+      case "Home": next = addDays(focusedDate, -focusedDate.getDay()); break
+      case "End": next = addDays(focusedDate, 6 - focusedDate.getDay()); break
+      case "PageUp": next = addMonthsClamped(focusedDate, e.shiftKey ? -12 : -1); break
+      case "PageDown": next = addMonthsClamped(focusedDate, e.shiftKey ? 12 : 1); break
+      default: return
+    }
+    e.preventDefault()
+    setFocusedDate(next)
+    if (isSameMonth(next, currentMonth)) {
+      // Mesmo mês: o botão já existe no DOM, foca direto — não precisa
+      // esperar o re-render (o efeito de foco pós-mês só cobre a troca de
+      // mês, que desmonta/remonta os botões).
+      dayButtonRefs.current.get(dayStamp(next))?.focus()
+    } else {
+      setCurrentMonth(new Date(next.getFullYear(), next.getMonth(), 1))
+    }
   }
 
   const monthNames = t("dateRangePicker.months", { returnObjects: true }) as string[]
@@ -246,12 +327,26 @@ export const DateRangePicker: React.FC<DateRangePickerProps> = ({
 
   const hasValue = Boolean(normalizedValue.from || normalizedValue.to)
 
+  // Grade do mês em semanas (para role="grid" > role="row" > role="gridcell").
+  const monthDays = getDaysInMonth(currentMonth)
+  const weeks: Array<Array<Date | null>> = []
+  for (let i = 0; i < monthDays.length; i += 7) weeks.push(monthDays.slice(i, i + 7))
+
+  // Se `focusedDate` caiu fora do mês exibido (ex.: popover reaberto num mês
+  // diferente, antes de qualquer navegação), a célula roving cai pro dia de
+  // hoje (se estiver no mês) ou pro dia 1 — sempre EXATAMENTE uma célula
+  // tabbable, nunca zero.
+  const monthDaysNonNull = monthDays.filter((d): d is Date => d !== null)
+  const effectiveFocusedDate = monthDaysNonNull.some((d) => dayStamp(d) === dayStamp(focusedDate))
+    ? focusedDate
+    : (monthDaysNonNull.find((d) => d.toDateString() === new Date().toDateString()) ?? monthDaysNonNull[0] ?? focusedDate)
+
   return (
     <div className={cn("flex flex-col gap-1.5", className)} ref={containerRef}>
       {label && (
         <label id={labelId} htmlFor={triggerId} className="text-sm font-medium text-text">
           {label}
-          {required && <span className="ml-0.5 text-danger-500">*</span>}
+          {required && <span className="ml-0.5 text-danger-500" aria-hidden="true">*</span>}
         </label>
       )}
 
@@ -290,7 +385,10 @@ export const DateRangePicker: React.FC<DateRangePickerProps> = ({
             type="button"
             onClick={clearSelection}
             aria-label={t("dateRangePicker.clearSelection")}
-            className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-0.5 text-text-tertiary transition-colors hover:text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500"
+            // A11Y-20: alvo de 18px (14px do ícone + 2px de padding) — abaixo
+            // do mínimo de 24px. `h-6 w-6` fixo + flex-center resolve sem
+            // aumentar o ícone visualmente.
+            className="absolute right-2 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded text-text-tertiary transition-colors hover:text-text focus-ring"
           >
             <XIcon size={14} aria-hidden="true" />
           </button>
@@ -361,31 +459,62 @@ export const DateRangePicker: React.FC<DateRangePickerProps> = ({
                 <button type="button" onClick={() => navigateMonth("next")} className="flex h-7 w-7 items-center justify-center rounded text-text-secondary hover:bg-surface-tertiary" aria-label={t("dateRangePicker.nextMonth")}>›</button>
               </div>
 
-              <div className="mb-1 grid grid-cols-7 gap-0">
-                {dayNames.map((d) => (
-                  <div key={d} className="py-1 text-center text-xs font-medium text-text-tertiary">{d}</div>
-                ))}
-              </div>
+              {/* A11Y-28: padrão APG de date-picker grid — role="grid" com
+                  linhas/células, roving tabindex (só effectiveFocusedDate tem
+                  tabIndex=0) e as setas navegam por dentro via handleGridKeyDown. */}
+              <div
+                ref={dayGridRef}
+                role="grid"
+                aria-label={`${monthNames[currentMonth.getMonth()]} ${currentMonth.getFullYear()}`}
+                onKeyDown={handleGridKeyDown}
+              >
+                <div role="row" className="mb-1 grid grid-cols-7 gap-0">
+                  {dayNames.map((d) => (
+                    <div key={d} role="columnheader" aria-label={d} className="py-1 text-center text-xs font-medium text-text-tertiary">{d}</div>
+                  ))}
+                </div>
 
-              <div className="grid grid-cols-7 gap-0">
-                {getDaysInMonth(currentMonth).map((date, idx) => (
-                  <button
-                    type="button"
-                    key={`${date ? date.toISOString() : "e"}-${idx}`}
-                    className={cn(
-                      "h-8 w-full rounded text-xs transition-colors",
-                      !date && "invisible",
-                      date && "hover:bg-primary-50 hover:text-primary-700",
-                      date && isSelected(date) && "bg-primary-600 font-semibold text-text-inverse hover:bg-primary-500 hover:text-text-inverse",
-                      date && isInRange(date) && !isSelected(date) && "bg-primary-50 text-primary-700",
-                      date && date.toDateString() === new Date().toDateString() && !isSelected(date) && "font-bold text-primary-600",
-                    )}
-                    onClick={() => date && handleDateClick(date)}
-                    disabled={!date}
-                    aria-label={date ? t("dateRangePicker.selectDate", { date: formatDate(date) }) : undefined}
-                  >
-                    {date?.getDate()}
-                  </button>
+                {weeks.map((week, wi) => (
+                  <div role="row" key={wi} className="grid grid-cols-7 gap-0">
+                    {week.map((date, di) => {
+                      if (!date) {
+                        return <div key={di} role="presentation" className="h-8 w-full" aria-hidden="true" />
+                      }
+                      const stamp = dayStamp(date)
+                      const isToday = date.toDateString() === new Date().toDateString()
+                      const roving = stamp === dayStamp(effectiveFocusedDate)
+                      const selected = Boolean(isSelected(date))
+                      return (
+                        <button
+                          type="button"
+                          key={stamp}
+                          ref={(el) => {
+                            if (el) dayButtonRefs.current.set(stamp, el)
+                            else dayButtonRefs.current.delete(stamp)
+                          }}
+                          role="gridcell"
+                          tabIndex={roving ? 0 : -1}
+                          aria-selected={selected}
+                          aria-current={isToday ? "date" : undefined}
+                          className={cn(
+                            "h-8 w-full rounded text-xs transition-colors",
+                            "hover:bg-primary-50 hover:text-primary-700",
+                            selected && "bg-primary-600 font-semibold text-text-inverse hover:bg-primary-500 hover:text-text-inverse",
+                            isInRange(date) && !selected && "bg-primary-50 text-primary-700",
+                            isToday && !selected && "font-bold text-primary-600",
+                          )}
+                          onClick={() => {
+                            setFocusedDate(date)
+                            handleDateClick(date)
+                          }}
+                          onFocus={() => setFocusedDate(date)}
+                          aria-label={t("dateRangePicker.selectDate", { date: formatDate(date) })}
+                        >
+                          {date.getDate()}
+                        </button>
+                      )
+                    })}
+                  </div>
                 ))}
               </div>
             </div>

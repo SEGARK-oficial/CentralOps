@@ -214,6 +214,44 @@
     "feedback": {
       "triageError": "Error al actualizar el estado de la detección",
       "loadError": "Error al cargar las detecciones"
+    },
+    "truncatedHint": "Mostrando las {{limit}} más recientes — puede haber más. Ajusta el filtro de estado para reducir la lista.",
+    "table": {
+      "ariaLabel": "Lista de detecciones",
+      "columns": {
+        "severity": "Severidad",
+        "source": "Fuente",
+        "rule": "Regla",
+        "status": "Estado",
+        "occurrences": "Ocurrencias",
+        "lastSeen": "Última vez vista"
+      },
+      "rowAriaLabel": "Ver detalles de la detección {{name}}",
+      "occurrenceCount_one": "{{count}} ocurrencia",
+      "occurrenceCount_other": "{{count}} ocurrencias",
+      "lastSeenLabel": "Última: {{date}}",
+      "loading": "Cargando detecciones...",
+      "emptyTitle": "No se encontraron detecciones",
+      "emptyDescription": "Ajusta el filtro de estado o espera nuevas detecciones de las queries programadas y reglas de correlación."
+    },
+    "severity": {
+      "informational": "Informativa",
+      "low": "Baja",
+      "medium": "Media",
+      "high": "Alta",
+      "critical": "Crítica",
+      "fatal": "Fatal",
+      "unknown": "Sev {{id}}"
+    },
+    "source": {
+      "scheduled_query": "Query programada",
+      "live_query": "Query en vivo",
+      "correlation": "Correlación"
+    },
+    "statusSingular": {
+      "open": "Abierta",
+      "ack": "Reconocida",
+      "closed": "Cerrada"
     }
   }
 }

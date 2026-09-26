@@ -1,5 +1,5 @@
 import type React from "react"
-import { useState } from "react"
+import { useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Button } from "@/components/ui/Button/Button"
 import { Input } from "@/components/ui/Input/Input"
@@ -7,8 +7,10 @@ import { Modal } from "@/components/ui/Modal/Modal"
 import { Notice } from "@/components/ui/Notice/Notice"
 import type { CreateUserRequest, Organization, UserRole } from "@/types"
 
+// A11Y-15/LAY-23: mesmo tratamento do primitivo Input/Select
+// (border-border-field + focus-ring — border-border dava 1.31:1).
 const selectCls =
-  "h-9 w-full rounded-md border border-border bg-surface px-3 text-sm text-text transition-colors focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 disabled:cursor-not-allowed disabled:opacity-50"
+  "h-9 w-full rounded-md border border-border-field bg-surface-tertiary px-3 text-sm text-text transition-colors hover:border-border-field-hover focus-ring disabled:cursor-not-allowed disabled:opacity-50"
 
 interface NewUserModalProps {
   open: boolean
@@ -39,7 +41,23 @@ export const NewUserModal: React.FC<NewUserModalProps> = ({ open, onClose, onCre
   const { t } = useTranslation("admin")
   const [values, setValues] = useState<FormValues>(empty)
   const [error, setError] = useState<string | null>(null)
+  // A11Y-26: qual campo causou o erro atual — liga `aria-invalid`/
+  // `aria-describedby` no campo certo e é o que recebe o foco.
+  const [errorField, setErrorField] = useState<keyof FormValues | null>(null)
   const [loading, setLoading] = useState(false)
+
+  const usernameRef = useRef<HTMLInputElement>(null)
+  const orgSelectRef = useRef<HTMLSelectElement>(null)
+  const passwordRef = useRef<HTMLInputElement>(null)
+  const confirmPasswordRef = useRef<HTMLInputElement>(null)
+  const fieldRefs: Partial<Record<keyof FormValues, React.RefObject<HTMLElement | null>>> = {
+    username: usernameRef,
+    organization_id: orgSelectRef,
+    password: passwordRef,
+    confirm_password: confirmPasswordRef,
+  }
+
+  const errorId = "new-user-modal-error"
 
   const ROLE_OPTIONS: { value: UserRole; label: string }[] = [
     { value: "viewer", label: t("newUserModal.roleOptions.viewer") },
@@ -59,30 +77,39 @@ export const NewUserModal: React.FC<NewUserModalProps> = ({ open, onClose, onCre
   const set = (field: keyof FormValues, value: string) =>
     setValues((v) => ({ ...v, [field]: value }))
 
+  // A11Y-26: centraliza "marcar erro + focar o campo" — usado tanto na
+  // validação local quanto no catch do submit.
+  const failField = (field: keyof FormValues, message: string) => {
+    setError(message)
+    setErrorField(field)
+    fieldRefs[field]?.current?.focus()
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError(null)
+    setErrorField(null)
 
     if (!values.username.trim()) {
-      setError(t("newUserModal.errors.usernameRequired"))
+      failField("username", t("newUserModal.errors.usernameRequired"))
       return
     }
     if (!values.password) {
-      setError(t("newUserModal.errors.passwordRequired"))
+      failField("password", t("newUserModal.errors.passwordRequired"))
       return
     }
     if (values.password.length < 10) {
-      setError(t("newUserModal.errors.passwordTooShort"))
+      failField("password", t("newUserModal.errors.passwordTooShort"))
       return
     }
     if (values.password !== values.confirm_password) {
-      setError(t("newUserModal.errors.passwordMismatch"))
+      failField("confirm_password", t("newUserModal.errors.passwordMismatch"))
       return
     }
     // Usuário operacional (não-admin) é escopado por org: sem org, ele não
     // enxerga nenhum dado. Admin é global por design — org é opcional.
     if (values.role !== "admin" && values.organization_id === null) {
-      setError(t("newUserModal.errors.organizationRequired"))
+      failField("organization_id", t("newUserModal.errors.organizationRequired"))
       return
     }
 
@@ -99,6 +126,7 @@ export const NewUserModal: React.FC<NewUserModalProps> = ({ open, onClose, onCre
       onClose()
     } catch (err) {
       setError(err instanceof Error ? err.message : t("newUserModal.errors.createFailed"))
+      setErrorField(null)
     } finally {
       setLoading(false)
     }
@@ -108,7 +136,7 @@ export const NewUserModal: React.FC<NewUserModalProps> = ({ open, onClose, onCre
     <Modal open={open} onClose={handleClose} title={t("newUserModal.title")} size="md">
       <form onSubmit={handleSubmit} className="space-y-4" noValidate>
         {error && (
-          <Notice variant="danger" title={t("editUserModal.errorTitle")}>
+          <Notice id={errorId} variant="danger" title={t("editUserModal.errorTitle")}>
             {error}
           </Notice>
         )}
@@ -122,11 +150,14 @@ export const NewUserModal: React.FC<NewUserModalProps> = ({ open, onClose, onCre
         />
 
         <Input
+          ref={usernameRef}
           name="username"
           label={t("newUserModal.usernameLabel")}
           value={values.username}
           onChange={(e) => set("username", e.target.value)}
           required
+          aria-invalid={errorField === "username" ? "true" : undefined}
+          aria-describedby={errorField === "username" ? errorId : undefined}
           disabled={loading}
         />
 
@@ -153,6 +184,7 @@ export const NewUserModal: React.FC<NewUserModalProps> = ({ open, onClose, onCre
             {values.role !== "admin" && <span className="text-danger-500"> *</span>}
           </label>
           <select
+            ref={orgSelectRef}
             id="new-user-org"
             data-testid="new-user-org"
             className={selectCls}
@@ -163,6 +195,8 @@ export const NewUserModal: React.FC<NewUserModalProps> = ({ open, onClose, onCre
                 organization_id: e.target.value === "" ? null : Number(e.target.value),
               }))
             }
+            aria-invalid={errorField === "organization_id" ? "true" : undefined}
+            aria-describedby={errorField === "organization_id" ? errorId : undefined}
             disabled={loading}
           >
             <option value="">{t("newUserModal.organizationNone")}</option>
@@ -178,6 +212,7 @@ export const NewUserModal: React.FC<NewUserModalProps> = ({ open, onClose, onCre
         </div>
 
         <Input
+          ref={passwordRef}
           name="password"
           type="password"
           label={t("newUserModal.passwordLabel")}
@@ -185,16 +220,21 @@ export const NewUserModal: React.FC<NewUserModalProps> = ({ open, onClose, onCre
           value={values.password}
           onChange={(e) => set("password", e.target.value)}
           required
+          aria-invalid={errorField === "password" ? "true" : undefined}
+          aria-describedby={errorField === "password" ? errorId : undefined}
           disabled={loading}
         />
 
         <Input
+          ref={confirmPasswordRef}
           name="confirm_password"
           type="password"
           label={t("newUserModal.confirmPasswordLabel")}
           autoComplete="new-password"
           value={values.confirm_password}
           onChange={(e) => set("confirm_password", e.target.value)}
+          aria-invalid={errorField === "confirm_password" ? "true" : undefined}
+          aria-describedby={errorField === "confirm_password" ? errorId : undefined}
           required
           disabled={loading}
         />

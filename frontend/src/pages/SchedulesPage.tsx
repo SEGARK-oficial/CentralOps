@@ -22,6 +22,8 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/com
 import { Button } from "@/components/ui/Button/Button"
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog/ConfirmDialog"
 import EmptyState from "@/components/ui/EmptyState/EmptyState"
+import { ErrorState } from "@/components/ui/ErrorState"
+import { SkeletonTable } from "@/components/ui/Skeleton"
 import { Input } from "@/components/ui/Input/Input"
 import LoadingSpinner from "@/components/ui/LoadingSpinner/LoadingSpinner"
 import { Modal } from "@/components/ui/Modal/Modal"
@@ -197,6 +199,11 @@ export const SchedulesPage: React.FC = () => {
   const [selectedScheduleId, setSelectedScheduleId] = useState<number | null>(null)
   const [historyItems, setHistoryItems] = useState<SearchHistoryItem[]>([])
   const [schedulesLoading, setSchedulesLoading] = useState(true)
+  // Pilar 4: falha do carregamento INICIAL não pode virar EmptyState
+  // mentiroso ("nenhum agendamento"). `refreshSchedules` também roda após
+  // criar/editar/excluir — se já havia lista na tela, o erro vira toast.
+  const [schedulesLoadError, setSchedulesLoadError] = useState<string | null>(null)
+  const hasLoadedSchedulesRef = useRef(false)
   const [historyLoading, setHistoryLoading] = useState(false)
   const [historyError, setHistoryError] = useState<string | null>(null)
   const [notificationRecipientsCount, setNotificationRecipientsCount] = useState(0)
@@ -323,8 +330,10 @@ export const SchedulesPage: React.FC = () => {
   async function refreshSchedules(preferredScheduleId?: number | null) {
     try {
       setSchedulesLoading(true)
+      setSchedulesLoadError(null)
       const nextSchedules = await api.listSchedules()
       setSchedules(nextSchedules)
+      hasLoadedSchedulesRef.current = true
       setSelectedScheduleId((currentSelectedId) => {
         const candidateId = typeof preferredScheduleId === "number" ? preferredScheduleId : currentSelectedId
 
@@ -336,7 +345,11 @@ export const SchedulesPage: React.FC = () => {
       })
     } catch (error) {
       const message = error instanceof Error ? error.message : t("schedules:feedback.loadSchedulesError")
-      setFeedback({ type: "error", message })
+      if (hasLoadedSchedulesRef.current) {
+        setFeedback({ type: "error", message })
+      } else {
+        setSchedulesLoadError(message)
+      }
     } finally {
       setSchedulesLoading(false)
     }
@@ -606,7 +619,7 @@ export const SchedulesPage: React.FC = () => {
             <div className="flex items-center justify-between gap-3">
               <div>
                 <div className="text-xs font-semibold uppercase tracking-wider text-text-tertiary">{item.label}</div>
-                <div className="mt-2 text-2xl font-bold text-text">{item.value}</div>
+                <div className="mt-2 font-display text-2xl font-bold tabular-nums text-text">{item.value}</div>
               </div>
               <Badge variant={item.tone} size="lg">
                 {item.value}
@@ -623,7 +636,22 @@ export const SchedulesPage: React.FC = () => {
       )}
 
       {(queriesError || clientsError) && (
-        <Notice variant="danger" title={t("schedules:feedback.dependenciesUnavailable")}>
+        <Notice
+          variant="danger"
+          title={t("schedules:feedback.dependenciesUnavailable")}
+          action={
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                if (queriesError) void refetchQueries()
+                if (clientsError) void refetchClients()
+              }}
+            >
+              {t("common:actions.retry")}
+            </Button>
+          }
+        >
           {queriesError || clientsError}
         </Notice>
       )}
@@ -773,9 +801,13 @@ export const SchedulesPage: React.FC = () => {
           </CardHeader>
           <CardContent>
             {schedulesLoading ? (
-              <div className="flex min-h-[280px] items-center justify-center">
-                <LoadingSpinner text={t("schedules:activeList.loading")} />
-              </div>
+              <SkeletonTable rows={4} columns={7} />
+            ) : schedulesLoadError ? (
+              <ErrorState
+                title={t("schedules:feedback.loadSchedulesError")}
+                message={schedulesLoadError}
+                onRetry={() => void refreshSchedules()}
+              />
             ) : scheduleRows.length === 0 ? (
               <EmptyState
                 title={t("schedules:activeList.emptyTitle")}
@@ -962,14 +994,17 @@ export const SchedulesPage: React.FC = () => {
                   ))}
                 </div>
 
-                {historyError && (
-                  <Notice variant="danger" title={t("schedules:history.loadErrorTitle")}>
-                    {historyError}
-                  </Notice>
-                )}
-
                 {historyLoading ? (
                   <LoadingSpinner text={t("schedules:history.loading")} />
+                ) : historyError ? (
+                  // Pilar 4: antes empilhava esse Notice (sem retry) EM CIMA
+                  // de um EmptyState "sem histórico" — as duas mensagens
+                  // competiam e nenhuma tinha como agir.
+                  <ErrorState
+                    title={t("schedules:history.loadErrorTitle")}
+                    message={historyError}
+                    onRetry={() => setHistoryRequestVersion((v) => v + 1)}
+                  />
                 ) : historyItems.length === 0 ? (
                   <EmptyState
                     title={t("schedules:history.emptyTitle")}
@@ -1004,7 +1039,7 @@ export const SchedulesPage: React.FC = () => {
                           onChange={(event) => setHistorySearch(event.target.value)}
                           placeholder={t("schedules:history.searchPlaceholder")}
                           aria-label={t("schedules:history.searchAriaLabel")}
-                          className="h-9 w-full rounded-md border border-border bg-surface pl-9 pr-3 text-sm text-text placeholder:text-text-tertiary focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+                          className="h-9 w-full rounded-md border border-border-field bg-surface-tertiary pl-9 pr-3 text-sm text-text placeholder:text-text-tertiary transition-colors hover:border-border-field-hover focus-ring"
                         />
                       </div>
                     </div>

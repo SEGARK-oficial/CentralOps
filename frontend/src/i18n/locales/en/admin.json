@@ -70,7 +70,8 @@
       "description": "Are you sure you want to delete <strong>{{name}}</strong>? Linked integrations will also be removed."
     },
     "errors": {
-      "bulkPartial": "Bulk completed with warnings: {{deactivated}}/{{processed}} deactivated. {{errorsCount}} item(s) skipped."
+      "bulkPartial": "Bulk completed with warnings: {{deactivated}}/{{processed}} deactivated. {{errorsCount}} item(s) skipped.",
+      "loadFailedTitle": "Failed to load organizations"
     }
   },
   "users": {

@@ -29,6 +29,10 @@ const tdCls = "px-4 py-3 text-sm"
 
 interface BackfillJobsTableProps {
   items: BackfillJob[]
+  /** PERF-14: total real no servidor — `useBackfillJobs` já o retorna, mas
+   *  era descartado (`total: _total`) no chamador. Sem ele, uma lista com
+   *  teto (`{ limit: 50 }`) parecia completa mesmo faltando jobs mais antigos. */
+  total?: number
   isLoading: boolean
   error: Error | null
   onCancel: (jobId: string) => Promise<BackfillJob>
@@ -36,6 +40,7 @@ interface BackfillJobsTableProps {
 
 export const BackfillJobsTable: React.FC<BackfillJobsTableProps> = ({
   items,
+  total,
   isLoading,
   error,
   onCancel,
@@ -210,6 +215,15 @@ export const BackfillJobsTable: React.FC<BackfillJobsTableProps> = ({
           </tbody>
         </table>
       </div>
+
+      {/* PERF-14: só aparece quando o servidor tem mais jobs do que o teto da
+          página atual trouxe — sem isto, `{ limit: 50 }` parecia "é isso
+          tudo" mesmo com histórico mais antigo fora da lista. */}
+      {typeof total === "number" && total > items.length && (
+        <p className="text-xs text-text-tertiary">
+          {t("backfill.table.showingTotal", { count: items.length, total })}
+        </p>
+      )}
 
       {/* Drawer de detalhes */}
       {selectedJob && (

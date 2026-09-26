@@ -162,18 +162,43 @@ beforeEach(() => {
 })
 
 describe("DestinationDetailPage — loading + erro", () => {
-  it("mostra card de carregamento antes de resolver", () => {
+  // Pilar 4: era um texto fixo ("Carregando…") num Card — virou SkeletonCard
+  // (role="status", anunciado via aria-label, sem texto visível).
+  it("mostra skeleton de carregamento antes de resolver", () => {
     mockedApi.getDestination.mockReturnValue(new Promise(() => {}))
     renderPage()
-    expect(screen.getByText(/Carregando…/i)).toBeInTheDocument()
+    expect(screen.getAllByRole("status", { name: /carregando/i }).length).toBeGreaterThan(0)
   })
 
-  it("mostra Notice de erro se getDestination rejeitar", async () => {
+  it("mostra ErrorState com retry se getDestination rejeitar", async () => {
     mockedApi.getDestination.mockRejectedValue(new Error("Not found"))
     renderPage()
     await waitFor(() => {
       expect(screen.getByText(/Destino indisponível/i)).toBeInTheDocument()
     })
+    expect(screen.getByText("Not found")).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: /tentar novamente/i })).toBeInTheDocument()
+  })
+
+  it("Tentar novamente chama getDestination de novo e recupera a página", async () => {
+    mockedApi.getDestination.mockRejectedValueOnce(new Error("Not found"))
+    renderPage()
+    await screen.findByText(/Destino indisponível/i)
+
+    mockedApi.getDestination.mockResolvedValueOnce(DEST)
+    fireEvent.click(screen.getByRole("button", { name: /tentar novamente/i }))
+
+    await waitFor(() => expect(screen.getByText("Splunk HEC Prod")).toBeInTheDocument())
+  })
+
+  // A11Y-41: "Voltar" nos dois estados (erro e vazio) era onClick={navigate}.
+  it("botão Voltar no estado de erro é um link de verdade", async () => {
+    mockedApi.getDestination.mockRejectedValue(new Error("Not found"))
+    renderPage()
+    await screen.findByText(/Destino indisponível/i)
+
+    const link = screen.getByRole("link", { name: /voltar/i })
+    expect(link).toHaveAttribute("href", "/destinations")
   })
 })
 

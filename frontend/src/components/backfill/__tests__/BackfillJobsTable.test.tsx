@@ -48,7 +48,7 @@ function makeJob(overrides: Partial<BackfillJob> = {}): BackfillJob {
 
 function renderTable(
   items: BackfillJob[],
-  opts?: { canWrite?: boolean; isLoading?: boolean; error?: Error | null },
+  opts?: { canWrite?: boolean; isLoading?: boolean; error?: Error | null; total?: number },
 ) {
   const canWrite = opts?.canWrite ?? true
   mockedUsePermission.mockReturnValue(canWrite)
@@ -56,6 +56,7 @@ function renderTable(
   return render(
     <BackfillJobsTable
       items={items}
+      total={opts?.total}
       isLoading={opts?.isLoading ?? false}
       error={opts?.error ?? null}
       onCancel={vi.fn().mockResolvedValue(makeJob({ status: "cancelled" }))}
@@ -146,5 +147,22 @@ describe("BackfillJobsTable", () => {
     fireEvent.click(screen.getByRole("button", { name: /Detalhes/ }))
     // Drawer está mockado, só verifica que o click não quebra
     await waitFor(() => expect(screen.queryByText(/Carregando jobs/)).not.toBeInTheDocument())
+  })
+
+  // ── PERF-14: total descartado ────────────────────────────────────────────────
+
+  it("mostra 'exibindo N de M' quando o servidor tem mais jobs do que a página trouxe", () => {
+    renderTable([makeJob({ id: "job-1" })], { total: 5 })
+    expect(screen.getByText("Exibindo 1 de 5")).toBeInTheDocument()
+  })
+
+  it("não mostra a mensagem quando total é igual à página (nada fora da lista)", () => {
+    renderTable([makeJob({ id: "job-1" })], { total: 1 })
+    expect(screen.queryByText(/Exibindo/)).not.toBeInTheDocument()
+  })
+
+  it("não mostra a mensagem quando total não é informado (retrocompat)", () => {
+    renderTable([makeJob({ id: "job-1" })])
+    expect(screen.queryByText(/Exibindo/)).not.toBeInTheDocument()
   })
 })

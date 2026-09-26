@@ -1,0 +1,53 @@
+{
+  "detailsDrawer": {
+    "ariaLabel": "Detalles de la detección",
+    "closeAriaLabel": "Cerrar detalles",
+    "fallbackTitle": "Detección",
+    "triageErrorTitle": "Fallo en el triaje",
+    "severity": {
+      "informational": "Informativa",
+      "low": "Baja",
+      "medium": "Media",
+      "high": "Alta",
+      "critical": "Crítica",
+      "fatal": "Fatal",
+      "unknown": "Sev {{id}}"
+    },
+    "status": {
+      "open": "Abierta",
+      "ack": "Reconocida",
+      "closed": "Cerrada"
+    },
+    "source": {
+      "scheduledQuery": "Consulta programada",
+      "liveQuery": "Consulta en vivo",
+      "correlation": "Correlación"
+    },
+    "sections": {
+      "triage": "Triaje",
+      "identification": "Identificación",
+      "temporal": "Temporal",
+      "context": "Contexto"
+    },
+    "actions": {
+      "ack": "Reconocer",
+      "close": "Cerrar",
+      "reopen": "Reabrir"
+    },
+    "fields": {
+      "id": "ID",
+      "organization": "Organización",
+      "dedupKey": "Dedup key",
+      "count": "Recuento",
+      "suppressionWindow": "Ventana de supresión",
+      "firstSeen": "Visto por primera vez",
+      "lastSeen": "Visto por última vez",
+      "createdAt": "Creado el",
+      "dialect": "Dialecto",
+      "integrationId": "Integration ID",
+      "queryId": "Query ID",
+      "searchResultId": "Search result ID",
+      "ocsfRef": "OCSF ref"
+    }
+  }
+}

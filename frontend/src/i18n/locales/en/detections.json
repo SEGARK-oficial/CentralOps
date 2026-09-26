@@ -1,0 +1,53 @@
+{
+  "detailsDrawer": {
+    "ariaLabel": "Detection details",
+    "closeAriaLabel": "Close details",
+    "fallbackTitle": "Detection",
+    "triageErrorTitle": "Triage failed",
+    "severity": {
+      "informational": "Informational",
+      "low": "Low",
+      "medium": "Medium",
+      "high": "High",
+      "critical": "Critical",
+      "fatal": "Fatal",
+      "unknown": "Sev {{id}}"
+    },
+    "status": {
+      "open": "Open",
+      "ack": "Acknowledged",
+      "closed": "Closed"
+    },
+    "source": {
+      "scheduledQuery": "Scheduled query",
+      "liveQuery": "Live query",
+      "correlation": "Correlation"
+    },
+    "sections": {
+      "triage": "Triage",
+      "identification": "Identification",
+      "temporal": "Temporal",
+      "context": "Context"
+    },
+    "actions": {
+      "ack": "Acknowledge",
+      "close": "Close",
+      "reopen": "Reopen"
+    },
+    "fields": {
+      "id": "ID",
+      "organization": "Organization",
+      "dedupKey": "Dedup key",
+      "count": "Count",
+      "suppressionWindow": "Suppression window",
+      "firstSeen": "First seen",
+      "lastSeen": "Last seen",
+      "createdAt": "Created at",
+      "dialect": "Dialect",
+      "integrationId": "Integration ID",
+      "queryId": "Query ID",
+      "searchResultId": "Search result ID",
+      "ocsfRef": "OCSF ref"
+    }
+  }
+}

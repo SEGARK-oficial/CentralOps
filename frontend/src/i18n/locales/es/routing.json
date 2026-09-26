@@ -46,6 +46,14 @@
     "systemRouteTitle": "Ruta de sistema protegida",
     "systemRouteNotReorderable": "Ruta de sistema, no reordenable",
     "reorderRouteAria": "Reordenar ruta {{name}}. Presiona espacio y usa las flechas",
+    "dnd": {
+      "pickedUp": "Ruta {{name}} tomada para reordenar. Posición {{position}} de {{total}}.",
+      "movedOver": "Ruta {{name}} movida a la posición {{position}} de {{total}}, sobre {{overName}}.",
+      "movedNoTarget": "Ruta {{name}} sin posición de destino por el momento.",
+      "dropped": "Ruta {{name}} soltada en la posición {{position}} de {{total}}.",
+      "droppedNoTarget": "Ruta {{name}} soltada sin cambiar de posición.",
+      "cancelled": "Se canceló la reordenación de la ruta {{name}}."
+    },
     "selectRouteAria": "Seleccionar ruta {{name}}",
     "systemBadge": "sistema",
     "finalBadge": "final",

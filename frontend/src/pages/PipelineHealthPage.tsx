@@ -57,8 +57,11 @@ const HealthCard: React.FC<HealthCardProps> = ({ integration, health }) => {
           nome truncava em "Firewall bo…" — e o card existe para identificar
           QUAL integração está com problema. */}
       <div>
-        <h3 className="truncate font-semibold text-text">{integration.name}</h3>
-        <p className="truncate font-mono text-xs text-text-tertiary">
+        {/* LAY-27: truncate sem title deixa o nome cortado ilegível. */}
+        <h3 className="truncate font-semibold text-text" title={integration.name}>
+          {integration.name}
+        </h3>
+        <p className="truncate font-mono text-xs text-text-tertiary" title={integration.organization_name || undefined}>
           {integration.organization_name || "—"}
         </p>
         <div className="mt-2 flex flex-wrap items-center gap-1">

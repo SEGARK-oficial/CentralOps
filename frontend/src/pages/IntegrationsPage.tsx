@@ -1,6 +1,6 @@
 import type React from "react"
-import { useCallback, useEffect, useMemo, useState } from "react"
-import { useNavigate } from "react-router-dom"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { Link } from "react-router-dom"
 import { Trans, useTranslation } from "react-i18next"
 import {
   EyeIcon,
@@ -15,7 +15,7 @@ import {
 } from "lucide-react"
 import * as api from "@/services/api"
 import { authStatusLabelKey, authStatusVariant } from "@/lib/labels"
-import type { Integration } from "@/types"
+import type { CreateIntegrationRequest, Integration } from "@/types"
 import { IntegrationForm } from "@/components/integrations/IntegrationForm"
 import { Badge } from "@/components/ui/Badge/Badge"
 import { Button } from "@/components/ui/Button/Button"
@@ -23,6 +23,8 @@ import { Card } from "@/components/ui/Card/Card"
 import { Checkbox } from "@/components/ui/Checkbox/Checkbox"
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog/ConfirmDialog"
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState"
+import { ErrorState } from "@/components/ui/ErrorState"
+import { SkeletonCard } from "@/components/ui/Skeleton"
 import { Input } from "@/components/ui/Input/Input"
 import { Modal } from "@/components/ui/Modal/Modal"
 import { Notice } from "@/components/ui/Notice/Notice"
@@ -42,15 +44,23 @@ const PAGE_SIZE = 50
 
 const IntegrationsPage: React.FC = () => {
   const { t } = useTranslation("integrations")
-  const navigate = useNavigate()
   const { user } = useAuth()
   const { organizations, refreshData, selectedOrgId, selectedPlatform } = usePlatform()
-  const isAdmin = user.role === "admin"
+  const isAdmin = user?.role === "admin"
 
   const [integrations, setIntegrations] = useState<Integration[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [feedback, setFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null)
+  // Pilar 4: a falha do CARREGAMENTO INICIAL não pode ser só um toast de 5s
+  // que some sozinho — o usuário fica olhando pra um EmptyState mentiroso
+  // ("nenhuma integração") quando na verdade a chamada falhou. Persistente,
+  // com retry, até o próximo load bem-sucedido. `loadIntegrations` também é
+  // chamado para REFRESCAR após criar/editar/desativar — se JÁ havia uma
+  // lista na tela, uma falha nesse refresh vira toast (não pode sumir com
+  // dado que o usuário estava vendo, ex.: o item recém-criado).
+  const [loadError, setLoadError] = useState<string | null>(null)
+  const hasLoadedRef = useRef(false)
 
   useEffect(() => {
     if (!feedback) return
@@ -104,6 +114,7 @@ const IntegrationsPage: React.FC = () => {
   const loadIntegrations = useCallback(async () => {
     try {
       setLoading(true)
+      setLoadError(null)
       const data = await api.listIntegrations({
         organizationId: selectedOrgId ?? undefined,
         platform: selectedPlatform ?? undefined,
@@ -116,9 +127,14 @@ const IntegrationsPage: React.FC = () => {
         size: PAGE_SIZE,
       })
       setIntegrations(data)
-    } catch (loadError) {
-      const message = loadError instanceof Error ? loadError.message : t("list.feedback.loadError")
-      setFeedback({ type: "error", message })
+      hasLoadedRef.current = true
+    } catch (err) {
+      const message = err instanceof Error ? err.message : t("list.feedback.loadError")
+      if (hasLoadedRef.current) {
+        setFeedback({ type: "error", message })
+      } else {
+        setLoadError(message)
+      }
     } finally {
       setLoading(false)
     }
@@ -177,11 +193,16 @@ const IntegrationsPage: React.FC = () => {
   }
 
   // ── Handlers de CRUD individuais (mantidos) ──────────────────────────
-  const handleCreate = async (payload: Parameters<typeof api.createIntegration>[0]) => {
+  // `IntegrationForm.onSubmit` é uma união (Create | Update) — o mesmo
+  // componente atende `mode="create"` e `mode="edit"` com uma única prop.
+  // Este handler só é passado ao Modal em `mode="create"`, então em runtime
+  // o payload é sempre um CreateIntegrationRequest; o cast documenta essa
+  // garantia (que o TS não deriva do discriminante `mode` de fora do form).
+  const handleCreate = async (payload: Parameters<typeof api.createIntegration>[0] | Parameters<typeof api.updateIntegration>[1]) => {
     try {
       setSaving(true)
       setFeedback(null)
-      await api.createIntegration(payload)
+      await api.createIntegration(payload as CreateIntegrationRequest)
       setCreateOpen(false)
       await Promise.all([loadIntegrations(), refreshData()])
       setFeedback({ type: "success", message: t("list.feedback.createSuccess") })
@@ -467,9 +488,17 @@ const IntegrationsPage: React.FC = () => {
       </BulkActionBar>
 
       {loading ? (
-        <Card padding="lg" className="text-center text-sm text-text-secondary">
-          {t("list.loading")}
-        </Card>
+        <div className="grid gap-4" aria-label={t("list.loading")}>
+          <SkeletonCard lines={2} />
+          <SkeletonCard lines={2} />
+          <SkeletonCard lines={2} />
+        </div>
+      ) : loadError ? (
+        <ErrorState
+          title={t("list.feedback.loadError")}
+          message={loadError}
+          onRetry={() => void loadIntegrations()}
+        />
       ) : integrations.length === 0 ? (
         <EmptyState
           icon={<PlugIcon size={48} />}
@@ -596,8 +625,10 @@ const IntegrationsPage: React.FC = () => {
                   </div>
 
                   <div className="flex flex-wrap gap-2">
-                    <Button variant="outline" size="sm" onClick={() => navigate(`/integrations/${integration.id}`)} leftIcon={<EyeIcon size={14} />}>
-                      {t("list.details")}
+                    {/* A11Y-41: era <Button onClick={navigate}> — vira link
+                        de verdade (Cmd/Ctrl+clique, nova aba, funciona sem JS). */}
+                    <Button variant="outline" size="sm" leftIcon={<EyeIcon size={14} />} asChild>
+                      <Link to={`/integrations/${integration.id}`}>{t("list.details")}</Link>
                     </Button>
                     {isAdmin && (
                       <>

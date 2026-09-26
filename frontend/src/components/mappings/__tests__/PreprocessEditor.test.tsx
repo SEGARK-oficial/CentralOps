@@ -3,6 +3,7 @@
  * Cobre: lista vazia, adição de op, remoção, colapso.
  */
 
+import { useState } from "react"
 import { render, screen, fireEvent } from "@testing-library/react"
 import { PreprocessEditor } from "@/components/mappings/PreprocessEditor"
 import type { PreprocessOp } from "@/types"
@@ -200,5 +201,52 @@ describe("PreprocessEditor", () => {
     const region = screen.getByTestId("preprocess-editor")
     expect(region).toHaveAttribute("role", "region")
     expect(region).toHaveAttribute("aria-labelledby")
+  })
+})
+
+describe("PreprocessEditor — A11Y-11 (botão colapsar/expandir tem nome acessível)", () => {
+  it("o botão de toggle tem aria-label (não só o ícone)", () => {
+    render(
+      <PreprocessEditor ops={[]} expanded={false} onToggleExpand={() => {}} onChange={() => {}} />,
+    )
+    expect(screen.getByRole("button", { name: /expandir seção de pré-processamento/i })).toBeInTheDocument()
+  })
+
+  it("o aria-label muda para 'recolher' quando expandido", () => {
+    render(
+      <PreprocessEditor ops={[]} expanded={true} onToggleExpand={() => {}} onChange={() => {}} />,
+    )
+    expect(screen.getByRole("button", { name: /recolher seção de pré-processamento/i })).toBeInTheDocument()
+  })
+})
+
+describe("PreprocessEditor — BUG-04 (id estável de linha, não por posição)", () => {
+  it("erro de validação local (targetError) não escorrega para a op vizinha ao remover a anterior", () => {
+    function Wrapper() {
+      const [ops, setOps] = useState<PreprocessOp[]>([
+        { op: "json_parse", source: "a", target: "_a", tolerant: true },
+        { op: "json_parse", source: "b", target: "_b", tolerant: true },
+      ])
+      return (
+        <PreprocessEditor ops={ops} expanded={true} onToggleExpand={() => {}} onChange={setOps} />
+      )
+    }
+
+    render(<Wrapper />)
+
+    // Provoca erro de validação SÓ na 1ª op (target sem "_" no início).
+    const firstTargetInput = screen.getByDisplayValue("_a")
+    fireEvent.change(firstTargetInput, { target: { value: "bad" } })
+    expect(screen.getByRole("alert")).toBeInTheDocument()
+
+    // Remove a 1ª op — a 2ª desliza do índice 1 pro 0.
+    const removeButtons = screen.getAllByRole("button", { name: /remover operação/i })
+    fireEvent.click(removeButtons[0])
+
+    // Com key={index} (bug), a instância de PreprocessRow no índice 0 seria
+    // REAPROVEITADA para a op remanescente e carregaria o `targetError` da
+    // op removida. Com id estável, a instância antiga desmonta de vez.
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument()
+    expect(screen.getByDisplayValue("_b")).toBeInTheDocument()
   })
 })

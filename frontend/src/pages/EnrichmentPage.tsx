@@ -1,7 +1,7 @@
 import type React from "react"
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
-import { useNavigate } from "react-router-dom"
+import { Link, useNavigate } from "react-router-dom"
 import {
   SparklesIcon,
   RefreshCcwIcon,
@@ -437,12 +437,21 @@ export function EnrichmentPage(): React.ReactElement {
           ) : (
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {policies.map((p) => (
+                // A11Y-10: era um `Card` com `onClick` — inalcançável e
+                // inativável por teclado (nenhum papel/foco de interativo).
+                // Padrão "stretched link": o `<Link>` cobre o card inteiro
+                // (`absolute inset-0`) e carrega o nome acessível; o resto do
+                // conteúdo fica por cima, só decorativo/visual.
                 <Card
                   key={p.id}
-                  className="flex cursor-pointer flex-col gap-3 p-4 transition-colors hover:border-primary-300"
-                  onClick={() => navigate(`/enrichment/policies/${p.id}`)}
+                  className="relative flex flex-col gap-3 p-4 transition-colors hover:border-primary-300 focus-within:border-primary-300"
                   data-testid={`policy-card-${p.name}`}
                 >
+                  <Link
+                    to={`/enrichment/policies/${p.id}`}
+                    className="absolute inset-0 rounded-lg focus-ring"
+                    aria-label={p.name}
+                  />
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
                       <h3 className="truncate font-medium">{p.name}</h3>

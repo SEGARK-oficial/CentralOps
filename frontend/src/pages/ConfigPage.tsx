@@ -127,7 +127,7 @@ export const ConfigPage: React.FC = () => {
           <div className="flex items-center justify-between gap-3">
             <div>
               <div className="text-xs font-semibold uppercase tracking-wider text-text-tertiary">{t("page.stats.recipients")}</div>
-              <div className="mt-2 text-2xl font-bold text-text">{recipients.length}</div>
+              <div className="mt-2 font-display text-2xl font-bold tabular-nums text-text">{recipients.length}</div>
             </div>
             <Badge variant="primary" size="lg" className="gap-1.5">
               <MailIcon size={14} />
@@ -140,7 +140,7 @@ export const ConfigPage: React.FC = () => {
           <div className="flex items-center justify-between gap-3">
             <div>
               <div className="text-xs font-semibold uppercase tracking-wider text-text-tertiary">{t("page.stats.tlsSmtp")}</div>
-              <div className="mt-2 text-2xl font-bold text-text">{config?.use_tls ? t("page.stats.tlsActive") : t("page.stats.tlsOptional")}</div>
+              <div className="mt-2 font-display text-2xl font-bold tabular-nums text-text">{config?.use_tls ? t("page.stats.tlsActive") : t("page.stats.tlsOptional")}</div>
             </div>
             <Badge variant={config?.use_tls ? "success" : "outline"} size="lg">
               {config?.use_tls ? t("page.stats.tlsSecure") : t("page.stats.tlsFree")}
@@ -152,7 +152,7 @@ export const ConfigPage: React.FC = () => {
           <div className="flex items-center justify-between gap-3">
             <div>
               <div className="text-xs font-semibold uppercase tracking-wider text-text-tertiary">{t("page.stats.smtpPassword")}</div>
-              <div className="mt-2 text-2xl font-bold text-text">{config?.smtp_password_configured ? t("page.stats.smtpPasswordSaved") : t("page.stats.smtpPasswordNotSaved")}</div>
+              <div className="mt-2 font-display text-2xl font-bold tabular-nums text-text">{config?.smtp_password_configured ? t("page.stats.smtpPasswordSaved") : t("page.stats.smtpPasswordNotSaved")}</div>
             </div>
             <Badge variant={config?.smtp_password_configured ? "success" : "warning"} size="lg" className="gap-1.5">
               <ShieldCheckIcon size={14} />
@@ -165,7 +165,7 @@ export const ConfigPage: React.FC = () => {
           <div className="flex items-center justify-between gap-3">
             <div>
               <div className="text-xs font-semibold uppercase tracking-wider text-text-tertiary">{t("page.stats.activeDestinations")}</div>
-              <div className="mt-2 text-2xl font-bold text-text">
+              <div className="mt-2 font-display text-2xl font-bold tabular-nums text-text">
                 {activeDestCount !== null ? activeDestCount : "—"}
               </div>
               <Link

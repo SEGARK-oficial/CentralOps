@@ -67,6 +67,19 @@ export const FlowNodeDetail: React.FC<FlowNodeDetailProps> = ({ node, onClose })
 
   const open = node !== null
 
+  // A11Y-16: FlowPage passa `onClose={() => setSelectedNode(null)}` inline —
+  // uma identidade NOVA a cada render (inclusive nos polls silenciosos de
+  // 15s do grafo, que rodam com o painel aberto). Se `onClose` entrasse nas
+  // deps do efeito de foco abaixo, ele re-rodaria a CADA poll: reagendaria o
+  // timer de foco inicial e devolveria o foco ao trigger no cleanup, roubando
+  // o foco de dentro do painel enquanto o usuário ainda está nele. Guardamos a
+  // versão atual num ref (mesmo padrão de `Modal.tsx`) e o efeito depende só
+  // de `open`.
+  const onCloseRef = useRef(onClose)
+  useEffect(() => {
+    onCloseRef.current = onClose
+  })
+
   // Focus management
   useEffect(() => {
     if (!open) return
@@ -85,7 +98,7 @@ export const FlowNodeDetail: React.FC<FlowNodeDetailProps> = ({ node, onClose })
     const handleKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         e.preventDefault()
-        onClose()
+        onCloseRef.current()
         return
       }
       if (e.key !== "Tab") return
@@ -120,7 +133,7 @@ export const FlowNodeDetail: React.FC<FlowNodeDetailProps> = ({ node, onClose })
       document.body.style.overflow = ""
       previousFocus.current?.focus()
     }
-  }, [open, onClose])
+  }, [open])
 
   // Load tap data for destination nodes
   useEffect(() => {
@@ -306,7 +319,9 @@ export const FlowNodeDetail: React.FC<FlowNodeDetailProps> = ({ node, onClose })
     node.kind === "source" ? t("flow.nodeDetail.kind.source") : node.kind === "route" ? t("flow.nodeDetail.kind.route") : t("flow.nodeDetail.kind.destination")
 
   return createPortal(
-    <div className="fixed inset-0 z-[1040]">
+    // LAY-20: token de z-index (mesmo padrão de Modal/Drawer/CommandPalette),
+    // não o número mágico 1040 solto.
+    <div className="fixed inset-0 z-modal-backdrop">
       {/* Backdrop — token do sistema, não preto solto: no ground ink-blue o
           preto puro abre um buraco cinza que não pertence à paleta. */}
       <div

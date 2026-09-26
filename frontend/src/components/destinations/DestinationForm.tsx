@@ -38,7 +38,9 @@ export const DestinationForm: React.FC<DestinationFormProps> = ({
   const [submitError, setSubmitError] = useState<string | null>(null)
 
   const [name, setName] = useState(destination?.name ?? "")
-  const [kind, setKind] = useState(destination?.kind ?? initialKind ?? "")
+  // TS: `kind` é fixado na criação (escolhido no DestinationTypeGallery antes
+  // deste form) — não há UI de troca aqui, então não existe setter.
+  const [kind] = useState(destination?.kind ?? initialKind ?? "")
   const [enabled, setEnabled] = useState(destination?.enabled ?? true)
   const [config, setConfig] = useState<Record<string, unknown>>(destination?.config ?? {})
   const [delivery, setDelivery] = useState<Record<string, unknown>>(destination?.delivery ?? {})
@@ -221,7 +223,7 @@ export const DestinationForm: React.FC<DestinationFormProps> = ({
                   type="number"
                   min={0}
                   step="0.01"
-                  className="h-9 w-40 rounded border border-border bg-surface px-2 text-sm text-text"
+                  className="h-9 w-40 rounded border border-border-field bg-surface-tertiary px-2 text-sm text-text transition-colors hover:border-border-field-hover focus-ring"
                   value={costPerGb}
                   onChange={(e) => setCostField("cost_per_gb", e.target.value === "" ? 0 : Number(e.target.value))}
                   disabled={loading}
@@ -233,7 +235,7 @@ export const DestinationForm: React.FC<DestinationFormProps> = ({
                 <input
                   type="text"
                   maxLength={3}
-                  className="h-9 w-24 rounded border border-border bg-surface px-2 text-sm uppercase text-text"
+                  className="h-9 w-24 rounded border border-border-field bg-surface-tertiary px-2 text-sm uppercase text-text transition-colors hover:border-border-field-hover focus-ring"
                   value={currency}
                   onChange={(e) => setCostField("currency", e.target.value.toUpperCase())}
                   disabled={loading}

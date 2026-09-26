@@ -137,7 +137,9 @@ export const RouteForm: React.FC<RouteFormProps> = ({ mode, route, loading, onCa
     <form onSubmit={handleSubmit} className="space-y-5">
       {error && <Notice variant="danger" title={t("routeForm.cannotSaveTitle")}>{error}</Notice>}
 
-      <div className="grid grid-cols-3 gap-3">
+      {/* LAY-13: 3 colunas fixas espremiam os inputs em telas estreitas — empilha
+          abaixo de `sm`, 3 colunas a partir daí. */}
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <Input label={t("routeForm.nameLabel")} value={name} onChange={(e) => setName(e.target.value)} required disabled={loading} />
         <Input
           label={t("routeForm.priorityLabel")}
@@ -237,7 +239,7 @@ export const RouteForm: React.FC<RouteFormProps> = ({ mode, route, loading, onCa
             </Notice>
           )}
 
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <Input
               label={t("routeForm.samplePercentLabel")}
               type="number"

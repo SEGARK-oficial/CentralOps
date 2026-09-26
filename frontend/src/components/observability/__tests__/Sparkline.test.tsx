@@ -98,12 +98,12 @@ describe("Sparkline", () => {
     expect(dStroke).not.toEqual(nStroke)
   })
 
-  it("variante danger usa cor danger-500 (#ef4444)", () => {
+  it("variante danger usa o token --color-danger-500 (LAY-19: sem hex fixo)", () => {
     const pts: [number, number][] = [[TS, 1], [TS + 1e4, 2]]
     const { container } = render(<Sparkline points={pts} label="Erros" variant="danger" />)
     // a linha principal deve ter stroke com a cor de danger
     const linePath = container.querySelectorAll("path")[1] // [0]=area, [1]=linha
-    expect(linePath?.getAttribute("stroke")).toBe("#ef4444")
+    expect(linePath?.getAttribute("stroke")).toBe("var(--color-danger-500)")
   })
 
   // ── Acessibilidade ────────────────────────────────────────────────────

@@ -70,7 +70,8 @@
       "description": "¿Está seguro de que desea eliminar <strong>{{name}}</strong>? Las integraciones vinculadas también serán eliminadas."
     },
     "errors": {
-      "bulkPartial": "Lote completado con advertencias: {{deactivated}}/{{processed}} desactivadas. {{errorsCount}} elemento(s) omitido(s)."
+      "bulkPartial": "Lote completado con advertencias: {{deactivated}}/{{processed}} desactivadas. {{errorsCount}} elemento(s) omitido(s).",
+      "loadFailedTitle": "Fallo al cargar las organizaciones"
     }
   },
   "users": {

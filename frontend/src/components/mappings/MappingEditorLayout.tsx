@@ -66,7 +66,10 @@ export const MappingEditorLayout: React.FC<MappingEditorLayoutProps> = ({
     <PanelGroup
       direction="horizontal"
       autoSaveId="centralops:mapping-editor"
-      className={cn("h-[calc(100vh-15rem)] min-h-[34rem]", className)}
+      // LAY-38: 100vh inclui a área coberta pela barra de endereço/teclado
+      // virtual em mobile — o editor ficava cortado embaixo. 100dvh
+      // acompanha a viewport REAL disponível.
+      className={cn("h-[calc(100dvh-15rem)] min-h-[34rem]", className)}
     >
       <Panel
         ref={payloadRef}

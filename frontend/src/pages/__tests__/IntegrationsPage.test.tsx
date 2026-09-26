@@ -505,3 +505,66 @@ describe("IntegrationsPage — last_error não exibe banner", () => {
     expect(document.querySelector(".bg-warning-50")).not.toBeInTheDocument()
   })
 })
+
+// Pilar 4: falha do carregamento inicial não pode virar um EmptyState
+// mentiroso ("nenhuma integração") depois que o toast de erro some sozinho.
+describe("IntegrationsPage — ErrorState com retry no load inicial (Pilar 4)", () => {
+  it("mostra ErrorState com retry quando listIntegrations rejeita, não o EmptyState", async () => {
+    mockedApi.listIntegrations.mockRejectedValue(new Error("503 indisponível"))
+    renderPage()
+
+    await waitFor(() => {
+      expect(screen.getByText("Falha ao carregar integrações.")).toBeInTheDocument()
+    })
+    expect(screen.getByText("503 indisponível")).toBeInTheDocument()
+    expect(screen.queryByText(/nenhuma integração/i)).not.toBeInTheDocument()
+  })
+
+  it("clicar em Tentar novamente chama listIntegrations de novo e recupera a lista", async () => {
+    mockedApi.listIntegrations.mockRejectedValueOnce(new Error("503 indisponível"))
+    renderPage()
+    await screen.findByText("503 indisponível")
+
+    mockedApi.listIntegrations.mockResolvedValueOnce(INTEGRATIONS_BASE)
+    fireEvent.click(screen.getByRole("button", { name: /tentar novamente/i }))
+
+    await waitFor(() => expect(screen.getByText("Sophos Tenant Alpha")).toBeInTheDocument())
+    expect(screen.queryByText("503 indisponível")).not.toBeInTheDocument()
+  })
+
+  // Regressão: `loadIntegrations` também roda pra REFRESCAR após uma ação
+  // (aqui, desativação em lote). Se esse refresh falhar com a lista JÁ na
+  // tela, não pode substituir o conteúdo por um ErrorState — vira toast.
+  it("refresh pós-ação que falha NÃO substitui a lista já visível por ErrorState", async () => {
+    renderPage()
+    await waitFor(() => expect(screen.getByText("Sophos Tenant Alpha")).toBeInTheDocument())
+
+    // @ts-expect-error vitest mock typing
+    mockedApi.bulkDeactivateIntegrations.mockResolvedValue({
+      processed: 1,
+      deactivated: 1,
+      errors: [],
+    })
+    mockedApi.listIntegrations.mockRejectedValueOnce(new Error("timeout no refresh"))
+
+    fireEvent.click(screen.getByTestId(`integration-row-checkbox-${INT_TENANT_A.id}`))
+    fireEvent.click(screen.getByTestId("integration-bulk-deactivate"))
+    fireEvent.click(screen.getByTestId("integration-bulk-confirm"))
+
+    // A lista continua visível — não vira tela de erro cheia.
+    await waitFor(() => expect(screen.getByText("Sophos Tenant Alpha")).toBeInTheDocument())
+    expect(screen.queryByRole("button", { name: /tentar novamente/i })).not.toBeInTheDocument()
+  })
+})
+
+// A11Y-41: "Detalhes" era um <Button onClick={navigate}> — virou <Link> de
+// verdade (Cmd/Ctrl+clique, nova aba, funciona sem JS).
+describe("IntegrationsPage — link de Detalhes (A11Y-41)", () => {
+  it("é um link de verdade pra página da integração", async () => {
+    renderPage()
+    await waitFor(() => expect(screen.getByText("Sophos Tenant Alpha")).toBeInTheDocument())
+
+    const links = screen.getAllByRole("link", { name: "Detalhes" })
+    expect(links[0]).toHaveAttribute("href", "/integrations/1")
+  })
+})

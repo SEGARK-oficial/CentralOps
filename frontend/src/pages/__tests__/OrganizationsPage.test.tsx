@@ -358,3 +358,28 @@ describe("OrganizationsPage — teto de orgs do tier", () => {
     ).not.toBeInTheDocument()
   })
 })
+
+// Pilar 4: falha do load inicial não pode virar EmptyState mentiroso, e
+// precisa de retry (antes só tinha um "fechar" que descartava o erro).
+describe("OrganizationsPage — Pilar 4 (ErrorState com retry)", () => {
+  it("listOrganizations rejeitando no load inicial mostra ErrorState, não EmptyState", async () => {
+    mockedApi.listOrganizations.mockRejectedValue(new Error("503"))
+    renderPage()
+
+    await waitFor(() => expect(screen.getByText("503")).toBeInTheDocument())
+    expect(screen.getByRole("button", { name: /tentar novamente/i })).toBeInTheDocument()
+    expect(screen.queryByText(/nenhuma organização/i)).not.toBeInTheDocument()
+  })
+
+  it("Tentar novamente recarrega a lista", async () => {
+    mockedApi.listOrganizations.mockRejectedValueOnce(new Error("503"))
+    renderPage()
+    await screen.findByText("503")
+
+    mockedApi.listOrganizations.mockResolvedValueOnce(ORGS_BASE)
+    fireEvent.click(screen.getByRole("button", { name: /tentar novamente/i }))
+
+    await waitFor(() => expect(screen.getByText(ORGS_BASE[0].name)).toBeInTheDocument())
+    expect(screen.queryByText("503")).not.toBeInTheDocument()
+  })
+})

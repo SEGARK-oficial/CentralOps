@@ -1,5 +1,5 @@
 import type React from "react"
-import { forwardRef } from "react"
+import { cloneElement, forwardRef, isValidElement } from "react"
 import { Slot } from "@radix-ui/react-slot"
 import { cva, type VariantProps } from "class-variance-authority"
 import { useTranslation } from "react-i18next"
@@ -52,27 +52,54 @@ export interface ButtonProps
 const Button = forwardRef<HTMLButtonElement, ButtonProps>(
   ({ className, variant, size, asChild = false, loading = false, leftIcon, rightIcon, children, disabled, type, ...props }, ref) => {
     const { t } = useTranslation("ui")
-    const Comp = asChild ? Slot : "button"
 
-    return (
-      <Comp
-        className={cn(buttonVariants({ variant, size, className }))}
-        ref={ref}
-        disabled={disabled || loading}
-        aria-disabled={disabled || loading}
-        type={!asChild ? (type ?? "button") : undefined}
-        {...props}
-      >
+    // A11Y-41: `asChild` (Radix Slot) existia mas nunca tinha sido usado no
+    // app — e tinha um bug latente: o `Slot` só aceita EXATAMENTE UM filho
+    // React válido. Com `leftIcon`/`rightIcon`/`loading`, o Button sempre
+    // renderizava 2+ elementos (`<span>{leftIcon}</span>` + `<span>{children}</span>`
+    // + ...), o que quebra em runtime ("React.Children.only") assim que
+    // `asChild` fosse combinado com QUALQUER prop de ícone. O fix: quando
+    // `asChild`, a decoração (ícone/spinner) entra DENTRO do único filho
+    // (ex.: um `<Link>`) via `cloneElement`, em vez de como irmãos dele.
+    const decoratedContent = (
+      <>
         {loading && (
           <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none" aria-hidden="true">
             <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" strokeDasharray="32" strokeDashoffset="32" />
           </svg>
         )}
         {leftIcon && !loading && <span aria-hidden="true">{leftIcon}</span>}
-        <span className={loading ? "opacity-0" : ""}>{children}</span>
+        <span className={loading ? "opacity-0" : ""}>
+          {asChild && isValidElement<{ children?: React.ReactNode }>(children) ? children.props.children : children}
+        </span>
         {rightIcon && !loading && <span aria-hidden="true">{rightIcon}</span>}
         {loading && <span className="sr-only">{t("button.loading")}</span>}
-      </Comp>
+      </>
+    )
+
+    if (asChild) {
+      // `children` é o elemento único a renderizar NO LUGAR do <button> (ex.:
+      // `<Link to="...">Rótulo</Link>`) — clonamos pra injetar ícone/spinner
+      // como filhos DELE (não como irmãos), satisfazendo o "um filho só" do Slot.
+      const child = isValidElement(children) ? children : null
+      return (
+        <Slot className={cn(buttonVariants({ variant, size, className }))} ref={ref} {...props}>
+          {child ? cloneElement(child, undefined, decoratedContent) : children}
+        </Slot>
+      )
+    }
+
+    return (
+      <button
+        className={cn(buttonVariants({ variant, size, className }))}
+        ref={ref}
+        disabled={disabled || loading}
+        aria-disabled={disabled || loading}
+        type={type ?? "button"}
+        {...props}
+      >
+        {decoratedContent}
+      </button>
     )
   },
 )

@@ -220,3 +220,23 @@ describe("DetectionsPage — KPIs", () => {
     expect(screen.getByTestId("kpi-closed").textContent).toBe("0")
   })
 })
+
+describe("DetectionsPage — PERF-14: aviso de teto (endpoint sem total real)", () => {
+  it("mostra o aviso quando a resposta bate exatamente no teto de 200", async () => {
+    const many = Array.from({ length: 200 }, (_, i) => ({
+      ...DETECTION_OPEN,
+      id: i + 1,
+      dedup_key: `org10:rule-001:hash${i}`,
+    }))
+    mockedApi.listDetections.mockResolvedValue(many)
+    renderPage()
+
+    expect(await screen.findByText(/Exibindo as 200 mais recentes/i)).toBeInTheDocument()
+  })
+
+  it("não mostra o aviso quando a lista fica abaixo do teto", async () => {
+    renderPage()
+    await screen.findAllByText("Brute Force Detectado")
+    expect(screen.queryByText(/mais recentes/i)).not.toBeInTheDocument()
+  })
+})

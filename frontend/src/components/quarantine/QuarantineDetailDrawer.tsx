@@ -9,7 +9,7 @@ import type React from "react"
 import { useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { RefreshCwIcon, Trash2Icon, ExternalLinkIcon } from "lucide-react"
-import { useNavigate } from "react-router-dom"
+import { Link } from "react-router-dom"
 import { Modal } from "@/components/ui/Modal/Modal"
 import { Badge } from "@/components/ui/Badge/Badge"
 import { Button } from "@/components/ui/Button/Button"
@@ -55,7 +55,6 @@ export const QuarantineDetailDrawer: React.FC<QuarantineDetailDrawerProps> = ({
   mappings = [],
 }) => {
   const { t } = useTranslation("quarantine")
-  const navigate = useNavigate()
   const canDiscard = usePermission("quarantine.discard")
 
   const [showDiscardConfirm, setShowDiscardConfirm] = useState(false)
@@ -196,24 +195,30 @@ export const QuarantineDetailDrawer: React.FC<QuarantineDetailDrawerProps> = ({
           {/* Metadata */}
           <section aria-label={t("detail.metadata")}>
             <h3 className="text-sm font-semibold text-text mb-2">{t("detail.metadata")}</h3>
-            <dl className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
+            {/* LAY-15: grid-cols-2 fixo não deixava espaço pro UUID do
+                mapping_version_id quebrar — `break-all` no valor evita
+                estourar a coluna/o drawer em telas estreitas. */}
+            <dl className="grid grid-cols-1 gap-x-6 gap-y-2 text-sm sm:grid-cols-2">
               <div>
                 <dt className="text-text-secondary">{t("detail.integrationId")}</dt>
-                <dd className="font-mono text-text">{detail.integration_id ?? "—"}</dd>
+                <dd className="break-all font-mono text-text">{detail.integration_id ?? "—"}</dd>
               </div>
               <div>
                 <dt className="text-text-secondary">{t("detail.mappingVersion")}</dt>
                 <dd className="flex items-center gap-1">
-                  <span className="font-mono text-text">{detail.mapping_version_id ?? "—"}</span>
+                  <span className="break-all font-mono text-text">{detail.mapping_version_id ?? "—"}</span>
                   {detail.mapping_version_id && mappingExists && (
-                    <button
-                      type="button"
-                      onClick={() => navigate(`/mappings/${detail.mapping_version_id}`)}
-                      className="text-primary-600 hover:text-primary-700"
+                    // A11Y-41: era `<button onClick={navigate}>` — vira link
+                    // de verdade (abre em nova aba, funciona com Cmd/Ctrl+clique,
+                    // aparece na barra de status ao passar o mouse).
+                    // A11Y-20: alvo de 12px (só o ícone) → h-6 w-6 (24px).
+                    <Link
+                      to={`/mappings/${detail.mapping_version_id}`}
+                      className="flex h-6 w-6 items-center justify-center rounded text-primary-600 hover:text-primary-700 focus-ring"
                       aria-label={t("detail.openMappingInEditor")}
                     >
-                      <ExternalLinkIcon size={12} />
-                    </button>
+                      <ExternalLinkIcon size={12} aria-hidden="true" />
+                    </Link>
                   )}
                 </dd>
               </div>

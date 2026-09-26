@@ -153,4 +153,26 @@ describe("useBackfillJobs — polling", () => {
     expect(mockedApi.listBackfillJobs.mock.calls.length).toBeGreaterThan(callsBefore)
     expect(result.current).toBeDefined()
   })
+
+  // PERF-07: o tick de poll não pode ligar `isLoading` — antes, isto trocava
+  // a tabela inteira por um spinner a cada 10s, perdendo scroll/foco.
+  it("o tick de poll NÃO liga isLoading (silencioso)", async () => {
+    mockedApi.listBackfillJobs.mockResolvedValue(LIST_RESPONSE)
+
+    const { result } = renderHook(() =>
+      useBackfillJobs(1, undefined, { refreshIntervalMs: 5000 }),
+    )
+    await act(async () => { await Promise.resolve() })
+    expect(result.current.isLoading).toBe(false)
+
+    const isLoadingDuringPoll: boolean[] = []
+    // Uma 2ª resposta "lenta" (nunca resolvida no teste) deixaria isLoading
+    // preso em `true` se o poll o ligasse — checamos logo após o tick.
+    await flush(5001)
+    isLoadingDuringPoll.push(result.current.isLoading)
+    await act(async () => { await Promise.resolve() })
+
+    expect(isLoadingDuringPoll.every((v) => v === false)).toBe(true)
+    expect(result.current.isLoading).toBe(false)
+  })
 })

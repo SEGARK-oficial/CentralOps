@@ -101,6 +101,54 @@ describe("FlowLiveFeed", () => {
     )
   })
 
+  it("PERF-09: pula o poll com a aba oculta (document.hidden)", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    try {
+      render(<FlowLiveFeed destinations={DESTS} open={true} onToggle={vi.fn()} />)
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0)
+      })
+      const callsAfterMount = mockGetDestinationTap.mock.calls.length
+      expect(callsAfterMount).toBeGreaterThan(0)
+
+      Object.defineProperty(document, "hidden", { configurable: true, value: true })
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(8000)
+      })
+      // Aba oculta: o tick do poll (8s) não deve ter disparado nenhum fetch novo.
+      expect(mockGetDestinationTap.mock.calls.length).toBe(callsAfterMount)
+
+      Object.defineProperty(document, "hidden", { configurable: true, value: false })
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(8000)
+      })
+      // Aba visível de novo: o próximo tick volta a pollar.
+      expect(mockGetDestinationTap.mock.calls.length).toBeGreaterThan(callsAfterMount)
+    } finally {
+      Object.defineProperty(document, "hidden", { configurable: true, value: false })
+      vi.useRealTimers()
+    }
+  })
+
+  it("PERF-16: desmontar durante os 2s do destaque 'isNew' não lança (timeout limpo no unmount)", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    try {
+      const { unmount } = render(<FlowLiveFeed destinations={DESTS} open={true} onToggle={vi.fn()} />)
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0)
+      })
+      // Desmonta ANTES dos 2s do setTimeout que limpa `isNew` — sem o cleanup,
+      // esse timeout dispararia depois, tentando setState em componente morto.
+      expect(() => unmount()).not.toThrow()
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(2000)
+      })
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   it("degrada gracioso se um tap falhar (não crasha)", async () => {
     // primeiro destino ok, segundo falha
     mockGetDestinationTap

@@ -30,6 +30,13 @@ export interface ErrorStateProps {
   /** Variante de layout. */
   variant?: ErrorStateVariant
   className?: string
+  /**
+   * A11Y-33: o `<h3>` fixo furava a hierarquia de headings quando o
+   * ErrorState (sobretudo em `full-page`, que costuma SER o corpo inteiro
+   * da tela) aparecia sem um `<h2>` por perto. Padrão `3` preserva o
+   * comportamento atual.
+   */
+  headingLevel?: 2 | 3 | 4
 }
 
 // ── Componente ────────────────────────────────────────────────────────────────
@@ -40,9 +47,11 @@ export const ErrorState: React.FC<ErrorStateProps> = ({
   onRetry,
   variant = "inline",
   className,
+  headingLevel = 3,
 }) => {
   const { t } = useTranslation("ui")
   const isFullPage = variant === "full-page"
+  const Heading = `h${headingLevel}` as "h2" | "h3" | "h4"
 
   return (
     <div
@@ -64,9 +73,9 @@ export const ErrorState: React.FC<ErrorStateProps> = ({
         <AlertTriangle className="h-5 w-5" aria-hidden="true" />
       </div>
 
-      <h3 className={cn("font-semibold text-text", isFullPage ? "text-xl" : "text-sm")}>
+      <Heading className={cn("font-semibold text-text", isFullPage ? "text-xl" : "text-sm")}>
         {title}
-      </h3>
+      </Heading>
 
       {message && (
         <p className="max-w-sm text-xs leading-relaxed text-text-secondary">{message}</p>

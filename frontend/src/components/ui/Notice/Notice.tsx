@@ -12,6 +12,15 @@ interface NoticeProps extends Omit<React.HTMLAttributes<HTMLDivElement>, "title"
   title?: React.ReactNode
   icon?: React.ReactNode
   action?: React.ReactNode
+  /**
+   * A11Y-31: por padrão `warning`/`danger` interrompem o leitor de tela
+   * (`assertive`/`role=alert`) — correto para um erro de submit, mas
+   * excessivo para avisos recorrentes/ambiente (ex.: "editando com dados
+   * desatualizados" atualizado a cada poll). Passe `"polite"` para esses
+   * casos; o `role` acompanha (`status`), porque `role=alert` já IMPLICA
+   * `assertive` — as duas coisas precisam mudar juntas.
+   */
+  live?: "polite" | "assertive"
 }
 
 const variantStyles: Record<NoticeVariant, { wrapper: string; icon: React.ReactNode }> = {
@@ -40,13 +49,16 @@ export const Notice: React.FC<NoticeProps> = ({
   icon,
   action,
   children,
+  live,
   ...props
 }) => {
   // Erros/avisos precisam interromper o leitor de tela (assertive); info/sucesso
-  // são apenas informativos (polite). Sem prop role explícita, deriva da variante.
+  // são apenas informativos (polite). `live` (A11Y-31) permite ao chamador
+  // rebaixar um warning/danger recorrente para polite — role e aria-live
+  // sempre andam juntos (role=alert já injeta assertive sozinho).
   const isUrgent = variant === "danger" || variant === "warning"
-  const role = isUrgent ? "alert" : "status"
-  const ariaLive = isUrgent ? "assertive" : "polite"
+  const ariaLive = live ?? (isUrgent ? "assertive" : "polite")
+  const role = ariaLive === "assertive" ? "alert" : "status"
 
   return (
   <div

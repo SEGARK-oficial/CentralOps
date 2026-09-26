@@ -48,18 +48,49 @@ function deepEqual(a: unknown, b: unknown): boolean {
 }
 
 /**
- * rulesEqual — compara duas regras por todas as chaves relevantes.
+ * normalizeRule — projeta uma MappingRule num shape plano, com narrowing
+ * por `kind` e defaults explícitos, para que `undefined` (campo ausente)
+ * seja tratado como equivalente ao default documentado do backend.
+ *
+ * BUG-01: a versão anterior de `rulesEqual` só olhava para os campos de
+ * ScalarMappingRule (source/const/default/value_map/type_cast/required) e
+ * ignorava por completo ArrayBuilderRule (items/skip_null/dedup_by) e os
+ * campos DSL v2 de scalar (pre_cast/fallback_source/when/
+ * expected_always_default) — edições reais nesses campos apareciam como
+ * "sem alterações" no SaveModal.
+ */
+function normalizeRule(r: MappingRule): Record<string, unknown> {
+  if (r.kind === "array_builder") {
+    return {
+      kind: "array_builder",
+      target: r.target,
+      items: r.items ?? [],
+      skip_null: r.skip_null ?? true,
+      dedup_by: r.dedup_by ?? null,
+    }
+  }
+  return {
+    kind: "scalar",
+    target: r.target,
+    source: r.source ?? null,
+    const: r.const,
+    default: r.default,
+    pre_cast: r.pre_cast ?? null,
+    value_map: r.value_map ?? null,
+    type_cast: r.type_cast ?? null,
+    required: r.required ?? false,
+    fallback_source: r.fallback_source ?? null,
+    when: r.when ?? null,
+    expected_always_default: r.expected_always_default ?? false,
+  }
+}
+
+/**
+ * rulesEqual — compara duas regras por todas as chaves relevantes,
+ * narrowing por `kind` antes de comparar (ver `normalizeRule`).
  */
 function rulesEqual(a: MappingRule, b: MappingRule): boolean {
-  return (
-    a.target === b.target &&
-    deepEqual(a.source ?? null, b.source ?? null) &&
-    deepEqual(a.const, b.const) &&
-    deepEqual(a.default, b.default) &&
-    deepEqual(a.value_map ?? null, b.value_map ?? null) &&
-    (a.type_cast ?? null) === (b.type_cast ?? null) &&
-    (a.required ?? false) === (b.required ?? false)
-  )
+  return deepEqual(normalizeRule(a), normalizeRule(b))
 }
 
 /**

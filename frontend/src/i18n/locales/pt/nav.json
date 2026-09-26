@@ -128,6 +128,7 @@
   },
   "globalFilters": {
     "label": "Filtros",
+    "loading": "Carregando filtros…",
     "loadFailed": "Não foi possível carregar os filtros.",
     "retry": "Tentar novamente",
     "clearFilters": "Limpar filtros",

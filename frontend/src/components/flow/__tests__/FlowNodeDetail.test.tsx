@@ -145,4 +145,27 @@ describe("FlowNodeDetail", () => {
     const dialog = screen.getByRole("dialog")
     expect(dialog.getAttribute("aria-label")).toContain("Wazuh Prod")
   })
+
+  it("A11Y-16: trocar a identidade de onClose (ex.: poll do FlowPage) não rouba o foco de dentro do painel", () => {
+    const outsideBtn = document.createElement("button")
+    document.body.appendChild(outsideBtn)
+    outsideBtn.focus()
+
+    const node: FlowNodeId = { kind: "source", node: SOURCE }
+    const { rerender } = render(<FlowNodeDetail node={node} onClose={() => {}} />)
+
+    const closeBtn = screen.getByRole("button", { name: /Fechar painel/i })
+    closeBtn.focus()
+    expect(document.activeElement).toBe(closeBtn)
+
+    // FlowPage passa `onClose={() => setSelectedNode(null)}` inline: uma
+    // identidade NOVA a cada poll de 15s do grafo, mesmo com o painel aberto.
+    rerender(<FlowNodeDetail node={node} onClose={() => {}} />)
+
+    // Sem o fix (onClose nas deps do efeito de foco), o cleanup rodaria de
+    // novo e devolveria o foco ao elemento de FORA do painel.
+    expect(document.activeElement).toBe(closeBtn)
+
+    document.body.removeChild(outsideBtn)
+  })
 })

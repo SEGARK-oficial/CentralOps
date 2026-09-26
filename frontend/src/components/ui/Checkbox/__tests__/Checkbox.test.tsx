@@ -98,4 +98,20 @@ describe("Checkbox", () => {
     const label = screen.getByText("Hidden text")
     expect(label.closest("label")).toHaveClass("sr-only")
   })
+
+  // A11Y-20: a caixa visual `sm` é 16px (abaixo do alvo mínimo de 24px) — o
+  // <input> real por baixo estende a área clicável/tocável com -inset-1
+  // (16+4+4=24) sem inflar o quadrado desenhado.
+  it("size=sm expande a área clicável do input pra 24px via -inset-1 (A11Y-20)", () => {
+    render(<Checkbox label="A" size="sm" onChange={() => {}} />)
+    const input = screen.getByRole("checkbox", { name: /A/ })
+    expect(input.className).toContain("-inset-1")
+  })
+
+  it("size=md (default) não precisa da expansão — mantém inset-0", () => {
+    render(<Checkbox label="A" size="md" onChange={() => {}} />)
+    const input = screen.getByRole("checkbox", { name: /A/ })
+    expect(input.className).toContain("inset-0")
+    expect(input.className).not.toContain("-inset-1")
+  })
 })

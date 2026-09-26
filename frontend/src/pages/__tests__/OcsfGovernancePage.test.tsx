@@ -63,6 +63,28 @@ it("shows an empty-state when there are no orgs and no integrations", async () =
   expect(screen.queryByTestId("ocsf-mode-10")).not.toBeInTheDocument()
 })
 
+// Pilar 4: falha do load não pode virar EmptyState enganoso ("nenhuma
+// política") empilhado com um Notice sem retry.
+it("shows ErrorState with retry when the initial load fails, not the EmptyState", async () => {
+  mockedApi.listOcsfPolicies.mockRejectedValue(new Error("503 indisponível"))
+  renderPage()
+
+  await waitFor(() => expect(screen.getByText("503 indisponível")).toBeInTheDocument())
+  expect(screen.getByRole("button", { name: /retry|tentar novamente/i })).toBeInTheDocument()
+})
+
+it("retry button reloads policies + compliance", async () => {
+  mockedApi.listOcsfPolicies.mockRejectedValueOnce(new Error("503"))
+  renderPage()
+  await screen.findByText("503")
+
+  mockedApi.listOcsfPolicies.mockResolvedValueOnce(policies)
+  fireEvent.click(screen.getByRole("button", { name: /retry|tentar novamente/i }))
+
+  await waitFor(() => expect(screen.getByText("Org Alpha")).toBeInTheDocument())
+  expect(screen.queryByText("503")).not.toBeInTheDocument()
+})
+
 it("PUTs the new enforcement mode when the org select changes", async () => {
   mockedApi.setOcsfPolicy.mockResolvedValue({
     ...policies[0], enforcement_mode: "quarantine", is_default: false,

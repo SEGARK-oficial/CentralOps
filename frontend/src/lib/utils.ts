@@ -1,19 +1,26 @@
 import { type ClassValue, clsx } from "clsx"
 import { twMerge } from "tailwind-merge"
+import { formatDateTime as formatDateTimeIntl } from "@/lib/intl"
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
+/**
+ * ARQ-09: delegado a `lib/intl` (locale ATIVO do i18n), em vez de "pt-BR"
+ * fixo — esta função é usada em 8+ arquivos, incluindo o overlay EE, e um
+ * usuário com o app em inglês/espanhol lia data em formato brasileiro.
+ * Assinatura preservada (mesmos parâmetros, mesmo formato dd/mm/aaaa hh:mm)
+ * para não quebrar quem já chama `formatDate` hoje.
+ */
 export function formatDate(date: string | Date): string {
-  const d = new Date(date)
-  return new Intl.DateTimeFormat("pt-BR", {
+  return formatDateTimeIntl(date, {
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
     hour: "2-digit",
     minute: "2-digit",
-  }).format(d)
+  })
 }
 
 export function roundDateToMinute(date: Date): Date {
@@ -37,7 +44,7 @@ export function toUtcZuluString(date: Date): string {
 }
 
 export function debounce<T extends (...args: any[]) => any>(func: T, wait: number): (...args: Parameters<T>) => void {
-  let timeout: NodeJS.Timeout
+  let timeout: ReturnType<typeof setTimeout>
   return (...args: Parameters<T>) => {
     clearTimeout(timeout)
     timeout = setTimeout(() => func(...args), wait)

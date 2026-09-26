@@ -69,12 +69,14 @@ export const Header: React.FC<HeaderProps> = ({
           {collapsed ? <PanelLeftOpenIcon size={20} aria-hidden="true" /> : <PanelLeftCloseIcon size={20} aria-hidden="true" />}
         </button>
 
-        <h1
+        {/* A11Y-33: nome da instalação é chrome do console, não título de página —
+            um <h1> aqui duplicava (ou disputava com) o <h1> real de cada rota. */}
+        <span
           className="ml-1 min-w-0 truncate font-display text-base font-semibold tracking-tight text-sidebar-text-active"
           title={companyName}
         >
           {companyName}
-        </h1>
+        </span>
       </div>
 
       {/* Paleta de comandos.

@@ -11,8 +11,16 @@ export interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> 
 }
 
 const InputInner = forwardRef<HTMLInputElement, InputProps>(
-  ({ className, type = "text", label, error, helperText, leftIcon, rightIcon, id, required, disabled, ...props }, ref) => {
+  ({ className, type = "text", label, error, helperText, leftIcon, rightIcon, id, required, disabled, autoComplete, ...props }, ref) => {
     const generatedId = useId()
+    // SEC-02/SEC-10/A11Y-21: campos de senha de integrações/serviços de
+    // terceiro (não é o login do próprio usuário) sem `autoComplete` explícito
+    // eram oferecidos para autofill/gerenciador de senha do NAVEGADOR como se
+    // fossem credencial do usuário. `new-password` é o valor padrão do
+    // próprio spec do WHATWG para "não é a senha de login atual" — quem
+    // precisa do comportamento de login (`current-password`) já passa
+    // `autoComplete` explicitamente (ver LoginPage/AccountSettingsPage).
+    const resolvedAutoComplete = autoComplete ?? (type === "password" ? "new-password" : undefined)
     const inputId = id || `input-${generatedId.replace(/:/g, "")}`
     const errorId = error ? `${inputId}-error` : undefined
     const helperId = helperText ? `${inputId}-helper` : undefined
@@ -66,6 +74,7 @@ const InputInner = forwardRef<HTMLInputElement, InputProps>(
             id={inputId}
             disabled={disabled}
             required={required}
+            autoComplete={resolvedAutoComplete}
             aria-invalid={error ? "true" : "false"}
             aria-describedby={describedBy}
             {...props}

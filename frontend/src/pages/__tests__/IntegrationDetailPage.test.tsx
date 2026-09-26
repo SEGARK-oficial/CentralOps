@@ -414,4 +414,47 @@ describe("IntegrationDetailPage", () => {
   })
 
   // ── fim aba Destinos ──────────────────────────────────────────────────────────
+
+  // A11Y-41: os botões "Voltar" eram <button onClick={navigate}> — viraram
+  // <Link> de verdade.
+  describe("Voltar para integrações (A11Y-41)", () => {
+    it("botão Voltar (topo, com integração carregada) é um link pra /integrations", async () => {
+      renderPage()
+      await screen.findByText("Wazuh Prod")
+
+      const link = screen.getByRole("link", { name: /voltar para integrações/i })
+      expect(link).toHaveAttribute("href", "/integrations")
+    })
+
+    it("estado de ERRO (getIntegration rejeita): botão Voltar também é link, e Tentar novamente continua botão", async () => {
+      mockedApi.getIntegration.mockRejectedValue(new Error("500 no backend"))
+
+      renderPage()
+      await screen.findByText("500 no backend")
+
+      const link = screen.getByRole("link", { name: /voltar para integrações/i })
+      expect(link).toHaveAttribute("href", "/integrations")
+      // `navigate(0)` recarrega a rota atual — não tem URL própria, continua botão.
+      expect(screen.getByRole("button", { name: /tentar novamente/i })).toBeInTheDocument()
+    })
+  })
+
+  // A11Y-34: aria-label num <div>/<span> sem role é ignorado por leitores de
+  // tela — os contêineres de badges de licenciamento ganharam role="group".
+  it("contêineres de produtos licenciados têm role=group (A11Y-34)", async () => {
+    mockedApi.getIntegration.mockResolvedValue(sophosChildIntegration as never)
+    mockedApi.getIntegrationOverview.mockResolvedValue({
+      integration: sophosChildIntegration,
+      health: null,
+      licensed_products: [
+        { code: "CIXAXDR", label: "Sophos XDR - User", category: "xdr", details: {} },
+      ],
+    } as never)
+
+    renderPage()
+    await screen.findByText("Sophos Child Tenant")
+
+    const groups = screen.getAllByRole("group")
+    expect(groups.length).toBeGreaterThanOrEqual(2)
+  })
 })

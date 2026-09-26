@@ -254,3 +254,48 @@ describe("ServiceAccountsPage", () => {
     expect(codeTexts).not.toContain("sa:&lt;nome&gt;")
   })
 })
+
+// Pilar 4: carregamento inicial falho não pode virar EmptyState mentiroso, e
+// não pode ficar sem jeito de tentar de novo.
+describe("ServiceAccountsPage — Pilar 4 (ErrorState com retry)", () => {
+  it("listServiceAccounts rejeitando no load inicial mostra ErrorState, não EmptyState", async () => {
+    ;(api.listServiceAccounts as ReturnType<typeof vi.fn>).mockRejectedValue(new Error("503"))
+    renderPage()
+
+    await waitFor(() => expect(screen.getByText("503")).toBeInTheDocument())
+    expect(screen.getByRole("button", { name: /tentar novamente/i })).toBeInTheDocument()
+    expect(screen.queryByText(/Nenhum Service Account/i)).not.toBeInTheDocument()
+  })
+
+  it("Tentar novamente recarrega a lista", async () => {
+    ;(api.listServiceAccounts as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error("503"))
+    renderPage()
+    await screen.findByText("503")
+
+    ;(api.listServiceAccounts as ReturnType<typeof vi.fn>).mockResolvedValueOnce([mockSa()])
+    fireEvent.click(screen.getByRole("button", { name: /tentar novamente/i }))
+
+    await waitFor(() => expect(screen.getAllByText(mockSa().name).length).toBeGreaterThan(0))
+    expect(screen.queryByText("503")).not.toBeInTheDocument()
+  })
+
+  it("refresh pós-ação que falha com a lista já visível vira toast, não apaga a lista", async () => {
+    ;(api.listServiceAccounts as ReturnType<typeof vi.fn>)
+      .mockResolvedValueOnce([mockSa()])
+      .mockRejectedValueOnce(new Error("falha no refresh"))
+    ;(api.deleteServiceAccount as ReturnType<typeof vi.fn>).mockResolvedValue(undefined)
+
+    renderPage()
+    await waitFor(() => expect(screen.getAllByText(mockSa().name).length).toBeGreaterThan(0))
+
+    const table = await screen.findByRole("table")
+    fireEvent.click(within(table).getByRole("button", { name: /Deletar/i }))
+    const confirmBtn = await screen.findAllByRole("button", { name: /^Deletar$/i })
+    fireEvent.click(confirmBtn[confirmBtn.length - 1])
+
+    await waitFor(() => expect(screen.getByText("falha no refresh")).toBeInTheDocument())
+    // A lista continua visível — não vira ErrorState de página inteira.
+    expect(screen.getAllByText(mockSa().name).length).toBeGreaterThan(0)
+    expect(screen.queryByRole("button", { name: /tentar novamente/i })).not.toBeInTheDocument()
+  })
+})

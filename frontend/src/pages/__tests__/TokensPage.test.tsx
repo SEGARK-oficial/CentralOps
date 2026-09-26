@@ -165,3 +165,50 @@ describe("TokensPage", () => {
     expect(screen.getByText(/Copie o token agora/i)).toBeInTheDocument()
   })
 })
+
+// Pilar 4: carregamento inicial falho não pode virar EmptyState mentiroso.
+describe("TokensPage — Pilar 4 (ErrorState com retry)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it("listApiTokens rejeitando no load inicial mostra ErrorState, não EmptyState", async () => {
+    ;(api.listApiTokens as ReturnType<typeof vi.fn>).mockRejectedValue(new Error("503"))
+    render(<TokensPage />)
+
+    await waitFor(() => expect(screen.getByText("503")).toBeInTheDocument())
+    expect(screen.getByRole("button", { name: /tentar novamente/i })).toBeInTheDocument()
+    expect(screen.queryByText(/Nenhum token criado/i)).not.toBeInTheDocument()
+  })
+
+  it("Tentar novamente recarrega a lista", async () => {
+    ;(api.listApiTokens as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error("503"))
+    render(<TokensPage />)
+    await screen.findByText("503")
+
+    ;(api.listApiTokens as ReturnType<typeof vi.fn>).mockResolvedValueOnce([mockToken()])
+    fireEvent.click(screen.getByRole("button", { name: /tentar novamente/i }))
+
+    await waitFor(() => expect(screen.getAllByText("ci-bot").length).toBeGreaterThan(0))
+    expect(screen.queryByText("503")).not.toBeInTheDocument()
+  })
+
+  it("refresh pós-ação que falha com a lista já visível vira toast, não apaga a lista", async () => {
+    ;(api.listApiTokens as ReturnType<typeof vi.fn>)
+      .mockResolvedValueOnce([mockToken()])
+      .mockRejectedValueOnce(new Error("falha no refresh"))
+    ;(api.revokeApiToken as ReturnType<typeof vi.fn>).mockResolvedValue(undefined)
+
+    render(<TokensPage />)
+    await waitFor(() => expect(screen.getAllByText("ci-bot").length).toBeGreaterThan(0))
+
+    const table = await screen.findByRole("table")
+    fireEvent.click(within(table).getByRole("button", { name: /revogar/i }))
+    const confirmBtn = await screen.findAllByRole("button", { name: /^Revogar$/i })
+    fireEvent.click(confirmBtn[confirmBtn.length - 1])
+
+    await waitFor(() => expect(screen.getByText("falha no refresh")).toBeInTheDocument())
+    expect(screen.getAllByText("ci-bot").length).toBeGreaterThan(0)
+    expect(screen.queryByRole("button", { name: /tentar novamente/i })).not.toBeInTheDocument()
+  })
+})

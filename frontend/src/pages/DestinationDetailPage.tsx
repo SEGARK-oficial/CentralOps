@@ -1,6 +1,6 @@
 import type React from "react"
 import { useCallback, useEffect, useMemo, useState } from "react"
-import { useNavigate, useParams } from "react-router-dom"
+import { Link, useNavigate, useParams } from "react-router-dom"
 import { useTranslation } from "react-i18next"
 import {
   ArrowLeftIcon,
@@ -21,6 +21,8 @@ import { Button } from "@/components/ui/Button/Button"
 import { Card } from "@/components/ui/Card/Card"
 import { Badge } from "@/components/ui/Badge/Badge"
 import { Notice } from "@/components/ui/Notice/Notice"
+import { ErrorState } from "@/components/ui/ErrorState"
+import { SkeletonCard } from "@/components/ui/Skeleton"
 import { Tabs, TabsList, TabsTrigger, TabsPanel } from "@/components/ui/Tabs/Tabs"
 import { Sparkline } from "@/components/observability/Sparkline"
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog/ConfirmDialog"
@@ -220,17 +222,26 @@ const DestinationDetailPage: React.FC = () => {
   }
 
   if (loading) {
-    return <Card padding="lg" className="text-center text-sm text-text-secondary">{t("detailPage.loading")}</Card>
+    return (
+      <div className="space-y-4" aria-label={t("detailPage.loading")}>
+        <SkeletonCard lines={4} />
+      </div>
+    )
   }
   if (error || !destination) {
     return (
       <div className="space-y-4">
-        <Button variant="outline" size="sm" onClick={() => navigate("/destinations")} leftIcon={<ArrowLeftIcon size={14} />}>
-          {t("common:actions.back")}
+        {/* A11Y-41: era onClick={navigate} — vira link de verdade. */}
+        <Button variant="outline" size="sm" leftIcon={<ArrowLeftIcon size={14} />} asChild>
+          <Link to="/destinations">{t("common:actions.back")}</Link>
         </Button>
-        <Notice variant="danger" title={t("detailPage.unavailableTitle")}>
-          {error ?? t("detailPage.notFound")}
-        </Notice>
+        {/* Pilar 4: ErrorState com retry — antes era só um Notice sem
+            jeito de tentar de novo sem sair da página. */}
+        <ErrorState
+          title={t("detailPage.unavailableTitle")}
+          message={error ?? t("detailPage.notFound")}
+          onRetry={() => void load()}
+        />
       </div>
     )
   }
@@ -246,8 +257,9 @@ const DestinationDetailPage: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <Button variant="ghost" size="sm" onClick={() => navigate("/destinations")} leftIcon={<ArrowLeftIcon size={14} />}>
-        {t("detailPage.backToDestinations")}
+      {/* A11Y-41: era onClick={navigate} — vira link de verdade. */}
+      <Button variant="ghost" size="sm" leftIcon={<ArrowLeftIcon size={14} />} asChild>
+        <Link to="/destinations">{t("detailPage.backToDestinations")}</Link>
       </Button>
 
       <PageHeader

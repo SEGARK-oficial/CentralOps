@@ -142,3 +142,47 @@ describe("SchedulesPage — histórico", () => {
     expect(api.downloadStoredCSV).toHaveBeenCalledWith("srch_view_csv")
   })
 })
+
+// Pilar 4: carregamento inicial da lista de agendamentos e do histórico.
+describe("SchedulesPage — Pilar 4 (ErrorState com retry)", () => {
+  beforeEach(async () => {
+    await i18n.changeLanguage("pt")
+    vi.clearAllMocks()
+    ;(api.listQueries as ReturnType<typeof vi.fn>).mockResolvedValue([query])
+    ;(api.listIntegrations as ReturnType<typeof vi.fn>).mockResolvedValue(integrations)
+  })
+
+  it("listSchedules rejeitando no load inicial mostra ErrorState, não EmptyState", async () => {
+    ;(api.listSchedules as ReturnType<typeof vi.fn>).mockRejectedValue(new Error("timeout"))
+    render(<SchedulesPage />)
+
+    await waitFor(() => expect(screen.getByText("timeout")).toBeInTheDocument())
+    expect(screen.getByRole("button", { name: /tentar novamente/i })).toBeInTheDocument()
+    expect(screen.queryByText("Nenhum agendamento cadastrado")).not.toBeInTheDocument()
+  })
+
+  it("Tentar novamente recarrega a lista de agendamentos", async () => {
+    ;(api.listSchedules as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error("timeout"))
+    render(<SchedulesPage />)
+    await screen.findByText("timeout")
+
+    ;(api.listSchedules as ReturnType<typeof vi.fn>).mockResolvedValueOnce([schedule])
+    fireEvent.click(screen.getByRole("button", { name: /tentar novamente/i }))
+
+    await waitFor(() => expect(screen.getAllByText("Logins suspeitos").length).toBeGreaterThan(0))
+    expect(screen.queryByText("timeout")).not.toBeInTheDocument()
+  })
+
+  it("getScheduleHistory rejeitando mostra ErrorState (não empilha com o EmptyState de histórico)", async () => {
+    ;(api.listSchedules as ReturnType<typeof vi.fn>).mockResolvedValue([schedule])
+    ;(api.getScheduleHistory as ReturnType<typeof vi.fn>).mockRejectedValue(new Error("falha ao buscar histórico"))
+
+    render(<SchedulesPage />)
+    await waitFor(() => expect(screen.getAllByText("Logins suspeitos").length).toBeGreaterThan(0))
+    fireEvent.click(screen.getAllByRole("button", { name: /Histórico/i })[0])
+
+    await waitFor(() => expect(screen.getByText("falha ao buscar histórico")).toBeInTheDocument())
+    expect(screen.getByRole("button", { name: /tentar novamente/i })).toBeInTheDocument()
+    expect(screen.queryByText(/nenhuma execução/i)).not.toBeInTheDocument()
+  })
+})

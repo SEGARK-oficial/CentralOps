@@ -95,8 +95,11 @@ describe("FlowCanvas", () => {
 
   it("tem aria-label descritivo no SVG", () => {
     render(<FlowCanvas data={DATA} onSelectNode={vi.fn()} />)
+    // A11Y-03: role="group" (não "img") — um "img" não deveria conter
+    // descendentes interativos (role="button" nos nós), que a árvore de
+    // acessibilidade simplesmente ignoraria dentro de um "img".
     expect(
-      screen.getByRole("img", { name: /2 fontes, 3 rotas, 2 destinos/i }),
+      screen.getByRole("group", { name: /2 fontes, 3 rotas, 2 destinos/i }),
     ).toBeInTheDocument()
   })
 
@@ -172,7 +175,98 @@ describe("FlowCanvas", () => {
       totals: { ingest_eps: 0, routed_per_min: 0, drop_per_min: 0, delivered_eps: 0 },
     }
     render(<FlowCanvas data={emptyData} onSelectNode={vi.fn()} />)
-    expect(screen.getByRole("img")).toBeInTheDocument()
+    expect(screen.getByRole("group")).toBeInTheDocument()
+  })
+})
+
+// ── A11Y-04: status não é só cor ───────────────────────────────────────────
+describe("FlowCanvas — badge de status não-cromático (A11Y-04)", () => {
+  it("nó degradado ganha um badge quadrado (forma), não só a cor do fill/stroke", () => {
+    render(<FlowCanvas data={DATA} onSelectNode={vi.fn()} />)
+    const node = screen.getByTestId("flow-source-s2")
+    expect(node.querySelector('rect[width="7"]')).toBeInTheDocument()
+  })
+
+  it("nó saudável não ganha badge (ausência de marcador = normal)", () => {
+    render(<FlowCanvas data={DATA} onSelectNode={vi.fn()} />)
+    const node = screen.getByTestId("flow-dest-d1")
+    expect(node.querySelector('rect[width="7"]')).not.toBeInTheDocument()
+  })
+})
+
+describe("FlowCanvas — status do nó no aria-label (A11Y-04)", () => {
+  it("inclui o status traduzido no aria-label do nó fonte degradado", () => {
+    render(<FlowCanvas data={DATA} onSelectNode={vi.fn()} />)
+    const degraded = screen.getByTestId("flow-source-s2")
+    expect(degraded).toHaveAttribute("aria-label", expect.stringContaining("degradado"))
+  })
+
+  it("inclui o status traduzido no aria-label de um destino saudável", () => {
+    render(<FlowCanvas data={DATA} onSelectNode={vi.fn()} />)
+    const healthy = screen.getByTestId("flow-dest-d1")
+    expect(healthy).toHaveAttribute("aria-label", expect.stringContaining("saudável"))
+  })
+
+  it("nó de rota (sem status de saúde) não ganha sufixo de status no aria-label", () => {
+    render(<FlowCanvas data={DATA} onSelectNode={vi.fn()} />)
+    const route = screen.getByTestId("flow-route-r1")
+    expect(route.getAttribute("aria-label")).toBe("SIEM crítico — 3.1k/min")
+  })
+})
+
+// ── A11Y-03: pausa manual das partículas ───────────────────────────────────
+describe("FlowCanvas — botão de pausar animação (A11Y-03)", () => {
+  it("existe um controle de pausar/retomar animação com aria-pressed", () => {
+    render(<FlowCanvas data={DATA} onSelectNode={vi.fn()} />)
+    const btn = screen.getByRole("button", { name: /Pausar animação/i })
+    expect(btn).toHaveAttribute("aria-pressed", "false")
+  })
+
+  it("alterna o rótulo/estado ao clicar", () => {
+    render(<FlowCanvas data={DATA} onSelectNode={vi.fn()} />)
+    const btn = screen.getByRole("button", { name: /Pausar animação/i })
+    fireEvent.click(btn)
+    expect(screen.getByRole("button", { name: /Retomar animação/i })).toHaveAttribute("aria-pressed", "true")
+  })
+})
+
+// ── LAY-05/06: pan via Pointer Events (mouse + toque) ──────────────────────
+describe("FlowCanvas — pan por Pointer Events", () => {
+  it("responde a pointerdown/pointermove/pointerup sem lançar exceção (mouse e toque)", () => {
+    render(<FlowCanvas data={DATA} onSelectNode={vi.fn()} />)
+    const svg = screen.getByRole("group")
+    expect(() => {
+      fireEvent.pointerDown(svg, { clientX: 10, clientY: 10, pointerId: 1 })
+      fireEvent.pointerMove(svg, { clientX: 30, clientY: 20, pointerId: 1 })
+      fireEvent.pointerUp(svg, { clientX: 30, clientY: 20, pointerId: 1 })
+    }).not.toThrow()
+  })
+
+  it("tem touch-action:none (não disputa o gesto com o scroll nativo do navegador)", () => {
+    render(<FlowCanvas data={DATA} onSelectNode={vi.fn()} />)
+    expect(screen.getByRole("group").getAttribute("class")).toMatch(/touch-none/)
+  })
+})
+
+// ── A11Y-06: foco visível + traz o nó pra viewport ──────────────────────────
+describe("FlowCanvas — foco do nó (A11Y-06/A11Y-05)", () => {
+  it("o wrapper do nó não depende só de outline (usa anel próprio via group-focus-visible)", () => {
+    render(<FlowCanvas data={DATA} onSelectNode={vi.fn()} />)
+    const node = screen.getByTestId("flow-source-s1")
+    expect(node.getAttribute("class")).toMatch(/group\/node/)
+    expect(node.getAttribute("class")).toMatch(/outline-none/)
+  })
+
+  it("focar um nó ajusta o pan (transform) para trazê-lo pra área visível", () => {
+    const { container } = render(<FlowCanvas data={DATA} onSelectNode={vi.fn()} />)
+    const outerG = container.querySelector("svg > g")!
+    const before = outerG.getAttribute("transform")
+
+    const node = screen.getByTestId("flow-dest-d1")
+    fireEvent.focus(node)
+
+    const after = outerG.getAttribute("transform")
+    expect(after).not.toBe(before)
   })
 })
 
@@ -235,7 +329,7 @@ describe("FlowCanvas — escala e agrupamento", () => {
 
   it("grafo grande (40·30·25) renderiza sem crash", () => {
     expect(() => render(<FlowCanvas data={bigData(40, 30, 25)} onSelectNode={vi.fn()} />)).not.toThrow()
-    expect(screen.getByRole("img")).toBeInTheDocument()
+    expect(screen.getByRole("group")).toBeInTheDocument()
   })
 
   it("hover num nó (foco+contexto) não quebra o render", () => {

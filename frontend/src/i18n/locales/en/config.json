@@ -338,6 +338,7 @@
     "roleMapInvalid": "Invalid JSON: {{message}}",
     "roleMapInvalidNotObject": "must be a JSON object",
     "roleMapInvalidGeneric": "check the syntax",
+    "postLoginRedirectInvalid": "Must be an internal path starting with \"/\" (no \"//\" or \"\\\\\", no other domain)",
     "defaultButtonLabel": "Sign in with Microsoft",
     "saveConfig": "Save configuration",
     "testConnection": "Test connection",
@@ -613,7 +614,8 @@
       "emptyTitle": "No backfill run yet",
       "emptyDescription": "Use the 'New backfill' button to start a controlled historical collection.",
       "cancelError": "Error cancelling backfill.",
-      "cancelErrorTitle": "Error cancelling"
+      "cancelErrorTitle": "Error cancelling",
+      "showingTotal": "Showing {{count}} of {{total}}"
     },
     "cancelDialog": {
       "title": "Cancel backfill",

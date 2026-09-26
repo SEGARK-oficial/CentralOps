@@ -64,7 +64,7 @@ const RotateForm: React.FC<RotateFormProps> = ({ loading, onSubmit, onCancel }) 
           value={newSecret}
           onChange={(e) => setNewSecret(e.target.value)}
           placeholder="Cole o novo segredo aqui"
-          className="w-full h-9 px-3 text-sm rounded-md border border-border bg-surface text-text placeholder:text-text-tertiary transition-colors focus-ring"
+          className="w-full h-9 px-3 text-sm rounded-md border border-border-field bg-surface-tertiary text-text placeholder:text-text-tertiary transition-colors hover:border-border-field-hover focus-ring"
           data-testid="rotate-secret-input"
         />
         <p className="text-xs text-text-tertiary">
@@ -84,7 +84,7 @@ const RotateForm: React.FC<RotateFormProps> = ({ loading, onSubmit, onCancel }) 
           type="datetime-local"
           value={expiresAt}
           onChange={(e) => setExpiresAt(e.target.value)}
-          className="w-full h-9 px-3 text-sm rounded-md border border-border bg-surface text-text transition-colors focus-ring"
+          className="w-full h-9 px-3 text-sm rounded-md border border-border-field bg-surface-tertiary text-text transition-colors hover:border-border-field-hover focus-ring"
           data-testid="rotate-expires-input"
         />
         <p className="text-xs text-text-tertiary">

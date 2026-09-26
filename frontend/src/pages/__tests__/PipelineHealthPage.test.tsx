@@ -146,6 +146,14 @@ describe("PipelineHealthPage", () => {
     expect(screen.getByText("Sophos Beta")).toBeInTheDocument()
   })
 
+  // LAY-27: nome/organização truncam no card — sem title, o texto cortado
+  // vira ilegível.
+  it("nome truncado do card tem title com o texto completo", async () => {
+    renderPage()
+    const heading = await screen.findByText("Wazuh Alpha")
+    expect(heading).toHaveAttribute("title", "Wazuh Alpha")
+  })
+
   it("filtro 'Saudáveis' exibe apenas integração healthy", async () => {
     renderPage()
     await screen.findByText("Wazuh Alpha")

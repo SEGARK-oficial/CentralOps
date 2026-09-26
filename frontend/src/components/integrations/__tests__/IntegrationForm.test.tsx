@@ -389,3 +389,28 @@ describe("IntegrationForm — filtros de coleta (edição)", () => {
     expect(screen.queryByTestId("collection-filters-section")).not.toBeInTheDocument()
   })
 })
+
+// SEC-04: docs_url vem do catálogo de plataformas (plugin-driven, ADR-0006/0007)
+// — não é digitado pelo usuário nesta tela, mas `safeExternalHref` é a defesa
+// em profundidade contra um catálogo malicioso/mal formado injetando
+// `javascript:`/`data:` no link "Ver documentação".
+describe("IntegrationForm — SEC-04 (docs_url)", () => {
+  it("docs_url http(s) válido renderiza o link de documentação", async () => {
+    mockedApi.getProviderPlatforms.mockResolvedValue([
+      { ...CATALOG[0], docs_url: "https://docs.example.com/sophos" },
+    ])
+    renderForm()
+    await screen.findByTestId("tile-card-sophos")
+    const link = await screen.findByRole("link", { name: "Ver documentação de configuração" })
+    expect(link).toHaveAttribute("href", "https://docs.example.com/sophos")
+  })
+
+  it("docs_url com esquema javascript: NÃO renderiza o link", async () => {
+    mockedApi.getProviderPlatforms.mockResolvedValue([
+      { ...CATALOG[0], docs_url: "javascript:alert(1)" },
+    ])
+    renderForm()
+    await screen.findByTestId("tile-card-sophos")
+    expect(screen.queryByRole("link", { name: "Ver documentação de configuração" })).not.toBeInTheDocument()
+  })
+})

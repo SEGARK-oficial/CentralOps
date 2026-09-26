@@ -70,7 +70,8 @@
       "description": "Tem certeza que deseja excluir <strong>{{name}}</strong>? Integrações vinculadas também serão removidas."
     },
     "errors": {
-      "bulkPartial": "Bulk concluído com avisos: {{deactivated}}/{{processed}} desativadas. {{errorsCount}} item(ns) ignorado(s)."
+      "bulkPartial": "Bulk concluído com avisos: {{deactivated}}/{{processed}} desativadas. {{errorsCount}} item(ns) ignorado(s).",
+      "loadFailedTitle": "Falha ao carregar organizações"
     }
   },
   "users": {

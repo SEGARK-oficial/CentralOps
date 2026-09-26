@@ -24,6 +24,7 @@ const DetectionsPage: React.FC = () => {
     setStatusFilter,
     refetch,
     triage,
+    truncated,
   } = useDetections()
 
   const [selectedDetection, setSelectedDetection] = useState<DetectionRead | null>(null)
@@ -125,6 +126,13 @@ const DetectionsPage: React.FC = () => {
         <Notice variant="danger" title={t("schedules:detections.feedback.loadError")}>
           {error}
         </Notice>
+      )}
+
+      {/* PERF-14: o endpoint não devolve total nenhum, só um array capado em
+          `limit` — bater exatamente no teto é o único sinal de que pode
+          haver mais detecções do que as exibidas. */}
+      {!loading && !error && truncated && (
+        <Notice variant="info">{t("schedules:detections.truncatedHint", { limit: detections.length })}</Notice>
       )}
 
       <DetectionsTable

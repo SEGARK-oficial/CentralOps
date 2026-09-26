@@ -13,7 +13,7 @@
  */
 
 import type React from "react"
-import { useMemo, useState } from "react"
+import { useMemo, useRef, useState } from "react"
 import { CheckIcon, SearchIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Input } from "@/components/ui/Input/Input"
@@ -52,10 +52,14 @@ export interface TileGalleryProps {
 // modal), os tiles esticavam para a largura da célula. Com auto-fill os tracks
 // têm largura mínima fixa e os vazios absorvem o espaço extra (auto-fill, não
 // auto-fit), mantendo os cards consistentes e sem esticar.
+// LAY-12: `minmax(220px,1fr)` força a coluna a ter NO MÍNIMO 220px mesmo
+// quando o container inteiro é mais estreito que isso (ex.: modal em telas
+// pequenas) — a grade estourava e criava scroll horizontal. `min(220px,100%)`
+// deixa a coluna encolher até caber quando o container é menor que o mínimo.
 const COL_CLASS: Record<2 | 3 | 4, string> = {
-  2: "grid-cols-[repeat(auto-fill,minmax(240px,1fr))]",
-  3: "grid-cols-[repeat(auto-fill,minmax(220px,1fr))]",
-  4: "grid-cols-[repeat(auto-fill,minmax(180px,1fr))]",
+  2: "grid-cols-[repeat(auto-fill,minmax(min(240px,100%),1fr))]",
+  3: "grid-cols-[repeat(auto-fill,minmax(min(220px,100%),1fr))]",
+  4: "grid-cols-[repeat(auto-fill,minmax(min(180px,100%),1fr))]",
 }
 
 export const TileGallery: React.FC<TileGalleryProps> = ({
@@ -72,6 +76,7 @@ export const TileGallery: React.FC<TileGalleryProps> = ({
 }) => {
   const [search, setSearch] = useState("")
   const [category, setCategory] = useState<string>("Todos")
+  const categoryGroupRef = useRef<HTMLDivElement>(null)
 
   const selected = useMemo(
     () => (Array.isArray(value) ? new Set(value) : new Set([value])),
@@ -83,6 +88,26 @@ export const TileGallery: React.FC<TileGalleryProps> = ({
     for (const t of tiles) if (t.category) cats.add(t.category)
     return cats.size > 0 ? ["Todos", ...Array.from(cats).sort()] : []
   }, [tiles])
+
+  // A11Y-37: roving tabindex + setas — o container já era `role="group"` com
+  // filhos `role="radio"`, mas sem isso um radiogroup só é navegável clicando
+  // (Tab entra e sai do grupo INTEIRO de uma vez, sem mover ENTRE as opções).
+  function handleCategoryKeyDown(e: React.KeyboardEvent<HTMLDivElement>) {
+    if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(e.key)) return
+    if (categories.length === 0) return
+    const radios = Array.from(
+      categoryGroupRef.current?.querySelectorAll<HTMLButtonElement>('[role="radio"]') ?? [],
+    )
+    const currentIndex = Math.max(0, categories.indexOf(category))
+    let nextIndex = currentIndex
+    if (e.key === "ArrowRight") nextIndex = (currentIndex + 1) % categories.length
+    else if (e.key === "ArrowLeft") nextIndex = (currentIndex - 1 + categories.length) % categories.length
+    else if (e.key === "Home") nextIndex = 0
+    else if (e.key === "End") nextIndex = categories.length - 1
+    e.preventDefault()
+    setCategory(categories[nextIndex])
+    radios[nextIndex]?.focus()
+  }
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
@@ -115,8 +140,10 @@ export const TileGallery: React.FC<TileGalleryProps> = ({
 
       {categories.length > 0 && (
         <div
-          role="group"
+          ref={categoryGroupRef}
+          role="radiogroup"
           aria-label="Filtrar por categoria"
+          onKeyDown={handleCategoryKeyDown}
           className="flex flex-wrap gap-2"
           data-testid="tile-categories"
         >
@@ -126,6 +153,10 @@ export const TileGallery: React.FC<TileGalleryProps> = ({
               type="button"
               role="radio"
               aria-checked={category === cat}
+              // A11Y-37: roving tabindex — só a opção selecionada é uma parada
+              // de Tab; as demais se alcançam pelas setas (ArrowLeft/Right,
+              // Home/End), padrão ARIA de radiogroup.
+              tabIndex={category === cat ? 0 : -1}
               disabled={disabled}
               onClick={() => setCategory(cat)}
               className={cn(

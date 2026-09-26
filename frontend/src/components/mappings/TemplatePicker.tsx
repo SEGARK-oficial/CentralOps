@@ -18,7 +18,6 @@ import { Button } from "@/components/ui/Button/Button"
 import { cn } from "@/lib/utils"
 import { OCSF_TEMPLATES } from "@/data/ocsfTemplates"
 import type { OcsfTemplate } from "@/data/ocsfTemplates"
-import type { MappingRule } from "@/types"
 
 interface TemplatePickerProps {
   open: boolean

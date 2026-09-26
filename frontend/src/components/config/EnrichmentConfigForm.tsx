@@ -246,7 +246,7 @@ export const EnrichmentConfigForm: React.FC<Props> = ({ onSaved }) => {
       {/* ── Subsistema ──────────────────────────────────────────────── */}
       <section className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border p-4">
         <div className="flex items-start gap-3">
-          <SparklesIcon size={18} className="mt-0.5 text-stage-enrich" aria-hidden />
+          <SparklesIcon size={18} className="mt-0.5 text-text-tertiary" aria-hidden />
           <div>
             <p className="text-sm font-medium">{t("page.enrichment.subsystem.title")}</p>
             <p className="text-xs text-text-tertiary">
@@ -278,7 +278,7 @@ export const EnrichmentConfigForm: React.FC<Props> = ({ onSaved }) => {
       {/* ── Cache L2 ────────────────────────────────────────────────── */}
       <section className="space-y-4 rounded-lg border border-border p-4">
         <div className="flex items-start gap-3">
-          <DatabaseIcon size={18} className="mt-0.5 text-stage-enrich" aria-hidden />
+          <DatabaseIcon size={18} className="mt-0.5 text-text-tertiary" aria-hidden />
           <div>
             <h3 className="text-sm font-semibold">{t("page.enrichment.cache.title")}</h3>
             <p className="text-xs text-text-tertiary">{t("page.enrichment.cache.description")}</p>
@@ -326,7 +326,12 @@ export const EnrichmentConfigForm: React.FC<Props> = ({ onSaved }) => {
             type="password"
             value={draft.redis_password}
             onChange={(e) => set("redis_password", e.target.value)}
-            autoComplete="off"
+            // SEC-02/SEC-10: `autocomplete="off"` em campo de senha é
+            // largamente IGNORADO pelos navegadores (continuam oferecendo
+            // autofill/gerenciador). `new-password` é o valor do próprio
+            // spec pra "não é login" — e o `Input` já teria isso por
+            // padrão; explícito aqui só documenta a intenção.
+            autoComplete="new-password"
             placeholder={
               config.redis_secret_configured
                 ? t("page.enrichment.cache.passwordKeep")
@@ -451,7 +456,7 @@ export const EnrichmentConfigForm: React.FC<Props> = ({ onSaved }) => {
       {/* ── Breaker ─────────────────────────────────────────────────── */}
       <section className="space-y-3 rounded-lg border border-border p-4">
         <div className="flex items-start gap-3">
-          <ShieldAlertIcon size={18} className="mt-0.5 text-stage-enrich" aria-hidden />
+          <ShieldAlertIcon size={18} className="mt-0.5 text-text-tertiary" aria-hidden />
           <div>
             <h3 className="text-sm font-semibold">{t("page.enrichment.breaker.title")}</h3>
             <p className="text-xs text-text-tertiary">
@@ -494,7 +499,7 @@ export const EnrichmentConfigForm: React.FC<Props> = ({ onSaved }) => {
       {/* ── Tabelas ─────────────────────────────────────────────────── */}
       <section className="space-y-3 rounded-lg border border-border p-4">
         <div className="flex items-start gap-3">
-          <TableIcon size={18} className="mt-0.5 text-stage-enrich" aria-hidden />
+          <TableIcon size={18} className="mt-0.5 text-text-tertiary" aria-hidden />
           <div>
             <h3 className="text-sm font-semibold">{t("page.enrichment.tables.title")}</h3>
             <p className="text-xs text-text-tertiary">{t("page.enrichment.tables.description")}</p>
@@ -523,7 +528,7 @@ export const EnrichmentConfigForm: React.FC<Props> = ({ onSaved }) => {
       {/* ── GeoIP (somente leitura) ─────────────────────────────────── */}
       <section className="space-y-3 rounded-lg border border-border p-4">
         <div className="flex items-start gap-3">
-          <GlobeIcon size={18} className="mt-0.5 text-stage-enrich" aria-hidden />
+          <GlobeIcon size={18} className="mt-0.5 text-text-tertiary" aria-hidden />
           <div>
             <h3 className="text-sm font-semibold">{t("page.enrichment.geoip.title")}</h3>
             <p className="text-xs text-text-tertiary">{t("page.enrichment.geoip.description")}</p>

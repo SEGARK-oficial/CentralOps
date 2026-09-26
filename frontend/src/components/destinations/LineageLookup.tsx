@@ -81,7 +81,7 @@ export const LineageLookup: React.FC<LineageLookupProps> = ({ destinationId }) =
               onChange={(e) => setEventId(e.target.value)}
               placeholder="Cole o event_id aqui"
               aria-describedby={helperId}
-              className="w-full h-9 pl-9 pr-3 text-sm rounded-md border border-border bg-surface text-text placeholder:text-text-tertiary transition-colors focus-ring"
+              className="w-full h-9 pl-9 pr-3 text-sm rounded-md border border-border-field bg-surface-tertiary text-text placeholder:text-text-tertiary transition-colors hover:border-border-field-hover focus-ring"
               data-testid="lineage-event-id-input"
             />
           </div>

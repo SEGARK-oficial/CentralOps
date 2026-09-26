@@ -1,12 +1,13 @@
 "use client"
 
 import type React from "react"
-import { useEffect, useId, useMemo, useRef, useState } from "react"
+import { useContext, useEffect, useId, useMemo, useRef, useState } from "react"
 import { createPortal } from "react-dom"
 import { ChevronDownIcon, CheckIcon } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { cn } from "@/lib/utils"
 import { getPortalPosition } from "@/lib/portal-positioning"
+import { PortalContainerContext } from "@/components/ui/Modal/Modal"
 
 export interface SelectOption {
   value: string | number
@@ -72,6 +73,13 @@ export const Select: React.FC<SelectProps> = ({
   const inputRef = useRef<HTMLInputElement>(null)
   const portalRef = useRef<HTMLDivElement>(null)
   const generatedId = useId()
+  // A11Y-01: dentro de um Modal, portar para o painel (não para document.body)
+  // para que o FocusScope trapped enxergue a opção como parte do próprio Modal.
+  const portalContainer = useContext(PortalContainerContext)
+  // A11Y-27: type-ahead — acumula teclas digitadas em sequência (reset após
+  // pausa) e foca a 1ª opção cujo label comece com o texto acumulado.
+  const typeaheadBuffer = useRef("")
+  const typeaheadTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const selectId = id || `select-${generatedId.replace(/:/g, "")}`
   const listboxId = `${selectId}-listbox`
@@ -130,16 +138,47 @@ export const Select: React.FC<SelectProps> = ({
     emitChange([])
   }
 
+  // Type-ahead: só faz sentido sem a caixa de busca (options.length <= 10) —
+  // com busca, o usuário já digita ali. Foca (não seleciona) a 1ª opção que
+  // bate com o texto acumulado, como um <select> nativo.
+  const runTypeahead = (key: string, onMatch: (index: number) => void) => {
+    if (options.length > 10) return false
+    if (key.length !== 1 || !/[\p{L}\p{N}]/u.test(key)) return false
+    if (typeaheadTimer.current) clearTimeout(typeaheadTimer.current)
+    typeaheadBuffer.current += key.toLowerCase()
+    const buffer = typeaheadBuffer.current
+    typeaheadTimer.current = setTimeout(() => {
+      typeaheadBuffer.current = ""
+    }, 500)
+    const matchIndex = filteredOptions.findIndex((option) => !option.disabled && option.label.toLowerCase().startsWith(buffer))
+    if (matchIndex >= 0) onMatch(matchIndex)
+    return true
+  }
+
   const handleTriggerKeyDown = (event: React.KeyboardEvent<HTMLButtonElement>) => {
     if (disabled) return
     if (event.key === "Enter" || event.key === " " || event.key === "ArrowDown" || event.key === "ArrowUp") {
       event.preventDefault()
       setIsOpen(true)
+      return
     }
     if (event.key === "Escape") {
-      event.preventDefault()
+      if (isOpen) {
+        event.preventDefault()
+        event.stopPropagation()
+      }
       setIsOpen(false)
+      return
     }
+    const matchedTypeahead = runTypeahead(event.key, (index) => {
+      setIsOpen(true)
+      // O portal ainda não existe neste tick — espera o próximo frame.
+      setTimeout(() => {
+        const optionButtons = portalRef.current?.querySelectorAll<HTMLButtonElement>("button[role='option']:not(:disabled)")
+        optionButtons?.[index]?.focus()
+      }, 0)
+    })
+    if (matchedTypeahead) event.preventDefault()
   }
 
   const handleOptionKeyDown = (event: React.KeyboardEvent<HTMLButtonElement>, optionIndex: number) => {
@@ -160,8 +199,21 @@ export const Select: React.FC<SelectProps> = ({
       optionButtons[optionButtons.length - 1]?.focus()
     } else if (event.key === "Escape") {
       event.preventDefault()
+      // A11Y-02: para a propagação AQUI — sem isso, o keydown nativo continua
+      // subindo até o `document`, onde o Modal também escuta Escape, e o
+      // dropdown fechar fecharia o Modal por baixo junto.
+      event.stopPropagation()
       setIsOpen(false)
       triggerRef.current?.focus()
+    } else if (event.key === "Enter" || event.key === " ") {
+      // A11Y-01: explícito em vez de confiar na ativação nativa do <button>
+      // por Enter/Espaço — garante seleção por teclado de forma determinística
+      // (inclusive quando a opção é portada para dentro de um Modal).
+      event.preventDefault()
+      const option = filteredOptions[optionIndex]
+      if (option && !option.disabled) handleOptionClick(option.value)
+    } else {
+      runTypeahead(event.key, (index) => optionButtons[index]?.focus())
     }
   }
 
@@ -286,7 +338,11 @@ export const Select: React.FC<SelectProps> = ({
           <span className={cn("flex-1 truncate", selectedValues.length === 0 && "text-text-tertiary")}>
             {getDisplayValue()}
           </span>
-          <ChevronDownIcon size={16} className={cn("text-text-tertiary shrink-0 transition-transform", isOpen && "rotate-180")} />
+          <ChevronDownIcon
+            size={16}
+            aria-hidden="true"
+            className={cn("text-text-tertiary shrink-0 transition-transform", isOpen && "rotate-180")}
+          />
         </button>
 
         {isOpen && typeof document !== "undefined" && createPortal(
@@ -303,6 +359,24 @@ export const Select: React.FC<SelectProps> = ({
                   placeholder={t("select.searchPlaceholder")}
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
+                  onKeyDown={(e) => {
+                    // A11Y-27: a busca era um beco sem saída de teclado — só dava
+                    // pra digitar, sem jeito de navegar até uma opção ou fechar.
+                    if (e.key === "ArrowDown") {
+                      e.preventDefault()
+                      const optionButtons = portalRef.current?.querySelectorAll<HTMLButtonElement>(
+                        "button[role='option']:not(:disabled)",
+                      )
+                      optionButtons?.[0]?.focus()
+                    } else if (e.key === "Escape") {
+                      e.preventDefault()
+                      e.stopPropagation()
+                      setIsOpen(false)
+                      triggerRef.current?.focus()
+                    }
+                    // Tab: mantém o comportamento nativo (sai do campo); o
+                    // click-outside/blur cuida de fechar o dropdown.
+                  }}
                   className="w-full h-8 px-3 text-sm rounded border border-border-field bg-surface-tertiary text-text placeholder:text-text-tertiary focus-ring"
                   aria-label={t("select.searchAriaLabel")}
                 />
@@ -332,12 +406,15 @@ export const Select: React.FC<SelectProps> = ({
 
             <ul className="max-h-60 overflow-y-auto scrollbar-thin py-1" role="listbox" id={listboxId} aria-multiselectable={multiple || undefined}>
               {filteredOptions.length === 0 ? (
-                <li className="px-3 py-2 text-sm text-text-tertiary text-center">{t("select.noOptionsFound")}</li>
+                <li role="presentation" className="px-3 py-2 text-sm text-text-tertiary text-center">{t("select.noOptionsFound")}</li>
               ) : (
                 filteredOptions.map((option, idx) => {
                   const isSelected = selectedValues.includes(option.value)
                   return (
-                    <li key={option.value}>
+                    // A11Y-27: `role="presentation"` — o padrão ARIA listbox espera
+                    // `ul[role=listbox] > li[presentation] > button[role=option]`;
+                    // sem isso, o `<li>` vira um nó extra na árvore de acessibilidade.
+                    <li key={option.value} role="presentation">
                       <button
                         type="button"
                         className={cn(
@@ -354,7 +431,7 @@ export const Select: React.FC<SelectProps> = ({
                         disabled={option.disabled}
                       >
                         <span className="flex-1 truncate">{option.label}</span>
-                        {isSelected && <CheckIcon size={16} className="shrink-0 text-primary-600" />}
+                        {isSelected && <CheckIcon size={16} aria-hidden="true" className="shrink-0 text-primary-600" />}
                       </button>
                     </li>
                   )
@@ -362,7 +439,7 @@ export const Select: React.FC<SelectProps> = ({
               )}
             </ul>
           </div>,
-          document.body,
+          portalContainer ?? document.body,
         )}
       </div>
 

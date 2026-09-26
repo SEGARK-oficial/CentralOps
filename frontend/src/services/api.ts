@@ -360,7 +360,7 @@ export async function createUser(data: CreateUserRequest) {
 }
 
 export async function updateUser(id: string, data: UpdateUserRequest) {
-  return apiRequest<AppUser>(`/auth/users/${id}`, {
+  return apiRequest<AppUser>(`/auth/users/${encodeURIComponent(id)}`, {
     method: "PUT",
     body: JSON.stringify(data),
     forbiddenRedirectTo: ADMIN_REDIRECT_PATH,
@@ -368,7 +368,7 @@ export async function updateUser(id: string, data: UpdateUserRequest) {
 }
 
 export async function deleteUser(id: string) {
-  return apiRequest<void>(`/auth/users/${id}`, {
+  return apiRequest<void>(`/auth/users/${encodeURIComponent(id)}`, {
     method: "DELETE",
     forbiddenRedirectTo: ADMIN_REDIRECT_PATH,
   })
@@ -382,7 +382,7 @@ export async function getPermissionsMatrix() {
 
 // Search API functions (now SQL via XDR Query API)
 export async function runSearch(clientId: number, payload: any) {
-  return apiRequest<any>(`/search/${clientId}`, {
+  return apiRequest<any>(`/search/${encodeURIComponent(clientId)}`, {
     method: "POST",
     body: JSON.stringify(payload),
   })
@@ -390,15 +390,15 @@ export async function runSearch(clientId: number, payload: any) {
 
 
 export async function waitResults(clientId: number, searchId: string) {
-  return apiRequest<any>(`/search/${clientId}/${searchId}/wait`)
+  return apiRequest<any>(`/search/${encodeURIComponent(clientId)}/${encodeURIComponent(searchId)}/wait`)
 }
 
 export async function getSearchStatus(clientId: number, searchId: string) {
-  return apiRequest<any>(`/search/${clientId}/${searchId}/status`)
+  return apiRequest<any>(`/search/${encodeURIComponent(clientId)}/${encodeURIComponent(searchId)}/status`)
 }
 
 export async function fetchResults(clientId: number, searchId: string) {
-  return apiRequest<any>(`/search/${clientId}/${searchId}`)
+  return apiRequest<any>(`/search/${encodeURIComponent(clientId)}/${encodeURIComponent(searchId)}`)
 }
 
 // History API functions
@@ -456,7 +456,7 @@ export async function listSearchHistory(clientId?: number) {
 }
 
 export async function getStoredResult(searchId: string) {
-  return apiRequest<SearchHistoryItem>(`/search/history/result/${searchId}`)
+  return apiRequest<SearchHistoryItem>(`/search/history/result/${encodeURIComponent(searchId)}`)
 }
 
 export async function downloadStoredCSV(searchId: string) {
@@ -503,20 +503,20 @@ export async function createQuery(data: CreateQueryRequest) {
 }
 
 export async function updateQuery(id: number, data: UpdateQueryRequest) {
-  return apiRequest<Query>(`/queries/${id}`, {
+  return apiRequest<Query>(`/queries/${encodeURIComponent(id)}`, {
     method: "PUT",
     body: JSON.stringify(data),
   })
 }
 
 export async function deleteQuery(id: number) {
-  return apiRequest<void>(`/queries/${id}`, {
+  return apiRequest<void>(`/queries/${encodeURIComponent(id)}`, {
     method: "DELETE",
   })
 }
 
 export async function getQuery(id: number) {
-  return apiRequest<Query>(`/queries/${id}`)
+  return apiRequest<Query>(`/queries/${encodeURIComponent(id)}`)
 }
 
 // Schedules API functions
@@ -539,7 +539,7 @@ export async function createSchedule(data: CreateScheduleRequest) {
  * reagenda quando a cadência muda e fica inerte quando não muda.
  */
 export async function updateSchedule(id: number, data: UpdateScheduleRequest) {
-  return apiRequest<Schedule>(`/schedules/${id}`, {
+  return apiRequest<Schedule>(`/schedules/${encodeURIComponent(id)}`, {
     method: "PUT",
     body: JSON.stringify(data),
     forbiddenRedirectTo: ADMIN_REDIRECT_PATH,
@@ -547,14 +547,14 @@ export async function updateSchedule(id: number, data: UpdateScheduleRequest) {
 }
 
 export async function deleteSchedule(id: number) {
-  return apiRequest<void>(`/schedules/${id}`, {
+  return apiRequest<void>(`/schedules/${encodeURIComponent(id)}`, {
     method: "DELETE",
     forbiddenRedirectTo: ADMIN_REDIRECT_PATH,
   })
 }
 
 export async function getScheduleHistory(scheduleId: number) {
-  return apiRequest<SearchHistoryItem[]>(`/schedules/${scheduleId}/history`, {
+  return apiRequest<SearchHistoryItem[]>(`/schedules/${encodeURIComponent(scheduleId)}/history`, {
     forbiddenRedirectTo: ADMIN_REDIRECT_PATH,
   })
 }
@@ -573,7 +573,7 @@ export async function createEmail(data: CreateEmailRequest) {
 }
 
 export async function deleteEmail(id: number) {
-  return apiRequest<void>(`/emails/${id}`, {
+  return apiRequest<void>(`/emails/${encodeURIComponent(id)}`, {
     method: "DELETE",
     forbiddenRedirectTo: ADMIN_REDIRECT_PATH,
   })
@@ -680,11 +680,11 @@ export async function createOrganization(data: CreateOrganizationRequest) {
 }
 
 export async function getOrganization(id: number) {
-  return apiRequest<Organization>(`/organizations/${id}`)
+  return apiRequest<Organization>(`/organizations/${encodeURIComponent(id)}`)
 }
 
 export async function updateOrganization(id: number, data: UpdateOrganizationRequest) {
-  return apiRequest<Organization>(`/organizations/${id}`, {
+  return apiRequest<Organization>(`/organizations/${encodeURIComponent(id)}`, {
     method: "PUT",
     body: JSON.stringify(data),
     forbiddenRedirectTo: ADMIN_REDIRECT_PATH,
@@ -692,7 +692,7 @@ export async function updateOrganization(id: number, data: UpdateOrganizationReq
 }
 
 export async function deleteOrganization(id: number) {
-  return apiRequest<void>(`/organizations/${id}`, {
+  return apiRequest<void>(`/organizations/${encodeURIComponent(id)}`, {
     method: "DELETE",
     forbiddenRedirectTo: ADMIN_REDIRECT_PATH,
   })
@@ -770,7 +770,7 @@ export async function bulkDeactivateIntegrations(ids: number[]) {
 }
 
 export async function getIntegration(id: number) {
-  return apiRequest<Integration>(`/integrations/${id}`)
+  return apiRequest<Integration>(`/integrations/${encodeURIComponent(id)}`)
 }
 
 export async function createIntegration(data: CreateIntegrationRequest) {
@@ -782,7 +782,7 @@ export async function createIntegration(data: CreateIntegrationRequest) {
 }
 
 export async function updateIntegration(id: number, data: UpdateIntegrationRequest) {
-  return apiRequest<Integration>(`/integrations/${id}`, {
+  return apiRequest<Integration>(`/integrations/${encodeURIComponent(id)}`, {
     method: "PUT",
     body: JSON.stringify(data),
     forbiddenRedirectTo: ADMIN_REDIRECT_PATH,
@@ -806,7 +806,7 @@ export async function deleteIntegration(id: number, options: DeleteIntegrationOp
   if (options.force) params.set("force", "true")
   if (options.purge) params.set("purge", "true")
   const qs = params.toString()
-  return apiRequest<DeleteIntegrationResult>(`/integrations/${id}${qs ? `?${qs}` : ""}`, {
+  return apiRequest<DeleteIntegrationResult>(`/integrations/${encodeURIComponent(id)}${qs ? `?${qs}` : ""}`, {
     method: "DELETE",
     forbiddenRedirectTo: ADMIN_REDIRECT_PATH,
   })
@@ -815,14 +815,14 @@ export async function deleteIntegration(id: number, options: DeleteIntegrationOp
 // ── Sophos Partner Mode ─────────────────────────────────────────────
 
 export async function syncPartnerTenants(id: number) {
-  return apiRequest<PartnerSyncResult>(`/integrations/${id}/sync-tenants`, {
+  return apiRequest<PartnerSyncResult>(`/integrations/${encodeURIComponent(id)}/sync-tenants`, {
     method: "POST",
     forbiddenRedirectTo: ADMIN_REDIRECT_PATH,
   })
 }
 
 export async function getPartnerSyncStatus(id: number) {
-  return apiRequest<PartnerSyncStatus>(`/integrations/${id}/sync-status`)
+  return apiRequest<PartnerSyncStatus>(`/integrations/${encodeURIComponent(id)}/sync-status`)
 }
 
 export async function listDiscoveredTenants(id: number, includeInactive = false) {
@@ -830,7 +830,7 @@ export async function listDiscoveredTenants(id: number, includeInactive = false)
   if (includeInactive) params.set("include_inactive", "true")
   const qs = params.toString()
   return apiRequest<DiscoveredTenant[]>(
-    `/integrations/${id}/discovered-tenants${qs ? `?${qs}` : ""}`,
+    `/integrations/${encodeURIComponent(id)}/discovered-tenants${qs ? `?${qs}` : ""}`,
   )
 }
 
@@ -859,7 +859,7 @@ export async function listSophosTenants(
   if (opts.geography) params.set("geography", opts.geography)
   const qs = params.toString()
   return apiRequest<SophosTenantListResponse>(
-    `/integrations/${partnerId}/sophos-tenants${qs ? `?${qs}` : ""}`,
+    `/integrations/${encodeURIComponent(partnerId)}/sophos-tenants${qs ? `?${qs}` : ""}`,
   )
 }
 
@@ -869,7 +869,7 @@ export async function selectTenants(
   state: Extract<TenantSelectionState, "approved" | "excluded">,
 ) {
   return apiRequest<SophosTenantSelectResponse>(
-    `/integrations/${partnerId}/tenants/select`,
+    `/integrations/${encodeURIComponent(partnerId)}/tenants/select`,
     {
       method: "POST",
       body: JSON.stringify({ external_ids: externalIds, state }),
@@ -883,7 +883,7 @@ export async function updateAutoApprovePolicy(
   autoApprove: boolean,
 ) {
   return apiRequest<AutoApprovePolicyResponse>(
-    `/integrations/${partnerId}/auto-approve-policy`,
+    `/integrations/${encodeURIComponent(partnerId)}/auto-approve-policy`,
     {
       method: "PATCH",
       body: JSON.stringify({ auto_approve_new_tenants: autoApprove }),
@@ -893,20 +893,20 @@ export async function updateAutoApprovePolicy(
 }
 
 export async function testIntegrationConnection(id: number) {
-  return apiRequest<TestConnectionResponse>(`/integrations/${id}/test-connection`, {
+  return apiRequest<TestConnectionResponse>(`/integrations/${encodeURIComponent(id)}/test-connection`, {
     method: "POST",
     forbiddenRedirectTo: ADMIN_REDIRECT_PATH,
   })
 }
 
 export async function getIntegrationHealth(id: number) {
-  return apiRequest<IntegrationHealth>(`/integrations/${id}/health`, {
+  return apiRequest<IntegrationHealth>(`/integrations/${encodeURIComponent(id)}/health`, {
     headers: V1_ACCEPT_HEADER,
   })
 }
 
 export async function getIntegrationHealthV2(id: number) {
-  return apiRequest<HealthResponse>(`/integrations/${id}/health`)
+  return apiRequest<HealthResponse>(`/integrations/${encodeURIComponent(id)}/health`)
 }
 
 export async function getProviderPlatforms() {
@@ -919,7 +919,7 @@ export async function testProviderConnection(
   config: Record<string, unknown>,
 ) {
   return apiRequest<{ ok: boolean; detail: string; latency_ms?: number | null }>(
-    `/providers/${platform}/test-connection`,
+    `/providers/${encodeURIComponent(platform)}/test-connection`,
     { method: "POST", body: JSON.stringify({ config }) },
   )
 }
@@ -936,7 +936,7 @@ export async function testProviderConnection(
  */
 export async function getIntegrationCollectionFilters(integrationId: number) {
   return apiRequest<IntegrationCollectionFilters>(
-    `/integrations/${integrationId}/collection-filters`,
+    `/integrations/${encodeURIComponent(integrationId)}/collection-filters`,
   )
 }
 
@@ -953,13 +953,13 @@ export async function updateIntegrationCollectionFilters(
   filters: IntegrationCollectionFilters["filters"],
 ) {
   return apiRequest<IntegrationCollectionFilters>(
-    `/integrations/${integrationId}/collection-filters`,
+    `/integrations/${encodeURIComponent(integrationId)}/collection-filters`,
     { method: "PUT", body: JSON.stringify({ filters }) },
   )
 }
 
 export async function getIntegrationOverview(id: number) {
-  return apiRequest<IntegrationOverview>(`/integrations/${id}/overview`)
+  return apiRequest<IntegrationOverview>(`/integrations/${encodeURIComponent(id)}/overview`)
 }
 
 export async function listSupportedPlatforms() {
@@ -1000,14 +1000,14 @@ export async function getCollectorSummary() {
 
 export async function triggerCollection(integrationId: number, stream: string) {
   return apiRequest<CollectorTriggerResponse>(
-    `/collectors/state/${integrationId}/${encodeURIComponent(stream)}/trigger`,
+    `/collectors/state/${encodeURIComponent(integrationId)}/${encodeURIComponent(stream)}/trigger`,
     { method: "POST" },
   )
 }
 
 export async function resetCollectorCursor(integrationId: number, stream: string) {
   return apiRequest<void>(
-    `/collectors/state/${integrationId}/${encodeURIComponent(stream)}/cursor`,
+    `/collectors/state/${encodeURIComponent(integrationId)}/${encodeURIComponent(stream)}/cursor`,
     { method: "DELETE", forbiddenRedirectTo: ADMIN_REDIRECT_PATH },
   )
 }
@@ -1241,11 +1241,11 @@ export async function listMappings(
 }
 
 export async function getMapping(id: string, options?: Pick<ApiRequestOptions, "signal">) {
-  return apiRequest<Mapping & { versions: MappingVersion[] }>(`/mappings/${id}`, options)
+  return apiRequest<Mapping & { versions: MappingVersion[] }>(`/mappings/${encodeURIComponent(id)}`, options)
 }
 
 export async function getMappingVersions(mappingId: string, options?: Pick<ApiRequestOptions, "signal">) {
-  return apiRequest<MappingVersion[]>(`/mappings/${mappingId}/versions`, options)
+  return apiRequest<MappingVersion[]>(`/mappings/${encodeURIComponent(mappingId)}/versions`, options)
 }
 
 export interface MappingSamplesResponse {
@@ -1346,7 +1346,7 @@ export async function getMappingAudit(
   // Backend retorna envelope paginado {total, items, limit, offset}.
   // Defensivo: aceita tanto array direto (caso o backend mude) quanto envelope.
   const response = await apiRequest<MappingAuditListResponse | MappingAuditEntry[]>(
-    `/mappings/${id}/audit${qs ? `?${qs}` : ""}`,
+    `/mappings/${encodeURIComponent(id)}/audit${qs ? `?${qs}` : ""}`,
     options,
   )
   if (Array.isArray(response)) {
@@ -1377,7 +1377,7 @@ export async function createMappingVersion(
   mappingId: string,
   payload: CreateMappingVersionRequest,
 ) {
-  return apiRequest<MappingVersion>(`/mappings/${mappingId}/versions`, {
+  return apiRequest<MappingVersion>(`/mappings/${encodeURIComponent(mappingId)}/versions`, {
     method: "POST",
     body: JSON.stringify(payload),
   })
@@ -1387,7 +1387,7 @@ export async function rollbackMapping(
   mappingId: string,
   payload: RollbackMappingRequest,
 ) {
-  return apiRequest<MappingVersion>(`/mappings/${mappingId}/rollback`, {
+  return apiRequest<MappingVersion>(`/mappings/${encodeURIComponent(mappingId)}/rollback`, {
     method: "POST",
     body: JSON.stringify(payload),
   })
@@ -1412,7 +1412,7 @@ export async function getMappingDiff(
   options?: Pick<ApiRequestOptions, "signal">,
 ) {
   return apiRequest<MappingVersionDiffResponse>(
-    `/mappings/${mappingId}/versions/${versionA}/diff/${versionB}`,
+    `/mappings/${encodeURIComponent(mappingId)}/versions/${encodeURIComponent(versionA)}/diff/${encodeURIComponent(versionB)}`,
     options,
   )
 }
@@ -1452,21 +1452,21 @@ export async function ignoreDrift(
   id: string,
   options?: Pick<ApiRequestOptions, "signal">,
 ): Promise<DriftEntry> {
-  return apiRequest<DriftEntry>(`/drift/${id}/ignore`, { method: "POST", ...options })
+  return apiRequest<DriftEntry>(`/drift/${encodeURIComponent(id)}/ignore`, { method: "POST", ...options })
 }
 
 export async function markDriftMapped(
   id: string,
   options?: Pick<ApiRequestOptions, "signal">,
 ): Promise<DriftEntry> {
-  return apiRequest<DriftEntry>(`/drift/${id}/mark_mapped`, { method: "POST", ...options })
+  return apiRequest<DriftEntry>(`/drift/${encodeURIComponent(id)}/mark_mapped`, { method: "POST", ...options })
 }
 
 export async function deleteDrift(
   id: string,
   options?: Pick<ApiRequestOptions, "signal">,
 ): Promise<void> {
-  return apiRequest<void>(`/drift/${id}`, { method: "DELETE", ...options })
+  return apiRequest<void>(`/drift/${encodeURIComponent(id)}`, { method: "DELETE", ...options })
 }
 
 export interface BulkActionResultItem {
@@ -1579,7 +1579,7 @@ export async function getDiscoveredFields(
   mappingId: string,
   options?: Pick<ApiRequestOptions, "signal">,
 ): Promise<DiscoverFieldsResponse> {
-  return apiRequest<DiscoverFieldsResponse>(`/mappings/${mappingId}/discover-fields`, options)
+  return apiRequest<DiscoverFieldsResponse>(`/mappings/${encodeURIComponent(mappingId)}/discover-fields`, options)
 }
 
 // ── Sprint 3: Quarantine API ──────────────────────────────────────────────────
@@ -1627,21 +1627,21 @@ export async function getQuarantineDetail(
   id: string,
   options?: Pick<ApiRequestOptions, "signal">,
 ): Promise<QuarantineDetail> {
-  return apiRequest<QuarantineDetail>(`/quarantine/${id}`, options)
+  return apiRequest<QuarantineDetail>(`/quarantine/${encodeURIComponent(id)}`, options)
 }
 
 export async function discardQuarantine(
   id: string,
   options?: Pick<ApiRequestOptions, "signal">,
 ): Promise<void> {
-  return apiRequest<void>(`/quarantine/${id}/discard`, { method: "POST", ...options })
+  return apiRequest<void>(`/quarantine/${encodeURIComponent(id)}/discard`, { method: "POST", ...options })
 }
 
 export async function reprocessQuarantine(
   id: string,
   options?: Pick<ApiRequestOptions, "signal">,
 ): Promise<QuarantineEntry> {
-  return apiRequest<QuarantineEntry>(`/quarantine/${id}/reprocess`, { method: "POST", ...options })
+  return apiRequest<QuarantineEntry>(`/quarantine/${encodeURIComponent(id)}/reprocess`, { method: "POST", ...options })
 }
 
 // ── bulk operations + select-all-filter ────────────────────────
@@ -1738,7 +1738,7 @@ export async function getIntegrationPipelineHealth(
   }
   const { bypassCache: _bypass, ...restOptions } = options ?? {}
   return apiRequest<IntegrationPipelineHealth>(
-    `/integrations/${integrationId}/pipeline-health`,
+    `/integrations/${encodeURIComponent(integrationId)}/pipeline-health`,
     { ...restOptions, headers },
   )
 }
@@ -1771,7 +1771,7 @@ export async function listBackfillJobs(
   if (filters?.status) sp.set("status", filters.status)
   const qs = sp.toString()
   return apiRequest<{ items: BackfillJob[]; total: number; limit: number; offset: number }>(
-    `/integrations/${integrationId}/backfill-jobs${qs ? `?${qs}` : ""}`,
+    `/integrations/${encodeURIComponent(integrationId)}/backfill-jobs${qs ? `?${qs}` : ""}`,
     options,
   )
 }
@@ -1780,7 +1780,7 @@ export async function getBackfillJob(
   jobId: string,
   options?: Pick<ApiRequestOptions, "signal">,
 ): Promise<BackfillJob> {
-  return apiRequest<BackfillJob>(`/backfill-jobs/${jobId}`, options)
+  return apiRequest<BackfillJob>(`/backfill-jobs/${encodeURIComponent(jobId)}`, options)
 }
 
 export async function createBackfillJob(
@@ -1788,7 +1788,7 @@ export async function createBackfillJob(
   payload: CreateBackfillJobRequest,
   options?: Pick<ApiRequestOptions, "signal">,
 ): Promise<BackfillJob> {
-  return apiRequest<BackfillJob>(`/integrations/${integrationId}/backfill`, {
+  return apiRequest<BackfillJob>(`/integrations/${encodeURIComponent(integrationId)}/backfill`, {
     method: "POST",
     body: JSON.stringify(payload),
     ...options,
@@ -1799,7 +1799,7 @@ export async function cancelBackfillJob(
   jobId: string,
   options?: Pick<ApiRequestOptions, "signal">,
 ): Promise<BackfillJob> {
-  return apiRequest<BackfillJob>(`/backfill-jobs/${jobId}/cancel`, {
+  return apiRequest<BackfillJob>(`/backfill-jobs/${encodeURIComponent(jobId)}/cancel`, {
     method: "POST",
     ...options,
   })
@@ -1834,7 +1834,7 @@ export async function createApiToken(
 }
 
 export async function revokeApiToken(tokenId: number): Promise<void> {
-  return apiRequest<void>(`/v1/tokens/${tokenId}`, {
+  return apiRequest<void>(`/v1/tokens/${encodeURIComponent(tokenId)}`, {
     method: "DELETE",
   })
 }
@@ -2082,12 +2082,12 @@ export interface IngestInfo {
 
 /** Metadados de ingestão. Lança (422) se a integração não é uma fonte push. */
 export async function getIngestInfo(integrationId: number): Promise<IngestInfo> {
-  return apiRequest<IngestInfo>(`/ingest/integrations/${integrationId}`)
+  return apiRequest<IngestInfo>(`/ingest/integrations/${encodeURIComponent(integrationId)}`)
 }
 
 /** Emite/rotaciona o token de ingestão. Devolve o token em claro UMA vez. */
 export async function issueIngestToken(integrationId: number): Promise<{ token: string; endpoint: string }> {
-  return apiRequest<{ token: string; endpoint: string }>(`/ingest/integrations/${integrationId}/token`, {
+  return apiRequest<{ token: string; endpoint: string }>(`/ingest/integrations/${encodeURIComponent(integrationId)}/token`, {
     method: "POST",
   })
 }
@@ -2135,16 +2135,16 @@ export interface SyslogClassifyTest {
 }
 
 export async function listSyslogSources(integrationId: number): Promise<SyslogSource[]> {
-  return apiRequest<SyslogSource[]>(`/syslog/sources?integration_id=${integrationId}`)
+  return apiRequest<SyslogSource[]>(`/syslog/sources?integration_id=${encodeURIComponent(integrationId)}`)
 }
 export async function createSyslogSource(payload: SyslogSourceCreate): Promise<SyslogSource> {
   return apiRequest<SyslogSource>("/syslog/sources", { method: "POST", body: JSON.stringify(payload) })
 }
 export async function updateSyslogSource(id: number, payload: Partial<SyslogSourceCreate>): Promise<SyslogSource> {
-  return apiRequest<SyslogSource>(`/syslog/sources/${id}`, { method: "PATCH", body: JSON.stringify(payload) })
+  return apiRequest<SyslogSource>(`/syslog/sources/${encodeURIComponent(id)}`, { method: "PATCH", body: JSON.stringify(payload) })
 }
 export async function deleteSyslogSource(id: number): Promise<void> {
-  await apiRequest<void>(`/syslog/sources/${id}`, { method: "DELETE" })
+  await apiRequest<void>(`/syslog/sources/${encodeURIComponent(id)}`, { method: "DELETE" })
 }
 export async function listSyslogDetectors(): Promise<SyslogDetector[]> {
   return apiRequest<SyslogDetector[]>("/syslog/classifiers")
@@ -2191,7 +2191,7 @@ export async function createCustomStream(payload: CustomStreamCreate): Promise<C
 
 /** Revoga o token de ingestão SEM rotacionar (mata um token vazado). 204/404. */
 export async function revokeIngestToken(integrationId: number): Promise<void> {
-  await apiRequest<void>(`/ingest/integrations/${integrationId}/token`, {
+  await apiRequest<void>(`/ingest/integrations/${encodeURIComponent(integrationId)}/token`, {
     method: "DELETE",
   })
 }
@@ -2660,7 +2660,7 @@ export async function listOcsfPolicies() {
 }
 
 export async function setOcsfPolicy(orgId: number, enforcementMode: OcsfEnforcementMode) {
-  return apiRequest<OcsfPolicy>(`/ocsf/policies/${orgId}`, {
+  return apiRequest<OcsfPolicy>(`/ocsf/policies/${encodeURIComponent(orgId)}`, {
     method: "PUT",
     body: JSON.stringify({ enforcement_mode: enforcementMode }),
   })
@@ -2759,7 +2759,7 @@ export async function updateEnrichmentSource(
   id: string,
   data: EnrichmentSourceUpdateRequest,
 ) {
-  return apiRequest<EnrichmentSource>(`/collectors/enrichment/sources/${id}`, {
+  return apiRequest<EnrichmentSource>(`/collectors/enrichment/sources/${encodeURIComponent(id)}`, {
     method: "PATCH",
     body: JSON.stringify(data),
   })
@@ -2796,13 +2796,13 @@ export async function testEnrichmentSourceDraft(data: {
 /** Sonda a fonte de verdade (1 página curta). Não persiste nada. */
 export async function testEnrichmentSource(id: string) {
   return apiRequest<EnrichmentSourceTestResult>(
-    `/collectors/enrichment/sources/${id}/test`,
+    `/collectors/enrichment/sources/${encodeURIComponent(id)}/test`,
     { method: "POST" },
   )
 }
 
 export async function deleteEnrichmentSource(id: string) {
-  return apiRequest<void>(`/collectors/enrichment/sources/${id}`, { method: "DELETE" })
+  return apiRequest<void>(`/collectors/enrichment/sources/${encodeURIComponent(id)}`, { method: "DELETE" })
 }
 
 // ── Prontidão e configuração de infraestrutura ──────────────────────────────
@@ -2853,7 +2853,7 @@ export async function preflightDuplicateEnrichmentPolicy(
   data: EnrichmentDuplicateRequest,
 ) {
   return apiRequest<EnrichmentDuplicatePreflight>(
-    `/collectors/enrichment/policies/${policyId}/duplicate-preflight`,
+    `/collectors/enrichment/policies/${encodeURIComponent(policyId)}/duplicate-preflight`,
     { method: "POST", body: JSON.stringify(data) },
   )
 }
@@ -2868,7 +2868,7 @@ export async function duplicateEnrichmentPolicy(
   data: EnrichmentDuplicateRequest,
 ) {
   return apiRequest<EnrichmentPolicy>(
-    `/collectors/enrichment/policies/${policyId}/duplicate`,
+    `/collectors/enrichment/policies/${encodeURIComponent(policyId)}/duplicate`,
     { method: "POST", body: JSON.stringify(data) },
   )
 }
@@ -3036,7 +3036,7 @@ export interface EnrichmentTemplateApplyResult {
 /** Marca (ou desmarca) a política como modelo da matriz. */
 export async function setEnrichmentPolicyTemplate(policyId: string, isTemplate: boolean) {
   return apiRequest<EnrichmentPolicy>(
-    `/collectors/enrichment/policies/${policyId}/template?is_template=${isTemplate}`,
+    `/collectors/enrichment/policies/${encodeURIComponent(policyId)}/template?is_template=${isTemplate}`,
     { method: "POST" },
   )
 }
@@ -3044,7 +3044,7 @@ export async function setEnrichmentPolicyTemplate(policyId: string, isTemplate: 
 /** O que aconteceria em CADA filha. Não muda nada. */
 export async function preflightEnrichmentTemplate(policyId: string) {
   return apiRequest<EnrichmentTemplatePreflight>(
-    `/collectors/enrichment/policies/${policyId}/template-preflight`,
+    `/collectors/enrichment/policies/${encodeURIComponent(policyId)}/template-preflight`,
     { method: "POST" },
   )
 }
@@ -3060,7 +3060,7 @@ export async function applyEnrichmentTemplate(
   data: { organization_ids: number[]; commit_message?: string },
 ) {
   return apiRequest<EnrichmentTemplateApplyResult>(
-    `/collectors/enrichment/policies/${policyId}/apply-template`,
+    `/collectors/enrichment/policies/${encodeURIComponent(policyId)}/apply-template`,
     { method: "POST", body: JSON.stringify(data) },
   )
 }
@@ -3107,11 +3107,11 @@ export async function createEnrichmentTable(data: EnrichmentTableCreateRequest) 
 }
 
 export async function deleteEnrichmentTable(id: string) {
-  return apiRequest<void>(`/collectors/enrichment/tables/${id}`, { method: "DELETE" })
+  return apiRequest<void>(`/collectors/enrichment/tables/${encodeURIComponent(id)}`, { method: "DELETE" })
 }
 
 export async function listEnrichmentTableVersions(tableId: string) {
-  return apiRequest<EnrichmentTableVersion[]>(`/collectors/enrichment/tables/${tableId}/versions`)
+  return apiRequest<EnrichmentTableVersion[]>(`/collectors/enrichment/tables/${encodeURIComponent(tableId)}/versions`)
 }
 
 export interface EnrichmentTableVersionDetail {
@@ -3130,7 +3130,7 @@ export interface EnrichmentTableVersionDetail {
  */
 export async function getEnrichmentTableVersion(tableId: string, versionId: string) {
   return apiRequest<EnrichmentTableVersionDetail>(
-    `/collectors/enrichment/tables/${tableId}/versions/${versionId}`,
+    `/collectors/enrichment/tables/${encodeURIComponent(tableId)}/versions/${encodeURIComponent(versionId)}`,
   )
 }
 
@@ -3138,14 +3138,14 @@ export async function commitEnrichmentTableVersion(
   tableId: string,
   data: { rows: Record<string, Record<string, unknown>>; commit_message: string },
 ) {
-  return apiRequest<EnrichmentTableVersion>(`/collectors/enrichment/tables/${tableId}/versions`, {
+  return apiRequest<EnrichmentTableVersion>(`/collectors/enrichment/tables/${encodeURIComponent(tableId)}/versions`, {
     method: "POST",
     body: JSON.stringify(data),
   })
 }
 
 export async function rollbackEnrichmentTable(tableId: string, versionId: string) {
-  return apiRequest<EnrichmentTable>(`/collectors/enrichment/tables/${tableId}/rollback`, {
+  return apiRequest<EnrichmentTable>(`/collectors/enrichment/tables/${encodeURIComponent(tableId)}/rollback`, {
     method: "POST",
     body: JSON.stringify({ version_id: versionId }),
   })
@@ -3215,7 +3215,7 @@ export async function createEnrichmentPolicy(data: EnrichmentPolicyCreateRequest
 }
 
 export async function listEnrichmentPolicyVersions(policyId: string) {
-  return apiRequest<EnrichmentPolicyVersion[]>(`/collectors/enrichment/policies/${policyId}/versions`)
+  return apiRequest<EnrichmentPolicyVersion[]>(`/collectors/enrichment/policies/${encodeURIComponent(policyId)}/versions`)
 }
 
 /**
@@ -3250,7 +3250,7 @@ export async function listEnrichmentKeySources(params: { organization_id?: numbe
 
 export async function getEnrichmentPolicyVersion(policyId: string, versionId: string) {
   return apiRequest<{ id: string; version_number: number; rules: EnrichmentRule[] }>(
-    `/collectors/enrichment/policies/${policyId}/versions/${versionId}`,
+    `/collectors/enrichment/policies/${encodeURIComponent(policyId)}/versions/${encodeURIComponent(versionId)}`,
   )
 }
 
@@ -3316,14 +3316,14 @@ export async function commitEnrichmentPolicyVersion(
   policyId: string,
   data: { rules: EnrichmentRule[]; commit_message: string },
 ) {
-  return apiRequest<EnrichmentPolicyVersion>(`/collectors/enrichment/policies/${policyId}/versions`, {
+  return apiRequest<EnrichmentPolicyVersion>(`/collectors/enrichment/policies/${encodeURIComponent(policyId)}/versions`, {
     method: "POST",
     body: JSON.stringify(data),
   })
 }
 
 export async function rollbackEnrichmentPolicy(policyId: string, versionId: string) {
-  return apiRequest<EnrichmentPolicy>(`/collectors/enrichment/policies/${policyId}/rollback`, {
+  return apiRequest<EnrichmentPolicy>(`/collectors/enrichment/policies/${encodeURIComponent(policyId)}/rollback`, {
     method: "POST",
     body: JSON.stringify({ version_id: versionId }),
   })
@@ -3331,7 +3331,7 @@ export async function rollbackEnrichmentPolicy(policyId: string, versionId: stri
 
 export async function setEnrichmentPolicyEnabled(policyId: string, enabled: boolean) {
   return apiRequest<EnrichmentPolicy>(
-    `/collectors/enrichment/policies/${policyId}/enable?enabled=${enabled ? "true" : "false"}`,
+    `/collectors/enrichment/policies/${encodeURIComponent(policyId)}/enable?enabled=${enabled ? "true" : "false"}`,
     { method: "POST" },
   )
 }

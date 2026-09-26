@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Trans, useTranslation } from "react-i18next"
 import type { TFunction } from "i18next"
 import {
@@ -23,6 +23,7 @@ import { Button } from "@/components/ui/Button/Button"
 import { Card } from "@/components/ui/Card/Card"
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog/ConfirmDialog"
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState"
+import { ErrorState } from "@/components/ui/ErrorState"
 import { Input } from "@/components/ui/Input/Input"
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner/LoadingSpinner"
 import { Modal } from "@/components/ui/Modal/Modal"
@@ -112,14 +113,25 @@ export const TokensPage: React.FC = () => {
     message: string
   } | null>(null)
 
+  // Pilar 4: `refetch` também roda pra REFRESCAR após criar/revogar — se já
+  // havia lista na tela, uma falha nesse refresh vira toast, não substitui
+  // o conteúdo por um ErrorState de página inteira.
+  const hasLoadedRef = useRef(false)
+
   const refetch = useCallback(async () => {
     setLoading(true)
     setError(null)
     try {
       const data = await api.listApiTokens()
       setTokens(data)
+      hasLoadedRef.current = true
     } catch (e) {
-      setError(e instanceof Error ? e.message : t("tokens.feedback.listFailed"))
+      const message = e instanceof Error ? e.message : t("tokens.feedback.listFailed")
+      if (hasLoadedRef.current) {
+        setFeedback({ type: "error", message })
+      } else {
+        setError(message)
+      }
     } finally {
       setLoading(false)
     }
@@ -209,8 +221,6 @@ export const TokensPage: React.FC = () => {
         </Notice>
       )}
 
-      {error && <Notice variant="danger">{error}</Notice>}
-
       <Card>
         <div className="flex items-center justify-between border-b px-4 py-3">
           <h2 className="text-sm font-semibold">
@@ -225,6 +235,8 @@ export const TokensPage: React.FC = () => {
           <div className="flex justify-center py-12">
             <LoadingSpinner />
           </div>
+        ) : error ? (
+          <ErrorState title={t("tokens.feedback.listFailed")} message={error} onRetry={() => void refetch()} />
         ) : tokens.length === 0 ? (
           <EmptyState
             icon={<KeyIcon size={32} />}
@@ -625,7 +637,7 @@ const CreateTokenModal: React.FC<CreateTokenModalProps> = ({
               id="token-expiry"
               value={preset}
               onChange={(e) => setPreset(e.target.value as ExpiryPreset)}
-              className="mt-1 block w-full rounded-md border border-border bg-bg px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+              className="mt-1 block w-full rounded-md border border-border-field bg-bg px-3 py-2 text-sm transition-colors hover:border-border-field-hover focus-ring"
             >
               {EXPIRY_OPTIONS.map((opt) => (
                 <option key={opt.value} value={opt.value}>

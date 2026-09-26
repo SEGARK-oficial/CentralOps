@@ -113,9 +113,14 @@ const FlowPage: React.FC = () => {
     }
   }, [t])
 
+  // PERF-09: pula o tick com a aba oculta — poll silencioso de um grafo inteiro
+  // não precisa competir por CPU/rede enquanto o usuário está em outra aba.
   useEffect(() => {
     void load(false)
-    const id = window.setInterval(() => void load(true), POLL_MS)
+    const id = window.setInterval(() => {
+      if (document.hidden) return
+      void load(true)
+    }, POLL_MS)
     return () => {
       window.clearInterval(id)
       abortRef.current?.abort()

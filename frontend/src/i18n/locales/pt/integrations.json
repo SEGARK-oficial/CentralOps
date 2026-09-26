@@ -402,5 +402,159 @@
       "app": "App"
     },
     "docs": "Como configurar o receptor (portas, TLS, mTLS)"
+  },
+  "partnerTenants": {
+    "title": "Tenants Sophos",
+    "syncingBadge": "Sincronizando",
+    "never": "Nunca",
+    "lastSync": "Última sincronização: <strong>{{when}}</strong>",
+    "autoApprove": {
+      "onAriaLabel": "Auto-aprovação ligada",
+      "offAriaLabel": "Auto-aprovação desligada",
+      "on": "Auto-approve: ON",
+      "off": "Auto-approve: OFF",
+      "pendingHint": "Novos tenants ficam <em>Pendentes</em> e precisam de aprovação manual."
+    },
+    "actions": {
+      "discoverySettings": "Configurações de descoberta",
+      "liveRefreshAriaLabel": "Buscar tenants ao vivo na Sophos",
+      "liveRefreshing": "Buscando...",
+      "liveRefresh": "Atualizar (live)",
+      "syncStarting": "Iniciando...",
+      "syncing": "Sincronizando...",
+      "syncNow": "Sincronizar agora"
+    },
+    "syncStatus": {
+      "ok": "OK",
+      "partial": "Parcial",
+      "error": "Erro",
+      "enterprise_required": "Requer Enterprise",
+      "license_required": "Requer licença"
+    },
+    "selectionState": {
+      "pending": "Pendente",
+      "approved": "Aprovado",
+      "excluded": "Excluído",
+      "stale": "Sumiu (stale)"
+    },
+    "filters": {
+      "searchLabel": "Buscar",
+      "searchPlaceholder": "Nome ou external ID...",
+      "searchAriaLabel": "Buscar tenants",
+      "stateLabel": "Estado",
+      "stateAriaLabel": "Filtrar por estado de seleção",
+      "stateAll": "Todos os estados",
+      "statePending": "Pendentes",
+      "stateApproved": "Aprovados",
+      "stateExcluded": "Excluídos",
+      "stateStale": "Sumiram (stale)",
+      "geoLabel": "Data geography",
+      "geoAriaLabel": "Filtrar por região de dados",
+      "geoAll": "Todas as geografias"
+    },
+    "bulk": {
+      "contextLabel": "tenant(s)",
+      "exclude": "Excluir selecionados",
+      "approve": "Aprovar selecionados"
+    },
+    "feedback": {
+      "successTitle": "Sucesso",
+      "warningTitle": "Atenção",
+      "errorTitle": "Erro",
+      "loadErrorTitle": "Não foi possível carregar tenants",
+      "liveRefreshStarted": "Buscando tenants na Sophos... pode demorar até 30s.",
+      "liveRefreshDone": "Lista atualizada com dados ao vivo da Sophos.",
+      "syncStarted": "Sincronização iniciada — verificando progresso...",
+      "syncNotStarted": "Sincronização não iniciada: {{reason}}",
+      "syncAlreadyRunning": "Sincronização já em andamento.",
+      "syncStartError": "Falha ao iniciar sincronização.",
+      "syncDone": "Sincronização concluída.",
+      "loadError": "Falha ao carregar tenants.",
+      "applyError": "Falha ao aplicar seleção.",
+      "selectionGatedMaterialized": "Seleção registrada, mas nenhum tenant foi materializado: {{reason}}",
+      "selectionGatedDeactivated": "Seleção registrada, mas nenhum tenant foi desativado: {{reason}}",
+      "approvedWithFailures": "Aprovados: {{count}}. Falhas: {{failures}}.",
+      "excludedWithFailures": "Excluídos: {{count}}. Falhas: {{failures}}.",
+      "approvedSuccess": "{{count}} tenant(s) aprovados.",
+      "excludedSuccess": "{{count}} tenant(s) excluídos.",
+      "policyUpdatedOn": "Política atualizada — auto-approve agora ligado.",
+      "policyUpdatedOff": "Política atualizada — auto-approve agora desligado."
+    },
+    "table": {
+      "loading": "Carregando tenants...",
+      "emptyNoFiltersTitle": "Nenhum tenant encontrado ainda.",
+      "emptyNoFiltersHint": "Clique em <strong>Atualizar (live)</strong> ou <strong>Sincronizar agora</strong> para buscar os tenants disponíveis na Sophos Partner API.",
+      "emptyFiltered": "Nenhum tenant corresponde aos filtros.",
+      "selectAllAriaLabel": "Selecionar todos os tenants visíveis",
+      "deselectAllAriaLabel": "Desmarcar todos os tenants visíveis",
+      "selectRowAriaLabel": "Selecionar {{name}}",
+      "column": {
+        "tenant": "Tenant",
+        "externalId": "External ID",
+        "geo": "Geo",
+        "region": "Região",
+        "state": "Estado",
+        "decidedBy": "Decidido por",
+        "childIntegration": "Integração filha",
+        "actions": "Ações"
+      },
+      "viewChild": "Ver child",
+      "rowActions": {
+        "approveAriaLabel": "Aprovar — {{name}}",
+        "excludeAriaLabel": "Excluir — {{name}}",
+        "excludeFinalAriaLabel": "Excluir definitivamente — {{name}}",
+        "reapproveAriaLabel": "Re-aprovar — {{name}}",
+        "approve": "Aprovar",
+        "exclude": "Excluir",
+        "excludeFinal": "Excluir definitivamente",
+        "reapprove": "Re-aprovar"
+      }
+    },
+    "pagination": {
+      "rowsPerPage": "Linhas por página:",
+      "itemsPerPageAriaLabel": "Itens por página",
+      "showing": "Mostrando <strong>{{from}}</strong>-<strong>{{to}}</strong> de <strong>{{total}}</strong>",
+      "prevPageAriaLabel": "Página anterior",
+      "nextPageAriaLabel": "Próxima página"
+    },
+    "bulkDialog": {
+      "approveTitle": "Aprovar tenants selecionados?",
+      "excludeTitle": "Excluir tenants selecionados?",
+      "approveConfirm": "Aprovar",
+      "excludeConfirm": "Excluir",
+      "approveIntro": "Vai aprovar <strong>{{count}}</strong> tenant(s).",
+      "approveCreates": " Cada novo aprovado vai criar <strong>1 Organization</strong> + <strong>1 child Integration</strong> + <strong>3 entradas de coleta</strong>.",
+      "materialize": "Materializar (criar): <strong>{{count}}</strong>",
+      "alreadyApproved": "Já aprovados (sem efeito): <strong>{{count}}</strong>",
+      "preservesHistory": "Operação preserva histórico de tenants já existentes.",
+      "excludeIntro": "Vai excluir <strong>{{count}}</strong> tenant(s). A coleta é desativada (soft-delete); o histórico de alertas/assets fica preservado.",
+      "deactivate": "Desativar agora: <strong>{{count}}</strong>",
+      "alreadyExcluded": "Já excluídos (sem efeito): <strong>{{count}}</strong>"
+    },
+    "gate": {
+      "licenseLink": "Abrir Configurações → Licença",
+      "titles": {
+        "enterprise_required": "Edição Enterprise necessária",
+        "license_required": "Licença Enterprise necessária"
+      },
+      "messages": {
+        "enterprise_required": "Este recurso faz parte da edição Enterprise e o backend em execução não tem os módulos Enterprise instalados. Verifique se as imagens Enterprise (backend + web) estão em uso.",
+        "license_required": "Este recurso requer uma licença Enterprise ativa — ative em Configurações → Licença."
+      }
+    },
+    "autoApprovePolicy": {
+      "howItWorksTitle": "Como funciona",
+      "howItWorksBody": "Esta política controla apenas o comportamento padrão para <strong>novos</strong> tenants descobertos. Tenants já aprovados, excluídos ou pendentes mantêm seu estado atual.",
+      "toggleLabel": "Auto-aprovar novos tenants",
+      "toggleDescriptionOn": "Novos tenants ativam coleta automaticamente após cada sync.",
+      "toggleDescriptionOff": "Novos tenants ficam como Pendente, aguardando aprovação manual.",
+      "onExplain": "<strong>Quando ligado (ON):</strong> cada novo tenant cria automaticamente uma Organization, uma Integration filha e três entradas de coleta (alerts/assets/health).",
+      "offExplain": "<strong>Quando desligado (OFF):</strong> sincronizações apenas atualizam o snapshot. Você decide tenant a tenant — ou em massa — pelo painel.",
+      "footnote": "Esta configuração não afeta tenants já aprovados ou excluídos.",
+      "saveErrorTitle": "Não foi possível salvar",
+      "saveErrorGeneric": "Falha ao salvar política.",
+      "cancel": "Cancelar",
+      "save": "Salvar"
+    }
   }
 }

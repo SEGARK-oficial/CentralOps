@@ -28,6 +28,24 @@ beforeAll(() => {
   void i18n.changeLanguage("pt")
 })
 
+// PERF-05: jsdom não tem layout real — o virtualizer real devolveria 0 itens
+// sem um container com altura de verdade. Mesmo mock "materializa até 10"
+// usado no teste de DataTable: o suficiente para provar que, acima do teto,
+// nem todo evento vai para o DOM. Só afeta os testes que passam do teto
+// (abaixo dele o componente nem entra no branch virtualizado).
+vi.mock("@tanstack/react-virtual", () => ({
+  useVirtualizer: ({ count }: { count: number }) => ({
+    getVirtualItems: () =>
+      Array.from({ length: Math.min(count, 10) }, (_, i) => ({
+        key: i,
+        index: i,
+        start: i * 41,
+        end: (i + 1) * 41,
+      })),
+    getTotalSize: () => count * 41,
+  }),
+}))
+
 // Mantém a classe real ApiRequestError (o auto-mock apagaria o construtor →
 // statusCode undefined, quebrando a detecção de 429). Mocka só as funções.
 vi.mock("@/services/api", async (importOriginal) => {
@@ -249,7 +267,8 @@ describe("CapturePanel", () => {
     // Excluir → ConfirmDialog → confirmar (escopado ao diálogo: o botão da
     // linha e o de confirmação têm o mesmo rótulo "Excluir").
     fireEvent.click(screen.getByRole("button", { name: /excluir/i }))
-    const dialog = await screen.findByRole("dialog")
+    // ConfirmDialog usa role="alertdialog" (A11Y-32, confirmação destrutiva).
+    const dialog = await screen.findByRole("alertdialog")
     fireEvent.click(within(dialog).getByRole("button", { name: /excluir/i }))
 
     await waitFor(() => expect(mockedApi.deleteCaptureSession).toHaveBeenCalledWith("cap-1", undefined))
@@ -587,5 +606,54 @@ describe("CapturePanel", () => {
     fireEvent.click(screen.getAllByRole("button", { name: /atualizar/i })[0])
 
     await waitFor(() => expect(screen.getByText(/evt-expirado/)).toBeInTheDocument())
+  })
+
+  // ── PERF-05: virtualização e poll em segundo plano ──────────────────────────
+
+  it("com muitos eventos (acima do teto), virtualiza: nem todo evento vai para o DOM", async () => {
+    baseMocks()
+    mockedApi.listCaptureSessions.mockResolvedValue({ count: 1, sessions: [activeSession] })
+    const manyEvents = Array.from({ length: 120 }, (_, i) => ({
+      event: { id: `evt-${i}` },
+      vendor: "sophos",
+      captured_at: i,
+    }))
+    mockedApi.getCaptureEvents.mockResolvedValue({
+      count: manyEvents.length,
+      session_id: "cap-1",
+      events: manyEvents as never,
+    })
+
+    render(<CapturePanel />)
+
+    await waitFor(() => expect(screen.getByText(/evt-0\b/)).toBeInTheDocument())
+    // O mock do virtualizer materializa só 10 linhas — o resto some do DOM
+    // (antes, as 120 linhas + o `JSON.stringify` de cada uma iam pro DOM
+    // inteiras a cada poll de 3s).
+    expect(screen.queryByText(/evt-100\b/)).not.toBeInTheDocument()
+  })
+
+  it("pausa o poll quando a aba fica oculta (document.hidden)", async () => {
+    baseMocks()
+    mockedApi.listCaptureSessions.mockResolvedValue({ count: 1, sessions: [activeSession] })
+
+    vi.useFakeTimers()
+    try {
+      render(<CapturePanel />)
+      await vi.waitFor(() => expect(mockedApi.listCaptureSessions).toHaveBeenCalledTimes(1))
+
+      // Aba oculta: os próximos ticks do poll (a cada 3s) devem pular a
+      // chamada — sem isto, uma aba em 2º plano batia no backend à toa.
+      Object.defineProperty(document, "hidden", { configurable: true, get: () => true })
+      await vi.advanceTimersByTimeAsync(3_000 * 3)
+      expect(mockedApi.listCaptureSessions).toHaveBeenCalledTimes(1)
+
+      // Volta a ficar visível: o poll retoma no próximo tick.
+      Object.defineProperty(document, "hidden", { configurable: true, get: () => false })
+      await vi.advanceTimersByTimeAsync(3_000)
+      expect(mockedApi.listCaptureSessions.mock.calls.length).toBeGreaterThan(1)
+    } finally {
+      vi.useRealTimers()
+    }
   })
 })

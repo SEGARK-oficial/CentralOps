@@ -83,3 +83,45 @@ describe("TileGallery — busca e filtro", () => {
     expect(screen.getByTestId("tile-empty")).toBeInTheDocument()
   })
 })
+
+// ── A11Y-37: roving tabindex no radiogroup de categorias ────────────────────
+describe("TileGallery — A11Y-37 (setas navegam/selecionam as categorias)", () => {
+  it("o container de categorias é role=radiogroup (não role=group)", () => {
+    render(<TileGallery tiles={TILES} value="" onChange={vi.fn()} />)
+    expect(screen.getByRole("radiogroup", { name: /filtrar por categoria/i })).toBeInTheDocument()
+  })
+
+  it("só a categoria selecionada tem tabIndex=0 — as demais são -1 (roving tabindex)", () => {
+    render(<TileGallery tiles={TILES} value="" onChange={vi.fn()} />)
+    expect(screen.getByTestId("tile-cat-todos")).toHaveAttribute("tabindex", "0")
+    expect(screen.getByTestId("tile-cat-siem")).toHaveAttribute("tabindex", "-1")
+    expect(screen.getByTestId("tile-cat-edr / xdr")).toHaveAttribute("tabindex", "-1")
+  })
+
+  it("ArrowRight seleciona a próxima categoria e move o foco pra ela", () => {
+    render(<TileGallery tiles={TILES} value="" onChange={vi.fn()} />)
+    const todos = screen.getByTestId("tile-cat-todos")
+    todos.focus()
+    fireEvent.keyDown(screen.getByTestId("tile-categories"), { key: "ArrowRight" })
+
+    const edrXdr = screen.getByTestId("tile-cat-edr / xdr")
+    expect(edrXdr).toHaveAttribute("aria-checked", "true")
+    expect(edrXdr).toHaveAttribute("tabindex", "0")
+    expect(document.activeElement).toBe(edrXdr)
+    expect(todos).toHaveAttribute("tabindex", "-1")
+  })
+
+  it("ArrowLeft dá a volta (wrap) da primeira pra última categoria", () => {
+    render(<TileGallery tiles={TILES} value="" onChange={vi.fn()} />)
+    const group = screen.getByTestId("tile-categories")
+    fireEvent.keyDown(group, { key: "ArrowLeft" })
+    // Categorias em ordem: Todos, EDR / XDR, SIEM — ArrowLeft de "Todos" (índice 0) vai pro último (SIEM).
+    expect(screen.getByTestId("tile-cat-siem")).toHaveAttribute("aria-checked", "true")
+  })
+
+  it("End move a seleção pra última categoria", () => {
+    render(<TileGallery tiles={TILES} value="" onChange={vi.fn()} />)
+    fireEvent.keyDown(screen.getByTestId("tile-categories"), { key: "End" })
+    expect(screen.getByTestId("tile-cat-siem")).toHaveAttribute("aria-checked", "true")
+  })
+})

@@ -722,10 +722,14 @@ export function EnrichmentPolicyPage(): React.ReactElement {
       />
 
       {/* Rodapé fixo: o diff e a publicação ficam sempre à vista, porque a
-          decisão de publicar depende de enxergar o que muda. */}
+          decisão de publicar depende de enxergar o que muda.
+          LAY-16: `fixed inset-x-0` cobria a SIDEBAR inteira, já que "fixed"
+          é relativo à viewport, não à coluna de conteúdo. `sticky bottom-0`
+          gruda no fim do fluxo normal — fica só dentro da largura do
+          conteúdo, sem sobrepor o menu lateral. */}
       <form
         onSubmit={handlePublish}
-        className="fixed inset-x-0 bottom-0 z-20 border-t border-border bg-surface-secondary/95 px-6 py-3 backdrop-blur"
+        className="sticky bottom-0 z-20 -mx-4 border-t border-border bg-surface-secondary/95 px-4 py-3 backdrop-blur sm:-mx-6 sm:px-6"
       >
         <div className="mx-auto flex max-w-[1600px] flex-wrap items-center gap-3">
           <PolicyDiff published={publishedRules} draft={rules} />

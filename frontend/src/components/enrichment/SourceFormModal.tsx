@@ -242,7 +242,9 @@ export const SourceFormModal: React.FC<SourceFormModalProps> = ({
             type="password"
             value={secret}
             onChange={(e) => setSecret(e.target.value)}
-            autoComplete="off"
+            // SEC-02/SEC-10: ver comentário equivalente em EnrichmentConfigForm —
+            // `off` não impede autofill em campo de senha nos navegadores.
+            autoComplete="new-password"
             placeholder={
               isEdit && source?.secret_configured
                 ? t("sources.form.secretKeepPlaceholder")

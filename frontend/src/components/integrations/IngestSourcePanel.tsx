@@ -273,7 +273,7 @@ export const IngestSourcePanel: React.FC<IngestSourcePanelProps> = ({ integratio
   return (
     <Card className="space-y-4 p-5">
       <div className="flex items-center gap-3">
-        <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-white ring-1 ring-black/5">
+        <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-white ring-1 ring-border">
           {/* Plugin-driven: icon_id vem do catálogo (backend), sem hardcode por plataforma. */}
           {brandIconFor(info.icon_id ?? platform, { size: 22 })}
         </span>
@@ -415,7 +415,7 @@ export const IngestSourcePanel: React.FC<IngestSourcePanelProps> = ({ integratio
           <span className="text-xs font-medium text-text-secondary">{isCustom ? t("ingest.edgeCollectorConfigGeneric") : t("ingest.edgeCollectorConfig")}</span>
           <CopyButton text={snippet} />
         </div>
-        <pre className="max-h-72 overflow-auto rounded-md border border-border bg-surface-tertiary p-3 text-[11px] leading-relaxed text-text">
+        <pre className="max-h-72 overflow-auto rounded-md border border-border-field bg-surface-tertiary p-3 text-[11px] leading-relaxed text-text">
 {snippet}
         </pre>
       </div>

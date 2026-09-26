@@ -325,25 +325,23 @@ export const MappingsListPage: React.FC = () => {
             }
           />
         ) : (
-          // Container de scroll horizontal + largura mínima: em telas estreitas
-          // (~168px) preserva a leitura das colunas com rolagem em vez de
-          // comprimir o conteúdo. O DataTable usa `w-full`, então o `min-w`
-          // precisa morar num wrapper aqui na página.
-          <div className="overflow-x-auto">
-            <div className="min-w-[760px]">
-              <DataTable
-                data={filtered as unknown as AnyRow[]}
-                columns={columns}
-                pagination={pagination}
-                onPaginationChange={(p) => setCurrentPage(p.current)}
-                emptyMessage={
-                  items.length === 0
-                    ? t("list.emptyNoData")
-                    : t("list.emptyFiltered.title")
-                }
-              />
-            </div>
-          </div>
+          // LAY-22: `min-w` só na TABELA (via `tableClassName`), não mais num
+          // wrapper que também envolvia a paginação — em telas estreitas
+          // (~168px) isso empurrava "1 de 3" e as setas de página para fora
+          // da viewport junto com as colunas, quando só as colunas precisam
+          // do scroll horizontal.
+          <DataTable
+            data={filtered as unknown as AnyRow[]}
+            columns={columns}
+            tableClassName="min-w-[760px]"
+            pagination={pagination}
+            onPaginationChange={(p) => setCurrentPage(p.current)}
+            emptyMessage={
+              items.length === 0
+                ? t("list.emptyNoData")
+                : t("list.emptyFiltered.title")
+            }
+          />
         ))}
     </div>
   )

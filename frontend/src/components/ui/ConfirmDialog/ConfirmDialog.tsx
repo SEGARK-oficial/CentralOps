@@ -1,6 +1,7 @@
 "use client"
 
 import type React from "react"
+import { useId } from "react"
 import { AlertTriangleIcon } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { Button } from "@/components/ui/Button/Button"
@@ -40,12 +41,22 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
   const { t } = useTranslation("ui")
   const resolvedConfirmLabel = confirmLabel ?? t("confirmDialog.confirm")
   const resolvedCancelLabel = cancelLabel ?? t("confirmDialog.cancel")
+  const descriptionId = useId()
   const handleClose = () => {
     if (!loading) onClose()
   }
 
   return (
-    <Modal open={open} onClose={handleClose} title={title} size="sm" closeOnOverlayClick={!loading} closeOnEscape={!loading}>
+    <Modal
+      open={open}
+      onClose={handleClose}
+      title={title}
+      size="sm"
+      closeOnOverlayClick={!loading}
+      closeOnEscape={!loading}
+      role="alertdialog"
+      ariaDescribedBy={descriptionId}
+    >
       <div className="flex flex-col gap-4" data-testid={dataTestId}>
         <div className="flex items-start gap-3">
           <div
@@ -54,7 +65,7 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
           >
             <AlertTriangleIcon size={18} />
           </div>
-          <div className="text-sm leading-relaxed text-text-secondary">{description}</div>
+          <div id={descriptionId} className="text-sm leading-relaxed text-text-secondary">{description}</div>
         </div>
 
         <div className="flex justify-end gap-2">

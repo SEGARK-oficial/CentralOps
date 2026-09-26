@@ -285,6 +285,8 @@
     "opsCount_one": "{{count}} operation",
     "opsCount_other": "{{count}} operations",
     "addAriaLabel": "Add preprocessing operation",
+    "expandSectionAriaLabel": "Expand preprocessing section",
+    "collapseSectionAriaLabel": "Collapse preprocessing section",
     "addButton": "+ Add preprocessing",
     "tolerant": "tolerant",
     "emptyState": "No operations. Click \"+ Add preprocessing\" to get started."

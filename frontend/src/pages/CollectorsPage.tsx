@@ -1,5 +1,5 @@
 import type React from "react"
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { Trans, useTranslation } from "react-i18next"
 import {
   ActivityIcon,
@@ -26,7 +26,8 @@ import { Badge } from "@/components/ui/Badge/Badge"
 import { Button } from "@/components/ui/Button/Button"
 import { Card } from "@/components/ui/Card/Card"
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState"
-import { LoadingSpinner } from "@/components/ui/LoadingSpinner/LoadingSpinner"
+import { ErrorState } from "@/components/ui/ErrorState"
+import { SkeletonTable } from "@/components/ui/Skeleton"
 import { Modal } from "@/components/ui/Modal/Modal"
 import { Notice } from "@/components/ui/Notice/Notice"
 import { PageHeader } from "@/components/ui/PageHeader/PageHeader"
@@ -124,6 +125,13 @@ const CollectorsPage: React.FC = () => {
   const [feedback, setFeedback] = useState<
     { type: "success" | "error"; message: string } | null
   >(null)
+  // Pilar 4: a falha do carregamento INICIAL não pode virar um EmptyState
+  // mentiroso ("nenhum coletor") depois que o toast de erro (5s) some.
+  // `loadAll` também é chamada pra REFRESCAR após ações (reset, etc.) — se
+  // já havia dado na tela, uma falha nesse refresh vira toast, não apaga a
+  // tabela.
+  const [loadError, setLoadError] = useState<string | null>(null)
+  const hasLoadedRef = useRef(false)
   const [busyKey, setBusyKey] = useState<string | null>(null)
   const [resetTarget, setResetTarget] = useState<CollectionState | null>(null)
   // Vendors registrados: colapsado + busca quando a lista é grande (200+ vendors).
@@ -141,6 +149,7 @@ const CollectorsPage: React.FC = () => {
   const loadAll = async () => {
     try {
       setLoading(true)
+      setLoadError(null)
       const [stateData, vendorData, summaryData] = await Promise.all([
         api.listCollectionState(),
         api.listCollectorVendors(),
@@ -149,10 +158,15 @@ const CollectorsPage: React.FC = () => {
       setStates(stateData)
       setVendors(vendorData)
       setSummary(summaryData)
+      hasLoadedRef.current = true
     } catch (err) {
       const message =
         err instanceof Error ? err.message : t("collectorsPage.loadError")
-      setFeedback({ type: "error", message })
+      if (hasLoadedRef.current) {
+        setFeedback({ type: "error", message })
+      } else {
+        setLoadError(message)
+      }
     } finally {
       setLoading(false)
     }
@@ -401,7 +415,10 @@ const CollectorsPage: React.FC = () => {
                   onChange={(e) => setVendorQuery(e.target.value)}
                   placeholder={t("collectorsPage.vendors.filterPlaceholder")}
                   aria-label={t("collectorsPage.vendors.filterAriaLabel")}
-                  className="w-full rounded-md border border-border bg-surface py-1.5 pl-9 pr-3 text-sm text-text placeholder:text-text-tertiary focus:border-primary focus:outline-none"
+                  // A11Y-13/LAY-04: `focus:border-primary` não é um token
+                  // real (falta o degrau `-500`) — a classe não existia e o
+                  // campo ficava SEM NENHUM indicador de foco visível.
+                  className="w-full rounded-md border border-border-field bg-surface-tertiary py-1.5 pl-9 pr-3 text-sm text-text placeholder:text-text-tertiary transition-colors hover:border-border-field-hover focus-ring"
                 />
               </div>
               <div
@@ -452,9 +469,13 @@ const CollectorsPage: React.FC = () => {
         </div>
 
         {loading && states.length === 0 ? (
-          <div className="flex items-center justify-center p-10">
-            <LoadingSpinner size="md" text={t("collectorsPage.table.loading")} />
-          </div>
+          <SkeletonTable rows={4} columns={5} />
+        ) : loadError ? (
+          <ErrorState
+            title={t("collectorsPage.loadError")}
+            message={loadError}
+            onRetry={() => void loadAll()}
+          />
         ) : sortedStates.length === 0 ? (
           <EmptyState
             icon={<ZapIcon size={32} />}
@@ -691,8 +712,8 @@ const KpiCard: React.FC<KpiCardProps> = ({ icon, label, value, hint, intent = "o
         <div
           className={
             intent === "warning"
-              ? "text-2xl font-semibold text-warning-700"
-              : "text-2xl font-semibold text-text"
+              ? "font-display text-2xl font-semibold tabular-nums text-warning-700"
+              : "font-display text-2xl font-semibold tabular-nums text-text"
           }
         >
           {value}

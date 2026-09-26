@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/Badge/Badge"
 import { Card } from "@/components/ui/Card/Card"
 import { iconFor } from "@/lib/icons"
 import { cn } from "@/lib/utils"
+import { safeExternalHref, safeInternalPath } from "@/lib/safeUrl"
 import type { BucketItem, BucketSection, DashSeverity } from "@/types"
 
 /**
@@ -24,7 +25,16 @@ interface BucketItemRowProps {
 const BucketItemRow: React.FC<BucketItemRowProps> = ({ item }) => {
   const { t } = useTranslation("dashboard")
   const navigate = useNavigate()
-  const isClickable = Boolean(item.href)
+  // SEC-04: `item.href` vem do backend (payload do dashboard) — validar antes
+  // de repassar pro navegador. Externo aceita só http(s); interno rejeita
+  // `//`/`\` (evita virar redirect pra outro host disfarçado de path).
+  const isExternal = item.href?.startsWith("http") ?? false
+  const safeHref = item.href
+    ? isExternal
+      ? safeExternalHref(item.href)
+      : safeInternalPath(item.href)
+    : undefined
+  const isClickable = Boolean(safeHref)
   const severityKey = item.severity ? SEVERITY_LABEL_KEY[item.severity] : undefined
 
   const inner = (
@@ -67,12 +77,11 @@ const BucketItemRow: React.FC<BucketItemRowProps> = ({ item }) => {
       type="button"
       className="w-full text-left"
       onClick={() => {
-        if (item.href) {
-          if (item.href.startsWith("http")) {
-            window.open(item.href, "_blank", "noopener,noreferrer")
-          } else {
-            navigate(item.href)
-          }
+        if (!safeHref) return
+        if (isExternal) {
+          window.open(safeHref, "_blank", "noopener,noreferrer")
+        } else {
+          navigate(safeHref)
         }
       }}
       aria-label={`${item.label}: ${item.value}`}

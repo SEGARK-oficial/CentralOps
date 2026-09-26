@@ -165,7 +165,9 @@ describe("AdminUsersPage", () => {
   it("mostra ConfirmDialog ao clicar em Excluir", () => {
     renderPage()
     fireEvent.click(screen.getByTestId(`delete-user-${fakeUsers[0].id}`))
-    const dialog = screen.getByRole("dialog")
+    // A11Y-32: ConfirmDialog usa role="alertdialog" (confirmação destrutiva),
+    // não "dialog" — ver Modal.tsx (prop `role`).
+    const dialog = screen.getByRole("alertdialog")
     expect(dialog).toBeInTheDocument()
     expect(within(dialog).getByRole("heading", { name: "Excluir usuário" })).toBeInTheDocument()
   })
@@ -187,5 +189,31 @@ describe("AdminUsersPage", () => {
     mockedUseUsers.mockReturnValue(mockUseUsers({ error: new Error("API indisponível"), users: [] }))
     renderPage()
     expect(screen.getByText("API indisponível")).toBeInTheDocument()
+  })
+
+  // Pilar 4: erro sem usuários vira ErrorState com retry (não o EmptyState
+  // "nenhum usuário" empilhado com um Notice sem ação).
+  it("erro sem usuários mostra botão de retry e NÃO mostra o EmptyState", () => {
+    mockedUseUsers.mockReturnValue(mockUseUsers({ error: new Error("API indisponível"), users: [] }))
+    renderPage()
+    expect(screen.getByRole("button", { name: /tentar novamente/i })).toBeInTheDocument()
+    expect(screen.queryByText(/nenhum usuário cadastrado/i)).not.toBeInTheDocument()
+  })
+
+  it("retry chama refetch", () => {
+    const refetch = vi.fn()
+    mockedUseUsers.mockReturnValue(mockUseUsers({ error: new Error("API indisponível"), users: [], refetch }))
+    renderPage()
+    fireEvent.click(screen.getByRole("button", { name: /tentar novamente/i }))
+    expect(refetch).toHaveBeenCalled()
+  })
+
+  // Erro com lista JÁ visível (ex.: refetch pós-ação falhou) não pode
+  // substituir a tabela por uma tela de erro inteira.
+  it("erro com usuários já visíveis vira Notice com retry, sem substituir a lista", () => {
+    mockedUseUsers.mockReturnValue(mockUseUsers({ error: new Error("falha no refresh") }))
+    renderPage()
+    expect(screen.getByText("falha no refresh")).toBeInTheDocument()
+    expect(screen.getByText(fakeUsers[0].display_name)).toBeInTheDocument()
   })
 })

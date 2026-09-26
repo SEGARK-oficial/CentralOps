@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/Button/Button"
 import { Card } from "@/components/ui/Card/Card"
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog/ConfirmDialog"
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState"
+import { ErrorState } from "@/components/ui/ErrorState"
 import { Input } from "@/components/ui/Input/Input"
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner/LoadingSpinner"
 import { Notice } from "@/components/ui/Notice/Notice"
@@ -169,21 +170,21 @@ export const AdminUsersPage: React.FC = () => {
         <Card padding="sm" className="shadow-sm">
           <div className="text-xs font-semibold uppercase tracking-wider text-text-tertiary">{t("users.stats.total")}</div>
           <div className="mt-2 flex items-end gap-2">
-            <span className="text-2xl font-bold text-text">{users.length}</span>
+            <span className="font-display text-2xl font-bold tabular-nums text-text">{users.length}</span>
             <Badge variant="outline" size="sm">{t("users.stats.totalUnit")}</Badge>
           </div>
         </Card>
         <Card padding="sm" className="shadow-sm">
           <div className="text-xs font-semibold uppercase tracking-wider text-text-tertiary">{t("users.stats.active")}</div>
           <div className="mt-2 flex items-end gap-2">
-            <span className="text-2xl font-bold text-text">{totalActive}</span>
+            <span className="font-display text-2xl font-bold tabular-nums text-text">{totalActive}</span>
             <Badge variant="success" size="sm">{t("users.stats.activeUnit")}</Badge>
           </div>
         </Card>
         <Card padding="sm" className="shadow-sm">
           <div className="text-xs font-semibold uppercase tracking-wider text-text-tertiary">{t("users.stats.admins")}</div>
           <div className="mt-2 flex items-end gap-2">
-            <span className="text-2xl font-bold text-text">{totalAdmins}</span>
+            <span className="font-display text-2xl font-bold tabular-nums text-text">{totalAdmins}</span>
             <Badge variant="primary" size="sm">{t("users.stats.adminsUnit")}</Badge>
           </div>
         </Card>
@@ -208,14 +209,32 @@ export const AdminUsersPage: React.FC = () => {
         </Notice>
       )}
 
-      {error && (
-        <Notice variant="danger" title={t("users.feedback.loadFailedTitle")}>
+      {error && users.length > 0 && (
+        // Já há dado na tela (ex.: erro de um refetch pós-ação) — Notice
+        // sem substituir a lista, com retry.
+        <Notice
+          variant="danger"
+          title={t("users.feedback.loadFailedTitle")}
+          action={
+            <Button variant="outline" size="sm" onClick={() => void refetch()}>
+              {t("common:actions.retry")}
+            </Button>
+          }
+        >
           {error.message}
         </Notice>
       )}
 
       {isLoading ? (
         <LoadingSpinner size="lg" text={t("users.loading")} className="py-20" />
+      ) : error && users.length === 0 ? (
+        // Pilar 4: antes o EmptyState "nenhum usuário" aparecia empilhado
+        // com o Notice de erro (sem retry) — mensagem enganosa.
+        <ErrorState
+          title={t("users.feedback.loadFailedTitle")}
+          message={error.message}
+          onRetry={() => void refetch()}
+        />
       ) : users.length === 0 ? (
         <EmptyState
           icon={<UsersIcon size={48} />}

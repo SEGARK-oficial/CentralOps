@@ -29,7 +29,12 @@ import { useAuth } from "@/contexts/AuthContext"
 import { eeNavItems } from "@/ee/navItems"
 import type { EeNavItem, NavGroupKey } from "@/ee/navItems"
 import { usePermission } from "@/hooks/usePermission"
+import { useMediaQuery } from "@/hooks/useMediaQuery"
 import { cn } from "@/lib/utils"
+
+// Mesmo breakpoint de `AppLayout.LG_BREAKPOINT` (1024px) — abaixo dele o rail
+// vira drawer sobreposto; no desktop ele é sempre visível e nunca fica `inert`.
+const LG_MEDIA_QUERY = "(min-width: 1024px)"
 
 /**
  * Navegação organizada pelo ESTÁGIO DO PIPELINE.
@@ -137,6 +142,21 @@ export const Navigation: React.FC<NavigationProps> = ({ open = false, onClose, c
   const previousActive = useRef<HTMLElement | null>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
   const [overflow, setOverflow] = useState({ top: false, bottom: false })
+  const isDesktop = useMediaQuery(LG_MEDIA_QUERY)
+
+  // A11Y-09: abaixo de lg, o drawer fechado só sai da VIEWPORT
+  // (-translate-x-full) — sem `inert` ele continua alcançável por Tab e
+  // exposto a leitores de tela mesmo invisível. No desktop (>=lg) o rail é
+  // sempre visível e nunca deve ficar inert, independente de `open`.
+  // `inert` ainda não está nas typings de HTMLAttributes do @types/react
+  // 18.3 e o React 18 não o reconhece como atributo boolean especial (fica
+  // de fora do DOM se passado via prop) — por isso setAttribute direto.
+  useEffect(() => {
+    const node = navRef.current
+    if (!node) return
+    const shouldBeInert = !isDesktop && !open
+    node.toggleAttribute("inert", shouldBeInert)
+  }, [isDesktop, open])
 
   // Névoa de rolagem: mede o container de verdade em vez de adivinhar. Roda no
   // scroll e a cada mudança de tamanho — trocar de idioma, colapsar o rail ou

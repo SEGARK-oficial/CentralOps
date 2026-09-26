@@ -131,6 +131,16 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     localStorage.removeItem("centralops_org_id")
     localStorage.removeItem("centralops_platform")
     localStorage.removeItem("centralops_integration_id")
+    // SEC-08: rascunhos não salvos do editor de política de enriquecimento
+    // (`centralops:enrich:policy-draft:{policyId}`, um por política visitada)
+    // sobreviviam ao logout — numa máquina compartilhada, o PRÓXIMO usuário a
+    // logar via essa aba herdava o rascunho de configuração (potencialmente
+    // com segredo/credencial sendo editado) de quem saiu. Prefixo, não chave
+    // fixa: pode haver um rascunho por política já aberta nesta sessão.
+    for (let i = localStorage.length - 1; i >= 0; i -= 1) {
+      const key = localStorage.key(i)
+      if (key?.startsWith("centralops:enrich:")) localStorage.removeItem(key)
+    }
   }
 
   useEffect(() => {

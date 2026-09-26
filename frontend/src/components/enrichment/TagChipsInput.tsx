@@ -90,6 +90,17 @@ export const TagChipsInput: React.FC<TagChipsInputProps> = ({
         className={cn(
           "flex min-h-9 flex-wrap items-center gap-1.5 rounded-md border border-border-field",
           "bg-surface-tertiary px-2 py-1.5 transition-colors focus-within:border-border-field-hover",
+          // A11Y-42: a borda mais escura no focus-within não é um indicador
+          // de foco VISÍVEL o bastante sozinha (é a mesma mudança sutil do
+          // hover) — o input interno é `outline-none` e não tinha NENHUM
+          // anel próprio. Mesmo padrão do Checkbox (outline no CONTÊINER
+          // quando o filho ganha :focus-visible), mas com
+          // `[outline-style:solid]` em vez da utility `outline` pura: o
+          // `cn()` (tailwind-merge) achata `outline` + `outline-2` no mesmo
+          // grupo de conflito e DESCARTA o `outline` (outline-style vira
+          // "none" — o anel não aparecia). Verificado com um teste
+          // descartável antes de aplicar aqui.
+          "[&:has(:focus-visible)]:[outline-style:solid] [&:has(:focus-visible)]:outline-2 [&:has(:focus-visible)]:outline-primary-500 [&:has(:focus-visible)]:outline-offset-2",
         )}
       >
         {value.map((tag) => (
@@ -102,7 +113,10 @@ export const TagChipsInput: React.FC<TagChipsInputProps> = ({
               type="button"
               onClick={() => onChange(value.filter((v) => v !== tag))}
               aria-label={t("policies.versions.removeTag", { tag })}
-              className="text-text-tertiary transition-colors hover:text-danger-500"
+              // A11Y-20: alvo era só o ícone (11px), sem padding nenhum. O
+              // chip cresce ~4px pra caber o alvo de 24px — troca aceitável
+              // (é o que qualquer chip removível com alvo correto faz).
+              className="flex h-6 w-6 items-center justify-center rounded text-text-tertiary transition-colors hover:text-danger-500 focus-ring"
             >
               <XIcon size={11} aria-hidden />
             </button>

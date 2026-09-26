@@ -20,6 +20,12 @@ interface UseFormReturn<T> {
   errors: Partial<Record<keyof T, string>>
   touched: Partial<Record<keyof T, boolean>>
   isSubmitting: boolean
+  /** Erro do `onSubmit` (rejeitado) — antes só ia pro `console.error` e
+   *  sumia; a maioria dos chamadores já trata o próprio erro (try/catch
+   *  local com `setFeedback`), mas isto é a rede de segurança para quem
+   *  não trata: sem isto, um erro inesperado deixava o usuário olhando pro
+   *  formulário sem nenhum sinal do que aconteceu. */
+  submitError: string | null
   handleChange: (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => void
   handleBlur: (event: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => void
   handleSubmit: (event: React.FormEvent) => void
@@ -38,6 +44,7 @@ export function useForm<T extends Record<string, any>>({
   const [errors, setErrors] = useState<Partial<Record<keyof T, string>>>({})
   const [touched, setTouched] = useState<Partial<Record<keyof T, boolean>>>({})
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [submitError, setSubmitError] = useState<string | null>(null)
 
   useEffect(() => {
     initialValuesRef.current = initialValues
@@ -103,6 +110,8 @@ export function useForm<T extends Record<string, any>>({
 
       if (isSubmitting) return
 
+      setSubmitError(null)
+
       // Mark all fields as touched
       const allTouched = Object.keys(values).reduce(
         (acc, key) => ({
@@ -131,6 +140,7 @@ export function useForm<T extends Record<string, any>>({
         await onSubmit(values)
       } catch (error) {
         console.error("Form submission error:", error)
+        setSubmitError(error instanceof Error ? error.message : String(error))
       } finally {
         setIsSubmitting(false)
       }
@@ -157,6 +167,7 @@ export function useForm<T extends Record<string, any>>({
     setErrors({})
     setTouched({})
     setIsSubmitting(false)
+    setSubmitError(null)
   }, [])
 
   return {
@@ -164,6 +175,7 @@ export function useForm<T extends Record<string, any>>({
     errors,
     touched,
     isSubmitting,
+    submitError,
     handleChange,
     handleBlur,
     handleSubmit,

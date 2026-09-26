@@ -1,5 +1,5 @@
 import type React from "react"
-import { Suspense, useCallback, useEffect, useState } from "react"
+import { Suspense, useCallback, useEffect, useRef, useState } from "react"
 import { matchPath, Outlet, useLocation } from "react-router-dom"
 import { useTranslation } from "react-i18next"
 import { Navigation } from "./Navigation"
@@ -8,6 +8,7 @@ import { GlobalFilters } from "./GlobalFilters"
 import { Breadcrumbs } from "./Breadcrumbs"
 import { ErrorBoundary } from "@/components/shared/ErrorBoundary"
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner/LoadingSpinner"
+import { useDocumentTitle } from "@/hooks/useDocumentTitle"
 import { cn } from "@/lib/utils"
 
 const COLLAPSE_KEY = "centralops_sidebar_collapsed"
@@ -70,8 +71,26 @@ export const AppLayout: React.FC = () => {
     }
   }, [sidebarOpen])
 
+  const mainRef = useRef<HTMLElement>(null)
+  const isFirstRender = useRef(true)
+
+  // A11Y-07: título do documento por rota, derivado do <h1> real da página.
+  useDocumentTitle(mainRef, location.pathname)
+
+  // A11Y-08: ao trocar de rota, move o foco para o <main> (sem roubar o foco
+  // no carregamento inicial) para que leitores de tela anunciem o novo
+  // conteúdo — sem essa âncora o foco fica "preso" no link/botão da rota
+  // anterior, que não existe mais na página nova.
+  useEffect(() => {
+    if (isFirstRender.current) {
+      isFirstRender.current = false
+      return
+    }
+    mainRef.current?.focus()
+  }, [location.pathname])
+
   return (
-    <div className="flex h-screen flex-col overflow-hidden bg-surface-secondary">
+    <div className="flex h-dvh flex-col overflow-hidden bg-surface-secondary">
       <a href="#main-content" className="skip-link">
         {t("skipToContent")}
       </a>
@@ -100,9 +119,15 @@ export const AppLayout: React.FC = () => {
         <div className="flex flex-1 flex-col overflow-hidden" aria-hidden={sidebarOpen || undefined}>
           <GlobalFilters />
 
-          <main id="main-content" className="flex-1 overflow-y-auto bg-surface-secondary" aria-label={t("mainContent")}>
-            {/* Editor denso = full-bleed (sem max-w-7xl); demais rotas = container centrado de leitura. */}
-            <div className={isEditorRoute ? "px-3 py-4 sm:px-4" : "mx-auto max-w-7xl px-4 py-6 sm:px-6"}>
+          <main
+            ref={mainRef}
+            id="main-content"
+            tabIndex={-1}
+            className="flex-1 overflow-y-auto bg-surface-secondary focus:outline-none"
+            aria-label={t("mainContent")}
+          >
+            {/* Editor denso = full-bleed (sem max-w-screen-2xl); demais rotas = container centrado de leitura. */}
+            <div className={isEditorRoute ? "px-3 py-4 sm:px-4" : "mx-auto max-w-screen-2xl px-4 py-6 sm:px-6"}>
               <Breadcrumbs />
               {/* Boundary por-rota: um erro de página não derruba o shell; reseta ao navegar.
                   Suspense cobre o carregamento dos chunks lazy das rotas, preservando o shell. */}

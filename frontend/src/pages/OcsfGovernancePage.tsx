@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/Badge/Badge"
 import { Button } from "@/components/ui/Button/Button"
 import { Card } from "@/components/ui/Card/Card"
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState"
+import { ErrorState } from "@/components/ui/ErrorState"
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner/LoadingSpinner"
 import { Notice } from "@/components/ui/Notice/Notice"
 import { PageHeader } from "@/components/ui/PageHeader/PageHeader"
@@ -46,8 +47,8 @@ export const OcsfGovernancePage: React.FC = () => {
       const [pol, comp] = await Promise.all([api.listOcsfPolicies(), api.getOcsfCompliance()])
       setPolicies(pol)
       setCompliance(comp)
-    } catch {
-      setError(t("loadError"))
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t("loadError"))
     } finally {
       setIsLoading(false)
     }
@@ -88,7 +89,6 @@ export const OcsfGovernancePage: React.FC = () => {
         }
       />
 
-      {error && <Notice variant="danger">{error}</Notice>}
       {feedback && (
         <Notice variant={feedback.type === "success" ? "success" : "danger"}>
           {feedback.message}
@@ -99,6 +99,11 @@ export const OcsfGovernancePage: React.FC = () => {
         <div className="flex justify-center py-12">
           <LoadingSpinner />
         </div>
+      ) : error ? (
+        // Pilar 4: antes o Notice de erro (sem retry) ficava empilhado ACIMA
+        // dos EmptyState de compliance/políticas — mensagem enganosa
+        // ("nenhuma política"), sem jeito de tentar de novo por ali.
+        <ErrorState title={t("loadError")} message={error} onRetry={() => void load()} />
       ) : (
         <>
           {/* Compliance summary + table */}
