@@ -192,7 +192,7 @@ export const AdminUsersPage: React.FC = () => {
 
       {feedback && (
         <Notice
-          variant={feedback.type === "success" ? "success" : "danger"}
+          variant={feedback.type === "success" ? "success" : "danger"} live={feedback.type === "error" ? "assertive" : undefined}
           title={feedback.type === "success" ? t("users.feedback.operationDone") : t("users.feedback.error")}
           action={
             <Button

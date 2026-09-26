@@ -126,6 +126,7 @@ export const RouteConditionEditor: React.FC<Props> = ({ clauses, onChange, disab
           <div className="min-w-[150px] flex-1">
             <Select
               label={i === 0 ? t("conditionEditor.fieldLabel") : undefined}
+              aria-label={t("conditionEditor.fieldSelectAria", { index: i + 1 })}
               value={c.field}
               options={FIELDS.map((f) => ({ value: f, label: f }))}
               disabled={disabled}
@@ -135,7 +136,7 @@ export const RouteConditionEditor: React.FC<Props> = ({ clauses, onChange, disab
           <div className="w-40">
             <Select
               label={i === 0 ? t("conditionEditor.opLabel") : undefined}
-              aria-label={t("conditionEditor.opSelectAriaLabel")}
+              aria-label={t("conditionEditor.opSelectAriaLabel", { index: i + 1 })}
               value={c.op}
               options={operatorOptions(CONDITION_OPERATORS)}
               disabled={disabled}
@@ -146,6 +147,7 @@ export const RouteConditionEditor: React.FC<Props> = ({ clauses, onChange, disab
             {c.op === "exists" ? (
               <Select
                 label={i === 0 ? t("conditionEditor.valueLabel") : undefined}
+                aria-label={t("conditionEditor.valueSelectAria", { index: i + 1 })}
                 value={c.value || "true"}
                 options={[{ value: "true", label: "true" }, { value: "false", label: "false" }]}
                 disabled={disabled}
@@ -154,6 +156,7 @@ export const RouteConditionEditor: React.FC<Props> = ({ clauses, onChange, disab
             ) : (
               <Input
                 label={i === 0 ? t("conditionEditor.valueLabel") : undefined}
+                aria-label={t("conditionEditor.valueInputAria", { index: i + 1 })}
                 value={c.value}
                 placeholder={c.op === "in" || c.op === "nin" ? t("conditionEditor.valueListPlaceholder") : t("conditionEditor.valuePlaceholder")}
                 disabled={disabled}
@@ -161,7 +164,15 @@ export const RouteConditionEditor: React.FC<Props> = ({ clauses, onChange, disab
               />
             )}
           </div>
-          <Button type="button" variant="ghost" size="sm" onClick={() => remove(i)} disabled={disabled} leftIcon={<Trash2Icon size={14} />} aria-label={t("conditionEditor.removeConditionAria")} />
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => remove(i)}
+            disabled={disabled}
+            leftIcon={<Trash2Icon size={14} />}
+            aria-label={t("conditionEditor.removeConditionAria", { index: i + 1 })}
+          />
         </div>
       ))}
       <div className="flex items-center justify-between">

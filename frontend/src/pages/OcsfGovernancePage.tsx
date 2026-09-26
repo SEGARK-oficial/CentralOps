@@ -90,7 +90,7 @@ export const OcsfGovernancePage: React.FC = () => {
       />
 
       {feedback && (
-        <Notice variant={feedback.type === "success" ? "success" : "danger"}>
+        <Notice variant={feedback.type === "success" ? "success" : "danger"} live={feedback.type === "error" ? "assertive" : undefined}>
           {feedback.message}
         </Notice>
       )}

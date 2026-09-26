@@ -32,6 +32,18 @@ interface UseFormReturn<T> {
   setFieldValue: (field: keyof T, value: any) => void
   setFieldError: (field: keyof T, error: string) => void
   resetForm: () => void
+  /**
+   * R2-8.3: `errors`/`touched` já mostravam a mensagem por campo (via `error=`
+   * no `Input`/`Textarea`, que já cuida de `aria-invalid`/`aria-describedby`
+   * sozinho) — mas o FOCO nunca se movia. Quem usa teclado/leitor de tela
+   * ficava exatamente onde estava (geralmente no botão "Salvar") e tinha que
+   * caçar manualmente qual campo, lá em cima, ficou vermelho. `registerField`
+   * espelha o mesmo padrão de `useFirstInvalidFocus` (Map por chave, não
+   * `useRef` nomeado): `ref={registerField("title")}` no campo, e o submit
+   * inválido foca o PRIMEIRO campo com erro (na ordem que `validate()`
+   * devolveu, que normalmente é a ordem visual do form).
+   */
+  registerField: (field: keyof T) => (el: HTMLElement | null) => void
 }
 
 export function useForm<T extends Record<string, any>>({
@@ -45,6 +57,15 @@ export function useForm<T extends Record<string, any>>({
   const [touched, setTouched] = useState<Partial<Record<keyof T, boolean>>>({})
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
+  const fieldEls = useRef(new Map<keyof T, HTMLElement>())
+
+  const registerField = useCallback(
+    (field: keyof T) => (el: HTMLElement | null) => {
+      if (el) fieldEls.current.set(field, el)
+      else fieldEls.current.delete(field)
+    },
+    [],
+  )
 
   useEffect(() => {
     initialValuesRef.current = initialValues
@@ -132,7 +153,16 @@ export function useForm<T extends Record<string, any>>({
 
       // Check if form has errors
       const hasErrors = Object.values(formErrors).some((error) => error)
-      if (hasErrors) return
+      if (hasErrors) {
+        // R2-8.3: foca o 1º campo com erro, na ordem em que `validate()` os
+        // reportou (normalmente a ordem visual do form) — sem isto o banner/
+        // marcação por campo aparecia, mas o foco ficava parado no botão.
+        const firstInvalidField = (Object.keys(formErrors) as (keyof T)[]).find((key) => formErrors[key])
+        if (firstInvalidField !== undefined) {
+          fieldEls.current.get(firstInvalidField)?.focus()
+        }
+        return
+      }
 
       setIsSubmitting(true)
 
@@ -182,5 +212,6 @@ export function useForm<T extends Record<string, any>>({
     setFieldValue,
     setFieldError,
     resetForm,
+    registerField,
   }
 }

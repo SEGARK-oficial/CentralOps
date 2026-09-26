@@ -519,9 +519,13 @@ const RoutesPage: React.FC = () => {
       />
 
       {feedback && (
+        // R2-8.2: reage a criar/editar/excluir/reordenar/ação em lote — o
+        // ERRO precisa interromper o leitor de tela; sucesso fica `polite`
+        // (default), o usuário já espera a confirmação.
         <Notice
           variant={feedback.type === "success" ? "success" : "danger"}
           title={feedback.type === "success" ? t("routesPage.feedbackOkTitle") : t("routesPage.feedbackErrorTitle")}
+          live={feedback.type === "success" ? undefined : "assertive"}
         >
           {feedback.message}
         </Notice>
@@ -816,7 +820,8 @@ const DryRunModal: React.FC<{ open: boolean; onClose: () => void }> = ({ open, o
           </Button>
         </div>
 
-        {error && <Notice variant="danger" title={t("dryRun.error")}>{error}</Notice>}
+        {/* R2-8.2: reage ao clique em "Testar evento"/"Usar eventos recentes". */}
+        {error && <Notice variant="danger" title={t("dryRun.error")} live="assertive">{error}</Notice>}
 
         {result && (
           <Card padding="md" className="space-y-3">

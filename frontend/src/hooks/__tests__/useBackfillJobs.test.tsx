@@ -176,3 +176,51 @@ describe("useBackfillJobs — polling", () => {
     expect(result.current.isLoading).toBe(false)
   })
 })
+
+// ── R2-5.4: abort da requisição anterior ──────────────────────────────────────
+
+describe("useBackfillJobs — aborta o fetch anterior ainda em voo", () => {
+  it("um refetch novo aborta o controller do fetch anterior — a resposta velha (fora de ordem) não vence", async () => {
+    interface Call {
+      signal?: AbortSignal | null
+      resolve: (v: typeof LIST_RESPONSE) => void
+    }
+    const calls: Call[] = []
+    mockedApi.listBackfillJobs.mockImplementation(
+      (_id: number, _filters?: unknown, opts?: { signal?: AbortSignal | null }) =>
+        new Promise<typeof LIST_RESPONSE>((resolve, reject) => {
+          calls.push({ signal: opts?.signal, resolve })
+          opts?.signal?.addEventListener("abort", () => {
+            const err = new Error("aborted")
+            err.name = "AbortError"
+            reject(err)
+          })
+        }),
+    )
+
+    const { result } = renderHook(() => useBackfillJobs(1))
+    // Fetch inicial (efeito de montagem) — ainda pendurado (nunca resolvido).
+    expect(calls).toHaveLength(1)
+    expect(calls[0].signal?.aborted).toBe(false)
+
+    act(() => {
+      result.current.refetch()
+    })
+    // O refetch cria um 2º fetch, e ABORTA o controller do 1º — sem isto, o
+    // 1º fetch (potencialmente mais lento) podia resolver DEPOIS do 2º e
+    // regravar `items` com dado obsoleto.
+    expect(calls).toHaveLength(2)
+    expect(calls[0].signal?.aborted).toBe(true)
+    expect(calls[1].signal?.aborted).toBe(false)
+
+    // O 2º fetch (novo, não abortado) resolve normalmente.
+    await act(async () => {
+      calls[1].resolve(LIST_RESPONSE)
+      await Promise.resolve()
+    })
+    await waitFor(() => expect(result.current.items).toEqual([JOB_1]))
+    // Erro nenhum — o `.catch` reconhece o AbortError do 1º fetch e descarta,
+    // em vez de tratá-lo como falha de rede visível ao usuário.
+    expect(result.current.error).toBeNull()
+  })
+})

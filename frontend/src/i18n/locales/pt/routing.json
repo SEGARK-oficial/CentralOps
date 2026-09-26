@@ -320,12 +320,15 @@
   "conditionEditor": {
     "noConditions": "Sem condições, a regra casa com todos os eventos.",
     "fieldLabel": "Campo",
+    "fieldSelectAria": "Campo da condição {{index}}",
     "opLabel": "Op",
-    "opSelectAriaLabel": "Operador da condição",
+    "opSelectAriaLabel": "Operador da condição {{index}}",
     "valueLabel": "Valor",
+    "valueSelectAria": "Valor da condição {{index}}",
+    "valueInputAria": "Valor da condição {{index}}",
     "valueListPlaceholder": "a,b,c",
     "valuePlaceholder": "valor",
-    "removeConditionAria": "Remover condição",
+    "removeConditionAria": "Remover condição {{index}}",
     "addCondition": "Adicionar condição"
   },
   "routeForm": {

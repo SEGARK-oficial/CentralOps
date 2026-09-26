@@ -131,3 +131,26 @@ describe("PlatformContext — posse da seleção de escopo", () => {
     expect(localStorage.getItem("centralops_scope_owner")).toBe("1")
   })
 })
+
+describe("PlatformContext — R2-6.11 (fallback de erro passa por i18n)", () => {
+  it("erro sem .message (rejeição não-Error) usa a mensagem traduzida, não PT fixo", async () => {
+    login("1")
+    // Rejeição que NÃO é instância de Error — cai no branch do fallback.
+    mockedApi.listOrganizations.mockRejectedValue("network down")
+
+    const { result } = renderHook(() => usePlatform(), { wrapper })
+
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    expect(result.current.error).toBe("Falha ao carregar organizações e integrações.")
+  })
+
+  it("erro COM .message (instância de Error) usa a mensagem real, não a traduzida genérica", async () => {
+    login("1")
+    mockedApi.listOrganizations.mockRejectedValue(new Error("500 Internal Server Error"))
+
+    const { result } = renderHook(() => usePlatform(), { wrapper })
+
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    expect(result.current.error).toBe("500 Internal Server Error")
+  })
+})

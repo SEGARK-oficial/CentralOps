@@ -46,6 +46,27 @@ const defaultFormValues: EmailConfigFormValues = {
   use_tls: false,
 }
 
+/**
+ * R2-8.3: o form tinha `noValidate` no `<form>` — que DESLIGA a validação
+ * nativa do navegador — e nenhum `validate` no `useForm`. O `required`/
+ * asterisco nos campos (host/porta/remetente) era só cosmético: submeter
+ * vazio ia direto pro `onSave` com string vazia / porta 0, sem aviso nenhum.
+ */
+function validateEmailConfig(t: (key: string) => string, values: EmailConfigFormValues) {
+  const errors: Partial<Record<keyof EmailConfigFormValues, string>> = {}
+  if (!values.smtp_host?.trim()) {
+    errors.smtp_host = t("config:email.validation.hostRequired")
+  }
+  const port = Number(values.smtp_port)
+  if (!values.smtp_port || Number.isNaN(port) || port < 1 || port > 65535) {
+    errors.smtp_port = t("config:email.validation.portInvalid")
+  }
+  if (!values.sender?.trim()) {
+    errors.sender = t("config:email.validation.senderRequired")
+  }
+  return errors
+}
+
 export const EmailConfigForm: React.FC<Props> = ({
   config,
   recipients,
@@ -76,25 +97,27 @@ export const EmailConfigForm: React.FC<Props> = ({
       }
     : defaultFormValues
 
-  const { values, handleChange, handleSubmit, isSubmitting, setFieldValue } = useForm<EmailConfigFormValues>({
-    initialValues,
-    onSubmit: async (formValues) => {
-      const saved = await onSave({
-        smtp_host: formValues.smtp_host,
-        smtp_port: Number(formValues.smtp_port),
-        smtp_user: formValues.smtp_user,
-        ...(formValues.smtp_password ? { smtp_password: formValues.smtp_password } : {}),
-        ...(clearStoredPassword ? { clear_smtp_password: true } : {}),
-        sender: formValues.sender,
-        use_tls: formValues.use_tls,
-      })
+  const { values, errors, touched, handleChange, handleBlur, handleSubmit, isSubmitting, setFieldValue, registerField } =
+    useForm<EmailConfigFormValues>({
+      initialValues,
+      validate: (v) => validateEmailConfig(t, v),
+      onSubmit: async (formValues) => {
+        const saved = await onSave({
+          smtp_host: formValues.smtp_host,
+          smtp_port: Number(formValues.smtp_port),
+          smtp_user: formValues.smtp_user,
+          ...(formValues.smtp_password ? { smtp_password: formValues.smtp_password } : {}),
+          ...(clearStoredPassword ? { clear_smtp_password: true } : {}),
+          sender: formValues.sender,
+          use_tls: formValues.use_tls,
+        })
 
-      if (saved) {
-        setFieldValue("smtp_password", "")
-        setClearStoredPassword(false)
-      }
-    },
-  })
+        if (saved) {
+          setFieldValue("smtp_password", "")
+          setClearStoredPassword(false)
+        }
+      },
+    })
 
   useEffect(() => {
     if (!config) return
@@ -133,7 +156,7 @@ export const EmailConfigForm: React.FC<Props> = ({
     <div className="space-y-6">
       {feedback && (
         <Notice
-          variant={feedback.type === "success" ? "success" : "danger"}
+          variant={feedback.type === "success" ? "success" : "danger"} live={feedback.type === "error" ? "assertive" : undefined}
           title={feedback.type === "success" ? t("email.resultTitleSuccess") : t("email.resultTitleError")}
         >
           {feedback.message}
@@ -143,20 +166,26 @@ export const EmailConfigForm: React.FC<Props> = ({
       <form onSubmit={handleSubmit} className="space-y-6" noValidate>
         <div className="grid gap-4 md:grid-cols-2">
           <Input
+            ref={registerField("smtp_host")}
             name="smtp_host"
             label={t("email.fields.smtpHost")}
             value={values.smtp_host || ""}
             onChange={handleChange}
+            onBlur={handleBlur}
+            error={touched.smtp_host ? errors.smtp_host : undefined}
             required
             disabled={formDisabled}
           />
 
           <Input
+            ref={registerField("smtp_port")}
             name="smtp_port"
             type="number"
             label={t("email.fields.port")}
             value={values.smtp_port?.toString() || "25"}
             onChange={handleChange}
+            onBlur={handleBlur}
+            error={touched.smtp_port ? errors.smtp_port : undefined}
             required
             disabled={formDisabled}
           />
@@ -171,11 +200,14 @@ export const EmailConfigForm: React.FC<Props> = ({
           />
 
           <Input
+            ref={registerField("sender")}
             name="sender"
             label={t("email.fields.sender")}
             placeholder={t("email.fields.senderPlaceholder")}
             value={values.sender || ""}
             onChange={handleChange}
+            onBlur={handleBlur}
+            error={touched.sender ? errors.sender : undefined}
             required
             disabled={formDisabled}
           />

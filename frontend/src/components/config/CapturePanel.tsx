@@ -3,7 +3,6 @@
 import type React from "react"
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Trans, useTranslation } from "react-i18next"
-import { useVirtualizer } from "@tanstack/react-virtual"
 import {
   CopyIcon,
   DownloadIcon,
@@ -17,12 +16,12 @@ import {
 } from "lucide-react"
 import * as api from "@/services/api"
 import { ApiRequestError } from "@/services/api"
-import { cn } from "@/lib/utils"
 import { useAuth } from "@/contexts/AuthContext"
-import type { CaptureEvent, CaptureSession, Organization } from "@/types"
+import type { CaptureEvent, CaptureSession, Organization, TableColumn } from "@/types"
 import { Badge } from "@/components/ui/Badge/Badge"
 import { Button } from "@/components/ui/Button/Button"
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog/ConfirmDialog"
+import { DataTable } from "@/components/ui/DataTable/DataTable"
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState"
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner/LoadingSpinner"
 import { Modal } from "@/components/ui/Modal/Modal"
@@ -62,7 +61,6 @@ const EVENT_PREVIEW_MAX_CHARS = 300
 // linha nenhuma sem um container com altura de verdade, então os testes
 // (poucos eventos por caso) continuam exercitando o caminho simples.
 const EVENTS_VIRTUALIZE_THRESHOLD = 80
-const EVENT_ROW_HEIGHT_PX = 41
 const EVENTS_MAX_HEIGHT_PX = 480
 
 // ── Desfecho (outcome) ──────────────────────────────────────────────────────
@@ -185,8 +183,26 @@ function statusVariant(status: string): "success" | "outline" | "warning" {
   return "outline"
 }
 
-interface CaptureEventRowProps {
-  ev: CaptureEvent
+/**
+ * Preview do evento, memoizado (PERF-05). Sem isto, `JSON.stringify(ev.event)`
+ * — payload inteiro do evento, sem teto — rodava de novo em TODA linha a cada
+ * re-render do painel (poll de 3s, troca de filtro, feedback de cópia…),
+ * mesmo para eventos que não mudaram. `React.memo` só refaz o preview quando
+ * `event` (a própria referência do payload) muda — `filteredEvents` pode
+ * gerar um array novo sem clonar os eventos que sobrevivem ao filtro, então a
+ * maioria das células nem recalcula (o `render` do DataTable cria um
+ * elemento novo a cada chamada, mas `React.memo` compara PROPS, não a
+ * identidade do elemento, e bloqueia o re-render do que está por dentro).
+ */
+const EventPreviewCell = memo(function EventPreviewCell({ event }: { event: unknown }) {
+  const preview = useMemo(() => {
+    const full = JSON.stringify(event)
+    return full.length > EVENT_PREVIEW_MAX_CHARS ? `${full.slice(0, EVENT_PREVIEW_MAX_CHARS)}…` : full
+  }, [event])
+  return <code className="block max-w-[420px] truncate text-xs text-text-secondary">{preview}</code>
+})
+
+interface BuildEventColumnsArgs {
   hasOutcomeData: boolean
   outcomeLabel: (key: string) => string
   onInspect: (ev: CaptureEvent) => void
@@ -194,63 +210,66 @@ interface CaptureEventRowProps {
   t: (key: string, options?: Record<string, unknown>) => string
 }
 
-/**
- * Linha da tabela de eventos, memoizada (PERF-05). Sem isto,
- * `JSON.stringify(ev.event)` — payload inteiro do evento, sem teto — rodava
- * de novo em TODA linha a cada re-render do painel (poll de 3s, troca de
- * filtro, feedback de cópia…), mesmo para eventos que não mudaram. `React.memo`
- * só refaz o preview quando `ev` (a própria referência do evento) muda —
- * `filteredEvents` pode gerar um array novo sem clonar os eventos que
- * sobrevivem ao filtro, então a maioria das linhas nem re-renderiza.
- */
-const CaptureEventRow = memo(function CaptureEventRow({
-  ev,
-  hasOutcomeData,
-  outcomeLabel,
-  onInspect,
-  onCopyJson,
-  t,
-}: CaptureEventRowProps) {
-  const outcome = eventOutcome(ev)
-  const destination = metaField(ev, "destination_id")
-  const detail = metaField(ev, "detail")
-  const preview = useMemo(() => {
-    const full = JSON.stringify(ev.event)
-    return full.length > EVENT_PREVIEW_MAX_CHARS ? `${full.slice(0, EVENT_PREVIEW_MAX_CHARS)}…` : full
-  }, [ev.event])
-
-  return (
-    <tr>
-      <td className="px-3 py-2 text-text-secondary">
-        <code className="text-xs">{formatEpoch(ev.captured_at)}</code>
-      </td>
-      <td className="px-3 py-2 text-text">{ev.vendor ?? "—"}</td>
-      {hasOutcomeData && (
-        <td className="px-3 py-2">
-          {outcome ? (
-            <div className="flex flex-col gap-0.5">
-              <Badge variant={outcomeTone(outcome)} size="sm" title={detail ?? undefined}>
-                {outcomeLabel(outcome)}
-              </Badge>
-              {destination && (
-                <span className="text-[10px] text-text-tertiary">
-                  {t("capture.events.destinationShort", { destination })}
-                </span>
-              )}
-            </div>
-          ) : (
-            /* Evento antigo no ring (gravado antes do desfecho
-               existir): não quebra, só não sabemos o desfecho. */
-            <span className="text-xs text-text-tertiary" title={t("capture.outcomes.unknownTooltip")}>
-              —
-            </span>
-          )}
-        </td>
-      )}
-      <td className="px-3 py-2">
-        <code className="block max-w-[420px] truncate text-xs text-text-secondary">{preview}</code>
-      </td>
-      <td className="px-3 py-2">
+/** R2-5.3: colunas do DataTable para a tabela de eventos (antes, tabela feita
+ *  à mão com o próprio `useVirtualizer`). */
+function buildEventColumns({ hasOutcomeData, outcomeLabel, onInspect, onCopyJson, t }: BuildEventColumnsArgs): TableColumn<CaptureEvent>[] {
+  const columns: TableColumn<CaptureEvent>[] = [
+    {
+      key: "capturedAt",
+      title: t("capture.events.table.capturedAt"),
+      dataIndex: "captured_at",
+      render: (_v, ev) => <code className="text-xs">{formatEpoch(ev.captured_at)}</code>,
+    },
+    {
+      key: "vendor",
+      title: t("capture.events.table.vendor"),
+      dataIndex: "vendor",
+      render: (_v, ev) => ev.vendor ?? "—",
+    },
+  ]
+  if (hasOutcomeData) {
+    columns.push({
+      key: "outcome",
+      title: t("capture.events.table.outcome"),
+      dataIndex: "vendor",
+      render: (_v, ev) => {
+        const outcome = eventOutcome(ev)
+        const destination = metaField(ev, "destination_id")
+        const detail = metaField(ev, "detail")
+        return outcome ? (
+          <div className="flex flex-col gap-0.5">
+            <Badge variant={outcomeTone(outcome)} size="sm" title={detail ?? undefined}>
+              {outcomeLabel(outcome)}
+            </Badge>
+            {destination && (
+              <span className="text-[10px] text-text-tertiary">
+                {t("capture.events.destinationShort", { destination })}
+              </span>
+            )}
+          </div>
+        ) : (
+          /* Evento antigo no ring (gravado antes do desfecho existir): não
+             quebra, só não sabemos o desfecho. */
+          <span className="text-xs text-text-tertiary" title={t("capture.outcomes.unknownTooltip")}>
+            —
+          </span>
+        )
+      },
+    })
+  }
+  columns.push(
+    {
+      key: "preview",
+      title: t("capture.events.table.preview"),
+      dataIndex: "vendor",
+      render: (_v, ev) => <EventPreviewCell event={ev.event} />,
+    },
+    {
+      key: "actions",
+      title: t("capture.events.table.actions"),
+      dataIndex: "vendor",
+      align: "right",
+      render: (_v, ev) => (
         <div className="flex justify-end gap-1">
           <Button
             size="xs"
@@ -271,10 +290,11 @@ const CaptureEventRow = memo(function CaptureEventRow({
             {t("capture.events.json")}
           </Button>
         </div>
-      </td>
-    </tr>
+      ),
+    },
   )
-})
+  return columns
+}
 
 function copyToClipboard(text: string): Promise<void> {
   if (navigator.clipboard?.writeText) return navigator.clipboard.writeText(text)
@@ -625,23 +645,20 @@ export const CapturePanel: React.FC = () => {
     return events.filter((ev) => (eventOutcome(ev) ?? OUTCOME_UNKNOWN) === outcomeFilter)
   }, [events, outcomeFilter])
 
-  // Virtualização (até 500 eventos por sessão — `getCaptureEvents(id, 500,
-  // …)`): abaixo do teto, tudo no DOM (jsdom não tem layout real e o
-  // virtualizer não materializa nada sem um container com altura de verdade).
-  const eventsScrollRef = useRef<HTMLDivElement>(null)
-  const virtualizeEvents = filteredEvents.length > EVENTS_VIRTUALIZE_THRESHOLD
-  const eventsVirtualizer = useVirtualizer({
-    count: virtualizeEvents ? filteredEvents.length : 0,
-    getScrollElement: () => eventsScrollRef.current,
-    estimateSize: () => EVENT_ROW_HEIGHT_PX,
-    overscan: 8,
-  })
-  const eventsVirtualItems = virtualizeEvents ? eventsVirtualizer.getVirtualItems() : []
-  const eventsPaddingTop = eventsVirtualItems.length > 0 ? eventsVirtualItems[0].start : 0
-  const eventsPaddingBottom =
-    eventsVirtualItems.length > 0
-      ? eventsVirtualizer.getTotalSize() - eventsVirtualItems[eventsVirtualItems.length - 1].end
-      : 0
+  // R2-5.3: virtualização migrada para o DataTable (antes, `useVirtualizer`
+  // manual aqui). Acima do teto, ele virtualiza sozinho; abaixo, tudo no DOM.
+  const eventColumns = useMemo(
+    () =>
+      buildEventColumns({
+        hasOutcomeData,
+        outcomeLabel,
+        onInspect: setInspected,
+        onCopyJson: (ev) => void handleCopyJson(ev),
+        t,
+      }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [hasOutcomeData, outcomeLabel, t],
+  )
 
   // Contadores vindos do backend (opcionais): distinguem "a sessão não viu
   // nada" de "viu N eventos" mesmo com a lista renderizada vazia.
@@ -1037,67 +1054,13 @@ export const CapturePanel: React.FC = () => {
               }
             />
           ) : (
-            <div
-              ref={eventsScrollRef}
-              className="overflow-x-auto rounded border border-border"
-              style={virtualizeEvents ? { maxHeight: EVENTS_MAX_HEIGHT_PX, overflowY: "auto" } : undefined}
-            >
-              <table className="w-full text-sm">
-                <thead className={cn("bg-surface-tertiary text-xs uppercase tracking-wider text-text-secondary", virtualizeEvents && "sticky top-0 z-10")}>
-                  <tr>
-                    <th className="px-3 py-2 text-left">{t("capture.events.table.capturedAt")}</th>
-                    <th className="px-3 py-2 text-left">{t("capture.events.table.vendor")}</th>
-                    {hasOutcomeData && (
-                      <th className="px-3 py-2 text-left">{t("capture.events.table.outcome")}</th>
-                    )}
-                    <th className="px-3 py-2 text-left">{t("capture.events.table.preview")}</th>
-                    <th className="px-3 py-2 text-right">{t("capture.events.table.actions")}</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border">
-                  {virtualizeEvents ? (
-                    <>
-                      {eventsPaddingTop > 0 && (
-                        <tr aria-hidden="true" style={{ height: eventsPaddingTop }}>
-                          <td colSpan={hasOutcomeData ? 5 : 4} className="border-0 p-0" />
-                        </tr>
-                      )}
-                      {eventsVirtualItems.map((virtualRow) => {
-                        const ev = filteredEvents[virtualRow.index]
-                        return (
-                          <CaptureEventRow
-                            key={virtualRow.key}
-                            ev={ev}
-                            hasOutcomeData={hasOutcomeData}
-                            outcomeLabel={outcomeLabel}
-                            onInspect={setInspected}
-                            onCopyJson={(e) => void handleCopyJson(e)}
-                            t={t}
-                          />
-                        )
-                      })}
-                      {eventsPaddingBottom > 0 && (
-                        <tr aria-hidden="true" style={{ height: eventsPaddingBottom }}>
-                          <td colSpan={hasOutcomeData ? 5 : 4} className="border-0 p-0" />
-                        </tr>
-                      )}
-                    </>
-                  ) : (
-                    filteredEvents.map((ev, idx) => (
-                      <CaptureEventRow
-                        key={`${selected.id}-${ev.captured_at ?? idx}-${ev.vendor ?? ""}-${idx}`}
-                        ev={ev}
-                        hasOutcomeData={hasOutcomeData}
-                        outcomeLabel={outcomeLabel}
-                        onInspect={setInspected}
-                        onCopyJson={(e) => void handleCopyJson(e)}
-                        t={t}
-                      />
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
+            <DataTable<CaptureEvent>
+              data={filteredEvents}
+              columns={eventColumns}
+              rowKey={(ev, idx) => `${selected.id}-${ev.captured_at ?? idx}-${ev.vendor ?? ""}-${idx}`}
+              virtualizeRows={filteredEvents.length > EVENTS_VIRTUALIZE_THRESHOLD}
+              maxHeight={EVENTS_MAX_HEIGHT_PX}
+            />
           )}
         </div>
       )}

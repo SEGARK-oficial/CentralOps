@@ -20,6 +20,7 @@ import { Input } from "@/components/ui/Input/Input"
 import { Notice } from "@/components/ui/Notice/Notice"
 import { Select } from "@/components/ui/Select/Select"
 import { Textarea } from "@/components/ui/Textarea/Textarea"
+import { useFirstInvalidFocus } from "@/hooks/useFirstInvalidFocus"
 
 interface Props {
   integrationId: number
@@ -33,7 +34,17 @@ export const SyslogSourcesPanel: React.FC<Props> = ({ integrationId, canManage =
   const [hidden, setHidden] = useState(false)
   const [streams, setStreams] = useState<string[]>([])
   const [sources, setSources] = useState<SyslogSource[]>([])
-  const [error, setError] = useState<string | null>(null)
+  const errorId = "syslog-sources-error"
+  // R2-8.3: o botão "Adicionar" já fica desabilitado enquanto o form é
+  // inválido (guarda a prova via helper text sempre visível em cada campo —
+  // uma alternativa válida ao banner pós-submit). O que faltava mesmo era o
+  // banner de erro do SERVIDOR (criar/excluir/testar) não ter `role`/`live`
+  // nenhum — sumia sem anúncio nenhum para leitor de tela. O hook também cobre
+  // o caso defensivo de Enter disparar o submit nativo do form mesmo com o
+  // botão desabilitado (alguns navegadores permitem).
+  const { error, errorField, registerField, failField, failGeneral, clearError } = useFirstInvalidFocus<
+    "name" | "cidr" | "defaultStream"
+  >()
   const [notice, setNotice] = useState<string | null>(null)
 
   const [name, setName] = useState("")
@@ -53,8 +64,9 @@ export const SyslogSourcesPanel: React.FC<Props> = ({ integrationId, canManage =
       const list = await api.listSyslogSources(integrationId)
       setSources(Array.isArray(list) ? list : [])
     } catch (e) {
-      setError(e instanceof Error ? e.message : t("syslog.loadError"))
+      failGeneral(e instanceof Error ? e.message : t("syslog.loadError"))
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [integrationId, t])
 
   useEffect(() => {
@@ -83,9 +95,27 @@ export const SyslogSourcesPanel: React.FC<Props> = ({ integrationId, canManage =
   const canCreate = name.trim().length > 0 && cidrValid && defaultStream.length > 0 && rules.every((r) => r.when.trim() && r.stream)
 
   const handleCreate = useCallback(async () => {
+    // Defensivo: o botão fica desabilitado enquanto `!canCreate`, mas o
+    // submit NATIVO do form (Enter num campo de texto) pode disparar mesmo
+    // assim em alguns navegadores — sem isto o clique silenciosamente não
+    // fazia nada e o operador não tinha pista do motivo.
+    if (!name.trim()) {
+      failField("name", t("syslog.form.nameRequiredError"))
+      return
+    }
+    if (!cidrValid) {
+      failField("cidr", t("syslog.form.cidrInvalidError"))
+      return
+    }
+    if (!defaultStream) {
+      failField("defaultStream", t("syslog.form.defaultStreamRequiredError"))
+      // Select não encaminha ref — foca o trigger pelo id.
+      document.getElementById("syslog-default-stream-select")?.focus()
+      return
+    }
     if (!canCreate) return
     setCreating(true)
-    setError(null)
+    clearError()
     setNotice(null)
     try {
       const created = await api.createSyslogSource({
@@ -104,24 +134,24 @@ export const SyslogSourcesPanel: React.FC<Props> = ({ integrationId, canManage =
       setRules([])
       setNotice(t("syslog.form.created", { name: created.name }))
     } catch (e) {
-      setError(e instanceof Error ? e.message : t("syslog.form.createError"))
+      failGeneral(e instanceof Error ? e.message : t("syslog.form.createError"))
     } finally {
       setCreating(false)
     }
-  }, [canCreate, integrationId, name, cidr, port, transport, defaultStream, rules, t])
+  }, [canCreate, integrationId, name, cidr, cidrValid, port, transport, defaultStream, rules, t, failField, failGeneral, clearError])
 
   const handleDelete = useCallback(
     async (src: SyslogSource) => {
       if (typeof window !== "undefined" && !window.confirm(t("syslog.form.deleteConfirm", { name: src.name }))) return
-      setError(null)
+      clearError()
       try {
         await api.deleteSyslogSource(src.id)
         setSources((prev) => prev.filter((s) => s.id !== src.id))
       } catch (e) {
-        setError(e instanceof Error ? e.message : t("syslog.form.deleteError"))
+        failGeneral(e instanceof Error ? e.message : t("syslog.form.deleteError"))
       }
     },
-    [t],
+    [t, clearError, failGeneral],
   )
 
   const handleTest = useCallback(async () => {
@@ -136,11 +166,11 @@ export const SyslogSourcesPanel: React.FC<Props> = ({ integrationId, canManage =
       })
       setTestResult(res)
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
+      failGeneral(e instanceof Error ? e.message : String(e))
     } finally {
       setTesting(false)
     }
-  }, [testLine, rules, defaultStream])
+  }, [testLine, rules, defaultStream, failGeneral])
 
   if (hidden) return null
 
@@ -214,18 +244,37 @@ export const SyslogSourcesPanel: React.FC<Props> = ({ integrationId, canManage =
           }}
         >
           <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
-            <Input label={t("syslog.form.name")} value={name} onChange={(e) => setName(e.target.value)} data-testid="syslog-name" />
             <Input
+              ref={registerField("name")}
+              label={t("syslog.form.name")}
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              data-testid="syslog-name"
+              aria-invalid={errorField === "name" ? "true" : undefined}
+              aria-describedby={errorField === "name" ? errorId : undefined}
+            />
+            <Input
+              ref={registerField("cidr")}
               label={t("syslog.form.cidr")}
               placeholder={t("syslog.form.cidrPlaceholder")}
               helperText={t("syslog.form.cidrHelper")}
               value={cidr}
               onChange={(e) => setCidr(e.target.value)}
               data-testid="syslog-cidr"
+              aria-invalid={errorField === "cidr" ? "true" : undefined}
+              aria-describedby={errorField === "cidr" ? errorId : undefined}
             />
             <Input label={t("syslog.form.port")} helperText={t("syslog.form.portHelper")} value={port} onChange={(e) => setPort(e.target.value)} inputMode="numeric" />
             <Select label={t("syslog.form.transport")} options={transportOptions} value={transport} onChange={(v) => setTransport(String(v) as SyslogSource["transport"])} />
-            <Select label={t("syslog.form.defaultStream")} options={streamOptions} value={defaultStream} onChange={(v) => setDefaultStream(String(v))} data-testid="syslog-default-stream" />
+            <Select
+              id="syslog-default-stream-select"
+              label={t("syslog.form.defaultStream")}
+              options={streamOptions}
+              value={defaultStream}
+              onChange={(v) => setDefaultStream(String(v))}
+              data-testid="syslog-default-stream"
+              error={errorField === "defaultStream" ? error ?? undefined : undefined}
+            />
           </div>
 
           <div className="space-y-2">
@@ -283,7 +332,13 @@ export const SyslogSourcesPanel: React.FC<Props> = ({ integrationId, canManage =
         </div>
       </div>
 
-      {error && <p className="text-xs text-danger-600">{error}</p>}
+      {/* R2-8.3: antes era um <p> sem role/aria-live nenhum — erro de
+          criar/excluir/testar sumia sem anúncio nenhum pro leitor de tela. */}
+      {error && (
+        <p id={errorId} className="text-xs text-danger-600" role="alert" aria-live="assertive">
+          {error}
+        </p>
+      )}
     </Card>
   )
 }

@@ -16,6 +16,7 @@ import { Badge } from "@/components/ui/Badge/Badge"
 import { Button } from "@/components/ui/Button/Button"
 import { Input } from "@/components/ui/Input/Input"
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState"
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog/ConfirmDialog"
 import { RuleRow } from "@/components/mappings/RuleRow"
 import { TemplatePicker } from "@/components/mappings/TemplatePicker"
 import {
@@ -594,42 +595,28 @@ export const RulesEditor: React.FC<RulesEditorProps> = ({
       )}
 
       {/* ── Import confirm dialog ──────────────────────────────────────── */}
-      {importConfirm && (
-        <div
-          role="alertdialog"
-          aria-labelledby="import-confirm-title"
-          className="rounded-md border border-warning-300 bg-warning-50 px-3 py-2 flex flex-col gap-2"
-          data-testid="import-confirm"
-        >
-          <p id="import-confirm-title" className="text-sm font-medium text-warning-800">
-            {t("rulesEditor.importConfirm.title")}
-          </p>
-          <p className="text-xs text-warning-700">
-            {t("rulesEditor.importConfirm.replaceCurrent", { count: rules.length })}{" "}
-            {t("rulesEditor.importConfirm.withImported", { count: importConfirm.rules.length })}
-          </p>
-          <div className="flex gap-2">
-            <Button
-              variant="primary"
-              size="xs"
-              type="button"
-              onClick={handleImportConfirm}
-              data-testid="import-confirm-button"
-            >
-              {t("rulesEditor.importConfirm.confirm")}
-            </Button>
-            <Button
-              variant="outline"
-              size="xs"
-              type="button"
-              onClick={handleImportCancel}
-              data-testid="import-cancel-button"
-            >
-              {t("common:actions.cancel")}
-            </Button>
-          </div>
-        </div>
-      )}
+      {/* R2-6.6: era um `role="alertdialog"` inline — sem focus trap, sem
+          foco movido pro diálogo ao aparecer (leitor de tela não percebia) e
+          com id fixo (`import-confirm-title`, colidiria se este componente
+          existisse 2× na mesma página). `ConfirmDialog` já resolve os três
+          via `Modal` (focus trap + `useId` + pilha de Escape). */}
+      <ConfirmDialog
+        open={!!importConfirm}
+        title={t("rulesEditor.importConfirm.title")}
+        description={
+          importConfirm && (
+            <>
+              {t("rulesEditor.importConfirm.replaceCurrent", { count: rules.length })}{" "}
+              {t("rulesEditor.importConfirm.withImported", { count: importConfirm.rules.length })}
+            </>
+          )
+        }
+        confirmLabel={t("rulesEditor.importConfirm.confirm")}
+        confirmVariant="danger"
+        onConfirm={handleImportConfirm}
+        onClose={handleImportCancel}
+        data-testid="import-confirm"
+      />
 
       {/* ── Control bar ────────────────────────────────────────────────── */}
       <div className="flex flex-wrap items-center gap-2" aria-label={t("rulesEditor.filterControlsAriaLabel")}>

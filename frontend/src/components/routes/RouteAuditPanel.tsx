@@ -98,9 +98,13 @@ export const RouteAuditPanel: React.FC<RouteAuditPanelProps> = ({
       </div>
 
       {toast && (
+        // R2-8.2: reage ao clique em "Reverter" — o ERRO precisa interromper
+        // o leitor de tela; o sucesso fica `polite` (default), sem exagerar
+        // no `assertive` pra uma confirmação que o usuário já espera.
         <Notice
           variant={toast.type === "success" ? "success" : "danger"}
           title={toast.type === "success" ? t("auditPanel.feedbackOkTitle") : t("auditPanel.feedbackErrorTitle")}
+          live={toast.type === "success" ? undefined : "assertive"}
         >
           {toast.message}
         </Notice>

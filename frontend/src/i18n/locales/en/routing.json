@@ -320,12 +320,15 @@
   "conditionEditor": {
     "noConditions": "With no conditions, the rule matches every event.",
     "fieldLabel": "Field",
+    "fieldSelectAria": "Condition {{index}} field",
     "opLabel": "Op",
-    "opSelectAriaLabel": "Condition operator",
+    "opSelectAriaLabel": "Condition {{index}} operator",
     "valueLabel": "Value",
+    "valueSelectAria": "Condition {{index}} value",
+    "valueInputAria": "Condition {{index}} value",
     "valueListPlaceholder": "a,b,c",
     "valuePlaceholder": "value",
-    "removeConditionAria": "Remove condition",
+    "removeConditionAria": "Remove condition {{index}}",
     "addCondition": "Add condition"
   },
   "routeForm": {

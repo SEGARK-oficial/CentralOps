@@ -73,7 +73,7 @@ const validateForm = (t: TFunction, values: CreateQueryRequest) => {
 
 export const CreateQueryForm: React.FC<CreateQueryFormProps> = ({ clients, onSubmit, onCancel, loading = false }) => {
   const { t } = useTranslation("queries")
-  const { values, errors, touched, handleChange, handleBlur, handleSubmit, setFieldValue, isSubmitting, submitError } = useForm({
+  const { values, errors, touched, handleChange, handleBlur, handleSubmit, setFieldValue, isSubmitting, submitError, registerField } = useForm({
     initialValues,
     validate: (v) => validateForm(t, v),
     onSubmit,
@@ -108,13 +108,14 @@ export const CreateQueryForm: React.FC<CreateQueryFormProps> = ({ clients, onSub
           tratar o próprio erro, isto garante que ALGO aparece na tela em vez
           de só um console.error mudo. */}
       {submitError && (
-        <Notice variant="danger" title={t("queries:form.submitErrorFallback")}>
+        <Notice variant="danger" title={t("queries:form.submitErrorFallback")} live="assertive">
           {submitError}
         </Notice>
       )}
       <div className="grid gap-4 md:grid-cols-2">
         <div className="md:col-span-2">
           <Input
+            ref={registerField("title")}
             name="title"
             label={t("queries:createForm.titleLabel")}
             placeholder={t("queries:createForm.titlePlaceholder")}
@@ -144,6 +145,7 @@ export const CreateQueryForm: React.FC<CreateQueryFormProps> = ({ clients, onSub
 
         <div className="md:col-span-2">
           <Textarea
+            ref={registerField("statement")}
             id="create-query-statement"
             name="statement"
             label={t("queries:createForm.statementLabel")}

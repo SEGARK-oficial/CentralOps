@@ -236,6 +236,11 @@
       "deleteTitle": "Remove recipient",
       "deleteDescriptionPrefix": "Are you sure you want to remove",
       "deleteDescriptionSuffix": "? This email will stop receiving alerts and results from scheduled runs."
+    },
+    "validation": {
+      "hostRequired": "Enter the SMTP host.",
+      "portInvalid": "Enter a valid port (1-65535).",
+      "senderRequired": "Enter the sender."
     }
   },
   "collector": {
@@ -698,5 +703,20 @@
     "saveConfig": "Save configuration",
     "saved": "Configuration saved. Takes effect on the next request.",
     "saveError": "Failed to save the MCP configuration"
+  },
+  "collectorConfigHook": {
+    "loadErrorFallback": "Failed to load configuration",
+    "saveErrorFallback": "Failed to save configuration",
+    "saveSuccess": "Configuration saved. Workers will reflect it within 30s."
+  },
+  "emailConfigHook": {
+    "loadErrorFallback": "Failed to load configuration",
+    "saveErrorFallback": "Failed to save email configuration",
+    "saveSuccess": "Email settings saved successfully.",
+    "addRecipientErrorFallback": "Failed to add recipient",
+    "addRecipientSuccess": "Recipient {{email}} added.",
+    "removeRecipientErrorFallback": "Failed to remove recipient",
+    "removeRecipientSuccess": "Recipient removed successfully.",
+    "sendTestErrorFallback": "Failed to send test email"
   }
 }

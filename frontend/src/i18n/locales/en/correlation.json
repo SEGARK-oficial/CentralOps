@@ -1,4 +1,10 @@
 {
+  "errors": {
+    "loadRulesFailed": "Failed to load correlation rules",
+    "createRuleFailed": "Failed to create rule",
+    "updateRuleFailed": "Failed to update rule",
+    "removeRuleFailed": "Failed to remove rule"
+  },
   "page": {
     "eyebrow": "Detection",
     "badgeBeta": "Beta",
@@ -652,6 +658,10 @@
       "yes": "Yes",
       "no": "No"
     },
+    "errors": {
+      "submitFailed": "Failed to submit search.",
+      "loadRecentFailed": "Failed to load recent jobs."
+    },
     "table": {
       "loading": "Loading jobs...",
       "empty": {
@@ -741,6 +751,57 @@
         "refreshAriaLabel": "Refresh job list",
         "refresh": "Refresh"
       }
+    },
+    "form": {
+      "specKind": {
+        "passthrough": "Passthrough",
+        "sigma": "Sigma (experimental)"
+      },
+      "errors": {
+        "integrationsRequired": "Select at least one integration.",
+        "statementRequired": "Statement is required.",
+        "windowRequired": "Select the time window (start and end)."
+      },
+      "submitErrorTitle": "Failed to submit search",
+      "integrations": {
+        "label": "Integrations",
+        "placeholder": "Select the integrations to query",
+        "ariaLabel": "Select integrations"
+      },
+      "dialect": {
+        "label": "Dialect",
+        "placeholderLoading": "Loading dialects...",
+        "placeholder": "Select the dialect (optional)",
+        "ariaLabel": "Select query dialect",
+        "tooltipLabel": "Dialect: {{dialect}}",
+        "tooltip": {
+          "rateLimit": "Rate limit: {{value}}",
+          "maxWindow": "Max window: {{hours}}h",
+          "supportsAsync": "Supports asynchronous execution.",
+          "supportedBy": "Platforms: {{platforms}}"
+        }
+      },
+      "specKindField": {
+        "label": "Translation mode",
+        "ariaLabel": "Select statement translation mode"
+      },
+      "statement": {
+        "label": "Statement",
+        "placeholderSigma": "Paste the Sigma rule here...",
+        "placeholderDefault": "E.g.: process where process.name == 'cmd.exe'",
+        "helperSigma": "Sigma mode (experimental): the rule will be converted by the backend before execution.",
+        "helperDefault": "Statement in the selected native dialect."
+      },
+      "window": {
+        "label": "Time window",
+        "ariaLabel": "Select the time window"
+      },
+      "allowPartial": {
+        "ariaLabel": "Accept partial results when a source fails",
+        "label": "Accept partial results",
+        "hint": "(returns data from sources that responded, even if others fail)"
+      },
+      "submit": "Run search"
     }
   }
 }

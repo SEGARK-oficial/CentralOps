@@ -25,6 +25,23 @@ import {
 } from "@/components/integrations/CollectionFiltersSection"
 import { brandIconFor } from "@/lib/brand-icons"
 import { safeExternalHref } from "@/lib/safeUrl"
+import { useFirstInvalidFocus } from "@/hooks/useFirstInvalidFocus"
+
+// R2-8.3: campos de runtime (`auth_fields` varia por plataforma) entram com a
+// chave `dynamic:${field.key}` — é exatamente o caso que motivou o
+// `registerField` por Map em vez de `useRef` nomeado (ver useFirstInvalidFocus.ts).
+type IntegrationFormField =
+  | "organizationId"
+  | "name"
+  | "clientId"
+  | "clientSecret"
+  | "indexerUrl"
+  | "indexerUsername"
+  | "indexerPassword"
+  | "managerUrl"
+  | "managerApiUsername"
+  | "managerApiPassword"
+  | `dynamic:${string}`
 
 // Fonte única da verdade do ícone: o catálogo do backend (PlatformRegistration de
 // cada vendor) já declara `icon_id` como SLUG DE MARCA (ex.: "wazuh",
@@ -81,24 +98,31 @@ interface DynamicAuthFieldProps {
   value: string | boolean
   onChange: (val: string | boolean) => void
   disabled?: boolean
+  /** R2-8.3: registra o elemento p/ foco automático no 1º campo inválido. */
+  fieldRef?: (el: HTMLElement | null) => void
+  invalid?: boolean
+  errorId?: string
 }
 
-const DynamicAuthField: React.FC<DynamicAuthFieldProps> = ({ field, value, onChange, disabled }) => {
+const DynamicAuthField: React.FC<DynamicAuthFieldProps> = ({ field, value, onChange, disabled, fieldRef, invalid, errorId }) => {
   const { t } = useTranslation("integrations")
   const inputId = `auth-field-${field.key}`
   const helperId = field.help_text ? `${inputId}-helper` : undefined
+  const describedBy = invalid && errorId ? [helperId, errorId].filter(Boolean).join(" ") : helperId
 
   if (field.type === "bool") {
     return (
       <div className="flex flex-col gap-1.5">
         <label className="flex items-center gap-2 text-sm font-medium text-text" htmlFor={inputId}>
           <input
+            ref={fieldRef}
             id={inputId}
             type="checkbox"
             checked={Boolean(value)}
             onChange={(e) => onChange(e.target.checked)}
             disabled={disabled}
-            aria-describedby={helperId}
+            aria-describedby={describedBy}
+            aria-invalid={invalid ? "true" : undefined}
           />
           {field.label}
           {field.required && <span className="text-danger-500" aria-label={t("form.dynamicField.required")}>*</span>}
@@ -118,13 +142,15 @@ const DynamicAuthField: React.FC<DynamicAuthFieldProps> = ({ field, value, onCha
           {field.required && <span className="ml-1 text-danger-500" aria-label={t("form.dynamicField.required")}>*</span>}
         </label>
         <select
+          ref={fieldRef}
           id={inputId}
           className={selectCls}
           value={String(value)}
           onChange={(e) => onChange(e.target.value)}
           disabled={disabled}
           required={field.required}
-          aria-describedby={helperId}
+          aria-describedby={describedBy}
+          aria-invalid={invalid ? "true" : undefined}
         >
           <option value="">{t("form.dynamicField.selectPlaceholder")}</option>
           {field.options.map((opt) => (
@@ -145,6 +171,7 @@ const DynamicAuthField: React.FC<DynamicAuthFieldProps> = ({ field, value, onCha
 
   return (
     <Input
+      ref={fieldRef}
       id={inputId}
       label={field.label}
       type={inputType}
@@ -157,6 +184,8 @@ const DynamicAuthField: React.FC<DynamicAuthFieldProps> = ({ field, value, onCha
       // basta em campo de senha; `new-password` já seria o default do
       // `Input`, mas explícito documenta a intenção do campo dinâmico.
       autoComplete={field.type === "secret" ? "new-password" : undefined}
+      aria-invalid={invalid ? "true" : undefined}
+      aria-describedby={invalid && errorId ? errorId : undefined}
     />
   )
 }
@@ -200,7 +229,15 @@ export const IntegrationForm: React.FC<IntegrationFormProps> = ({
   const [indexerUsername, setIndexerUsername] = useState("")
   const [indexerPassword, setIndexerPassword] = useState("")
   const [verifySsl, setVerifySsl] = useState(true)
-  const [validationError, setValidationError] = useState<string | null>(null)
+  const errorId = "integration-form-error"
+  const {
+    error: validationError,
+    errorField,
+    registerField,
+    failField,
+    failGeneral,
+    clearError,
+  } = useFirstInvalidFocus<IntegrationFormField>()
 
   // ── Provider platform catalog ────────────────────────────────────
   const [providerPlatforms, setProviderPlatforms] = useState<ProviderPlatformRead[]>([])
@@ -329,7 +366,7 @@ export const IntegrationForm: React.FC<IntegrationFormProps> = ({
       setIndexerUsername("")
       setIndexerPassword("")
       setVerifySsl(true)
-      setValidationError(null)
+      clearError()
       return
     }
 
@@ -348,7 +385,7 @@ export const IntegrationForm: React.FC<IntegrationFormProps> = ({
     setIndexerUsername(integration.indexer_username ?? "")
     setIndexerPassword("")
     setVerifySsl(integration.verify_ssl ?? true)
-    setValidationError(null)
+    clearError()
   }, [integration])
 
   // Manager é opcional: só exige senha quando habilitado e com URL preenchida.
@@ -399,16 +436,16 @@ export const IntegrationForm: React.FC<IntegrationFormProps> = ({
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault()
-    setValidationError(null)
+    clearError()
 
     const trimmedName = name.trim()
     if (!trimmedName) {
-      setValidationError(t("form.validation.nameRequired"))
+      failField("name", t("form.validation.nameRequired"))
       return
     }
 
     if (mode === "create" && !organizationId) {
-      setValidationError(t("form.validation.organizationRequired"))
+      failField("organizationId", t("form.validation.organizationRequired"))
       return
     }
 
@@ -418,13 +455,13 @@ export const IntegrationForm: React.FC<IntegrationFormProps> = ({
         const val = dynamicFieldValues[field.key]
         const isEmpty = val === undefined || val === "" || val === null
         if (field.required && isEmpty) {
-          setValidationError(t("form.validation.fieldRequired", { label: field.label }))
+          failField(`dynamic:${field.key}`, t("form.validation.fieldRequired", { label: field.label }))
           return
         }
         // Campo select: o valor enviado deve ser uma das opções declaradas
         // (defesa contra valor forjado / opção removida do catálogo).
         if (field.type === "select" && field.options && !isEmpty && !field.options.includes(String(val))) {
-          setValidationError(t("form.validation.fieldInvalidOption", { label: field.label }))
+          failField(`dynamic:${field.key}`, t("form.validation.fieldInvalidOption", { label: field.label }))
           return
         }
       }
@@ -432,11 +469,11 @@ export const IntegrationForm: React.FC<IntegrationFormProps> = ({
 
     if (platform === "sophos") {
       if (!clientId.trim()) {
-        setValidationError(t("form.validation.sophosClientIdRequired"))
+        failField("clientId", t("form.validation.sophosClientIdRequired"))
         return
       }
       if (mode === "create" && !clientSecret.trim()) {
-        setValidationError(t("form.validation.sophosClientSecretRequired"))
+        failField("clientSecret", t("form.validation.sophosClientSecretRequired"))
         return
       }
     }
@@ -444,29 +481,29 @@ export const IntegrationForm: React.FC<IntegrationFormProps> = ({
     if (platform === "wazuh") {
       // Indexer é a fonte de alertas/detecções — sempre obrigatório.
       if (!indexerUrl.trim()) {
-        setValidationError(t("form.validation.wazuhIndexerUrlRequired"))
+        failField("indexerUrl", t("form.validation.wazuhIndexerUrlRequired"))
         return
       }
       if (!indexerUsername.trim()) {
-        setValidationError(t("form.validation.wazuhIndexerUserRequired"))
+        failField("indexerUsername", t("form.validation.wazuhIndexerUserRequired"))
         return
       }
       if (requiresIndexerPassword && !indexerPassword.trim()) {
-        setValidationError(t("form.validation.wazuhIndexerPasswordRequired"))
+        failField("indexerPassword", t("form.validation.wazuhIndexerPasswordRequired"))
         return
       }
       // Manager é opcional; se habilitado, o par precisa estar completo.
       if (managerEnabled) {
         if (!managerUrl.trim()) {
-          setValidationError(t("form.validation.wazuhManagerUrlRequired"))
+          failField("managerUrl", t("form.validation.wazuhManagerUrlRequired"))
           return
         }
         if (!managerApiUsername.trim()) {
-          setValidationError(t("form.validation.wazuhManagerUserRequired"))
+          failField("managerApiUsername", t("form.validation.wazuhManagerUserRequired"))
           return
         }
         if (requiresManagerPassword && !managerApiPassword.trim()) {
-          setValidationError(t("form.validation.wazuhManagerPasswordRequired"))
+          failField("managerApiPassword", t("form.validation.wazuhManagerPasswordRequired"))
           return
         }
       }
@@ -555,7 +592,9 @@ export const IntegrationForm: React.FC<IntegrationFormProps> = ({
         setCollectionFilters(saved?.filters ?? {})
         setSavedCollectionFilters(saved?.filters ?? {})
       } catch (e) {
-        setValidationError(
+        // Erro de operação (não é um campo específico deste form — é o PUT de
+        // filtros que falhou) — sem campo pra apontar/focar.
+        failGeneral(
           t("form.collectionFilters.saveError", {
             reason: e instanceof Error ? e.message : String(e),
           }),
@@ -576,11 +615,14 @@ export const IntegrationForm: React.FC<IntegrationFormProps> = ({
               {t("form.organization")}
             </label>
             <select
+              ref={registerField("organizationId")}
               id="integration-org"
               className={selectCls}
               value={organizationId}
               onChange={(event) => setOrganizationId(event.target.value ? Number(event.target.value) : "")}
               disabled={loading}
+              aria-invalid={errorField === "organizationId" ? "true" : undefined}
+              aria-describedby={errorField === "organizationId" ? errorId : undefined}
             >
               <option value="">{t("form.selectPlaceholder")}</option>
               {organizations.map((organization) => (
@@ -600,11 +642,14 @@ export const IntegrationForm: React.FC<IntegrationFormProps> = ({
         )}
 
         <Input
+          ref={registerField("name")}
           label={t("form.name")}
           value={name}
           onChange={(event) => setName(event.target.value)}
           required
           disabled={loading}
+          aria-invalid={errorField === "name" ? "true" : undefined}
+          aria-describedby={errorField === "name" ? errorId : undefined}
         />
 
         <div className="space-y-2 md:col-span-2">
@@ -688,8 +733,18 @@ export const IntegrationForm: React.FC<IntegrationFormProps> = ({
         // Card base "sophos" = tenant único. Partner/Organization são tiles
         // próprios (sophos_partner/sophos_organization) — sem toggle aqui.
         <div className="grid gap-4 md:grid-cols-3">
-          <Input label={t("form.sophos.clientId")} value={clientId} onChange={(event) => setClientId(event.target.value)} required disabled={loading} />
           <Input
+            ref={registerField("clientId")}
+            label={t("form.sophos.clientId")}
+            value={clientId}
+            onChange={(event) => setClientId(event.target.value)}
+            required
+            disabled={loading}
+            aria-invalid={errorField === "clientId" ? "true" : undefined}
+            aria-describedby={errorField === "clientId" ? errorId : undefined}
+          />
+          <Input
+            ref={registerField("clientSecret")}
             label={mode === "edit" ? t("form.sophos.newClientSecret") : t("form.sophos.clientSecret")}
             type="password"
             value={clientSecret}
@@ -697,6 +752,8 @@ export const IntegrationForm: React.FC<IntegrationFormProps> = ({
             required={mode === "create"}
             helperText={mode === "edit" ? t("form.sophos.clientSecretHelper") : undefined}
             disabled={loading}
+            aria-invalid={errorField === "clientSecret" ? "true" : undefined}
+            aria-describedby={errorField === "clientSecret" ? errorId : undefined}
           />
           <Input
             label={t("form.sophos.region")}
@@ -723,9 +780,29 @@ export const IntegrationForm: React.FC<IntegrationFormProps> = ({
               {t("form.wazuh.indexerDescription")}
             </p>
             <div className="mt-4 grid gap-4 md:grid-cols-3">
-              <Input label={t("form.wazuh.indexerUrl")} type="url" value={indexerUrl} onChange={(event) => setIndexerUrl(event.target.value)} required disabled={loading} />
-              <Input label={t("form.wazuh.indexerUser")} value={indexerUsername} onChange={(event) => setIndexerUsername(event.target.value)} required disabled={loading} />
               <Input
+                ref={registerField("indexerUrl")}
+                label={t("form.wazuh.indexerUrl")}
+                type="url"
+                value={indexerUrl}
+                onChange={(event) => setIndexerUrl(event.target.value)}
+                required
+                disabled={loading}
+                aria-invalid={errorField === "indexerUrl" ? "true" : undefined}
+                aria-describedby={errorField === "indexerUrl" ? errorId : undefined}
+              />
+              <Input
+                ref={registerField("indexerUsername")}
+                label={t("form.wazuh.indexerUser")}
+                value={indexerUsername}
+                onChange={(event) => setIndexerUsername(event.target.value)}
+                required
+                disabled={loading}
+                aria-invalid={errorField === "indexerUsername" ? "true" : undefined}
+                aria-describedby={errorField === "indexerUsername" ? errorId : undefined}
+              />
+              <Input
+                ref={registerField("indexerPassword")}
                 label={mode === "edit" ? t("form.wazuh.newIndexerPassword") : t("form.wazuh.indexerPassword")}
                 type="password"
                 value={indexerPassword}
@@ -733,6 +810,8 @@ export const IntegrationForm: React.FC<IntegrationFormProps> = ({
                 required={requiresIndexerPassword}
                 helperText={mode === "edit" ? t("form.wazuh.passwordHelper") : undefined}
                 disabled={loading}
+                aria-invalid={errorField === "indexerPassword" ? "true" : undefined}
+                aria-describedby={errorField === "indexerPassword" ? errorId : undefined}
               />
             </div>
           </div>
@@ -765,14 +844,34 @@ export const IntegrationForm: React.FC<IntegrationFormProps> = ({
 
             {managerEnabled && (
               <div className="mt-4 grid gap-4 md:grid-cols-3">
-                <Input label={t("form.wazuh.managerUrl")} type="url" value={managerUrl} onChange={(event) => setManagerUrl(event.target.value)} disabled={loading} />
-                <Input label={t("form.wazuh.managerUser")} value={managerApiUsername} onChange={(event) => setManagerApiUsername(event.target.value)} disabled={loading} />
                 <Input
+                  ref={registerField("managerUrl")}
+                  label={t("form.wazuh.managerUrl")}
+                  type="url"
+                  value={managerUrl}
+                  onChange={(event) => setManagerUrl(event.target.value)}
+                  disabled={loading}
+                  aria-invalid={errorField === "managerUrl" ? "true" : undefined}
+                  aria-describedby={errorField === "managerUrl" ? errorId : undefined}
+                />
+                <Input
+                  ref={registerField("managerApiUsername")}
+                  label={t("form.wazuh.managerUser")}
+                  value={managerApiUsername}
+                  onChange={(event) => setManagerApiUsername(event.target.value)}
+                  disabled={loading}
+                  aria-invalid={errorField === "managerApiUsername" ? "true" : undefined}
+                  aria-describedby={errorField === "managerApiUsername" ? errorId : undefined}
+                />
+                <Input
+                  ref={registerField("managerApiPassword")}
                   label={mode === "edit" ? t("form.wazuh.newManagerPassword") : t("form.wazuh.managerPassword")}
                   type="password"
                   value={managerApiPassword}
                   onChange={(event) => setManagerApiPassword(event.target.value)}
                   required={requiresManagerPassword}
+                  aria-invalid={errorField === "managerApiPassword" ? "true" : undefined}
+                  aria-describedby={errorField === "managerApiPassword" ? errorId : undefined}
                   helperText={mode === "edit" ? t("form.wazuh.passwordHelper") : undefined}
                   disabled={loading}
                 />
@@ -820,6 +919,9 @@ export const IntegrationForm: React.FC<IntegrationFormProps> = ({
                       setDynamicFieldValues((prev) => ({ ...prev, [field.key]: val }))
                     }
                     disabled={loading}
+                    fieldRef={registerField(`dynamic:${field.key}`)}
+                    invalid={errorField === `dynamic:${field.key}`}
+                    errorId={errorId}
                   />
                 ))}
               </div>
@@ -884,10 +986,14 @@ export const IntegrationForm: React.FC<IntegrationFormProps> = ({
       )}
 
       {validationError && (
+        // R2-8.3/R2-8.2: `role="alert"` já implica urgência — `aria-live`
+        // tem que casar (`assertive`), senão fica um contrato quebrado entre
+        // os dois atributos (mesma regra do Notice: role e live andam juntos).
         <div
+          id={errorId}
           className="rounded-md border border-danger-200 bg-danger-50 px-3 py-2 text-sm text-danger-700"
           role="alert"
-          aria-live="polite"
+          aria-live="assertive"
         >
           {validationError}
         </div>

@@ -240,7 +240,11 @@ export const EnrichmentConfigForm: React.FC<Props> = ({ onSaved }) => {
 
   return (
     <form onSubmit={handleSave} className="space-y-6" noValidate>
-      {error && <Notice variant="danger" title={error} />}
+      {/* R2-8.3/R2-8.2: reação direta ao clique em "Salvar"/"Habilitar" —
+          mantém assertive explícito (o padrão do Notice virou polite). Sem
+          campo pra apontar: todo campo numérico tem fallback seguro
+          (`Number(x) || default`), não há validação client-side aqui. */}
+      {error && <Notice variant="danger" title={error} live="assertive" />}
       {feedback && <Notice variant="success" title={feedback} />}
 
       {/* ── Subsistema ──────────────────────────────────────────────── */}
@@ -368,6 +372,7 @@ export const EnrichmentConfigForm: React.FC<Props> = ({ onSaved }) => {
           <Notice
             variant={testResult.ok ? "success" : "danger"}
             title={testResult.message}
+            live={testResult.ok ? undefined : "assertive"}
           >
             <div className="flex flex-wrap gap-2 pt-1">
               {testResult.latency_ms != null && (

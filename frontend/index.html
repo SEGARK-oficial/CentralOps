@@ -6,19 +6,10 @@
     <link rel="icon" type="image/x-icon" href="/favicon.ico" sizes="16x16 32x32 48x48" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <link rel="manifest" href="/site.webmanifest" />
-    <!-- LAY-11: um único <link> pras 3 famílias (era 3 @import em cadeia no
-         CSS — render-blocking e serial, cada um só descoberto depois do
-         anterior terminar). preconnect nos dois hosts do Google Fonts
-         adianta DNS/TLS antes do <link> do CSS ser processado; o CSS de
-         fonts.googleapis.com referencia os .woff2 de fonts.gstatic.com, daí
-         os dois preconnects. display=swap preservado (texto no fallback até
-         a fonte carregar, sem FOIT). -->
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      rel="stylesheet"
-      href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap"
-    />
+    <!-- R2-6.2: fontes self-host via @fontsource (ver globals.css) — SOC
+         air-gapped não pode chamar fonts.googleapis.com/fonts.gstatic.com,
+         então os `<link rel=preconnect>`/`<link rel=stylesheet>` do Google
+         Fonts saíram daqui. As 3 famílias agora vêm do próprio bundle. -->
     <!-- Espelha `--ground` (oklch(0.196 0.0295 265)) de src/styles/globals.css.
          Mudou o token, muda este hex: a barra do navegador emenda no ground da
          página, e um valor velho aqui abre uma faixa mais clara no topo. -->

@@ -1,4 +1,10 @@
 {
+  "errors": {
+    "loadRulesFailed": "Falha ao carregar regras de correlação",
+    "createRuleFailed": "Falha ao criar regra",
+    "updateRuleFailed": "Falha ao atualizar regra",
+    "removeRuleFailed": "Falha ao remover regra"
+  },
   "page": {
     "eyebrow": "Detecção",
     "badgeBeta": "Beta",
@@ -652,6 +658,10 @@
       "yes": "Sim",
       "no": "Não"
     },
+    "errors": {
+      "submitFailed": "Falha ao submeter busca.",
+      "loadRecentFailed": "Falha ao carregar jobs recentes."
+    },
     "table": {
       "loading": "Carregando jobs...",
       "empty": {
@@ -741,6 +751,57 @@
         "refreshAriaLabel": "Atualizar lista de jobs",
         "refresh": "Atualizar"
       }
+    },
+    "form": {
+      "specKind": {
+        "passthrough": "Passthrough",
+        "sigma": "Sigma (experimental)"
+      },
+      "errors": {
+        "integrationsRequired": "Selecione ao menos uma integração.",
+        "statementRequired": "Statement é obrigatório.",
+        "windowRequired": "Selecione a janela de tempo (início e fim)."
+      },
+      "submitErrorTitle": "Falha ao submeter busca",
+      "integrations": {
+        "label": "Integrações",
+        "placeholder": "Selecione as integrações a consultar",
+        "ariaLabel": "Selecionar as integrações"
+      },
+      "dialect": {
+        "label": "Dialeto",
+        "placeholderLoading": "Carregando dialetos...",
+        "placeholder": "Selecione o dialeto (opcional)",
+        "ariaLabel": "Selecionar dialeto de query",
+        "tooltipLabel": "Dialeto: {{dialect}}",
+        "tooltip": {
+          "rateLimit": "Rate limit: {{value}}",
+          "maxWindow": "Janela máxima: {{hours}}h",
+          "supportsAsync": "Suporta execução assíncrona.",
+          "supportedBy": "Plataformas: {{platforms}}"
+        }
+      },
+      "specKindField": {
+        "label": "Modo de tradução",
+        "ariaLabel": "Selecionar modo de tradução do statement"
+      },
+      "statement": {
+        "label": "Statement",
+        "placeholderSigma": "Cole a regra Sigma aqui...",
+        "placeholderDefault": "Ex: process where process.name == 'cmd.exe'",
+        "helperSigma": "Modo Sigma (experimental): a regra será convertida pelo backend antes de execução.",
+        "helperDefault": "Statement no dialeto nativo selecionado."
+      },
+      "window": {
+        "label": "Janela de tempo",
+        "ariaLabel": "Selecionar a janela de tempo"
+      },
+      "allowPartial": {
+        "ariaLabel": "Aceitar resultados parciais quando alguma fonte falhar",
+        "label": "Aceitar resultados parciais",
+        "hint": "(retorna dados das fontes que responderam, mesmo se outras falharem)"
+      },
+      "submit": "Executar busca"
     }
   }
 }

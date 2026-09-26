@@ -52,6 +52,12 @@ export function useBackfillJobs(
 
   const refreshIntervalMs = options?.refreshIntervalMs ?? DEFAULT_REFRESH_MS
   const intervalRef = useRef<number | null>(null)
+  // R2-5.4: só o request MAIS RECENTE importa — sem isto, o poll de 10s e um
+  // refetch manual (ex.: após criar/cancelar um job, ou trocar o filtro)
+  // podiam correr em paralelo, e a resposta que chegasse por último (não
+  // necessariamente a mais nova) vencia a corrida, regravando `items`/`total`
+  // com dado obsoleto.
+  const activeControllerRef = useRef<AbortController | null>(null)
 
   // `showLoading=false` (poll, refetch manual, refetch pós mutação) atualiza
   // `items`/`total` sem tocar em `isLoading` — a tabela continua na tela,
@@ -59,7 +65,9 @@ export function useBackfillJobs(
   const fetchJobs = useCallback(
     (showLoading: boolean): (() => void) => {
       if (!integrationId) return () => {}
+      activeControllerRef.current?.abort()
       const controller = new AbortController()
+      activeControllerRef.current = controller
       if (showLoading) setIsLoading(true)
 
       listBackfillJobs(integrationId, filters, { signal: controller.signal })
@@ -74,6 +82,7 @@ export function useBackfillJobs(
         })
         .finally(() => {
           if (!controller.signal.aborted && showLoading) setIsLoading(false)
+          if (activeControllerRef.current === controller) activeControllerRef.current = null
         })
 
       return () => controller.abort()

@@ -75,7 +75,7 @@ export const EditUserRoleModal: React.FC<EditUserRoleModalProps> = ({
     >
       <form onSubmit={handleSubmit} className="space-y-4">
         {error && (
-          <Notice variant="danger" title={t("editUserRoleModal.cannotChangeTitle")}>
+          <Notice variant="danger" title={t("editUserRoleModal.cannotChangeTitle")} live="assertive">
             {error}
           </Notice>
         )}

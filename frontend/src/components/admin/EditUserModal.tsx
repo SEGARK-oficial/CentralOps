@@ -122,7 +122,7 @@ export const EditUserModal: React.FC<EditUserModalProps> = ({
     <Modal open={open} onClose={handleClose} title={t("editUserModal.title")} size="sm">
       <form onSubmit={handleSubmit} className="space-y-4" noValidate>
         {error && (
-          <Notice id={errorId} variant="danger" title={t("editUserModal.errorTitle")}>
+          <Notice id={errorId} variant="danger" title={t("editUserModal.errorTitle")} live="assertive">
             {error}
           </Notice>
         )}

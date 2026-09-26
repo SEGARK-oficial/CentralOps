@@ -1,6 +1,26 @@
+import { useState } from "react"
 import { render, screen, fireEvent } from "@testing-library/react"
 import { DataTable } from "@/components/ui/DataTable/DataTable"
 import type { TableColumn } from "@/types"
+
+/** Força `useMediaQuery` a resolver "é desktop" — o mock global de
+ *  matchMedia (test/setup.ts) sempre devolve `matches:false`. */
+function mockDesktopViewport(): () => void {
+  const original = window.matchMedia
+  window.matchMedia = ((query: string) => ({
+    matches: true,
+    media: query,
+    onchange: null,
+    addListener: () => {},
+    removeListener: () => {},
+    addEventListener: () => {},
+    removeEventListener: () => {},
+    dispatchEvent: () => false,
+  })) as unknown as typeof window.matchMedia
+  return () => {
+    window.matchMedia = original
+  }
+}
 
 interface Row extends Record<string, unknown> {
   id: number
@@ -288,5 +308,110 @@ describe("DataTable — rowKey (BUG-05)", () => {
       render(<DataTable data={rows} columns={columns} rowKey={(r) => `row-${r.id}`} />),
     ).not.toThrow()
     expect(screen.getByText("Item 2")).toBeInTheDocument()
+  })
+})
+
+describe("DataTable — renderMobileCard (R2-5.3)", () => {
+  it("com viewport mobile (matchMedia padrão), renderiza cartões — não a tabela", () => {
+    const rows = buildRows(3)
+    render(
+      <DataTable
+        data={rows}
+        columns={columns}
+        renderMobileCard={(r) => <div data-testid={`card-${r.id}`}>{r.name}</div>}
+      />,
+    )
+    expect(screen.getByTestId("card-1")).toBeInTheDocument()
+    expect(screen.getByTestId("card-3")).toBeInTheDocument()
+    expect(screen.queryByRole("table")).not.toBeInTheDocument()
+  })
+
+  it("em viewport desktop, renderiza a tabela — não os cartões (layout único)", () => {
+    const restore = mockDesktopViewport()
+    try {
+      const rows = buildRows(3)
+      render(
+        <DataTable
+          data={rows}
+          columns={columns}
+          renderMobileCard={(r) => <div data-testid={`card-${r.id}`}>{r.name}</div>}
+        />,
+      )
+      expect(screen.getByRole("table")).toBeInTheDocument()
+      expect(screen.queryByTestId("card-1")).not.toBeInTheDocument()
+    } finally {
+      restore()
+    }
+  })
+
+  it("sem renderMobileCard, sempre renderiza a tabela (retrocompat)", () => {
+    const rows = buildRows(3)
+    render(<DataTable data={rows} columns={columns} />)
+    expect(screen.getByRole("table")).toBeInTheDocument()
+  })
+})
+
+describe("DataTable — expandableRow (R2-5.3)", () => {
+  interface ExpandableWrapperProps {
+    onToggleSpy?: (id: number) => void
+    virtualizeRows?: boolean
+  }
+  function ExpandableWrapper({ onToggleSpy, virtualizeRows }: ExpandableWrapperProps) {
+    const [expandedId, setExpandedId] = useState<number | null>(null)
+    const rows = buildRows(3)
+    return (
+      <DataTable
+        data={rows}
+        columns={columns}
+        rowKey="id"
+        virtualizeRows={virtualizeRows}
+        expandableRow={{
+          isExpanded: (r) => r.id === expandedId,
+          onToggle: (r) => {
+            onToggleSpy?.(r.id)
+            setExpandedId((cur) => (cur === r.id ? null : r.id))
+          },
+          renderDetail: (r) => <div data-testid={`detail-${r.id}`}>Detalhe de {r.name}</div>,
+          toggleLabel: (r) => `Expandir ${r.name}`,
+        }}
+      />
+    )
+  }
+
+  it("mostra o botão de alternar; clicar expande, clicar de novo recolhe", () => {
+    render(<ExpandableWrapper />)
+    expect(screen.queryByTestId("detail-2")).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole("button", { name: "Expandir Item 2" }))
+    expect(screen.getByTestId("detail-2")).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole("button", { name: "Expandir Item 2" }))
+    expect(screen.queryByTestId("detail-2")).not.toBeInTheDocument()
+  })
+
+  it("aria-expanded reflete o estado", () => {
+    render(<ExpandableWrapper />)
+    const button = screen.getByRole("button", { name: "Expandir Item 1" })
+    expect(button).toHaveAttribute("aria-expanded", "false")
+    fireEvent.click(button)
+    expect(button).toHaveAttribute("aria-expanded", "true")
+  })
+
+  it("expandir uma linha não afeta as outras (sem vazamento de estado por índice)", () => {
+    render(<ExpandableWrapper />)
+    fireEvent.click(screen.getByRole("button", { name: "Expandir Item 2" }))
+    expect(screen.getByTestId("detail-2")).toBeInTheDocument()
+    expect(screen.queryByTestId("detail-1")).not.toBeInTheDocument()
+    expect(screen.queryByTestId("detail-3")).not.toBeInTheDocument()
+  })
+
+  it("com virtualizeRows, o par resumo+detalhe renderiza sem quebrar (achatado em descritores)", () => {
+    expect(() =>
+      render(<ExpandableWrapper virtualizeRows />),
+    ).not.toThrow()
+    // jsdom não tem layout — o virtualizer real materializa 0 itens sem
+    // container com altura de verdade; o teste cobre que isso não quebra
+    // (a virtualização de verdade é testada com o mock nos consumidores).
+    expect(screen.getByRole("table")).toBeInTheDocument()
   })
 })

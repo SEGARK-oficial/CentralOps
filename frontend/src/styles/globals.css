@@ -1,8 +1,21 @@
-/* LAY-11: os 3 @import de Google Fonts viraram um único <link> em
-   index.html (com preconnect + display=swap) — @import é render-blocking e
-   SERIAL (o browser só descobre o 2º @import depois de baixar e parsear o
-   1º), então 3 deles em cadeia atrasavam a 1ª pintura em 3 round-trips
-   sequenciais. Ver index.html para o <link> combinado. */
+/* R2-6.2: self-host via @fontsource — SOC air-gapped não pode depender de
+   fonts.googleapis.com (o console precisa renderizar sem saída pra
+   internet), e evita vazar IP/UA do operador pro Google a cada carregamento.
+   Bônus: some o round-trip cross-origin (CSS externo → descobre os .woff2 →
+   baixa) que causava CLS quando a rede era lenta. Só os pesos realmente
+   usados (mesmos da antiga URL do Google Fonts: Archivo 500/600/700, IBM
+   Plex Sans 400/500/600, IBM Plex Mono 400/500/600) — cada arquivo já
+   embute `font-display: swap`. Substitui o <link> do Google Fonts que
+   existia em index.html (LAY-11, revertido aqui pelo R2-6.2). */
+@import "@fontsource/archivo/500.css";
+@import "@fontsource/archivo/600.css";
+@import "@fontsource/archivo/700.css";
+@import "@fontsource/ibm-plex-sans/400.css";
+@import "@fontsource/ibm-plex-sans/500.css";
+@import "@fontsource/ibm-plex-sans/600.css";
+@import "@fontsource/ibm-plex-mono/400.css";
+@import "@fontsource/ibm-plex-mono/500.css";
+@import "@fontsource/ibm-plex-mono/600.css";
 @import "tailwindcss";
 
 /*
@@ -160,11 +173,16 @@
   --color-border: var(--line);
   /* Campo de formulário é CONTROLE: a WCAG 1.4.11 pede 3:1 no limite visual, e
      a hairline de 9% dá 1.31:1. Este token é só para Input/Textarea/Select/
-     Checkbox — a borda decorativa de card continua em 9%. */
-  --color-border-field: oklch(1 0 0 / 34%);
-  /* O hover do campo precisa subir a partir dos 34%, não do 9% decorativo:
+     Checkbox — a borda decorativa de card continua em 9%.
+     R2-6.10: 34% media 2.88:1 contra --panel e 2.70:1 contra --ground —
+     abaixo do mínimo. 40% mede (composição branco-alfa sobre sRGB, WCAG
+     relative luminance) ~3.7:1 contra --panel e ~3.8:1 contra --ground —
+     folga confortável acima de 3:1 nos dois fundos onde este token aparece. */
+  --color-border-field: oklch(1 0 0 / 40%);
+  /* O hover do campo precisa subir a partir da base, não do 9% decorativo:
      reaproveitar `--color-border-hover` faria a borda ESCURECER ao passar o
-     mouse, invertendo o sinal. */
+     mouse, invertendo o sinal. 52% continua bem acima dos 40% da base — o
+     hover ainda lê como "mais claro", sem precisar mudar aqui. */
   --color-border-field-hover: oklch(1 0 0 / 52%);
   --color-border-hover: var(--line-strong);
   --color-border-strong: var(--line-strong);

@@ -1,5 +1,5 @@
 import type React from "react"
-import { Fragment, useEffect, useMemo, useRef, useState } from "react"
+import { Fragment, useEffect, useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
 import {
   SearchIcon,
@@ -11,64 +11,45 @@ import {
   MapPinIcon,
   FilterIcon,
   RefreshCwIcon,
-  AlertCircleIcon,
   ChevronDownIcon,
   ChevronRightIcon,
 } from "lucide-react"
-import { useVirtualizer } from "@tanstack/react-virtual"
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/Card/Card"
 import { Button } from "@/components/ui/Button/Button"
 import { Input } from "@/components/ui/Input/Input"
 import Select from "@/components/ui/Select/Select"
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState"
-import { LoadingSpinner } from "@/components/ui/LoadingSpinner/LoadingSpinner"
+import { ErrorState } from "@/components/ui/ErrorState"
 import { Notice } from "@/components/ui/Notice/Notice"
 import { Badge } from "@/components/ui/Badge/Badge"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/Tabs/Tabs"
+import { DataTable } from "@/components/ui/DataTable/DataTable"
 import { useAuth } from "@/contexts/AuthContext"
 import { useHistory } from "@/hooks/useHistory"
 import { useClients } from "@/hooks/useClients"
-import { useMediaQuery } from "@/hooks/useMediaQuery"
 import { cn } from "@/lib/utils"
 import { formatDateTime } from "@/lib/intl"
-import type { AuditFilters, AuditHistoryItem, HistoryItem, SearchHistoryItem } from "@/types"
+import type { AuditFilters, AuditHistoryItem, HistoryItem, SearchHistoryItem, TableColumn } from "@/types"
 
 type TabType = "operations" | "searches" | "audit"
 
-// PERF-03/04: acima disto, a tabela desktop (searches/operations) virtualiza.
-// Abaixo, tudo no DOM — jsdom não tem layout real e o virtualizer não
-// materializa nada sem um container com altura de verdade, então listas
-// pequenas (a maioria dos casos de teste) continuam pelo caminho simples.
+// R2-5.3: acima disto, a tabela desktop (buscas/operações) virtualiza — a
+// virtualização em si (achatar resumo+detalhe, medir altura real) agora mora
+// no DataTable, não mais duplicada aqui.
 const VIRTUALIZE_THRESHOLD = 40
-const SUMMARY_ROW_ESTIMATE_PX = 56
-const DETAIL_ROW_ESTIMATE_PX = 220
 const VIRTUALIZED_MAX_HEIGHT_PX = 560
 
-/** Um <tr> de resumo, e — se a linha estiver expandida — o <tr> de detalhe
- *  logo em seguida. Achatar em uma lista de "linhas de tabela reais" (não de
- *  "itens de dado") é o que permite virtualizar com altura variável: cada
- *  virtual item vira exatamente um <tr>, medido via `measureElement`. */
-interface RowDescriptor<T> {
-  key: string
-  kind: "summary" | "detail"
-  item: T
+interface SearchRow {
+  h: SearchHistoryItem
+  clientName: string
+  storedCount: number | null
+  expired: boolean
+  canDownload: boolean
 }
 
-function buildRowDescriptors<T>(
-  items: T[],
-  getId: (item: T) => string | number,
-  expandedRows: Record<string, boolean>,
-  keyPrefix: string,
-): RowDescriptor<T>[] {
-  const out: RowDescriptor<T>[] = []
-  for (const item of items) {
-    const summaryKey = `${keyPrefix}-${getId(item)}`
-    out.push({ key: summaryKey, kind: "summary", item })
-    if (expandedRows[summaryKey]) {
-      out.push({ key: `${summaryKey}-detail`, kind: "detail", item })
-    }
-  }
-  return out
+interface OperationRow {
+  h: HistoryItem
+  clientName: string
 }
 
 const HistoryPage: React.FC = () => {
@@ -80,10 +61,6 @@ const HistoryPage: React.FC = () => {
   const isAdmin = user?.role === "admin"
   const { clients } = useClients()
   const { operationHistory, auditHistory, searchHistory, loading, error, fetchHistory, fetchAuditHistory, downloadAuditCSV, downloadCSV } = useHistory()
-  // PERF-03/04: um único layout por vez (em vez de mobile+desktop montados
-  // juntos e alternados só por CSS) — a duplicação dobrava o DOM e recomputava
-  // `getStoredResultCount`/`JSON.parse` duas vezes por linha a cada render.
-  const isDesktop = useMediaQuery("(min-width: 768px)")
 
   const [selectedClient, setSelectedClient] = useState<number | null>(null)
   const [activeTab, setActiveTab] = useState<TabType>("searches")
@@ -164,10 +141,8 @@ const HistoryPage: React.FC = () => {
   const filteredOperationHistory = selectedClient ? operationHistory.filter((h) => h.client_id === selectedClient) : operationHistory
 
   // PERF-03: pré-computado uma vez por mudança de dado/cliente/idioma, em vez
-  // de recalculado (com `JSON.parse` embutido) a cada render — antes, isto
-  // rodava 2x por linha (mobile E desktop montados juntos) em TODO re-render
-  // do componente (poll, digitação no filtro de auditoria, etc.).
-  const searchRows = useMemo(
+  // de recalculado (com `JSON.parse` embutido) a cada render.
+  const searchRows: SearchRow[] = useMemo(
     () =>
       filteredSearchHistory.map((h) => {
         const storedCount = getStoredResultCount(h)
@@ -186,7 +161,7 @@ const HistoryPage: React.FC = () => {
     [filteredSearchHistory, clients, csvRetentionCutoff, t],
   )
 
-  const operationRows = useMemo(
+  const operationRows: OperationRow[] = useMemo(
     () =>
       filteredOperationHistory.map((h) => ({
         h,
@@ -247,43 +222,124 @@ const HistoryPage: React.FC = () => {
     </button>
   )
 
-  // ── Linhas achatadas (resumo + detalhe opcional) para virtualização ────────
-  const searchDescriptors = useMemo(
-    () => buildRowDescriptors(searchRows, (r) => r.h.id, expandedRows, "search"),
-    [searchRows, expandedRows],
-  )
-  const operationDescriptors = useMemo(
-    () => buildRowDescriptors(operationRows, (r) => r.h.id, expandedRows, "operation"),
-    [operationRows, expandedRows],
+  // ── Colunas da tabela de buscas (R2-5.3: migrado para o DataTable) ─────────
+  const searchColumns: TableColumn<SearchRow>[] = useMemo(
+    () => [
+      {
+        key: "client",
+        title: t("history.searches.columns.client"),
+        dataIndex: "clientName",
+        render: (_v, r) => (
+          <div className="flex items-center gap-1.5">
+            <UserIcon size={14} className="shrink-0 text-text-tertiary" />
+            <span className="truncate max-w-[160px]" title={r.clientName}>{r.clientName}</span>
+          </div>
+        ),
+      },
+      {
+        key: "query",
+        title: t("history.searches.columns.query"),
+        dataIndex: "clientName",
+        render: (_v, r) => (
+          <code className="block truncate max-w-[280px] text-xs bg-surface-tertiary px-1.5 py-0.5 rounded font-mono" title={r.h.statement}>
+            {r.h.statement}
+          </code>
+        ),
+      },
+      {
+        key: "status",
+        title: t("common:fields.status"),
+        dataIndex: "clientName",
+        className: "whitespace-nowrap",
+        render: (_v, r) => (
+          <div className="flex items-center gap-2">
+            {getStatusBadge(r.h.status)}
+            {r.h.error_message ? (
+              <span className="text-xs text-danger-600 truncate max-w-[120px]" title={r.h.error_message}>{r.h.error_message}</span>
+            ) : r.expired ? (
+              <span className="text-xs text-warning-600 whitespace-nowrap">{t("history.searches.csvExpired")}</span>
+            ) : typeof r.storedCount === "number" ? (
+              <span className="text-xs text-text-secondary whitespace-nowrap">{t("history.searches.resultCount", { count: r.storedCount })}</span>
+            ) : null}
+          </div>
+        ),
+      },
+      {
+        key: "date",
+        title: t("common:fields.date"),
+        dataIndex: "clientName",
+        className: "whitespace-nowrap",
+        render: (_v, r) => (
+          <div className="flex items-center gap-1.5 text-xs whitespace-nowrap">
+            <ClockIcon size={14} className="shrink-0 text-text-tertiary" />{formatDate(r.h.created_at)}
+          </div>
+        ),
+      },
+      {
+        key: "actions",
+        title: t("common:fields.actions"),
+        dataIndex: "clientName",
+        render: (_v, r) =>
+          r.canDownload && (
+            <Button size="xs" variant="outline" onClick={() => handleSearchCsvDownload(r.h.search_id)} disabled={isDownloading} leftIcon={<DownloadIcon size={12} />}>
+              CSV
+            </Button>
+          ),
+      },
+    ],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [t, isDownloading],
   )
 
-  const searchScrollRef = useRef<HTMLDivElement>(null)
-  const virtualizeSearches = searchRows.length > VIRTUALIZE_THRESHOLD
-  const searchVirtualizer = useVirtualizer({
-    count: virtualizeSearches ? searchDescriptors.length : 0,
-    getScrollElement: () => searchScrollRef.current,
-    estimateSize: (index) => (searchDescriptors[index]?.kind === "detail" ? DETAIL_ROW_ESTIMATE_PX : SUMMARY_ROW_ESTIMATE_PX),
-    overscan: 6,
-  })
-  const searchVirtualItems = virtualizeSearches ? searchVirtualizer.getVirtualItems() : []
-  const searchPaddingTop = searchVirtualItems.length > 0 ? searchVirtualItems[0].start : 0
-  const searchPaddingBottom =
-    searchVirtualItems.length > 0 ? searchVirtualizer.getTotalSize() - searchVirtualItems[searchVirtualItems.length - 1].end : 0
-
-  const operationScrollRef = useRef<HTMLDivElement>(null)
-  const virtualizeOperations = operationRows.length > VIRTUALIZE_THRESHOLD
-  const operationVirtualizer = useVirtualizer({
-    count: virtualizeOperations ? operationDescriptors.length : 0,
-    getScrollElement: () => operationScrollRef.current,
-    estimateSize: (index) => (operationDescriptors[index]?.kind === "detail" ? DETAIL_ROW_ESTIMATE_PX : SUMMARY_ROW_ESTIMATE_PX),
-    overscan: 6,
-  })
-  const operationVirtualItems = virtualizeOperations ? operationVirtualizer.getVirtualItems() : []
-  const operationPaddingTop = operationVirtualItems.length > 0 ? operationVirtualItems[0].start : 0
-  const operationPaddingBottom =
-    operationVirtualItems.length > 0
-      ? operationVirtualizer.getTotalSize() - operationVirtualItems[operationVirtualItems.length - 1].end
-      : 0
+  const operationColumns: TableColumn<OperationRow>[] = useMemo(
+    () => [
+      {
+        key: "client",
+        title: t("history.operations.columns.client"),
+        dataIndex: "clientName",
+        render: (_v, r) => (
+          <div className="flex items-center gap-1.5">
+            <UserIcon size={14} className="shrink-0 text-text-tertiary" />
+            <span className="truncate max-w-[160px]" title={r.clientName}>{r.clientName}</span>
+          </div>
+        ),
+      },
+      {
+        key: "operation",
+        title: t("history.operations.columns.operation"),
+        dataIndex: "clientName",
+        render: (_v, r) => <Badge variant="default" size="sm">{r.h.operation}</Badge>,
+      },
+      {
+        key: "endpoint",
+        title: t("history.operations.columns.endpoint"),
+        dataIndex: "clientName",
+        render: (_v, r) => <code className="block truncate max-w-[240px] text-xs font-mono" title={r.h.endpoint}>{r.h.endpoint}</code>,
+      },
+      {
+        key: "date",
+        title: t("common:fields.date"),
+        dataIndex: "clientName",
+        className: "whitespace-nowrap",
+        render: (_v, r) => (
+          <div className="flex items-center gap-1.5 text-xs whitespace-nowrap">
+            <ClockIcon size={14} className="shrink-0 text-text-tertiary" />{formatDate(r.h.timestamp)}
+          </div>
+        ),
+      },
+      {
+        key: "result",
+        title: t("history.operations.columns.result"),
+        dataIndex: "clientName",
+        render: (_v, r) => (
+          <span className="block truncate max-w-[220px] text-xs text-text-secondary" title={r.h.response_summary || undefined}>
+            {r.h.response_summary || t("history.notAvailable")}
+          </span>
+        ),
+      },
+    ],
+    [t],
+  )
 
   return (
     <div className="space-y-6">
@@ -387,21 +443,7 @@ const HistoryPage: React.FC = () => {
       </Tabs>
 
       {/* Content */}
-      {loading ? (
-        <Card padding="md"><div className="py-12"><LoadingSpinner size="lg" text={t("history.loading")} /></div></Card>
-      ) : error ? (
-        <Card padding="md">
-          <div className="flex items-start gap-3 p-3 rounded-md bg-danger-50 border border-danger-100 text-danger-700 text-sm">
-            <AlertCircleIcon size={16} className="shrink-0 mt-0.5" />
-            <div>
-              <strong>{t("history.errors.loadFailedTitle")}</strong>
-              <p className="mt-0.5">{error}</p>
-              <Button size="sm" className="mt-2" onClick={handleRefresh}>{t("history.tryAgain")}</Button>
-            </div>
-          </div>
-        </Card>
-      ) : (
-        <>
+      <>
           {/* Searches Tab */}
           {activeTab === "searches" && (
             <Card>
@@ -410,122 +452,91 @@ const HistoryPage: React.FC = () => {
                 <CardDescription>{t("history.searches.description")}</CardDescription>
               </CardHeader>
               <CardContent>
-                {searchRows.length === 0 ? (
-                  <EmptyState icon={<SearchIcon size={48} />} title={t("history.searches.emptyTitle")} description={t("history.searches.emptyDescription")} />
-                ) : !isDesktop ? (
-                  // Cartões empilhados (mobile/tablet estreito)
-                  <div className="space-y-3">
-                    {searchRows.map(({ h, clientName, storedCount, expired, canDownload }) => {
-                      const rowKey = `search-mobile-${h.id}`
+                {/* R2-5.4: erro num refresh NÃO apaga dado já visível — só
+                    quando não sobra nada pra mostrar é que vira ErrorState.
+                    Com dado na tela, o erro é um banner por cima (com retry),
+                    e a tabela (stale, mas real) continua ali. */}
+                {error && searchRows.length > 0 && (
+                  <Notice
+                    variant="danger"
+                    title={t("history.errors.loadFailedTitle")}
+                    action={<Button variant="ghost" size="xs" onClick={handleRefresh}>{t("history.tryAgain")}</Button>}
+                    className="mb-3"
+                  >
+                    {error}
+                  </Notice>
+                )}
+                {!loading && searchRows.length === 0 ? (
+                  error ? (
+                    <ErrorState title={t("history.errors.loadFailedTitle")} message={error} onRetry={handleRefresh} />
+                  ) : (
+                    <EmptyState icon={<SearchIcon size={48} />} title={t("history.searches.emptyTitle")} description={t("history.searches.emptyDescription")} />
+                  )
+                ) : (
+                  <DataTable<SearchRow>
+                    data={searchRows}
+                    columns={searchColumns}
+                    loading={loading}
+                    rowKey={(r) => r.h.id}
+                    virtualizeRows={searchRows.length > VIRTUALIZE_THRESHOLD}
+                    maxHeight={VIRTUALIZED_MAX_HEIGHT_PX}
+                    tableClassName="min-w-[760px]"
+                    tableAriaLabel={t("history.tabs.searches")}
+                    emptyMessage={t("history.searches.emptyTitle")}
+                    expandableRow={{
+                      isExpanded: (r) => !!expandedRows[`search-${r.h.id}`],
+                      onToggle: (r) => toggleExpandedRow(`search-${r.h.id}`),
+                      toggleLabel: (r) => t("history.searches.expandAria", { searchId: r.h.search_id }),
+                      renderDetail: (r) => (
+                        <div className="px-4 py-3 bg-surface-tertiary/50 border-t border-border">
+                          <span className="text-xs font-medium text-text-secondary block mb-1">{t("history.requestPayload")}</span>
+                          <pre className="text-xs bg-surface p-3 rounded-md overflow-auto max-h-64 font-mono border border-border">{formatSearchPayload(r.h)}</pre>
+                        </div>
+                      ),
+                    }}
+                    renderMobileCard={(r) => {
+                      const rowKey = `search-mobile-${r.h.id}`
                       const isExpanded = !!expandedRows[rowKey]
                       return (
-                        <div key={h.id} className="rounded-lg border border-border bg-surface p-3">
+                        <div className="rounded-lg border border-border bg-surface p-3">
                           <div className="flex items-start justify-between gap-2">
                             <div className="flex min-w-0 items-center gap-1.5">
                               <UserIcon size={14} className="shrink-0 text-text-tertiary" />
-                              <span className="truncate text-sm font-medium text-text" title={clientName}>{clientName}</span>
+                              <span className="truncate text-sm font-medium text-text" title={r.clientName}>{r.clientName}</span>
                             </div>
-                            <div className="shrink-0">{getStatusBadge(h.status)}</div>
+                            <div className="shrink-0">{getStatusBadge(r.h.status)}</div>
                           </div>
-                          <code className="mt-2 block truncate rounded bg-surface-tertiary px-1.5 py-0.5 font-mono text-xs" title={h.statement}>{h.statement}</code>
+                          <code className="mt-2 block truncate rounded bg-surface-tertiary px-1.5 py-0.5 font-mono text-xs" title={r.h.statement}>{r.h.statement}</code>
                           <div className="mt-2 flex items-center gap-1.5 text-xs text-text-secondary">
-                            <ClockIcon size={14} className="shrink-0 text-text-tertiary" />{formatDate(h.created_at)}
+                            <ClockIcon size={14} className="shrink-0 text-text-tertiary" />{formatDate(r.h.created_at)}
                           </div>
-                          {(h.error_message || expired || typeof storedCount === "number") && (
+                          {(r.h.error_message || r.expired || typeof r.storedCount === "number") && (
                             <div className="mt-1 text-xs">
-                              {h.error_message ? (
-                                <span className="block truncate text-danger-600" title={h.error_message}>{h.error_message}</span>
-                              ) : expired ? (
+                              {r.h.error_message ? (
+                                <span className="block truncate text-danger-600" title={r.h.error_message}>{r.h.error_message}</span>
+                              ) : r.expired ? (
                                 <span className="text-warning-600">{t("history.searches.csvExpired")}</span>
                               ) : (
-                                <span className="text-text-secondary">{t("history.searches.resultCount", { count: storedCount ?? 0 })}</span>
+                                <span className="text-text-secondary">{t("history.searches.resultCount", { count: r.storedCount ?? 0 })}</span>
                               )}
                             </div>
                           )}
                           <div className="mt-2 flex items-center gap-2">
-                            {canDownload && (
-                              <Button size="xs" variant="outline" onClick={() => handleSearchCsvDownload(h.search_id)} disabled={isDownloading} leftIcon={<DownloadIcon size={12} />}>CSV</Button>
+                            {r.canDownload && (
+                              <Button size="xs" variant="outline" onClick={() => handleSearchCsvDownload(r.h.search_id)} disabled={isDownloading} leftIcon={<DownloadIcon size={12} />}>CSV</Button>
                             )}
-                            <ExpandButton rowKey={rowKey} label={t("history.searches.expandAria", { searchId: h.search_id })} />
+                            <ExpandButton rowKey={rowKey} label={t("history.searches.expandAria", { searchId: r.h.search_id })} />
                           </div>
                           {isExpanded && (
                             <div className="mt-2 border-t border-border pt-2">
                               <span className="mb-1 block text-xs font-medium text-text-secondary">{t("history.requestPayload")}</span>
-                              <pre className="max-h-64 overflow-auto rounded-md border border-border bg-surface-tertiary/50 p-3 font-mono text-xs">{formatSearchPayload(h)}</pre>
+                              <pre className="max-h-64 overflow-auto rounded-md border border-border bg-surface-tertiary/50 p-3 font-mono text-xs">{formatSearchPayload(r.h)}</pre>
                             </div>
                           )}
                         </div>
                       )
-                    })}
-                  </div>
-                ) : (
-                  // Tabela (desktop) — PERF-03/04: virtualizada acima do teto
-                  <div
-                    ref={searchScrollRef}
-                    className="overflow-x-auto rounded-lg border border-border"
-                    style={virtualizeSearches ? { maxHeight: VIRTUALIZED_MAX_HEIGHT_PX, overflowY: "auto" } : undefined}
-                  >
-                    <table className="w-full min-w-[760px] text-sm" role="table" aria-label={t("history.tabs.searches")}>
-                      <thead className={cn("bg-surface-tertiary", virtualizeSearches && "sticky top-0 z-10")}>
-                        <tr className="border-b border-border">
-                          <th scope="col" className="w-10 px-2 py-3" aria-label={t("history.expand")}></th>
-                          <th scope="col" className={thCls}>{t("history.searches.columns.client")}</th><th scope="col" className={thCls}>{t("history.searches.columns.query")}</th><th scope="col" className={`${thCls} whitespace-nowrap`}>{t("common:fields.status")}</th><th scope="col" className={`${thCls} whitespace-nowrap`}>{t("common:fields.date")}</th><th scope="col" className={`${thCls} whitespace-nowrap`}>{t("common:fields.actions")}</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-border">
-                        {virtualizeSearches && searchPaddingTop > 0 && (
-                          <tr aria-hidden="true" style={{ height: searchPaddingTop }}><td colSpan={6} className="border-0 p-0" /></tr>
-                        )}
-                        {(virtualizeSearches ? searchVirtualItems.map((v) => searchDescriptors[v.index]) : searchDescriptors).map((descriptor, i) => {
-                          const { h, clientName, storedCount, expired, canDownload } = descriptor.item
-                          const rowKey = `search-${h.id}`
-                          const measureRef = virtualizeSearches ? searchVirtualizer.measureElement : undefined
-                          const dataIndex = virtualizeSearches ? searchVirtualItems[i]?.index : undefined
-                          if (descriptor.kind === "detail") {
-                            return (
-                              <tr key={descriptor.key} ref={measureRef} data-index={dataIndex}>
-                                <td colSpan={6} className="p-0">
-                                  <div className="px-4 py-3 bg-surface-tertiary/50 border-t border-border">
-                                    <span className="text-xs font-medium text-text-secondary block mb-1">{t("history.requestPayload")}</span>
-                                    <pre className="text-xs bg-surface p-3 rounded-md overflow-auto max-h-64 font-mono border border-border">{formatSearchPayload(h)}</pre>
-                                  </div>
-                                </td>
-                              </tr>
-                            )
-                          }
-                          const isExpanded = !!expandedRows[rowKey]
-                          return (
-                            <tr key={descriptor.key} ref={measureRef} data-index={dataIndex} className={cn("hover:bg-surface-tertiary/50", isExpanded && "bg-surface-tertiary/30")}>
-                              <td className="px-2 py-3 text-center"><ExpandButton rowKey={rowKey} label={t("history.searches.expandAria", { searchId: h.search_id })} /></td>
-                              <td className={tdCls}><div className="flex items-center gap-1.5"><UserIcon size={14} className="shrink-0 text-text-tertiary" /><span className="truncate max-w-[160px]" title={clientName}>{clientName}</span></div></td>
-                              <td className={tdCls}><code className="block truncate max-w-[280px] text-xs bg-surface-tertiary px-1.5 py-0.5 rounded font-mono" title={h.statement}>{h.statement}</code></td>
-                              <td className={tdCls}>
-                                <div className="flex items-center gap-2">
-                                  {getStatusBadge(h.status)}
-                                  {h.error_message ? (
-                                    <span className="text-xs text-danger-600 truncate max-w-[120px]" title={h.error_message}>{h.error_message}</span>
-                                  ) : expired ? (
-                                    <span className="text-xs text-warning-600 whitespace-nowrap">{t("history.searches.csvExpired")}</span>
-                                  ) : typeof storedCount === "number" ? (
-                                    <span className="text-xs text-text-secondary whitespace-nowrap">{t("history.searches.resultCount", { count: storedCount })}</span>
-                                  ) : null}
-                                </div>
-                              </td>
-                              <td className={tdCls}><div className="flex items-center gap-1.5 text-xs whitespace-nowrap"><ClockIcon size={14} className="shrink-0 text-text-tertiary" />{formatDate(h.created_at)}</div></td>
-                              <td className={tdCls}>
-                                {canDownload && (
-                                  <Button size="xs" variant="outline" onClick={() => handleSearchCsvDownload(h.search_id)} disabled={isDownloading} leftIcon={<DownloadIcon size={12} />}>CSV</Button>
-                                )}
-                              </td>
-                            </tr>
-                          )
-                        })}
-                        {virtualizeSearches && searchPaddingBottom > 0 && (
-                          <tr aria-hidden="true" style={{ height: searchPaddingBottom }}><td colSpan={6} className="border-0 p-0" /></tr>
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
+                    }}
+                  />
                 )}
               </CardContent>
             </Card>
@@ -539,94 +550,74 @@ const HistoryPage: React.FC = () => {
                 <CardDescription>{t("history.operations.description")}</CardDescription>
               </CardHeader>
               <CardContent>
-                {operationRows.length === 0 ? (
-                  <EmptyState icon={<ActivityIcon size={48} />} title={t("history.operations.emptyTitle")} description={t("history.operations.emptyDescription")} />
-                ) : !isDesktop ? (
-                  // Cartões empilhados (mobile/tablet estreito)
-                  <div className="space-y-3">
-                    {operationRows.map(({ h, clientName }) => {
-                      const rowKey = `operation-mobile-${h.id}`
+                {error && operationRows.length > 0 && (
+                  <Notice
+                    variant="danger"
+                    title={t("history.errors.loadFailedTitle")}
+                    action={<Button variant="ghost" size="xs" onClick={handleRefresh}>{t("history.tryAgain")}</Button>}
+                    className="mb-3"
+                  >
+                    {error}
+                  </Notice>
+                )}
+                {!loading && operationRows.length === 0 ? (
+                  error ? (
+                    <ErrorState title={t("history.errors.loadFailedTitle")} message={error} onRetry={handleRefresh} />
+                  ) : (
+                    <EmptyState icon={<ActivityIcon size={48} />} title={t("history.operations.emptyTitle")} description={t("history.operations.emptyDescription")} />
+                  )
+                ) : (
+                  <DataTable<OperationRow>
+                    data={operationRows}
+                    columns={operationColumns}
+                    loading={loading}
+                    rowKey={(r) => r.h.id}
+                    virtualizeRows={operationRows.length > VIRTUALIZE_THRESHOLD}
+                    maxHeight={VIRTUALIZED_MAX_HEIGHT_PX}
+                    tableClassName="min-w-[760px]"
+                    tableAriaLabel={t("history.tabs.operations")}
+                    emptyMessage={t("history.operations.emptyTitle")}
+                    expandableRow={{
+                      isExpanded: (r) => !!expandedRows[`operation-${r.h.id}`],
+                      onToggle: (r) => toggleExpandedRow(`operation-${r.h.id}`),
+                      toggleLabel: (r) => t("history.operations.expandAria", { operation: r.h.operation }),
+                      renderDetail: (r) => (
+                        <div className="px-4 py-3 bg-surface-tertiary/50 border-t border-border">
+                          <span className="text-xs font-medium text-text-secondary block mb-1">{t("history.requestPayload")}</span>
+                          <pre className="text-xs bg-surface p-3 rounded-md overflow-auto max-h-64 font-mono border border-border">{formatOperationPayload(r.h)}</pre>
+                        </div>
+                      ),
+                    }}
+                    renderMobileCard={(r) => {
+                      const rowKey = `operation-mobile-${r.h.id}`
                       const isExpanded = !!expandedRows[rowKey]
                       return (
-                        <div key={h.id} className="rounded-lg border border-border bg-surface p-3">
+                        <div className="rounded-lg border border-border bg-surface p-3">
                           <div className="flex items-start justify-between gap-2">
                             <div className="flex min-w-0 items-center gap-1.5">
                               <UserIcon size={14} className="shrink-0 text-text-tertiary" />
-                              <span className="truncate text-sm font-medium text-text" title={clientName}>{clientName}</span>
+                              <span className="truncate text-sm font-medium text-text" title={r.clientName}>{r.clientName}</span>
                             </div>
-                            <Badge variant="default" size="sm">{h.operation}</Badge>
+                            <Badge variant="default" size="sm">{r.h.operation}</Badge>
                           </div>
-                          <code className="mt-2 block truncate font-mono text-xs text-text-secondary" title={h.endpoint}>{h.endpoint}</code>
+                          <code className="mt-2 block truncate font-mono text-xs text-text-secondary" title={r.h.endpoint}>{r.h.endpoint}</code>
                           <div className="mt-2 flex items-center gap-1.5 text-xs text-text-secondary">
-                            <ClockIcon size={14} className="shrink-0 text-text-tertiary" />{formatDate(h.timestamp)}
+                            <ClockIcon size={14} className="shrink-0 text-text-tertiary" />{formatDate(r.h.timestamp)}
                           </div>
-                          <p className="mt-1 line-clamp-2 text-xs text-text-secondary" title={h.response_summary || undefined}>{h.response_summary || t("history.notAvailable")}</p>
+                          <p className="mt-1 line-clamp-2 text-xs text-text-secondary" title={r.h.response_summary || undefined}>{r.h.response_summary || t("history.notAvailable")}</p>
                           <div className="mt-2">
-                            <ExpandButton rowKey={rowKey} label={t("history.operations.expandAria", { operation: h.operation })} />
+                            <ExpandButton rowKey={rowKey} label={t("history.operations.expandAria", { operation: r.h.operation })} />
                           </div>
                           {isExpanded && (
                             <div className="mt-2 border-t border-border pt-2">
                               <span className="mb-1 block text-xs font-medium text-text-secondary">{t("history.requestPayload")}</span>
-                              <pre className="max-h-64 overflow-auto rounded-md border border-border bg-surface-tertiary/50 p-3 font-mono text-xs">{formatOperationPayload(h)}</pre>
+                              <pre className="max-h-64 overflow-auto rounded-md border border-border bg-surface-tertiary/50 p-3 font-mono text-xs">{formatOperationPayload(r.h)}</pre>
                             </div>
                           )}
                         </div>
                       )
-                    })}
-                  </div>
-                ) : (
-                  // Tabela (desktop) — PERF-03/04: virtualizada acima do teto
-                  <div
-                    ref={operationScrollRef}
-                    className="overflow-x-auto rounded-lg border border-border"
-                    style={virtualizeOperations ? { maxHeight: VIRTUALIZED_MAX_HEIGHT_PX, overflowY: "auto" } : undefined}
-                  >
-                    <table className="w-full min-w-[760px] text-sm" role="table" aria-label={t("history.tabs.operations")}>
-                      <thead className={cn("bg-surface-tertiary", virtualizeOperations && "sticky top-0 z-10")}>
-                        <tr className="border-b border-border">
-                          <th scope="col" className="w-10 px-2 py-3" aria-label={t("history.expand")}></th>
-                          <th scope="col" className={thCls}>{t("history.operations.columns.client")}</th><th scope="col" className={thCls}>{t("history.operations.columns.operation")}</th><th scope="col" className={thCls}>{t("history.operations.columns.endpoint")}</th><th scope="col" className={`${thCls} whitespace-nowrap`}>{t("common:fields.date")}</th><th scope="col" className={thCls}>{t("history.operations.columns.result")}</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-border">
-                        {virtualizeOperations && operationPaddingTop > 0 && (
-                          <tr aria-hidden="true" style={{ height: operationPaddingTop }}><td colSpan={6} className="border-0 p-0" /></tr>
-                        )}
-                        {(virtualizeOperations ? operationVirtualItems.map((v) => operationDescriptors[v.index]) : operationDescriptors).map((descriptor, i) => {
-                          const { h, clientName } = descriptor.item
-                          const rowKey = `operation-${h.id}`
-                          const measureRef = virtualizeOperations ? operationVirtualizer.measureElement : undefined
-                          const dataIndex = virtualizeOperations ? operationVirtualItems[i]?.index : undefined
-                          if (descriptor.kind === "detail") {
-                            return (
-                              <tr key={descriptor.key} ref={measureRef} data-index={dataIndex}>
-                                <td colSpan={6} className="p-0">
-                                  <div className="px-4 py-3 bg-surface-tertiary/50 border-t border-border">
-                                    <span className="text-xs font-medium text-text-secondary block mb-1">{t("history.requestPayload")}</span>
-                                    <pre className="text-xs bg-surface p-3 rounded-md overflow-auto max-h-64 font-mono border border-border">{formatOperationPayload(h)}</pre>
-                                  </div>
-                                </td>
-                              </tr>
-                            )
-                          }
-                          const isExpanded = !!expandedRows[rowKey]
-                          return (
-                            <tr key={descriptor.key} ref={measureRef} data-index={dataIndex} className={cn("hover:bg-surface-tertiary/50", isExpanded && "bg-surface-tertiary/30")}>
-                              <td className="px-2 py-3 text-center"><ExpandButton rowKey={rowKey} label={t("history.operations.expandAria", { operation: h.operation })} /></td>
-                              <td className={tdCls}><div className="flex items-center gap-1.5"><UserIcon size={14} className="shrink-0 text-text-tertiary" /><span className="truncate max-w-[160px]" title={clientName}>{clientName}</span></div></td>
-                              <td className={tdCls}><Badge variant="default" size="sm">{h.operation}</Badge></td>
-                              <td className={tdCls}><code className="block truncate max-w-[240px] text-xs font-mono" title={h.endpoint}>{h.endpoint}</code></td>
-                              <td className={tdCls}><div className="flex items-center gap-1.5 text-xs whitespace-nowrap"><ClockIcon size={14} className="shrink-0 text-text-tertiary" />{formatDate(h.timestamp)}</div></td>
-                              <td className={tdCls}><span className="block truncate max-w-[220px] text-xs text-text-secondary" title={h.response_summary || undefined}>{h.response_summary || t("history.notAvailable")}</span></td>
-                            </tr>
-                          )
-                        })}
-                        {virtualizeOperations && operationPaddingBottom > 0 && (
-                          <tr aria-hidden="true" style={{ height: operationPaddingBottom }}><td colSpan={6} className="border-0 p-0" /></tr>
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
+                    }}
+                  />
                 )}
               </CardContent>
             </Card>
@@ -640,8 +631,35 @@ const HistoryPage: React.FC = () => {
                 <CardDescription>{t("history.audit.description")}</CardDescription>
               </CardHeader>
               <CardContent>
-                {auditHistory.length === 0 ? (
-                  <EmptyState icon={<ShieldCheckIcon size={48} />} title={t("history.audit.emptyTitle")} description={t("history.audit.emptyDescription")} />
+                {error && auditHistory.length > 0 && (
+                  <Notice
+                    variant="danger"
+                    title={t("history.errors.loadFailedTitle")}
+                    action={<Button variant="ghost" size="xs" onClick={handleRefresh}>{t("history.tryAgain")}</Button>}
+                    className="mb-3"
+                  >
+                    {error}
+                  </Notice>
+                )}
+                {!loading && auditHistory.length === 0 ? (
+                  error ? (
+                    <ErrorState title={t("history.errors.loadFailedTitle")} message={error} onRetry={handleRefresh} />
+                  ) : (
+                    <EmptyState icon={<ShieldCheckIcon size={48} />} title={t("history.audit.emptyTitle")} description={t("history.audit.emptyDescription")} />
+                  )
+                ) : loading ? (
+                  <DataTable
+                    data={[]}
+                    columns={[
+                      { key: "user", title: t("history.audit.columns.user"), dataIndex: "user" },
+                      { key: "action", title: t("history.audit.columns.action"), dataIndex: "action" },
+                      { key: "endpoint", title: t("history.audit.columns.endpoint"), dataIndex: "endpoint" },
+                      { key: "origin", title: t("history.audit.columns.origin"), dataIndex: "origin" },
+                      { key: "status", title: t("common:fields.status"), dataIndex: "status" },
+                      { key: "date", title: t("common:fields.date"), dataIndex: "date" },
+                    ]}
+                    loading
+                  />
                 ) : (
                   <div className="space-y-4">
                     <div className="overflow-x-auto rounded-lg border border-border">
@@ -703,7 +721,6 @@ const HistoryPage: React.FC = () => {
             </Card>
           )}
         </>
-      )}
     </div>
   )
 }

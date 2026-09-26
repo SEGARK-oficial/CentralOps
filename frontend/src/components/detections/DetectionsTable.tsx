@@ -1,15 +1,14 @@
 "use client"
 
 import type React from "react"
-import { useMemo, useRef } from "react"
+import { useId, useMemo } from "react"
 import { useTranslation } from "react-i18next"
-import { useVirtualizer } from "@tanstack/react-virtual"
 import { ShieldAlertIcon } from "lucide-react"
 import { Badge } from "@/components/ui/Badge/Badge"
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState"
-import LoadingSpinner from "@/components/ui/LoadingSpinner/LoadingSpinner"
+import { DataTable } from "@/components/ui/DataTable/DataTable"
 import { detectionSeverityEncoding } from "@/lib/severity"
-import type { DetectionRead, DetectionSource, DetectionStatus } from "@/types"
+import type { DetectionRead, DetectionSource, DetectionStatus, TableColumn } from "@/types"
 import { formatDate } from "@/lib/utils"
 
 interface DetectionsTableProps {
@@ -18,13 +17,9 @@ interface DetectionsTableProps {
   onRowClick: (detection: DetectionRead) => void
 }
 
-// PERF-08-alike: acima disto a tabela feita à mão virtualiza (useDetections
-// pede até 200 linhas por vez). Abaixo, renderiza tudo — jsdom não tem layout
-// real e o virtualizer devolve 0 itens sem um container com altura de
-// verdade, então manter o caminho simples para listas pequenas também evita
-// depender de mock nos testes que já cobrem o comportamento (poucas linhas).
+// R2-5.3: acima disto a lista virtualiza via DataTable (useDetections pede
+// até 200 linhas por vez). Abaixo, tudo no DOM.
 const VIRTUALIZE_THRESHOLD = 60
-const ROW_HEIGHT_PX = 57
 const MAX_HEIGHT_PX = 560
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -70,11 +65,6 @@ function statusLabelKey(status: DetectionStatus): string {
   }
 }
 
-// ── Classes ───────────────────────────────────────────────────────────────────
-
-const thCls = "px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-text-secondary"
-const tdCls = "px-4 py-3 text-sm align-top"
-
 function DetectionSeverityBadge({ severityId }: { severityId: number }) {
   const { t } = useTranslation()
   const enc = detectionSeverityEncoding(severityId)
@@ -87,11 +77,10 @@ function DetectionSeverityBadge({ severityId }: { severityId: number }) {
 
 function DetectionRuleButton({ detection, t, onRowClick }: { detection: DetectionRead; t: TFn; onRowClick: (d: DetectionRead) => void }) {
   return (
-    // A11Y-14: a linha volta a ser um <tr> comum (a semântica de linha de
+    // A11Y-14: a linha é um <tr> comum do DataTable (a semântica de linha de
     // tabela não é apagada por um role de botão que não existe em HTML), e só
     // a célula da regra — que é o alvo natural do clique — vira <button>.
-    // `focus-ring`: mesma estratégia de foco do design system em toda a app;
-    // o anel antigo (`ring-primary-500/40` sobre o `<tr>`) dava 2.03:1.
+    // `focus-ring`: mesma estratégia de foco do design system em toda a app.
     <button
       type="button"
       className="max-w-[280px] space-y-0.5 rounded text-left focus-ring"
@@ -106,28 +95,54 @@ function DetectionRuleButton({ detection, t, onRowClick }: { detection: Detectio
   )
 }
 
-function DetectionRowCells({ detection, t, onRowClick }: { detection: DetectionRead; t: TFn; onRowClick: (d: DetectionRead) => void }) {
+/**
+ * Cartão mobile — R2-5.3 (item BAIXA): `aria-describedby` em vez de um
+ * `aria-label` só, que amontoava fonte+status+contagem+data numa frase só
+ * traduzida. Nome acessível vem do TÍTULO de verdade (`aria-labelledby`); o
+ * resto (fonte, severidade, status, contagem, última vez) é DESCRIÇÃO
+ * (`aria-describedby`, múltiplos ids) — a mesma informação visível, sem
+ * reconstruir uma frase à parte pro leitor de tela.
+ */
+function DetectionMobileCard({ detection, t, onRowClick }: { detection: DetectionRead; t: TFn; onRowClick: (d: DetectionRead) => void }) {
+  const titleId = useId()
+  const sourceId = useId()
+  const severityId = useId()
+  const metaId = useId()
   return (
-    <>
-      <td className={tdCls}>
-        <DetectionSeverityBadge severityId={detection.severity_id} />
-      </td>
-      <td className={tdCls}>
-        <span className="text-text-secondary">{t(sourceLabelKey(detection.source))}</span>
-      </td>
-      <td className={tdCls}>
-        <DetectionRuleButton detection={detection} t={t} onRowClick={onRowClick} />
-      </td>
-      <td className={tdCls}>
+    <button
+      type="button"
+      className="w-full rounded-xl border border-border bg-surface p-4 text-left transition-colors hover:bg-surface-tertiary/40 focus-ring"
+      aria-labelledby={titleId}
+      aria-describedby={`${sourceId} ${severityId} ${metaId}`}
+      onClick={() => onRowClick(detection)}
+    >
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <div id={titleId} className="truncate font-semibold text-text" title={detection.rule_name ?? undefined}>
+            {detection.rule_name || detection.dedup_key}
+          </div>
+          <div id={sourceId} className="mt-0.5 text-xs text-text-secondary">
+            {t(sourceLabelKey(detection.source))}
+          </div>
+        </div>
+        <span id={severityId}>
+          <DetectionSeverityBadge severityId={detection.severity_id} />
+        </span>
+      </div>
+      <div id={metaId} className="mt-3 flex flex-wrap items-center gap-2">
         <Badge variant={statusBadgeVariant(detection.status)} size="sm">
           {t(statusLabelKey(detection.status))}
         </Badge>
-      </td>
-      <td className={`${tdCls} text-right font-mono font-semibold tabular-nums text-text`}>{detection.count ?? 1}</td>
-      <td className={`${tdCls} whitespace-nowrap text-xs text-text-secondary`}>
-        {detection.last_seen ? formatDate(detection.last_seen) : "-"}
-      </td>
-    </>
+        <span className="font-mono text-xs tabular-nums text-text-tertiary">
+          {t("detections:list.table.occurrenceCount", { count: detection.count ?? 1 })}
+        </span>
+        {detection.last_seen && (
+          <span className="text-xs text-text-tertiary">
+            {t("detections:list.table.lastSeenLabel", { date: formatDate(detection.last_seen) })}
+          </span>
+        )}
+      </div>
+    </button>
   )
 }
 
@@ -135,41 +150,58 @@ function DetectionRowCells({ detection, t, onRowClick }: { detection: DetectionR
 
 export const DetectionsTable: React.FC<DetectionsTableProps> = ({ detections, loading = false, onRowClick }) => {
   const { t } = useTranslation("detections")
-  const scrollRef = useRef<HTMLDivElement>(null)
-  const virtualize = detections.length > VIRTUALIZE_THRESHOLD
 
-  const rowVirtualizer = useVirtualizer({
-    count: virtualize ? detections.length : 0,
-    getScrollElement: () => scrollRef.current,
-    estimateSize: () => ROW_HEIGHT_PX,
-    overscan: 8,
-  })
-  const virtualItems = virtualize ? rowVirtualizer.getVirtualItems() : []
-  const paddingTop = virtualItems.length > 0 ? virtualItems[0].start : 0
-  const paddingBottom =
-    virtualItems.length > 0 ? rowVirtualizer.getTotalSize() - virtualItems[virtualItems.length - 1].end : 0
-
-  const columns = useMemo(
+  const columns: TableColumn<DetectionRead>[] = useMemo(
     () => [
-      { key: "severity", label: t("detections:list.table.columns.severity"), nowrap: true },
-      { key: "source", label: t("detections:list.table.columns.source"), nowrap: false },
-      { key: "rule", label: t("detections:list.table.columns.rule"), nowrap: false },
-      { key: "status", label: t("detections:list.table.columns.status"), nowrap: true },
-      { key: "occurrences", label: t("detections:list.table.columns.occurrences"), nowrap: true, right: true },
-      { key: "lastSeen", label: t("detections:list.table.columns.lastSeen"), nowrap: true },
+      {
+        key: "severity",
+        title: t("detections:list.table.columns.severity"),
+        dataIndex: "severity_id",
+        className: "whitespace-nowrap",
+        render: (_v, d) => <DetectionSeverityBadge severityId={d.severity_id} />,
+      },
+      {
+        key: "source",
+        title: t("detections:list.table.columns.source"),
+        dataIndex: "source",
+        render: (_v, d) => <span className="text-text-secondary">{t(sourceLabelKey(d.source))}</span>,
+      },
+      {
+        key: "rule",
+        title: t("detections:list.table.columns.rule"),
+        dataIndex: "rule_name",
+        render: (_v, d) => <DetectionRuleButton detection={d} t={t} onRowClick={onRowClick} />,
+      },
+      {
+        key: "status",
+        title: t("detections:list.table.columns.status"),
+        dataIndex: "status",
+        className: "whitespace-nowrap",
+        render: (_v, d) => (
+          <Badge variant={statusBadgeVariant(d.status)} size="sm">
+            {t(statusLabelKey(d.status))}
+          </Badge>
+        ),
+      },
+      {
+        key: "occurrences",
+        title: t("detections:list.table.columns.occurrences"),
+        dataIndex: "count",
+        align: "right",
+        render: (_v, d) => d.count ?? 1,
+      },
+      {
+        key: "lastSeen",
+        title: t("detections:list.table.columns.lastSeen"),
+        dataIndex: "last_seen",
+        className: "whitespace-nowrap",
+        render: (_v, d) => (d.last_seen ? formatDate(d.last_seen) : "-"),
+      },
     ],
-    [t],
+    [t, onRowClick],
   )
 
-  if (loading) {
-    return (
-      <div className="flex min-h-[240px] items-center justify-center">
-        <LoadingSpinner size="lg" text={t("detections:list.table.loading")} />
-      </div>
-    )
-  }
-
-  if (detections.length === 0) {
+  if (!loading && detections.length === 0) {
     return (
       <EmptyState
         icon={<ShieldAlertIcon size={48} />}
@@ -180,113 +212,18 @@ export const DetectionsTable: React.FC<DetectionsTableProps> = ({ detections, lo
   }
 
   return (
-    <div className="space-y-4">
-      {/* Desktop: tabela com rolagem horizontal segura */}
-      <div className="hidden overflow-hidden rounded-xl border border-border md:block">
-        <div
-          ref={scrollRef}
-          className="overflow-x-auto"
-          style={virtualize ? { maxHeight: MAX_HEIGHT_PX, overflowY: "auto" } : undefined}
-        >
-          <table
-            className="w-full min-w-[860px] text-sm"
-            role="table"
-            aria-label={t("detections:list.table.ariaLabel")}
-            aria-rowcount={detections.length + 1}
-          >
-            <thead className="sticky top-0 z-10 bg-surface-tertiary">
-              <tr className="border-b border-border">
-                {columns.map((col) => (
-                  <th
-                    key={col.key}
-                    scope="col"
-                    className={`${thCls} ${col.nowrap ? "whitespace-nowrap" : ""} ${col.right ? "text-right" : ""}`}
-                  >
-                    {col.label}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border bg-surface">
-              {virtualize ? (
-                <>
-                  {paddingTop > 0 && (
-                    <tr aria-hidden="true" style={{ height: paddingTop }}>
-                      <td colSpan={columns.length} className="border-0 p-0" />
-                    </tr>
-                  )}
-                  {virtualItems.map((virtualRow) => {
-                    const detection = detections[virtualRow.index]
-                    return (
-                      <tr
-                        key={detection.id}
-                        data-index={virtualRow.index}
-                        ref={rowVirtualizer.measureElement}
-                        aria-rowindex={virtualRow.index + 2}
-                        className="transition-colors hover:bg-surface-tertiary/40"
-                      >
-                        <DetectionRowCells detection={detection} t={t} onRowClick={onRowClick} />
-                      </tr>
-                    )
-                  })}
-                  {paddingBottom > 0 && (
-                    <tr aria-hidden="true" style={{ height: paddingBottom }}>
-                      <td colSpan={columns.length} className="border-0 p-0" />
-                    </tr>
-                  )}
-                </>
-              ) : (
-                detections.map((detection, index) => (
-                  <tr
-                    key={detection.id}
-                    aria-rowindex={index + 2}
-                    className="transition-colors hover:bg-surface-tertiary/40"
-                  >
-                    <DetectionRowCells detection={detection} t={t} onRowClick={onRowClick} />
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* Mobile: cartões */}
-      <div className="space-y-3 md:hidden">
-        {detections.map((detection) => (
-          <button
-            key={detection.id}
-            type="button"
-            className="w-full rounded-xl border border-border bg-surface p-4 text-left transition-colors hover:bg-surface-tertiary/40 focus-ring"
-            aria-label={t("detections:list.table.rowAriaLabel", { name: detection.rule_name || detection.dedup_key })}
-            onClick={() => onRowClick(detection)}
-          >
-            <div className="flex items-start justify-between gap-2">
-              <div className="min-w-0">
-                <div className="truncate font-semibold text-text" title={detection.rule_name ?? undefined}>
-                  {detection.rule_name || detection.dedup_key}
-                </div>
-                <div className="mt-0.5 text-xs text-text-secondary">{t(sourceLabelKey(detection.source))}</div>
-              </div>
-              <DetectionSeverityBadge severityId={detection.severity_id} />
-            </div>
-            <div className="mt-3 flex flex-wrap items-center gap-2">
-              <Badge variant={statusBadgeVariant(detection.status)} size="sm">
-                {t(statusLabelKey(detection.status))}
-              </Badge>
-              <span className="font-mono text-xs tabular-nums text-text-tertiary">
-                {t("detections:list.table.occurrenceCount", { count: detection.count ?? 1 })}
-              </span>
-              {detection.last_seen && (
-                <span className="text-xs text-text-tertiary">
-                  {t("detections:list.table.lastSeenLabel", { date: formatDate(detection.last_seen) })}
-                </span>
-              )}
-            </div>
-          </button>
-        ))}
-      </div>
-    </div>
+    <DataTable<DetectionRead>
+      data={detections}
+      columns={columns}
+      loading={loading}
+      rowKey="id"
+      virtualizeRows={detections.length > VIRTUALIZE_THRESHOLD}
+      maxHeight={MAX_HEIGHT_PX}
+      tableClassName="min-w-[860px]"
+      tableAriaLabel={t("detections:list.table.ariaLabel")}
+      emptyMessage={t("detections:list.table.emptyTitle")}
+      renderMobileCard={(d) => <DetectionMobileCard detection={d} t={t} onRowClick={onRowClick} />}
+    />
   )
 }
 

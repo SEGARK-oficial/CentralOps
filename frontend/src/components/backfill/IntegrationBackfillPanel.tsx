@@ -65,6 +65,7 @@ export const IntegrationBackfillPanel: React.FC<IntegrationBackfillPanelProps> =
         isLoading={isLoading}
         error={error}
         onCancel={cancelJob}
+        onRetry={refetch}
       />
 
       {/* Modal com formulário */}

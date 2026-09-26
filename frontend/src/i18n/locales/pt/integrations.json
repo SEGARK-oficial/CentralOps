@@ -344,7 +344,8 @@
       "created": "Stream {{stream}} criado. O endpoint já aceita eventos.",
       "createError": "Falha ao criar stream.",
       "openMapping": "Abrir mapping",
-      "loadError": "Falha ao carregar os streams."
+      "loadError": "Falha ao carregar os streams.",
+      "nameInvalidError": "Nome inválido. Use a-z, 0-9, '_' e '-'."
     },
     "edgeCollectorConfigGeneric": "Exemplo de envio (curl / qualquer edge-collector)"
   },
@@ -388,7 +389,10 @@
       "created": "Fonte {{name}} cadastrada. O receptor a enxerga em até 15 s.",
       "createError": "Falha ao cadastrar a fonte.",
       "deleteConfirm": "Remover a fonte {{name}}? Mensagens dessa origem passam a ser descartadas.",
-      "deleteError": "Falha ao remover a fonte."
+      "deleteError": "Falha ao remover a fonte.",
+      "nameRequiredError": "Informe um nome para a fonte.",
+      "cidrInvalidError": "Informe um CIDR de origem válido (ex.: 10.0.5.0/24).",
+      "defaultStreamRequiredError": "Selecione o stream padrão."
     },
     "test": {
       "title": "Testar uma linha",
@@ -462,6 +466,7 @@
       "warningTitle": "Atenção",
       "errorTitle": "Erro",
       "loadErrorTitle": "Não foi possível carregar tenants",
+      "retry": "Tentar novamente",
       "liveRefreshStarted": "Buscando tenants na Sophos... pode demorar até 30s.",
       "liveRefreshDone": "Lista atualizada com dados ao vivo da Sophos.",
       "syncStarted": "Sincronização iniciada — verificando progresso...",

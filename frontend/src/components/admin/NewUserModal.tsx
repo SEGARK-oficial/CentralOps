@@ -136,7 +136,7 @@ export const NewUserModal: React.FC<NewUserModalProps> = ({ open, onClose, onCre
     <Modal open={open} onClose={handleClose} title={t("newUserModal.title")} size="md">
       <form onSubmit={handleSubmit} className="space-y-4" noValidate>
         {error && (
-          <Notice id={errorId} variant="danger" title={t("editUserModal.errorTitle")}>
+          <Notice id={errorId} variant="danger" title={t("editUserModal.errorTitle")} live="assertive">
             {error}
           </Notice>
         )}

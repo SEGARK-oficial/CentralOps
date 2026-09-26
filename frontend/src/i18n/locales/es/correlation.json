@@ -1,4 +1,10 @@
 {
+  "errors": {
+    "loadRulesFailed": "Fallo al cargar las reglas de correlación",
+    "createRuleFailed": "Fallo al crear la regla",
+    "updateRuleFailed": "Fallo al actualizar la regla",
+    "removeRuleFailed": "Fallo al eliminar la regla"
+  },
   "page": {
     "eyebrow": "Detección",
     "badgeBeta": "Beta",
@@ -652,6 +658,10 @@
       "yes": "Sí",
       "no": "No"
     },
+    "errors": {
+      "submitFailed": "Fallo al enviar la búsqueda.",
+      "loadRecentFailed": "Fallo al cargar los jobs recientes."
+    },
     "table": {
       "loading": "Cargando jobs...",
       "empty": {
@@ -741,6 +751,57 @@
         "refreshAriaLabel": "Actualizar lista de jobs",
         "refresh": "Actualizar"
       }
+    },
+    "form": {
+      "specKind": {
+        "passthrough": "Passthrough",
+        "sigma": "Sigma (experimental)"
+      },
+      "errors": {
+        "integrationsRequired": "Seleccione al menos una integración.",
+        "statementRequired": "El statement es obligatorio.",
+        "windowRequired": "Seleccione la ventana de tiempo (inicio y fin)."
+      },
+      "submitErrorTitle": "Fallo al enviar la búsqueda",
+      "integrations": {
+        "label": "Integraciones",
+        "placeholder": "Seleccione las integraciones a consultar",
+        "ariaLabel": "Seleccionar las integraciones"
+      },
+      "dialect": {
+        "label": "Dialecto",
+        "placeholderLoading": "Cargando dialectos...",
+        "placeholder": "Seleccione el dialecto (opcional)",
+        "ariaLabel": "Seleccionar dialecto de query",
+        "tooltipLabel": "Dialecto: {{dialect}}",
+        "tooltip": {
+          "rateLimit": "Rate limit: {{value}}",
+          "maxWindow": "Ventana máxima: {{hours}}h",
+          "supportsAsync": "Admite ejecución asíncrona.",
+          "supportedBy": "Plataformas: {{platforms}}"
+        }
+      },
+      "specKindField": {
+        "label": "Modo de traducción",
+        "ariaLabel": "Seleccionar modo de traducción del statement"
+      },
+      "statement": {
+        "label": "Statement",
+        "placeholderSigma": "Pegue la regla Sigma aquí...",
+        "placeholderDefault": "Ej: process where process.name == 'cmd.exe'",
+        "helperSigma": "Modo Sigma (experimental): la regla será convertida por el backend antes de la ejecución.",
+        "helperDefault": "Statement en el dialecto nativo seleccionado."
+      },
+      "window": {
+        "label": "Ventana de tiempo",
+        "ariaLabel": "Seleccionar la ventana de tiempo"
+      },
+      "allowPartial": {
+        "ariaLabel": "Aceptar resultados parciales cuando una fuente falle",
+        "label": "Aceptar resultados parciales",
+        "hint": "(devuelve datos de las fuentes que respondieron, aunque otras fallen)"
+      },
+      "submit": "Ejecutar búsqueda"
     }
   }
 }

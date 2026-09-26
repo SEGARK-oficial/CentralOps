@@ -63,5 +63,26 @@
     "reuseNoticeTitle": "Reuso operacional",
     "reuseNoticeBody": "Alterações aqui impactam a tela de busca e novos agendamentos criados a partir desta consulta.",
     "submit": "Salvar alterações"
+  },
+  "table": {
+    "loading": "Carregando queries...",
+    "emptyTitle": "Nenhuma query salva",
+    "emptyDescription": "Crie consultas reutilizáveis para acelerar buscas e automatizações.",
+    "listAriaLabel": "Lista de queries salvas",
+    "columns": {
+      "query": "Query",
+      "description": "Descrição",
+      "clients": "Clientes",
+      "preview": "Preview",
+      "actions": "Ações"
+    },
+    "idLabel": "ID #{{id}}",
+    "noDescription": "Sem descrição",
+    "clientsCount_one": "{{count}} cliente",
+    "clientsCount_other": "{{count}} clientes",
+    "noDefaultClients": "Nenhum padrão",
+    "edit": "Editar",
+    "remove": "Remover",
+    "availableCount": "Consultas disponíveis"
   }
 }

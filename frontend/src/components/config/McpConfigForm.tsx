@@ -72,7 +72,7 @@ export const McpConfigForm: React.FC<Props> = ({ config, loading, saving, feedba
   return (
     <form onSubmit={handleSubmit} className="space-y-6" data-testid="mcp-config-form">
       {feedback && (
-        <Notice variant={feedback.type === "success" ? "success" : "danger"}>{feedback.message}</Notice>
+        <Notice variant={feedback.type === "success" ? "success" : "danger"} live={feedback.type === "error" ? "assertive" : undefined}>{feedback.message}</Notice>
       )}
 
       {/* ── Estado atual ── */}

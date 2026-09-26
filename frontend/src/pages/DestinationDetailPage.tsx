@@ -285,7 +285,7 @@ const DestinationDetailPage: React.FC = () => {
       />
 
       {feedback && (
-        <Notice variant={feedback.type === "success" ? "success" : "danger"} title={feedback.type === "success" ? t("detailPage.feedbackOkTitle") : t("detailPage.feedbackErrorTitle")}>
+        <Notice variant={feedback.type === "success" ? "success" : "danger"} live={feedback.type === "error" ? "assertive" : undefined} title={feedback.type === "success" ? t("detailPage.feedbackOkTitle") : t("detailPage.feedbackErrorTitle")}>
           {feedback.message}
         </Notice>
       )}

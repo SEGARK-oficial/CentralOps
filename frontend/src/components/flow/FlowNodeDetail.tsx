@@ -9,7 +9,7 @@
  * Para destinos: exibe bytes_per_min + últimos eventos via getDestinationTap.
  */
 import type React from "react"
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useId, useRef, useState } from "react"
 import { createPortal } from "react-dom"
 import { useTranslation } from "react-i18next"
 import { XIcon, ActivityIcon, DatabaseIcon, NetworkIcon, ServerIcon } from "lucide-react"
@@ -21,6 +21,14 @@ import { fmtRate } from "@/lib/fmt"
 import { cn, formatBytes, formatRelativeDate } from "@/lib/utils"
 import type { FlowNodeId } from "./FlowCanvas"
 import type { DestinationTap } from "@/types"
+import {
+  isTopmostDialog,
+  lockBodyScroll,
+  nextDialogOrder,
+  registerOpenDialog,
+  unlockBodyScroll,
+  unregisterOpenDialog,
+} from "@/components/ui/internal/dialogStack"
 
 interface FlowNodeDetailProps {
   node: FlowNodeId | null
@@ -67,6 +75,16 @@ export const FlowNodeDetail: React.FC<FlowNodeDetailProps> = ({ node, onClose })
 
   const open = node !== null
 
+  // R2-6.8: registra na pilha compartilhada de diálogos (a mesma que
+  // Modal/Drawer/ConfirmDialog usam) — sem isso, um ConfirmDialog aberto POR
+  // CIMA deste painel (ex.: ao excluir algo a partir do detalhe de um nó)
+  // reagiria ao MESMO Escape que este painel, fechando os dois juntos; e o
+  // `document.body.style.overflow` era setado/limpo direto, sem contador —
+  // fechar este painel destravava o scroll mesmo com outro diálogo ainda
+  // aberto por baixo/por cima.
+  const dialogId = useId()
+  const [dialogOrder] = useState(() => nextDialogOrder())
+
   // A11Y-16: FlowPage passa `onClose={() => setSelectedNode(null)}` inline —
   // uma identidade NOVA a cada render (inclusive nos polls silenciosos de
   // 15s do grafo, que rodam com o painel aberto). Se `onClose` entrasse nas
@@ -93,10 +111,14 @@ export const FlowNodeDetail: React.FC<FlowNodeDetailProps> = ({ node, onClose })
       else panel.focus()
     }, 50)
 
-    document.body.style.overflow = "hidden"
+    registerOpenDialog(dialogId, dialogOrder)
+    lockBodyScroll()
 
     const handleKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
+        // Só o diálogo do TOPO da pilha reage — um ConfirmDialog aberto por
+        // cima deste painel não pode fechar os dois no mesmo Escape.
+        if (!isTopmostDialog(dialogOrder)) return
         e.preventDefault()
         onCloseRef.current()
         return
@@ -130,10 +152,13 @@ export const FlowNodeDetail: React.FC<FlowNodeDetailProps> = ({ node, onClose })
     return () => {
       window.clearTimeout(timer)
       document.removeEventListener("keydown", handleKey)
-      document.body.style.overflow = ""
+      unregisterOpenDialog(dialogId)
+      unlockBodyScroll()
       previousFocus.current?.focus()
     }
-  }, [open])
+    // dialogId/dialogOrder são estáveis (useId / useState inicial) — mesmo
+    // padrão de deps do Modal.tsx.
+  }, [open, dialogId, dialogOrder])
 
   // Load tap data for destination nodes
   useEffect(() => {

@@ -113,4 +113,37 @@ describe("Pilha de Escape entre Modais (A11Y-02)", () => {
     fireEvent.keyDown(document, { key: "Escape" })
     expect(screen.queryByText("Editar item")).not.toBeInTheDocument()
   })
+
+  // R2-8.5: fechar o diálogo de CIMA não pode destravar o scroll da página
+  // com o Modal de BAIXO ainda aberto (bug: cada um zerava
+  // `body.style.overflow` no próprio cleanup, sem saber do outro).
+  it("ConfirmDialog aninhado: fechar o de cima mantém o scroll travado até o de baixo fechar também", () => {
+    function Harness() {
+      const [modalOpen, setModalOpen] = useState(true)
+      const [confirmOpen, setConfirmOpen] = useState(true)
+      return (
+        <Modal open={modalOpen} onClose={() => setModalOpen(false)} title="Editar item">
+          <ConfirmDialog
+            open={confirmOpen}
+            title="Descartar alterações?"
+            description="Essa ação não pode ser desfeita."
+            onConfirm={() => setConfirmOpen(false)}
+            onClose={() => setConfirmOpen(false)}
+          />
+        </Modal>
+      )
+    }
+
+    render(<Harness />)
+    expect(document.body.style.overflow).toBe("hidden")
+
+    fireEvent.keyDown(document, { key: "Escape" })
+    expect(screen.queryByText("Descartar alterações?")).not.toBeInTheDocument()
+    // Modal de baixo ainda aberto — scroll continua travado.
+    expect(document.body.style.overflow).toBe("hidden")
+
+    fireEvent.keyDown(document, { key: "Escape" })
+    expect(screen.queryByText("Editar item")).not.toBeInTheDocument()
+    expect(document.body.style.overflow).toBe("")
+  })
 })

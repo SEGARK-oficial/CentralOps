@@ -546,3 +546,58 @@ describe("RulesEditor — template OCSF", () => {
     expect(onChange).toHaveBeenCalledWith(firstTemplate.rules)
   })
 })
+
+// ── R2-6.6: diálogo de confirmação de import usa ConfirmDialog ─────────────────
+
+describe("RulesEditor — confirmação de import (R2-6.6)", () => {
+  function uploadFile(container: HTMLElement, jsonText: string) {
+    const input = container.querySelector('input[type="file"]') as HTMLInputElement
+    const file = new File([jsonText], "mapping.json", { type: "application/json" })
+    Object.defineProperty(input, "files", { value: [file] })
+    fireEvent.change(input)
+  }
+
+  const VALID_EXPORT = JSON.stringify({
+    schema_version: 2,
+    exported_at: "2026-01-01T00:00:00Z",
+    rules: [{ target: "event.action", source: "action" }],
+  })
+
+  it("importar com regras existentes abre um dialog acessível (role=alertdialog) com foco preso e o nome do arquivo já validado", async () => {
+    const { container } = render(<RulesEditor rules={RULES} mode="edit" onChange={vi.fn()} />)
+
+    uploadFile(container, VALID_EXPORT)
+
+    const dialog = await screen.findByRole("alertdialog")
+    expect(dialog).toBeInTheDocument()
+    // RULES tem 3 regras atuais; o arquivo importado tem 1.
+    expect(within(dialog).getByText(/3 regras atuais/)).toBeInTheDocument()
+    expect(within(dialog).getByText(/1 regra importada/)).toBeInTheDocument()
+  })
+
+  it("confirmar substitui as regras (onChange) e fecha o dialog", async () => {
+    const onChange = vi.fn()
+    const { container } = render(<RulesEditor rules={RULES} mode="edit" onChange={onChange} />)
+
+    uploadFile(container, VALID_EXPORT)
+    const dialog = await screen.findByRole("alertdialog")
+
+    fireEvent.click(within(dialog).getByRole("button", { name: "Confirmar importação" }))
+
+    expect(onChange).toHaveBeenCalledWith([{ target: "event.action", source: "action" }])
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument()
+  })
+
+  it("cancelar NÃO altera as regras e fecha o dialog", async () => {
+    const onChange = vi.fn()
+    const { container } = render(<RulesEditor rules={RULES} mode="edit" onChange={onChange} />)
+
+    uploadFile(container, VALID_EXPORT)
+    const dialog = await screen.findByRole("alertdialog")
+
+    fireEvent.click(within(dialog).getByRole("button", { name: "Cancelar" }))
+
+    expect(onChange).not.toHaveBeenCalled()
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument()
+  })
+})

@@ -15,6 +15,7 @@
 
 import type React from "react"
 import { useMemo, useState } from "react"
+import { useTranslation } from "react-i18next"
 import { SearchIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Input } from "@/components/ui/Input/Input"
@@ -51,9 +52,12 @@ export function kindToIcon(kind: string, size = 28): React.ReactNode {
 
 // ── Tier → badge ──────────────────────────────────────────────────────────────
 
-function tierBadge(tier?: string): { label: string; variant: "warning" | "default" } | null {
-  if (tier === "beta") return { label: "Beta", variant: "warning" }
-  if (tier === "generic") return { label: "Genérico", variant: "default" }
+function tierBadge(
+  tier: string | undefined,
+  t: (key: string) => string,
+): { label: string; variant: "warning" | "default" } | null {
+  if (tier === "beta") return { label: t("typeGallery.tierBeta"), variant: "warning" }
+  if (tier === "generic") return { label: t("typeGallery.tierGeneric"), variant: "default" }
   return null // "stable" (default) não recebe badge — reduz ruído visual
 }
 
@@ -70,45 +74,46 @@ export interface DestinationTypeGalleryProps {
   disabled?: boolean
 }
 
-const ALL = "Todos"
-
 export const DestinationTypeGallery: React.FC<DestinationTypeGalleryProps> = ({
   catalog,
   selectedKind,
   onSelect,
   disabled = false,
 }) => {
+  const { t } = useTranslation("destinations")
+  const ALL = t("typeGallery.allCategory")
+  const OTHER = t("typeGallery.otherCategory")
   const [search, setSearch] = useState("")
   const [category, setCategory] = useState<string>(ALL)
 
   // Categorias derivadas do catálogo (curadas pelo backend via `order`/`category`).
   const categories = useMemo<string[]>(() => {
     const seen: string[] = []
-    for (const t of catalog) {
-      const c = t.category || "Outros"
+    for (const dest of catalog) {
+      const c = dest.category || OTHER
       if (!seen.includes(c)) seen.push(c)
     }
     return [ALL, ...seen]
-  }, [catalog])
+  }, [catalog, ALL, OTHER])
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
-    return catalog.filter((t) => {
-      const cat = t.category || "Outros"
+    return catalog.filter((dest) => {
+      const cat = dest.category || OTHER
       if (category !== ALL && cat !== category) return false
-      if (q && !t.label.toLowerCase().includes(q) && !t.kind.toLowerCase().includes(q)) return false
+      if (q && !dest.label.toLowerCase().includes(q) && !dest.kind.toLowerCase().includes(q)) return false
       return true
     })
-  }, [catalog, search, category])
+  }, [catalog, search, category, ALL, OTHER])
 
   return (
     <div className="space-y-4">
       <Input
-        placeholder="Buscar tipo de destino…"
+        placeholder={t("typeGallery.searchPlaceholder")}
         value={search}
         onChange={(e) => setSearch(e.target.value)}
         leftIcon={<SearchIcon size={16} />}
-        aria-label="Buscar tipo de destino"
+        aria-label={t("typeGallery.searchAriaLabel")}
         disabled={disabled}
         data-testid="gallery-search"
       />
@@ -116,7 +121,7 @@ export const DestinationTypeGallery: React.FC<DestinationTypeGalleryProps> = ({
       {/* Chips de categoria (derivados do catálogo) */}
       <div
         role="group"
-        aria-label="Filtrar por categoria"
+        aria-label={t("typeGallery.categoryGroupAriaLabel")}
         className="flex flex-wrap gap-2"
         data-testid="gallery-categories"
       >
@@ -144,29 +149,29 @@ export const DestinationTypeGallery: React.FC<DestinationTypeGalleryProps> = ({
 
       {filtered.length === 0 ? (
         <p className="py-8 text-center text-sm text-text-tertiary" data-testid="gallery-empty">
-          Nenhum tipo encontrado para "{search || category}".
+          {t("typeGallery.emptyMessage", { query: search || category })}
         </p>
       ) : (
         <div
           role="radiogroup"
-          aria-label="Selecionar tipo de destino"
+          aria-label={t("typeGallery.gridAriaLabel")}
           className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3"
           data-testid="gallery-grid"
         >
-          {filtered.map((t) => {
-            const isSelected = selectedKind === t.kind
-            const tier = tierBadge(t.tier)
-            const iconId = t.icon_id || iconIdForKind(t.kind)
+          {filtered.map((dest) => {
+            const isSelected = selectedKind === dest.kind
+            const tier = tierBadge(dest.tier, t)
+            const iconId = dest.icon_id || iconIdForKind(dest.kind)
             return (
               <button
-                key={t.kind}
+                key={dest.kind}
                 type="button"
                 role="radio"
                 aria-checked={isSelected}
-                aria-label={`Selecionar ${t.label}`}
+                aria-label={t("typeGallery.selectAriaLabel", { label: dest.label })}
                 disabled={disabled}
-                onClick={() => onSelect(t.kind)}
-                data-testid={`gallery-card-${t.kind}`}
+                onClick={() => onSelect(dest.kind)}
+                data-testid={`gallery-card-${dest.kind}`}
                 className={cn(
                   "flex flex-col items-start gap-3 rounded-lg border p-4 text-left transition-all focus-ring",
                   "disabled:cursor-not-allowed disabled:opacity-50",
@@ -188,15 +193,15 @@ export const DestinationTypeGallery: React.FC<DestinationTypeGalleryProps> = ({
 
                 <div className="space-y-1">
                   <span className={cn("block text-sm font-semibold", isSelected ? "text-primary-700" : "text-text")}>
-                    {t.label}
+                    {dest.label}
                   </span>
                   <span className="block text-xs leading-relaxed text-text-tertiary">
-                    {t.description || "Destino de saída configurável."}
+                    {dest.description || t("typeGallery.defaultDescription")}
                   </span>
                 </div>
 
                 <Badge variant="default" size="sm" className="mt-auto">
-                  {t.category || "Outros"}
+                  {dest.category || OTHER}
                 </Badge>
               </button>
             )

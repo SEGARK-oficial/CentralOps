@@ -2,7 +2,7 @@
 
 import type React from "react"
 import { useId, useMemo, useRef, useState } from "react"
-import { ChevronLeftIcon, ChevronRightIcon, ChevronsLeftIcon, ChevronsRightIcon } from "lucide-react"
+import { ChevronDownIcon, ChevronLeftIcon, ChevronRightIcon, ChevronsLeftIcon, ChevronsRightIcon, ChevronUpIcon } from "lucide-react"
 import { useVirtualizer } from "@tanstack/react-virtual"
 import { useTranslation } from "react-i18next"
 import { Button } from "../Button/Button"
@@ -10,7 +10,36 @@ import { Select, type SelectValue } from "../Select/Select"
 import { EmptyState } from "../EmptyState/EmptyState"
 import { cn } from "@/lib/utils"
 import { formatNumber } from "@/lib/intl"
+import { useMediaQuery } from "@/hooks/useMediaQuery"
 import type { TableColumn, PaginationConfig } from "@/types"
+
+const DEFAULT_MOBILE_BREAKPOINT = "(min-width: 768px)"
+const SUMMARY_ROW_ESTIMATE_PX = 34
+const DETAIL_ROW_ESTIMATE_PX = 200
+
+/**
+ * R2-5.3 — configura uma linha de detalhe expansível (accordion) por
+ * registro. O `DataTable` cuida da coluna de alternância, do `aria-expanded`
+ * e — com `virtualizeRows` — de achatar "linha resumo + linha de detalhe" em
+ * itens virtualizados de altura variável (cada `<tr>` vira um item, medido
+ * via `measureElement`), em vez de tratar o par como uma unidade de altura
+ * fixa.
+ */
+export interface ExpandableRowConfig<T> {
+  isExpanded: (record: T, index: number) => boolean
+  onToggle: (record: T, index: number) => void
+  /** Conteúdo da linha de detalhe — renderizado dentro de um <td colSpan> só dele. */
+  renderDetail: (record: T, index: number) => React.ReactNode
+  /** Nome acessível do botão de alternância — já deve vir de `t()` no chamador. */
+  toggleLabel: (record: T, index: number) => string
+}
+
+interface RowDescriptor<T> {
+  key: React.Key
+  kind: "summary" | "detail"
+  record: T
+  index: number
+}
 
 export interface DataTableProps<T = object> {
   data: T[]
@@ -22,6 +51,9 @@ export interface DataTableProps<T = object> {
   /** Classe aplicada só ao wrapper da `<table>` (ex.: `min-w-[…]`), sem afetar
    *  a barra de paginação abaixo — que antes herdava a mesma largura mínima. */
   tableClassName?: string
+  /** Nome acessível da `<table>` (`aria-label`) — recomendado quando a tela
+   *  não tem um `<h1>`/`<h2>` associado visualmente à tabela. */
+  tableAriaLabel?: string
   emptyMessage?: string
   /** Ativa virtualização de linhas via @tanstack/react-virtual (ideal para >500 rows) */
   virtualizeRows?: boolean
@@ -57,6 +89,22 @@ export interface DataTableProps<T = object> {
    * DataTable nunca ordena localmente uma página parcial.
    */
   onSortChange?: (column: string, direction: "asc" | "desc") => void
+  /**
+   * R2-5.3 — layout único por breakpoint: abaixo de `mobileBreakpoint`
+   * (default `(min-width: 768px)`), renderiza isto por registro em vez da
+   * `<table>`. Substitui o padrão antigo de montar tabela E cartões juntos
+   * (alternados só por CSS) por um único DOM por vez.
+   */
+  renderMobileCard?: (record: T, index: number) => React.ReactNode
+  /** Media query usada por `renderMobileCard` (default: `(min-width: 768px)`). */
+  mobileBreakpoint?: string
+  /** Ver `ExpandableRowConfig`. Só se aplica ao layout de tabela (desktop). */
+  expandableRow?: ExpandableRowConfig<T>
+  /** `data-testid` do wrapper externo (útil pra migrar tabelas escritas à
+   *  mão sem quebrar `getByTestId` já existente nos testes). */
+  "data-testid"?: string
+  /** `data-testid` por linha de dado (não se aplica à linha de detalhe). */
+  getRowTestId?: (record: T, index: number) => string | undefined
 }
 
 export const DataTable = <T extends object>({
@@ -67,12 +115,18 @@ export const DataTable = <T extends object>({
   onPaginationChange,
   className,
   tableClassName,
+  tableAriaLabel,
   emptyMessage,
   virtualizeRows = false,
   maxHeight = "600px",
   serverSide = false,
   rowKey,
   onSortChange,
+  renderMobileCard,
+  mobileBreakpoint = DEFAULT_MOBILE_BREAKPOINT,
+  expandableRow,
+  "data-testid": dataTestId,
+  getRowTestId,
 }: DataTableProps<T>) => {
   const { t } = useTranslation("ui")
   const pageSizeSelectId = useId()
@@ -80,8 +134,11 @@ export const DataTable = <T extends object>({
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc")
   // Ref para o container de scroll quando virtualização está ativa
   const scrollContainerRef = useRef<HTMLDivElement>(null)
+  // Só é consultado quando `renderMobileCard` está presente — chamado sempre
+  // (regra dos hooks), o valor fica ocioso nos demais casos.
+  const isDesktop = useMediaQuery(mobileBreakpoint)
 
-  const resolveRowKey = (record: T, index: number): React.Key => {
+  const getRowKey = (record: T, index: number): React.Key => {
     if (typeof rowKey === "function") return rowKey(record, index)
     if (typeof rowKey === "string" || typeof rowKey === "number") {
       const value = (record as Record<string, unknown>)[rowKey as string]
@@ -121,13 +178,32 @@ export const DataTable = <T extends object>({
     return sortedData.slice(start, start + pagination.pageSize)
   }, [currentPage, pagination, serverSide, sortedData])
 
-  // Virtualizer — só instanciado quando virtualizeRows=true; usa paginatedData como fonte
+  // R2-5.3: achata "linha resumo + linha de detalhe (se expandida)" numa
+  // lista de descritores de <tr> — cada um vira exatamente UM item
+  // virtualizável, o que permite altura variável (measureElement) em vez de
+  // travar tudo numa altura fixa.
+  const rowDescriptors = useMemo<RowDescriptor<T>[]>(() => {
+    const out: RowDescriptor<T>[] = []
+    paginatedData.forEach((record, index) => {
+      const key = getRowKey(record, index)
+      out.push({ key, kind: "summary", record, index })
+      if (expandableRow?.isExpanded(record, index)) {
+        out.push({ key: `${String(key)}__detail`, kind: "detail", record, index })
+      }
+    })
+    return out
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [paginatedData, expandableRow, rowKey])
+
+  const totalColumnCount = columns.length + (expandableRow ? 1 : 0)
+
+  // Virtualizer — só instanciado quando virtualizeRows=true; usa rowDescriptors como fonte
   const rowVirtualizer = useVirtualizer({
-    count: virtualizeRows ? paginatedData.length : 0,
+    count: virtualizeRows ? rowDescriptors.length : 0,
     getScrollElement: () => scrollContainerRef.current,
-    // Acompanha a densidade da linha (py-2 + text-sm ≈ 34px). Estimar alto
-    // demais faz o scrollbar mentir sobre o tamanho da lista.
-    estimateSize: () => 34,
+    // Acompanha a densidade da linha (py-2 + text-sm ≈ 34px); detalhe expandido
+    // parte de uma estimativa maior, corrigida pelo `measureElement` real.
+    estimateSize: (index) => (rowDescriptors[index]?.kind === "detail" ? DETAIL_ROW_ESTIMATE_PX : SUMMARY_ROW_ESTIMATE_PX),
     overscan: 8,
   })
   const virtualItems = virtualizeRows ? rowVirtualizer.getVirtualItems() : []
@@ -177,6 +253,7 @@ export const DataTable = <T extends object>({
   const tableHead = (
     <thead className={cn(virtualizeRows && "sticky top-0 z-10")}>
       <tr className="border-b border-border bg-surface-tertiary">
+        {expandableRow && <th className="w-10 px-2 py-2" scope="col" aria-label={t("dataTable.expandColumn")} />}
         {columns.map((col) => {
           const field = col.dataIndex || col.key
           return (
@@ -225,6 +302,60 @@ export const DataTable = <T extends object>({
     </thead>
   )
 
+  const renderDataCells = (record: T, index: number) =>
+    columns.map((col) => {
+      const key = col.dataIndex || col.key
+      const val = (record as Record<string, unknown>)[key]
+      return (
+        <td key={col.key} className={cellClass(col)} style={{ textAlign: col.align || "left" }}>
+          {col.render ? col.render(val, record, index) : String(val ?? "")}
+        </td>
+      )
+    })
+
+  const renderToggleCell = (record: T, index: number) => {
+    if (!expandableRow) return null
+    const expanded = expandableRow.isExpanded(record, index)
+    return (
+      <td className="px-2 py-2 text-center">
+        <button
+          type="button"
+          className="rounded p-1 transition-colors hover:bg-surface-tertiary focus-ring"
+          aria-expanded={expanded}
+          aria-label={expandableRow.toggleLabel(record, index)}
+          onClick={() => expandableRow.onToggle(record, index)}
+        >
+          {expanded ? <ChevronUpIcon size={14} aria-hidden="true" /> : <ChevronDownIcon size={14} aria-hidden="true" />}
+        </button>
+      </td>
+    )
+  }
+
+  const renderRow = (descriptor: RowDescriptor<T>, ariaRowIndex: number, measureRef?: (el: HTMLTableRowElement | null) => void, dataIndexAttr?: number) => {
+    if (descriptor.kind === "detail") {
+      return (
+        <tr key={descriptor.key} ref={measureRef} data-index={dataIndexAttr} aria-rowindex={ariaRowIndex}>
+          <td colSpan={totalColumnCount} className="border-0 bg-surface-tertiary/30 p-0">
+            {expandableRow?.renderDetail(descriptor.record, descriptor.index)}
+          </td>
+        </tr>
+      )
+    }
+    return (
+      <tr
+        key={descriptor.key}
+        ref={measureRef}
+        data-index={dataIndexAttr}
+        data-testid={getRowTestId?.(descriptor.record, descriptor.index)}
+        aria-rowindex={ariaRowIndex}
+        className="hover:bg-surface-tertiary/50 transition-colors"
+      >
+        {renderToggleCell(descriptor.record, descriptor.index)}
+        {renderDataCells(descriptor.record, descriptor.index)}
+      </tr>
+    )
+  }
+
   if (loading) {
     // Skeleton com a altura de linha prevista em vez do spinner de página
     // inteira: o spinner colapsa a área da tabela a ~40px e, quando os dados
@@ -234,7 +365,7 @@ export const DataTable = <T extends object>({
     // fora do fluxo visual da tabela (skeleton em si é só decoração).
     const skeletonRowCount = Math.min(pagination?.pageSize ?? 8, 10)
     return (
-      <div className={cn("flex flex-col gap-3", className)}>
+      <div className={cn("flex flex-col gap-3", className)} data-testid={dataTestId}>
         <div role="status" aria-live="polite" aria-busy="true" className="sr-only">
           {t("loadingSpinner.loading")}
         </div>
@@ -244,6 +375,7 @@ export const DataTable = <T extends object>({
             <tbody className="divide-y divide-border">
               {Array.from({ length: skeletonRowCount }).map((_, rowIndex) => (
                 <tr key={rowIndex}>
+                  {expandableRow && <td className="px-2 py-2" />}
                   {columns.map((col) => (
                     <td key={col.key} className={cellClass(col)}>
                       <span className="block h-4 w-full max-w-[160px] animate-pulse rounded bg-surface-tertiary" />
@@ -265,50 +397,42 @@ export const DataTable = <T extends object>({
   // +1 pela linha de cabeçalho — aria-rowcount/aria-rowindex dão ao leitor de
   // tela a posição real da linha mesmo quando a virtualização só materializa
   // um subconjunto no DOM (sem isto, "linha 3 de 40" vira "linha 3 de 8").
-  const ariaRowCount = paginatedData.length + 1
+  const ariaRowCount = rowDescriptors.length + 1
+
+  // R2-5.3: layout único por breakpoint — abaixo dele, cartões; nunca os
+  // dois juntos no DOM (o padrão antigo montava mobile+desktop simultâneos,
+  // alternados só por CSS, e dobrava o trabalho de render).
+  const useMobileCards = Boolean(renderMobileCard) && !isDesktop
 
   return (
-    <div className={cn("flex flex-col gap-3", className)}>
-      {virtualizeRows ? (
+    <div className={cn("flex flex-col gap-3", className)} data-testid={dataTestId}>
+      {useMobileCards ? (
+        <div className="space-y-3">
+          {paginatedData.map((record, index) => (
+            <div key={getRowKey(record, index)} data-testid={getRowTestId?.(record, index)}>{renderMobileCard?.(record, index)}</div>
+          ))}
+        </div>
+      ) : virtualizeRows ? (
         // Modo virtualizado: container com altura fixa + scroll
         <div
           ref={scrollContainerRef}
           className={cn("overflow-auto rounded-lg border border-border", tableClassName)}
           style={{ maxHeight }}
         >
-          <table className="w-full text-sm" role="table" aria-rowcount={ariaRowCount}>
+          <table className="w-full text-sm" role="table" aria-rowcount={ariaRowCount} aria-label={tableAriaLabel}>
             {tableHead}
             <tbody className="divide-y divide-border">
               {paddingTop > 0 && (
                 <tr aria-hidden="true" style={{ height: paddingTop }}>
-                  <td colSpan={columns.length} className="p-0 border-0" />
+                  <td colSpan={totalColumnCount} className="p-0 border-0" />
                 </tr>
               )}
-              {virtualItems.map((virtualRow) => {
-                const record = paginatedData[virtualRow.index]
-                return (
-                  <tr
-                    key={resolveRowKey(record, virtualRow.index)}
-                    data-index={virtualRow.index}
-                    ref={rowVirtualizer.measureElement}
-                    aria-rowindex={virtualRow.index + 2}
-                    className="hover:bg-surface-tertiary/50 transition-colors"
-                  >
-                    {columns.map((col) => {
-                      const key = col.dataIndex || col.key
-                      const val = (record as Record<string, unknown>)[key]
-                      return (
-                        <td key={col.key} className={cellClass(col)} style={{ textAlign: col.align || "left" }}>
-                          {col.render ? col.render(val, record, virtualRow.index) : String(val ?? "")}
-                        </td>
-                      )
-                    })}
-                  </tr>
-                )
-              })}
+              {virtualItems.map((virtualRow) =>
+                renderRow(rowDescriptors[virtualRow.index], virtualRow.index + 2, rowVirtualizer.measureElement, virtualRow.index),
+              )}
               {paddingBottom > 0 && (
                 <tr aria-hidden="true" style={{ height: paddingBottom }}>
-                  <td colSpan={columns.length} className="p-0 border-0" />
+                  <td colSpan={totalColumnCount} className="p-0 border-0" />
                 </tr>
               )}
             </tbody>
@@ -317,26 +441,10 @@ export const DataTable = <T extends object>({
       ) : (
         // Modo padrão: todos os rows no DOM (retrocompatível)
         <div className={cn("overflow-x-auto rounded-lg border border-border", tableClassName)}>
-          <table className="w-full text-sm" role="table" aria-rowcount={ariaRowCount}>
+          <table className="w-full text-sm" role="table" aria-rowcount={ariaRowCount} aria-label={tableAriaLabel}>
             {tableHead}
             <tbody className="divide-y divide-border">
-              {paginatedData.map((record, index) => (
-                <tr
-                  key={resolveRowKey(record, index)}
-                  aria-rowindex={index + 2}
-                  className="hover:bg-surface-tertiary/50 transition-colors"
-                >
-                  {columns.map((col) => {
-                    const key = col.dataIndex || col.key
-                    const val = (record as Record<string, unknown>)[key]
-                    return (
-                      <td key={col.key} className={cellClass(col)} style={{ textAlign: col.align || "left" }}>
-                        {col.render ? col.render(val, record, index) : String(val ?? "")}
-                      </td>
-                    )
-                  })}
-                </tr>
-              ))}
+              {rowDescriptors.map((descriptor, i) => renderRow(descriptor, i + 2))}
             </tbody>
           </table>
         </div>

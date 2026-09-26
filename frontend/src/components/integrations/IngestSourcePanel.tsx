@@ -20,6 +20,7 @@ import { Input } from "@/components/ui/Input/Input"
 import { Notice } from "@/components/ui/Notice/Notice"
 import { Select } from "@/components/ui/Select/Select"
 import { brandIconFor } from "@/lib/brand-icons"
+import { useFirstInvalidFocus } from "@/hooks/useFirstInvalidFocus"
 
 /** Plataforma push genérica: os streams são criados pelo operador (um mapping cada). */
 export const CUSTOM_JSON_PLATFORM = "custom_json"
@@ -147,7 +148,11 @@ export const IngestSourcePanel: React.FC<IngestSourcePanelProps> = ({ integratio
   const [issuing, setIssuing] = useState(false)
   const [revoking, setRevoking] = useState(false)
   const [token, setToken] = useState<string | null>(null)
-  const [error, setError] = useState<string | null>(null)
+  const tokenErrorId = "ingest-token-error"
+  // R2-8.3: sem campo nenhum pra apontar (emitir/rotacionar/revogar são
+  // botões de ação pura) — o ganho aqui é só o contrato role=alert/aria-live,
+  // que o <p> cru não tinha (erro de emissão/revogação sumia sem anúncio).
+  const { error, failGeneral: failTokenGeneral, clearError: clearTokenError } = useFirstInvalidFocus()
   const [notice, setNotice] = useState<string | null>(null)
 
   // ── Streams da fonte genérica (custom_json) ──────────────────────────
@@ -157,7 +162,15 @@ export const IngestSourcePanel: React.FC<IngestSourcePanelProps> = ({ integratio
   const [streamClass, setStreamClass] = useState<number>(0)
   const [streamDescription, setStreamDescription] = useState("")
   const [creating, setCreating] = useState(false)
-  const [streamError, setStreamError] = useState<string | null>(null)
+  const streamErrorId = "ingest-custom-stream-error"
+  const {
+    error: streamError,
+    errorField: streamErrorField,
+    registerField: registerStreamField,
+    failField: failStreamField,
+    failGeneral: failStreamGeneral,
+    clearError: clearStreamError,
+  } = useFirstInvalidFocus<"streamName">()
   const [streamNotice, setStreamNotice] = useState<string | null>(null)
 
   useEffect(() => {
@@ -190,21 +203,28 @@ export const IngestSourcePanel: React.FC<IngestSourcePanelProps> = ({ integratio
         const list = await api.listCustomStreams()
         if (!cancelled && Array.isArray(list)) setCustomStreams(list)
       } catch {
-        if (!cancelled) setStreamError(t("ingest.customStreams.loadError"))
+        if (!cancelled) failStreamGeneral(t("ingest.customStreams.loadError"))
       }
     })()
     return () => {
       cancelled = true
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isCustom, hasInfo, t])
 
   const streamNameValid = STREAM_NAME_RE.test(streamName.trim())
 
   const handleCreateStream = useCallback(async () => {
     const name = streamName.trim()
-    if (!STREAM_NAME_RE.test(name)) return
+    // Defensivo: o botão fica desabilitado enquanto `!streamNameValid`, mas o
+    // submit nativo do form (Enter) pode disparar mesmo assim — sem isto o
+    // clique silenciosamente não fazia nada e o operador não sabia por quê.
+    if (!STREAM_NAME_RE.test(name)) {
+      failStreamField("streamName", t("ingest.customStreams.nameInvalidError"))
+      return
+    }
     setCreating(true)
-    setStreamError(null)
+    clearStreamError()
     setStreamNotice(null)
     try {
       const created = await api.createCustomStream({
@@ -219,11 +239,11 @@ export const IngestSourcePanel: React.FC<IngestSourcePanelProps> = ({ integratio
       setStreamDescription("")
       setStreamNotice(t("ingest.customStreams.created", { stream: created.stream }))
     } catch (e) {
-      setStreamError(e instanceof Error ? e.message : t("ingest.customStreams.createError"))
+      failStreamGeneral(e instanceof Error ? e.message : t("ingest.customStreams.createError"))
     } finally {
       setCreating(false)
     }
-  }, [streamName, streamClass, streamDescription, t])
+  }, [streamName, streamClass, streamDescription, t, failStreamField, failStreamGeneral, clearStreamError])
 
   const origin = typeof window !== "undefined" ? window.location.origin : ""
   const primaryStream = info?.streams?.[0] ?? (isCustom ? "<stream>" : "events")
@@ -236,24 +256,24 @@ export const IngestSourcePanel: React.FC<IngestSourcePanelProps> = ({ integratio
 
   const handleIssue = useCallback(async () => {
     setIssuing(true)
-    setError(null)
+    clearTokenError()
     setNotice(null)
     try {
       const res = await api.issueIngestToken(integrationId)
       setToken(res.token)
       setInfo((prev) => (prev ? { ...prev, has_token: true } : prev))
     } catch (e) {
-      setError(e instanceof Error ? e.message : t("ingest.issueError"))
+      failTokenGeneral(e instanceof Error ? e.message : t("ingest.issueError"))
     } finally {
       setIssuing(false)
     }
-  }, [integrationId, t])
+  }, [integrationId, t, failTokenGeneral, clearTokenError])
 
   const handleRevoke = useCallback(async () => {
     // Revogação é destrutiva (o edge-collector para de ingerir na hora): confirma.
     if (typeof window !== "undefined" && !window.confirm(t("ingest.revokeConfirm"))) return
     setRevoking(true)
-    setError(null)
+    clearTokenError()
     setNotice(null)
     try {
       await api.revokeIngestToken(integrationId)
@@ -261,11 +281,11 @@ export const IngestSourcePanel: React.FC<IngestSourcePanelProps> = ({ integratio
       setInfo((prev) => (prev ? { ...prev, has_token: false } : prev))
       setNotice(t("ingest.revokeSuccess"))
     } catch (e) {
-      setError(e instanceof Error ? e.message : t("ingest.revokeError"))
+      failTokenGeneral(e instanceof Error ? e.message : t("ingest.revokeError"))
     } finally {
       setRevoking(false)
     }
-  }, [integrationId, t])
+  }, [integrationId, t, failTokenGeneral, clearTokenError])
 
   if (hidden) return null
   if (!info) return null
@@ -341,7 +361,13 @@ export const IngestSourcePanel: React.FC<IngestSourcePanelProps> = ({ integratio
           </div>
         )}
         {notice && <p className="text-xs text-text-secondary">{notice}</p>}
-        {error && <p className="text-xs text-danger-600">{error}</p>}
+        {/* R2-8.3: antes era um <p> sem role/aria-live — erro de emitir/
+            revogar sumia sem anúncio nenhum pro leitor de tela. */}
+        {error && (
+          <p id={tokenErrorId} className="text-xs text-danger-600" role="alert" aria-live="assertive">
+            {error}
+          </p>
+        )}
       </div>
 
       {/* Streams da fonte genérica: criados pelo operador, um mapping cada. */}
@@ -378,6 +404,7 @@ export const IngestSourcePanel: React.FC<IngestSourcePanelProps> = ({ integratio
               }}
             >
               <Input
+                ref={registerStreamField("streamName")}
                 label={t("ingest.customStreams.nameLabel")}
                 placeholder={t("ingest.customStreams.namePlaceholder")}
                 helperText={t("ingest.customStreams.nameHelper")}
@@ -385,6 +412,8 @@ export const IngestSourcePanel: React.FC<IngestSourcePanelProps> = ({ integratio
                 onChange={(e) => setStreamName(e.target.value)}
                 aria-label={t("ingest.customStreams.nameLabel")}
                 data-testid="custom-stream-name"
+                aria-invalid={streamErrorField === "streamName" ? "true" : undefined}
+                aria-describedby={streamErrorField === "streamName" ? streamErrorId : undefined}
               />
               <Select
                 label={t("ingest.customStreams.classLabel")}
@@ -405,7 +434,11 @@ export const IngestSourcePanel: React.FC<IngestSourcePanelProps> = ({ integratio
             </form>
           )}
           {streamNotice && <p className="text-xs text-text-secondary">{streamNotice}</p>}
-          {streamError && <p className="text-xs text-danger-600">{streamError}</p>}
+          {streamError && (
+            <p id={streamErrorId} className="text-xs text-danger-600" role="alert" aria-live="assertive">
+              {streamError}
+            </p>
+          )}
         </div>
       )}
 

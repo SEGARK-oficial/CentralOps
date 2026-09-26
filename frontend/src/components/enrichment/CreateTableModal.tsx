@@ -8,8 +8,13 @@ import { Select } from "@/components/ui/Select/Select"
 import { Textarea } from "@/components/ui/Textarea/Textarea"
 import { Notice } from "@/components/ui/Notice/Notice"
 import { usePlatform } from "@/contexts/PlatformContext"
+import { useFirstInvalidFocus } from "@/hooks/useFirstInvalidFocus"
 import * as api from "@/services/api"
 import type { EnrichmentTable } from "@/services/api"
+
+// `Select` não encaminha `ref` — id explícito p/ focar o trigger (mesmo
+// padrão de CreatePolicyModal/SourceFormModal).
+const ORG_SELECT_ID = "create-table-org"
 
 interface CreateTableModalProps {
   open: boolean
@@ -35,7 +40,10 @@ export const CreateTableModal: React.FC<CreateTableModalProps> = ({
   const [keyKind, setKeyKind] = useState("ip")
   const [organizationId, setOrganizationId] = useState<number | null>(selectedOrgId)
   const [submitting, setSubmitting] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const errorId = "create-table-modal-error"
+  const { error, errorField, registerField, failField, failGeneral, clearError } = useFirstInvalidFocus<
+    "name" | "organizationId"
+  >()
 
   // Acompanha o filtro global ao abrir o modal — não sobrescreve uma escolha
   // que o usuário já fez dentro do próprio formulário.
@@ -49,7 +57,7 @@ export const CreateTableModal: React.FC<CreateTableModalProps> = ({
     setDescription("")
     setMatchMode("exact")
     setKeyKind("ip")
-    setError(null)
+    clearError()
   }
 
   const orgOptions = organizations.map((o) => ({ value: o.id, label: o.name }))
@@ -63,17 +71,18 @@ export const CreateTableModal: React.FC<CreateTableModalProps> = ({
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!name.trim()) {
-      setError(t("tables.form.nameRequired"))
+      failField("name", t("tables.form.nameRequired"))
       return
     }
     if (organizationId == null) {
       // Não existe recurso de enriquecimento global — sem org selecionada
       // não há para onde publicar (ADR-LOCAL-0002 §0.8).
-      setError(t("tables.form.organizationRequired"))
+      failField("organizationId", t("tables.form.organizationRequired"))
+      document.getElementById(ORG_SELECT_ID)?.focus()
       return
     }
     setSubmitting(true)
-    setError(null)
+    clearError()
     try {
       const table = await api.createEnrichmentTable({
         name: name.trim(),
@@ -85,7 +94,7 @@ export const CreateTableModal: React.FC<CreateTableModalProps> = ({
       reset()
       onCreated(table)
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err))
+      failGeneral(err instanceof Error ? err.message : String(err))
     } finally {
       setSubmitting(false)
     }
@@ -94,23 +103,28 @@ export const CreateTableModal: React.FC<CreateTableModalProps> = ({
   return (
     <Modal open={open} onClose={handleClose} title={t("tables.form.createTitle")} size="md">
       <form onSubmit={handleSubmit} className="space-y-4" noValidate>
-        {error && <Notice variant="danger" title={error} />}
+        {error && <Notice id={errorId} variant="danger" title={error} live="assertive" />}
 
         <Select
+          id={ORG_SELECT_ID}
           label={t("tables.form.organization")}
           value={organizationId ?? ""}
           onValueChange={(v) => setOrganizationId(v === "" ? null : Number(v))}
           options={orgOptions}
           placeholder={t("tables.form.organizationPlaceholder")}
+          error={errorField === "organizationId" ? error ?? undefined : undefined}
         />
 
         <Input
+          ref={registerField("name")}
           label={t("tables.form.name")}
           value={name}
           onChange={(e) => setName(e.target.value)}
           required
           autoFocus
           placeholder="rede-corporativa"
+          aria-invalid={errorField === "name" ? "true" : undefined}
+          aria-describedby={errorField === "name" ? errorId : undefined}
         />
 
         <Textarea

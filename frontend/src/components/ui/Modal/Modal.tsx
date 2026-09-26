@@ -8,7 +8,7 @@ import { FocusScope } from "@radix-ui/react-focus-scope"
 import { useTranslation } from "react-i18next"
 import { Button } from "../Button/Button"
 import { cn } from "@/lib/utils"
-import { isTopmostDialog, nextDialogOrder, registerOpenDialog, unregisterOpenDialog } from "../internal/dialogStack"
+import { isTopmostDialog, lockBodyScroll, nextDialogOrder, registerOpenDialog, unlockBodyScroll, unregisterOpenDialog } from "../internal/dialogStack"
 
 /**
  * A11Y-01: o Select porta sua listbox para `document.body`, fora do
@@ -93,7 +93,7 @@ export const Modal: React.FC<ModalProps> = ({
     if (!open) return
 
     previousActiveElement.current = document.activeElement as HTMLElement
-    document.body.style.overflow = "hidden"
+    lockBodyScroll()
     registerOpenDialog(modalId, modalOrder)
 
     const handleEscape = (event: KeyboardEvent) => {
@@ -111,7 +111,7 @@ export const Modal: React.FC<ModalProps> = ({
 
     return () => {
       document.removeEventListener("keydown", handleEscape)
-      document.body.style.overflow = ""
+      unlockBodyScroll()
       unregisterOpenDialog(modalId)
       // Retorna foco ao elemento que abriu o modal (só no fechamento real, não por tecla).
       previousActiveElement.current?.focus()

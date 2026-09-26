@@ -281,7 +281,7 @@ const CollectorsPage: React.FC = () => {
 
       {feedback && (
         <Notice
-          variant={feedback.type === "success" ? "success" : "danger"}
+          variant={feedback.type === "success" ? "success" : "danger"} live={feedback.type === "error" ? "assertive" : undefined}
           action={
             <button
               type="button"
@@ -393,10 +393,15 @@ const CollectorsPage: React.FC = () => {
                 <Badge
                   key={`${v.platform}:${v.stream}:${v.queue}`}
                   variant="primary"
-                  title={`Task: ${v.task_name} • Queue: ${v.queue} • ${v.schedule_seconds}s`}
+                  title={t("collectorsPage.vendors.taskTooltip", { task: v.task_name, queue: v.queue, seconds: v.schedule_seconds })}
                 >
                   {v.platform} · {v.stream}{" "}
-                  <span className="ml-1 opacity-60">
+                  {/* R2-8.7: opacity-60 sobre bg primary-100 dava 3.53:1 —
+                      abaixo do mínimo de 4.5:1 (WCAG AA) para texto pequeno.
+                      text-primary-800 sem opacity mantém a hierarquia visual
+                      (mais claro que o texto principal do badge) sem
+                      depender de transparência. */}
+                  <span className="ml-1 text-primary-800">
                     ({Math.round(v.schedule_seconds / 60)}m)
                   </span>
                 </Badge>
@@ -434,7 +439,8 @@ const CollectorsPage: React.FC = () => {
                     title={t("collectorsPage.vendors.taskTooltip", { task: v.task_name, queue: v.queue, seconds: v.schedule_seconds })}
                   >
                     {v.platform} · {v.stream}{" "}
-                    <span className="ml-1 opacity-60">
+                    {/* R2-8.7: mesmo fix de contraste do badge inline acima. */}
+                    <span className="ml-1 text-primary-800">
                       ({Math.round(v.schedule_seconds / 60)}m)
                     </span>
                   </Badge>

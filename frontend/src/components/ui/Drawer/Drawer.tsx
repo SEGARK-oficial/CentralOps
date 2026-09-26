@@ -6,7 +6,7 @@ import { createPortal } from "react-dom"
 import { FocusScope } from "@radix-ui/react-focus-scope"
 import { cn } from "@/lib/utils"
 import { PortalContainerContext } from "@/components/ui/Modal/Modal"
-import { isTopmostDialog, nextDialogOrder, registerOpenDialog, unregisterOpenDialog } from "@/components/ui/internal/dialogStack"
+import { isTopmostDialog, lockBodyScroll, nextDialogOrder, registerOpenDialog, unlockBodyScroll, unregisterOpenDialog } from "@/components/ui/internal/dialogStack"
 
 /**
  * ui/Drawer — primitivo de painel lateral (A11Y-17 / ARQ-06 / LAY-20).
@@ -80,7 +80,7 @@ export const Drawer: React.FC<DrawerProps> = ({
     if (!open) return
 
     previousActiveElement.current = document.activeElement as HTMLElement
-    document.body.style.overflow = "hidden"
+    lockBodyScroll()
     registerOpenDialog(drawerId, drawerOrder)
 
     const handleEscape = (event: KeyboardEvent) => {
@@ -93,7 +93,7 @@ export const Drawer: React.FC<DrawerProps> = ({
 
     return () => {
       document.removeEventListener("keydown", handleEscape)
-      document.body.style.overflow = ""
+      unlockBodyScroll()
       unregisterOpenDialog(drawerId)
       previousActiveElement.current?.focus()
     }

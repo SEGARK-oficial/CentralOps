@@ -590,9 +590,9 @@ export const PolicyRuleEditor: React.FC<PolicyRuleEditorProps> = ({
                   label={t("policies.versions.onMiss")}
                   value={rule.on_miss ?? "skip"}
                   onValueChange={(v) => updateRule(index, { on_miss: v as EnrichmentRule["on_miss"] })}
-                  options={["skip", "tag", "default"].map((v) => ({
+                  options={(["skip", "tag", "default"] as const).map((v) => ({
                     value: v,
-                    label: v,
+                    label: t(`policies.versions.onMissOptions.${v}`),
                     // `default` sem nenhum output com valor padrão não escreve
                     // nada: a opção parece configurada e não faz efeito.
                     disabled: v === "default" && !hasDefault(rule),
@@ -608,7 +608,10 @@ export const PolicyRuleEditor: React.FC<PolicyRuleEditorProps> = ({
                   label={t("policies.versions.onError")}
                   value={rule.on_error ?? "skip"}
                   onValueChange={(v) => updateRule(index, { on_error: v as EnrichmentRule["on_error"] })}
-                  options={["skip", "tag"].map((v) => ({ value: v, label: v }))}
+                  options={(["skip", "tag"] as const).map((v) => ({
+                    value: v,
+                    label: t(`policies.versions.onErrorOptions.${v}`),
+                  }))}
                   size="sm"
                 />
               </div>

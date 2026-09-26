@@ -47,4 +47,27 @@ describe("EditQueryModal", () => {
     fireEvent.click(await screen.findByRole("button", { name: /salvar/i }))
     expect(await screen.findByText("409 conflito")).toBeInTheDocument()
   })
+
+  // R2-8.3: `registerField` do useForm — o erro por campo já existia, mas o
+  // foco nunca se movia. A query vem pré-preenchida (edição), então o teste
+  // esvazia o campo para forçar a invalidação.
+  it("apagar o Título e salvar foca de volta o campo Título", async () => {
+    renderModal()
+    const titleField = await screen.findByLabelText(/t.tulo/i)
+    fireEvent.change(titleField, { target: { value: "" } })
+    fireEvent.click(screen.getByRole("button", { name: /salvar/i }))
+
+    await screen.findByText("Título é obrigatório")
+    expect(document.activeElement).toBe(titleField)
+  })
+
+  it("apagar o Statement e salvar foca o campo Query SQL", async () => {
+    renderModal()
+    const statementField = await screen.findByLabelText(/query sql/i)
+    fireEvent.change(statementField, { target: { value: "" } })
+    fireEvent.click(screen.getByRole("button", { name: /salvar/i }))
+
+    await screen.findByText("A consulta SQL é obrigatória")
+    expect(document.activeElement).toBe(statementField)
+  })
 })

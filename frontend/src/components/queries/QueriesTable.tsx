@@ -1,6 +1,7 @@
 "use client"
 
 import type React from "react"
+import { useTranslation } from "react-i18next"
 import { EditIcon, FileTextIcon, TrashIcon } from "lucide-react"
 import { Badge } from "@/components/ui/Badge/Badge"
 import { Button } from "@/components/ui/Button/Button"
@@ -19,10 +20,12 @@ const thCls = "px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide
 const tdCls = "px-4 py-4 align-top text-sm text-text"
 
 export const QueriesTable: React.FC<QueriesTableProps> = ({ queries, loading = false, onEdit, onDelete }) => {
+  const { t } = useTranslation("queries")
+
   if (loading) {
     return (
       <div className="flex min-h-[240px] items-center justify-center">
-        <LoadingSpinner size="lg" text="Carregando queries..." />
+        <LoadingSpinner size="lg" text={t("table.loading")} />
       </div>
     )
   }
@@ -31,8 +34,8 @@ export const QueriesTable: React.FC<QueriesTableProps> = ({ queries, loading = f
     return (
       <EmptyState
         icon={<FileTextIcon size={48} />}
-        title="Nenhuma query salva"
-        description="Crie consultas reutilizáveis para acelerar buscas e automatizações."
+        title={t("table.emptyTitle")}
+        description={t("table.emptyDescription")}
       />
     )
   }
@@ -42,23 +45,23 @@ export const QueriesTable: React.FC<QueriesTableProps> = ({ queries, loading = f
       {/* Tablet / desktop: tabela com rolagem horizontal segura. */}
       <div className="hidden overflow-hidden rounded-xl border border-border md:block">
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[760px] text-sm" role="table" aria-label="Lista de queries salvas">
+          <table className="w-full min-w-[760px] text-sm" role="table" aria-label={t("table.listAriaLabel")}>
             <thead className="bg-surface-tertiary">
               <tr className="border-b border-border">
                 <th scope="col" className={thCls}>
-                  Query
+                  {t("table.columns.query")}
                 </th>
                 <th scope="col" className={thCls}>
-                  Descrição
+                  {t("table.columns.description")}
                 </th>
                 <th scope="col" className={`${thCls} whitespace-nowrap`}>
-                  Clientes
+                  {t("table.columns.clients")}
                 </th>
                 <th scope="col" className={thCls}>
-                  Preview
+                  {t("table.columns.preview")}
                 </th>
                 <th scope="col" className={`${thCls} text-right`}>
-                  Ações
+                  {t("table.columns.actions")}
                 </th>
               </tr>
             </thead>
@@ -70,22 +73,22 @@ export const QueriesTable: React.FC<QueriesTableProps> = ({ queries, loading = f
                       <div className="truncate font-semibold text-text" title={query.title}>
                         {query.title}
                       </div>
-                      <div className="text-xs text-text-tertiary">ID #{query.id}</div>
+                      <div className="text-xs text-text-tertiary">{t("table.idLabel", { id: query.id })}</div>
                     </div>
                   </td>
                   <td className={tdCls}>
                     <span className="line-clamp-2 block max-w-[280px] text-text-secondary" title={query.description || undefined}>
-                      {query.description || "Sem descrição"}
+                      {query.description || t("table.noDescription")}
                     </span>
                   </td>
                   <td className={`${tdCls} whitespace-nowrap`}>
                     {query.client_ids?.length ? (
                       <Badge variant="primary" size="sm">
-                        {query.client_ids.length} cliente{query.client_ids.length === 1 ? "" : "s"}
+                        {t("table.clientsCount", { count: query.client_ids.length })}
                       </Badge>
                     ) : (
                       <Badge variant="outline" size="sm">
-                        Nenhum padrão
+                        {t("table.noDefaultClients")}
                       </Badge>
                     )}
                   </td>
@@ -100,10 +103,10 @@ export const QueriesTable: React.FC<QueriesTableProps> = ({ queries, loading = f
                   <td className={tdCls}>
                     <div className="flex justify-end gap-2 whitespace-nowrap">
                       <Button size="sm" variant="ghost" onClick={() => onEdit(query)} leftIcon={<EditIcon size={14} />}>
-                        Editar
+                        {t("table.edit")}
                       </Button>
                       <Button size="sm" variant="ghost" onClick={() => onDelete(query.id)} leftIcon={<TrashIcon size={14} />}>
-                        Remover
+                        {t("table.remove")}
                       </Button>
                     </div>
                   </td>
@@ -123,30 +126,30 @@ export const QueriesTable: React.FC<QueriesTableProps> = ({ queries, loading = f
                 <div className="truncate font-semibold text-text" title={query.title}>
                   {query.title}
                 </div>
-                <div className="text-xs text-text-tertiary">ID #{query.id}</div>
+                <div className="text-xs text-text-tertiary">{t("table.idLabel", { id: query.id })}</div>
               </div>
               {query.client_ids?.length ? (
                 <Badge variant="primary" size="sm">
-                  {query.client_ids.length} cliente{query.client_ids.length === 1 ? "" : "s"}
+                  {t("table.clientsCount", { count: query.client_ids.length })}
                 </Badge>
               ) : (
                 <Badge variant="outline" size="sm">
-                  Nenhum padrão
+                  {t("table.noDefaultClients")}
                 </Badge>
               )}
             </div>
             <p className="mt-2 line-clamp-2 text-sm text-text-secondary" title={query.description || undefined}>
-              {query.description || "Sem descrição"}
+              {query.description || t("table.noDescription")}
             </p>
             <code className="mt-2 block truncate rounded bg-surface-tertiary px-2 py-1 text-xs text-text-secondary" title={query.statement}>
               {query.statement}
             </code>
             <div className="mt-3 flex gap-2">
               <Button size="sm" variant="ghost" onClick={() => onEdit(query)} leftIcon={<EditIcon size={14} />}>
-                Editar
+                {t("table.edit")}
               </Button>
               <Button size="sm" variant="ghost" onClick={() => onDelete(query.id)} leftIcon={<TrashIcon size={14} />}>
-                Remover
+                {t("table.remove")}
               </Button>
             </div>
           </div>
@@ -154,7 +157,7 @@ export const QueriesTable: React.FC<QueriesTableProps> = ({ queries, loading = f
       </div>
 
       <div className="flex items-center justify-between rounded-xl border border-border bg-surface-tertiary/50 px-4 py-3 text-sm text-text-secondary">
-        <span>Consultas disponíveis</span>
+        <span>{t("table.availableCount")}</span>
         <span className="font-semibold text-text">{queries.length}</span>
       </div>
     </div>

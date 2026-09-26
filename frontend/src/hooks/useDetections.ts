@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
+import { useTranslation } from "react-i18next"
 import * as api from "@/services/api"
 import type { DetectionRead, DetectionStatus } from "@/types"
 
@@ -25,6 +26,7 @@ interface UseDetectionsReturn {
 }
 
 export function useDetections(): UseDetectionsReturn {
+  const { t } = useTranslation("detections")
   const [detections, setDetections] = useState<DetectionRead[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -39,12 +41,15 @@ export function useDetections(): UseDetectionsReturn {
       )
       setDetections(data)
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : "Falha ao carregar detecções"
+      // R2-5.4: fallback traduzido — antes ficava fixo em PT mesmo com o app
+      // rodando em en/es (só entra quando `err` não é um `Error` de verdade,
+      // ex.: uma rejeição com string crua).
+      const errorMessage = err instanceof Error ? err.message : t("detections:list.feedback.loadError")
       setError(errorMessage)
     } finally {
       setLoading(false)
     }
-  }, [statusFilter])
+  }, [statusFilter, t])
 
   const triage = useCallback(async (id: number, status: DetectionStatus): Promise<DetectionRead> => {
     const updated = await api.updateDetectionStatus(id, { status })

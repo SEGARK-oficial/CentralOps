@@ -248,7 +248,8 @@ export const MappingVersionsTable: React.FC<MappingVersionsTableProps> = ({
         <Notice variant="success">{rollbackSuccess}</Notice>
       )}
       {rollbackError && (
-        <Notice variant="danger" title={t("versionsTable.rollback.errorTitle")}>{rollbackError}</Notice>
+        // R2-8.2: reage ao clique em "Reverter" — precisa interromper o leitor de tela.
+        <Notice variant="danger" title={t("versionsTable.rollback.errorTitle")} live="assertive">{rollbackError}</Notice>
       )}
 
       {selectedIds.length === 2 && (

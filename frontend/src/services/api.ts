@@ -151,13 +151,19 @@ async function apiRequest<T>(endpoint: string, options: ApiRequestOptions = {}):
     "Accept-Language": i18n.language || "pt",
   }
 
+  // R2-6.9: `headers` mesclado (default + chamador) tinha que ser a ÚLTIMA
+  // propriedade do objeto — antes, `...requestOptions` vinha DEPOIS de
+  // `headers` e `requestOptions` já carrega a sua PRÓPRIA chave `headers`
+  // (não mesclada), então o spread final SOBRESCREVIA o merge inteiro: quem
+  // passasse `headers` próprios perdia silenciosamente `Content-Type` e
+  // `Accept-Language`.
   const response = await fetch(url, {
     credentials: "include",
+    ...requestOptions,
     headers: {
       ...defaultHeaders,
       ...requestOptions.headers,
     },
-    ...requestOptions,
   })
 
   if (!response.ok) {
@@ -605,19 +611,22 @@ export async function sendTestEmail() {
  * O shape v1 (Accept: application/vnd.centralops.v1+json) foi removido junto
  * com a superfície de alertas Wazuh-only.
  */
-export async function getDashboardSummary(params?: {
-  organization_id?: number | null
-  integration_id?: number | null
-  platform?: PlatformType | null
-  days?: number
-}) {
+export async function getDashboardSummary(
+  params?: {
+    organization_id?: number | null
+    integration_id?: number | null
+    platform?: PlatformType | null
+    days?: number
+  },
+  options?: Pick<ApiRequestOptions, "signal">,
+) {
   const searchParams = new URLSearchParams()
   if (params?.organization_id) searchParams.set("organization_id", String(params.organization_id))
   if (params?.integration_id) searchParams.set("integration_id", String(params.integration_id))
   if (params?.platform) searchParams.set("platform", params.platform)
   if (params?.days) searchParams.set("days", String(params.days))
   const qs = searchParams.toString()
-  return apiRequest<DashboardSummaryV2>(`/dashboard/summary${qs ? `?${qs}` : ""}`)
+  return apiRequest<DashboardSummaryV2>(`/dashboard/summary${qs ? `?${qs}` : ""}`, options)
 }
 
 // ── Organization API ──────────────────────────────────────────────────

@@ -62,13 +62,16 @@ vi.mock("@/hooks/useClients", () => ({
 
 let searchHistory: SearchHistoryItem[] = []
 
+// Mutável para o describe de R2-5.4 (erro num refresh não pode apagar dado
+// já visível) — os demais testes usam `null` (sem erro).
+let historyError: string | null = null
 vi.mock("@/hooks/useHistory", () => ({
   useHistory: () => ({
     operationHistory: [],
     auditHistory: [],
     searchHistory,
     loading: false,
-    error: null,
+    error: historyError,
     fetchHistory: vi.fn(),
     fetchAuditHistory: vi.fn(),
     downloadAuditCSV: vi.fn(),
@@ -80,6 +83,7 @@ import HistoryPage from "@/pages/HistoryPage"
 
 beforeEach(() => {
   mockAuthUser = { role: "operator", username: "op", permissions: [] }
+  historyError = null
 })
 
 function makeItem(over: Partial<SearchHistoryItem>): SearchHistoryItem {
@@ -171,5 +175,33 @@ describe("HistoryPage — TS-06: `user` pode ser `null`", () => {
     mockAuthUser = null
     expect(() => render(<HistoryPage />)).not.toThrow()
     expect(screen.queryByText(/Auditoria de Usuários/i)).not.toBeInTheDocument()
+  })
+})
+
+describe("HistoryPage — R2-5.4: erro num refresh não apaga dado já visível", () => {
+  beforeEach(async () => {
+    await i18n.changeLanguage("pt")
+  })
+
+  it("com dado já carregado, o erro vira um banner com retry — a tabela continua visível", () => {
+    searchHistory = [makeItem({ id: 1, search_id: "srch_1", statement: "SELECT * FROM visivel" })]
+    historyError = "Falha ao carregar histórico"
+    render(<HistoryPage />)
+
+    // O dado que já estava na tela continua lá.
+    expect(screen.getByText("SELECT * FROM visivel")).toBeInTheDocument()
+    // O erro aparece como aviso com ação de tentar de novo — não substitui a tabela.
+    expect(screen.getByText("Falha ao carregar histórico")).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: /tentar novamente/i })).toBeInTheDocument()
+  })
+
+  it("sem nenhum dado, o erro vira ErrorState de página com retry", () => {
+    searchHistory = []
+    historyError = "Falha ao carregar histórico"
+    render(<HistoryPage />)
+
+    expect(screen.getByRole("alert")).toHaveTextContent("Falha ao carregar histórico")
+    expect(screen.getByRole("button", { name: /tentar novamente/i })).toBeInTheDocument()
+    expect(screen.queryByText("SELECT * FROM visivel")).not.toBeInTheDocument()
   })
 })

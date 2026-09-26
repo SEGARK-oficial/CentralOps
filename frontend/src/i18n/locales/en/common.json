@@ -79,5 +79,15 @@
     "in": "∈ in list",
     "nin": "∉ not in list",
     "exists": "exists"
+  },
+  "editionContext": {
+    "loadError": "Failed to load the edition"
+  },
+  "errorBoundary": {
+    "title": "Something went wrong",
+    "description": "We ran into an unexpected error rendering this area. You can try again or reload the page.",
+    "chunkErrorDescription": "A new version of CentralOps was published. Reload the page to load the current files.",
+    "retry": "Try again",
+    "reload": "Reload page"
   }
 }

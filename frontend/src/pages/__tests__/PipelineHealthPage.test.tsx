@@ -297,3 +297,46 @@ describe("PipelineHealthPage", () => {
     expect(healthyBtn).toHaveAttribute("aria-pressed", "false")
   })
 })
+
+describe("PipelineHealthPage — R2-6.4 (erro com retry, sem apagar dado visível)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockedApi.listDestinations.mockResolvedValue([dest1])
+    mockedApi.getDestinationHealth.mockResolvedValue(destHealth1)
+  })
+
+  it("erro no load INICIAL mostra ErrorState com retry, preservando o header", async () => {
+    mockedApi.listIntegrations.mockRejectedValueOnce(new Error("Falha de rede"))
+
+    renderPage()
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Falha de rede")
+    expect(screen.getByRole("heading", { name: "Saúde do pipeline" })).toBeInTheDocument()
+    const retryBtn = screen.getByRole("button", { name: /tentar novamente/i })
+    expect(retryBtn).toBeInTheDocument()
+
+    mockedApi.listIntegrations.mockResolvedValueOnce([integrationA, integrationB])
+    mockedApi.listPipelineHealth.mockResolvedValueOnce([healthA, healthB])
+    fireEvent.click(retryBtn)
+
+    expect(await screen.findByText("Wazuh Alpha")).toBeInTheDocument()
+  })
+
+  it("erro num REFRESH mantém a grade visível e mostra aviso com retry (não apaga dado)", async () => {
+    mockedApi.listIntegrations.mockResolvedValueOnce([integrationA, integrationB])
+    mockedApi.listPipelineHealth.mockResolvedValueOnce([healthA, healthB])
+
+    renderPage()
+    expect(await screen.findByText("Wazuh Alpha")).toBeInTheDocument()
+
+    mockedApi.listIntegrations.mockRejectedValueOnce(new Error("timeout no refresh"))
+    fireEvent.click(screen.getByRole("button", { name: /^atualizar$/i }))
+
+    await waitFor(() => {
+      expect(screen.getByText("timeout no refresh")).toBeInTheDocument()
+    })
+    // A grade que já estava na tela NÃO some.
+    expect(screen.getByText("Wazuh Alpha")).toBeInTheDocument()
+    expect(screen.getByText("Sophos Beta")).toBeInTheDocument()
+  })
+})

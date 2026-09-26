@@ -166,7 +166,7 @@ export const IdentityConfigForm: React.FC<Props> = ({
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
       {feedback && (
-        <Notice variant={feedback.type === "success" ? "success" : "danger"}>
+        <Notice variant={feedback.type === "success" ? "success" : "danger"} live={feedback.type === "error" ? "assertive" : undefined}>
           {feedback.message}
         </Notice>
       )}

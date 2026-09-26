@@ -79,5 +79,15 @@
     "in": "∈ está na lista",
     "nin": "∉ fora da lista",
     "exists": "existe"
+  },
+  "editionContext": {
+    "loadError": "Falha ao carregar a edição"
+  },
+  "errorBoundary": {
+    "title": "Algo deu errado",
+    "description": "Encontramos um erro inesperado ao renderizar esta área. Você pode tentar novamente ou recarregar a página.",
+    "chunkErrorDescription": "Uma nova versão do CentralOps foi publicada. Recarregue a página para carregar os arquivos atuais.",
+    "retry": "Tentar novamente",
+    "reload": "Recarregar página"
   }
 }

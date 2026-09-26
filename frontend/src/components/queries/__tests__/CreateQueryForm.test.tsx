@@ -45,4 +45,25 @@ describe("CreateQueryForm", () => {
 
     expect(await screen.findByText("500 no backend")).toBeInTheDocument()
   })
+
+  // R2-8.3: `registerField` do useForm — antes o erro por campo já aparecia,
+  // mas o foco nunca se movia (ficava no botão "Criar query").
+  describe("R2-8.3 (foco no campo inválido)", () => {
+    it("os dois campos vazios: foca o Título (1º validado)", async () => {
+      renderForm()
+      fireEvent.click(screen.getByRole("button", { name: /criar query|salvar/i }))
+
+      await screen.findByText("Título é obrigatório")
+      expect(document.activeElement).toBe(screen.getByLabelText(/t.tulo/i))
+    })
+
+    it("título preenchido mas statement vazio: foca a Query SQL", async () => {
+      renderForm()
+      fireEvent.change(screen.getByLabelText(/t.tulo/i), { target: { value: "Query válida" } })
+      fireEvent.click(screen.getByRole("button", { name: /criar query|salvar/i }))
+
+      await screen.findByText("A consulta SQL é obrigatória")
+      expect(document.activeElement).toBe(screen.getByLabelText(/query sql/i))
+    })
+  })
 })

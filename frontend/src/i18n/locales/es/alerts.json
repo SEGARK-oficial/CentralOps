@@ -33,7 +33,12 @@
       "downloadFailedTitle": "Error en la descarga",
       "loadFailedTitle": "Error al cargar el historial",
       "auditExportFailed": "No se pudo exportar la auditoría a CSV. Inténtelo de nuevo.",
-      "searchCsvDownloadFailed": "No se pudo descargar el CSV de la búsqueda. Inténtelo de nuevo."
+      "searchCsvDownloadFailed": "No se pudo descargar el CSV de la búsqueda. Inténtelo de nuevo.",
+      "loadHistoryFailed": "Error al cargar el historial",
+      "loadAuditFailed": "Error al cargar la auditoría",
+      "downloadCsvFailed": "Error al descargar el CSV",
+      "exportAuditFailed": "Error al exportar la auditoría",
+      "adminOnly": "Acceso restringido a administradores"
     },
     "searches": {
       "description": "Búsqueda ejecutada por cliente y estado.",

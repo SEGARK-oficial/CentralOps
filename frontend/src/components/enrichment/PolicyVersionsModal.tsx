@@ -354,7 +354,7 @@ export const PolicyVersionsModal: React.FC<PolicyVersionsModalProps> = ({
             {policy.enabled ? t("policies.versions.disable") : t("policies.versions.enable")}
           </Button>
         </div>
-        {toggleError && <Notice variant="danger" title={toggleError} />}
+        {toggleError && <Notice variant="danger" title={toggleError} live="assertive" />}
 
         {/* ── Editor de regras + dry-run ───────────────────────────────── */}
         <form onSubmit={handlePublish} className="space-y-4 rounded-lg border border-border p-4">
@@ -373,7 +373,7 @@ export const PolicyVersionsModal: React.FC<PolicyVersionsModalProps> = ({
           <p className="text-xs text-text-tertiary">{t("policies.versions.replaceWarning")}</p>
 
           {hydrateError && <Notice variant="danger" title={hydrateError} />}
-          {publishError && <Notice variant="danger" title={publishError} />}
+          {publishError && <Notice variant="danger" title={publishError} live="assertive" />}
           {publishSummary && (
             <Notice variant="success" title={t("policies.versions.published")}>
               {t("policies.versions.publishedDetail", { count: publishSummary?.rule_count ?? 0 })}
@@ -432,7 +432,7 @@ export const PolicyVersionsModal: React.FC<PolicyVersionsModalProps> = ({
               />
             </div>
 
-            {dryRunError && <Notice variant="danger" title={dryRunError} />}
+            {dryRunError && <Notice variant="danger" title={dryRunError} live="assertive" />}
 
             {dryRunResult && (
               <div className="space-y-2" data-testid="dry-run-result">

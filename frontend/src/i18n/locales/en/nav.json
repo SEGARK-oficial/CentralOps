@@ -90,7 +90,9 @@
       "config": "Settings",
       "account": "Profile and security",
       "tokens": "API tokens",
-      "enrichment": "Enrichment"
+      "enrichment": "Enrichment",
+      "queryJobs": "Federated search",
+      "correlationRules": "Correlation"
     }
   },
   "breadcrumbs": {
@@ -130,6 +132,7 @@
     "label": "Filters",
     "loading": "Loading filters…",
     "loadFailed": "Could not load the filters.",
+    "loadOrgsIntegrationsError": "Failed to load organizations and integrations.",
     "retry": "Retry",
     "clearFilters": "Clear filters",
     "allOrganizations": "All organizations",

@@ -14,7 +14,7 @@ import type React from "react"
 import { useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Modal } from "@/components/ui/Modal/Modal"
-import { Button } from "@/components/ui/Button/Button"
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog/ConfirmDialog"
 import { cn } from "@/lib/utils"
 import { OCSF_TEMPLATES } from "@/data/ocsfTemplates"
 import type { OcsfTemplate } from "@/data/ocsfTemplates"
@@ -82,46 +82,29 @@ export const TemplatePicker: React.FC<TemplatePickerProps> = ({
           {t("templatePicker.heading")}
         </p>
 
-        {/* Prompt de confirmação — inline, acima dos cards */}
-        {pendingTemplate && (
-          <div
-            role="alertdialog"
-            aria-labelledby="template-confirm-title"
-            data-testid="template-confirm"
-            className="rounded-md border border-warning-300 bg-warning-50 px-3 py-3 flex flex-col gap-2"
-          >
-            <p
-              id="template-confirm-title"
-              className="text-sm font-medium text-warning-800"
-            >
-              {t("templatePicker.confirmReplace.title", { count: existingRulesCount })}
-            </p>
-            <p className="text-xs text-warning-700">
-              {t("templatePicker.confirmReplace.before")} <strong>{pendingTemplate.name}</strong>{" "}
-              {t("templatePicker.confirmReplace.after")}
-            </p>
-            <div className="flex gap-2">
-              <Button
-                type="button"
-                variant="danger"
-                size="xs"
-                onClick={handleConfirmReplace}
-                data-testid="template-confirm-replace"
-              >
-                {t("templatePicker.confirmReplace.confirm")}
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                size="xs"
-                onClick={handleCancelReplace}
-                data-testid="template-confirm-cancel"
-              >
-                {t("common:actions.cancel")}
-              </Button>
-            </div>
-          </div>
-        )}
+        {/* Prompt de confirmação — empilhado sobre o Modal deste picker.
+            R2-6.6: era um `role="alertdialog"` inline dentro do Modal, sem
+            focus trap nem foco movido ao aparecer, com id fixo
+            (`template-confirm-title`). `ConfirmDialog` resolve os três — e a
+            pilha de modais (`ui/internal/dialogStack.ts`) já suporta modal
+            dentro de modal (só o do topo reage a Escape). */}
+        <ConfirmDialog
+          open={!!pendingTemplate}
+          title={t("templatePicker.confirmReplace.title", { count: existingRulesCount })}
+          description={
+            pendingTemplate && (
+              <>
+                {t("templatePicker.confirmReplace.before")} <strong>{pendingTemplate.name}</strong>{" "}
+                {t("templatePicker.confirmReplace.after")}
+              </>
+            )
+          }
+          confirmLabel={t("templatePicker.confirmReplace.confirm")}
+          confirmVariant="danger"
+          onConfirm={handleConfirmReplace}
+          onClose={handleCancelReplace}
+          data-testid="template-confirm"
+        />
 
         {/* Lista de templates */}
         <ul

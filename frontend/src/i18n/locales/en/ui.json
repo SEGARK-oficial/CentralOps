@@ -27,7 +27,8 @@
     "firstPage": "First page",
     "previousPage": "Previous page",
     "nextPage": "Next page",
-    "lastPage": "Last page"
+    "lastPage": "Last page",
+    "expandColumn": "Expand details"
   },
   "dateRangePicker": {
     "placeholder": "Select a period",

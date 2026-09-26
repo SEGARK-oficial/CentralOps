@@ -120,7 +120,7 @@ export const DuplicatePolicyModal: React.FC<Props> = ({
       size="md"
     >
       <form onSubmit={handleSubmit} className="space-y-4" noValidate>
-        {error && <Notice variant="danger" title={error} />}
+        {error && <Notice variant="danger" title={error} live="assertive" />}
 
         {candidates.length === 0 ? (
           <Notice variant="info" title={t("policies.duplicate.noTargets")} />

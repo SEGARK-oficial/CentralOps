@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/Badge/Badge"
 import { Button } from "@/components/ui/Button/Button"
 import { Card } from "@/components/ui/Card/Card"
 import EmptyState from "@/components/ui/EmptyState/EmptyState"
+import { ErrorState } from "@/components/ui/ErrorState"
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner/LoadingSpinner"
 import { Notice } from "@/components/ui/Notice/Notice"
 import { PageHeader } from "@/components/ui/PageHeader/PageHeader"
@@ -233,13 +234,32 @@ const PipelineHealthPage: React.FC = () => {
         }
       />
 
-      {error && (
-        <Notice variant="danger" title={t("pipelineHealthPage.loadError")}>
+      {/* R2-6.4: erro no load INICIAL (nada na tela ainda) ocupa o corpo com
+          ErrorState + retry; erro num REFRESH (já tem integrações visíveis)
+          não pode apagar o que já estava na tela — vira aviso não-bloqueante
+          acima do conteúdo, com retry embutido (regra reforçada da R2). */}
+      {error && integrations.length > 0 && (
+        <Notice
+          variant="danger"
+          title={t("pipelineHealthPage.loadError")}
+          live="assertive"
+          action={
+            <Button variant="ghost" size="xs" onClick={() => void load()}>
+              {t("common:actions.retry")}
+            </Button>
+          }
+        >
           {error}
         </Notice>
       )}
 
-      {isLoading ? (
+      {error && integrations.length === 0 && !isLoading ? (
+        <ErrorState
+          title={t("pipelineHealthPage.loadError")}
+          message={error}
+          onRetry={() => void load()}
+        />
+      ) : isLoading && integrations.length === 0 ? (
         <LoadingSpinner size="lg" text={t("pipelineHealthPage.loading")} className="py-20" />
       ) : (
         <>

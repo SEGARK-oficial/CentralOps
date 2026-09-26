@@ -9,6 +9,7 @@ import { DetectionDetailsDrawer } from "@/components/detections/DetectionDetails
 import { Button } from "@/components/ui/Button/Button"
 import { Card } from "@/components/ui/Card/Card"
 import { Notice } from "@/components/ui/Notice/Notice"
+import { ErrorState } from "@/components/ui/ErrorState"
 import { PageHeader } from "@/components/ui/PageHeader/PageHeader"
 import Select, { type SelectValue } from "@/components/ui/Select/Select"
 import { useDetections } from "@/hooks/useDetections"
@@ -122,24 +123,42 @@ const DetectionsPage: React.FC = () => {
         </div>
       </Card>
 
-      {error && (
-        <Notice variant="danger" title={t("detections:list.feedback.loadError")}>
+      {/* R2-5.4: erro num refresh não pode apagar dado já visível — com
+          detecções na tela, o erro vira um banner (com retry) por cima, e a
+          tabela (stale, mas real) continua ali. Só quando não sobra nada pra
+          mostrar é que vira ErrorState de página. */}
+      {error && detections.length > 0 && (
+        <Notice
+          variant="danger"
+          title={t("detections:list.feedback.loadError")}
+          action={<Button variant="ghost" size="xs" onClick={handleRefresh}>{t("common:actions.refresh")}</Button>}
+        >
           {error}
         </Notice>
       )}
 
-      {/* PERF-14: o endpoint não devolve total nenhum, só um array capado em
-          `limit` — bater exatamente no teto é o único sinal de que pode
-          haver mais detecções do que as exibidas. */}
-      {!loading && !error && truncated && (
-        <Notice variant="info">{t("detections:list.truncatedHint", { limit: detections.length })}</Notice>
-      )}
+      {!loading && detections.length === 0 && error ? (
+        <ErrorState
+          title={t("detections:list.feedback.loadError")}
+          message={error}
+          onRetry={handleRefresh}
+        />
+      ) : (
+        <>
+          {/* PERF-14: o endpoint não devolve total nenhum, só um array capado
+              em `limit` — bater exatamente no teto é o único sinal de que
+              pode haver mais detecções do que as exibidas. */}
+          {!loading && !error && truncated && (
+            <Notice variant="info">{t("detections:list.truncatedHint", { limit: detections.length })}</Notice>
+          )}
 
-      <DetectionsTable
-        detections={detections}
-        loading={loading}
-        onRowClick={setSelectedDetection}
-      />
+          <DetectionsTable
+            detections={detections}
+            loading={loading}
+            onRowClick={setSelectedDetection}
+          />
+        </>
+      )}
 
       <DetectionDetailsDrawer
         open={!!selectedDetection}

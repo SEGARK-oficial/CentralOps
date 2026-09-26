@@ -415,7 +415,7 @@ const IntegrationsPage: React.FC = () => {
       />
 
       {feedback && (
-        <Notice variant={feedback.type === "success" ? "success" : "danger"} title={feedback.type === "success" ? t("list.operationSuccessTitle") : t("list.operationErrorTitle")}>
+        <Notice variant={feedback.type === "success" ? "success" : "danger"} live={feedback.type === "error" ? "assertive" : undefined} title={feedback.type === "success" ? t("list.operationSuccessTitle") : t("list.operationErrorTitle")}>
           {feedback.message}
         </Notice>
       )}

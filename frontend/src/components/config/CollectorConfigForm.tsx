@@ -167,7 +167,7 @@ export const CollectorConfigForm: React.FC<Props> = ({
           ocupava espaço no topo do formulário anunciando uma mudança que, para o
           leitor, sempre foi o estado normal das coisas. */}
       {feedback && (
-        <Notice variant={feedback.type === "success" ? "success" : "danger"}>
+        <Notice variant={feedback.type === "success" ? "success" : "danger"} live={feedback.type === "error" ? "assertive" : undefined}>
           {feedback.message}
         </Notice>
       )}

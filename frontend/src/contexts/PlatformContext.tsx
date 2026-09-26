@@ -6,6 +6,7 @@
 
 import type React from "react"
 import { createContext, useContext, useCallback, useEffect, useState, useMemo } from "react"
+import { useTranslation } from "react-i18next"
 import type { Integration, Organization, PlatformType } from "@/types"
 import * as api from "@/services/api"
 import { useAuth } from "./AuthContext"
@@ -44,6 +45,7 @@ const PlatformContext = createContext<PlatformContextValue | null>(null)
 const SCOPE_OWNER_KEY = "centralops_scope_owner"
 
 export const PlatformProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { t } = useTranslation("nav")
   const { user } = useAuth()
   const userId = user?.id ?? null
   const [organizations, setOrganizations] = useState<Organization[]>([])
@@ -104,11 +106,13 @@ export const PlatformProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       // O provider só monta pós-autenticação (ProtectedLayout), então uma falha
       // aqui é erro real de rede/servidor — expõe estado para o GlobalFilters
       // oferecer retry, em vez de degradar para selects vazios silenciosos.
-      setError(cause instanceof Error ? cause.message : "Falha ao carregar organizações e integrações.")
+      // R2-6.11: fallback (quando `cause` não é um Error com mensagem) passa
+      // por `t()` — antes era PT fixo, mesmo com o usuário em en/es.
+      setError(cause instanceof Error ? cause.message : t("globalFilters.loadOrgsIntegrationsError"))
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [t])
 
   useEffect(() => {
     refreshData()

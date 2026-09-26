@@ -167,8 +167,11 @@ const FlowPage: React.FC = () => {
         }
       />
 
+      {/* R2-8.2: `data` sobrevive a um refresh que falha, então este erro pode
+          aparecer junto com o grafo já visível — mesma regra de "Atualizar"
+          nas demais páginas de saúde. */}
       {error && (
-        <Notice variant="danger" title={t("flowPage.notLoaded")}>
+        <Notice variant="danger" title={t("flowPage.notLoaded")} live="assertive">
           {error}
         </Notice>
       )}

@@ -135,7 +135,9 @@ export const RouteForm: React.FC<RouteFormProps> = ({ mode, route, loading, onCa
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
-      {error && <Notice variant="danger" title={t("routeForm.cannotSaveTitle")}>{error}</Notice>}
+      {/* R2-8.2: erro reage ao submit (ação do usuário) — precisa interromper
+          o leitor de tela, não só anunciar em segundo plano. */}
+      {error && <Notice variant="danger" title={t("routeForm.cannotSaveTitle")} live="assertive">{error}</Notice>}
 
       {/* LAY-13: 3 colunas fixas espremiam os inputs em telas estreitas — empilha
           abaixo de `sm`, 3 colunas a partir daí. */}
@@ -234,7 +236,9 @@ export const RouteForm: React.FC<RouteFormProps> = ({ mode, route, loading, onCa
           />
 
           {!protectDetection && (
-            <Notice variant="warning" title={t("routeForm.unprotectedWarningTitle")}>
+            // R2-8.2: aparece reagindo ao usuário DESMARCAR a proteção —
+            // conta como "erro/aviso por ação", não banner estático.
+            <Notice variant="warning" title={t("routeForm.unprotectedWarningTitle")} live="assertive">
               {t("routeForm.unprotectedWarningBody")}
             </Notice>
           )}

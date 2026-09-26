@@ -236,6 +236,11 @@
       "deleteTitle": "Remover destinatário",
       "deleteDescriptionPrefix": "Tem certeza que deseja remover",
       "deleteDescriptionSuffix": "? Este email deixará de receber alertas e resultados de execuções agendadas."
+    },
+    "validation": {
+      "hostRequired": "Informe o host SMTP.",
+      "portInvalid": "Informe uma porta válida (1-65535).",
+      "senderRequired": "Informe o remetente."
     }
   },
   "collector": {
@@ -698,5 +703,20 @@
     "saveConfig": "Salvar configuração",
     "saved": "Configuração salva. Vale na próxima requisição.",
     "saveError": "Falha ao salvar a configuração do MCP"
+  },
+  "collectorConfigHook": {
+    "loadErrorFallback": "Falha ao carregar configuração",
+    "saveErrorFallback": "Falha ao salvar configuração",
+    "saveSuccess": "Configuração salva. Workers refletirão em até 30s."
+  },
+  "emailConfigHook": {
+    "loadErrorFallback": "Falha ao carregar configuração",
+    "saveErrorFallback": "Falha ao salvar configuração de email",
+    "saveSuccess": "Configurações de email salvas com sucesso.",
+    "addRecipientErrorFallback": "Falha ao adicionar destinatário",
+    "addRecipientSuccess": "Destinatário {{email}} adicionado.",
+    "removeRecipientErrorFallback": "Falha ao remover destinatário",
+    "removeRecipientSuccess": "Destinatário removido com sucesso.",
+    "sendTestErrorFallback": "Falha ao enviar email de teste"
   }
 }

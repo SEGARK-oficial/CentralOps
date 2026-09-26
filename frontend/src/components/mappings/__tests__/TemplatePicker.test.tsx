@@ -4,7 +4,7 @@
  * cancelamento, Escape para fechar.
  */
 
-import { render, screen, fireEvent } from "@testing-library/react"
+import { render, screen, fireEvent, within } from "@testing-library/react"
 import { TemplatePicker } from "@/components/mappings/TemplatePicker"
 import { OCSF_TEMPLATES } from "@/data/ocsfTemplates"
 import i18n from "@/i18n"
@@ -125,7 +125,9 @@ describe("TemplatePicker — confirmação com regras existentes", () => {
 
     const template = OCSF_TEMPLATES[0]
     fireEvent.click(screen.getByTestId(`use-template-${template.id}`))
-    fireEvent.click(screen.getByTestId("template-confirm-replace"))
+    // R2-6.6: ConfirmDialog (não mais um botão com testid "-replace" próprio)
+    // — o botão de confirmar carrega o testid "{dataTestId}-confirm".
+    fireEvent.click(screen.getByTestId("template-confirm-confirm"))
 
     expect(onPick).toHaveBeenCalledTimes(1)
     expect(onPick).toHaveBeenCalledWith(template)
@@ -140,7 +142,9 @@ describe("TemplatePicker — confirmação com regras existentes", () => {
     fireEvent.click(screen.getByTestId(`use-template-${OCSF_TEMPLATES[0].id}`))
     expect(screen.getByTestId("template-confirm")).toBeInTheDocument()
 
-    fireEvent.click(screen.getByTestId("template-confirm-cancel"))
+    // R2-6.6: ConfirmDialog não dá testid próprio pro botão Cancelar — usa o
+    // rótulo default do primitivo ("Cancelar"), escopado ao próprio diálogo.
+    fireEvent.click(within(screen.getByTestId("template-confirm")).getByRole("button", { name: "Cancelar" }))
 
     expect(onPick).not.toHaveBeenCalled()
     expect(onClose).not.toHaveBeenCalled()

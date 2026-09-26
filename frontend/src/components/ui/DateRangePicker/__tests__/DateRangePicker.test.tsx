@@ -4,8 +4,9 @@
  *   A11Y-20: alvo mínimo de 24px no botão "limpar".
  */
 import { useState } from "react"
-import { render, screen, fireEvent } from "@testing-library/react"
+import { render, screen, fireEvent, waitFor } from "@testing-library/react"
 import { DateRangePicker } from "@/components/ui/DateRangePicker/DateRangePicker"
+import { Modal } from "@/components/ui/Modal/Modal"
 import i18n from "@/i18n"
 
 beforeAll(() => {
@@ -103,5 +104,43 @@ describe("DateRangePicker — A11Y-20 (alvo mínimo 24px)", () => {
     const clearBtn = screen.getByRole("button", { name: /limpar/i })
     expect(clearBtn.className).toContain("h-6")
     expect(clearBtn.className).toContain("w-6")
+  })
+})
+
+describe("DateRangePicker dentro de Modal (R2-8.6)", () => {
+  it("porta o popover para dentro do painel do Modal, não para document.body", () => {
+    render(
+      <Modal open onClose={() => {}} title="Filtros">
+        <DateRangePicker aria-label="Período" />
+      </Modal>,
+    )
+
+    fireEvent.click(screen.getByRole("button", { name: "Período" }))
+    const grid = screen.getByRole("grid")
+
+    // O painel do Modal é o ancestral `role="dialog"` que envolve o título —
+    // se o popover tivesse ido parar direto no body (ignorando o
+    // `PortalContainerContext`), ele NÃO estaria dentro desse dialog.
+    const panel = screen.getByText("Filtros").closest('[role="dialog"]')
+    expect(panel).not.toBeNull()
+    expect(panel?.contains(grid)).toBe(true)
+  })
+
+  it("Escape com o calendário aberto fecha só o popover, não o Modal por baixo", async () => {
+    const onModalClose = vi.fn()
+    render(
+      <Modal open onClose={onModalClose} title="Filtros">
+        <DateRangePicker aria-label="Período" />
+      </Modal>,
+    )
+
+    fireEvent.click(screen.getByRole("button", { name: "Período" }))
+    const grid = screen.getByRole("grid")
+
+    fireEvent.keyDown(grid, { key: "Escape" })
+
+    await waitFor(() => expect(screen.queryByRole("grid")).not.toBeInTheDocument())
+    expect(onModalClose).not.toHaveBeenCalled()
+    expect(screen.getByText("Filtros")).toBeInTheDocument()
   })
 })

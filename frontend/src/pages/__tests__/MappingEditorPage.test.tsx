@@ -5,7 +5,7 @@
  * Sprint 2: toggle view/edit mode, dirty flag, tabs Versões/Auditoria.
  */
 
-import { render, screen, fireEvent, waitFor } from "@testing-library/react"
+import { render, screen, fireEvent, waitFor, within } from "@testing-library/react"
 import { MemoryRouter, Route, Routes } from "react-router-dom"
 import MappingEditorPage from "@/pages/MappingEditorPage"
 import * as hooks from "@/hooks/useMapping"
@@ -801,7 +801,7 @@ describe("MappingEditorPage", () => {
     expect(screen.getByTestId("template-confirm")).toBeInTheDocument()
 
     // Confirma substituição
-    fireEvent.click(screen.getByTestId("template-confirm-replace"))
+    fireEvent.click(screen.getByTestId("template-confirm-confirm"))
 
     // O picker deve fechar
     expect(screen.queryByTestId("template-picker")).not.toBeInTheDocument()
@@ -836,8 +836,11 @@ describe("MappingEditorPage", () => {
     const firstTemplate = OCSF_TEMPLATES[0]
     fireEvent.click(screen.getByTestId(`use-template-${firstTemplate.id}`))
 
-    // Cancela
-    fireEvent.click(screen.getByTestId("template-confirm-cancel"))
+    // Cancela — ConfirmDialog não dá testid próprio pro botão Cancelar
+    // (R2-6.6), então busca pelo rótulo, escopado ao próprio diálogo.
+    fireEvent.click(
+      within(screen.getByTestId("template-confirm")).getByRole("button", { name: "Cancelar" }),
+    )
 
     // Modal permanece mas ainda tem as 2 regras originais
     expect(screen.getByText("Total: 2 regras")).toBeInTheDocument()
@@ -862,7 +865,7 @@ describe("MappingEditorPage", () => {
 
     const firstTemplate = OCSF_TEMPLATES[0]
     fireEvent.click(screen.getByTestId(`use-template-${firstTemplate.id}`))
-    fireEvent.click(screen.getByTestId("template-confirm-replace"))
+    fireEvent.click(screen.getByTestId("template-confirm-confirm"))
 
     // Após substituir as regras, useMappingDryRun deve ter sido chamado mais vezes
     expect(mockedUseDryRun.mock.calls.length).toBeGreaterThan(initialCallCount)
@@ -920,7 +923,7 @@ describe("MappingEditorPage", () => {
     expect(screen.getByText(/1 regra importada/)).toBeInTheDocument()
 
     // Confirma a importação
-    fireEvent.click(screen.getByTestId("import-confirm-button"))
+    fireEvent.click(screen.getByTestId("import-confirm-confirm"))
 
     // Badge DSL v2 deve aparecer (preprocess foi populado)
     expect(screen.getByTestId("preprocess-badge")).toBeInTheDocument()

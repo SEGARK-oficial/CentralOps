@@ -80,6 +80,7 @@ export const EditQueryModal: React.FC<EditQueryModalProps> = ({
     resetForm,
     isSubmitting,
     submitError,
+    registerField,
   } = useForm({
     initialValues: {
       title: "",
@@ -159,13 +160,14 @@ export const EditQueryModal: React.FC<EditQueryModalProps> = ({
     <Modal open={open} onClose={onClose} title={t("queries:editModal.title")} size="xl">
       <form onSubmit={handleSubmit} className="space-y-5" noValidate>
         {submitError && (
-          <Notice variant="danger" title={t("queries:form.submitErrorFallback")}>
+          <Notice variant="danger" title={t("queries:form.submitErrorFallback")} live="assertive">
             {submitError}
           </Notice>
         )}
         <div className="grid gap-4 md:grid-cols-2">
           <div className="md:col-span-2">
             <Input
+              ref={registerField("title")}
               name="title"
               label={t("queries:editForm.titleLabel")}
               value={values.title || ""}
@@ -191,6 +193,7 @@ export const EditQueryModal: React.FC<EditQueryModalProps> = ({
 
           <div className="md:col-span-2">
             <Textarea
+              ref={registerField("statement")}
               id="edit-query-statement"
               name="statement"
               label={t("queries:editForm.statementLabel")}

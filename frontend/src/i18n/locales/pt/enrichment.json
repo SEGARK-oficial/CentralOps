@@ -222,7 +222,16 @@
       "cannotChain": "Esta regra já tem outra condição. Um gate tem uma chave só, então encadear apagaria a condição que você escreveu.",
       "keySourceHintMapped": "Sugestões vêm dos campos que os mappings ativos desta organização de fato escrevem. Um caminho fora da lista compila mas nunca casa.",
       "shadowedNow": "Habilitada, mas outra política mais antiga está em vigor nesta organização. Desabilite-a para esta valer.",
-      "onePerOrg": "Só uma política é aplicada por organização: a habilitada mais antiga."
+      "onePerOrg": "Só uma política é aplicada por organização: a habilitada mais antiga.",
+      "onMissOptions": {
+        "skip": "Ignorar",
+        "tag": "Marcar (tag)",
+        "default": "Usar valor padrão"
+      },
+      "onErrorOptions": {
+        "skip": "Ignorar",
+        "tag": "Marcar (tag)"
+      }
     },
     "active": "em vigor",
     "shadowed": "habilitada, não aplicada",

@@ -630,7 +630,7 @@ export const SchedulesPage: React.FC = () => {
       </div>
 
       {feedback && (
-        <Notice variant={feedback.type === "success" ? "success" : "danger"} title={feedback.type === "success" ? t("schedules:feedback.operationCompleted") : t("schedules:feedback.operationFailed")}>
+        <Notice variant={feedback.type === "success" ? "success" : "danger"} live={feedback.type === "error" ? "assertive" : undefined} title={feedback.type === "success" ? t("schedules:feedback.operationCompleted") : t("schedules:feedback.operationFailed")}>
           {feedback.message}
         </Notice>
       )}

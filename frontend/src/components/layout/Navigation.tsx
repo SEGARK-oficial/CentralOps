@@ -1,5 +1,5 @@
 import type React from "react"
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useId, useRef, useState } from "react"
 import { NavLink, useLocation } from "react-router-dom"
 import { useTranslation } from "react-i18next"
 import {
@@ -31,6 +31,12 @@ import type { EeNavItem, NavGroupKey } from "@/ee/navItems"
 import { usePermission } from "@/hooks/usePermission"
 import { useMediaQuery } from "@/hooks/useMediaQuery"
 import { cn } from "@/lib/utils"
+import {
+  isTopmostDialog,
+  nextDialogOrder,
+  registerOpenDialog,
+  unregisterOpenDialog,
+} from "@/components/ui/internal/dialogStack"
 
 // Mesmo breakpoint de `AppLayout.LG_BREAKPOINT` (1024px) — abaixo dele o rail
 // vira drawer sobreposto; no desktop ele é sempre visível e nunca fica `inert`.
@@ -143,6 +149,12 @@ export const Navigation: React.FC<NavigationProps> = ({ open = false, onClose, c
   const scrollRef = useRef<HTMLDivElement>(null)
   const [overflow, setOverflow] = useState({ top: false, bottom: false })
   const isDesktop = useMediaQuery(LG_MEDIA_QUERY)
+  // R2-6.8: registra o drawer mobile na pilha compartilhada de diálogos — sem
+  // isso, um Modal/Drawer aberto POR CIMA do menu (ex.: abrir "Minha conta"
+  // a partir de um link do drawer, se algum dia abrir um modal por cima)
+  // reagiria ao MESMO Escape que fecha o drawer.
+  const dialogId = useId()
+  const [dialogOrder] = useState(() => nextDialogOrder())
 
   // A11Y-09: abaixo de lg, o drawer fechado só sai da VIEWPORT
   // (-translate-x-full) — sem `inert` ele continua alcançável por Tab e
@@ -199,9 +211,12 @@ export const Navigation: React.FC<NavigationProps> = ({ open = false, onClose, c
       ).filter((el) => !el.hasAttribute("disabled") && el.offsetParent !== null)
 
     getFocusables()[0]?.focus()
+    registerOpenDialog(dialogId, dialogOrder)
 
     const handler = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
+        // Só o diálogo do TOPO da pilha reage a Escape.
+        if (!isTopmostDialog(dialogOrder)) return
         onClose?.()
         return
       }
@@ -222,12 +237,13 @@ export const Navigation: React.FC<NavigationProps> = ({ open = false, onClose, c
 
     return () => {
       document.removeEventListener("keydown", handler)
+      unregisterOpenDialog(dialogId)
       const previous = previousActive.current
       if (previous && typeof previous.focus === "function" && previous.offsetParent !== null) {
         previous.focus()
       }
     }
-  }, [open, onClose])
+  }, [open, onClose, dialogId, dialogOrder])
 
   const groups: NavGroup[] = [
     {

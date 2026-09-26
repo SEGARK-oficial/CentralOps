@@ -50,6 +50,9 @@ describe("CreatePolicyModal", () => {
 
     expect(await screen.findByText(/Informe um nome/i)).toBeInTheDocument()
     expect(mockedApi.createEnrichmentPolicy).not.toHaveBeenCalled()
+    // R2-8.3: além do banner, o foco vai para o campo que falhou.
+    expect(document.activeElement).toBe(screen.getByLabelText(/Nome/i))
+    expect(screen.getByLabelText(/Nome/i)).toHaveAttribute("aria-invalid", "true")
   })
 
   it("exige organização selecionada quando não há filtro global ativo", async () => {
@@ -60,8 +63,14 @@ describe("CreatePolicyModal", () => {
     fireEvent.change(screen.getByLabelText(/Nome/i), { target: { value: "contexto-de-ativo" } })
     fireEvent.click(screen.getByRole("button", { name: "Nova política" }))
 
-    expect(await screen.findByText(/não existe política de enriquecimento global/i)).toBeInTheDocument()
+    // R2-8.3: a mensagem agora aparece DUAS vezes de propósito — no banner do
+    // topo (assertive) e junto ao próprio campo Select (aria-invalid +
+    // aria-describedby), que também recebe o foco.
+    const matches = await screen.findAllByText(/não existe política de enriquecimento global/i)
+    expect(matches.length).toBeGreaterThanOrEqual(2)
     expect(mockedApi.createEnrichmentPolicy).not.toHaveBeenCalled()
+    // R2-8.3: foco vai para o trigger do Select (não encaminha ref — id explícito).
+    expect(document.activeElement).toHaveAttribute("id", "create-policy-org")
   })
 
   it("submete com sucesso e chama onCreated", async () => {

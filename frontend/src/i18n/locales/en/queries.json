@@ -63,5 +63,26 @@
     "reuseNoticeTitle": "Operational reuse",
     "reuseNoticeBody": "Changes here affect the search screen and new schedules created from this query.",
     "submit": "Save changes"
+  },
+  "table": {
+    "loading": "Loading queries...",
+    "emptyTitle": "No saved queries",
+    "emptyDescription": "Create reusable queries to speed up searches and automations.",
+    "listAriaLabel": "List of saved queries",
+    "columns": {
+      "query": "Query",
+      "description": "Description",
+      "clients": "Clients",
+      "preview": "Preview",
+      "actions": "Actions"
+    },
+    "idLabel": "ID #{{id}}",
+    "noDescription": "No description",
+    "clientsCount_one": "{{count}} client",
+    "clientsCount_other": "{{count}} clients",
+    "noDefaultClients": "No defaults",
+    "edit": "Edit",
+    "remove": "Remove",
+    "availableCount": "Available queries"
   }
 }

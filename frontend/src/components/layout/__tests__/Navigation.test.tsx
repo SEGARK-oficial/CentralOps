@@ -4,6 +4,11 @@ import { Navigation } from "@/components/layout/Navigation"
 import { useAuth } from "@/contexts/AuthContext"
 import { usePermission } from "@/hooks/usePermission"
 import i18n from "@/i18n"
+import {
+  nextDialogOrder,
+  registerOpenDialog,
+  unregisterOpenDialog,
+} from "@/components/ui/internal/dialogStack"
 
 vi.mock("@/contexts/AuthContext")
 vi.mock("@/hooks/usePermission")
@@ -109,6 +114,27 @@ describe("Navigation — drawer", () => {
     fireEvent.keyDown(document, { key: "Escape" })
 
     expect(onClose).not.toHaveBeenCalled()
+  })
+
+  // R2-6.8: drawer registrado na pilha compartilhada de diálogos.
+  it("ESC não fecha o drawer quando outro diálogo está aberto POR CIMA (não é o topo da pilha)", () => {
+    const onClose = vi.fn()
+    renderNav(true, onClose)
+
+    const fakeTopDialogId = "fake-top-dialog"
+    const fakeTopDialogOrder = nextDialogOrder()
+    registerOpenDialog(fakeTopDialogId, fakeTopDialogOrder)
+
+    try {
+      fireEvent.keyDown(document, { key: "Escape" })
+      expect(onClose).not.toHaveBeenCalled()
+    } finally {
+      unregisterOpenDialog(fakeTopDialogId)
+    }
+
+    // Com o diálogo de cima fechado, o drawer volta a ser o topo da pilha.
+    fireEvent.keyDown(document, { key: "Escape" })
+    expect(onClose).toHaveBeenCalledTimes(1)
   })
 
   it("chama onClose ao clicar em um NavLink (fechar ao navegar)", () => {

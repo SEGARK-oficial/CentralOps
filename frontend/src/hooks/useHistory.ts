@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useCallback } from "react"
+import { useTranslation } from "react-i18next"
 import { useAuth } from "@/contexts/AuthContext"
 import * as api from "@/services/api"
 import type { AuditFilters, AuditHistoryItem, HistoryItem, SearchHistoryItem } from "@/types"
@@ -18,6 +19,9 @@ interface UseHistoryReturn {
 }
 
 export function useHistory(): UseHistoryReturn {
+  // R2-5.4: os fallbacks abaixo (usados só quando `err` não é um `Error` de
+  // verdade) ficavam fixos em PT mesmo com o app rodando em en/es.
+  const { t } = useTranslation("alerts")
   const { user } = useAuth()
   const [operationHistory, setOperationHistory] = useState<HistoryItem[]>([])
   const [auditHistory, setAuditHistory] = useState<AuditHistoryItem[]>([])
@@ -40,12 +44,12 @@ export function useHistory(): UseHistoryReturn {
       setOperationHistory(operationsData)
       setSearchHistory(searchData)
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : "Falha ao carregar histórico"
+      const errorMessage = err instanceof Error ? err.message : t("history.errors.loadHistoryFailed")
       setError(errorMessage)
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [t])
 
   const fetchAuditHistory = useCallback(
     async (filters?: AuditFilters) => {
@@ -61,36 +65,36 @@ export function useHistory(): UseHistoryReturn {
         const auditData = await api.listAuditHistoryFiltered(filters)
         setAuditHistory(auditData)
       } catch (err) {
-        const errorMessage = err instanceof Error ? err.message : "Falha ao carregar auditoria"
+        const errorMessage = err instanceof Error ? err.message : t("history.errors.loadAuditFailed")
         setError(errorMessage)
       } finally {
         setLoading(false)
       }
     },
-    [user],
+    [user, t],
   )
 
   const downloadCSV = useCallback(async (searchId: string) => {
     try {
       await api.downloadStoredCSV(searchId)
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : "Falha ao baixar CSV"
+      const errorMessage = err instanceof Error ? err.message : t("history.errors.downloadCsvFailed")
       throw new Error(errorMessage)
     }
-  }, [])
+  }, [t])
 
   const downloadAuditCSV = useCallback(async (filters?: AuditFilters) => {
     if (!user || user.role !== "admin") {
-      throw new Error("Acesso restrito a administradores")
+      throw new Error(t("history.errors.adminOnly"))
     }
 
     try {
       await api.downloadAuditHistoryCSV(filters)
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : "Falha ao exportar auditoria"
+      const errorMessage = err instanceof Error ? err.message : t("history.errors.exportAuditFailed")
       throw new Error(errorMessage)
     }
-  }, [user])
+  }, [user, t])
 
   return {
     operationHistory,

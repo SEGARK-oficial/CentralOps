@@ -35,3 +35,31 @@ export function isTopmostDialog(order: number): boolean {
   const top = Math.max(-1, ...openOrders.values())
   return order === top
 }
+
+/**
+ * R2-8.5: trava de scroll do `<body>` com CONTADOR. Antes, Modal e Drawer
+ * setavam `document.body.style.overflow = "hidden"` no open e `= ""` no
+ * cleanup, cada um por conta própria — fechar um ConfirmDialog aninhado
+ * (o de CIMA) zerava o overflow mesmo com o Modal de BAIXO ainda aberto,
+ * destravando o scroll da página por trás dele. `lockBodyScroll`/
+ * `unlockBodyScroll` só mexem no DOM na transição 0→1 / 1→0 do contador —
+ * a pilha inteira precisa esvaziar pra destravar.
+ */
+let scrollLockCount = 0
+let previousBodyOverflow: string | null = null
+
+export function lockBodyScroll(): void {
+  if (scrollLockCount === 0) {
+    previousBodyOverflow = document.body.style.overflow
+    document.body.style.overflow = "hidden"
+  }
+  scrollLockCount += 1
+}
+
+export function unlockBodyScroll(): void {
+  scrollLockCount = Math.max(0, scrollLockCount - 1)
+  if (scrollLockCount === 0) {
+    document.body.style.overflow = previousBodyOverflow ?? ""
+    previousBodyOverflow = null
+  }
+}

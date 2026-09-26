@@ -1,13 +1,15 @@
 "use client"
 
 import type React from "react"
-import { useEffect, useId, useRef, useState } from "react"
+import { useContext, useEffect, useId, useRef, useState } from "react"
 import { createPortal } from "react-dom"
 import { CalendarIcon, XIcon } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { cn, formatDateTimeLocal, roundDateToMinute } from "@/lib/utils"
 import { getPortalPosition } from "@/lib/portal-positioning"
 import { formatDate } from "@/lib/intl"
+import { PortalContainerContext } from "@/components/ui/Modal/Modal"
+import { isTopmostDialog, nextDialogOrder, registerOpenDialog, unregisterOpenDialog } from "@/components/ui/internal/dialogStack"
 
 interface DateRange {
   from: Date | null
@@ -74,6 +76,15 @@ export const DateRangePicker: React.FC<DateRangePickerProps> = ({
   const triggerRef = useRef<HTMLButtonElement>(null)
   const popoverRef = useRef<HTMLDivElement>(null)
   const generatedId = useId()
+  // R2-8.6: portava direto pro `document.body`, ignorando o
+  // `PortalContainerContext` — dentro de um Modal, o FocusScope trapped não
+  // reconhecia o popover como parte do próprio Modal (mesma classe de bug do
+  // Select, A11Y-01). E o Escape daqui não participava da pilha compartilhada
+  // (`dialogStack`): abrir o calendário dentro de um Modal e teclar Escape
+  // fechava os dois juntos.
+  const portalContainer = useContext(PortalContainerContext)
+  const drpId = useId()
+  const [drpOrder] = useState(nextDialogOrder)
 
   // A11Y-28: roving tabindex do calendário — só a célula "focada" (não
   // necessariamente selecionada) tem tabIndex=0; as outras 41 ficam -1, então
@@ -147,6 +158,7 @@ export const DateRangePicker: React.FC<DateRangePickerProps> = ({
   // Popover acessível: foca o primeiro controle ao abrir, prende Tab e fecha no Escape.
   useEffect(() => {
     if (!isOpen) return
+    registerOpenDialog(drpId, drpOrder)
     const node = popoverRef.current
     const focusables = () =>
       Array.from(node?.querySelectorAll<HTMLElement>("button, input, [tabindex]") ?? []).filter(
@@ -160,7 +172,12 @@ export const DateRangePicker: React.FC<DateRangePickerProps> = ({
     const id = window.setTimeout(() => focusables()[0]?.focus(), 0)
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
+        // R2-8.6: só o popover do TOPO fecha (pilha compartilhada) — e
+        // `stopPropagation` evita que o mesmo Escape suba até o `document` e
+        // feche um Modal por baixo (mesmo padrão do Select, A11Y-02).
+        if (!isTopmostDialog(drpOrder)) return
         e.preventDefault()
+        e.stopPropagation()
         setIsOpen(false)
         setSelectingFrom(true)
         triggerRef.current?.focus()
@@ -183,8 +200,9 @@ export const DateRangePicker: React.FC<DateRangePickerProps> = ({
     return () => {
       window.clearTimeout(id)
       node?.removeEventListener("keydown", onKeyDown)
+      unregisterOpenDialog(drpId)
     }
-  }, [isOpen])
+  }, [isOpen, drpId, drpOrder])
 
   const formatBoundary = (date: Date | null) => (date ? formatDateTimeLocal(date) : "")
 
@@ -525,7 +543,10 @@ export const DateRangePicker: React.FC<DateRangePickerProps> = ({
               </p>
             </div>
           </div>,
-          document.body,
+          // R2-8.6: porta para o painel do Modal quando aninhado (mesmo
+          // padrão do Select) — `null` fora de um Modal cai no `document.body`
+          // de sempre.
+          portalContainer ?? document.body,
         )}
 
       {error && (

@@ -7,6 +7,11 @@ import { FlowNodeDetail } from "@/components/flow/FlowNodeDetail"
 import type { FlowNodeId } from "@/components/flow/FlowCanvas"
 import type { FlowSource, TopologyRoute, TopologyDestination } from "@/types"
 import i18n from "@/i18n"
+import {
+  nextDialogOrder,
+  registerOpenDialog,
+  unregisterOpenDialog,
+} from "@/components/ui/internal/dialogStack"
 
 // Sem o bootstrap do i18n o i18next nunca é inicializado neste processo e toda
 // asserção de texto bate contra a chave crua. `changeLanguage("pt")` fixa o
@@ -167,5 +172,38 @@ describe("FlowNodeDetail", () => {
     expect(document.activeElement).toBe(closeBtn)
 
     document.body.removeChild(outsideBtn)
+  })
+})
+
+describe("FlowNodeDetail — R2-6.8 (registrado na pilha de diálogos)", () => {
+  it("ESC não fecha quando outro diálogo está ABERTO POR CIMA (não é o topo da pilha)", () => {
+    const onClose = vi.fn()
+    const node: FlowNodeId = { kind: "source", node: SOURCE }
+    render(<FlowNodeDetail node={node} onClose={onClose} />)
+
+    // Simula um ConfirmDialog aberto por cima (ordem de abertura MAIOR).
+    const fakeTopDialogId = "fake-top-dialog"
+    const fakeTopDialogOrder = nextDialogOrder()
+    registerOpenDialog(fakeTopDialogId, fakeTopDialogOrder)
+
+    try {
+      fireEvent.keyDown(document, { key: "Escape" })
+      expect(onClose).not.toHaveBeenCalled()
+    } finally {
+      unregisterOpenDialog(fakeTopDialogId)
+    }
+
+    // Com o "diálogo de cima" fechado, o painel volta a ser o topo da pilha.
+    fireEvent.keyDown(document, { key: "Escape" })
+    expect(onClose).toHaveBeenCalledTimes(1)
+  })
+
+  it("ESC fecha normalmente quando é o único diálogo aberto (topo da pilha)", () => {
+    const onClose = vi.fn()
+    const node: FlowNodeId = { kind: "source", node: SOURCE }
+    render(<FlowNodeDetail node={node} onClose={onClose} />)
+
+    fireEvent.keyDown(document, { key: "Escape" })
+    expect(onClose).toHaveBeenCalledTimes(1)
   })
 })

@@ -54,10 +54,15 @@ export const IntegrationHealthPanel: React.FC<IntegrationHealthPanelProps> = ({ 
         </Button>
       </div>
 
+      {/* R2-8.2: `data` sobrevive a um refetch que falha (não é limpo no
+          catch), então esse erro pode aparecer JUNTO com o painel já visível
+          — precisa interromper o leitor de tela como as demais reações a
+          clique em "Atualizar". */}
       {error && (
         <Notice
           variant="danger"
           title={t("health.integrationPanel.loadError")}
+          live="assertive"
           action={
             <Button variant="ghost" size="xs" onClick={() => refetch()}>
               {t("common:actions.retry")}

@@ -63,5 +63,26 @@
     "reuseNoticeTitle": "Reuso operacional",
     "reuseNoticeBody": "Los cambios aquí afectan la pantalla de búsqueda y las nuevas programaciones creadas a partir de esta consulta.",
     "submit": "Guardar cambios"
+  },
+  "table": {
+    "loading": "Cargando queries...",
+    "emptyTitle": "Ninguna query guardada",
+    "emptyDescription": "Crea consultas reutilizables para acelerar búsquedas y automatizaciones.",
+    "listAriaLabel": "Lista de queries guardadas",
+    "columns": {
+      "query": "Query",
+      "description": "Descripción",
+      "clients": "Clientes",
+      "preview": "Vista previa",
+      "actions": "Acciones"
+    },
+    "idLabel": "ID #{{id}}",
+    "noDescription": "Sin descripción",
+    "clientsCount_one": "{{count}} cliente",
+    "clientsCount_other": "{{count}} clientes",
+    "noDefaultClients": "Ninguno por defecto",
+    "edit": "Editar",
+    "remove": "Quitar",
+    "availableCount": "Consultas disponibles"
   }
 }
