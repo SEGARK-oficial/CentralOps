@@ -1,0 +1,37 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "useDefineForClassFields": true,
+    "lib": ["ES2020", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "skipLibCheck": true,
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": true,
+    "jsx": "react-jsx",
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./src/*"]
+    },
+    // Código de produção roda no browser, não no Node. Sem isto, o TS inclui
+    // automaticamente TODO pacote em node_modules/@types (inclusive
+    // @types/node, adicionado para os testes) e o global ambiente `setTimeout`
+    // vira ambíguo entre a assinatura do DOM (retorna number) e a do Node
+    // (retorna NodeJS.Timeout) — regressão que apareceu como erro em
+    // FlowLiveFeed.tsx assim que @types/node foi instalado.
+    "types": ["vite/client", "vite-plugin-svgr/client"]
+  },
+  "include": ["src"],
+  "exclude": [
+    "src/**/*.test.ts",
+    "src/**/*.test.tsx",
+    "src/**/__tests__/**",
+    "src/test/**"
+  ]
+}

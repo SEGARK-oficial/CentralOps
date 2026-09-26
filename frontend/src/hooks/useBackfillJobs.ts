@@ -51,7 +51,7 @@ export function useBackfillJobs(
   const [error, setError] = useState<Error | null>(null)
 
   const refreshIntervalMs = options?.refreshIntervalMs ?? DEFAULT_REFRESH_MS
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const intervalRef = useRef<number | null>(null)
 
   // `showLoading=false` (poll, refetch manual, refetch pós mutação) atualiza
   // `items`/`total` sem tocar em `isLoading` — a tabela continua na tela,
@@ -94,8 +94,8 @@ export function useBackfillJobs(
   // Polling com page visibility — sempre silencioso (ver PERF-07 acima).
   useEffect(() => {
     const startPolling = () => {
-      if (intervalRef.current) clearInterval(intervalRef.current)
-      intervalRef.current = setInterval(() => {
+      if (intervalRef.current) window.clearInterval(intervalRef.current)
+      intervalRef.current = window.setInterval(() => {
         if (!document.hidden) {
           fetchJobs(false)
         }
@@ -114,7 +114,7 @@ export function useBackfillJobs(
     document.addEventListener("visibilitychange", handleVisibilityChange)
 
     return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current)
+      if (intervalRef.current) window.clearInterval(intervalRef.current)
       document.removeEventListener("visibilitychange", handleVisibilityChange)
     }
   }, [refreshIntervalMs, fetchJobs])

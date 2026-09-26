@@ -36,7 +36,7 @@ describe("AuthContext.logout", () => {
     localStorage.setItem("centralops_org_id", "5")
     localStorage.setItem("centralops_platform", "wazuh")
     localStorage.setItem("centralops_integration_id", "12")
-    mockedApi.logout.mockResolvedValue(undefined)
+    mockedApi.logout.mockResolvedValue({ detail: "logged out" })
 
     const { result } = renderHook(() => useAuth(), { wrapper: AuthProvider })
     await act(async () => {
@@ -71,7 +71,7 @@ describe("AuthContext.logout", () => {
     localStorage.setItem("centralops:enrich:policy-draft:42", JSON.stringify({ rules: [1] }))
     // Chave de outro domínio que só COMEÇA parecido não deve ser tocada.
     localStorage.setItem("centralops_org_id", "5")
-    mockedApi.logout.mockResolvedValue(undefined)
+    mockedApi.logout.mockResolvedValue({ detail: "logged out" })
 
     const { result } = renderHook(() => useAuth(), { wrapper: AuthProvider })
     await act(async () => {
@@ -86,7 +86,7 @@ describe("AuthContext.logout", () => {
     localStorage.setItem("centralops:enrich:policy-draft:1", "{}")
     localStorage.setItem("centralops:enrich:policy-draft:2", "{}")
     localStorage.setItem("some-unrelated-key", "keep-me")
-    mockedApi.logout.mockResolvedValue(undefined)
+    mockedApi.logout.mockResolvedValue({ detail: "logged out" })
 
     const { result } = renderHook(() => useAuth(), { wrapper: AuthProvider })
     await act(async () => {

@@ -9,7 +9,7 @@
  * - Acessibilidade: role=dialog, aria-modal, aria-activedescendant
  */
 
-import { fireEvent, render, screen, act } from "@testing-library/react"
+import { fireEvent, render, screen } from "@testing-library/react"
 import { CommandPalette } from "@/components/ui/CommandPalette"
 import type { PaletteCommand } from "@/components/ui/CommandPalette"
 import i18n from "@/i18n"

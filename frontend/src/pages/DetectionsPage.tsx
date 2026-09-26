@@ -15,7 +15,7 @@ import { useDetections } from "@/hooks/useDetections"
 import type { DetectionRead, DetectionStatus } from "@/types"
 
 const DetectionsPage: React.FC = () => {
-  const { t } = useTranslation("schedules")
+  const { t } = useTranslation("detections")
   const {
     detections,
     loading,
@@ -50,7 +50,7 @@ const DetectionsPage: React.FC = () => {
       // Update selected detection with the full object returned by the backend (count, last_seen, etc.)
       setSelectedDetection((prev) => prev && prev.id === id ? updated : prev)
     } catch (err) {
-      const message = err instanceof Error ? err.message : t("schedules:detections.feedback.triageError")
+      const message = err instanceof Error ? err.message : t("detections:list.feedback.triageError")
       setTriageError(message)
     }
   }
@@ -62,10 +62,10 @@ const DetectionsPage: React.FC = () => {
   return (
     <div className="space-y-6">
       <PageHeader
-        eyebrow={t("schedules:detections.pageEyebrow")}
+        eyebrow={t("detections:list.pageEyebrow")}
         icon={<ShieldAlertIcon size={24} />}
-        title={t("schedules:detections.pageTitle")}
-        description={t("schedules:detections.pageDescription")}
+        title={t("detections:list.pageTitle")}
+        description={t("detections:list.pageDescription")}
         actions={
           <Button
             variant="outline"
@@ -82,10 +82,10 @@ const DetectionsPage: React.FC = () => {
       {/* KPI cards */}
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {[
-          { label: t("schedules:detections.kpis.total"), value: kpis.total, testId: "kpi-total" },
-          { label: t("schedules:detections.kpis.open"), value: kpis.open, testId: "kpi-open" },
-          { label: t("schedules:detections.kpis.ack"), value: kpis.ack, testId: "kpi-ack" },
-          { label: t("schedules:detections.kpis.closed"), value: kpis.closed, testId: "kpi-closed" },
+          { label: t("detections:list.kpis.total"), value: kpis.total, testId: "kpi-total" },
+          { label: t("detections:list.kpis.open"), value: kpis.open, testId: "kpi-open" },
+          { label: t("detections:list.kpis.ack"), value: kpis.ack, testId: "kpi-ack" },
+          { label: t("detections:list.kpis.closed"), value: kpis.closed, testId: "kpi-closed" },
         ].map((item) => (
           <Card key={item.label} padding="sm" className="shadow-sm">
             <div className="text-xs font-semibold uppercase tracking-wider text-text-tertiary">
@@ -106,16 +106,16 @@ const DetectionsPage: React.FC = () => {
               label={t("common:fields.status")}
               options={[
                 { value: "", label: t("common:states.all") },
-                { value: "open", label: t("schedules:detections.status.open") },
-                { value: "ack", label: t("schedules:detections.status.ack") },
-                { value: "closed", label: t("schedules:detections.status.closed") },
+                { value: "open", label: t("detections:list.status.open") },
+                { value: "ack", label: t("detections:list.status.ack") },
+                { value: "closed", label: t("detections:list.status.closed") },
               ]}
               value={statusFilter}
               onValueChange={(value: SelectValue) => {
                 const next = String(Array.isArray(value) ? (value[0] ?? "") : value)
                 setStatusFilter(next as DetectionStatus | "")
               }}
-              aria-label={t("schedules:detections.filterByStatusAriaLabel")}
+              aria-label={t("detections:list.filterByStatusAriaLabel")}
               data-testid="detections-filter-status"
             />
           </div>
@@ -123,7 +123,7 @@ const DetectionsPage: React.FC = () => {
       </Card>
 
       {error && (
-        <Notice variant="danger" title={t("schedules:detections.feedback.loadError")}>
+        <Notice variant="danger" title={t("detections:list.feedback.loadError")}>
           {error}
         </Notice>
       )}
@@ -132,7 +132,7 @@ const DetectionsPage: React.FC = () => {
           `limit` — bater exatamente no teto é o único sinal de que pode
           haver mais detecções do que as exibidas. */}
       {!loading && !error && truncated && (
-        <Notice variant="info">{t("schedules:detections.truncatedHint", { limit: detections.length })}</Notice>
+        <Notice variant="info">{t("detections:list.truncatedHint", { limit: detections.length })}</Notice>
       )}
 
       <DetectionsTable

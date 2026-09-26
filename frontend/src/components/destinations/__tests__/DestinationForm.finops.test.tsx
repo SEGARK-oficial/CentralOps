@@ -7,7 +7,7 @@
  * trava que o campo aparece, lê o valor salvo e escreve em delivery.cost.
  */
 import { render, screen, fireEvent, waitFor } from "@testing-library/react"
-import { describe, it, expect, vi, beforeEach } from "vitest"
+import { it, expect, vi, beforeEach } from "vitest"
 import { DestinationForm } from "../DestinationForm"
 import * as api from "@/services/api"
 import type { DestinationType } from "@/types"

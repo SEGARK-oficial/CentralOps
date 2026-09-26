@@ -7,11 +7,22 @@
 
 import { describe, it, expect } from "vitest"
 import { computeDiff } from "@/lib/mappingDiff"
-import type { MappingRule } from "@/types"
+import type { MappingRule, ScalarMappingRule } from "@/types"
 
 const r = (partial: Partial<MappingRule> & { target: string }): MappingRule => ({
   ...partial,
 } as MappingRule)
+
+// Todas as fixtures deste arquivo são scalar rules (nenhum `kind: "array_builder"`).
+// Estreita o tipo para os campos exclusivos de scalar (source/const/value_map/type_cast)
+// e falha alto se algum dia uma regra array_builder passar por aqui sem os testes
+// serem atualizados — em vez de mascarar com `any`/cast silencioso.
+function asScalar(rule: MappingRule): ScalarMappingRule {
+  if (rule.kind === "array_builder") {
+    throw new Error("Fixture esperava scalar rule, recebeu array_builder")
+  }
+  return rule
+}
 
 describe("computeDiff", () => {
   it("retorna diff vazio quando listas são idênticas", () => {
@@ -59,8 +70,8 @@ describe("computeDiff", () => {
     const diff = computeDiff(a, b)
     expect(diff.modified).toHaveLength(1)
     expect(diff.modified[0].target).toBe("ev.action")
-    expect(diff.modified[0].before.source).toBe("action")
-    expect(diff.modified[0].after.source).toBe("action_new")
+    expect(asScalar(diff.modified[0].before).source).toBe("action")
+    expect(asScalar(diff.modified[0].after).source).toBe("action_new")
     expect(diff.added).toHaveLength(0)
     expect(diff.removed).toHaveLength(0)
   })
@@ -111,8 +122,8 @@ describe("computeDiff", () => {
     ]
     const diff = computeDiff(a, b)
     expect(diff.modified).toHaveLength(1)
-    expect(diff.modified[0].before.value_map).toEqual({ active: "ativo", inactive: "inativo" })
-    expect(diff.modified[0].after.value_map).toEqual({ active: "ativo", inactive: "desativado" })
+    expect(asScalar(diff.modified[0].before).value_map).toEqual({ active: "ativo", inactive: "inativo" })
+    expect(asScalar(diff.modified[0].after).value_map).toEqual({ active: "ativo", inactive: "desativado" })
   })
 
   it("deep equality em value_map identico não gera modificação", () => {
@@ -135,7 +146,7 @@ describe("computeDiff", () => {
     const b: MappingRule[] = [r({ target: "ts", source: "timestamp", type_cast: "iso_to_epoch" })]
     const diff = computeDiff(a, b)
     expect(diff.modified).toHaveLength(1)
-    expect(diff.modified[0].after.type_cast).toBe("iso_to_epoch")
+    expect(asScalar(diff.modified[0].after).type_cast).toBe("iso_to_epoch")
   })
 
   it("mudança em required detecta modificação", () => {

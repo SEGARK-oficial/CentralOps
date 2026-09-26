@@ -68,6 +68,7 @@ const VERSION: MappingVersion = {
     ],
   },
   author_user_id: null,
+  author_label: null,
   commit_message: "Versão inicial",
   diff_from_previous: null,
   dry_run_stats: null,
@@ -155,7 +156,12 @@ beforeEach(() => {
   mockedUseDryRun.mockReturnValue(DRY_RUN_EMPTY)
   // Default: sem permissão de write
   mockedUsePermission.mockReturnValue(false)
-  mockedUseMappingAudit.mockReturnValue({ entries: [], isLoading: false, error: null })
+  mockedUseMappingAudit.mockReturnValue({
+    entries: [],
+    isLoading: false,
+    error: null,
+    availableActions: [],
+  })
 })
 
 // ── Testes Sprint 1 (regressão) ───────────────────────────────────────────────
@@ -903,9 +909,9 @@ describe("MappingEditorPage", () => {
     // vitest 4: o spy invoca o mock com `new FileReader()`. Arrow function não
     // pode ser construída (`new () => …` lança) — usa-se `function` (o retorno
     // de objeto substitui o `this` do construtor).
-    vi.spyOn(globalThis, "FileReader" as never).mockImplementation(function () {
+    vi.spyOn(globalThis, "FileReader").mockImplementation(function () {
       return readerMock as unknown as FileReader
-    })
+    } as unknown as typeof FileReader)
 
     fireEvent.change(fileInput)
 

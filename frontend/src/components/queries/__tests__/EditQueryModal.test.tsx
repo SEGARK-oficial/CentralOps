@@ -2,7 +2,7 @@
  * EditQueryModal — título traduzido (A11Y-23) e rede de segurança do
  * `submitError` do useForm.
  */
-import { render, screen, fireEvent, waitFor } from "@testing-library/react"
+import { render, screen, fireEvent } from "@testing-library/react"
 import { EditQueryModal } from "@/components/queries/EditQueryModal"
 import * as api from "@/services/api"
 import type { Client, Query } from "@/types"

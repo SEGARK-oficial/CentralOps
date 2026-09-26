@@ -4,7 +4,6 @@
  */
 
 import { render, screen, fireEvent, waitFor } from "@testing-library/react"
-import userEvent from "@testing-library/user-event"
 import { BackfillForm } from "@/components/backfill/BackfillForm"
 import type { BackfillJob } from "@/types"
 import { vi } from "vitest"

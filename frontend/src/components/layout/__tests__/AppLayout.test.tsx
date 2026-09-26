@@ -25,7 +25,7 @@ beforeEach(() => {
       id: "1",
       username: "test",
       display_name: "Test",
-      role: "user",
+      role: "viewer",
       is_active: true,
       permissions: [] as string[],
     },
@@ -38,6 +38,7 @@ beforeEach(() => {
     login: vi.fn(),
     bootstrapAdmin: vi.fn(),
     logout: vi.fn(),
+    updateUser: vi.fn(),
     refreshSession: vi.fn(),
     hasPermission: vi.fn(() => false),
   } as ReturnType<typeof useAuth>)

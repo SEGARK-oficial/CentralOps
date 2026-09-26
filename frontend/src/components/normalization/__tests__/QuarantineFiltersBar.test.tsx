@@ -25,7 +25,10 @@ describe("QuarantineFiltersBar — ERROR_KIND_OPTIONS", () => {
 
   it("toda opção exposta existe no enum de error_kind do backend", () => {
     for (const opt of ERROR_KIND_OPTIONS) {
-      expect(BACKEND_ERROR_KINDS.has(opt.value)).toBe(true)
+      // error_kind é um enum de string no backend — um valor numérico aqui já
+      // seria, por si só, uma regressão (nunca daria match no filtro).
+      expect(typeof opt.value).toBe("string")
+      expect(BACKEND_ERROR_KINDS.has(opt.value as string)).toBe(true)
     }
   })
 

@@ -34,11 +34,11 @@ type TFn = ReturnType<typeof useTranslation>["t"]
 function sourceLabelKey(source: DetectionSource): string {
   switch (source) {
     case "scheduled_query":
-      return "schedules:detections.source.scheduled_query"
+      return "detections:list.source.scheduled_query"
     case "live_query":
-      return "schedules:detections.source.live_query"
+      return "detections:list.source.live_query"
     case "correlation":
-      return "schedules:detections.source.correlation"
+      return "detections:list.source.correlation"
     default:
       return source
   }
@@ -60,11 +60,11 @@ function statusBadgeVariant(status: DetectionStatus): "default" | "warning" | "s
 function statusLabelKey(status: DetectionStatus): string {
   switch (status) {
     case "open":
-      return "schedules:detections.statusSingular.open"
+      return "detections:list.statusSingular.open"
     case "ack":
-      return "schedules:detections.statusSingular.ack"
+      return "detections:list.statusSingular.ack"
     case "closed":
-      return "schedules:detections.statusSingular.closed"
+      return "detections:list.statusSingular.closed"
     default:
       return status
   }
@@ -95,7 +95,7 @@ function DetectionRuleButton({ detection, t, onRowClick }: { detection: Detectio
     <button
       type="button"
       className="max-w-[280px] space-y-0.5 rounded text-left focus-ring"
-      aria-label={t("schedules:detections.table.rowAriaLabel", { name: detection.rule_name || detection.dedup_key })}
+      aria-label={t("detections:list.table.rowAriaLabel", { name: detection.rule_name || detection.dedup_key })}
       onClick={() => onRowClick(detection)}
     >
       <div className="truncate font-medium text-text" title={detection.rule_name ?? undefined}>
@@ -134,7 +134,7 @@ function DetectionRowCells({ detection, t, onRowClick }: { detection: DetectionR
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export const DetectionsTable: React.FC<DetectionsTableProps> = ({ detections, loading = false, onRowClick }) => {
-  const { t } = useTranslation("schedules")
+  const { t } = useTranslation("detections")
   const scrollRef = useRef<HTMLDivElement>(null)
   const virtualize = detections.length > VIRTUALIZE_THRESHOLD
 
@@ -151,12 +151,12 @@ export const DetectionsTable: React.FC<DetectionsTableProps> = ({ detections, lo
 
   const columns = useMemo(
     () => [
-      { key: "severity", label: t("schedules:detections.table.columns.severity"), nowrap: true },
-      { key: "source", label: t("schedules:detections.table.columns.source"), nowrap: false },
-      { key: "rule", label: t("schedules:detections.table.columns.rule"), nowrap: false },
-      { key: "status", label: t("schedules:detections.table.columns.status"), nowrap: true },
-      { key: "occurrences", label: t("schedules:detections.table.columns.occurrences"), nowrap: true, right: true },
-      { key: "lastSeen", label: t("schedules:detections.table.columns.lastSeen"), nowrap: true },
+      { key: "severity", label: t("detections:list.table.columns.severity"), nowrap: true },
+      { key: "source", label: t("detections:list.table.columns.source"), nowrap: false },
+      { key: "rule", label: t("detections:list.table.columns.rule"), nowrap: false },
+      { key: "status", label: t("detections:list.table.columns.status"), nowrap: true },
+      { key: "occurrences", label: t("detections:list.table.columns.occurrences"), nowrap: true, right: true },
+      { key: "lastSeen", label: t("detections:list.table.columns.lastSeen"), nowrap: true },
     ],
     [t],
   )
@@ -164,7 +164,7 @@ export const DetectionsTable: React.FC<DetectionsTableProps> = ({ detections, lo
   if (loading) {
     return (
       <div className="flex min-h-[240px] items-center justify-center">
-        <LoadingSpinner size="lg" text={t("schedules:detections.table.loading")} />
+        <LoadingSpinner size="lg" text={t("detections:list.table.loading")} />
       </div>
     )
   }
@@ -173,8 +173,8 @@ export const DetectionsTable: React.FC<DetectionsTableProps> = ({ detections, lo
     return (
       <EmptyState
         icon={<ShieldAlertIcon size={48} />}
-        title={t("schedules:detections.table.emptyTitle")}
-        description={t("schedules:detections.table.emptyDescription")}
+        title={t("detections:list.table.emptyTitle")}
+        description={t("detections:list.table.emptyDescription")}
       />
     )
   }
@@ -191,7 +191,7 @@ export const DetectionsTable: React.FC<DetectionsTableProps> = ({ detections, lo
           <table
             className="w-full min-w-[860px] text-sm"
             role="table"
-            aria-label={t("schedules:detections.table.ariaLabel")}
+            aria-label={t("detections:list.table.ariaLabel")}
             aria-rowcount={detections.length + 1}
           >
             <thead className="sticky top-0 z-10 bg-surface-tertiary">
@@ -258,7 +258,7 @@ export const DetectionsTable: React.FC<DetectionsTableProps> = ({ detections, lo
             key={detection.id}
             type="button"
             className="w-full rounded-xl border border-border bg-surface p-4 text-left transition-colors hover:bg-surface-tertiary/40 focus-ring"
-            aria-label={t("schedules:detections.table.rowAriaLabel", { name: detection.rule_name || detection.dedup_key })}
+            aria-label={t("detections:list.table.rowAriaLabel", { name: detection.rule_name || detection.dedup_key })}
             onClick={() => onRowClick(detection)}
           >
             <div className="flex items-start justify-between gap-2">
@@ -275,11 +275,11 @@ export const DetectionsTable: React.FC<DetectionsTableProps> = ({ detections, lo
                 {t(statusLabelKey(detection.status))}
               </Badge>
               <span className="font-mono text-xs tabular-nums text-text-tertiary">
-                {t("schedules:detections.table.occurrenceCount", { count: detection.count ?? 1 })}
+                {t("detections:list.table.occurrenceCount", { count: detection.count ?? 1 })}
               </span>
               {detection.last_seen && (
                 <span className="text-xs text-text-tertiary">
-                  {t("schedules:detections.table.lastSeenLabel", { date: formatDate(detection.last_seen) })}
+                  {t("detections:list.table.lastSeenLabel", { date: formatDate(detection.last_seen) })}
                 </span>
               )}
             </div>

@@ -57,7 +57,7 @@ const ORG_ACTIVE_A: Organization = {
   id: 1,
   name: "Acme Corp",
   slug: "acme-corp",
-  description: null,
+  description: undefined,
   is_active: true,
   integration_count: 2,
   auto_managed: false,
@@ -67,7 +67,7 @@ const ORG_ACTIVE_B: Organization = {
   id: 2,
   name: "Globex",
   slug: "globex",
-  description: null,
+  description: undefined,
   is_active: true,
   integration_count: 0,
   auto_managed: false,
@@ -77,7 +77,7 @@ const ORG_AUTO: Organization = {
   id: 3,
   name: "Sophos Auto Org",
   slug: "sophos-auto",
-  description: null,
+  description: undefined,
   is_active: true,
   integration_count: 1,
   auto_managed: true,
@@ -97,17 +97,13 @@ function renderPage() {
 beforeEach(() => {
   vi.clearAllMocks()
   editionState.maxOrganizations = null
-  // @ts-expect-error vitest mock typing
   mockedApi.countActiveOrganizations.mockResolvedValue(0)
-  // @ts-expect-error vitest mock typing
   mockedApi.listOrganizations.mockResolvedValue(ORGS_BASE)
-  // @ts-expect-error
   mockedApi.bulkDeactivateOrganizations.mockResolvedValue({
     processed: 0,
     deactivated: 0,
     errors: [],
   })
-  // @ts-expect-error
   mockedApi.deleteOrganization.mockResolvedValue(undefined)
 })
 
@@ -255,12 +251,11 @@ describe("OrganizationsPage — bulk deactivate confirm", () => {
       id: 100 + i,
       name: `Org ${i}`,
       slug: `org-${i}`,
-      description: null,
+      description: undefined,
       is_active: true,
       integration_count: 0,
       auto_managed: false,
     }))
-    // @ts-expect-error
     mockedApi.listOrganizations.mockResolvedValue(many)
 
     renderPage()
@@ -330,7 +325,6 @@ describe("OrganizationsPage — teto de orgs do tier", () => {
 
   it("no limite (Starter max=1, 1 ativa): badge 1/1, aviso e botão desabilitado", async () => {
     editionState.maxOrganizations = 1
-    // @ts-expect-error vitest mock typing
     mockedApi.countActiveOrganizations.mockResolvedValue(1)
     renderPage()
     await waitFor(() => expect(mockedApi.countActiveOrganizations).toHaveBeenCalled())
@@ -345,7 +339,6 @@ describe("OrganizationsPage — teto de orgs do tier", () => {
 
   it("abaixo do teto (max=3, 1 ativa): badge 1/3 e botão habilitado", async () => {
     editionState.maxOrganizations = 3
-    // @ts-expect-error vitest mock typing
     mockedApi.countActiveOrganizations.mockResolvedValue(1)
     renderPage()
     await waitFor(() => expect(mockedApi.countActiveOrganizations).toHaveBeenCalled())

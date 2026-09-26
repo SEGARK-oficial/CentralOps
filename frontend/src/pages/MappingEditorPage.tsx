@@ -186,7 +186,7 @@ export const MappingEditorPage: React.FC = () => {
   // → não re-monta os inputs de cada RuleRow a cada render do pai.
   const DRY_RUN_DEBOUNCE_MS = 400
   const [effectiveRules, setEffectiveRules] = useState<MappingRule[]>(activeRules)
-  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const debounceTimerRef = useRef<number | null>(null)
 
   // Sincroniza effectiveRules quando activeRules muda (ex: ao entrar em edit
   // mode, ao sair, ou ao resetar o draft). Em view mode ou quando draftRules
@@ -194,7 +194,7 @@ export const MappingEditorPage: React.FC = () => {
   useEffect(() => {
     if (editorMode !== "edit" || draftRules === null) {
       // Mudança não originada por keystroke — aplica imediatamente
-      if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current)
+      if (debounceTimerRef.current) window.clearTimeout(debounceTimerRef.current)
       setEffectiveRules(activeRules)
     }
     // Caso edit mode com draftRules: a atualização debounced é feita em
@@ -218,8 +218,8 @@ export const MappingEditorPage: React.FC = () => {
   const handleRulesChange = useCallback(
     (rules: MappingRule[]) => {
       setDraftRules(rules)
-      if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current)
-      debounceTimerRef.current = setTimeout(() => {
+      if (debounceTimerRef.current) window.clearTimeout(debounceTimerRef.current)
+      debounceTimerRef.current = window.setTimeout(() => {
         setEffectiveRules(rules)
       }, DRY_RUN_DEBOUNCE_MS)
     },
@@ -229,7 +229,7 @@ export const MappingEditorPage: React.FC = () => {
   // Limpar timer pendente ao desmontar
   useEffect(() => {
     return () => {
-      if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current)
+      if (debounceTimerRef.current) window.clearTimeout(debounceTimerRef.current)
     }
   }, [])
 
@@ -324,7 +324,7 @@ export const MappingEditorPage: React.FC = () => {
     if (isDirty) {
       setShowDiscardConfirm(true)
     } else {
-      if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current)
+      if (debounceTimerRef.current) window.clearTimeout(debounceTimerRef.current)
       setEditorMode("view")
       setDraftRules(null)
       setEffectiveRules(currentRules)
@@ -334,7 +334,7 @@ export const MappingEditorPage: React.FC = () => {
   }
 
   function handleDiscardConfirm() {
-    if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current)
+    if (debounceTimerRef.current) window.clearTimeout(debounceTimerRef.current)
     setShowDiscardConfirm(false)
     setEditorMode("view")
     setDraftRules(null)
@@ -344,7 +344,7 @@ export const MappingEditorPage: React.FC = () => {
   }
 
   function handleSaveSuccess() {
-    if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current)
+    if (debounceTimerRef.current) window.clearTimeout(debounceTimerRef.current)
     setShowSaveModal(false)
     setEditorMode("view")
     setDraftRules(null)

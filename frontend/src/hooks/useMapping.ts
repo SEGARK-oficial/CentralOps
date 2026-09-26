@@ -7,7 +7,6 @@
 import { useEffect, useState, useCallback } from "react"
 import type { Mapping, MappingVersion } from "@/types"
 import { getMapping } from "@/services/api"
-import { ApiRequestError } from "@/services/api"
 
 type MappingWithVersions = Mapping & { versions: MappingVersion[] }
 

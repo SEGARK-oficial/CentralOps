@@ -12,7 +12,7 @@
  */
 
 import { render, screen, fireEvent, within } from "@testing-library/react"
-import { describe, it, expect, vi, beforeEach } from "vitest"
+import { describe, it, expect, vi } from "vitest"
 import { DestinationTypeGallery } from "@/components/destinations/DestinationTypeGallery"
 import type { DestinationType } from "@/types"
 

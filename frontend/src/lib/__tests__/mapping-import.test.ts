@@ -11,7 +11,17 @@ import {
   MappingImportError,
   EXPORT_SCHEMA_VERSION,
 } from "@/lib/mapping-import"
-import type { MappingRule, PreprocessOp } from "@/types"
+import type { MappingRule, PreprocessOp, ScalarMappingRule } from "@/types"
+
+// As fixtures deste arquivo só usam scalar rules (nenhum `kind: "array_builder"`).
+// `MappingRule` é uma union — este guard estreita o tipo E falha alto se algum
+// dia uma regra array_builder entrar aqui sem os testes serem atualizados.
+function asScalar(rule: MappingRule): ScalarMappingRule {
+  if (rule.kind === "array_builder") {
+    throw new Error("Fixture esperava scalar rule, recebeu array_builder")
+  }
+  return rule
+}
 
 const RULES: MappingRule[] = [
   { target: "event.action", source: "data.action" },
@@ -37,8 +47,8 @@ describe("parseMappingExport — round-trip", () => {
     expect(parsed.schema_version).toBe(EXPORT_SCHEMA_VERSION)
     expect(parsed.rules).toHaveLength(RULES.length)
     expect(parsed.rules[0].target).toBe("event.action")
-    expect(parsed.rules[0].source).toBe("data.action")
-    expect(parsed.rules[2].const).toBe("Sophos Central")
+    expect(asScalar(parsed.rules[0]).source).toBe("data.action")
+    expect(asScalar(parsed.rules[2]).const).toBe("Sophos Central")
     expect(parsed.mapping?.vendor).toBe("sophos")
   })
 

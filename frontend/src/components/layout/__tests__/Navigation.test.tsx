@@ -15,7 +15,7 @@ beforeAll(() => {
   void i18n.changeLanguage("pt")
 })
 
-function makeUser(role: "admin" | "user" = "user") {
+function makeUser(role: "admin" | "viewer" = "viewer") {
   return {
     id: "1",
     username: "test",
@@ -39,6 +39,7 @@ beforeEach(() => {
     login: vi.fn(),
     bootstrapAdmin: vi.fn(),
     logout: vi.fn(),
+    updateUser: vi.fn(),
     refreshSession: vi.fn(),
     hasPermission: vi.fn(() => false),
   } as ReturnType<typeof useAuth>)

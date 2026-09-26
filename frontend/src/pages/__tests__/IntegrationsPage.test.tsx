@@ -142,15 +142,12 @@ beforeEach(() => {
   vi.clearAllMocks()
   platformContextValue.selectedOrgId = null
   platformContextValue.selectedPlatform = null
-  // @ts-expect-error vitest mock typing
   mockedApi.listIntegrations.mockResolvedValue(INTEGRATIONS_BASE)
-  // @ts-expect-error
   mockedApi.bulkDeactivateIntegrations.mockResolvedValue({
     processed: 0,
     deactivated: 0,
     errors: [],
   })
-  // @ts-expect-error
   mockedApi.deleteIntegration.mockResolvedValue({ detail: "Integration deactivated" })
 })
 
@@ -348,7 +345,6 @@ describe("IntegrationsPage — bulk deactivate confirm", () => {
       kind: "tenant",
       capabilities: [],
     }))
-    // @ts-expect-error
     mockedApi.listIntegrations.mockResolvedValue(many)
 
     renderPage()
@@ -495,7 +491,6 @@ describe("IntegrationsPage — last_error não exibe banner", () => {
         last_error: "Authentication token expired",
       },
     ]
-    // @ts-expect-error
     mockedApi.listIntegrations.mockResolvedValue(withError)
 
     renderPage()
@@ -539,7 +534,6 @@ describe("IntegrationsPage — ErrorState com retry no load inicial (Pilar 4)", 
     renderPage()
     await waitFor(() => expect(screen.getByText("Sophos Tenant Alpha")).toBeInTheDocument())
 
-    // @ts-expect-error vitest mock typing
     mockedApi.bulkDeactivateIntegrations.mockResolvedValue({
       processed: 1,
       deactivated: 1,

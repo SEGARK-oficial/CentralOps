@@ -51,7 +51,7 @@ export const FlowLiveFeed: React.FC<FlowLiveFeedProps> = ({
   // PERF-16: id do setTimeout que limpa `isNew` — sem guardar/limpar, ele
   // sobrevive ao unmount (setState em componente desmontado) e se acumula se
   // um novo fetch chegar antes dos 2s do anterior.
-  const isNewTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const isNewTimeoutRef = useRef<number | null>(null)
 
   // Pick top-N destinations by eps
   const topDests = [...destinations]
@@ -116,7 +116,7 @@ export const FlowLiveFeed: React.FC<FlowLiveFeedProps> = ({
       // Clear "isNew" flag after 2s. Cancela um timeout pendente do fetch
       // anterior antes de agendar outro — senão os dois disparam e o segundo
       // pisa no primeiro sem necessidade (e ambos sobreviveriam a um unmount).
-      if (isNewTimeoutRef.current !== null) clearTimeout(isNewTimeoutRef.current)
+      if (isNewTimeoutRef.current !== null) window.clearTimeout(isNewTimeoutRef.current)
       isNewTimeoutRef.current = window.setTimeout(() => {
         isNewTimeoutRef.current = null
         setItems((prev) => prev.map((i) => ({ ...i, isNew: false })))
@@ -147,7 +147,7 @@ export const FlowLiveFeed: React.FC<FlowLiveFeedProps> = ({
   // dispara depois do unmount e tenta um setState em componente já desmontado.
   useEffect(() => {
     return () => {
-      if (isNewTimeoutRef.current !== null) clearTimeout(isNewTimeoutRef.current)
+      if (isNewTimeoutRef.current !== null) window.clearTimeout(isNewTimeoutRef.current)
     }
   }, [])
 

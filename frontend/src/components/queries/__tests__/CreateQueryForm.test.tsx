@@ -2,7 +2,7 @@
  * CreateQueryForm — validação i18n (A11Y-23) e rede de segurança do
  * `submitError` do useForm (erro do submit agora aparece na UI).
  */
-import { render, screen, fireEvent, waitFor } from "@testing-library/react"
+import { render, screen, fireEvent } from "@testing-library/react"
 import { CreateQueryForm } from "@/components/queries/CreateQueryForm"
 import * as api from "@/services/api"
 import type { Client } from "@/types"

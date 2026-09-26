@@ -8,7 +8,7 @@
  * 4. KPIs calculados por status.
  */
 
-import { render, screen, fireEvent, waitFor, within } from "@testing-library/react"
+import { render, screen, fireEvent, waitFor } from "@testing-library/react"
 import { describe, it, expect, vi, beforeEach } from "vitest"
 import { MemoryRouter } from "react-router-dom"
 import DetectionsPage from "@/pages/DetectionsPage"

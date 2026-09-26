@@ -32,6 +32,7 @@ beforeEach(() => {
     login: vi.fn(),
     bootstrapAdmin: vi.fn(),
     logout: vi.fn(),
+    updateUser: vi.fn(),
     refreshSession: vi.fn(),
     hasPermission: vi.fn(() => false),
   } as ReturnType<typeof useAuth>)

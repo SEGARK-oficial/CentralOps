@@ -79,7 +79,7 @@ export const Select: React.FC<SelectProps> = ({
   // A11Y-27: type-ahead — acumula teclas digitadas em sequência (reset após
   // pausa) e foca a 1ª opção cujo label comece com o texto acumulado.
   const typeaheadBuffer = useRef("")
-  const typeaheadTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const typeaheadTimer = useRef<number | null>(null)
 
   const selectId = id || `select-${generatedId.replace(/:/g, "")}`
   const listboxId = `${selectId}-listbox`
@@ -144,10 +144,10 @@ export const Select: React.FC<SelectProps> = ({
   const runTypeahead = (key: string, onMatch: (index: number) => void) => {
     if (options.length > 10) return false
     if (key.length !== 1 || !/[\p{L}\p{N}]/u.test(key)) return false
-    if (typeaheadTimer.current) clearTimeout(typeaheadTimer.current)
+    if (typeaheadTimer.current) window.clearTimeout(typeaheadTimer.current)
     typeaheadBuffer.current += key.toLowerCase()
     const buffer = typeaheadBuffer.current
-    typeaheadTimer.current = setTimeout(() => {
+    typeaheadTimer.current = window.setTimeout(() => {
       typeaheadBuffer.current = ""
     }, 500)
     const matchIndex = filteredOptions.findIndex((option) => !option.disabled && option.label.toLowerCase().startsWith(buffer))
@@ -173,7 +173,7 @@ export const Select: React.FC<SelectProps> = ({
     const matchedTypeahead = runTypeahead(event.key, (index) => {
       setIsOpen(true)
       // O portal ainda não existe neste tick — espera o próximo frame.
-      setTimeout(() => {
+      window.setTimeout(() => {
         const optionButtons = portalRef.current?.querySelectorAll<HTMLButtonElement>("button[role='option']:not(:disabled)")
         optionButtons?.[index]?.focus()
       }, 0)
@@ -274,7 +274,7 @@ export const Select: React.FC<SelectProps> = ({
   // então usamos um microtask (setTimeout 0) para garantir que o DOM está pronto.
   useEffect(() => {
     if (!isOpen) return
-    const id = setTimeout(() => {
+    const id = window.setTimeout(() => {
       if (options.length > 10) {
         inputRef.current?.focus()
         return
@@ -284,7 +284,7 @@ export const Select: React.FC<SelectProps> = ({
       if (!optionButtons || optionButtons.length === 0) return
       optionButtons[selectedIndex >= 0 ? selectedIndex : 0]?.focus()
     }, 0)
-    return () => clearTimeout(id)
+    return () => window.clearTimeout(id)
   }, [filteredOptions, isOpen, options.length, selectedValues])
 
   return (

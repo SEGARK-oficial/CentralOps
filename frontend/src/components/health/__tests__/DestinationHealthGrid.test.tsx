@@ -11,7 +11,7 @@
  *   - acessibilidade: grid aria-label, cards role=article
  */
 
-import { render, screen, fireEvent, waitFor } from "@testing-library/react"
+import { render, screen, fireEvent } from "@testing-library/react"
 import { MemoryRouter } from "react-router-dom"
 import { DestinationHealthGrid } from "@/components/health/DestinationHealthGrid"
 import * as api from "@/services/api"

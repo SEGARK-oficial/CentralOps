@@ -44,10 +44,14 @@ export function toUtcZuluString(date: Date): string {
 }
 
 export function debounce<T extends (...args: any[]) => any>(func: T, wait: number): (...args: Parameters<T>) => void {
-  let timeout: ReturnType<typeof setTimeout>
+  // window.setTimeout/window.clearTimeout (não os globais bare): código de
+  // browser, e o global `setTimeout` fica ambíguo (number vs NodeJS.Timeout)
+  // assim que @types/node entra na compilação (caso dos testes, que leem
+  // arquivos via fs/path).
+  let timeout: number
   return (...args: Parameters<T>) => {
-    clearTimeout(timeout)
-    timeout = setTimeout(() => func(...args), wait)
+    window.clearTimeout(timeout)
+    timeout = window.setTimeout(() => func(...args), wait)
   }
 }
 

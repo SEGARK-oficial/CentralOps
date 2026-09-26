@@ -125,12 +125,12 @@ const HEALTH_MAP: Record<HealthStatus, SeverityEncoding> = {
  * o mapeamento — DetectionDetailsDrawer (Sub 8) também consome daqui.
  */
 const DETECTION_SEVERITY_LABEL_KEYS: Record<number, string> = {
-  1: "schedules:detections.severity.informational",
-  2: "schedules:detections.severity.low",
-  3: "schedules:detections.severity.medium",
-  4: "schedules:detections.severity.high",
-  5: "schedules:detections.severity.critical",
-  6: "schedules:detections.severity.fatal",
+  1: "detections:list.severity.informational",
+  2: "detections:list.severity.low",
+  3: "detections:list.severity.medium",
+  4: "detections:list.severity.high",
+  5: "detections:list.severity.critical",
+  6: "detections:list.severity.fatal",
 }
 
 export interface DetectionSeverityEncoding {
@@ -144,7 +144,7 @@ export function detectionSeverityEncoding(severityId: number): DetectionSeverity
   const badgeVariant: BadgeVariant = severityId <= 3 ? "default" : severityId === 4 ? "warning" : "danger"
   const labelKey = DETECTION_SEVERITY_LABEL_KEYS[severityId]
   if (labelKey) return { badgeVariant, labelKey }
-  return { badgeVariant, labelKey: "schedules:detections.severity.unknown", labelParams: { id: severityId } }
+  return { badgeVariant, labelKey: "detections:list.severity.unknown", labelParams: { id: severityId } }
 }
 
 /**

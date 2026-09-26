@@ -143,7 +143,7 @@ describe("detectionSeverityEncoding", () => {
     const keys = new Set<string>()
     for (let id = 1; id <= 6; id++) {
       const { labelKey } = detectionSeverityEncoding(id)
-      expect(labelKey.startsWith("schedules:detections.severity.")).toBe(true)
+      expect(labelKey.startsWith("detections:list.severity.")).toBe(true)
       keys.add(labelKey)
     }
     expect(keys.size).toBe(6)
@@ -151,7 +151,7 @@ describe("detectionSeverityEncoding", () => {
 
   it("severidade fora de 1-6 cai no fallback com o id para interpolação", () => {
     const enc = detectionSeverityEncoding(9)
-    expect(enc.labelKey).toBe("schedules:detections.severity.unknown")
+    expect(enc.labelKey).toBe("detections:list.severity.unknown")
     expect(enc.labelParams).toEqual({ id: 9 })
     expect(enc.badgeVariant).toBe("danger")
   })
