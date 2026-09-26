@@ -443,7 +443,7 @@ export async function downloadAuditHistoryCSV(filters?: AuditFilters) {
   if (response.status === 401 && typeof window !== "undefined") {
     window.dispatchEvent(new CustomEvent("app-auth-expired"))
   }
-  if (!response.ok) throw new Error("Falha ao exportar CSV da auditoria")
+  if (!response.ok) throw new Error(i18n.t("alerts:history.errors.auditExportFailed"))
 
   const blob = await response.blob()
   const url = URL.createObjectURL(blob)

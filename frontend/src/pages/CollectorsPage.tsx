@@ -1,5 +1,5 @@
 import type React from "react"
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Trans, useTranslation } from "react-i18next"
 import {
   ActivityIcon,
@@ -146,7 +146,7 @@ const CollectorsPage: React.FC = () => {
   }, [vendors, vendorQuery])
   const [resetting, setResetting] = useState(false)
 
-  const loadAll = async () => {
+  const loadAll = useCallback(async () => {
     try {
       setLoading(true)
       setLoadError(null)
@@ -170,11 +170,11 @@ const CollectorsPage: React.FC = () => {
     } finally {
       setLoading(false)
     }
-  }
+  }, [t])
 
   useEffect(() => {
     void loadAll()
-  }, [])
+  }, [loadAll])
 
   // Feedback de sucesso some sozinho após ~5s; erros persistem até nova ação.
   useEffect(() => {
@@ -392,16 +392,15 @@ const CollectorsPage: React.FC = () => {
               {vendors.map((v) => (
                 <Badge
                   key={`${v.platform}:${v.stream}:${v.queue}`}
-                  variant="primary"
+                  variant="default"
                   title={t("collectorsPage.vendors.taskTooltip", { task: v.task_name, queue: v.queue, seconds: v.schedule_seconds })}
                 >
                   {v.platform} · {v.stream}{" "}
-                  {/* R2-8.7: opacity-60 sobre bg primary-100 dava 3.53:1 —
-                      abaixo do mínimo de 4.5:1 (WCAG AA) para texto pequeno.
-                      text-primary-800 sem opacity mantém a hierarquia visual
-                      (mais claro que o texto principal do badge) sem
-                      depender de transparência. */}
-                  <span className="ml-1 text-primary-800">
+                  {/* R3-8.6: era `primary` (violeta) decorativo — vendor/stream
+                      é um fato de registro, não um estágio do pipeline; virou
+                      `default`. `text-text-tertiary` é o par já auditado com
+                      `bg-surface-tertiary` (usado em cards por todo o app). */}
+                  <span className="ml-1 text-text-tertiary">
                     ({Math.round(v.schedule_seconds / 60)}m)
                   </span>
                 </Badge>
@@ -435,12 +434,12 @@ const CollectorsPage: React.FC = () => {
                 {filteredVendors.map((v) => (
                   <Badge
                     key={`${v.platform}:${v.stream}:${v.queue}`}
-                    variant="primary"
+                    variant="default"
                     title={t("collectorsPage.vendors.taskTooltip", { task: v.task_name, queue: v.queue, seconds: v.schedule_seconds })}
                   >
                     {v.platform} · {v.stream}{" "}
-                    {/* R2-8.7: mesmo fix de contraste do badge inline acima. */}
-                    <span className="ml-1 text-primary-800">
+                    {/* R3-8.6: mesmo fix do badge inline acima (variant default). */}
+                    <span className="ml-1 text-text-tertiary">
                       ({Math.round(v.schedule_seconds / 60)}m)
                     </span>
                   </Badge>

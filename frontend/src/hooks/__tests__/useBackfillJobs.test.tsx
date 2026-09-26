@@ -6,7 +6,7 @@
 import { renderHook, act, waitFor } from "@testing-library/react"
 import { useBackfillJobs } from "@/hooks/useBackfillJobs"
 import * as api from "@/services/api"
-import type { BackfillJob } from "@/types"
+import type { BackfillJob, BackfillJobStatus } from "@/types"
 
 vi.mock("@/services/api", async () => {
   const actual = await vi.importActual<typeof import("@/services/api")>("@/services/api")
@@ -177,50 +177,135 @@ describe("useBackfillJobs — polling", () => {
   })
 })
 
-// ── R2-5.4: abort da requisição anterior ──────────────────────────────────────
+// ── R3-5.2: abort só em troca de filtro/integração, nunca em poll silencioso ──
+//
+// Regressão da R2-5.4: o guard de abort ali abortava QUALQUER fetch em voo,
+// inclusive a carga inicial — e a geração abortada nunca zerava `isLoading`
+// (nem a nova, que era silenciosa), resultando em skeleton eterno. Os testes
+// abaixo substituem a versão anterior desta suíte (que exigia — errado — que
+// um `refetch()` silencioso abortasse a carga inicial).
 
-describe("useBackfillJobs — aborta o fetch anterior ainda em voo", () => {
-  it("um refetch novo aborta o controller do fetch anterior — a resposta velha (fora de ordem) não vence", async () => {
-    interface Call {
-      signal?: AbortSignal | null
-      resolve: (v: typeof LIST_RESPONSE) => void
-    }
-    const calls: Call[] = []
-    mockedApi.listBackfillJobs.mockImplementation(
-      (_id: number, _filters?: unknown, opts?: { signal?: AbortSignal | null }) =>
-        new Promise<typeof LIST_RESPONSE>((resolve, reject) => {
-          calls.push({ signal: opts?.signal, resolve })
-          opts?.signal?.addEventListener("abort", () => {
-            const err = new Error("aborted")
-            err.name = "AbortError"
-            reject(err)
-          })
-        }),
-    )
+interface PendingCall {
+  signal?: AbortSignal | null
+  resolve: (v: typeof LIST_RESPONSE) => void
+}
+
+function mockPendingListCalls(): PendingCall[] {
+  const calls: PendingCall[] = []
+  mockedApi.listBackfillJobs.mockImplementation(
+    (_id: number, _filters?: unknown, opts?: { signal?: AbortSignal | null }) =>
+      new Promise<typeof LIST_RESPONSE>((resolve, reject) => {
+        calls.push({ signal: opts?.signal, resolve })
+        opts?.signal?.addEventListener("abort", () => {
+          const err = new Error("aborted")
+          err.name = "AbortError"
+          reject(err)
+        })
+      }),
+  )
+  return calls
+}
+
+describe("useBackfillJobs — R3-5.2: poll/refetch silencioso NUNCA aborta uma request em voo", () => {
+  it("um refetch silencioso durante a carga inicial PULA o tick (não aborta, não duplica)", async () => {
+    const calls = mockPendingListCalls()
 
     const { result } = renderHook(() => useBackfillJobs(1))
     // Fetch inicial (efeito de montagem) — ainda pendurado (nunca resolvido).
     expect(calls).toHaveLength(1)
-    expect(calls[0].signal?.aborted).toBe(false)
+    expect(result.current.isLoading).toBe(true)
 
     act(() => {
       result.current.refetch()
     })
-    // O refetch cria um 2º fetch, e ABORTA o controller do 1º — sem isto, o
-    // 1º fetch (potencialmente mais lento) podia resolver DEPOIS do 2º e
-    // regravar `items` com dado obsoleto.
-    expect(calls).toHaveLength(2)
-    expect(calls[0].signal?.aborted).toBe(true)
-    expect(calls[1].signal?.aborted).toBe(false)
+    // Silencioso (`showLoading=false`) + já em voo → PULA: nem aborta o 1º
+    // nem cria um 2º. Antes (bug), isto abortava o 1º e travava o
+    // `isLoading` em `true` pra sempre.
+    expect(calls).toHaveLength(1)
+    expect(calls[0].signal?.aborted).toBe(false)
 
-    // O 2º fetch (novo, não abortado) resolve normalmente.
     await act(async () => {
-      calls[1].resolve(LIST_RESPONSE)
+      calls[0].resolve(LIST_RESPONSE)
       await Promise.resolve()
     })
     await waitFor(() => expect(result.current.items).toEqual([JOB_1]))
-    // Erro nenhum — o `.catch` reconhece o AbortError do 1º fetch e descarta,
-    // em vez de tratá-lo como falha de rede visível ao usuário.
+    expect(result.current.isLoading).toBe(false)
+  })
+
+  // Teste explícito pedido pela Rodada 3: poll disparado durante a carga
+  // inicial LENTA → isLoading termina `false` (não fica preso).
+  it("poll disparado durante a carga inicial lenta → isLoading termina false", async () => {
+    vi.useFakeTimers()
+    try {
+      const calls = mockPendingListCalls()
+
+      const { result } = renderHook(() =>
+        useBackfillJobs(1, undefined, { refreshIntervalMs: 5000 }),
+      )
+      expect(result.current.isLoading).toBe(true)
+      expect(calls).toHaveLength(1)
+
+      // O poll dispara ENQUANTO a carga inicial ainda está pendurada.
+      await act(async () => {
+        vi.advanceTimersByTime(5001)
+        await Promise.resolve()
+      })
+      // Pulou o tick — continua só 1 request em voo, e `isLoading` ainda
+      // reflete a carga inicial (de verdade em andamento).
+      expect(calls).toHaveLength(1)
+      expect(result.current.isLoading).toBe(true)
+
+      // A carga inicial (lenta) finalmente resolve.
+      await act(async () => {
+        calls[0].resolve(LIST_RESPONSE)
+        await Promise.resolve()
+      })
+      expect(result.current.isLoading).toBe(false)
+      expect(result.current.items).toEqual([JOB_1])
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  // Teste explícito pedido pela Rodada 3: troca de filtro durante a carga →
+  // a resposta velha é descartada e o isLoading segue correto.
+  it("troca de filtro durante a carga → a resposta velha é descartada e isLoading segue correto", async () => {
+    const calls = mockPendingListCalls()
+
+    const { result, rerender } = renderHook(
+      ({ filters }: { filters?: { status: BackfillJobStatus } }) => useBackfillJobs(1, filters),
+      { initialProps: { filters: { status: "pending" as BackfillJobStatus } } },
+    )
+    expect(calls).toHaveLength(1)
+    expect(result.current.isLoading).toBe(true)
+
+    // Troca de filtro ENQUANTO a 1ª carga (pending) ainda está em voo —
+    // `showLoading=true` de novo (é a mesma carga "principal"), então PODE
+    // abortar a geração anterior.
+    rerender({ filters: { status: "completed" as BackfillJobStatus } })
+    expect(calls).toHaveLength(2)
+    expect(calls[0].signal?.aborted).toBe(true)
+    expect(calls[1].signal?.aborted).toBe(false)
+    expect(result.current.isLoading).toBe(true)
+
+    // A resposta da geração NOVA chega primeiro.
+    const completedJob: BackfillJob = { ...JOB_1, id: "completed-job", status: "completed" }
+    await act(async () => {
+      calls[1].resolve({ items: [completedJob], total: 1, limit: 50, offset: 0 })
+      await Promise.resolve()
+    })
+    expect(result.current.isLoading).toBe(false)
+    expect(result.current.items).toEqual([completedJob])
+
+    // A resposta da geração VELHA (abortada) chega depois, fora de ordem —
+    // não pode sobrescrever o resultado da troca de filtro, nem reabrir o
+    // loading.
+    await act(async () => {
+      calls[0].resolve(LIST_RESPONSE)
+      await Promise.resolve()
+    })
+    expect(result.current.items).toEqual([completedJob])
+    expect(result.current.isLoading).toBe(false)
     expect(result.current.error).toBeNull()
   })
 })

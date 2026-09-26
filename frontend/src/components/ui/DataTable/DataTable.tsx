@@ -192,6 +192,9 @@ export const DataTable = <T extends object>({
       }
     })
     return out
+    // `getRowKey` é derivada só de `rowKey` (já na lista) — é recriada a cada
+    // render mas o RESULTADO não muda sem `rowKey` mudar; incluí-la geraria
+    // um "sempre diferente" artificial.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [paginatedData, expandableRow, rowKey])
 

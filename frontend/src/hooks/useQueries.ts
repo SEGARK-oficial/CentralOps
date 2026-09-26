@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useCallback } from "react"
 import * as api from "@/services/api"
+// R3-8.5: `i18n.t()` direto — ver comentário equivalente em useCollectorConfig.ts.
+import i18n from "@/i18n"
 import type { Query } from "@/types"
 
 interface UseQueriesReturn {
@@ -26,7 +28,7 @@ export function useQueries(): UseQueriesReturn {
       const data = await api.listQueries()
       setQueries(data)
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : "Falha ao carregar queries"
+      const errorMessage = err instanceof Error ? err.message : i18n.t("queries:queriesHook.loadError")
       setError(errorMessage)
     } finally {
       setLoading(false)
@@ -39,7 +41,7 @@ export function useQueries(): UseQueriesReturn {
       setQueries((prev) => [...prev, newQuery])
       return newQuery
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : "Falha ao criar query"
+      const errorMessage = err instanceof Error ? err.message : i18n.t("queries:queriesHook.createError")
       throw new Error(errorMessage)
     }
   }, [])
@@ -50,7 +52,7 @@ export function useQueries(): UseQueriesReturn {
       setQueries((prev) => prev.map((query) => (query.id === id ? updatedQuery : query)))
       return updatedQuery
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : "Falha ao atualizar query"
+      const errorMessage = err instanceof Error ? err.message : i18n.t("queries:queriesHook.updateError")
       throw new Error(errorMessage)
     }
   }, [])
@@ -60,7 +62,7 @@ export function useQueries(): UseQueriesReturn {
       await api.deleteQuery(id)
       setQueries((prev) => prev.filter((query) => query.id !== id))
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : "Falha ao deletar query"
+      const errorMessage = err instanceof Error ? err.message : i18n.t("queries:queriesHook.deleteError")
       throw new Error(errorMessage)
     }
   }, [])

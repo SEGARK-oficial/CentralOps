@@ -718,5 +718,14 @@
     "removeRecipientErrorFallback": "Failed to remove recipient",
     "removeRecipientSuccess": "Recipient removed successfully.",
     "sendTestErrorFallback": "Failed to send test email"
+  },
+  "identityConfigHook": {
+    "loadError": "Failed to load identity configuration",
+    "saveSuccess": "Configuration saved. Takes effect on next login.",
+    "saveError": "Failed to save",
+    "testError": "Failed to test connection"
+  },
+  "entraSyncHook": {
+    "triggerError": "Failed to trigger sync"
   }
 }

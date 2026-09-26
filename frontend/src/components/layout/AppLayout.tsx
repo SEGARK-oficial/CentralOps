@@ -10,6 +10,7 @@ import { ErrorBoundary } from "@/components/shared/ErrorBoundary"
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner/LoadingSpinner"
 import { useDocumentTitle } from "@/hooks/useDocumentTitle"
 import { cn } from "@/lib/utils"
+import { safeStorage } from "@/lib/safeStorage"
 
 const COLLAPSE_KEY = "centralops_sidebar_collapsed"
 const LG_BREAKPOINT = 1024
@@ -28,7 +29,7 @@ export const AppLayout: React.FC = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [collapsed, setCollapsed] = useState<boolean>(() => {
     if (typeof window === "undefined") return false
-    return window.localStorage.getItem(COLLAPSE_KEY) === "1"
+    return safeStorage.getItem(COLLAPSE_KEY) === "1"
   })
 
   // Editores densos (ex.: /mappings/:id) ocupam largura total e colapsam a
@@ -47,7 +48,7 @@ export const AppLayout: React.FC = () => {
     }
     setCollapsed((prev) => {
       const next = !prev
-      window.localStorage.setItem(COLLAPSE_KEY, next ? "1" : "0")
+      safeStorage.setItem(COLLAPSE_KEY, next ? "1" : "0")
       return next
     })
   }, [isEditorRoute])

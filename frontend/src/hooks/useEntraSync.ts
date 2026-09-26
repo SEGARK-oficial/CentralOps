@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useState } from "react"
 import * as api from "@/services/api"
+// R3-8.5: `i18n.t()` direto — ver comentário equivalente em useCollectorConfig.ts.
+import i18n from "@/i18n"
 import type { EntraSyncStatus, EntraSyncTriggerResult } from "@/types"
 
 type SyncFeedback = { type: "success" | "error" | "info"; message: string } | null
@@ -55,7 +57,7 @@ export function useEntraSync(): UseEntraSyncReturn {
       }, 2000)
       return result
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "Falha ao disparar sincronização"
+      const msg = err instanceof Error ? err.message : i18n.t("config:entraSyncHook.triggerError")
       setFeedback({ type: "error", message: msg })
       return null
     } finally {

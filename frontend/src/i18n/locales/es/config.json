@@ -718,5 +718,14 @@
     "removeRecipientErrorFallback": "Error al quitar el destinatario",
     "removeRecipientSuccess": "Destinatario eliminado correctamente.",
     "sendTestErrorFallback": "Error al enviar el email de prueba"
+  },
+  "identityConfigHook": {
+    "loadError": "Error al cargar la configuración de identidad",
+    "saveSuccess": "Configuración guardada. Aplica en el próximo inicio de sesión.",
+    "saveError": "Error al guardar",
+    "testError": "Error al probar la conexión"
+  },
+  "entraSyncHook": {
+    "triggerError": "Error al iniciar la sincronización"
   }
 }

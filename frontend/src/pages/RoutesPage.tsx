@@ -260,7 +260,10 @@ const SortableRouteCard: React.FC<SortableRouteCardProps> = ({
                   {t("routesPage.defaultBadge")}
                 </Badge>
               )}
-              {r.canary_percent < 100 && <Badge variant="primary">{t("routesPage.gradualBadge", { percent: r.canary_percent })}</Badge>}
+              {/* R3-6.4: contador de rollout gradual — página de rotas
+                  (estágio "roteado", ciano), violeta era decoração sem
+                  relação com o estágio "normalizado". */}
+              {r.canary_percent < 100 && <Badge variant="default">{t("routesPage.gradualBadge", { percent: r.canary_percent })}</Badge>}
               {!r.enabled && <Badge variant="default">{t("routesPage.disabledBadge")}</Badge>}
               {r.unreachable && <Badge variant="warning" dot>{t("routesPage.unreachableBadge")}</Badge>}
             </div>

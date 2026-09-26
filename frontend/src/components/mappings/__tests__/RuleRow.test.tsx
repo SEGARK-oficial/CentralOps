@@ -77,6 +77,7 @@ describe("RuleRow — view mode", () => {
     expect(screen.getByText("value_map")).toBeInTheDocument()
   })
 
+
   it("sem details não exibe botão de expansão", () => {
     render(<RuleRow rule={RULE_SIMPLE} mode="view" />)
     expect(screen.queryByRole("button", { name: /expandir/i })).not.toBeInTheDocument()
@@ -378,6 +379,30 @@ describe("RuleRow — type_cast dropdown dinâmico", () => {
 
     // Badge no header compacto (pode haver múltiplas ocorrências do texto — usa getAllByText).
     expect(screen.getAllByText("epoch_to_iso").length).toBeGreaterThanOrEqual(1)
+  })
+
+  it("R3-6.4: badge de type_cast do header compacto (modo edit) não usa violeta decorativo", () => {
+    const ruleWithCast: MappingRule = { target: "ts", source: "timestamp", type_cast: "epoch_to_iso" }
+    render(
+      <RuleRow
+        rule={ruleWithCast}
+        mode="edit"
+        {...editProps()}
+        expanded={false}
+        onToggleExpand={vi.fn()}
+      />,
+    )
+
+    // O texto aparece 2x: no trigger do Select (button) e no Badge (span) do
+    // header compacto — isola o `<span>` pra testar a classe do Badge.
+    const occurrences = screen.getAllByText("epoch_to_iso")
+    const badge = occurrences.find((el) => el.tagName === "SPAN")!
+    expect(badge).toBeDefined()
+    // R3-6.4: violeta (`bg-primary-100`) é o estágio "normalizado" do
+    // pipeline — o chip de type_cast é metadado de configuração, não sinal
+    // de dado.
+    expect(badge.className).not.toMatch(/bg-primary-100/)
+    expect(badge.className).toMatch(/bg-surface-tertiary/)
   })
 
   it("estado loading: dropdown desabilitado, exibe texto 'Carregando...'", () => {

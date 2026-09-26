@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from "react"
 import * as api from "@/services/api"
+// R3-8.5: `i18n.t()` direto — ver comentário equivalente em useCollectorConfig.ts.
+import i18n from "@/i18n"
 import type { AppUser, CreateUserRequest, UpdateUserRequest } from "@/types"
 
 interface UseUsersReturn {
@@ -24,7 +26,7 @@ export function useUsers(): UseUsersReturn {
       const data = await api.listUsers()
       setUsers(data)
     } catch (e) {
-      setError(e instanceof Error ? e : new Error("Falha ao carregar usuários"))
+      setError(e instanceof Error ? e : new Error(i18n.t("admin:usersHook.loadError")))
     } finally {
       setIsLoading(false)
     }

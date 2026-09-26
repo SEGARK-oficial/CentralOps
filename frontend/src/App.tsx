@@ -148,12 +148,19 @@ const ForbiddenRedirectListener: React.FC = () => {
   return null
 }
 
-const RoleGuard: React.FC<RoleGuardProps> = ({ role, children }) => {
+export const RoleGuard: React.FC<RoleGuardProps> = ({ role, children }) => {
   const { user } = useAuth()
   const [adminAccessState, setAdminAccessState] = useState<"idle" | "checking" | "allowed" | "blocked">("idle")
 
   useEffect(() => {
-    if (!user || role !== "admin" || user.role !== "admin") {
+    // Só acessa `user?.id`/`user?.role` (nunca o objeto `user` inteiro) — as
+    // duas sub-propriedades já estão na dependency list abaixo. `user` vem de
+    // `useState` (identidade estável entre renders) e `updateUser` faz merge
+    // parcial (`{...prev, ...partial}`): uma edição de campo NÃO relacionado
+    // (ex.: nome de exibição) troca a identidade do objeto sem tocar id/role,
+    // e não deveria re-disparar a checagem de admin. Depender do objeto
+    // inteiro reabriria essa checagem à toa a cada edição de perfil.
+    if (user?.id == null || role !== "admin" || user?.role !== "admin") {
       setAdminAccessState("idle")
       return
     }

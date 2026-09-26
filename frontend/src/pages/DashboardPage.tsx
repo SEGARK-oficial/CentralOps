@@ -239,6 +239,12 @@ const DashboardPage: React.FC = () => {
   const showInitialError = !!error && !summary
   const showEmpty = !loading && !error && !summary
 
+  // R3-6.1: trocar `days`/filtro global com summary já carregado dispara
+  // `loadSummary()` (loading=true) pelo useEffect — mas `showInitialSkeleton`
+  // exige `!summary`, então os KPIs antigos ficavam parados na tela SEM
+  // nenhuma indicação de que uma nova busca estava em curso.
+  const isUpdating = (loading || refreshing) && !!summary
+
   const degradedItems = summary?.integrations?.degraded_items ?? []
   const byPlatform = summary?.integrations?.by_platform ?? {}
 
@@ -279,7 +285,23 @@ const DashboardPage: React.FC = () => {
       )}
 
       {summary && (
-        <>
+        <div aria-busy={isUpdating} className="relative space-y-6">
+          {/* R3-6.1: barra fina no topo + texto sr-only — indicador de que uma
+              busca está em curso (troca de `days`/filtro) sem esconder o dado
+              antigo, que segue visível (com opacidade reduzida) até o novo
+              summary chegar. */}
+          {isUpdating && (
+            <div
+              aria-hidden="true"
+              className="absolute -top-2 left-0 right-0 h-0.5 overflow-hidden rounded-full bg-primary-100"
+            >
+              <div className="h-full w-1/3 animate-[pulse_1.2s_ease-in-out_infinite] bg-primary-500" />
+            </div>
+          )}
+          <span role="status" className="sr-only">
+            {isUpdating ? t("dashboardPage.updating") : ""}
+          </span>
+
           {/* R2-6.3: erro num REFRESH (summary já existente) não apaga o
               dashboard — vira um aviso não-bloqueante em cima do dado que já
               estava visível, com retry embutido. */}
@@ -317,7 +339,9 @@ const DashboardPage: React.FC = () => {
             onClear={clearFilters}
           />
 
-      <KpiGrid kpis={summary.kpis} />
+      <div className={isUpdating ? "opacity-60 transition-opacity" : "transition-opacity"}>
+        <KpiGrid kpis={summary.kpis} />
+      </div>
 
       <Card padding="md">
         <div className="space-y-3">
@@ -386,7 +410,7 @@ const DashboardPage: React.FC = () => {
           ))}
         </div>
       )}
-        </>
+        </div>
       )}
     </div>
   )

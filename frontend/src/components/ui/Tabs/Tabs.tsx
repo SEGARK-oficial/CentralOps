@@ -1,8 +1,9 @@
 "use client"
 
 import type React from "react"
-import { createContext, useContext, useCallback, useId, useMemo, useRef } from "react"
+import { createContext, Suspense, useContext, useCallback, useId, useMemo, useRef } from "react"
 import { cn } from "@/lib/utils"
+import { LoadingSpinner } from "@/components/ui/LoadingSpinner/LoadingSpinner"
 
 /**
  * Componente Tabs acessível (ARIA + navegação por teclado).
@@ -215,7 +216,16 @@ export const TabsPanel: React.FC<TabsPanelProps> = ({
       className={cn("focus-ring", className)}
       tabIndex={0}
     >
-      {children}
+      {/*
+        R3-8.1: com namespaces de i18n sob demanda (`useSuspense: true`), um
+        componente de outro namespace montado dentro de uma aba (ex.:
+        IntegrationDetailPage — abas com ns `dashboard`/`config`) suspende até
+        o ÚNICO `<Suspense>` da rota, em `AppLayout` — a PÁGINA inteira some,
+        não só o painel. Um `<Suspense>` local aqui contém isso: só a aba
+        pisca o fallback compacto, o resto da tela (incluindo as OUTRAS abas e
+        o Modal/Drawer em volta, se houver) continua visível.
+      */}
+      <Suspense fallback={<LoadingSpinner size="sm" className="py-6" />}>{children}</Suspense>
     </div>
   )
 }

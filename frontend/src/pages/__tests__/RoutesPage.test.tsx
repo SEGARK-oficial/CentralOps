@@ -231,6 +231,20 @@ describe("RoutesPage — render padrão", () => {
   })
 })
 
+describe("RoutesPage — R3-6.4 (badge de rollout gradual não usa violeta decorativo)", () => {
+  it("badge de canary_percent < 100 não carrega a classe do Badge variant=primary", async () => {
+    const ROUTE_CANARY: Route = { ...ROUTE_SOPHOS, id: "r-canary", name: "Rollout gradual", canary_percent: 30 }
+    mockedApi.listRoutes.mockResolvedValue([ROUTE_CANARY])
+    renderPage()
+
+    const badge = await screen.findByText("30%", { exact: false })
+    // R3-6.4: violeta (`bg-primary-100`) é o estágio "normalizado" do
+    // pipeline — usar aqui era decoração. `default` é `bg-surface-tertiary`.
+    expect(badge.className).not.toMatch(/bg-primary-100/)
+    expect(badge.className).toMatch(/bg-surface-tertiary/)
+  })
+})
+
 describe("RoutesPage — skeleton e erro", () => {
   it("exibe skeleton durante carregamento", () => {
     mockedApi.listRoutes.mockImplementation(() => new Promise(() => {}))

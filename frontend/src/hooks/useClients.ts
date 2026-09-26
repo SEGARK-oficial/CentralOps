@@ -2,6 +2,9 @@
 
 import { useState, useEffect, useCallback, useRef } from "react"
 import * as api from "@/services/api"
+// R3-8.5: `i18n.t()` direto (hook sem componente próprio) — mesmo padrão de
+// `useCollectorConfig.ts`/`useEmailConfig.ts`.
+import i18n from "@/i18n"
 import type { Client, Integration } from "@/types"
 
 interface UseClientsReturn {
@@ -52,7 +55,7 @@ export function useClients(): UseClientsReturn {
       )
       setClients(integrations.map(integrationToClient))
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : "Falha ao carregar clientes"
+      const errorMessage = err instanceof Error ? err.message : i18n.t("common:clientsHook.loadError")
       setError(errorMessage)
     } finally {
       setLoading(false)

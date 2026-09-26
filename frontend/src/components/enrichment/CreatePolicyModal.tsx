@@ -46,6 +46,8 @@ export const CreatePolicyModal: React.FC<CreatePolicyModalProps> = ({
 
   useEffect(() => {
     if (open) setOrganizationId(selectedOrgId)
+    // Só na ABERTURA do modal — `selectedOrgId` mudando com o modal já aberto
+    // não deve pisar a escolha que o operador já fez no formulário.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open])
 

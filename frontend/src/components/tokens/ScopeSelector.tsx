@@ -70,7 +70,7 @@ export const ScopeSelector: React.FC<ScopeSelectorProps> = ({
       })
       .catch((e) => {
         if (cancelled) return
-        setError(e instanceof Error ? e.message : "Falha ao carregar scopes")
+        setError(e instanceof Error ? e.message : t("scopeSelector.loadError"))
       })
       .finally(() => {
         if (!cancelled) setLoading(false)
@@ -78,7 +78,10 @@ export const ScopeSelector: React.FC<ScopeSelectorProps> = ({
     return () => {
       cancelled = true
     }
-  }, [])
+    // `t` só muda de identidade quando o idioma muda de verdade (react-i18next
+    // memoiza por locale) — incluir na dep list é correto (evita fechar sobre
+    // um `t` velho no fallback de erro) e não gera refetch em render comum.
+  }, [t])
 
   // Agrupa scopes carregados pelas categorias.
   // Categoria e descrição vêm do catálogo compartilhado com a matriz de
@@ -124,7 +127,7 @@ export const ScopeSelector: React.FC<ScopeSelectorProps> = ({
   if (loading) {
     return (
       <div className="rounded-md border border-border bg-bg-subtle p-4">
-        <LoadingSpinner size="sm" text="Carregando lista de scopes…" />
+        <LoadingSpinner size="sm" text={t("scopeSelector.loading")} />
       </div>
     )
   }
@@ -132,8 +135,8 @@ export const ScopeSelector: React.FC<ScopeSelectorProps> = ({
   if (error || !available) {
     return (
       <Notice variant="danger">
-        Falha ao listar scopes: {error ?? "resposta vazia"}. Token será criado
-        com herança completa de permissões.
+        {t("scopeSelector.listErrorPrefix")} {error ?? t("scopeSelector.listErrorEmptyResponse")}.{" "}
+        {t("scopeSelector.listErrorSuffix")}
       </Notice>
     )
   }
@@ -231,8 +234,8 @@ export const ScopeSelector: React.FC<ScopeSelectorProps> = ({
             // privilege e na prática libera a role inteira.
             <div className="border-t pt-2 text-xs text-warning-600">
               {requireExplicit
-                ? "Nenhum scope marcado ainda equivale a herdar tudo. Marque ao menos um."
-                : "Nenhum scope marcado ainda equivale a herdar tudo. Marque ao menos um, ou escolha herdar as permissões da conta acima."}
+                ? t("scopeSelector.noneMarkedRequireExplicit")
+                : t("scopeSelector.noneMarkedOptional")}
             </div>
           )}
         </div>

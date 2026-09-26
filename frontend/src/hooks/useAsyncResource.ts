@@ -83,6 +83,9 @@ export function useAsyncResource<T>(
     if (immediate) {
       execute()
     }
+    // `immediate` é uma flag de configuração fixa do caller (não um estado
+    // que oscila) — checá-la aqui decide SE a carga inicial roda, não quando
+    // reexecutar.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [execute])
 

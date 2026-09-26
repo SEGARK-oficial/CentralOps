@@ -25,28 +25,52 @@
  * backend i18next local (`shellBackend` abaixo, sobre o mesmo
  * `import.meta.glob`, sem dependência nova) quando um componente chama
  * `useTranslation(ns)` pela 1ª vez — com Suspense, capturado pelo
- * `<Suspense>` que o `AppLayout` já usa nas rotas lazy (o chunk da rota e o
- * catálogo da tela resolvem juntos). Antes, o boot baixava os 20 namespaces
- * do idioma inteiro (238 kB / 65 kB gzip) de uma vez, incluindo `correlation`
- * (só o EE usa) no bundle do CE.
+ * `<Suspense>` que o `AppLayout` já usa nas rotas lazy.
+ *
+ * R3-5.1 — regressão da R2-5.1: um componente de OUTRO namespace montado
+ * DEPOIS do 1º render (ex.: abre um Modal com uma tela que usa `destinations`)
+ * suspende até o único `<Suspense>` da rota — a página inteira some. Três
+ * mitigações, todas nesta camada (a Sub 8 também põe Suspense LOCAL em
+ * Modal/Drawer/Tabs como rede de segurança, em paralelo):
+ *   (a) `schedulePrefetch` — depois do 1º render, em idle
+ *       (`requestIdleCallback`, com fallback `setTimeout`), busca os
+ *       namespaces RESTANTES do idioma ativo. Não bloqueia nada; em poucos
+ *       segundos, o catálogo inteiro já está em memória e o Suspense tardio
+ *       vira um caso raro (corrida perdida contra o idle), não o normal.
+ *   (b) `read()` não busca mais o fallback `pt` para um namespace de TELA
+ *       quando o idioma ativo não é `pt` — o `check-i18n` (CI) garante
+ *       paridade total de chaves entre os 3 locales para TODO namespace, então
+ *       esse fallback nunca tinha o que cobrir na prática, e cada namespace de
+ *       tela baixava em DOBRO para usuários en/es (o ativo + o pt "de
+ *       segurança", nunca lido). O SHELL continua com o fallback pt de
+ *       verdade (já está em memória de qualquer forma, carregado no boot).
+ *   (c) o fetch do SHELL do idioma provável começa em PARALELO com o
+ *       `i18n.init()` (chute síncrono pela mesma ordem do LanguageDetector:
+ *       localStorage > navegador), em vez de esperar o `init()` terminar pra
+ *       só então descobrir o idioma e começar a baixar — sem isso, o boot
+ *       tinha uma cascata (JS de entrada → init → só aí o 1º `import()` do
+ *       JSON). Se o chute errar (raro), o `loadLocale` de dentro do
+ *       `i18nReady` (idioma OFICIAL, pós-detector) corrige sozinho.
  *
  * `i18nReady` resolve quando o SHELL do idioma inicial terminou de carregar —
  * `main.tsx` aguarda antes do 1º `render()`, senão a tela pisca chave crua
  * (`common:actions.save`) até o catálogo chegar pela rede.
  *
- * `i18n.changeLanguage` é envolvido (ver `wrapChangeLanguage` abaixo) para
+ * `i18n.changeLanguage` é envolvido (ver `baseChangeLanguage` abaixo) para
  * carregar o SHELL do idioma-alvo ANTES de trocar o idioma ativo — sem isto,
  * o `languageChanged` dispararia o re-render do app (react-i18next escuta o
  * evento) com o idioma novo ainda sem nenhum recurso carregado. Os namespaces
  * não-shell da tela atual, se ainda não carregados no novo idioma, suspendem
- * de novo — mesmo caminho do backend.
+ * de novo — mesmo caminho do backend (e o prefetch de idle roda de novo para
+ * o novo idioma).
  *
  * EM TESTE: importe `./testing` (side-effect) — carrega TODOS os catálogos de
- * forma síncrona (glob eager) e marca os 3 locales como já residentes, porque
- * testes trocam de idioma e fazem asserção de texto sem `await` a corrida do
- * `import()` dinâmico deste módulo. Com tudo já carregado, `hasLoadedNamespace`
- * é sempre `true` em teste — o `useSuspense: true` abaixo nunca chega a
- * suspender lá.
+ * forma síncrona (glob eager) e marca os 3 locales (E todos os pares
+ * locale/namespace) como já residentes, porque testes trocam de idioma e
+ * fazem asserção de texto sem `await` a corrida do `import()` dinâmico deste
+ * módulo. Com tudo já carregado, `hasLoadedNamespace` é sempre `true` em
+ * teste — o `useSuspense: true` abaixo nunca chega a suspender lá, e o
+ * `schedulePrefetch`/`read()` viram no-op (nada para buscar).
  */
 import i18n from "i18next"
 import type { BackendModule, ReadCallback } from "i18next"
@@ -84,8 +108,7 @@ const catalogLoaders = import.meta.glob<{ default: Record<string, unknown> }>(".
  * Preenchido conforme os catálogos chegam — mesma forma de antes
  * (`resources[locale][ns]`), para não quebrar quem já lia daqui (ex.:
  * `lib/__tests__/labels.test.ts`), só que agora populado progressivamente em
- * produção (shell via `loadShellNamespaces`, o resto via `shellBackend.read`)
- * e de uma vez em teste (ver `./testing`).
+ * produção (`ensureNamespaceLoaded`) e de uma vez em teste (ver `./testing`).
  */
 export const resources: Record<string, Record<string, unknown>> = {}
 
@@ -102,28 +125,39 @@ for (const path in catalogLoaders) {
 export const NAMESPACES = [...nsSet]
 
 const loadedLocales = new Set<string>()
+/** chave `${locale}::${ns}` — idempotência por PAR, compartilhada entre
+ *  `loadLocale` (shell), `shellBackend.read` (sob demanda) e
+ *  `schedulePrefetch` (idle), pra nenhum dos três refazer o fetch/`import()`
+ *  de um par que outro já resolveu. */
+const loadedNamespaceKeys = new Set<string>()
+
+/** Carrega (uma vez) um par locale/namespace e injeta via `addResourceBundle`.
+ *  `null` quando não há catálogo pra esse par (ex.: namespace só-EE ausente
+ *  no locale). Marca ANTES do `await` — chamadas concorrentes (shell + idle
+ *  prefetch + um `useTranslation` que caiu no meio) não duplicam o fetch. */
+async function ensureNamespaceLoaded(locale: string, ns: string): Promise<Record<string, unknown> | null> {
+  const key = `${locale}::${ns}`
+  if (loadedNamespaceKeys.has(key)) return (resources[locale]?.[ns] as Record<string, unknown> | undefined) ?? null
+  const load = catalogsByLocale[locale]?.[ns]
+  if (!load) return null
+  loadedNamespaceKeys.add(key)
+  const mod = await load()
+  const data = mod && "default" in mod ? mod.default : (mod as unknown as Record<string, unknown>)
+  ;(resources[locale] ??= {})[ns] = data
+  i18n.addResourceBundle(locale, ns, data, true, true)
+  return data
+}
 
 /**
- * Carrega (uma vez) os `SHELL_NAMESPACES` de um locale e injeta no i18next via
- * `addResourceBundle`. Idempotente: marca o locale como carregado ANTES do
- * `await`, então chamadas concorrentes (ex.: `i18nReady` e um clique rápido no
- * LanguageSwitcher) não disparam o fetch duas vezes. Os demais namespaces
+ * Carrega (uma vez) os `SHELL_NAMESPACES` de um locale. Os demais namespaces
  * chegam sob demanda via `shellBackend` (definido abaixo), acionado pelo
- * primeiro `useTranslation(ns)` de cada tela.
+ * primeiro `useTranslation(ns)` de cada tela, ou pelo prefetch de idle
+ * (`schedulePrefetch`).
  */
 export async function loadLocale(locale: string): Promise<void> {
   if (loadedLocales.has(locale) || !catalogsByLocale[locale]) return
   loadedLocales.add(locale)
-  await Promise.all(
-    SHELL_NAMESPACES.map(async (ns) => {
-      const load = catalogsByLocale[locale][ns]
-      if (!load) return
-      const mod = await load()
-      const data = mod && "default" in mod ? mod.default : (mod as unknown as Record<string, unknown>)
-      ;(resources[locale] ??= {})[ns] = data
-      i18n.addResourceBundle(locale, ns, data, true, true)
-    }),
-  )
+  await Promise.all(SHELL_NAMESPACES.map((ns) => ensureNamespaceLoaded(locale, ns)))
 }
 
 /**
@@ -132,36 +166,66 @@ export async function loadLocale(locale: string): Promise<void> {
  * ainda não esteja em `resources` puxando do MESMO `import.meta.glob` acima.
  * `react-i18next` (com `useSuspense: true`) chama isto automaticamente — via
  * `i18n.loadNamespaces` — na 1ª vez que um componente usa um namespace fora
- * do shell, e resolve o fallback (`pt`) por namespace do mesmo jeito, sem
- * baixar o idioma inteiro para isso.
+ * do shell.
+ *
+ * R3-5.1(b): i18next SEMPRE inclui o `fallbackLng` na hierarquia de busca
+ * (`toResolveHierarchy` — não tem como desligar isso só com opções de
+ * `init()`), então sem este corte, todo namespace de TELA baixava em dobro
+ * pra quem usa en/es: o idioma ativo + "pt de segurança", que o
+ * `check-i18n` (CI) garante que nunca precisa ser lido (paridade de chaves
+ * é total). O corte só vale pra namespace de TELA — o SHELL usa o fallback
+ * pt de verdade, e já está em memória de qualquer jeito.
  */
 const shellBackend: BackendModule = {
   type: "backend",
   init() {},
   read(language: string, namespace: string, callback: ReadCallback) {
-    const load = catalogsByLocale[language]?.[namespace]
-    if (!load) {
-      // Par sem catálogo (ex.: namespace só-EE ausente no locale, ou locale
-      // desconhecido): devolve vazio em vez de erro — i18next trata como
-      // "carregado, sem chaves" e o fallbackLng segue resolvendo o resto.
+    const isShellNs = (SHELL_NAMESPACES as readonly string[]).includes(namespace)
+    const activeLanguage = i18n.resolvedLanguage || i18n.language
+    const isRedundantFallbackPass = language === "pt" && language !== activeLanguage && !isShellNs
+    if (isRedundantFallbackPass) {
       callback(null, {})
       return
     }
-    load()
-      .then((mod) => {
-        const data = mod && "default" in mod ? mod.default : (mod as unknown as Record<string, unknown>)
-        ;(resources[language] ??= {})[namespace] = data
-        callback(null, data)
-      })
+    ensureNamespaceLoaded(language, namespace)
+      .then((data) => callback(null, data ?? {}))
       .catch((err: unknown) => callback(err instanceof Error ? err : String(err), undefined))
   },
 }
 
-/** Só para `./testing`: marca um locale como já residente sem passar pelo
- *  `import()` dinâmico, para o `changeLanguage` patchado abaixo virar no-op
- *  (early-return síncrono) em vez de correr contra uma asserção sem `await`. */
+/**
+ * R3-5.1(a): depois do boot, em idle, busca os namespaces RESTANTES do
+ * idioma ativo (todos os que `NAMESPACES` conhece e ainda não carregaram).
+ * Não é awaited por ninguém — só reduz a JANELA em que um componente de tela
+ * ainda pode suspender até o `<Suspense>` da rota inteira.
+ */
+function prefetchRemainingNamespaces(locale: string): void {
+  for (const ns of NAMESPACES) {
+    void ensureNamespaceLoaded(locale, ns)
+  }
+}
+
+function schedulePrefetch(locale: string): void {
+  const run = () => prefetchRemainingNamespaces(locale)
+  const w = window as unknown as { requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number }
+  if (typeof w.requestIdleCallback === "function") {
+    w.requestIdleCallback(run, { timeout: 5000 })
+  } else {
+    setTimeout(run, 0)
+  }
+}
+
+/** Só para `./testing`: marca um locale — e TODOS os seus pares
+ *  locale/namespace — como já residentes, sem passar pelo `import()`
+ *  dinâmico. Sem isto, o `changeLanguage` patchado veria o locale como "não
+ *  carregado" (e disparia um `import()` redundante que testes sem `await` não
+ *  esperariam a tempo), e o `schedulePrefetch`/`read()` tentariam refazer o
+ *  fetch de namespaces que `./testing` já injetou via glob eager. */
 export function __markLocaleLoadedForTests(locale: string): void {
   loadedLocales.add(locale)
+  for (const ns of Object.keys(catalogsByLocale[locale] ?? {})) {
+    loadedNamespaceKeys.add(`${locale}::${ns}`)
+  }
 }
 
 // `i18n.changeLanguage` é a única porta de entrada usada pelo app inteiro
@@ -175,8 +239,44 @@ i18n.changeLanguage = ((lng?: string, callback?: Parameters<typeof baseChangeLan
   // original, via o LanguageDetector) — nada para pré-carregar ainda, o
   // idioma resolvido só existe depois que essa chamada original terminar.
   if (!lng) return baseChangeLanguage(lng, callback)
-  return loadLocale(lng).then(() => baseChangeLanguage(lng, callback))
+  return loadLocale(lng).then(() => {
+    const result = baseChangeLanguage(lng, callback)
+    schedulePrefetch(lng)
+    return result
+  })
 }) as typeof baseChangeLanguage
+
+/**
+ * R3-5.1(c): chute SÍNCRONO do idioma provável, pela MESMA ordem do
+ * `LanguageDetector` abaixo (localStorage > navegador) — dispara o `import()`
+ * do SHELL em PARALELO com `i18n.init()`, em vez de esperar o `init()`
+ * terminar (e só então descobrir o idioma) pra começar a buscar. Se o chute
+ * errar (raríssimo — normalmente é a mesma lógica), `i18nReady` corrige com
+ * o idioma OFICIAL (pós-detector); `loadLocale` é idempotente, então o chute
+ * certo vira um no-op ali, sem custo.
+ */
+function guessInitialLocale(): string {
+  try {
+    const stored = window.localStorage?.getItem(LOCALE_STORAGE_KEY)
+    if (stored) {
+      const base = stored.toLowerCase().split(/[-_]/)[0]
+      if ((SUPPORTED_LOCALES as readonly string[]).includes(base)) return base
+    }
+  } catch {
+    // localStorage bloqueado (modo privado restrito, política de origem) —
+    // segue para o navegador.
+  }
+  const nav = (navigator.languages?.[0] || navigator.language || "pt").toLowerCase()
+  const base = nav.split(/[-_]/)[0]
+  return (SUPPORTED_LOCALES as readonly string[]).includes(base) ? base : "pt"
+}
+// Em teste, `./testing` (glob EAGER, síncrono) já deixa tudo carregado antes
+// de qualquer asserção — disparar um `import()` dinâmico aqui, na AVALIAÇÃO
+// do módulo (antes de `./testing` rodar a própria carga, mais abaixo na
+// mesma cadeia de import), competiria com ela à toa em CADA arquivo de
+// teste, sem nenhum efeito observável (idempotente) além de trabalho e
+// promises soltas que nenhum teste aguarda.
+if (import.meta.env.MODE !== "test") void loadLocale(guessInitialLocale())
 
 const initPromise = i18n
   .use(LanguageDetector)
@@ -199,8 +299,22 @@ const initPromise = i18n
     // componente ter pedido — declarar os ~20 aqui reintroduziria o boot
     // gigante que este achado elimina. Os demais entram um a um via
     // `i18n.loadNamespaces()` (chamado pelo `useTranslation(ns)` do
-    // react-i18next), que ACRESCENTA ao `ns` interno sob demanda.
-    ns: SHELL_NAMESPACES as unknown as string[],
+    // react-i18next) ou pelo prefetch de idle.
+    // Array NOVO (spread), não a MESMA referência de `SHELL_NAMESPACES`: o
+    // `i18next.loadNamespaces()` faz `this.options.ns.push(n)` — se fosse o
+    // mesmo array, cada `useTranslation(ns)` de tela MUTARIA `SHELL_NAMESPACES`
+    // in-place, e `isShellNs`/`loadLocale()` (que iteram essa constante em
+    // outros pontos deste módulo) passariam a tratar QUALQUER namespace já
+    // pedido uma vez como se fosse shell (bug real, pego pelo teste
+    // R3-5.1(b) antes de chegar em produção).
+    // Array NOVO (spread), não a MESMA referência de `SHELL_NAMESPACES`: o
+    // `i18next.loadNamespaces()` faz `this.options.ns.push(n)` — se fosse o
+    // mesmo array, cada `useTranslation(ns)` de tela MUTARIA `SHELL_NAMESPACES`
+    // in-place, e `isShellNs`/`loadLocale()` (que iteram essa constante em
+    // outros pontos deste módulo) passariam a tratar QUALQUER namespace já
+    // pedido uma vez como se fosse shell (bug real, pego pelo teste
+    // R3-5.1(b) antes de chegar em produção).
+    ns: [...SHELL_NAMESPACES],
     defaultNS: "common",
     interpolation: { escapeValue: false },
     returnNull: false,
@@ -218,7 +332,7 @@ const initPromise = i18n
 /**
  * Resolve quando o SHELL do idioma INICIAL terminou de carregar.
  * `main.tsx` aguarda isto antes do 1º `render()`. Namespaces de tela (fora do
- * shell) carregam depois, sob demanda, via Suspense.
+ * shell) carregam depois, sob demanda (Suspense) e por prefetch de idle.
  */
 export const i18nReady: Promise<void> = initPromise.then(async () => {
   const resolved = i18n.resolvedLanguage || "pt"
@@ -229,6 +343,10 @@ export const i18nReady: Promise<void> = initPromise.then(async () => {
   // resolve para pt assim que chegar (react-i18next reage ao evento `added`
   // do i18next e re-renderiza os consumidores).
   if (resolved !== "pt") void loadLocale("pt")
+  // R3-5.1(a): agenda o prefetch dos namespaces restantes assim que o SHELL
+  // (o que bloqueia o 1º render) está pronto — não espera o render de
+  // verdade acontecer, só o suficiente pra não competir com ele.
+  schedulePrefetch(resolved)
 })
 
 // O <html lang> nasce fixo em "pt-BR" no index.html e nunca acompanhava o idioma

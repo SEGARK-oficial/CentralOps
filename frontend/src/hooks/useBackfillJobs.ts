@@ -12,6 +12,18 @@
  * o tick de poll de 10s ligava `isLoading`, e `BackfillJobsTable` trocava a
  * tabela inteira por um spinner de página cheia a cada tick — perdendo scroll
  * e foco do usuário no meio de uma sessão de leitura.
+ *
+ * R3-5.2 (regressão da R2-5.4): o guard de aborto que evita corrida de
+ * respostas (`activeControllerRef`) abortava QUALQUER fetch em voo, inclusive
+ * a carga INICIAL (`showLoading=true`) quando o poll de 10s ou um
+ * `visibilitychange` caíam no meio dela. A geração abortada não zerava
+ * `isLoading` (`controller.signal.aborted` bloqueava o `finally`), e a nova
+ * geração, sendo silenciosa, também não — skeleton eterno. Agora: um poll/
+ * refetch silencioso (`showLoading=false`) que encontra uma request em voo
+ * PULA o tick em vez de abortar; só uma chamada com `showLoading=true` (1ª
+ * carga, troca de integração/filtro) pode abortar a geração anterior — e
+ * QUALQUER geração que termine sem ter sido abortada zera `isLoading`,
+ * mesmo que ela própria fosse silenciosa.
  */
 
 import { useCallback, useEffect, useRef, useState } from "react"
@@ -52,12 +64,12 @@ export function useBackfillJobs(
 
   const refreshIntervalMs = options?.refreshIntervalMs ?? DEFAULT_REFRESH_MS
   const intervalRef = useRef<number | null>(null)
-  // R2-5.4: só o request MAIS RECENTE importa — sem isto, o poll de 10s e um
-  // refetch manual (ex.: após criar/cancelar um job, ou trocar o filtro)
-  // podiam correr em paralelo, e a resposta que chegasse por último (não
-  // necessariamente a mais nova) vencia a corrida, regravando `items`/`total`
-  // com dado obsoleto.
+  // R2-5.4 + R3-5.2: só o request MAIS RECENTE importa — mas só uma chamada
+  // com `showLoading=true` pode ABORTAR a geração anterior (ver docstring do
+  // topo). `inFlightRef` é o que deixa um tick silencioso (poll/visibility/
+  // refetch pós mutação) PULAR em vez de abortar quando já há algo em voo.
   const activeControllerRef = useRef<AbortController | null>(null)
+  const inFlightRef = useRef(false)
 
   // `showLoading=false` (poll, refetch manual, refetch pós mutação) atualiza
   // `items`/`total` sem tocar em `isLoading` — a tabela continua na tela,
@@ -65,9 +77,19 @@ export function useBackfillJobs(
   const fetchJobs = useCallback(
     (showLoading: boolean): (() => void) => {
       if (!integrationId) return () => {}
+      if (inFlightRef.current && !showLoading) {
+        // R3-5.2: um tick silencioso não pode abortar a request em voo — se
+        // ela for a carga INICIAL (`showLoading=true`), abortá-la aqui
+        // deixava o `isLoading` preso em `true` pra sempre (a geração
+        // abortada não zerava, e esta, sendo silenciosa, também não).
+        return () => {}
+      }
+      // showLoading=true (1ª carga, troca de integração/filtro): esses dados
+      // JÁ NÃO INTERESSAM mais — pode abortar o que estiver em voo.
       activeControllerRef.current?.abort()
       const controller = new AbortController()
       activeControllerRef.current = controller
+      inFlightRef.current = true
       if (showLoading) setIsLoading(true)
 
       listBackfillJobs(integrationId, filters, { signal: controller.signal })
@@ -81,12 +103,25 @@ export function useBackfillJobs(
           setError(e instanceof Error ? e : new Error(String(e)))
         })
         .finally(() => {
-          if (!controller.signal.aborted && showLoading) setIsLoading(false)
-          if (activeControllerRef.current === controller) activeControllerRef.current = null
+          // Resposta de uma geração VELHA (superada por uma troca de
+          // filtro/integração) — nada a fazer, quem zera o loading é a
+          // geração corrente.
+          if (controller.signal.aborted) return
+          inFlightRef.current = false
+          activeControllerRef.current = null
+          // R3-5.2: zera sempre que a geração CORRENTE termina, mesmo se ELA
+          // MESMA era silenciosa — é o único jeito de garantir que uma carga
+          // inicial lenta (que um poll só pulou, nunca abortou) sempre acabe
+          // limpando o skeleton.
+          setIsLoading(false)
         })
 
       return () => controller.abort()
     },
+    // Deps NARROW (status/limit/offset), não o objeto `filters` inteiro — o
+    // caller comum passa um literal `{ status, limit, offset }` inline, um
+    // objeto NOVO a cada render com os MESMOS valores; depender do objeto
+    // recriaria `fetchJobs` (e reabortaria a request em voo) sem motivo.
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [integrationId, filters?.status, filters?.limit, filters?.offset],
   )

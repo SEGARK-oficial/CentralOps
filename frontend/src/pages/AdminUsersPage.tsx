@@ -185,7 +185,7 @@ export const AdminUsersPage: React.FC = () => {
           <div className="text-xs font-semibold uppercase tracking-wider text-text-tertiary">{t("users.stats.admins")}</div>
           <div className="mt-2 flex items-end gap-2">
             <span className="font-display text-2xl font-bold tabular-nums text-text">{totalAdmins}</span>
-            <Badge variant="primary" size="sm">{t("users.stats.adminsUnit")}</Badge>
+            <Badge variant="default" size="sm">{t("users.stats.adminsUnit")}</Badge>
           </div>
         </Card>
       </div>

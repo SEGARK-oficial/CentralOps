@@ -4,6 +4,7 @@ import type React from "react"
 import { createContext, useContext, useEffect, useState } from "react"
 import i18n from "@/i18n"
 import * as api from "@/services/api"
+import { safeStorage } from "@/lib/safeStorage"
 
 /** Apply the user's saved language preference (highest-priority
  *  source, above the browser default) when the session is (re)established. */
@@ -128,18 +129,18 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     // acesso à própria org de quem entrou — porque o filtro enviado é de
     // outra pessoa. `PlatformContext` também reconcilia isso ao carregar as
     // orgs do usuário atual; isto aqui é a defesa na origem.
-    localStorage.removeItem("centralops_org_id")
-    localStorage.removeItem("centralops_platform")
-    localStorage.removeItem("centralops_integration_id")
+    safeStorage.removeItem("centralops_org_id")
+    safeStorage.removeItem("centralops_platform")
+    safeStorage.removeItem("centralops_integration_id")
     // SEC-08: rascunhos não salvos do editor de política de enriquecimento
     // (`centralops:enrich:policy-draft:{policyId}`, um por política visitada)
     // sobreviviam ao logout — numa máquina compartilhada, o PRÓXIMO usuário a
     // logar via essa aba herdava o rascunho de configuração (potencialmente
     // com segredo/credencial sendo editado) de quem saiu. Prefixo, não chave
     // fixa: pode haver um rascunho por política já aberta nesta sessão.
-    for (let i = localStorage.length - 1; i >= 0; i -= 1) {
-      const key = localStorage.key(i)
-      if (key?.startsWith("centralops:enrich:")) localStorage.removeItem(key)
+    for (let i = safeStorage.length - 1; i >= 0; i -= 1) {
+      const key = safeStorage.key(i)
+      if (key?.startsWith("centralops:enrich:")) safeStorage.removeItem(key)
     }
   }
 

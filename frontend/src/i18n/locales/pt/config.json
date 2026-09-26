@@ -718,5 +718,14 @@
     "removeRecipientErrorFallback": "Falha ao remover destinatário",
     "removeRecipientSuccess": "Destinatário removido com sucesso.",
     "sendTestErrorFallback": "Falha ao enviar email de teste"
+  },
+  "identityConfigHook": {
+    "loadError": "Falha ao carregar configuração de identidade",
+    "saveSuccess": "Configuração salva. Vale no próximo login.",
+    "saveError": "Falha ao salvar",
+    "testError": "Falha ao testar conexão"
+  },
+  "entraSyncHook": {
+    "triggerError": "Falha ao disparar sincronização"
   }
 }

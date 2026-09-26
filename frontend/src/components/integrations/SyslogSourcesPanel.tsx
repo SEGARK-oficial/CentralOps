@@ -66,6 +66,8 @@ export const SyslogSourcesPanel: React.FC<Props> = ({ integrationId, canManage =
     } catch (e) {
       failGeneral(e instanceof Error ? e.message : t("syslog.loadError"))
     }
+    // `failGeneral` vem de useFirstInvalidFocus com deps [] — identidade
+    // estável, sem risco de fechar sobre versão velha.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [integrationId, t])
 

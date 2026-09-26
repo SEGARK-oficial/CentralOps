@@ -13,7 +13,7 @@
  */
 import { createElement, Suspense } from "react"
 import { describe, it, expect, beforeEach } from "vitest"
-import { render, screen, waitFor } from "@testing-library/react"
+import { render, screen } from "@testing-library/react"
 import { I18nextProvider, useTranslation } from "react-i18next"
 import { LOCALE_STORAGE_KEY } from "@/i18n"
 
@@ -108,17 +108,74 @@ describe("i18n — namespace fora do shell carrega sob demanda com Suspense (R2-
     // idioma inteiro) substitui o fallback.
     expect(await screen.findByText("Detecções")).toBeInTheDocument()
     expect(fresh.default.hasResourceBundle("pt", "detections")).toBe(true)
-    // Só o namespace pedido carregou — não o idioma inteiro.
-    expect(fresh.default.hasResourceBundle("pt", "mappings")).toBe(false)
+    // R3-5.1(a) mudou este contrato de propósito: "mappings" pode chegar
+    // pelo prefetch de idle a qualquer momento depois do boot (não só por
+    // pedido explícito) — é exatamente o que faz o Suspense tardio (regressão
+    // da R2-5.1) virar um caso raro. Ver describe "prefetch de idle" abaixo
+    // para o teste que cobre ESSE comportamento.
   })
+})
 
-  it("um namespace só-EE (correlation) nunca carrega no CE sem alguém pedir", async () => {
+describe("i18n — prefetch de idle carrega o resto do idioma após o boot (R3-5.1a)", () => {
+  it("logo após o boot, só o SHELL está carregado; depois do idle, o resto também", async () => {
+    localStorage.setItem(LOCALE_STORAGE_KEY, "pt")
     vi.resetModules()
     const fresh = await import("@/i18n")
     await fresh.i18nReady
-    await waitFor(() => expect(fresh.default.hasResourceBundle("pt", "common")).toBe(true))
 
-    // Nada no CE chamou useTranslation("correlation") — continua ausente.
+    // Logo após `i18nReady`: nenhuma tela pediu nada ainda, e o prefetch de
+    // idle (agendado DENTRO do próprio `i18nReady`) ainda não teve chance de
+    // rodar — é síncrono até aqui.
+    expect(fresh.default.hasResourceBundle("pt", "mappings")).toBe(false)
     expect(fresh.default.hasResourceBundle("pt", "correlation")).toBe(false)
+
+    // jsdom não tem `requestIdleCallback` — o fallback é `setTimeout(fn, 0)`.
+    // Uma volta real ao event loop deixa esse timer (e os `import()`
+    // dinâmicos que ele dispara) resolver.
+    await new Promise((resolve) => setTimeout(resolve, 50))
+
+    expect(fresh.default.hasResourceBundle("pt", "mappings")).toBe(true)
+    // Efeito colateral aceito de propósito: o prefetch busca TODOS os
+    // namespaces do idioma ativo, "correlation" (só-EE) incluído — o texto
+    // continua fora do bundle JS (é só um `import()` de JSON), e a
+    // alternativa (nunca eliminar o Suspense tardio pra telas fora do
+    // shell) é pior.
+    expect(fresh.default.hasResourceBundle("pt", "correlation")).toBe(true)
+  })
+})
+
+describe("i18n — R3-5.1(b): sem download duplo do fallback pt para namespace de tela", () => {
+  it("com o idioma ativo = en, o namespace de tela carrega pro en mas NÃO baixa o pt de segurança", async () => {
+    localStorage.setItem(LOCALE_STORAGE_KEY, "en")
+    vi.resetModules()
+    const fresh = await import("@/i18n")
+    await fresh.i18nReady
+    expect(fresh.default.language).toBe("en")
+
+    function Probe() {
+      const { t } = useTranslation("detections")
+      return createElement("p", null, t("list.pageTitle"))
+    }
+    render(
+      createElement(
+        I18nextProvider,
+        { i18n: fresh.default },
+        createElement(Suspense, { fallback: createElement("p", null, "loading") }, createElement(Probe, null)),
+      ),
+    )
+
+    expect(await screen.findByText("Detections")).toBeInTheDocument()
+    // O namespace de TELA carregou pro idioma ATIVO...
+    expect(fresh.default.hasResourceBundle("en", "detections")).toBe(true)
+    // ...mas o "pt de segurança" pro MESMO namespace nunca foi BUSCADO — o
+    // check-i18n (CI) garante que en/detections já tem toda chave que
+    // pt/detections tem, então esse fallback nunca cobriria nada de verdade.
+    // (Não usamos `hasResourceBundle` aqui: o próprio i18next marca a chamada
+    // "satisfeita" com `{}` pra não tentar de novo — o que importa é que
+    // NENHUM dado de verdade foi baixado/injetado por `ensureNamespaceLoaded`.)
+    expect(fresh.resources.pt?.detections).toBeUndefined()
+    // O SHELL continua com o fallback pt de verdade (é o próprio idioma de
+    // segurança do boot, já em memória de qualquer forma).
+    expect(fresh.default.hasResourceBundle("pt", "common")).toBe(true)
   })
 })

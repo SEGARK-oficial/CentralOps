@@ -88,6 +88,15 @@ describe("MappingVersionsTable", () => {
     expect(screen.getByText("atual")).toBeInTheDocument()
   })
 
+  it("R3-6.4: badge 'atual' não usa violeta decorativo (Badge variant=primary)", () => {
+    renderTable("v2")
+    const badge = screen.getByText("atual")
+    // R3-6.4: violeta (`bg-primary-100`) é o estágio "normalizado" do
+    // pipeline — marcar "atual" é estado de UI, não sinal de dado.
+    expect(badge.className).not.toMatch(/bg-primary-100/)
+    expect(badge.className).toMatch(/bg-surface-tertiary/)
+  })
+
   it("botão rollback NÃO aparece sem permissão mapping.rollback", () => {
     mockedUsePermission.mockReturnValue(false)
     renderTable("v2")

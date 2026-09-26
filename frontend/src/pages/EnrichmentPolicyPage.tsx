@@ -101,7 +101,9 @@ const SAMPLE_PLACEHOLDER = `{
 }`
 
 export function EnrichmentPolicyPage(): React.ReactElement {
-  const { t } = useTranslation("enrichment")
+  // R3-8.1: `PolicyRuleEditor` → `JMESPathInput` (ns `mappings`) — declarar
+  // aqui carrega o namespace junto da rota.
+  const { t } = useTranslation(["enrichment", "mappings"])
   const { id: policyId = "" } = useParams()
   const navigate = useNavigate()
   const { organizations } = usePlatform()

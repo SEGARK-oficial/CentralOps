@@ -84,5 +84,11 @@
     "edit": "Edit",
     "remove": "Remove",
     "availableCount": "Available queries"
+  },
+  "queriesHook": {
+    "loadError": "Failed to load queries",
+    "createError": "Failed to create query",
+    "updateError": "Failed to update query",
+    "deleteError": "Failed to delete query"
   }
 }

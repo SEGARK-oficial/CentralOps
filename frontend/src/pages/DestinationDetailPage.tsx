@@ -51,7 +51,10 @@ const STATUS_VARIANT: Record<DestinationHealthStatus, "success" | "warning" | "d
 }
 
 const DestinationDetailPage: React.FC = () => {
-  const { t } = useTranslation("routing")
+  // R3-8.1: as abas de Config/Saúde/Credencial renderizam `DestinationForm`/
+  // `CredentialPanel`/`LineageLookup` (ns `destinations`) — declarar aqui
+  // carrega o namespace junto da rota, então trocar de aba não suspende nada.
+  const { t } = useTranslation(["routing", "destinations"])
   const { id = "" } = useParams<{ id: string }>()
   const navigate = useNavigate()
 

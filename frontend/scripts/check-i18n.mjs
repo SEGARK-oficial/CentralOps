@@ -8,11 +8,17 @@
  *   2. DANGLING t() — a component calls t("some.key") that has no catalog entry,
  *      so it would render the raw key at runtime.
  *
+ * A extração do(s) namespace(s) default e a resolução de `t()` contra eles
+ * vivem em `scripts/lib/i18n-check-core.mjs` (puro, sem I/O) — testado em
+ * `src/__tests__/i18n-check-core.test.ts` (inclui `useTranslation([...])`
+ * com array, positivo e negativo).
+ *
  * Pure Node, no deps. Run: `node scripts/check-i18n.mjs` (npm run i18n:check).
  */
 import { readdirSync, readFileSync, statSync } from "node:fs"
 import { join, dirname } from "node:path"
 import { fileURLToPath } from "node:url"
+import { flatten, extractDefaultNamespaces, resolveNamespaceCandidates, keyResolvesInAnyNamespace } from "./lib/i18n-check-core.mjs"
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..")
 const LOCALES_DIR = join(ROOT, "src", "i18n", "locales")
@@ -23,16 +29,6 @@ let errors = 0
 const fail = (msg) => {
   console.error(`  ✗ ${msg}`)
   errors++
-}
-
-/** Recursively flatten a catalog to dotted keys; arrays count as one leaf. */
-function flatten(obj, prefix = "", out = new Set()) {
-  for (const [k, v] of Object.entries(obj)) {
-    const key = prefix ? `${prefix}.${k}` : k
-    if (v && typeof v === "object" && !Array.isArray(v)) flatten(v, key, out)
-    else out.add(key)
-  }
-  return out
 }
 
 // ── 1. Key parity across locales, per namespace ──────────────────────────────
@@ -62,14 +58,7 @@ for (const ns of namespaces) {
 }
 
 // ── 2. Every static t("key") resolves to a catalog entry ─────────────────────
-const keyOk = (ns, key) => {
-  const set = catalogs[ns]?.pt
-  if (!set) return false
-  if (set.has(key)) return true
-  // i18next plural/context suffixes resolve from a base key
-  for (const k of set) if (k.startsWith(`${key}_`)) return true
-  return false
-}
+const getCatalogKeys = (ns) => catalogs[ns]?.pt
 
 function* walk(dir) {
   for (const name of readdirSync(dir)) {
@@ -83,13 +72,13 @@ function* walk(dir) {
 let checked = 0
 for (const file of walk(SRC_DIR)) {
   const txt = readFileSync(file, "utf8")
-  const nsMatch = txt.match(/useTranslation\(\s*"([^"]+)"\s*\)/)
-  const defNs = nsMatch ? nsMatch[1] : "common"
+  const defNs = extractDefaultNamespaces(txt)
   for (const m of txt.matchAll(/\bt\(\s*"([^"]+)"/g)) {
     const raw = m[1]
     checked++
-    const [ns, key] = raw.includes(":") ? raw.split(":", 2) : [defNs, raw]
-    if (!keyOk(ns, key)) fail(`${file.replace(ROOT + "/", "")}: t("${raw}") [ns=${ns}] → no catalog entry`)
+    const { nsList, key } = resolveNamespaceCandidates(raw, defNs)
+    if (!keyResolvesInAnyNamespace(nsList, key, getCatalogKeys))
+      fail(`${file.replace(ROOT + "/", "")}: t("${raw}") [ns=${nsList.join("|")}] → no catalog entry`)
   }
 }
 

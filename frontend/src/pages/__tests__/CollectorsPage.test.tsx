@@ -366,6 +366,34 @@ describe("CollectorsPage", () => {
     expect(screen.getByText(/não diz de quando é o dado/i)).toBeInTheDocument()
   })
 
+  // R3-9.1: `loadAll` virou `useCallback([t])` pra satisfazer
+  // react-hooks/exhaustive-deps no `useEffect` de carga inicial. Prova que o
+  // memo não introduziu refetch em re-render por uma mudança NÃO relacionada
+  // (troca de idioma É esperada disparar refetch — `t` muda de identidade só
+  // nesse caso — mas um re-render qualquer do pai não deveria).
+  it("re-render do componente sem trocar de idioma NÃO rechama o load inicial", async () => {
+    const { rerender } = render(
+      <MemoryRouter>
+        <CollectorsPage />
+      </MemoryRouter>,
+    )
+    await waitFor(() => expect(screen.getByText("Integrações monitoradas")).toBeInTheDocument())
+    // Contagem RELATIVA (não absoluta): este arquivo não reseta os mocks entre
+    // `it`s (sem `vi.clearAllMocks()` no beforeEach), então a contagem
+    // acumula entre testes — o que importa aqui é o DELTA entre antes/depois
+    // do re-render, não o valor absoluto.
+    const callsBefore = mockedApi.listCollectionState.mock.calls.length
+
+    rerender(
+      <MemoryRouter>
+        <CollectorsPage />
+      </MemoryRouter>,
+    )
+
+    await waitFor(() => expect(screen.getByText("Integrações monitoradas")).toBeInTheDocument())
+    expect(mockedApi.listCollectionState.mock.calls.length).toBe(callsBefore)
+  })
+
   // Pilar 4: falha do carregamento INICIAL não pode virar EmptyState mentiroso.
   describe("ErrorState com retry no load inicial (Pilar 4)", () => {
     it("mostra ErrorState com retry quando o load inicial falha", async () => {

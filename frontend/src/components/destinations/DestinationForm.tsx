@@ -61,6 +61,9 @@ export const DestinationForm: React.FC<DestinationFormProps> = ({
     return () => {
       cancelled = true
     }
+    // Carga do catálogo é ÚNICA (uma vez por montagem) — só usa `t` no
+    // fallback de erro, e re-executar a busca a cada troca de idioma não
+    // vale o custo de rede.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 

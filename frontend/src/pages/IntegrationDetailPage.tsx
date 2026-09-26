@@ -41,7 +41,14 @@ import { formatDateTime as formatDateTimeIntl } from "@/lib/intl"
 type Tab = "overview" | "health" | "pipeline-health" | "destinations" | "config" | "backfill"
 
 const IntegrationDetailPage: React.FC = () => {
-  const { t } = useTranslation("integrations")
+  // R3-8.1: as abas Saúde/Backfill renderizam `HealthSummaryCard`/
+  // `HealthMetricsList`/`IntegrationHealthPanel` (ns `dashboard`) e
+  // `IntegrationBackfillPanel` (ns `config`) — sem declarar aqui, esses
+  // namespaces só carregam quando o componente já montou dentro da aba, e o
+  // Suspense do `react-i18next` (`useSuspense: true`) suspenderia ali (o
+  // `<Suspense>` local do `TabsPanel`/`Tabs` já contém o efeito visual, mas
+  // declarar os namespaces junto da rota evita o flash de loading da aba).
+  const { t } = useTranslation(["integrations", "dashboard", "config"])
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const { user } = useAuth()
@@ -546,7 +553,7 @@ const IntegrationDetailPage: React.FC = () => {
                       className="rounded-lg border border-border bg-surface-tertiary px-4 py-3 text-sm"
                     >
                       <div className="flex flex-wrap items-center gap-2 mb-2">
-                        <Badge variant="primary" size="sm">{cap.dialect}</Badge>
+                        <Badge variant="default" size="sm">{cap.dialect}</Badge>
                         {cap.modes.map((mode) => (
                           <Badge key={mode} variant="default" size="sm">{mode}</Badge>
                         ))}

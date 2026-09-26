@@ -657,7 +657,11 @@ export const IntegrationForm: React.FC<IntegrationFormProps> = ({
           {mode === "edit" ? (
             // Edição: a plataforma é imutável — exibe a selecionada, read-only.
             <div className="inline-flex items-center gap-2 rounded-lg border border-border bg-surface-secondary px-3 py-2 text-sm">
-              <Badge variant="primary" size="sm">
+              {/* R3-8.6: nome da plataforma é identidade, não estado — o
+                  mesmo princípio já documentado em IntegrationsPage ("a matiz
+                  fica reservada ao que está fora do normal; o nome já
+                  identifica o vendor"). */}
+              <Badge variant="outline" size="sm">
                 {activePlatformDescriptor?.display_name ?? platform}
               </Badge>
               <span className="text-text-tertiary">{t("form.notEditable")}</span>

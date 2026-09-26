@@ -83,7 +83,7 @@ export const QueriesTable: React.FC<QueriesTableProps> = ({ queries, loading = f
                   </td>
                   <td className={`${tdCls} whitespace-nowrap`}>
                     {query.client_ids?.length ? (
-                      <Badge variant="primary" size="sm">
+                      <Badge variant="default" size="sm">
                         {t("table.clientsCount", { count: query.client_ids.length })}
                       </Badge>
                     ) : (
@@ -129,7 +129,7 @@ export const QueriesTable: React.FC<QueriesTableProps> = ({ queries, loading = f
                 <div className="text-xs text-text-tertiary">{t("table.idLabel", { id: query.id })}</div>
               </div>
               {query.client_ids?.length ? (
-                <Badge variant="primary" size="sm">
+                <Badge variant="default" size="sm">
                   {t("table.clientsCount", { count: query.client_ids.length })}
                 </Badge>
               ) : (

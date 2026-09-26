@@ -121,7 +121,6 @@ export const MappingEditorPage: React.FC = () => {
     if (editorMode === "view" && currentPreprocess.length > 0) {
       setPreprocessExpanded(true)
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editorMode, currentVersion?.id, currentPreprocess.length])
 
   // draft: usa draftRules quando em edit mode, senão currentRules
@@ -268,6 +267,9 @@ export const MappingEditorPage: React.FC = () => {
     setDraftRules(nextRules)
     setEffectiveRules(nextRules)
     setEditorMode("edit")
+    // `prefillConsumedRef` já garante execução ÚNICA (guarda no topo do
+    // efeito) — `currentRules`/`setSearchParams` fora da lista não reabrem a
+    // reexecução.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [prefillPath, mapping, canWrite, editorMode])
 
@@ -435,8 +437,10 @@ export const MappingEditorPage: React.FC = () => {
         icon={<GitBranchIcon size={20} />}
         actions={
           <div className="flex items-center gap-2">
+            {/* R3-6.4: contador de versão — decorativo, não é o estágio
+                "normalizado" do dado (violeta é reservado a isso). */}
             {currentVersion && (
-              <Badge variant="primary">
+              <Badge variant="default">
                 v{currentVersion.version_number}
               </Badge>
             )}

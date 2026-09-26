@@ -1,11 +1,12 @@
 "use client"
 
 import type React from "react"
-import { useEffect, useId, useRef, useState } from "react"
+import { Suspense, useEffect, useId, useRef, useState } from "react"
 import { createPortal } from "react-dom"
 import { FocusScope } from "@radix-ui/react-focus-scope"
 import { cn } from "@/lib/utils"
 import { PortalContainerContext } from "@/components/ui/Modal/Modal"
+import { LoadingSpinner } from "@/components/ui/LoadingSpinner/LoadingSpinner"
 import { isTopmostDialog, lockBodyScroll, nextDialogOrder, registerOpenDialog, unlockBodyScroll, unregisterOpenDialog } from "@/components/ui/internal/dialogStack"
 
 /**
@@ -122,7 +123,10 @@ export const Drawer: React.FC<DrawerProps> = ({
           aria-labelledby={ariaLabelledBy}
           data-testid={dataTestId}
         >
-          <PortalContainerContext.Provider value={panelEl}>{children}</PortalContainerContext.Provider>
+          {/* R3-8.1: mesmo Suspense local do Modal — ver comentário lá. */}
+          <PortalContainerContext.Provider value={panelEl}>
+            <Suspense fallback={<LoadingSpinner size="sm" className="p-8" />}>{children}</Suspense>
+          </PortalContainerContext.Provider>
         </div>
       </FocusScope>
     </div>,

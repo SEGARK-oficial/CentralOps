@@ -202,6 +202,24 @@ describe("MappingEditorPage", () => {
     expect(screen.getByText("wazuh · authentication")).toBeInTheDocument()
   })
 
+  it("R3-6.4: badge de versão atual (v1) não usa violeta decorativo (Badge variant=primary)", () => {
+    mockedUseMapping.mockReturnValue({
+      data: MAPPING,
+      isLoading: false,
+      error: null,
+      refetch: vi.fn(),
+    })
+
+    renderPage()
+
+    const badge = screen.getByText("v1")
+    // R3-6.4: violeta (`bg-primary-100`) é reservado ao estágio "normalizado"
+    // do pipeline — um contador de versão é decoração. `default` é neutro
+    // (`bg-surface-tertiary`).
+    expect(badge.className).not.toMatch(/bg-primary-100/)
+    expect(badge.className).toMatch(/bg-surface-tertiary/)
+  })
+
   it("mostra LoadingSpinner quando isLoading=true", () => {
     mockedUseMapping.mockReturnValue({
       data: null,

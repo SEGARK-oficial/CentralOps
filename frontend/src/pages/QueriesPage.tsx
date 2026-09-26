@@ -109,7 +109,7 @@ export const QueriesPage: React.FC = () => {
 
       <div className="grid gap-4 sm:grid-cols-3">
         {[
-          { label: t("schedules:queries.stats.savedQueries"), value: queries.length, tone: "primary" as const },
+          { label: t("schedules:queries.stats.savedQueries"), value: queries.length, tone: "default" as const },
           { label: t("schedules:queries.stats.withDefaultClients"), value: queriesWithDefaults, tone: "success" as const },
           { label: t("schedules:queries.stats.totalLinks"), value: defaultLinks, tone: "default" as const },
         ].map((item) => (
@@ -168,7 +168,7 @@ export const QueriesPage: React.FC = () => {
           <CardHeader>
             <CardTitle>
               {t("schedules:queries.catalogCard.title")}
-              <Badge variant="primary" size="sm" className="ml-2">
+              <Badge variant="default" size="sm" className="ml-2">
                 {queries.length}
               </Badge>
             </CardTitle>

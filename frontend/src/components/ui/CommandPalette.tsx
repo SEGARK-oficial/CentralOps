@@ -17,6 +17,14 @@ import { SearchIcon } from "lucide-react"
 import { FocusScope } from "@radix-ui/react-focus-scope"
 import { useTranslation } from "react-i18next"
 import { cn } from "@/lib/utils"
+import {
+  isTopmostDialog,
+  lockBodyScroll,
+  nextDialogOrder,
+  registerOpenDialog,
+  unlockBodyScroll,
+  unregisterOpenDialog,
+} from "@/components/ui/internal/dialogStack"
 
 // ---------------------------------------------------------------------------
 // Tipos públicos
@@ -95,6 +103,13 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
   // Ids acessíveis
   const labelId = useId()
   const listboxId = useId()
+  // R3-8.3: o Palette não entrava na pilha de diálogos (`dialogStack.ts`) e
+  // mexia direto em `body.style.overflow` — um Modal aberto por trás perderia
+  // a trava de scroll ao fechar o Palette (o `unlockBodyScroll` do Modal já
+  // não bateria com o `= ""` cru daqui), e um Escape com os dois abertos
+  // fecharia os DOIS juntos em vez de só o do topo.
+  const paletteId = useId()
+  const [paletteOrder] = useState(nextDialogOrder)
   const makeItemId = (id: string) => `cp-item-${id}`
 
   // Comandos filtrados e agrupados
@@ -124,17 +139,19 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
   useEffect(() => {
     if (open) {
       previousActiveElement.current = document.activeElement as HTMLElement
-      document.body.style.overflow = "hidden"
+      lockBodyScroll()
+      registerOpenDialog(paletteId, paletteOrder)
       setQuery("")
       setActiveIndex(0)
       // Foco no input após montagem
       requestAnimationFrame(() => inputRef.current?.focus())
       return () => {
-        document.body.style.overflow = ""
+        unlockBodyScroll()
+        unregisterOpenDialog(paletteId)
         previousActiveElement.current?.focus()
       }
     }
-  }, [open])
+  }, [open, paletteId, paletteOrder])
 
   // -----------------------------------------------------------------------
   // Scroll do item ativo para a vista
@@ -152,6 +169,9 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
   // -----------------------------------------------------------------------
   const handleDialogKeydown = (e: React.KeyboardEvent) => {
     if (e.key === "Escape") {
+      // Só o diálogo do TOPO fecha — outro Modal/Drawer aberto por cima não
+      // deve fechar junto no mesmo Escape.
+      if (!isTopmostDialog(paletteOrder)) return
       e.preventDefault()
       setOpen(false)
       return

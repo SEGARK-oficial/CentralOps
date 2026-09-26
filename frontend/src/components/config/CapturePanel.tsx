@@ -656,6 +656,9 @@ export const CapturePanel: React.FC = () => {
         onCopyJson: (ev) => void handleCopyJson(ev),
         t,
       }),
+    // `handleCopyJson`/`setInspected` são recriadas a cada render, mas só
+    // fecham sobre `t` (já na lista) e setters estáveis — a versão usada
+    // nunca fica "velha" de um jeito observável.
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [hasOutcomeData, outcomeLabel, t],
   )

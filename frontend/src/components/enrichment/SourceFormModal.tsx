@@ -101,6 +101,9 @@ export const SourceFormModal: React.FC<SourceFormModalProps> = ({
     }
     setTestResult(null)
     setEgressAck(source != null)
+    // Só reseta o form ao ABRIR o modal ou trocar de fonte editada (por id) —
+    // `enrichers`/`selectedOrgId`/`preselectEnricher` mudando com o modal já
+    // aberto não deve apagar o que o operador está digitando.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, source?.id])
 

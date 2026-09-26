@@ -58,6 +58,9 @@ export const DuplicatePolicyModal: React.FC<Props> = ({
     setName(policy?.name ?? "")
     setPreflight(null)
     setError(null)
+    // Só na abertura/troca de política — `candidates` (derivado de
+    // `organizations`) mudando com o modal já aberto não deve resetar a
+    // escolha do operador.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, policy?.id])
 

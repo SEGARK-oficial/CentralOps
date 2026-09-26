@@ -96,11 +96,13 @@ export const SourcesTable: React.FC<Props> = ({
       if (filter === "third_party") return byName.get(s.enricher)?.egress === "third_party"
       return true
     })
+    // `hasProblem` só fecha sobre `byName`, já na lista.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sources, query, filter, byName])
 
   const problemCount = useMemo(
     () => sources.filter(hasProblem).length,
+    // `hasProblem` só fecha sobre `byName`, já na lista.
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [sources, byName],
   )

@@ -157,6 +157,8 @@ const HistoryPage: React.FC = () => {
           canDownload: canDownloadStoredResult(h, storedCount),
         }
       }),
+    // getStoredResultCount/canDownloadStoredResult/isStoredResultExpired só
+    // fecham sobre `csvRetentionCutoff`, já na lista.
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [filteredSearchHistory, clients, csvRetentionCutoff, t],
   )
@@ -186,8 +188,9 @@ const HistoryPage: React.FC = () => {
       setDownloadError(null)
       setIsDownloading(true)
       await downloadAuditCSV(appliedAuditFilters)
-    } catch (err) {
-      console.error("Falha ao exportar auditoria:", err)
+    } catch {
+      // R3-5.3: sem console.error em produção — o erro já vai pra UI via
+      // `downloadError` (Notice com "tentar de novo" logo abaixo).
       setDownloadError(t("history.errors.auditExportFailed"))
     } finally {
       setIsDownloading(false)
@@ -200,8 +203,8 @@ const HistoryPage: React.FC = () => {
         setDownloadError(null)
         setIsDownloading(true)
         await downloadCSV(searchId)
-      } catch (err) {
-        console.error("Falha ao baixar CSV da busca:", err)
+      } catch {
+        // R3-5.3: idem — o erro já vai pra UI via `downloadError`.
         setDownloadError(t("history.errors.searchCsvDownloadFailed"))
       } finally {
         setIsDownloading(false)

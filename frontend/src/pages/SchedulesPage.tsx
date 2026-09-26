@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import {
   BarChart3Icon,
@@ -223,12 +223,21 @@ export const SchedulesPage: React.FC = () => {
 
   const selectedSchedule = schedules.find((schedule) => schedule.id === selectedScheduleId) || null
 
-  function getClientName(clientId?: number | null) {
-    if (clientId === undefined || clientId === null) return null
-    const client = clients.find((item) => item.id === clientId)
-    return client?.name || t("schedules:clientFallback", { id: clientId })
-  }
-  const availableClients = clients.filter((client) => client.is_authenticated && Boolean(client.tenant_id))
+  const getClientName = useCallback(
+    (clientId?: number | null) => {
+      if (clientId === undefined || clientId === null) return null
+      const client = clients.find((item) => item.id === clientId)
+      return client?.name || t("schedules:clientFallback", { id: clientId })
+    },
+    [clients, t],
+  )
+  // useMemo: sem isto, `.filter(...)` cria um array NOVO a cada render mesmo
+  // com `clients` inalterado, e `getValidClientIds` (abaixo) nunca ficaria
+  // estável — cada efeito que a usa reexecutaria a toda renderização.
+  const availableClients = useMemo(
+    () => clients.filter((client) => client.is_authenticated && Boolean(client.tenant_id)),
+    [clients],
+  )
   const scheduleUnitOptions = useMemo(() => getScheduleUnitOptions(t), [t])
   const historyStatusFilters = useMemo(() => getHistoryStatusFilters(t), [t])
 
@@ -241,6 +250,11 @@ export const SchedulesPage: React.FC = () => {
     resetForm: resetScheduleForm,
     setFieldError: setScheduleFieldError,
     setFieldValue: setScheduleFieldValue,
+    // R3-8.4: sem isto, o form já mostrava o erro por campo mas o foco nunca
+    // ia atrás dele — o operador lia o banner/campo vermelho e tinha que
+    // caçar manualmente qual dos campos (`Select` incluso, que só passou a
+    // aceitar `ref` nesta rodada) estava inválido.
+    registerField: registerScheduleField,
   } = useForm<ScheduleFormValues>({
     initialValues: initialFormValues,
     validate: (values) => {
@@ -322,40 +336,46 @@ export const SchedulesPage: React.FC = () => {
     setFeedback(null)
   }
 
-  function getValidClientIds(candidateIds: number[]) {
-    const availableClientIds = new Set(availableClients.map((client) => client.id))
-    return candidateIds.filter((clientId) => availableClientIds.has(clientId))
-  }
+  const getValidClientIds = useCallback(
+    (candidateIds: number[]) => {
+      const availableClientIds = new Set(availableClients.map((client) => client.id))
+      return candidateIds.filter((clientId) => availableClientIds.has(clientId))
+    },
+    [availableClients],
+  )
 
-  async function refreshSchedules(preferredScheduleId?: number | null) {
-    try {
-      setSchedulesLoading(true)
-      setSchedulesLoadError(null)
-      const nextSchedules = await api.listSchedules()
-      setSchedules(nextSchedules)
-      hasLoadedSchedulesRef.current = true
-      setSelectedScheduleId((currentSelectedId) => {
-        const candidateId = typeof preferredScheduleId === "number" ? preferredScheduleId : currentSelectedId
+  const refreshSchedules = useCallback(
+    async (preferredScheduleId?: number | null) => {
+      try {
+        setSchedulesLoading(true)
+        setSchedulesLoadError(null)
+        const nextSchedules = await api.listSchedules()
+        setSchedules(nextSchedules)
+        hasLoadedSchedulesRef.current = true
+        setSelectedScheduleId((currentSelectedId) => {
+          const candidateId = typeof preferredScheduleId === "number" ? preferredScheduleId : currentSelectedId
 
-        if (typeof candidateId === "number" && nextSchedules.some((schedule) => schedule.id === candidateId)) {
-          return candidateId
+          if (typeof candidateId === "number" && nextSchedules.some((schedule) => schedule.id === candidateId)) {
+            return candidateId
+          }
+
+          return nextSchedules[0]?.id ?? null
+        })
+      } catch (error) {
+        const message = error instanceof Error ? error.message : t("schedules:feedback.loadSchedulesError")
+        if (hasLoadedSchedulesRef.current) {
+          setFeedback({ type: "error", message })
+        } else {
+          setSchedulesLoadError(message)
         }
-
-        return nextSchedules[0]?.id ?? null
-      })
-    } catch (error) {
-      const message = error instanceof Error ? error.message : t("schedules:feedback.loadSchedulesError")
-      if (hasLoadedSchedulesRef.current) {
-        setFeedback({ type: "error", message })
-      } else {
-        setSchedulesLoadError(message)
+      } finally {
+        setSchedulesLoading(false)
       }
-    } finally {
-      setSchedulesLoading(false)
-    }
-  }
+    },
+    [t],
+  )
 
-  async function refreshNotificationRecipients() {
+  const refreshNotificationRecipients = useCallback(async () => {
     try {
       const recipients = await api.listEmails()
       setNotificationRecipientsCount(recipients.length)
@@ -363,7 +383,7 @@ export const SchedulesPage: React.FC = () => {
       const message = error instanceof Error ? error.message : t("schedules:feedback.loadEmailsError")
       setFeedback({ type: "error", message })
     }
-  }
+  }, [t])
 
   async function handleRefresh() {
     setFeedback(null)
@@ -458,7 +478,7 @@ export const SchedulesPage: React.FC = () => {
   useEffect(() => {
     void refreshSchedules()
     void refreshNotificationRecipients()
-  }, [])
+  }, [refreshSchedules, refreshNotificationRecipients])
 
   useEffect(() => {
     if (!queries.length || scheduleValues.query_id) {
@@ -471,7 +491,7 @@ export const SchedulesPage: React.FC = () => {
     if (defaultQuery.client_ids?.length) {
       setScheduleFieldValue("client_ids", getValidClientIds(defaultQuery.client_ids))
     }
-  }, [clients, queries, scheduleValues.query_id, setScheduleFieldValue])
+  }, [queries, scheduleValues.query_id, setScheduleFieldValue, getValidClientIds])
 
   useEffect(() => {
     if (!scheduleValues.client_ids.length) {
@@ -482,7 +502,7 @@ export const SchedulesPage: React.FC = () => {
     if (sanitizedClientIds.length !== scheduleValues.client_ids.length) {
       setScheduleFieldValue("client_ids", sanitizedClientIds)
     }
-  }, [clients, scheduleValues.client_ids, setScheduleFieldValue])
+  }, [scheduleValues.client_ids, setScheduleFieldValue, getValidClientIds])
 
   useEffect(() => {
     if (!selectedScheduleId) {
@@ -521,7 +541,7 @@ export const SchedulesPage: React.FC = () => {
     return () => {
       isActive = false
     }
-  }, [selectedScheduleId, historyRequestVersion])
+  }, [selectedScheduleId, historyRequestVersion, t])
 
   const scheduleRows = schedules.map((schedule) => {
     const queryLabel =
@@ -573,7 +593,7 @@ export const SchedulesPage: React.FC = () => {
       }
       return true
     })
-  }, [historyItems, historyStatusFilter, historySearch, clients])
+  }, [historyItems, historyStatusFilter, historySearch, getClientName])
 
   const totalHistoryPages = Math.max(1, Math.ceil(filteredHistory.length / HISTORY_PAGE_SIZE))
   const currentHistoryPage = Math.min(historyPage, totalHistoryPages)
@@ -610,7 +630,7 @@ export const SchedulesPage: React.FC = () => {
 
       <div className="grid gap-4 sm:grid-cols-4">
         {[
-          { label: t("schedules:stats.schedules"), value: schedules.length, tone: "primary" as const },
+          { label: t("schedules:stats.schedules"), value: schedules.length, tone: "default" as const },
           { label: t("schedules:stats.readyQueries"), value: queries.length, tone: "default" as const },
           { label: t("schedules:stats.eligibleClients"), value: availableClients.length, tone: "success" as const },
           { label: t("schedules:stats.activeEmails"), value: notificationRecipientsCount, tone: "warning" as const },
@@ -682,6 +702,7 @@ export const SchedulesPage: React.FC = () => {
               <form className="grid gap-4 md:grid-cols-2" onSubmit={handleScheduleSubmit} noValidate>
                 <div className="md:col-span-2">
                   <Select
+                    ref={registerScheduleField("query_id")}
                     label={t("schedules:form.fields.query")}
                     required
                     options={queries.map((query) => ({ value: query.id, label: query.title }))}
@@ -695,6 +716,7 @@ export const SchedulesPage: React.FC = () => {
 
                 <div className="md:col-span-2">
                   <Select
+                    ref={registerScheduleField("client_ids")}
                     label={t("schedules:form.fields.clients")}
                     required
                     multiple
@@ -708,6 +730,7 @@ export const SchedulesPage: React.FC = () => {
 
                 <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_140px]">
                   <Input
+                    ref={registerScheduleField("lookback_value")}
                     name="lookback_value"
                     type="number"
                     min={1}
@@ -730,6 +753,7 @@ export const SchedulesPage: React.FC = () => {
 
                 <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_140px]">
                   <Input
+                    ref={registerScheduleField("interval_value")}
                     name="interval_value"
                     type="number"
                     min={1}
@@ -792,7 +816,7 @@ export const SchedulesPage: React.FC = () => {
             <CardTitle>
               {t("schedules:activeList.title")}
               {scheduleRows.length > 0 && (
-                <Badge variant="primary" size="sm" className="ml-2">
+                <Badge variant="default" size="sm" className="ml-2">
                   {scheduleRows.length}
                 </Badge>
               )}

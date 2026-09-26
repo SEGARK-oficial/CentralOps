@@ -1,12 +1,13 @@
 "use client"
 
 import type React from "react"
-import { createContext, useEffect, useId, useRef, useState } from "react"
+import { createContext, Suspense, useEffect, useId, useRef, useState } from "react"
 import { createPortal } from "react-dom"
 import { XIcon } from "lucide-react"
 import { FocusScope } from "@radix-ui/react-focus-scope"
 import { useTranslation } from "react-i18next"
 import { Button } from "../Button/Button"
+import { LoadingSpinner } from "../LoadingSpinner/LoadingSpinner"
 import { cn } from "@/lib/utils"
 import { isTopmostDialog, lockBodyScroll, nextDialogOrder, registerOpenDialog, unlockBodyScroll, unregisterOpenDialog } from "../internal/dialogStack"
 
@@ -161,7 +162,20 @@ export const Modal: React.FC<ModalProps> = ({
                 </Button>
               </div>
             )}
-            <div className="flex-1 overflow-y-auto p-5">{children}</div>
+            {/*
+              R3-8.1: com namespaces de i18n sob demanda, um componente de
+              outro namespace (ex.: `DestinationTypeGallery`/`DestinationForm`,
+              ns `destinations`) dentro do Modal suspende até o ÚNICO
+              `<Suspense>` da rota (`AppLayout`) — a PÁGINA inteira some, com o
+              Modal junto, e o foco cai no `body`. Um `<Suspense>` local aqui
+              contém isso: só o CONTEÚDO do Modal pisca o fallback, o painel
+              (e o `FocusScope trapped` em volta) continua montado — o Radix
+              redireciona o foco de volta pra dentro assim que o fallback (ou
+              o conteúdo real, ao resolver) aparece.
+            */}
+            <div className="flex-1 overflow-y-auto p-5">
+              <Suspense fallback={<LoadingSpinner size="sm" className="py-8" />}>{children}</Suspense>
+            </div>
           </PortalContainerContext.Provider>
         </div>
       </FocusScope>

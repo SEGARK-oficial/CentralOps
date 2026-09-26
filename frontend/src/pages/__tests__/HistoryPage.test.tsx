@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react"
+import { render, screen, fireEvent, waitFor } from "@testing-library/react"
 import { describe, it, expect, vi, beforeEach } from "vitest"
 // Garante a inicialização do i18n (AuthContext, que normalmente o carrega, está mockado).
 // O detector de idioma resolve pelo navigator do jsdom (en) — fixamos pt-BR para
@@ -65,6 +65,12 @@ let searchHistory: SearchHistoryItem[] = []
 // Mutável para o describe de R2-5.4 (erro num refresh não pode apagar dado
 // já visível) — os demais testes usam `null` (sem erro).
 let historyError: string | null = null
+// Mutáveis para o describe de R3-5.3 (console.error removido — o erro já vai
+// pra UI): referências ESTÁVEIS, ao contrário de um `vi.fn()` recriado a
+// cada chamada de `useHistory()`, senão os testes não conseguem configurar
+// `mockRejectedValueOnce` numa instância que o componente realmente usa.
+const mockDownloadCSV = vi.fn()
+const mockDownloadAuditCSV = vi.fn()
 vi.mock("@/hooks/useHistory", () => ({
   useHistory: () => ({
     operationHistory: [],
@@ -74,8 +80,8 @@ vi.mock("@/hooks/useHistory", () => ({
     error: historyError,
     fetchHistory: vi.fn(),
     fetchAuditHistory: vi.fn(),
-    downloadAuditCSV: vi.fn(),
-    downloadCSV: vi.fn(),
+    downloadAuditCSV: mockDownloadAuditCSV,
+    downloadCSV: mockDownloadCSV,
   }),
 }))
 
@@ -84,6 +90,8 @@ import HistoryPage from "@/pages/HistoryPage"
 beforeEach(() => {
   mockAuthUser = { role: "operator", username: "op", permissions: [] }
   historyError = null
+  mockDownloadCSV.mockReset().mockResolvedValue(undefined)
+  mockDownloadAuditCSV.mockReset().mockResolvedValue(undefined)
 })
 
 function makeItem(over: Partial<SearchHistoryItem>): SearchHistoryItem {
@@ -203,5 +211,46 @@ describe("HistoryPage — R2-5.4: erro num refresh não apaga dado já visível"
     expect(screen.getByRole("alert")).toHaveTextContent("Falha ao carregar histórico")
     expect(screen.getByRole("button", { name: /tentar novamente/i })).toBeInTheDocument()
     expect(screen.queryByText("SELECT * FROM visivel")).not.toBeInTheDocument()
+  })
+})
+
+describe("HistoryPage — R3-5.3: sem console.error (o erro já vai pra UI)", () => {
+  beforeEach(async () => {
+    await i18n.changeLanguage("pt")
+    // `created_at` recente: fora da janela de retenção de 7 dias o botão de
+    // CSV nem aparece (ver `canDownloadStoredResult`).
+    searchHistory = [makeItem({ id: 1, search_id: "srch_1", created_at: new Date().toISOString() })]
+  })
+
+  it("falha ao baixar CSV de busca não loga no console — só aparece o Notice de erro", async () => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {})
+    mockDownloadCSV.mockRejectedValueOnce(new Error("boom"))
+
+    render(<HistoryPage />)
+    const csvButton = await screen.findByRole("button", { name: "CSV" })
+    fireEvent.click(csvButton)
+
+    await waitFor(() =>
+      expect(screen.getByText(/Não foi possível baixar o CSV da busca/i)).toBeInTheDocument(),
+    )
+    // R3-5.3: nenhum `console.error` — o Notice acima já é a UI do erro.
+    expect(errorSpy).not.toHaveBeenCalled()
+    errorSpy.mockRestore()
+  })
+
+  it("falha ao exportar auditoria não loga no console — só aparece o Notice de erro", async () => {
+    mockAuthUser = { role: "admin", username: "admin", permissions: [] }
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {})
+    mockDownloadAuditCSV.mockRejectedValueOnce(new Error("boom"))
+
+    render(<HistoryPage />)
+    fireEvent.click(await screen.findByRole("tab", { name: /Auditoria de Usuários/i }))
+    fireEvent.click(await screen.findByRole("button", { name: /exportar/i }))
+
+    await waitFor(() =>
+      expect(screen.getByText(/Não foi possível exportar a auditoria em CSV/i)).toBeInTheDocument(),
+    )
+    expect(errorSpy).not.toHaveBeenCalled()
+    errorSpy.mockRestore()
   })
 })

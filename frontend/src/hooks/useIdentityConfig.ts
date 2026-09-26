@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useState } from "react"
 import * as api from "@/services/api"
+// R3-8.5: `i18n.t()` direto — ver comentário equivalente em useCollectorConfig.ts.
+import i18n from "@/i18n"
 import type {
   IdentityConfig,
   IdentityConnectionTestResult,
@@ -39,7 +41,7 @@ export function useIdentityConfig(): UseIdentityConfigReturn {
       setError(null)
       setConfig(await api.getIdentityConfig())
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Falha ao carregar configuração de identidade")
+      setError(err instanceof Error ? err.message : i18n.t("config:identityConfigHook.loadError"))
     } finally {
       setLoading(false)
     }
@@ -50,10 +52,10 @@ export function useIdentityConfig(): UseIdentityConfigReturn {
       setSaving(true)
       setFeedback(null)
       setConfig(await api.updateIdentityConfig(data))
-      setFeedback({ type: "success", message: "Configuração salva. Vale no próximo login." })
+      setFeedback({ type: "success", message: i18n.t("config:identityConfigHook.saveSuccess") })
       return true
     } catch (err) {
-      setFeedback({ type: "error", message: err instanceof Error ? err.message : "Falha ao salvar" })
+      setFeedback({ type: "error", message: err instanceof Error ? err.message : i18n.t("config:identityConfigHook.saveError") })
       return false
     } finally {
       setSaving(false)
@@ -69,7 +71,7 @@ export function useIdentityConfig(): UseIdentityConfigReturn {
       setFeedback({ type: result.ok ? "success" : "error", message: result.detail })
       return result.ok
     } catch (err) {
-      setFeedback({ type: "error", message: err instanceof Error ? err.message : "Falha ao testar conexão" })
+      setFeedback({ type: "error", message: err instanceof Error ? err.message : i18n.t("config:identityConfigHook.testError") })
       return false
     } finally {
       setTesting(false)

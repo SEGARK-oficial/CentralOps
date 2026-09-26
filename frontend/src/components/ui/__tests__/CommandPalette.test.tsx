@@ -9,9 +9,11 @@
  * - Acessibilidade: role=dialog, aria-modal, aria-activedescendant
  */
 
+import { useState } from "react"
 import { fireEvent, render, screen } from "@testing-library/react"
 import { CommandPalette } from "@/components/ui/CommandPalette"
 import type { PaletteCommand } from "@/components/ui/CommandPalette"
+import { Modal } from "@/components/ui/Modal/Modal"
 import i18n from "@/i18n"
 
 // Testes fazem assertions no texto literal em pt (idioma padrão do produto).
@@ -308,5 +310,59 @@ describe("CommandPalette — acessibilidade", () => {
     const controlsId = input.getAttribute("aria-controls")
     expect(controlsId).toBeTruthy()
     expect(document.getElementById(controlsId!)).not.toBeNull()
+  })
+})
+
+// R3-8.3: o Palette não entrava na pilha compartilhada (`dialogStack.ts`) e
+// mexia direto em `body.style.overflow` — um Modal aberto por trás perdia a
+// trava de scroll ao fechar o Palette, e o mesmo Escape fechava os dois
+// juntos em vez de só o do topo.
+describe("CommandPalette + Modal — pilha de diálogos compartilhada (R3-8.3)", () => {
+  function Harness() {
+    const [modalOpen, setModalOpen] = useState(true)
+    const [paletteOpen, setPaletteOpen] = useState(true)
+    return (
+      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title="Editar item">
+        <p>Conteúdo do modal de baixo</p>
+        <CommandPalette
+          commands={COMMANDS}
+          open={paletteOpen}
+          onOpenChange={setPaletteOpen}
+        />
+      </Modal>
+    )
+  }
+
+  // O Escape do Palette é tratado via `onKeyDown` do React (precisa ser
+  // disparado NO próprio dialog do Palette pra bubblear pelo listener
+  // sintético); o do Modal escuta direto no `document` (listener nativo) —
+  // por isso os dois disparos abaixo têm alvos diferentes.
+  function paletteDialog() {
+    return screen.getByRole("combobox").closest('[role="dialog"]') as HTMLElement
+  }
+
+  it("Escape com o Palette aberto por cima fecha só o Palette, o Modal de baixo continua aberto", () => {
+    render(<Harness />)
+    expect(screen.getByText("Editar item")).toBeInTheDocument()
+    expect(screen.getByRole("combobox")).toBeInTheDocument()
+
+    fireEvent.keyDown(paletteDialog(), { key: "Escape" })
+
+    expect(screen.queryByRole("combobox")).not.toBeInTheDocument()
+    expect(screen.getByText("Editar item")).toBeInTheDocument()
+  })
+
+  it("fechar o Palette (de cima) NÃO destrava o scroll com o Modal (de baixo) ainda aberto", () => {
+    render(<Harness />)
+    expect(document.body.style.overflow).toBe("hidden")
+
+    fireEvent.keyDown(paletteDialog(), { key: "Escape" })
+    expect(screen.queryByRole("combobox")).not.toBeInTheDocument()
+    // Modal de baixo ainda aberto — scroll continua travado.
+    expect(document.body.style.overflow).toBe("hidden")
+
+    fireEvent.keyDown(document, { key: "Escape" })
+    expect(screen.queryByText("Editar item")).not.toBeInTheDocument()
+    expect(document.body.style.overflow).toBe("")
   })
 })

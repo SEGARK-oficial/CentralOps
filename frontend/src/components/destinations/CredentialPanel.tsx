@@ -218,7 +218,10 @@ export const CredentialPanel: React.FC<CredentialPanelProps> = ({
           <div className="flex items-center gap-2">
             <KeyRoundIcon size={16} className="text-text-tertiary" aria-hidden="true" />
             <h3 className="text-sm font-semibold text-text">{t("credentialPanel.title")}</h3>
-            <Badge variant={hasSecret ? "primary" : "default"} size="sm">
+            {/* R3-8.6: "tem credencial" é fato de configuração, igual à
+                decisão já tomada em DestinationsPage — a matiz primária não é
+                pra dizer "normalizado". */}
+            <Badge variant={hasSecret ? "outline" : "default"} size="sm">
               {hasSecret ? t("credentialPanel.statusConfigured") : t("credentialPanel.statusMissing")}
             </Badge>
           </div>

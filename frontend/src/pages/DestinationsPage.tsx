@@ -87,7 +87,10 @@ function kindIcon(kind: string): React.ReactNode {
 }
 
 const DestinationsPage: React.FC = () => {
-  const { t } = useTranslation("routing")
+  // R3-8.1: o modal de criação renderiza `DestinationTypeGallery`/
+  // `DestinationForm` (ns `destinations`) — declarar aqui carrega o namespace
+  // junto da rota, então abrir o modal não suspende mais nada.
+  const { t } = useTranslation(["routing", "destinations"])
 
   // ── Opções de filtro ────────────────────────────────────────────────────
   const ENABLED_OPTIONS = useMemo(

@@ -93,5 +93,8 @@
     "chunkErrorDescription": "Se publicó una nueva versión de CentralOps. Recarga la página para cargar los archivos actuales.",
     "retry": "Intentar de nuevo",
     "reload": "Recargar página"
+  },
+  "clientsHook": {
+    "loadError": "Error al cargar los clientes"
   }
 }

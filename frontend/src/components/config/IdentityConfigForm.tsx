@@ -97,6 +97,9 @@ export const IdentityConfigForm: React.FC<Props> = ({
 
   useEffect(() => {
     setForm(toForm(config, t("identity.defaultButtonLabel")))
+    // Só quando `config` chega/muda de verdade — incluir `t` resetaria o
+    // formulário (perdendo edição em andamento do operador) toda vez que o
+    // idioma mudasse no meio do preenchimento.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [config])
 

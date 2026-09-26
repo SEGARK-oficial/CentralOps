@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useContext, useEffect, useId, useMemo, useRef, useState } from "react"
+import { forwardRef, useContext, useEffect, useId, useMemo, useRef, useState } from "react"
 import { createPortal } from "react-dom"
 import { ChevronDownIcon, CheckIcon } from "lucide-react"
 import { useTranslation } from "react-i18next"
@@ -41,7 +41,13 @@ interface SelectProps {
   "data-testid"?: string
 }
 
-export const Select: React.FC<SelectProps> = ({
+// R3-8.4: `forwardRef` para o TRIGGER (o botão que abre o dropdown) —
+// retrocompatível de propósito (o EE importa `Select` do Core e não passa
+// `ref`; sem `ref`, o comportamento é idêntico a antes). Sem isto,
+// `registerField`/`useFirstInvalidFocus`/`useForm` não conseguiam focar um
+// Select inválido — cada consumidor tinha que recorrer a `document.
+// getElementById(...).focus()` com um `id` explícito só pra contornar.
+export const Select = forwardRef<HTMLButtonElement, SelectProps>(function Select({
   id,
   name,
   label,
@@ -62,14 +68,26 @@ export const Select: React.FC<SelectProps> = ({
   "aria-label": ariaLabel,
   "aria-describedby": ariaDescribedBy,
   "data-testid": dataTestId,
-}) => {
+}, forwardedRef) {
   const { t } = useTranslation("ui")
   const resolvedPlaceholder = placeholder ?? t("select.placeholder")
   const [isOpen, setIsOpen] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
   const [portalStyle, setPortalStyle] = useState<React.CSSProperties>({})
   const selectRef = useRef<HTMLDivElement>(null)
-  const triggerRef = useRef<HTMLButtonElement>(null)
+  // `HTMLButtonElement | null` (não só `HTMLButtonElement`) — precisamos
+  // ESCREVER em `.current` manualmente pra mesclar com o `forwardedRef`
+  // (ver `setTriggerRef` abaixo); com só `<HTMLButtonElement>`, o TS resolve
+  // pro overload que devolve `RefObject` (`.current` readonly).
+  const triggerRef = useRef<HTMLButtonElement | null>(null)
+  // Mescla o `ref` interno (usado o tempo todo aqui dentro: foco, posição do
+  // portal) com o `forwardedRef` opcional de quem consome o componente — os
+  // dois precisam apontar pro MESMO nó.
+  const setTriggerRef = (el: HTMLButtonElement | null) => {
+    triggerRef.current = el
+    if (typeof forwardedRef === "function") forwardedRef(el)
+    else if (forwardedRef) forwardedRef.current = el
+  }
   const inputRef = useRef<HTMLInputElement>(null)
   const portalRef = useRef<HTMLDivElement>(null)
   const generatedId = useId()
@@ -291,11 +309,23 @@ export const Select: React.FC<SelectProps> = ({
     }
   }, [isOpen])
 
-  // Foco inicial ao abrir o dropdown
-  // O createPortal é síncrono mas o ref é preenchido após o commit do React,
-  // então usamos um microtask (setTimeout 0) para garantir que o DOM está pronto.
+  // Foco inicial ao abrir o dropdown.
+  // R3-8.2: o efeito rodava a cada mudança de `enabledOptions`/`selectedValues`
+  // — no modo `multiple`, cada Espaço ALTERA `selectedValues` (toggle de
+  // seleção), então o próprio ato de marcar uma opção re-disparava este
+  // efeito e devolvia o foco à 1ª opção SELECIONADA, no meio da navegação por
+  // teclado. Um `options` recriado inline pelo pai (nova referência a cada
+  // render, mesmo conteúdo) tinha o mesmo efeito colateral via `enabledOptions`.
+  // Depender só de `isOpen` — e rodar a lógica apenas na transição
+  // fechado→aberto (`wasOpenRef`) — resolve as duas classes de bug: o efeito
+  // não reage mais a nada que aconteça DEPOIS que o dropdown já abriu.
+  const wasOpenRef = useRef(false)
   useEffect(() => {
-    if (!isOpen) return
+    const justOpened = isOpen && !wasOpenRef.current
+    wasOpenRef.current = isOpen
+    if (!justOpened) return
+    // O createPortal é síncrono mas o ref é preenchido após o commit do React,
+    // então usamos um microtask (setTimeout 0) para garantir que o DOM está pronto.
     const id = window.setTimeout(() => {
       if (options.length > 10) {
         inputRef.current?.focus()
@@ -307,7 +337,7 @@ export const Select: React.FC<SelectProps> = ({
     }, 0)
     return () => window.clearTimeout(id)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [enabledOptions, isOpen, options.length, selectedValues])
+  }, [isOpen])
 
   return (
     <div className={cn("flex flex-col gap-1.5", className)}>
@@ -327,7 +357,7 @@ export const Select: React.FC<SelectProps> = ({
 
       <div ref={selectRef} className="relative">
         <button
-          ref={triggerRef}
+          ref={setTriggerRef}
           type="button"
           id={selectId}
           name={name}
@@ -474,6 +504,6 @@ export const Select: React.FC<SelectProps> = ({
       ) : null}
     </div>
   )
-}
+})
 
 export default Select

@@ -209,6 +209,7 @@ export const IngestSourcePanel: React.FC<IngestSourcePanelProps> = ({ integratio
     return () => {
       cancelled = true
     }
+    // `failStreamGeneral` é estável (useFirstInvalidFocus, deps []).
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isCustom, hasInfo, t])
 

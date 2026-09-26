@@ -131,3 +131,50 @@ describe("AppLayout — LAY-08/LAY-41 (shell)", () => {
     expect(container.querySelector(".flex.h-dvh")).toBeInTheDocument()
   })
 })
+
+describe("AppLayout — R3-6.2 (localStorage bloqueado não derruba o shell)", () => {
+  const originalLocalStorage = window.localStorage
+
+  afterEach(() => {
+    Object.defineProperty(window, "localStorage", {
+      configurable: true,
+      value: originalLocalStorage,
+    })
+  })
+
+  it("monta e responde ao toggle de colapso mesmo com localStorage lançando em toda chamada", async () => {
+    const throwing: Storage = {
+      getItem: () => {
+        throw new DOMException("blocked", "SecurityError")
+      },
+      setItem: () => {
+        throw new DOMException("blocked", "SecurityError")
+      },
+      removeItem: () => {
+        throw new DOMException("blocked", "SecurityError")
+      },
+      key: () => {
+        throw new DOMException("blocked", "SecurityError")
+      },
+      clear: () => {
+        throw new DOMException("blocked", "SecurityError")
+      },
+      length: 0,
+    }
+    Object.defineProperty(window, "localStorage", {
+      configurable: true,
+      value: throwing,
+    })
+
+    renderShell("/a")
+    await screen.findByText("Página A")
+
+    // Sem o fix (`safeStorage`), o `useState(() => window.localStorage.getItem(...))`
+    // do lazy initializer lançava DURANTE O MOUNT, e o toggle no `onClick`
+    // lançava de novo — nos dois casos, sem try/catch, o erro sobe até o
+    // ErrorBoundary de rota mais próximo (ou derruba o teste).
+    const toggleButton = screen.getByRole("button", { name: /recolher menu lateral|expandir menu lateral/i })
+    expect(() => fireEvent.click(toggleButton)).not.toThrow()
+    await screen.findByText("Página A")
+  })
+})

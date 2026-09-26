@@ -274,3 +274,50 @@ describe("DashboardPage — R2-6.3 (erro não apaga dado visível + retry)", () 
     await screen.findByText("Ingestão (EPS)")
   })
 })
+
+describe("DashboardPage — R3-6.1 (indicador de ocupado ao trocar filtro com summary já carregado)", () => {
+  it("mostra aria-busy + status sr-only ao trocar a janela de tempo, e some quando o novo summary chega", async () => {
+    mockedUsePlatform.mockReturnValue(mockPlatformContext())
+    mockedApi.getDashboardSummary.mockResolvedValueOnce(buildSummary())
+
+    render(
+      <MemoryRouter>
+        <DashboardPage />
+      </MemoryRouter>,
+    )
+
+    expect(await screen.findByText("Ingestão (EPS)")).toBeInTheDocument()
+
+    // Troca de `days` (7d → 30d) dispara um novo `loadSummary()` com o
+    // summary ANTERIOR ainda montado — sem o fix, nada na tela indicava a
+    // busca em curso além dos KPIs antigos parados.
+    let resolveSecond!: (v: DashboardSummaryV2) => void
+    mockedApi.getDashboardSummary.mockReturnValueOnce(
+      new Promise((resolve) => {
+        resolveSecond = resolve
+      }),
+    )
+
+    fireEvent.click(screen.getByLabelText("Janela"))
+    fireEvent.click(screen.getByRole("option", { name: "30 dias" }))
+
+    const status = await screen.findByRole("status", { name: "" })
+    expect(status).toHaveTextContent(/atualizando/i)
+
+    const busyContainer = document.querySelector('[aria-busy="true"]')
+    expect(busyContainer).not.toBeNull()
+
+    // O KPI antigo continua visível durante a busca — não é substituído por
+    // um estado de loading de página inteira.
+    expect(screen.getByText("Ingestão (EPS)")).toBeInTheDocument()
+
+    resolveSecond(buildSummary({ kpis: [{ id: "ingest_eps", label: "Ingestão (EPS)", value: 99, sub: "eventos/s", icon_id: "activity", severity: "ok" }] }))
+
+    await waitFor(() => {
+      expect(document.querySelector('[aria-busy="true"]')).toBeNull()
+    })
+    // A região `role=status` permanece montada (live region estável), mas
+    // esvazia — não fica ecoando "Atualizando..." depois que a busca termina.
+    expect(status).toHaveTextContent("")
+  })
+})

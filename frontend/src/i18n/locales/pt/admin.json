@@ -479,5 +479,20 @@
       "secret.read": "Ver credenciais cifradas das integrações",
       "user.manage": "Criar, editar e desativar usuários e contas de serviço"
     }
+  },
+  "usersHook": {
+    "loadError": "Falha ao carregar usuários"
+  },
+  "permissionsMatrixHook": {
+    "loadError": "Falha ao carregar matriz de permissões"
+  },
+  "scopeSelector": {
+    "loading": "Carregando lista de scopes…",
+    "listErrorPrefix": "Falha ao listar scopes:",
+    "listErrorEmptyResponse": "resposta vazia",
+    "listErrorSuffix": "Token será criado com herança completa de permissões.",
+    "noneMarkedRequireExplicit": "Nenhum scope marcado ainda equivale a herdar tudo. Marque ao menos um.",
+    "noneMarkedOptional": "Nenhum scope marcado ainda equivale a herdar tudo. Marque ao menos um, ou escolha herdar as permissões da conta acima.",
+    "loadError": "Falha ao carregar scopes"
   }
 }

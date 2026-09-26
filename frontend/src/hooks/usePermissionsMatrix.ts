@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react"
 import * as api from "@/services/api"
+// R3-8.5: `i18n.t()` direto — ver comentário equivalente em useCollectorConfig.ts.
+import i18n from "@/i18n"
 import type { UserRole } from "@/types"
 
 type PermissionsMatrix = Record<UserRole, string[]>
@@ -39,7 +41,7 @@ export function usePermissionsMatrix(): UsePermissionsMatrixReturn {
       })
       .catch((e) => {
         if (!cancelled) {
-          setError(e instanceof Error ? e : new Error("Falha ao carregar matriz de permissões"))
+          setError(e instanceof Error ? e : new Error(i18n.t("admin:permissionsMatrixHook.loadError")))
         }
       })
       .finally(() => {

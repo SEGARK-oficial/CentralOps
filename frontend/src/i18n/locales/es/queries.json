@@ -84,5 +84,11 @@
     "edit": "Editar",
     "remove": "Quitar",
     "availableCount": "Consultas disponibles"
+  },
+  "queriesHook": {
+    "loadError": "Error al cargar las queries",
+    "createError": "Error al crear la query",
+    "updateError": "Error al actualizar la query",
+    "deleteError": "Error al eliminar la query"
   }
 }

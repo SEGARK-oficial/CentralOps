@@ -64,7 +64,10 @@ import {
 
 
 export function EnrichmentPage(): React.ReactElement {
-  const { t } = useTranslation("enrichment")
+  // R3-8.1: `PolicyVersionsModal` → `PolicyRuleEditor` → `JMESPathInput` (ns
+  // `mappings`) — declarar aqui carrega o namespace junto da rota, então
+  // abrir o modal de versões de política não suspende nada.
+  const { t } = useTranslation(["enrichment", "mappings"])
   const { organizations, selectedOrgId } = usePlatform()
   const navigate = useNavigate()
   // Ordem por FREQUÊNCIA de uso, não pela ordem das tabelas do banco. A visão
