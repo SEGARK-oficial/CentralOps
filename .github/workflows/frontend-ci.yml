@@ -48,6 +48,9 @@ jobs:
       - name: Typecheck (app + testes)
         working-directory: frontend
         run: npm run typecheck
+      - name: Lint (react-hooks/rules-of-hooks, no-script-url)
+        working-directory: frontend
+        run: npm run lint
       # vitest sai com código 1 quando não encontra nenhum teste: seleção vazia
       # não vira verde.
       - name: Testes (vitest)

@@ -45,8 +45,9 @@ describe("BucketSectionComponent — SEC-04 (href validado)", () => {
     expect(screen.getByRole("button", { name: /Docs/ })).toBeInTheDocument()
   })
 
-  it("javascript: não vira clicável (item some como link, mas o texto continua visível)", () => {
+  it("esquema javascript: não vira clicável (item some como link, mas o texto continua visível)", () => {
     renderSection(
+      // eslint-disable-next-line no-script-url -- payload de teste: prova que o esquema É rejeitado.
       baseSection([{ id: "i1", label: "Malicioso", value: 1, href: "javascript:alert(1)" }]),
     )
     expect(screen.queryByRole("button")).not.toBeInTheDocument()

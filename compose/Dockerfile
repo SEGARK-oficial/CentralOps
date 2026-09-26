@@ -2,7 +2,7 @@
 # CentralOps multi-stage image with Cython-compiled backend.
 #
 # Pipeline:
-# frontend-deps  → frontend-build      (Vite/pnpm; unchanged)
+# frontend-deps  → frontend-build      (npm ci + Vite)
 # backend-deps   → backend-compile     (Cython compiles app/*.py → app/*.so)
 # → backend-test        (pytest sweep against the .so tree;
 # build aborts on any failure)
@@ -22,19 +22,24 @@
 # =============================================================================
 
 # ── Stage 1: Frontend dependencies ───────────────────────────────────────────
+# `package-lock.json` é a fonte da verdade (não há `pnpm-lock.yaml` no repo).
+# `npm ci` instala EXATAMENTE o que o lockfile trava — o `pnpm install
+# --no-frozen-lockfile` anterior não tinha lockfile pnpm nenhum pra respeitar
+# e resolvia semver fresco a cada build, podendo divergir do que o CI (que
+# roda `npm ci`) testou. `package.json`+`package-lock.json` são copiados ANTES
+# do resto do código para preservar o cache de camada: só re-executa `npm ci`
+# quando uma dependência muda, não a cada edição de fonte.
 FROM node:20 AS frontend-deps
 WORKDIR /app
-COPY frontend/package.json ./
-COPY frontend/pnpm-lock.yaml* ./
-RUN npm install -g pnpm
-RUN pnpm install --no-frozen-lockfile
+COPY frontend/package.json frontend/package-lock.json ./
+RUN npm ci
 
 # ── Stage 2: Frontend build ──────────────────────────────────────────────────
 FROM frontend-deps AS frontend-build
 ARG VITE_BACKEND_URL=/api
 ENV VITE_BACKEND_URL=${VITE_BACKEND_URL}
 COPY frontend/ .
-RUN pnpm run build
+RUN npm run build
 
 # ── Stage 3: Backend runtime dependencies ────────────────────────────────────
 # Slim image; produces the site-packages that the test/final stages reuse.

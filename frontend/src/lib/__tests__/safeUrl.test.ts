@@ -11,6 +11,7 @@ describe("safeExternalHref", () => {
   })
 
   it("rejeita javascript:", () => {
+    // eslint-disable-next-line no-script-url -- payload de teste: prova que o esquema É rejeitado.
     expect(safeExternalHref("javascript:alert(1)")).toBeUndefined()
   })
 

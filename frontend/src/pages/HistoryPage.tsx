@@ -1,5 +1,5 @@
 import type React from "react"
-import { Fragment, useEffect, useMemo, useState } from "react"
+import { Fragment, useCallback, useEffect, useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
 import {
   SearchIcon,
@@ -97,7 +97,7 @@ const HistoryPage: React.FC = () => {
     const normalized = /(?:[zZ]|[+-]\d{2}:\d{2})$/.test(ds) ? ds : `${ds}Z`
     return new Date(normalized)
   }
-  const formatDate = (ds: string) => { const d = parseUtcDate(ds); return Number.isNaN(d.getTime()) ? ds : formatDateTime(d) }
+  const formatDate = useCallback((ds: string) => { const d = parseUtcDate(ds); return Number.isNaN(d.getTime()) ? ds : formatDateTime(d) }, [])
   const getCreatedAtTimestamp = (h: SearchHistoryItem) => h.created_at ? parseUtcDate(h.created_at).getTime() : Number.NaN
   const toggleExpandedRow = (key: string) => setExpandedRows((r) => ({ ...r, [key]: !r[key] }))
 
@@ -194,18 +194,21 @@ const HistoryPage: React.FC = () => {
     }
   }
 
-  const handleSearchCsvDownload = async (searchId: string) => {
-    try {
-      setDownloadError(null)
-      setIsDownloading(true)
-      await downloadCSV(searchId)
-    } catch (err) {
-      console.error("Falha ao baixar CSV da busca:", err)
-      setDownloadError(t("history.errors.searchCsvDownloadFailed"))
-    } finally {
-      setIsDownloading(false)
-    }
-  }
+  const handleSearchCsvDownload = useCallback(
+    async (searchId: string) => {
+      try {
+        setDownloadError(null)
+        setIsDownloading(true)
+        await downloadCSV(searchId)
+      } catch (err) {
+        console.error("Falha ao baixar CSV da busca:", err)
+        setDownloadError(t("history.errors.searchCsvDownloadFailed"))
+      } finally {
+        setIsDownloading(false)
+      }
+    },
+    [t, downloadCSV],
+  )
 
   const thCls = "px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider"
   const tdCls = "px-4 py-3 text-sm"
@@ -287,8 +290,7 @@ const HistoryPage: React.FC = () => {
           ),
       },
     ],
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [t, isDownloading],
+    [t, isDownloading, formatDate, handleSearchCsvDownload],
   )
 
   const operationColumns: TableColumn<OperationRow>[] = useMemo(
@@ -338,7 +340,7 @@ const HistoryPage: React.FC = () => {
         ),
       },
     ],
-    [t],
+    [t, formatDate],
   )
 
   return (

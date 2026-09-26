@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { createContext, useCallback, useContext, useEffect, useState } from "react"
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
 import * as api from "@/services/api"
 import type { EditionStatus } from "@/types"
@@ -68,7 +68,11 @@ export const EditionProvider: React.FC<EditionProviderProps> = ({ children }) =>
     void refresh()
   }, [refresh])
 
-  const features = status?.features ?? []
+  // useMemo: sem isto, `[]` nasce de novo a cada render quando `status?.features`
+  // é undefined, e `hasFeature` (deps: [features]) fica instável mesmo com o
+  // mesmo conteúdo lógico — qualquer consumidor que dependa de `hasFeature`
+  // re-executaria sem necessidade.
+  const features = useMemo(() => status?.features ?? [], [status?.features])
   // Normaliza p/ minúsculo (defensivo): se o backend mudar a caixa, não regredimos
   // a Community por engano.
   const edition = (status?.edition ?? "community").toLowerCase()

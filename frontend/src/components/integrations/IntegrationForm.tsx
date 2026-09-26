@@ -386,7 +386,7 @@ export const IntegrationForm: React.FC<IntegrationFormProps> = ({
     setIndexerPassword("")
     setVerifySsl(integration.verify_ssl ?? true)
     clearError()
-  }, [integration])
+  }, [integration, clearError])
 
   // Manager é opcional: só exige senha quando habilitado e com URL preenchida.
   const requiresManagerPassword = useMemo(() => {

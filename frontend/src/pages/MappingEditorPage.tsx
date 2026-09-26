@@ -106,7 +106,12 @@ export const MappingEditorPage: React.FC = () => {
     : null
 
   // currentVersion.rules vem do backend no shape v2 (dict).
-  const currentRules: MappingRule[] = currentVersion?.rules?.rules ?? []
+  // useMemo: `?? []` nascia de novo a cada render sem versão carregada,
+  // instabilizando os hooks (useMemo/useCallback) que dependem de `currentRules`.
+  const currentRules: MappingRule[] = useMemo(
+    () => currentVersion?.rules?.rules ?? [],
+    [currentVersion],
+  )
   const currentPreprocess: PreprocessOp[] = currentVersion?.rules?.preprocess ?? []
 
   // Auto-expand a seção de preprocess em view mode quando a versão atual

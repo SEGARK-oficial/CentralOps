@@ -32,7 +32,10 @@
     "test": "Test",
     "enable": "Enable",
     "disable": "Disable",
-    "reset": "Reset"
+    "reset": "Reset",
+    "selectItem": "Select {{label}}",
+    "select": "Select",
+    "filterByCategory": "Filter by category"
   },
   "states": {
     "active": "Active",
@@ -50,7 +53,8 @@
     "healthy": "Healthy",
     "degraded": "Degraded",
     "unknown": "Unknown",
-    "error": "Error"
+    "error": "Error",
+    "noResults": "No items found."
   },
   "fields": {
     "name": "Name",

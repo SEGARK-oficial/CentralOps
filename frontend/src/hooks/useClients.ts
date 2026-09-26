@@ -68,7 +68,7 @@ export function useClients(): UseClientsReturn {
       hasFetchedRef.current = true
       fetchClients()
     }
-  }, [])
+  }, [fetchClients])
 
   return {
     clients,

@@ -93,14 +93,14 @@ describe("TileGallery — A11Y-37 (setas navegam/selecionam as categorias)", () 
 
   it("só a categoria selecionada tem tabIndex=0 — as demais são -1 (roving tabindex)", () => {
     render(<TileGallery tiles={TILES} value="" onChange={vi.fn()} />)
-    expect(screen.getByTestId("tile-cat-todos")).toHaveAttribute("tabindex", "0")
+    expect(screen.getByTestId("tile-cat-all")).toHaveAttribute("tabindex", "0")
     expect(screen.getByTestId("tile-cat-siem")).toHaveAttribute("tabindex", "-1")
     expect(screen.getByTestId("tile-cat-edr / xdr")).toHaveAttribute("tabindex", "-1")
   })
 
   it("ArrowRight seleciona a próxima categoria e move o foco pra ela", () => {
     render(<TileGallery tiles={TILES} value="" onChange={vi.fn()} />)
-    const todos = screen.getByTestId("tile-cat-todos")
+    const todos = screen.getByTestId("tile-cat-all")
     todos.focus()
     fireEvent.keyDown(screen.getByTestId("tile-categories"), { key: "ArrowRight" })
 
@@ -123,5 +123,26 @@ describe("TileGallery — A11Y-37 (setas navegam/selecionam as categorias)", () 
     render(<TileGallery tiles={TILES} value="" onChange={vi.fn()} />)
     fireEvent.keyDown(screen.getByTestId("tile-categories"), { key: "End" })
     expect(screen.getByTestId("tile-cat-siem")).toHaveAttribute("aria-checked", "true")
+  })
+})
+
+describe("TileGallery — i18n dos rótulos padrão", () => {
+  it("em inglês, rótulos padrão e a categoria 'todas' saem traduzidos (nada de PT fixo)", async () => {
+    const { default: i18n } = await import("@/i18n")
+    await i18n.changeLanguage("en")
+    try {
+      render(<TileGallery tiles={TILES} value="" onChange={vi.fn()} />)
+      // Positivo: os rótulos em inglês existem.
+      expect(screen.getByTestId("tile-cat-all")).toHaveTextContent("All")
+      expect(screen.getByRole("radiogroup", { name: "Filter by category" })).toBeInTheDocument()
+      expect(screen.getByTestId("tile-search")).toHaveAttribute("placeholder", "Search…")
+      // Negativo: nenhum dos antigos defaults em PT sobrou.
+      expect(screen.queryByText("Todos")).not.toBeInTheDocument()
+      expect(screen.queryByPlaceholderText("Buscar…")).not.toBeInTheDocument()
+      fireEvent.change(screen.getByTestId("tile-search"), { target: { value: "zzz-nada" } })
+      expect(screen.getByTestId("tile-empty")).toHaveTextContent("No items found.")
+    } finally {
+      await i18n.changeLanguage("pt")
+    }
   })
 })

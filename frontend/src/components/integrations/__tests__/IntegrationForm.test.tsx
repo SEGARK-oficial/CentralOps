@@ -539,6 +539,7 @@ describe("IntegrationForm — SEC-04 (docs_url)", () => {
 
   it("docs_url com esquema javascript: NÃO renderiza o link", async () => {
     mockedApi.getProviderPlatforms.mockResolvedValue([
+      // eslint-disable-next-line no-script-url -- payload de teste: prova que o esquema É rejeitado.
       { ...CATALOG[0], docs_url: "javascript:alert(1)" },
     ])
     renderForm()

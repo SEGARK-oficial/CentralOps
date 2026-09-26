@@ -32,7 +32,10 @@
     "test": "Testar",
     "enable": "Ativar",
     "disable": "Desativar",
-    "reset": "Redefinir"
+    "reset": "Redefinir",
+    "selectItem": "Selecionar {{label}}",
+    "select": "Selecionar",
+    "filterByCategory": "Filtrar por categoria"
   },
   "states": {
     "active": "Ativo",
@@ -50,7 +53,8 @@
     "healthy": "Saudável",
     "degraded": "Degradado",
     "unknown": "Desconhecido",
-    "error": "Erro"
+    "error": "Erro",
+    "noResults": "Nenhum item encontrado."
   },
   "fields": {
     "name": "Nome",

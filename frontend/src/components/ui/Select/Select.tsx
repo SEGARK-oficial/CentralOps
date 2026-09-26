@@ -93,7 +93,13 @@ export const Select: React.FC<SelectProps> = ({
   const helperId = helperText ? `${selectId}-helper` : undefined
   const describedBy = [ariaDescribedBy, errorId, !error ? helperId : undefined].filter(Boolean).join(" ") || undefined
 
-  const selectedValues = Array.isArray(value) ? value : value !== undefined && value !== "" ? [value] : []
+  // useMemo: `[value]` (caso escalar) nascia de novo a cada render, dando ao
+  // efeito de foco abaixo uma dependência "sempre diferente" mesmo quando o
+  // valor selecionado não mudou.
+  const selectedValues = useMemo(
+    () => (Array.isArray(value) ? value : value !== undefined && value !== "" ? [value] : []),
+    [value],
+  )
 
   const filteredOptions = useMemo(
     () => options.filter((option) => option.label.toLowerCase().includes(searchTerm.toLowerCase())),

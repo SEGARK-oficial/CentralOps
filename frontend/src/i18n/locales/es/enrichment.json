@@ -136,6 +136,7 @@
     "form": {
       "createTitle": "Nueva política",
       "name": "Nombre",
+      "namePlaceholder": "contexto-de-activo",
       "nameRequired": "Indique un nombre para la política.",
       "organizationRequired": "Seleccione una organización. No existe una política de enriquecimiento global.",
       "description": "Descripción",

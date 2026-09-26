@@ -117,7 +117,7 @@ export const CreatePolicyModal: React.FC<CreatePolicyModalProps> = ({
           onChange={(e) => setName(e.target.value)}
           required
           autoFocus
-          placeholder="contexto-de-ativo"
+          placeholder={t("policies.form.namePlaceholder")}
           aria-invalid={errorField === "name" ? "true" : undefined}
           aria-describedby={errorField === "name" ? errorId : undefined}
         />

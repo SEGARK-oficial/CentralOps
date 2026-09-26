@@ -290,7 +290,7 @@ export const TokensPage: React.FC = () => {
                       {t("tokens.table.columns.uses")}
                     </th>
                     <th scope="col" className="px-4 py-2">
-                      <span className="sr-only">Ações</span>
+                      <span className="sr-only">{t("common:fields.actions")}</span>
                     </th>
                   </tr>
                 </thead>

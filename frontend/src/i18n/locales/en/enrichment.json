@@ -136,6 +136,7 @@
     "form": {
       "createTitle": "New policy",
       "name": "Name",
+      "namePlaceholder": "asset-context",
       "nameRequired": "Enter a name for the policy.",
       "organizationRequired": "Select an organization. There is no global enrichment policy.",
       "description": "Description",
