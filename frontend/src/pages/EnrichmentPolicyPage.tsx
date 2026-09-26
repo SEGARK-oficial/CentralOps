@@ -524,7 +524,7 @@ export function EnrichmentPolicyPage(): React.ReactElement {
           <div className="space-y-2 p-4">
             <h3 className="text-sm font-semibold">{t("tables.versions.history")}</h3>
             {versions.length === 0 ? (
-              <p className="text-sm text-muted">{t("tables.versions.empty")}</p>
+              <p className="text-sm text-text-tertiary">{t("tables.versions.empty")}</p>
             ) : (
               <ul className="divide-y divide-border">
                 {versions.map((v) => (
@@ -536,7 +536,7 @@ export function EnrichmentPolicyPage(): React.ReactElement {
                           <Badge variant="success">{t("tables.versions.current")}</Badge>
                         )}
                       </div>
-                      <p className="truncate text-sm text-muted">{v.commit_message}</p>
+                      <p className="truncate text-sm text-text-tertiary">{v.commit_message}</p>
                     </div>
                     <div className="flex shrink-0 gap-2">
                       <Button
@@ -573,8 +573,8 @@ export function EnrichmentPolicyPage(): React.ReactElement {
                 achar "aquela do hash" é o que consome o tempo; aqui a lista
                 inteira cabe em quatro linhas legíveis e leva ao cartão certo. */}
             {rules.length > 2 && (
-              <div className="rounded-lg border border-border-subtle p-3">
-                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">
+              <div className="rounded-lg border border-border p-3">
+                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-text-tertiary">
                   {t("policies.page.ruleIndex", { count: rules.length })}
                 </p>
                 <ul className="space-y-1.5">

@@ -127,7 +127,7 @@ export const TagChipsInput: React.FC<TagChipsInputProps> = ({
         </datalist>
       </div>
 
-      {helperText && <p className="text-xs text-muted">{helperText}</p>}
+      {helperText && <p className="text-xs text-text-tertiary">{helperText}</p>}
     </div>
   )
 }

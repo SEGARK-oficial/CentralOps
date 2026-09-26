@@ -425,7 +425,7 @@ export const AccountSettingsPage: React.FC = () => {
                   </Button>
                 </div>
                 <pre
-                  className="overflow-x-auto rounded-lg border border-border bg-surface-subtle p-3 font-mono text-xs text-text"
+                  className="overflow-x-auto rounded-lg border border-border bg-bg-subtle p-3 font-mono text-xs text-text"
                   data-testid="account-mcp-snippet"
                 >
                   {mcpSnippet}

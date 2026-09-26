@@ -107,7 +107,7 @@ export const RuleSummary: React.FC<{
   const { t } = useTranslation("enrichment")
   const s = summarizeRule(rule, enrichers, t)
   return (
-    <span className="text-xs text-muted">
+    <span className="text-xs text-text-tertiary">
       <b className="font-medium text-text">{s.key}</b>
       {" → "}
       <b className="font-medium text-text">{s.via}</b>
@@ -117,8 +117,8 @@ export const RuleSummary: React.FC<{
           <b className="font-medium text-text">{s.writes.join(", ")}</b>
         </>
       ) : null}
-      {s.when ? <span className="text-muted">{` · ${s.when}`}</span> : null}
-      {s.onMiss ? <span className="text-muted">{` · ${s.onMiss}`}</span> : null}
+      {s.when ? <span className="text-text-tertiary">{` · ${s.when}`}</span> : null}
+      {s.onMiss ? <span className="text-text-tertiary">{` · ${s.onMiss}`}</span> : null}
     </span>
   )
 }

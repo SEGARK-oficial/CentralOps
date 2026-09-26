@@ -446,7 +446,7 @@ export function EnrichmentPage(): React.ReactElement {
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
                       <h3 className="truncate font-medium">{p.name}</h3>
-                      <p className="text-xs text-muted">
+                      <p className="text-xs text-text-tertiary">
                         {t("policies.rules", { count: p.rule_count })}
                       </p>
                     </div>
@@ -459,7 +459,7 @@ export function EnrichmentPage(): React.ReactElement {
                     </Badge>
                   </div>
                   {p.description ? (
-                    <p className="text-sm text-muted">{p.description}</p>
+                    <p className="text-sm text-text-tertiary">{p.description}</p>
                   ) : null}
                   {!p.current_version_id ? (
                     <Badge variant="warning">{t("policies.noVersion")}</Badge>

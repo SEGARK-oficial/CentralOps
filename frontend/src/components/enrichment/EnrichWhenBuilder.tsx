@@ -96,7 +96,7 @@ export const EnrichWhenBuilder: React.FC<EnrichWhenBuilderProps> = ({
   })()
 
   return (
-    <div className="space-y-2 rounded-md border border-border-subtle p-3" data-testid="when-builder">
+    <div className="space-y-2 rounded-md border border-border p-3" data-testid="when-builder">
       <Select
         label={t("policies.versions.when.label")}
         value={gate}

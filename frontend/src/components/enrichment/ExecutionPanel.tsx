@@ -190,7 +190,7 @@ export const ExecutionPanel: React.FC<ExecutionPanelProps> = ({
                 )}
               </div>
               {metrics.length === 0 ? (
-                <p className="text-sm text-muted">{t("execution.noRules")}</p>
+                <p className="text-sm text-text-tertiary">{t("execution.noRules")}</p>
               ) : (
                 <ul className="divide-y divide-border">
                   {metrics.map((m) => {
@@ -214,7 +214,7 @@ export const ExecutionPanel: React.FC<ExecutionPanelProps> = ({
                       >
                         <div className="min-w-0">
                           <span className="font-mono text-sm">{m.rule_id}</span>
-                          <span className="ml-2 text-xs text-muted">
+                          <span className="ml-2 text-xs text-text-tertiary">
                             {m.enricher}
                             {m.source ? ` · ${m.source}` : ""}
                           </span>
@@ -246,7 +246,7 @@ export const ExecutionPanel: React.FC<ExecutionPanelProps> = ({
                   })}
                 </ul>
               )}
-              <p className="text-xs text-muted">
+              <p className="text-xs text-text-tertiary">
                 {metrics.some((m) => m.skipped > 0)
                   ? t("execution.hitRateHintUnanswered")
                   : t("execution.hitRateHint")}
@@ -259,7 +259,7 @@ export const ExecutionPanel: React.FC<ExecutionPanelProps> = ({
             <div className="space-y-3 p-4">
               <h3 className="text-sm font-semibold">{t("execution.queries")}</h3>
               {entries.length === 0 ? (
-                <p className="text-sm text-muted">
+                <p className="text-sm text-text-tertiary">
                   {onlyFailures ? t("execution.noFailures") : t("execution.noQueries")}
                 </p>
               ) : (
@@ -279,8 +279,8 @@ export const ExecutionPanel: React.FC<ExecutionPanelProps> = ({
                         <div className="flex flex-wrap items-center gap-2">
                           <span className="font-mono text-sm">{e.rule_id ?? "-"}</span>
                           <Badge variant="default">{t(`execution.kind.${e.kind}`)}</Badge>
-                          {e.enricher && <span className="text-xs text-muted">{e.enricher}</span>}
-                          {e.source && <span className="text-xs text-muted">· {e.source}</span>}
+                          {e.enricher && <span className="text-xs text-text-tertiary">{e.enricher}</span>}
+                          {e.source && <span className="text-xs text-text-tertiary">· {e.source}</span>}
                         </div>
                         {/* A mensagem do provedor é o que permite agir sem
                             abrir log de worker. Fica em destaque, não escondida. */}
@@ -289,7 +289,7 @@ export const ExecutionPanel: React.FC<ExecutionPanelProps> = ({
                             {e.detail || e.reason}
                           </p>
                         )}
-                        <p className="mt-0.5 text-xs text-muted">
+                        <p className="mt-0.5 text-xs text-text-tertiary">
                           {ago(e.ts)}
                           {e.entries != null && ` · ${t("execution.entries", { count: e.entries })}`}
                           {e.keys != null && ` · ${t("execution.keys", { count: e.keys })}`}
@@ -300,7 +300,7 @@ export const ExecutionPanel: React.FC<ExecutionPanelProps> = ({
                   ))}
                 </ul>
               )}
-              <p className="text-xs text-muted">{t("execution.queriesHint")}</p>
+              <p className="text-xs text-text-tertiary">{t("execution.queriesHint")}</p>
             </div>
           </Card>
         </>

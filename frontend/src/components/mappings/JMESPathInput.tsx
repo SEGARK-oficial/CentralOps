@@ -209,7 +209,7 @@ const JMESPathInputInner: React.FC<JMESPathInputProps> = ({
           {error}
         </p>
       ) : (
-        helperText && <p className="mt-1 text-xs text-muted">{helperText}</p>
+        helperText && <p className="mt-1 text-xs text-text-tertiary">{helperText}</p>
       )}
 
       {showDropdown && (

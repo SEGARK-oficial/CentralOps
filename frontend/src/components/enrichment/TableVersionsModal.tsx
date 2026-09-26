@@ -256,7 +256,7 @@ export const TableVersionsModal: React.FC<TableVersionsModalProps> = ({
           {loadingVersions ? (
             <SkeletonCard />
           ) : versions.length === 0 ? (
-            <p className="text-sm text-muted">{t("tables.versions.empty")}</p>
+            <p className="text-sm text-text-tertiary">{t("tables.versions.empty")}</p>
           ) : (
             <ul className="divide-y divide-border rounded-lg border border-border">
               {versions.map((v) => (
@@ -271,8 +271,8 @@ export const TableVersionsModal: React.FC<TableVersionsModalProps> = ({
                         </Badge>
                       )}
                     </div>
-                    <p className="truncate text-sm text-muted">{v.commit_message}</p>
-                    <p className="text-xs text-muted">
+                    <p className="truncate text-sm text-text-tertiary">{v.commit_message}</p>
+                    <p className="text-xs text-text-tertiary">
                       {t("tables.versions.entriesShort", { count: v.entry_count })}
                       {v.created_at ? ` · ${new Date(v.created_at).toLocaleString()}` : ""}
                     </p>

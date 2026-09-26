@@ -308,7 +308,7 @@ export const PolicyRuleEditor: React.FC<PolicyRuleEditorProps> = ({
       </div>
 
       {rules.length === 0 && (
-        <p className="text-sm text-muted" data-testid="rules-empty">
+        <p className="text-sm text-text-tertiary" data-testid="rules-empty">
           {t("policies.versions.rulesEmpty")}
         </p>
       )}
@@ -435,7 +435,7 @@ export const PolicyRuleEditor: React.FC<PolicyRuleEditorProps> = ({
               {/* Outputs */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-medium text-muted">{t("policies.versions.outputs")}</span>
+                  <span className="text-xs font-medium text-text-tertiary">{t("policies.versions.outputs")}</span>
                   <Button
                     type="button"
                     variant="outline"

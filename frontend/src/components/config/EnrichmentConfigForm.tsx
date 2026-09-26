@@ -249,7 +249,7 @@ export const EnrichmentConfigForm: React.FC<Props> = ({ onSaved }) => {
           <SparklesIcon size={18} className="mt-0.5 text-stage-enrich" aria-hidden />
           <div>
             <p className="text-sm font-medium">{t("page.enrichment.subsystem.title")}</p>
-            <p className="text-xs text-muted">
+            <p className="text-xs text-text-tertiary">
               {config.enabled
                 ? t("page.enrichment.subsystem.onHint")
                 : t("page.enrichment.subsystem.offHint")}
@@ -281,7 +281,7 @@ export const EnrichmentConfigForm: React.FC<Props> = ({ onSaved }) => {
           <DatabaseIcon size={18} className="mt-0.5 text-stage-enrich" aria-hidden />
           <div>
             <h3 className="text-sm font-semibold">{t("page.enrichment.cache.title")}</h3>
-            <p className="text-xs text-muted">{t("page.enrichment.cache.description")}</p>
+            <p className="text-xs text-text-tertiary">{t("page.enrichment.cache.description")}</p>
           </div>
         </div>
 
@@ -356,7 +356,7 @@ export const EnrichmentConfigForm: React.FC<Props> = ({ onSaved }) => {
           >
             {t("page.enrichment.cache.test")}
           </Button>
-          <p className="text-xs text-muted">{t("page.enrichment.cache.testHint")}</p>
+          <p className="text-xs text-text-tertiary">{t("page.enrichment.cache.testHint")}</p>
         </div>
 
         {testResult && (
@@ -406,7 +406,7 @@ export const EnrichmentConfigForm: React.FC<Props> = ({ onSaved }) => {
         )}
 
         {!config.redis_configured && (
-          <p className="text-xs text-muted">{t("page.enrichment.cache.composeHint")}</p>
+          <p className="text-xs text-text-tertiary">{t("page.enrichment.cache.composeHint")}</p>
         )}
       </section>
 
@@ -414,7 +414,7 @@ export const EnrichmentConfigForm: React.FC<Props> = ({ onSaved }) => {
       <section className="space-y-3 rounded-lg border border-border p-4">
         <div>
           <h3 className="text-sm font-semibold">{t("page.enrichment.budgets.title")}</h3>
-          <p className="text-xs text-muted">{t("page.enrichment.budgets.description")}</p>
+          <p className="text-xs text-text-tertiary">{t("page.enrichment.budgets.description")}</p>
         </div>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <Input
@@ -454,7 +454,7 @@ export const EnrichmentConfigForm: React.FC<Props> = ({ onSaved }) => {
           <ShieldAlertIcon size={18} className="mt-0.5 text-stage-enrich" aria-hidden />
           <div>
             <h3 className="text-sm font-semibold">{t("page.enrichment.breaker.title")}</h3>
-            <p className="text-xs text-muted">
+            <p className="text-xs text-text-tertiary">
               {t("page.enrichment.breaker.description")}
             </p>
           </div>
@@ -497,7 +497,7 @@ export const EnrichmentConfigForm: React.FC<Props> = ({ onSaved }) => {
           <TableIcon size={18} className="mt-0.5 text-stage-enrich" aria-hidden />
           <div>
             <h3 className="text-sm font-semibold">{t("page.enrichment.tables.title")}</h3>
-            <p className="text-xs text-muted">{t("page.enrichment.tables.description")}</p>
+            <p className="text-xs text-text-tertiary">{t("page.enrichment.tables.description")}</p>
           </div>
         </div>
         <div className="grid gap-3 sm:grid-cols-2">
@@ -526,19 +526,19 @@ export const EnrichmentConfigForm: React.FC<Props> = ({ onSaved }) => {
           <GlobeIcon size={18} className="mt-0.5 text-stage-enrich" aria-hidden />
           <div>
             <h3 className="text-sm font-semibold">{t("page.enrichment.geoip.title")}</h3>
-            <p className="text-xs text-muted">{t("page.enrichment.geoip.description")}</p>
+            <p className="text-xs text-text-tertiary">{t("page.enrichment.geoip.description")}</p>
           </div>
         </div>
-        <p className="font-mono text-xs text-muted">{config.geoip_dir || "—"}</p>
+        <p className="font-mono text-xs text-text-tertiary">{config.geoip_dir || "—"}</p>
         {config.geoip_files.length === 0 ? (
-          <p className="text-sm text-muted">{t("page.enrichment.geoip.empty")}</p>
+          <p className="text-sm text-text-tertiary">{t("page.enrichment.geoip.empty")}</p>
         ) : (
           <ul className="space-y-1 text-sm">
             {config.geoip_files.map((f) => (
               <li key={f.name} className="flex items-center gap-2">
                 <Badge variant="success">{fmtBytes(f.size_bytes)}</Badge>
                 <span className="font-mono text-xs">{f.name}</span>
-                <span className="text-xs text-muted">
+                <span className="text-xs text-text-tertiary">
                   {new Date(f.modified_at * 1000).toLocaleDateString()}
                 </span>
               </li>
@@ -548,7 +548,7 @@ export const EnrichmentConfigForm: React.FC<Props> = ({ onSaved }) => {
       </section>
 
       <div className="flex items-center justify-between gap-3">
-        <p className="text-xs text-muted">
+        <p className="text-xs text-text-tertiary">
           {t("page.enrichment.propagation", { seconds: config.propagation_worst_case_s })}
         </p>
         <div className="flex gap-2">

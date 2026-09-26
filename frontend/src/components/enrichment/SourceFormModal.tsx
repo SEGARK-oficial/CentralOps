@@ -223,7 +223,7 @@ export const SourceFormModal: React.FC<SourceFormModalProps> = ({
 
         {selected?.config_schema ? (
           <fieldset className="space-y-3 rounded-lg border border-border p-4">
-            <legend className="px-1 text-xs font-semibold uppercase tracking-wide text-muted">
+            <legend className="px-1 text-xs font-semibold uppercase tracking-wide text-text-tertiary">
               {t("sources.form.configLegend")}
             </legend>
             <JsonSchemaForm
@@ -272,7 +272,7 @@ export const SourceFormModal: React.FC<SourceFormModalProps> = ({
               <span className="block text-sm font-medium">
                 {t("sources.form.egressAck", { name: selected?.label ?? enricher })}
               </span>
-              <span className="mt-0.5 block text-xs text-muted">
+              <span className="mt-0.5 block text-xs text-text-tertiary">
                 {t("sources.form.egressAckHint", {
                   kinds: (selected?.key_kinds ?? []).join(", "),
                 })}
@@ -285,10 +285,10 @@ export const SourceFormModal: React.FC<SourceFormModalProps> = ({
             visível, e o backend recusa a lista sem a edição Enterprise. */}
         {(orgsProp?.length ?? 0) > 1 && organizationId != null && (
           <fieldset className="space-y-2 rounded-lg border border-border p-4">
-            <legend className="px-1 text-xs font-semibold uppercase tracking-wide text-muted">
+            <legend className="px-1 text-xs font-semibold uppercase tracking-wide text-text-tertiary">
               {t("sources.form.sharedOrgs")}
             </legend>
-            <p className="text-xs text-muted">{t("sources.form.sharedOrgsHint")}</p>
+            <p className="text-xs text-text-tertiary">{t("sources.form.sharedOrgsHint")}</p>
             <div className="grid gap-1.5 sm:grid-cols-2">
               {(orgsProp ?? [])
                 .filter((o) => o.id !== organizationId)
@@ -319,7 +319,7 @@ export const SourceFormModal: React.FC<SourceFormModalProps> = ({
         {(
           <div className="space-y-2 rounded-lg border border-border p-4">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold uppercase tracking-wide text-muted">
+              <span className="text-xs font-semibold uppercase tracking-wide text-text-tertiary">
                 {t("sources.test.title")}
               </span>
               <Button
@@ -361,7 +361,7 @@ export const SourceFormModal: React.FC<SourceFormModalProps> = ({
                 {t("sources.test.run")}
               </Button>
             </div>
-            <p className="text-xs text-muted">
+            <p className="text-xs text-text-tertiary">
               {isEdit && !secret.trim()
                 ? t("sources.test.hint")
                 : t("sources.test.hintDraft")}

@@ -140,7 +140,7 @@ export const DuplicatePolicyModal: React.FC<Props> = ({
             />
 
             {checking && (
-              <p className="text-xs text-muted">{t("policies.duplicate.checking")}</p>
+              <p className="text-xs text-text-tertiary">{t("policies.duplicate.checking")}</p>
             )}
 
             {preflight && !checking && (
