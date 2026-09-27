@@ -646,6 +646,50 @@ def _heal_fk_ondelete_rules(inspector_obj) -> None:
             )
 
 
+def _ensure_single_active_enrichment_policy(conn) -> int:
+    """Desliga as políticas SOMBREADAS e cria o índice único parcial.
+
+    Base anterior ao índice pode ter duas políticas habilitadas na mesma org. O
+    runtime sempre aplicou só a mais antiga (``created_at``, desempate por
+    ``id``) e ignorou as demais; desligar exatamente essas preserva o que roda
+    em produção — nenhuma org muda de política no upgrade. Sem isso o
+    ``CREATE UNIQUE INDEX`` falharia e derrubaria o boot.
+
+    Devolve quantas políticas foram desligadas. Idempotente.
+    """
+    rows = conn.execute(
+        text(
+            "SELECT id, organization_id, name FROM enrichment_policies "
+            "WHERE enabled ORDER BY organization_id, created_at, id"
+        )
+    ).fetchall()
+    seen: set = set()
+    shadowed = []
+    for pid, org_id, name in rows:
+        if org_id in seen:
+            shadowed.append((pid, org_id, name))
+        else:
+            seen.add(org_id)
+    for pid, org_id, name in shadowed:
+        conn.execute(
+            text("UPDATE enrichment_policies SET enabled = FALSE WHERE id = :id"),
+            {"id": pid},
+        )
+        logger.warning(
+            "migração: política de enriquecimento %r da org %s estava habilitada "
+            "mas sombreada (só a mais antiga era aplicada) — desligada",
+            name, org_id,
+            extra={"event": "enrich.policy_shadowed_disabled", "org_id": org_id},
+        )
+    conn.execute(
+        text(
+            "CREATE UNIQUE INDEX IF NOT EXISTS uq_enrich_policy_one_enabled "
+            "ON enrichment_policies (organization_id) WHERE enabled"
+        )
+    )
+    return len(shadowed)
+
+
 def _run_lightweight_migrations() -> None:
     inspector = inspect(engine)
     table_names = set(inspector.get_table_names())
@@ -1657,6 +1701,8 @@ def _run_lightweight_migrations() -> None:
                         "ADD COLUMN is_template BOOLEAN NOT NULL DEFAULT FALSE"
                     )
                 )
+        if "enrichment_policies" in table_names:
+            _ensure_single_active_enrichment_policy(conn)
         if "enrichment_policy_versions" in table_names:
             epv_cols = {
                 col["name"] for col in inspector.get_columns("enrichment_policy_versions")

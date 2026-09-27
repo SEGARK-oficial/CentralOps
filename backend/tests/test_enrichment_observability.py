@@ -410,7 +410,11 @@ def test_metrics_reflete_so_a_politica_que_o_worker_aplica(client_factory, monke
     assert client.post(f"{_BASE}/policies/{segunda}/enable?enabled=true").status_code == 409
     from backend.app.db import models as _models
 
+    from sqlalchemy import text as _text
+
     db = next(app.dependency_overrides[get_session]())
+    # Base anterior ao índice único parcial — só nela cabem duas ligadas.
+    db.execute(_text("DROP INDEX IF EXISTS uq_enrich_policy_one_enabled"))
     db.get(_models.EnrichmentPolicy, segunda).enabled = True
     db.commit()
 

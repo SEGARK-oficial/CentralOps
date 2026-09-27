@@ -2375,6 +2375,20 @@ class EnrichmentPolicy(Base):
     __table_args__ = (
         UniqueConstraint("organization_id", "name", name="uq_enrich_policy_org_name"),
         Index("ix_enrich_policy_org_enabled", "organization_id", "enabled"),
+        # UMA política habilitada por org, garantida pelo BANCO. O guard do
+        # ``enable`` é check-then-act: dois cliques concorrentes em políticas
+        # diferentes passavam os dois pelo SELECT e deixavam duas ligadas, e o
+        # runtime aplicava a mais antiga em silêncio. Índice PARCIAL porque
+        # desligadas são quantas o operador quiser. SQLite e Postgres aceitam
+        # ``WHERE enabled``; bases antigas ganham o índice na migração de boot
+        # (``database._ensure_single_active_enrichment_policy``).
+        Index(
+            "uq_enrich_policy_one_enabled",
+            "organization_id",
+            unique=True,
+            sqlite_where=_sa_text("enabled"),
+            postgresql_where=_sa_text("enabled"),
+        ),
     )
 
     id = Column(String, primary_key=True, default=lambda: str(uuid4()))
