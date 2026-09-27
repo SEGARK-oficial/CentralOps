@@ -11,7 +11,9 @@
 import i18n from "@/i18n"
 
 export const BASE_URL = import.meta.env.VITE_BACKEND_URL || "/api"
-export const ADMIN_REDIRECT_PATH = "/search"
+// Destino do 403 com `forbiddenRedirectTo`. Era "/search" — tela removida no
+// ADR-0007 (não há mais rota), então o usuário sem permissão caía no 404.
+export const ADMIN_REDIRECT_PATH = "/dashboard"
 export const V1_ACCEPT_HEADER = { Accept: "application/vnd.centralops.v1+json" } as const
 
 export interface ApiRequestOptions extends RequestInit {
@@ -26,7 +28,21 @@ export interface ApiRequestOptions extends RequestInit {
   timeoutMs?: number
 }
 
-const DEFAULT_REQUEST_TIMEOUT_MS = 30_000
+// ACIMA do `proxy_read_timeout 60s` do nginx (frontend/nginx.single*.conf):
+// uma operação legitimamente lenta (teste de conexão, dry-run, preview de
+// regra, sync do Entra) recebe o 504 do proxy primeiro, com mensagem real, e
+// este timeout só age sobre conexão de fato pendurada. Com 30s o cliente
+// abortava operações que o backend ainda concluía (risco de reenvio duplo).
+export const DEFAULT_REQUEST_TIMEOUT_MS = 75_000
+
+// Upload (corpo binário/multipart) é limitado pela banda do usuário, não pela
+// latência do servidor: sem timeout por padrão, salvo `timeoutMs` explícito.
+function isUploadBody(body: RequestInit["body"]): boolean {
+  return (
+    (typeof FormData !== "undefined" && body instanceof FormData) ||
+    (typeof Blob !== "undefined" && body instanceof Blob)
+  )
+}
 
 /**
  * Timeout PRÓPRIO via `setTimeout`, não `AbortSignal.timeout()` — o timer
@@ -110,7 +126,9 @@ export function formatValidationDetail(detail: unknown): string | null {
 // Helper para fazer requests
 export async function apiRequest<T>(endpoint: string, options: ApiRequestOptions = {}): Promise<T> {
   const url = `${BASE_URL}${endpoint}`
-  const { forbiddenRedirectTo, timeoutMs = DEFAULT_REQUEST_TIMEOUT_MS, ...requestOptions } = options
+  const { forbiddenRedirectTo, timeoutMs: explicitTimeoutMs, ...requestOptions } = options
+  const timeoutMs =
+    explicitTimeoutMs ?? (isUploadBody(requestOptions.body) ? 0 : DEFAULT_REQUEST_TIMEOUT_MS)
 
   const defaultHeaders: Record<string, string> = {
     "Content-Type": "application/json",

@@ -71,7 +71,7 @@
  *      `addResourceBundle` direto, sem passar pelo `backendConnector`),
  *      react-i18next não re-renderizava: o `bindI18nStore` padrão é `''`
  *      (react-i18next não escuta o evento `added` da store por padrão).
- * Correção (duas partes, as duas necessárias):
+ * Correção:
  *   - `read()` não grava mais bundle nenhum pro passe redundante — responde
  *     com um ERRO de verdade (`callback(err, false)`), que deixa o
  *     `backendConnector` em estado -1 (falha) pra aquele par, SEM nunca
@@ -85,11 +85,10 @@
  *     uma nova tentativa automática via Suspense (o `backendConnector` só
  *     tenta de novo um par com estado negativo se alguém pedir com
  *     `reload:true`, o que o fluxo normal nunca faz).
- *   - `react.bindI18nStore: "added"` — rede de segurança geral: qualquer
- *     bundle que chegue DEPOIS (prefetch, o pré-carregamento acima, um
- *     `useTranslation` concorrente) agora dispara um re-render de quem já
- *     estava montado, em vez de deixar texto obsoleto na tela até o próximo
- *     re-render por outro motivo.
+ *   - NÃO usar `react.bindI18nStore: "added"` (foi tentado): cada bundle
+ *     novo trocava a identidade do `t` e disparava rajada de refetch em todo
+ *     loader com `t` nas deps. O `languageChanged` (padrão) basta, porque os
+ *     namespaces já estão carregados quando a troca acontece.
  *
  * `i18nReady` resolve quando o SHELL do idioma inicial terminou de carregar —
  * `main.tsx` aguarda antes do 1º `render()`, senão a tela pisca chave crua
@@ -530,14 +529,16 @@ const initPromise = i18n
     // R2-5.1: Suspense por namespace. Em teste, `./testing` já deixou tudo
     // carregado antes do 1º render (ver docstring do topo) — `ready` já
     // nasce `true`, então o `throw` do react-i18next nunca é alcançado lá.
-    // R4-5.1(c): `bindI18nStore: "added"` — sem isto (o padrão é `''`, ou
-    // seja, NENHUM evento de store), um componente já montado não
-    // re-renderiza quando um bundle chega DEPOIS por qualquer caminho que não
-    // seja `languageChanged` (prefetch de idle, o pré-carregamento do
-    // `changeLanguage` patchado acima, um `useTranslation` concorrente de
-    // outro componente) — o texto ficava obsoleto na tela até algum outro
-    // motivo forçar um re-render.
-    react: { useSuspense: true, bindI18nStore: "added" },
+    // `bindI18nStore` fica no padrão (''), DE PROPÓSITO. Com "added", cada
+    // `addResourceBundle` (≈15 no prefetch de idle de todo boot) trocava a
+    // identidade do `t`, e os ~44 loaders com `t` nas deps (PlatformContext,
+    // EditionContext, páginas de detalhe) refaziam fetch e remontavam a tela
+    // em rajada, desmontando formulário aberto. Não é necessário: um
+    // namespace que ainda não chegou SUSPENDE o componente (nunca renderiza
+    // texto obsoleto), e a troca de idioma já carrega os namespaces usados
+    // ANTES de trocar e re-renderiza pelo evento `languageChanged`.
+    // Teste: lazyLoading "catálogo que chega DEPOIS do mount…".
+    react: { useSuspense: true },
     detection: {
       order: ["localStorage", "navigator", "htmlTag"],
       lookupLocalStorage: LOCALE_STORAGE_KEY,

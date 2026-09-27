@@ -91,7 +91,7 @@ export async function getStoredResult(searchId: string) {
 }
 
 export async function downloadStoredCSV(searchId: string) {
-  const response = await fetch(`${BASE_URL}/search/history/result/${searchId}/csv`, {
+  const response = await fetch(`${BASE_URL}/search/history/result/${encodeURIComponent(searchId)}/csv`, {
     credentials: "include",
   })
   if (response.status === 401 && typeof window !== "undefined") {

@@ -8,6 +8,7 @@
  */
 import { afterEach, describe, expect, it, vi } from "vitest"
 import { getAuthStatus } from "@/services/api"
+import { DEFAULT_REQUEST_TIMEOUT_MS } from "@/services/api/_core"
 
 /** fetch que nunca resolve sozinho — só reage ao abort do `signal`, como o
  * `fetch` nativo faz de verdade. */
@@ -33,7 +34,7 @@ afterEach(() => {
 })
 
 describe("apiRequest — timeout (R4-6.1)", () => {
-  it("requisição pendurada rejeita com TimeoutError após o timeout padrão (30s)", async () => {
+  it("requisição pendurada rejeita com TimeoutError após o timeout padrão", async () => {
     vi.useFakeTimers()
     mockHangingFetch()
 
@@ -43,7 +44,7 @@ describe("apiRequest — timeout (R4-6.1)", () => {
     // `advanceTimersByTimeAsync`.
     const assertion = expect(promise).rejects.toMatchObject({ name: "TimeoutError" })
 
-    await vi.advanceTimersByTimeAsync(30_000)
+    await vi.advanceTimersByTimeAsync(DEFAULT_REQUEST_TIMEOUT_MS)
     await assertion
   })
 
@@ -56,11 +57,11 @@ describe("apiRequest — timeout (R4-6.1)", () => {
       message: "A requisição demorou demais e foi cancelada. Tente de novo.",
     })
 
-    await vi.advanceTimersByTimeAsync(30_000)
+    await vi.advanceTimersByTimeAsync(DEFAULT_REQUEST_TIMEOUT_MS)
     await assertion
   })
 
-  it("não dispara timeout antes da hora (29.9s) — só depois (30s)", async () => {
+  it("não dispara timeout antes da hora — só depois", async () => {
     vi.useFakeTimers()
     mockHangingFetch()
 
@@ -69,7 +70,7 @@ describe("apiRequest — timeout (R4-6.1)", () => {
       settled = true
     })
 
-    await vi.advanceTimersByTimeAsync(29_900)
+    await vi.advanceTimersByTimeAsync(DEFAULT_REQUEST_TIMEOUT_MS - 100)
     expect(settled).toBe(false)
 
     await vi.advanceTimersByTimeAsync(200)
@@ -91,5 +92,45 @@ describe("apiRequest — timeout (R4-6.1)", () => {
 
     controller.abort()
     await assertion
+  })
+})
+
+describe("apiRequest — timeout coerente com o proxy e com upload", () => {
+  it("o timeout padrão fica ACIMA do proxy_read_timeout do nginx (o proxy responde primeiro)", async () => {
+    const { readFileSync } = await import("node:fs")
+    for (const conf of ["nginx.single.conf", "nginx.single.https.conf"]) {
+      const txt = readFileSync(conf, "utf8")
+      const values = [...txt.matchAll(/proxy_read_timeout\s+(\d+)s;/g)].map((m) => Number(m[1]))
+      // Positivo: o conf declara o timeout (senão o assert abaixo passaria vazio).
+      expect(values.length).toBeGreaterThan(0)
+      expect(DEFAULT_REQUEST_TIMEOUT_MS).toBeGreaterThan(Math.max(...values) * 1000)
+    }
+  })
+
+  it("upload (FormData) não sofre o timeout padrão", async () => {
+    vi.useFakeTimers()
+    const fetchMock = mockHangingFetch()
+    const { apiRequest } = await import("@/services/api/_core")
+
+    let settled = false
+    const body = new FormData()
+    body.append("file", new Blob(["a,b\n1,2"]), "t.csv")
+    void apiRequest("/upload", { method: "POST", body }).catch(() => {
+      settled = true
+    })
+
+    await vi.advanceTimersByTimeAsync(DEFAULT_REQUEST_TIMEOUT_MS * 2)
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(settled).toBe(false)
+  })
+
+  it("403 redireciona para uma rota que existe (não para a antiga /search removida)", async () => {
+    const { ADMIN_REDIRECT_PATH } = await import("@/services/api/_core")
+    const { readFileSync } = await import("node:fs")
+    const app = readFileSync("src/App.tsx", "utf8")
+    const segment = ADMIN_REDIRECT_PATH.replace(/^\//, "")
+    expect(segment.length).toBeGreaterThan(0)
+    expect(app).toContain(`path="${segment}"`)
+    expect(ADMIN_REDIRECT_PATH).not.toBe("/search")
   })
 })

@@ -11,7 +11,7 @@
  * fresco, sem a pré-carga do `testing.ts` — o único jeito de exercitar o
  * caminho preguiçoso de verdade dentro do harness de teste.
  */
-import { createElement, Suspense } from "react"
+import { createElement, Suspense, useEffect } from "react"
 import { describe, it, expect, beforeEach } from "vitest"
 import { render, screen } from "@testing-library/react"
 import { I18nextProvider, useTranslation } from "react-i18next"
@@ -287,5 +287,42 @@ describe("i18n — R4-5.1: trocar para pt depois de usar um namespace de tela nu
 
     expect(await screen.findByText("Detecções")).toBeInTheDocument()
     expect(screen.queryByText("list.pageTitle")).not.toBeInTheDocument()
+  })
+})
+
+describe("i18n — catálogo que chega DEPOIS do mount não re-dispara loaders com `t` nas deps", () => {
+  // Regressão da rodada 4: `react.bindI18nStore: "added"` trocava a identidade
+  // de `t` a cada `addResourceBundle` (prefetch de idle ≈ 15 namespaces por
+  // boot). Os ~44 loaders do app com `t` nas deps (PlatformContext,
+  // EditionContext, páginas de detalhe…) refaziam fetch e remontavam a tela
+  // em rajada, desmontando formulário aberto.
+  it("adicionar bundles após o mount executa o efeito do loader UMA vez só", async () => {
+    localStorage.setItem(LOCALE_STORAGE_KEY, "pt")
+    vi.resetModules()
+    const fresh = await import("@/i18n")
+    await fresh.i18nReady
+
+    let runs = 0
+    function Loader() {
+      const { t } = useTranslation("common")
+      useEffect(() => {
+        runs++
+      }, [t])
+      return createElement("p", null, t("actions.save"))
+    }
+
+    render(createElement(I18nextProvider, { i18n: fresh.default }, createElement(Loader, null)))
+    expect(await screen.findByText("Salvar")).toBeInTheDocument()
+    const afterMount = runs
+    // Positivo: o efeito rodou no mount (senão o "não re-executa" seria vácuo).
+    expect(afterMount).toBeGreaterThanOrEqual(1)
+
+    // Simula catálogos chegando depois (prefetch de idle / carga sob demanda).
+    for (const ns of ["x1", "x2", "x3", "x4", "x5"]) {
+      fresh.default.addResourceBundle("pt", ns, { k: "v" }, true, true)
+    }
+    await new Promise((resolve) => setTimeout(resolve, 20))
+
+    expect(runs).toBe(afterMount)
   })
 })
