@@ -194,26 +194,5 @@
       "confirmSuffix": "? Ela deixará de aparecer para buscas e novos agendamentos.",
       "confirmLabel": "Excluir query"
     }
-  },
-  "detections": {
-    "pageEyebrow": "Segurança",
-    "pageTitle": "Detecções",
-    "pageDescription": "Triagem de detecções de 1ª classe geradas por queries agendadas, queries live e regras de correlação.",
-    "filterByStatusAriaLabel": "Filtrar por status",
-    "kpis": {
-      "total": "Total",
-      "open": "Abertas",
-      "ack": "Reconhecidas",
-      "closed": "Fechadas"
-    },
-    "status": {
-      "open": "Abertas",
-      "ack": "Reconhecidas",
-      "closed": "Fechadas"
-    },
-    "feedback": {
-      "triageError": "Falha ao atualizar status da detecção",
-      "loadError": "Falha ao carregar detecções"
-    }
   }
 }

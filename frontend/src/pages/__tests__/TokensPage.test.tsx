@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react"
-import { describe, it, expect, vi, beforeEach, beforeAll } from "vitest"
+import { describe, it, expect, vi, beforeEach, afterEach, beforeAll } from "vitest"
 import { TokensPage } from "@/pages/TokensPage"
 import type { ApiToken } from "@/types"
 import i18n from "@/i18n"
@@ -10,6 +10,30 @@ import i18n from "@/i18n"
 beforeAll(() => {
   void i18n.changeLanguage("pt")
 })
+
+/** R4-8.6: migrado pro `DataTable` (`renderMobileCard`) — o mock global de
+ *  `matchMedia` (test/setup.ts) sempre devolve `matches:false`, então sem
+ *  isto o `useMediaQuery` leria "não é desktop" e só os CARTÕES entrariam no
+ *  DOM (sem `<table role="table">`), quebrando os `findByRole("table")`
+ *  abaixo. Mesmo padrão do `HistoryPage`/`DetectionsTable`/`QueriesTable`. */
+let restoreViewport: () => void
+beforeEach(() => {
+  const original = window.matchMedia
+  window.matchMedia = ((query: string) => ({
+    matches: true,
+    media: query,
+    onchange: null,
+    addListener: () => {},
+    removeListener: () => {},
+    addEventListener: () => {},
+    removeEventListener: () => {},
+    dispatchEvent: () => false,
+  })) as unknown as typeof window.matchMedia
+  restoreViewport = () => {
+    window.matchMedia = original
+  }
+})
+afterEach(() => restoreViewport())
 
 vi.mock("@/services/api", () => ({
   listApiTokens: vi.fn(),
@@ -163,5 +187,52 @@ describe("TokensPage", () => {
     )
     // Warning de "copie agora"
     expect(screen.getByText(/Copie o token agora/i)).toBeInTheDocument()
+  })
+})
+
+// Pilar 4: carregamento inicial falho não pode virar EmptyState mentiroso.
+describe("TokensPage — Pilar 4 (ErrorState com retry)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it("listApiTokens rejeitando no load inicial mostra ErrorState, não EmptyState", async () => {
+    ;(api.listApiTokens as ReturnType<typeof vi.fn>).mockRejectedValue(new Error("503"))
+    render(<TokensPage />)
+
+    await waitFor(() => expect(screen.getByText("503")).toBeInTheDocument())
+    expect(screen.getByRole("button", { name: /tentar novamente/i })).toBeInTheDocument()
+    expect(screen.queryByText(/Nenhum token criado/i)).not.toBeInTheDocument()
+  })
+
+  it("Tentar novamente recarrega a lista", async () => {
+    ;(api.listApiTokens as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error("503"))
+    render(<TokensPage />)
+    await screen.findByText("503")
+
+    ;(api.listApiTokens as ReturnType<typeof vi.fn>).mockResolvedValueOnce([mockToken()])
+    fireEvent.click(screen.getByRole("button", { name: /tentar novamente/i }))
+
+    await waitFor(() => expect(screen.getAllByText("ci-bot").length).toBeGreaterThan(0))
+    expect(screen.queryByText("503")).not.toBeInTheDocument()
+  })
+
+  it("refresh pós-ação que falha com a lista já visível vira toast, não apaga a lista", async () => {
+    ;(api.listApiTokens as ReturnType<typeof vi.fn>)
+      .mockResolvedValueOnce([mockToken()])
+      .mockRejectedValueOnce(new Error("falha no refresh"))
+    ;(api.revokeApiToken as ReturnType<typeof vi.fn>).mockResolvedValue(undefined)
+
+    render(<TokensPage />)
+    await waitFor(() => expect(screen.getAllByText("ci-bot").length).toBeGreaterThan(0))
+
+    const table = await screen.findByRole("table")
+    fireEvent.click(within(table).getByRole("button", { name: /revogar/i }))
+    const confirmBtn = await screen.findAllByRole("button", { name: /^Revogar$/i })
+    fireEvent.click(confirmBtn[confirmBtn.length - 1])
+
+    await waitFor(() => expect(screen.getByText("falha no refresh")).toBeInTheDocument())
+    expect(screen.getAllByText("ci-bot").length).toBeGreaterThan(0)
+    expect(screen.queryByRole("button", { name: /tentar novamente/i })).not.toBeInTheDocument()
   })
 })

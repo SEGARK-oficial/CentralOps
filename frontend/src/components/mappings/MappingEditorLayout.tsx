@@ -66,7 +66,10 @@ export const MappingEditorLayout: React.FC<MappingEditorLayoutProps> = ({
     <PanelGroup
       direction="horizontal"
       autoSaveId="centralops:mapping-editor"
-      className={cn("h-[calc(100vh-15rem)] min-h-[34rem]", className)}
+      // LAY-38: 100vh inclui a área coberta pela barra de endereço/teclado
+      // virtual em mobile — o editor ficava cortado embaixo. 100dvh
+      // acompanha a viewport REAL disponível.
+      className={cn("h-[calc(100dvh-15rem)] min-h-[34rem]", className)}
     >
       <Panel
         ref={payloadRef}
@@ -82,29 +85,38 @@ export const MappingEditorLayout: React.FC<MappingEditorLayoutProps> = ({
         <PanelScroll>{payload}</PanelScroll>
       </Panel>
 
-      {/* Divisória payload│regras — arrastável + botão de colapsar/expandir. */}
-      <PanelResizeHandle className="group relative flex w-3 items-center justify-center rounded outline-none focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-primary-500">
-        <div
-          aria-hidden="true"
-          className="h-10 w-1 rounded-full bg-border transition-colors group-hover:bg-primary-400 group-data-[resize-handle-state=drag]:bg-primary-500"
-        />
+      {/* Divisória payload│regras — arrastável + botão de colapsar/expandir.
+          R2-6.7: o botão vivia DENTRO do `PanelResizeHandle` (role=separator
+          do react-resizable-panels) — separator com um `<button>` aninhado é
+          um contrato ARIA inválido, e o `stopPropagation` no pointerdown era
+          só um remendo pro conflito de gesto (arrastar vs. clicar). Agora o
+          botão é um IRMÃO do handle (mesmo slot flex do PanelGroup via
+          Context — não depende de posição no DOM), sobreposto por CSS. O
+          handle também cresceu de 12px (w-3) pra 24px (w-6), alvo mínimo da
+          WCAG 2.5.8. */}
+      <div className="relative flex w-6 items-center justify-center">
+        <PanelResizeHandle className="group flex h-full w-full items-center justify-center rounded outline-none focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-primary-500">
+          <div
+            aria-hidden="true"
+            className="h-10 w-1 rounded-full bg-border transition-colors group-hover:bg-primary-400 group-data-[resize-handle-state=drag]:bg-primary-500"
+          />
+        </PanelResizeHandle>
         <button
           type="button"
-          onPointerDown={(e) => e.stopPropagation()}
           onClick={togglePayload}
           aria-label={payloadCollapsed ? t("editorLayout.expandPayloadPanel") : t("editorLayout.collapsePayloadPanel")}
           className="absolute top-3 z-10 flex h-6 w-6 items-center justify-center rounded-full border border-border bg-surface text-text-tertiary shadow-sm transition-colors hover:text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500"
         >
           {payloadCollapsed ? <ChevronRightIcon size={13} aria-hidden="true" /> : <ChevronLeftIcon size={13} aria-hidden="true" />}
         </button>
-      </PanelResizeHandle>
+      </div>
 
       <Panel id="rules" order={2} defaultSize={40} minSize={28}>
         <PanelScroll>{rules}</PanelScroll>
       </Panel>
 
-      {/* Divisória regras│envelope. */}
-      <PanelResizeHandle className="group relative flex w-3 items-center justify-center rounded outline-none focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-primary-500">
+      {/* Divisória regras│envelope (sem botão — só o handle, também 24px). */}
+      <PanelResizeHandle className="group relative flex w-6 items-center justify-center rounded outline-none focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-primary-500">
         <div
           aria-hidden="true"
           className="h-10 w-1 rounded-full bg-border transition-colors group-hover:bg-primary-400 group-data-[resize-handle-state=drag]:bg-primary-500"

@@ -101,7 +101,9 @@ const SAMPLE_PLACEHOLDER = `{
 }`
 
 export function EnrichmentPolicyPage(): React.ReactElement {
-  const { t } = useTranslation("enrichment")
+  // R3-8.1: `PolicyRuleEditor` → `JMESPathInput` (ns `mappings`) — declarar
+  // aqui carrega o namespace junto da rota.
+  const { t } = useTranslation(["enrichment", "mappings"])
   const { id: policyId = "" } = useParams()
   const navigate = useNavigate()
   const { organizations } = usePlatform()
@@ -524,7 +526,7 @@ export function EnrichmentPolicyPage(): React.ReactElement {
           <div className="space-y-2 p-4">
             <h3 className="text-sm font-semibold">{t("tables.versions.history")}</h3>
             {versions.length === 0 ? (
-              <p className="text-sm text-muted">{t("tables.versions.empty")}</p>
+              <p className="text-sm text-text-tertiary">{t("tables.versions.empty")}</p>
             ) : (
               <ul className="divide-y divide-border">
                 {versions.map((v) => (
@@ -536,7 +538,7 @@ export function EnrichmentPolicyPage(): React.ReactElement {
                           <Badge variant="success">{t("tables.versions.current")}</Badge>
                         )}
                       </div>
-                      <p className="truncate text-sm text-muted">{v.commit_message}</p>
+                      <p className="truncate text-sm text-text-tertiary">{v.commit_message}</p>
                     </div>
                     <div className="flex shrink-0 gap-2">
                       <Button
@@ -573,8 +575,8 @@ export function EnrichmentPolicyPage(): React.ReactElement {
                 achar "aquela do hash" é o que consome o tempo; aqui a lista
                 inteira cabe em quatro linhas legíveis e leva ao cartão certo. */}
             {rules.length > 2 && (
-              <div className="rounded-lg border border-border-subtle p-3">
-                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">
+              <div className="rounded-lg border border-border p-3">
+                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-text-tertiary">
                   {t("policies.page.ruleIndex", { count: rules.length })}
                 </p>
                 <ul className="space-y-1.5">
@@ -722,10 +724,14 @@ export function EnrichmentPolicyPage(): React.ReactElement {
       />
 
       {/* Rodapé fixo: o diff e a publicação ficam sempre à vista, porque a
-          decisão de publicar depende de enxergar o que muda. */}
+          decisão de publicar depende de enxergar o que muda.
+          LAY-16: `fixed inset-x-0` cobria a SIDEBAR inteira, já que "fixed"
+          é relativo à viewport, não à coluna de conteúdo. `sticky bottom-0`
+          gruda no fim do fluxo normal — fica só dentro da largura do
+          conteúdo, sem sobrepor o menu lateral. */}
       <form
         onSubmit={handlePublish}
-        className="fixed inset-x-0 bottom-0 z-20 border-t border-border bg-surface-secondary/95 px-6 py-3 backdrop-blur"
+        className="sticky bottom-0 z-20 -mx-4 border-t border-border bg-surface-secondary/95 px-4 py-3 backdrop-blur sm:-mx-6 sm:px-6"
       >
         <div className="mx-auto flex max-w-[1600px] flex-wrap items-center gap-3">
           <PolicyDiff published={publishedRules} draft={rules} />

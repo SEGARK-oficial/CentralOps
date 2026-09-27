@@ -36,6 +36,26 @@ function newOp(): PreprocessOp {
   }
 }
 
+/**
+ * BUG-04: `key={index}` fazia o estado LOCAL do `PreprocessRow` (o
+ * `targetError` de validação, em PreprocessRow.tsx:51) "escorregar" pra
+ * linha vizinha ao remover/reordenar uma op — mesma classe de bug do BUG-03
+ * em RulesEditor. Id estável por objeto via WeakMap; propagado explicitamente
+ * em `handleChange` (que cria um objeto NOVO a cada edição).
+ */
+const opStableIds = new WeakMap<PreprocessOp, string>()
+let opStableIdCounter = 0
+
+function stableIdFor(op: PreprocessOp): string {
+  let id = opStableIds.get(op)
+  if (id === undefined) {
+    opStableIdCounter += 1
+    id = `preprocess-${opStableIdCounter}`
+    opStableIds.set(op, id)
+  }
+  return id
+}
+
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export const PreprocessEditor: React.FC<PreprocessEditorProps> = ({
@@ -56,6 +76,9 @@ export const PreprocessEditor: React.FC<PreprocessEditorProps> = ({
 
   const handleChange = useCallback(
     (index: number, updated: PreprocessOp) => {
+      // BUG-04: propaga o id estável do objeto ANTIGO pro objeto NOVO —
+      // sem isso, toda edição "esqueceria" o id e a linha pareceria outra.
+      opStableIds.set(updated, stableIdFor(ops[index]))
       const next = [...ops]
       next[index] = updated
       onChange(next)
@@ -94,19 +117,22 @@ export const PreprocessEditor: React.FC<PreprocessEditorProps> = ({
 
   return (
     <section
-      role="region"
       aria-labelledby={headingId}
       data-testid="preprocess-editor"
       className="flex flex-col gap-2 rounded-lg border border-border bg-surface p-3"
     >
       {/* ── Cabeçalho colapsável ──────────────────────────────────────── */}
       <div className="flex items-center gap-2">
+        {/* A11Y-11: botão só-ícone sem nome acessível, alvo de 14px (abaixo do
+            mínimo de 24px recomendado pela WCAG 2.5.8) — soma aria-label e
+            aumenta a área de toque com padding. */}
         <button
           type="button"
           aria-expanded={expanded}
           aria-controls={`${headingId}-body`}
+          aria-label={expanded ? t("preprocessEditor.collapseSectionAriaLabel") : t("preprocessEditor.expandSectionAriaLabel")}
           onClick={onToggleExpand}
-          className="flex items-center gap-1 focus-visible:outline-2 focus-visible:outline-primary-500 rounded"
+          className="flex items-center gap-1 p-1.5 focus-visible:outline-2 focus-visible:outline-primary-500 rounded"
           data-testid="preprocess-toggle"
         >
           <ChevronDownIcon
@@ -161,7 +187,7 @@ export const PreprocessEditor: React.FC<PreprocessEditorProps> = ({
               readOnly ? (
                 // View mode: exibe info compacta sem botões de edição
                 <div
-                  key={index}
+                  key={stableIdFor(op)}
                   data-testid={`preprocess-row-${index}`}
                   className="flex items-center gap-2 px-3 py-2 border border-border rounded-md bg-surface text-xs"
                 >
@@ -176,7 +202,7 @@ export const PreprocessEditor: React.FC<PreprocessEditorProps> = ({
                 </div>
               ) : (
                 <PreprocessRow
-                  key={index}
+                  key={stableIdFor(op)}
                   op={op}
                   index={index}
                   onChange={handleChange}

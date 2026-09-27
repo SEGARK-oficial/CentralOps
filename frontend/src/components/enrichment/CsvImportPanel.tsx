@@ -167,7 +167,7 @@ export const CsvImportPanel: React.FC<Props> = ({
           {t("tables.csv.choose")}
         </Button>
         {fileName && (
-          <span className="text-xs text-muted">
+          <span className="text-xs text-text-tertiary">
             {fileName}
             {parsed ? ` · ${t("tables.csv.lines", { count: parsed.rows.length })}` : ""}
             {parsed ? ` · ${t("tables.csv.delimiter", { value: parsed.delimiter === "\t" ? "tab" : parsed.delimiter })}` : ""}
@@ -230,12 +230,12 @@ export const CsvImportPanel: React.FC<Props> = ({
                             )
                           }
                         />
-                        <span className={on ? "text-text" : "text-muted"}>{h}</span>
+                        <span className={on ? "text-text" : "text-text-tertiary"}>{h}</span>
                       </label>
                     )
                   })}
               </div>
-              <p className="mt-1 text-xs text-muted">{t("tables.csv.valueColumnsHint")}</p>
+              <p className="mt-1 text-xs text-text-tertiary">{t("tables.csv.valueColumnsHint")}</p>
             </div>
           </div>
 
@@ -289,7 +289,7 @@ export const CsvImportPanel: React.FC<Props> = ({
               <div className="overflow-x-auto rounded-md border border-border">
                 <table className="w-full text-xs">
                   <thead>
-                    <tr className="border-b border-border text-left text-muted">
+                    <tr className="border-b border-border text-left text-text-tertiary">
                       <th className="p-2 font-medium">#</th>
                       <th className="p-2 font-medium">{keyColumn}</th>
                       {valueColumns.map((c) => (
@@ -310,7 +310,7 @@ export const CsvImportPanel: React.FC<Props> = ({
                           className="border-b border-border last:border-0"
                           data-testid={`csv-row-${line}`}
                         >
-                          <td className="p-2 text-muted">{line}</td>
+                          <td className="p-2 text-text-tertiary">{line}</td>
                           <td
                             className={`p-2 font-mono ${issue ? "text-danger-500" : ""}`}
                           >
@@ -341,7 +341,7 @@ export const CsvImportPanel: React.FC<Props> = ({
                 </table>
               </div>
               {parsed.rows.length > previewRows.length && (
-                <p className="text-xs text-muted">
+                <p className="text-xs text-text-tertiary">
                   {t("tables.csv.more", {
                     count: parsed.rows.length - previewRows.length,
                   })}

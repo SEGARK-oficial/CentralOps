@@ -330,4 +330,14 @@ describe("DestinationsPage — badges de saúde", () => {
     // E nenhum ErrorState
     expect(screen.queryByText(/Falha ao carregar destinos/i)).not.toBeInTheDocument()
   })
+
+  // A11Y-41: "Detalhes" era um <button onClick={navigate}> — virou <Link> de
+  // verdade (Cmd/Ctrl+clique, nova aba, status bar do navegador).
+  it("'Detalhes' é um link de verdade pro destino", async () => {
+    renderPage()
+    await waitFor(() => expect(screen.getByText("Splunk HEC Prod")).toBeInTheDocument())
+
+    const links = screen.getAllByRole("link", { name: "Detalhes" })
+    expect(links[0]).toHaveAttribute("href", "/destinations/dest-splunk-001")
+  })
 })

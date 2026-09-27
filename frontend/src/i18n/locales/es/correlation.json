@@ -1,4 +1,10 @@
 {
+  "errors": {
+    "loadRulesFailed": "Fallo al cargar las reglas de correlación",
+    "createRuleFailed": "Fallo al crear la regla",
+    "updateRuleFailed": "Fallo al actualizar la regla",
+    "removeRuleFailed": "Fallo al eliminar la regla"
+  },
   "page": {
     "eyebrow": "Detección",
     "badgeBeta": "Beta",
@@ -638,6 +644,164 @@
       },
       "fromVendor": "de esta fuente",
       "notInInventory": "Este camino no consta en el inventario de esta organización: la regla compila, pero puede no resolver nunca."
+    }
+  },
+  "queryJobs": {
+    "status": {
+      "submitted": "Enviado",
+      "running": "En ejecución",
+      "finished": "Completado",
+      "partial": "Parcial",
+      "failed": "Falló"
+    },
+    "common": {
+      "yes": "Sí",
+      "no": "No"
+    },
+    "errors": {
+      "submitFailed": "Fallo al enviar la búsqueda.",
+      "loadRecentFailed": "Fallo al cargar los jobs recientes."
+    },
+    "table": {
+      "loading": "Cargando jobs...",
+      "empty": {
+        "title": "Aún no se realizó ninguna búsqueda",
+        "description": "Use el formulario de arriba para iniciar una búsqueda federada asíncrona."
+      },
+      "ariaLabel": "Jobs de búsqueda federada",
+      "column": {
+        "jobId": "Job ID",
+        "status": "Estado",
+        "dialect": "Dialecto",
+        "results": "Resultados",
+        "createdAt": "Creado el",
+        "details": "Detalles"
+      },
+      "view": "Ver",
+      "viewDetailsAriaLabel": "Ver detalles del job {{id}}",
+      "mobileCardAriaLabel": "Job {{id}} — {{status}}",
+      "resultsCount": "{{count}} resultado(s)"
+    },
+    "drawer": {
+      "ariaLabel": "Detalles del job de búsqueda federada",
+      "title": "Detalles del job",
+      "titleWithId": "Job {{id}}…",
+      "closeAriaLabel": "Cerrar detalles del job",
+      "selectPrompt": "Seleccione un job para ver los detalles.",
+      "notice": {
+        "finished": "{{total}} resultado(s) encontrado(s).",
+        "partial": "Búsqueda parcial: {{total}} resultado(s). Algunas fuentes fallaron.",
+        "failed": "La búsqueda falló. Vea el error abajo."
+      },
+      "summary": {
+        "heading": "Resumen",
+        "jobId": "Job ID",
+        "status": "Estado",
+        "dialect": "Dialecto",
+        "specKind": "Modo de traducción",
+        "totalResults": "Total de resultados",
+        "allowPartial": "Resultados parciales permitidos",
+        "windowStart": "Ventana — inicio",
+        "windowEnd": "Ventana — fin",
+        "finishedAt": "Completado el",
+        "errorMessage": "Mensaje de error"
+      },
+      "statement": {
+        "heading": "Statement"
+      },
+      "perSource": {
+        "heading": "Resultado por fuente",
+        "column": {
+          "integration": "Integración",
+          "status": "Estado",
+          "results": "Resultados",
+          "partial": "Parcial",
+          "error": "Error"
+        }
+      }
+    },
+    "page": {
+      "eyebrow": "Investigación",
+      "title": "Búsqueda federada",
+      "description": "Ejecute queries asíncronas en múltiples integraciones y siga el estado en tiempo real.",
+      "actions": {
+        "closeForm": "Cerrar formulario",
+        "newSearch": "Nueva búsqueda"
+      },
+      "feedback": {
+        "submitSuccess": "Búsqueda enviada. Siga el estado en la tabla de abajo.",
+        "successTitle": "Operación completada",
+        "errorTitle": "No se pudo completar",
+        "dismissAriaLabel": "Cerrar aviso"
+      },
+      "recentError": {
+        "title": "Error al cargar los jobs recientes"
+      },
+      "permission": {
+        "title": "Permiso necesario",
+        "body": "No tiene el permiso <code>query.run</code> para iniciar búsquedas federadas."
+      },
+      "createCard": {
+        "title": "Nueva búsqueda federada",
+        "description": "Seleccione integraciones, elija el dialecto y escriba el statement de la query."
+      },
+      "recentCard": {
+        "title": "Jobs recientes",
+        "description": "Últimos {{count}} job(s) de su organización.",
+        "refreshAriaLabel": "Actualizar lista de jobs",
+        "refresh": "Actualizar"
+      }
+    },
+    "form": {
+      "specKind": {
+        "passthrough": "Passthrough",
+        "sigma": "Sigma (experimental)"
+      },
+      "errors": {
+        "integrationsRequired": "Seleccione al menos una integración.",
+        "statementRequired": "El statement es obligatorio.",
+        "windowRequired": "Seleccione la ventana de tiempo (inicio y fin)."
+      },
+      "submitErrorTitle": "Fallo al enviar la búsqueda",
+      "integrations": {
+        "label": "Integraciones",
+        "placeholder": "Seleccione las integraciones a consultar",
+        "ariaLabel": "Seleccionar las integraciones"
+      },
+      "dialect": {
+        "label": "Dialecto",
+        "placeholderLoading": "Cargando dialectos...",
+        "placeholder": "Seleccione el dialecto (opcional)",
+        "ariaLabel": "Seleccionar dialecto de query",
+        "tooltipLabel": "Dialecto: {{dialect}}",
+        "tooltip": {
+          "rateLimit": "Rate limit: {{value}}",
+          "maxWindow": "Ventana máxima: {{hours}}h",
+          "supportsAsync": "Admite ejecución asíncrona.",
+          "supportedBy": "Plataformas: {{platforms}}"
+        }
+      },
+      "specKindField": {
+        "label": "Modo de traducción",
+        "ariaLabel": "Seleccionar modo de traducción del statement"
+      },
+      "statement": {
+        "label": "Statement",
+        "placeholderSigma": "Pegue la regla Sigma aquí...",
+        "placeholderDefault": "Ej: process where process.name == 'cmd.exe'",
+        "helperSigma": "Modo Sigma (experimental): la regla será convertida por el backend antes de la ejecución.",
+        "helperDefault": "Statement en el dialecto nativo seleccionado."
+      },
+      "window": {
+        "label": "Ventana de tiempo",
+        "ariaLabel": "Seleccionar la ventana de tiempo"
+      },
+      "allowPartial": {
+        "ariaLabel": "Aceptar resultados parciales cuando una fuente falle",
+        "label": "Aceptar resultados parciales",
+        "hint": "(devuelve datos de las fuentes que respondieron, aunque otras fallen)"
+      },
+      "submit": "Ejecutar búsqueda"
     }
   }
 }

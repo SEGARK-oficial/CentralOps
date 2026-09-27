@@ -195,4 +195,80 @@ describe("HelpTooltip", () => {
       vi.useRealTimers()
     }
   })
+
+  // ── A11Y-18/19: popover de disclosure quando há link, alvo ≥24px ────────────
+  describe("A11Y-18/19 — disclosure focável com learnMoreHref", () => {
+    it("com learnMoreHref, o popover NÃO usa role=tooltip (permite conteúdo focável)", () => {
+      render(
+        <HelpTooltip label="target" description="Caminho no envelope." learnMoreHref="/docs/guide.md" />,
+      )
+      fireEvent.click(screen.getByRole("button", { name: /ajuda: target/i }))
+
+      expect(screen.queryByRole("tooltip")).not.toBeInTheDocument()
+      // Ainda existe como região nomeada (aria-label), só que sem role=tooltip.
+      expect(screen.getByText("Caminho no envelope.")).toBeInTheDocument()
+    })
+
+    it("sem learnMoreHref, mantém role=tooltip (comportamento antigo preservado)", () => {
+      render(<HelpTooltip label="target" description="Caminho no envelope." />)
+      fireEvent.click(screen.getByRole("button", { name: /ajuda: target/i }))
+
+      expect(screen.getByRole("tooltip")).toBeInTheDocument()
+    })
+
+    it("trigger usa aria-haspopup/aria-controls (não aria-describedby) quando há learnMoreHref", () => {
+      render(
+        <HelpTooltip label="target" description="Caminho no envelope." learnMoreHref="/docs/guide.md" />,
+      )
+      const trigger = screen.getByRole("button", { name: /ajuda: target/i })
+      expect(trigger).toHaveAttribute("aria-haspopup", "true")
+      expect(trigger).not.toHaveAttribute("aria-describedby")
+
+      fireEvent.click(trigger)
+      expect(trigger).toHaveAttribute("aria-controls")
+    })
+
+    it("trigger usa aria-describedby (não aria-haspopup) quando NÃO há learnMoreHref", () => {
+      render(<HelpTooltip label="target" description="Caminho no envelope." />)
+      const trigger = screen.getByRole("button", { name: /ajuda: target/i })
+      expect(trigger).not.toHaveAttribute("aria-haspopup")
+
+      fireEvent.click(trigger)
+      expect(trigger).toHaveAttribute("aria-describedby")
+    })
+
+    it("o link 'Saiba mais' é alcançável por Tab — focar nele não fecha o popover", () => {
+      render(
+        <HelpTooltip label="target" description="Caminho no envelope." learnMoreHref="/docs/guide.md" />,
+      )
+      const trigger = screen.getByRole("button", { name: /ajuda: target/i })
+      fireEvent.focus(trigger)
+
+      const link = screen.getByRole("link", { name: /saiba mais/i })
+      link.focus()
+      expect(document.activeElement).toBe(link)
+      // Tab: o foco saiu do trigger PRA o link — relatedTarget do blur do
+      // trigger é o próprio link, que está dentro do popover: não fecha.
+      fireEvent.blur(trigger, { relatedTarget: link })
+      expect(screen.getByText("Caminho no envelope.")).toBeInTheDocument()
+    })
+
+    it("Tab saindo do link (pra fora do popover) fecha o popover", () => {
+      render(
+        <HelpTooltip label="target" description="Caminho no envelope." learnMoreHref="/docs/guide.md" />,
+      )
+      fireEvent.focus(screen.getByRole("button", { name: /ajuda: target/i }))
+      const link = screen.getByRole("link", { name: /saiba mais/i })
+
+      fireEvent.blur(link, { relatedTarget: null })
+      expect(screen.queryByText("Caminho no envelope.")).not.toBeInTheDocument()
+    })
+
+    it("gatilho tem alvo mínimo de 24px (min-h-6 min-w-6)", () => {
+      render(<HelpTooltip label="target" description="Caminho no envelope." />)
+      const trigger = screen.getByRole("button", { name: /ajuda: target/i })
+      expect(trigger.className).toContain("min-h-6")
+      expect(trigger.className).toContain("min-w-6")
+    })
+  })
 })

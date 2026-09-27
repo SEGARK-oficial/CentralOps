@@ -182,6 +182,10 @@ export const LoginPage: React.FC = () => {
               onBlur={handleBlur}
               error={touched.username ? errors.username : undefined}
               leftIcon={<UserIcon size={16} />}
+              // SEC-02/A11Y-21: login de verdade — quer autofill do
+              // gerenciador de senha, ao contrário dos segredos de
+              // integração/terceiro no resto do app.
+              autoComplete="username"
               required
               disabled={isSubmitting}
             />
@@ -196,6 +200,11 @@ export const LoginPage: React.FC = () => {
               onBlur={handleBlur}
               error={touched.password ? errors.password : undefined}
               leftIcon={<LockIcon size={16} />}
+              // No setup inicial este campo CRIA a senha do admin
+              // (`new-password`, o default do Input); no login normal é
+              // `current-password` — o `Input` sozinho não distingue os dois
+              // casos (mesmo `type="password"`), daí o override explícito.
+              autoComplete={setupRequired ? "new-password" : "current-password"}
               required
               disabled={isSubmitting}
             />
@@ -211,6 +220,7 @@ export const LoginPage: React.FC = () => {
                 onBlur={handleBlur}
                 error={touched.confirm_password ? errors.confirm_password : undefined}
                 leftIcon={<KeyIcon size={16} />}
+                autoComplete="new-password"
                 required
                 disabled={isSubmitting}
               />

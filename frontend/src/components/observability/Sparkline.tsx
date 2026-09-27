@@ -2,13 +2,15 @@ import type React from "react"
 import { useTranslation } from "react-i18next"
 import { formatDateTime } from "@/lib/intl"
 
-// Mapa de variante para token de cor do design system
+// LAY-19: hex fixos duplicavam (e podiam divergir d)o token real do tema —
+// usa a CSS var diretamente, então o sparkline segue qualquer ajuste de
+// paleta feito em globals.css sem precisar tocar este arquivo.
 const VARIANT_COLOR: Record<SparklineVariant, string> = {
-  neutral: "#94a3b8",   // text-tertiary
-  primary: "#0ea5e9",   // primary-500
-  success: "#22c55e",   // success-500
-  danger:  "#ef4444",   // danger-500
-  warning: "#f59e0b",   // warning-500
+  neutral: "var(--color-text-tertiary)",
+  primary: "var(--color-primary-500)",
+  success: "var(--color-success-500)",
+  danger: "var(--color-danger-500)",
+  warning: "var(--color-warning-500)",
 }
 
 

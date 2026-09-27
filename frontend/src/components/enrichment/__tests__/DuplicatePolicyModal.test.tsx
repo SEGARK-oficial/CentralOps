@@ -143,4 +143,49 @@ describe("DuplicatePolicyModal", () => {
     await waitFor(() => expect(onDuplicated).toHaveBeenCalledWith(criada))
     expect(mockedApi.duplicateEnrichmentPolicy.mock.calls[0][1].target_organization_id).toBe(2)
   })
+
+  // R4-8.4: campo obrigatório com erro inline + foco, não um `return` mudo.
+  it("nome vazio bloqueia o envio com erro inline no campo, sem chamar a API", async () => {
+    mockedApi.preflightDuplicateEnrichmentPolicy.mockResolvedValue({
+      target_organization_id: 2,
+      ok: true,
+      missing_tables: [],
+      missing_sources: [],
+      tables_without_version: [],
+      name_conflict: false,
+    })
+    mount()
+    await screen.findByText(/O destino tem tudo/i)
+
+    const nameInput = screen.getByLabelText("Nome da cópia")
+    fireEvent.change(nameInput, { target: { value: "   " } })
+    // O preflight (ao vivo) reroda a cada tecla e desabilita o botão enquanto
+    // `checking` está true — sem esperar ele voltar, o clique cai num botão
+    // ainda desabilitado e não dispara nada.
+    await waitFor(() => expect(screen.getByRole("button", { name: "Copiar" })).not.toBeDisabled())
+    fireEvent.click(screen.getByRole("button", { name: "Copiar" }))
+
+    await waitFor(() => expect(nameInput).toHaveAttribute("aria-invalid", "true"))
+    expect(nameInput).toHaveFocus()
+    expect(mockedApi.duplicateEnrichmentPolicy).not.toHaveBeenCalled()
+  })
+
+  // R4-8.4: conflito de nome é sinalizado NO CAMPO (aria-invalid), não só num
+  // banner genérico no topo do form.
+  it("conflito de nome do preflight marca o campo Nome com aria-invalid", async () => {
+    mockedApi.preflightDuplicateEnrichmentPolicy.mockResolvedValue({
+      target_organization_id: 2,
+      ok: false,
+      missing_tables: [],
+      missing_sources: [],
+      tables_without_version: [],
+      name_conflict: true,
+    })
+    mount()
+
+    const nameInput = await screen.findByLabelText("Nome da cópia")
+    await waitFor(() => expect(nameInput).toHaveAttribute("aria-invalid", "true"))
+    expect(screen.getByText(/Já existe uma política chamada/i)).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Copiar" })).toBeDisabled()
+  })
 })

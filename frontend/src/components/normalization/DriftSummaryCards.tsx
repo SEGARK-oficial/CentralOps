@@ -48,9 +48,9 @@ const SummaryCard: React.FC<SummaryCardProps> = ({ label, count, isLoading, icon
             ) : hasError ? (
               // "—" em vez de "0": um erro de carga não pode se passar por
               // "nenhum drift", que é a leitura enganosa que o operador faria.
-              <span className="text-2xl font-bold text-text-tertiary" title={t("summary.loadError")}>—</span>
+              <span className="font-display text-2xl font-bold tabular-nums text-text-tertiary" title={t("summary.loadError")}>—</span>
             ) : (
-              <span className={cn("text-2xl font-bold", variantStyles[variant])}>{formatNumber(count)}</span>
+              <span className={cn("font-display text-2xl font-bold tabular-nums", variantStyles[variant])}>{formatNumber(count)}</span>
             )}
           </div>
           <div className={cn("shrink-0", variantStyles[variant])} aria-hidden="true">

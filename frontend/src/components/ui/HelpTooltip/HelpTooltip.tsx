@@ -48,6 +48,14 @@ export const HelpTooltip: React.FC<HelpTooltipProps> = ({
 }) => {
   const { t } = useTranslation("ui")
   const tooltipId = useId()
+  // A11Y-18: `role="tooltip"` é para conteúdo PURAMENTE informativo — a
+  // maioria dos leitores de tela não inclui elementos com esse role na
+  // navegação por Tab (tooltip "some" quando o foco sai do gatilho, por
+  // design). Um link real ("Saiba mais") dentro dele fica inalcançável.
+  // Com `learnMoreHref`, o widget vira um popover de disclosure comum (sem
+  // role=tooltip, `aria-haspopup`/`aria-controls` em vez de
+  // `aria-describedby`) — content focável é suportado nesse padrão.
+  const isDisclosure = learnMoreHref != null
   // Dois estados independentes:
   // - hoverOpen: aberto enquanto o cursor/foco está no trigger ou tooltip.
   // - clickedOpen: "fixado" via clique — permanece aberto até clicar fora,
@@ -253,9 +261,20 @@ export const HelpTooltip: React.FC<HelpTooltipProps> = ({
         <div
           ref={tooltipRef}
           id={tooltipId}
-          role="tooltip"
+          role={isDisclosure ? undefined : "tooltip"}
+          aria-label={isDisclosure ? label : undefined}
           onMouseEnter={handleTooltipMouseEnter}
           onMouseLeave={handleTooltipMouseLeave}
+          // A11Y-18: quando o link "Saiba mais" é o último Tab-stop do
+          // popover, sair dele por Tab precisa fechar o popover — sem isto,
+          // ele ficaria aberto (fixed, sobre o resto da página) até um clique
+          // fora ou Escape.
+          onBlur={(e) => {
+            const next = e.relatedTarget as Node | null
+            if (!triggerRef.current?.contains(next) && !tooltipRef.current?.contains(next)) {
+              setHoverOpen(false)
+            }
+          }}
           style={{
             position: "fixed",
             top: position.top,
@@ -291,7 +310,7 @@ export const HelpTooltip: React.FC<HelpTooltipProps> = ({
               href={learnMoreHref}
               target="_blank"
               rel="noopener noreferrer"
-              className="mt-2 inline-block text-primary-600 hover:underline"
+              className="mt-2 inline-block text-primary-600 hover:underline focus-ring rounded"
             >
               {t("helpTooltip.learnMore")}
             </a>
@@ -306,7 +325,12 @@ export const HelpTooltip: React.FC<HelpTooltipProps> = ({
       <button
         ref={triggerRef}
         type="button"
-        aria-describedby={open ? tooltipId : undefined}
+        // A11Y-18: `aria-describedby` é o padrão do tooltip PURO (texto
+        // informativo); com link focável dentro, o padrão correto é
+        // `aria-haspopup`/`aria-controls` (disclosure), não describedby.
+        aria-describedby={!isDisclosure && open ? tooltipId : undefined}
+        aria-haspopup={isDisclosure ? "true" : undefined}
+        aria-controls={isDisclosure && open ? tooltipId : undefined}
         aria-label={t("helpTooltip.triggerAriaLabel", { label })}
         aria-expanded={open}
         // Click "fixa" o tooltip aberto. Quando já está fixado, click fecha.
@@ -335,7 +359,9 @@ export const HelpTooltip: React.FC<HelpTooltipProps> = ({
             setHoverOpen(false)
           }
         }}
-        className="inline-flex items-center justify-center rounded text-text-tertiary transition-colors hover:text-text-secondary focus-ring"
+        // A11Y-19: alvo de toque/clique era do tamanho do ícone (14px) —
+        // abaixo do mínimo recomendado de 24px (WCAG 2.5.8).
+        className="inline-flex min-h-6 min-w-6 items-center justify-center rounded text-text-tertiary transition-colors hover:text-text-secondary focus-ring"
       >
         <HelpCircleIcon size={14} aria-hidden="true" />
       </button>

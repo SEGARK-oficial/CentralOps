@@ -170,6 +170,7 @@ export const DriftExplorerPage: React.FC = () => {
   const filtersKey = JSON.stringify(filters)
   useEffect(() => {
     clearSelection()
+    // `clearSelection` é estável (useBulkSelection, deps []).
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filtersKey])
 

@@ -1,5 +1,6 @@
 import type React from "react"
 import { useEffect, useMemo, useState } from "react"
+import { useTranslation } from "react-i18next"
 import * as api from "@/services/api"
 import { Button } from "@/components/ui/Button/Button"
 import { Input } from "@/components/ui/Input/Input"
@@ -33,12 +34,15 @@ export const DestinationForm: React.FC<DestinationFormProps> = ({
   onCancel,
   onSubmit,
 }) => {
+  const { t } = useTranslation("destinations")
   const [catalog, setCatalog] = useState<DestinationType[]>([])
   const [catalogError, setCatalogError] = useState<string | null>(null)
   const [submitError, setSubmitError] = useState<string | null>(null)
 
   const [name, setName] = useState(destination?.name ?? "")
-  const [kind, setKind] = useState(destination?.kind ?? initialKind ?? "")
+  // TS: `kind` é fixado na criação (escolhido no DestinationTypeGallery antes
+  // deste form) — não há UI de troca aqui, então não existe setter.
+  const [kind] = useState(destination?.kind ?? initialKind ?? "")
   const [enabled, setEnabled] = useState(destination?.enabled ?? true)
   const [config, setConfig] = useState<Record<string, unknown>>(destination?.config ?? {})
   const [delivery, setDelivery] = useState<Record<string, unknown>>(destination?.delivery ?? {})
@@ -52,11 +56,15 @@ export const DestinationForm: React.FC<DestinationFormProps> = ({
         if (!cancelled) setCatalog(types)
       })
       .catch((err) => {
-        if (!cancelled) setCatalogError(err instanceof Error ? err.message : "Falha ao carregar catálogo.")
+        if (!cancelled) setCatalogError(err instanceof Error ? err.message : t("form.catalogErrorFallback"))
       })
     return () => {
       cancelled = true
     }
+    // Carga do catálogo é ÚNICA (uma vez por montagem) — só usa `t` no
+    // fallback de erro, e re-executar a busca a cada troca de idioma não
+    // vale o custo de rede.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const selectedType = useMemo(() => catalog.find((t) => t.kind === kind), [catalog, kind])
@@ -84,17 +92,17 @@ export const DestinationForm: React.FC<DestinationFormProps> = ({
   const optionalSecrets = selectedType?.optional_secrets ?? []
   const secretIsRequired = requiredSecrets.length > 0
   const acceptsSecret = secretIsRequired || optionalSecrets.length > 0
-  const secretLabelName = requiredSecrets[0] ?? optionalSecrets[0] ?? "credencial"
+  const secretLabelName = requiredSecrets[0] ?? optionalSecrets[0] ?? t("form.credentialFallbackName")
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setSubmitError(null)
     if (!name.trim()) {
-      setSubmitError("Informe um nome para o destino.")
+      setSubmitError(t("form.nameRequiredError"))
       return
     }
     if (mode === "create" && !kind) {
-      setSubmitError("Selecione o tipo de destino.")
+      setSubmitError(t("form.kindRequiredError"))
       return
     }
     try {
@@ -119,35 +127,37 @@ export const DestinationForm: React.FC<DestinationFormProps> = ({
         await onSubmit(payload)
       }
     } catch (err) {
-      setSubmitError(err instanceof Error ? err.message : "Falha ao salvar destino.")
+      setSubmitError(err instanceof Error ? err.message : t("form.submitErrorFallback"))
     }
   }
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
       {catalogError && (
-        <Notice variant="danger" title="Catálogo indisponível">
+        <Notice variant="danger" title={t("form.catalogErrorTitle")}>
           {catalogError}
         </Notice>
       )}
       {submitError && (
-        <Notice variant="danger" title="Não foi possível salvar">
+        // R2-8.2: reação direta ao clique em "Salvar"/"Criar destino" — mantém
+        // assertive explícito (o padrão do Notice virou polite).
+        <Notice variant="danger" title={t("form.submitErrorTitle")} live="assertive">
           {submitError}
         </Notice>
       )}
 
       <Input
-        label="Nome *"
+        label={t("form.nameLabel")}
         value={name}
         onChange={(e) => setName(e.target.value)}
         required
-        placeholder="ex.: Splunk SOC produção"
+        placeholder={t("form.namePlaceholder")}
         disabled={loading}
       />
 
       {/* Em modo create o kind vem pré-selecionado pela galeria — exibimos read-only. */}
       <Input
-        label="Tipo de destino"
+        label={t("form.kindLabel")}
         value={selectedType?.label ?? kind}
         disabled
         readOnly
@@ -158,18 +168,14 @@ export const DestinationForm: React.FC<DestinationFormProps> = ({
         <Input
           label={
             mode === "create"
-              ? `Credencial (${secretLabelName})${secretIsRequired ? " *" : ""}`
-              : `Nova credencial (${secretLabelName}). Deixe vazio para manter a atual`
+              ? t("form.credentialLabelCreate", { name: secretLabelName }) + (secretIsRequired ? " *" : "")
+              : t("form.credentialLabelEdit", { name: secretLabelName })
           }
           type="password"
           value={hecToken}
           onChange={(e) => setHecToken(e.target.value)}
-          placeholder={destination?.has_secret ? "•••••••• (configurada)" : "Valor da credencial"}
-          helperText={
-            secretIsRequired
-              ? "Cifrada no cofre. Nunca exibida depois de salvar."
-              : "Opcional. Preencha se o destino exigir autenticação. Cifrada no cofre."
-          }
+          placeholder={destination?.has_secret ? t("form.credentialPlaceholderConfigured") : t("form.credentialPlaceholderEmpty")}
+          helperText={secretIsRequired ? t("form.credentialHelperRequired") : t("form.credentialHelperOptional")}
           disabled={loading}
           autoComplete="new-password"
         />
@@ -178,7 +184,7 @@ export const DestinationForm: React.FC<DestinationFormProps> = ({
       {selectedType && (
         <>
           <fieldset className="space-y-3 rounded-lg border border-border p-4">
-            <legend className="px-1 text-sm font-semibold text-text">Configuração</legend>
+            <legend className="px-1 text-sm font-semibold text-text">{t("form.configLegend")}</legend>
             <JsonSchemaForm
               schema={selectedType.config_schema}
               values={config}
@@ -189,11 +195,8 @@ export const DestinationForm: React.FC<DestinationFormProps> = ({
           </fieldset>
 
           <fieldset className="space-y-3 rounded-lg border border-border p-4">
-            <legend className="px-1 text-sm font-semibold text-text">Entrega</legend>
-            <p className="text-xs text-text-tertiary">
-              Política de entrega (concorrência, controle de vazão, pré-visualização). Limites avançados
-              (circuit breaker, lote) usam os defaults do tipo.
-            </p>
+            <legend className="px-1 text-sm font-semibold text-text">{t("form.deliveryLegend")}</legend>
+            <p className="text-xs text-text-tertiary">{t("form.deliveryHelp")}</p>
             <JsonSchemaForm
               schema={selectedType.delivery_schema}
               values={delivery}
@@ -209,35 +212,32 @@ export const DestinationForm: React.FC<DestinationFormProps> = ({
               EE devolve US$ 0 e o card "Economia estimada" fica em zero sem
               explicação. A config do preço é Community; só a tradução em US$ é EE. */}
           <fieldset className="space-y-3 rounded-lg border border-border p-4">
-            <legend className="px-1 text-sm font-semibold text-text">Custo (FinOps)</legend>
-            <p className="text-xs text-text-tertiary">
-              Preço por GB lógico ingerido neste destino. Usado para traduzir o volume
-              evitado em economia (o cálculo em moeda é Enterprise; o preço é editável aqui).
-            </p>
+            <legend className="px-1 text-sm font-semibold text-text">{t("form.costLegend")}</legend>
+            <p className="text-xs text-text-tertiary">{t("form.costHelp")}</p>
             <div className="flex flex-wrap gap-3">
               <label className="flex flex-col gap-1 text-sm text-text">
-                <span className="text-xs text-text-secondary">Preço por GB</span>
+                <span className="text-xs text-text-secondary">{t("form.costPerGbLabel")}</span>
                 <input
                   type="number"
                   min={0}
                   step="0.01"
-                  className="h-9 w-40 rounded border border-border bg-surface px-2 text-sm text-text"
+                  className="h-9 w-40 rounded border border-border-field bg-surface-tertiary px-2 text-sm text-text transition-colors hover:border-border-field-hover focus-ring"
                   value={costPerGb}
                   onChange={(e) => setCostField("cost_per_gb", e.target.value === "" ? 0 : Number(e.target.value))}
                   disabled={loading}
-                  aria-label="Preço por GB"
+                  aria-label={t("form.costPerGbLabel")}
                 />
               </label>
               <label className="flex flex-col gap-1 text-sm text-text">
-                <span className="text-xs text-text-secondary">Moeda</span>
+                <span className="text-xs text-text-secondary">{t("form.currencyLabel")}</span>
                 <input
                   type="text"
                   maxLength={3}
-                  className="h-9 w-24 rounded border border-border bg-surface px-2 text-sm uppercase text-text"
+                  className="h-9 w-24 rounded border border-border-field bg-surface-tertiary px-2 text-sm uppercase text-text transition-colors hover:border-border-field-hover focus-ring"
                   value={currency}
                   onChange={(e) => setCostField("currency", e.target.value.toUpperCase())}
                   disabled={loading}
-                  aria-label="Moeda"
+                  aria-label={t("form.currencyLabel")}
                 />
               </label>
             </div>
@@ -253,15 +253,15 @@ export const DestinationForm: React.FC<DestinationFormProps> = ({
           className="h-4 w-4 rounded border-border"
           disabled={loading}
         />
-        <span>Habilitado</span>
+        <span>{t("form.enabledLabel")}</span>
       </label>
 
       <div className="flex justify-end gap-3 pt-2">
         <Button type="button" variant="outline" onClick={onCancel} disabled={loading}>
-          Cancelar
+          {t("form.cancel")}
         </Button>
         <Button type="submit" loading={loading}>
-          {mode === "create" ? "Criar destino" : "Salvar alterações"}
+          {mode === "create" ? t("form.createSubmit") : t("form.editSubmit")}
         </Button>
       </div>
     </form>

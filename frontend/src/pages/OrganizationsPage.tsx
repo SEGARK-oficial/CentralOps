@@ -10,8 +10,10 @@ import { Button } from "@/components/ui/Button/Button"
 import { Input } from "@/components/ui/Input/Input"
 import { Card } from "@/components/ui/Card/Card"
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState"
+import { ErrorState } from "@/components/ui/ErrorState"
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner/LoadingSpinner"
 import { Notice } from "@/components/ui/Notice/Notice"
+import { PageHeader } from "@/components/ui/PageHeader/PageHeader"
 import { Badge } from "@/components/ui/Badge/Badge"
 import { Checkbox } from "@/components/ui/Checkbox/Checkbox"
 import { Select } from "@/components/ui/Select/Select"
@@ -101,6 +103,10 @@ const OrganizationsPage: React.FC = () => {
   const loadOrganizations = useCallback(async () => {
     try {
       setLoading(true)
+      // Bug pré-existente: sem isto, um erro antigo nunca era limpo — um
+      // retry bem-sucedido continuava mostrando o Notice de erro por cima
+      // da lista já recarregada.
+      setError(null)
       const rows = await api.listOrganizations({
         name: searchQuery || undefined,
         status: statusFilter,
@@ -109,12 +115,14 @@ const OrganizationsPage: React.FC = () => {
         size: PAGE_SIZE,
       })
       setOrganizations(rows)
-    } catch (err: any) {
-      setError(err.message)
+    } catch (err) {
+      // R4-9.1: `err: any` deixava `err.message` compilar mesmo se `err` não
+      // fosse um `Error` (ex.: throw de string) — sem type-check nenhum.
+      setError(err instanceof Error ? err.message : t("organizations.errors.loadFailedTitle"))
     } finally {
       setLoading(false)
     }
-  }, [searchQuery, statusFilter, autoManagedFilter])
+  }, [searchQuery, statusFilter, autoManagedFilter, t])
 
   useEffect(() => {
     loadOrganizations()
@@ -151,8 +159,8 @@ const OrganizationsPage: React.FC = () => {
       await refreshOrgCount()
       await loadOrganizations()
       await refreshData()
-    } catch (err: any) {
-      setError(err.message)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t("organizations.errors.createFailed"))
     } finally {
       setSaving(false)
     }
@@ -167,8 +175,8 @@ const OrganizationsPage: React.FC = () => {
       await refreshOrgCount()
       await loadOrganizations()
       await refreshData()
-    } catch (err: any) {
-      setError(err.message)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t("organizations.errors.deleteFailed"))
     } finally {
       setDeleteSubmitting(false)
     }
@@ -200,8 +208,8 @@ const OrganizationsPage: React.FC = () => {
       await refreshOrgCount()
       await loadOrganizations()
       await refreshData()
-    } catch (err: any) {
-      setError(err.message)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t("organizations.errors.bulkDeactivateFailed"))
     } finally {
       setBulkSubmitting(false)
     }
@@ -219,29 +227,35 @@ const OrganizationsPage: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-bold text-text">{t("organizations.title")}</h1>
-          {maxOrganizations != null && activeOrgCount != null && (
-            <Badge variant={atOrgLimit ? "warning" : "outline"} size="sm">
-              {activeOrgCount} / {maxOrganizations}{" "}
-              {t("organizations.badge", { count: maxOrganizations })}
-            </Badge>
-          )}
-        </div>
-        <Button
-          onClick={() => setShowForm(!showForm)}
-          leftIcon={<PlusIcon size={16} />}
-          disabled={atOrgLimit}
-          title={
-            atOrgLimit
-              ? t("organizations.limitReachedTitle", { max: maxOrganizations })
-              : undefined
-          }
-        >
-          {t("organizations.newOrganization")}
-        </Button>
-      </div>
+      {/* LAY-31: h1 feito à mão → PageHeader (título aceita ReactNode pra
+          caber o badge de contagem "N / M" ao lado do nome). */}
+      <PageHeader
+        title={
+          <span className="inline-flex items-center gap-3">
+            {t("organizations.title")}
+            {maxOrganizations != null && activeOrgCount != null && (
+              <Badge variant={atOrgLimit ? "warning" : "outline"} size="sm">
+                {activeOrgCount} / {maxOrganizations}{" "}
+                {t("organizations.badge", { count: maxOrganizations })}
+              </Badge>
+            )}
+          </span>
+        }
+        actions={
+          <Button
+            onClick={() => setShowForm(!showForm)}
+            leftIcon={<PlusIcon size={16} />}
+            disabled={atOrgLimit}
+            title={
+              atOrgLimit
+                ? t("organizations.limitReachedTitle", { max: maxOrganizations })
+                : undefined
+            }
+          >
+            {t("organizations.newOrganization")}
+          </Button>
+        }
+      />
 
       {atOrgLimit && (
         <Notice variant="warning" title={t("organizations.limitReachedNotice.title")}>
@@ -249,7 +263,9 @@ const OrganizationsPage: React.FC = () => {
         </Notice>
       )}
 
-      {error && (
+      {error && organizations.length > 0 && (
+        // `error` é compartilhado com create/update/delete — com a lista já
+        // visível, um erro de ação vira Notice dispensável, não tela cheia.
         <Notice
           variant="danger"
           action={
@@ -345,6 +361,11 @@ const OrganizationsPage: React.FC = () => {
 
       {loading ? (
         <LoadingSpinner size="lg" text={t("common:loading")} className="py-20" />
+      ) : error && organizations.length === 0 ? (
+        // Pilar 4: antes o EmptyState "nenhuma organização" aparecia
+        // empilhado com o Notice de erro (que só tinha "fechar", nunca
+        // retry) — mensagem enganosa.
+        <ErrorState title={t("organizations.errors.loadFailedTitle")} message={error} onRetry={() => void loadOrganizations()} />
       ) : organizations.length === 0 ? (
         <EmptyState
           icon={<BuildingIcon size={48} />}

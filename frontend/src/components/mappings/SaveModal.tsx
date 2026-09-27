@@ -122,7 +122,8 @@ export const SaveModal: React.FC<SaveModalProps> = ({
           )}
 
           {saveError && (
-            <Notice variant="danger" title={t("saveModal.saveErrorTitle")}>
+            // R2-8.2: reage ao clique em "Salvar" — precisa interromper o leitor de tela.
+            <Notice variant="danger" title={t("saveModal.saveErrorTitle")} live="assertive">
               {saveError}
             </Notice>
           )}

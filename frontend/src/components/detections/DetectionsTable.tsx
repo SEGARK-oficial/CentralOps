@@ -1,11 +1,14 @@
 "use client"
 
 import type React from "react"
+import { useId, useMemo } from "react"
+import { useTranslation } from "react-i18next"
 import { ShieldAlertIcon } from "lucide-react"
 import { Badge } from "@/components/ui/Badge/Badge"
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState"
-import LoadingSpinner from "@/components/ui/LoadingSpinner/LoadingSpinner"
-import type { DetectionRead, DetectionSource, DetectionStatus } from "@/types"
+import { DataTable } from "@/components/ui/DataTable/DataTable"
+import { detectionSeverityEncoding } from "@/lib/severity"
+import type { DetectionRead, DetectionSource, DetectionStatus, TableColumn } from "@/types"
 import { formatDate } from "@/lib/utils"
 
 interface DetectionsTableProps {
@@ -14,196 +17,213 @@ interface DetectionsTableProps {
   onRowClick: (detection: DetectionRead) => void
 }
 
+// R2-5.3: acima disto a lista virtualiza via DataTable (useDetections pede
+// até 200 linhas por vez). Abaixo, tudo no DOM.
+const VIRTUALIZE_THRESHOLD = 60
+const MAX_HEIGHT_PX = 560
+
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-type BadgeVariant = "default" | "primary" | "success" | "warning" | "danger" | "outline"
+type TFn = ReturnType<typeof useTranslation>["t"]
 
-function severityBadgeVariant(severityId: number): BadgeVariant {
-  if (severityId <= 2) return "default"   // Informational / Low (OCSF 1-2)
-  if (severityId === 3) return "primary"  // Medium (OCSF 3 = baixa/low)
-  if (severityId === 4) return "warning"  // High (OCSF 4)
-  return "danger"                          // Critical / Fatal (OCSF 5-6)
-}
-
-function severityLabel(severityId: number): string {
-  switch (severityId) {
-    case 1: return "Informacional"
-    case 2: return "Baixa"
-    case 3: return "Média"
-    case 4: return "Alta"
-    case 5: return "Crítica"
-    case 6: return "Fatal"
-    default: return `Sev ${severityId}`
-  }
-}
-
-function sourceLabel(source: DetectionSource): string {
+function sourceLabelKey(source: DetectionSource): string {
   switch (source) {
-    case "scheduled_query": return "Query agendada"
-    case "live_query": return "Query live"
-    case "correlation": return "Correlação"
-    default: return source
+    case "scheduled_query":
+      return "detections:list.source.scheduled_query"
+    case "live_query":
+      return "detections:list.source.live_query"
+    case "correlation":
+      return "detections:list.source.correlation"
+    default:
+      return source
   }
 }
 
-function statusBadgeVariant(status: DetectionStatus): BadgeVariant {
+function statusBadgeVariant(status: DetectionStatus): "default" | "warning" | "success" {
   switch (status) {
-    case "open": return "danger"
-    case "ack": return "warning"
-    case "closed": return "success"
-    default: return "default"
+    case "open":
+      return "warning"
+    case "ack":
+      return "default"
+    case "closed":
+      return "success"
+    default:
+      return "default"
   }
 }
 
-function statusLabel(status: DetectionStatus): string {
+function statusLabelKey(status: DetectionStatus): string {
   switch (status) {
-    case "open": return "Aberta"
-    case "ack": return "Reconhecida"
-    case "closed": return "Fechada"
-    default: return status
+    case "open":
+      return "detections:list.statusSingular.open"
+    case "ack":
+      return "detections:list.statusSingular.ack"
+    case "closed":
+      return "detections:list.statusSingular.closed"
+    default:
+      return status
   }
 }
 
-// ── Classes ───────────────────────────────────────────────────────────────────
+function DetectionSeverityBadge({ severityId }: { severityId: number }) {
+  const { t } = useTranslation()
+  const enc = detectionSeverityEncoding(severityId)
+  return (
+    <Badge variant={enc.badgeVariant} size="sm">
+      {t(enc.labelKey, enc.labelParams)}
+    </Badge>
+  )
+}
 
-const thCls = "px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-text-secondary"
-const tdCls = "px-4 py-3 text-sm align-top"
+function DetectionRuleButton({ detection, t, onRowClick }: { detection: DetectionRead; t: TFn; onRowClick: (d: DetectionRead) => void }) {
+  return (
+    // A11Y-14: a linha é um <tr> comum do DataTable (a semântica de linha de
+    // tabela não é apagada por um role de botão que não existe em HTML), e só
+    // a célula da regra — que é o alvo natural do clique — vira <button>.
+    // `focus-ring`: mesma estratégia de foco do design system em toda a app.
+    <button
+      type="button"
+      className="max-w-[280px] space-y-0.5 rounded text-left focus-ring"
+      aria-label={t("detections:list.table.rowAriaLabel", { name: detection.rule_name || detection.dedup_key })}
+      onClick={() => onRowClick(detection)}
+    >
+      <div className="truncate font-medium text-text" title={detection.rule_name ?? undefined}>
+        {detection.rule_name || "-"}
+      </div>
+      {detection.rule_id && <div className="font-mono text-xs text-text-tertiary">{detection.rule_id}</div>}
+    </button>
+  )
+}
+
+/**
+ * Cartão mobile — R2-5.3 (item BAIXA): `aria-describedby` em vez de um
+ * `aria-label` só, que amontoava fonte+status+contagem+data numa frase só
+ * traduzida. Nome acessível vem do TÍTULO de verdade (`aria-labelledby`); o
+ * resto (fonte, severidade, status, contagem, última vez) é DESCRIÇÃO
+ * (`aria-describedby`, múltiplos ids) — a mesma informação visível, sem
+ * reconstruir uma frase à parte pro leitor de tela.
+ */
+function DetectionMobileCard({ detection, t, onRowClick }: { detection: DetectionRead; t: TFn; onRowClick: (d: DetectionRead) => void }) {
+  const titleId = useId()
+  const sourceId = useId()
+  const severityId = useId()
+  const metaId = useId()
+  return (
+    <button
+      type="button"
+      className="w-full rounded-xl border border-border bg-surface p-4 text-left transition-colors hover:bg-surface-tertiary/40 focus-ring"
+      aria-labelledby={titleId}
+      aria-describedby={`${sourceId} ${severityId} ${metaId}`}
+      onClick={() => onRowClick(detection)}
+    >
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <div id={titleId} className="truncate font-semibold text-text" title={detection.rule_name ?? undefined}>
+            {detection.rule_name || detection.dedup_key}
+          </div>
+          <div id={sourceId} className="mt-0.5 text-xs text-text-secondary">
+            {t(sourceLabelKey(detection.source))}
+          </div>
+        </div>
+        <span id={severityId}>
+          <DetectionSeverityBadge severityId={detection.severity_id} />
+        </span>
+      </div>
+      <div id={metaId} className="mt-3 flex flex-wrap items-center gap-2">
+        <Badge variant={statusBadgeVariant(detection.status)} size="sm">
+          {t(statusLabelKey(detection.status))}
+        </Badge>
+        <span className="font-mono text-xs tabular-nums text-text-tertiary">
+          {t("detections:list.table.occurrenceCount", { count: detection.count ?? 1 })}
+        </span>
+        {detection.last_seen && (
+          <span className="text-xs text-text-tertiary">
+            {t("detections:list.table.lastSeenLabel", { date: formatDate(detection.last_seen) })}
+          </span>
+        )}
+      </div>
+    </button>
+  )
+}
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export const DetectionsTable: React.FC<DetectionsTableProps> = ({
-  detections,
-  loading = false,
-  onRowClick,
-}) => {
-  if (loading) {
-    return (
-      <div className="flex min-h-[240px] items-center justify-center">
-        <LoadingSpinner size="lg" text="Carregando detecções..." />
-      </div>
-    )
-  }
+export const DetectionsTable: React.FC<DetectionsTableProps> = ({ detections, loading = false, onRowClick }) => {
+  const { t } = useTranslation("detections")
 
-  if (detections.length === 0) {
+  const columns: TableColumn<DetectionRead>[] = useMemo(
+    () => [
+      {
+        key: "severity",
+        title: t("detections:list.table.columns.severity"),
+        dataIndex: "severity_id",
+        className: "whitespace-nowrap",
+        render: (_v, d) => <DetectionSeverityBadge severityId={d.severity_id} />,
+      },
+      {
+        key: "source",
+        title: t("detections:list.table.columns.source"),
+        dataIndex: "source",
+        render: (_v, d) => <span className="text-text-secondary">{t(sourceLabelKey(d.source))}</span>,
+      },
+      {
+        key: "rule",
+        title: t("detections:list.table.columns.rule"),
+        dataIndex: "rule_name",
+        render: (_v, d) => <DetectionRuleButton detection={d} t={t} onRowClick={onRowClick} />,
+      },
+      {
+        key: "status",
+        title: t("detections:list.table.columns.status"),
+        dataIndex: "status",
+        className: "whitespace-nowrap",
+        render: (_v, d) => (
+          <Badge variant={statusBadgeVariant(d.status)} size="sm">
+            {t(statusLabelKey(d.status))}
+          </Badge>
+        ),
+      },
+      {
+        key: "occurrences",
+        title: t("detections:list.table.columns.occurrences"),
+        dataIndex: "count",
+        align: "right",
+        render: (_v, d) => d.count ?? 1,
+      },
+      {
+        key: "lastSeen",
+        title: t("detections:list.table.columns.lastSeen"),
+        dataIndex: "last_seen",
+        className: "whitespace-nowrap",
+        render: (_v, d) => (d.last_seen ? formatDate(d.last_seen) : "-"),
+      },
+    ],
+    [t, onRowClick],
+  )
+
+  if (!loading && detections.length === 0) {
     return (
       <EmptyState
         icon={<ShieldAlertIcon size={48} />}
-        title="Nenhuma detecção encontrada"
-        description="Ajuste o filtro de status ou aguarde novas detecções das queries agendadas e regras de correlação."
+        title={t("detections:list.table.emptyTitle")}
+        description={t("detections:list.table.emptyDescription")}
       />
     )
   }
 
   return (
-    <div className="space-y-4">
-      {/* Desktop: tabela com rolagem horizontal segura */}
-      <div className="hidden overflow-hidden rounded-xl border border-border md:block">
-        <div className="overflow-x-auto">
-          <table
-            className="w-full min-w-[860px] text-sm"
-            role="table"
-            aria-label="Lista de detecções"
-          >
-            <thead className="bg-surface-tertiary">
-              <tr className="border-b border-border">
-                <th scope="col" className={`${thCls} whitespace-nowrap`}>Severidade</th>
-                <th scope="col" className={thCls}>Fonte</th>
-                <th scope="col" className={thCls}>Regra</th>
-                <th scope="col" className={`${thCls} whitespace-nowrap`}>Status</th>
-                <th scope="col" className={`${thCls} text-right whitespace-nowrap`}>Ocorrências</th>
-                <th scope="col" className={`${thCls} whitespace-nowrap`}>Última vez vista</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border bg-surface">
-              {detections.map((detection) => (
-                <tr
-                  key={detection.id}
-                  className="cursor-pointer transition-colors hover:bg-surface-tertiary/40 focus-visible:bg-surface-tertiary/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary-500/40"
-                  role="button"
-                  tabIndex={0}
-                  aria-label={`Ver detalhes da detecção ${detection.rule_name || detection.dedup_key}`}
-                  onClick={() => onRowClick(detection)}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter" || event.key === " ") {
-                      event.preventDefault()
-                      onRowClick(detection)
-                    }
-                  }}
-                >
-                  <td className={tdCls}>
-                    <Badge variant={severityBadgeVariant(detection.severity_id)} size="sm">
-                      {severityLabel(detection.severity_id)}
-                    </Badge>
-                  </td>
-                  <td className={tdCls}>
-                    <span className="text-text-secondary">{sourceLabel(detection.source)}</span>
-                  </td>
-                  <td className={tdCls}>
-                    <div className="max-w-[280px] space-y-0.5">
-                      <div className="truncate font-medium text-text" title={detection.rule_name ?? undefined}>
-                        {detection.rule_name || "-"}
-                      </div>
-                      {detection.rule_id && (
-                        <div className="font-mono text-xs text-text-tertiary">{detection.rule_id}</div>
-                      )}
-                    </div>
-                  </td>
-                  <td className={tdCls}>
-                    <Badge variant={statusBadgeVariant(detection.status)} size="sm">
-                      {statusLabel(detection.status)}
-                    </Badge>
-                  </td>
-                  <td className={`${tdCls} text-right font-semibold text-text`}>
-                    {detection.count ?? 1}
-                  </td>
-                  <td className={`${tdCls} whitespace-nowrap text-xs text-text-secondary`}>
-                    {detection.last_seen ? formatDate(detection.last_seen) : "-"}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* Mobile: cartões */}
-      <div className="space-y-3 md:hidden">
-        {detections.map((detection) => (
-          <button
-            key={detection.id}
-            type="button"
-            className="w-full rounded-xl border border-border bg-surface p-4 text-left transition-colors hover:bg-surface-tertiary/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
-            aria-label={`Ver detalhes da detecção ${detection.rule_name || detection.dedup_key}`}
-            onClick={() => onRowClick(detection)}
-          >
-            <div className="flex items-start justify-between gap-2">
-              <div className="min-w-0">
-                <div className="truncate font-semibold text-text" title={detection.rule_name ?? undefined}>
-                  {detection.rule_name || detection.dedup_key}
-                </div>
-                <div className="mt-0.5 text-xs text-text-secondary">{sourceLabel(detection.source)}</div>
-              </div>
-              <Badge variant={severityBadgeVariant(detection.severity_id)} size="sm">
-                {severityLabel(detection.severity_id)}
-              </Badge>
-            </div>
-            <div className="mt-3 flex flex-wrap items-center gap-2">
-              <Badge variant={statusBadgeVariant(detection.status)} size="sm">
-                {statusLabel(detection.status)}
-              </Badge>
-              <span className="text-xs text-text-tertiary">
-                {detection.count ?? 1} ocorrência(s)
-              </span>
-              {detection.last_seen && (
-                <span className="text-xs text-text-tertiary">
-                  Última: {formatDate(detection.last_seen)}
-                </span>
-              )}
-            </div>
-          </button>
-        ))}
-      </div>
-    </div>
+    <DataTable<DetectionRead>
+      data={detections}
+      columns={columns}
+      loading={loading}
+      rowKey="id"
+      virtualizeRows={detections.length > VIRTUALIZE_THRESHOLD}
+      maxHeight={MAX_HEIGHT_PX}
+      tableClassName="min-w-[860px]"
+      tableAriaLabel={t("detections:list.table.ariaLabel")}
+      emptyMessage={t("detections:list.table.emptyTitle")}
+      renderMobileCard={(d) => <DetectionMobileCard detection={d} t={t} onRowClick={onRowClick} />}
+    />
   )
 }
 

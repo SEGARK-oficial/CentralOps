@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Trans, useTranslation } from "react-i18next"
 import {
   AlertTriangleIcon,
@@ -31,6 +31,7 @@ import { Button } from "@/components/ui/Button/Button"
 import { Card } from "@/components/ui/Card/Card"
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog/ConfirmDialog"
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState"
+import { ErrorState } from "@/components/ui/ErrorState"
 import { Input } from "@/components/ui/Input/Input"
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner/LoadingSpinner"
 import { Modal } from "@/components/ui/Modal/Modal"
@@ -124,6 +125,10 @@ export const ServiceAccountsPage: React.FC = () => {
     null,
   )
   const [busyId, setBusyId] = useState<number | null>(null)
+  // `refetch` também roda pra REFRESCAR após criar/editar/desativar — se já
+  // havia lista na tela, uma falha nesse refresh vira toast (`feedback`),
+  // não substitui o conteúdo por um ErrorState de página inteira.
+  const hasLoadedRef = useRef(false)
 
   const refetch = useCallback(async () => {
     setLoading(true)
@@ -131,8 +136,14 @@ export const ServiceAccountsPage: React.FC = () => {
     try {
       const data = await api.listServiceAccounts({ include_inactive: true })
       setAccounts(data)
+      hasLoadedRef.current = true
     } catch (e) {
-      setError(e instanceof Error ? e.message : t("serviceAccounts.feedback.listFailed"))
+      const message = e instanceof Error ? e.message : t("serviceAccounts.feedback.listFailed")
+      if (hasLoadedRef.current) {
+        setFeedback({ type: "error", message })
+      } else {
+        setError(message)
+      }
     } finally {
       setLoading(false)
     }
@@ -207,13 +218,14 @@ export const ServiceAccountsPage: React.FC = () => {
 
       {feedback && (
         <Notice
-          variant={feedback.type === "success" ? "success" : "danger"}
+          variant={feedback.type === "success" ? "success" : "danger"} live={feedback.type === "error" ? "assertive" : undefined}
           action={
             <button
               type="button"
               onClick={() => setFeedback(null)}
               aria-label={t("serviceAccounts.closeAriaLabel")}
-              className="rounded p-0.5 opacity-70 transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-primary-500"
+              // A11Y-20: alvo de ~18px (16px do ícone + 2px de padding).
+              className="flex h-6 w-6 items-center justify-center rounded opacity-70 transition-opacity hover:opacity-100 focus-ring"
             >
               <XIcon size={16} />
             </button>
@@ -222,8 +234,6 @@ export const ServiceAccountsPage: React.FC = () => {
           {feedback.message}
         </Notice>
       )}
-
-      {error && <Notice variant="danger">{error}</Notice>}
 
       <Card>
         <div className="flex items-center justify-between border-b px-4 py-3">
@@ -239,6 +249,11 @@ export const ServiceAccountsPage: React.FC = () => {
           <div className="flex justify-center py-12">
             <LoadingSpinner />
           </div>
+        ) : error ? (
+          // Pilar 4: o Notice de erro ficava empilhado ACIMA do EmptyState
+          // "crie sua primeira service account" — as duas mensagens
+          // competiam, e nenhuma tinha como agir.
+          <ErrorState title={t("serviceAccounts.feedback.listFailed")} message={error} onRetry={() => void refetch()} />
         ) : accounts.length === 0 ? (
           <EmptyState
             icon={<BotIcon size={32} />}
@@ -625,7 +640,7 @@ const CreateServiceAccountModal: React.FC<CreateSaModalProps> = ({
             id="create-sa-role"
             value={role}
             onChange={(e) => setRole(e.target.value as ServiceAccount["role"])}
-            className="mt-1 block w-full rounded-md border border-border bg-bg px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+            className="mt-1 block w-full rounded-md border border-border-field bg-bg px-3 py-2 text-sm transition-colors hover:border-border-field-hover focus-ring"
           >
             {ROLE_OPTIONS.map((r) => (
               <option key={r} value={r}>
@@ -874,12 +889,19 @@ const ServiceAccountTokensModal: React.FC<SaTokensModalProps> = ({
             </Button>
           </div>
 
-          {error && <Notice variant="danger">{error}</Notice>}
-
           {loading ? (
             <div className="flex justify-center py-6">
               <LoadingSpinner />
             </div>
+          ) : error && tokens.length === 0 ? (
+            // `error` também é usado por uma REVOGAÇÃO que falha — se ainda
+            // há tokens na tela (revoke error com lista não-vazia), isso vira
+            // Notice logo abaixo, não substitui a tabela por um ErrorState.
+            <ErrorState
+              title={t("serviceAccounts.tokensModal.errors.listFailed")}
+              message={error}
+              onRetry={() => void refetch()}
+            />
           ) : tokens.length === 0 ? (
             <EmptyState
               icon={<KeyIcon size={48} />}
@@ -887,6 +909,19 @@ const ServiceAccountTokensModal: React.FC<SaTokensModalProps> = ({
               description={t("serviceAccounts.tokensModal.empty.description")}
             />
           ) : (
+            <>
+              {error && (
+                <Notice
+                  variant="danger"
+                  action={
+                    <Button variant="outline" size="sm" onClick={() => void refetch()}>
+                      {t("common:actions.retry")}
+                    </Button>
+                  }
+                >
+                  {error}
+                </Notice>
+              )}
             <div className="overflow-x-auto">
               <table
                 className="w-full min-w-[560px] text-sm"
@@ -963,6 +998,7 @@ const ServiceAccountTokensModal: React.FC<SaTokensModalProps> = ({
                 </tbody>
               </table>
             </div>
+            </>
           )}
         </div>
       </Modal>

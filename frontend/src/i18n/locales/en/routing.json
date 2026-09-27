@@ -46,6 +46,14 @@
     "systemRouteTitle": "Protected system route",
     "systemRouteNotReorderable": "System route, not reorderable",
     "reorderRouteAria": "Reorder route {{name}}. Press space and use the arrow keys",
+    "dnd": {
+      "pickedUp": "Route {{name}} picked up for reordering. Position {{position}} of {{total}}.",
+      "movedOver": "Route {{name}} moved to position {{position}} of {{total}}, over {{overName}}.",
+      "movedNoTarget": "Route {{name}} has no drop target right now.",
+      "dropped": "Route {{name}} dropped at position {{position}} of {{total}}.",
+      "droppedNoTarget": "Route {{name}} dropped without changing position.",
+      "cancelled": "Reordering of route {{name}} was cancelled."
+    },
     "selectRouteAria": "Select route {{name}}",
     "systemBadge": "system",
     "finalBadge": "final",
@@ -312,12 +320,15 @@
   "conditionEditor": {
     "noConditions": "With no conditions, the rule matches every event.",
     "fieldLabel": "Field",
+    "fieldSelectAria": "Condition {{index}} field",
     "opLabel": "Op",
-    "opSelectAriaLabel": "Condition operator",
+    "opSelectAriaLabel": "Condition {{index}} operator",
     "valueLabel": "Value",
+    "valueSelectAria": "Condition {{index}} value",
+    "valueInputAria": "Condition {{index}} value",
     "valueListPlaceholder": "a,b,c",
     "valuePlaceholder": "value",
-    "removeConditionAria": "Remove condition",
+    "removeConditionAria": "Remove condition {{index}}",
     "addCondition": "Add condition"
   },
   "routeForm": {

@@ -9,8 +9,13 @@ import { Textarea } from "@/components/ui/Textarea/Textarea"
 import { Notice } from "@/components/ui/Notice/Notice"
 import { JsonSchemaForm } from "@/components/destinations/JsonSchemaForm"
 import { usePlatform } from "@/contexts/PlatformContext"
+import { useFirstInvalidFocus } from "@/hooks/useFirstInvalidFocus"
 import * as api from "@/services/api"
 import type { EnricherCatalogItem, EnrichmentSource } from "@/services/api"
+
+// `Select` não encaminha `ref` — id explícito p/ focar o trigger via
+// `document.getElementById` (ver mesmo padrão em CreatePolicyModal).
+const ORG_SELECT_ID = "source-form-org"
 
 interface SourceFormModalProps {
   open: boolean
@@ -61,7 +66,10 @@ export const SourceFormModal: React.FC<SourceFormModalProps> = ({
   const [organizationId, setOrganizationId] = useState<number | null>(selectedOrgId)
   const [sharedIds, setSharedIds] = useState<number[]>([])
   const [submitting, setSubmitting] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const errorId = "source-form-modal-error"
+  const { error, errorField, registerField, failField, failGeneral, clearError } = useFirstInvalidFocus<
+    "name" | "organizationId" | "secret" | "egressAck"
+  >()
   const [testing, setTesting] = useState(false)
   const [testResult, setTestResult] = useState<api.EnrichmentSourceTestResult | null>(null)
   const [egressAck, setEgressAck] = useState(false)
@@ -71,7 +79,7 @@ export const SourceFormModal: React.FC<SourceFormModalProps> = ({
   // digitado a cada refresh.
   useEffect(() => {
     if (!open) return
-    setError(null)
+    clearError()
     setSecret("")
     if (source) {
       setName(source.name)
@@ -93,6 +101,9 @@ export const SourceFormModal: React.FC<SourceFormModalProps> = ({
     }
     setTestResult(null)
     setEgressAck(source != null)
+    // Só reseta o form ao ABRIR o modal ou trocar de fonte editada (por id) —
+    // `enrichers`/`selectedOrgId`/`preselectEnricher` mudando com o modal já
+    // aberto não deve apagar o que o operador está digitando.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, source?.id])
 
@@ -124,23 +135,24 @@ export const SourceFormModal: React.FC<SourceFormModalProps> = ({
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!name.trim()) {
-      setError(t("sources.form.nameRequired"))
+      failField("name", t("sources.form.nameRequired"))
       return
     }
     if (organizationId == null) {
-      setError(t("sources.form.organizationRequired"))
+      failField("organizationId", t("sources.form.organizationRequired"))
+      document.getElementById(ORG_SELECT_ID)?.focus()
       return
     }
     if (!isEdit && needsSecret && !secret.trim()) {
-      setError(t("sources.form.secretRequired"))
+      failField("secret", t("sources.form.secretRequired"))
       return
     }
     if (sendsToThirdParty && !egressAck) {
-      setError(t("sources.form.egressRequired"))
+      failField("egressAck", t("sources.form.egressRequired"))
       return
     }
     setSubmitting(true)
-    setError(null)
+    clearError()
     try {
       const saved = isEdit
         ? await api.updateEnrichmentSource(source!.id, {
@@ -164,7 +176,7 @@ export const SourceFormModal: React.FC<SourceFormModalProps> = ({
       setSecret("")
       onSaved(saved)
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err))
+      failGeneral(err instanceof Error ? err.message : String(err))
     } finally {
       setSubmitting(false)
     }
@@ -184,19 +196,22 @@ export const SourceFormModal: React.FC<SourceFormModalProps> = ({
       size="lg"
     >
       <form onSubmit={handleSubmit} className="space-y-4" noValidate>
-        {error && <Notice variant="danger" title={error} />}
+        {error && <Notice id={errorId} variant="danger" title={error} live="assertive" />}
 
         {!isEdit && (
           <Select
+            id={ORG_SELECT_ID}
             label={t("tables.form.organization")}
             value={organizationId ?? ""}
             onValueChange={(v) => setOrganizationId(v === "" ? null : Number(v))}
             options={orgOptions}
             placeholder={t("tables.form.organizationPlaceholder")}
+            error={errorField === "organizationId" ? error ?? undefined : undefined}
           />
         )}
 
         <Input
+          ref={registerField("name")}
           label={t("sources.form.name")}
           value={name}
           onChange={(e) => setName(e.target.value)}
@@ -204,6 +219,8 @@ export const SourceFormModal: React.FC<SourceFormModalProps> = ({
           required
           placeholder="opencti-interno"
           helperText={isEdit ? t("sources.form.nameImmutable") : undefined}
+          aria-invalid={errorField === "name" ? "true" : undefined}
+          aria-describedby={errorField === "name" ? errorId : undefined}
         />
 
         <Select
@@ -223,7 +240,7 @@ export const SourceFormModal: React.FC<SourceFormModalProps> = ({
 
         {selected?.config_schema ? (
           <fieldset className="space-y-3 rounded-lg border border-border p-4">
-            <legend className="px-1 text-xs font-semibold uppercase tracking-wide text-muted">
+            <legend className="px-1 text-xs font-semibold uppercase tracking-wide text-text-tertiary">
               {t("sources.form.configLegend")}
             </legend>
             <JsonSchemaForm
@@ -238,11 +255,14 @@ export const SourceFormModal: React.FC<SourceFormModalProps> = ({
 
         {needsSecret && (
           <Input
+            ref={registerField("secret")}
             label={t("sources.form.secret")}
             type="password"
             value={secret}
             onChange={(e) => setSecret(e.target.value)}
-            autoComplete="off"
+            // SEC-02/SEC-10: ver comentário equivalente em EnrichmentConfigForm —
+            // `off` não impede autofill em campo de senha nos navegadores.
+            autoComplete="new-password"
             placeholder={
               isEdit && source?.secret_configured
                 ? t("sources.form.secretKeepPlaceholder")
@@ -251,6 +271,8 @@ export const SourceFormModal: React.FC<SourceFormModalProps> = ({
             helperText={t("sources.form.secretHint", {
               names: (selected?.required_secrets ?? []).join(", "),
             })}
+            aria-invalid={errorField === "secret" ? "true" : undefined}
+            aria-describedby={errorField === "secret" ? errorId : undefined}
           />
         )}
 
@@ -263,16 +285,19 @@ export const SourceFormModal: React.FC<SourceFormModalProps> = ({
             data-testid="egress-ack"
           >
             <input
+              ref={registerField("egressAck")}
               type="checkbox"
               className="mt-0.5"
               checked={egressAck}
               onChange={(e) => setEgressAck(e.target.checked)}
+              aria-invalid={errorField === "egressAck" ? "true" : undefined}
+              aria-describedby={errorField === "egressAck" ? errorId : undefined}
             />
             <span>
               <span className="block text-sm font-medium">
                 {t("sources.form.egressAck", { name: selected?.label ?? enricher })}
               </span>
-              <span className="mt-0.5 block text-xs text-muted">
+              <span className="mt-0.5 block text-xs text-text-tertiary">
                 {t("sources.form.egressAckHint", {
                   kinds: (selected?.key_kinds ?? []).join(", "),
                 })}
@@ -285,10 +310,10 @@ export const SourceFormModal: React.FC<SourceFormModalProps> = ({
             visível, e o backend recusa a lista sem a edição Enterprise. */}
         {(orgsProp?.length ?? 0) > 1 && organizationId != null && (
           <fieldset className="space-y-2 rounded-lg border border-border p-4">
-            <legend className="px-1 text-xs font-semibold uppercase tracking-wide text-muted">
+            <legend className="px-1 text-xs font-semibold uppercase tracking-wide text-text-tertiary">
               {t("sources.form.sharedOrgs")}
             </legend>
-            <p className="text-xs text-muted">{t("sources.form.sharedOrgsHint")}</p>
+            <p className="text-xs text-text-tertiary">{t("sources.form.sharedOrgsHint")}</p>
             <div className="grid gap-1.5 sm:grid-cols-2">
               {(orgsProp ?? [])
                 .filter((o) => o.id !== organizationId)
@@ -319,7 +344,7 @@ export const SourceFormModal: React.FC<SourceFormModalProps> = ({
         {(
           <div className="space-y-2 rounded-lg border border-border p-4">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold uppercase tracking-wide text-muted">
+              <span className="text-xs font-semibold uppercase tracking-wide text-text-tertiary">
                 {t("sources.test.title")}
               </span>
               <Button
@@ -361,7 +386,7 @@ export const SourceFormModal: React.FC<SourceFormModalProps> = ({
                 {t("sources.test.run")}
               </Button>
             </div>
-            <p className="text-xs text-muted">
+            <p className="text-xs text-text-tertiary">
               {isEdit && !secret.trim()
                 ? t("sources.test.hint")
                 : t("sources.test.hintDraft")}

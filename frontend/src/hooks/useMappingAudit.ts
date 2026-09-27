@@ -73,6 +73,9 @@ export function useMappingAudit(id: string, params?: AuditParams): UseMappingAud
       })
 
     return () => controller.abort()
+    // `paramsKey` (JSON.stringify de `params`) é o proxy estável do objeto —
+    // evita reexecutar quando o caller passa um literal novo com o mesmo
+    // conteúdo a cada render.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, paramsKey])
 

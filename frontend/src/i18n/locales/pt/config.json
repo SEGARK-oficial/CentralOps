@@ -112,6 +112,9 @@
         "title": "Bases GeoIP",
         "description": "As bases não acompanham o produto (licença do fornecedor). O diretório é montado no deploy; aqui só aparece o que existe nele.",
         "empty": "Nenhuma base encontrada neste diretório."
+      },
+      "validation": {
+        "outOfRange": "Informe um valor entre {{low}} e {{high}}."
       }
     },
     "mcp": {
@@ -236,6 +239,11 @@
       "deleteTitle": "Remover destinatário",
       "deleteDescriptionPrefix": "Tem certeza que deseja remover",
       "deleteDescriptionSuffix": "? Este email deixará de receber alertas e resultados de execuções agendadas."
+    },
+    "validation": {
+      "hostRequired": "Informe o host SMTP.",
+      "portInvalid": "Informe uma porta válida (1-65535).",
+      "senderRequired": "Informe o remetente."
     }
   },
   "collector": {
@@ -338,6 +346,7 @@
     "roleMapInvalid": "JSON inválido: {{message}}",
     "roleMapInvalidNotObject": "deve ser um objeto JSON",
     "roleMapInvalidGeneric": "verifique a sintaxe",
+    "postLoginRedirectInvalid": "Deve ser um caminho interno começando com \"/\" (sem \"//\" nem \"\\\\\", sem outro domínio)",
     "defaultButtonLabel": "Entrar com Microsoft",
     "saveConfig": "Salvar configuração",
     "testConnection": "Testar conexão",
@@ -613,7 +622,8 @@
       "emptyTitle": "Nenhum backfill executado ainda",
       "emptyDescription": "Use o botão 'Novo backfill' para iniciar uma coleta histórica controlada.",
       "cancelError": "Erro ao cancelar backfill.",
-      "cancelErrorTitle": "Erro ao cancelar"
+      "cancelErrorTitle": "Erro ao cancelar",
+      "showingTotal": "Exibindo {{count}} de {{total}}"
     },
     "cancelDialog": {
       "title": "Cancelar backfill",
@@ -696,5 +706,29 @@
     "saveConfig": "Salvar configuração",
     "saved": "Configuração salva. Vale na próxima requisição.",
     "saveError": "Falha ao salvar a configuração do MCP"
+  },
+  "collectorConfigHook": {
+    "loadErrorFallback": "Falha ao carregar configuração",
+    "saveErrorFallback": "Falha ao salvar configuração",
+    "saveSuccess": "Configuração salva. Workers refletirão em até 30s."
+  },
+  "emailConfigHook": {
+    "loadErrorFallback": "Falha ao carregar configuração",
+    "saveErrorFallback": "Falha ao salvar configuração de email",
+    "saveSuccess": "Configurações de email salvas com sucesso.",
+    "addRecipientErrorFallback": "Falha ao adicionar destinatário",
+    "addRecipientSuccess": "Destinatário {{email}} adicionado.",
+    "removeRecipientErrorFallback": "Falha ao remover destinatário",
+    "removeRecipientSuccess": "Destinatário removido com sucesso.",
+    "sendTestErrorFallback": "Falha ao enviar email de teste"
+  },
+  "identityConfigHook": {
+    "loadError": "Falha ao carregar configuração de identidade",
+    "saveSuccess": "Configuração salva. Vale no próximo login.",
+    "saveError": "Falha ao salvar",
+    "testError": "Falha ao testar conexão"
+  },
+  "entraSyncHook": {
+    "triggerError": "Falha ao disparar sincronização"
   }
 }

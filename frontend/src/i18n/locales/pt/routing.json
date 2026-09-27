@@ -47,6 +47,14 @@
     "systemRouteNotReorderable": "Rota de sistema, não reordenável",
     "reorderRouteAria": "Reordenar rota {{name}}. Pressione espaço e use as setas",
     "selectRouteAria": "Selecionar rota {{name}}",
+    "dnd": {
+      "pickedUp": "Rota {{name}} selecionada para reordenar. Posição {{position}} de {{total}}.",
+      "movedOver": "Rota {{name}} movida para a posição {{position}} de {{total}}, sobre {{overName}}.",
+      "movedNoTarget": "Rota {{name}} sem posição de destino no momento.",
+      "dropped": "Rota {{name}} solta na posição {{position}} de {{total}}.",
+      "droppedNoTarget": "Rota {{name}} solta sem mudar de posição.",
+      "cancelled": "Reordenação da rota {{name}} cancelada."
+    },
     "systemBadge": "sistema",
     "finalBadge": "final",
     "cloneBadge": "clona",
@@ -312,12 +320,15 @@
   "conditionEditor": {
     "noConditions": "Sem condições, a regra casa com todos os eventos.",
     "fieldLabel": "Campo",
+    "fieldSelectAria": "Campo da condição {{index}}",
     "opLabel": "Op",
-    "opSelectAriaLabel": "Operador da condição",
+    "opSelectAriaLabel": "Operador da condição {{index}}",
     "valueLabel": "Valor",
+    "valueSelectAria": "Valor da condição {{index}}",
+    "valueInputAria": "Valor da condição {{index}}",
     "valueListPlaceholder": "a,b,c",
     "valuePlaceholder": "valor",
-    "removeConditionAria": "Remover condição",
+    "removeConditionAria": "Remover condição {{index}}",
     "addCondition": "Adicionar condição"
   },
   "routeForm": {

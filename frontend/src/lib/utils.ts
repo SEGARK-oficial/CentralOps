@@ -1,19 +1,26 @@
 import { type ClassValue, clsx } from "clsx"
 import { twMerge } from "tailwind-merge"
+import { formatDateTime as formatDateTimeIntl } from "@/lib/intl"
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
+/**
+ * ARQ-09: delegado a `lib/intl` (locale ATIVO do i18n), em vez de "pt-BR"
+ * fixo — esta função é usada em 8+ arquivos, incluindo o overlay EE, e um
+ * usuário com o app em inglês/espanhol lia data em formato brasileiro.
+ * Assinatura preservada (mesmos parâmetros, mesmo formato dd/mm/aaaa hh:mm)
+ * para não quebrar quem já chama `formatDate` hoje.
+ */
 export function formatDate(date: string | Date): string {
-  const d = new Date(date)
-  return new Intl.DateTimeFormat("pt-BR", {
+  return formatDateTimeIntl(date, {
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
     hour: "2-digit",
     minute: "2-digit",
-  }).format(d)
+  })
 }
 
 export function roundDateToMinute(date: Date): Date {
@@ -36,11 +43,22 @@ export function toUtcZuluString(date: Date): string {
   return roundDateToMinute(date).toISOString()
 }
 
+// `(...args: any[]) => any` é o vínculo genérico padrão pra "função
+// qualquer" (o mesmo das próprias .d.ts do TS/lodash pra HOFs como este) —
+// `unknown[]`/`unknown` aqui quebra a variância de parâmetro e passa a
+// rejeitar funções concretas com assinatura mais específica (ex.: `(a:
+// string) => void` deixa de ser atribuível a `T`). `Parameters<T>`/`func`
+// preservam o tipo PRECISO de quem chama; o `any` só existe no VÍNCULO.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function debounce<T extends (...args: any[]) => any>(func: T, wait: number): (...args: Parameters<T>) => void {
-  let timeout: NodeJS.Timeout
+  // window.setTimeout/window.clearTimeout (não os globais bare): código de
+  // browser, e o global `setTimeout` fica ambíguo (number vs NodeJS.Timeout)
+  // assim que @types/node entra na compilação (caso dos testes, que leem
+  // arquivos via fs/path).
+  let timeout: number
   return (...args: Parameters<T>) => {
-    clearTimeout(timeout)
-    timeout = setTimeout(() => func(...args), wait)
+    window.clearTimeout(timeout)
+    timeout = window.setTimeout(() => func(...args), wait)
   }
 }
 

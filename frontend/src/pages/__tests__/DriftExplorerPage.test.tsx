@@ -82,6 +82,8 @@ const HOOK_DEFAULT: ReturnType<typeof driftHooks.useDrift> = {
   ignoreField: vi.fn(),
   markMapped: vi.fn(),
   deleteField: vi.fn(),
+  bulkIgnore: vi.fn(),
+  bulkMarkMapped: vi.fn(),
 }
 
 function renderPage() {

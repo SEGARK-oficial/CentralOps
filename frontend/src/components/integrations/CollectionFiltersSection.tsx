@@ -240,7 +240,7 @@ export const CollectionFiltersSection: React.FC<CollectionFiltersSectionProps> =
       return (
         <select
           id={inputId}
-          className="h-9 w-full max-w-xs rounded-md border border-border bg-surface px-3 text-sm text-text focus-ring disabled:cursor-not-allowed disabled:opacity-50"
+          className="h-9 w-full max-w-xs rounded-md border border-border-field bg-surface-tertiary px-3 text-sm text-text transition-colors hover:border-border-field-hover focus-ring disabled:cursor-not-allowed disabled:opacity-50"
           value={String(current ?? "")}
           onChange={(e) => requestChange(stream, field, e.target.value)}
           disabled={disabled}
@@ -264,7 +264,7 @@ export const CollectionFiltersSection: React.FC<CollectionFiltersSectionProps> =
         min={field.min ?? undefined}
         max={field.max ?? undefined}
         step={1}
-        className="h-9 w-32 rounded-md border border-border bg-surface px-3 text-sm text-text focus-ring disabled:cursor-not-allowed disabled:opacity-50"
+        className="h-9 w-32 rounded-md border border-border-field bg-surface-tertiary px-3 text-sm text-text transition-colors hover:border-border-field-hover focus-ring disabled:cursor-not-allowed disabled:opacity-50"
         value={drafts[id] ?? String(current ?? "")}
         onChange={(e) => setDrafts((prev) => ({ ...prev, [id]: e.target.value }))}
         onBlur={() => commitRange(stream, field)}

@@ -1,0 +1,94 @@
+{
+  "validation": {
+    "titleRequired": "El título es obligatorio",
+    "titleMinLength": "Use al menos 3 caracteres",
+    "statementRequired": "La consulta SQL es obligatoria"
+  },
+  "editModal": {
+    "title": "Editar consulta"
+  },
+  "form": {
+    "submitErrorFallback": "Fallo al guardar la consulta"
+  },
+  "shared": {
+    "clientsLabel": "Clientes predeterminados",
+    "dialectLabel": "Dialecto (opcional)",
+    "dialectPlaceholder": "Sin dialecto específico",
+    "specKindLabel": "Spec kind (opcional)",
+    "specKindPlaceholder": "Predeterminado (passthrough)",
+    "specKindHelper": "passthrough = consulta literal; sigma = traducción automática vía pySigma.",
+    "specKindDefault": "Predeterminado (passthrough)",
+    "specKindPassthrough": "Passthrough",
+    "specKindSigma": "Sigma",
+    "severityLabel": "Severidad del hallazgo",
+    "severityHelper": "Va a la Detection y a los eventos enviados a los destinos (PRI del syslog, level de la regla).",
+    "findingShapeLabel": "Forma del hallazgo en los destinos",
+    "cancel": "Cancelar"
+  },
+  "severityOptions": {
+    "informational": "Informativa (1)",
+    "low": "Baja (2)",
+    "medium": "Media (3)",
+    "high": "Alta (4) — predeterminado",
+    "critical": "Crítica (5)"
+  },
+  "findingShapeOptions": {
+    "both": "Resumen + un hallazgo por fila — predeterminado",
+    "perRow": "Un hallazgo por fila",
+    "summary": "Solo el resumen (tabla en evidences[])",
+    "help": "Un hallazgo por fila se convierte en campos planos (host, usuario, proceso) en Wazuh y un asset en IRIS; el resumen lleva la tabla entera en un solo evento."
+  },
+  "createForm": {
+    "titleLabel": "Título de la query",
+    "titlePlaceholder": "Ej: Procesos sospechosos vía PowerShell",
+    "descriptionLabel": "Descripción",
+    "descriptionPlaceholder": "Contexto, objetivo o análisis esperado",
+    "statementLabel": "Query SQL",
+    "statementPlaceholder": "SELECT * FROM xdr_data WHERE process_name = 'cmd.exe' LIMIT 100",
+    "statementHelper": "Esta consulta puede reutilizarse en la pantalla de búsqueda y en programaciones.",
+    "clientsPlaceholder": "Seleccione clientes para pre-rellenar esta query",
+    "clientsHelper": "Opcional. Ayuda a abrir la consulta con tenants ya seleccionados.",
+    "dialectHelper": "Dialecto de consulta soportado por la plataforma (ej.: opensearch_dsl, fql).",
+    "bestPracticesTitle": "Buenas prácticas de consulta",
+    "bestPracticesBody": "Use filtros específicos y un límite de registros para facilitar la lectura y reducir el costo operacional.",
+    "submit": "Crear query"
+  },
+  "editForm": {
+    "titleLabel": "Título",
+    "descriptionLabel": "Descripción",
+    "statementLabel": "Query SQL",
+    "statementHelper": "Actualice la consulta y ajuste los clientes predeterminados, si es necesario.",
+    "clientsHelper": "Opcional. Define los tenants sugeridos al reutilizar esta query.",
+    "dialectHelper": "Dialecto de consulta de la plataforma (ej.: opensearch_dsl, fql).",
+    "reuseNoticeTitle": "Reuso operacional",
+    "reuseNoticeBody": "Los cambios aquí afectan la pantalla de búsqueda y las nuevas programaciones creadas a partir de esta consulta.",
+    "submit": "Guardar cambios"
+  },
+  "table": {
+    "loading": "Cargando queries...",
+    "emptyTitle": "Ninguna query guardada",
+    "emptyDescription": "Crea consultas reutilizables para acelerar búsquedas y automatizaciones.",
+    "listAriaLabel": "Lista de queries guardadas",
+    "columns": {
+      "query": "Query",
+      "description": "Descripción",
+      "clients": "Clientes",
+      "preview": "Vista previa",
+      "actions": "Acciones"
+    },
+    "idLabel": "ID #{{id}}",
+    "noDescription": "Sin descripción",
+    "clientsCount_one": "{{count}} cliente",
+    "clientsCount_other": "{{count}} clientes",
+    "noDefaultClients": "Ninguno por defecto",
+    "edit": "Editar",
+    "remove": "Quitar",
+    "availableCount": "Consultas disponibles"
+  },
+  "queriesHook": {
+    "loadError": "Error al cargar las queries",
+    "createError": "Error al crear la query",
+    "updateError": "Error al actualizar la query",
+    "deleteError": "Error al eliminar la query"
+  }
+}

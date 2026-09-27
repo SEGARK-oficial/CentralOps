@@ -126,7 +126,12 @@ const ProtectedLayout: React.FC = () => {
 }
 
 interface RoleGuardProps {
-  role: "admin"
+  // "requiredRole", não "role": um prop chamado `role` no JSX colide com o
+  // atributo ARIA `role` — o `jsx-a11y/aria-role` (R4-9.1) não sabe distinguir
+  // "isto é um componente React" de "isto é um elemento DOM", e reprovava
+  // `role="admin"` como um valor ARIA inválido. Nome inequívoco em vez de
+  // silenciar a regra.
+  requiredRole: "admin"
   children: React.ReactElement
 }
 
@@ -148,12 +153,19 @@ const ForbiddenRedirectListener: React.FC = () => {
   return null
 }
 
-const RoleGuard: React.FC<RoleGuardProps> = ({ role, children }) => {
+export const RoleGuard: React.FC<RoleGuardProps> = ({ requiredRole, children }) => {
   const { user } = useAuth()
   const [adminAccessState, setAdminAccessState] = useState<"idle" | "checking" | "allowed" | "blocked">("idle")
 
   useEffect(() => {
-    if (!user || role !== "admin" || user.role !== "admin") {
+    // Só acessa `user?.id`/`user?.role` (nunca o objeto `user` inteiro) — as
+    // duas sub-propriedades já estão na dependency list abaixo. `user` vem de
+    // `useState` (identidade estável entre renders) e `updateUser` faz merge
+    // parcial (`{...prev, ...partial}`): uma edição de campo NÃO relacionado
+    // (ex.: nome de exibição) troca a identidade do objeto sem tocar id/role,
+    // e não deveria re-disparar a checagem de admin. Depender do objeto
+    // inteiro reabriria essa checagem à toa a cada edição de perfil.
+    if (user?.id == null || requiredRole !== "admin" || user?.role !== "admin") {
       setAdminAccessState("idle")
       return
     }
@@ -177,13 +189,13 @@ const RoleGuard: React.FC<RoleGuardProps> = ({ role, children }) => {
     return () => {
       isCancelled = true
     }
-  }, [role, user?.id, user?.role])
+  }, [requiredRole, user?.id, user?.role])
 
   if (!user) {
     return <Navigate to="/login" replace />
   }
 
-  if (role === "admin") {
+  if (requiredRole === "admin") {
     if (user.role !== "admin") {
       return <Navigate to="/dashboard" replace />
     }
@@ -296,7 +308,7 @@ const AppRoutes: React.FC = () => {
         <Route
           path="organizations"
           element={
-            <RoleGuard role="admin">
+            <RoleGuard requiredRole="admin">
               <OrganizationsPage />
             </RoleGuard>
           }
@@ -319,7 +331,7 @@ const AppRoutes: React.FC = () => {
         <Route
           path="enrichment"
           element={
-            <RoleGuard role="admin">
+            <RoleGuard requiredRole="admin">
               <EnrichmentPage />
             </RoleGuard>
           }
@@ -331,7 +343,7 @@ const AppRoutes: React.FC = () => {
         <Route
           path="enrichment/policies/:id"
           element={
-            <RoleGuard role="admin">
+            <RoleGuard requiredRole="admin">
               <EnrichmentPolicyPage />
             </RoleGuard>
           }
@@ -339,7 +351,7 @@ const AppRoutes: React.FC = () => {
         <Route
           path="destinations"
           element={
-            <RoleGuard role="admin">
+            <RoleGuard requiredRole="admin">
               <DestinationsPage />
             </RoleGuard>
           }
@@ -347,7 +359,7 @@ const AppRoutes: React.FC = () => {
         <Route
           path="destinations/:id"
           element={
-            <RoleGuard role="admin">
+            <RoleGuard requiredRole="admin">
               <DestinationDetailPage />
             </RoleGuard>
           }
@@ -355,7 +367,7 @@ const AppRoutes: React.FC = () => {
         <Route
           path="routes"
           element={
-            <RoleGuard role="admin">
+            <RoleGuard requiredRole="admin">
               <RoutesPage />
             </RoleGuard>
           }
@@ -363,7 +375,7 @@ const AppRoutes: React.FC = () => {
         <Route
           path="flow"
           element={
-            <RoleGuard role="admin">
+            <RoleGuard requiredRole="admin">
               <FlowPage />
             </RoleGuard>
           }
@@ -386,7 +398,7 @@ const AppRoutes: React.FC = () => {
         <Route
           path="schedules"
           element={
-            <RoleGuard role="admin">
+            <RoleGuard requiredRole="admin">
               <SchedulesPage />
             </RoleGuard>
           }
@@ -405,7 +417,7 @@ const AppRoutes: React.FC = () => {
         <Route
           path="config"
           element={
-            <RoleGuard role="admin">
+            <RoleGuard requiredRole="admin">
               <ConfigPage />
             </RoleGuard>
           }
@@ -413,7 +425,7 @@ const AppRoutes: React.FC = () => {
         <Route
           path="admin/ocsf"
           element={
-            <RoleGuard role="admin">
+            <RoleGuard requiredRole="admin">
               <OcsfGovernancePage />
             </RoleGuard>
           }

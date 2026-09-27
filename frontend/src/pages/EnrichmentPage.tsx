@@ -1,7 +1,7 @@
 import type React from "react"
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
-import { useNavigate } from "react-router-dom"
+import { Link, useNavigate } from "react-router-dom"
 import {
   SparklesIcon,
   RefreshCcwIcon,
@@ -15,7 +15,7 @@ import { EmptyState } from "@/components/ui/EmptyState/EmptyState"
 import { SkeletonCard } from "@/components/ui/Skeleton"
 import { ErrorState } from "@/components/ui/ErrorState"
 import { Notice } from "@/components/ui/Notice/Notice"
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/Tabs/Tabs"
+import { Tabs, TabsList, TabsTrigger, TabsPanel } from "@/components/ui/Tabs/Tabs"
 import { ExecutionPanel } from "@/components/enrichment/ExecutionPanel"
 import { ReadinessPanel } from "@/components/enrichment/ReadinessPanel"
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog/ConfirmDialog"
@@ -64,7 +64,10 @@ import {
 
 
 export function EnrichmentPage(): React.ReactElement {
-  const { t } = useTranslation("enrichment")
+  // R3-8.1: `PolicyVersionsModal` → `PolicyRuleEditor` → `JMESPathInput` (ns
+  // `mappings`) — declarar aqui carrega o namespace junto da rota, então
+  // abrir o modal de versões de política não suspende nada.
+  const { t } = useTranslation(["enrichment", "mappings"])
   const { organizations, selectedOrgId } = usePlatform()
   const navigate = useNavigate()
   // Ordem por FREQUÊNCIA de uso, não pela ordem das tabelas do banco. A visão
@@ -314,7 +317,6 @@ export function EnrichmentPage(): React.ReactElement {
                   conferir se a consulta está de pé. */}
               <TabsTrigger value="execution">{t("tabs.execution")}</TabsTrigger>
             </TabsList>
-          </Tabs>
 
           {/* Escopo: o resolver do Core é FLAT (core/tenant.py), então um token
               escopado enxerga UMA organização. Sem este aviso, um MSP olha uma
@@ -333,6 +335,16 @@ export function EnrichmentPage(): React.ReactElement {
             </Notice>
           )}
 
+          {/*
+            R4-8.1: as abas montavam o conteúdo via `tab === "x" ? ... : ...`
+            manual, sem NENHUM `<TabsPanel>` — o `aria-controls` de cada
+            `TabsTrigger` sempre apontava pra um id inexistente no DOM.
+            `value={tab}` (o próprio estado que decide o ternário abaixo)
+            garante que o painel montado SEMPRE corresponde à aba ativa —
+            um só `TabsPanel` troca de identidade em vez de 6 instâncias
+            fixas, porque o conteúdo já era mutuamente exclusivo.
+          */}
+          <TabsPanel value={tab}>
           {loading ? (
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               <SkeletonCard />
@@ -437,16 +449,25 @@ export function EnrichmentPage(): React.ReactElement {
           ) : (
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {policies.map((p) => (
+                // A11Y-10: era um `Card` com `onClick` — inalcançável e
+                // inativável por teclado (nenhum papel/foco de interativo).
+                // Padrão "stretched link": o `<Link>` cobre o card inteiro
+                // (`absolute inset-0`) e carrega o nome acessível; o resto do
+                // conteúdo fica por cima, só decorativo/visual.
                 <Card
                   key={p.id}
-                  className="flex cursor-pointer flex-col gap-3 p-4 transition-colors hover:border-primary-300"
-                  onClick={() => navigate(`/enrichment/policies/${p.id}`)}
+                  className="relative flex flex-col gap-3 p-4 transition-colors hover:border-primary-300 focus-within:border-primary-300"
                   data-testid={`policy-card-${p.name}`}
                 >
+                  <Link
+                    to={`/enrichment/policies/${p.id}`}
+                    className="absolute inset-0 rounded-lg focus-ring"
+                    aria-label={p.name}
+                  />
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
                       <h3 className="truncate font-medium">{p.name}</h3>
-                      <p className="text-xs text-muted">
+                      <p className="text-xs text-text-tertiary">
                         {t("policies.rules", { count: p.rule_count })}
                       </p>
                     </div>
@@ -459,7 +480,7 @@ export function EnrichmentPage(): React.ReactElement {
                     </Badge>
                   </div>
                   {p.description ? (
-                    <p className="text-sm text-muted">{p.description}</p>
+                    <p className="text-sm text-text-tertiary">{p.description}</p>
                   ) : null}
                   {!p.current_version_id ? (
                     <Badge variant="warning">{t("policies.noVersion")}</Badge>
@@ -468,6 +489,8 @@ export function EnrichmentPage(): React.ReactElement {
               ))}
             </div>
           )}
+          </TabsPanel>
+          </Tabs>
         </>
       )}
 

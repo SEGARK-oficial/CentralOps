@@ -250,7 +250,9 @@
       "drop": "drop",
       "off": "off",
       "moreNodes": "+{{count}} more",
-      "expandHint": "click to expand"
+      "expandHint": "click to expand",
+      "pauseAnimation": "Pause particle animation",
+      "resumeAnimation": "Resume particle animation"
     },
     "liveFeed": {
       "title": "Live feed",

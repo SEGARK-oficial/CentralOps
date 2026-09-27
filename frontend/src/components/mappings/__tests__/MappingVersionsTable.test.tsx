@@ -88,6 +88,15 @@ describe("MappingVersionsTable", () => {
     expect(screen.getByText("atual")).toBeInTheDocument()
   })
 
+  it("R3-6.4: badge 'atual' não usa violeta decorativo (Badge variant=primary)", () => {
+    renderTable("v2")
+    const badge = screen.getByText("atual")
+    // R3-6.4: violeta (`bg-primary-100`) é o estágio "normalizado" do
+    // pipeline — marcar "atual" é estado de UI, não sinal de dado.
+    expect(badge.className).not.toMatch(/bg-primary-100/)
+    expect(badge.className).toMatch(/bg-surface-tertiary/)
+  })
+
   it("botão rollback NÃO aparece sem permissão mapping.rollback", () => {
     mockedUsePermission.mockReturnValue(false)
     renderTable("v2")
@@ -134,7 +143,10 @@ describe("MappingVersionsTable", () => {
 
   it("rollback com commit válido chama rollbackMapping", async () => {
     mockedUsePermission.mockReturnValue(true)
-    mockedApi.rollbackMapping.mockResolvedValue({} as any)
+    // `V2` real (não `{} as any`) — o teste só verifica a CHAMADA, mas o
+    // mock precisa devolver um `MappingVersion` de verdade pro tipo do
+    // retorno de `rollbackMapping` ficar são.
+    mockedApi.rollbackMapping.mockResolvedValue(V2)
     renderTable("v2")
 
     fireEvent.click(screen.getByTestId("rollback-v1"))

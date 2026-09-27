@@ -68,13 +68,19 @@ const looksNumeric = (node: React.ReactNode): boolean => {
   return /\d/.test(s) && /^[\d.,\s]+%?$/.test(s)
 }
 
-export const Badge: React.FC<BadgeProps> = ({ className, variant, size, dot, dotColor, mono, children, ...props }) => (
+export const Badge: React.FC<BadgeProps> = ({ className, variant, size, dot, dotColor, mono, children, role, "aria-label": ariaLabel, ...props }) => (
   <span
     className={cn(
       badgeVariants({ variant, size }),
       (mono ?? looksNumeric(children)) && "font-mono tabular-nums",
       className,
     )}
+    // A11Y-34: `aria-label` num `<span>` sem role é IGNORADO por leitores de
+    // tela — `<span>`/`<div>` têm role "generic", que não suporta nome via
+    // autor. `role="img"` (mesmo fix de lib/severity.tsx) dá ao aria-label um
+    // lugar pra valer, só quando o chamador realmente passou um.
+    role={role ?? (ariaLabel ? "img" : undefined)}
+    aria-label={ariaLabel}
     {...props}
   >
     {dot && (

@@ -17,6 +17,14 @@ import { SearchIcon } from "lucide-react"
 import { FocusScope } from "@radix-ui/react-focus-scope"
 import { useTranslation } from "react-i18next"
 import { cn } from "@/lib/utils"
+import {
+  isTopmostDialog,
+  lockBodyScroll,
+  nextDialogOrder,
+  registerOpenDialog,
+  unlockBodyScroll,
+  unregisterOpenDialog,
+} from "@/components/ui/internal/dialogStack"
 
 // ---------------------------------------------------------------------------
 // Tipos públicos
@@ -95,6 +103,13 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
   // Ids acessíveis
   const labelId = useId()
   const listboxId = useId()
+  // R3-8.3: o Palette não entrava na pilha de diálogos (`dialogStack.ts`) e
+  // mexia direto em `body.style.overflow` — um Modal aberto por trás perderia
+  // a trava de scroll ao fechar o Palette (o `unlockBodyScroll` do Modal já
+  // não bateria com o `= ""` cru daqui), e um Escape com os dois abertos
+  // fecharia os DOIS juntos em vez de só o do topo.
+  const paletteId = useId()
+  const [paletteOrder] = useState(nextDialogOrder)
   const makeItemId = (id: string) => `cp-item-${id}`
 
   // Comandos filtrados e agrupados
@@ -124,17 +139,19 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
   useEffect(() => {
     if (open) {
       previousActiveElement.current = document.activeElement as HTMLElement
-      document.body.style.overflow = "hidden"
+      lockBodyScroll()
+      registerOpenDialog(paletteId, paletteOrder)
       setQuery("")
       setActiveIndex(0)
       // Foco no input após montagem
       requestAnimationFrame(() => inputRef.current?.focus())
       return () => {
-        document.body.style.overflow = ""
+        unlockBodyScroll()
+        unregisterOpenDialog(paletteId)
         previousActiveElement.current?.focus()
       }
     }
-  }, [open])
+  }, [open, paletteId, paletteOrder])
 
   // -----------------------------------------------------------------------
   // Scroll do item ativo para a vista
@@ -152,6 +169,9 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
   // -----------------------------------------------------------------------
   const handleDialogKeydown = (e: React.KeyboardEvent) => {
     if (e.key === "Escape") {
+      // Só o diálogo do TOPO fecha — outro Modal/Drawer aberto por cima não
+      // deve fechar junto no mesmo Escape.
+      if (!isTopmostDialog(paletteOrder)) return
       e.preventDefault()
       setOpen(false)
       return
@@ -195,6 +215,8 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
   const activeCmd = flatFiltered[activeIndex]
 
   return createPortal(
+    // Backdrop de "clicar fora fecha" — Escape já é o equivalente por teclado.
+    // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
     <div
       className="fixed inset-0 z-modal-backdrop bg-overlay flex items-start justify-center pt-[10vh] px-4 animate-fade-in"
       onClick={handleOverlayClick}
@@ -205,6 +227,11 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
         Esc é capturado por handleDialogKeydown.
       */}
       <FocusScope trapped loop>
+        {/* role="dialog" não está na lista de roles "interativos" do
+            jsx-a11y, mas o onKeyDown aqui é o padrão APG de dialog (captura
+            Escape) — o tabIndex=-1 é a âncora do FocusScope, não um convite
+            a Tab chegar até aqui de fora. */}
+        {/* eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions */}
         <div
           role="dialog"
           aria-modal="true"
@@ -275,6 +302,12 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
                     {cmds.map((cmd) => {
                       const isActive = flatFiltered.indexOf(cmd) === activeIndex
                       return (
+                        // Navegação por teclado (Setas/Enter) é gerenciada
+                        // pelo container (`handleDialogKeydown` + `activeIndex`)
+                        // — padrão listbox de foco gerenciado (roving), não
+                        // cada `<li role="option">` sendo focável por si.
+                        // O onClick aqui é só o caminho alternativo do mouse.
+                        // eslint-disable-next-line jsx-a11y/click-events-have-key-events
                         <li
                           key={cmd.id}
                           id={makeItemId(cmd.id)}

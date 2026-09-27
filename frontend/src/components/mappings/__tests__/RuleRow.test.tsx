@@ -15,6 +15,19 @@ beforeAll(() => {
   void i18n.changeLanguage("pt")
 })
 
+// A11Y-18: RuleRow sempre passa `learnMoreHref` ao HelpTooltip, então o popover
+// aqui é SEMPRE o disclosure focável (sem `role="tooltip"` — ver HelpTooltip.tsx).
+// O contrato observável passa a ser `aria-expanded`/`aria-controls` no trigger;
+// este helper resolve o painel pelo id referenciado em `aria-controls`, a mesma
+// ligação que um leitor de tela usa.
+function getDisclosurePanel(trigger: HTMLElement): HTMLElement {
+  const panelId = trigger.getAttribute("aria-controls")
+  expect(panelId).toBeTruthy()
+  const panel = document.getElementById(panelId!)
+  expect(panel).not.toBeNull()
+  return panel as HTMLElement
+}
+
 // ── Mock de useTypeCasts ──────────────────────────────────────────────────────
 // Os testes existentes não precisam de dados reais; o mock retorna estado
 // resolvido por padrão para não quebrar o comportamento anterior.
@@ -63,6 +76,7 @@ describe("RuleRow — view mode", () => {
     expect(screen.getByText("to_str")).toBeInTheDocument()
     expect(screen.getByText("value_map")).toBeInTheDocument()
   })
+
 
   it("sem details não exibe botão de expansão", () => {
     render(<RuleRow rule={RULE_SIMPLE} mode="view" />)
@@ -154,8 +168,9 @@ describe("RuleRow — edit mode tooltips", () => {
     const helpBtn = screen.getByRole("button", { name: /ajuda: target/i })
     fireEvent.click(helpBtn)
 
-    // Tooltip deve estar visível com o example
-    expect(screen.getByRole("tooltip")).toBeInTheDocument()
+    // Popover disclosure deve estar aberto (aria-expanded) e visível com o example
+    expect(helpBtn).toHaveAttribute("aria-expanded", "true")
+    expect(getDisclosurePanel(helpBtn)).toBeInTheDocument()
     const codeEl = screen.getByText("normalized.severity_id")
     expect(codeEl.tagName).toBe("CODE")
   })
@@ -174,11 +189,11 @@ describe("RuleRow — edit mode tooltips", () => {
     const helpBtn = screen.getByRole("button", { name: /ajuda: value_map/i })
     fireEvent.click(helpBtn)
 
-    expect(screen.getByRole("tooltip")).toBeInTheDocument()
+    expect(helpBtn).toHaveAttribute("aria-expanded", "true")
 
-    // O example do value_map é renderizado num <code> dentro do tooltip
-    const tooltip = screen.getByRole("tooltip")
-    const codeEl = tooltip.querySelector("code")
+    // O example do value_map é renderizado num <code> dentro do painel
+    const panel = getDisclosurePanel(helpBtn)
+    const codeEl = panel.querySelector("code")
     expect(codeEl).not.toBeNull()
     expect(codeEl!.textContent).toMatch(/high/)
   })
@@ -283,16 +298,18 @@ describe("HelpTooltip — interação click + hover", () => {
     const helpBtn = screen.getByRole("button", { name: /ajuda: target/i })
     // Simula hover: tooltip abre via mouseEnter
     fireEvent.mouseEnter(helpBtn)
-    expect(screen.getByRole("tooltip")).toBeInTheDocument()
+    expect(helpBtn).toHaveAttribute("aria-expanded", "true")
+    expect(getDisclosurePanel(helpBtn)).toBeInTheDocument()
 
     // Agora o usuário clica no ícone — antes da fix isso fechava.
     // Comportamento esperado: clicar fixa o tooltip aberto.
     fireEvent.click(helpBtn)
-    expect(screen.getByRole("tooltip")).toBeInTheDocument()
+    expect(helpBtn).toHaveAttribute("aria-expanded", "true")
+    expect(getDisclosurePanel(helpBtn)).toBeInTheDocument()
 
     // Mouse sai — tooltip permanece (sticky via click).
     fireEvent.mouseLeave(helpBtn)
-    expect(screen.queryByRole("tooltip")).toBeInTheDocument()
+    expect(helpBtn).toHaveAttribute("aria-expanded", "true")
   })
 })
 
@@ -362,6 +379,30 @@ describe("RuleRow — type_cast dropdown dinâmico", () => {
 
     // Badge no header compacto (pode haver múltiplas ocorrências do texto — usa getAllByText).
     expect(screen.getAllByText("epoch_to_iso").length).toBeGreaterThanOrEqual(1)
+  })
+
+  it("R3-6.4: badge de type_cast do header compacto (modo edit) não usa violeta decorativo", () => {
+    const ruleWithCast: MappingRule = { target: "ts", source: "timestamp", type_cast: "epoch_to_iso" }
+    render(
+      <RuleRow
+        rule={ruleWithCast}
+        mode="edit"
+        {...editProps()}
+        expanded={false}
+        onToggleExpand={vi.fn()}
+      />,
+    )
+
+    // O texto aparece 2x: no trigger do Select (button) e no Badge (span) do
+    // header compacto — isola o `<span>` pra testar a classe do Badge.
+    const occurrences = screen.getAllByText("epoch_to_iso")
+    const badge = occurrences.find((el) => el.tagName === "SPAN")!
+    expect(badge).toBeDefined()
+    // R3-6.4: violeta (`bg-primary-100`) é o estágio "normalizado" do
+    // pipeline — o chip de type_cast é metadado de configuração, não sinal
+    // de dado.
+    expect(badge.className).not.toMatch(/bg-primary-100/)
+    expect(badge.className).toMatch(/bg-surface-tertiary/)
   })
 
   it("estado loading: dropdown desabilitado, exibe texto 'Carregando...'", () => {

@@ -9,6 +9,9 @@
 
 # production
 /build
+/dist
+/dist-*
+/web-ee
 
 # debug
 npm-debug.log*

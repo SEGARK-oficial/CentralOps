@@ -158,7 +158,7 @@ test.describe("Mapping Editor — edição como engineer (Sprint 2)", () => {
     await rollbackButtons.first().click();
 
     // ConfirmDialog deve abrir
-    await expect(page.getByRole("dialog")).toBeVisible({ timeout: 5_000 });
+    await expect(page.getByRole("alertdialog")).toBeVisible({ timeout: 5_000 });
 
     // Preencher commit message do rollback
     await page.getByLabel(/mensagem do commit/i).fill("Rollback E2E teste Sprint 6 - revertendo");
@@ -177,7 +177,7 @@ test.describe("Mapping Editor — edição como engineer (Sprint 2)", () => {
     // O ConfirmDialog do rollback fecha ao concluir (o status 200 acima já prova
     // o sucesso no backend; o regex de "mensagem de sucesso" colidia com linhas
     // da tabela de versões).
-    await expect(page.getByRole("dialog")).not.toBeVisible({ timeout: 5_000 });
+    await expect(page.getByRole("alertdialog")).not.toBeVisible({ timeout: 5_000 });
   });
 
   test("aba Auditoria mostra entry após rollback", async ({ page }) => {

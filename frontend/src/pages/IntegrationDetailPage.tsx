@@ -1,6 +1,6 @@
 import type React from "react"
 import { useCallback, useEffect, useMemo, useState } from "react"
-import { useNavigate, useParams } from "react-router-dom"
+import { Link, useNavigate, useParams } from "react-router-dom"
 import { useTranslation } from "react-i18next"
 import {
   ActivityIcon,
@@ -31,7 +31,8 @@ import { HelpTooltip } from "@/components/ui/HelpTooltip/HelpTooltip"
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner/LoadingSpinner"
 import { Modal } from "@/components/ui/Modal/Modal"
 import { Notice } from "@/components/ui/Notice/Notice"
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/Tabs/Tabs"
+import { PageHeader } from "@/components/ui/PageHeader/PageHeader"
+import { Tabs, TabsList, TabsTrigger, TabsPanel } from "@/components/ui/Tabs/Tabs"
 import { useAuth } from "@/contexts/AuthContext"
 import { usePlatform } from "@/contexts/PlatformContext"
 import { authStatusLabelKey, authStatusVariant } from "@/lib/labels"
@@ -40,7 +41,14 @@ import { formatDateTime as formatDateTimeIntl } from "@/lib/intl"
 type Tab = "overview" | "health" | "pipeline-health" | "destinations" | "config" | "backfill"
 
 const IntegrationDetailPage: React.FC = () => {
-  const { t } = useTranslation("integrations")
+  // R3-8.1: as abas Saúde/Backfill renderizam `HealthSummaryCard`/
+  // `HealthMetricsList`/`IntegrationHealthPanel` (ns `dashboard`) e
+  // `IntegrationBackfillPanel` (ns `config`) — sem declarar aqui, esses
+  // namespaces só carregam quando o componente já montou dentro da aba, e o
+  // Suspense do `react-i18next` (`useSuspense: true`) suspenderia ali (o
+  // `<Suspense>` local do `TabsPanel`/`Tabs` já contém o efeito visual, mas
+  // declarar os namespaces junto da rota evita o flash de loading da aba).
+  const { t } = useTranslation(["integrations", "dashboard", "config"])
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const { user } = useAuth()
@@ -170,13 +178,16 @@ const IntegrationDetailPage: React.FC = () => {
   if (error && !integration) {
     return (
       <div className="space-y-4">
-        <button onClick={() => navigate("/integrations")} className="flex items-center gap-1.5 text-sm text-text-secondary transition-colors hover:text-primary-600">
-          <ArrowLeftIcon size={16} /> {t("detail.backToIntegrations")}
-        </button>
+        {/* A11Y-41: era <button onClick={navigate}> — vira link de verdade. */}
+        <Link to="/integrations" className="flex items-center gap-1.5 text-sm text-text-secondary transition-colors hover:text-primary-600">
+          <ArrowLeftIcon size={16} aria-hidden="true" /> {t("detail.backToIntegrations")}
+        </Link>
         <Notice
           variant="danger"
           title={t("detail.loadErrorTitle")}
           action={
+            // `navigate(0)` recarrega a rota atual — não é uma URL própria
+            // pra virar link, então continua botão.
             <Button variant="outline" size="sm" onClick={() => navigate(0)}>
               {t("common:actions.retry")}
             </Button>
@@ -194,8 +205,8 @@ const IntegrationDetailPage: React.FC = () => {
         title={t("detail.notFoundTitle")}
         description={t("detail.notFoundDescription")}
         action={
-          <Button variant="outline" leftIcon={<ArrowLeftIcon size={16} />} onClick={() => navigate("/integrations")}>
-            {t("detail.backToIntegrations")}
+          <Button variant="outline" leftIcon={<ArrowLeftIcon size={16} />} asChild>
+            <Link to="/integrations">{t("detail.backToIntegrations")}</Link>
           </Button>
         }
       />
@@ -205,14 +216,18 @@ const IntegrationDetailPage: React.FC = () => {
   return (
     <div className="space-y-6">
       <div className="space-y-4">
-        <button onClick={() => navigate("/integrations")} className="flex items-center gap-1.5 text-sm text-text-secondary transition-colors hover:text-primary-600">
-          <ArrowLeftIcon size={16} /> {t("detail.backToIntegrations")}
-        </button>
+        {/* A11Y-41: era <button onClick={navigate}> — vira link de verdade. */}
+        <Link to="/integrations" className="flex items-center gap-1.5 text-sm text-text-secondary transition-colors hover:text-primary-600">
+          <ArrowLeftIcon size={16} aria-hidden="true" /> {t("detail.backToIntegrations")}
+        </Link>
 
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-          <div className="space-y-2">
-            <div className="flex flex-wrap items-center gap-2">
-              <h1 className="text-2xl font-bold text-text">{integration.name}</h1>
+        {/* LAY-31: h1 feito à mão → PageHeader. `title` aceita ReactNode
+            (badges de plataforma/status inline), `description` fica string
+            (mesma composição condicional que já existia, só virou template). */}
+        <PageHeader
+          title={
+            <span className="inline-flex flex-wrap items-center gap-2">
+              {integration.name}
               {/* Plataforma é substantivo, não estado: matiz aqui rouba o
                   significado da paleta. Ativo é o normal, e o normal é neutro;
                   inativo é escolha do operador, não falha. Mesmo contrato da
@@ -224,22 +239,23 @@ const IntegrationDetailPage: React.FC = () => {
               <Badge variant={authStatusVariant(integration.auth_status)} size="sm">
                 {t(authStatusLabelKey(integration.auth_status))}
               </Badge>
-            </div>
-            <p className="text-sm text-text-secondary">
-              {integration.organization_name}
-              {integration.platform === "sophos" && integration.region && ` · ${t("detail.region")}: ${integration.region}`}
-              {integration.platform === "wazuh" && isAdmin && integration.manager_url && ` · ${integration.manager_url}`}
-            </p>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2">
-            {isAdmin && (
+            </span>
+          }
+          description={[
+            integration.organization_name,
+            integration.platform === "sophos" && integration.region ? `${t("detail.region")}: ${integration.region}` : null,
+            integration.platform === "wazuh" && isAdmin && integration.manager_url ? integration.manager_url : null,
+          ]
+            .filter(Boolean)
+            .join(" · ")}
+          actions={
+            isAdmin ? (
               <Button variant="outline" onClick={() => setEditingOpen(true)} leftIcon={<PencilIcon size={16} />}>
                 {t("detail.editIntegration")}
               </Button>
-            )}
-          </div>
-        </div>
+            ) : undefined
+          }
+        />
 
         {!integration.is_active && (
           <Notice variant="warning" title={t("detail.inactiveTitle")}>
@@ -269,7 +285,6 @@ const IntegrationDetailPage: React.FC = () => {
             </TabsTrigger>
           ))}
         </TabsList>
-      </Tabs>
 
       {error && (
         <Notice variant="danger" title={t("detail.loadFailedTitle")}>
@@ -296,6 +311,15 @@ const IntegrationDetailPage: React.FC = () => {
         }}
       />
 
+      {/*
+        R4-8.1: `activeTab === "x" && (...)` manual, sem NENHUM `<TabsPanel>`
+        — o `aria-controls` de cada `TabsTrigger` sempre apontava pra um id
+        que não existe no DOM. `value={activeTab}` é o mesmo estado que já
+        decide qual bloco abaixo renderiza — um só `TabsPanel` muda de
+        identidade em vez de precisar embrulhar cada bloco `activeTab === "x"`
+        individualmente (eles já são mutuamente exclusivos).
+      */}
+      <TabsPanel value={activeTab}>
       {/* Ingestão push — auto-oculta para fontes pull. */}
       {activeTab === "overview" && (
         <IngestSourcePanel integrationId={integrationId} platform={integration.platform} canManage={isAdmin} />
@@ -354,7 +378,11 @@ const IntegrationDetailPage: React.FC = () => {
                             ? t("detail.licensedProducts.statusLicensedXdr")
                             : t("detail.licensedProducts.statusLicensedMdr")
                     return (
-                      <div className="flex flex-wrap gap-2" aria-label={t("detail.licensedProducts.detectionsSummaryLabel")}>
+                      // A11Y-34: `aria-label` num `<div>` sem role é IGNORADO
+                      // por leitores de tela (div não tem semântica de
+                      // nomeação) — `role="group"` dá ao aria-label um lugar
+                      // pra "pendurar".
+                      <div className="flex flex-wrap gap-2" role="group" aria-label={t("detail.licensedProducts.detectionsSummaryLabel")}>
                         <Badge variant={hasXdr || hasMdr ? "success" : "outline"} size="sm">
                           {t("detail.licensedProducts.detectionsApi", { status: detectionsLabel })}
                         </Badge>
@@ -368,7 +396,7 @@ const IntegrationDetailPage: React.FC = () => {
                       </div>
                     )
                   })()}
-                  <div className="flex flex-wrap gap-2" aria-label={t("detail.licensedProducts.productsAriaLabel")}>
+                  <div className="flex flex-wrap gap-2" role="group" aria-label={t("detail.licensedProducts.productsAriaLabel")}>
                     {(overview.licensed_products as LicensedProduct[]).map((product) => {
                       const d = product.details
                       const tooltipParts: string[] = []
@@ -533,7 +561,7 @@ const IntegrationDetailPage: React.FC = () => {
                       className="rounded-lg border border-border bg-surface-tertiary px-4 py-3 text-sm"
                     >
                       <div className="flex flex-wrap items-center gap-2 mb-2">
-                        <Badge variant="primary" size="sm">{cap.dialect}</Badge>
+                        <Badge variant="default" size="sm">{cap.dialect}</Badge>
                         {cap.modes.map((mode) => (
                           <Badge key={mode} variant="default" size="sm">{mode}</Badge>
                         ))}
@@ -593,6 +621,8 @@ const IntegrationDetailPage: React.FC = () => {
           })()}
         </Card>
       )}
+      </TabsPanel>
+      </Tabs>
 
       <Modal open={editingOpen} onClose={() => setEditingOpen(false)} title={t("detail.editIntegration")} size="xl">
         <IntegrationForm

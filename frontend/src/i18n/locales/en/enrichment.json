@@ -136,6 +136,7 @@
     "form": {
       "createTitle": "New policy",
       "name": "Name",
+      "namePlaceholder": "asset-context",
       "nameRequired": "Enter a name for the policy.",
       "organizationRequired": "Select an organization. There is no global enrichment policy.",
       "description": "Description",
@@ -222,7 +223,16 @@
       "cannotChain": "This rule already has another condition. A gate has a single key, so chaining would erase the condition you wrote.",
       "keySourceHintMapped": "Suggestions come from the fields this organization's active mappings actually write. A path outside the list compiles but never matches.",
       "shadowedNow": "Enabled, but an older policy is active for this organization. Disable it for this one to apply.",
-      "onePerOrg": "Only one policy is applied per organization: the oldest enabled one."
+      "onePerOrg": "Only one policy is applied per organization: the oldest enabled one.",
+      "onMissOptions": {
+        "skip": "Skip",
+        "tag": "Tag",
+        "default": "Use default value"
+      },
+      "onErrorOptions": {
+        "skip": "Skip",
+        "tag": "Tag"
+      }
     },
     "active": "active",
     "shadowed": "enabled, not applied",
@@ -256,6 +266,8 @@
       "target": "Target organization",
       "name": "Name of the copy",
       "nameHint": "Must be unique within the target organization.",
+      "nameRequired": "Enter a name for the copy.",
+      "targetRequired": "Choose a target organization.",
       "checking": "Checking what exists in the target…",
       "readyTitle": "The target has everything these rules reference",
       "readyBody": "The referenced tables and sources exist there, under the same names.",

@@ -1,4 +1,10 @@
 {
+  "errors": {
+    "loadRulesFailed": "Falha ao carregar regras de correlação",
+    "createRuleFailed": "Falha ao criar regra",
+    "updateRuleFailed": "Falha ao atualizar regra",
+    "removeRuleFailed": "Falha ao remover regra"
+  },
   "page": {
     "eyebrow": "Detecção",
     "badgeBeta": "Beta",
@@ -638,6 +644,164 @@
       },
       "fromVendor": "desta fonte",
       "notInInventory": "Este caminho não consta no inventário desta organização: a regra compila, mas pode nunca resolver."
+    }
+  },
+  "queryJobs": {
+    "status": {
+      "submitted": "Enviado",
+      "running": "Em execução",
+      "finished": "Concluído",
+      "partial": "Parcial",
+      "failed": "Falhou"
+    },
+    "common": {
+      "yes": "Sim",
+      "no": "Não"
+    },
+    "errors": {
+      "submitFailed": "Falha ao submeter busca.",
+      "loadRecentFailed": "Falha ao carregar jobs recentes."
+    },
+    "table": {
+      "loading": "Carregando jobs...",
+      "empty": {
+        "title": "Nenhuma busca realizada ainda",
+        "description": "Use o formulário acima para iniciar uma busca federada assíncrona."
+      },
+      "ariaLabel": "Jobs de busca federada",
+      "column": {
+        "jobId": "Job ID",
+        "status": "Status",
+        "dialect": "Dialeto",
+        "results": "Resultados",
+        "createdAt": "Criado em",
+        "details": "Detalhes"
+      },
+      "view": "Ver",
+      "viewDetailsAriaLabel": "Ver detalhes do job {{id}}",
+      "mobileCardAriaLabel": "Job {{id}} — {{status}}",
+      "resultsCount": "{{count}} resultado(s)"
+    },
+    "drawer": {
+      "ariaLabel": "Detalhes do job de busca federada",
+      "title": "Detalhes do job",
+      "titleWithId": "Job {{id}}…",
+      "closeAriaLabel": "Fechar detalhes do job",
+      "selectPrompt": "Selecione um job para ver os detalhes.",
+      "notice": {
+        "finished": "{{total}} resultado(s) encontrado(s).",
+        "partial": "Busca parcial: {{total}} resultado(s). Algumas fontes falharam.",
+        "failed": "A busca falhou. Veja o erro abaixo."
+      },
+      "summary": {
+        "heading": "Resumo",
+        "jobId": "Job ID",
+        "status": "Status",
+        "dialect": "Dialeto",
+        "specKind": "Modo de tradução",
+        "totalResults": "Total de resultados",
+        "allowPartial": "Resultados parciais permitidos",
+        "windowStart": "Janela — início",
+        "windowEnd": "Janela — fim",
+        "finishedAt": "Concluído em",
+        "errorMessage": "Mensagem de erro"
+      },
+      "statement": {
+        "heading": "Statement"
+      },
+      "perSource": {
+        "heading": "Resultado por fonte",
+        "column": {
+          "integration": "Integração",
+          "status": "Status",
+          "results": "Resultados",
+          "partial": "Parcial",
+          "error": "Erro"
+        }
+      }
+    },
+    "page": {
+      "eyebrow": "Investigação",
+      "title": "Busca federada",
+      "description": "Execute queries assíncronas em múltiplas integrações e acompanhe o status em tempo real.",
+      "actions": {
+        "closeForm": "Fechar formulário",
+        "newSearch": "Nova busca"
+      },
+      "feedback": {
+        "submitSuccess": "Busca submetida. Acompanhe o status na tabela abaixo.",
+        "successTitle": "Operação concluída",
+        "errorTitle": "Não foi possível concluir",
+        "dismissAriaLabel": "Fechar aviso"
+      },
+      "recentError": {
+        "title": "Erro ao carregar jobs recentes"
+      },
+      "permission": {
+        "title": "Permissão necessária",
+        "body": "Você não possui a permissão <code>query.run</code> para iniciar buscas federadas."
+      },
+      "createCard": {
+        "title": "Nova busca federada",
+        "description": "Selecione integrações, escolha o dialeto e escreva o statement da query."
+      },
+      "recentCard": {
+        "title": "Jobs recentes",
+        "description": "Últimos {{count}} job(s) da sua organização.",
+        "refreshAriaLabel": "Atualizar lista de jobs",
+        "refresh": "Atualizar"
+      }
+    },
+    "form": {
+      "specKind": {
+        "passthrough": "Passthrough",
+        "sigma": "Sigma (experimental)"
+      },
+      "errors": {
+        "integrationsRequired": "Selecione ao menos uma integração.",
+        "statementRequired": "Statement é obrigatório.",
+        "windowRequired": "Selecione a janela de tempo (início e fim)."
+      },
+      "submitErrorTitle": "Falha ao submeter busca",
+      "integrations": {
+        "label": "Integrações",
+        "placeholder": "Selecione as integrações a consultar",
+        "ariaLabel": "Selecionar as integrações"
+      },
+      "dialect": {
+        "label": "Dialeto",
+        "placeholderLoading": "Carregando dialetos...",
+        "placeholder": "Selecione o dialeto (opcional)",
+        "ariaLabel": "Selecionar dialeto de query",
+        "tooltipLabel": "Dialeto: {{dialect}}",
+        "tooltip": {
+          "rateLimit": "Rate limit: {{value}}",
+          "maxWindow": "Janela máxima: {{hours}}h",
+          "supportsAsync": "Suporta execução assíncrona.",
+          "supportedBy": "Plataformas: {{platforms}}"
+        }
+      },
+      "specKindField": {
+        "label": "Modo de tradução",
+        "ariaLabel": "Selecionar modo de tradução do statement"
+      },
+      "statement": {
+        "label": "Statement",
+        "placeholderSigma": "Cole a regra Sigma aqui...",
+        "placeholderDefault": "Ex: process where process.name == 'cmd.exe'",
+        "helperSigma": "Modo Sigma (experimental): a regra será convertida pelo backend antes de execução.",
+        "helperDefault": "Statement no dialeto nativo selecionado."
+      },
+      "window": {
+        "label": "Janela de tempo",
+        "ariaLabel": "Selecionar a janela de tempo"
+      },
+      "allowPartial": {
+        "ariaLabel": "Aceitar resultados parciais quando alguma fonte falhar",
+        "label": "Aceitar resultados parciais",
+        "hint": "(retorna dados das fontes que responderam, mesmo se outras falharem)"
+      },
+      "submit": "Executar busca"
     }
   }
 }

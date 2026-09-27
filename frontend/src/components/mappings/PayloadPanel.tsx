@@ -136,7 +136,6 @@ export const PayloadPanel: React.FC<PayloadPanelProps> = ({
 
   return (
     <section
-      role="region"
       aria-labelledby={headingId}
       data-testid="payload-panel"
       className={cn(

@@ -12,6 +12,7 @@ import { Textarea } from "@/components/ui/Textarea/Textarea"
 import { EntraSyncPanel } from "@/components/config/EntraSyncPanel"
 import type { IdentityConfig, UpdateIdentityConfigRequest } from "@/types"
 import { useEntraSync } from "@/hooks/useEntraSync"
+import { safeInternalPath } from "@/lib/safeUrl"
 
 type Feedback = { type: "success" | "error"; message: string } | null
 
@@ -79,6 +80,10 @@ export const IdentityConfigForm: React.FC<Props> = ({
   const { t } = useTranslation("config")
   const [form, setForm] = useState<FormState>(() => toForm(config, t("identity.defaultButtonLabel")))
   const [roleMapError, setRoleMapError] = useState<string | null>(null)
+  // SEC-07: `entra_post_login_redirect` alimenta um redirect pós-login no
+  // backend — sem validação, um valor tipo `//evil.example.com` (protocol-
+  // relative) ou `https://evil.example.com` vira open redirect.
+  const [redirectError, setRedirectError] = useState<string | null>(null)
 
   // Hook de sync — carrega status ao montar; expõe syncNow e refreshStatus
   const {
@@ -92,6 +97,9 @@ export const IdentityConfigForm: React.FC<Props> = ({
 
   useEffect(() => {
     setForm(toForm(config, t("identity.defaultButtonLabel")))
+    // Só quando `config` chega/muda de verdade — incluir `t` resetaria o
+    // formulário (perdendo edição em andamento do operador) toda vez que o
+    // idioma mudasse no meio do preenchimento.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [config])
 
@@ -101,6 +109,13 @@ export const IdentityConfigForm: React.FC<Props> = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setRoleMapError(null)
+    setRedirectError(null)
+
+    const trimmedRedirect = form.entra_post_login_redirect.trim()
+    if (trimmedRedirect && !safeInternalPath(trimmedRedirect)) {
+      setRedirectError(t("identity.postLoginRedirectInvalid"))
+      return
+    }
 
     let roleMap: Record<string, string>
     try {
@@ -135,7 +150,7 @@ export const IdentityConfigForm: React.FC<Props> = ({
       entra_jit_provisioning: form.entra_jit_provisioning,
       entra_allowed_email_domains: domains,
       entra_button_label: form.entra_button_label.trim() || t("identity.defaultButtonLabel"),
-      entra_post_login_redirect: form.entra_post_login_redirect.trim() || "/",
+      entra_post_login_redirect: safeInternalPath(trimmedRedirect) ?? "/",
       // Fase 2B
       entra_sync_enabled: form.entra_sync_enabled,
       entra_sync_deprovision: form.entra_sync_deprovision,
@@ -154,7 +169,7 @@ export const IdentityConfigForm: React.FC<Props> = ({
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
       {feedback && (
-        <Notice variant={feedback.type === "success" ? "success" : "danger"}>
+        <Notice variant={feedback.type === "success" ? "success" : "danger"} live={feedback.type === "error" ? "assertive" : undefined}>
           {feedback.message}
         </Notice>
       )}
@@ -278,7 +293,11 @@ export const IdentityConfigForm: React.FC<Props> = ({
         <Input
           label={t("identity.fields.postLoginRedirect")}
           value={form.entra_post_login_redirect}
-          onChange={(e) => update("entra_post_login_redirect", e.target.value)}
+          onChange={(e) => {
+            update("entra_post_login_redirect", e.target.value)
+            if (redirectError) setRedirectError(null)
+          }}
+          error={redirectError ?? undefined}
           disabled={disabled}
         />
       </div>

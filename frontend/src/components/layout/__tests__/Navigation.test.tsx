@@ -4,6 +4,11 @@ import { Navigation } from "@/components/layout/Navigation"
 import { useAuth } from "@/contexts/AuthContext"
 import { usePermission } from "@/hooks/usePermission"
 import i18n from "@/i18n"
+import {
+  nextDialogOrder,
+  registerOpenDialog,
+  unregisterOpenDialog,
+} from "@/components/ui/internal/dialogStack"
 
 vi.mock("@/contexts/AuthContext")
 vi.mock("@/hooks/usePermission")
@@ -15,7 +20,7 @@ beforeAll(() => {
   void i18n.changeLanguage("pt")
 })
 
-function makeUser(role: "admin" | "user" = "user") {
+function makeUser(role: "admin" | "viewer" = "viewer") {
   return {
     id: "1",
     username: "test",
@@ -39,6 +44,7 @@ beforeEach(() => {
     login: vi.fn(),
     bootstrapAdmin: vi.fn(),
     logout: vi.fn(),
+    updateUser: vi.fn(),
     refreshSession: vi.fn(),
     hasPermission: vi.fn(() => false),
   } as ReturnType<typeof useAuth>)
@@ -108,6 +114,27 @@ describe("Navigation — drawer", () => {
     fireEvent.keyDown(document, { key: "Escape" })
 
     expect(onClose).not.toHaveBeenCalled()
+  })
+
+  // R2-6.8: drawer registrado na pilha compartilhada de diálogos.
+  it("ESC não fecha o drawer quando outro diálogo está aberto POR CIMA (não é o topo da pilha)", () => {
+    const onClose = vi.fn()
+    renderNav(true, onClose)
+
+    const fakeTopDialogId = "fake-top-dialog"
+    const fakeTopDialogOrder = nextDialogOrder()
+    registerOpenDialog(fakeTopDialogId, fakeTopDialogOrder)
+
+    try {
+      fireEvent.keyDown(document, { key: "Escape" })
+      expect(onClose).not.toHaveBeenCalled()
+    } finally {
+      unregisterOpenDialog(fakeTopDialogId)
+    }
+
+    // Com o diálogo de cima fechado, o drawer volta a ser o topo da pilha.
+    fireEvent.keyDown(document, { key: "Escape" })
+    expect(onClose).toHaveBeenCalledTimes(1)
   })
 
   it("chama onClose ao clicar em um NavLink (fechar ao navegar)", () => {
@@ -257,6 +284,23 @@ describe("Navigation — âncora fixa no topo", () => {
     expect(screen.queryByText("Conta")).toBeNull()
     expect(screen.queryByRole("link", { name: "Perfil e segurança" })).toBeNull()
     expect(screen.queryByRole("link", { name: "Tokens de API" })).toBeNull()
+  })
+})
+
+describe("Navigation — A11Y-09 (inert no drawer fechado, abaixo de lg)", () => {
+  // O mock global de matchMedia (src/test/setup.ts) sempre devolve matches:false,
+  // então o hook useMediaQuery("(min-width: 1024px)") sempre resolve "não é desktop"
+  // neste arquivo — cenário exato do drawer mobile/tablet (<lg).
+  it("fica inert quando fechado (fora da viewport, mas ainda no DOM)", () => {
+    renderNav(false)
+    const nav = screen.getByRole("navigation")
+    expect(nav).toHaveAttribute("inert")
+  })
+
+  it("NÃO fica inert quando aberto", () => {
+    renderNav(true)
+    const nav = screen.getByRole("dialog")
+    expect(nav).not.toHaveAttribute("inert")
   })
 })
 

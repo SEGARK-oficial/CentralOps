@@ -11,7 +11,7 @@
 import type React from "react"
 import { useCallback, useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
-import { HistoryIcon, RotateCcwIcon } from "lucide-react"
+import { HistoryIcon, RotateCcwIcon, PlusIcon, PencilIcon, Trash2Icon, ArrowUpDownIcon } from "lucide-react"
 import * as api from "@/services/api"
 import { useAsyncResource } from "@/hooks/useAsyncResource"
 import { SkeletonCard } from "@/components/ui/Skeleton"
@@ -51,6 +51,21 @@ export const RouteAuditPanel: React.FC<RouteAuditPanelProps> = ({
     [t],
   )
 
+  // LAY-35: "deleted" em danger e "created" em success tratavam um evento de
+  // TRILHA DE AUDITORIA (fato, não estado de saúde) como alarme/celebração —
+  // a mesma rota que aparece "deleted" aqui pode ter sido um cleanup
+  // intencional. Neutro pra todos, diferenciados por ÍCONE, não cor.
+  const ACTION_ICONS: Record<string, React.ReactNode> = useMemo(
+    () => ({
+      created: <PlusIcon size={11} aria-hidden="true" />,
+      updated: <PencilIcon size={11} aria-hidden="true" />,
+      deleted: <Trash2Icon size={11} aria-hidden="true" />,
+      rolled_back: <RotateCcwIcon size={11} aria-hidden="true" />,
+      reordered: <ArrowUpDownIcon size={11} aria-hidden="true" />,
+    }),
+    [],
+  )
+
   const loader = useCallback(() => api.routeAudit(routeId), [routeId])
   const { data: entries, loading, error, reload } = useAsyncResource<RouteAudit[]>(loader)
 
@@ -83,9 +98,13 @@ export const RouteAuditPanel: React.FC<RouteAuditPanelProps> = ({
       </div>
 
       {toast && (
+        // R2-8.2: reage ao clique em "Reverter" — o ERRO precisa interromper
+        // o leitor de tela; o sucesso fica `polite` (default), sem exagerar
+        // no `assertive` pra uma confirmação que o usuário já espera.
         <Notice
           variant={toast.type === "success" ? "success" : "danger"}
           title={toast.type === "success" ? t("auditPanel.feedbackOkTitle") : t("auditPanel.feedbackErrorTitle")}
+          live={toast.type === "success" ? undefined : "assertive"}
         >
           {toast.message}
         </Notice>
@@ -119,7 +138,8 @@ export const RouteAuditPanel: React.FC<RouteAuditPanelProps> = ({
             <div key={entry.id} className="flex flex-wrap items-start justify-between gap-3 p-3">
               <div className="min-w-0 space-y-1">
                 <div className="flex flex-wrap items-center gap-2">
-                  <Badge variant={entry.action === "deleted" ? "danger" : entry.action === "created" ? "success" : "default"}>
+                  <Badge variant="default">
+                    {ACTION_ICONS[entry.action]}
                     {ACTION_LABELS[entry.action] ?? entry.action}
                   </Badge>
                   {entry.actor && (

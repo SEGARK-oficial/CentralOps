@@ -36,7 +36,7 @@ describe("AuthContext.logout", () => {
     localStorage.setItem("centralops_org_id", "5")
     localStorage.setItem("centralops_platform", "wazuh")
     localStorage.setItem("centralops_integration_id", "12")
-    mockedApi.logout.mockResolvedValue(undefined)
+    mockedApi.logout.mockResolvedValue({ detail: "logged out" })
 
     const { result } = renderHook(() => useAuth(), { wrapper: AuthProvider })
     await act(async () => {
@@ -61,5 +61,41 @@ describe("AuthContext.logout", () => {
     })
 
     expect(localStorage.getItem("centralops_org_id")).toBeNull()
+  })
+
+  // SEC-08: rascunho do editor de política de enriquecimento sobrevivia ao
+  // logout — numa máquina compartilhada, o próximo usuário herdava o
+  // rascunho (com possível segredo em edição) de quem saiu.
+  it("limpa TODOS os rascunhos de política de enriquecimento (prefixo centralops:enrich:)", async () => {
+    localStorage.setItem("centralops:enrich:policy-draft:1", JSON.stringify({ rules: [] }))
+    localStorage.setItem("centralops:enrich:policy-draft:42", JSON.stringify({ rules: [1] }))
+    // Chave de outro domínio que só COMEÇA parecido não deve ser tocada.
+    localStorage.setItem("centralops_org_id", "5")
+    mockedApi.logout.mockResolvedValue({ detail: "logged out" })
+
+    const { result } = renderHook(() => useAuth(), { wrapper: AuthProvider })
+    await act(async () => {
+      await result.current.logout()
+    })
+
+    expect(localStorage.getItem("centralops:enrich:policy-draft:1")).toBeNull()
+    expect(localStorage.getItem("centralops:enrich:policy-draft:42")).toBeNull()
+  })
+
+  it("não sobra nenhuma chave centralops:enrich: no localStorage após logout", async () => {
+    localStorage.setItem("centralops:enrich:policy-draft:1", "{}")
+    localStorage.setItem("centralops:enrich:policy-draft:2", "{}")
+    localStorage.setItem("some-unrelated-key", "keep-me")
+    mockedApi.logout.mockResolvedValue({ detail: "logged out" })
+
+    const { result } = renderHook(() => useAuth(), { wrapper: AuthProvider })
+    await act(async () => {
+      await result.current.logout()
+    })
+
+    const remaining: string[] = []
+    for (let i = 0; i < localStorage.length; i += 1) remaining.push(localStorage.key(i)!)
+    expect(remaining.some((k) => k.startsWith("centralops:enrich:"))).toBe(false)
+    expect(localStorage.getItem("some-unrelated-key")).toBe("keep-me")
   })
 })

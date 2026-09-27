@@ -458,6 +458,15 @@ export const DriftTable: React.FC<DriftTableProps> = ({
           description={t("table.emptyDescription")}
         />
       ) : (
+        // Sem `virtualizeRows`: cada página já vem do servidor com no máximo
+        // `pagination.pageSize` linhas (não as dezenas de milhares que
+        // justificariam virtualizar). `serverSide` também desliga a
+        // ordenação LOCAL do DataTable — as colunas `sortable` (occurrence
+        // count, last seen) ainda mostram a seta, mas não reordenam a página
+        // sozinhas: ordenar só a fatia corrente seria incoerente com a
+        // paginação (PERF-12). Falta ligar um `onSortChange` que refaça o
+        // fetch já ordenado no backend; nenhum caller (DriftExplorerPage)
+        // ainda expõe esse parâmetro.
         <DataTable
           data={items as unknown as AnyRow[]}
           columns={columns}

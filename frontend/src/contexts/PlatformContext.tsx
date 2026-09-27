@@ -6,9 +6,11 @@
 
 import type React from "react"
 import { createContext, useContext, useCallback, useEffect, useState, useMemo } from "react"
+import { useTranslation } from "react-i18next"
 import type { Integration, Organization, PlatformType } from "@/types"
 import * as api from "@/services/api"
 import { useAuth } from "./AuthContext"
+import { safeStorage } from "@/lib/safeStorage"
 
 interface PlatformContextValue {
   // Data
@@ -44,6 +46,7 @@ const PlatformContext = createContext<PlatformContextValue | null>(null)
 const SCOPE_OWNER_KEY = "centralops_scope_owner"
 
 export const PlatformProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { t } = useTranslation("nav")
   const { user } = useAuth()
   const userId = user?.id ?? null
   const [organizations, setOrganizations] = useState<Organization[]>([])
@@ -52,42 +55,42 @@ export const PlatformProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [error, setError] = useState<string | null>(null)
 
   const [selectedOrgId, setSelectedOrgIdState] = useState<number | null>(() => {
-    const stored = localStorage.getItem("centralops_org_id")
+    const stored = safeStorage.getItem("centralops_org_id")
     return stored ? Number(stored) : null
   })
   const [selectedPlatform, setSelectedPlatformState] = useState<PlatformType | null>(() => {
-    return (localStorage.getItem("centralops_platform") as PlatformType) || null
+    return (safeStorage.getItem("centralops_platform") as PlatformType) || null
   })
   const [selectedIntegrationId, setSelectedIntegrationIdState] = useState<number | null>(() => {
-    const stored = localStorage.getItem("centralops_integration_id")
+    const stored = safeStorage.getItem("centralops_integration_id")
     return stored ? Number(stored) : null
   })
 
   const setSelectedOrgId = useCallback((id: number | null) => {
     setSelectedOrgIdState(id)
-    if (id) localStorage.setItem("centralops_org_id", String(id))
-    else localStorage.removeItem("centralops_org_id")
+    if (id) safeStorage.setItem("centralops_org_id", String(id))
+    else safeStorage.removeItem("centralops_org_id")
   }, [])
 
   const setSelectedPlatform = useCallback((platform: PlatformType | null) => {
     setSelectedPlatformState(platform)
-    if (platform) localStorage.setItem("centralops_platform", platform)
-    else localStorage.removeItem("centralops_platform")
+    if (platform) safeStorage.setItem("centralops_platform", platform)
+    else safeStorage.removeItem("centralops_platform")
   }, [])
 
   const setSelectedIntegrationId = useCallback((id: number | null) => {
     setSelectedIntegrationIdState(id)
-    if (id) localStorage.setItem("centralops_integration_id", String(id))
-    else localStorage.removeItem("centralops_integration_id")
+    if (id) safeStorage.setItem("centralops_integration_id", String(id))
+    else safeStorage.removeItem("centralops_integration_id")
   }, [])
 
   const clearFilters = useCallback(() => {
     setSelectedOrgIdState(null)
     setSelectedPlatformState(null)
     setSelectedIntegrationIdState(null)
-    localStorage.removeItem("centralops_org_id")
-    localStorage.removeItem("centralops_platform")
-    localStorage.removeItem("centralops_integration_id")
+    safeStorage.removeItem("centralops_org_id")
+    safeStorage.removeItem("centralops_platform")
+    safeStorage.removeItem("centralops_integration_id")
   }, [])
 
   const refreshData = useCallback(async () => {
@@ -104,11 +107,13 @@ export const PlatformProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       // O provider só monta pós-autenticação (ProtectedLayout), então uma falha
       // aqui é erro real de rede/servidor — expõe estado para o GlobalFilters
       // oferecer retry, em vez de degradar para selects vazios silenciosos.
-      setError(cause instanceof Error ? cause.message : "Falha ao carregar organizações e integrações.")
+      // R2-6.11: fallback (quando `cause` não é um Error com mensagem) passa
+      // por `t()` — antes era PT fixo, mesmo com o usuário em en/es.
+      setError(cause instanceof Error ? cause.message : t("globalFilters.loadOrgsIntegrationsError"))
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [t])
 
   useEffect(() => {
     refreshData()
@@ -148,8 +153,8 @@ export const PlatformProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   // contra o risco de reproduzir o 403 que trava o dashboard.
   useEffect(() => {
     if (!userId) return
-    if (localStorage.getItem(SCOPE_OWNER_KEY) === userId) return
-    localStorage.setItem(SCOPE_OWNER_KEY, userId)
+    if (safeStorage.getItem(SCOPE_OWNER_KEY) === userId) return
+    safeStorage.setItem(SCOPE_OWNER_KEY, userId)
     clearFilters()
   }, [userId, clearFilters])
 

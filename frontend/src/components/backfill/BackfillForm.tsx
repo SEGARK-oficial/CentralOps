@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Button } from "@/components/ui/Button/Button"
 import { Notice } from "@/components/ui/Notice/Notice"
@@ -87,6 +87,17 @@ export const BackfillForm: React.FC<BackfillFormProps> = ({
 
   const isValid = !errorDateOrder && !errorWindowExceeded && !errorNoStreams && !errorNoRange
 
+  // A11Y-26: refs para focar o 1º campo inválido se o submit for tentado
+  // mesmo com o botão desabilitado (Enter num input dispara o submit do
+  // form independente do `disabled` do botão, em vários navegadores).
+  const fromInputRef = useRef<HTMLInputElement>(null)
+  const firstStreamCheckboxRef = useRef<HTMLInputElement>(null)
+
+  const dateErrorId = errorDateOrder ? "backfill-date-order-error" : undefined
+  const windowErrorId = errorWindowExceeded ? "backfill-window-error" : undefined
+  const dateDescribedBy = [dateErrorId, windowErrorId].filter(Boolean).join(" ") || undefined
+  const streamsErrorId = errorNoStreams ? "backfill-streams-error" : undefined
+
   const toggleStream = (stream: string) => {
     setSelectedStreams((prev) =>
       prev.includes(stream) ? prev.filter((s) => s !== stream) : [...prev, stream],
@@ -95,7 +106,15 @@ export const BackfillForm: React.FC<BackfillFormProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!isValid || !from || !to) return
+    if (!isValid || !from || !to) {
+      // Foca o 1º campo inválido, na ordem em que aparecem no form.
+      if (errorNoRange || errorDateOrder || errorWindowExceeded) {
+        fromInputRef.current?.focus()
+      } else if (errorNoStreams) {
+        firstStreamCheckboxRef.current?.focus()
+      }
+      return
+    }
 
     try {
       setSubmitting(true)
@@ -157,6 +176,7 @@ export const BackfillForm: React.FC<BackfillFormProps> = ({
               {t("backfill.form.from")}
             </label>
             <input
+              ref={fromInputRef}
               id="backfill-from-input"
               data-testid="backfill-from-input"
               type="datetime-local"
@@ -169,8 +189,10 @@ export const BackfillForm: React.FC<BackfillFormProps> = ({
                   from: val ? new Date(val) : null,
                 }))
               }}
-              className="h-9 w-full rounded-md border border-border bg-surface px-3 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+              className="h-9 w-full rounded-md border border-border-field bg-surface-tertiary px-3 text-sm text-text transition-colors hover:border-border-field-hover focus-ring"
               aria-label={t("backfill.form.fromAriaLabel")}
+              aria-invalid={Boolean(errorDateOrder || errorWindowExceeded)}
+              aria-describedby={dateDescribedBy}
               required
             />
           </div>
@@ -192,20 +214,26 @@ export const BackfillForm: React.FC<BackfillFormProps> = ({
                   to: val ? new Date(val) : null,
                 }))
               }}
-              className="h-9 w-full rounded-md border border-border bg-surface px-3 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+              className="h-9 w-full rounded-md border border-border-field bg-surface-tertiary px-3 text-sm text-text transition-colors hover:border-border-field-hover focus-ring"
               aria-label={t("backfill.form.toAriaLabel")}
+              aria-invalid={Boolean(errorDateOrder || errorWindowExceeded)}
+              aria-describedby={dateDescribedBy}
               required
             />
           </div>
         </div>
 
         {errorDateOrder && (
-          <p className="text-xs text-danger-500" role="alert">
+          <p id="backfill-date-order-error" className="text-xs text-danger-500" role="alert">
             {t("backfill.form.errorDateOrder")}
           </p>
         )}
         {errorWindowExceeded && (
-          <Notice variant="warning" title={t("backfill.form.windowExceededTitle", { maxDays: MAX_WINDOW_DAYS })}>
+          <Notice
+            id="backfill-window-error"
+            variant="warning"
+            title={t("backfill.form.windowExceededTitle", { maxDays: MAX_WINDOW_DAYS })}
+          >
             {t("backfill.form.windowExceededBody", { maxDays: MAX_WINDOW_DAYS })}
           </Notice>
         )}
@@ -223,20 +251,22 @@ export const BackfillForm: React.FC<BackfillFormProps> = ({
           data-testid="backfill-streams-select"
           role="group"
           aria-labelledby="backfill-streams-label"
+          aria-describedby={streamsErrorId}
           className="flex flex-wrap gap-2"
         >
-          {availableStreams.map((stream) => {
+          {availableStreams.map((stream, idx) => {
             const checked = selectedStreams.includes(stream)
             return (
               <label
                 key={stream}
-                className="flex cursor-pointer items-center gap-2 rounded-md border border-border px-3 py-2 text-sm transition-colors hover:border-primary-400 has-[:checked]:border-primary-500 has-[:checked]:bg-primary-50 has-[:checked]:text-primary-700"
+                className="flex cursor-pointer items-center gap-2 rounded-md border border-border-field px-3 py-2 text-sm transition-colors hover:border-primary-400 has-[:checked]:border-primary-500 has-[:checked]:bg-primary-50 has-[:checked]:text-primary-700"
               >
                 <input
+                  ref={idx === 0 ? firstStreamCheckboxRef : undefined}
                   type="checkbox"
                   checked={checked}
                   onChange={() => toggleStream(stream)}
-                  className="h-4 w-4 rounded border-border text-primary-600 focus:ring-primary-500"
+                  className="h-4 w-4 rounded border-border-field text-primary-600 focus-ring"
                   aria-label={t("backfill.form.streamAriaLabel", { stream })}
                 />
                 {stream}
@@ -245,7 +275,7 @@ export const BackfillForm: React.FC<BackfillFormProps> = ({
           })}
         </div>
         {errorNoStreams && (
-          <p className="text-xs text-danger-500" role="alert">
+          <p id="backfill-streams-error" className="text-xs text-danger-500" role="alert">
             {t("backfill.form.errorNoStreams")}
           </p>
         )}

@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useCallback } from "react"
 import * as api from "@/services/api"
+// R2-8.8: `i18n.t()` direto — ver comentário equivalente em useCollectorConfig.ts.
+import i18n from "@/i18n"
 import type { EmailConfig, EmailRecipient, UpdateEmailConfigRequest } from "@/types"
 
 type EmailFeedback =
@@ -48,7 +50,7 @@ export function useEmailConfig(): UseEmailConfigReturn {
       setConfig(cfg)
       setRecipients(emails)
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "Falha ao carregar configuração"
+      const msg = err instanceof Error ? err.message : i18n.t("config:emailConfigHook.loadErrorFallback")
       setError(msg)
     } finally {
       setLoading(false)
@@ -61,10 +63,10 @@ export function useEmailConfig(): UseEmailConfigReturn {
       setFeedback(null)
       const cfg = await api.updateEmailConfig(data)
       setConfig(cfg)
-      setFeedback({ type: "success", message: "Configurações de email salvas com sucesso." })
+      setFeedback({ type: "success", message: i18n.t("config:emailConfigHook.saveSuccess") })
       return true
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "Falha ao salvar configuração de email"
+      const msg = err instanceof Error ? err.message : i18n.t("config:emailConfigHook.saveErrorFallback")
       setFeedback({ type: "error", message: msg })
       return false
     } finally {
@@ -78,10 +80,10 @@ export function useEmailConfig(): UseEmailConfigReturn {
       setFeedback(null)
       const rec = await api.createEmail({ email })
       setRecipients((prev) => [...prev, rec])
-      setFeedback({ type: "success", message: `Destinatario ${email} adicionado.` })
+      setFeedback({ type: "success", message: i18n.t("config:emailConfigHook.addRecipientSuccess", { email }) })
       return true
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "Falha ao adicionar destinatario"
+      const msg = err instanceof Error ? err.message : i18n.t("config:emailConfigHook.addRecipientErrorFallback")
       setFeedback({ type: "error", message: msg })
       return false
     } finally {
@@ -95,10 +97,10 @@ export function useEmailConfig(): UseEmailConfigReturn {
       setFeedback(null)
       await api.deleteEmail(id)
       setRecipients((prev) => prev.filter((r) => r.id !== id))
-      setFeedback({ type: "success", message: "Destinatario removido com sucesso." })
+      setFeedback({ type: "success", message: i18n.t("config:emailConfigHook.removeRecipientSuccess") })
       return true
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "Falha ao remover destinatario"
+      const msg = err instanceof Error ? err.message : i18n.t("config:emailConfigHook.removeRecipientErrorFallback")
       setFeedback({ type: "error", message: msg })
       return false
     } finally {
@@ -114,7 +116,7 @@ export function useEmailConfig(): UseEmailConfigReturn {
       setFeedback({ type: "success", message: response.detail })
       return true
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "Falha ao enviar email de teste"
+      const msg = err instanceof Error ? err.message : i18n.t("config:emailConfigHook.sendTestErrorFallback")
       setFeedback({ type: "error", message: msg })
       return false
     } finally {

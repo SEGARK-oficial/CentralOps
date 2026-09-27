@@ -274,4 +274,26 @@ describe("QuarantineDetailDrawer", () => {
 
     expect(onClose).toHaveBeenCalled()
   })
+
+  // A11Y-41/A11Y-20: o link pro mapping era um <button onClick={navigate}> —
+  // virou <Link> de verdade, com alvo de 24px.
+  describe("link para o mapping (A11Y-41/A11Y-20)", () => {
+    it("é um link de verdade com href pro editor de mapping", () => {
+      renderDrawer(true, DETAIL, { mappings: [{ id: "mv1" }] })
+      const link = screen.getByRole("link", { name: "Abrir mapping no editor" })
+      expect(link).toHaveAttribute("href", "/mappings/mv1")
+    })
+
+    it("tem alvo mínimo de 24px (h-6 w-6)", () => {
+      renderDrawer(true, DETAIL, { mappings: [{ id: "mv1" }] })
+      const link = screen.getByRole("link", { name: "Abrir mapping no editor" })
+      expect(link.className).toContain("h-6")
+      expect(link.className).toContain("w-6")
+    })
+
+    it("não renderiza o link quando o mapping não existe mais", () => {
+      renderDrawer(true, DETAIL, { mappings: [] })
+      expect(screen.queryByRole("link", { name: "Abrir mapping no editor" })).not.toBeInTheDocument()
+    })
+  })
 })

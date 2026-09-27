@@ -7,8 +7,10 @@
  * contradizendo o FlowCanvas. Os testes deles foram junto.
  */
 
+import { createElement } from "react"
 import { describe, it, expect } from "vitest"
-import { healthEncoding, HEALTH_MAP, StatusBadge } from "@/lib/severity"
+import { render, screen } from "@testing-library/react"
+import { healthEncoding, HEALTH_MAP, StatusBadge, detectionSeverityEncoding } from "@/lib/severity"
 
 // ── healthEncoding ──────────────────────────────────────────────────────────
 
@@ -110,5 +112,65 @@ describe("StatusBadge export", () => {
     expect(enc).toHaveProperty("labelKey")
     expect(enc).toHaveProperty("badgeVariant")
     expect(enc).toHaveProperty("iconName")
+  })
+})
+
+// ── detectionSeverityEncoding (LAY-18) ───────────────────────────────────────
+
+describe("detectionSeverityEncoding", () => {
+  it("severidade 3 (Média/OCSF) é neutra, NÃO primary (violeta = normalize/OCSF/marca)", () => {
+    // DetectionsTable usava variant="primary" para a severidade 3 — a cor
+    // errada para um nível de risco médio, e reservada para outro conceito.
+    expect(detectionSeverityEncoding(3).badgeVariant).toBe("default")
+    expect(detectionSeverityEncoding(3).badgeVariant).not.toBe("primary")
+  })
+
+  it("1 e 2 (Informational/Low) são neutras", () => {
+    expect(detectionSeverityEncoding(1).badgeVariant).toBe("default")
+    expect(detectionSeverityEncoding(2).badgeVariant).toBe("default")
+  })
+
+  it("4 (High) é warning", () => {
+    expect(detectionSeverityEncoding(4).badgeVariant).toBe("warning")
+  })
+
+  it("5 e 6 (Critical/Fatal) são danger", () => {
+    expect(detectionSeverityEncoding(5).badgeVariant).toBe("danger")
+    expect(detectionSeverityEncoding(6).badgeVariant).toBe("danger")
+  })
+
+  it("cada nível 1-6 tem uma labelKey própria (namespace schedules)", () => {
+    const keys = new Set<string>()
+    for (let id = 1; id <= 6; id++) {
+      const { labelKey } = detectionSeverityEncoding(id)
+      expect(labelKey.startsWith("detections:list.severity.")).toBe(true)
+      keys.add(labelKey)
+    }
+    expect(keys.size).toBe(6)
+  })
+
+  it("severidade fora de 1-6 cai no fallback com o id para interpolação", () => {
+    const enc = detectionSeverityEncoding(9)
+    expect(enc.labelKey).toBe("detections:list.severity.unknown")
+    expect(enc.labelParams).toEqual({ id: 9 })
+    expect(enc.badgeVariant).toBe("danger")
+  })
+})
+
+// ── StatusBadge — A11Y-34: nome acessível por texto real, não por aria-label
+//    num <span> sem role (que a maioria dos leitores de tela ignora) ─────────
+
+describe("StatusBadge — A11Y-34", () => {
+  it("com showLabel (padrão), o texto do rótulo é visível — não há aria-label redundante no wrapper", () => {
+    render(createElement(StatusBadge, { encoding: healthEncoding("degraded") }))
+    const label = screen.getByText("Degradado")
+    expect(label.parentElement?.hasAttribute("aria-label")).toBe(false)
+  })
+
+  it("com showLabel=false (ícone-apenas), o rótulo continua na árvore de acessibilidade via sr-only", () => {
+    render(createElement(StatusBadge, { encoding: healthEncoding("degraded"), showLabel: false }))
+    // sr-only: presente no DOM (acessível), mesmo sem aparecer visualmente.
+    expect(screen.getByText("Degradado")).toBeInTheDocument()
+    expect(screen.getByText("Degradado")).toHaveClass("sr-only")
   })
 })

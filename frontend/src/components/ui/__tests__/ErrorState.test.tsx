@@ -122,4 +122,16 @@ describe("ErrorState — acessibilidade", () => {
     expect(alert.className).toContain("mt-8")
     expect(alert).toHaveAttribute("role", "alert")
   })
+
+  // A11Y-33: <h3> fixo furava a hierarquia quando o ErrorState (sobretudo
+  // full-page) era o único heading da tela, sem <h2> por perto.
+  it("headingLevel controla o nível do heading (default h3)", () => {
+    render(<ErrorState title="Erro" />)
+    expect(screen.getByRole("heading", { level: 3, name: "Erro" })).toBeInTheDocument()
+  })
+
+  it("headingLevel=2 renderiza <h2> em vez de <h3>", () => {
+    render(<ErrorState title="Serviço indisponível" variant="full-page" headingLevel={2} />)
+    expect(screen.getByRole("heading", { level: 2, name: "Serviço indisponível" })).toBeInTheDocument()
+  })
 })

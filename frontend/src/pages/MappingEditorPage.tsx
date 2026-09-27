@@ -106,7 +106,12 @@ export const MappingEditorPage: React.FC = () => {
     : null
 
   // currentVersion.rules vem do backend no shape v2 (dict).
-  const currentRules: MappingRule[] = currentVersion?.rules?.rules ?? []
+  // useMemo: `?? []` nascia de novo a cada render sem versão carregada,
+  // instabilizando os hooks (useMemo/useCallback) que dependem de `currentRules`.
+  const currentRules: MappingRule[] = useMemo(
+    () => currentVersion?.rules?.rules ?? [],
+    [currentVersion],
+  )
   const currentPreprocess: PreprocessOp[] = currentVersion?.rules?.preprocess ?? []
 
   // Auto-expand a seção de preprocess em view mode quando a versão atual
@@ -116,7 +121,6 @@ export const MappingEditorPage: React.FC = () => {
     if (editorMode === "view" && currentPreprocess.length > 0) {
       setPreprocessExpanded(true)
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editorMode, currentVersion?.id, currentPreprocess.length])
 
   // draft: usa draftRules quando em edit mode, senão currentRules
@@ -186,7 +190,7 @@ export const MappingEditorPage: React.FC = () => {
   // → não re-monta os inputs de cada RuleRow a cada render do pai.
   const DRY_RUN_DEBOUNCE_MS = 400
   const [effectiveRules, setEffectiveRules] = useState<MappingRule[]>(activeRules)
-  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const debounceTimerRef = useRef<number | null>(null)
 
   // Sincroniza effectiveRules quando activeRules muda (ex: ao entrar em edit
   // mode, ao sair, ou ao resetar o draft). Em view mode ou quando draftRules
@@ -194,7 +198,7 @@ export const MappingEditorPage: React.FC = () => {
   useEffect(() => {
     if (editorMode !== "edit" || draftRules === null) {
       // Mudança não originada por keystroke — aplica imediatamente
-      if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current)
+      if (debounceTimerRef.current) window.clearTimeout(debounceTimerRef.current)
       setEffectiveRules(activeRules)
     }
     // Caso edit mode com draftRules: a atualização debounced é feita em
@@ -218,8 +222,8 @@ export const MappingEditorPage: React.FC = () => {
   const handleRulesChange = useCallback(
     (rules: MappingRule[]) => {
       setDraftRules(rules)
-      if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current)
-      debounceTimerRef.current = setTimeout(() => {
+      if (debounceTimerRef.current) window.clearTimeout(debounceTimerRef.current)
+      debounceTimerRef.current = window.setTimeout(() => {
         setEffectiveRules(rules)
       }, DRY_RUN_DEBOUNCE_MS)
     },
@@ -229,7 +233,7 @@ export const MappingEditorPage: React.FC = () => {
   // Limpar timer pendente ao desmontar
   useEffect(() => {
     return () => {
-      if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current)
+      if (debounceTimerRef.current) window.clearTimeout(debounceTimerRef.current)
     }
   }, [])
 
@@ -263,6 +267,9 @@ export const MappingEditorPage: React.FC = () => {
     setDraftRules(nextRules)
     setEffectiveRules(nextRules)
     setEditorMode("edit")
+    // `prefillConsumedRef` já garante execução ÚNICA (guarda no topo do
+    // efeito) — `currentRules`/`setSearchParams` fora da lista não reabrem a
+    // reexecução.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [prefillPath, mapping, canWrite, editorMode])
 
@@ -324,7 +331,7 @@ export const MappingEditorPage: React.FC = () => {
     if (isDirty) {
       setShowDiscardConfirm(true)
     } else {
-      if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current)
+      if (debounceTimerRef.current) window.clearTimeout(debounceTimerRef.current)
       setEditorMode("view")
       setDraftRules(null)
       setEffectiveRules(currentRules)
@@ -334,7 +341,7 @@ export const MappingEditorPage: React.FC = () => {
   }
 
   function handleDiscardConfirm() {
-    if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current)
+    if (debounceTimerRef.current) window.clearTimeout(debounceTimerRef.current)
     setShowDiscardConfirm(false)
     setEditorMode("view")
     setDraftRules(null)
@@ -344,7 +351,7 @@ export const MappingEditorPage: React.FC = () => {
   }
 
   function handleSaveSuccess() {
-    if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current)
+    if (debounceTimerRef.current) window.clearTimeout(debounceTimerRef.current)
     setShowSaveModal(false)
     setEditorMode("view")
     setDraftRules(null)
@@ -430,8 +437,10 @@ export const MappingEditorPage: React.FC = () => {
         icon={<GitBranchIcon size={20} />}
         actions={
           <div className="flex items-center gap-2">
+            {/* R3-6.4: contador de versão — decorativo, não é o estágio
+                "normalizado" do dado (violeta é reservado a isso). */}
             {currentVersion && (
-              <Badge variant="primary">
+              <Badge variant="default">
                 v{currentVersion.version_number}
               </Badge>
             )}

@@ -6,6 +6,7 @@ import { AlertTriangleIcon, BuildingIcon, FilterIcon, PlugIcon, RefreshCwIcon, X
 import { usePlatform } from "@/contexts/PlatformContext"
 import { Select, type SelectOption, type SelectValue } from "@/components/ui/Select/Select"
 import { Button } from "@/components/ui/Button/Button"
+import { Skeleton } from "@/components/ui/Skeleton"
 import type { PlatformType } from "@/types"
 
 // Páginas de administração/conta não consomem os filtros globais (org/plataforma/
@@ -73,7 +74,22 @@ export const GlobalFilters: React.FC = () => {
   const hasActiveFilters = selectedOrgId != null || selectedPlatform != null || selectedIntegrationId != null
 
   if (HIDDEN_PREFIXES.some((prefix) => location.pathname.startsWith(prefix))) return null
-  if (loading) return null
+
+  // LAY-09: `return null` durante o loading fazia a barra aparecer/desaparecer
+  // (CLS) quando os dados chegavam — reserva a mesma altura com um skeleton.
+  if (loading) {
+    return (
+      <div
+        role="status"
+        aria-label={t("globalFilters.loading")}
+        className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-2 border-b border-border bg-surface px-4 py-2"
+      >
+        <Skeleton className="h-8 w-52" />
+        <Skeleton className="h-8 w-44" />
+        <Skeleton className="h-8 w-64" />
+      </div>
+    )
+  }
 
   // Falha real de carregamento: avisa e oferece retry, em vez de selects vazios mudos.
   if (error) {

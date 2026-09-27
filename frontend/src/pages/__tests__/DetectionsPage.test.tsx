@@ -8,7 +8,7 @@
  * 4. KPIs calculados por status.
  */
 
-import { render, screen, fireEvent, waitFor, within } from "@testing-library/react"
+import { render, screen, fireEvent, waitFor } from "@testing-library/react"
 import { describe, it, expect, vi, beforeEach } from "vitest"
 import { MemoryRouter } from "react-router-dom"
 import DetectionsPage from "@/pages/DetectionsPage"
@@ -173,11 +173,12 @@ describe("DetectionsPage — triagem Ack", () => {
 
     renderPage()
 
-    // Click the row for DETECTION_OPEN (desktop table tr + mobile button both render in jsdom)
-    const rows = await screen.findAllByRole("button", {
-      name: /Ver detalhes da detecção Brute Force Detectado/i,
-    })
-    fireEvent.click(rows[0])
+    // R2-5.3: layout único — jsdom (matchMedia padrão) resolve "não é
+    // desktop", então só o cartão mobile monta. Nome acessível vem do título
+    // de verdade via aria-labelledby (não mais um aria-label com frase
+    // fixa "Ver detalhes da detecção ...").
+    const row = await screen.findByRole("button", { name: "Brute Force Detectado" })
+    fireEvent.click(row)
 
     // Drawer should open
     expect(await screen.findByRole("dialog", { name: /Detalhes da detecção/i })).toBeInTheDocument()
@@ -218,5 +219,47 @@ describe("DetectionsPage — KPIs", () => {
     expect(screen.getByTestId("kpi-open").textContent).toBe("0")
     expect(screen.getByTestId("kpi-ack").textContent).toBe("0")
     expect(screen.getByTestId("kpi-closed").textContent).toBe("0")
+  })
+})
+
+describe("DetectionsPage — PERF-14: aviso de teto (endpoint sem total real)", () => {
+  it("mostra o aviso quando a resposta bate exatamente no teto de 200", async () => {
+    const many = Array.from({ length: 200 }, (_, i) => ({
+      ...DETECTION_OPEN,
+      id: i + 1,
+      dedup_key: `org10:rule-001:hash${i}`,
+    }))
+    mockedApi.listDetections.mockResolvedValue(many)
+    renderPage()
+
+    expect(await screen.findByText(/Exibindo as 200 mais recentes/i)).toBeInTheDocument()
+  })
+
+  it("não mostra o aviso quando a lista fica abaixo do teto", async () => {
+    renderPage()
+    await screen.findAllByText("Brute Force Detectado")
+    expect(screen.queryByText(/mais recentes/i)).not.toBeInTheDocument()
+  })
+})
+
+describe("DetectionsPage — R2-5.4: erro num refresh não apaga dado já visível", () => {
+  it("com detecções já na tela, um refresh que falha vira banner com retry — a tabela continua", async () => {
+    renderPage()
+    await screen.findAllByText("Brute Force Detectado")
+
+    mockedApi.listDetections.mockRejectedValueOnce(new Error("Falha de rede"))
+    fireEvent.click(screen.getByRole("button", { name: /atualizar/i }))
+
+    expect(await screen.findByText("Falha de rede")).toBeInTheDocument()
+    // O dado que já estava na tela continua lá — o erro não o substituiu.
+    expect(screen.getAllByText("Brute Force Detectado").length).toBeGreaterThan(0)
+  })
+
+  it("sem nenhuma detecção carregada, o erro vira ErrorState de página com retry", async () => {
+    mockedApi.listDetections.mockRejectedValue(new Error("Falha de rede"))
+    renderPage()
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Falha de rede")
+    expect(screen.getByRole("button", { name: /tentar novamente/i })).toBeInTheDocument()
   })
 })

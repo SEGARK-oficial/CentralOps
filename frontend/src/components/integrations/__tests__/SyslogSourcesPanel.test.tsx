@@ -86,4 +86,70 @@ describe("SyslogSourcesPanel", () => {
     expect(res.textContent).toContain("rfc3164")
     expect(mocked.testSyslogClassifier).toHaveBeenCalledWith({ line: expect.stringContaining("devname"), classifier: undefined, default_stream: "traffic" })
   })
+
+  // R2-8.3: o botão "Cadastrar fonte" já ficava desabilitado enquanto
+  // inválido (bom!), mas o submit NATIVO do form (Enter/`fireEvent.submit`)
+  // não passa pelo `disabled` do botão — sem a guarda defensiva, o clique
+  // silenciosamente não fazia nada. Cobrimos essa via de bypass diretamente.
+  describe("R2-8.3 (foco defensivo / banner acessível)", () => {
+    it("submit nativo com nome vazio foca o campo Nome (não fica mudo)", async () => {
+      mocked.getIngestInfo.mockResolvedValue(info("push", ["traffic"]))
+      mocked.listSyslogSources.mockResolvedValue([])
+      render(<SyslogSourcesPanel integrationId={7} canManage />)
+      const panel = await screen.findByTestId("syslog-sources")
+
+      fireEvent.submit(panel.querySelector("form")!)
+
+      expect(await screen.findByRole("alert")).toHaveTextContent(/nome/i)
+      expect(document.activeElement).toBe(screen.getByTestId("syslog-name"))
+      expect(screen.getByTestId("syslog-name")).toHaveAttribute("aria-invalid", "true")
+      expect(mocked.createSyslogSource).not.toHaveBeenCalled()
+    })
+
+    it("nome preenchido mas CIDR inválido foca o campo CIDR", async () => {
+      mocked.getIngestInfo.mockResolvedValue(info("push", ["traffic"]))
+      mocked.listSyslogSources.mockResolvedValue([])
+      render(<SyslogSourcesPanel integrationId={7} canManage />)
+      const panel = await screen.findByTestId("syslog-sources")
+      fireEvent.change(screen.getByTestId("syslog-name"), { target: { value: "fw-edge" } })
+
+      fireEvent.submit(panel.querySelector("form")!)
+
+      expect(await screen.findByRole("alert")).toHaveTextContent(/CIDR/i)
+      expect(document.activeElement).toBe(screen.getByTestId("syslog-cidr"))
+      expect(screen.getByTestId("syslog-cidr")).toHaveAttribute("aria-invalid", "true")
+    })
+
+    it("erro do servidor ao cadastrar aparece como alert assertivo (antes era um <p> mudo)", async () => {
+      mocked.getIngestInfo.mockResolvedValue(info("push", ["traffic"]))
+      mocked.listSyslogSources.mockResolvedValue([])
+      mocked.createSyslogSource.mockRejectedValue(new Error("CIDR já cadastrado por outra fonte"))
+      render(<SyslogSourcesPanel integrationId={7} canManage />)
+      await screen.findByTestId("syslog-sources")
+      fireEvent.change(screen.getByTestId("syslog-name"), { target: { value: "fw-edge" } })
+      fireEvent.change(screen.getByTestId("syslog-cidr"), { target: { value: "10.0.5.7/32" } })
+      fireEvent.click(screen.getByTestId("syslog-create"))
+
+      const alert = await screen.findByRole("alert")
+      expect(alert).toHaveTextContent(/CIDR já cadastrado/)
+      expect(alert).toHaveAttribute("aria-live", "assertive")
+    })
+
+    it("corrigir e reenviar limpa o erro anterior", async () => {
+      mocked.getIngestInfo.mockResolvedValue(info("push", ["traffic"]))
+      mocked.listSyslogSources.mockResolvedValue([])
+      mocked.createSyslogSource.mockResolvedValue(source)
+      render(<SyslogSourcesPanel integrationId={7} canManage />)
+      const panel = await screen.findByTestId("syslog-sources")
+      fireEvent.submit(panel.querySelector("form")!)
+      await screen.findByRole("alert")
+
+      fireEvent.change(screen.getByTestId("syslog-name"), { target: { value: "fw-edge" } })
+      fireEvent.change(screen.getByTestId("syslog-cidr"), { target: { value: "10.0.5.7/32" } })
+      fireEvent.click(screen.getByTestId("syslog-create"))
+
+      await waitFor(() => expect(mocked.createSyslogSource).toHaveBeenCalledTimes(1))
+      expect(screen.queryByRole("alert")).not.toBeInTheDocument()
+    })
+  })
 })

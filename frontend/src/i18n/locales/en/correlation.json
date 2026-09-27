@@ -1,4 +1,10 @@
 {
+  "errors": {
+    "loadRulesFailed": "Failed to load correlation rules",
+    "createRuleFailed": "Failed to create rule",
+    "updateRuleFailed": "Failed to update rule",
+    "removeRuleFailed": "Failed to remove rule"
+  },
   "page": {
     "eyebrow": "Detection",
     "badgeBeta": "Beta",
@@ -638,6 +644,164 @@
       },
       "fromVendor": "from this source",
       "notInInventory": "This path is not in this organization's inventory: the rule compiles, but may never resolve."
+    }
+  },
+  "queryJobs": {
+    "status": {
+      "submitted": "Submitted",
+      "running": "Running",
+      "finished": "Finished",
+      "partial": "Partial",
+      "failed": "Failed"
+    },
+    "common": {
+      "yes": "Yes",
+      "no": "No"
+    },
+    "errors": {
+      "submitFailed": "Failed to submit search.",
+      "loadRecentFailed": "Failed to load recent jobs."
+    },
+    "table": {
+      "loading": "Loading jobs...",
+      "empty": {
+        "title": "No searches yet",
+        "description": "Use the form above to start an asynchronous federated search."
+      },
+      "ariaLabel": "Federated search jobs",
+      "column": {
+        "jobId": "Job ID",
+        "status": "Status",
+        "dialect": "Dialect",
+        "results": "Results",
+        "createdAt": "Created at",
+        "details": "Details"
+      },
+      "view": "View",
+      "viewDetailsAriaLabel": "View details for job {{id}}",
+      "mobileCardAriaLabel": "Job {{id}} — {{status}}",
+      "resultsCount": "{{count}} result(s)"
+    },
+    "drawer": {
+      "ariaLabel": "Federated search job details",
+      "title": "Job details",
+      "titleWithId": "Job {{id}}…",
+      "closeAriaLabel": "Close job details",
+      "selectPrompt": "Select a job to see the details.",
+      "notice": {
+        "finished": "{{total}} result(s) found.",
+        "partial": "Partial search: {{total}} result(s). Some sources failed.",
+        "failed": "The search failed. See the error below."
+      },
+      "summary": {
+        "heading": "Summary",
+        "jobId": "Job ID",
+        "status": "Status",
+        "dialect": "Dialect",
+        "specKind": "Translation mode",
+        "totalResults": "Total results",
+        "allowPartial": "Partial results allowed",
+        "windowStart": "Window — start",
+        "windowEnd": "Window — end",
+        "finishedAt": "Finished at",
+        "errorMessage": "Error message"
+      },
+      "statement": {
+        "heading": "Statement"
+      },
+      "perSource": {
+        "heading": "Result by source",
+        "column": {
+          "integration": "Integration",
+          "status": "Status",
+          "results": "Results",
+          "partial": "Partial",
+          "error": "Error"
+        }
+      }
+    },
+    "page": {
+      "eyebrow": "Investigation",
+      "title": "Federated search",
+      "description": "Run asynchronous queries across multiple integrations and track status in real time.",
+      "actions": {
+        "closeForm": "Close form",
+        "newSearch": "New search"
+      },
+      "feedback": {
+        "submitSuccess": "Search submitted. Track its status in the table below.",
+        "successTitle": "Operation completed",
+        "errorTitle": "Could not complete",
+        "dismissAriaLabel": "Dismiss notice"
+      },
+      "recentError": {
+        "title": "Failed to load recent jobs"
+      },
+      "permission": {
+        "title": "Permission required",
+        "body": "You don't have the <code>query.run</code> permission to start federated searches."
+      },
+      "createCard": {
+        "title": "New federated search",
+        "description": "Select integrations, choose the dialect, and write the query statement."
+      },
+      "recentCard": {
+        "title": "Recent jobs",
+        "description": "Last {{count}} job(s) from your organization.",
+        "refreshAriaLabel": "Refresh job list",
+        "refresh": "Refresh"
+      }
+    },
+    "form": {
+      "specKind": {
+        "passthrough": "Passthrough",
+        "sigma": "Sigma (experimental)"
+      },
+      "errors": {
+        "integrationsRequired": "Select at least one integration.",
+        "statementRequired": "Statement is required.",
+        "windowRequired": "Select the time window (start and end)."
+      },
+      "submitErrorTitle": "Failed to submit search",
+      "integrations": {
+        "label": "Integrations",
+        "placeholder": "Select the integrations to query",
+        "ariaLabel": "Select integrations"
+      },
+      "dialect": {
+        "label": "Dialect",
+        "placeholderLoading": "Loading dialects...",
+        "placeholder": "Select the dialect (optional)",
+        "ariaLabel": "Select query dialect",
+        "tooltipLabel": "Dialect: {{dialect}}",
+        "tooltip": {
+          "rateLimit": "Rate limit: {{value}}",
+          "maxWindow": "Max window: {{hours}}h",
+          "supportsAsync": "Supports asynchronous execution.",
+          "supportedBy": "Platforms: {{platforms}}"
+        }
+      },
+      "specKindField": {
+        "label": "Translation mode",
+        "ariaLabel": "Select statement translation mode"
+      },
+      "statement": {
+        "label": "Statement",
+        "placeholderSigma": "Paste the Sigma rule here...",
+        "placeholderDefault": "E.g.: process where process.name == 'cmd.exe'",
+        "helperSigma": "Sigma mode (experimental): the rule will be converted by the backend before execution.",
+        "helperDefault": "Statement in the selected native dialect."
+      },
+      "window": {
+        "label": "Time window",
+        "ariaLabel": "Select the time window"
+      },
+      "allowPartial": {
+        "ariaLabel": "Accept partial results when a source fails",
+        "label": "Accept partial results",
+        "hint": "(returns data from sources that responded, even if others fail)"
+      },
+      "submit": "Run search"
     }
   }
 }

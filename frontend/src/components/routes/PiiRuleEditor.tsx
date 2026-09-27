@@ -328,7 +328,11 @@ export const PiiRuleEditor: React.FC<PiiRuleEditorProps> = ({ rules, onChange, d
             aria-label={t("piiRuleEditor.jsonTextareaAria")}
           />
           {jsonError && (
-            <Notice variant="danger" title={t("piiRuleEditor.jsonInvalidTitle")}>
+            // R2-8.2: `danger` não é mais `role=alert` assertivo por padrão —
+            // mas este erro SURGE de uma ação do usuário (blur no textarea
+            // JSON inválido, ou tentativa de trocar de modo), então precisa
+            // interromper o leitor de tela mesmo assim.
+            <Notice variant="danger" title={t("piiRuleEditor.jsonInvalidTitle")} live="assertive">
               {jsonError}
             </Notice>
           )}

@@ -113,9 +113,14 @@ const FlowPage: React.FC = () => {
     }
   }, [t])
 
+  // PERF-09: pula o tick com a aba oculta — poll silencioso de um grafo inteiro
+  // não precisa competir por CPU/rede enquanto o usuário está em outra aba.
   useEffect(() => {
     void load(false)
-    const id = window.setInterval(() => void load(true), POLL_MS)
+    const id = window.setInterval(() => {
+      if (document.hidden) return
+      void load(true)
+    }, POLL_MS)
     return () => {
       window.clearInterval(id)
       abortRef.current?.abort()
@@ -162,8 +167,11 @@ const FlowPage: React.FC = () => {
         }
       />
 
+      {/* R2-8.2: `data` sobrevive a um refresh que falha, então este erro pode
+          aparecer junto com o grafo já visível — mesma regra de "Atualizar"
+          nas demais páginas de saúde. */}
       {error && (
-        <Notice variant="danger" title={t("flowPage.notLoaded")}>
+        <Notice variant="danger" title={t("flowPage.notLoaded")} live="assertive">
           {error}
         </Notice>
       )}

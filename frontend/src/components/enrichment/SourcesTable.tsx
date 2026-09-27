@@ -96,11 +96,13 @@ export const SourcesTable: React.FC<Props> = ({
       if (filter === "third_party") return byName.get(s.enricher)?.egress === "third_party"
       return true
     })
+    // `hasProblem` só fecha sobre `byName`, já na lista.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sources, query, filter, byName])
 
   const problemCount = useMemo(
     () => sources.filter(hasProblem).length,
+    // `hasProblem` só fecha sobre `byName`, já na lista.
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [sources, byName],
   )
@@ -120,7 +122,7 @@ export const SourcesTable: React.FC<Props> = ({
         >
           <span className="font-medium">{s.name}</span>
           {s.description ? (
-            <span className="block truncate text-xs text-muted">{s.description}</span>
+            <span className="block truncate text-xs text-text-tertiary">{s.description}</span>
           ) : null}
         </button>
       ),
@@ -135,7 +137,7 @@ export const SourcesTable: React.FC<Props> = ({
         return (
           <div>
             <span className="text-sm">{cat?.label ?? s.enricher}</span>
-            <span className="block text-xs text-muted">
+            <span className="block text-xs text-text-tertiary">
               {cat ? t(`catalog.mode.${cat.mode}`) : s.enricher}
             </span>
           </div>
@@ -184,7 +186,7 @@ export const SourcesTable: React.FC<Props> = ({
         }
         if (s.last_test_ok) {
           return (
-            <span className="text-xs text-muted">
+            <span className="text-xs text-text-tertiary">
               ✓ {ago(s.last_test_at, t as never)}
             </span>
           )
@@ -214,9 +216,9 @@ export const SourcesTable: React.FC<Props> = ({
       render: (_v, s) => {
         const shared = s.shared_organization_ids ?? []
         const owner = orgName.get(s.organization_id) ?? `#${s.organization_id}`
-        if (shared.length === 0) return <span className="text-xs text-muted">{owner}</span>
+        if (shared.length === 0) return <span className="text-xs text-text-tertiary">{owner}</span>
         return (
-          <span className="text-xs text-muted">
+          <span className="text-xs text-text-tertiary">
             {t("sources.table.ownerPlusChildren", { owner, count: shared.length })}
           </span>
         )

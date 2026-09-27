@@ -76,20 +76,29 @@ export const Breadcrumbs: React.FC = () => {
         {breadcrumbs.map((item, index) => {
           const isLast = index === breadcrumbs.length - 1
           return (
-            <li key={item.key} className="flex items-center gap-1.5">
+            <li key={item.key} className="flex min-w-0 items-center gap-1.5">
               {index > 0 && <ChevronRightIcon size={14} className="text-text-tertiary" aria-hidden="true" />}
 
               {item.path ? (
                 <Link
                   to={item.path}
-                  className="flex items-center gap-1 rounded transition-colors hover:text-primary-600 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500"
+                  className="flex min-w-0 items-center gap-1 rounded transition-colors hover:text-primary-600 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500"
                   aria-label={index === 0 ? t("breadcrumbs.backToHome") : t("breadcrumbs.goTo", { label: item.label })}
                 >
-                  {index === 0 && <HomeIcon size={14} aria-hidden="true" />}
-                  <span>{item.label}</span>
+                  {index === 0 && <HomeIcon size={14} aria-hidden="true" className="shrink-0" />}
+                  {/* LAY-26: segmento de rota pode ser um slug/id longo — trunca em
+                      vez de estourar a linha, e o texto completo continua acessível
+                      via `title` no hover. */}
+                  <span className="max-w-[12rem] truncate" title={item.label}>
+                    {item.label}
+                  </span>
                 </Link>
               ) : (
-                <span className="font-medium text-text" aria-current={isLast ? "page" : undefined}>
+                <span
+                  className="max-w-[16rem] truncate font-medium text-text"
+                  title={item.label}
+                  aria-current={isLast ? "page" : undefined}
+                >
                   {item.label}
                 </span>
               )}

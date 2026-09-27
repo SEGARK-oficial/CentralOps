@@ -3,6 +3,8 @@
 import type React from "react"
 import { useEffect, useState } from "react"
 import { SaveIcon, XIcon } from "lucide-react"
+import { useTranslation } from "react-i18next"
+import type { TFunction } from "i18next"
 import * as api from "@/services/api"
 import { Button } from "@/components/ui/Button/Button"
 import { Input } from "@/components/ui/Input/Input"
@@ -22,16 +24,18 @@ import type {
 import {
   DEFAULT_QUERY_FINDING_SHAPE,
   DEFAULT_QUERY_SEVERITY,
-  QUERY_FINDING_SHAPE_HELP,
-  QUERY_FINDING_SHAPE_OPTIONS,
-  QUERY_SEVERITY_OPTIONS,
+  getQueryFindingShapeHelp,
+  getQueryFindingShapeOptions,
+  getQuerySeverityOptions,
 } from "./queryOptions"
 
-const SPEC_KIND_OPTIONS = [
-  { value: "", label: "Padrão (passthrough)" },
-  { value: "passthrough", label: "Passthrough" },
-  { value: "sigma", label: "Sigma" },
-]
+function getSpecKindOptions(t: TFunction) {
+  return [
+    { value: "", label: t("queries:shared.specKindDefault") },
+    { value: "passthrough", label: t("queries:shared.specKindPassthrough") },
+    { value: "sigma", label: t("queries:shared.specKindSigma") },
+  ]
+}
 
 interface EditQueryModalProps {
   query: Query | null
@@ -42,15 +46,15 @@ interface EditQueryModalProps {
   loading?: boolean
 }
 
-const validateForm = (values: Partial<Query>) => {
+const validateForm = (t: TFunction, values: Partial<Query>) => {
   const errors: Partial<Record<keyof Query, string>> = {}
 
   if (!values.title?.trim()) {
-    errors.title = "Título é obrigatório"
+    errors.title = t("queries:validation.titleRequired")
   }
 
   if (!values.statement?.trim()) {
-    errors.statement = "A consulta SQL é obrigatória"
+    errors.statement = t("queries:validation.statementRequired")
   }
 
   return errors
@@ -64,6 +68,7 @@ export const EditQueryModal: React.FC<EditQueryModalProps> = ({
   onSubmit,
   loading = false,
 }) => {
+  const { t } = useTranslation("queries")
   const {
     values,
     errors,
@@ -74,6 +79,8 @@ export const EditQueryModal: React.FC<EditQueryModalProps> = ({
     setFieldValue,
     resetForm,
     isSubmitting,
+    submitError,
+    registerField,
   } = useForm({
     initialValues: {
       title: "",
@@ -86,7 +93,7 @@ export const EditQueryModal: React.FC<EditQueryModalProps> = ({
       severity_id: DEFAULT_QUERY_SEVERITY as number,
       finding_shape: DEFAULT_QUERY_FINDING_SHAPE as QueryFindingShape,
     },
-    validate: validateForm,
+    validate: (v) => validateForm(t, v),
     onSubmit: async (formData) => {
       // O payload é allow-list COMPLETA: campo fora daqui volta ao default no
       // servidor. Os dois novos entram na mesma lista da hidratação abaixo.
@@ -135,7 +142,7 @@ export const EditQueryModal: React.FC<EditQueryModalProps> = ({
   }, [open, query, resetForm, setFieldValue])
 
   const dialectOptions = [
-    { value: "", label: "Sem dialeto específico" },
+    { value: "", label: t("queries:shared.dialectPlaceholder") },
     ...capabilities.map((cap) => ({
       value: cap.dialect,
       label: cap.dialect,
@@ -145,15 +152,24 @@ export const EditQueryModal: React.FC<EditQueryModalProps> = ({
   if (!query) return null
 
   const formBusy = loading || isSubmitting
+  const specKindOptions = getSpecKindOptions(t)
+  const severityOptions = getQuerySeverityOptions(t)
+  const findingShapeOptions = getQueryFindingShapeOptions(t)
 
   return (
-    <Modal open={open} onClose={onClose} title="Editar query" size="xl">
+    <Modal open={open} onClose={onClose} title={t("queries:editModal.title")} size="xl">
       <form onSubmit={handleSubmit} className="space-y-5" noValidate>
+        {submitError && (
+          <Notice variant="danger" title={t("queries:form.submitErrorFallback")} live="assertive">
+            {submitError}
+          </Notice>
+        )}
         <div className="grid gap-4 md:grid-cols-2">
           <div className="md:col-span-2">
             <Input
+              ref={registerField("title")}
               name="title"
-              label="Titulo"
+              label={t("queries:editForm.titleLabel")}
               value={values.title || ""}
               onChange={handleChange}
               onBlur={handleBlur}
@@ -166,7 +182,7 @@ export const EditQueryModal: React.FC<EditQueryModalProps> = ({
           <div className="md:col-span-2">
             <Input
               name="description"
-              label="Descrição"
+              label={t("queries:editForm.descriptionLabel")}
               value={values.description || ""}
               onChange={handleChange}
               onBlur={handleBlur}
@@ -177,14 +193,15 @@ export const EditQueryModal: React.FC<EditQueryModalProps> = ({
 
           <div className="md:col-span-2">
             <Textarea
+              ref={registerField("statement")}
               id="edit-query-statement"
               name="statement"
-              label="Query SQL"
+              label={t("queries:editForm.statementLabel")}
               value={values.statement || ""}
               onChange={handleChange}
               onBlur={handleBlur}
               error={touched.statement ? errors.statement : undefined}
-              helperText="Atualize a consulta e ajuste os clientes padrão, se necessário."
+              helperText={t("queries:editForm.statementHelper")}
               required
               rows={8}
               disabled={formBusy}
@@ -193,7 +210,7 @@ export const EditQueryModal: React.FC<EditQueryModalProps> = ({
 
           <div className="md:col-span-2">
             <Select
-              label="Clientes padrão"
+              label={t("queries:shared.clientsLabel")}
               multiple
               value={values.client_ids || []}
               options={clients.map((client) => ({
@@ -201,72 +218,72 @@ export const EditQueryModal: React.FC<EditQueryModalProps> = ({
                 label: client.region ? `${client.name} (${client.region})` : client.name,
               }))}
               onChange={(value) => setFieldValue("client_ids", Array.isArray(value) ? value.map(Number) : [])}
-              helperText="Opcional. Define os tenants sugeridos ao reutilizar esta query."
+              helperText={t("queries:editForm.clientsHelper")}
               disabled={formBusy}
             />
           </div>
 
           <div>
             <Select
-              label="Dialeto (opcional)"
+              label={t("queries:shared.dialectLabel")}
               options={dialectOptions}
               value={values.dialect ?? ""}
               onChange={(value) =>
                 setFieldValue("dialect", value === "" ? undefined : (value as QueryDialect))
               }
-              placeholder="Sem dialeto específico"
-              helperText="Dialeto de query da plataforma (ex.: opensearch_dsl, fql)."
+              placeholder={t("queries:shared.dialectPlaceholder")}
+              helperText={t("queries:editForm.dialectHelper")}
               disabled={formBusy || capabilities.length === 0}
             />
           </div>
 
           <div>
             <Select
-              label="Spec kind (opcional)"
-              options={SPEC_KIND_OPTIONS}
+              label={t("queries:shared.specKindLabel")}
+              options={specKindOptions}
               value={values.spec_kind ?? ""}
               onChange={(value) =>
                 setFieldValue("spec_kind", value === "" ? undefined : (value as QuerySpecKind))
               }
-              placeholder="Padrão (passthrough)"
-              helperText="passthrough = query literal; sigma = tradução automática via pySigma."
+              placeholder={t("queries:shared.specKindPlaceholder")}
+              helperText={t("queries:shared.specKindHelper")}
               disabled={formBusy}
             />
           </div>
 
           <div>
             <Select
-              label="Severidade do achado"
-              options={QUERY_SEVERITY_OPTIONS}
+              label={t("queries:shared.severityLabel")}
+              options={severityOptions}
               value={values.severity_id ?? DEFAULT_QUERY_SEVERITY}
               onChange={(value) => setFieldValue("severity_id", Number(value))}
-              helperText="Vai na Detection e nos eventos enviados aos destinos (PRI do syslog, level da regra)."
+              helperText={t("queries:shared.severityHelper")}
               disabled={formBusy}
             />
           </div>
 
           <div>
             <Select
-              label="Forma do achado nos destinos"
-              options={QUERY_FINDING_SHAPE_OPTIONS}
+              label={t("queries:shared.findingShapeLabel")}
+              options={findingShapeOptions}
               value={values.finding_shape ?? DEFAULT_QUERY_FINDING_SHAPE}
               onChange={(value) => setFieldValue("finding_shape", value as QueryFindingShape)}
-              helperText={QUERY_FINDING_SHAPE_HELP}
+              helperText={getQueryFindingShapeHelp(t)}
               disabled={formBusy}
             />
           </div>
         </div>
 
-        <Notice variant="info" title="Reuso operacional">
-          Alterações aqui impactam a tela de busca e novos agendamentos criados a partir desta consulta.
+        <Notice variant="info" title={t("queries:editForm.reuseNoticeTitle")}>
+          {t("queries:editForm.reuseNoticeBody")}
         </Notice>
 
         <div className="flex flex-wrap justify-end gap-3">
           <Button type="button" variant="outline" onClick={onClose} disabled={formBusy} leftIcon={<XIcon size={16} />}>
-            Cancelar
+            {t("queries:shared.cancel")}
           </Button>
           <Button type="submit" loading={formBusy} leftIcon={<SaveIcon size={16} />}>
-            Salvar alterações
+            {t("queries:editForm.submit")}
           </Button>
         </div>
       </form>

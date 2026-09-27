@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Trans, useTranslation } from "react-i18next"
 import {
   CopyIcon,
@@ -17,10 +17,11 @@ import {
 import * as api from "@/services/api"
 import { ApiRequestError } from "@/services/api"
 import { useAuth } from "@/contexts/AuthContext"
-import type { CaptureEvent, CaptureSession, Organization } from "@/types"
+import type { CaptureEvent, CaptureSession, Organization, TableColumn } from "@/types"
 import { Badge } from "@/components/ui/Badge/Badge"
 import { Button } from "@/components/ui/Button/Button"
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog/ConfirmDialog"
+import { DataTable } from "@/components/ui/DataTable/DataTable"
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState"
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner/LoadingSpinner"
 import { Modal } from "@/components/ui/Modal/Modal"
@@ -47,6 +48,20 @@ const RING_OPTIONS = [1000, 5000, 10000, 20000]
 
 // Cadência do polling enquanto há sessão ativa (sessões + eventos da selecionada).
 const POLL_INTERVAL_MS = 3000
+
+// PERF-05: preview do evento truncado — o `<code>` já corta visualmente com
+// `truncate`, mas sem este teto o `JSON.stringify(ev.event)` roda por INTEIRO
+// (podem ser payloads grandes) a cada linha, e refaz a cada poll de 3s mesmo
+// para eventos que não mudaram.
+const EVENT_PREVIEW_MAX_CHARS = 300
+
+// Acima disto a lista de eventos virtualiza (o ring vai até 20000, mas a
+// resposta é sempre até 500 — `getCaptureEvents(sessionId, 500, …)`). Abaixo,
+// tudo no DOM: jsdom não tem layout real e o virtualizer não materializa
+// linha nenhuma sem um container com altura de verdade, então os testes
+// (poucos eventos por caso) continuam exercitando o caminho simples.
+const EVENTS_VIRTUALIZE_THRESHOLD = 80
+const EVENTS_MAX_HEIGHT_PX = 480
 
 // ── Desfecho (outcome) ──────────────────────────────────────────────────────
 // O objetivo do troubleshooting é "como entrou e como saiu aquele log": além do
@@ -166,6 +181,119 @@ function statusVariant(status: string): "success" | "outline" | "warning" {
   if (status === "active") return "success"
   if (status === "expired") return "warning"
   return "outline"
+}
+
+/**
+ * Preview do evento, memoizado (PERF-05). Sem isto, `JSON.stringify(ev.event)`
+ * — payload inteiro do evento, sem teto — rodava de novo em TODA linha a cada
+ * re-render do painel (poll de 3s, troca de filtro, feedback de cópia…),
+ * mesmo para eventos que não mudaram. `React.memo` só refaz o preview quando
+ * `event` (a própria referência do payload) muda — `filteredEvents` pode
+ * gerar um array novo sem clonar os eventos que sobrevivem ao filtro, então a
+ * maioria das células nem recalcula (o `render` do DataTable cria um
+ * elemento novo a cada chamada, mas `React.memo` compara PROPS, não a
+ * identidade do elemento, e bloqueia o re-render do que está por dentro).
+ */
+const EventPreviewCell = memo(function EventPreviewCell({ event }: { event: unknown }) {
+  const preview = useMemo(() => {
+    const full = JSON.stringify(event)
+    return full.length > EVENT_PREVIEW_MAX_CHARS ? `${full.slice(0, EVENT_PREVIEW_MAX_CHARS)}…` : full
+  }, [event])
+  return <code className="block max-w-[420px] truncate text-xs text-text-secondary">{preview}</code>
+})
+
+interface BuildEventColumnsArgs {
+  hasOutcomeData: boolean
+  outcomeLabel: (key: string) => string
+  onInspect: (ev: CaptureEvent) => void
+  onCopyJson: (ev: CaptureEvent) => void
+  t: (key: string, options?: Record<string, unknown>) => string
+}
+
+/** R2-5.3: colunas do DataTable para a tabela de eventos (antes, tabela feita
+ *  à mão com o próprio `useVirtualizer`). */
+function buildEventColumns({ hasOutcomeData, outcomeLabel, onInspect, onCopyJson, t }: BuildEventColumnsArgs): TableColumn<CaptureEvent>[] {
+  const columns: TableColumn<CaptureEvent>[] = [
+    {
+      key: "capturedAt",
+      title: t("capture.events.table.capturedAt"),
+      dataIndex: "captured_at",
+      render: (_v, ev) => <code className="text-xs">{formatEpoch(ev.captured_at)}</code>,
+    },
+    {
+      key: "vendor",
+      title: t("capture.events.table.vendor"),
+      dataIndex: "vendor",
+      render: (_v, ev) => ev.vendor ?? "—",
+    },
+  ]
+  if (hasOutcomeData) {
+    columns.push({
+      key: "outcome",
+      title: t("capture.events.table.outcome"),
+      dataIndex: "vendor",
+      render: (_v, ev) => {
+        const outcome = eventOutcome(ev)
+        const destination = metaField(ev, "destination_id")
+        const detail = metaField(ev, "detail")
+        return outcome ? (
+          <div className="flex flex-col gap-0.5">
+            <Badge variant={outcomeTone(outcome)} size="sm" title={detail ?? undefined}>
+              {outcomeLabel(outcome)}
+            </Badge>
+            {destination && (
+              <span className="text-[10px] text-text-tertiary">
+                {t("capture.events.destinationShort", { destination })}
+              </span>
+            )}
+          </div>
+        ) : (
+          /* Evento antigo no ring (gravado antes do desfecho existir): não
+             quebra, só não sabemos o desfecho. */
+          <span className="text-xs text-text-tertiary" title={t("capture.outcomes.unknownTooltip")}>
+            —
+          </span>
+        )
+      },
+    })
+  }
+  columns.push(
+    {
+      key: "preview",
+      title: t("capture.events.table.preview"),
+      dataIndex: "vendor",
+      render: (_v, ev) => <EventPreviewCell event={ev.event} />,
+    },
+    {
+      key: "actions",
+      title: t("capture.events.table.actions"),
+      dataIndex: "vendor",
+      align: "right",
+      render: (_v, ev) => (
+        <div className="flex justify-end gap-1">
+          <Button
+            size="xs"
+            variant="ghost"
+            leftIcon={<EyeIcon size={12} />}
+            onClick={() => onInspect(ev)}
+            title={t("capture.events.inspectTooltip")}
+          >
+            {t("capture.events.inspect")}
+          </Button>
+          <Button
+            size="xs"
+            variant="ghost"
+            leftIcon={<CopyIcon size={12} />}
+            onClick={() => onCopyJson(ev)}
+            title={t("capture.events.jsonTooltip")}
+          >
+            {t("capture.events.json")}
+          </Button>
+        </div>
+      ),
+    },
+  )
+  return columns
 }
 
 function copyToClipboard(text: string): Promise<void> {
@@ -332,10 +460,13 @@ export const CapturePanel: React.FC = () => {
   // selecionada estiver ativa, atualiza também os eventos. Para quando nada
   // está ativo (evita bater no backend à toa). ``silent`` p/ não piscar os
   // spinners; ``pollingRef`` evita ticks concorrentes sobrepostos.
+  // PERF-05: também pula o tick com `document.hidden` — sem isto, uma aba em
+  // segundo plano continuava batendo no backend a cada 3s à toa (o usuário
+  // nem está vendo a tabela atualizar).
   useEffect(() => {
     if (!hasActive) return
     const handle = window.setInterval(() => {
-      if (pollingRef.current) return
+      if (pollingRef.current || document.hidden) return
       pollingRef.current = true
       const tasks = [loadSessions({ silent: true })]
       if (selectedId && selected?.status === "active") {
@@ -513,6 +644,24 @@ export const CapturePanel: React.FC = () => {
     if (outcomeFilter === OUTCOME_ALL) return events
     return events.filter((ev) => (eventOutcome(ev) ?? OUTCOME_UNKNOWN) === outcomeFilter)
   }, [events, outcomeFilter])
+
+  // R2-5.3: virtualização migrada para o DataTable (antes, `useVirtualizer`
+  // manual aqui). Acima do teto, ele virtualiza sozinho; abaixo, tudo no DOM.
+  const eventColumns = useMemo(
+    () =>
+      buildEventColumns({
+        hasOutcomeData,
+        outcomeLabel,
+        onInspect: setInspected,
+        onCopyJson: (ev) => void handleCopyJson(ev),
+        t,
+      }),
+    // `handleCopyJson`/`setInspected` são recriadas a cada render, mas só
+    // fecham sobre `t` (já na lista) e setters estáveis — a versão usada
+    // nunca fica "velha" de um jeito observável.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [hasOutcomeData, outcomeLabel, t],
+  )
 
   // Contadores vindos do backend (opcionais): distinguem "a sessão não viu
   // nada" de "viu N eventos" mesmo com a lista renderizada vazia.
@@ -908,85 +1057,13 @@ export const CapturePanel: React.FC = () => {
               }
             />
           ) : (
-            <div className="overflow-x-auto rounded border border-border">
-              <table className="w-full text-sm">
-                <thead className="bg-surface-tertiary text-xs uppercase tracking-wider text-text-secondary">
-                  <tr>
-                    <th className="px-3 py-2 text-left">{t("capture.events.table.capturedAt")}</th>
-                    <th className="px-3 py-2 text-left">{t("capture.events.table.vendor")}</th>
-                    {hasOutcomeData && (
-                      <th className="px-3 py-2 text-left">{t("capture.events.table.outcome")}</th>
-                    )}
-                    <th className="px-3 py-2 text-left">{t("capture.events.table.preview")}</th>
-                    <th className="px-3 py-2 text-right">{t("capture.events.table.actions")}</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border">
-                  {filteredEvents.map((ev, idx) => {
-                    const outcome = eventOutcome(ev)
-                    const destination = metaField(ev, "destination_id")
-                    const detail = metaField(ev, "detail")
-                    return (
-                    <tr key={`${selected.id}-${ev.captured_at ?? idx}-${ev.vendor ?? ""}-${idx}`}>
-                      <td className="px-3 py-2 text-text-secondary">
-                        <code className="text-xs">{formatEpoch(ev.captured_at)}</code>
-                      </td>
-                      <td className="px-3 py-2 text-text">{ev.vendor ?? "—"}</td>
-                      {hasOutcomeData && (
-                        <td className="px-3 py-2">
-                          {outcome ? (
-                            <div className="flex flex-col gap-0.5">
-                              <Badge variant={outcomeTone(outcome)} size="sm" title={detail ?? undefined}>
-                                {outcomeLabel(outcome)}
-                              </Badge>
-                              {destination && (
-                                <span className="text-[10px] text-text-tertiary">
-                                  {t("capture.events.destinationShort", { destination })}
-                                </span>
-                              )}
-                            </div>
-                          ) : (
-                            /* Evento antigo no ring (gravado antes do desfecho
-                               existir): não quebra, só não sabemos o desfecho. */
-                            <span className="text-xs text-text-tertiary" title={t("capture.outcomes.unknownTooltip")}>
-                              —
-                            </span>
-                          )}
-                        </td>
-                      )}
-                      <td className="px-3 py-2">
-                        <code className="block max-w-[420px] truncate text-xs text-text-secondary">
-                          {JSON.stringify(ev.event)}
-                        </code>
-                      </td>
-                      <td className="px-3 py-2">
-                        <div className="flex justify-end gap-1">
-                          <Button
-                            size="xs"
-                            variant="ghost"
-                            leftIcon={<EyeIcon size={12} />}
-                            onClick={() => setInspected(ev)}
-                            title={t("capture.events.inspectTooltip")}
-                          >
-                            {t("capture.events.inspect")}
-                          </Button>
-                          <Button
-                            size="xs"
-                            variant="ghost"
-                            leftIcon={<CopyIcon size={12} />}
-                            onClick={() => void handleCopyJson(ev)}
-                            title={t("capture.events.jsonTooltip")}
-                          >
-                            {t("capture.events.json")}
-                          </Button>
-                        </div>
-                      </td>
-                    </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
-            </div>
+            <DataTable<CaptureEvent>
+              data={filteredEvents}
+              columns={eventColumns}
+              rowKey={(ev, idx) => `${selected.id}-${ev.captured_at ?? idx}-${ev.vendor ?? ""}-${idx}`}
+              virtualizeRows={filteredEvents.length > EVENTS_VIRTUALIZE_THRESHOLD}
+              maxHeight={EVENTS_MAX_HEIGHT_PX}
+            />
           )}
         </div>
       )}
@@ -1119,7 +1196,9 @@ export const CapturePanel: React.FC = () => {
         confirmLabel={t("capture.deleteDialog.confirm")}
         confirmVariant="danger"
         loading={busyId === confirmDelete}
-        onConfirm={() => confirmDelete && void handleDelete(confirmDelete)}
+        onConfirm={() => {
+          if (confirmDelete) void handleDelete(confirmDelete)
+        }}
         onClose={() => setConfirmDelete(null)}
       />
     </div>

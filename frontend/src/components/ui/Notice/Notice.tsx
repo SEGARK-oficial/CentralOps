@@ -12,6 +12,23 @@ interface NoticeProps extends Omit<React.HTMLAttributes<HTMLDivElement>, "title"
   title?: React.ReactNode
   icon?: React.ReactNode
   action?: React.ReactNode
+  /**
+   * R2-8.2: TODA variante nasce `polite`/`status` por padrão, mesmo
+   * `warning`/`danger` — um Notice é, na imensa maioria dos usos deste
+   * componente, montado ESTATICAMENTE junto com o resto da página (banner de
+   * erro de carga, aviso de config desatualizada), não como reação imediata a
+   * uma ação do usuário. `assertive`/`role=alert` interrompe o leitor de tela
+   * ativamente e por isso vira OPT-IN: só quando o chamador sabe que o Notice
+   * aparece EM RESPOSTA a uma ação (ex.: erro de submit de formulário) ele
+   * passa `live="assertive"` explicitamente. `role` acompanha (`alert`),
+   * porque `role=alert` já IMPLICA `assertive` — as duas coisas mudam juntas.
+   *
+   * Antes disto (A11Y-31), `warning`/`danger` eram `assertive` por padrão — um
+   * Notice de erro que já estava na tela ao montar a página (não uma reação a
+   * clique) interrompia o leitor de tela sem ter havido ação nenhuma do
+   * usuário para justificar a interrupção.
+   */
+  live?: "polite" | "assertive"
 }
 
 const variantStyles: Record<NoticeVariant, { wrapper: string; icon: React.ReactNode }> = {
@@ -40,13 +57,15 @@ export const Notice: React.FC<NoticeProps> = ({
   icon,
   action,
   children,
+  live,
   ...props
 }) => {
-  // Erros/avisos precisam interromper o leitor de tela (assertive); info/sucesso
-  // são apenas informativos (polite). Sem prop role explícita, deriva da variante.
-  const isUrgent = variant === "danger" || variant === "warning"
-  const role = isUrgent ? "alert" : "status"
-  const ariaLive = isUrgent ? "assertive" : "polite"
+  // R2-8.2: `polite`/`status` é o padrão para TODA variante — `assertive`
+  // exige opt-in explícito via `live="assertive"` (ver comentário no tipo
+  // acima). role e aria-live sempre andam juntos (role=alert já injeta
+  // assertive sozinho).
+  const ariaLive = live ?? "polite"
+  const role = ariaLive === "assertive" ? "alert" : "status"
 
   return (
   <div

@@ -25,7 +25,7 @@ export const IntegrationBackfillPanel: React.FC<IntegrationBackfillPanelProps> =
   const canWrite = usePermission("integration.write")
   const [formOpen, setFormOpen] = useState(false)
 
-  const { items, total: _total, isLoading, error, refetch, createJob, cancelJob } = useBackfillJobs(
+  const { items, total, isLoading, error, refetch, createJob, cancelJob } = useBackfillJobs(
     integrationId,
     { limit: 50 },
   )
@@ -61,9 +61,11 @@ export const IntegrationBackfillPanel: React.FC<IntegrationBackfillPanelProps> =
       {/* Tabela de jobs */}
       <BackfillJobsTable
         items={items}
+        total={total}
         isLoading={isLoading}
         error={error}
         onCancel={cancelJob}
+        onRetry={refetch}
       />
 
       {/* Modal com formulário */}

@@ -199,8 +199,9 @@ describe("DriftRulesDrawer — fechar", () => {
   it("clique no overlay (fora do drawer) chama onClose", () => {
     const onClose = vi.fn()
     renderDrawer([RULE_PRIMARY], true, onClose)
-    // O overlay é o elemento com bg-black/40 — o primeiro filho do portal
-    const overlay = document.querySelector(".bg-black\\/40") as HTMLElement
+    // Migrado para o primitivo ui/Drawer: overlay usa o token `bg-overlay`
+    // (não mais o hex hardcoded `bg-black/40`).
+    const overlay = document.querySelector(".bg-overlay") as HTMLElement
     expect(overlay).not.toBeNull()
     fireEvent.click(overlay)
     expect(onClose).toHaveBeenCalledTimes(1)

@@ -48,6 +48,10 @@ export const FlowLiveFeed: React.FC<FlowLiveFeedProps> = ({
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
   const abortRef = useRef<AbortController | null>(null)
   const prevKeysRef = useRef<Set<string>>(new Set())
+  // PERF-16: id do setTimeout que limpa `isNew` — sem guardar/limpar, ele
+  // sobrevive ao unmount (setState em componente desmontado) e se acumula se
+  // um novo fetch chegar antes dos 2s do anterior.
+  const isNewTimeoutRef = useRef<number | null>(null)
 
   // Pick top-N destinations by eps
   const topDests = [...destinations]
@@ -109,8 +113,12 @@ export const FlowLiveFeed: React.FC<FlowLiveFeedProps> = ({
       setLastUpdated(new Date())
       setLoading(false)
 
-      // Clear "isNew" flag after 2s
-      window.setTimeout(() => {
+      // Clear "isNew" flag after 2s. Cancela um timeout pendente do fetch
+      // anterior antes de agendar outro — senão os dois disparam e o segundo
+      // pisa no primeiro sem necessidade (e ambos sobreviveriam a um unmount).
+      if (isNewTimeoutRef.current !== null) window.clearTimeout(isNewTimeoutRef.current)
+      isNewTimeoutRef.current = window.setTimeout(() => {
+        isNewTimeoutRef.current = null
         setItems((prev) => prev.map((i) => ({ ...i, isNew: false })))
       }, 2000)
     },
@@ -119,16 +127,29 @@ export const FlowLiveFeed: React.FC<FlowLiveFeedProps> = ({
     [open, destinations, t],
   )
 
-  // Poll while open
+  // Poll while open. PERF-09: pula o tick com a aba oculta (poll silencioso
+  // não precisa competir por CPU/rede em background) — sem parar o `setInterval`
+  // em si, então volta a pollar no primeiro tick após a aba reaparecer.
   useEffect(() => {
     if (!open) return
     void fetchFeed(false)
-    const id = window.setInterval(() => void fetchFeed(true), POLL_MS)
+    const id = window.setInterval(() => {
+      if (document.hidden) return
+      void fetchFeed(true)
+    }, POLL_MS)
     return () => {
       window.clearInterval(id)
       abortRef.current?.abort()
     }
   }, [open, fetchFeed])
+
+  // PERF-16: limpa o timeout de "isNew" pendente ao desmontar — sem isso ele
+  // dispara depois do unmount e tenta um setState em componente já desmontado.
+  useEffect(() => {
+    return () => {
+      if (isNewTimeoutRef.current !== null) window.clearTimeout(isNewTimeoutRef.current)
+    }
+  }, [])
 
   return (
     <div className="rounded-lg border border-border bg-surface shadow-sm">

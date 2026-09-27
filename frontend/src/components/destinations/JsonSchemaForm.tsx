@@ -1,4 +1,5 @@
 import type React from "react"
+import { useTranslation } from "react-i18next"
 import { Input } from "@/components/ui/Input/Input"
 import { Select } from "@/components/ui/Select/Select"
 import type { JsonSchema, JsonSchemaProperty } from "@/types"
@@ -101,12 +102,13 @@ export const JsonSchemaForm: React.FC<JsonSchemaFormProps> = ({
   disabled,
   idPrefix = "f",
 }) => {
+  const { t } = useTranslation("destinations")
   const properties = schema.properties ?? {}
   const required = new Set(schema.required ?? [])
   const keys = Object.keys(properties)
 
   if (keys.length === 0) {
-    return <p className="text-sm text-text-tertiary">Sem campos configuráveis.</p>
+    return <p className="text-sm text-text-tertiary">{t("jsonSchemaForm.noFields")}</p>
   }
 
   const set = (key: string, value: unknown) => onChange({ ...values, [key]: value })
@@ -148,14 +150,14 @@ export const JsonSchemaForm: React.FC<JsonSchemaFormProps> = ({
               )}
 
               {linhas.length === 0 && (
-                <p className="text-xs text-text-tertiary">Nenhum item. Use o botão abaixo para acrescentar.</p>
+                <p className="text-xs text-text-tertiary">{t("jsonSchemaForm.mapEmpty")}</p>
               )}
 
               {linhas.map(([k, v], i) => (
                 <div key={`${id}-${i}`} className="flex items-start gap-2">
                   <Input
-                    aria-label={`${label} — chave ${i + 1}`}
-                    placeholder="Nome"
+                    aria-label={t("jsonSchemaForm.keyAriaLabel", { label, index: i + 1 })}
+                    placeholder={t("jsonSchemaForm.keyPlaceholder")}
                     value={k}
                     disabled={disabled}
                     onChange={(e) => {
@@ -165,8 +167,8 @@ export const JsonSchemaForm: React.FC<JsonSchemaFormProps> = ({
                     }}
                   />
                   <Input
-                    aria-label={`${label} — valor ${i + 1}`}
-                    placeholder="Valor"
+                    aria-label={t("jsonSchemaForm.valueAriaLabel", { label, index: i + 1 })}
+                    placeholder={t("jsonSchemaForm.valuePlaceholder")}
                     value={v}
                     disabled={disabled}
                     onChange={(e) => {
@@ -178,11 +180,13 @@ export const JsonSchemaForm: React.FC<JsonSchemaFormProps> = ({
                   <button
                     type="button"
                     disabled={disabled}
-                    aria-label={`Remover ${k || `item ${i + 1}`}`}
+                    aria-label={t("jsonSchemaForm.removeAriaLabel", {
+                      name: k || t("jsonSchemaForm.removeItemFallback", { index: i + 1 }),
+                    })}
                     className="mt-1 rounded px-2 py-1 text-sm text-text-secondary hover:bg-surface-tertiary"
                     onClick={() => gravar(linhas.filter((_, j) => j !== i) as [string, string][])}
                   >
-                    Remover
+                    {t("jsonSchemaForm.removeButton")}
                   </button>
                 </div>
               ))}
@@ -193,7 +197,7 @@ export const JsonSchemaForm: React.FC<JsonSchemaFormProps> = ({
                 className="rounded border border-border px-2 py-1 text-sm text-text hover:bg-surface-tertiary"
                 onClick={() => gravar([...(linhas as [string, string][]), ["", ""]])}
               >
-                Acrescentar
+                {t("jsonSchemaForm.addButton")}
               </button>
             </fieldset>
           )
@@ -226,7 +230,7 @@ export const JsonSchemaForm: React.FC<JsonSchemaFormProps> = ({
               label={label + (isRequired ? " *" : "")}
               value={current != null ? String(current) : ""}
               options={(field.enumValues ?? []).map((v) => ({ value: String(v), label: String(v) }))}
-              placeholder="Selecione..."
+              placeholder={t("jsonSchemaForm.selectPlaceholder")}
               disabled={disabled}
               helperText={field.description}
               onValueChange={(v) => set(key, v)}

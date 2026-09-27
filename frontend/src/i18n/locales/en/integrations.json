@@ -344,7 +344,8 @@
       "created": "Stream {{stream}} created. The endpoint now accepts events.",
       "createError": "Failed to create stream.",
       "openMapping": "Open mapping",
-      "loadError": "Failed to load streams."
+      "loadError": "Failed to load streams.",
+      "nameInvalidError": "Invalid name. Use a-z, 0-9, '_' and '-'."
     },
     "edgeCollectorConfigGeneric": "Send example (curl / any edge-collector)"
   },
@@ -388,7 +389,10 @@
       "created": "Source {{name}} registered. The receiver picks it up within 15 s.",
       "createError": "Failed to register the source.",
       "deleteConfirm": "Remove source {{name}}? Messages from that origin will be dropped.",
-      "deleteError": "Failed to remove the source."
+      "deleteError": "Failed to remove the source.",
+      "nameRequiredError": "Enter a name for the source.",
+      "cidrInvalidError": "Enter a valid source CIDR (e.g.: 10.0.5.0/24).",
+      "defaultStreamRequiredError": "Select the default stream."
     },
     "test": {
       "title": "Test a line",
@@ -402,5 +406,160 @@
       "app": "App"
     },
     "docs": "How to set up the receiver (ports, TLS, mTLS)"
+  },
+  "partnerTenants": {
+    "title": "Sophos tenants",
+    "syncingBadge": "Syncing",
+    "never": "Never",
+    "lastSync": "Last sync: <strong>{{when}}</strong>",
+    "autoApprove": {
+      "onAriaLabel": "Auto-approve on",
+      "offAriaLabel": "Auto-approve off",
+      "on": "Auto-approve: ON",
+      "off": "Auto-approve: OFF",
+      "pendingHint": "New tenants stay <em>Pending</em> and need manual approval."
+    },
+    "actions": {
+      "discoverySettings": "Discovery settings",
+      "liveRefreshAriaLabel": "Fetch tenants live from Sophos",
+      "liveRefreshing": "Fetching...",
+      "liveRefresh": "Refresh (live)",
+      "syncStarting": "Starting...",
+      "syncing": "Syncing...",
+      "syncNow": "Sync now"
+    },
+    "syncStatus": {
+      "ok": "OK",
+      "partial": "Partial",
+      "error": "Error",
+      "enterprise_required": "Requires Enterprise",
+      "license_required": "Requires license"
+    },
+    "selectionState": {
+      "pending": "Pending",
+      "approved": "Approved",
+      "excluded": "Excluded",
+      "stale": "Gone (stale)"
+    },
+    "filters": {
+      "searchLabel": "Search",
+      "searchPlaceholder": "Name or external ID...",
+      "searchAriaLabel": "Search tenants",
+      "stateLabel": "State",
+      "stateAriaLabel": "Filter by selection state",
+      "stateAll": "All states",
+      "statePending": "Pending",
+      "stateApproved": "Approved",
+      "stateExcluded": "Excluded",
+      "stateStale": "Gone (stale)",
+      "geoLabel": "Data geography",
+      "geoAriaLabel": "Filter by data region",
+      "geoAll": "All geographies"
+    },
+    "bulk": {
+      "contextLabel": "tenant(s)",
+      "exclude": "Exclude selected",
+      "approve": "Approve selected"
+    },
+    "feedback": {
+      "successTitle": "Success",
+      "warningTitle": "Attention",
+      "errorTitle": "Error",
+      "loadErrorTitle": "Could not load tenants",
+      "retry": "Try again",
+      "liveRefreshStarted": "Fetching tenants from Sophos... this can take up to 30s.",
+      "liveRefreshDone": "List updated with live Sophos data.",
+      "syncStarted": "Sync started — checking progress...",
+      "syncNotStarted": "Sync not started: {{reason}}",
+      "syncAlreadyRunning": "Sync already in progress.",
+      "syncStartError": "Failed to start sync.",
+      "syncDone": "Sync finished.",
+      "loadError": "Failed to load tenants.",
+      "applyError": "Failed to apply selection.",
+      "selectionGatedMaterialized": "Selection recorded, but no tenant was materialized: {{reason}}",
+      "selectionGatedDeactivated": "Selection recorded, but no tenant was deactivated: {{reason}}",
+      "approvedWithFailures": "Approved: {{count}}. Failed: {{failures}}.",
+      "excludedWithFailures": "Excluded: {{count}}. Failed: {{failures}}.",
+      "approvedSuccess": "{{count}} tenant(s) approved.",
+      "excludedSuccess": "{{count}} tenant(s) excluded.",
+      "policyUpdatedOn": "Policy updated — auto-approve is now on.",
+      "policyUpdatedOff": "Policy updated — auto-approve is now off."
+    },
+    "table": {
+      "loading": "Loading tenants...",
+      "emptyNoFiltersTitle": "No tenants discovered yet.",
+      "emptyNoFiltersHint": "Click <strong>Refresh (live)</strong> or <strong>Sync now</strong> to fetch the tenants available on the Sophos Partner API.",
+      "emptyFiltered": "No tenant matches the filters.",
+      "selectAllAriaLabel": "Select all visible tenants",
+      "deselectAllAriaLabel": "Deselect all visible tenants",
+      "selectRowAriaLabel": "Select {{name}}",
+      "column": {
+        "tenant": "Tenant",
+        "externalId": "External ID",
+        "geo": "Geo",
+        "region": "Region",
+        "state": "State",
+        "decidedBy": "Decided by",
+        "childIntegration": "Child integration",
+        "actions": "Actions"
+      },
+      "viewChild": "View child",
+      "rowActions": {
+        "approveAriaLabel": "Approve — {{name}}",
+        "excludeAriaLabel": "Exclude — {{name}}",
+        "excludeFinalAriaLabel": "Exclude permanently — {{name}}",
+        "reapproveAriaLabel": "Re-approve — {{name}}",
+        "approve": "Approve",
+        "exclude": "Exclude",
+        "excludeFinal": "Exclude permanently",
+        "reapprove": "Re-approve"
+      }
+    },
+    "pagination": {
+      "rowsPerPage": "Rows per page:",
+      "itemsPerPageAriaLabel": "Items per page",
+      "showing": "Showing <strong>{{from}}</strong>-<strong>{{to}}</strong> of <strong>{{total}}</strong>",
+      "prevPageAriaLabel": "Previous page",
+      "nextPageAriaLabel": "Next page"
+    },
+    "bulkDialog": {
+      "approveTitle": "Approve selected tenants?",
+      "excludeTitle": "Exclude selected tenants?",
+      "approveConfirm": "Approve",
+      "excludeConfirm": "Exclude",
+      "approveIntro": "This approves <strong>{{count}}</strong> tenant(s).",
+      "approveCreates": " Each newly approved tenant creates <strong>1 Organization</strong> + <strong>1 child Integration</strong> + <strong>3 collection entries</strong>.",
+      "materialize": "To materialize (create): <strong>{{count}}</strong>",
+      "alreadyApproved": "Already approved (no effect): <strong>{{count}}</strong>",
+      "preservesHistory": "This operation preserves the history of existing tenants.",
+      "excludeIntro": "This excludes <strong>{{count}}</strong> tenant(s). Collection is deactivated (soft-delete); alert/asset history is preserved.",
+      "deactivate": "To deactivate now: <strong>{{count}}</strong>",
+      "alreadyExcluded": "Already excluded (no effect): <strong>{{count}}</strong>"
+    },
+    "gate": {
+      "licenseLink": "Open Settings → License",
+      "titles": {
+        "enterprise_required": "Enterprise edition required",
+        "license_required": "Enterprise license required"
+      },
+      "messages": {
+        "enterprise_required": "This feature is part of the Enterprise edition and the running backend doesn't have the Enterprise modules installed. Check whether the Enterprise images (backend + web) are in use.",
+        "license_required": "This feature requires an active Enterprise license — activate it under Settings → License."
+      }
+    },
+    "autoApprovePolicy": {
+      "howItWorksTitle": "How it works",
+      "howItWorksBody": "This policy only controls the default behavior for <strong>new</strong> discovered tenants. Tenants already approved, excluded, or pending keep their current state.",
+      "toggleLabel": "Auto-approve new tenants",
+      "toggleDescriptionOn": "New tenants activate collection automatically after each sync.",
+      "toggleDescriptionOff": "New tenants stay Pending, waiting for manual approval.",
+      "onExplain": "<strong>When ON:</strong> each new tenant automatically creates an Organization, a child Integration, and three collection entries (alerts/assets/health).",
+      "offExplain": "<strong>When OFF:</strong> syncs only update the snapshot. You decide tenant by tenant — or in bulk — from the panel.",
+      "footnote": "This setting doesn't affect tenants already approved or excluded.",
+      "saveErrorTitle": "Could not save",
+      "saveErrorGeneric": "Failed to save policy.",
+      "cancel": "Cancel",
+      "save": "Save"
+    }
   }
 }

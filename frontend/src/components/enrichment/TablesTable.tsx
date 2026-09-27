@@ -68,7 +68,7 @@ export const TablesTable: React.FC<Props> = ({
           >
             <span className="font-medium">{tb.name}</span>
             {tb.description ? (
-              <span className="block truncate text-xs text-muted">{tb.description}</span>
+              <span className="block truncate text-xs text-text-tertiary">{tb.description}</span>
             ) : null}
           </button>
         ),
@@ -94,7 +94,7 @@ export const TablesTable: React.FC<Props> = ({
         dataIndex: "current_version_id",
         render: (_v, tb) =>
           tb.current_version_id ? (
-            <span className="text-xs text-muted">
+            <span className="text-xs text-text-tertiary">
               {tb.entry_count.toLocaleString()} {t("tables.entries").toLowerCase()}
             </span>
           ) : (
@@ -144,10 +144,10 @@ export const TablesTable: React.FC<Props> = ({
           const users = citedBy[tb.name] ?? []
           if (users.length === 0) {
             // Não é erro: uma tabela pode existir antes da regra que a usará.
-            return <span className="text-xs text-muted">{t("tables.table.unused")}</span>
+            return <span className="text-xs text-text-tertiary">{t("tables.table.unused")}</span>
           }
           return (
-            <span className="text-xs text-muted" title={users.join(", ")}>
+            <span className="text-xs text-text-tertiary" title={users.join(", ")}>
               {t("tables.table.usedByRules", { count: users.length })}
             </span>
           )

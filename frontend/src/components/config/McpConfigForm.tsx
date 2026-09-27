@@ -72,7 +72,7 @@ export const McpConfigForm: React.FC<Props> = ({ config, loading, saving, feedba
   return (
     <form onSubmit={handleSubmit} className="space-y-6" data-testid="mcp-config-form">
       {feedback && (
-        <Notice variant={feedback.type === "success" ? "success" : "danger"}>{feedback.message}</Notice>
+        <Notice variant={feedback.type === "success" ? "success" : "danger"} live={feedback.type === "error" ? "assertive" : undefined}>{feedback.message}</Notice>
       )}
 
       {/* ── Estado atual ── */}
@@ -122,7 +122,7 @@ export const McpConfigForm: React.FC<Props> = ({ config, loading, saving, feedba
       </div>
 
       {/* ── Como funciona ── */}
-      <section className="rounded-lg border border-border bg-surface-subtle p-4">
+      <section className="rounded-lg border border-border bg-bg-subtle p-4">
         <h3 className="text-sm font-semibold text-text">{t("mcp.howItWorks.title")}</h3>
         <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-text-secondary">
           <li>{t("mcp.howItWorks.identity")}</li>
@@ -152,7 +152,7 @@ export const McpConfigForm: React.FC<Props> = ({ config, loading, saving, feedba
               {copied === "json" ? t("mcp.clientConfig.copied") : t("mcp.clientConfig.copy")}
             </Button>
           </div>
-          <pre className="overflow-x-auto rounded-lg border border-border bg-surface-subtle p-3 font-mono text-xs text-text" data-testid="mcp-snippet-json">{snippet}</pre>
+          <pre className="overflow-x-auto rounded-lg border border-border bg-bg-subtle p-3 font-mono text-xs text-text" data-testid="mcp-snippet-json">{snippet}</pre>
         </div>
         <div className="space-y-1">
           <div className="flex items-center justify-between gap-2">
@@ -167,7 +167,7 @@ export const McpConfigForm: React.FC<Props> = ({ config, loading, saving, feedba
               {copied === "cli" ? t("mcp.clientConfig.copied") : t("mcp.clientConfig.copy")}
             </Button>
           </div>
-          <pre className="overflow-x-auto rounded-lg border border-border bg-surface-subtle p-3 font-mono text-xs text-text" data-testid="mcp-snippet-cli">{cli}</pre>
+          <pre className="overflow-x-auto rounded-lg border border-border bg-bg-subtle p-3 font-mono text-xs text-text" data-testid="mcp-snippet-cli">{cli}</pre>
         </div>
       </section>
 

@@ -17,6 +17,7 @@ import { MemoryRouter } from "react-router-dom"
 import OrganizationsPage from "@/pages/OrganizationsPage"
 import * as api from "@/services/api"
 import type { Organization } from "@/types"
+import type { ListOrganizationsParams } from "@/services/api"
 import i18n from "@/i18n"
 
 // Testes fazem assertions no texto literal em pt (idioma padrão do produto).
@@ -57,7 +58,7 @@ const ORG_ACTIVE_A: Organization = {
   id: 1,
   name: "Acme Corp",
   slug: "acme-corp",
-  description: null,
+  description: undefined,
   is_active: true,
   integration_count: 2,
   auto_managed: false,
@@ -67,7 +68,7 @@ const ORG_ACTIVE_B: Organization = {
   id: 2,
   name: "Globex",
   slug: "globex",
-  description: null,
+  description: undefined,
   is_active: true,
   integration_count: 0,
   auto_managed: false,
@@ -77,7 +78,7 @@ const ORG_AUTO: Organization = {
   id: 3,
   name: "Sophos Auto Org",
   slug: "sophos-auto",
-  description: null,
+  description: undefined,
   is_active: true,
   integration_count: 1,
   auto_managed: true,
@@ -97,17 +98,13 @@ function renderPage() {
 beforeEach(() => {
   vi.clearAllMocks()
   editionState.maxOrganizations = null
-  // @ts-expect-error vitest mock typing
   mockedApi.countActiveOrganizations.mockResolvedValue(0)
-  // @ts-expect-error vitest mock typing
   mockedApi.listOrganizations.mockResolvedValue(ORGS_BASE)
-  // @ts-expect-error
   mockedApi.bulkDeactivateOrganizations.mockResolvedValue({
     processed: 0,
     deactivated: 0,
     errors: [],
   })
-  // @ts-expect-error
   mockedApi.deleteOrganization.mockResolvedValue(undefined)
 })
 
@@ -156,7 +153,7 @@ describe("OrganizationsPage — filtros", () => {
     fireEvent.click(option)
 
     await waitFor(() => {
-      const lastCall = mockedApi.listOrganizations.mock.calls.at(-1)?.[0] as any
+      const lastCall = mockedApi.listOrganizations.mock.calls.at(-1)?.[0] as ListOrganizationsParams
       expect(lastCall?.status).toBe("inactive")
     })
   })
@@ -171,7 +168,7 @@ describe("OrganizationsPage — filtros", () => {
     fireEvent.click(option)
 
     await waitFor(() => {
-      const lastCall = mockedApi.listOrganizations.mock.calls.at(-1)?.[0] as any
+      const lastCall = mockedApi.listOrganizations.mock.calls.at(-1)?.[0] as ListOrganizationsParams
       expect(lastCall?.autoManaged).toBe("false")
     })
   })
@@ -255,12 +252,11 @@ describe("OrganizationsPage — bulk deactivate confirm", () => {
       id: 100 + i,
       name: `Org ${i}`,
       slug: `org-${i}`,
-      description: null,
+      description: undefined,
       is_active: true,
       integration_count: 0,
       auto_managed: false,
     }))
-    // @ts-expect-error
     mockedApi.listOrganizations.mockResolvedValue(many)
 
     renderPage()
@@ -330,7 +326,6 @@ describe("OrganizationsPage — teto de orgs do tier", () => {
 
   it("no limite (Starter max=1, 1 ativa): badge 1/1, aviso e botão desabilitado", async () => {
     editionState.maxOrganizations = 1
-    // @ts-expect-error vitest mock typing
     mockedApi.countActiveOrganizations.mockResolvedValue(1)
     renderPage()
     await waitFor(() => expect(mockedApi.countActiveOrganizations).toHaveBeenCalled())
@@ -345,7 +340,6 @@ describe("OrganizationsPage — teto de orgs do tier", () => {
 
   it("abaixo do teto (max=3, 1 ativa): badge 1/3 e botão habilitado", async () => {
     editionState.maxOrganizations = 3
-    // @ts-expect-error vitest mock typing
     mockedApi.countActiveOrganizations.mockResolvedValue(1)
     renderPage()
     await waitFor(() => expect(mockedApi.countActiveOrganizations).toHaveBeenCalled())
@@ -356,5 +350,30 @@ describe("OrganizationsPage — teto de orgs do tier", () => {
     expect(
       screen.queryByText(/Limite de organizações do plano atingido/),
     ).not.toBeInTheDocument()
+  })
+})
+
+// Pilar 4: falha do load inicial não pode virar EmptyState mentiroso, e
+// precisa de retry (antes só tinha um "fechar" que descartava o erro).
+describe("OrganizationsPage — Pilar 4 (ErrorState com retry)", () => {
+  it("listOrganizations rejeitando no load inicial mostra ErrorState, não EmptyState", async () => {
+    mockedApi.listOrganizations.mockRejectedValue(new Error("503"))
+    renderPage()
+
+    await waitFor(() => expect(screen.getByText("503")).toBeInTheDocument())
+    expect(screen.getByRole("button", { name: /tentar novamente/i })).toBeInTheDocument()
+    expect(screen.queryByText(/nenhuma organização/i)).not.toBeInTheDocument()
+  })
+
+  it("Tentar novamente recarrega a lista", async () => {
+    mockedApi.listOrganizations.mockRejectedValueOnce(new Error("503"))
+    renderPage()
+    await screen.findByText("503")
+
+    mockedApi.listOrganizations.mockResolvedValueOnce(ORGS_BASE)
+    fireEvent.click(screen.getByRole("button", { name: /tentar novamente/i }))
+
+    await waitFor(() => expect(screen.getByText(ORGS_BASE[0].name)).toBeInTheDocument())
+    expect(screen.queryByText("503")).not.toBeInTheDocument()
   })
 })

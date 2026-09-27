@@ -50,6 +50,9 @@ describe("CreateTableModal", () => {
 
     expect(await screen.findByText(/Informe um nome/i)).toBeInTheDocument()
     expect(mockedApi.createEnrichmentTable).not.toHaveBeenCalled()
+    // R2-8.3: além do banner, o foco vai para o campo que falhou.
+    expect(document.activeElement).toBe(screen.getByLabelText(/Nome/i))
+    expect(screen.getByLabelText(/Nome/i)).toHaveAttribute("aria-invalid", "true")
   })
 
   it("exige organização selecionada quando não há filtro global ativo", async () => {
@@ -60,8 +63,12 @@ describe("CreateTableModal", () => {
     fireEvent.change(screen.getByLabelText(/Nome/i), { target: { value: "rede-corp" } })
     fireEvent.click(screen.getByRole("button", { name: "Nova tabela" }))
 
-    expect(await screen.findByText(/não existe tabela de enriquecimento global/i)).toBeInTheDocument()
+    // R2-8.3: a mensagem aparece DUAS vezes de propósito — banner (assertive)
+    // + junto ao próprio Select (que também recebe o foco).
+    const matches = await screen.findAllByText(/não existe tabela de enriquecimento global/i)
+    expect(matches.length).toBeGreaterThanOrEqual(2)
     expect(mockedApi.createEnrichmentTable).not.toHaveBeenCalled()
+    expect(document.activeElement).toHaveAttribute("id", "create-table-org")
   })
 
   it("submete com sucesso e chama onCreated", async () => {

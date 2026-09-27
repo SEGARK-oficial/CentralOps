@@ -75,7 +75,7 @@ export const EditUserRoleModal: React.FC<EditUserRoleModalProps> = ({
     >
       <form onSubmit={handleSubmit} className="space-y-4">
         {error && (
-          <Notice variant="danger" title={t("editUserRoleModal.cannotChangeTitle")}>
+          <Notice variant="danger" title={t("editUserRoleModal.cannotChangeTitle")} live="assertive">
             {error}
           </Notice>
         )}
@@ -98,7 +98,7 @@ export const EditUserRoleModal: React.FC<EditUserRoleModalProps> = ({
           <select
             id="role-select"
             data-testid="role-select"
-            className="h-9 w-full rounded-md border border-border bg-surface px-3 text-sm text-text transition-colors focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 disabled:cursor-not-allowed disabled:opacity-50"
+            className="h-9 w-full rounded-md border border-border-field bg-surface-tertiary px-3 text-sm text-text transition-colors hover:border-border-field-hover focus-ring disabled:cursor-not-allowed disabled:opacity-50"
             value={selectedRole}
             onChange={(e) => setSelectedRole(e.target.value as UserRole)}
             disabled={loading}
@@ -120,7 +120,7 @@ export const EditUserRoleModal: React.FC<EditUserRoleModalProps> = ({
           </label>
           <textarea
             id="role-change-reason"
-            className="w-full rounded-md border border-border bg-surface px-3 py-2 text-sm text-text transition-colors focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 disabled:cursor-not-allowed disabled:opacity-50 resize-none"
+            className="w-full rounded-md border border-border-field bg-surface-tertiary px-3 py-2 text-sm text-text transition-colors hover:border-border-field-hover focus-ring disabled:cursor-not-allowed disabled:opacity-50 resize-none"
             rows={3}
             placeholder={t("editUserRoleModal.reasonPlaceholder")}
             value={reason}

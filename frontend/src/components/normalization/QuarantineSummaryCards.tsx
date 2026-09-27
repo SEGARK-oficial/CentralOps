@@ -60,7 +60,7 @@ export const QuarantineSummaryCards: React.FC<QuarantineSummaryCardsProps> = ({
               {isLoading ? (
                 <LoadingSpinner size="sm" />
               ) : (
-                <span className="text-2xl font-bold text-danger-600">{formatNumber(total)}</span>
+                <span className="font-display text-2xl font-bold tabular-nums text-danger-600">{formatNumber(total)}</span>
               )}
             </div>
             <PackageXIcon size={28} className="text-danger-600 shrink-0" aria-hidden="true" />
@@ -83,7 +83,7 @@ export const QuarantineSummaryCards: React.FC<QuarantineSummaryCardsProps> = ({
                   <LoadingSpinner size="sm" />
                 ) : (
                   <span
-                    className="text-2xl font-bold text-warning-600"
+                    className="font-display text-2xl font-bold tabular-nums text-warning-600"
                     title={
                       isSample
                         ? t("quarantine.summary.estimateTooltip", { total: formatNumber(total) })

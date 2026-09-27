@@ -1,6 +1,26 @@
-import { render, screen } from "@testing-library/react"
+import { useState } from "react"
+import { render, screen, fireEvent } from "@testing-library/react"
 import { DataTable } from "@/components/ui/DataTable/DataTable"
 import type { TableColumn } from "@/types"
+
+/** Força `useMediaQuery` a resolver "é desktop" — o mock global de
+ *  matchMedia (test/setup.ts) sempre devolve `matches:false`. */
+function mockDesktopViewport(): () => void {
+  const original = window.matchMedia
+  window.matchMedia = ((query: string) => ({
+    matches: true,
+    media: query,
+    onchange: null,
+    addListener: () => {},
+    removeListener: () => {},
+    addEventListener: () => {},
+    removeEventListener: () => {},
+    dispatchEvent: () => false,
+  })) as unknown as typeof window.matchMedia
+  return () => {
+    window.matchMedia = original
+  }
+}
 
 interface Row extends Record<string, unknown> {
   id: number
@@ -50,6 +70,26 @@ describe("DataTable — sem virtualização (comportamento atual)", () => {
   it("exibe mensagem de vazio quando data=[]", () => {
     render(<DataTable data={[]} columns={columns} emptyMessage="Sem resultados" />)
     expect(screen.getByText("Sem resultados")).toBeInTheDocument()
+  })
+})
+
+describe("DataTable — loading (LAY-10: skeleton em vez de spinner de página inteira)", () => {
+  it("mostra skeleton com a forma da tabela (cabeçalho real), não um spinner que colapsa a área", () => {
+    render(<DataTable data={[]} columns={columns} loading />)
+    // O cabeçalho de verdade continua na tela — é o que reserva a largura das
+    // colunas e evita o salto de layout (CLS) quando os dados chegam.
+    expect(screen.getByText("ID")).toBeInTheDocument()
+    expect(screen.getByText("Nome")).toBeInTheDocument()
+  })
+
+  it("continua anunciando 'carregando' para leitor de tela via role=status", () => {
+    // Mesmo contrato de acessibilidade do LoadingSpinner que este skeleton
+    // substitui — só que como uma região sr-only à parte, não mais como o
+    // wrapper visual inteiro.
+    render(<DataTable data={[]} columns={columns} loading />)
+    const status = screen.getByRole("status")
+    expect(status).toHaveAttribute("aria-busy", "true")
+    expect(status).toHaveTextContent(/carregando/i)
   })
 })
 
@@ -108,6 +148,29 @@ describe("DataTable — serverSide pagination", () => {
   })
 })
 
+describe("DataTable — tableClassName (LAY-22)", () => {
+  it("aplica a classe só no wrapper da tabela, não na paginação", () => {
+    const rows = buildRows(25)
+    render(
+      <DataTable
+        data={rows}
+        columns={columns}
+        tableClassName="min-w-[760px]"
+        pagination={{ current: 1, pageSize: 10, total: 25, showTotal: true }}
+      />,
+    )
+    const table = screen.getByRole("table")
+    const tableWrapper = table.parentElement
+    expect(tableWrapper).toHaveClass("min-w-[760px]")
+
+    // A paginação (texto "a ... de ...") não deve estar dentro do wrapper
+    // que carrega a largura mínima — senão ela também "empurraria" a
+    // paginação para fora da viewport em telas estreitas.
+    const paginationText = screen.getByText(/1 a 10 de 25/)
+    expect(tableWrapper?.contains(paginationText)).toBe(false)
+  })
+})
+
 describe("DataTable — com virtualização", () => {
   it("renderiza sem crashar com 1000 rows e virtualizeRows=true", () => {
     const rows = buildRows(1000)
@@ -150,5 +213,205 @@ describe("DataTable — com virtualização", () => {
         />,
       ),
     ).not.toThrow()
+  })
+})
+
+describe("DataTable — ordena por dataIndex, não por key (BUG-02)", () => {
+  interface SizedRow extends Record<string, unknown> {
+    id: number
+    approx_bytes: number
+  }
+  // Mesmo formato de TablesTable.tsx: rótulo da coluna ("size") ≠ campo do
+  // registro ("approx_bytes"). Ordenar por `key` comparava `undefined` com
+  // `undefined` em toda linha (a coluna nunca reordenava de verdade).
+  const sizedColumns: TableColumn<SizedRow>[] = [
+    { key: "id", title: "ID", dataIndex: "id" },
+    { key: "size", title: "Tamanho", dataIndex: "approx_bytes", sortable: true },
+  ]
+  const sizedRows: SizedRow[] = [
+    { id: 1, approx_bytes: 300 },
+    { id: 2, approx_bytes: 100 },
+    { id: 3, approx_bytes: 200 },
+  ]
+
+  it("clicar no cabeçalho 'Tamanho' ordena pelos valores de approx_bytes", () => {
+    render(<DataTable data={sizedRows} columns={sizedColumns} />)
+    const header = screen.getByRole("button", { name: /Tamanho/ })
+    fireEvent.click(header)
+
+    const cells = screen.getAllByRole("row").slice(1).map((row) => row.textContent)
+    // Ascendente por approx_bytes: 100 (id 2), 200 (id 3), 300 (id 1).
+    expect(cells).toEqual(["2100", "3200", "1300"])
+  })
+})
+
+describe("DataTable — serverSide não ordena localmente (PERF-12)", () => {
+  it("clicar num cabeçalho sortable com serverSide=true não reordena a página local", () => {
+    const rows = buildRows(5)
+    render(
+      <DataTable
+        data={[...rows].reverse()}
+        columns={[{ key: "id", title: "ID", dataIndex: "id", sortable: true }, columns[1]]}
+        serverSide
+      />,
+    )
+    const before = screen.getAllByRole("row").slice(1).map((r) => r.textContent)
+    fireEvent.click(screen.getByRole("button", { name: /ID/ }))
+    const after = screen.getAllByRole("row").slice(1).map((r) => r.textContent)
+    // Mesma ordem de antes: ordenar só a página corrente, sem o resto do
+    // dataset, produziria uma ordenação FALSA (a página 2 nunca fica coerente
+    // com a 1). Quem ordena de fato é o backend, via onSortChange.
+    expect(after).toEqual(before)
+  })
+
+  it("emite onSortChange com a coluna (dataIndex) e a direção", () => {
+    const onSortChange = vi.fn()
+    const sortableColumns: TableColumn<Row>[] = [columns[0], { ...columns[1], sortable: true }]
+    render(
+      <DataTable
+        data={buildRows(3)}
+        columns={sortableColumns}
+        serverSide
+        onSortChange={onSortChange}
+      />,
+    )
+    fireEvent.click(screen.getByRole("button", { name: /Nome/ }))
+    expect(onSortChange).toHaveBeenCalledWith("name", "asc")
+    fireEvent.click(screen.getByRole("button", { name: /Nome/ }))
+    expect(onSortChange).toHaveBeenCalledWith("name", "desc")
+  })
+})
+
+describe("DataTable — aria-sort só em coluna sortable", () => {
+  it("omite aria-sort em coluna não ordenável, e marca 'none' na ordenável", () => {
+    render(<DataTable data={buildRows(3)} columns={[{ ...columns[0], sortable: true }, columns[1]]} />)
+    const headers = screen.getAllByRole("columnheader")
+    expect(headers[0]).toHaveAttribute("aria-sort", "none")
+    expect(headers[1]).not.toHaveAttribute("aria-sort")
+  })
+})
+
+describe("DataTable — rowKey (BUG-05)", () => {
+  it("usa o campo indicado por rowKey como key de cada linha, em vez do índice", () => {
+    const rows = buildRows(3)
+    expect(() =>
+      render(<DataTable data={rows} columns={columns} rowKey="id" />),
+    ).not.toThrow()
+    // As 3 linhas de dado renderizam normalmente — a troca de key não afeta o conteúdo.
+    expect(screen.getByText("Item 1")).toBeInTheDocument()
+    expect(screen.getByText("Item 3")).toBeInTheDocument()
+  })
+
+  it("aceita uma função rowKey(record, index)", () => {
+    const rows = buildRows(3)
+    expect(() =>
+      render(<DataTable data={rows} columns={columns} rowKey={(r) => `row-${r.id}`} />),
+    ).not.toThrow()
+    expect(screen.getByText("Item 2")).toBeInTheDocument()
+  })
+})
+
+describe("DataTable — renderMobileCard (R2-5.3)", () => {
+  it("com viewport mobile (matchMedia padrão), renderiza cartões — não a tabela", () => {
+    const rows = buildRows(3)
+    render(
+      <DataTable
+        data={rows}
+        columns={columns}
+        renderMobileCard={(r) => <div data-testid={`card-${r.id}`}>{r.name}</div>}
+      />,
+    )
+    expect(screen.getByTestId("card-1")).toBeInTheDocument()
+    expect(screen.getByTestId("card-3")).toBeInTheDocument()
+    expect(screen.queryByRole("table")).not.toBeInTheDocument()
+  })
+
+  it("em viewport desktop, renderiza a tabela — não os cartões (layout único)", () => {
+    const restore = mockDesktopViewport()
+    try {
+      const rows = buildRows(3)
+      render(
+        <DataTable
+          data={rows}
+          columns={columns}
+          renderMobileCard={(r) => <div data-testid={`card-${r.id}`}>{r.name}</div>}
+        />,
+      )
+      expect(screen.getByRole("table")).toBeInTheDocument()
+      expect(screen.queryByTestId("card-1")).not.toBeInTheDocument()
+    } finally {
+      restore()
+    }
+  })
+
+  it("sem renderMobileCard, sempre renderiza a tabela (retrocompat)", () => {
+    const rows = buildRows(3)
+    render(<DataTable data={rows} columns={columns} />)
+    expect(screen.getByRole("table")).toBeInTheDocument()
+  })
+})
+
+describe("DataTable — expandableRow (R2-5.3)", () => {
+  interface ExpandableWrapperProps {
+    onToggleSpy?: (id: number) => void
+    virtualizeRows?: boolean
+  }
+  function ExpandableWrapper({ onToggleSpy, virtualizeRows }: ExpandableWrapperProps) {
+    const [expandedId, setExpandedId] = useState<number | null>(null)
+    const rows = buildRows(3)
+    return (
+      <DataTable
+        data={rows}
+        columns={columns}
+        rowKey="id"
+        virtualizeRows={virtualizeRows}
+        expandableRow={{
+          isExpanded: (r) => r.id === expandedId,
+          onToggle: (r) => {
+            onToggleSpy?.(r.id)
+            setExpandedId((cur) => (cur === r.id ? null : r.id))
+          },
+          renderDetail: (r) => <div data-testid={`detail-${r.id}`}>Detalhe de {r.name}</div>,
+          toggleLabel: (r) => `Expandir ${r.name}`,
+        }}
+      />
+    )
+  }
+
+  it("mostra o botão de alternar; clicar expande, clicar de novo recolhe", () => {
+    render(<ExpandableWrapper />)
+    expect(screen.queryByTestId("detail-2")).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole("button", { name: "Expandir Item 2" }))
+    expect(screen.getByTestId("detail-2")).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole("button", { name: "Expandir Item 2" }))
+    expect(screen.queryByTestId("detail-2")).not.toBeInTheDocument()
+  })
+
+  it("aria-expanded reflete o estado", () => {
+    render(<ExpandableWrapper />)
+    const button = screen.getByRole("button", { name: "Expandir Item 1" })
+    expect(button).toHaveAttribute("aria-expanded", "false")
+    fireEvent.click(button)
+    expect(button).toHaveAttribute("aria-expanded", "true")
+  })
+
+  it("expandir uma linha não afeta as outras (sem vazamento de estado por índice)", () => {
+    render(<ExpandableWrapper />)
+    fireEvent.click(screen.getByRole("button", { name: "Expandir Item 2" }))
+    expect(screen.getByTestId("detail-2")).toBeInTheDocument()
+    expect(screen.queryByTestId("detail-1")).not.toBeInTheDocument()
+    expect(screen.queryByTestId("detail-3")).not.toBeInTheDocument()
+  })
+
+  it("com virtualizeRows, o par resumo+detalhe renderiza sem quebrar (achatado em descritores)", () => {
+    expect(() =>
+      render(<ExpandableWrapper virtualizeRows />),
+    ).not.toThrow()
+    // jsdom não tem layout — o virtualizer real materializa 0 itens sem
+    // container com altura de verdade; o teste cobre que isso não quebra
+    // (a virtualização de verdade é testada com o mock nos consumidores).
+    expect(screen.getByRole("table")).toBeInTheDocument()
   })
 })

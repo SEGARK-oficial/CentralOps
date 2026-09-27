@@ -99,7 +99,7 @@ test.describe("Drift Explorer — ações como operator (Sprint 3)", () => {
     await ignoreButton.click();
 
     // ConfirmDialog deve aparecer
-    await expect(page.getByRole("dialog")).toBeVisible({ timeout: 3_000 });
+    await expect(page.getByRole("alertdialog")).toBeVisible({ timeout: 3_000 });
     await page.getByRole("button", { name: /^ignorar$/i }).last().click();
 
     const response = await ignorePromise;

@@ -201,7 +201,7 @@ describe("PolicyRuleEditor", () => {
     )
 
     fireEvent.click(screen.getByLabelText("Se não encontrar"))
-    expect(screen.getByRole("option", { name: "default" })).toBeDisabled()
+    expect(screen.getByRole("option", { name: "Usar valor padrão" })).toBeDisabled()
   })
 
   it("libera on_miss=default assim que um output ganha padrão", () => {
@@ -219,7 +219,7 @@ describe("PolicyRuleEditor", () => {
     )
 
     fireEvent.click(screen.getByLabelText("Se não encontrar"))
-    expect(screen.getByRole("option", { name: "default" })).not.toBeDisabled()
+    expect(screen.getByRole("option", { name: "Usar valor padrão" })).not.toBeDisabled()
   })
 
   // ── condicionais ─────────────────────────────────────────────────────────

@@ -70,6 +70,9 @@ export function useDrift(filters: DriftFilters): UseDriftReturn {
       })
 
     return () => controller.abort()
+    // `filtersKey` (JSON.stringify de `filters`) é o proxy estável do objeto
+    // `filters` — evita reexecutar quando o caller passa um literal novo com
+    // o mesmo conteúdo a cada render.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filtersKey, tick])
 

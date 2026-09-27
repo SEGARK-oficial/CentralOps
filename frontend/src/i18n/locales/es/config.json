@@ -112,6 +112,9 @@
         "title": "Bases GeoIP",
         "description": "Las bases no vienen con el producto (licencia del proveedor). El directorio se monta en el despliegue; aquí solo aparece lo que hay en él.",
         "empty": "No se encontró ninguna base en este directorio."
+      },
+      "validation": {
+        "outOfRange": "Indica un valor entre {{low}} y {{high}}."
       }
     },
     "mcp": {
@@ -236,6 +239,11 @@
       "deleteTitle": "Eliminar destinatario",
       "deleteDescriptionPrefix": "¿Está seguro de que desea eliminar",
       "deleteDescriptionSuffix": "? Este correo dejará de recibir alertas y resultados de ejecuciones programadas."
+    },
+    "validation": {
+      "hostRequired": "Indica el host SMTP.",
+      "portInvalid": "Indica un puerto válido (1-65535).",
+      "senderRequired": "Indica el remitente."
     }
   },
   "collector": {
@@ -338,6 +346,7 @@
     "roleMapInvalid": "JSON inválido: {{message}}",
     "roleMapInvalidNotObject": "debe ser un objeto JSON",
     "roleMapInvalidGeneric": "verifique la sintaxis",
+    "postLoginRedirectInvalid": "Debe ser una ruta interna que empiece con \"/\" (sin \"//\" ni \"\\\\\", sin otro dominio)",
     "defaultButtonLabel": "Iniciar sesión con Microsoft",
     "saveConfig": "Guardar configuración",
     "testConnection": "Probar conexión",
@@ -613,7 +622,8 @@
       "emptyTitle": "Ningún backfill ejecutado todavía",
       "emptyDescription": "Use el botón 'Nuevo backfill' para iniciar una recolección histórica controlada.",
       "cancelError": "Error al cancelar el backfill.",
-      "cancelErrorTitle": "Error al cancelar"
+      "cancelErrorTitle": "Error al cancelar",
+      "showingTotal": "Mostrando {{count}} de {{total}}"
     },
     "cancelDialog": {
       "title": "Cancelar backfill",
@@ -696,5 +706,29 @@
     "saveConfig": "Guardar configuración",
     "saved": "Configuración guardada. Aplica en la siguiente solicitud.",
     "saveError": "No se pudo guardar la configuración del MCP"
+  },
+  "collectorConfigHook": {
+    "loadErrorFallback": "Error al cargar la configuración",
+    "saveErrorFallback": "Error al guardar la configuración",
+    "saveSuccess": "Configuración guardada. Los workers la reflejarán en hasta 30s."
+  },
+  "emailConfigHook": {
+    "loadErrorFallback": "Error al cargar la configuración",
+    "saveErrorFallback": "Error al guardar la configuración de email",
+    "saveSuccess": "Configuración de email guardada correctamente.",
+    "addRecipientErrorFallback": "Error al agregar el destinatario",
+    "addRecipientSuccess": "Destinatario {{email}} agregado.",
+    "removeRecipientErrorFallback": "Error al quitar el destinatario",
+    "removeRecipientSuccess": "Destinatario eliminado correctamente.",
+    "sendTestErrorFallback": "Error al enviar el email de prueba"
+  },
+  "identityConfigHook": {
+    "loadError": "Error al cargar la configuración de identidad",
+    "saveSuccess": "Configuración guardada. Aplica en el próximo inicio de sesión.",
+    "saveError": "Error al guardar",
+    "testError": "Error al probar la conexión"
+  },
+  "entraSyncHook": {
+    "triggerError": "Error al iniciar la sincronización"
   }
 }

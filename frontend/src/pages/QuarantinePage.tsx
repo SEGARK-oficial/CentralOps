@@ -82,7 +82,9 @@ async function reprocessInBatches(ids: string[]) {
 }
 
 export const QuarantinePage: React.FC = () => {
-  const { t } = useTranslation("quarantine")
+  // R3-8.1: `QuarantineFiltersBar`/`QuarantineSummaryCards`/`QuarantineTable`
+  // usam ns `drift` — declarar aqui carrega o namespace junto da rota.
+  const { t } = useTranslation(["quarantine", "drift"])
   const DISCARD_TYPED_CONFIRM_PHRASE = t("bulk.discardTypedConfirmPhrase")
 
   const [filters, setFilters] = useState<QuarantineFilters>({

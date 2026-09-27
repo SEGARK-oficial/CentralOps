@@ -83,7 +83,6 @@ export function useMappingDryRun(
       })
 
     return () => controller.abort()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rules, rawEvents, options?.vendor, options?.eventType, options?.limit, options?.organizationId, options?.preprocess])
 
   return { result, isPending, error }

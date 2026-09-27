@@ -136,6 +136,7 @@
     "form": {
       "createTitle": "Nova política",
       "name": "Nome",
+      "namePlaceholder": "contexto-de-ativo",
       "nameRequired": "Informe um nome para a política.",
       "organizationRequired": "Selecione uma organização. Não existe política de enriquecimento global.",
       "description": "Descrição",
@@ -222,7 +223,16 @@
       "cannotChain": "Esta regra já tem outra condição. Um gate tem uma chave só, então encadear apagaria a condição que você escreveu.",
       "keySourceHintMapped": "Sugestões vêm dos campos que os mappings ativos desta organização de fato escrevem. Um caminho fora da lista compila mas nunca casa.",
       "shadowedNow": "Habilitada, mas outra política mais antiga está em vigor nesta organização. Desabilite-a para esta valer.",
-      "onePerOrg": "Só uma política é aplicada por organização: a habilitada mais antiga."
+      "onePerOrg": "Só uma política é aplicada por organização: a habilitada mais antiga.",
+      "onMissOptions": {
+        "skip": "Ignorar",
+        "tag": "Marcar (tag)",
+        "default": "Usar valor padrão"
+      },
+      "onErrorOptions": {
+        "skip": "Ignorar",
+        "tag": "Marcar (tag)"
+      }
     },
     "active": "em vigor",
     "shadowed": "habilitada, não aplicada",
@@ -256,6 +266,8 @@
       "target": "Organização de destino",
       "name": "Nome da cópia",
       "nameHint": "Precisa ser único dentro da organização de destino.",
+      "nameRequired": "Informe um nome para a cópia.",
+      "targetRequired": "Escolha uma organização de destino.",
       "checking": "Conferindo o que existe no destino…",
       "readyTitle": "O destino tem tudo o que estas regras citam",
       "readyBody": "As tabelas e fontes referenciadas existem lá, com os mesmos nomes.",

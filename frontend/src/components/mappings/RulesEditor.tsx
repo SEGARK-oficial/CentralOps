@@ -16,6 +16,7 @@ import { Badge } from "@/components/ui/Badge/Badge"
 import { Button } from "@/components/ui/Button/Button"
 import { Input } from "@/components/ui/Input/Input"
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState"
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog/ConfirmDialog"
 import { RuleRow } from "@/components/mappings/RuleRow"
 import { TemplatePicker } from "@/components/mappings/TemplatePicker"
 import {
@@ -63,21 +64,47 @@ interface RulesEditorEditProps extends RulesEditorBaseProps {
 type RulesEditorProps = RulesEditorViewProps | RulesEditorEditProps
 
 /**
- * Key estável por posição.
- * Antes era `${rule.target}-${index}`, mas isso fazia a key mudar a cada
- * keystroke no input target → React unmount+remount do RuleRow → input
- * perdia foco e o debounce do dry-run era zerado a cada char.
- * Position-based key é estável durante edição; reorder usa botões discretos
- * (move up/down) que não competem com input em foco, então não há regressão.
+ * BUG-03: a key por POSIÇÃO (`row-${index}`) resolvia o problema de
+ * remount-por-target (ver histórico abaixo), mas trocou um bug por outro: ao
+ * REMOVER uma regra do meio da lista, todo mundo depois dela desliza um
+ * índice — a key "row-3" passa a apontar pra outra regra, e o estado de
+ * `expansionMap` (que também é chaveado por essa key) "escorrega" pra
+ * regra vizinha: ela aparece expandida sem o usuário ter pedido.
+ *
+ * Fix: id ESTÁVEL por regra, independente de posição E de conteúdo, via
+ * WeakMap referência-do-objeto → id. Funciona de graça para reorder/remove
+ * (o objeto da regra sobrevivente mantém a MESMA referência, então mantém o
+ * mesmo id não importa o índice); para EDIT, que troca a referência do
+ * objeto (`{ ...rule, ...partial }`), o id é propagado explicitamente do
+ * objeto antigo pro novo em `handleChange` — ver `linkStableId`.
+ *
+ * (Histórico: a key por `target` quebrava foco/debounce a cada keystroke —
+ * cada letra digitada remontava o RuleRow. Position-based key resolvia isso,
+ * mas criava o bug de remoção acima.)
  */
-function rowKey(_rule: MappingRule, index: number): string {
-  return `row-${index}`
+const ruleStableIds = new WeakMap<MappingRule, string>()
+let stableIdCounter = 0
+
+function stableIdFor(rule: MappingRule): string {
+  let id = ruleStableIds.get(rule)
+  if (id === undefined) {
+    stableIdCounter += 1
+    id = `rule-${stableIdCounter}`
+    ruleStableIds.set(rule, id)
+  }
+  return id
+}
+
+/** Propaga o id estável de `source` (objeto antigo) para `target` (objeto novo). */
+function linkStableId(source: MappingRule, target: MappingRule): void {
+  ruleStableIds.set(target, stableIdFor(source))
 }
 
 // Contador monotônico pra gerar targets default únicos quando o usuário
 // clica "Adicionar regra" várias vezes em sequência sem editar — evita
-// colisão de chaves (rowKey usa target+index) e radio groups com mesmo
-// `name` (que o browser trataria como um único grupo).
+// colisão de `name` em radio groups (o browser trataria como um único
+// grupo). A key de linha em si já é estável por objeto (`stableIdFor`), não
+// depende mais do target.
 let newRuleCounter = 0
 
 function newRule(): MappingRule {
@@ -160,13 +187,35 @@ export const RulesEditor: React.FC<RulesEditorProps> = ({
   // ── Controlled expansion map (key → expanded) ────────────────────────────
   const [expansionMap, setExpansionMap] = useState<Map<string, boolean>>(new Map())
 
-  function toggleExpansion(key: string) {
+  // PERF-06: estável por toda a vida do componente (updater funcional, sem
+  // ler `expansionMap`/`rules` do closure) — pré-requisito para poder cachear
+  // um callback por linha em `getToggleCallback` sem invalidar o cache a
+  // cada render.
+  const toggleExpansion = useCallback((key: string) => {
     setExpansionMap((prev) => {
       const next = new Map(prev)
       next.set(key, !prev.get(key))
       return next
     })
-  }
+  }, [])
+
+  // PERF-06: RuleRow é `memo()`, mas `onToggleExpand={() => toggleExpansion(key)}`
+  // inline no render criava uma closure NOVA por linha a CADA render do
+  // RulesEditor (mesmo por causas alheias à linha, tipo digitar na busca) —
+  // isso sozinho já invalidava o memo de toda linha visível. Cacheamos uma
+  // closure estável por id de linha, criada uma única vez.
+  const toggleCallbacksRef = useRef(new Map<string, () => void>())
+  const getToggleCallback = useCallback(
+    (key: string): (() => void) => {
+      let cb = toggleCallbacksRef.current.get(key)
+      if (!cb) {
+        cb = () => toggleExpansion(key)
+        toggleCallbacksRef.current.set(key, cb)
+      }
+      return cb
+    },
+    [toggleExpansion],
+  )
 
   function collapseAll() {
     setExpansionMap(new Map())
@@ -175,7 +224,7 @@ export const RulesEditor: React.FC<RulesEditorProps> = ({
   function expandAll() {
     setExpansionMap(() => {
       const next = new Map<string, boolean>()
-      rules.forEach((rule, i) => next.set(rowKey(rule, i), true))
+      rules.forEach((rule) => next.set(stableIdFor(rule), true))
       return next
     })
   }
@@ -219,78 +268,63 @@ export const RulesEditor: React.FC<RulesEditorProps> = ({
     return Array.from(map.entries()).map(([prefix, items]) => ({ prefix, items }))
   }, [filteredWithIndex, groupByPrefix])
 
-  // ── Edit handlers (stable via useCallback — evita re-render em cascata) ──
+  // ── Edit handlers ─────────────────────────────────────────────────────────
+  // PERF-06: antes dependiam de `[onChange, rules]` — `rules` é uma array NOVA
+  // a cada edição (o pai faz `onChange([...])`), então esses 4 handlers
+  // ganhavam identidade nova a cada keystroke, o que por si só invalidava o
+  // memo de TODA linha (elas são props do RuleRow memoizado). `rulesRef`
+  // mantém a versão mais recente sem entrar nas deps — os handlers agora só
+  // mudam de identidade se `onChange` (prop do pai) mudar.
+  const rulesRef = useRef(rules)
+  rulesRef.current = rules
 
   const handleChange = useCallback(
     (index: number, updated: MappingRule) => {
       if (!onChange) return
-      const next = [...rules]
+      const current = rulesRef.current
+      // BUG-03: propaga o id estável da regra ANTIGA (nesse índice) pro
+      // objeto NOVO que `update()` acabou de criar — sem isso, cada edição
+      // "esqueceria" o id e a linha reapareceria como se fosse outra.
+      linkStableId(current[index], updated)
+      const next = [...current]
       next[index] = updated
       onChange(next)
     },
-    [onChange, rules],
+    [onChange],
   )
 
   const handleRemove = useCallback(
     (index: number) => {
       if (!onChange) return
-      onChange(rules.filter((_, i) => i !== index))
+      onChange(rulesRef.current.filter((_, i) => i !== index))
     },
-    [onChange, rules],
+    [onChange],
   )
 
-  // Ao swap, expansionMap precisa acompanhar — as keys são row-{index}, e
-  // trocar índices efetivamente troca as posições das regras. Sem isso a regra
-  // que estava expandida colapsa silenciosamente após reorder, e a vizinha
-  // aparece expandida sem o usuário ter pedido.
-  //
-  // Mover regra X de iA pra iB: a key "row-iA" deve virar "row-iB", e a key
-  // "row-iB" (vizinha que se moveu pra iA) deve virar "row-iA".
-  function rekeyAfterSwap(
-    oldRules: MappingRule[],
-    iA: number,
-    iB: number,
-  ) {
-    const ruleA = oldRules[iA]
-    const ruleB = oldRules[iB]
-    const oldKeyA = rowKey(ruleA, iA)
-    const oldKeyB = rowKey(ruleB, iB)
-    const newKeyA = rowKey(ruleA, iB) // ruleA agora em iB
-    const newKeyB = rowKey(ruleB, iA) // ruleB agora em iA
-    setExpansionMap((prev) => {
-      const next = new Map(prev)
-      const a = prev.get(oldKeyA)
-      const b = prev.get(oldKeyB)
-      next.delete(oldKeyA)
-      next.delete(oldKeyB)
-      if (a !== undefined) next.set(newKeyA, a)
-      if (b !== undefined) next.set(newKeyB, b)
-      return next
-    })
-  }
-
+  // BUG-03: reorder troca a POSIÇÃO das regras, não a referência dos objetos —
+  // como `stableIdFor` chaveia por referência, o id de cada regra viaja com
+  // ela automaticamente. Não precisa mais rekeyar `expansionMap` manualmente.
   const handleMoveUp = useCallback(
     (index: number) => {
       if (!onChange || index === 0) return
-      const next = [...rules]
+      const current = rulesRef.current
+      const next = [...current]
       ;[next[index - 1], next[index]] = [next[index], next[index - 1]]
-      rekeyAfterSwap(rules, index, index - 1)
       onChange(next)
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [onChange, rules],
+    [onChange],
   )
 
   const handleMoveDown = useCallback(
     (index: number) => {
-      if (!onChange || index === rules.length - 1) return
-      const next = [...rules]
+      if (!onChange) return
+      const current = rulesRef.current
+      if (index === current.length - 1) return
+      const next = [...current]
       ;[next[index], next[index + 1]] = [next[index + 1], next[index]]
-      rekeyAfterSwap(rules, index, index + 1)
       onChange(next)
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [onChange, rules],
+    [onChange],
   )
 
   // ── Add rule dropdown state ──────────────────────────────────────────────
@@ -387,8 +421,7 @@ export const RulesEditor: React.FC<RulesEditorProps> = ({
 
   function handleAdd(rule: MappingRule) {
     if (!onChange) return
-    const newIndex = rules.length // será o último depois do push
-    const newKey = rowKey(rule, newIndex)
+    const newKey = stableIdFor(rule)
     // Auto-expandir a regra recém-adicionada — o usuário acabou de criar
     // e quer editar imediatamente. As outras permanecem como estavam.
     setExpansionMap((prev) => {
@@ -485,7 +518,6 @@ export const RulesEditor: React.FC<RulesEditorProps> = ({
 
   return (
     <section
-      role="region"
       aria-labelledby={headingId}
       data-testid="rules-editor"
       className={cn(
@@ -562,42 +594,28 @@ export const RulesEditor: React.FC<RulesEditorProps> = ({
       )}
 
       {/* ── Import confirm dialog ──────────────────────────────────────── */}
-      {importConfirm && (
-        <div
-          role="alertdialog"
-          aria-labelledby="import-confirm-title"
-          className="rounded-md border border-warning-300 bg-warning-50 px-3 py-2 flex flex-col gap-2"
-          data-testid="import-confirm"
-        >
-          <p id="import-confirm-title" className="text-sm font-medium text-warning-800">
-            {t("rulesEditor.importConfirm.title")}
-          </p>
-          <p className="text-xs text-warning-700">
-            {t("rulesEditor.importConfirm.replaceCurrent", { count: rules.length })}{" "}
-            {t("rulesEditor.importConfirm.withImported", { count: importConfirm.rules.length })}
-          </p>
-          <div className="flex gap-2">
-            <Button
-              variant="primary"
-              size="xs"
-              type="button"
-              onClick={handleImportConfirm}
-              data-testid="import-confirm-button"
-            >
-              {t("rulesEditor.importConfirm.confirm")}
-            </Button>
-            <Button
-              variant="outline"
-              size="xs"
-              type="button"
-              onClick={handleImportCancel}
-              data-testid="import-cancel-button"
-            >
-              {t("common:actions.cancel")}
-            </Button>
-          </div>
-        </div>
-      )}
+      {/* R2-6.6: era um `role="alertdialog"` inline — sem focus trap, sem
+          foco movido pro diálogo ao aparecer (leitor de tela não percebia) e
+          com id fixo (`import-confirm-title`, colidiria se este componente
+          existisse 2× na mesma página). `ConfirmDialog` já resolve os três
+          via `Modal` (focus trap + `useId` + pilha de Escape). */}
+      <ConfirmDialog
+        open={!!importConfirm}
+        title={t("rulesEditor.importConfirm.title")}
+        description={
+          importConfirm && (
+            <>
+              {t("rulesEditor.importConfirm.replaceCurrent", { count: rules.length })}{" "}
+              {t("rulesEditor.importConfirm.withImported", { count: importConfirm.rules.length })}
+            </>
+          )
+        }
+        confirmLabel={t("rulesEditor.importConfirm.confirm")}
+        confirmVariant="danger"
+        onConfirm={handleImportConfirm}
+        onClose={handleImportCancel}
+        data-testid="import-confirm"
+      />
 
       {/* ── Control bar ────────────────────────────────────────────────── */}
       <div className="flex flex-wrap items-center gap-2" aria-label={t("rulesEditor.filterControlsAriaLabel")}>
@@ -778,13 +796,17 @@ export const RulesEditor: React.FC<RulesEditorProps> = ({
           </Button>
 
           {addMenuOpen && (
+            // Padrão APG de menu: o CONTAINER captura as setas (roving
+            // tabindex nos itens filhos) — não precisa ser um tab-stop.
+            // eslint-disable-next-line jsx-a11y/interactive-supports-focus
             <div
               ref={addMenuListRef}
               role="menu"
               aria-label={t("rulesEditor.addMenuAriaLabel")}
               onKeyDown={handleMenuKeyDown}
               className={cn(
-                "absolute left-0 top-full mt-1 z-20 min-w-[220px]",
+                // LAY-39: token de z-index (não o número mágico `z-20`).
+                "absolute left-0 top-full mt-1 z-dropdown min-w-[220px]",
                 "rounded-md border border-border bg-surface shadow-md py-1",
               )}
               data-testid="add-rule-menu"
@@ -797,7 +819,7 @@ export const RulesEditor: React.FC<RulesEditorProps> = ({
                 data-testid="add-scalar-rule"
                 className={cn(
                   "w-full text-left px-3 py-2 text-sm text-text",
-                  "hover:bg-surface-tertiary focus:bg-surface-tertiary focus:outline-none",
+                  "hover:bg-surface-tertiary focus:bg-surface-tertiary focus-ring",
                 )}
               >
                 <span className="font-medium">{t("rulesEditor.addMenu.scalarRule")}</span>
@@ -813,7 +835,7 @@ export const RulesEditor: React.FC<RulesEditorProps> = ({
                 data-testid="add-array-builder-rule"
                 className={cn(
                   "w-full text-left px-3 py-2 text-sm text-text",
-                  "hover:bg-surface-tertiary focus:bg-surface-tertiary focus:outline-none",
+                  "hover:bg-surface-tertiary focus:bg-surface-tertiary focus-ring",
                 )}
               >
                 <span className="font-medium">{t("rulesEditor.addMenu.arrayBuilder")} <span className="text-success-700">({t("rulesEditor.addMenu.observables")})</span></span>
@@ -830,7 +852,7 @@ export const RulesEditor: React.FC<RulesEditorProps> = ({
                 data-testid="load-ocsf-template"
                 className={cn(
                   "w-full text-left px-3 py-2 text-sm text-text",
-                  "hover:bg-surface-tertiary focus:bg-surface-tertiary focus:outline-none",
+                  "hover:bg-surface-tertiary focus:bg-surface-tertiary focus-ring",
                   "flex items-start gap-2",
                 )}
               >
@@ -862,7 +884,7 @@ export const RulesEditor: React.FC<RulesEditorProps> = ({
   // ── renderRow ────────────────────────────────────────────────────────────
 
   function renderRow(rule: MappingRule, index: number) {
-    const key = rowKey(rule, index)
+    const key = stableIdFor(rule)
 
     if (mode === "edit") {
       return (
@@ -878,7 +900,7 @@ export const RulesEditor: React.FC<RulesEditorProps> = ({
           canMoveUp={index > 0}
           canMoveDown={index < rules.length - 1}
           expanded={expansionMap.get(key) ?? false}
-          onToggleExpand={() => toggleExpansion(key)}
+          onToggleExpand={getToggleCallback(key)}
           jmespathSuggestions={jmespathSuggestions}
         />
       )
@@ -890,7 +912,7 @@ export const RulesEditor: React.FC<RulesEditorProps> = ({
         rule={rule}
         mode="view"
         expanded={expansionMap.get(key) ?? false}
-        onToggleExpand={() => toggleExpansion(key)}
+        onToggleExpand={getToggleCallback(key)}
       />
     )
   }

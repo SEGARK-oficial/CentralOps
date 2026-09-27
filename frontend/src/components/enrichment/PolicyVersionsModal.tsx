@@ -340,9 +340,9 @@ export const PolicyVersionsModal: React.FC<PolicyVersionsModalProps> = ({
                   ? t("policies.versions.shadowedNow")
                   : t("policies.versions.disabledNow")}
             </p>
-            <p className="text-xs text-muted">{t("policies.versions.onePerOrg")}</p>
+            <p className="text-xs text-text-tertiary">{t("policies.versions.onePerOrg")}</p>
             {!policy.current_version_id && (
-              <p className="text-xs text-muted">{t("policies.versions.needsVersionToEnable")}</p>
+              <p className="text-xs text-text-tertiary">{t("policies.versions.needsVersionToEnable")}</p>
             )}
           </div>
           <Button
@@ -354,7 +354,7 @@ export const PolicyVersionsModal: React.FC<PolicyVersionsModalProps> = ({
             {policy.enabled ? t("policies.versions.disable") : t("policies.versions.enable")}
           </Button>
         </div>
-        {toggleError && <Notice variant="danger" title={toggleError} />}
+        {toggleError && <Notice variant="danger" title={toggleError} live="assertive" />}
 
         {/* ── Editor de regras + dry-run ───────────────────────────────── */}
         <form onSubmit={handlePublish} className="space-y-4 rounded-lg border border-border p-4">
@@ -370,10 +370,10 @@ export const PolicyVersionsModal: React.FC<PolicyVersionsModalProps> = ({
           {/* Publicar substitui a versão inteira. Dizer isso aqui evita a
               descoberta cara: publicar e só depois notar que as outras regras
               sumiram da versão vigente. */}
-          <p className="text-xs text-muted">{t("policies.versions.replaceWarning")}</p>
+          <p className="text-xs text-text-tertiary">{t("policies.versions.replaceWarning")}</p>
 
           {hydrateError && <Notice variant="danger" title={hydrateError} />}
-          {publishError && <Notice variant="danger" title={publishError} />}
+          {publishError && <Notice variant="danger" title={publishError} live="assertive" />}
           {publishSummary && (
             <Notice variant="success" title={t("policies.versions.published")}>
               {t("policies.versions.publishedDetail", { count: publishSummary?.rule_count ?? 0 })}
@@ -397,7 +397,7 @@ export const PolicyVersionsModal: React.FC<PolicyVersionsModalProps> = ({
           {/* Dry-run */}
           <div className="space-y-3 rounded-md bg-surface-secondary p-3">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold uppercase tracking-wide text-muted">
+              <span className="text-xs font-semibold uppercase tracking-wide text-text-tertiary">
                 {t("policies.versions.dryRun.title")}
               </span>
               <Button
@@ -411,7 +411,7 @@ export const PolicyVersionsModal: React.FC<PolicyVersionsModalProps> = ({
                 {t("policies.versions.dryRun.run")}
               </Button>
             </div>
-            <p className="text-xs text-muted">{t("policies.versions.dryRun.hint")}</p>
+            <p className="text-xs text-text-tertiary">{t("policies.versions.dryRun.hint")}</p>
 
             <div className="grid gap-3 sm:grid-cols-2">
               <Textarea
@@ -432,7 +432,7 @@ export const PolicyVersionsModal: React.FC<PolicyVersionsModalProps> = ({
               />
             </div>
 
-            {dryRunError && <Notice variant="danger" title={dryRunError} />}
+            {dryRunError && <Notice variant="danger" title={dryRunError} live="assertive" />}
 
             {dryRunResult && (
               <div className="space-y-2" data-testid="dry-run-result">
@@ -492,7 +492,7 @@ export const PolicyVersionsModal: React.FC<PolicyVersionsModalProps> = ({
           {loadingVersions ? (
             <SkeletonCard />
           ) : versions.length === 0 ? (
-            <p className="text-sm text-muted">{t("tables.versions.empty")}</p>
+            <p className="text-sm text-text-tertiary">{t("tables.versions.empty")}</p>
           ) : (
             <ul className="divide-y divide-border rounded-lg border border-border">
               {versions.map((v) => (
@@ -507,9 +507,9 @@ export const PolicyVersionsModal: React.FC<PolicyVersionsModalProps> = ({
                         </Badge>
                       )}
                     </div>
-                    <p className="truncate text-sm text-muted">{v.commit_message}</p>
+                    <p className="truncate text-sm text-text-tertiary">{v.commit_message}</p>
                     {v.created_at && (
-                      <p className="text-xs text-muted">{new Date(v.created_at).toLocaleString()}</p>
+                      <p className="text-xs text-text-tertiary">{new Date(v.created_at).toLocaleString()}</p>
                     )}
                   </div>
                   <div className="flex shrink-0 items-center gap-2">

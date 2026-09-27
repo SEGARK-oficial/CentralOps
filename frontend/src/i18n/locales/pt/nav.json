@@ -90,7 +90,9 @@
       "config": "Configurações",
       "account": "Perfil e segurança",
       "tokens": "Tokens de API",
-      "enrichment": "Enriquecimento"
+      "enrichment": "Enriquecimento",
+      "queryJobs": "Busca federada",
+      "correlationRules": "Correlação"
     }
   },
   "breadcrumbs": {
@@ -128,7 +130,9 @@
   },
   "globalFilters": {
     "label": "Filtros",
+    "loading": "Carregando filtros…",
     "loadFailed": "Não foi possível carregar os filtros.",
+    "loadOrgsIntegrationsError": "Falha ao carregar organizações e integrações.",
     "retry": "Tentar novamente",
     "clearFilters": "Limpar filtros",
     "allOrganizations": "Todas as organizações",

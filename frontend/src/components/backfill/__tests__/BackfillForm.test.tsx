@@ -4,7 +4,6 @@
  */
 
 import { render, screen, fireEvent, waitFor } from "@testing-library/react"
-import userEvent from "@testing-library/user-event"
 import { BackfillForm } from "@/components/backfill/BackfillForm"
 import type { BackfillJob } from "@/types"
 import { vi } from "vitest"
@@ -159,5 +158,60 @@ describe("BackfillForm", () => {
   it("notice informativo está visível", () => {
     renderForm()
     expect(screen.getByText(/ao lado da coleta ao vivo/)).toBeInTheDocument()
+  })
+
+  // A11Y-26: aria-invalid/aria-describedby nos campos com erro + foco no 1º
+  // campo inválido. O botão de submit fica `disabled` quando inválido (então
+  // fireEvent.click nele nem dispara o handler) — o gatilho real é o Enter
+  // num campo de texto, que envia o `submit` do <form> independente do botão.
+  describe("A11Y-26 — erro acessível e foco", () => {
+    it("from/to ganham aria-invalid e aria-describedby quando from >= to", () => {
+      renderForm()
+      setDateInput("backfill-from-input", "2026-01-10T00:00")
+      setDateInput("backfill-to-input", "2026-01-01T00:00")
+
+      const fromInput = screen.getByTestId("backfill-from-input")
+      const toInput = screen.getByTestId("backfill-to-input")
+      expect(fromInput).toHaveAttribute("aria-invalid", "true")
+      expect(toInput).toHaveAttribute("aria-invalid", "true")
+      const describedBy = fromInput.getAttribute("aria-describedby")
+      expect(describedBy).toBeTruthy()
+      expect(document.getElementById(describedBy!.split(" ")[0])).toHaveTextContent(
+        /data inicial deve ser anterior/,
+      )
+    })
+
+    it("grupo de streams ganha aria-describedby apontando pro erro quando nenhum stream é selecionado", () => {
+      renderForm()
+      setDateInput("backfill-from-input", "2026-01-01T00:00")
+      setDateInput("backfill-to-input", "2026-01-10T00:00")
+
+      const group = screen.getByTestId("backfill-streams-select")
+      const describedBy = group.getAttribute("aria-describedby")
+      expect(describedBy).toBeTruthy()
+      expect(document.getElementById(describedBy!)).toHaveTextContent(/Selecione ao menos um stream/)
+    })
+
+    it("submit inválido (via Enter/submit do form) foca o campo 'de' quando o problema é de data", () => {
+      renderForm()
+      setDateInput("backfill-from-input", "2026-01-10T00:00")
+      setDateInput("backfill-to-input", "2026-01-01T00:00")
+      selectStream("alerts")
+
+      fireEvent.submit(screen.getByTestId("backfill-form"))
+
+      expect(document.activeElement).toBe(screen.getByTestId("backfill-from-input"))
+    })
+
+    it("submit inválido foca o 1º checkbox de stream quando o problema é falta de stream", () => {
+      renderForm()
+      setDateInput("backfill-from-input", "2026-01-01T00:00")
+      setDateInput("backfill-to-input", "2026-01-10T00:00")
+      // não seleciona nenhum stream
+
+      fireEvent.submit(screen.getByTestId("backfill-form"))
+
+      expect(document.activeElement).toBe(screen.getByRole("checkbox", { name: "Stream alerts" }))
+    })
   })
 })

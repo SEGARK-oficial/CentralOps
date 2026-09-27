@@ -255,7 +255,7 @@ describe("EnrichmentPage", () => {
     fireEvent.click(within(linha).getByRole("button", { name: "Apagar tabela" }))
 
     expect(screen.queryByRole("dialog", { name: "Versões de rede-corp" })).not.toBeInTheDocument()
-    const confirmDialog = await screen.findByRole("dialog", { name: "Apagar tabela" })
+    const confirmDialog = await screen.findByRole("alertdialog", { name: "Apagar tabela" })
     fireEvent.click(within(confirmDialog).getByRole("button", { name: "Excluir" }))
 
     await waitFor(() => expect(mockedApi.deleteEnrichmentTable).toHaveBeenCalledWith("t1"))
@@ -274,11 +274,11 @@ describe("EnrichmentPage", () => {
     // de apagar é a coluna de ação da mesma linha.
     const linha = (await screen.findByTestId("table-row-rede-corp")).closest("tr")!
     fireEvent.click(within(linha).getByRole("button", { name: "Apagar tabela" }))
-    const confirmDialog = await screen.findByRole("dialog", { name: "Apagar tabela" })
+    const confirmDialog = await screen.findByRole("alertdialog", { name: "Apagar tabela" })
     fireEvent.click(within(confirmDialog).getByRole("button", { name: "Excluir" }))
 
     expect(await screen.findByText(/tabela em uso pela política/i)).toBeInTheDocument()
-    expect(screen.getByRole("dialog", { name: "Apagar tabela" })).toBeInTheDocument()
+    expect(screen.getByRole("alertdialog", { name: "Apagar tabela" })).toBeInTheDocument()
   })
 
   it("mostra estado vazio na aba políticas e abre o modal de criação", async () => {
@@ -294,23 +294,43 @@ describe("EnrichmentPage", () => {
     expect(await screen.findByRole("dialog", { name: "Nova política" })).toBeInTheDocument()
   })
 
-  it("clicar numa política abre a PÁGINA do editor, não um modal", async () => {
+  it("o card da política é um link de verdade para a PÁGINA do editor, não um modal", async () => {
     // O editor saiu do modal e ganhou URL própria. Não é conveniência: é onde
     // se decide o que sai do ambiente do cliente para terceiros, e sem endereço
     // não dá para revisar a quatro mãos nem voltar ao mesmo ponto depois de
     // recarregar. O rascunho, o diff contra a versão vigente e o histórico
     // moram lá.
+    //
+    // A11Y-10: o card inteiro ERA um `<div onClick>` (inacessível por
+    // teclado). Virou "stretched link": um `<Link>` real cobre o card
+    // (carrega o nome acessível), então aqui verificamos o `href`, não mais
+    // uma chamada a `navigate` — clicar num `<Link>` de verdade não passa
+    // pelo `useNavigate` espionado.
     mockLoad({ policies: [policy] })
     render(<EnrichmentPage />)
     await aguardaCarregar()
 
     fireEvent.click(screen.getByRole("tab", { name: /Políticas/i }))
-    fireEvent.click(await screen.findByTestId("policy-card-contexto-de-ativo"))
-
-    expect(navigate).toHaveBeenCalledWith("/enrichment/policies/p1")
+    const card = await screen.findByTestId("policy-card-contexto-de-ativo")
+    const link = within(card).getByRole("link", { name: "contexto-de-ativo" })
+    expect(link).toHaveAttribute("href", "/enrichment/policies/p1")
     expect(
       screen.queryByRole("dialog", { name: "Versões de contexto-de-ativo" }),
     ).not.toBeInTheDocument()
+  })
+
+  // Regressão de teclado: o card antigo (`div onClick`) não tinha NENHUM jeito
+  // de ser alcançado ou ativado por teclado.
+  it("o link do card da política é alcançável por Tab e ativável por teclado", async () => {
+    mockLoad({ policies: [policy] })
+    render(<EnrichmentPage />)
+    await aguardaCarregar()
+
+    fireEvent.click(screen.getByRole("tab", { name: /Políticas/i }))
+    const card = await screen.findByTestId("policy-card-contexto-de-ativo")
+    const link = within(card).getByRole("link", { name: "contexto-de-ativo" })
+    link.focus()
+    expect(document.activeElement).toBe(link)
   })
 
   it("mostra ErrorState com retry quando o carregamento falha", async () => {

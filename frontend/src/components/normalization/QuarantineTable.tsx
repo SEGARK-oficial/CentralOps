@@ -382,6 +382,14 @@ export const QuarantineTable: React.FC<QuarantineTableProps> = ({
         </Notice>
       )}
 
+      {/* Sem `virtualizeRows`: o servidor já pagina (`pagination.pageSize`
+          por página), então nunca há dezenas de milhares de linhas no DOM de
+          uma vez — o cenário que a virtualização resolve. `serverSide`
+          também desliga a ordenação LOCAL do DataTable: a coluna
+          `created_at` (sortable) não reordena a página sozinha, porque
+          ordenar só a fatia corrente seria incoerente com o resto do dataset
+          paginado (PERF-12). Falta um `onSortChange` que refaça o fetch já
+          ordenado; nenhum caller (QuarantinePage) ainda expõe isso. */}
       <DataTable
         data={items as unknown as AnyRow[]}
         columns={columns}

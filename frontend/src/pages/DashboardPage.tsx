@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { useTranslation } from "react-i18next"
 import {
@@ -19,11 +19,37 @@ import { Badge } from "@/components/ui/Badge/Badge"
 import { Button } from "@/components/ui/Button/Button"
 import { Card } from "@/components/ui/Card/Card"
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState"
-import { LoadingSpinner } from "@/components/ui/LoadingSpinner/LoadingSpinner"
+import { ErrorState } from "@/components/ui/ErrorState"
 import { Notice } from "@/components/ui/Notice/Notice"
 import { PageHeader } from "@/components/ui/PageHeader/PageHeader"
 import { Select } from "@/components/ui/Select/Select"
+import { Skeleton } from "@/components/ui/Skeleton"
 import { formatDateTime as intlFormatDateTime } from "@/lib/intl"
+
+/**
+ * R2-6.3: skeleton com a FORMA da grade de KPI (mesmas classes de grid do
+ * `KpiGrid`) em vez do `LoadingSpinner` de página inteira — o spinner some
+ * de repente e o conteúdo real "salta" pro lugar (CLS); o skeleton já
+ * reserva a altura certa.
+ */
+const DashboardKpiSkeleton: React.FC = () => {
+  const { t } = useTranslation("dashboard")
+  return (
+    <div
+      role="status"
+      aria-label={t("dashboardPage.loading")}
+      className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6"
+    >
+      {Array.from({ length: 6 }, (_, i) => (
+        <div key={i} className="flex flex-col gap-3 rounded-lg border border-border bg-surface p-3">
+          <Skeleton className="h-3 w-2/3" />
+          <Skeleton className="h-7 w-1/2" />
+          <Skeleton className="h-3 w-1/3" />
+        </div>
+      ))}
+    </div>
+  )
+}
 
 function formatDateTime(value: string | null | undefined, t: (key: string) => string) {
   if (!value) return t("dashboardPage.dates.noData")
@@ -153,8 +179,16 @@ const DashboardPage: React.FC = () => {
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // R2-6.3: trocar `days`/o filtro global antes da resposta anterior voltar é
+  // uma corrida — sem abortar, a resposta MAIS LENTA (do filtro ANTIGO) podia
+  // chegar DEPOIS e sobrescrever o summary do filtro atual com dado velho.
+  const abortRef = useRef<AbortController | null>(null)
 
   const loadSummary = useCallback(async (refresh = false) => {
+    abortRef.current?.abort()
+    const controller = new AbortController()
+    abortRef.current = controller
+
     try {
       setError(null)
       if (refresh) {
@@ -165,56 +199,54 @@ const DashboardPage: React.FC = () => {
 
       // Fetch ÚNICA: o payload v2 consolidado carrega KPIs, buckets,
       // contagens de escopo e itens degradados numa só chamada.
-      const data = await api.getDashboardSummary({
-        organization_id: selectedOrgId,
-        integration_id: selectedIntegrationId,
-        platform: selectedPlatform,
-        days,
-      })
+      const data = await api.getDashboardSummary(
+        {
+          organization_id: selectedOrgId,
+          integration_id: selectedIntegrationId,
+          platform: selectedPlatform,
+          days,
+        },
+        { signal: controller.signal },
+      )
+      if (abortRef.current !== controller) return // resposta de uma chamada já superada
       setSummary(data)
     } catch (cause) {
+      if (cause instanceof DOMException && cause.name === "AbortError") return
       const message = cause instanceof Error ? cause.message : t("dashboardPage.loadError")
       setError(message)
     } finally {
-      setLoading(false)
-      setRefreshing(false)
+      if (abortRef.current === controller) {
+        setLoading(false)
+        setRefreshing(false)
+      }
     }
-  }, [days, selectedIntegrationId, selectedOrgId, selectedPlatform])
+    // `t` entra aqui: usado no `catch` acima para a mensagem de fallback —
+    // faltava na lista original, então uma troca de idioma no meio de um erro
+    // não atualizava a mensagem já mostrada até o próximo load.
+  }, [days, selectedIntegrationId, selectedOrgId, selectedPlatform, t])
 
   useEffect(() => {
     void loadSummary()
+    return () => abortRef.current?.abort()
   }, [loadSummary])
 
-  if (loading) {
-    return <LoadingSpinner size="lg" text={t("dashboardPage.loading")} className="py-20" />
-  }
+  // R2-6.3: a página inteira não pode virar `Notice`/spinner a cada estado —
+  // um erro num REFRESH (com summary já visível) não pode apagar dado que já
+  // estava na tela; só o load INICIAL (sem summary nenhum ainda) ocupa o
+  // corpo inteiro com skeleton/ErrorState. O `PageHeader` (com o botão de
+  // atualizar) fica de fora dessas branches, sempre visível.
+  const showInitialSkeleton = loading && !summary
+  const showInitialError = !!error && !summary
+  const showEmpty = !loading && !error && !summary
 
-  if (error) {
-    return (
-      <Notice variant="danger" title={t("dashboardPage.loadError")}>
-        {error}
-      </Notice>
-    )
-  }
+  // R3-6.1: trocar `days`/filtro global com summary já carregado dispara
+  // `loadSummary()` (loading=true) pelo useEffect — mas `showInitialSkeleton`
+  // exige `!summary`, então os KPIs antigos ficavam parados na tela SEM
+  // nenhuma indicação de que uma nova busca estava em curso.
+  const isUpdating = (loading || refreshing) && !!summary
 
-  if (!summary) {
-    return (
-      <EmptyState
-        icon={<LayoutDashboardIcon size={48} />}
-        title={t("dashboardPage.empty.title")}
-        description={t("dashboardPage.empty.description")}
-        action={
-          <Button variant="outline" size="sm" onClick={() => void loadSummary(true)} disabled={refreshing} leftIcon={<RefreshCwIcon size={14} />}>
-            {refreshing ? t("dashboardPage.updating") : t("common:actions.refresh")}
-          </Button>
-        }
-        className="py-20"
-      />
-    )
-  }
-
-  const degradedItems = summary.integrations?.degraded_items ?? []
-  const byPlatform = summary.integrations?.by_platform ?? {}
+  const degradedItems = summary?.integrations?.degraded_items ?? []
+  const byPlatform = summary?.integrations?.by_platform ?? {}
 
   return (
     <div className="space-y-6">
@@ -228,26 +260,88 @@ const DashboardPage: React.FC = () => {
         }
       />
 
-      <ScopeBar
-        organization={selectedOrganization?.name || t("dashboardPage.scope.allOrganizations")}
-        platform={selectedPlatform || t("dashboardPage.scope.allPlatforms")}
-        integration={selectedIntegration?.name || t("dashboardPage.scope.allIntegrations")}
-        generatedAt={summary.generated_at}
-        counts={
-          summary.organizations && summary.integrations
-            ? {
-                organizations: summary.organizations.total,
-                integrations: summary.integrations.total,
-                activeIntegrations: summary.integrations.active,
-              }
-            : null
-        }
-        days={days}
-        onDaysChange={setDays}
-        onClear={clearFilters}
-      />
+      {showInitialSkeleton && <DashboardKpiSkeleton />}
 
-      <KpiGrid kpis={summary.kpis} />
+      {showInitialError && (
+        <ErrorState
+          title={t("dashboardPage.loadError")}
+          message={error ?? undefined}
+          onRetry={() => void loadSummary()}
+        />
+      )}
+
+      {showEmpty && (
+        <EmptyState
+          icon={<LayoutDashboardIcon size={48} />}
+          title={t("dashboardPage.empty.title")}
+          description={t("dashboardPage.empty.description")}
+          action={
+            <Button variant="outline" size="sm" onClick={() => void loadSummary(true)} disabled={refreshing} leftIcon={<RefreshCwIcon size={14} />}>
+              {refreshing ? t("dashboardPage.updating") : t("common:actions.refresh")}
+            </Button>
+          }
+          className="py-20"
+        />
+      )}
+
+      {summary && (
+        <div aria-busy={isUpdating} className="relative space-y-6">
+          {/* R3-6.1: barra fina no topo + texto sr-only — indicador de que uma
+              busca está em curso (troca de `days`/filtro) sem esconder o dado
+              antigo, que segue visível (com opacidade reduzida) até o novo
+              summary chegar. */}
+          {isUpdating && (
+            <div
+              aria-hidden="true"
+              className="absolute -top-2 left-0 right-0 h-0.5 overflow-hidden rounded-full bg-primary-100"
+            >
+              <div className="h-full w-1/3 animate-[pulse_1.2s_ease-in-out_infinite] bg-primary-500" />
+            </div>
+          )}
+          <span role="status" className="sr-only">
+            {isUpdating ? t("dashboardPage.updating") : ""}
+          </span>
+
+          {/* R2-6.3: erro num REFRESH (summary já existente) não apaga o
+              dashboard — vira um aviso não-bloqueante em cima do dado que já
+              estava visível, com retry embutido. */}
+          {error && (
+            <Notice
+              variant="danger"
+              title={t("dashboardPage.loadError")}
+              live="assertive"
+              action={
+                <Button variant="ghost" size="xs" onClick={() => void loadSummary(true)}>
+                  {t("common:actions.retry")}
+                </Button>
+              }
+            >
+              {error}
+            </Notice>
+          )}
+
+          <ScopeBar
+            organization={selectedOrganization?.name || t("dashboardPage.scope.allOrganizations")}
+            platform={selectedPlatform || t("dashboardPage.scope.allPlatforms")}
+            integration={selectedIntegration?.name || t("dashboardPage.scope.allIntegrations")}
+            generatedAt={summary.generated_at}
+            counts={
+              summary.organizations && summary.integrations
+                ? {
+                    organizations: summary.organizations.total,
+                    integrations: summary.integrations.total,
+                    activeIntegrations: summary.integrations.active,
+                  }
+                : null
+            }
+            days={days}
+            onDaysChange={setDays}
+            onClear={clearFilters}
+          />
+
+      <div className={isUpdating ? "opacity-60 transition-opacity" : "transition-opacity"}>
+        <KpiGrid kpis={summary.kpis} />
+      </div>
 
       <Card padding="md">
         <div className="space-y-3">
@@ -314,6 +408,8 @@ const DashboardPage: React.FC = () => {
           {summary.top_buckets.map((section) => (
             <BucketSectionComponent key={section.id} section={section} />
           ))}
+        </div>
+      )}
         </div>
       )}
     </div>

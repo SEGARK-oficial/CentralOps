@@ -56,7 +56,6 @@ export const EnvelopePreview: React.FC<EnvelopePreviewProps> = ({
 
   return (
     <section
-      role="region"
       aria-labelledby={headingId}
       data-testid="envelope-preview"
       className={cn(
@@ -99,9 +98,10 @@ export const EnvelopePreview: React.FC<EnvelopePreviewProps> = ({
         />
       )}
 
-      {/* Erro de API */}
+      {/* Erro de API — reage à edição do payload/regras que disparou o dry-run
+          (R2-8.2: precisa interromper o leitor de tela). */}
       {error && !isPending && (
-        <Notice variant="danger" title={t("envelopePreview.simulationErrorTitle")}>
+        <Notice variant="danger" title={t("envelopePreview.simulationErrorTitle")} live="assertive">
           {error.message}
         </Notice>
       )}

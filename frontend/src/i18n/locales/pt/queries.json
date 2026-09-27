@@ -1,0 +1,94 @@
+{
+  "validation": {
+    "titleRequired": "Título é obrigatório",
+    "titleMinLength": "Use pelo menos 3 caracteres",
+    "statementRequired": "A consulta SQL é obrigatória"
+  },
+  "editModal": {
+    "title": "Editar query"
+  },
+  "form": {
+    "submitErrorFallback": "Falha ao salvar a consulta"
+  },
+  "shared": {
+    "clientsLabel": "Clientes padrão",
+    "dialectLabel": "Dialeto (opcional)",
+    "dialectPlaceholder": "Sem dialeto específico",
+    "specKindLabel": "Spec kind (opcional)",
+    "specKindPlaceholder": "Padrão (passthrough)",
+    "specKindHelper": "passthrough = query literal; sigma = tradução automática via pySigma.",
+    "specKindDefault": "Padrão (passthrough)",
+    "specKindPassthrough": "Passthrough",
+    "specKindSigma": "Sigma",
+    "severityLabel": "Severidade do achado",
+    "severityHelper": "Vai na Detection e nos eventos enviados aos destinos (PRI do syslog, level da regra).",
+    "findingShapeLabel": "Forma do achado nos destinos",
+    "cancel": "Cancelar"
+  },
+  "severityOptions": {
+    "informational": "Informativa (1)",
+    "low": "Baixa (2)",
+    "medium": "Média (3)",
+    "high": "Alta (4) — padrão",
+    "critical": "Crítica (5)"
+  },
+  "findingShapeOptions": {
+    "both": "Resumo + um achado por linha — padrão",
+    "perRow": "Um achado por linha",
+    "summary": "Só o resumo (tabela em evidences[])",
+    "help": "Um achado por linha vira campos planos (host, usuário, processo) no Wazuh e um asset no IRIS; o resumo carrega a tabela inteira num evento só."
+  },
+  "createForm": {
+    "titleLabel": "Título da query",
+    "titlePlaceholder": "Ex: Processos suspeitos via PowerShell",
+    "descriptionLabel": "Descrição",
+    "descriptionPlaceholder": "Contexto, objetivo ou análise esperada",
+    "statementLabel": "Query SQL",
+    "statementPlaceholder": "SELECT * FROM xdr_data WHERE process_name = 'cmd.exe' LIMIT 100",
+    "statementHelper": "Essa consulta pode ser reutilizada na tela de busca e em agendamentos.",
+    "clientsPlaceholder": "Selecione clientes para pré-preencher essa query",
+    "clientsHelper": "Opcional. Ajuda a abrir a consulta com tenants já selecionados.",
+    "dialectHelper": "Dialeto de query suportado pela plataforma (ex.: opensearch_dsl, fql).",
+    "bestPracticesTitle": "Boas práticas de consulta",
+    "bestPracticesBody": "Use filtros específicos e limite de registros para facilitar a leitura e reduzir custo operacional.",
+    "submit": "Criar query"
+  },
+  "editForm": {
+    "titleLabel": "Titulo",
+    "descriptionLabel": "Descrição",
+    "statementLabel": "Query SQL",
+    "statementHelper": "Atualize a consulta e ajuste os clientes padrão, se necessário.",
+    "clientsHelper": "Opcional. Define os tenants sugeridos ao reutilizar esta query.",
+    "dialectHelper": "Dialeto de query da plataforma (ex.: opensearch_dsl, fql).",
+    "reuseNoticeTitle": "Reuso operacional",
+    "reuseNoticeBody": "Alterações aqui impactam a tela de busca e novos agendamentos criados a partir desta consulta.",
+    "submit": "Salvar alterações"
+  },
+  "table": {
+    "loading": "Carregando queries...",
+    "emptyTitle": "Nenhuma query salva",
+    "emptyDescription": "Crie consultas reutilizáveis para acelerar buscas e automatizações.",
+    "listAriaLabel": "Lista de queries salvas",
+    "columns": {
+      "query": "Query",
+      "description": "Descrição",
+      "clients": "Clientes",
+      "preview": "Preview",
+      "actions": "Ações"
+    },
+    "idLabel": "ID #{{id}}",
+    "noDescription": "Sem descrição",
+    "clientsCount_one": "{{count}} cliente",
+    "clientsCount_other": "{{count}} clientes",
+    "noDefaultClients": "Nenhum padrão",
+    "edit": "Editar",
+    "remove": "Remover",
+    "availableCount": "Consultas disponíveis"
+  },
+  "queriesHook": {
+    "loadError": "Falha ao carregar queries",
+    "createError": "Falha ao criar query",
+    "updateError": "Falha ao atualizar query",
+    "deleteError": "Falha ao deletar query"
+  }
+}

@@ -68,7 +68,7 @@ export const PolicyDiff: React.FC<Props> = ({ published, draft }) => {
 
   if (nothing) {
     return (
-      <span className="text-xs text-muted" data-testid="policy-diff-empty">
+      <span className="text-xs text-text-tertiary" data-testid="policy-diff-empty">
         {t("policies.page.diffNone")}
       </span>
     )
@@ -76,7 +76,7 @@ export const PolicyDiff: React.FC<Props> = ({ published, draft }) => {
 
   return (
     <div className="flex flex-wrap items-center gap-2" data-testid="policy-diff">
-      <span className="text-xs text-muted">{t("policies.page.diffLabel")}</span>
+      <span className="text-xs text-text-tertiary">{t("policies.page.diffLabel")}</span>
       {summary.added.length > 0 && (
         <Badge variant="success" title={summary.added.join(", ")}>
           {t("policies.page.diffAdded", {

@@ -146,6 +146,14 @@ describe("PipelineHealthPage", () => {
     expect(screen.getByText("Sophos Beta")).toBeInTheDocument()
   })
 
+  // LAY-27: nome/organização truncam no card — sem title, o texto cortado
+  // vira ilegível.
+  it("nome truncado do card tem title com o texto completo", async () => {
+    renderPage()
+    const heading = await screen.findByText("Wazuh Alpha")
+    expect(heading).toHaveAttribute("title", "Wazuh Alpha")
+  })
+
   it("filtro 'Saudáveis' exibe apenas integração healthy", async () => {
     renderPage()
     await screen.findByText("Wazuh Alpha")
@@ -287,5 +295,48 @@ describe("PipelineHealthPage", () => {
     expect(allBtn).toHaveAttribute("aria-pressed", "true")
     const healthyBtn = screen.getByRole("button", { name: /Saudáveis/i })
     expect(healthyBtn).toHaveAttribute("aria-pressed", "false")
+  })
+})
+
+describe("PipelineHealthPage — R2-6.4 (erro com retry, sem apagar dado visível)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockedApi.listDestinations.mockResolvedValue([dest1])
+    mockedApi.getDestinationHealth.mockResolvedValue(destHealth1)
+  })
+
+  it("erro no load INICIAL mostra ErrorState com retry, preservando o header", async () => {
+    mockedApi.listIntegrations.mockRejectedValueOnce(new Error("Falha de rede"))
+
+    renderPage()
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Falha de rede")
+    expect(screen.getByRole("heading", { name: "Saúde do pipeline" })).toBeInTheDocument()
+    const retryBtn = screen.getByRole("button", { name: /tentar novamente/i })
+    expect(retryBtn).toBeInTheDocument()
+
+    mockedApi.listIntegrations.mockResolvedValueOnce([integrationA, integrationB])
+    mockedApi.listPipelineHealth.mockResolvedValueOnce([healthA, healthB])
+    fireEvent.click(retryBtn)
+
+    expect(await screen.findByText("Wazuh Alpha")).toBeInTheDocument()
+  })
+
+  it("erro num REFRESH mantém a grade visível e mostra aviso com retry (não apaga dado)", async () => {
+    mockedApi.listIntegrations.mockResolvedValueOnce([integrationA, integrationB])
+    mockedApi.listPipelineHealth.mockResolvedValueOnce([healthA, healthB])
+
+    renderPage()
+    expect(await screen.findByText("Wazuh Alpha")).toBeInTheDocument()
+
+    mockedApi.listIntegrations.mockRejectedValueOnce(new Error("timeout no refresh"))
+    fireEvent.click(screen.getByRole("button", { name: /^atualizar$/i }))
+
+    await waitFor(() => {
+      expect(screen.getByText("timeout no refresh")).toBeInTheDocument()
+    })
+    // A grade que já estava na tela NÃO some.
+    expect(screen.getByText("Wazuh Alpha")).toBeInTheDocument()
+    expect(screen.getByText("Sophos Beta")).toBeInTheDocument()
   })
 })

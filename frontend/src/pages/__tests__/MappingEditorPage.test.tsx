@@ -5,7 +5,7 @@
  * Sprint 2: toggle view/edit mode, dirty flag, tabs Versões/Auditoria.
  */
 
-import { render, screen, fireEvent, waitFor } from "@testing-library/react"
+import { render, screen, fireEvent, waitFor, within } from "@testing-library/react"
 import { MemoryRouter, Route, Routes } from "react-router-dom"
 import MappingEditorPage from "@/pages/MappingEditorPage"
 import * as hooks from "@/hooks/useMapping"
@@ -68,6 +68,7 @@ const VERSION: MappingVersion = {
     ],
   },
   author_user_id: null,
+  author_label: null,
   commit_message: "Versão inicial",
   diff_from_previous: null,
   dry_run_stats: null,
@@ -155,7 +156,12 @@ beforeEach(() => {
   mockedUseDryRun.mockReturnValue(DRY_RUN_EMPTY)
   // Default: sem permissão de write
   mockedUsePermission.mockReturnValue(false)
-  mockedUseMappingAudit.mockReturnValue({ entries: [], isLoading: false, error: null })
+  mockedUseMappingAudit.mockReturnValue({
+    entries: [],
+    isLoading: false,
+    error: null,
+    availableActions: [],
+  })
 })
 
 // ── Testes Sprint 1 (regressão) ───────────────────────────────────────────────
@@ -194,6 +200,24 @@ describe("MappingEditorPage", () => {
     renderPage()
 
     expect(screen.getByText("wazuh · authentication")).toBeInTheDocument()
+  })
+
+  it("R3-6.4: badge de versão atual (v1) não usa violeta decorativo (Badge variant=primary)", () => {
+    mockedUseMapping.mockReturnValue({
+      data: MAPPING,
+      isLoading: false,
+      error: null,
+      refetch: vi.fn(),
+    })
+
+    renderPage()
+
+    const badge = screen.getByText("v1")
+    // R3-6.4: violeta (`bg-primary-100`) é reservado ao estágio "normalizado"
+    // do pipeline — um contador de versão é decoração. `default` é neutro
+    // (`bg-surface-tertiary`).
+    expect(badge.className).not.toMatch(/bg-primary-100/)
+    expect(badge.className).toMatch(/bg-surface-tertiary/)
   })
 
   it("mostra LoadingSpinner quando isLoading=true", () => {
@@ -795,7 +819,7 @@ describe("MappingEditorPage", () => {
     expect(screen.getByTestId("template-confirm")).toBeInTheDocument()
 
     // Confirma substituição
-    fireEvent.click(screen.getByTestId("template-confirm-replace"))
+    fireEvent.click(screen.getByTestId("template-confirm-confirm"))
 
     // O picker deve fechar
     expect(screen.queryByTestId("template-picker")).not.toBeInTheDocument()
@@ -830,8 +854,11 @@ describe("MappingEditorPage", () => {
     const firstTemplate = OCSF_TEMPLATES[0]
     fireEvent.click(screen.getByTestId(`use-template-${firstTemplate.id}`))
 
-    // Cancela
-    fireEvent.click(screen.getByTestId("template-confirm-cancel"))
+    // Cancela — ConfirmDialog não dá testid próprio pro botão Cancelar
+    // (R2-6.6), então busca pelo rótulo, escopado ao próprio diálogo.
+    fireEvent.click(
+      within(screen.getByTestId("template-confirm")).getByRole("button", { name: "Cancelar" }),
+    )
 
     // Modal permanece mas ainda tem as 2 regras originais
     expect(screen.getByText("Total: 2 regras")).toBeInTheDocument()
@@ -856,7 +883,7 @@ describe("MappingEditorPage", () => {
 
     const firstTemplate = OCSF_TEMPLATES[0]
     fireEvent.click(screen.getByTestId(`use-template-${firstTemplate.id}`))
-    fireEvent.click(screen.getByTestId("template-confirm-replace"))
+    fireEvent.click(screen.getByTestId("template-confirm-confirm"))
 
     // Após substituir as regras, useMappingDryRun deve ter sido chamado mais vezes
     expect(mockedUseDryRun.mock.calls.length).toBeGreaterThan(initialCallCount)
@@ -903,9 +930,9 @@ describe("MappingEditorPage", () => {
     // vitest 4: o spy invoca o mock com `new FileReader()`. Arrow function não
     // pode ser construída (`new () => …` lança) — usa-se `function` (o retorno
     // de objeto substitui o `this` do construtor).
-    vi.spyOn(globalThis, "FileReader" as never).mockImplementation(function () {
+    vi.spyOn(globalThis, "FileReader").mockImplementation(function () {
       return readerMock as unknown as FileReader
-    })
+    } as unknown as typeof FileReader)
 
     fireEvent.change(fileInput)
 
@@ -914,7 +941,7 @@ describe("MappingEditorPage", () => {
     expect(screen.getByText(/1 regra importada/)).toBeInTheDocument()
 
     // Confirma a importação
-    fireEvent.click(screen.getByTestId("import-confirm-button"))
+    fireEvent.click(screen.getByTestId("import-confirm-confirm"))
 
     // Badge DSL v2 deve aparecer (preprocess foi populado)
     expect(screen.getByTestId("preprocess-badge")).toBeInTheDocument()

@@ -286,6 +286,8 @@
     "opsCount_other": "{{count}} operações",
     "addAriaLabel": "Adicionar operação de pré-processamento",
     "addButton": "+ Adicionar pré-processamento",
+    "expandSectionAriaLabel": "Expandir seção de pré-processamento",
+    "collapseSectionAriaLabel": "Recolher seção de pré-processamento",
     "tolerant": "tolerant",
     "emptyState": "Nenhuma operação. Clique em \"+ Adicionar pré-processamento\" para começar."
   },

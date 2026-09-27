@@ -32,7 +32,10 @@
     "test": "Testar",
     "enable": "Ativar",
     "disable": "Desativar",
-    "reset": "Redefinir"
+    "reset": "Redefinir",
+    "selectItem": "Selecionar {{label}}",
+    "select": "Selecionar",
+    "filterByCategory": "Filtrar por categoria"
   },
   "states": {
     "active": "Ativo",
@@ -50,7 +53,8 @@
     "healthy": "Saudável",
     "degraded": "Degradado",
     "unknown": "Desconhecido",
-    "error": "Erro"
+    "error": "Erro",
+    "noResults": "Nenhum item encontrado."
   },
   "fields": {
     "name": "Nome",
@@ -67,7 +71,8 @@
     "savedSuccess": "Salvo.",
     "errorGeneric": "A ação falhou. Tente de novo.",
     "confirmDelete": "Tem certeza que deseja excluir?",
-    "loadFailed": "Falha ao carregar."
+    "loadFailed": "Falha ao carregar.",
+    "requestTimeout": "A requisição demorou demais e foi cancelada. Tente de novo."
   },
   "conditionOperators": {
     "eq": "= igual a",
@@ -79,5 +84,18 @@
     "in": "∈ está na lista",
     "nin": "∉ fora da lista",
     "exists": "existe"
+  },
+  "editionContext": {
+    "loadError": "Falha ao carregar a edição"
+  },
+  "errorBoundary": {
+    "title": "Algo deu errado",
+    "description": "Encontramos um erro inesperado ao renderizar esta área. Você pode tentar novamente ou recarregar a página.",
+    "chunkErrorDescription": "Uma nova versão do CentralOps foi publicada. Recarregue a página para carregar os arquivos atuais.",
+    "retry": "Tentar novamente",
+    "reload": "Recarregar página"
+  },
+  "clientsHook": {
+    "loadError": "Falha ao carregar clientes"
   }
 }

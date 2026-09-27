@@ -16,7 +16,7 @@
  */
 
 import type React from "react"
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
 import {
   DndContext,
@@ -26,6 +26,7 @@ import {
   useSensor,
   useSensors,
   type DragEndEvent,
+  type Announcements,
 } from "@dnd-kit/core"
 import {
   SortableContext,
@@ -80,6 +81,49 @@ export const SYSTEM_ROUTE_ID = "wazuh-default-catchall"
 /** Verifica se a rota é protegida (sistema). */
 export function isSystemRoute(r: Route): boolean {
   return r.id === SYSTEM_ROUTE_ID
+}
+
+/** Assinatura mínima usada aqui — evita acoplar ao tipo genérico completo do i18next. */
+type TFn = (key: string, opts?: Record<string, unknown>) => string
+
+/**
+ * A11Y-36: @dnd-kit anuncia em INGLÊS genérico por padrão ("Draggable item
+ * was moved...", sem nome de rota) — inútil pra leitor de tela num produto
+ * i18n. Função pura (exportada só pra teste) que nomeia a rota e a posição
+ * em cada fase do arrasto, no idioma ativo.
+ */
+export function buildRouteDndAnnouncements(routes: Route[], t: TFn): Announcements {
+  return {
+    onDragStart({ active }) {
+      const route = routes.find((r) => r.id === active.id)
+      const position = routes.findIndex((r) => r.id === active.id) + 1
+      return t("routesPage.dnd.pickedUp", { name: route?.name ?? active.id, position, total: routes.length })
+    },
+    onDragOver({ active, over }) {
+      const route = routes.find((r) => r.id === active.id)
+      const name = route?.name ?? active.id
+      if (!over) return t("routesPage.dnd.movedNoTarget", { name })
+      const overRoute = routes.find((r) => r.id === over.id)
+      const position = routes.findIndex((r) => r.id === over.id) + 1
+      return t("routesPage.dnd.movedOver", {
+        name,
+        position,
+        total: routes.length,
+        overName: overRoute?.name ?? over.id,
+      })
+    },
+    onDragEnd({ active, over }) {
+      const route = routes.find((r) => r.id === active.id)
+      const name = route?.name ?? active.id
+      if (!over) return t("routesPage.dnd.droppedNoTarget", { name })
+      const position = routes.findIndex((r) => r.id === over.id) + 1
+      return t("routesPage.dnd.dropped", { name, position, total: routes.length })
+    },
+    onDragCancel({ active }) {
+      const route = routes.find((r) => r.id === active.id)
+      return t("routesPage.dnd.cancelled", { name: route?.name ?? active.id })
+    },
+  }
 }
 
 /** Verifica se uma rota é catch-all: condição vazia ({}) e is_final. */
@@ -202,7 +246,7 @@ const SortableRouteCard: React.FC<SortableRouteCardProps> = ({
               <span className="rounded bg-surface-tertiary px-1.5 py-0.5 font-mono text-xs text-text-secondary">
                 #{r.priority}
               </span>
-              <h2 className="truncate text-base font-semibold text-text">{r.name}</h2>
+              <h2 className="truncate text-base font-semibold text-text" title={r.name}>{r.name}</h2>
               {system && (
                 <Badge variant="outline">
                   <ShieldIcon size={10} className="mr-1 inline" aria-hidden="true" />
@@ -216,11 +260,14 @@ const SortableRouteCard: React.FC<SortableRouteCardProps> = ({
                   {t("routesPage.defaultBadge")}
                 </Badge>
               )}
-              {r.canary_percent < 100 && <Badge variant="primary">{t("routesPage.gradualBadge", { percent: r.canary_percent })}</Badge>}
+              {/* R3-6.4: contador de rollout gradual — página de rotas
+                  (estágio "roteado", ciano), violeta era decoração sem
+                  relação com o estágio "normalizado". */}
+              {r.canary_percent < 100 && <Badge variant="default">{t("routesPage.gradualBadge", { percent: r.canary_percent })}</Badge>}
               {!r.enabled && <Badge variant="default">{t("routesPage.disabledBadge")}</Badge>}
               {r.unreachable && <Badge variant="warning" dot>{t("routesPage.unreachableBadge")}</Badge>}
             </div>
-            <code className="block truncate font-mono text-xs text-text-tertiary">
+            <code className="block truncate font-mono text-xs text-text-tertiary" title={JSON.stringify(r.condition)}>
               {JSON.stringify(r.condition)}
             </code>
             {r.action === "route" && (
@@ -365,6 +412,10 @@ const RoutesPage: React.FC = () => {
     [routes, load, t],
   )
 
+  // A11Y-36: ver `buildRouteDndAnnouncements` — @dnd-kit anuncia em inglês
+  // genérico por padrão, sem nomear a rota.
+  const dndAnnouncements = useMemo(() => buildRouteDndAnnouncements(routes, t), [routes, t])
+
   // ── CRUD ────────────────────────────────────────────────────────────
 
   const handleCreate = async (payload: RouteCreateRequest) => {
@@ -471,9 +522,13 @@ const RoutesPage: React.FC = () => {
       />
 
       {feedback && (
+        // R2-8.2: reage a criar/editar/excluir/reordenar/ação em lote — o
+        // ERRO precisa interromper o leitor de tela; sucesso fica `polite`
+        // (default), o usuário já espera a confirmação.
         <Notice
           variant={feedback.type === "success" ? "success" : "danger"}
           title={feedback.type === "success" ? t("routesPage.feedbackOkTitle") : t("routesPage.feedbackErrorTitle")}
+          live={feedback.type === "success" ? undefined : "assertive"}
         >
           {feedback.message}
         </Notice>
@@ -548,7 +603,12 @@ const RoutesPage: React.FC = () => {
 
       {/* Lista drag-reorder */}
       {!loading && !loadError && routes.length > 0 && (
-        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={(e) => void handleDragEnd(e)}>
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragEnd={(e) => void handleDragEnd(e)}
+          accessibility={{ announcements: dndAnnouncements }}
+        >
           <SortableContext items={routes.map((r) => r.id)} strategy={verticalListSortingStrategy}>
             <div className="grid gap-2">
               {routes.map((r) => (
@@ -763,7 +823,8 @@ const DryRunModal: React.FC<{ open: boolean; onClose: () => void }> = ({ open, o
           </Button>
         </div>
 
-        {error && <Notice variant="danger" title={t("dryRun.error")}>{error}</Notice>}
+        {/* R2-8.2: reage ao clique em "Testar evento"/"Usar eventos recentes". */}
+        {error && <Notice variant="danger" title={t("dryRun.error")} live="assertive">{error}</Notice>}
 
         {result && (
           <Card padding="md" className="space-y-3">

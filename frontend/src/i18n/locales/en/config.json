@@ -112,6 +112,9 @@
         "title": "GeoIP databases",
         "description": "The databases do not ship with the product (vendor licence). The directory is mounted at deploy time; this only shows what is in it.",
         "empty": "No database found in this directory."
+      },
+      "validation": {
+        "outOfRange": "Enter a value between {{low}} and {{high}}."
       }
     },
     "mcp": {
@@ -236,6 +239,11 @@
       "deleteTitle": "Remove recipient",
       "deleteDescriptionPrefix": "Are you sure you want to remove",
       "deleteDescriptionSuffix": "? This email will stop receiving alerts and results from scheduled runs."
+    },
+    "validation": {
+      "hostRequired": "Enter the SMTP host.",
+      "portInvalid": "Enter a valid port (1-65535).",
+      "senderRequired": "Enter the sender."
     }
   },
   "collector": {
@@ -338,6 +346,7 @@
     "roleMapInvalid": "Invalid JSON: {{message}}",
     "roleMapInvalidNotObject": "must be a JSON object",
     "roleMapInvalidGeneric": "check the syntax",
+    "postLoginRedirectInvalid": "Must be an internal path starting with \"/\" (no \"//\" or \"\\\\\", no other domain)",
     "defaultButtonLabel": "Sign in with Microsoft",
     "saveConfig": "Save configuration",
     "testConnection": "Test connection",
@@ -613,7 +622,8 @@
       "emptyTitle": "No backfill run yet",
       "emptyDescription": "Use the 'New backfill' button to start a controlled historical collection.",
       "cancelError": "Error cancelling backfill.",
-      "cancelErrorTitle": "Error cancelling"
+      "cancelErrorTitle": "Error cancelling",
+      "showingTotal": "Showing {{count}} of {{total}}"
     },
     "cancelDialog": {
       "title": "Cancel backfill",
@@ -696,5 +706,29 @@
     "saveConfig": "Save configuration",
     "saved": "Configuration saved. Takes effect on the next request.",
     "saveError": "Failed to save the MCP configuration"
+  },
+  "collectorConfigHook": {
+    "loadErrorFallback": "Failed to load configuration",
+    "saveErrorFallback": "Failed to save configuration",
+    "saveSuccess": "Configuration saved. Workers will reflect it within 30s."
+  },
+  "emailConfigHook": {
+    "loadErrorFallback": "Failed to load configuration",
+    "saveErrorFallback": "Failed to save email configuration",
+    "saveSuccess": "Email settings saved successfully.",
+    "addRecipientErrorFallback": "Failed to add recipient",
+    "addRecipientSuccess": "Recipient {{email}} added.",
+    "removeRecipientErrorFallback": "Failed to remove recipient",
+    "removeRecipientSuccess": "Recipient removed successfully.",
+    "sendTestErrorFallback": "Failed to send test email"
+  },
+  "identityConfigHook": {
+    "loadError": "Failed to load identity configuration",
+    "saveSuccess": "Configuration saved. Takes effect on next login.",
+    "saveError": "Failed to save",
+    "testError": "Failed to test connection"
+  },
+  "entraSyncHook": {
+    "triggerError": "Failed to trigger sync"
   }
 }

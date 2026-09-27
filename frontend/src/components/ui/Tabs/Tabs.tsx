@@ -1,8 +1,9 @@
 "use client"
 
 import type React from "react"
-import { createContext, useContext, useCallback, useId, useMemo, useRef } from "react"
+import { createContext, Suspense, useContext, useCallback, useEffect, useId, useMemo, useRef, useState } from "react"
 import { cn } from "@/lib/utils"
+import { LoadingSpinner } from "@/components/ui/LoadingSpinner/LoadingSpinner"
 
 /**
  * Componente Tabs acessível (ARIA + navegação por teclado).
@@ -33,6 +34,20 @@ interface TabsContextValue {
   value: string
   onValueChange: (v: string) => void
   idBase: string
+  /**
+   * R4-8.1: defesa em profundidade contra `TabsTrigger` sem `TabsPanel`
+   * correspondente (achado real em `EnrichmentPage`/`IntegrationDetailPage`/
+   * `TableVersionsModal` — as 3 páginas montavam o CONTEÚDO da aba via
+   * `tab === "x" ? ... : ...` manual, nunca com `<TabsPanel>`, então o
+   * `aria-controls` do trigger sempre apontava pra um id que não existe em
+   * lugar nenhum do DOM). Cada `TabsPanel` se registra aqui ao montar
+   * (independente de estar ativo — `hasPanel` responde "existe esse painel
+   * DECLARADO", não "está visível agora"); o trigger só emite `aria-controls`
+   * quando o valor está registrado.
+   */
+  registerPanel: (value: string) => void
+  unregisterPanel: (value: string) => void
+  hasPanel: (value: string) => boolean
 }
 
 const TabsContext = createContext<TabsContextValue | null>(null)
@@ -54,9 +69,24 @@ export interface TabsProps {
 
 export const Tabs: React.FC<TabsProps> = ({ value, onValueChange, children, className }) => {
   const idBase = useId().replace(/:/g, "")
+  const [panelValues, setPanelValues] = useState<ReadonlySet<string>>(() => new Set())
+
+  const registerPanel = useCallback((v: string) => {
+    setPanelValues((prev) => (prev.has(v) ? prev : new Set(prev).add(v)))
+  }, [])
+  const unregisterPanel = useCallback((v: string) => {
+    setPanelValues((prev) => {
+      if (!prev.has(v)) return prev
+      const next = new Set(prev)
+      next.delete(v)
+      return next
+    })
+  }, [])
+  const hasPanel = useCallback((v: string) => panelValues.has(v), [panelValues])
+
   const ctx = useMemo<TabsContextValue>(
-    () => ({ value, onValueChange, idBase }),
-    [value, onValueChange, idBase],
+    () => ({ value, onValueChange, idBase, registerPanel, unregisterPanel, hasPanel }),
+    [value, onValueChange, idBase, registerPanel, unregisterPanel, hasPanel],
   )
   return (
     <TabsContext.Provider value={ctx}>
@@ -112,13 +142,19 @@ export const TabsList: React.FC<TabsListProps> = ({ children, className, ariaLab
   }, [])
 
   return (
+    // Padrão APG de tablist: o CONTAINER captura as setas/Home/End (roving
+    // tabindex nos <button role="tab"> filhos) — não precisa ser um tab-stop.
+    // eslint-disable-next-line jsx-a11y/interactive-supports-focus
     <div
       ref={listRef}
       role="tablist"
       aria-label={ariaLabel}
       onKeyDown={handleKeyDown}
       className={cn(
-        "flex flex-wrap items-center gap-1 border-b border-border",
+        // LAY-21: `flex-wrap` empilhava as abas em 2+ linhas em telas
+        // estreitas ou com muitas abas — `flex-nowrap overflow-x-auto` rola
+        // horizontalmente em vez disso (padrão de tab bar).
+        "flex flex-nowrap items-center gap-1 overflow-x-auto border-b border-border",
         className,
       )}
     >
@@ -153,7 +189,7 @@ export const TabsTrigger: React.FC<TabsTriggerProps> = ({
       type="button"
       role="tab"
       id={`${ctx.idBase}-tab-${value}`}
-      aria-controls={`${ctx.idBase}-panel-${value}`}
+      aria-controls={ctx.hasPanel(value) ? `${ctx.idBase}-panel-${value}` : undefined}
       aria-selected={selected}
       aria-disabled={disabled}
       tabIndex={selected ? 0 : -1}
@@ -161,7 +197,9 @@ export const TabsTrigger: React.FC<TabsTriggerProps> = ({
       onClick={() => !disabled && ctx.onValueChange(value)}
       className={cn(
         // focus-ring: estratégia única de foco do design system.
-        "inline-flex items-center gap-2 border-b-2 px-3 py-2 text-sm font-medium transition-colors focus-ring",
+        // shrink-0: com o TabsList em overflow-x-auto (LAY-21), sem isso o
+        // flex comprimiria/truncaria os rótulos em vez de rolar.
+        "inline-flex shrink-0 items-center gap-2 border-b-2 px-3 py-2 text-sm font-medium transition-colors focus-ring",
         "-mb-px", // alinha a border-b do trigger sobre a border-b do TabsList
         selected
           ? "border-primary-600 text-primary-700"
@@ -198,6 +236,21 @@ export const TabsPanel: React.FC<TabsPanelProps> = ({
   ...rest
 }) => {
   const ctx = useTabsCtx("TabsPanel")
+  // Registra ESTE valor como "existe painel" independente de estar ativo —
+  // `hasPanel` responde por declaração, não por montagem visível (o próprio
+  // painel inativo sem `keepMounted` retorna `null` mais abaixo, mas o
+  // registro já rodou).
+  // Deps: SÓ `registerPanel`/`unregisterPanel` (estáveis via `useCallback([])`
+  // em `Tabs`) + `value` — nunca `ctx` inteiro. `ctx` muda de identidade a
+  // cada `registerPanel`/`unregisterPanel` (o `useMemo` depende de `hasPanel`,
+  // que depende de `panelValues`), então `[ctx, value]` reexecutava este
+  // efeito a cada registro: registra → `ctx` muda → cleanup desregistra →
+  // `ctx` muda de novo → registra de novo → looping infinito de render.
+  useEffect(() => {
+    ctx.registerPanel(value)
+    return () => ctx.unregisterPanel(value)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ctx.registerPanel, ctx.unregisterPanel, value])
   const active = ctx.value === value
   if (!active && !keepMounted) return null
   return (
@@ -210,7 +263,16 @@ export const TabsPanel: React.FC<TabsPanelProps> = ({
       className={cn("focus-ring", className)}
       tabIndex={0}
     >
-      {children}
+      {/*
+        R3-8.1: com namespaces de i18n sob demanda (`useSuspense: true`), um
+        componente de outro namespace montado dentro de uma aba (ex.:
+        IntegrationDetailPage — abas com ns `dashboard`/`config`) suspende até
+        o ÚNICO `<Suspense>` da rota, em `AppLayout` — a PÁGINA inteira some,
+        não só o painel. Um `<Suspense>` local aqui contém isso: só a aba
+        pisca o fallback compacto, o resto da tela (incluindo as OUTRAS abas e
+        o Modal/Drawer em volta, se houver) continua visível.
+      */}
+      <Suspense fallback={<LoadingSpinner size="sm" className="py-6" />}>{children}</Suspense>
     </div>
   )
 }

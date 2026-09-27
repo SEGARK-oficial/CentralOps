@@ -185,4 +185,40 @@ describe("EnrichmentConfigForm", () => {
     mount()
     expect(await screen.findByText(/32 MiB por processo × 8 processos/i)).toBeInTheDocument()
   })
+
+  // R4-8.4: valida os limites REAIS do backend (`_LIMITS` em
+  // enrichment_config.py) ANTES de gastar uma volta ao servidor — porta TCP
+  // é 1–65535, 70000 estoura o teto.
+  it("porta fora da faixa do backend bloqueia o envio com erro inline no campo, sem chamar a API", async () => {
+    mount()
+    await screen.findByLabelText(/Endereço/i)
+
+    const portInput = screen.getByLabelText(/^Porta/i)
+    fireEvent.change(portInput, { target: { value: "70000" } })
+    fireEvent.click(screen.getByRole("button", { name: "Salvar" }))
+
+    await waitFor(() => expect(portInput).toHaveAttribute("aria-invalid", "true"))
+    expect(portInput).toHaveFocus()
+    // A mesma mensagem aparece no banner do topo E inline no campo — mesmo
+    // padrão do `useFirstInvalidFocus` em outros forms (banner pro leitor de
+    // tela que não navegou até o campo; inline pra quem já está nele).
+    expect(screen.getAllByText(/Informe um valor entre 1 e 65535/i).length).toBeGreaterThan(0)
+    expect(mockedApi.updateEnrichmentConfig).not.toHaveBeenCalled()
+  })
+
+  // R4-8.4: campo em MiB comparado contra o teto em BYTES do backend — a
+  // mensagem tem que converter de volta pra MiB, nunca afirmar uma faixa mais
+  // larga que a real (arredondamento para baixo no máximo).
+  it("teto de tabela em MiB acima do limite do backend também bloqueia, com a faixa convertida", async () => {
+    mount()
+    await screen.findByLabelText(/Endereço/i)
+
+    const perTableInput = screen.getByLabelText(/Máximo por tabela/i)
+    fireEvent.change(perTableInput, { target: { value: "999999" } })
+    fireEvent.click(screen.getByRole("button", { name: "Salvar" }))
+
+    await waitFor(() => expect(perTableInput).toHaveAttribute("aria-invalid", "true"))
+    expect(perTableInput).toHaveFocus()
+    expect(mockedApi.updateEnrichmentConfig).not.toHaveBeenCalled()
+  })
 })

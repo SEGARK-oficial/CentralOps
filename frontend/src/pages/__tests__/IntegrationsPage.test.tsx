@@ -18,6 +18,7 @@ import IntegrationsPage from "@/pages/IntegrationsPage"
 import * as api from "@/services/api"
 import i18n from "@/i18n"
 import type { Integration } from "@/types"
+import type { ListIntegrationsFilters } from "@/services/api"
 
 // jsdom's default navigator.language is "en-US", which the app's language
 // detector picks up over the pt fallback — force pt here so assertions below
@@ -142,15 +143,12 @@ beforeEach(() => {
   vi.clearAllMocks()
   platformContextValue.selectedOrgId = null
   platformContextValue.selectedPlatform = null
-  // @ts-expect-error vitest mock typing
   mockedApi.listIntegrations.mockResolvedValue(INTEGRATIONS_BASE)
-  // @ts-expect-error
   mockedApi.bulkDeactivateIntegrations.mockResolvedValue({
     processed: 0,
     deactivated: 0,
     errors: [],
   })
-  // @ts-expect-error
   mockedApi.deleteIntegration.mockResolvedValue({ detail: "Integration deactivated" })
 })
 
@@ -161,7 +159,7 @@ describe("IntegrationsPage — render base", () => {
     await waitFor(() => {
       expect(mockedApi.listIntegrations).toHaveBeenCalled()
     })
-    const callArgs = mockedApi.listIntegrations.mock.calls[0]?.[0] as any
+    const callArgs = mockedApi.listIntegrations.mock.calls[0]?.[0] as ListIntegrationsFilters
     expect(callArgs).toMatchObject({
       status: "active",
       page: 1,
@@ -199,7 +197,7 @@ describe("IntegrationsPage — filtros", () => {
     fireEvent.click(option)
 
     await waitFor(() => {
-      const lastCall = mockedApi.listIntegrations.mock.calls.at(-1)?.[0] as any
+      const lastCall = mockedApi.listIntegrations.mock.calls.at(-1)?.[0] as ListIntegrationsFilters
       expect(lastCall?.kind).toBe("partner")
     })
   })
@@ -216,7 +214,7 @@ describe("IntegrationsPage — filtros", () => {
     fireEvent.click(option)
 
     await waitFor(() => {
-      const lastCall = mockedApi.listIntegrations.mock.calls.at(-1)?.[0] as any
+      const lastCall = mockedApi.listIntegrations.mock.calls.at(-1)?.[0] as ListIntegrationsFilters
       expect(lastCall?.status).toBe("inactive")
     })
   })
@@ -228,6 +226,41 @@ describe("IntegrationsPage — filtros", () => {
         screen.getByText(/Integrações Partner não saem em lote/i),
       ).toBeInTheDocument()
     })
+  })
+
+  // R4-8.2: `loadIntegrations` não tinha id de requisição — a resposta da 1ª
+  // busca (lenta) podia chegar DEPOIS da 2ª (mais nova, rápida) e sobrescrever
+  // a lista já atualizada. Aqui a 1ª só resolve DEPOIS da 2ª já ter respondido.
+  it("resposta da 1ª busca (lenta) não sobrescreve a lista já atualizada pela 2ª (mais nova)", async () => {
+    let resolveFirst: (value: Integration[]) => void = () => {}
+    const firstCallPromise = new Promise<Integration[]>((res) => {
+      resolveFirst = res
+    })
+    mockedApi.listIntegrations
+      .mockImplementationOnce(() => firstCallPromise)
+      .mockResolvedValueOnce([INT_PARTNER])
+
+    renderPage()
+    await waitFor(() => expect(mockedApi.listIntegrations).toHaveBeenCalledTimes(1))
+
+    // Dispara a 2ª busca (troca de filtro) ANTES da 1ª resolver.
+    const kindSelect = screen.getByTestId("integration-filter-kind")
+    fireEvent.click(kindSelect)
+    const option = await screen.findByRole("option", { name: "Partner" })
+    fireEvent.click(option)
+
+    // A 2ª já respondeu (mockResolvedValueOnce resolve na hora).
+    await waitFor(() => expect(screen.getByText("Sophos Partner Holding")).toBeInTheDocument())
+
+    // Só AGORA a 1ª (lenta) resolve — depois que a 2ª já atualizou a tela.
+    await act(async () => {
+      resolveFirst([INT_TENANT_A, INT_TENANT_B])
+    })
+
+    // A lista continua sendo a da 2ª busca — a resposta velha foi descartada.
+    expect(screen.getByText("Sophos Partner Holding")).toBeInTheDocument()
+    expect(screen.queryByText("Sophos Tenant Alpha")).not.toBeInTheDocument()
+    expect(screen.queryByText("Wazuh Tenant Beta")).not.toBeInTheDocument()
   })
 })
 
@@ -348,7 +381,6 @@ describe("IntegrationsPage — bulk deactivate confirm", () => {
       kind: "tenant",
       capabilities: [],
     }))
-    // @ts-expect-error
     mockedApi.listIntegrations.mockResolvedValue(many)
 
     renderPage()
@@ -400,7 +432,7 @@ describe("IntegrationsPage — badge filtro org global (decisão #5)", () => {
     platformContextValue.selectedOrgId = 11
     renderPage()
     await waitFor(() => {
-      const callArgs = mockedApi.listIntegrations.mock.calls[0]?.[0] as any
+      const callArgs = mockedApi.listIntegrations.mock.calls[0]?.[0] as ListIntegrationsFilters
       expect(callArgs?.organizationId).toBe(11)
     })
   })
@@ -459,7 +491,7 @@ describe("IntegrationsPage — sync de tenants recusado (open-core)", () => {
 
 describe("IntegrationsPage — feedback toast auto-dismiss", () => {
   it("toast de feedback some após 5s", async () => {
-    // @ts-expect-error
+    // @ts-expect-error -- mock parcial: só os campos que o teste observa
     mockedApi.testIntegrationConnection.mockResolvedValue({ status: "healthy" })
 
     vi.useFakeTimers({ shouldAdvanceTime: true })
@@ -495,7 +527,6 @@ describe("IntegrationsPage — last_error não exibe banner", () => {
         last_error: "Authentication token expired",
       },
     ]
-    // @ts-expect-error
     mockedApi.listIntegrations.mockResolvedValue(withError)
 
     renderPage()
@@ -503,5 +534,67 @@ describe("IntegrationsPage — last_error não exibe banner", () => {
 
     expect(screen.queryByText(/Authentication token expired/)).not.toBeInTheDocument()
     expect(document.querySelector(".bg-warning-50")).not.toBeInTheDocument()
+  })
+})
+
+// Pilar 4: falha do carregamento inicial não pode virar um EmptyState
+// mentiroso ("nenhuma integração") depois que o toast de erro some sozinho.
+describe("IntegrationsPage — ErrorState com retry no load inicial (Pilar 4)", () => {
+  it("mostra ErrorState com retry quando listIntegrations rejeita, não o EmptyState", async () => {
+    mockedApi.listIntegrations.mockRejectedValue(new Error("503 indisponível"))
+    renderPage()
+
+    await waitFor(() => {
+      expect(screen.getByText("Falha ao carregar integrações.")).toBeInTheDocument()
+    })
+    expect(screen.getByText("503 indisponível")).toBeInTheDocument()
+    expect(screen.queryByText(/nenhuma integração/i)).not.toBeInTheDocument()
+  })
+
+  it("clicar em Tentar novamente chama listIntegrations de novo e recupera a lista", async () => {
+    mockedApi.listIntegrations.mockRejectedValueOnce(new Error("503 indisponível"))
+    renderPage()
+    await screen.findByText("503 indisponível")
+
+    mockedApi.listIntegrations.mockResolvedValueOnce(INTEGRATIONS_BASE)
+    fireEvent.click(screen.getByRole("button", { name: /tentar novamente/i }))
+
+    await waitFor(() => expect(screen.getByText("Sophos Tenant Alpha")).toBeInTheDocument())
+    expect(screen.queryByText("503 indisponível")).not.toBeInTheDocument()
+  })
+
+  // Regressão: `loadIntegrations` também roda pra REFRESCAR após uma ação
+  // (aqui, desativação em lote). Se esse refresh falhar com a lista JÁ na
+  // tela, não pode substituir o conteúdo por um ErrorState — vira toast.
+  it("refresh pós-ação que falha NÃO substitui a lista já visível por ErrorState", async () => {
+    renderPage()
+    await waitFor(() => expect(screen.getByText("Sophos Tenant Alpha")).toBeInTheDocument())
+
+    mockedApi.bulkDeactivateIntegrations.mockResolvedValue({
+      processed: 1,
+      deactivated: 1,
+      errors: [],
+    })
+    mockedApi.listIntegrations.mockRejectedValueOnce(new Error("timeout no refresh"))
+
+    fireEvent.click(screen.getByTestId(`integration-row-checkbox-${INT_TENANT_A.id}`))
+    fireEvent.click(screen.getByTestId("integration-bulk-deactivate"))
+    fireEvent.click(screen.getByTestId("integration-bulk-confirm"))
+
+    // A lista continua visível — não vira tela de erro cheia.
+    await waitFor(() => expect(screen.getByText("Sophos Tenant Alpha")).toBeInTheDocument())
+    expect(screen.queryByRole("button", { name: /tentar novamente/i })).not.toBeInTheDocument()
+  })
+})
+
+// A11Y-41: "Detalhes" era um <Button onClick={navigate}> — virou <Link> de
+// verdade (Cmd/Ctrl+clique, nova aba, funciona sem JS).
+describe("IntegrationsPage — link de Detalhes (A11Y-41)", () => {
+  it("é um link de verdade pra página da integração", async () => {
+    renderPage()
+    await waitFor(() => expect(screen.getByText("Sophos Tenant Alpha")).toBeInTheDocument())
+
+    const links = screen.getAllByRole("link", { name: "Detalhes" })
+    expect(links[0]).toHaveAttribute("href", "/integrations/1")
   })
 })

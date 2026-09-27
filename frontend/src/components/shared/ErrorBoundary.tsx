@@ -3,6 +3,20 @@
 import { Component, type ErrorInfo, type ReactNode } from "react"
 import { AlertTriangleIcon, RefreshCwIcon } from "lucide-react"
 import { Button } from "@/components/ui/Button/Button"
+import i18n from "@/i18n"
+
+/**
+ * R2-6.5: `import()` de um chunk lazy (`React.lazy`) que falha (deploy novo
+ * trocou os hashes dos arquivos enquanto a aba ainda está com o `index.html`
+ * antigo em memória, ou a rede caiu no meio do fetch) deixa a promise
+ * REJEITADA cacheada dentro do `React.lazy` — remontar a subárvore
+ * (`this.reset`) reusa a MESMA promise já rejeitada e falha de novo, na
+ * hora, em loop. Só um reload de página de verdade força um novo `import()`
+ * com os chunks atuais.
+ */
+function isChunkLoadError(error: Error): boolean {
+  return /(fetch|load(ing)?).{0,40}(dynamically imported module|chunk)/i.test(error.message)
+}
 
 interface ErrorBoundaryProps {
   children: ReactNode
@@ -54,6 +68,19 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
     this.setState({ error: null })
   }
 
+  // R2-6.5: erro de import() de chunk → "Tentar novamente" recarrega a
+  // página de verdade (ver `isChunkLoadError`), em vez de só resetar o
+  // estado local e bater na mesma promise rejeitada cacheada pelo
+  // `React.lazy`.
+  private handlePrimaryRetry = (): void => {
+    const { error } = this.state
+    if (error && isChunkLoadError(error)) {
+      window.location.reload()
+      return
+    }
+    this.reset()
+  }
+
   render(): ReactNode {
     const { error } = this.state
     const { children, fallback, variant = "inline" } = this.props
@@ -62,6 +89,14 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
     if (fallback) return fallback(error, this.reset)
 
     const isPage = variant === "page"
+    const chunkError = isChunkLoadError(error)
+    // i18n.t() direto (não o hook `useTranslation`) porque isto é um
+    // componente de CLASSE — e mesmo que fosse função, um error boundary não
+    // pode depender do Suspense do i18n lazy-loading (R2-5.1): se ele
+    // suspendesse esperando um namespace, um erro de render viraria uma
+    // segunda tela em branco. `common` está em `SHELL_NAMESPACES` — sempre
+    // carregado antes do 1º render (`i18nReady` em main.tsx), nunca suspende.
+    const t = (key: string, opts?: Record<string, unknown>) => i18n.t(key, { ns: "common", ...opts })
 
     return (
       <div
@@ -75,9 +110,9 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
         <div className="flex h-12 w-12 items-center justify-center rounded-full bg-danger-50 text-danger-600" aria-hidden="true">
           <AlertTriangleIcon size={24} />
         </div>
-        <h2 className="mt-4 text-lg font-semibold text-text">Algo deu errado</h2>
+        <h2 className="mt-4 text-lg font-semibold text-text">{t("errorBoundary.title")}</h2>
         <p className="mt-1 max-w-md text-sm text-text-secondary">
-          Encontramos um erro inesperado ao renderizar esta área. Você pode tentar novamente ou recarregar a página.
+          {chunkError ? t("errorBoundary.chunkErrorDescription") : t("errorBoundary.description")}
         </p>
         {import.meta.env?.DEV && (
           <pre className="mt-4 max-w-lg overflow-auto rounded-md bg-surface-tertiary p-3 text-left text-xs text-danger-700">
@@ -85,12 +120,14 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
           </pre>
         )}
         <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
-          <Button variant="primary" size="sm" onClick={this.reset} leftIcon={<RefreshCwIcon size={14} />}>
-            Tentar novamente
+          <Button variant="primary" size="sm" onClick={this.handlePrimaryRetry} leftIcon={<RefreshCwIcon size={14} />}>
+            {chunkError ? t("errorBoundary.reload") : t("errorBoundary.retry")}
           </Button>
-          <Button variant="outline" size="sm" onClick={() => window.location.reload()}>
-            Recarregar página
-          </Button>
+          {!chunkError && (
+            <Button variant="outline" size="sm" onClick={() => window.location.reload()}>
+              {t("errorBoundary.reload")}
+            </Button>
+          )}
         </div>
       </div>
     )

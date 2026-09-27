@@ -27,6 +27,7 @@ const VERSION: MappingVersion = {
   version_number: 1,
   rules: { preprocess: [], rules: [{ target: "event.action", source: "action" }] },
   author_user_id: null,
+  author_label: null,
   commit_message: "Versão inicial",
   diff_from_previous: null,
   dry_run_stats: null,

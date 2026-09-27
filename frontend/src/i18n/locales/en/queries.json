@@ -1,0 +1,94 @@
+{
+  "validation": {
+    "titleRequired": "Title is required",
+    "titleMinLength": "Use at least 3 characters",
+    "statementRequired": "The SQL query is required"
+  },
+  "editModal": {
+    "title": "Edit query"
+  },
+  "form": {
+    "submitErrorFallback": "Failed to save the query"
+  },
+  "shared": {
+    "clientsLabel": "Default clients",
+    "dialectLabel": "Dialect (optional)",
+    "dialectPlaceholder": "No specific dialect",
+    "specKindLabel": "Spec kind (optional)",
+    "specKindPlaceholder": "Default (passthrough)",
+    "specKindHelper": "passthrough = literal query; sigma = automatic translation via pySigma.",
+    "specKindDefault": "Default (passthrough)",
+    "specKindPassthrough": "Passthrough",
+    "specKindSigma": "Sigma",
+    "severityLabel": "Finding severity",
+    "severityHelper": "Goes into the Detection and the events sent to destinations (syslog PRI, rule level).",
+    "findingShapeLabel": "Finding shape at destinations",
+    "cancel": "Cancel"
+  },
+  "severityOptions": {
+    "informational": "Informational (1)",
+    "low": "Low (2)",
+    "medium": "Medium (3)",
+    "high": "High (4) — default",
+    "critical": "Critical (5)"
+  },
+  "findingShapeOptions": {
+    "both": "Summary + one finding per row — default",
+    "perRow": "One finding per row",
+    "summary": "Summary only (table in evidences[])",
+    "help": "One finding per row becomes flat fields (host, user, process) in Wazuh and an asset in IRIS; the summary carries the whole table in a single event."
+  },
+  "createForm": {
+    "titleLabel": "Query title",
+    "titlePlaceholder": "E.g.: Suspicious processes via PowerShell",
+    "descriptionLabel": "Description",
+    "descriptionPlaceholder": "Context, goal or expected analysis",
+    "statementLabel": "SQL query",
+    "statementPlaceholder": "SELECT * FROM xdr_data WHERE process_name = 'cmd.exe' LIMIT 100",
+    "statementHelper": "This query can be reused on the search screen and in schedules.",
+    "clientsPlaceholder": "Select clients to pre-fill this query",
+    "clientsHelper": "Optional. Helps open the query with tenants already selected.",
+    "dialectHelper": "Query dialect supported by the platform (e.g.: opensearch_dsl, fql).",
+    "bestPracticesTitle": "Query best practices",
+    "bestPracticesBody": "Use specific filters and a record limit to make reading easier and reduce operational cost.",
+    "submit": "Create query"
+  },
+  "editForm": {
+    "titleLabel": "Title",
+    "descriptionLabel": "Description",
+    "statementLabel": "SQL query",
+    "statementHelper": "Update the query and adjust the default clients, if needed.",
+    "clientsHelper": "Optional. Sets the tenants suggested when reusing this query.",
+    "dialectHelper": "Platform query dialect (e.g.: opensearch_dsl, fql).",
+    "reuseNoticeTitle": "Operational reuse",
+    "reuseNoticeBody": "Changes here affect the search screen and new schedules created from this query.",
+    "submit": "Save changes"
+  },
+  "table": {
+    "loading": "Loading queries...",
+    "emptyTitle": "No saved queries",
+    "emptyDescription": "Create reusable queries to speed up searches and automations.",
+    "listAriaLabel": "List of saved queries",
+    "columns": {
+      "query": "Query",
+      "description": "Description",
+      "clients": "Clients",
+      "preview": "Preview",
+      "actions": "Actions"
+    },
+    "idLabel": "ID #{{id}}",
+    "noDescription": "No description",
+    "clientsCount_one": "{{count}} client",
+    "clientsCount_other": "{{count}} clients",
+    "noDefaultClients": "No defaults",
+    "edit": "Edit",
+    "remove": "Remove",
+    "availableCount": "Available queries"
+  },
+  "queriesHook": {
+    "loadError": "Failed to load queries",
+    "createError": "Failed to create query",
+    "updateError": "Failed to update query",
+    "deleteError": "Failed to delete query"
+  }
+}

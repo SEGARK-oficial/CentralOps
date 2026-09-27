@@ -135,9 +135,13 @@ export const RouteForm: React.FC<RouteFormProps> = ({ mode, route, loading, onCa
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
-      {error && <Notice variant="danger" title={t("routeForm.cannotSaveTitle")}>{error}</Notice>}
+      {/* R2-8.2: erro reage ao submit (ação do usuário) — precisa interromper
+          o leitor de tela, não só anunciar em segundo plano. */}
+      {error && <Notice variant="danger" title={t("routeForm.cannotSaveTitle")} live="assertive">{error}</Notice>}
 
-      <div className="grid grid-cols-3 gap-3">
+      {/* LAY-13: 3 colunas fixas espremiam os inputs em telas estreitas — empilha
+          abaixo de `sm`, 3 colunas a partir daí. */}
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <Input label={t("routeForm.nameLabel")} value={name} onChange={(e) => setName(e.target.value)} required disabled={loading} />
         <Input
           label={t("routeForm.priorityLabel")}
@@ -232,12 +236,14 @@ export const RouteForm: React.FC<RouteFormProps> = ({ mode, route, loading, onCa
           />
 
           {!protectDetection && (
-            <Notice variant="warning" title={t("routeForm.unprotectedWarningTitle")}>
+            // R2-8.2: aparece reagindo ao usuário DESMARCAR a proteção —
+            // conta como "erro/aviso por ação", não banner estático.
+            <Notice variant="warning" title={t("routeForm.unprotectedWarningTitle")} live="assertive">
               {t("routeForm.unprotectedWarningBody")}
             </Notice>
           )}
 
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <Input
               label={t("routeForm.samplePercentLabel")}
               type="number"

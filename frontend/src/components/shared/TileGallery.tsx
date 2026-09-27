@@ -13,7 +13,8 @@
  */
 
 import type React from "react"
-import { useMemo, useState } from "react"
+import { useMemo, useRef, useState } from "react"
+import { useTranslation } from "react-i18next"
 import { CheckIcon, SearchIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Input } from "@/components/ui/Input/Input"
@@ -52,11 +53,20 @@ export interface TileGalleryProps {
 // modal), os tiles esticavam para a largura da célula. Com auto-fill os tracks
 // têm largura mínima fixa e os vazios absorvem o espaço extra (auto-fill, não
 // auto-fit), mantendo os cards consistentes e sem esticar.
+// LAY-12: `minmax(220px,1fr)` força a coluna a ter NO MÍNIMO 220px mesmo
+// quando o container inteiro é mais estreito que isso (ex.: modal em telas
+// pequenas) — a grade estourava e criava scroll horizontal. `min(220px,100%)`
+// deixa a coluna encolher até caber quando o container é menor que o mínimo.
 const COL_CLASS: Record<2 | 3 | 4, string> = {
-  2: "grid-cols-[repeat(auto-fill,minmax(240px,1fr))]",
-  3: "grid-cols-[repeat(auto-fill,minmax(220px,1fr))]",
-  4: "grid-cols-[repeat(auto-fill,minmax(180px,1fr))]",
+  2: "grid-cols-[repeat(auto-fill,minmax(min(240px,100%),1fr))]",
+  3: "grid-cols-[repeat(auto-fill,minmax(min(220px,100%),1fr))]",
+  4: "grid-cols-[repeat(auto-fill,minmax(min(180px,100%),1fr))]",
 }
+
+// Sentinela interno da categoria "todas": o valor exibido vem do i18n
+// (common:states.all). Antes era a string PT "Todos", que fazia papel de
+// chave E de rótulo e aparecia em PT em qualquer idioma.
+const ALL_CATEGORIES = "__all__"
 
 export const TileGallery: React.FC<TileGalleryProps> = ({
   tiles,
@@ -65,13 +75,18 @@ export const TileGallery: React.FC<TileGalleryProps> = ({
   multiple = false,
   disabled = false,
   showSearch = true,
-  searchPlaceholder = "Buscar…",
-  emptyLabel = "Nenhum item encontrado.",
-  ariaLabel = "Selecionar",
+  searchPlaceholder,
+  emptyLabel,
+  ariaLabel,
   columns = 3,
 }) => {
+  const { t: tCommon } = useTranslation("common")
+  const searchPlaceholderText = searchPlaceholder ?? `${tCommon("actions.search")}…`
+  const emptyLabelText = emptyLabel ?? tCommon("states.noResults")
+  const ariaLabelText = ariaLabel ?? tCommon("actions.select")
   const [search, setSearch] = useState("")
-  const [category, setCategory] = useState<string>("Todos")
+  const [category, setCategory] = useState<string>(ALL_CATEGORIES)
+  const categoryGroupRef = useRef<HTMLDivElement>(null)
 
   const selected = useMemo(
     () => (Array.isArray(value) ? new Set(value) : new Set([value])),
@@ -81,13 +96,33 @@ export const TileGallery: React.FC<TileGalleryProps> = ({
   const categories = useMemo(() => {
     const cats = new Set<string>()
     for (const t of tiles) if (t.category) cats.add(t.category)
-    return cats.size > 0 ? ["Todos", ...Array.from(cats).sort()] : []
+    return cats.size > 0 ? [ALL_CATEGORIES, ...Array.from(cats).sort()] : []
   }, [tiles])
+
+  // A11Y-37: roving tabindex + setas — o container já era `role="group"` com
+  // filhos `role="radio"`, mas sem isso um radiogroup só é navegável clicando
+  // (Tab entra e sai do grupo INTEIRO de uma vez, sem mover ENTRE as opções).
+  function handleCategoryKeyDown(e: React.KeyboardEvent<HTMLDivElement>) {
+    if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(e.key)) return
+    if (categories.length === 0) return
+    const radios = Array.from(
+      categoryGroupRef.current?.querySelectorAll<HTMLButtonElement>('[role="radio"]') ?? [],
+    )
+    const currentIndex = Math.max(0, categories.indexOf(category))
+    let nextIndex = currentIndex
+    if (e.key === "ArrowRight") nextIndex = (currentIndex + 1) % categories.length
+    else if (e.key === "ArrowLeft") nextIndex = (currentIndex - 1 + categories.length) % categories.length
+    else if (e.key === "Home") nextIndex = 0
+    else if (e.key === "End") nextIndex = categories.length - 1
+    e.preventDefault()
+    setCategory(categories[nextIndex])
+    radios[nextIndex]?.focus()
+  }
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
     return tiles.filter((t) => {
-      if (category !== "Todos" && t.category !== category) return false
+      if (category !== ALL_CATEGORIES && t.category !== category) return false
       if (
         q &&
         !t.label.toLowerCase().includes(q) &&
@@ -103,20 +138,26 @@ export const TileGallery: React.FC<TileGalleryProps> = ({
     <div className="space-y-4">
       {showSearch && (
         <Input
-          placeholder={searchPlaceholder}
+          placeholder={searchPlaceholderText}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           leftIcon={<SearchIcon size={16} />}
-          aria-label={searchPlaceholder}
+          aria-label={searchPlaceholderText}
           disabled={disabled}
           data-testid="tile-search"
         />
       )}
 
       {categories.length > 0 && (
+        // Padrão APG de radiogroup: o CONTAINER captura as setas (roving
+        // tabindex nos <button role="radio"> filhos) — não precisa ser um
+        // tab-stop próprio.
+        // eslint-disable-next-line jsx-a11y/interactive-supports-focus
         <div
-          role="group"
-          aria-label="Filtrar por categoria"
+          ref={categoryGroupRef}
+          role="radiogroup"
+          aria-label={tCommon("actions.filterByCategory")}
+          onKeyDown={handleCategoryKeyDown}
           className="flex flex-wrap gap-2"
           data-testid="tile-categories"
         >
@@ -126,6 +167,10 @@ export const TileGallery: React.FC<TileGalleryProps> = ({
               type="button"
               role="radio"
               aria-checked={category === cat}
+              // A11Y-37: roving tabindex — só a opção selecionada é uma parada
+              // de Tab; as demais se alcançam pelas setas (ArrowLeft/Right,
+              // Home/End), padrão ARIA de radiogroup.
+              tabIndex={category === cat ? 0 : -1}
               disabled={disabled}
               onClick={() => setCategory(cat)}
               className={cn(
@@ -135,9 +180,9 @@ export const TileGallery: React.FC<TileGalleryProps> = ({
                   ? "bg-primary-100 text-primary-700 ring-1 ring-primary-600"
                   : "bg-surface-tertiary text-text-secondary hover:bg-surface hover:text-text border border-border",
               )}
-              data-testid={`tile-cat-${cat.toLowerCase()}`}
+              data-testid={`tile-cat-${cat === ALL_CATEGORIES ? "all" : cat.toLowerCase()}`}
             >
-              {cat}
+              {cat === ALL_CATEGORIES ? tCommon("states.all") : cat}
             </button>
           ))}
         </div>
@@ -145,12 +190,12 @@ export const TileGallery: React.FC<TileGalleryProps> = ({
 
       {filtered.length === 0 ? (
         <p className="py-8 text-center text-sm text-text-tertiary" data-testid="tile-empty">
-          {emptyLabel}
+          {emptyLabelText}
         </p>
       ) : (
         <div
           role={multiple ? "group" : "radiogroup"}
-          aria-label={ariaLabel}
+          aria-label={ariaLabelText}
           className={cn("grid gap-3", COL_CLASS[columns])}
           data-testid="tile-grid"
         >
@@ -162,7 +207,7 @@ export const TileGallery: React.FC<TileGalleryProps> = ({
                 type="button"
                 role={multiple ? "checkbox" : "radio"}
                 aria-checked={isSelected}
-                aria-label={`Selecionar ${t.label}`}
+                aria-label={tCommon("actions.selectItem", { label: t.label })}
                 disabled={disabled}
                 onClick={() => onChange(t.id)}
                 data-testid={`tile-card-${t.id}`}

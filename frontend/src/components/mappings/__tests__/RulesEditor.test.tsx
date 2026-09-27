@@ -5,7 +5,7 @@
  */
 
 import React from "react"
-import { render, screen, fireEvent } from "@testing-library/react"
+import { render, screen, fireEvent, within } from "@testing-library/react"
 import { RulesEditor } from "@/components/mappings/RulesEditor"
 import { OCSF_TEMPLATES } from "@/data/ocsfTemplates"
 import type { MappingRule } from "@/types"
@@ -78,7 +78,10 @@ describe("RulesEditor — regressão Sprint 1", () => {
   it("painel tem role=region com aria-labelledby", () => {
     render(<RulesEditor rules={RULES} />)
     const region = screen.getByTestId("rules-editor")
-    expect(region).toHaveAttribute("role", "region")
+    // R4-9.1: `role="region"` explícito removido por ser REDUNDANTE —
+    // `<section aria-labelledby>` já expõe role="region" IMPLICITAMENTE
+    // (`jsx-a11y/no-redundant-roles`). `getByRole` prova o papel efetivo.
+    expect(screen.getByRole("region")).toBe(region)
     expect(region).toHaveAttribute("aria-labelledby")
   })
 
@@ -413,6 +416,81 @@ describe("RulesEditor — foco estável no input target", () => {
   })
 })
 
+// ── BUG-03: expansão não deve "escorregar" pra regra vizinha ao remover ────────
+
+describe("RulesEditor — BUG-03 (id estável de linha, não por posição)", () => {
+  it("expandir a 2ª regra e remover a 1ª mantém a expansão NA MESMA regra (não na vizinha)", () => {
+    const Wrapper: React.FC = () => {
+      const [rules, setRules] = React.useState<MappingRule[]>([
+        { target: "event.action", source: "action" },
+        { target: "event.severity", source: "severity" },
+        { target: "event.const_field", const: "fixed_value" },
+      ])
+      return <RulesEditor rules={rules} mode="edit" onChange={setRules} />
+    }
+
+    render(<Wrapper />)
+
+    // Expande a 2ª regra (event.severity) — as outras ficam colapsadas.
+    const severityRow = screen.getByTestId("rule-row-event.severity")
+    fireEvent.click(within(severityRow).getByRole("button", { name: /expandir regra/i }))
+    expect(within(severityRow).getByRole("button", { name: /recolher regra/i })).toBeInTheDocument()
+
+    // Remove a 1ª regra (event.action) — event.severity desliza do índice 1 pro 0,
+    // e event.const_field desliza do índice 2 pro 1.
+    const actionRow = screen.getByTestId("rule-row-event.action")
+    fireEvent.click(within(actionRow).getByRole("button", { name: "Remover" }))
+    const dialog = screen.getByRole("alertdialog")
+    fireEvent.click(within(dialog).getByRole("button", { name: "Remover" }))
+
+    expect(screen.queryByTestId("rule-row-event.action")).not.toBeInTheDocument()
+
+    // Com a key por POSIÇÃO (bug), o estado "expandido" ficaria preso ao
+    // índice 1 — e event.const_field (agora no índice 1) apareceria expandido
+    // no lugar de event.severity. Com a key estável por objeto, a expansão
+    // segue a REGRA, não a posição.
+    const severityAfter = screen.getByTestId("rule-row-event.severity")
+    const constFieldAfter = screen.getByTestId("rule-row-event.const_field")
+    expect(within(severityAfter).getByRole("button", { name: /recolher regra/i })).toBeInTheDocument()
+    expect(within(constFieldAfter).getByRole("button", { name: /expandir regra/i })).toBeInTheDocument()
+  })
+})
+
+// ── PERF-06: editar uma regra não desmonta as regras vizinhas ──────────────────
+
+describe("RulesEditor — PERF-06 (identidade estável dos handlers de linha)", () => {
+  it("editar o target da 1ª regra não desmonta o DOM da 3ª regra (nem sua expansão)", () => {
+    const Wrapper: React.FC = () => {
+      const [rules, setRules] = React.useState<MappingRule[]>([
+        { target: "event.action", source: "action" },
+        { target: "event.severity", source: "severity" },
+        { target: "event.const_field", const: "fixed_value" },
+      ])
+      return <RulesEditor rules={rules} mode="edit" onChange={setRules} />
+    }
+
+    render(<Wrapper />)
+
+    // Expande a 3ª regra e guarda a referência do node da linha.
+    const constFieldRow = screen.getByTestId("rule-row-event.const_field")
+    fireEvent.click(within(constFieldRow).getByRole("button", { name: /expandir regra/i }))
+    const rowNodeBefore = screen.getByTestId("rule-row-event.const_field")
+
+    // Edita o target da 1ª regra.
+    const actionRow = screen.getByTestId("rule-row-event.action")
+    fireEvent.click(within(actionRow).getByRole("button", { name: /expandir regra/i }))
+    const targetInput = within(screen.getByTestId("rule-row-event.action")).getByDisplayValue("event.action")
+    fireEvent.change(targetInput, { target: { value: "event.action_renamed" } })
+
+    // A 3ª regra continua com o MESMO node (sem remount) e continua expandida —
+    // sem handlers/keys estáveis, `rules` virar array novo bastava para
+    // derrubar o memo/identidade da linha vizinha.
+    const rowNodeAfter = screen.getByTestId("rule-row-event.const_field")
+    expect(rowNodeAfter).toBe(rowNodeBefore)
+    expect(within(rowNodeAfter).getByRole("button", { name: /recolher regra/i })).toBeInTheDocument()
+  })
+})
+
 // ── Fase 4.2: Template OCSF ───────────────────────────────────────────────────
 
 describe("RulesEditor — template OCSF", () => {
@@ -469,5 +547,60 @@ describe("RulesEditor — template OCSF", () => {
 
     expect(onChange).toHaveBeenCalledTimes(1)
     expect(onChange).toHaveBeenCalledWith(firstTemplate.rules)
+  })
+})
+
+// ── R2-6.6: diálogo de confirmação de import usa ConfirmDialog ─────────────────
+
+describe("RulesEditor — confirmação de import (R2-6.6)", () => {
+  function uploadFile(container: HTMLElement, jsonText: string) {
+    const input = container.querySelector('input[type="file"]') as HTMLInputElement
+    const file = new File([jsonText], "mapping.json", { type: "application/json" })
+    Object.defineProperty(input, "files", { value: [file] })
+    fireEvent.change(input)
+  }
+
+  const VALID_EXPORT = JSON.stringify({
+    schema_version: 2,
+    exported_at: "2026-01-01T00:00:00Z",
+    rules: [{ target: "event.action", source: "action" }],
+  })
+
+  it("importar com regras existentes abre um dialog acessível (role=alertdialog) com foco preso e o nome do arquivo já validado", async () => {
+    const { container } = render(<RulesEditor rules={RULES} mode="edit" onChange={vi.fn()} />)
+
+    uploadFile(container, VALID_EXPORT)
+
+    const dialog = await screen.findByRole("alertdialog")
+    expect(dialog).toBeInTheDocument()
+    // RULES tem 3 regras atuais; o arquivo importado tem 1.
+    expect(within(dialog).getByText(/3 regras atuais/)).toBeInTheDocument()
+    expect(within(dialog).getByText(/1 regra importada/)).toBeInTheDocument()
+  })
+
+  it("confirmar substitui as regras (onChange) e fecha o dialog", async () => {
+    const onChange = vi.fn()
+    const { container } = render(<RulesEditor rules={RULES} mode="edit" onChange={onChange} />)
+
+    uploadFile(container, VALID_EXPORT)
+    const dialog = await screen.findByRole("alertdialog")
+
+    fireEvent.click(within(dialog).getByRole("button", { name: "Confirmar importação" }))
+
+    expect(onChange).toHaveBeenCalledWith([{ target: "event.action", source: "action" }])
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument()
+  })
+
+  it("cancelar NÃO altera as regras e fecha o dialog", async () => {
+    const onChange = vi.fn()
+    const { container } = render(<RulesEditor rules={RULES} mode="edit" onChange={onChange} />)
+
+    uploadFile(container, VALID_EXPORT)
+    const dialog = await screen.findByRole("alertdialog")
+
+    fireEvent.click(within(dialog).getByRole("button", { name: "Cancelar" }))
+
+    expect(onChange).not.toHaveBeenCalled()
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument()
   })
 })

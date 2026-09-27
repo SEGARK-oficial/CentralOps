@@ -12,14 +12,47 @@ export function currentLocale(): string {
   return i18n.language || "pt-BR"
 }
 
+// PERF-15: `Intl.DateTimeFormat`/`NumberFormat` fazem parse do locale + das
+// opções na CONSTRUÇÃO (não no `.format()`) — tabelas densas chamam
+// `formatDate`/`formatNumber` por linha e recriavam o formatter a cada
+// chamada. O cache é por `(locale, JSON das opções)`: a combinação é finita
+// (poucos locales × poucos conjuntos de opções usados no app), então não há
+// risco de crescimento sem teto.
+const numberFormatCache = new Map<string, Intl.NumberFormat>()
+const dateTimeFormatCache = new Map<string, Intl.DateTimeFormat>()
+
+function cacheKey(locale: string, opts?: object): string {
+  return opts ? `${locale}|${JSON.stringify(opts)}` : locale
+}
+
+function getNumberFormat(locale: string, opts?: Intl.NumberFormatOptions): Intl.NumberFormat {
+  const key = cacheKey(locale, opts)
+  let formatter = numberFormatCache.get(key)
+  if (!formatter) {
+    formatter = new Intl.NumberFormat(locale, opts)
+    numberFormatCache.set(key, formatter)
+  }
+  return formatter
+}
+
+function getDateTimeFormat(locale: string, opts?: Intl.DateTimeFormatOptions): Intl.DateTimeFormat {
+  const key = cacheKey(locale, opts)
+  let formatter = dateTimeFormatCache.get(key)
+  if (!formatter) {
+    formatter = new Intl.DateTimeFormat(locale, opts)
+    dateTimeFormatCache.set(key, formatter)
+  }
+  return formatter
+}
+
 export function formatNumber(n: number, opts?: Intl.NumberFormatOptions): string {
-  return new Intl.NumberFormat(currentLocale(), opts).format(n)
+  return getNumberFormat(currentLocale(), opts).format(n)
 }
 
 /** Percentage from a RATIO (0.42 → "42%"). Pass already-multiplied values with
  *  `{ style: "decimal" }` via formatNumber instead. */
 export function formatPercent(ratio: number, fractionDigits = 1): string {
-  return new Intl.NumberFormat(currentLocale(), {
+  return getNumberFormat(currentLocale(), {
     style: "percent",
     minimumFractionDigits: fractionDigits,
     maximumFractionDigits: fractionDigits,
@@ -32,7 +65,7 @@ export function formatDateTime(
 ): string {
   const date = value instanceof Date ? value : new Date(value)
   if (Number.isNaN(date.getTime())) return String(value)
-  return new Intl.DateTimeFormat(currentLocale(), opts).format(date)
+  return getDateTimeFormat(currentLocale(), opts).format(date)
 }
 
 export function formatDate(

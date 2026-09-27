@@ -7,7 +7,7 @@
 import { render, screen, fireEvent, waitFor } from "@testing-library/react"
 import { SaveModal } from "@/components/mappings/SaveModal"
 import * as api from "@/services/api"
-import type { MappingPayload, MappingRule } from "@/types"
+import type { MappingPayload, MappingRule, MappingVersion } from "@/types"
 import i18n from "@/i18n"
 
 // Testes fazem assertions no texto literal em pt (idioma padrão do produto).
@@ -32,6 +32,21 @@ const RULES_B: MappingRule[] = [
   { target: "event.host", source: "host" },
 ]
 const PAYLOAD_B: MappingPayload = { preprocess: [], rules: RULES_B }
+
+// Fixture mínima real (não `{} as any`) — só pra satisfazer o tipo de
+// retorno de `createMappingVersion`; o teste não observa o conteúdo.
+const CREATED_VERSION: MappingVersion = {
+  id: "v2",
+  definition_id: "m1",
+  version_number: 2,
+  rules: PAYLOAD_B,
+  author_user_id: null,
+  author_label: null,
+  commit_message: "Atualização de campos do evento",
+  diff_from_previous: null,
+  dry_run_stats: null,
+  created_at: "2026-01-01T00:00:00Z",
+}
 
 function renderModal(overrides: Partial<Parameters<typeof SaveModal>[0]> = {}) {
   const defaults = {
@@ -92,7 +107,7 @@ describe("SaveModal", () => {
 
   it("chama createMappingVersion e onSuccess com commit válido", async () => {
     const onSuccess = vi.fn()
-    mockedApi.createMappingVersion.mockResolvedValue({} as any)
+    mockedApi.createMappingVersion.mockResolvedValue(CREATED_VERSION)
 
     renderModal({ onSuccess })
 

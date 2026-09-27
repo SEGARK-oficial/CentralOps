@@ -18,7 +18,7 @@
 import type React from "react"
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
-import { ZoomInIcon, ZoomOutIcon, Maximize2Icon } from "lucide-react"
+import { ZoomInIcon, ZoomOutIcon, Maximize2Icon, PauseIcon, PlayIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { fmtRate } from "@/lib/fmt"
 import { brandIconFor } from "@/lib/brand-icons"
@@ -79,6 +79,12 @@ interface LNode {
   subtitle: string
   tag?: string
   brand?: string
+  /**
+   * A11Y-04: status de saúde do nó (fonte/destino) — hoje só existe como cor
+   * do fill/stroke. Guardamos a chave para render textual (aria-label) e um
+   * marcador não-cromático (glifo), independente da matiz.
+   */
+  statusKey?: FlowNodeStatus
   onSelect: () => void
 }
 
@@ -227,6 +233,10 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({ data, onSelectNode, clas
 
   const [active, setActive] = useState<string | null>(null)
   const [expanded, setExpanded] = useState<Record<ColKind, boolean>>({ source: false, route: false, dest: false })
+  // A11Y-03: partículas SMIL têm sua própria pausa manual, independente do SO —
+  // `prefers-reduced-motion` cobre quem já configurou o sistema; este botão
+  // cobre quem quer pausar só nesta tela, numa sessão.
+  const [particlesPaused, setParticlesPaused] = useState(false)
 
   const prefersReducedMotion =
     typeof window !== "undefined" &&
@@ -294,6 +304,7 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({ data, onSelectNode, clas
       top: tSrc[i], h: hSrc[i], cy: tSrc[i] + hSrc[i] / 2,
       color: STATUS_COLOR[s.status] ?? STATUS_COLOR.unknown,
       title: s.name, subtitle: `${fmtRate(s.eps * 60)}/min`, tag: s.platform, brand: s.platform,
+      statusKey: s.status,
       onSelect: () => onSelectNode({ kind: "source", node: s }),
     }))
     if (gSrc.overflow) sourceNodes.push(overflowLNode("source", gSrc.visible.length, tSrc, hSrc, gSrc.overflow))
@@ -314,6 +325,7 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({ data, onSelectNode, clas
       top: tDest[i], h: hDest[i], cy: tDest[i] + hDest[i] / 2,
       color: STATUS_COLOR[(d.status as FlowNodeStatus)] ?? STATUS_COLOR.unknown,
       title: d.name, subtitle: d.eps != null ? `${fmtRate(d.eps * 60)}/min` : d.kind, tag: d.kind, brand: d.kind,
+      statusKey: d.status as FlowNodeStatus,
       onSelect: () => onSelectNode({ kind: "dest", node: d }),
     }))
     if (gDest.overflow) destNodes.push(overflowLNode("dest", gDest.visible.length, tDest, hDest, gDest.overflow))
@@ -392,6 +404,7 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({ data, onSelectNode, clas
   // Altura de EXIBIÇÃO do canvas (o conteúdo é reescalado p/ caber nela via fit()).
   // Cresce com o grafo até um teto — grafos densos ficam menores mas pannable/zoom.
   const displayH = clamp(svgH, 340, 620)
+  const colX = useCallback((kind: ColKind) => (kind === "source" ? COL.source : kind === "route" ? COL.route : COL.dest), [])
   const allNodes = useMemo(() => [...sourceNodes, ...routeNodes, ...destNodes], [sourceNodes, routeNodes, destNodes])
   const allEdges = useMemo(() => [...srcEdges, ...rtEdges], [srcEdges, rtEdges])
 
@@ -431,15 +444,52 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({ data, onSelectNode, clas
   }, [allEdges])
 
   // ── Fit-to-view ───────────────────────────────────────────────────────────
+  // LAY-05: a escala mínima de 0.35 deixa o texto (11.5px de base) ilegível em
+  // containers estreitos (<480px, ex.: celular em retrato). Nesses containers o
+  // fit inicial não desce abaixo de NARROW_MIN_SCALE — o grafo pode não caber
+  // inteiro na tela, mas dá pra ver e ler; o resto se alcança arrastando
+  // (pointer events cobrem touch, ver handlePointerDown/Move abaixo).
+  const NARROW_MIN_SCALE = 0.55
+  const WIDE_MIN_SCALE = 0.35
+  const NARROW_BREAKPOINT = 480
   const fit = useCallback(() => {
     const el = containerRef.current
     if (!el) return
     const cw = el.clientWidth
     const ch = el.clientHeight || svgH + 24
     if (cw <= 0) return
-    const scale = clamp(Math.min(cw / svgW, ch / svgH), 0.35, 1.4)
+    const minScale = cw < NARROW_BREAKPOINT ? NARROW_MIN_SCALE : WIDE_MIN_SCALE
+    const scale = clamp(Math.min(cw / svgW, ch / svgH), minScale, 1.4)
     setTransform({ tx: (cw - svgW * scale) / 2, ty: Math.max(0, (ch - svgH * scale) / 2), scale })
   }, [svgW, svgH])
+
+  // A11Y-05: traz o nó recém-focado (Tab) para dentro da viewport visível do
+  // canvas, ajustando o pan — sem isso, um nó fora da área visível (zoom/scroll
+  // atuais) fica focado "invisível", sem nenhuma pista do que o leitor de tela
+  // acabou de anunciar.
+  const ensureNodeVisible = useCallback(
+    (n: LNode) => {
+      const el = containerRef.current
+      if (!el) return
+      const cw = el.clientWidth
+      const ch = el.clientHeight || displayH
+      const margin = 24
+      const worldX = colX(n.kind) + NODE_W / 2
+      const worldY = n.cy
+      setTransform((prev) => {
+        const screenX = worldX * prev.scale + prev.tx
+        const screenY = worldY * prev.scale + prev.ty
+        let { tx, ty } = prev
+        if (screenX < margin) tx += margin - screenX
+        else if (screenX > cw - margin) tx -= screenX - (cw - margin)
+        if (screenY < margin) ty += margin - screenY
+        else if (screenY > ch - margin) ty -= screenY - (ch - margin)
+        if (tx === prev.tx && ty === prev.ty) return prev
+        return { ...prev, tx, ty }
+      })
+    },
+    [colX, displayH],
+  )
 
   useLayoutEffect(() => {
     fit()
@@ -478,9 +528,16 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({ data, onSelectNode, clas
     return () => el.removeEventListener("wheel", onWheel)
   }, [])
 
-  const handleMouseDown = useCallback((e: React.MouseEvent<SVGSVGElement>) => {
+  // LAY-05/06: Pointer Events (não Mouse Events) para que o mesmo handler cubra
+  // mouse, caneta E toque — o pan era mouse-only antes. `setPointerCapture` no
+  // próprio SVG garante que os eventos de move/up continuem chegando mesmo que
+  // o ponteiro saia da área do canvas no meio do arraste (comportamento que o
+  // mouse ganhava "de graça" via `onMouseLeave`/captura implícita do browser, e
+  // que o touch não tem sem captura explícita).
+  const handlePointerDown = useCallback((e: React.PointerEvent<SVGSVGElement>) => {
     if ((e.target as Element).closest("[data-node]")) return
     dragging.current = true
+    e.currentTarget.setPointerCapture?.(e.pointerId)
     dragStart.current = { x: e.clientX, y: e.clientY, tx: 0, ty: 0 }
     setTransform((prev) => {
       dragStart.current.tx = prev.tx; dragStart.current.ty = prev.ty
@@ -489,7 +546,7 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({ data, onSelectNode, clas
     })
   }, [])
 
-  // Pan com throttle por ANIMATION FRAME: `mousemove` pode disparar >60×/s (trackpad
+  // Pan com throttle por ANIMATION FRAME: `pointermove` pode disparar >60×/s (trackpad
   // de alta taxa); coalescemos num único commit de estado por frame. Combinado com
   // os visuais memoizados (NodeVisual/EdgeVisual bailam quando só `transform` muda),
   // o custo por frame de arraste cai a O(nº de wrappers finos), não O(árvore inteira).
@@ -498,7 +555,7 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({ data, onSelectNode, clas
     setTransform((prev) => ({ ...prev, tx: dragTarget.current.tx, ty: dragTarget.current.ty }))
   }, [])
 
-  const handleMouseMove = useCallback((e: React.MouseEvent<SVGSVGElement>) => {
+  const handlePointerMove = useCallback((e: React.PointerEvent<SVGSVGElement>) => {
     if (!dragging.current) return
     dragTarget.current = {
       tx: dragStart.current.tx + (e.clientX - dragStart.current.x),
@@ -509,9 +566,12 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({ data, onSelectNode, clas
     else commitDrag() // ambiente sem rAF (ex.: SSR/teste) — commit síncrono
   }, [commitDrag])
 
-  const stopDrag = useCallback(() => {
+  const stopDrag = useCallback((e?: React.PointerEvent<SVGSVGElement>) => {
     if (!dragging.current) return
     dragging.current = false
+    if (e?.currentTarget?.releasePointerCapture && e.pointerId != null) {
+      e.currentTarget.releasePointerCapture(e.pointerId)
+    }
     // Garante que a posição FINAL do arraste seja aplicada mesmo que um frame
     // pendente seja cancelado (senão o último delta se perderia).
     if (rafId.current !== null) {
@@ -537,7 +597,13 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({ data, onSelectNode, clas
   const nodeOpacity = (id: string) => (focus && !focus.nodeIds.has(id) ? 0.16 : 1)
   const edgeOpacity = (key: string) => (focus ? (focus.edgeKeys.has(key) ? 0.9 : 0.06) : 0.5)
 
-  const colX = (kind: ColKind) => (kind === "source" ? COL.source : kind === "route" ? COL.route : COL.dest)
+  const handleNodeFocus = useCallback(
+    (n: LNode) => {
+      setActive(n.id)
+      ensureNodeVisible(n)
+    },
+    [ensureNodeVisible],
+  )
 
   return (
     <div
@@ -545,7 +611,10 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({ data, onSelectNode, clas
       className={cn("relative overflow-hidden select-none", className)}
       style={{ cursor: dragging.current ? "grabbing" : "grab", height: displayH }}
     >
-      <div className="absolute right-3 top-3 z-10 flex flex-col gap-1" onMouseDown={(e) => e.stopPropagation()}>
+      {/* Só barra a propagação pro pan/drag do canvas por baixo — os
+          controles reais são os <ControlButton> (botões) filhos. */}
+      {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions */}
+      <div className="absolute right-3 top-3 z-10 flex flex-col gap-1" onMouseDown={(e) => e.stopPropagation()} onPointerDown={(e) => e.stopPropagation()}>
         <ControlButton label={t("flow.canvas.zoomIn")} onClick={() => setTransform((p) => ({ ...p, scale: clamp(p.scale * 1.25, 0.35, 3) }))}>
           <ZoomInIcon size={14} />
         </ControlButton>
@@ -555,19 +624,29 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({ data, onSelectNode, clas
         <ControlButton label={t("flow.canvas.resetZoom")} onClick={fit}>
           <Maximize2Icon size={14} />
         </ControlButton>
+        {/* A11Y-03: pausa manual das partículas SMIL, independente do
+            prefers-reduced-motion do SO. aria-pressed comunica o estado atual. */}
+        <ControlButton
+          label={particlesPaused ? t("flow.canvas.resumeAnimation") : t("flow.canvas.pauseAnimation")}
+          pressed={particlesPaused}
+          onClick={() => setParticlesPaused((p) => !p)}
+        >
+          {particlesPaused ? <PlayIcon size={14} /> : <PauseIcon size={14} />}
+        </ControlButton>
       </div>
 
       <svg
-        role="img"
+        role="group"
         aria-label={t("flow.canvas.ariaLabel", { sources: sourceNodes.length, routes: routeNodes.length, destinations: destNodes.length })}
         width="100%"
         height={displayH}
-        className="w-full"
+        className="w-full touch-none"
         style={{ fontFamily: "inherit", display: "block" }}
-        onMouseDown={handleMouseDown}
-        onMouseMove={handleMouseMove}
-        onMouseUp={stopDrag}
-        onMouseLeave={() => { stopDrag(); setActive(null) }}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={stopDrag}
+        onPointerCancel={stopDrag}
+        onPointerLeave={(e) => { stopDrag(e); setActive(null) }}
       >
         <defs>
           {gradients.map((g) => (
@@ -602,6 +681,7 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({ data, onSelectNode, clas
             const dur = particleDur(e.rate, e.maxRate)
             const animates =
               !prefersReducedMotion &&
+              !particlesPaused &&
               dur > 0 &&
               (!focus || focus.edgeKeys.has(e.key)) &&
               (particleEdgeKeys === null || particleEdgeKeys.has(e.key))
@@ -622,8 +702,10 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({ data, onSelectNode, clas
               x={colX(n.kind)}
               node={n}
               opacity={nodeOpacity(n.id)}
+              statusLabel={n.statusKey ? t(`flow.nodeDetail.status.${n.statusKey}`) : undefined}
               onHover={() => setActive(n.id)}
               onLeave={() => setActive((cur) => (cur === n.id ? null : cur))}
+              onFocusNode={() => handleNodeFocus(n)}
             />
           ))}
         </g>
@@ -633,11 +715,19 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({ data, onSelectNode, clas
 }
 
 // ── ControlButton ───────────────────────────────────────────────────────────
-const ControlButton: React.FC<{ label: string; onClick: () => void; children: React.ReactNode }> = ({ label, onClick, children }) => (
+// LAY-40: 40px de alvo abaixo de `sm` (mobile/toque); 32px em telas maiores
+// (mouse de precisão), como antes.
+const ControlButton: React.FC<{
+  label: string
+  onClick: () => void
+  children: React.ReactNode
+  pressed?: boolean
+}> = ({ label, onClick, children, pressed }) => (
   <button
     type="button"
     aria-label={label}
-    className="flex h-8 w-8 items-center justify-center rounded-md border border-border bg-surface/90 text-text-secondary shadow-sm backdrop-blur hover:bg-surface-tertiary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
+    aria-pressed={pressed}
+    className="flex h-10 w-10 items-center justify-center rounded-md border border-border bg-surface/90 text-text-secondary shadow-sm backdrop-blur hover:bg-surface-tertiary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 sm:h-8 sm:w-8"
     onClick={onClick}
   >
     {children}
@@ -649,9 +739,23 @@ const ControlButton: React.FC<{ label: string; onClick: () => void; children: Re
 // no hover/foco) — barato de reconciliar. O desenho pesado é delegado ao NodeVisual
 // memoizado, que NÃO re-renderiza no hover (opacity) nem no pan (transform), pois
 // suas props saem do `layout` memoizado (estáveis fora de mudança de dados).
-const SankeyNode: React.FC<{ x: number; node: LNode; opacity: number; onHover: () => void; onLeave: () => void }> = ({ x, node, opacity, onHover, onLeave }) => {
+const SankeyNode: React.FC<{
+  x: number
+  node: LNode
+  opacity: number
+  /** A11Y-04: rótulo de status já traduzido (ex.: "degradado") — undefined p/ nós sem status (rota/overflow). */
+  statusLabel?: string
+  onHover: () => void
+  onLeave: () => void
+  /** A11Y-05: dispara ao FOCAR (Tab), além do hover — traz o nó pro viewport. */
+  onFocusNode: () => void
+}> = ({ x, node, opacity, statusLabel, onHover, onLeave, onFocusNode }) => {
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" || e.key === " ") { e.preventDefault(); node.onSelect() }
+  }
+  const handleFocus = () => {
+    onHover()
+    onFocusNode()
   }
   return (
     <g
@@ -659,14 +763,18 @@ const SankeyNode: React.FC<{ x: number; node: LNode; opacity: number; onHover: (
       data-node="true"
       tabIndex={0}
       role="button"
-      aria-label={`${node.title} — ${node.subtitle}`}
+      aria-label={statusLabel ? `${node.title} — ${node.subtitle} — ${statusLabel}` : `${node.title} — ${node.subtitle}`}
       onClick={node.onSelect}
       onKeyDown={handleKeyDown}
       onMouseEnter={onHover}
       onMouseLeave={onLeave}
-      onFocus={onHover}
+      onFocus={handleFocus}
       onBlur={onLeave}
-      style={{ cursor: "pointer", outline: "none", transition: "opacity 160ms ease" }}
+      // A11Y-06: outline-none some com o anel padrão do browser; o substituto
+      // visível é o `<rect>` de foco desenhado dentro de NodeVisual, acordado
+      // via `group-focus-visible` (className "group/node" abaixo).
+      className="group/node outline-none"
+      style={{ cursor: "pointer", transition: "opacity 160ms ease" }}
       opacity={opacity}
     >
       <NodeVisual x={x} node={node} />
@@ -674,11 +782,30 @@ const SankeyNode: React.FC<{ x: number; node: LNode; opacity: number; onHover: (
   )
 }
 
+// A11Y-04: badge de status NÃO-CROMÁTICO (forma, não cor) — some para "healthy"
+// (o padrão silencioso = normal), aparece por FORMA distinta para os demais
+// estados, então funciona também pra quem não distingue a matiz do fill/stroke.
+const STATUS_BADGE_SIZE = 7
+const StatusBadge: React.FC<{ x: number; y: number; statusKey: FlowNodeStatus; color: NodeColor }> = ({ x, y, statusKey, color }) => {
+  if (statusKey === "healthy") return null
+  const s = STATUS_BADGE_SIZE
+  if (statusKey === "degraded") {
+    // Quadrado — se distingue do círculo "saudável" mesmo em escala de cinza.
+    return <rect x={x - s / 2} y={y - s / 2} width={s} height={s} rx={1.5} fill={color.dot} />
+  }
+  if (statusKey === "unhealthy") {
+    // Losango (quadrado rotacionado) — silhueta mais "alarmante" que o quadrado.
+    return <rect x={x - s / 2} y={y - s / 2} width={s} height={s} fill={color.dot} transform={`rotate(45 ${x} ${y})`} />
+  }
+  // unknown: anel tracejado sem preenchimento — comunica incerteza, não falha.
+  return <circle cx={x} cy={y} r={s / 2 + 1} fill="none" stroke={color.dot} strokeWidth={1.5} strokeDasharray="2 2" />
+}
+
 // Desenho PURO do nó (rect + acento + ícone + textos + tag). Memoizado: só
 // re-renderiza quando a geometria/rótulos mudam (novos dados) — nunca no hover
 // nem no pan. É o que elimina o re-render O(árvore inteira) desses dois gestos.
 const NodeVisual = memo(function NodeVisual({ x, node }: { x: number; node: LNode }) {
-  const { top, h, color, title, subtitle, tag, brand, isOverflow } = node
+  const { top, h, color, title, subtitle, tag, brand, isOverflow, statusKey } = node
   const cy = top + h / 2
   const rx = 9
   const hasIcon = !!brand && !isOverflow
@@ -744,6 +871,26 @@ const NodeVisual = memo(function NodeVisual({ x, node }: { x: number; node: LNod
           {truncate(tag, 12).toUpperCase()}
         </text>
       )}
+
+      {/* A11Y-04: badge de status por FORMA (não só cor) — canto superior direito,
+          longe do ícone/dot (esquerda) e da tag (inferior direita). */}
+      {statusKey && <StatusBadge x={x + NODE_W - 10} y={top + 10} statusKey={statusKey} color={color} />}
+
+      {/* A11Y-06: anel de foco visível e explícito (outline CSS não renderiza de
+          forma confiável sobre <g> em SVG) — some por padrão, aparece via
+          `group-focus-visible` quando o <g> pai (".group/node") recebe foco
+          por teclado. Desenhado por cima de tudo (último filho). */}
+      <rect
+        x={x - 3}
+        y={top - 3}
+        width={NODE_W + 6}
+        height={h + 6}
+        rx={rx + 3}
+        fill="none"
+        stroke="var(--color-primary-500)"
+        strokeWidth={2}
+        className="pointer-events-none opacity-0 transition-opacity duration-150 group-focus-visible/node:opacity-100"
+      />
     </>
   )
 })

@@ -240,7 +240,7 @@ O Licenciado **NÃO PODERÁ**, por si, seus empregados, contratados, agentes ou 
 
 ## 12. COMPONENTES DE SOFTWARE DE TERCEIROS (OPEN SOURCE)
 
-12.1. O Software incorpora ou depende de Componentes de Terceiros, principalmente *open source*, listados de forma exaustiva nos arquivos ``backend/requirements.lock`` e ``frontend/pnpm-lock.yaml`` e arquivos análogos.
+12.1. O Software incorpora ou depende de Componentes de Terceiros, principalmente *open source*, listados de forma exaustiva nos arquivos ``backend/requirements.lock`` e ``frontend/package-lock.json`` e arquivos análogos.
 
 12.2. Cada Componente de Terceiros é regido por sua **licença original** (Apache 2.0, MIT, BSD, LGPL, MPL, etc., conforme o caso). Nada neste EULA restringe os direitos do Licenciado decorrentes dessas licenças com relação aos próprios Componentes de Terceiros.
 

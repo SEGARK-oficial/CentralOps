@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/Button/Button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/Card/Card"
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog/ConfirmDialog"
 import { Notice } from "@/components/ui/Notice/Notice"
+import { ErrorState } from "@/components/ui/ErrorState"
 import { PageHeader } from "@/components/ui/PageHeader/PageHeader"
 import { useClients } from "@/hooks/useClients"
 import { useQueries } from "@/hooks/useQueries"
@@ -25,7 +26,7 @@ type Feedback = {
 
 export const QueriesPage: React.FC = () => {
   const { t } = useTranslation("schedules")
-  const { queries, loading, error, createQuery, updateQuery, deleteQuery } = useQueries()
+  const { queries, loading, error, createQuery, updateQuery, deleteQuery, refetch } = useQueries()
   const { clients, error: clientsError } = useClients()
 
   const [editingQuery, setEditingQuery] = useState<Query | null>(null)
@@ -108,7 +109,7 @@ export const QueriesPage: React.FC = () => {
 
       <div className="grid gap-4 sm:grid-cols-3">
         {[
-          { label: t("schedules:queries.stats.savedQueries"), value: queries.length, tone: "primary" as const },
+          { label: t("schedules:queries.stats.savedQueries"), value: queries.length, tone: "default" as const },
           { label: t("schedules:queries.stats.withDefaultClients"), value: queriesWithDefaults, tone: "success" as const },
           { label: t("schedules:queries.stats.totalLinks"), value: defaultLinks, tone: "default" as const },
         ].map((item) => (
@@ -116,7 +117,7 @@ export const QueriesPage: React.FC = () => {
             <div className="flex items-center justify-between gap-3">
               <div>
                 <div className="text-xs font-semibold uppercase tracking-wider text-text-tertiary">{item.label}</div>
-                <div className="mt-2 text-2xl font-bold text-text">{item.value}</div>
+                <div className="mt-2 font-display text-2xl font-bold tabular-nums text-text">{item.value}</div>
               </div>
               <Badge variant={item.tone} size="lg">
                 {item.value}
@@ -126,12 +127,6 @@ export const QueriesPage: React.FC = () => {
         ))}
       </div>
 
-      {error && (
-        <Notice variant="danger" title={t("schedules:queries.feedback.loadError")}>
-          {error}
-        </Notice>
-      )}
-
       {clientsError && (
         <Notice variant="warning" title={t("schedules:queries.feedback.clientsUnavailable")}>
           {clientsError}
@@ -140,7 +135,7 @@ export const QueriesPage: React.FC = () => {
 
       {feedback && (
         <Notice
-          variant={feedback.type === "success" ? "success" : "danger"}
+          variant={feedback.type === "success" ? "success" : "danger"} live={feedback.type === "error" ? "assertive" : undefined}
           title={feedback.type === "success" ? t("schedules:feedback.operationCompleted") : t("schedules:feedback.operationFailed")}
           action={
             <Button
@@ -173,19 +168,30 @@ export const QueriesPage: React.FC = () => {
           <CardHeader>
             <CardTitle>
               {t("schedules:queries.catalogCard.title")}
-              <Badge variant="primary" size="sm" className="ml-2">
+              <Badge variant="default" size="sm" className="ml-2">
                 {queries.length}
               </Badge>
             </CardTitle>
             <CardDescription>{t("schedules:queries.catalogCard.description")}</CardDescription>
           </CardHeader>
           <CardContent>
-            <QueriesTable
-              queries={queries}
-              loading={loading}
-              onEdit={setEditingQuery}
-              onDelete={(queryId) => setDeleteCandidate(queries.find((query) => query.id === queryId) || null)}
-            />
+            {error && !loading ? (
+              // Pilar 4: antes o Notice de erro ficava empilhado ACIMA da
+              // QueriesTable, que mostrava seu próprio EmptyState ("nenhuma
+              // query salva") por baixo — mensagem enganosa, e sem retry.
+              <ErrorState
+                title={t("schedules:queries.feedback.loadError")}
+                message={error}
+                onRetry={() => void refetch()}
+              />
+            ) : (
+              <QueriesTable
+                queries={queries}
+                loading={loading}
+                onEdit={setEditingQuery}
+                onDelete={(queryId) => setDeleteCandidate(queries.find((query) => query.id === queryId) || null)}
+              />
+            )}
           </CardContent>
         </Card>
       </div>

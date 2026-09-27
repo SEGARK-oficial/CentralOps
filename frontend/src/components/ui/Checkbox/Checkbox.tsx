@@ -122,7 +122,14 @@ const Checkbox = forwardRef<HTMLInputElement, CheckboxProps>(
             onChange={onChange}
             // Cobre toda a área do quadrado para que o clique/foco funcione,
             // mas mantemos opacity-0 — a UI é desenhada em volta.
-            className="absolute inset-0 h-full w-full cursor-inherit opacity-0 disabled:cursor-not-allowed"
+            // A11Y-20: `sm` é 16px (h-4 w-4), abaixo do alvo mínimo de 24px.
+            // `-inset-1` estende a área CLICÁVEL/tocável 4px além da caixa
+            // visual (16+4+4=24) sem aumentar o quadrado desenhado — preserva
+            // a densidade visual que o `sm` existe pra dar.
+            className={cn(
+              "absolute h-full w-full cursor-inherit opacity-0 disabled:cursor-not-allowed",
+              size === "sm" ? "-inset-1" : "inset-0",
+            )}
             aria-checked={indeterminate ? "mixed" : checked ? "true" : "false"}
             aria-label={!label && ariaLabel ? ariaLabel : undefined}
             aria-describedby={describedBy}

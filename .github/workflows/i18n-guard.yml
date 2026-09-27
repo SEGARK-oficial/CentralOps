@@ -11,6 +11,9 @@ on:
       - "frontend/src/i18n/**"
       - "frontend/src/**/*.tsx"
       - "frontend/scripts/check-i18n.mjs"
+      - "frontend/scripts/check-i18n-literals.mjs"
+      - "frontend/scripts/lib/i18n-literals-core.mjs"
+      - "frontend/scripts/i18n-literals-baseline.json"
   push:
     branches: [main]
     paths:
@@ -57,3 +60,9 @@ jobs:
       - name: Check i18n catalogs
         working-directory: frontend
         run: node scripts/check-i18n.mjs
+      # R2-9.3: catraca de literais PT fora do t() (JSX + aria-label/title/
+      # placeholder/alt). Baseline versionado em scripts/i18n-literals-
+      # baseline.json — falha só quando aparece assinatura NOVA.
+      - name: Check PT literal ratchet
+        working-directory: frontend
+        run: node scripts/check-i18n-literals.mjs

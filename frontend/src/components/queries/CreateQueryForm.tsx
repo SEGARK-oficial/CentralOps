@@ -3,6 +3,8 @@
 import type React from "react"
 import { useEffect, useState } from "react"
 import { CodeIcon, FileTextIcon, Link2Icon, PlusIcon, XIcon } from "lucide-react"
+import { useTranslation } from "react-i18next"
+import type { TFunction } from "i18next"
 import * as api from "@/services/api"
 import { useForm } from "@/hooks/useForm"
 import { Button } from "@/components/ui/Button/Button"
@@ -21,9 +23,9 @@ import type {
 import {
   DEFAULT_QUERY_FINDING_SHAPE,
   DEFAULT_QUERY_SEVERITY,
-  QUERY_FINDING_SHAPE_HELP,
-  QUERY_FINDING_SHAPE_OPTIONS,
-  QUERY_SEVERITY_OPTIONS,
+  getQueryFindingShapeHelp,
+  getQueryFindingShapeOptions,
+  getQuerySeverityOptions,
 } from "./queryOptions"
 
 interface CreateQueryFormProps {
@@ -45,32 +47,35 @@ const initialValues: CreateQueryRequest = {
   finding_shape: DEFAULT_QUERY_FINDING_SHAPE,
 }
 
-const SPEC_KIND_OPTIONS = [
-  { value: "", label: "Padrão (passthrough)" },
-  { value: "passthrough", label: "Passthrough" },
-  { value: "sigma", label: "Sigma" },
-]
+function getSpecKindOptions(t: TFunction) {
+  return [
+    { value: "", label: t("queries:shared.specKindDefault") },
+    { value: "passthrough", label: t("queries:shared.specKindPassthrough") },
+    { value: "sigma", label: t("queries:shared.specKindSigma") },
+  ]
+}
 
-const validateForm = (values: CreateQueryRequest) => {
+const validateForm = (t: TFunction, values: CreateQueryRequest) => {
   const errors: Partial<Record<keyof CreateQueryRequest, string>> = {}
 
   if (!values.title.trim()) {
-    errors.title = "Título é obrigatório"
+    errors.title = t("queries:validation.titleRequired")
   } else if (values.title.trim().length < 3) {
-    errors.title = "Use pelo menos 3 caracteres"
+    errors.title = t("queries:validation.titleMinLength")
   }
 
   if (!values.statement.trim()) {
-    errors.statement = "A consulta SQL é obrigatória"
+    errors.statement = t("queries:validation.statementRequired")
   }
 
   return errors
 }
 
 export const CreateQueryForm: React.FC<CreateQueryFormProps> = ({ clients, onSubmit, onCancel, loading = false }) => {
-  const { values, errors, touched, handleChange, handleBlur, handleSubmit, setFieldValue, isSubmitting } = useForm({
+  const { t } = useTranslation("queries")
+  const { values, errors, touched, handleChange, handleBlur, handleSubmit, setFieldValue, isSubmitting, submitError, registerField } = useForm({
     initialValues,
-    validate: validateForm,
+    validate: (v) => validateForm(t, v),
     onSubmit,
   })
 
@@ -85,7 +90,7 @@ export const CreateQueryForm: React.FC<CreateQueryFormProps> = ({ clients, onSub
   }, [])
 
   const dialectOptions = [
-    { value: "", label: "Sem dialeto específico" },
+    { value: "", label: t("queries:shared.dialectPlaceholder") },
     ...capabilities.map((cap) => ({
       value: cap.dialect,
       label: cap.dialect,
@@ -93,15 +98,27 @@ export const CreateQueryForm: React.FC<CreateQueryFormProps> = ({ clients, onSub
   ]
 
   const formBusy = loading || isSubmitting
+  const specKindOptions = getSpecKindOptions(t)
+  const severityOptions = getQuerySeverityOptions(t)
+  const findingShapeOptions = getQueryFindingShapeOptions(t)
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5" noValidate>
+      {/* useForm: rede de segurança — se `onSubmit` rejeitar sem o chamador
+          tratar o próprio erro, isto garante que ALGO aparece na tela em vez
+          de só um console.error mudo. */}
+      {submitError && (
+        <Notice variant="danger" title={t("queries:form.submitErrorFallback")} live="assertive">
+          {submitError}
+        </Notice>
+      )}
       <div className="grid gap-4 md:grid-cols-2">
         <div className="md:col-span-2">
           <Input
+            ref={registerField("title")}
             name="title"
-            label="Título da query"
-            placeholder="Ex: Processos suspeitos via PowerShell"
+            label={t("queries:createForm.titleLabel")}
+            placeholder={t("queries:createForm.titlePlaceholder")}
             value={values.title}
             onChange={handleChange}
             onBlur={handleBlur}
@@ -115,8 +132,8 @@ export const CreateQueryForm: React.FC<CreateQueryFormProps> = ({ clients, onSub
         <div className="md:col-span-2">
           <Input
             name="description"
-            label="Descrição"
-            placeholder="Contexto, objetivo ou análise esperada"
+            label={t("queries:createForm.descriptionLabel")}
+            placeholder={t("queries:createForm.descriptionPlaceholder")}
             value={values.description}
             onChange={handleChange}
             onBlur={handleBlur}
@@ -128,15 +145,16 @@ export const CreateQueryForm: React.FC<CreateQueryFormProps> = ({ clients, onSub
 
         <div className="md:col-span-2">
           <Textarea
+            ref={registerField("statement")}
             id="create-query-statement"
             name="statement"
-            label="Query SQL"
-            placeholder="SELECT * FROM xdr_data WHERE process_name = 'cmd.exe' LIMIT 100"
+            label={t("queries:createForm.statementLabel")}
+            placeholder={t("queries:createForm.statementPlaceholder")}
             value={values.statement}
             onChange={handleChange}
             onBlur={handleBlur}
             error={touched.statement ? errors.statement : undefined}
-            helperText="Essa consulta pode ser reutilizada na tela de busca e em agendamentos."
+            helperText={t("queries:createForm.statementHelper")}
             required
             rows={7}
             disabled={formBusy}
@@ -145,7 +163,7 @@ export const CreateQueryForm: React.FC<CreateQueryFormProps> = ({ clients, onSub
 
         <div className="md:col-span-2">
           <Select
-            label="Clientes padrão"
+            label={t("queries:shared.clientsLabel")}
             multiple
             options={clients.map((client) => ({
               value: client.id,
@@ -153,73 +171,73 @@ export const CreateQueryForm: React.FC<CreateQueryFormProps> = ({ clients, onSub
             }))}
             value={values.client_ids || []}
             onChange={(value) => setFieldValue("client_ids", Array.isArray(value) ? value.map(Number) : [])}
-            placeholder="Selecione clientes para pré-preencher essa query"
-            helperText="Opcional. Ajuda a abrir a consulta com tenants já selecionados."
+            placeholder={t("queries:createForm.clientsPlaceholder")}
+            helperText={t("queries:createForm.clientsHelper")}
             disabled={formBusy}
           />
         </div>
 
         <div>
           <Select
-            label="Dialeto (opcional)"
+            label={t("queries:shared.dialectLabel")}
             options={dialectOptions}
             value={values.dialect ?? ""}
             onChange={(value) =>
               setFieldValue("dialect", value === "" ? undefined : (value as QueryDialect))
             }
-            placeholder="Sem dialeto específico"
-            helperText="Dialeto de query suportado pela plataforma (ex.: opensearch_dsl, fql)."
+            placeholder={t("queries:shared.dialectPlaceholder")}
+            helperText={t("queries:createForm.dialectHelper")}
             disabled={formBusy || capabilities.length === 0}
           />
         </div>
 
         <div>
           <Select
-            label="Spec kind (opcional)"
-            options={SPEC_KIND_OPTIONS}
+            label={t("queries:shared.specKindLabel")}
+            options={specKindOptions}
             value={values.spec_kind ?? ""}
             onChange={(value) =>
               setFieldValue("spec_kind", value === "" ? undefined : (value as QuerySpecKind))
             }
-            placeholder="Padrão (passthrough)"
-            helperText="passthrough = query literal; sigma = tradução automática via pySigma."
+            placeholder={t("queries:shared.specKindPlaceholder")}
+            helperText={t("queries:shared.specKindHelper")}
             disabled={formBusy}
           />
         </div>
 
         <div>
           <Select
-            label="Severidade do achado"
-            options={QUERY_SEVERITY_OPTIONS}
+            label={t("queries:shared.severityLabel")}
+            options={severityOptions}
             value={values.severity_id ?? DEFAULT_QUERY_SEVERITY}
             onChange={(value) => setFieldValue("severity_id", Number(value))}
-            helperText="Vai na Detection e nos eventos enviados aos destinos (PRI do syslog, level da regra)."
+            helperText={t("queries:shared.severityHelper")}
             disabled={formBusy}
           />
         </div>
 
         <div>
           <Select
-            label="Forma do achado nos destinos"
-            options={QUERY_FINDING_SHAPE_OPTIONS}
+            label={t("queries:shared.findingShapeLabel")}
+            options={findingShapeOptions}
             value={values.finding_shape ?? DEFAULT_QUERY_FINDING_SHAPE}
             onChange={(value) => setFieldValue("finding_shape", value as QueryFindingShape)}
-            helperText={QUERY_FINDING_SHAPE_HELP}
+            helperText={getQueryFindingShapeHelp(t)}
             disabled={formBusy}
           />
         </div>
       </div>
 
-      <Notice variant="info" title="Boas práticas de consulta" icon={<CodeIcon size={16} />}>
-        Use filtros específicos e limite de registros para facilitar a leitura e reduzir custo operacional.
+      <Notice variant="info" title={t("queries:createForm.bestPracticesTitle")} icon={<CodeIcon size={16} />}>
+        {t("queries:createForm.bestPracticesBody")}
       </Notice>
 
       <div className="flex flex-wrap justify-end gap-3">
         <Button type="button" variant="outline" onClick={onCancel} disabled={formBusy} leftIcon={<XIcon size={16} />}>
-          Cancelar
+          {t("queries:shared.cancel")}
         </Button>
         <Button type="submit" loading={formBusy} leftIcon={<PlusIcon size={16} />}>
-          Criar query
+          {t("queries:createForm.submit")}
         </Button>
       </div>
     </form>

@@ -1,0 +1,112 @@
+{
+  "detailsDrawer": {
+    "ariaLabel": "Detalhes da detecção",
+    "closeAriaLabel": "Fechar detalhes",
+    "fallbackTitle": "Detecção",
+    "triageErrorTitle": "Falha na triagem",
+    "severity": {
+      "informational": "Informacional",
+      "low": "Baixa",
+      "medium": "Média",
+      "high": "Alta",
+      "critical": "Crítica",
+      "fatal": "Fatal",
+      "unknown": "Sev {{id}}"
+    },
+    "status": {
+      "open": "Aberta",
+      "ack": "Reconhecida",
+      "closed": "Fechada"
+    },
+    "source": {
+      "scheduledQuery": "Query agendada",
+      "liveQuery": "Query live",
+      "correlation": "Correlação"
+    },
+    "sections": {
+      "triage": "Triagem",
+      "identification": "Identificação",
+      "temporal": "Temporal",
+      "context": "Contexto"
+    },
+    "actions": {
+      "ack": "Reconhecer (Ack)",
+      "close": "Fechar",
+      "reopen": "Reabrir"
+    },
+    "fields": {
+      "id": "ID",
+      "organization": "Organização",
+      "dedupKey": "Dedup key",
+      "count": "Contagem",
+      "suppressionWindow": "Janela de supressão",
+      "firstSeen": "Primeira vez vista",
+      "lastSeen": "Última vez vista",
+      "createdAt": "Criado em",
+      "dialect": "Dialeto",
+      "integrationId": "Integration ID",
+      "queryId": "Query ID",
+      "searchResultId": "Search result ID",
+      "ocsfRef": "OCSF ref"
+    }
+  },
+  "list": {
+    "pageEyebrow": "Segurança",
+    "pageTitle": "Detecções",
+    "pageDescription": "Triagem de detecções de 1ª classe geradas por queries agendadas, queries live e regras de correlação.",
+    "filterByStatusAriaLabel": "Filtrar por status",
+    "kpis": {
+      "total": "Total",
+      "open": "Abertas",
+      "ack": "Reconhecidas",
+      "closed": "Fechadas"
+    },
+    "status": {
+      "open": "Abertas",
+      "ack": "Reconhecidas",
+      "closed": "Fechadas"
+    },
+    "feedback": {
+      "triageError": "Falha ao atualizar status da detecção",
+      "loadError": "Falha ao carregar detecções"
+    },
+    "truncatedHint": "Exibindo as {{limit}} mais recentes — pode haver mais. Ajuste o filtro de status para reduzir a lista.",
+    "table": {
+      "ariaLabel": "Lista de detecções",
+      "columns": {
+        "severity": "Severidade",
+        "source": "Fonte",
+        "rule": "Regra",
+        "status": "Status",
+        "occurrences": "Ocorrências",
+        "lastSeen": "Última vez vista"
+      },
+      "rowAriaLabel": "Ver detalhes da detecção {{name}}",
+      "occurrenceCount_one": "{{count}} ocorrência",
+      "occurrenceCount_other": "{{count}} ocorrências",
+      "lastSeenLabel": "Última: {{date}}",
+      "loading": "Carregando detecções...",
+      "emptyTitle": "Nenhuma detecção encontrada",
+      "emptyDescription": "Ajuste o filtro de status ou aguarde novas detecções das queries agendadas e regras de correlação."
+    },
+    "severity": {
+      "informational": "Informacional",
+      "low": "Baixa",
+      "medium": "Média",
+      "high": "Alta",
+      "critical": "Crítica",
+      "fatal": "Fatal",
+      "unknown": "Sev {{id}}"
+    },
+    "source": {
+      "scheduled_query": "Query agendada",
+      "live_query": "Query live",
+      "correlation": "Correlação"
+    },
+    "statusSingular": {
+      "open": "Aberta",
+      "ack": "Reconhecida",
+      "closed": "Fechada"
+    }
+  }
+}

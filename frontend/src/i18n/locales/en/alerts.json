@@ -33,7 +33,12 @@
       "downloadFailedTitle": "Download failed",
       "loadFailedTitle": "Error loading history",
       "auditExportFailed": "Could not export the audit log to CSV. Please try again.",
-      "searchCsvDownloadFailed": "Could not download the search CSV. Please try again."
+      "searchCsvDownloadFailed": "Could not download the search CSV. Please try again.",
+      "loadHistoryFailed": "Failed to load history",
+      "loadAuditFailed": "Failed to load audit log",
+      "downloadCsvFailed": "Failed to download CSV",
+      "exportAuditFailed": "Failed to export audit log",
+      "adminOnly": "Access restricted to administrators"
     },
     "searches": {
       "description": "Search executed by client and status.",

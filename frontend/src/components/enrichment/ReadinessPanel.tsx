@@ -120,13 +120,13 @@ function Kpi({
           : "text-text"
   return (
     <div className="rounded-lg border border-border bg-surface p-3">
-      <p className="text-[11px] font-semibold uppercase tracking-wide text-muted">
+      <p className="text-[11px] font-semibold uppercase tracking-wide text-text-tertiary">
         {label}
       </p>
       {/* `tabular-nums` para os quatro números alinharem entre si mesmo
           mudando de largura a cada recarga. */}
       <p className={`mt-1 font-mono text-2xl tabular-nums ${color}`}>{value}</p>
-      {hint ? <p className="text-xs text-muted">{hint}</p> : null}
+      {hint ? <p className="text-xs text-text-tertiary">{hint}</p> : null}
     </div>
   )
 }
@@ -318,7 +318,7 @@ export const ReadinessPanel: React.FC<Props> = ({
                   <StepIcon status={step.status} />
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-medium">{step.title}</p>
-                    <p className="text-xs text-muted">{step.detail}</p>
+                    <p className="text-xs text-text-tertiary">{step.detail}</p>
                   </div>
                   {step.action && (
                     <div className="flex shrink-0 flex-col items-end gap-1">
@@ -330,7 +330,7 @@ export const ReadinessPanel: React.FC<Props> = ({
                         {step.action.label}
                       </Button>
                       {step.action.scope === "global" && (
-                        <span className="text-[10px] text-muted">
+                        <span className="text-[10px] text-text-tertiary">
                           {t("readiness.globalScope")}
                         </span>
                       )}
@@ -352,7 +352,7 @@ export const ReadinessPanel: React.FC<Props> = ({
                 </Badge>
               </div>
               {metrics.length === 0 ? (
-                <p className="text-sm text-muted">{t("execution.noRules")}</p>
+                <p className="text-sm text-text-tertiary">{t("execution.noRules")}</p>
               ) : (
                 <>
                   <div className="flex flex-wrap gap-2">
@@ -378,7 +378,7 @@ export const ReadinessPanel: React.FC<Props> = ({
                             {silent ? (
                               <Badge variant="default">{t("execution.silent")}</Badge>
                             ) : (
-                              <span className="shrink-0 text-muted">
+                              <span className="shrink-0 text-text-tertiary">
                                 {pct(m.hit, total)} {t("execution.hit")}
                               </span>
                             )}
@@ -417,7 +417,7 @@ export const ReadinessPanel: React.FC<Props> = ({
                 {t("readiness.recentFailures", { count: entries.length })}
               </h3>
               {entries.length === 0 ? (
-                <p className="text-sm text-muted">{t("execution.noFailures")}</p>
+                <p className="text-sm text-text-tertiary">{t("execution.noFailures")}</p>
               ) : (
                 <ul className="divide-y divide-border">
                   {entries.slice(0, 5).map((e, i) => (
@@ -425,7 +425,7 @@ export const ReadinessPanel: React.FC<Props> = ({
                       <div className="flex flex-wrap items-center gap-2 text-xs">
                         <span className="font-mono">{e.rule_id ?? "-"}</span>
                         <Badge variant="default">{t(`execution.kind.${e.kind}`)}</Badge>
-                        {e.source && <span className="text-muted">{e.source}</span>}
+                        {e.source && <span className="text-text-tertiary">{e.source}</span>}
                       </div>
                       {/* A mensagem do provedor é o que permite agir sem abrir
                           log de worker. */}

@@ -1,6 +1,6 @@
 import type React from "react"
 import { useCallback, useEffect, useMemo, useState } from "react"
-import { useNavigate } from "react-router-dom"
+import { Link } from "react-router-dom"
 import { useTranslation } from "react-i18next"
 import {
   SendIcon,
@@ -80,15 +80,17 @@ const DestinationStatusBadge: React.FC<{
 
 function kindIcon(kind: string): React.ReactNode {
   return (
-    <span className="inline-flex h-5 w-5 items-center justify-center rounded bg-white ring-1 ring-black/5">
+    <span className="inline-flex h-5 w-5 items-center justify-center rounded bg-white ring-1 ring-border">
       {kindToIcon(kind, 14)}
     </span>
   )
 }
 
 const DestinationsPage: React.FC = () => {
-  const { t } = useTranslation("routing")
-  const navigate = useNavigate()
+  // R3-8.1: o modal de criação renderiza `DestinationTypeGallery`/
+  // `DestinationForm` (ns `destinations`) — declarar aqui carrega o namespace
+  // junto da rota, então abrir o modal não suspende mais nada.
+  const { t } = useTranslation(["routing", "destinations"])
 
   // ── Opções de filtro ────────────────────────────────────────────────────
   const ENABLED_OPTIONS = useMemo(
@@ -290,7 +292,7 @@ const DestinationsPage: React.FC = () => {
 
       {feedback && (
         <Notice
-          variant={feedback.type === "success" ? "success" : "danger"}
+          variant={feedback.type === "success" ? "success" : "danger"} live={feedback.type === "error" ? "assertive" : undefined}
           title={feedback.type === "success" ? t("destinationsPage.feedbackSuccessTitle") : t("destinationsPage.feedbackErrorTitle")}
         >
           {feedback.message}
@@ -306,7 +308,7 @@ const DestinationsPage: React.FC = () => {
           { label: t("destinationsPage.kpiWithCredential"), value: kpis.comCredencial },
         ].map((k) => (
           <Card key={k.label} padding="md">
-            <div className="text-2xl font-semibold text-text">{k.value}</div>
+            <div className="font-display text-2xl font-semibold tabular-nums text-text">{k.value}</div>
             <div className="text-xs uppercase tracking-wide text-text-tertiary">{k.label}</div>
           </Card>
         ))}
@@ -419,13 +421,11 @@ const DestinationsPage: React.FC = () => {
                 </div>
               </div>
               <div className="flex flex-wrap gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => navigate(`/destinations/${dest.id}`)}
-                  leftIcon={<EyeIcon size={14} />}
-                >
-                  {t("destinationsPage.detailsAction")}
+                {/* A11Y-41: era <Button onClick={navigate}> — vira link de
+                    verdade (Cmd/Ctrl+clique abre em nova aba, aparece na
+                    barra de status, funciona sem JS). */}
+                <Button variant="outline" size="sm" leftIcon={<EyeIcon size={14} />} asChild>
+                  <Link to={`/destinations/${dest.id}`}>{t("destinationsPage.detailsAction")}</Link>
                 </Button>
                 <Button
                   variant="outline"

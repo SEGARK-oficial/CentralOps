@@ -76,6 +76,17 @@ describe("EditionContext / useEdition", () => {
     expect(screen.getByTestId("error").textContent).toMatch(/network down/)
   })
 
+  it("R2-6.11: rejeição sem .message (não-Error) usa a mensagem traduzida, não PT fixo", async () => {
+    mockedApi.getEdition.mockRejectedValue("network down")
+    render(
+      <EditionProvider>
+        <Probe />
+      </EditionProvider>,
+    )
+    await waitFor(() => expect(screen.getByTestId("edition").textContent).toBe("community"))
+    expect(screen.getByTestId("error").textContent).toBe("Falha ao carregar a edição")
+  })
+
   it("Starter expõe max_organizations=1", async () => {
     mockedApi.getEdition.mockResolvedValue({
       edition: "enterprise",

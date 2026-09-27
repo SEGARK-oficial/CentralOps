@@ -1,0 +1,58 @@
+name: frontend CI
+
+# Typecheck + suíte vitest da SPA. Até aqui NENHUM job rodava os testes do
+# frontend: o `ci.yml` só builda a imagem (que agora herda o `tsc` via
+# `npm run build`) e o `i18n-guard.yml` só confere catálogos. Os ~2.200 testes
+# de componente (foco/teclado dos primitivos, guard de tokens de cor fantasmas,
+# encode de path do api.ts) eram verdes por ausência. Rápido, sem Docker.
+
+on:
+  pull_request:
+    paths:
+      - "frontend/**"
+      - ".github/workflows/frontend-ci.yml"
+  push:
+    branches: [main]
+    paths:
+      - "frontend/**"
+  workflow_dispatch:
+
+concurrency:
+  group: frontend-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Typecheck + vitest (SPA)
+    runs-on: ${{ fromJSON(github.event.pull_request.head.repo.fork && '["ubuntu-latest"]' || '["self-hosted","Linux","X64"]') }}
+    timeout-minutes: 20
+    steps:
+      # Mesmo preflight dos outros workflows: um container que rodou como ROOT
+      # pode deixar arquivo no workspace que o checkout (github-runner) não
+      # apaga. INLINE porque uma action local só existe depois do checkout.
+      - name: Preflight do runner (posse do workspace)
+        if: runner.environment == 'self-hosted'
+        run: |
+          if sudo -n true 2>/dev/null; then
+            sudo chown -R "$(id -u):$(id -g)" "$GITHUB_WORKSPACE" 2>/dev/null || true
+          else
+            echo "::warning title=sudo sem senha ausente::O usuario '$(id -un)' em $(hostname) nao tem NOPASSWD; o chown do workspace nao roda."
+          fi
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "20"
+      - name: Instalar dependências
+        working-directory: frontend
+        run: npm ci --no-audit --no-fund
+      - name: Typecheck (app + testes)
+        working-directory: frontend
+        run: npm run typecheck
+      - name: Lint (react-hooks/rules-of-hooks, no-script-url)
+        working-directory: frontend
+        run: npm run lint
+      # vitest sai com código 1 quando não encontra nenhum teste: seleção vazia
+      # não vira verde.
+      - name: Testes (vitest)
+        working-directory: frontend
+        run: npx vitest run src

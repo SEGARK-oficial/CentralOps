@@ -79,8 +79,11 @@ export const UserMenu: React.FC = () => {
     }
   }
 
+  // A11Y-12: o outline padrão (offset positivo) seria cortado pelo
+  // `overflow-hidden` do painel do menu — outline INSET (offset negativo)
+  // continua visível (contraste WCAG) sem depender só da mudança de fundo.
   const itemClass =
-    "flex w-full items-center gap-2.5 px-3 py-2 text-sm text-text transition-colors hover:bg-surface-tertiary focus:bg-surface-tertiary focus:outline-none"
+    "flex w-full items-center gap-2.5 px-3 py-2 text-sm text-text transition-colors hover:bg-surface-tertiary focus:bg-surface-tertiary focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary-500"
 
   // UserMenu só renderiza dentro do shell autenticado; guarda para o TS e robustez.
   if (!user) return null
@@ -118,6 +121,10 @@ export const UserMenu: React.FC = () => {
       </button>
 
       {open && (
+        // Padrão APG de menu: o CONTAINER captura as setas (roving tabindex
+        // nos <button role="menuitem"> filhos) — o próprio menu não precisa
+        // ser um tab-stop.
+        // eslint-disable-next-line jsx-a11y/interactive-supports-focus
         <div
           ref={menuRef}
           id={menuId}

@@ -1,7 +1,96 @@
-@import url("https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&display=swap");
-@import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&display=swap");
-@import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&display=swap");
+/* R2-6.2: self-host via @fontsource — SOC air-gapped não pode depender de
+   fonts.googleapis.com (o console precisa renderizar sem saída pra
+   internet), e evita vazar IP/UA do operador pro Google a cada carregamento.
+   Bônus: some o round-trip cross-origin (CSS externo → descobre os .woff2 →
+   baixa) que causava CLS quando a rede era lenta. Só os pesos realmente
+   usados (mesmos da antiga URL do Google Fonts: Archivo 500/600/700, IBM
+   Plex Sans 400/500/600, IBM Plex Mono 400/500/600) — cada arquivo já
+   embute `font-display: swap`. Substitui o <link> do Google Fonts que
+   existia em index.html (LAY-11, revertido aqui pelo R2-6.2). */
+@import "@fontsource/archivo/500.css";
+@import "@fontsource/archivo/600.css";
+@import "@fontsource/archivo/700.css";
+@import "@fontsource/ibm-plex-sans/400.css";
+@import "@fontsource/ibm-plex-sans/500.css";
+@import "@fontsource/ibm-plex-sans/600.css";
+@import "@fontsource/ibm-plex-mono/400.css";
+@import "@fontsource/ibm-plex-mono/500.css";
+@import "@fontsource/ibm-plex-mono/600.css";
 @import "tailwindcss";
+
+/* R3-6.3: fallback de métrica ajustada — `font-display: swap` (embutido em
+   cada import acima) evita o texto invisível, mas ainda troca de fonte no
+   meio do carregamento (FOIT→FOUT): sem isso, o fallback do sistema tem
+   largura média de caractere e altura de linha DIFERENTES da webfont real,
+   e a troca reflui parágrafo inteiro (CLS).
+
+   `size-adjust`/`ascent-override`/`descent-override`/`line-gap-override`
+   fazem o fallback ocupar a MESMA caixa que a webfont vai ocupar depois,
+   então a troca troca só o traço da letra, não o layout.
+
+   Números CALCULADOS nesta rodada a partir de arquivo REAL, não copiados de
+   tabela de terceiros:
+     - webfont: unitsPerEm/hhea.ascent/hhea.descent/OS2.xAvgCharWidth lidos
+       via `fonttools` de `node_modules/@fontsource/{archivo,ibm-plex-sans,
+       ibm-plex-mono}/files/*-600-normal.woff2` / `*-400-normal.woff2`
+       (peso amostrado: Archivo 600, Plex Sans/Mono 400 — os pesos irmãos da
+       mesma família têm o mesmo hhea/hor, a variação relevante é de peso
+       visual, não de métrica vertical);
+     - fallback: mesmas métricas lidas de `Arial.ttf` e `Courier New.ttf`
+       reais, de `/System/Library/Fonts/Supplemental/` (macOS).
+   Fórmulas:
+     size-adjust       = (xAvgCharWidth/upm da webfont) / (xAvgCharWidth/upm do fallback)
+                          — iguala a LARGURA MÉDIA de caractere renderizada,
+                          a maior causa de reflow horizontal na troca de fonte.
+     ascent-override   = (hhea.ascent/upm da webfont) / size-adjust
+     descent-override  = (|hhea.descent|/upm da webfont) / size-adjust
+     line-gap-override = (hhea.lineGap/upm da webfont) / size-adjust
+                          — depois do size-adjust escalar o fallback, essas
+                          três fecham a altura de linha com a da webfont real.
+
+   R4-6.4: acrescentei `local("Liberation Sans")`/`local("DejaVu Sans")` e
+   `local("Liberation Mono")`/`local("DejaVu Sans Mono")` — máquina sem
+   licença da Microsoft (a maioria das distros Linux, incl. os agentes
+   headless que rodam este console) não tem Arial/Courier New instalados, e
+   caía direto pro fallback GENÉRICO do navegador, sem NENHUMA correção de
+   métrica.
+     - Liberation Sans/Mono são desenhadas para serem metricamente IDÊNTICAS a
+       Arial/Courier New (esse é o objetivo declarado do projeto Liberation) —
+       confirmado aqui lendo o arquivo real (`fonttools`, mesma amostra do
+       macOS): hhea ascent/descent/lineGap batem exato (1854/-434/67 e
+       1705/-615/0). Os overrides calculados acima pro par Arial/Courier New
+       valem sem perda pra este par.
+     - DejaVu Sans/Sans Mono têm métrica REALMENTE diferente (hhea
+       1901/-483/0 nos dois — mais alta que Arial/Courier New) — não há como
+       um único `size-adjust` por `@font-face` acertar os dois fallbacks ao
+       mesmo tempo. Ficam como APROXIMAÇÃO documentada (3º/4º da lista de
+       `local()`, o navegador só usa se os dois primeiros faltarem). */
+@font-face {
+  font-family: "Archivo Fallback";
+  src: local("Arial"), local("Liberation Sans"), local("Helvetica"), local("DejaVu Sans");
+  size-adjust: 119.62%;
+  ascent-override: 73.4%;
+  descent-override: 17.56%;
+  line-gap-override: 0%;
+}
+
+@font-face {
+  font-family: "IBM Plex Sans Fallback";
+  src: local("Arial"), local("Liberation Sans"), local("Helvetica"), local("DejaVu Sans");
+  size-adjust: 120.75%;
+  ascent-override: 84.89%;
+  descent-override: 22.77%;
+  line-gap-override: 0%;
+}
+
+@font-face {
+  font-family: "IBM Plex Mono Fallback";
+  src: local("Courier New"), local("Liberation Mono"), local("Menlo"), local("DejaVu Sans Mono");
+  size-adjust: 99.98%;
+  ascent-override: 102.52%;
+  descent-override: 27.5%;
+  line-gap-override: 0%;
+}
 
 /*
  * CentralOps — console.
@@ -42,9 +131,9 @@
   /* Archivo só onde precisa de voz: título de página e número grande.
      Plex Sans faz o trabalho. Plex Mono leva TODO número, id e rótulo — é o
      que dá a leitura de painel de instrumento (e o tabular alinha coluna). */
-  --font-display: "Archivo", "IBM Plex Sans", system-ui, sans-serif;
-  --font-sans: "IBM Plex Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  --font-mono: "IBM Plex Mono", "JetBrains Mono", monospace;
+  --font-display: "Archivo", "Archivo Fallback", "IBM Plex Sans", "IBM Plex Sans Fallback", system-ui, sans-serif;
+  --font-sans: "IBM Plex Sans", "IBM Plex Sans Fallback", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-mono: "IBM Plex Mono", "IBM Plex Mono Fallback", "JetBrains Mono", monospace;
 
   /* ── Escala primary = violeta (estágio "normalizado") ──
      Ordem INVERTIDA em relação a uma escala de tema claro: 50-200 são
@@ -116,7 +205,12 @@
 
   --ink: oklch(0.975 0.005 265);
   --ink-2: oklch(0.795 0.017 265);
-  --ink-3: oklch(0.655 0.019 265);
+  /* A11Y-39: L=0.655 dava só 4.43:1 sobre --panel-raised (abaixo do 4.5:1 da
+     WCAG AA para texto normal — `text-text-tertiary` some, ex., no
+     `--ink-3` de rótulo mono/hint dentro de card elevado). L=0.67 mede
+     4.69:1 sobre --panel-raised (oklch 0.292) e 5.32:1 sobre --panel (oklch
+     0.252) — clareia sem mudar a leitura de "terciário, mais apagado". */
+  --ink-3: oklch(0.67 0.019 265);
 
   --line: oklch(1 0 0 / 9%);
   --line-strong: oklch(1 0 0 / 16%);
@@ -153,11 +247,16 @@
   --color-border: var(--line);
   /* Campo de formulário é CONTROLE: a WCAG 1.4.11 pede 3:1 no limite visual, e
      a hairline de 9% dá 1.31:1. Este token é só para Input/Textarea/Select/
-     Checkbox — a borda decorativa de card continua em 9%. */
-  --color-border-field: oklch(1 0 0 / 34%);
-  /* O hover do campo precisa subir a partir dos 34%, não do 9% decorativo:
+     Checkbox — a borda decorativa de card continua em 9%.
+     R2-6.10: 34% media 2.88:1 contra --panel e 2.70:1 contra --ground —
+     abaixo do mínimo. 40% mede (composição branco-alfa sobre sRGB, WCAG
+     relative luminance) ~3.7:1 contra --panel e ~3.8:1 contra --ground —
+     folga confortável acima de 3:1 nos dois fundos onde este token aparece. */
+  --color-border-field: oklch(1 0 0 / 40%);
+  /* O hover do campo precisa subir a partir da base, não do 9% decorativo:
      reaproveitar `--color-border-hover` faria a borda ESCURECER ao passar o
-     mouse, invertendo o sinal. */
+     mouse, invertendo o sinal. 52% continua bem acima dos 40% da base — o
+     hover ainda lê como "mais claro", sem precisar mudar aqui. */
   --color-border-field-hover: oklch(1 0 0 / 52%);
   --color-border-hover: var(--line-strong);
   --color-border-strong: var(--line-strong);

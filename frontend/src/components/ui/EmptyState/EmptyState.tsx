@@ -17,21 +17,30 @@ interface EmptyStateProps {
   description?: string
   action?: React.ReactNode
   className?: string
+  /**
+   * A11Y-33: o `<h3>` fixo furava a hierarquia de headings sempre que o
+   * EmptyState aparecia sem um `<h2>` por perto (ex.: direto sob o `<h1>`
+   * da página). Padrão `3` preserva o comportamento atual.
+   */
+  headingLevel?: 2 | 3 | 4
 }
 
-export const EmptyState: React.FC<EmptyStateProps> = ({ icon, title, description, action, className }) => (
-  <div className={cn("flex flex-col items-center justify-center gap-3 px-6 py-10 text-center", className)}>
-    <div className="flex items-center gap-2">
-      {icon && (
-        <span className="text-text-tertiary [&_svg]:h-4 [&_svg]:w-4" aria-hidden="true">
-          {icon}
-        </span>
-      )}
-      <h3 className="text-sm font-medium text-text">{title}</h3>
+export const EmptyState: React.FC<EmptyStateProps> = ({ icon, title, description, action, className, headingLevel = 3 }) => {
+  const Heading = `h${headingLevel}` as "h2" | "h3" | "h4"
+  return (
+    <div className={cn("flex flex-col items-center justify-center gap-3 px-6 py-10 text-center", className)}>
+      <div className="flex items-center gap-2">
+        {icon && (
+          <span className="text-text-tertiary [&_svg]:h-4 [&_svg]:w-4" aria-hidden="true">
+            {icon}
+          </span>
+        )}
+        <Heading className="text-sm font-medium text-text">{title}</Heading>
+      </div>
+      {description && <p className="max-w-sm text-xs leading-relaxed text-text-tertiary">{description}</p>}
+      {action}
     </div>
-    {description && <p className="max-w-sm text-xs leading-relaxed text-text-tertiary">{description}</p>}
-    {action}
-  </div>
-)
+  )
+}
 
 export default EmptyState

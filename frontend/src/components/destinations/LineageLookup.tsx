@@ -10,6 +10,7 @@
 
 import type React from "react"
 import { useState } from "react"
+import { useTranslation } from "react-i18next"
 import { SearchIcon, RouteIcon } from "lucide-react"
 import * as api from "@/services/api"
 import { Button } from "@/components/ui/Button/Button"
@@ -33,6 +34,7 @@ function fmtEpoch(ts: number): string {
 // ── Componente ────────────────────────────────────────────────────────────────
 
 export const LineageLookup: React.FC<LineageLookupProps> = ({ destinationId }) => {
+  const { t } = useTranslation("destinations")
   const [eventId, setEventId] = useState("")
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -50,7 +52,7 @@ export const LineageLookup: React.FC<LineageLookupProps> = ({ destinationId }) =
       const data = await api.getDestinationLineage(destinationId, trimmed)
       setResult(data)
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Falha ao buscar lineage.")
+      setError(err instanceof Error ? err.message : t("lineageLookup.errorFallback"))
     } finally {
       setLoading(false)
     }
@@ -62,13 +64,13 @@ export const LineageLookup: React.FC<LineageLookupProps> = ({ destinationId }) =
     <div className="space-y-4" data-testid="lineage-lookup">
       <div className="flex items-center gap-2">
         <RouteIcon size={16} className="text-text-tertiary" aria-hidden="true" />
-        <h4 className="text-sm font-semibold text-text">Rastreio de evento (lineage)</h4>
+        <h4 className="text-sm font-semibold text-text">{t("lineageLookup.title")}</h4>
       </div>
 
-      <form onSubmit={handleSearch} className="flex gap-2" role="search" aria-label="Buscar lineage do evento">
+      <form onSubmit={handleSearch} className="flex gap-2" role="search" aria-label={t("lineageLookup.formAriaLabel")}>
         <div className="flex flex-1 flex-col gap-1">
           <label htmlFor="lineage-event-id" className="sr-only">
-            ID do evento
+            {t("lineageLookup.eventIdLabelSr")}
           </label>
           <div className="relative flex-1">
             <div className="absolute left-3 top-1/2 -translate-y-1/2 text-text-tertiary pointer-events-none" aria-hidden="true">
@@ -79,14 +81,14 @@ export const LineageLookup: React.FC<LineageLookupProps> = ({ destinationId }) =
               type="text"
               value={eventId}
               onChange={(e) => setEventId(e.target.value)}
-              placeholder="Cole o event_id aqui"
+              placeholder={t("lineageLookup.eventIdPlaceholder")}
               aria-describedby={helperId}
-              className="w-full h-9 pl-9 pr-3 text-sm rounded-md border border-border bg-surface text-text placeholder:text-text-tertiary transition-colors focus-ring"
+              className="w-full h-9 pl-9 pr-3 text-sm rounded-md border border-border-field bg-surface-tertiary text-text placeholder:text-text-tertiary transition-colors hover:border-border-field-hover focus-ring"
               data-testid="lineage-event-id-input"
             />
           </div>
           <p id={helperId} className="text-xs text-text-tertiary">
-            Localiza entregas registradas para este event_id neste destino.
+            {t("lineageLookup.eventIdHelp")}
           </p>
         </div>
         <Button
@@ -98,13 +100,13 @@ export const LineageLookup: React.FC<LineageLookupProps> = ({ destinationId }) =
           data-testid="lineage-search-btn"
           className="self-start mt-0"
         >
-          Buscar
+          {t("lineageLookup.searchButton")}
         </Button>
       </form>
 
       {/* Carregando */}
       {loading && (
-        <div role="status" aria-label="Buscando lineage…" className="space-y-2">
+        <div role="status" aria-label={t("lineageLookup.loadingAriaLabel")} className="space-y-2">
           <Skeleton className="h-10 w-full" />
           <Skeleton className="h-10 w-full" />
         </div>
@@ -112,7 +114,9 @@ export const LineageLookup: React.FC<LineageLookupProps> = ({ destinationId }) =
 
       {/* Erro */}
       {error && !loading && (
-        <Notice variant="danger" title="Falha na busca">
+        // R2-8.2: reação direta ao clique em "Buscar" — mantém assertive
+        // explícito (o padrão do Notice virou polite).
+        <Notice variant="danger" title={t("lineageLookup.errorTitle")} live="assertive">
           {error}
         </Notice>
       )}
@@ -122,7 +126,8 @@ export const LineageLookup: React.FC<LineageLookupProps> = ({ destinationId }) =
         <div className="space-y-3" data-testid="lineage-result">
           {result.entries.length === 0 ? (
             <p className="text-sm text-text-tertiary">
-              Nenhuma entrega registrada para <code className="font-mono">{result.event_id}</code> neste destino.
+              {t("lineageLookup.noResultsPrefix")} <code className="font-mono">{result.event_id}</code>{" "}
+              {t("lineageLookup.noResultsSuffix")}
             </p>
           ) : (
             <>

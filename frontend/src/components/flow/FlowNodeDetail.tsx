@@ -9,7 +9,7 @@
  * Para destinos: exibe bytes_per_min + últimos eventos via getDestinationTap.
  */
 import type React from "react"
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useId, useRef, useState } from "react"
 import { createPortal } from "react-dom"
 import { useTranslation } from "react-i18next"
 import { XIcon, ActivityIcon, DatabaseIcon, NetworkIcon, ServerIcon } from "lucide-react"
@@ -21,6 +21,14 @@ import { fmtRate } from "@/lib/fmt"
 import { cn, formatBytes, formatRelativeDate } from "@/lib/utils"
 import type { FlowNodeId } from "./FlowCanvas"
 import type { DestinationTap } from "@/types"
+import {
+  isTopmostDialog,
+  lockBodyScroll,
+  nextDialogOrder,
+  registerOpenDialog,
+  unlockBodyScroll,
+  unregisterOpenDialog,
+} from "@/components/ui/internal/dialogStack"
 
 interface FlowNodeDetailProps {
   node: FlowNodeId | null
@@ -67,6 +75,29 @@ export const FlowNodeDetail: React.FC<FlowNodeDetailProps> = ({ node, onClose })
 
   const open = node !== null
 
+  // R2-6.8: registra na pilha compartilhada de diálogos (a mesma que
+  // Modal/Drawer/ConfirmDialog usam) — sem isso, um ConfirmDialog aberto POR
+  // CIMA deste painel (ex.: ao excluir algo a partir do detalhe de um nó)
+  // reagiria ao MESMO Escape que este painel, fechando os dois juntos; e o
+  // `document.body.style.overflow` era setado/limpo direto, sem contador —
+  // fechar este painel destravava o scroll mesmo com outro diálogo ainda
+  // aberto por baixo/por cima.
+  const dialogId = useId()
+  const [dialogOrder] = useState(() => nextDialogOrder())
+
+  // A11Y-16: FlowPage passa `onClose={() => setSelectedNode(null)}` inline —
+  // uma identidade NOVA a cada render (inclusive nos polls silenciosos de
+  // 15s do grafo, que rodam com o painel aberto). Se `onClose` entrasse nas
+  // deps do efeito de foco abaixo, ele re-rodaria a CADA poll: reagendaria o
+  // timer de foco inicial e devolveria o foco ao trigger no cleanup, roubando
+  // o foco de dentro do painel enquanto o usuário ainda está nele. Guardamos a
+  // versão atual num ref (mesmo padrão de `Modal.tsx`) e o efeito depende só
+  // de `open`.
+  const onCloseRef = useRef(onClose)
+  useEffect(() => {
+    onCloseRef.current = onClose
+  })
+
   // Focus management
   useEffect(() => {
     if (!open) return
@@ -80,12 +111,16 @@ export const FlowNodeDetail: React.FC<FlowNodeDetailProps> = ({ node, onClose })
       else panel.focus()
     }, 50)
 
-    document.body.style.overflow = "hidden"
+    registerOpenDialog(dialogId, dialogOrder)
+    lockBodyScroll()
 
     const handleKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
+        // Só o diálogo do TOPO da pilha reage — um ConfirmDialog aberto por
+        // cima deste painel não pode fechar os dois no mesmo Escape.
+        if (!isTopmostDialog(dialogOrder)) return
         e.preventDefault()
-        onClose()
+        onCloseRef.current()
         return
       }
       if (e.key !== "Tab") return
@@ -117,10 +152,13 @@ export const FlowNodeDetail: React.FC<FlowNodeDetailProps> = ({ node, onClose })
     return () => {
       window.clearTimeout(timer)
       document.removeEventListener("keydown", handleKey)
-      document.body.style.overflow = ""
+      unregisterOpenDialog(dialogId)
+      unlockBodyScroll()
       previousFocus.current?.focus()
     }
-  }, [open, onClose])
+    // dialogId/dialogOrder são estáveis (useId / useState inicial) — mesmo
+    // padrão de deps do Modal.tsx.
+  }, [open, dialogId, dialogOrder])
 
   // Load tap data for destination nodes
   useEffect(() => {
@@ -306,15 +344,24 @@ export const FlowNodeDetail: React.FC<FlowNodeDetailProps> = ({ node, onClose })
     node.kind === "source" ? t("flow.nodeDetail.kind.source") : node.kind === "route" ? t("flow.nodeDetail.kind.route") : t("flow.nodeDetail.kind.destination")
 
   return createPortal(
-    <div className="fixed inset-0 z-[1040]">
+    // LAY-20: token de z-index (mesmo padrão de Modal/Drawer/CommandPalette),
+    // não o número mágico 1040 solto.
+    <div className="fixed inset-0 z-modal-backdrop">
       {/* Backdrop — token do sistema, não preto solto: no ground ink-blue o
-          preto puro abre um buraco cinza que não pertence à paleta. */}
+          preto puro abre um buraco cinza que não pertence à paleta.
+          `aria-hidden` tira do leitor de tela; Escape é o equivalente por
+          teclado (o clique aqui é só o caminho do mouse). */}
+      {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-noninteractive-element-interactions */}
       <div
         className="absolute inset-0 bg-overlay"
         onClick={onClose}
         aria-hidden="true"
       />
       {/* Panel */}
+      {/* onClick só barra a propagação pro backdrop (não fecha ao clicar
+          dentro do painel) — não é uma interação própria; os controles reais
+          são os filhos (botões, links) deste painel. */}
+      {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-noninteractive-element-interactions */}
       <div
         ref={panelRef}
         className="absolute inset-y-0 right-0 flex w-full flex-col overflow-hidden border-l border-border bg-surface shadow-xl sm:max-w-md"

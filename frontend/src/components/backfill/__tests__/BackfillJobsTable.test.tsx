@@ -48,7 +48,7 @@ function makeJob(overrides: Partial<BackfillJob> = {}): BackfillJob {
 
 function renderTable(
   items: BackfillJob[],
-  opts?: { canWrite?: boolean; isLoading?: boolean; error?: Error | null },
+  opts?: { canWrite?: boolean; isLoading?: boolean; error?: Error | null; total?: number; onRetry?: () => void },
 ) {
   const canWrite = opts?.canWrite ?? true
   mockedUsePermission.mockReturnValue(canWrite)
@@ -56,9 +56,11 @@ function renderTable(
   return render(
     <BackfillJobsTable
       items={items}
+      total={opts?.total}
       isLoading={opts?.isLoading ?? false}
       error={opts?.error ?? null}
       onCancel={vi.fn().mockResolvedValue(makeJob({ status: "cancelled" }))}
+      onRetry={opts?.onRetry}
     />,
   )
 }
@@ -84,9 +86,14 @@ describe("BackfillJobsTable", () => {
     expect(screen.getByText(/Nenhum backfill executado ainda/)).toBeInTheDocument()
   })
 
-  it("exibe LoadingSpinner quando isLoading=true", () => {
+  it("exibe o skeleton do DataTable (não a EmptyState) quando isLoading=true, mesmo com items=[]", () => {
+    // R2-5.3: migrado pro DataTable — o skeleton tem a FORMA da tabela em vez
+    // do spinner de página inteira (CLS); o anúncio pro leitor de tela é
+    // role=status sr-only, não mais um texto customizado "Carregando jobs…".
     renderTable([], { isLoading: true })
-    expect(screen.getByText(/Carregando jobs/)).toBeInTheDocument()
+    const status = screen.getByRole("status")
+    expect(status).toHaveAttribute("aria-busy", "true")
+    expect(screen.queryByText(/Nenhum backfill executado ainda/)).not.toBeInTheDocument()
   })
 
   it("exibe Notice de erro quando error está presente", () => {
@@ -146,5 +153,46 @@ describe("BackfillJobsTable", () => {
     fireEvent.click(screen.getByRole("button", { name: /Detalhes/ }))
     // Drawer está mockado, só verifica que o click não quebra
     await waitFor(() => expect(screen.queryByText(/Carregando jobs/)).not.toBeInTheDocument())
+  })
+
+  // ── PERF-14: total descartado ────────────────────────────────────────────────
+
+  it("mostra 'exibindo N de M' quando o servidor tem mais jobs do que a página trouxe", () => {
+    renderTable([makeJob({ id: "job-1" })], { total: 5 })
+    expect(screen.getByText("Exibindo 1 de 5")).toBeInTheDocument()
+  })
+
+  it("não mostra a mensagem quando total é igual à página (nada fora da lista)", () => {
+    renderTable([makeJob({ id: "job-1" })], { total: 1 })
+    expect(screen.queryByText(/Exibindo/)).not.toBeInTheDocument()
+  })
+
+  it("não mostra a mensagem quando total não é informado (retrocompat)", () => {
+    renderTable([makeJob({ id: "job-1" })])
+    expect(screen.queryByText(/Exibindo/)).not.toBeInTheDocument()
+  })
+})
+
+describe("BackfillJobsTable — R2-5.4: erro num refresh não apaga dado já visível", () => {
+  it("com jobs já visíveis, o erro vira banner com retry — a tabela continua", () => {
+    const onRetry = vi.fn()
+    renderTable([makeJob({ id: "job-1" })], { error: new Error("Falha de rede"), onRetry })
+
+    // O job que já estava na tela continua lá.
+    expect(screen.getByTestId("backfill-row-job-1")).toBeInTheDocument()
+    // O erro aparece como aviso com ação de tentar de novo.
+    expect(screen.getByText("Falha de rede")).toBeInTheDocument()
+    const retryButton = screen.getByRole("button", { name: /atualizar/i })
+    fireEvent.click(retryButton)
+    expect(onRetry).toHaveBeenCalledTimes(1)
+  })
+
+  it("sem nenhum job carregado, o erro vira ErrorState de página com retry", () => {
+    const onRetry = vi.fn()
+    renderTable([], { error: new Error("Falha de rede"), onRetry })
+
+    expect(screen.getByRole("alert")).toHaveTextContent("Falha de rede")
+    fireEvent.click(screen.getByRole("button", { name: /tentar novamente/i }))
+    expect(onRetry).toHaveBeenCalledTimes(1)
   })
 })

@@ -93,6 +93,23 @@ const CATALOG: ProviderPlatformRead[] = [
     streams: [],
     supports_test: false,
   },
+  // Plataforma SEM bloco customizado (caminho genérico de `auth_fields`
+  // dinâmicos, ex.: ninjaone/microsoft_defender no catálogo real) — usada nos
+  // testes de foco do R2-8.3 para o campo DINÂMICO (chave só existe em runtime).
+  {
+    platform: "ninjaone",
+    display_name: "NinjaOne",
+    category: "RMM",
+    description: "RMM genérico.",
+    icon_id: null,
+    docs_url: null,
+    auth_fields: [
+      { key: "api_token", label: "API Token", type: "secret", required: true },
+      { key: "instance_region", label: "Região da instância", type: "select", required: true, options: ["us", "eu"] },
+    ],
+    streams: [],
+    supports_test: false,
+  },
 ]
 
 const ORGS: Organization[] = [
@@ -257,6 +274,121 @@ describe("IntegrationForm — Wazuh", () => {
   })
 })
 
+// ── R2-8.3: foco no 1º campo inválido (useFirstInvalidFocus) ────────────────
+//
+// Antes, `noValidate` + um único banner genérico no topo era tudo: quem usa
+// teclado/leitor de tela lia "preencha X" e tinha que CAÇAR manualmente qual
+// dos N campos do form era o culpado. Cada teste abaixo prova as DUAS metades
+// do contrato: o banner aparece E o foco/aria-invalid vão para o campo certo.
+describe("IntegrationForm — R2-8.3 (foco no campo inválido)", () => {
+  it("nome vazio foca o campo Nome", async () => {
+    renderForm()
+    await screen.findByTestId("tile-card-sophos")
+    fireEvent.change(screen.getByLabelText(/Organização/), { target: { value: "10" } })
+    fireEvent.click(screen.getByRole("button", { name: /Criar integração/i }))
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(/nome/i)
+    expect(document.activeElement).toBe(screen.getByLabelText(/^Nome/))
+    expect(screen.getByLabelText(/^Nome/)).toHaveAttribute("aria-invalid", "true")
+  })
+
+  it("organização vazia foca o select de Organização", async () => {
+    renderForm()
+    await screen.findByTestId("tile-card-sophos")
+    fireEvent.change(screen.getByLabelText(/Nome/), { target: { value: "Sophos T" } })
+    fireEvent.click(screen.getByRole("button", { name: /Criar integração/i }))
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(/organiza/i)
+    expect(document.activeElement).toBe(screen.getByLabelText(/Organização/))
+    expect(screen.getByLabelText(/Organização/)).toHaveAttribute("aria-invalid", "true")
+  })
+
+  it("Sophos: Client ID vazio foca o campo Client ID (não fica só no banner)", async () => {
+    renderForm()
+    await screen.findByTestId("tile-card-sophos")
+    fireEvent.change(screen.getByLabelText(/Nome/), { target: { value: "Sophos T" } })
+    fireEvent.change(screen.getByLabelText(/Organização/), { target: { value: "10" } })
+    fireEvent.click(screen.getByRole("button", { name: /Criar integração/i }))
+
+    expect(await screen.findByRole("alert")).toBeInTheDocument()
+    expect(document.activeElement).toBe(screen.getByLabelText(/^Client ID/))
+    expect(screen.getByLabelText(/^Client ID/)).toHaveAttribute("aria-invalid", "true")
+  })
+
+  it("Wazuh: Indexer URL vazio foca o campo Indexer URL", async () => {
+    renderForm()
+    fireEvent.click(await screen.findByTestId("tile-card-wazuh"))
+    fireEvent.change(screen.getByLabelText(/Nome/), { target: { value: "Wazuh 1" } })
+    fireEvent.change(screen.getByLabelText(/Organização/), { target: { value: "10" } })
+    fireEvent.click(screen.getByRole("button", { name: /Criar integração/i }))
+
+    expect(await screen.findByRole("alert")).toBeInTheDocument()
+    expect(document.activeElement).toBe(screen.getByLabelText(/Indexer URL/))
+    expect(screen.getByLabelText(/Indexer URL/)).toHaveAttribute("aria-invalid", "true")
+  })
+
+  it("Wazuh: Manager habilitado sem URL foca o campo Manager URL", async () => {
+    renderForm()
+    fireEvent.click(await screen.findByTestId("tile-card-wazuh"))
+    fireEvent.change(screen.getByLabelText(/Nome/), { target: { value: "Wazuh 1" } })
+    fireEvent.change(screen.getByLabelText(/Organização/), { target: { value: "10" } })
+    fireEvent.change(screen.getByLabelText(/Indexer URL/), { target: { value: "https://idx:9200" } })
+    fireEvent.change(screen.getByLabelText(/Usuário do Indexer/), { target: { value: "iu" } })
+    fireEvent.change(screen.getByLabelText(/Senha do Indexer/), { target: { value: "ip" } })
+    fireEvent.click(screen.getByLabelText(/Habilitar Manager/))
+    fireEvent.click(screen.getByRole("button", { name: /Criar integração/i }))
+
+    expect(await screen.findByRole("alert")).toBeInTheDocument()
+    expect(document.activeElement).toBe(screen.getByLabelText(/Manager URL/))
+    expect(screen.getByLabelText(/Manager URL/)).toHaveAttribute("aria-invalid", "true")
+  })
+
+  it("campo dinâmico (chave de runtime) obrigatório vazio foca o próprio campo", async () => {
+    renderForm()
+    fireEvent.click(await screen.findByTestId("tile-card-ninjaone"))
+    fireEvent.change(screen.getByLabelText(/Nome/), { target: { value: "Ninja 1" } })
+    fireEvent.change(screen.getByLabelText(/Organização/), { target: { value: "10" } })
+    fireEvent.click(screen.getByRole("button", { name: /Criar integração/i }))
+
+    // `getByLabelText` com string exata não bate: o label carrega o "*" de
+    // obrigatório como filho ("API Token*") — daí o regex, igual aos outros
+    // campos do form (`/Nome/`, `/Client ID/`, …).
+    expect(await screen.findByRole("alert")).toHaveTextContent(/API Token/)
+    expect(document.activeElement).toBe(screen.getByLabelText(/^API Token/))
+    expect(screen.getByLabelText(/^API Token/)).toHaveAttribute("aria-invalid", "true")
+  })
+
+  it("campo dinâmico do tipo select (opção inválida/vazia) foca o próprio select", async () => {
+    renderForm()
+    fireEvent.click(await screen.findByTestId("tile-card-ninjaone"))
+    fireEvent.change(screen.getByLabelText(/Nome/), { target: { value: "Ninja 1" } })
+    fireEvent.change(screen.getByLabelText(/Organização/), { target: { value: "10" } })
+    fireEvent.change(screen.getByLabelText(/^API Token/), { target: { value: "tok" } })
+    fireEvent.click(screen.getByRole("button", { name: /Criar integração/i }))
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(/Região da instância/)
+    expect(document.activeElement).toBe(screen.getByLabelText(/^Região da instância/))
+    expect(screen.getByLabelText(/^Região da instância/)).toHaveAttribute("aria-invalid", "true")
+  })
+
+  it("corrigir o campo e reenviar limpa o erro anterior (não empilha aria-invalid)", async () => {
+    const onSubmit = renderForm()
+    await screen.findByTestId("tile-card-sophos")
+    fireEvent.click(screen.getByRole("button", { name: /Criar integração/i }))
+    await screen.findByRole("alert")
+    expect(screen.getByLabelText(/^Nome/)).toHaveAttribute("aria-invalid", "true")
+
+    fireEvent.change(screen.getByLabelText(/^Nome/), { target: { value: "Sophos T" } })
+    fireEvent.change(screen.getByLabelText(/Organização/), { target: { value: "10" } })
+    fireEvent.change(screen.getByLabelText(/^Client ID/), { target: { value: "cid" } })
+    fireEvent.change(screen.getByLabelText(/Client Secret/), { target: { value: "csec" } })
+    fireEvent.click(screen.getByRole("button", { name: /Criar integração/i }))
+
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1))
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument()
+  })
+})
+
 // ── Filtros de coleta na edição ──────────────────────────────────────────────
 //
 // O schema vem do backend; o formulário não conhece vendor nenhum. Aqui prova-se
@@ -387,5 +519,31 @@ describe("IntegrationForm — filtros de coleta (edição)", () => {
     renderEdit()
     expect(await screen.findByText(/Filtros de coleta indisponíveis/i)).toBeInTheDocument()
     expect(screen.queryByTestId("collection-filters-section")).not.toBeInTheDocument()
+  })
+})
+
+// SEC-04: docs_url vem do catálogo de plataformas (plugin-driven, ADR-0006/0007)
+// — não é digitado pelo usuário nesta tela, mas `safeExternalHref` é a defesa
+// em profundidade contra um catálogo malicioso/mal formado injetando
+// `javascript:`/`data:` no link "Ver documentação".
+describe("IntegrationForm — SEC-04 (docs_url)", () => {
+  it("docs_url http(s) válido renderiza o link de documentação", async () => {
+    mockedApi.getProviderPlatforms.mockResolvedValue([
+      { ...CATALOG[0], docs_url: "https://docs.example.com/sophos" },
+    ])
+    renderForm()
+    await screen.findByTestId("tile-card-sophos")
+    const link = await screen.findByRole("link", { name: "Ver documentação de configuração" })
+    expect(link).toHaveAttribute("href", "https://docs.example.com/sophos")
+  })
+
+  it("docs_url com esquema javascript: NÃO renderiza o link", async () => {
+    mockedApi.getProviderPlatforms.mockResolvedValue([
+      // eslint-disable-next-line no-script-url -- payload de teste: prova que o esquema É rejeitado.
+      { ...CATALOG[0], docs_url: "javascript:alert(1)" },
+    ])
+    renderForm()
+    await screen.findByTestId("tile-card-sophos")
+    expect(screen.queryByRole("link", { name: "Ver documentação de configuração" })).not.toBeInTheDocument()
   })
 })

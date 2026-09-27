@@ -104,6 +104,20 @@ describe("RouteAuditPanel — render padrão", () => {
     render(<RouteAuditPanel routeId="r-1" routeName="Rota A" />)
     expect(screen.getByRole("region", { name: /Auditoria da rota Rota A/i })).toBeInTheDocument()
   })
+
+  // LAY-35: "excluída"/"criada" são fatos de trilha de auditoria, não estado
+  // de saúde — não devem usar danger/success (alarme/celebração).
+  it("badges de ação são neutras (não danger/success) — diferenciadas por ícone", async () => {
+    render(<RouteAuditPanel routeId="r-1" routeName="Rota A" />)
+    await waitFor(() => expect(screen.getByText("criada")).toBeInTheDocument())
+
+    const createdBadge = screen.getByText("criada").closest("span")
+    const updatedBadge = screen.getByText("atualizada").closest("span")
+    for (const badge of [createdBadge, updatedBadge]) {
+      expect(badge?.className).not.toMatch(/bg-success|bg-danger|text-success|text-danger/)
+      expect(badge?.querySelector("svg")).toBeInTheDocument()
+    }
+  })
 })
 
 describe("RouteAuditPanel — estado de carregamento", () => {

@@ -93,4 +93,53 @@ describe("IngestSourcePanel — custom_json streams", () => {
     expect(screen.getAllByText(/POST .*\/api\/ingest\/firewall-x$/).some((el) => el.tagName === "CODE")).toBe(true)
     expect(screen.getByText("Abrir mapping")).toHaveAttribute("href", "/mappings/def-1")
   })
+
+  // R2-8.3: o botão "Criar stream" já ficava desabilitado com slug inválido
+  // (bom!), mas o submit NATIVO do form (Enter/`fireEvent.submit`) não passa
+  // pelo `disabled` — sem a guarda defensiva o clique não fazia nada e o
+  // operador não tinha pista do motivo. E o erro de servidor/carga era um
+  // <p> mudo (sem role/aria-live).
+  describe("R2-8.3 (foco defensivo / banner acessível)", () => {
+    it("submit nativo com slug inválido foca o campo do nome do stream", async () => {
+      mocked.getIngestInfo.mockResolvedValue(info("custom_json", []))
+      mocked.listCustomStreams.mockResolvedValue([])
+      renderPanel("custom_json")
+      const block = await screen.findByTestId("custom-streams")
+      fireEvent.change(screen.getByTestId("custom-stream-name"), { target: { value: "Firewall X" } })
+
+      fireEvent.submit(block.querySelector("form")!)
+
+      expect(await screen.findByRole("alert")).toHaveTextContent(/nome inválido/i)
+      expect(document.activeElement).toBe(screen.getByTestId("custom-stream-name"))
+      expect(screen.getByTestId("custom-stream-name")).toHaveAttribute("aria-invalid", "true")
+      expect(mocked.createCustomStream).not.toHaveBeenCalled()
+    })
+
+    it("erro do servidor ao criar stream aparece como alert assertivo (antes era um <p> mudo)", async () => {
+      mocked.getIngestInfo.mockResolvedValue(info("custom_json", []))
+      mocked.listCustomStreams.mockResolvedValue([])
+      mocked.createCustomStream.mockRejectedValue(new Error("stream já existe"))
+      renderPanel("custom_json")
+      await screen.findByTestId("custom-streams")
+      fireEvent.change(screen.getByTestId("custom-stream-name"), { target: { value: "firewall-x" } })
+      fireEvent.click(screen.getByTestId("custom-stream-create"))
+
+      const alert = await screen.findByRole("alert")
+      expect(alert).toHaveTextContent(/stream já existe/)
+      expect(alert).toHaveAttribute("aria-live", "assertive")
+    })
+
+    it("erro ao emitir/rotacionar token aparece como alert assertivo", async () => {
+      mocked.getIngestInfo.mockResolvedValue(info("fortinet_fortigate", ["traffic"]))
+      mocked.issueIngestToken.mockRejectedValue(new Error("falha ao emitir"))
+      renderPanel("fortinet_fortigate")
+      await screen.findByText("traffic")
+
+      fireEvent.click(screen.getByRole("button", { name: /Emitir token/i }))
+
+      const alert = await screen.findByRole("alert")
+      expect(alert).toHaveTextContent(/falha ao emitir/)
+      expect(alert).toHaveAttribute("aria-live", "assertive")
+    })
+  })
 })

@@ -165,6 +165,17 @@ describe("SourceFormModal", () => {
       await screen.findByText(/Confirme o envio de indicadores a terceiro/i),
     ).toBeInTheDocument()
     expect(mockedApi.createEnrichmentSource).not.toHaveBeenCalled()
+    // R2-8.3: foco vai para o checkbox de consentimento, não fica preso no topo.
+    expect(document.activeElement).toBe(screen.getByTestId("egress-ack").querySelector("input"))
+  })
+
+  it("R2-8.3: nome vazio foca o campo Nome (não só o banner genérico)", async () => {
+    mount()
+    fireEvent.click(screen.getByRole("button", { name: "Nova fonte" }))
+
+    expect(await screen.findByText(/Informe um nome/i)).toBeInTheDocument()
+    expect(document.activeElement).toBe(screen.getByLabelText(/^Nome/i))
+    expect(screen.getByLabelText(/^Nome/i)).toHaveAttribute("aria-invalid", "true")
   })
 
   it("salva depois do consentimento, e diz quais indicadores saem", async () => {

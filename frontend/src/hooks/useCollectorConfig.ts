@@ -2,6 +2,12 @@
 
 import { useCallback, useEffect, useState } from "react"
 import * as api from "@/services/api"
+// R2-8.8: `i18n.t()` direto (não o hook `useTranslation`) — mesmo padrão do
+// `ErrorBoundary` (`src/components/shared/ErrorBoundary.tsx`): este é um hook
+// de dados puro, sem componente próprio para "possuir" o `useTranslation`, e
+// o valor só é lido dentro de um `catch` (não precisa re-renderizar ao trocar
+// de idioma).
+import i18n from "@/i18n"
 import type {
   CollectorConfig,
   UpdateCollectorConfigRequest,
@@ -39,7 +45,7 @@ export function useCollectorConfig(): UseCollectorConfigReturn {
       const cfg = await api.getCollectorConfig()
       setConfig(cfg)
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "Falha ao carregar configuração"
+      const msg = err instanceof Error ? err.message : i18n.t("config:collectorConfigHook.loadErrorFallback")
       setError(msg)
     } finally {
       setLoading(false)
@@ -55,11 +61,11 @@ export function useCollectorConfig(): UseCollectorConfigReturn {
         setConfig(updated)
         setFeedback({
           type: "success",
-          message: "Configuração salva. Workers refletirão em até 30s.",
+          message: i18n.t("config:collectorConfigHook.saveSuccess"),
         })
         return true
       } catch (err) {
-        const msg = err instanceof Error ? err.message : "Falha ao salvar configuração"
+        const msg = err instanceof Error ? err.message : i18n.t("config:collectorConfigHook.saveErrorFallback")
         setFeedback({ type: "error", message: msg })
         return false
       } finally {

@@ -293,6 +293,8 @@ const RuleRowEditInner: React.FC<RuleRowEditProps> = ({
   const selectedCastDescriptor = useMemo(() => {
     if (!scalarRuleRef?.type_cast || !typeCasts) return null
     return typeCasts.find((c) => c.name === scalarRuleRef.type_cast) ?? null
+  // Depende só de `scalarRuleRef?.type_cast` (não do objeto inteiro) — já na
+  // lista abaixo.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isArrayBuilder, scalarRuleRef?.type_cast, typeCasts])
 
@@ -318,11 +320,9 @@ const RuleRowEditInner: React.FC<RuleRowEditProps> = ({
       // Only valid for scalar rules — guard is enforced by the caller
       const r = rule as import("@/types").ScalarMappingRule
       if (type === "source") {
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const { const: _removed, ...rest } = r
         onChange(index, { ...rest, source: "" } as MappingRule)
       } else {
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const { source: _removed, ...rest } = r
         onChange(index, { ...rest, const: "" } as MappingRule)
       }
@@ -334,7 +334,6 @@ const RuleRowEditInner: React.FC<RuleRowEditProps> = ({
     (raw: string) => {
       if (!raw.trim()) {
         setValuemapError(null)
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const { value_map: _removed, ...rest } = rule as import("@/types").ScalarMappingRule
         onChange(index, { ...rest })
         return
@@ -426,7 +425,10 @@ const RuleRowEditInner: React.FC<RuleRowEditProps> = ({
             </Badge>
           )}
           {!isArrayBuilder && rule.required && <Badge variant="danger" size="sm">{t("common:states.required")}</Badge>}
-          {!isArrayBuilder && rule.type_cast && <Badge variant="primary" size="sm">{rule.type_cast}</Badge>}
+          {/* R3-6.4: chip informativo do tipo de cast — os vizinhos usam cor
+              de SEVERIDADE (danger/warning); violeta aqui era decoração, não
+              o estágio "normalizado" do dado. */}
+          {!isArrayBuilder && rule.type_cast && <Badge variant="default" size="sm">{rule.type_cast}</Badge>}
           {!isArrayBuilder && rule.value_map != null && <Badge variant="warning" size="sm">value_map</Badge>}
         </div>
         <Button

@@ -1,6 +1,7 @@
+import { useRef, useState } from "react"
 import { describe, it, expect, vi } from "vitest"
-import { render, screen, fireEvent, within } from "@testing-library/react"
-import { Select } from "../Select"
+import { render, screen, fireEvent, waitFor, within } from "@testing-library/react"
+import { Select, type SelectValue } from "../Select"
 
 const OPTIONS = [
   { value: "drop_newest", label: "drop_newest" },
@@ -33,5 +34,174 @@ describe("Select", () => {
     const portal = screen.getByRole("listbox").closest(".animate-slide-down") as HTMLElement
     expect(portal).not.toBeNull()
     expect(portal.style.zIndex).toBe("var(--z-index-popover)")
+  })
+
+  // R2-8.4: com uma opção desabilitada ANTES do alvo, o índice de
+  // `filteredOptions` (todas) nunca batia com o índice do NodeList de botões
+  // habilitados — setas/type-ahead/foco inicial pulavam pra opção errada a
+  // partir dali. Fix: navegar por VALOR, não por índice posicional.
+  describe("navegação com opção desabilitada antes do alvo", () => {
+    const OPTIONS_WITH_DISABLED = [
+      { value: "a", label: "alpha" },
+      { value: "b", label: "bravo", disabled: true },
+      { value: "c", label: "charlie" },
+      { value: "d", label: "delta" },
+    ]
+
+    // O foco pra dentro do portal roda num `window.setTimeout(0)` (o ref só
+    // existe após o commit) — as asserções esperam por ele via `waitFor` e
+    // checam `role="option"` explicitamente (checar só o texto em
+    // `document.activeElement` é uma armadilha: antes do timeout rodar,
+    // `document.activeElement` é o `<body>`, que TAMBÉM "contém" o texto de
+    // qualquer opção em algum lugar da árvore — passaria por vacuidade).
+    async function waitForOptionFocus() {
+      await waitFor(() => expect(document.activeElement).toHaveAttribute("role", "option"))
+      return document.activeElement as HTMLElement
+    }
+
+    it("foco inicial ao abrir pousa na opção SELECIONADA (depois da desabilitada), não na vizinha errada", async () => {
+      render(<Select options={OPTIONS_WITH_DISABLED} aria-label="sel" value="c" />)
+      fireEvent.click(screen.getByLabelText("sel"))
+      const focused = await waitForOptionFocus()
+      expect(focused).toHaveTextContent("charlie")
+    })
+
+    it("ArrowDown a partir da opção logo ANTES da desabilitada pula pra próxima HABILITADA (não trava)", async () => {
+      render(<Select options={OPTIONS_WITH_DISABLED} aria-label="sel" />)
+      fireEvent.click(screen.getByLabelText("sel"))
+      // Foco inicial: nenhuma selecionada → 1ª habilitada (alpha).
+      const first = await waitForOptionFocus()
+      expect(first).toHaveTextContent("alpha")
+      fireEvent.keyDown(first, { key: "ArrowDown" })
+      // Pula "bravo" (desabilitada) direto pra "charlie".
+      expect(document.activeElement).toHaveAttribute("role", "option")
+      expect(document.activeElement).toHaveTextContent("charlie")
+    })
+
+    it("ArrowDown a partir da opção logo DEPOIS da desabilitada avança normalmente pra seguinte", async () => {
+      render(<Select options={OPTIONS_WITH_DISABLED} aria-label="sel" value="c" />)
+      fireEvent.click(screen.getByLabelText("sel"))
+      const charlie = await waitForOptionFocus()
+      expect(charlie).toHaveTextContent("charlie")
+      fireEvent.keyDown(charlie, { key: "ArrowDown" })
+      expect(document.activeElement).toHaveAttribute("role", "option")
+      expect(document.activeElement).toHaveTextContent("delta")
+    })
+
+    it("Enter na opção focada seleciona ela mesma (não uma opção vizinha)", async () => {
+      const onChange = vi.fn()
+      render(<Select options={OPTIONS_WITH_DISABLED} aria-label="sel" value="c" onChange={onChange} />)
+      fireEvent.click(screen.getByLabelText("sel"))
+      const charlie = await waitForOptionFocus()
+      expect(charlie).toHaveTextContent("charlie")
+      fireEvent.keyDown(charlie, { key: "Enter" })
+      expect(onChange).toHaveBeenCalledWith("c")
+    })
+  })
+
+  // R3-8.2: o efeito de "foco inicial ao abrir" dependia de `enabledOptions`/
+  // `selectedValues` — mudava a cada re-render relevante, não só na abertura.
+  // No modo `multiple`, o próprio Espaço (que MARCA a opção) alterava
+  // `selectedValues` e o efeito devolvia o foco à 1ª opção selecionada, no
+  // meio da navegação. Um `options` recriado pelo pai (nova referência,
+  // mesmo conteúdo) tinha o mesmo efeito via `enabledOptions`.
+  describe("foco inicial só na transição fechado→aberto (R3-8.2)", () => {
+    const OPTIONS_3 = [
+      { value: "a", label: "alpha" },
+      { value: "b", label: "bravo" },
+      { value: "c", label: "charlie" },
+    ]
+
+    async function waitForOptionFocus() {
+      await waitFor(() => expect(document.activeElement).toHaveAttribute("role", "option"))
+      return document.activeElement as HTMLElement
+    }
+
+    // Wrapper CONTROLADO — o `Select` não guarda estado próprio (`value` vem
+    // 100% de fora). Sem refletir o `onChange` de volta como prop, o Espaço
+    // nunca muda `selectedValues` de verdade e o bug (que depende disso) não
+    // se manifesta — é exatamente o uso real de todo consumidor `multiple`
+    // do código-base (ex.: filtros com múltiplos clientes/streams).
+    //
+    // "alpha" já vem SELECIONADA de propósito: o efeito quebrado devolve o
+    // foco à 1ª opção cujo valor está em `selectedValues`, na ORDEM da lista
+    // — com "alpha" (1ª da lista) já marcada, marcar "bravo" em seguida é o
+    // cenário que expõe o bug (o foco pularia de volta pra "alpha", não para
+    // a própria "bravo" que acabou de ser marcada).
+    function ControlledMultiple() {
+      const [value, setValue] = useState<SelectValue>(["a"])
+      return <Select multiple options={OPTIONS_3} aria-label="sel" value={value} onChange={setValue} />
+    }
+
+    it("multiple: ArrowDown + Espaço mantém o foco na opção atual (não volta pra 1ª JÁ selecionada)", async () => {
+      render(<ControlledMultiple />)
+      fireEvent.click(screen.getByLabelText("sel"))
+      const alpha = await waitForOptionFocus()
+      expect(alpha).toHaveTextContent("alpha")
+
+      fireEvent.keyDown(alpha, { key: "ArrowDown" })
+      expect(document.activeElement).toHaveTextContent("bravo")
+
+      // Espaço MARCA "bravo" (agora selecionadas: alpha + bravo). O bug
+      // recomputava `selectedValues` (nova referência), re-rodava o efeito de
+      // "foco inicial" — que reagenda o foco num `setTimeout(0)` — e devolvia
+      // o foco à 1ª selecionada NA ORDEM DA LISTA ("alpha"), não em "bravo",
+      // que é onde o teclado estava de verdade. `waitFor` dá tempo desse
+      // `setTimeout` (bugado ou não) rodar antes da asserção.
+      const bravo = document.activeElement as Element
+      fireEvent.keyDown(bravo, { key: " " })
+      await waitFor(() => expect(document.activeElement).toHaveAttribute("role", "option"))
+      await new Promise((resolve) => setTimeout(resolve, 10))
+      expect(document.activeElement).toHaveTextContent("bravo")
+    })
+
+    it("re-render do pai com `options` inline (nova referência) não move o foco", async () => {
+      const { rerender } = render(<Select options={[...OPTIONS_3]} aria-label="sel" />)
+      fireEvent.click(screen.getByLabelText("sel"))
+      const alpha = await waitForOptionFocus()
+      expect(alpha).toHaveTextContent("alpha")
+
+      fireEvent.keyDown(alpha, { key: "ArrowDown" })
+      expect(document.activeElement).toHaveTextContent("bravo")
+
+      // Re-render do pai com um array LITERAL NOVO (mesmo conteúdo, outra
+      // referência) — antes do fix, isto recomputava `enabledOptions` e
+      // disparava o efeito de foco inicial de novo (reagendado num
+      // `setTimeout(0)` — o `waitFor`/espera dá tempo dele rodar).
+      rerender(<Select options={[...OPTIONS_3]} aria-label="sel" />)
+      await new Promise((resolve) => setTimeout(resolve, 10))
+
+      expect(document.activeElement).toHaveAttribute("role", "option")
+      expect(document.activeElement).toHaveTextContent("bravo")
+    })
+  })
+
+  // R3-8.4: `Select` agora encaminha `ref` pro trigger — retrocompatível
+  // (sem `ref`, nada muda; o EE importa `Select` sem passar `ref` nenhum).
+  describe("forwardRef no trigger (R3-8.4)", () => {
+    it("ref.current aponta pro botão trigger e .focus() funciona", () => {
+      function Harness() {
+        const ref = useRef<HTMLButtonElement>(null)
+        return (
+          <>
+            <Select ref={ref} options={OPTIONS} aria-label="com-ref" />
+            <button type="button" onClick={() => ref.current?.focus()}>
+              focar o select
+            </button>
+          </>
+        )
+      }
+      render(<Harness />)
+      fireEvent.click(screen.getByText("focar o select"))
+      expect(document.activeElement).toBe(screen.getByLabelText("com-ref"))
+    })
+
+    it("sem ref (uso normal, retrocompatível) continua funcionando igual", () => {
+      const onChange = vi.fn()
+      render(<Select options={OPTIONS} aria-label="sem-ref" onChange={onChange} />)
+      fireEvent.click(screen.getByLabelText("sem-ref"))
+      fireEvent.click(screen.getByRole("option", { name: "block" }))
+      expect(onChange).toHaveBeenCalledWith("block")
+    })
   })
 })

@@ -131,8 +131,11 @@ export const MappingVersionsTable: React.FC<MappingVersionsTableProps> = ({
       render: (value: unknown, row: Record<string, unknown>) => (
         <div className="flex items-center gap-2">
           <span className="font-mono text-sm">v{value as number}</span>
+          {/* R3-6.4: violeta é a cor do ESTÁGIO "normalizado" no pipeline
+              (dado, não UI) — usar aqui só porque a página é de "mappings"
+              era decoração por associação de nome, não sinal de dado. */}
           {row.id === currentVersionId && (
-            <Badge variant="primary" size="sm">{t("versionsTable.current")}</Badge>
+            <Badge variant="default" size="sm">{t("versionsTable.current")}</Badge>
           )}
         </div>
       ),
@@ -248,7 +251,8 @@ export const MappingVersionsTable: React.FC<MappingVersionsTableProps> = ({
         <Notice variant="success">{rollbackSuccess}</Notice>
       )}
       {rollbackError && (
-        <Notice variant="danger" title={t("versionsTable.rollback.errorTitle")}>{rollbackError}</Notice>
+        // R2-8.2: reage ao clique em "Reverter" — precisa interromper o leitor de tela.
+        <Notice variant="danger" title={t("versionsTable.rollback.errorTitle")} live="assertive">{rollbackError}</Notice>
       )}
 
       {selectedIds.length === 2 && (

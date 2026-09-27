@@ -1,13 +1,58 @@
 "use client"
 
 import type React from "react"
-import { useEffect, useId, useRef } from "react"
+import { createContext, Suspense, useCallback, useEffect, useId, useRef, useState } from "react"
 import { createPortal } from "react-dom"
 import { XIcon } from "lucide-react"
 import { FocusScope } from "@radix-ui/react-focus-scope"
 import { useTranslation } from "react-i18next"
 import { Button } from "../Button/Button"
+import { LoadingSpinner } from "../LoadingSpinner/LoadingSpinner"
 import { cn } from "@/lib/utils"
+import { isTopmostDialog, lockBodyScroll, nextDialogOrder, registerOpenDialog, unlockBodyScroll, unregisterOpenDialog } from "../internal/dialogStack"
+
+/**
+ * A11Y-01: o Select porta sua listbox para `document.body`, fora do
+ * `FocusScope trapped` do Modal. Quando um dropdown tenta focar uma opção
+ * fora do container rastreado pelo FocusScope, o Radix devolve o foco ao
+ * gatilho (a lista "não segura" o foco). Expondo o elemento do painel via
+ * contexto, o Select — e qualquer outro portal que precise conviver com o
+ * focus trap — pode portar PARA DENTRO do painel em vez de para o body,
+ * então o `contains()` do FocusScope enxerga a opção como parte do Modal.
+ * `null` fora de um Modal (comportamento atual, sem mudança).
+ */
+export const PortalContainerContext = createContext<HTMLElement | null>(null)
+
+/** Primeiro elemento focável (visível) dentro de `container`. */
+function firstTabbable(container: HTMLElement | null): HTMLElement | null {
+  if (!container) return null
+  const candidates = container.querySelectorAll<HTMLElement>(
+    'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
+  )
+  for (const el of candidates) {
+    if (!el.hasAttribute("disabled") && el.offsetParent !== null) return el
+  }
+  return null
+}
+
+/**
+ * R4-8.3: sentinela do fallback do Suspense — o React não expõe um callback
+ * "resolveu" nativo, então detectamos a resolução pelo UNMOUNT do próprio
+ * fallback (troca pro conteúdo real no mesmo commit).
+ */
+const SuspenseResolvedSignal: React.FC<{ onResolved: () => void }> = ({ onResolved }) => {
+  useEffect(() => () => onResolved(), [onResolved])
+  return <LoadingSpinner size="sm" className="py-8" />
+}
+
+/**
+ * A11Y-02: pilha de modais (ver `internal/dialogStack.ts`, compartilhada com
+ * o `Drawer`). O listener de Escape é por instância (documento inteiro),
+ * então um ConfirmDialog aninhado dentro de outro Modal faria os DOIS
+ * ouvirem o mesmo Escape. Só o topo da pilha deve reagir; o
+ * `defaultPrevented` cobre o caso do Select/HelpTooltip abertos por cima,
+ * que consomem o Escape antes dele "contar" como fechamento do Modal.
+ */
 
 interface ModalProps {
   open: boolean
@@ -17,6 +62,12 @@ interface ModalProps {
   size?: "sm" | "md" | "lg" | "xl"
   closeOnOverlayClick?: boolean
   closeOnEscape?: boolean
+  /** A11Y-32: `alertdialog` para confirmações destrutivas (ConfirmDialog). */
+  role?: "dialog" | "alertdialog"
+  /** A11Y-32: nome acessível quando não há `title` visível. */
+  ariaLabel?: string
+  /** A11Y-32: liga a descrição (ex.: texto do ConfirmDialog) ao painel. */
+  ariaDescribedBy?: string
 }
 
 const sizeMap = {
@@ -34,10 +85,36 @@ export const Modal: React.FC<ModalProps> = ({
   size = "md",
   closeOnOverlayClick = true,
   closeOnEscape = true,
+  role = "dialog",
+  ariaLabel,
+  ariaDescribedBy,
 }) => {
   const { t } = useTranslation("ui")
   const previousActiveElement = useRef<HTMLElement | null>(null)
   const titleId = useId()
+  const modalId = useId()
+  // Calculado uma única vez, no primeiro render desta instância — ver o
+  // comentário em `internal/dialogStack.ts` sobre por que não pode ser feito
+  // dentro de um `useEffect`.
+  const [modalOrder] = useState(nextDialogOrder)
+  const [panelEl, setPanelEl] = useState<HTMLDivElement | null>(null)
+  const closeButtonRef = useRef<HTMLButtonElement | null>(null)
+  const contentRef = useRef<HTMLDivElement | null>(null)
+  const panelElRef = useRef<HTMLDivElement | null>(null)
+  panelElRef.current = panelEl
+
+  // R4-8.3: quando o conteúdo suspenso resolve, move o foco pro 1º tabbable
+  // do conteúdo — mas SÓ SE o foco ainda estiver no botão fechar ou no
+  // próprio painel (é aonde o Radix pousa o foco enquanto não há nada
+  // focável no fallback). Se o foco já estiver em outro lugar, o usuário
+  // pode ter interagido com algo — não rouba o foco dele. Identidade
+  // ESTÁVEL (`[]`): lê tudo via ref, não precisa recriar a cada render.
+  const onContentResolved = useCallback(() => {
+    const active = document.activeElement
+    const focusWasParked = active === closeButtonRef.current || active === panelElRef.current
+    if (!focusWasParked) return
+    firstTabbable(contentRef.current)?.focus()
+  }, [])
 
   // ``onClose``/``closeOnEscape`` costumam ser recriados a cada render do pai (ex.:
   // ``onClose={() => setOpen(false)}`` inline). Se entrassem nas deps do efeito de foco
@@ -56,20 +133,30 @@ export const Modal: React.FC<ModalProps> = ({
     if (!open) return
 
     previousActiveElement.current = document.activeElement as HTMLElement
-    document.body.style.overflow = "hidden"
+    lockBodyScroll()
+    registerOpenDialog(modalId, modalOrder)
 
     const handleEscape = (event: KeyboardEvent) => {
-      if (closeOnEscapeRef.current && event.key === "Escape") onCloseRef.current()
+      if (event.key !== "Escape") return
+      // Um Select/HelpTooltip aberto por cima consome o próprio Escape
+      // (preventDefault) — nesse caso o Modal nem deveria contar o evento.
+      if (event.defaultPrevented) return
+      // Só o modal do TOPO (maior ordem entre os abertos) reage: um
+      // ConfirmDialog aninhado não deve fechar o Modal por baixo dele no
+      // mesmo Escape.
+      if (!isTopmostDialog(modalOrder)) return
+      if (closeOnEscapeRef.current) onCloseRef.current()
     }
     document.addEventListener("keydown", handleEscape)
 
     return () => {
       document.removeEventListener("keydown", handleEscape)
-      document.body.style.overflow = ""
+      unlockBodyScroll()
+      unregisterOpenDialog(modalId)
       // Retorna foco ao elemento que abriu o modal (só no fechamento real, não por tecla).
       previousActiveElement.current?.focus()
     }
-  }, [open])
+  }, [open, modalId, modalOrder])
 
   const handleOverlayClick = (event: React.MouseEvent) => {
     if (closeOnOverlayClick && event.target === event.currentTarget) onClose()
@@ -78,12 +165,13 @@ export const Modal: React.FC<ModalProps> = ({
   if (!open) return null
 
   return createPortal(
+    // Backdrop de "clicar fora fecha" — não é um controle, não deve virar
+    // parada de Tab nem responder a Enter/Espaço (isso duplicaria o Escape,
+    // que já fecha o modal e é o equivalente por teclado real).
+    // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
     <div
       className="fixed inset-0 z-modal-backdrop bg-overlay flex items-center justify-center p-4 animate-fade-in"
       onClick={handleOverlayClick}
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby={title ? titleId : undefined}
     >
       {/*
         FocusScope (trapped) contém o foco dentro do modal — Tab/Shift+Tab não
@@ -92,23 +180,50 @@ export const Modal: React.FC<ModalProps> = ({
       <FocusScope trapped loop>
         {/* Modal flutua de verdade, então é um dos dois lugares onde a sombra
             entra. A hairline vem junto: no ground escuro é ela que desenha a
-            aresta que a sombra não consegue. */}
+            aresta que a sombra não consegue.
+            A11Y-32: role/aria-modal/aria-labelledby moram AQUI (no painel),
+            não no overlay — é o painel que é a caixa de diálogo. */}
         <div
+          ref={setPanelEl}
           className={cn(
             "w-full bg-surface border border-border-hover rounded-lg shadow-xl animate-slide-up max-h-[90vh] flex flex-col",
             sizeMap[size],
           )}
           tabIndex={-1}
+          role={role}
+          aria-modal="true"
+          aria-labelledby={title ? titleId : undefined}
+          aria-label={!title ? ariaLabel : undefined}
+          aria-describedby={ariaDescribedBy}
         >
-          {title && (
-            <div className="flex items-center justify-between gap-4 px-5 py-3 border-b border-border">
-              <h2 id={titleId} className="text-base font-semibold text-text">{title}</h2>
-              <Button variant="ghost" size="xs" onClick={onClose} aria-label={t("modal.closeAriaLabel")}>
-                <XIcon size={16} />
-              </Button>
+          <PortalContainerContext.Provider value={panelEl}>
+            {title && (
+              <div className="flex items-center justify-between gap-4 px-5 py-3 border-b border-border">
+                <h2 id={titleId} className="text-base font-semibold text-text">{title}</h2>
+                <Button ref={closeButtonRef} variant="ghost" size="xs" onClick={onClose} aria-label={t("modal.closeAriaLabel")}>
+                  <XIcon size={16} />
+                </Button>
+              </div>
+            )}
+            {/*
+              R3-8.1: com namespaces de i18n sob demanda, um componente de
+              outro namespace (ex.: `DestinationTypeGallery`/`DestinationForm`,
+              ns `destinations`) dentro do Modal suspende até o ÚNICO
+              `<Suspense>` da rota (`AppLayout`) — a PÁGINA inteira some, com o
+              Modal junto, e o foco cai no `body`. Um `<Suspense>` local aqui
+              contém isso: só o CONTEÚDO do Modal pisca o fallback, o painel
+              (e o `FocusScope trapped` em volta) continua montado — o Radix
+              redireciona o foco de volta pra dentro assim que o fallback (ou
+              o conteúdo real, ao resolver) aparece.
+              R4-8.3: e quando resolve de verdade, `onContentResolved` mira o
+              foco no 1º tabbable do conteúdo (se o foco ainda estava
+              "estacionado" no botão fechar/painel — nunca rouba foco de
+              quem já interagiu com outra coisa).
+            */}
+            <div ref={contentRef} className="flex-1 overflow-y-auto p-5">
+              <Suspense fallback={<SuspenseResolvedSignal onResolved={onContentResolved} />}>{children}</Suspense>
             </div>
-          )}
-          <div className="flex-1 overflow-y-auto p-5">{children}</div>
+          </PortalContainerContext.Provider>
         </div>
       </FocusScope>
     </div>,

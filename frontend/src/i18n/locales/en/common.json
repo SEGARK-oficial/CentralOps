@@ -32,7 +32,10 @@
     "test": "Test",
     "enable": "Enable",
     "disable": "Disable",
-    "reset": "Reset"
+    "reset": "Reset",
+    "selectItem": "Select {{label}}",
+    "select": "Select",
+    "filterByCategory": "Filter by category"
   },
   "states": {
     "active": "Active",
@@ -50,7 +53,8 @@
     "healthy": "Healthy",
     "degraded": "Degraded",
     "unknown": "Unknown",
-    "error": "Error"
+    "error": "Error",
+    "noResults": "No items found."
   },
   "fields": {
     "name": "Name",
@@ -67,7 +71,8 @@
     "savedSuccess": "Saved.",
     "errorGeneric": "The action failed. Try again.",
     "confirmDelete": "Are you sure you want to delete?",
-    "loadFailed": "Failed to load."
+    "loadFailed": "Failed to load.",
+    "requestTimeout": "The request took too long and was cancelled. Please try again."
   },
   "conditionOperators": {
     "eq": "= equals",
@@ -79,5 +84,18 @@
     "in": "∈ in list",
     "nin": "∉ not in list",
     "exists": "exists"
+  },
+  "editionContext": {
+    "loadError": "Failed to load the edition"
+  },
+  "errorBoundary": {
+    "title": "Something went wrong",
+    "description": "We ran into an unexpected error rendering this area. You can try again or reload the page.",
+    "chunkErrorDescription": "A new version of CentralOps was published. Reload the page to load the current files.",
+    "retry": "Try again",
+    "reload": "Reload page"
+  },
+  "clientsHook": {
+    "loadError": "Failed to load clients"
   }
 }

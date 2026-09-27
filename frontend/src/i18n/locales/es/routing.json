@@ -46,6 +46,14 @@
     "systemRouteTitle": "Ruta de sistema protegida",
     "systemRouteNotReorderable": "Ruta de sistema, no reordenable",
     "reorderRouteAria": "Reordenar ruta {{name}}. Presiona espacio y usa las flechas",
+    "dnd": {
+      "pickedUp": "Ruta {{name}} tomada para reordenar. Posición {{position}} de {{total}}.",
+      "movedOver": "Ruta {{name}} movida a la posición {{position}} de {{total}}, sobre {{overName}}.",
+      "movedNoTarget": "Ruta {{name}} sin posición de destino por el momento.",
+      "dropped": "Ruta {{name}} soltada en la posición {{position}} de {{total}}.",
+      "droppedNoTarget": "Ruta {{name}} soltada sin cambiar de posición.",
+      "cancelled": "Se canceló la reordenación de la ruta {{name}}."
+    },
     "selectRouteAria": "Seleccionar ruta {{name}}",
     "systemBadge": "sistema",
     "finalBadge": "final",
@@ -312,12 +320,15 @@
   "conditionEditor": {
     "noConditions": "Sin condiciones, la regla coincide con todos los eventos.",
     "fieldLabel": "Campo",
+    "fieldSelectAria": "Campo de la condición {{index}}",
     "opLabel": "Operador",
-    "opSelectAriaLabel": "Operador de la condición",
+    "opSelectAriaLabel": "Operador de la condición {{index}}",
     "valueLabel": "Valor",
+    "valueSelectAria": "Valor de la condición {{index}}",
+    "valueInputAria": "Valor de la condición {{index}}",
     "valueListPlaceholder": "a,b,c",
     "valuePlaceholder": "valor",
-    "removeConditionAria": "Eliminar condición",
+    "removeConditionAria": "Eliminar condición {{index}}",
     "addCondition": "Agregar condición"
   },
   "routeForm": {

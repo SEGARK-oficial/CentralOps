@@ -10,6 +10,7 @@
 
 import type React from "react"
 import { useCallback, useState } from "react"
+import { useTranslation } from "react-i18next"
 import { KeyRoundIcon, ShieldOffIcon, RefreshCcwIcon, ClockIcon } from "lucide-react"
 import * as api from "@/services/api"
 import { Button } from "@/components/ui/Button/Button"
@@ -36,6 +37,7 @@ interface RotateFormProps {
 }
 
 const RotateForm: React.FC<RotateFormProps> = ({ loading, onSubmit, onCancel }) => {
+  const { t } = useTranslation("destinations")
   const [newSecret, setNewSecret] = useState("")
   const [expiresAt, setExpiresAt] = useState("")
 
@@ -54,7 +56,8 @@ const RotateForm: React.FC<RotateFormProps> = ({ loading, onSubmit, onCancel }) 
           htmlFor="rotate-secret"
           className="text-sm font-medium text-text"
         >
-          Novo segredo <span className="text-danger-500" aria-label="obrigatório">*</span>
+          {t("credentialPanel.rotateForm.newSecretLabel")}{" "}
+          <span className="text-danger-500" aria-label={t("credentialPanel.rotateForm.requiredAriaLabel")}>*</span>
         </label>
         <input
           id="rotate-secret"
@@ -63,13 +66,11 @@ const RotateForm: React.FC<RotateFormProps> = ({ loading, onSubmit, onCancel }) 
           autoComplete="new-password"
           value={newSecret}
           onChange={(e) => setNewSecret(e.target.value)}
-          placeholder="Cole o novo segredo aqui"
-          className="w-full h-9 px-3 text-sm rounded-md border border-border bg-surface text-text placeholder:text-text-tertiary transition-colors focus-ring"
+          placeholder={t("credentialPanel.rotateForm.newSecretPlaceholder")}
+          className="w-full h-9 px-3 text-sm rounded-md border border-border-field bg-surface-tertiary text-text placeholder:text-text-tertiary transition-colors hover:border-border-field-hover focus-ring"
           data-testid="rotate-secret-input"
         />
-        <p className="text-xs text-text-tertiary">
-          O valor é cifrado no backend — nunca é exibido após envio.
-        </p>
+        <p className="text-xs text-text-tertiary">{t("credentialPanel.rotateForm.newSecretHelp")}</p>
       </div>
 
       <div className="flex flex-col gap-1.5">
@@ -77,24 +78,22 @@ const RotateForm: React.FC<RotateFormProps> = ({ loading, onSubmit, onCancel }) 
           htmlFor="rotate-expires"
           className="text-sm font-medium text-text"
         >
-          Validade (opcional)
+          {t("credentialPanel.rotateForm.expiresLabel")}
         </label>
         <input
           id="rotate-expires"
           type="datetime-local"
           value={expiresAt}
           onChange={(e) => setExpiresAt(e.target.value)}
-          className="w-full h-9 px-3 text-sm rounded-md border border-border bg-surface text-text transition-colors focus-ring"
+          className="w-full h-9 px-3 text-sm rounded-md border border-border-field bg-surface-tertiary text-text transition-colors hover:border-border-field-hover focus-ring"
           data-testid="rotate-expires-input"
         />
-        <p className="text-xs text-text-tertiary">
-          Deixe em branco para credencial sem expiração.
-        </p>
+        <p className="text-xs text-text-tertiary">{t("credentialPanel.rotateForm.expiresHelp")}</p>
       </div>
 
       <div className="flex justify-end gap-3 pt-2">
         <Button type="button" variant="outline" onClick={onCancel} disabled={loading}>
-          Cancelar
+          {t("credentialPanel.rotateForm.cancel")}
         </Button>
         <Button
           type="submit"
@@ -103,7 +102,7 @@ const RotateForm: React.FC<RotateFormProps> = ({ loading, onSubmit, onCancel }) 
           disabled={!newSecret.trim()}
           data-testid="rotate-submit-btn"
         >
-          Rotacionar credencial
+          {t("credentialPanel.rotateForm.submit")}
         </Button>
       </div>
     </form>
@@ -112,13 +111,6 @@ const RotateForm: React.FC<RotateFormProps> = ({ loading, onSubmit, onCancel }) 
 
 // ── Sub-componente: linha de auditoria ────────────────────────────────────────
 
-const ACTION_LABEL: Record<string, string> = {
-  decrypt: "Leitura",
-  test: "Teste",
-  rotate: "Rotação",
-  revoke: "Revogação",
-}
-
 const ACTION_VARIANT: Record<string, "default" | "warning" | "danger" | "success" | "outline"> = {
   decrypt: "outline",
   test: "default",
@@ -126,25 +118,29 @@ const ACTION_VARIANT: Record<string, "default" | "warning" | "danger" | "success
   revoke: "danger",
 }
 
-const AuditRow: React.FC<{ entry: CredentialAccessEntry }> = ({ entry }) => (
-  <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border py-2 last:border-b-0">
-    <div className="flex flex-wrap items-center gap-2">
-      <Badge variant={ACTION_VARIANT[entry.action] ?? "outline"} size="sm">
-        {ACTION_LABEL[entry.action] ?? entry.action}
-      </Badge>
-      <span className="text-sm text-text">{entry.actor ?? "(sistema)"}</span>
-      {entry.detail && (
-        <span className="text-xs text-text-tertiary">— {entry.detail}</span>
-      )}
+const AuditRow: React.FC<{ entry: CredentialAccessEntry }> = ({ entry }) => {
+  const { t } = useTranslation("destinations")
+  const actionLabel = t(`credentialPanel.actionLabels.${entry.action}`, { defaultValue: entry.action })
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border py-2 last:border-b-0">
+      <div className="flex flex-wrap items-center gap-2">
+        <Badge variant={ACTION_VARIANT[entry.action] ?? "outline"} size="sm">
+          {actionLabel}
+        </Badge>
+        <span className="text-sm text-text">{entry.actor ?? t("credentialPanel.systemActor")}</span>
+        {entry.detail && (
+          <span className="text-xs text-text-tertiary">— {entry.detail}</span>
+        )}
+      </div>
+      <div className="flex items-center gap-1 text-xs text-text-tertiary">
+        <ClockIcon size={12} aria-hidden="true" />
+        <time dateTime={entry.created_at}>
+          {new Date(entry.created_at).toLocaleString("pt-BR")}
+        </time>
+      </div>
     </div>
-    <div className="flex items-center gap-1 text-xs text-text-tertiary">
-      <ClockIcon size={12} aria-hidden="true" />
-      <time dateTime={entry.created_at}>
-        {new Date(entry.created_at).toLocaleString("pt-BR")}
-      </time>
-    </div>
-  </div>
-)
+  )
+}
 
 // ── Componente principal ──────────────────────────────────────────────────────
 
@@ -160,6 +156,7 @@ export const CredentialPanel: React.FC<CredentialPanelProps> = ({
   hasSecret,
   onRevoked,
 }) => {
+  const { t } = useTranslation("destinations")
   const [rotateOpen, setRotateOpen] = useState(false)
   const [revokeOpen, setRevokeOpen] = useState(false)
   const [rotating, setRotating] = useState(false)
@@ -179,10 +176,10 @@ export const CredentialPanel: React.FC<CredentialPanelProps> = ({
     try {
       await api.rotateCredential(destinationId, req)
       setRotateOpen(false)
-      setFeedback({ type: "success", message: "Credencial rotacionada com sucesso. Versão incrementada." })
+      setFeedback({ type: "success", message: t("credentialPanel.rotateSuccess") })
       reloadAudit()
     } catch (err) {
-      setFeedback({ type: "error", message: err instanceof Error ? err.message : "Falha ao rotacionar credencial." })
+      setFeedback({ type: "error", message: err instanceof Error ? err.message : t("credentialPanel.rotateErrorFallback") })
     } finally {
       setRotating(false)
     }
@@ -193,11 +190,11 @@ export const CredentialPanel: React.FC<CredentialPanelProps> = ({
     try {
       await api.revokeCredential(destinationId)
       setRevokeOpen(false)
-      setFeedback({ type: "success", message: "Credencial revogada. O destino foi desabilitado automaticamente." })
+      setFeedback({ type: "success", message: t("credentialPanel.revokeSuccess") })
       reloadAudit()
       onRevoked?.()
     } catch (err) {
-      setFeedback({ type: "error", message: err instanceof Error ? err.message : "Falha ao revogar credencial." })
+      setFeedback({ type: "error", message: err instanceof Error ? err.message : t("credentialPanel.revokeErrorFallback") })
     } finally {
       setRevoking(false)
     }
@@ -208,8 +205,8 @@ export const CredentialPanel: React.FC<CredentialPanelProps> = ({
       {/* Feedback */}
       {feedback && (
         <Notice
-          variant={feedback.type === "success" ? "success" : "danger"}
-          title={feedback.type === "success" ? "Operação concluída" : "Erro"}
+          variant={feedback.type === "success" ? "success" : "danger"} live={feedback.type === "error" ? "assertive" : undefined}
+          title={feedback.type === "success" ? t("credentialPanel.feedbackSuccessTitle") : t("credentialPanel.feedbackErrorTitle")}
         >
           {feedback.message}
         </Notice>
@@ -220,9 +217,12 @@ export const CredentialPanel: React.FC<CredentialPanelProps> = ({
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <KeyRoundIcon size={16} className="text-text-tertiary" aria-hidden="true" />
-            <h3 className="text-sm font-semibold text-text">Credencial</h3>
-            <Badge variant={hasSecret ? "primary" : "default"} size="sm">
-              {hasSecret ? "configurada" : "sem credencial"}
+            <h3 className="text-sm font-semibold text-text">{t("credentialPanel.title")}</h3>
+            {/* R3-8.6: "tem credencial" é fato de configuração, igual à
+                decisão já tomada em DestinationsPage — a matiz primária não é
+                pra dizer "normalizado". */}
+            <Badge variant={hasSecret ? "outline" : "default"} size="sm">
+              {hasSecret ? t("credentialPanel.statusConfigured") : t("credentialPanel.statusMissing")}
             </Badge>
           </div>
         </div>
@@ -235,7 +235,7 @@ export const CredentialPanel: React.FC<CredentialPanelProps> = ({
             onClick={() => setRotateOpen(true)}
             data-testid="btn-rotate-credential"
           >
-            Rotacionar
+            {t("credentialPanel.rotateBtn")}
           </Button>
           <Button
             variant="ghost"
@@ -245,49 +245,47 @@ export const CredentialPanel: React.FC<CredentialPanelProps> = ({
             disabled={!hasSecret}
             data-testid="btn-revoke-credential"
           >
-            Revogar
+            {t("credentialPanel.revokeBtn")}
           </Button>
         </div>
 
-        <p className="text-xs text-text-tertiary">
-          O segredo nunca é exibido após salvo. Revogar desabilita o destino imediatamente.
-        </p>
+        <p className="text-xs text-text-tertiary">{t("credentialPanel.footerNote")}</p>
       </Card>
 
       {/* Auditoria de acesso */}
       <Card padding="md" className="space-y-3">
         <div className="flex items-center justify-between">
-          <h4 className="text-sm font-semibold text-text">Auditoria de acesso</h4>
+          <h4 className="text-sm font-semibold text-text">{t("credentialPanel.auditTitle")}</h4>
           <Button
             variant="ghost"
             size="sm"
             onClick={reloadAudit}
             leftIcon={<RefreshCcwIcon size={14} />}
-            aria-label="Recarregar auditoria"
+            aria-label={t("credentialPanel.refreshAuditAria")}
           >
-            Atualizar
+            {t("credentialPanel.refreshAudit")}
           </Button>
         </div>
 
         {auditLoading && (
-          <div role="status" aria-label="Carregando auditoria…">
+          <div role="status" aria-label={t("credentialPanel.loadingAudit")}>
             <SkeletonText lines={4} />
           </div>
         )}
         {auditError && !auditLoading && (
           <ErrorState
-            title="Falha ao carregar auditoria"
+            title={t("credentialPanel.auditErrorTitle")}
             message={auditError.message}
             onRetry={reloadAudit}
           />
         )}
         {!auditLoading && !auditError && audit && audit.entries.length === 0 && (
-          <p className="text-sm text-text-tertiary">Nenhum acesso registrado ainda.</p>
+          <p className="text-sm text-text-tertiary">{t("credentialPanel.noAudit")}</p>
         )}
         {!auditLoading && !auditError && audit && audit.entries.length > 0 && (
           <div>
             <div className="mb-2 text-xs text-text-tertiary">
-              {audit.total} registro{audit.total !== 1 ? "s" : ""} (últimos 20)
+              {t("credentialPanel.auditCount", { count: audit.total })}
             </div>
             <div data-testid="audit-entries">
               {audit.entries.map((entry) => (
@@ -302,7 +300,7 @@ export const CredentialPanel: React.FC<CredentialPanelProps> = ({
       <Modal
         open={rotateOpen}
         onClose={() => !rotating && setRotateOpen(false)}
-        title="Rotacionar credencial"
+        title={t("credentialPanel.rotateModalTitle")}
         size="sm"
       >
         <RotateForm
@@ -315,9 +313,9 @@ export const CredentialPanel: React.FC<CredentialPanelProps> = ({
       {/* Confirm de revogação */}
       <ConfirmDialog
         open={revokeOpen}
-        title="Revogar credencial"
-        description="Revogar apaga a credencial e desabilita o destino imediatamente. Eventos novos não serão entregues até que uma nova credencial seja configurada. Esta ação não pode ser desfeita."
-        confirmLabel="Revogar"
+        title={t("credentialPanel.revokeDialogTitle")}
+        description={t("credentialPanel.revokeDialogDescription")}
+        confirmLabel={t("credentialPanel.revokeConfirmLabel")}
         confirmVariant="danger"
         loading={revoking}
         onConfirm={handleRevoke}

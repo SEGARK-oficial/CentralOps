@@ -141,4 +141,123 @@ describe("SchedulesPage — histórico", () => {
     fireEvent.click(csvButton)
     expect(api.downloadStoredCSV).toHaveBeenCalledWith("srch_view_csv")
   })
+
+  // R4-9.1: `setFieldValue` do useForm aceitava `value: any` — `startEditing`
+  // guardava `String(schedule.query_id)` (texto) num campo tipado `number |
+  // ""`. O <Select> de Query compara `option.value` (number, de `query.id`)
+  // com o valor selecionado via `===`; "10" !== 10 apagava a seleção ao
+  // editar um agendamento que JÁ TINHA uma query associada — o dropdown
+  // aparecia vazio, sem indicar erro nenhum. Corrigido tipando `setFieldValue`
+  // de verdade (não mais `any`) e removendo o `String(...)` desnecessário.
+  it("editar um agendamento existente mantém a Query correta selecionada no dropdown", async () => {
+    render(<SchedulesPage />)
+    await waitFor(() => expect(screen.getAllByText("Logins suspeitos").length).toBeGreaterThan(0))
+
+    fireEvent.click(screen.getByRole("button", { name: /^Editar$/i }))
+
+    const querySelect = await screen.findByRole("button", { name: /^Query/i })
+    // O rótulo do combobox some fica visível pra composer; a asserção real
+    // é o TEXTO exibido (o label da opção selecionada), que reproduz o bug:
+    // com `query_id` guardado como string, ficava "" (nem placeholder).
+    expect(querySelect).toHaveTextContent("Logins suspeitos")
+  })
+
+  // R3-9.1: `refreshSchedules`/`refreshNotificationRecipients` viraram
+  // `useCallback([t])` pra satisfazer react-hooks/exhaustive-deps no efeito de
+  // carga inicial. Prova que o memo não introduziu refetch num re-render sem
+  // troca de idioma.
+  it("re-render do componente sem trocar de idioma NÃO rechama a carga inicial", async () => {
+    const { rerender } = render(<SchedulesPage />)
+    await waitFor(() => expect(screen.getAllByText("Logins suspeitos").length).toBeGreaterThan(0))
+    expect(api.listSchedules).toHaveBeenCalledTimes(1)
+    expect(api.listEmails).toHaveBeenCalledTimes(1)
+
+    rerender(<SchedulesPage />)
+
+    await waitFor(() => expect(screen.getAllByText("Logins suspeitos").length).toBeGreaterThan(0))
+    expect(api.listSchedules).toHaveBeenCalledTimes(1)
+    expect(api.listEmails).toHaveBeenCalledTimes(1)
+  })
+})
+
+// Pilar 4: carregamento inicial da lista de agendamentos e do histórico.
+describe("SchedulesPage — Pilar 4 (ErrorState com retry)", () => {
+  beforeEach(async () => {
+    await i18n.changeLanguage("pt")
+    vi.clearAllMocks()
+    ;(api.listQueries as ReturnType<typeof vi.fn>).mockResolvedValue([query])
+    ;(api.listIntegrations as ReturnType<typeof vi.fn>).mockResolvedValue(integrations)
+  })
+
+  it("listSchedules rejeitando no load inicial mostra ErrorState, não EmptyState", async () => {
+    ;(api.listSchedules as ReturnType<typeof vi.fn>).mockRejectedValue(new Error("timeout"))
+    render(<SchedulesPage />)
+
+    await waitFor(() => expect(screen.getByText("timeout")).toBeInTheDocument())
+    expect(screen.getByRole("button", { name: /tentar novamente/i })).toBeInTheDocument()
+    expect(screen.queryByText("Nenhum agendamento cadastrado")).not.toBeInTheDocument()
+  })
+
+  it("Tentar novamente recarrega a lista de agendamentos", async () => {
+    ;(api.listSchedules as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error("timeout"))
+    render(<SchedulesPage />)
+    await screen.findByText("timeout")
+
+    ;(api.listSchedules as ReturnType<typeof vi.fn>).mockResolvedValueOnce([schedule])
+    fireEvent.click(screen.getByRole("button", { name: /tentar novamente/i }))
+
+    await waitFor(() => expect(screen.getAllByText("Logins suspeitos").length).toBeGreaterThan(0))
+    expect(screen.queryByText("timeout")).not.toBeInTheDocument()
+  })
+
+  it("getScheduleHistory rejeitando mostra ErrorState (não empilha com o EmptyState de histórico)", async () => {
+    ;(api.listSchedules as ReturnType<typeof vi.fn>).mockResolvedValue([schedule])
+    ;(api.getScheduleHistory as ReturnType<typeof vi.fn>).mockRejectedValue(new Error("falha ao buscar histórico"))
+
+    render(<SchedulesPage />)
+    await waitFor(() => expect(screen.getAllByText("Logins suspeitos").length).toBeGreaterThan(0))
+    fireEvent.click(screen.getAllByRole("button", { name: /Histórico/i })[0])
+
+    await waitFor(() => expect(screen.getByText("falha ao buscar histórico")).toBeInTheDocument())
+    expect(screen.getByRole("button", { name: /tentar novamente/i })).toBeInTheDocument()
+    expect(screen.queryByText(/nenhuma execução/i)).not.toBeInTheDocument()
+  })
+})
+
+// R3-8.4: `useForm` já mostrava o erro por campo (`error=` no Select/Input),
+// mas o foco nunca ia atrás — e o `Select` nem aceitava `ref` até esta
+// rodada. Sem os dois, o operador lia "Selecione uma query cadastrada" no
+// topo do campo e tinha que clicar nele manualmente.
+describe("SchedulesPage — foco no campo inválido (R3-8.4)", () => {
+  // Query SEM `client_ids` de propósito: o form auto-seleciona a única query
+  // disponível (e os clientes DELA, se ela declarar algum) assim que carrega
+  // — com `client_ids: []` na query, esse auto-preenchimento fica só no
+  // `query_id`, e "Clientes" (Select `multiple`) permanece vazio/inválido.
+  // É o cenário real que expõe o bug: o `Select` só passou a aceitar `ref`
+  // nesta rodada, e é exatamente o campo `multiple` que a Rodada 2 quebrou.
+  const queryNoDefaultClients: Query = { ...query, client_ids: [] }
+
+  beforeEach(async () => {
+    await i18n.changeLanguage("pt")
+    vi.clearAllMocks()
+    ;(api.listQueries as ReturnType<typeof vi.fn>).mockResolvedValue([queryNoDefaultClients])
+    ;(api.listIntegrations as ReturnType<typeof vi.fn>).mockResolvedValue(integrations)
+    ;(api.listSchedules as ReturnType<typeof vi.fn>).mockResolvedValue([])
+  })
+
+  it("submeter sem clientes selecionados foca o Select de Clientes (1º campo realmente inválido)", async () => {
+    render(<SchedulesPage />)
+    await screen.findByText("Novo agendamento")
+    // Aguarda queries/clientes carregarem — o botão fica desabilitado
+    // (`formBusy`) enquanto `queriesLoading`/`clientsLoading`.
+    await waitFor(() => expect(screen.getByRole("button", { name: "Criar agendamento" })).not.toBeDisabled())
+    // A query única já vem auto-selecionada (efeito da própria página) — o
+    // campo que fica inválido de verdade é "Clientes".
+    await screen.findByText("Logins suspeitos")
+
+    fireEvent.click(screen.getByRole("button", { name: "Criar agendamento" }))
+
+    await screen.findByText("Selecione ao menos um cliente")
+    expect(document.activeElement).toHaveAccessibleName("Clientes")
+  })
 })
