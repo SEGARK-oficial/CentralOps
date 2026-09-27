@@ -1,5 +1,19 @@
 # Changelog
 
+## [2.13.0](https://github.com/SEGARK-oficial/CentralOps/compare/v2.12.1...v2.13.0) (2026-09-27)
+
+
+### Features
+
+* **enrichment:** política e fonte para todas as filhas, inclusive as futuras ([bab837d](https://github.com/SEGARK-oficial/CentralOps/commit/bab837d45ad1070f1c3870288891032dd08f16ab))
+* **mcp:** enriquecimento visível e operável pelo MCP embutido ([c135245](https://github.com/SEGARK-oficial/CentralOps/commit/c1352456e80dafd6441e7bbb616ad2200f832b18))
+
+
+### Bug Fixes
+
+* **enrichment:** aba vira rota e a trilha para de oferecer 404 ([fc06fcc](https://github.com/SEGARK-oficial/CentralOps/commit/fc06fcc0c82e2fd50c48305f6532e9c97ebe4ca1))
+* **enrichment:** uma política ativa por org garantida pelo banco ([9653d10](https://github.com/SEGARK-oficial/CentralOps/commit/9653d10d03c0fc956a150033992b1e17285f60b1))
+
 ## [2.12.1](https://github.com/SEGARK-oficial/CentralOps/compare/v2.12.0...v2.12.1) (2026-09-27)
 
 
