@@ -86,6 +86,14 @@ class LoopbackClient:
     ) -> Any:
         return await self._request("POST", path, json=json, params=params)
 
+    async def patch(
+        self,
+        path: str,
+        json: Any | None = None,
+        params: Mapping[str, Any] | None = None,
+    ) -> Any:
+        return await self._request("PATCH", path, json=json, params=params)
+
     async def _request(
         self,
         method: str,

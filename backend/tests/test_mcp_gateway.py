@@ -237,7 +237,7 @@ def test_initialize_and_list_tools(env):
     r = _post(admin, token, _rpc("tools/list", {}, id=2))
     assert r.status_code == 200, r.text
     tools = {t["name"]: t for t in r.json()["result"]["tools"]}
-    assert len(tools) == 57
+    assert len(tools) == 74
     assert tools["commit_mapping"]["annotations"]["readOnlyHint"] is False
     assert tools["commit_mapping"]["annotations"]["destructiveHint"] is True
     assert tools["list_integrations"]["annotations"]["readOnlyHint"] is True
@@ -374,7 +374,7 @@ def test_config_is_platform_admin_only_and_strict(env):
     assert r.status_code == 200
     assert r.json() == {
         "enabled": False, "response_mode": "json", "endpoint_path": MCP,
-        "tools_count": 57, "is_persisted": False, "updated_at": None,
+        "tools_count": 74, "is_persisted": False, "updated_at": None,
     }
     # Campo desconhecido é 422, não descarte silencioso (StrictUpdateModel).
     assert admin.put("/api/mcp/config", json={"enabled": True, "nope": 1}).status_code == 422
@@ -395,7 +395,7 @@ def test_status_tells_the_analyst_what_they_need(env):
     assert body["has_permission"] is False
     assert body["required_permission"] == "mcp.use"
     assert body["endpoint_path"] == MCP
-    assert body["tools_count"] == 57
+    assert body["tools_count"] == 74
 
     _enable(admin)
     r = admin.get("/api/mcp/status")

@@ -54,7 +54,13 @@ Exatamente o que o analista pode fazer pelo REST com a mesma chave — nem mais,
 
 Cada ferramenta é implementada como uma chamada à API REST, executada dentro do servidor em nome do analista. A permissão da rota, o escopo de organização e os tetos de página são os do REST. Um Operator com `mcp.use` que pede ao assistente para publicar um mapping recebe o mesmo `403` que receberia com `curl`, e a ferramenta devolve esse erro ao modelo de forma estruturada (`error_kind: upstream_http_error`, `http_status: 403`).
 
-Cinco ferramentas alteram estado e são anunciadas ao cliente como tal (`readOnlyHint: false`): `commit_mapping`, `commit_mapping_patch`, `request_backfill`, `cancel_backfill_job` e `reprocess_quarantine`. As duas de commit exigem um `ack_token` emitido por um dry-run do mesmo analista, válido por 5 minutos e de uso único. Todas as outras só leem — inclusive `dry_run_mapping`, que é um `POST` mas não persiste nada.
+Doze ferramentas alteram estado e são anunciadas ao cliente como tal (`readOnlyHint: false`): `commit_mapping`, `commit_mapping_patch`, `request_backfill`, `cancel_backfill_job`, `reprocess_quarantine` e as sete de enriquecimento (`create_enrichment_policy`, `commit_enrichment_policy`, `set_enrichment_policy_enabled`, `rollback_enrichment_policy`, `set_enrichment_policy_template`, `apply_enrichment_template` e `update_enrichment_source_sharing`). As de commit exigem um `ack_token` emitido por um dry-run do mesmo analista, válido por 5 minutos e de uso único. Todas as outras só leem — inclusive `dry_run_mapping`, `dry_run_enrichment` e `preflight_enrichment_template`, que são `POST` mas não persistem nada.
+
+### Enriquecimento
+
+O assistente enxerga o enriquecimento de ponta a ponta: catálogo, fontes (sem a credencial — a API só diz se ela existe), tabelas (sem as linhas), políticas com as regras vigentes e o histórico, a prontidão por organização, os contadores por regra e o registro das chamadas aos provedores com o erro devolvido por eles. Para uma pergunta como "o enriquecimento parou neste cliente?", a ordem é `get_enrichment_readiness`, depois `get_enrichment_metrics` e `list_enrichment_activity`.
+
+Na escrita, ele cria, publica, liga, reverte e aplica o modelo da matriz às filhas. Credencial e endpoint de fonte **não** passam pelo MCP: cadastrar e rotacionar chave fica na interface, para o segredo não trafegar pela conversa com o modelo. Pelo MCP dá para mudar só **quem** usa a fonte (`update_enrichment_source_sharing`). Todas as rotas de enriquecimento exigem papel admin.
 
 ## Auditoria
 
