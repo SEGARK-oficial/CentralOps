@@ -34,6 +34,11 @@ scopes) does not include that action — do not retry, tell the user.
 - "Where did this event go?" -> get_event_lineage, list_destination_lineage.
 - "Is data being dropped or delayed?" -> get_route_health, list_destination_dlq,
   list_collection_state (collection lag).
+- "Is enrichment working for this tenant?" -> get_enrichment_readiness first, then
+  get_enrichment_metrics (does each rule still match?) and
+  list_enrichment_activity (the provider's own error text: why did it stop?).
+- "How is this tenant enriched?" -> list_enrichment_policies (is_active marks the
+  ONE policy applied per organization), then get_enrichment_policy.
 
 ## Scope: read this before trusting an empty result
 
@@ -48,10 +53,11 @@ dry_run_mapping with a global analyst and no `organization_id` return
 not "there is no data". Pass `organization_id` whenever a reservoir-backed call
 comes back empty.
 
-## Writes: 5 of these tools change state, the rest only read
+## Writes: 12 of these tools change state, the rest only read
 
 Read-only (safe to explore freely): everything not listed below, including
-dry_run_mapping — it is an HTTP POST but persists nothing.
+dry_run_mapping, dry_run_enrichment and preflight_enrichment_template — HTTP
+POSTs that persist nothing.
 
 State-changing, and each needs explicit human intent before you call it:
 - commit_mapping — promotes a new mapping version; live collectors pick it up in
@@ -62,9 +68,22 @@ State-changing, and each needs explicit human intent before you call it:
 - request_backfill — enqueues a re-collection job; costs vendor API quota.
 - cancel_backfill_job — stops a running job.
 - reprocess_quarantine — re-injects a quarantined event into the pipeline.
+- create_enrichment_policy — creates an empty, disabled policy.
+- commit_enrichment_policy — publishes a policy version. It REPLACES every rule
+  (no merge): start from get_enrichment_policy. Requires an ack_token from
+  dry_run_enrichment for the same policy_id AND the same rules.
+- set_enrichment_policy_enabled — only ONE policy is enabled per organization;
+  a second one is refused (409) until the first is disabled.
+- rollback_enrichment_policy — re-points a policy at an older version.
+- set_enrichment_policy_template / apply_enrichment_template — the parent
+  template flow: each child gets its OWN derived version (there is no global
+  policy). A child whose own policy is enabled is never overwritten. Check
+  preflight_enrichment_template first.
+- update_enrichment_source_sharing — which child organizations use a source.
+  Credentials and endpoints are never changed through MCP.
 
 Never call these to "verify" or "test" something. To test a mapping, use
-dry_run_mapping.
+dry_run_mapping; to test enrichment rules, dry_run_enrichment.
 
 ## Two traps that produce confident wrong answers
 

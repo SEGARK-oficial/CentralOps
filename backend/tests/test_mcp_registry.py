@@ -82,6 +82,24 @@ EXPECTED_TOOLS = {
     "get_search_result",
     "list_audit_log",
     "get_query_capabilities",
+    # Enrichment (ADR-LOCAL-0002)
+    "list_enrichers",
+    "list_enrichment_sources",
+    "list_enrichment_tables",
+    "list_enrichment_policies",
+    "get_enrichment_policy",
+    "get_enrichment_readiness",
+    "get_enrichment_metrics",
+    "list_enrichment_activity",
+    "preflight_enrichment_template",
+    "dry_run_enrichment",
+    "create_enrichment_policy",
+    "commit_enrichment_policy",
+    "set_enrichment_policy_enabled",
+    "rollback_enrichment_policy",
+    "set_enrichment_policy_template",
+    "apply_enrichment_template",
+    "update_enrichment_source_sharing",
 }
 
 #: Every tool that changes server-side state. ``dry_run_mapping`` is deliberately
@@ -92,13 +110,31 @@ WRITE_TOOLS = {
     "request_backfill",
     "cancel_backfill_job",
     "reprocess_quarantine",
+    "create_enrichment_policy",
+    "commit_enrichment_policy",
+    "set_enrichment_policy_enabled",
+    "rollback_enrichment_policy",
+    "set_enrichment_policy_template",
+    "apply_enrichment_template",
+    "update_enrichment_source_sharing",
 }
 
 #: Writes whose effect is not undone by calling them again.
-NON_IDEMPOTENT_TOOLS = {"commit_mapping", "commit_mapping_patch", "request_backfill"}
+NON_IDEMPOTENT_TOOLS = {
+    "commit_mapping",
+    "commit_mapping_patch",
+    "request_backfill",
+    "create_enrichment_policy",
+    "commit_enrichment_policy",
+}
 
 #: POST but read-only: they compute and stage, they never persist.
-READ_ONLY_POSTERS = {"dry_run_mapping", "patch_mapping_rules"}
+READ_ONLY_POSTERS = {
+    "dry_run_mapping",
+    "patch_mapping_rules",
+    "dry_run_enrichment",
+    "preflight_enrichment_template",
+}
 
 _MUTATING_CALL = re.compile(r"client\.(post|put|patch|delete)\(")
 
@@ -110,7 +146,7 @@ def specs():
 
 def test_tool_registry_has_expected_names(specs):
     assert set(specs.keys()) == EXPECTED_TOOLS
-    assert len(specs) == 57
+    assert len(specs) == 74
 
 
 def test_every_spec_has_object_schema_with_no_extra_props(specs):
@@ -124,6 +160,30 @@ def test_destructive_tool_requires_ack_token(specs):
     commit = specs["commit_mapping"]
     required = set(commit.input_schema["required"])
     assert {"definition_id", "rules", "commit_message", "ack_token"} <= required
+
+
+def test_enrichment_commit_requires_ack_token(specs):
+    """Publicar SUBSTITUI todas as regras: o agente tem que ter feito o dry-run
+    exatamente destas regras para esta política."""
+    required = set(specs["commit_enrichment_policy"].input_schema["required"])
+    assert {"policy_id", "rules", "commit_message", "ack_token"} <= required
+
+
+def test_enrichment_source_tool_never_takes_a_credential(specs):
+    """Segredo não trafega pela conversa com o modelo: a única ferramenta que
+    escreve numa fonte só aceita compartilhamento, pausa e descrição."""
+    props = set(specs["update_enrichment_source_sharing"].input_schema["properties"])
+    assert props == {
+        "source_id",
+        "shared_organization_ids",
+        "share_with_descendants",
+        "enabled",
+        "description",
+    }
+    for name, spec in specs.items():
+        if "enrichment" in name:
+            assert "secret" not in spec.input_schema["properties"], name
+            assert "config" not in spec.input_schema["properties"], name
 
 
 def test_write_tools_are_not_advertised_as_read_only(specs):

@@ -21,6 +21,7 @@ from .tools import (
     destinations as destinations_tools,
     detections as detections_tools,
     drift as drift_tools,
+    enrichment as enrichment_tools,
     integrations as integrations_tools,
     mapping as mapping_tools,
     pipeline_health as pipeline_health_tools,
@@ -58,6 +59,7 @@ def build_specs(ack_cache: AckCache | None = None) -> dict[str, ToolSpec]:
         *detections_tools.specs(),
         *dashboard_tools.specs(),
         *queries_tools.specs(),
+        *enrichment_tools.specs(cache),
     ]
     for factory in _EXTENSIONS:
         specs.extend(factory())
