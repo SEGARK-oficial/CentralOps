@@ -1,0 +1,115 @@
+#####################################################################
+# centralops_ocsf_passthrough.vrl
+#
+# Parser do nano para o feed HEC do CentralOps.
+#
+# O CentralOps já normaliza para OCSF 1.8 antes de entregar. Este arquivo
+# NÃO parseia: ele reetiqueta. A única coisa que faz é traduzir o envelope
+# HEC para a forma que a `nanosiem.ocsf_logs_raw` espera, e deixar a
+# materialized view do próprio nano promover os campos.
+#
+# Reparsear aqui seria uma segunda implementação do normalizador, livre para
+# divergir da primeira — que é exatamente o que a divisão de trabalho
+# (CentralOps normaliza, nano busca/detecta) existe para evitar.
+#
+# ENTRADA (o que o CentralOps manda com payload=ocsf):
+#   { "event": {…OCSF 1.8…},
+#     "sourcetype": "comercial_zaffari_sophos",
+#     "fields": { "_centralops_event_id": "<uuid>" } }
+#
+# SAÍDA (o que a ocsf_logs_raw aceita):
+#   { "event": {…}, "source_type": "…", "timestamp": <ms>, "id": "<uuid>" }
+#
+# ATENÇÃO — não validei contra a doc do nano (nano.rs devolve 403 para
+# leitura automatizada). Foi escrito a partir de dois fatos MEDIDOS na sua
+# instância: o schema real da ocsf_logs_raw e o corpo real que o sink HEC do
+# CentralOps emite. Rode uma vez com um evento antes de confiar.
+#####################################################################
+
+# ── 1. Onde está o OCSF ─────────────────────────────────────────────
+#
+# O source `splunk_hec` do Vector, dependendo da versão e da config, ou
+# entrega o conteúdo de `event` já na raiz, ou mantém o aninhamento. Aceitar
+# as duas formas é mais barato que descobrir na produção qual é a sua — e o
+# guard do passo 2 impede que essa tolerância vire silêncio.
+ocsf = {}
+if exists(.event) && is_object(.event) {
+    ocsf = object!(.event)
+} else {
+    ocsf = .
+}
+
+# ── 2. Guard: isto é OCSF mesmo? ────────────────────────────────────
+#
+# Se `class_uid` não existe, o evento NÃO é OCSF — o caso provável é o
+# destino do CentralOps estar com payload=envelope em vez de ocsf, e aí o
+# que chegou é o envelope canônico inteiro (com `_centralops` e `raw`).
+#
+# Abortar é deliberado. A alternativa — gravar assim mesmo — produziria
+# linhas com class_uid 0 indistinguíveis de telemetria legítima, e o erro
+# só apareceria semanas depois numa investigação vazia. Vector manda o
+# aborto para a rota de erro, onde é contável.
+if !exists(ocsf.class_uid) {
+    abort "nao-ocsf: sem class_uid. Confira se o destino CentralOps esta com payload=ocsf (e nao envelope)."
+}
+
+# ── 3. O rótulo da fonte ────────────────────────────────────────────
+#
+# `sourcetype` é o campo HEC que o CentralOps preenche — e é o que carrega o
+# rótulo por tenant quando o destino usa rótulo derivado.
+#
+# 'unknown' como último recurso é sentinela, não default: é consultável
+# (`WHERE source_type = 'unknown'`) e denuncia destino mal configurado. String
+# vazia seria indistinguível de coluna nunca preenchida.
+source_type = "unknown"
+if exists(.sourcetype) && is_string(.sourcetype) {
+    source_type = string!(.sourcetype)
+} else if exists(.fields.source_type) && is_string(.fields.source_type) {
+    source_type = string!(.fields.source_type)
+}
+
+# O nano separa facetas por caixa: 'Acme_Sophos' e 'acme_sophos' viram duas
+# fontes distintas nos painéis. O CentralOps já normaliza no rótulo derivado,
+# mas o literal é digitado por humano — normalizar aqui também é barato.
+source_type = downcase(source_type)
+
+# ── 4. Timestamp ────────────────────────────────────────────────────
+#
+# OCSF `time` é em MILISSEGUNDOS. Tratar como segundos joga o evento para
+# 1970 e ele some de qualquer painel com janela — erro de fator 1000 que não
+# levanta exceção nenhuma.
+ts = now()
+if exists(ocsf.time) {
+    ms = to_int(ocsf.time) ?? 0
+    if ms > 0 {
+        ts = from_unix_timestamp!(ms, unit: "milliseconds")
+    }
+}
+
+# ── 5. Id estável ───────────────────────────────────────────────────
+#
+# O CentralOps manda o event_id dele em `fields._centralops_event_id`. Reusar
+# como `id` dá idempotência de graça: reentrega do mesmo evento (drenagem de
+# DLQ, backfill, replay) colide na mesma chave em vez de duplicar.
+#
+# Só aceita se tiver forma de UUID — a coluna é UUID e um valor fora de forma
+# derruba o INSERT inteiro, levando o lote junto.
+id = uuid_v4()
+if exists(.fields._centralops_event_id) {
+    candidato = to_string(.fields._centralops_event_id) ?? ""
+    if match(candidato, r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$') {
+        id = candidato
+    }
+}
+
+# ── 6. A linha ──────────────────────────────────────────────────────
+#
+# Substitui o evento inteiro em vez de ir apagando campo por campo: assim
+# nenhum resíduo do envelope HEC (channel, index, host) vaza para a tabela e
+# vira coluna desconhecida.
+. = {
+    "event": ocsf,
+    "source_type": source_type,
+    "timestamp": ts,
+    "id": id
+}
