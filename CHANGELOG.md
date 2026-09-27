@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.12.0](https://github.com/SEGARK-oficial/CentralOps/compare/v2.11.1...v2.12.0) (2026-09-27)
+
+
+### Features
+
+* **frontend:** auditoria WCAG 2.2 AA + performance + segurança do console ([#85](https://github.com/SEGARK-oficial/CentralOps/issues/85)) ([61d65ad](https://github.com/SEGARK-oficial/CentralOps/commit/61d65ad36cfbd3aa7b51377c5d397eb8ad46fd51))
+
 ## [2.11.1](https://github.com/SEGARK-oficial/CentralOps/compare/v2.11.0...v2.11.1) (2026-09-13)
 
 
