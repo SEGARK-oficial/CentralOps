@@ -1054,7 +1054,13 @@ def load_policy_for_org(
                     models.EnrichmentPolicy.organization_id == organization_id,
                     models.EnrichmentPolicy.enabled.is_(True),
                 )
-                .order_by(models.EnrichmentPolicy.created_at.asc())
+                # Desempate por ``id``, igual a ``routers.enrichment._active_policy_id``:
+                # sem ele, duas criadas no mesmo instante deixavam a UI e o
+                # worker escolherem políticas diferentes.
+                .order_by(
+                    models.EnrichmentPolicy.created_at.asc(),
+                    models.EnrichmentPolicy.id.asc(),
+                )
                 .first()
             )
             if policy_row is None:

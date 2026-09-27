@@ -36,6 +36,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from fastapi import APIRouter, Depends, Query, status
 from pydantic import BaseModel, Field
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from ..collectors.enrich import enrichers as _enrichers  # noqa: F401 — dispara registro
@@ -1256,31 +1257,51 @@ def set_policy_enabled(
         # W4.6 — UMA política em vigor por org. O runtime sempre aplicou só a
         # habilitada mais antiga e ignorava as demais em silêncio ("editei e não
         # mudou nada"). Recusar a segunda torna a regra visível no ato.
-        other = (
-            db.query(models.EnrichmentPolicy)
-            .filter(
-                models.EnrichmentPolicy.organization_id == row.organization_id,
-                models.EnrichmentPolicy.enabled.is_(True),
-                models.EnrichmentPolicy.id != row.id,
-            )
-            .order_by(models.EnrichmentPolicy.created_at.asc())
-            .first()
-        )
+        other = _other_enabled_policy(db, row)
         if other is not None:
-            raise ApiError(
-                "enrichment.policy_already_active",
-                status.HTTP_409_CONFLICT,
-                messages={
-                    "pt": "A política {name} já está em vigor nesta organização. Desabilite-a antes de habilitar outra: só uma política é aplicada por organização.",
-                    "en": "Policy {name} is already active for this organization. Disable it before enabling another: only one policy is applied per organization.",
-                    "es": "La política {name} ya está vigente en esta organización. Desactívala antes de activar otra: solo se aplica una política por organización.",
-                },
-                params={"name": other.name},
-            )
+            raise _policy_already_active(other.name)
     row.enabled = bool(enabled)
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        # O SELECT acima e o commit não são atômicos: outra requisição pode ter
+        # ligado uma política da mesma org entre os dois. O índice único parcial
+        # (``uq_enrich_policy_one_enabled``) recusa, e a resposta é a mesma do
+        # caminho sequencial — nunca um 500.
+        db.rollback()
+        other = _other_enabled_policy(db, row)
+        raise _policy_already_active(other.name if other else "?")
     db.refresh(row)
     return _policy_read(db, row)
+
+
+def _other_enabled_policy(
+    db: Session, row: models.EnrichmentPolicy
+) -> Optional[models.EnrichmentPolicy]:
+    """A OUTRA política habilitada da org de ``row``, na ordem do runtime."""
+    return (
+        db.query(models.EnrichmentPolicy)
+        .filter(
+            models.EnrichmentPolicy.organization_id == row.organization_id,
+            models.EnrichmentPolicy.enabled.is_(True),
+            models.EnrichmentPolicy.id != row.id,
+        )
+        .order_by(models.EnrichmentPolicy.created_at.asc(), models.EnrichmentPolicy.id.asc())
+        .first()
+    )
+
+
+def _policy_already_active(name: str) -> ApiError:
+    return ApiError(
+        "enrichment.policy_already_active",
+        status.HTTP_409_CONFLICT,
+        messages={
+            "pt": "A política {name} já está em vigor nesta organização. Desabilite-a antes de habilitar outra: só uma política é aplicada por organização.",
+            "en": "Policy {name} is already active for this organization. Disable it before enabling another: only one policy is applied per organization.",
+            "es": "La política {name} ya está vigente en esta organización. Desactívala antes de activar otra: solo se aplica una política por organización.",
+        },
+        params={"name": name},
+    )
 
 
 @router.post(
@@ -1315,6 +1336,15 @@ def commit_policy_version(
             "enrichment.table_missing",
             f"tabela(s) inexistente(s) nesta organização: {', '.join(sorted(missing))}",
         )
+    # Mesma régua para a FONTE. Sem isto, citar uma fonte apagada (ou de outro
+    # tenant) publicava sem erro e a regra falhava a cada ciclo, visível só na
+    # aba de execução — que é justamente o silêncio que o gate da tabela fecha.
+    missing_src = _missing_sources(db, int(row.organization_id), compiled)
+    if missing_src:
+        raise _bad_request(
+            "enrichment.source_missing",
+            f"fonte(s) inexistente(s) nesta organização: {', '.join(missing_src)}",
+        )
 
     last = (
         db.query(models.EnrichmentPolicyVersion)
@@ -1343,6 +1373,42 @@ def commit_policy_version(
         is_current=True,
         summary=describe_policy(compiled),
     )
+
+
+def _missing_sources(db: Session, org_id: int, compiled) -> List[str]:
+    """Fontes citadas pela política que a org NÃO enxerga.
+
+    Enxergar = ser a dona OU estar na lista de compartilhamento — o mesmo join
+    que ``runtime._resolve_source`` faz. Fonte desabilitada conta como
+    existente: desligar temporariamente não pode impedir de publicar.
+    """
+    referenced = {r.source for r in compiled.rules if getattr(r, "source", None)}
+    if not referenced:
+        return []
+    names = list(referenced)
+    own = {
+        str(s.name)
+        for s in db.query(models.EnrichmentSource)
+        .filter(
+            models.EnrichmentSource.organization_id == org_id,
+            models.EnrichmentSource.name.in_(names),
+        )
+        .all()
+    }
+    shared = {
+        str(s.name)
+        for s in db.query(models.EnrichmentSource)
+        .join(
+            models.EnrichmentSourceOrg,
+            models.EnrichmentSourceOrg.source_id == models.EnrichmentSource.id,
+        )
+        .filter(
+            models.EnrichmentSourceOrg.organization_id == org_id,
+            models.EnrichmentSource.name.in_(names),
+        )
+        .all()
+    }
+    return sorted(referenced - own - shared)
 
 
 def _missing_tables(db: Session, org_id: int, compiled) -> set:
@@ -2318,33 +2384,9 @@ def _duplicate_preflight(
     ciclo, num log de worker que ninguém lê.
     """
     missing_tables = sorted(_missing_tables(db, target_org, compiled))
-
-    referenced_sources = {r.source for r in compiled.rules if getattr(r, "source", None)}
-    existing_sources = {
-        str(s.name)
-        for s in db.query(models.EnrichmentSource)
-        .filter(
-            models.EnrichmentSource.organization_id == target_org,
-            models.EnrichmentSource.name.in_(list(referenced_sources) or [""]),
-        )
-        .all()
-    }
     # Uma fonte compartilhada PELA MATRIZ também atende a filha; ignorar isso
     # marcaria como faltante uma credencial que de fato está disponível lá.
-    shared_sources = {
-        str(s.name)
-        for s in db.query(models.EnrichmentSource)
-        .join(
-            models.EnrichmentSourceOrg,
-            models.EnrichmentSourceOrg.source_id == models.EnrichmentSource.id,
-        )
-        .filter(
-            models.EnrichmentSourceOrg.organization_id == target_org,
-            models.EnrichmentSource.name.in_(list(referenced_sources) or [""]),
-        )
-        .all()
-    }
-    missing_sources = sorted(referenced_sources - existing_sources - shared_sources)
+    missing_sources = _missing_sources(db, target_org, compiled)
 
     referenced_tables = {r.table for r in compiled.rules if r.table}
     sem_versao = sorted(

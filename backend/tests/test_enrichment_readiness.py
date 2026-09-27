@@ -219,6 +219,12 @@ def test_segunda_politica_habilitada_vira_aviso_com_o_nome_da_ignorada(
     from backend.app.db import models
 
     _, SessionLocal = client_factory
+    from sqlalchemy import text
+
+    with SessionLocal() as db:
+        # Base anterior ao índice único parcial — só nela cabem duas ligadas.
+        db.execute(text("DROP INDEX IF EXISTS uq_enrich_policy_one_enabled"))
+        db.commit()
     with SessionLocal() as db:
         p2 = models.EnrichmentPolicy(
             organization_id=org, name="nova", enabled=True
