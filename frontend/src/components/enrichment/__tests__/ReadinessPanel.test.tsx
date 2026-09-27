@@ -117,7 +117,16 @@ describe("ReadinessPanel", () => {
           title: "Tabelas",
           detail: "d",
           blocking: true,
-          action: { label: "Abrir tabelas", route: "/enrichment?tab=tables", scope: "org" },
+          action: { label: "Abrir tabelas", route: "/enrichment/tables", scope: "org" },
+        },
+        {
+          // Formato antigo: link salvo ou API anterior à aba virar rota.
+          key: "sources",
+          status: "blocked",
+          title: "Fontes",
+          detail: "d",
+          blocking: true,
+          action: { label: "Abrir fontes", route: "/enrichment?tab=sources", scope: "org" },
         },
       ],
     })
@@ -138,6 +147,8 @@ describe("ReadinessPanel", () => {
     // seria desperdício e piscaria a tela.
     fireEvent.click(screen.getByRole("button", { name: "Abrir tabelas" }))
     expect(onNavigateTab).toHaveBeenCalledWith("tables")
+    fireEvent.click(screen.getByRole("button", { name: "Abrir fontes" }))
+    expect(onNavigateTab).toHaveBeenCalledWith("sources")
     expect(navigate).toHaveBeenCalledTimes(1)
   })
 

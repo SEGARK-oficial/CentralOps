@@ -125,7 +125,13 @@
       "adminOcsf": "Gobernanza OCSF",
       "settings": "Cuenta",
       "settingsAccount": "Perfil y seguridad",
-      "settingsTokens": "Tokens de API"
+      "settingsTokens": "Tokens de API",
+      "enrichment": "Enriquecimiento",
+      "enrichmentPolicies": "Políticas",
+      "enrichmentSources": "Fuentes",
+      "enrichmentTables": "Tablas",
+      "enrichmentCatalog": "Catálogo",
+      "enrichmentExecution": "Ejecución"
     }
   },
   "globalFilters": {

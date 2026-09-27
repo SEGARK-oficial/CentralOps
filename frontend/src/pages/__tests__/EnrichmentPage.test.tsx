@@ -11,7 +11,7 @@
  */
 
 import { render as rtlRender, screen, fireEvent, waitFor, within } from "@testing-library/react"
-import { MemoryRouter } from "react-router-dom"
+import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom"
 import { describe, it, expect, vi, beforeAll, beforeEach } from "vitest"
 import EnrichmentPage from "@/pages/EnrichmentPage"
 import * as api from "@/services/api"
@@ -46,7 +46,18 @@ vi.mock("react-router-dom", async () => {
   const actual = await vi.importActual<typeof import("react-router-dom")>(
     "react-router-dom",
   )
-  return { ...actual, useNavigate: () => navigate }
+  // Espiona E navega: a aba agora é rota, então um `navigate` que só registra
+  // deixaria a página presa na aba inicial.
+  return {
+    ...actual,
+    useNavigate: () => {
+      const real = actual.useNavigate()
+      return (...args: Parameters<typeof real>) => {
+        navigate(...args)
+        return real(...(args as [never]))
+      }
+    },
+  }
 })
 
 /**
@@ -55,8 +66,26 @@ vi.mock("react-router-dom", async () => {
  * administrador global), então o componente exige um Router. Envolver aqui é o
  * acoplamento correto: na aplicação ele sempre está dentro de um.
  */
-const render = (ui: React.ReactElement) =>
-  rtlRender(<MemoryRouter>{ui}</MemoryRouter>)
+/**
+ * A aba vive na URL (`/enrichment/<aba>`), então a página precisa da MESMA rota
+ * que o `App.tsx` registra — sem ela `useParams` nunca devolve a aba e clicar
+ * numa aba não teria efeito. `LocationProbe` expõe o endereço corrente.
+ */
+function LocationProbe(): React.ReactElement {
+  const loc = useLocation()
+  return <output data-testid="location">{loc.pathname + loc.search}</output>
+}
+
+const render = (ui: React.ReactElement, path = "/enrichment") =>
+  rtlRender(
+    <MemoryRouter initialEntries={[path]}>
+      <Routes>
+        <Route path="/enrichment/:tab?" element={ui} />
+        <Route path="*" element={null} />
+      </Routes>
+      <LocationProbe />
+    </MemoryRouter>,
+  )
 
 const mockedApi = vi.mocked(api)
 
@@ -408,5 +437,48 @@ describe("EnrichmentPage — fontes configuradas", () => {
     expect(
       await screen.findByRole("dialog", { name: /Editar fonte/i }),
     ).toBeInTheDocument()
+  })
+})
+
+describe("EnrichmentPage — a aba é endereço", () => {
+  it("/enrichment/policies abre direto na aba Políticas (era 404)", async () => {
+    mockLoad()
+    render(<EnrichmentPage />, "/enrichment/policies")
+
+    expect(await screen.findByText("Nenhuma política ainda")).toBeInTheDocument()
+    expect(screen.getByRole("tab", { name: /Políticas/i })).toHaveAttribute("aria-selected", "true")
+    expect(screen.queryByTestId("readiness-panel")).not.toBeInTheDocument()
+  })
+
+  it("trocar de aba muda a URL, sem recarregar os dados", async () => {
+    mockLoad()
+    render(<EnrichmentPage />)
+    await aguardaCarregar()
+    const cargas = mockedApi.listEnrichmentPolicies.mock.calls.length
+
+    fireEvent.click(screen.getByRole("tab", { name: /Fontes/i }))
+
+    expect(screen.getByTestId("location")).toHaveTextContent("/enrichment/sources")
+    expect(screen.getByRole("tab", { name: /Fontes/i })).toHaveAttribute("aria-selected", "true")
+    expect(mockedApi.listEnrichmentPolicies.mock.calls.length).toBe(cargas)
+  })
+
+  it("o formato antigo ?tab= é normalizado para a rota da aba", async () => {
+    mockLoad()
+    render(<EnrichmentPage />, "/enrichment?tab=tables")
+
+    await waitFor(() =>
+      expect(screen.getByTestId("location")).toHaveTextContent(/^\/enrichment\/tables$/),
+    )
+    expect(screen.getByRole("tab", { name: /Tabelas/i })).toHaveAttribute("aria-selected", "true")
+  })
+
+  it("segmento que não é aba volta para a visão geral", async () => {
+    mockLoad()
+    render(<EnrichmentPage />, "/enrichment/nao-existe")
+
+    await waitFor(() =>
+      expect(screen.getByTestId("location")).toHaveTextContent(/^\/enrichment$/),
+    )
   })
 })

@@ -492,7 +492,7 @@ export function EnrichmentPolicyPage(): React.ReactElement {
             )}
             <Button
               variant="ghost"
-              onClick={() => navigate("/enrichment")}
+              onClick={() => navigate("/enrichment/policies")}
               leftIcon={<ArrowLeftIcon size={16} />}
             >
               {t("policies.page.back")}

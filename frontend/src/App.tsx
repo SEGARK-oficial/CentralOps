@@ -328,8 +328,10 @@ const AppRoutes: React.FC = () => {
         {/* Enriquecimento (ADR-LOCAL-0002): catálogo plugin-driven, tabelas do
             cliente e políticas versionadas. Admin — a política decide o que sai
             do ambiente do cliente para terceiros. */}
+        {/* `:tab?` e não uma rota por aba: o MESMO elemento atende todas, então
+            trocar de aba não remonta a página nem refaz as 5 chamadas de carga. */}
         <Route
-          path="enrichment"
+          path="enrichment/:tab?"
           element={
             <RoleGuard requiredRole="admin">
               <EnrichmentPage />

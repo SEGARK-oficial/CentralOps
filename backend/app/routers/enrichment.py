@@ -1941,7 +1941,7 @@ def enrichment_readiness(
                     "ejecutan y dónde se escribe el resultado.",
                 ),
                 blocking=True,
-                action=ReadinessAction(label=_tr("Criar política", "Create policy", "Crear política"), route="/enrichment?tab=policies"),
+                action=ReadinessAction(label=_tr("Criar política", "Create policy", "Crear política"), route="/enrichment/policies"),
             )
         )
     elif not enabled_policies:
@@ -1960,7 +1960,7 @@ def enrichment_readiness(
                     n=len(policies),
                 ),
                 blocking=True,
-                action=ReadinessAction(label=_tr("Abrir políticas", "Open policies", "Abrir políticas"), route="/enrichment?tab=policies"),
+                action=ReadinessAction(label=_tr("Abrir políticas", "Open policies", "Abrir políticas"), route="/enrichment/policies"),
             )
         )
     elif not active_rules:
@@ -1982,7 +1982,7 @@ def enrichment_readiness(
                     name=enabled_policies[0].name,
                 ),
                 blocking=True,
-                action=ReadinessAction(label=_tr("Publicar versão", "Publish a version", "Publicar versión"), route="/enrichment?tab=policies"),
+                action=ReadinessAction(label=_tr("Publicar versão", "Publish a version", "Publicar versión"), route="/enrichment/policies"),
             )
         )
     else:
@@ -2010,7 +2010,7 @@ def enrichment_readiness(
                     "{name} · {n} regla(s).", name=active_name, n=len(active_rules),
                 )
                 + extra,
-                action=ReadinessAction(label=_tr("Abrir editor", "Open editor", "Abrir editor"), route="/enrichment?tab=policies"),
+                action=ReadinessAction(label=_tr("Abrir editor", "Open editor", "Abrir editor"), route="/enrichment/policies"),
             )
         )
 
@@ -2159,7 +2159,7 @@ def enrichment_readiness(
                 title=_tr("Fontes configuradas", "Configured sources", "Fuentes configuradas"),
                 detail="; ".join(problemas) + ".",
                 blocking=True,
-                action=ReadinessAction(label=_tr("Abrir fontes", "Open sources", "Abrir fuentes"), route="/enrichment?tab=sources"),
+                action=ReadinessAction(label=_tr("Abrir fontes", "Open sources", "Abrir fuentes"), route="/enrichment/sources"),
             )
         )
     elif falhando or nunca_testada:
@@ -2178,7 +2178,7 @@ def enrichment_readiness(
                 status="warning",
                 title=_tr("Fontes configuradas", "Configured sources", "Fuentes configuradas"),
                 detail="; ".join(problemas) + ".",
-                action=ReadinessAction(label=_tr("Abrir fontes", "Open sources", "Abrir fuentes"), route="/enrichment?tab=sources"),
+                action=ReadinessAction(label=_tr("Abrir fontes", "Open sources", "Abrir fuentes"), route="/enrichment/sources"),
             )
         )
     else:
@@ -2244,7 +2244,7 @@ def enrichment_readiness(
                 title=_tr("Tabelas do cliente", "Customer tables", "Tablas del cliente"),
                 detail="; ".join(problemas) + ".",
                 blocking=True,
-                action=ReadinessAction(label=_tr("Abrir tabelas", "Open tables", "Abrir tablas"), route="/enrichment?tab=tables"),
+                action=ReadinessAction(label=_tr("Abrir tabelas", "Open tables", "Abrir tablas"), route="/enrichment/tables"),
             )
         )
     else:
