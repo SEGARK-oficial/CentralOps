@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.12.1](https://github.com/SEGARK-oficial/CentralOps/compare/v2.12.0...v2.12.1) (2026-09-27)
+
+
+### Bug Fixes
+
+* **deps:** anyio 4.13.0 -&gt; 4.14.2 (CVE-2026-63374, CRITICAL) ([#87](https://github.com/SEGARK-oficial/CentralOps/issues/87)) ([5fa4460](https://github.com/SEGARK-oficial/CentralOps/commit/5fa4460fea1ba9b6724b72eaf2f335541100000d))
+
 ## [2.12.0](https://github.com/SEGARK-oficial/CentralOps/compare/v2.11.1...v2.12.0) (2026-09-27)
 
 
