@@ -65,6 +65,7 @@ export const SourceFormModal: React.FC<SourceFormModalProps> = ({
   const [enabled, setEnabled] = useState(true)
   const [organizationId, setOrganizationId] = useState<number | null>(selectedOrgId)
   const [sharedIds, setSharedIds] = useState<number[]>([])
+  const [shareDescendants, setShareDescendants] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const errorId = "source-form-modal-error"
   const { error, errorField, registerField, failField, failGeneral, clearError } = useFirstInvalidFocus<
@@ -89,6 +90,7 @@ export const SourceFormModal: React.FC<SourceFormModalProps> = ({
       setEnabled(source.enabled)
       setOrganizationId(source.organization_id)
       setSharedIds(source.shared_organization_ids ?? [])
+      setShareDescendants(source.share_with_descendants ?? false)
     } else {
       setName("")
       setEnricher(enrichers[0]?.name ?? "")
@@ -97,6 +99,7 @@ export const SourceFormModal: React.FC<SourceFormModalProps> = ({
       setEnabled(true)
       setOrganizationId(selectedOrgId)
       setSharedIds([])
+      setShareDescendants(false)
       if (preselectEnricher) setEnricher(preselectEnricher)
     }
     setTestResult(null)
@@ -162,6 +165,7 @@ export const SourceFormModal: React.FC<SourceFormModalProps> = ({
             ...(secret.trim() ? { secret: secret.trim() } : {}),
             enabled,
             shared_organization_ids: sharedIds,
+            share_with_descendants: shareDescendants,
           })
         : await api.createEnrichmentSource({
             name: name.trim(),
@@ -172,6 +176,7 @@ export const SourceFormModal: React.FC<SourceFormModalProps> = ({
             ...(secret.trim() ? { secret: secret.trim() } : {}),
             enabled,
             shared_organization_ids: sharedIds,
+            share_with_descendants: shareDescendants,
           })
       setSecret("")
       onSaved(saved)
@@ -314,6 +319,24 @@ export const SourceFormModal: React.FC<SourceFormModalProps> = ({
               {t("sources.form.sharedOrgs")}
             </legend>
             <p className="text-xs text-text-tertiary">{t("sources.form.sharedOrgsHint")}</p>
+            {/* "Toda a subárvore" é o que o MSP quer na maioria das vezes: a
+                lista abaixo só alcança as filhas que existem HOJE, e cada
+                cliente novo ficava sem a credencial até alguém editar a fonte. */}
+            <label className="flex items-start gap-2 text-sm">
+              <input
+                type="checkbox"
+                className="mt-0.5"
+                checked={shareDescendants}
+                onChange={(e) => setShareDescendants(e.target.checked)}
+                aria-describedby="source-share-descendants-hint"
+              />
+              <span>
+                <span className="font-medium">{t("sources.form.shareDescendants")}</span>
+                <span id="source-share-descendants-hint" className="mt-0.5 block text-xs text-text-tertiary">
+                  {t("sources.form.shareDescendantsHint")}
+                </span>
+              </span>
+            </label>
             <div className="grid gap-1.5 sm:grid-cols-2">
               {(orgsProp ?? [])
                 .filter((o) => o.id !== organizationId)

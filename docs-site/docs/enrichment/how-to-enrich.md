@@ -406,10 +406,41 @@ curl -s -X POST "$HOST/api/collectors/enrichment/sources" \
 
 A lista é editável depois da criação: mande um `PATCH` com a lista nova, e as organizações que saírem perdem o acesso no ciclo seguinte. A organização dona nunca sai da lista.
 
+A lista alcança só as filhas que existem **no momento**. Para a credencial atender a subárvore inteira, inclusive clientes que entrarem depois, marque **Todas as organizações filhas, inclusive as criadas depois** no formulário (na API, `"share_with_descendants": true`). A filha nova recebe a fonte assim que é criada. Desmarcar depois **não** remove as filhas atuais: elas ficam na lista, e tirar a credencial de vários clientes continua sendo uma edição explícita da lista.
+
 Optamos por uma linha só, com lista de organizações, em vez de copiar a fonte para cada filha. Copiar obrigaria a rotacionar a mesma credencial em N lugares, e bastaria esquecer um para deixar um cliente chamando a API com chave revogada.
 
 :::note[Compartilhar entre organizações é Enterprise]
 Na edição Community cada fonte atende uma organização. Isso acompanha o escopo: ver a subárvore de organizações filhas também é Enterprise, então na Community não existe nem como escolhê-las. Uma tentativa de compartilhar responde **403**.
+:::
+
+### Uma política para todas as filhas (MSP)
+
+Não existe política global: cada organização tem a **sua** política, com versões e histórico próprios, e o worker lê só a da organização do evento. Para não precisar escrever a mesma política N vezes, a matriz marca a política dela como **modelo** e o produto publica uma cópia versionada em cada filha. A regra cita tabela e fonte por **nome**, e o nome é resolvido dentro de cada filha. Por isso, combinar o modelo com uma fonte compartilhada com toda a subárvore é o caminho mais curto.
+
+No editor da política da matriz, no painel **Modelo da matriz**:
+
+1. **Marcar como modelo.** A verificação prévia mostra, por filha, se ela pode receber (`ready`), se já tem esta versão (`up_to_date`), se falta tabela ou fonte (`blocked`) ou se uma política própria ligada vence o modelo (`overridden`).
+2. **Manter as filhas sincronizadas.** Com essa opção, publicar ou reverter o modelo reaplica nas filhas, e uma filha criada depois recebe o modelo na hora. Sem ela, cada aplicação é manual.
+3. **Ligar a política nas filhas.** Por padrão a cópia nasce **desligada**, e quem opera cada cliente decide quando ligar. Marque para a cópia já entrar em vigor.
+
+Pela API:
+
+```bash
+# modelo sincronizado, ligando nas filhas (aplica na hora)
+curl -s -X POST "$HOST/api/collectors/enrichment/policies/$POLICY_ID/template?is_template=true&sync=true&enable_children=true" \
+  -H "Authorization: Bearer $TOKEN"
+
+# aplicação pontual, sem sincronizar
+curl -s -X POST "$HOST/api/collectors/enrichment/policies/$POLICY_ID/apply-template" \
+  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -d '{"organization_ids": [7, 12], "enable": true}'
+```
+
+Uma filha que já tem política **própria** ligada nunca é sobrescrita: vale uma política por organização, e o modelo fica de fora dela (`overridden`). Para ela passar a seguir o modelo, desligue a política própria e aplique de novo.
+
+:::note[Modelo da matriz é Enterprise]
+Na edição Community, use **Copiar para outra organização** no editor: é o mesmo mecanismo, uma organização por vez.
 :::
 
 ### Depois: a regra cita a fonte pelo nome
@@ -465,6 +496,14 @@ Consulta respondendo e acerto em queda é problema de **dado**, não de credenci
 ### Publicar a versão da política dá 422 "tabela inexistente"
 
 A regra referencia, em `table`, um nome que não existe **nesta organização**. Tabelas não são compartilhadas entre organizações, confira o nome exato na aba **Tabelas** ou via `GET /api/collectors/enrichment/tables`.
+
+### Publicar a versão da política dá 422 "fonte inexistente"
+
+A regra cita, em `source`, uma fonte que esta organização não enxerga: ela não é a dona e a fonte não foi compartilhada com ela. Fonte de outro tenant com o mesmo nome não conta. Confira na aba **Fontes** da organização, ou compartilhe a fonte da matriz com a filha. Fonte **desabilitada** não impede publicar.
+
+### Habilitar a política dá 409 "já está em vigor"
+
+Só uma política vale por organização, e o banco garante isso. Desabilite a que está em vigor antes de habilitar outra. Em bases antigas que tinham duas ligadas, a atualização manteve ligada a mais antiga, que era a que o worker já aplicava, e desligou as demais.
 
 ### Não consigo apagar uma tabela
 

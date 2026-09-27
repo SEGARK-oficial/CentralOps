@@ -17,6 +17,8 @@ export interface EnrichmentTemplateTarget {
   tables_without_version: string[]
   /** Nome da política PRÓPRIA que vence o modelo, quando `overridden`. */
   overriding_policy?: string | null
+  /** A política herdada da filha está ligada? `null` = a filha ainda não tem. */
+  enabled?: boolean | null
 }
 
 export interface EnrichmentTemplatePreflight {
@@ -30,10 +32,23 @@ export interface EnrichmentTemplateApplyResult {
   skipped: EnrichmentTemplateTarget[]
 }
 
-/** Marca (ou desmarca) a política como modelo da matriz. */
-export async function setEnrichmentPolicyTemplate(policyId: string, isTemplate: boolean) {
+/**
+ * Marca (ou desmarca) a política como modelo da matriz.
+ *
+ * `sync` torna o modelo SINCRONIZADO (publicar reaplica nas filhas; filha nova
+ * recebe na hora) e já aplica agora; `enableChildren` liga a política herdada
+ * de cada filha. Omitidos = mantém o que está.
+ */
+export async function setEnrichmentPolicyTemplate(
+  policyId: string,
+  isTemplate: boolean,
+  opts: { sync?: boolean; enableChildren?: boolean } = {},
+) {
+  const params = new URLSearchParams({ is_template: String(isTemplate) })
+  if (opts.sync !== undefined) params.set("sync", String(opts.sync))
+  if (opts.enableChildren !== undefined) params.set("enable_children", String(opts.enableChildren))
   return apiRequest<EnrichmentPolicy>(
-    `/collectors/enrichment/policies/${encodeURIComponent(policyId)}/template?is_template=${isTemplate}`,
+    `/collectors/enrichment/policies/${encodeURIComponent(policyId)}/template?${params.toString()}`,
     { method: "POST" },
   )
 }
@@ -54,7 +69,8 @@ export async function preflightEnrichmentTemplate(policyId: string) {
  */
 export async function applyEnrichmentTemplate(
   policyId: string,
-  data: { organization_ids: number[]; commit_message?: string },
+  /** `enable` liga a política herdada — nunca por cima de uma própria ligada. */
+  data: { organization_ids: number[]; commit_message?: string; enable?: boolean },
 ) {
   return apiRequest<EnrichmentTemplateApplyResult>(
     `/collectors/enrichment/policies/${encodeURIComponent(policyId)}/apply-template`,

@@ -345,7 +345,15 @@
       },
       "communityTitle": "Aplicar esta política a varios clientes",
       "communityBody": "En la edición Community, usa \"Copiar a otra organización\": una por vez, con la misma verificación de requisitos. La edición Enterprise marca la política como plantilla de la matriz y la aplica a todas las filiales a la vez, verificando cada organización.",
-      "communityLink": "Ver las ediciones"
+      "communityLink": "Ver las ediciones",
+      "syncLabel": "Mantener las filiales sincronizadas",
+      "syncHint": "Publicar o revertir esta plantilla la vuelve a aplicar en las filiales, y una filial nueva recibe la plantilla al instante. Cada filial conserva su propia versión e historial.",
+      "enableChildrenLabel": "Activar la política en las filiales",
+      "enableChildrenHint": "Sin esto la copia nace desactivada y quien opera cada cliente decide cuándo activarla. Nunca activa por encima de una política propia ya activa.",
+      "syncedBadge": "Sincronizada",
+      "childEnabled": "activa",
+      "childDisabled": "inactiva",
+      "applyAndEnable": "Aplicar y activar"
     }
   },
   "errorTitle": "Error al cargar el enriquecimiento",
@@ -377,6 +385,8 @@
       "create": "Nueva fuente",
       "sharedOrgs": "Organizaciones hijas",
       "sharedOrgsHint": "La fuente siempre atiende a la organización propietaria. Marque las hijas que también deben usar esta credencial. Compartir requiere la edición Enterprise.",
+      "shareDescendants": "Todas las organizaciones filiales, incluidas las creadas después",
+      "shareDescendantsHint": "La credencial atiende a todo el subárbol de esta organización. Las filiales nuevas la reciben al instante. Desmarcar después mantiene las filiales actuales en la lista de abajo.",
       "egressRequired": "Confirma el envío de indicadores a terceros antes de guardar.",
       "egressAck": "Autorizo el envío de indicadores de esta organización a {{name}}",
       "egressAckHint": "Los indicadores que pasen la condición de la regla ({{kinds}}) salen de tu infraestructura. Lo que la condición bloquea no sale."

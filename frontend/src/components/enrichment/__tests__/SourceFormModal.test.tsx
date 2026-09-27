@@ -229,3 +229,60 @@ describe("SourceFormModal", () => {
     await waitFor(() => expect(onSaved).toHaveBeenCalled())
   })
 })
+
+describe("SourceFormModal — toda a subárvore", () => {
+  const orgs = [
+    { id: 1, name: "Matriz" },
+    { id: 2, name: "Filha A" },
+    { id: 3, name: "Filha B" },
+  ]
+
+  function mountMsp(source: EnrichmentSource | null = null) {
+    const onSaved = vi.fn()
+    render(
+      <SourceFormModal
+        open
+        source={source}
+        enrichers={[enricher(), semEgresso]}
+        organizations={orgs}
+        onClose={vi.fn()}
+        onSaved={onSaved}
+      />,
+    )
+    return onSaved
+  }
+
+  it("marcar 'todas as filhas' envia o flag na criação", async () => {
+    mockedApi.createEnrichmentSource.mockResolvedValue(fonteSalva)
+    const onSaved = mountMsp()
+    fireEvent.change(screen.getByLabelText(/^Nome/i), { target: { value: "vt-prod" } })
+    fireEvent.change(screen.getByLabelText(/^Credencial/i), { target: { value: "chave" } })
+    fireEvent.click(screen.getByTestId("egress-ack").querySelector("input")!)
+
+    const todas = screen.getByRole("checkbox", { name: /inclusive as criadas depois/i })
+    expect(todas).not.toBeChecked()
+    fireEvent.click(todas)
+    fireEvent.click(screen.getByRole("button", { name: "Nova fonte" }))
+
+    await waitFor(() => expect(onSaved).toHaveBeenCalled())
+    expect(mockedApi.createEnrichmentSource).toHaveBeenCalledWith(
+      expect.objectContaining({ share_with_descendants: true }),
+    )
+  })
+
+  it("editar fonte que já atende a subárvore mostra e preserva o flag", async () => {
+    mockedApi.updateEnrichmentSource.mockResolvedValue(fonteSalva)
+    const onSaved = mountMsp({
+      ...fonteSalva,
+      shared_organization_ids: [2, 3],
+      share_with_descendants: true,
+    })
+    expect(screen.getByRole("checkbox", { name: /inclusive as criadas depois/i })).toBeChecked()
+    fireEvent.click(screen.getByRole("button", { name: "Salvar" }))
+    await waitFor(() => expect(onSaved).toHaveBeenCalled())
+    expect(mockedApi.updateEnrichmentSource).toHaveBeenCalledWith(
+      "s1",
+      expect.objectContaining({ share_with_descendants: true, shared_organization_ids: [2, 3] }),
+    )
+  })
+})

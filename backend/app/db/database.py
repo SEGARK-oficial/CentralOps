@@ -1685,6 +1685,13 @@ def _run_lightweight_migrations() -> None:
                 conn.execute(
                     text("ALTER TABLE enrichment_sources ADD COLUMN last_test_ok BOOLEAN")
                 )
+            if "share_with_descendants" not in es_cols:
+                conn.execute(
+                    text(
+                        "ALTER TABLE enrichment_sources "
+                        "ADD COLUMN share_with_descendants BOOLEAN NOT NULL DEFAULT FALSE"
+                    )
+                )
             if "last_test_message" not in es_cols:
                 conn.execute(
                     text("ALTER TABLE enrichment_sources ADD COLUMN last_test_message TEXT")
@@ -1694,13 +1701,14 @@ def _run_lightweight_migrations() -> None:
         # BOOLEAN com DEFAULT FALSE (não 0): o Postgres recusa o inteiro.
         if "enrichment_policies" in table_names:
             ep_cols = {col["name"] for col in inspector.get_columns("enrichment_policies")}
-            if "is_template" not in ep_cols:
-                conn.execute(
-                    text(
-                        "ALTER TABLE enrichment_policies "
-                        "ADD COLUMN is_template BOOLEAN NOT NULL DEFAULT FALSE"
+            for col in ("is_template", "template_sync", "template_enable_children"):
+                if col not in ep_cols:
+                    conn.execute(
+                        text(
+                            "ALTER TABLE enrichment_policies "
+                            f"ADD COLUMN {col} BOOLEAN NOT NULL DEFAULT FALSE"
+                        )
                     )
-                )
         if "enrichment_policies" in table_names:
             _ensure_single_active_enrichment_policy(conn)
         if "enrichment_policy_versions" in table_names:
