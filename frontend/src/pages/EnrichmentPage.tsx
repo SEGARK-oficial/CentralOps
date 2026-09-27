@@ -1,7 +1,7 @@
 import type React from "react"
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
-import { Link, useNavigate } from "react-router-dom"
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom"
 import {
   SparklesIcon,
   RefreshCcwIcon,
@@ -28,6 +28,11 @@ import { TileGallery } from "@/components/shared/TileGallery"
 import { SourceFormModal } from "@/components/enrichment/SourceFormModal"
 import { SourcesTable } from "@/components/enrichment/SourcesTable"
 import { TablesTable } from "@/components/enrichment/TablesTable"
+import {
+  type EnrichmentTab,
+  enrichmentTabPath,
+  isEnrichmentTab,
+} from "@/components/enrichment/enrichmentTabs"
 import {
   deleteEnrichmentSource,
   deleteEnrichmentTable,
@@ -70,13 +75,29 @@ export function EnrichmentPage(): React.ReactElement {
   const { t } = useTranslation(["enrichment", "mappings"])
   const { organizations, selectedOrgId } = usePlatform()
   const navigate = useNavigate()
-  // Ordem por FREQUÊNCIA de uso, não pela ordem das tabelas do banco. A visão
-  // geral responde "está funcionando aqui?", que é a razão pela qual alguém
-  // abre esta tela; o catálogo é o primeiro passo de "nova fonte" e por isso
-  // deixou de ser a aba de entrada.
-  const [tab, setTab] = useState<
-    "overview" | "policies" | "sources" | "tables" | "catalog" | "execution"
-  >("overview")
+  // A aba vive na URL (`/enrichment/<aba>`), não em estado local: recarregar,
+  // voltar do editor ou colar o link precisa cair no mesmo lugar. Antes a aba
+  // era `useState` e `/enrichment/policies` — que a trilha de navegação do
+  // editor oferece como link — caía no 404 da SPA.
+  const { tab: tabParam } = useParams<{ tab?: string }>()
+  const [searchParams] = useSearchParams()
+  const tab: EnrichmentTab = isEnrichmentTab(tabParam) ? tabParam : "overview"
+  const setTab = useCallback(
+    (next: EnrichmentTab) => navigate(enrichmentTabPath(next)),
+    [navigate],
+  )
+  // `?tab=` é o formato antigo (links já salvos, versões anteriores da
+  // prontidão). Normaliza para a rota com `replace`, para o Voltar não repetir.
+  // Segmento que não é aba volta para a visão geral em vez de mostrar uma aba
+  // fantasma.
+  const legacyTab = searchParams.get("tab")
+  useEffect(() => {
+    if (isEnrichmentTab(legacyTab)) {
+      navigate(enrichmentTabPath(legacyTab), { replace: true })
+    } else if (tabParam !== undefined && !isEnrichmentTab(tabParam)) {
+      navigate("/enrichment", { replace: true })
+    }
+  }, [legacyTab, tabParam, navigate])
   const [enrichers, setEnrichers] = useState<Enricher[]>([])
   const [tables, setTables] = useState<EnrichTable[]>([])
   const [policies, setPolicies] = useState<EnrichPolicy[]>([])
@@ -295,7 +316,7 @@ export function EnrichmentPage(): React.ReactElement {
         <ErrorState title={t("errorTitle")} message={error} onRetry={() => void load()} />
       ) : (
         <>
-          <Tabs value={tab} onValueChange={(v) => setTab(v as typeof tab)}>
+          <Tabs value={tab} onValueChange={(v) => { if (isEnrichmentTab(v)) setTab(v) }}>
             <TabsList ariaLabel={t("title")}>
               {/* Primeira porque é a pergunta que traz o operador até aqui. */}
               <TabsTrigger value="overview">{t("tabs.overview")}</TabsTrigger>
@@ -356,7 +377,7 @@ export function EnrichmentPage(): React.ReactElement {
               organizations={organizations}
               selectedOrgId={selectedOrgId}
               refreshToken={refreshToken}
-              onNavigateTab={(next) => setTab(next as typeof tab)}
+              onNavigateTab={(next) => { if (isEnrichmentTab(next)) setTab(next) }}
             />
           ) : tab === "catalog" ? (
             <div className="space-y-4">

@@ -2,6 +2,7 @@ import type React from "react"
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { useNavigate } from "react-router-dom"
+import { enrichmentTabFromRoute } from "@/components/enrichment/enrichmentTabs"
 import {
   AlertTriangleIcon,
   CheckIcon,
@@ -220,10 +221,12 @@ export const ReadinessPanel: React.FC<Props> = ({
   function handleAction(step: EnrichmentReadinessStep) {
     const action = step.action
     if (!action) return
-    // Rota de outra página vai pelo router; aba desta página é troca local, sem
-    // recarregar o que já está em memória.
-    if (action.route.startsWith("/enrichment?tab=")) {
-      onNavigateTab?.(action.route.split("=")[1])
+    // Rota de outra página vai pelo router; aba desta página vai pelo
+    // `onNavigateTab`, que troca a aba sem recarregar o que já está em memória.
+    // Aceita o formato atual (`/enrichment/<aba>`) e o antigo (`?tab=`).
+    const tab = enrichmentTabFromRoute(action.route)
+    if (tab !== null && onNavigateTab) {
+      onNavigateTab(tab)
       return
     }
     navigate(action.route)

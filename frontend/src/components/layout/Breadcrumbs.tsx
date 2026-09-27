@@ -36,7 +36,15 @@ const routeLabelKeys: Record<string, string> = {
   "/settings": "settings",
   "/settings/account": "settingsAccount",
   "/settings/tokens": "settingsTokens",
+  "/enrichment": "enrichment",
+  "/enrichment/policies": "enrichmentPolicies",
+  "/enrichment/sources": "enrichmentSources",
+  "/enrichment/tables": "enrichmentTables",
+  "/enrichment/catalog": "enrichmentCatalog",
+  "/enrichment/execution": "enrichmentExecution",
 }
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 // Segmentos que agrupam rotas mas não têm página própria — não devem virar link.
 const nonNavigableGroups = new Set(["/admin", "/settings"])
@@ -53,14 +61,20 @@ export const Breadcrumbs: React.FC = () => {
   pathSegments.forEach((segment) => {
     currentPath += `/${segment}`
     const isLast = currentPath === location.pathname
-    const isNumericId = /^\d+$/.test(segment)
-    // Evita expor ID cru (/integrations/123) e slug bruto de rotas sem rótulo.
+    const isId = /^\d+$/.test(segment) || UUID_RE.test(segment)
+    // Evita expor ID cru (/integrations/123, /enrichment/policies/<uuid>) e slug
+    // bruto de rotas sem rótulo.
     const routeKey = routeLabelKeys[currentPath]
-    const label = routeKey ? t(`breadcrumbs.routes.${routeKey}`) : isNumericId ? t("breadcrumbs.detail") : segment
+    const label = routeKey ? t(`breadcrumbs.routes.${routeKey}`) : isId ? t("breadcrumbs.detail") : segment
+    // Segmento intermediário só vira link se for uma PÁGINA conhecida. Montar o
+    // link a partir do caminho acumulado, sem saber se há rota ali, foi o que
+    // mandava `/enrichment/policies/<id>` para `/enrichment/policies` — um 404
+    // oferecido pela própria navegação.
+    const navigable = !isLast && routeKey !== undefined && !nonNavigableGroups.has(currentPath)
     breadcrumbs.push({
       key: currentPath,
       label,
-      path: isLast || nonNavigableGroups.has(currentPath) ? undefined : currentPath,
+      path: navigable ? currentPath : undefined,
     })
   })
 
