@@ -99,13 +99,18 @@ describe("i18n — namespace fora do shell carrega sob demanda com Suspense (R2-
       ),
     )
 
-    // Antes do backend resolver: o fallback do Suspense aparece — a chave
-    // crua "list.pageTitle" nunca chega a piscar na tela.
-    expect(screen.getByText("carregando-fallback")).toBeInTheDocument()
+    // O que importa (o contrato real, não um detalhe de timing): a chave
+    // crua "list.pageTitle" NUNCA chega a piscar na tela, nem antes nem
+    // depois do backend resolver. Não afirmamos que "carregando-fallback"
+    // necessariamente aparece PRIMEIRO — o `import()` dinâmico do JSON local
+    // (sem rede de verdade) pode resolver rápido demais pra observar o
+    // fallback de forma determinística entre runs (module cache do Vite
+    // aquecido por testes anteriores no mesmo worker); o que não pode
+    // acontecer JAMAIS é a chave crua na tela.
     expect(screen.queryByText("list.pageTitle")).not.toBeInTheDocument()
 
     // Depois de resolver: o texto real (via o backend local, sem baixar o
-    // idioma inteiro) substitui o fallback.
+    // idioma inteiro) aparece — seja substituindo o fallback, seja direto.
     expect(await screen.findByText("Detecções")).toBeInTheDocument()
     expect(fresh.default.hasResourceBundle("pt", "detections")).toBe(true)
     // R3-5.1(a) mudou este contrato de propósito: "mappings" pode chegar
@@ -123,11 +128,15 @@ describe("i18n — prefetch de idle carrega o resto do idioma após o boot (R3-5
     const fresh = await import("@/i18n")
     await fresh.i18nReady
 
-    // Logo após `i18nReady`: nenhuma tela pediu nada ainda, e o prefetch de
-    // idle (agendado DENTRO do próprio `i18nReady`) ainda não teve chance de
-    // rodar — é síncrono até aqui.
-    expect(fresh.default.hasResourceBundle("pt", "mappings")).toBe(false)
-    expect(fresh.default.hasResourceBundle("pt", "correlation")).toBe(false)
+    // Não afirmamos aqui que "nada carregou ainda logo após `i18nReady`" — o
+    // prefetch de idle usa `setTimeout(fn, 0)` (jsdom não tem
+    // `requestIdleCallback`), e o `import()` dinâmico por trás do carregador
+    // de módulos do Vite pode intercalar voltas de macrotask de forma não
+    // determinística entre workers/execuções (achado real: essa asserção
+    // "antes" flakava sozinha, sem relação com o comportamento do app — a
+    // app nunca prometeu "o prefetch não começou ainda", só que os
+    // namespaces restantes chegam. O que segue abaixo é o contrato de
+    // verdade).
 
     // jsdom não tem `requestIdleCallback` — o fallback é `setTimeout(fn, 0)`.
     // Uma volta real ao event loop deixa esse timer (e os `import()`
@@ -135,12 +144,48 @@ describe("i18n — prefetch de idle carrega o resto do idioma após o boot (R3-5
     await new Promise((resolve) => setTimeout(resolve, 50))
 
     expect(fresh.default.hasResourceBundle("pt", "mappings")).toBe(true)
-    // Efeito colateral aceito de propósito: o prefetch busca TODOS os
-    // namespaces do idioma ativo, "correlation" (só-EE) incluído — o texto
-    // continua fora do bundle JS (é só um `import()` de JSON), e a
-    // alternativa (nunca eliminar o Suspense tardio pra telas fora do
-    // shell) é pior.
+    // R4-5.2 mudou este contrato de propósito: por padrão (ninguém chamou
+    // `allowPrefetchNamespaces`, que é o estado CE — ver describe "R4-5.2"
+    // abaixo), "correlation" (namespace só-EE, nenhum módulo de `src/` o usa)
+    // fica de fora do prefetch de idle, pra não desperdiçar a busca numa
+    // instância CE.
+    expect(fresh.default.hasResourceBundle("pt", "correlation")).toBe(false)
+  })
+})
+
+describe("i18n — R4-5.2: prefetch de idle não baixa namespace só-EE por padrão (CE); libera via allowPrefetchNamespaces (EE)", () => {
+  it("por padrão (CE): prefetch pula 'correlation', mas continua cobrindo um namespace comum ao Core", async () => {
+    localStorage.setItem(LOCALE_STORAGE_KEY, "pt")
+    vi.resetModules()
+    const fresh = await import("@/i18n")
+    await fresh.i18nReady
+
+    await new Promise((resolve) => setTimeout(resolve, 50))
+
+    // Positivo: o prefetch de fato rodou e cobriu um namespace comum.
+    expect(fresh.default.hasResourceBundle("pt", "mappings")).toBe(true)
+    // Negativo: mas nunca buscou o namespace só-EE.
+    expect(fresh.default.hasResourceBundle("pt", "correlation")).toBe(false)
+    expect(fresh.resources.pt?.correlation).toBeUndefined()
+  })
+
+  // R4-5.2 (correção pós-regressão): `src/i18n/index.ts` NUNCA importa
+  // `@/ee/*` — é o overlay EE (`web-ee/routes.tsx`) que, no nível do módulo,
+  // chama `allowPrefetchNamespaces(["correlation"])` pra se anunciar. Este
+  // teste simula exatamente essa chamada, sem importar nada de `@/ee/*` (o
+  // i18n não sabe, nem precisa saber, quem chamou).
+  it("depois de allowPrefetchNamespaces(['correlation']): o prefetch passa a cobrir o namespace liberado", async () => {
+    localStorage.setItem(LOCALE_STORAGE_KEY, "pt")
+    vi.resetModules()
+    const fresh = await import("@/i18n")
+    fresh.allowPrefetchNamespaces(["correlation"])
+    await fresh.i18nReady
+
+    await new Promise((resolve) => setTimeout(resolve, 50))
+
+    expect(fresh.default.hasResourceBundle("pt", "mappings")).toBe(true)
     expect(fresh.default.hasResourceBundle("pt", "correlation")).toBe(true)
+    expect(fresh.resources.pt?.correlation).toBeDefined()
   })
 })
 
@@ -177,5 +222,70 @@ describe("i18n — R3-5.1(b): sem download duplo do fallback pt para namespace d
     // O SHELL continua com o fallback pt de verdade (é o próprio idioma de
     // segurança do boot, já em memória de qualquer forma).
     expect(fresh.default.hasResourceBundle("pt", "common")).toBe(true)
+  })
+})
+
+describe("i18n — R4-5.1: trocar para pt depois de usar um namespace de tela nunca mostra chave crua", () => {
+  // Cadeia do bug (ver docstring de src/i18n/index.ts): usar um namespace de
+  // tela com en/es ativo dispara, POR BAIXO DOS PANOS, um passe de fallback
+  // pt|ns "redundante" (a R3-5.1(b) já filtra esse passe pra não custar uma
+  // 2ª rede). Antes desta rodada, esse passe filtrado ainda gravava um bundle
+  // VAZIO marcado como "carregado" — e trocar de verdade pra pt depois
+  // encontrava esse bundle vazio e nunca buscava o real. Reverter QUALQUER
+  // parte do fix (o `callback(err, false)` em vez de `callback(null, {})`,
+  // OU o pré-carregamento no `changeLanguage`) faz este teste falhar de
+  // volta com a chave crua "list.pageTitle" na tela.
+  it("en -> pt: usa 'detections' em en (dispara o passe redundante) e depois troca pra pt", async () => {
+    localStorage.setItem(LOCALE_STORAGE_KEY, "en")
+    vi.resetModules()
+    const fresh = await import("@/i18n")
+    await fresh.i18nReady
+    expect(fresh.default.language).toBe("en")
+
+    function Probe() {
+      const { t } = useTranslation("detections")
+      return createElement("p", null, t("list.pageTitle"))
+    }
+    render(
+      createElement(
+        I18nextProvider,
+        { i18n: fresh.default },
+        createElement(Suspense, { fallback: createElement("p", null, "loading") }, createElement(Probe, null)),
+      ),
+    )
+    // Estabelece o "usado em en" que aciona o passe redundante pt|detections
+    // por baixo dos panos (ver R3-5.1(b) acima).
+    expect(await screen.findByText("Detections")).toBeInTheDocument()
+
+    await fresh.default.changeLanguage("pt")
+
+    expect(await screen.findByText("Detecções")).toBeInTheDocument()
+    expect(screen.queryByText("list.pageTitle")).not.toBeInTheDocument()
+  })
+
+  it("es -> pt: caso inverso (outro idioma não-pt) — mesmo mecanismo, mesma garantia", async () => {
+    localStorage.setItem(LOCALE_STORAGE_KEY, "es")
+    vi.resetModules()
+    const fresh = await import("@/i18n")
+    await fresh.i18nReady
+    expect(fresh.default.language).toBe("es")
+
+    function Probe() {
+      const { t } = useTranslation("detections")
+      return createElement("p", null, t("list.pageTitle"))
+    }
+    render(
+      createElement(
+        I18nextProvider,
+        { i18n: fresh.default },
+        createElement(Suspense, { fallback: createElement("p", null, "loading") }, createElement(Probe, null)),
+      ),
+    )
+    expect(await screen.findByText("Detecciones")).toBeInTheDocument()
+
+    await fresh.default.changeLanguage("pt")
+
+    expect(await screen.findByText("Detecções")).toBeInTheDocument()
+    expect(screen.queryByText("list.pageTitle")).not.toBeInTheDocument()
   })
 })

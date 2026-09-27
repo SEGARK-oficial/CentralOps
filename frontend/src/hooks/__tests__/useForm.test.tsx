@@ -113,6 +113,25 @@ describe("useForm", () => {
     await waitFor(() => expect(result.current.submitError).toBeNull())
   })
 
+  // R4-8.5: o `submitError` já entrega o erro pro form — um `console.error`
+  // paralelo só duplicava em produção. Sem o fix, este teste falha (o spy é
+  // chamado).
+  it("não faz console.error quando onSubmit rejeita — o erro já vira submitError", async () => {
+    const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {})
+    const onSubmit = vi.fn().mockRejectedValue(new Error("falha no backend"))
+    const { result } = renderHook(() =>
+      useForm<FormValues>({ initialValues: { name: "wazuh" }, onSubmit }),
+    )
+
+    await act(async () => {
+      result.current.handleSubmit({ preventDefault: () => {} } as React.FormEvent)
+    })
+    await waitFor(() => expect(result.current.submitError).toBe("falha no backend"))
+
+    expect(consoleErrorSpy).not.toHaveBeenCalled()
+    consoleErrorSpy.mockRestore()
+  })
+
   it("resetForm limpa submitError", async () => {
     const onSubmit = vi.fn().mockRejectedValue(new Error("x"))
     const { result } = renderHook(() =>

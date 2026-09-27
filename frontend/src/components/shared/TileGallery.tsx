@@ -149,6 +149,10 @@ export const TileGallery: React.FC<TileGalleryProps> = ({
       )}
 
       {categories.length > 0 && (
+        // Padrão APG de radiogroup: o CONTAINER captura as setas (roving
+        // tabindex nos <button role="radio"> filhos) — não precisa ser um
+        // tab-stop próprio.
+        // eslint-disable-next-line jsx-a11y/interactive-supports-focus
         <div
           ref={categoryGroupRef}
           role="radiogroup"

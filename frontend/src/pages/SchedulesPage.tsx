@@ -320,11 +320,18 @@ export const SchedulesPage: React.FC = () => {
     // Carrega o agendamento no formulário. As integrações passam pelo filtro de
     // disponibilidade: uma que foi desautenticada depois de agendada não pode
     // voltar num PUT, senão o backend recusa o lote inteiro por causa dela.
-    setScheduleFieldValue("query_id", String(schedule.query_id))
+    // R4-9.1: `ScheduleFormValues` tipa estes 3 campos como `number | ""`, não
+    // `string` — `String(...)` guardava o NÚMERO como texto no estado do
+    // form. Não dava erro nenhum porque `setFieldValue` aceitava `any`, mas o
+    // <Select> de query compara `option.value` (number, de `query.id`) com
+    // `scheduleValues.query_id` via `===`/`.includes()` — "42" !== 42, então
+    // o dropdown de query aparecia SEM seleção ao editar um agendamento
+    // existente, mesmo com uma query de verdade associada.
+    setScheduleFieldValue("query_id", schedule.query_id)
     setScheduleFieldValue("client_ids", getValidClientIds(schedule.client_ids))
-    setScheduleFieldValue("interval_value", String(schedule.interval_value))
+    setScheduleFieldValue("interval_value", schedule.interval_value)
     setScheduleFieldValue("interval_unit", schedule.interval_unit)
-    setScheduleFieldValue("lookback_value", String(schedule.lookback_value ?? schedule.days_back ?? 1))
+    setScheduleFieldValue("lookback_value", schedule.lookback_value ?? schedule.days_back ?? 1)
     setScheduleFieldValue("lookback_unit", schedule.lookback_unit ?? "days")
     setScheduleFieldValue("notify_on_results", Boolean(schedule.notify_on_results))
     formSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })

@@ -11,6 +11,11 @@ import type {
   EnrichmentDuplicatePreflight,
   EnrichmentPolicy,
 } from "@/services/api"
+import { useFirstInvalidFocus } from "@/hooks/useFirstInvalidFocus"
+
+/** R4-8.4: os únicos dois campos do form — usado por `useFirstInvalidFocus`
+ *  para saber em qual `Input`/`Select` focar e marcar `aria-invalid`. */
+type DuplicateField = "name" | "target"
 
 /**
  * Copia as regras de uma política para OUTRA organização.
@@ -48,7 +53,8 @@ export const DuplicatePolicyModal: React.FC<Props> = ({
   const [preflight, setPreflight] = useState<EnrichmentDuplicatePreflight | null>(null)
   const [checking, setChecking] = useState(false)
   const [submitting, setSubmitting] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const { error, errorField, registerField, failField, failGeneral, clearError } =
+    useFirstInvalidFocus<DuplicateField>()
 
   const candidates = organizations.filter((o) => o.id !== policy?.organization_id)
 
@@ -57,7 +63,7 @@ export const DuplicatePolicyModal: React.FC<Props> = ({
     setTargetId(candidates[0]?.id ?? null)
     setName(policy?.name ?? "")
     setPreflight(null)
-    setError(null)
+    clearError()
     // Só na abertura/troca de política — `candidates` (derivado de
     // `organizations`) mudando com o modal já aberto não deve resetar a
     // escolha do operador.
@@ -81,7 +87,7 @@ export const DuplicatePolicyModal: React.FC<Props> = ({
       .catch((err) => {
         if (!cancelled) {
           setPreflight(null)
-          setError(err instanceof Error ? err.message : String(err))
+          failGeneral(err instanceof Error ? err.message : String(err))
         }
       })
       .finally(() => {
@@ -90,22 +96,46 @@ export const DuplicatePolicyModal: React.FC<Props> = ({
     return () => {
       cancelled = true
     }
-  }, [open, policy, targetId, name])
+  }, [open, policy, targetId, name, failGeneral])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (!policy || targetId == null) return
+    if (!policy) return
+    clearError()
+    // R4-8.4: campo-a-campo, na ordem em que aparecem no form — required de
+    // destino e de nome. `targetId` só é `null` estruturalmente impossível
+    // enquanto há candidatos (o Select escolhe o primeiro na abertura), mas
+    // guardamos mesmo assim em vez de um `return` mudo: submeter sem alvo não
+    // pode falhar em silêncio.
+    if (targetId == null) {
+      failField("target", t("policies.duplicate.targetRequired"))
+      return
+    }
+    const trimmedName = name.trim()
+    if (!trimmedName) {
+      failField("name", t("policies.duplicate.nameRequired"))
+      return
+    }
     setSubmitting(true)
-    setError(null)
     try {
       const created = await api.duplicateEnrichmentPolicy(policy.id, {
         target_organization_id: targetId,
-        ...(name.trim() ? { name: name.trim() } : {}),
+        name: trimmedName,
         commit_message: t("policies.duplicate.commitMessage", { name: policy.name }),
       })
       onDuplicated(created)
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err))
+      const message = err instanceof Error ? err.message : String(err)
+      // O backend não devolve o campo culpado estruturado — mas o preflight
+      // já sabe se o bloqueio É de nome (roda com os MESMOS parâmetros da
+      // duplicação de verdade). Corrida rara (nome mudou de válido pra
+      // conflitante entre o último preflight e o clique) ainda assim aponta
+      // pro campo certo em vez de só um banner genérico.
+      if (preflight?.name_conflict) {
+        failField("name", message)
+      } else {
+        failGeneral(message)
+      }
     } finally {
       setSubmitting(false)
     }
@@ -130,16 +160,30 @@ export const DuplicatePolicyModal: React.FC<Props> = ({
         ) : (
           <>
             <Select
+              ref={registerField("target")}
               label={t("policies.duplicate.target")}
               value={targetId != null ? String(targetId) : ""}
               onValueChange={(v) => setTargetId(Number(v))}
               options={candidates.map((o) => ({ value: String(o.id), label: o.name }))}
+              error={errorField === "target" ? error ?? undefined : undefined}
             />
             <Input
+              ref={registerField("name")}
               label={t("policies.duplicate.name")}
               value={name}
               onChange={(e) => setName(e.target.value)}
               helperText={t("policies.duplicate.nameHint")}
+              // R4-8.4: erro inline — o required do submit ganha prioridade
+              // (`errorField === "name"`); fora de uma tentativa de submit, o
+              // preflight (ao vivo, a cada tecla) já avisa de conflito de nome
+              // aqui em vez de só na lista genérica lá embaixo.
+              error={
+                errorField === "name"
+                  ? (error ?? undefined)
+                  : preflight?.name_conflict
+                    ? t("policies.duplicate.nameConflict", { name })
+                    : undefined
+              }
             />
 
             {checking && (
@@ -152,12 +196,13 @@ export const DuplicatePolicyModal: React.FC<Props> = ({
                   <Notice variant="success" title={t("policies.duplicate.readyTitle")}>
                     {t("policies.duplicate.readyBody")}
                   </Notice>
-                ) : (
+                ) : preflight.missing_tables.length > 0 || preflight.missing_sources.length > 0 ? (
+                  // R4-8.4: conflito de nome já vira erro INLINE no campo
+                  // "Nome da cópia" acima — repeti-lo aqui duplicaria a
+                  // mensagem. Este banner sobra só para o que não tem campo
+                  // próprio (tabela/fonte faltando no destino).
                   <Notice variant="danger" title={t("policies.duplicate.blockedTitle")}>
                     <ul className="mt-1 list-disc space-y-1 pl-4 text-xs">
-                      {preflight.name_conflict && (
-                        <li>{t("policies.duplicate.nameConflict", { name })}</li>
-                      )}
                       {preflight.missing_tables.length > 0 && (
                         <li>
                           {t("policies.duplicate.missingTables", {
@@ -174,7 +219,7 @@ export const DuplicatePolicyModal: React.FC<Props> = ({
                       )}
                     </ul>
                   </Notice>
-                )}
+                ) : null}
 
                 {/* Existir e estar publicada são coisas diferentes: a tabela
                     existir basta para a política ser válida, mas sem versão

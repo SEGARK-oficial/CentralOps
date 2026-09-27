@@ -32,7 +32,7 @@ import { LoadingSpinner } from "@/components/ui/LoadingSpinner/LoadingSpinner"
 import { Modal } from "@/components/ui/Modal/Modal"
 import { Notice } from "@/components/ui/Notice/Notice"
 import { PageHeader } from "@/components/ui/PageHeader/PageHeader"
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/Tabs/Tabs"
+import { Tabs, TabsList, TabsTrigger, TabsPanel } from "@/components/ui/Tabs/Tabs"
 import { useAuth } from "@/contexts/AuthContext"
 import { usePlatform } from "@/contexts/PlatformContext"
 import { authStatusLabelKey, authStatusVariant } from "@/lib/labels"
@@ -285,7 +285,6 @@ const IntegrationDetailPage: React.FC = () => {
             </TabsTrigger>
           ))}
         </TabsList>
-      </Tabs>
 
       {error && (
         <Notice variant="danger" title={t("detail.loadFailedTitle")}>
@@ -312,6 +311,15 @@ const IntegrationDetailPage: React.FC = () => {
         }}
       />
 
+      {/*
+        R4-8.1: `activeTab === "x" && (...)` manual, sem NENHUM `<TabsPanel>`
+        — o `aria-controls` de cada `TabsTrigger` sempre apontava pra um id
+        que não existe no DOM. `value={activeTab}` é o mesmo estado que já
+        decide qual bloco abaixo renderiza — um só `TabsPanel` muda de
+        identidade em vez de precisar embrulhar cada bloco `activeTab === "x"`
+        individualmente (eles já são mutuamente exclusivos).
+      */}
+      <TabsPanel value={activeTab}>
       {/* Ingestão push — auto-oculta para fontes pull. */}
       {activeTab === "overview" && (
         <IngestSourcePanel integrationId={integrationId} platform={integration.platform} canManage={isAdmin} />
@@ -613,6 +621,8 @@ const IntegrationDetailPage: React.FC = () => {
           })()}
         </Card>
       )}
+      </TabsPanel>
+      </Tabs>
 
       <Modal open={editingOpen} onClose={() => setEditingOpen(false)} title={t("detail.editIntegration")} size="xl">
         <IntegrationForm

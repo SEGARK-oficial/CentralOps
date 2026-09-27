@@ -143,7 +143,10 @@ describe("MappingVersionsTable", () => {
 
   it("rollback com commit válido chama rollbackMapping", async () => {
     mockedUsePermission.mockReturnValue(true)
-    mockedApi.rollbackMapping.mockResolvedValue({} as any)
+    // `V2` real (não `{} as any`) — o teste só verifica a CHAMADA, mas o
+    // mock precisa devolver um `MappingVersion` de verdade pro tipo do
+    // retorno de `rollbackMapping` ficar são.
+    mockedApi.rollbackMapping.mockResolvedValue(V2)
     renderTable("v2")
 
     fireEvent.click(screen.getByTestId("rollback-v1"))

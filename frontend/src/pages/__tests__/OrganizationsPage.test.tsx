@@ -17,6 +17,7 @@ import { MemoryRouter } from "react-router-dom"
 import OrganizationsPage from "@/pages/OrganizationsPage"
 import * as api from "@/services/api"
 import type { Organization } from "@/types"
+import type { ListOrganizationsParams } from "@/services/api"
 import i18n from "@/i18n"
 
 // Testes fazem assertions no texto literal em pt (idioma padrão do produto).
@@ -152,7 +153,7 @@ describe("OrganizationsPage — filtros", () => {
     fireEvent.click(option)
 
     await waitFor(() => {
-      const lastCall = mockedApi.listOrganizations.mock.calls.at(-1)?.[0] as any
+      const lastCall = mockedApi.listOrganizations.mock.calls.at(-1)?.[0] as ListOrganizationsParams
       expect(lastCall?.status).toBe("inactive")
     })
   })
@@ -167,7 +168,7 @@ describe("OrganizationsPage — filtros", () => {
     fireEvent.click(option)
 
     await waitFor(() => {
-      const lastCall = mockedApi.listOrganizations.mock.calls.at(-1)?.[0] as any
+      const lastCall = mockedApi.listOrganizations.mock.calls.at(-1)?.[0] as ListOrganizationsParams
       expect(lastCall?.autoManaged).toBe("false")
     })
   })

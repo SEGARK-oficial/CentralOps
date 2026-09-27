@@ -1,13 +1,32 @@
 "use client"
 
 import type React from "react"
-import { Suspense, useEffect, useId, useRef, useState } from "react"
+import { Suspense, useCallback, useEffect, useId, useRef, useState } from "react"
 import { createPortal } from "react-dom"
 import { FocusScope } from "@radix-ui/react-focus-scope"
 import { cn } from "@/lib/utils"
 import { PortalContainerContext } from "@/components/ui/Modal/Modal"
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner/LoadingSpinner"
 import { isTopmostDialog, lockBodyScroll, nextDialogOrder, registerOpenDialog, unlockBodyScroll, unregisterOpenDialog } from "@/components/ui/internal/dialogStack"
+
+/** Primeiro elemento focável (visível) dentro de `container`. */
+function firstTabbable(container: HTMLElement | null): HTMLElement | null {
+  if (!container) return null
+  const candidates = container.querySelectorAll<HTMLElement>(
+    'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
+  )
+  for (const el of candidates) {
+    if (!el.hasAttribute("disabled") && el.offsetParent !== null) return el
+  }
+  return null
+}
+
+/** R4-8.3: mesma sentinela do Modal — detecta a resolução do Suspense pelo
+ *  UNMOUNT do próprio fallback. */
+const SuspenseResolvedSignal: React.FC<{ onResolved: () => void }> = ({ onResolved }) => {
+  useEffect(() => () => onResolved(), [onResolved])
+  return <LoadingSpinner size="sm" className="p-8" />
+}
 
 /**
  * ui/Drawer — primitivo de painel lateral (A11Y-17 / ARQ-06 / LAY-20).
@@ -28,6 +47,14 @@ export interface DrawerProps {
   open: boolean
   onClose: () => void
   children: React.ReactNode
+  /**
+   * R4-8.3: renderizado FORA do `<Suspense>` do corpo — use para o header
+   * quando ele carregar o elemento referenciado por `ariaLabelledBy` (ex.:
+   * `<h2 id={TITLE_ID}>`). Opcional e retrocompatível: sem `header`, tudo
+   * continua como antes (header dentro de `children`, sujeito a sumir junto
+   * com o corpo enquanto ele suspende).
+   */
+  header?: React.ReactNode
   /** Lado por onde o painel desliza. Padrão "right". */
   side?: "left" | "right"
   size?: "sm" | "md" | "lg" | "xl" | "full"
@@ -52,6 +79,7 @@ export const Drawer: React.FC<DrawerProps> = ({
   open,
   onClose,
   children,
+  header,
   side = "right",
   size = "lg",
   closeOnOverlayClick = true,
@@ -65,6 +93,18 @@ export const Drawer: React.FC<DrawerProps> = ({
   const drawerId = useId()
   const [drawerOrder] = useState(nextDialogOrder)
   const [panelEl, setPanelEl] = useState<HTMLDivElement | null>(null)
+  const contentRef = useRef<HTMLDivElement | null>(null)
+  const panelElRef = useRef<HTMLDivElement | null>(null)
+  panelElRef.current = panelEl
+
+  // R4-8.3: mesma lógica do Modal — só move o foco pro 1º tabbable do corpo
+  // se ele ainda estiver "estacionado" no próprio painel (não há botão fechar
+  // dedicado no casco do Drawer; o header, se vier via `header`, também pode
+  // ter recebido o foco inicial do FocusScope).
+  const onContentResolved = useCallback(() => {
+    if (document.activeElement !== panelElRef.current) return
+    firstTabbable(contentRef.current)?.focus()
+  }, [])
 
   // Mesmo padrão do Modal: `onClose`/`closeOnEscape` recriados a cada render
   // do pai não podem entrar nas deps do efeito de foco — senão ele re-roda a
@@ -107,6 +147,8 @@ export const Drawer: React.FC<DrawerProps> = ({
   }
 
   return createPortal(
+    // Backdrop de "clicar fora fecha" — Escape já é o equivalente por teclado.
+    // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
     <div className="fixed inset-0 z-modal-backdrop bg-overlay animate-fade-in" onClick={handleOverlayClick}>
       <FocusScope trapped loop>
         <div
@@ -123,9 +165,15 @@ export const Drawer: React.FC<DrawerProps> = ({
           aria-labelledby={ariaLabelledBy}
           data-testid={dataTestId}
         >
-          {/* R3-8.1: mesmo Suspense local do Modal — ver comentário lá. */}
+          {/* R3-8.1: mesmo Suspense local do Modal — ver comentário lá.
+              R4-8.3: `header` fica FORA do Suspense de propósito — se ele
+              carrega o elemento de `ariaLabelledBy`, sobrevive a uma
+              suspensão do corpo (`children`) em vez de sumir junto. */}
           <PortalContainerContext.Provider value={panelEl}>
-            <Suspense fallback={<LoadingSpinner size="sm" className="p-8" />}>{children}</Suspense>
+            {header}
+            <div ref={contentRef} className="contents">
+              <Suspense fallback={<SuspenseResolvedSignal onResolved={onContentResolved} />}>{children}</Suspense>
+            </div>
           </PortalContainerContext.Provider>
         </div>
       </FocusScope>

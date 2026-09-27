@@ -18,6 +18,7 @@ import IntegrationsPage from "@/pages/IntegrationsPage"
 import * as api from "@/services/api"
 import i18n from "@/i18n"
 import type { Integration } from "@/types"
+import type { ListIntegrationsFilters } from "@/services/api"
 
 // jsdom's default navigator.language is "en-US", which the app's language
 // detector picks up over the pt fallback — force pt here so assertions below
@@ -158,7 +159,7 @@ describe("IntegrationsPage — render base", () => {
     await waitFor(() => {
       expect(mockedApi.listIntegrations).toHaveBeenCalled()
     })
-    const callArgs = mockedApi.listIntegrations.mock.calls[0]?.[0] as any
+    const callArgs = mockedApi.listIntegrations.mock.calls[0]?.[0] as ListIntegrationsFilters
     expect(callArgs).toMatchObject({
       status: "active",
       page: 1,
@@ -196,7 +197,7 @@ describe("IntegrationsPage — filtros", () => {
     fireEvent.click(option)
 
     await waitFor(() => {
-      const lastCall = mockedApi.listIntegrations.mock.calls.at(-1)?.[0] as any
+      const lastCall = mockedApi.listIntegrations.mock.calls.at(-1)?.[0] as ListIntegrationsFilters
       expect(lastCall?.kind).toBe("partner")
     })
   })
@@ -213,7 +214,7 @@ describe("IntegrationsPage — filtros", () => {
     fireEvent.click(option)
 
     await waitFor(() => {
-      const lastCall = mockedApi.listIntegrations.mock.calls.at(-1)?.[0] as any
+      const lastCall = mockedApi.listIntegrations.mock.calls.at(-1)?.[0] as ListIntegrationsFilters
       expect(lastCall?.status).toBe("inactive")
     })
   })
@@ -225,6 +226,41 @@ describe("IntegrationsPage — filtros", () => {
         screen.getByText(/Integrações Partner não saem em lote/i),
       ).toBeInTheDocument()
     })
+  })
+
+  // R4-8.2: `loadIntegrations` não tinha id de requisição — a resposta da 1ª
+  // busca (lenta) podia chegar DEPOIS da 2ª (mais nova, rápida) e sobrescrever
+  // a lista já atualizada. Aqui a 1ª só resolve DEPOIS da 2ª já ter respondido.
+  it("resposta da 1ª busca (lenta) não sobrescreve a lista já atualizada pela 2ª (mais nova)", async () => {
+    let resolveFirst: (value: Integration[]) => void = () => {}
+    const firstCallPromise = new Promise<Integration[]>((res) => {
+      resolveFirst = res
+    })
+    mockedApi.listIntegrations
+      .mockImplementationOnce(() => firstCallPromise)
+      .mockResolvedValueOnce([INT_PARTNER])
+
+    renderPage()
+    await waitFor(() => expect(mockedApi.listIntegrations).toHaveBeenCalledTimes(1))
+
+    // Dispara a 2ª busca (troca de filtro) ANTES da 1ª resolver.
+    const kindSelect = screen.getByTestId("integration-filter-kind")
+    fireEvent.click(kindSelect)
+    const option = await screen.findByRole("option", { name: "Partner" })
+    fireEvent.click(option)
+
+    // A 2ª já respondeu (mockResolvedValueOnce resolve na hora).
+    await waitFor(() => expect(screen.getByText("Sophos Partner Holding")).toBeInTheDocument())
+
+    // Só AGORA a 1ª (lenta) resolve — depois que a 2ª já atualizou a tela.
+    await act(async () => {
+      resolveFirst([INT_TENANT_A, INT_TENANT_B])
+    })
+
+    // A lista continua sendo a da 2ª busca — a resposta velha foi descartada.
+    expect(screen.getByText("Sophos Partner Holding")).toBeInTheDocument()
+    expect(screen.queryByText("Sophos Tenant Alpha")).not.toBeInTheDocument()
+    expect(screen.queryByText("Wazuh Tenant Beta")).not.toBeInTheDocument()
   })
 })
 
@@ -396,7 +432,7 @@ describe("IntegrationsPage — badge filtro org global (decisão #5)", () => {
     platformContextValue.selectedOrgId = 11
     renderPage()
     await waitFor(() => {
-      const callArgs = mockedApi.listIntegrations.mock.calls[0]?.[0] as any
+      const callArgs = mockedApi.listIntegrations.mock.calls[0]?.[0] as ListIntegrationsFilters
       expect(callArgs?.organizationId).toBe(11)
     })
   })
@@ -455,7 +491,7 @@ describe("IntegrationsPage — sync de tenants recusado (open-core)", () => {
 
 describe("IntegrationsPage — feedback toast auto-dismiss", () => {
   it("toast de feedback some após 5s", async () => {
-    // @ts-expect-error
+    // @ts-expect-error -- mock parcial: só os campos que o teste observa
     mockedApi.testIntegrationConnection.mockResolvedValue({ status: "healthy" })
 
     vi.useFakeTimers({ shouldAdvanceTime: true })

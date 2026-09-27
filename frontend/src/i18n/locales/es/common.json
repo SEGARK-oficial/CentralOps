@@ -71,7 +71,8 @@
     "savedSuccess": "Guardado.",
     "errorGeneric": "La acción falló. Inténtelo de nuevo.",
     "confirmDelete": "¿Seguro que quieres eliminar?",
-    "loadFailed": "Error al cargar."
+    "loadFailed": "Error al cargar.",
+    "requestTimeout": "La solicitud tardó demasiado y fue cancelada. Inténtelo de nuevo."
   },
   "conditionOperators": {
     "eq": "= igual a",

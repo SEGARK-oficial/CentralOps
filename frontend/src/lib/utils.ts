@@ -43,6 +43,13 @@ export function toUtcZuluString(date: Date): string {
   return roundDateToMinute(date).toISOString()
 }
 
+// `(...args: any[]) => any` é o vínculo genérico padrão pra "função
+// qualquer" (o mesmo das próprias .d.ts do TS/lodash pra HOFs como este) —
+// `unknown[]`/`unknown` aqui quebra a variância de parâmetro e passa a
+// rejeitar funções concretas com assinatura mais específica (ex.: `(a:
+// string) => void` deixa de ser atribuível a `T`). `Parameters<T>`/`func`
+// preservam o tipo PRECISO de quem chama; o `any` só existe no VÍNCULO.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function debounce<T extends (...args: any[]) => any>(func: T, wait: number): (...args: Parameters<T>) => void {
   // window.setTimeout/window.clearTimeout (não os globais bare): código de
   // browser, e o global `setTimeout` fica ambíguo (number vs NodeJS.Timeout)

@@ -265,6 +265,12 @@ export const IntegrationDestinationsTab: React.FC<IntegrationDestinationsTabProp
               </p>
             </div>
           ) : (
+            // `list-none` remove os bullets — e, em Safari/VoiceOver, também
+            // some com a semântica IMPLÍCITA de lista junto (bug documentado
+            // do WebKit). `role="list"` explícito é a correção padrão, não
+            // redundância: sem ele, a leitura de tela deixa de anunciar
+            // "lista, N itens" nesse navegador.
+            // eslint-disable-next-line jsx-a11y/no-redundant-roles
             <ul className="space-y-3 list-none p-0" role="list" aria-label={t("destinationsTab.matchingRoutesAriaLabel")}>
               {matchingRoutes.map((route) => (
                 <li key={route.id}>

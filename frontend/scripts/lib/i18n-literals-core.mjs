@@ -147,6 +147,20 @@ const SET_ERROR_RE =
 // `err.message` numa tela de erro herda o texto cru.
 const THROW_RE = /\bthrow\s+new\s+Error\(\s*"([^"]{2,160})"\s*\)/g
 
+// R4-9.3 — ATRIBUIÇÃO (não chamada de setter, não prop JSX) de string PT
+// direto a uma variável "envelope de mensagem": `const message = "Falha ao
+// ..."`, `error = "Token inválido"`, `let msg = "..."`, e também compostos
+// (`errorMessage =`, `feedbackMsg =`) — o padrão que ficava fora de
+// SET_ERROR_RE (que só pega `setError(...)`/`setFeedback(...)` como
+// CHAMADA) e de ATTR_RE (que só pega atributo JSX `nome="valor"`, sem
+// espaço em volta do `=`). Achado histórico do tipo (antigo `api.ts:476`,
+// migrado para `t()` antes desta rodada) é o motivo da ampliação — nada aqui
+// depende dele ainda existir; a cobertura é validada pelo meta-teste abaixo.
+// `(?!=)` depois do `=` exclui comparação (`===`/`==`); `\b` antes do nome
+// evita casar o meio de outra palavra (não pega "errorMessage" via só
+// "message" DUAS vezes, e não casa "isMessage" nem "messageX").
+const MESSAGE_ASSIGN_RE = /\b[A-Za-z0-9_]*(?:[Mm]essage|[Ee]rror|[Mm]sg)\s*=(?!=)\s*"([^"]{2,160})"/g
+
 /**
  * Acha literais PT num texto de source já lido (sem tocar disco) — usado
  * tanto pela varredura real (arquivo por arquivo) quanto pelo meta-teste
@@ -200,6 +214,12 @@ export function findingsInText(rawSource, relPath) {
       const text = m[1].trim()
       if (looksLikePortuguese(text)) {
         found.push({ line: idx + 1, snippet: `throw new Error("${text.slice(0, 80)}")` })
+      }
+    }
+    for (const m of line.matchAll(MESSAGE_ASSIGN_RE)) {
+      const text = m[1].trim()
+      if (looksLikePortuguese(text)) {
+        found.push({ line: idx + 1, snippet: `message = "${text.slice(0, 80)}"` })
       }
     }
   })

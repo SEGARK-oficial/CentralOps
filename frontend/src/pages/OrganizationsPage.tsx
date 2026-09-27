@@ -115,12 +115,14 @@ const OrganizationsPage: React.FC = () => {
         size: PAGE_SIZE,
       })
       setOrganizations(rows)
-    } catch (err: any) {
-      setError(err.message)
+    } catch (err) {
+      // R4-9.1: `err: any` deixava `err.message` compilar mesmo se `err` não
+      // fosse um `Error` (ex.: throw de string) — sem type-check nenhum.
+      setError(err instanceof Error ? err.message : t("organizations.errors.loadFailedTitle"))
     } finally {
       setLoading(false)
     }
-  }, [searchQuery, statusFilter, autoManagedFilter])
+  }, [searchQuery, statusFilter, autoManagedFilter, t])
 
   useEffect(() => {
     loadOrganizations()
@@ -157,8 +159,8 @@ const OrganizationsPage: React.FC = () => {
       await refreshOrgCount()
       await loadOrganizations()
       await refreshData()
-    } catch (err: any) {
-      setError(err.message)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t("organizations.errors.createFailed"))
     } finally {
       setSaving(false)
     }
@@ -173,8 +175,8 @@ const OrganizationsPage: React.FC = () => {
       await refreshOrgCount()
       await loadOrganizations()
       await refreshData()
-    } catch (err: any) {
-      setError(err.message)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t("organizations.errors.deleteFailed"))
     } finally {
       setDeleteSubmitting(false)
     }
@@ -206,8 +208,8 @@ const OrganizationsPage: React.FC = () => {
       await refreshOrgCount()
       await loadOrganizations()
       await refreshData()
-    } catch (err: any) {
-      setError(err.message)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t("organizations.errors.bulkDeactivateFailed"))
     } finally {
       setBulkSubmitting(false)
     }

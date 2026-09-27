@@ -20,11 +20,13 @@ import type {
   CollectionState,
   CollectorSummary,
   CollectorVendor,
+  TableColumn,
 } from "@/types"
 import { formatLag } from "@/components/health/MetricsGrid"
 import { Badge } from "@/components/ui/Badge/Badge"
 import { Button } from "@/components/ui/Button/Button"
 import { Card } from "@/components/ui/Card/Card"
+import { DataTable } from "@/components/ui/DataTable/DataTable"
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState"
 import { ErrorState } from "@/components/ui/ErrorState"
 import { SkeletonTable } from "@/components/ui/Skeleton"
@@ -259,6 +261,187 @@ const CollectorsPage: React.FC = () => {
     }
   }
 
+  // R4-8.6: migrado do `<table>` escrito à mão pro `DataTable` — os
+  // `data-testid` por CÉLULA (não por linha) viraram atributos do `<div>`
+  // interno que o `render()` devolve (o `<td>` em volta agora é gerado pelo
+  // `DataTable`, sem como anexar `data-testid` nele diretamente). Sem
+  // `sortable`: o cabeçalho de duas linhas (título + dica) tem que continuar
+  // um `<span>`/`<div>` puro — virar `<button>` juntaria as duas linhas de
+  // texto num só nó e mudaria o texto acessível da coluna.
+  const collectorColumns: TableColumn<CollectionState>[] = [
+    {
+      key: "orgIntegration",
+      title: t("collectorsPage.table.columns.orgIntegration"),
+      dataIndex: "organization_name",
+      render: (_value, row) => {
+        // Org e integração são tipicamente 1:1 (cada tenant aprovado cria 1
+        // org + 1 integração de nome derivado), então as duas colunas
+        // repetiam. Fundimos numa só: org como principal e a integração como
+        // subtítulo APENAS quando difere (evita mostrar o mesmo nome duas vezes).
+        const orgName = row.organization_name
+        const intgName = row.integration_name ?? `#${row.integration_id}`
+        const primaryName = orgName ?? intgName
+        const secondaryName = orgName && intgName !== orgName ? intgName : null
+        return (
+          <div className="flex max-w-[220px] flex-col gap-0.5">
+            <span className="truncate" title={primaryName}>
+              {primaryName}
+            </span>
+            {secondaryName && (
+              <span className="truncate text-xs text-text-secondary" title={secondaryName}>
+                {secondaryName}
+              </span>
+            )}
+          </div>
+        )
+      },
+    },
+    {
+      key: "platformStream",
+      title: t("collectorsPage.table.columns.platformStream"),
+      dataIndex: "platform",
+      render: (_value, row) => (
+        <div className="flex max-w-[180px] flex-col gap-0.5">
+          <span className="truncate text-text" title={row.platform ?? undefined}>
+            {row.platform ?? "—"}
+          </span>
+          <span className="truncate text-xs text-text-secondary" title={row.stream}>
+            {row.stream}
+          </span>
+        </div>
+      ),
+    },
+    {
+      key: "events",
+      title: t("collectorsPage.table.columns.events"),
+      dataIndex: "events_collected_total",
+      align: "right",
+      className: "whitespace-nowrap",
+      render: (_value, row) => formatNumber(row.events_collected_total),
+    },
+    {
+      key: "lastSuccess",
+      title: (
+        <>
+          {t("collectorsPage.table.columns.lastSuccess")}
+          <div className="mt-0.5 text-[10px] font-normal normal-case tracking-normal text-text-tertiary">
+            {t("collectorsPage.table.columns.lastSuccessHint")}
+          </div>
+        </>
+      ),
+      dataIndex: "last_success_at",
+      className: "whitespace-nowrap text-text-secondary",
+      render: (_value, row) => (row.last_success_at ? formatDate(row.last_success_at) : "—"),
+    },
+    {
+      key: "dataLag",
+      title: (
+        <>
+          {t("collectorsPage.table.columns.dataLag")}
+          <div className="mt-0.5 text-[10px] font-normal normal-case tracking-normal text-text-tertiary">
+            {t("collectorsPage.table.columns.dataLagHint")}
+          </div>
+        </>
+      ),
+      dataIndex: "watermark_at",
+      className: "whitespace-nowrap",
+      render: (_value, row) => {
+        const dataLag = dataLagSeconds(row)
+        return (
+          <div
+            className="flex flex-col items-start gap-1"
+            data-testid={`collector-data-lag-${row.integration_id}-${row.stream}`}
+          >
+            {/* O `!row.watermark_at` é redundante em runtime (é a primeira
+                coisa que `dataLagSeconds` checa) e existe só para o TS
+                estreitar o tipo sem cast. */}
+            {dataLag === null || !row.watermark_at ? (
+              // Sem watermark não dá para AFIRMAR atraso — e também não dá
+              // para afirmar que está em dia. O tooltip impede que este
+              // traço seja lido como "zero".
+              <span className="text-text-tertiary" title={t("collectorsPage.table.dataLagUnavailable")}>
+                —
+              </span>
+            ) : (
+              <span
+                className="text-text"
+                title={t("collectorsPage.table.dataLagTooltip", { date: formatDate(row.watermark_at) })}
+              >
+                {formatLag(dataLag, tLag)}
+              </span>
+            )}
+            {/* Teto sem atraso confirmado é pico absorvido: não acende nada,
+                senão o badge apareceria em toda rajada normal e o operador
+                aprenderia a ignorá-lo. */}
+            {hasBacklog(row) && (
+              <Badge
+                variant="warning"
+                size="sm"
+                title={t("collectorsPage.table.backlogTooltip")}
+                data-testid={`collector-backlog-${row.integration_id}-${row.stream}`}
+              >
+                {t("collectorsPage.table.backlog")}
+              </Badge>
+            )}
+          </div>
+        )
+      },
+    },
+    {
+      key: "status",
+      title: t("collectorsPage.table.columns.status"),
+      dataIndex: "status",
+      className: "whitespace-nowrap",
+      render: (_value, row) => {
+        const health = healthBadge(row, t)
+        return (
+          <>
+            <Badge variant={health.variant}>{health.label}</Badge>
+            {row.last_error && (
+              <div className="mt-1 max-w-xs truncate text-xs text-danger-600" title={row.last_error}>
+                {row.last_error}
+              </div>
+            )}
+          </>
+        )
+      },
+    },
+    {
+      key: "actions",
+      title: t("collectorsPage.table.columns.actions"),
+      dataIndex: "integration_id",
+      align: "right",
+      render: (_value, row) => {
+        const key = rowKey(row)
+        return (
+          <div className="flex justify-end gap-1">
+            <Button
+              size="xs"
+              variant="outline"
+              leftIcon={<PlayIcon size={14} />}
+              loading={busyKey === key}
+              onClick={() => void handleTrigger(row)}
+              title={t("collectorsPage.table.triggerTooltip")}
+            >
+              {t("collectorsPage.table.trigger")}
+            </Button>
+            {isAdmin && (
+              <Button
+                size="xs"
+                variant="ghost"
+                leftIcon={<RotateCcwIcon size={14} />}
+                onClick={() => setResetTarget(row)}
+                title={t("collectorsPage.table.resetTooltip")}
+              >
+                {t("collectorsPage.table.reset")}
+              </Button>
+            )}
+          </div>
+        )
+      },
+    },
+  ]
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -425,8 +608,13 @@ const CollectorsPage: React.FC = () => {
                   className="w-full rounded-md border border-border-field bg-surface-tertiary py-1.5 pl-9 pr-3 text-sm text-text placeholder:text-text-tertiary transition-colors hover:border-border-field-hover focus-ring"
                 />
               </div>
+              {/* `tabIndex=0` numa região com `overflow-auto` é o padrão
+                  recomendado (WCAG 2.1.1) pra torná-la rolável por teclado —
+                  sem isto, quem navega só por teclado não consegue rolar
+                  esta lista quando ela excede a altura máxima. */}
               <div
                 className="flex max-h-64 flex-wrap gap-2 overflow-auto"
+                // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex
                 tabIndex={0}
                 role="region"
                 aria-label={t("collectorsPage.vendors.listAriaLabel")}
@@ -492,168 +680,13 @@ const CollectorsPage: React.FC = () => {
             }
           />
         ) : (
-          <div className="overflow-x-auto">
-            <table
-              className="w-full min-w-[1080px] text-sm"
-              role="table"
-              aria-label={t("collectorsPage.table.ariaLabel")}
-            >
-              <thead className="bg-surface-tertiary text-xs uppercase tracking-wider text-text-secondary">
-                <tr>
-                  <th scope="col" className="px-4 py-3 text-left">{t("collectorsPage.table.columns.orgIntegration")}</th>
-                  <th scope="col" className="px-4 py-3 text-left">{t("collectorsPage.table.columns.platformStream")}</th>
-                  <th scope="col" className="whitespace-nowrap px-4 py-3 text-right">{t("collectorsPage.table.columns.events")}</th>
-                  {/* Duas colunas de tempo lado a lado, cada uma com a pergunta
-                      que responde escrita embaixo. É a distinção que faltava: um
-                      coletor pode ter acabado de rodar E estar processando ontem. */}
-                  <th scope="col" className="whitespace-nowrap px-4 py-3 text-left">
-                    {t("collectorsPage.table.columns.lastSuccess")}
-                    <div className="mt-0.5 text-[10px] font-normal normal-case tracking-normal text-text-tertiary">
-                      {t("collectorsPage.table.columns.lastSuccessHint")}
-                    </div>
-                  </th>
-                  <th scope="col" className="whitespace-nowrap px-4 py-3 text-left">
-                    {t("collectorsPage.table.columns.dataLag")}
-                    <div className="mt-0.5 text-[10px] font-normal normal-case tracking-normal text-text-tertiary">
-                      {t("collectorsPage.table.columns.dataLagHint")}
-                    </div>
-                  </th>
-                  <th scope="col" className="whitespace-nowrap px-4 py-3 text-left">{t("collectorsPage.table.columns.status")}</th>
-                  <th scope="col" className="px-4 py-3 text-right">{t("collectorsPage.table.columns.actions")}</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {sortedStates.map((row) => {
-                  const key = rowKey(row)
-                  const health = healthBadge(row, t)
-                  const dataLag = dataLagSeconds(row)
-                  // Org e integração são tipicamente 1:1 (cada tenant aprovado
-                  // cria 1 org + 1 integração de nome derivado), então as duas
-                  // colunas repetiam. Fundimos numa só: org como principal e a
-                  // integração como subtítulo APENAS quando difere (evita
-                  // mostrar o mesmo nome duas vezes).
-                  const orgName = row.organization_name
-                  const intgName = row.integration_name ?? `#${row.integration_id}`
-                  const primaryName = orgName ?? intgName
-                  const secondaryName = orgName && intgName !== orgName ? intgName : null
-                  return (
-                    <tr key={key} className="hover:bg-surface-hover">
-                      <td className="px-4 py-3 text-text">
-                        <div className="flex max-w-[220px] flex-col gap-0.5">
-                          <span className="truncate" title={primaryName}>
-                            {primaryName}
-                          </span>
-                          {secondaryName && (
-                            <span
-                              className="truncate text-xs text-text-secondary"
-                              title={secondaryName}
-                            >
-                              {secondaryName}
-                            </span>
-                          )}
-                        </div>
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex max-w-[180px] flex-col gap-0.5">
-                          <span className="truncate text-text" title={row.platform ?? undefined}>
-                            {row.platform ?? "—"}
-                          </span>
-                          <span className="truncate text-xs text-text-secondary" title={row.stream}>
-                            {row.stream}
-                          </span>
-                        </div>
-                      </td>
-                      <td className="whitespace-nowrap px-4 py-3 text-right font-mono tabular-nums text-text">
-                        {formatNumber(row.events_collected_total)}
-                      </td>
-                      <td className="whitespace-nowrap px-4 py-3 text-text-secondary">
-                        {row.last_success_at ? formatDate(row.last_success_at) : "—"}
-                      </td>
-                      <td
-                        className="whitespace-nowrap px-4 py-3"
-                        data-testid={`collector-data-lag-${row.integration_id}-${row.stream}`}
-                      >
-                        <div className="flex flex-col items-start gap-1">
-                          {/* O `!row.watermark_at` é redundante em runtime (é a
-                              primeira coisa que `dataLagSeconds` checa) e existe
-                              só para o TS estreitar o tipo sem cast. */}
-                          {dataLag === null || !row.watermark_at ? (
-                            // Sem watermark não dá para AFIRMAR atraso — e também
-                            // não dá para afirmar que está em dia. O tooltip
-                            // impede que este traço seja lido como "zero".
-                            <span
-                              className="text-text-tertiary"
-                              title={t("collectorsPage.table.dataLagUnavailable")}
-                            >
-                              —
-                            </span>
-                          ) : (
-                            <span
-                              className="text-text"
-                              title={t("collectorsPage.table.dataLagTooltip", {
-                                date: formatDate(row.watermark_at),
-                              })}
-                            >
-                              {formatLag(dataLag, tLag)}
-                            </span>
-                          )}
-                          {/* Teto sem atraso confirmado é pico absorvido: não
-                              acende nada, senão o badge apareceria em toda rajada
-                              normal e o operador aprenderia a ignorá-lo. */}
-                          {hasBacklog(row) && (
-                            <Badge
-                              variant="warning"
-                              size="sm"
-                              title={t("collectorsPage.table.backlogTooltip")}
-                              data-testid={`collector-backlog-${row.integration_id}-${row.stream}`}
-                            >
-                              {t("collectorsPage.table.backlog")}
-                            </Badge>
-                          )}
-                        </div>
-                      </td>
-                      <td className="px-4 py-3">
-                        <Badge variant={health.variant}>{health.label}</Badge>
-                        {row.last_error && (
-                          <div
-                            className="mt-1 max-w-xs truncate text-xs text-danger-600"
-                            title={row.last_error}
-                          >
-                            {row.last_error}
-                          </div>
-                        )}
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex justify-end gap-1">
-                          <Button
-                            size="xs"
-                            variant="outline"
-                            leftIcon={<PlayIcon size={14} />}
-                            loading={busyKey === key}
-                            onClick={() => void handleTrigger(row)}
-                            title={t("collectorsPage.table.triggerTooltip")}
-                          >
-                            {t("collectorsPage.table.trigger")}
-                          </Button>
-                          {isAdmin && (
-                            <Button
-                              size="xs"
-                              variant="ghost"
-                              leftIcon={<RotateCcwIcon size={14} />}
-                              onClick={() => setResetTarget(row)}
-                              title={t("collectorsPage.table.resetTooltip")}
-                            >
-                              {t("collectorsPage.table.reset")}
-                            </Button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-          </div>
+          <DataTable
+            data={sortedStates}
+            columns={collectorColumns}
+            rowKey={(row) => rowKey(row)}
+            tableAriaLabel={t("collectorsPage.table.ariaLabel")}
+            tableClassName="min-w-[1080px]"
+          />
         )}
       </Card>
 

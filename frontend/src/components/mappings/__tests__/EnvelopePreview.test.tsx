@@ -43,7 +43,10 @@ describe("EnvelopePreview", () => {
       <EnvelopePreview result={null} isPending={false} error={null} />,
     )
     const region = screen.getByTestId("envelope-preview")
-    expect(region).toHaveAttribute("role", "region")
+    // R4-9.1: `role="region"` explícito removido por ser REDUNDANTE —
+    // `<section aria-labelledby>` já expõe role="region" IMPLICITAMENTE
+    // (`jsx-a11y/no-redundant-roles`). `getByRole` prova o papel efetivo.
+    expect(screen.getByRole("region")).toBe(region)
     expect(region).toHaveAttribute("aria-labelledby")
   })
 

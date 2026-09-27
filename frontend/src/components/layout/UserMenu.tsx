@@ -121,6 +121,10 @@ export const UserMenu: React.FC = () => {
       </button>
 
       {open && (
+        // Padrão APG de menu: o CONTAINER captura as setas (roving tabindex
+        // nos <button role="menuitem"> filhos) — o próprio menu não precisa
+        // ser um tab-stop.
+        // eslint-disable-next-line jsx-a11y/interactive-supports-focus
         <div
           ref={menuRef}
           id={menuId}

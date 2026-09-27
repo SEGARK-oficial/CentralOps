@@ -199,7 +199,12 @@ describe("PreprocessEditor", () => {
     )
 
     const region = screen.getByTestId("preprocess-editor")
-    expect(region).toHaveAttribute("role", "region")
+    // R4-9.1: `role="region"` explícito foi removido do componente por ser
+    // REDUNDANTE — `<section aria-labelledby>` já expõe role="region"
+    // IMPLICITAMENTE (regra `jsx-a11y/no-redundant-roles`). `getByRole`
+    // prova o papel efetivo do jeito que um leitor de tela o vê, em vez de
+    // checar o atributo cru (que deixou de existir por design).
+    expect(screen.getByRole("region")).toBe(region)
     expect(region).toHaveAttribute("aria-labelledby")
   })
 })

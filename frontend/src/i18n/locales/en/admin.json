@@ -71,7 +71,10 @@
     },
     "errors": {
       "bulkPartial": "Bulk completed with warnings: {{deactivated}}/{{processed}} deactivated. {{errorsCount}} item(s) skipped.",
-      "loadFailedTitle": "Failed to load organizations"
+      "loadFailedTitle": "Failed to load organizations",
+      "createFailed": "Failed to create organization",
+      "deleteFailed": "Failed to delete organization",
+      "bulkDeactivateFailed": "Failed to bulk deactivate organizations"
     }
   },
   "users": {
@@ -493,6 +496,8 @@
     "listErrorSuffix": "Token will be created with full permission inheritance.",
     "noneMarkedRequireExplicit": "No scope marked yet is the same as inheriting everything. Mark at least one.",
     "noneMarkedOptional": "No scope marked yet is the same as inheriting everything. Mark at least one, or choose to inherit the account's permissions above.",
-    "loadError": "Failed to load scopes"
+    "loadError": "Failed to load scopes",
+    "inheritTitle": "Inherit account permissions (default)",
+    "inheritDescription": "The token has the same access level as your account. Equivalent to Phase 1 (no scopes). If you are demoted, the token automatically loses access."
   }
 }

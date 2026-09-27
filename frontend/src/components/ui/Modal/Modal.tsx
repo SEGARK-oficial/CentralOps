@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { createContext, Suspense, useEffect, useId, useRef, useState } from "react"
+import { createContext, Suspense, useCallback, useEffect, useId, useRef, useState } from "react"
 import { createPortal } from "react-dom"
 import { XIcon } from "lucide-react"
 import { FocusScope } from "@radix-ui/react-focus-scope"
@@ -22,6 +22,28 @@ import { isTopmostDialog, lockBodyScroll, nextDialogOrder, registerOpenDialog, u
  * `null` fora de um Modal (comportamento atual, sem mudança).
  */
 export const PortalContainerContext = createContext<HTMLElement | null>(null)
+
+/** Primeiro elemento focável (visível) dentro de `container`. */
+function firstTabbable(container: HTMLElement | null): HTMLElement | null {
+  if (!container) return null
+  const candidates = container.querySelectorAll<HTMLElement>(
+    'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
+  )
+  for (const el of candidates) {
+    if (!el.hasAttribute("disabled") && el.offsetParent !== null) return el
+  }
+  return null
+}
+
+/**
+ * R4-8.3: sentinela do fallback do Suspense — o React não expõe um callback
+ * "resolveu" nativo, então detectamos a resolução pelo UNMOUNT do próprio
+ * fallback (troca pro conteúdo real no mesmo commit).
+ */
+const SuspenseResolvedSignal: React.FC<{ onResolved: () => void }> = ({ onResolved }) => {
+  useEffect(() => () => onResolved(), [onResolved])
+  return <LoadingSpinner size="sm" className="py-8" />
+}
 
 /**
  * A11Y-02: pilha de modais (ver `internal/dialogStack.ts`, compartilhada com
@@ -76,6 +98,23 @@ export const Modal: React.FC<ModalProps> = ({
   // dentro de um `useEffect`.
   const [modalOrder] = useState(nextDialogOrder)
   const [panelEl, setPanelEl] = useState<HTMLDivElement | null>(null)
+  const closeButtonRef = useRef<HTMLButtonElement | null>(null)
+  const contentRef = useRef<HTMLDivElement | null>(null)
+  const panelElRef = useRef<HTMLDivElement | null>(null)
+  panelElRef.current = panelEl
+
+  // R4-8.3: quando o conteúdo suspenso resolve, move o foco pro 1º tabbable
+  // do conteúdo — mas SÓ SE o foco ainda estiver no botão fechar ou no
+  // próprio painel (é aonde o Radix pousa o foco enquanto não há nada
+  // focável no fallback). Se o foco já estiver em outro lugar, o usuário
+  // pode ter interagido com algo — não rouba o foco dele. Identidade
+  // ESTÁVEL (`[]`): lê tudo via ref, não precisa recriar a cada render.
+  const onContentResolved = useCallback(() => {
+    const active = document.activeElement
+    const focusWasParked = active === closeButtonRef.current || active === panelElRef.current
+    if (!focusWasParked) return
+    firstTabbable(contentRef.current)?.focus()
+  }, [])
 
   // ``onClose``/``closeOnEscape`` costumam ser recriados a cada render do pai (ex.:
   // ``onClose={() => setOpen(false)}`` inline). Se entrassem nas deps do efeito de foco
@@ -126,6 +165,10 @@ export const Modal: React.FC<ModalProps> = ({
   if (!open) return null
 
   return createPortal(
+    // Backdrop de "clicar fora fecha" — não é um controle, não deve virar
+    // parada de Tab nem responder a Enter/Espaço (isso duplicaria o Escape,
+    // que já fecha o modal e é o equivalente por teclado real).
+    // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
     <div
       className="fixed inset-0 z-modal-backdrop bg-overlay flex items-center justify-center p-4 animate-fade-in"
       onClick={handleOverlayClick}
@@ -157,7 +200,7 @@ export const Modal: React.FC<ModalProps> = ({
             {title && (
               <div className="flex items-center justify-between gap-4 px-5 py-3 border-b border-border">
                 <h2 id={titleId} className="text-base font-semibold text-text">{title}</h2>
-                <Button variant="ghost" size="xs" onClick={onClose} aria-label={t("modal.closeAriaLabel")}>
+                <Button ref={closeButtonRef} variant="ghost" size="xs" onClick={onClose} aria-label={t("modal.closeAriaLabel")}>
                   <XIcon size={16} />
                 </Button>
               </div>
@@ -172,9 +215,13 @@ export const Modal: React.FC<ModalProps> = ({
               (e o `FocusScope trapped` em volta) continua montado — o Radix
               redireciona o foco de volta pra dentro assim que o fallback (ou
               o conteúdo real, ao resolver) aparece.
+              R4-8.3: e quando resolve de verdade, `onContentResolved` mira o
+              foco no 1º tabbable do conteúdo (se o foco ainda estava
+              "estacionado" no botão fechar/painel — nunca rouba foco de
+              quem já interagiu com outra coisa).
             */}
-            <div className="flex-1 overflow-y-auto p-5">
-              <Suspense fallback={<LoadingSpinner size="sm" className="py-8" />}>{children}</Suspense>
+            <div ref={contentRef} className="flex-1 overflow-y-auto p-5">
+              <Suspense fallback={<SuspenseResolvedSignal onResolved={onContentResolved} />}>{children}</Suspense>
             </div>
           </PortalContainerContext.Provider>
         </div>

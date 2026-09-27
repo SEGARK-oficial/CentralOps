@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/Button/Button"
 import { Input } from "@/components/ui/Input/Input"
 import { Notice } from "@/components/ui/Notice/Notice"
 import { SkeletonCard } from "@/components/ui/Skeleton"
+import { useFirstInvalidFocus } from "@/hooks/useFirstInvalidFocus"
 import * as api from "@/services/api"
 import type {
   EnrichmentConfig,
@@ -78,6 +79,64 @@ type Draft = {
 
 const MIB = 1024 * 1024
 
+/**
+ * R4-8.4: limites REAIS do backend — `_LIMITS` em
+ * `backend/app/routers/enrichment_config.py` (`_clamp_or_reject`, PUT
+ * rejeita com 422 fora da faixa). Não inventados: copiados de lá. Os dois
+ * últimos são em BYTES no backend; a UI edita em MiB, e a comparação
+ * converte antes.
+ */
+const NUMERIC_LIMITS = {
+  redis_port: [1, 65_535],
+  redis_db: [0, 15],
+  remote_batch_budget_ms: [10, 60_000],
+  cycle_budget_ms: [100, 600_000],
+  l1_max_entries: [100, 1_000_000],
+  singleflight_wait_ms: [0, 5_000],
+  breaker_failure_threshold: [1, 100],
+  breaker_window_s: [10, 86_400],
+  breaker_cooldown_s: [5, 86_400],
+  breaker_max_cooldown_s: [5, 604_800],
+  max_table_bytes_mib: [64 * 1024, 1024 * 1024 * 1024],
+  lru_bytes_mib: [64 * 1024, 4 * 1024 * 1024 * 1024],
+} as const satisfies Record<string, readonly [number, number]>
+
+type NumericField = keyof typeof NUMERIC_LIMITS
+
+const BYTE_FIELDS = new Set<NumericField>(["max_table_bytes_mib", "lru_bytes_mib"])
+
+/** Ordem de checagem = ordem visual do form (decide qual campo foca 1º). */
+const NUMERIC_FIELD_ORDER: NumericField[] = [
+  "redis_port",
+  "redis_db",
+  "remote_batch_budget_ms",
+  "cycle_budget_ms",
+  "l1_max_entries",
+  "singleflight_wait_ms",
+  "breaker_failure_threshold",
+  "breaker_window_s",
+  "breaker_cooldown_s",
+  "breaker_max_cooldown_s",
+  "max_table_bytes_mib",
+  "lru_bytes_mib",
+]
+
+/** `null` = válido; caso contrário, mensagem de erro pronta pra exibir. */
+function validateNumericField(t: (key: string, opts?: Record<string, unknown>) => string, field: NumericField, rawValue: string): string | null {
+  const num = Number(rawValue)
+  const [low, high] = NUMERIC_LIMITS[field]
+  const isByteField = BYTE_FIELDS.has(field)
+  const compareValue = isByteField ? num * MIB : num
+  if (!Number.isFinite(compareValue) || compareValue < low || compareValue > high) {
+    // Campo em MiB: mostra a faixa em MiB (arredondada pra cima no mínimo,
+    // pra baixo no máximo — nunca afirma uma faixa mais larga que a real).
+    const displayLow = isByteField ? Math.ceil(low / MIB) : low
+    const displayHigh = isByteField ? Math.floor(high / MIB) : high
+    return t("page.enrichment.validation.outOfRange", { low: displayLow, high: displayHigh })
+  }
+  return null
+}
+
 function draftFrom(cfg: EnrichmentConfig): Draft {
   return {
     redis_host: cfg.redis_host ?? "",
@@ -110,23 +169,29 @@ export const EnrichmentConfigForm: React.FC<Props> = ({ onSaved }) => {
   const [draft, setDraft] = useState<Draft | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
-  const [error, setError] = useState<string | null>(null)
   const [feedback, setFeedback] = useState<string | null>(null)
   const [testing, setTesting] = useState(false)
   const [testResult, setTestResult] = useState<EnrichmentRedisTestResult | null>(null)
+  const errorId = "enrichment-config-error"
+  // R4-8.4: `error` cobre TANTO falha de API (load/toggle/save, sem campo
+  // específico — `failGeneral`) QUANTO validação de campo (`failField`),
+  // mesmo padrão já usado em outros forms da posse.
+  const { error, errorField, registerField, failField, failGeneral, clearError } =
+    useFirstInvalidFocus<NumericField>()
 
   const load = useCallback(async () => {
     setLoading(true)
-    setError(null)
+    clearError()
     try {
       const cfg = await api.getEnrichmentConfig()
       setConfig(cfg)
       setDraft(draftFrom(cfg))
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err))
+      failGeneral(err instanceof Error ? err.message : String(err))
     } finally {
       setLoading(false)
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   useEffect(() => {
@@ -144,14 +209,14 @@ export const EnrichmentConfigForm: React.FC<Props> = ({ onSaved }) => {
   async function handleToggleEnabled() {
     if (!config) return
     setSaving(true)
-    setError(null)
+    clearError()
     try {
       const next = await api.updateEnrichmentConfig({ enabled: !config.enabled })
       setConfig(next)
       setDraft(draftFrom(next))
       onSaved?.(next)
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err))
+      failGeneral(err instanceof Error ? err.message : String(err))
     } finally {
       setSaving(false)
     }
@@ -187,8 +252,21 @@ export const EnrichmentConfigForm: React.FC<Props> = ({ onSaved }) => {
   async function handleSave(e: React.FormEvent) {
     e.preventDefault()
     if (!draft) return
+
+    // R4-8.4: valida os 12 campos numéricos contra os limites REAIS do
+    // backend (`NUMERIC_LIMITS`, copiados de `_LIMITS` em
+    // `enrichment_config.py`) antes de gastar uma volta ao servidor. Foca o
+    // 1º inválido, na ordem visual do form.
+    for (const field of NUMERIC_FIELD_ORDER) {
+      const message = validateNumericField(t, field, draft[field])
+      if (message) {
+        failField(field, message)
+        return
+      }
+    }
+
     setSaving(true)
-    setError(null)
+    clearError()
     setFeedback(null)
     try {
       const payload: EnrichmentConfigUpdateRequest = {
@@ -217,7 +295,7 @@ export const EnrichmentConfigForm: React.FC<Props> = ({ onSaved }) => {
       setFeedback(t("page.enrichment.saved", { seconds: next.propagation_worst_case_s }))
       onSaved?.(next)
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err))
+      failGeneral(err instanceof Error ? err.message : String(err))
     } finally {
       setSaving(false)
     }
@@ -241,10 +319,9 @@ export const EnrichmentConfigForm: React.FC<Props> = ({ onSaved }) => {
   return (
     <form onSubmit={handleSave} className="space-y-6" noValidate>
       {/* R2-8.3/R2-8.2: reação direta ao clique em "Salvar"/"Habilitar" —
-          mantém assertive explícito (o padrão do Notice virou polite). Sem
-          campo pra apontar: todo campo numérico tem fallback seguro
-          (`Number(x) || default`), não há validação client-side aqui. */}
-      {error && <Notice variant="danger" title={error} live="assertive" />}
+          mantém assertive explícito (o padrão do Notice virou polite).
+          R4-8.4: agora também cobre erro POR CAMPO (`failField`). */}
+      {error && <Notice id={errorId} variant="danger" title={error} live="assertive" />}
       {feedback && <Notice variant="success" title={feedback} />}
 
       {/* ── Subsistema ──────────────────────────────────────────────── */}
@@ -312,18 +389,22 @@ export const EnrichmentConfigForm: React.FC<Props> = ({ onSaved }) => {
             className="font-mono text-sm"
           />
           <Input
+            ref={registerField("redis_port")}
             label={t("page.enrichment.cache.port")}
             value={draft.redis_port}
             onChange={(e) => set("redis_port", e.target.value)}
             inputMode="numeric"
             className="font-mono text-sm"
+            error={errorField === "redis_port" ? error ?? undefined : undefined}
           />
           <Input
+            ref={registerField("redis_db")}
             label={t("page.enrichment.cache.db")}
             value={draft.redis_db}
             onChange={(e) => set("redis_db", e.target.value)}
             inputMode="numeric"
             className="font-mono text-sm"
+            error={errorField === "redis_db" ? error ?? undefined : undefined}
           />
           <Input
             label={t("page.enrichment.cache.password")}
@@ -428,32 +509,40 @@ export const EnrichmentConfigForm: React.FC<Props> = ({ onSaved }) => {
         </div>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <Input
+            ref={registerField("remote_batch_budget_ms")}
             label={t("page.enrichment.budgets.batch")}
             value={draft.remote_batch_budget_ms}
             onChange={(e) => set("remote_batch_budget_ms", e.target.value)}
             inputMode="numeric"
             helperText={t("page.enrichment.default", { value: "300 ms" })}
+            error={errorField === "remote_batch_budget_ms" ? error ?? undefined : undefined}
           />
           <Input
+            ref={registerField("cycle_budget_ms")}
             label={t("page.enrichment.budgets.cycle")}
             value={draft.cycle_budget_ms}
             onChange={(e) => set("cycle_budget_ms", e.target.value)}
             inputMode="numeric"
             helperText={t("page.enrichment.default", { value: "30000 ms" })}
+            error={errorField === "cycle_budget_ms" ? error ?? undefined : undefined}
           />
           <Input
+            ref={registerField("l1_max_entries")}
             label={t("page.enrichment.budgets.l1")}
             value={draft.l1_max_entries}
             onChange={(e) => set("l1_max_entries", e.target.value)}
             inputMode="numeric"
             helperText={t("page.enrichment.default", { value: "10000" })}
+            error={errorField === "l1_max_entries" ? error ?? undefined : undefined}
           />
           <Input
+            ref={registerField("singleflight_wait_ms")}
             label={t("page.enrichment.budgets.singleflight")}
             value={draft.singleflight_wait_ms}
             onChange={(e) => set("singleflight_wait_ms", e.target.value)}
             inputMode="numeric"
             helperText={t("page.enrichment.default", { value: "50 ms" })}
+            error={errorField === "singleflight_wait_ms" ? error ?? undefined : undefined}
           />
         </div>
       </section>
@@ -471,32 +560,40 @@ export const EnrichmentConfigForm: React.FC<Props> = ({ onSaved }) => {
         </div>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <Input
+            ref={registerField("breaker_failure_threshold")}
             label={t("page.enrichment.breaker.threshold")}
             value={draft.breaker_failure_threshold}
             onChange={(e) => set("breaker_failure_threshold", e.target.value)}
             inputMode="numeric"
             helperText={t("page.enrichment.default", { value: "3" })}
+            error={errorField === "breaker_failure_threshold" ? error ?? undefined : undefined}
           />
           <Input
+            ref={registerField("breaker_window_s")}
             label={t("page.enrichment.breaker.window")}
             value={draft.breaker_window_s}
             onChange={(e) => set("breaker_window_s", e.target.value)}
             inputMode="numeric"
             helperText={t("page.enrichment.default", { value: "600 s" })}
+            error={errorField === "breaker_window_s" ? error ?? undefined : undefined}
           />
           <Input
+            ref={registerField("breaker_cooldown_s")}
             label={t("page.enrichment.breaker.cooldown")}
             value={draft.breaker_cooldown_s}
             onChange={(e) => set("breaker_cooldown_s", e.target.value)}
             inputMode="numeric"
             helperText={t("page.enrichment.default", { value: "120 s" })}
+            error={errorField === "breaker_cooldown_s" ? error ?? undefined : undefined}
           />
           <Input
+            ref={registerField("breaker_max_cooldown_s")}
             label={t("page.enrichment.breaker.maxCooldown")}
             value={draft.breaker_max_cooldown_s}
             onChange={(e) => set("breaker_max_cooldown_s", e.target.value)}
             inputMode="numeric"
             helperText={t("page.enrichment.default", { value: "1920 s" })}
+            error={errorField === "breaker_max_cooldown_s" ? error ?? undefined : undefined}
           />
         </div>
       </section>
@@ -512,6 +609,7 @@ export const EnrichmentConfigForm: React.FC<Props> = ({ onSaved }) => {
         </div>
         <div className="grid gap-3 sm:grid-cols-2">
           <Input
+            ref={registerField("max_table_bytes_mib")}
             label={t("page.enrichment.tables.perTable")}
             value={draft.max_table_bytes_mib}
             onChange={(e) => set("max_table_bytes_mib", e.target.value)}
@@ -519,13 +617,16 @@ export const EnrichmentConfigForm: React.FC<Props> = ({ onSaved }) => {
             // O teto é por FORK e o serviço roda 8 — mostrar a conta evita que
             // "32" pareça o consumo total do container.
             helperText={forksHint}
+            error={errorField === "max_table_bytes_mib" ? error ?? undefined : undefined}
           />
           <Input
+            ref={registerField("lru_bytes_mib")}
             label={t("page.enrichment.tables.lru")}
             value={draft.lru_bytes_mib}
             onChange={(e) => set("lru_bytes_mib", e.target.value)}
             inputMode="numeric"
             helperText={t("page.enrichment.default", { value: "64 MiB" })}
+            error={errorField === "lru_bytes_mib" ? error ?? undefined : undefined}
           />
         </div>
       </section>

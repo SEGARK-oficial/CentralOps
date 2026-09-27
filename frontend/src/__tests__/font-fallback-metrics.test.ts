@@ -26,9 +26,9 @@ function extractFontFace(family: string): string {
 
 describe("R3-6.3 — @font-face de fallback com métrica ajustada", () => {
   it.each([
-    ["Archivo Fallback", ["Arial", "Helvetica"]],
-    ["IBM Plex Sans Fallback", ["Arial", "Helvetica"]],
-    ["IBM Plex Mono Fallback", ["Courier New", "Menlo"]],
+    ["Archivo Fallback", ["Arial", "Helvetica", "Liberation Sans", "DejaVu Sans"]],
+    ["IBM Plex Sans Fallback", ["Arial", "Helvetica", "Liberation Sans", "DejaVu Sans"]],
+    ["IBM Plex Mono Fallback", ["Courier New", "Menlo", "Liberation Mono", "DejaVu Sans Mono"]],
   ])("%s existe, aponta pra fonte local e declara as 4 métricas", (family, locals) => {
     const rule = extractFontFace(family)
     for (const local of locals) {
@@ -56,6 +56,25 @@ describe("R3-6.3 — @font-face de fallback com métrica ajustada", () => {
       const sizeAdjust = Number(rule.match(/size-adjust:\s*([\d.]+)%/)?.[1])
       expect(sizeAdjust).toBeGreaterThan(80)
       expect(sizeAdjust).toBeLessThan(160)
+    }
+  })
+
+  it("R4-6.4: Arial/Courier New (Windows/macOS) vêm ANTES de Liberation/DejaVu (Linux) na lista de local()", () => {
+    // Arial/Courier New (quando existem) são a fonte que gerou os números —
+    // Liberation é metricamente idêntica (confere), DejaVu é aproximação.
+    // A ORDEM garante que o navegador prefira a fonte mais fiel quando tiver
+    // as duas instaladas.
+    for (const [family, first, second] of [
+      ["Archivo Fallback", "Arial", "Liberation Sans"],
+      ["IBM Plex Sans Fallback", "Arial", "Liberation Sans"],
+      ["IBM Plex Mono Fallback", "Courier New", "Liberation Mono"],
+    ] as const) {
+      const rule = extractFontFace(family)
+      const firstIndex = rule.indexOf(`local("${first}")`)
+      const secondIndex = rule.indexOf(`local("${second}")`)
+      expect(firstIndex).toBeGreaterThan(-1)
+      expect(secondIndex).toBeGreaterThan(-1)
+      expect(firstIndex).toBeLessThan(secondIndex)
     }
   })
 

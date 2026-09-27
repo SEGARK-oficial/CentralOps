@@ -53,10 +53,17 @@ export const DriftRulesDrawer: React.FC<DriftRulesDrawerProps> = ({
     preprocess: t("rulesDrawer.matchKind.preprocess"),
   }
   return (
-    <Drawer open={open} onClose={onClose} size="md" ariaLabelledBy={TITLE_ID} data-testid="drift-rules-drawer">
-      <div className="flex h-full flex-col">
-        {/* Header */}
-        <div className="flex items-start justify-between gap-3 px-6 py-4 border-b border-border">
+    <Drawer
+      open={open}
+      onClose={onClose}
+      size="md"
+      ariaLabelledBy={TITLE_ID}
+      data-testid="drift-rules-drawer"
+      // R4-8.3: o header carrega o `id={TITLE_ID}` referenciado pelo
+      // `ariaLabelledBy` acima — precisa ficar FORA do `<Suspense>` do corpo
+      // (`children`), senão some junto se o corpo suspender.
+      header={
+        <div className="flex shrink-0 items-start justify-between gap-3 border-b border-border px-6 py-4">
           <div className="flex-1 min-w-0">
             <p className="text-xs text-text-tertiary uppercase tracking-wide mb-0.5">
               {t("rulesDrawer.eyebrow")}
@@ -79,7 +86,8 @@ export const DriftRulesDrawer: React.FC<DriftRulesDrawerProps> = ({
             <XIcon size={18} />
           </Button>
         </div>
-
+      }
+    >
         {/* Body */}
         <div className="flex-1 overflow-y-auto px-6 py-4">
             {rules.length === 0 ? (
@@ -128,7 +136,6 @@ export const DriftRulesDrawer: React.FC<DriftRulesDrawerProps> = ({
               </ul>
             )}
           </div>
-        </div>
     </Drawer>
   )
 }

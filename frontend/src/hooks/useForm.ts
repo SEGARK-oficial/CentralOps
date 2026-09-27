@@ -29,7 +29,7 @@ interface UseFormReturn<T> {
   handleChange: (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => void
   handleBlur: (event: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => void
   handleSubmit: (event: React.FormEvent) => void
-  setFieldValue: (field: keyof T, value: any) => void
+  setFieldValue: (field: keyof T, value: T[keyof T]) => void
   setFieldError: (field: keyof T, error: string) => void
   resetForm: () => void
   /**
@@ -46,6 +46,15 @@ interface UseFormReturn<T> {
   registerField: (field: keyof T) => (el: HTMLElement | null) => void
 }
 
+// `Record<string, any>` é o vínculo genérico padrão pra "objeto de valores
+// de formulário qualquer" — `Record<string, unknown>` aqui rejeita QUALQUER
+// interface concreta sem index signature (`EmailConfigFormValues`,
+// `ScheduleFormValues`, etc. — todo `T` real que os ~20 chamadores passam),
+// porque TS exige index signature explícita pra esse sentido de
+// atribuibilidade quando o tipo vira parâmetro de generic. Testado: trocar
+// pra `unknown` quebra o typecheck em `EmailConfigForm`/`CreateQueryForm`/
+// `LoginPage`/`SchedulesPage` (todo formulário com `useForm`).
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function useForm<T extends Record<string, any>>({
   initialValues,
   validate,
@@ -76,7 +85,7 @@ export function useForm<T extends Record<string, any>>({
       const { name, value, type } = event.target
       const fieldName = name as keyof T
 
-      let fieldValue: any = value
+      let fieldValue: unknown = value
 
       // Handle different input types
       if (type === "checkbox") {
@@ -169,7 +178,9 @@ export function useForm<T extends Record<string, any>>({
       try {
         await onSubmit(values)
       } catch (error) {
-        console.error("Form submission error:", error)
+        // R4-8.5: o erro já vira `submitError` (renderizado pelo form) — um
+        // `console.error` aqui só duplicava em produção, poluindo o console
+        // do operador com algo que a UI já mostra.
         setSubmitError(error instanceof Error ? error.message : String(error))
       } finally {
         setIsSubmitting(false)
@@ -178,7 +189,7 @@ export function useForm<T extends Record<string, any>>({
     [values, validate, onSubmit, isSubmitting],
   )
 
-  const setFieldValue = useCallback((field: keyof T, value: any) => {
+  const setFieldValue = useCallback((field: keyof T, value: T[keyof T]) => {
     setValues((prev) => ({
       ...prev,
       [field]: value,

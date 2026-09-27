@@ -15,13 +15,14 @@ import {
 } from "lucide-react"
 
 import * as api from "@/services/api"
-import type { ApiToken, ScopeName } from "@/types"
+import type { ApiToken, ScopeName, TableColumn } from "@/types"
 
 import { ScopeSelector } from "@/components/tokens/ScopeSelector"
 import { Badge } from "@/components/ui/Badge/Badge"
 import { Button } from "@/components/ui/Button/Button"
 import { Card } from "@/components/ui/Card/Card"
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog/ConfirmDialog"
+import { DataTable } from "@/components/ui/DataTable/DataTable"
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState"
 import { ErrorState } from "@/components/ui/ErrorState"
 import { Input } from "@/components/ui/Input/Input"
@@ -176,6 +177,89 @@ export const TokensPage: React.FC = () => {
     }
   }
 
+  // R4-8.6: migrado do par tabela+cartões escrito à mão pro `DataTable`.
+  // Nenhum teste depende de `token-row-*`/`token-card-*` hoje — mesmo assim
+  // preservamos o testid por linha (`getRowTestId`) porque é barato e evita
+  // uma regressão silenciosa se algum teste futuro passar a usá-lo.
+  const revokeAction = (token: ApiToken) =>
+    !token.revoked_at &&
+    !isExpired(token) && (
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={() => setRevokeCandidate(token)}
+        disabled={busyId === token.id}
+        leftIcon={<TrashIcon size={14} />}
+      >
+        {t("tokens.table.revokeAction")}
+      </Button>
+    )
+
+  const tokenColumns: TableColumn<ApiToken>[] = [
+    {
+      key: "name",
+      title: t("tokens.table.columns.name"),
+      dataIndex: "name",
+      render: (_value, token) => (
+        <div className="max-w-[220px] truncate" title={token.name}>
+          {token.name}
+        </div>
+      ),
+    },
+    {
+      key: "prefix",
+      title: t("tokens.table.columns.prefix"),
+      dataIndex: "token_prefix",
+      className: "whitespace-nowrap font-mono text-xs",
+      render: (_value, token) => `${token.token_prefix}…`,
+    },
+    {
+      key: "status",
+      title: t("tokens.table.columns.status"),
+      dataIndex: "revoked_at",
+      className: "whitespace-nowrap",
+      render: (_value, token) => tokenStatusBadge(token, t),
+    },
+    {
+      key: "expires",
+      title: t("tokens.table.columns.expires"),
+      dataIndex: "expires_at",
+      className: "whitespace-nowrap text-text-secondary",
+      render: (_value, token) => formatExpiresAt(token.expires_at, t),
+    },
+    {
+      key: "lastUsed",
+      title: t("tokens.table.columns.lastUsed"),
+      dataIndex: "last_used_at",
+      className: "text-text-secondary",
+      render: (_value, token) => (
+        <>
+          <div>{formatLastUsed(token.last_used_at, t)}</div>
+          {token.last_used_ip && (
+            <div className="max-w-[160px] truncate text-xs" title={token.last_used_ip}>
+              {t("tokens.usedFrom", { ip: token.last_used_ip })}
+            </div>
+          )}
+        </>
+      ),
+    },
+    {
+      key: "uses",
+      title: t("tokens.table.columns.uses"),
+      dataIndex: "use_count",
+      align: "right",
+      className: "whitespace-nowrap tabular-nums",
+      render: (_value, token) => token.use_count,
+    },
+    {
+      key: "actions",
+      title: <span className="sr-only">{t("common:fields.actions")}</span>,
+      dataIndex: "id",
+      align: "right",
+      render: (_value, token) => revokeAction(token),
+    },
+  ]
+
   return (
     <div className="space-y-6" data-testid="tokens-page">
       <PageHeader
@@ -249,175 +333,51 @@ export const TokensPage: React.FC = () => {
             }
           />
         ) : (
-          <>
-            {/* Tablet / desktop: tabela com rolagem horizontal segura. */}
-            <div className="hidden overflow-x-auto md:block">
-              <table
-                className="w-full min-w-[760px] text-sm"
-                role="table"
-                aria-label={t("tokens.table.ariaLabel")}
-              >
-                <thead className="bg-bg-subtle text-text-secondary">
-                  <tr>
-                    <th scope="col" className="px-4 py-2 text-left font-medium">
-                      {t("tokens.table.columns.name")}
-                    </th>
-                    <th
-                      scope="col"
-                      className="px-4 py-2 text-left font-medium whitespace-nowrap"
-                    >
-                      {t("tokens.table.columns.prefix")}
-                    </th>
-                    <th
-                      scope="col"
-                      className="px-4 py-2 text-left font-medium whitespace-nowrap"
-                    >
-                      {t("tokens.table.columns.status")}
-                    </th>
-                    <th
-                      scope="col"
-                      className="px-4 py-2 text-left font-medium whitespace-nowrap"
-                    >
-                      {t("tokens.table.columns.expires")}
-                    </th>
-                    <th scope="col" className="px-4 py-2 text-left font-medium">
-                      {t("tokens.table.columns.lastUsed")}
-                    </th>
-                    <th
-                      scope="col"
-                      className="px-4 py-2 text-right font-medium whitespace-nowrap"
-                    >
-                      {t("tokens.table.columns.uses")}
-                    </th>
-                    <th scope="col" className="px-4 py-2">
-                      <span className="sr-only">{t("common:fields.actions")}</span>
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {tokens.map((token) => (
-                    <tr
-                      key={token.id}
-                      className="border-t hover:bg-bg-subtle/50"
-                      data-testid={`token-row-${token.id}`}
-                    >
-                      <td className="px-4 py-2 font-medium">
-                        <div
-                          className="max-w-[220px] truncate"
-                          title={token.name}
-                        >
-                          {token.name}
-                        </div>
-                      </td>
-                      <td className="px-4 py-2 font-mono text-xs whitespace-nowrap">
-                        {token.token_prefix}…
-                      </td>
-                      <td className="px-4 py-2 whitespace-nowrap">
-                        {tokenStatusBadge(token, t)}
-                      </td>
-                      <td className="px-4 py-2 text-text-secondary whitespace-nowrap">
-                        {formatExpiresAt(token.expires_at, t)}
-                      </td>
-                      <td className="px-4 py-2 text-text-secondary">
-                        <div>{formatLastUsed(token.last_used_at, t)}</div>
-                        {token.last_used_ip && (
-                          <div
-                            className="max-w-[160px] truncate text-xs"
-                            title={token.last_used_ip}
-                          >
-                            {t("tokens.usedFrom", { ip: token.last_used_ip })}
-                          </div>
-                        )}
-                      </td>
-                      <td className="px-4 py-2 text-right tabular-nums whitespace-nowrap">
-                        {token.use_count}
-                      </td>
-                      <td className="px-4 py-2 text-right">
-                        {!token.revoked_at && !isExpired(token) && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => setRevokeCandidate(token)}
-                            disabled={busyId === token.id}
-                            leftIcon={<TrashIcon size={14} />}
-                          >
-                            {t("tokens.table.revokeAction")}
-                          </Button>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            {/* Mobile: cada token vira um cartão — sem scroll horizontal. */}
-            <div className="space-y-3 p-4 md:hidden">
-              {tokens.map((token) => (
-                <div
-                  key={token.id}
-                  className="rounded-xl border border-border bg-surface p-4"
-                  data-testid={`token-card-${token.id}`}
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <div
-                        className="truncate font-medium text-text"
-                        title={token.name}
-                      >
-                        {token.name}
-                      </div>
-                      <div className="font-mono text-xs text-text-secondary">
-                        {token.token_prefix}…
-                      </div>
+          <DataTable
+            data={tokens}
+            columns={tokenColumns}
+            rowKey="id"
+            tableAriaLabel={t("tokens.table.ariaLabel")}
+            tableClassName="min-w-[760px]"
+            getRowTestId={(token) => `token-row-${token.id}`}
+            renderMobileCard={(token) => (
+              <div className="rounded-xl border border-border bg-surface p-4">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <div className="truncate font-medium text-text" title={token.name}>
+                      {token.name}
                     </div>
-                    {tokenStatusBadge(token, t)}
+                    <div className="font-mono text-xs text-text-secondary">
+                      {token.token_prefix}…
+                    </div>
                   </div>
-                  <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-xs">
-                    <div>
-                      <dt className="text-text-secondary">{t("tokens.table.columns.expires")}</dt>
-                      <dd className="text-text">
-                        {formatExpiresAt(token.expires_at, t)}
-                      </dd>
-                    </div>
-                    <div>
-                      <dt className="text-text-secondary">{t("tokens.table.columns.uses")}</dt>
-                      <dd className="text-text tabular-nums">
-                        {token.use_count}
-                      </dd>
-                    </div>
-                    <div className="col-span-2">
-                      <dt className="text-text-secondary">{t("tokens.table.columns.lastUsed")}</dt>
-                      <dd className="text-text">
-                        {formatLastUsed(token.last_used_at, t)}
-                        {token.last_used_ip && (
-                          <span
-                            className="block truncate text-text-secondary"
-                            title={token.last_used_ip}
-                          >
-                            {t("tokens.usedFrom", { ip: token.last_used_ip })}
-                          </span>
-                        )}
-                      </dd>
-                    </div>
-                  </dl>
-                  {!token.revoked_at && !isExpired(token) && (
-                    <div className="mt-3 flex justify-end">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setRevokeCandidate(token)}
-                        disabled={busyId === token.id}
-                        leftIcon={<TrashIcon size={14} />}
-                      >
-                        {t("tokens.table.revokeAction")}
-                      </Button>
-                    </div>
-                  )}
+                  {tokenStatusBadge(token, t)}
                 </div>
-              ))}
-            </div>
-          </>
+                <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-xs">
+                  <div>
+                    <dt className="text-text-secondary">{t("tokens.table.columns.expires")}</dt>
+                    <dd className="text-text">{formatExpiresAt(token.expires_at, t)}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-text-secondary">{t("tokens.table.columns.uses")}</dt>
+                    <dd className="text-text tabular-nums">{token.use_count}</dd>
+                  </div>
+                  <div className="col-span-2">
+                    <dt className="text-text-secondary">{t("tokens.table.columns.lastUsed")}</dt>
+                    <dd className="text-text">
+                      {formatLastUsed(token.last_used_at, t)}
+                      {token.last_used_ip && (
+                        <span className="block truncate text-text-secondary" title={token.last_used_ip}>
+                          {t("tokens.usedFrom", { ip: token.last_used_ip })}
+                        </span>
+                      )}
+                    </dd>
+                  </div>
+                </dl>
+                {revokeAction(token) && <div className="mt-3 flex justify-end">{revokeAction(token)}</div>}
+              </div>
+            )}
+          />
         )}
       </Card>
 

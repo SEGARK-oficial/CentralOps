@@ -348,13 +348,20 @@ export const FlowNodeDetail: React.FC<FlowNodeDetailProps> = ({ node, onClose })
     // não o número mágico 1040 solto.
     <div className="fixed inset-0 z-modal-backdrop">
       {/* Backdrop — token do sistema, não preto solto: no ground ink-blue o
-          preto puro abre um buraco cinza que não pertence à paleta. */}
+          preto puro abre um buraco cinza que não pertence à paleta.
+          `aria-hidden` tira do leitor de tela; Escape é o equivalente por
+          teclado (o clique aqui é só o caminho do mouse). */}
+      {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-noninteractive-element-interactions */}
       <div
         className="absolute inset-0 bg-overlay"
         onClick={onClose}
         aria-hidden="true"
       />
       {/* Panel */}
+      {/* onClick só barra a propagação pro backdrop (não fecha ao clicar
+          dentro do painel) — não é uma interação própria; os controles reais
+          são os filhos (botões, links) deste painel. */}
+      {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-noninteractive-element-interactions */}
       <div
         ref={panelRef}
         className="absolute inset-y-0 right-0 flex w-full flex-col overflow-hidden border-l border-border bg-surface shadow-xl sm:max-w-md"

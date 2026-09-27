@@ -108,7 +108,6 @@ function SyncErrorList({ errors, t }: { errors?: string[]; t: TFunction }) {
       {expanded && (
         <ul
           className="mt-1.5 space-y-1 pl-3 border-l-2 border-danger-200"
-          role="list"
           aria-label={t("entraSync.errors.listAriaLabel")}
         >
           {errors.map((e, i) => (

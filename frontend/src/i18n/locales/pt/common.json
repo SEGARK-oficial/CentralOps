@@ -71,7 +71,8 @@
     "savedSuccess": "Salvo.",
     "errorGeneric": "A ação falhou. Tente de novo.",
     "confirmDelete": "Tem certeza que deseja excluir?",
-    "loadFailed": "Falha ao carregar."
+    "loadFailed": "Falha ao carregar.",
+    "requestTimeout": "A requisição demorou demais e foi cancelada. Tente de novo."
   },
   "conditionOperators": {
     "eq": "= igual a",

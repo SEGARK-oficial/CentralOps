@@ -611,6 +611,9 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({ data, onSelectNode, clas
       className={cn("relative overflow-hidden select-none", className)}
       style={{ cursor: dragging.current ? "grabbing" : "grab", height: displayH }}
     >
+      {/* Só barra a propagação pro pan/drag do canvas por baixo — os
+          controles reais são os <ControlButton> (botões) filhos. */}
+      {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions */}
       <div className="absolute right-3 top-3 z-10 flex flex-col gap-1" onMouseDown={(e) => e.stopPropagation()} onPointerDown={(e) => e.stopPropagation()}>
         <ControlButton label={t("flow.canvas.zoomIn")} onClick={() => setTransform((p) => ({ ...p, scale: clamp(p.scale * 1.25, 0.35, 3) }))}>
           <ZoomInIcon size={14} />

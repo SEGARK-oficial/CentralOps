@@ -215,6 +215,8 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
   const activeCmd = flatFiltered[activeIndex]
 
   return createPortal(
+    // Backdrop de "clicar fora fecha" — Escape já é o equivalente por teclado.
+    // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
     <div
       className="fixed inset-0 z-modal-backdrop bg-overlay flex items-start justify-center pt-[10vh] px-4 animate-fade-in"
       onClick={handleOverlayClick}
@@ -225,6 +227,11 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
         Esc é capturado por handleDialogKeydown.
       */}
       <FocusScope trapped loop>
+        {/* role="dialog" não está na lista de roles "interativos" do
+            jsx-a11y, mas o onKeyDown aqui é o padrão APG de dialog (captura
+            Escape) — o tabIndex=-1 é a âncora do FocusScope, não um convite
+            a Tab chegar até aqui de fora. */}
+        {/* eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions */}
         <div
           role="dialog"
           aria-modal="true"
@@ -295,6 +302,12 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
                     {cmds.map((cmd) => {
                       const isActive = flatFiltered.indexOf(cmd) === activeIndex
                       return (
+                        // Navegação por teclado (Setas/Enter) é gerenciada
+                        // pelo container (`handleDialogKeydown` + `activeIndex`)
+                        // — padrão listbox de foco gerenciado (roving), não
+                        // cada `<li role="option">` sendo focável por si.
+                        // O onClick aqui é só o caminho alternativo do mouse.
+                        // eslint-disable-next-line jsx-a11y/click-events-have-key-events
                         <li
                           key={cmd.id}
                           id={makeItemId(cmd.id)}

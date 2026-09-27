@@ -112,6 +112,9 @@
         "title": "Bases GeoIP",
         "description": "As bases não acompanham o produto (licença do fornecedor). O diretório é montado no deploy; aqui só aparece o que existe nele.",
         "empty": "Nenhuma base encontrada neste diretório."
+      },
+      "validation": {
+        "outOfRange": "Informe um valor entre {{low}} e {{high}}."
       }
     },
     "mcp": {

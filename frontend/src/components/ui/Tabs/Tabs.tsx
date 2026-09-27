@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { createContext, Suspense, useContext, useCallback, useId, useMemo, useRef } from "react"
+import { createContext, Suspense, useContext, useCallback, useEffect, useId, useMemo, useRef, useState } from "react"
 import { cn } from "@/lib/utils"
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner/LoadingSpinner"
 
@@ -34,6 +34,20 @@ interface TabsContextValue {
   value: string
   onValueChange: (v: string) => void
   idBase: string
+  /**
+   * R4-8.1: defesa em profundidade contra `TabsTrigger` sem `TabsPanel`
+   * correspondente (achado real em `EnrichmentPage`/`IntegrationDetailPage`/
+   * `TableVersionsModal` — as 3 páginas montavam o CONTEÚDO da aba via
+   * `tab === "x" ? ... : ...` manual, nunca com `<TabsPanel>`, então o
+   * `aria-controls` do trigger sempre apontava pra um id que não existe em
+   * lugar nenhum do DOM). Cada `TabsPanel` se registra aqui ao montar
+   * (independente de estar ativo — `hasPanel` responde "existe esse painel
+   * DECLARADO", não "está visível agora"); o trigger só emite `aria-controls`
+   * quando o valor está registrado.
+   */
+  registerPanel: (value: string) => void
+  unregisterPanel: (value: string) => void
+  hasPanel: (value: string) => boolean
 }
 
 const TabsContext = createContext<TabsContextValue | null>(null)
@@ -55,9 +69,24 @@ export interface TabsProps {
 
 export const Tabs: React.FC<TabsProps> = ({ value, onValueChange, children, className }) => {
   const idBase = useId().replace(/:/g, "")
+  const [panelValues, setPanelValues] = useState<ReadonlySet<string>>(() => new Set())
+
+  const registerPanel = useCallback((v: string) => {
+    setPanelValues((prev) => (prev.has(v) ? prev : new Set(prev).add(v)))
+  }, [])
+  const unregisterPanel = useCallback((v: string) => {
+    setPanelValues((prev) => {
+      if (!prev.has(v)) return prev
+      const next = new Set(prev)
+      next.delete(v)
+      return next
+    })
+  }, [])
+  const hasPanel = useCallback((v: string) => panelValues.has(v), [panelValues])
+
   const ctx = useMemo<TabsContextValue>(
-    () => ({ value, onValueChange, idBase }),
-    [value, onValueChange, idBase],
+    () => ({ value, onValueChange, idBase, registerPanel, unregisterPanel, hasPanel }),
+    [value, onValueChange, idBase, registerPanel, unregisterPanel, hasPanel],
   )
   return (
     <TabsContext.Provider value={ctx}>
@@ -113,6 +142,9 @@ export const TabsList: React.FC<TabsListProps> = ({ children, className, ariaLab
   }, [])
 
   return (
+    // Padrão APG de tablist: o CONTAINER captura as setas/Home/End (roving
+    // tabindex nos <button role="tab"> filhos) — não precisa ser um tab-stop.
+    // eslint-disable-next-line jsx-a11y/interactive-supports-focus
     <div
       ref={listRef}
       role="tablist"
@@ -157,7 +189,7 @@ export const TabsTrigger: React.FC<TabsTriggerProps> = ({
       type="button"
       role="tab"
       id={`${ctx.idBase}-tab-${value}`}
-      aria-controls={`${ctx.idBase}-panel-${value}`}
+      aria-controls={ctx.hasPanel(value) ? `${ctx.idBase}-panel-${value}` : undefined}
       aria-selected={selected}
       aria-disabled={disabled}
       tabIndex={selected ? 0 : -1}
@@ -204,6 +236,21 @@ export const TabsPanel: React.FC<TabsPanelProps> = ({
   ...rest
 }) => {
   const ctx = useTabsCtx("TabsPanel")
+  // Registra ESTE valor como "existe painel" independente de estar ativo —
+  // `hasPanel` responde por declaração, não por montagem visível (o próprio
+  // painel inativo sem `keepMounted` retorna `null` mais abaixo, mas o
+  // registro já rodou).
+  // Deps: SÓ `registerPanel`/`unregisterPanel` (estáveis via `useCallback([])`
+  // em `Tabs`) + `value` — nunca `ctx` inteiro. `ctx` muda de identidade a
+  // cada `registerPanel`/`unregisterPanel` (o `useMemo` depende de `hasPanel`,
+  // que depende de `panelValues`), então `[ctx, value]` reexecutava este
+  // efeito a cada registro: registra → `ctx` muda → cleanup desregistra →
+  // `ctx` muda de novo → registra de novo → looping infinito de render.
+  useEffect(() => {
+    ctx.registerPanel(value)
+    return () => ctx.unregisterPanel(value)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ctx.registerPanel, ctx.unregisterPanel, value])
   const active = ctx.value === value
   if (!active && !keepMounted) return null
   return (

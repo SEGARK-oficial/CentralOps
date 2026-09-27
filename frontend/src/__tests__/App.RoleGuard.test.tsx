@@ -59,7 +59,7 @@ function mockAuth(user: AuthUser | null) {
 function renderGuard() {
   return render(
     <MemoryRouter>
-      <RoleGuard role="admin">
+      <RoleGuard requiredRole="admin">
         <div data-testid="protected">conteúdo protegido</div>
       </RoleGuard>
     </MemoryRouter>,
@@ -108,7 +108,7 @@ describe("RoleGuard — estabilidade da dependência (não é loop, não perde r
     act(() => {
       rerender(
         <MemoryRouter>
-          <RoleGuard role="admin">
+          <RoleGuard requiredRole="admin">
             <div data-testid="protected">conteúdo protegido</div>
           </RoleGuard>
         </MemoryRouter>,
@@ -131,7 +131,7 @@ describe("RoleGuard — estabilidade da dependência (não é loop, não perde r
     act(() => {
       rerender(
         <MemoryRouter>
-          <RoleGuard role="admin">
+          <RoleGuard requiredRole="admin">
             <div data-testid="protected">conteúdo protegido</div>
           </RoleGuard>
         </MemoryRouter>,

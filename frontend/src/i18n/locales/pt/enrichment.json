@@ -266,6 +266,8 @@
       "target": "Organização de destino",
       "name": "Nome da cópia",
       "nameHint": "Precisa ser único dentro da organização de destino.",
+      "nameRequired": "Informe um nome para a cópia.",
+      "targetRequired": "Escolha uma organização de destino.",
       "checking": "Conferindo o que existe no destino…",
       "readyTitle": "O destino tem tudo o que estas regras citam",
       "readyBody": "As tabelas e fontes referenciadas existem lá, com os mesmos nomes.",

@@ -71,7 +71,8 @@
     "savedSuccess": "Saved.",
     "errorGeneric": "The action failed. Try again.",
     "confirmDelete": "Are you sure you want to delete?",
-    "loadFailed": "Failed to load."
+    "loadFailed": "Failed to load.",
+    "requestTimeout": "The request took too long and was cancelled. Please try again."
   },
   "conditionOperators": {
     "eq": "= equals",

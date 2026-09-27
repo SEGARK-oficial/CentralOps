@@ -52,6 +52,45 @@
  *       JSON). Se o chute errar (raro), o `loadLocale` de dentro do
  *       `i18nReady` (idioma OFICIAL, pós-detector) corrige sozinho.
  *
+ * R4-5.1 — regressão da R3-5.1(b): quem trocava de en/es para pt via
+ * `changeLanguage` via LanguageSwitcher via chave crua. Cadeia do bug:
+ *   1. com en/es ativo, o 1º `useTranslation(ns)` de uma tela faz o i18next
+ *      pedir TAMBÉM `pt|ns` (fallbackLng sempre entra na hierarquia — ver
+ *      R3-5.1(b) acima).
+ *   2. o `read()` da R3-5.1(b) respondia `callback(null, {})` pra esse passe
+ *      redundante — um objeto VAZIO, mas ainda assim "dados" pro i18next
+ *      (`!err && data` com `data={}` é verdadeiro, `{}` é truthy em JS). O
+ *      `backendConnector` então CHAMAVA `store.addResourceBundle(pt, ns, {})`
+ *      de verdade — um bundle vazio, mas RESULTAT sim, com estado 2
+ *      ("carregado com sucesso").
+ *   3. ao trocar pra pt, o `backendConnector.prepareLoading` via
+ *      `hasResourceBundle(pt, ns)` — TRUE (o bundle vazio existe) — e PULA a
+ *      carga de verdade. `t()` não acha a chave no bundle vazio e devolve a
+ *      chave crua.
+ *   4. mesmo com o prefetch de idle injetando os dados de verdade depois (via
+ *      `addResourceBundle` direto, sem passar pelo `backendConnector`),
+ *      react-i18next não re-renderizava: o `bindI18nStore` padrão é `''`
+ *      (react-i18next não escuta o evento `added` da store por padrão).
+ * Correção (duas partes, as duas necessárias):
+ *   - `read()` não grava mais bundle nenhum pro passe redundante — responde
+ *     com um ERRO de verdade (`callback(err, false)`), que deixa o
+ *     `backendConnector` em estado -1 (falha) pra aquele par, SEM nunca
+ *     chamar `addResourceBundle`. `hasResourceBundle(pt, ns)` continua FALSE
+ *     até alguém carregar de verdade.
+ *   - o `changeLanguage` patchado (abaixo) carrega de VERDADE, via
+ *     `ensureNamespaceLoaded` (que não passa pelo `backendConnector`, então
+ *     nem liga pro estado -1 dele), TODO namespace que a app já usou
+ *     (`i18n.reportNamespaces.getUsedNamespaces()`) pro idioma-ALVO, ANTES de
+ *     trocar — sem isto, o estado -1 do passo acima bloquearia pra sempre
+ *     uma nova tentativa automática via Suspense (o `backendConnector` só
+ *     tenta de novo um par com estado negativo se alguém pedir com
+ *     `reload:true`, o que o fluxo normal nunca faz).
+ *   - `react.bindI18nStore: "added"` — rede de segurança geral: qualquer
+ *     bundle que chegue DEPOIS (prefetch, o pré-carregamento acima, um
+ *     `useTranslation` concorrente) agora dispara um re-render de quem já
+ *     estava montado, em vez de deixar texto obsoleto na tela até o próximo
+ *     re-render por outro motivo.
+ *
  * `i18nReady` resolve quando o SHELL do idioma inicial terminou de carregar —
  * `main.tsx` aguarda antes do 1º `render()`, senão a tela pisca chave crua
  * (`common:actions.save`) até o catálogo chegar pela rede.
@@ -131,21 +170,51 @@ const loadedLocales = new Set<string>()
  *  de um par que outro já resolveu. */
 const loadedNamespaceKeys = new Set<string>()
 
+/** Fetch EM VOO por par `locale::ns` — dedup de chamadas concorrentes de
+ *  verdade (ver achado abaixo em `ensureNamespaceLoaded`), não só "já
+ *  começou". */
+const loadingPromises = new Map<string, Promise<Record<string, unknown> | null>>()
+
 /** Carrega (uma vez) um par locale/namespace e injeta via `addResourceBundle`.
  *  `null` quando não há catálogo pra esse par (ex.: namespace só-EE ausente
- *  no locale). Marca ANTES do `await` — chamadas concorrentes (shell + idle
- *  prefetch + um `useTranslation` que caiu no meio) não duplicam o fetch. */
+ *  no locale).
+ *
+ * Achado real (investigado nesta rodada, via flake em teste): a versão
+ * anterior marcava `loadedNamespaceKeys.add(key)` ANTES do `await load()` —
+ * a intenção era so dedupe de chamadas concorrentes (shell + prefetch de
+ * idle + um `useTranslation` que cai no meio), mas o CHECK de cache-hit no
+ * topo (`loadedNamespaceKeys.has(key)`) usa o MESMO Set pra "já terminou de
+ * carregar" — uma 2ª chamada concorrente, caindo DEPOIS do `add` mas ANTES do
+ * dado real ser gravado em `resources[locale][ns]`, via `hasResourceBundle`
+ * o via cache-hit, devolvia `null` (não o dado real, que ainda não existia).
+ * Se essa 2ª chamada fosse a que o `shellBackend.read()` de um `useTranslation`
+ * realmente usava pra resolver o Suspense, o namespace ficava "pronto" com
+ * bundle VAZIO — chave crua, exatamente a classe de regressão que este achado
+ * (R4-5.1) existe pra evitar, só que via uma porta diferente (corrida entre o
+ * prefetch de idle e o carregamento sob demanda do MESMO par, não entre
+ * idiomas). Corrigido com um Map de PROMISES em voo: toda chamada concorrente
+ * pro MESMO par aguarda a MESMA promise (o dado real), nunca um placeholder. */
 async function ensureNamespaceLoaded(locale: string, ns: string): Promise<Record<string, unknown> | null> {
   const key = `${locale}::${ns}`
   if (loadedNamespaceKeys.has(key)) return (resources[locale]?.[ns] as Record<string, unknown> | undefined) ?? null
+  const inFlight = loadingPromises.get(key)
+  if (inFlight) return inFlight
   const load = catalogsByLocale[locale]?.[ns]
   if (!load) return null
-  loadedNamespaceKeys.add(key)
-  const mod = await load()
-  const data = mod && "default" in mod ? mod.default : (mod as unknown as Record<string, unknown>)
-  ;(resources[locale] ??= {})[ns] = data
-  i18n.addResourceBundle(locale, ns, data, true, true)
-  return data
+  const promise = (async () => {
+    try {
+      const mod = await load()
+      const data = mod && "default" in mod ? mod.default : (mod as unknown as Record<string, unknown>)
+      ;(resources[locale] ??= {})[ns] = data
+      i18n.addResourceBundle(locale, ns, data, true, true)
+      loadedNamespaceKeys.add(key)
+      return data
+    } finally {
+      loadingPromises.delete(key)
+    }
+  })()
+  loadingPromises.set(key, promise)
+  return promise
 }
 
 /**
@@ -184,7 +253,17 @@ const shellBackend: BackendModule = {
     const activeLanguage = i18n.resolvedLanguage || i18n.language
     const isRedundantFallbackPass = language === "pt" && language !== activeLanguage && !isShellNs
     if (isRedundantFallbackPass) {
-      callback(null, {})
+      // R4-5.1: NUNCA `callback(null, {})` aqui — um objeto vazio ainda é
+      // "dado" pro i18next (`{}` é truthy), então o `backendConnector`
+      // gravaria um bundle VAZIO com estado 2 ("carregado"). Depois, ao
+      // trocar de verdade para pt, `hasResourceBundle(pt, ns)` já seria
+      // `true` e a carga real nunca aconteceria — chave crua pra sempre
+      // (a regressão que este achado corrige). Erro de verdade deixa o
+      // `backendConnector` em estado -1 (falha) SEM tocar a store: quem
+      // garante a carga real de pt, quando for a vez de pt, é o
+      // `changeLanguage` patchado abaixo (via `ensureNamespaceLoaded`, que
+      // ignora esse estado por completo).
+      callback(new Error("R4-5.1: passe de fallback pt redundante, ignorado de propósito"), false)
       return
     }
     ensureNamespaceLoaded(language, namespace)
@@ -194,13 +273,67 @@ const shellBackend: BackendModule = {
 }
 
 /**
+ * R4-5.2: namespaces que só existem para telas do overlay EE
+ * (`web-ee/**`) — NENHUM módulo do bundle CE os usa. `correlation` é hoje o
+ * único (confirmado empiricamente: `grep useTranslation("correlation"` só dá
+ * resultado em `web-ee/`; todo outro namespace tem pelo menos 1 uso em
+ * `src/`).
+ *
+ * IMPORTANTE (regressão já cometida e corrigida — não repetir): este módulo
+ * NÃO IMPORTA nada de `@/ee/*` nem de páginas para descobrir "isto é EE?". Uma
+ * 1ª versão fazia `import { eeRoutes } from "@/ee/routes"` aqui — como
+ * `src/i18n/index.ts` é avaliado no BOOT (via `src/test/setup.ts` →
+ * `@/i18n/testing` → `./index`), ANTES de qualquer `vi.mock` de teste se
+ * aplicar e antes de qualquer Provider real existir, isso puxava o overlay EE
+ * inteiro (páginas, `usePermission`, `AuthContext` REAL) pra dentro da cadeia
+ * de import do i18n. Resultado: 34 testes EE quebraram com "useAuth must be
+ * used within an AuthProvider" (o `AuthContext` real, não o mockado, já tinha
+ * rodado). Em produção, criava um ciclo rotas→páginas→i18n indesejado — o
+ * i18n é a camada MAIS a montante do boot, não deveria depender de nada
+ * feature-específico, muito menos de EE.
+ *
+ * Correção: a dependência é INVERTIDA. Por padrão (build CE, ou mesmo build
+ * EE antes de qualquer rota se registrar), `EE_ONLY_NAMESPACES` fica de fora
+ * do prefetch. Quem SABE que é EE — o overlay `web-ee/routes.tsx`, no nível
+ * do MÓDULO (roda na 1ª vez que é importado, ou seja, só quando o bundle EE
+ * de verdade existe) — chama `allowPrefetchNamespaces(["correlation"])` pra
+ * liberar. O i18n nunca enxerga `@/ee/*`; a informação flui só EE → i18n.
+ */
+const EE_ONLY_NAMESPACES: readonly string[] = ["correlation"]
+
+/** Liberado via `allowPrefetchNamespaces` — vazio por padrão (CE, ou EE antes
+ *  do overlay se registrar). */
+const allowedPrefetchNamespaces = new Set<string>()
+
+/**
+ * Chamada pelo overlay EE (`web-ee/routes.tsx`, no nível do módulo — nunca
+ * dentro de um componente) para liberar namespaces de `EE_ONLY_NAMESPACES` no
+ * prefetch de idle. Idempotente; seguro de chamar antes OU depois do boot —
+ * só afeta o que o PRÓXIMO `schedulePrefetch` busca. Não afeta o carregamento
+ * sob demanda via Suspense: uma tela EE que usa `correlation` carrega esse
+ * namespace normalmente de qualquer jeito (`shellBackend.read` não filtra por
+ * `EE_ONLY_NAMESPACES` — o filtro é só do prefetch OPORTUNISTA de idle).
+ */
+export function allowPrefetchNamespaces(namespaces: readonly string[]): void {
+  for (const ns of namespaces) allowedPrefetchNamespaces.add(ns)
+}
+
+/**
  * R3-5.1(a): depois do boot, em idle, busca os namespaces RESTANTES do
  * idioma ativo (todos os que `NAMESPACES` conhece e ainda não carregaram).
  * Não é awaited por ninguém — só reduz a JANELA em que um componente de tela
  * ainda pode suspender até o `<Suspense>` da rota inteira.
+ *
+ * R4-5.2: pula `EE_ONLY_NAMESPACES` a menos que `allowPrefetchNamespaces` já
+ * tenha liberado (ver docstring acima) — antes, o prefetch baixava TODO
+ * namespace, `correlation` incluso, mesmo numa instância CE onde nenhuma tela
+ * jamais vai pedir esse JSON (~61 KB gzip de todos os namespaces, com
+ * `correlation` sendo uma fatia relevante disso, desperdiçada em toda sessão
+ * CE).
  */
 function prefetchRemainingNamespaces(locale: string): void {
   for (const ns of NAMESPACES) {
+    if (EE_ONLY_NAMESPACES.includes(ns) && !allowedPrefetchNamespaces.has(ns)) continue
     void ensureNamespaceLoaded(locale, ns)
   }
 }
@@ -232,6 +365,14 @@ export function __markLocaleLoadedForTests(locale: string): void {
 // (LanguageSwitcher, `test/setup.ts`, o próprio i18next durante o boot) — então
 // interceptá-la aqui garante o "carrega antes de trocar" em qualquer chamador,
 // sem precisar tocar em quem chama.
+/** Forma mínima do que `react-i18next` pendura em `i18n.reportNamespaces` —
+ *  não faz parte dos tipos do i18next (é uma extensão do react-i18next),
+ *  então o acesso abaixo é via este shape explícito, não um `any`. Pode não
+ *  existir ainda (só nasce no 1º `useTranslation()` da app) — daí o `?.`. */
+interface ReportNamespacesLike {
+  getUsedNamespaces(): string[]
+}
+
 const baseChangeLanguage = i18n.changeLanguage.bind(i18n)
 i18n.changeLanguage = ((lng?: string, callback?: Parameters<typeof baseChangeLanguage>[1]) => {
   // `lng` vem `undefined` na chamada interna que o próprio i18next faz durante
@@ -239,7 +380,22 @@ i18n.changeLanguage = ((lng?: string, callback?: Parameters<typeof baseChangeLan
   // original, via o LanguageDetector) — nada para pré-carregar ainda, o
   // idioma resolvido só existe depois que essa chamada original terminar.
   if (!lng) return baseChangeLanguage(lng, callback)
-  return loadLocale(lng).then(() => {
+  return loadLocale(lng).then(async () => {
+    // R4-5.1: carrega de VERDADE, para o idioma-ALVO, todo namespace que a
+    // app já usou em QUALQUER idioma — via `ensureNamespaceLoaded` (que
+    // ignora por completo o estado -1/2 do `backendConnector`, chamando
+    // `addResourceBundle` direto). Isto acontece ANTES da troca de idioma de
+    // fato (linha de baixo), pra garantir que `hasResourceBundle` já seja
+    // `true` — com dado REAL — no instante em que qualquer componente montado
+    // re-renderiza no idioma novo. Sem isto, um namespace que já tinha
+    // recebido o passe de fallback redundante (rejeitado logo acima, em
+    // `shellBackend.read`) ficaria PARA SEMPRE em estado -1 no
+    // `backendConnector` — que só tenta de novo automaticamente com
+    // `reload: true`, o que o fluxo normal (Suspense/`useTranslation`) nunca
+    // pede.
+    const reportNamespaces = (i18n as unknown as { reportNamespaces?: ReportNamespacesLike }).reportNamespaces
+    const usedNamespaces = reportNamespaces?.getUsedNamespaces() ?? []
+    await Promise.all(usedNamespaces.map((ns) => ensureNamespaceLoaded(lng, ns)))
     const result = baseChangeLanguage(lng, callback)
     schedulePrefetch(lng)
     return result
@@ -278,6 +434,66 @@ function guessInitialLocale(): string {
 // promises soltas que nenhum teste aguarda.
 if (import.meta.env.MODE !== "test") void loadLocale(guessInitialLocale())
 
+/**
+ * R4-5.5 (avaliado, NÃO implementado — decisão documentada):
+ *
+ * Mesmo com o chute síncrono acima (R3-5.1(c)), os 4 chunks do SHELL
+ * (`common`/`nav`/`ui`/`auth` do locale resolvido) são `import()` DINÂMICOS
+ * — o Vite só auto-injeta `<link rel="modulepreload">` no `index.html` pro
+ * grafo de imports ESTÁTICOS alcançável a partir do entry (`main.tsx` →
+ * `./i18n` → i18next/react-i18next/detector, tudo isso JÁ vem com preload de
+ * graça). Os 4 chunks de locale só entram no radar do navegador quando a
+ * AVALIAÇÃO deste módulo chega literalmente nesta linha — ou seja, só depois
+ * que o grafo estático inteiro já foi baixado E parseado. Um
+ * `<link rel="modulepreload">` apontando pros 4 chunks do shell `pt`,
+ * injetado direto no HTML inicial, deixaria o navegador buscá-los em
+ * PARALELO com o grafo estático em vez de em série — 1 round-trip a menos,
+ * só em cache FRIO (num retorno com o HTTP cache quente, os chunks já
+ * residem localmente e o ganho é zero).
+ *
+ * Decisão: NÃO vale a complexidade agora. Motivos:
+ *  1. `pt` é só um CHUTE (localStorage > navegador) — não dá pra saber em
+ *     build-time (o `index.html` é estático, sem personalização por
+ *     request) qual idioma o visitante vai realmente resolver. Fixar o
+ *     preload em `pt` ajuda quem TEM pt como chute certo e ativamente
+ *     DESPERDIÇA bytes de quem tem en/es salvo (baixa um shell que não vai
+ *     usar, sem preload nenhum pro shell que precisa de verdade).
+ *  2. Implementar de verdade exige um plugin Vite que correlacione, DEPOIS
+ *     do build, os módulos do glob de locales (`catalogLoaders` acima) com
+ *     os nomes de arquivo final (com hash de conteúdo) dos 4 chunks do
+ *     shell `pt` — via `generateBundle`/`transformIndexHtml` — e repetir
+ *     isso pros DOIS `index.html` (CE e o overlay EE). Frágil (rolldown é
+ *     mais novo, menos precedente da comunidade que Rollup puro) pra um
+ *     ganho de 1 RTT só-cache-frio.
+ *  3. O ganho estrutural GRANDE desta área já foi resolvido no R3-5.1(c) — a
+ *     cascata "esperar `i18n.init()` terminar pra só então descobrir o
+ *     idioma e começar a buscar" já não existe mais. O que sobra aqui é bem
+ *     menor e de valor variável (depende do chute acertar).
+ * Se o boot no cache frio virar um problema medido de verdade (RUM/Core Web
+ * Vitals), reavaliar então, com dado real de acerto do chute em produção
+ * (não achismo) — o comentário acima já deixa o "porquê não" rastreável.
+ */
+
+// Achado real (investigado nesta rodada, via flake intermitente em teste):
+// `i18n.init()` faz `this.options = {...defaults, ...this.options, ...novasOpções}`
+// — o `...this.options` NO MEIO do spread significa que QUALQUER chave
+// deixada por uma chamada de `.init()` ANTERIOR sobre o MESMO singleton
+// (`this.options.ns` crescido por `loadNamespaces()`, `this.options.lng`
+// gravado por um `changeLanguage()` anterior) SOBREVIVE pra sempre, a menos
+// que a chamada NOVA declare a MESMA chave (o que `ns` faz aqui, mas outras
+// não). Em produção isto nunca aparece (`.init()` roda uma ÚNICA vez por
+// sessão do navegador) — só em teste, onde `vi.resetModules()` reavalia este
+// módulo repetidas vezes SEM reiniciar o pacote `i18next` em si (confirmado
+// empiricamente: o singleton default do pacote sobrevive a `resetModules`,
+// provavelmente por causa do dep-optimizer do Vite). Sem este reset, um
+// `this.options.lng` deixado por um teste anterior faz o bootstrap INTERNO
+// de `.init()` chamar `changeLanguage(lngAntigo, …)` com um idioma DEFINIDO
+// (em vez do `undefined` esperado) — e essa chamada usa `this.options.ns`
+// (que também pode estar inflado) pra decidir o que carregar via o backend,
+// gerando leituras redundantes de fallback pt pra namespaces que este teste
+// nunca pediu, cada uma rejeitada (R4-5.1) e deixando esses namespaces em
+// estado -1 ANTES mesmo do 1º `useTranslation` da tela rodar.
+i18n.options = {} as typeof i18n.options
 const initPromise = i18n
   .use(LanguageDetector)
   .use(shellBackend)
@@ -307,13 +523,6 @@ const initPromise = i18n
     // outros pontos deste módulo) passariam a tratar QUALQUER namespace já
     // pedido uma vez como se fosse shell (bug real, pego pelo teste
     // R3-5.1(b) antes de chegar em produção).
-    // Array NOVO (spread), não a MESMA referência de `SHELL_NAMESPACES`: o
-    // `i18next.loadNamespaces()` faz `this.options.ns.push(n)` — se fosse o
-    // mesmo array, cada `useTranslation(ns)` de tela MUTARIA `SHELL_NAMESPACES`
-    // in-place, e `isShellNs`/`loadLocale()` (que iteram essa constante em
-    // outros pontos deste módulo) passariam a tratar QUALQUER namespace já
-    // pedido uma vez como se fosse shell (bug real, pego pelo teste
-    // R3-5.1(b) antes de chegar em produção).
     ns: [...SHELL_NAMESPACES],
     defaultNS: "common",
     interpolation: { escapeValue: false },
@@ -321,7 +530,14 @@ const initPromise = i18n
     // R2-5.1: Suspense por namespace. Em teste, `./testing` já deixou tudo
     // carregado antes do 1º render (ver docstring do topo) — `ready` já
     // nasce `true`, então o `throw` do react-i18next nunca é alcançado lá.
-    react: { useSuspense: true },
+    // R4-5.1(c): `bindI18nStore: "added"` — sem isto (o padrão é `''`, ou
+    // seja, NENHUM evento de store), um componente já montado não
+    // re-renderiza quando um bundle chega DEPOIS por qualquer caminho que não
+    // seja `languageChanged` (prefetch de idle, o pré-carregamento do
+    // `changeLanguage` patchado acima, um `useTranslation` concorrente de
+    // outro componente) — o texto ficava obsoleto na tela até algum outro
+    // motivo forçar um re-render.
+    react: { useSuspense: true, bindI18nStore: "added" },
     detection: {
       order: ["localStorage", "navigator", "htmlTag"],
       lookupLocalStorage: LOCALE_STORAGE_KEY,

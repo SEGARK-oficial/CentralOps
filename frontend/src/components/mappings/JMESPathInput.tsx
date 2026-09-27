@@ -221,6 +221,10 @@ const JMESPathInputInner: React.FC<JMESPathInputProps> = ({
         aria-expanded={showDropdown}
         aria-haspopup="listbox"
         aria-owns={showDropdown ? listboxId : undefined}
+        // R4-9.1 (jsx-a11y/role-has-required-aria-props): o role="combobox"
+        // exige `aria-controls` no PRÓPRIO elemento com o role — já existia
+        // no <input> filho (linha abaixo), mas o wrapper também precisa.
+        aria-controls={showDropdown ? listboxId : undefined}
       >
         <input
           ref={inputRef}

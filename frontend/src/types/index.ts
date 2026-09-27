@@ -237,7 +237,7 @@ export interface UpdateIntegrationRequest {
 export interface IntegrationHealth {
   integration_id: number
   status: string
-  details: Record<string, any>
+  details: Record<string, unknown>
   checked_at?: string | null
   manager_status?: string | null
   indexer_status?: string | null
@@ -421,14 +421,14 @@ export interface ProviderPlatformRead {
 
 export interface TestConnectionResponse {
   status: string
-  details: Record<string, any>
+  details: Record<string, unknown>
 }
 
 export interface ProviderOperationError {
   code: string
   message: string
   integration_id?: number | null
-  details?: Record<string, any>
+  details?: Record<string, unknown>
 }
 
 /**
@@ -467,7 +467,7 @@ export interface IntegrationOverview {
   integration: Integration
   health?: {
     status: string
-    details: Record<string, any>
+    details: Record<string, unknown>
     manager_status?: string | null
     indexer_status?: string | null
   } | null
@@ -743,7 +743,7 @@ export interface SearchJob {
   status: string
   resultCount: number
   error?: string
-  results: any[]
+  results: unknown[]
 }
 
 export interface SearchExecutionClient {
@@ -950,10 +950,18 @@ export interface UpdateEmailConfigRequest {
   sender?: string
 }
 
-export interface TableColumn<T = any> {
+export interface TableColumn<T = unknown> {
   key: string
   title: React.ReactNode
   dataIndex: string
+  // `value` é o campo da linha apontado por `dataIndex` — varia por COLUNA
+  // (string, number, enum, objeto aninhado...) dentro da MESMA tabela; sem
+  // generics por coluna (não é isto que `TableColumn<T>` modela — `T` é a
+  // LINHA inteira), `unknown` obrigaria um cast/narrowing em toda `render`
+  // já escrita (22+ definições de coluna) só pra reler o que a própria
+  // função já sabe pelo `dataIndex`. Mesmo padrão de bibliotecas de tabela
+  // (antd, react-table).
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   render?: (value: any, record: T, index: number) => React.ReactNode
   width?: number | string
   sortable?: boolean

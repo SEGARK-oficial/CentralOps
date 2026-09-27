@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react"
-import { describe, it, expect, vi, beforeEach, beforeAll } from "vitest"
+import { describe, it, expect, vi, beforeEach, afterEach, beforeAll } from "vitest"
 import { TokensPage } from "@/pages/TokensPage"
 import type { ApiToken } from "@/types"
 import i18n from "@/i18n"
@@ -10,6 +10,30 @@ import i18n from "@/i18n"
 beforeAll(() => {
   void i18n.changeLanguage("pt")
 })
+
+/** R4-8.6: migrado pro `DataTable` (`renderMobileCard`) — o mock global de
+ *  `matchMedia` (test/setup.ts) sempre devolve `matches:false`, então sem
+ *  isto o `useMediaQuery` leria "não é desktop" e só os CARTÕES entrariam no
+ *  DOM (sem `<table role="table">`), quebrando os `findByRole("table")`
+ *  abaixo. Mesmo padrão do `HistoryPage`/`DetectionsTable`/`QueriesTable`. */
+let restoreViewport: () => void
+beforeEach(() => {
+  const original = window.matchMedia
+  window.matchMedia = ((query: string) => ({
+    matches: true,
+    media: query,
+    onchange: null,
+    addListener: () => {},
+    removeListener: () => {},
+    addEventListener: () => {},
+    removeEventListener: () => {},
+    dispatchEvent: () => false,
+  })) as unknown as typeof window.matchMedia
+  restoreViewport = () => {
+    window.matchMedia = original
+  }
+})
+afterEach(() => restoreViewport())
 
 vi.mock("@/services/api", () => ({
   listApiTokens: vi.fn(),

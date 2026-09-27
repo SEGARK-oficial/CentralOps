@@ -117,7 +117,6 @@ export const PreprocessEditor: React.FC<PreprocessEditorProps> = ({
 
   return (
     <section
-      role="region"
       aria-labelledby={headingId}
       data-testid="preprocess-editor"
       className="flex flex-col gap-2 rounded-lg border border-border bg-surface p-3"

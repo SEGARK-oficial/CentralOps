@@ -266,6 +266,8 @@
       "target": "Target organization",
       "name": "Name of the copy",
       "nameHint": "Must be unique within the target organization.",
+      "nameRequired": "Enter a name for the copy.",
+      "targetRequired": "Choose a target organization.",
       "checking": "Checking what exists in the target…",
       "readyTitle": "The target has everything these rules reference",
       "readyBody": "The referenced tables and sources exist there, under the same names.",

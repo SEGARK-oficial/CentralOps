@@ -15,7 +15,7 @@ import { EmptyState } from "@/components/ui/EmptyState/EmptyState"
 import { SkeletonCard } from "@/components/ui/Skeleton"
 import { ErrorState } from "@/components/ui/ErrorState"
 import { Notice } from "@/components/ui/Notice/Notice"
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/Tabs/Tabs"
+import { Tabs, TabsList, TabsTrigger, TabsPanel } from "@/components/ui/Tabs/Tabs"
 import { ExecutionPanel } from "@/components/enrichment/ExecutionPanel"
 import { ReadinessPanel } from "@/components/enrichment/ReadinessPanel"
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog/ConfirmDialog"
@@ -317,7 +317,6 @@ export function EnrichmentPage(): React.ReactElement {
                   conferir se a consulta está de pé. */}
               <TabsTrigger value="execution">{t("tabs.execution")}</TabsTrigger>
             </TabsList>
-          </Tabs>
 
           {/* Escopo: o resolver do Core é FLAT (core/tenant.py), então um token
               escopado enxerga UMA organização. Sem este aviso, um MSP olha uma
@@ -336,6 +335,16 @@ export function EnrichmentPage(): React.ReactElement {
             </Notice>
           )}
 
+          {/*
+            R4-8.1: as abas montavam o conteúdo via `tab === "x" ? ... : ...`
+            manual, sem NENHUM `<TabsPanel>` — o `aria-controls` de cada
+            `TabsTrigger` sempre apontava pra um id inexistente no DOM.
+            `value={tab}` (o próprio estado que decide o ternário abaixo)
+            garante que o painel montado SEMPRE corresponde à aba ativa —
+            um só `TabsPanel` troca de identidade em vez de 6 instâncias
+            fixas, porque o conteúdo já era mutuamente exclusivo.
+          */}
+          <TabsPanel value={tab}>
           {loading ? (
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               <SkeletonCard />
@@ -480,6 +489,8 @@ export function EnrichmentPage(): React.ReactElement {
               ))}
             </div>
           )}
+          </TabsPanel>
+          </Tabs>
         </>
       )}
 

@@ -112,6 +112,9 @@
         "title": "GeoIP databases",
         "description": "The databases do not ship with the product (vendor licence). The directory is mounted at deploy time; this only shows what is in it.",
         "empty": "No database found in this directory."
+      },
+      "validation": {
+        "outOfRange": "Enter a value between {{low}} and {{high}}."
       }
     },
     "mcp": {

@@ -370,6 +370,12 @@ export const DateRangePicker: React.FC<DateRangePickerProps> = ({
 
       {/* Trigger = <button> real; "Limpar" é IRMÃO (não aninhado) — sem nested interactive. */}
       <div className="relative">
+        {/* `aria-invalid` não está na lista de props ARIA "suportadas" pelo
+            role implícito de <button> (a validade formal é conceito de
+            input/combobox) — mas este botão É o controle visível do campo
+            (abre o picker), e é ele que precisa carregar o estado de erro
+            pro operador/leitor de tela, não um <input> escondido. */}
+        {/* eslint-disable-next-line jsx-a11y/role-supports-aria-props */}
         <button
           ref={triggerRef}
           type="button"
@@ -480,6 +486,7 @@ export const DateRangePicker: React.FC<DateRangePickerProps> = ({
               {/* A11Y-28: padrão APG de date-picker grid — role="grid" com
                   linhas/células, roving tabindex (só effectiveFocusedDate tem
                   tabIndex=0) e as setas navegam por dentro via handleGridKeyDown. */}
+              {/* eslint-disable-next-line jsx-a11y/interactive-supports-focus */}
               <div
                 ref={dayGridRef}
                 role="grid"

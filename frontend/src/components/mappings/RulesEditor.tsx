@@ -518,7 +518,6 @@ export const RulesEditor: React.FC<RulesEditorProps> = ({
 
   return (
     <section
-      role="region"
       aria-labelledby={headingId}
       data-testid="rules-editor"
       className={cn(
@@ -797,6 +796,9 @@ export const RulesEditor: React.FC<RulesEditorProps> = ({
           </Button>
 
           {addMenuOpen && (
+            // Padrão APG de menu: o CONTAINER captura as setas (roving
+            // tabindex nos itens filhos) — não precisa ser um tab-stop.
+            // eslint-disable-next-line jsx-a11y/interactive-supports-focus
             <div
               ref={addMenuListRef}
               role="menu"

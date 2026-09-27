@@ -22,7 +22,7 @@ import { EmptyState } from "@/components/ui/EmptyState/EmptyState"
 import { ErrorState } from "@/components/ui/ErrorState"
 import { Notice } from "@/components/ui/Notice/Notice"
 import { Badge } from "@/components/ui/Badge/Badge"
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/Tabs/Tabs"
+import { Tabs, TabsList, TabsTrigger, TabsPanel } from "@/components/ui/Tabs/Tabs"
 import { DataTable } from "@/components/ui/DataTable/DataTable"
 import { useAuth } from "@/contexts/AuthContext"
 import { useHistory } from "@/hooks/useHistory"
@@ -445,11 +445,16 @@ const HistoryPage: React.FC = () => {
             </TabsTrigger>
           )}
         </TabsList>
-      </Tabs>
 
-      {/* Content */}
-      <>
-          {/* Searches Tab */}
+        {/* R4-5.4: cada aba precisa de um <TabsPanel> de verdade — sem isto,
+            o `aria-controls` que o TabsTrigger emite (ver Tabs.tsx) apontava
+            pra um id que não existia em lugar nenhum do DOM (o conteúdo era
+            só um `{activeTab === "x" && (...)}` solto, fora do <Tabs>). O
+            `TabsPanel` também traz de graça o Suspense local por aba (R3-8.1)
+            e o `role="tabpanel"`/`aria-labelledby` corretos. */}
+
+        {/* Searches Tab */}
+        <TabsPanel value="searches">
           {activeTab === "searches" && (
             <Card>
               <CardHeader>
@@ -546,8 +551,10 @@ const HistoryPage: React.FC = () => {
               </CardContent>
             </Card>
           )}
+        </TabsPanel>
 
-          {/* Operations Tab */}
+        {/* Operations Tab */}
+        <TabsPanel value="operations">
           {activeTab === "operations" && (
             <Card>
               <CardHeader>
@@ -627,10 +634,13 @@ const HistoryPage: React.FC = () => {
               </CardContent>
             </Card>
           )}
+        </TabsPanel>
 
-          {/* Audit Tab */}
-          {activeTab === "audit" && (
-            <Card>
+        {/* Audit Tab */}
+        {isAdmin && (
+          <TabsPanel value="audit">
+            {activeTab === "audit" && (
+              <Card>
               <CardHeader>
                 <CardTitle><ShieldCheckIcon size={20} className="inline mr-2" />{t("history.tabs.audit")}</CardTitle>
                 <CardDescription>{t("history.audit.description")}</CardDescription>
@@ -723,9 +733,11 @@ const HistoryPage: React.FC = () => {
                   </div>
                 )}
               </CardContent>
-            </Card>
-          )}
-        </>
+              </Card>
+            )}
+          </TabsPanel>
+        )}
+      </Tabs>
     </div>
   )
 }

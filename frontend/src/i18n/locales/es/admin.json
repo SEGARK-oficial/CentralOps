@@ -71,7 +71,10 @@
     },
     "errors": {
       "bulkPartial": "Lote completado con advertencias: {{deactivated}}/{{processed}} desactivadas. {{errorsCount}} elemento(s) omitido(s).",
-      "loadFailedTitle": "Fallo al cargar las organizaciones"
+      "loadFailedTitle": "Fallo al cargar las organizaciones",
+      "createFailed": "Fallo al crear la organización",
+      "deleteFailed": "Fallo al eliminar la organización",
+      "bulkDeactivateFailed": "Fallo al desactivar organizaciones en lote"
     }
   },
   "users": {
@@ -493,6 +496,8 @@
     "listErrorSuffix": "El token se creará con herencia completa de permisos.",
     "noneMarkedRequireExplicit": "Ningún scope marcado todavía equivale a heredar todo. Marca al menos uno.",
     "noneMarkedOptional": "Ningún scope marcado todavía equivale a heredar todo. Marca al menos uno, o elige heredar los permisos de la cuenta de arriba.",
-    "loadError": "Error al cargar los scopes"
+    "loadError": "Error al cargar los scopes",
+    "inheritTitle": "Heredar permisos de la cuenta (predeterminado)",
+    "inheritDescription": "El token tiene el mismo nivel de acceso que tu cuenta. Equivale a la Fase 1 (sin scopes). Si te degradan, el token pierde el acceso automáticamente."
   }
 }

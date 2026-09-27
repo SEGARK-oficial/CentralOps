@@ -61,6 +61,14 @@ const IntegrationsPage: React.FC = () => {
   // dado que o usuário estava vendo, ex.: o item recém-criado).
   const [loadError, setLoadError] = useState<string | null>(null)
   const hasLoadedRef = useRef(false)
+  // R4-8.2: `loadIntegrations` não tinha id de requisição — trocar de filtro
+  // rápido (busca digitada, org/status) disparava uma 2ª chamada antes da 1ª
+  // (mais lenta) responder, e a resposta VELHA podia sobrescrever a lista já
+  // atualizada pela mais nova. `api.listIntegrations` ainda não aceita
+  // `AbortSignal` (fica para o corte de `api.ts` em andamento em paralelo,
+  // R4-6.1/6.3) — o guarda aqui é "descarta resposta superada", que resolve a
+  // corrida sem precisar cancelar a requisição em voo de verdade.
+  const loadRequestIdRef = useRef(0)
 
   useEffect(() => {
     if (!feedback) return
@@ -112,6 +120,7 @@ const IntegrationsPage: React.FC = () => {
   )
 
   const loadIntegrations = useCallback(async () => {
+    const requestId = ++loadRequestIdRef.current
     try {
       setLoading(true)
       setLoadError(null)
@@ -126,9 +135,14 @@ const IntegrationsPage: React.FC = () => {
         page: 1,
         size: PAGE_SIZE,
       })
+      // Uma busca mais nova já disparou entre o início desta e agora — a
+      // resposta desta chegou por último no relógio, mas é a mais VELHA
+      // logicamente. Descarta sem tocar em nenhum estado.
+      if (requestId !== loadRequestIdRef.current) return
       setIntegrations(data)
       hasLoadedRef.current = true
     } catch (err) {
+      if (requestId !== loadRequestIdRef.current) return
       const message = err instanceof Error ? err.message : t("list.feedback.loadError")
       if (hasLoadedRef.current) {
         setFeedback({ type: "error", message })
@@ -136,7 +150,7 @@ const IntegrationsPage: React.FC = () => {
         setLoadError(message)
       }
     } finally {
-      setLoading(false)
+      if (requestId === loadRequestIdRef.current) setLoading(false)
     }
   }, [
     isAdmin,

@@ -126,6 +126,47 @@ describe("R3-9.2 — catraca ampliada (ternário/&&, props de texto, setError, t
   })
 })
 
+describe("R4-9.3 — atribuição de string PT a variável de mensagem (message =, error =, msg =)", () => {
+  it("meta-caso: PEGA `const message = \"...\"` (declaração, não chamada de setter)", () => {
+    const injected = `const message = "Falha ao carregar organizações"`
+    const findings = findingsInText(injected, "fake/loadOrgs.ts")
+    expect(findings.some((f) => f.snippet.includes("Falha ao carregar organizações"))).toBe(true)
+  })
+
+  it("meta-caso: PEGA `error = \"...\"` (reatribuição simples, sem const/let)", () => {
+    const injected = `error = "Token inválido"`
+    const findings = findingsInText(injected, "fake/token.ts")
+    expect(findings.some((f) => f.snippet.includes("Token inválido"))).toBe(true)
+  })
+
+  it("meta-caso: PEGA `let msg = \"...\"` e identificadores compostos (errorMessage =, feedbackMsg =)", () => {
+    const injected = `
+      let msg = "Nenhum resultado encontrado"
+      const errorMessage = "Sessão expirada"
+      let feedbackMsg = "Alterações salvas com sucesso"
+    `
+    const findings = findingsInText(injected, "fake/compound.ts")
+    expect(findings.some((f) => f.snippet.includes("Nenhum resultado encontrado"))).toBe(true)
+    expect(findings.some((f) => f.snippet.includes("Sessão expirada"))).toBe(true)
+    expect(findings.some((f) => f.snippet.includes("Alterações salvas com sucesso"))).toBe(true)
+  })
+
+  it("NÃO pega comparação (`===`/`==`) nem `setError(...)`/prop JSX já cobertos por outra regra (sem duplicar por engano no mesmo achado)", () => {
+    const clean = `
+      if (error === "algum valor") return
+      const message = t("errors.generic")
+    `
+    expect(findingsInText(clean, "fake/CleanAssign.ts")).toEqual([])
+  })
+
+  it("NÃO pega identificador que só TERMINA com letras parecidas sem ser message/error/msg de verdade (\"errors\" no plural, com 's' sobrando)", () => {
+    const clean = `errors = ["Falha ao processar"]`
+    // É array, não string — looksLikePortuguese/regex de string simples não
+    // deveria casar aqui (não há `"..."` logo após `=`, e sim `[`).
+    expect(findingsInText(clean, "fake/ArrayAssign.ts")).toEqual([])
+  })
+})
+
 describe("R3-9.2 — assinatura do baseline SEM linha (defeito da Rodada 3)", () => {
   // Repro exata do defeito: `Tabs.tsx:43` virou `:44` só por uma linha
   // inserida ACIMA do achado, sem literal novo nenhum — e a Sub 8 teve que

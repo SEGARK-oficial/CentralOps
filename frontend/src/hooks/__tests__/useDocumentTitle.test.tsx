@@ -37,6 +37,10 @@ describe("useDocumentTitle", () => {
       useDocumentTitle(ref, "/integrations/1")
       return (
         <div ref={ref}>
+          {/* Vazio de propósito: o teste simula o <h1> ganhando texto DEPOIS,
+              via MutationObserver (fetch assíncrono real da tela) — não é UI
+              de produção, é o fixture do próprio comportamento sob teste. */}
+          {/* eslint-disable-next-line jsx-a11y/heading-has-content */}
           <h1 id="h1-target"></h1>
         </div>
       )

@@ -254,3 +254,50 @@ describe("HistoryPage — R3-5.3: sem console.error (o erro já vai pra UI)", ()
     errorSpy.mockRestore()
   })
 })
+
+// R4-5.4: as abas usavam `TabsTrigger` sem `TabsPanel` correspondente — o
+// conteúdo de cada aba era só um `{activeTab === "x" && (...)}` solto, FORA
+// do `<Tabs>`. O `aria-controls` que o `TabsTrigger` emite (`Tabs.tsx`)
+// sempre apontava pra um id sem NENHUM elemento no DOM (nem antes, nem depois
+// de trocar de aba) — falha de acessibilidade real: leitor de tela anuncia
+// uma referência morta. Reverter o `<TabsPanel>` (voltar o conteúdo a ser um
+// fragmento solto fora do `<Tabs>`) faz este teste falhar de volta, porque
+// `TabsTrigger.aria-controls` só existe quando `ctx.hasPanel(value)` é
+// `true` (ver `Tabs.tsx`) — sem `<TabsPanel>` nenhum se registra.
+describe("HistoryPage — R4-5.4: aria-controls de cada aba resolve pra um tabpanel de verdade", () => {
+  it("toda tab tem aria-controls declarado; a aba ATIVA resolve pra um role=tabpanel de verdade no DOM", async () => {
+    mockAuthUser = { role: "admin", username: "admin", permissions: [] }
+    await i18n.changeLanguage("pt")
+
+    render(<HistoryPage />)
+
+    const tabs = await screen.findAllByRole("tab")
+    // 3 abas para admin: buscas, operações, auditoria.
+    expect(tabs.length).toBe(3)
+
+    // `TabsPanel` (Tabs.tsx) só mantém o painel ATIVO montado no DOM — o
+    // inativo desmonta (sem `keepMounted`), então `aria-controls` de uma aba
+    // inativa é "declarado" (`hasPanel`), mas o `<div role=tabpanel>` só
+    // existe de verdade quando ela vira a ativa. Por isso o teste real
+    // percorre as 3 abas CLICANDO em cada uma, não só olha a foto do 1º
+    // render.
+    for (const tab of tabs) {
+      expect(tab.getAttribute("aria-controls")).toBeTruthy()
+    }
+
+    for (const tabName of [/Buscas/i, /Operações/i, /Auditoria de Usuários/i]) {
+      fireEvent.click(screen.getByRole("tab", { name: tabName }))
+      const activeTab = screen.getByRole("tab", { name: tabName })
+      expect(activeTab).toHaveAttribute("aria-selected", "true")
+      const controlsId = activeTab.getAttribute("aria-controls")
+      expect(controlsId).toBeTruthy()
+      // Sem o `<TabsPanel>` (achado original), este id nunca resolvia pra
+      // NENHUM elemento, em NENHUM momento — nem quando a aba estava ativa.
+      const panel = document.getElementById(controlsId as string)
+      expect(panel).not.toBeNull()
+      expect(panel).toHaveAttribute("role", "tabpanel")
+      expect(panel).toHaveAttribute("aria-labelledby", activeTab.id)
+      expect(panel).not.toHaveAttribute("hidden")
+    }
+  })
+})

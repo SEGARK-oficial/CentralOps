@@ -71,7 +71,10 @@
     },
     "errors": {
       "bulkPartial": "Bulk concluído com avisos: {{deactivated}}/{{processed}} desativadas. {{errorsCount}} item(ns) ignorado(s).",
-      "loadFailedTitle": "Falha ao carregar organizações"
+      "loadFailedTitle": "Falha ao carregar organizações",
+      "createFailed": "Falha ao criar organização",
+      "deleteFailed": "Falha ao excluir organização",
+      "bulkDeactivateFailed": "Falha ao desativar organizações em lote"
     }
   },
   "users": {
@@ -493,6 +496,8 @@
     "listErrorSuffix": "Token será criado com herança completa de permissões.",
     "noneMarkedRequireExplicit": "Nenhum scope marcado ainda equivale a herdar tudo. Marque ao menos um.",
     "noneMarkedOptional": "Nenhum scope marcado ainda equivale a herdar tudo. Marque ao menos um, ou escolha herdar as permissões da conta acima.",
-    "loadError": "Falha ao carregar scopes"
+    "loadError": "Falha ao carregar scopes",
+    "inheritTitle": "Herdar permissões da conta (padrão)",
+    "inheritDescription": "Token tem o mesmo nível de acesso da sua conta. Equivale a Fase 1 (sem scopes). Se você for despromovido, o token perde acesso automaticamente."
   }
 }

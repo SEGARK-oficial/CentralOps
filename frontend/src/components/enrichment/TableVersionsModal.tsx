@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/Input/Input"
 import { Badge } from "@/components/ui/Badge/Badge"
 import { Notice } from "@/components/ui/Notice/Notice"
 import { SkeletonCard } from "@/components/ui/Skeleton"
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/Tabs/Tabs"
+import { Tabs, TabsList, TabsTrigger, TabsPanel } from "@/components/ui/Tabs/Tabs"
 import { CsvImportPanel } from "./CsvImportPanel"
 import * as api from "@/services/api"
 import type { EnrichmentTable, EnrichmentTableVersion } from "@/services/api"
@@ -209,29 +209,33 @@ export const TableVersionsModal: React.FC<TableVersionsModalProps> = ({
               <TabsTrigger value="csv">{t("tables.csv.modeCsv")}</TabsTrigger>
               <TabsTrigger value="json">{t("tables.csv.modeJson")}</TabsTrigger>
             </TabsList>
-          </Tabs>
 
-          {inputMode === "csv" ? (
-            <CsvImportPanel
-              matchMode={table.match_mode}
-              currentRows={currentRows}
-              onChange={setCsvRows}
-            />
-          ) : (
-            <Textarea
-              label={t("tables.versions.rowsLabel")}
-              value={rowsText}
-              onChange={(e) => setRowsText(e.target.value)}
-              rows={8}
-              className="font-mono text-xs"
-              placeholder={table.match_mode === "cidr" ? EXAMPLE_CIDR : EXAMPLE_EXACT}
-              helperText={
-                table.match_mode === "cidr"
-                  ? t("tables.versions.rowsHelperCidr")
-                  : t("tables.versions.rowsHelperExact")
-              }
-            />
-          )}
+            {/* R4-8.1: `TabsTrigger` sem `TabsPanel` correspondente — o
+                `aria-controls` de "csv"/"json" apontava pra um id inexistente. */}
+            <TabsPanel value={inputMode}>
+              {inputMode === "csv" ? (
+                <CsvImportPanel
+                  matchMode={table.match_mode}
+                  currentRows={currentRows}
+                  onChange={setCsvRows}
+                />
+              ) : (
+                <Textarea
+                  label={t("tables.versions.rowsLabel")}
+                  value={rowsText}
+                  onChange={(e) => setRowsText(e.target.value)}
+                  rows={8}
+                  className="font-mono text-xs"
+                  placeholder={table.match_mode === "cidr" ? EXAMPLE_CIDR : EXAMPLE_EXACT}
+                  helperText={
+                    table.match_mode === "cidr"
+                      ? t("tables.versions.rowsHelperCidr")
+                      : t("tables.versions.rowsHelperExact")
+                  }
+                />
+              )}
+            </TabsPanel>
+          </Tabs>
 
           <Input
             label={t("tables.versions.commitMessage")}

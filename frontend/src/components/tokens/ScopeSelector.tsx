@@ -155,13 +155,9 @@ export const ScopeSelector: React.FC<ScopeSelectorProps> = ({
           <div className="flex-1">
             <div className="flex items-center gap-2 text-sm font-semibold">
               <ShieldCheckIcon size={16} />
-              Herdar permissões da conta (padrão)
+              {t("scopeSelector.inheritTitle")}
             </div>
-            <p className="mt-1 text-xs text-text-secondary">
-              Token tem o mesmo nível de acesso da sua conta. Equivale a Fase 1
-              (sem scopes). Se você for despromovido, o token perde acesso
-              automaticamente.
-            </p>
+            <p className="mt-1 text-xs text-text-secondary">{t("scopeSelector.inheritDescription")}</p>
           </div>
         </label>
       )}

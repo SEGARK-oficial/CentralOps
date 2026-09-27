@@ -356,6 +356,10 @@ export const Select = forwardRef<HTMLButtonElement, SelectProps>(function Select
       )}
 
       <div ref={selectRef} className="relative">
+        {/* `aria-invalid` não está na lista de props ARIA "suportadas" pelo
+            role implícito de <button> — mas este botão É o controle visível
+            do campo, e precisa carregar o estado de erro pro operador. */}
+        {/* eslint-disable-next-line jsx-a11y/role-supports-aria-props */}
         <button
           ref={setTriggerRef}
           type="button"

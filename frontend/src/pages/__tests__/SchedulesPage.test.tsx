@@ -142,6 +142,26 @@ describe("SchedulesPage — histórico", () => {
     expect(api.downloadStoredCSV).toHaveBeenCalledWith("srch_view_csv")
   })
 
+  // R4-9.1: `setFieldValue` do useForm aceitava `value: any` — `startEditing`
+  // guardava `String(schedule.query_id)` (texto) num campo tipado `number |
+  // ""`. O <Select> de Query compara `option.value` (number, de `query.id`)
+  // com o valor selecionado via `===`; "10" !== 10 apagava a seleção ao
+  // editar um agendamento que JÁ TINHA uma query associada — o dropdown
+  // aparecia vazio, sem indicar erro nenhum. Corrigido tipando `setFieldValue`
+  // de verdade (não mais `any`) e removendo o `String(...)` desnecessário.
+  it("editar um agendamento existente mantém a Query correta selecionada no dropdown", async () => {
+    render(<SchedulesPage />)
+    await waitFor(() => expect(screen.getAllByText("Logins suspeitos").length).toBeGreaterThan(0))
+
+    fireEvent.click(screen.getByRole("button", { name: /^Editar$/i }))
+
+    const querySelect = await screen.findByRole("button", { name: /^Query/i })
+    // O rótulo do combobox some fica visível pra composer; a asserção real
+    // é o TEXTO exibido (o label da opção selecionada), que reproduz o bug:
+    // com `query_id` guardado como string, ficava "" (nem placeholder).
+    expect(querySelect).toHaveTextContent("Logins suspeitos")
+  })
+
   // R3-9.1: `refreshSchedules`/`refreshNotificationRecipients` viraram
   // `useCallback([t])` pra satisfazer react-hooks/exhaustive-deps no efeito de
   // carga inicial. Prova que o memo não introduziu refetch num re-render sem

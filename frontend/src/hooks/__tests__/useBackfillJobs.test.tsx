@@ -309,3 +309,114 @@ describe("useBackfillJobs — R3-5.2: poll/refetch silencioso NUNCA aborta uma r
     expect(result.current.error).toBeNull()
   })
 })
+
+// R4-5.3 (regressão da R3-5.2): "pula em vez de aborta" era certo pro POLL,
+// mas também descartava um refetch pós-mutação/manual que caísse durante um
+// poll em voo — o job novo só aparecia no PRÓXIMO tick (até refreshIntervalMs
+// depois), não na hora. Reverter a distinção "poll" vs. "refetch" em
+// `fetchJobs` (voltar a tratar todo silencioso igual) faz os dois testes
+// abaixo falharem de volta.
+describe("useBackfillJobs — R4-5.3: mutação durante um poll em voo não espera o próximo tick", () => {
+  it("createJob durante um poll em voo: o job novo aparece assim que o poll libera, sem esperar o intervalo inteiro", async () => {
+    vi.useFakeTimers()
+    try {
+      const calls = mockPendingListCalls()
+      const newJob: BackfillJob = { ...JOB_1, id: "bbbb-2222", status: "pending" }
+      mockedApi.createBackfillJob.mockResolvedValue(newJob)
+
+      const { result } = renderHook(() => useBackfillJobs(1, undefined, { refreshIntervalMs: 5000 }))
+      // Carga inicial resolve normalmente.
+      expect(calls).toHaveLength(1)
+      await act(async () => {
+        calls[0].resolve(LIST_RESPONSE)
+        await Promise.resolve()
+      })
+      expect(result.current.isLoading).toBe(false)
+
+      // O poll de rotina dispara e fica pendurado (em voo).
+      await act(async () => {
+        vi.advanceTimersByTime(5001)
+        await Promise.resolve()
+      })
+      expect(calls).toHaveLength(2)
+
+      // Enquanto o poll ainda está em voo, o usuário cria um job.
+      let createPromise: Promise<BackfillJob> | undefined
+      act(() => {
+        createPromise = result.current.createJob({
+          streams: ["alerts"],
+          from_ts: "2026-01-01T00:00:00Z",
+          to_ts: "2026-01-10T00:00:00Z",
+        })
+      })
+      await act(async () => {
+        await Promise.resolve()
+      })
+      expect(mockedApi.createBackfillJob).toHaveBeenCalled()
+      // O refetch pós-createJob encontrou o poll em voo: NÃO cria uma 3ª
+      // request nem aborta a do poll — só marca a intenção pendente.
+      expect(calls).toHaveLength(2)
+
+      // O poll em voo finalmente libera, trazendo a lista ANTIGA (sem o job
+      // novo) — mas isto dispara, no `finally`, o refetch pendente.
+      await act(async () => {
+        calls[1].resolve(LIST_RESPONSE)
+        await Promise.resolve()
+      })
+      // Sem o fix (R4-5.3), o teste pararia aqui: nenhuma 3ª request jamais
+      // aconteceria, e o job novo só apareceria no PRÓXIMO tick de poll.
+      expect(calls).toHaveLength(3)
+
+      const jobWithNew = { items: [JOB_1, newJob], total: 2, limit: 50, offset: 0 }
+      await act(async () => {
+        calls[2].resolve(jobWithNew)
+        await Promise.resolve()
+      })
+      await createPromise
+
+      expect(result.current.items).toEqual([JOB_1, newJob])
+      // Continua silencioso — a mutação nunca acendeu o skeleton de página
+      // cheia (PERF-07).
+      expect(result.current.isLoading).toBe(false)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it("botão de atualizar (refetch manual) durante um poll em voo também é honrado, não descartado", async () => {
+    vi.useFakeTimers()
+    try {
+      const calls = mockPendingListCalls()
+
+      const { result } = renderHook(() => useBackfillJobs(1, undefined, { refreshIntervalMs: 5000 }))
+      expect(calls).toHaveLength(1)
+      await act(async () => {
+        calls[0].resolve(LIST_RESPONSE)
+        await Promise.resolve()
+      })
+
+      await act(async () => {
+        vi.advanceTimersByTime(5001)
+        await Promise.resolve()
+      })
+      expect(calls).toHaveLength(2)
+
+      // Usuário aperta "atualizar" enquanto o poll de rotina ainda está em voo.
+      act(() => {
+        result.current.refetch()
+      })
+      // Não descarta silenciosamente (bug do R4-5.3) nem duplica a request.
+      expect(calls).toHaveLength(2)
+
+      const updated = { items: [JOB_1], total: 1, limit: 50, offset: 0 }
+      await act(async () => {
+        calls[1].resolve(updated)
+        await Promise.resolve()
+      })
+      // O refetch manual pendente dispara assim que o poll libera.
+      expect(calls).toHaveLength(3)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+})

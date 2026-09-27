@@ -12,6 +12,30 @@ beforeAll(async () => {
   await i18n.changeLanguage("pt")
 })
 
+/** R4-8.6: migrado pro `DataTable` (`renderMobileCard`) — o mock global de
+ *  `matchMedia` (test/setup.ts) sempre devolve `matches:false`, então sem
+ *  isto o `useMediaQuery` leria "não é desktop" e só os CARTÕES (sem
+ *  `<table role="table">`/cabeçalhos) entrariam no DOM. Mesmo padrão do
+ *  `HistoryPage`/`DetectionsTable`. */
+let restoreViewport: () => void
+beforeEach(() => {
+  const original = window.matchMedia
+  window.matchMedia = ((query: string) => ({
+    matches: true,
+    media: query,
+    onchange: null,
+    addListener: () => {},
+    removeListener: () => {},
+    addEventListener: () => {},
+    removeEventListener: () => {},
+    dispatchEvent: () => false,
+  })) as unknown as typeof window.matchMedia
+  restoreViewport = () => {
+    window.matchMedia = original
+  }
+})
+afterEach(() => restoreViewport())
+
 function query(over: Partial<Query> = {}): Query {
   return {
     id: 1,

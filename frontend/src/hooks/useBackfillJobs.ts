@@ -24,6 +24,18 @@
  * carga, troca de integração/filtro) pode abortar a geração anterior — e
  * QUALQUER geração que termine sem ter sido abortada zera `isLoading`,
  * mesmo que ela própria fosse silenciosa.
+ *
+ * R4-5.3 (regressão da R3-5.2): o "pula em vez de aborta" acima não distingue
+ * POR QUE o tick é silencioso — um poll de rotina e um refetch pós-mutação
+ * (`createJob`/`cancelJob`) ou o botão de atualizar do usuário caíam no MESMO
+ * guard e eram descartados do MESMO jeito. Resultado: criar/cancelar um job
+ * enquanto um poll de 10s calhava de estar em voo fazia o job novo só
+ * aparecer no PRÓXIMO tick (até 10s depois), não na hora. Agora só o POLL de
+ * rotina (`reason: "poll"`) descarta de verdade o tick; um `"refetch"`
+ * (manual ou pós-mutação) que encontra algo em voo marca `pendingRefetchRef`
+ * e é reexecutado no `finally` da request em voo, assim que ela terminar —
+ * sem abortar nada (continua valendo a razão original do R3-5.2: abortar uma
+ * carga inicial em andamento travava `isLoading`).
  */
 
 import { useCallback, useEffect, useRef, useState } from "react"
@@ -70,18 +82,36 @@ export function useBackfillJobs(
   // refetch pós mutação) PULAR em vez de abortar quando já há algo em voo.
   const activeControllerRef = useRef<AbortController | null>(null)
   const inFlightRef = useRef(false)
+  // R4-5.3: um "refetch" (manual ou pós-mutação) que chegou enquanto algo já
+  // estava em voo marca aqui — e é reexecutado no `finally` da request em
+  // voo, assim que ela liberar. Só existe pra distinguir de um POLL de
+  // rotina, que continua descartando o tick sem deixar rastro nenhum.
+  const pendingRefetchRef = useRef(false)
 
   // `showLoading=false` (poll, refetch manual, refetch pós mutação) atualiza
   // `items`/`total` sem tocar em `isLoading` — a tabela continua na tela,
   // com scroll e foco intactos, e só troca as linhas quando os dados chegam.
   const fetchJobs = useCallback(
-    (showLoading: boolean): (() => void) => {
+    (showLoading: boolean, reason: "load" | "poll" | "refetch"): (() => void) => {
       if (!integrationId) return () => {}
       if (inFlightRef.current && !showLoading) {
-        // R3-5.2: um tick silencioso não pode abortar a request em voo — se
-        // ela for a carga INICIAL (`showLoading=true`), abortá-la aqui
-        // deixava o `isLoading` preso em `true` pra sempre (a geração
-        // abortada não zerava, e esta, sendo silenciosa, também não).
+        if (reason === "poll") {
+          // R3-5.2: um tick de POLL silencioso não pode abortar a request em
+          // voo — se ela for a carga INICIAL (`showLoading=true`), abortá-la
+          // aqui deixava o `isLoading` preso em `true` pra sempre (a geração
+          // abortada não zerava, e esta, sendo silenciosa, também não). O
+          // poll de rotina não precisa de "segunda tentativa": o próximo tick
+          // já cobre o mesmo dado.
+          return () => {}
+        }
+        // R4-5.3: um "refetch" (manual ou pós create/cancel) NÃO pode
+        // simplesmente ser descartado como um tick de poll — o usuário
+        // acabou de criar/cancelar um job e espera vê-lo JÁ, não no próximo
+        // tick (até 10s depois). Também não pode ABORTAR a request em voo
+        // (mesmo risco de skeleton eterno do R3-5.2, se essa request em voo
+        // for a carga inicial) — só marca a intenção; `finally`, abaixo,
+        // reexecuta assim que a request em voo liberar.
+        pendingRefetchRef.current = true
         return () => {}
       }
       // showLoading=true (1ª carga, troca de integração/filtro): esses dados
@@ -90,6 +120,9 @@ export function useBackfillJobs(
       const controller = new AbortController()
       activeControllerRef.current = controller
       inFlightRef.current = true
+      // Esta request já vai buscar dado fresco — qualquer refetch pendente
+      // de ANTES dela começar já está satisfeito de antemão.
+      pendingRefetchRef.current = false
       if (showLoading) setIsLoading(true)
 
       listBackfillJobs(integrationId, filters, { signal: controller.signal })
@@ -114,6 +147,13 @@ export function useBackfillJobs(
           // inicial lenta (que um poll só pulou, nunca abortou) sempre acabe
           // limpando o skeleton.
           setIsLoading(false)
+          // R4-5.3: um refetch pediu passagem enquanto esta request corria —
+          // agora que ela liberou, roda de verdade (sem esperar o próximo
+          // tick de poll).
+          if (pendingRefetchRef.current) {
+            pendingRefetchRef.current = false
+            fetchJobs(false, "refetch")
+          }
         })
 
       return () => controller.abort()
@@ -127,12 +167,12 @@ export function useBackfillJobs(
   )
 
   const refetch = useCallback(() => {
-    fetchJobs(false)
+    fetchJobs(false, "refetch")
   }, [fetchJobs])
 
   // Fetch principal: só ESTE efeito (integração/filtro mudou) mostra loading.
   useEffect(() => {
-    return fetchJobs(true)
+    return fetchJobs(true, "load")
   }, [fetchJobs])
 
   // Polling com page visibility — sempre silencioso (ver PERF-07 acima).
@@ -141,7 +181,7 @@ export function useBackfillJobs(
       if (intervalRef.current) window.clearInterval(intervalRef.current)
       intervalRef.current = window.setInterval(() => {
         if (!document.hidden) {
-          fetchJobs(false)
+          fetchJobs(false, "poll")
         }
       }, refreshIntervalMs)
     }
@@ -149,7 +189,7 @@ export function useBackfillJobs(
     const handleVisibilityChange = () => {
       if (!document.hidden) {
         // Retomou visibilidade: força refetch imediato e reinicia intervalo
-        fetchJobs(false)
+        fetchJobs(false, "poll")
         startPolling()
       }
     }

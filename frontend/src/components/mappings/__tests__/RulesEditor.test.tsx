@@ -78,7 +78,10 @@ describe("RulesEditor — regressão Sprint 1", () => {
   it("painel tem role=region com aria-labelledby", () => {
     render(<RulesEditor rules={RULES} />)
     const region = screen.getByTestId("rules-editor")
-    expect(region).toHaveAttribute("role", "region")
+    // R4-9.1: `role="region"` explícito removido por ser REDUNDANTE —
+    // `<section aria-labelledby>` já expõe role="region" IMPLICITAMENTE
+    // (`jsx-a11y/no-redundant-roles`). `getByRole` prova o papel efetivo.
+    expect(screen.getByRole("region")).toBe(region)
     expect(region).toHaveAttribute("aria-labelledby")
   })
 

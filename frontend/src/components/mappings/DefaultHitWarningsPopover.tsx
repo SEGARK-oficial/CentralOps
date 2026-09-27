@@ -100,7 +100,7 @@ export const DefaultHitWarningsPopover: React.FC<DefaultHitWarningsPopoverProps>
       {warnings.length === 0 ? (
         <p className="text-xs text-text-tertiary italic">{t("defaultHitWarnings.noWarnings")}</p>
       ) : (
-        <ul className="flex flex-col gap-2" role="list">
+        <ul className="flex flex-col gap-2">
           {warnings.map((w) => (
             <li
               key={w.target}

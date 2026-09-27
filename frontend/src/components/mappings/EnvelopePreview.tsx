@@ -56,7 +56,6 @@ export const EnvelopePreview: React.FC<EnvelopePreviewProps> = ({
 
   return (
     <section
-      role="region"
       aria-labelledby={headingId}
       data-testid="envelope-preview"
       className={cn(
