@@ -345,7 +345,15 @@
       },
       "communityTitle": "Aplicar esta política a vários clientes",
       "communityBody": "Na edição Community, use \"Copiar para outra organização\" — uma de cada vez, com a mesma verificação de pré-requisitos. A edição Enterprise marca a política como modelo da matriz e aplica a todas as filhas de uma vez, com verificação por organização.",
-      "communityLink": "Ver as edições"
+      "communityLink": "Ver as edições",
+      "syncLabel": "Manter as filhas sincronizadas",
+      "syncHint": "Publicar ou reverter este modelo reaplica nas filhas, e uma filha nova recebe o modelo na hora. Cada filha continua com versão e histórico próprios.",
+      "enableChildrenLabel": "Ligar a política nas filhas",
+      "enableChildrenHint": "Sem isto a cópia nasce desligada e quem opera cada cliente decide quando ligar. Nunca liga por cima de uma política própria já ligada.",
+      "syncedBadge": "Sincronizado",
+      "childEnabled": "ligada",
+      "childDisabled": "desligada",
+      "applyAndEnable": "Aplicar e ligar"
     }
   },
   "errorTitle": "Falha ao carregar o enriquecimento",
@@ -377,6 +385,8 @@
       "create": "Nova fonte",
       "sharedOrgs": "Organizações filhas",
       "sharedOrgsHint": "A fonte atende sempre a organização dona. Marque as filhas que também devem usar esta credencial. Compartilhar exige a edição Enterprise.",
+      "shareDescendants": "Todas as organizações filhas, inclusive as criadas depois",
+      "shareDescendantsHint": "A credencial passa a atender toda a subárvore desta organização. Filhas novas recebem na hora. Desmarcar depois mantém as filhas atuais na lista abaixo.",
       "egressRequired": "Confirme o envio de indicadores a terceiro antes de salvar.",
       "egressAck": "Autorizo o envio de indicadores desta organização ao {{name}}",
       "egressAckHint": "Os indicadores que passarem pela condição da regra ({{kinds}}) saem da sua infraestrutura. O que a condição barra não sai."

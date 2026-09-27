@@ -345,7 +345,15 @@
       },
       "communityTitle": "Apply this policy to several customers",
       "communityBody": "In the Community edition, use \"Copy to another organization\" — one at a time, with the same prerequisite check. The Enterprise edition marks the policy as a headquarters template and applies it to every child at once, checking each organization.",
-      "communityLink": "See the editions"
+      "communityLink": "See the editions",
+      "syncLabel": "Keep children in sync",
+      "syncHint": "Publishing or rolling back this template reapplies it to the children, and a new child gets the template right away. Each child keeps its own version and history.",
+      "enableChildrenLabel": "Enable the policy on children",
+      "enableChildrenHint": "Without this the copy is created disabled and whoever runs each customer decides when to enable it. It never enables over a policy of the child's own that is already on.",
+      "syncedBadge": "Synced",
+      "childEnabled": "enabled",
+      "childDisabled": "disabled",
+      "applyAndEnable": "Apply and enable"
     }
   },
   "errorTitle": "Failed to load enrichment",
@@ -377,6 +385,8 @@
       "create": "New source",
       "sharedOrgs": "Child organizations",
       "sharedOrgsHint": "The source always serves the owning organization. Check the children that should also use this credential. Sharing requires the Enterprise edition.",
+      "shareDescendants": "All child organizations, including those created later",
+      "shareDescendantsHint": "The credential serves this organization's whole subtree. New children get it immediately. Unchecking later keeps the current children in the list below.",
       "egressRequired": "Confirm sending indicators to a third party before saving.",
       "egressAck": "I authorize sending this organization's indicators to {{name}}",
       "egressAckHint": "Indicators that pass the rule's condition ({{kinds}}) leave your infrastructure. What the condition blocks never leaves."

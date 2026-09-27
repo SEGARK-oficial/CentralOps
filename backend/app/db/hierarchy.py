@@ -87,6 +87,23 @@ def assign_on_create(session: Session, org: models.Organization) -> None:
     session.flush()
 
 
+def inherit_enrichment(session: Session, org_id: int) -> None:
+    """Filha entrou na subárvore: herda fontes e modelos SINCRONIZADOS.
+
+    Chamar DEPOIS do commit que criou/anexou a org. Roda numa sessão própria
+    sobre o mesmo engine, então uma falha do enriquecimento é revertida sozinha
+    e nunca desfaz a criação da organização (que, no sync de parceiro, é coleta).
+    Import tardio: a camada de banco não depende do enriquecimento para subir.
+    No-op fora do Enterprise e para org sem pai.
+    """
+    try:
+        from ..services import enrichment_inheritance
+    except Exception:  # noqa: BLE001 — pragma: no cover
+        logger.exception("hierarquia: módulo de herança de enriquecimento indisponível")
+        return
+    enrichment_inheritance.on_org_attached_safe(session.get_bind(), int(org_id))
+
+
 def needs_backfill(session: Session) -> bool:
     """True se existe alguma org sem ``root_id`` (não materializada)."""
     return (

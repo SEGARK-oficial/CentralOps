@@ -280,6 +280,8 @@ class OrganizationRepository:
         # partner_integration) + closure; marca o pai como reseller. Idempotente.
         hierarchy.assign_on_create(self.db, org)
         self.db.commit()
+        # Depois do commit: a herança de enriquecimento nunca desfaz a org.
+        hierarchy.inherit_enrichment(self.db, org.id)
         self.db.refresh(org)
         return org
 
@@ -310,6 +312,8 @@ class OrganizationRepository:
         # sua posição na árvore (passa a ser filha do reseller).
         hierarchy.assign_on_create(self.db, org)
         self.db.commit()
+        # Depois do commit: a herança de enriquecimento nunca desfaz a org.
+        hierarchy.inherit_enrichment(self.db, org.id)
         self.db.refresh(org)
         return org
 

@@ -41,6 +41,8 @@ export interface EnrichmentSource {
   enabled: boolean
   /** Filhas que também usam esta fonte (MSP). Vazio = só a dona. */
   shared_organization_ids: number[]
+  /** Atende toda a subárvore, inclusive filhas criadas depois (Enterprise). */
+  share_with_descendants?: boolean
   /**
    * Veredito da última sondagem. `null` em `last_test_at` significa NUNCA
    * TESTADA, que é diferente de "testada e falhou": a primeira é um aviso, a
@@ -61,6 +63,7 @@ export interface EnrichmentSourceCreateRequest {
   secret?: string | null
   enabled?: boolean
   shared_organization_ids?: number[]
+  share_with_descendants?: boolean
 }
 
 export interface EnrichmentSourceUpdateRequest {
@@ -70,6 +73,8 @@ export interface EnrichmentSourceUpdateRequest {
   secret?: string | null
   enabled?: boolean
   shared_organization_ids?: number[]
+  /** Desligar mantém as linhas já criadas como lista explícita. */
+  share_with_descendants?: boolean
 }
 
 export async function listEnrichmentSources() {

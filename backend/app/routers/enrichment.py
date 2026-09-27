@@ -32,6 +32,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+from dataclasses import asdict
 from typing import Any, Dict, List, Optional, Tuple
 
 from fastapi import APIRouter, Depends, Query, status
@@ -53,6 +54,7 @@ from ..core.config import settings
 from ..core.errors import ApiError
 from ..core.tenant import has_global_scope
 from ..db import database, models
+from ..services import enrichment_inheritance as inheritance
 
 logger = logging.getLogger(__name__)
 
@@ -111,6 +113,8 @@ class SourceCreate(BaseModel):
     #: Orgs FILHAS que também usam esta fonte. A org dona entra sempre, não
     #: precisa ser repetida aqui. Lista com item exige a feature ``multi_tenant``.
     shared_organization_ids: List[int] = Field(default_factory=list)
+    #: Atender TODA a subárvore, inclusive filhas futuras (Enterprise).
+    share_with_descendants: bool = False
 
 
 class SourceUpdate(BaseModel):
@@ -121,6 +125,10 @@ class SourceUpdate(BaseModel):
     enabled: Optional[bool] = None
     #: ``None`` mantém a lista atual; lista substitui (a dona é preservada).
     shared_organization_ids: Optional[List[int]] = None
+    #: ``None`` mantém. Desligar NÃO remove as linhas já criadas: elas viram a
+    #: lista explícita, editável — tirar a credencial de N clientes de uma vez
+    #: tem que ser um gesto explícito, não o efeito colateral de um checkbox.
+    share_with_descendants: Optional[bool] = None
 
 
 class SourceRead(BaseModel):
@@ -136,6 +144,8 @@ class SourceRead(BaseModel):
     enabled: bool = True
     #: Filhas que usam a fonte (sem a dona). Editável depois da criação.
     shared_organization_ids: List[int] = Field(default_factory=list)
+    #: Atende toda a subárvore, inclusive filhas futuras.
+    share_with_descendants: bool = False
     #: Veredito da última sondagem. ``None`` em ``last_test_at`` significa NUNCA
     #: TESTADA, que é diferente de "testada e falhou" — a UI mostra as duas
     #: coisas de formas distintas porque a ação do operador é outra.
@@ -214,6 +224,10 @@ class PolicyRead(BaseModel):
     is_active: bool = False
     #: Modelo da matriz (Enterprise). Ver ``EnrichmentPolicy.is_template``.
     is_template: bool = False
+    #: Modelo sincronizado: publicar reaplica nas filhas; filha nova recebe.
+    template_sync: bool = False
+    #: Na sincronização, a política herdada da filha é LIGADA.
+    template_enable_children: bool = False
     #: Versão do modelo que originou a versão VIGENTE desta política, quando ela
     #: veio de uma aplicação. A UI usa para dizer "herdada, e desta versão".
     derived_from_version_id: Optional[str] = None
@@ -233,6 +247,11 @@ class PolicyVersionRead(BaseModel):
     created_at: Optional[str] = None
     is_current: bool = False
     summary: Optional[Dict[str, Any]] = None
+    #: Só em modelo SINCRONIZADO: filhas que receberam esta versão ao publicar,
+    #: e as que ficaram de fora (bloqueadas, sobrescritas). O detalhe por filha
+    #: está no ``template-preflight``.
+    template_sync_applied: List[int] = Field(default_factory=list)
+    template_sync_skipped: List[int] = Field(default_factory=list)
 
 
 class RollbackRequest(BaseModel):
@@ -423,6 +442,7 @@ def _source_read(db: Session, row: Any) -> SourceRead:
         secret_configured=bool(row.secret_ref),
         enabled=bool(row.enabled),
         shared_organization_ids=sorted(shared),
+        share_with_descendants=bool(getattr(row, "share_with_descendants", False)),
         last_test_at=getattr(row, "last_test_at", None),
         last_test_ok=getattr(row, "last_test_ok", None),
         last_test_message=getattr(row, "last_test_message", None),
@@ -453,15 +473,7 @@ def _sync_source_orgs(
     wanted = {int(i) for i in shared_ids if int(i) != int(row.organization_id)}
 
     if wanted and not edition.feature_enabled("multi_tenant"):
-        raise ApiError(
-            "enrichment.source_sharing_requires_enterprise",
-            status.HTTP_403_FORBIDDEN,
-            messages={
-                "pt": "Compartilhar uma fonte entre organizações exige a edição Enterprise. Na Community cada fonte atende uma organização.",
-                "en": "Sharing a source across organizations requires the Enterprise edition. In Community each source serves one organization.",
-                "es": "Compartir una fuente entre organizaciones requiere la edición Enterprise. En Community cada fuente atiende a una organización.",
-            },
-        )
+        raise _source_sharing_requires_enterprise()
 
     for org_id in sorted(wanted):
         tenant.require_subtree_access(user, org_id, db)
@@ -489,6 +501,44 @@ def _sync_source_orgs(
     ).delete(synchronize_session=False)
     for org_id in sorted(wanted | {int(row.organization_id)}):
         db.add(models.EnrichmentSourceOrg(source_id=row.id, organization_id=org_id))
+
+
+def _source_sharing_requires_enterprise() -> ApiError:
+    return ApiError(
+        "enrichment.source_sharing_requires_enterprise",
+        status.HTTP_403_FORBIDDEN,
+        messages={
+            "pt": "Compartilhar uma fonte entre organizações exige a edição Enterprise. Na Community cada fonte atende uma organização.",
+            "en": "Sharing a source across organizations requires the Enterprise edition. In Community each source serves one organization.",
+            "es": "Compartir una fuente entre organizaciones requiere la edición Enterprise. En Community cada fuente atiende a una organización.",
+        },
+    )
+
+
+def _apply_share_with_descendants(
+    db: Session, row: Any, user: models.AppUser, flag: Optional[bool]
+) -> None:
+    """Liga/desliga "toda a subárvore" e materializa as filhas de HOJE.
+
+    As de amanhã entram pelo gancho de criação de org
+    (``inheritance.on_org_attached``). Cada filha passa pelo mesmo
+    ``require_subtree_access`` da lista manual: o flag não é atalho para fora
+    do alcance de quem edita.
+    """
+    if flag is None:
+        return
+    if flag and not edition.feature_enabled("multi_tenant"):
+        raise _source_sharing_requires_enterprise()
+    row.share_with_descendants = bool(flag)
+    if not flag:
+        return
+    descendants = inheritance.descendant_org_ids(db, int(row.organization_id))
+    for org_id in descendants:
+        tenant.require_subtree_access(user, org_id, db)
+    try:
+        inheritance.share_source_with(db, row, descendants, strict=True)
+    except inheritance.SourceNameClash as exc:
+        raise _bad_request("enrichment.source_name_clash", str(exc)) from exc
 
 
 def _validate_source_config(enricher: str, cfg: Dict[str, Any]) -> Dict[str, Any]:
@@ -576,6 +626,7 @@ def create_source(
     db.add(row)
     db.flush()  # precisa do id antes de gravar a lista de orgs
     _sync_source_orgs(db, row, user, payload.shared_organization_ids)
+    _apply_share_with_descendants(db, row, user, payload.share_with_descendants or None)
     db.commit()
     db.refresh(row)
     return _source_read(db, row)
@@ -599,6 +650,13 @@ def update_source(
     if payload.enabled is not None:
         row.enabled = payload.enabled
     _sync_source_orgs(db, row, user, payload.shared_organization_ids)
+    flag = payload.share_with_descendants
+    if flag is None and payload.shared_organization_ids is not None and row.share_with_descendants:
+        # A lista manual acabou de ser REESCRITA; com "toda a subárvore" ligado,
+        # as filhas precisam voltar, senão editar a lista desligaria o flag na
+        # prática sem mudar o que a tela mostra.
+        flag = True
+    _apply_share_with_descendants(db, row, user, flag)
     db.commit()
     db.refresh(row)
     return _source_read(db, row)
@@ -1190,6 +1248,8 @@ def _policy_read(db: Session, row: models.EnrichmentPolicy) -> PolicyRead:
         current_version_id=row.current_version_id,
         rule_count=rule_count,
         is_template=bool(getattr(row, "is_template", False)),
+        template_sync=bool(getattr(row, "template_sync", False)),
+        template_enable_children=bool(getattr(row, "template_enable_children", False)),
         derived_from_version_id=derived_from,
         is_active=bool(row.enabled) and _active_policy_id(db, int(row.organization_id)) == str(row.id),
     )
@@ -1364,6 +1424,7 @@ def commit_policy_version(
     row.current_version_id = version.id
     db.commit()
     db.refresh(version)
+    synced, not_synced = _sync_template_after_change(db, row, user)
     return PolicyVersionRead(
         id=str(version.id),
         version_number=int(version.version_number),
@@ -1372,59 +1433,51 @@ def commit_policy_version(
         created_at=version.created_at.isoformat() if version.created_at else None,
         is_current=True,
         summary=describe_policy(compiled),
+        template_sync_applied=synced,
+        template_sync_skipped=not_synced,
     )
 
 
-def _missing_sources(db: Session, org_id: int, compiled) -> List[str]:
-    """Fontes citadas pela política que a org NÃO enxerga.
+def _sync_template_after_change(
+    db: Session, row: models.EnrichmentPolicy, user: models.AppUser
+) -> Tuple[List[int], List[int]]:
+    """Reaplica um modelo SINCRONIZADO depois que a versão vigente mudou.
 
-    Enxergar = ser a dona OU estar na lista de compartilhamento — o mesmo join
-    que ``runtime._resolve_source`` faz. Fonte desabilitada conta como
-    existente: desligar temporariamente não pode impedir de publicar.
+    Roda DEPOIS do commit da matriz: a versão da matriz é o que o operador
+    pediu e fica gravada mesmo que alguma filha falhe. Conflito de concorrência
+    numa filha (outra política ligada no mesmo instante) desfaz só a
+    propagação, e a próxima publicação — ou o "aplicar" manual — tenta de novo.
     """
-    referenced = {r.source for r in compiled.rules if getattr(r, "source", None)}
-    if not referenced:
-        return []
-    names = list(referenced)
-    own = {
-        str(s.name)
-        for s in db.query(models.EnrichmentSource)
-        .filter(
-            models.EnrichmentSource.organization_id == org_id,
-            models.EnrichmentSource.name.in_(names),
+    try:
+        applied, skipped = inheritance.sync_template(
+            db, row, author_user_id=app_auth.persistable_user_id(user)
         )
-        .all()
-    }
-    shared = {
-        str(s.name)
-        for s in db.query(models.EnrichmentSource)
-        .join(
-            models.EnrichmentSourceOrg,
-            models.EnrichmentSourceOrg.source_id == models.EnrichmentSource.id,
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        logger.warning(
+            "enrichment: sincronização do modelo %s conflitou com outra escrita; "
+            "nada foi propagado",
+            row.name,
+            extra={"event": "enrich.template_sync_conflict"},
         )
-        .filter(
-            models.EnrichmentSourceOrg.organization_id == org_id,
-            models.EnrichmentSource.name.in_(names),
+        return [], []
+    if applied or skipped:
+        logger.info(
+            "enrichment: modelo %s sincronizado — %d aplicada(s), %d pulada(s)",
+            row.name, len(applied), len(skipped),
+            extra={"event": "enrich.template_synced"},
         )
-        .all()
-    }
-    return sorted(referenced - own - shared)
+    return (
+        [a.organization_id for a in applied],
+        [s_.organization_id for s_ in skipped],
+    )
 
 
-def _missing_tables(db: Session, org_id: int, compiled) -> set:
-    referenced = {r.table for r in compiled.rules if r.table}
-    if not referenced:
-        return set()
-    existing = {
-        str(t.name)
-        for t in db.query(models.EnrichmentTable)
-        .filter(
-            models.EnrichmentTable.organization_id == org_id,
-            models.EnrichmentTable.name.in_(list(referenced)),
-        )
-        .all()
-    }
-    return referenced - existing
+# Pré-requisitos por NOME: moram em ``services.enrichment_inheritance`` porque
+# o gancho de criação de org (fora de requisição) usa a mesma régua.
+_missing_sources = inheritance.missing_sources
+_missing_tables = inheritance.missing_tables
 
 
 @router.get("/policies/{policy_id}/versions", response_model=List[PolicyVersionRead])
@@ -1543,6 +1596,10 @@ def rollback_policy(
         )
     row.current_version_id = target.id
     db.commit()
+    # Rollback do MODELO sincronizado volta as filhas junto: a versão antiga
+    # vira uma versão NOVA derivada em cada uma (o histórico delas é
+    # append-only, como o da matriz).
+    _sync_template_after_change(db, row, user)
     db.refresh(row)
     return _policy_read(db, row)
 
@@ -2549,7 +2606,7 @@ class TemplateApplyTarget(BaseModel):
 
     organization_id: int
     organization_name: Optional[str] = None
-    #: "ready" | "blocked" | "overridden" | "up_to_date"
+    #: "ready" | "applied" | "blocked" | "overridden" | "up_to_date"
     status: str
     #: Política da filha que receberia (ou já recebeu) o modelo.
     policy_id: Optional[str] = None
@@ -2561,6 +2618,9 @@ class TemplateApplyTarget(BaseModel):
     tables_without_version: List[str] = Field(default_factory=list)
     #: Nome da política PRÓPRIA que vence o modelo, quando ``overridden``.
     overriding_policy: Optional[str] = None
+    #: A política herdada da filha está ligada? ``None`` = a filha ainda não
+    #: tem política herdada.
+    enabled: Optional[bool] = None
 
 
 class TemplateApplyPreflight(BaseModel):
@@ -2574,6 +2634,10 @@ class TemplateApplyRequest(BaseModel):
 
     organization_ids: List[int] = Field(default_factory=list)
     commit_message: str = Field("aplicado do modelo da matriz", max_length=500)
+    #: Ligar a política herdada em cada filha aplicada. ``False`` preserva o
+    #: comportamento original (a cópia nasce desligada; quem opera o cliente
+    #: liga). Nunca liga por cima de política própria ligada.
+    enable: bool = False
 
 
 class TemplateApplyResult(BaseModel):
@@ -2606,119 +2670,28 @@ def _require_multi_tenant() -> None:
         )
 
 
-def _child_org_ids(db: Session, root_org_id: int) -> List[int]:
-    """Filhas DIRETAS e indiretas da matriz, sem ela própria.
-
-    Caminha ``parent_organization_id`` em vez de ler ``org_closure``: a closure
-    é materializada pelo EE e pode estar vazia numa base que acabou de ganhar a
-    licença, e o modelo precisa funcionar no primeiro uso.
-    """
-    try:
-        rows = db.query(
-            models.Organization.id, models.Organization.parent_organization_id
-        ).all()
-    except Exception:  # pragma: no cover — defensivo
-        return []
-    children: Dict[Optional[int], List[int]] = {}
-    for org_id, parent_id in rows:
-        children.setdefault(parent_id, []).append(int(org_id))
-    out: List[int] = []
-    frontier = [int(root_org_id)]
-    seen = {int(root_org_id)}
-    while frontier:
-        nxt: List[int] = []
-        for org_id in frontier:
-            for child in children.get(org_id, ()):
-                if child in seen:
-                    continue
-                seen.add(child)
-                out.append(child)
-                nxt.append(child)
-        frontier = nxt
-    return sorted(out)
-
-
-def _inherited_policy(
-    db: Session, org_id: int, template_name: str
-) -> Optional[models.EnrichmentPolicy]:
-    """A política da filha que carrega o modelo — casada por NOME.
-
-    Nome, e não um id de origem, porque é o nome que o operador reconhece e o
-    que a filha vê na lista. Guardar um vínculo por id obrigaria a criar a
-    política antes de saber se ela vai existir, e deixaria órfã toda cópia feita
-    à mão antes de o modelo existir.
-    """
-    return (
-        db.query(models.EnrichmentPolicy)
-        .filter(
-            models.EnrichmentPolicy.organization_id == org_id,
-            models.EnrichmentPolicy.name == template_name,
-        )
-        .first()
-    )
+_child_org_ids = inheritance.descendant_org_ids
+_inherited_policy = inheritance.inherited_policy
 
 
 def _template_target(
     db: Session, template: models.EnrichmentPolicy, compiled, version_id: str, org_id: int
 ) -> TemplateApplyTarget:
     """Estado de UMA filha diante do modelo."""
-    org = db.get(models.Organization, org_id)
-    name = str(getattr(org, "name", "") or "") or None
-
-    herdada = _inherited_policy(db, org_id, str(template.name))
-
-    # Política PRÓPRIA habilitada vence o modelo. É a regra de precedência da
-    # proposta, e ela é observável: sem dizer "sobrescrita", aplicar o modelo
-    # aqui pareceria ter funcionado e nada mudaria no runtime, porque vale uma
-    # política por organização — a mais antiga habilitada.
-    propria = (
-        db.query(models.EnrichmentPolicy)
-        .filter(
-            models.EnrichmentPolicy.organization_id == org_id,
-            models.EnrichmentPolicy.enabled.is_(True),
-        )
-        .order_by(models.EnrichmentPolicy.created_at.asc())
-        .first()
-    )
-    if propria is not None and (herdada is None or propria.id != herdada.id):
-        return TemplateApplyTarget(
-            organization_id=org_id,
-            organization_name=name,
-            status="overridden",
-            policy_id=(herdada.id if herdada else None),
-            policy_name=(herdada.name if herdada else None),
-            overriding_policy=str(propria.name),
-        )
-
-    pre = _duplicate_preflight(db, compiled, org_id, str(template.name))
-    # ``name_conflict`` aqui NÃO bloqueia: a política homônima na filha é
-    # justamente a herdada, que vamos versionar em vez de recriar.
-    if pre.missing_tables or pre.missing_sources:
-        return TemplateApplyTarget(
-            organization_id=org_id,
-            organization_name=name,
-            status="blocked",
-            policy_id=(herdada.id if herdada else None),
-            policy_name=(herdada.name if herdada else None),
-            missing_tables=pre.missing_tables,
-            missing_sources=pre.missing_sources,
-            tables_without_version=pre.tables_without_version,
-        )
-
-    ja_aplicada: Optional[str] = None
-    if herdada is not None and herdada.current_version_id:
-        atual = db.get(models.EnrichmentPolicyVersion, herdada.current_version_id)
-        if atual is not None and atual.derived_from_version_id == version_id:
-            ja_aplicada = version_id
-
     return TemplateApplyTarget(
-        organization_id=org_id,
-        organization_name=name,
-        status="up_to_date" if ja_aplicada else "ready",
-        policy_id=(herdada.id if herdada else None),
-        policy_name=(herdada.name if herdada else None),
-        applied_version_id=ja_aplicada,
-        tables_without_version=pre.tables_without_version,
+        **asdict(inheritance.template_target(db, template, compiled, version_id, org_id))
+    )
+
+
+def _template_apply_conflict() -> ApiError:
+    return ApiError(
+        "enrichment.template_apply_conflict",
+        status.HTTP_409_CONFLICT,
+        messages={
+            "pt": "Outra alteração ligou uma política numa das organizações ao mesmo tempo. Nada foi aplicado; confira a verificação prévia e tente de novo.",
+            "en": "Another change enabled a policy in one of the organizations at the same time. Nothing was applied; review the preflight and try again.",
+            "es": "Otro cambio activó una política en una de las organizaciones al mismo tiempo. No se aplicó nada; revisa la verificación previa e inténtalo de nuevo.",
+        },
     )
 
 
@@ -2726,6 +2699,13 @@ def _template_target(
 def set_policy_template(
     policy_id: str,
     is_template: bool = Query(...),
+    sync: Optional[bool] = Query(
+        None,
+        description="Manter as filhas sincronizadas: publicar reaplica, filha nova recebe.",
+    ),
+    enable_children: Optional[bool] = Query(
+        None, description="Na sincronização, ligar a política herdada da filha."
+    ),
     user: models.AppUser = Depends(app_auth.require_admin_user),
     db: Session = Depends(_db),
 ) -> PolicyRead:
@@ -2738,6 +2718,10 @@ def set_policy_template(
 
     Exige que a organização tenha filhas: marcar como modelo uma política de
     organização folha produziria um botão que nunca tem a quem aplicar.
+
+    ``sync=true`` torna o modelo SINCRONIZADO e já aplica nas filhas agora;
+    ``enable_children`` decide se a herdada é ligada. Desmarcar o modelo
+    desliga os dois — sem apagar nada que as filhas já receberam.
     """
     _require_multi_tenant()
     row = _assert_visible(db.get(models.EnrichmentPolicy, policy_id), user, "policy")
@@ -2749,7 +2733,17 @@ def set_policy_template(
         )
 
     row.is_template = bool(is_template)
+    if not row.is_template:
+        row.template_sync = False
+        row.template_enable_children = False
+    else:
+        if sync is not None:
+            row.template_sync = bool(sync)
+        if enable_children is not None:
+            row.template_enable_children = bool(enable_children)
     db.commit()
+    if row.is_template and row.template_sync:
+        _sync_template_after_change(db, row, user)
     db.refresh(row)
     return _policy_read(db, row)
 
@@ -2806,7 +2800,9 @@ def apply_template(
     A cópia criada nasce DESABILITADA, como em ``duplicate``. A já existente
     mantém o estado que tinha: uma filha que já rodava o modelo continua
     rodando, com a versão nova; uma que estava desligada segue desligada, e
-    quem opera aquele cliente decide quando ligar.
+    quem opera aquele cliente decide quando ligar. ``enable=true`` inverte isso
+    para o MSP que quer UMA política para todos — e ainda assim nunca liga por
+    cima de política própria ligada (a filha fica ``overridden``).
     """
     _require_multi_tenant()
     row = _assert_visible(db.get(models.EnrichmentPolicy, policy_id), user, "policy")
@@ -2829,56 +2825,31 @@ def apply_template(
             f"organização(ões) fora da subárvore desta matriz: {fora}",
         )
 
-    applied: List[TemplateApplyTarget] = []
-    skipped: List[TemplateApplyTarget] = []
-    rules_json = json.dumps(doc, sort_keys=True, separators=(",", ":"))
-
-    for org_id in sorted(set(pedidas)):
-        alvo = _template_target(db, row, compiled, version_id, org_id)
-        if alvo.status in ("blocked", "overridden", "up_to_date"):
-            skipped.append(alvo)
-            continue
-
-        herdada = _inherited_policy(db, org_id, str(row.name))
-        if herdada is None:
-            herdada = models.EnrichmentPolicy(
-                organization_id=org_id,
-                name=str(row.name),
-                description=row.description,
-                enabled=False,
-            )
-            db.add(herdada)
-            db.flush()
-
-        ultima = (
-            db.query(models.EnrichmentPolicyVersion)
-            .filter(models.EnrichmentPolicyVersion.policy_id == herdada.id)
-            .order_by(models.EnrichmentPolicyVersion.version_number.desc())
-            .first()
-        )
-        versao = models.EnrichmentPolicyVersion(
-            policy_id=herdada.id,
-            version_number=(int(ultima.version_number) + 1) if ultima else 1,
-            rules=rules_json,
-            author_user_id=app_auth.persistable_user_id(user),
-            commit_message=payload.commit_message,
-            derived_from_version_id=version_id,
-        )
-        db.add(versao)
-        db.flush()
-        herdada.current_version_id = versao.id
-
-        alvo.policy_id = str(herdada.id)
-        alvo.policy_name = str(herdada.name)
-        alvo.applied_version_id = version_id
-        alvo.status = "applied"
-        applied.append(alvo)
-
-    db.commit()
+    applied, skipped = inheritance.apply_template(
+        db,
+        row,
+        doc,
+        compiled,
+        version_id,
+        pedidas,
+        author_user_id=app_auth.persistable_user_id(user),
+        commit_message=payload.commit_message,
+        enable=payload.enable,
+    )
+    try:
+        db.commit()
+    except IntegrityError:
+        # Outra requisição ligou uma política numa das filhas entre o preflight
+        # recalculado e o commit. O índice único recusa; nada é aplicado.
+        db.rollback()
+        raise _template_apply_conflict()
     logger.info(
         "enrichment: modelo %s aplicado a %d organização(ões), %d pulada(s)",
         row.name,
         len(applied),
         len(skipped),
     )
-    return TemplateApplyResult(applied=applied, skipped=skipped)
+    return TemplateApplyResult(
+        applied=[TemplateApplyTarget(**asdict(a)) for a in applied],
+        skipped=[TemplateApplyTarget(**asdict(x)) for x in skipped],
+    )

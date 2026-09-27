@@ -196,6 +196,10 @@ export interface EnrichmentPolicy {
   is_active?: boolean
   /** Modelo da matriz (Enterprise). Não muda nada no runtime por si só. */
   is_template?: boolean
+  /** Modelo sincronizado: publicar reaplica nas filhas; filha nova recebe. */
+  template_sync?: boolean
+  /** Na sincronização, liga a política herdada de cada filha. */
+  template_enable_children?: boolean
   /** Versão do modelo que originou a versão vigente, quando herdada. */
   derived_from_version_id?: string | null
 }

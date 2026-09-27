@@ -126,3 +126,42 @@ def test_migracao_em_base_antiga_desliga_a_sombreada_e_cria_o_indice(pg_engine: 
 
     with pg_engine.begin() as conn:  # idempotente
         assert _ensure_single_active_enrichment_policy(conn) == 0
+
+
+def test_migracao_de_boot_adiciona_as_flags_de_heranca_em_base_existente(
+    pg_engine: Engine, monkeypatch
+) -> None:
+    """``create_all`` num banco novo já cria as colunas; o ALTER só dispara numa
+    base EXISTENTE — o cenário que o SQLite não pega (BOOLEAN com ``DEFAULT 0``
+    derruba o boot no Postgres)."""
+    from backend.app.db import database as db_module
+
+    cols = {
+        "enrichment_policies": ("template_sync", "template_enable_children"),
+        "enrichment_sources": ("share_with_descendants",),
+    }
+    with pg_engine.begin() as conn:
+        _seed(conn)
+        for table, names in cols.items():
+            for name in names:
+                conn.execute(text(f"ALTER TABLE {table} DROP COLUMN {name}"))
+
+    monkeypatch.setattr(db_module, "engine", pg_engine)
+    db_module._run_lightweight_migrations()
+
+    with pg_engine.begin() as conn:
+        for table, names in cols.items():
+            for name in names:
+                row = conn.execute(
+                    text(
+                        "SELECT data_type, is_nullable, column_default "
+                        "FROM information_schema.columns "
+                        "WHERE table_name = :t AND column_name = :c"
+                    ),
+                    {"t": table, "c": name},
+                ).one()
+                assert row[0] == "boolean" and row[1] == "NO" and "false" in str(row[2])
+        # Linhas antigas ganham o default.
+        assert conn.execute(
+            text("SELECT count(*) FROM enrichment_policies WHERE template_sync")
+        ).scalar() == 0

@@ -2301,6 +2301,15 @@ class EnrichmentSource(Base):
     #: Ciphertext, JAMAIS o segredo em claro; escrito só pelo servidor.
     secret_ref = Column(String, nullable=True)
     enabled = Column(Boolean, default=True, nullable=False)
+    #: Atende TODA a subárvore da dona — as filhas de hoje e as que entrarem
+    #: depois (Enterprise). Materializado em :class:`EnrichmentSourceOrg`, como
+    #: a lista manual: o runtime segue resolvendo pelo mesmo join, e a filha
+    #: nova ganha a linha no gancho de criação
+    #: (``services.enrichment_inheritance.on_org_attached``). Sem isto, cada
+    #: cliente novo do MSP ficava sem a credencial até alguém editar a fonte.
+    share_with_descendants = Column(
+        Boolean, nullable=False, default=False, server_default=_sa_text("false")
+    )
     #: Resultado da última sondagem (``POST /sources/{id}/test``).
     #:
     #: Persistir isto é o que transforma "testar" de gesto efêmero em ESTADO: uma
@@ -2413,6 +2422,19 @@ class EnrichmentPolicy(Base):
     #: assim que a herança coube sem tocar o hot path — e é o que impede que um
     #: CMDB de um cliente sirva de contexto para outro.
     is_template = Column(
+        Boolean, nullable=False, default=False, server_default=_sa_text("false")
+    )
+    #: Modelo SINCRONIZADO: publicar uma versão do modelo reaplica nas filhas, e
+    #: a filha que entra na subárvore recebe o modelo na hora. Continua sendo
+    #: materialização — cada filha ganha versão própria —, só que sem depender
+    #: de alguém lembrar de clicar "aplicar".
+    template_sync = Column(
+        Boolean, nullable=False, default=False, server_default=_sa_text("false")
+    )
+    #: Na sincronização, LIGAR a política herdada da filha (a cópia nasce
+    #: desligada por padrão). Nunca por cima de política própria ligada: essa
+    #: filha é ``overridden`` e fica de fora.
+    template_enable_children = Column(
         Boolean, nullable=False, default=False, server_default=_sa_text("false")
     )
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
