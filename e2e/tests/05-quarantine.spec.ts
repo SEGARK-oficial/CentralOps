@@ -99,7 +99,7 @@ test.describe("Quarentena — ações como operator (F4-S3)", () => {
     await reprocessButton.click();
 
     // ConfirmDialog deve aparecer
-    await expect(page.getByRole("dialog", { name: /reprocessar evento/i })).toBeVisible({ timeout: 3_000 });
+    await expect(page.getByRole("alertdialog", { name: /reprocessar evento/i })).toBeVisible({ timeout: 3_000 });
 
     // Confirmar
     await page.getByRole("button", { name: /^reprocessar$/i }).last().click();
@@ -145,7 +145,7 @@ test.describe("Quarentena — ações como operator (F4-S3)", () => {
 
     await discardButton.click();
 
-    await expect(page.getByRole("dialog", { name: /descartar entrada/i })).toBeVisible({ timeout: 3_000 });
+    await expect(page.getByRole("alertdialog", { name: /descartar entrada/i })).toBeVisible({ timeout: 3_000 });
 
     await page.getByRole("button", { name: /^descartar$/i }).last().click();
 
