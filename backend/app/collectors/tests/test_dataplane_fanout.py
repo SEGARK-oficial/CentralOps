@@ -71,6 +71,77 @@ def test_fanout_kafka_produces_all_dests_incl_wazuh_default(monkeypatch):
     dd.apply_async.assert_not_called()
 
 
+def test_fanout_kafka_oversize_event_does_not_raise_into_the_collection_cycle(monkeypatch):
+    """Incidente out/2026: UM evento de 1,16 MB contra o teto de 1 MiB fazia o
+    ``produce_delivery`` levantar ``MessageSizeTooLargeError`` de dentro do
+    ``_enqueue_routed``. O ciclo revertia o cursor e soltava as claims, e o ciclo
+    seguinte buscava o mesmo evento: coletor parado para sempre.
+
+    Aqui o ``produce_delivery`` é o REAL (só o aiokafka é falso): o fan-out
+    termina sem exceção, o evento gigante vai à DLQ do destino e o resto do
+    sub-lote chega ao tópico."""
+    import aiokafka
+
+    from backend.app.collectors import delivery
+    from backend.app.collectors.dataplane import kafka_transport as kt
+
+    from aiokafka.errors import MessageSizeTooLargeError
+
+    sent: list = []
+
+    class _Producer:
+        """Imita o check de CLIENTE do aiokafka (``_serialize``): mede key+value
+        contra ``max_request_size`` e levanta — é esse o erro do incidente."""
+
+        def __init__(self, **kwargs):
+            self._max = kwargs["max_request_size"]
+
+        async def start(self):
+            return None
+
+        async def send_and_wait(self, topic, value=None, key=None):
+            if len(key) + len(value) > self._max:
+                raise MessageSizeTooLargeError(
+                    "The message is %d bytes when serialized which is larger than "
+                    "the maximum request size you have configured with the "
+                    "max_request_size configuration" % (len(key) + len(value))
+                )
+            sent.append(value)
+
+        async def stop(self):
+            return None
+
+    dlq: list = []
+    monkeypatch.setattr(
+        delivery,
+        "persist_batch_dlq",
+        lambda batch, **kw: dlq.append(([e["_centralops"]["event_id"] for e in batch], kw)) or True,
+    )
+    monkeypatch.setattr(aiokafka, "AIOKafkaProducer", _Producer)
+    monkeypatch.setattr(settings, "EVENT_DATAPLANE", "kafka")
+    monkeypatch.setattr(settings, "KAFKA_MAX_REQUEST_BYTES", 4000)
+    monkeypatch.setattr(kt, "_producer_thread", kt._ProducerThread())
+
+    def _e(eid, size):
+        return {"_centralops": {"event_id": eid, "organization_id": 3}, "d": "q" * size}
+
+    _common_patches(
+        monkeypatch, {"dest-1": [_e("a", 50), _e("gigante", 9000), _e("b", 50)]}
+    )
+
+    pipeline._enqueue_routed([_e("a", 50)], [_ROUTE])  # não levanta
+
+    delivered = [
+        e["_centralops"]["event_id"] for v in sent for e in dataplane.decode_delivery(v)["batch"]
+    ]
+    assert sorted(delivered) == ["a", "b"]
+    assert [ids for ids, _kw in dlq] == [["gigante"]]
+    assert dlq[0][1]["error_kind"] == "size"
+    assert dlq[0][1]["destination_id"] == "dest-1"
+
+    kt._producer_thread.shutdown()
+
+
 def test_fanout_celery_routes_all_dests_via_dispatch_to_destination(monkeypatch):
     """Em celery-mode, TODOS os destinos — inclusive o ``wazuh-default`` — vão
     pela MESMA via ``dispatch_to_destination`` shardeada.
