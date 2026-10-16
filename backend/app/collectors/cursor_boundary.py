@@ -159,6 +159,11 @@ class BoundaryKeys:
         para cursor = máximo visto (fronteira de 1 instante), para máximo truncado
         em segundos (o segundo inteiro) e para cursor com sobreposição proposital
         (``max − 2s``: os 2 segundos inteiros).
+
+        Ciclo que não viu NADA na fronteira e não moveu a janela (resposta vazia
+        do vendor, falha transitória de indexação) mantém a memória carregada:
+        apagá-la faria o evento da fronteira sair de novo assim que o vendor o
+        devolvesse.
         """
         bound = _instant(next_window_start)
         if bound is None:
@@ -181,5 +186,22 @@ class BoundaryKeys:
             chosen.add(key)
             keys.append(key)
         if not keys:
-            return {}
+            return self.carry() if next_window_start == self._window_start else {}
         return {CURSOR_KEY: {"at": next_window_start, "keys": sorted(keys)}}
+
+
+def is_later(candidate: When, current: When) -> bool:
+    """``candidate`` é um instante estritamente posterior a ``current``?
+
+    Para o "maior timestamp visto" que vira a próxima janela. Compara por
+    INSTANTE: em string, ``"…39Z" > "…39.5Z"`` (``Z`` vem depois de ``.``) e o
+    cursor ficaria no instante MAIS VELHO; ``+0000`` (Wazuh) contra ``Z`` (o
+    lookback default) também desalinha. Valor que não é data não avança o cursor
+    — em string, ``"abc" > "2026"`` avançaria. ``current`` ilegível perde para
+    qualquer ``candidate`` legível.
+    """
+    cand = _instant(candidate)
+    if cand is None:
+        return False
+    cur = _instant(current)
+    return cur is None or cand > cur

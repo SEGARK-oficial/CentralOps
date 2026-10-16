@@ -338,3 +338,79 @@ class TestIdentidadeDoEvento:
         assert SophosSiemEventsCollector.watermark_at(
             {"backfill_from_ts": "2020-01-01T00:00:00Z"}
         ) is None
+
+
+# ── Janela parada no último evento (incidente out/2026) ───────────────────────
+#
+# ``from_date`` é em segundos inteiros: um evento criado às 17:06:39.978 fazia o
+# pedido seguinte começar em 17:06:39 e trazer o MESMO evento, ciclo após ciclo.
+
+_STUCK = {"id": "evt-stuck", "created_at": "2026-10-15T17:06:39.978Z"}
+_T0 = "2026-10-15T17:00:00Z"
+#: 2026-10-15T17:06:39Z em epoch (segundos) — o ``from_date`` enviado.
+_STUCK_EPOCH = 1792083999
+
+
+async def _siem_cycle(cursor: Dict[str, Any] | None, *items: Dict[str, Any]):
+    """Um ciclo contra uma página com ``items``; devolve (eventos, cursor, params)."""
+    with aioresponses() as mocked:
+        mocked.get(_URL_RE, payload={"items": list(items), "has_more": False})
+        async with aiohttp.ClientSession() as session:
+            ctx = _ctx(session, cursor=cursor)
+            events = await _drain(SophosSiemEventsCollector(ctx))
+        calls = [c for calls in mocked.requests.values() for c in calls]
+        params = dict(calls[0].kwargs.get("params") or {})
+    return events, ctx.cursor, params
+
+
+class TestFronteiraDaJanela:
+    @pytest.mark.asyncio
+    async def test_ultimo_evento_nao_volta_a_cada_ciclo(self) -> None:
+        emitted_1, cursor_1, _ = await _siem_cycle({"from_ts": _T0}, _STUCK)
+        assert [e["id"] for e in emitted_1] == ["evt-stuck"]
+        assert cursor_1["from_ts"] == "2026-10-15T17:06:39Z"
+
+        emitted_2, cursor_2, params_2 = await _siem_cycle(cursor_1, _STUCK)
+        # A janela recomeça no mesmo segundo (nada se perde) …
+        assert params_2["from_date"] == _STUCK_EPOCH
+        # … mas o evento já emitido NÃO sai de novo.
+        assert emitted_2 == []
+
+        emitted_3, cursor_3, _ = await _siem_cycle(cursor_2, _STUCK)
+        assert emitted_3 == []
+        assert cursor_3 == cursor_2
+
+    @pytest.mark.asyncio
+    async def test_evento_novo_no_mesmo_segundo_sai_e_o_antigo_e_pulado(self) -> None:
+        _, cursor_1, _ = await _siem_cycle({"from_ts": _T0}, _STUCK)
+
+        late = {"id": "evt-late", "created_at": "2026-10-15T17:06:39.990Z"}
+        emitted, cursor_2, _ = await _siem_cycle(cursor_1, _STUCK, late)
+
+        assert [e["id"] for e in emitted] == ["evt-late"]
+        assert cursor_2["boundary"]["keys"] == ["evt-late", "evt-stuck"]
+
+    @pytest.mark.asyncio
+    async def test_cursor_resumivel_leva_a_memoria_da_fronteira(self, monkeypatch) -> None:
+        from ..vendors import sophos_siem as sm
+
+        monkeypatch.setattr(sm, "_MAX_PAGES_PER_CYCLE", 1)
+        boundary = {"at": "2026-10-15T17:06:39Z", "keys": ["evt-stuck"]}
+        with aioresponses() as mocked:
+            mocked.get(
+                _URL_RE,
+                payload={"items": [_STUCK], "has_more": True, "next_cursor": "c2"},
+            )
+            async with aiohttp.ClientSession() as session:
+                ctx = _ctx(
+                    session,
+                    cursor={"from_ts": "2026-10-15T17:06:39Z", "boundary": boundary},
+                )
+                events = await _drain(SophosSiemEventsCollector(ctx))
+
+        assert events == []
+        assert ctx.cursor == {
+            "from_ts": "2026-10-15T17:06:39Z",
+            "page_cursor": "c2",
+            "boundary": boundary,
+        }

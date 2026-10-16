@@ -144,6 +144,35 @@ def test_cap_keeps_the_most_recent_and_never_grows_unbounded(monkeypatch):
     assert len(b._recent) <= 2 * cb.MAX_KEYS
 
 
+def test_empty_cycle_on_the_same_window_keeps_the_memory():
+    """Resposta vazia do vendor (falha transitória de indexação) com a janela
+    parada: apagar a memória faria o evento da fronteira sair de novo assim que o
+    vendor voltasse a devolvê-lo."""
+    state = {"boundary": {"at": "2026-10-15T17:06:39Z", "keys": ["k"]}}
+    b = BoundaryKeys.load(state, window_start="2026-10-15T17:06:39Z")
+    assert b.dump("2026-10-15T17:06:39Z") == state
+
+
+def test_empty_cycle_never_carries_memory_into_a_moved_window():
+    state = {"boundary": {"at": "2026-10-15T17:06:39Z", "keys": ["k"]}}
+    b = BoundaryKeys.load(state, window_start="2026-10-15T17:06:39Z")
+    assert b.dump("2026-10-15T17:10:00Z") == {}
+
+
+def test_is_later_compares_instants_across_formats():
+    assert cb.is_later("2026-10-15T17:06:39.5Z", "2026-10-15T17:06:39Z") is True
+    assert cb.is_later("2026-10-15T17:06:39Z", "2026-10-15T17:06:39.5Z") is False
+    # Wazuh grava +0000; o lookback default é Z.
+    assert cb.is_later("2026-10-15T17:06:39.100+0000", "2026-10-15T17:06:39Z") is True
+    # 7 casas (Graph) contra 3.
+    assert cb.is_later("2026-10-15T17:06:39.1234567Z", "2026-10-15T17:06:39.123Z") is True
+    # Mesmo instante não é "posterior".
+    assert cb.is_later("2026-10-15T14:06:39-03:00", "2026-10-15T17:06:39Z") is False
+    # Lixo não avança o cursor; cursor ilegível perde para data legível.
+    assert cb.is_later("abc", "2026-10-15T17:06:39Z") is False
+    assert cb.is_later("2026-10-15T17:06:39Z", "abc") is True
+
+
 def test_duplicate_key_in_the_same_cycle_is_stored_once():
     """Paginação por offset pode devolver o mesmo item em duas páginas."""
     b = BoundaryKeys.load(None, window_start="2026-10-15T17:00:00Z")

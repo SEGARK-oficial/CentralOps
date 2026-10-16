@@ -115,7 +115,12 @@ async def test_collects_sessions_and_normalizes_ocsf() -> None:
     assert collector.domain == "vbr.local"
     # Watermark = maior creationTime, recuado pela sobreposição (filtro EXCLUSIVO);
     # offset zerado porque a janela foi drenada.
-    assert ctx.cursor == {"created_after": "2026-07-18T02:09:58Z", "skip": 0}
+    assert ctx.cursor == {
+        "created_after": "2026-07-18T02:09:58Z",
+        "skip": 0,
+        # s-2 (02:10:00) está dentro dos 2s de sobreposição; s-1 (02:00) não.
+        "boundary": {"at": "2026-07-18T02:09:58Z", "keys": ["s-2"]},
+    }
 
     rules = E.compile_rules(load_default_rules("veeam", "veeam.session"))
     norm = E.apply_compiled(rules, collected[0]).output["normalized"]
@@ -160,7 +165,12 @@ async def test_paginates_via_skip_and_stops_on_short_page(monkeypatch) -> None:
 
     assert [e["id"] for e in collected] == ["s-1", "s-2", "s-3"]
     assert skips == ["0", "2"]  # o offset avançou entre as páginas
-    assert ctx.cursor == {"created_after": "2026-07-18T02:01:58Z", "skip": 0}
+    assert ctx.cursor == {
+        "created_after": "2026-07-18T02:01:58Z",
+        "skip": 0,
+        # só s-3 (02:02:00) tem creationTime >= 02:01:58; s-2 (02:01:00) não.
+        "boundary": {"at": "2026-07-18T02:01:58Z", "keys": ["s-3"]},
+    }
 
 
 @pytest.mark.asyncio
@@ -293,3 +303,65 @@ def test_watermark_compares_datetime_not_string() -> None:
 def test_default_mapping_registered() -> None:
     rules = load_default_rules("veeam", "veeam.session")
     assert any(r["target"] == "normalized.metadata.uid" for r in rules["rules"])
+
+
+# ── Fronteira do cursor: a sobreposição de 2s não re-emite ────────────────────
+
+_WIN0 = {"created_after": "2026-07-18T00:00:00Z", "skip": 0}
+
+
+async def _cycle(cursor, items):
+    """1 ciclo: devolve (eventos, cursor final, createdAfterFilter enviado)."""
+    with aioresponses() as m:
+        m.post(_TOKEN_RE, payload=dict(_TOKEN))
+        m.get(_SESSIONS_RE, payload=_page(items, total=len(items), skip=0, limit=200))
+        async with aiohttp.ClientSession() as session:
+            ctx = _ctx(session, cursor=cursor)
+            with patch.object(VeeamSessionsCollector, "_load_conn", return_value=dict(_CONN)):
+                collected = [ev async for ev in VeeamSessionsCollector(ctx).collect()]
+        sent = [url.query.get("createdAfterFilter") for (meth, url) in m.requests if meth == "GET"]
+    return collected, ctx.cursor, sent[0]
+
+
+@pytest.mark.asyncio
+async def test_quiet_stream_does_not_reemit_overlap_session() -> None:
+    """Stream quieta: a janela fica em max-2s e devolve a sessão todo ciclo. Do 2º
+    ciclo em diante nada sai, e a janela não muda."""
+    items = [_session("s-1", "2026-07-18T02:10:00.000Z")]
+    ev1, cur1, _ = await _cycle(dict(_WIN0), items)
+    assert [e["id"] for e in ev1] == ["s-1"]
+    assert cur1["created_after"] == "2026-07-18T02:09:58Z"
+
+    ev2, cur2, sent2 = await _cycle(cur1, items)
+    assert ev2 == []
+    assert sent2 == "2026-07-18T02:09:58Z"
+    assert cur2 == cur1
+
+    ev3, cur3, sent3 = await _cycle(cur2, items)
+    assert ev3 == []
+    assert sent3 == "2026-07-18T02:09:58Z"
+    assert cur3 == cur1
+
+
+@pytest.mark.asyncio
+async def test_late_session_inside_overlap_is_emitted_old_skipped() -> None:
+    """Sessão que chega atrasada DENTRO dos 2s de sobreposição sai; a antiga não."""
+    old = _session("s-1", "2026-07-18T02:10:00.000Z")
+    late = _session("s-0", "2026-07-18T02:09:59.000Z")  # criada antes, indexada depois
+    _, cur1, _ = await _cycle(dict(_WIN0), [old])
+
+    ev2, cur2, sent2 = await _cycle(cur1, [late, old])
+    assert sent2 == "2026-07-18T02:09:58Z"
+    assert [e["id"] for e in ev2] == ["s-0"]
+    assert cur2["boundary"]["keys"] == ["s-0", "s-1"]
+
+    ev3, _, _ = await _cycle(cur2, [late, old])
+    assert ev3 == []
+
+
+@pytest.mark.asyncio
+async def test_empty_cycle_keeps_boundary_memory() -> None:
+    items = [_session("s-1", "2026-07-18T02:10:00.000Z")]
+    _, cur1, _ = await _cycle(dict(_WIN0), items)
+    _, cur2, _ = await _cycle(cur1, [])
+    assert cur2 == cur1
