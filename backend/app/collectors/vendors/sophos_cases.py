@@ -23,7 +23,17 @@ Endpoint: ``GET /cases/v1/cases`` em ``api-{region}.central.sophos.com``.
 Fim de paginação: quando ``len(items) < pageSize``.
 
 **Dedupe**: ``{id}::{updatedAt}`` — permite propagar updates de status/
-assignee sem perder como duplicatas.
+assignee sem perder como duplicatas. Só alcança updates de cases que a janela
+ainda devolve: sem ``updatedAfter``, um case criado antes de ``createdAfter``
+não volta mais, mesmo que mude.
+
+**Janela** (incidente out/2026): ``createdAfter`` só aceita segundos inteiros, e
+um case criado às ``17:06:39.978`` volta em todo pedido que começa em
+``17:06:39``. Num tenant com poucos cases nenhum case mais novo empurra a janela,
+e ele voltava a cada ciclo para sempre — reenviado ao vencer o TTL do dedupe. O
+cursor agora (1) avança pelo ``createdAt``, o MESMO campo do filtro, e (2) lembra
+quais cases da fronteira já saíram (``cursor_boundary``), que são pulados no
+ciclo seguinte.
 
 Permissões: Service Principal Read-Only é suficiente.
 Docs: https://developer.sophos.com/docs/cases-v1/1/routes/cases/get
@@ -37,6 +47,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any, AsyncIterator, Dict
 
 from ..base import BaseCollector
+from ..cursor_boundary import BoundaryKeys
 from ._sophos_common import resolve_sophos_domain
 from .sophos import _normalize_ts, _safe_cursor_ts  # timestamp compartilhado
 from ..metrics import API_LATENCY
@@ -106,7 +117,11 @@ class SophosCasesCollector(BaseCollector):
         # que a Postman collection oficial documenta. Cases **NÃO** usa
         # ``pageFromKey`` como alerts.
         page: int = int(cursor.get("page") or 1)
-        latest_updated = created_after
+        # Próxima janela = maior ``createdAt`` visto (em segundos, a única forma
+        # que a Sophos aceita). Parte de ``created_after`` e só cresce: a janela
+        # nunca anda para trás, nem para um cursor antigo gravado por updatedAt.
+        latest_created = created_after
+        boundary = BoundaryKeys.load(cursor, window_start=created_after)
         total_collected = 0
         pages_this_cycle = 0
 
@@ -155,16 +170,23 @@ class SophosCasesCollector(BaseCollector):
             items = payload.get("items") or []
             total_collected += len(items)
             for ev in items:
-                raw_updated = ev.get("updatedAt") or ev.get("createdAt") or latest_updated
+                raw_created = ev.get("createdAt")
                 # Canonicaliza antes de comparar: a comparação é lexicográfica e
-                # só é monotônica porque os dois lados estão em UTC/``Z``.
-                updated = (
-                    _safe_cursor_ts(raw_updated, latest_updated)
-                    if isinstance(raw_updated, str)
-                    else latest_updated
+                # só é monotônica porque os dois lados estão em UTC/``Z``. É o
+                # ``createdAt``, e não o ``updatedAt``: a janela é ``createdAfter``,
+                # e avançá-la pelo updatedAt pularia case criado antes do update
+                # mais recente mas indexado pela Sophos depois do pedido.
+                created = (
+                    _safe_cursor_ts(raw_created, latest_created)
+                    if isinstance(raw_created, str)
+                    else latest_created
                 )
-                if updated > latest_updated:
-                    latest_updated = updated
+                if created > latest_created:
+                    latest_created = created
+                # Case da fronteira que um ciclo anterior já emitiu: volta porque
+                # ``createdAfter`` é truncado em segundos — pula.
+                if boundary.seen(raw_created, self.extract_message_id(ev)):
+                    continue
                 yield ev
 
             # Fim de paginação: página incompleta → acabaram os cases
@@ -181,6 +203,8 @@ class SophosCasesCollector(BaseCollector):
             resume_cursor: Dict[str, Any] = {
                 "created_after": created_after,
                 "page": page,
+                # Mesma janela ⇒ a memória da fronteira dela continua valendo.
+                **boundary.carry(),
             }
             if backfill_to_ts:
                 resume_cursor["backfill_to_ts"] = backfill_to_ts
@@ -219,10 +243,19 @@ class SophosCasesCollector(BaseCollector):
                 created_before or "now",
             )
 
-        # Cursor final — próxima janela começa do updatedAt mais recente
-        # visto (captura updates dentro da janela anterior); paginação
-        # volta ao início.
-        self.ctx.cursor = {"created_after": latest_updated, "page": 1}
+        if boundary.skipped:
+            logger.debug(
+                "sophos cases: %d case(s) da fronteira %s já emitidos — pulados",
+                boundary.skipped, created_after,
+            )
+        # Cursor final — próxima janela começa no createdAt mais recente visto;
+        # paginação volta ao início. A memória guarda os cases que o próximo
+        # pedido (createdAfter truncado em segundos) vai devolver de novo.
+        self.ctx.cursor = {
+            "created_after": latest_created,
+            "page": 1,
+            **boundary.dump(latest_created),
+        }
 
     def extract_message_id(self, event: Dict[str, Any]) -> str:
         """Dedupe por ``id::updatedAt`` — permite rastrear updates do

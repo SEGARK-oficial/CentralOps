@@ -65,14 +65,24 @@ async def test_iterates_cases_pages_offset_based() -> None:
 
     full_page = {
         "items": [
-            {"id": f"c{i}", "updatedAt": "2026-04-23T10:00:00Z", "severity": "low"}
+            {
+                "id": f"c{i}",
+                "createdAt": "2026-04-23T10:00:00Z",
+                "updatedAt": "2026-04-23T12:00:00Z",
+                "severity": "low",
+            }
             for i in range(_PAGE_SIZE)
         ],
         "pages": {"current": 1, "size": _PAGE_SIZE, "total": _PAGE_SIZE + 1},
     }
     partial_page = {
         "items": [
-            {"id": "c-final", "updatedAt": "2026-04-23T11:00:00Z", "severity": "critical"},
+            {
+                "id": "c-final",
+                "createdAt": "2026-04-23T11:00:00.250Z",
+                "updatedAt": "2026-04-23T13:00:00Z",
+                "severity": "critical",
+            },
         ],
         "pages": {"current": 2, "size": _PAGE_SIZE, "total": _PAGE_SIZE + 1},
     }
@@ -88,12 +98,165 @@ async def test_iterates_cases_pages_offset_based() -> None:
 
     assert len(collected) == _PAGE_SIZE + 1
     assert collected[-1]["id"] == "c-final"
-    # Cursor final: próxima janela começa do maior updatedAt visto,
-    # paginação volta a 1.
+    # Cursor final: próxima janela começa do maior CREATEDAT visto (o campo do
+    # filtro ``createdAfter``), em segundos — NÃO do updatedAt (13:00), que
+    # pularia case criado antes e indexado depois. Paginação volta a 1, e a
+    # memória da fronteira guarda o case que o próximo pedido vai devolver.
     assert ctx.cursor == {
         "created_after": "2026-04-23T11:00:00Z",
         "page": 1,
+        "boundary": {
+            "at": "2026-04-23T11:00:00Z",
+            "keys": ["c-final::2026-04-23T13:00:00Z"],
+        },
     }
+
+
+# ── Janela parada no último case (incidente out/2026) ─────────────────────────
+#
+# ``createdAfter`` só aceita segundos inteiros. Um case criado às 17:06:39.978
+# fazia o pedido seguinte começar em 17:06:39 e trazer o MESMO case. Sem case
+# mais novo, a janela não andava: o case voltava a cada ciclo (3 min) e era
+# reenviado a cada vencimento do TTL do dedupe (1 dia por padrão).
+
+_STUCK = {
+    "id": "case-parado",
+    "createdAt": "2026-10-15T17:06:39.978Z",
+    "updatedAt": "2026-10-15T17:06:39.978Z",
+    "severity": "high",
+}
+
+
+def _page(*items: Dict[str, Any]) -> Dict[str, Any]:
+    return {"items": list(items), "pages": {"current": 1, "size": 50, "total": len(items)}}
+
+
+async def _cycle(cursor: Dict[str, Any] | None, *items: Dict[str, Any]):
+    """Um ciclo de coleta contra uma página com ``items``; devolve
+    (eventos emitidos, cursor gravado, params enviados à Sophos)."""
+    with aioresponses() as m:
+        m.get(_URL_RE, payload=_page(*items))
+        async with aiohttp.ClientSession() as session:
+            ctx = _ctx(session, cursor=cursor)
+            collected = [ev async for ev in SophosCasesCollector(ctx).collect()]
+        params = _captured_params(m)
+    return collected, ctx.cursor, params
+
+
+@pytest.mark.asyncio
+async def test_last_case_does_not_come_back_every_cycle() -> None:
+    """O case da fronteira sai UMA vez; nos ciclos seguintes a Sophos ainda o
+    devolve (createdAfter truncado), mas o coletor o pula — e isso não depende do
+    TTL do dedupe, então não há reenvio diário."""
+    emitted_1, cursor_1, _ = await _cycle({"created_after": "2026-10-15T17:00:00Z"}, _STUCK)
+    assert [e["id"] for e in emitted_1] == ["case-parado"]
+    assert cursor_1["created_after"] == "2026-10-15T17:06:39Z"
+
+    emitted_2, cursor_2, params_2 = await _cycle(cursor_1, _STUCK)
+    # A janela recomeça no mesmo segundo (nada se perde) …
+    assert params_2["createdAfter"] == "2026-10-15T17:06:39Z"
+    # … mas o case já emitido NÃO sai de novo.
+    assert emitted_2 == []
+
+    # E continua lembrado: o terceiro ciclo (e o 480º do dia) também não reemite.
+    emitted_3, cursor_3, _ = await _cycle(cursor_2, _STUCK)
+    assert emitted_3 == []
+    assert cursor_3 == cursor_2
+
+
+@pytest.mark.asyncio
+async def test_update_of_the_boundary_case_is_still_emitted() -> None:
+    """A memória usa a chave do dedupe (``id::updatedAt``): um case da fronteira
+    que MUDOU de status sai de novo, como sempre saiu."""
+    _, cursor_1, _ = await _cycle({"created_after": "2026-10-15T17:00:00Z"}, _STUCK)
+
+    updated = dict(_STUCK, updatedAt="2026-10-15T18:30:00.100Z", status="resolved")
+    emitted, cursor_2, _ = await _cycle(cursor_1, updated)
+
+    assert [e["status"] for e in emitted] == ["resolved"]
+    assert cursor_2["boundary"]["keys"] == ["case-parado::2026-10-15T18:30:00.100Z"]
+
+
+@pytest.mark.asyncio
+async def test_case_created_in_the_same_second_but_indexed_later_is_not_lost() -> None:
+    """Por que não somar 1s ao cursor: um case criado no MESMO segundo, que a
+    Sophos só expõe depois do pedido, seria perdido. Com a memória ele sai, e só o
+    já emitido é pulado."""
+    _, cursor_1, _ = await _cycle({"created_after": "2026-10-15T17:00:00Z"}, _STUCK)
+
+    late = {
+        "id": "case-late",
+        "createdAt": "2026-10-15T17:06:39.990Z",
+        "updatedAt": "2026-10-15T17:06:39.990Z",
+    }
+    emitted, cursor_2, _ = await _cycle(cursor_1, _STUCK, late)
+
+    assert [e["id"] for e in emitted] == ["case-late"]
+    assert cursor_2["boundary"]["keys"] == [
+        "case-late::2026-10-15T17:06:39.990Z",
+        "case-parado::2026-10-15T17:06:39.978Z",
+    ]
+
+
+@pytest.mark.asyncio
+async def test_window_advances_when_a_newer_case_arrives() -> None:
+    """Case mais novo empurra a janela, e a memória passa a ser só a da nova
+    fronteira — a antiga não cresce para sempre no cursor."""
+    _, cursor_1, _ = await _cycle({"created_after": "2026-10-15T17:00:00Z"}, _STUCK)
+
+    newer = {"id": "case-new", "createdAt": "2026-10-15T17:10:00.500Z", "updatedAt": "2026-10-15T17:10:00.500Z"}
+    emitted, cursor_2, _ = await _cycle(cursor_1, _STUCK, newer)
+
+    assert [e["id"] for e in emitted] == ["case-new"]
+    assert cursor_2 == {
+        "created_after": "2026-10-15T17:10:00Z",
+        "page": 1,
+        "boundary": {"at": "2026-10-15T17:10:00Z", "keys": ["case-new::2026-10-15T17:10:00.500Z"]},
+    }
+
+
+@pytest.mark.asyncio
+async def test_cursor_written_before_this_fix_keeps_working() -> None:
+    """Cursor antigo (sem ``boundary``, ``created_after`` vindo do updatedAt) não
+    pula nada no primeiro ciclo e passa a gravar a memória. A janela não anda
+    para trás: só cresce a partir do ``created_after`` gravado."""
+    emitted, cursor, params = await _cycle(
+        {"created_after": "2026-10-15T17:06:39Z", "page": 1}, _STUCK
+    )
+    assert params["createdAfter"] == "2026-10-15T17:06:39Z"
+    assert [e["id"] for e in emitted] == ["case-parado"]  # sai uma última vez (dedupe segura)
+    assert cursor["boundary"]["keys"] == ["case-parado::2026-10-15T17:06:39.978Z"]
+
+
+@pytest.mark.asyncio
+async def test_boundary_memory_of_another_window_does_not_apply() -> None:
+    """Memória gravada para outra janela (cursor editado, reset para reprocessar)
+    não se aplica: na dúvida emite, e o dedupe decide."""
+    cursor = {
+        "created_after": "2026-10-15T16:00:00Z",
+        "page": 1,
+        "boundary": {"at": "2026-10-15T17:06:39Z", "keys": ["case-parado::2026-10-15T17:06:39.978Z"]},
+    }
+    emitted, _, _ = await _cycle(cursor, _STUCK)
+    assert [e["id"] for e in emitted] == ["case-parado"]
+
+
+@pytest.mark.asyncio
+async def test_resumable_cursor_keeps_the_boundary_memory(monkeypatch) -> None:
+    """Teto por ciclo no meio da janela: o cursor resumível leva a memória da
+    MESMA janela, senão a retomada reemitiria o case da fronteira."""
+    from ..vendors import sophos_cases as sc
+
+    monkeypatch.setattr(sc, "_MAX_PAGES_PER_CYCLE", 1)
+    monkeypatch.setattr(sc, "_PAGE_SIZE", 1)
+
+    boundary = {"at": "2026-10-15T17:06:39Z", "keys": ["case-parado::2026-10-15T17:06:39.978Z"]}
+    emitted, cursor, _ = await _cycle(
+        {"created_after": "2026-10-15T17:06:39Z", "page": 1, "boundary": boundary}, _STUCK
+    )
+
+    assert emitted == []
+    assert cursor == {"created_after": "2026-10-15T17:06:39Z", "page": 2, "boundary": boundary}
 
 
 @pytest.mark.asyncio
@@ -164,7 +327,7 @@ async def test_backfill_cursor_uses_backfill_window() -> None:
 async def test_scheduled_cursor_takes_precedence_over_backfill_window() -> None:
     """Se ambos ``created_after`` e ``backfill_from_ts`` estão no cursor
     (ex: backfill que retomou após primeira chunk), o ``created_after`` —
-    que avança conforme ``latest_updated`` — vence."""
+    que avança conforme o maior ``createdAt`` visto — vence."""
     payload = {"items": [], "pages": {"current": 1, "size": 50, "total": 0}}
 
     with aioresponses() as m:
