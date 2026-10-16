@@ -26,6 +26,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any, AsyncIterator, Dict, Optional
 
 from ..base import BaseCollector
+from ..cursor_boundary import BoundaryKeys, is_later
 from ..metrics import API_LATENCY
 from ._cursor_selfheal import is_stale_cursor_response, log_stale_cursor
 from ._rate_limit import VendorRateLimitedError
@@ -43,7 +44,7 @@ _GRAPH_DOMAIN = "graph.microsoft.com"
 # ``@odata.nextLink`` da PRÓXIMA página, preservando ``last_ts`` — NÃO o watermark
 # ``latest_seen``) e retornamos ANTES da escrita final (a que zera o nextLink e avança o
 # watermark, descartando o backlog não lido). O próximo ciclo retoma exatamente desse
-# nextLink; a borda ``ge`` re-buscada é deduplicada por ``id`` no pipeline. Espelha
+# nextLink; a borda ``ge`` re-buscada é pulada pela memória do cursor (``cursor_boundary``). Espelha
 # ``_MAX_PAGES_PER_CYCLE`` de ``wazuh_detections`` / ``sophos_detections``.
 _MAX_PAGES_PER_CYCLE = 25
 
@@ -69,6 +70,10 @@ class EntraSignInsCollector(BaseCollector):
         last_ts: str = cursor.get(self._CURSOR_FIELD) or _default_lookback_iso()
         next_link: Optional[str] = cursor.get("@odata.nextLink")
         latest_seen = last_ts
+        # Memória da fronteira: o filtro ``ge`` devolve de novo o(s) evento(s) do
+        # instante onde a janela recomeça. Sem ela, num tenant quieto o último
+        # evento voltava a cada ciclo e era reenviado a cada vencimento do TTL.
+        boundary = BoundaryKeys.load(cursor, window_start=last_ts)
 
         if next_link:
             url, params = next_link, None
@@ -86,7 +91,12 @@ class EntraSignInsCollector(BaseCollector):
             # no cursor pela iteração anterior; a borda ``ge`` re-buscada é deduplicada.
             page_count += 1
             if self.ctx.bounded_per_cycle and page_count > _MAX_PAGES_PER_CYCLE:
-                self.ctx.cursor = {self._CURSOR_FIELD: last_ts, "@odata.nextLink": next_link}
+                self.ctx.cursor = {
+                    self._CURSOR_FIELD: last_ts,
+                    "@odata.nextLink": next_link,
+                    # Mesma janela ⇒ a memória da fronteira dela continua valendo.
+                    **boundary.carry(),
+                }
                 # Sobrou backlog: sign-in log é o stream de maior volume da frota e
                 # o que mais bate o teto — sem este sinal, o atraso cresce com a
                 # Saúde do Pipeline verde.
@@ -132,7 +142,11 @@ class EntraSignInsCollector(BaseCollector):
                         resp.raise_for_status()
                         payload = await resp.json()
             if stale_link:
-                self.ctx.cursor = {self._CURSOR_FIELD: last_ts, "@odata.nextLink": None}
+                self.ctx.cursor = {
+                    self._CURSOR_FIELD: last_ts,
+                    "@odata.nextLink": None,
+                    **boundary.carry(),
+                }
                 return
 
             API_LATENCY.labels(vendor=self.platform, stream=self.stream).observe(
@@ -141,17 +155,36 @@ class EntraSignInsCollector(BaseCollector):
 
             for ev in payload.get("value", []) or []:
                 ts = ev.get(self._CURSOR_FIELD)
-                if isinstance(ts, str) and ts > latest_seen:
+                # Por instante, não por string: o Graph devolve número variável de
+                # casas decimais, e ``"…39Z" > "…39.5Z"`` em ordem lexicográfica.
+                if isinstance(ts, str) and is_later(ts, latest_seen):
                     latest_seen = ts
+                # Evento da fronteira que um ciclo anterior já emitiu: pula. O max
+                # acima vem ANTES do skip: o pulado também conta p/ a janela.
+                if boundary.seen(ts, self.extract_message_id(ev)):
+                    continue
                 yield ev
 
             next_link = payload.get("@odata.nextLink")
             if not next_link:
                 break
             url, params = next_link, None
-            self.ctx.cursor = {self._CURSOR_FIELD: last_ts, "@odata.nextLink": next_link}
+            self.ctx.cursor = {
+                self._CURSOR_FIELD: last_ts,
+                "@odata.nextLink": next_link,
+                **boundary.carry(),
+            }
 
-        self.ctx.cursor = {self._CURSOR_FIELD: latest_seen, "@odata.nextLink": None}
+        if boundary.skipped:
+            logger.debug(
+                "entra_id %s: %d evento(s) da fronteira %s já emitidos — pulados",
+                self.stream, boundary.skipped, last_ts,
+            )
+        self.ctx.cursor = {
+            self._CURSOR_FIELD: latest_seen,
+            "@odata.nextLink": None,
+            **boundary.dump(latest_seen),
+        }
 
     def extract_message_id(self, event: Dict[str, Any]) -> str:
         return str(event.get("id") or "")

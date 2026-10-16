@@ -20,6 +20,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any, AsyncIterator, Dict
 
 from ..base import BaseCollector
+from ..cursor_boundary import BoundaryKeys
 from ..capabilities import (
     CAP_QUERY_XDR_DATA_LAKE,
     DIALECT_XDR_DATA_LAKE,
@@ -97,6 +98,11 @@ class SophosAlertsCollector(BaseCollector):
         )
         page_key: str | None = cursor.get("pageFromKey")
         latest_ts = from_ts
+        # Memória da fronteira: ``from`` só aceita segundos inteiros, então o
+        # último alerta visto (ex.: ``...:39.978``) volta em todo pedido que
+        # começa em ``...:39``. O cursor lembra quais já saíram (ver
+        # ``cursor_boundary``); vale só para a MESMA janela (``from_ts``).
+        boundary = BoundaryKeys.load(cursor, window_start=from_ts)
 
         base_url = f"https://{self.domain}/common/v1/alerts"
 
@@ -184,6 +190,11 @@ class SophosAlertsCollector(BaseCollector):
                 )
                 if created > latest_ts:
                     latest_ts = created
+                # Alerta da fronteira que um ciclo anterior já emitiu — volta
+                # porque ``from`` é truncado em segundos. O máximo acima já o
+                # contou; aqui só deixa de reemiti-lo.
+                if boundary.seen(raw_created, self.extract_message_id(ev)):
+                    continue
                 yield ev
 
             page_key = (payload.get("pages") or {}).get("nextKey")
@@ -199,7 +210,12 @@ class SophosAlertsCollector(BaseCollector):
             # ``nextKey`` realmente some (backlog drenado).
             page_count += 1
             if self.ctx.bounded_per_cycle and page_key and page_count >= _MAX_PAGES_PER_CYCLE:
-                self.ctx.cursor = {"from_ts": from_ts, "pageFromKey": page_key}
+                self.ctx.cursor = {
+                    "from_ts": from_ts,
+                    "pageFromKey": page_key,
+                    # Mesma janela ⇒ a memória da fronteira continua valendo.
+                    **boundary.carry(),
+                }
                 # Sobrou backlog: ``from_ts`` fica no valor original de propósito,
                 # e sem este sinal esse "parado" é lido como tenant sem alertas.
                 self.mark_cycle_capped()
@@ -214,10 +230,25 @@ class SophosAlertsCollector(BaseCollector):
 
             # Cursor intermediário: se o worker morrer mid-loop, retomamos
             # da próxima página (e também do latest_ts que já capturamos).
-            self.ctx.cursor = {"from_ts": from_ts, "pageFromKey": page_key}
+            self.ctx.cursor = {
+                "from_ts": from_ts,
+                "pageFromKey": page_key,
+                # Mesma janela ⇒ a memória da fronteira continua valendo.
+                **boundary.carry(),
+            }
 
-        # Cursor final: próximo ciclo começa onde paramos.
-        self.ctx.cursor = {"from_ts": latest_ts, "pageFromKey": None}
+        if boundary.skipped:
+            logger.debug(
+                "sophos alerts: %d alerta(s) da fronteira %s já emitidos — pulados",
+                boundary.skipped, from_ts,
+            )
+        # Cursor final: próximo ciclo começa onde paramos. A memória guarda os
+        # alertas que o próximo ``from`` (truncado em segundos) vai devolver.
+        self.ctx.cursor = {
+            "from_ts": latest_ts,
+            "pageFromKey": None,
+            **boundary.dump(latest_ts),
+        }
 
     def extract_message_id(self, event: Dict[str, Any]) -> str:
         return str(event.get("id") or event.get("alertId") or event.get("uuid") or "")

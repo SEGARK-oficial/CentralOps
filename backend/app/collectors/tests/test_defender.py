@@ -89,6 +89,11 @@ async def test_paginates_via_odata_next_link_and_finalizes_cursor() -> None:
     assert ctx.cursor == {
         "lastUpdateDateTime": "2026-04-23T11:00:00Z",
         "@odata.nextLink": None,
+        # + memória da fronteira: o incidente que o próximo ``ge`` vai devolver.
+        "boundary": {
+            "at": "2026-04-23T11:00:00Z",
+            "keys": ["I2@2026-04-23T11:00:00Z"],
+        },
     }
 
 
@@ -131,4 +136,123 @@ async def test_caps_pages_per_cycle_and_saves_resumable_cursor(monkeypatch) -> N
     assert ctx.cursor == {
         "lastUpdateDateTime": "2026-04-23T09:00:00Z",
         "@odata.nextLink": "https://graph.microsoft.com/v1.0/security/incidents?$skiptoken=page4",
+    }
+
+
+# ── Janela parada no último incidente (incidente out/2026, mesma classe do Sophos) ─
+#
+# ``$filter=lastUpdateDateTime ge <max>`` é INCLUSIVO: o incidente cujo update é o
+# próprio máximo volta em todo ciclo. Num tenant quieto a janela não anda e ele era
+# reenviado a cada vencimento do TTL do dedup. O cursor agora lembra a fronteira.
+
+_STUCK = {
+    "id": "inc-1",
+    "lastUpdateDateTime": "2026-10-15T17:06:39.1234567Z",
+    "status": "active",
+}
+
+
+async def _cycle(cursor: Dict[str, Any] | None, *items: Dict[str, Any]):
+    """Um ciclo contra uma página com ``items``; devolve (emitidos, cursor, $filter)."""
+    with aioresponses() as m:
+        m.get(_INCIDENTS_RE, payload={"value": list(items)})
+        async with aiohttp.ClientSession() as session:
+            ctx = _ctx(session, cursor=cursor)
+            collected = [ev async for ev in DefenderIncidentsCollector(ctx).collect()]
+        calls = [c for cs in m.requests.values() for c in cs]
+        assert calls, "nenhuma requisição capturada"
+        flt = (calls[0].kwargs.get("params") or {}).get("$filter")
+    return collected, ctx.cursor, flt
+
+
+@pytest.mark.asyncio
+async def test_last_incident_does_not_come_back_every_cycle() -> None:
+    start = "2026-10-15T17:00:00Z"
+    emitted_1, cursor_1, _ = await _cycle({"lastUpdateDateTime": start}, _STUCK)
+    assert [e["id"] for e in emitted_1] == ["inc-1"]
+    assert cursor_1 == {
+        "lastUpdateDateTime": "2026-10-15T17:06:39.1234567Z",
+        "@odata.nextLink": None,
+        "boundary": {
+            "at": "2026-10-15T17:06:39.1234567Z",
+            "keys": ["inc-1@2026-10-15T17:06:39.1234567Z"],
+        },
+    }
+
+    # O Graph devolve o mesmo incidente (``ge``): a janela recomeça no MESMO ponto
+    # (nada se perde), mas o incidente já emitido não sai de novo.
+    emitted_2, cursor_2, filter_2 = await _cycle(cursor_1, _STUCK)
+    assert filter_2 == "lastUpdateDateTime ge 2026-10-15T17:06:39.1234567Z"
+    assert emitted_2 == []
+    assert cursor_2 == cursor_1
+
+    emitted_3, cursor_3, filter_3 = await _cycle(cursor_2, _STUCK)
+    assert emitted_3 == []
+    assert filter_3 == filter_2
+    assert cursor_3 == cursor_2
+
+
+@pytest.mark.asyncio
+async def test_new_incident_at_same_instant_is_emitted_old_one_skipped() -> None:
+    _, cursor_1, _ = await _cycle({"lastUpdateDateTime": "2026-10-15T17:00:00Z"}, _STUCK)
+    late = _incident("inc-late", _STUCK["lastUpdateDateTime"])
+
+    emitted, cursor_2, _ = await _cycle(cursor_1, _STUCK, late)
+
+    assert [e["id"] for e in emitted] == ["inc-late"]
+    assert cursor_2["boundary"]["keys"] == [
+        "inc-1@2026-10-15T17:06:39.1234567Z",
+        "inc-late@2026-10-15T17:06:39.1234567Z",
+    ]
+
+
+@pytest.mark.asyncio
+async def test_update_of_boundary_incident_is_still_emitted() -> None:
+    """Chave = ``id@lastUpdateDateTime``: incidente da fronteira que MUDOU de
+    estado (novo lastUpdateDateTime) sai de novo, como sempre saiu."""
+    _, cursor_1, _ = await _cycle({"lastUpdateDateTime": "2026-10-15T17:00:00Z"}, _STUCK)
+    updated = dict(_STUCK, lastUpdateDateTime="2026-10-15T18:30:00Z", status="resolved")
+
+    emitted, cursor_2, _ = await _cycle(cursor_1, updated)
+
+    assert [e["status"] for e in emitted] == ["resolved"]
+    assert cursor_2["lastUpdateDateTime"] == "2026-10-15T18:30:00Z"
+    assert cursor_2["boundary"]["keys"] == ["inc-1@2026-10-15T18:30:00Z"]
+
+
+@pytest.mark.asyncio
+async def test_cursor_advances_by_instant_not_by_string() -> None:
+    """``"…39Z" > "…39.5Z"`` em string (``Z`` > ``.``): comparar texto deixaria o
+    cursor no timestamp MAIS ANTIGO. O máximo é por instante."""
+    early = _incident("inc-a", "2026-10-15T17:06:39Z")
+    later = _incident("inc-b", "2026-10-15T17:06:39.5Z")
+
+    _, cursor, _ = await _cycle({"lastUpdateDateTime": "2026-10-15T17:00:00Z"}, early, later)
+
+    assert cursor["lastUpdateDateTime"] == "2026-10-15T17:06:39.5Z"
+    assert cursor["boundary"]["keys"] == ["inc-b@2026-10-15T17:06:39.5Z"]
+
+
+@pytest.mark.asyncio
+async def test_resumable_cursor_keeps_the_boundary_memory(monkeypatch) -> None:
+    """Teto por ciclo no meio da janela: o cursor resumível leva a memória da
+    MESMA janela, senão a retomada reemitiria o incidente da fronteira."""
+    from ..vendors import defender as dfn
+
+    monkeypatch.setattr(dfn, "_MAX_PAGES_PER_CYCLE", 1)
+    boundary = {"at": "2026-10-15T17:06:39Z", "keys": ["inc-1@2026-10-15T17:06:39Z"]}
+    link = "https://graph.microsoft.com/v1.0/security/incidents?$skiptoken=p2"
+    with aioresponses() as m:
+        m.get(_INCIDENTS_RE, payload={"value": [], "@odata.nextLink": link})
+        async with aiohttp.ClientSession() as session:
+            ctx = _ctx(
+                session, cursor={"lastUpdateDateTime": "2026-10-15T17:06:39Z", "boundary": boundary}
+            )
+            collected = [ev async for ev in DefenderIncidentsCollector(ctx).collect()]
+
+    assert collected == []
+    assert ctx.cursor == {
+        "lastUpdateDateTime": "2026-10-15T17:06:39Z",
+        "@odata.nextLink": link,
+        "boundary": boundary,
     }
