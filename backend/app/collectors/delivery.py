@@ -285,6 +285,10 @@ _DETALHE_POR_KIND = {
     "cross_tenant_destination": (
         "bloqueio fail-closed: o destino é de outra organização — nada foi enviado"
     ),
+    "size": (
+        "evento maior que o teto de transporte — NÃO foi enviado. Reduza o evento "
+        "ou suba o teto, e reprocesse."
+    ),
 }
 _DETALHE_PADRAO = "lote inteiro para DLQ (sem detalhe por evento)"
 

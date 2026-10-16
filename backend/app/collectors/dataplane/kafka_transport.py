@@ -151,6 +151,29 @@ def _compression_type() -> Optional[str]:
     return None if ct in ("", "none") else ct
 
 
+def _frames(
+    destination_id: str,
+    batch: List[Dict[str, Any]],
+    trace_context: Optional[Mapping[str, str]],
+    limit: int,
+) -> Iterator[tuple]:
+    """``(sub_lote, valor)`` de cada registro de :func:`_frame_batch`.
+
+    O sub-lote acompanha o valor porque quem produz precisa saber QUAIS eventos
+    estão num registro recusado — para re-dividir, ou para mandar à DLQ só o
+    evento que não cabe.
+    """
+    if not batch:
+        return
+    value = encode_delivery(destination_id, batch, trace_context)
+    if len(value) <= limit or len(batch) == 1:
+        yield batch, value
+        return
+    mid = len(batch) // 2
+    yield from _frames(destination_id, batch[:mid], trace_context, limit)
+    yield from _frames(destination_id, batch[mid:], trace_context, limit)
+
+
 def _frame_batch(
     destination_id: str,
     batch: List[Dict[str, Any]],
@@ -160,20 +183,70 @@ def _frame_batch(
     """Enquadra ``batch`` em uma ou mais mensagens, cada uma ≤ ``limit`` bytes (RAW).
 
     Split por bisseção até caber ou sobrar 1 evento — garante que NENHUM registro
-    produzido estoure o limite do broker (== ``KAFKA_MAX_REQUEST_BYTES``), eliminando
-    o ``MessageSizeTooLargeError`` por lote grande. Um único evento que ainda exceda
-    é emitido sozinho (a compressão pode trazê-lo p/ baixo; senão o broker rejeita e
-    o caller manda à DLQ). O split é por TAMANHO RAW, então cabe mesmo sem compressão.
+    com 2+ eventos estoure o limite, eliminando o ``MessageSizeTooLargeError`` por
+    lote grande. Um único evento que ainda exceda é emitido sozinho, e quem produz
+    o desvia para a DLQ (ver ``_ProducerThread.produce``). A compressão NÃO o
+    salva: o aiokafka mede ``key + value`` ANTES de comprimir
+    (``AIOKafkaProducer._serialize``), então um evento acima do teto falha no
+    cliente com qualquer ``KAFKA_COMPRESSION_TYPE``.
     """
-    if not batch:
-        return
-    value = encode_delivery(destination_id, batch, trace_context)
-    if len(value) <= limit or len(batch) == 1:
+    for _sub_batch, value in _frames(destination_id, batch, trace_context, limit):
         yield value
-        return
-    mid = len(batch) // 2
-    yield from _frame_batch(destination_id, batch[:mid], trace_context, limit)
-    yield from _frame_batch(destination_id, batch[mid:], trace_context, limit)
+
+
+#: Folga sobre ``len(key) + len(value)`` na pré-checagem do teto. O aiokafka soma
+#: o overhead de registro do formato legado (dezenas de bytes) antes de comparar
+#: com ``max_request_size``; 512 cobre com sobra sem recusar evento que caberia.
+_RECORD_OVERHEAD_SLACK = 512
+
+
+def _exceeds_request_limit(value: bytes, key: bytes) -> bool:
+    """True se o aiokafka vai recusar este registro no cliente, por tamanho."""
+    return len(value) + len(key) + _RECORD_OVERHEAD_SLACK > settings.KAFKA_MAX_REQUEST_BYTES
+
+
+def _is_message_too_large(exc: BaseException) -> bool:
+    """True se o registro foi recusado por TAMANHO — no cliente (o check de
+    ``max_request_size``) ou no broker (``max.message.bytes`` menor que o cliente).
+
+    É permanente para aquele payload: retentar só repete a recusa. Anda pela cadeia
+    de causas como :func:`_is_fatal_producer_error`; classifica por tipo E por nome
+    porque os fakes de teste não importam o SDK.
+    """
+    try:
+        from aiokafka.errors import (  # import tardio (SDK opcional)
+            MessageSizeTooLargeError,
+            RecordListTooLargeError,
+            RecordTooLargeError,
+        )
+
+        too_large: tuple = (
+            MessageSizeTooLargeError,
+            RecordListTooLargeError,
+            RecordTooLargeError,
+        )
+    except Exception:  # pragma: no cover — sem SDK, só o nome decide
+        too_large = ()
+    cur: Optional[BaseException] = exc
+    for _ in range(6):  # guard anti-ciclo
+        if cur is None:
+            break
+        if too_large and isinstance(cur, too_large):
+            return True
+        name = type(cur).__name__.lower()
+        if any(k in name for k in ("messagesizetoolarge", "recordtoolarge", "recordlisttoolarge")):
+            return True
+        cur = cur.__cause__ or cur.__context__
+    return False
+
+
+class OversizedEventDivertError(RuntimeError):
+    """Um evento não cabe no tópico E a DLQ não conseguiu guardá-lo.
+
+    Levantar é a escolha certa aqui: seguir em frente perderia o evento em
+    silêncio. O ciclo de coleta reverte e tenta de novo, e na próxima vez a DLQ
+    (banco) provavelmente já voltou.
+    """
 
 
 def _is_fatal_producer_error(exc: BaseException) -> bool:
@@ -311,16 +384,68 @@ class _ProducerThread:
 
         Bloquear dá durabilidade (não perde o lote num crash pós-roteamento). O
         volume é por-destino-por-ciclo (não por evento), então o custo é aceitável.
+
+        **Evento maior que o teto NÃO sobe como exceção.** Antes subia, e o ciclo de
+        coleta revertia o cursor e soltava as claims: o ciclo seguinte buscava o
+        MESMO evento, falhava no MESMO ponto, e o coletor ficava parado nele para
+        sempre (incidente out/2026, ``MessageSizeTooLargeError`` de 1,16 MB contra o
+        teto de 1 MiB). Agora esse evento vai para a DLQ do destino com
+        ``error_kind="size"`` e o resto do lote segue. O dreno da DLQ despacha
+        direto ao destino, sem passar pelo Kafka, então o evento continua
+        entregável. Erro transitório (broker fora) continua subindo: aí reverter e
+        tentar de novo é o comportamento certo.
         """
         self._ensure_started()
         key = destination_id.encode("utf-8")
         # Enquadramento por tamanho: divide o lote em N registros, cada um ≤ 90% do
-        # teto (folga p/ framing) — nunca emite um registro acima de
-        # KAFKA_MAX_REQUEST_BYTES (== limite do broker), eliminando o
-        # MessageSizeTooLargeError por lote grande.
+        # teto (folga p/ framing) — nunca emite um registro com 2+ eventos acima de
+        # KAFKA_MAX_REQUEST_BYTES (== limite do broker).
         limit = max(1, int(settings.KAFKA_MAX_REQUEST_BYTES * 0.9))
-        for value in _frame_batch(destination_id, batch, trace_context, limit):
-            self._produce_value(destination_id, value, key)
+        oversized: List[Dict[str, Any]] = []
+        self._produce_framed(destination_id, batch, trace_context, key, limit, oversized)
+        if oversized:
+            _divert_oversized_to_dlq(destination_id, oversized, trace_context)
+
+    def _produce_framed(
+        self,
+        destination_id: str,
+        batch: List[Dict[str, Any]],
+        trace_context: Optional[Mapping[str, str]],
+        key: bytes,
+        limit: int,
+        oversized: List[Dict[str, Any]],
+    ) -> None:
+        """Produz ``batch`` em registros ≤ ``limit``; o que não cabe vai p/ ``oversized``.
+
+        Duas recusas por tamanho são tratadas: a do CLIENTE (pré-checada, sem ida
+        ao broker) e a do BROKER, quando o ``max.message.bytes`` dele é menor que o
+        ``KAFKA_MAX_REQUEST_BYTES`` configurado aqui. Na do broker, um registro com
+        2+ eventos é re-dividido com metade do tamanho que ele tinha; a recursão
+        termina porque o limite cai pela metade a cada nível até sobrar 1 evento.
+        """
+        for sub_batch, value in _frames(destination_id, batch, trace_context, limit):
+            if len(sub_batch) == 1 and _exceeds_request_limit(value, key):
+                oversized.extend(sub_batch)
+                continue
+            try:
+                self._produce_value(destination_id, value, key)
+            except Exception as exc:
+                if not _is_message_too_large(exc):
+                    raise
+                if len(sub_batch) == 1:
+                    oversized.extend(sub_batch)
+                    continue
+                logger.warning(
+                    "data-plane: broker recusou registro de %d bytes com %d eventos "
+                    "(max.message.bytes do broker < KAFKA_MAX_REQUEST_BYTES=%d?) — "
+                    "re-dividindo dest=%s",
+                    len(value), len(sub_batch), settings.KAFKA_MAX_REQUEST_BYTES,
+                    destination_id,
+                )
+                self._produce_framed(
+                    destination_id, sub_batch, trace_context, key,
+                    max(1, len(value) // 2), oversized,
+                )
 
     def _produce_value(self, destination_id: str, value: bytes, key: bytes) -> None:
         """Envia UM registro já enquadrado e BLOQUEIA até o ack. Em erro FATAL de
@@ -368,6 +493,55 @@ class _ProducerThread:
         finally:
             self._loop.call_soon_threadsafe(self._loop.stop)
             self._producer = None
+
+
+def _divert_oversized_to_dlq(
+    destination_id: str,
+    events: List[Dict[str, Any]],
+    trace_context: Optional[Mapping[str, str]],
+) -> None:
+    """Grava na DLQ do destino cada evento que não cabe num registro Kafka.
+
+    Uma linha por evento, cada uma com o PRÓPRIO tamanho no ``error_detail`` — é
+    o número que o operador precisa para escolher entre reduzir o evento e subir
+    o teto. O log leva só ``event_id`` e bytes, nunca o conteúdo.
+
+    Se a DLQ falhar, levanta :class:`OversizedEventDivertError`: o evento não foi
+    entregue nem guardado, e só reverter o ciclo evita perdê-lo em silêncio.
+    """
+    from ..delivery import persist_batch_dlq
+    from ..metrics import DATAPLANE_PRODUCED
+    from ..pipeline import _batch_org_id
+
+    limit = settings.KAFKA_MAX_REQUEST_BYTES
+    for event in events:
+        size = len(encode_delivery(destination_id, [event], trace_context))
+        event_id = str((event.get("_centralops") or {}).get("event_id") or "?")
+        detail = (
+            f"evento de {size} bytes excede o teto do data-plane Kafka "
+            f"(KAFKA_MAX_REQUEST_BYTES={limit}) e NÃO foi enviado ao tópico. "
+            "Reprocessar pela DLQ entrega direto ao destino, sem Kafka. Para não se "
+            "repetir: reduza o evento (drop_raw na rota ou raw_reduction no mapping) "
+            "ou suba KAFKA_MAX_REQUEST_BYTES junto com o max.message.bytes do broker."
+        )
+        logger.warning(
+            "data-plane: evento %s de %d bytes > KAFKA_MAX_REQUEST_BYTES=%d — "
+            "desviado p/ DLQ (error_kind=size) dest=%s; o ciclo de coleta segue",
+            event_id, size, limit, destination_id,
+        )
+        ok = persist_batch_dlq(
+            [event],
+            destination_id=destination_id,
+            error_kind="size",
+            organization_id=_batch_org_id([event]),
+            error_detail=detail,
+        )
+        if not ok:
+            raise OversizedEventDivertError(
+                f"evento {event_id} ({size} bytes) não cabe no tópico e a DLQ falhou "
+                f"(dest={destination_id})"
+            )
+        DATAPLANE_PRODUCED.labels(destination_id=destination_id, outcome="oversize_dlq").inc()
 
 
 _producer_thread = _ProducerThread()

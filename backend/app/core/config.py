@@ -244,9 +244,11 @@ class Settings(BaseSettings):
     # o broker aceita, ele não barra local e o broker rejeita com
     # MessageSizeTooLargeError (era o bug: cliente 8MiB vs broker 1MiB). Default 1MiB
     # = o default do broker (Kafka/Redpanda). O produtor faz split por tamanho p/
-    # nunca emitir um registro acima disto e comprime (KAFKA_COMPRESSION_TYPE) p/
-    # encolher o fio; um único evento que ainda estoure vai p/ DLQ (não-retryable).
-    # Para mensagens maiores, suba ESTE valor E o limite do broker JUNTOS.
+    # nunca emitir um registro com 2+ eventos acima disto. Um ÚNICO evento maior que
+    # o teto vai p/ a DLQ do destino (error_kind=size) e o ciclo de coleta segue —
+    # ver kafka_transport._divert_oversized_to_dlq. A compressão NÃO o salva: o
+    # aiokafka mede o tamanho ANTES de comprimir. Para eventos maiores, suba ESTE
+    # valor E o limite do broker JUNTOS.
     KAFKA_MAX_REQUEST_BYTES: int = 1024 * 1024  # 1 MiB (== broker max.message.bytes)
     # Compressão do produtor — encolhe o tamanho no fio (evento JSON comprime ~5-10×),
     # a maior alavanca contra MessageSizeTooLarge. "gzip" é zero-dependência (zlib da
