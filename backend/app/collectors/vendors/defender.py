@@ -22,6 +22,7 @@ from ..capabilities import (
     SPEC_SIGMA,
     QueryCapability,
 )
+from ..cursor_boundary import BoundaryKeys, is_later
 from ..metrics import API_LATENCY
 
 logger = logging.getLogger(__name__)
@@ -82,6 +83,10 @@ class DefenderIncidentsCollector(BaseCollector):
         next_link: str | None = cursor.get("@odata.nextLink")
 
         latest_seen = last_ts
+        # Memória da fronteira: ``ge`` devolve de novo o(s) incidente(s) do instante
+        # onde a janela recomeça. Sem ela, num tenant quieto o último incidente
+        # voltava a cada ciclo e era reenviado a cada vencimento do TTL do dedup.
+        boundary = BoundaryKeys.load(cursor, window_start=last_ts)
 
         if next_link:
             url = next_link
@@ -110,6 +115,8 @@ class DefenderIncidentsCollector(BaseCollector):
                 self.ctx.cursor = {
                     "lastUpdateDateTime": last_ts,
                     "@odata.nextLink": next_link,
+                    # Mesma janela ⇒ a memória da fronteira dela continua valendo.
+                    **boundary.carry(),
                 }
                 # Sobrou backlog: o watermark fica em ``last_ts`` de propósito, e
                 # sem este sinal esse "parado" é lido como tenant sem incidentes.
@@ -144,9 +151,15 @@ class DefenderIncidentsCollector(BaseCollector):
             )
 
             for ev in payload.get("value", []) or []:
-                ts = ev.get("lastUpdateDateTime") or latest_seen
-                if isinstance(ts, str) and ts > latest_seen:
+                raw_ts = ev.get("lastUpdateDateTime")
+                ts = raw_ts or latest_seen
+                if isinstance(ts, str) and is_later(ts, latest_seen):
                     latest_seen = ts
+                # Incidente da fronteira que um ciclo anterior já emitiu (mesma
+                # chave ``id@lastUpdateDateTime``): pula. Um UPDATE tem chave nova.
+                # O max acima vem ANTES do skip: o pulado também conta p/ a janela.
+                if boundary.seen(raw_ts, self.extract_message_id(ev)):
+                    continue
                 yield ev
 
             next_link = payload.get("@odata.nextLink")
@@ -160,11 +173,18 @@ class DefenderIncidentsCollector(BaseCollector):
             self.ctx.cursor = {
                 "lastUpdateDateTime": last_ts,
                 "@odata.nextLink": next_link,
+                **boundary.carry(),
             }
 
+        if boundary.skipped:
+            logger.debug(
+                "defender incidents: %d incidente(s) da fronteira %s já emitidos — pulados",
+                boundary.skipped, last_ts,
+            )
         self.ctx.cursor = {
             "lastUpdateDateTime": latest_seen,
             "@odata.nextLink": None,
+            **boundary.dump(latest_seen),
         }
 
     def extract_message_id(self, event: Dict[str, Any]) -> str:

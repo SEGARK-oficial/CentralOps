@@ -306,3 +306,102 @@ def test_extract_message_id_uses_detection_id() -> None:
     # Fallback: sem id retorna string vazia (pipeline chama compute_message_id).
     assert collector.extract_message_id({}) == ""
     assert collector.extract_message_id({"other": "field"}) == ""
+
+
+# ── Janela parada na última detection (incidente out/2026) ────────────────────
+#
+# ``from`` só aceita segundos inteiros: uma detection às 17:06:39.978 fazia o run
+# seguinte começar em 17:06:39 e trazê-la de novo, ciclo após ciclo.
+
+_STUCK_TS = "2026-10-15T17:06:39.978Z"
+
+
+async def _detections_cycle(cursor: Dict[str, Any] | None, *items: Dict[str, Any]):
+    """Ciclo completo (POST run → poll finished → results). Devolve
+    (eventos, cursor gravado, ``from`` enviado no POST)."""
+    import re
+
+    results_re = re.compile(rf"^{re.escape(_BASE)}/run-1/results.*")
+    with aioresponses() as m:
+        m.post(_BASE, payload={"id": "run-1", "status": "running"}, status=200)
+        m.get(f"{_BASE}/run-1", payload={"id": "run-1", "status": "finished"}, status=200)
+        m.get(
+            results_re,
+            payload={"items": list(items), "pages": {"current": 1, "total": 1}},
+            status=200,
+        )
+        async with aiohttp.ClientSession() as session:
+            ctx = _ctx(session, cursor=cursor)
+            events = [ev async for ev in SophosDetectionsCollector(ctx).collect()]
+        calls = [c for calls in m.requests.values() for c in calls]
+        body = next(c.kwargs["json"] for c in calls if "json" in c.kwargs)
+    return events, ctx.cursor, body["from"]
+
+
+@pytest.mark.asyncio
+async def test_last_detection_does_not_come_back_every_cycle() -> None:
+    stuck = dict(_detection(1), time=_STUCK_TS)
+    start = {"run_id": None, "from_ts": "2026-10-15T17:00:00Z", "page": 1}
+
+    emitted_1, cursor_1, _ = await _detections_cycle(start, stuck)
+    assert [e["id"] for e in emitted_1] == ["det-0001"]
+    assert cursor_1["from_ts"] == "2026-10-15T17:06:39Z"
+
+    emitted_2, cursor_2, from_2 = await _detections_cycle(cursor_1, stuck)
+    # A janela recomeça no mesmo segundo (nada se perde) …
+    assert from_2 == "2026-10-15T17:06:39Z"
+    # … mas a detection já emitida NÃO sai de novo.
+    assert emitted_2 == []
+
+    emitted_3, cursor_3, _ = await _detections_cycle(cursor_2, stuck)
+    assert emitted_3 == []
+    assert cursor_3 == cursor_2
+
+
+@pytest.mark.asyncio
+async def test_new_detection_in_the_same_second_is_emitted_old_one_skipped() -> None:
+    stuck = dict(_detection(1), time=_STUCK_TS)
+    late = dict(_detection(2), time="2026-10-15T17:06:39.990Z")
+    start = {"run_id": None, "from_ts": "2026-10-15T17:00:00Z", "page": 1}
+
+    _, cursor_1, _ = await _detections_cycle(start, stuck)
+    emitted, cursor_2, _ = await _detections_cycle(cursor_1, stuck, late)
+
+    assert [e["id"] for e in emitted] == ["det-0002"]
+    assert cursor_2["boundary"]["keys"] == ["det-0001", "det-0002"]
+
+
+@pytest.mark.asyncio
+async def test_pending_run_cursor_keeps_the_boundary_memory() -> None:
+    """Run que não termina no ciclo: o cursor gravado ao criar o run leva a
+    memória da MESMA janela, senão a retomada reemitiria a detection."""
+    import backend.app.collectors.vendors.sophos_detections as mod_det
+
+    boundary = {"at": "2026-10-15T17:06:39Z", "keys": ["det-0001"]}
+    with aioresponses() as m:
+        m.post(_BASE, payload={"id": "run-1", "status": "running"}, status=200)
+        m.get(f"{_BASE}/run-1", payload={"id": "run-1", "status": "running"}, status=200)
+        async with aiohttp.ClientSession() as session:
+            ctx = _ctx(
+                session,
+                cursor={
+                    "run_id": None,
+                    "from_ts": "2026-10-15T17:06:39Z",
+                    "page": 1,
+                    "boundary": boundary,
+                },
+            )
+            original = mod_det._MAX_POLL_ATTEMPTS
+            mod_det._MAX_POLL_ATTEMPTS = 1
+            try:
+                events = [ev async for ev in SophosDetectionsCollector(ctx).collect()]
+            finally:
+                mod_det._MAX_POLL_ATTEMPTS = original
+
+    assert events == []
+    assert ctx.cursor == {
+        "run_id": "run-1",
+        "from_ts": "2026-10-15T17:06:39Z",
+        "page": 1,
+        "boundary": boundary,
+    }

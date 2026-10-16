@@ -15,8 +15,11 @@ registrado é um no-op só para satisfazer o contrato do ``oauth_cache``.
 **Paginação incremental:** janela temporal + ``from``/``size`` (não ``search_after``
 — evita depender de um campo tiebreaker sortável/com fielddata no Indexer). O
 cursor é ``{"from_ts": <iso>}``; a query é ``timestamp >= from_ts`` (gte, inclusivo)
-— a sobreposição de borda é absorvida pela dedupe por ``message_id`` do pipeline.
-Ao bater o ``max_result_window`` (10k), a janela avança para o último
+— a sobreposição de borda é pulada pela memória da fronteira do cursor
+(``cursor_boundary``): o evento no instante ``from_ts`` volta em todo pedido, e
+numa stream quieta a janela nunca andava — reenviado a cada vencimento do TTL do
+dedupe. O cursor lembra as chaves (``id``) dos eventos nesse instante e o ciclo
+seguinte as pula. Ao bater o ``max_result_window`` (10k), a janela avança para o último
 timestamp visto e reinicia o offset.
 """
 
@@ -31,6 +34,7 @@ from typing import Any, AsyncIterator, Dict, Optional
 from urllib.parse import urlparse
 
 from ..base import BaseCollector
+from ..cursor_boundary import BoundaryKeys, is_later
 from ..metrics import API_LATENCY
 from ._rate_limit import VendorRateLimitedError
 
@@ -170,6 +174,10 @@ class WazuhDetectionsCollector(BaseCollector):
         cursor = self.ctx.cursor or {}
         from_ts: str = cursor.get("from_ts") or _default_lookback_iso()
         latest_seen = from_ts
+        # Memória dos eventos do instante ``from_ts`` que um ciclo anterior já
+        # emitiu (o ``gte`` os devolve de novo). Vale só para ESTA janela.
+        window_start = from_ts
+        boundary = BoundaryKeys.load(cursor, window_start=from_ts)
         offset = 0
         page_count = 0
         # ``None`` no caminho quente: sem filtro configurado a query é idêntica à
@@ -183,7 +191,7 @@ class WazuhDetectionsCollector(BaseCollector):
             # não perde nem pula eventos — a borda (gte) é absorvida pela dedupe.
             page_count += 1
             if self.ctx.bounded_per_cycle and page_count > _MAX_PAGES_PER_CYCLE:
-                self.ctx.cursor = {"from_ts": latest_seen}
+                self.ctx.cursor = {"from_ts": latest_seen, **boundary.dump(latest_seen)}
                 # Sobrou backlog: é isto que separa "watermark parado porque não há
                 # eventos" de "watermark parado porque não damos conta".
                 self.mark_cycle_capped()
@@ -226,8 +234,14 @@ class WazuhDetectionsCollector(BaseCollector):
                 if not src.get("id") and hit.get("_id"):
                     src["id"] = hit["_id"]
                 ts = src.get("timestamp")
-                if isinstance(ts, str) and ts > latest_seen:
+                # Por instante, não por string: o Wazuh grava ``+0000`` e o
+                # lookback default é ``Z``, e frações variam de tamanho.
+                if isinstance(ts, str) and is_later(ts, latest_seen):
                     latest_seen = ts
+                # Evento da fronteira que um ciclo anterior já emitiu (o ``gte``
+                # o devolve): pula. O máximo acima já foi atualizado.
+                if boundary.seen(ts, self.extract_message_id(src)):
+                    continue
                 yield src
 
             offset += len(hits)
@@ -238,10 +252,22 @@ class WazuhDetectionsCollector(BaseCollector):
                 # visto e reinicia o offset (a borda re-buscada é deduplicada).
                 from_ts = latest_seen
                 offset = 0
-            # Cursor intermediário p/ retomada idempotente.
-            self.ctx.cursor = {"from_ts": from_ts}
+            # Cursor intermediário p/ retomada idempotente. Janela intacta ⇒ a
+            # memória carregada continua valendo; janela avançada pelo reset do
+            # offset ⇒ a memória é a dos eventos do novo ``from_ts``.
+            self.ctx.cursor = {
+                "from_ts": from_ts,
+                **(boundary.carry() if from_ts == window_start else boundary.dump(from_ts)),
+            }
 
-        self.ctx.cursor = {"from_ts": latest_seen}
+        if boundary.skipped:
+            logger.debug(
+                "wazuh detections: %d evento(s) da fronteira %s já emitidos — pulados",
+                boundary.skipped, window_start,
+            )
+        # Próxima janela começa em ``latest_seen`` (gte): a memória guarda os
+        # eventos desse instante, que o próximo pedido devolve de novo.
+        self.ctx.cursor = {"from_ts": latest_seen, **boundary.dump(latest_seen)}
 
     def extract_message_id(self, event: Dict[str, Any]) -> str:
         return str(event.get("id") or "")

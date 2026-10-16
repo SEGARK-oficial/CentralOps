@@ -31,6 +31,13 @@ Caso contrário → criar novo run cobrindo ``from_ts → now``.
 
 **Dedupe**: campo ``id`` do detection. Sem ``id`` cai para hash do evento.
 
+**Fronteira da janela**: ``from`` só aceita segundos inteiros, então a detection
+mais recente (``17:06:39.978``) volta em todo run que começa em ``17:06:39``. Num
+tenant quieto a janela não anda e ela reaparecia a cada ciclo (e era reenviada a
+cada vencimento do TTL do dedupe). O cursor guarda ``boundary`` — as chaves já
+emitidas no instante onde a próxima janela começa — e o ciclo seguinte as pula
+(ver ``cursor_boundary``). O run continua começando no mesmo ``from_ts``.
+
 Docs:
 https://developer.sophos.com/docs/detections-v1/1/routes/queries/detections/post
 """
@@ -44,6 +51,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any, AsyncIterator, Dict, Optional
 
 from ..base import BaseCollector
+from ..cursor_boundary import BoundaryKeys
 from ..metrics import API_LATENCY
 from ._cursor_selfheal import is_stale_cursor_response, log_stale_cursor
 from ._sophos_common import resolve_sophos_domain
@@ -117,6 +125,8 @@ class SophosDetectionsCollector(BaseCollector):
         _fallback = _default_lookback_iso()
         from_ts: str = _safe_cursor_ts(cursor.get("from_ts") or _fallback, _fallback)
         page: int = int(cursor.get("page") or 1)
+        # Memória da fronteira — só vale para o MESMO ``from_ts`` gravado.
+        boundary = BoundaryKeys.load(cursor, window_start=from_ts)
 
         base_url = f"https://{self.domain}/detections/v1/queries/detections"
 
@@ -128,7 +138,12 @@ class SophosDetectionsCollector(BaseCollector):
                 return
             # Persiste run_id para que, se o worker morrer agora, retomamos
             # o poll no próximo ciclo (sem recriar o run).
-            self.ctx.cursor = {"run_id": run_id, "from_ts": from_ts, "page": 1}
+            self.ctx.cursor = {
+                "run_id": run_id,
+                "from_ts": from_ts,
+                "page": 1,
+                **boundary.carry(),
+            }
             page = 1
 
         # ── Step 2: poll status ────────────────────────────────────────
@@ -161,7 +176,12 @@ class SophosDetectionsCollector(BaseCollector):
                 )
                 # Mantém run_id no cursor — próximo ciclo retoma paginação sem
                 # criar novo run, continuando na página atual.
-                self.ctx.cursor = {"run_id": run_id, "from_ts": from_ts, "page": page}
+                self.ctx.cursor = {
+                    "run_id": run_id,
+                    "from_ts": from_ts,
+                    "page": page,
+                    **boundary.carry(),
+                }
                 return
 
             await self.ctx.rate_limiter.acquire(
@@ -219,6 +239,11 @@ class SophosDetectionsCollector(BaseCollector):
                 )
                 if ts > latest_ts:
                     latest_ts = ts
+                # Detection da fronteira que um ciclo anterior já emitiu: volta
+                # porque ``from`` é truncado em segundos — pula (o máximo acima
+                # já a contou).
+                if boundary.seen(ev.get("time"), self.extract_message_id(ev)):
+                    continue
                 yield ev
 
             # Fim de paginação: página atual >= total de páginas, ou menos
@@ -229,10 +254,26 @@ class SophosDetectionsCollector(BaseCollector):
 
             page += 1
             # Cursor intermediário — retomada segura se worker morrer mid-loop.
-            self.ctx.cursor = {"run_id": run_id, "from_ts": from_ts, "page": page}
+            self.ctx.cursor = {
+                "run_id": run_id,
+                "from_ts": from_ts,
+                "page": page,
+                **boundary.carry(),
+            }
 
-        # Cursor final: próximo ciclo cria run novo cobrindo latest_ts → now.
-        self.ctx.cursor = {"run_id": None, "from_ts": latest_ts, "page": 1}
+        if boundary.skipped:
+            logger.debug(
+                "sophos detections: %d detection(s) da fronteira %s já emitidas — puladas",
+                boundary.skipped, from_ts,
+            )
+        # Cursor final: próximo ciclo cria run novo cobrindo latest_ts → now. A
+        # memória guarda as detections que esse ``from`` vai devolver de novo.
+        self.ctx.cursor = {
+            "run_id": None,
+            "from_ts": latest_ts,
+            "page": 1,
+            **boundary.dump(latest_ts),
+        }
 
     async def _create_run(self, base_url: str, from_ts: str) -> Optional[str]:
         """Cria um novo run de detections e retorna o run_id.
@@ -366,6 +407,9 @@ class SophosDetectionsCollector(BaseCollector):
                         "run_id": None,
                         "from_ts": cursor.get("from_ts") or _default_lookback_iso(),
                         "page": 1,
+                        # Mesmo ``from_ts`` ⇒ a memória da fronteira continua valendo
+                        # (``load`` a descarta sozinho se a janela for outra).
+                        **({"boundary": cursor["boundary"]} if "boundary" in cursor else {}),
                     }
                     return None
                 if 400 <= resp.status < 500 and resp.status != 401:

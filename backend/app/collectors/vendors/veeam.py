@@ -46,6 +46,14 @@ execução é coletada UMA vez (no estado ``Working``) e não é re-emitida ao t
 o watermark já passou dela. Aceitável: o valor de SOC está no volume de sessões
 concluídas; um stream de "sessões finalizadas" exigiria um segundo cursor por
 ``endedAfterFilter`` (fora de escopo deste stream).
+
+**Fronteira do cursor (incidente out/2026):** a janela fecha em ``max(creationTime)
+- 2s`` (sobreposição PROPOSITAL, p/ sessão que chega atrasada), então as sessões
+dos últimos 2s voltam em todo pedido. Numa stream quieta a janela nunca andava e a
+sessão era reenviada a cada vencimento do TTL do dedupe. O cursor agora lembra as
+``id`` das sessões com ``creationTime`` >= início da próxima janela
+(``cursor_boundary``) e o ciclo seguinte as pula; sessão atrasada (``id`` nova
+dentro da sobreposição) continua saindo.
 """
 
 from __future__ import annotations
@@ -58,6 +66,7 @@ from typing import Any, AsyncIterator, Dict, Optional
 from urllib.parse import urlparse
 
 from ..base import BaseCollector
+from ..cursor_boundary import BoundaryKeys
 from ..metrics import API_LATENCY
 from ._rate_limit import VendorRateLimitedError
 
@@ -194,6 +203,9 @@ class VeeamSessionsCollector(BaseCollector):
         created_after: str = cursor.get("created_after") or _default_lookback_iso()
         skip = _as_int(cursor.get("skip"))
         latest = created_after
+        # Sessões da sobreposição que um ciclo anterior já emitiu (a janela
+        # recuada as devolve): pulam. Vale só para a janela ``created_after``.
+        boundary = BoundaryKeys.load(cursor, window_start=created_after)
         saw_any = False
         pages = 0
         # Ciclo RETOMADO (skip>0 veio do cursor). Se a 1ª página vier vazia, o offset
@@ -207,7 +219,12 @@ class VeeamSessionsCollector(BaseCollector):
             # watermark lá embaixo — ela zeraria o skip e pularia o restante da
             # janela (ver _MAX_PAGES_PER_CYCLE).
             if self.ctx.bounded_per_cycle and pages >= _MAX_PAGES_PER_CYCLE:
-                self.ctx.cursor = {"created_after": created_after, "skip": skip}
+                self.ctx.cursor = {
+                    "created_after": created_after,
+                    "skip": skip,
+                    # Mesma janela ⇒ a memória da fronteira dela continua valendo.
+                    **boundary.carry(),
+                }
                 # Sobrou backlog: ``created_after`` não avança até a janela drenar,
                 # e um VBR quieto produz exatamente o mesmo watermark parado. Só o
                 # par (teto, atraso) separa os dois na Saúde do Pipeline.
@@ -261,6 +278,10 @@ class VeeamSessionsCollector(BaseCollector):
             for item in data:
                 latest = _max_iso(latest, item.get("creationTime"))
                 saw_any = True
+                # Sessão da sobreposição já emitida: pula (o máximo e ``saw_any``
+                # acima já contam — a janela se comporta como antes).
+                if boundary.seen(item.get("creationTime"), self.extract_message_id(item)):
+                    continue
                 yield item
 
             skip += len(data)
@@ -276,9 +297,19 @@ class VeeamSessionsCollector(BaseCollector):
         # ``_WATERMARK_OVERLAP_SECONDS`` compensa o filtro EXCLUSIVO (a borda
         # re-buscada é deduplicada por ``id``). Sem eventos, o watermark fica PARADO —
         # recuar num ciclo vazio faria a janela andar para trás indefinidamente.
+        if boundary.skipped:
+            logger.debug(
+                "veeam sessions: %d sessão(ões) da sobreposição %s já emitidas — puladas",
+                boundary.skipped, created_after,
+            )
+        next_after = _with_overlap(latest) if saw_any else created_after
+        # A memória cobre toda sessão com creationTime >= ``next_after`` (os 2s de
+        # sobreposição inteiros): é o que o próximo pedido devolve de novo.
         self.ctx.cursor = {
-            "created_after": _with_overlap(latest) if saw_any else created_after,
+            "created_after": next_after,
             "skip": 0,
+            # Ciclo vazio mantém a janela, e o ``dump`` mantém a memória dela.
+            **boundary.dump(next_after),
         }
 
     def extract_message_id(self, event: Dict[str, Any]) -> str:

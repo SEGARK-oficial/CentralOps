@@ -97,7 +97,11 @@ async def test_collects_single_page_and_updates_cursor() -> None:
     assert [e["id"] for e in collected] == ["a1", "doc2"]  # _id injetado no 2º
     assert collector.extract_message_id(collected[1]) == "doc2"
     # cursor avança para o timestamp mais recente visto.
-    assert ctx.cursor == {"from_ts": "2024-06-21T10:05:00.000+0000"}
+    # + memória da fronteira: o doc2 está no instante onde a próxima janela começa.
+    assert ctx.cursor == {
+        "from_ts": "2024-06-21T10:05:00.000+0000",
+        "boundary": {"at": "2024-06-21T10:05:00.000+0000", "keys": ["doc2"]},
+    }
     # domain derivado do indexer_url (semáforo por host).
     assert collector.domain == "indexer.example"
 
@@ -145,7 +149,10 @@ async def test_caps_pages_per_cycle_and_saves_resumable_cursor(monkeypatch) -> N
     # PAROU no teto: 3 páginas × 2 hits = 6 eventos (não drenou infinitamente).
     assert len(collected) == 3 * 2
     # cursor salvo no último ts visto → o próximo ciclo retoma daqui (gte, borda deduplicada).
-    assert ctx.cursor == {"from_ts": "2024-06-21T10:00:01.000+0000"}
+    assert ctx.cursor == {
+        "from_ts": "2024-06-21T10:00:01.000+0000",
+        "boundary": {"at": "2024-06-21T10:00:01.000+0000", "keys": ["i2"]},
+    }
 
 
 @pytest.mark.asyncio
@@ -201,3 +208,65 @@ async def test_sends_basic_auth_header() -> None:
     assert captured["headers"]["Authorization"] == expected
     # verify_ssl=False ⇒ ssl desabilitado no request.
     assert captured["ssl"] is False
+
+
+# ── Fronteira do cursor: o evento do instante ``from_ts`` não volta ──────────
+
+_TS = "2024-06-21T10:00:00.123+0000"
+
+
+async def _cycle(cursor, hits):
+    """Roda 1 ciclo; devolve (eventos, cursor final, corpo enviado)."""
+    with aioresponses() as m:
+        m.post(_SEARCH_RE, payload={"hits": {"hits": hits}})
+        async with aiohttp.ClientSession() as session:
+            ctx = _ctx(session, cursor=cursor)
+            with patch.object(WazuhDetectionsCollector, "_load_conn", return_value=dict(_FAKE_CONN)):
+                collected = [ev async for ev in WazuhDetectionsCollector(ctx).collect()]
+            sent = next(c for (meth, _u), calls in m.requests.items() if meth == "POST" for c in calls)
+    return collected, ctx.cursor, sent.kwargs["json"]["query"]["range"]["timestamp"]["gte"]
+
+
+@pytest.mark.asyncio
+async def test_quiet_stream_does_not_reemit_boundary_event() -> None:
+    """Stream quieta: ``gte`` devolve o último evento todo ciclo. Do 2º ciclo em
+    diante nada sai e a janela fica no mesmo lugar."""
+    hits = [_hit("doc1", _TS, native_id="a1")]
+    ev1, cur1, gte1 = await _cycle({"from_ts": "2024-06-21T09:00:00.000+0000"}, hits)
+    assert [e["id"] for e in ev1] == ["a1"]
+    assert gte1 == "2024-06-21T09:00:00.000+0000"
+
+    ev2, cur2, gte2 = await _cycle(cur1, hits)
+    assert ev2 == []
+    assert gte2 == _TS  # janela no instante do evento (nada é somado ao cursor)
+    assert cur2 == cur1
+
+    ev3, cur3, gte3 = await _cycle(cur2, hits)
+    assert ev3 == []
+    assert gte3 == _TS
+    assert cur3 == cur1
+
+
+@pytest.mark.asyncio
+async def test_new_event_at_same_instant_is_emitted_old_skipped() -> None:
+    """Evento NOVO no mesmo instante (indexado depois) sai; o antigo é pulado."""
+    old = _hit("doc1", _TS, native_id="a1")
+    new = _hit("doc2", _TS, native_id="a2")
+    _, cur1, _ = await _cycle({"from_ts": "2024-06-21T09:00:00.000+0000"}, [old])
+
+    ev2, cur2, gte2 = await _cycle(cur1, [old, new])
+    assert gte2 == _TS
+    assert [e["id"] for e in ev2] == ["a2"]
+    assert cur2["boundary"] == {"at": _TS, "keys": ["a1", "a2"]}
+
+    ev3, _, _ = await _cycle(cur2, [old, new])
+    assert ev3 == []
+
+
+@pytest.mark.asyncio
+async def test_empty_cycle_keeps_boundary_memory() -> None:
+    """Ciclo sem hits não apaga a memória da fronteira (a janela não andou)."""
+    hit = _hit("doc1", _TS, native_id="a1")
+    _, cur1, _ = await _cycle({"from_ts": "2024-06-21T09:00:00.000+0000"}, [hit])
+    _, cur2, _ = await _cycle(cur1, [])
+    assert cur2 == cur1

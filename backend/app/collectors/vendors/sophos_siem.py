@@ -40,6 +40,11 @@ custaram um bug antes da verificação:
 - ``from_date`` é ``integer (int64)`` — **Unix timestamp em segundos**, não uma
   string ISO como o ``from`` de ``/common/v1/alerts``. É ignorado quando
   ``cursor`` está presente.
+- ``from_date`` é em segundos inteiros e o cursor também (``from_ts`` truncado),
+  então o último evento visto (``17:06:39.978``) volta em todo pedido que começa
+  em ``17:06:39``. O cursor guarda ``boundary`` — as chaves já emitidas no
+  instante onde a próxima janela começa — e o ciclo seguinte as pula (ver
+  ``cursor_boundary``); a janela continua no mesmo lugar, sem perda.
 - ``limit`` aceita ``200..1000`` (default 200): valores abaixo de 200 são
   rejeitados.
 - Um ``cursor`` fora das últimas 24h NÃO devolve erro — a resposta silenciosamente
@@ -56,6 +61,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any, AsyncIterator, Dict, Optional
 
 from ..base import BaseCollector
+from ..cursor_boundary import BoundaryKeys
 from ..metrics import API_LATENCY
 from ._rate_limit import VendorRateLimitedError
 from ._sophos_common import resolve_sophos_domain
@@ -164,6 +170,9 @@ class SophosSiemEventsCollector(BaseCollector):
         )
         page_cursor: Optional[str] = cursor.get("page_cursor")
         latest_ts = from_ts
+        # Memória da fronteira — só vale para o MESMO ``from_ts`` (a string do
+        # cursor, não o epoch enviado).
+        boundary = BoundaryKeys.load(cursor, window_start=from_ts)
         base_url = f"https://{self.domain}/siem/v1/events"
         page_count = 0
 
@@ -237,6 +246,14 @@ class SophosSiemEventsCollector(BaseCollector):
                 )
                 if ts > latest_ts:
                     latest_ts = ts
+                # Evento da fronteira que um ciclo anterior já emitiu: volta
+                # porque ``from_date`` é em segundos — pula (o máximo acima já o
+                # contou).
+                if boundary.seen(
+                    raw_ts if isinstance(raw_ts, str) else None,
+                    self.extract_message_id(ev),
+                ):
+                    continue
                 yield ev
 
             page_cursor, has_more = _extract_cursor(payload)
@@ -246,7 +263,12 @@ class SophosSiemEventsCollector(BaseCollector):
                 # Cursor RESUMÍVEL: mantém a janela original de propósito. Mover
                 # ``from_ts`` para ``latest_ts`` aqui pularia as páginas ainda
                 # não lidas (o feed não garante ordenação por data).
-                self.ctx.cursor = {"from_ts": from_ts, "page_cursor": page_cursor}
+                self.ctx.cursor = {
+                    "from_ts": from_ts,
+                    "page_cursor": page_cursor,
+                    # Mesma janela ⇒ a memória da fronteira continua valendo.
+                    **boundary.carry(),
+                }
                 self.mark_cycle_capped()
                 logger.info(
                     "sophos siem events: teto de %d páginas/ciclo atingido — cursor "
@@ -259,10 +281,25 @@ class SophosSiemEventsCollector(BaseCollector):
 
             # Cursor intermediário: se o worker morrer mid-loop, retomamos da
             # próxima página em vez de re-paginar tudo.
-            self.ctx.cursor = {"from_ts": from_ts, "page_cursor": page_cursor}
+            self.ctx.cursor = {
+                "from_ts": from_ts,
+                "page_cursor": page_cursor,
+                # Mesma janela ⇒ a memória da fronteira continua valendo.
+                **boundary.carry(),
+            }
 
-        # Cursor final: janela avança, paginação zera.
-        self.ctx.cursor = {"from_ts": latest_ts, "page_cursor": None}
+        if boundary.skipped:
+            logger.debug(
+                "sophos siem events: %d evento(s) da fronteira %s já emitidos — pulados",
+                boundary.skipped, from_ts,
+            )
+        # Cursor final: janela avança, paginação zera. A memória guarda os
+        # eventos que o próximo ``from_date`` vai devolver de novo.
+        self.ctx.cursor = {
+            "from_ts": latest_ts,
+            "page_cursor": None,
+            **boundary.dump(latest_ts),
+        }
 
     def extract_message_id(self, event: Dict[str, Any]) -> str:
         """Dedupe pelo ``id`` do evento, que a SIEM v1 garante único.
