@@ -262,3 +262,59 @@ def _hermetic_otlp_exporters():
     ):
         _patch.object(_target, _meth, (lambda _r: (lambda self, *a, **k: _r))(_ret)).start()
     yield
+
+
+# ── DNS hermético para os nomes reservados de exemplo ───────
+#: Nomes que a RFC 2606/6761 reserva para documentação e teste. A suíte os usa como
+#: host de integração (``indexer.example.com``, ``wazuh.example.com``…).
+_RESERVED_DNS_NAMES = ("example", "example.com", "example.net", "example.org", "test", "invalid")
+
+
+def _is_reserved_dns_name(host: object) -> bool:
+    if isinstance(host, bytes):
+        host = host.decode("ascii", "ignore")
+    if not isinstance(host, str):
+        return False
+    name = host.lower().rstrip(".")
+    return any(name == r or name.endswith("." + r) for r in _RESERVED_DNS_NAMES)
+
+
+@_pytest.fixture(scope="session", autouse=True)
+def _hermetic_reserved_dns():
+    """Nome reservado de exemplo falha NA HORA, como NXDOMAIN, em qualquer máquina.
+
+    A suíte supunha que ``indexer.example.com`` falha rápido. Isso é verdade na
+    máquina do dev (NXDOMAIN em ~10 ms), mas NÃO no build da imagem nos runners
+    self-hosted desde out/2026: lá o nome não resolve nem recusa, e a conexão fica
+    pendurada até o timeout do provider (30 s manager + 30 s indexer por
+    integração criada). Dois efeitos, no mesmo gate:
+
+    - o sweep compilado foi de ~15 para 48 min, e o job ``Build once`` do ci.yml
+      (teto de 50 min com o compile) passou a ser CANCELADO em todo run;
+    - ``TestRateLimitHTTP::test_post_returns_429_after_limit`` reprovou o build do
+      release 2.13.0: com ~61 s por POST, a janela de 1 min do limiter expira entre
+      um request e outro e o 4º recebe 200 em vez de 429.
+
+    Recusar no ``getaddrinfo`` cobre httpx (``socket.create_connection``) e aiohttp
+    (``loop.getaddrinfo``, que chama ``socket.getaddrinfo`` em thread) — não há
+    ``aiodns`` no lock. Só nomes reservados: qualquer outro host segue para o
+    resolvedor real, e teste que precisa de DNS de verdade continua livre para
+    fazer o próprio monkeypatch (que vence este, e é restaurado para ele).
+    """
+    import socket as _socket
+
+    real_getaddrinfo = _socket.getaddrinfo
+
+    def _guarded_getaddrinfo(host, *args, **kwargs):
+        if _is_reserved_dns_name(host):
+            raise _socket.gaierror(
+                _socket.EAI_NONAME,
+                f"{host!r} é nome reservado (RFC 2606) — a suíte não resolve DNS para ele",
+            )
+        return real_getaddrinfo(host, *args, **kwargs)
+
+    _socket.getaddrinfo = _guarded_getaddrinfo
+    try:
+        yield
+    finally:
+        _socket.getaddrinfo = real_getaddrinfo
