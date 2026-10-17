@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.13.1](https://github.com/SEGARK-oficial/CentralOps/compare/v2.13.0...v2.13.1) (2026-10-17)
+
+
+### Bug Fixes
+
+* **ci:** suíte hermética para nomes de exemplo — destrava o build de release e o ci.yml ([d350d51](https://github.com/SEGARK-oficial/CentralOps/commit/d350d51feb00c6b25a3a618c05e77c70dbc16a11))
+
 ## [2.13.0](https://github.com/SEGARK-oficial/CentralOps/compare/v2.12.1...v2.13.0) (2026-10-17)
 
 
