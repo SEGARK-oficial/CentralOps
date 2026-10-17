@@ -157,7 +157,7 @@ pydantic-settings==2.14.2
     # via -r requirements.txt
 pygments==2.20.0
     # via pytest
-pyjwt[crypto]==2.13.0
+pyjwt[crypto]==2.15.1
     # via
     #   -r requirements.txt
     #   mcp

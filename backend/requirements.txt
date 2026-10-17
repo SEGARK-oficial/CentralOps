@@ -38,7 +38,10 @@ pydantic-settings==2.14.2
 cryptography==50.0.0  # FLOOR: >=50.0.0 — GHSA-537c-gmf6-5ccf (OpenSSL vulnerável
                       # nas wheels) → 48.0.1; CVE-2026-69247 (fix 50.0.0) e
                       # CVE-2026-69249 (fix 49.0.0) → 50.0.0
-pyjwt[crypto]==2.13.0  # FLOOR: >=2.8 — validação de id_token OIDC (Entra, Fase 1)
+pyjwt[crypto]==2.15.1  # FLOOR: >=2.15.0 — validação de id_token OIDC (Entra, Fase 1).
+                       # 2.13.0 tinha 14 avisos (PYSEC-2026-4140..4152 e 4183; fix
+                       # 2.14.0/2.15.0). O 4146 = CVE-2026-103001 sai sem "fix" no
+                       # pip-audit porque o OSV o marca como last_affected 2.13.0.
 argon2-cffi==25.1.0  # FLOOR: >=23.1 — hash Argon2id para PATs (Fase 1)
 redis==7.4.0  # FLOOR: >=5.0.0
 python-json-logger==4.1.0  # FLOOR: >=2.0
