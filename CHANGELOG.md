@@ -1,5 +1,23 @@
 # Changelog
 
+## [2.13.0](https://github.com/SEGARK-oficial/CentralOps/compare/v2.12.1...v2.13.0) (2026-10-17)
+
+
+### Features
+
+* **enrichment:** política e fonte para todas as filhas, inclusive as futuras ([bab837d](https://github.com/SEGARK-oficial/CentralOps/commit/bab837d45ad1070f1c3870288891032dd08f16ab))
+* **mcp:** enriquecimento visível e operável pelo MCP embutido ([c135245](https://github.com/SEGARK-oficial/CentralOps/commit/c1352456e80dafd6441e7bbb616ad2200f832b18))
+
+
+### Bug Fixes
+
+* **collectors:** último evento não volta a cada ciclo em 7 coletores com janela inclusiva ([80582ae](https://github.com/SEGARK-oficial/CentralOps/commit/80582ae840ce709e757ee9e0983d2c32e9c23b38))
+* **dataplane:** evento maior que o teto do Kafka vai à DLQ em vez de travar a coleta ([3a9050e](https://github.com/SEGARK-oficial/CentralOps/commit/3a9050e72221eba50ed02582021511f4554c8d40))
+* **deps:** pyjwt 2.13.0 -&gt; 2.15.1 (14 avisos PYSEC-2026, pip-audit --strict) ([36ca09b](https://github.com/SEGARK-oficial/CentralOps/commit/36ca09b30bf34022065e4dad3d7094e3120a3f3e))
+* **enrichment:** aba vira rota e a trilha para de oferecer 404 ([fc06fcc](https://github.com/SEGARK-oficial/CentralOps/commit/fc06fcc0c82e2fd50c48305f6532e9c97ebe4ca1))
+* **enrichment:** uma política ativa por org garantida pelo banco ([9653d10](https://github.com/SEGARK-oficial/CentralOps/commit/9653d10d03c0fc956a150033992b1e17285f60b1))
+* **sophos-cases:** janela parada no último case — memória da fronteira do cursor ([53e65e2](https://github.com/SEGARK-oficial/CentralOps/commit/53e65e20eee7b930a191c73bc26b07f1f7df0c5e))
+
 ## [2.12.1](https://github.com/SEGARK-oficial/CentralOps/compare/v2.12.0...v2.12.1) (2026-09-27)
 
 
