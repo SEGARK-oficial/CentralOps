@@ -268,5 +268,5 @@ wcwidth==0.6.0
     # via prompt-toolkit
 websockets==16.0
     # via uvicorn
-yarl==1.23.0
+yarl==1.25.1
     # via aiohttp
