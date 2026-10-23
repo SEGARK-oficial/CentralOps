@@ -775,6 +775,43 @@ return 0
 """
 
 
+async def _notify_cycle_committed(
+    collector: Optional[Any], integration_id: int, stream: str
+) -> None:
+    """``on_cycle_committed`` do coletor, sem nunca derrubar um ciclo já gravado.
+
+    Os eventos já saíram e o cursor já está no banco: uma falha no ack só faz a
+    fonte reentregar (o dedupe absorve). Propagar aqui viraria o ciclo inteiro
+    em erro e o ``except`` regravaria o cursor ANTERIOR por cima do certo.
+    """
+    if collector is None:
+        return
+    try:
+        await collector.on_cycle_committed()
+    except Exception:  # noqa: BLE001
+        logger.warning(
+            "collect: confirmação de fim de ciclo falhou — a fonte vai reentregar "
+            "(integration=%s stream=%s)",
+            integration_id, stream, exc_info=True,
+        )
+
+
+async def _notify_cycle_aborted(
+    collector: Optional[Any], integration_id: int, stream: str
+) -> None:
+    """``on_cycle_aborted`` do coletor; best-effort, nunca mascara o erro em voo."""
+    if collector is None:
+        return
+    try:
+        await collector.on_cycle_aborted()
+    except Exception:  # noqa: BLE001
+        logger.warning(
+            "collect: devolução à fonte no ciclo com erro falhou "
+            "(integration=%s stream=%s)",
+            integration_id, stream, exc_info=True,
+        )
+
+
 async def run_collection_once(integration_id: int, stream: str) -> None:
     """Executa um ciclo completo de coleta para (integration_id, stream).
 
@@ -949,6 +986,11 @@ async def _run_collection_once(integration_id: int, stream: str) -> None:
     # sem nenhum termo que explique a piora — que é precisamente o motivo de a
     # Fase 0 ter vindo antes da Fase 1 no ADR.
     _metering_added = metering.AddedVolumeAccumulator()
+    # Fim de ciclo (ack/nack de fonte de fila): o ``except`` chama
+    # ``on_cycle_aborted`` no coletor, e a falha pode vir ANTES de ele existir
+    # (token, mapping). Mesmo racional dos nomes acima: sem este None antes do
+    # try, o ``except`` levantaria ``UnboundLocalError`` e mascararia o erro.
+    collector: Optional[Any] = None
 
     try:
         # ── 1. Carrega Integration (session efêmera) ──────────────────
@@ -1862,6 +1904,10 @@ async def _run_collection_once(integration_id: int, stream: str) -> None:
                 "events_count": events_count,
             },
         )
+        # Por último: só depois do cursor gravado a fonte pode esquecer o que
+        # entregou (ack). Antes disso, uma falha deixaria a fila sem o evento e o
+        # cursor sem a posição.
+        await _notify_cycle_committed(collector, integration_id, stream)
 
     except Exception as exc:
         logger.exception(
@@ -1889,6 +1935,7 @@ async def _run_collection_once(integration_id: int, stream: str) -> None:
             )
         except Exception:  # pragma: no cover
             logger.exception("collection: falha ao persistir cursor de erro")
+        await _notify_cycle_aborted(collector, integration_id, stream)
         raise
     finally:
         # flush FINAL do metering IN: grava o parcial acumulado mesmo quando o
