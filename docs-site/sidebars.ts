@@ -90,6 +90,7 @@ const sidebars: SidebarsConfig = {
         'integrations/wazuh',
         'integrations/crowdstrike',
         'integrations/microsoft-defender',
+        'integrations/google-cloud',
         'integrations/dfir-iris',
         'integrations/push-ingestion',
         'integrations/fortinet-fortigate',
