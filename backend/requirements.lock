@@ -1,6 +1,6 @@
 aiohappyeyeballs==2.6.1
     # via aiohttp
-aiohttp==3.14.3
+aiohttp==3.14.5
     # via -r requirements.txt
 aiokafka==0.11.0
     # via -r requirements.txt
@@ -41,8 +41,9 @@ celery==5.6.3
     #   celery-redbeat
 celery-redbeat==2.3.3
     # via -r requirements.txt
-certifi==2026.4.22
+certifi==2026.10.19
     # via
+    #   -r requirements.txt
     #   httpcore
     #   httpx
 cffi==2.0.0
