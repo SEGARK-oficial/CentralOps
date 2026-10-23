@@ -1,5 +1,18 @@
 # Changelog
 
+## [2.14.0](https://github.com/SEGARK-oficial/CentralOps/compare/v2.13.1...v2.14.0) (2026-10-23)
+
+
+### Features
+
+* **gcp:** coletor Pub/Sub — Cloud Audit Logs, GKE e auditoria do Cloud SQL MySQL ([#95](https://github.com/SEGARK-oficial/CentralOps/issues/95)) ([b155a06](https://github.com/SEGARK-oficial/CentralOps/commit/b155a06f81a817b94b4eafff9e5af82021a5efc1))
+
+
+### Bug Fixes
+
+* **ci:** snok/container-retention-policy v3.1.0 (formato novo do GITHUB_TOKEN) ([#97](https://github.com/SEGARK-oficial/CentralOps/issues/97)) ([0b64994](https://github.com/SEGARK-oficial/CentralOps/commit/0b64994f23ceff9e43bd5863b582a18df0a81b49))
+* **deps:** aiohttp 3.14.5 e certifi 2026.10.19 (CVEs HIGH/CRITICAL do gate Trivy) ([#96](https://github.com/SEGARK-oficial/CentralOps/issues/96)) ([3fb6e68](https://github.com/SEGARK-oficial/CentralOps/commit/3fb6e68384661ef56235820164a729423e65afc9))
+
 ## [2.13.1](https://github.com/SEGARK-oficial/CentralOps/compare/v2.13.0...v2.13.1) (2026-10-17)
 
 
