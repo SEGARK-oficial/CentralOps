@@ -28,7 +28,9 @@ Estas são as plataformas das quais o CentralOps coleta eventos hoje:
 | Microsoft Entra ID | Identity | Sign-in logs e directory audit (Microsoft Graph) |
 | Okta | Identity | System Log (logins, MFA, lifecycle de identidade) |
 | AWS CloudTrail | Cloud-audit | Eventos de API/management (polling do bucket S3) |
+| AWS CloudWatch Logs | Cloud-audit | Eventos de um log group (FilterLogEvents) |
 | Google Cloud (Pub/Sub) | Cloud-audit | Cloud Audit Logs (IAM, login do Workspace), audit do GKE e auditoria do Cloud SQL MySQL |
+| Veeam Backup & Replication | Backup | Sessões de job (backup, réplica, restore) |
 | Wazuh | SIEM | Detecções do Indexer (`wazuh-alerts-*`) |
 | Fortinet FortiGate | Rede / Firewall | Logs de tráfego/UTM via syslog (fonte **push**) |
 | Windows Event Log | Endpoint / OS | Eventos de segurança via WEC/WEF (fonte **push**) |
@@ -42,6 +44,12 @@ Para configurar qualquer uma delas, abra o menu **Coleta -> Integrações**, cli
 - [Integração CrowdStrike](./crowdstrike.md)
 - [Integração Microsoft Defender](./microsoft-defender.md)
 - [Integração Google Cloud (Pub/Sub)](./google-cloud.md)
+- [Integração AWS CloudTrail](./aws-cloudtrail.md)
+- [Integração AWS CloudWatch Logs](./aws-cloudwatch.md)
+- [Integração Microsoft Entra ID](./microsoft-entra-id.md)
+- [Integração Okta](./okta.md)
+- [Integração NinjaOne](./ninjaone.md)
+- [Integração Veeam Backup & Replication](./veeam.md)
 - [Ingestão push (FortiGate, Windows Event Log)](./push-ingestion.md)
 
 ## Para onde os eventos vão (destinos)
