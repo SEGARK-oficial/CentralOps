@@ -1,0 +1,27 @@
+{
+  "insertId": "gke-secret-1",
+  "logName": "projects/projeto-exemplo/logs/cloudaudit.googleapis.com%2Fdata_access",
+  "protoPayload": {
+    "@type": "type.googleapis.com/google.cloud.audit.AuditLog",
+    "authenticationInfo": {
+      "principalEmail": "system:serviceaccount:default:app"
+    },
+    "requestMetadata": {
+      "callerIp": "10.0.0.5"
+    },
+    "serviceName": "k8s.io",
+    "methodName": "io.k8s.core.v1.secrets.get",
+    "resourceName": "core/v1/namespaces/default/secrets/db-password",
+    "status": {}
+  },
+  "resource": {
+    "type": "k8s_cluster",
+    "labels": {
+      "project_id": "projeto-exemplo",
+      "location": "southamerica-east1",
+      "cluster_name": "cluster-exemplo"
+    }
+  },
+  "severity": "INFO",
+  "timestamp": "2026-10-23T12:16:00Z"
+}

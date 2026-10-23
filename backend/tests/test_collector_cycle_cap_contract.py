@@ -270,6 +270,11 @@ _CURSORES_DE_TETO: Dict[Tuple[str, str], Dict[str, Any]] = {
         "end_time_ms": _EPOCH_MS + 3_600_000,
         "next_token": "tok-xyz",
     },
+    # Fila (Pub/Sub): no teto o cursor guarda só o publishTime mais novo lido —
+    # a posição de retomada é a própria fila, que reentrega o que não teve ack.
+    ("gcp_pubsub", "audit"): {"watermark": "2026-07-24T10:00:00Z"},
+    ("gcp_pubsub", "gke_audit"): {"watermark": "2026-07-24T10:00:00Z"},
+    ("gcp_pubsub", "cloudsql_mysql"): {"watermark": "2026-07-24T10:00:00Z"},
 }
 
 

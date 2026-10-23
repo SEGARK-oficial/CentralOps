@@ -1,0 +1,37 @@
+{
+  "insertId": "sql-2",
+  "logName": "projects/projeto-exemplo/logs/cloudaudit.googleapis.com%2Fdata_access",
+  "protoPayload": {
+    "@type": "type.googleapis.com/google.cloud.audit.AuditLog",
+    "serviceName": "cloudsql.googleapis.com",
+    "request": {
+      "@type": "type.googleapis.com/google.cloud.sql.audit.v1.MysqlAuditEntry",
+      "msgType": "activity",
+      "status": "success",
+      "user": "admin",
+      "privUser": "admin",
+      "ip": "203.0.113.40",
+      "cmd": "grant",
+      "objects": [
+        {
+          "db": "vendas",
+          "name": "pedidos",
+          "objType": "TABLE"
+        }
+      ],
+      "query": "GRANT SELECT ON vendas.pedidos TO 'relatorio'@'%'",
+      "threadId": "813",
+      "queryId": "9"
+    }
+  },
+  "resource": {
+    "type": "cloudsql_database",
+    "labels": {
+      "project_id": "projeto-exemplo",
+      "database_id": "projeto-exemplo:mysql-prod",
+      "region": "southamerica-east1"
+    }
+  },
+  "severity": "INFO",
+  "timestamp": "2026-10-23T12:21:00Z"
+}

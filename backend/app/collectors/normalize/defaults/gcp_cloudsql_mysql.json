@@ -1,0 +1,488 @@
+{
+  "_comment": [
+    "Auditoria do Cloud SQL for MySQL (plugin cloudsql_mysql_audit): LogEntry de Data",
+    "Access com protoPayload.request do tipo google.cloud.sql.audit.v1.MysqlAuditEntry.",
+    "connect/disconnect -> Authentication (3002, Logon/Logoff); o resto -> Datastore",
+    "Activity (6005). Classe, atividade e type_uid saem do MESMO cmd, entao type_uid",
+    "fica coerente por construcao. Login falho = connect com status 'unsuccessful'",
+    "(regra de auditoria com op_result U ou B)."
+  ],
+  "rules": [
+    {
+      "target": "normalized.class_uid",
+      "source": "protoPayload.request.cmd",
+      "value_map": {
+        "connect": 3002,
+        "disconnect": 3002
+      },
+      "default": 6005,
+      "required": true
+    },
+    {
+      "target": "normalized.class_name",
+      "source": "protoPayload.request.cmd",
+      "value_map": {
+        "connect": "Authentication",
+        "disconnect": "Authentication"
+      },
+      "default": "Datastore Activity"
+    },
+    {
+      "target": "normalized.category_uid",
+      "source": "protoPayload.request.cmd",
+      "value_map": {
+        "connect": 3,
+        "disconnect": 3
+      },
+      "default": 6,
+      "required": true
+    },
+    {
+      "target": "normalized.category_name",
+      "source": "protoPayload.request.cmd",
+      "value_map": {
+        "connect": "Identity & Access Management",
+        "disconnect": "Identity & Access Management"
+      },
+      "default": "Application Activity"
+    },
+    {
+      "target": "normalized.activity_id",
+      "source": "protoPayload.request.cmd",
+      "value_map": {
+        "connect": 1,
+        "disconnect": 2,
+        "select": 4,
+        "insert": 5,
+        "insert_select": 5,
+        "replace": 5,
+        "replace_select": 5,
+        "load": 5,
+        "update": 2,
+        "update_multi": 2,
+        "delete": 7,
+        "delete_multi": 7,
+        "truncate": 7,
+        "grant": 2,
+        "revoke": 2,
+        "revoke_all": 2,
+        "rename_table": 2,
+        "rename_user": 2,
+        "call_procedure": 99,
+        "create_db": 6,
+        "drop_db": 7,
+        "create_event": 6,
+        "drop_event": 7,
+        "create_function": 6,
+        "drop_function": 7,
+        "create_index": 6,
+        "drop_index": 7,
+        "create_procedure": 6,
+        "drop_procedure": 7,
+        "create_table": 6,
+        "drop_table": 7,
+        "create_trigger": 6,
+        "drop_trigger": 7,
+        "create_udf": 6,
+        "create_user": 6,
+        "drop_user": 7,
+        "create_view": 6,
+        "drop_view": 7,
+        "alter_db": 2,
+        "alter_event": 2,
+        "alter_function": 2,
+        "alter_procedure": 2,
+        "alter_table": 2,
+        "alter_user": 2,
+        "show_binlog_events": 8,
+        "show_create_event": 8,
+        "show_create_func": 8,
+        "show_create_proc": 8,
+        "show_create_trigger": 8,
+        "show_events": 8,
+        "show_function_code": 8,
+        "show_grants": 8,
+        "show_procedure_code": 8,
+        "show_relaylog_events": 8,
+        "show_triggers": 8
+      },
+      "default": 0,
+      "required": true
+    },
+    {
+      "target": "normalized.activity_name",
+      "source": "protoPayload.request.cmd",
+      "value_map": {
+        "connect": "Logon",
+        "disconnect": "Logoff",
+        "select": "Query",
+        "insert": "Write",
+        "insert_select": "Write",
+        "replace": "Write",
+        "replace_select": "Write",
+        "load": "Write",
+        "update": "Update",
+        "update_multi": "Update",
+        "delete": "Delete",
+        "delete_multi": "Delete",
+        "truncate": "Delete",
+        "grant": "Update",
+        "revoke": "Update",
+        "revoke_all": "Update",
+        "rename_table": "Update",
+        "rename_user": "Update",
+        "call_procedure": "Other",
+        "create_db": "Create",
+        "drop_db": "Delete",
+        "create_event": "Create",
+        "drop_event": "Delete",
+        "create_function": "Create",
+        "drop_function": "Delete",
+        "create_index": "Create",
+        "drop_index": "Delete",
+        "create_procedure": "Create",
+        "drop_procedure": "Delete",
+        "create_table": "Create",
+        "drop_table": "Delete",
+        "create_trigger": "Create",
+        "drop_trigger": "Delete",
+        "create_udf": "Create",
+        "create_user": "Create",
+        "drop_user": "Delete",
+        "create_view": "Create",
+        "drop_view": "Delete",
+        "alter_db": "Update",
+        "alter_event": "Update",
+        "alter_function": "Update",
+        "alter_procedure": "Update",
+        "alter_table": "Update",
+        "alter_user": "Update",
+        "show_binlog_events": "List",
+        "show_create_event": "List",
+        "show_create_func": "List",
+        "show_create_proc": "List",
+        "show_create_trigger": "List",
+        "show_events": "List",
+        "show_function_code": "List",
+        "show_grants": "List",
+        "show_procedure_code": "List",
+        "show_relaylog_events": "List",
+        "show_triggers": "List"
+      },
+      "default": "Unknown"
+    },
+    {
+      "_comment": "Sem cmd conhecido: 6005*100 + 0. connect=300201, disconnect=300202.",
+      "target": "normalized.type_uid",
+      "source": "protoPayload.request.cmd",
+      "value_map": {
+        "connect": 300201,
+        "disconnect": 300202,
+        "select": 600504,
+        "insert": 600505,
+        "insert_select": 600505,
+        "replace": 600505,
+        "replace_select": 600505,
+        "load": 600505,
+        "update": 600502,
+        "update_multi": 600502,
+        "delete": 600507,
+        "delete_multi": 600507,
+        "truncate": 600507,
+        "grant": 600502,
+        "revoke": 600502,
+        "revoke_all": 600502,
+        "rename_table": 600502,
+        "rename_user": 600502,
+        "call_procedure": 600599,
+        "create_db": 600506,
+        "drop_db": 600507,
+        "create_event": 600506,
+        "drop_event": 600507,
+        "create_function": 600506,
+        "drop_function": 600507,
+        "create_index": 600506,
+        "drop_index": 600507,
+        "create_procedure": 600506,
+        "drop_procedure": 600507,
+        "create_table": 600506,
+        "drop_table": 600507,
+        "create_trigger": 600506,
+        "drop_trigger": 600507,
+        "create_udf": 600506,
+        "create_user": 600506,
+        "drop_user": 600507,
+        "create_view": 600506,
+        "drop_view": 600507,
+        "alter_db": 600502,
+        "alter_event": 600502,
+        "alter_function": 600502,
+        "alter_procedure": 600502,
+        "alter_table": 600502,
+        "alter_user": 600502,
+        "show_binlog_events": 600508,
+        "show_create_event": 600508,
+        "show_create_func": 600508,
+        "show_create_proc": 600508,
+        "show_create_trigger": 600508,
+        "show_events": 600508,
+        "show_function_code": 600508,
+        "show_grants": 600508,
+        "show_procedure_code": 600508,
+        "show_relaylog_events": 600508,
+        "show_triggers": 600508
+      },
+      "default": 600500,
+      "required": true
+    },
+    {
+      "_comment": "LogEntry.severity -> OCSF. Audit e quase todo NOTICE/INFO; ERROR (negado) vira Medium, nao High.",
+      "target": "normalized.severity_id",
+      "source": "severity",
+      "value_map": {
+        "DEFAULT": 1,
+        "DEBUG": 1,
+        "INFO": 1,
+        "NOTICE": 1,
+        "WARNING": 2,
+        "ERROR": 3,
+        "CRITICAL": 4,
+        "ALERT": 5,
+        "EMERGENCY": 6
+      },
+      "default": 1,
+      "required": true
+    },
+    {
+      "target": "normalized.severity",
+      "source": "severity",
+      "value_map": {
+        "DEFAULT": "Informational",
+        "DEBUG": "Informational",
+        "INFO": "Informational",
+        "NOTICE": "Informational",
+        "WARNING": "Low",
+        "ERROR": "Medium",
+        "CRITICAL": "High",
+        "ALERT": "Critical",
+        "EMERGENCY": "Fatal"
+      },
+      "default": "Informational"
+    },
+    {
+      "target": "normalized.status_id",
+      "source": "protoPayload.request.status",
+      "value_map": {
+        "success": 1,
+        "unsuccessful": 2
+      },
+      "default": 0
+    },
+    {
+      "target": "normalized.status",
+      "source": "protoPayload.request.status",
+      "value_map": {
+        "success": "Success",
+        "unsuccessful": "Failure"
+      },
+      "default": "Unknown"
+    },
+    {
+      "_comment": "Codigo de erro do MySQL (ex.: 1045 = acesso negado no login).",
+      "target": "normalized.status_code",
+      "source": "protoPayload.request.errCode",
+      "type_cast": "to_str",
+      "default": null
+    },
+    {
+      "target": "normalized.message",
+      "source": "protoPayload.request.cmd",
+      "default": null
+    },
+    {
+      "_comment": "privUser = com quais privilegios o servidor checou; user = o que o cliente mandou.",
+      "target": "normalized.actor.user.name",
+      "source": "protoPayload.request.privUser || protoPayload.request.priv_user || protoPayload.request.user",
+      "default": null
+    },
+    {
+      "target": "normalized.actor.user.email_addr",
+      "source": "protoPayload.request.gcpIamAccount",
+      "default": null
+    },
+    {
+      "_comment": "Authentication exige 'user': o usuario que tentou conectar.",
+      "target": "normalized.user.name",
+      "source": "protoPayload.request.user",
+      "default": null,
+      "when": {
+        "in": {
+          "source": "protoPayload.request.cmd",
+          "values": [
+            "connect",
+            "disconnect"
+          ]
+        }
+      }
+    },
+    {
+      "target": "normalized.user.email_addr",
+      "source": "protoPayload.request.gcpIamAccount",
+      "default": null,
+      "when": {
+        "in": {
+          "source": "protoPayload.request.cmd",
+          "values": [
+            "connect",
+            "disconnect"
+          ]
+        }
+      }
+    },
+    {
+      "target": "normalized.service.name",
+      "const": "Cloud SQL for MySQL",
+      "when": {
+        "in": {
+          "source": "protoPayload.request.cmd",
+          "values": [
+            "connect",
+            "disconnect"
+          ]
+        }
+      }
+    },
+    {
+      "target": "normalized.service.uid",
+      "source": "resource.labels.database_id",
+      "default": null,
+      "when": {
+        "in": {
+          "source": "protoPayload.request.cmd",
+          "values": [
+            "connect",
+            "disconnect"
+          ]
+        }
+      }
+    },
+    {
+      "target": "normalized.src_endpoint.ip",
+      "source": "protoPayload.request.ip",
+      "default": null
+    },
+    {
+      "target": "normalized.src_endpoint.hostname",
+      "source": "protoPayload.request.host",
+      "default": null
+    },
+    {
+      "target": "normalized.database.uid",
+      "source": "resource.labels.database_id",
+      "default": null
+    },
+    {
+      "target": "normalized.database.name",
+      "source": "protoPayload.request.objects[0].db",
+      "default": null
+    },
+    {
+      "target": "normalized.table.name",
+      "source": "protoPayload.request.objects[0].name",
+      "default": null
+    },
+    {
+      "target": "normalized.query_info.query_string",
+      "source": "protoPayload.request.query",
+      "default": null
+    },
+    {
+      "target": "normalized.cloud.provider",
+      "const": "GCP"
+    },
+    {
+      "target": "normalized.cloud.project_uid",
+      "source": "resource.labels.project_id",
+      "default": null
+    },
+    {
+      "target": "normalized.cloud.account.uid",
+      "source": "resource.labels.project_id",
+      "default": null
+    },
+    {
+      "target": "normalized.cloud.region",
+      "source": "resource.labels.location || resource.labels.region || resource.labels.zone",
+      "default": null
+    },
+    {
+      "target": "normalized.time",
+      "source": "timestamp",
+      "type_cast": "iso_to_epoch",
+      "required": true
+    },
+    {
+      "target": "normalized.metadata.version",
+      "const": "1.8.0"
+    },
+    {
+      "target": "normalized.metadata.product.name",
+      "const": "Cloud SQL for MySQL"
+    },
+    {
+      "target": "normalized.metadata.product.vendor_name",
+      "const": "Google Cloud"
+    },
+    {
+      "target": "normalized.metadata.uid",
+      "source": "insertId",
+      "default": null
+    },
+    {
+      "target": "normalized.metadata.log_name",
+      "source": "logName",
+      "default": null
+    },
+    {
+      "target": "normalized.metadata.event_code",
+      "source": "protoPayload.request.cmd",
+      "default": null
+    },
+    {
+      "target": "normalized.observables",
+      "kind": "array_builder",
+      "items": [
+        {
+          "name": "actor_user",
+          "type": "User Name",
+          "type_id": 4,
+          "source": "protoPayload.request.user",
+          "skip_null": true
+        },
+        {
+          "name": "actor_email",
+          "type": "Email Address",
+          "type_id": 5,
+          "source": "protoPayload.request.gcpIamAccount",
+          "skip_null": true
+        },
+        {
+          "name": "src_ip",
+          "type": "IP Address",
+          "type_id": 2,
+          "source": "protoPayload.request.ip",
+          "skip_null": true
+        }
+      ],
+      "skip_null": true,
+      "dedup_by": [
+        "value"
+      ]
+    }
+  ],
+  "raw_reduction": [
+    {
+      "drop_nulls": true
+    }
+  ]
+}

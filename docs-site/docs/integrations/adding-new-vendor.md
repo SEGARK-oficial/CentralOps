@@ -40,6 +40,7 @@ Plataformas de origem que a equipe já integrou. A lista pode crescer; confira s
 | Microsoft Entra ID | Identity | Sign-in logs e directory audit (Microsoft Graph) |
 | Okta | Identity | System Log (logins, MFA, lifecycle de identidade) |
 | AWS CloudTrail | Cloud-audit | Eventos de API/management (polling do bucket S3) |
+| Google Cloud (Pub/Sub) | Cloud-audit | Cloud Audit Logs (IAM, login do Workspace), audit do GKE e auditoria do Cloud SQL MySQL |
 | Wazuh | SIEM | Detecções do Indexer (`wazuh-alerts-*`) |
 
 Para conectar qualquer um deles, siga o guia [Visão geral de integrações](./overview.md), que explica o passo a passo na interface.

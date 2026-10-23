@@ -1,0 +1,296 @@
+{
+  "_comment": [
+    "Audit do Kubernetes do GKE (serviceName=k8s.io) lido do Pub/Sub -> API Activity (6003).",
+    "methodName segue io.k8s.<grupo>.<versao>.<recurso>[.<sub>].<verbo>",
+    "(io.k8s.core.v1.pods.exec.create = kubectl exec). resourceName traz",
+    "core/v1/namespaces/<ns>/<recurso>/<nome>; o nome do cluster fica no raw",
+    "(resource.labels.cluster_name), que o OCSF 1.8 nao tem objeto para k8s."
+  ],
+  "rules": [
+    {
+      "_comment": [
+        "Classe e atividade saem da MESMA chave de tipo: login do Workspace ->",
+        "Authentication/Logon; senao API Activity pelo VERBO do methodName",
+        "(SetIamPolicy, google.iam.admin.v1.CreateServiceAccountKey,",
+        "io.k8s.core.v1.pods.delete, cloudsql.instances.update). methodName ausente",
+        "cai no '' do || e vira 'other' (Unknown), nunca erro."
+      ],
+      "target": "normalized.class_uid",
+      "const": 6003,
+      "required": true
+    },
+    {
+      "target": "normalized.class_name",
+      "const": "API Activity"
+    },
+    {
+      "target": "normalized.category_uid",
+      "const": 6,
+      "required": true
+    },
+    {
+      "target": "normalized.category_name",
+      "const": "Application Activity"
+    },
+    {
+      "target": "normalized.activity_id",
+      "source": "((contains((protoPayload.methodName || ''), '.delete') || contains((protoPayload.methodName || ''), '.Delete') || starts_with((protoPayload.methodName || ''), 'Delete')) && 'delete') || ((contains((protoPayload.methodName || ''), '.create') || contains((protoPayload.methodName || ''), '.Create') || starts_with((protoPayload.methodName || ''), 'Create') || contains((protoPayload.methodName || ''), '.insert') || contains((protoPayload.methodName || ''), '.Insert') || starts_with((protoPayload.methodName || ''), 'Insert')) && 'create') || ((contains((protoPayload.methodName || ''), '.update') || contains((protoPayload.methodName || ''), '.Update') || starts_with((protoPayload.methodName || ''), 'Update') || contains((protoPayload.methodName || ''), '.patch') || contains((protoPayload.methodName || ''), '.Patch') || starts_with((protoPayload.methodName || ''), 'Patch') || contains((protoPayload.methodName || ''), '.set') || contains((protoPayload.methodName || ''), '.Set') || starts_with((protoPayload.methodName || ''), 'Set')) && 'update') || ((contains((protoPayload.methodName || ''), '.get') || contains((protoPayload.methodName || ''), '.Get') || starts_with((protoPayload.methodName || ''), 'Get') || contains((protoPayload.methodName || ''), '.list') || contains((protoPayload.methodName || ''), '.List') || starts_with((protoPayload.methodName || ''), 'List') || contains((protoPayload.methodName || ''), '.watch') || contains((protoPayload.methodName || ''), '.Watch') || starts_with((protoPayload.methodName || ''), 'Watch')) && 'read') || 'other'",
+      "value_map": {
+        "delete": 4,
+        "create": 1,
+        "update": 3,
+        "read": 2
+      },
+      "default": 0,
+      "required": true
+    },
+    {
+      "target": "normalized.activity_name",
+      "source": "((contains((protoPayload.methodName || ''), '.delete') || contains((protoPayload.methodName || ''), '.Delete') || starts_with((protoPayload.methodName || ''), 'Delete')) && 'delete') || ((contains((protoPayload.methodName || ''), '.create') || contains((protoPayload.methodName || ''), '.Create') || starts_with((protoPayload.methodName || ''), 'Create') || contains((protoPayload.methodName || ''), '.insert') || contains((protoPayload.methodName || ''), '.Insert') || starts_with((protoPayload.methodName || ''), 'Insert')) && 'create') || ((contains((protoPayload.methodName || ''), '.update') || contains((protoPayload.methodName || ''), '.Update') || starts_with((protoPayload.methodName || ''), 'Update') || contains((protoPayload.methodName || ''), '.patch') || contains((protoPayload.methodName || ''), '.Patch') || starts_with((protoPayload.methodName || ''), 'Patch') || contains((protoPayload.methodName || ''), '.set') || contains((protoPayload.methodName || ''), '.Set') || starts_with((protoPayload.methodName || ''), 'Set')) && 'update') || ((contains((protoPayload.methodName || ''), '.get') || contains((protoPayload.methodName || ''), '.Get') || starts_with((protoPayload.methodName || ''), 'Get') || contains((protoPayload.methodName || ''), '.list') || contains((protoPayload.methodName || ''), '.List') || starts_with((protoPayload.methodName || ''), 'List') || contains((protoPayload.methodName || ''), '.watch') || contains((protoPayload.methodName || ''), '.Watch') || starts_with((protoPayload.methodName || ''), 'Watch')) && 'read') || 'other'",
+      "value_map": {
+        "delete": "Delete",
+        "create": "Create",
+        "update": "Update",
+        "read": "Read"
+      },
+      "default": "Unknown"
+    },
+    {
+      "target": "normalized.type_uid",
+      "source": "((contains((protoPayload.methodName || ''), '.delete') || contains((protoPayload.methodName || ''), '.Delete') || starts_with((protoPayload.methodName || ''), 'Delete')) && 'delete') || ((contains((protoPayload.methodName || ''), '.create') || contains((protoPayload.methodName || ''), '.Create') || starts_with((protoPayload.methodName || ''), 'Create') || contains((protoPayload.methodName || ''), '.insert') || contains((protoPayload.methodName || ''), '.Insert') || starts_with((protoPayload.methodName || ''), 'Insert')) && 'create') || ((contains((protoPayload.methodName || ''), '.update') || contains((protoPayload.methodName || ''), '.Update') || starts_with((protoPayload.methodName || ''), 'Update') || contains((protoPayload.methodName || ''), '.patch') || contains((protoPayload.methodName || ''), '.Patch') || starts_with((protoPayload.methodName || ''), 'Patch') || contains((protoPayload.methodName || ''), '.set') || contains((protoPayload.methodName || ''), '.Set') || starts_with((protoPayload.methodName || ''), 'Set')) && 'update') || ((contains((protoPayload.methodName || ''), '.get') || contains((protoPayload.methodName || ''), '.Get') || starts_with((protoPayload.methodName || ''), 'Get') || contains((protoPayload.methodName || ''), '.list') || contains((protoPayload.methodName || ''), '.List') || starts_with((protoPayload.methodName || ''), 'List') || contains((protoPayload.methodName || ''), '.watch') || contains((protoPayload.methodName || ''), '.Watch') || starts_with((protoPayload.methodName || ''), 'Watch')) && 'read') || 'other'",
+      "value_map": {
+        "delete": 600304,
+        "create": 600301,
+        "update": 600303,
+        "read": 600302
+      },
+      "default": 600300,
+      "required": true
+    },
+    {
+      "_comment": "LogEntry.severity -> OCSF. Audit e quase todo NOTICE/INFO; ERROR (negado) vira Medium, nao High.",
+      "target": "normalized.severity_id",
+      "source": "severity",
+      "value_map": {
+        "DEFAULT": 1,
+        "DEBUG": 1,
+        "INFO": 1,
+        "NOTICE": 1,
+        "WARNING": 2,
+        "ERROR": 3,
+        "CRITICAL": 4,
+        "ALERT": 5,
+        "EMERGENCY": 6
+      },
+      "default": 1,
+      "required": true
+    },
+    {
+      "target": "normalized.severity",
+      "source": "severity",
+      "value_map": {
+        "DEFAULT": "Informational",
+        "DEBUG": "Informational",
+        "INFO": "Informational",
+        "NOTICE": "Informational",
+        "WARNING": "Low",
+        "ERROR": "Medium",
+        "CRITICAL": "High",
+        "ALERT": "Critical",
+        "EMERGENCY": "Fatal"
+      },
+      "default": "Informational"
+    },
+    {
+      "target": "normalized.status_id",
+      "const": 1
+    },
+    {
+      "target": "normalized.status",
+      "const": "Success"
+    },
+    {
+      "_comment": "google.rpc.Status: code ausente/0 = sucesso; Policy Denied traz 7 (PERMISSION_DENIED).",
+      "target": "normalized.status_id",
+      "const": 2,
+      "when": {
+        "equals": {
+          "source": "protoPayload.status.code > `0`",
+          "value": true
+        }
+      }
+    },
+    {
+      "target": "normalized.status",
+      "const": "Failure",
+      "when": {
+        "equals": {
+          "source": "protoPayload.status.code > `0`",
+          "value": true
+        }
+      }
+    },
+    {
+      "target": "normalized.status_code",
+      "source": "protoPayload.status.code",
+      "type_cast": "to_str",
+      "default": null
+    },
+    {
+      "target": "normalized.status_detail",
+      "source": "protoPayload.status.message",
+      "default": null
+    },
+    {
+      "target": "normalized.actor.user.email_addr",
+      "source": "protoPayload.authenticationInfo.principalEmail",
+      "default": null
+    },
+    {
+      "_comment": "principalSubject cobre identidade federada (WIF), que nao tem e-mail.",
+      "target": "normalized.actor.user.name",
+      "source": "protoPayload.authenticationInfo.principalEmail || protoPayload.authenticationInfo.principalSubject",
+      "default": null
+    },
+    {
+      "target": "normalized.actor.user.uid",
+      "source": "protoPayload.authenticationInfo.principalSubject",
+      "default": null
+    },
+    {
+      "_comment": "Chave de service account usada na chamada: prova de uso de chave exportada.",
+      "target": "normalized.actor.session.credential_uid",
+      "source": "protoPayload.authenticationInfo.serviceAccountKeyName",
+      "default": null
+    },
+    {
+      "_comment": "callerIp vem 'private'/'gce-internal-ip' para trafego interno: nao e IP, nao vai para src_endpoint.ip.",
+      "target": "normalized.src_endpoint.ip",
+      "source": "[protoPayload.requestMetadata.callerIp][?@ != 'private' && @ != 'gce-internal-ip'] | [0]",
+      "default": null
+    },
+    {
+      "target": "normalized.http_request.user_agent",
+      "source": "protoPayload.requestMetadata.callerSuppliedUserAgent",
+      "default": null
+    },
+    {
+      "target": "normalized.message",
+      "source": "protoPayload.methodName",
+      "default": null
+    },
+    {
+      "target": "normalized.api.operation",
+      "source": "protoPayload.methodName",
+      "default": null
+    },
+    {
+      "target": "normalized.api.service.name",
+      "source": "protoPayload.serviceName",
+      "default": null
+    },
+    {
+      "target": "normalized.api.response.code",
+      "source": "protoPayload.status.code",
+      "default": null
+    },
+    {
+      "target": "normalized.api.response.message",
+      "source": "protoPayload.status.message",
+      "default": null
+    },
+    {
+      "target": "normalized.resources",
+      "source": "protoPayload.resourceName && [{name: protoPayload.resourceName, type: resource.type}]",
+      "default": null
+    },
+    {
+      "target": "normalized.cloud.provider",
+      "const": "GCP"
+    },
+    {
+      "target": "normalized.cloud.project_uid",
+      "source": "resource.labels.project_id",
+      "default": null
+    },
+    {
+      "target": "normalized.cloud.account.uid",
+      "source": "resource.labels.project_id",
+      "default": null
+    },
+    {
+      "target": "normalized.cloud.region",
+      "source": "resource.labels.location || resource.labels.region || resource.labels.zone",
+      "default": null
+    },
+    {
+      "target": "normalized.time",
+      "source": "timestamp",
+      "type_cast": "iso_to_epoch",
+      "required": true
+    },
+    {
+      "target": "normalized.metadata.version",
+      "const": "1.8.0"
+    },
+    {
+      "target": "normalized.metadata.product.name",
+      "const": "GKE Audit Logs"
+    },
+    {
+      "target": "normalized.metadata.product.vendor_name",
+      "const": "Google Cloud"
+    },
+    {
+      "target": "normalized.metadata.uid",
+      "source": "insertId",
+      "default": null
+    },
+    {
+      "target": "normalized.metadata.log_name",
+      "source": "logName",
+      "default": null
+    },
+    {
+      "target": "normalized.metadata.event_code",
+      "source": "protoPayload.methodName",
+      "default": null
+    },
+    {
+      "target": "normalized.observables",
+      "kind": "array_builder",
+      "items": [
+        {
+          "name": "actor_user",
+          "type": "User Name",
+          "type_id": 4,
+          "source": "protoPayload.authenticationInfo.principalEmail",
+          "skip_null": true
+        },
+        {
+          "name": "actor_email",
+          "type": "Email Address",
+          "type_id": 5,
+          "source": "contains(protoPayload.authenticationInfo.principalEmail || '', '@') && protoPayload.authenticationInfo.principalEmail || `null`",
+          "skip_null": true
+        },
+        {
+          "name": "src_ip",
+          "type": "IP Address",
+          "type_id": 2,
+          "source": "[protoPayload.requestMetadata.callerIp][?@ != 'private' && @ != 'gce-internal-ip'] | [0]",
+          "skip_null": true
+        }
+      ],
+      "skip_null": true,
+      "dedup_by": [
+        "value"
+      ]
+    }
+  ],
+  "raw_reduction": [
+    {
+      "drop_nulls": true
+    }
+  ]
+}

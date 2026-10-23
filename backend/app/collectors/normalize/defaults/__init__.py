@@ -47,6 +47,11 @@ DEFAULT_MAPPING_FILES = {
     ("veeam", "veeam.session"): "veeam_session.json",
     # AWS CloudWatch Logs → OCSF API Activity (log events de um log group).
     ("aws_cloudwatch", "aws_cloudwatch.event"): "aws_cloudwatch_event.json",
+    # Google Cloud via Pub/Sub: Audit Logs → API Activity (login → Authentication);
+    # GKE → API Activity; Cloud SQL MySQL → Authentication/Datastore Activity.
+    ("gcp_pubsub", "gcp.audit"): "gcp_audit.json",
+    ("gcp_pubsub", "gcp.gke_audit"): "gcp_gke_audit.json",
+    ("gcp_pubsub", "gcp.cloudsql_mysql"): "gcp_cloudsql_mysql.json",
     # push/ingest: FortiGate syslog → OCSF Network Activity.
     ("fortinet_fortigate", "fortinet_fortigate.traffic"): "fortinet_fortigate_traffic.json",
     # push/ingest: Windows Event Log/WEC (Security) → OCSF Authentication.

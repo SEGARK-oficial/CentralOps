@@ -131,6 +131,31 @@ class BaseCollector(abc.ABC):
         """
         self.ctx.hit_cycle_cap = True
 
+    # ── Fim de ciclo (fontes que exigem confirmação de leitura) ─────────
+
+    async def on_cycle_committed(self) -> None:
+        """Chamado DEPOIS que o pipeline gravou o cursor deste ciclo com sucesso.
+
+        É o ponto para confirmar a leitura numa fonte de fila (ack do Pub/Sub,
+        commit de offset): só aqui os eventos já foram despachados E a posição
+        já está gravada. Confirmar dentro de ``collect()`` perderia a mensagem
+        sempre que o ciclo falhasse depois do ``yield`` — a fila apagaria um
+        evento que o CentralOps nunca entregou.
+
+        Roda fora da sessão HTTP do ciclo (``ctx.session`` já está fechada):
+        quem precisa de rede abre a própria. Falha aqui NÃO desfaz o ciclo — o
+        pipeline só registra; a fonte reentrega e o dedupe absorve. Default:
+        no-op (fontes de polling não confirmam nada).
+        """
+
+    async def on_cycle_aborted(self) -> None:
+        """Chamado quando o ciclo falhou e o cursor voltou para ``cursor_before``.
+
+        Contraparte de ``on_cycle_committed``: devolve à fonte o que foi lido e
+        não será confirmado (nack), para a reentrega não esperar o prazo da
+        fila. Best-effort — nunca mascara o erro original. Default: no-op.
+        """
+
     # ── Watermark (posição do cursor na linha do tempo do FORNECEDOR) ───
 
     @classmethod
