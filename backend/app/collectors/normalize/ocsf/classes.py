@@ -51,6 +51,9 @@ CLASS_UID_NETWORK_ACTIVITY = 4001
 
 # Application Activity (category 6)
 CLASS_UID_API_ACTIVITY = 6003
+# Operação DENTRO de um banco (query, GRANT, CREATE USER) — auditoria do Cloud
+# SQL MySQL. Não é API Activity: o alvo é o dado, não a API de controle.
+CLASS_UID_DATASTORE_ACTIVITY = 6005
 
 
 CLASS_NAMES: Mapping[int, str] = {
@@ -62,6 +65,7 @@ CLASS_NAMES: Mapping[int, str] = {
     CLASS_UID_AUTHENTICATION: "Authentication",
     CLASS_UID_NETWORK_ACTIVITY: "Network Activity",
     CLASS_UID_API_ACTIVITY: "API Activity",
+    CLASS_UID_DATASTORE_ACTIVITY: "Datastore Activity",
 }
 
 ALLOWED_CLASS_UIDS = frozenset(CLASS_NAMES.keys())

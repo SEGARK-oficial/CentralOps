@@ -1430,6 +1430,10 @@ def _run_lightweight_migrations() -> None:
                 ("aws_cloudtrail", "aws_cloudtrail.event", 6003, "AWS CloudTrail — management events (API Activity)"),
                 ("aws_cloudwatch", "aws_cloudwatch.event", 0, "AWS CloudWatch Logs — log events de um log group (Base Event: transporte heterogêneo)"),
                 ("veeam", "veeam.session", 1006, "Veeam Backup & Replication — sessões de job (Scheduled Job Activity)"),
+                # Classe decidida por evento (value_map); o seed anuncia a dominante.
+                ("gcp_pubsub", "gcp.audit", 6003, "Google Cloud Audit Logs via Pub/Sub (API Activity; login do Workspace → Authentication)"),
+                ("gcp_pubsub", "gcp.gke_audit", 6003, "Google Cloud — audit do Kubernetes do GKE via Pub/Sub (API Activity)"),
+                ("gcp_pubsub", "gcp.cloudsql_mysql", 6005, "Google Cloud SQL for MySQL — auditoria do banco via Pub/Sub (Datastore Activity; conexão → Authentication)"),
             ]
             now = datetime.utcnow()
 

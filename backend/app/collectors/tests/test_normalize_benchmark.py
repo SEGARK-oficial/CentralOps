@@ -19,6 +19,7 @@ from statistics import mean
 
 import pytest
 
+from backend.app.collectors.tests import _gcp_fixtures as _gcp
 from backend.app.collectors.normalize.defaults import (
     DEFAULT_MAPPING_FILES,
     load_default_rules,
@@ -201,6 +202,10 @@ _FIXTURES = {
         "awsAccountId": "888",
         "eventTime": "2026-06-21T10:00:00.000Z",
     },
+    # Google Cloud via Pub/Sub — o LogEntry já decodificado (é o que o coletor emite).
+    ("gcp_pubsub", "gcp.audit"): _gcp.SET_IAM_POLICY,
+    ("gcp_pubsub", "gcp.gke_audit"): _gcp.GKE_EXEC,
+    ("gcp_pubsub", "gcp.cloudsql_mysql"): _gcp.MYSQL_GRANT,
     ("wazuh", "wazuh.detection"): {
         "timestamp": "2026-06-21T10:00:00Z",
         "id": "1700000000.123",
