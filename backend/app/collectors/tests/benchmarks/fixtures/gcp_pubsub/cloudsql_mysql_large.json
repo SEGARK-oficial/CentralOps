@@ -1,0 +1,188 @@
+{
+  "insertId": "sql-2",
+  "logName": "projects/projeto-exemplo/logs/cloudaudit.googleapis.com%2Fdata_access",
+  "protoPayload": {
+    "@type": "type.googleapis.com/google.cloud.audit.AuditLog",
+    "serviceName": "cloudsql.googleapis.com",
+    "request": {
+      "@type": "type.googleapis.com/google.cloud.sql.audit.v1.MysqlAuditEntry",
+      "msgType": "activity",
+      "status": "success",
+      "user": "admin",
+      "privUser": "admin",
+      "ip": "203.0.113.40",
+      "cmd": "grant",
+      "objects": [
+        {
+          "db": "vendas",
+          "name": "tabela_0",
+          "objType": "TABLE"
+        },
+        {
+          "db": "vendas",
+          "name": "tabela_1",
+          "objType": "TABLE"
+        },
+        {
+          "db": "vendas",
+          "name": "tabela_2",
+          "objType": "TABLE"
+        },
+        {
+          "db": "vendas",
+          "name": "tabela_3",
+          "objType": "TABLE"
+        },
+        {
+          "db": "vendas",
+          "name": "tabela_4",
+          "objType": "TABLE"
+        },
+        {
+          "db": "vendas",
+          "name": "tabela_5",
+          "objType": "TABLE"
+        },
+        {
+          "db": "vendas",
+          "name": "tabela_6",
+          "objType": "TABLE"
+        },
+        {
+          "db": "vendas",
+          "name": "tabela_7",
+          "objType": "TABLE"
+        },
+        {
+          "db": "vendas",
+          "name": "tabela_8",
+          "objType": "TABLE"
+        },
+        {
+          "db": "vendas",
+          "name": "tabela_9",
+          "objType": "TABLE"
+        },
+        {
+          "db": "vendas",
+          "name": "tabela_10",
+          "objType": "TABLE"
+        },
+        {
+          "db": "vendas",
+          "name": "tabela_11",
+          "objType": "TABLE"
+        },
+        {
+          "db": "vendas",
+          "name": "tabela_12",
+          "objType": "TABLE"
+        },
+        {
+          "db": "vendas",
+          "name": "tabela_13",
+          "objType": "TABLE"
+        },
+        {
+          "db": "vendas",
+          "name": "tabela_14",
+          "objType": "TABLE"
+        }
+      ],
+      "query": "GRANT SELECT ON vendas.pedidos TO 'relatorio'@'%'",
+      "threadId": "813",
+      "queryId": "9"
+    },
+    "authorizationInfo": [
+      {
+        "resource": "projects/projeto-exemplo/recurso-0",
+        "permission": "svc.recurso.get0",
+        "granted": true
+      },
+      {
+        "resource": "projects/projeto-exemplo/recurso-1",
+        "permission": "svc.recurso.get1",
+        "granted": false
+      },
+      {
+        "resource": "projects/projeto-exemplo/recurso-2",
+        "permission": "svc.recurso.get2",
+        "granted": true
+      },
+      {
+        "resource": "projects/projeto-exemplo/recurso-3",
+        "permission": "svc.recurso.get3",
+        "granted": false
+      },
+      {
+        "resource": "projects/projeto-exemplo/recurso-4",
+        "permission": "svc.recurso.get4",
+        "granted": true
+      },
+      {
+        "resource": "projects/projeto-exemplo/recurso-5",
+        "permission": "svc.recurso.get5",
+        "granted": false
+      },
+      {
+        "resource": "projects/projeto-exemplo/recurso-6",
+        "permission": "svc.recurso.get6",
+        "granted": true
+      },
+      {
+        "resource": "projects/projeto-exemplo/recurso-7",
+        "permission": "svc.recurso.get7",
+        "granted": false
+      },
+      {
+        "resource": "projects/projeto-exemplo/recurso-8",
+        "permission": "svc.recurso.get8",
+        "granted": true
+      },
+      {
+        "resource": "projects/projeto-exemplo/recurso-9",
+        "permission": "svc.recurso.get9",
+        "granted": false
+      },
+      {
+        "resource": "projects/projeto-exemplo/recurso-10",
+        "permission": "svc.recurso.get10",
+        "granted": true
+      },
+      {
+        "resource": "projects/projeto-exemplo/recurso-11",
+        "permission": "svc.recurso.get11",
+        "granted": false
+      }
+    ]
+  },
+  "resource": {
+    "type": "cloudsql_database",
+    "labels": {
+      "project_id": "projeto-exemplo",
+      "database_id": "projeto-exemplo:mysql-prod",
+      "region": "southamerica-east1"
+    }
+  },
+  "severity": "INFO",
+  "timestamp": "2026-10-23T12:21:00Z",
+  "labels": {
+    "label_0": "valor-0",
+    "label_1": "valor-1",
+    "label_2": "valor-2",
+    "label_3": "valor-3",
+    "label_4": "valor-4",
+    "label_5": "valor-5",
+    "label_6": "valor-6",
+    "label_7": "valor-7",
+    "label_8": "valor-8",
+    "label_9": "valor-9"
+  },
+  "operation": {
+    "id": "op-bench-1",
+    "producer": "cloudsql.googleapis.com",
+    "first": true,
+    "last": true
+  },
+  "trace": "projects/projeto-exemplo/traces/0af7651916cd43dd8448eb211c80319c"
+}

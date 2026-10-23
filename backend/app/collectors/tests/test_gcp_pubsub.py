@@ -304,7 +304,9 @@ def test_target_names_cannot_escape_the_subscription_path(project, prefix) -> No
 _SA = {
     "type": "service_account",
     "client_email": "coletor@projeto-exemplo.iam.gserviceaccount.com",
-    "private_key": "-----BEGIN PRIVATE KEY-----\nMIIfake\n-----END PRIVATE KEY-----\n",
+    # Só precisa ser não-vazia: o parse nunca roda (o mint é mockado). Um PEM aqui,
+    # mesmo falso, reprova o openness-gate (detector de chave privada commitada).
+    "private_key": "chave-falsa-de-teste",
     "token_uri": "https://oauth2.googleapis.com/token",
 }
 _WIF_AZURE = {

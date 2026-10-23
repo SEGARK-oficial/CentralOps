@@ -1,0 +1,28 @@
+{
+  "insertId": "-f6g7h8",
+  "logName": "projects/projeto-exemplo/logs/cloudaudit.googleapis.com%2Fpolicy",
+  "protoPayload": {
+    "@type": "type.googleapis.com/google.cloud.audit.AuditLog",
+    "authenticationInfo": {
+      "principalEmail": "deploy@projeto-exemplo.iam.gserviceaccount.com"
+    },
+    "requestMetadata": {
+      "callerIp": "private"
+    },
+    "serviceName": "iam.googleapis.com",
+    "methodName": "google.iam.admin.v1.CreateServiceAccountKey",
+    "resourceName": "projects/-/serviceAccounts/deploy@projeto-exemplo.iam.gserviceaccount.com",
+    "status": {
+      "code": 7,
+      "message": "Permission 'iam.serviceAccountKeys.create' denied"
+    }
+  },
+  "resource": {
+    "type": "service_account",
+    "labels": {
+      "project_id": "projeto-exemplo"
+    }
+  },
+  "severity": "ERROR",
+  "timestamp": "2026-10-23T12:05:00Z"
+}

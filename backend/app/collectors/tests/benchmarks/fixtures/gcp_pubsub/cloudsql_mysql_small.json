@@ -1,0 +1,30 @@
+{
+  "insertId": "sql-1",
+  "logName": "projects/projeto-exemplo/logs/cloudaudit.googleapis.com%2Fdata_access",
+  "protoPayload": {
+    "@type": "type.googleapis.com/google.cloud.audit.AuditLog",
+    "serviceName": "cloudsql.googleapis.com",
+    "request": {
+      "@type": "type.googleapis.com/google.cloud.sql.audit.v1.MysqlAuditEntry",
+      "msgType": "activity",
+      "status": "unsuccessful",
+      "user": "root",
+      "host": "",
+      "ip": "198.51.100.7",
+      "errCode": "1045",
+      "cmd": "connect",
+      "threadId": "812",
+      "queryId": "0"
+    }
+  },
+  "resource": {
+    "type": "cloudsql_database",
+    "labels": {
+      "project_id": "projeto-exemplo",
+      "database_id": "projeto-exemplo:mysql-prod",
+      "region": "southamerica-east1"
+    }
+  },
+  "severity": "INFO",
+  "timestamp": "2026-10-23T12:20:00Z"
+}

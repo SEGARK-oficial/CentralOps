@@ -1,0 +1,207 @@
+{
+  "insertId": "-a1b2c3d4e5",
+  "logName": "projects/projeto-exemplo/logs/cloudaudit.googleapis.com%2Factivity",
+  "protoPayload": {
+    "@type": "type.googleapis.com/google.cloud.audit.AuditLog",
+    "authenticationInfo": {
+      "principalEmail": "ana.silva@example.com"
+    },
+    "requestMetadata": {
+      "callerIp": "203.0.113.10",
+      "callerSuppliedUserAgent": "google-cloud-sdk gcloud/480.0.0"
+    },
+    "serviceName": "cloudresourcemanager.googleapis.com",
+    "methodName": "SetIamPolicy",
+    "resourceName": "projects/projeto-exemplo",
+    "serviceData": {
+      "@type": "type.googleapis.com/google.iam.v1.logging.AuditData",
+      "policyDelta": {
+        "bindingDeltas": [
+          {
+            "action": "ADD",
+            "role": "roles/owner",
+            "member": "user:externo@example.org"
+          }
+        ]
+      }
+    },
+    "status": {},
+    "authorizationInfo": [
+      {
+        "resource": "projects/projeto-exemplo/recurso-0",
+        "permission": "svc.recurso.get0",
+        "granted": true
+      },
+      {
+        "resource": "projects/projeto-exemplo/recurso-1",
+        "permission": "svc.recurso.get1",
+        "granted": false
+      },
+      {
+        "resource": "projects/projeto-exemplo/recurso-2",
+        "permission": "svc.recurso.get2",
+        "granted": true
+      },
+      {
+        "resource": "projects/projeto-exemplo/recurso-3",
+        "permission": "svc.recurso.get3",
+        "granted": false
+      },
+      {
+        "resource": "projects/projeto-exemplo/recurso-4",
+        "permission": "svc.recurso.get4",
+        "granted": true
+      },
+      {
+        "resource": "projects/projeto-exemplo/recurso-5",
+        "permission": "svc.recurso.get5",
+        "granted": false
+      },
+      {
+        "resource": "projects/projeto-exemplo/recurso-6",
+        "permission": "svc.recurso.get6",
+        "granted": true
+      },
+      {
+        "resource": "projects/projeto-exemplo/recurso-7",
+        "permission": "svc.recurso.get7",
+        "granted": false
+      },
+      {
+        "resource": "projects/projeto-exemplo/recurso-8",
+        "permission": "svc.recurso.get8",
+        "granted": true
+      },
+      {
+        "resource": "projects/projeto-exemplo/recurso-9",
+        "permission": "svc.recurso.get9",
+        "granted": false
+      },
+      {
+        "resource": "projects/projeto-exemplo/recurso-10",
+        "permission": "svc.recurso.get10",
+        "granted": true
+      },
+      {
+        "resource": "projects/projeto-exemplo/recurso-11",
+        "permission": "svc.recurso.get11",
+        "granted": false
+      }
+    ],
+    "request": {
+      "@type": "type.googleapis.com/google.iam.v1.SetIamPolicyRequest",
+      "policy": {
+        "bindings": [
+          {
+            "role": "roles/papel0",
+            "members": [
+              "user:u0@example.com",
+              "user:u1@example.com",
+              "user:u2@example.com",
+              "user:u3@example.com",
+              "user:u4@example.com"
+            ]
+          },
+          {
+            "role": "roles/papel1",
+            "members": [
+              "user:u0@example.com",
+              "user:u1@example.com",
+              "user:u2@example.com",
+              "user:u3@example.com",
+              "user:u4@example.com"
+            ]
+          },
+          {
+            "role": "roles/papel2",
+            "members": [
+              "user:u0@example.com",
+              "user:u1@example.com",
+              "user:u2@example.com",
+              "user:u3@example.com",
+              "user:u4@example.com"
+            ]
+          },
+          {
+            "role": "roles/papel3",
+            "members": [
+              "user:u0@example.com",
+              "user:u1@example.com",
+              "user:u2@example.com",
+              "user:u3@example.com",
+              "user:u4@example.com"
+            ]
+          },
+          {
+            "role": "roles/papel4",
+            "members": [
+              "user:u0@example.com",
+              "user:u1@example.com",
+              "user:u2@example.com",
+              "user:u3@example.com",
+              "user:u4@example.com"
+            ]
+          },
+          {
+            "role": "roles/papel5",
+            "members": [
+              "user:u0@example.com",
+              "user:u1@example.com",
+              "user:u2@example.com",
+              "user:u3@example.com",
+              "user:u4@example.com"
+            ]
+          },
+          {
+            "role": "roles/papel6",
+            "members": [
+              "user:u0@example.com",
+              "user:u1@example.com",
+              "user:u2@example.com",
+              "user:u3@example.com",
+              "user:u4@example.com"
+            ]
+          },
+          {
+            "role": "roles/papel7",
+            "members": [
+              "user:u0@example.com",
+              "user:u1@example.com",
+              "user:u2@example.com",
+              "user:u3@example.com",
+              "user:u4@example.com"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "receiveTimestamp": "2026-10-23T12:00:01.234567890Z",
+  "resource": {
+    "type": "project",
+    "labels": {
+      "project_id": "projeto-exemplo"
+    }
+  },
+  "severity": "NOTICE",
+  "timestamp": "2026-10-23T12:00:00.123456789Z",
+  "labels": {
+    "label_0": "valor-0",
+    "label_1": "valor-1",
+    "label_2": "valor-2",
+    "label_3": "valor-3",
+    "label_4": "valor-4",
+    "label_5": "valor-5",
+    "label_6": "valor-6",
+    "label_7": "valor-7",
+    "label_8": "valor-8",
+    "label_9": "valor-9"
+  },
+  "operation": {
+    "id": "op-bench-1",
+    "producer": "cloudresourcemanager.googleapis.com",
+    "first": true,
+    "last": true
+  },
+  "trace": "projects/projeto-exemplo/traces/0af7651916cd43dd8448eb211c80319c"
+}

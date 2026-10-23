@@ -1,0 +1,39 @@
+{
+  "insertId": "-a1b2c3d4e5",
+  "logName": "projects/projeto-exemplo/logs/cloudaudit.googleapis.com%2Factivity",
+  "protoPayload": {
+    "@type": "type.googleapis.com/google.cloud.audit.AuditLog",
+    "authenticationInfo": {
+      "principalEmail": "ana.silva@example.com"
+    },
+    "requestMetadata": {
+      "callerIp": "203.0.113.10",
+      "callerSuppliedUserAgent": "google-cloud-sdk gcloud/480.0.0"
+    },
+    "serviceName": "cloudresourcemanager.googleapis.com",
+    "methodName": "SetIamPolicy",
+    "resourceName": "projects/projeto-exemplo",
+    "serviceData": {
+      "@type": "type.googleapis.com/google.iam.v1.logging.AuditData",
+      "policyDelta": {
+        "bindingDeltas": [
+          {
+            "action": "ADD",
+            "role": "roles/owner",
+            "member": "user:externo@example.org"
+          }
+        ]
+      }
+    },
+    "status": {}
+  },
+  "receiveTimestamp": "2026-10-23T12:00:01.234567890Z",
+  "resource": {
+    "type": "project",
+    "labels": {
+      "project_id": "projeto-exemplo"
+    }
+  },
+  "severity": "NOTICE",
+  "timestamp": "2026-10-23T12:00:00.123456789Z"
+}

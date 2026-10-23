@@ -1,0 +1,35 @@
+{
+  "insertId": "gke-exec-1",
+  "logName": "projects/projeto-exemplo/logs/cloudaudit.googleapis.com%2Factivity",
+  "protoPayload": {
+    "@type": "type.googleapis.com/google.cloud.audit.AuditLog",
+    "authenticationInfo": {
+      "principalEmail": "ana.silva@example.com"
+    },
+    "authorizationInfo": [
+      {
+        "granted": true,
+        "permission": "io.k8s.core.v1.pods.exec.create",
+        "resource": "core/v1/namespaces/producao/pods/api-7d9f/exec"
+      }
+    ],
+    "requestMetadata": {
+      "callerIp": "203.0.113.10",
+      "callerSuppliedUserAgent": "kubectl/v1.31.0"
+    },
+    "serviceName": "k8s.io",
+    "methodName": "io.k8s.core.v1.pods.exec.create",
+    "resourceName": "core/v1/namespaces/producao/pods/api-7d9f/exec",
+    "status": {}
+  },
+  "resource": {
+    "type": "k8s_cluster",
+    "labels": {
+      "project_id": "projeto-exemplo",
+      "location": "southamerica-east1",
+      "cluster_name": "cluster-exemplo"
+    }
+  },
+  "severity": "NOTICE",
+  "timestamp": "2026-10-23T12:15:00Z"
+}
