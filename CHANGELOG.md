@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.14.1](https://github.com/SEGARK-oficial/CentralOps/compare/v2.14.0...v2.14.1) (2026-10-26)
+
+
+### Features
+
+* **partner:** contrato para desvincular/vincular org do parceiro Sophos (ADR-0017) ([#100](https://github.com/SEGARK-oficial/CentralOps/issues/100)) ([3b67519](https://github.com/SEGARK-oficial/CentralOps/commit/3b67519c4b7ce4d1371b71279e178d046e140654))
+
 ## [2.14.0](https://github.com/SEGARK-oficial/CentralOps/compare/v2.13.1...v2.14.0) (2026-10-23)
 
 
