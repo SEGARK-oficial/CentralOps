@@ -70,7 +70,13 @@ jobs:
         run: |
           # Rede de segurança do passo anterior: se alguma forma nova de
           # degradação aparecer, ela chega ao HTML como texto literal.
-          if grep -rl ':::' docs-site/build --include='*.html'; then
+          #
+          # O marcador vazado começa um texto: vem depois de uma tag (`<p>:::info`)
+          # ou de espaço/início de linha. Um `:::` grudado em outro caractere é
+          # conteúdo legítimo — o ARN de S3 (`arn:aws:s3:::meu-bucket`) da página
+          # do CloudTrail deixou este passo vermelho na main desde o #99 sem
+          # nenhuma diretiva quebrada.
+          if grep -rlE '(^|[[:space:]>]):::' docs-site/build --include='*.html'; then
             echo "::error::Marcador ::: literal no HTML publicado. Alguma diretiva não foi interpretada."
             exit 1
           fi

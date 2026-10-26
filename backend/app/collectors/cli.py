@@ -196,11 +196,16 @@ def _print_dry_run_summary(
 ) -> None:
     target_list = list(target_ids)
     missing = [eid for eid in target_list if eid not in found]
+    detached = [
+        eid for eid in target_list if eid in found and found[eid].state == "detached"
+    ]
     same_state = [
         eid for eid in target_list if eid in found and found[eid].state == state
     ]
     will_change = [
-        eid for eid in target_list if eid in found and found[eid].state != state
+        eid
+        for eid in target_list
+        if eid in found and found[eid].state not in (state, "detached")
     ]
     print("[DRY-RUN] resumo da operação:", file=sys.stderr)
     print(f"  total alvos    : {len(target_list)}", file=sys.stderr)
@@ -208,6 +213,10 @@ def _print_dry_run_summary(
     print(f"  mudará de estado: {len(will_change)}", file=sys.stderr)
     print(
         f"  não descobertos: {len(missing)} (necessitam sync antes)",
+        file=sys.stderr,
+    )
+    print(
+        f"  desvinculados  : {len(detached)} (ignorados — voltam pelo vincular)",
         file=sys.stderr,
     )
     for eid in will_change[:25]:
@@ -271,15 +280,22 @@ def _cmd_bulk_approve(args: argparse.Namespace) -> int:
                 )
                 return 0
 
-            # Apply path.
-            valid_ids = [eid for eid in target_ids if eid in found]
+            # Apply path. Desvinculado não passa pelo aprovar/excluir em lote: a
+            # integração dele anda com chave própria e aprová-lo criaria outra.
+            detached = [
+                eid for eid in target_ids if eid in found and found[eid].state == "detached"
+            ]
+            valid_ids = [
+                eid for eid in target_ids if eid in found and eid not in detached
+            ]
             missing = [eid for eid in target_ids if eid not in found]
 
             if not valid_ids:
                 print(
-                    f"[ERROR] nenhum tenant alvo está descoberto. "
-                    f"{len(missing)} ids não estão em integration_tenant_selections. "
-                    f"Rode POST /sync-tenants antes.",
+                    f"[ERROR] nenhum tenant alvo pode ser processado. "
+                    f"{len(missing)} ids não estão em integration_tenant_selections "
+                    f"(rode POST /sync-tenants antes) e {len(detached)} estão "
+                    f"desvinculados do parceiro.",
                     file=sys.stderr,
                 )
                 return 1
@@ -331,6 +347,7 @@ def _cmd_bulk_approve(args: argparse.Namespace) -> int:
                 "materialized": materialized,
                 "deactivated": deactivated,
                 "missing": len(missing),
+                "detached_skipped": len(detached),
                 "errors": [{"external_id": eid, "reason": r} for eid, r in errors],
             }
             print(json.dumps(summary, indent=2))
@@ -364,7 +381,7 @@ def _build_parser() -> argparse.ArgumentParser:
     p_list_sel.add_argument("--partner-id", type=int, required=True)
     p_list_sel.add_argument(
         "--state",
-        choices=["pending", "approved", "excluded", "all"],
+        choices=["pending", "approved", "excluded", "detached", "all"],
         default="pending",
     )
     p_list_sel.add_argument("--limit", type=int, default=None)

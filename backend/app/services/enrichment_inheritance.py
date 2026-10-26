@@ -541,6 +541,48 @@ def on_org_attached(db: Session, org_id: int) -> Dict[str, Any]:
     return summary
 
 
+def on_org_detached(
+    db: Session, org_id: int, former_ancestor_ids: List[int]
+) -> List[str]:
+    """A org saiu da subárvore: revoga as fontes dos ex-ancestrais. NÃO commita.
+
+    Apaga só a linha de compartilhamento (``EnrichmentSourceOrg``) de fontes
+    cujo DONO é um ex-ancestral; a fonte continua viva para a matriz e para as
+    outras filhas. As políticas que a org recebeu de um modelo ficam: são cópias
+    dela (sem credencial), e o modelo já não a alcança porque ela não é mais
+    descendente. Uma regra que dependia da fonte revogada aparece na prontidão
+    de enriquecimento da org, que é onde o operador procura.
+    """
+    if not former_ancestor_ids:
+        return []
+    rows = (
+        db.query(models.EnrichmentSourceOrg, models.EnrichmentSource.name)
+        .join(
+            models.EnrichmentSource,
+            models.EnrichmentSource.id == models.EnrichmentSourceOrg.source_id,
+        )
+        .filter(
+            models.EnrichmentSourceOrg.organization_id == int(org_id),
+            models.EnrichmentSource.organization_id.in_(
+                [int(i) for i in former_ancestor_ids]
+            ),
+        )
+        .all()
+    )
+    revoked: List[str] = []
+    for share, name in rows:
+        db.delete(share)
+        revoked.append(str(name))
+    if revoked:
+        db.flush()
+        logger.info(
+            "enrich: org %s saiu da subárvore — fontes revogadas=%s",
+            org_id, revoked,
+            extra={"event": "enrich.revoked_on_detach", "org_id": org_id},
+        )
+    return revoked
+
+
 def on_org_attached_safe(bind, org_id: int) -> None:
     """Roda :func:`on_org_attached` numa sessão PRÓPRIA e commita.
 

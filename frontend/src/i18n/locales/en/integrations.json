@@ -230,7 +230,9 @@
       "regionHelper": "Optional. Automatically discovered on the first connection.",
       "importNoticeTitle": "How it works:",
       "importNoticeBody": " on save, each tenant here becomes its own Organization + Integration. Region and tenant_id come from the API.",
-      "enterpriseRequiredNote": "Importing tenants requires Enterprise. On Community you can discover, not import."
+      "enterpriseRequiredNote": "Importing tenants requires Enterprise. On Community you can discover, not import.",
+      "partnerChildTitle": "Credential managed by the partner",
+      "partnerChildBody": "This integration uses the credential of the Sophos partner that manages the organization, so the Client ID and Client Secret are not edited here. To use the customer's own key, detach the organization from the partner on the partner screen (Sophos Tenants) or on the Organizations screen."
     },
     "wazuh": {
       "indexerTitle": "Indexer API",
@@ -439,7 +441,8 @@
       "pending": "Pending",
       "approved": "Approved",
       "excluded": "Excluded",
-      "stale": "Gone (stale)"
+      "stale": "Gone (stale)",
+      "detached": "Detached"
     },
     "filters": {
       "searchLabel": "Search",
@@ -454,7 +457,8 @@
       "stateStale": "Gone (stale)",
       "geoLabel": "Data geography",
       "geoAriaLabel": "Filter by data region",
-      "geoAll": "All geographies"
+      "geoAll": "All geographies",
+      "stateDetached": "Detached"
     },
     "bulk": {
       "contextLabel": "tenant(s)",
@@ -483,7 +487,10 @@
       "approvedSuccess": "{{count}} tenant(s) approved.",
       "excludedSuccess": "{{count}} tenant(s) excluded.",
       "policyUpdatedOn": "Policy updated — auto-approve is now on.",
-      "policyUpdatedOff": "Policy updated — auto-approve is now off."
+      "policyUpdatedOff": "Policy updated — auto-approve is now off.",
+      "detachDone": "The organization of tenant {{name}} was detached from the partner. It now uses its own credential.",
+      "attachDone": "The organization of tenant {{name}} was reattached to the partner. Its own credential was discarded.",
+      "revokedSources": "Enrichment sources revoked: {{sources}}."
     },
     "table": {
       "loading": "Loading tenants...",
@@ -512,7 +519,11 @@
         "approve": "Approve",
         "exclude": "Exclude",
         "excludeFinal": "Exclude permanently",
-        "reapprove": "Re-approve"
+        "reapprove": "Re-approve",
+        "detach": "Detach",
+        "detachAriaLabel": "Detach from partner — {{name}}",
+        "reattach": "Reattach",
+        "reattachAriaLabel": "Reattach to partner — {{name}}"
       }
     },
     "pagination": {
