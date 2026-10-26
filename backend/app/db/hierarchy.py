@@ -87,6 +87,57 @@ def assign_on_create(session: Session, org: models.Organization) -> None:
     session.flush()
 
 
+def has_child_orgs(session: Session, org_id: int) -> bool:
+    """True se alguma org aponta para ``org_id`` como pai."""
+    return (
+        session.execute(
+            select(models.Organization.id)
+            .where(models.Organization.parent_organization_id == org_id)
+            .limit(1)
+        ).first()
+        is not None
+    )
+
+
+def detach_to_root(session: Session, org: models.Organization) -> list[int]:
+    """Tira ``org`` da subárvore do parceiro: vira raiz sob a plataforma.
+
+    Desfaz o vínculo legado (``partner_integration_id``) e re-materializa o nó
+    por :func:`materialize_node` com pai ``None`` — no Enterprise isso reescreve
+    a closure do nó; na Community é o mesmo FLAT de sempre. Devolve os
+    ancestrais que a org tinha, do mais próximo à raiz, para o caller revogar o
+    que ela herdou deles (:func:`release_inherited_enrichment`).
+
+    Só serve para FOLHA: o materializador reescreve as arestas do próprio nó,
+    não as dos descendentes, então o caller recusa antes uma org com filhas
+    (:func:`has_child_orgs`). NÃO commita.
+    """
+    from ..services.enrichment_inheritance import ancestor_org_ids
+
+    if org.id is None:
+        session.flush()
+    former = ancestor_org_ids(session, org.id)
+    org.partner_integration_id = None
+    materialize_node(session, org.id, None)
+    session.flush()
+    return former
+
+
+def release_inherited_enrichment(
+    session: Session, org_id: int, former_ancestor_ids: list[int]
+) -> list[str]:
+    """Revoga as fontes de enriquecimento que a org usava por ser filha.
+
+    Contraparte de :func:`inherit_enrichment` para quem SAI da subárvore: a
+    credencial de um ancestral não pode continuar atendendo uma org que deixou
+    de ser dele. Roda na transação do caller (diferente da herança, que é
+    best-effort depois do commit): revogar acesso não é opcional. NÃO commita.
+    """
+    from ..services import enrichment_inheritance
+
+    return enrichment_inheritance.on_org_detached(session, org_id, former_ancestor_ids)
+
+
 def inherit_enrichment(session: Session, org_id: int) -> None:
     """Filha entrou na subárvore: herda fontes e modelos SINCRONIZADOS.
 

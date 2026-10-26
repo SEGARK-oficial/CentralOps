@@ -35,8 +35,10 @@ TenantSyncStatus = Literal["ok", "partial", "error", "enterprise_required", "lic
 DiscoveredTenantStatus = Literal["new", "linked", "stale"]
 # Estado de seleção do tenant Sophos descoberto. ``stale`` é sintético — só
 # aparece em respostas (tenant na tabela mas sumiu do último discover).
-TenantSelectionState = Literal["pending", "approved", "excluded"]
-SophosTenantUiState = Literal["pending", "approved", "excluded", "stale"]
+# ``detached`` = a org do tenant virou autogerida (desvincular, EE): a integração
+# não é mais filha do parceiro e o sync não a toca.
+TenantSelectionState = Literal["pending", "approved", "excluded", "detached"]
+SophosTenantUiState = Literal["pending", "approved", "excluded", "detached", "stale"]
 
 
 class StrictUpdateModel(BaseModel):
@@ -515,6 +517,9 @@ class SophosTenantListItem(BaseModel):
     api_host: Optional[str] = None
     selection_state: SophosTenantUiState = "pending"
     child_integration_id: Optional[int] = None
+    # Organização do tenant (pela identidade Sophos), também quando ela foi
+    # desvinculada e a integração deixou de ser filha — é o alvo do "vincular".
+    organization_id: Optional[int] = None
     decided_by_user_id: Optional[int] = None
     decided_by_username: Optional[str] = None
     decided_at: Optional[datetime] = None

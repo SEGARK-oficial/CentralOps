@@ -1000,6 +1000,7 @@ def _serialize_sophos_tenant_item(
     discovered_ids: set[str] | None,
     children_by_external_id: dict[str, models.Integration],
     decided_by_user: models.AppUser | None,
+    org_id_by_external_id: dict[str, int] | None = None,
 ) -> schemas.SophosTenantListItem:
     """Calcula ``selection_state`` exposto na UI (incl. ``stale``)."""
     state = selection.state
@@ -1019,6 +1020,11 @@ def _serialize_sophos_tenant_item(
         api_host=selection.api_host_snapshot,
         selection_state=state,
         child_integration_id=child.id if child is not None else None,
+        organization_id=(
+            child.organization_id
+            if child is not None
+            else (org_id_by_external_id or {}).get(selection.external_id)
+        ),
         decided_by_user_id=selection.decided_by_user_id,
         decided_by_username=(
             decided_by_user.username if decided_by_user is not None else None
@@ -1068,7 +1074,7 @@ def list_sophos_tenants(
     size: int = Query(default=10, ge=1, le=1000),
     state: str | None = Query(
         default=None,
-        description="Filter por estado: pending|approved|excluded|stale|all",
+        description="Filter por estado: pending|approved|excluded|detached|stale|all",
     ),
     search: str | None = Query(default=None, max_length=200),
     geography: str | None = Query(default=None, max_length=20),
@@ -1182,7 +1188,7 @@ def list_sophos_tenants(
         if state == "stale":
             keep_only_stale = True
             state_filter = "approved"  # stale = approved + drifted
-        elif state in ("pending", "approved", "excluded"):
+        elif state in ("pending", "approved", "excluded", "detached"):
             state_filter = state
         else:
             raise ApiError(
@@ -1210,6 +1216,23 @@ def list_sophos_tenants(
         if ext:
             children_by_external_id.setdefault(ext, child)
 
+    # Org de cada tenant SEM child (desvinculado: a integração não é mais filha)
+    # pela identidade Sophos da própria org — uma query para a página toda.
+    orphan_ids = [
+        s.external_id for s in selections if s.external_id not in children_by_external_id
+    ]
+    org_id_by_external_id: dict[str, int] = {}
+    if orphan_ids:
+        for org_id, ext in (
+            db.query(models.Organization.id, models.Organization.external_id)
+            .filter(
+                models.Organization.external_provider == "sophos",
+                models.Organization.external_id.in_(orphan_ids),
+            )
+            .all()
+        ):
+            org_id_by_external_id[ext] = org_id
+
     # Decided-by usernames em batch — N+1 evitado.
     decided_user_ids = {s.decided_by_user_id for s in selections if s.decided_by_user_id}
     users_map: dict[int, models.AppUser] = {}
@@ -1227,6 +1250,7 @@ def list_sophos_tenants(
             discovered_ids=discovered_ids,
             children_by_external_id=children_by_external_id,
             decided_by_user=users_map.get(sel.decided_by_user_id) if sel.decided_by_user_id else None,
+            org_id_by_external_id=org_id_by_external_id,
         )
         for sel in selections
     ]
@@ -1292,6 +1316,17 @@ def select_tenants(
                 schemas.SelectTenantsError(
                     external_id=ext_id,
                     reason="tenant not discovered yet — run sync first",
+                )
+            )
+            continue
+        if existing[ext_id].state == "detached":
+            # Aprovar materializaria uma SEGUNDA integração na mesma org (a do
+            # tenant já anda com chave própria); excluir desativaria nada. Volta
+            # para o parceiro só pelo vincular, que converte a integração que já existe.
+            response.errors.append(
+                schemas.SelectTenantsError(
+                    external_id=ext_id,
+                    reason="tenant detached from the partner — use attach to bring it back",
                 )
             )
             continue
@@ -1625,12 +1660,88 @@ def update_integration(
     payload = data.model_dump(exclude_unset=True)
     update_kwargs: Dict[str, Any] = {}
 
+    # Filha de parceiro (Sophos Partner): o provider SEMPRE autentica com a
+    # credencial do pai (``SophosProvider._credential_holder``). Credencial
+    # gravada na filha não é usada por ninguém — o operador acha que trocou a
+    # chave e a coleta segue na do parceiro. Recusa em vez de aceitar calado;
+    # chave própria é o "desvincular do parceiro".
+    is_partner_child = integration.parent_integration_id is not None
+    if is_partner_child and ("client_id" in payload or "client_secret" in payload):
+        raise ApiError(
+            "integration.partner_child_credentials",
+            409,
+            messages={
+                "pt": (
+                    "Esta integração é filha de um parceiro e usa a credencial dele; "
+                    "client_id/client_secret gravados aqui seriam ignorados. Para usar "
+                    "chave própria, desvincule a organização do parceiro."
+                ),
+                "en": (
+                    "This integration is a partner child and uses the partner's "
+                    "credentials; a client_id/client_secret stored here would be ignored. "
+                    "To use its own key, detach the organization from the partner."
+                ),
+                "es": (
+                    "Esta integración es hija de un partner y usa su credencial; "
+                    "client_id/client_secret guardados aquí serían ignorados. Para usar "
+                    "clave propia, desvincule la organización del partner."
+                ),
+            },
+        )
+
+    reactivating = payload.get("is_active") is True and not integration.is_active
+    if reactivating:
+        # Paridade com o create: integração ativa em org inativa coleta para um
+        # tenant que não aparece em lugar nenhum (some de ?status=active).
+        org = repo.db.get(models.Organization, integration.organization_id)
+        if org is not None and not org.is_active:
+            raise ApiError(
+                "organization.inactive",
+                409,
+                messages={
+                    "pt": "A organização está inativa. Reative a organização antes da integração.",
+                    "en": "Organization is inactive. Reactivate the organization before the integration.",
+                    "es": "La organización está inactiva. Reactive la organización antes de la integración.",
+                },
+            )
+        if is_partner_child:
+            # Tenant excluído na tela do parceiro: o próximo sync desativaria de
+            # novo. A decisão mora na seleção, não na integração.
+            selection = repository.IntegrationTenantSelectionRepository(repo.db).find(
+                integration.parent_integration_id,
+                (integration.external_id or integration.tenant_id or "").strip(),
+            )
+            if selection is not None and selection.state == "excluded":
+                raise ApiError(
+                    "integration.partner_tenant_excluded",
+                    409,
+                    messages={
+                        "pt": (
+                            "O tenant está excluído na tela do parceiro e o próximo sync o "
+                            "desativaria de novo. Aprove o tenant no parceiro."
+                        ),
+                        "en": (
+                            "The tenant is excluded on the partner screen and the next sync "
+                            "would deactivate it again. Approve the tenant on the partner."
+                        ),
+                        "es": (
+                            "El tenant está excluido en la pantalla del partner y el próximo "
+                            "sync lo desactivaría de nuevo. Apruebe el tenant en el partner."
+                        ),
+                    },
+                )
+
     if "name" in payload:
         update_kwargs["name"] = payload["name"]
     if "is_active" in payload:
         update_kwargs["is_active"] = payload["is_active"]
 
-    if integration.platform == "sophos":
+    if integration.platform == "sophos" and is_partner_child:
+        # Sem credencial própria por desenho (recusada acima); só nome, estado e
+        # região passam.
+        if "region" in payload:
+            update_kwargs["region"] = payload["region"]
+    elif integration.platform == "sophos":
         final_client_id = payload["client_id"] if "client_id" in payload else integration.client_id
         final_client_secret_configured = (
             bool(payload["client_secret"]) if "client_secret" in payload

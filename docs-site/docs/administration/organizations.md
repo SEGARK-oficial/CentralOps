@@ -154,6 +154,28 @@ O que muda na prática para o administrador:
 
 Na lista de organizações, as gerenciadas automaticamente aparecem identificadas como tal. Quando esse modo não está ativo na sua instância, todas as organizações são manuais e ficam sob seu controle total.
 
+### Tirar uma organização do parceiro (e devolver)
+
+Uma organização gerenciada pelo Sophos Partner coleta com a credencial do parceiro. Para que ela passe a coletar com a **credencial do próprio cliente**, use **Desvincular do parceiro** (na linha da organização ou na tela do parceiro, em Partner Tenants). A plataforma pede o `client_id` e o `client_secret` criados no Sophos Central do cliente, confere com a Sophos que a credencial é desse mesmo tenant e, só então, em uma única operação:
+
+- a integração passa a usar a credencial do cliente;
+- a organização deixa de ser gerenciada pelo parceiro, sai da hierarquia do reseller e fica ativa;
+- o tenant aparece como **Desvinculado** na tela do parceiro, e a sincronização não o reativa nem o desativa mais.
+
+O nome, o identificador e a associação com o IRIS da organização não mudam. Para voltar, use **Vincular ao parceiro**: a integração volta a usar a credencial do parceiro, a credencial do cliente é descartada e o tenant fica **Aprovado**. As duas ações exigem administrador global e ficam na trilha de auditoria.
+
+Pela linha de comando, no ambiente Enterprise:
+
+```bash
+CENTRALOPS_CLIENT_SECRET='<secret do cliente>' centralops-ee-admin org-detach --org-id <id da organização> --client-id '<client id do cliente>' --apply
+```
+
+Sem `--apply` o comando só valida (inclusive a credencial) e não grava nada. Se a credencial do cliente já tiver sido gravada na integração, `--use-stored-credential` a reaproveita no lugar de `--client-id` (ela é conferida do mesmo jeito).
+
+:::caution
+Não grave credencial própria editando a integração de uma organização gerenciada pelo parceiro: a plataforma recusa, porque essa credencial nunca seria usada. Desvincule a organização.
+:::
+
 ## Hierarquia e resellers (MSP)
 
 A plataforma permite que uma organização se torne um **reseller** e gerencie outras organizações filhas em uma hierarquia. Esse modelo é ideal para MSPs (Managed Service Providers) que revendem a plataforma para vários clientes finais.

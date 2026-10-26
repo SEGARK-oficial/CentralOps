@@ -290,12 +290,19 @@ class OrganizationRepository:
         org_id: int,
         tenant_dto: dict,
         partner_integration_id: int,
+        *,
+        commit: bool = True,
     ) -> models.Organization | None:
         """Attach a Sophos external identity to an Organization that was created manually.
 
         Useful when the admin set up an Organization before enabling Partner Mode
         and now wants the sync to include it. Does not flip ``auto_managed`` —
         manual ownership is preserved.
+
+        ``commit=False`` deixa a transação com o caller (vincular uma org ao
+        parceiro mexe também na integração e na seleção, e as três mudanças
+        precisam cair juntas): só dá ``flush``, e a herança de enriquecimento,
+        que roda em sessão própria depois do commit, fica a cargo dele.
         """
         org = self.get(org_id)
         if org is None:
@@ -311,6 +318,8 @@ class OrganizationRepository:
         # agora que esta org tem um partner_integration, re-materializa
         # sua posição na árvore (passa a ser filha do reseller).
         hierarchy.assign_on_create(self.db, org)
+        if not commit:
+            return org
         self.db.commit()
         # Depois do commit: a herança de enriquecimento nunca desfaz a org.
         hierarchy.inherit_enrichment(self.db, org.id)
@@ -906,11 +915,17 @@ class IntegrationTenantSelectionRepository:
     """Persistência das seleções de tenants Sophos (Partner / Organization).
 
     Cada row representa um tenant descoberto sob um Partner com seu estado
-    de seleção (``pending`` / ``approved`` / ``excluded``) + snapshots usados
-    pela UI sem refazer chamada ao Sophos.
+    de seleção (``pending`` / ``approved`` / ``excluded`` / ``detached``) +
+    snapshots usados pela UI sem refazer chamada ao Sophos.
+
+    ``detached`` só entra e sai pelas operações de desvincular/vincular do EE:
+    a integração do tenant deixou de ser filha do parceiro e anda com chave
+    própria. Por isso :meth:`set_state`, que é o caminho do aprovar/excluir em
+    lote, não toca nessas linhas — aprovar um tenant desvinculado criaria uma
+    SEGUNDA integração Sophos na mesma organização.
     """
 
-    VALID_STATES = ("pending", "approved", "excluded")
+    VALID_STATES = ("pending", "approved", "excluded", "detached")
 
     def __init__(self, db: Session) -> None:
         self.db = db
@@ -1095,9 +1110,15 @@ class IntegrationTenantSelectionRepository:
         state: str,
         decided_by_user_id: int | None,
     ) -> list[models.IntegrationTenantSelection]:
-        """Bulk update do state. Retorna as rows atualizadas (existentes apenas)."""
+        """Bulk update do state. Retorna as rows atualizadas (existentes apenas).
+
+        Linhas ``detached`` ficam de fora e não voltam na lista: quem as move é
+        o vincular/desvincular, nunca o aprovar/excluir em lote.
+        """
         if state not in self.VALID_STATES:
             raise ValueError(f"invalid state: {state!r}")
+        if state == "detached":
+            raise ValueError("state 'detached' só é gravado pelo desvincular")
         external_ids = [e for e in external_ids if e]
         if not external_ids:
             return []
@@ -1106,6 +1127,7 @@ class IntegrationTenantSelectionRepository:
             .filter(
                 models.IntegrationTenantSelection.parent_integration_id == parent_id,
                 models.IntegrationTenantSelection.external_id.in_(external_ids),
+                models.IntegrationTenantSelection.state != "detached",
             )
             .all()
         )

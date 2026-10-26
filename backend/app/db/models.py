@@ -494,6 +494,9 @@ class IntegrationTenantSelection(Base):
       * ``approved`` — child Integration deve existir/permanecer ativo.
       * ``excluded`` — operador escolheu não monitorar; child fica
         ``is_active=False`` (soft-delete) preservando histórico.
+      * ``detached`` — a organização do tenant passou a ser autogerida: a
+        integração deixou de ser filha do parceiro e usa chave própria. O sync
+        nunca re-materializa nem desativa; só o vincular devolve a ``approved``.
 
     Snapshots (``name_snapshot``, ``region_snapshot``, ``api_host_snapshot``,
     ``data_geography_snapshot``) servem pra UI exibir o tenant mesmo quando
@@ -522,7 +525,7 @@ class IntegrationTenantSelection(Base):
         index=True,
     )
     external_id = Column(String, nullable=False)  # UUID Sophos do tenant
-    state = Column(String, nullable=False)  # 'pending' | 'approved' | 'excluded'
+    state = Column(String, nullable=False)  # 'pending' | 'approved' | 'excluded' | 'detached'
 
     decided_by_user_id = Column(
         Integer,

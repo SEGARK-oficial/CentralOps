@@ -124,8 +124,15 @@ class AuditService:
         user_agent: str | None = None,
         request_payload: str | None = None,
         detail: str | None = None,
+        commit: bool = True,
     ) -> models.AuditLog:
-        self.prune_expired_entries()
+        """Grava uma linha na trilha.
+
+        ``commit=False`` põe a linha na transação do caller (só ``flush``) e pula a
+        poda — para operação que precisa cair inteira ou não cair, trilha inclusa.
+        """
+        if commit:
+            self.prune_expired_entries()
 
         actor_user_id = user_id if user_id is not None else getattr(user, "id", None)
         # Service accounts autenticam como shim com id NEGATIVO (não existe em
@@ -158,6 +165,10 @@ class AuditService:
             request_payload=request_payload,
             detail=detail,
         )
+        if not commit:
+            self.db.add(log)
+            self.db.flush()
+            return log
         return self.repo.add(log)
 
     def log_request(
