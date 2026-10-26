@@ -75,6 +75,48 @@
       "createFailed": "Falha ao criar organização",
       "deleteFailed": "Falha ao excluir organização",
       "bulkDeactivateFailed": "Falha ao desativar organizações em lote"
+    },
+    "partnerLink": {
+      "buttonLabel": "Parceiro Sophos",
+      "buttonAriaLabel": "Vínculo com o parceiro Sophos — {{name}}",
+      "buttonTitle": "Vincular ou desvincular do parceiro Sophos",
+      "dialogTitle": "Parceiro Sophos — {{name}}",
+      "loading": "Verificando o vínculo com o parceiro...",
+      "loadError": "Não foi possível consultar o vínculo desta organização com o parceiro.",
+      "none": "Esta organização não tem integração Sophos que possa ser vinculada ou desvinculada de um parceiro.",
+      "noCandidates": "Esta organização usa credencial própria, mas nenhum parceiro Sophos ativo a descobriu. Para vincular, sincronize os tenants do parceiro na tela da integração dele e tente de novo.",
+      "detach": {
+        "title": "Desvincular do parceiro {{partner}}",
+        "titleNoName": "Desvincular do parceiro",
+        "intro": "A organização <strong>{{name}}</strong> deixará de ser gerida pelo parceiro <strong>{{partner}}</strong> e passará a usar uma credencial própria do Sophos Central do cliente.",
+        "warning": "Informe uma credencial de API do Sophos Central do próprio cliente — não a do parceiro. Ela será conferida na Sophos antes de qualquer alteração e precisa ser do mesmo tenant desta organização.",
+        "effects": "A organização sai da hierarquia do parceiro, a sincronização do parceiro deixa de alterá-la e as fontes de enriquecimento herdadas dele são revogadas.",
+        "clientId": "Client ID",
+        "clientSecret": "Client Secret",
+        "confirm": "Desvincular",
+        "success": "Organização desvinculada do parceiro. Ela agora usa a credencial própria.",
+        "revokedSources": "Fontes de enriquecimento herdadas do parceiro que foram revogadas: {{sources}}."
+      },
+      "attach": {
+        "title": "Vincular ao parceiro",
+        "titleNamed": "Vincular ao parceiro {{partner}}",
+        "intro": "A organização <strong>{{name}}</strong> voltará a ser gerida por um parceiro Sophos.",
+        "introNamed": "A organização <strong>{{name}}</strong> voltará a ser gerida pelo parceiro <strong>{{partner}}</strong>.",
+        "warning": "A credencial própria desta organização será descartada e a coleta passará a usar a credencial do parceiro. Esta ação não pode ser desfeita sem informar a credencial de novo.",
+        "partnerLabel": "Parceiro",
+        "optionLabel": "{{partner}} — {{tenant}}",
+        "confirm": "Vincular",
+        "success": "Organização vinculada ao parceiro. A credencial própria foi descartada."
+      },
+      "errors": {
+        "title": "Não foi possível concluir",
+        "generic": "Não foi possível concluir a operação.",
+        "identityMismatch": "A credencial informada não pertence ao tenant desta organização.",
+        "authFailed": "A Sophos recusou a credencial informada. Confira o Client ID e o Client Secret.",
+        "syncInProgress": "Há uma sincronização do parceiro em andamento. Tente de novo em instantes.",
+        "notTenantCredentials": "A credencial informada não é de um tenant (parece de parceiro ou de organização). Use a credencial de API do próprio cliente.",
+        "credentialsRequired": "Informe o Client ID e o Client Secret."
+      }
     }
   },
   "users": {

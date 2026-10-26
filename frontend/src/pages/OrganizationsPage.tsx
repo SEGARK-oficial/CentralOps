@@ -22,6 +22,7 @@ import { Modal } from "@/components/ui/Modal/Modal"
 import { FiltersToolbar } from "@/components/ui/FiltersToolbar/FiltersToolbar"
 import { BulkActionBar } from "@/components/ui/BulkActionBar/BulkActionBar"
 import { useBulkSelection } from "@/hooks/useBulkSelection"
+import { OrganizationRowExtraActions } from "@/ee/organizationSlots"
 
 type StatusFilter = "active" | "inactive" | "all"
 type AutoManagedFilter = "all" | "true" | "false"
@@ -453,22 +454,26 @@ const OrganizationsPage: React.FC = () => {
                     </div>
                   </div>
                 </div>
-                <Button
-                  variant="ghost"
-                  size="xs"
-                  onClick={() => setDeleteTarget(org)}
-                  disabled={org.auto_managed}
-                  title={
-                    org.auto_managed
-                      ? t("organizations.list.deleteAutoManagedTitle")
-                      : t("common:actions.delete")
-                  }
-                  className="shrink-0 self-end text-danger-500 hover:text-danger-700 hover:bg-danger-50 disabled:cursor-not-allowed disabled:opacity-40 sm:self-auto"
-                  aria-label={t("organizations.list.deleteAriaLabel", { name: org.name })}
-                  data-testid={`org-delete-${org.id}`}
-                >
-                  <TrashIcon size={16} />
-                </Button>
+                <div className="flex shrink-0 items-center gap-1 self-end sm:self-auto">
+                  {/* Seam EE: no Community é null; no Enterprise, vincular/desvincular do parceiro. */}
+                  <OrganizationRowExtraActions organization={org} onChanged={loadOrganizations} />
+                  <Button
+                    variant="ghost"
+                    size="xs"
+                    onClick={() => setDeleteTarget(org)}
+                    disabled={org.auto_managed}
+                    title={
+                      org.auto_managed
+                        ? t("organizations.list.deleteAutoManagedTitle")
+                        : t("common:actions.delete")
+                    }
+                    className="shrink-0 text-danger-500 hover:text-danger-700 hover:bg-danger-50 disabled:cursor-not-allowed disabled:opacity-40"
+                    aria-label={t("organizations.list.deleteAriaLabel", { name: org.name })}
+                    data-testid={`org-delete-${org.id}`}
+                  >
+                    <TrashIcon size={16} />
+                  </Button>
+                </div>
               </Card>
             )
           })}

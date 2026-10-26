@@ -2,6 +2,10 @@ import { ADMIN_REDIRECT_PATH, apiRequest } from "./_core"
 import type {
   CreateOrganizationRequest,
   Organization,
+  OrganizationPartnerLink,
+  PartnerAttachRequest,
+  PartnerDetachRequest,
+  PartnerLinkResult,
   UpdateOrganizationRequest,
 } from "@/types"
 
@@ -83,3 +87,35 @@ export async function deleteOrganization(id: number) {
   })
 }
 
+// ── Vínculo com o parceiro Sophos (ADR-0017, Enterprise) ───────────────
+// Rotas do módulo EE (montadas em /api, admin global + licença multi_tenant). O
+// stub Community não as chama; ficam aqui, como `listSophosTenants`/`selectTenants`,
+// para o overlay usar o mesmo cliente HTTP (cookie, timeout, Accept-Language).
+// Sem `forbiddenRedirectTo`: um 403 `license_required` precisa chegar à tela, não
+// redirecioná-la.
+
+export async function getOrganizationPartnerLink(organizationId: number) {
+  return apiRequest<OrganizationPartnerLink>(
+    `/organizations/${encodeURIComponent(organizationId)}/partner`,
+  )
+}
+
+export async function detachOrganizationFromPartner(
+  organizationId: number,
+  body: PartnerDetachRequest,
+) {
+  return apiRequest<PartnerLinkResult>(
+    `/organizations/${encodeURIComponent(organizationId)}/partner/detach`,
+    { method: "POST", body: JSON.stringify(body) },
+  )
+}
+
+export async function attachOrganizationToPartner(
+  organizationId: number,
+  body: PartnerAttachRequest,
+) {
+  return apiRequest<PartnerLinkResult>(
+    `/organizations/${encodeURIComponent(organizationId)}/partner/attach`,
+    { method: "POST", body: JSON.stringify(body) },
+  )
+}

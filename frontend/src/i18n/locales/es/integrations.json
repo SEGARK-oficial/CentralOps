@@ -230,7 +230,9 @@
       "regionHelper": "Opcional. Se descubre automáticamente en la primera conexión.",
       "importNoticeTitle": "Cómo funciona:",
       "importNoticeBody": " al guardar, cada tenant se vuelve una Organization + Integration. La región y el tenant_id vienen de la API.",
-      "enterpriseRequiredNote": "Importar tenants exige Enterprise. En Community puede descubrir, no importar."
+      "enterpriseRequiredNote": "Importar tenants exige Enterprise. En Community puede descubrir, no importar.",
+      "partnerChildTitle": "Credencial gestionada por el socio",
+      "partnerChildBody": "Esta integración usa la credencial del socio Sophos que gestiona la organización, por eso el Client ID y el Client Secret no se editan aquí. Para usar una clave propia del cliente, desvincule la organización del socio en la pantalla del socio (Tenants Sophos) o en la pantalla de Organizaciones."
     },
     "wazuh": {
       "indexerTitle": "Indexer API",
@@ -439,7 +441,8 @@
       "pending": "Pendiente",
       "approved": "Aprobado",
       "excluded": "Excluido",
-      "stale": "Desaparecido (stale)"
+      "stale": "Desaparecido (stale)",
+      "detached": "Desvinculado"
     },
     "filters": {
       "searchLabel": "Buscar",
@@ -454,7 +457,8 @@
       "stateStale": "Desaparecidos (stale)",
       "geoLabel": "Data geography",
       "geoAriaLabel": "Filtrar por región de datos",
-      "geoAll": "Todas las geografías"
+      "geoAll": "Todas las geografías",
+      "stateDetached": "Desvinculados"
     },
     "bulk": {
       "contextLabel": "tenant(s)",
@@ -483,7 +487,10 @@
       "approvedSuccess": "{{count}} tenant(s) aprobados.",
       "excludedSuccess": "{{count}} tenant(s) excluidos.",
       "policyUpdatedOn": "Política actualizada — auto-approve ahora activado.",
-      "policyUpdatedOff": "Política actualizada — auto-approve ahora desactivado."
+      "policyUpdatedOff": "Política actualizada — auto-approve ahora desactivado.",
+      "detachDone": "La organización del tenant {{name}} fue desvinculada del socio. Ahora usa la credencial propia.",
+      "attachDone": "La organización del tenant {{name}} fue vinculada de nuevo al socio. La credencial propia fue descartada.",
+      "revokedSources": "Fuentes de enriquecimiento revocadas: {{sources}}."
     },
     "table": {
       "loading": "Cargando tenants...",
@@ -512,7 +519,11 @@
         "approve": "Aprobar",
         "exclude": "Excluir",
         "excludeFinal": "Excluir definitivamente",
-        "reapprove": "Volver a aprobar"
+        "reapprove": "Volver a aprobar",
+        "detach": "Desvincular",
+        "detachAriaLabel": "Desvincular del socio — {{name}}",
+        "reattach": "Vincular de nuevo",
+        "reattachAriaLabel": "Vincular de nuevo al socio — {{name}}"
       }
     },
     "pagination": {

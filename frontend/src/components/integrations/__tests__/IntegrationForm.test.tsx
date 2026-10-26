@@ -526,6 +526,77 @@ describe("IntegrationForm — filtros de coleta (edição)", () => {
 // — não é digitado pelo usuário nesta tela, mas `safeExternalHref` é a defesa
 // em profundidade contra um catálogo malicioso/mal formado injetando
 // `javascript:`/`data:` no link "Ver documentação".
+// Filha de parceiro Sophos (parent_integration_id != null): a credencial é a do
+// PARCEIRO. O form pedia client_id (obrigatório) e o enviava sempre — o operador
+// gravava uma chave própria que o coletor ignorava. Agora o form não a oferece.
+const SOPHOS_TENANT: Integration = {
+  id: 77,
+  organization_id: 10,
+  organization_name: "Org A",
+  name: "Sophos Cliente",
+  platform: "sophos",
+  kind: "tenant",
+  is_active: true,
+  is_authenticated: true,
+  auth_status: "healthy",
+  capabilities: [],
+  client_id: "cid-proprio",
+  region: "eu03",
+}
+
+function renderSophosEdit(integration: Integration) {
+  const onSubmit = vi.fn().mockResolvedValue(undefined)
+  render(
+    <IntegrationForm
+      mode="edit"
+      integration={integration}
+      organizations={ORGS}
+      onSubmit={onSubmit}
+    />,
+  )
+  return onSubmit
+}
+
+describe("IntegrationForm — Sophos filha de parceiro (edição)", () => {
+  it("filha: sem Client ID/Secret, com aviso de que a credencial vem do parceiro", async () => {
+    renderSophosEdit({ ...SOPHOS_TENANT, parent_integration_id: 5 })
+    await screen.findByLabelText(/Região/)
+
+    expect(screen.queryByLabelText(/Client ID/)).not.toBeInTheDocument()
+    expect(screen.queryByLabelText(/Client Secret/)).not.toBeInTheDocument()
+    const notice = screen.getByTestId("partner-child-credentials-notice")
+    expect(notice).toHaveTextContent(/credencial do parceiro/i)
+    expect(notice).toHaveTextContent(/desvincule a organização/i)
+  })
+
+  it("filha: salvar não manda client_id nem client_secret (só nome, ativo e região)", async () => {
+    const onSubmit = renderSophosEdit({ ...SOPHOS_TENANT, parent_integration_id: 5 })
+    await screen.findByLabelText(/Região/)
+
+    fireEvent.change(screen.getByLabelText(/Região/), { target: { value: "us01" } })
+    fireEvent.click(screen.getByRole("button", { name: /Salvar alterações/i }))
+
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1))
+    const payload = onSubmit.mock.calls[0][0] as Record<string, unknown>
+    expect(payload).toMatchObject({ name: "Sophos Cliente", is_active: true, region: "us01" })
+    expect(payload).not.toHaveProperty("client_id")
+    expect(payload).not.toHaveProperty("client_secret")
+  })
+
+  it("tenant com chave própria (sem parent): continua com Client ID/Secret e sem o aviso", async () => {
+    const onSubmit = renderSophosEdit(SOPHOS_TENANT)
+    expect(await screen.findByLabelText(/Client ID/)).toHaveValue("cid-proprio")
+    expect(screen.getByLabelText(/Client Secret/)).toBeInTheDocument()
+    expect(screen.queryByTestId("partner-child-credentials-notice")).not.toBeInTheDocument()
+
+    fireEvent.change(screen.getByLabelText(/Client Secret/), { target: { value: "novo" } })
+    fireEvent.click(screen.getByRole("button", { name: /Salvar alterações/i }))
+
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1))
+    expect(onSubmit.mock.calls[0][0]).toMatchObject({ client_id: "cid-proprio", client_secret: "novo" })
+  })
+})
+
 describe("IntegrationForm — SEC-04 (docs_url)", () => {
   it("docs_url http(s) válido renderiza o link de documentação", async () => {
     mockedApi.getProviderPlatforms.mockResolvedValue([

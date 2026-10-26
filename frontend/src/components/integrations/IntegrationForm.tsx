@@ -266,6 +266,10 @@ export const IntegrationForm: React.FC<IntegrationFormProps> = ({
   }, [])
 
   const integrationId = integration?.id ?? null
+  // Filha de parceiro Sophos: a credencial é a do PARCEIRO (o coletor a ignora se
+  // houver chave própria na linha). Pedir client_id/secret aqui induzia o operador
+  // a gravar uma chave que nunca era usada — chave própria só desvinculando a org.
+  const isPartnerChild = mode === "edit" && integration?.parent_integration_id != null
 
   useEffect(() => {
     if (mode !== "edit" || integrationId === null) {
@@ -467,7 +471,7 @@ export const IntegrationForm: React.FC<IntegrationFormProps> = ({
       }
     }
 
-    if (platform === "sophos") {
+    if (platform === "sophos" && !isPartnerChild) {
       if (!clientId.trim()) {
         failField("clientId", t("form.validation.sophosClientIdRequired"))
         return
@@ -551,11 +555,15 @@ export const IntegrationForm: React.FC<IntegrationFormProps> = ({
     }
 
     if (platform === "sophos") {
-      payload.client_id = clientId.trim()
-      payload.region = normalizeOptional(region)
-      if (clientSecret.trim()) {
-        payload.client_secret = clientSecret.trim()
+      // Filha de parceiro: o backend recusa client_id/client_secret (409
+      // integration.partner_child_credentials) — só a região segue editável.
+      if (!isPartnerChild) {
+        payload.client_id = clientId.trim()
+        if (clientSecret.trim()) {
+          payload.client_secret = clientSecret.trim()
+        }
       }
+      payload.region = normalizeOptional(region)
     } else {
       // Indexer é a fonte — sempre enviado no Wazuh.
       payload.indexer_url = indexerUrl.trim()
@@ -736,36 +744,51 @@ export const IntegrationForm: React.FC<IntegrationFormProps> = ({
       {platform === "sophos" && (
         // Card base "sophos" = tenant único. Partner/Organization são tiles
         // próprios (sophos_partner/sophos_organization) — sem toggle aqui.
-        <div className="grid gap-4 md:grid-cols-3">
-          <Input
-            ref={registerField("clientId")}
-            label={t("form.sophos.clientId")}
-            value={clientId}
-            onChange={(event) => setClientId(event.target.value)}
-            required
-            disabled={loading}
-            aria-invalid={errorField === "clientId" ? "true" : undefined}
-            aria-describedby={errorField === "clientId" ? errorId : undefined}
-          />
-          <Input
-            ref={registerField("clientSecret")}
-            label={mode === "edit" ? t("form.sophos.newClientSecret") : t("form.sophos.clientSecret")}
-            type="password"
-            value={clientSecret}
-            onChange={(event) => setClientSecret(event.target.value)}
-            required={mode === "create"}
-            helperText={mode === "edit" ? t("form.sophos.clientSecretHelper") : undefined}
-            disabled={loading}
-            aria-invalid={errorField === "clientSecret" ? "true" : undefined}
-            aria-describedby={errorField === "clientSecret" ? errorId : undefined}
-          />
-          <Input
-            label={t("form.sophos.region")}
-            value={region}
-            onChange={(event) => setRegion(event.target.value)}
-            helperText={t("form.sophos.regionHelper")}
-            disabled={loading}
-          />
+        <div className="flex flex-col gap-4">
+          {isPartnerChild && (
+            <Notice
+              variant="info"
+              title={t("form.sophos.partnerChildTitle")}
+              data-testid="partner-child-credentials-notice"
+            >
+              {t("form.sophos.partnerChildBody")}
+            </Notice>
+          )}
+          <div className={isPartnerChild ? "grid gap-4 md:grid-cols-1" : "grid gap-4 md:grid-cols-3"}>
+            {!isPartnerChild && (
+              <>
+                <Input
+                  ref={registerField("clientId")}
+                  label={t("form.sophos.clientId")}
+                  value={clientId}
+                  onChange={(event) => setClientId(event.target.value)}
+                  required
+                  disabled={loading}
+                  aria-invalid={errorField === "clientId" ? "true" : undefined}
+                  aria-describedby={errorField === "clientId" ? errorId : undefined}
+                />
+                <Input
+                  ref={registerField("clientSecret")}
+                  label={mode === "edit" ? t("form.sophos.newClientSecret") : t("form.sophos.clientSecret")}
+                  type="password"
+                  value={clientSecret}
+                  onChange={(event) => setClientSecret(event.target.value)}
+                  required={mode === "create"}
+                  helperText={mode === "edit" ? t("form.sophos.clientSecretHelper") : undefined}
+                  disabled={loading}
+                  aria-invalid={errorField === "clientSecret" ? "true" : undefined}
+                  aria-describedby={errorField === "clientSecret" ? errorId : undefined}
+                />
+              </>
+            )}
+            <Input
+              label={t("form.sophos.region")}
+              value={region}
+              onChange={(event) => setRegion(event.target.value)}
+              helperText={t("form.sophos.regionHelper")}
+              disabled={loading}
+            />
+          </div>
         </div>
       )}
 

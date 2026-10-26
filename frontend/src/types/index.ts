@@ -37,8 +37,10 @@ export type DiscoveredTenantStatus = "new" | "linked" | "stale"
  * - `approved`  : aprovado, child Integration ativa + ScheduleConfigs criados.
  * - `excluded`  : excluído (soft-delete; child desativada, histórico preservado).
  * - `stale`     : sumiu do último sync da Sophos; aguarda decisão.
+ * - `detached`  : a organização foi desvinculada do parceiro (ADR-0017) e usa
+ *                 chave própria; o sync não a toca até "vincular de novo".
  */
-export type TenantSelectionState = "pending" | "approved" | "excluded" | "stale"
+export type TenantSelectionState = "pending" | "approved" | "excluded" | "stale" | "detached"
 
 export interface Organization {
   id: number
@@ -157,6 +159,8 @@ export interface SophosTenantItem {
   api_host?: string | null
   selection_state: TenantSelectionState
   child_integration_id?: number | null
+  /** Organização do tenant — também quando desvinculada (alvo do "vincular"). */
+  organization_id?: number | null
   decided_by?: string | null
   decided_at?: string | null
   last_seen_at: string
@@ -172,6 +176,54 @@ export interface SophosTenantListResponse {
   auto_approve_new_tenants: boolean
   last_tenant_sync_at?: string | null
   tenant_sync_status?: string | null
+}
+
+/**
+ * Vincular / desvincular uma organização do parceiro Sophos (ADR-0017, EE).
+ * GET/POST /organizations/{id}/partner[/detach|/attach].
+ */
+export type OrganizationPartnerMode = "partner" | "standalone" | "none"
+
+export interface PartnerAttachCandidate {
+  partner_integration_id: number
+  partner_name: string
+  external_id: string
+  tenant_name?: string | null
+  selection_state: TenantSelectionState
+}
+
+export interface OrganizationPartnerLink {
+  organization_id: number
+  mode: OrganizationPartnerMode
+  integration_id?: number | null
+  external_id?: string | null
+  partner_integration_id?: number | null
+  partner_name?: string | null
+  attach_candidates: PartnerAttachCandidate[]
+}
+
+export interface PartnerDetachRequest {
+  client_id: string
+  client_secret: string
+  /** Valida (inclusive o /whoami na Sophos) sem gravar nada. */
+  dry_run?: boolean
+}
+
+export interface PartnerAttachRequest {
+  partner_integration_id: number
+  dry_run?: boolean
+}
+
+export interface PartnerLinkResult {
+  action: string
+  organization_id: number
+  integration_id: number
+  partner_integration_id: number
+  external_id: string
+  selection_state: TenantSelectionState
+  dry_run: boolean
+  /** Fontes de enriquecimento herdadas do parceiro que foram revogadas. */
+  revoked_enrichment_sources: string[]
 }
 
 export interface SophosTenantSelectRequest {

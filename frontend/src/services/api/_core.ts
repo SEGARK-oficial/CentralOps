@@ -123,6 +123,14 @@ export function formatValidationDetail(detail: unknown): string | null {
   return parts.length ? parts.join("; ") : null
 }
 
+function isCodedDetail(
+  detail: unknown,
+): detail is { code: string; message: string; details?: unknown } {
+  if (!detail || typeof detail !== "object" || Array.isArray(detail)) return false
+  const { code, message } = detail as { code?: unknown; message?: unknown }
+  return typeof code === "string" && typeof message === "string"
+}
+
 // Helper para fazer requests
 export async function apiRequest<T>(endpoint: string, options: ApiRequestOptions = {}): Promise<T> {
   const url = `${BASE_URL}${endpoint}`
@@ -198,6 +206,15 @@ export async function apiRequest<T>(endpoint: string, options: ApiRequestOptions
         }
       } else if (typeof errorData?.detail === "string") {
         errorMessage = errorData.detail
+      } else if (isCodedDetail(errorData?.detail)) {
+        // `HTTPException(detail={"code", "message", "details"})` — o formato dos
+        // erros de domínio do EE (ex.: `partner_link.identity_mismatch`). Sem este
+        // ramo o detail inteiro virava JSON na tela e o `code` se perdia.
+        errorMessage = errorData.detail.message
+        errorCode = errorData.detail.code
+        if (errorData.detail.details && typeof errorData.detail.details === "object") {
+          errorDetails = errorData.detail.details as Record<string, unknown>
+        }
       } else if (Array.isArray(errorData?.detail)) {
         errorMessage = formatValidationDetail(errorData.detail) ?? JSON.stringify(errorData.detail)
       } else if (errorData?.detail) {

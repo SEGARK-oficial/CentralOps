@@ -52,6 +52,22 @@ vi.mock("@/contexts/EditionContext", () => ({
   }),
 }))
 
+// Seam EE: no Community é null. Aqui o substituímos por um botão para provar a
+// fiação (props `organization` + `onChanged` por linha) sem depender do overlay.
+vi.mock("@/ee/organizationSlots", () => ({
+  OrganizationRowExtraActions: ({
+    organization,
+    onChanged,
+  }: {
+    organization: { id: number; name: string }
+    onChanged: () => void
+  }) => (
+    <button type="button" data-testid={`org-slot-${organization.id}`} onClick={() => onChanged()}>
+      slot {organization.name}
+    </button>
+  ),
+}))
+
 const mockedApi = vi.mocked(api)
 
 const ORG_ACTIVE_A: Organization = {
@@ -375,5 +391,26 @@ describe("OrganizationsPage — Pilar 4 (ErrorState com retry)", () => {
 
     await waitFor(() => expect(screen.getByText(ORGS_BASE[0].name)).toBeInTheDocument())
     expect(screen.queryByText("503")).not.toBeInTheDocument()
+  })
+})
+
+describe("OrganizationsPage — seam EE de ações por linha", () => {
+  it("monta o slot uma vez por organização, com a organização da linha", async () => {
+    renderPage()
+    await screen.findByText("Acme Corp")
+
+    expect(screen.getByTestId("org-slot-1")).toHaveTextContent("slot Acme Corp")
+    expect(screen.getByTestId("org-slot-2")).toHaveTextContent("slot Globex")
+    expect(screen.getByTestId("org-slot-3")).toHaveTextContent("slot Sophos Auto Org")
+  })
+
+  it("onChanged do slot recarrega a lista", async () => {
+    renderPage()
+    await screen.findByText("Acme Corp")
+    expect(mockedApi.listOrganizations).toHaveBeenCalledTimes(1)
+
+    fireEvent.click(screen.getByTestId("org-slot-1"))
+
+    await waitFor(() => expect(mockedApi.listOrganizations).toHaveBeenCalledTimes(2))
   })
 })

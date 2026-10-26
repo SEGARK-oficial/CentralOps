@@ -85,4 +85,26 @@ describe("apiRequest 422 handling", () => {
 
     expect((err as ApiRequestError).message).toBe('{"reason":"nope"}')
   })
+
+  it("reads a coded detail ({code, message, details}) into message/code/details", async () => {
+    mockFetch(422, {
+      detail: {
+        code: "partner_link.identity_mismatch",
+        message: "A credencial não pertence ao tenant desta organização.",
+        details: { expected: "tenant-a" },
+      },
+    })
+
+    const err = await createServiceAccount({ name: "ok", role: "viewer" }).then(
+      () => null,
+      (e: unknown) => e,
+    )
+
+    expect(err).toBeInstanceOf(ApiRequestError)
+    const e = err as ApiRequestError
+    expect(e.message).toBe("A credencial não pertence ao tenant desta organização.")
+    expect(e.code).toBe("partner_link.identity_mismatch")
+    expect(e.details).toEqual({ expected: "tenant-a" })
+    expect(e.statusCode).toBe(422)
+  })
 })

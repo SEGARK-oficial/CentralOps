@@ -75,6 +75,48 @@
       "createFailed": "Failed to create organization",
       "deleteFailed": "Failed to delete organization",
       "bulkDeactivateFailed": "Failed to bulk deactivate organizations"
+    },
+    "partnerLink": {
+      "buttonLabel": "Sophos partner",
+      "buttonAriaLabel": "Sophos partner link — {{name}}",
+      "buttonTitle": "Attach to or detach from the Sophos partner",
+      "dialogTitle": "Sophos partner — {{name}}",
+      "loading": "Checking the partner link...",
+      "loadError": "Could not check this organization's partner link.",
+      "none": "This organization has no Sophos integration that can be attached to or detached from a partner.",
+      "noCandidates": "This organization uses its own credential, but no active Sophos partner has discovered it. To attach it, sync the partner tenants on the partner integration screen and try again.",
+      "detach": {
+        "title": "Detach from partner {{partner}}",
+        "titleNoName": "Detach from partner",
+        "intro": "The organization <strong>{{name}}</strong> will no longer be managed by partner <strong>{{partner}}</strong> and will use its own credential from the customer's Sophos Central.",
+        "warning": "Enter an API credential from the customer's own Sophos Central — not the partner's. It will be verified with Sophos before any change and must belong to the same tenant as this organization.",
+        "effects": "The organization leaves the partner hierarchy, the partner sync stops changing it, and the enrichment sources inherited from the partner are revoked.",
+        "clientId": "Client ID",
+        "clientSecret": "Client Secret",
+        "confirm": "Detach",
+        "success": "Organization detached from the partner. It now uses its own credential.",
+        "revokedSources": "Enrichment sources inherited from the partner that were revoked: {{sources}}."
+      },
+      "attach": {
+        "title": "Attach to partner",
+        "titleNamed": "Attach to partner {{partner}}",
+        "intro": "The organization <strong>{{name}}</strong> will be managed by a Sophos partner again.",
+        "introNamed": "The organization <strong>{{name}}</strong> will be managed by partner <strong>{{partner}}</strong> again.",
+        "warning": "This organization's own credential will be discarded and collection will use the partner's credential. This cannot be undone without entering the credential again.",
+        "partnerLabel": "Partner",
+        "optionLabel": "{{partner}} — {{tenant}}",
+        "confirm": "Attach",
+        "success": "Organization attached to the partner. Its own credential was discarded."
+      },
+      "errors": {
+        "title": "Could not complete",
+        "generic": "Could not complete the operation.",
+        "identityMismatch": "The credential provided does not belong to this organization's tenant.",
+        "authFailed": "Sophos rejected the credential. Check the Client ID and Client Secret.",
+        "syncInProgress": "A partner sync is in progress. Try again in a moment.",
+        "notTenantCredentials": "The credential provided is not a tenant credential (it looks like a partner or organization one). Use the customer's own API credential.",
+        "credentialsRequired": "Enter the Client ID and Client Secret."
+      }
     }
   },
   "users": {
