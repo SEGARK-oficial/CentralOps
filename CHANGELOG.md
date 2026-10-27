@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.15.0](https://github.com/SEGARK-oficial/CentralOps/compare/v2.14.1...v2.15.0) (2026-10-27)
+
+
+### Features
+
+* **azure:** coletor Microsoft Azure (Activity Log + Event Hubs) e ícones do GCP/Azure ([#102](https://github.com/SEGARK-oficial/CentralOps/issues/102)) ([d5410b6](https://github.com/SEGARK-oficial/CentralOps/commit/d5410b69582770b2701e21de132d48f0ada32e2a))
+
 ## [2.14.1](https://github.com/SEGARK-oficial/CentralOps/compare/v2.14.0...v2.14.1) (2026-10-26)
 
 
