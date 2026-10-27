@@ -19,6 +19,7 @@ from statistics import mean
 
 import pytest
 
+from backend.app.collectors.tests import _azure_fixtures as _azure
 from backend.app.collectors.tests import _gcp_fixtures as _gcp
 from backend.app.collectors.normalize.defaults import (
     DEFAULT_MAPPING_FILES,
@@ -206,6 +207,10 @@ _FIXTURES = {
     ("gcp_pubsub", "gcp.audit"): _gcp.SET_IAM_POLICY,
     ("gcp_pubsub", "gcp.gke_audit"): _gcp.GKE_EXEC,
     ("gcp_pubsub", "gcp.cloudsql_mysql"): _gcp.MYSQL_GRANT,
+    # Azure — o objeto que o coletor emite (EventData do ARM / registro do Event Hub).
+    ("azure", "azure.activity"): _azure.ROLE_ASSIGNMENT,
+    ("azure", "azure.entra"): _azure.SIGNIN_FAILED_RISKY,
+    ("azure", "azure.resource"): _azure.KEYVAULT_SECRET_GET,
     ("wazuh", "wazuh.detection"): {
         "timestamp": "2026-06-21T10:00:00Z",
         "id": "1700000000.123",

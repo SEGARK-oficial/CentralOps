@@ -1,0 +1,29 @@
+{
+  "time": "2026-10-27T12:30:00.0000000Z",
+  "category": "AuditEvent",
+  "operationName": "SecretGet",
+  "operationVersion": "7.4",
+  "resourceId": "/SUBSCRIPTIONS/11111111-1111-4111-8111-111111111111/RESOURCEGROUPS/RG-APP/PROVIDERS/MICROSOFT.KEYVAULT/VAULTS/KV-PROD",
+  "resultType": "Success",
+  "resultSignature": "OK",
+  "resultDescription": "",
+  "durationMs": "12",
+  "callerIpAddress": "203.0.113.50",
+  "correlationId": "c0ffee00-0000-4000-8000-000000000003",
+  "identity": {
+    "claim": {
+      "appid": "66666666-6666-4666-8666-666666666666",
+      "http://schemas.microsoft.com/identity/claims/objectidentifier": "77777777-7777-4777-8777-777777777777",
+      "upn": "ana.silva@example.com"
+    }
+  },
+  "properties": {
+    "id": "https://kv-prod.vault.azure.net/secrets/db-password/abc123",
+    "clientInfo": "azsdk-python-keyvault-secrets/4.8.0",
+    "httpStatusCode": 200,
+    "requestUri": "https://kv-prod.vault.azure.net/secrets/db-password/?api-version=7.4",
+    "isAccessPolicyMatch": false,
+    "isRbacAuthorized": true
+  },
+  "location": "brazilsouth"
+}

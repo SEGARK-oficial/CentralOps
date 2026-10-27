@@ -1,0 +1,12 @@
+{
+  "time": "2026-10-27T12:10:00.0000000Z",
+  "category": "SignInLogs",
+  "operationName": "Sign-in activity",
+  "resultType": "0",
+  "callerIpAddress": "198.51.100.23",
+  "tenantId": "00000000-0000-4000-8000-000000000001",
+  "properties": {
+    "id": "sid-min",
+    "userPrincipalName": "bruno.costa@example.com"
+  }
+}

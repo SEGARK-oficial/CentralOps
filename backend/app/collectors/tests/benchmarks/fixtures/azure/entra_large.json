@@ -1,0 +1,279 @@
+{
+  "time": "2026-10-27T12:20:00.0000000Z",
+  "resourceId": "/tenants/00000000-0000-4000-8000-000000000001/providers/Microsoft.aadiam",
+  "operationName": "Add member to role",
+  "operationVersion": "1.0",
+  "category": "AuditLogs",
+  "tenantId": "00000000-0000-4000-8000-000000000001",
+  "resultSignature": "None",
+  "durationMs": 0,
+  "callerIpAddress": "203.0.113.10",
+  "correlationId": "c0ffee00-0000-4000-8000-000000000002",
+  "Level": 4,
+  "properties": {
+    "id": "aud-0001",
+    "category": "RoleManagement",
+    "correlationId": "c0ffee00-0000-4000-8000-000000000002",
+    "result": "success",
+    "resultReason": "",
+    "activityDisplayName": "Add member to role",
+    "activityDateTime": "2026-10-27T12:20:00.0000000+00:00",
+    "loggedByService": "Core Directory",
+    "operationType": "Add",
+    "initiatedBy": {
+      "user": {
+        "id": "33333333-3333-4333-8333-333333333333",
+        "userPrincipalName": "ana.silva@example.com",
+        "ipAddress": "203.0.113.10"
+      }
+    },
+    "targetResources": [
+      {
+        "id": "t-0",
+        "displayName": "Alvo 0",
+        "type": "User",
+        "userPrincipalName": "alvo0@example.com",
+        "modifiedProperties": [
+          {
+            "displayName": "Role.DisplayName",
+            "oldValue": "null",
+            "newValue": "\"Global Administrator\""
+          },
+          {
+            "displayName": "Role.DisplayName",
+            "oldValue": "null",
+            "newValue": "\"Global Administrator\""
+          },
+          {
+            "displayName": "Role.DisplayName",
+            "oldValue": "null",
+            "newValue": "\"Global Administrator\""
+          }
+        ]
+      },
+      {
+        "id": "t-1",
+        "displayName": "Alvo 1",
+        "type": "User",
+        "userPrincipalName": "alvo1@example.com",
+        "modifiedProperties": [
+          {
+            "displayName": "Role.DisplayName",
+            "oldValue": "null",
+            "newValue": "\"Global Administrator\""
+          },
+          {
+            "displayName": "Role.DisplayName",
+            "oldValue": "null",
+            "newValue": "\"Global Administrator\""
+          },
+          {
+            "displayName": "Role.DisplayName",
+            "oldValue": "null",
+            "newValue": "\"Global Administrator\""
+          }
+        ]
+      },
+      {
+        "id": "t-2",
+        "displayName": "Alvo 2",
+        "type": "User",
+        "userPrincipalName": "alvo2@example.com",
+        "modifiedProperties": [
+          {
+            "displayName": "Role.DisplayName",
+            "oldValue": "null",
+            "newValue": "\"Global Administrator\""
+          },
+          {
+            "displayName": "Role.DisplayName",
+            "oldValue": "null",
+            "newValue": "\"Global Administrator\""
+          },
+          {
+            "displayName": "Role.DisplayName",
+            "oldValue": "null",
+            "newValue": "\"Global Administrator\""
+          }
+        ]
+      },
+      {
+        "id": "t-3",
+        "displayName": "Alvo 3",
+        "type": "User",
+        "userPrincipalName": "alvo3@example.com",
+        "modifiedProperties": [
+          {
+            "displayName": "Role.DisplayName",
+            "oldValue": "null",
+            "newValue": "\"Global Administrator\""
+          },
+          {
+            "displayName": "Role.DisplayName",
+            "oldValue": "null",
+            "newValue": "\"Global Administrator\""
+          },
+          {
+            "displayName": "Role.DisplayName",
+            "oldValue": "null",
+            "newValue": "\"Global Administrator\""
+          }
+        ]
+      },
+      {
+        "id": "t-4",
+        "displayName": "Alvo 4",
+        "type": "User",
+        "userPrincipalName": "alvo4@example.com",
+        "modifiedProperties": [
+          {
+            "displayName": "Role.DisplayName",
+            "oldValue": "null",
+            "newValue": "\"Global Administrator\""
+          },
+          {
+            "displayName": "Role.DisplayName",
+            "oldValue": "null",
+            "newValue": "\"Global Administrator\""
+          },
+          {
+            "displayName": "Role.DisplayName",
+            "oldValue": "null",
+            "newValue": "\"Global Administrator\""
+          }
+        ]
+      },
+      {
+        "id": "t-5",
+        "displayName": "Alvo 5",
+        "type": "User",
+        "userPrincipalName": "alvo5@example.com",
+        "modifiedProperties": [
+          {
+            "displayName": "Role.DisplayName",
+            "oldValue": "null",
+            "newValue": "\"Global Administrator\""
+          },
+          {
+            "displayName": "Role.DisplayName",
+            "oldValue": "null",
+            "newValue": "\"Global Administrator\""
+          },
+          {
+            "displayName": "Role.DisplayName",
+            "oldValue": "null",
+            "newValue": "\"Global Administrator\""
+          }
+        ]
+      },
+      {
+        "id": "t-6",
+        "displayName": "Alvo 6",
+        "type": "User",
+        "userPrincipalName": "alvo6@example.com",
+        "modifiedProperties": [
+          {
+            "displayName": "Role.DisplayName",
+            "oldValue": "null",
+            "newValue": "\"Global Administrator\""
+          },
+          {
+            "displayName": "Role.DisplayName",
+            "oldValue": "null",
+            "newValue": "\"Global Administrator\""
+          },
+          {
+            "displayName": "Role.DisplayName",
+            "oldValue": "null",
+            "newValue": "\"Global Administrator\""
+          }
+        ]
+      },
+      {
+        "id": "t-7",
+        "displayName": "Alvo 7",
+        "type": "User",
+        "userPrincipalName": "alvo7@example.com",
+        "modifiedProperties": [
+          {
+            "displayName": "Role.DisplayName",
+            "oldValue": "null",
+            "newValue": "\"Global Administrator\""
+          },
+          {
+            "displayName": "Role.DisplayName",
+            "oldValue": "null",
+            "newValue": "\"Global Administrator\""
+          },
+          {
+            "displayName": "Role.DisplayName",
+            "oldValue": "null",
+            "newValue": "\"Global Administrator\""
+          }
+        ]
+      }
+    ],
+    "additionalDetails": [
+      {
+        "key": "k0",
+        "value": "v0"
+      },
+      {
+        "key": "k1",
+        "value": "v1"
+      },
+      {
+        "key": "k2",
+        "value": "v2"
+      },
+      {
+        "key": "k3",
+        "value": "v3"
+      },
+      {
+        "key": "k4",
+        "value": "v4"
+      },
+      {
+        "key": "k5",
+        "value": "v5"
+      },
+      {
+        "key": "k6",
+        "value": "v6"
+      },
+      {
+        "key": "k7",
+        "value": "v7"
+      },
+      {
+        "key": "k8",
+        "value": "v8"
+      },
+      {
+        "key": "k9",
+        "value": "v9"
+      },
+      {
+        "key": "k10",
+        "value": "v10"
+      },
+      {
+        "key": "k11",
+        "value": "v11"
+      },
+      {
+        "key": "k12",
+        "value": "v12"
+      },
+      {
+        "key": "k13",
+        "value": "v13"
+      },
+      {
+        "key": "k14",
+        "value": "v14"
+      }
+    ]
+  }
+}

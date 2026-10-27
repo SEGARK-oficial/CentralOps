@@ -1,0 +1,450 @@
+{
+  "_comment": [
+    "Microsoft Entra ID via diagnostic setting -> Event Hub (schema comum de resource log).",
+    "Sign-in (interativo, NAO interativo, service principal, managed identity, AD FS)",
+    "-> Authentication (3002) Logon. AuditLogs de conta (reset/troca de senha, habilitar,",
+    "desabilitar, criar/apagar usuario, entrar/sair de papel) -> Account Change (3001);",
+    "o resto do AuditLogs (app, politica, grupo) -> API Activity (6003) pelo operationType.",
+    "Classe, categoria, atividade e type_uid saem da MESMA chave (value_map)."
+  ],
+  "rules": [
+    {
+      "target": "normalized.class_uid",
+      "source": "((category == 'SignInLogs' || category == 'NonInteractiveUserSignInLogs' || category == 'ServicePrincipalSignInLogs' || category == 'ManagedIdentitySignInLogs' || category == 'ADFSSignInLogs') && 'signin') || (category == 'AuditLogs' && (((contains((properties.activityDisplayName || ''), 'Reset password') || contains((properties.activityDisplayName || ''), 'Reset user password')) && 'pw_reset') || ((contains((properties.activityDisplayName || ''), 'Change password') || contains((properties.activityDisplayName || ''), 'Change user password')) && 'pw_change') || ((contains((properties.activityDisplayName || ''), 'Disable account')) && 'disable') || ((contains((properties.activityDisplayName || ''), 'Enable account')) && 'enable') || ((contains((properties.activityDisplayName || ''), 'Delete user')) && 'delete_user') || (((properties.activityDisplayName || '') == 'Add user') && 'create_user') || ((contains((properties.activityDisplayName || ''), 'Add member to role') || contains((properties.activityDisplayName || ''), 'Add eligible member to role') || contains((properties.activityDisplayName || ''), 'Add app role assignment')) && 'attach') || ((contains((properties.activityDisplayName || ''), 'Remove member from role') || contains((properties.activityDisplayName || ''), 'Remove eligible member from role') || contains((properties.activityDisplayName || ''), 'Remove app role assignment')) && 'detach') || (properties.operationType == 'Add' && 'audit_add') || (properties.operationType == 'Update' && 'audit_update') || (properties.operationType == 'Delete' && 'audit_delete') || 'audit')) || 'other'",
+      "value_map": {
+        "signin": 3002,
+        "pw_reset": 3001,
+        "pw_change": 3001,
+        "disable": 3001,
+        "enable": 3001,
+        "delete_user": 3001,
+        "create_user": 3001,
+        "attach": 3001,
+        "detach": 3001
+      },
+      "default": 6003,
+      "required": true
+    },
+    {
+      "target": "normalized.class_name",
+      "source": "((category == 'SignInLogs' || category == 'NonInteractiveUserSignInLogs' || category == 'ServicePrincipalSignInLogs' || category == 'ManagedIdentitySignInLogs' || category == 'ADFSSignInLogs') && 'signin') || (category == 'AuditLogs' && (((contains((properties.activityDisplayName || ''), 'Reset password') || contains((properties.activityDisplayName || ''), 'Reset user password')) && 'pw_reset') || ((contains((properties.activityDisplayName || ''), 'Change password') || contains((properties.activityDisplayName || ''), 'Change user password')) && 'pw_change') || ((contains((properties.activityDisplayName || ''), 'Disable account')) && 'disable') || ((contains((properties.activityDisplayName || ''), 'Enable account')) && 'enable') || ((contains((properties.activityDisplayName || ''), 'Delete user')) && 'delete_user') || (((properties.activityDisplayName || '') == 'Add user') && 'create_user') || ((contains((properties.activityDisplayName || ''), 'Add member to role') || contains((properties.activityDisplayName || ''), 'Add eligible member to role') || contains((properties.activityDisplayName || ''), 'Add app role assignment')) && 'attach') || ((contains((properties.activityDisplayName || ''), 'Remove member from role') || contains((properties.activityDisplayName || ''), 'Remove eligible member from role') || contains((properties.activityDisplayName || ''), 'Remove app role assignment')) && 'detach') || (properties.operationType == 'Add' && 'audit_add') || (properties.operationType == 'Update' && 'audit_update') || (properties.operationType == 'Delete' && 'audit_delete') || 'audit')) || 'other'",
+      "value_map": {
+        "signin": "Authentication",
+        "pw_reset": "Account Change",
+        "pw_change": "Account Change",
+        "disable": "Account Change",
+        "enable": "Account Change",
+        "delete_user": "Account Change",
+        "create_user": "Account Change",
+        "attach": "Account Change",
+        "detach": "Account Change"
+      },
+      "default": "API Activity"
+    },
+    {
+      "target": "normalized.category_uid",
+      "source": "((category == 'SignInLogs' || category == 'NonInteractiveUserSignInLogs' || category == 'ServicePrincipalSignInLogs' || category == 'ManagedIdentitySignInLogs' || category == 'ADFSSignInLogs') && 'signin') || (category == 'AuditLogs' && (((contains((properties.activityDisplayName || ''), 'Reset password') || contains((properties.activityDisplayName || ''), 'Reset user password')) && 'pw_reset') || ((contains((properties.activityDisplayName || ''), 'Change password') || contains((properties.activityDisplayName || ''), 'Change user password')) && 'pw_change') || ((contains((properties.activityDisplayName || ''), 'Disable account')) && 'disable') || ((contains((properties.activityDisplayName || ''), 'Enable account')) && 'enable') || ((contains((properties.activityDisplayName || ''), 'Delete user')) && 'delete_user') || (((properties.activityDisplayName || '') == 'Add user') && 'create_user') || ((contains((properties.activityDisplayName || ''), 'Add member to role') || contains((properties.activityDisplayName || ''), 'Add eligible member to role') || contains((properties.activityDisplayName || ''), 'Add app role assignment')) && 'attach') || ((contains((properties.activityDisplayName || ''), 'Remove member from role') || contains((properties.activityDisplayName || ''), 'Remove eligible member from role') || contains((properties.activityDisplayName || ''), 'Remove app role assignment')) && 'detach') || (properties.operationType == 'Add' && 'audit_add') || (properties.operationType == 'Update' && 'audit_update') || (properties.operationType == 'Delete' && 'audit_delete') || 'audit')) || 'other'",
+      "value_map": {
+        "signin": 3,
+        "pw_reset": 3,
+        "pw_change": 3,
+        "disable": 3,
+        "enable": 3,
+        "delete_user": 3,
+        "create_user": 3,
+        "attach": 3,
+        "detach": 3
+      },
+      "default": 6,
+      "required": true
+    },
+    {
+      "target": "normalized.category_name",
+      "source": "((category == 'SignInLogs' || category == 'NonInteractiveUserSignInLogs' || category == 'ServicePrincipalSignInLogs' || category == 'ManagedIdentitySignInLogs' || category == 'ADFSSignInLogs') && 'signin') || (category == 'AuditLogs' && (((contains((properties.activityDisplayName || ''), 'Reset password') || contains((properties.activityDisplayName || ''), 'Reset user password')) && 'pw_reset') || ((contains((properties.activityDisplayName || ''), 'Change password') || contains((properties.activityDisplayName || ''), 'Change user password')) && 'pw_change') || ((contains((properties.activityDisplayName || ''), 'Disable account')) && 'disable') || ((contains((properties.activityDisplayName || ''), 'Enable account')) && 'enable') || ((contains((properties.activityDisplayName || ''), 'Delete user')) && 'delete_user') || (((properties.activityDisplayName || '') == 'Add user') && 'create_user') || ((contains((properties.activityDisplayName || ''), 'Add member to role') || contains((properties.activityDisplayName || ''), 'Add eligible member to role') || contains((properties.activityDisplayName || ''), 'Add app role assignment')) && 'attach') || ((contains((properties.activityDisplayName || ''), 'Remove member from role') || contains((properties.activityDisplayName || ''), 'Remove eligible member from role') || contains((properties.activityDisplayName || ''), 'Remove app role assignment')) && 'detach') || (properties.operationType == 'Add' && 'audit_add') || (properties.operationType == 'Update' && 'audit_update') || (properties.operationType == 'Delete' && 'audit_delete') || 'audit')) || 'other'",
+      "value_map": {
+        "signin": "Identity & Access Management",
+        "pw_reset": "Identity & Access Management",
+        "pw_change": "Identity & Access Management",
+        "disable": "Identity & Access Management",
+        "enable": "Identity & Access Management",
+        "delete_user": "Identity & Access Management",
+        "create_user": "Identity & Access Management",
+        "attach": "Identity & Access Management",
+        "detach": "Identity & Access Management"
+      },
+      "default": "Application Activity"
+    },
+    {
+      "target": "normalized.activity_id",
+      "source": "((category == 'SignInLogs' || category == 'NonInteractiveUserSignInLogs' || category == 'ServicePrincipalSignInLogs' || category == 'ManagedIdentitySignInLogs' || category == 'ADFSSignInLogs') && 'signin') || (category == 'AuditLogs' && (((contains((properties.activityDisplayName || ''), 'Reset password') || contains((properties.activityDisplayName || ''), 'Reset user password')) && 'pw_reset') || ((contains((properties.activityDisplayName || ''), 'Change password') || contains((properties.activityDisplayName || ''), 'Change user password')) && 'pw_change') || ((contains((properties.activityDisplayName || ''), 'Disable account')) && 'disable') || ((contains((properties.activityDisplayName || ''), 'Enable account')) && 'enable') || ((contains((properties.activityDisplayName || ''), 'Delete user')) && 'delete_user') || (((properties.activityDisplayName || '') == 'Add user') && 'create_user') || ((contains((properties.activityDisplayName || ''), 'Add member to role') || contains((properties.activityDisplayName || ''), 'Add eligible member to role') || contains((properties.activityDisplayName || ''), 'Add app role assignment')) && 'attach') || ((contains((properties.activityDisplayName || ''), 'Remove member from role') || contains((properties.activityDisplayName || ''), 'Remove eligible member from role') || contains((properties.activityDisplayName || ''), 'Remove app role assignment')) && 'detach') || (properties.operationType == 'Add' && 'audit_add') || (properties.operationType == 'Update' && 'audit_update') || (properties.operationType == 'Delete' && 'audit_delete') || 'audit')) || 'other'",
+      "value_map": {
+        "signin": 1,
+        "pw_reset": 4,
+        "pw_change": 3,
+        "disable": 5,
+        "enable": 2,
+        "delete_user": 6,
+        "create_user": 1,
+        "attach": 7,
+        "detach": 8,
+        "audit_add": 1,
+        "audit_update": 3,
+        "audit_delete": 4,
+        "audit": 99
+      },
+      "default": 0,
+      "required": true
+    },
+    {
+      "target": "normalized.activity_name",
+      "source": "((category == 'SignInLogs' || category == 'NonInteractiveUserSignInLogs' || category == 'ServicePrincipalSignInLogs' || category == 'ManagedIdentitySignInLogs' || category == 'ADFSSignInLogs') && 'signin') || (category == 'AuditLogs' && (((contains((properties.activityDisplayName || ''), 'Reset password') || contains((properties.activityDisplayName || ''), 'Reset user password')) && 'pw_reset') || ((contains((properties.activityDisplayName || ''), 'Change password') || contains((properties.activityDisplayName || ''), 'Change user password')) && 'pw_change') || ((contains((properties.activityDisplayName || ''), 'Disable account')) && 'disable') || ((contains((properties.activityDisplayName || ''), 'Enable account')) && 'enable') || ((contains((properties.activityDisplayName || ''), 'Delete user')) && 'delete_user') || (((properties.activityDisplayName || '') == 'Add user') && 'create_user') || ((contains((properties.activityDisplayName || ''), 'Add member to role') || contains((properties.activityDisplayName || ''), 'Add eligible member to role') || contains((properties.activityDisplayName || ''), 'Add app role assignment')) && 'attach') || ((contains((properties.activityDisplayName || ''), 'Remove member from role') || contains((properties.activityDisplayName || ''), 'Remove eligible member from role') || contains((properties.activityDisplayName || ''), 'Remove app role assignment')) && 'detach') || (properties.operationType == 'Add' && 'audit_add') || (properties.operationType == 'Update' && 'audit_update') || (properties.operationType == 'Delete' && 'audit_delete') || 'audit')) || 'other'",
+      "value_map": {
+        "signin": "Logon",
+        "pw_reset": "Password Reset",
+        "pw_change": "Password Change",
+        "disable": "Disable",
+        "enable": "Enable",
+        "delete_user": "Delete",
+        "create_user": "Create",
+        "attach": "Attach Policy",
+        "detach": "Detach Policy",
+        "audit_add": "Create",
+        "audit_update": "Update",
+        "audit_delete": "Delete",
+        "audit": "Other"
+      },
+      "default": "Unknown"
+    },
+    {
+      "target": "normalized.type_uid",
+      "source": "((category == 'SignInLogs' || category == 'NonInteractiveUserSignInLogs' || category == 'ServicePrincipalSignInLogs' || category == 'ManagedIdentitySignInLogs' || category == 'ADFSSignInLogs') && 'signin') || (category == 'AuditLogs' && (((contains((properties.activityDisplayName || ''), 'Reset password') || contains((properties.activityDisplayName || ''), 'Reset user password')) && 'pw_reset') || ((contains((properties.activityDisplayName || ''), 'Change password') || contains((properties.activityDisplayName || ''), 'Change user password')) && 'pw_change') || ((contains((properties.activityDisplayName || ''), 'Disable account')) && 'disable') || ((contains((properties.activityDisplayName || ''), 'Enable account')) && 'enable') || ((contains((properties.activityDisplayName || ''), 'Delete user')) && 'delete_user') || (((properties.activityDisplayName || '') == 'Add user') && 'create_user') || ((contains((properties.activityDisplayName || ''), 'Add member to role') || contains((properties.activityDisplayName || ''), 'Add eligible member to role') || contains((properties.activityDisplayName || ''), 'Add app role assignment')) && 'attach') || ((contains((properties.activityDisplayName || ''), 'Remove member from role') || contains((properties.activityDisplayName || ''), 'Remove eligible member from role') || contains((properties.activityDisplayName || ''), 'Remove app role assignment')) && 'detach') || (properties.operationType == 'Add' && 'audit_add') || (properties.operationType == 'Update' && 'audit_update') || (properties.operationType == 'Delete' && 'audit_delete') || 'audit')) || 'other'",
+      "value_map": {
+        "signin": 300201,
+        "pw_reset": 300104,
+        "pw_change": 300103,
+        "disable": 300105,
+        "enable": 300102,
+        "delete_user": 300106,
+        "create_user": 300101,
+        "attach": 300107,
+        "detach": 300108,
+        "audit_add": 600301,
+        "audit_update": 600303,
+        "audit_delete": 600304,
+        "audit": 600399
+      },
+      "default": 600300,
+      "required": true
+    },
+    {
+      "_comment": "Risco do Identity Protection no momento do sign-in (exige P2; sem P2 vem 'hidden').",
+      "target": "normalized.severity_id",
+      "source": "properties.riskLevelDuringSignIn",
+      "value_map": {
+        "none": 1,
+        "hidden": 1,
+        "low": 2,
+        "medium": 3,
+        "high": 4
+      },
+      "default": 1,
+      "required": true
+    },
+    {
+      "target": "normalized.severity",
+      "source": "properties.riskLevelDuringSignIn",
+      "value_map": {
+        "none": "Informational",
+        "hidden": "Informational",
+        "low": "Low",
+        "medium": "Medium",
+        "high": "High"
+      },
+      "default": "Informational"
+    },
+    {
+      "_comment": "Sign-in: resultType '0' = sucesso; qualquer outro e o codigo AADSTS da falha.",
+      "target": "normalized.status_id",
+      "const": 1
+    },
+    {
+      "target": "normalized.status",
+      "const": "Success"
+    },
+    {
+      "target": "normalized.status_id",
+      "const": 2,
+      "when": {
+        "equals": {
+          "source": "contains(['SignInLogs', 'NonInteractiveUserSignInLogs', 'ServicePrincipalSignInLogs', 'ManagedIdentitySignInLogs', 'ADFSSignInLogs'], category) && (resultType || '0') != '0'",
+          "value": true
+        }
+      }
+    },
+    {
+      "target": "normalized.status",
+      "const": "Failure",
+      "when": {
+        "equals": {
+          "source": "contains(['SignInLogs', 'NonInteractiveUserSignInLogs', 'ServicePrincipalSignInLogs', 'ManagedIdentitySignInLogs', 'ADFSSignInLogs'], category) && (resultType || '0') != '0'",
+          "value": true
+        }
+      }
+    },
+    {
+      "target": "normalized.status_id",
+      "const": 2,
+      "when": {
+        "equals": {
+          "source": "properties.result",
+          "value": "failure"
+        }
+      }
+    },
+    {
+      "target": "normalized.status",
+      "const": "Failure",
+      "when": {
+        "equals": {
+          "source": "properties.result",
+          "value": "failure"
+        }
+      }
+    },
+    {
+      "target": "normalized.status_code",
+      "source": "resultType",
+      "default": null
+    },
+    {
+      "target": "normalized.status_detail",
+      "source": "resultDescription || properties.status.failureReason || properties.resultReason",
+      "default": null
+    },
+    {
+      "target": "normalized.user.name",
+      "source": "properties.userPrincipalName || properties.servicePrincipalName || properties.servicePrincipalId",
+      "default": null,
+      "when": {
+        "equals": {
+          "source": "contains(['SignInLogs', 'NonInteractiveUserSignInLogs', 'ServicePrincipalSignInLogs', 'ManagedIdentitySignInLogs', 'ADFSSignInLogs'], category)",
+          "value": true
+        }
+      }
+    },
+    {
+      "target": "normalized.user.uid",
+      "source": "properties.userId || properties.servicePrincipalId",
+      "default": null,
+      "when": {
+        "equals": {
+          "source": "contains(['SignInLogs', 'NonInteractiveUserSignInLogs', 'ServicePrincipalSignInLogs', 'ManagedIdentitySignInLogs', 'ADFSSignInLogs'], category)",
+          "value": true
+        }
+      }
+    },
+    {
+      "target": "normalized.user.email_addr",
+      "source": "properties.userPrincipalName",
+      "default": null,
+      "when": {
+        "equals": {
+          "source": "contains(['SignInLogs', 'NonInteractiveUserSignInLogs', 'ServicePrincipalSignInLogs', 'ManagedIdentitySignInLogs', 'ADFSSignInLogs'], category)",
+          "value": true
+        }
+      }
+    },
+    {
+      "_comment": "Account Change: o 'user' e o ALVO da mudanca; quem fez e o actor.",
+      "target": "normalized.user.name",
+      "source": "properties.targetResources[0].userPrincipalName || properties.targetResources[0].displayName",
+      "default": null,
+      "when": {
+        "equals": {
+          "source": "category",
+          "value": "AuditLogs"
+        }
+      }
+    },
+    {
+      "target": "normalized.user.uid",
+      "source": "properties.targetResources[0].id",
+      "default": null,
+      "when": {
+        "equals": {
+          "source": "category",
+          "value": "AuditLogs"
+        }
+      }
+    },
+    {
+      "target": "normalized.actor.user.name",
+      "source": "properties.initiatedBy.user.userPrincipalName || properties.initiatedBy.app.displayName",
+      "default": null
+    },
+    {
+      "target": "normalized.actor.user.uid",
+      "source": "properties.initiatedBy.user.id || properties.initiatedBy.app.servicePrincipalId",
+      "default": null
+    },
+    {
+      "target": "normalized.is_mfa",
+      "source": "properties.authenticationRequirement == 'multiFactorAuthentication'",
+      "default": null,
+      "when": {
+        "equals": {
+          "source": "contains(['SignInLogs', 'NonInteractiveUserSignInLogs', 'ServicePrincipalSignInLogs', 'ManagedIdentitySignInLogs', 'ADFSSignInLogs'], category)",
+          "value": true
+        }
+      }
+    },
+    {
+      "target": "normalized.is_remote",
+      "const": true,
+      "when": {
+        "equals": {
+          "source": "contains(['SignInLogs', 'NonInteractiveUserSignInLogs', 'ServicePrincipalSignInLogs', 'ManagedIdentitySignInLogs', 'ADFSSignInLogs'], category)",
+          "value": true
+        }
+      }
+    },
+    {
+      "target": "normalized.service.name",
+      "source": "properties.appDisplayName || properties.resourceDisplayName",
+      "default": null
+    },
+    {
+      "target": "normalized.service.uid",
+      "source": "properties.appId",
+      "default": null
+    },
+    {
+      "target": "normalized.src_endpoint.ip",
+      "source": "callerIpAddress || properties.ipAddress || properties.initiatedBy.user.ipAddress",
+      "default": null
+    },
+    {
+      "target": "normalized.src_endpoint.location.city",
+      "source": "properties.location.city",
+      "default": null
+    },
+    {
+      "target": "normalized.src_endpoint.location.country",
+      "source": "properties.location.countryOrRegion",
+      "default": null
+    },
+    {
+      "target": "normalized.http_request.user_agent",
+      "source": "properties.userAgent",
+      "default": null
+    },
+    {
+      "target": "normalized.device.os.name",
+      "source": "properties.deviceDetail.operatingSystem",
+      "default": null
+    },
+    {
+      "target": "normalized.device.uid",
+      "source": "[properties.deviceDetail.deviceId][?@ != ''] | [0]",
+      "default": null
+    },
+    {
+      "target": "normalized.api.operation",
+      "source": "properties.activityDisplayName || operationName",
+      "default": null
+    },
+    {
+      "target": "normalized.api.service.name",
+      "source": "properties.loggedByService",
+      "default": null
+    },
+    {
+      "target": "normalized.message",
+      "source": "properties.activityDisplayName || operationName",
+      "default": null
+    },
+    {
+      "target": "normalized.cloud.org.uid",
+      "source": "tenantId",
+      "default": null
+    },
+    {
+      "target": "normalized.time",
+      "source": "time",
+      "type_cast": "iso_to_epoch",
+      "required": true
+    },
+    {
+      "target": "normalized.metadata.version",
+      "const": "1.8.0"
+    },
+    {
+      "target": "normalized.metadata.product.name",
+      "const": "Microsoft Entra ID"
+    },
+    {
+      "target": "normalized.metadata.product.vendor_name",
+      "const": "Microsoft"
+    },
+    {
+      "target": "normalized.metadata.uid",
+      "source": "properties.id",
+      "default": null
+    },
+    {
+      "target": "normalized.metadata.correlation_uid",
+      "source": "correlationId",
+      "default": null
+    },
+    {
+      "target": "normalized.metadata.log_name",
+      "source": "category",
+      "default": null
+    },
+    {
+      "target": "normalized.metadata.event_code",
+      "source": "operationName",
+      "default": null
+    },
+    {
+      "target": "normalized.cloud.provider",
+      "const": "Azure"
+    },
+    {
+      "target": "normalized.observables",
+      "kind": "array_builder",
+      "items": [
+        {
+          "name": "user",
+          "type": "User Name",
+          "type_id": 4,
+          "source": "properties.userPrincipalName || properties.servicePrincipalName || properties.servicePrincipalId",
+          "skip_null": true
+        },
+        {
+          "name": "actor",
+          "type": "User Name",
+          "type_id": 4,
+          "source": "properties.initiatedBy.user.userPrincipalName || properties.initiatedBy.app.displayName",
+          "skip_null": true
+        },
+        {
+          "name": "src_ip",
+          "type": "IP Address",
+          "type_id": 2,
+          "source": "callerIpAddress || properties.ipAddress || properties.initiatedBy.user.ipAddress",
+          "skip_null": true
+        }
+      ],
+      "skip_null": true,
+      "dedup_by": [
+        "value"
+      ]
+    }
+  ],
+  "raw_reduction": [
+    {
+      "drop_nulls": true
+    }
+  ]
+}

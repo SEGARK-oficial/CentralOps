@@ -1,0 +1,328 @@
+{
+  "_comment": [
+    "Resource logs (diagnostic settings) via Event Hub. A classe sai da categoria:",
+    "SQLSecurityAuditEvents -> Authentication (login) ou Datastore Activity (Query);",
+    "kube-audit/kube-audit-admin (AKS) -> API Activity pelo verb do audit do Kubernetes;",
+    "AuditEvent (Key Vault) e Storage* -> API Activity pelo verbo do operationName;",
+    "qualquer outra categoria (firewall, NSG, App Service...) -> Base Event (0): e o",
+    "fallback OFICIAL do OCSF -- carimbar API Activity mentiria sobre trafego de rede."
+  ],
+  "rules": [
+    {
+      "target": "normalized.class_uid",
+      "source": "(category == 'SQLSecurityAuditEvents' && (((contains((properties.action_name || ''), 'AUTHENTICATION')) && 'db_login') || 'db')) || (starts_with((category || ''), 'kube-audit') && (((contains(['get', 'list', 'watch'], (properties.log.verb || ''))) && 'read') || ((properties.log.verb || '') == 'create' && 'create') || (contains(['update', 'patch'], (properties.log.verb || '')) && 'update') || (contains(['delete', 'deletecollection'], (properties.log.verb || '')) && 'delete') || 'other')) || ((category == 'AuditEvent' || starts_with((category || ''), 'Storage')) && (((contains((operationName || ''), 'Delete') || contains((operationName || ''), 'Purge')) && 'delete') || ((contains((operationName || ''), 'Create') || contains((operationName || ''), 'Import')) && 'create') || ((contains((operationName || ''), 'Set') || contains((operationName || ''), 'Put') || contains((operationName || ''), 'Update') || contains((operationName || ''), 'Patch') || contains((operationName || ''), 'Write') || contains((operationName || ''), 'Recover') || contains((operationName || ''), 'Restore')) && 'update') || ((contains((operationName || ''), 'Get') || contains((operationName || ''), 'List') || contains((operationName || ''), 'Read') || contains((operationName || ''), 'Query')) && 'read') || 'other')) || 'base'",
+      "value_map": {
+        "db_login": 3002,
+        "db": 6005,
+        "base": 0
+      },
+      "default": 6003,
+      "required": true
+    },
+    {
+      "target": "normalized.class_name",
+      "source": "(category == 'SQLSecurityAuditEvents' && (((contains((properties.action_name || ''), 'AUTHENTICATION')) && 'db_login') || 'db')) || (starts_with((category || ''), 'kube-audit') && (((contains(['get', 'list', 'watch'], (properties.log.verb || ''))) && 'read') || ((properties.log.verb || '') == 'create' && 'create') || (contains(['update', 'patch'], (properties.log.verb || '')) && 'update') || (contains(['delete', 'deletecollection'], (properties.log.verb || '')) && 'delete') || 'other')) || ((category == 'AuditEvent' || starts_with((category || ''), 'Storage')) && (((contains((operationName || ''), 'Delete') || contains((operationName || ''), 'Purge')) && 'delete') || ((contains((operationName || ''), 'Create') || contains((operationName || ''), 'Import')) && 'create') || ((contains((operationName || ''), 'Set') || contains((operationName || ''), 'Put') || contains((operationName || ''), 'Update') || contains((operationName || ''), 'Patch') || contains((operationName || ''), 'Write') || contains((operationName || ''), 'Recover') || contains((operationName || ''), 'Restore')) && 'update') || ((contains((operationName || ''), 'Get') || contains((operationName || ''), 'List') || contains((operationName || ''), 'Read') || contains((operationName || ''), 'Query')) && 'read') || 'other')) || 'base'",
+      "value_map": {
+        "db_login": "Authentication",
+        "db": "Datastore Activity",
+        "base": "Base Event"
+      },
+      "default": "API Activity"
+    },
+    {
+      "target": "normalized.category_uid",
+      "source": "(category == 'SQLSecurityAuditEvents' && (((contains((properties.action_name || ''), 'AUTHENTICATION')) && 'db_login') || 'db')) || (starts_with((category || ''), 'kube-audit') && (((contains(['get', 'list', 'watch'], (properties.log.verb || ''))) && 'read') || ((properties.log.verb || '') == 'create' && 'create') || (contains(['update', 'patch'], (properties.log.verb || '')) && 'update') || (contains(['delete', 'deletecollection'], (properties.log.verb || '')) && 'delete') || 'other')) || ((category == 'AuditEvent' || starts_with((category || ''), 'Storage')) && (((contains((operationName || ''), 'Delete') || contains((operationName || ''), 'Purge')) && 'delete') || ((contains((operationName || ''), 'Create') || contains((operationName || ''), 'Import')) && 'create') || ((contains((operationName || ''), 'Set') || contains((operationName || ''), 'Put') || contains((operationName || ''), 'Update') || contains((operationName || ''), 'Patch') || contains((operationName || ''), 'Write') || contains((operationName || ''), 'Recover') || contains((operationName || ''), 'Restore')) && 'update') || ((contains((operationName || ''), 'Get') || contains((operationName || ''), 'List') || contains((operationName || ''), 'Read') || contains((operationName || ''), 'Query')) && 'read') || 'other')) || 'base'",
+      "value_map": {
+        "db_login": 3,
+        "db": 6,
+        "base": 0
+      },
+      "default": 6,
+      "required": true
+    },
+    {
+      "target": "normalized.category_name",
+      "source": "(category == 'SQLSecurityAuditEvents' && (((contains((properties.action_name || ''), 'AUTHENTICATION')) && 'db_login') || 'db')) || (starts_with((category || ''), 'kube-audit') && (((contains(['get', 'list', 'watch'], (properties.log.verb || ''))) && 'read') || ((properties.log.verb || '') == 'create' && 'create') || (contains(['update', 'patch'], (properties.log.verb || '')) && 'update') || (contains(['delete', 'deletecollection'], (properties.log.verb || '')) && 'delete') || 'other')) || ((category == 'AuditEvent' || starts_with((category || ''), 'Storage')) && (((contains((operationName || ''), 'Delete') || contains((operationName || ''), 'Purge')) && 'delete') || ((contains((operationName || ''), 'Create') || contains((operationName || ''), 'Import')) && 'create') || ((contains((operationName || ''), 'Set') || contains((operationName || ''), 'Put') || contains((operationName || ''), 'Update') || contains((operationName || ''), 'Patch') || contains((operationName || ''), 'Write') || contains((operationName || ''), 'Recover') || contains((operationName || ''), 'Restore')) && 'update') || ((contains((operationName || ''), 'Get') || contains((operationName || ''), 'List') || contains((operationName || ''), 'Read') || contains((operationName || ''), 'Query')) && 'read') || 'other')) || 'base'",
+      "value_map": {
+        "db_login": "Identity & Access Management",
+        "base": "Uncategorized"
+      },
+      "default": "Application Activity"
+    },
+    {
+      "target": "normalized.activity_id",
+      "source": "(category == 'SQLSecurityAuditEvents' && (((contains((properties.action_name || ''), 'AUTHENTICATION')) && 'db_login') || 'db')) || (starts_with((category || ''), 'kube-audit') && (((contains(['get', 'list', 'watch'], (properties.log.verb || ''))) && 'read') || ((properties.log.verb || '') == 'create' && 'create') || (contains(['update', 'patch'], (properties.log.verb || '')) && 'update') || (contains(['delete', 'deletecollection'], (properties.log.verb || '')) && 'delete') || 'other')) || ((category == 'AuditEvent' || starts_with((category || ''), 'Storage')) && (((contains((operationName || ''), 'Delete') || contains((operationName || ''), 'Purge')) && 'delete') || ((contains((operationName || ''), 'Create') || contains((operationName || ''), 'Import')) && 'create') || ((contains((operationName || ''), 'Set') || contains((operationName || ''), 'Put') || contains((operationName || ''), 'Update') || contains((operationName || ''), 'Patch') || contains((operationName || ''), 'Write') || contains((operationName || ''), 'Recover') || contains((operationName || ''), 'Restore')) && 'update') || ((contains((operationName || ''), 'Get') || contains((operationName || ''), 'List') || contains((operationName || ''), 'Read') || contains((operationName || ''), 'Query')) && 'read') || 'other')) || 'base'",
+      "value_map": {
+        "db_login": 1,
+        "db": 4,
+        "read": 2,
+        "create": 1,
+        "update": 3,
+        "delete": 4,
+        "other": 99,
+        "base": 0
+      },
+      "default": 0,
+      "required": true
+    },
+    {
+      "target": "normalized.activity_name",
+      "source": "(category == 'SQLSecurityAuditEvents' && (((contains((properties.action_name || ''), 'AUTHENTICATION')) && 'db_login') || 'db')) || (starts_with((category || ''), 'kube-audit') && (((contains(['get', 'list', 'watch'], (properties.log.verb || ''))) && 'read') || ((properties.log.verb || '') == 'create' && 'create') || (contains(['update', 'patch'], (properties.log.verb || '')) && 'update') || (contains(['delete', 'deletecollection'], (properties.log.verb || '')) && 'delete') || 'other')) || ((category == 'AuditEvent' || starts_with((category || ''), 'Storage')) && (((contains((operationName || ''), 'Delete') || contains((operationName || ''), 'Purge')) && 'delete') || ((contains((operationName || ''), 'Create') || contains((operationName || ''), 'Import')) && 'create') || ((contains((operationName || ''), 'Set') || contains((operationName || ''), 'Put') || contains((operationName || ''), 'Update') || contains((operationName || ''), 'Patch') || contains((operationName || ''), 'Write') || contains((operationName || ''), 'Recover') || contains((operationName || ''), 'Restore')) && 'update') || ((contains((operationName || ''), 'Get') || contains((operationName || ''), 'List') || contains((operationName || ''), 'Read') || contains((operationName || ''), 'Query')) && 'read') || 'other')) || 'base'",
+      "value_map": {
+        "db_login": "Logon",
+        "db": "Query",
+        "read": "Read",
+        "create": "Create",
+        "update": "Update",
+        "delete": "Delete",
+        "other": "Other",
+        "base": "Unknown"
+      },
+      "default": "Unknown"
+    },
+    {
+      "target": "normalized.type_uid",
+      "source": "(category == 'SQLSecurityAuditEvents' && (((contains((properties.action_name || ''), 'AUTHENTICATION')) && 'db_login') || 'db')) || (starts_with((category || ''), 'kube-audit') && (((contains(['get', 'list', 'watch'], (properties.log.verb || ''))) && 'read') || ((properties.log.verb || '') == 'create' && 'create') || (contains(['update', 'patch'], (properties.log.verb || '')) && 'update') || (contains(['delete', 'deletecollection'], (properties.log.verb || '')) && 'delete') || 'other')) || ((category == 'AuditEvent' || starts_with((category || ''), 'Storage')) && (((contains((operationName || ''), 'Delete') || contains((operationName || ''), 'Purge')) && 'delete') || ((contains((operationName || ''), 'Create') || contains((operationName || ''), 'Import')) && 'create') || ((contains((operationName || ''), 'Set') || contains((operationName || ''), 'Put') || contains((operationName || ''), 'Update') || contains((operationName || ''), 'Patch') || contains((operationName || ''), 'Write') || contains((operationName || ''), 'Recover') || contains((operationName || ''), 'Restore')) && 'update') || ((contains((operationName || ''), 'Get') || contains((operationName || ''), 'List') || contains((operationName || ''), 'Read') || contains((operationName || ''), 'Query')) && 'read') || 'other')) || 'base'",
+      "value_map": {
+        "db_login": 300201,
+        "db": 600504,
+        "read": 600302,
+        "create": 600301,
+        "update": 600303,
+        "delete": 600304,
+        "other": 600399,
+        "base": 0
+      },
+      "default": 600300,
+      "required": true
+    },
+    {
+      "_comment": "Resource log quase nunca traz nivel util; o sinal esta em status e na operacao.",
+      "target": "normalized.severity_id",
+      "source": "level || Level",
+      "value_map": {
+        "Informational": 1,
+        "Warning": 2,
+        "Error": 3,
+        "Critical": 4
+      },
+      "default": 1,
+      "required": true
+    },
+    {
+      "target": "normalized.status_id",
+      "const": 1
+    },
+    {
+      "target": "normalized.status",
+      "const": "Success"
+    },
+    {
+      "target": "normalized.status_id",
+      "const": 2,
+      "when": {
+        "equals": {
+          "source": "(category == 'SQLSecurityAuditEvents' && properties.succeeded == 'false') || (starts_with((category || ''), 'kube-audit') && properties.log.responseStatus.code >= `400`) || (category == 'AuditEvent' && properties.httpStatusCode >= `400`) || (starts_with((category || ''), 'Storage') && (statusCode || `0`) >= `400`) || (contains(['Failure', 'Failed'], (resultType || '')))",
+          "value": true
+        }
+      }
+    },
+    {
+      "target": "normalized.status",
+      "const": "Failure",
+      "when": {
+        "equals": {
+          "source": "(category == 'SQLSecurityAuditEvents' && properties.succeeded == 'false') || (starts_with((category || ''), 'kube-audit') && properties.log.responseStatus.code >= `400`) || (category == 'AuditEvent' && properties.httpStatusCode >= `400`) || (starts_with((category || ''), 'Storage') && (statusCode || `0`) >= `400`) || (contains(['Failure', 'Failed'], (resultType || '')))",
+          "value": true
+        }
+      }
+    },
+    {
+      "target": "normalized.status_code",
+      "source": "properties.log.responseStatus.code || properties.httpStatusCode || statusCode || resultSignature",
+      "type_cast": "to_str",
+      "default": null
+    },
+    {
+      "target": "normalized.status_detail",
+      "source": "resultDescription || statusText || properties.additional_information",
+      "default": null
+    },
+    {
+      "target": "normalized.actor.user.name",
+      "source": "properties.log.user.username || properties.server_principal_name || identity.claim.upn || identity.requester.upn || identity.claim.appid || identity.requester.appId",
+      "default": null
+    },
+    {
+      "target": "normalized.actor.user.uid",
+      "source": "identity.claim.\"http://schemas.microsoft.com/identity/claims/objectidentifier\" || identity.requester.objectId",
+      "default": null
+    },
+    {
+      "target": "normalized.actor.app_uid",
+      "source": "identity.claim.appid || identity.requester.appId",
+      "default": null
+    },
+    {
+      "_comment": "SQL login: quem tentou entrar e o 'user' da Authentication.",
+      "target": "normalized.user.name",
+      "source": "properties.server_principal_name",
+      "default": null,
+      "when": {
+        "equals": {
+          "source": "category == 'SQLSecurityAuditEvents' && (contains((properties.action_name || ''), 'AUTHENTICATION'))",
+          "value": true
+        }
+      }
+    },
+    {
+      "target": "normalized.src_endpoint.ip",
+      "source": "properties.log.sourceIPs[0] || properties.client_ip || properties.SourceIp || ([callerIpAddress][?@ && !(contains(@, '.') && contains(@, ':'))] | [0])",
+      "default": null
+    },
+    {
+      "_comment": "Azure Firewall (logs estruturados AZFW*): sai como Base Event, mas com as pontas.",
+      "target": "normalized.src_endpoint.port",
+      "source": "properties.SourcePort",
+      "default": null
+    },
+    {
+      "target": "normalized.dst_endpoint.ip",
+      "source": "properties.DestinationIp",
+      "default": null
+    },
+    {
+      "target": "normalized.dst_endpoint.port",
+      "source": "properties.DestinationPort",
+      "default": null
+    },
+    {
+      "target": "normalized.http_request.user_agent",
+      "source": "properties.log.userAgent || properties.clientInfo || properties.userAgentHeader",
+      "default": null
+    },
+    {
+      "target": "normalized.http_request.url.url_string",
+      "source": "properties.log.requestURI || properties.requestUri || uri",
+      "default": null
+    },
+    {
+      "target": "normalized.api.operation",
+      "source": "(properties.log.verb && join(' ', [properties.log.verb, (properties.log.objectRef.resource || ''), (properties.log.objectRef.subresource || '')])) || properties.action_name || operationName",
+      "default": null
+    },
+    {
+      "target": "normalized.api.service.name",
+      "source": "category",
+      "default": null
+    },
+    {
+      "target": "normalized.message",
+      "source": "properties.log.requestURI || properties.statement || properties.action_name || operationName",
+      "default": null
+    },
+    {
+      "target": "normalized.resources",
+      "source": "resourceId && [{uid: resourceId, name: (properties.log.objectRef.name || properties.database_name), namespace: properties.log.objectRef.namespace}]",
+      "default": null
+    },
+    {
+      "target": "normalized.database.name",
+      "source": "properties.database_name",
+      "default": null,
+      "when": {
+        "equals": {
+          "source": "category",
+          "value": "SQLSecurityAuditEvents"
+        }
+      }
+    },
+    {
+      "target": "normalized.query_info.query_string",
+      "source": "[properties.statement][?@ != ''] | [0]",
+      "default": null,
+      "when": {
+        "equals": {
+          "source": "category",
+          "value": "SQLSecurityAuditEvents"
+        }
+      }
+    },
+    {
+      "target": "normalized.cloud.region",
+      "source": "location",
+      "default": null
+    },
+    {
+      "target": "normalized.time",
+      "source": "time",
+      "type_cast": "iso_to_epoch",
+      "required": true
+    },
+    {
+      "target": "normalized.metadata.version",
+      "const": "1.8.0"
+    },
+    {
+      "target": "normalized.metadata.product.name",
+      "const": "Azure Resource Logs"
+    },
+    {
+      "target": "normalized.metadata.product.vendor_name",
+      "const": "Microsoft"
+    },
+    {
+      "target": "normalized.metadata.uid",
+      "source": "properties.log.auditID || correlationId",
+      "default": null
+    },
+    {
+      "target": "normalized.metadata.correlation_uid",
+      "source": "correlationId",
+      "default": null
+    },
+    {
+      "target": "normalized.metadata.log_name",
+      "source": "category",
+      "default": null
+    },
+    {
+      "target": "normalized.metadata.event_code",
+      "source": "operationName",
+      "default": null
+    },
+    {
+      "target": "normalized.cloud.provider",
+      "const": "Azure"
+    },
+    {
+      "target": "normalized.observables",
+      "kind": "array_builder",
+      "items": [
+        {
+          "name": "actor",
+          "type": "User Name",
+          "type_id": 4,
+          "source": "properties.log.user.username || properties.server_principal_name || identity.claim.upn || identity.requester.upn || identity.claim.appid || identity.requester.appId",
+          "skip_null": true
+        },
+        {
+          "name": "src_ip",
+          "type": "IP Address",
+          "type_id": 2,
+          "source": "properties.log.sourceIPs[0] || properties.client_ip || properties.SourceIp || ([callerIpAddress][?@ && !(contains(@, '.') && contains(@, ':'))] | [0])",
+          "skip_null": true
+        }
+      ],
+      "skip_null": true,
+      "dedup_by": [
+        "value"
+      ]
+    }
+  ],
+  "raw_reduction": [
+    {
+      "drop_nulls": true
+    }
+  ]
+}

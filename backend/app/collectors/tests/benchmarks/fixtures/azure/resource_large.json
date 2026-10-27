@@ -1,0 +1,53 @@
+{
+  "time": "2026-10-27T12:40:00.0000000Z",
+  "category": "kube-audit",
+  "operationName": "Microsoft.ContainerService/managedClusters/diagnosticLogs/Read",
+  "resourceId": "/SUBSCRIPTIONS/11111111-1111-4111-8111-111111111111/RESOURCEGROUPS/RG-APP/PROVIDERS/MICROSOFT.CONTAINERSERVICE/MANAGEDCLUSTERS/AKS-PROD",
+  "properties": {
+    "log": {
+      "kind": "Event",
+      "apiVersion": "audit.k8s.io/v1",
+      "level": "RequestResponse",
+      "auditID": "f0000000-0000-4000-8000-000000000001",
+      "stage": "ResponseComplete",
+      "requestURI": "/api/v1/namespaces/payments/pods/api-7d9/exec?command=sh&stdin=true&tty=true",
+      "verb": "create",
+      "user": {
+        "username": "carla.dias@example.com",
+        "groups": [
+          "system:authenticated"
+        ]
+      },
+      "sourceIPs": [
+        "198.51.100.77"
+      ],
+      "userAgent": "kubectl/v1.31.0",
+      "objectRef": {
+        "resource": "pods",
+        "namespace": "payments",
+        "name": "api-7d9",
+        "subresource": "exec"
+      },
+      "responseStatus": {
+        "code": 101
+      },
+      "requestReceivedTimestamp": "2026-10-27T12:40:00.000000Z",
+      "requestObject": {
+        "kind": "PodExecOptions",
+        "command": [
+          "sh",
+          "-c",
+          "env; env; env; env; env; env; env; env; env; env; env; env; env; env; env; env; env; env; env; env; env; env; env; env; env; env; env; env; env; env; env; env; env; env; env; env; env; env; env; env; "
+        ],
+        "stdin": true,
+        "tty": true
+      },
+      "annotations": {
+        "authorization.k8s.io/decision": "allow",
+        "authorization.k8s.io/reason": "allow"
+      }
+    },
+    "stream": "stdout",
+    "pod": "kube-apiserver-0"
+  }
+}

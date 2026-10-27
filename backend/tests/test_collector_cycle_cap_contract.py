@@ -275,6 +275,18 @@ _CURSORES_DE_TETO: Dict[Tuple[str, str], Dict[str, Any]] = {
     ("gcp_pubsub", "audit"): {"watermark": "2026-07-24T10:00:00Z"},
     ("gcp_pubsub", "gke_audit"): {"watermark": "2026-07-24T10:00:00Z"},
     ("gcp_pubsub", "cloudsql_mysql"): {"watermark": "2026-07-24T10:00:00Z"},
+    # Azure Activity Log: no teto o cursor guarda a JANELA (início), o fim dela, as
+    # assinaturas que faltam e o nextLink da atual.
+    ("azure", "activity"): {
+        "eventTimestamp": "2026-07-24T10:00:00Z",
+        "window_end": "2026-07-24T10:05:00Z",
+        "pending": ["11111111-1111-4111-8111-111111111111"],
+        "nextLink": "https://management.azure.com/next",
+    },
+    # Event Hubs: a posição são os offsets por partição; o watermark é o enqueue
+    # mais novo lido.
+    ("azure", "entra"): {"offsets": {"0": 42}, "watermark": "2026-07-24T10:00:00Z"},
+    ("azure", "resource"): {"offsets": {"0": 42}, "watermark": "2026-07-24T10:00:00Z"},
 }
 
 
