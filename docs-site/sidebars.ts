@@ -91,6 +91,7 @@ const sidebars: SidebarsConfig = {
         'integrations/crowdstrike',
         'integrations/microsoft-defender',
         'integrations/google-cloud',
+        'integrations/microsoft-azure',
         'integrations/aws-cloudtrail',
         'integrations/aws-cloudwatch',
         'integrations/microsoft-entra-id',
