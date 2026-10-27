@@ -44,6 +44,8 @@ import {
   NinjaOneIcon,
   MicrosoftIcon,
   AwsIcon,
+  GoogleCloudIcon,
+  AzureIcon,
 } from "@/lib/brand-icons"
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -79,6 +81,9 @@ const REQUIRED_IDS = [
   "ninjaone",
   "microsoft",
   "aws",
+  // Nuvens: o backend registra icon_id "gcp" (gcp_pubsub) e "azure".
+  "gcp",
+  "azure",
 ] as const
 
 describe("BRAND_IDS", () => {
@@ -206,6 +211,8 @@ describe("Named icon exports", () => {
     ["NinjaOneIcon", NinjaOneIcon],
     ["MicrosoftIcon", MicrosoftIcon],
     ["AwsIcon", AwsIcon],
+    ["GoogleCloudIcon", GoogleCloudIcon],
+    ["AzureIcon", AzureIcon],
   ] as const
 
   for (const [name, Icon] of namedIcons) {
