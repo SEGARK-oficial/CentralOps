@@ -30,6 +30,7 @@ Estas são as plataformas das quais o CentralOps coleta eventos hoje:
 | AWS CloudTrail | Cloud-audit | Eventos de API/management (polling do bucket S3) |
 | AWS CloudWatch Logs | Cloud-audit | Eventos de um log group (FilterLogEvents) |
 | Google Cloud (Pub/Sub) | Cloud-audit | Cloud Audit Logs (IAM, login do Workspace), audit do GKE e auditoria do Cloud SQL MySQL |
+| Microsoft Azure | Cloud-audit | Activity Log de todas as assinaturas; via Event Hubs, sign-ins do Entra ID (inclusive não interativos) e resource logs (Key Vault, AKS, Azure SQL, Storage) |
 | Veeam Backup & Replication | Backup | Sessões de job (backup, réplica, restore) |
 | Wazuh | SIEM | Detecções do Indexer (`wazuh-alerts-*`) |
 | Fortinet FortiGate | Rede / Firewall | Logs de tráfego/UTM via syslog (fonte **push**) |
@@ -44,6 +45,7 @@ Para configurar qualquer uma delas, abra o menu **Coleta -> Integrações**, cli
 - [Integração CrowdStrike](./crowdstrike.md)
 - [Integração Microsoft Defender](./microsoft-defender.md)
 - [Integração Google Cloud (Pub/Sub)](./google-cloud.md)
+- [Integração Microsoft Azure](./microsoft-azure.md)
 - [Integração AWS CloudTrail](./aws-cloudtrail.md)
 - [Integração AWS CloudWatch Logs](./aws-cloudwatch.md)
 - [Integração Microsoft Entra ID](./microsoft-entra-id.md)

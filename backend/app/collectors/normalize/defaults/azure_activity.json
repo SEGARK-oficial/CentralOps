@@ -1,0 +1,275 @@
+{
+  "_comment": [
+    "Azure Activity Log (EventData da API REST do Azure Monitor) -> API Activity (6003).",
+    "O verbo sai do sufixo do operationName (write/delete/read/action), que o Azure",
+    "devolve ora em CamelCase, ora em MAIUSCULAS -- dai os dois ends_with.",
+    "write = PUT do ARM = criar OU substituir; OCSF nao tem upsert, entao Update.",
+    "action (listKeys, regenerateKey, roleAssignments/action...) = Other (99)."
+  ],
+  "rules": [
+    {
+      "target": "normalized.class_uid",
+      "const": 6003,
+      "required": true
+    },
+    {
+      "target": "normalized.class_name",
+      "const": "API Activity"
+    },
+    {
+      "target": "normalized.category_uid",
+      "const": 6,
+      "required": true
+    },
+    {
+      "target": "normalized.category_name",
+      "const": "Application Activity"
+    },
+    {
+      "target": "normalized.activity_id",
+      "source": "((ends_with((operationName.value || ''), '/delete') || ends_with((operationName.value || ''), '/DELETE')) && 'delete') || ((ends_with((operationName.value || ''), '/write') || ends_with((operationName.value || ''), '/WRITE')) && 'update') || ((ends_with((operationName.value || ''), '/read') || ends_with((operationName.value || ''), '/READ')) && 'read') || ((ends_with((operationName.value || ''), '/action') || ends_with((operationName.value || ''), '/ACTION')) && 'action') || 'other'",
+      "value_map": {
+        "delete": 4,
+        "update": 3,
+        "read": 2,
+        "action": 99
+      },
+      "default": 0,
+      "required": true
+    },
+    {
+      "target": "normalized.activity_name",
+      "source": "((ends_with((operationName.value || ''), '/delete') || ends_with((operationName.value || ''), '/DELETE')) && 'delete') || ((ends_with((operationName.value || ''), '/write') || ends_with((operationName.value || ''), '/WRITE')) && 'update') || ((ends_with((operationName.value || ''), '/read') || ends_with((operationName.value || ''), '/READ')) && 'read') || ((ends_with((operationName.value || ''), '/action') || ends_with((operationName.value || ''), '/ACTION')) && 'action') || 'other'",
+      "value_map": {
+        "delete": "Delete",
+        "update": "Update",
+        "read": "Read",
+        "action": "Other"
+      },
+      "default": "Unknown"
+    },
+    {
+      "target": "normalized.type_uid",
+      "source": "((ends_with((operationName.value || ''), '/delete') || ends_with((operationName.value || ''), '/DELETE')) && 'delete') || ((ends_with((operationName.value || ''), '/write') || ends_with((operationName.value || ''), '/WRITE')) && 'update') || ((ends_with((operationName.value || ''), '/read') || ends_with((operationName.value || ''), '/READ')) && 'read') || ((ends_with((operationName.value || ''), '/action') || ends_with((operationName.value || ''), '/ACTION')) && 'action') || 'other'",
+      "value_map": {
+        "delete": 600304,
+        "update": 600303,
+        "read": 600302,
+        "action": 600399
+      },
+      "default": 600300,
+      "required": true
+    },
+    {
+      "_comment": "level do Activity Log -> OCSF. Critical so aparece em Service Health/alertas.",
+      "target": "normalized.severity_id",
+      "source": "level",
+      "value_map": {
+        "Verbose": 1,
+        "Informational": 1,
+        "Warning": 2,
+        "Error": 3,
+        "Critical": 4
+      },
+      "default": 1,
+      "required": true
+    },
+    {
+      "target": "normalized.severity",
+      "source": "level",
+      "value_map": {
+        "Verbose": "Informational",
+        "Informational": "Informational",
+        "Warning": "Low",
+        "Error": "Medium",
+        "Critical": "High"
+      },
+      "default": "Informational"
+    },
+    {
+      "_comment": "Started/Accepted precedem o Succeeded da mesma operacao (outro eventDataId): Other.",
+      "target": "normalized.status_id",
+      "source": "status.value",
+      "value_map": {
+        "Succeeded": 1,
+        "Failed": 2,
+        "Canceled": 2,
+        "Started": 99,
+        "Accepted": 99,
+        "Active": 99,
+        "Resolved": 99,
+        "In Progress": 99
+      },
+      "default": 0
+    },
+    {
+      "target": "normalized.status",
+      "source": "status.value",
+      "value_map": {
+        "Succeeded": "Success",
+        "Failed": "Failure",
+        "Canceled": "Failure",
+        "Started": "Other",
+        "Accepted": "Other",
+        "Active": "Other",
+        "Resolved": "Other",
+        "In Progress": "Other"
+      },
+      "default": "Unknown"
+    },
+    {
+      "target": "normalized.status_code",
+      "source": "properties.statusCode",
+      "default": null
+    },
+    {
+      "target": "normalized.status_detail",
+      "source": "subStatus.value || status.value",
+      "default": null
+    },
+    {
+      "_comment": "caller = UPN do usuario ou appId (GUID) do service principal.",
+      "target": "normalized.actor.user.name",
+      "source": "caller",
+      "default": null
+    },
+    {
+      "target": "normalized.actor.user.email_addr",
+      "source": "claims.\"http://schemas.xmlsoap.org/ws/2005/05/identity/claims/upn\"",
+      "default": null
+    },
+    {
+      "target": "normalized.actor.user.uid",
+      "source": "claims.\"http://schemas.microsoft.com/identity/claims/objectidentifier\"",
+      "default": null
+    },
+    {
+      "target": "normalized.actor.app_uid",
+      "source": "claims.appid",
+      "default": null
+    },
+    {
+      "target": "normalized.src_endpoint.ip",
+      "source": "httpRequest.clientIpAddress || claims.ipaddr",
+      "default": null
+    },
+    {
+      "target": "normalized.message",
+      "source": "operationName.localizedValue || operationName.value",
+      "default": null
+    },
+    {
+      "target": "normalized.api.operation",
+      "source": "operationName.value",
+      "default": null
+    },
+    {
+      "target": "normalized.api.service.name",
+      "source": "resourceProviderName.value",
+      "default": null
+    },
+    {
+      "target": "normalized.api.request.uid",
+      "source": "httpRequest.clientRequestId",
+      "default": null
+    },
+    {
+      "target": "normalized.http_request.http_method",
+      "source": "httpRequest.method",
+      "default": null
+    },
+    {
+      "target": "normalized.resources",
+      "source": "resourceId && [{uid: resourceId, type: resourceType.value, group: {name: resourceGroupName}}]",
+      "default": null
+    },
+    {
+      "target": "normalized.cloud.account.uid",
+      "source": "subscriptionId",
+      "default": null
+    },
+    {
+      "target": "normalized.cloud.org.uid",
+      "source": "tenantId",
+      "default": null
+    },
+    {
+      "target": "normalized.time",
+      "source": "eventTimestamp",
+      "type_cast": "iso_to_epoch",
+      "required": true
+    },
+    {
+      "target": "normalized.metadata.version",
+      "const": "1.8.0"
+    },
+    {
+      "target": "normalized.metadata.product.name",
+      "const": "Azure Activity Log"
+    },
+    {
+      "target": "normalized.metadata.product.vendor_name",
+      "const": "Microsoft"
+    },
+    {
+      "target": "normalized.metadata.uid",
+      "source": "eventDataId",
+      "default": null
+    },
+    {
+      "target": "normalized.metadata.correlation_uid",
+      "source": "correlationId",
+      "default": null
+    },
+    {
+      "target": "normalized.metadata.log_name",
+      "source": "category.value",
+      "default": null
+    },
+    {
+      "target": "normalized.metadata.event_code",
+      "source": "operationName.value",
+      "default": null
+    },
+    {
+      "target": "normalized.cloud.provider",
+      "const": "Azure"
+    },
+    {
+      "target": "normalized.observables",
+      "kind": "array_builder",
+      "items": [
+        {
+          "name": "actor_email",
+          "type": "Email Address",
+          "type_id": 5,
+          "source": "claims.\"http://schemas.xmlsoap.org/ws/2005/05/identity/claims/upn\"",
+          "skip_null": true
+        },
+        {
+          "name": "actor_user",
+          "type": "User Name",
+          "type_id": 4,
+          "source": "caller",
+          "skip_null": true
+        },
+        {
+          "name": "src_ip",
+          "type": "IP Address",
+          "type_id": 2,
+          "source": "httpRequest.clientIpAddress || claims.ipaddr",
+          "skip_null": true
+        }
+      ],
+      "skip_null": true,
+      "dedup_by": [
+        "value"
+      ]
+    }
+  ],
+  "raw_reduction": [
+    {
+      "drop_nulls": true
+    }
+  ]
+}

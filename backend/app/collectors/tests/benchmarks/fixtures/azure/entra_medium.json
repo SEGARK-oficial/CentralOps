@@ -1,0 +1,49 @@
+{
+  "time": "2026-10-27T12:10:00.0000000Z",
+  "resourceId": "/tenants/00000000-0000-4000-8000-000000000001/providers/Microsoft.aadiam",
+  "operationName": "Sign-in activity",
+  "operationVersion": "1.0",
+  "category": "SignInLogs",
+  "tenantId": "00000000-0000-4000-8000-000000000001",
+  "resultType": "50126",
+  "resultSignature": "None",
+  "resultDescription": "Invalid username or password or Invalid on-premise username or password.",
+  "durationMs": 0,
+  "callerIpAddress": "198.51.100.23",
+  "correlationId": "c0ffee00-0000-4000-8000-000000000001",
+  "identity": "Bruno Costa",
+  "Level": 4,
+  "location": "BR",
+  "properties": {
+    "id": "sid-0002",
+    "createdDateTime": "2026-10-27T12:10:00.0000000+00:00",
+    "userDisplayName": "Bruno Costa",
+    "userPrincipalName": "bruno.costa@example.com",
+    "userId": "44444444-4444-4444-8444-444444444444",
+    "appId": "00000003-0000-0000-c000-000000000000",
+    "appDisplayName": "Microsoft Graph",
+    "ipAddress": "198.51.100.23",
+    "status": {
+      "errorCode": 50126,
+      "failureReason": "Other."
+    },
+    "clientAppUsed": "Browser",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
+    "isInteractive": true,
+    "authenticationRequirement": "singleFactorAuthentication",
+    "riskLevelDuringSignIn": "high",
+    "riskState": "none",
+    "conditionalAccessStatus": "success",
+    "deviceDetail": {
+      "deviceId": "",
+      "displayName": "",
+      "operatingSystem": "Windows10",
+      "browser": "Edge 130.0"
+    },
+    "location": {
+      "city": "São Paulo",
+      "state": "São Paulo",
+      "countryOrRegion": "BR"
+    }
+  }
+}

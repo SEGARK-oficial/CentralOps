@@ -52,6 +52,12 @@ DEFAULT_MAPPING_FILES = {
     ("gcp_pubsub", "gcp.audit"): "gcp_audit.json",
     ("gcp_pubsub", "gcp.gke_audit"): "gcp_gke_audit.json",
     ("gcp_pubsub", "gcp.cloudsql_mysql"): "gcp_cloudsql_mysql.json",
+    # Microsoft Azure: Activity Log (ARM) → API Activity; Entra ID via Event Hub →
+    # Authentication/Account Change/API Activity; resource logs via Event Hub →
+    # API Activity/Datastore Activity/Authentication, resto → Base Event.
+    ("azure", "azure.activity"): "azure_activity.json",
+    ("azure", "azure.entra"): "azure_entra.json",
+    ("azure", "azure.resource"): "azure_resource.json",
     # push/ingest: FortiGate syslog → OCSF Network Activity.
     ("fortinet_fortigate", "fortinet_fortigate.traffic"): "fortinet_fortigate_traffic.json",
     # push/ingest: Windows Event Log/WEC (Security) → OCSF Authentication.

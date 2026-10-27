@@ -12,8 +12,9 @@
  *
  * Design notes:
  *   - A new vendor whose slug exists in Simple Icons needs ONE line in SI_MARKS —
- *     no hand-drawn SVG. Only si-excluded brands (Microsoft/AWS/Amazon/Google/
- *     CrowdStrike/Sophos) need a local asset (Tier 1) or inline glyph (Tier 3).
+ *     no hand-drawn SVG. Only si-excluded brands (Microsoft/Azure/AWS/Amazon/
+ *     Google/Google Cloud/CrowdStrike/Sophos) need a local asset (Tier 1) or
+ *     inline glyph (Tier 3).
  *   - Every node is sized + aria-hidden="true". The node is usually <svg>, but a
  *     raster vendored asset (CrowdStrike) renders <img> — consumers must not
  *     assume <svg>.
@@ -550,6 +551,59 @@ export function AwsIcon({ size = 28, className }: BrandSvgProps): React.ReactEle
   )
 }
 
+export function GoogleCloudIcon({ size = 28, className }: BrandSvgProps): React.ReactElement {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width={size}
+      height={size}
+      aria-hidden="true"
+      className={className}
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      {/* Google Cloud: nuvem em quatro segmentos com as cores da marca.
+          O Simple Icons não carrega mais as marcas do Google — por isso inline. */}
+      <g fill="none" strokeWidth="2.6" strokeLinecap="round">
+        <path d="M7 11.6A5.6 5.6 0 0 1 17.6 9.5" stroke="#EA4335" />
+        <path d="M17.6 9.5A4.3 4.3 0 0 1 17 18.1" stroke="#4285F4" />
+        <path d="M17 18.1H11.4" stroke="#34A853" />
+        <path d="M11.4 18.1H7.5A3.3 3.3 0 0 1 7 11.6" stroke="#FBBC05" />
+      </g>
+    </svg>
+  )
+}
+
+export function AzureIcon({ size = 28, className }: BrandSvgProps): React.ReactElement {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width={size}
+      height={size}
+      aria-hidden="true"
+      className={className}
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      {/* Microsoft Azure: o "A" em três planos (marca de 2021), em cores sólidas
+          no lugar dos gradientes — legível em 16px e nos dois temas. Desenhado
+          em 96×96 e reduzido para a grade 24×24 das demais marcas. */}
+      <g transform="scale(0.25)">
+        <path
+          d="M33.34 6.54h26.04l-27.03 80.09a4.15 4.15 0 0 1-3.94 2.82H8.15a4.15 4.15 0 0 1-3.93-5.47L29.4 9.37a4.15 4.15 0 0 1 3.94-2.83z"
+          fill="#0F5CAD"
+        />
+        <path
+          d="M71.18 60.26H29.89a1.91 1.91 0 0 0-1.31 3.31l26.53 24.76a4.17 4.17 0 0 0 2.85 1.12h23.38z"
+          fill="#0078D4"
+        />
+        <path
+          d="M66.6 9.36a4.15 4.15 0 0 0-3.93-2.82H33.65a4.15 4.15 0 0 1 3.93 2.82l25.18 74.62a4.15 4.15 0 0 1-3.93 5.47h29.02a4.15 4.15 0 0 0 3.93-5.47z"
+          fill="#3BB9F0"
+        />
+      </g>
+    </svg>
+  )
+}
+
 // ── Brand ID registry ─────────────────────────────────────────────────────────
 
 export const BRAND_IDS: ReadonlySet<string> = new Set([
@@ -578,6 +632,8 @@ export const BRAND_IDS: ReadonlySet<string> = new Set([
   "ninjaone",
   "microsoft",
   "aws",
+  "gcp",
+  "azure",
 ])
 
 // ── Renderer map ──────────────────────────────────────────────────────────────
@@ -608,6 +664,8 @@ const BRAND_RENDERERS: Record<string, BrandRenderer> = {
   ninjaone: (s, c) => <NinjaOneIcon size={s} className={c} />,
   microsoft: (s, c) => <MicrosoftIcon size={s} className={c} />,
   aws: (s, c) => <AwsIcon size={s} className={c} />,
+  gcp: (s, c) => <GoogleCloudIcon size={s} className={c} />,
+  azure: (s, c) => <AzureIcon size={s} className={c} />,
 }
 
 // ── Tier 1: marca vendada localmente (raster) ─────────────────────────────────

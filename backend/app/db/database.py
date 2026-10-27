@@ -1434,6 +1434,9 @@ def _run_lightweight_migrations() -> None:
                 ("gcp_pubsub", "gcp.audit", 6003, "Google Cloud Audit Logs via Pub/Sub (API Activity; login do Workspace → Authentication)"),
                 ("gcp_pubsub", "gcp.gke_audit", 6003, "Google Cloud — audit do Kubernetes do GKE via Pub/Sub (API Activity)"),
                 ("gcp_pubsub", "gcp.cloudsql_mysql", 6005, "Google Cloud SQL for MySQL — auditoria do banco via Pub/Sub (Datastore Activity; conexão → Authentication)"),
+                ("azure", "azure.activity", 6003, "Azure Activity Log via ARM (API Activity)"),
+                ("azure", "azure.entra", 3002, "Microsoft Entra ID via Event Hub (Authentication; AuditLogs → Account Change/API Activity)"),
+                ("azure", "azure.resource", 6003, "Azure resource logs via Event Hub (API Activity; SQL → Datastore Activity; demais → Base Event)"),
             ]
             now = datetime.utcnow()
 
