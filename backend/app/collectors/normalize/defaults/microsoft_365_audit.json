@@ -327,7 +327,9 @@
       ],
       "target": "normalized.user.name",
       "source": "(contains(['UserLoggedIn', 'UserLoginFailed'], (Operation || '')) && UserId) || (contains(['Add user.', 'Delete user.', 'Hard delete user.', 'Change user password.', 'Reset user password.', 'Set force change user password.', 'Disable account.', 'Enable account.', 'Add member to role.', 'Add eligible member to role.', 'Remove member from role.', 'Remove eligible member from role.', 'Update user.'], (Operation || '')) && ObjectId) || null",
-      "default": null
+      "when": {
+        "exists": "(contains(['UserLoggedIn', 'UserLoginFailed'], (Operation || '')) && UserId) || (contains(['Add user.', 'Delete user.', 'Hard delete user.', 'Change user password.', 'Reset user password.', 'Set force change user password.', 'Disable account.', 'Enable account.', 'Add member to role.', 'Add eligible member to role.', 'Remove member from role.', 'Remove eligible member from role.', 'Update user.'], (Operation || '')) && ObjectId) || null"
+      }
     },
     {
       "_comment": "ClientIPNormalized = ClientIP sem porta/colchetes (o coletor acrescenta; JMESPath nao separa porta de IPv6).",
@@ -359,6 +361,22 @@
       "target": "normalized.resources",
       "source": "ObjectId && [{uid: ObjectId, name: SourceFileName || ObjectId, type: ItemType || Workload}] || null",
       "default": null
+    },
+    {
+      "_comment": "Parametros do cmdlet do Exchange (New-InboxRule, Set-Mailbox, Add-MailboxPermission...) normalizados: e onde mora o QUE foi configurado.",
+      "target": "normalized.api.request.data",
+      "source": "Parameters",
+      "when": {
+        "exists": "Parameters"
+      }
+    },
+    {
+      "_comment": "Destino de encaminhamento de regra de caixa/mailbox: o sinal classico de BEC (conta comprometida mandando copia para fora).",
+      "target": "normalized.unmapped.m365_forward_to",
+      "source": "Parameters[?Name=='ForwardTo' || Name=='ForwardAsAttachmentTo' || Name=='RedirectTo' || Name=='ForwardingSmtpAddress' || Name=='ForwardingAddress'].Value | [0]",
+      "when": {
+        "exists": "Parameters[?Name=='ForwardTo' || Name=='ForwardAsAttachmentTo' || Name=='RedirectTo' || Name=='ForwardingSmtpAddress' || Name=='ForwardingAddress'].Value | [0]"
+      }
     },
     {
       "target": "normalized.cloud.provider",
@@ -431,6 +449,13 @@
           "type": "IP Address",
           "type_id": 2,
           "source": "ClientIPNormalized",
+          "skip_null": true
+        },
+        {
+          "name": "forward_to",
+          "type": "Email Address",
+          "type_id": 5,
+          "source": "Parameters[?Name=='ForwardTo' || Name=='ForwardAsAttachmentTo' || Name=='RedirectTo' || Name=='ForwardingSmtpAddress' || Name=='ForwardingAddress'].Value | [0]",
           "skip_null": true
         }
       ],

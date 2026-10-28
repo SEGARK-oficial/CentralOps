@@ -313,6 +313,59 @@
       "default": null
     },
     {
+      "_comment": "identity.ja4 (fingerprint TLS do cliente) -> ja4_fingerprint_list. Pivo de caca: o mesmo bot troca de IP, nao de JA4.",
+      "target": "normalized.ja4_fingerprint_list",
+      "source": "identity.ja4 && [{type_id: `1`, type: 'JA4', value: identity.ja4}]",
+      "when": {
+        "exists": "identity.ja4 && [{type_id: `1`, type: 'JA4', value: identity.ja4}]"
+      }
+    },
+    {
+      "_comment": "Account Protector (userRiskData): quem tentou logar e o risco que a Akamai deu. So vem com o produto licenciado no endpoint protegido.",
+      "target": "normalized.actor.user.name",
+      "source": "userRiskData.username",
+      "when": {
+        "exists": "userRiskData.username"
+      }
+    },
+    {
+      "target": "normalized.actor.user.uid",
+      "source": "userRiskData.originUserId",
+      "when": {
+        "exists": "userRiskData.originUserId"
+      }
+    },
+    {
+      "target": "normalized.risk_score",
+      "source": "userRiskData.score && to_number(userRiskData.score)",
+      "when": {
+        "exists": "userRiskData.score && to_number(userRiskData.score)"
+      }
+    },
+    {
+      "_comment": "Bot Manager: 0-100, quanto maior mais provavel ser bot. OCSF nao tem campo de bot score.",
+      "target": "normalized.unmapped.akamai_bot_score",
+      "source": "botData.botScore && to_number(botData.botScore)",
+      "when": {
+        "exists": "botData.botScore && to_number(botData.botScore)"
+      }
+    },
+    {
+      "target": "normalized.unmapped.akamai_client_reputation",
+      "source": "attackData.clientReputation",
+      "when": {
+        "exists": "attackData.clientReputation"
+      }
+    },
+    {
+      "_comment": "firewall_rule guarda so a 1a regra; aqui vao TODAS, decodificadas (a de anomalia que decidiu o deny costuma ser a ultima).",
+      "target": "normalized.unmapped.akamai_rules",
+      "source": "attackData.decoded_rules && attackData.decoded_rules[].{id: id, message: message, tag: tag, action: action}",
+      "when": {
+        "exists": "attackData.decoded_rules && attackData.decoded_rules[].{id: id, message: message, tag: tag, action: action}"
+      }
+    },
+    {
       "target": "normalized.observables",
       "kind": "array_builder",
       "items": [
@@ -335,6 +388,13 @@
           "type": "HTTP User-Agent",
           "type_id": 16,
           "source": "httpMessage.decoded_user_agent",
+          "skip_null": true
+        },
+        {
+          "name": "actor.user.name",
+          "type": "User Name",
+          "type_id": 4,
+          "source": "userRiskData.username",
           "skip_null": true
         }
       ],

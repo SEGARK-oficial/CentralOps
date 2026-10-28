@@ -566,3 +566,32 @@ def test_activity_follows_the_http_method(method: str, activity: int) -> None:
 def test_disposition_and_severity_follow_the_applied_action(action: str, disposition: int, severity: int) -> None:
     n = _normalize(F.event("a", 1761652800, action=action))
     assert (n["disposition_id"], n["severity_id"]) == (disposition, severity)
+
+
+def test_official_example_keeps_the_security_context() -> None:
+    """O exemplo publicado pela Akamai, ponta a ponta: nada de segurança fica só no bruto."""
+    n = _normalize(F.OFFICIAL_EXAMPLE_RAW)
+    assert (n["class_uid"], n["disposition_id"], n["severity_id"]) == (4002, 19, 3)
+    assert n["ja4_fingerprint_list"] == [
+        {"type_id": 1, "type": "JA4", "value": "t13d201100_2b729b4bf6f3_9e7b989ebec8"}
+    ]
+    assert n["actor"]["user"] == {"name": "jsmith@example.com", "uid": "jsmith007"}
+    assert n["risk_score"] == 75
+    assert n["unmapped"]["akamai_bot_score"] == 100
+    # As TRÊS regras — a de anomalia, que decidiu o deny, é a última e não cabe no firewall_rule.
+    assert [r["id"] for r in n["unmapped"]["akamai_rules"]] == ["950002", "950006", "CMD-INJECTION-ANOMALY"]
+    assert n["unmapped"]["akamai_rules"][2] == {
+        "id": "CMD-INJECTION-ANOMALY",
+        "message": "Anomaly Score Exceeded for Command Injection",
+        "tag": "AKAMAI/POLICY/CMD_INJECTION_ANOMALY",
+        "action": "deny",
+    }
+    assert n["http_request"]["user_agent"] == "BOT/0.1 (BOT for JCE)"
+    assert "jsmith@example.com" in {o["value"] for o in n["observables"]}
+
+
+def test_products_not_licensed_leave_no_empty_objects() -> None:
+    """Sem Account Protector/Bot Manager não nasce ``actor: {user: {name: null}}``."""
+    n = _normalize(F.XSS_DENY)
+    assert "actor" not in n and "risk_score" not in n and "ja4_fingerprint_list" not in n
+    assert "akamai_bot_score" not in n["unmapped"]

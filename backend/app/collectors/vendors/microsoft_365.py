@@ -711,7 +711,7 @@ def _register() -> None:
                 "administração do Entra, regras e acesso a caixas do Exchange, arquivos e "
                 "compartilhamento no SharePoint/OneDrive, Teams e casamentos de DLP."
             ),
-            icon_id="microsoft",
+            icon_id="microsoft365",
             docs_url=(
                 "https://learn.microsoft.com/office/office-365-management-api/"
                 "office-365-management-activity-api-reference"

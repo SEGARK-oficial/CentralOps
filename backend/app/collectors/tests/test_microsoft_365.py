@@ -500,7 +500,7 @@ def test_client_ip_is_cleaned(raw, ip) -> None:
 
 def test_registration_covers_the_five_content_types() -> None:
     plat = get_platform("microsoft_365")
-    assert plat is not None and plat.icon_id == "microsoft"
+    assert plat is not None and plat.icon_id == "microsoft365"
     # O PUT vendor-neutro só edita estas colunas.
     assert {f.key for f in plat.auth_fields} <= {"tenant_id", "client_id", "client_secret", "base_url"}
     expected = {
@@ -678,3 +678,35 @@ def test_mapping_survives_a_record_with_nothing_in_it(event_type) -> None:
     compiled = E.compile_rules(load_default_rules("microsoft_365", event_type))
     n = E.apply_compiled(compiled, raw).output["normalized"]
     assert V.validate_normalized(n).valid
+
+
+@pytest.mark.parametrize(
+    "operation,param",
+    [
+        ("New-InboxRule", "ForwardTo"),
+        ("Set-InboxRule", "RedirectTo"),
+        ("New-InboxRule", "ForwardAsAttachmentTo"),
+        ("Set-Mailbox", "ForwardingSmtpAddress"),
+    ],
+)
+def test_mail_forwarding_target_is_normalized(operation: str, param: str) -> None:
+    """O destino do encaminhamento é o sinal de BEC: precisa estar fora do bruto."""
+    raw = dict(F.NEW_INBOX_RULE, Operation=operation,
+               Parameters=[{"Name": "Name", "Value": "x"}, {"Name": param, "Value": "externo@example.net"}])
+    n = _normalize("microsoft_365.audit", raw)
+    assert n["unmapped"]["m365_forward_to"] == "externo@example.net"
+    assert {"name": "forward_to", "type": "Email Address", "type_id": 5, "value": "externo@example.net"} in n["observables"]
+    assert n["api"]["request"]["data"] == raw["Parameters"]
+
+
+def test_cmdlet_without_forwarding_has_no_forward_target() -> None:
+    raw = dict(F.NEW_INBOX_RULE, Parameters=[{"Name": "DeleteMessage", "Value": "True"}])
+    n = _normalize("microsoft_365.audit", raw)
+    assert "m365_forward_to" not in (n.get("unmapped") or {})
+    assert n["api"]["request"]["data"] == [{"Name": "DeleteMessage", "Value": "True"}]
+
+
+@pytest.mark.parametrize("record", ["FILE_DOWNLOADED", "MAIL_ITEMS_ACCESSED", "TEAMS_MEMBER_ADDED"])
+def test_api_activity_has_no_empty_target_user(record: str) -> None:
+    """Fora de logon/conta não há usuário-alvo: nada de ``user: {name: null}``."""
+    assert "user" not in _normalize("microsoft_365.audit", getattr(F, record))

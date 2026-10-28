@@ -132,6 +132,7 @@ Cada evento chega normalizado em OCSF 1.8, com o registro original preservado no
 | `login_success`, `login_failure` (login e SAML) | Authentication (3002), Logon | `status_id` Success/Failure; `status_detail` = `login_failure_type`. |
 | `login_challenge`, `login_verification` | Authentication, Logon | Resultado vem de `login_challenge_status`. |
 | `suspicious_login*`, `gov_attack_warning` | Authentication, Logon | Severidade High. |
+| `login_success` com `is_suspicious=true` | Authentication, Logon | Continua Success, mas severidade High e `is_alert=true`: o Google deixou entrar e marcou o login. |
 | `logout` | Authentication, Logoff | |
 | `CREATE_USER`, `DELETE_USER`, `SUSPEND_USER`, `UNSUSPEND_USER`, `account_disabled_*` | Account Change (3001) | Create, Delete, Disable, Enable. |
 | `ASSIGN_ROLE`, `GRANT_ADMIN_PRIVILEGE` / `UNASSIGN_ROLE`, `REVOKE_ADMIN_PRIVILEGE` | Account Change | Attach Policy / Detach Policy. |
@@ -140,7 +141,7 @@ Cada evento chega normalizado em OCSF 1.8, com o registro original preservado no
 | Demais (Drive, token, grupos, configurações) | API Activity (6003) | Verbo pelo nome do evento: Create, Read, Update, Delete ou Other. |
 | Alerta do Alert Center | Detection Finding (2004) | `finding_info.title` = tipo do alerta; severidade de `metadata.severity`. |
 
-Campos principais: `actor.user.email_addr` = quem fez; `user.email_addr` = conta afetada (`USER_EMAIL` dos eventos de admin, `affected_email_address` dos de login); `src_endpoint.ip` = IP de origem; `actor.app_name`/`actor.app_uid` = app que recebeu o consentimento OAuth; `resources` = documento do Drive.
+Campos principais: `actor.user.email_addr` = quem fez; `user.email_addr` = conta afetada (`USER_EMAIL` dos eventos de admin, `affected_email_address` dos de login); `src_endpoint.ip` = IP de origem; `actor.app_name`/`actor.app_uid` = app que recebeu o consentimento OAuth; `resources` = documento do Drive; `is_mfa` = `is_second_factor` ou um método de desafio além de senha/reCAPTCHA (lista completa em `unmapped.login_challenge_method`); `unmapped.oauth_scopes` = escopos concedidos ao app OAuth (o que separa consentimento legítimo de phishing de consentimento, ex.: `https://mail.google.com/`).
 
 ## Limites e custos
 

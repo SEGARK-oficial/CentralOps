@@ -46,6 +46,8 @@ import {
   AwsIcon,
   GoogleCloudIcon,
   AzureIcon,
+  GoogleWorkspaceIcon,
+  Microsoft365Icon,
 } from "@/lib/brand-icons"
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -84,10 +86,11 @@ const REQUIRED_IDS = [
   // Nuvens: o backend registra icon_id "gcp" (gcp_pubsub) e "azure".
   "gcp",
   "azure",
-  // SaaS: akamai (WAF/SIEM) e googleworkspace via Simple Icons; o Microsoft 365
-  // reusa "microsoft".
+  // SaaS: akamai via Simple Icons; googleworkspace e microsoft365 inline (o Simple
+  // Icons não tem o G de quatro cores nem marcas da Microsoft).
   "akamai",
   "googleworkspace",
+  "microsoft365",
 ] as const
 
 describe("BRAND_IDS", () => {
@@ -217,6 +220,8 @@ describe("Named icon exports", () => {
     ["AwsIcon", AwsIcon],
     ["GoogleCloudIcon", GoogleCloudIcon],
     ["AzureIcon", AzureIcon],
+    ["GoogleWorkspaceIcon", GoogleWorkspaceIcon],
+    ["Microsoft365Icon", Microsoft365Icon],
   ] as const
 
   for (const [name, Icon] of namedIcons) {

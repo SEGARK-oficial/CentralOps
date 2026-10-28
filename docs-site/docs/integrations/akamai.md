@@ -114,6 +114,12 @@ Cada evento chega normalizado em OCSF 1.8 como **HTTP Activity** (classe 4002), 
 | `policy.uid` | Política de segurança que avaliou a requisição. |
 | `time` | `httpMessage.start`. |
 | `metadata.uid` | `requestId`. `unmapped.akamai_config_id` = configuração de segurança. |
+| `ja4_fingerprint_list` | `identity.ja4` (fingerprint TLS do cliente) — o pivô para achar o mesmo bot atrás de IPs diferentes. |
+| `actor.user` / `risk_score` | Account Protector: `name` = `userRiskData.username`, `uid` = `originUserId`; `risk_score` = `userRiskData.score`. |
+| `unmapped.akamai_rules` | **Todas** as regras disparadas, decodificadas (`id`, `message`, `tag`, `action`) — a de anomalia que decide o `deny` costuma ser a última. |
+| `unmapped.akamai_bot_score` / `akamai_client_reputation` | `botData.botScore` (Bot Manager) e `attackData.clientReputation`. |
+
+Campos de produto não licenciado (Account Protector, Bot Manager) não aparecem no evento normalizado — não viram objeto vazio.
 
 O dedupe usa configuração + política + `requestId` + início + o conjunto de regras: a mesma requisição avaliada por duas configurações gera dois eventos distintos.
 
@@ -159,5 +165,5 @@ O dedupe usa configuração + política + `requestId` + início + o conjunto de 
 
 - Só a SIEM Integration API (eventos de segurança). Logs de tráfego completos (DataStream 2) não são coletados.
 - O WAF só registra requisições que dispararam regra: tráfego legítimo não aparece.
-- `firewall_rule` traz a **primeira** regra disparada; a lista completa fica em `firewall_rule.match_details` e em `attackData.decoded_rules` no `raw`.
+- `firewall_rule` traz a **primeira** regra disparada (o OCSF tem um objeto só); a lista completa, com mensagem e ação de cada uma, vai em `unmapped.akamai_rules`.
 - O teste de conexão e a coleta exigem que **todas** as configurações informadas estejam acessíveis.

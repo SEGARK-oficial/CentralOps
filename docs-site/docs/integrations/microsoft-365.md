@@ -112,6 +112,8 @@ Cada evento chega normalizado em OCSF 1.8, com o registro original preservado no
 - `status_id` pelo `ResultStatus`: `Succeeded`/`Success`/`True` → Success; `Failed`/`False` → Failure; `PartiallySucceeded` → Other.
 - `actor.user.name`/`email_addr` = `UserId`; `actor.user.uid` = `UserKey`; `actor.user.type` pelo `UserType` (Regular → User, Admin/DcAdmin → Admin, System → System, Application/ServicePrincipal → Other, Guest → User); `actor.app_uid` = app usado.
 - `src_endpoint.ip` = `ClientIP`. A API manda o IP às vezes com porta (`203.0.113.5:51234`, `[2001:db8::1]:443`); o coletor acrescenta `ClientIPNormalized` com o IP limpo, e é esse campo que o mapping usa.
+- `api.request.data` = `Parameters` do cmdlet do Exchange (o QUE foi configurado em `New-InboxRule`, `Set-Mailbox`, `Add-MailboxPermission`…); `unmapped.m365_forward_to` = destino de encaminhamento (`ForwardTo`, `ForwardAsAttachmentTo`, `RedirectTo`, `ForwardingSmtpAddress`, `ForwardingAddress`), também como observable de e-mail — o sinal clássico de conta comprometida (BEC).
+- `user` (conta-alvo) só existe em logon e em operação de conta/papel; nas demais classes não é escrito.
 - `severity_id` = Low para logon falho e para reset de senha, papel, exclusão e desabilitação de conta; Informational para o resto.
 
 **DLP (`dlp`)**

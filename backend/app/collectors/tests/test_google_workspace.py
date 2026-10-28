@@ -737,3 +737,56 @@ def test_alert_is_a_detection_finding() -> None:
 def test_alert_without_severity_is_unknown_and_closed_is_resolved() -> None:
     n = _normalize("google_workspace.alert", F.LEAKED_PASSWORD_ALERT)
     assert (n["severity_id"], n["status_id"], n["status"]) == (0, 4, "Resolved")
+
+
+def _login(name: str, **params: Any) -> Dict[str, Any]:
+    return _normalize(
+        "google_workspace.activity",
+        F.explode(F.activity("login", F.event(name, "login", **params), time="2026-10-27T12:00:00Z")),
+    )
+
+
+def test_suspicious_success_stays_a_logon_but_becomes_an_alert() -> None:
+    """``is_suspicious``: o Google deixou entrar e marcou — Success, mas High e alerta."""
+    n = _login("login_success", login_type="google_password", is_suspicious=True)
+    assert _ident(n) == (3002, 1, 300201)
+    assert (n["status_id"], n["severity_id"], n["severity"]) == (1, 4, "High")
+    assert n["is_alert"] is True
+
+
+def test_plain_success_is_not_an_alert() -> None:
+    n = _normalize("google_workspace.activity", F.LOGIN_SUCCESS)
+    assert n["severity_id"] == 1 and "is_alert" not in n
+
+
+@pytest.mark.parametrize(
+    "params,is_mfa",
+    [
+        ({"login_challenge_method": ["password", "google_prompt"]}, True),
+        ({"login_challenge_method": ["password", "security_key"]}, True),
+        ({"login_challenge_method": "passkey"}, True),
+        ({"login_challenge_method": ["password"]}, False),
+        ({"login_challenge_method": ["password", "recaptcha"]}, False),
+        ({"is_second_factor": True}, True),
+    ],
+)
+def test_is_mfa_reads_the_challenge_methods(params: Dict[str, Any], is_mfa: bool) -> None:
+    n = _login("login_success", **params)
+    assert n["is_mfa"] is is_mfa
+
+
+def test_events_without_challenge_carry_no_mfa_claim() -> None:
+    assert "is_mfa" not in _login("logout")
+    assert "is_mfa" not in _normalize("google_workspace.activity", F.GRANT_ADMIN)
+
+
+def test_challenge_methods_are_kept_as_a_list() -> None:
+    n = _normalize("google_workspace.activity", F.LOGIN_SUCCESS)
+    assert n["unmapped"]["login_challenge_method"] == ["password", "google_prompt"]
+
+
+def test_oauth_grant_carries_the_scopes() -> None:
+    """O escopo é o que separa consentimento legítimo de phishing de consentimento."""
+    n = _normalize("google_workspace.activity", F.OAUTH_GRANT)
+    assert n["unmapped"]["oauth_scopes"] == ["https://mail.google.com/"]
+    assert "oauth_scopes" not in (_login("login_success").get("unmapped") or {})

@@ -246,6 +246,37 @@
       "default": "Informational"
     },
     {
+      "_comment": "login_success com is_suspicious=true: o Google deixou entrar mas marcou o login como suspeito. Continua Logon/Success; sobe a severidade e vira alerta.",
+      "target": "normalized.severity_id",
+      "const": 4,
+      "when": {
+        "equals": {
+          "source": "event.params.is_suspicious",
+          "value": true
+        }
+      }
+    },
+    {
+      "target": "normalized.severity",
+      "const": "High",
+      "when": {
+        "equals": {
+          "source": "event.params.is_suspicious",
+          "value": true
+        }
+      }
+    },
+    {
+      "target": "normalized.is_alert",
+      "const": true,
+      "when": {
+        "equals": {
+          "source": "event.params.is_suspicious",
+          "value": true
+        }
+      }
+    },
+    {
       "_comment": "Workspace registra a acao feita; so login traz resultado explicito.",
       "target": "normalized.status_id",
       "source": "(((id.applicationName || '') == 'login' || (id.applicationName || '') == 'saml') && (event.name || '') == 'login_success' && 'logon_ok') || (((id.applicationName || '') == 'login' || (id.applicationName || '') == 'saml') && (event.name || '') == 'login_failure' && 'logon_fail') || ((id.applicationName || '') == 'login' && contains(`[\"login_challenge\", \"login_verification\"]`, (event.name || '')) && 'logon_challenge') || ((id.applicationName || '') == 'login' && contains(`[\"suspicious_login\", \"suspicious_login_less_secure_app\", \"suspicious_programmatic_login\", \"gov_attack_warning\"]`, (event.name || '')) && 'logon_risk') || ((id.applicationName || '') == 'login' && (event.name || '') == 'logout' && 'logoff') || (contains(`[\"account_disabled_generic\", \"account_disabled_spamming\", \"account_disabled_spamming_through_relay\", \"account_disabled_hijacked\", \"account_disabled_password_leak\", \"SUSPEND_USER\"]`, (event.name || '')) && 'acct_disable') || (contains(`[\"2sv_enroll\", \"titanium_enroll\", \"passkey_enrolled\", \"USER_ENROLLED_IN_TWO_STEP_VERIFICATION\", \"SECURITY_KEY_REGISTERED_FOR_USER\"]`, (event.name || '')) && 'acct_mfa_on') || (contains(`[\"2sv_disable\", \"titanium_unenroll\", \"passkey_removed\", \"TURN_OFF_2_STEP_VERIFICATION\", \"UNENROLL_USER_FROM_TITANIUM\", \"UNENROLL_USER_FROM_STRONG_AUTH\", \"REVOKE_SECURITY_KEY\", \"PASSKEY_REVOKED\"]`, (event.name || '')) && 'acct_mfa_off') || ((event.name || '') == 'password_edit' && 'acct_pwd_change') || ((event.name || '') == 'CHANGE_PASSWORD' && 'acct_pwd_reset') || ((event.name || '') == 'CREATE_USER' && 'acct_create') || ((event.name || '') == 'DELETE_USER' && 'acct_delete') || (contains(`[\"UNSUSPEND_USER\", \"UNDELETE_USER\"]`, (event.name || '')) && 'acct_enable') || (contains(`[\"GRANT_ADMIN_PRIVILEGE\", \"ASSIGN_ROLE\", \"GRANT_DELEGATED_ADMIN_PRIVILEGES\"]`, (event.name || '')) && 'acct_attach') || (contains(`[\"REVOKE_ADMIN_PRIVILEGE\", \"UNASSIGN_ROLE\"]`, (event.name || '')) && 'acct_detach') || (contains(`[\"recovery_email_edit\", \"recovery_phone_edit\", \"recovery_secret_qa_edit\"]`, (event.name || '')) && 'acct_other') || ((contains((event.name || ''), 'DELETE') || contains((event.name || ''), 'delete') || contains((event.name || ''), 'REMOVE') || contains((event.name || ''), 'remove') || contains((event.name || ''), 'REVOKE') || contains((event.name || ''), 'revoke') || contains((event.name || ''), 'trash')) && 'api_delete') || ((contains((event.name || ''), 'CREATE') || contains((event.name || ''), 'create') || contains((event.name || ''), 'ADD') || contains((event.name || ''), 'add') || contains((event.name || ''), 'INSERT') || contains((event.name || ''), 'authorize') || contains((event.name || ''), 'upload')) && 'api_create') || ((contains((event.name || ''), 'view') || contains((event.name || ''), 'download') || contains((event.name || ''), 'preview') || contains((event.name || ''), 'print') || contains((event.name || ''), 'EXPORT') || contains((event.name || ''), 'export') || contains((event.name || ''), 'DOWNLOAD') || contains((event.name || ''), 'VIEW') || contains((event.name || ''), 'access')) && 'api_read') || ((contains((event.name || ''), 'CHANGE') || contains((event.name || ''), 'change') || contains((event.name || ''), 'EDIT') || contains((event.name || ''), 'edit') || contains((event.name || ''), 'UPDATE') || contains((event.name || ''), 'update') || contains((event.name || ''), 'SET') || contains((event.name || ''), 'RENAME') || contains((event.name || ''), 'rename') || contains((event.name || ''), 'MOVE') || contains((event.name || ''), 'move') || contains((event.name || ''), 'ENABLE') || contains((event.name || ''), 'DISABLE') || contains((event.name || ''), 'acl')) && 'api_update') || 'api_other'",
@@ -345,6 +376,29 @@
       "target": "normalized.auth_protocol",
       "source": "event.params.login_type",
       "default": null
+    },
+    {
+      "_comment": "is_second_factor (login_verification) ou um metodo de desafio alem de senha/recaptcha (login_challenge_method, multiValue) = MFA usado. So escreve em evento que traz um dos dois.",
+      "target": "normalized.is_mfa",
+      "source": "event.params.is_second_factor == `true` || length(to_array(event.params.login_challenge_method || `[]`)[?@ != 'password' && @ != 'recaptcha' && @ != 'none' && @ != 'unknown']) > `0`",
+      "when": {
+        "exists": "event.params.login_challenge_method || event.params.is_second_factor"
+      }
+    },
+    {
+      "target": "normalized.unmapped.login_challenge_method",
+      "source": "to_array(event.params.login_challenge_method)",
+      "when": {
+        "exists": "event.params.login_challenge_method"
+      }
+    },
+    {
+      "_comment": "Escopos concedidos a um app OAuth (token/authorize): e o que separa consentimento legitimo de phishing de consentimento (mail.google.com, drive, admin.*).",
+      "target": "normalized.unmapped.oauth_scopes",
+      "source": "to_array(event.params.scope)",
+      "when": {
+        "exists": "event.params.scope"
+      }
     },
     {
       "target": "normalized.service.name",
