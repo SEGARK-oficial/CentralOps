@@ -32,6 +32,8 @@ import {
   SiOkta,
   SiFortinet,
   SiVeeam,
+  SiAkamai,
+  SiGoogle,
 } from "react-icons/si"
 import { iconFor } from "./icons"
 
@@ -634,6 +636,8 @@ export const BRAND_IDS: ReadonlySet<string> = new Set([
   "aws",
   "gcp",
   "azure",
+  "akamai",
+  "googleworkspace",
 ])
 
 // ── Renderer map ──────────────────────────────────────────────────────────────
@@ -715,6 +719,10 @@ const SI_MARKS: Record<string, BrandRenderer> = {
   fortinet: siMark(SiFortinet as SiComponent, "#EE3124"),
   apachekafka: siMark(SiApachekafka as SiComponent, "#231F20"),
   veeam: siMark(SiVeeam as SiComponent, "#00B336"),
+  akamai: siMark(SiAkamai as SiComponent, "#0096D6"),
+  // O Simple Icons não carrega mais o logo do Workspace; o "G" do Google é a
+  // marca que o próprio Admin console usa no ícone do app.
+  googleworkspace: siMark(SiGoogle as SiComponent, "#4285F4"),
 }
 
 // ── Public API ────────────────────────────────────────────────────────────────

@@ -84,6 +84,10 @@ const REQUIRED_IDS = [
   // Nuvens: o backend registra icon_id "gcp" (gcp_pubsub) e "azure".
   "gcp",
   "azure",
+  // SaaS: akamai (WAF/SIEM) e googleworkspace via Simple Icons; o Microsoft 365
+  // reusa "microsoft".
+  "akamai",
+  "googleworkspace",
 ] as const
 
 describe("BRAND_IDS", () => {

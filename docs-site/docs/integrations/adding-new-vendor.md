@@ -42,6 +42,9 @@ Plataformas de origem que a equipe já integrou. A lista pode crescer; confira s
 | AWS CloudTrail | Cloud-audit | Eventos de API/management (polling do bucket S3) |
 | Google Cloud (Pub/Sub) | Cloud-audit | Cloud Audit Logs (IAM, login do Workspace), audit do GKE e auditoria do Cloud SQL MySQL |
 | Microsoft Azure | Cloud-audit | Activity Log de todas as assinaturas; via Event Hubs, sign-ins do Entra ID (inclusive não interativos) e resource logs (Key Vault, AKS, Azure SQL, Storage) |
+| Akamai App & API Protector (WAF) | Rede / Firewall | Eventos de segurança do WAF pela SIEM API (regras disparadas, deny/alert, IP/geo, requisição HTTP) |
+| Google Workspace | Identity | Reports API (login, 2SV, Admin console, OAuth, SAML, grupos, dispositivos, regras/DLP) e alertas do Alert Center |
+| Microsoft 365 | Cloud-audit | Auditoria unificada (Management Activity API): logons e admin do Entra, regras/acesso de caixa do Exchange, arquivos e compartilhamento no SharePoint/OneDrive, Teams e DLP |
 | Wazuh | SIEM | Detecções do Indexer (`wazuh-alerts-*`) |
 
 Para conectar qualquer um deles, siga o guia [Visão geral de integrações](./overview.md), que explica o passo a passo na interface.
