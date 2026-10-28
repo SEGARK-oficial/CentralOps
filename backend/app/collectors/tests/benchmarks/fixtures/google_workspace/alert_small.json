@@ -1,0 +1,6 @@
+{
+  "alertId": "alerta-0003",
+  "createTime": "2026-10-27T12:00:00Z",
+  "type": "User reported phishing",
+  "source": "Gmail phishing"
+}

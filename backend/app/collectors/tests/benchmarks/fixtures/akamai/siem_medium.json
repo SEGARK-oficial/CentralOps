@@ -1,0 +1,61 @@
+{
+  "type": "akamai_siem",
+  "format": "json",
+  "version": "1.0",
+  "attackData": {
+    "configId": "14227",
+    "policyId": "qik1_26545",
+    "clientIP": "192.0.2.10",
+    "appliedAction": "deny",
+    "clientReputation": "",
+    "rules": "OTUwMDA0%3BOTkwMDEx",
+    "ruleVersions": "NA%3D%3D%3BNA%3D%3D",
+    "ruleMessages": "Q3Jvc3Mtc2l0ZSBTY3JpcHRpbmcgKFhTUykgQXR0YWNr%3BUmVxdWVzdCBJbmRpY2F0ZXMgYW4gYXV0b21hdGVkIHByb2dyYW0gZXhwbG9yZWQgdGhlIHNpdGU%3D",
+    "ruleTags": "V0VCX0FUVEFDSy9YU1M%3D%3BQVVUT01BVEVEL0JPVA%3D%3D",
+    "ruleData": "PHNjcmlwdD5hbGVydCgxKTwvc2NyaXB0Pg%3D%3D%3BY3VybC84LjA%3D",
+    "ruleSelectors": "QVJHUzpx%3B",
+    "ruleActions": "ZGVueQ%3D%3D%3BYWxlcnQ%3D",
+    "decoded_rules": [
+      {
+        "id": "950004",
+        "version": "4",
+        "message": "Cross-site Scripting (XSS) Attack",
+        "tag": "WEB_ATTACK/XSS",
+        "data": "<script>alert(1)</script>",
+        "selector": "ARGS:q",
+        "action": "deny"
+      },
+      {
+        "id": "990011",
+        "version": "4",
+        "message": "Request Indicates an automated program explored the site",
+        "tag": "AUTOMATED/BOT",
+        "data": "curl/8.0",
+        "selector": "",
+        "action": "alert"
+      }
+    ]
+  },
+  "httpMessage": {
+    "requestId": "2a5e8f0c",
+    "start": "1761652800",
+    "protocol": "HTTP/1.1",
+    "method": "GET",
+    "host": "www.example.com",
+    "port": "443",
+    "path": "/search",
+    "query": "q%3D%3Cscript%3E",
+    "requestHeaders": "User-Agent%3A%20Mozilla%2F5.0%20%28teste%29%0D%0AAccept%3A%20%2A%2F%2A%0D%0A",
+    "status": "403",
+    "bytes": "266",
+    "tls": "tls1.3",
+    "decoded_user_agent": "Mozilla/5.0 (teste)"
+  },
+  "geo": {
+    "continent": "SA",
+    "country": "BR",
+    "city": "SAOPAULO",
+    "regionCode": "SP",
+    "asn": "64500"
+  }
+}

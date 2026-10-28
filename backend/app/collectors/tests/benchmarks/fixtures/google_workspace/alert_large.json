@@ -1,0 +1,178 @@
+{
+  "customerId": "01abc23d",
+  "alertId": "alerta-0001",
+  "createTime": "2026-10-27T12:00:00.000Z",
+  "startTime": "2026-10-27T12:00:00.000Z",
+  "updateTime": "2026-10-27T12:00:00.000Z",
+  "type": "Suspicious login",
+  "source": "Google identity",
+  "data": {
+    "@type": "type.googleapis.com/google.apps.alertcenter.type.AccountWarning",
+    "email": "ana.silva@example.com",
+    "loginDetails": [
+      {
+        "loginTime": "2026-10-27T11:01:00Z",
+        "ipAddress": "198.51.100.1"
+      },
+      {
+        "loginTime": "2026-10-27T11:02:00Z",
+        "ipAddress": "198.51.100.2"
+      },
+      {
+        "loginTime": "2026-10-27T11:03:00Z",
+        "ipAddress": "198.51.100.3"
+      },
+      {
+        "loginTime": "2026-10-27T11:04:00Z",
+        "ipAddress": "198.51.100.4"
+      },
+      {
+        "loginTime": "2026-10-27T11:05:00Z",
+        "ipAddress": "198.51.100.5"
+      },
+      {
+        "loginTime": "2026-10-27T11:06:00Z",
+        "ipAddress": "198.51.100.6"
+      },
+      {
+        "loginTime": "2026-10-27T11:07:00Z",
+        "ipAddress": "198.51.100.7"
+      },
+      {
+        "loginTime": "2026-10-27T11:08:00Z",
+        "ipAddress": "198.51.100.8"
+      },
+      {
+        "loginTime": "2026-10-27T11:09:00Z",
+        "ipAddress": "198.51.100.9"
+      },
+      {
+        "loginTime": "2026-10-27T11:10:00Z",
+        "ipAddress": "198.51.100.10"
+      },
+      {
+        "loginTime": "2026-10-27T11:11:00Z",
+        "ipAddress": "198.51.100.11"
+      },
+      {
+        "loginTime": "2026-10-27T11:12:00Z",
+        "ipAddress": "198.51.100.12"
+      },
+      {
+        "loginTime": "2026-10-27T11:13:00Z",
+        "ipAddress": "198.51.100.13"
+      },
+      {
+        "loginTime": "2026-10-27T11:14:00Z",
+        "ipAddress": "198.51.100.14"
+      },
+      {
+        "loginTime": "2026-10-27T11:15:00Z",
+        "ipAddress": "198.51.100.15"
+      },
+      {
+        "loginTime": "2026-10-27T11:16:00Z",
+        "ipAddress": "198.51.100.16"
+      },
+      {
+        "loginTime": "2026-10-27T11:17:00Z",
+        "ipAddress": "198.51.100.17"
+      },
+      {
+        "loginTime": "2026-10-27T11:18:00Z",
+        "ipAddress": "198.51.100.18"
+      },
+      {
+        "loginTime": "2026-10-27T11:19:00Z",
+        "ipAddress": "198.51.100.19"
+      },
+      {
+        "loginTime": "2026-10-27T11:20:00Z",
+        "ipAddress": "198.51.100.20"
+      },
+      {
+        "loginTime": "2026-10-27T11:21:00Z",
+        "ipAddress": "198.51.100.21"
+      },
+      {
+        "loginTime": "2026-10-27T11:22:00Z",
+        "ipAddress": "198.51.100.22"
+      },
+      {
+        "loginTime": "2026-10-27T11:23:00Z",
+        "ipAddress": "198.51.100.23"
+      },
+      {
+        "loginTime": "2026-10-27T11:24:00Z",
+        "ipAddress": "198.51.100.24"
+      },
+      {
+        "loginTime": "2026-10-27T11:25:00Z",
+        "ipAddress": "198.51.100.25"
+      },
+      {
+        "loginTime": "2026-10-27T11:26:00Z",
+        "ipAddress": "198.51.100.26"
+      },
+      {
+        "loginTime": "2026-10-27T11:27:00Z",
+        "ipAddress": "198.51.100.27"
+      },
+      {
+        "loginTime": "2026-10-27T11:28:00Z",
+        "ipAddress": "198.51.100.28"
+      },
+      {
+        "loginTime": "2026-10-27T11:29:00Z",
+        "ipAddress": "198.51.100.29"
+      },
+      {
+        "loginTime": "2026-10-27T11:30:00Z",
+        "ipAddress": "198.51.100.30"
+      },
+      {
+        "loginTime": "2026-10-27T11:31:00Z",
+        "ipAddress": "198.51.100.31"
+      },
+      {
+        "loginTime": "2026-10-27T11:32:00Z",
+        "ipAddress": "198.51.100.32"
+      },
+      {
+        "loginTime": "2026-10-27T11:33:00Z",
+        "ipAddress": "198.51.100.33"
+      },
+      {
+        "loginTime": "2026-10-27T11:34:00Z",
+        "ipAddress": "198.51.100.34"
+      },
+      {
+        "loginTime": "2026-10-27T11:35:00Z",
+        "ipAddress": "198.51.100.35"
+      },
+      {
+        "loginTime": "2026-10-27T11:36:00Z",
+        "ipAddress": "198.51.100.36"
+      },
+      {
+        "loginTime": "2026-10-27T11:37:00Z",
+        "ipAddress": "198.51.100.37"
+      },
+      {
+        "loginTime": "2026-10-27T11:38:00Z",
+        "ipAddress": "198.51.100.38"
+      },
+      {
+        "loginTime": "2026-10-27T11:39:00Z",
+        "ipAddress": "198.51.100.39"
+      }
+    ]
+  },
+  "securityInvestigationToolLink": "https://admin.google.com/ac/sc/investigation?query=x",
+  "metadata": {
+    "customerId": "01abc23d",
+    "alertId": "alerta-0001",
+    "status": "NOT_STARTED",
+    "severity": "HIGH"
+  }
+}

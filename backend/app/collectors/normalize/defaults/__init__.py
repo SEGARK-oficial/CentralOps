@@ -58,6 +58,17 @@ DEFAULT_MAPPING_FILES = {
     ("azure", "azure.activity"): "azure_activity.json",
     ("azure", "azure.entra"): "azure_entra.json",
     ("azure", "azure.resource"): "azure_resource.json",
+    # Akamai App & API Protector/Kona — eventos de segurança do WAF pela SIEM API
+    # → HTTP Activity (regra, ação aplicada, ataque).
+    ("akamai", "akamai.siem"): "akamai_siem.json",
+    # Google Workspace: Reports API (login → Authentication; admin/contas →
+    # Account Change; resto → API Activity) e Alert Center → Detection Finding.
+    ("google_workspace", "google_workspace.activity"): "google_workspace_activity.json",
+    ("google_workspace", "google_workspace.alert"): "google_workspace_alert.json",
+    # Microsoft 365: Management Activity API (Entra/Exchange/SharePoint/General
+    # → Authentication/Account Change/API Activity) e DLP.All → Detection Finding.
+    ("microsoft_365", "microsoft_365.audit"): "microsoft_365_audit.json",
+    ("microsoft_365", "microsoft_365.dlp"): "microsoft_365_dlp.json",
     # push/ingest: FortiGate syslog → OCSF Network Activity.
     ("fortinet_fortigate", "fortinet_fortigate.traffic"): "fortinet_fortigate_traffic.json",
     # push/ingest: Windows Event Log/WEC (Security) → OCSF Authentication.

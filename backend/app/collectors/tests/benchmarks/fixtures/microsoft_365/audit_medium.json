@@ -1,0 +1,30 @@
+{
+  "CreationTime": "2026-10-27T13:00:00",
+  "Id": "aad-login-ok-0001",
+  "Operation": "UserLoggedIn",
+  "OrganizationId": "00000000-0000-4000-8000-0000000000a1",
+  "RecordType": 15,
+  "UserKey": "10032001A2B3C4D5",
+  "UserType": 0,
+  "Version": 1,
+  "Workload": "AzureActiveDirectory",
+  "ClientIP": "203.0.113.10",
+  "UserId": "ana.silva@example.com",
+  "ResultStatus": "Success",
+  "ApplicationId": "00000002-0000-0ff1-ce00-000000000000",
+  "ExtendedProperties": [
+    {
+      "Name": "UserAgent",
+      "Value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
+    },
+    {
+      "Name": "RequestType",
+      "Value": "Login:login"
+    },
+    {
+      "Name": "ResultStatusDetail",
+      "Value": "Success"
+    }
+  ],
+  "ClientIPNormalized": "203.0.113.10"
+}

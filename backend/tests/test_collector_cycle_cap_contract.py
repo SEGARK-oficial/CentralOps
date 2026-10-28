@@ -287,6 +287,28 @@ _CURSORES_DE_TETO: Dict[Tuple[str, str], Dict[str, Any]] = {
     # mais novo lido.
     ("azure", "entra"): {"offsets": {"0": 42}, "watermark": "2026-07-24T10:00:00Z"},
     ("azure", "resource"): {"offsets": {"0": 42}, "watermark": "2026-07-24T10:00:00Z"},
+    # Akamai SIEM: o offset é opaco; o watermark é o início (epoch ms) do evento mais novo lido.
+    ("akamai", "siem"): {"offset": "c0bc409010aa6928e57cd5a3000433b9", "last_ts_ms": 1784887200000},
+    # Google Workspace: cursor por aplicação; o watermark é o início MAIS ANTIGO.
+    ("google_workspace", "activity"): {
+        "apps": {
+            "login": {"start": "2026-07-24T10:00:00Z", "window_end": "2026-07-24T10:05:00Z", "pageToken": "pag-2"},
+            "admin": {"start": "2026-07-24T11:00:00Z"},
+        }
+    },
+    ("google_workspace", "alerts"): {"createTime": "2026-07-24T10:00:00Z", "window_end": "2026-07-24T10:05:00Z", "pageToken": "pag-2"},
+    # Microsoft 365: no teto o cursor guarda a janela (início/fim), a página da
+    # listagem e os blobs dela já lidos; o watermark é o início da janela.
+    **{
+        ("microsoft_365", s): {
+            "startTime": "2026-07-24T10:00:00Z",
+            "window_end": "2026-07-24T10:05:00Z",
+            "page": "https://manage.office.com/api/v1.0/t/activity/feed/subscriptions/content?nextPage=2",
+            "done": ["c1"],
+            "subscribed": True,
+        }
+        for s in ("audit_aad", "audit_exchange", "audit_sharepoint", "audit_general", "dlp")
+    },
 }
 
 

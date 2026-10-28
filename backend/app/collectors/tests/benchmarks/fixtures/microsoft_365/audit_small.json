@@ -1,0 +1,10 @@
+{
+  "CreationTime": "2026-10-27T13:00:00",
+  "Id": "aad-min",
+  "Operation": "UserLoggedIn",
+  "RecordType": 15,
+  "Workload": "AzureActiveDirectory",
+  "UserId": "ana.silva@example.com",
+  "ClientIP": "203.0.113.10",
+  "ClientIPNormalized": "203.0.113.10"
+}

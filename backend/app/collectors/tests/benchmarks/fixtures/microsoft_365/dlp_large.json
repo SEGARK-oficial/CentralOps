@@ -1,0 +1,196 @@
+{
+  "CreationTime": "2026-10-27T13:08:00",
+  "Id": "dlp-0001",
+  "Operation": "DlpRuleMatch",
+  "OrganizationId": "00000000-0000-4000-8000-0000000000a1",
+  "RecordType": 11,
+  "UserKey": "10032001A2B3C4D5",
+  "UserType": 0,
+  "Version": 1,
+  "Workload": "SharePoint",
+  "ClientIP": null,
+  "UserId": "ana.silva@example.com",
+  "IncidentId": "inc-0001",
+  "PolicyDetails": [
+    {
+      "PolicyId": "pol-0001",
+      "PolicyName": "Dados de cartão (PCI)",
+      "Rules": [
+        {
+          "RuleId": "rule-0001",
+          "RuleName": "Muitos números de cartão",
+          "Severity": "High",
+          "Actions": [
+            "NotifyUser",
+            "BlockAccess"
+          ],
+          "ConditionsMatched": {
+            "SensitiveInformation": [
+              {
+                "SensitiveType": "50842eb7-edc8-4019-85dd-5a5c1f2bb085",
+                "SensitiveInformationTypeName": "Credit Card Number",
+                "Count": 2,
+                "Confidence": 85,
+                "SensitiveInformationDetections": {
+                  "ResultsTruncated": false,
+                  "DetectedValuesRedacted": 2
+                }
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "PolicyId": "pol-0001",
+      "PolicyName": "Dados de cartão (PCI)",
+      "Rules": [
+        {
+          "RuleId": "rule-0001",
+          "RuleName": "Muitos números de cartão",
+          "Severity": "High",
+          "Actions": [
+            "NotifyUser",
+            "BlockAccess"
+          ],
+          "ConditionsMatched": {
+            "SensitiveInformation": [
+              {
+                "SensitiveType": "50842eb7-edc8-4019-85dd-5a5c1f2bb085",
+                "SensitiveInformationTypeName": "Credit Card Number",
+                "Count": 2,
+                "Confidence": 85,
+                "SensitiveInformationDetections": {
+                  "ResultsTruncated": false,
+                  "DetectedValuesRedacted": 2
+                }
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "PolicyId": "pol-0001",
+      "PolicyName": "Dados de cartão (PCI)",
+      "Rules": [
+        {
+          "RuleId": "rule-0001",
+          "RuleName": "Muitos números de cartão",
+          "Severity": "High",
+          "Actions": [
+            "NotifyUser",
+            "BlockAccess"
+          ],
+          "ConditionsMatched": {
+            "SensitiveInformation": [
+              {
+                "SensitiveType": "50842eb7-edc8-4019-85dd-5a5c1f2bb085",
+                "SensitiveInformationTypeName": "Credit Card Number",
+                "Count": 2,
+                "Confidence": 85,
+                "SensitiveInformationDetections": {
+                  "ResultsTruncated": false,
+                  "DetectedValuesRedacted": 2
+                }
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "PolicyId": "pol-0001",
+      "PolicyName": "Dados de cartão (PCI)",
+      "Rules": [
+        {
+          "RuleId": "rule-0001",
+          "RuleName": "Muitos números de cartão",
+          "Severity": "High",
+          "Actions": [
+            "NotifyUser",
+            "BlockAccess"
+          ],
+          "ConditionsMatched": {
+            "SensitiveInformation": [
+              {
+                "SensitiveType": "50842eb7-edc8-4019-85dd-5a5c1f2bb085",
+                "SensitiveInformationTypeName": "Credit Card Number",
+                "Count": 2,
+                "Confidence": 85,
+                "SensitiveInformationDetections": {
+                  "ResultsTruncated": false,
+                  "DetectedValuesRedacted": 2
+                }
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "PolicyId": "pol-0001",
+      "PolicyName": "Dados de cartão (PCI)",
+      "Rules": [
+        {
+          "RuleId": "rule-0001",
+          "RuleName": "Muitos números de cartão",
+          "Severity": "High",
+          "Actions": [
+            "NotifyUser",
+            "BlockAccess"
+          ],
+          "ConditionsMatched": {
+            "SensitiveInformation": [
+              {
+                "SensitiveType": "50842eb7-edc8-4019-85dd-5a5c1f2bb085",
+                "SensitiveInformationTypeName": "Credit Card Number",
+                "Count": 2,
+                "Confidence": 85,
+                "SensitiveInformationDetections": {
+                  "ResultsTruncated": false,
+                  "DetectedValuesRedacted": 2
+                }
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "PolicyId": "pol-0001",
+      "PolicyName": "Dados de cartão (PCI)",
+      "Rules": [
+        {
+          "RuleId": "rule-0001",
+          "RuleName": "Muitos números de cartão",
+          "Severity": "High",
+          "Actions": [
+            "NotifyUser",
+            "BlockAccess"
+          ],
+          "ConditionsMatched": {
+            "SensitiveInformation": [
+              {
+                "SensitiveType": "50842eb7-edc8-4019-85dd-5a5c1f2bb085",
+                "SensitiveInformationTypeName": "Credit Card Number",
+                "Count": 2,
+                "Confidence": 85,
+                "SensitiveInformationDetections": {
+                  "ResultsTruncated": false,
+                  "DetectedValuesRedacted": 2
+                }
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "SensitiveInfoDetectionIsIncluded": true,
+  "SharePointMetaInformation": {
+    "FileName": "faturas.xlsx",
+    "FilePathUrl": "https://contoso.sharepoint.example.com/sites/fin/faturas.xlsx",
+    "SiteCollectionUrl": "https://contoso.sharepoint.example.com/sites/fin"
+  }
+}

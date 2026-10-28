@@ -1,0 +1,249 @@
+{
+  "CreationTime": "2026-10-27T13:01:00",
+  "Id": "aad-login-fail-0001",
+  "Operation": "UserLoginFailed",
+  "OrganizationId": "00000000-0000-4000-8000-0000000000a1",
+  "RecordType": 15,
+  "UserKey": "10032001A2B3C4D5",
+  "UserType": 0,
+  "Version": 1,
+  "Workload": "AzureActiveDirectory",
+  "ClientIP": "198.51.100.77",
+  "UserId": "ana.silva@example.com",
+  "ResultStatus": "Success",
+  "LogonError": "InvalidUserNameOrPassword",
+  "ExtendedProperties": [
+    {
+      "Name": "ResultStatusDetail",
+      "Value": "Redirect"
+    },
+    {
+      "Name": "Prop0",
+      "Value": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+    },
+    {
+      "Name": "Prop1",
+      "Value": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+    },
+    {
+      "Name": "Prop2",
+      "Value": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+    },
+    {
+      "Name": "Prop3",
+      "Value": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+    },
+    {
+      "Name": "Prop4",
+      "Value": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+    },
+    {
+      "Name": "Prop5",
+      "Value": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+    },
+    {
+      "Name": "Prop6",
+      "Value": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+    },
+    {
+      "Name": "Prop7",
+      "Value": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+    },
+    {
+      "Name": "Prop8",
+      "Value": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+    },
+    {
+      "Name": "Prop9",
+      "Value": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+    },
+    {
+      "Name": "Prop10",
+      "Value": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+    },
+    {
+      "Name": "Prop11",
+      "Value": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+    },
+    {
+      "Name": "Prop12",
+      "Value": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+    },
+    {
+      "Name": "Prop13",
+      "Value": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+    },
+    {
+      "Name": "Prop14",
+      "Value": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+    },
+    {
+      "Name": "Prop15",
+      "Value": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+    },
+    {
+      "Name": "Prop16",
+      "Value": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+    },
+    {
+      "Name": "Prop17",
+      "Value": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+    },
+    {
+      "Name": "Prop18",
+      "Value": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+    },
+    {
+      "Name": "Prop19",
+      "Value": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+    },
+    {
+      "Name": "Prop20",
+      "Value": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+    },
+    {
+      "Name": "Prop21",
+      "Value": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+    },
+    {
+      "Name": "Prop22",
+      "Value": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+    },
+    {
+      "Name": "Prop23",
+      "Value": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+    },
+    {
+      "Name": "Prop24",
+      "Value": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+    },
+    {
+      "Name": "Prop25",
+      "Value": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+    },
+    {
+      "Name": "Prop26",
+      "Value": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+    },
+    {
+      "Name": "Prop27",
+      "Value": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+    },
+    {
+      "Name": "Prop28",
+      "Value": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+    },
+    {
+      "Name": "Prop29",
+      "Value": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+    }
+  ],
+  "ClientIPNormalized": "198.51.100.77",
+  "Actor": [
+    {
+      "ID": "ana.silva@example.com",
+      "Type": 5
+    },
+    {
+      "ID": "10032001A2B3C4D5",
+      "Type": 3
+    }
+  ],
+  "Target": [
+    {
+      "ID": "ana.silva@example.com",
+      "Type": 5
+    }
+  ],
+  "DeviceProperties": [
+    {
+      "Name": "OS",
+      "Value": "Windows 10"
+    },
+    {
+      "Name": "BrowserType",
+      "Value": "Edge"
+    },
+    {
+      "Name": "IsCompliant",
+      "Value": "False"
+    }
+  ],
+  "ModifiedProperties": [
+    {
+      "Name": "P0",
+      "NewValue": "nnnnnnnnnnnnnnnnnnnnnnnnnnnnnn",
+      "OldValue": "oooooooooooooooooooooooooooooo"
+    },
+    {
+      "Name": "P1",
+      "NewValue": "nnnnnnnnnnnnnnnnnnnnnnnnnnnnnn",
+      "OldValue": "oooooooooooooooooooooooooooooo"
+    },
+    {
+      "Name": "P2",
+      "NewValue": "nnnnnnnnnnnnnnnnnnnnnnnnnnnnnn",
+      "OldValue": "oooooooooooooooooooooooooooooo"
+    },
+    {
+      "Name": "P3",
+      "NewValue": "nnnnnnnnnnnnnnnnnnnnnnnnnnnnnn",
+      "OldValue": "oooooooooooooooooooooooooooooo"
+    },
+    {
+      "Name": "P4",
+      "NewValue": "nnnnnnnnnnnnnnnnnnnnnnnnnnnnnn",
+      "OldValue": "oooooooooooooooooooooooooooooo"
+    },
+    {
+      "Name": "P5",
+      "NewValue": "nnnnnnnnnnnnnnnnnnnnnnnnnnnnnn",
+      "OldValue": "oooooooooooooooooooooooooooooo"
+    },
+    {
+      "Name": "P6",
+      "NewValue": "nnnnnnnnnnnnnnnnnnnnnnnnnnnnnn",
+      "OldValue": "oooooooooooooooooooooooooooooo"
+    },
+    {
+      "Name": "P7",
+      "NewValue": "nnnnnnnnnnnnnnnnnnnnnnnnnnnnnn",
+      "OldValue": "oooooooooooooooooooooooooooooo"
+    },
+    {
+      "Name": "P8",
+      "NewValue": "nnnnnnnnnnnnnnnnnnnnnnnnnnnnnn",
+      "OldValue": "oooooooooooooooooooooooooooooo"
+    },
+    {
+      "Name": "P9",
+      "NewValue": "nnnnnnnnnnnnnnnnnnnnnnnnnnnnnn",
+      "OldValue": "oooooooooooooooooooooooooooooo"
+    },
+    {
+      "Name": "P10",
+      "NewValue": "nnnnnnnnnnnnnnnnnnnnnnnnnnnnnn",
+      "OldValue": "oooooooooooooooooooooooooooooo"
+    },
+    {
+      "Name": "P11",
+      "NewValue": "nnnnnnnnnnnnnnnnnnnnnnnnnnnnnn",
+      "OldValue": "oooooooooooooooooooooooooooooo"
+    },
+    {
+      "Name": "P12",
+      "NewValue": "nnnnnnnnnnnnnnnnnnnnnnnnnnnnnn",
+      "OldValue": "oooooooooooooooooooooooooooooo"
+    },
+    {
+      "Name": "P13",
+      "NewValue": "nnnnnnnnnnnnnnnnnnnnnnnnnnnnnn",
+      "OldValue": "oooooooooooooooooooooooooooooo"
+    },
+    {
+      "Name": "P14",
+      "NewValue": "nnnnnnnnnnnnnnnnnnnnnnnnnnnnnn",
+      "OldValue": "oooooooooooooooooooooooooooooo"
+    }
+  ]
+}

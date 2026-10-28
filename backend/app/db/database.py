@@ -1437,6 +1437,11 @@ def _run_lightweight_migrations() -> None:
                 ("azure", "azure.activity", 6003, "Azure Activity Log via ARM (API Activity)"),
                 ("azure", "azure.entra", 3002, "Microsoft Entra ID via Event Hub (Authentication; AuditLogs → Account Change/API Activity)"),
                 ("azure", "azure.resource", 6003, "Azure resource logs via Event Hub (API Activity; SQL → Datastore Activity; demais → Base Event)"),
+                ("akamai", "akamai.siem", 4002, "Akamai App & API Protector (WAF) — eventos de segurança pela SIEM API (HTTP Activity)"),
+                ("google_workspace", "google_workspace.activity", 3002, "Google Workspace Reports API (login/SAML → Authentication; contas/admin → Account Change; demais → API Activity)"),
+                ("google_workspace", "google_workspace.alert", 2004, "Google Workspace Alert Center (Detection Finding)"),
+                ("microsoft_365", "microsoft_365.audit", 6003, "Microsoft 365 — auditoria unificada (Management Activity API): logon → Authentication; conta/papel → Account Change; demais → API Activity"),
+                ("microsoft_365", "microsoft_365.dlp", 2004, "Microsoft 365 — casamentos de DLP (DLP.All) → Detection Finding"),
             ]
             now = datetime.utcnow()
 

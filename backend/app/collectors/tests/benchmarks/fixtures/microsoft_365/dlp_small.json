@@ -1,0 +1,18 @@
+{
+  "CreationTime": "2026-10-27T13:08:00",
+  "Id": "dlp-min",
+  "Operation": "DlpRuleMatch",
+  "Workload": "Exchange",
+  "UserId": "ana.silva@example.com",
+  "PolicyDetails": [
+    {
+      "PolicyName": "PII",
+      "Rules": [
+        {
+          "RuleName": "CPF",
+          "Severity": "Low"
+        }
+      ]
+    }
+  ]
+}

@@ -48,6 +48,9 @@ CLASS_UID_AUTHENTICATION = 3002
 
 # Network Activity (category 4)
 CLASS_UID_NETWORK_ACTIVITY = 4001
+# Requisição HTTP vista por WAF/CDN (Akamai): carrega ``attacks``,
+# ``firewall_rule`` e ``disposition_id`` — o que o WAF decidiu sobre o pedido.
+CLASS_UID_HTTP_ACTIVITY = 4002
 
 # Application Activity (category 6)
 CLASS_UID_API_ACTIVITY = 6003
@@ -64,6 +67,7 @@ CLASS_NAMES: Mapping[int, str] = {
     CLASS_UID_ACCOUNT_CHANGE: "Account Change",
     CLASS_UID_AUTHENTICATION: "Authentication",
     CLASS_UID_NETWORK_ACTIVITY: "Network Activity",
+    CLASS_UID_HTTP_ACTIVITY: "HTTP Activity",
     CLASS_UID_API_ACTIVITY: "API Activity",
     CLASS_UID_DATASTORE_ACTIVITY: "Datastore Activity",
 }
