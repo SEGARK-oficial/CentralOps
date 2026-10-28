@@ -1,0 +1,178 @@
+{
+  "type": "akamai_siem",
+  "format": "json",
+  "version": "1.0",
+  "attackData": {
+    "configId": "14227",
+    "policyId": "qik1_26545",
+    "clientIP": "192.0.2.10",
+    "appliedAction": "alert",
+    "clientReputation": "",
+    "rules": "OTUwMDAw%3BOTUwMDAx%3BOTUwMDAy%3BOTUwMDAz%3BOTUwMDA0%3BOTUwMDA1%3BOTUwMDA2%3BOTUwMDA3%3BOTUwMDA4%3BOTUwMDA5%3BOTUwMDEw%3BOTUwMDEx",
+    "ruleVersions": "NA%3D%3D%3BNA%3D%3D%3BNA%3D%3D%3BNA%3D%3D%3BNA%3D%3D%3BNA%3D%3D%3BNA%3D%3D%3BNA%3D%3D%3BNA%3D%3D%3BNA%3D%3D%3BNA%3D%3D%3BNA%3D%3D",
+    "ruleMessages": "UnVsZSBtZXNzYWdlIDA%3D%3BUnVsZSBtZXNzYWdlIDE%3D%3BUnVsZSBtZXNzYWdlIDI%3D%3BUnVsZSBtZXNzYWdlIDM%3D%3BUnVsZSBtZXNzYWdlIDQ%3D%3BUnVsZSBtZXNzYWdlIDU%3D%3BUnVsZSBtZXNzYWdlIDY%3D%3BUnVsZSBtZXNzYWdlIDc%3D%3BUnVsZSBtZXNzYWdlIDg%3D%3BUnVsZSBtZXNzYWdlIDk%3D%3BUnVsZSBtZXNzYWdlIDEw%3BUnVsZSBtZXNzYWdlIDEx",
+    "ruleTags": "V0VCX0FUVEFDSy9YU1M%3D%3BQVVUT01BVEVEL0JPVA%3D%3D",
+    "ruleData": "PHNjcmlwdD5hbGVydCgxKTwvc2NyaXB0Pg%3D%3D%3BY3VybC84LjA%3D",
+    "ruleSelectors": "QVJHUzpx%3B",
+    "ruleActions": "YWxlcnQ%3D%3BYWxlcnQ%3D",
+    "decoded_rules": [
+      {
+        "id": "950000",
+        "version": "4",
+        "message": "Rule message 0",
+        "tag": "WEB_ATTACK/XSS",
+        "data": "<script>alert(1)</script>",
+        "selector": "ARGS:q",
+        "action": "alert"
+      },
+      {
+        "id": "950001",
+        "version": "4",
+        "message": "Rule message 1",
+        "tag": "AUTOMATED/BOT",
+        "data": "curl/8.0",
+        "selector": "",
+        "action": "alert"
+      },
+      {
+        "id": "950002",
+        "version": "4",
+        "message": "Rule message 2",
+        "tag": "",
+        "data": "",
+        "selector": "",
+        "action": ""
+      },
+      {
+        "id": "950003",
+        "version": "4",
+        "message": "Rule message 3",
+        "tag": "",
+        "data": "",
+        "selector": "",
+        "action": ""
+      },
+      {
+        "id": "950004",
+        "version": "4",
+        "message": "Rule message 4",
+        "tag": "",
+        "data": "",
+        "selector": "",
+        "action": ""
+      },
+      {
+        "id": "950005",
+        "version": "4",
+        "message": "Rule message 5",
+        "tag": "",
+        "data": "",
+        "selector": "",
+        "action": ""
+      },
+      {
+        "id": "950006",
+        "version": "4",
+        "message": "Rule message 6",
+        "tag": "",
+        "data": "",
+        "selector": "",
+        "action": ""
+      },
+      {
+        "id": "950007",
+        "version": "4",
+        "message": "Rule message 7",
+        "tag": "",
+        "data": "",
+        "selector": "",
+        "action": ""
+      },
+      {
+        "id": "950008",
+        "version": "4",
+        "message": "Rule message 8",
+        "tag": "",
+        "data": "",
+        "selector": "",
+        "action": ""
+      },
+      {
+        "id": "950009",
+        "version": "4",
+        "message": "Rule message 9",
+        "tag": "",
+        "data": "",
+        "selector": "",
+        "action": ""
+      },
+      {
+        "id": "950010",
+        "version": "4",
+        "message": "Rule message 10",
+        "tag": "",
+        "data": "",
+        "selector": "",
+        "action": ""
+      },
+      {
+        "id": "950011",
+        "version": "4",
+        "message": "Rule message 11",
+        "tag": "",
+        "data": "",
+        "selector": "",
+        "action": ""
+      }
+    ]
+  },
+  "httpMessage": {
+    "requestId": "bench-large",
+    "start": "1761652800",
+    "protocol": "HTTP/1.1",
+    "method": "POST",
+    "host": "www.example.com",
+    "port": "443",
+    "path": "/search",
+    "query": "q%3D%3Cscript%3E",
+    "requestHeaders": "User-Agent%3A%20Mozilla%2F5.0%20%28teste%29%0D%0AAccept%3A%20%2A%2F%2A%0D%0ACookie%3A%20a%3Db%0D%0AX-Forwarded-For%3A%20203.0.113.7%0D%0AReferer%3A%20https%3A%2F%2Fwww.example.com%2F%0D%0A",
+    "status": "403",
+    "bytes": "266",
+    "tls": "tls1.3",
+    "responseHeaders": "Server%3A%20AkamaiGHost%0D%0AContent-Type%3A%20text%2Fhtml%0D%0A",
+    "decoded_user_agent": "Mozilla/5.0 (teste)"
+  },
+  "geo": {
+    "continent": "SA",
+    "country": "BR",
+    "city": "SAOPAULO",
+    "regionCode": "SP",
+    "asn": "64500"
+  },
+  "botData": {
+    "botScore": "87",
+    "responseSegment": "3"
+  },
+  "userRiskData": {
+    "uuid": "00000000-0000-4000-8000-0000000000aa",
+    "status": "0",
+    "score": "75",
+    "risk": "udfp:1;unp:1",
+    "trust": "",
+    "general": "duc_1h:1",
+    "allow": "0",
+    "username": "",
+    "emailDomain": "example.com"
+  },
+  "clientData": {
+    "appBundleId": "com.example.app",
+    "appVersion": "2.1.0",
+    "sdkVersion": "4.0",
+    "telemetryType": "2"
+  },
+  "identity": {
+    "ja4": "t13d1516h2_8daaf6152771_02713d6af862",
+    "tlsFingerprintV2": "",
+    "tlsFingerprintV3": ""
+  }
+}

@@ -32,6 +32,7 @@ import {
   SiOkta,
   SiFortinet,
   SiVeeam,
+  SiAkamai,
 } from "react-icons/si"
 import { iconFor } from "./icons"
 
@@ -551,6 +552,64 @@ export function AwsIcon({ size = 28, className }: BrandSvgProps): React.ReactEle
   )
 }
 
+export function GoogleWorkspaceIcon({ size = 28, className }: BrandSvgProps): React.ReactElement {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width={size}
+      height={size}
+      aria-hidden="true"
+      className={className}
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      {/* Google Workspace: o "G" de quatro cores (o mesmo do Admin console),
+          desenhado em 48 e escalado — o Simple Icons só tem o G monocromático. */}
+      <g transform="scale(0.5)">
+        <path
+          fill="#EA4335"
+          d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"
+        />
+        <path
+          fill="#4285F4"
+          d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"
+        />
+        <path
+          fill="#FBBC05"
+          d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"
+        />
+        <path
+          fill="#34A853"
+          d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"
+        />
+      </g>
+    </svg>
+  )
+}
+
+export function Microsoft365Icon({ size = 28, className }: BrandSvgProps): React.ReactElement {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width={size}
+      height={size}
+      aria-hidden="true"
+      className={className}
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      {/* Microsoft 365: o laço laranja do Office, estilizado (o Simple Icons não
+          carrega marcas da Microsoft). Anel com o lado esquerdo mais grosso e
+          escuro e a faixa de cima mais clara, como no ícone do app. */}
+      <path
+        fill="#D83B01"
+        fillRule="evenodd"
+        d="M8 3h9a3 3 0 0 1 3 3v12a3 3 0 0 1-3 3H8zm5.5 5a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1H16a1 1 0 0 0 1-1V9a1 1 0 0 0-1-1z"
+      />
+      <path fill="#FF8F6B" d="M10 3h7a3 3 0 0 1 3 3v2H10z" />
+      <rect x="3.5" y="2" width="7" height="20" rx="1.5" fill="#A92B0F" />
+    </svg>
+  )
+}
+
 export function GoogleCloudIcon({ size = 28, className }: BrandSvgProps): React.ReactElement {
   return (
     <svg
@@ -634,6 +693,9 @@ export const BRAND_IDS: ReadonlySet<string> = new Set([
   "aws",
   "gcp",
   "azure",
+  "akamai",
+  "googleworkspace",
+  "microsoft365",
 ])
 
 // ── Renderer map ──────────────────────────────────────────────────────────────
@@ -666,6 +728,8 @@ const BRAND_RENDERERS: Record<string, BrandRenderer> = {
   aws: (s, c) => <AwsIcon size={s} className={c} />,
   gcp: (s, c) => <GoogleCloudIcon size={s} className={c} />,
   azure: (s, c) => <AzureIcon size={s} className={c} />,
+  googleworkspace: (s, c) => <GoogleWorkspaceIcon size={s} className={c} />,
+  microsoft365: (s, c) => <Microsoft365Icon size={s} className={c} />,
 }
 
 // ── Tier 1: marca vendada localmente (raster) ─────────────────────────────────
@@ -715,6 +779,7 @@ const SI_MARKS: Record<string, BrandRenderer> = {
   fortinet: siMark(SiFortinet as SiComponent, "#EE3124"),
   apachekafka: siMark(SiApachekafka as SiComponent, "#231F20"),
   veeam: siMark(SiVeeam as SiComponent, "#00B336"),
+  akamai: siMark(SiAkamai as SiComponent, "#0096D6"),
 }
 
 // ── Public API ────────────────────────────────────────────────────────────────

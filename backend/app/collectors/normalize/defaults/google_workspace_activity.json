@@ -1,0 +1,513 @@
+{
+  "_comment": [
+    "Google Workspace Reports API (activities.list) -> OCSF 1.8. O coletor emite UM registro",
+    "por item de events[]: a atividade (id, actor, ipAddress) + event (name, type, parameters)",
+    "+ event.params (parameters achatados: {nome: valor})."
+  ],
+  "rules": [
+    {
+      "_comment": [
+        "Classe, categoria, atividade, type_uid e severidade saem da MESMA chave de tipo,",
+        "calculada de id.applicationName + event.name: login/saml -> Authentication (3002);",
+        "operacoes sobre a conta (criar, suspender, senha, 2SV, papel de admin) -> Account",
+        "Change (3001); o resto -> API Activity (6003) com o verbo pelo nome do evento.",
+        "Nomes do admin vem em MAIUSCULAS e os demais em minusculas -- dai as duas formas.",
+        "Campos nulos viram '' antes do contains (contains(null, ...) quarentenaria o evento)."
+      ],
+      "target": "normalized.class_uid",
+      "source": "(((id.applicationName || '') == 'login' || (id.applicationName || '') == 'saml') && (event.name || '') == 'login_success' && 'logon_ok') || (((id.applicationName || '') == 'login' || (id.applicationName || '') == 'saml') && (event.name || '') == 'login_failure' && 'logon_fail') || ((id.applicationName || '') == 'login' && contains(`[\"login_challenge\", \"login_verification\"]`, (event.name || '')) && 'logon_challenge') || ((id.applicationName || '') == 'login' && contains(`[\"suspicious_login\", \"suspicious_login_less_secure_app\", \"suspicious_programmatic_login\", \"gov_attack_warning\"]`, (event.name || '')) && 'logon_risk') || ((id.applicationName || '') == 'login' && (event.name || '') == 'logout' && 'logoff') || (contains(`[\"account_disabled_generic\", \"account_disabled_spamming\", \"account_disabled_spamming_through_relay\", \"account_disabled_hijacked\", \"account_disabled_password_leak\", \"SUSPEND_USER\"]`, (event.name || '')) && 'acct_disable') || (contains(`[\"2sv_enroll\", \"titanium_enroll\", \"passkey_enrolled\", \"USER_ENROLLED_IN_TWO_STEP_VERIFICATION\", \"SECURITY_KEY_REGISTERED_FOR_USER\"]`, (event.name || '')) && 'acct_mfa_on') || (contains(`[\"2sv_disable\", \"titanium_unenroll\", \"passkey_removed\", \"TURN_OFF_2_STEP_VERIFICATION\", \"UNENROLL_USER_FROM_TITANIUM\", \"UNENROLL_USER_FROM_STRONG_AUTH\", \"REVOKE_SECURITY_KEY\", \"PASSKEY_REVOKED\"]`, (event.name || '')) && 'acct_mfa_off') || ((event.name || '') == 'password_edit' && 'acct_pwd_change') || ((event.name || '') == 'CHANGE_PASSWORD' && 'acct_pwd_reset') || ((event.name || '') == 'CREATE_USER' && 'acct_create') || ((event.name || '') == 'DELETE_USER' && 'acct_delete') || (contains(`[\"UNSUSPEND_USER\", \"UNDELETE_USER\"]`, (event.name || '')) && 'acct_enable') || (contains(`[\"GRANT_ADMIN_PRIVILEGE\", \"ASSIGN_ROLE\", \"GRANT_DELEGATED_ADMIN_PRIVILEGES\"]`, (event.name || '')) && 'acct_attach') || (contains(`[\"REVOKE_ADMIN_PRIVILEGE\", \"UNASSIGN_ROLE\"]`, (event.name || '')) && 'acct_detach') || (contains(`[\"recovery_email_edit\", \"recovery_phone_edit\", \"recovery_secret_qa_edit\"]`, (event.name || '')) && 'acct_other') || ((contains((event.name || ''), 'DELETE') || contains((event.name || ''), 'delete') || contains((event.name || ''), 'REMOVE') || contains((event.name || ''), 'remove') || contains((event.name || ''), 'REVOKE') || contains((event.name || ''), 'revoke') || contains((event.name || ''), 'trash')) && 'api_delete') || ((contains((event.name || ''), 'CREATE') || contains((event.name || ''), 'create') || contains((event.name || ''), 'ADD') || contains((event.name || ''), 'add') || contains((event.name || ''), 'INSERT') || contains((event.name || ''), 'authorize') || contains((event.name || ''), 'upload')) && 'api_create') || ((contains((event.name || ''), 'view') || contains((event.name || ''), 'download') || contains((event.name || ''), 'preview') || contains((event.name || ''), 'print') || contains((event.name || ''), 'EXPORT') || contains((event.name || ''), 'export') || contains((event.name || ''), 'DOWNLOAD') || contains((event.name || ''), 'VIEW') || contains((event.name || ''), 'access')) && 'api_read') || ((contains((event.name || ''), 'CHANGE') || contains((event.name || ''), 'change') || contains((event.name || ''), 'EDIT') || contains((event.name || ''), 'edit') || contains((event.name || ''), 'UPDATE') || contains((event.name || ''), 'update') || contains((event.name || ''), 'SET') || contains((event.name || ''), 'RENAME') || contains((event.name || ''), 'rename') || contains((event.name || ''), 'MOVE') || contains((event.name || ''), 'move') || contains((event.name || ''), 'ENABLE') || contains((event.name || ''), 'DISABLE') || contains((event.name || ''), 'acl')) && 'api_update') || 'api_other'",
+      "value_map": {
+        "logon_ok": 3002,
+        "logon_fail": 3002,
+        "logon_challenge": 3002,
+        "logon_risk": 3002,
+        "logoff": 3002,
+        "acct_create": 3001,
+        "acct_enable": 3001,
+        "acct_pwd_change": 3001,
+        "acct_pwd_reset": 3001,
+        "acct_disable": 3001,
+        "acct_delete": 3001,
+        "acct_attach": 3001,
+        "acct_detach": 3001,
+        "acct_mfa_on": 3001,
+        "acct_mfa_off": 3001,
+        "acct_other": 3001,
+        "api_create": 6003,
+        "api_read": 6003,
+        "api_update": 6003,
+        "api_delete": 6003,
+        "api_other": 6003
+      },
+      "default": 6003,
+      "required": true
+    },
+    {
+      "target": "normalized.class_name",
+      "source": "(((id.applicationName || '') == 'login' || (id.applicationName || '') == 'saml') && (event.name || '') == 'login_success' && 'logon_ok') || (((id.applicationName || '') == 'login' || (id.applicationName || '') == 'saml') && (event.name || '') == 'login_failure' && 'logon_fail') || ((id.applicationName || '') == 'login' && contains(`[\"login_challenge\", \"login_verification\"]`, (event.name || '')) && 'logon_challenge') || ((id.applicationName || '') == 'login' && contains(`[\"suspicious_login\", \"suspicious_login_less_secure_app\", \"suspicious_programmatic_login\", \"gov_attack_warning\"]`, (event.name || '')) && 'logon_risk') || ((id.applicationName || '') == 'login' && (event.name || '') == 'logout' && 'logoff') || (contains(`[\"account_disabled_generic\", \"account_disabled_spamming\", \"account_disabled_spamming_through_relay\", \"account_disabled_hijacked\", \"account_disabled_password_leak\", \"SUSPEND_USER\"]`, (event.name || '')) && 'acct_disable') || (contains(`[\"2sv_enroll\", \"titanium_enroll\", \"passkey_enrolled\", \"USER_ENROLLED_IN_TWO_STEP_VERIFICATION\", \"SECURITY_KEY_REGISTERED_FOR_USER\"]`, (event.name || '')) && 'acct_mfa_on') || (contains(`[\"2sv_disable\", \"titanium_unenroll\", \"passkey_removed\", \"TURN_OFF_2_STEP_VERIFICATION\", \"UNENROLL_USER_FROM_TITANIUM\", \"UNENROLL_USER_FROM_STRONG_AUTH\", \"REVOKE_SECURITY_KEY\", \"PASSKEY_REVOKED\"]`, (event.name || '')) && 'acct_mfa_off') || ((event.name || '') == 'password_edit' && 'acct_pwd_change') || ((event.name || '') == 'CHANGE_PASSWORD' && 'acct_pwd_reset') || ((event.name || '') == 'CREATE_USER' && 'acct_create') || ((event.name || '') == 'DELETE_USER' && 'acct_delete') || (contains(`[\"UNSUSPEND_USER\", \"UNDELETE_USER\"]`, (event.name || '')) && 'acct_enable') || (contains(`[\"GRANT_ADMIN_PRIVILEGE\", \"ASSIGN_ROLE\", \"GRANT_DELEGATED_ADMIN_PRIVILEGES\"]`, (event.name || '')) && 'acct_attach') || (contains(`[\"REVOKE_ADMIN_PRIVILEGE\", \"UNASSIGN_ROLE\"]`, (event.name || '')) && 'acct_detach') || (contains(`[\"recovery_email_edit\", \"recovery_phone_edit\", \"recovery_secret_qa_edit\"]`, (event.name || '')) && 'acct_other') || ((contains((event.name || ''), 'DELETE') || contains((event.name || ''), 'delete') || contains((event.name || ''), 'REMOVE') || contains((event.name || ''), 'remove') || contains((event.name || ''), 'REVOKE') || contains((event.name || ''), 'revoke') || contains((event.name || ''), 'trash')) && 'api_delete') || ((contains((event.name || ''), 'CREATE') || contains((event.name || ''), 'create') || contains((event.name || ''), 'ADD') || contains((event.name || ''), 'add') || contains((event.name || ''), 'INSERT') || contains((event.name || ''), 'authorize') || contains((event.name || ''), 'upload')) && 'api_create') || ((contains((event.name || ''), 'view') || contains((event.name || ''), 'download') || contains((event.name || ''), 'preview') || contains((event.name || ''), 'print') || contains((event.name || ''), 'EXPORT') || contains((event.name || ''), 'export') || contains((event.name || ''), 'DOWNLOAD') || contains((event.name || ''), 'VIEW') || contains((event.name || ''), 'access')) && 'api_read') || ((contains((event.name || ''), 'CHANGE') || contains((event.name || ''), 'change') || contains((event.name || ''), 'EDIT') || contains((event.name || ''), 'edit') || contains((event.name || ''), 'UPDATE') || contains((event.name || ''), 'update') || contains((event.name || ''), 'SET') || contains((event.name || ''), 'RENAME') || contains((event.name || ''), 'rename') || contains((event.name || ''), 'MOVE') || contains((event.name || ''), 'move') || contains((event.name || ''), 'ENABLE') || contains((event.name || ''), 'DISABLE') || contains((event.name || ''), 'acl')) && 'api_update') || 'api_other'",
+      "value_map": {
+        "logon_ok": "Authentication",
+        "logon_fail": "Authentication",
+        "logon_challenge": "Authentication",
+        "logon_risk": "Authentication",
+        "logoff": "Authentication",
+        "acct_create": "Account Change",
+        "acct_enable": "Account Change",
+        "acct_pwd_change": "Account Change",
+        "acct_pwd_reset": "Account Change",
+        "acct_disable": "Account Change",
+        "acct_delete": "Account Change",
+        "acct_attach": "Account Change",
+        "acct_detach": "Account Change",
+        "acct_mfa_on": "Account Change",
+        "acct_mfa_off": "Account Change",
+        "acct_other": "Account Change",
+        "api_create": "API Activity",
+        "api_read": "API Activity",
+        "api_update": "API Activity",
+        "api_delete": "API Activity",
+        "api_other": "API Activity"
+      },
+      "default": "API Activity"
+    },
+    {
+      "target": "normalized.category_uid",
+      "source": "(((id.applicationName || '') == 'login' || (id.applicationName || '') == 'saml') && (event.name || '') == 'login_success' && 'logon_ok') || (((id.applicationName || '') == 'login' || (id.applicationName || '') == 'saml') && (event.name || '') == 'login_failure' && 'logon_fail') || ((id.applicationName || '') == 'login' && contains(`[\"login_challenge\", \"login_verification\"]`, (event.name || '')) && 'logon_challenge') || ((id.applicationName || '') == 'login' && contains(`[\"suspicious_login\", \"suspicious_login_less_secure_app\", \"suspicious_programmatic_login\", \"gov_attack_warning\"]`, (event.name || '')) && 'logon_risk') || ((id.applicationName || '') == 'login' && (event.name || '') == 'logout' && 'logoff') || (contains(`[\"account_disabled_generic\", \"account_disabled_spamming\", \"account_disabled_spamming_through_relay\", \"account_disabled_hijacked\", \"account_disabled_password_leak\", \"SUSPEND_USER\"]`, (event.name || '')) && 'acct_disable') || (contains(`[\"2sv_enroll\", \"titanium_enroll\", \"passkey_enrolled\", \"USER_ENROLLED_IN_TWO_STEP_VERIFICATION\", \"SECURITY_KEY_REGISTERED_FOR_USER\"]`, (event.name || '')) && 'acct_mfa_on') || (contains(`[\"2sv_disable\", \"titanium_unenroll\", \"passkey_removed\", \"TURN_OFF_2_STEP_VERIFICATION\", \"UNENROLL_USER_FROM_TITANIUM\", \"UNENROLL_USER_FROM_STRONG_AUTH\", \"REVOKE_SECURITY_KEY\", \"PASSKEY_REVOKED\"]`, (event.name || '')) && 'acct_mfa_off') || ((event.name || '') == 'password_edit' && 'acct_pwd_change') || ((event.name || '') == 'CHANGE_PASSWORD' && 'acct_pwd_reset') || ((event.name || '') == 'CREATE_USER' && 'acct_create') || ((event.name || '') == 'DELETE_USER' && 'acct_delete') || (contains(`[\"UNSUSPEND_USER\", \"UNDELETE_USER\"]`, (event.name || '')) && 'acct_enable') || (contains(`[\"GRANT_ADMIN_PRIVILEGE\", \"ASSIGN_ROLE\", \"GRANT_DELEGATED_ADMIN_PRIVILEGES\"]`, (event.name || '')) && 'acct_attach') || (contains(`[\"REVOKE_ADMIN_PRIVILEGE\", \"UNASSIGN_ROLE\"]`, (event.name || '')) && 'acct_detach') || (contains(`[\"recovery_email_edit\", \"recovery_phone_edit\", \"recovery_secret_qa_edit\"]`, (event.name || '')) && 'acct_other') || ((contains((event.name || ''), 'DELETE') || contains((event.name || ''), 'delete') || contains((event.name || ''), 'REMOVE') || contains((event.name || ''), 'remove') || contains((event.name || ''), 'REVOKE') || contains((event.name || ''), 'revoke') || contains((event.name || ''), 'trash')) && 'api_delete') || ((contains((event.name || ''), 'CREATE') || contains((event.name || ''), 'create') || contains((event.name || ''), 'ADD') || contains((event.name || ''), 'add') || contains((event.name || ''), 'INSERT') || contains((event.name || ''), 'authorize') || contains((event.name || ''), 'upload')) && 'api_create') || ((contains((event.name || ''), 'view') || contains((event.name || ''), 'download') || contains((event.name || ''), 'preview') || contains((event.name || ''), 'print') || contains((event.name || ''), 'EXPORT') || contains((event.name || ''), 'export') || contains((event.name || ''), 'DOWNLOAD') || contains((event.name || ''), 'VIEW') || contains((event.name || ''), 'access')) && 'api_read') || ((contains((event.name || ''), 'CHANGE') || contains((event.name || ''), 'change') || contains((event.name || ''), 'EDIT') || contains((event.name || ''), 'edit') || contains((event.name || ''), 'UPDATE') || contains((event.name || ''), 'update') || contains((event.name || ''), 'SET') || contains((event.name || ''), 'RENAME') || contains((event.name || ''), 'rename') || contains((event.name || ''), 'MOVE') || contains((event.name || ''), 'move') || contains((event.name || ''), 'ENABLE') || contains((event.name || ''), 'DISABLE') || contains((event.name || ''), 'acl')) && 'api_update') || 'api_other'",
+      "value_map": {
+        "logon_ok": 3,
+        "logon_fail": 3,
+        "logon_challenge": 3,
+        "logon_risk": 3,
+        "logoff": 3,
+        "acct_create": 3,
+        "acct_enable": 3,
+        "acct_pwd_change": 3,
+        "acct_pwd_reset": 3,
+        "acct_disable": 3,
+        "acct_delete": 3,
+        "acct_attach": 3,
+        "acct_detach": 3,
+        "acct_mfa_on": 3,
+        "acct_mfa_off": 3,
+        "acct_other": 3,
+        "api_create": 6,
+        "api_read": 6,
+        "api_update": 6,
+        "api_delete": 6,
+        "api_other": 6
+      },
+      "default": 6,
+      "required": true
+    },
+    {
+      "target": "normalized.category_name",
+      "source": "(((id.applicationName || '') == 'login' || (id.applicationName || '') == 'saml') && (event.name || '') == 'login_success' && 'logon_ok') || (((id.applicationName || '') == 'login' || (id.applicationName || '') == 'saml') && (event.name || '') == 'login_failure' && 'logon_fail') || ((id.applicationName || '') == 'login' && contains(`[\"login_challenge\", \"login_verification\"]`, (event.name || '')) && 'logon_challenge') || ((id.applicationName || '') == 'login' && contains(`[\"suspicious_login\", \"suspicious_login_less_secure_app\", \"suspicious_programmatic_login\", \"gov_attack_warning\"]`, (event.name || '')) && 'logon_risk') || ((id.applicationName || '') == 'login' && (event.name || '') == 'logout' && 'logoff') || (contains(`[\"account_disabled_generic\", \"account_disabled_spamming\", \"account_disabled_spamming_through_relay\", \"account_disabled_hijacked\", \"account_disabled_password_leak\", \"SUSPEND_USER\"]`, (event.name || '')) && 'acct_disable') || (contains(`[\"2sv_enroll\", \"titanium_enroll\", \"passkey_enrolled\", \"USER_ENROLLED_IN_TWO_STEP_VERIFICATION\", \"SECURITY_KEY_REGISTERED_FOR_USER\"]`, (event.name || '')) && 'acct_mfa_on') || (contains(`[\"2sv_disable\", \"titanium_unenroll\", \"passkey_removed\", \"TURN_OFF_2_STEP_VERIFICATION\", \"UNENROLL_USER_FROM_TITANIUM\", \"UNENROLL_USER_FROM_STRONG_AUTH\", \"REVOKE_SECURITY_KEY\", \"PASSKEY_REVOKED\"]`, (event.name || '')) && 'acct_mfa_off') || ((event.name || '') == 'password_edit' && 'acct_pwd_change') || ((event.name || '') == 'CHANGE_PASSWORD' && 'acct_pwd_reset') || ((event.name || '') == 'CREATE_USER' && 'acct_create') || ((event.name || '') == 'DELETE_USER' && 'acct_delete') || (contains(`[\"UNSUSPEND_USER\", \"UNDELETE_USER\"]`, (event.name || '')) && 'acct_enable') || (contains(`[\"GRANT_ADMIN_PRIVILEGE\", \"ASSIGN_ROLE\", \"GRANT_DELEGATED_ADMIN_PRIVILEGES\"]`, (event.name || '')) && 'acct_attach') || (contains(`[\"REVOKE_ADMIN_PRIVILEGE\", \"UNASSIGN_ROLE\"]`, (event.name || '')) && 'acct_detach') || (contains(`[\"recovery_email_edit\", \"recovery_phone_edit\", \"recovery_secret_qa_edit\"]`, (event.name || '')) && 'acct_other') || ((contains((event.name || ''), 'DELETE') || contains((event.name || ''), 'delete') || contains((event.name || ''), 'REMOVE') || contains((event.name || ''), 'remove') || contains((event.name || ''), 'REVOKE') || contains((event.name || ''), 'revoke') || contains((event.name || ''), 'trash')) && 'api_delete') || ((contains((event.name || ''), 'CREATE') || contains((event.name || ''), 'create') || contains((event.name || ''), 'ADD') || contains((event.name || ''), 'add') || contains((event.name || ''), 'INSERT') || contains((event.name || ''), 'authorize') || contains((event.name || ''), 'upload')) && 'api_create') || ((contains((event.name || ''), 'view') || contains((event.name || ''), 'download') || contains((event.name || ''), 'preview') || contains((event.name || ''), 'print') || contains((event.name || ''), 'EXPORT') || contains((event.name || ''), 'export') || contains((event.name || ''), 'DOWNLOAD') || contains((event.name || ''), 'VIEW') || contains((event.name || ''), 'access')) && 'api_read') || ((contains((event.name || ''), 'CHANGE') || contains((event.name || ''), 'change') || contains((event.name || ''), 'EDIT') || contains((event.name || ''), 'edit') || contains((event.name || ''), 'UPDATE') || contains((event.name || ''), 'update') || contains((event.name || ''), 'SET') || contains((event.name || ''), 'RENAME') || contains((event.name || ''), 'rename') || contains((event.name || ''), 'MOVE') || contains((event.name || ''), 'move') || contains((event.name || ''), 'ENABLE') || contains((event.name || ''), 'DISABLE') || contains((event.name || ''), 'acl')) && 'api_update') || 'api_other'",
+      "value_map": {
+        "logon_ok": "Identity & Access Management",
+        "logon_fail": "Identity & Access Management",
+        "logon_challenge": "Identity & Access Management",
+        "logon_risk": "Identity & Access Management",
+        "logoff": "Identity & Access Management",
+        "acct_create": "Identity & Access Management",
+        "acct_enable": "Identity & Access Management",
+        "acct_pwd_change": "Identity & Access Management",
+        "acct_pwd_reset": "Identity & Access Management",
+        "acct_disable": "Identity & Access Management",
+        "acct_delete": "Identity & Access Management",
+        "acct_attach": "Identity & Access Management",
+        "acct_detach": "Identity & Access Management",
+        "acct_mfa_on": "Identity & Access Management",
+        "acct_mfa_off": "Identity & Access Management",
+        "acct_other": "Identity & Access Management",
+        "api_create": "Application Activity",
+        "api_read": "Application Activity",
+        "api_update": "Application Activity",
+        "api_delete": "Application Activity",
+        "api_other": "Application Activity"
+      },
+      "default": "Application Activity"
+    },
+    {
+      "target": "normalized.activity_id",
+      "source": "(((id.applicationName || '') == 'login' || (id.applicationName || '') == 'saml') && (event.name || '') == 'login_success' && 'logon_ok') || (((id.applicationName || '') == 'login' || (id.applicationName || '') == 'saml') && (event.name || '') == 'login_failure' && 'logon_fail') || ((id.applicationName || '') == 'login' && contains(`[\"login_challenge\", \"login_verification\"]`, (event.name || '')) && 'logon_challenge') || ((id.applicationName || '') == 'login' && contains(`[\"suspicious_login\", \"suspicious_login_less_secure_app\", \"suspicious_programmatic_login\", \"gov_attack_warning\"]`, (event.name || '')) && 'logon_risk') || ((id.applicationName || '') == 'login' && (event.name || '') == 'logout' && 'logoff') || (contains(`[\"account_disabled_generic\", \"account_disabled_spamming\", \"account_disabled_spamming_through_relay\", \"account_disabled_hijacked\", \"account_disabled_password_leak\", \"SUSPEND_USER\"]`, (event.name || '')) && 'acct_disable') || (contains(`[\"2sv_enroll\", \"titanium_enroll\", \"passkey_enrolled\", \"USER_ENROLLED_IN_TWO_STEP_VERIFICATION\", \"SECURITY_KEY_REGISTERED_FOR_USER\"]`, (event.name || '')) && 'acct_mfa_on') || (contains(`[\"2sv_disable\", \"titanium_unenroll\", \"passkey_removed\", \"TURN_OFF_2_STEP_VERIFICATION\", \"UNENROLL_USER_FROM_TITANIUM\", \"UNENROLL_USER_FROM_STRONG_AUTH\", \"REVOKE_SECURITY_KEY\", \"PASSKEY_REVOKED\"]`, (event.name || '')) && 'acct_mfa_off') || ((event.name || '') == 'password_edit' && 'acct_pwd_change') || ((event.name || '') == 'CHANGE_PASSWORD' && 'acct_pwd_reset') || ((event.name || '') == 'CREATE_USER' && 'acct_create') || ((event.name || '') == 'DELETE_USER' && 'acct_delete') || (contains(`[\"UNSUSPEND_USER\", \"UNDELETE_USER\"]`, (event.name || '')) && 'acct_enable') || (contains(`[\"GRANT_ADMIN_PRIVILEGE\", \"ASSIGN_ROLE\", \"GRANT_DELEGATED_ADMIN_PRIVILEGES\"]`, (event.name || '')) && 'acct_attach') || (contains(`[\"REVOKE_ADMIN_PRIVILEGE\", \"UNASSIGN_ROLE\"]`, (event.name || '')) && 'acct_detach') || (contains(`[\"recovery_email_edit\", \"recovery_phone_edit\", \"recovery_secret_qa_edit\"]`, (event.name || '')) && 'acct_other') || ((contains((event.name || ''), 'DELETE') || contains((event.name || ''), 'delete') || contains((event.name || ''), 'REMOVE') || contains((event.name || ''), 'remove') || contains((event.name || ''), 'REVOKE') || contains((event.name || ''), 'revoke') || contains((event.name || ''), 'trash')) && 'api_delete') || ((contains((event.name || ''), 'CREATE') || contains((event.name || ''), 'create') || contains((event.name || ''), 'ADD') || contains((event.name || ''), 'add') || contains((event.name || ''), 'INSERT') || contains((event.name || ''), 'authorize') || contains((event.name || ''), 'upload')) && 'api_create') || ((contains((event.name || ''), 'view') || contains((event.name || ''), 'download') || contains((event.name || ''), 'preview') || contains((event.name || ''), 'print') || contains((event.name || ''), 'EXPORT') || contains((event.name || ''), 'export') || contains((event.name || ''), 'DOWNLOAD') || contains((event.name || ''), 'VIEW') || contains((event.name || ''), 'access')) && 'api_read') || ((contains((event.name || ''), 'CHANGE') || contains((event.name || ''), 'change') || contains((event.name || ''), 'EDIT') || contains((event.name || ''), 'edit') || contains((event.name || ''), 'UPDATE') || contains((event.name || ''), 'update') || contains((event.name || ''), 'SET') || contains((event.name || ''), 'RENAME') || contains((event.name || ''), 'rename') || contains((event.name || ''), 'MOVE') || contains((event.name || ''), 'move') || contains((event.name || ''), 'ENABLE') || contains((event.name || ''), 'DISABLE') || contains((event.name || ''), 'acl')) && 'api_update') || 'api_other'",
+      "value_map": {
+        "logon_ok": 1,
+        "logon_fail": 1,
+        "logon_challenge": 1,
+        "logon_risk": 1,
+        "logoff": 2,
+        "acct_create": 1,
+        "acct_enable": 2,
+        "acct_pwd_change": 3,
+        "acct_pwd_reset": 4,
+        "acct_disable": 5,
+        "acct_delete": 6,
+        "acct_attach": 7,
+        "acct_detach": 8,
+        "acct_mfa_on": 10,
+        "acct_mfa_off": 11,
+        "acct_other": 99,
+        "api_create": 1,
+        "api_read": 2,
+        "api_update": 3,
+        "api_delete": 4,
+        "api_other": 99
+      },
+      "default": 0,
+      "required": true
+    },
+    {
+      "target": "normalized.activity_name",
+      "source": "(((id.applicationName || '') == 'login' || (id.applicationName || '') == 'saml') && (event.name || '') == 'login_success' && 'logon_ok') || (((id.applicationName || '') == 'login' || (id.applicationName || '') == 'saml') && (event.name || '') == 'login_failure' && 'logon_fail') || ((id.applicationName || '') == 'login' && contains(`[\"login_challenge\", \"login_verification\"]`, (event.name || '')) && 'logon_challenge') || ((id.applicationName || '') == 'login' && contains(`[\"suspicious_login\", \"suspicious_login_less_secure_app\", \"suspicious_programmatic_login\", \"gov_attack_warning\"]`, (event.name || '')) && 'logon_risk') || ((id.applicationName || '') == 'login' && (event.name || '') == 'logout' && 'logoff') || (contains(`[\"account_disabled_generic\", \"account_disabled_spamming\", \"account_disabled_spamming_through_relay\", \"account_disabled_hijacked\", \"account_disabled_password_leak\", \"SUSPEND_USER\"]`, (event.name || '')) && 'acct_disable') || (contains(`[\"2sv_enroll\", \"titanium_enroll\", \"passkey_enrolled\", \"USER_ENROLLED_IN_TWO_STEP_VERIFICATION\", \"SECURITY_KEY_REGISTERED_FOR_USER\"]`, (event.name || '')) && 'acct_mfa_on') || (contains(`[\"2sv_disable\", \"titanium_unenroll\", \"passkey_removed\", \"TURN_OFF_2_STEP_VERIFICATION\", \"UNENROLL_USER_FROM_TITANIUM\", \"UNENROLL_USER_FROM_STRONG_AUTH\", \"REVOKE_SECURITY_KEY\", \"PASSKEY_REVOKED\"]`, (event.name || '')) && 'acct_mfa_off') || ((event.name || '') == 'password_edit' && 'acct_pwd_change') || ((event.name || '') == 'CHANGE_PASSWORD' && 'acct_pwd_reset') || ((event.name || '') == 'CREATE_USER' && 'acct_create') || ((event.name || '') == 'DELETE_USER' && 'acct_delete') || (contains(`[\"UNSUSPEND_USER\", \"UNDELETE_USER\"]`, (event.name || '')) && 'acct_enable') || (contains(`[\"GRANT_ADMIN_PRIVILEGE\", \"ASSIGN_ROLE\", \"GRANT_DELEGATED_ADMIN_PRIVILEGES\"]`, (event.name || '')) && 'acct_attach') || (contains(`[\"REVOKE_ADMIN_PRIVILEGE\", \"UNASSIGN_ROLE\"]`, (event.name || '')) && 'acct_detach') || (contains(`[\"recovery_email_edit\", \"recovery_phone_edit\", \"recovery_secret_qa_edit\"]`, (event.name || '')) && 'acct_other') || ((contains((event.name || ''), 'DELETE') || contains((event.name || ''), 'delete') || contains((event.name || ''), 'REMOVE') || contains((event.name || ''), 'remove') || contains((event.name || ''), 'REVOKE') || contains((event.name || ''), 'revoke') || contains((event.name || ''), 'trash')) && 'api_delete') || ((contains((event.name || ''), 'CREATE') || contains((event.name || ''), 'create') || contains((event.name || ''), 'ADD') || contains((event.name || ''), 'add') || contains((event.name || ''), 'INSERT') || contains((event.name || ''), 'authorize') || contains((event.name || ''), 'upload')) && 'api_create') || ((contains((event.name || ''), 'view') || contains((event.name || ''), 'download') || contains((event.name || ''), 'preview') || contains((event.name || ''), 'print') || contains((event.name || ''), 'EXPORT') || contains((event.name || ''), 'export') || contains((event.name || ''), 'DOWNLOAD') || contains((event.name || ''), 'VIEW') || contains((event.name || ''), 'access')) && 'api_read') || ((contains((event.name || ''), 'CHANGE') || contains((event.name || ''), 'change') || contains((event.name || ''), 'EDIT') || contains((event.name || ''), 'edit') || contains((event.name || ''), 'UPDATE') || contains((event.name || ''), 'update') || contains((event.name || ''), 'SET') || contains((event.name || ''), 'RENAME') || contains((event.name || ''), 'rename') || contains((event.name || ''), 'MOVE') || contains((event.name || ''), 'move') || contains((event.name || ''), 'ENABLE') || contains((event.name || ''), 'DISABLE') || contains((event.name || ''), 'acl')) && 'api_update') || 'api_other'",
+      "value_map": {
+        "logon_ok": "Logon",
+        "logon_fail": "Logon",
+        "logon_challenge": "Logon",
+        "logon_risk": "Logon",
+        "logoff": "Logoff",
+        "acct_create": "Create",
+        "acct_enable": "Enable",
+        "acct_pwd_change": "Password Change",
+        "acct_pwd_reset": "Password Reset",
+        "acct_disable": "Disable",
+        "acct_delete": "Delete",
+        "acct_attach": "Attach Policy",
+        "acct_detach": "Detach Policy",
+        "acct_mfa_on": "MFA Factor Enable",
+        "acct_mfa_off": "MFA Factor Disable",
+        "acct_other": "Other",
+        "api_create": "Create",
+        "api_read": "Read",
+        "api_update": "Update",
+        "api_delete": "Delete",
+        "api_other": "Other"
+      },
+      "default": "Unknown"
+    },
+    {
+      "target": "normalized.type_uid",
+      "source": "(((id.applicationName || '') == 'login' || (id.applicationName || '') == 'saml') && (event.name || '') == 'login_success' && 'logon_ok') || (((id.applicationName || '') == 'login' || (id.applicationName || '') == 'saml') && (event.name || '') == 'login_failure' && 'logon_fail') || ((id.applicationName || '') == 'login' && contains(`[\"login_challenge\", \"login_verification\"]`, (event.name || '')) && 'logon_challenge') || ((id.applicationName || '') == 'login' && contains(`[\"suspicious_login\", \"suspicious_login_less_secure_app\", \"suspicious_programmatic_login\", \"gov_attack_warning\"]`, (event.name || '')) && 'logon_risk') || ((id.applicationName || '') == 'login' && (event.name || '') == 'logout' && 'logoff') || (contains(`[\"account_disabled_generic\", \"account_disabled_spamming\", \"account_disabled_spamming_through_relay\", \"account_disabled_hijacked\", \"account_disabled_password_leak\", \"SUSPEND_USER\"]`, (event.name || '')) && 'acct_disable') || (contains(`[\"2sv_enroll\", \"titanium_enroll\", \"passkey_enrolled\", \"USER_ENROLLED_IN_TWO_STEP_VERIFICATION\", \"SECURITY_KEY_REGISTERED_FOR_USER\"]`, (event.name || '')) && 'acct_mfa_on') || (contains(`[\"2sv_disable\", \"titanium_unenroll\", \"passkey_removed\", \"TURN_OFF_2_STEP_VERIFICATION\", \"UNENROLL_USER_FROM_TITANIUM\", \"UNENROLL_USER_FROM_STRONG_AUTH\", \"REVOKE_SECURITY_KEY\", \"PASSKEY_REVOKED\"]`, (event.name || '')) && 'acct_mfa_off') || ((event.name || '') == 'password_edit' && 'acct_pwd_change') || ((event.name || '') == 'CHANGE_PASSWORD' && 'acct_pwd_reset') || ((event.name || '') == 'CREATE_USER' && 'acct_create') || ((event.name || '') == 'DELETE_USER' && 'acct_delete') || (contains(`[\"UNSUSPEND_USER\", \"UNDELETE_USER\"]`, (event.name || '')) && 'acct_enable') || (contains(`[\"GRANT_ADMIN_PRIVILEGE\", \"ASSIGN_ROLE\", \"GRANT_DELEGATED_ADMIN_PRIVILEGES\"]`, (event.name || '')) && 'acct_attach') || (contains(`[\"REVOKE_ADMIN_PRIVILEGE\", \"UNASSIGN_ROLE\"]`, (event.name || '')) && 'acct_detach') || (contains(`[\"recovery_email_edit\", \"recovery_phone_edit\", \"recovery_secret_qa_edit\"]`, (event.name || '')) && 'acct_other') || ((contains((event.name || ''), 'DELETE') || contains((event.name || ''), 'delete') || contains((event.name || ''), 'REMOVE') || contains((event.name || ''), 'remove') || contains((event.name || ''), 'REVOKE') || contains((event.name || ''), 'revoke') || contains((event.name || ''), 'trash')) && 'api_delete') || ((contains((event.name || ''), 'CREATE') || contains((event.name || ''), 'create') || contains((event.name || ''), 'ADD') || contains((event.name || ''), 'add') || contains((event.name || ''), 'INSERT') || contains((event.name || ''), 'authorize') || contains((event.name || ''), 'upload')) && 'api_create') || ((contains((event.name || ''), 'view') || contains((event.name || ''), 'download') || contains((event.name || ''), 'preview') || contains((event.name || ''), 'print') || contains((event.name || ''), 'EXPORT') || contains((event.name || ''), 'export') || contains((event.name || ''), 'DOWNLOAD') || contains((event.name || ''), 'VIEW') || contains((event.name || ''), 'access')) && 'api_read') || ((contains((event.name || ''), 'CHANGE') || contains((event.name || ''), 'change') || contains((event.name || ''), 'EDIT') || contains((event.name || ''), 'edit') || contains((event.name || ''), 'UPDATE') || contains((event.name || ''), 'update') || contains((event.name || ''), 'SET') || contains((event.name || ''), 'RENAME') || contains((event.name || ''), 'rename') || contains((event.name || ''), 'MOVE') || contains((event.name || ''), 'move') || contains((event.name || ''), 'ENABLE') || contains((event.name || ''), 'DISABLE') || contains((event.name || ''), 'acl')) && 'api_update') || 'api_other'",
+      "value_map": {
+        "logon_ok": 300201,
+        "logon_fail": 300201,
+        "logon_challenge": 300201,
+        "logon_risk": 300201,
+        "logoff": 300202,
+        "acct_create": 300101,
+        "acct_enable": 300102,
+        "acct_pwd_change": 300103,
+        "acct_pwd_reset": 300104,
+        "acct_disable": 300105,
+        "acct_delete": 300106,
+        "acct_attach": 300107,
+        "acct_detach": 300108,
+        "acct_mfa_on": 300110,
+        "acct_mfa_off": 300111,
+        "acct_other": 300199,
+        "api_create": 600301,
+        "api_read": 600302,
+        "api_update": 600303,
+        "api_delete": 600304,
+        "api_other": 600399
+      },
+      "default": 600300,
+      "required": true
+    },
+    {
+      "_comment": "Login suspeito/alerta de ataque governamental = High; tirar 2SV, dar papel de admin, suspender/apagar conta = Medium.",
+      "target": "normalized.severity_id",
+      "source": "(((id.applicationName || '') == 'login' || (id.applicationName || '') == 'saml') && (event.name || '') == 'login_success' && 'logon_ok') || (((id.applicationName || '') == 'login' || (id.applicationName || '') == 'saml') && (event.name || '') == 'login_failure' && 'logon_fail') || ((id.applicationName || '') == 'login' && contains(`[\"login_challenge\", \"login_verification\"]`, (event.name || '')) && 'logon_challenge') || ((id.applicationName || '') == 'login' && contains(`[\"suspicious_login\", \"suspicious_login_less_secure_app\", \"suspicious_programmatic_login\", \"gov_attack_warning\"]`, (event.name || '')) && 'logon_risk') || ((id.applicationName || '') == 'login' && (event.name || '') == 'logout' && 'logoff') || (contains(`[\"account_disabled_generic\", \"account_disabled_spamming\", \"account_disabled_spamming_through_relay\", \"account_disabled_hijacked\", \"account_disabled_password_leak\", \"SUSPEND_USER\"]`, (event.name || '')) && 'acct_disable') || (contains(`[\"2sv_enroll\", \"titanium_enroll\", \"passkey_enrolled\", \"USER_ENROLLED_IN_TWO_STEP_VERIFICATION\", \"SECURITY_KEY_REGISTERED_FOR_USER\"]`, (event.name || '')) && 'acct_mfa_on') || (contains(`[\"2sv_disable\", \"titanium_unenroll\", \"passkey_removed\", \"TURN_OFF_2_STEP_VERIFICATION\", \"UNENROLL_USER_FROM_TITANIUM\", \"UNENROLL_USER_FROM_STRONG_AUTH\", \"REVOKE_SECURITY_KEY\", \"PASSKEY_REVOKED\"]`, (event.name || '')) && 'acct_mfa_off') || ((event.name || '') == 'password_edit' && 'acct_pwd_change') || ((event.name || '') == 'CHANGE_PASSWORD' && 'acct_pwd_reset') || ((event.name || '') == 'CREATE_USER' && 'acct_create') || ((event.name || '') == 'DELETE_USER' && 'acct_delete') || (contains(`[\"UNSUSPEND_USER\", \"UNDELETE_USER\"]`, (event.name || '')) && 'acct_enable') || (contains(`[\"GRANT_ADMIN_PRIVILEGE\", \"ASSIGN_ROLE\", \"GRANT_DELEGATED_ADMIN_PRIVILEGES\"]`, (event.name || '')) && 'acct_attach') || (contains(`[\"REVOKE_ADMIN_PRIVILEGE\", \"UNASSIGN_ROLE\"]`, (event.name || '')) && 'acct_detach') || (contains(`[\"recovery_email_edit\", \"recovery_phone_edit\", \"recovery_secret_qa_edit\"]`, (event.name || '')) && 'acct_other') || ((contains((event.name || ''), 'DELETE') || contains((event.name || ''), 'delete') || contains((event.name || ''), 'REMOVE') || contains((event.name || ''), 'remove') || contains((event.name || ''), 'REVOKE') || contains((event.name || ''), 'revoke') || contains((event.name || ''), 'trash')) && 'api_delete') || ((contains((event.name || ''), 'CREATE') || contains((event.name || ''), 'create') || contains((event.name || ''), 'ADD') || contains((event.name || ''), 'add') || contains((event.name || ''), 'INSERT') || contains((event.name || ''), 'authorize') || contains((event.name || ''), 'upload')) && 'api_create') || ((contains((event.name || ''), 'view') || contains((event.name || ''), 'download') || contains((event.name || ''), 'preview') || contains((event.name || ''), 'print') || contains((event.name || ''), 'EXPORT') || contains((event.name || ''), 'export') || contains((event.name || ''), 'DOWNLOAD') || contains((event.name || ''), 'VIEW') || contains((event.name || ''), 'access')) && 'api_read') || ((contains((event.name || ''), 'CHANGE') || contains((event.name || ''), 'change') || contains((event.name || ''), 'EDIT') || contains((event.name || ''), 'edit') || contains((event.name || ''), 'UPDATE') || contains((event.name || ''), 'update') || contains((event.name || ''), 'SET') || contains((event.name || ''), 'RENAME') || contains((event.name || ''), 'rename') || contains((event.name || ''), 'MOVE') || contains((event.name || ''), 'move') || contains((event.name || ''), 'ENABLE') || contains((event.name || ''), 'DISABLE') || contains((event.name || ''), 'acl')) && 'api_update') || 'api_other'",
+      "value_map": {
+        "logon_risk": 4,
+        "logon_fail": 2,
+        "acct_mfa_off": 3,
+        "acct_attach": 3,
+        "acct_disable": 3,
+        "acct_delete": 3,
+        "acct_pwd_reset": 2,
+        "acct_detach": 2
+      },
+      "default": 1,
+      "required": true
+    },
+    {
+      "target": "normalized.severity",
+      "source": "(((id.applicationName || '') == 'login' || (id.applicationName || '') == 'saml') && (event.name || '') == 'login_success' && 'logon_ok') || (((id.applicationName || '') == 'login' || (id.applicationName || '') == 'saml') && (event.name || '') == 'login_failure' && 'logon_fail') || ((id.applicationName || '') == 'login' && contains(`[\"login_challenge\", \"login_verification\"]`, (event.name || '')) && 'logon_challenge') || ((id.applicationName || '') == 'login' && contains(`[\"suspicious_login\", \"suspicious_login_less_secure_app\", \"suspicious_programmatic_login\", \"gov_attack_warning\"]`, (event.name || '')) && 'logon_risk') || ((id.applicationName || '') == 'login' && (event.name || '') == 'logout' && 'logoff') || (contains(`[\"account_disabled_generic\", \"account_disabled_spamming\", \"account_disabled_spamming_through_relay\", \"account_disabled_hijacked\", \"account_disabled_password_leak\", \"SUSPEND_USER\"]`, (event.name || '')) && 'acct_disable') || (contains(`[\"2sv_enroll\", \"titanium_enroll\", \"passkey_enrolled\", \"USER_ENROLLED_IN_TWO_STEP_VERIFICATION\", \"SECURITY_KEY_REGISTERED_FOR_USER\"]`, (event.name || '')) && 'acct_mfa_on') || (contains(`[\"2sv_disable\", \"titanium_unenroll\", \"passkey_removed\", \"TURN_OFF_2_STEP_VERIFICATION\", \"UNENROLL_USER_FROM_TITANIUM\", \"UNENROLL_USER_FROM_STRONG_AUTH\", \"REVOKE_SECURITY_KEY\", \"PASSKEY_REVOKED\"]`, (event.name || '')) && 'acct_mfa_off') || ((event.name || '') == 'password_edit' && 'acct_pwd_change') || ((event.name || '') == 'CHANGE_PASSWORD' && 'acct_pwd_reset') || ((event.name || '') == 'CREATE_USER' && 'acct_create') || ((event.name || '') == 'DELETE_USER' && 'acct_delete') || (contains(`[\"UNSUSPEND_USER\", \"UNDELETE_USER\"]`, (event.name || '')) && 'acct_enable') || (contains(`[\"GRANT_ADMIN_PRIVILEGE\", \"ASSIGN_ROLE\", \"GRANT_DELEGATED_ADMIN_PRIVILEGES\"]`, (event.name || '')) && 'acct_attach') || (contains(`[\"REVOKE_ADMIN_PRIVILEGE\", \"UNASSIGN_ROLE\"]`, (event.name || '')) && 'acct_detach') || (contains(`[\"recovery_email_edit\", \"recovery_phone_edit\", \"recovery_secret_qa_edit\"]`, (event.name || '')) && 'acct_other') || ((contains((event.name || ''), 'DELETE') || contains((event.name || ''), 'delete') || contains((event.name || ''), 'REMOVE') || contains((event.name || ''), 'remove') || contains((event.name || ''), 'REVOKE') || contains((event.name || ''), 'revoke') || contains((event.name || ''), 'trash')) && 'api_delete') || ((contains((event.name || ''), 'CREATE') || contains((event.name || ''), 'create') || contains((event.name || ''), 'ADD') || contains((event.name || ''), 'add') || contains((event.name || ''), 'INSERT') || contains((event.name || ''), 'authorize') || contains((event.name || ''), 'upload')) && 'api_create') || ((contains((event.name || ''), 'view') || contains((event.name || ''), 'download') || contains((event.name || ''), 'preview') || contains((event.name || ''), 'print') || contains((event.name || ''), 'EXPORT') || contains((event.name || ''), 'export') || contains((event.name || ''), 'DOWNLOAD') || contains((event.name || ''), 'VIEW') || contains((event.name || ''), 'access')) && 'api_read') || ((contains((event.name || ''), 'CHANGE') || contains((event.name || ''), 'change') || contains((event.name || ''), 'EDIT') || contains((event.name || ''), 'edit') || contains((event.name || ''), 'UPDATE') || contains((event.name || ''), 'update') || contains((event.name || ''), 'SET') || contains((event.name || ''), 'RENAME') || contains((event.name || ''), 'rename') || contains((event.name || ''), 'MOVE') || contains((event.name || ''), 'move') || contains((event.name || ''), 'ENABLE') || contains((event.name || ''), 'DISABLE') || contains((event.name || ''), 'acl')) && 'api_update') || 'api_other'",
+      "value_map": {
+        "logon_risk": "High",
+        "logon_fail": "Low",
+        "acct_mfa_off": "Medium",
+        "acct_attach": "Medium",
+        "acct_disable": "Medium",
+        "acct_delete": "Medium",
+        "acct_pwd_reset": "Low",
+        "acct_detach": "Low"
+      },
+      "default": "Informational"
+    },
+    {
+      "_comment": "login_success com is_suspicious=true: o Google deixou entrar mas marcou o login como suspeito. Continua Logon/Success; sobe a severidade e vira alerta.",
+      "target": "normalized.severity_id",
+      "const": 4,
+      "when": {
+        "equals": {
+          "source": "event.params.is_suspicious",
+          "value": true
+        }
+      }
+    },
+    {
+      "target": "normalized.severity",
+      "const": "High",
+      "when": {
+        "equals": {
+          "source": "event.params.is_suspicious",
+          "value": true
+        }
+      }
+    },
+    {
+      "target": "normalized.is_alert",
+      "const": true,
+      "when": {
+        "equals": {
+          "source": "event.params.is_suspicious",
+          "value": true
+        }
+      }
+    },
+    {
+      "_comment": "Workspace registra a acao feita; so login traz resultado explicito.",
+      "target": "normalized.status_id",
+      "source": "(((id.applicationName || '') == 'login' || (id.applicationName || '') == 'saml') && (event.name || '') == 'login_success' && 'logon_ok') || (((id.applicationName || '') == 'login' || (id.applicationName || '') == 'saml') && (event.name || '') == 'login_failure' && 'logon_fail') || ((id.applicationName || '') == 'login' && contains(`[\"login_challenge\", \"login_verification\"]`, (event.name || '')) && 'logon_challenge') || ((id.applicationName || '') == 'login' && contains(`[\"suspicious_login\", \"suspicious_login_less_secure_app\", \"suspicious_programmatic_login\", \"gov_attack_warning\"]`, (event.name || '')) && 'logon_risk') || ((id.applicationName || '') == 'login' && (event.name || '') == 'logout' && 'logoff') || (contains(`[\"account_disabled_generic\", \"account_disabled_spamming\", \"account_disabled_spamming_through_relay\", \"account_disabled_hijacked\", \"account_disabled_password_leak\", \"SUSPEND_USER\"]`, (event.name || '')) && 'acct_disable') || (contains(`[\"2sv_enroll\", \"titanium_enroll\", \"passkey_enrolled\", \"USER_ENROLLED_IN_TWO_STEP_VERIFICATION\", \"SECURITY_KEY_REGISTERED_FOR_USER\"]`, (event.name || '')) && 'acct_mfa_on') || (contains(`[\"2sv_disable\", \"titanium_unenroll\", \"passkey_removed\", \"TURN_OFF_2_STEP_VERIFICATION\", \"UNENROLL_USER_FROM_TITANIUM\", \"UNENROLL_USER_FROM_STRONG_AUTH\", \"REVOKE_SECURITY_KEY\", \"PASSKEY_REVOKED\"]`, (event.name || '')) && 'acct_mfa_off') || ((event.name || '') == 'password_edit' && 'acct_pwd_change') || ((event.name || '') == 'CHANGE_PASSWORD' && 'acct_pwd_reset') || ((event.name || '') == 'CREATE_USER' && 'acct_create') || ((event.name || '') == 'DELETE_USER' && 'acct_delete') || (contains(`[\"UNSUSPEND_USER\", \"UNDELETE_USER\"]`, (event.name || '')) && 'acct_enable') || (contains(`[\"GRANT_ADMIN_PRIVILEGE\", \"ASSIGN_ROLE\", \"GRANT_DELEGATED_ADMIN_PRIVILEGES\"]`, (event.name || '')) && 'acct_attach') || (contains(`[\"REVOKE_ADMIN_PRIVILEGE\", \"UNASSIGN_ROLE\"]`, (event.name || '')) && 'acct_detach') || (contains(`[\"recovery_email_edit\", \"recovery_phone_edit\", \"recovery_secret_qa_edit\"]`, (event.name || '')) && 'acct_other') || ((contains((event.name || ''), 'DELETE') || contains((event.name || ''), 'delete') || contains((event.name || ''), 'REMOVE') || contains((event.name || ''), 'remove') || contains((event.name || ''), 'REVOKE') || contains((event.name || ''), 'revoke') || contains((event.name || ''), 'trash')) && 'api_delete') || ((contains((event.name || ''), 'CREATE') || contains((event.name || ''), 'create') || contains((event.name || ''), 'ADD') || contains((event.name || ''), 'add') || contains((event.name || ''), 'INSERT') || contains((event.name || ''), 'authorize') || contains((event.name || ''), 'upload')) && 'api_create') || ((contains((event.name || ''), 'view') || contains((event.name || ''), 'download') || contains((event.name || ''), 'preview') || contains((event.name || ''), 'print') || contains((event.name || ''), 'EXPORT') || contains((event.name || ''), 'export') || contains((event.name || ''), 'DOWNLOAD') || contains((event.name || ''), 'VIEW') || contains((event.name || ''), 'access')) && 'api_read') || ((contains((event.name || ''), 'CHANGE') || contains((event.name || ''), 'change') || contains((event.name || ''), 'EDIT') || contains((event.name || ''), 'edit') || contains((event.name || ''), 'UPDATE') || contains((event.name || ''), 'update') || contains((event.name || ''), 'SET') || contains((event.name || ''), 'RENAME') || contains((event.name || ''), 'rename') || contains((event.name || ''), 'MOVE') || contains((event.name || ''), 'move') || contains((event.name || ''), 'ENABLE') || contains((event.name || ''), 'DISABLE') || contains((event.name || ''), 'acl')) && 'api_update') || 'api_other'",
+      "value_map": {
+        "logon_ok": 1,
+        "logon_fail": 2,
+        "logon_risk": 0,
+        "logon_challenge": 0
+      },
+      "default": 1
+    },
+    {
+      "target": "normalized.status",
+      "source": "(((id.applicationName || '') == 'login' || (id.applicationName || '') == 'saml') && (event.name || '') == 'login_success' && 'logon_ok') || (((id.applicationName || '') == 'login' || (id.applicationName || '') == 'saml') && (event.name || '') == 'login_failure' && 'logon_fail') || ((id.applicationName || '') == 'login' && contains(`[\"login_challenge\", \"login_verification\"]`, (event.name || '')) && 'logon_challenge') || ((id.applicationName || '') == 'login' && contains(`[\"suspicious_login\", \"suspicious_login_less_secure_app\", \"suspicious_programmatic_login\", \"gov_attack_warning\"]`, (event.name || '')) && 'logon_risk') || ((id.applicationName || '') == 'login' && (event.name || '') == 'logout' && 'logoff') || (contains(`[\"account_disabled_generic\", \"account_disabled_spamming\", \"account_disabled_spamming_through_relay\", \"account_disabled_hijacked\", \"account_disabled_password_leak\", \"SUSPEND_USER\"]`, (event.name || '')) && 'acct_disable') || (contains(`[\"2sv_enroll\", \"titanium_enroll\", \"passkey_enrolled\", \"USER_ENROLLED_IN_TWO_STEP_VERIFICATION\", \"SECURITY_KEY_REGISTERED_FOR_USER\"]`, (event.name || '')) && 'acct_mfa_on') || (contains(`[\"2sv_disable\", \"titanium_unenroll\", \"passkey_removed\", \"TURN_OFF_2_STEP_VERIFICATION\", \"UNENROLL_USER_FROM_TITANIUM\", \"UNENROLL_USER_FROM_STRONG_AUTH\", \"REVOKE_SECURITY_KEY\", \"PASSKEY_REVOKED\"]`, (event.name || '')) && 'acct_mfa_off') || ((event.name || '') == 'password_edit' && 'acct_pwd_change') || ((event.name || '') == 'CHANGE_PASSWORD' && 'acct_pwd_reset') || ((event.name || '') == 'CREATE_USER' && 'acct_create') || ((event.name || '') == 'DELETE_USER' && 'acct_delete') || (contains(`[\"UNSUSPEND_USER\", \"UNDELETE_USER\"]`, (event.name || '')) && 'acct_enable') || (contains(`[\"GRANT_ADMIN_PRIVILEGE\", \"ASSIGN_ROLE\", \"GRANT_DELEGATED_ADMIN_PRIVILEGES\"]`, (event.name || '')) && 'acct_attach') || (contains(`[\"REVOKE_ADMIN_PRIVILEGE\", \"UNASSIGN_ROLE\"]`, (event.name || '')) && 'acct_detach') || (contains(`[\"recovery_email_edit\", \"recovery_phone_edit\", \"recovery_secret_qa_edit\"]`, (event.name || '')) && 'acct_other') || ((contains((event.name || ''), 'DELETE') || contains((event.name || ''), 'delete') || contains((event.name || ''), 'REMOVE') || contains((event.name || ''), 'remove') || contains((event.name || ''), 'REVOKE') || contains((event.name || ''), 'revoke') || contains((event.name || ''), 'trash')) && 'api_delete') || ((contains((event.name || ''), 'CREATE') || contains((event.name || ''), 'create') || contains((event.name || ''), 'ADD') || contains((event.name || ''), 'add') || contains((event.name || ''), 'INSERT') || contains((event.name || ''), 'authorize') || contains((event.name || ''), 'upload')) && 'api_create') || ((contains((event.name || ''), 'view') || contains((event.name || ''), 'download') || contains((event.name || ''), 'preview') || contains((event.name || ''), 'print') || contains((event.name || ''), 'EXPORT') || contains((event.name || ''), 'export') || contains((event.name || ''), 'DOWNLOAD') || contains((event.name || ''), 'VIEW') || contains((event.name || ''), 'access')) && 'api_read') || ((contains((event.name || ''), 'CHANGE') || contains((event.name || ''), 'change') || contains((event.name || ''), 'EDIT') || contains((event.name || ''), 'edit') || contains((event.name || ''), 'UPDATE') || contains((event.name || ''), 'update') || contains((event.name || ''), 'SET') || contains((event.name || ''), 'RENAME') || contains((event.name || ''), 'rename') || contains((event.name || ''), 'MOVE') || contains((event.name || ''), 'move') || contains((event.name || ''), 'ENABLE') || contains((event.name || ''), 'DISABLE') || contains((event.name || ''), 'acl')) && 'api_update') || 'api_other'",
+      "value_map": {
+        "logon_ok": "Success",
+        "logon_fail": "Failure",
+        "logon_risk": "Unknown",
+        "logon_challenge": "Unknown"
+      },
+      "default": "Success"
+    },
+    {
+      "_comment": "Desafio de login (2SV, captcha): o resultado vem em login_challenge_status.",
+      "target": "normalized.status_id",
+      "source": "event.params.login_challenge_status",
+      "value_map": {
+        "Challenge Passed": 1,
+        "Challenge Failed": 2
+      },
+      "default": 0,
+      "when": {
+        "equals": {
+          "source": "(((id.applicationName || '') == 'login' || (id.applicationName || '') == 'saml') && (event.name || '') == 'login_success' && 'logon_ok') || (((id.applicationName || '') == 'login' || (id.applicationName || '') == 'saml') && (event.name || '') == 'login_failure' && 'logon_fail') || ((id.applicationName || '') == 'login' && contains(`[\"login_challenge\", \"login_verification\"]`, (event.name || '')) && 'logon_challenge') || ((id.applicationName || '') == 'login' && contains(`[\"suspicious_login\", \"suspicious_login_less_secure_app\", \"suspicious_programmatic_login\", \"gov_attack_warning\"]`, (event.name || '')) && 'logon_risk') || ((id.applicationName || '') == 'login' && (event.name || '') == 'logout' && 'logoff') || (contains(`[\"account_disabled_generic\", \"account_disabled_spamming\", \"account_disabled_spamming_through_relay\", \"account_disabled_hijacked\", \"account_disabled_password_leak\", \"SUSPEND_USER\"]`, (event.name || '')) && 'acct_disable') || (contains(`[\"2sv_enroll\", \"titanium_enroll\", \"passkey_enrolled\", \"USER_ENROLLED_IN_TWO_STEP_VERIFICATION\", \"SECURITY_KEY_REGISTERED_FOR_USER\"]`, (event.name || '')) && 'acct_mfa_on') || (contains(`[\"2sv_disable\", \"titanium_unenroll\", \"passkey_removed\", \"TURN_OFF_2_STEP_VERIFICATION\", \"UNENROLL_USER_FROM_TITANIUM\", \"UNENROLL_USER_FROM_STRONG_AUTH\", \"REVOKE_SECURITY_KEY\", \"PASSKEY_REVOKED\"]`, (event.name || '')) && 'acct_mfa_off') || ((event.name || '') == 'password_edit' && 'acct_pwd_change') || ((event.name || '') == 'CHANGE_PASSWORD' && 'acct_pwd_reset') || ((event.name || '') == 'CREATE_USER' && 'acct_create') || ((event.name || '') == 'DELETE_USER' && 'acct_delete') || (contains(`[\"UNSUSPEND_USER\", \"UNDELETE_USER\"]`, (event.name || '')) && 'acct_enable') || (contains(`[\"GRANT_ADMIN_PRIVILEGE\", \"ASSIGN_ROLE\", \"GRANT_DELEGATED_ADMIN_PRIVILEGES\"]`, (event.name || '')) && 'acct_attach') || (contains(`[\"REVOKE_ADMIN_PRIVILEGE\", \"UNASSIGN_ROLE\"]`, (event.name || '')) && 'acct_detach') || (contains(`[\"recovery_email_edit\", \"recovery_phone_edit\", \"recovery_secret_qa_edit\"]`, (event.name || '')) && 'acct_other') || ((contains((event.name || ''), 'DELETE') || contains((event.name || ''), 'delete') || contains((event.name || ''), 'REMOVE') || contains((event.name || ''), 'remove') || contains((event.name || ''), 'REVOKE') || contains((event.name || ''), 'revoke') || contains((event.name || ''), 'trash')) && 'api_delete') || ((contains((event.name || ''), 'CREATE') || contains((event.name || ''), 'create') || contains((event.name || ''), 'ADD') || contains((event.name || ''), 'add') || contains((event.name || ''), 'INSERT') || contains((event.name || ''), 'authorize') || contains((event.name || ''), 'upload')) && 'api_create') || ((contains((event.name || ''), 'view') || contains((event.name || ''), 'download') || contains((event.name || ''), 'preview') || contains((event.name || ''), 'print') || contains((event.name || ''), 'EXPORT') || contains((event.name || ''), 'export') || contains((event.name || ''), 'DOWNLOAD') || contains((event.name || ''), 'VIEW') || contains((event.name || ''), 'access')) && 'api_read') || ((contains((event.name || ''), 'CHANGE') || contains((event.name || ''), 'change') || contains((event.name || ''), 'EDIT') || contains((event.name || ''), 'edit') || contains((event.name || ''), 'UPDATE') || contains((event.name || ''), 'update') || contains((event.name || ''), 'SET') || contains((event.name || ''), 'RENAME') || contains((event.name || ''), 'rename') || contains((event.name || ''), 'MOVE') || contains((event.name || ''), 'move') || contains((event.name || ''), 'ENABLE') || contains((event.name || ''), 'DISABLE') || contains((event.name || ''), 'acl')) && 'api_update') || 'api_other'",
+          "value": "logon_challenge"
+        }
+      }
+    },
+    {
+      "target": "normalized.status",
+      "source": "event.params.login_challenge_status",
+      "value_map": {
+        "Challenge Passed": "Success",
+        "Challenge Failed": "Failure"
+      },
+      "default": "Unknown",
+      "when": {
+        "equals": {
+          "source": "(((id.applicationName || '') == 'login' || (id.applicationName || '') == 'saml') && (event.name || '') == 'login_success' && 'logon_ok') || (((id.applicationName || '') == 'login' || (id.applicationName || '') == 'saml') && (event.name || '') == 'login_failure' && 'logon_fail') || ((id.applicationName || '') == 'login' && contains(`[\"login_challenge\", \"login_verification\"]`, (event.name || '')) && 'logon_challenge') || ((id.applicationName || '') == 'login' && contains(`[\"suspicious_login\", \"suspicious_login_less_secure_app\", \"suspicious_programmatic_login\", \"gov_attack_warning\"]`, (event.name || '')) && 'logon_risk') || ((id.applicationName || '') == 'login' && (event.name || '') == 'logout' && 'logoff') || (contains(`[\"account_disabled_generic\", \"account_disabled_spamming\", \"account_disabled_spamming_through_relay\", \"account_disabled_hijacked\", \"account_disabled_password_leak\", \"SUSPEND_USER\"]`, (event.name || '')) && 'acct_disable') || (contains(`[\"2sv_enroll\", \"titanium_enroll\", \"passkey_enrolled\", \"USER_ENROLLED_IN_TWO_STEP_VERIFICATION\", \"SECURITY_KEY_REGISTERED_FOR_USER\"]`, (event.name || '')) && 'acct_mfa_on') || (contains(`[\"2sv_disable\", \"titanium_unenroll\", \"passkey_removed\", \"TURN_OFF_2_STEP_VERIFICATION\", \"UNENROLL_USER_FROM_TITANIUM\", \"UNENROLL_USER_FROM_STRONG_AUTH\", \"REVOKE_SECURITY_KEY\", \"PASSKEY_REVOKED\"]`, (event.name || '')) && 'acct_mfa_off') || ((event.name || '') == 'password_edit' && 'acct_pwd_change') || ((event.name || '') == 'CHANGE_PASSWORD' && 'acct_pwd_reset') || ((event.name || '') == 'CREATE_USER' && 'acct_create') || ((event.name || '') == 'DELETE_USER' && 'acct_delete') || (contains(`[\"UNSUSPEND_USER\", \"UNDELETE_USER\"]`, (event.name || '')) && 'acct_enable') || (contains(`[\"GRANT_ADMIN_PRIVILEGE\", \"ASSIGN_ROLE\", \"GRANT_DELEGATED_ADMIN_PRIVILEGES\"]`, (event.name || '')) && 'acct_attach') || (contains(`[\"REVOKE_ADMIN_PRIVILEGE\", \"UNASSIGN_ROLE\"]`, (event.name || '')) && 'acct_detach') || (contains(`[\"recovery_email_edit\", \"recovery_phone_edit\", \"recovery_secret_qa_edit\"]`, (event.name || '')) && 'acct_other') || ((contains((event.name || ''), 'DELETE') || contains((event.name || ''), 'delete') || contains((event.name || ''), 'REMOVE') || contains((event.name || ''), 'remove') || contains((event.name || ''), 'REVOKE') || contains((event.name || ''), 'revoke') || contains((event.name || ''), 'trash')) && 'api_delete') || ((contains((event.name || ''), 'CREATE') || contains((event.name || ''), 'create') || contains((event.name || ''), 'ADD') || contains((event.name || ''), 'add') || contains((event.name || ''), 'INSERT') || contains((event.name || ''), 'authorize') || contains((event.name || ''), 'upload')) && 'api_create') || ((contains((event.name || ''), 'view') || contains((event.name || ''), 'download') || contains((event.name || ''), 'preview') || contains((event.name || ''), 'print') || contains((event.name || ''), 'EXPORT') || contains((event.name || ''), 'export') || contains((event.name || ''), 'DOWNLOAD') || contains((event.name || ''), 'VIEW') || contains((event.name || ''), 'access')) && 'api_read') || ((contains((event.name || ''), 'CHANGE') || contains((event.name || ''), 'change') || contains((event.name || ''), 'EDIT') || contains((event.name || ''), 'edit') || contains((event.name || ''), 'UPDATE') || contains((event.name || ''), 'update') || contains((event.name || ''), 'SET') || contains((event.name || ''), 'RENAME') || contains((event.name || ''), 'rename') || contains((event.name || ''), 'MOVE') || contains((event.name || ''), 'move') || contains((event.name || ''), 'ENABLE') || contains((event.name || ''), 'DISABLE') || contains((event.name || ''), 'acl')) && 'api_update') || 'api_other'",
+          "value": "logon_challenge"
+        }
+      }
+    },
+    {
+      "target": "normalized.status_detail",
+      "source": "event.params.login_failure_type || event.params.login_challenge_status",
+      "default": null
+    },
+    {
+      "target": "normalized.actor.user.email_addr",
+      "source": "actor.email",
+      "default": null
+    },
+    {
+      "target": "normalized.actor.user.uid",
+      "source": "actor.profileId",
+      "default": null
+    },
+    {
+      "target": "normalized.actor.user.type",
+      "source": "actor.callerType",
+      "default": null
+    },
+    {
+      "_comment": "Consentimento OAuth (token): o app que recebeu o acesso.",
+      "target": "normalized.actor.app_name",
+      "source": "event.params.app_name",
+      "default": null
+    },
+    {
+      "target": "normalized.actor.app_uid",
+      "source": "event.params.client_id || actor.key",
+      "default": null
+    },
+    {
+      "_comment": "Conta afetada: a do evento de admin (USER_EMAIL), a do login/2SV (affected_email_address) ou o proprio ator.",
+      "target": "normalized.user.email_addr",
+      "source": "event.params.USER_EMAIL || event.params.affected_email_address || actor.email",
+      "default": null
+    },
+    {
+      "target": "normalized.src_endpoint.ip",
+      "source": "ipAddress",
+      "default": null
+    },
+    {
+      "target": "normalized.auth_protocol",
+      "source": "event.params.login_type",
+      "default": null
+    },
+    {
+      "_comment": "is_second_factor (login_verification) ou um metodo de desafio alem de senha/recaptcha (login_challenge_method, multiValue) = MFA usado. So escreve em evento que traz um dos dois.",
+      "target": "normalized.is_mfa",
+      "source": "event.params.is_second_factor == `true` || length(to_array(event.params.login_challenge_method || `[]`)[?@ != 'password' && @ != 'recaptcha' && @ != 'none' && @ != 'unknown']) > `0`",
+      "when": {
+        "exists": "event.params.login_challenge_method || event.params.is_second_factor"
+      }
+    },
+    {
+      "target": "normalized.unmapped.login_challenge_method",
+      "source": "to_array(event.params.login_challenge_method)",
+      "when": {
+        "exists": "event.params.login_challenge_method"
+      }
+    },
+    {
+      "_comment": "Escopos concedidos a um app OAuth (token/authorize): e o que separa consentimento legitimo de phishing de consentimento (mail.google.com, drive, admin.*).",
+      "target": "normalized.unmapped.oauth_scopes",
+      "source": "to_array(event.params.scope)",
+      "when": {
+        "exists": "event.params.scope"
+      }
+    },
+    {
+      "target": "normalized.service.name",
+      "source": "event.params.application_name || id.applicationName",
+      "default": null
+    },
+    {
+      "target": "normalized.api.operation",
+      "source": "event.name",
+      "default": null
+    },
+    {
+      "target": "normalized.api.service.name",
+      "source": "id.applicationName",
+      "default": null
+    },
+    {
+      "target": "normalized.resources",
+      "source": "event.params.doc_id && [{uid: event.params.doc_id, name: event.params.doc_title, type: event.params.doc_type, owner: {email_addr: event.params.owner}}]",
+      "default": null
+    },
+    {
+      "target": "normalized.message",
+      "source": "join('/', [(id.applicationName || ''), (event.name || '')])",
+      "default": null
+    },
+    {
+      "target": "normalized.time",
+      "source": "id.time",
+      "type_cast": "iso_to_epoch",
+      "required": true
+    },
+    {
+      "target": "normalized.metadata.version",
+      "const": "1.8.0"
+    },
+    {
+      "target": "normalized.metadata.product.name",
+      "const": "Google Workspace"
+    },
+    {
+      "target": "normalized.metadata.product.vendor_name",
+      "const": "Google"
+    },
+    {
+      "target": "normalized.metadata.product.feature.name",
+      "source": "id.applicationName",
+      "default": null
+    },
+    {
+      "target": "normalized.metadata.uid",
+      "source": "id.uniqueQualifier",
+      "type_cast": "to_str",
+      "default": null
+    },
+    {
+      "target": "normalized.metadata.log_name",
+      "source": "id.applicationName",
+      "default": null
+    },
+    {
+      "target": "normalized.metadata.event_code",
+      "source": "event.name",
+      "default": null
+    },
+    {
+      "target": "normalized.cloud.provider",
+      "const": "Google Workspace"
+    },
+    {
+      "target": "normalized.cloud.org.uid",
+      "source": "id.customerId",
+      "default": null
+    },
+    {
+      "target": "normalized.observables",
+      "kind": "array_builder",
+      "items": [
+        {
+          "name": "actor_email",
+          "type": "Email Address",
+          "type_id": 5,
+          "source": "actor.email",
+          "skip_null": true
+        },
+        {
+          "name": "user_email",
+          "type": "Email Address",
+          "type_id": 5,
+          "source": "event.params.USER_EMAIL || event.params.affected_email_address || actor.email",
+          "skip_null": true
+        },
+        {
+          "name": "src_ip",
+          "type": "IP Address",
+          "type_id": 2,
+          "source": "ipAddress",
+          "skip_null": true
+        }
+      ],
+      "skip_null": true,
+      "dedup_by": [
+        "value"
+      ]
+    }
+  ],
+  "raw_reduction": [
+    {
+      "drop_nulls": true
+    }
+  ]
+}

@@ -1,0 +1,197 @@
+{
+  "_comment": [
+    "Google Workspace Alert Center (alerts.list v1beta1) -> Detection Finding (2004).",
+    "Alertas de conta (senha vazada, login suspeito) trazem data.email e data.loginDetails[] -> observables."
+  ],
+  "rules": [
+    {
+      "target": "normalized.class_uid",
+      "const": 2004,
+      "required": true
+    },
+    {
+      "target": "normalized.class_name",
+      "const": "Detection Finding"
+    },
+    {
+      "target": "normalized.category_uid",
+      "const": 2,
+      "required": true
+    },
+    {
+      "target": "normalized.category_name",
+      "const": "Findings"
+    },
+    {
+      "_comment": "Cada alerta e lido UMA vez, na criacao (janela por createTime): Create.",
+      "target": "normalized.activity_id",
+      "const": 1,
+      "required": true
+    },
+    {
+      "target": "normalized.activity_name",
+      "const": "Create"
+    },
+    {
+      "target": "normalized.type_uid",
+      "const": 200401,
+      "required": true
+    },
+    {
+      "_comment": "metadata.severity do Alert Center (HIGH/MEDIUM/LOW); ausente = Unknown.",
+      "target": "normalized.severity_id",
+      "source": "metadata.severity",
+      "value_map": {
+        "HIGH": 4,
+        "MEDIUM": 3,
+        "LOW": 2
+      },
+      "default": 0,
+      "required": true
+    },
+    {
+      "target": "normalized.severity",
+      "source": "metadata.severity",
+      "value_map": {
+        "HIGH": "High",
+        "MEDIUM": "Medium",
+        "LOW": "Low"
+      },
+      "default": "Unknown"
+    },
+    {
+      "target": "normalized.status_id",
+      "source": "metadata.status",
+      "value_map": {
+        "NOT_STARTED": 1,
+        "IN_PROGRESS": 2,
+        "CLOSED": 4
+      },
+      "default": 1
+    },
+    {
+      "target": "normalized.status",
+      "source": "metadata.status",
+      "value_map": {
+        "NOT_STARTED": "New",
+        "IN_PROGRESS": "In Progress",
+        "CLOSED": "Resolved"
+      },
+      "default": "New"
+    },
+    {
+      "target": "normalized.finding_info.uid",
+      "source": "alertId",
+      "required": true
+    },
+    {
+      "target": "normalized.finding_info.title",
+      "source": "type",
+      "default": null
+    },
+    {
+      "target": "normalized.finding_info.types",
+      "source": "[type, source][?@]",
+      "default": null
+    },
+    {
+      "target": "normalized.finding_info.created_time",
+      "source": "createTime",
+      "type_cast": "iso_to_epoch",
+      "default": null
+    },
+    {
+      "target": "normalized.finding_info.src_url",
+      "source": "securityInvestigationToolLink",
+      "default": null
+    },
+    {
+      "target": "normalized.message",
+      "source": "type",
+      "default": null
+    },
+    {
+      "target": "normalized.time",
+      "source": "startTime || createTime",
+      "type_cast": "iso_to_epoch",
+      "required": true
+    },
+    {
+      "target": "normalized.start_time",
+      "source": "startTime",
+      "type_cast": "iso_to_epoch",
+      "default": null
+    },
+    {
+      "target": "normalized.end_time",
+      "source": "endTime",
+      "type_cast": "iso_to_epoch",
+      "default": null
+    },
+    {
+      "target": "normalized.metadata.version",
+      "const": "1.8.0"
+    },
+    {
+      "target": "normalized.metadata.product.name",
+      "const": "Google Workspace Alert Center"
+    },
+    {
+      "target": "normalized.metadata.product.vendor_name",
+      "const": "Google"
+    },
+    {
+      "target": "normalized.metadata.uid",
+      "source": "alertId",
+      "default": null
+    },
+    {
+      "target": "normalized.metadata.log_name",
+      "source": "source",
+      "default": null
+    },
+    {
+      "target": "normalized.metadata.event_code",
+      "source": "type",
+      "default": null
+    },
+    {
+      "target": "normalized.cloud.provider",
+      "const": "Google Workspace"
+    },
+    {
+      "target": "normalized.cloud.org.uid",
+      "source": "customerId",
+      "default": null
+    },
+    {
+      "target": "normalized.observables",
+      "kind": "array_builder",
+      "items": [
+        {
+          "name": "user_email",
+          "type": "Email Address",
+          "type_id": 5,
+          "source": "data.email",
+          "skip_null": true
+        },
+        {
+          "name": "src_ip",
+          "type": "IP Address",
+          "type_id": 2,
+          "source": "data.loginDetails[0].ipAddress",
+          "skip_null": true
+        }
+      ],
+      "skip_null": true,
+      "dedup_by": [
+        "value"
+      ]
+    }
+  ],
+  "raw_reduction": [
+    {
+      "drop_nulls": true
+    }
+  ]
+}

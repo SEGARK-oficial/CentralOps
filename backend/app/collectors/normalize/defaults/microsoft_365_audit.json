@@ -1,0 +1,473 @@
+{
+  "_comment": [
+    "Office 365 Management Activity API (schema comum) -> Authentication (3002),",
+    "Account Change (3001) ou API Activity (6003), decidido POR EVENTO.",
+    "CreationTime vem sem fuso: e UTC (o iso_to_epoch le naive como UTC)."
+  ],
+  "rules": [
+    {
+      "_comment": [
+        "Classe, categoria, atividade e type_uid saem da MESMA chave de tipo sobre",
+        "Operation: logon do Entra -> Authentication (3002); operacao de conta/papel do",
+        "diretorio -> Account Change (3001); o resto -> API Activity (6003) pelo verbo",
+        "da operacao (FileDownloaded -> Read, New-InboxRule -> Create, Set-Mailbox ->",
+        "Update, HardDelete -> Delete). Operation ausente cai em 'other'."
+      ],
+      "target": "normalized.class_uid",
+      "source": "((Operation || '') == 'UserLoggedIn' && 'login_ok') || ((Operation || '') == 'UserLoginFailed' && 'login_fail') || (contains(['Add user.'], (Operation || '')) && 'acct_create') || (contains(['Delete user.', 'Hard delete user.'], (Operation || '')) && 'acct_delete') || (contains(['Change user password.'], (Operation || '')) && 'acct_pwd_change') || (contains(['Reset user password.', 'Set force change user password.'], (Operation || '')) && 'acct_pwd_reset') || (contains(['Disable account.'], (Operation || '')) && 'acct_disable') || (contains(['Enable account.'], (Operation || '')) && 'acct_enable') || (contains(['Add member to role.', 'Add eligible member to role.'], (Operation || '')) && 'acct_attach') || (contains(['Remove member from role.', 'Remove eligible member from role.'], (Operation || '')) && 'acct_detach') || (contains(['Update user.'], (Operation || '')) && 'acct_update') || ((contains((Operation || ''), 'Delete') || contains((Operation || ''), 'Removed') || starts_with((Operation || ''), 'Remove-') || starts_with((Operation || ''), 'Remove ')) && 'delete') || ((contains((Operation || ''), 'Accessed') || contains((Operation || ''), 'Downloaded') || contains((Operation || ''), 'Previewed') || contains((Operation || ''), 'Viewed') || starts_with((Operation || ''), 'Get-') || starts_with((Operation || ''), 'Search') || contains((Operation || ''), 'Exported')) && 'read') || ((starts_with((Operation || ''), 'New-') || starts_with((Operation || ''), 'Add-') || starts_with((Operation || ''), 'Add ') || contains((Operation || ''), 'Created') || contains((Operation || ''), 'Uploaded') || contains((Operation || ''), 'Added') || starts_with((Operation || ''), 'Create')) && 'create') || ((starts_with((Operation || ''), 'Set-') || starts_with((Operation || ''), 'Update') || starts_with((Operation || ''), 'Enable-') || starts_with((Operation || ''), 'Disable-') || contains((Operation || ''), 'Modified') || contains((Operation || ''), 'Renamed') || contains((Operation || ''), 'Moved') || contains((Operation || ''), 'Updated') || contains((Operation || ''), 'Changed')) && 'update') || 'other'",
+      "value_map": {
+        "login_ok": 3002,
+        "login_fail": 3002,
+        "acct_create": 3001,
+        "acct_enable": 3001,
+        "acct_pwd_change": 3001,
+        "acct_pwd_reset": 3001,
+        "acct_disable": 3001,
+        "acct_delete": 3001,
+        "acct_attach": 3001,
+        "acct_detach": 3001,
+        "acct_update": 3001,
+        "create": 6003,
+        "read": 6003,
+        "update": 6003,
+        "delete": 6003,
+        "other": 6003
+      },
+      "default": 6003,
+      "required": true
+    },
+    {
+      "target": "normalized.class_name",
+      "source": "((Operation || '') == 'UserLoggedIn' && 'login_ok') || ((Operation || '') == 'UserLoginFailed' && 'login_fail') || (contains(['Add user.'], (Operation || '')) && 'acct_create') || (contains(['Delete user.', 'Hard delete user.'], (Operation || '')) && 'acct_delete') || (contains(['Change user password.'], (Operation || '')) && 'acct_pwd_change') || (contains(['Reset user password.', 'Set force change user password.'], (Operation || '')) && 'acct_pwd_reset') || (contains(['Disable account.'], (Operation || '')) && 'acct_disable') || (contains(['Enable account.'], (Operation || '')) && 'acct_enable') || (contains(['Add member to role.', 'Add eligible member to role.'], (Operation || '')) && 'acct_attach') || (contains(['Remove member from role.', 'Remove eligible member from role.'], (Operation || '')) && 'acct_detach') || (contains(['Update user.'], (Operation || '')) && 'acct_update') || ((contains((Operation || ''), 'Delete') || contains((Operation || ''), 'Removed') || starts_with((Operation || ''), 'Remove-') || starts_with((Operation || ''), 'Remove ')) && 'delete') || ((contains((Operation || ''), 'Accessed') || contains((Operation || ''), 'Downloaded') || contains((Operation || ''), 'Previewed') || contains((Operation || ''), 'Viewed') || starts_with((Operation || ''), 'Get-') || starts_with((Operation || ''), 'Search') || contains((Operation || ''), 'Exported')) && 'read') || ((starts_with((Operation || ''), 'New-') || starts_with((Operation || ''), 'Add-') || starts_with((Operation || ''), 'Add ') || contains((Operation || ''), 'Created') || contains((Operation || ''), 'Uploaded') || contains((Operation || ''), 'Added') || starts_with((Operation || ''), 'Create')) && 'create') || ((starts_with((Operation || ''), 'Set-') || starts_with((Operation || ''), 'Update') || starts_with((Operation || ''), 'Enable-') || starts_with((Operation || ''), 'Disable-') || contains((Operation || ''), 'Modified') || contains((Operation || ''), 'Renamed') || contains((Operation || ''), 'Moved') || contains((Operation || ''), 'Updated') || contains((Operation || ''), 'Changed')) && 'update') || 'other'",
+      "value_map": {
+        "login_ok": "Authentication",
+        "login_fail": "Authentication",
+        "acct_create": "Account Change",
+        "acct_enable": "Account Change",
+        "acct_pwd_change": "Account Change",
+        "acct_pwd_reset": "Account Change",
+        "acct_disable": "Account Change",
+        "acct_delete": "Account Change",
+        "acct_attach": "Account Change",
+        "acct_detach": "Account Change",
+        "acct_update": "Account Change",
+        "create": "API Activity",
+        "read": "API Activity",
+        "update": "API Activity",
+        "delete": "API Activity",
+        "other": "API Activity"
+      },
+      "default": "API Activity"
+    },
+    {
+      "target": "normalized.category_uid",
+      "source": "((Operation || '') == 'UserLoggedIn' && 'login_ok') || ((Operation || '') == 'UserLoginFailed' && 'login_fail') || (contains(['Add user.'], (Operation || '')) && 'acct_create') || (contains(['Delete user.', 'Hard delete user.'], (Operation || '')) && 'acct_delete') || (contains(['Change user password.'], (Operation || '')) && 'acct_pwd_change') || (contains(['Reset user password.', 'Set force change user password.'], (Operation || '')) && 'acct_pwd_reset') || (contains(['Disable account.'], (Operation || '')) && 'acct_disable') || (contains(['Enable account.'], (Operation || '')) && 'acct_enable') || (contains(['Add member to role.', 'Add eligible member to role.'], (Operation || '')) && 'acct_attach') || (contains(['Remove member from role.', 'Remove eligible member from role.'], (Operation || '')) && 'acct_detach') || (contains(['Update user.'], (Operation || '')) && 'acct_update') || ((contains((Operation || ''), 'Delete') || contains((Operation || ''), 'Removed') || starts_with((Operation || ''), 'Remove-') || starts_with((Operation || ''), 'Remove ')) && 'delete') || ((contains((Operation || ''), 'Accessed') || contains((Operation || ''), 'Downloaded') || contains((Operation || ''), 'Previewed') || contains((Operation || ''), 'Viewed') || starts_with((Operation || ''), 'Get-') || starts_with((Operation || ''), 'Search') || contains((Operation || ''), 'Exported')) && 'read') || ((starts_with((Operation || ''), 'New-') || starts_with((Operation || ''), 'Add-') || starts_with((Operation || ''), 'Add ') || contains((Operation || ''), 'Created') || contains((Operation || ''), 'Uploaded') || contains((Operation || ''), 'Added') || starts_with((Operation || ''), 'Create')) && 'create') || ((starts_with((Operation || ''), 'Set-') || starts_with((Operation || ''), 'Update') || starts_with((Operation || ''), 'Enable-') || starts_with((Operation || ''), 'Disable-') || contains((Operation || ''), 'Modified') || contains((Operation || ''), 'Renamed') || contains((Operation || ''), 'Moved') || contains((Operation || ''), 'Updated') || contains((Operation || ''), 'Changed')) && 'update') || 'other'",
+      "value_map": {
+        "login_ok": 3,
+        "login_fail": 3,
+        "acct_create": 3,
+        "acct_enable": 3,
+        "acct_pwd_change": 3,
+        "acct_pwd_reset": 3,
+        "acct_disable": 3,
+        "acct_delete": 3,
+        "acct_attach": 3,
+        "acct_detach": 3,
+        "acct_update": 3,
+        "create": 6,
+        "read": 6,
+        "update": 6,
+        "delete": 6,
+        "other": 6
+      },
+      "default": 6,
+      "required": true
+    },
+    {
+      "target": "normalized.category_name",
+      "source": "((Operation || '') == 'UserLoggedIn' && 'login_ok') || ((Operation || '') == 'UserLoginFailed' && 'login_fail') || (contains(['Add user.'], (Operation || '')) && 'acct_create') || (contains(['Delete user.', 'Hard delete user.'], (Operation || '')) && 'acct_delete') || (contains(['Change user password.'], (Operation || '')) && 'acct_pwd_change') || (contains(['Reset user password.', 'Set force change user password.'], (Operation || '')) && 'acct_pwd_reset') || (contains(['Disable account.'], (Operation || '')) && 'acct_disable') || (contains(['Enable account.'], (Operation || '')) && 'acct_enable') || (contains(['Add member to role.', 'Add eligible member to role.'], (Operation || '')) && 'acct_attach') || (contains(['Remove member from role.', 'Remove eligible member from role.'], (Operation || '')) && 'acct_detach') || (contains(['Update user.'], (Operation || '')) && 'acct_update') || ((contains((Operation || ''), 'Delete') || contains((Operation || ''), 'Removed') || starts_with((Operation || ''), 'Remove-') || starts_with((Operation || ''), 'Remove ')) && 'delete') || ((contains((Operation || ''), 'Accessed') || contains((Operation || ''), 'Downloaded') || contains((Operation || ''), 'Previewed') || contains((Operation || ''), 'Viewed') || starts_with((Operation || ''), 'Get-') || starts_with((Operation || ''), 'Search') || contains((Operation || ''), 'Exported')) && 'read') || ((starts_with((Operation || ''), 'New-') || starts_with((Operation || ''), 'Add-') || starts_with((Operation || ''), 'Add ') || contains((Operation || ''), 'Created') || contains((Operation || ''), 'Uploaded') || contains((Operation || ''), 'Added') || starts_with((Operation || ''), 'Create')) && 'create') || ((starts_with((Operation || ''), 'Set-') || starts_with((Operation || ''), 'Update') || starts_with((Operation || ''), 'Enable-') || starts_with((Operation || ''), 'Disable-') || contains((Operation || ''), 'Modified') || contains((Operation || ''), 'Renamed') || contains((Operation || ''), 'Moved') || contains((Operation || ''), 'Updated') || contains((Operation || ''), 'Changed')) && 'update') || 'other'",
+      "value_map": {
+        "login_ok": "Identity & Access Management",
+        "login_fail": "Identity & Access Management",
+        "acct_create": "Identity & Access Management",
+        "acct_enable": "Identity & Access Management",
+        "acct_pwd_change": "Identity & Access Management",
+        "acct_pwd_reset": "Identity & Access Management",
+        "acct_disable": "Identity & Access Management",
+        "acct_delete": "Identity & Access Management",
+        "acct_attach": "Identity & Access Management",
+        "acct_detach": "Identity & Access Management",
+        "acct_update": "Identity & Access Management",
+        "create": "Application Activity",
+        "read": "Application Activity",
+        "update": "Application Activity",
+        "delete": "Application Activity",
+        "other": "Application Activity"
+      },
+      "default": "Application Activity"
+    },
+    {
+      "target": "normalized.activity_id",
+      "source": "((Operation || '') == 'UserLoggedIn' && 'login_ok') || ((Operation || '') == 'UserLoginFailed' && 'login_fail') || (contains(['Add user.'], (Operation || '')) && 'acct_create') || (contains(['Delete user.', 'Hard delete user.'], (Operation || '')) && 'acct_delete') || (contains(['Change user password.'], (Operation || '')) && 'acct_pwd_change') || (contains(['Reset user password.', 'Set force change user password.'], (Operation || '')) && 'acct_pwd_reset') || (contains(['Disable account.'], (Operation || '')) && 'acct_disable') || (contains(['Enable account.'], (Operation || '')) && 'acct_enable') || (contains(['Add member to role.', 'Add eligible member to role.'], (Operation || '')) && 'acct_attach') || (contains(['Remove member from role.', 'Remove eligible member from role.'], (Operation || '')) && 'acct_detach') || (contains(['Update user.'], (Operation || '')) && 'acct_update') || ((contains((Operation || ''), 'Delete') || contains((Operation || ''), 'Removed') || starts_with((Operation || ''), 'Remove-') || starts_with((Operation || ''), 'Remove ')) && 'delete') || ((contains((Operation || ''), 'Accessed') || contains((Operation || ''), 'Downloaded') || contains((Operation || ''), 'Previewed') || contains((Operation || ''), 'Viewed') || starts_with((Operation || ''), 'Get-') || starts_with((Operation || ''), 'Search') || contains((Operation || ''), 'Exported')) && 'read') || ((starts_with((Operation || ''), 'New-') || starts_with((Operation || ''), 'Add-') || starts_with((Operation || ''), 'Add ') || contains((Operation || ''), 'Created') || contains((Operation || ''), 'Uploaded') || contains((Operation || ''), 'Added') || starts_with((Operation || ''), 'Create')) && 'create') || ((starts_with((Operation || ''), 'Set-') || starts_with((Operation || ''), 'Update') || starts_with((Operation || ''), 'Enable-') || starts_with((Operation || ''), 'Disable-') || contains((Operation || ''), 'Modified') || contains((Operation || ''), 'Renamed') || contains((Operation || ''), 'Moved') || contains((Operation || ''), 'Updated') || contains((Operation || ''), 'Changed')) && 'update') || 'other'",
+      "value_map": {
+        "login_ok": 1,
+        "login_fail": 1,
+        "acct_create": 1,
+        "acct_enable": 2,
+        "acct_pwd_change": 3,
+        "acct_pwd_reset": 4,
+        "acct_disable": 5,
+        "acct_delete": 6,
+        "acct_attach": 7,
+        "acct_detach": 8,
+        "acct_update": 99,
+        "create": 1,
+        "read": 2,
+        "update": 3,
+        "delete": 4,
+        "other": 99
+      },
+      "default": 0,
+      "required": true
+    },
+    {
+      "target": "normalized.activity_name",
+      "source": "((Operation || '') == 'UserLoggedIn' && 'login_ok') || ((Operation || '') == 'UserLoginFailed' && 'login_fail') || (contains(['Add user.'], (Operation || '')) && 'acct_create') || (contains(['Delete user.', 'Hard delete user.'], (Operation || '')) && 'acct_delete') || (contains(['Change user password.'], (Operation || '')) && 'acct_pwd_change') || (contains(['Reset user password.', 'Set force change user password.'], (Operation || '')) && 'acct_pwd_reset') || (contains(['Disable account.'], (Operation || '')) && 'acct_disable') || (contains(['Enable account.'], (Operation || '')) && 'acct_enable') || (contains(['Add member to role.', 'Add eligible member to role.'], (Operation || '')) && 'acct_attach') || (contains(['Remove member from role.', 'Remove eligible member from role.'], (Operation || '')) && 'acct_detach') || (contains(['Update user.'], (Operation || '')) && 'acct_update') || ((contains((Operation || ''), 'Delete') || contains((Operation || ''), 'Removed') || starts_with((Operation || ''), 'Remove-') || starts_with((Operation || ''), 'Remove ')) && 'delete') || ((contains((Operation || ''), 'Accessed') || contains((Operation || ''), 'Downloaded') || contains((Operation || ''), 'Previewed') || contains((Operation || ''), 'Viewed') || starts_with((Operation || ''), 'Get-') || starts_with((Operation || ''), 'Search') || contains((Operation || ''), 'Exported')) && 'read') || ((starts_with((Operation || ''), 'New-') || starts_with((Operation || ''), 'Add-') || starts_with((Operation || ''), 'Add ') || contains((Operation || ''), 'Created') || contains((Operation || ''), 'Uploaded') || contains((Operation || ''), 'Added') || starts_with((Operation || ''), 'Create')) && 'create') || ((starts_with((Operation || ''), 'Set-') || starts_with((Operation || ''), 'Update') || starts_with((Operation || ''), 'Enable-') || starts_with((Operation || ''), 'Disable-') || contains((Operation || ''), 'Modified') || contains((Operation || ''), 'Renamed') || contains((Operation || ''), 'Moved') || contains((Operation || ''), 'Updated') || contains((Operation || ''), 'Changed')) && 'update') || 'other'",
+      "value_map": {
+        "login_ok": "Logon",
+        "login_fail": "Logon",
+        "acct_create": "Create",
+        "acct_enable": "Enable",
+        "acct_pwd_change": "Password Change",
+        "acct_pwd_reset": "Password Reset",
+        "acct_disable": "Disable",
+        "acct_delete": "Delete",
+        "acct_attach": "Attach Policy",
+        "acct_detach": "Detach Policy",
+        "acct_update": "Other",
+        "create": "Create",
+        "read": "Read",
+        "update": "Update",
+        "delete": "Delete",
+        "other": "Other"
+      },
+      "default": "Unknown"
+    },
+    {
+      "target": "normalized.type_uid",
+      "source": "((Operation || '') == 'UserLoggedIn' && 'login_ok') || ((Operation || '') == 'UserLoginFailed' && 'login_fail') || (contains(['Add user.'], (Operation || '')) && 'acct_create') || (contains(['Delete user.', 'Hard delete user.'], (Operation || '')) && 'acct_delete') || (contains(['Change user password.'], (Operation || '')) && 'acct_pwd_change') || (contains(['Reset user password.', 'Set force change user password.'], (Operation || '')) && 'acct_pwd_reset') || (contains(['Disable account.'], (Operation || '')) && 'acct_disable') || (contains(['Enable account.'], (Operation || '')) && 'acct_enable') || (contains(['Add member to role.', 'Add eligible member to role.'], (Operation || '')) && 'acct_attach') || (contains(['Remove member from role.', 'Remove eligible member from role.'], (Operation || '')) && 'acct_detach') || (contains(['Update user.'], (Operation || '')) && 'acct_update') || ((contains((Operation || ''), 'Delete') || contains((Operation || ''), 'Removed') || starts_with((Operation || ''), 'Remove-') || starts_with((Operation || ''), 'Remove ')) && 'delete') || ((contains((Operation || ''), 'Accessed') || contains((Operation || ''), 'Downloaded') || contains((Operation || ''), 'Previewed') || contains((Operation || ''), 'Viewed') || starts_with((Operation || ''), 'Get-') || starts_with((Operation || ''), 'Search') || contains((Operation || ''), 'Exported')) && 'read') || ((starts_with((Operation || ''), 'New-') || starts_with((Operation || ''), 'Add-') || starts_with((Operation || ''), 'Add ') || contains((Operation || ''), 'Created') || contains((Operation || ''), 'Uploaded') || contains((Operation || ''), 'Added') || starts_with((Operation || ''), 'Create')) && 'create') || ((starts_with((Operation || ''), 'Set-') || starts_with((Operation || ''), 'Update') || starts_with((Operation || ''), 'Enable-') || starts_with((Operation || ''), 'Disable-') || contains((Operation || ''), 'Modified') || contains((Operation || ''), 'Renamed') || contains((Operation || ''), 'Moved') || contains((Operation || ''), 'Updated') || contains((Operation || ''), 'Changed')) && 'update') || 'other'",
+      "value_map": {
+        "login_ok": 300201,
+        "login_fail": 300201,
+        "acct_create": 300101,
+        "acct_enable": 300102,
+        "acct_pwd_change": 300103,
+        "acct_pwd_reset": 300104,
+        "acct_disable": 300105,
+        "acct_delete": 300106,
+        "acct_attach": 300107,
+        "acct_detach": 300108,
+        "acct_update": 300199,
+        "create": 600301,
+        "read": 600302,
+        "update": 600303,
+        "delete": 600304,
+        "other": 600399
+      },
+      "default": 600300,
+      "required": true
+    },
+    {
+      "_comment": "Logon falho e mudanca de privilegio/credencial sobem para Low; o resto e informativo.",
+      "target": "normalized.severity_id",
+      "source": "((Operation || '') == 'UserLoggedIn' && 'login_ok') || ((Operation || '') == 'UserLoginFailed' && 'login_fail') || (contains(['Add user.'], (Operation || '')) && 'acct_create') || (contains(['Delete user.', 'Hard delete user.'], (Operation || '')) && 'acct_delete') || (contains(['Change user password.'], (Operation || '')) && 'acct_pwd_change') || (contains(['Reset user password.', 'Set force change user password.'], (Operation || '')) && 'acct_pwd_reset') || (contains(['Disable account.'], (Operation || '')) && 'acct_disable') || (contains(['Enable account.'], (Operation || '')) && 'acct_enable') || (contains(['Add member to role.', 'Add eligible member to role.'], (Operation || '')) && 'acct_attach') || (contains(['Remove member from role.', 'Remove eligible member from role.'], (Operation || '')) && 'acct_detach') || (contains(['Update user.'], (Operation || '')) && 'acct_update') || ((contains((Operation || ''), 'Delete') || contains((Operation || ''), 'Removed') || starts_with((Operation || ''), 'Remove-') || starts_with((Operation || ''), 'Remove ')) && 'delete') || ((contains((Operation || ''), 'Accessed') || contains((Operation || ''), 'Downloaded') || contains((Operation || ''), 'Previewed') || contains((Operation || ''), 'Viewed') || starts_with((Operation || ''), 'Get-') || starts_with((Operation || ''), 'Search') || contains((Operation || ''), 'Exported')) && 'read') || ((starts_with((Operation || ''), 'New-') || starts_with((Operation || ''), 'Add-') || starts_with((Operation || ''), 'Add ') || contains((Operation || ''), 'Created') || contains((Operation || ''), 'Uploaded') || contains((Operation || ''), 'Added') || starts_with((Operation || ''), 'Create')) && 'create') || ((starts_with((Operation || ''), 'Set-') || starts_with((Operation || ''), 'Update') || starts_with((Operation || ''), 'Enable-') || starts_with((Operation || ''), 'Disable-') || contains((Operation || ''), 'Modified') || contains((Operation || ''), 'Renamed') || contains((Operation || ''), 'Moved') || contains((Operation || ''), 'Updated') || contains((Operation || ''), 'Changed')) && 'update') || 'other'",
+      "value_map": {
+        "login_ok": 1,
+        "login_fail": 2,
+        "acct_create": 1,
+        "acct_enable": 1,
+        "acct_pwd_change": 1,
+        "acct_pwd_reset": 2,
+        "acct_disable": 2,
+        "acct_delete": 2,
+        "acct_attach": 2,
+        "acct_detach": 1,
+        "acct_update": 1,
+        "create": 1,
+        "read": 1,
+        "update": 1,
+        "delete": 1,
+        "other": 1
+      },
+      "default": 1,
+      "required": true
+    },
+    {
+      "target": "normalized.severity",
+      "source": "((Operation || '') == 'UserLoggedIn' && 'login_ok') || ((Operation || '') == 'UserLoginFailed' && 'login_fail') || (contains(['Add user.'], (Operation || '')) && 'acct_create') || (contains(['Delete user.', 'Hard delete user.'], (Operation || '')) && 'acct_delete') || (contains(['Change user password.'], (Operation || '')) && 'acct_pwd_change') || (contains(['Reset user password.', 'Set force change user password.'], (Operation || '')) && 'acct_pwd_reset') || (contains(['Disable account.'], (Operation || '')) && 'acct_disable') || (contains(['Enable account.'], (Operation || '')) && 'acct_enable') || (contains(['Add member to role.', 'Add eligible member to role.'], (Operation || '')) && 'acct_attach') || (contains(['Remove member from role.', 'Remove eligible member from role.'], (Operation || '')) && 'acct_detach') || (contains(['Update user.'], (Operation || '')) && 'acct_update') || ((contains((Operation || ''), 'Delete') || contains((Operation || ''), 'Removed') || starts_with((Operation || ''), 'Remove-') || starts_with((Operation || ''), 'Remove ')) && 'delete') || ((contains((Operation || ''), 'Accessed') || contains((Operation || ''), 'Downloaded') || contains((Operation || ''), 'Previewed') || contains((Operation || ''), 'Viewed') || starts_with((Operation || ''), 'Get-') || starts_with((Operation || ''), 'Search') || contains((Operation || ''), 'Exported')) && 'read') || ((starts_with((Operation || ''), 'New-') || starts_with((Operation || ''), 'Add-') || starts_with((Operation || ''), 'Add ') || contains((Operation || ''), 'Created') || contains((Operation || ''), 'Uploaded') || contains((Operation || ''), 'Added') || starts_with((Operation || ''), 'Create')) && 'create') || ((starts_with((Operation || ''), 'Set-') || starts_with((Operation || ''), 'Update') || starts_with((Operation || ''), 'Enable-') || starts_with((Operation || ''), 'Disable-') || contains((Operation || ''), 'Modified') || contains((Operation || ''), 'Renamed') || contains((Operation || ''), 'Moved') || contains((Operation || ''), 'Updated') || contains((Operation || ''), 'Changed')) && 'update') || 'other'",
+      "value_map": {
+        "login_ok": "Informational",
+        "login_fail": "Low",
+        "acct_create": "Informational",
+        "acct_enable": "Informational",
+        "acct_pwd_change": "Informational",
+        "acct_pwd_reset": "Low",
+        "acct_disable": "Low",
+        "acct_delete": "Low",
+        "acct_attach": "Low",
+        "acct_detach": "Informational",
+        "acct_update": "Informational",
+        "create": "Informational",
+        "read": "Informational",
+        "update": "Informational",
+        "delete": "Informational",
+        "other": "Informational"
+      },
+      "default": "Informational"
+    },
+    {
+      "_comment": [
+        "ResultStatus varia por workload (Succeeded/Success/True, Failed/False,",
+        "PartiallySucceeded). O STS do Entra marca UserLoginFailed como Success: a falha",
+        "e a propria operacao, entao ela vence."
+      ],
+      "target": "normalized.status_id",
+      "source": "((Operation || '') == 'UserLoginFailed' && 'Failed') || ResultStatus",
+      "value_map": {
+        "Succeeded": 1,
+        "Success": 1,
+        "True": 1,
+        "Failed": 2,
+        "Failure": 2,
+        "False": 2,
+        "PartiallySucceeded": 99
+      },
+      "default": 0
+    },
+    {
+      "target": "normalized.status",
+      "source": "((Operation || '') == 'UserLoginFailed' && 'Failed') || ResultStatus",
+      "value_map": {
+        "Succeeded": "Success",
+        "Success": "Success",
+        "True": "Success",
+        "Failed": "Failure",
+        "Failure": "Failure",
+        "False": "Failure",
+        "PartiallySucceeded": "Other"
+      },
+      "default": "Unknown"
+    },
+    {
+      "target": "normalized.status_detail",
+      "source": "LogonError || (ExtendedProperties[?Name=='ResultStatusDetail'].Value | [0]) || ResultStatus",
+      "default": null
+    },
+    {
+      "target": "normalized.actor.user.name",
+      "source": "UserId",
+      "default": null
+    },
+    {
+      "target": "normalized.actor.user.email_addr",
+      "source": "contains((UserId || ''), '@') && UserId || null",
+      "default": null
+    },
+    {
+      "target": "normalized.actor.user.uid",
+      "source": "UserKey",
+      "default": null
+    },
+    {
+      "_comment": "UserType da API (0 Regular, 2 Admin, 3 DcAdmin, 4 System, 5 Application, 6 ServicePrincipal, 7/8 politica, 9 PartnerTechnician, 10 Guest).",
+      "target": "normalized.actor.user.type_id",
+      "source": "UserType",
+      "value_map": {
+        "0": 1,
+        "1": 1,
+        "2": 2,
+        "3": 2,
+        "4": 3,
+        "5": 99,
+        "6": 99,
+        "7": 3,
+        "8": 3,
+        "9": 99,
+        "10": 1
+      },
+      "default": 0
+    },
+    {
+      "target": "normalized.actor.user.type",
+      "source": "UserType",
+      "value_map": {
+        "0": "User",
+        "1": "User",
+        "2": "Admin",
+        "3": "Admin",
+        "4": "System",
+        "5": "Other",
+        "6": "Other",
+        "7": "System",
+        "8": "System",
+        "9": "Other",
+        "10": "User"
+      },
+      "default": "Unknown"
+    },
+    {
+      "target": "normalized.actor.app_uid",
+      "source": "AppAccessContext.ClientAppId || ApplicationId || AppId",
+      "default": null
+    },
+    {
+      "_comment": [
+        "Alvo: em logon, o proprio usuario; em operacao de conta/papel, o ObjectId",
+        "(UPN da conta alterada). Nas demais classes nao ha 'user' alvo."
+      ],
+      "target": "normalized.user.name",
+      "source": "(contains(['UserLoggedIn', 'UserLoginFailed'], (Operation || '')) && UserId) || (contains(['Add user.', 'Delete user.', 'Hard delete user.', 'Change user password.', 'Reset user password.', 'Set force change user password.', 'Disable account.', 'Enable account.', 'Add member to role.', 'Add eligible member to role.', 'Remove member from role.', 'Remove eligible member from role.', 'Update user.'], (Operation || '')) && ObjectId) || null",
+      "when": {
+        "exists": "(contains(['UserLoggedIn', 'UserLoginFailed'], (Operation || '')) && UserId) || (contains(['Add user.', 'Delete user.', 'Hard delete user.', 'Change user password.', 'Reset user password.', 'Set force change user password.', 'Disable account.', 'Enable account.', 'Add member to role.', 'Add eligible member to role.', 'Remove member from role.', 'Remove eligible member from role.', 'Update user.'], (Operation || '')) && ObjectId) || null"
+      }
+    },
+    {
+      "_comment": "ClientIPNormalized = ClientIP sem porta/colchetes (o coletor acrescenta; JMESPath nao separa porta de IPv6).",
+      "target": "normalized.src_endpoint.ip",
+      "source": "ClientIPNormalized",
+      "default": null
+    },
+    {
+      "target": "normalized.http_request.user_agent",
+      "source": "UserAgent || (ExtendedProperties[?Name=='UserAgent'].Value | [0])",
+      "default": null
+    },
+    {
+      "target": "normalized.message",
+      "source": "Operation",
+      "default": null
+    },
+    {
+      "target": "normalized.api.operation",
+      "source": "Operation",
+      "default": null
+    },
+    {
+      "target": "normalized.api.service.name",
+      "source": "Workload",
+      "default": null
+    },
+    {
+      "target": "normalized.resources",
+      "source": "ObjectId && [{uid: ObjectId, name: SourceFileName || ObjectId, type: ItemType || Workload}] || null",
+      "default": null
+    },
+    {
+      "_comment": "Parametros do cmdlet do Exchange (New-InboxRule, Set-Mailbox, Add-MailboxPermission...) normalizados: e onde mora o QUE foi configurado.",
+      "target": "normalized.api.request.data",
+      "source": "Parameters",
+      "when": {
+        "exists": "Parameters"
+      }
+    },
+    {
+      "_comment": "Destino de encaminhamento de regra de caixa/mailbox: o sinal classico de BEC (conta comprometida mandando copia para fora).",
+      "target": "normalized.unmapped.m365_forward_to",
+      "source": "Parameters[?Name=='ForwardTo' || Name=='ForwardAsAttachmentTo' || Name=='RedirectTo' || Name=='ForwardingSmtpAddress' || Name=='ForwardingAddress'].Value | [0]",
+      "when": {
+        "exists": "Parameters[?Name=='ForwardTo' || Name=='ForwardAsAttachmentTo' || Name=='RedirectTo' || Name=='ForwardingSmtpAddress' || Name=='ForwardingAddress'].Value | [0]"
+      }
+    },
+    {
+      "target": "normalized.cloud.provider",
+      "const": "Microsoft"
+    },
+    {
+      "target": "normalized.cloud.org.uid",
+      "source": "OrganizationId",
+      "default": null
+    },
+    {
+      "target": "normalized.time",
+      "source": "CreationTime",
+      "type_cast": "iso_to_epoch",
+      "required": true
+    },
+    {
+      "target": "normalized.metadata.version",
+      "const": "1.8.0"
+    },
+    {
+      "target": "normalized.metadata.product.name",
+      "const": "Microsoft 365"
+    },
+    {
+      "target": "normalized.metadata.product.vendor_name",
+      "const": "Microsoft"
+    },
+    {
+      "target": "normalized.metadata.product.feature.name",
+      "source": "Workload",
+      "default": null
+    },
+    {
+      "target": "normalized.metadata.uid",
+      "source": "Id",
+      "default": null
+    },
+    {
+      "target": "normalized.metadata.log_name",
+      "source": "RecordType",
+      "type_cast": "to_str",
+      "default": null
+    },
+    {
+      "target": "normalized.metadata.event_code",
+      "source": "Operation",
+      "default": null
+    },
+    {
+      "target": "normalized.observables",
+      "kind": "array_builder",
+      "items": [
+        {
+          "name": "actor_email",
+          "type": "Email Address",
+          "type_id": 5,
+          "source": "contains((UserId || ''), '@') && UserId || null",
+          "skip_null": true
+        },
+        {
+          "name": "actor_user",
+          "type": "User Name",
+          "type_id": 4,
+          "source": "UserId",
+          "skip_null": true
+        },
+        {
+          "name": "src_ip",
+          "type": "IP Address",
+          "type_id": 2,
+          "source": "ClientIPNormalized",
+          "skip_null": true
+        },
+        {
+          "name": "forward_to",
+          "type": "Email Address",
+          "type_id": 5,
+          "source": "Parameters[?Name=='ForwardTo' || Name=='ForwardAsAttachmentTo' || Name=='RedirectTo' || Name=='ForwardingSmtpAddress' || Name=='ForwardingAddress'].Value | [0]",
+          "skip_null": true
+        }
+      ],
+      "skip_null": true,
+      "dedup_by": [
+        "value"
+      ]
+    }
+  ],
+  "raw_reduction": [
+    {
+      "drop_nulls": true
+    }
+  ]
+}

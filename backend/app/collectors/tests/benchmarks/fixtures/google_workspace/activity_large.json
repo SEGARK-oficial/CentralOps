@@ -1,0 +1,170 @@
+{
+  "kind": "admin#reports#activity",
+  "id": {
+    "time": "2026-10-27T12:05:00.000Z",
+    "uniqueQualifier": "-115",
+    "applicationName": "admin",
+    "customerId": "C01abc23d"
+  },
+  "etag": "\"etag-de-teste\"",
+  "actor": {
+    "callerType": "USER",
+    "email": "auditoria@example.com",
+    "profileId": "100000000000000000001"
+  },
+  "ipAddress": "203.0.113.10",
+  "event": {
+    "type": "DELEGATED_ADMIN_SETTINGS",
+    "name": "ASSIGN_ROLE",
+    "parameters": [
+      {
+        "name": "ROLE_NAME",
+        "value": "_SEED_ADMIN_ROLE"
+      },
+      {
+        "name": "ROLE_ID",
+        "value": "9170516996784129"
+      },
+      {
+        "name": "USER_EMAIL",
+        "value": "bruno.costa@example.com"
+      },
+      {
+        "name": "ORG_UNIT_NAME",
+        "value": "/Financeiro"
+      },
+      {
+        "name": "SETTING_0",
+        "value": "valor-0"
+      },
+      {
+        "name": "SETTING_1",
+        "value": "valor-1"
+      },
+      {
+        "name": "SETTING_2",
+        "value": "valor-2"
+      },
+      {
+        "name": "SETTING_3",
+        "value": "valor-3"
+      },
+      {
+        "name": "SETTING_4",
+        "value": "valor-4"
+      },
+      {
+        "name": "SETTING_5",
+        "value": "valor-5"
+      },
+      {
+        "name": "SETTING_6",
+        "value": "valor-6"
+      },
+      {
+        "name": "SETTING_7",
+        "value": "valor-7"
+      },
+      {
+        "name": "SETTING_8",
+        "value": "valor-8"
+      },
+      {
+        "name": "SETTING_9",
+        "value": "valor-9"
+      },
+      {
+        "name": "SETTING_10",
+        "value": "valor-10"
+      },
+      {
+        "name": "SETTING_11",
+        "value": "valor-11"
+      },
+      {
+        "name": "SETTING_12",
+        "value": "valor-12"
+      },
+      {
+        "name": "SETTING_13",
+        "value": "valor-13"
+      },
+      {
+        "name": "SETTING_14",
+        "value": "valor-14"
+      },
+      {
+        "name": "SETTING_15",
+        "value": "valor-15"
+      },
+      {
+        "name": "SETTING_16",
+        "value": "valor-16"
+      },
+      {
+        "name": "SETTING_17",
+        "value": "valor-17"
+      },
+      {
+        "name": "SETTING_18",
+        "value": "valor-18"
+      },
+      {
+        "name": "SETTING_19",
+        "value": "valor-19"
+      },
+      {
+        "name": "SETTING_20",
+        "value": "valor-20"
+      },
+      {
+        "name": "SETTING_21",
+        "value": "valor-21"
+      },
+      {
+        "name": "SETTING_22",
+        "value": "valor-22"
+      },
+      {
+        "name": "SETTING_23",
+        "value": "valor-23"
+      },
+      {
+        "name": "SETTING_24",
+        "value": "valor-24"
+      }
+    ],
+    "params": {
+      "ROLE_NAME": "_SEED_ADMIN_ROLE",
+      "ROLE_ID": "9170516996784129",
+      "USER_EMAIL": "bruno.costa@example.com",
+      "ORG_UNIT_NAME": "/Financeiro",
+      "SETTING_0": "valor-0",
+      "SETTING_1": "valor-1",
+      "SETTING_2": "valor-2",
+      "SETTING_3": "valor-3",
+      "SETTING_4": "valor-4",
+      "SETTING_5": "valor-5",
+      "SETTING_6": "valor-6",
+      "SETTING_7": "valor-7",
+      "SETTING_8": "valor-8",
+      "SETTING_9": "valor-9",
+      "SETTING_10": "valor-10",
+      "SETTING_11": "valor-11",
+      "SETTING_12": "valor-12",
+      "SETTING_13": "valor-13",
+      "SETTING_14": "valor-14",
+      "SETTING_15": "valor-15",
+      "SETTING_16": "valor-16",
+      "SETTING_17": "valor-17",
+      "SETTING_18": "valor-18",
+      "SETTING_19": "valor-19",
+      "SETTING_20": "valor-20",
+      "SETTING_21": "valor-21",
+      "SETTING_22": "valor-22",
+      "SETTING_23": "valor-23",
+      "SETTING_24": "valor-24"
+    }
+  },
+  "_event_index": 0
+}

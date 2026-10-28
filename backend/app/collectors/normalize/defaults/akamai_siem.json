@@ -1,0 +1,412 @@
+{
+  "_comment": [
+    "Akamai SIEM Integration API (evento de seguranca do WAF) -> HTTP Activity (4002).",
+    "O coletor ja decodifica attackData (rules/ruleMessages/... base64 por ';') em",
+    "attackData.decoded_rules e o User-Agent em httpMessage.decoded_user_agent.",
+    "Classe constante; activity_id/type_uid sao value_map sobre o MESMO metodo HTTP.",
+    "httpMessage.start e epoch em SEGUNDOS (string): to_number + iso_to_epoch -> ms."
+  ],
+  "rules": [
+    {
+      "target": "normalized.class_uid",
+      "const": 4002,
+      "required": true
+    },
+    {
+      "target": "normalized.class_name",
+      "const": "HTTP Activity"
+    },
+    {
+      "target": "normalized.category_uid",
+      "const": 4,
+      "required": true
+    },
+    {
+      "target": "normalized.category_name",
+      "const": "Network Activity"
+    },
+    {
+      "target": "normalized.activity_id",
+      "source": "(httpMessage.method || '')",
+      "value_map": {
+        "GET": 3,
+        "POST": 6,
+        "PUT": 7,
+        "DELETE": 2,
+        "HEAD": 4,
+        "OPTIONS": 5,
+        "TRACE": 8,
+        "PATCH": 9,
+        "CONNECT": 1
+      },
+      "default": 99,
+      "required": true
+    },
+    {
+      "target": "normalized.activity_name",
+      "source": "(httpMessage.method || '')",
+      "value_map": {
+        "GET": "Get",
+        "POST": "Post",
+        "PUT": "Put",
+        "DELETE": "Delete",
+        "HEAD": "Head",
+        "OPTIONS": "Options",
+        "TRACE": "Trace",
+        "PATCH": "Patch",
+        "CONNECT": "Connect"
+      },
+      "default": "Other"
+    },
+    {
+      "target": "normalized.type_uid",
+      "source": "(httpMessage.method || '')",
+      "value_map": {
+        "GET": 400203,
+        "POST": 400206,
+        "PUT": 400207,
+        "DELETE": 400202,
+        "HEAD": 400204,
+        "OPTIONS": 400205,
+        "TRACE": 400208,
+        "PATCH": 400209,
+        "CONNECT": 400201
+      },
+      "default": 400299,
+      "required": true
+    },
+    {
+      "_comment": "Bloqueado = ataque contido na borda (Low); alert/monitor = a requisicao CHEGOU a origem (Medium) -- e o que pede olhar.",
+      "target": "normalized.severity_id",
+      "source": "((starts_with((attackData.appliedAction || ''), 'deny') || contains(['tarpit', 'abort', 'drop', 'reset'], (attackData.appliedAction || ''))) && 'blocked') || ((attackData.appliedAction || '') == 'alert' && 'alert') || ((attackData.appliedAction || '') == 'monitor' && 'monitor') || ((attackData.appliedAction || '') == '' && 'unknown') || 'other'",
+      "value_map": {
+        "blocked": 2,
+        "alert": 3,
+        "monitor": 3,
+        "other": 2,
+        "unknown": 1
+      },
+      "default": 1,
+      "required": true
+    },
+    {
+      "target": "normalized.severity",
+      "source": "((starts_with((attackData.appliedAction || ''), 'deny') || contains(['tarpit', 'abort', 'drop', 'reset'], (attackData.appliedAction || ''))) && 'blocked') || ((attackData.appliedAction || '') == 'alert' && 'alert') || ((attackData.appliedAction || '') == 'monitor' && 'monitor') || ((attackData.appliedAction || '') == '' && 'unknown') || 'other'",
+      "value_map": {
+        "blocked": "Low",
+        "alert": "Medium",
+        "monitor": "Medium",
+        "other": "Low",
+        "unknown": "Informational"
+      },
+      "default": "Informational"
+    },
+    {
+      "_comment": "deny/deny_custom_*/tarpit/abort -> Blocked; alert -> Alert; monitor -> Logged.",
+      "target": "normalized.disposition_id",
+      "source": "((starts_with((attackData.appliedAction || ''), 'deny') || contains(['tarpit', 'abort', 'drop', 'reset'], (attackData.appliedAction || ''))) && 'blocked') || ((attackData.appliedAction || '') == 'alert' && 'alert') || ((attackData.appliedAction || '') == 'monitor' && 'monitor') || ((attackData.appliedAction || '') == '' && 'unknown') || 'other'",
+      "value_map": {
+        "blocked": 2,
+        "alert": 19,
+        "monitor": 17,
+        "other": 99,
+        "unknown": 0
+      },
+      "default": 0
+    },
+    {
+      "target": "normalized.disposition",
+      "source": "((starts_with((attackData.appliedAction || ''), 'deny') || contains(['tarpit', 'abort', 'drop', 'reset'], (attackData.appliedAction || ''))) && 'blocked') || ((attackData.appliedAction || '') == 'alert' && 'alert') || ((attackData.appliedAction || '') == 'monitor' && 'monitor') || ((attackData.appliedAction || '') == '' && 'unknown') || 'other'",
+      "value_map": {
+        "blocked": "Blocked",
+        "alert": "Alert",
+        "monitor": "Logged",
+        "other": "Other",
+        "unknown": "Unknown"
+      },
+      "default": "Unknown"
+    },
+    {
+      "target": "normalized.action_id",
+      "source": "((starts_with((attackData.appliedAction || ''), 'deny') || contains(['tarpit', 'abort', 'drop', 'reset'], (attackData.appliedAction || ''))) && 'blocked') || ((attackData.appliedAction || '') == 'alert' && 'alert') || ((attackData.appliedAction || '') == 'monitor' && 'monitor') || ((attackData.appliedAction || '') == '' && 'unknown') || 'other'",
+      "value_map": {
+        "blocked": 2,
+        "alert": 1,
+        "monitor": 1,
+        "other": 99,
+        "unknown": 0
+      },
+      "default": 0
+    },
+    {
+      "target": "normalized.action",
+      "source": "((starts_with((attackData.appliedAction || ''), 'deny') || contains(['tarpit', 'abort', 'drop', 'reset'], (attackData.appliedAction || ''))) && 'blocked') || ((attackData.appliedAction || '') == 'alert' && 'alert') || ((attackData.appliedAction || '') == 'monitor' && 'monitor') || ((attackData.appliedAction || '') == '' && 'unknown') || 'other'",
+      "value_map": {
+        "blocked": "Denied",
+        "alert": "Allowed",
+        "monitor": "Allowed",
+        "other": "Other",
+        "unknown": "Unknown"
+      },
+      "default": "Unknown"
+    },
+    {
+      "target": "normalized.is_alert",
+      "const": true
+    },
+    {
+      "target": "normalized.message",
+      "source": "join('', ['Akamai WAF ', attackData.appliedAction || 'unknown', ': ', attackData.decoded_rules[0].message || attackData.decoded_rules[0].id || ''])",
+      "default": null
+    },
+    {
+      "target": "normalized.src_endpoint.ip",
+      "source": "attackData.clientIP",
+      "default": null
+    },
+    {
+      "target": "normalized.src_endpoint.location.country",
+      "source": "geo.country",
+      "default": null
+    },
+    {
+      "target": "normalized.src_endpoint.location.city",
+      "source": "geo.city",
+      "default": null
+    },
+    {
+      "target": "normalized.src_endpoint.location.continent",
+      "source": "geo.continent",
+      "default": null
+    },
+    {
+      "target": "normalized.src_endpoint.location.region",
+      "source": "geo.regionCode",
+      "default": null
+    },
+    {
+      "target": "normalized.src_endpoint.autonomous_system.number",
+      "source": "geo.asn && to_number(geo.asn)",
+      "default": null
+    },
+    {
+      "target": "normalized.dst_endpoint.hostname",
+      "source": "httpMessage.host",
+      "default": null
+    },
+    {
+      "target": "normalized.http_request.uid",
+      "source": "httpMessage.requestId",
+      "default": null
+    },
+    {
+      "target": "normalized.http_request.http_method",
+      "source": "httpMessage.method",
+      "default": null
+    },
+    {
+      "target": "normalized.http_request.version",
+      "source": "httpMessage.protocol",
+      "default": null
+    },
+    {
+      "target": "normalized.http_request.user_agent",
+      "source": "httpMessage.decoded_user_agent",
+      "default": null
+    },
+    {
+      "target": "normalized.http_request.url.hostname",
+      "source": "httpMessage.host",
+      "default": null
+    },
+    {
+      "target": "normalized.http_request.url.path",
+      "source": "httpMessage.path",
+      "default": null
+    },
+    {
+      "target": "normalized.http_request.url.query_string",
+      "source": "httpMessage.query",
+      "default": null
+    },
+    {
+      "target": "normalized.http_request.url.port",
+      "source": "httpMessage.port && to_number(httpMessage.port)",
+      "default": null
+    },
+    {
+      "target": "normalized.http_response.code",
+      "source": "httpMessage.status && to_number(httpMessage.status)",
+      "default": null
+    },
+    {
+      "_comment": "Primeira regra disparada; a lista completa fica em match_details e no bruto (attackData.decoded_rules).",
+      "target": "normalized.firewall_rule.uid",
+      "source": "attackData.decoded_rules[0].id",
+      "default": null
+    },
+    {
+      "target": "normalized.firewall_rule.name",
+      "source": "attackData.decoded_rules[0].message",
+      "default": null
+    },
+    {
+      "target": "normalized.firewall_rule.version",
+      "source": "attackData.decoded_rules[0].version",
+      "default": null
+    },
+    {
+      "target": "normalized.firewall_rule.category",
+      "source": "attackData.decoded_rules[0].tag",
+      "default": null
+    },
+    {
+      "target": "normalized.firewall_rule.match_location",
+      "source": "attackData.decoded_rules[0].selector",
+      "default": null
+    },
+    {
+      "target": "normalized.firewall_rule.match_details",
+      "source": "attackData.decoded_rules[].id",
+      "default": null
+    },
+    {
+      "target": "normalized.policy.uid",
+      "source": "attackData.policyId",
+      "default": null
+    },
+    {
+      "target": "normalized.time",
+      "source": "to_number(httpMessage.start)",
+      "type_cast": "iso_to_epoch",
+      "required": true
+    },
+    {
+      "target": "normalized.metadata.version",
+      "const": "1.8.0"
+    },
+    {
+      "target": "normalized.metadata.product.name",
+      "const": "App & API Protector"
+    },
+    {
+      "target": "normalized.metadata.product.vendor_name",
+      "const": "Akamai"
+    },
+    {
+      "target": "normalized.metadata.uid",
+      "source": "httpMessage.requestId",
+      "default": null
+    },
+    {
+      "target": "normalized.metadata.log_name",
+      "const": "siem"
+    },
+    {
+      "target": "normalized.metadata.event_code",
+      "source": "attackData.appliedAction",
+      "default": null
+    },
+    {
+      "target": "normalized.unmapped.akamai_config_id",
+      "source": "attackData.configId",
+      "default": null
+    },
+    {
+      "_comment": "identity.ja4 (fingerprint TLS do cliente) -> ja4_fingerprint_list. Pivo de caca: o mesmo bot troca de IP, nao de JA4.",
+      "target": "normalized.ja4_fingerprint_list",
+      "source": "identity.ja4 && [{type_id: `1`, type: 'JA4', value: identity.ja4}]",
+      "when": {
+        "exists": "identity.ja4 && [{type_id: `1`, type: 'JA4', value: identity.ja4}]"
+      }
+    },
+    {
+      "_comment": "Account Protector (userRiskData): quem tentou logar e o risco que a Akamai deu. So vem com o produto licenciado no endpoint protegido.",
+      "target": "normalized.actor.user.name",
+      "source": "userRiskData.username",
+      "when": {
+        "exists": "userRiskData.username"
+      }
+    },
+    {
+      "target": "normalized.actor.user.uid",
+      "source": "userRiskData.originUserId",
+      "when": {
+        "exists": "userRiskData.originUserId"
+      }
+    },
+    {
+      "target": "normalized.risk_score",
+      "source": "userRiskData.score && to_number(userRiskData.score)",
+      "when": {
+        "exists": "userRiskData.score && to_number(userRiskData.score)"
+      }
+    },
+    {
+      "_comment": "Bot Manager: 0-100, quanto maior mais provavel ser bot. OCSF nao tem campo de bot score.",
+      "target": "normalized.unmapped.akamai_bot_score",
+      "source": "botData.botScore && to_number(botData.botScore)",
+      "when": {
+        "exists": "botData.botScore && to_number(botData.botScore)"
+      }
+    },
+    {
+      "target": "normalized.unmapped.akamai_client_reputation",
+      "source": "attackData.clientReputation",
+      "when": {
+        "exists": "attackData.clientReputation"
+      }
+    },
+    {
+      "_comment": "firewall_rule guarda so a 1a regra; aqui vao TODAS, decodificadas (a de anomalia que decidiu o deny costuma ser a ultima).",
+      "target": "normalized.unmapped.akamai_rules",
+      "source": "attackData.decoded_rules && attackData.decoded_rules[].{id: id, message: message, tag: tag, action: action}",
+      "when": {
+        "exists": "attackData.decoded_rules && attackData.decoded_rules[].{id: id, message: message, tag: tag, action: action}"
+      }
+    },
+    {
+      "target": "normalized.observables",
+      "kind": "array_builder",
+      "items": [
+        {
+          "name": "src_endpoint.ip",
+          "type": "IP Address",
+          "type_id": 2,
+          "source": "attackData.clientIP",
+          "skip_null": true
+        },
+        {
+          "name": "http_request.url.hostname",
+          "type": "Hostname",
+          "type_id": 1,
+          "source": "httpMessage.host",
+          "skip_null": true
+        },
+        {
+          "name": "http_request.user_agent",
+          "type": "HTTP User-Agent",
+          "type_id": 16,
+          "source": "httpMessage.decoded_user_agent",
+          "skip_null": true
+        },
+        {
+          "name": "actor.user.name",
+          "type": "User Name",
+          "type_id": 4,
+          "source": "userRiskData.username",
+          "skip_null": true
+        }
+      ],
+      "skip_null": true,
+      "dedup_by": [
+        "value"
+      ]
+    }
+  ],
+  "raw_reduction": [
+    {
+      "drop_nulls": true
+    }
+  ]
+}

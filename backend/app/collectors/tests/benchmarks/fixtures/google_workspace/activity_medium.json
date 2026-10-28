@@ -1,0 +1,35 @@
+{
+  "kind": "admin#reports#activity",
+  "id": {
+    "time": "2026-10-27T12:01:00.000Z",
+    "uniqueQualifier": "-112",
+    "applicationName": "login",
+    "customerId": "C01abc23d"
+  },
+  "etag": "\"etag-de-teste\"",
+  "actor": {
+    "callerType": "USER",
+    "email": "ana.silva@example.com",
+    "profileId": "100000000000000000001"
+  },
+  "ipAddress": "203.0.113.10",
+  "event": {
+    "type": "login",
+    "name": "login_failure",
+    "parameters": [
+      {
+        "name": "login_type",
+        "value": "google_password"
+      },
+      {
+        "name": "login_failure_type",
+        "value": "login_failure_invalid_password"
+      }
+    ],
+    "params": {
+      "login_type": "google_password",
+      "login_failure_type": "login_failure_invalid_password"
+    }
+  },
+  "_event_index": 0
+}

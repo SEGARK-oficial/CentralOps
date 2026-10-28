@@ -1,0 +1,25 @@
+{
+  "customerId": "01abc23d",
+  "alertId": "alerta-0002",
+  "createTime": "2026-10-27T12:30:00.000Z",
+  "startTime": "2026-10-27T12:30:00.000Z",
+  "updateTime": "2026-10-27T12:30:00.000Z",
+  "type": "Leaked password",
+  "source": "Google identity",
+  "data": {
+    "@type": "type.googleapis.com/google.apps.alertcenter.type.AccountWarning",
+    "email": "ana.silva@example.com",
+    "loginDetails": [
+      {
+        "loginTime": "2026-10-27T12:30:00.000Z",
+        "ipAddress": "198.51.100.77"
+      }
+    ]
+  },
+  "securityInvestigationToolLink": "https://admin.google.com/ac/sc/investigation?query=x",
+  "metadata": {
+    "customerId": "01abc23d",
+    "alertId": "alerta-0002",
+    "status": "CLOSED"
+  }
+}

@@ -1,0 +1,229 @@
+{
+  "_comment": [
+    "DLP.All da Management Activity API -> Detection Finding (2004).",
+    "Uma politica + regras que casaram por evento; DetectedValues sao removidos pelo coletor."
+  ],
+  "rules": [
+    {
+      "target": "normalized.class_uid",
+      "const": 2004,
+      "required": true
+    },
+    {
+      "target": "normalized.class_name",
+      "const": "Detection Finding"
+    },
+    {
+      "target": "normalized.category_uid",
+      "const": 2,
+      "required": true
+    },
+    {
+      "target": "normalized.category_name",
+      "const": "Findings"
+    },
+    {
+      "_comment": [
+        "DlpRuleMatch = casamento novo (Create); DlpRuleUndo = a regra deixou de",
+        "valer (politica mudou, override, falso positivo) -> Close; DlpInfo = Other."
+      ],
+      "target": "normalized.activity_id",
+      "source": "Operation",
+      "value_map": {
+        "DlpRuleMatch": 1,
+        "DlpRuleUndo": 3,
+        "DlpInfo": 99
+      },
+      "default": 0,
+      "required": true
+    },
+    {
+      "target": "normalized.activity_name",
+      "source": "Operation",
+      "value_map": {
+        "DlpRuleMatch": "Create",
+        "DlpRuleUndo": "Close",
+        "DlpInfo": "Other"
+      },
+      "default": "Unknown"
+    },
+    {
+      "target": "normalized.type_uid",
+      "source": "Operation",
+      "value_map": {
+        "DlpRuleMatch": 200401,
+        "DlpRuleUndo": 200403,
+        "DlpInfo": 200499
+      },
+      "default": 200400,
+      "required": true
+    },
+    {
+      "_comment": "Maior severidade entre as regras que casaram (Low/Medium/High do Purview).",
+      "target": "normalized.severity_id",
+      "source": "(contains(PolicyDetails[].Rules[].Severity || `[]`, 'High') && 'High') || (contains(PolicyDetails[].Rules[].Severity || `[]`, 'Medium') && 'Medium') || (contains(PolicyDetails[].Rules[].Severity || `[]`, 'Low') && 'Low') || 'Unknown'",
+      "value_map": {
+        "High": 4,
+        "Medium": 3,
+        "Low": 2
+      },
+      "default": 1,
+      "required": true
+    },
+    {
+      "target": "normalized.severity",
+      "source": "(contains(PolicyDetails[].Rules[].Severity || `[]`, 'High') && 'High') || (contains(PolicyDetails[].Rules[].Severity || `[]`, 'Medium') && 'Medium') || (contains(PolicyDetails[].Rules[].Severity || `[]`, 'Low') && 'Low') || 'Unknown'",
+      "value_map": {
+        "High": "High",
+        "Medium": "Medium",
+        "Low": "Low"
+      },
+      "default": "Informational"
+    },
+    {
+      "target": "normalized.status_id",
+      "const": 1
+    },
+    {
+      "target": "normalized.status",
+      "const": "New"
+    },
+    {
+      "target": "normalized.finding_info.uid",
+      "source": "Id",
+      "required": true
+    },
+    {
+      "target": "normalized.finding_info.title",
+      "source": "PolicyDetails[0].PolicyName || Operation",
+      "default": "DLP"
+    },
+    {
+      "target": "normalized.finding_info.desc",
+      "source": "PolicyDetails[0].Rules[0].RuleName",
+      "default": null
+    },
+    {
+      "target": "normalized.finding_info.types",
+      "const": [
+        "DLP"
+      ]
+    },
+    {
+      "target": "normalized.finding_info.analytic.uid",
+      "source": "PolicyDetails[0].Rules[0].RuleId",
+      "default": null
+    },
+    {
+      "target": "normalized.finding_info.analytic.name",
+      "source": "PolicyDetails[0].Rules[0].RuleName",
+      "default": null
+    },
+    {
+      "target": "normalized.message",
+      "source": "PolicyDetails[0].PolicyName",
+      "default": null
+    },
+    {
+      "target": "normalized.actor.user.name",
+      "source": "UserId",
+      "default": null
+    },
+    {
+      "target": "normalized.actor.user.email_addr",
+      "source": "contains((UserId || ''), '@') && UserId || null",
+      "default": null
+    },
+    {
+      "target": "normalized.src_endpoint.ip",
+      "source": "ClientIPNormalized",
+      "default": null
+    },
+    {
+      "_comment": [
+        "Arquivo (SharePoint/OneDrive) ou mensagem (Exchange) que casou. Os valores",
+        "sensiveis detectados (DetectedValues) NUNCA entram aqui; o coletor ja os remove",
+        "do bruto e deixa so a contagem."
+      ],
+      "target": "normalized.resources",
+      "source": "(SharePointMetaInformation.FilePathUrl && [{uid: SharePointMetaInformation.FilePathUrl, name: SharePointMetaInformation.FileName, type: 'File'}]) || (ExchangeMetaInformation.MessageID && [{uid: ExchangeMetaInformation.MessageID, type: 'Email'}]) || null",
+      "default": null
+    },
+    {
+      "target": "normalized.cloud.provider",
+      "const": "Microsoft"
+    },
+    {
+      "target": "normalized.cloud.org.uid",
+      "source": "OrganizationId",
+      "default": null
+    },
+    {
+      "target": "normalized.time",
+      "source": "CreationTime",
+      "type_cast": "iso_to_epoch",
+      "required": true
+    },
+    {
+      "target": "normalized.metadata.version",
+      "const": "1.8.0"
+    },
+    {
+      "target": "normalized.metadata.product.name",
+      "const": "Microsoft Purview DLP"
+    },
+    {
+      "target": "normalized.metadata.product.vendor_name",
+      "const": "Microsoft"
+    },
+    {
+      "target": "normalized.metadata.product.feature.name",
+      "source": "Workload",
+      "default": null
+    },
+    {
+      "target": "normalized.metadata.uid",
+      "source": "Id",
+      "default": null
+    },
+    {
+      "target": "normalized.metadata.correlation_uid",
+      "source": "IncidentId",
+      "default": null
+    },
+    {
+      "target": "normalized.metadata.event_code",
+      "source": "Operation",
+      "default": null
+    },
+    {
+      "target": "normalized.observables",
+      "kind": "array_builder",
+      "items": [
+        {
+          "name": "actor_email",
+          "type": "Email Address",
+          "type_id": 5,
+          "source": "contains((UserId || ''), '@') && UserId || null",
+          "skip_null": true
+        },
+        {
+          "name": "actor_user",
+          "type": "User Name",
+          "type_id": 4,
+          "source": "UserId",
+          "skip_null": true
+        }
+      ],
+      "skip_null": true,
+      "dedup_by": [
+        "value"
+      ]
+    }
+  ],
+  "raw_reduction": [
+    {
+      "drop_nulls": true
+    }
+  ]
+}

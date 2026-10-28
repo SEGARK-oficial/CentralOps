@@ -20,6 +20,9 @@ from statistics import mean
 import pytest
 
 from backend.app.collectors.tests import _azure_fixtures as _azure
+from backend.app.collectors.tests import _akamai_fixtures as _akamai
+from backend.app.collectors.tests import _google_workspace_fixtures as _gws
+from backend.app.collectors.tests import _microsoft_365_fixtures as _m365
 from backend.app.collectors.tests import _gcp_fixtures as _gcp
 from backend.app.collectors.normalize.defaults import (
     DEFAULT_MAPPING_FILES,
@@ -211,6 +214,13 @@ _FIXTURES = {
     ("azure", "azure.activity"): _azure.ROLE_ASSIGNMENT,
     ("azure", "azure.entra"): _azure.SIGNIN_FAILED_RISKY,
     ("azure", "azure.resource"): _azure.KEYVAULT_SECRET_GET,
+    # SaaS — o objeto que cada coletor emite (Akamai já com attackData decodificado,
+    # Workspace com events[] explodido, M365 com ClientIPNormalized).
+    ("akamai", "akamai.siem"): _akamai.XSS_DENY,
+    ("google_workspace", "google_workspace.activity"): _gws.LOGIN_FAILURE,
+    ("google_workspace", "google_workspace.alert"): _gws.SUSPICIOUS_LOGIN_ALERT,
+    ("microsoft_365", "microsoft_365.audit"): _m365.USER_LOGGED_IN,
+    ("microsoft_365", "microsoft_365.dlp"): _m365.DLP_RULE_MATCH,
     ("wazuh", "wazuh.detection"): {
         "timestamp": "2026-06-21T10:00:00Z",
         "id": "1700000000.123",
