@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.16.0](https://github.com/SEGARK-oficial/CentralOps/compare/v2.15.0...v2.16.0) (2026-10-28)
+
+
+### Features
+
+* **collectors:** coletores Akamai WAF, Google Workspace e Microsoft 365 ([#104](https://github.com/SEGARK-oficial/CentralOps/issues/104)) ([65813fa](https://github.com/SEGARK-oficial/CentralOps/commit/65813faf71bb60a26351d6df47a9f2832454a038))
+
 ## [2.15.0](https://github.com/SEGARK-oficial/CentralOps/compare/v2.14.1...v2.15.0) (2026-10-27)
 
 
