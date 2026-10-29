@@ -1,0 +1,566 @@
+<!doctype html><html lang=en dir=ltr class="docs-wrapper plugin-docs plugin-id-default docs-version-current docs-doc-page docs-doc-id-integrations/microsoft-azure" data-has-hydrated=false><head><meta charset=UTF-8><meta name=generator content="Docusaurus v3.10.0"><title data-rh=true>Microsoft Azure | CentralOps</title><meta data-rh=true name=viewport content="width=device-width, initial-scale=1.0"/><meta data-rh=true name=twitter:card content=summary_large_image /><meta data-rh=true property=og:image content=https://docs.segark.com/en/img/centralops-social-card.png /><meta data-rh=true name=twitter:image content=https://docs.segark.com/en/img/centralops-social-card.png /><meta data-rh=true property=og:url content=https://docs.segark.com/en/integrations/microsoft-azure /><meta data-rh=true property=og:locale content=en /><meta data-rh=true property=og:locale:alternate content=pt_BR /><meta data-rh=true property=og:locale:alternate content=es /><meta data-rh=true name=docusaurus_locale content=en /><meta data-rh=true name=docsearch:language content=en /><meta data-rh=true name=docusaurus_version content=current /><meta data-rh=true name=docusaurus_tag content=docs-default-current /><meta data-rh=true name=docsearch:version content=current /><meta data-rh=true name=docsearch:docusaurus_tag content=docs-default-current /><meta data-rh=true property=og:title content="Microsoft Azure | CentralOps"/><meta data-rh=true name=description content="Colete o Activity Log de todas as assinaturas e, via Event Hubs, os sign-ins do Entra ID (inclusive não interativos) e os resource logs de Key Vault, AKS, Azure SQL e Storage"/><meta data-rh=true property=og:description content="Colete o Activity Log de todas as assinaturas e, via Event Hubs, os sign-ins do Entra ID (inclusive não interativos) e os resource logs de Key Vault, AKS, Azure SQL e Storage"/><link data-rh=true rel=icon href=/en/img/favicon.ico /><link data-rh=true rel=canonical href=https://docs.segark.com/en/integrations/microsoft-azure /><link data-rh=true rel=alternate href=https://docs.segark.com/integrations/microsoft-azure hreflang=pt-BR /><link data-rh=true rel=alternate href=https://docs.segark.com/en/integrations/microsoft-azure hreflang=en /><link data-rh=true rel=alternate href=https://docs.segark.com/es/integrations/microsoft-azure hreflang=es /><link data-rh=true rel=alternate href=https://docs.segark.com/integrations/microsoft-azure hreflang=x-default /><script data-rh=true type=application/ld+json>{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","item":"https://docs.segark.com/en/integrations/microsoft-azure","name":"Microsoft Azure","position":1}]}</script><link rel=stylesheet href=/en/assets/css/styles.65a61132.css /><script src=/en/assets/js/runtime~main.61287405.js defer></script><script src=/en/assets/js/main.45ec6903.js defer></script></head><body><svg style="display: none;"><defs>
+<symbol id=theme-svg-external-link viewBox="0 0 24 24"><path fill=currentColor d="M21 13v10h-21v-19h12v2h-10v15h17v-8h2zm3-12h-10.988l4.035 4-6.977 7.07 2.828 2.828 6.977-7.07 4.125 4.172v-11z"/></symbol>
+</defs></svg>
+<script>!function(){var t=function(){try{return new URLSearchParams(window.location.search).get("docusaurus-theme")}catch(t){}}()||function(){try{return window.localStorage.getItem("theme-797")}catch(t){}}();document.documentElement.setAttribute("data-theme",t||(window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light")),document.documentElement.setAttribute("data-theme-choice",t||"system")}(),function(){try{for(var[t,e]of new URLSearchParams(window.location.search).entries())if(t.startsWith("docusaurus-data-")){var a=t.replace("docusaurus-data-","data-");document.documentElement.setAttribute(a,e)}}catch(t){}}()</script><div id=__docusaurus><link rel=preload as=image href=/en/img/logo.svg /><div role=region aria-label="Skip to main content"><a class=skipToContent_fXgn href=#__docusaurus_skipToContent_fallback>Skip to main content</a></div><nav aria-label=Main class="theme-layout-navbar navbar navbar--fixed-top"><div class=navbar__inner><div class="theme-layout-navbar-left navbar__items"><button aria-label="Toggle navigation bar" aria-expanded=false class="navbar__toggle clean-btn" type=button><svg width=30 height=30 viewBox="0 0 30 30" aria-hidden=true><path stroke=currentColor stroke-linecap=round stroke-miterlimit=10 stroke-width=2 d="M4 7h22M4 15h22M4 23h22"/></svg></button><a class=navbar__brand href=/en/><div class=navbar__logo><img src=/en/img/logo.svg alt=CentralOps class="themedComponent_mlkZ themedComponent--light_NVdE"/><img src=/en/img/logo.svg alt=CentralOps class="themedComponent_mlkZ themedComponent--dark_xIcU"/></div><b class="navbar__title text--truncate">CentralOps</b></a><a class="navbar__item navbar__link" href=/en/>Get started</a><a class="navbar__item navbar__link" href=/en/outputs/overview>Outputs & Routing</a><a class="navbar__item navbar__link" href=/en/operations/dashboard>Operations</a><a aria-current=page class="navbar__item navbar__link navbar__link--active" href=/en/administration/users-and-roles>Administration</a><a class="navbar__item navbar__link" href=/en/normalization/overview>Mappings</a><a class="navbar__item navbar__link" href=/en/enrichment/overview>Enriquecimento</a><a class="navbar__item navbar__link" href=/en/runbooks/dispatcher>Runbooks</a><a class="navbar__item navbar__link" href=/en/api/overview>API</a></div><div class="theme-layout-navbar-right navbar__items navbar__items--right"><div class="navbar__item dropdown dropdown--hoverable dropdown--right"><a href=# aria-haspopup=true aria-expanded=false role=button class=navbar__link><svg viewBox="0 0 24 24" width=20 height=20 aria-hidden=true class=iconLanguage_nlXk><path fill=currentColor d="M12.87 15.07l-2.54-2.51.03-.03c1.74-1.94 2.98-4.17 3.71-6.53H17V4h-7V2H8v2H1v1.99h11.17C11.5 7.92 10.44 9.75 9 11.35 8.07 10.32 7.3 9.19 6.69 8h-2c.73 1.63 1.73 3.17 2.98 4.56l-5.09 5.02L4 19l5-5 3.11 3.11.76-2.04zM18.5 10h-2L12 22h2l1.12-3h4.75L21 22h2l-4.5-12zm-2.62 7l1.62-4.33L19.12 17h-3.24z"/></svg>English</a><ul class=dropdown__menu><li><a href=/integrations/microsoft-azure target=_self rel="noopener noreferrer" class=dropdown__link lang=pt-BR>Português</a><li><a href=/en/integrations/microsoft-azure target=_self rel="noopener noreferrer" class="dropdown__link dropdown__link--active" lang=en>English</a><li><a href=/es/integrations/microsoft-azure target=_self rel="noopener noreferrer" class=dropdown__link lang=es>Español</a></ul></div><div class="toggle_vylO colorModeToggle_DEke"><button class="clean-btn toggleButton_gllP toggleButtonDisabled_aARS" type=button disabled title="system mode" aria-label="Switch between dark and light mode (currently system mode)"><svg viewBox="0 0 24 24" width=24 height=24 aria-hidden=true class="toggleIcon_g3eP lightToggleIcon_pyhR"><path fill=currentColor d="M12,9c1.65,0,3,1.35,3,3s-1.35,3-3,3s-3-1.35-3-3S10.35,9,12,9 M12,7c-2.76,0-5,2.24-5,5s2.24,5,5,5s5-2.24,5-5 S14.76,7,12,7L12,7z M2,13l2,0c0.55,0,1-0.45,1-1s-0.45-1-1-1l-2,0c-0.55,0-1,0.45-1,1S1.45,13,2,13z M20,13l2,0c0.55,0,1-0.45,1-1 s-0.45-1-1-1l-2,0c-0.55,0-1,0.45-1,1S19.45,13,20,13z M11,2v2c0,0.55,0.45,1,1,1s1-0.45,1-1V2c0-0.55-0.45-1-1-1S11,1.45,11,2z M11,20v2c0,0.55,0.45,1,1,1s1-0.45,1-1v-2c0-0.55-0.45-1-1-1C11.45,19,11,19.45,11,20z M5.99,4.58c-0.39-0.39-1.03-0.39-1.41,0 c-0.39,0.39-0.39,1.03,0,1.41l1.06,1.06c0.39,0.39,1.03,0.39,1.41,0s0.39-1.03,0-1.41L5.99,4.58z M18.36,16.95 c-0.39-0.39-1.03-0.39-1.41,0c-0.39,0.39-0.39,1.03,0,1.41l1.06,1.06c0.39,0.39,1.03,0.39,1.41,0c0.39-0.39,0.39-1.03,0-1.41 L18.36,16.95z M19.42,5.99c0.39-0.39,0.39-1.03,0-1.41c-0.39-0.39-1.03-0.39-1.41,0l-1.06,1.06c-0.39,0.39-0.39,1.03,0,1.41 s1.03,0.39,1.41,0L19.42,5.99z M7.05,18.36c0.39-0.39,0.39-1.03,0-1.41c-0.39-0.39-1.03-0.39-1.41,0l-1.06,1.06 c-0.39,0.39-0.39,1.03,0,1.41s1.03,0.39,1.41,0L7.05,18.36z"/></svg><svg viewBox="0 0 24 24" width=24 height=24 aria-hidden=true class="toggleIcon_g3eP darkToggleIcon_wfgR"><path fill=currentColor d="M9.37,5.51C9.19,6.15,9.1,6.82,9.1,7.5c0,4.08,3.32,7.4,7.4,7.4c0.68,0,1.35-0.09,1.99-0.27C17.45,17.19,14.93,19,12,19 c-3.86,0-7-3.14-7-7C5,9.07,6.81,6.55,9.37,5.51z M12,3c-4.97,0-9,4.03-9,9s4.03,9,9,9s9-4.03,9-9c0-0.46-0.04-0.92-0.1-1.36 c-0.98,1.37-2.58,2.26-4.4,2.26c-2.98,0-5.4-2.42-5.4-5.4c0-1.81,0.89-3.42,2.26-4.4C12.92,3.04,12.46,3,12,3L12,3z"/></svg><svg viewBox="0 0 24 24" width=24 height=24 aria-hidden=true class="toggleIcon_g3eP systemToggleIcon_QzmC"><path fill=currentColor d="m12 21c4.971 0 9-4.029 9-9s-4.029-9-9-9-9 4.029-9 9 4.029 9 9 9zm4.95-13.95c1.313 1.313 2.05 3.093 2.05 4.95s-0.738 3.637-2.05 4.95c-1.313 1.313-3.093 2.05-4.95 2.05v-14c1.857 0 3.637 0.737 4.95 2.05z"/></svg></button></div><div class=navbarSearchContainer_Bca1><div class=navbar__search><span aria-label="expand searchbar" role=button class=search-icon tabindex=0></span><input id=search_input_react type=search placeholder=Loading... aria-label=Search class="navbar__search-input search-bar" disabled/></div></div></div></div><div role=presentation class=navbar-sidebar__backdrop></div></nav><div id=__docusaurus_skipToContent_fallback class="theme-layout-main main-wrapper mainWrapper_z2l0"><div class=docsWrapper_hBAB><button aria-label="Scroll back to top" class="clean-btn theme-back-to-top-button backToTopButton_sjWU" type=button></button><div class=docRoot_UBD9><aside class="theme-doc-sidebar-container docSidebarContainer_YfHR"><div class=sidebarViewport_aRkj><div class=sidebar_njMd><nav aria-label="Docs sidebar" class="menu thin-scrollbar menu_SIkG"><ul class="theme-doc-sidebar-menu menu__list"><li class="theme-doc-sidebar-item-category theme-doc-sidebar-item-category-level-1 menu__list-item"><div class=menu__list-item-collapsible><a class="categoryLink_byQd menu__link menu__link--sublist menu__link--sublist-caret" role=button aria-expanded=true href=/en/administration/users-and-roles><span title=Administration class=categoryLinkLabel_W154>Administration</span></a></div><ul class=menu__list><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/en/administration/users-and-roles><span title="Usuários e papéis" class=linkLabel_WmDU>Usuários e papéis</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/en/administration/sso-entra><span title="SSO com Microsoft Entra ID" class=linkLabel_WmDU>SSO com Microsoft Entra ID</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/en/administration/organizations><span title=Organizações class=linkLabel_WmDU>Organizações</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/en/administration/tenant-hierarchy><span title="Hierarquia de tenants e MSP" class=linkLabel_WmDU>Hierarquia de tenants e MSP</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/en/administration/platform-config><span title="Configuração da plataforma" class=linkLabel_WmDU>Configuração da plataforma</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/en/administration/secrets-and-master-key><span title="Credenciais e segredos das integrações" class=linkLabel_WmDU>Credenciais e segredos das integrações</span></a></ul><li class="theme-doc-sidebar-item-category theme-doc-sidebar-item-category-level-1 menu__list-item"><div class=menu__list-item-collapsible><a class="categoryLink_byQd menu__link menu__link--sublist menu__link--sublist-caret menu__link--active" role=button aria-expanded=true href=/en/integrations/overview><span title=Integrations class=categoryLinkLabel_W154>Integrations</span></a></div><ul class=menu__list><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/en/integrations/overview><span title="Visão geral de integrações" class=linkLabel_WmDU>Visão geral de integrações</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/en/integrations/sophos><span title="Sophos Central" class=linkLabel_WmDU>Sophos Central</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/en/integrations/wazuh><span title=Wazuh class=linkLabel_WmDU>Wazuh</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/en/integrations/crowdstrike><span title="CrowdStrike Falcon" class=linkLabel_WmDU>CrowdStrike Falcon</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/en/integrations/microsoft-defender><span title="Microsoft Defender" class=linkLabel_WmDU>Microsoft Defender</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/en/integrations/google-cloud><span title="Google Cloud (Pub/Sub)" class=linkLabel_WmDU>Google Cloud (Pub/Sub)</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class="menu__link menu__link--active" aria-current=page tabindex=0 href=/en/integrations/microsoft-azure><span title="Microsoft Azure" class=linkLabel_WmDU>Microsoft Azure</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/en/integrations/akamai><span title="Akamai App & API Protector (WAF)" class=linkLabel_WmDU>Akamai App & API Protector (WAF)</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/en/integrations/google-workspace><span title="Google Workspace" class=linkLabel_WmDU>Google Workspace</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/en/integrations/microsoft-365><span title="Microsoft 365" class=linkLabel_WmDU>Microsoft 365</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/en/integrations/aws-cloudtrail><span title="AWS CloudTrail" class=linkLabel_WmDU>AWS CloudTrail</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/en/integrations/aws-cloudwatch><span title="AWS CloudWatch Logs" class=linkLabel_WmDU>AWS CloudWatch Logs</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/en/integrations/microsoft-entra-id><span title="Microsoft Entra ID" class=linkLabel_WmDU>Microsoft Entra ID</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/en/integrations/okta><span title=Okta class=linkLabel_WmDU>Okta</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/en/integrations/ninjaone><span title=NinjaOne class=linkLabel_WmDU>NinjaOne</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/en/integrations/veeam><span title="Veeam Backup & Replication" class=linkLabel_WmDU>Veeam Backup & Replication</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/en/integrations/dfir-iris><span title=DFIR-IRIS class=linkLabel_WmDU>DFIR-IRIS</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/en/integrations/push-ingestion><span title="Ingestão push (edge-collector)" class=linkLabel_WmDU>Ingestão push (edge-collector)</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/en/integrations/fortinet-fortigate><span title="Fortinet FortiGate" class=linkLabel_WmDU>Fortinet FortiGate</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/en/integrations/windows-event-log><span title="Windows Event Log (WEC)" class=linkLabel_WmDU>Windows Event Log (WEC)</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/en/integrations/syslog-receiver><span title="Receptor syslog nativo" class=linkLabel_WmDU>Receptor syslog nativo</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/en/integrations/custom-json><span title="Fonte genérica (JSON)" class=linkLabel_WmDU>Fonte genérica (JSON)</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/en/integrations/adding-new-vendor><span title="Vendors suportados e como solicitar um novo" class=linkLabel_WmDU>Vendors suportados e como solicitar um novo</span></a></ul></ul></nav></div></div></aside><main class=docMainContainer_TBSr><div class="container padding-top--md padding-bottom--lg"><div class=row><div class="col docItemCol_VOVn"><div class=docItemContainer_Djhp><article><nav class="theme-doc-breadcrumbs breadcrumbsContainer_Z_bl" aria-label=Breadcrumbs><ul class=breadcrumbs><li class=breadcrumbs__item><a aria-label="Home page" class=breadcrumbs__link href=/en/><svg viewBox="0 0 24 24" class=breadcrumbHomeIcon_YNFT><path d="M10 19v-5h4v5c0 .55.45 1 1 1h3c.55 0 1-.45 1-1v-7h1.7c.46 0 .68-.57.33-.87L12.67 3.6c-.38-.34-.96-.34-1.34 0l-8.36 7.53c-.34.3-.13.87.33.87H5v7c0 .55.45 1 1 1h3c.55 0 1-.45 1-1z" fill=currentColor /></svg></a><li class=breadcrumbs__item><span class=breadcrumbs__link>Integrations</span><li class="breadcrumbs__item breadcrumbs__item--active"><span class=breadcrumbs__link>Microsoft Azure</span></ul></nav><div class="tocCollapsible_ETCw theme-doc-toc-mobile tocMobile_ITEo"><button type=button class="clean-btn tocCollapsibleButton_TO0P">On this page</button></div><div class="theme-doc-markdown markdown"><header><h1>Microsoft Azure</h1></header>
+<p>Conecte o Azure ao CentralOps para coletar, com uma integração e uma credencial só, três fluxos de segurança:</p>
+<ul>
+<li class="">o <strong>Activity Log</strong> de todas as assinaturas que você liberar (o plano de controle: quem mudou o quê, onde);</li>
+<li class="">os <strong>logs do Microsoft Entra ID</strong>, incluindo os sign-ins <strong>não interativos</strong>, de <strong>service principal</strong> e de <strong>managed identity</strong>;</li>
+<li class="">os <strong>resource logs</strong> dos recursos que guardam dado sensível: Key Vault, AKS, Azure SQL, Storage e outros.</li>
+</ul>
+<p>O Activity Log não exige infraestrutura nenhuma: basta um papel de leitura. Os outros dois fluxos passam por um <strong>Event Hub</strong>, que é como o Azure exporta log para fora dele.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=quando-usar>Quando usar<a href=#quando-usar class=hash-link aria-label="Direct link to Quando usar" title="Direct link to Quando usar" translate=no>​</a></h2>
+<ul>
+<li class=""><strong>Vigiar privilégio no Azure.</strong> Quem recebeu <code>Owner</code> ou <code>User Access Administrator</code>, quem criou ou apagou recurso, quem rodou <code>listKeys</code> numa storage account, quem mexeu em NSG, política ou bloqueio de recurso.</li>
+<li class=""><strong>Fechar o ponto cego do Entra ID.</strong> O Graph v1.0 (integração <a class="" href=/en/integrations/microsoft-entra-id>Microsoft Entra ID</a>) só entrega o sign-in <strong>interativo</strong>. Token roubado, <em>password spray</em> contra protocolo legado e abuso de service principal aparecem nos sign-ins <strong>não interativos</strong> e de <strong>service principal</strong>, que só saem por diagnostic setting.</li>
+<li class=""><strong>Saber quem executou comando dentro de VM pelo Azure.</strong> Run Command (portal, <code>az vm run-command</code>), Custom Script Extension e <code>az aks command invoke</code> rodam código como <code>SYSTEM</code>/<code>root</code> sem RDP nem SSH. Ver <a href=#run-command-o-que-vem-e-o-que-n%C3%A3o-vem class="">Run Command: o que vem e o que não vem</a>.</li>
+<li class=""><strong>Saber quem leu o segredo.</strong> Leitura e listagem de segredo, chave e certificado no Key Vault, com quem leu e de onde.</li>
+<li class=""><strong>Ver os eventos administrativos do Kubernetes (AKS).</strong> <code>kubectl exec</code> em produção, <code>ClusterRoleBinding</code> para <code>cluster-admin</code>, leitura de secrets.</li>
+<li class=""><strong>Monitorar o Azure SQL.</strong> Login falho em sequência, <code>GRANT</code>, <code>CREATE USER</code>, DDL.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=como-funciona>Como funciona<a href=#como-funciona class=hash-link aria-label="Direct link to Como funciona" title="Direct link to Como funciona" translate=no>​</a></h2>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style=--prism-color:#393A34;--prism-background-color:#f6f8fa><div class=codeBlockContent_QJqH><pre tabindex=0 class="prism-code language-text codeBlock_bY9V thin-scrollbar" style=color:#393A34;background-color:#f6f8fa><code class=codeBlockLines_e6Vv><div class=token-line style=color:#393A34><span class="token plain">Assinaturas ──────── API do Azure Monitor (polling, papel de leitura) ─────────────► stream activity</span><br/></div><div class=token-line style=color:#393A34><span class="token plain">Entra ID   ─diagnostic setting─► Event Hub centralops-entra    ──Kafka (OAuth)──► stream entra</span><br/></div><div class=token-line style=color:#393A34><span class="token plain">Recursos   ─diagnostic setting─► Event Hub centralops-resource ──Kafka (OAuth)──► stream resource</span><br/></div></code></pre></div></div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Stream<th>Fonte<th>O que chega<th>Classe OCSF<tbody><tr><td><code>activity</code><td>API REST do Azure Monitor (<code>eventtypes/management/values</code>), em <strong>toda assinatura que o app enxerga</strong><td>Activity Log: categorias Administrative, Security (alertas do Defender for Cloud), Policy, ServiceHealth, Recommendation, Autoscale, ResourceHealth<td>API Activity (6003)<tr><td><code>entra</code><td>Event Hub <code>centralops-entra</code><td><code>SignInLogs</code>, <code>NonInteractiveUserSignInLogs</code>, <code>ServicePrincipalSignInLogs</code>, <code>ManagedIdentitySignInLogs</code>, <code>AuditLogs</code> e as demais categorias do Entra<td>Sign-in → Authentication (3002); mudança de conta → Account Change (3001); resto do AuditLogs → API Activity (6003)<tr><td><code>resource</code><td>Event Hub <code>centralops-resource</code><td>Resource logs: <code>AuditEvent</code> (Key Vault), <code>kube-audit</code>/<code>kube-audit-admin</code> (AKS), <code>SQLSecurityAuditEvents</code> (Azure SQL), <code>StorageRead</code>/<code>StorageWrite</code>/<code>StorageDelete</code> e qualquer outra categoria<td>Ver <a href=#o-que-%C3%A9-coletado class="">O que é coletado</a></table>
+<ul>
+<li class=""><strong>Event Hub que não existe = stream desligado.</strong> Crie só os hubs dos fluxos que quiser.</li>
+<li class=""><strong>Sem namespace do Event Hubs, só o <code>activity</code> roda.</strong> É um bom primeiro passo: dá para começar com o Activity Log e ligar o resto depois.</li>
+<li class="">O escopo do <code>activity</code> é o <strong>RBAC</strong>: o CentralOps lê as assinaturas em que o app tem o papel do <a href=#passo-1-criar-o-app-e-dar-o-papel-de-leitura class="">Passo 1</a>. Atribua o papel num <em>management group</em> para cobrir também as assinaturas criadas depois.</li>
+</ul>
+<div class="theme-admonition theme-admonition-info admonition_xJq3 alert alert--info"><div class=admonitionHeading_Gvgb><span class=admonitionIcon_Rf37><svg viewBox="0 0 14 16"><path fill-rule=evenodd d="M7 2.3c3.14 0 5.7 2.56 5.7 5.7s-2.56 5.7-5.7 5.7A5.71 5.71 0 0 1 1.3 8c0-3.14 2.56-5.7 5.7-5.7zM7 1C3.14 1 0 4.14 0 8s3.14 7 7 7 7-3.14 7-7-3.14-7-7-7zm1 3H6v5h2V4zm0 6H6v2h2v-2z"/></svg></span>Por que Event Hubs, e por que via Kafka</div><div class=admonitionContent_BuS1><p>Diagnostic settings só exportam para três destinos: Log Analytics, Storage Account e Event Hub. Só o Event Hub se lê como fila, com retenção e sem custo de consulta, e é o padrão de Splunk, Elastic, QRadar e outros SIEMs para tirar log do Azure. O CentralOps lê o Event Hub pelo <strong>endpoint Kafka</strong> dele (porta 9093), autenticando com um token do Entra ID, sem connection string.</div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=o-que-coletar-análise-de-segurança>O que coletar: análise de segurança<a href=#o-que-coletar-análise-de-segurança class=hash-link aria-label="Direct link to O que coletar: análise de segurança" title="Direct link to O que coletar: análise de segurança" translate=no>​</a></h2>
+<p>Ligar tudo é caro e enterra o sinal. A tabela abaixo ordena as fontes pelo que elas revelam de ataque real, com o volume esperado. Comece pelas de prioridade <strong>1</strong>.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Prioridade<th>Fonte<th>Stream<th>O que pega<th>Volume<tbody><tr><td>1<td><strong>Activity Log</strong><td><code>activity</code><td>Escalada de privilégio (<code>roleAssignments/write</code>), <code>listKeys</code>/<code>regenerateKey</code> de storage e Cosmos DB, execução de comando em VM (Run Command, Custom Script Extension), criação de VM para mineração, desligamento de diagnostic setting (o atacante apagando o rastro), exclusão de recurso, alertas do Defender for Cloud<td>Baixo<tr><td>1<td><strong>Entra <code>SignInLogs</code> + <code>NonInteractiveUserSignInLogs</code></strong><td><code>entra</code><td><em>Password spray</em>, MFA <em>fatigue</em>, <em>token replay</em> (sessão roubada usada de outro país), protocolo legado<td>Alto: o não interativo costuma ser 5 a 10 vezes o interativo<tr><td>1<td><strong>Entra <code>AuditLogs</code></strong><td><code>entra</code><td>Admin novo (<code>Add member to role</code>), credencial nova em app ou service principal (persistência clássica), consentimento de app, mudança de Conditional Access, reset de senha<td>Baixo<tr><td>1<td><strong>Entra <code>ServicePrincipalSignInLogs</code> + <code>ManagedIdentitySignInLogs</code></strong><td><code>entra</code><td>Segredo de app vazado sendo usado de fora; managed identity usada fora do padrão<td>Médio<tr><td>1<td><strong>Key Vault <code>AuditEvent</code></strong><td><code>resource</code><td>Leitura em massa de segredo (<code>SecretGet</code>/<code>SecretList</code>), acesso negado repetido, <code>SecretPurge</code>, <code>KeyDecrypt</code> por identidade nova<td>Médio<tr><td>2<td><strong>AKS <code>kube-audit-admin</code></strong><td><code>resource</code><td><code>kubectl exec</code>/<code>attach</code>, RBAC do cluster, <code>create</code>/<code>delete</code> de workload. Não inclui <code>get</code>/<code>list</code><td>Médio<tr><td>2<td><strong>Azure SQL <code>SQLSecurityAuditEvents</code></strong><td><code>resource</code><td>Força bruta no banco, <code>GRANT</code>, <code>CREATE USER</code>, DDL<td>Depende do grupo de ações auditado<tr><td>2<td><strong>Entra <code>RiskyUsers</code>, <code>UserRiskEvents</code>, <code>RiskyServicePrincipals</code></strong><td><code>entra</code><td>Detecções do Identity Protection (exige Entra ID P2)<td>Baixo<tr><td>3<td><strong>AKS <code>kube-audit</code></strong> (completo)<td><code>resource</code><td>Tudo do <code>kube-audit-admin</code> mais leitura de secret (<code>get secrets</code>)<td><strong>Muito alto</strong>: ligue só em cluster crítico<tr><td>3<td><strong>Storage <code>StorageDelete</code>/<code>StorageWrite</code></strong><td><code>resource</code><td>Exfiltração e destruição de dado em contas sensíveis (backup, dados de cliente)<td>Alto: ligue por conta, não para todas<tr><td>3<td><strong>Azure Firewall</strong> (<code>AZFWNetworkRule</code>, <code>AZFWApplicationRule</code>)<td><code>resource</code><td>Saída para destino incomum, C2<td>Alto</table>
+<p>Não mande para os hubs:</p>
+<ul>
+<li class=""><strong>O Activity Log da assinatura.</strong> O stream <code>activity</code> já o lê pela API. Mandar também para um hub gera cada evento duas vezes, em formatos diferentes, e o dedupe não consegue juntar os dois.</li>
+<li class=""><strong>Métricas</strong> (<code>AllMetrics</code>). São números de desempenho, não eventos de segurança.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=segurança-da-integração>Segurança da integração<a href=#segurança-da-integração class=hash-link aria-label="Direct link to Segurança da integração" title="Direct link to Segurança da integração" translate=no>​</a></h2>
+<p>Esta integração entrega ao CentralOps o direito de <strong>ler</strong> log de segurança do seu Azure. Ela foi desenhada para que esse direito seja o menor possível e para que nada que o CentralOps guarda permita mudar o seu ambiente.</p>
+<p><strong>Só leitura, e só o que é log.</strong></p>
+<ul>
+<li class="">O papel do Activity Log é de leitura (Monitoring Reader, ou o papel customizado mínimo do Passo 1, que só lê eventos). Nenhum caminho de código do coletor faz <code>PUT</code>, <code>POST</code> ou <code>DELETE</code> no ARM.</li>
+<li class="">No Event Hub, o papel é <strong>Azure Event Hubs Data Receiver</strong>: ler mensagens. Não dá para publicar, apagar ou mudar o hub.</li>
+</ul>
+<p><strong>Nenhuma chave compartilhada.</strong> O CentralOps <strong>não</strong> recebe connection string do Event Hubs (<code>SharedAccessKey</code>). O mesmo app registration autentica no ARM e, por OAuth, no endpoint Kafka do Event Hubs. Revogar o acesso é tirar um papel no RBAC ou apagar o segredo do app, sem rodar chave de namespace usada por outros sistemas.</p>
+<p><strong>O que o CentralOps guarda:</strong> Tenant ID, Client ID e o nome do namespace em texto; o <strong>Client Secret cifrado</strong> no cofre de credenciais da integração (o mesmo usado pelos demais vendors). O segredo nunca volta para a tela, nem no teste de conexão: quando o Entra recusa a credencial, o CentralOps mostra só o código do erro (ex.: <code>invalid_client (AADSTS7000215)</code>).</p>
+<p><strong>Superfície de rede fechada.</strong> O token do Entra vale como a identidade do app. Por isso o coletor:</p>
+<ul>
+<li class="">só aceita namespace terminado em <code>.servicebus.windows.net</code> (um namespace digitado errado ou malicioso não recebe o token);</li>
+<li class="">só segue o <code>nextLink</code> de paginação se ele apontar para <code>https://management.azure.com</code>;</li>
+<li class="">não segue redirecionamento em nenhuma chamada;</li>
+<li class="">valida Tenant ID e Client ID antes de montá-los na URL do login.</li>
+</ul>
+<p><strong>Saída de rede necessária</strong> a partir dos workers do CentralOps:</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Destino<th>Porta<th>Para quê<tbody><tr><td><code>login.microsoftonline.com</code><td>443<td>Token do Entra<tr><td><code>management.azure.com</code><td>443<td>Activity Log e lista de assinaturas<tr><td><code>&lt;namespace>.servicebus.windows.net</code><td><strong>9093</strong><td>Event Hubs via Kafka</table>
+<p>Se o namespace do Event Hubs tem firewall (regras de IP ou <em>private endpoint</em>), libere o IP de saída do CentralOps.</p>
+<p><strong>Rotação do segredo.</strong> Segredo de app registration expira (o padrão do <code>az ad sp create-for-rbac</code> é 1 ano). Antes de expirar, crie um segredo novo, atualize o campo <em>Client Secret</em> da integração e só então apague o antigo. Segredo expirado aparece como erro de autenticação na integração e em <strong>Saúde do Pipeline</strong>.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=quem-pode-fazer-o-quê>Quem pode fazer o quê<a href=#quem-pode-fazer-o-quê class=hash-link aria-label="Direct link to Quem pode fazer o quê" title="Direct link to Quem pode fazer o quê" translate=no>​</a></h2>
+<ul>
+<li class=""><strong>Administrador da plataforma:</strong> cria e edita a integração (menu <strong>Coleta -> Integrações</strong>).</li>
+<li class=""><strong>No Azure:</strong>
+<ul>
+<li class="">criar o app registration exige <em>Application Administrator</em> (ou <em>Cloud Application Administrator</em>) no Entra ID;</li>
+<li class="">atribuir papel exige <em>Owner</em> ou <em>User Access Administrator</em> no escopo (assinatura ou management group);</li>
+<li class="">configurar diagnostic setting do Entra ID exige <em>Security Administrator</em>;</li>
+<li class="">configurar diagnostic setting de recurso exige <em>Monitoring Contributor</em> no recurso.</li>
+</ul>
+</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=pré-requisitos>Pré-requisitos<a href=#pré-requisitos class=hash-link aria-label="Direct link to Pré-requisitos" title="Direct link to Pré-requisitos" translate=no>​</a></h2>
+<ul>
+<li class="">Acesso de <strong>administrador no CentralOps</strong>.</li>
+<li class=""><a href=https://learn.microsoft.com/cli/azure/install-azure-cli target=_blank rel="noopener noreferrer" class="">Azure CLI</a> logado (<code>az login</code>) com as permissões acima, ou o Cloud Shell do portal.</li>
+<li class="">Para os streams <code>entra</code> e <code>resource</code>: um <strong>namespace do Event Hubs no tier Standard ou acima</strong>. O tier Basic não tem endpoint Kafka.</li>
+<li class="">Para exportar os sign-ins do Entra ID: licença <strong>Microsoft Entra ID P1 ou P2</strong> no tenant. O portal recusa o export de sign-in sem ela.</li>
+</ul>
+<p>Nos comandos abaixo, troque <code>MG_ID</code> pelo ID do management group (ou use uma assinatura), <code>RG</code> pelo resource group do Event Hubs e <code>NS</code> pelo nome do namespace.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=passo-1-criar-o-app-e-dar-o-papel-de-leitura>Passo 1: Criar o app e dar o papel de leitura<a href=#passo-1-criar-o-app-e-dar-o-papel-de-leitura class=hash-link aria-label="Direct link to Passo 1: Criar o app e dar o papel de leitura" title="Direct link to Passo 1: Criar o app e dar o papel de leitura" translate=no>​</a></h2>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style=--prism-color:#393A34;--prism-background-color:#f6f8fa><div class=codeBlockContent_QJqH><pre tabindex=0 class="prism-code language-bash codeBlock_bY9V thin-scrollbar" style=color:#393A34;background-color:#f6f8fa><code class=codeBlockLines_e6Vv><div class=token-line style=color:#393A34><span class="token assign-left variable" style=color:#36acaa>MG_ID</span><span class="token operator" style=color:#393A34>=</span><span class="token plain">meu-management-group</span><br/></div><div class=token-line style=color:#393A34><span class="token plain" style=display:inline-block></span><br/></div><div class=token-line style=color:#393A34><span class="token plain">az ad sp create-for-rbac </span><span class="token parameter variable" style=color:#36acaa>--name</span><span class="token plain"> centralops-coletor </span><span class="token punctuation" style=color:#393A34>\</span><span class="token plain"></span><br/></div><div class=token-line style=color:#393A34><span class="token plain">  </span><span class="token parameter variable" style=color:#36acaa>--role</span><span class="token plain"> </span><span class="token string" style=color:#e3116c>"Monitoring Reader"</span><span class="token plain"> </span><span class="token punctuation" style=color:#393A34>\</span><span class="token plain"></span><br/></div><div class=token-line style=color:#393A34><span class="token plain">  </span><span class="token parameter variable" style=color:#36acaa>--scopes</span><span class="token plain"> </span><span class="token string" style=color:#e3116c>"/providers/Microsoft.Management/managementGroups/</span><span class="token string variable" style=color:#36acaa>$MG_ID</span><span class="token string" style=color:#e3116c>"</span><br/></div></code></pre></div></div>
+<p>A saída traz os três valores da integração:</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Saída<th>Campo no CentralOps<tbody><tr><td><code>tenant</code><td>Tenant ID<tr><td><code>appId</code><td>Client ID<tr><td><code>password</code><td>Client Secret</table>
+<p>Guarde o <code>password</code> agora: ele não aparece de novo.</p>
+<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class=admonitionHeading_Gvgb><span class=admonitionIcon_Rf37><svg viewBox="0 0 12 16"><path fill-rule=evenodd d="M6.5 0C3.48 0 1 2.19 1 5c0 .92.55 2.25 1 3 1.34 2.25 1.78 2.78 2 4v1h5v-1c.22-1.22.66-1.75 2-4 .45-.75 1-2.08 1-3 0-2.81-2.48-5-5.5-5zm3.64 7.48c-.25.44-.47.8-.67 1.11-.86 1.41-1.25 2.06-1.45 3.23-.02.05-.02.11-.02.17H5c0-.06 0-.13-.02-.17-.2-1.17-.59-1.83-1.45-3.23-.2-.31-.42-.67-.67-1.11C2.44 6.78 2 5.65 2 5c0-2.2 2.02-4 4.5-4 1.22 0 2.36.42 3.22 1.19C10.55 2.94 11 3.94 11 5c0 .66-.44 1.78-.86 2.48zM4 14h5c-.23 1.14-1.3 2-2.5 2s-2.27-.86-2.5-2z"/></svg></span>Papel mínimo: só ler eventos</div><div class=admonitionContent_BuS1><p>O <em>Monitoring Reader</em> lê qualquer configuração (<code>*/read</code>), não só log. Para que o app enxergue <strong>apenas</strong> o Activity Log, crie um papel customizado e use-o no lugar:<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style=--prism-color:#393A34;--prism-background-color:#f6f8fa><div class=codeBlockContent_QJqH><pre tabindex=0 class="prism-code language-bash codeBlock_bY9V thin-scrollbar" style=color:#393A34;background-color:#f6f8fa><code class=codeBlockLines_e6Vv><div class=token-line style=color:#393A34><span class="token function" style=color:#d73a49>cat</span><span class="token plain"> </span><span class="token operator" style=color:#393A34>></span><span class="token plain"> centralops-activity-reader.json </span><span class="token operator" style=color:#393A34>&lt;&lt;</span><span class="token string" style=color:#e3116c>EOF</span><br/></div><div class=token-line style=color:#393A34><span class="token string" style=color:#e3116c>{</span><br/></div><div class=token-line style=color:#393A34><span class="token string" style=color:#e3116c>  "Name": "CentralOps Activity Log Reader",</span><br/></div><div class=token-line style=color:#393A34><span class="token string" style=color:#e3116c>  "Description": "Le o Activity Log e lista as assinaturas. Nada mais.",</span><br/></div><div class=token-line style=color:#393A34><span class="token string" style=color:#e3116c>  "Actions": [</span><br/></div><div class=token-line style=color:#393A34><span class="token string" style=color:#e3116c>    "Microsoft.Insights/eventtypes/values/read",</span><br/></div><div class=token-line style=color:#393A34><span class="token string" style=color:#e3116c>    "Microsoft.Resources/subscriptions/read"</span><br/></div><div class=token-line style=color:#393A34><span class="token string" style=color:#e3116c>  ],</span><br/></div><div class=token-line style=color:#393A34><span class="token string" style=color:#e3116c>  "AssignableScopes": ["/providers/Microsoft.Management/managementGroups/</span><span class="token string variable" style=color:#36acaa>$MG_ID</span><span class="token string" style=color:#e3116c>"]</span><br/></div><div class=token-line style=color:#393A34><span class="token string" style=color:#e3116c>}</span><br/></div><div class=token-line style=color:#393A34><span class="token string" style=color:#e3116c>EOF</span><span class="token plain"></span><br/></div><div class=token-line style=color:#393A34><span class="token plain">az role definition create --role-definition centralops-activity-reader.json</span><br/></div><div class=token-line style=color:#393A34><span class="token plain">az role assignment create </span><span class="token parameter variable" style=color:#36acaa>--assignee</span><span class="token plain"> APP_ID </span><span class="token punctuation" style=color:#393A34>\</span><span class="token plain"></span><br/></div><div class=token-line style=color:#393A34><span class="token plain">  </span><span class="token parameter variable" style=color:#36acaa>--role</span><span class="token plain"> </span><span class="token string" style=color:#e3116c>"CentralOps Activity Log Reader"</span><span class="token plain"> </span><span class="token punctuation" style=color:#393A34>\</span><span class="token plain"></span><br/></div><div class=token-line style=color:#393A34><span class="token plain">  </span><span class="token parameter variable" style=color:#36acaa>--scope</span><span class="token plain"> </span><span class="token string" style=color:#e3116c>"/providers/Microsoft.Management/managementGroups/</span><span class="token string variable" style=color:#36acaa>$MG_ID</span><span class="token string" style=color:#e3116c>"</span><br/></div></code></pre></div></div></div></div>
+<p>Sem management group, troque o escopo por <code>/subscriptions/ID_DA_ASSINATURA</code> e repita para cada assinatura.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=passo-2-opcional-namespace-e-hubs-do-event-hubs>Passo 2 (opcional): Namespace e hubs do Event Hubs<a href=#passo-2-opcional-namespace-e-hubs-do-event-hubs class=hash-link aria-label="Direct link to Passo 2 (opcional): Namespace e hubs do Event Hubs" title="Direct link to Passo 2 (opcional): Namespace e hubs do Event Hubs" translate=no>​</a></h2>
+<p>Pule este passo se, por enquanto, só quer o Activity Log.</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style=--prism-color:#393A34;--prism-background-color:#f6f8fa><div class=codeBlockContent_QJqH><pre tabindex=0 class="prism-code language-bash codeBlock_bY9V thin-scrollbar" style=color:#393A34;background-color:#f6f8fa><code class=codeBlockLines_e6Vv><div class=token-line style=color:#393A34><span class="token assign-left variable" style=color:#36acaa>RG</span><span class="token operator" style=color:#393A34>=</span><span class="token plain">rg-seguranca</span><br/></div><div class=token-line style=color:#393A34><span class="token plain"></span><span class="token assign-left variable" style=color:#36acaa>NS</span><span class="token operator" style=color:#393A34>=</span><span class="token plain">ns-seguranca-centralops   </span><span class="token comment" style=color:#999988;font-style:italic># 6 a 50 caracteres; letras, números e hífen</span><span class="token plain"></span><br/></div><div class=token-line style=color:#393A34><span class="token plain"></span><span class="token assign-left variable" style=color:#36acaa>LOCAL</span><span class="token operator" style=color:#393A34>=</span><span class="token plain">brazilsouth</span><br/></div><div class=token-line style=color:#393A34><span class="token plain" style=display:inline-block></span><br/></div><div class=token-line style=color:#393A34><span class="token plain">az eventhubs namespace create </span><span class="token parameter variable" style=color:#36acaa>-g</span><span class="token plain"> </span><span class="token string" style=color:#e3116c>"</span><span class="token string variable" style=color:#36acaa>$RG</span><span class="token string" style=color:#e3116c>"</span><span class="token plain"> </span><span class="token parameter variable" style=color:#36acaa>-n</span><span class="token plain"> </span><span class="token string" style=color:#e3116c>"</span><span class="token string variable" style=color:#36acaa>$NS</span><span class="token string" style=color:#e3116c>"</span><span class="token plain"> </span><span class="token parameter variable" style=color:#36acaa>-l</span><span class="token plain"> </span><span class="token string" style=color:#e3116c>"</span><span class="token string variable" style=color:#36acaa>$LOCAL</span><span class="token string" style=color:#e3116c>"</span><span class="token plain"> </span><span class="token parameter variable" style=color:#36acaa>--sku</span><span class="token plain"> Standard</span><br/></div><div class=token-line style=color:#393A34><span class="token plain" style=display:inline-block></span><br/></div><div class=token-line style=color:#393A34><span class="token plain"></span><span class="token keyword" style=color:#00009f>for</span><span class="token plain"> </span><span class="token for-or-select variable" style=color:#36acaa>HUB</span><span class="token plain"> </span><span class="token keyword" style=color:#00009f>in</span><span class="token plain"> centralops-entra centralops-resource</span><span class="token punctuation" style=color:#393A34>;</span><span class="token plain"> </span><span class="token keyword" style=color:#00009f>do</span><span class="token plain"></span><br/></div><div class=token-line style=color:#393A34><span class="token plain">  az eventhubs eventhub create </span><span class="token parameter variable" style=color:#36acaa>-g</span><span class="token plain"> </span><span class="token string" style=color:#e3116c>"</span><span class="token string variable" style=color:#36acaa>$RG</span><span class="token string" style=color:#e3116c>"</span><span class="token plain"> --namespace-name </span><span class="token string" style=color:#e3116c>"</span><span class="token string variable" style=color:#36acaa>$NS</span><span class="token string" style=color:#e3116c>"</span><span class="token plain"> </span><span class="token parameter variable" style=color:#36acaa>-n</span><span class="token plain"> </span><span class="token string" style=color:#e3116c>"</span><span class="token string variable" style=color:#36acaa>$HUB</span><span class="token string" style=color:#e3116c>"</span><span class="token plain"> </span><span class="token punctuation" style=color:#393A34>\</span><span class="token plain"></span><br/></div><div class=token-line style=color:#393A34><span class="token plain">    --partition-count </span><span class="token number" style=color:#36acaa>4</span><span class="token plain"> --cleanup-policy Delete --retention-time-in-hours </span><span class="token number" style=color:#36acaa>168</span><span class="token plain"></span><br/></div><div class=token-line style=color:#393A34><span class="token plain"></span><span class="token keyword" style=color:#00009f>done</span><span class="token plain"></span><br/></div><div class=token-line style=color:#393A34><span class="token plain" style=display:inline-block></span><br/></div><div class=token-line style=color:#393A34><span class="token plain"></span><span class="token comment" style=color:#999988;font-style:italic># O CentralOps só LÊ: papel Data Receiver no namespace.</span><span class="token plain"></span><br/></div><div class=token-line style=color:#393A34><span class="token plain"></span><span class="token assign-left variable" style=color:#36acaa>NS_ID</span><span class="token operator" style=color:#393A34>=</span><span class="token variable" style=color:#36acaa>$(</span><span class="token variable" style=color:#36acaa>az eventhubs namespace show </span><span class="token variable parameter variable" style=color:#36acaa>-g</span><span class="token variable" style=color:#36acaa> </span><span class="token variable string" style=color:#e3116c>"</span><span class="token variable string variable" style=color:#36acaa>$RG</span><span class="token variable string" style=color:#e3116c>"</span><span class="token variable" style=color:#36acaa> </span><span class="token variable parameter variable" style=color:#36acaa>-n</span><span class="token variable" style=color:#36acaa> </span><span class="token variable string" style=color:#e3116c>"</span><span class="token variable string variable" style=color:#36acaa>$NS</span><span class="token variable string" style=color:#e3116c>"</span><span class="token variable" style=color:#36acaa> </span><span class="token variable parameter variable" style=color:#36acaa>--query</span><span class="token variable" style=color:#36acaa> </span><span class="token variable function" style=color:#d73a49>id</span><span class="token variable" style=color:#36acaa> </span><span class="token variable parameter variable" style=color:#36acaa>-o</span><span class="token variable" style=color:#36acaa> tsv</span><span class="token variable" style=color:#36acaa>)</span><span class="token plain"></span><br/></div><div class=token-line style=color:#393A34><span class="token plain">az role assignment create </span><span class="token parameter variable" style=color:#36acaa>--assignee</span><span class="token plain"> APP_ID </span><span class="token punctuation" style=color:#393A34>\</span><span class="token plain"></span><br/></div><div class=token-line style=color:#393A34><span class="token plain">  </span><span class="token parameter variable" style=color:#36acaa>--role</span><span class="token plain"> </span><span class="token string" style=color:#e3116c>"Azure Event Hubs Data Receiver"</span><span class="token plain"> </span><span class="token parameter variable" style=color:#36acaa>--scope</span><span class="token plain"> </span><span class="token string" style=color:#e3116c>"</span><span class="token string variable" style=color:#36acaa>$NS_ID</span><span class="token string" style=color:#e3116c>"</span><br/></div></code></pre></div></div>
+<ul>
+<li class=""><strong>Retenção:</strong> 168 horas (7 dias) é o máximo do Standard. É o tempo que o CentralOps pode ficar parado sem perder log.</li>
+<li class=""><strong>Partições:</strong> 4 atende a maioria dos tenants. No Standard o número só é definido na criação; para tenant com muito volume de sign-in não interativo, use 8 a 16.</li>
+<li class=""><strong>Use um namespace dedicado</strong> ao CentralOps. Assim o papel do app não alcança hubs de aplicação.</li>
+</ul>
+<div class="theme-admonition theme-admonition-note admonition_xJq3 alert alert--secondary"><div class=admonitionHeading_Gvgb><span class=admonitionIcon_Rf37><svg viewBox="0 0 14 16"><path fill-rule=evenodd d="M6.3 5.69a.942.942 0 0 1-.28-.7c0-.28.09-.52.28-.7.19-.18.42-.28.7-.28.28 0 .52.09.7.28.18.19.28.42.28.7 0 .28-.09.52-.28.7a1 1 0 0 1-.7.3c-.28 0-.52-.11-.7-.3zM8 7.99c-.02-.25-.11-.48-.31-.69-.2-.19-.42-.3-.69-.31H6c-.27.02-.48.13-.69.31-.2.2-.3.44-.31.69h1v3c.02.27.11.5.31.69.2.2.42.31.69.31h1c.27 0 .48-.11.69-.31.2-.19.3-.42.31-.69H8V7.98v.01zM7 2.3c-3.14 0-5.7 2.54-5.7 5.68 0 3.14 2.56 5.7 5.7 5.7s5.7-2.55 5.7-5.7c0-3.15-2.56-5.69-5.7-5.69v.01zM7 .98c3.86 0 7 3.14 7 7s-3.14 7-7 7-7-3.12-7-7 3.14-7 7-7z"/></svg></span>A chave do namespace fica no Azure</div><div class=admonitionContent_BuS1><p>O diagnostic setting publica no hub usando uma regra de acesso compartilhado do namespace (<code>RootManageSharedAccessKey</code> ou uma regra com Manage, Send e Listen). Essa chave é usada <strong>pelo Azure Monitor, dentro do Azure</strong>, e nunca é informada ao CentralOps.</div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=passo-3-opcional-exportar-os-logs-do-entra-id>Passo 3 (opcional): Exportar os logs do Entra ID<a href=#passo-3-opcional-exportar-os-logs-do-entra-id class=hash-link aria-label="Direct link to Passo 3 (opcional): Exportar os logs do Entra ID" title="Direct link to Passo 3 (opcional): Exportar os logs do Entra ID" translate=no>​</a></h2>
+<ol>
+<li class="">No <a href=https://entra.microsoft.com target=_blank rel="noopener noreferrer" class="">Microsoft Entra admin center</a>, vá em <strong>Identidade → Monitoramento e integridade → Configurações de diagnóstico</strong> e clique em <strong>Adicionar configuração de diagnóstico</strong>.</li>
+<li class="">Marque as categorias. Recomendado para começar: <code>AuditLogs</code>, <code>SignInLogs</code>, <code>NonInteractiveUserSignInLogs</code>, <code>ServicePrincipalSignInLogs</code>, <code>ManagedIdentitySignInLogs</code>. Com Entra ID P2, some <code>RiskyUsers</code> e <code>UserRiskEvents</code>.</li>
+<li class="">Em <strong>Detalhes do destino</strong>, marque <strong>Transmitir para um hub de eventos</strong>, escolha a assinatura, o namespace <code>NS</code>, o hub <strong><code>centralops-entra</code></strong> e a regra de acesso do namespace.</li>
+<li class="">Salve. Os primeiros registros chegam ao hub em alguns minutos.</li>
+</ol>
+<p>Se você já usa a integração <a class="" href=/en/integrations/microsoft-entra-id>Microsoft Entra ID</a> (Graph), ela passa a ser redundante para sign-in e auditoria: o stream <code>entra</code> entrega o mesmo conteúdo e mais. Desative uma das duas para não contar o mesmo login duas vezes.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=passo-4-opcional-exportar-os-resource-logs>Passo 4 (opcional): Exportar os resource logs<a href=#passo-4-opcional-exportar-os-resource-logs class=hash-link aria-label="Direct link to Passo 4 (opcional): Exportar os resource logs" title="Direct link to Passo 4 (opcional): Exportar os resource logs" translate=no>​</a></h2>
+<p>Todos vão para o hub <strong><code>centralops-resource</code></strong>. A regra de acesso é a do namespace:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style=--prism-color:#393A34;--prism-background-color:#f6f8fa><div class=codeBlockContent_QJqH><pre tabindex=0 class="prism-code language-bash codeBlock_bY9V thin-scrollbar" style=color:#393A34;background-color:#f6f8fa><code class=codeBlockLines_e6Vv><div class=token-line style=color:#393A34><span class="token assign-left variable" style=color:#36acaa>RULE_ID</span><span class="token operator" style=color:#393A34>=</span><span class="token variable" style=color:#36acaa>$(</span><span class="token variable" style=color:#36acaa>az eventhubs namespace authorization-rule show </span><span class="token variable parameter variable" style=color:#36acaa>-g</span><span class="token variable" style=color:#36acaa> </span><span class="token variable string" style=color:#e3116c>"</span><span class="token variable string variable" style=color:#36acaa>$RG</span><span class="token variable string" style=color:#e3116c>"</span><span class="token variable" style=color:#36acaa> --namespace-name </span><span class="token variable string" style=color:#e3116c>"</span><span class="token variable string variable" style=color:#36acaa>$NS</span><span class="token variable string" style=color:#e3116c>"</span><span class="token variable" style=color:#36acaa> </span><span class="token variable punctuation" style=color:#393A34>\</span><span class="token variable" style=color:#36acaa></span><br/></div><div class=token-line style=color:#393A34><span class="token variable" style=color:#36acaa>  </span><span class="token variable parameter variable" style=color:#36acaa>-n</span><span class="token variable" style=color:#36acaa> RootManageSharedAccessKey </span><span class="token variable parameter variable" style=color:#36acaa>--query</span><span class="token variable" style=color:#36acaa> </span><span class="token variable function" style=color:#d73a49>id</span><span class="token variable" style=color:#36acaa> </span><span class="token variable parameter variable" style=color:#36acaa>-o</span><span class="token variable" style=color:#36acaa> tsv</span><span class="token variable" style=color:#36acaa>)</span><br/></div></code></pre></div></div>
+<p><strong>Key Vault</strong> (todo cofre com segredo de produção):</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style=--prism-color:#393A34;--prism-background-color:#f6f8fa><div class=codeBlockContent_QJqH><pre tabindex=0 class="prism-code language-bash codeBlock_bY9V thin-scrollbar" style=color:#393A34;background-color:#f6f8fa><code class=codeBlockLines_e6Vv><div class=token-line style=color:#393A34><span class="token plain">az monitor diagnostic-settings create </span><span class="token parameter variable" style=color:#36acaa>--name</span><span class="token plain"> centralops </span><span class="token punctuation" style=color:#393A34>\</span><span class="token plain"></span><br/></div><div class=token-line style=color:#393A34><span class="token plain">  </span><span class="token parameter variable" style=color:#36acaa>--resource</span><span class="token plain"> </span><span class="token string" style=color:#e3116c>"</span><span class="token string variable" style=color:#36acaa>$(</span><span class="token string variable" style=color:#36acaa>az keyvault show </span><span class="token string variable parameter variable" style=color:#36acaa>-n</span><span class="token string variable" style=color:#36acaa> MEU_COFRE </span><span class="token string variable parameter variable" style=color:#36acaa>--query</span><span class="token string variable" style=color:#36acaa> </span><span class="token string variable function" style=color:#d73a49>id</span><span class="token string variable" style=color:#36acaa> </span><span class="token string variable parameter variable" style=color:#36acaa>-o</span><span class="token string variable" style=color:#36acaa> tsv</span><span class="token string variable" style=color:#36acaa>)</span><span class="token string" style=color:#e3116c>"</span><span class="token plain"> </span><span class="token punctuation" style=color:#393A34>\</span><span class="token plain"></span><br/></div><div class=token-line style=color:#393A34><span class="token plain">  --event-hub centralops-resource --event-hub-rule </span><span class="token string" style=color:#e3116c>"</span><span class="token string variable" style=color:#36acaa>$RULE_ID</span><span class="token string" style=color:#e3116c>"</span><span class="token plain"> </span><span class="token punctuation" style=color:#393A34>\</span><span class="token plain"></span><br/></div><div class=token-line style=color:#393A34><span class="token plain">  </span><span class="token parameter variable" style=color:#36acaa>--logs</span><span class="token plain"> </span><span class="token string" style=color:#e3116c>'[{"category":"AuditEvent","enabled":true}]'</span><br/></div></code></pre></div></div>
+<p><strong>AKS</strong> (<code>kube-audit-admin</code> deixa de fora <code>get</code>/<code>list</code>; troque por <code>kube-audit</code> só em cluster crítico):</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style=--prism-color:#393A34;--prism-background-color:#f6f8fa><div class=codeBlockContent_QJqH><pre tabindex=0 class="prism-code language-bash codeBlock_bY9V thin-scrollbar" style=color:#393A34;background-color:#f6f8fa><code class=codeBlockLines_e6Vv><div class=token-line style=color:#393A34><span class="token plain">az monitor diagnostic-settings create </span><span class="token parameter variable" style=color:#36acaa>--name</span><span class="token plain"> centralops </span><span class="token punctuation" style=color:#393A34>\</span><span class="token plain"></span><br/></div><div class=token-line style=color:#393A34><span class="token plain">  </span><span class="token parameter variable" style=color:#36acaa>--resource</span><span class="token plain"> </span><span class="token string" style=color:#e3116c>"</span><span class="token string variable" style=color:#36acaa>$(</span><span class="token string variable" style=color:#36acaa>az aks show </span><span class="token string variable parameter variable" style=color:#36acaa>-g</span><span class="token string variable" style=color:#36acaa> RG_DO_AKS </span><span class="token string variable parameter variable" style=color:#36acaa>-n</span><span class="token string variable" style=color:#36acaa> MEU_AKS </span><span class="token string variable parameter variable" style=color:#36acaa>--query</span><span class="token string variable" style=color:#36acaa> </span><span class="token string variable function" style=color:#d73a49>id</span><span class="token string variable" style=color:#36acaa> </span><span class="token string variable parameter variable" style=color:#36acaa>-o</span><span class="token string variable" style=color:#36acaa> tsv</span><span class="token string variable" style=color:#36acaa>)</span><span class="token string" style=color:#e3116c>"</span><span class="token plain"> </span><span class="token punctuation" style=color:#393A34>\</span><span class="token plain"></span><br/></div><div class=token-line style=color:#393A34><span class="token plain">  --event-hub centralops-resource --event-hub-rule </span><span class="token string" style=color:#e3116c>"</span><span class="token string variable" style=color:#36acaa>$RULE_ID</span><span class="token string" style=color:#e3116c>"</span><span class="token plain"> </span><span class="token punctuation" style=color:#393A34>\</span><span class="token plain"></span><br/></div><div class=token-line style=color:#393A34><span class="token plain">  </span><span class="token parameter variable" style=color:#36acaa>--logs</span><span class="token plain"> </span><span class="token string" style=color:#e3116c>'[{"category":"kube-audit-admin","enabled":true},{"category":"guard","enabled":true}]'</span><br/></div></code></pre></div></div>
+<p><strong>Azure SQL</strong> (auditoria no nível do servidor, que vale para todos os bancos dele):</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style=--prism-color:#393A34;--prism-background-color:#f6f8fa><div class=codeBlockContent_QJqH><pre tabindex=0 class="prism-code language-bash codeBlock_bY9V thin-scrollbar" style=color:#393A34;background-color:#f6f8fa><code class=codeBlockLines_e6Vv><div class=token-line style=color:#393A34><span class="token plain">az sql server audit-policy update </span><span class="token parameter variable" style=color:#36acaa>-g</span><span class="token plain"> RG_DO_SQL </span><span class="token parameter variable" style=color:#36acaa>-n</span><span class="token plain"> MEU_SERVIDOR </span><span class="token punctuation" style=color:#393A34>\</span><span class="token plain"></span><br/></div><div class=token-line style=color:#393A34><span class="token plain">  </span><span class="token parameter variable" style=color:#36acaa>--state</span><span class="token plain"> Enabled --event-hub-target-state Enabled </span><span class="token punctuation" style=color:#393A34>\</span><span class="token plain"></span><br/></div><div class=token-line style=color:#393A34><span class="token plain">  --event-hub-authorization-rule-id </span><span class="token string" style=color:#e3116c>"</span><span class="token string variable" style=color:#36acaa>$RULE_ID</span><span class="token string" style=color:#e3116c>"</span><span class="token plain"> --event-hub centralops-resource</span><br/></div></code></pre></div></div>
+<p>O grupo de ações padrão da auditoria do Azure SQL inclui login com sucesso, login com falha e todos os <em>batches</em>. Num banco movimentado, <em>batch</em> é volume alto: considere restringir os grupos de ação (<code>--actions</code>) a <code>FAILED_DATABASE_AUTHENTICATION_GROUP</code>, <code>SUCCESSFUL_DATABASE_AUTHENTICATION_GROUP</code>, <code>DATABASE_PERMISSION_CHANGE_GROUP</code>, <code>DATABASE_PRINCIPAL_CHANGE_GROUP</code> e <code>SCHEMA_OBJECT_CHANGE_GROUP</code>.</p>
+<p><strong>Storage</strong> (só contas sensíveis; o recurso é o serviço de blob, não a conta):</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style=--prism-color:#393A34;--prism-background-color:#f6f8fa><div class=codeBlockContent_QJqH><pre tabindex=0 class="prism-code language-bash codeBlock_bY9V thin-scrollbar" style=color:#393A34;background-color:#f6f8fa><code class=codeBlockLines_e6Vv><div class=token-line style=color:#393A34><span class="token plain">az monitor diagnostic-settings create </span><span class="token parameter variable" style=color:#36acaa>--name</span><span class="token plain"> centralops </span><span class="token punctuation" style=color:#393A34>\</span><span class="token plain"></span><br/></div><div class=token-line style=color:#393A34><span class="token plain">  </span><span class="token parameter variable" style=color:#36acaa>--resource</span><span class="token plain"> </span><span class="token string" style=color:#e3116c>"</span><span class="token string variable" style=color:#36acaa>$(</span><span class="token string variable" style=color:#36acaa>az storage account show </span><span class="token string variable parameter variable" style=color:#36acaa>-n</span><span class="token string variable" style=color:#36acaa> MINHA_CONTA </span><span class="token string variable parameter variable" style=color:#36acaa>--query</span><span class="token string variable" style=color:#36acaa> </span><span class="token string variable function" style=color:#d73a49>id</span><span class="token string variable" style=color:#36acaa> </span><span class="token string variable parameter variable" style=color:#36acaa>-o</span><span class="token string variable" style=color:#36acaa> tsv</span><span class="token string variable" style=color:#36acaa>)</span><span class="token string" style=color:#e3116c>/blobServices/default"</span><span class="token plain"> </span><span class="token punctuation" style=color:#393A34>\</span><span class="token plain"></span><br/></div><div class=token-line style=color:#393A34><span class="token plain">  --event-hub centralops-resource --event-hub-rule </span><span class="token string" style=color:#e3116c>"</span><span class="token string variable" style=color:#36acaa>$RULE_ID</span><span class="token string" style=color:#e3116c>"</span><span class="token plain"> </span><span class="token punctuation" style=color:#393A34>\</span><span class="token plain"></span><br/></div><div class=token-line style=color:#393A34><span class="token plain">  </span><span class="token parameter variable" style=color:#36acaa>--logs</span><span class="token plain"> </span><span class="token string" style=color:#e3116c>'[{"category":"StorageWrite","enabled":true},{"category":"StorageDelete","enabled":true}]'</span><br/></div></code></pre></div></div>
+<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class=admonitionHeading_Gvgb><span class=admonitionIcon_Rf37><svg viewBox="0 0 12 16"><path fill-rule=evenodd d="M6.5 0C3.48 0 1 2.19 1 5c0 .92.55 2.25 1 3 1.34 2.25 1.78 2.78 2 4v1h5v-1c.22-1.22.66-1.75 2-4 .45-.75 1-2.08 1-3 0-2.81-2.48-5-5.5-5zm3.64 7.48c-.25.44-.47.8-.67 1.11-.86 1.41-1.25 2.06-1.45 3.23-.02.05-.02.11-.02.17H5c0-.06 0-.13-.02-.17-.2-1.17-.59-1.83-1.45-3.23-.2-.31-.42-.67-.67-1.11C2.44 6.78 2 5.65 2 5c0-2.2 2.02-4 4.5-4 1.22 0 2.36.42 3.22 1.19C10.55 2.94 11 3.94 11 5c0 .66-.44 1.78-.86 2.48zM4 14h5c-.23 1.14-1.3 2-2.5 2s-2.27-.86-2.5-2z"/></svg></span>Em escala: Azure Policy</div><div class=admonitionContent_BuS1><p>Para não depender de alguém lembrar de ligar o log em cada cofre ou cluster novo, use as políticas internas do Azure Policy do tipo <em>Deploy Diagnostic Settings for … to Event Hub</em> (há versões para Key Vault, AKS, SQL e outros), atribuídas no management group com efeito <code>DeployIfNotExists</code>.</div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=passo-5-criar-a-integração-no-centralops>Passo 5: Criar a integração no CentralOps<a href=#passo-5-criar-a-integração-no-centralops class=hash-link aria-label="Direct link to Passo 5: Criar a integração no CentralOps" title="Direct link to Passo 5: Criar a integração no CentralOps" translate=no>​</a></h2>
+<ol>
+<li class="">
+<p>No menu lateral, vá em <strong>Coleta -> Integrações</strong> e adicione uma integração <strong>Microsoft Azure</strong>.</p>
+</li>
+<li class="">
+<p>Preencha:</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Campo<th>O que informar<tbody><tr><td>Tenant ID<td>O <code>tenant</code> do Passo 1 (GUID do diretório).<tr><td>Client ID<td>O <code>appId</code> do Passo 1.<tr><td>Client Secret<td>O <code>password</code> do Passo 1.<tr><td>Namespace do Event Hubs<td>O <code>NS</code> do Passo 2 (aceita <code>ns</code>, <code>ns.servicebus.windows.net</code> ou <code>sb://ns.servicebus.windows.net/</code>). Deixe vazio para coletar só o Activity Log.</table>
+</li>
+<li class="">
+<p>Clique em <strong>testar a conexão</strong>. O teste não lê nenhuma mensagem e mostra o estado de cada stream:</p>
+<ul>
+<li class=""><code>activity: ok (N assinatura(s))</code>: o app enxerga N assinaturas.</li>
+<li class=""><code>activity: nenhuma assinatura visível</code>: falta o papel do Passo 1 (ou ele ainda está propagando, o que leva alguns minutos).</li>
+<li class=""><code>entra: ok</code> / <code>resource: ok</code>: o hub existe e o app consegue conectar.</li>
+<li class=""><code>não existe (stream desligado)</code>: o hub não foi criado. Normal se você não quer aquele fluxo.</li>
+<li class=""><code>Event Hubs (...): inacessível</code>: tier Basic, porta 9093 bloqueada na saída, firewall do namespace ou papel <em>Data Receiver</em> ausente.</li>
+<li class=""><code>O Entra recusou a credencial: …</code>: Tenant ID, Client ID ou segredo errados, ou segredo expirado. O código <code>AADSTS</code> diz qual (ex.: <code>AADSTS7000215</code> = segredo inválido; <code>AADSTS700016</code> = app não encontrado no tenant).</li>
+</ul>
+<p>O teste reprova se nenhum stream estiver utilizável.</p>
+</li>
+<li class="">
+<p>Salve. O <code>activity</code> roda a cada 5 minutos; <code>entra</code> e <code>resource</code>, a cada 2 minutos.</p>
+</li>
+</ol>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=o-que-é-coletado>O que é coletado<a href=#o-que-é-coletado class=hash-link aria-label="Direct link to O que é coletado" title="Direct link to O que é coletado" translate=no>​</a></h2>
+<p>Cada evento chega normalizado em OCSF 1.8, com o registro original do Azure preservado no <code>raw</code>. <code>cloud.provider</code> = <code>Azure</code>.</p>
+<p><strong>Activity Log (<code>activity</code>)</strong></p>
+<ul>
+<li class=""><code>activity_id</code> pelo sufixo do <code>operationName</code>: <code>/write</code> → Update, <code>/delete</code> → Delete, <code>/read</code> → Read, <code>/action</code> (ex.: <code>listKeys</code>, <code>regenerateKey</code>) → Other. <em>Write</em> no ARM cria <strong>ou</strong> substitui o recurso; o OCSF não tem "upsert", então ele sai como Update.</li>
+<li class=""><code>status_id</code>: <code>Succeeded</code> → Success; <code>Failed</code>/<code>Canceled</code> → Failure; <code>Started</code>/<code>Accepted</code> → Other. Uma operação gera dois eventos (início e fim) com <code>eventDataId</code> diferentes.</li>
+<li class=""><code>severity_id</code> pelo <code>level</code>: Informational → 1, Warning → 2, Error → 3, Critical → 4.</li>
+<li class=""><code>actor.user.name</code> = <code>caller</code> (UPN ou appId do service principal); <code>actor.user.email_addr</code> = UPN; <code>actor.app_uid</code> = appId do cliente usado (portal, CLI, Terraform...); <code>src_endpoint.ip</code> = IP de quem chamou.</li>
+<li class=""><code>api.operation</code> = <code>operationName</code> (ex.: <code>Microsoft.Authorization/roleAssignments/write</code>); <code>resources[0].uid</code> = ID do recurso; <code>cloud.account.uid</code> = assinatura; <code>cloud.org.uid</code> = tenant.</li>
+<li class="">O papel atribuído e o principal que o recebeu ficam em <code>properties.requestbody</code> no <code>raw</code>.</li>
+</ul>
+<p><strong>Entra ID (<code>entra</code>)</strong></p>
+<ul>
+<li class="">Sign-ins (interativo, não interativo, service principal, managed identity, AD FS) → <strong>Authentication / Logon</strong>. <code>status_id</code> = Failure quando <code>resultType</code> ≠ <code>0</code>, com <code>status_code</code> = código AADSTS (ex.: <code>50126</code> senha errada, <code>50074</code> MFA exigido). <code>user</code> = quem logou (o service principal, no caso de SP). <code>is_mfa</code> = o login exigiu MFA. <code>severity_id</code> = risco do Identity Protection no momento do login (<code>low</code> → 2, <code>medium</code> → 3, <code>high</code> → 4). <code>src_endpoint.location</code> = cidade e país; <code>service.name</code> = app acessado; <code>device.os.name</code> = sistema do dispositivo.</li>
+<li class=""><code>AuditLogs</code> de conta → <strong>Account Change</strong>, com <code>user</code> = <strong>conta alterada</strong> e <code>actor</code> = <strong>quem alterou</strong>: reset de senha (Password Reset), troca de senha, habilitar/desabilitar, criar/apagar usuário, entrar em papel (Attach Policy), sair de papel (Detach Policy).</li>
+<li class="">Demais <code>AuditLogs</code> (aplicativo, service principal, grupo, Conditional Access) → <strong>API Activity</strong>, pelo <code>operationType</code> (Add → Create, Update → Update, Delete → Delete, demais → Other). <code>api.operation</code> = <code>activityDisplayName</code> (ex.: <code>Add service principal credentials</code>).</li>
+</ul>
+<p><strong>Resource logs (<code>resource</code>)</strong></p>
+<ul>
+<li class=""><strong>Key Vault</strong> (<code>AuditEvent</code>) → API Activity pelo verbo da operação: <code>SecretGet</code>/<code>SecretList</code>/<code>VaultGet</code> → Read; <code>SecretSet</code>/<code>KeyUpdate</code> → Update; <code>KeyCreate</code>/<code>KeyImport</code> → Create; <code>SecretDelete</code>/<code>SecretPurge</code> → Delete; <code>KeyDecrypt</code>/<code>KeySign</code>/<code>KeyWrapKey</code> → Other. <code>status_id</code> = Failure quando o HTTP é 4xx/5xx (ex.: 403 de acesso negado). <code>actor</code> = UPN ou appId do token.</li>
+<li class=""><strong>AKS</strong> (<code>kube-audit*</code>) → API Activity pelo <code>verb</code> do Kubernetes. O campo <code>log</code> vem do Azure como texto JSON; o CentralOps o decodifica para o mapping enxergar <code>verb</code>, <code>user</code>, <code>objectRef</code>. <code>api.operation</code> = verbo + recurso + sub-recurso (ex.: <code>create pods exec</code>); <code>http_request.url.url_string</code> = <code>requestURI</code>; <code>actor</code> = usuário do Kubernetes.</li>
+<li class=""><strong>Azure SQL</strong> (<code>SQLSecurityAuditEvents</code>) → <code>DATABASE AUTHENTICATION SUCCEEDED/FAILED</code> vira <strong>Authentication</strong> (com <code>user</code> = principal do banco); as demais ações viram <strong>Datastore Activity / Query</strong>, com <code>database.name</code> e <code>query_info.query_string</code> = comando executado.</li>
+<li class=""><strong>Storage</strong> (<code>Storage*</code>) → API Activity pelo verbo da operação (<code>GetBlob</code> → Read, <code>PutBlob</code> → Update, <code>DeleteBlob</code> → Delete). O IP de quem chamou vem como <code>ip:porta</code> e fica só no <code>raw</code>.</li>
+<li class=""><strong>Qualquer outra categoria</strong> (firewall, NSG, App Service, Front Door...) → <strong>Base Event</strong> (classe 0), o <em>fallback</em> oficial do OCSF, com <code>src_endpoint</code>/<code>dst_endpoint</code> quando o registro traz (Azure Firewall). Classificar tráfego de rede como API Activity seria errado; o conteúdo inteiro fica no <code>raw</code> para as regras de detecção.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=run-command-o-que-vem-e-o-que-não-vem>Run Command: o que vem e o que não vem<a href=#run-command-o-que-vem-e-o-que-não-vem class=hash-link aria-label="Direct link to Run Command: o que vem e o que não vem" title="Direct link to Run Command: o que vem e o que não vem" translate=no>​</a></h2>
+<p>Run Command é o jeito mais curto de um invasor com papel no Azure (ou com o segredo de um service principal) executar código dentro de uma VM: o script roda como <code>SYSTEM</code> no Windows e <code>root</code> no Linux, sem RDP, sem SSH e sem senha da máquina. Por isso ele precisa de duas metades de evidência, que vêm de lugares diferentes.</p>
+<p><strong>O que esta integração entrega (stream <code>activity</code>).</strong> Toda execução passa pelo ARM e fica no Activity Log:</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Operação (<code>api.operation</code>)<th>O que é<th>Classe / atividade<tbody><tr><td><code>Microsoft.Compute/virtualMachines/runCommand/action</code><td>Run Command clássico: portal (<strong>Executar comando</strong>), <code>az vm run-command invoke</code>, <code>Invoke-AzVMRunCommand</code><td>API Activity / Other (99)<tr><td><code>Microsoft.Compute/virtualMachineScaleSets/virtualMachines/runCommand/action</code><td>O mesmo, numa instância de VM Scale Set<td>API Activity / Other (99)<tr><td><code>Microsoft.Compute/virtualMachines/runCommands/write</code><td>Run Command <strong>gerenciado</strong> (<code>az vm run-command create</code>): o comando vira um recurso da VM<td>API Activity / Update (3)<tr><td><code>Microsoft.HybridCompute/machines/runCommands/write</code><td>Run Command em servidor <strong>Azure Arc</strong> (fora do Azure)<td>API Activity / Update (3)<tr><td><code>Microsoft.Compute/virtualMachines/extensions/write</code><td>Custom Script Extension (ou qualquer extensão) instalada ou alterada<td>API Activity / Update (3)<tr><td><code>Microsoft.ContainerService/managedClusters/runCommand/action</code><td><code>az aks command invoke</code>: comando no cluster AKS sem acesso de rede a ele<td>API Activity / Other (99)</table>
+<p>De cada uma: <strong>quem</strong> rodou (<code>actor.user</code>, <code>actor.app_uid</code> = portal, CLI, automação), <strong>de onde</strong> (<code>src_endpoint.ip</code>), <strong>em qual máquina</strong> (<code>resources[0].uid</code>), <strong>quando</strong> (<code>time</code>) e <strong>se funcionou</strong> (<code>status_id</code>; o Activity Log registra o início e o fim da operação). Com o Defender for Cloud (plano <em>Servers</em> ou <em>Resource Manager</em>) ligado, os alertas dele sobre uso suspeito de Run Command chegam no mesmo stream, na categoria <code>Security</code>.</p>
+<p><strong>O que esta integração NÃO entrega.</strong></p>
+<ul>
+<li class=""><strong>O texto do script no Run Command clássico.</strong> A Microsoft não documenta que o Activity Log guarde o conteúdo do script de um <code>runCommand/action</code>, e não conte com isso.</li>
+<li class=""><strong>O texto do script no Run Command gerenciado.</strong> Às vezes o corpo da requisição (com <code>properties.source.script</code>) aparece em <code>properties.requestbody</code>, no <code>raw</code>. Não é garantido: o Azure trunca ou omite o corpo em parte das operações. Use se estiver lá, mas não dependa dele.</li>
+<li class=""><strong>A saída do comando.</strong> O resultado volta só para quem chamou (ou vai para um blob, no gerenciado). Ele nunca passa pelo Activity Log.</li>
+</ul>
+<p><strong>Onde achar o script: dentro da máquina.</strong> O agente da Azure baixa o script para o disco antes de executar. O conteúdo e o que ele fez estão no host, e chegam ao CentralOps por outras integrações:</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Fonte no host<th>O que dá<th>Como trazer<tbody><tr><td><strong>Windows:</strong> pastas do plugin em <code>C:\Packages\Plugins\Microsoft.CPlat.Core.RunCommandWindows\&lt;versão>\</code> (subpastas <code>Downloads</code>, com os <code>script*.ps1</code>, e <code>Status</code>) e logs em <code>C:\WindowsAzure\Logs\Plugins\</code><td>Cópia do script executado e estado da execução<td>Monitoramento de integridade de arquivos (FIM) do <a class="" href=/en/integrations/wazuh>agente Wazuh</a> nessas pastas<tr><td><strong>Windows:</strong> PowerShell <em>Script Block Logging</em> (evento <strong>4104</strong> em <code>Microsoft-Windows-PowerShell/Operational</code>)<td><strong>O texto do script</strong>, como o PowerShell o executou, mesmo ofuscado em camadas<td>Ligue por GPO (<em>Turn on PowerShell Script Block Logging</em>) e colete o canal pelo agente Wazuh ou pelo <a class="" href=/en/integrations/windows-event-log>Windows Event Log</a><tr><td><strong>Linux:</strong> <code>/var/lib/waagent/</code> (pasta <code>run-command/download/</code> do Run Command clássico; <code>Microsoft.CPlat.Core.RunCommandHandlerLinux-&lt;versão>/</code> do gerenciado) e logs em <code>/var/log/azure/</code><td>Cópia do script e log do <em>handler</em><td>FIM e coleta de log do agente Wazuh<tr><td><strong>Linux:</strong> <code>auditd</code> com regra de <code>execve</code><td>Cada comando que o script disparou, com argumentos<td>Coleta do <code>audit.log</code> pelo agente Wazuh<tr><td><strong>Microsoft Defender for Endpoint</strong><td>Árvore de processo (o agente da Azure como pai do <code>powershell.exe</code>/<code>bash</code>) e o conteúdo via AMSI<td>Integração <a class="" href=/en/integrations/microsoft-defender>Microsoft Defender</a></table>
+<p>O nome das pastas muda com a versão do agente da Azure e com o tipo de Run Command: confira numa VM de teste antes de fixar o caminho no FIM.</p>
+<p><strong>Juntando as duas metades.</strong> O Activity Log responde <em>quem disparou, de onde e em qual VM</em>; o host responde <em>o que rodou</em>. Correlacione pelo nome da VM (<code>resources[0].uid</code> termina com o nome da máquina) e pela janela de tempo: o script aparece no host segundos depois do <code>runCommand/action</code>.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=detecções-sugeridas>Detecções sugeridas<a href=#detecções-sugeridas class=hash-link aria-label="Direct link to Detecções sugeridas" title="Direct link to Detecções sugeridas" translate=no>​</a></h2>
+<p>Pontos de partida para regras sobre estes eventos:</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Sinal<th>Onde<th>Filtro<tbody><tr><td>Papel privilegiado concedido<td><code>activity</code><td><code>api.operation</code> = <code>Microsoft.Authorization/roleAssignments/write</code> e <code>status_id</code> = 1; o papel está em <code>properties.requestbody</code><tr><td>Chave de storage lida<td><code>activity</code><td><code>api.operation</code> termina em <code>/listKeys/action</code> (Storage, Cosmos DB, Event Hubs)<tr><td>Run Command em VM<td><code>activity</code><td><code>api.operation</code> termina em <code>/runCommand/action</code> ou em <code>/runCommands/write</code> (VM, VMSS, Arc). Alerte em todo caso cujo <code>actor</code> não esteja na lista de automações conhecidas; em VM de produção, alerte sempre<tr><td>Run Command por identidade nova<td><code>activity</code><td>o mesmo filtro, com <code>actor.user.name</code> que nunca rodou Run Command naquela assinatura, ou <code>src_endpoint.ip</code> fora da rede corporativa<tr><td>Run Command em várias VMs<td><code>activity</code><td>o mesmo <code>actor</code> em 3 ou mais <code>resources[0].uid</code> diferentes em poucos minutos (movimento lateral, implantação de ransomware)<tr><td>Custom Script Extension instalada<td><code>activity</code><td><code>api.operation</code> = <code>Microsoft.Compute/virtualMachines/extensions/write</code>; o tipo da extensão está em <code>properties.requestbody</code> quando o Azure o registra<tr><td>Comando no AKS sem acesso de rede<td><code>activity</code><td><code>api.operation</code> = <code>Microsoft.ContainerService/managedClusters/runCommand/action</code><tr><td>Run Command seguido de ação no host<td><code>activity</code> + host<td><code>runCommand/action</code> numa VM e, em até 10 min, conta local criada, serviço instalado ou evento 4104 com download (<code>Invoke-WebRequest</code>, <code>curl</code>) na mesma máquina<tr><td>Log de diagnóstico desligado<td><code>activity</code><td><code>api.operation</code> = <code>Microsoft.Insights/diagnosticSettings/delete</code> (compare sem diferenciar maiúsculas: o Azure varia)<tr><td><em>Password spray</em><td><code>entra</code><td>muitos <code>status_code</code> = <code>50126</code> de um <code>src_endpoint.ip</code> para usuários diferentes<tr><td>Token reutilizado de outro país<td><code>entra</code><td>sign-in <strong>não interativo</strong> com sucesso de país diferente do interativo recente do mesmo <code>user</code><tr><td>Credencial nova em service principal<td><code>entra</code><td><code>api.operation</code> = <code>Add service principal credentials</code> ou <code>Update application – Certificates and secrets management</code><tr><td>Admin novo<td><code>entra</code><td><code>class_uid</code> = 3001, <code>activity_id</code> = 7 (Attach Policy)<tr><td>Leitura em massa de segredo<td><code>resource</code><td>muitos <code>SecretGet</code> do mesmo <code>actor</code> em poucos minutos<tr><td><code>kubectl exec</code> em produção<td><code>resource</code><td><code>api.operation</code> = <code>create pods exec</code><tr><td>Força bruta no banco<td><code>resource</code><td><code>class_uid</code> = 3002 e <code>status_id</code> = 2 repetidos para o mesmo <code>user</code></table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=operação-e-saúde>Operação e saúde<a href=#operação-e-saúde class=hash-link aria-label="Direct link to Operação e saúde" title="Direct link to Operação e saúde" translate=no>​</a></h2>
+<ul>
+<li class=""><strong>Atraso do Activity Log.</strong> O Azure publica cada evento alguns minutos depois de ele acontecer. Por isso a janela de leitura do <code>activity</code> recomeça <strong>20 minutos antes</strong> do fim da anterior; o que volta repetido é pulado (memória da janela) ou descartado pelo dedupe (<code>eventDataId</code>). O indicador de atraso em <strong>Saúde do Pipeline</strong> fica, por construção, em torno de 20 minutos. Se o log do worker mostrar <code>evento publicado ... depois do eventTimestamp</code>, aquele tenant atrasa mais que a sobreposição e eventos com esse atraso podem não ser lidos.</li>
+<li class=""><strong>Teto por ciclo.</strong> O <code>activity</code> lê até 50 páginas por ciclo (somando as assinaturas) e o <code>entra</code>/<code>resource</code> até 5.000 mensagens ou 5 minutos. No teto o ciclo guarda a posição exata e o próximo continua dali; <strong>Saúde do Pipeline</strong> marca o stream como em <em>backlog</em>.</li>
+<li class=""><strong>Entrega at-least-once.</strong> A posição dos Event Hubs (offset de cada partição) é gravada no CentralOps <strong>depois</strong> de o lote ser entregue aos destinos. Se o ciclo falhar, a leitura recomeça do mesmo offset e o dedupe absorve a repetição. O CentralOps não usa <em>consumer group</em> do Kafka nem grava offset no Azure.</li>
+<li class=""><strong>Primeira coleta.</strong> O <code>activity</code> começa pela última hora; o <code>entra</code>/<code>resource</code> leem tudo o que o hub ainda retém (até 7 dias no Standard). Para trazer mais do Activity Log, use o <strong>backfill</strong> da integração (até 90 dias).</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=solução-de-problemas>Solução de problemas<a href=#solução-de-problemas class=hash-link aria-label="Direct link to Solução de problemas" title="Direct link to Solução de problemas" translate=no>​</a></h2>
+<p><strong><code>activity: nenhuma assinatura visível</code>.</strong> O papel do Passo 1 não está no escopo das assinaturas, ou ainda está propagando (até 10 minutos). Confira: <code>az role assignment list --assignee APP_ID --all -o table</code>.</p>
+<p><strong>Uma assinatura some da coleta.</strong> O log do worker registra <code>HTTP 403 ao ler /subscriptions/... — assinatura pulada</code>: o papel foi removido daquela assinatura. As demais continuam sendo coletadas.</p>
+<p><strong>O teste passa, mas <code>entra</code>/<code>resource</code> não trazem nada.</strong></p>
+<ul>
+<li class="">Confira se o diagnostic setting aponta para o hub certo (<code>centralops-entra</code> ou <code>centralops-resource</code>, exatamente).</li>
+<li class="">No portal, abra o hub → <strong>Métricas</strong> → <em>Incoming Messages</em>. Se está em zero, o problema é a exportação, não o CentralOps.</li>
+<li class="">Exportar sign-in exige Entra ID P1/P2 (Passo 3).</li>
+</ul>
+<p><strong><code>Event Hubs (...): inacessível (KafkaConnectionError)</code> ou <code>TimeoutError</code>.</strong> A porta 9093 está bloqueada na saída da rede do CentralOps, ou o namespace tem firewall sem o IP do CentralOps, ou o tier é Basic.</p>
+<p><strong>Erro de autenticação depois de meses funcionando.</strong> O Client Secret expirou (<code>AADSTS7000222</code>). Crie um novo no app registration e atualize o campo <em>Client Secret</em>.</p>
+<p><strong>Log do worker: <code>perdeu N mensagem(ns) por retenção</code>.</strong> O CentralOps ficou parado por mais tempo que a retenção do hub (7 dias no Standard) e as mensagens mais antigas já tinham sido apagadas pelo Azure. Não há como recuperá-las do hub; para o Activity Log, rode um backfill da janela.</p>
+<p><strong>Backfill não traz nada em <code>entra</code>/<code>resource</code>.</strong> Fila não tem janela de tempo, então o backfill por período não se aplica a esses dois streams e é ignorado. O backfill do <code>activity</code> funciona normalmente.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=limitações-conhecidas>Limitações conhecidas<a href=#limitações-conhecidas class=hash-link aria-label="Direct link to Limitações conhecidas" title="Direct link to Limitações conhecidas" translate=no>​</a></h2>
+<ul>
+<li class=""><strong>Só nuvem pública do Azure.</strong> Azure Government e Azure China usam outros hosts de login, ARM e Event Hubs e não são aceitos.</li>
+<li class=""><strong>Só Client Secret.</strong> Autenticação do app por certificado ou por <em>workload identity federation</em> ainda não é suportada.</li>
+<li class="">Os nomes dos hubs são fixos (<code>centralops-entra</code> e <code>centralops-resource</code>).</li>
+<li class="">O texto e a saída de um Run Command não vêm pelo Activity Log: só o fato de ele ter sido executado. O conteúdo está no host (ver <a href=#run-command-o-que-vem-e-o-que-n%C3%A3o-vem class="">Run Command: o que vem e o que não vem</a>).</li>
+<li class="">Um evento do Activity Log publicado mais de 20 minutos depois de acontecer pode não ser lido (ver <a href=#opera%C3%A7%C3%A3o-e-sa%C3%BAde class="">Operação e saúde</a>).</li>
+<li class="">Resource logs de categorias não listadas acima saem como Base Event; o detalhe fica no <code>raw</code>.</li>
+<li class="">A integração não lê NSG flow logs, que o Azure grava em Storage Account e não em Event Hub.</li>
+</ul></div></article><nav class="docusaurus-mt-lg pagination-nav" aria-label="Docs pages"><a class="pagination-nav__link pagination-nav__link--prev" href=/en/integrations/google-cloud><div class=pagination-nav__sublabel>Previous</div><div class=pagination-nav__label>Google Cloud (Pub/Sub)</div></a><a class="pagination-nav__link pagination-nav__link--next" href=/en/integrations/akamai><div class=pagination-nav__sublabel>Next</div><div class=pagination-nav__label>Akamai App & API Protector (WAF)</div></a></nav></div></div><div class="col col--3"><div class="tableOfContents_bqdL thin-scrollbar theme-doc-toc-desktop"><ul class="table-of-contents table-of-contents__left-border"><li><a href=#quando-usar class="table-of-contents__link toc-highlight">Quando usar</a><li><a href=#como-funciona class="table-of-contents__link toc-highlight">Como funciona</a><li><a href=#o-que-coletar-análise-de-segurança class="table-of-contents__link toc-highlight">O que coletar: análise de segurança</a><li><a href=#segurança-da-integração class="table-of-contents__link toc-highlight">Segurança da integração</a><li><a href=#quem-pode-fazer-o-quê class="table-of-contents__link toc-highlight">Quem pode fazer o quê</a><li><a href=#pré-requisitos class="table-of-contents__link toc-highlight">Pré-requisitos</a><li><a href=#passo-1-criar-o-app-e-dar-o-papel-de-leitura class="table-of-contents__link toc-highlight">Passo 1: Criar o app e dar o papel de leitura</a><li><a href=#passo-2-opcional-namespace-e-hubs-do-event-hubs class="table-of-contents__link toc-highlight">Passo 2 (opcional): Namespace e hubs do Event Hubs</a><li><a href=#passo-3-opcional-exportar-os-logs-do-entra-id class="table-of-contents__link toc-highlight">Passo 3 (opcional): Exportar os logs do Entra ID</a><li><a href=#passo-4-opcional-exportar-os-resource-logs class="table-of-contents__link toc-highlight">Passo 4 (opcional): Exportar os resource logs</a><li><a href=#passo-5-criar-a-integração-no-centralops class="table-of-contents__link toc-highlight">Passo 5: Criar a integração no CentralOps</a><li><a href=#o-que-é-coletado class="table-of-contents__link toc-highlight">O que é coletado</a><li><a href=#run-command-o-que-vem-e-o-que-não-vem class="table-of-contents__link toc-highlight">Run Command: o que vem e o que não vem</a><li><a href=#detecções-sugeridas class="table-of-contents__link toc-highlight">Detecções sugeridas</a><li><a href=#operação-e-saúde class="table-of-contents__link toc-highlight">Operação e saúde</a><li><a href=#solução-de-problemas class="table-of-contents__link toc-highlight">Solução de problemas</a><li><a href=#limitações-conhecidas class="table-of-contents__link toc-highlight">Limitações conhecidas</a></ul></div></div></div></div></main></div></div></div><footer class="theme-layout-footer footer footer--dark"><div class="container container-fluid"><div class="row footer__links"><div class="theme-layout-footer-column col footer__col"><div class=footer__title>Documentação</div><ul class="footer__items clean-list"><li class=footer__item><a class=footer__link-item href=/en/getting-started/overview>Começar</a><li class=footer__item><a class=footer__link-item href=/en/operations/dashboard>Operação diária</a><li class=footer__item><a class=footer__link-item href=/en/normalization/overview>Mappings (CML)</a><li class=footer__item><a class=footer__link-item href=/en/runbooks/dispatcher>Runbooks</a></ul></div><div class="theme-layout-footer-column col footer__col"><div class=footer__title>Plataforma</div><ul class="footer__items clean-list"><li class=footer__item><a class=footer__link-item href=/en/concepts/architecture>Arquitetura</a><li class=footer__item><a class=footer__link-item href=/en/concepts/rbac>RBAC</a><li class=footer__item><a class=footer__link-item href=/en/integrations/overview>Integrações</a><li class=footer__item><a class=footer__link-item href=/en/compliance/retention>Compliance</a></ul></div><div class="theme-layout-footer-column col footer__col"><div class=footer__title>Recursos</div><ul class="footer__items clean-list"><li class=footer__item><a class=footer__link-item href=/en/getting-started/quickstart>Quickstart</a><li class=footer__item><a class=footer__link-item href=/en/normalization/cookbook>DSL Cookbook</a><li class=footer__item><a class=footer__link-item href=/en/normalization/troubleshooting>Troubleshooting</a></ul></div></div><div class="footer__bottom text--center"><div class=footer__copyright>Copyright © 2026 CentralOps. Built with Docusaurus.</div></div></div></footer></div></body>

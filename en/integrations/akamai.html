@@ -1,0 +1,281 @@
+<!doctype html><html lang=en dir=ltr class="docs-wrapper plugin-docs plugin-id-default docs-version-current docs-doc-page docs-doc-id-integrations/akamai" data-has-hydrated=false><head><meta charset=UTF-8><meta name=generator content="Docusaurus v3.10.0"><title data-rh=true>Akamai App & API Protector (WAF) | CentralOps</title><meta data-rh=true name=viewport content="width=device-width, initial-scale=1.0"/><meta data-rh=true name=twitter:card content=summary_large_image /><meta data-rh=true property=og:image content=https://docs.segark.com/en/img/centralops-social-card.png /><meta data-rh=true name=twitter:image content=https://docs.segark.com/en/img/centralops-social-card.png /><meta data-rh=true property=og:url content=https://docs.segark.com/en/integrations/akamai /><meta data-rh=true property=og:locale content=en /><meta data-rh=true property=og:locale:alternate content=pt_BR /><meta data-rh=true property=og:locale:alternate content=es /><meta data-rh=true name=docusaurus_locale content=en /><meta data-rh=true name=docsearch:language content=en /><meta data-rh=true name=docusaurus_version content=current /><meta data-rh=true name=docusaurus_tag content=docs-default-current /><meta data-rh=true name=docsearch:version content=current /><meta data-rh=true name=docsearch:docusaurus_tag content=docs-default-current /><meta data-rh=true property=og:title content="Akamai App & API Protector (WAF) | CentralOps"/><meta data-rh=true name=description content="Colete os eventos de segurança do WAF da Akamai (App & API Protector, Kona Site Defender) pela SIEM Integration API — regras disparadas, ação aplicada, IP e geo do atacante e a requisição HTTP"/><meta data-rh=true property=og:description content="Colete os eventos de segurança do WAF da Akamai (App & API Protector, Kona Site Defender) pela SIEM Integration API — regras disparadas, ação aplicada, IP e geo do atacante e a requisição HTTP"/><link data-rh=true rel=icon href=/en/img/favicon.ico /><link data-rh=true rel=canonical href=https://docs.segark.com/en/integrations/akamai /><link data-rh=true rel=alternate href=https://docs.segark.com/integrations/akamai hreflang=pt-BR /><link data-rh=true rel=alternate href=https://docs.segark.com/en/integrations/akamai hreflang=en /><link data-rh=true rel=alternate href=https://docs.segark.com/es/integrations/akamai hreflang=es /><link data-rh=true rel=alternate href=https://docs.segark.com/integrations/akamai hreflang=x-default /><script data-rh=true type=application/ld+json>{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","item":"https://docs.segark.com/en/integrations/akamai","name":"Akamai App & API Protector (WAF)","position":1}]}</script><link rel=stylesheet href=/en/assets/css/styles.65a61132.css /><script src=/en/assets/js/runtime~main.61287405.js defer></script><script src=/en/assets/js/main.45ec6903.js defer></script></head><body><svg style="display: none;"><defs>
+<symbol id=theme-svg-external-link viewBox="0 0 24 24"><path fill=currentColor d="M21 13v10h-21v-19h12v2h-10v15h17v-8h2zm3-12h-10.988l4.035 4-6.977 7.07 2.828 2.828 6.977-7.07 4.125 4.172v-11z"/></symbol>
+</defs></svg>
+<script>!function(){var t=function(){try{return new URLSearchParams(window.location.search).get("docusaurus-theme")}catch(t){}}()||function(){try{return window.localStorage.getItem("theme-797")}catch(t){}}();document.documentElement.setAttribute("data-theme",t||(window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light")),document.documentElement.setAttribute("data-theme-choice",t||"system")}(),function(){try{for(var[t,e]of new URLSearchParams(window.location.search).entries())if(t.startsWith("docusaurus-data-")){var a=t.replace("docusaurus-data-","data-");document.documentElement.setAttribute(a,e)}}catch(t){}}()</script><div id=__docusaurus><link rel=preload as=image href=/en/img/logo.svg /><div role=region aria-label="Skip to main content"><a class=skipToContent_fXgn href=#__docusaurus_skipToContent_fallback>Skip to main content</a></div><nav aria-label=Main class="theme-layout-navbar navbar navbar--fixed-top"><div class=navbar__inner><div class="theme-layout-navbar-left navbar__items"><button aria-label="Toggle navigation bar" aria-expanded=false class="navbar__toggle clean-btn" type=button><svg width=30 height=30 viewBox="0 0 30 30" aria-hidden=true><path stroke=currentColor stroke-linecap=round stroke-miterlimit=10 stroke-width=2 d="M4 7h22M4 15h22M4 23h22"/></svg></button><a class=navbar__brand href=/en/><div class=navbar__logo><img src=/en/img/logo.svg alt=CentralOps class="themedComponent_mlkZ themedComponent--light_NVdE"/><img src=/en/img/logo.svg alt=CentralOps class="themedComponent_mlkZ themedComponent--dark_xIcU"/></div><b class="navbar__title text--truncate">CentralOps</b></a><a class="navbar__item navbar__link" href=/en/>Get started</a><a class="navbar__item navbar__link" href=/en/outputs/overview>Outputs & Routing</a><a class="navbar__item navbar__link" href=/en/operations/dashboard>Operations</a><a aria-current=page class="navbar__item navbar__link navbar__link--active" href=/en/administration/users-and-roles>Administration</a><a class="navbar__item navbar__link" href=/en/normalization/overview>Mappings</a><a class="navbar__item navbar__link" href=/en/enrichment/overview>Enriquecimento</a><a class="navbar__item navbar__link" href=/en/runbooks/dispatcher>Runbooks</a><a class="navbar__item navbar__link" href=/en/api/overview>API</a></div><div class="theme-layout-navbar-right navbar__items navbar__items--right"><div class="navbar__item dropdown dropdown--hoverable dropdown--right"><a href=# aria-haspopup=true aria-expanded=false role=button class=navbar__link><svg viewBox="0 0 24 24" width=20 height=20 aria-hidden=true class=iconLanguage_nlXk><path fill=currentColor d="M12.87 15.07l-2.54-2.51.03-.03c1.74-1.94 2.98-4.17 3.71-6.53H17V4h-7V2H8v2H1v1.99h11.17C11.5 7.92 10.44 9.75 9 11.35 8.07 10.32 7.3 9.19 6.69 8h-2c.73 1.63 1.73 3.17 2.98 4.56l-5.09 5.02L4 19l5-5 3.11 3.11.76-2.04zM18.5 10h-2L12 22h2l1.12-3h4.75L21 22h2l-4.5-12zm-2.62 7l1.62-4.33L19.12 17h-3.24z"/></svg>English</a><ul class=dropdown__menu><li><a href=/integrations/akamai target=_self rel="noopener noreferrer" class=dropdown__link lang=pt-BR>Português</a><li><a href=/en/integrations/akamai target=_self rel="noopener noreferrer" class="dropdown__link dropdown__link--active" lang=en>English</a><li><a href=/es/integrations/akamai target=_self rel="noopener noreferrer" class=dropdown__link lang=es>Español</a></ul></div><div class="toggle_vylO colorModeToggle_DEke"><button class="clean-btn toggleButton_gllP toggleButtonDisabled_aARS" type=button disabled title="system mode" aria-label="Switch between dark and light mode (currently system mode)"><svg viewBox="0 0 24 24" width=24 height=24 aria-hidden=true class="toggleIcon_g3eP lightToggleIcon_pyhR"><path fill=currentColor d="M12,9c1.65,0,3,1.35,3,3s-1.35,3-3,3s-3-1.35-3-3S10.35,9,12,9 M12,7c-2.76,0-5,2.24-5,5s2.24,5,5,5s5-2.24,5-5 S14.76,7,12,7L12,7z M2,13l2,0c0.55,0,1-0.45,1-1s-0.45-1-1-1l-2,0c-0.55,0-1,0.45-1,1S1.45,13,2,13z M20,13l2,0c0.55,0,1-0.45,1-1 s-0.45-1-1-1l-2,0c-0.55,0-1,0.45-1,1S19.45,13,20,13z M11,2v2c0,0.55,0.45,1,1,1s1-0.45,1-1V2c0-0.55-0.45-1-1-1S11,1.45,11,2z M11,20v2c0,0.55,0.45,1,1,1s1-0.45,1-1v-2c0-0.55-0.45-1-1-1C11.45,19,11,19.45,11,20z M5.99,4.58c-0.39-0.39-1.03-0.39-1.41,0 c-0.39,0.39-0.39,1.03,0,1.41l1.06,1.06c0.39,0.39,1.03,0.39,1.41,0s0.39-1.03,0-1.41L5.99,4.58z M18.36,16.95 c-0.39-0.39-1.03-0.39-1.41,0c-0.39,0.39-0.39,1.03,0,1.41l1.06,1.06c0.39,0.39,1.03,0.39,1.41,0c0.39-0.39,0.39-1.03,0-1.41 L18.36,16.95z M19.42,5.99c0.39-0.39,0.39-1.03,0-1.41c-0.39-0.39-1.03-0.39-1.41,0l-1.06,1.06c-0.39,0.39-0.39,1.03,0,1.41 s1.03,0.39,1.41,0L19.42,5.99z M7.05,18.36c0.39-0.39,0.39-1.03,0-1.41c-0.39-0.39-1.03-0.39-1.41,0l-1.06,1.06 c-0.39,0.39-0.39,1.03,0,1.41s1.03,0.39,1.41,0L7.05,18.36z"/></svg><svg viewBox="0 0 24 24" width=24 height=24 aria-hidden=true class="toggleIcon_g3eP darkToggleIcon_wfgR"><path fill=currentColor d="M9.37,5.51C9.19,6.15,9.1,6.82,9.1,7.5c0,4.08,3.32,7.4,7.4,7.4c0.68,0,1.35-0.09,1.99-0.27C17.45,17.19,14.93,19,12,19 c-3.86,0-7-3.14-7-7C5,9.07,6.81,6.55,9.37,5.51z M12,3c-4.97,0-9,4.03-9,9s4.03,9,9,9s9-4.03,9-9c0-0.46-0.04-0.92-0.1-1.36 c-0.98,1.37-2.58,2.26-4.4,2.26c-2.98,0-5.4-2.42-5.4-5.4c0-1.81,0.89-3.42,2.26-4.4C12.92,3.04,12.46,3,12,3L12,3z"/></svg><svg viewBox="0 0 24 24" width=24 height=24 aria-hidden=true class="toggleIcon_g3eP systemToggleIcon_QzmC"><path fill=currentColor d="m12 21c4.971 0 9-4.029 9-9s-4.029-9-9-9-9 4.029-9 9 4.029 9 9 9zm4.95-13.95c1.313 1.313 2.05 3.093 2.05 4.95s-0.738 3.637-2.05 4.95c-1.313 1.313-3.093 2.05-4.95 2.05v-14c1.857 0 3.637 0.737 4.95 2.05z"/></svg></button></div><div class=navbarSearchContainer_Bca1><div class=navbar__search><span aria-label="expand searchbar" role=button class=search-icon tabindex=0></span><input id=search_input_react type=search placeholder=Loading... aria-label=Search class="navbar__search-input search-bar" disabled/></div></div></div></div><div role=presentation class=navbar-sidebar__backdrop></div></nav><div id=__docusaurus_skipToContent_fallback class="theme-layout-main main-wrapper mainWrapper_z2l0"><div class=docsWrapper_hBAB><button aria-label="Scroll back to top" class="clean-btn theme-back-to-top-button backToTopButton_sjWU" type=button></button><div class=docRoot_UBD9><aside class="theme-doc-sidebar-container docSidebarContainer_YfHR"><div class=sidebarViewport_aRkj><div class=sidebar_njMd><nav aria-label="Docs sidebar" class="menu thin-scrollbar menu_SIkG"><ul class="theme-doc-sidebar-menu menu__list"><li class="theme-doc-sidebar-item-category theme-doc-sidebar-item-category-level-1 menu__list-item"><div class=menu__list-item-collapsible><a class="categoryLink_byQd menu__link menu__link--sublist menu__link--sublist-caret" role=button aria-expanded=true href=/en/administration/users-and-roles><span title=Administration class=categoryLinkLabel_W154>Administration</span></a></div><ul class=menu__list><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/en/administration/users-and-roles><span title="Usuários e papéis" class=linkLabel_WmDU>Usuários e papéis</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/en/administration/sso-entra><span title="SSO com Microsoft Entra ID" class=linkLabel_WmDU>SSO com Microsoft Entra ID</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/en/administration/organizations><span title=Organizações class=linkLabel_WmDU>Organizações</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/en/administration/tenant-hierarchy><span title="Hierarquia de tenants e MSP" class=linkLabel_WmDU>Hierarquia de tenants e MSP</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/en/administration/platform-config><span title="Configuração da plataforma" class=linkLabel_WmDU>Configuração da plataforma</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/en/administration/secrets-and-master-key><span title="Credenciais e segredos das integrações" class=linkLabel_WmDU>Credenciais e segredos das integrações</span></a></ul><li class="theme-doc-sidebar-item-category theme-doc-sidebar-item-category-level-1 menu__list-item"><div class=menu__list-item-collapsible><a class="categoryLink_byQd menu__link menu__link--sublist menu__link--sublist-caret menu__link--active" role=button aria-expanded=true href=/en/integrations/overview><span title=Integrations class=categoryLinkLabel_W154>Integrations</span></a></div><ul class=menu__list><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/en/integrations/overview><span title="Visão geral de integrações" class=linkLabel_WmDU>Visão geral de integrações</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/en/integrations/sophos><span title="Sophos Central" class=linkLabel_WmDU>Sophos Central</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/en/integrations/wazuh><span title=Wazuh class=linkLabel_WmDU>Wazuh</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/en/integrations/crowdstrike><span title="CrowdStrike Falcon" class=linkLabel_WmDU>CrowdStrike Falcon</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/en/integrations/microsoft-defender><span title="Microsoft Defender" class=linkLabel_WmDU>Microsoft Defender</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/en/integrations/google-cloud><span title="Google Cloud (Pub/Sub)" class=linkLabel_WmDU>Google Cloud (Pub/Sub)</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/en/integrations/microsoft-azure><span title="Microsoft Azure" class=linkLabel_WmDU>Microsoft Azure</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class="menu__link menu__link--active" aria-current=page tabindex=0 href=/en/integrations/akamai><span title="Akamai App & API Protector (WAF)" class=linkLabel_WmDU>Akamai App & API Protector (WAF)</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/en/integrations/google-workspace><span title="Google Workspace" class=linkLabel_WmDU>Google Workspace</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/en/integrations/microsoft-365><span title="Microsoft 365" class=linkLabel_WmDU>Microsoft 365</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/en/integrations/aws-cloudtrail><span title="AWS CloudTrail" class=linkLabel_WmDU>AWS CloudTrail</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/en/integrations/aws-cloudwatch><span title="AWS CloudWatch Logs" class=linkLabel_WmDU>AWS CloudWatch Logs</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/en/integrations/microsoft-entra-id><span title="Microsoft Entra ID" class=linkLabel_WmDU>Microsoft Entra ID</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/en/integrations/okta><span title=Okta class=linkLabel_WmDU>Okta</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/en/integrations/ninjaone><span title=NinjaOne class=linkLabel_WmDU>NinjaOne</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/en/integrations/veeam><span title="Veeam Backup & Replication" class=linkLabel_WmDU>Veeam Backup & Replication</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/en/integrations/dfir-iris><span title=DFIR-IRIS class=linkLabel_WmDU>DFIR-IRIS</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/en/integrations/push-ingestion><span title="Ingestão push (edge-collector)" class=linkLabel_WmDU>Ingestão push (edge-collector)</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/en/integrations/fortinet-fortigate><span title="Fortinet FortiGate" class=linkLabel_WmDU>Fortinet FortiGate</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/en/integrations/windows-event-log><span title="Windows Event Log (WEC)" class=linkLabel_WmDU>Windows Event Log (WEC)</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/en/integrations/syslog-receiver><span title="Receptor syslog nativo" class=linkLabel_WmDU>Receptor syslog nativo</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/en/integrations/custom-json><span title="Fonte genérica (JSON)" class=linkLabel_WmDU>Fonte genérica (JSON)</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/en/integrations/adding-new-vendor><span title="Vendors suportados e como solicitar um novo" class=linkLabel_WmDU>Vendors suportados e como solicitar um novo</span></a></ul></ul></nav></div></div></aside><main class=docMainContainer_TBSr><div class="container padding-top--md padding-bottom--lg"><div class=row><div class="col docItemCol_VOVn"><div class=docItemContainer_Djhp><article><nav class="theme-doc-breadcrumbs breadcrumbsContainer_Z_bl" aria-label=Breadcrumbs><ul class=breadcrumbs><li class=breadcrumbs__item><a aria-label="Home page" class=breadcrumbs__link href=/en/><svg viewBox="0 0 24 24" class=breadcrumbHomeIcon_YNFT><path d="M10 19v-5h4v5c0 .55.45 1 1 1h3c.55 0 1-.45 1-1v-7h1.7c.46 0 .68-.57.33-.87L12.67 3.6c-.38-.34-.96-.34-1.34 0l-8.36 7.53c-.34.3-.13.87.33.87H5v7c0 .55.45 1 1 1h3c.55 0 1-.45 1-1z" fill=currentColor /></svg></a><li class=breadcrumbs__item><span class=breadcrumbs__link>Integrations</span><li class="breadcrumbs__item breadcrumbs__item--active"><span class=breadcrumbs__link>Akamai App & API Protector (WAF)</span></ul></nav><div class="tocCollapsible_ETCw theme-doc-toc-mobile tocMobile_ITEo"><button type=button class="clean-btn tocCollapsibleButton_TO0P">On this page</button></div><div class="theme-doc-markdown markdown"><header><h1>Akamai App & API Protector (WAF)</h1></header>
+<p>Conecte o WAF da Akamai ao CentralOps para coletar os <strong>eventos de segurança</strong> das suas configurações de segurança: cada requisição que disparou uma regra na borda da Akamai, com o que foi feito com ela (bloqueada, só alertada, monitorada), quais regras dispararam, de onde veio e o que pedia.</p>
+<p>A fonte é a <strong>SIEM Integration API</strong> da Akamai, a mesma usada pelos conectores oficiais de Splunk e CEF. Não exige infraestrutura: só ligar a coleta para SIEM nas configurações de segurança e criar um API client.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=quando-usar>Quando usar<a href=#quando-usar class=hash-link aria-label="Direct link to Quando usar" title="Direct link to Quando usar" translate=no>​</a></h2>
+<ul>
+<li class=""><strong>Ver os ataques contra os seus sites e APIs.</strong> SQL injection, XSS, <em>command injection</em>, <em>path traversal</em>, <em>scanners</em>, com a regra exata que disparou e o trecho da requisição que casou.</li>
+<li class=""><strong>Distinguir o que foi barrado do que passou.</strong> Uma regra em modo <code>alert</code> deixa a requisição chegar à origem: esses eventos pedem atenção maior que os <code>deny</code>.</li>
+<li class=""><strong>Correlacionar a borda com o resto.</strong> O IP de origem do ataque no WAF com o mesmo IP em logins (Entra ID, Okta, Workspace), no firewall ou no EDR.</li>
+<li class=""><strong>Acompanhar bots e abuso de conta.</strong> Com Bot Manager ou Account Protector licenciados, o evento traz a pontuação de bot e o risco do usuário.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=como-funciona>Como funciona<a href=#como-funciona class=hash-link aria-label="Direct link to Como funciona" title="Direct link to Como funciona" translate=no>​</a></h2>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style=--prism-color:#393A34;--prism-background-color:#f6f8fa><div class=codeBlockContent_QJqH><pre tabindex=0 class="prism-code language-text codeBlock_bY9V thin-scrollbar" style=color:#393A34;background-color:#f6f8fa><code class=codeBlockLines_e6Vv><div class=token-line style=color:#393A34><span class="token plain">Configurações de segurança ──► SIEM Integration API ──(EdgeGrid, polling 1 min)──► stream siem</span><br/></div><div class=token-line style=color:#393A34><span class="token plain">(Data collection for SIEM)     /siem/v1/configs/{id;id}</span><br/></div></code></pre></div></div>
+<ul>
+<li class="">O CentralOps pede os eventos de <strong>todas</strong> as configurações informadas numa chamada só (<code>/siem/v1/configs/111;222</code>).</li>
+<li class="">A primeira coleta lê a <strong>última hora</strong> por tempo. Daí em diante a leitura é sempre por <strong>offset</strong>: a Akamai devolve, no fim de cada resposta, a posição exata de onde continuar. É o modo que não perde evento — o modo por tempo corta em silêncio quando o volume passa do limite e pode pular os 5 segundos de latência da Akamai.</li>
+<li class="">Enquanto a resposta vier cheia (a Akamai sinaliza que bateu no limite), o CentralOps continua lendo no mesmo ciclo, até 10 páginas de 5.000 eventos.</li>
+</ul>
+<div class="theme-admonition theme-admonition-info admonition_xJq3 alert alert--info"><div class=admonitionHeading_Gvgb><span class=admonitionIcon_Rf37><svg viewBox="0 0 14 16"><path fill-rule=evenodd d="M7 2.3c3.14 0 5.7 2.56 5.7 5.7s-2.56 5.7-5.7 5.7A5.71 5.71 0 0 1 1.3 8c0-3.14 2.56-5.7 5.7-5.7zM7 1C3.14 1 0 4.14 0 8s3.14 7 7 7 7-3.14 7-7-3.14-7-7-7zm1 3H6v5h2V4zm0 6H6v2h2v-2z"/></svg></span>Por que a credencial é assinada no próprio CentralOps</div><div class=admonitionContent_BuS1><p>A Akamai não usa token <em>bearer</em>: cada pedido é assinado com HMAC-SHA256 (o protocolo <strong>EdgeGrid</strong>). O CentralOps implementa a assinatura seguindo o SDK oficial da Akamai, sem biblioteca extra, e só assina pedidos para hosts sob <code>akamaiapis.net</code>.</div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=o-que-coletar-análise-de-segurança>O que coletar: análise de segurança<a href=#o-que-coletar-análise-de-segurança class=hash-link aria-label="Direct link to O que coletar: análise de segurança" title="Direct link to O que coletar: análise de segurança" translate=no>​</a></h2>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Campo do evento<th>Para que serve<tbody><tr><td><code>attackData.appliedAction</code><td>O que a Akamai fez: <code>deny</code> (e <code>deny_custom_*</code>), <code>alert</code>, <code>monitor</code>, <code>tarpit</code>, ações de bot.<tr><td><code>attackData.rules</code> / <code>ruleMessages</code> / <code>ruleTags</code><td>As regras que dispararam (ID, mensagem, grupo de ataque como <code>WEB_ATTACK/XSS</code>).<tr><td><code>attackData.ruleData</code> / <code>ruleSelectors</code><td>O trecho da requisição que casou e onde estava (ex.: <code>ARGS:q</code>).<tr><td><code>attackData.clientIP</code><td>IP do cliente. Desde 30/abr/2026 é ele que define a geo (o <code>X-Forwarded-For</code> deixou de ser usado).<tr><td><code>geo</code><td>Continente, país, cidade, região e ASN do cliente.<tr><td><code>httpMessage</code><td>Método, host, path, query, status, bytes, TLS e os headers de requisição e resposta.<tr><td><code>botData</code><td>Pontuação de bot e segmento de resposta (Bot Manager).<tr><td><code>userRiskData</code><td>Risco e confiança do usuário no login (Account Protector, só em endpoint protegido).<tr><td><code>clientData</code><td>Dados do SDK móvel (Bot Manager Premier).</table>
+<p>Os campos de regra chegam da Akamai <strong>codificados</strong> (URL-encoded e base64, um item por regra separado por <code>;</code>). O CentralOps os decodifica na coleta e acrescenta <code>attackData.decoded_rules</code> — uma lista com <code>id</code>, <code>version</code>, <code>message</code>, <code>tag</code>, <code>data</code>, <code>selector</code> e <code>action</code> de cada regra. Os campos originais continuam no <code>raw</code>.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=segurança-da-integração>Segurança da integração<a href=#segurança-da-integração class=hash-link aria-label="Direct link to Segurança da integração" title="Direct link to Segurança da integração" translate=no>​</a></h2>
+<ul>
+<li class=""><strong>Host travado.</strong> O host da credencial só é aceito sob <code>akamaiapis.net</code>, em HTTPS, sem porta nem caminho. Redirecionamento nunca é seguido: a assinatura do pedido vale para a credencial do cliente.</li>
+<li class=""><strong>Credencial num campo secreto só.</strong> As quatro partes do EdgeGrid ficam juntas no campo secreto, criptografado como os demais segredos do CentralOps, e podem ser trocadas editando a integração.</li>
+<li class=""><strong>Erro sem eco.</strong> Quando a Akamai recusa um pedido, o CentralOps registra só o <code>title</code> do erro (<code>application/problem+json</code>), nunca o corpo inteiro nem o header de autorização.</li>
+<li class=""><strong>Só leitura de fato.</strong> A Akamai exige o serviço <strong>SIEM API</strong> em nível <strong>READ-WRITE</strong> para ler eventos, mas a API não tem operação de escrita: o CentralOps só faz <code>GET</code>.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=pré-requisitos>Pré-requisitos<a href=#pré-requisitos class=hash-link aria-label="Direct link to Pré-requisitos" title="Direct link to Pré-requisitos" translate=no>​</a></h2>
+<ul>
+<li class="">Um produto de segurança da Akamai com integração SIEM: <strong>App & API Protector</strong>, <strong>Kona Site Defender</strong> (ou os demais produtos listados na documentação da SIEM Integration).</li>
+<li class="">Acesso ao <strong>Akamai Control Center</strong> com permissão para editar a configuração de segurança e criar API clients.</li>
+<li class="">Saída HTTPS (443) do CentralOps para <code>*.akamaiapis.net</code>. Se houver proxy, ele não pode alterar os headers <code>Host</code> e <code>Authorization</code>.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=passo-1-ligar-a-coleta-para-siem-na-configuração-de-segurança>Passo 1: Ligar a coleta para SIEM na configuração de segurança<a href=#passo-1-ligar-a-coleta-para-siem-na-configuração-de-segurança class=hash-link aria-label="Direct link to Passo 1: Ligar a coleta para SIEM na configuração de segurança" title="Direct link to Passo 1: Ligar a coleta para SIEM na configuração de segurança" translate=no>​</a></h2>
+<p>Para <strong>cada</strong> configuração de segurança que você quer coletar:</p>
+<ol>
+<li class="">No Control Center, abra <strong>Security Configurations</strong> e a configuração.</li>
+<li class="">Em <strong>Advanced Settings</strong>, ative <strong>Data collection for SIEM Integrations</strong>. Escolha as políticas (ou todas) e, se quiser, inclua os eventos de Bot Manager e Account Protector.</li>
+<li class=""><strong>Ative a versão em produção.</strong> Enquanto a versão com a coleta ligada não estiver ativa em produção, a API não devolve evento.</li>
+<li class="">Anote o <strong>ID da configuração</strong> (número que aparece no Control Center).</li>
+</ol>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=passo-2-criar-o-api-client>Passo 2: Criar o API client<a href=#passo-2-criar-o-api-client class=hash-link aria-label="Direct link to Passo 2: Criar o API client" title="Direct link to Passo 2: Criar o API client" translate=no>​</a></h2>
+<ol>
+<li class="">Em <strong>Identity & Access Management → API clients</strong>, crie um API client. A Akamai recomenda um <strong>service account</strong> cujo único papel seja <strong>Manage SIEM</strong>.</li>
+<li class="">Dê ao client o serviço <strong>SIEM API</strong> com acesso <strong>READ-WRITE</strong> (é o nível que a Akamai exige para ler os eventos).</li>
+<li class="">Gere a credencial e baixe o arquivo <strong>.edgerc</strong>. Ele tem quatro linhas: <code>host</code>, <code>client_token</code>, <code>client_secret</code> e <code>access_token</code>.</li>
+</ol>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=passo-3-criar-a-integração-no-centralops>Passo 3: Criar a integração no CentralOps<a href=#passo-3-criar-a-integração-no-centralops class=hash-link aria-label="Direct link to Passo 3: Criar a integração no CentralOps" title="Direct link to Passo 3: Criar a integração no CentralOps" translate=no>​</a></h2>
+<ol>
+<li class="">
+<p>No menu lateral, vá em <strong>Coleta -> Integrações</strong> e adicione uma integração <strong>Akamai App & API Protector (WAF)</strong>.</p>
+</li>
+<li class="">
+<p>Preencha:</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Campo<th>O que informar<tbody><tr><td>IDs das configurações de segurança<td>Um ou mais IDs do Passo 1, separados por vírgula (ex.: <code>14227, 14228</code>).<tr><td>Credencial EdgeGrid (.edgerc)<td>O conteúdo da seção do <code>.edgerc</code> do Passo 2 (o cabeçalho <code>[default]</code> é opcional). Também aceita um JSON com as chaves <code>host</code>, <code>client_token</code>, <code>client_secret</code> e <code>access_token</code>.</table>
+</li>
+<li class="">
+<p>Clique em <strong>testar a conexão</strong>. O teste faz uma leitura mínima (último minuto, 1 evento) em <strong>cada</strong> configuração e mostra o estado de cada uma:</p>
+<ul>
+<li class=""><code>config 14227: ok</code>: credencial válida e coleta para SIEM acessível.</li>
+<li class=""><code>sem permissão (...)</code>: falta o serviço SIEM API em READ-WRITE no API client, ou a configuração não tem <em>Data collection for SIEM Integrations</em> ligado e ativado.</li>
+<li class=""><code>configuração não encontrada</code>: ID errado, ou a configuração não é visível para esse API client.</li>
+<li class=""><code>credencial recusada</code>: <code>client_token</code>, <code>access_token</code> ou <code>client_secret</code> errados, ou o relógio da máquina está fora do horário (a assinatura aceita 30 s de diferença).</li>
+<li class=""><code>host da credencial inválido</code>: o <code>host</code> do <code>.edgerc</code> não é um host da Akamai.</li>
+</ul>
+<p>O teste só passa se <strong>todas</strong> as configurações responderem: a coleta pede todas numa chamada só, e uma configuração sem acesso derruba a chamada inteira.</p>
+</li>
+<li class="">
+<p>Salve. O stream <code>siem</code> roda a cada minuto (o intervalo recomendado pela Akamai).</p>
+</li>
+</ol>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=o-que-é-coletado>O que é coletado<a href=#o-que-é-coletado class=hash-link aria-label="Direct link to O que é coletado" title="Direct link to O que é coletado" translate=no>​</a></h2>
+<p>Cada evento chega normalizado em OCSF 1.8 como <strong>HTTP Activity</strong> (classe 4002), com o evento original da Akamai preservado no <code>raw</code>.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>OCSF<th>Origem<tbody><tr><td><code>activity_id</code><td>Método HTTP: GET → Get, POST → Post, PUT → Put, DELETE → Delete, HEAD, OPTIONS, TRACE, PATCH, CONNECT; outros → Other.<tr><td><code>disposition_id</code> / <code>action_id</code><td><code>deny</code>, <code>deny_custom_*</code>, <code>tarpit</code>, <code>abort</code> → <strong>Blocked</strong> / Denied; <code>alert</code> → <strong>Alert</strong> / Allowed; <code>monitor</code> → <strong>Logged</strong> / Allowed; demais ações (ex.: de bot) → Other.<tr><td><code>severity_id</code><td>Bloqueado → Low (o ataque parou na borda); <code>alert</code>/<code>monitor</code> → <strong>Medium</strong> (a requisição chegou à origem).<tr><td><code>is_alert</code><td>Sempre <code>true</code>: todo evento da SIEM API é uma regra disparada.<tr><td><code>firewall_rule</code><td>Primeira regra disparada: <code>uid</code> (ID), <code>name</code> (mensagem), <code>version</code>, <code>category</code> (tag), <code>match_location</code> (seletor). <code>match_details</code> = IDs de <strong>todas</strong> as regras.<tr><td><code>src_endpoint</code><td><code>ip</code> = <code>clientIP</code>; <code>location</code> = país, cidade, continente e região; <code>autonomous_system.number</code> = ASN.<tr><td><code>http_request</code><td><code>http_method</code>, <code>version</code> (protocolo), <code>user_agent</code> (do header da requisição), <code>uid</code> (= <code>requestId</code>) e <code>url</code> (<code>hostname</code>, <code>path</code>, <code>query_string</code>, <code>port</code>).<tr><td><code>http_response.code</code><td>Status devolvido ao cliente.<tr><td><code>policy.uid</code><td>Política de segurança que avaliou a requisição.<tr><td><code>time</code><td><code>httpMessage.start</code>.<tr><td><code>metadata.uid</code><td><code>requestId</code>. <code>unmapped.akamai_config_id</code> = configuração de segurança.<tr><td><code>ja4_fingerprint_list</code><td><code>identity.ja4</code> (fingerprint TLS do cliente) — o pivô para achar o mesmo bot atrás de IPs diferentes.<tr><td><code>actor.user</code> / <code>risk_score</code><td>Account Protector: <code>name</code> = <code>userRiskData.username</code>, <code>uid</code> = <code>originUserId</code>; <code>risk_score</code> = <code>userRiskData.score</code>.<tr><td><code>unmapped.akamai_rules</code><td><strong>Todas</strong> as regras disparadas, decodificadas (<code>id</code>, <code>message</code>, <code>tag</code>, <code>action</code>) — a de anomalia que decide o <code>deny</code> costuma ser a última.<tr><td><code>unmapped.akamai_bot_score</code> / <code>akamai_client_reputation</code><td><code>botData.botScore</code> (Bot Manager) e <code>attackData.clientReputation</code>.</table>
+<p>Campos de produto não licenciado (Account Protector, Bot Manager) não aparecem no evento normalizado — não viram objeto vazio.</p>
+<p>O dedupe usa configuração + política + <code>requestId</code> + início + o conjunto de regras: a mesma requisição avaliada por duas configurações gera dois eventos distintos.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=operação-e-saúde>Operação e saúde<a href=#operação-e-saúde class=hash-link aria-label="Direct link to Operação e saúde" title="Direct link to Operação e saúde" translate=no>​</a></h2>
+<ul>
+<li class=""><strong>Retenção de 12 horas na Akamai.</strong> A Akamai guarda os eventos por 12 horas. Se o CentralOps ficar parado por mais tempo que isso, o que passou não pode mais ser lido.</li>
+<li class=""><strong>Offset expirado.</strong> Se a Akamai recusar o offset salvo (HTTP 416), o CentralOps volta a ler por tempo a partir do último evento já coletado, dentro das 12 horas, e o log do worker diz de onde retomou. Se o último evento for mais antigo que a retenção, o log registra <strong>quanto tempo de eventos se perdeu</strong>. A troca acontece uma vez por ciclo; não vira laço.</li>
+<li class=""><strong>Resposta cortada.</strong> A borda da Akamai encerra a resposta depois de 2 minutos. Sem a linha final de contexto, o CentralOps descarta a página inteira e repete a mesma leitura com metade do limite (até três vezes), como a Akamai orienta. Nada da página cortada é entregue pela metade.</li>
+<li class=""><strong>Teto por ciclo.</strong> Até 10 páginas de 5.000 eventos por ciclo. No teto o offset da próxima página fica salvo, o próximo ciclo continua dali e <strong>Saúde do Pipeline</strong> marca o stream como em <em>backlog</em>.</li>
+<li class=""><strong>Indicador de atraso.</strong> O atraso exibido é o do evento mais novo já lido (o offset da Akamai é opaco). Em um site sem ataques, ele cresce sem que haja atraso real.</li>
+<li class=""><strong>Backfill.</strong> Funciona dentro das 12 horas de retenção, por fatias de 15 minutos; a fatia que bate no limite é dividida ao meio até 1 minuto. O backfill não mexe na posição da coleta normal.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=limites-da-api-da-akamai>Limites da API da Akamai<a href=#limites-da-api-da-akamai class=hash-link aria-label="Direct link to Limites da API da Akamai" title="Direct link to Limites da API da Akamai" translate=no>​</a></h2>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Limite<th>Valor<th>Fonte<tbody><tr><td>Retenção<td>12 horas<td><a href=https://techdocs.akamai.com/siem-integration/docs/akamai-siem-integration-for-splunk-and-cef-syslog target=_blank rel="noopener noreferrer" class="">SIEM para Splunk e CEF</a><tr><td>Latência<td>5 segundos (<code>to</code> não pode passar de agora − 5 s)<td><a href=https://techdocs.akamai.com/siem-integration/reference/query-parameter-combinations target=_blank rel="noopener noreferrer" class="">Combinações de parâmetros</a><tr><td>Taxa<td>Sem limite imposto hoje; a Akamai pede no máximo 1 chamada por segundo e recomenda 60 s entre coletas<td><a href=https://techdocs.akamai.com/siem-integration/reference/rate-limits target=_blank rel="noopener noreferrer" class="">Rate limits</a><tr><td>Tamanho da página<td><code>limit</code> padrão 10.000, máximo 600.000 (aproximado)<td><a href=https://techdocs.akamai.com/siem-integration/reference/get-config target=_blank rel="noopener noreferrer" class="">Get security events</a><tr><td>Tempo de resposta<td>A borda corta a resposta depois de 2 minutos<td><a href=https://techdocs.akamai.com/siem-integration/reference/api-get-started target=_blank rel="noopener noreferrer" class="">Get started</a><tr><td>Offset expirado<td>HTTP 416<td><a href=https://techdocs.akamai.com/siem-integration/reference/get-config target=_blank rel="noopener noreferrer" class="">Get security events</a></table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=custo-e-licenciamento>Custo e licenciamento<a href=#custo-e-licenciamento class=hash-link aria-label="Direct link to Custo e licenciamento" title="Direct link to Custo e licenciamento" translate=no>​</a></h2>
+<ul>
+<li class="">A Akamai <strong>não publica preço</strong> da SIEM Integration API e a documentação dela não cita cobrança à parte pelo uso da API. A integração SIEM é uma funcionalidade dos produtos de segurança (App & API Protector, Kona Site Defender e afins); confirme no seu contrato com o time de contas da Akamai.</li>
+<li class=""><code>botData</code>, <code>clientData</code> e <code>userRiskData</code> só aparecem com <strong>Bot Manager</strong> (Premier, para <code>clientData</code>) e <strong>Account Protector</strong> licenciados.</li>
+<li class="">Do lado do CentralOps, o volume é o de eventos de segurança, não o de tráfego: só requisições que dispararam regra viram evento.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=solução-de-problemas>Solução de problemas<a href=#solução-de-problemas class=hash-link aria-label="Direct link to Solução de problemas" title="Direct link to Solução de problemas" translate=no>​</a></h2>
+<p><strong>O teste passa, mas nada chega.</strong> Confira se a versão da configuração com <em>Data collection for SIEM Integrations</em> está <strong>ativa em produção</strong> (Passo 1). Sem ataque nem regra disparada no período, a API devolve zero eventos — é normal num site com pouco tráfego.</p>
+<p><strong><code>sem permissão</code> em uma configuração.</strong> O API client não tem o serviço SIEM API em READ-WRITE, ou a configuração pertence a outro contrato/grupo que o client não enxerga.</p>
+<p><strong><code>credencial recusada</code> depois de funcionar.</strong> A credencial do API client foi rotacionada ou expirou no Control Center. Gere uma nova e cole o <code>.edgerc</code> novo no campo <strong>Credencial EdgeGrid</strong>. Se o erro citar horário, ajuste o NTP da máquina do CentralOps.</p>
+<p><strong>Log do worker: <code>offset expirado ... não podem mais ser lidos</code>.</strong> O CentralOps ficou parado por mais de 12 horas. Os eventos anteriores à retenção da Akamai não existem mais na API.</p>
+<p><strong>Log do worker: <code>resposta incompleta — repetindo com limit=...</code>.</strong> A resposta foi cortada pela borda (volume alto ou rede lenta). Se acontecer sempre, há muito evento por minuto: confira o volume em <strong>Saúde do Pipeline</strong>.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=limitações-conhecidas>Limitações conhecidas<a href=#limitações-conhecidas class=hash-link aria-label="Direct link to Limitações conhecidas" title="Direct link to Limitações conhecidas" translate=no>​</a></h2>
+<ul>
+<li class="">Só a SIEM Integration API (eventos de segurança). Logs de tráfego completos (DataStream 2) não são coletados.</li>
+<li class="">O WAF só registra requisições que dispararam regra: tráfego legítimo não aparece.</li>
+<li class=""><code>firewall_rule</code> traz a <strong>primeira</strong> regra disparada (o OCSF tem um objeto só); a lista completa, com mensagem e ação de cada uma, vai em <code>unmapped.akamai_rules</code>.</li>
+<li class="">O teste de conexão e a coleta exigem que <strong>todas</strong> as configurações informadas estejam acessíveis.</li>
+</ul></div></article><nav class="docusaurus-mt-lg pagination-nav" aria-label="Docs pages"><a class="pagination-nav__link pagination-nav__link--prev" href=/en/integrations/microsoft-azure><div class=pagination-nav__sublabel>Previous</div><div class=pagination-nav__label>Microsoft Azure</div></a><a class="pagination-nav__link pagination-nav__link--next" href=/en/integrations/google-workspace><div class=pagination-nav__sublabel>Next</div><div class=pagination-nav__label>Google Workspace</div></a></nav></div></div><div class="col col--3"><div class="tableOfContents_bqdL thin-scrollbar theme-doc-toc-desktop"><ul class="table-of-contents table-of-contents__left-border"><li><a href=#quando-usar class="table-of-contents__link toc-highlight">Quando usar</a><li><a href=#como-funciona class="table-of-contents__link toc-highlight">Como funciona</a><li><a href=#o-que-coletar-análise-de-segurança class="table-of-contents__link toc-highlight">O que coletar: análise de segurança</a><li><a href=#segurança-da-integração class="table-of-contents__link toc-highlight">Segurança da integração</a><li><a href=#pré-requisitos class="table-of-contents__link toc-highlight">Pré-requisitos</a><li><a href=#passo-1-ligar-a-coleta-para-siem-na-configuração-de-segurança class="table-of-contents__link toc-highlight">Passo 1: Ligar a coleta para SIEM na configuração de segurança</a><li><a href=#passo-2-criar-o-api-client class="table-of-contents__link toc-highlight">Passo 2: Criar o API client</a><li><a href=#passo-3-criar-a-integração-no-centralops class="table-of-contents__link toc-highlight">Passo 3: Criar a integração no CentralOps</a><li><a href=#o-que-é-coletado class="table-of-contents__link toc-highlight">O que é coletado</a><li><a href=#operação-e-saúde class="table-of-contents__link toc-highlight">Operação e saúde</a><li><a href=#limites-da-api-da-akamai class="table-of-contents__link toc-highlight">Limites da API da Akamai</a><li><a href=#custo-e-licenciamento class="table-of-contents__link toc-highlight">Custo e licenciamento</a><li><a href=#solução-de-problemas class="table-of-contents__link toc-highlight">Solução de problemas</a><li><a href=#limitações-conhecidas class="table-of-contents__link toc-highlight">Limitações conhecidas</a></ul></div></div></div></div></main></div></div></div><footer class="theme-layout-footer footer footer--dark"><div class="container container-fluid"><div class="row footer__links"><div class="theme-layout-footer-column col footer__col"><div class=footer__title>Documentação</div><ul class="footer__items clean-list"><li class=footer__item><a class=footer__link-item href=/en/getting-started/overview>Começar</a><li class=footer__item><a class=footer__link-item href=/en/operations/dashboard>Operação diária</a><li class=footer__item><a class=footer__link-item href=/en/normalization/overview>Mappings (CML)</a><li class=footer__item><a class=footer__link-item href=/en/runbooks/dispatcher>Runbooks</a></ul></div><div class="theme-layout-footer-column col footer__col"><div class=footer__title>Plataforma</div><ul class="footer__items clean-list"><li class=footer__item><a class=footer__link-item href=/en/concepts/architecture>Arquitetura</a><li class=footer__item><a class=footer__link-item href=/en/concepts/rbac>RBAC</a><li class=footer__item><a class=footer__link-item href=/en/integrations/overview>Integrações</a><li class=footer__item><a class=footer__link-item href=/en/compliance/retention>Compliance</a></ul></div><div class="theme-layout-footer-column col footer__col"><div class=footer__title>Recursos</div><ul class="footer__items clean-list"><li class=footer__item><a class=footer__link-item href=/en/getting-started/quickstart>Quickstart</a><li class=footer__item><a class=footer__link-item href=/en/normalization/cookbook>DSL Cookbook</a><li class=footer__item><a class=footer__link-item href=/en/normalization/troubleshooting>Troubleshooting</a></ul></div></div><div class="footer__bottom text--center"><div class=footer__copyright>Copyright © 2026 CentralOps. Built with Docusaurus.</div></div></div></footer></div></body>
