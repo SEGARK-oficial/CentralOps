@@ -15,7 +15,7 @@ services:
       context: ..
       dockerfile: compose/Dockerfile
       target: final
-    image: centralops:e2e
+    image: ${E2E_API_IMAGE:-centralops:e2e}
     environment:
       - APP_ENV=test
       # Chave mestra determinística para fixtures — NUNCA usar fora de test.
@@ -58,14 +58,14 @@ services:
       target: frontend
       args:
         VITE_BACKEND_URL: /api
-    image: centralops-frontend:e2e
+    image: ${E2E_FRONTEND_IMAGE:-centralops-frontend:e2e}
     environment:
       - ENABLE_HTTPS=0
       - API_UPSTREAM=centralops:8000
       - NGINX_SERVER_NAME=_
     ports:
       # Porta 3000 (host) → 8080 (nginx-unprivileged non-root). Playwright baseURL.
-      - "3000:8080"
+      - "${E2E_HTTP_PORT:-3000}:8080"
     depends_on:
       centralops:
         condition: service_healthy
@@ -117,13 +117,17 @@ services:
     restart: "no"
 
 volumes:
-  # Volumes anônimos com sufixo e2e para não colidir com volumes de produção.
+  # Volumes com sufixo e2e para não colidir com volumes de produção. O prefixo
+  # é o projeto do compose: no CI cada job tem o seu (COMPOSE_PROJECT_NAME),
+  # porque as instâncias do pool self-hosted dividem o daemon Docker e um nome
+  # fixo fazia dois shards simultâneos montarem o MESMO Postgres. Local, o
+  # compose usa o nome do diretório como projeto: compose-e2e-*.
   e2e-app-data:
     driver: local
-    name: centralops-e2e-app-data
+    name: ${COMPOSE_PROJECT_NAME:-centralops}-e2e-app-data
   e2e-postgres-data:
     driver: local
-    name: centralops-e2e-postgres-data
+    name: ${COMPOSE_PROJECT_NAME:-centralops}-e2e-postgres-data
   e2e-redis-data:
     driver: local
-    name: centralops-e2e-redis-data
+    name: ${COMPOSE_PROJECT_NAME:-centralops}-e2e-redis-data

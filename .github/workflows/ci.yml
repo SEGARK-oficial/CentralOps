@@ -92,13 +92,15 @@ jobs:
           MIN_FREE_GB: "12"
         run: |
           set -uo pipefail
-          # NÃO usar `|| true` aqui: sudo sem senha ausente faria o passo passar
-          # VERDE com o chown nunca executado — e o EACCES só apareceria muito
-          # depois, num job sem relação. Testa primeiro e RECLAMA alto.
-          if sudo -n true 2>/dev/null; then
-            sudo chown -R "$(id -u):$(id -g)" "$GITHUB_WORKSPACE" 2>/dev/null || true
-          else
-            echo "::warning title=sudo sem senha ausente::O usuario '$(id -un)' em $(hostname) nao tem NOPASSWD. O chown do workspace nao roda (EACCES futuro) e 'playwright install --with-deps' falha. Configure /etc/sudoers.d/ para este usuario."
+          # Devolve a posse do workspace (container root deixa arquivo que o checkout
+          # não apaga: EACCES) SEM sudo. O usuário do runner já fala com o socket do
+          # Docker, o que equivale a root no host; NOPASSWD não acrescentava proteção
+          # e foi removido. O chown roda num container sem rede. Se falhar, RECLAMA
+          # alto: um verde mudo faria o EACCES aparecer depois num job sem relação.
+          if [ -d "$GITHUB_WORKSPACE" ] && ! docker run --rm --network none \
+              -v "$GITHUB_WORKSPACE:/w" alpine:3.22@sha256:2e0b81d60597f449baa56dc25d355367869d2dca4cd57e866f1e2b52af3eb55f \
+              chown -R "$(id -u):$(id -g)" /w; then
+            echo "::warning title=chown do workspace falhou::$(hostname) nao devolveu a posse de $GITHUB_WORKSPACE (docker indisponivel?). Espere EACCES no checkout."
           fi
           avail() { df -BG --output=avail / | tail -1 | tr -dc '0-9'; }
           echo "$(hostname): $(avail)GB livres antes"
@@ -197,20 +199,15 @@ jobs:
       - name: Preflight do runner (posse do workspace)
         if: runner.environment == 'self-hosted'
         run: |
-          # NÃO usar `|| true` sozinho: sudo sem senha ausente faria o passo passar
-          # VERDE com o chown nunca executado, e o EACCES apareceria depois num job
-          # sem relação. Testa primeiro e RECLAMA alto.
-          if sudo -n true 2>/dev/null; then
-            # NÃO usar `|| true` aqui: sudo sem senha ausente faria o passo passar
-          # VERDE com o chown nunca executado — e o EACCES só apareceria muito
-          # depois, num job sem relação. Testa primeiro e RECLAMA alto.
-          if sudo -n true 2>/dev/null; then
-            sudo chown -R "$(id -u):$(id -g)" "$GITHUB_WORKSPACE" 2>/dev/null || true
-          else
-            echo "::warning title=sudo sem senha ausente::O usuario '$(id -un)' em $(hostname) nao tem NOPASSWD. O chown do workspace nao roda (EACCES futuro) e 'playwright install --with-deps' falha. Configure /etc/sudoers.d/ para este usuario."
-          fi
-          else
-            echo "::warning title=sudo sem senha ausente::O usuario '$(id -un)' em $(hostname) nao tem NOPASSWD. O chown do workspace nao roda (EACCES futuro) e 'playwright install --with-deps' falha. Configure /etc/sudoers.d/ para este usuario."
+          # Devolve a posse do workspace (container root deixa arquivo que o checkout
+          # não apaga: EACCES) SEM sudo. O usuário do runner já fala com o socket do
+          # Docker, o que equivale a root no host; NOPASSWD não acrescentava proteção
+          # e foi removido. O chown roda num container sem rede. Se falhar, RECLAMA
+          # alto: um verde mudo faria o EACCES aparecer depois num job sem relação.
+          if [ -d "$GITHUB_WORKSPACE" ] && ! docker run --rm --network none \
+              -v "$GITHUB_WORKSPACE:/w" alpine:3.22@sha256:2e0b81d60597f449baa56dc25d355367869d2dca4cd57e866f1e2b52af3eb55f \
+              chown -R "$(id -u):$(id -g)" /w; then
+            echo "::warning title=chown do workspace falhou::$(hostname) nao devolveu a posse de $GITHUB_WORKSPACE (docker indisponivel?). Espere EACCES no checkout."
           fi
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
@@ -265,13 +262,15 @@ jobs:
           MIN_FREE_GB: "12"
         run: |
           set -uo pipefail
-          # NÃO usar `|| true` aqui: sudo sem senha ausente faria o passo passar
-          # VERDE com o chown nunca executado — e o EACCES só apareceria muito
-          # depois, num job sem relação. Testa primeiro e RECLAMA alto.
-          if sudo -n true 2>/dev/null; then
-            sudo chown -R "$(id -u):$(id -g)" "$GITHUB_WORKSPACE" 2>/dev/null || true
-          else
-            echo "::warning title=sudo sem senha ausente::O usuario '$(id -un)' em $(hostname) nao tem NOPASSWD. O chown do workspace nao roda (EACCES futuro) e 'playwright install --with-deps' falha. Configure /etc/sudoers.d/ para este usuario."
+          # Devolve a posse do workspace (container root deixa arquivo que o checkout
+          # não apaga: EACCES) SEM sudo. O usuário do runner já fala com o socket do
+          # Docker, o que equivale a root no host; NOPASSWD não acrescentava proteção
+          # e foi removido. O chown roda num container sem rede. Se falhar, RECLAMA
+          # alto: um verde mudo faria o EACCES aparecer depois num job sem relação.
+          if [ -d "$GITHUB_WORKSPACE" ] && ! docker run --rm --network none \
+              -v "$GITHUB_WORKSPACE:/w" alpine:3.22@sha256:2e0b81d60597f449baa56dc25d355367869d2dca4cd57e866f1e2b52af3eb55f \
+              chown -R "$(id -u):$(id -g)" /w; then
+            echo "::warning title=chown do workspace falhou::$(hostname) nao devolveu a posse de $GITHUB_WORKSPACE (docker indisponivel?). Espere EACCES no checkout."
           fi
           avail() { df -BG --output=avail / | tail -1 | tr -dc '0-9'; }
           echo "$(hostname): $(avail)GB livres antes"
@@ -345,13 +344,15 @@ jobs:
           MIN_FREE_GB: "12"
         run: |
           set -uo pipefail
-          # NÃO usar `|| true` aqui: sudo sem senha ausente faria o passo passar
-          # VERDE com o chown nunca executado — e o EACCES só apareceria muito
-          # depois, num job sem relação. Testa primeiro e RECLAMA alto.
-          if sudo -n true 2>/dev/null; then
-            sudo chown -R "$(id -u):$(id -g)" "$GITHUB_WORKSPACE" 2>/dev/null || true
-          else
-            echo "::warning title=sudo sem senha ausente::O usuario '$(id -un)' em $(hostname) nao tem NOPASSWD. O chown do workspace nao roda (EACCES futuro) e 'playwright install --with-deps' falha. Configure /etc/sudoers.d/ para este usuario."
+          # Devolve a posse do workspace (container root deixa arquivo que o checkout
+          # não apaga: EACCES) SEM sudo. O usuário do runner já fala com o socket do
+          # Docker, o que equivale a root no host; NOPASSWD não acrescentava proteção
+          # e foi removido. O chown roda num container sem rede. Se falhar, RECLAMA
+          # alto: um verde mudo faria o EACCES aparecer depois num job sem relação.
+          if [ -d "$GITHUB_WORKSPACE" ] && ! docker run --rm --network none \
+              -v "$GITHUB_WORKSPACE:/w" alpine:3.22@sha256:2e0b81d60597f449baa56dc25d355367869d2dca4cd57e866f1e2b52af3eb55f \
+              chown -R "$(id -u):$(id -g)" /w; then
+            echo "::warning title=chown do workspace falhou::$(hostname) nao devolveu a posse de $GITHUB_WORKSPACE (docker indisponivel?). Espere EACCES no checkout."
           fi
           avail() { df -BG --output=avail / | tail -1 | tr -dc '0-9'; }
           echo "$(hostname): $(avail)GB livres antes"
@@ -371,6 +372,23 @@ jobs:
             exit 1
           fi
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      # Stack E2E POR JOB. As instâncias do pool self-hosted dividem a máquina e o
+      # daemon Docker. Com projeto do compose, porta 3000, volumes e tag de imagem
+      # fixos, dois shards simultâneos subiam o MESMO compose: um recriava os
+      # containers do outro no meio do seed (bootstrap 500 / ECONNRESET). Projeto,
+      # porta livre e imagens próprios isolam cada job. O storageState do setup é
+      # cookie de sessão, que não depende da porta.
+      - name: Isolar a stack E2E deste job
+        run: |
+          proj="ce2e-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}-${GITHUB_JOB}-${{ strategy.job-index }}"
+          port="$(python3 -c 'import socket; s = socket.socket(); s.bind(("127.0.0.1", 0)); print(s.getsockname()[1])')"
+          {
+            echo "COMPOSE_PROJECT_NAME=${proj}"
+            echo "E2E_HTTP_PORT=${port}"
+            echo "BASE_URL=http://localhost:${port}"
+            echo "E2E_API_IMAGE=centralops:${proj}"
+            echo "E2E_FRONTEND_IMAGE=centralops-frontend:${proj}"
+          } >> "$GITHUB_ENV"
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: "20"
@@ -378,21 +396,33 @@ jobs:
           cache-dependency-path: |
             frontend/package-lock.json
             e2e/package-lock.json
+      # O SO entra na chave: o Chromium baixado depende da distro (o Playwright
+      # escolhe o build por `ubuntuXX.YY`). Quando o pool foi para Ubuntu 26.04 o
+      # 1.59 nem instalava ("does not support chromium on ubuntu26.04-x64"); com a
+      # chave só pelo lockfile, a próxima troca de SO restauraria o build do SO
+      # antigo e o install seria PULADO (cache-hit).
+      - name: Identificar o SO do runner
+        id: os
+        run: echo "id=$(. /etc/os-release && echo "${ID}${VERSION_ID}")" >> "$GITHUB_OUTPUT"
       - name: Cache Playwright browsers
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         id: playwright-cache
         with:
           path: ~/.cache/ms-playwright
-          key: playwright-${{ hashFiles('e2e/package-lock.json') }}
+          key: playwright-${{ steps.os.outputs.id }}-${{ hashFiles('e2e/package-lock.json') }}
           restore-keys: |
-            playwright-
+            playwright-${{ steps.os.outputs.id }}-
       - name: Instalar dependências do e2e
         working-directory: e2e
         run: npm ci
       - name: Instalar Playwright browsers
         if: steps.playwright-cache.outputs.cache-hit != 'true'
         working-directory: e2e
-        run: npx playwright install chromium --with-deps
+        # Sem `--with-deps`: ele chama sudo + apt no host, e o runner não tem (nem
+        # deve ter) NOPASSWD. As libs de sistema do Chromium são provisionadas no
+        # runner pelo admin, uma vez por SO: `npx playwright install-deps chromium`.
+        # Faltando alguma, o launch falha nomeando a lib.
+        run: npx playwright install chromium
 
       - name: Log in to GHCR
         uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
@@ -400,15 +430,18 @@ jobs:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      # Handoff: puxa a imagem JÁ compilada e re-tagueia p/ o nome que o compose
-      # espera (centralops:e2e / centralops-frontend:e2e). `up --no-build` garante
-      # ZERO recompilação.
+      # Handoff: puxa a imagem JÁ compilada e aponta o compose direto para ela
+      # (E2E_API_IMAGE / E2E_FRONTEND_IMAGE). Sem re-tag para um nome fixo: com
+      # jobs de PRs diferentes no mesmo daemon, um `docker tag` sobrescrevia a
+      # imagem que o outro ia subir. `up --no-build` garante ZERO recompilação.
       - name: Pull pre-built images (handoff)
         run: |
           docker pull "${{ needs.build.outputs.api }}"
           docker pull "${{ needs.build.outputs.frontend }}"
-          docker tag "${{ needs.build.outputs.api }}" centralops:e2e
-          docker tag "${{ needs.build.outputs.frontend }}" centralops-frontend:e2e
+          {
+            echo "E2E_API_IMAGE=${{ needs.build.outputs.api }}"
+            echo "E2E_FRONTEND_IMAGE=${{ needs.build.outputs.frontend }}"
+          } >> "$GITHUB_ENV"
 
       - name: Subir stack E2E (sem build)
         run: |
@@ -434,14 +467,14 @@ jobs:
         working-directory: e2e
         run: npx ts-node seed.ts
         env:
-          BASE_URL: http://localhost:3000
+          BASE_URL: ${{ env.BASE_URL }}
       - name: Popular reservoir Redis
         run: bash scripts/seed-redis-e2e.sh
       - name: Rodar projeto de setup (autenticar roles)
         working-directory: e2e
         run: npx playwright test --project=setup
         env:
-          BASE_URL: http://localhost:3000
+          BASE_URL: ${{ env.BASE_URL }}
           CI: true
           # 4 Chromium + o stack docker do E2E estouram 4GB. Em runner
           # self-hosted (LXC) cai para 2; GitHub-hosted mantém 4.
@@ -487,13 +520,15 @@ jobs:
           MIN_FREE_GB: "12"
         run: |
           set -uo pipefail
-          # NÃO usar `|| true` aqui: sudo sem senha ausente faria o passo passar
-          # VERDE com o chown nunca executado — e o EACCES só apareceria muito
-          # depois, num job sem relação. Testa primeiro e RECLAMA alto.
-          if sudo -n true 2>/dev/null; then
-            sudo chown -R "$(id -u):$(id -g)" "$GITHUB_WORKSPACE" 2>/dev/null || true
-          else
-            echo "::warning title=sudo sem senha ausente::O usuario '$(id -un)' em $(hostname) nao tem NOPASSWD. O chown do workspace nao roda (EACCES futuro) e 'playwright install --with-deps' falha. Configure /etc/sudoers.d/ para este usuario."
+          # Devolve a posse do workspace (container root deixa arquivo que o checkout
+          # não apaga: EACCES) SEM sudo. O usuário do runner já fala com o socket do
+          # Docker, o que equivale a root no host; NOPASSWD não acrescentava proteção
+          # e foi removido. O chown roda num container sem rede. Se falhar, RECLAMA
+          # alto: um verde mudo faria o EACCES aparecer depois num job sem relação.
+          if [ -d "$GITHUB_WORKSPACE" ] && ! docker run --rm --network none \
+              -v "$GITHUB_WORKSPACE:/w" alpine:3.22@sha256:2e0b81d60597f449baa56dc25d355367869d2dca4cd57e866f1e2b52af3eb55f \
+              chown -R "$(id -u):$(id -g)" /w; then
+            echo "::warning title=chown do workspace falhou::$(hostname) nao devolveu a posse de $GITHUB_WORKSPACE (docker indisponivel?). Espere EACCES no checkout."
           fi
           avail() { df -BG --output=avail / | tail -1 | tr -dc '0-9'; }
           echo "$(hostname): $(avail)GB livres antes"
@@ -513,6 +548,23 @@ jobs:
             exit 1
           fi
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      # Stack E2E POR JOB. As instâncias do pool self-hosted dividem a máquina e o
+      # daemon Docker. Com projeto do compose, porta 3000, volumes e tag de imagem
+      # fixos, dois shards simultâneos subiam o MESMO compose: um recriava os
+      # containers do outro no meio do seed (bootstrap 500 / ECONNRESET). Projeto,
+      # porta livre e imagens próprios isolam cada job. O storageState do setup é
+      # cookie de sessão, que não depende da porta.
+      - name: Isolar a stack E2E deste job
+        run: |
+          proj="ce2e-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}-${GITHUB_JOB}-${{ strategy.job-index }}"
+          port="$(python3 -c 'import socket; s = socket.socket(); s.bind(("127.0.0.1", 0)); print(s.getsockname()[1])')"
+          {
+            echo "COMPOSE_PROJECT_NAME=${proj}"
+            echo "E2E_HTTP_PORT=${port}"
+            echo "BASE_URL=http://localhost:${port}"
+            echo "E2E_API_IMAGE=centralops:${proj}"
+            echo "E2E_FRONTEND_IMAGE=centralops-frontend:${proj}"
+          } >> "$GITHUB_ENV"
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: "20"
@@ -520,21 +572,33 @@ jobs:
           cache-dependency-path: |
             frontend/package-lock.json
             e2e/package-lock.json
+      # O SO entra na chave: o Chromium baixado depende da distro (o Playwright
+      # escolhe o build por `ubuntuXX.YY`). Quando o pool foi para Ubuntu 26.04 o
+      # 1.59 nem instalava ("does not support chromium on ubuntu26.04-x64"); com a
+      # chave só pelo lockfile, a próxima troca de SO restauraria o build do SO
+      # antigo e o install seria PULADO (cache-hit).
+      - name: Identificar o SO do runner
+        id: os
+        run: echo "id=$(. /etc/os-release && echo "${ID}${VERSION_ID}")" >> "$GITHUB_OUTPUT"
       - name: Cache Playwright browsers
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         id: playwright-cache
         with:
           path: ~/.cache/ms-playwright
-          key: playwright-${{ hashFiles('e2e/package-lock.json') }}
+          key: playwright-${{ steps.os.outputs.id }}-${{ hashFiles('e2e/package-lock.json') }}
           restore-keys: |
-            playwright-
+            playwright-${{ steps.os.outputs.id }}-
       - name: Instalar dependências do e2e
         working-directory: e2e
         run: npm ci
       - name: Instalar Playwright browsers
         if: steps.playwright-cache.outputs.cache-hit != 'true'
         working-directory: e2e
-        run: npx playwright install chromium --with-deps
+        # Sem `--with-deps`: ele chama sudo + apt no host, e o runner não tem (nem
+        # deve ter) NOPASSWD. As libs de sistema do Chromium são provisionadas no
+        # runner pelo admin, uma vez por SO: `npx playwright install-deps chromium`.
+        # Faltando alguma, o launch falha nomeando a lib.
+        run: npx playwright install chromium
       - name: Download storageStates
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
@@ -550,8 +614,10 @@ jobs:
         run: |
           docker pull "${{ needs.build.outputs.api }}"
           docker pull "${{ needs.build.outputs.frontend }}"
-          docker tag "${{ needs.build.outputs.api }}" centralops:e2e
-          docker tag "${{ needs.build.outputs.frontend }}" centralops-frontend:e2e
+          {
+            echo "E2E_API_IMAGE=${{ needs.build.outputs.api }}"
+            echo "E2E_FRONTEND_IMAGE=${{ needs.build.outputs.frontend }}"
+          } >> "$GITHUB_ENV"
       - name: Subir stack E2E (sem build)
         run: |
           docker compose -f compose/docker-compose.e2e.yml up --no-build -d
@@ -573,14 +639,14 @@ jobs:
         working-directory: e2e
         run: npx ts-node seed.ts
         env:
-          BASE_URL: http://localhost:3000
+          BASE_URL: ${{ env.BASE_URL }}
       - name: Popular reservoir Redis
         run: bash scripts/seed-redis-e2e.sh
       - name: Rodar Playwright (shard ${{ matrix.shard }}/4)
         working-directory: e2e
         run: npx playwright test --shard=${{ matrix.shard }}/4 --ignore-snapshots
         env:
-          BASE_URL: http://localhost:3000
+          BASE_URL: ${{ env.BASE_URL }}
           CI: true
           # 4 Chromium + o stack docker do E2E estouram 4GB. Em runner
           # self-hosted (LXC) cai para 2; GitHub-hosted mantém 4.

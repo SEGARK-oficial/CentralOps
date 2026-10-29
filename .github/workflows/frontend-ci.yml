@@ -33,10 +33,15 @@ jobs:
       - name: Preflight do runner (posse do workspace)
         if: runner.environment == 'self-hosted'
         run: |
-          if sudo -n true 2>/dev/null; then
-            sudo chown -R "$(id -u):$(id -g)" "$GITHUB_WORKSPACE" 2>/dev/null || true
-          else
-            echo "::warning title=sudo sem senha ausente::O usuario '$(id -un)' em $(hostname) nao tem NOPASSWD; o chown do workspace nao roda."
+          # Devolve a posse do workspace (container root deixa arquivo que o checkout
+          # não apaga: EACCES) SEM sudo. O usuário do runner já fala com o socket do
+          # Docker, o que equivale a root no host; NOPASSWD não acrescentava proteção
+          # e foi removido. O chown roda num container sem rede. Se falhar, RECLAMA
+          # alto: um verde mudo faria o EACCES aparecer depois num job sem relação.
+          if [ -d "$GITHUB_WORKSPACE" ] && ! docker run --rm --network none \
+              -v "$GITHUB_WORKSPACE:/w" alpine:3.22@sha256:2e0b81d60597f449baa56dc25d355367869d2dca4cd57e866f1e2b52af3eb55f \
+              chown -R "$(id -u):$(id -g)" /w; then
+            echo "::warning title=chown do workspace falhou::$(hostname) nao devolveu a posse de $GITHUB_WORKSPACE (docker indisponivel?). Espere EACCES no checkout."
           fi
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
