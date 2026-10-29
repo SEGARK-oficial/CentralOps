@@ -49,6 +49,10 @@ _SOURCE_ONLY_FILES = frozenset(
         # por kind; os .py somem na imagem compilada (viram .so) → glob vazio, e o
         # ``assert _router_sources()`` falha. Roda no CI não-compilado (a fonte existe).
         "tests/test_no_vendor_gating_in_routers.py",
+        # Lê .github/workflows/ para exigir DOCKER_CONFIG isolado em todo job que
+        # faz login no registry. .github/ não vai para a imagem; no gate de
+        # fontes do ci.yml o arquivo existe e o teste roda de verdade.
+        "tests/test_workflow_docker_config_isolado.py",
     }
 )
 
