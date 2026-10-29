@@ -85,6 +85,23 @@ jobs:
           fi
       - name: Checkout
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      # Stack E2E POR JOB. As instâncias do pool self-hosted dividem a máquina e o
+      # daemon Docker. Com projeto do compose, porta 3000, volumes e tag de imagem
+      # fixos, dois shards simultâneos subiam o MESMO compose: um recriava os
+      # containers do outro no meio do seed (bootstrap 500 / ECONNRESET). Projeto,
+      # porta livre e imagens próprios isolam cada job. O storageState do setup é
+      # cookie de sessão, que não depende da porta.
+      - name: Isolar a stack E2E deste job
+        run: |
+          proj="ce2e-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}-${GITHUB_JOB}-${{ strategy.job-index }}"
+          port="$(python3 -c 'import socket; s = socket.socket(); s.bind(("127.0.0.1", 0)); print(s.getsockname()[1])')"
+          {
+            echo "COMPOSE_PROJECT_NAME=${proj}"
+            echo "E2E_HTTP_PORT=${port}"
+            echo "BASE_URL=http://localhost:${port}"
+            echo "E2E_API_IMAGE=centralops:${proj}"
+            echo "E2E_FRONTEND_IMAGE=centralops-frontend:${proj}"
+          } >> "$GITHUB_ENV"
 
       - name: Setup Node.js
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
@@ -160,7 +177,7 @@ jobs:
         working-directory: e2e
         run: npx ts-node seed.ts
         env:
-          BASE_URL: http://localhost:3000
+          BASE_URL: ${{ env.BASE_URL }}
 
       - name: Popular reservoir Redis
         run: bash scripts/seed-redis-e2e.sh
@@ -169,7 +186,7 @@ jobs:
         working-directory: e2e
         run: npx playwright test --project=setup
         env:
-          BASE_URL: http://localhost:3000
+          BASE_URL: ${{ env.BASE_URL }}
           CI: true
 
       # Publicar storageStates como artefato para os jobs de shard
@@ -246,6 +263,23 @@ jobs:
           fi
       - name: Checkout
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      # Stack E2E POR JOB. As instâncias do pool self-hosted dividem a máquina e o
+      # daemon Docker. Com projeto do compose, porta 3000, volumes e tag de imagem
+      # fixos, dois shards simultâneos subiam o MESMO compose: um recriava os
+      # containers do outro no meio do seed (bootstrap 500 / ECONNRESET). Projeto,
+      # porta livre e imagens próprios isolam cada job. O storageState do setup é
+      # cookie de sessão, que não depende da porta.
+      - name: Isolar a stack E2E deste job
+        run: |
+          proj="ce2e-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}-${GITHUB_JOB}-${{ strategy.job-index }}"
+          port="$(python3 -c 'import socket; s = socket.socket(); s.bind(("127.0.0.1", 0)); print(s.getsockname()[1])')"
+          {
+            echo "COMPOSE_PROJECT_NAME=${proj}"
+            echo "E2E_HTTP_PORT=${port}"
+            echo "BASE_URL=http://localhost:${port}"
+            echo "E2E_API_IMAGE=centralops:${proj}"
+            echo "E2E_FRONTEND_IMAGE=centralops-frontend:${proj}"
+          } >> "$GITHUB_ENV"
 
       - name: Setup Node.js
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
@@ -324,7 +358,7 @@ jobs:
         working-directory: e2e
         run: npx ts-node seed.ts
         env:
-          BASE_URL: http://localhost:3000
+          BASE_URL: ${{ env.BASE_URL }}
 
       - name: Popular reservoir Redis
         run: bash scripts/seed-redis-e2e.sh
@@ -334,7 +368,7 @@ jobs:
         working-directory: e2e
         run: npx playwright test --shard=${{ matrix.shard }}/4 --ignore-snapshots
         env:
-          BASE_URL: http://localhost:3000
+          BASE_URL: ${{ env.BASE_URL }}
           CI: true
 
       # Publicar relatório HTML em caso de falha para diagnóstico
