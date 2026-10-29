@@ -93,14 +93,22 @@ jobs:
             frontend/package-lock.json
             e2e/package-lock.json
 
+      # O SO entra na chave: com cache-hit o `install --with-deps` é PULADO, e as
+      # libs de sistema do Chromium nunca chegam a um host novo. Quando o pool foi
+      # para Ubuntu 26.04 o Playwright 1.59 nem instalava ("does not support
+      # chromium on ubuntu26.04-x64"); com a chave só pelo lockfile, a próxima
+      # troca de SO restauraria browsers do SO antigo e falharia no launch.
+      - name: Identificar o SO do runner
+        id: os
+        run: echo "id=$(. /etc/os-release && echo "${ID}${VERSION_ID}")" >> "$GITHUB_OUTPUT"
       - name: Cache Playwright browsers
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         id: playwright-cache
         with:
           path: ~/.cache/ms-playwright
-          key: playwright-${{ hashFiles('e2e/package-lock.json') }}
+          key: playwright-${{ steps.os.outputs.id }}-${{ hashFiles('e2e/package-lock.json') }}
           restore-keys: |
-            playwright-
+            playwright-${{ steps.os.outputs.id }}-
 
       - name: Instalar dependências do e2e
         working-directory: e2e
@@ -240,14 +248,22 @@ jobs:
             frontend/package-lock.json
             e2e/package-lock.json
 
+      # O SO entra na chave: com cache-hit o `install --with-deps` é PULADO, e as
+      # libs de sistema do Chromium nunca chegam a um host novo. Quando o pool foi
+      # para Ubuntu 26.04 o Playwright 1.59 nem instalava ("does not support
+      # chromium on ubuntu26.04-x64"); com a chave só pelo lockfile, a próxima
+      # troca de SO restauraria browsers do SO antigo e falharia no launch.
+      - name: Identificar o SO do runner
+        id: os
+        run: echo "id=$(. /etc/os-release && echo "${ID}${VERSION_ID}")" >> "$GITHUB_OUTPUT"
       - name: Cache Playwright browsers
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         id: playwright-cache
         with:
           path: ~/.cache/ms-playwright
-          key: playwright-${{ hashFiles('e2e/package-lock.json') }}
+          key: playwright-${{ steps.os.outputs.id }}-${{ hashFiles('e2e/package-lock.json') }}
           restore-keys: |
-            playwright-
+            playwright-${{ steps.os.outputs.id }}-
 
       - name: Instalar dependências do e2e
         working-directory: e2e
