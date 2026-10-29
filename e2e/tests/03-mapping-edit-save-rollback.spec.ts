@@ -16,6 +16,7 @@
  */
 
 import { test, expect } from "@playwright/test";
+import { botaoEditarSophosAlert } from "../fixtures/mappings";
 
 // ── Helpers locais ────────────────────────────────────────────────────────────
 
@@ -33,7 +34,7 @@ async function openFirstMapping(page: import("@playwright/test").Page): Promise<
 
   // A listagem navega por um <button> (aria-label "Editar mapping <vendor>/<event_type>"),
   // não por <a>/link. Abrimos sophos/sophos.alert (tem sample no reservoir p/ dry-run).
-  await page.getByRole("button", { name: /editar mapping sophos\/sophos\.alert/i }).first().click();
+  await (await botaoEditarSophosAlert(page)).click();
   await expect(page.getByTestId("mapping-editor-page")).toBeVisible({ timeout: 10_000 });
   return page.url();
 }

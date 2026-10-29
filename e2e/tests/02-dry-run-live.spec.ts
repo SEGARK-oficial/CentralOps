@@ -27,6 +27,7 @@
 
 import { test, expect } from "@playwright/test";
 import { readFileSync } from "node:fs";
+import { botaoEditarSophosAlert } from "../fixtures/mappings";
 
 test("dry-run live atualiza painel direito apos edicao", async ({ page }) => {
   // O orgId vem do seed.ts (e2e/.e2e-org-id): a MESMA org sob a qual o
@@ -71,7 +72,7 @@ test("dry-run live atualiza painel direito apos edicao", async ({ page }) => {
 
   // Abrir mapping sophos/sophos.alert. A listagem navega por um <button>
   // (aria-label "Editar mapping <vendor>/<event_type>"), não por <a>/link.
-  await page.getByRole("button", { name: /editar mapping sophos\/sophos\.alert/i }).first().click();
+  await (await botaoEditarSophosAlert(page)).click();
   await expect(page.getByTestId("mapping-editor-page")).toBeVisible({ timeout: 10_000 });
 
   // O dry-run live dispara em modo de EDIÇÃO (o painel "Reservoir" é placeholder

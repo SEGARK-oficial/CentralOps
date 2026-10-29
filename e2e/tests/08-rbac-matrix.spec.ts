@@ -21,6 +21,7 @@
  */
 
 import { test, expect } from "@playwright/test";
+import { botaoEditarSophosAlert } from "../fixtures/mappings";
 
 // ── Viewer: somente leitura ───────────────────────────────────────────────────
 
@@ -44,12 +45,7 @@ test.describe("RBAC Matrix — viewer", () => {
     await page.getByTestId("mappings-show-all").check();
     await expect(page.getByRole("table")).toBeVisible({ timeout: 10_000 });
 
-    const firstLink = page.getByRole("button", { name: /editar mapping sophos\/sophos\.alert/i }).first();
-    const linkExists = await firstLink.isVisible().catch(() => false);
-    if (!linkExists) {
-      test.skip();
-      return;
-    }
+    const firstLink = await botaoEditarSophosAlert(page);
 
     await firstLink.click();
     await expect(page.getByTestId("mapping-editor-page")).toBeVisible({ timeout: 10_000 });
@@ -112,12 +108,7 @@ test.describe("RBAC Matrix — operator", () => {
     await page.getByTestId("mappings-show-all").check();
     await expect(page.getByRole("table")).toBeVisible({ timeout: 10_000 });
 
-    const firstLink = page.getByRole("button", { name: /editar mapping sophos\/sophos\.alert/i }).first();
-    const linkExists = await firstLink.isVisible().catch(() => false);
-    if (!linkExists) {
-      test.skip();
-      return;
-    }
+    const firstLink = await botaoEditarSophosAlert(page);
 
     await firstLink.click();
     await expect(page.getByTestId("mapping-editor-page")).toBeVisible({ timeout: 10_000 });
@@ -168,12 +159,7 @@ test.describe("RBAC Matrix — engineer", () => {
     await page.getByTestId("mappings-show-all").check();
     await expect(page.getByRole("table")).toBeVisible({ timeout: 10_000 });
 
-    const firstLink = page.getByRole("button", { name: /editar mapping sophos\/sophos\.alert/i }).first();
-    const linkExists = await firstLink.isVisible().catch(() => false);
-    if (!linkExists) {
-      test.skip();
-      return;
-    }
+    const firstLink = await botaoEditarSophosAlert(page);
 
     await firstLink.click();
     await expect(page.getByTestId("mapping-editor-page")).toBeVisible({ timeout: 10_000 });
@@ -189,12 +175,7 @@ test.describe("RBAC Matrix — engineer", () => {
     await page.getByTestId("mappings-show-all").check();
     await expect(page.getByRole("table")).toBeVisible({ timeout: 10_000 });
 
-    const firstLink = page.getByRole("button", { name: /editar mapping sophos\/sophos\.alert/i }).first();
-    const linkExists = await firstLink.isVisible().catch(() => false);
-    if (!linkExists) {
-      test.skip();
-      return;
-    }
+    const firstLink = await botaoEditarSophosAlert(page);
 
     await firstLink.click();
     await expect(page.getByTestId("mapping-editor-page")).toBeVisible({ timeout: 10_000 });
@@ -242,12 +223,7 @@ test.describe("RBAC Matrix — admin", () => {
     await page.getByTestId("mappings-show-all").check();
     await expect(page.getByRole("table")).toBeVisible({ timeout: 10_000 });
 
-    const firstLink = page.getByRole("button", { name: /editar mapping sophos\/sophos\.alert/i }).first();
-    const linkExists = await firstLink.isVisible().catch(() => false);
-    if (!linkExists) {
-      test.skip();
-      return;
-    }
+    const firstLink = await botaoEditarSophosAlert(page);
 
     await firstLink.click();
     await expect(page.getByTestId("mapping-editor-page")).toBeVisible({ timeout: 10_000 });
