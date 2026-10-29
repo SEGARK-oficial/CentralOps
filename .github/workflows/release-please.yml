@@ -80,13 +80,15 @@ jobs:
           MIN_FREE_GB: "12"
         run: |
           set -uo pipefail
-          # NÃO usar `|| true` aqui: sudo sem senha ausente faria o passo passar
-          # VERDE com o chown nunca executado — e o EACCES só apareceria muito
-          # depois, num job sem relação. Testa primeiro e RECLAMA alto.
-          if sudo -n true 2>/dev/null; then
-            sudo chown -R "$(id -u):$(id -g)" "$GITHUB_WORKSPACE" 2>/dev/null || true
-          else
-            echo "::warning title=sudo sem senha ausente::O usuario '$(id -un)' em $(hostname) nao tem NOPASSWD. O chown do workspace nao roda (EACCES futuro) e 'playwright install --with-deps' falha. Configure /etc/sudoers.d/ para este usuario."
+          # Devolve a posse do workspace (container root deixa arquivo que o checkout
+          # não apaga: EACCES) SEM sudo. O usuário do runner já fala com o socket do
+          # Docker, o que equivale a root no host; NOPASSWD não acrescentava proteção
+          # e foi removido. O chown roda num container sem rede. Se falhar, RECLAMA
+          # alto: um verde mudo faria o EACCES aparecer depois num job sem relação.
+          if [ -d "$GITHUB_WORKSPACE" ] && ! docker run --rm --network none \
+              -v "$GITHUB_WORKSPACE:/w" alpine:3.22@sha256:2e0b81d60597f449baa56dc25d355367869d2dca4cd57e866f1e2b52af3eb55f \
+              chown -R "$(id -u):$(id -g)" /w; then
+            echo "::warning title=chown do workspace falhou::$(hostname) nao devolveu a posse de $GITHUB_WORKSPACE (docker indisponivel?). Espere EACCES no checkout."
           fi
           avail() { df -BG --output=avail / | tail -1 | tr -dc '0-9'; }
           echo "$(hostname): $(avail)GB livres antes"

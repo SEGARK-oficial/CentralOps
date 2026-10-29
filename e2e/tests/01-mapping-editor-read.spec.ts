@@ -28,6 +28,7 @@
  */
 
 import { test, expect } from "@playwright/test";
+import { botaoEditarSophosAlert } from "../fixtures/mappings";
 
 test.describe("Mapping Editor — read mode (Sprint 1)", () => {
   test("renderiza 3 paineis ao abrir mapping existente", async ({ page }) => {
@@ -39,7 +40,7 @@ test.describe("Mapping Editor — read mode (Sprint 1)", () => {
 
     // Abrir o mapping sophos/sophos.alert. A listagem navega por um <button>
     // (aria-label "Editar mapping <vendor>/<event_type>"), não por <a>/link.
-    await page.getByRole("button", { name: /editar mapping sophos\/sophos\.alert/i }).first().click();
+    await (await botaoEditarSophosAlert(page)).click();
 
     // ── Validar os 3 painéis do editor ──────────────────────────────────
 

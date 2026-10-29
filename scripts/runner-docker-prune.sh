@@ -10,7 +10,7 @@
 #   - imagens dangling + containers parados + redes não-usadas (system prune -f)
 #   - imagens NÃO-usadas com mais de IMAGE_AGE (default 72h) — preserva as recentes
 #   - build cache do BuildKit com mais de CACHE_AGE (default 168h = 7d)
-#   - SOMENTE os volumes nomeados do E2E (centralops-e2e-*) que NÃO estejam em uso
+#   - SOMENTE os volumes nomeados do E2E (<projeto>-e2e-*-data) que NÃO estejam em uso
 #     (docker volume rm falha se em uso → seguro)
 # NÃO remove volumes arbitrários nem imagens recentes/tagueadas em uso.
 #
@@ -47,7 +47,8 @@ df -h / 2>/dev/null || true
 docker system df 2>/dev/null || true
 
 log "removendo volumes E2E órfãos (só os não-usados)…"
-for v in centralops-e2e-postgres-data centralops-e2e-redis-data centralops-e2e-app-data; do
+# Cada job do CI tem o próprio projeto do compose, então o prefixo varia.
+for v in $(docker volume ls -q --filter dangling=true | grep -E -- '-e2e-(postgres|redis|app)-data$'); do
   docker volume rm "$v" >/dev/null 2>&1 && log "  volume removido: $v" || true
 done
 
