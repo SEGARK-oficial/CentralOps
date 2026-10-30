@@ -120,6 +120,22 @@ jobs:
             exit 1
           fi
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      # Credencial do registry POR JOB. Os runners self-hosted do pool são várias
+      # instâncias (/opt/actions-runner-N) na MESMA máquina e com o MESMO usuário:
+      # sem isto, todos os jobs dividem ~/.docker/config.json. O post-step do
+      # login-action de um job faz `docker logout ghcr.io` e apaga a credencial de
+      # outro que ainda está rodando. O buildx leu o arquivo ao iniciar e empurra
+      # a imagem normalmente; o cosign lê na hora de assinar e leva UNAUTHORIZED.
+      # Foi assim que a v2.16.0 saiu com a imagem `final` publicada e SEM
+      # assinatura (o job do frontend terminou 40 min antes). O $RUNNER_TEMP é
+      # de cada instância e o runner o esvazia a cada job. Vem ANTES do buildx e
+      # do login: os dois gravam no DOCKER_CONFIG (builder e credencial). Os
+      # plugins (buildx, compose) moram em /usr/libexec e não dependem dele.
+      # Guard: backend/tests/test_workflow_docker_config_isolado.py
+      - name: Isolar DOCKER_CONFIG deste job
+        run: |
+          mkdir -p "$RUNNER_TEMP/docker-config"
+          echo "DOCKER_CONFIG=$RUNNER_TEMP/docker-config" >> "$GITHUB_ENV"
       - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
       - name: Log in to GHCR
         uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
@@ -424,6 +440,12 @@ jobs:
         # Faltando alguma, o launch falha nomeando a lib.
         run: npx playwright install chromium
 
+      # Credencial do registry POR JOB — ver a nota no job `build`.
+      - name: Isolar DOCKER_CONFIG deste job
+        run: |
+          mkdir -p "$RUNNER_TEMP/docker-config"
+          echo "DOCKER_CONFIG=$RUNNER_TEMP/docker-config" >> "$GITHUB_ENV"
+
       - name: Log in to GHCR
         uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
         with:
@@ -604,6 +626,11 @@ jobs:
         with:
           name: auth-states
           path: e2e/.auth/
+      # Credencial do registry POR JOB — ver a nota no job `build`.
+      - name: Isolar DOCKER_CONFIG deste job
+        run: |
+          mkdir -p "$RUNNER_TEMP/docker-config"
+          echo "DOCKER_CONFIG=$RUNNER_TEMP/docker-config" >> "$GITHUB_ENV"
       - name: Log in to GHCR
         uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
         with:
@@ -717,6 +744,11 @@ jobs:
             echo "::error title=Runner sem disco::$(hostname) tem $(avail)GB livres; o gate Trivy exige ${MIN_FREE_GB}GB."
             exit 1
           fi
+      # Credencial do registry POR JOB — ver a nota no job `build`.
+      - name: Isolar DOCKER_CONFIG deste job
+        run: |
+          mkdir -p "$RUNNER_TEMP/docker-config"
+          echo "DOCKER_CONFIG=$RUNNER_TEMP/docker-config" >> "$GITHUB_ENV"
       - name: Log in to GHCR
         uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
         with:

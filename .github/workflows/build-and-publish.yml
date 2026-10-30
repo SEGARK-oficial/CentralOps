@@ -110,6 +110,23 @@ jobs:
           # Na dispatch, faz checkout do TAG informado; no push de tag, o ref já é a tag.
           ref: ${{ inputs.tag || github.ref }}
 
+      # Credencial do registry POR JOB. Os runners self-hosted do pool são várias
+      # instâncias (/opt/actions-runner-N) na MESMA máquina e com o MESMO usuário:
+      # sem isto, todos os jobs dividem ~/.docker/config.json. O post-step do
+      # login-action de um job faz `docker logout ghcr.io` e apaga a credencial de
+      # outro que ainda está rodando. O buildx leu o arquivo ao iniciar e empurra
+      # a imagem normalmente; o cosign lê na hora de assinar e leva UNAUTHORIZED.
+      # Foi assim que a v2.16.0 saiu com a imagem `final` publicada e SEM
+      # assinatura (o job do frontend terminou 40 min antes). O $RUNNER_TEMP é
+      # de cada instância e o runner o esvazia a cada job. Vem ANTES do buildx e
+      # do login: os dois gravam no DOCKER_CONFIG (builder e credencial). Os
+      # plugins (buildx, compose) moram em /usr/libexec e não dependem dele.
+      # Guard: backend/tests/test_workflow_docker_config_isolado.py
+      - name: Isolar DOCKER_CONFIG deste job
+        run: |
+          mkdir -p "$RUNNER_TEMP/docker-config"
+          echo "DOCKER_CONFIG=$RUNNER_TEMP/docker-config" >> "$GITHUB_ENV"
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
 
