@@ -105,6 +105,16 @@ async def _collect(collector) -> List[Dict[str, Any]]:
     return [ev async for ev in collector.collect()]
 
 
+@pytest.fixture(autouse=True)
+def _arm_mode(monkeypatch):
+    """Integração sem fonte (``base_url`` vazio): o ``activity`` lê o ARM. Os
+    testes de fila e de workspace sobrescrevem com a fonte deles."""
+    monkeypatch.setattr(A, "_load_settings", lambda _id: {
+        "tenant_id": F.TENANT, "client_id": F.CLIENT,
+        "client_secret": "segredo-de-teste", "base_url": "",
+    })
+
+
 # ══ Activity Log ═══════════════════════════════════════════════════════
 
 
@@ -508,11 +518,17 @@ async def test_missing_hub_turns_the_stream_off(hub_env) -> None:
 
 
 @pytest.mark.asyncio
-async def test_without_a_namespace_nothing_connects(hub_env) -> None:
+@pytest.mark.parametrize("cls", A._HUB_COLLECTORS, ids=lambda c: c.stream)
+async def test_without_a_source_the_stream_fails_with_the_instruction(hub_env, cls) -> None:
+    """Sucesso com zero eventos punha "saudável" na Saúde do Pipeline de um
+    stream que nunca teve de onde ler (o caso real: 6 dias assim)."""
     hub_env["base_url"] = ""
-    collector = A.AzureEventHubEntraCollector(_ctx(MagicMock()))
-    assert await _collect(collector) == []
-    assert hub_env["built"] == []
+    collector = cls(_ctx(MagicMock(), {"offsets": {"0": 3}}))
+    with pytest.raises(A.AzureSourceError, match="Workspace ID do Log Analytics") as exc:
+        await _collect(collector)
+    assert cls.stream in str(exc.value)
+    assert hub_env["built"] == [], "nada conecta"
+    assert collector.ctx.cursor == {"offsets": {"0": 3}}, "o cursor não muda"
 
 
 @pytest.mark.asyncio
@@ -736,6 +752,14 @@ _CFG = {
 }
 
 
+_PERMS = re.compile(
+    r"^https://management\.azure\.com/subscriptions/[^/]+/providers/"
+    r"Microsoft\.Authorization/permissions\?"
+)
+#: O que ``permissions`` devolve com Monitoring Reader na assinatura.
+_SUB_READER = {"value": [{"actions": ["*/read", "Microsoft.Support/*"], "notActions": []}]}
+
+
 @pytest.fixture
 def probe_hubs(monkeypatch):
     state: Dict[str, Any] = {"consumer": _FakeConsumer({"centralops-entra": {0: []}})}
@@ -748,6 +772,7 @@ async def test_probe_reports_each_stream(probe_hubs) -> None:
     with aioresponses() as m:
         m.post(_TOKEN, payload={"access_token": "t", "expires_in": 3599})
         m.get(_SUBS, payload=_subs_page(F.SUB_A, F.SUB_B))
+        m.get(_PERMS, payload=_SUB_READER, repeat=True)
         result = await A._azure_probe(dict(_CFG))
     assert result.ok, result.detail
     assert "activity: ok (2 assinatura(s))" in result.detail
@@ -761,8 +786,9 @@ async def test_probe_passes_with_activity_only_when_no_namespace() -> None:
     with aioresponses() as m:
         m.post(_TOKEN, payload={"access_token": "t", "expires_in": 3599})
         m.get(_SUBS, payload=_subs_page(F.SUB_A))
+        m.get(_PERMS, payload=_SUB_READER, repeat=True)
         result = await A._azure_probe({**_CFG, "base_url": ""})
-    assert result.ok and "sem namespace" in result.detail
+    assert result.ok and "entra/resource: sem fonte" in result.detail
 
 
 @pytest.mark.asyncio
@@ -785,6 +811,7 @@ async def test_probe_turns_a_broker_failure_into_a_state(monkeypatch) -> None:
     with aioresponses() as m:
         m.post(_TOKEN, payload={"access_token": "t", "expires_in": 3599})
         m.get(_SUBS, payload=_subs_page(F.SUB_A))
+        m.get(_PERMS, payload=_SUB_READER, repeat=True)
         result = await A._azure_probe(dict(_CFG))
     assert result.ok, "o Activity Log continua utilizável"
     assert "inacessível (ConnectionError)" in result.detail and "9093" in result.detail
@@ -1042,3 +1069,365 @@ def test_mapping_survives_a_record_with_nothing_in_it(event_type) -> None:
     compiled = E.compile_rules(load_default_rules("azure", event_type))
     n = E.apply_compiled(compiled, raw).output["normalized"]
     assert V.validate_normalized(n).valid
+
+
+# ══ Log Analytics workspace ════════════════════════════════════════════
+
+_LA_Q = f"https://api.loganalytics.io/v1/workspaces/{F.WORKSPACE}/query"
+
+
+@pytest.fixture
+def ws_env(monkeypatch):
+    """Integração com ``base_url`` = Workspace ID."""
+    monkeypatch.setattr(A, "_load_settings", lambda _id: {
+        "tenant_id": F.TENANT, "client_id": F.CLIENT,
+        "client_secret": "segredo-de-teste", "base_url": F.WORKSPACE.upper(),
+    })
+
+
+def _la_calls(m) -> List[Dict[str, Any]]:
+    return [c.kwargs["json"] for c in m.requests.get(("POST", URL(_LA_Q)), [])]
+
+
+def _ws_mock(m, *pages: List[Dict[str, Any]]) -> None:
+    m.post(_TOKEN, payload={"access_token": "la-tok", "expires_in": 3599}, repeat=True)
+    for rows in pages:
+        m.post(_LA_Q, payload=F.la_payload(rows))
+
+
+def _strip(n: Any) -> Any:
+    """OCSF sem o ``raw`` (que É a forma da fonte); vazio e nulo se equivalem
+    (o workspace não guarda texto vazio)."""
+    if isinstance(n, dict):
+        return {k: _strip(v) for k, v in n.items() if k not in ("raw_data", "unmapped") and v not in ("", None)}
+    if isinstance(n, list):
+        return [_strip(v) for v in n]
+    return n
+
+
+def test_base_url_picks_the_source() -> None:
+    assert A.resolve_source(F.WORKSPACE.upper()) == ("workspace", F.WORKSPACE)
+    assert A.resolve_source("ns-seguranca") == ("eventhub", "ns-seguranca.servicebus.windows.net")
+    assert A.resolve_source("  ") == ("none", None)
+    with pytest.raises(ValueError):
+        A.resolve_source("stbackup.blob.core.windows.net")
+
+
+@pytest.mark.parametrize(
+    "event", [F.ROLE_ASSIGNMENT, F.STORAGE_LISTKEYS, F.FAILED_DELETE], ids=["role", "listkeys", "failed-delete"]
+)
+def test_azure_activity_row_normalizes_like_the_rest_event(event) -> None:
+    """Mesmo evento pelas duas fontes ⇒ mesmo OCSF. Pega caixa da operação,
+    status ``Success``/``Succeeded``, nível ``Information``/``Informational``,
+    resource group em maiúsculas e o ``TenantId`` que é o do workspace."""
+    row = A._la_rows(F.la_payload([F.la_activity_row(event)]))[0]
+    converted = A._activity_from_row(row)
+    assert converted["operationName"]["value"] == event["authorization"]["action"]
+    assert converted["tenantId"] == F.TENANT
+    assert _strip(_normalize("azure.activity", converted)) == _strip(_normalize("azure.activity", event))
+
+
+@pytest.mark.parametrize(
+    "record",
+    [F.SIGNIN_OK, F.SIGNIN_FAILED_RISKY, F.NONINTERACTIVE, F.SP_SIGNIN, F.ADD_ROLE_MEMBER, F.RESET_PASSWORD],
+    ids=["signin", "signin-risky", "noninteractive", "service-principal", "add-role-member", "reset-password"],
+)
+def test_entra_row_normalizes_like_the_event_hub_record(record) -> None:
+    """Inclui a tabela não interativa, onde ``Status``/``LocationDetails`` são
+    TEXTO JSON e a união os devolve como ``Status_string``."""
+    rows = A._la_rows(F.la_payload([F.la_entra_row(F.SIGNIN_OK), F.la_entra_row(record)]))
+    converted = A._entra_from_row(rows[1])
+    assert _strip(_normalize("azure.entra", converted)) == _strip(_normalize("azure.entra", record))
+
+
+@pytest.mark.parametrize(
+    "row,record",
+    [
+        (F.la_keyvault_row(F.KEYVAULT_SECRET_GET), F.KEYVAULT_SECRET_GET),
+        (F.la_keyvault_row(F.KEYVAULT_FORBIDDEN), F.KEYVAULT_FORBIDDEN),
+        (F.la_aks_row(), A._decode_records(F.eventhub_body([F.AKS_EXEC]))[0]),
+        (F.la_sql_legacy_row(F.SQL_FAILED_LOGIN), F.SQL_FAILED_LOGIN),
+        (F.la_sql_legacy_row(F.SQL_BATCH), F.SQL_BATCH),
+        (F.la_storage_row(), F.STORAGE_DELETE),
+    ],
+    ids=["kv-get", "kv-forbidden", "aks-exec", "sql-legacy-login", "sql-legacy-batch", "storage-delete"],
+)
+def test_resource_row_normalizes_like_the_event_hub_record(row, record) -> None:
+    converted = A._resource_from_row(A._la_rows(F.la_payload([row]))[0])
+    got, want = _strip(_normalize("azure.resource", converted)), _strip(_normalize("azure.resource", record))
+    for key in ("class_uid", "activity_id", "type_uid", "status_id", "severity_id", "actor",
+                "src_endpoint", "api", "resources", "http_request", "query_info", "user"):
+        assert got.get(key) == want.get(key), (key, got.get(key), want.get(key))
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("cls", A._COLLECTORS, ids=lambda c: c.stream)
+async def test_each_stream_reads_only_its_tables_by_ingestion_time(ws_env, cls) -> None:
+    rows = {
+        "activity": [F.la_activity_row(F.ROLE_ASSIGNMENT)],
+        "entra": [F.la_entra_row(F.SIGNIN_OK)],
+        "resource": [F.la_keyvault_row(F.KEYVAULT_SECRET_GET)],
+    }[cls.stream]
+    with aioresponses() as m:
+        _ws_mock(m, rows)
+        async with aiohttp.ClientSession() as session:
+            collector = cls(_ctx(session))
+            events = await _collect(collector)
+
+    assert len(events) == 1
+    (call,) = _la_calls(m)
+    query = call["query"]
+    assert query.startswith("union isfuzzy=true withsource=_table ")
+    for table in A._LA_TABLES[cls.stream]:
+        assert table in query
+    others = {t for s, ts in A._LA_TABLES.items() if s != cls.stream for t in ts}
+    assert not any(f" {t}," in query or query.split("\n")[0].endswith(t) for t in others)
+    assert "| extend _ord = ingestion_time()" in query
+    # Varredura limitada pelo ``timespan`` (sem ele, a retenção inteira por ciclo).
+    lo, hi = call["timespan"].split("/")
+    assert datetime.fromisoformat(hi.replace("Z", "+00:00")) - datetime.fromisoformat(
+        lo.replace("Z", "+00:00")) < timedelta(days=4)
+    assert collector.ctx.cursor == {"ingested": rows[0]["_ord"], "key": f"{1:064x}"}
+    assert not any(url.host == "management.azure.com" for (_, url) in m.requests), "nada no ARM"
+    token_call = m.requests[("POST", URL(_TOKEN))][0]
+    assert token_call.kwargs["data"]["scope"] == "https://api.loganalytics.io/.default"
+
+
+@pytest.mark.asyncio
+async def test_rows_ingested_together_page_by_key_not_by_instant(ws_env, monkeypatch) -> None:
+    """Vários eventos com o MESMO ``ingestion_time()`` (visto no tenant real): a
+    página seguinte continua pela ``_key``, sem pular nem repetir o lote."""
+    monkeypatch.setattr(A, "_LA_PAGE_ROWS", 2)
+    same = "2026-10-27T12:09:00.0000001Z"
+    a = F.la_activity_row(F.activity("ev-1", "2026-10-27T12:00:00Z"), ingested=same)
+    b = F.la_activity_row(F.activity("ev-2", "2026-10-27T12:00:01Z"), ingested=same)
+    c = F.la_activity_row(F.activity("ev-3", "2026-10-27T12:00:02Z"), ingested=same)
+    with aioresponses() as m:
+        m.post(_TOKEN, payload={"access_token": "la-tok", "expires_in": 3599}, repeat=True)
+        m.post(_LA_Q, payload=F.la_payload([a, b]))
+        third = F.la_payload([a, b, c])
+        third["tables"][0]["rows"] = third["tables"][0]["rows"][2:]
+        m.post(_LA_Q, payload=third)
+        async with aiohttp.ClientSession() as session:
+            collector = A.AzureActivityLogCollector(_ctx(session))
+            events = await _collect(collector)
+
+    assert [e["eventDataId"] for e in events] == ["ev-1", "ev-2", "ev-3"]
+    first, second = _la_calls(m)
+    assert f"_ord > datetime({same}) or strcmp(_key, '{2:064x}') > 0" in second["query"]
+    assert f"_ord >= datetime({same})" in second["query"]
+    assert collector.ctx.cursor == {"ingested": same, "key": f"{3:064x}"}
+
+
+@pytest.mark.asyncio
+async def test_cap_stops_at_the_last_row_read(ws_env, monkeypatch) -> None:
+    monkeypatch.setattr(A, "_LA_PAGE_ROWS", 1)
+    monkeypatch.setattr(A, "_MAX_LA_PAGES_PER_CYCLE", 1)
+    row = F.la_activity_row(F.ROLE_ASSIGNMENT)
+    with aioresponses() as m:
+        _ws_mock(m, [row], [F.la_activity_row(F.FAILED_DELETE)])
+        async with aiohttp.ClientSession() as session:
+            collector = A.AzureActivityLogCollector(_ctx(session))
+            events = await _collect(collector)
+    assert len(events) == 1 and len(_la_calls(m)) == 1
+    assert collector.ctx.hit_cycle_cap
+    assert collector.ctx.cursor == {"ingested": row["_ord"], "key": f"{1:064x}"}
+    assert A.AzureActivityLogCollector.watermark_at(collector.ctx.cursor) == datetime(2026, 10, 27, 12, 9, 0)
+
+
+@pytest.mark.asyncio
+async def test_backfill_reads_the_time_generated_window(ws_env) -> None:
+    polling = {"ingested": "2026-11-01T00:00:00Z", "key": "a" * 64}
+    cursor = {**polling, "backfill_from_ts": "2026-10-01T00:00:00Z", "backfill_to_ts": "2026-10-02T00:00:00Z"}
+    with aioresponses() as m:
+        _ws_mock(m, [F.la_entra_row(F.SIGNIN_OK)])
+        async with aiohttp.ClientSession() as session:
+            collector = A.AzureEventHubEntraCollector(_ctx(session, dict(cursor), bounded=False))
+            events = await _collect(collector)
+    assert len(events) == 1
+    (call,) = _la_calls(m)
+    assert "| extend _ord = TimeGenerated" in call["query"]
+    assert call["timespan"] == "2026-10-01T00:00:00Z/2026-10-02T00:00:00Z"
+    assert collector.ctx.cursor == cursor, "o cursor do polling não anda no backfill"
+
+
+@pytest.mark.asyncio
+async def test_first_cycle_on_a_source_that_never_received_logs_fails_with_the_hint(ws_env) -> None:
+    """O caso real: workspace só com ``AzureActivity``. O ``entra`` não pode
+    sair saudável com zero."""
+    with aioresponses() as m:
+        m.post(_TOKEN, payload={"access_token": "la-tok", "expires_in": 3599}, repeat=True)
+        m.post(_LA_Q, payload=F.la_payload([]) | {"tables": [{"name": "PrimaryResult", "columns": [], "rows": []}]})
+        m.post(_LA_Q, payload={"tables": [{"name": "PrimaryResult",
+                                           "columns": [{"name": "_table", "type": "string"},
+                                                       {"name": "n", "type": "long"}],
+                                           "rows": []}]})
+        async with aiohttp.ClientSession() as session:
+            collector = A.AzureEventHubEntraCollector(_ctx(session))
+            with pytest.raises(A.AzureSourceError) as exc:
+                await _collect(collector)
+    assert "Diagnostic settings" in str(exc.value) and "P1/P2" in str(exc.value)
+    assert collector.ctx.cursor is None, "sem cursor: o próximo ciclo checa de novo"
+    presence = _la_calls(m)[1]
+    assert "summarize n = count() by _table" in presence["query"]
+
+
+@pytest.mark.asyncio
+async def test_quiet_tenant_with_history_is_not_an_error(ws_env) -> None:
+    with aioresponses() as m:
+        m.post(_TOKEN, payload={"access_token": "la-tok", "expires_in": 3599}, repeat=True)
+        m.post(_LA_Q, payload={"tables": [{"name": "PrimaryResult", "columns": [], "rows": []}]})
+        m.post(_LA_Q, payload={"tables": [{"name": "PrimaryResult",
+                                           "columns": [{"name": "_table", "type": "string"},
+                                                       {"name": "n", "type": "long"}],
+                                           "rows": [["SigninLogs", 12]]}]})
+        async with aiohttp.ClientSession() as session:
+            collector = A.AzureEventHubEntraCollector(_ctx(session))
+            assert await _collect(collector) == []
+    assert collector.ctx.cursor["key"] == ""
+    assert A._KQL_DATETIME_RE.match(collector.ctx.cursor["ingested"]), "a partida vira cursor"
+
+
+@pytest.mark.asyncio
+async def test_partial_result_fails_instead_of_advancing(ws_env) -> None:
+    payload = F.la_payload([F.la_activity_row(F.ROLE_ASSIGNMENT)])
+    payload["error"] = {"code": "PartialError", "message": "query exceeded limits"}
+    with aioresponses() as m:
+        m.post(_TOKEN, payload={"access_token": "la-tok", "expires_in": 3599}, repeat=True)
+        m.post(_LA_Q, payload=payload)
+        async with aiohttp.ClientSession() as session:
+            collector = A.AzureActivityLogCollector(_ctx(session, {"ingested": "2026-10-27T00:00:00Z", "key": ""}))
+            with pytest.raises(RuntimeError, match="parcial"):
+                await _collect(collector)
+    assert collector.ctx.cursor == {"ingested": "2026-10-27T00:00:00Z", "key": ""}
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "status,match", [(403, "Log Analytics Reader"), (404, "Workspace ID")], ids=["403", "404"]
+)
+async def test_workspace_access_errors_name_the_fix(ws_env, status, match) -> None:
+    with aioresponses() as m:
+        m.post(_TOKEN, payload={"access_token": "la-tok", "expires_in": 3599}, repeat=True)
+        m.post(_LA_Q, status=status, payload={"error": {"code": "InsufficientAccessError"}})
+        async with aiohttp.ClientSession() as session:
+            with pytest.raises(A.AzureSourceError, match=match):
+                await _collect(A.AzureEventHubResourceCollector(_ctx(session, {"ingested": "2026-10-27T00:00:00Z", "key": ""})))
+
+
+@pytest.mark.asyncio
+async def test_rejected_query_carries_the_kql_code(ws_env) -> None:
+    body = {"error": {"code": "BadArgumentError", "innererror": {"code": "SemanticError",
+            "innererror": {"code": "SEM0064", "message": "Cannot compare values"}}}}
+    with aioresponses() as m:
+        m.post(_TOKEN, payload={"access_token": "la-tok", "expires_in": 3599}, repeat=True)
+        m.post(_LA_Q, status=400, payload=body)
+        async with aiohttp.ClientSession() as session:
+            with pytest.raises(RuntimeError, match="SEM0064"):
+                await _collect(A.AzureActivityLogCollector(_ctx(session, {"ingested": "2026-10-27T00:00:00Z", "key": ""})))
+
+
+@pytest.mark.asyncio
+async def test_workspace_throttling_honors_retry_after(ws_env) -> None:
+    with aioresponses() as m:
+        m.post(_TOKEN, payload={"access_token": "la-tok", "expires_in": 3599}, repeat=True)
+        m.post(_LA_Q, status=429, headers={"Retry-After": "17"})
+        async with aiohttp.ClientSession() as session:
+            with pytest.raises(A.AzureRateLimitedError) as exc:
+                await _collect(A.AzureActivityLogCollector(_ctx(session, {"ingested": "2026-10-27T00:00:00Z", "key": ""})))
+    assert exc.value.retry_after == 17
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "cursor",
+    [
+        {"ingested": "2026-10-27T00:00:00Z) | union SecurityEvent | where (1==1", "key": ""},
+        {"ingested": "2026-10-27T00:00:00Z", "key": "' or 1==1 or _key > '"},
+    ],
+    ids=["datetime", "key"],
+)
+async def test_tampered_cursor_never_reaches_the_query(ws_env, cursor) -> None:
+    with aioresponses() as m:
+        _ws_mock(m, [F.la_activity_row(F.ROLE_ASSIGNMENT)])
+        async with aiohttp.ClientSession() as session:
+            await _collect(A.AzureActivityLogCollector(_ctx(session, dict(cursor))))
+    query = _la_calls(m)[0]["query"]
+    assert "SecurityEvent" not in query and "1==1" not in query
+    assert "strcmp(_key, '') > 0" in query, "volta à partida a frio"
+
+
+def test_union_type_suffix_is_folded_back() -> None:
+    payload = {"tables": [{"columns": [
+        {"name": "Status_dynamic", "type": "dynamic"}, {"name": "Status_string", "type": "string"},
+        {"name": "DurationMs_long", "type": "long"},
+    ], "rows": [['{"errorCode": 0}', None, 3], [None, '{"errorCode": 50126}', None]]}]}
+    rows = A._la_rows(payload)
+    assert rows[0] == {"Status": {"errorCode": 0}, "DurationMs": 3}
+    assert rows[1] == {"Status": '{"errorCode": 50126}'}
+    assert A._entra_from_row({**rows[1], "_table": "AADNonInteractiveUserSignInLogs"})["properties"]["status"] == {"errorCode": 50126}
+
+
+@pytest.mark.parametrize(
+    "stream,cursor", [("activity", {"ingested": "2026-07-24T10:00:00Z", "key": ""}),
+                      ("entra", {"ingested": "2026-07-24T10:00:00.0000000Z", "key": "b" * 64})],
+)
+def test_workspace_cursor_reports_the_watermark(stream, cursor) -> None:
+    assert get("azure", stream).collector_cls.watermark_at(cursor) == datetime(2026, 7, 24, 10, 0, 0)
+
+
+# ── Teste de conexão: escopo do Activity Log e workspace ──
+
+
+@pytest.mark.parametrize(
+    "perms,granted",
+    [
+        ({"value": [{"actions": ["*/read"], "notActions": []}]}, True),
+        ({"value": [{"actions": ["Microsoft.Insights/eventtypes/*"]}]}, True),
+        ({"value": [{"actions": ["*"], "notActions": ["Microsoft.Insights/*"]}]}, False),
+        ({"value": [{"actions": ["Microsoft.Resources/subscriptions/read"]}]}, False),
+        ({"value": []}, False),
+    ],
+    ids=["reader", "custom-role", "denied", "other-action", "resource-scoped-only"],
+)
+def test_activity_read_permission_matching(perms, granted) -> None:
+    assert A._grants(perms, A._ACTIVITY_READ_ACTION) is granted
+
+
+@pytest.mark.asyncio
+async def test_probe_fails_when_the_role_is_only_on_a_resource() -> None:
+    """O caso real: Log Analytics Reader no workspace. A assinatura aparece na
+    listagem, ``permissions`` no escopo dela vem vazio e o Activity Log viria
+    com 2 de 630 eventos."""
+    with aioresponses() as m:
+        m.post(_TOKEN, payload={"access_token": "t", "expires_in": 3599})
+        m.get(_SUBS, payload=_subs_page(F.SUB_A))
+        m.get(_PERMS, payload={"value": []}, repeat=True)
+        result = await A._azure_probe({**_CFG, "base_url": ""})
+    assert not result.ok
+    assert "só tem papel em recursos" in result.detail and "Monitoring Reader" in result.detail
+
+
+@pytest.mark.asyncio
+async def test_probe_on_a_workspace_counts_each_stream() -> None:
+    presence = {"tables": [{"name": "PrimaryResult",
+                            "columns": [{"name": "_table", "type": "string"}, {"name": "n", "type": "long"}],
+                            "rows": [["AzureActivity", 630], ["AZKVAuditLogs", 4]]}]}
+    with aioresponses() as m:
+        m.post(_TOKEN, payload={"access_token": "t", "expires_in": 3599}, repeat=True)
+        m.post(_LA_Q, payload=presence)
+        result = await A._azure_probe({**_CFG, "base_url": F.WORKSPACE})
+    assert result.ok, result.detail
+    assert "activity: ok (630 linha(s) em 7 dias: AzureActivity)" in result.detail
+    assert "entra: sem dados no workspace em 7 dias" in result.detail and "P1/P2" in result.detail
+    assert "resource: ok (4 linha(s) em 7 dias: AZKVAuditLogs)" in result.detail
+    assert not any(url.host == "management.azure.com" and "subscriptions" in url.path for (_, url) in m.requests)
+
+
+@pytest.mark.asyncio
+async def test_probe_on_a_workspace_without_access_fails_with_the_role() -> None:
+    with aioresponses() as m:
+        m.post(_TOKEN, payload={"access_token": "t", "expires_in": 3599}, repeat=True)
+        m.post(_LA_Q, status=403, payload={"error": {"code": "InsufficientAccessError"}})
+        result = await A._azure_probe({**_CFG, "base_url": F.WORKSPACE})
+    assert not result.ok and "Log Analytics Reader" in result.detail

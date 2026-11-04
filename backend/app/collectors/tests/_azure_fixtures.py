@@ -67,7 +67,7 @@ def activity(
         "resourceGroupName": "rg-app",
         "resourceProviderName": {"value": provider, "localizedValue": provider},
         "resourceType": {"value": "/".join(operation.split("/")[:2]), "localizedValue": ""},
-        "resourceId": f"/subscriptions/{sub}/resourceGroups/rg-app/providers/Microsoft.Authorization/roleAssignments/ra-1",
+        "resourceId": f"/subscriptions/{sub}/resourceGroups/rg-app/providers/{'/'.join(operation.split('/')[:2])}/res-1",
         "status": {"value": status, "localizedValue": status},
         "subStatus": {"value": "Created" if status == "Succeeded" else "", "localizedValue": ""},
         "submissionTimestamp": submitted or ts,
@@ -331,3 +331,294 @@ FIREWALL_RULE: Dict[str, Any] = {
 def eventhub_body(records: List[Dict[str, Any]]) -> bytes:
     """Corpo de UMA mensagem do Event Hub, como o Azure Monitor publica."""
     return json.dumps({"records": records}).encode("utf-8")
+
+
+# ── Log Analytics workspace ──────────────────────────────────────────────
+#
+# Cada linha abaixo é o MESMO evento de um fixture acima, na forma que a tabela
+# do workspace o guarda (colunas e tipos da referência "Azure Monitor Logs
+# reference"). O teste de equivalência exige que a conversão de volta dê o mesmo
+# OCSF que o registro original.
+
+WORKSPACE = "0f0f0f0f-0000-4000-8000-0000000000aa"
+
+_STATUS_TO_LA = {"Succeeded": "Success", "Failed": "Failure", "Started": "Start", "Accepted": "Accept"}
+
+
+def _pascal(key: str) -> str:
+    return key[:1].upper() + key[1:]
+
+
+def la_activity_row(event: Dict[str, Any], ingested: str = "2026-10-27T12:09:00.0000001Z") -> Dict[str, Any]:
+    """Evento REST do Activity Log → linha do ``AzureActivity``."""
+    op = event["operationName"]["value"]
+    props = {**event["properties"], "entity": event["resourceId"]}
+    return {
+        "TimeGenerated": event["eventTimestamp"],
+        "EventSubmissionTimestamp": event["submissionTimestamp"],
+        "OperationName": event["operationName"]["localizedValue"],
+        "OperationNameValue": op.upper(),
+        "Level": "Information" if event["level"] == "Informational" else event["level"],
+        "ActivityStatusValue": _STATUS_TO_LA.get(event["status"]["value"], event["status"]["value"]),
+        "ActivitySubstatusValue": event["subStatus"]["value"],
+        "ResourceGroup": event["resourceGroupName"].upper(),
+        "SubscriptionId": event["subscriptionId"],
+        "CorrelationId": event["correlationId"],
+        "Caller": event["caller"],
+        "CallerIpAddress": event["httpRequest"]["clientIpAddress"],
+        "CategoryValue": event["category"]["value"],
+        "HTTPRequest": json.dumps(event["httpRequest"]),
+        "Properties": json.dumps(props),
+        "Properties_d": props,
+        "Authorization": json.dumps(event["authorization"]),
+        "Authorization_d": event["authorization"],
+        "Claims": json.dumps(event["claims"]),
+        "Claims_d": event["claims"],
+        "ResourceProviderValue": event["resourceProviderName"]["value"].upper(),
+        "EventDataId": event["eventDataId"],
+        "TenantId": WORKSPACE,
+        "SourceSystem": "Azure",
+        "Hierarchy": f"{TENANT}/{event['subscriptionId']}",
+        "Type": "AzureActivity",
+        "_ResourceId": event["resourceId"].lower(),
+        "_ord": ingested,
+    }
+
+
+_ENTRA_TABLE = {
+    "SignInLogs": "SigninLogs",
+    "NonInteractiveUserSignInLogs": "AADNonInteractiveUserSignInLogs",
+    "ServicePrincipalSignInLogs": "AADServicePrincipalSignInLogs",
+    "AuditLogs": "AuditLogs",
+}
+_ENTRA_RENAME = {"location": "LocationDetails", "ipAddress": "IPAddress", "operationType": "AADOperationType"}
+
+
+def la_entra_row(record: Dict[str, Any], ingested: str = "2026-10-27T12:25:00.0000001Z") -> Dict[str, Any]:
+    """Registro do diagnostic setting do Entra → linha da tabela do workspace.
+
+    Na tabela não interativa e na de service principal as colunas de objeto são
+    TEXTO JSON (``string``), não ``dynamic`` — ``la_payload`` as serializa.
+    """
+    table = _ENTRA_TABLE[record["category"]]
+    props = dict(record["properties"])
+    row: Dict[str, Any] = {
+        "TimeGenerated": record["time"],
+        "ResourceId": record["resourceId"],
+        "OperationName": record["operationName"],
+        "OperationVersion": record["operationVersion"],
+        "Category": props.pop("category", None) or record["category"],
+        "ResultType": record.get("resultType"),
+        "ResultSignature": record.get("resultSignature"),
+        "ResultDescription": record.get("resultDescription"),
+        "DurationMs": record.get("durationMs"),
+        "CorrelationId": record.get("correlationId"),
+        "Identity": record.get("identity"),
+        "Level": str(record.get("Level")),
+        "Location": record.get("location"),
+        "AADTenantId": record["tenantId"],
+        "Type": table,
+        "_ord": ingested,
+    }
+    if table != "SigninLogs" and table != "AuditLogs":
+        row["TenantId"] = WORKSPACE
+    for key, value in props.items():
+        if key == "correlationId":
+            continue
+        row[_ENTRA_RENAME.get(key, _pascal(key))] = value
+    if table == "AuditLogs":
+        row["CallerIpAddress"] = record["callerIpAddress"]
+    return {k: v for k, v in row.items() if v is not None}
+
+
+#: Colunas de objeto que são ``string`` (texto JSON) nestas tabelas.
+STRING_JSON_TABLES = {"AADNonInteractiveUserSignInLogs", "AADServicePrincipalSignInLogs"}
+
+
+def la_keyvault_row(record: Dict[str, Any], ingested: str = "2026-10-27T12:35:00.0000001Z") -> Dict[str, Any]:
+    props = record["properties"]
+    return {
+        "TimeGenerated": record["time"],
+        "OperationName": record["operationName"],
+        "OperationVersion": record["operationVersion"],
+        "_ResourceId": record["resourceId"],
+        "ResultType": record["resultType"],
+        "ResultSignature": record["resultSignature"],
+        "DurationMs": int(record["durationMs"]),
+        "CallerIpAddress": record["callerIpAddress"],
+        "CorrelationId": record["correlationId"],
+        "Identity": record["identity"],
+        "Id": props["id"],
+        "ClientInfo": props["clientInfo"],
+        "HttpStatusCode": props["httpStatusCode"],
+        "RequestUri": props["requestUri"],
+        "IsAccessPolicyMatch": props["isAccessPolicyMatch"],
+        "IsRbacAuthorized": props["isRbacAuthorized"],
+        "TenantId": WORKSPACE,
+        "Type": "AZKVAuditLogs",
+        "_ord": ingested,
+    }
+
+
+def la_aks_row(ingested: str = "2026-10-27T12:45:00.0000001Z") -> Dict[str, Any]:
+    log = _KUBE_LOG
+    return {
+        "TimeGenerated": AKS_EXEC["time"],
+        "AuditId": log["auditID"],
+        "Stage": log["stage"],
+        "RequestUri": log["requestURI"],
+        "Verb": log["verb"],
+        "User": log["user"],
+        "SourceIps": log["sourceIPs"],
+        "UserAgent": log["userAgent"],
+        "ObjectRef": log["objectRef"],
+        "ResponseStatus": log["responseStatus"],
+        "RequestReceivedTime": log["requestReceivedTimestamp"],
+        "Level": log["level"],
+        "PodName": "kube-apiserver-0",
+        "_ResourceId": AKS_EXEC["resourceId"],
+        "TenantId": WORKSPACE,
+        "Type": "AKSAudit",
+        "_ord": ingested,
+    }
+
+
+def la_sql_legacy_row(record: Dict[str, Any], ingested: str = "2026-10-27T12:55:00.0000001Z") -> Dict[str, Any]:
+    """Auditoria do Azure SQL na tabela legada ``AzureDiagnostics``: cada
+    propriedade vira coluna com sufixo de tipo."""
+    row: Dict[str, Any] = {
+        "TimeGenerated": record["time"],
+        "Category": record["category"],
+        "OperationName": record["operationName"],
+        "ResourceId": record["resourceId"],
+        "Resource": "VENDAS",
+        "ResourceGroup": "RG-APP",
+        "ResourceProvider": "MICROSOFT.SQL",
+        "ResourceType": "SERVERS/DATABASES",
+        "SubscriptionId": SUB_A,
+        "TenantId": WORKSPACE,
+        "Type": "AzureDiagnostics",
+        "_ord": ingested,
+    }
+    for key, value in record["properties"].items():
+        row[f"{key}_s"] = value
+    return row
+
+
+STORAGE_DELETE: Dict[str, Any] = {
+    "time": "2026-10-27T13:10:00.0000000Z",
+    "resourceId": f"/subscriptions/{SUB_A}/resourceGroups/rg-app/providers/Microsoft.Storage/storageAccounts/stbackup/blobServices/default",
+    "category": "StorageDelete",
+    "operationName": "DeleteBlob",
+    "operationVersion": "2021-08-06",
+    "schemaVersion": "1.0",
+    "statusCode": 403,
+    "statusText": "AuthorizationPermissionMismatch",
+    "durationMs": 4,
+    "callerIpAddress": "203.0.113.7:51234",
+    "correlationId": "c0ffee00-0000-4000-8000-000000000009",
+    "identity": {
+        "type": "OAuth",
+        "requester": {
+            "appId": "66666666-6666-4666-8666-666666666666",
+            "objectId": "77777777-7777-4777-8777-777777777777",
+            "tenantId": TENANT,
+            "upn": "ana.silva@example.com",
+        },
+    },
+    "location": "brazilsouth",
+    "properties": {
+        "accountName": "stbackup",
+        "userAgentHeader": "azsdk-python-storage-blob/12.19.0",
+        "serviceType": "blob",
+        "objectKey": "/stbackup/backups/db-2026-10-26.bak",
+    },
+    "uri": "https://stbackup.blob.core.windows.net/backups/db-2026-10-26.bak",
+    "protocol": "HTTPS",
+}
+
+
+def la_storage_row(ingested: str = "2026-10-27T13:15:00.0000001Z") -> Dict[str, Any]:
+    rec = STORAGE_DELETE
+    req = rec["identity"]["requester"]
+    return {
+        "TimeGenerated": rec["time"],
+        "AccountName": "stbackup",
+        "Location": rec["location"],
+        "Protocol": rec["protocol"],
+        "OperationName": rec["operationName"],
+        "OperationVersion": rec["operationVersion"],
+        "SchemaVersion": rec["schemaVersion"],
+        "AuthenticationType": rec["identity"]["type"],
+        "StatusCode": str(rec["statusCode"]),
+        "StatusText": rec["statusText"],
+        "DurationMs": float(rec["durationMs"]),
+        "CallerIpAddress": rec["callerIpAddress"],
+        "CorrelationId": rec["correlationId"],
+        "Uri": rec["uri"],
+        "UserAgentHeader": rec["properties"]["userAgentHeader"],
+        "RequesterAppId": req["appId"],
+        "RequesterObjectId": req["objectId"],
+        "RequesterTenantId": req["tenantId"],
+        "RequesterUpn": req["upn"],
+        "ServiceType": "blob",
+        "ObjectKey": rec["properties"]["objectKey"],
+        "Category": rec["category"],
+        "_ResourceId": rec["resourceId"],
+        "TenantId": WORKSPACE,
+        "Type": "StorageBlobLogs",
+        "_ord": ingested,
+    }
+
+
+def _la_type(name: str, value: Any, table: str) -> str:
+    if name in ("TimeGenerated", "_ord") or name.endswith("Time"):
+        return "datetime"
+    if isinstance(value, (dict, list)):
+        return "string" if table in STRING_JSON_TABLES else "dynamic"
+    if isinstance(value, bool):
+        return "bool"
+    if isinstance(value, int):
+        return "long"
+    if isinstance(value, float):
+        return "real"
+    return "string"
+
+
+def la_payload(rows: List[Dict[str, Any]]) -> Dict[str, Any]:
+    """Resposta da API de consulta a um ``union``, como o Log Analytics a monta.
+
+    Colunas tipadas, ``dynamic`` serializado como texto JSON, nulo onde a tabela
+    da linha não tem a coluna e, quando o TIPO de uma coluna difere entre as
+    tabelas, uma coluna por tipo (``Status_dynamic``/``Status_string``) — o que
+    a união real faz. A linha ganha ``_table`` (o ``withsource``) e ``_key``.
+    """
+    full = [{**row, "_table": row["Type"], "_key": f"{i + 1:064x}"} for i, row in enumerate(rows)]
+    kinds: Dict[str, List[str]] = {}
+    order: List[str] = []
+    for row in full:
+        for name, value in row.items():
+            if name not in kinds:
+                kinds[name] = []
+                order.append(name)
+            kind = _la_type(name, value, row["Type"])
+            if kind not in kinds[name]:
+                kinds[name].append(kind)
+    columns = [
+        (name, kind, name if len(kinds[name]) == 1 else f"{name}_{kind}")
+        for name in order for kind in kinds[name]
+    ]
+    out_rows = []
+    for row in full:
+        out = []
+        for name, kind, _ in columns:
+            value = row.get(name)
+            if value is not None and _la_type(name, value, row["Type"]) != kind:
+                value = None
+            if isinstance(value, (dict, list)):
+                value = json.dumps(value)
+            out.append(value)
+        out_rows.append(out)
+    return {"tables": [{"name": "PrimaryResult",
+                        "columns": [{"name": col, "type": kind} for _, kind, col in columns],
+                        "rows": out_rows}]}
