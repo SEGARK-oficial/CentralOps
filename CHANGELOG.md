@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.17.0](https://github.com/SEGARK-oficial/CentralOps/compare/v2.16.0...v2.17.0) (2026-11-05)
+
+
+### Features
+
+* **azure:** ler os 3 streams de um Log Analytics workspace ([#108](https://github.com/SEGARK-oficial/CentralOps/issues/108)) ([89b6ab5](https://github.com/SEGARK-oficial/CentralOps/commit/89b6ab57520b7a421ba84835e6dbb305e62a1aec))
+
 ## [2.16.0](https://github.com/SEGARK-oficial/CentralOps/compare/v2.15.0...v2.16.0) (2026-10-28)
 
 
