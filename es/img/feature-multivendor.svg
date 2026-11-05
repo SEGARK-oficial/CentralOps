@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 130" width="200" height="130" role="img" aria-labelledby="fv1t">
+  <title id="fv1t">Many vendor sources converging into one gate</title>
+  <!-- Multi-vendor: five different sources, one shared entry point. The lanes
+       arrive at different heights and leave as one bundle — that is what a
+       pluggable provider registry buys you. -->
+  <g fill="none" stroke-linecap="round">
+    <path d="M6 16 C 62 16, 74 52, 118 52" stroke="var(--seg-collect,#F2A83C)" stroke-width="6" stroke-opacity=".38"/>
+    <path d="M6 40 C 62 40, 74 58, 118 58" stroke="var(--seg-collect,#F2A83C)" stroke-width="6" stroke-opacity=".38"/>
+    <path d="M6 65 C 62 65, 74 65, 118 65" stroke="var(--seg-collect,#F2A83C)" stroke-width="6" stroke-opacity=".38"/>
+    <path d="M6 90 C 62 90, 74 72, 118 72" stroke="var(--seg-collect,#F2A83C)" stroke-width="6" stroke-opacity=".38"/>
+    <path d="M6 114 C 62 114, 74 78, 118 78" stroke="var(--seg-collect,#F2A83C)" stroke-width="6" stroke-opacity=".38"/>
+  </g>
+  <g fill="var(--seg-collect,#F2A83C)">
+    <circle cx="26" cy="16" r="3.4"/><circle cx="26" cy="40" r="3.4"/>
+    <circle cx="26" cy="65" r="3.4"/><circle cx="26" cy="90" r="3.4"/>
+    <circle cx="26" cy="114" r="3.4"/>
+    <circle cx="72" cy="19" r="3"/><circle cx="72" cy="45" r="3"/>
+    <circle cx="72" cy="65" r="3"/><circle cx="72" cy="85" r="3"/>
+    <circle cx="72" cy="110" r="3"/>
+  </g>
+  <rect x="122" y="26" width="11" height="78" rx="5.5" fill="var(--seg-normalize,#7C6BEA)"/>
+  <g fill="none" stroke="var(--seg-route,#3BA9CC)" stroke-width="4" stroke-linecap="round" stroke-opacity=".5">
+    <path d="M139 65 C 166 65, 172 44, 194 44"/>
+    <path d="M139 65 H 194"/>
+    <path d="M139 65 C 166 65, 172 86, 194 86"/>
+  </g>
+</svg>
