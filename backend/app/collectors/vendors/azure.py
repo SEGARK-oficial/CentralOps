@@ -19,20 +19,37 @@ o que carrega:
   (``kube-audit``), auditoria do Azure SQL (``SQLSecurityAuditEvents``),
   Storage e o que mais o cliente mandar.
 
+**Duas fontes para o mesmo conteúdo, escolhidas pelo ``base_url``:**
+
+- namespace do **Event Hubs** → ``entra``/``resource`` leem os hubs e o
+  ``activity`` lê o ARM;
+- **Workspace ID do Log Analytics** (um GUID) → os TRÊS streams leem as tabelas
+  do workspace pela API de consulta (``AzureActivity``; ``SigninLogs`` e
+  irmãs; ``AzureDiagnostics`` e as tabelas por recurso). É o caminho de quem já
+  manda os diagnostic settings para um workspace: nenhum Event Hub, e o papel é
+  **Log Analytics Reader** no workspace. Cada linha é convertida para a forma do
+  registro que o diagnostic setting publicaria no Event Hub (ou que o ARM
+  devolveria), então os mappings são os mesmos nas duas fontes.
+
 **Por que Event Hubs e por que via Kafka.** É o único destino de diagnostic
 setting que se lê como fila, com retenção, sem Log Analytics no meio (o padrão
 de Splunk, Elastic, QRadar e Sentinel para "Azure fora do Azure"). O endpoint
 Kafka do Event Hubs (tier Standard ou acima) fala o protocolo que o Core já
 carrega (``aiokafka``) — nenhum SDK novo.
 
+**Stream sem fonte não é stream saudável.** ``entra``/``resource`` sem
+``base_url``, ou um workspace cujas tabelas daquele stream não receberam nada
+em 7 dias, falham com a instrução do que configurar. Antes saíam como sucesso
+com zero eventos, e a Saúde do Pipeline mostrava "saudável" para uma coleta que
+nunca teve de onde ler.
+
 **Uma credencial só, sem chave compartilhada.** O mesmo app registration
 (``tenant_id`` + ``client_id`` + ``client_secret``) autentica no ARM (escopo
 ``management.azure.com``) E no Event Hubs (SASL ``OAUTHBEARER`` com token do
 Entra, papel **Azure Event Hubs Data Receiver**). Nenhuma connection string com
 ``SharedAccessKey`` é guardada, e revogar o acesso é tirar um papel no RBAC.
-``base_url`` = namespace do Event Hubs; vazio desliga os dois streams de fila.
-Event Hub que não existe = stream desligado (no-op): o cliente cria só os que
-quer.
+Event Hub que não existe = stream desligado (no-op): com namespace, o cliente
+cria só os hubs que quer.
 
 **Entrega at-least-once, posição no cursor.** Os streams de fila não usam
 consumer group nem commit de offset no Kafka: a posição de cada partição vai no
@@ -82,6 +99,16 @@ _TOKEN_TIMEOUT = aiohttp.ClientTimeout(total=30)
 _EVENTHUB_SUFFIX = ".servicebus.windows.net"
 _EVENTHUB_KAFKA_PORT = 9093
 
+_LA_HOST = "api.loganalytics.io"
+_LA_SCOPE = f"https://{_LA_HOST}/.default"
+
+#: Ação que dá leitura do Activity Log. Papel atribuído só num RECURSO (o caso
+#: do app com Log Analytics Reader no workspace) deixa a assinatura visível na
+#: listagem, mas a API filtra os eventos para os recursos que o app lê: a
+#: coleta sai quase vazia e sem erro nenhum.
+_ACTIVITY_READ_ACTION = "microsoft.insights/eventtypes/values/read"
+_PERMISSIONS_API = "2022-04-01"
+
 # ── Activity Log ─────────────────────────────────────────────────────────
 
 #: Janela inicial (cold start) e sobreposição entre janelas. O Activity Log
@@ -116,6 +143,64 @@ _FETCH_MAX_RECORDS = 500
 _MAX_IDLE_FETCHES = 5
 _KAFKA_REQUEST_TIMEOUT_MS = 30_000
 
+# ── Log Analytics ────────────────────────────────────────────────────────
+
+#: Linhas por consulta e consultas por ciclo. A API devolve até 500 mil linhas,
+#: mas uma página de 5 mil cabe folgada na resposta (~100 MB) e no despacho.
+_LA_PAGE_ROWS = 5000
+_MAX_LA_PAGES_PER_CYCLE = 10
+#: Primeira coleta: o que entrou no workspace nas últimas 24 h.
+_LA_COLD_START = timedelta(hours=24)
+#: O cursor anda pelo ``ingestion_time()`` (o atraso de ingestão varia de
+#: segundos a horas por tabela; pelo ``TimeGenerated`` o evento atrasado ficaria
+#: para trás da janela). O ``TimeGenerated`` só delimita a VARREDURA: sem ele a
+#: consulta percorre a retenção inteira a cada ciclo.
+_LA_SCAN_BACK = timedelta(days=2)
+#: Teto da janela: a linha ingerida há instantes pode ainda não estar visível
+#: em todas as réplicas. Lê-se até ``agora - _LA_SETTLE``.
+_LA_SETTLE = timedelta(minutes=5)
+#: "Esta fonte já recebeu algo?" — janela da checagem que separa tenant calado
+#: de fonte nunca configurada.
+_LA_PRESENCE_WINDOW = timedelta(days=7)
+_LA_TIMEOUT = aiohttp.ClientTimeout(total=200)
+_LA_WAIT_SECONDS = 180
+
+#: Tabelas de cada stream → ``category`` do registro equivalente no Event Hub
+#: (``None`` = a própria coluna ``Category``). As de sign-in não têm valor de
+#: ``Category`` documentado; o nome vem da tabela, igual ao do diagnostic setting.
+_LA_TABLES: Dict[str, Dict[str, Optional[str]]] = {
+    "activity": {"AzureActivity": None},
+    "entra": {
+        "SigninLogs": "SignInLogs",
+        "AADNonInteractiveUserSignInLogs": "NonInteractiveUserSignInLogs",
+        "AADServicePrincipalSignInLogs": "ServicePrincipalSignInLogs",
+        "AADManagedIdentitySignInLogs": "ManagedIdentitySignInLogs",
+        "ADFSSignInLogs": "ADFSSignInLogs",
+        "AuditLogs": "AuditLogs",
+        "AADProvisioningLogs": "ProvisioningLogs",
+        "AADRiskyUsers": "RiskyUsers",
+        "AADUserRiskEvents": "UserRiskEvents",
+        "AADRiskyServicePrincipals": "RiskyServicePrincipals",
+        "AADServicePrincipalRiskEvents": "ServicePrincipalRiskEvents",
+    },
+    "resource": {
+        "AzureDiagnostics": None,
+        "AZKVAuditLogs": "AuditEvent",
+        "AKSAudit": "kube-audit",
+        "AKSAuditAdmin": "kube-audit-admin",
+        "StorageBlobLogs": None,
+        "StorageFileLogs": None,
+        "StorageQueueLogs": None,
+        "StorageTableLogs": None,
+        "SQLSecurityAuditEvents": "SQLSecurityAuditEvents",
+    },
+}
+
+# Valores do cursor viram literal de KQL: só passam no formato exato que a
+# própria API devolve.
+_KQL_DATETIME_RE = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,7})?Z$")
+_ROW_KEY_RE = re.compile(r"^[0-9a-f]{64}$")
+
 # Nomes que viram PATH de URL ou host: validar evita que um valor com ``/``,
 # ``..`` ou ``@`` aponte para outro recurso ou outro servidor.
 _GUID_RE = re.compile(r"^[0-9a-fA-F]{8}-(?:[0-9a-fA-F]{4}-){3}[0-9a-fA-F]{12}$")
@@ -146,6 +231,12 @@ class AzureTokenError(aiohttp.ClientResponseError):
             headers=resp.headers,
         )
         self.reason_code = reason
+
+
+class AzureSourceError(RuntimeError):
+    """O stream não tem de onde ler: sem fonte configurada, ou a fonte nunca
+    recebeu os logs dele. A mensagem é a instrução, e vai para a Saúde do
+    Pipeline como ``last_error``."""
 
 
 # ── Credencial e alvo ────────────────────────────────────────────────────
@@ -190,6 +281,28 @@ def eventhub_fqdn(raw: Optional[str]) -> Optional[str]:
             f"(ex.: meu-namespace) ou <nome>{_EVENTHUB_SUFFIX}"
         )
     return f"{name}{_EVENTHUB_SUFFIX}"
+
+
+def resolve_source(raw: Optional[str]) -> Tuple[str, Optional[str]]:
+    """``base_url`` → ``("workspace", guid)``, ``("eventhub", fqdn)`` ou ``("none", None)``.
+
+    O Workspace ID do Log Analytics é um GUID; nome de namespace do Event Hubs
+    começa por letra e não tem o formato 8-4-4-4-12, então os dois não se
+    confundem. O GUID vira PATH da URL da API (``/v1/workspaces/<id>``).
+    """
+    text = (raw or "").strip().lower()
+    if _GUID_RE.match(text):
+        return "workspace", text
+    fqdn = eventhub_fqdn(raw)
+    return ("eventhub", fqdn) if fqdn else ("none", None)
+
+
+def _no_source_error(stream: str) -> AzureSourceError:
+    return AzureSourceError(
+        f"azure {stream}: nenhuma fonte configurada. Informe no campo Fonte o Workspace ID "
+        "do Log Analytics (o workspace que recebe os diagnostic settings) ou o namespace "
+        "do Event Hubs"
+    )
 
 
 def _load_settings(integration_id: int) -> Dict[str, Any]:
@@ -334,7 +447,558 @@ async def _list_subscriptions(
     return sorted(set(found))
 
 
-class AzureActivityLogCollector(BaseCollector):
+async def _activity_read_scopes(
+    session: aiohttp.ClientSession, headers: Dict[str, str], subs: List[str]
+) -> List[str]:
+    """Assinaturas em que o app LÊ o Activity Log no escopo da assinatura.
+
+    ``Microsoft.Authorization/permissions`` no escopo da assinatura devolve só o
+    que vem de atribuição nela ou acima (management group); papel num recurso
+    não aparece. É a diferença entre "a assinatura é visível" e "os eventos dela
+    vêm todos".
+    """
+    readable: List[str] = []
+    for sub in subs:
+        if not _GUID_RE.match(sub):
+            continue
+        url = (
+            f"{_ARM}/subscriptions/{sub}/providers/Microsoft.Authorization/permissions"
+            f"?api-version={_PERMISSIONS_API}"
+        )
+        async with session.get(url, headers=headers, allow_redirects=False) as resp:
+            await _raise_for_arm_status(resp, "permissions")
+            payload = await resp.json()
+        if _grants(payload, _ACTIVITY_READ_ACTION):
+            readable.append(sub)
+    return readable
+
+
+def _grants(payload: Any, action: str) -> bool:
+    """Alguma entrada de ``permissions`` concede ``action`` (com curinga, sem
+    ``notActions`` que a tire)?"""
+    for perm in (payload or {}).get("value") or []:
+        if not isinstance(perm, dict):
+            continue
+        allowed = any(_action_matches(p, action) for p in perm.get("actions") or [])
+        denied = any(_action_matches(p, action) for p in perm.get("notActions") or [])
+        if allowed and not denied:
+            return True
+    return False
+
+
+def _action_matches(pattern: Any, action: str) -> bool:
+    if not isinstance(pattern, str):
+        return False
+    regex = "^" + ".*".join(re.escape(part) for part in pattern.lower().split("*")) + "$"
+    return re.match(regex, action) is not None
+
+
+# ── Log Analytics: consulta e conversão de linha ─────────────────────────
+
+
+def _la_page_query(tables: Tuple[str, ...], order: str, lo: str, key: str, hi: str) -> str:
+    """Uma página em ordem ``(_ord, _key)``, a partir de ``(lo, key)`` exclusive.
+
+    ``_ord`` é o ``ingestion_time()`` (polling) ou o ``TimeGenerated``
+    (backfill). Linhas ingeridas no mesmo lote têm o MESMO instante — no tenant
+    real, dois eventos do Activity Log com o mesmo ``ingestion_time()`` —, então
+    só o instante não pagina: a ``_key`` (hash da linha inteira, sem as colunas
+    nulas, para não mudar quando a união ganha uma tabela) desempata. ``lo``,
+    ``key`` e ``hi`` chegam validados (``_KQL_DATETIME_RE``/``_ROW_KEY_RE``).
+    """
+    ord_expr = "ingestion_time()" if order == "ingested" else "TimeGenerated"
+    return (
+        f"union isfuzzy=true withsource=_table {', '.join(tables)}\n"
+        f"| extend _ord = {ord_expr}\n"
+        f"| where _ord >= datetime({lo}) and _ord < datetime({hi})\n"
+        "| extend _key = hash_sha256(tostring(pack_all(true)))\n"
+        # KQL não compara texto com ``>`` (SEM0064): ``strcmp``.
+        f"| where _ord > datetime({lo}) or strcmp(_key, '{key}') > 0\n"
+        "| order by _ord asc, _key asc\n"
+        f"| take {_LA_PAGE_ROWS}"
+    )
+
+
+def _la_presence_query(tables: Tuple[str, ...]) -> str:
+    return (
+        f"union isfuzzy=true withsource=_table {', '.join(tables)}\n"
+        "| summarize n = count() by _table"
+    )
+
+
+async def _la_query(
+    session: aiohttp.ClientSession, token: str, workspace: str, query: str, timespan: str
+) -> List[Dict[str, Any]]:
+    """Executa a consulta e devolve as linhas como dicts (sem valores nulos)."""
+    url = f"https://{_LA_HOST}/v1/workspaces/{workspace}/query"
+    headers = {"Authorization": f"Bearer {token}", "Prefer": f"wait={_LA_WAIT_SECONDS}"}
+    body = {"query": query, "timespan": timespan}
+    async with session.post(
+        url, json=body, headers=headers, timeout=_LA_TIMEOUT, allow_redirects=False
+    ) as resp:
+        if resp.status == 429:
+            raise AzureRateLimitedError(_parse_retry_after(resp.headers.get("Retry-After")))
+        if resp.status >= 400:
+            code = await _la_error_code(resp)
+            logger.warning("azure: Log Analytics devolveu HTTP %s %s", resp.status, code)
+            if resp.status == 403:
+                raise AzureSourceError(
+                    f"azure: sem leitura no workspace {workspace} ({code or 'HTTP 403'}). "
+                    "Dê ao app o papel Log Analytics Reader no workspace"
+                )
+            if resp.status == 404:
+                raise AzureSourceError(
+                    f"azure: workspace {workspace} não encontrado ({code or 'HTTP 404'}). "
+                    "Use o Workspace ID (GUID) da página Overview do workspace"
+                )
+            if resp.status == 400:
+                # Consulta recusada: o código (``SEM0064``…) é o que diz o porquê.
+                raise RuntimeError(f"azure: Log Analytics recusou a consulta ({code or 'HTTP 400'})")
+            # 401 sai como ``ClientResponseError``, como no ARM.
+            resp.raise_for_status()
+        payload = await resp.json()
+    if isinstance(payload, dict) and payload.get("error"):
+        # 200 com ``error`` = resultado PARCIAL. Avançar o cursor nele pularia as
+        # linhas que faltaram; o ciclo falha e repete a página.
+        err = payload["error"] if isinstance(payload["error"], dict) else {}
+        raise RuntimeError(
+            f"azure: Log Analytics devolveu resultado parcial ({str(err.get('code') or '')[:80]})"
+        )
+    return _la_rows(payload)
+
+
+async def _la_error_code(resp: aiohttp.ClientResponse) -> str:
+    try:
+        body = await resp.json(content_type=None)
+    except Exception:  # noqa: BLE001
+        return ""
+    err = (body or {}).get("error") if isinstance(body, dict) else None
+    if not isinstance(err, dict):
+        return ""
+    code = str(err.get("code") or "")
+    inner = err.get("innererror")
+    while isinstance(inner, dict):  # o mais interno é o específico (SEM0064)
+        code = str(inner.get("code") or code)
+        inner = inner.get("innererror")
+    return code[:80]
+
+
+#: Sufixo que o ``union`` põe numa coluna cujo TIPO difere entre as tabelas:
+#: ``Status`` é ``dynamic`` em ``SigninLogs`` e ``string`` na irmã não
+#: interativa, e a união devolve ``Status_dynamic`` e ``Status_string`` (visto no
+#: tenant real, também em ``DurationMs_long``/``_int``/``_real`` e
+#: ``Properties_string``/``_dynamic``). Cada linha preenche só a da tabela dela.
+_UNION_TYPE_SUFFIX_RE = re.compile(
+    r"_(?:dynamic|string|long|int|real|bool|datetime|guid|timespan|decimal)$"
+)
+
+
+def _la_rows(payload: Any) -> List[Dict[str, Any]]:
+    tables = (payload or {}).get("tables") if isinstance(payload, dict) else None
+    if not tables:
+        return []
+    table = tables[0]
+    columns = [
+        (_UNION_TYPE_SUFFIX_RE.sub("", str(c.get("name") or "")), c.get("type"))
+        for c in table.get("columns") or []
+    ]
+    rows: List[Dict[str, Any]] = []
+    for raw in table.get("rows") or []:
+        row: Dict[str, Any] = {}
+        for (name, ctype), value in zip(columns, raw):
+            if value is None or value == "" or not name or name in row:
+                continue
+            # A API serializa ``dynamic`` como texto JSON.
+            row[name] = _maybe_json(value) if ctype == "dynamic" else value
+        rows.append(row)
+    return rows
+
+
+def _maybe_json(value: Any) -> Any:
+    """Texto JSON de objeto/lista → o objeto. Colunas que são ``dynamic`` numa
+    tabela de sign-in vêm como ``string`` na irmã não interativa."""
+    if isinstance(value, str) and value[:1] in ("{", "["):
+        try:
+            parsed = json.loads(value)
+        except ValueError:
+            return value
+        if isinstance(parsed, (dict, list)):
+            return parsed
+    return value
+
+
+def _camel(name: str) -> str:
+    """``UserPrincipalName`` → ``userPrincipalName``; ``IPAddress`` → ``ipAddress``."""
+    if name.isupper():
+        return name.lower()
+    run = 0
+    while run < len(name) and name[run].isupper():
+        run += 1
+    if run <= 1:
+        return name[:1].lower() + name[1:]
+    return name[: run - 1].lower() + name[run - 1:]
+
+
+def _snake(name: str) -> str:
+    return re.sub(r"(?<!^)(?=[A-Z])", "_", name).lower()
+
+
+def _compact(value: Any) -> Any:
+    """Tira nulos e vazios de dicts aninhados (a forma do ARM não os traz)."""
+    if isinstance(value, dict):
+        out = {k: _compact(v) for k, v in value.items()}
+        return {k: v for k, v in out.items() if v not in (None, "", {}, [])}
+    return value
+
+
+#: Colunas do Log Analytics que não existem no registro original: o
+#: ``TenantId`` delas é o id do WORKSPACE, não o do tenant.
+_LA_META = frozenset({
+    "TenantId", "SourceSystem", "Type", "_table", "_ord", "_key", "_BilledSize",
+    "_IsBillable", "_SubscriptionId", "_ResourceId",
+})
+
+#: Coluna → chave do topo do registro que o diagnostic setting publica.
+_LA_ENVELOPE = {
+    "TimeGenerated": "time",
+    "OperationName": "operationName",
+    "OperationVersion": "operationVersion",
+    "Category": "category",
+    "ResultType": "resultType",
+    "ResultSignature": "resultSignature",
+    "ResultDescription": "resultDescription",
+    "DurationMs": "durationMs",
+    "CallerIpAddress": "callerIpAddress",
+    "CallerIPAddress": "callerIpAddress",
+    "CorrelationId": "correlationId",
+    "Identity": "identity",
+    "Level": "level",
+    "Location": "location",
+    "ResourceId": "resourceId",
+}
+
+_ACTIVITY_STATUS = {"Start": "Started", "Success": "Succeeded", "Failure": "Failed", "Accept": "Accepted"}
+_ACTIVITY_LEVEL = {"Information": "Informational"}
+
+
+def _resource_type(resource_id: Any) -> Optional[str]:
+    """``/subscriptions/…/providers/Microsoft.Storage/storageAccounts/x`` →
+    ``Microsoft.Storage/storageAccounts`` (como o ``resourceType`` do ARM)."""
+    parts = [p for p in str(resource_id or "").split("/") if p]
+    lowered = [p.lower() for p in parts]
+    if "providers" not in lowered:
+        return None
+    rest = parts[len(lowered) - lowered[::-1].index("providers"):]
+    if not rest:
+        return None
+    types = rest[1:][0::2]
+    return "/".join([rest[0], *types])
+
+
+def _activity_from_row(row: Dict[str, Any]) -> Dict[str, Any]:
+    """Linha do ``AzureActivity`` → o evento que a API REST do Activity Log devolve."""
+    claims = _maybe_json(row.get("Claims_d") or row.get("Claims")) or {}
+    auth = _maybe_json(row.get("Authorization_d") or row.get("Authorization")) or {}
+    props = _maybe_json(row.get("Properties_d") or row.get("Properties")) or {}
+    http = _maybe_json(row.get("HTTPRequest")) or {}
+    claims = claims if isinstance(claims, dict) else {}
+    auth = auth if isinstance(auth, dict) else {}
+    props = props if isinstance(props, dict) else {}
+    http = dict(http) if isinstance(http, dict) else {}
+    if row.get("CallerIpAddress") and not http.get("clientIpAddress"):
+        http["clientIpAddress"] = row["CallerIpAddress"]
+
+    # ``OperationNameValue`` vem em MAIÚSCULAS no workspace; a REST devolve o
+    # nome com a caixa original, e detecção que compara texto (``/listKeys/action``)
+    # depende dela. A ``authorization.action`` carrega o mesmo nome na caixa certa.
+    op = str(row.get("OperationNameValue") or "")
+    for candidate in (auth.get("action"), props.get("message")):
+        if isinstance(candidate, str) and candidate.lower() == op.lower():
+            op = candidate
+            break
+
+    resource_id = row.get("ResourceId") or props.get("entity") or row.get("_ResourceId")
+    # ``ResourceGroup`` vem em MAIÚSCULAS no workspace; o id carrega a caixa original.
+    group = re.search(r"/resourcegroups/([^/]+)", str(resource_id or ""), re.IGNORECASE)
+    hierarchy = str(row.get("Hierarchy") or "")
+    tenant = claims.get("tid") or (hierarchy.split("/")[0] if hierarchy else None)
+    status = row.get("ActivityStatusValue")
+    provider = str(row.get("ResourceProviderValue") or "")
+    if op.split("/")[0].lower() == provider.lower():
+        provider = op.split("/")[0]
+    event = {
+        "eventDataId": row.get("EventDataId"),
+        "eventTimestamp": row.get("TimeGenerated"),
+        "submissionTimestamp": row.get("EventSubmissionTimestamp"),
+        "operationName": {"value": op, "localizedValue": row.get("OperationName") or op},
+        "category": {"value": row.get("CategoryValue")},
+        "status": {"value": _ACTIVITY_STATUS.get(status, status)},
+        "subStatus": {"value": row.get("ActivitySubstatusValue")},
+        "caller": row.get("Caller"),
+        "claims": claims,
+        "httpRequest": http,
+        "authorization": auth,
+        "correlationId": row.get("CorrelationId"),
+        "level": _ACTIVITY_LEVEL.get(row.get("Level"), row.get("Level")),
+        "subscriptionId": row.get("SubscriptionId"),
+        "resourceGroupName": group.group(1) if group else row.get("ResourceGroup"),
+        "resourceId": resource_id,
+        "resourceType": {"value": _resource_type(resource_id)},
+        "resourceProviderName": {"value": provider},
+        "properties": props,
+        "tenantId": tenant,
+    }
+    return _compact(event)
+
+
+def _envelope_record(row: Dict[str, Any], category: Optional[str]) -> Tuple[Dict[str, Any], Dict[str, Any]]:
+    """Topo do registro + ``properties`` (colunas restantes em camelCase)."""
+    record: Dict[str, Any] = {}
+    props: Dict[str, Any] = {}
+    for col, value in row.items():
+        if col in _LA_META:
+            continue
+        if col in _LA_ENVELOPE:
+            record[_LA_ENVELOPE[col]] = _maybe_json(value)
+        else:
+            props[_camel(col)] = _maybe_json(value)
+    if "resourceId" not in record and row.get("_ResourceId"):
+        record["resourceId"] = row["_ResourceId"]
+    if category:
+        # A coluna ``Category`` dessas tabelas é a categoria DENTRO do log (no
+        # AuditLogs, ``RoleManagement``); no registro do hub ela é
+        # ``properties.category`` e o topo leva o nome do fluxo.
+        if record.get("category") and record["category"] != category:
+            props.setdefault("category", record["category"])
+        record["category"] = category
+    return record, props
+
+
+def _entra_from_row(row: Dict[str, Any]) -> Dict[str, Any]:
+    """Linha de ``SigninLogs``/``AuditLogs``/… → registro do diagnostic setting do Entra."""
+    table = str(row.get("_table") or "")
+    record, props = _envelope_record(row, _LA_TABLES["entra"].get(table))
+    tenant = props.pop("aadTenantId", None)
+    if tenant:
+        record["tenantId"] = tenant
+    # No registro do Event Hub o objeto de localização é ``properties.location``;
+    # a coluna ``Location`` do workspace é a região, e fica no topo.
+    if "locationDetails" in props:
+        props["location"] = props.pop("locationDetails")
+    if "aadOperationType" in props:
+        props["operationType"] = props.pop("aadOperationType")
+    if props.get("ipAddress") and "callerIpAddress" not in record:
+        record["callerIpAddress"] = props["ipAddress"]
+    record["properties"] = props
+    record["logAnalyticsTable"] = table
+    return _compact(record)
+
+
+_AD_SUFFIX_RE = re.compile(r"_(?:s|d|b|g|t)$")
+_AD_CLAIM_PREFIXES = (
+    "http_schemas_xmlsoap_org_ws_2005_05_identity_claims_",
+    "http_schemas_microsoft_com_identity_claims_",
+)
+
+
+def _resource_from_row(row: Dict[str, Any]) -> Dict[str, Any]:
+    """Linha de resource log → registro do diagnostic setting do recurso."""
+    table = str(row.get("_table") or "")
+    if table == "AzureDiagnostics":
+        record = _azure_diagnostics_record(row)
+    else:
+        record, props = _envelope_record(row, _LA_TABLES["resource"].get(table))
+        nested = props.pop("properties", None)
+        if isinstance(nested, dict):
+            for k, v in nested.items():
+                props.setdefault(k, v)
+        if table in ("AKSAudit", "AKSAuditAdmin"):
+            props = {"log": _kube_audit_log(props), "pod": props.get("podName")}
+        elif table.startswith("Storage"):
+            _lift_storage(record, props)
+        elif table == "SQLSecurityAuditEvents":
+            props = {
+                _snake(k[:1].upper() + k[1:]): (str(v).lower() if isinstance(v, bool) else v)
+                for k, v in props.items()
+            }
+        record["properties"] = props
+    record["logAnalyticsTable"] = table
+    return _compact(record)
+
+
+def _azure_diagnostics_record(row: Dict[str, Any]) -> Dict[str, Any]:
+    """Tabela legada: as propriedades viram colunas com sufixo de tipo
+    (``requestUri_s``, ``httpStatusCode_d``) e o ``identity`` vira
+    ``identity_claim_<nome>_<tipo>``."""
+    record: Dict[str, Any] = {}
+    props: Dict[str, Any] = {}
+    claims: Dict[str, Any] = {}
+    for col, value in row.items():
+        if col in _LA_META:
+            continue
+        if col in _LA_ENVELOPE:
+            record[_LA_ENVELOPE[col]] = value
+        elif col == "AdditionalFields" and isinstance(value, dict):
+            for k, v in value.items():
+                props.setdefault(_AD_SUFFIX_RE.sub("", k), v)
+        elif col.startswith("identity_claim_"):
+            name = _AD_SUFFIX_RE.sub("", col[len("identity_claim_"):])
+            for prefix in _AD_CLAIM_PREFIXES:
+                if name.startswith(prefix):
+                    name = name[len(prefix):]
+            claims[name] = value
+        else:
+            props[_AD_SUFFIX_RE.sub("", col)] = _maybe_json(value)
+    if "resourceId" not in record and row.get("_ResourceId"):
+        record["resourceId"] = row["_ResourceId"]
+    if claims:
+        record["identity"] = {"claim": claims}
+    record["properties"] = props
+    return record
+
+
+def _kube_audit_log(props: Dict[str, Any]) -> Dict[str, Any]:
+    """Colunas do ``AKSAudit`` → o objeto de audit do Kubernetes (``properties.log``)."""
+    return {
+        "auditID": props.get("auditId"),
+        "stage": props.get("stage"),
+        "verb": props.get("verb"),
+        "requestURI": props.get("requestUri"),
+        "user": props.get("user"),
+        "sourceIPs": props.get("sourceIps"),
+        "userAgent": props.get("userAgent"),
+        "objectRef": props.get("objectRef"),
+        "responseStatus": props.get("responseStatus"),
+        "annotations": props.get("annotations"),
+        "requestReceivedTimestamp": props.get("requestReceivedTime"),
+        "stageTimestamp": props.get("stageReceivedTime"),
+    }
+
+
+def _lift_storage(record: Dict[str, Any], props: Dict[str, Any]) -> None:
+    """``StorageBlobLogs`` e irmãs: status, URI e quem chamou ficam no topo,
+    como no registro do Event Hub."""
+    status = props.pop("statusCode", None)
+    if isinstance(status, str) and status.isdigit():
+        status = int(status)
+    record["statusCode"] = status
+    record["statusText"] = props.pop("statusText", None)
+    record["uri"] = props.pop("uri", None)
+    requester = {
+        name: props.pop(f"requester{name[:1].upper()}{name[1:]}", None)
+        for name in ("appId", "audience", "objectId", "tenantId", "tokenIssuer", "upn")
+    }
+    record["identity"] = {"type": props.pop("authenticationType", None), "requester": requester}
+
+
+_LA_CONVERTERS = {
+    "activity": _activity_from_row,
+    "entra": _entra_from_row,
+    "resource": _resource_from_row,
+}
+
+_LA_HINTS = {
+    "activity": "Crie o diagnostic setting da assinatura (Activity Log) apontando para este workspace",
+    "entra": (
+        "Em Microsoft Entra ID → Diagnostic settings, envie AuditLogs e os SignInLogs para "
+        "este workspace (exportar sign-in exige Entra ID P1/P2)"
+    ),
+    "resource": (
+        "Crie os diagnostic settings dos recursos (Key Vault, AKS, Azure SQL, Storage) "
+        "apontando para este workspace"
+    ),
+}
+
+
+class _WorkspaceSource:
+    """Leitura de um stream nas tabelas de um Log Analytics workspace.
+
+    Mixin dos três coletores: no modo workspace o cursor é
+    ``{"ingested": <ingestion_time() da última linha>, "key": <_key dela>}``.
+    """
+
+    async def _collect_workspace(
+        self, cfg: Dict[str, Any], workspace: str, cursor: Dict[str, Any]
+    ) -> AsyncIterator[Dict[str, Any]]:
+        tables = tuple(_LA_TABLES[self.stream])
+        convert = _LA_CONVERTERS[self.stream]
+        provider = _TokenProvider(cfg["tenant_id"], cfg["client_id"], cfg["client_secret"], _LA_SCOPE)
+        now = datetime.now(timezone.utc)
+
+        if "backfill_from_ts" in cursor:
+            # Backfill pelo ``TimeGenerated``, dentro da retenção do workspace; não
+            # mexe no cursor do polling.
+            lo = _iso(_parse_iso(cursor["backfill_from_ts"]) or now)
+            hi = _iso(min(_parse_iso(cursor.get("backfill_to_ts")) or now, now))
+            async for event in self._read_pages(provider, workspace, tables, convert, "time", lo, "", hi, f"{lo}/{hi}"):
+                yield event
+            return
+
+        lo = cursor.get("ingested")
+        key = cursor.get("key") or ""
+        fresh = not (isinstance(lo, str) and _KQL_DATETIME_RE.match(lo) and (not key or _ROW_KEY_RE.match(key)))
+        if fresh:
+            lo, key = _iso(now - _LA_COLD_START), ""
+        lo_dt = _parse_iso(lo) or now
+        hi = _iso(now - _LA_SETTLE)
+        span = f"{_iso(lo_dt - _LA_SCAN_BACK)}/{_iso(now)}"
+
+        self._la_last = (lo, key)
+        emitted = 0
+        async for event in self._read_pages(provider, workspace, tables, convert, "ingested", lo, key, hi, span):
+            emitted += 1
+            yield event
+        if not emitted and fresh:
+            await self._require_data(provider, workspace, tables, now)
+        last_lo, last_key = self._la_last
+        self.ctx.cursor = {"ingested": last_lo, "key": last_key}
+
+    async def _read_pages(
+        self, provider, workspace: str, tables: Tuple[str, ...], convert, order: str,
+        lo: str, key: str, hi: str, span: str,
+    ) -> AsyncIterator[Dict[str, Any]]:
+        pages = 0
+        while True:
+            pages += 1
+            if order == "ingested" and self.ctx.bounded_per_cycle and pages > _MAX_LA_PAGES_PER_CYCLE:
+                # Sobrou linha no workspace: o próximo ciclo continua da última lida.
+                self.mark_cycle_capped()
+                return
+            rows = await self._query(provider, workspace, _la_page_query(tables, order, lo, key, hi), span)
+            for row in rows:
+                lo, key = str(row.get("_ord") or lo), str(row.get("_key") or "")
+                if order == "ingested":
+                    self._la_last = (lo, key)
+                yield convert(row)
+            if len(rows) < _LA_PAGE_ROWS or not (_KQL_DATETIME_RE.match(lo) and _ROW_KEY_RE.match(key)):
+                return
+
+    async def _require_data(self, provider, workspace: str, tables: Tuple[str, ...], now: datetime) -> None:
+        """Primeira coleta sem nada: tenant calado ou fonte que nunca recebeu o log?"""
+        span = f"{_iso(now - _LA_PRESENCE_WINDOW)}/{_iso(now)}"
+        rows = await self._query(provider, workspace, _la_presence_query(tables), span)
+        if any(int(r.get("n") or 0) > 0 for r in rows):
+            return
+        raise AzureSourceError(
+            f"azure {self.stream}: o workspace {workspace} não recebeu nada em "
+            f"{', '.join(tables[:4])}{'…' if len(tables) > 4 else ''} nos últimos 7 dias. "
+            f"{_LA_HINTS[self.stream]}"
+        )
+
+    async def _query(self, provider, workspace: str, query: str, span: str) -> List[Dict[str, Any]]:
+        token = await provider.token()
+        await self.ctx.rate_limiter.acquire(self.ctx.integration_id, self.platform)
+        started = time.monotonic()
+        try:
+            async with self.ctx.domain_limiter.slot(_LA_HOST):
+                return await _la_query(self.ctx.session, token, workspace, query, span)
+        finally:
+            API_LATENCY.labels(vendor=self.platform, stream=self.stream).observe(
+                time.monotonic() - started
+            )
+
+
+class AzureActivityLogCollector(_WorkspaceSource, BaseCollector):
     """Azure Activity Log de todas as assinaturas visíveis (polling no ARM)."""
 
     platform = "azure"
@@ -344,6 +1008,15 @@ class AzureActivityLogCollector(BaseCollector):
 
     async def collect(self) -> AsyncIterator[Dict[str, Any]]:
         cursor = self.ctx.cursor or {}
+        cfg = await asyncio.to_thread(_load_settings, self.ctx.integration_id)
+        kind, workspace = resolve_source(cfg["base_url"])
+        if kind == "workspace":
+            # O workspace recebe o Activity Log pelo diagnostic setting da
+            # assinatura: o papel é o do workspace, nenhum no escopo da assinatura.
+            async for event in self._collect_workspace(cfg, workspace, cursor):
+                yield event
+            return
+
         now = datetime.now(timezone.utc)
         if "backfill_from_ts" in cursor:
             # A API é endereçável por janela: o backfill lê exatamente o pedido,
@@ -518,7 +1191,10 @@ class AzureActivityLogCollector(BaseCollector):
     @classmethod
     def watermark_at(cls, cursor: Optional[Dict[str, Any]]) -> Optional[datetime]:
         """``eventTimestamp``: início da janela atual. Fica até ``_LATE_ARRIVAL``
-        atrás do relógio por construção — é a sobreposição, não atraso."""
+        atrás do relógio por construção — é a sobreposição, não atraso. No modo
+        workspace, ``ingested``: a ingestão da última linha lida."""
+        if "ingested" in (cursor or {}):
+            return cls.watermark_from_iso(cursor, "ingested")
         return cls.watermark_from_iso(cursor, "eventTimestamp")
 
 
@@ -547,16 +1223,14 @@ def _kafka_token_provider_base():
     return AbstractTokenProvider
 
 
-class _EventHubTokenProvider:
-    """Token do Entra para o SASL ``OAUTHBEARER`` do Event Hubs.
+class _TokenProvider:
+    """Token do Entra para um audience que não é o do ARM (o cache do framework
+    guarda UM token por integração, o do ``activity``). Guardado só durante o
+    ciclo."""
 
-    O audience é o PRÓPRIO namespace (``https://<ns>.servicebus.windows.net``):
-    o token não serve para nenhum outro recurso. Guardado só durante o ciclo.
-    """
-
-    def __init__(self, tenant: str, client_id: str, secret: str, fqdn: str) -> None:
+    def __init__(self, tenant: str, client_id: str, secret: str, scope: str) -> None:
         self._tenant, self._client_id, self._secret = tenant, client_id, secret
-        self._scope = f"https://{fqdn}/.default"
+        self._scope = scope
         self._token: Optional[str] = None
         self._expires_at = 0.0
 
@@ -572,6 +1246,17 @@ class _EventHubTokenProvider:
 
     def extensions(self) -> Dict[str, str]:
         return {}
+
+
+class _EventHubTokenProvider(_TokenProvider):
+    """Token do SASL ``OAUTHBEARER`` do Event Hubs.
+
+    O audience é o PRÓPRIO namespace (``https://<ns>.servicebus.windows.net``):
+    o token não serve para nenhum outro recurso.
+    """
+
+    def __init__(self, tenant: str, client_id: str, secret: str, fqdn: str) -> None:
+        super().__init__(tenant, client_id, secret, f"https://{fqdn}/.default")
 
 
 def _as_aiokafka_provider(provider: _EventHubTokenProvider):
@@ -616,8 +1301,8 @@ def _topic_partition(topic: str, partition: int):
     return TopicPartition(topic, partition)
 
 
-class AzureEventHubEntraCollector(BaseCollector):
-    """Logs do Entra ID exportados para o Event Hub ``centralops-entra``."""
+class AzureEventHubEntraCollector(_WorkspaceSource, BaseCollector):
+    """Logs do Entra ID: Event Hub ``centralops-entra`` ou as tabelas do workspace."""
 
     platform = "azure"
     stream = "entra"
@@ -638,6 +1323,12 @@ class AzureEventHubEntraCollector(BaseCollector):
 
     async def collect(self) -> AsyncIterator[Dict[str, Any]]:
         cursor = self.ctx.cursor or {}
+        cfg = await asyncio.to_thread(_load_settings, self.ctx.integration_id)
+        kind, target = resolve_source(cfg["base_url"])
+        if kind == "workspace":
+            async for event in self._collect_workspace(cfg, target, cursor):
+                yield event
+            return
         if "backfill_from_ts" in cursor:
             # A posição da fila vive no cursor do polling; um backfill que
             # lesse daqui andaria com ela sem gravá-la. O replay de um hub é
@@ -647,10 +1338,11 @@ class AzureEventHubEntraCollector(BaseCollector):
                 "(integration=%s)", self.stream, self.ctx.integration_id,
             )
             return
-        cfg = await asyncio.to_thread(_load_settings, self.ctx.integration_id)
-        self._fqdn = eventhub_fqdn(cfg["base_url"])
-        if not self._fqdn:
-            return  # sem namespace: só o stream ``activity`` está em uso
+        if kind == "none":
+            # Sair com sucesso e zero eventos punha "saudável" na Saúde do
+            # Pipeline de uma coleta que nunca teve de onde ler.
+            raise _no_source_error(self.stream)
+        self._fqdn = target
         provider = _EventHubTokenProvider(
             cfg["tenant_id"], cfg["client_id"], cfg["client_secret"], self._fqdn
         )
@@ -777,7 +1469,9 @@ class AzureEventHubEntraCollector(BaseCollector):
     @classmethod
     def watermark_at(cls, cursor: Optional[Dict[str, Any]]) -> Optional[datetime]:
         """``watermark``: enqueue mais novo lido, ou o instante em que o hub foi
-        lido até o fim."""
+        lido até o fim. No modo workspace, ``ingested``."""
+        if "ingested" in (cursor or {}):
+            return cls.watermark_from_iso(cursor, "ingested")
         return cls.watermark_from_iso(cursor, "watermark")
 
 
@@ -861,7 +1555,7 @@ async def _probe_hubs(fqdn: str, provider: _EventHubTokenProvider) -> Dict[str, 
 
 
 async def _azure_probe(cfg: Dict[str, Any]):
-    """Teste STATELESS pré-save: token, assinaturas visíveis e hubs do namespace."""
+    """Teste STATELESS pré-save: token e, por stream, se há de onde ler."""
     from ..output.base import TestResult
 
     tenant = (cfg.get("tenant_id") or "").strip()
@@ -872,7 +1566,7 @@ async def _azure_probe(cfg: Dict[str, Any]):
     try:
         validated_tenant(tenant)
         validated_client_id(client_id)
-        fqdn = eventhub_fqdn(cfg.get("base_url"))
+        kind, target = resolve_source(cfg.get("base_url"))
     except ValueError as exc:
         return TestResult.failed(str(exc))
 
@@ -882,19 +1576,17 @@ async def _azure_probe(cfg: Dict[str, Any]):
     try:
         async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=30)) as session:
             token, _ = await _client_credentials_token(session, tenant, client_id, secret, _ARM_SCOPE)
-            headers = {"Authorization": f"Bearer {token}"}
-            try:
-                subs = await _list_subscriptions(session, headers)
-            except aiohttp.ClientResponseError as exc:
-                states.append(f"activity: erro HTTP {exc.status} ao listar assinaturas")
+            if kind == "workspace":
+                provider = _TokenProvider(tenant, client_id, secret, _LA_SCOPE)
+                found, notes = await asyncio.wait_for(
+                    _probe_workspace(session, provider, target), timeout=60
+                )
+                ready += found
+                states.extend(notes)
             else:
-                if subs:
-                    ready += 1
-                    states.append(f"activity: ok ({len(subs)} assinatura(s))")
-                else:
-                    states.append(
-                        "activity: nenhuma assinatura visível (atribua Reader ou Monitoring Reader)"
-                    )
+                found, notes = await _probe_activity(session, {"Authorization": f"Bearer {token}"})
+                ready += found
+                states.extend(notes)
     except AzureTokenError as exc:
         return TestResult.failed(
             f"O Entra recusou a credencial: {exc.reason_code}. Confira o Tenant ID, o "
@@ -903,31 +1595,97 @@ async def _azure_probe(cfg: Dict[str, Any]):
     except (aiohttp.ClientError, asyncio.TimeoutError) as exc:
         return TestResult.failed(f"Falha ao falar com o Azure: {type(exc).__name__}")
 
-    if fqdn:
-        provider = _EventHubTokenProvider(tenant, client_id, secret, fqdn)
+    if kind == "eventhub":
+        provider = _EventHubTokenProvider(tenant, client_id, secret, target)
         try:
-            hubs = await asyncio.wait_for(_probe_hubs(fqdn, provider), timeout=30)
+            hubs = await asyncio.wait_for(_probe_hubs(target, provider), timeout=30)
         except AzureTokenError as exc:
             states.append(f"Event Hubs: o Entra recusou o token ({exc.reason_code})")
         except Exception as exc:  # noqa: BLE001 — erro do broker vira estado, não 500
             logger.info("azure probe: Event Hubs inacessível", exc_info=True)
             states.append(
-                f"Event Hubs ({fqdn}): inacessível ({type(exc).__name__}) — confira o tier "
-                "Standard+, a porta 9093 e o papel Azure Event Hubs Data Receiver"
+                f"Event Hubs ({target}): inacessível ({type(exc).__name__}) — confira o tier "
+                "Standard+, a porta 9093 e o papel Azure Event Hubs Data Receiver. Se este é "
+                "o nome de um Log Analytics workspace, informe o Workspace ID (GUID), não o nome"
             )
         else:
             for stream, state in hubs.items():
                 if state == "ok":
                     ready += 1
                 states.append(f"{stream}: {state}")
-    else:
-        states.append("entra/resource: sem namespace do Event Hubs (streams desligados)")
+    elif kind == "none":
+        states.append(
+            "entra/resource: sem fonte — informe o Workspace ID do Log Analytics ou o "
+            "namespace do Event Hubs"
+        )
 
     detail = "; ".join(states)
     if not ready:
         return TestResult.failed(f"Nenhum stream utilizável — {detail}")
     ms = (time.perf_counter() - t0) * 1000.0
     return TestResult.passed(f"Conexão OK — {detail}", latency_ms=ms)
+
+
+async def _probe_activity(
+    session: aiohttp.ClientSession, headers: Dict[str, str]
+) -> Tuple[int, List[str]]:
+    """``activity`` pelo ARM: assinaturas visíveis E leitura do log no escopo delas."""
+    try:
+        subs = await _list_subscriptions(session, headers)
+    except aiohttp.ClientResponseError as exc:
+        return 0, [f"activity: erro HTTP {exc.status} ao listar assinaturas"]
+    if not subs:
+        return 0, ["activity: nenhuma assinatura visível (atribua Reader ou Monitoring Reader)"]
+    try:
+        readable = await _activity_read_scopes(session, headers, subs)
+    except aiohttp.ClientResponseError as exc:
+        # Não deu para conferir: o teste não reprova por isso.
+        return 1, [
+            f"activity: ok ({len(subs)} assinatura(s); escopo do papel não conferido, "
+            f"HTTP {exc.status})"
+        ]
+    if len(readable) == len(subs):
+        return 1, [f"activity: ok ({len(subs)} assinatura(s))"]
+    if readable:
+        return 1, [
+            f"activity: ok em {len(readable)} de {len(subs)} assinatura(s). Nas outras o app "
+            "só tem papel em recursos e só virão os eventos deles: atribua Monitoring Reader "
+            "na assinatura"
+        ]
+    return 0, [
+        f"activity: o app enxerga {len(subs)} assinatura(s), mas só tem papel em recursos "
+        "dentro delas, e o Activity Log viria filtrado para esses recursos. Atribua "
+        "Monitoring Reader na assinatura (ou no management group), ou use o Workspace ID "
+        "do Log Analytics que recebe o Activity Log"
+    ]
+
+
+async def _probe_workspace(
+    session: aiohttp.ClientSession, provider: "_TokenProvider", workspace: str
+) -> Tuple[int, List[str]]:
+    """Linhas de cada stream no workspace nos últimos 7 dias, sem ler evento."""
+    tables = tuple(t for stream in ("activity", "entra", "resource") for t in _LA_TABLES[stream])
+    now = datetime.now(timezone.utc)
+    span = f"{_iso(now - _LA_PRESENCE_WINDOW)}/{_iso(now)}"
+    try:
+        token = await provider.token()
+        rows = await _la_query(session, token, workspace, _la_presence_query(tables), span)
+    except AzureSourceError as exc:
+        return 0, [str(exc).removeprefix("azure: ")]
+    except aiohttp.ClientResponseError as exc:
+        return 0, [f"Log Analytics: erro HTTP {exc.status} ao consultar o workspace"]
+    counts = {str(r.get("_table")): int(r.get("n") or 0) for r in rows}
+    ready = 0
+    notes: List[str] = []
+    for stream in ("activity", "entra", "resource"):
+        present = [t for t in _LA_TABLES[stream] if counts.get(t)]
+        if present:
+            ready += 1
+            total = sum(counts[t] for t in present)
+            notes.append(f"{stream}: ok ({total} linha(s) em 7 dias: {', '.join(present)})")
+        else:
+            notes.append(f"{stream}: sem dados no workspace em 7 dias. {_LA_HINTS[stream]}")
+    return ready, notes
 
 
 # ── Self-registration ────────────────────────────────────────────────────
@@ -954,8 +1712,9 @@ def _register() -> None:
             category="Cloud-audit",
             description=(
                 "Microsoft Azure — Activity Log de todas as assinaturas (RBAC, recursos, "
-                "Defender for Cloud) e, via Event Hubs, sign-ins do Entra ID (inclusive não "
-                "interativos) e resource logs (Key Vault, AKS, Azure SQL, Storage)."
+                "Defender for Cloud), sign-ins do Entra ID (inclusive não interativos) e "
+                "resource logs (Key Vault, AKS, Azure SQL, Storage), lidos de um Log "
+                "Analytics workspace ou de Event Hubs."
             ),
             icon_id="azure",
             docs_url="https://learn.microsoft.com/azure/azure-monitor/essentials/activity-log",
@@ -970,16 +1729,19 @@ def _register() -> None:
                           help_text="Directory (tenant) ID do Microsoft Entra ID"),
                 AuthField(key="client_id", label="Client ID", type="string", required=True,
                           help_text=(
-                              "Application (client) ID do app registration — papel Reader ou "
-                              "Monitoring Reader nas assinaturas/management group"
+                              "Application (client) ID do app registration — papel Log "
+                              "Analytics Reader no workspace, ou Monitoring Reader nas "
+                              "assinaturas/management group"
                           )),
                 AuthField(key="client_secret", label="Client Secret", type="secret", required=True),
-                AuthField(key="base_url", label="Namespace do Event Hubs", type="string",
-                          required=False,
+                AuthField(key="base_url", label="Fonte: Workspace ID ou namespace do Event Hubs",
+                          type="string", required=False,
                           help_text=(
-                              "Opcional. Ex.: meu-namespace (tier Standard+). Lê os hubs "
-                              "centralops-entra e centralops-resource com o papel Azure Event "
-                              "Hubs Data Receiver. Vazio = só o Activity Log."
+                              "Workspace ID (GUID) do Log Analytics que recebe os diagnostic "
+                              "settings: os três streams leem dele, com Log Analytics Reader. "
+                              "Ou o namespace do Event Hubs (tier Standard+, hubs "
+                              "centralops-entra e centralops-resource, papel Azure Event Hubs "
+                              "Data Receiver). Não é o nome do workspace nem da storage account."
                           )),
             ),
         )
