@@ -148,6 +148,7 @@ services:
       - '9090:9090'
     volumes:
       - './prometheus.yml:/etc/prometheus/prometheus.yml:ro'
+      - './alerts:/etc/prometheus/rules:ro'
       - 'prometheusdata:/prometheus'
     restart: unless-stopped
     healthcheck:

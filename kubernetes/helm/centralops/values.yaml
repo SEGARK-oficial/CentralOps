@@ -281,11 +281,27 @@ frontend:
       periodSeconds: 20
 
 workers:
+  # App Celery. Vazio (recomendado) = o da IMAGEM, via /usr/local/bin/cops-celery:
+  # app.collectors.celery_app no Core, centralops_ee.celery_app no EE. Só fixe
+  # para depurar uma imagem customizada.
+  celeryApp: ""
+  # Tempo de drain no SIGTERM: ≥ task_time_limit (900 s) + margem. Override por
+  # papel com workers.<papel>.terminationGracePeriodSeconds.
+  terminationGracePeriodSeconds: 930
+  # Espalha as réplicas de cada papel por nó (soft — ScheduleAnyway).
+  topologySpread:
+    enabled: true
+    topologyKey: kubernetes.io/hostname
   priority:
     replicaCount: 1
+    # Coleta priority é curta (alertas); 120 s sobram para o drain.
+    terminationGracePeriodSeconds: 120
   bulk:
     replicaCount: 1
   maintenance:
+    replicaCount: 1
+  # Busca federada (Detecta → Busca federada) e scheduled queries.
+  query:
     replicaCount: 1
   dispatcher:
     replicaCount: 1
@@ -346,8 +362,8 @@ workers:
     targetCPUUtilizationPercentage: 80
     # targetMemoryUtilizationPercentage: PROIBIDO (ver aviso acima)
   pdb:
-    enabled: false
-    minAvailable: 0
+    enabled: true
+    maxUnavailable: 1
   # Resources MEDIDOS: worker concurrency=2 usa ~200-232Mi → limite 640Mi com folga
   # p/ o pico dos 2 forks. (concurrency=4 exigiria ~1Gi e nós de 8GB.)
   resources:
@@ -432,7 +448,8 @@ devDatabase:
 # ── Onda 3 — data-plane durável (Kafka/Redpanda) ──────────────────────
 # Transporte de evento separado do control-plane (Celery+Redis). Com
 # eventDataplane=kafka, o fan-out produz no tópico ``<prefix>.deliver`` e o
-# kafka-dispatcher consome. wazuh-default segue na lane Celery (worker dispatcher).
+# kafka-dispatcher consome. TODOS os destinos (inclusive o wazuh-default) vão
+# por essa via.
 dataPlane:
   eventDataplane: "kafka"          # "kafka" (deploy) | "celery" (dev sem broker)
   kafka:
@@ -441,6 +458,18 @@ dataPlane:
     topicPrefix: "centralops"
     consumerGroup: "centralops-dispatcher"
     securityProtocol: "PLAINTEXT"  # SASL_SSL em broker gerenciado
+    # TLS (SSL/SASL_SSL). caFile = caminho, DENTRO do pod, da CA privada do broker
+    # (monte via extraVolumes/extraVolumeMounts); vazio = CAs do sistema (MSK e
+    # Confluent Cloud usam CA pública). verify=false só em laboratório.
+    tls:
+      caFile: ""
+      verify: true
+    # Replicação do tópico de entrega, aplicada na CRIAÇÃO do tópico. Broker
+    # externo de produção: 3 (com minInsyncReplicas 2, um broker cai sem parar a
+    # entrega). O devBroker é single-node: o template força 1 quando ele está ligado.
+    replicationFactor: 3
+    minInsyncReplicas: ""   # vazio = derivado do RF (3 → 2)
+    partitions: 8
     # Managed-broker egress allow-list for NetworkPolicy (prod brokers off-cluster).
     # Each entry: { cidr: <broker CIDR>, ports: [ { protocol: TCP, port: 9092 } ] }
     brokerCIDRs: []
@@ -475,7 +504,7 @@ dataPlane:
     # maxUnavailable:1 permite drain de nó mesmo com replicaCount:1 (minAvailable:1
     # bloquearia o drain do único pod).
     pdb:
-      enabled: false
+      enabled: true
       maxUnavailable: 1
 
 # Broker Redpanda IN-CLUSTER — APENAS dev/test (single-node, sem HA). Em produção

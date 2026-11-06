@@ -66,12 +66,45 @@ def deliver_topic() -> str:
     return f"{settings.KAFKA_TOPIC_PREFIX}.{settings.KAFKA_DELIVER_TOPIC}"
 
 
+def _ssl_context() -> Optional["ssl.SSLContext"]:
+    """Contexto TLS do data-plane quando o protocolo usa SSL, senão ``None``.
+
+    O aiokafka exige ``ssl_context`` para SSL/SASL_SSL e recusa o cliente sem ele
+    — era o que impedia o data-plane de falar com broker gerenciado (ADR-0018
+    Onda 1). ``KAFKA_SSL_CAFILE`` aponta a CA privada; vazio usa as CAs do
+    sistema. ``KAFKA_SSL_VERIFY=false`` desliga a verificação (só laboratório)."""
+    import ssl
+
+    if "SSL" not in (settings.KAFKA_SECURITY_PROTOCOL or "").upper():
+        return None
+    ctx = ssl.create_default_context(cafile=settings.KAFKA_SSL_CAFILE or None)
+    if not settings.KAFKA_SSL_VERIFY:
+        ctx.check_hostname = False
+        ctx.verify_mode = ssl.CERT_NONE
+    return ctx
+
+
+def _deliver_topic_configs() -> Dict[str, str]:
+    """Configs do tópico de entrega aplicadas na criação: ``min.insync.replicas``
+    explícito, ou derivado do RF (RF ≥ 3 → 2; RF 2 → 1; RF 1 → nada)."""
+    rf = int(settings.KAFKA_DELIVER_REPLICATION or 1)
+    mir = settings.KAFKA_DELIVER_MIN_INSYNC_REPLICAS
+    if mir is None:
+        mir = 2 if rf >= 3 else (1 if rf == 2 else None)
+    if not mir:
+        return {}
+    return {"min.insync.replicas": str(min(int(mir), rf))}
+
+
 def _client_kwargs() -> Dict[str, Any]:
-    """kwargs comuns de bootstrap/segurança para producer e consumer."""
+    """kwargs comuns de bootstrap/segurança para producer, consumer e admin."""
     kwargs: Dict[str, Any] = {
         "bootstrap_servers": settings.KAFKA_BOOTSTRAP_SERVERS,
         "security_protocol": settings.KAFKA_SECURITY_PROTOCOL,
     }
+    ctx = _ssl_context()
+    if ctx is not None:
+        kwargs["ssl_context"] = ctx
     if settings.KAFKA_SASL_MECHANISM:
         kwargs.update(
             sasl_mechanism=settings.KAFKA_SASL_MECHANISM,
@@ -100,6 +133,7 @@ async def _ensure_deliver_topic() -> None:
                     deliver_topic(),
                     num_partitions=settings.KAFKA_DELIVER_PARTITIONS,
                     replication_factor=settings.KAFKA_DELIVER_REPLICATION,
+                    topic_configs=_deliver_topic_configs(),
                 )
             ]
         )
