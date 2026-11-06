@@ -21,6 +21,19 @@ data:
   # abaixo para evitar o 404 de export de spans.
   OTEL_EXPORTER_OTLP_ENDPOINT: {{ . | quote }}
   {{- end }}
+  {{- with .Values.config.otelExporterOtlpProtocol }}
+  OTEL_EXPORTER_OTLP_PROTOCOL: {{ . | quote }}
+  {{- end }}
+  {{- with .Values.config.otelExporterOtlpTracesEndpoint }}
+  OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: {{ . | quote }}
+  {{- end }}
+  {{- with .Values.config.otelExporterOtlpMetricsEndpoint }}
+  OTEL_EXPORTER_OTLP_METRICS_ENDPOINT: {{ . | quote }}
+  {{- end }}
+  {{- with .Values.config.otelExporterOtlpLogsEndpoint }}
+  OTEL_EXPORTER_OTLP_LOGS_ENDPOINT: {{ . | quote }}
+  {{- end }}
+  OTEL_API_TRACING_ENABLED: {{ .Values.config.otelApiTracingEnabled | default "false" | quote }}
   # Sampler de traces (0..1). 0 = desliga export de traces (mantém métricas) —
   # use quando não há backend de traces. Com Collector+Tempo, use 1 (head 1.0;
   # o tail-sampling decide no Collector).

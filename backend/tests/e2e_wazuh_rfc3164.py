@@ -9,9 +9,10 @@ Estratégia de três camadas:
   2. Simulação do parser Wazuh — extrai o MSG após ``APP[pid]: `` e verifica
      que o JSON_Decoder (prematch ``^{``) casaria em todos os eventos.
 
-  3. Smoke condicional contra Wazuh real (192.168.3.211:514) — só roda se o
-     host estiver acessível via TCP dentro de 2s; caso contrário, pula com
-     mensagem explicativa. Não exige acesso root no Wazuh remoto.
+  3. Smoke condicional contra um Wazuh real — só roda com
+     ``CENTRALOPS_E2E_WAZUH_HOST`` definido (porta em ``CENTRALOPS_E2E_WAZUH_PORT``,
+     default 514) e o host acessível via TCP dentro de 2s; caso contrário, pula
+     com mensagem explicativa. Não exige acesso root no Wazuh remoto.
 
 Por que esses 5 eventos?
   Cobrem os quatro vendors integrados (Sophos, Microsoft Defender, NinjaOne)
@@ -24,6 +25,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 import re
 import socket
 from typing import Any, Dict, List, Optional
@@ -367,7 +369,7 @@ def test_wazuh_json_decoder_extracts_msg_correctly() -> None:
 # ── Camada 3: smoke condicional contra Wazuh real ────────────────────────────
 
 async def _can_reach_wazuh(
-    host: str = "192.168.3.211",
+    host: str,
     port: int = 514,
     timeout: float = 2.0,
 ) -> bool:
@@ -386,7 +388,7 @@ async def _can_reach_wazuh(
 
 @pytest.mark.asyncio
 async def test_smoke_against_real_wazuh_if_reachable() -> None:
-    """Smoke real contra Wazuh prod (192.168.3.211:514) — skip se unreachable.
+    """Smoke real contra o Wazuh de ``CENTRALOPS_E2E_WAZUH_HOST`` — skip se ausente/unreachable.
 
     Envia 1 evento sintético com event_type='centralops.smoke.rfc3164.test'.
     Para verificar recebimento no Wazuh após rodar:
@@ -397,8 +399,11 @@ async def test_smoke_against_real_wazuh_if_reachable() -> None:
     Valida: conexão TCP e envio sem exceção.
     NÃO valida: que o Wazuh indexou ou gerou alerta (requer acesso remoto).
     """
-    wazuh_host = "192.168.3.211"
-    wazuh_port = 514
+    # Alvo vem do ambiente: endereço de infraestrutura não mora no repositório.
+    wazuh_host = os.environ.get("CENTRALOPS_E2E_WAZUH_HOST", "").strip()
+    wazuh_port = int(os.environ.get("CENTRALOPS_E2E_WAZUH_PORT", "514"))
+    if not wazuh_host:
+        pytest.skip("CENTRALOPS_E2E_WAZUH_HOST não definido — smoke contra Wazuh real desligado")
 
     reachable = await _can_reach_wazuh(wazuh_host, wazuh_port)
     if not reachable:

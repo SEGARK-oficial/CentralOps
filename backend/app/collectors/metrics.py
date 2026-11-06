@@ -231,6 +231,9 @@ DATAPLANE_CONSUMED = _instrument("collector_dataplane_consumed_total")
 DATAPLANE_CONSUME_LATENCY = _instrument("collector_dataplane_consume_latency_seconds")
 DATAPLANE_CONSUMER_LAG = _instrument("collector_dataplane_consumer_lag")
 
+# export OTLP do próprio processo (falhas por sinal) — ver otel_common.build_exporter
+OTEL_EXPORT_FAILURES = _instrument("collector_otel_export_failures_total")
+
 
 @contextmanager
 def observe_capability(vendor: str, capability: str) -> Iterator[None]:

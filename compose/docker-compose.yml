@@ -75,6 +75,11 @@ services:
       # OTEL_EXPORTER_OTLP_ENDPOINT p/ o gateway (ex.: http://host.docker.internal:4318).
       - OTEL_ENABLED=${OTEL_ENABLED:-false}
       - OTEL_EXPORTER_OTLP_ENDPOINT=${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+      # grpc (4317) ou http/protobuf (4318, default); headers = auth de backend OTLP direto.
+      - OTEL_EXPORTER_OTLP_PROTOCOL=${OTEL_EXPORTER_OTLP_PROTOCOL:-}
+      - OTEL_EXPORTER_OTLP_HEADERS=${OTEL_EXPORTER_OTLP_HEADERS:-}
+      # Traces da API HTTP (opt-in, independente dos workers).
+      - OTEL_API_TRACING_ENABLED=${OTEL_API_TRACING_ENABLED:-false}
       - OTEL_TRACES_SAMPLER_RATIO=${OTEL_TRACES_SAMPLER_RATIO:-0}
       - OTEL_LOGS_ENABLED=${OTEL_LOGS_ENABLED:-false}
       - OTEL_METRIC_EXPORT_INTERVAL_MS=${OTEL_METRIC_EXPORT_INTERVAL_MS:-15000}
@@ -487,6 +492,9 @@ services:
       # OTEL_EXPORTER_OTLP_ENDPOINT p/ o gateway (ex.: http://host.docker.internal:4318).
       - OTEL_ENABLED=${OTEL_ENABLED:-false}
       - OTEL_EXPORTER_OTLP_ENDPOINT=${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+      # grpc (4317) ou http/protobuf (4318, default); headers = auth de backend OTLP direto.
+      - OTEL_EXPORTER_OTLP_PROTOCOL=${OTEL_EXPORTER_OTLP_PROTOCOL:-}
+      - OTEL_EXPORTER_OTLP_HEADERS=${OTEL_EXPORTER_OTLP_HEADERS:-}
       - OTEL_TRACES_SAMPLER_RATIO=${OTEL_TRACES_SAMPLER_RATIO:-0}
       - OTEL_LOGS_ENABLED=${OTEL_LOGS_ENABLED:-false}
       - OTEL_METRIC_EXPORT_INTERVAL_MS=${OTEL_METRIC_EXPORT_INTERVAL_MS:-15000}
@@ -643,6 +651,9 @@ services:
       # OTEL_EXPORTER_OTLP_ENDPOINT p/ o gateway (ex.: http://host.docker.internal:4318).
       - OTEL_ENABLED=${OTEL_ENABLED:-false}
       - OTEL_EXPORTER_OTLP_ENDPOINT=${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+      # grpc (4317) ou http/protobuf (4318, default); headers = auth de backend OTLP direto.
+      - OTEL_EXPORTER_OTLP_PROTOCOL=${OTEL_EXPORTER_OTLP_PROTOCOL:-}
+      - OTEL_EXPORTER_OTLP_HEADERS=${OTEL_EXPORTER_OTLP_HEADERS:-}
       - OTEL_TRACES_SAMPLER_RATIO=${OTEL_TRACES_SAMPLER_RATIO:-0}
       - OTEL_LOGS_ENABLED=${OTEL_LOGS_ENABLED:-false}
       - OTEL_METRIC_EXPORT_INTERVAL_MS=${OTEL_METRIC_EXPORT_INTERVAL_MS:-15000}
@@ -772,6 +783,9 @@ services:
       # OTEL_EXPORTER_OTLP_ENDPOINT p/ o gateway (ex.: http://host.docker.internal:4318).
       - OTEL_ENABLED=${OTEL_ENABLED:-false}
       - OTEL_EXPORTER_OTLP_ENDPOINT=${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+      # grpc (4317) ou http/protobuf (4318, default); headers = auth de backend OTLP direto.
+      - OTEL_EXPORTER_OTLP_PROTOCOL=${OTEL_EXPORTER_OTLP_PROTOCOL:-}
+      - OTEL_EXPORTER_OTLP_HEADERS=${OTEL_EXPORTER_OTLP_HEADERS:-}
       - OTEL_TRACES_SAMPLER_RATIO=${OTEL_TRACES_SAMPLER_RATIO:-0}
       - OTEL_LOGS_ENABLED=${OTEL_LOGS_ENABLED:-false}
       - OTEL_METRIC_EXPORT_INTERVAL_MS=${OTEL_METRIC_EXPORT_INTERVAL_MS:-15000}
@@ -894,6 +908,9 @@ services:
       # OTEL_EXPORTER_OTLP_ENDPOINT p/ o gateway (ex.: http://host.docker.internal:4318).
       - OTEL_ENABLED=${OTEL_ENABLED:-false}
       - OTEL_EXPORTER_OTLP_ENDPOINT=${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+      # grpc (4317) ou http/protobuf (4318, default); headers = auth de backend OTLP direto.
+      - OTEL_EXPORTER_OTLP_PROTOCOL=${OTEL_EXPORTER_OTLP_PROTOCOL:-}
+      - OTEL_EXPORTER_OTLP_HEADERS=${OTEL_EXPORTER_OTLP_HEADERS:-}
       - OTEL_TRACES_SAMPLER_RATIO=${OTEL_TRACES_SAMPLER_RATIO:-0}
       - OTEL_LOGS_ENABLED=${OTEL_LOGS_ENABLED:-false}
       - OTEL_METRIC_EXPORT_INTERVAL_MS=${OTEL_METRIC_EXPORT_INTERVAL_MS:-15000}
@@ -1012,6 +1029,9 @@ services:
       # OTEL_EXPORTER_OTLP_ENDPOINT p/ o gateway (ex.: http://host.docker.internal:4318).
       - OTEL_ENABLED=${OTEL_ENABLED:-false}
       - OTEL_EXPORTER_OTLP_ENDPOINT=${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+      # grpc (4317) ou http/protobuf (4318, default); headers = auth de backend OTLP direto.
+      - OTEL_EXPORTER_OTLP_PROTOCOL=${OTEL_EXPORTER_OTLP_PROTOCOL:-}
+      - OTEL_EXPORTER_OTLP_HEADERS=${OTEL_EXPORTER_OTLP_HEADERS:-}
       - OTEL_TRACES_SAMPLER_RATIO=${OTEL_TRACES_SAMPLER_RATIO:-0}
       - OTEL_LOGS_ENABLED=${OTEL_LOGS_ENABLED:-false}
       - OTEL_METRIC_EXPORT_INTERVAL_MS=${OTEL_METRIC_EXPORT_INTERVAL_MS:-15000}
@@ -1133,6 +1153,9 @@ services:
       # OTEL_EXPORTER_OTLP_ENDPOINT p/ o gateway (ex.: http://host.docker.internal:4318).
       - OTEL_ENABLED=${OTEL_ENABLED:-false}
       - OTEL_EXPORTER_OTLP_ENDPOINT=${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+      # grpc (4317) ou http/protobuf (4318, default); headers = auth de backend OTLP direto.
+      - OTEL_EXPORTER_OTLP_PROTOCOL=${OTEL_EXPORTER_OTLP_PROTOCOL:-}
+      - OTEL_EXPORTER_OTLP_HEADERS=${OTEL_EXPORTER_OTLP_HEADERS:-}
       - OTEL_TRACES_SAMPLER_RATIO=${OTEL_TRACES_SAMPLER_RATIO:-0}
       - OTEL_LOGS_ENABLED=${OTEL_LOGS_ENABLED:-false}
       - OTEL_METRIC_EXPORT_INTERVAL_MS=${OTEL_METRIC_EXPORT_INTERVAL_MS:-15000}
@@ -1224,6 +1247,9 @@ services:
       - APP_ENV=${APP_ENV:-production}
       - OTEL_ENABLED=${OTEL_ENABLED:-false}
       - OTEL_EXPORTER_OTLP_ENDPOINT=${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+      # grpc (4317) ou http/protobuf (4318, default); headers = auth de backend OTLP direto.
+      - OTEL_EXPORTER_OTLP_PROTOCOL=${OTEL_EXPORTER_OTLP_PROTOCOL:-}
+      - OTEL_EXPORTER_OTLP_HEADERS=${OTEL_EXPORTER_OTLP_HEADERS:-}
       - OTEL_METRIC_EXPORT_INTERVAL_MS=${OTEL_METRIC_EXPORT_INTERVAL_MS:-15000}
       - DATABASE_URL=${DATABASE_URL:-postgresql+psycopg2://${POSTGRES_USER:-centralops}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD obrigatorio - gere com openssl rand -base64 24 e coloque no .env}@postgres:5432/${POSTGRES_DB:-centralops}}
       - REDIS_URL=${REDIS_URL:-redis://:${REDIS_PASSWORD:?REDIS_PASSWORD obrigatorio - gere com openssl rand -base64 24 e coloque no .env}@redis:6379/0}
@@ -1310,6 +1336,9 @@ services:
       # OTEL_EXPORTER_OTLP_ENDPOINT p/ o gateway (ex.: http://host.docker.internal:4318).
       - OTEL_ENABLED=${OTEL_ENABLED:-false}
       - OTEL_EXPORTER_OTLP_ENDPOINT=${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+      # grpc (4317) ou http/protobuf (4318, default); headers = auth de backend OTLP direto.
+      - OTEL_EXPORTER_OTLP_PROTOCOL=${OTEL_EXPORTER_OTLP_PROTOCOL:-}
+      - OTEL_EXPORTER_OTLP_HEADERS=${OTEL_EXPORTER_OTLP_HEADERS:-}
       - OTEL_TRACES_SAMPLER_RATIO=${OTEL_TRACES_SAMPLER_RATIO:-0}
       - OTEL_LOGS_ENABLED=${OTEL_LOGS_ENABLED:-false}
       - OTEL_METRIC_EXPORT_INTERVAL_MS=${OTEL_METRIC_EXPORT_INTERVAL_MS:-15000}

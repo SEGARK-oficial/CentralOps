@@ -11,7 +11,8 @@ import os
 
 from .core import auth as app_auth
 from .core.config import settings
-from .core.logging_config import configure_logging, set_correlation_id
+from .core import api_tracing
+from .core.logging_config import attach_redaction, configure_logging, set_correlation_id
 from .db import models  # noqa: F401
 from .db.database import SessionLocal
 # Force Celery singleton instantiation in the FastAPI process so that any
@@ -49,6 +50,8 @@ if settings.DEBUG_REQUESTS:
     debug_handler.setFormatter(
         logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
     )
+    # Formatter de texto puro: ``attach_redaction`` o envolve e redige a saída.
+    attach_redaction(debug_handler)
     logging.getLogger().addHandler(debug_handler)
 
 # o init de schema NÃO roda mais no import (schema-no-import
@@ -231,15 +234,24 @@ async def lifespan(app: FastAPI):
         logging.getLogger(__name__).debug(
             "check de integridade de edição no boot falhou (não-fatal)", exc_info=True
         )
+    # Traces da API (opt-in): o provider nasce AQUI, por processo; o middleware já
+    # foi instalado no import (``api_tracing.instrument_app``).
+    try:
+        api_tracing.start()
+    except Exception:  # noqa: BLE001 — telemetria nunca bloqueia o boot
+        logging.getLogger(__name__).warning("traces da API indisponíveis", exc_info=True)
     # Servidor MCP embutido: os gerenciadores de sessão do SDK vivem no
     # lifespan (task group). Ficar "pronto" não significa "exposto" — o gate
     # em /api/mcp lê o toggle do banco a cada requisição.
-    async with mcp_runtime(app) as runtime:
-        app.state.mcp_runtime = runtime
-        try:
-            yield
-        finally:
-            app.state.mcp_runtime = None
+    try:
+        async with mcp_runtime(app) as runtime:
+            app.state.mcp_runtime = runtime
+            try:
+                yield
+            finally:
+                app.state.mcp_runtime = None
+    finally:
+        api_tracing.stop()
 
 
 app = FastAPI(
@@ -249,6 +261,8 @@ app = FastAPI(
     redoc_url="/redoc" if settings.api_docs_enabled else None,
     openapi_url="/openapi.json" if settings.api_docs_enabled else None,
 )
+# No-op com OTEL_API_TRACING_ENABLED desligado (default).
+api_tracing.instrument_app(app)
 
 
 @app.middleware("http")

@@ -52,7 +52,7 @@ def db():
     engine.dispose()
 
 
-def _org(db, name="ViaConnect MSP", slug="viaconnect"):
+def _org(db, name="Parceiro Exemplo MSP", slug="parceiro-exemplo"):
     org = models.Organization(name=name, slug=slug, is_active=True)
     db.add(org)
     db.commit()
@@ -64,7 +64,7 @@ def _parent(db, org, auth_status="healthy"):
     """Pai MSSP: autenticado, mas SEM tenant_id (não é um tenant)."""
     parent = models.Integration(
         organization_id=org.id,
-        name="ViaConnect MSP",
+        name="Parceiro Exemplo MSP",
         platform="sophos",
         kind="organization",
         auth_status=auth_status,

@@ -36,6 +36,7 @@ logger = logging.getLogger(__name__)
 _ENABLED: bool = False
 _INITIALIZED: bool = False
 _meter: Any = None
+_provider: Any = None
 _instruments: Dict[str, Any] = {}
 
 # ─── Catálogo autoritativo dos instrumentos (Superfície B) ──────────────────
@@ -239,6 +240,11 @@ _SPEC: Dict[str, Dict[str, Any]] = {
     "collector_dataplane_consumed_total": {"kind": "counter", "unit": "1", "labels": ("outcome",)},
     "collector_dataplane_consume_latency_seconds": {"kind": "histogram", "unit": "s", "labels": (), "buckets": (0.005, 0.01, 0.05, 0.1, 0.25, 0.5, 1, 2, 5, 10, 30)},
     "collector_dataplane_consumer_lag": {"kind": "gauge", "unit": "1", "labels": ("partition",)},
+    # export OTLP do PRÓPRIO processo — sem Collector no meio, é o único sinal de
+    # que a telemetria está se perdendo (backend fora, credencial inválida, TLS).
+    # ``signal`` ∈ {traces, metrics, logs}. A série de métricas sobe quando o
+    # backend volta (o contador é cumulativo por processo).
+    "collector_otel_export_failures_total": {"kind": "counter", "unit": "1", "labels": ("signal",)},
     # liveness (Superfície B) — heartbeat OBSERVÁVEL. Vale 1 enquanto o filho
     # prefork está vivo; o ``PeriodicExportingMetricReader`` chama o callback a
     # cada ciclo e RE-EXPORTA 1. Quando o processo morre, a série para de ser
@@ -308,7 +314,7 @@ def init_metrics() -> bool:
     """Monta o MeterProvider OTLP-push UMA vez por processo. Retorna ``True`` se
     as métricas OTel ficaram ativas, ``False`` caso contrário (flag off, pacotes
     ausentes ou erro). Idempotente: chamadas subsequentes não remontam."""
-    global _ENABLED, _INITIALIZED, _meter, _instruments
+    global _ENABLED, _INITIALIZED, _meter, _instruments, _provider
 
     if _INITIALIZED:
         return _ENABLED
@@ -319,9 +325,6 @@ def init_metrics() -> bool:
 
     try:
         from opentelemetry import metrics as _metrics
-        from opentelemetry.exporter.otlp.proto.http.metric_exporter import (
-            OTLPMetricExporter,
-        )
         from opentelemetry.sdk.metrics import MeterProvider
         from opentelemetry.sdk.metrics.export import PeriodicExportingMetricReader
 
@@ -330,22 +333,15 @@ def init_metrics() -> bool:
         interval_ms = int(
             getattr(settings, "OTEL_METRIC_EXPORT_INTERVAL_MS", 60000) or 60000
         )
-        endpoint = otel_common.otlp_endpoint_for("metrics")
-        # Fail-safe: OTEL_ENABLED=true porém NENHUM endpoint resolvível com scheme.
-        # Delegar ao SDK aqui construiria a URL relativa '/v1/metrics' (No scheme
-        # supplied) porque o compose/Helm seta OTEL_EXPORTER_OTLP_ENDPOINT vazio →
-        # export falho a cada ciclo, poluindo o log. Desliga limpo com 1 warning.
-        if not endpoint and not otel_common.sdk_env_endpoint_valid():
-            logger.warning(
-                "OTEL_ENABLED=true mas nenhum endpoint OTLP com scheme "
-                "(OTEL_EXPORTER_OTLP_ENDPOINT vazio/sem http[s]://) — métricas OTel "
-                "DESLIGADAS neste processo (evita spam '/v1/metrics: No scheme supplied')"
-            )
+        # Protocolo/endpoint por sinal (especificação OTLP). Config inválida — p.ex.
+        # OTEL_EXPORTER_OTLP_ENDPOINT vazio no compose/Helm, que faria o SDK montar
+        # a URL relativa '/v1/metrics' — ou pacote do protocolo ausente ⇒ None com
+        # 1 warning, em vez de export falho a cada ciclo.
+        built = otel_common.build_exporter("metrics")
+        if built is None:
             _ENABLED = False
             return False
-        exporter = (
-            OTLPMetricExporter(endpoint=endpoint) if endpoint else OTLPMetricExporter()
-        )
+        exporter, endpoint_desc = built
         reader = PeriodicExportingMetricReader(
             exporter, export_interval_millis=interval_ms
         )
@@ -355,7 +351,9 @@ def init_metrics() -> bool:
             views=_build_views(),
         )
         _metrics.set_meter_provider(provider)
-        _meter = _metrics.get_meter("centralops.collectors")
+        _provider = provider
+        # Do PRÓPRIO provider (o global só é definível uma vez por processo).
+        _meter = provider.get_meter("centralops.collectors")
 
         for name, spec in _SPEC.items():
             kind, unit = spec["kind"], spec["unit"]
@@ -391,7 +389,7 @@ def init_metrics() -> bool:
             "OTel metrics ativo (OTLP-push, %d instrumentos, interval=%dms, endpoint=%s)",
             len(_instruments),
             interval_ms,
-            endpoint or "<env padrão OTLP>",
+            endpoint_desc,
         )
         return True
     except Exception:
@@ -406,6 +404,26 @@ def init_metrics() -> bool:
 
 def is_enabled() -> bool:
     return _ENABLED
+
+
+def shutdown(timeout_millis: int = 5000) -> None:
+    """Exporta o último intervalo e desliga o provider. Idempotente.
+
+    Sem isto, o processo que sai sem ``atexit`` (filho prefork) perdia as
+    contagens acumuladas desde o último export periódico."""
+    global _ENABLED
+    provider = _provider
+    _ENABLED = False
+    if provider is None:
+        return
+    try:
+        provider.force_flush(timeout_millis)
+    except Exception:  # pragma: no cover — desligamento nunca levanta
+        logger.debug("otel_metrics: force_flush falhou", exc_info=True)
+    try:
+        provider.shutdown(timeout_millis=timeout_millis)
+    except Exception:  # pragma: no cover
+        logger.debug("otel_metrics: shutdown falhou", exc_info=True)
 
 
 def count(name: str, value: float = 1, attrs: Optional[Dict[str, Any]] = None) -> None:
@@ -446,8 +464,9 @@ def set_gauge(name: str, value: float, attrs: Optional[Dict[str, Any]] = None) -
 
 def reset_for_tests() -> None:
     """Apenas para testes — força re-init no próximo init_metrics."""
-    global _ENABLED, _INITIALIZED, _meter, _instruments
+    global _ENABLED, _INITIALIZED, _meter, _instruments, _provider
     _ENABLED = False
     _INITIALIZED = False
     _meter = None
+    _provider = None
     _instruments = {}

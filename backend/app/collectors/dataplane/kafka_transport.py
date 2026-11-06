@@ -717,9 +717,22 @@ async def run_dispatch_consumer(stop_event: Optional[threading.Event] = None) ->
                 with tracing.span_with_parent(
                     "dataplane.dispatch",
                     payload.get("trace"),
-                    **{"centralops.destination_id": str(dest_id)},
+                    span_kind="consumer",
+                    **{
+                        "centralops.destination_id": str(dest_id),
+                        "centralops.batch_size": len(batch),
+                        "messaging.system": "kafka",
+                        "messaging.operation.type": "process",
+                        "messaging.destination.name": getattr(msg, "topic", None),
+                        "messaging.destination.partition.id": (
+                            str(msg.partition) if getattr(msg, "partition", None) is not None else None
+                        ),
+                    },
                 ):
-                    await dispatch_batch_to_destination(dest_id, batch)
+                    outcome = await dispatch_batch_to_destination(dest_id, batch)
+                    # Desvio para a DLQ sem exceção (destino ausente/de outro
+                    # tenant, rejeição pelo sink) também é erro no span.
+                    tracing.record_dispatch_outcome(outcome)
                 await _commit(tp, msg.offset)
                 attempts.pop(key, None)
             except circuit_breaker.BreakerOpen:

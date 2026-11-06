@@ -88,24 +88,28 @@ def _init_observability() -> None:
     do data-plane (produce/consume/lag) NÃO seriam exportados via OTLP. Espelha os
     3 sinais dos workers (tracing/metrics/logs); cada um é no-op se OTEL_ENABLED off.
     """
-    for label, mod, fn in (
-        ("tracing", "tracing", "init_tracing"),
-        ("metrics", "otel_metrics", "init_metrics"),
-        ("logs", "otel_logs", "init_logs"),
-    ):
-        try:
-            import importlib
+    from ..otel_common import init_all_signals
 
-            getattr(importlib.import_module(f"..{mod}", __package__), fn)()
-        except Exception:  # pragma: no cover — telemetria jamais derruba o dispatcher
-            logger.warning("dispatcher: init OTel %s falhou (segue sem)", label, exc_info=True)
+    init_all_signals()
 
 
 def main() -> None:
     logging.basicConfig(level=logging.INFO)
+    # O ``basicConfig`` cria um handler SEM o formatter JSON (que também redige):
+    # sem a redação de handler, log de logger filho saía com segredo em claro.
+    from ...core.logging_config import attach_redaction_to_root_handlers
+
+    attach_redaction_to_root_handlers()
     _init_observability()
     logger.info("dispatcher: iniciando consumer do data-plane Kafka")
-    asyncio.run(_amain())
+    try:
+        asyncio.run(_amain())
+    finally:
+        # SIGTERM é cooperativo (stop_event), então o ``_amain`` retorna e o flush
+        # roda: drena spans/logs em buffer e o último intervalo de métricas.
+        from ..otel_common import flush_and_shutdown
+
+        flush_and_shutdown()
 
 
 if __name__ == "__main__":  # pragma: no cover — entrypoint de processo

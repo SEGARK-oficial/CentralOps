@@ -64,7 +64,7 @@ ConfigMap viva):
 | Variável | Valor | Efeito |
 |---|---|---|
 | `OTEL_ENABLED` | `true` | liga traces+métricas |
-| `OTEL_EXPORTER_OTLP_ENDPOINT` | `http://<IP_DO_HOST_DE_OBS>:4318` (ex.: `http://192.168.3.211:4318`) | base; a app anexa `/v1/{metrics,logs,traces}` |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | `http://<IP_DO_HOST_DE_OBS>:4318` (ex.: `http://192.0.2.20:4318`) | base; a app anexa `/v1/{metrics,logs,traces}` |
 | `OTEL_EXPORTER_OTLP_METRICS_ENDPOINT` | *(vazio)* | remova o push direto ao Prometheus |
 | `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT` | *(vazio)* | idem |
 | `OTEL_EXPORTER_OTLP_LOGS_ENDPOINT` | *(vazio)* | idem |
@@ -79,7 +79,7 @@ Patch da ConfigMap viva + restart (exemplo):
 
 ```bash
 kubectl -n centralops patch configmap centralops-config --type merge -p '{"data":{
-  "OTEL_EXPORTER_OTLP_ENDPOINT":"http://192.168.3.211:4318",
+  "OTEL_EXPORTER_OTLP_ENDPOINT":"http://<IP_DO_HOST_DE_OBS>:4318",
   "OTEL_EXPORTER_OTLP_METRICS_ENDPOINT":"",
   "OTEL_EXPORTER_OTLP_TRACES_ENDPOINT":"",
   "OTEL_EXPORTER_OTLP_LOGS_ENDPOINT":"",
@@ -109,7 +109,7 @@ curl -s 'http://localhost:3100/loki/api/v1/labels'
 - **SPOF:** 1 Collector + toda a cadeia (Prom/Loki/Tempo/Grafana) neste host. Em
   escala pequena, OK (WAL + restart). Se a telemetria virar crítica em resposta a
   incidente (SOC/MSSP), suba 2 réplicas do Collector atrás de um LB e considere
-  separar a cadeia. Se a LAN `192.168.3.x` particiona, o SDK da app dropa in-memory.
+  separar a cadeia. Se a rede entre o cluster e o host de observabilidade particiona, o SDK da app dropa in-memory.
 - **PII:** a redação no Collector (opcional, comentada no config) protege logs de
   **ops**; **não** é a redação fail-closed do **data-plane** do produto.
 - **Tempo** precisa existir **antes** de religar traces (senão volta o 404).

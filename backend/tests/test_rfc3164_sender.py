@@ -188,5 +188,5 @@ def test_use_tls_creates_ssl_context_with_min_tls_1_2() -> None:
 
 def test_no_tls_does_not_create_ssl_context() -> None:
     """Quando use_tls=False (default), ctx deve ser None."""
-    client = Rfc3164JsonClient(host="192.168.3.211", port=514, use_tls=False)
+    client = Rfc3164JsonClient(host="192.0.2.10", port=514, use_tls=False)
     assert client.ctx is None
