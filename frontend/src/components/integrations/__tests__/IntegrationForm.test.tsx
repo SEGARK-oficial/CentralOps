@@ -110,6 +110,23 @@ const CATALOG: ProviderPlatformRead[] = [
     streams: [],
     supports_test: false,
   },
+  // Só-coleta com colunas genéricas (client_id/tenant_id/base_url) + segredo.
+  {
+    platform: "azure",
+    display_name: "Microsoft Azure",
+    category: "Cloud",
+    description: "Activity Log, Entra e recursos.",
+    icon_id: null,
+    docs_url: null,
+    auth_fields: [
+      { key: "tenant_id", label: "Tenant ID", type: "string", required: true },
+      { key: "client_id", label: "Client ID", type: "string", required: true },
+      { key: "client_secret", label: "Client Secret", type: "secret", required: true },
+      { key: "base_url", label: "Fonte: Workspace ID ou namespace do Event Hubs", type: "string", required: false },
+    ],
+    streams: [],
+    supports_test: true,
+  },
 ]
 
 const ORGS: Organization[] = [
@@ -616,5 +633,113 @@ describe("IntegrationForm — SEC-04 (docs_url)", () => {
     renderForm()
     await screen.findByTestId("tile-card-sophos")
     expect(screen.queryByRole("link", { name: "Ver documentação de configuração" })).not.toBeInTheDocument()
+  })
+})
+
+// Edição de plataforma DINÂMICA (sem bloco próprio). O update não tinha ramo para
+// elas: caía no do Wazuh, mandava indexer_* vazios e descartava os auth_fields —
+// 200 sem gravar. Caso real: Fonte do Azure "configurada pela UI" e o coletor
+// seguia com "nenhuma fonte configurada".
+const AZURE_INTEGRATION: Integration = {
+  id: 56,
+  organization_id: 10,
+  organization_name: "Org A",
+  name: "Azure Matriz",
+  platform: "azure",
+  is_active: true,
+  is_authenticated: false,
+  auth_status: "unknown",
+  capabilities: [],
+  tenant_id: "11111111-1111-1111-1111-111111111111",
+  client_id: "22222222-2222-2222-2222-222222222222",
+  base_url: null,
+}
+
+function renderDynamicEdit(integration: Integration) {
+  const onSubmit = vi.fn().mockResolvedValue(undefined)
+  render(
+    <IntegrationForm mode="edit" integration={integration} organizations={ORGS} onSubmit={onSubmit} />,
+  )
+  return onSubmit
+}
+
+const FONTE = /Fonte: Workspace ID/
+
+describe("IntegrationForm — edição de plataforma dinâmica", () => {
+  beforeEach(() => {
+    mockedApi.getIntegrationCollectionFilters.mockResolvedValue({
+      integration_id: 56, platform: "azure", filters: {}, available_filters: {},
+    })
+  })
+
+  it("abre com as colunas gravadas preenchidas e o segredo vazio", async () => {
+    renderDynamicEdit({ ...AZURE_INTEGRATION, base_url: "33333333-3333-3333-3333-333333333333" })
+    expect(await screen.findByLabelText(FONTE)).toHaveValue("33333333-3333-3333-3333-333333333333")
+    expect(screen.getByLabelText(/Tenant ID/)).toHaveValue(AZURE_INTEGRATION.tenant_id)
+    expect(screen.getByLabelText(/Client ID/)).toHaveValue(AZURE_INTEGRATION.client_id)
+    expect(screen.getByLabelText(/Client Secret/)).toHaveValue("")
+  })
+
+  it("preencher a Fonte envia base_url — sem exigir o segredo de novo e sem campos do Wazuh", async () => {
+    const onSubmit = renderDynamicEdit(AZURE_INTEGRATION)
+    fireEvent.change(await screen.findByLabelText(FONTE), {
+      target: { value: " 44444444-4444-4444-4444-444444444444 " },
+    })
+    fireEvent.click(screen.getByRole("button", { name: /Salvar alterações/i }))
+
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1))
+    const payload = onSubmit.mock.calls[0][0] as Record<string, unknown>
+    expect(payload).toMatchObject({
+      base_url: "44444444-4444-4444-4444-444444444444",
+      tenant_id: AZURE_INTEGRATION.tenant_id,
+      client_id: AZURE_INTEGRATION.client_id,
+    })
+    expect(payload).not.toHaveProperty("client_secret")
+    expect(payload).not.toHaveProperty("indexer_url")
+    expect(payload).not.toHaveProperty("manager_url")
+    expect(payload).not.toHaveProperty("verify_ssl")
+  })
+
+  it("digitar um segredo novo o envia (rotação)", async () => {
+    const onSubmit = renderDynamicEdit(AZURE_INTEGRATION)
+    fireEvent.change(await screen.findByLabelText(/Client Secret/), { target: { value: "novo-segredo" } })
+    fireEvent.click(screen.getByRole("button", { name: /Salvar alterações/i }))
+
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1))
+    expect(onSubmit.mock.calls[0][0]).toMatchObject({ client_secret: "novo-segredo" })
+  })
+
+  it("apagar uma coluna que tinha valor envia null (limpar é intencional)", async () => {
+    const onSubmit = renderDynamicEdit({ ...AZURE_INTEGRATION, base_url: "meu-namespace" })
+    fireEvent.change(await screen.findByLabelText(FONTE), { target: { value: "" } })
+    fireEvent.click(screen.getByRole("button", { name: /Salvar alterações/i }))
+
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1))
+    expect(onSubmit.mock.calls[0][0]).toMatchObject({ base_url: null })
+  })
+
+  it("coluna obrigatória apagada bloqueia o submit", async () => {
+    const onSubmit = renderDynamicEdit(AZURE_INTEGRATION)
+    fireEvent.change(await screen.findByLabelText(/Tenant ID/), { target: { value: "" } })
+    fireEvent.click(screen.getByRole("button", { name: /Salvar alterações/i }))
+
+    await waitFor(() => expect(screen.getByLabelText(/Tenant ID/)).toHaveFocus())
+    expect(onSubmit).not.toHaveBeenCalled()
+  })
+
+  it("segredo e chave sem coluna vazios não bloqueiam nem são enviados", async () => {
+    // ninjaone no catálogo do teste: api_token (secret) e instance_region
+    // (select sem coluna) — nenhum dos dois volta do backend.
+    const onSubmit = renderDynamicEdit({
+      ...AZURE_INTEGRATION, id: 57, platform: "ninjaone", tenant_id: undefined, client_id: undefined,
+    })
+    await screen.findByLabelText(/API Token/)
+    fireEvent.click(screen.getByRole("button", { name: /Salvar alterações/i }))
+
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1))
+    const payload = onSubmit.mock.calls[0][0] as Record<string, unknown>
+    expect(payload).not.toHaveProperty("api_token")
+    expect(payload).not.toHaveProperty("instance_region")
+    expect(payload).not.toHaveProperty("indexer_url")
   })
 })
