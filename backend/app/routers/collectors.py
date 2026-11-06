@@ -740,9 +740,6 @@ def trigger_collection(
 @router.delete(
     "/state/{integration_id}/{stream}/cursor",
     status_code=204,
-    dependencies=[
-        Depends(app_auth.require_permission(app_auth.Permission.INTEGRATION_RESET))
-    ],
 )
 def reset_cursor(
     integration_id: int,
@@ -750,6 +747,9 @@ def reset_cursor(
     db: Session = Depends(database.get_session),
     integration_repo: repository.IntegrationRepository = Depends(get_integration_repo),
     state_repo: repository.CollectionStateRepository = Depends(get_state_repo),
+    current_user: models.AppUser = Depends(
+        app_auth.require_permission(app_auth.Permission.INTEGRATION_RESET)
+    ),
 ) -> None:
     """Zera o cursor persistido **e** o cursor hot em Redis (se disponível).
 
@@ -775,6 +775,10 @@ def reset_cursor(
                 "es": "Integración no encontrada.",
             },
         )
+    # Escopo de tenant: ``integration.reset`` é do OPERATOR, papel escopado a
+    # uma org. Sem isto um operator da org A zerava o cursor de uma integração
+    # da org B — re-coleta, cota do fornecedor e duplicidade na conta de outro.
+    tenant.require_subtree_access(current_user, integration.organization_id)
 
     row = state_repo.get(integration_id, stream)
     if row is not None:
