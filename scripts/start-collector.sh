@@ -80,7 +80,14 @@ fi
 # existente. Falha aqui (DB inalcançável após o backoff) aborta o worker — o
 # restart:unless-stopped do compose re-tenta.
 echo "start-collector: migração de schema (python -m app.db.migrate)..."
-python -m app.db.migrate || { echo "start-collector: migração FALHOU — abortando." >&2; exit 1; }
+# Com PgBouncer em pooling por transação, a migração vai DIRETO ao Postgres:
+# ela segura um pg_advisory_lock de SESSÃO, que o pooler quebraria
+# (ADR-0018 Onda 1). Sem DATABASE_MIGRATION_URL, usa a DATABASE_URL de sempre.
+if [ -n "${DATABASE_MIGRATION_URL:-}" ]; then
+    DATABASE_URL="${DATABASE_MIGRATION_URL}" python -m app.db.migrate || { echo "start-collector: migração FALHOU — abortando." >&2; exit 1; }
+else
+    python -m app.db.migrate || { echo "start-collector: migração FALHOU — abortando." >&2; exit 1; }
+fi
 echo "start-collector: schema pronto."
 
 # Log amigavel antes de handoff para o Celery.
