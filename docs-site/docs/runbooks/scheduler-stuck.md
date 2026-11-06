@@ -69,7 +69,7 @@ Isso aponta para a etapa de **entrega**, não de coleta. Um destino lento ou ind
 2. (Apenas administrador) Abra **Roteia -> Destinos** e verifique se algum destino está com a proteção contra destino instável acionada ou com a fila de reenvio crescendo. Nessa tela é possível acompanhar e reprocessar os eventos que ficaram retidos.
 3. (Apenas administrador) Abra **Roteia -> Rotas** para confirmar para quais destinos os eventos daquela fonte estão sendo enviados.
 
-Se o destino (por exemplo, Wazuh, Splunk ou um armazenamento em nuvem) estiver indisponível ou recusando os eventos, a entrega só normaliza quando o destino voltar. Enquanto isso, os eventos ficam na **fila de reenvio** e são reenviados automaticamente. Se a fila não diminuir sozinha após o destino voltar, acione o administrador da plataforma.
+Se o destino (por exemplo, Wazuh, Splunk ou um armazenamento em nuvem) estiver indisponível ou recusando os eventos, a entrega só normaliza quando o destino voltar. Enquanto isso, falhas curtas são re-tentadas automaticamente e o que não passa vai para a **fila de reenvio** do destino. Quando o destino voltar, reprocesse a fila pelo botão **Reprocessar** em **Roteia -> Destinos**; se ela não diminuir, acione o administrador da plataforma.
 
 ### Cenário D: a integração sumiu da lista
 

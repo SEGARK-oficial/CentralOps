@@ -414,8 +414,8 @@ async def test_dropped_event_reaches_capture(async_redis, sync_redis, monkeypatc
 async def test_unrouted_event_reaches_capture(async_redis, sync_redis, monkeypatch):
     sid = await _start_session(async_redis, sync_redis)
     _wire_enqueue(monkeypatch)
-    monkeypatch.setattr(pipeline, "persist_batch_dlq", lambda *a, **k: None, raising=False)
-    with patch("backend.app.collectors.delivery.persist_batch_dlq", lambda *a, **k: None):
+    monkeypatch.setattr(pipeline, "persist_batch_dlq", lambda *a, **k: True, raising=False)
+    with patch("backend.app.collectors.delivery.persist_batch_dlq", lambda *a, **k: True):
         pipeline._enqueue_routed([_env("a")], [])
     (ev,) = _read_sync(sync_redis, sid)
     assert ev["outcome"] == cs.OUTCOME_UNROUTED
@@ -440,7 +440,7 @@ async def test_residency_blocked_event_reaches_capture(async_redis, sync_redis, 
     monkeypatch.setattr(
         pipeline, "_load_destination_residency", lambda ids: {"us-sink": "US"}
     )
-    with patch("backend.app.collectors.delivery.persist_batch_dlq", lambda *a, **k: None):
+    with patch("backend.app.collectors.delivery.persist_batch_dlq", lambda *a, **k: True):
         pipeline._enqueue_routed([_env("a", data_geography="EU")], [_route(dest="us-sink")])
     events = _read_sync(sync_redis, sid)
     # o bloqueio esvaziou o fan-out → o evento seguiu para o caminho unrouted (DLQ).
@@ -647,7 +647,7 @@ async def test_dispatch_records_delivery_failed_for_missing_destination(
     desfecho agora aparece na escuta."""
     sid = await _start_session(async_redis, sync_redis)
     with patch(
-        "backend.app.collectors.delivery.persist_batch_dlq", lambda *a, **k: None
+        "backend.app.collectors.delivery.persist_batch_dlq", lambda *a, **k: True
     ):
         from backend.app.collectors.pipeline import dispatch_batch_to_destination
 

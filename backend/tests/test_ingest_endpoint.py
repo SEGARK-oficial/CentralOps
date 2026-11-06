@@ -292,3 +292,33 @@ def test_clean_batch_stays_200(setup):
     assert p["accepted"] == 2
     assert p["parse_errors"] == 0 and p["type_errors"] == 0 and p["oversized"] == 0
     assert p["error_detail"] is None
+
+
+def test_buffer_full_returns_503_and_keeps_accepted_events(setup, monkeypatch):
+    """ADR-0018 Onda 0: buffer cheio → 503 + Retry-After (o edge re-tenta) e os
+    eventos JÁ aceitos ficam intactos. Antes o LTRIM apagava os mais antigos,
+    que já tinham recebido 200."""
+    from backend.app.collectors import ingest_buffer
+
+    client, push_id, _pull_id, server = setup
+    token = client.post(f"/api/ingest/integrations/{push_id}/token").json()["token"]
+    headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/x-ndjson"}
+
+    orig = ingest_buffer.push_events
+
+    async def _small_cap(*a, **k):
+        k["max_len"] = 2
+        return await orig(*a, **k)
+
+    monkeypatch.setattr(ingest_router, "push_events", _small_cap)
+
+    r = client.post("/api/ingest/traffic", data='{"n":1}\n{"n":2}', headers=headers)
+    assert r.status_code == 200, r.text
+    r = client.post("/api/ingest/traffic", data='{"n":3}', headers=headers)
+    assert r.status_code == 503
+    assert r.headers.get("Retry-After")
+
+    import asyncio as _asyncio
+
+    drained = _asyncio.run(ingest_buffer.drain_events(server, push_id, "traffic"))
+    assert sorted(e["n"] for e in drained) == [1, 2]

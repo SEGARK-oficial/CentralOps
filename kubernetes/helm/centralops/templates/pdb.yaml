@@ -57,7 +57,9 @@ metadata:
     {{- include "centralops.labels" $ | nindent 4 }}
     app.kubernetes.io/component: worker-{{ $name }}
 spec:
-  minAvailable: {{ $.Values.workers.pdb.minAvailable }}
+  # maxUnavailable (não minAvailable): com 1 réplica ainda permite o drain do nó;
+  # com N réplicas limita a 1 pod fora por vez.
+  maxUnavailable: {{ $.Values.workers.pdb.maxUnavailable }}
   selector:
     matchLabels:
       app.kubernetes.io/name: {{ include "centralops.fullname" $ }}-worker-{{ $name }}
