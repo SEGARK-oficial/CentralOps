@@ -286,7 +286,10 @@ def test_every_facade_maps_to_spec_and_vice_versa():
     # e vencimento no HIT das tabelas de threat intel. 64 → 65.
     # +1 (W3.2): collector_syslog_received_total — cada mensagem do receptor
     # syslog por transporte e destino (accepted/unknown_source/unclassified). 65 → 66.
-    assert len(facade_names) == 66
+    # +1: collector_otel_export_failures_total{signal} — falhas do export OTLP do
+    # próprio processo. Sem Collector no meio, é o único sinal de que a
+    # telemetria está se perdendo. 66 → 67.
+    assert len(facade_names) == 67
     # O catálogo tem as síncronas + ao menos o observável collector_up.
     assert "collector_up" in otel_metrics._SPEC
     assert "collector_up" not in facade_names

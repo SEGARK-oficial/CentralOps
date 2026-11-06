@@ -43,9 +43,15 @@ logger = logging.getLogger(__name__)
 # sucesso E a flag está ligada. Enquanto ``False``, todo helper é no-op.
 _ENABLED: bool = False
 _tracer: Any = None
+_provider: Any = None
 # Guarda anti-init-duplo: worker_process_init pode, em teoria, disparar mais de
 # uma vez por processo em recycles — montar dois providers vaza exporters.
 _INITIALIZED: bool = False
+
+# Nome → ``SpanKind``. Resolvido tarde (pacotes opcionais). O tipo do span é o
+# que os backends de APM usam para montar mapa de serviços e separar
+# processamento de mensagem (CONSUMER) de chamada de saída (CLIENT).
+_SPAN_KINDS = ("internal", "server", "client", "producer", "consumer")
 
 
 def _otel_flag() -> bool:
@@ -82,13 +88,14 @@ def _build_sampler() -> Any:
     return ParentBased(TraceIdRatioBased(ratio))
 
 
-def init_tracing() -> bool:
+def init_tracing(service_name: Optional[str] = None) -> bool:
     """Monta o SDK OTel UMA vez por processo. Retorna ``True`` se o tracing
     ficou ativo, ``False`` caso contrário (flag off, pacotes ausentes ou erro).
 
-    Idempotente: chamadas subsequentes não remontam o provider.
+    ``service_name`` sobrepõe ``OTEL_SERVICE_NAME`` (a API exporta como serviço
+    próprio). Idempotente: chamadas subsequentes não remontam o provider.
     """
-    global _ENABLED, _tracer, _INITIALIZED
+    global _ENABLED, _tracer, _INITIALIZED, _provider
 
     if _INITIALIZED:
         return _ENABLED
@@ -101,40 +108,32 @@ def init_tracing() -> bool:
         from opentelemetry import trace
         from opentelemetry.sdk.trace import TracerProvider
         from opentelemetry.sdk.trace.export import BatchSpanProcessor
-        from opentelemetry.exporter.otlp.proto.http.trace_exporter import (
-            OTLPSpanExporter,
-        )
+
+        # Protocolo (http/protobuf ou grpc) e endpoint por sinal seguem a
+        # especificação OTLP; config inválida ou pacote ausente ⇒ None com 1
+        # warning, em vez de exportar para o lugar errado a cada ciclo.
+        built = otel_common.build_exporter("traces")
+        if built is None:
+            _ENABLED = False
+            return False
+        exporter, endpoint_desc = built
 
         # Resource semântico completo (service.name/version/instance.id/
         # deployment.environment) — mesmo dos sinais de métricas/logs.
-        resource = otel_common.build_resource()
+        resource = otel_common.build_resource(service_name)
         provider = TracerProvider(resource=resource, sampler=_build_sampler())
-
-        # Endpoint explícito (config) tem precedência; vazio ⇒ o SDK lê os envs
-        # padrão OTEL_EXPORTER_OTLP_ENDPOINT/_TRACES_ENDPOINT — comportamento que
-        # o time de SRE espera de qualquer app OTel-nativa.
-        endpoint = otel_common.otlp_endpoint_for("traces")
-        # Fail-safe (idêntico a otel_metrics): endpoint irresolvível → o SDK monta
-        # '/v1/traces' relativo (No scheme supplied) e o BatchSpanProcessor spamma
-        # export falho. Desliga limpo com 1 warning em vez de poluir o log.
-        if not endpoint and not otel_common.sdk_env_endpoint_valid():
-            logger.warning(
-                "OTEL_ENABLED=true mas nenhum endpoint OTLP com scheme "
-                "(OTEL_EXPORTER_OTLP_ENDPOINT vazio/sem http[s]://) — tracing OTel "
-                "DESLIGADO neste processo (evita spam '/v1/traces: No scheme supplied')"
-            )
-            _ENABLED = False
-            return False
-        exporter = OTLPSpanExporter(endpoint=endpoint) if endpoint else OTLPSpanExporter()
         provider.add_span_processor(BatchSpanProcessor(exporter))
 
         trace.set_tracer_provider(provider)
-        _tracer = trace.get_tracer("centralops.collectors")
+        _provider = provider
+        # Do PRÓPRIO provider, não do global: o OTel só aceita definir o provider
+        # global uma vez por processo, e um tracer global apontaria para o antigo.
+        _tracer = provider.get_tracer("centralops.collectors")
         _ENABLED = True
         logger.info(
             "OTel tracing ativo (resource=%s, endpoint=%s)",
             getattr(resource, "attributes", {}).get("service.name", "?"),
-            endpoint or "<env padrão OTLP>",
+            endpoint_desc,
         )
         return True
     except Exception:
@@ -165,6 +164,46 @@ def _apply_attrs(span: Any, attributes: Dict[str, Any]) -> None:
         pass
 
 
+def _span_kind(name: str) -> Any:
+    """``SpanKind`` pelo nome (``internal`` quando desconhecido)."""
+    from opentelemetry.trace import SpanKind
+
+    key = (name or "internal").lower()
+    return getattr(SpanKind, key.upper()) if key in _SPAN_KINDS else SpanKind.INTERNAL
+
+
+def _record_exception(sp: Any, exc: BaseException) -> None:
+    """Grava a exceção no span JÁ REDIGIDA e marca o span como erro.
+
+    O SDK, por padrão, grava ``str(exc)`` e o traceback inteiro como evento — e a
+    mensagem de exceção de cliente HTTP/banco carrega URL com token, parâmetro de
+    query e credencial. Os spans abrem com ``record_exception=False`` e a
+    gravação passa por aqui: mesmo evento ``exception`` da convenção semântica,
+    com o texto redigido. A descrição do status leva só o TIPO da exceção."""
+    try:
+        import traceback
+
+        from opentelemetry.trace import Status, StatusCode
+
+        from ..core.logging_config import scrub_sensitive_text
+
+        exc_type = type(exc).__name__
+        stacktrace = "".join(traceback.format_exception(type(exc), exc, exc.__traceback__))
+        sp.add_event(
+            "exception",
+            attributes={
+                "exception.type": exc_type,
+                "exception.message": scrub_sensitive_text(str(exc)),
+                "exception.stacktrace": scrub_sensitive_text(stacktrace),
+            },
+        )
+        sp.set_status(Status(StatusCode.ERROR, exc_type))
+        if not (getattr(sp, "attributes", None) or {}).get("error.type"):
+            sp.set_attribute("error.type", exc_type)
+    except Exception:  # pragma: no cover — tracing nunca derruba o pipeline
+        pass
+
+
 def _managed_span(
     start: Callable[[], Any], attributes: Dict[str, Any]
 ) -> Iterator[Any]:
@@ -183,17 +222,35 @@ def _managed_span(
     try:
         _apply_attrs(sp, attributes)
         yield sp
-    except BaseException:
-        # Exceção do bloco do usuário: deixa o span registrar (status/erro) e
-        # RE-PROPAGA (não suprime) — autoretry_for do Celery depende disto.
+    except BaseException as exc:
+        # Exceção do bloco do usuário: registra (redigida) e RE-PROPAGA (não
+        # suprime) — autoretry_for do Celery depende disto. GeneratorExit /
+        # KeyboardInterrupt não são falha da operação e não marcam erro.
+        if isinstance(exc, Exception):
+            _record_exception(sp, exc)
         if not cm.__exit__(*sys.exc_info()):
             raise
     else:
         cm.__exit__(None, None, None)
 
 
+def _start(name: str, span_kind: str, context: Any = None) -> Callable[[], Any]:
+    def _open() -> Any:
+        kwargs: Dict[str, Any] = {
+            "kind": _span_kind(span_kind),
+            # A gravação de exceção é NOSSA (redigida) — ver _record_exception.
+            "record_exception": False,
+            "set_status_on_exception": False,
+        }
+        if context is not None:
+            kwargs["context"] = context
+        return _tracer.start_as_current_span(name, **kwargs)
+
+    return _open
+
+
 @contextmanager
-def span(name: str, **attributes: Any) -> Iterator[Any]:
+def span(name: str, span_kind: str = "internal", **attributes: Any) -> Iterator[Any]:
     """Abre um span no contexto CORRENTE (ou no-op quando tracing off).
 
     Uso: ``with span("collect.cycle", **{"centralops.integration_id": 7}): ...``.
@@ -202,12 +259,15 @@ def span(name: str, **attributes: Any) -> Iterator[Any]:
     if not _ENABLED or _tracer is None:
         yield None
         return
-    yield from _managed_span(lambda: _tracer.start_as_current_span(name), attributes)
+    yield from _managed_span(_start(name, span_kind), attributes)
 
 
 @contextmanager
 def span_with_parent(
-    name: str, carrier_in: Optional[Dict[str, str]], **attributes: Any
+    name: str,
+    carrier_in: Optional[Dict[str, str]],
+    span_kind: str = "internal",
+    **attributes: Any,
 ) -> Iterator[Any]:
     """Abre um span como FILHO de um carrier W3C recebido pelo boundary Celery —
     usado no lado da task de dispatch para linkar ao ciclo de coleta.
@@ -228,9 +288,88 @@ def span_with_parent(
         except Exception:  # pragma: no cover — propagator sempre presente se SDK ok
             ctx = None
 
-    yield from _managed_span(
-        lambda: _tracer.start_as_current_span(name, context=ctx), attributes
+    yield from _managed_span(_start(name, span_kind, ctx), attributes)
+
+
+def set_attributes(**attributes: Any) -> None:
+    """Anexa atributos ao span CORRENTE (no-op com tracing off ou sem span)."""
+    if not _ENABLED:
+        return
+    try:
+        from opentelemetry import trace
+
+        current = trace.get_current_span()
+        if current.is_recording():
+            _apply_attrs(current, attributes)
+    except Exception:  # pragma: no cover — defensivo
+        pass
+
+
+def mark_error(error_type: str, **attributes: Any) -> None:
+    """Marca o span CORRENTE como erro numa falha TRATADA (que não levanta).
+
+    Um lote desviado para a DLQ sem exceção (disjuntor aberto, destino ausente,
+    rejeição pelo sink) terminava o span como SUCESSO: o backend de APM mostrava
+    0% de erro e uma amostragem "reter 100% dos erros" descartava justamente esses
+    traces. ``error_type`` é um código curto e estável (vai em ``error.type``)."""
+    if not _ENABLED:
+        return
+    try:
+        from opentelemetry import trace
+        from opentelemetry.trace import Status, StatusCode
+
+        current = trace.get_current_span()
+        if not current.is_recording():
+            return
+        current.set_status(Status(StatusCode.ERROR, error_type))
+        current.set_attribute("error.type", error_type)
+        _apply_attrs(current, attributes)
+    except Exception:  # pragma: no cover — defensivo
+        pass
+
+
+def record_dispatch_outcome(outcome: Any) -> None:
+    """Grava no span CORRENTE o desfecho de ``dispatch_batch_to_destination``.
+
+    O desfecho volta por VALOR (não pelo contexto) porque, com o loop persistente
+    de dispatch, a corrotina roda em outra thread, onde o span da task não é o
+    corrente. Quem abriu o span chama esta função com o retorno."""
+    if not _ENABLED or outcome is None:
+        return
+    accepted = int(getattr(outcome, "accepted", 0) or 0)
+    rejected = int(getattr(outcome, "rejected", 0) or 0)
+    set_attributes(
+        **{
+            "centralops.destination.kind": getattr(outcome, "destination_kind", None),
+            "centralops.events.accepted": accepted,
+            "centralops.events.rejected": rejected,
+            "centralops.shadow": True if getattr(outcome, "shadow", False) else None,
+        }
     )
+    dlq_reason = getattr(outcome, "dlq_reason", None)
+    if dlq_reason:
+        mark_error(str(dlq_reason), **{"centralops.dlq": True})
+    elif rejected:
+        mark_error(
+            "partial_rejection" if accepted else "rejected", **{"centralops.dlq": True}
+        )
+
+
+def shutdown(timeout_millis: int = 5000) -> None:
+    """Esvazia os spans em buffer e desliga o provider. Idempotente."""
+    global _ENABLED
+    provider = _provider
+    _ENABLED = False
+    if provider is None:
+        return
+    try:
+        provider.force_flush(timeout_millis)
+    except Exception:  # pragma: no cover — desligamento nunca levanta
+        logger.debug("tracing: force_flush falhou", exc_info=True)
+    try:
+        provider.shutdown()
+    except Exception:  # pragma: no cover
+        logger.debug("tracing: shutdown falhou", exc_info=True)
 
 
 def carrier() -> Dict[str, str]:
@@ -253,7 +392,8 @@ def carrier() -> Dict[str, str]:
 
 def reset_for_tests() -> None:
     """Seam de teste: zera o estado de processo para reexercitar init_tracing."""
-    global _ENABLED, _tracer, _INITIALIZED
+    global _ENABLED, _tracer, _INITIALIZED, _provider
     _ENABLED = False
     _tracer = None
+    _provider = None
     _INITIALIZED = False

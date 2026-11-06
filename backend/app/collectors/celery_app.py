@@ -444,8 +444,49 @@ class _SecretsFilter(logging.Filter):
 
 
 # Instala filtro na raiz apenas em processos Celery (não no FastAPI app).
-if os.environ.get("SERVICE_ROLE") in {"worker", "beat", "dispatcher"}:
+# ATENÇÃO: filtro de LOGGER só vale para registros emitidos no próprio raiz — os
+# de loggers filhos (``app.collectors.*``) passam direto para os handlers. A
+# redação que cobre TODO registro é a de handler (``attach_redaction``), instalada
+# no ``configure_logging`` e nos signals abaixo. Este filtro fica pelo que já
+# fazia no raiz.
+if os.environ.get("SERVICE_ROLE") in {"worker", "beat", "dispatcher", "kafka-dispatcher"}:
     logging.getLogger().addFilter(_SecretsFilter())
+
+
+# Redação nos handlers que o PRÓPRIO Celery monta (``setup_logging`` do worker e
+# do beat). O beat não dispara ``worker_init``, então sem isto o handler dele
+# nunca recebia redação nenhuma.
+try:
+    from celery.signals import after_setup_logger, after_setup_task_logger
+
+    @after_setup_logger.connect
+    @after_setup_task_logger.connect
+    def _attach_log_redaction(logger=None, **_kwargs) -> None:  # type: ignore[no-redef]
+        from ..core.logging_config import attach_redaction, attach_redaction_to_root_handlers
+
+        attach_redaction_to_root_handlers()
+        for handler in getattr(logger, "handlers", None) or ():
+            attach_redaction(handler)
+
+except Exception:  # pragma: no cover — guard de import em runtime
+    logger.warning("Não foi possível registrar a redação de logs nos handlers do Celery")
+
+
+# OTel no BEAT. O beat não é worker: ``worker_process_init`` nunca dispara nele,
+# então o processo recebia ``OTEL_ENABLED`` e não exportava nada — nem o
+# heartbeat ``collector_up{role="beat"}``. O beat é um processo único (sem fork)
+# e sai normalmente, então o ``atexit`` do SDK cuida do flush final.
+try:
+    from celery.signals import beat_init
+
+    @beat_init.connect
+    def _init_beat_observability(**_kwargs) -> None:  # type: ignore[no-redef]
+        from .otel_common import init_all_signals
+
+        init_all_signals()
+
+except Exception:  # pragma: no cover — guard de import em runtime
+    logger.warning("Não foi possível registrar beat_init para o OTel")
 
 
 # Configura logging JSON nos workers Celery via signal worker_init.
@@ -565,7 +606,17 @@ try:
     def _close_dispatch_runtime(**_kwargs) -> None:  # type: ignore[no-redef]
         from .dispatch_runtime import shutdown_runtime
 
-        shutdown_runtime()
+        try:
+            shutdown_runtime()
+        finally:
+            # O filho prefork sai por ``os._exit()`` (billiard), que NÃO roda os
+            # handlers de ``atexit`` — e ``atexit`` é o único flush automático do
+            # SDK OTel. Sem esta chamada, cada reciclagem
+            # (``worker_max_tasks_per_child``) e cada parada descartavam os spans
+            # e logs ainda em buffer e até um intervalo inteiro de métricas.
+            from .otel_common import flush_and_shutdown
+
+            flush_and_shutdown()
 
 except Exception:  # pragma: no cover — guard de import em runtime
     logger.warning("Não foi possível registrar signals do dispatch_runtime")

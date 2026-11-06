@@ -528,6 +528,27 @@ class Settings(BaseSettings):
     # faz a ponte do logging Python p/ LogRecord OTel correlacionado por
     # trace_id e exporta via OTLP. Requer OTEL_ENABLED=true também.
     OTEL_LOGS_ENABLED: bool = False
+    # Protocolo OTLP: ``http/protobuf`` (vazio = default, porta 4318) ou ``grpc``
+    # (porta 4317). Alguns recebedores só falam gRPC — p.ex. o APM collector do
+    # proxy Zabbix 8. Os específicos por sinal vencem o global (spec OTLP).
+    OTEL_EXPORTER_OTLP_PROTOCOL: str = ""
+    OTEL_EXPORTER_OTLP_TRACES_PROTOCOL: str = ""
+    OTEL_EXPORTER_OTLP_METRICS_PROTOCOL: str = ""
+    OTEL_EXPORTER_OTLP_LOGS_PROTOCOL: str = ""
+    # Endpoint POR SINAL — vence o OTEL_EXPORTER_OTLP_ENDPOINT e é usado como veio
+    # (URL completa em HTTP, ex.: http://tempo:4318/v1/traces). Permite mandar
+    # cada sinal a um backend diferente sem Collector. Vazio = usa o base.
+    OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: str = ""
+    OTEL_EXPORTER_OTLP_METRICS_ENDPOINT: str = ""
+    OTEL_EXPORTER_OTLP_LOGS_ENDPOINT: str = ""
+    # Traces da API HTTP (FastAPI): ingestão push, MCP e console. OFF por default
+    # e independente dos workers — volume proporcional ao tráfego da API. Requer
+    # OTEL_ENABLED=true e o pacote opentelemetry-instrumentation-fastapi.
+    OTEL_API_TRACING_ENABLED: bool = False
+    # A API exporta como serviço PRÓPRIO, separado dos workers no mapa de serviços.
+    OTEL_API_SERVICE_NAME: str = "centralops-api"
+    # Regex (separadas por vírgula) de URLs que NÃO geram trace: probes e assets.
+    OTEL_API_EXCLUDED_URLS: str = r"/livez$,/readyz$,/assets/"
 
     # ── Quarentena — teto do raw_payload ARMAZENADO ───────────────────
     # Limite de bytes do raw_payload gravado em quarantine_events. NÃO é o

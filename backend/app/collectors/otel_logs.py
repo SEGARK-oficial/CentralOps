@@ -28,6 +28,27 @@ _provider: Any = None
 _handler: Any = None
 
 
+def _redacting_handler_class(base: Any) -> Any:
+    """Subclasse do ``LoggingHandler`` do SDK que exporta uma CÓPIA redigida.
+
+    O handler OTel não usa o formatter JSON (que redige o stdout) e monta
+    ``exception.message``/``exception.stacktrace`` direto de ``record.exc_info`` —
+    então segredo em mensagem, ``extra`` ou traceback saía em claro para o
+    backend. A redação é feita numa cópia (``redacted_record_copy``): os outros
+    handlers continuam vendo o registro original. ``emit`` é API pública."""
+    from ..core.logging_config import redacted_record_copy
+
+    class RedactingLoggingHandler(base):  # type: ignore[misc, valid-type]
+        def emit(self, record: logging.LogRecord) -> None:
+            try:
+                safe = redacted_record_copy(record)
+            except Exception:  # pragma: no cover — sem cópia segura, não exporta
+                return
+            super().emit(safe)
+
+    return RedactingLoggingHandler
+
+
 def init_logs() -> bool:
     """Monta o LoggerProvider + anexa o handler OTel ao root logger UMA vez por
     processo. Retorna ``True`` se os logs OTel ficaram ativos. Idempotente."""
@@ -42,25 +63,17 @@ def init_logs() -> bool:
 
     try:
         from opentelemetry._logs import set_logger_provider
-        from opentelemetry.exporter.otlp.proto.http._log_exporter import (
-            OTLPLogExporter,
-        )
         from opentelemetry.sdk._logs import LoggerProvider, LoggingHandler
         from opentelemetry.sdk._logs.export import BatchLogRecordProcessor
 
-        endpoint = otel_common.otlp_endpoint_for("logs")
-        # Fail-safe (idêntico a otel_metrics/tracing): endpoint irresolvível → o
-        # SDK monta '/v1/logs' relativo (No scheme supplied) e o BatchLogRecord
-        # Processor spamma export falho. Desliga limpo com 1 warning.
-        if not endpoint and not otel_common.sdk_env_endpoint_valid():
-            logger.warning(
-                "OTEL_LOGS_ENABLED=true mas nenhum endpoint OTLP com scheme "
-                "(OTEL_EXPORTER_OTLP_ENDPOINT vazio/sem http[s]://) — logs OTel "
-                "DESLIGADOS neste processo (evita spam '/v1/logs: No scheme supplied')"
-            )
+        # Protocolo/endpoint por sinal (especificação OTLP). Config inválida — p.ex.
+        # endpoint vazio, que faria o SDK montar '/v1/logs' relativo — ou pacote do
+        # protocolo ausente ⇒ None com 1 warning, em vez de export falho a cada ciclo.
+        built = otel_common.build_exporter("logs")
+        if built is None:
             _ENABLED = False
             return False
-        exporter = OTLPLogExporter(endpoint=endpoint) if endpoint else OTLPLogExporter()
+        exporter, endpoint_desc = built
         _provider = LoggerProvider(resource=otel_common.build_resource())
         _provider.add_log_record_processor(BatchLogRecordProcessor(exporter))
         set_logger_provider(_provider)
@@ -68,7 +81,9 @@ def init_logs() -> bool:
         # NÍVEL INFO+ no handler: evita inundar o backend com DEBUG, mas mantém o
         # sinal operacional. O root logger continua filtrando pelo seu próprio
         # nível antes de chegar aqui.
-        _handler = LoggingHandler(level=logging.INFO, logger_provider=_provider)
+        _handler = _redacting_handler_class(LoggingHandler)(
+            level=logging.INFO, logger_provider=_provider
+        )
         # Idempotência defensiva: worker_process_init pode, em recycles, disparar
         # mais de uma vez por processo — anexar 2 handlers duplicaria os logs no
         # backend OTel. Remove qualquer LoggingHandler OTel órfão antes de anexar.
@@ -79,10 +94,7 @@ def init_logs() -> bool:
         _root.addHandler(_handler)
 
         _ENABLED = True
-        logger.info(
-            "OTel logs ativo (OTLP export, endpoint=%s)",
-            endpoint or "<env padrão OTLP>",
-        )
+        logger.info("OTel logs ativo (OTLP export, endpoint=%s)", endpoint_desc)
         return True
     except Exception:
         logger.warning(
@@ -98,6 +110,29 @@ def is_enabled() -> bool:
     return _ENABLED
 
 
+def shutdown(timeout_millis: int = 5000) -> None:
+    """Esvazia os logs em buffer, solta o handler do raiz e desliga. Idempotente."""
+    global _ENABLED, _handler
+    provider, handler = _provider, _handler
+    _ENABLED = False
+    if handler is not None:
+        try:
+            logging.getLogger().removeHandler(handler)
+        except Exception:  # pragma: no cover
+            pass
+        _handler = None
+    if provider is None:
+        return
+    try:
+        provider.force_flush(timeout_millis)
+    except Exception:  # pragma: no cover — desligamento nunca levanta
+        logger.debug("otel_logs: force_flush falhou", exc_info=True)
+    try:
+        provider.shutdown()
+    except Exception:  # pragma: no cover
+        logger.debug("otel_logs: shutdown falhou", exc_info=True)
+
+
 def reset_for_tests() -> None:
     """Seam de teste: remove TODO handler OTel do root logger e zera o estado
     (robusto contra handler órfão de um init duplo não capturado)."""
@@ -105,7 +140,7 @@ def reset_for_tests() -> None:
     root = logging.getLogger()
     for h in list(root.handlers):
         # Casa por nome de classe p/ não importar o SDK (pacotes opcionais).
-        if type(h).__name__ == "LoggingHandler":
+        if type(h).__name__ in ("LoggingHandler", "RedactingLoggingHandler"):
             try:
                 root.removeHandler(h)
             except Exception:  # pragma: no cover

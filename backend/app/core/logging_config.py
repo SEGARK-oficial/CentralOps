@@ -146,6 +146,193 @@ class TokenScrubFilter(logging.Filter):
         return True
 
 
+# ── Redação por HANDLER (cobre loggers filhos e o export OTLP) ────────
+#
+# Filtro instalado num LOGGER só é consultado para registros criados NAQUELE
+# logger: um ``logging.getLogger("app.collectors.x").warning(...)`` propaga até os
+# handlers do raiz SEM passar pelos filtros do raiz. Como quase todo log da
+# aplicação nasce num logger filho, a redação que só vive no raiz não protege
+# nada fora do raiz. O stdout/JSONL escapava porque o formatter JSON também
+# redige — mas qualquer handler que NÃO usa esse formatter (o ``LoggingHandler``
+# do OpenTelemetry, o ``basicConfig`` do dispatcher Kafka, o handler de debug)
+# recebia o registro cru. Por isso a redação é instalada em CADA handler.
+#
+# A redação aqui é CIRÚRGICA: mascara o VALOR (``token=[REDACTED]``) e preserva
+# o resto da mensagem, para não apagar logs operacionais legítimos como
+# "faltou o header Authorization".
+
+#: Atributos que todo ``LogRecord`` tem; o que sobra veio de ``extra=``.
+_STD_RECORD_ATTRS: frozenset[str] = frozenset(
+    vars(logging.LogRecord("", logging.INFO, "", 0, "", (), None))
+) | {"message", "asctime", "taskName"}
+
+_REDACTED = "[REDACTED]"
+
+# ``scheme://usuario:senha@host`` → ``scheme://[REDACTED]@host`` (Redis, AMQP,
+# Postgres, URLs de webhook com credencial embutida).
+_URL_USERINFO_RE = re.compile(r"\b([A-Za-z][A-Za-z0-9+.\-]*://)[^\s/@:]*:[^\s/@]+@")
+
+# ``Bearer <token>`` sempre; ``Basic <base64>`` só quando parece base64 (dígito,
+# ``+``, ``/`` ou ``=``) para não mascarar prosa como "Basic authentication".
+_AUTH_SCHEME_RE = re.compile(
+    r"\b(Bearer)\s+[A-Za-z0-9._~+/=\-]{8,}"
+    r"|\b(Basic)\s+(?=[A-Za-z0-9+/]*[0-9+/=])[A-Za-z0-9+/]{8,}={0,2}",
+    re.IGNORECASE,
+)
+
+# ``chave=valor``, ``chave: valor``, ``"chave": "valor"``, ``'chave': 'valor'`` e
+# query string (``?token=...&``) para as chaves sensíveis conhecidas. Exige o
+# separador: "senha inválida para o usuário" não casa.
+_SENSITIVE_KEYS_ALT = "|".join(
+    sorted(
+        (re.escape(k) for k in SENSITIVE_FIELD_NAMES | {"id_token", "client_assertion"}),
+        key=len,
+        reverse=True,
+    )
+)
+_SENSITIVE_KV_RE = re.compile(
+    r"(?<![\w-])(?P<k>" + _SENSITIVE_KEYS_ALT + r")(?![\w-])"
+    r"(?P<sep>[\"']?\s*[:=]\s*[\"']?)"
+    # ``Authorization: Bearer x`` fica para ``_AUTH_SCHEME_RE`` (preserva o esquema),
+    # e valor já redigido não é tocado de novo (idempotência: ``[REDACTED]]``).
+    r"(?!(?:bearer|basic)\s)(?!\[REDACTED)"
+    r"(?P<v>[^\s\"',;&}\]]+)",
+    re.IGNORECASE,
+)
+
+
+def _scrub_auth_scheme(match: re.Match[str]) -> str:
+    return f"{match.group(1) or match.group(2)} {_REDACTED}"
+
+
+def scrub_sensitive_text(value: str) -> str:
+    """Remove segredos de um texto livre, preservando o resto da mensagem.
+
+    Superconjunto de :func:`scrub_secrets_in_value`: além de PAT e token do
+    Vault, mascara credencial embutida em URL, ``Bearer``/``Basic`` e o valor de
+    pares ``chave=valor`` cujas chaves estão em :data:`SENSITIVE_FIELD_NAMES`.
+    Usado em todo texto que sai do processo: stdout/JSONL, logs e traces OTLP."""
+    if not value:
+        return value
+    value = _URL_USERINFO_RE.sub(r"\1" + _REDACTED + "@", value)
+    value = _AUTH_SCHEME_RE.sub(_scrub_auth_scheme, value)
+    value = _SENSITIVE_KV_RE.sub(r"\g<k>\g<sep>" + _REDACTED, value)
+    # Por último: PAT/Vault em qualquer posição (fora de ``chave=valor``).
+    return _scrub_pat(value)
+
+
+def _scrub_value(value: Any, _depth: int = 0) -> Any:
+    """Redige um valor de ``extra`` sem mutar o objeto do chamador."""
+    if isinstance(value, str):
+        return scrub_sensitive_text(value)
+    if _depth >= 6:
+        return value
+    if isinstance(value, dict):
+        return {
+            k: (
+                _REDACTED
+                if isinstance(k, str) and k.lower() in SENSITIVE_FIELD_NAMES
+                else _scrub_value(v, _depth + 1)
+            )
+            for k, v in value.items()
+        }
+    if isinstance(value, (list, tuple)):
+        scrubbed = [_scrub_value(v, _depth + 1) for v in value]
+        return scrubbed if isinstance(value, list) else tuple(scrubbed)
+    return value
+
+
+def scrub_log_record(record: logging.LogRecord) -> None:
+    """Redige um ``LogRecord`` IN-PLACE: mensagem, args, traceback em cache e extras.
+
+    A mensagem é pré-formatada (``getMessage()``) antes de redigir: um argumento
+    que não é ``str`` (dict, exceção, objeto) só vira texto na formatação, e é
+    nesse texto que o segredo aparece. Idempotente."""
+    if record.args:
+        try:
+            record.msg = record.getMessage()
+            record.args = ()
+        except Exception:  # noqa: BLE001 — args incompatíveis: o logging reporta
+            pass
+    if isinstance(record.msg, str):
+        record.msg = scrub_sensitive_text(record.msg)
+    if record.exc_text:
+        record.exc_text = scrub_sensitive_text(record.exc_text)
+    for key, value in list(vars(record).items()):
+        if key in _STD_RECORD_ATTRS:
+            continue
+        if key.lower() in SENSITIVE_FIELD_NAMES:
+            setattr(record, key, _REDACTED)
+        else:
+            setattr(record, key, _scrub_value(value))
+
+
+class RedactingFormatter(logging.Formatter):
+    """Envolve o formatter de um handler e redige o TEXTO que ele produz.
+
+    Redige na saída de CADA handler, sem tocar no ``LogRecord``: o registro é
+    compartilhado por todos os handlers, e alterá-lo (pré-formatar a mensagem,
+    zerar ``args``) tiraria os argumentos estruturados de quem vem depois — um
+    handler de captura, um agregador. Instalar com :func:`attach_redaction`."""
+
+    def __init__(self, inner: logging.Formatter | None = None) -> None:
+        super().__init__()
+        self.inner = inner or logging.Formatter()
+
+    def format(self, record: logging.LogRecord) -> str:
+        text = self.inner.format(record)
+        try:
+            return scrub_sensitive_text(text)
+        except Exception:  # pragma: no cover — redação nunca derruba um log
+            return text
+
+    def formatTime(self, record: logging.LogRecord, datefmt: str | None = None) -> str:
+        return self.inner.formatTime(record, datefmt)
+
+
+def attach_redaction(handler: logging.Handler) -> logging.Handler:
+    """Redige toda saída do handler (envolve o formatter atual). Idempotente.
+
+    Chamar DEPOIS de ``setFormatter``: um ``setFormatter`` posterior troca o
+    formatter e desfaz a redação."""
+    if not isinstance(handler.formatter, RedactingFormatter):
+        handler.setFormatter(RedactingFormatter(handler.formatter))
+    return handler
+
+
+def attach_redaction_to_root_handlers() -> None:
+    """Instala a redação em todos os handlers ATUAIS do raiz.
+
+    Para processos que configuram o logging por fora de :func:`configure_logging`
+    (``logging.basicConfig`` do dispatcher Kafka, logging do Celery beat)."""
+    for handler in logging.getLogger().handlers:
+        attach_redaction(handler)
+
+
+def redacted_record_copy(record: logging.LogRecord) -> logging.LogRecord:
+    """Cópia redigida de um registro, para exportadores que não usam formatter.
+
+    O ``LoggingHandler`` do OpenTelemetry monta ``exception.message`` e
+    ``exception.stacktrace`` direto de ``record.exc_info`` — por fora de qualquer
+    filtro. Na cópia, a exceção vira atributos ``exception.*`` já redigidos e
+    ``exc_info`` é removido. O registro original (visto pelos demais handlers)
+    não é tocado."""
+    import copy
+    import traceback
+
+    clone = copy.copy(record)
+    if clone.exc_info and clone.exc_info[0] is not None:
+        exc_type, exc_value, _tb = clone.exc_info
+        stacktrace = clone.exc_text or "".join(traceback.format_exception(*clone.exc_info))
+        setattr(clone, "exception.type", getattr(exc_type, "__name__", str(exc_type)))
+        setattr(clone, "exception.message", scrub_sensitive_text(str(exc_value)))
+        setattr(clone, "exception.stacktrace", scrub_sensitive_text(stacktrace))
+    clone.exc_info = None
+    clone.exc_text = None
+    scrub_log_record(clone)
+    return clone
+
+
 # ── Formatter customizado ─────────────────────────────────────────────
 
 
@@ -182,12 +369,13 @@ class CentralOpsJsonFormatter(pythonjson_logger.JsonFormatter):
             if isinstance(key, str) and key.lower() in SENSITIVE_FIELD_NAMES:
                 log_data[key] = "[REDACTED]"
 
-        # Scrub secrets (PAT copsk_* + tokens do Vault) em values string —
-        # defesa em profundidade contra extras nao-nominativos (ex:
-        # "url"="...?token=copsk_xxx", ou um token Vault num corpo de exceção).
+        # Scrub secrets em values string — PAT copsk_*, tokens do Vault,
+        # credencial em URL, Bearer/Basic e ``chave=valor`` sensível. Defesa em
+        # profundidade contra extras não-nominativos (ex.: "url"="...?token=...")
+        # e contra o traceback, que o formatter re-formata a partir de exc_info.
         for key, value in log_data.items():
             if isinstance(value, str):
-                log_data[key] = _scrub_pat(value)
+                log_data[key] = scrub_sensitive_text(value)
 
 
 # ── Configuração global ───────────────────────────────────────────────
@@ -242,6 +430,11 @@ def configure_logging(
             # Não bloqueia boot se path não existir ou sem permissão.
             # Aviso emitido antes de configurar o root handler definitivo.
             logging.warning("Wazuh JSONL path inacessível: %s", exc)
+
+    # Redação em CADA handler: filtro de logger não vale para os loggers filhos
+    # (ver ``RedactingFormatter``). Depois do ``setFormatter`` acima.
+    for handler in handlers:
+        attach_redaction(handler)
 
     root = logging.getLogger()
     # Remove handlers existentes para evitar duplicação em re-chamadas.
