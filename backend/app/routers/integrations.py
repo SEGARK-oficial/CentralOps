@@ -324,6 +324,47 @@ def _component_status(details: Dict[str, Any], key: str) -> str | None:
     return None
 
 
+def _has_rich_provider(integration: models.Integration) -> bool:
+    """A plataforma registra um ``BaseProvider`` rico (``provider_factory``)?
+
+    Só 5 plataformas registram (sophos, wazuh, crowdstrike, defender, lake). As
+    demais são **só-coleta** (azure, okta, gcp_pubsub, …): não têm sonda de saúde
+    própria, e ``get_provider`` levanta ``ValueError`` para elas. Checar ANTES de
+    chamar é o que separa "plataforma sem provider" de um ``ValueError`` de
+    verdade vindo de dentro de uma factory — que deve continuar estourando.
+    """
+    reg = get_platform(integration.platform)
+    return reg is not None and reg.provider_factory is not None
+
+
+def _collection_health(db: Session, integration_id: int) -> tuple[str, Dict[str, Any]]:
+    """Saúde de uma integração só-coleta, derivada do estado de coleta.
+
+    Sem provider rico não há sonda ativa; o que o core sabe da integração é o
+    que o próprio pipeline gravou (``collection_state``). Reusa a MESMA régua
+    da aba Pipeline (``compute_pipeline_health``) em vez de uma segunda regra
+    que poderia divergir dela: ``unknown`` = nunca coletou, ``unhealthy`` =
+    parou/falha seguida, ``degraded`` = backlog ou último erro.
+    """
+    from .pipeline_health import compute_pipeline_health
+
+    ph = compute_pipeline_health(db, integration_id)
+    details: Dict[str, Any] = {
+        "source": "collection_state",
+        "message": (
+            "Plataforma só-coleta: saúde derivada do estado de coleta "
+            "(sem sonda ativa no fornecedor)."
+        ),
+        "last_success_at": ph.last_success_at.isoformat() if ph.last_success_at else None,
+        "lag_seconds": ph.lag_seconds,
+        "watermark_lag_seconds": ph.watermark_lag_seconds,
+        "backlog_detected": ph.backlog_detected,
+        "stale_stream": ph.stale_stream,
+        "last_error": ph.last_error,
+    }
+    return ph.status, details
+
+
 def _serialize_health_result(result) -> Dict[str, Any]:
     details = result.details if isinstance(result.details, dict) else {}
     return {
@@ -2186,6 +2227,21 @@ def test_connection(
 ):
     integration = _get_integration_or_404(repo, integration_id)
 
+    if not _has_rich_provider(integration):
+        # Só-coleta: não há sonda pós-save. Antes caía em ``get_provider`` →
+        # ValueError → 500. O teste de credenciais dessas plataformas é o
+        # pré-save (``POST /providers/{platform}/test-connection``).
+        raise ApiError(
+            "integration.test_connection_unsupported",
+            422,
+            messages={
+                "pt": "A plataforma {platform} não suporta teste de conexão de integração salva.",
+                "en": "Platform {platform} does not support testing a saved integration.",
+                "es": "La plataforma {platform} no admite la prueba de una integración guardada.",
+            },
+            params={"platform": integration.platform},
+        )
+
     provider = get_provider(integration)
     try:
         result = provider.test_connection()
@@ -2242,6 +2298,27 @@ def get_health(
     _ensure_integration_access(current_user, integration, require_active=True)
 
     last_collection_at, last_success_at = _collection_timestamps(db, integration_id)
+
+    if not _has_rich_provider(integration):
+        # Só-coleta (azure, okta, …): sem sonda, responde com o estado de coleta
+        # em vez de 500. NÃO grava ``auth_status``/``IntegrationHealthCheck``:
+        # nada foi verificado no fornecedor, só lido do próprio banco.
+        if api_version == 1:
+            status_value, details = _collection_health(db, integration_id)
+            response.headers["X-API-Deprecation"] = (
+                "HealthSchema v1 sera removido na proxima release; migrar para v2"
+            )
+            return schemas.IntegrationHealthRead(
+                integration_id=integration_id,
+                status=status_value,
+                details=details,
+            )
+        return HealthResponse(
+            platform=integration.platform,
+            last_collection_at=last_collection_at,
+            last_success_at=last_success_at,
+            metrics=[],
+        )
 
     db.expunge_all()
     db.close()
@@ -2321,6 +2398,18 @@ def get_integration_overview(
     overview: Dict[str, Any] = {
         "integration": _serialize(integration, current_user).model_dump(),
     }
+
+    if not _has_rich_provider(integration):
+        # Só-coleta: saúde vem do estado de coleta (ver ``_collection_health``);
+        # sem provider não há capability ``licensing:list`` a consultar.
+        status_value, details = _collection_health(db, integration.id)
+        overview["health"] = {
+            "status": status_value,
+            "details": details,
+            "manager_status": None,
+            "indexer_status": None,
+        }
+        return overview
 
     provider = get_provider(integration)
     try:
