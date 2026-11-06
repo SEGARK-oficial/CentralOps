@@ -485,6 +485,10 @@ class BatchRouting:
     #: volume). Total + por-rota, p/ o pipeline emitir events_dropped{reason=sample}.
     sampled: int = 0
     sampled_per_route: dict = field(default_factory=dict)
+    #: Pares evento×destino retirados pela supressão POR ROTA (ADR-0018 Onda 0) e
+    #: a contagem por rota. O evento segue para as rotas que não o suprimiram.
+    suppressed: int = 0
+    suppressed_per_route: dict = field(default_factory=dict)
     #: bytes LÓGICOS do envelope ORIGINAL (aproximação — ver ``_envelope_bytes``)
     #: evitados por amostragem, por-entrega, agregados por ``organization_id``. O
     #: pipeline converte em ``bytes_saved{reason=sample}`` (Evitado/Redução na
@@ -566,6 +570,7 @@ def route_batch(
     wazuh_loop_destination_ids: Optional[frozenset] = None,
     sampling: Optional[SamplingConfig] = None,
     measure_drop_bytes: bool = False,
+    suppressed: Optional[Mapping[str, Any]] = None,
 ) -> BatchRouting:
     """Split ``batch`` into per-destination sub-batches by evaluating each event.
 
@@ -587,6 +592,11 @@ def route_batch(
     enforced when the destination has a non-null residency AND the event
     carries a known geography.  Blocked destinations are counted in
     ``BatchRouting.residency_blocked``.
+
+    ``suppressed`` — veredito de supressão POR ROTA decidido no laço de coleta
+    (``event_id`` → ids das rotas que suprimiram o evento). O evento deixa SÓ os
+    destinos dessas rotas; as demais o entregam normalmente. Um evento que só a rota
+    supressora levaria fica reduzido (como no sampling), sem cair no fallback.
 
     ``measure_drop_bytes`` — quando True, mede o volume lógico dos eventos descartados
     por ``action=drop`` (mesmo serializador da entrega) em
@@ -676,7 +686,21 @@ def route_batch(
         # 409 idempotente → vaza PII). Regra fail-safe: 1 cópia por destino, e a
         # rota que REDIGE SEMPRE vence uma irmã cleartext no mesmo destino.
         chosen: dict = {}  # dest_id -> CompiledRoute (a rota "vencedora" do destino)
+        # supressão por-rota (ADR-0018 Onda 0): a rota que suprimiu este evento não
+        # concorre por destino nenhum; se outra rota mira o MESMO destino, é ela que
+        # entrega. As demais rotas seguem normalmente.
+        _suppressed_routes = (
+            suppressed.get(str(labels.get("event_id") or ""), ()) if suppressed else ()
+        )
+        suppressed_any = False
         for dest, route in decision.assignments:
+            if _suppressed_routes and route.id in _suppressed_routes:
+                suppressed_any = True
+                result.suppressed += 1
+                result.suppressed_per_route[route.id] = (
+                    result.suppressed_per_route.get(route.id, 0) + 1
+                )
+                continue
             cur = chosen.get(dest)
             if cur is None or (not cur.redaction and route.redaction):
                 chosen[dest] = route
@@ -712,8 +736,11 @@ def route_batch(
                 )
 
         # If all destinations were blocked (residency/loop), take the fallback/
-        # unrouted path (zero-loss, vendor-neutro).
+        # unrouted path (zero-loss, vendor-neutro). Um evento que SÓ rotas
+        # supressoras levariam foi reduzido de propósito — não cai no fallback.
         if not chosen:
+            if suppressed_any:
+                continue
             _no_destination(env, labels, reason="all-destinations-loop")
             continue
 

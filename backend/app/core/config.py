@@ -387,10 +387,10 @@ class Settings(BaseSettings):
     # Kill-switch global da feature. ON → rotas com pii_redaction mascaram/
     # pseudonimizam/removem campos antes do destino daquela rota (mesma origem
     # íntegra no lago, mascarada no SIEM). FAIL-CLOSED: se uma rota TEM spec e a
-    # flag está OFF, _compile_route_row levanta → _load_routes_for_org cai p/
-    # wazuh-default interno, NUNCA entrega cleartext ao destino externo (a flag
-    # nunca vira um caminho de vazamento). FAIL-CLOSED também na escrita: spec
-    # ruim → 422 no CRUD.
+    # flag está OFF, _compile_route_row levanta → _load_routes_for_org retém o
+    # lote (o ciclo falha e re-tenta), NUNCA entrega cleartext ao destino externo
+    # (a flag nunca vira um caminho de vazamento). FAIL-CLOSED também na escrita:
+    # spec ruim → 422 no CRUD.
     #
     # DEFAULT INVERTIDO PARA ON (era OFF), mesma razão da ADR-0015 para as flags
     # REDUCTION_*: o portão que importa é o POR-ROTA, não o global. Sem nenhuma

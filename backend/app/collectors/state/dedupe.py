@@ -89,6 +89,34 @@ MAX_TTL_SECONDS = 31 * 86400
 
 KEY_TMPL = "dedupe:{integration_id}:{message_id}"
 
+#: Conjunto das claims PENDENTES de um ciclo de (integração, stream): reivindicadas
+#: e ainda não liquidadas pelo hand-off durável. Um ciclo que termina (bem ou mal)
+#: zera o conjunto; só um kill duro (SIGKILL, OOM, hard-timeout) o deixa de pé — e
+#: então o próximo ciclo, já com a trava do stream, solta essas claims órfãs antes
+#: de coletar (:func:`recover_orphan_claims`). Sem isto, a claim órfã vivia até o
+#: TTL (mínimo 4 h, default 24 h) e o re-run descartava os eventos re-buscados
+#: como "duplicados": perda silenciosa (ADR-0018 Onda 0).
+PENDING_SET_TMPL = "dedupe:pending:{integration_id}:{stream}"
+
+#: SET NX + SADD no conjunto de pendentes, atômico e num round-trip só: o membro
+#: só entra quando a claim é DESTE ciclo (um SADD incondicional registraria a
+#: claim já liquidada de outro ciclo, e a recuperação a soltaria).
+_CLAIM_TRACKED_LUA = """
+if redis.call('SET', KEYS[1], '1', 'NX', 'EX', ARGV[1]) then
+  redis.call('SADD', KEYS[2], ARGV[2])
+  redis.call('EXPIRE', KEYS[2], ARGV[1])
+  return 1
+end
+return 0
+"""
+
+_RECOVER_CHUNK = 1000
+
+
+def pending_set_key(integration_id: int, stream: str) -> str:
+    """Chave do conjunto de claims pendentes de um (integração, stream)."""
+    return PENDING_SET_TMPL.format(integration_id=integration_id, stream=stream)
+
 
 def clamp_ttl_seconds(seconds: Any) -> int:
     """Normaliza um TTL para a faixa suportada [MIN, MAX], em segundos.
@@ -149,8 +177,12 @@ async def claim(
     ttl_days: Optional[int] = None,
     *,
     ttl_seconds: Optional[int] = None,
+    pending_set: Optional[str] = None,
 ) -> bool:
     """True se o evento é inédito (pode ser despachado). False se duplicado.
+
+    Com ``pending_set`` a claim também entra no conjunto de pendentes do ciclo
+    (ver :data:`PENDING_SET_TMPL`), atomicamente; o ciclo a retira ao liquidar.
 
     ``ttl_seconds`` é a forma CANÔNICA — o TTL é a alavanca direta sobre o
     keyspace (``chaves ≈ EPS × TTL``), e expressá-lo só em dias impedia o
@@ -162,8 +194,51 @@ async def claim(
             ttl_days * 86400 if ttl_days is not None else DEFAULT_TTL_SECONDS
         )
     key = KEY_TMPL.format(integration_id=integration_id, message_id=message_id)
-    result = await redis.set(key, "1", nx=True, ex=clamp_ttl_seconds(ttl_seconds))
+    ttl = clamp_ttl_seconds(ttl_seconds)
+    if pending_set:
+        result = await redis.eval(_CLAIM_TRACKED_LUA, 2, key, pending_set, ttl, message_id)
+        return bool(int(result or 0))
+    result = await redis.set(key, "1", nx=True, ex=ttl)
     return bool(result)
+
+
+async def settle_pending(
+    redis: redis_async.Redis,
+    pending_set: str,
+    message_ids: Iterable[str],
+) -> None:
+    """Tira do conjunto de pendentes as claims liquidadas (o hand-off durável
+    confirmou). Um round-trip por lote. Falha aqui não perde nada: no pior caso
+    a recuperação solta uma claim já liquidada e o evento, se re-buscado, é
+    reentregue (at-least-once)."""
+    ids = [m for m in message_ids if m]
+    if ids:
+        await redis.srem(pending_set, *ids)
+
+
+async def recover_orphan_claims(
+    redis: redis_async.Redis,
+    integration_id: int,
+    pending_set: str,
+) -> int:
+    """Solta as claims que um ciclo morto deixou pendentes. Devolve quantas.
+
+    Chamar SÓ com a trava do (integração, stream) em mãos e ANTES de reivindicar
+    qualquer evento: o conjunto então só contém claims de um ciclo que não está
+    mais rodando. Os eventos voltam a ser reivindicáveis; o cursor não avançou,
+    então eles são re-buscados e processados em vez de descartados."""
+    raw_ids = await redis.smembers(pending_set)
+    ids = [
+        m.decode("utf-8", "replace") if isinstance(m, (bytes, bytearray)) else str(m)
+        for m in (raw_ids or ())
+    ]
+    if not ids:
+        return 0
+    keys = [KEY_TMPL.format(integration_id=integration_id, message_id=m) for m in ids]
+    for i in range(0, len(keys), _RECOVER_CHUNK):
+        await redis.delete(*keys[i : i + _RECOVER_CHUNK])
+    await redis.delete(pending_set)
+    return len(keys)
 
 
 async def release(
