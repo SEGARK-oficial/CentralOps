@@ -85,7 +85,7 @@ def test_creates_destinations_and_routes_tables(fresh_engine):
 def test_seeds_wazuh_default_from_collector_config(fresh_engine):
     # mode="both" com syslog_format=rfc3164 (default) → kind=syslog_rfc3164
     # (fan-out syslog+jsonl é responsabilidade do roteador).
-    _insert_collector_config(fresh_engine, mode="both", host="192.168.3.211")
+    _insert_collector_config(fresh_engine, mode="both", host="192.0.2.10")
     _db_module._run_lightweight_migrations()
 
     Session = sessionmaker(bind=fresh_engine)
@@ -99,7 +99,7 @@ def test_seeds_wazuh_default_from_collector_config(fresh_engine):
         assert row.enabled in (1, True)
         cfg = json.loads(row.config)
         # Config agora usa campos vendor-neutros do SyslogRfc3164Config.
-        assert cfg["host"] == "192.168.3.211"
+        assert cfg["host"] == "192.0.2.10"
         assert "dispatch_mode" not in cfg  # campo removido com o split
         assert row.config_version  # não vazio
 

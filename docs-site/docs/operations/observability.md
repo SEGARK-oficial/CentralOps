@@ -93,7 +93,7 @@ OTEL_SERVICE_NAME=centralops-collector
 ```
 
 Se o Collector estiver em **outra rede/host**, use o IP do host + a porta publicada
-(ex.: `http://192.168.3.108:4318`), não o DNS de serviço.
+(ex.: `http://<IP-DO-HOST>:4318`), não o DNS de serviço.
 
 **4) Recrie os serviços:**
 

@@ -411,7 +411,7 @@ networkPolicies:
   egress:
     # CIDRs externos permitidos (ex.: coletor OTLP fora do cluster, APIs SaaS).
     extraAllowedCIDRs: []
-    # - cidr: 192.168.3.0/24
+    # - cidr: 192.0.2.0/24
     # ports:
     # - { protocol: TCP, port: 9090 }
 

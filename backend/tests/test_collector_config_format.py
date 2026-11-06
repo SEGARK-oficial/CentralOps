@@ -171,7 +171,7 @@ def test_legacy_rfc5424_preserved_after_migration() -> None:
                 domain_concurrency_limits, rate_limits_by_vendor,
                 created_at, updated_at
             ) VALUES (
-                1, '192.168.3.211', 514, 0, 'syslog',
+                1, '192.0.2.10', 514, 0, 'syslog',
                 '/var/log/centralops', 200, 5, 7, '{}', '{}',
                 '2026-01-01 00:00:00', '2026-01-01 00:00:00'
             )

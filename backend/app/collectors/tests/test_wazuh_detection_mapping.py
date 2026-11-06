@@ -90,20 +90,20 @@ _WINDOWS_LOGOFF = {
     "timestamp": "2026-07-16T20:03:02.432+0000",
 }
 
-# ── payload real: syslog UniFi decodificado no manager (agente 000) ─────────
+# ── payload de syslog UniFi decodificado no manager (agente 000) — valores sintéticos ──
 
 _UNIFI_SYSLOG = {
     "predecoder": {
-        "hostname": "UNIFI13RK02L159-corredormatinai",
+        "hostname": "UNIFI-AP01-ala-norte",
         "timestamp": "Jul 16 17:11:34",
     },
     "agent": {"name": "wazuh.manager", "id": "000"},
     "manager": {"name": "wazuh.manager"},
     "data": {
-        "srcmac": "e2:87:c5:d8:e4:36",
+        "srcmac": "00:00:5e:00:53:01",
         "wireless": {
             "vap": "wifi0ap3",
-            "bssid": "82:83:c2:b7:e5:39",
+            "bssid": "00:00:5e:00:53:02",
             "satisfaction": "53",
             "radio": "wifi0",
         },
@@ -118,13 +118,13 @@ _UNIFI_SYSLOG = {
     },
     "decoder": {"name": "unifi-ap"},
     "full_log": (
-        "Jul 16 17:11:34 UNIFI13RK02L159-corredormatinai mcad[4702]: "
-        "wireless_agg_stats.log_sta_anomalies(): bssid=82:83:c2:b7:e5:39 "
-        "sta=e2:87:c5:d8:e4:36 satisfaction_now=53 anomalies=tcp_latency"
+        "Jul 16 17:11:34 UNIFI-AP01-ala-norte mcad[4702]: "
+        "wireless_agg_stats.log_sta_anomalies(): bssid=00:00:5e:00:53:02 "
+        "sta=00:00:5e:00:53:01 satisfaction_now=53 anomalies=tcp_latency"
     ),
     "input": {"type": "log"},
     "@timestamp": "2026-07-16T20:11:34.580Z",
-    "location": "192.168.50.147",
+    "location": "192.0.2.47",
     "id": "1784232694.1076923353",
     "timestamp": "2026-07-16T20:11:34.580+0000",
 }
@@ -237,15 +237,15 @@ def test_unifi_syslog_variant_maps_and_passes_structural_gate() -> None:
     assert norm["device"]["ip"] is None
 
     # shape syslog preservado em unmapped
-    assert norm["unmapped"]["predecoder"]["hostname"] == "UNIFI13RK02L159-corredormatinai"
-    assert norm["unmapped"]["data"]["wireless"]["bssid"] == "82:83:c2:b7:e5:39"
+    assert norm["unmapped"]["predecoder"]["hostname"] == "UNIFI-AP01-ala-norte"
+    assert norm["unmapped"]["data"]["wireless"]["bssid"] == "00:00:5e:00:53:02"
     assert norm["unmapped"]["full_log"].startswith("Jul 16 17:11:34")
     # sem compliance arrays neste shape → null (nunca KeyError/quarentena)
     assert norm["unmapped"]["rule"]["pci_dss"] is None
 
     # observable de MAC do cliente
     obs = {(o["type_id"], o["value"]) for o in norm["observables"]}
-    assert (3, "e2:87:c5:d8:e4:36") in obs
+    assert (3, "00:00:5e:00:53:01") in obs
 
 
 # ── tabela de severidade + guardas de required ───────────────────────────────

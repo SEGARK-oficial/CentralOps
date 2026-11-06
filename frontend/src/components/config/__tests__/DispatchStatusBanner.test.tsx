@@ -73,7 +73,7 @@ function makeConfig(overrides: Partial<CollectorConfig> = {}): CollectorConfig {
     is_persisted: true,
     config_version: "1.0.0",
     updated_at: "2026-04-25T10:00:00Z",
-    wazuh_syslog_host: "192.168.3.211",
+    wazuh_syslog_host: "192.0.2.10",
     wazuh_syslog_port: 514,
     wazuh_syslog_use_tls: false,
     wazuh_ca_bundle: null,
