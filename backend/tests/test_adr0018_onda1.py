@@ -230,3 +230,79 @@ def test_alert_rules_reference_real_metrics_and_runbooks():
 
     prom = (REPO_ROOT / "compose" / "observability" / "prometheus.yml").read_text(encoding="utf-8")
     assert "/etc/prometheus/rules/*.yml" in prom
+
+
+# ── PrometheusRule e PgBouncer (Helm) ────────────────────────────────────────
+
+
+@pytest.mark.source_only
+def test_chart_alert_rules_match_compose_rules():
+    """O PrometheusRule do chart e o Prometheus do compose avaliam as MESMAS
+    regras: o Helm só lê arquivos do próprio chart, então há uma cópia."""
+    compose = REPO_ROOT / "compose" / "observability" / "alerts" / "centralops-dataplane.rules.yml"
+    chart = CHART / "files" / "prometheus" / "centralops-dataplane.rules.yml"
+    assert chart.read_bytes() == compose.read_bytes()
+
+
+@pytest.mark.source_only  # executa os entrypoints do repositório
+@pytest.mark.parametrize("script", ["start-api.sh", "start-collector.sh"])
+@pytest.mark.parametrize("migration_url", ["", "postgresql+psycopg2://u:p@direct:5432/db"])
+def test_migration_uses_direct_url_when_set(tmp_path, script, migration_url):
+    """Com PgBouncer, a migração (advisory lock de SESSÃO) vai direto ao
+    Postgres; sem DATABASE_MIGRATION_URL, nada muda."""
+    import shutil
+    import subprocess
+
+    if shutil.which("sh") is None:  # pragma: no cover
+        pytest.skip("sem /bin/sh")
+    bindir = tmp_path / "bin"
+    bindir.mkdir()
+    record = tmp_path / "migrate-url.txt"
+    fake = bindir / "python"
+    # Registra a DATABASE_URL vista pela migração; ``exec "$@"`` cai no ``true``.
+    fake.write_text(f'#!/bin/sh\nprintf "%s" "$DATABASE_URL" > "{record}"\nexit 0\n')
+    fake.chmod(0o755)
+    for helper in ("nginx", "uvicorn", "gunicorn"):
+        stub = bindir / helper
+        stub.write_text("#!/bin/sh\nexit 0\n")
+        stub.chmod(0o755)
+
+    env = {
+        "PATH": f"{bindir}:/usr/bin:/bin",
+        "APP_MASTER_KEY": "k" * 40,
+        "APP_ENV": "production",
+        "DATABASE_URL": "postgresql+psycopg2://u:p@pgbouncer:5432/db",
+    }
+    if migration_url:
+        env["DATABASE_MIGRATION_URL"] = migration_url
+    subprocess.run(
+        ["sh", str(REPO_ROOT / "scripts" / script), "true"],
+        env=env, capture_output=True, timeout=30,
+    )
+    assert record.read_text() == (migration_url or env["DATABASE_URL"])
+
+
+def test_compose_pgbouncer_is_opt_in_and_migration_url_reaches_every_service():
+    """PgBouncer do compose só sobe com o profile; DATABASE_MIGRATION_URL chega a
+    TODOS os serviços da app (os entrypoints migram por ela quando definida)."""
+    yaml = pytest.importorskip("yaml")
+    compose = REPO_ROOT / "compose" / "docker-compose.yml"
+    if not compose.exists():  # pragma: no cover
+        pytest.skip("compose/docker-compose.yml ausente")
+    services = yaml.safe_load(compose.read_text(encoding="utf-8"))["services"]
+
+    pgb = services["pgbouncer"]
+    assert pgb.get("profiles") == ["pgbouncer"]
+    env = dict(str(e).partition("=")[::2] for e in pgb["environment"])
+    assert env["POOL_MODE"] == "transaction"
+    assert env["UPSTREAM_DATABASE_URL"].startswith("${DATABASE_MIGRATION_URL:-")
+
+    app = [
+        name for name, svc in services.items()
+        if "${IMAGE_NAME:-centralops}:" in str(svc.get("image", "")) and name != "frontend"
+    ]
+    missing = [
+        name for name in app
+        if not any(str(e).startswith("DATABASE_MIGRATION_URL=") for e in services[name]["environment"])
+    ]
+    assert not missing, f"DATABASE_MIGRATION_URL ausente em: {missing}"

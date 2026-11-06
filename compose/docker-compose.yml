@@ -119,6 +119,7 @@ services:
       # Default: Postgres do compose. Override via .env pra apontar pra
       # outro host ou voltar a SQLite (sqlite:////app/data/sophos.db).
       - DATABASE_URL=${DATABASE_URL:-postgresql+psycopg2://${POSTGRES_USER:-centralops}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD obrigatorio - gere com openssl rand -base64 24 e coloque no .env}@postgres:5432/${POSTGRES_DB:-centralops}}
+      - DATABASE_MIGRATION_URL=${DATABASE_MIGRATION_URL:-}
       # Teto de ESPERA por lock da migração de boot (ms; default 15000). Não
       # limita quanto a migração DEMORA — só quanto ela aguarda uma tabela
       # travada por outra sessão antes de abortar o boot com erro claro, em vez
@@ -242,6 +243,50 @@ services:
     restart: unless-stopped
 
   # ── Collector Multi-Tenant (RF07, RNF05) ────────────────────────────
+
+  pgbouncer:
+    # ADR-0018 Onda 1 — pooling por TRANSAÇÃO na frente do Postgres. OPCIONAL:
+    # ligue com COMPOSE_PROFILES=pgbouncer e aponte a app para ele no .env:
+    #   DATABASE_URL=postgresql+psycopg2://<user>:<senha>@pgbouncer:5432/<db>
+    #   DATABASE_MIGRATION_URL=postgresql+psycopg2://<user>:<senha>@postgres:5432/<db>
+    # A migração de boot SEMPRE vai direto ao Postgres (advisory lock de sessão,
+    # que o pooling por transação quebraria). Cada processo Python abre até
+    # DB_POOL_SIZE+DB_MAX_OVERFLOW (20+20) conexões; com ~30 processos no compose,
+    # a soma passa do max_connections=100 do Postgres.
+    profiles: ["pgbouncer"]
+    image: edoburu/pgbouncer:v1.24.1-p1
+    user: "70:70"
+    read_only: true
+    tmpfs:
+      - /etc/pgbouncer:uid=70,gid=70
+      - /tmp:uid=70,gid=70
+    entrypoint: ["/bin/sh", "-c"]
+    # A query string sai da URL: ela acabaria no nome do banco do pgbouncer.ini.
+    command: ['export DATABASE_URL="$${UPSTREAM_DATABASE_URL%%\?*}"; exec /entrypoint.sh /usr/bin/pgbouncer /etc/pgbouncer/pgbouncer.ini']
+    environment:
+      - UPSTREAM_DATABASE_URL=${DATABASE_MIGRATION_URL:-postgresql+psycopg2://${POSTGRES_USER:-centralops}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD obrigatorio - gere com openssl rand -base64 24 e coloque no .env}@postgres:5432/${POSTGRES_DB:-centralops}}
+      - LISTEN_PORT=5432
+      - POOL_MODE=transaction
+      - AUTH_TYPE=scram-sha-256
+      - DEFAULT_POOL_SIZE=${PGBOUNCER_DEFAULT_POOL_SIZE:-20}
+      - MAX_CLIENT_CONN=${PGBOUNCER_MAX_CLIENT_CONN:-2000}
+      - IGNORE_STARTUP_PARAMETERS=extra_float_digits
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z 127.0.0.1 5432 || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 128m
+    restart: unless-stopped
+
   redis:
     image: redis:7-alpine
     # AUTH sempre habilitado (RNF06). Em produção, considerar TLS via stunnel.
@@ -526,6 +571,7 @@ services:
       # Default: Postgres do compose. Override via .env pra apontar pra
       # outro host ou voltar a SQLite (sqlite:////app/data/sophos.db).
       - DATABASE_URL=${DATABASE_URL:-postgresql+psycopg2://${POSTGRES_USER:-centralops}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD obrigatorio - gere com openssl rand -base64 24 e coloque no .env}@postgres:5432/${POSTGRES_DB:-centralops}}
+      - DATABASE_MIGRATION_URL=${DATABASE_MIGRATION_URL:-}
       # Teto de ESPERA por lock da migração de boot (ms; default 15000). Não
       # limita quanto a migração DEMORA — só quanto ela aguarda uma tabela
       # travada por outra sessão antes de abortar o boot com erro claro, em vez
@@ -691,6 +737,7 @@ services:
       # Default: Postgres do compose. Override via .env pra apontar pra
       # outro host ou voltar a SQLite (sqlite:////app/data/sophos.db).
       - DATABASE_URL=${DATABASE_URL:-postgresql+psycopg2://${POSTGRES_USER:-centralops}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD obrigatorio - gere com openssl rand -base64 24 e coloque no .env}@postgres:5432/${POSTGRES_DB:-centralops}}
+      - DATABASE_MIGRATION_URL=${DATABASE_MIGRATION_URL:-}
       # Teto de ESPERA por lock da migração de boot (ms; default 15000). Não
       # limita quanto a migração DEMORA — só quanto ela aguarda uma tabela
       # travada por outra sessão antes de abortar o boot com erro claro, em vez
@@ -817,6 +864,7 @@ services:
       # Default: Postgres do compose. Override via .env pra apontar pra
       # outro host ou voltar a SQLite (sqlite:////app/data/sophos.db).
       - DATABASE_URL=${DATABASE_URL:-postgresql+psycopg2://${POSTGRES_USER:-centralops}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD obrigatorio - gere com openssl rand -base64 24 e coloque no .env}@postgres:5432/${POSTGRES_DB:-centralops}}
+      - DATABASE_MIGRATION_URL=${DATABASE_MIGRATION_URL:-}
       # Teto de ESPERA por lock da migração de boot (ms; default 15000). Não
       # limita quanto a migração DEMORA — só quanto ela aguarda uma tabela
       # travada por outra sessão antes de abortar o boot com erro claro, em vez
@@ -957,6 +1005,7 @@ services:
       - KAFKA_RAW_SHARDS_PER_STREAM=${KAFKA_RAW_SHARDS_PER_STREAM:-4}
       - SESSION_SECURE_COOKIE=${SESSION_SECURE_COOKIE:-1}
       - DATABASE_URL=${DATABASE_URL:-postgresql+psycopg2://${POSTGRES_USER:-centralops}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD obrigatorio - gere com openssl rand -base64 24 e coloque no .env}@postgres:5432/${POSTGRES_DB:-centralops}}
+      - DATABASE_MIGRATION_URL=${DATABASE_MIGRATION_URL:-}
       # Teto de ESPERA por lock da migração de boot (ms; default 15000). Não
       # limita quanto a migração DEMORA — só quanto ela aguarda uma tabela
       # travada por outra sessão antes de abortar o boot com erro claro, em vez
@@ -1094,6 +1143,7 @@ services:
       - KAFKA_RAW_SHARDS_PER_STREAM=${KAFKA_RAW_SHARDS_PER_STREAM:-4}
       - SESSION_SECURE_COOKIE=${SESSION_SECURE_COOKIE:-1}
       - DATABASE_URL=${DATABASE_URL:-postgresql+psycopg2://${POSTGRES_USER:-centralops}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD obrigatorio - gere com openssl rand -base64 24 e coloque no .env}@postgres:5432/${POSTGRES_DB:-centralops}}
+      - DATABASE_MIGRATION_URL=${DATABASE_MIGRATION_URL:-}
       # Teto de ESPERA por lock da migração de boot (ms; default 15000). Não
       # limita quanto a migração DEMORA — só quanto ela aguarda uma tabela
       # travada por outra sessão antes de abortar o boot com erro claro, em vez
@@ -1230,6 +1280,7 @@ services:
       # Sem isso o loader cai no default sqlite:///./data/sophos.db, falha
       # com "unable to open database file" e fica em fallback de env.
       - DATABASE_URL=${DATABASE_URL:-postgresql+psycopg2://${POSTGRES_USER:-centralops}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD obrigatorio - gere com openssl rand -base64 24 e coloque no .env}@postgres:5432/${POSTGRES_DB:-centralops}}
+      - DATABASE_MIGRATION_URL=${DATABASE_MIGRATION_URL:-}
       # Teto de ESPERA por lock da migração de boot (ms; default 15000). Não
       # limita quanto a migração DEMORA — só quanto ela aguarda uma tabela
       # travada por outra sessão antes de abortar o boot com erro claro, em vez
@@ -1360,6 +1411,7 @@ services:
       - KAFKA_RAW_SHARDS_PER_STREAM=${KAFKA_RAW_SHARDS_PER_STREAM:-4}
       - KAFKA_CONSUMER_GROUP=${KAFKA_CONSUMER_GROUP:-centralops-dispatcher}
       - DATABASE_URL=${DATABASE_URL:-postgresql+psycopg2://${POSTGRES_USER:-centralops}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD obrigatorio - gere com openssl rand -base64 24 e coloque no .env}@postgres:5432/${POSTGRES_DB:-centralops}}
+      - DATABASE_MIGRATION_URL=${DATABASE_MIGRATION_URL:-}
       # Teto de ESPERA por lock da migração de boot (ms; default 15000). Não
       # limita quanto a migração DEMORA — só quanto ela aguarda uma tabela
       # travada por outra sessão antes de abortar o boot com erro claro, em vez
@@ -1458,6 +1510,7 @@ services:
       - OTEL_EXPORTER_OTLP_ENDPOINT=${OTEL_EXPORTER_OTLP_ENDPOINT:-}
       - OTEL_METRIC_EXPORT_INTERVAL_MS=${OTEL_METRIC_EXPORT_INTERVAL_MS:-15000}
       - DATABASE_URL=${DATABASE_URL:-postgresql+psycopg2://${POSTGRES_USER:-centralops}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD obrigatorio - gere com openssl rand -base64 24 e coloque no .env}@postgres:5432/${POSTGRES_DB:-centralops}}
+      - DATABASE_MIGRATION_URL=${DATABASE_MIGRATION_URL:-}
       - REDIS_URL=${REDIS_URL:-redis://:${REDIS_PASSWORD:?REDIS_PASSWORD obrigatorio - gere com openssl rand -base64 24 e coloque no .env}@redis:6379/0}
     working_dir: /app
     volumes:
@@ -1566,6 +1619,7 @@ services:
       # Default: Postgres do compose. Override via .env pra apontar pra
       # outro host ou voltar a SQLite (sqlite:////app/data/sophos.db).
       - DATABASE_URL=${DATABASE_URL:-postgresql+psycopg2://${POSTGRES_USER:-centralops}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD obrigatorio - gere com openssl rand -base64 24 e coloque no .env}@postgres:5432/${POSTGRES_DB:-centralops}}
+      - DATABASE_MIGRATION_URL=${DATABASE_MIGRATION_URL:-}
       # Teto de ESPERA por lock da migração de boot (ms; default 15000). Não
       # limita quanto a migração DEMORA — só quanto ela aguarda uma tabela
       # travada por outra sessão antes de abortar o boot com erro claro, em vez

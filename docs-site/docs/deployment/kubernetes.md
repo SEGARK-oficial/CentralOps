@@ -113,6 +113,33 @@ dataPlane:
 
 O tópico de entrega é criado na primeira subida com essas partições, réplicas e `min.insync.replicas`. Aumentar partições depois exige repartição manual no broker.
 
+## PgBouncer (recomendado em produção)
+
+Cada processo da aplicação abre até 40 conexões com o Postgres (`DB_POOL_SIZE` + `DB_MAX_OVERFLOW`). Com vários workers, a soma passa facilmente do `max_connections` padrão do Postgres (100). Ligue o PgBouncer do chart:
+
+```yaml
+pgbouncer:
+  enabled: true
+  serverTlsSslmode: require   # TLS do PgBouncer até o Postgres gerenciado
+```
+
+- Com o Secret do chart, `secrets.databaseUrl` continua sendo a URL **direta** do Postgres. O chart aponta a aplicação para o PgBouncer e guarda a URL direta em `DATABASE_MIGRATION_URL`.
+- Com `secrets.existingSecret`, o Secret precisa das duas chaves: `DATABASE_URL` (host `<release>-centralops-pgbouncer`, porta 5432, sem `sslmode`) e `DATABASE_MIGRATION_URL` (Postgres direto).
+- A migração de boot sempre vai direto ao Postgres: ela usa um lock de sessão que o pooling por transação não suporta.
+- A senha do banco não pode depender de URL-encoding, porque o PgBouncer a lê como está escrita na URL.
+
+## Alertas com Prometheus Operator
+
+Se o cluster usa o Prometheus Operator, o chart cria um `PrometheusRule` com as regras do data-plane (DLQ que não grava, lag, breaker aberto, DLQ crescendo, coleta atrasada, evicção do dedupe, push recusando):
+
+```yaml
+monitoring:
+  prometheusRule:
+    enabled: true
+    labels:
+      release: kube-prometheus-stack   # o rótulo que o seu Prometheus seleciona
+```
+
 ## Recursos que o chart entrega
 
 - **API + frontend + workers Celery + beat** como Deployments separados (release
