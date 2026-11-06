@@ -30,7 +30,8 @@ from redis.exceptions import RedisError
 from sqlalchemy.orm import Session
 
 from ..collectors import registry as collector_registry
-from ..collectors.ingest_buffer import buffer_depth, push_events
+from ..collectors.dataplane.raw import OversizedRawEventError, produce_raw_async
+from ..collectors.ingest_buffer import buffer_depth, push_events, push_goes_to_kafka
 from ..collectors.metrics import (
     INGEST_ACCEPTED,
     INGEST_BUFFER_DEPTH,
@@ -384,6 +385,32 @@ async def ingest(
         return _resp(accepted=0, dropped=0, depth=0)
 
     stamped = [_stamp(ev, stream) for ev in batch.events]
+
+    if push_goes_to_kafka():
+        # ADR-0018 Onda 2: o 200 só sai DEPOIS do ack do tópico raw (acks=all). O
+        # Kafka é o buffer durável; broker fora = 503 e a borda re-tenta com o
+        # buffer de disco dela. Nunca um 200 de evento que não está gravado.
+        try:
+            accepted = await produce_raw_async(integ.id, stream, stamped)
+        except OversizedRawEventError as exc:
+            logger.warning("ingest: %s", exc)
+            raise HTTPException(
+                status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                detail="evento maior que o teto do data-plane (KAFKA_MAX_REQUEST_BYTES)",
+            ) from None
+        except Exception as exc:  # noqa: BLE001 — qualquer falha do broker = não gravado
+            logger.warning(
+                "ingest: tópico raw indisponível integration_id=%s (%s) — 503",
+                integ.id, type(exc).__name__,
+            )
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="data-plane indisponível — re-tente após o Retry-After",
+                headers={"Retry-After": str(_BUFFER_FULL_RETRY_AFTER_S)},
+            ) from None
+        INGEST_ACCEPTED.labels(vendor=integ.platform, stream=stream).inc(accepted)
+        return _resp(accepted=accepted, dropped=0, depth=0)
+
     redis = await _redis_client()
     try:
         accepted, dropped = await push_events(redis, integ.id, stream, stamped)

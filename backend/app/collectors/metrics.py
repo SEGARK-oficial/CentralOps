@@ -230,6 +230,9 @@ DATAPLANE_PRODUCE_LATENCY = _instrument("collector_dataplane_produce_latency_sec
 DATAPLANE_CONSUMED = _instrument("collector_dataplane_consumed_total")
 DATAPLANE_CONSUME_LATENCY = _instrument("collector_dataplane_consume_latency_seconds")
 DATAPLANE_CONSUMER_LAG = _instrument("collector_dataplane_consumer_lag")
+# Tópico raw (ADR-0018 Onda 2).
+RAW_PROCESSED = _instrument("collector_raw_processed_total")
+RAW_CONSUMER_LAG = _instrument("collector_raw_consumer_lag")
 
 
 @contextmanager

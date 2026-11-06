@@ -216,16 +216,20 @@ class Receiver:
         """Empurra tudo que está nas filas. Um LPUSH por (integração, stream)."""
         if not self._queues:
             return 0
-        from ..collectors.ingest_buffer import buffer_depth, push_events
+        from ..collectors.ingest_buffer import buffer_depth, push_goes_to_kafka, write_push_events
+
+        to_kafka = push_goes_to_kafka()
 
         queues, self._queues = self._queues, {}
         total = 0
         for (integration_id, stream, platform), events in queues.items():
             try:
-                accepted, refused = await push_events(self.redis, integration_id, stream, events)
-                depth = await buffer_depth(self.redis, integration_id, stream)
+                # Kafka (deploy): tópico raw com ack (ADR-0018 Onda 2). Celery (dev):
+                # lista Redis. Falha em qualquer um → retém em memória e re-tenta.
+                accepted, refused = await write_push_events(self.redis, integration_id, stream, events)
+                depth = 0 if to_kafka else await buffer_depth(self.redis, integration_id, stream)
             except Exception:  # noqa: BLE001 — Redis fora: devolve para a fila, tenta no próximo tick
-                logger.warning("syslog: falha ao gravar no buffer integration_id=%s stream=%s — %d evento(s) retidos",
+                logger.warning("syslog: falha ao gravar (raw/buffer) integration_id=%s stream=%s — %d evento(s) retidos",
                                integration_id, stream, len(events), exc_info=True)
                 self._retain((integration_id, stream, platform), events)
                 continue

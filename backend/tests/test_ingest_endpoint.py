@@ -322,3 +322,54 @@ def test_buffer_full_returns_503_and_keeps_accepted_events(setup, monkeypatch):
 
     drained = _asyncio.run(ingest_buffer.drain_events(server, push_id, "traffic"))
     assert sorted(e["n"] for e in drained) == [1, 2]
+
+
+# ── ADR-0018 Onda 2: modo kafka — o 200 só sai depois do ack do tópico raw ────
+
+
+def _post_ndjson(client, token, body='{"a":1}\n{"a":2}'):
+    return client.post(
+        "/api/ingest/traffic",
+        data=body,
+        headers={"Authorization": f"Bearer {token}", "Content-Type": "application/x-ndjson"},
+    )
+
+
+def test_ingest_acks_after_durable_write(setup, monkeypatch):
+    from backend.app.core.config import settings
+
+    client, push_id, _pull_id, _server = setup
+    token = client.post(f"/api/ingest/integrations/{push_id}/token").json()["token"]
+    monkeypatch.setattr(settings, "EVENT_DATAPLANE", "kafka")
+    produced: list = []
+
+    async def _produce(iid, stream, events):
+        produced.append((iid, stream, [e["a"] for e in events]))
+        return len(events)
+
+    async def _no_redis(*a, **k):  # pragma: no cover — não pode ser chamado
+        raise AssertionError("modo kafka não usa a lista Redis")
+
+    monkeypatch.setattr(ingest_router, "produce_raw_async", _produce)
+    monkeypatch.setattr(ingest_router, "push_events", _no_redis)
+
+    r = _post_ndjson(client, token)
+    assert r.status_code == 200, r.text
+    assert r.json()["accepted"] == 2
+    assert produced == [(push_id, "traffic", [1, 2])]
+
+
+def test_ingest_kafka_down_returns_503(setup, monkeypatch):
+    from backend.app.core.config import settings
+
+    client, push_id, _pull_id, _server = setup
+    token = client.post(f"/api/ingest/integrations/{push_id}/token").json()["token"]
+    monkeypatch.setattr(settings, "EVENT_DATAPLANE", "kafka")
+
+    async def _down(*a, **k):
+        raise ConnectionError("KafkaConnectionError: broker fora")
+
+    monkeypatch.setattr(ingest_router, "produce_raw_async", _down)
+    r = _post_ndjson(client, token)
+    assert r.status_code == 503
+    assert r.headers.get("Retry-After")

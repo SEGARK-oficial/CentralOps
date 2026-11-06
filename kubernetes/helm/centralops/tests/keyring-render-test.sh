@@ -42,7 +42,7 @@ YAML
 helm template t "$CHART_DIR" "${BASE[@]}" -f "$tmp/inline.yaml" > "$tmp/inline_out.yaml"
 # Pods da app = api + kafka-dispatcher + um por worker declarado. Derivado do render
 # (não fixo): um papel novo de worker entra na conta sozinho.
-app_pods="$(grep -A3 '^kind: Deployment' "$tmp/inline_out.yaml" | grep -cE 'name: t-centralops-(api|kafka-dispatcher|worker-[a-z]+)$')"
+app_pods="$(grep -A3 '^kind: Deployment' "$tmp/inline_out.yaml" | grep -cE 'name: t-centralops-(api|kafka-dispatcher|raw-processor|worker-[a-z]+)$')"
 check "license-keyring ConfigMap rendered"        "$(grep -c 'name: t-centralops-license-keyring' "$tmp/inline_out.yaml" | head -1)" "$((app_pods + 1))"
 check "PEM embedded in ConfigMap"                 "$(grep -c 'BEGIN PUBLIC KEY' "$tmp/inline_out.yaml")" "1"
 check "KEYS_DIR=/licensing in -config"            "$(grep -c 'CENTRALOPS_LICENSE_KEYS_DIR: /licensing' "$tmp/inline_out.yaml")" "1"

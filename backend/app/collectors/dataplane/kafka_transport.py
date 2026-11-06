@@ -114,6 +114,45 @@ def _client_kwargs() -> Dict[str, Any]:
     return kwargs
 
 
+async def _ensure_topic(
+    name: str, partitions: int, replication: int, configs: Dict[str, str]
+) -> None:
+    """Cria ``name`` de forma IDEMPOTENTE (já existe = ok). Falha não bloqueia o
+    boot: o broker pode auto-criar, e o log diz para conferir as partições."""
+    from aiokafka.admin import AIOKafkaAdminClient, NewTopic
+    from aiokafka.errors import TopicAlreadyExistsError
+
+    admin = AIOKafkaAdminClient(**_client_kwargs())
+    try:
+        await admin.start()
+        await admin.create_topics(
+            [
+                NewTopic(
+                    name,
+                    num_partitions=partitions,
+                    replication_factor=replication,
+                    topic_configs=configs,
+                )
+            ]
+        )
+        logger.info(
+            "data-plane: tópico %s garantido (partitions=%d rf=%d configs=%s)",
+            name, partitions, replication, configs,
+        )
+    except TopicAlreadyExistsError:
+        pass
+    except Exception:  # pragma: no cover — não bloqueia o boot
+        logger.warning(
+            "data-plane: ensure-topic falhou p/ %s (segue) — confira partições no broker",
+            name, exc_info=True,
+        )
+    finally:
+        try:
+            await admin.close()
+        except Exception:  # pragma: no cover
+            pass
+
+
 async def _ensure_deliver_topic() -> None:
     """Cria o tópico de entrega com ``KAFKA_DELIVER_PARTITIONS`` partições, de
     forma IDEMPOTENTE. Sem isto o broker auto-cria com 1 partição (default
@@ -357,13 +396,20 @@ class _ProducerThread:
         await producer.start()
         return producer
 
-    async def _bounded_send(self, value: bytes, key: bytes) -> Any:
+    async def _bounded_send(self, value: bytes, key: bytes, topic: Optional[str] = None) -> Any:
         """``send_and_wait`` com teto INTERNO (``asyncio.wait_for``) — garante que
         o cancelamento propague p/ a corrotina mesmo no wait cross-thread."""
         return await asyncio.wait_for(
-            self._producer.send_and_wait(deliver_topic(), value=value, key=key),
+            self._producer.send_and_wait(topic or deliver_topic(), value=value, key=key),
             timeout=settings.KAFKA_PRODUCE_WAIT_S,
         )
+
+    def run_in_loop(self, coro: Any, timeout: float) -> Any:
+        """Roda ``coro`` no loop do producer e espera o resultado (sobe o producer
+        se preciso). Usado para preparar outros tópicos no mesmo cliente."""
+        self._ensure_started()
+        fut = asyncio.run_coroutine_threadsafe(coro, self._loop)
+        return fut.result(timeout=timeout)
 
     def _ensure_started(self) -> None:
         if self._producer is not None:
@@ -485,7 +531,9 @@ class _ProducerThread:
                     max(1, len(value) // 2), oversized,
                 )
 
-    def _produce_value(self, destination_id: str, value: bytes, key: bytes) -> None:
+    def _produce_value(
+        self, destination_id: str, value: bytes, key: bytes, topic: Optional[str] = None
+    ) -> None:
         """Envia UM registro já enquadrado e BLOQUEIA até o ack. Em erro FATAL de
         idempotência, recria o producer (self-heal) e propaga o erro p/ o caller."""
         # Telemetria: latência + outcome do produce. Métricas OTel são
@@ -497,7 +545,7 @@ class _ProducerThread:
         fut: Optional[concurrent.futures.Future] = None
         try:
             fut = asyncio.run_coroutine_threadsafe(
-                self._bounded_send(value, key), self._loop
+                self._bounded_send(value, key, topic), self._loop
             )
             # +2s de folga sobre o teto INTERNO → o wait_for interno dispara
             # primeiro (cancela a send), e este result só colhe resultado/erro.
