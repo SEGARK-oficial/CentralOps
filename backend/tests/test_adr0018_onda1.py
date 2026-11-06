@@ -275,3 +275,29 @@ def test_migration_uses_direct_url_when_set(tmp_path, script, migration_url):
         env=env, capture_output=True, timeout=30,
     )
     assert record.read_text() == (migration_url or env["DATABASE_URL"])
+
+
+def test_compose_pgbouncer_is_opt_in_and_migration_url_reaches_every_service():
+    """PgBouncer do compose só sobe com o profile; DATABASE_MIGRATION_URL chega a
+    TODOS os serviços da app (os entrypoints migram por ela quando definida)."""
+    yaml = pytest.importorskip("yaml")
+    compose = REPO_ROOT / "compose" / "docker-compose.yml"
+    if not compose.exists():  # pragma: no cover
+        pytest.skip("compose/docker-compose.yml ausente")
+    services = yaml.safe_load(compose.read_text(encoding="utf-8"))["services"]
+
+    pgb = services["pgbouncer"]
+    assert pgb.get("profiles") == ["pgbouncer"]
+    env = dict(str(e).partition("=")[::2] for e in pgb["environment"])
+    assert env["POOL_MODE"] == "transaction"
+    assert env["UPSTREAM_DATABASE_URL"].startswith("${DATABASE_MIGRATION_URL:-")
+
+    app = [
+        name for name, svc in services.items()
+        if "${IMAGE_NAME:-centralops}:" in str(svc.get("image", "")) and name != "frontend"
+    ]
+    missing = [
+        name for name in app
+        if not any(str(e).startswith("DATABASE_MIGRATION_URL=") for e in services[name]["environment"])
+    ]
+    assert not missing, f"DATABASE_MIGRATION_URL ausente em: {missing}"
