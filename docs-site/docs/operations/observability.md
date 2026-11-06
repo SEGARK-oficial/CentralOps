@@ -46,7 +46,11 @@ duração), separado da Superfície B — por isso não depende de OTel.
 - **Logs correlacionados** por `trace_id`/`span_id` (toggle **separado**, `OTEL_LOGS_ENABLED`,
   porque o volume é alto).
 - **Vendor-neutro.** Você exporta para **um** OTel Collector; o Collector faz o *fan-out*
-  para os backends que quiser. Nenhum acoplamento a fornecedor no CentralOps.
+  para os backends que quiser. Nenhum acoplamento a fornecedor no CentralOps. Também dá
+  para exportar **direto** a um backend que recebe OTLP — ver
+  [Exportar direto, sem Collector](#exportar-direto-sem-collector).
+- **Traces da API** (opcional, `OTEL_API_TRACING_ENABLED`): ingestão push, MCP e console,
+  como o serviço `centralops-api`.
 
 ### Passo a passo para ligar
 
@@ -114,6 +118,16 @@ Setadas no env dos serviços `collector-*`. Defaults em `backend/app/core/config
 | `OTEL_METRIC_EXPORT_INTERVAL_MS` | `60000` | Intervalo do push de métricas (por processo). |
 | `OTEL_TRACES_SAMPLER_RATIO` | `1.0` | Head-sampling (0..1). 1.0 emite tudo; deixe o **tail-sampling** no Collector decidir o que reter (100% de erro/DLQ, amostra o sucesso). |
 | `OTEL_LOGS_ENABLED` | `false` | Toggle **separado** do sinal de LOGS. Requer `OTEL_ENABLED=true` também. |
+| `OTEL_EXPORTER_OTLP_PROTOCOL` | `""` (= `http/protobuf`) | `http/protobuf` (porta 4318) ou `grpc` (porta 4317). `OTEL_EXPORTER_OTLP_{TRACES,METRICS,LOGS}_PROTOCOL` vencem o global. `http/json` cai para `http/protobuf`; valor desconhecido desliga o sinal com um aviso. |
+| `OTEL_EXPORTER_OTLP_{TRACES,METRICS,LOGS}_ENDPOINT` | `""` | Endpoint **por sinal**: vence o `OTEL_EXPORTER_OTLP_ENDPOINT` e é usado como veio (URL completa em HTTP). Manda cada sinal a um backend diferente. |
+| `OTEL_API_TRACING_ENABLED` | `false` | Traces da API HTTP (serviço da API, não dos `collector-*`). Requer `OTEL_ENABLED=true`. |
+| `OTEL_API_SERVICE_NAME` | `centralops-api` | `service.name` da API — separada dos workers no mapa de serviços. |
+| `OTEL_API_EXCLUDED_URLS` | `/livez$,/readyz$,/assets/` | Regex (vírgula) de URLs da API que não geram trace. |
+
+Lidas **direto pelo SDK**, só por variável de ambiente (não pelo `.env` da aplicação):
+`OTEL_EXPORTER_OTLP_HEADERS` (autenticação do backend — é segredo), `..._CERTIFICATE`,
+`..._CLIENT_CERTIFICATE`/`..._CLIENT_KEY` (mTLS), `..._COMPRESSION`, `..._TIMEOUT`,
+`OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE` e `OTEL_RESOURCE_ATTRIBUTES`.
 
 :::note[Os defaults do `docker-compose.yml` diferem do código]
 
@@ -136,6 +150,57 @@ subindo o ratio). Ajuste no seu `compose/.env` conforme a necessidade.
 - **Janela do `rate()`.** Com push a cada 15–60 s, use `rate(...[5m])` — `rate(...[1m])`
   pode retornar zero (menos de 2 amostras na janela).
 - **Prometheus precisa das flags de remote-write** (ver abaixo) — sem elas, recusa o push.
+- **Falha de export é contada.** `collector_otel_export_failures_total{signal}` sobe a cada
+  lote que o backend recusou ou não recebeu — é o sinal de que a telemetria está se perdendo
+  (o log `OTel ... ativo` não prova isso).
+- **Desligamento esvazia o buffer.** O filho prefork do Celery sai por `os._exit()` e pula o
+  `atexit` do SDK; o CentralOps esvazia spans, logs e o último intervalo de métricas no
+  `worker_process_shutdown` (e no fim do dispatcher Kafka).
+- **Lote desviado para a DLQ é erro no span**, mesmo sem exceção (disjuntor aberto, destino
+  ausente, rejeição pelo sink): status `ERROR` + `error.type` + `centralops.dlq=true`.
+- **Nada de segredo sai pelo OTLP.** Logs exportados (mensagem, `extra`, exceção), exceções
+  gravadas em span e a URL dos requests da API passam pela mesma redação do stdout (PAT,
+  token do Vault, `chave=valor` sensível, `Bearer`, credencial em URL).
+
+### Exportar direto, sem Collector
+
+O CentralOps segue a especificação de configuração OTLP, então o **mesmo** binário fala com
+um Collector ou direto com um backend que recebe OTLP. Para desenvolvimento e ambientes
+pequenos, direto funciona bem. Em produção, o projeto OpenTelemetry recomenda um Collector
+**ao lado** do serviço: é ele que faz *tail-sampling* (reter 100% dos erros), fila e retry
+além do que o SDK aguenta, *fan-out* para vários backends e filtragem central de dados. Sem
+ele, o único controle de volume de traces é o head-sampling (`OTEL_TRACES_SAMPLER_RATIO`).
+
+```dotenv
+# backend SaaS que recebe OTLP/HTTP com chave de API
+OTEL_ENABLED=true
+OTEL_EXPORTER_OTLP_ENDPOINT=https://<backend>:4318
+OTEL_EXPORTER_OTLP_HEADERS=<cabeçalho>=<chave>        # segredo: injete via secret
+OTEL_EXPORTER_OTLP_COMPRESSION=gzip
+
+# cada sinal num lugar (ex.: métricas no receptor OTLP do Prometheus, traces no Tempo)
+OTEL_EXPORTER_OTLP_METRICS_ENDPOINT=http://prometheus:9090/api/v1/otlp/v1/metrics
+OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=http://tempo:4318/v1/traces
+```
+
+**Zabbix 8.0.** O recebedor OTLP do Zabbix 8 é o *APM collector* do **proxy**, que só fala
+**gRPC** (porta 4317) e grava no ClickHouse:
+
+```dotenv
+OTEL_ENABLED=true
+OTEL_EXPORTER_OTLP_PROTOCOL=grpc
+OTEL_EXPORTER_OTLP_ENDPOINT=http://<proxy-zabbix>:4317   # https:// = TLS
+```
+
+:::caution[Zabbix 8.0.0 + ClickHouse 26.3/26.4]
+
+No Zabbix 8.0.0 o proxy envia o timestamp num formato que o ClickHouse 26.3 e 26.4 recusam,
+e como o insert é assíncrono o proxy não registra o erro: os dados somem (issue ZBX-28212
+no rastreador do Zabbix). Com ClickHouse 26.9 funciona. Confira
+`system.asynchronous_insert_log` no ClickHouse antes de confiar nesse caminho; como
+alternativa, um Collector com o exporter `clickhouse` grava direto nas tabelas `otel_*`.
+
+:::
 
 ---
 
@@ -237,7 +302,7 @@ service:
 
 Se as stacks CentralOps e de monitoramento ficam em **projetos distintos** (redes Docker
 separadas), o Collector **não** alcança `prometheus`/`loki` por DNS de serviço — use o
-**IP do host** + portas publicadas (ex.: `http://192.168.3.108:9090/api/v1/write`).
+**IP do host** + portas publicadas (ex.: `http://<IP-DO-HOST>:9090/api/v1/write`).
 
 :::
 

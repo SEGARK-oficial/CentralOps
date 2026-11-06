@@ -36,10 +36,25 @@ config:
   otelEnabled: "true"
   # Endpoint OTLP BASE — aponte para o OTel COLLECTOR gateway (fan-out p/
   # Prometheus/Loki/Tempo); a app anexa /v1/{metrics,logs,traces}. Ex.:
-  # "http://192.168.3.108:4318". NÃO aponte direto pro Prometheus (só aceita
-  # métricas → traces/logs dariam 404). Vazio = OTel efetivamente desligado.
+  # "http://otel-collector.observability:4318". NÃO aponte direto pro Prometheus
+  # (só aceita métricas → traces/logs dariam 404) — para isso use o endpoint POR
+  # SINAL abaixo. Vazio = OTel efetivamente desligado.
   # Ver compose/observability/ p/ o stack do Collector pronto.
   otelExporterOtlpEndpoint: ""
+  # Protocolo OTLP: "" (= http/protobuf, :4318) ou "grpc" (:4317) — recebedor
+  # só-gRPC, como o APM collector do proxy Zabbix 8, exige "grpc".
+  otelExporterOtlpProtocol: ""
+  # Endpoint POR SINAL (vence o base e vai como veio): manda cada sinal a um
+  # backend diferente sem Collector — ex.: métricas direto no receptor OTLP do
+  # Prometheus ("http://prometheus:9090/api/v1/otlp/v1/metrics") e traces no Tempo.
+  # Headers de autenticação (OTEL_EXPORTER_OTLP_HEADERS) são SEGREDO: ponha no
+  # Secret (secrets.existingSecret), não aqui.
+  otelExporterOtlpTracesEndpoint: ""
+  otelExporterOtlpMetricsEndpoint: ""
+  otelExporterOtlpLogsEndpoint: ""
+  # Traces da API HTTP (ingestão push, MCP, console). Opt-in, independente dos
+  # workers; exporta como o serviço "centralops-api".
+  otelApiTracingEnabled: "false"
   # Sampler de traces (0..1). 0 = sem export de traces (mantém métricas) — use
   # quando não há backend de traces. 1 = head 1.0 (o tail-sampling decide no
   # Collector); só use 1 com Collector+Tempo no ar.
