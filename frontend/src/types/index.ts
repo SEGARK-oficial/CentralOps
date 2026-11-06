@@ -99,6 +99,8 @@ export interface Integration {
   client_id?: string
   region?: string
   tenant_id?: string
+  /** Coluna genérica de vendor plugin-driven (ex.: Fonte do Azure, URL do NinjaOne). */
+  base_url?: string | null
   manager_url?: string
   indexer_url?: string
   manager_api_username?: string
@@ -273,9 +275,11 @@ export interface PartnerSyncStatus {
 export interface UpdateIntegrationRequest {
   name?: string
   is_active?: boolean
-  client_id?: string
+  client_id?: string | null
   client_secret?: string | null
   region?: string | null
+  base_url?: string | null
+  tenant_id?: string | null
   // Manager é opcional no Wazuh — `null` revoga as credenciais (Indexer-only).
   manager_url?: string | null
   indexer_url?: string | null

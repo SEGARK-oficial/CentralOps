@@ -79,6 +79,26 @@ const selectCls =
 // Platforms with custom form blocks — these bypass the generic DynamicAuthField renderer
 const CUSTOM_BLOCK_PLATFORMS = new Set<string>(["sophos", "wazuh"])
 
+// Campos dinâmicos que o backend DEVOLVE na leitura (colunas do Integration) e
+// por isso podem vir preenchidos na edição. Segredos nunca voltam, e chaves sem
+// coluna (ex.: `layout` do lake, guardado em config_json) também não.
+const PREFILLABLE_DYNAMIC_KEYS = ["client_id", "tenant_id", "base_url", "region"] as const
+type PrefillableKey = (typeof PREFILLABLE_DYNAMIC_KEYS)[number]
+const PREFILLABLE_KEY_SET = new Set<string>(PREFILLABLE_DYNAMIC_KEYS)
+
+function dynamicPrefill(
+  integration: Integration | null | undefined,
+  platform: string,
+): Record<string, string | boolean> {
+  if (!integration || integration.platform !== platform) return {}
+  const values: Record<string, string | boolean> = {}
+  for (const key of PREFILLABLE_DYNAMIC_KEYS) {
+    const value = integration[key as PrefillableKey]
+    if (typeof value === "string" && value) values[key] = value
+  }
+  return values
+}
+
 // Variantes partner/organization do Sophos (sophos_partner/sophos_organization):
 // a IMPORTAÇÃO de tenants (materialização multi-tenant) é feature Enterprise —
 // o card ganha badge "Enterprise" quando a edição corrente não a licencia.
@@ -347,11 +367,14 @@ export const IntegrationForm: React.FC<IntegrationFormProps> = ({
     }))
   }, [providerPlatforms, isEnterprise, t])
 
-  // Reset dynamic fields + resultado do teste ao trocar de plataforma
+  // Reset dynamic fields + resultado do teste ao trocar de plataforma. Na edição,
+  // repõe o que o backend devolve (client_id, tenant_id, base_url, region): antes
+  // os campos dinâmicos abriam VAZIOS, e o operador de uma integração Azure via a
+  // Fonte em branco mesmo com ela gravada.
   useEffect(() => {
-    setDynamicFieldValues({})
+    setDynamicFieldValues(dynamicPrefill(integration, platform))
     setTestResult(null)
-  }, [platform])
+  }, [platform, integration])
 
   useEffect(() => {
     if (!integration) {
@@ -458,7 +481,11 @@ export const IntegrationForm: React.FC<IntegrationFormProps> = ({
       for (const field of activePlatformDescriptor.auth_fields) {
         const val = dynamicFieldValues[field.key]
         const isEmpty = val === undefined || val === "" || val === null
-        if (field.required && isEmpty) {
+        // Na edição, campo vazio = "manter o valor atual" (segredos e chaves sem
+        // coluna nunca voltam do backend). Só as colunas pré-preenchidas seguem
+        // obrigatórias, para o operador não apagá-las por engano.
+        const enforceRequired = mode === "create" || PREFILLABLE_KEY_SET.has(field.key)
+        if (field.required && isEmpty && enforceRequired) {
           failField(`dynamic:${field.key}`, t("form.validation.fieldRequired", { label: field.label }))
           return
         }
@@ -564,6 +591,28 @@ export const IntegrationForm: React.FC<IntegrationFormProps> = ({
         }
       }
       payload.region = normalizeOptional(region)
+    } else if (platform !== "wazuh") {
+      // Plataformas dinâmicas (azure, okta, ninjaone, …). Antes este ramo não
+      // existia: o `else` abaixo era do Wazuh e pegava TODAS as outras, então o
+      // update mandava indexer_* vazios e descartava Fonte/Tenant/Client/Secret —
+      // 200 sem gravar nada. Era o "configurei pela UI e o coletor diz que não há
+      // fonte".
+      const dynamicPayload = payload as Record<string, unknown>
+      for (const field of activePlatformDescriptor?.auth_fields ?? []) {
+        const raw = dynamicFieldValues[field.key]
+        if (typeof raw === "boolean") {
+          dynamicPayload[field.key] = raw
+          continue
+        }
+        const value = typeof raw === "string" ? raw.trim() : ""
+        if (value) {
+          dynamicPayload[field.key] = value
+        } else if (PREFILLABLE_KEY_SET.has(field.key) && integration?.[field.key as PrefillableKey]) {
+          // Coluna que tinha valor e foi apagada: limpar é intenção explícita.
+          dynamicPayload[field.key] = null
+        }
+        // Demais vazios (segredo, chave sem coluna): não envia = mantém o atual.
+      }
     } else {
       // Indexer é a fonte — sempre enviado no Wazuh.
       payload.indexer_url = indexerUrl.trim()
