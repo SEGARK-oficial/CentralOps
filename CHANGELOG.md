@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.17.1](https://github.com/SEGARK-oficial/CentralOps/compare/v2.17.0...v2.17.1) (2026-11-06)
+
+
+### Bug Fixes
+
+* **integrations:** 500 na Visão geral de plataforma só-coleta + edição que descartava credenciais ([#110](https://github.com/SEGARK-oficial/CentralOps/issues/110)) ([46addbc](https://github.com/SEGARK-oficial/CentralOps/commit/46addbcb91f68426b02ea02b6619101a4b21ad22))
+
 ## [2.17.0](https://github.com/SEGARK-oficial/CentralOps/compare/v2.16.0...v2.17.0) (2026-11-05)
 
 
