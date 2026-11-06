@@ -104,6 +104,18 @@ Com tudo `healthy`, siga para o
 **[Primeiro Login](../getting-started/first-login.md)** para criar a conta de
 administrador.
 
+## PgBouncer (opcional)
+
+Cada processo da aplicação abre até 40 conexões com o Postgres, e o compose roda cerca de 30 processos. Sob carga, a soma pode passar do limite padrão do Postgres (100 conexões). Para colocar o PgBouncer na frente, acrescente ao `compose/.env`:
+
+```bash
+COMPOSE_PROFILES=pgbouncer
+DATABASE_URL=postgresql+psycopg2://centralops:<senha>@pgbouncer:5432/centralops
+DATABASE_MIGRATION_URL=postgresql+psycopg2://centralops:<senha>@postgres:5432/centralops
+```
+
+A aplicação passa a falar com o PgBouncer, e a migração de boot continua indo direto ao Postgres. A senha não pode depender de URL-encoding.
+
 ## Rodar imagens prontas (sem build)
 
 As imagens oficiais são publicadas no GitHub Container Registry a cada release:

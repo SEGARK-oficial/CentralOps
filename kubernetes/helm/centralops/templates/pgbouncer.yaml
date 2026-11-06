@@ -1,0 +1,139 @@
+{{- if .Values.pgbouncer.enabled }}
+{{- /*
+  PgBouncer em pooling por TRANSAÇÃO na frente do Postgres (ADR-0018 Onda 1).
+
+  Por que: cada processo Python abre até DB_POOL_SIZE + DB_MAX_OVERFLOW (20+20)
+  conexões; com dezenas de forks Celery a soma passa de 1.000, contra o
+  max_connections=100 default do Postgres. O PgBouncer multiplexa essas conexões
+  de cliente em defaultPoolSize conexões reais por banco.
+
+  A MIGRAÇÃO não passa por aqui: ela usa um pg_advisory_lock de SESSÃO, que o
+  pooling por transação quebraria (o lock e o unlock cairiam em conexões
+  diferentes). Os entrypoints migram com DATABASE_MIGRATION_URL (direto) e a app
+  roda com DATABASE_URL (PgBouncer). Ver secret.yaml.
+*/ -}}
+{{- $fullName := include "centralops.fullname" . }}
+{{- $secretName := ternary .Values.secrets.existingSecret (printf "%s-secret" $fullName) (ne .Values.secrets.existingSecret "") }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $fullName }}-pgbouncer
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "centralops.labels" . | nindent 4 }}
+    app.kubernetes.io/name: {{ $fullName }}-pgbouncer
+    app.kubernetes.io/component: pgbouncer
+spec:
+  replicas: {{ .Values.pgbouncer.replicaCount }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ $fullName }}-pgbouncer
+  template:
+    metadata:
+      labels:
+        {{- include "centralops.labels" . | nindent 8 }}
+        app.kubernetes.io/name: {{ $fullName }}-pgbouncer
+        app.kubernetes.io/component: pgbouncer
+        app: pgbouncer
+    spec:
+      serviceAccountName: {{ include "centralops.serviceAccountName" . }}
+      automountServiceAccountToken: false
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+        # A imagem roda como o usuário postgres (uid 70).
+        runAsUser: 70
+        runAsGroup: 70
+        fsGroup: 70
+      {{- if .Values.workers.topologySpread.enabled }}
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: {{ .Values.workers.topologySpread.topologyKey }}
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: {{ $fullName }}-pgbouncer
+      {{- end }}
+      containers:
+        - name: pgbouncer
+          image: {{ .Values.pgbouncer.image | quote }}
+          imagePullPolicy: IfNotPresent
+          # O entrypoint da imagem monta o pgbouncer.ini a partir de DATABASE_URL.
+          # A query string (``?sslmode=require``) é cortada: ela acabaria no nome
+          # do banco. TLS até o Postgres é ``serverTlsSslmode``.
+          command:
+            - /bin/sh
+            - -c
+            - 'export DATABASE_URL="${UPSTREAM_DATABASE_URL%%\?*}"; exec /entrypoint.sh /usr/bin/pgbouncer /etc/pgbouncer/pgbouncer.ini'
+          env:
+            - name: UPSTREAM_DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $secretName }}
+                  key: DATABASE_MIGRATION_URL
+            - { name: LISTEN_PORT, value: "5432" }
+            - { name: POOL_MODE, value: {{ .Values.pgbouncer.poolMode | quote }} }
+            - { name: AUTH_TYPE, value: {{ .Values.pgbouncer.authType | quote }} }
+            - { name: DEFAULT_POOL_SIZE, value: {{ .Values.pgbouncer.defaultPoolSize | toString | quote }} }
+            - { name: MAX_CLIENT_CONN, value: {{ .Values.pgbouncer.maxClientConn | toString | quote }} }
+            - { name: MAX_DB_CONNECTIONS, value: {{ .Values.pgbouncer.maxDbConnections | toString | quote }} }
+            - { name: SERVER_TLS_SSLMODE, value: {{ .Values.pgbouncer.serverTlsSslmode | quote }} }
+            - { name: IGNORE_STARTUP_PARAMETERS, value: "extra_float_digits" }
+          ports:
+            - name: postgres
+              containerPort: 5432
+          readinessProbe:
+            tcpSocket:
+              port: postgres
+            periodSeconds: 10
+          livenessProbe:
+            tcpSocket:
+              port: postgres
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          resources:
+            {{- toYaml .Values.pgbouncer.resources | nindent 12 }}
+          securityContext:
+            {{- toYaml .Values.containerSecurityContext | nindent 12 }}
+          volumeMounts:
+            # readOnlyRootFilesystem: o entrypoint escreve o pgbouncer.ini e o
+            # userlist aqui; /tmp guarda o socket unix.
+            - { name: config, mountPath: /etc/pgbouncer }
+            - { name: tmp, mountPath: /tmp }
+      volumes:
+        - { name: config, emptyDir: {} }
+        - { name: tmp, emptyDir: {} }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $fullName }}-pgbouncer
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "centralops.labels" . | nindent 4 }}
+    app.kubernetes.io/component: pgbouncer
+spec:
+  selector:
+    app.kubernetes.io/name: {{ $fullName }}-pgbouncer
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: postgres
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ $fullName }}-pgbouncer
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "centralops.labels" . | nindent 4 }}
+    app.kubernetes.io/component: pgbouncer
+spec:
+  maxUnavailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ $fullName }}-pgbouncer
+{{- end }}
