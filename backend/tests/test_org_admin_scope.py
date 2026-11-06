@@ -373,3 +373,130 @@ def test_global_admin_unaffected_sanity(env) -> None:
     assert ga.delete(f"/api/collectors/destinations/{gdest}").status_code == 204
     assert ga.get("/api/emails/config").status_code == 200
     assert ga.get("/api/collectors/config").status_code == 200
+
+
+# ── Integrações: test-connection, DELETE e reset de cursor ────────────────────
+#
+# As três rotas checavam só a PERMISSÃO (integration.write / integration.reset),
+# nunca a org da integração. O reset é do OPERATOR, papel escopado a uma org —
+# era o mais alcançável dos três.
+
+
+def _mk_integration(env: Any, org_id: int, name: str, platform: str = "wazuh") -> int:
+    """Insere direto no banco: o POST faria a sonda de credencial na rede."""
+    from backend.app.db import models
+
+    db = env["Session"]()
+    try:
+        integ = models.Integration(
+            organization_id=org_id, name=name, platform=platform, is_active=True,
+        )
+        db.add(integ)
+        db.commit()
+        return integ.id
+    finally:
+        db.close()
+
+
+def _integration_row(env: Any, integration_id: int):
+    from backend.app.db import models
+
+    db = env["Session"]()
+    try:
+        return db.get(models.Integration, integration_id)
+    finally:
+        db.close()
+
+
+class _CountingProvider:
+    """Conta as sondas em vez de levantar: um ``raise`` seria engolido e o
+    teste passaria pelo motivo errado."""
+
+    calls: list[int] = []
+
+    def __init__(self, integration: Any) -> None:
+        self._id = integration.id
+
+    def test_connection(self):
+        from backend.app.providers.base import HealthResult
+
+        _CountingProvider.calls.append(self._id)
+        return HealthResult(status="healthy", details={})
+
+    def close(self) -> None:
+        return None
+
+
+@pytest.fixture()
+def counting_provider(monkeypatch):
+    _CountingProvider.calls = []
+    monkeypatch.setattr(
+        "backend.app.routers.integrations.get_provider", lambda integ: _CountingProvider(integ)
+    )
+    return _CountingProvider.calls
+
+
+def test_scoped_admin_cannot_test_connection_of_another_org(env, counting_provider) -> None:
+    other = _mk_integration(env, env["org_b"], "B wazuh")
+    own = _mk_integration(env, env["org_a"], "A wazuh")
+
+    r = env["scoped"].post(f"/api/integrations/{other}/test-connection")
+    assert r.status_code == 403, r.text
+    assert counting_provider == []  # nenhuma sonda com a credencial da org B
+    assert _integration_row(env, other).last_checked_at is None
+
+    # O guard não é um 403 geral: na própria org a sonda roda.
+    r = env["scoped"].post(f"/api/integrations/{own}/test-connection")
+    assert r.status_code == 200, r.text
+    assert counting_provider == [own]
+
+
+@pytest.mark.parametrize("purge", [False, True])
+def test_scoped_admin_cannot_delete_integration_of_another_org(env, purge) -> None:
+    other = _mk_integration(env, env["org_b"], f"B del {purge}")
+    suffix = "?purge=true" if purge else ""
+
+    r = env["scoped"].delete(f"/api/integrations/{other}{suffix}")
+    assert r.status_code == 403, r.text
+    row = _integration_row(env, other)
+    assert row is not None and row.is_active is True
+
+    own = _mk_integration(env, env["org_a"], f"A del {purge}")
+    r = env["scoped"].delete(f"/api/integrations/{own}{suffix}")
+    assert r.status_code == 200, r.text
+
+
+def test_scoped_operator_cannot_reset_cursor_of_another_org(env) -> None:
+    from backend.app.db import models
+
+    _mk_user(env["global_admin"], "op-a", env["org_a"], role="operator")
+    op = env["factory"]()
+    r = op.post("/api/auth/login", json={"username": "op-a", "password": "SomePassword123!"})
+    assert r.status_code == 200, r.text
+
+    other = _mk_integration(env, env["org_b"], "B cursor")
+    own = _mk_integration(env, env["org_a"], "A cursor")
+    db = env["Session"]()
+    try:
+        for integ_id in (other, own):
+            db.add(models.CollectionState(integration_id=integ_id, stream="alerts", cursor='{"t": 1}'))
+        db.commit()
+    finally:
+        db.close()
+
+    def _cursor_exists(integ_id: int) -> bool:
+        s = env["Session"]()
+        try:
+            return s.query(models.CollectionState).filter_by(
+                integration_id=integ_id, stream="alerts"
+            ).count() == 1
+        finally:
+            s.close()
+
+    r = op.delete(f"/api/collectors/state/{other}/alerts/cursor")
+    assert r.status_code == 403, r.text
+    assert _cursor_exists(other)
+
+    r = op.delete(f"/api/collectors/state/{own}/alerts/cursor")
+    assert r.status_code == 204, r.text
+    assert not _cursor_exists(own)
