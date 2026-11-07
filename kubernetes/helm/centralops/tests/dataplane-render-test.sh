@@ -84,7 +84,8 @@ helm template t "$CHART_DIR" --set devBroker.enabled=true \
   --show-only templates/prometheusrule.yaml > "$tmp/rules.yaml"
 check "PrometheusRule renderizado" "$(grep -c '^kind: PrometheusRule' "$tmp/rules.yaml")" "1"
 check "label do seletor aplicada" "$(grep -c 'release: kps' "$tmp/rules.yaml")" "1"
-check "as 9 regras do data-plane" "$(grep -c -- '- alert: CentralOps' "$tmp/rules.yaml")" "9"
+check "todas as regras do arquivo do chart" "$(grep -c -- '- alert: CentralOps' "$tmp/rules.yaml")" \
+  "$(grep -c -- '- alert: CentralOps' "$CHART_DIR/files/prometheus/centralops-dataplane.rules.yml")"
 check "template de label preservado" "$(grep -c 'labels.destination_id' "$tmp/rules.yaml")" "2"
 
 if [ "$fail" -ne 0 ]; then echo "FALHOU"; exit 1; fi

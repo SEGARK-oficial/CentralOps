@@ -148,6 +148,19 @@ Se o edge-collector recebe `503` com frequência, o data-plane está fora ou ins
 Em ambiente de desenvolvimento sem Kafka (`EVENT_DATAPLANE=celery`), os eventos ficam numa fila no Redis com capacidade de 100 mil por integração e stream. Com a fila cheia, a requisição é recusada com `503` e nenhum evento já aceito é apagado.
 :::
 
+## Outros formatos: Splunk HEC e OpenTelemetry
+
+Além do JSON/NDJSON, o mesmo token de ingestão aceita dois formatos que muitos agentes já falam. As garantias são as mesmas: resposta de sucesso só depois que o lote está gravado, `503` com `Retry-After` quando não está, e corpo com `Content-Encoding: gzip` aceito.
+
+| Formato | URL a configurar no agente | Autenticação |
+| --- | --- | --- |
+| Splunk HEC (eventos) | `https://<host>/api/ingest/hec/<stream>` (o agente acrescenta `/services/collector/event`) | `Authorization: Splunk <token de ingestão>` |
+| Splunk HEC (raw, uma linha por evento) | `https://<host>/api/ingest/hec/<stream>/services/collector/raw` | `Authorization: Splunk <token de ingestão>` |
+| OTLP/HTTP logs (JSON ou protobuf) | `https://<host>/api/ingest/otlp/<stream>` (o exporter acrescenta `/v1/logs`) | `Authorization: Bearer <token de ingestão>` |
+
+- **HEC:** o campo `event` vira o evento (objeto) ou `message` (texto). `host`, `source`, `sourcetype`, `index`, `time` e `fields` ficam em `_hec`. O healthcheck `/services/collector/health` responde como o do Splunk.
+- **OTLP:** cada log record vira um evento. Corpo em mapa vira os campos do evento; corpo em texto vira `message`. Atributos, recurso, escopo, severidade, tempos e trace ficam em `_otlp`.
+
 ## Teste rápido com curl
 
 Para confirmar que o token funciona:

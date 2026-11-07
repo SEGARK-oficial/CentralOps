@@ -373,3 +373,169 @@ def test_ingest_kafka_down_returns_503(setup, monkeypatch):
     r = _post_ndjson(client, token)
     assert r.status_code == 503
     assert r.headers.get("Retry-After")
+
+
+# ── ADR-0018 Onda 2b: Splunk HEC e OTLP/HTTP no mesmo caminho durável ─────────
+
+
+def _kafka_mode(monkeypatch, produced):
+    from backend.app.core.config import settings
+
+    monkeypatch.setattr(settings, "EVENT_DATAPLANE", "kafka")
+
+    async def _produce(iid, stream, events):
+        produced.extend(events)
+        return len(events)
+
+    monkeypatch.setattr(ingest_router, "produce_raw_async", _produce)
+
+
+def test_hec_event_concatenated_with_splunk_auth(setup, monkeypatch):
+    client, push_id, _pull_id, _server = setup
+    token = client.post(f"/api/ingest/integrations/{push_id}/token").json()["token"]
+    produced: list = []
+    _kafka_mode(monkeypatch, produced)
+
+    body = (
+        '{"time": 1700000000, "host": "fw01", "sourcetype": "fortigate", "event": {"srcip": "10.0.0.1"}}'
+        '{"event": "linha de texto"}\n'
+        '{"event": {"srcip": "10.0.0.2"}, "fields": {"site": "a"}}'
+    )
+    r = client.post(
+        "/api/ingest/hec/traffic/services/collector/event",
+        data=body, headers={"Authorization": f"Splunk {token}"},
+    )
+    assert r.status_code == 200, r.text
+    assert r.json() == {"text": "Success", "code": 0}
+    assert [e.get("srcip") or e.get("message") for e in produced] == ["10.0.0.1", "linha de texto", "10.0.0.2"]
+    assert produced[0]["_hec"]["host"] == "fw01"
+    assert produced[2]["_hec"]["fields"] == {"site": "a"}
+    assert all("_ingest" in e for e in produced)
+
+
+def test_hec_raw_and_health(setup, monkeypatch):
+    client, push_id, _pull_id, _server = setup
+    token = client.post(f"/api/ingest/integrations/{push_id}/token").json()["token"]
+    produced: list = []
+    _kafka_mode(monkeypatch, produced)
+
+    r = client.post(
+        "/api/ingest/hec/traffic/services/collector/raw",
+        data="linha 1\nlinha 2\n", headers={"Authorization": f"Splunk {token}"},
+    )
+    assert r.status_code == 200, r.text
+    assert [e["message"] for e in produced] == ["linha 1", "linha 2"]
+    assert client.get("/api/ingest/hec/traffic/services/collector/health/1.0").json()["code"] == 17
+
+
+def test_hec_requires_token_and_returns_503_when_not_stored(setup, monkeypatch):
+    from backend.app.core.config import settings
+
+    client, push_id, _pull_id, _server = setup
+    token = client.post(f"/api/ingest/integrations/{push_id}/token").json()["token"]
+    assert client.post("/api/ingest/hec/traffic/services/collector/event", data='{"event":1}').status_code == 401
+
+    monkeypatch.setattr(settings, "EVENT_DATAPLANE", "kafka")
+
+    async def _down(*a, **k):
+        raise ConnectionError("broker fora")
+
+    monkeypatch.setattr(ingest_router, "produce_raw_async", _down)
+    r = client.post(
+        "/api/ingest/hec/traffic/services/collector/event",
+        data='{"event":{"a":1}}', headers={"Authorization": f"Splunk {token}"},
+    )
+    assert r.status_code == 503 and r.headers.get("Retry-After")
+
+
+def _otlp_doc():
+    return {
+        "resourceLogs": [{
+            "resource": {"attributes": [{"key": "host.name", "value": {"stringValue": "srv1"}}]},
+            "scopeLogs": [{
+                "scope": {"name": "fluentbit"},
+                "logRecords": [
+                    {
+                        "timeUnixNano": "1700000000000000000",
+                        "severityText": "WARN",
+                        "body": {"kvlistValue": {"values": [
+                            {"key": "EventID", "value": {"intValue": "4625"}},
+                            {"key": "user", "value": {"stringValue": "alice"}},
+                        ]}},
+                        "attributes": [{"key": "channel", "value": {"stringValue": "Security"}}],
+                    },
+                    {"body": {"stringValue": "texto livre"}},
+                ],
+            }],
+        }]
+    }
+
+
+def test_otlp_json_gzip(setup, monkeypatch):
+    import gzip as _gzip
+    import json as _json
+
+    client, push_id, _pull_id, _server = setup
+    token = client.post(f"/api/ingest/integrations/{push_id}/token").json()["token"]
+    produced: list = []
+    _kafka_mode(monkeypatch, produced)
+
+    r = client.post(
+        "/api/ingest/otlp/traffic/v1/logs",
+        content=_gzip.compress(_json.dumps(_otlp_doc()).encode()),
+        headers={
+            "Authorization": f"Bearer {token}",
+            "Content-Type": "application/json",
+            "Content-Encoding": "gzip",
+        },
+    )
+    assert r.status_code == 200, r.text
+    assert r.json() == {}
+    first, second = produced
+    assert first["EventID"] == 4625 and first["user"] == "alice"
+    assert first["_otlp"]["resource"] == {"host.name": "srv1"}
+    assert first["_otlp"]["attributes"] == {"channel": "Security"}
+    assert first["_otlp"]["severity_text"] == "WARN"
+    assert second["message"] == "texto livre"
+
+
+def test_otlp_protobuf(setup, monkeypatch):
+    import importlib.util
+
+    client, push_id, _pull_id, _server = setup
+    token = client.post(f"/api/ingest/integrations/{push_id}/token").json()["token"]
+    produced: list = []
+    _kafka_mode(monkeypatch, produced)
+    headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/x-protobuf"}
+
+    if importlib.util.find_spec("opentelemetry.proto") is None:
+        # Imagem sem o opentelemetry-proto: recusa clara, nunca um 200 vazio.
+        r = client.post("/api/ingest/otlp/traffic/v1/logs", content=b"\x0a\x00", headers=headers)
+        assert r.status_code == 415
+        return
+
+    from google.protobuf import json_format
+    from opentelemetry.proto.collector.logs.v1 import logs_service_pb2
+
+    msg = json_format.ParseDict(_otlp_doc(), logs_service_pb2.ExportLogsServiceRequest())
+    r = client.post("/api/ingest/otlp/traffic/v1/logs", content=msg.SerializeToString(), headers=headers)
+    assert r.status_code == 200, r.text
+    assert r.headers["content-type"].startswith("application/x-protobuf")
+    assert [e.get("user") or e.get("message") for e in produced] == ["alice", "texto livre"]
+
+
+def test_gzip_bomb_is_refused(setup, monkeypatch):
+    import gzip as _gzip
+
+    client, push_id, _pull_id, _server = setup
+    token = client.post(f"/api/ingest/integrations/{push_id}/token").json()["token"]
+    produced: list = []
+    _kafka_mode(monkeypatch, produced)
+
+    bomb = _gzip.compress(b"{" + b" " * (17 * 1024 * 1024) + b"}")  # 17 MiB descompactado
+    r = client.post(
+        "/api/ingest/traffic", content=bomb,
+        headers={"Authorization": f"Bearer {token}", "Content-Encoding": "gzip", "Content-Type": "application/json"},
+    )
+    assert r.status_code == 413
+    assert produced == []

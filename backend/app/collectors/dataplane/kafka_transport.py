@@ -649,6 +649,45 @@ def shutdown_producer() -> None:
 
 # ── Consumer (role dispatcher) ────────────────────────────────────────────────
 
+def owns_partition(consumer: Any, tp: Any) -> bool:
+    """True se ``tp`` ainda está atribuída a este consumer.
+
+    Durante um lote longo, um rebalance pode tirar a partição deste processo. Aí
+    ``commit``/``seek`` nela levantam ``IllegalStateError`` e derrubavam o consumer
+    (visto no loadtest da Onda 2 ao subir réplicas). Partição revogada não é erro:
+    o novo dono relê a partir do último offset commitado (at-least-once)."""
+    try:
+        return tp in consumer.assignment()
+    except Exception:  # noqa: BLE001 — consumer parando
+        return False
+
+
+async def safe_commit(consumer: Any, tp: Any, next_offset: int) -> bool:
+    """Commita ``tp`` em ``next_offset`` se a partição ainda é deste consumer.
+    Devolve se commitou; revogada ou commit recusado no rebalance = False."""
+    if not owns_partition(consumer, tp):
+        logger.info("data-plane: partição %s revogada antes do commit — o novo dono relê", tp)
+        return False
+    try:
+        from aiokafka.errors import CommitFailedError, IllegalStateError
+    except Exception:  # pragma: no cover — SDK ausente (fakes de teste)
+        CommitFailedError = IllegalStateError = RuntimeError  # type: ignore
+    try:
+        await consumer.commit({tp: next_offset})
+        return True
+    except (CommitFailedError, IllegalStateError):
+        logger.warning("data-plane: commit falhou (rebalance?) tp=%s offset=%s", tp, next_offset)
+        return False
+
+
+def safe_seek(consumer: Any, tp: Any, offset: int) -> bool:
+    """``seek`` só se a partição ainda é deste consumer (revogada = o novo dono relê)."""
+    if not owns_partition(consumer, tp):
+        return False
+    consumer.seek(tp, offset)
+    return True
+
+
 async def _emit_consumer_lag(consumer: Any, metrics: Any) -> None:
     """Emite o lag de TODAS as partições atribuídas (highwater − position).
 
@@ -691,7 +730,6 @@ async def run_dispatch_consumer(stop_event: Optional[threading.Event] = None) ->
     partição zera. Heartbeat/readiness em /tmp alimentam as probes do k8s.
     """
     from aiokafka import AIOKafkaConsumer
-    from aiokafka.errors import CommitFailedError
     from aiokafka.structs import TopicPartition
 
     from .. import circuit_breaker
@@ -771,13 +809,8 @@ async def run_dispatch_consumer(stop_event: Optional[threading.Event] = None) ->
 
     async def _commit(tp: "TopicPartition", offset: int) -> None:
         """Commit EXPLÍCITO do offset processado (não bare commit de todas as
-        partições) + tolera falha pós-revoke no rebalance."""
-        try:
-            await consumer.commit({tp: offset + 1})
-        except CommitFailedError:  # pragma: no cover — perdeu a partição no rebalance
-            logger.warning(
-                "data-plane: commit falhou (rebalance?) tp=%s offset=%s", tp, offset
-            )
+        partições) + tolera partição revogada no rebalance."""
+        await safe_commit(consumer, tp, offset + 1)
 
     lag_task = asyncio.create_task(_emit_lag())
     # Poll com timeout (em vez de ``async for``, que bloqueia): permite checar o
@@ -852,7 +885,7 @@ async def run_dispatch_consumer(stop_event: Optional[threading.Event] = None) ->
                     attempts.pop(key, None)
                 else:
                     outcome = "dlq_failed"
-                    consumer.seek(tp, msg.offset)
+                    safe_seek(consumer, tp, msg.offset)
                     backoff = _DLQ_FAILURE_BACKOFF_S
             except Exception as exc:  # noqa: BLE001 — nenhum erro commita sem DLQ
                 # TransientDeliveryError E qualquer erro NÃO classificado. Antes, o
@@ -876,7 +909,7 @@ async def run_dispatch_consumer(stop_event: Optional[threading.Event] = None) ->
                         await _commit(tp, msg.offset)
                     else:
                         outcome = "dlq_failed"
-                        consumer.seek(tp, msg.offset)
+                        safe_seek(consumer, tp, msg.offset)
                         backoff = _DLQ_FAILURE_BACKOFF_S
                 else:
                     # at-least-once: volta a posição e reprocessa com backoff exponencial.
@@ -889,7 +922,7 @@ async def run_dispatch_consumer(stop_event: Optional[threading.Event] = None) ->
                             "(tentativa %d) — tratado como transitório",
                             dest_id, msg.offset, attempts[key], exc_info=True,
                         )
-                    consumer.seek(tp, msg.offset)
+                    safe_seek(consumer, tp, msg.offset)
                     backoff = float(min(2 ** attempts[key], 30))
 
             # Latência do ATTEMPT de dispatch — EXCLUI o backoff do transitório.

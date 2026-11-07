@@ -124,7 +124,7 @@ async def run_raw_processor(stop_event: Optional[threading.Event] = None) -> Non
     from aiokafka import AIOKafkaConsumer
 
     from .. import metrics
-    from .kafka_transport import _client_kwargs
+    from .kafka_transport import _client_kwargs, owns_partition
     from .raw import _ensure_raw_topic
 
     await asyncio.to_thread(_ensure_raw_topic)
@@ -172,6 +172,8 @@ async def run_raw_processor(stop_event: Optional[threading.Event] = None) -> Non
             _touch(_HEARTBEAT_FILE)
             for tp, msgs in batches.items():
                 for group in _group_records(msgs):
+                    if not owns_partition(consumer, tp):
+                        break  # revogada no rebalance: o novo dono processa o resto
                     done = await _handle_group(consumer, tp, group, attempts, metrics)
                     if not done:
                         break  # seek feito: o resto desta partição é relido depois
@@ -187,8 +189,12 @@ async def run_raw_processor(stop_event: Optional[threading.Event] = None) -> Non
 async def _handle_group(consumer: Any, tp: Any, group: _Group, attempts: Dict, metrics: Any) -> bool:
     """Processa um grupo e decide o offset. True = commitado (segue); False = seek."""
 
+    from .kafka_transport import safe_commit, safe_seek
+
     async def _commit() -> None:
-        await consumer.commit({tp: group.last_offset + 1})
+        # Partição revogada num rebalance durante o ciclo: não commita (o novo dono
+        # relê; o dedupe absorve) em vez de derrubar o processo.
+        await safe_commit(consumer, tp, group.last_offset + 1)
 
     if group.invalid:
         logger.error("processor: registro raw malformado (offset=%s) — descartado", group.first_offset)
@@ -225,7 +231,7 @@ async def _handle_group(consumer: Any, tp: Any, group: _Group, attempts: Dict, m
                 type(error).__name__,
             )
             metrics.RAW_PROCESSED.labels(outcome="retry").inc()
-            consumer.seek(tp, group.first_offset)
+            safe_seek(consumer, tp, group.first_offset)
             await asyncio.sleep(float(min(2 ** attempts[key], 30)))
             return False
         kind, detail = "processing_failed", f"{type(error).__name__}: {error}"[:500]
@@ -236,7 +242,7 @@ async def _handle_group(consumer: Any, tp: Any, group: _Group, attempts: Dict, m
         await _commit()
         return True
     metrics.RAW_PROCESSED.labels(outcome="dlq_failed").inc()
-    consumer.seek(tp, group.first_offset)
+    safe_seek(consumer, tp, group.first_offset)
     await asyncio.sleep(_DLQ_FAILURE_BACKOFF_S)
     return False
 

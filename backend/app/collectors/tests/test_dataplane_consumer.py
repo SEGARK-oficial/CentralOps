@@ -54,6 +54,7 @@ class _FakeConsumer:
         # p/ o teste de lag: assignment()/end_offsets()/position()
         self._highwater = highwater
         self._position = position
+        self.revoked: set = set()
 
     async def start(self):
         self.started = True
@@ -75,7 +76,11 @@ class _FakeConsumer:
     # ── superfície usada pelo emissor de lag ──
     def assignment(self):
         if self._highwater is None:
-            return set()
+            # Sem lag configurado: todas as partições atribuídas (o consumer só
+            # commita/faz seek em partição que é dele).
+            from aiokafka.structs import TopicPartition
+
+            return {TopicPartition("centralops.deliver", p) for p in range(8)} - self.revoked
         return {_FakeTP("centralops.deliver", 0)}
 
     async def end_offsets(self, partitions):
@@ -266,3 +271,22 @@ async def test_emit_consumer_lag_uses_end_offsets(monkeypatch):
 def test_dispatcher_main_importable():
     # O entrypoint do role importa e expõe main() (smoke).
     assert callable(dispatcher.main)
+
+
+
+async def test_revoked_partition_is_not_committed_or_seeked(monkeypatch):
+    """Rebalance durante o dispatch: a partição deixou de ser deste consumer. Antes,
+    ``commit``/``seek`` nela levantavam IllegalStateError e derrubavam o processo."""
+    from aiokafka.structs import TopicPartition
+
+    fake = _FakeConsumer([_msg(4, "dest-r", [{"e": 1}]), _msg(5, "dest-r", [{"e": 2}])])
+
+    async def _dispatch(dest, batch):
+        fake.revoked.add(TopicPartition("centralops.deliver", 0))  # perdeu no meio
+        if batch[0]["e"] == 2:
+            raise TransientDeliveryError(dest)
+
+    _install(monkeypatch, fake, _dispatch)
+    await kt.run_dispatch_consumer()      # não levanta
+
+    assert fake.commits == [] and fake.seeks == []

@@ -167,7 +167,9 @@ class _TP:
 class _FakeConsumer:
     def __init__(self, batches, stop):
         self._batches = list(batches)
+        self._all = list(batches)
         self._stop = stop
+        self.revoked: set = set()
         self.commits: list = []
         self.seeks: list = []
 
@@ -190,7 +192,8 @@ class _FakeConsumer:
         self.seeks.append((tp.partition, offset))
 
     def assignment(self):
-        return set()
+        tps = {tp for batch in self._all for tp in batch}
+        return tps - self.revoked
 
 
 def _rec(offset, iid=1, stream="traffic", events=None):
@@ -314,3 +317,21 @@ def test_processor_skips_malformed_record(monkeypatch):
     _run(proc.run_raw_processor(stop_event=stop))
 
     assert fake.commits == [{0: 2}, {0: 3}]
+
+
+
+def test_processor_survives_rebalance_mid_cycle(monkeypatch):
+    """Visto no loadtest: ao subir réplicas, a partição é revogada durante um ciclo
+    longo. O processor não commita nem faz seek nela (o novo dono relê) e segue."""
+    tp = _TP(5)
+    fake_holder: dict = {}
+
+    async def _cycle(iid, stream, events, partition):
+        fake_holder["fake"].revoked.add(tp)
+        return True
+
+    fake, stop = _install(monkeypatch, [{tp: [_rec(1), _rec(2, 2, "b")]}], cycle=_cycle)
+    fake_holder["fake"] = fake
+    _run(proc.run_raw_processor(stop_event=stop))   # não levanta
+
+    assert fake.commits == [] and fake.seeks == []
