@@ -1,0 +1,99 @@
+{{- if eq .Values.dataPlane.eventDataplane "kafka" }}
+# ADR-0018 Onda 2 — role processor. Consome o tópico ``raw`` (eventos push
+# gravados com ack pelo /api/ingest e pelo syslog-receiver) e roda o pipeline;
+# commita o offset só depois que o lote saiu para o tópico de entrega. Escala por
+# réplicas até o nº de partições do raw (KAFKA_RAW_PARTITIONS).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "centralops.fullname" . }}-raw-processor
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "centralops.labels" . | nindent 4 }}
+    app.kubernetes.io/name: {{ include "centralops.fullname" . }}-raw-processor
+    app.kubernetes.io/component: raw-processor
+spec:
+  replicas: {{ .Values.dataPlane.processor.replicaCount }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "centralops.fullname" . }}-raw-processor
+  template:
+    metadata:
+      labels:
+        {{- include "centralops.labels" . | nindent 8 }}
+        app.kubernetes.io/name: {{ include "centralops.fullname" . }}-raw-processor
+        app.kubernetes.io/component: raw-processor
+    spec:
+      serviceAccountName: {{ include "centralops.serviceAccountName" . }}
+      automountServiceAccountToken: {{ .Values.serviceAccount.automountServiceAccountToken }}
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+        runAsUser: {{ .Values.workers.runAsUser }}
+      terminationGracePeriodSeconds: 930
+      containers:
+        - name: raw-processor
+          image: "{{ include "centralops.image" (dict "img" .Values.image "context" .) }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          # NÃO usar ``python -m``: na imagem Cython-compilada o módulo é um .so e o
+          # -m falha ("No code object available"). Importar o .so + chamar main()
+          # funciona compilado e em .py.
+          command:
+            - "/usr/local/bin/start-collector.sh"
+            - "python"
+            - "-c"
+            - "from app.collectors.dataplane.processor import main; main()"
+          envFrom:
+            - configMapRef:
+                name: {{ include "centralops.fullname" . }}-config
+            - secretRef:
+                name: {{ if .Values.secrets.existingSecret }}{{ .Values.secrets.existingSecret }}{{ else }}{{ include "centralops.fullname" . }}-secret{{ end }}
+          env:
+            - name: SERVICE_ROLE
+              value: "raw-processor"
+          {{- if .Values.dataPlane.processor.probes.enabled }}
+          # Liveness: verifica que o processor está ciclando (heartbeat escrito
+          # pelo processo Python a cada poll). Se o arquivo envelhecer mais de
+          # 300 s o pod é reiniciado. O arquivo /tmp/processor-ready é criado
+          # pelo processor após inicialização bem-sucedida (readiness).
+          livenessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - "test $(( $(date +%s) - $(stat -c %Y /tmp/processor-heartbeat) )) -lt 300"
+            initialDelaySeconds: 30
+            periodSeconds: 60
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - "test -f /tmp/processor-ready"
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          {{- end }}
+          resources:
+            {{- toYaml .Values.dataPlane.processor.resources | nindent 12 }}
+          securityContext:
+            {{- toYaml .Values.containerSecurityContext | nindent 12 }}
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+            {{- if eq (include "centralops.licenseKeyring.enabled" .) "true" }}
+            {{- include "centralops.licenseKeyring.volumeMount" . | nindent 12 }}
+            {{- end }}
+      volumes:
+        - name: tmp
+          emptyDir: {}
+        {{- if eq (include "centralops.licenseKeyring.enabled" .) "true" }}
+        {{- include "centralops.licenseKeyring.volume" . | nindent 8 }}
+        {{- end }}
+{{- end }}

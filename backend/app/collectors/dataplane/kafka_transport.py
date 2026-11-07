@@ -114,6 +114,45 @@ def _client_kwargs() -> Dict[str, Any]:
     return kwargs
 
 
+async def _ensure_topic(
+    name: str, partitions: int, replication: int, configs: Dict[str, str]
+) -> None:
+    """Cria ``name`` de forma IDEMPOTENTE (já existe = ok). Falha não bloqueia o
+    boot: o broker pode auto-criar, e o log diz para conferir as partições."""
+    from aiokafka.admin import AIOKafkaAdminClient, NewTopic
+    from aiokafka.errors import TopicAlreadyExistsError
+
+    admin = AIOKafkaAdminClient(**_client_kwargs())
+    try:
+        await admin.start()
+        await admin.create_topics(
+            [
+                NewTopic(
+                    name,
+                    num_partitions=partitions,
+                    replication_factor=replication,
+                    topic_configs=configs,
+                )
+            ]
+        )
+        logger.info(
+            "data-plane: tópico %s garantido (partitions=%d rf=%d configs=%s)",
+            name, partitions, replication, configs,
+        )
+    except TopicAlreadyExistsError:
+        pass
+    except Exception:  # pragma: no cover — não bloqueia o boot
+        logger.warning(
+            "data-plane: ensure-topic falhou p/ %s (segue) — confira partições no broker",
+            name, exc_info=True,
+        )
+    finally:
+        try:
+            await admin.close()
+        except Exception:  # pragma: no cover
+            pass
+
+
 async def _ensure_deliver_topic() -> None:
     """Cria o tópico de entrega com ``KAFKA_DELIVER_PARTITIONS`` partições, de
     forma IDEMPOTENTE. Sem isto o broker auto-cria com 1 partição (default
@@ -357,13 +396,20 @@ class _ProducerThread:
         await producer.start()
         return producer
 
-    async def _bounded_send(self, value: bytes, key: bytes) -> Any:
+    async def _bounded_send(self, value: bytes, key: bytes, topic: Optional[str] = None) -> Any:
         """``send_and_wait`` com teto INTERNO (``asyncio.wait_for``) — garante que
         o cancelamento propague p/ a corrotina mesmo no wait cross-thread."""
         return await asyncio.wait_for(
-            self._producer.send_and_wait(deliver_topic(), value=value, key=key),
+            self._producer.send_and_wait(topic or deliver_topic(), value=value, key=key),
             timeout=settings.KAFKA_PRODUCE_WAIT_S,
         )
+
+    def run_in_loop(self, coro: Any, timeout: float) -> Any:
+        """Roda ``coro`` no loop do producer e espera o resultado (sobe o producer
+        se preciso). Usado para preparar outros tópicos no mesmo cliente."""
+        self._ensure_started()
+        fut = asyncio.run_coroutine_threadsafe(coro, self._loop)
+        return fut.result(timeout=timeout)
 
     def _ensure_started(self) -> None:
         if self._producer is not None:
@@ -485,7 +531,9 @@ class _ProducerThread:
                     max(1, len(value) // 2), oversized,
                 )
 
-    def _produce_value(self, destination_id: str, value: bytes, key: bytes) -> None:
+    def _produce_value(
+        self, destination_id: str, value: bytes, key: bytes, topic: Optional[str] = None
+    ) -> None:
         """Envia UM registro já enquadrado e BLOQUEIA até o ack. Em erro FATAL de
         idempotência, recria o producer (self-heal) e propaga o erro p/ o caller."""
         # Telemetria: latência + outcome do produce. Métricas OTel são
@@ -497,7 +545,7 @@ class _ProducerThread:
         fut: Optional[concurrent.futures.Future] = None
         try:
             fut = asyncio.run_coroutine_threadsafe(
-                self._bounded_send(value, key), self._loop
+                self._bounded_send(value, key, topic), self._loop
             )
             # +2s de folga sobre o teto INTERNO → o wait_for interno dispara
             # primeiro (cancela a send), e este result só colhe resultado/erro.
@@ -601,6 +649,45 @@ def shutdown_producer() -> None:
 
 # ── Consumer (role dispatcher) ────────────────────────────────────────────────
 
+def owns_partition(consumer: Any, tp: Any) -> bool:
+    """True se ``tp`` ainda está atribuída a este consumer.
+
+    Durante um lote longo, um rebalance pode tirar a partição deste processo. Aí
+    ``commit``/``seek`` nela levantam ``IllegalStateError`` e derrubavam o consumer
+    (visto no loadtest da Onda 2 ao subir réplicas). Partição revogada não é erro:
+    o novo dono relê a partir do último offset commitado (at-least-once)."""
+    try:
+        return tp in consumer.assignment()
+    except Exception:  # noqa: BLE001 — consumer parando
+        return False
+
+
+async def safe_commit(consumer: Any, tp: Any, next_offset: int) -> bool:
+    """Commita ``tp`` em ``next_offset`` se a partição ainda é deste consumer.
+    Devolve se commitou; revogada ou commit recusado no rebalance = False."""
+    if not owns_partition(consumer, tp):
+        logger.info("data-plane: partição %s revogada antes do commit — o novo dono relê", tp)
+        return False
+    try:
+        from aiokafka.errors import CommitFailedError, IllegalStateError
+    except Exception:  # pragma: no cover — SDK ausente (fakes de teste)
+        CommitFailedError = IllegalStateError = RuntimeError  # type: ignore
+    try:
+        await consumer.commit({tp: next_offset})
+        return True
+    except (CommitFailedError, IllegalStateError):
+        logger.warning("data-plane: commit falhou (rebalance?) tp=%s offset=%s", tp, next_offset)
+        return False
+
+
+def safe_seek(consumer: Any, tp: Any, offset: int) -> bool:
+    """``seek`` só se a partição ainda é deste consumer (revogada = o novo dono relê)."""
+    if not owns_partition(consumer, tp):
+        return False
+    consumer.seek(tp, offset)
+    return True
+
+
 async def _emit_consumer_lag(consumer: Any, metrics: Any) -> None:
     """Emite o lag de TODAS as partições atribuídas (highwater − position).
 
@@ -643,7 +730,6 @@ async def run_dispatch_consumer(stop_event: Optional[threading.Event] = None) ->
     partição zera. Heartbeat/readiness em /tmp alimentam as probes do k8s.
     """
     from aiokafka import AIOKafkaConsumer
-    from aiokafka.errors import CommitFailedError
     from aiokafka.structs import TopicPartition
 
     from .. import circuit_breaker
@@ -723,13 +809,8 @@ async def run_dispatch_consumer(stop_event: Optional[threading.Event] = None) ->
 
     async def _commit(tp: "TopicPartition", offset: int) -> None:
         """Commit EXPLÍCITO do offset processado (não bare commit de todas as
-        partições) + tolera falha pós-revoke no rebalance."""
-        try:
-            await consumer.commit({tp: offset + 1})
-        except CommitFailedError:  # pragma: no cover — perdeu a partição no rebalance
-            logger.warning(
-                "data-plane: commit falhou (rebalance?) tp=%s offset=%s", tp, offset
-            )
+        partições) + tolera partição revogada no rebalance."""
+        await safe_commit(consumer, tp, offset + 1)
 
     lag_task = asyncio.create_task(_emit_lag())
     # Poll com timeout (em vez de ``async for``, que bloqueia): permite checar o
@@ -804,7 +885,7 @@ async def run_dispatch_consumer(stop_event: Optional[threading.Event] = None) ->
                     attempts.pop(key, None)
                 else:
                     outcome = "dlq_failed"
-                    consumer.seek(tp, msg.offset)
+                    safe_seek(consumer, tp, msg.offset)
                     backoff = _DLQ_FAILURE_BACKOFF_S
             except Exception as exc:  # noqa: BLE001 — nenhum erro commita sem DLQ
                 # TransientDeliveryError E qualquer erro NÃO classificado. Antes, o
@@ -828,7 +909,7 @@ async def run_dispatch_consumer(stop_event: Optional[threading.Event] = None) ->
                         await _commit(tp, msg.offset)
                     else:
                         outcome = "dlq_failed"
-                        consumer.seek(tp, msg.offset)
+                        safe_seek(consumer, tp, msg.offset)
                         backoff = _DLQ_FAILURE_BACKOFF_S
                 else:
                     # at-least-once: volta a posição e reprocessa com backoff exponencial.
@@ -841,7 +922,7 @@ async def run_dispatch_consumer(stop_event: Optional[threading.Event] = None) ->
                             "(tentativa %d) — tratado como transitório",
                             dest_id, msg.offset, attempts[key], exc_info=True,
                         )
-                    consumer.seek(tp, msg.offset)
+                    safe_seek(consumer, tp, msg.offset)
                     backoff = float(min(2 ** attempts[key], 30))
 
             # Latência do ATTEMPT de dispatch — EXCLUI o backoff do transitório.

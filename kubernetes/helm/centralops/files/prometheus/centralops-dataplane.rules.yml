@@ -1,0 +1,156 @@
+# Regras de alerta do data-plane do CentralOps (ADR-0018 Onda 1).
+#
+# Cobrem os modos de falha que a auditoria de arquitetura achou silenciosos:
+# entrega retida (DLQ que não grava), backlog do consumer, destino com breaker
+# aberto, DLQ crescendo, coleta atrasada, evicção do dedupe e push recusado.
+# Os nomes de métrica são os do registry OTel (backend/app/collectors/
+# otel_metrics.py); o teste test_adr0018_onda1 falha se uma regra citar métrica
+# que não existe. Sem Alertmanager no stack, os alertas aparecem no Prometheus
+# (Alerts) e no Grafana; roteie para o seu pager pelo Alertmanager ou Grafana.
+groups:
+  - name: centralops-dataplane
+    rules:
+      - alert: CentralOpsDLQWriteFailing
+        expr: sum(rate(collector_dataplane_consumed_total{outcome="dlq_failed"}[5m])) > 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "A DLQ não está gravando: lotes retidos no tópico de entrega"
+          description: >-
+            O dispatcher não consegue gravar na DLQ (Postgres fora ou degradado) e
+            está segurando os lotes no Kafka em vez de commitar. Nada se perde
+            enquanto a retenção do tópico durar, mas a entrega daquele destino parou.
+          runbook: docs-site/docs/runbooks/dlq-and-destination-delivery.md
+
+      - alert: CentralOpsDeliveryUnclassifiedErrors
+        expr: sum(rate(collector_dataplane_consumed_total{outcome="unclassified"}[10m])) > 0
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Erros não classificados na entrega"
+          description: >-
+            O envio a um destino está falhando com um erro que o código não
+            classifica (conexão recusada, falha ao ler o destino, bug de formatter).
+            É re-tentado e, esgotado, vai à DLQ. Veja o log do kafka-dispatcher.
+          runbook: docs-site/docs/runbooks/dispatcher.md
+
+      - alert: CentralOpsDeliveryExhausted
+        expr: sum(rate(collector_dataplane_consumed_total{outcome="exhausted"}[15m])) > 0
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Lotes indo à DLQ após esgotar as tentativas"
+          runbook: docs-site/docs/runbooks/dlq-and-destination-delivery.md
+
+      - alert: CentralOpsDataplaneLagHigh
+        expr: max(collector_dataplane_consumer_lag) > 10000
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Backlog do tópico de entrega acima de 10 mil mensagens"
+          description: >-
+            O kafka-dispatcher não acompanha o volume, ou um destino lento está
+            prendendo a partição. Cada mensagem é um lote de até 200 eventos.
+          runbook: docs-site/docs/runbooks/dispatcher.md
+
+      - alert: CentralOpsDestinationBreakerOpen
+        expr: max by (destination_id) (collector_destination_breaker_state) == 1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Breaker aberto para o destino {{ $labels.destination_id }}"
+          runbook: docs-site/docs/runbooks/destination-down.md
+
+      - alert: CentralOpsDLQGrowing
+        expr: sum by (destination_id, error_kind) (rate(collector_dlq_total[15m])) > 0
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "DLQ crescendo para {{ $labels.destination_id }} ({{ $labels.error_kind }})"
+          description: >-
+            Eventos estão indo para a DLQ há 15 minutos. O reenvio é manual: corrija
+            o destino e reprocesse pela tela de Destinos.
+          runbook: docs-site/docs/runbooks/dlq-and-destination-delivery.md
+
+  - name: centralops-push
+    rules:
+      - alert: CentralOpsRawProcessingToDLQ
+        expr: sum(rate(collector_raw_processed_total{outcome=~"dlq|dlq_failed"}[10m])) > 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Lotes push indo à DLQ __raw__ (ou retidos por DLQ fora)"
+          description: >-
+            O processor do tópico raw esgotou as tentativas, ou recebeu lote de
+            integração inativa, e mandou os eventos à DLQ __raw__. Com dlq_failed,
+            a DLQ não grava e o lote segue retido no tópico.
+          runbook: docs-site/docs/runbooks/dlq-and-destination-delivery.md
+
+      - alert: CentralOpsRawProcessingRetrying
+        expr: sum(rate(collector_raw_processed_total{outcome="retry"}[10m])) > 0
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "O processor do tópico raw está re-tentando lotes há 15 min"
+          description: >-
+            O ciclo de processamento falha para algum lote push (rota inválida,
+            Postgres fora, entrega indisponível). O push não se perde: espera no
+            tópico raw até a retenção (24 h por padrão).
+          runbook: docs-site/docs/runbooks/collection-lag-backlog.md
+
+      - alert: CentralOpsRawProcessorLagHigh
+        expr: max(collector_raw_consumer_lag) > 1000
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Backlog do tópico raw acima de 1.000 lotes"
+          description: >-
+            O processor não acompanha a ingestão push. Aumente as réplicas do
+            processor (até o número de partições do raw) antes que a retenção do
+            tópico vença.
+          runbook: docs-site/docs/runbooks/collection-lag-backlog.md
+
+  - name: centralops-collection
+    rules:
+      - alert: CentralOpsCollectionLagHigh
+        expr: max by (integration_id, stream) (collector_watermark_lag_seconds) > 3600
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Coleta atrasada mais de 1 h ({{ $labels.integration_id }}/{{ $labels.stream }})"
+          runbook: docs-site/docs/runbooks/collection-lag-backlog.md
+
+      - alert: CentralOpsDedupeEvicting
+        expr: delta(collector_dedupe_redis_evicted_keys[15m]) > 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "O Redis de dedupe está evictando chaves"
+          description: >-
+            Com evicção, eventos re-buscados podem ser reentregues em duplicidade,
+            e travas e tokens também podem ser evictados. Aumente a memória do
+            Redis ou reduza o TTL de dedupe (chaves ≈ EPS × TTL).
+          runbook: docs-site/docs/runbooks/redis-capacity.md
+
+      - alert: CentralOpsPushBufferRefusing
+        expr: sum by (vendor, stream) (rate(collector_ingest_dropped_total[5m])) > 0
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Buffer push recusando lotes com 503 ({{ $labels.vendor }}/{{ $labels.stream }})"
+          description: >-
+            O edge-collector recebe 503 e re-tenta pelo buffer de disco dele. Se
+            durar, o disco do edge enche: aumente a capacidade de dreno.
+          runbook: docs-site/docs/runbooks/collection-lag-backlog.md

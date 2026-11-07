@@ -86,7 +86,7 @@ Assim que o edge-collector começar a enviar eventos:
 
 1. Abra **Coleta -> Integrações** e selecione a integração.
 2. No painel **Ingestão push**, você verá:
-   - **Buffer atual** — quantos eventos estão na fila aguardando processamento.
+   - **Buffer atual** — eventos aguardando na fila do Redis. Com o data-plane Kafka (o padrão), fica em 0: os eventos esperam no log, e o atraso aparece nas métricas do processamento.
    - **Taxa de ingestão** — eventos recebidos nos últimos minutos.
    - **Drops** (se houver) — quantos eventos foram recusados com `503` por fila cheia. O edge-collector re-envia esses eventos; eles não se perdem enquanto o buffer de disco dele tiver espaço.
 
@@ -118,17 +118,17 @@ Fonte (FortiGate/Windows Event Log)
 
 - Do evento gerado até o edge-collector: depende do protocolo (syslog é praticamente imediato).
 - Do edge-collector até o CentralOps: ~2–5 segundos (HTTPS + TLS handshake).
-- Do CentralOps até os destinos: ~15 segundos (fila de drenagem).
+- Do CentralOps até os destinos: alguns segundos (o processamento lê o log continuamente).
 - **Total: ~20 segundos** em condições normais.
 
 ## Proteção contra sobrecarga
 
-Se o edge-collector enviar eventos mais rápido do que o CentralOps consegue processar:
+Um evento push só é confirmado depois de gravado de forma durável:
 
-- Os eventos são colocados numa **fila de buffer** por integração e stream (capacidade padrão: 100 mil eventos).
-- Quando o buffer está cheio, a requisição inteira é **recusada com `503`** e um cabeçalho `Retry-After`. Nada daquele lote é gravado, e nenhum evento já aceito é apagado.
+- A resposta `200` (ou `207`) sai **depois** que o lote foi gravado no log do data-plane (Kafka), com confirmação das réplicas. Um `200` quer dizer que o evento está guardado, mesmo que o processamento esteja parado.
+- Se o data-plane estiver indisponível, a requisição é **recusada com `503`** e um cabeçalho `Retry-After`. Nada daquele lote é gravado.
 - O edge-collector re-tenta sozinho: Vector e Fluent Bit tratam `503` como falha temporária e guardam os eventos no buffer de disco deles até o CentralOps voltar a aceitar.
-- Eventos aceitos (resposta `200` ou `207`) só saem da fila depois que o ciclo de processamento termina com sucesso. Se o ciclo falhar, eles são reprocessados no ciclo seguinte.
+- O processamento lê o log no próprio ritmo. Se ele atrasar, os eventos esperam no log (24 horas por padrão) em vez de serem recusados. Aumentar o número de processadores aumenta a vazão de push.
 
 Exemplo de resposta aceita:
 
@@ -136,14 +136,30 @@ Exemplo de resposta aceita:
 {
   "accepted": 100,
   "dropped": 0,
-  "buffer_depth": 2500
+  "buffer_depth": 0
 }
 ```
 
-Se o edge-collector recebe `503` com frequência, ele está enviando mais rápido do que o CentralOps processa. Nesse caso:
+Se o edge-collector recebe `503` com frequência, o data-plane está fora ou instável. Nesse caso:
 - Confirme que o buffer de disco do edge-collector tem espaço para segurar os eventos durante a espera.
-- Verifique se há gargalos nos destinos (Splunk, S3, etc. podem estar lentos).
-- Fale com o administrador da plataforma sobre aumentar a capacidade.
+- Fale com o administrador da plataforma: a saúde do broker e o atraso do processamento aparecem nas métricas do data-plane.
+
+:::note[Instalação sem broker]
+Em ambiente de desenvolvimento sem Kafka (`EVENT_DATAPLANE=celery`), os eventos ficam numa fila no Redis com capacidade de 100 mil por integração e stream. Com a fila cheia, a requisição é recusada com `503` e nenhum evento já aceito é apagado.
+:::
+
+## Outros formatos: Splunk HEC e OpenTelemetry
+
+Além do JSON/NDJSON, o mesmo token de ingestão aceita dois formatos que muitos agentes já falam. As garantias são as mesmas: resposta de sucesso só depois que o lote está gravado, `503` com `Retry-After` quando não está, e corpo com `Content-Encoding: gzip` aceito.
+
+| Formato | URL a configurar no agente | Autenticação |
+| --- | --- | --- |
+| Splunk HEC (eventos) | `https://<host>/api/ingest/hec/<stream>` (o agente acrescenta `/services/collector/event`) | `Authorization: Splunk <token de ingestão>` |
+| Splunk HEC (raw, uma linha por evento) | `https://<host>/api/ingest/hec/<stream>/services/collector/raw` | `Authorization: Splunk <token de ingestão>` |
+| OTLP/HTTP logs (JSON ou protobuf) | `https://<host>/api/ingest/otlp/<stream>` (o exporter acrescenta `/v1/logs`) | `Authorization: Bearer <token de ingestão>` |
+
+- **HEC:** o campo `event` vira o evento (objeto) ou `message` (texto). `host`, `source`, `sourcetype`, `index`, `time` e `fields` ficam em `_hec`. O healthcheck `/services/collector/health` responde como o do Splunk.
+- **OTLP:** cada log record vira um evento. Corpo em mapa vira os campos do evento; corpo em texto vira `message`. Atributos, recurso, escopo, severidade, tempos e trace ficam em `_otlp`.
 
 ## Teste rápido com curl
 

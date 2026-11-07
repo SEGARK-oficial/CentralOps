@@ -179,6 +179,35 @@ async def ack_drained(redis: Any, integration_id: int, stream: str) -> None:
     await redis.delete(inflight_key(integration_id, stream))
 
 
+def push_goes_to_kafka() -> bool:
+    """True quando a ingestão push grava no tópico raw (ADR-0018 Onda 2).
+
+    Com ``EVENT_DATAPLANE=kafka`` (o deploy) o evento push vai ao Kafka antes do
+    200; a lista Redis fica só para ``EVENT_DATAPLANE=celery`` (dev sem broker) e
+    sai junto com esse modo na Onda 5."""
+    from ..core.config import settings
+
+    return (settings.EVENT_DATAPLANE or "").lower() == "kafka"
+
+
+async def write_push_events(
+    redis: Any,
+    integration_id: int,
+    stream: str,
+    events: List[Mapping[str, Any]],
+) -> Tuple[int, int]:
+    """Grava eventos push no destino durável do modo corrente.
+
+    Kafka: tópico raw com ``acks=all`` — devolve ``(n, 0)`` ou LEVANTA (broker
+    fora: o chamador responde 503 / retém). Celery: lista Redis com teto,
+    tudo-ou-nada (``(0, n)`` quando cheio)."""
+    if push_goes_to_kafka():
+        from .dataplane.raw import produce_raw_async
+
+        return await produce_raw_async(integration_id, stream, list(events)), 0
+    return await push_events(redis, integration_id, stream, events)
+
+
 async def buffer_depth(redis: Any, integration_id: int, stream: str) -> int:
     """Profundidade atual do buffer (para saúde/observabilidade)."""
     try:
