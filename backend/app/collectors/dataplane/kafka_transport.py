@@ -39,6 +39,10 @@ logger = logging.getLogger(__name__)
 
 _ENVELOPE_VERSION = 1
 
+#: Espera antes de reler um lote cuja gravação na DLQ falhou (Postgres fora).
+#: O lote continua no tópico; reler cedo demais só martela o banco caído.
+_DLQ_FAILURE_BACKOFF_S = 10.0
+
 # ── Health files p/ probes do dispatcher (k8s) ────────────────────────────────
 # O readiness aguarda READY (criado após consumer.start()); o liveness checa o
 # mtime do HEARTBEAT (tocado a cada msg E pelo emissor de lag em background, p/
@@ -62,12 +66,45 @@ def deliver_topic() -> str:
     return f"{settings.KAFKA_TOPIC_PREFIX}.{settings.KAFKA_DELIVER_TOPIC}"
 
 
+def _ssl_context() -> Optional["ssl.SSLContext"]:
+    """Contexto TLS do data-plane quando o protocolo usa SSL, senão ``None``.
+
+    O aiokafka exige ``ssl_context`` para SSL/SASL_SSL e recusa o cliente sem ele
+    — era o que impedia o data-plane de falar com broker gerenciado (ADR-0018
+    Onda 1). ``KAFKA_SSL_CAFILE`` aponta a CA privada; vazio usa as CAs do
+    sistema. ``KAFKA_SSL_VERIFY=false`` desliga a verificação (só laboratório)."""
+    import ssl
+
+    if "SSL" not in (settings.KAFKA_SECURITY_PROTOCOL or "").upper():
+        return None
+    ctx = ssl.create_default_context(cafile=settings.KAFKA_SSL_CAFILE or None)
+    if not settings.KAFKA_SSL_VERIFY:
+        ctx.check_hostname = False
+        ctx.verify_mode = ssl.CERT_NONE
+    return ctx
+
+
+def _deliver_topic_configs() -> Dict[str, str]:
+    """Configs do tópico de entrega aplicadas na criação: ``min.insync.replicas``
+    explícito, ou derivado do RF (RF ≥ 3 → 2; RF 2 → 1; RF 1 → nada)."""
+    rf = int(settings.KAFKA_DELIVER_REPLICATION or 1)
+    mir = settings.KAFKA_DELIVER_MIN_INSYNC_REPLICAS
+    if mir is None:
+        mir = 2 if rf >= 3 else (1 if rf == 2 else None)
+    if not mir:
+        return {}
+    return {"min.insync.replicas": str(min(int(mir), rf))}
+
+
 def _client_kwargs() -> Dict[str, Any]:
-    """kwargs comuns de bootstrap/segurança para producer e consumer."""
+    """kwargs comuns de bootstrap/segurança para producer, consumer e admin."""
     kwargs: Dict[str, Any] = {
         "bootstrap_servers": settings.KAFKA_BOOTSTRAP_SERVERS,
         "security_protocol": settings.KAFKA_SECURITY_PROTOCOL,
     }
+    ctx = _ssl_context()
+    if ctx is not None:
+        kwargs["ssl_context"] = ctx
     if settings.KAFKA_SASL_MECHANISM:
         kwargs.update(
             sasl_mechanism=settings.KAFKA_SASL_MECHANISM,
@@ -96,6 +133,7 @@ async def _ensure_deliver_topic() -> None:
                     deliver_topic(),
                     num_partitions=settings.KAFKA_DELIVER_PARTITIONS,
                     replication_factor=settings.KAFKA_DELIVER_REPLICATION,
+                    topic_configs=_deliver_topic_configs(),
                 )
             ]
         )
@@ -592,8 +630,12 @@ async def run_dispatch_consumer(stop_event: Optional[threading.Event] = None) ->
       - transitório < N tentat.  → ``seek`` de volta + backoff (reprocessa);
       - transitório esgotado     → lote à DLQ (error_kind=exhausted) + commita
                                     (desbloqueia a partição — sem poison-trap infinito);
-      - envelope inválido/malformado → descarta (outcome=invalid) + commita;
-      - não-transitório          → rejeições já na DLQ pelo dispatch; commita.
+      - erro NÃO classificado    → tratado como transitório (seek + backoff, depois DLQ);
+      - DLQ não confirmou        → NÃO commita: seek + backoff, o lote segue no tópico;
+      - envelope inválido/malformado → descarta (outcome=invalid) + commita.
+
+    Invariante (ADR-0018 Onda 0): nenhum offset é commitado sem a entrega ou a
+    gravação na DLQ confirmadas.
 
     Cooperativo: ``stop_event`` faz o loop sair APÓS terminar+commitar o registro
     corrente (drain limpo). Lag é emitido por uma task de BACKGROUND sobre TODAS
@@ -652,6 +694,32 @@ async def run_dispatch_consumer(stop_event: Optional[threading.Event] = None) ->
                 await _emit_consumer_lag(consumer, metrics)
             except Exception:  # pragma: no cover — lag é advisory, nunca derruba o loop
                 pass
+
+    async def _persist_dlq(batch: list, dest_id: Any, error_kind: str) -> bool:
+        """Grava o lote na DLQ e diz se GRAVOU. ``persist_batch_dlq`` devolve
+        False em falha (não levanta); qualquer exceção também conta como falha.
+        O chamador só commita o offset com True."""
+        try:
+            ok = await asyncio.to_thread(
+                persist_batch_dlq,
+                batch,
+                destination_id=str(dest_id),
+                error_kind=error_kind,
+                organization_id=_batch_org_id(batch),
+            )
+        except Exception:  # noqa: BLE001 — falha da DLQ = não commitar
+            logger.exception(
+                "data-plane: falha ao gravar DLQ dest=%s kind=%s — lote mantido no tópico",
+                dest_id, error_kind,
+            )
+            return False
+        if ok is not True:
+            logger.error(
+                "data-plane: DLQ não confirmou dest=%s kind=%s — lote mantido no tópico",
+                dest_id, error_kind,
+            )
+            return False
+        return True
 
     async def _commit(tp: "TopicPartition", offset: int) -> None:
         """Commit EXPLÍCITO do offset processado (não bare commit de todas as
@@ -724,56 +792,57 @@ async def run_dispatch_consumer(stop_event: Optional[threading.Event] = None) ->
                 attempts.pop(key, None)
             except circuit_breaker.BreakerOpen:
                 # Breaker OPEN: o lote NUNCA foi tentado e NÃO foi persistido pelo
-                # dispatch. Espelha a lane Celery: DLQ (recuperável) ANTES de commitar,
-                # senão os eventos somem.
+                # dispatch. DLQ (recuperável) ANTES de commitar — e só commita se a
+                # DLQ CONFIRMAR a gravação (ADR-0018 Onda 0): com o Postgres fora,
+                # o lote fica no Kafka e é relido, em vez de sumir.
                 outcome = "breaker_open"
-                await asyncio.to_thread(
-                    persist_batch_dlq,
-                    batch,
-                    destination_id=str(dest_id),
-                    error_kind="breaker_open",
-                    organization_id=_batch_org_id(batch),
-                )
-                logger.warning(
-                    "data-plane: breaker OPEN dest=%s — lote na DLQ (breaker_open)", dest_id
-                )
-                await _commit(tp, msg.offset)
-                attempts.pop(key, None)
-            except TransientDeliveryError:
+                if await _persist_dlq(batch, dest_id, "breaker_open"):
+                    logger.warning(
+                        "data-plane: breaker OPEN dest=%s — lote na DLQ (breaker_open)", dest_id
+                    )
+                    await _commit(tp, msg.offset)
+                    attempts.pop(key, None)
+                else:
+                    outcome = "dlq_failed"
+                    consumer.seek(tp, msg.offset)
+                    backoff = _DLQ_FAILURE_BACKOFF_S
+            except Exception as exc:  # noqa: BLE001 — nenhum erro commita sem DLQ
+                # TransientDeliveryError E qualquer erro NÃO classificado. Antes, o
+                # não classificado caía num ramo que commitava supondo "rejeições já
+                # na DLQ pelo dispatch" — falso para erro de conexão do sender, falha
+                # do Postgres ao ler o destino, bug no formatter. Era perda silenciosa
+                # (ADR-0018 Onda 0). Agora todo erro é re-tentado com backoff e, ao
+                # esgotar, vai à DLQ; o commit só acontece com a DLQ confirmada.
                 attempts[key] = attempts.get(key, 0) + 1
                 if attempts[key] > settings.KAFKA_MAX_DELIVERY_ATTEMPTS:
-                    # Esgotou: manda à DLQ + commita p/ DESBLOQUEAR a partição
-                    # (sem isto, um destino transitório-permanente prende a partição
-                    # em loop de seek e faz HoL-blocking nos co-tenants).
+                    # Esgotou: DLQ + commit p/ DESBLOQUEAR a partição (sem isto, um
+                    # destino transitório-permanente prende a partição em loop de
+                    # seek e faz HoL-blocking nos co-tenants).
                     outcome = "exhausted"
                     logger.error(
-                        "data-plane: transitório esgotado dest=%s offset=%s (%d tentativas) — DLQ",
-                        dest_id, msg.offset, attempts[key],
+                        "data-plane: transitório esgotado dest=%s offset=%s (%d tentativas, %s) — DLQ",
+                        dest_id, msg.offset, attempts[key], type(exc).__name__,
                     )
-                    await asyncio.to_thread(
-                        persist_batch_dlq,
-                        batch,
-                        destination_id=str(dest_id),
-                        error_kind="exhausted",
-                        organization_id=_batch_org_id(batch),
-                    )
-                    attempts.pop(key, None)
-                    await _commit(tp, msg.offset)
+                    if await _persist_dlq(batch, dest_id, "exhausted"):
+                        attempts.pop(key, None)
+                        await _commit(tp, msg.offset)
+                    else:
+                        outcome = "dlq_failed"
+                        consumer.seek(tp, msg.offset)
+                        backoff = _DLQ_FAILURE_BACKOFF_S
                 else:
                     # at-least-once: volta a posição e reprocessa com backoff exponencial.
-                    outcome = "transient"
+                    if isinstance(exc, TransientDeliveryError):
+                        outcome = "transient"
+                    else:
+                        outcome = "unclassified"
+                        logger.warning(
+                            "data-plane: erro não classificado no dispatch dest=%s offset=%s "
+                            "(tentativa %d) — tratado como transitório",
+                            dest_id, msg.offset, attempts[key], exc_info=True,
+                        )
                     consumer.seek(tp, msg.offset)
                     backoff = float(min(2 ** attempts[key], 30))
-            except Exception:
-                # Não-transitório (ex.: rejeições 4xx já persistidas na DLQ DENTRO do
-                # dispatch). Commita p/ não reprocessar.
-                outcome = "failed"
-                logger.exception(
-                    "data-plane: dispatch não-transitório dest=%s (rejeições já na DLQ pelo dispatch)",
-                    dest_id,
-                )
-                await _commit(tp, msg.offset)
-                attempts.pop(key, None)
 
             # Latência do ATTEMPT de dispatch — EXCLUI o backoff do transitório.
             metrics.DATAPLANE_CONSUME_LATENCY.observe(time.perf_counter() - _start)

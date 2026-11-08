@@ -52,6 +52,8 @@ router = APIRouter(prefix="/ingest", tags=["ingest"])
 # Caps por requisição (defesa contra payloads abusivos antes do buffer).
 _MAX_BODY_BYTES = 16 * 1024 * 1024  # 16 MiB
 _MAX_EVENTS_PER_REQUEST = 20_000
+# Espera sugerida ao edge quando o buffer está cheio: ~1 ciclo de dreno (20 s).
+_BUFFER_FULL_RETRY_AFTER_S = 20
 # Teto por-evento individual (após o teto do corpo). Um único evento gigante trava a
 # normalização e estoura o teto de payload do DB/destino a jusante — os concorrentes
 # (Cribl/Vector) truncam ou dropam a linha, não o lote. Aqui: dropa+conta a linha, o
@@ -408,12 +410,21 @@ async def ingest(
         except Exception:  # noqa: BLE001 — best-effort
             pass
 
-    # Observabilidade: aceitos/descartados + profundidade do buffer.
-    # ``dropped`` > 0 = perda silenciosa por backpressure → alerta no Grafana.
+    # Observabilidade: aceitos/recusados + profundidade do buffer.
     INGEST_ACCEPTED.labels(vendor=integ.platform, stream=stream).inc(accepted)
-    if dropped:
-        INGEST_DROPPED.labels(vendor=integ.platform, stream=stream).inc(dropped)
     INGEST_BUFFER_DEPTH.labels(integration_id=str(integ.id), stream=stream).set(depth)
+    if dropped:
+        # Buffer cheio: NADA deste lote foi gravado. 503 + Retry-After faz o edge
+        # (Vector, Fluent Bit) re-tentar com o buffer de disco dele. Antes o
+        # buffer descartava os eventos MAIS ANTIGOS — já respondidos com 200 — e
+        # a borda não tinha como reenviá-los (ADR-0018 Onda 0). A métrica
+        # ``dropped`` agora conta recusas, que o edge reenvia.
+        INGEST_DROPPED.labels(vendor=integ.platform, stream=stream).inc(dropped)
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="buffer de ingestão cheio — re-tente após o Retry-After",
+            headers={"Retry-After": str(_BUFFER_FULL_RETRY_AFTER_S)},
+        )
 
     return _resp(accepted=accepted, dropped=dropped, depth=depth)
 

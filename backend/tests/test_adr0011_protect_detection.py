@@ -358,7 +358,7 @@ def _suppress_route(**over):
     return CompiledRoute(**base)
 
 
-def test_maybe_suppress_keeps_first_then_suppresses_and_decorates():
+def test_suppression_verdict_keeps_first_then_suppresses_and_decorates():
     import fakeredis.aioredis
     from backend.app.collectors import pipeline as _pl
 
@@ -369,18 +369,19 @@ def test_maybe_suppress_keeps_first_then_suppresses_and_decorates():
         e1 = {"_centralops": {"event_type": "login", "src_ip": "1.1.1.1"}}
         e2 = {"_centralops": {"event_type": "login", "src_ip": "1.1.1.1"}}
         e3 = {"_centralops": {"event_type": "other", "src_ip": "1.1.1.1"}}  # não casa a condição
-        a = await _pl._maybe_suppress(r, e1, [route])
-        b = await _pl._maybe_suppress(r, e2, [route])
-        c = await _pl._maybe_suppress(r, e3, [route])
+        a = await _pl._suppression_verdicts(r, e1, [route])
+        b = await _pl._suppression_verdicts(r, e2, [route])
+        c = await _pl._suppression_verdicts(r, e3, [route])
         await r.aclose()
         return a, b, c, e1
 
     a, b, c, e1 = _run(go())
-    assert a is None and b == "r1" and c is None       # 1ª passa, 2ª suprime, não-match entrega
+    # 1ª passa, 2ª é suprimida PELA ROTA r1 (só nos destinos dela), não-match entrega
+    assert a == frozenset() and b == frozenset({"r1"}) and c == frozenset()
     assert e1["_centralops"]["suppress_count"] == 1     # o liberado é decorado (preserva contagem)
 
 
-def test_maybe_suppress_is_fail_open_on_redis_error():
+def test_suppression_verdict_is_fail_open_on_redis_error():
     from backend.app.collectors import pipeline as _pl
 
     class _Boom:
@@ -388,8 +389,8 @@ def test_maybe_suppress_is_fail_open_on_redis_error():
             raise RuntimeError("redis down")
 
     env = {"_centralops": {"src_ip": "1.1.1.1"}}
-    # Erro de Redis NÃO derruba nem descarta — fail-open entrega o evento (None).
-    assert _run(_pl._maybe_suppress(_Boom(), env, [_suppress_route()])) is None
+    # Erro de Redis NÃO derruba nem descarta — fail-open: nenhuma rota suprime.
+    assert _run(_pl._suppression_verdicts(_Boom(), env, [_suppress_route()])) == frozenset()
 
 
 # ── agregação/rollup log→métrica (fail-open anti-OOM) ────────────────

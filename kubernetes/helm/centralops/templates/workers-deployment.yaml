@@ -47,15 +47,40 @@ spec:
       securityContext:
         {{- toYaml $.Values.podSecurityContext | nindent 8 }}
         runAsUser: {{ $.Values.workers.runAsUser }}
+      {{- if ne $name "beat" }}
+      # Drain do SIGTERM (ADR-0018 Onda 1): o Celery faz warm shutdown e espera a
+      # task em voo. O default do k8s (30 s) matava com SIGKILL uma task de até
+      # task_time_limit (900 s) — a mensagem só voltava após o visibility_timeout.
+      terminationGracePeriodSeconds: {{ dig "terminationGracePeriodSeconds" $.Values.workers.terminationGracePeriodSeconds $worker }}
+      {{- end }}
+      {{- if $.Values.workers.topologySpread.enabled }}
+      # Réplicas do mesmo papel em nós diferentes quando possível (soft): um nó
+      # caindo não leva o papel inteiro junto.
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: {{ $.Values.workers.topologySpread.topologyKey }}
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: {{ include "centralops.fullname" $ }}-worker-{{ $name }}
+      {{- end }}
       containers:
         - name: worker
           image: "{{ include "centralops.image" (dict "img" $.Values.image "context" $) }}"
           imagePullPolicy: {{ $.Values.image.pullPolicy }}
           command:
+            {{- if $.Values.workers.celeryApp }}
             - "/usr/local/bin/start-collector.sh"
             - "celery"
             - "-A"
-            - "app.collectors.celery_app"
+            - {{ $.Values.workers.celeryApp | quote }}
+            {{- else }}
+            # cops-celery = start-collector.sh + ``celery -A <app da IMAGEM>``: a
+            # imagem Core usa app.collectors.celery_app e a imagem EE reescreve o
+            # wrapper para centralops_ee.celery_app. Fixar o app aqui fazia o EE em
+            # k8s subir SEM as tasks EE registradas (ADR-0018 Onda 1).
+            - "/usr/local/bin/cops-celery"
+            {{- end }}
             {{- if eq $name "beat" }}
             - "beat"
             {{- else }}
@@ -69,6 +94,12 @@ spec:
             - "maintenance,maintenance.high"
             {{- else if eq $name "dispatcher" }}
             - "dispatch.dlq,dispatch.destination,dispatch.destination.0,dispatch.destination.1,dispatch.destination.2,dispatch.destination.3,dispatch.destination.4,dispatch.destination.5,dispatch.destination.6,dispatch.destination.7"
+            {{- else if eq $name "query" }}
+            # Busca federada e scheduled queries. Sem consumidor, a scheduled query
+            # do CE ficava pendente para sempre (ADR-0018 Onda 1).
+            - "collect.query"
+            {{- else }}
+            {{- fail (printf "workers.%s: papel desconhecido — sem fila definida no template" $name) }}
             {{- end }}
             - "-n"
             - "{{ $name }}@%h"

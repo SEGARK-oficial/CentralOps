@@ -55,9 +55,9 @@ Depois de padronizado, o evento é avaliado por regras de roteamento e enviado a
 
 - **Envio simultâneo a vários destinos.** Um mesmo evento pode ser entregue, por exemplo, ao Wazuh e ao Splunk ao mesmo tempo.
 - **Descarte intencional.** Eventos de ruído podem ser descartados de propósito para controlar custo e volume, conforme as regras que você definir.
-- **Rota padrão (catch-all).** Todo evento que não se encaixa em nenhuma regra específica é enviado ao destino padrão (o Wazuh). Nenhum evento se perde por falta de uma regra.
+- **Destino padrão.** Todo evento que não se encaixa em nenhuma regra vai para o destino marcado como padrão. Sem destino padrão, ele vai para a fila de reenvio como "sem rota". Nenhum evento se perde por falta de uma regra.
 
-Se um destino fica indisponível, os eventos não são perdidos: eles entram em uma **fila de reenvio** e são reenviados automaticamente quando o destino volta. Há também uma proteção contra destino instável, que reduz a pressão sobre um destino com falhas repetidas.
+Se um destino fica indisponível, os eventos não são perdidos. Falhas curtas são re-tentadas automaticamente. Se o destino continua fora, os eventos vão para a **fila de reenvio** dele, que você reprocessa pelo botão **Reprocessar** em **Roteia -> Destinos** quando o destino volta. Há também uma proteção contra destino instável, que reduz a pressão sobre um destino com falhas repetidas.
 
 **Onde acompanhar:**
 
@@ -136,10 +136,10 @@ O CentralOps mostra o que está acontecendo de duas formas:
 
 ## Garantias do pipeline
 
-- **Coletar duas vezes é seguro.** Cada evento é identificado de forma única; coletas repetidas não geram duplicados.
-- **Ordem preservada por integração.** Dentro de uma mesma integração, os eventos mantêm a ordem temporal. Não há ordenação entre fornecedores diferentes.
-- **Nenhuma perda silenciosa.** Um evento que falha sempre aparece em uma tela: **Quarentena** (falha de validação), **Drift** (campos novos) ou na fila de reenvio (destino indisponível). Você sempre tem onde olhar.
-- **Entrega confiável aos destinos.** Em caso de falha de rede, um evento pode ser reenviado; os destinos eliminam eventuais duplicatas para que cada evento conte uma vez só.
+- **Coletar de novo não duplica dentro da janela de dedupe.** Cada evento recebe um identificador, e uma coleta repetida dentro do TTL de dedupe (24 horas por padrão) é descartada. Fora dessa janela, ou se o Redis de dedupe precisar evictar chaves por falta de memória, o evento pode ser entregue de novo.
+- **Entrega pelo menos uma vez.** Um lote só é dado como entregue quando o destino confirma ou quando ele é gravado na fila de reenvio. Depois de uma falha de rede ou de um reinício, o mesmo evento pode chegar duas vezes. Elasticsearch, S3/Security Lake e webhook com chave de idempotência eliminam essas duplicatas; Syslog/Wazuh, Splunk HEC, Sentinel, ClickHouse e LogScale podem recebê-las.
+- **Sem ordem garantida.** Dentro de um destino os eventos costumam sair na ordem da coleta, mas novas tentativas e a fila de reenvio podem trocar a ordem. Use o horário do próprio evento, não a ordem de chegada.
+- **Falha fica visível.** Um evento que não chega ao destino aparece na **Quarentena** (falha de validação), na **fila de reenvio** do destino (destino fora ou rejeição) ou fica retido, com erro na saúde da integração, até a causa ser corrigida (por exemplo, uma rota inválida). Exceção conhecida: quando um mesmo ciclo gera mais eventos de quarentena que o teto por motivo, o excedente é contado na métrica, mas não é guardado.
 
 ## Próximos passos
 

@@ -37,7 +37,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from ..collectors.classify import Classifier, compile_classifier
 from ..core.config import settings
-from .parser import parse_syslog_line, strip_octet_count
+from .parser import parse_syslog_line
 
 logger = logging.getLogger(__name__)
 
@@ -222,22 +222,36 @@ class Receiver:
         total = 0
         for (integration_id, stream, platform), events in queues.items():
             try:
-                accepted, dropped = await push_events(self.redis, integration_id, stream, events)
+                accepted, refused = await push_events(self.redis, integration_id, stream, events)
                 depth = await buffer_depth(self.redis, integration_id, stream)
             except Exception:  # noqa: BLE001 — Redis fora: devolve para a fila, tenta no próximo tick
                 logger.warning("syslog: falha ao gravar no buffer integration_id=%s stream=%s — %d evento(s) retidos",
                                integration_id, stream, len(events), exc_info=True)
-                self._queues.setdefault((integration_id, stream, platform), []).extend(events)
-                # Teto de retenção: não vira OOM se o Redis ficar fora por horas.
-                q = self._queues[(integration_id, stream, platform)]
-                if len(q) > self.batch_max * 20:
-                    dropped_mem = len(q) - self.batch_max * 20
-                    del q[: dropped_mem]
-                    self._bump("dropped_memory"); _count("any", "dropped_memory", dropped_mem)
+                self._retain((integration_id, stream, platform), events)
                 continue
+            if refused:
+                # Buffer cheio: o push é tudo-ou-nada e NADA foi gravado
+                # (ADR-0018 Onda 0). Retém em memória e tenta no próximo tick,
+                # como com o Redis fora.
+                logger.warning("syslog: buffer cheio integration_id=%s stream=%s — %d evento(s) retidos",
+                               integration_id, stream, refused)
+                self._retain((integration_id, stream, platform), events)
             total += accepted
-            _count_ingest(platform, stream, accepted, dropped, integration_id, depth)
+            # Recusados ficam retidos (não são perda): o contador de descarte só
+            # conta o que o teto de retenção em memória realmente jogou fora.
+            _count_ingest(platform, stream, accepted, 0, integration_id, depth)
         return total
+
+    def _retain(self, key: Tuple[int, str, str], events: List[Dict[str, Any]]) -> None:
+        """Devolve eventos não gravados à fila em memória. Teto de retenção: não
+        vira OOM se o Redis ficar fora (ou cheio) por horas — o excedente mais
+        antigo é descartado e CONTADO (syslog não tem ack para devolver)."""
+        q = self._queues.setdefault(key, [])
+        q[:0] = events
+        if len(q) > self.batch_max * 20:
+            dropped_mem = len(q) - self.batch_max * 20
+            del q[: dropped_mem]
+            self._bump("dropped_memory"); _count("any", "dropped_memory", dropped_mem)
 
     async def run_flusher(self, stop: asyncio.Event) -> None:
         while not stop.is_set():
@@ -276,35 +290,115 @@ class _UdpProtocol(asyncio.DatagramProtocol):
         self.receiver.handle_datagram(data, peer_ip=addr[0], port=self.port)
 
 
+#: RFC 6587 limita o MSG-LEN a ``NONZERO-DIGIT *DIGIT``; 9 dígitos já passam de
+#: qualquer ``max_line`` razoável. Mais que isso não é octet-counting.
+_OCTET_MAX_DIGITS = 9
+
+
+async def _read_line_rest(reader: asyncio.StreamReader, receiver: Receiver) -> Optional[bytes]:
+    """Lê até o próximo LF (framing não-transparente). ``None`` = linha grande
+    demais, consumida e descartada."""
+    try:
+        return await reader.readuntil(b"\n")
+    except asyncio.IncompleteReadError as exc:
+        return exc.partial
+    except asyncio.LimitOverrunError as exc:
+        # Descarta a linha INTEIRA até o LF — consumir só ``max_line`` deixava o
+        # resto da linha ser lido como se fosse o próximo frame.
+        receiver._bump("truncated")
+        await reader.read(exc.consumed)
+        while True:
+            try:
+                await reader.readuntil(b"\n")
+                return None
+            except asyncio.IncompleteReadError:
+                return None
+            except asyncio.LimitOverrunError as more:
+                await reader.read(more.consumed)
+
+
+async def _read_octet_frame(reader: asyncio.StreamReader, receiver: Receiver, size: int) -> bytes:
+    """Lê exatamente ``size`` octetos. Acima de ``max_line`` guarda só o começo
+    e descarta o resto do frame, para não desalinhar o próximo."""
+    keep = min(size, receiver.max_line)
+    body = await reader.readexactly(keep)
+    rest = size - keep
+    if rest:
+        receiver._bump("truncated")
+        while rest:
+            rest -= len(await reader.readexactly(min(rest, 65536)))
+    return body
+
+
 async def _serve_stream(reader: asyncio.StreamReader, writer: asyncio.StreamWriter, *, receiver: Receiver, port: int, transport: str) -> None:
+    """Uma conexão TCP/TLS: separa as mensagens e entrega cada uma ao receiver.
+
+    Framing por frame, como a RFC 6587 manda (ADR-0018 Onda 0):
+      * começa com dígito e os dígitos terminam em espaço → octet-counting:
+        lê exatamente MSG-LEN octetos. Frames podem vir colados, sem LF entre
+        eles (rsyslog ``octet-counted``, syslog-ng ``syslog()``);
+      * qualquer outra coisa → não-transparente: a mensagem vai até o LF.
+    Antes o servidor lia até o LF e cortava o corpo no MSG-LEN, jogando fora
+    todos os frames seguintes colados na mesma "linha".
+    """
     peer = writer.get_extra_info("peername") or ("?", 0)
     peer_ip = str(peer[0])
     try:
         while True:
             try:
-                chunk = await reader.readuntil(b"\n")
-            except asyncio.IncompleteReadError as exc:
-                chunk = exc.partial
-                if not chunk:
+                first = await reader.readexactly(1)
+            except asyncio.IncompleteReadError:
+                break  # EOF limpo entre frames
+            if first in b"\r\n\t ":
+                continue  # separador/trailer entre frames
+            body: Optional[bytes]
+            if first.isdigit() and first != b"0":
+                digits = first
+                tail = b""
+                while True:
+                    try:
+                        c = await reader.readexactly(1)
+                    except asyncio.IncompleteReadError:
+                        c = b""
+                    if c.isdigit() and len(digits) < _OCTET_MAX_DIGITS:
+                        digits += c
+                        continue
+                    tail = c
                     break
-            except asyncio.LimitOverrunError:
-                # Linha maior que o limite do reader: consome e descarta.
-                await reader.read(receiver.max_line)
-                receiver._bump("truncated")
+                if tail == b" ":
+                    # Só é octet-counting se a mensagem começa pelo PRI (``<``);
+                    # uma linha crua tipo ``200 OK ...`` segue até o LF.
+                    try:
+                        lead = await reader.readexactly(1)
+                    except asyncio.IncompleteReadError:
+                        lead = b""
+                    if lead == b"<":
+                        try:
+                            body = lead + await _read_octet_frame(
+                                reader, receiver, int(digits) - 1
+                            )
+                        except asyncio.IncompleteReadError as exc:
+                            body = lead + exc.partial  # conexão caiu no meio do frame
+                    elif lead in (b"\n", b""):
+                        body = digits
+                    else:
+                        rest = await _read_line_rest(reader, receiver)
+                        body = None if rest is None else digits + b" " + lead + rest
+                elif tail in (b"\n", b""):
+                    body = digits
+                else:
+                    rest = await _read_line_rest(reader, receiver)
+                    body = None if rest is None else digits + tail + rest
+            else:
+                rest = await _read_line_rest(reader, receiver)
+                body = None if rest is None else first + rest
+            if body is None:
                 continue
-            # RFC6587 octet-count: ``123 <34>1 ...`` — o comprimento diz onde a
-            # mensagem acaba, e ela pode conter \\n. Lê o que faltar.
-            body, declared = strip_octet_count(chunk)
-            if declared is not None and len(body) < declared:
-                try:
-                    body += await reader.readexactly(declared - len(body))
-                except asyncio.IncompleteReadError as exc:
-                    body += exc.partial
-            receiver.handle_line(body, peer_ip=peer_ip, port=port, transport=transport)
+            body = body.rstrip(b"\r\n")
+            if body:
+                receiver.handle_line(body, peer_ip=peer_ip, port=port, transport=transport)
             if receiver.maybe_flush_soon():
                 await receiver.flush()
-            if not chunk.endswith(b"\n") and declared is None:
-                break
     except (ConnectionResetError, BrokenPipeError):
         pass
     finally:

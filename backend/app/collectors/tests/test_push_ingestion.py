@@ -41,14 +41,17 @@ async def test_buffer_push_drain_fifo(aredis):
 
 
 @pytest.mark.asyncio
-async def test_buffer_backpressure_caps_and_counts(aredis):
-    # cap=3: empurrar 5 mantém os 3 mais recentes, descarta 2.
-    accepted, dropped = await ib.push_events(aredis, 9, "s", [{"i": i} for i in range(5)], max_len=3)
-    assert accepted == 5
-    assert dropped == 2
-    assert await ib.buffer_depth(aredis, 9, "s") == 3
-    # contador de descarte exposto
-    assert int(await aredis.get(ib.dropped_key(9, "s"))) == 2
+async def test_buffer_backpressure_refuses_whole_batch(aredis):
+    # ADR-0018 Onda 0: cap=3 e um lote de 5 → NADA é gravado (tudo-ou-nada); o
+    # endpoint responde 503 e o edge re-tenta. Antes mantinha os 3 mais recentes.
+    accepted, refused = await ib.push_events(aredis, 9, "s", [{"i": i} for i in range(5)], max_len=3)
+    assert accepted == 0
+    assert refused == 5
+    assert await ib.buffer_depth(aredis, 9, "s") == 0
+    # contador de recusa exposto
+    assert int(await aredis.get(ib.dropped_key(9, "s"))) == 5
+    # um lote que cabe entra inteiro
+    assert await ib.push_events(aredis, 9, "s", [{"i": i} for i in range(3)], max_len=3) == (3, 0)
 
 
 @pytest.mark.asyncio
@@ -180,13 +183,11 @@ def test_push_platform_scheduled_via_registry():
 
 
 @pytest.mark.asyncio
-async def test_buffer_dropped_robust_when_buffer_prefilled(aredis):
-    """dropped = max(0, lpush_len - max_len): correto mesmo com o buffer já cheio
-    (robusto a writers concorrentes — não depende do LLEN pós-trim)."""
-    # pré-enche no cap
+async def test_buffer_full_never_evicts_accepted_events(aredis):
+    """Buffer cheio recusa o lote NOVO e preserva os eventos já aceitos (antes o
+    LTRIM apagava os mais antigos, já respondidos com 200)."""
     await ib.push_events(aredis, 3, "t", [{"i": i} for i in range(3)], max_len=3)
-    # mais 4 com cap 3 → todos os 4 são "excedente" (a lista já estava cheia)
-    accepted, dropped = await ib.push_events(aredis, 3, "t", [{"i": i} for i in range(4)], max_len=3)
-    assert accepted == 4
-    assert dropped == 4
+    accepted, refused = await ib.push_events(aredis, 3, "t", [{"i": 10 + i} for i in range(4)], max_len=3)
+    assert (accepted, refused) == (0, 4)
     assert await ib.buffer_depth(aredis, 3, "t") == 3
+    assert [d["i"] for d in await ib.drain_events(aredis, 3, "t")] == [0, 1, 2]

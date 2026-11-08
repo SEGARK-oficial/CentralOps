@@ -91,12 +91,39 @@ kubectl -n centralops create secret generic centralops-secrets \
 
 A referência completa de variáveis está em **[Configuração](./configuration.md)**.
 
+## Data-plane: broker Kafka gerenciado
+
+Em produção, aponte o data-plane para um broker gerenciado (MSK, Confluent Cloud, Redpanda Cloud) em vez do `devBroker` de testes:
+
+```yaml
+dataPlane:
+  kafka:
+    bootstrapServers: "b-1.seu-broker.internal:9096,b-2.seu-broker.internal:9096"
+    securityProtocol: SASL_SSL
+    sasl:
+      mechanism: SCRAM-SHA-512
+      username: centralops
+      password: ""            # prefira secrets.existingSecret
+    tls:
+      caFile: ""              # caminho da CA privada montada no pod; vazio = CAs do sistema
+      verify: true
+    replicationFactor: 3      # com minInsyncReplicas derivado (2), um broker pode cair
+    partitions: 8
+```
+
+O tópico de entrega é criado na primeira subida com essas partições, réplicas e `min.insync.replicas`. Aumentar partições depois exige repartição manual no broker.
+
 ## Recursos que o chart entrega
 
 - **API + frontend + workers Celery + beat** como Deployments separados (release
-  desacoplado da UI).
+  desacoplado da UI). Há um worker por papel: coleta prioritária, coleta em lote,
+  manutenção, busca federada e scheduled queries (`query`) e entrega. Quando o pod é
+  encerrado, cada worker tem até 15 minutos e meio para terminar a tarefa em
+  andamento (2 minutos na coleta prioritária).
 - **HPA** para escalar a API/workers por CPU.
-- **PodDisruptionBudget** para não derrubar todas as réplicas em manutenção.
+- **PodDisruptionBudget** (ligado por padrão nos workers e no consumidor do
+  data-plane) para não derrubar todas as réplicas em manutenção, e réplicas do
+  mesmo papel espalhadas por nós quando possível.
 - **NetworkPolicies** restringindo o tráfego entre componentes.
 - **License keyring** (ConfigMap com chaves **públicas**) para verificar a licença
   Enterprise **offline** — ver **[Edições & Upgrade](../editions/community-vs-enterprise.md)**.

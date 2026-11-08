@@ -260,6 +260,17 @@ class Settings(BaseSettings):
     KAFKA_SASL_MECHANISM: Optional[str] = None  # PLAIN|SCRAM-SHA-256|SCRAM-SHA-512
     KAFKA_SASL_USERNAME: Optional[str] = None
     KAFKA_SASL_PASSWORD: Optional[str] = None
+    # TLS do data-plane (SSL / SASL_SSL). O aiokafka RECUSA esses protocolos sem um
+    # ``ssl_context``; antes o data-plane não montava nenhum e o caminho de broker
+    # gerenciado (MSK, Confluent, Redpanda Cloud) falhava no boot (ADR-0018 Onda 1).
+    # ``KAFKA_SSL_CAFILE`` = bundle da CA privada do broker (vazio = CAs do sistema).
+    # ``KAFKA_SSL_VERIFY=false`` só para laboratório com certificado self-signed.
+    KAFKA_SSL_CAFILE: Optional[str] = None
+    KAFKA_SSL_VERIFY: bool = True
+    # ``min.insync.replicas`` do tópico de entrega, aplicado na CRIAÇÃO. Vazio =
+    # derivado do RF (RF ≥ 3 → 2; RF 2 → 1; RF 1 → não define). Com RF=3 e
+    # min.insync=2, um broker pode cair sem parar o ``acks=all`` do produtor.
+    KAFKA_DELIVER_MIN_INSYNC_REPLICAS: Optional[int] = None
     # ── Resiliência do data-plane (hardening pós-review) ──────
     # Consume side: nº máx. de retentativas TRANSITÓRIAS por registro antes de
     # mandar o lote à DLQ e commitar (espelha o max_retries=10 da lane Celery).
@@ -387,10 +398,10 @@ class Settings(BaseSettings):
     # Kill-switch global da feature. ON → rotas com pii_redaction mascaram/
     # pseudonimizam/removem campos antes do destino daquela rota (mesma origem
     # íntegra no lago, mascarada no SIEM). FAIL-CLOSED: se uma rota TEM spec e a
-    # flag está OFF, _compile_route_row levanta → _load_routes_for_org cai p/
-    # wazuh-default interno, NUNCA entrega cleartext ao destino externo (a flag
-    # nunca vira um caminho de vazamento). FAIL-CLOSED também na escrita: spec
-    # ruim → 422 no CRUD.
+    # flag está OFF, _compile_route_row levanta → _load_routes_for_org retém o
+    # lote (o ciclo falha e re-tenta), NUNCA entrega cleartext ao destino externo
+    # (a flag nunca vira um caminho de vazamento). FAIL-CLOSED também na escrita:
+    # spec ruim → 422 no CRUD.
     #
     # DEFAULT INVERTIDO PARA ON (era OFF), mesma razão da ADR-0015 para as flags
     # REDUCTION_*: o portão que importa é o POR-ROTA, não o global. Sem nenhuma

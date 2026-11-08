@@ -88,7 +88,7 @@ Assim que o edge-collector começar a enviar eventos:
 2. No painel **Ingestão push**, você verá:
    - **Buffer atual** — quantos eventos estão na fila aguardando processamento.
    - **Taxa de ingestão** — eventos recebidos nos últimos minutos.
-   - **Drops** (se houver) — quantos eventos foram descartados por limite de fila.
+   - **Drops** (se houver) — quantos eventos foram recusados com `503` por fila cheia. O edge-collector re-envia esses eventos; eles não se perdem enquanto o buffer de disco dele tiver espaço.
 
 3. Após ~20 segundos, os eventos devem aparecer no destino para onde suas rotas os enviam.
 
@@ -125,22 +125,23 @@ Fonte (FortiGate/Windows Event Log)
 
 Se o edge-collector enviar eventos mais rápido do que o CentralOps consegue processar:
 
-- Os eventos são colocados numa **fila de buffer** (capacidade padrão: ~10k eventos).
-- Quando o buffer atinge o limite, os **eventos mais antigos são descartados** (FIFO) para proteger a plataforma.
-- Cada resposta HTTP inclui `"buffer_depth"` e `"dropped"` — você pode monitorar isso no seu edge-collector.
+- Os eventos são colocados numa **fila de buffer** por integração e stream (capacidade padrão: 100 mil eventos).
+- Quando o buffer está cheio, a requisição inteira é **recusada com `503`** e um cabeçalho `Retry-After`. Nada daquele lote é gravado, e nenhum evento já aceito é apagado.
+- O edge-collector re-tenta sozinho: Vector e Fluent Bit tratam `503` como falha temporária e guardam os eventos no buffer de disco deles até o CentralOps voltar a aceitar.
+- Eventos aceitos (resposta `200` ou `207`) só saem da fila depois que o ciclo de processamento termina com sucesso. Se o ciclo falhar, eles são reprocessados no ciclo seguinte.
 
-Exemplo de resposta:
+Exemplo de resposta aceita:
 
 ```json
 {
   "accepted": 100,
-  "dropped": 5,
+  "dropped": 0,
   "buffer_depth": 2500
 }
 ```
 
-Se `dropped` for maior que zero com frequência, significa que o edge-collector está enviando mais rápido do que o CentralOps processa. Nesse caso:
-- Reduza a taxa de ingestão no edge-collector (ajuste batch size ou flush interval).
+Se o edge-collector recebe `503` com frequência, ele está enviando mais rápido do que o CentralOps processa. Nesse caso:
+- Confirme que o buffer de disco do edge-collector tem espaço para segurar os eventos durante a espera.
 - Verifique se há gargalos nos destinos (Splunk, S3, etc. podem estar lentos).
 - Fale com o administrador da plataforma sobre aumentar a capacidade.
 

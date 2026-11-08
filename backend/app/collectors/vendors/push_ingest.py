@@ -28,7 +28,7 @@ from datetime import timedelta
 from typing import Any, AsyncIterator, Dict
 
 from ..base import BaseCollector
-from ..ingest_buffer import drain_events
+from ..ingest_buffer import ack_drained, drain_events
 
 logger = logging.getLogger(__name__)
 
@@ -37,8 +37,8 @@ class PushBufferCollector(BaseCollector):
     """Collector virtual: drena o buffer Redis de ingestão da integração.
 
     Subclasses concretas fixam ``platform``/``stream``/``event_type`` (lidos pelo
-    pipeline ANTES da instanciação). Não faz I/O de rede de saída — só ``RPOP`` do
-    Redis — então ``rate_limiter``/``domain_limiter`` ficam ociosos (sem host
+    pipeline ANTES da instanciação). Não faz I/O de rede de saída — só move eventos
+    entre listas Redis — então ``rate_limiter``/``domain_limiter`` ficam ociosos (sem host
     externo)."""
 
     @property
@@ -47,7 +47,10 @@ class PushBufferCollector(BaseCollector):
         # semáforo por-domínio não colidir com fontes pull reais.
         return f"push.{self.platform}"
 
+    _drain_exhausted = False
+
     async def collect(self) -> AsyncIterator[Dict[str, Any]]:
+        self._drain_exhausted = False
         events = await drain_events(self.ctx.redis, self.ctx.integration_id, self.stream)
         if events:
             logger.info(
@@ -56,6 +59,32 @@ class PushBufferCollector(BaseCollector):
             )
         for ev in events:
             yield ev
+        # Só aqui o pipeline recebeu TODOS os eventos drenados. Um ciclo que
+        # parasse de iterar antes não pode confirmar o dreno inteiro.
+        self._drain_exhausted = True
+
+    async def on_cycle_committed(self) -> None:
+        """Ciclo gravado: os eventos drenados já saíram — apaga a lista em
+        processamento. Sem o dreno completo, deixa a lista para o próximo
+        ciclo reprocessar (o dedupe descarta o que já saiu)."""
+        if not self._drain_exhausted:
+            logger.warning(
+                "push_ingest: ciclo encerrou sem consumir todo o dreno — eventos "
+                "ficam para o próximo ciclo (integration_id=%s stream=%s)",
+                self.ctx.integration_id, self.stream,
+            )
+            return
+        await ack_drained(self.ctx.redis, self.ctx.integration_id, self.stream)
+
+    async def on_cycle_aborted(self) -> None:
+        """Ciclo falhou: NÃO confirma. A lista em processamento fica de pé e o
+        próximo dreno a reprocessa primeiro (ADR-0018 Onda 0). Antes o ``RPOP``
+        já tinha apagado os eventos e um ciclo com erro os perdia."""
+        logger.warning(
+            "push_ingest: ciclo com erro — eventos drenados mantidos para o próximo "
+            "ciclo (integration_id=%s stream=%s)",
+            self.ctx.integration_id, self.stream,
+        )
 
     def extract_message_id(self, event: Dict[str, Any]) -> str:
         # O endpoint de ingestão carimba ``_ingest_id`` (id estável por evento).
