@@ -284,6 +284,12 @@ class Settings(BaseSettings):
     KAFKA_PROCESSOR_GROUP: str = "centralops-processor"
     # Registros do raw buscados por vez pelo processor (cada um é um lote de eventos).
     RAW_PROCESSOR_MAX_RECORDS: int = 50
+    # Corte por integração para "coleta só coleta" (ADR-0018 Onda 3; flag
+    # TEMPORÁRIA, sai na Onda 5). Integrações listadas gravam o evento cru no
+    # tópico raw e avançam o cursor; o processor faz o resto. "" = nenhuma,
+    # "*" = todas, ou ids separados por vírgula ("12,40"). Só vale com
+    # EVENT_DATAPLANE=kafka e com o papel processor rodando.
+    PIPELINE_RAW_INTEGRATIONS: str = ""
     # ── Resiliência do data-plane (hardening pós-review) ──────
     # Consume side: nº máx. de retentativas TRANSITÓRIAS por registro antes de
     # mandar o lote à DLQ e commitar (espelha o max_retries=10 da lane Celery).

@@ -231,10 +231,15 @@ def test_duplicate_claim_does_not_enter_pending_set():
 def test_cycle_recovers_orphans_before_claiming():
     import inspect
 
-    src = inspect.getsource(pipeline._run_collection_once)
-    assert "recover_orphan_claims(" in src
-    assert src.index("recover_orphan_claims(") < src.index("await claim(")
-    assert "pending_set=_pending_set" in src
+    # ADR-0018 Onda 3: a recuperação é do estágio de processamento, e todo
+    # chamador a faz antes do primeiro evento.
+    for name in ("_run_collection_once", "process_raw_events"):
+        src = inspect.getsource(getattr(pipeline, name))
+        assert "processor.recover_orphan_claims()" in src, name
+        assert src.index("processor.recover_orphan_claims()") < src.index("processor.process("), name
+    stage = inspect.getsource(pipeline.StreamProcessor.recover_orphan_claims)
+    assert "recover_orphan_claims(" in stage
+    assert "pending_set=_pending_set" in inspect.getsource(pipeline.StreamProcessor.process)
 
 
 # ── Push: dreno confiável e backpressure sem apagar dado aceito ─────────────

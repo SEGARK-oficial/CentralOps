@@ -571,6 +571,9 @@ dataPlane:
     replicaCount: 1
     rawPartitions: 16
     rawRetentionHours: 24     # quanto tempo o processor pode ficar parado sem perder push
+    # ADR-0018 Onda 3 (flag temporária): integrações cuja coleta só grava no raw e
+    # deixa o processamento ao processor. "" nenhuma, "*" todas, ou "12,40".
+    rawIntegrations: ""
     resources:
       limits:
         cpu: "2000m"

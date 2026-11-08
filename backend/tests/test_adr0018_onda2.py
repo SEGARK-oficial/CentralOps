@@ -99,55 +99,38 @@ def test_syslog_flush_writes_to_raw_in_kafka_mode(monkeypatch):
     assert ingest_buffer.push_goes_to_kafka()
 
 
-# ── Coletor push lendo o lote do Kafka ───────────────────────────────────────
+# ── Processor → estágio de processamento (sem ciclo de coleta desde a Onda 3) ──
 
 
-class _NoRedis:
-    def __getattr__(self, name):  # pragma: no cover — qualquer chamada falha o teste
-        raise AssertionError(f"coletor tocou o Redis ({name}) com lote do Kafka")
-
-
-def test_push_collector_reads_raw_batch_and_skips_redis():
-    from backend.app.collectors.vendors.push_ingest import (
-        RAW_BATCH,
-        FortiGateTrafficCollector,
-        RawBatch,
-    )
-
-    async def go():
-        col = FortiGateTrafficCollector.__new__(FortiGateTrafficCollector)
-        col.ctx = types.SimpleNamespace(redis=_NoRedis(), integration_id=5)
-        batch = RawBatch(events=[{"i": 1}, {"i": 2}])
-        tok = RAW_BATCH.set(batch)
-        try:
-            seen = [e["i"] async for e in col.collect()]
-            await col.on_cycle_committed()
-            await col.on_cycle_aborted()
-        finally:
-            RAW_BATCH.reset(tok)
-        return seen, batch.consumed
-
-    assert _run(go()) == ([1, 2], True)
-
-
-def test_processor_cycle_is_partition_scoped(monkeypatch):
+def test_processor_group_goes_straight_to_the_processing_stage(monkeypatch):
+    """O lote do raw vai direto ao ``StreamProcessor`` (``process_raw_events``),
+    com as claims escopadas pela partição e os ids gravados pelo coletor."""
     from backend.app.collectors import pipeline
-    from backend.app.collectors.vendors.push_ingest import RAW_BATCH
 
     seen: dict = {}
 
-    async def _cycle(iid, stream):
-        batch = RAW_BATCH.get()
-        seen.update(iid=iid, stream=stream, scope=pipeline.PENDING_SCOPE.get(), n=len(batch.events))
-        batch.consumed = True
+    async def _stage(iid, stream, events, *, ids=None, scope=""):
+        seen.update(iid=iid, stream=stream, n=len(events), ids=ids, scope=scope)
+        return True
 
-    monkeypatch.setattr(pipeline, "_run_collection_once", _cycle)
-    consumed = _run(proc.process_group(9, "security", [{"x": 1}], partition=3))
+    def _no_cycle(*a, **k):  # pragma: no cover — qualquer chamada falha o teste
+        raise AssertionError("o processor voltou a rodar o ciclo de coleta")
+
+    monkeypatch.setattr(pipeline, "process_raw_events", _stage)
+    monkeypatch.setattr(pipeline, "_run_collection_once", _no_cycle)
+    consumed = _run(proc.process_group(9, "security", [{"x": 1}], partition=3, ids=["a"]))
 
     assert consumed is True
-    assert seen == {"iid": 9, "stream": "security", "scope": "raw-p3", "n": 1}
-    assert pipeline.PENDING_SCOPE.get() == ""      # contexto restaurado
-    assert RAW_BATCH.get() is None
+    assert seen == {"iid": 9, "stream": "security", "n": 1, "ids": ["a"], "scope": "raw-p3"}
+
+
+def test_push_collector_no_longer_reads_a_kafka_batch():
+    """O atalho ``RAW_BATCH`` (Onda 2) sumiu com o ciclo no processor: o coletor
+    push só drena a lista Redis do modo sem broker."""
+    from backend.app.collectors.vendors import push_ingest
+
+    assert not hasattr(push_ingest, "RAW_BATCH")
+    assert not hasattr(push_ingest, "RawBatch")
 
 
 # ── Consumer do processor: commit só depois, DLQ quando preciso ──────────────
@@ -237,7 +220,7 @@ def _install(monkeypatch, batches, *, cycle, dlq_ok=True, dlq=None):
 def test_processor_commits_after_cycle_groups_consecutive(monkeypatch):
     calls: list = []
 
-    async def _cycle(iid, stream, events, partition):
+    async def _cycle(iid, stream, events, partition, ids=None):
         calls.append((iid, stream, len(events)))
         return True
 
@@ -326,7 +309,7 @@ def test_processor_survives_rebalance_mid_cycle(monkeypatch):
     tp = _TP(5)
     fake_holder: dict = {}
 
-    async def _cycle(iid, stream, events, partition):
+    async def _cycle(iid, stream, events, partition, ids=None):
         fake_holder["fake"].revoked.add(tp)
         return True
 

@@ -1,21 +1,23 @@
-"""Papel ``processor`` — consome o tópico raw e roda o pipeline (ADR-0018 Onda 2).
+"""Papel ``processor`` — consome o tópico raw e roda o pipeline (ADR-0018).
 
-Transitório: reaproveita o ciclo de coleta existente (``_run_collection_once``)
-alimentando o coletor push com o lote lido do Kafka, em vez da lista Redis. A
-Onda 3 troca isto por um processor de verdade, sem o ciclo de coleta no meio.
+Desde a Onda 3 chama o estágio de processamento direto
+(``pipeline.process_raw_events`` → ``StreamProcessor``), sem o ciclo de coleta no
+meio: nada de token, cursor, coletor instanciado ou sessão HTTP por lote. O raw
+recebe eventos push (ingest HTTP, syslog) e, das integrações em modo raw, o que os
+coletores pull buscaram.
 
 Semântica:
   * o offset só é commitado DEPOIS que o ciclo terminou — os eventos já saíram
     para o tópico de entrega (ou para a quarentena/DLQ do próprio ciclo);
   * falha do ciclo → ``seek`` + backoff, até ``KAFKA_MAX_DELIVERY_ATTEMPTS``;
     esgotado, o lote vai à DLQ ``__raw__`` e só então o offset avança;
-  * ciclo que retornou SEM consumir o lote (integração inativa, coletor não
-    registrado) → DLQ ``__raw__`` (``integration_unavailable``), nunca um commit mudo;
+  * lote que não foi processado (integração inativa, coletor não registrado)
+    → DLQ ``__raw__`` (``integration_unavailable``), nunca um commit mudo;
   * a DLQ que não grava segura o offset (o lote continua no tópico).
 
 Vários processors tratam o mesmo (integração, stream) em partições diferentes, então
-o ciclo roda SEM a trava do stream e com o conjunto de claims pendentes escopado
-pela partição (``pipeline.PENDING_SCOPE``): cada partição tem um consumidor por vez.
+o processamento roda SEM a trava do stream e com o conjunto de claims pendentes
+escopado pela partição: cada partição tem um consumidor por vez.
 
 Entrypoint igual ao dispatcher (``python -c "...processor import main; main()"``):
 na imagem Cython o módulo é ``.so`` e ``python -m`` não funciona.
@@ -51,6 +53,9 @@ class _Group:
     integration_id: Optional[int] = None
     stream: str = ""
     events: List[Dict[str, Any]] = field(default_factory=list)
+    # Paralelo a ``events``: id de dedupe gravado pelo coletor pull, "" quando o
+    # registro não trouxe (push) — derivado no processamento.
+    ids: List[str] = field(default_factory=list)
     invalid: bool = False
 
 
@@ -68,32 +73,35 @@ def _group_records(msgs: List[Any]) -> Iterator[_Group]:
             yield _Group(msg.offset, msg.offset, invalid=True)
             continue
         iid, stream = doc["integration_id"], doc["stream"]
+        events = doc["events"]
+        ids = doc.get("ids") or [""] * len(events)
         if current is not None and (current.integration_id, current.stream) == (iid, stream):
-            current.events.extend(doc["events"])
+            current.events.extend(events)
+            current.ids.extend(ids)
             current.last_offset = msg.offset
             continue
         if current is not None:
             yield current
-        current = _Group(msg.offset, msg.offset, iid, stream, list(doc["events"]))
+        current = _Group(msg.offset, msg.offset, iid, stream, list(events), list(ids))
     if current is not None:
         yield current
 
 
-async def process_group(integration_id: int, stream: str, events: List[Dict[str, Any]], partition: int) -> bool:
-    """Roda o ciclo de coleta sobre ``events``. Devolve se o lote foi CONSUMIDO
-    (False = o ciclo retornou cedo sem iterar). Levanta se o ciclo falhou."""
+async def process_group(
+    integration_id: int,
+    stream: str,
+    events: List[Dict[str, Any]],
+    partition: int,
+    ids: Optional[List[str]] = None,
+) -> bool:
+    """Processa ``events`` no estágio de processamento. Devolve se o lote foi
+    PROCESSADO (False = integração inativa ou coletor não registrado). Levanta se
+    o processamento falhou."""
     from .. import pipeline
-    from ..vendors.push_ingest import RAW_BATCH, RawBatch
 
-    batch = RawBatch(events=events)
-    tok_batch = RAW_BATCH.set(batch)
-    tok_scope = pipeline.PENDING_SCOPE.set(f"raw-p{partition}")
-    try:
-        await pipeline._run_collection_once(integration_id, stream)
-    finally:
-        pipeline.PENDING_SCOPE.reset(tok_scope)
-        RAW_BATCH.reset(tok_batch)
-    return batch.consumed
+    return await pipeline.process_raw_events(
+        integration_id, stream, events, ids=ids, scope=f"raw-p{partition}"
+    )
 
 
 def _touch(path: str) -> None:
@@ -207,7 +215,7 @@ async def _handle_group(consumer: Any, tp: Any, group: _Group, attempts: Dict, m
     consumed = False
     try:
         consumed = await process_group(
-            group.integration_id, group.stream, group.events, tp.partition
+            group.integration_id, group.stream, group.events, tp.partition, ids=group.ids
         )
     except Exception as exc:  # noqa: BLE001 — classificado abaixo
         error = exc
@@ -219,7 +227,7 @@ async def _handle_group(consumer: Any, tp: Any, group: _Group, attempts: Dict, m
         return True
 
     if error is None:
-        # O ciclo voltou sem ler o lote: integração inativa/apagada ou coletor não
+        # O lote não foi processado: integração inativa/apagada ou coletor não
         # registrado. Commitar seria perda muda — vai à DLQ __raw__.
         kind, detail = "integration_unavailable", "integração inativa ou sem coletor"
     else:

@@ -410,8 +410,21 @@ def test_pipeline_wires_both_seams_in_the_right_places():
     i_apply = src.index("_enrich_apply(")
     i_ruleset = src.index("evaluate_ruleset(")
     assert i_apply < i_ruleset, "E1 precisa vir ANTES de evaluate_ruleset"
-    # E2 — nos DOIS flushes.
-    assert src.count("await _enrich_remote_batch(") == 2
+    # E2 — no flush, que desde a ADR-0018 Onda 3 é UM método do estágio
+    # (``StreamProcessor.flush``) chamado pelo gatilho de tamanho/tempo E como
+    # flush terminal por todo chamador.
+    assert src.count("await _enrich_remote_batch(") == 1
+    i_flush = src.index("    async def flush(self)")
+    i_close = src.index("    async def close(self)")
+    assert i_flush < src.index("await _enrich_remote_batch(") < i_close, (
+        "o seam remoto saiu do flush do estágio"
+    )
+    for caller in ("async def _run_collection_once(", "async def process_raw_events("):
+        start = src.index(caller)
+        end = src.find("\nasync def ", start + 1)
+        assert "await processor.flush()" in src[start:end], (
+            f"{caller} sem flush terminal — o último lote não seria enriquecido"
+        )
 
 
 @pytest.mark.source_only

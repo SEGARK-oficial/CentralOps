@@ -70,12 +70,24 @@ async def test_release_many_propagates_failure_to_the_best_effort_caller():
         await dedupe.release_many(_FakeRedis(fail=True), 7, ["a"])
 
 
-# ── Guards estruturais sobre o ciclo de coleta ───────────────────────────────
+# ── Guards estruturais sobre o estágio de processamento ──────────────────────
+#
+# Desde a ADR-0018 Onda 3 a compensação mora em ``pipeline.StreamProcessor``
+# (``close`` solta, ``flush`` liquida), e há DOIS chamadores: o ciclo inline
+# (``_run_collection_once``) e o processor do tópico raw (``process_raw_events``).
+# A invariante passa a ter duas metades: o estágio solta no ``close``, e todo
+# chamador chama o ``close`` num ``finally`` e antes de fechar o Redis.
+
+_CALLERS = ("_run_collection_once", "process_raw_events")
+
+
+def _caller_sources() -> list[tuple[str, str]]:
+    return [(name, inspect.getsource(getattr(pipeline, name))) for name in _CALLERS]
 
 @pytest.mark.source_only  # lê o .py; na imagem Cython o fonte não existe
 def test_compensation_is_unconditional():
     """O gate por data-plane sumiu: era ele que deixava o caminho default nu."""
-    src = inspect.getsource(pipeline._run_collection_once)
+    src = inspect.getsource(pipeline.StreamProcessor)
     assert "_track_claims" not in src, (
         "a compensação voltou a ser gated por data-plane — o caminho default "
         "fica sem nenhuma proteção contra claim órfã"
@@ -87,18 +99,20 @@ def test_compensation_is_unconditional():
 def test_release_runs_in_finally_not_only_in_except():
     """``except Exception`` não pega ``WorkerShutdown`` (BaseException). No
     ``finally``, o kill do worker também solta as claims."""
-    src = inspect.getsource(pipeline._run_collection_once)
-    idx_finally = src.rindex("finally:")
-    idx_release = src.index("release_many")
-    assert idx_release > idx_finally, "release_many precisa estar no finally"
+    close_src = inspect.getsource(pipeline.StreamProcessor.close)
+    assert "release_many" in close_src, "o close do estágio precisa soltar as claims"
+    for name, src in _caller_sources():
+        idx_finally = src.rindex("finally:")
+        idx_close = src.index("await processor.close()")
+        assert idx_close > idx_finally, f"{name}: o close do estágio precisa estar no finally"
 
 
 @pytest.mark.source_only  # lê o .py; na imagem Cython o fonte não existe
 def test_release_happens_before_the_redis_client_is_closed():
     """Soltar depois do ``aclose`` mandaria o DEL contra um cliente fechado —
     a compensação viraria no-op silencioso, que é pior que não existir."""
-    src = inspect.getsource(pipeline._run_collection_once)
-    assert src.index("release_many") < src.index("await redis.aclose()")
+    for name, src in _caller_sources():
+        assert src.index("await processor.close()") < src.index("await redis.aclose()"), name
 
 
 def _sites_de_handoff_e_liquidacao() -> tuple[list[int], list[int]]:
@@ -117,8 +131,7 @@ def _sites_de_handoff_e_liquidacao() -> tuple[list[int], list[int]]:
     arvore = ast.parse(inspect.getsource(pipeline).lstrip())
     alvo = next(
         n for n in ast.walk(arvore)
-        if isinstance(n, (ast.AsyncFunctionDef, ast.FunctionDef))
-        and n.name == "_run_collection_once"
+        if isinstance(n, ast.ClassDef) and n.name == "StreamProcessor"
     )
 
     handoffs: list[int] = []
@@ -129,11 +142,16 @@ def _sites_de_handoff_e_liquidacao() -> tuple[list[int], list[int]]:
         f = n.func
         if isinstance(f, ast.Name) and f.id == "_enqueue_dispatch":
             handoffs.append(n.lineno)
+        alvo_set = f.value if isinstance(f, ast.Attribute) else None
+        nome_set = (
+            alvo_set.id if isinstance(alvo_set, ast.Name)
+            else alvo_set.attr if isinstance(alvo_set, ast.Attribute)
+            else None
+        )
         if (
             isinstance(f, ast.Attribute)
             and f.attr == "difference_update"
-            and isinstance(f.value, ast.Name)
-            and f.value.id == "unsettled_claims"
+            and nome_set == "unsettled_claims"
         ):
             liquidacoes.append(n.lineno)
     return sorted(handoffs), sorted(liquidacoes)
@@ -159,15 +177,18 @@ def test_settlement_happens_after_the_durable_handoff():
 def test_every_dispatch_site_settles():
     """Todo hand-off tem a sua liquidação, um para um.
 
-    Hoje são dois: o flush por tamanho/tempo dentro do laço e o dreno TERMINAL.
-    Sem o terminal, uma integração que devolve poucos eventos e encerra a página
-    nunca atinge o batch nem o gatilho de tempo (avaliado dentro do corpo do
-    laço, não por timer) e as claims desses eventos seriam soltas à toa.
+    Desde a Onda 3 há um site só, o ``flush`` do estágio, chamado pelo gatilho
+    de tamanho/tempo E como dreno TERMINAL por todo chamador. Sem o terminal,
+    uma integração que devolve poucos eventos e encerra a página nunca atinge o
+    batch nem o gatilho de tempo (avaliado dentro do corpo do laço, não por
+    timer) e as claims desses eventos seriam soltas à toa.
 
-    A asserção é sobre a IGUALDADE entre as duas contagens, não sobre o número
-    dois: um terceiro site de despacho é legítimo, desde que ele também liquide.
+    A asserção é sobre a IGUALDADE entre as duas contagens: um segundo site de
+    despacho é legítimo, desde que ele também liquide.
     """
     handoffs, liquidacoes = _sites_de_handoff_e_liquidacao()
+    for name, src in _caller_sources():
+        assert "await processor.flush()" in src, f"{name}: sem flush terminal"
 
     assert len(handoffs) == len(liquidacoes), (
         f"{len(handoffs)} hand-off(s) para {len(liquidacoes)} liquidação(ões). "
@@ -180,11 +201,11 @@ def test_every_dispatch_site_settles():
 def test_batch_and_msg_ids_stay_aligned():
     """``batch_msg_ids`` é paralelo 1:1 com ``batch``: os dois crescem e zeram
     juntos. Desalinhamento liquidaria a claim errada."""
-    src = inspect.getsource(pipeline._run_collection_once)
-    assert src.count("batch_msg_ids.append(msg_id)") == 1
-    assert src.count("batch.append(envelope)") == 1
-    assert src.count("batch_msg_ids = []") == 2, (
-        "batch_msg_ids precisa zerar nos dois pontos em que batch zera"
+    src = inspect.getsource(pipeline.StreamProcessor)
+    assert src.count("self.batch_msg_ids.append(msg_id)") == 1
+    assert src.count("self.batch.append(envelope)") == 1
+    assert src.count("self.batch_msg_ids = []") == src.count("self.batch = []") >= 1, (
+        "batch_msg_ids precisa zerar nos mesmos pontos em que batch zera"
     )
 
 
@@ -192,5 +213,5 @@ def test_batch_and_msg_ids_stay_aligned():
 def test_envelope_is_not_mutated_to_carry_the_msg_id():
     """O envelope é serializado para o data-plane; carregar um campo transiente
     nele vazaria para o destino."""
-    src = inspect.getsource(pipeline._run_collection_once)
+    src = inspect.getsource(pipeline.StreamProcessor)
     assert "_dedupe_msg_id" not in src

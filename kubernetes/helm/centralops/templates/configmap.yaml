@@ -124,6 +124,8 @@ data:
   # ADR-0018 Onda 2 — tópico raw (push durável antes do 200).
   KAFKA_RAW_PARTITIONS: {{ .Values.dataPlane.processor.rawPartitions | toString | quote }}
   KAFKA_RAW_RETENTION_MS: {{ mul .Values.dataPlane.processor.rawRetentionHours 3600000 | toString | quote }}
+  # ADR-0018 Onda 3 — integrações em "coleta só coleta" ("", "*" ou ids).
+  PIPELINE_RAW_INTEGRATIONS: {{ .Values.dataPlane.processor.rawIntegrations | default "" | toString | quote }}
   {{- with .Values.dataPlane.kafka.minInsyncReplicas }}
   KAFKA_DELIVER_MIN_INSYNC_REPLICAS: {{ . | toString | quote }}
   {{- end }}

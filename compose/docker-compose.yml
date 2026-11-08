@@ -100,6 +100,7 @@ services:
       - KAFKA_RAW_PARTITIONS=${KAFKA_RAW_PARTITIONS:-16}
       - KAFKA_RAW_RETENTION_MS=${KAFKA_RAW_RETENTION_MS:-86400000}
       - KAFKA_RAW_SHARDS_PER_STREAM=${KAFKA_RAW_SHARDS_PER_STREAM:-4}
+      - PIPELINE_RAW_INTEGRATIONS=${PIPELINE_RAW_INTEGRATIONS:-}
       # Default = nome do produto. O literal "Sua Empresa" aqui sobrescrevia o
       # default do codigo e vazava texto de rascunho para o header e o login de
       # toda instalacao que nao personalizasse a marca.
@@ -576,6 +577,7 @@ services:
       - KAFKA_RAW_PARTITIONS=${KAFKA_RAW_PARTITIONS:-16}
       - KAFKA_RAW_RETENTION_MS=${KAFKA_RAW_RETENTION_MS:-86400000}
       - KAFKA_RAW_SHARDS_PER_STREAM=${KAFKA_RAW_SHARDS_PER_STREAM:-4}
+      - PIPELINE_RAW_INTEGRATIONS=${PIPELINE_RAW_INTEGRATIONS:-}
       # Default: Postgres do compose. Override via .env pra apontar pra
       # outro host ou voltar a SQLite (sqlite:////app/data/sophos.db).
       - DATABASE_URL=${DATABASE_URL:-postgresql+psycopg2://${POSTGRES_USER:-centralops}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD obrigatorio - gere com openssl rand -base64 24 e coloque no .env}@postgres:5432/${POSTGRES_DB:-centralops}}
@@ -745,6 +747,7 @@ services:
       - KAFKA_RAW_PARTITIONS=${KAFKA_RAW_PARTITIONS:-16}
       - KAFKA_RAW_RETENTION_MS=${KAFKA_RAW_RETENTION_MS:-86400000}
       - KAFKA_RAW_SHARDS_PER_STREAM=${KAFKA_RAW_SHARDS_PER_STREAM:-4}
+      - PIPELINE_RAW_INTEGRATIONS=${PIPELINE_RAW_INTEGRATIONS:-}
       # Default: Postgres do compose. Override via .env pra apontar pra
       # outro host ou voltar a SQLite (sqlite:////app/data/sophos.db).
       - DATABASE_URL=${DATABASE_URL:-postgresql+psycopg2://${POSTGRES_USER:-centralops}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD obrigatorio - gere com openssl rand -base64 24 e coloque no .env}@postgres:5432/${POSTGRES_DB:-centralops}}
@@ -872,6 +875,7 @@ services:
       - KAFKA_RAW_PARTITIONS=${KAFKA_RAW_PARTITIONS:-16}
       - KAFKA_RAW_RETENTION_MS=${KAFKA_RAW_RETENTION_MS:-86400000}
       - KAFKA_RAW_SHARDS_PER_STREAM=${KAFKA_RAW_SHARDS_PER_STREAM:-4}
+      - PIPELINE_RAW_INTEGRATIONS=${PIPELINE_RAW_INTEGRATIONS:-}
       # Default: Postgres do compose. Override via .env pra apontar pra
       # outro host ou voltar a SQLite (sqlite:////app/data/sophos.db).
       - DATABASE_URL=${DATABASE_URL:-postgresql+psycopg2://${POSTGRES_USER:-centralops}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD obrigatorio - gere com openssl rand -base64 24 e coloque no .env}@postgres:5432/${POSTGRES_DB:-centralops}}
@@ -1017,6 +1021,7 @@ services:
       - KAFKA_RAW_PARTITIONS=${KAFKA_RAW_PARTITIONS:-16}
       - KAFKA_RAW_RETENTION_MS=${KAFKA_RAW_RETENTION_MS:-86400000}
       - KAFKA_RAW_SHARDS_PER_STREAM=${KAFKA_RAW_SHARDS_PER_STREAM:-4}
+      - PIPELINE_RAW_INTEGRATIONS=${PIPELINE_RAW_INTEGRATIONS:-}
       - SESSION_SECURE_COOKIE=${SESSION_SECURE_COOKIE:-1}
       - DATABASE_URL=${DATABASE_URL:-postgresql+psycopg2://${POSTGRES_USER:-centralops}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD obrigatorio - gere com openssl rand -base64 24 e coloque no .env}@postgres:5432/${POSTGRES_DB:-centralops}}
       - DATABASE_MIGRATION_URL=${DATABASE_MIGRATION_URL:-}
@@ -1158,6 +1163,7 @@ services:
       - KAFKA_RAW_PARTITIONS=${KAFKA_RAW_PARTITIONS:-16}
       - KAFKA_RAW_RETENTION_MS=${KAFKA_RAW_RETENTION_MS:-86400000}
       - KAFKA_RAW_SHARDS_PER_STREAM=${KAFKA_RAW_SHARDS_PER_STREAM:-4}
+      - PIPELINE_RAW_INTEGRATIONS=${PIPELINE_RAW_INTEGRATIONS:-}
       - SESSION_SECURE_COOKIE=${SESSION_SECURE_COOKIE:-1}
       - DATABASE_URL=${DATABASE_URL:-postgresql+psycopg2://${POSTGRES_USER:-centralops}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD obrigatorio - gere com openssl rand -base64 24 e coloque no .env}@postgres:5432/${POSTGRES_DB:-centralops}}
       - DATABASE_MIGRATION_URL=${DATABASE_MIGRATION_URL:-}
@@ -1295,6 +1301,7 @@ services:
       - KAFKA_RAW_PARTITIONS=${KAFKA_RAW_PARTITIONS:-16}
       - KAFKA_RAW_RETENTION_MS=${KAFKA_RAW_RETENTION_MS:-86400000}
       - KAFKA_RAW_SHARDS_PER_STREAM=${KAFKA_RAW_SHARDS_PER_STREAM:-4}
+      - PIPELINE_RAW_INTEGRATIONS=${PIPELINE_RAW_INTEGRATIONS:-}
       - SESSION_SECURE_COOKIE=${SESSION_SECURE_COOKIE:-1}
       # Necessario para o config_loader ler collector_config do Postgres.
       # Sem isso o loader cai no default sqlite:///./data/sophos.db, falha
@@ -1432,6 +1439,7 @@ services:
       - KAFKA_RAW_PARTITIONS=${KAFKA_RAW_PARTITIONS:-16}
       - KAFKA_RAW_RETENTION_MS=${KAFKA_RAW_RETENTION_MS:-86400000}
       - KAFKA_RAW_SHARDS_PER_STREAM=${KAFKA_RAW_SHARDS_PER_STREAM:-4}
+      - PIPELINE_RAW_INTEGRATIONS=${PIPELINE_RAW_INTEGRATIONS:-}
       - KAFKA_CONSUMER_GROUP=${KAFKA_CONSUMER_GROUP:-centralops-dispatcher}
       - DATABASE_URL=${DATABASE_URL:-postgresql+psycopg2://${POSTGRES_USER:-centralops}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD obrigatorio - gere com openssl rand -base64 24 e coloque no .env}@postgres:5432/${POSTGRES_DB:-centralops}}
       - DATABASE_MIGRATION_URL=${DATABASE_MIGRATION_URL:-}
@@ -1529,6 +1537,7 @@ services:
       - KAFKA_RAW_PARTITIONS=${KAFKA_RAW_PARTITIONS:-16}
       - KAFKA_RAW_RETENTION_MS=${KAFKA_RAW_RETENTION_MS:-86400000}
       - KAFKA_RAW_SHARDS_PER_STREAM=${KAFKA_RAW_SHARDS_PER_STREAM:-4}
+      - PIPELINE_RAW_INTEGRATIONS=${PIPELINE_RAW_INTEGRATIONS:-}
       - OTEL_ENABLED=${OTEL_ENABLED:-false}
       - OTEL_EXPORTER_OTLP_ENDPOINT=${OTEL_EXPORTER_OTLP_ENDPOINT:-}
       # grpc (4317) ou http/protobuf (4318, default); headers = auth de backend OTLP direto.
@@ -1645,6 +1654,7 @@ services:
       - KAFKA_RAW_PARTITIONS=${KAFKA_RAW_PARTITIONS:-16}
       - KAFKA_RAW_RETENTION_MS=${KAFKA_RAW_RETENTION_MS:-86400000}
       - KAFKA_RAW_SHARDS_PER_STREAM=${KAFKA_RAW_SHARDS_PER_STREAM:-4}
+      - PIPELINE_RAW_INTEGRATIONS=${PIPELINE_RAW_INTEGRATIONS:-}
       # Default: Postgres do compose. Override via .env pra apontar pra
       # outro host ou voltar a SQLite (sqlite:////app/data/sophos.db).
       - DATABASE_URL=${DATABASE_URL:-postgresql+psycopg2://${POSTGRES_USER:-centralops}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD obrigatorio - gere com openssl rand -base64 24 e coloque no .env}@postgres:5432/${POSTGRES_DB:-centralops}}
