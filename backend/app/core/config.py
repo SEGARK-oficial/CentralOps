@@ -271,6 +271,19 @@ class Settings(BaseSettings):
     # derivado do RF (RF ≥ 3 → 2; RF 2 → 1; RF 1 → não define). Com RF=3 e
     # min.insync=2, um broker pode cair sem parar o ``acks=all`` do produtor.
     KAFKA_DELIVER_MIN_INSYNC_REPLICAS: Optional[int] = None
+    # ── Tópico raw (ADR-0018 Onda 2) ──
+    # Eventos PUSH (HTTP /api/ingest, syslog) são gravados aqui ANTES do 200: o
+    # Kafka é o buffer durável, não mais uma lista Redis. O papel ``processor``
+    # consome e roda o pipeline. Retenção = quanto tempo o processamento pode ficar
+    # parado sem perder push (24 h por padrão; disco ≈ eps × bytes × retenção ÷
+    # compressão). Shards por stream espalham UM stream grande por partições.
+    KAFKA_RAW_TOPIC: str = "raw"
+    KAFKA_RAW_PARTITIONS: int = 16
+    KAFKA_RAW_RETENTION_MS: int = 24 * 3600 * 1000
+    KAFKA_RAW_SHARDS_PER_STREAM: int = 4
+    KAFKA_PROCESSOR_GROUP: str = "centralops-processor"
+    # Registros do raw buscados por vez pelo processor (cada um é um lote de eventos).
+    RAW_PROCESSOR_MAX_RECORDS: int = 50
     # ── Resiliência do data-plane (hardening pós-review) ──────
     # Consume side: nº máx. de retentativas TRANSITÓRIAS por registro antes de
     # mandar o lote à DLQ e commitar (espelha o max_retries=10 da lane Celery).

@@ -550,6 +550,25 @@ dataPlane:
       enabled: true
       maxUnavailable: 1
 
+  # ADR-0018 Onda 2 — role processor: consome o tópico raw (push) e roda o
+  # pipeline. Mais réplicas = mais vazão de push, até o nº de partições do raw.
+  processor:
+    replicaCount: 1
+    rawPartitions: 16
+    rawRetentionHours: 24     # quanto tempo o processor pode ficar parado sem perder push
+    resources:
+      limits:
+        cpu: "2000m"
+        memory: "1Gi"
+      requests:
+        cpu: "250m"
+        memory: "512Mi"
+    probes:
+      enabled: true
+    pdb:
+      enabled: true
+      maxUnavailable: 1
+
 # Broker Redpanda IN-CLUSTER — APENAS dev/test (single-node, sem HA). Em produção
 # use MSK/Redpanda Cloud/Confluent e aponte dataPlane.kafka.bootstrapServers.
 devBroker:

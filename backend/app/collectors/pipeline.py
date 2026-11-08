@@ -25,6 +25,7 @@ import logging
 import ssl
 import time
 from contextlib import asynccontextmanager
+from contextvars import ContextVar
 from datetime import datetime
 from typing import Any, AsyncIterator, Callable, Dict, Optional, Tuple
 
@@ -919,6 +920,14 @@ async def run_collection_once(integration_id: int, stream: str) -> None:
                 pass
 
 
+#: Escopo extra do conjunto de claims pendentes. O ``processor`` do tópico raw
+#: (ADR-0018 Onda 2) roda ciclos SEM a trava do stream — vários processadores podem
+#: tratar o mesmo (integração, stream) em partições diferentes — e define o escopo
+#: como a partição: cada partição tem um único consumidor por vez, então a
+#: recuperação de claims órfãs no início do ciclo só toca claims daquela partição.
+PENDING_SCOPE: "ContextVar[str]" = ContextVar("collect_pending_scope", default="")
+
+
 async def _run_collection_once(integration_id: int, stream: str) -> None:
     # Cada task cria e fecha seu próprio cliente Redis efêmero.
     # Pool compartilhado foi revertido: ConnectionPool async
@@ -935,7 +944,8 @@ async def _run_collection_once(integration_id: int, stream: str) -> None:
     # passar pelo ``finally``. Soltar ANTES de coletar faz os eventos re-buscados
     # (o cursor não avançou) serem processados em vez de descartados como
     # duplicados. Best-effort: Redis fora → a coleta falha adiante de todo jeito.
-    _pending_set = pending_set_key(integration_id, stream)
+    _scope = PENDING_SCOPE.get()
+    _pending_set = pending_set_key(integration_id, f"{stream}:{_scope}" if _scope else stream)
     try:
         _orphans = await recover_orphan_claims(redis, integration_id, _pending_set)
         if _orphans:

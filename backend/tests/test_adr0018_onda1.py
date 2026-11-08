@@ -171,6 +171,11 @@ _KAFKA_VARS = (
     "KAFKA_SASL_PASSWORD",
     "KAFKA_SSL_CAFILE",
     "KAFKA_DELIVER_REPLICATION",
+    # ADR-0018 Onda 2 — quem cria o tópico raw primeiro (API, syslog ou processor)
+    # tem de usar os mesmos valores.
+    "KAFKA_RAW_PARTITIONS",
+    "KAFKA_RAW_RETENTION_MS",
+    "KAFKA_RAW_SHARDS_PER_STREAM",
 )
 
 

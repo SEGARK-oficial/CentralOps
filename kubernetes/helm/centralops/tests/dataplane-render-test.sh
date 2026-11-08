@@ -8,7 +8,8 @@
 #     o app fixo deixava a imagem EE em k8s sem as próprias tasks;
 #   * os workers têm tempo de drain ≥ task_time_limit (900 s), não os 30 s default;
 #   * o data-plane recebe TLS e RF 3 em broker externo, RF 1 no devBroker;
-#   * PgBouncer opcional: app pelo pooler, migração direta; PrometheusRule opcional.
+#   * PgBouncer opcional: app pelo pooler, migração direta; PrometheusRule opcional;
+#   * o processor do tópico raw (Onda 2) sobe com retenção e PDB.
 #
 # Run: bash tests/dataplane-render-test.sh
 set -euo pipefail
@@ -35,6 +36,10 @@ check "nenhum worker com drain < 120 s" "$low_grace" "0"
 check "bulk com drain ≥ task_time_limit" \
   "$(grep -A30 'name: t-centralops-worker-bulk$' <<<"$workers" | grep -m1 -oE 'terminationGracePeriodSeconds: [0-9]+' | awk '{print ($2>=900)}')" "1"
 check "devBroker força RF 1" "$(grep -c 'KAFKA_DELIVER_REPLICATION: "1"' "$tmp/dev.yaml")" "1"
+check "processor do tópico raw renderizado (Onda 2)" \
+  "$(grep -c 'from app.collectors.dataplane.processor import main; main()' "$tmp/dev.yaml")" "1"
+check "retenção do raw no configmap" "$(grep -c 'KAFKA_RAW_RETENTION_MS: "86400000"' "$tmp/dev.yaml")" "1"
+check "PDB do processor" "$(grep -A3 '^kind: PodDisruptionBudget' "$tmp/dev.yaml" | grep -c 'name: t-centralops-raw-processor$')" "1"
 
 echo "==> Case 2: broker gerenciado SASL_SSL"
 helm template t "$CHART_DIR" \
@@ -79,7 +84,8 @@ helm template t "$CHART_DIR" --set devBroker.enabled=true \
   --show-only templates/prometheusrule.yaml > "$tmp/rules.yaml"
 check "PrometheusRule renderizado" "$(grep -c '^kind: PrometheusRule' "$tmp/rules.yaml")" "1"
 check "label do seletor aplicada" "$(grep -c 'release: kps' "$tmp/rules.yaml")" "1"
-check "as 9 regras do data-plane" "$(grep -c -- '- alert: CentralOps' "$tmp/rules.yaml")" "9"
+check "todas as regras do arquivo do chart" "$(grep -c -- '- alert: CentralOps' "$tmp/rules.yaml")" \
+  "$(grep -c -- '- alert: CentralOps' "$CHART_DIR/files/prometheus/centralops-dataplane.rules.yml")"
 check "template de label preservado" "$(grep -c 'labels.destination_id' "$tmp/rules.yaml")" "2"
 
 if [ "$fail" -ne 0 ]; then echo "FALHOU"; exit 1; fi
