@@ -44,7 +44,7 @@ class Rfc3164JsonClient:
 
     Uso típico (Wazuh Manager vanilla, sem TLS):
 
-        client = Rfc3164JsonClient(host="192.168.3.211", port=514)
+        client = Rfc3164JsonClient(host="wazuh-manager.example", port=514)
         await client.send_batch([event1, event2])
         await client.close()
 

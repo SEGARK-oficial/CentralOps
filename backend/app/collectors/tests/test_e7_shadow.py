@@ -88,7 +88,9 @@ async def test_shadow_formats_but_never_delivers(static_db) -> None:
         batch = [_env("a"), _env("b"), _env("c")]
         result = await dispatch_batch_to_destination(dest_id, batch)
 
-    assert result is None
+    # O desfecho declara shadow e zero entregues (vai para o span de quem chamou).
+    assert result.shadow is True
+    assert result.accepted == 0 and result.rejected == 0 and result.dlq_reason is None
     # Formatted every event, delivered NONE.
     assert target.format.call_count == 3
     target.send_batch.assert_not_awaited()

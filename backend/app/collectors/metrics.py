@@ -234,6 +234,9 @@ DATAPLANE_CONSUMER_LAG = _instrument("collector_dataplane_consumer_lag")
 RAW_PROCESSED = _instrument("collector_raw_processed_total")
 RAW_CONSUMER_LAG = _instrument("collector_raw_consumer_lag")
 
+# export OTLP do próprio processo (falhas por sinal) — ver otel_common.build_exporter
+OTEL_EXPORT_FAILURES = _instrument("collector_otel_export_failures_total")
+
 
 @contextmanager
 def observe_capability(vendor: str, capability: str) -> Iterator[None]:

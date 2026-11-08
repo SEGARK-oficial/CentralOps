@@ -3193,9 +3193,41 @@ async def _send_chunk_with_retry(
     raise TransientDeliveryError(dest_config.destination_id)  # pragma: no cover
 
 
+class DispatchOutcome:
+    """Desfecho de :func:`dispatch_batch_to_destination` quando ela NÃO levanta.
+
+    Existe para o span de quem chamou (task Celery ou consumer Kafka) registrar
+    o que aconteceu: lote desviado para a DLQ sem exceção — destino ausente,
+    destino de outro tenant, eventos recusados pelo sink — saía como SUCESSO no
+    APM. Volta por valor, não pelo contexto: com o loop persistente de dispatch a
+    corrotina roda em outra thread, onde o span da task não é o corrente."""
+
+    __slots__ = ("destination_kind", "accepted", "rejected", "dlq_reason", "shadow")
+
+    def __init__(
+        self,
+        destination_kind: Optional[str] = None,
+        accepted: int = 0,
+        rejected: int = 0,
+        dlq_reason: Optional[str] = None,
+        shadow: bool = False,
+    ) -> None:
+        self.destination_kind = destination_kind
+        self.accepted = accepted
+        self.rejected = rejected
+        self.dlq_reason = dlq_reason
+        self.shadow = shadow
+
+    def __repr__(self) -> str:  # pragma: no cover — diagnóstico
+        return (
+            f"DispatchOutcome(kind={self.destination_kind!r}, accepted={self.accepted}, "
+            f"rejected={self.rejected}, dlq_reason={self.dlq_reason!r}, shadow={self.shadow})"
+        )
+
+
 async def dispatch_batch_to_destination(
     destination_id: str, batch: list[Dict[str, Any]]
-) -> None:
+) -> DispatchOutcome:
     """Worker de dispatch **por destino**.
 
     Totalmente funcional.  Resolve o destino, decifra secrets,
@@ -3259,7 +3291,7 @@ async def dispatch_batch_to_destination(
         await _capture_delivery_failed(
             batch, destination_id, "destino ausente/desabilitado (DLQ)"
         )
-        return
+        return DispatchOutcome(rejected=len(batch), dlq_reason="destination_missing")
 
     # Tenancy invariant: cross-tenant fail-closed guard.
     # Uma rota mal-escopada/global pode nomear um Destination de OUTRO tenant; entregar
@@ -3295,7 +3327,11 @@ async def dispatch_batch_to_destination(
         await _capture_delivery_failed(
             batch, destination_id, "destino de outro tenant (fail-closed, DLQ)"
         )
-        return
+        return DispatchOutcome(
+            destination_kind=dest_config.kind,
+            rejected=len(batch),
+            dlq_reason="cross_tenant_destination",
+        )
 
     # parse the validated delivery policy once (breaker/concurrency/
     # backpressure/shadow). Lenient — never raises on a bad row.
@@ -3371,7 +3407,7 @@ async def dispatch_batch_to_destination(
             "E7 shadow: dest=%s formatou %d/%d eventos (SEM entrega)",
             dest_config.destination_id, formatted, len(batch),
         )
-        return
+        return DispatchOutcome(destination_kind=dest_config.kind, shadow=True)
 
     # circuit breaker guard + bulkhead + chunked send.
     redis = get_worker_redis()
@@ -3630,3 +3666,9 @@ async def dispatch_batch_to_destination(
             )
     # ``BYTES_SENT`` é incrementado em ``_send_chunk_with_retry`` com os
     # bytes (wire-proxy) do chunk efetivamente entregue.
+    # Rejeitados que chegaram aqui (sem exceção) já foram para a DLQ.
+    return DispatchOutcome(
+        destination_kind=dest_config.kind,
+        accepted=accepted_total,
+        rejected=rejected_total,
+    )

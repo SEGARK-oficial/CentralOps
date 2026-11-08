@@ -290,7 +290,10 @@ def test_every_facade_maps_to_spec_and_vice_versa():
     # do tópico raw: ok/retry/dlq/dlq_failed/invalid/integration_unavailable) e
     # collector_raw_consumer_lag (backlog do processor por partição). Sem elas, o
     # push durável no Kafka atrasaria sem nenhum sinal. 66 → 68.
-    assert len(facade_names) == 68
+    # +1: collector_otel_export_failures_total{signal} — falhas do export OTLP do
+    # próprio processo. Sem Collector no meio, é o único sinal de que a
+    # telemetria está se perdendo. 68 → 69.
+    assert len(facade_names) == 69
     # O catálogo tem as síncronas + ao menos o observável collector_up.
     assert "collector_up" in otel_metrics._SPEC
     assert "collector_up" not in facade_names

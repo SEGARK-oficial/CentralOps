@@ -8,10 +8,15 @@
 # pip install -r requirements-otel.txt
 #
 # Vendor-neutro: aponte OTEL_EXPORTER_OTLP_ENDPOINT (ou os envs padrão do SDK)
-# para Tempo/Jaeger/Datadog/Honeycomb/Grafana/Zabbix/… O MESMO pacote
-# ``opentelemetry-exporter-otlp-proto-http`` provê os exporters dos TRÊS sinais —
-# SPANS (tracing.py), MÉTRICAS (otel_metrics.py) e LOGS (otel_logs.py) — então
-# não há dependência adicional por sinal.
+# para um OpenTelemetry Collector ou direto para um backend que recebe OTLP. Cada
+# pacote de exporter provê os TRÊS sinais — SPANS (tracing.py), MÉTRICAS
+# (otel_metrics.py) e LOGS (otel_logs.py):
+#   - proto-http: OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf (default, porta 4318);
+#   - proto-grpc: OTEL_EXPORTER_OTLP_PROTOCOL=grpc (porta 4317) — exigido por
+#     recebedores só-gRPC, como o APM collector do proxy Zabbix 8.
 opentelemetry-api>=1.24
 opentelemetry-sdk>=1.24
 opentelemetry-exporter-otlp-proto-http>=1.24
+opentelemetry-exporter-otlp-proto-grpc>=1.24
+# Traces da API HTTP (OTEL_API_TRACING_ENABLED). Versão 0.x acompanha o SDK 1.x.
+opentelemetry-instrumentation-fastapi>=0.45b0

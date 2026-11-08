@@ -839,13 +839,17 @@ async def test_dispatch_chaos_isolation_e5(static_db) -> None:
             return_exceptions=True,
         )
 
-    # A timed out with a retryable TimeoutError; B returned cleanly (None).
+    # A timed out with a retryable TimeoutError; B returned cleanly with both
+    # events accepted (the DispatchOutcome the caller's span records).
     assert a_started.is_set(), "A must have entered send_batch (real concurrency)"
     assert isinstance(results[0], (asyncio.TimeoutError, TimeoutError)), (
         f"A must surface a retryable TimeoutError, got {results[0]!r}"
     )
-    assert results[1] is None, (
+    assert not isinstance(results[1], BaseException), (
         f"B must deliver successfully while A is hung, got {results[1]!r}"
+    )
+    assert results[1].accepted == 2 and results[1].rejected == 0, (
+        f"B must deliver both events, got {results[1]!r}"
     )
 
     # B delivered 2 events — DLQ must be empty for dest_b.

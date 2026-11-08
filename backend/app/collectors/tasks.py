@@ -184,17 +184,31 @@ def dispatch_to_destination(
         for k, v in (("traceparent", traceparent), ("tracestate", tracestate))
         if v
     }
+    _delivery_info = getattr(getattr(self, "request", None), "delivery_info", None)
+    _queue = _delivery_info.get("routing_key") if isinstance(_delivery_info, dict) else None
+    # CONSUMER + atributos de mensageria: é o processamento de uma mensagem
+    # enfileirada no ciclo de coleta (o pai, via traceparent). É o que os backends
+    # de APM usam para separar fila de processamento no mapa de serviços.
     with tracing.span_with_parent(
         "dispatch.destination",
         _carrier,
-        **{"centralops.destination_id": destination_id, "centralops.batch_size": len(batch)},
+        span_kind="consumer",
+        **{
+            "centralops.destination_id": destination_id,
+            "centralops.batch_size": len(batch),
+            "messaging.system": "celery",
+            "messaging.operation.type": "process",
+            "messaging.destination.name": _queue,
+        },
     ):
         _run_dispatch_to_destination(self, destination_id, batch)
 
 
 def _run_dispatch_to_destination(self, destination_id: str, batch: list[dict]) -> None:
+    from . import tracing
+
     try:
-        run_coro_blocking(
+        outcome = run_coro_blocking(
             dispatch_batch_to_destination(destination_id, batch),
             timeout=DISPATCH_RESULT_TIMEOUT,
         )
@@ -222,6 +236,9 @@ def _run_dispatch_to_destination(self, destination_id: str, batch: list[dict]) -
         # with a distinct error_kind so triage can tell "never tried" from
         # "exhausted retries". Terminal: no autoretry, no re-raise —
         # the batch is safely captured and the task succeeds (acks the message).
+        # A task termina com SUCESSO (ack), mas o lote foi para a DLQ: o span
+        # precisa dizer isso, senão o APM conta como entrega bem-sucedida.
+        tracing.mark_error("breaker_open", **{"centralops.dlq": True})
         DISPATCH_FAILURES.labels(
             target="destination", reason="breaker_open", destination_id=destination_id
         ).inc()
@@ -236,6 +253,9 @@ def _run_dispatch_to_destination(self, destination_id: str, batch: list[dict]) -
         )
         return
     except Exception:
+        # A exceção atravessa o span e o marca como erro; isto acrescenta o
+        # desfecho estável (``error.type``) e o desvio para a DLQ.
+        tracing.mark_error("exhausted", **{"centralops.dlq": True})
         DISPATCH_FAILURES.labels(
             target="destination", reason="exhausted", destination_id=destination_id
         ).inc()
@@ -250,6 +270,9 @@ def _run_dispatch_to_destination(self, destination_id: str, batch: list[dict]) -
             queue="dispatch.dlq",
         )
         raise
+    # Desfecho sem exceção: destino ausente / de outro tenant / rejeição pelo sink
+    # também desviam para a DLQ — e precisam aparecer como erro no span.
+    tracing.record_dispatch_outcome(outcome)
 
 
 @celery_app.task(

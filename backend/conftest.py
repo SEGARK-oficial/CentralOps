@@ -259,12 +259,28 @@ def _hermetic_otlp_exporters():
     # a REDE nesse flush pós-sessão (o erro do gate). Mantendo os patches ativos pela
     # vida do processo, esse flush final também é no-op. Aceitável: a sessão está
     # encerrando; só o atexit roda depois — e é exatamente ele que queremos neutro.
-    for _target, _meth, _ret in (
-        (_M, "export", _MR.SUCCESS), (_M, "force_flush", True), (_M, "shutdown", None),
-        (_S, "export", _SR.SUCCESS), (_S, "force_flush", True), (_S, "shutdown", None),
-        (_L, "export", _LR.SUCCESS), (_L, "force_flush", True), (_L, "shutdown", None),
-    ):
-        _patch.object(_target, _meth, (lambda _r: (lambda self, *a, **k: _r))(_ret)).start()
+    _targets = [(_M, _MR.SUCCESS), (_S, _SR.SUCCESS), (_L, _LR.SUCCESS)]
+    # Exporters gRPC (OTEL_EXPORTER_OTLP_PROTOCOL=grpc) — mesma neutralização,
+    # quando o pacote opcional está instalado.
+    try:
+        from opentelemetry.exporter.otlp.proto.grpc._log_exporter import (
+            OTLPLogExporter as _GL,
+        )
+        from opentelemetry.exporter.otlp.proto.grpc.metric_exporter import (
+            OTLPMetricExporter as _GM,
+        )
+        from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import (
+            OTLPSpanExporter as _GS,
+        )
+
+        _targets += [(_GM, _MR.SUCCESS), (_GS, _SR.SUCCESS), (_GL, _LR.SUCCESS)]
+    except Exception:  # pragma: no cover — extra gRPC ausente
+        pass
+    for _target, _success in _targets:
+        for _meth, _ret in (("export", _success), ("force_flush", True), ("shutdown", None)):
+            _patch.object(
+                _target, _meth, (lambda _r: (lambda self, *a, **k: _r))(_ret)
+            ).start()
     yield
 
 

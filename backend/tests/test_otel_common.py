@@ -13,6 +13,16 @@ from backend.app.core.config import settings
 
 @pytest.fixture
 def set_endpoint(monkeypatch):
+    # Estes testes medem SÓ o endpoint base. O endpoint e o protocolo POR SINAL
+    # vencem o base e vêm do ambiente: o BuildKit injeta
+    # OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=unix:///dev/otel-grpc.sock em todo RUN,
+    # inclusive no gate de testes da imagem compilada. Zerados aqui para o
+    # resultado não depender de quem roda a suíte.
+    for signal in ("TRACES", "METRICS", "LOGS"):
+        monkeypatch.setattr(settings, f"OTEL_EXPORTER_OTLP_{signal}_ENDPOINT", "", raising=False)
+        monkeypatch.setattr(settings, f"OTEL_EXPORTER_OTLP_{signal}_PROTOCOL", "", raising=False)
+    monkeypatch.setattr(settings, "OTEL_EXPORTER_OTLP_PROTOCOL", "", raising=False)
+
     def _set(value):
         monkeypatch.setattr(settings, "OTEL_EXPORTER_OTLP_ENDPOINT", value, raising=False)
     return _set
