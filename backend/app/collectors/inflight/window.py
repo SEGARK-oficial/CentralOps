@@ -54,15 +54,21 @@ def bucket_ids(window_seconds: int, now: float) -> Tuple[int, ...]:
     return tuple(range(cur - n, cur + 1))
 
 
-def event_bucket(envelope: Any, window_seconds: int, now: Optional[float] = None) -> int:
-    """Fatia da janela em que o EVENTO caiu, pelo ``normalized.time`` (ms)."""
+def event_time(envelope: Any, now: Optional[float] = None) -> float:
+    """Horário do EVENTO em segundos, pelo ``normalized.time`` (ms). Sem horário
+    válido, ou no futuro, vale "agora": relógio de fonte adiantado não empurra
+    contagem nem presença para depois do presente."""
     ts_now = time.time() if now is None else now
-    ts = ts_now
     norm = envelope.get("normalized") if isinstance(envelope, Mapping) else None
     t = norm.get("time") if isinstance(norm, Mapping) else None
     if isinstance(t, (int, float)) and not isinstance(t, bool) and t > 0:
-        ts = min(float(t) / 1000.0, ts_now)
-    return int(ts) // bucket_seconds(window_seconds)
+        return min(float(t) / 1000.0, ts_now)
+    return ts_now
+
+
+def event_bucket(envelope: Any, window_seconds: int, now: Optional[float] = None) -> int:
+    """Fatia da janela em que o EVENTO caiu, pelo ``normalized.time`` (ms)."""
+    return int(event_time(envelope, now)) // bucket_seconds(window_seconds)
 
 
 def _key(dedup_key: str, bucket: int) -> str:

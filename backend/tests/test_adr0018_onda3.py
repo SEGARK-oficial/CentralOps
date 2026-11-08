@@ -928,3 +928,149 @@ def test_future_event_time_is_clamped_to_now():
     now = _t.time()  # relativo: o acumulador corta tempo futuro no relógio real
     future = _evt(now + 86_400)
     assert win.event_bucket(future, 60, now=now) == win.event_bucket({}, 60, now=now)
+
+
+# ── Onda 3d — backfill pelo processor ────────────────────────────────────────
+#
+# O backfill era uma cópia parcial do pipeline: mapping, envelope e roteamento,
+# sem OCSF, enriquecimento, classificação em voo, supressão nem compensação de
+# claims. Agora a coleta histórica só busca e o estágio de processamento é o
+# MESMO da coleta ao vivo — ``StreamProcessor`` no modo inline, tópico raw no
+# modo raw.
+
+
+def _backfill(harness, *, job_id: Optional[str] = "job-1"):
+    from datetime import datetime, timedelta
+
+    from backend.app.collectors import backfill_tasks
+
+    to_ts = datetime(2026, 11, 1)
+    try:
+        return asyncio.run(
+            backfill_tasks.run_backfill_collection_once(
+                integration_id=42,
+                stream="events",
+                from_ts=to_ts - timedelta(days=1),
+                to_ts=to_ts,
+                initial_cursor={"pos": 0},
+                job_id=job_id,
+            )
+        )
+    except Exception as exc:  # noqa: BLE001 — o teste inspeciona a fita
+        return exc
+
+
+def _spy_processor(harness) -> List[Any]:
+    """Cada ``StreamProcessor`` criado, e cada evento que passou por ele."""
+    made: List[Any] = []
+    real_init = pipeline.StreamProcessor.__init__
+    real_process = pipeline.StreamProcessor.process
+
+    def _init(self, *a, **k):
+        real_init(self, *a, **k)
+        made.append(self)
+
+    async def _process(self, raw_event, msg_id):
+        harness.tape.events.append(("process", msg_id))
+        await real_process(self, raw_event, msg_id)
+
+    harness.monkeypatch.setattr(pipeline.StreamProcessor, "__init__", _init)
+    harness.monkeypatch.setattr(pipeline.StreamProcessor, "process", _process)
+    return made
+
+
+def test_backfill_uses_processor(harness):
+    made = _spy_processor(harness)
+    rules_loaded: List[int] = []
+
+    def _rules(oid, **kw):
+        rules_loaded.append(oid)
+        return pipeline._EMPTY_RULESET
+
+    harness.monkeypatch.setattr(
+        "backend.app.collectors.inflight.runtime.load_inflight_rules_for_org", _rules
+    )
+    result = _backfill(harness)
+    assert not isinstance(result, BaseException), result
+    tape = harness.tape
+    names = tape.names()
+
+    # Cada evento buscado passou pelo estágio de processamento da coleta ao vivo,
+    # que carrega as regras do lote (a cópia antiga nunca carregava as em voo).
+    assert len(made) == 1 and made[0]._historical is True
+    assert tape.of("process") == ["m0", "m1", "m2"]
+    assert rules_loaded == [7]
+    assert tape.of("dispatch") == [["m0", "m1"], ["m2"]]
+    assert result == {
+        "cursor": {"pos": 3},
+        "events_collected": 3,
+        "events_dispatched": 3,
+    }
+    # As claims ficam num conjunto de pendentes DO JOB: a recuperação de órfãs de
+    # um job morto não pode soltar as claims do ciclo ao vivo, e vice-versa.
+    job_set = dedupe.pending_set_key(42, "events:backfill:job-1")
+    assert tape.of("recover") == [job_set]
+    assert {ps for _, ps in tape.of("claim")} == {job_set}
+    # O cursor do polling (CollectionState) não é tocado, e a fonte não confirma.
+    for forbidden in ("cursor_load", "save_ok", "save_error", "committed", "produce"):
+        assert forbidden not in names, f"o backfill fez {forbidden!r}"
+
+
+def test_backfill_in_raw_mode_hands_off_to_the_raw_topic(harness):
+    """Integração no modo raw: o backfill grava no raw, com os ids do coletor,
+    e quem processa é o papel ``processor`` — o mesmo da coleta ao vivo."""
+    made = _spy_processor(harness)
+    harness.monkeypatch.setattr(settings, "PIPELINE_RAW_INTEGRATIONS", "42")
+    result = _backfill(harness)
+    assert not isinstance(result, BaseException), result
+    tape = harness.tape
+    assert made == []
+    assert tape.of("produce") == [
+        (42, "events", ["m0", "m1"], ["m0", "m1"]),
+        (42, "events", ["m2"], ["m2"]),
+    ]
+    for forbidden in ("claim", "normalize", "dispatch", "routes", "recover", "save_ok"):
+        assert forbidden not in tape.names(), f"o backfill no modo raw fez {forbidden!r}"
+    assert result["events_collected"] == 3 and result["events_dispatched"] == 3
+    assert result["cursor"] == {"pos": 3}
+
+
+def test_backfill_failure_releases_its_claims(harness):
+    """Job que falha no hand-off solta as claims que tomou: o retry do job
+    reprocessa os eventos em vez de descartá-los como duplicados. A cópia antiga
+    deixava as claims de pé até o TTL — perda silenciosa no retry."""
+
+    def _dispatch_down(batch, routes=None, **kw):
+        raise ConnectionError("broker fora")
+
+    harness.monkeypatch.setattr(pipeline, "_enqueue_dispatch", _dispatch_down)
+    exc = _backfill(harness)
+    assert isinstance(exc, ConnectionError)
+    assert harness.tape.of("release") == [["m0", "m1"]]
+
+
+def test_backfill_without_active_integration_is_a_noop(harness):
+    harness.integration.is_active = False
+    result = _backfill(harness)
+    assert result == {"cursor": {"pos": 0}, "events_collected": 0, "events_dispatched": 0}
+    assert "token" not in harness.tape.names()
+
+
+def test_historical_processor_writes_no_absence_heartbeat(harness):
+    """Classificação em voo roda no backfill, mas sem o batimento da ausência
+    (``InflightAccumulator.heartbeat``): só o processamento ao vivo afirma que
+    está olhando a fonte agora."""
+    rule = types.SimpleNamespace(rule_id=1, absence=False)
+    ruleset = types.SimpleNamespace(rules=(rule,), share_paths=False)
+    harness.monkeypatch.setattr(
+        "backend.app.collectors.inflight.runtime.load_inflight_rules_for_org",
+        lambda oid, **kw: ruleset,
+    )
+
+    async def _open(historical: bool):
+        sp = pipeline.StreamProcessor(42, "events", _FakeRedis(), "ps", historical=historical)
+        assert await sp.open()
+        return sp._inflight_acc.heartbeat
+
+    assert asyncio.run(_open(False)) is True
+    assert asyncio.run(_open(True)) is False

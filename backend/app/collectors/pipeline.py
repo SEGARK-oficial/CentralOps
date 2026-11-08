@@ -1186,11 +1186,16 @@ class StreamProcessor:
         redis: Any,
         pending_set: str,
         dedupe: Optional[Any] = None,
+        historical: bool = False,
     ) -> None:
         self.integration_id = integration_id
         self.stream = stream
         self.redis = redis
         self._pending_set = pending_set
+        # Backfill (ADR-0018 Onda 3d): o lote é PASSADO. A classificação em voo
+        # roda igual, mas o flush não grava o batimento da ausência — quem diz
+        # "estou olhando a fonte agora" é só o processamento ao vivo.
+        self._historical = historical
         # Janela de dedupe em memória da partição (ADR-0018 Onda 3c), só no
         # processor. ``None`` = claim Redis por evento, o dedupe do ciclo inline.
         # Com janela, claim/liquidação/devolução são as mesmas três operações,
@@ -1414,6 +1419,8 @@ class StreamProcessor:
         # Instanciado SÓ quando há regra: com a tupla vazia o hot path fica
         # byte-idêntico ao anterior (R2) e o flush é curto-circuitado.
         self._inflight_acc = InflightAccumulator() if self._inflight_rules.rules else None
+        if self._inflight_acc is not None and self._historical:
+            self._inflight_acc.heartbeat = False
         # Ausência (ADR-0016): o flush precisa saber quais regras de ausência
         # foram CARREGADAS, e não só quais casaram — o batimento do observador
         # (``meta.last_cycle``) sai mesmo num ciclo com zero matches.
@@ -2313,6 +2320,46 @@ async def _run_collection_once(integration_id: int, stream: str) -> None:
             await redis.aclose()
 
 
+class RawProducer:
+    """Estágio "coleta só coleta" (ADR-0018 Onda 3): mesma interface de
+    ``StreamProcessor`` (``process`` por evento, ``flush`` no fim), mas só junta
+    os eventos crus e os grava no tópico raw com ``acks=all``, em lotes por
+    tamanho ou tempo. O ciclo de coleta e o backfill escolhem um ou outro pelo
+    modo de pipeline da integração."""
+
+    def __init__(self, integration_id: int, stream: str, config: Any) -> None:
+        self.integration_id = integration_id
+        self.stream = stream
+        self.config = config
+        self.events_count = 0
+        self._pending: list[Dict[str, Any]] = []
+        self._ids: list[str] = []
+        self._last_flush = time.monotonic()
+
+    async def process(self, raw_event: Dict[str, Any], msg_id: str) -> None:
+        self._pending.append(raw_event)
+        # O id de dedupe sai daqui, do coletor de verdade, e viaja no registro:
+        # o ``processor`` não instancia coletor.
+        self._ids.append(msg_id)
+        self.events_count += 1
+        if (
+            len(self._pending) >= self.config.collector_batch_size
+            or (time.monotonic() - self._last_flush)
+            >= self.config.collector_batch_flush_seconds
+        ):
+            await self.flush()
+
+    async def flush(self) -> None:
+        if self._pending:
+            from .dataplane.raw import produce_raw_async
+
+            await produce_raw_async(
+                self.integration_id, self.stream, self._pending, ids=self._ids
+            )
+            self._pending, self._ids = [], []
+        self._last_flush = time.monotonic()
+
+
 async def _collect_to_raw(integration_id: int, stream: str) -> None:
     """Ciclo "coleta só coleta" (ADR-0018 Onda 3): busca, grava no tópico raw com
     ``acks=all`` e só então avança o cursor. Não deduplica, não normaliza e não
@@ -2322,7 +2369,6 @@ async def _collect_to_raw(integration_id: int, stream: str) -> None:
     re-gravar a borda; o dedupe do ``processor`` absorve (at-least-once). Falha
     do broker derruba o ciclo ANTES do cursor: nada é confirmado à fonte."""
     from .celery_app import get_worker_redis
-    from .dataplane.raw import produce_raw_async
 
     redis = get_worker_redis()
     cursor_store = CursorStore(redis)
@@ -2349,9 +2395,7 @@ async def _collect_to_raw(integration_id: int, stream: str) -> None:
         domain_limiter = DomainLimiter(redis, config.domain_concurrency_limits)
         cursor_before = await cursor_store.load(integration_id, stream)
 
-        pending: list[Dict[str, Any]] = []
-        pending_ids: list[str] = []
-        last_flush = time.monotonic()
+        producer = RawProducer(integration_id, stream, config)
         async with _aiohttp_session() as session:
             ctx = CollectorContext(
                 integration_id=integration_id,
@@ -2368,23 +2412,11 @@ async def _collect_to_raw(integration_id: int, stream: str) -> None:
             collector = registration.collector_cls(ctx)
             try:
                 async for raw_event in collector.collect():
-                    pending.append(raw_event)
-                    # O id de dedupe sai daqui, do coletor de verdade, e viaja no
-                    # registro: o ``processor`` não instancia coletor.
-                    pending_ids.append(_resolve_message_id(collector, raw_event))
-                    events_count += 1
-                    if (
-                        len(pending) >= config.collector_batch_size
-                        or (time.monotonic() - last_flush)
-                        >= config.collector_batch_flush_seconds
-                    ):
-                        await produce_raw_async(integration_id, stream, pending, ids=pending_ids)
-                        pending, pending_ids = [], []
-                        last_flush = time.monotonic()
+                    await producer.process(raw_event, _resolve_message_id(collector, raw_event))
             except aiohttp.ClientResponseError as exc:
                 await _raise_vendor_auth_error(exc, redis, integration_id, stream, platform)
-            if pending:
-                await produce_raw_async(integration_id, stream, pending, ids=pending_ids)
+            await producer.flush()
+            events_count = producer.events_count
 
         await _commit_cycle(
             cursor_store, registration.collector_cls, ctx, collector,

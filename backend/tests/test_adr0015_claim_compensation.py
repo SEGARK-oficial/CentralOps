@@ -23,6 +23,7 @@ os.environ.setdefault("SESSION_SECURE_COOKIE", "false")
 
 import ast
 import inspect
+import re
 
 import pytest
 
@@ -73,8 +74,9 @@ async def test_release_many_propagates_failure_to_the_best_effort_caller():
 # ── Guards estruturais sobre o estágio de processamento ──────────────────────
 #
 # Desde a ADR-0018 Onda 3 a compensação mora em ``pipeline.StreamProcessor``
-# (``close`` solta, ``flush`` liquida), e há DOIS chamadores: o ciclo inline
-# (``_run_collection_once``) e o processor do tópico raw (``process_raw_events``).
+# (``close`` solta, ``flush`` liquida), e há TRÊS chamadores: o ciclo inline
+# (``_run_collection_once``), o processor do tópico raw (``process_raw_events``) e,
+# desde a Onda 3d, o backfill (``backfill_tasks.run_backfill_collection_once``).
 # A invariante passa a ter duas metades: o estágio solta no ``close``, e todo
 # chamador chama o ``close`` num ``finally`` e antes de fechar o Redis.
 
@@ -82,7 +84,29 @@ _CALLERS = ("_run_collection_once", "process_raw_events")
 
 
 def _caller_sources() -> list[tuple[str, str]]:
-    return [(name, inspect.getsource(getattr(pipeline, name))) for name in _CALLERS]
+    from backend.app.collectors import backfill_tasks
+
+    return [(name, inspect.getsource(getattr(pipeline, name))) for name in _CALLERS] + [
+        (
+            "run_backfill_collection_once",
+            inspect.getsource(backfill_tasks.run_backfill_collection_once),
+        )
+    ]
+
+
+@pytest.mark.source_only  # lê o .py; na imagem Cython o fonte não existe
+def test_every_stream_processor_caller_is_guarded():
+    """Um chamador novo do estágio fora da lista acima escaparia das duas
+    metades da invariante sem nenhum teste reclamar."""
+    import pathlib
+
+    root = pathlib.Path(pipeline.__file__).resolve().parents[1]
+    callers = sorted(
+        str(path.relative_to(root))
+        for path in root.rglob("*.py")
+        if "/tests/" not in str(path) and "StreamProcessor(" in path.read_text()
+    )
+    assert callers == ["collectors/backfill_tasks.py", "collectors/pipeline.py"], callers
 
 @pytest.mark.source_only  # lê o .py; na imagem Cython o fonte não existe
 def test_compensation_is_unconditional():
@@ -188,7 +212,9 @@ def test_every_dispatch_site_settles():
     """
     handoffs, liquidacoes = _sites_de_handoff_e_liquidacao()
     for name, src in _caller_sources():
-        assert "await processor.flush()" in src, f"{name}: sem flush terminal"
+        # O backfill chama o estágio pelo nome ``sink`` (StreamProcessor ou, no
+        # modo raw, RawProducer — mesma interface).
+        assert re.search(r"await (processor|sink)\.flush\(\)", src), f"{name}: sem flush terminal"
 
     assert len(handoffs) == len(liquidacoes), (
         f"{len(handoffs)} hand-off(s) para {len(liquidacoes)} liquidação(ões). "

@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import json
 import os
+import time
 from types import SimpleNamespace
 
 os.environ.setdefault("APP_MASTER_KEY", "test-master-key-for-centralops-suite-12345")
@@ -62,7 +63,10 @@ def _event(customer: str, code: str = "XDR-veeam-restorepointcreated") -> dict:
     return {
         "_centralops": {"event_type": "sophos.detection", "stream": "sophos.detection",
                         "customer_name": customer, "event_id": f"ev-{customer}", "vendor": "sophos"},
-        "normalized": {"metadata": {"event_code": code}, "class_uid": 2004, "time": 1},
+        # Horário real: a presença é gravada pelo horário do EVENTO (ADR-0018
+        # Onda 3d), e uma chave nova vista só em 1970 já nasceria esquecida.
+        "normalized": {"metadata": {"event_code": code}, "class_uid": 2004,
+                       "time": int(time.time() * 1000)},
         "raw": {},
     }
 
@@ -161,6 +165,56 @@ async def test_flush_writes_presence_and_never_a_detection(quiet, redis):
     # TTL = esquecimento + folga, nunca sem TTL (regra apagada some sozinha).
     assert redis.ttl(absence_mod.seen_key(7, 1)) > rule.forget_seconds
     assert acc.matches[1] == 3
+
+
+def _event_at(customer: str, epoch_s: float) -> dict:
+    ev = _event(customer)
+    ev["normalized"]["time"] = int(epoch_s * 1000)
+    return ev
+
+
+@pytest.mark.asyncio
+async def test_presence_is_the_event_time_and_never_moves_back(quiet, redis):
+    """ADR-0018 Onda 3d: backfill e processor atrasado entregam eventos ANTIGOS.
+
+    A presença é o horário do evento mais novo da chave — não "agora", que
+    esconderia um silêncio real — e nunca recua: um evento antigo não faz uma
+    chave vigiada parecer calada há mais tempo do que está."""
+    rule, _ = compile_rule(_row(1, window=3600))  # esquecimento = 3 × 3600
+    now = time.time()
+    redis.hset(absence_mod.seen_key(7, 1), mapping={"acme": int(now) - 60})
+
+    acc = InflightAccumulator()
+    acc.note_rules([rule])
+    acc.add(rule, _event_at("acme", now - 7200), organization_id=7)   # vigiada, evento velho
+    acc.add(rule, _event_at("beta", now - 5000), organization_id=7)   # nova, dentro do esquecimento
+    acc.add(rule, _event_at("beta", now - 4000), organization_id=7)   # a mais nova da chave vale
+    acc.add(rule, _event_at("gama", now - 4 * 3600), organization_id=7)  # nova, já esquecida
+    acc.add(rule, _event_at("delta", now + 3600), organization_id=7)  # futuro vira agora
+    await flush_inflight(acc, organization_id=7)
+
+    seen = {k: int(v) for k, v in redis.hgetall(absence_mod.seen_key(7, 1)).items()}
+    assert seen["acme"] == int(now) - 60, "evento antigo recuou a presença de chave vigiada"
+    assert abs(seen["beta"] - (now - 4000)) <= 1, seen
+    assert "gama" not in seen, "chave vista só além do esquecimento entrou na vigília"
+    assert abs(seen["delta"] - now) <= 2, seen
+
+
+@pytest.mark.asyncio
+async def test_historical_flush_writes_presence_but_no_heartbeat(quiet, redis):
+    """O batimento diz "eu estava olhando a fonte AGORA". O backfill lê o
+    passado: se gravasse o batimento, um processor ao vivo parado pareceria
+    vivo e o tique alertaria ausência que é só cegueira."""
+    rule, _ = compile_rule(_row(1))
+    acc = InflightAccumulator()
+    acc.heartbeat = False
+    acc.note_rules([rule])
+    acc.add(rule, _event("acme"), organization_id=7)
+
+    await flush_inflight(acc, organization_id=7)
+
+    assert set(redis.hgetall(absence_mod.seen_key(7, 1))) == {"acme"}
+    assert "last_cycle" not in redis.hgetall(absence_mod.meta_key(7, 1))
 
 
 @pytest.mark.asyncio

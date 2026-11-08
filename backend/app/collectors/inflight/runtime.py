@@ -981,7 +981,10 @@ def _event_source_pointer(
 class InflightAccumulator:
     """Matches do ciclo, em memória. Nada aqui toca I/O."""
 
-    __slots__ = ("pending", "matches", "errors", "overflow", "_keys_per_rule", "_logged_once", "absence_rules")
+    __slots__ = (
+        "pending", "matches", "errors", "overflow", "_keys_per_rule", "_logged_once",
+        "absence_rules", "heartbeat",
+    )
 
     def __init__(self) -> None:
         #: dedup_key → payload da Detection a criar
@@ -1011,6 +1014,11 @@ class InflightAccumulator:
         #: Regras de ausência CARREGADAS no ciclo (ADR-0016), por id — o flush
         #: grava o batimento delas mesmo sem match. Preenchido por ``note_rules``.
         self.absence_rules: dict[int, CompiledInflightRule] = {}
+        #: O flush grava o batimento do observador (``meta.last_cycle``) — "eu
+        #: estava olhando a fonte AGORA". Falso no backfill (ADR-0018 Onda 3d):
+        #: ele lê o passado, e o batimento dele mascararia um processor ao vivo
+        #: parado, fazendo o tique alertar ausência que é só cegueira.
+        self.heartbeat: bool = True
 
     def note_rules(self, rules: Any) -> None:
         """Registra as regras do ciclo cujo flush precisa acontecer SEM match:
@@ -1120,6 +1128,10 @@ class InflightAccumulator:
             if hits_at is not None:
                 b = _window.event_bucket(envelope, int(rule.window_seconds))
                 hits_at[b] = hits_at.get(b, 0) + 1
+            if "seen_at" in self.pending[key]:
+                self.pending[key]["seen_at"] = max(
+                    self.pending[key]["seen_at"], _window.event_time(envelope)
+                )
             if is_leg:
                 legs = self.pending[key].setdefault("legs", {})
                 if rule.leg_index not in legs:
@@ -1173,6 +1185,11 @@ class InflightAccumulator:
             self.pending[key]["hits_at"] = {
                 _window.event_bucket(envelope, int(rule.window_seconds)): 1
             }
+        if bool(getattr(rule, "absence", False)):
+            # Presença pelo horário do EVENTO mais novo da chave (ADR-0018 Onda
+            # 3d): um backfill ou um processor atrasado entrega eventos antigos, e
+            # gravá-los como "visto agora" esconderia um silêncio real.
+            self.pending[key]["seen_at"] = _window.event_time(envelope)
         if is_leg:
             # Ponteiro POR PERNA: é a evidência de "qual evento de qual fonte"
             # que a Detection de sequência carrega, e o que vai ao Redis para
