@@ -2136,6 +2136,10 @@ def delete_integration(
         )
 
     integration = _get_integration_or_404(repo, integration_id)
+    # Escopo de tenant ANTES de qualquer efeito: sem isto um admin-de-org
+    # escopado desativava (ou com ?purge=true apagava de vez) a integração de
+    # OUTRA org. Mesmo guard do update_integration.
+    _ensure_integration_access(current_user, integration)
 
     # Sophos Partner Mode: deleting a Partner with active children is a
     # double-edged operation. Default behaviour: 409 + list of children so
@@ -2223,9 +2227,13 @@ def test_connection(
     db: Session = Depends(database.get_session),
     repo: repository.IntegrationRepository = Depends(get_repo),
     health_repo: repository.IntegrationHealthRepository = Depends(get_health_repo),
-    _: models.AppUser = Depends(app_auth.require_permission(app_auth.Permission.INTEGRATION_WRITE)),
+    current_user: models.AppUser = Depends(app_auth.require_permission(app_auth.Permission.INTEGRATION_WRITE)),
 ):
     integration = _get_integration_or_404(repo, integration_id)
+    # Escopo ANTES da sonda: sem isto um admin-de-org escopado disparava uma
+    # chamada ao fornecedor com a credencial de OUTRA org e gravava o
+    # auth_status/last_error dela (e lia os detalhes de erro na resposta).
+    _ensure_integration_access(current_user, integration)
 
     if not _has_rich_provider(integration):
         # Só-coleta: não há sonda pós-save. Antes caía em ``get_provider`` →
