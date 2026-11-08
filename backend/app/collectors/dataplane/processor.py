@@ -87,6 +87,25 @@ def _group_records(msgs: List[Any]) -> Iterator[_Group]:
         yield current
 
 
+#: Janela de dedupe em memória por partição (ADR-0018 Onda 3c). Uma partição tem
+#: um consumidor por vez, então a janela vive no processo que a detém. Mantida
+#: depois de um rebalance: se a partição voltar, os ids vistos continuam válidos.
+_DEDUPE_WINDOWS: Dict[int, Any] = {}
+
+
+def _window_for(partition: int) -> Any:
+    window = _DEDUPE_WINDOWS.get(partition)
+    if window is None:
+        from ..state.dedupe_window import DedupeWindow
+
+        window = DedupeWindow(
+            max_ids=settings.RAW_DEDUPE_WINDOW_MAX_IDS,
+            ttl_seconds=settings.RAW_DEDUPE_WINDOW_SECONDS,
+        )
+        _DEDUPE_WINDOWS[partition] = window
+    return window
+
+
 async def process_group(
     integration_id: int,
     stream: str,
@@ -100,7 +119,8 @@ async def process_group(
     from .. import pipeline
 
     return await pipeline.process_raw_events(
-        integration_id, stream, events, ids=ids, scope=f"raw-p{partition}"
+        integration_id, stream, events, ids=ids, scope=f"raw-p{partition}",
+        dedupe=_window_for(partition),
     )
 
 

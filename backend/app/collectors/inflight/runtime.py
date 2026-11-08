@@ -40,6 +40,7 @@ from datetime import datetime, timezone
 from typing import Any, Mapping, Optional
 
 from ...core.config import settings
+from . import window as _window
 from .matcher import CompiledClause, CompiledInflightRule, CompiledRuleSet
 from ..normalize.envelope import ENVELOPE_ROOTS
 
@@ -1115,6 +1116,10 @@ class InflightAccumulator:
             # Mesma chave de novo no ciclo: a Detection já está pendente; o que
             # muda é a CONTAGEM, que a janela deslizante (W1.6) soma no flush.
             self.pending[key]["hits"] = int(self.pending[key].get("hits", 1)) + 1
+            hits_at = self.pending[key].get("hits_at")
+            if hits_at is not None:
+                b = _window.event_bucket(envelope, int(rule.window_seconds))
+                hits_at[b] = hits_at.get(b, 0) + 1
             if is_leg:
                 legs = self.pending[key].setdefault("legs", {})
                 if rule.leg_index not in legs:
@@ -1161,6 +1166,13 @@ class InflightAccumulator:
             # (a presença da ausência grava por token).
             "token": token,
         }
+        if _window.windowed(rule):
+            # Regra com janela: os matches contam na fatia do TEMPO DO EVENTO
+            # (ADR-0018 Onda 3c), não na do relógio do flush. Só regras com
+            # janela pagam isto, e só por evento que casou.
+            self.pending[key]["hits_at"] = {
+                _window.event_bucket(envelope, int(rule.window_seconds)): 1
+            }
         if is_leg:
             # Ponteiro POR PERNA: é a evidência de "qual evento de qual fonte"
             # que a Detection de sequência carrega, e o que vai ao Redis para
@@ -1249,7 +1261,8 @@ def _apply_sliding_windows(acc: InflightAccumulator) -> int:
     for key, item in acc.pending.items():
         rule = item["rule"]
         if _win.windowed(rule):
-            targets[key] = (int(item.get("hits", 1)), int(rule.min_count), int(rule.window_seconds))
+            hits = item.get("hits_at") or int(item.get("hits", 1))
+            targets[key] = (hits, int(rule.min_count), int(rule.window_seconds))
     if not targets:
         return 0
     try:

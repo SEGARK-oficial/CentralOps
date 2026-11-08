@@ -297,6 +297,12 @@ class Settings(BaseSettings):
     # espera no Kafka em vez de seguir com configuração velha demais.
     CONFIG_SNAPSHOT_TTL_SECONDS: float = 30.0
     CONFIG_SNAPSHOT_MAX_STALE_SECONDS: float = 900.0
+    # Dedupe do processor em memória, por partição do raw (ADR-0018 Onda 3c):
+    # substitui a chave Redis por evento. Janela por tempo (s) e por quantidade
+    # de ids (~100 B cada). Cobre a borda do cursor re-buscada e a reentrega do
+    # Kafka; reiniciar o processor esvazia a janela (at-least-once).
+    RAW_DEDUPE_WINDOW_SECONDS: float = 3600.0
+    RAW_DEDUPE_WINDOW_MAX_IDS: int = 200_000
     # ── Resiliência do data-plane (hardening pós-review) ──────
     # Consume side: nº máx. de retentativas TRANSITÓRIAS por registro antes de
     # mandar o lote à DLQ e commitar (espelha o max_retries=10 da lane Celery).

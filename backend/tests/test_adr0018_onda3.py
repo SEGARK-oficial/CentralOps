@@ -669,3 +669,262 @@ def test_processor_activates_the_snapshot(monkeypatch):
     assert isinstance(active, config_snapshot.SnapshotCache)
     assert active.ttl == settings.CONFIG_SNAPSHOT_TTL_SECONDS
     assert active.max_stale == settings.CONFIG_SNAPSHOT_MAX_STALE_SECONDS
+
+
+# ══ Onda 3c — sem round-trip por evento e janelas por tempo do evento ════════
+
+from backend.app.collectors.state.dedupe_window import DedupeWindow  # noqa: E402
+
+
+# ── Janela de dedupe em memória por partição ─────────────────────────────────
+
+
+def test_dedupe_window_claims_settles_and_releases():
+    clock = _Clock()
+    w = DedupeWindow(max_ids=100, ttl_seconds=60, clock=clock)
+    assert w.claim(1, "a") is True
+    assert w.claim(1, "a") is False, "duplicata dentro do mesmo lote"
+    assert w.claim(2, "a") is True, "o id é escopado pela integração"
+    w.settle(1, ["a"])
+    assert w.claim(1, "a") is False, "já entregue"
+    # Lote que falha devolve as claims em voo: o retry reprocessa, não descarta.
+    assert w.claim(1, "b") is True
+    assert w.release(1, ["b"]) == 1
+    assert w.claim(1, "b") is True
+    clock.now += 61
+    assert w.claim(1, "a") is True, "fora da janela de tempo"
+
+
+def test_dedupe_window_is_bounded_by_size():
+    w = DedupeWindow(max_ids=3, ttl_seconds=3600, clock=_Clock())
+    for i in range(5):
+        assert w.claim(1, f"e{i}")
+        w.settle(1, [f"e{i}"])
+    assert len(w) == 3
+    assert w.claim(1, "e0") is True and w.claim(1, "e4") is False
+
+
+def test_processor_dedupes_in_memory_across_batches(harness):
+    """Com a janela da partição, o processor não faz claim no Redis, descarta a
+    borda repetida no lote seguinte e reprocessa o lote que falhou."""
+    async def _no_redis_claim(*a, **k):  # pragma: no cover — falha o teste
+        raise AssertionError("claim Redis com a janela em memória")
+
+    harness.monkeypatch.setattr(pipeline, "claim", _no_redis_claim)
+    window = DedupeWindow(max_ids=1000, ttl_seconds=3600)
+
+    def _run_batch(ids):
+        return asyncio.run(
+            pipeline.process_raw_events(
+                42, "events", [{"id": i} for i in ids], scope="raw-p0", dedupe=window
+            )
+        )
+
+    assert _run_batch(["a", "b"]) is True
+    assert _run_batch(["b", "c"]) is True          # "b" é a borda re-buscada
+    assert harness.tape.of("dispatch") == [["a", "b"], ["c"]]
+    assert "recover" not in harness.tape.names(), "sem claim persistente, nada a recuperar"
+
+    def _down(batch, routes=None, **kw):
+        raise ConnectionError("data-plane fora")
+
+    harness.monkeypatch.setattr(pipeline, "_enqueue_dispatch", _down)
+    with pytest.raises(ConnectionError):
+        _run_batch(["d"])
+    harness.monkeypatch.setattr(
+        pipeline, "_enqueue_dispatch",
+        lambda batch, routes=None, **kw: harness.tape.events.append(
+            ("dispatch", [e["_centralops"]["event_id"] for e in batch])
+        ),
+    )
+    assert _run_batch(["d"]) is True
+    assert harness.tape.of("dispatch")[-1] == ["d"], "o lote que falhou foi descartado como duplicado"
+
+
+def test_pull_raw_records_are_sharded_by_dedupe_id(monkeypatch):
+    """O mesmo id cai sempre no mesmo shard (e partição) — é lá que mora a
+    janela que vai reconhecê-lo no ciclo seguinte. Push, sem ids, sorteia."""
+    from backend.app.collectors.dataplane import kafka_transport as kt
+
+    produced: list = []
+    monkeypatch.setattr(raw_mod, "_ensure_raw_topic", lambda: None)
+    monkeypatch.setattr(kt, "_exceeds_request_limit", lambda *a, **k: False)
+    monkeypatch.setattr(
+        kt._producer_thread, "_produce_value",
+        lambda dest, value, key, topic: produced.append((key, raw_mod.decode_raw(value))),
+        raising=False,
+    )
+    monkeypatch.setattr(settings, "KAFKA_RAW_SHARDS_PER_STREAM", 4)
+    ids = [f"evt-{i}" for i in range(40)]
+    raw_mod.produce_raw(9, "alerts", [{"id": i} for i in ids], ids=ids)
+    raw_mod.produce_raw(9, "alerts", [{"id": i} for i in ids[:10]], ids=ids[:10])
+
+    key_of: dict = {}
+    for key, doc in produced:
+        assert doc["ids"] == [e["id"] for e in doc["events"]]
+        for msg_id in doc["ids"]:
+            assert key_of.setdefault(msg_id, key) == key, f"{msg_id} mudou de shard"
+            assert key == raw_mod.raw_key(9, "alerts", raw_mod.id_shard(msg_id))
+    assert len({k for k, _ in produced}) > 1, "um stream grande ainda se espalha"
+
+
+# ── Nenhum round-trip por evento ─────────────────────────────────────────────
+
+
+class _CountingRedis:
+    """Conta idas ao Redis: cada comando direto e cada ``execute`` de pipeline."""
+
+    def __init__(self) -> None:
+        self.roundtrips = 0
+
+    def pipeline(self, *a, **k):
+        outer = self
+
+        class _Pipe:
+            def __getattr__(self, name):
+                return lambda *a, **k: self
+
+            async def execute(self):
+                outer.roundtrips += 1
+                return []
+
+        return _Pipe()
+
+    async def aclose(self):
+        return None
+
+    def __getattr__(self, name):
+        async def _cmd(*a, **k):
+            self.roundtrips += 1
+            return None
+
+        return _cmd
+
+
+def test_no_per_event_roundtrip(harness):
+    """O critério de pronto da Onda 3: o custo de I/O de um lote não cresce com
+    o número de eventos. Pior caso de propósito: 100% das amostras para drift,
+    trim ativo, enriquecimento e reservoir ligados."""
+    mp = harness.monkeypatch
+    sessions = {"n": 0}
+    saved = {"n": 0}
+    class _WritableDb(_FakeDb):
+        """Aceita o upsert do drift: sem isto a 1ª gravação explodiria e uma
+        regressão para "uma gravação por evento" pararia no primeiro evento,
+        custando o mesmo que uma por lote — o teste não a veria."""
+
+        bind = None
+
+        def execute(self, *a, **k):
+            return None
+
+        def commit(self):
+            return None
+
+    def _counting_session():
+        sessions["n"] += 1
+        return _WritableDb(harness.integration)
+
+    class _Applied(_FakeApplied):
+        reduced_raw = {"trimmed": True}
+        consumed_paths = ("id",)
+
+    class _Engine:
+        def apply(self, *a, **k):
+            return _Applied()
+
+    class _BigConfig(_FakeConfig):
+        collector_batch_size = 10_000
+
+    mp.setattr(pipeline.database, "SessionLocal", _counting_session)
+    mp.setattr(pipeline, "default_engine", _Engine())
+    mp.setattr(pipeline, "get_collector_config", _acoro(_BigConfig()))
+    mp.setattr(pipeline.drift, "should_capture", lambda *a, **k: True)
+    mp.setattr(pipeline.metering, "record_saving", lambda *a, **k: saved.update(n=saved["n"] + 1))
+    mp.setattr(pipeline, "_quarantine_async", _acoro(None))
+
+    def _measure(n_events: int) -> tuple:
+        redis = _CountingRedis()
+        mp.setattr("backend.app.collectors.celery_app.get_worker_redis", lambda: redis)
+        sessions["n"] = saved["n"] = 0
+        window = DedupeWindow(max_ids=100_000, ttl_seconds=3600)
+        events = [{"id": f"n{n_events}-{i}", "extra": i} for i in range(n_events)]
+        assert asyncio.run(
+            pipeline.process_raw_events(42, "events", events, scope="raw-p0", dedupe=window)
+        ) is True
+        return redis.roundtrips, sessions["n"], saved["n"]
+
+    # Aquecimento: a 1ª carga paga memos de processo (config de enriquecimento,
+    # por exemplo) que as seguintes não pagam. Sem isto a comparação dependia
+    # da ordem dos testes, não do tamanho do lote.
+    _measure(5)
+    small, large = _measure(20), _measure(400)
+    assert small[1] >= 1, "o drift do lote não chegou ao banco — o teste perdeu o alvo"
+    assert large == small, (
+        f"I/O cresce com o lote — 20 eventos: (redis, postgres, metering)={small}; "
+        f"400 eventos: {large}"
+    )
+    assert harness.tape.of("dispatch")[-1][:1] == ["n400-0"]
+
+
+# ── Janelas de detecção pelo tempo do evento ─────────────────────────────────
+
+
+def _win_rule(min_count=5, window=60):
+    from backend.app.collectors.inflight.matcher import CompiledInflightRule
+
+    return CompiledInflightRule(
+        rule_id=1, name="r1", severity_id=4, suppression_window_seconds=3600,
+        group_by_path=("u",), clauses=(), min_count=min_count, window_seconds=window,
+    )
+
+
+def _evt(epoch_s: float) -> dict:
+    return {"u": "alice", "normalized": {"time": int(epoch_s * 1000)}}
+
+
+def _window_total(events, rule, redis, now):
+    from backend.app.collectors.inflight import window as win
+    from backend.app.collectors.inflight.runtime import InflightAccumulator
+
+    acc = InflightAccumulator()
+    for ev in events:
+        acc.add(rule, ev, organization_id=1)
+    (item,) = acc.pending.values()
+    (key,) = acc.pending.keys()
+    totals = win.apply_windows(
+        redis, {key: (item["hits_at"], rule.min_count, rule.window_seconds)}, now=now
+    )
+    return totals[key]
+
+
+def test_backlog_replay_does_not_fake_a_burst():
+    """Uma hora de backlog (um evento a cada 10 min) processada num lote só não
+    é "6 eventos em 60 s". Com o relógio do flush, era."""
+    import fakeredis
+
+    import time as _t
+
+    now = _t.time()  # relativo: o acumulador corta tempo futuro no relógio real
+    events = [_evt(now - 3600 + 600 * i) for i in range(6)]
+    assert _window_total(events, _win_rule(), fakeredis.FakeRedis(), now) == 1
+
+
+def test_burst_in_event_time_is_counted_even_when_processed_late():
+    import fakeredis
+
+    import time as _t
+
+    now = _t.time()  # relativo: o acumulador corta tempo futuro no relógio real
+    burst = [_evt(now - 7200 + 5 * i) for i in range(6)]  # 6 em 30 s, há 2 h
+    assert _window_total(burst, _win_rule(), fakeredis.FakeRedis(), now) == 6
+
+
+def test_future_event_time_is_clamped_to_now():
+    from backend.app.collectors.inflight import window as win
+
+    import time as _t
+
+    now = _t.time()  # relativo: o acumulador corta tempo futuro no relógio real
+    future = _evt(now + 86_400)
+    assert win.event_bucket(future, 60, now=now) == win.event_bucket({}, 60, now=now)

@@ -1155,6 +1155,12 @@ async def _fail_cycle(
     await _notify_cycle_aborted(collector, integration_id, stream)
 
 
+async def _redis_claim(*args: Any, **kwargs: Any) -> bool:
+    """Claim de dedupe no Redis, resolvendo ``claim`` no módulo a cada chamada:
+    é o seam que os testes trocam (``monkeypatch.setattr(pipeline, "claim", …)``)."""
+    return await claim(*args, **kwargs)
+
+
 class StreamProcessor:
     """Estágio de PROCESSAMENTO de um (integração, stream) — ADR-0018 Onda 3.
 
@@ -1173,11 +1179,23 @@ class StreamProcessor:
     (incidente jul/2026; ``test_early_db_failure_reraises_original_error``).
     """
 
-    def __init__(self, integration_id: int, stream: str, redis: Any, pending_set: str) -> None:
+    def __init__(
+        self,
+        integration_id: int,
+        stream: str,
+        redis: Any,
+        pending_set: str,
+        dedupe: Optional[Any] = None,
+    ) -> None:
         self.integration_id = integration_id
         self.stream = stream
         self.redis = redis
         self._pending_set = pending_set
+        # Janela de dedupe em memória da partição (ADR-0018 Onda 3c), só no
+        # processor. ``None`` = claim Redis por evento, o dedupe do ciclo inline.
+        # Com janela, claim/liquidação/devolução são as mesmas três operações,
+        # sem I/O e sem conjunto de pendentes persistente para recuperar.
+        self._dedupe = dedupe
         self.events_count = 0
         # ADR-0015 Fase 2 — compensação de claim de dedupe, INCONDICIONAL.
         # Antes era gated por ``EVENT_DATAPLANE == "kafka"``, o que deixava o
@@ -1222,6 +1240,12 @@ class StreamProcessor:
         # o enriquecimento derruba ``reduction_pct`` sem nenhum termo que
         # explique a piora.
         self._metering_added = metering.AddedVolumeAccumulator()
+        # Efeitos colaterais por evento que viraram UMA gravação por lote
+        # (ADR-0018 Onda 3c): bytes evitados pelo trim, amostras do reservoir
+        # e amostras de drift.
+        self._metering_saved = metering.SavedVolumeAccumulator()
+        self._samples: list[Dict[str, Any]] = []
+        self._drift_buf: list[Dict[str, Any]] = []
         self.organization_id: Optional[int] = None
         self.platform: Optional[str] = None
         self.integration: Optional[Any] = None
@@ -1245,7 +1269,11 @@ class StreamProcessor:
         conjunto é de um ciclo que levou SIGKILL/OOM/hard-timeout sem passar pelo
         ``close``. Soltar ANTES de processar faz os eventos re-buscados (o cursor
         não avançou) serem processados em vez de descartados como duplicados.
-        Best-effort: Redis fora → o processamento falha adiante de todo jeito."""
+        Best-effort: Redis fora → o processamento falha adiante de todo jeito.
+
+        Com a janela em memória não há claim persistente: nada a recuperar."""
+        if self._dedupe is not None:
+            return
         integration_id, stream = self.integration_id, self.stream
         try:
             _orphans = await recover_orphan_claims(self.redis, integration_id, self._pending_set)
@@ -1502,6 +1530,9 @@ class StreamProcessor:
         _inflight_acc = self._inflight_acc
         _inflight_rules = self._inflight_rules
         evaluate_ruleset = self._evaluate_ruleset
+        # Dedupe: claim Redis (ciclo inline; resolvido no módulo a cada chamada,
+        # que é o seam que os testes trocam) ou a janela da partição (processor).
+        claim = _redis_claim if self._dedupe is None else self._window_claim
 
         # RNF07 — idempotência. Aplicada SOBRE o raw, antes
         # da normalização, para evitar reprocessar evento
@@ -1530,16 +1561,13 @@ class StreamProcessor:
             return
         unsettled_claims.add(msg_id)
 
-        # RF3.7 — sample reservoir alimenta dry-run da UI.
-        # fire-and-forget — best-effort não pode bloquear
-        # o hot path de coleta. asyncio.ensure_future agenda a
-        # coroutine sem await imediato; falhas são silenciosas
-        # (intencionais para este path).
-        asyncio.ensure_future(
-            sample_reservoir.push(
-                redis, organization_id, platform, event_type, raw_event
-            )
-        )
+        # RF3.7 — sample reservoir alimenta dry-run da UI. Acumulado no lote e
+        # gravado num pipeline só no ``flush`` (ADR-0018 Onda 3c): antes era
+        # um pipeline Redis por evento, agendado com ensure_future.
+        self._samples.append(raw_event)
+        if len(self._samples) > 2 * sample_reservoir.DEFAULT_CAPACITY:
+            # Só os mais novos chegam ao ring buffer; o resto nem é guardado.
+            del self._samples[: -sample_reservoir.DEFAULT_CAPACITY]
 
         # metering de volume IN (eventos/bytes que
         # entraram, pós-dedupe), BATCHED: acumula localmente e grava
@@ -1684,8 +1712,9 @@ class StreamProcessor:
                 )
         # contabiliza os bytes evitados pelo trimming
         # (raw_reduction). No-op (zero serialização) quando as flags
-        # REDUCTION_TRIM_ENABLED/COST_METERING_ENABLED estão off.
-        metering.record_trim_saving(
+        # REDUCTION_TRIM_ENABLED/COST_METERING_ENABLED estão off. Acumulado e
+        # gravado no flush (ADR-0018 Onda 3c), não um pipeline Redis por evento.
+        self._metering_saved.add_trim(
             organization_id, raw_event, applied.reduced_raw
         )
         # Proveniência: campos preenchidos pelo fallback de ingestão
@@ -1698,11 +1727,12 @@ class StreamProcessor:
             vendor=platform, event_type=event_type
         ).observe(time.monotonic() - normalize_started)
 
-        # RF3.6 — drift detection com sampling + janela de aprendizado.
-        # Best-effort, rodado em thread auxiliar para não bloquear I/O. A
+        # RF3.6 — drift detection com sampling + janela de aprendizado. A
         # janela força 100% nos 1ºs eventos de uma fonte NOVA (auto-discovery
         # à la Cribl/Axoflow) p/ syslog recém-apontado aparecer no Drift
-        # Explorer de imediato; depois cai na amostragem estacionária.
+        # Explorer de imediato; depois cai na amostragem estacionária. A
+        # amostra é acumulada e gravada num upsert só, no ``flush`` (ADR-0018
+        # Onda 3c): antes era um upsert no Postgres por evento amostrado.
         if drift.should_capture(
             platform,
             event_type,
@@ -1710,14 +1740,15 @@ class StreamProcessor:
             settings.DRIFT_SAMPLE_RATE,
             learning_events=settings.DRIFT_LEARNING_EVENTS,
         ):
-            await asyncio.to_thread(
-                drift.record_unknown_fields,
-                vendor=platform,
-                event_type=event_type,
-                raw=raw_event,
-                consumed_paths=applied.consumed_paths,
-                # isolamento de inferência por tenant.
-                organization_id=organization_id,
+            self._drift_buf.append(
+                {
+                    "vendor": platform,
+                    "event_type": event_type,
+                    "raw": raw_event,
+                    "consumed_paths": applied.consumed_paths,
+                    # isolamento de inferência por tenant.
+                    "organization_id": organization_id,
+                }
             )
 
         # validação OCSF (structural gate + política por-org).
@@ -2008,6 +2039,11 @@ class StreamProcessor:
         ):
             await self.flush()
 
+    async def _window_claim(
+        self, redis: Any, integration_id: int, msg_id: str, **_kw: Any
+    ) -> bool:
+        return self._dedupe.claim(integration_id, msg_id)
+
     async def flush(self) -> None:
         """Entrega o lote corrente ao data-plane e liquida as claims dele.
 
@@ -2017,6 +2053,10 @@ class StreamProcessor:
         flush condicional deixaria de rodar justamente no último lote."""
         batch = self.batch
         if not batch:
+            # Lote vazio (tudo deduplicado ou em quarentena) ainda grava as
+            # amostras: mapping ausente é justamente quando o dry-run da UI
+            # precisa delas.
+            await self._flush_side_effects()
             return
         organization_id, integration_id = self.organization_id, self.integration_id
         platform, stream = self.platform, self.stream
@@ -2057,11 +2097,33 @@ class StreamProcessor:
         # descartaria o evento como duplicado.
         batch_msg_ids = self.batch_msg_ids
         self.unsettled_claims.difference_update(batch_msg_ids)
-        await _settle_pending_claims(self.redis, self._pending_set, batch_msg_ids)
+        if self._dedupe is not None:
+            self._dedupe.settle(integration_id, batch_msg_ids)
+        else:
+            await _settle_pending_claims(self.redis, self._pending_set, batch_msg_ids)
         self.batch_msg_ids = []
         self.batch = []
         self.batch_suppressed = {}
         self.last_flush = time.monotonic()
+        await self._flush_side_effects()
+
+    async def _flush_side_effects(self) -> None:
+        """Gravações best-effort do lote, UMA de cada (ADR-0018 Onda 3c). Rodam
+        depois do hand-off: nenhuma delas pode atrasar nem derrubar a entrega."""
+        samples, self._samples = self._samples, []
+        drift_buf, self._drift_buf = self._drift_buf, []
+        if samples and self.organization_id is not None:
+            try:
+                await sample_reservoir.push_many(
+                    self.redis, self.organization_id, self.platform, self.event_type, samples
+                )
+            except Exception:  # noqa: BLE001 — reservoir é melhor-esforço (UI)
+                logger.debug("sample_reservoir: falha no lote", exc_info=True)
+        if drift_buf:
+            try:
+                await asyncio.to_thread(drift.record_unknown_fields_many, drift_buf)
+            except Exception:  # noqa: BLE001 — drift é observação, nunca porteiro
+                logger.debug("drift: falha ao registrar o lote", exc_info=True)
 
     async def close(self) -> None:
         """Encerramento — SEMPRE, no ``finally`` de quem chamou, com ou sem erro.
@@ -2078,6 +2140,7 @@ class StreamProcessor:
         # entregou eventos enriquecidos, e não contabilizá-los faria a % de redução
         # subir artificialmente justo no ciclo com problema.
         self._metering_added.flush()
+        self._metering_saved.flush()
         # Idem para o buffer de captura: um ciclo que termina com menos de
         # CAPTURE_BUF_MAX eventos no buffer não pode perdê-los, e um ciclo que
         # falhou é justamente quando o operador mais precisa do registro.
@@ -2115,6 +2178,12 @@ class StreamProcessor:
         # eventos como duplicados — perda silenciosa. OBRIGATORIAMENTE antes do
         # ``aclose`` do Redis: o DEL iria contra um cliente fechado.
         unsettled_claims = self.unsettled_claims
+        if self._dedupe is not None:
+            # Janela em memória: devolver as claims em voo é um set.discard, e não
+            # há conjunto de pendentes no Redis para limpar.
+            self._dedupe.release(integration_id, unsettled_claims)
+            unsettled_claims.clear()
+            return
         _pending_clear = not unsettled_claims
         if unsettled_claims:
             try:
@@ -2335,6 +2404,7 @@ async def process_raw_events(
     *,
     ids: Optional[list[str]] = None,
     scope: str = "",
+    dedupe: Optional[Any] = None,
 ) -> bool:
     """Processa um lote lido do tópico raw, SEM ciclo de coleta (ADR-0018 Onda 3).
 
@@ -2346,6 +2416,8 @@ async def process_raw_events(
     ``scope`` separa o conjunto de claims pendentes por partição: vários
     processadores tratam o mesmo (integração, stream) em partições diferentes, e
     a recuperação de órfãs só pode tocar claims da partição que este detém.
+    ``dedupe`` é a janela em memória da partição (Onda 3c); com ela o dedupe não
+    vai ao Redis.
 
     Devolve False quando nada foi processado (integração inativa ou coletor não
     registrado) — o chamador manda o lote à DLQ em vez de commitar em silêncio.
@@ -2355,7 +2427,7 @@ async def process_raw_events(
 
     redis = get_worker_redis()
     pending = pending_set_key(integration_id, f"{stream}:{scope}" if scope else stream)
-    processor = StreamProcessor(integration_id, stream, redis, pending)
+    processor = StreamProcessor(integration_id, stream, redis, pending, dedupe=dedupe)
     try:
         await processor.recover_orphan_claims()
         if not await processor.open():

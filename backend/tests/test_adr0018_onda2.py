@@ -109,8 +109,9 @@ def test_processor_group_goes_straight_to_the_processing_stage(monkeypatch):
 
     seen: dict = {}
 
-    async def _stage(iid, stream, events, *, ids=None, scope=""):
+    async def _stage(iid, stream, events, *, ids=None, scope="", dedupe=None):
         seen.update(iid=iid, stream=stream, n=len(events), ids=ids, scope=scope)
+        seen.setdefault("windows", []).append(dedupe)
         return True
 
     def _no_cycle(*a, **k):  # pragma: no cover — qualquer chamada falha o teste
@@ -119,9 +120,17 @@ def test_processor_group_goes_straight_to_the_processing_stage(monkeypatch):
     monkeypatch.setattr(pipeline, "process_raw_events", _stage)
     monkeypatch.setattr(pipeline, "_run_collection_once", _no_cycle)
     consumed = _run(proc.process_group(9, "security", [{"x": 1}], partition=3, ids=["a"]))
+    _run(proc.process_group(9, "security", [{"x": 2}], partition=3, ids=["b"]))
+    _run(proc.process_group(9, "security", [{"x": 3}], partition=4, ids=["c"]))
 
     assert consumed is True
-    assert seen == {"iid": 9, "stream": "security", "n": 1, "ids": ["a"], "scope": "raw-p3"}
+    windows = seen.pop("windows")
+    assert seen == {"iid": 9, "stream": "security", "n": 1, "ids": ["c"], "scope": "raw-p4"}
+    # Onda 3c: uma janela de dedupe por partição, a MESMA entre lotes dela.
+    from backend.app.collectors.state.dedupe_window import DedupeWindow
+
+    assert all(isinstance(w, DedupeWindow) for w in windows)
+    assert windows[0] is windows[1] and windows[0] is not windows[2]
 
 
 def test_push_collector_no_longer_reads_a_kafka_batch():

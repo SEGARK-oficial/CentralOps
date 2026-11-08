@@ -22,6 +22,7 @@ import asyncio
 import json
 import logging
 import random
+import zlib
 import time
 from typing import Any, Dict, Iterator, List, Mapping, Optional, Tuple
 
@@ -38,6 +39,13 @@ class OversizedRawEventError(ValueError):
 
 def raw_topic() -> str:
     return f"{settings.KAFKA_TOPIC_PREFIX}.{settings.KAFKA_RAW_TOPIC}"
+
+
+def id_shard(msg_id: str) -> int:
+    """Shard estável para um id de dedupe: o mesmo evento re-buscado em outro
+    ciclo cai na MESMA partição, onde mora a janela de dedupe (Onda 3c)."""
+    shards = max(1, int(settings.KAFKA_RAW_SHARDS_PER_STREAM or 1))
+    return zlib.crc32(str(msg_id).encode("utf-8")) % shards
 
 
 def raw_key(integration_id: int, stream: str, shard: Optional[int] = None) -> bytes:
@@ -158,23 +166,31 @@ def produce_raw(
     from .kafka_transport import _exceeds_request_limit, _producer_thread
 
     _ensure_raw_topic()
-    key = raw_key(integration_id, stream)
     limit = max(1, int(settings.KAFKA_MAX_REQUEST_BYTES * 0.9))
     received_at = time.time()
-    frames = list(
-        _raw_frames(
-            integration_id, stream, list(events), limit, received_at,
-            list(ids) if ids is not None else None,
-        )
-    )
-    for sub, value in frames:
-        if len(sub) == 1 and _exceeds_request_limit(value, key):
-            raise OversizedRawEventError(
-                f"evento de {len(value)} bytes excede KAFKA_MAX_REQUEST_BYTES "
-                f"(integration={integration_id} stream={stream})"
-            )
+    # Com ids (coletor pull), cada evento vai ao shard do SEU id: a janela de
+    # dedupe é por partição, e a borda re-buscada no ciclo seguinte precisa cair
+    # onde a primeira cópia foi vista. Sem ids (push), um shard sorteado por lote.
+    if ids is not None:
+        by_shard: Dict[int, Tuple[List[Mapping[str, Any]], List[str]]] = {}
+        for ev, msg_id in zip(events, ids):
+            evs, sids = by_shard.setdefault(id_shard(msg_id), ([], []))
+            evs.append(ev)
+            sids.append(str(msg_id))
+        parts = [(raw_key(integration_id, stream, sh), evs, sids) for sh, (evs, sids) in by_shard.items()]
+    else:
+        parts = [(raw_key(integration_id, stream), list(events), None)]
+    planned = []
+    for key, evs, sids in parts:
+        for sub, value in _raw_frames(integration_id, stream, evs, limit, received_at, sids):
+            if len(sub) == 1 and _exceeds_request_limit(value, key):
+                raise OversizedRawEventError(
+                    f"evento de {len(value)} bytes excede KAFKA_MAX_REQUEST_BYTES "
+                    f"(integration={integration_id} stream={stream})"
+                )
+            planned.append((key, value))
     topic = raw_topic()
-    for _sub, value in frames:
+    for key, value in planned:
         _producer_thread._produce_value("__raw__", value, key, topic)
     return len(events)
 
