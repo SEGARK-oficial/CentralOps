@@ -653,11 +653,16 @@ def _describe_cut_rules(repo: Any, organization_id: int, cap: int) -> str:
 
 def load_inflight_rules_for_org(
     organization_id: Optional[int],
+    *,
+    strict: bool = False,
 ) -> CompiledRuleSet:
     """Regras habilitadas em modo ``inflight`` da org, compiladas. SÍNCRONA.
 
     Chamada via ``asyncio.to_thread`` 1x por ciclo. Fail-safe para ``()`` em
     qualquer erro: um problema de DB não pode impedir a COLETA, que é o produto.
+    ``strict=True`` deixa o erro de banco subir: é o que permite ao snapshot do
+    processor servir as regras da última carga boa em vez de parar o detector
+    (ADR-0018 Onda 3b).
     ``organization_id is None`` ⇒ ``()`` (fail-CLOSED — nunca avaliar regra sem
     saber de quem é o evento).
     """
@@ -732,6 +737,8 @@ def load_inflight_rules_for_org(
                 INFLIGHT_RULES_LOADED.labels(org_id=str(organization_id)).set(0)
                 return CompiledRuleSet(rules=(), share_paths=False)
     except Exception:  # noqa: BLE001 — coleta nunca cai por causa do detector
+        if strict:
+            raise
         # DETECTOR MORTO ≠ ORG SEM REGRA — e até aqui o produto não sabia
         # dizer a diferença. O ruleset vazio devolvido logo abaixo desliga a
         # avaliação do ciclo INTEIRO; sem as duas linhas abaixo o gauge

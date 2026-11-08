@@ -136,6 +136,17 @@ async def run_raw_processor(stop_event: Optional[threading.Event] = None) -> Non
     from .raw import _ensure_raw_topic
 
     await asyncio.to_thread(_ensure_raw_topic)
+    # Configuração por snapshot com last-known-good (ADR-0018 Onda 3b): um por
+    # processo, vivo enquanto o consumer roda. Tira o Postgres do caminho de cada
+    # lote e mantém o processamento de pé com o banco fora.
+    from ..config_snapshot import ACTIVE, SnapshotCache
+
+    ACTIVE.set(
+        SnapshotCache(
+            ttl_seconds=settings.CONFIG_SNAPSHOT_TTL_SECONDS,
+            max_stale_seconds=settings.CONFIG_SNAPSHOT_MAX_STALE_SECONDS,
+        )
+    )
     consumer = AIOKafkaConsumer(
         raw_topic(),
         **_client_kwargs(),

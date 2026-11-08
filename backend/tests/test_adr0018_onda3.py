@@ -441,3 +441,231 @@ def test_extract_message_id_does_not_need_the_collector_context(reg):
         )
     except Exception:  # noqa: BLE001 — formato de evento é problema do vendor, não daqui
         pass
+
+
+# ══ Onda 3b — configuração por snapshot com last-known-good ══════════════════
+#
+# O processor lê a configuração por um snapshot em memória: dentro do TTL não
+# vai ao Postgres; com o banco fora, serve a última versão boa até o teto de
+# idade. Erro que NÃO é indisponibilidade (rota que não compila) continua
+# falhando — o last-known-good não pode mascarar configuração quebrada.
+
+from sqlalchemy import exc as sa_exc  # noqa: E402
+
+from backend.app.collectors import config_snapshot  # noqa: E402
+
+
+def _db_down() -> Exception:
+    return sa_exc.OperationalError("SELECT 1", {}, ConnectionRefusedError("postgres fora"))
+
+
+class _Clock:
+    def __init__(self) -> None:
+        self.now = 1000.0
+
+    def __call__(self) -> float:
+        return self.now
+
+
+def test_snapshot_serves_from_memory_inside_the_ttl():
+    clock = _Clock()
+    cache = config_snapshot.SnapshotCache(30, 900, clock=clock)
+    loads = []
+    assert cache.get("routes", 7, lambda: loads.append(1) or "v1") == "v1"
+    clock.now += 29
+    assert cache.get("routes", 7, lambda: loads.append(1) or "v2") == "v1"
+    clock.now += 2
+    assert cache.get("routes", 7, lambda: loads.append(1) or "v2") == "v2"
+    assert len(loads) == 2
+
+
+def test_snapshot_serves_last_known_good_while_the_database_is_down(monkeypatch):
+    from backend.app.collectors import metrics
+
+    stale = []
+    monkeypatch.setattr(
+        metrics, "CONFIG_SNAPSHOT_STALE",
+        types.SimpleNamespace(
+            labels=lambda **kw: types.SimpleNamespace(inc=lambda: stale.append(kw["kind"]))
+        ),
+    )
+    clock = _Clock()
+    cache = config_snapshot.SnapshotCache(30, 900, clock=clock)
+    cache.get("routes", 7, lambda: "boa")
+
+    def _down():
+        raise _db_down()
+
+    clock.now += 300  # 5 min de Postgres fora: a meta do ADR
+    assert cache.get("routes", 7, _down) == "boa"
+    assert stale == ["routes"]
+    clock.now += 601  # passou do teto de idade: para de inventar
+    with pytest.raises(sa_exc.OperationalError):
+        cache.get("routes", 7, _down)
+
+
+def test_snapshot_never_masks_invalid_configuration():
+    """Rota que não compila é decisão da Onda 0 (retém a entrega). Uma versão
+    boa anterior em memória NÃO pode passar por cima disso."""
+    clock = _Clock()
+    cache = config_snapshot.SnapshotCache(30, 900, clock=clock)
+    cache.get("routes", 7, lambda: "boa")
+    clock.now += 60
+
+    def _invalid():
+        raise pipeline.RoutingUnavailable("rota 9 da org 7 inválida: ValueError")
+
+    with pytest.raises(pipeline.RoutingUnavailable):
+        cache.get("routes", 7, _invalid)
+
+
+def test_snapshot_without_a_good_version_keeps_the_old_outcome():
+    """Sem versão boa: carga fail-closed levanta (lote fica no Kafka); carga
+    fail-safe volta ao valor degradado de antes desta onda."""
+    token = config_snapshot.ACTIVE.set(config_snapshot.SnapshotCache(30, 900))
+    try:
+        def _down():
+            raise _db_down()
+
+        with pytest.raises(sa_exc.OperationalError):
+            config_snapshot.read("routes", 7, _down)
+        assert config_snapshot.read("residency", frozenset(), _down, lambda: {}) == {}
+    finally:
+        config_snapshot.ACTIVE.reset(token)
+
+
+def test_store_outage_is_recognized_through_the_exception_chain():
+    try:
+        try:
+            raise _db_down()
+        except Exception as exc:
+            raise pipeline.RoutingUnavailable("rotas da org 7 indisponíveis") from exc
+    except pipeline.RoutingUnavailable as wrapped:
+        assert config_snapshot.is_store_outage(wrapped)
+    assert not config_snapshot.is_store_outage(ValueError("mapping corrompido"))
+
+
+def test_inline_cycle_reads_without_a_snapshot(harness):
+    """O ciclo inline não ganha cache: lê a cada ciclo, como sempre."""
+    assert config_snapshot.ACTIVE.get() is None
+    assert harness.cycle() is None
+    assert harness.cycle() is None
+    assert harness.tape.of("routes") == [7, 7]
+
+
+def test_processor_survives_postgres_outage(harness):
+    tape, mp = harness.tape, harness.monkeypatch
+    clock = _Clock()
+    mp.setattr(
+        "backend.app.collectors.inflight.runtime.load_inflight_rules_for_org",
+        lambda oid, **kw: pipeline._EMPTY_RULESET,
+    )
+    mp.setattr(
+        "backend.app.collectors.enrich.runtime.load_policy_for_org",
+        lambda oid, **kw: None,
+    )
+    calls = {"mapping": 0, "integration": 0}
+    real_view = pipeline._load_cycle_integration
+
+    def _mapping(*a, **k):
+        calls["mapping"] += 1
+        return (1, [], "v2")
+
+    def _integration(iid, stream):
+        calls["integration"] += 1
+        return real_view(iid, stream)
+
+    mp.setattr(pipeline, "_load_current_mapping", _mapping)
+    mp.setattr(pipeline, "_load_cycle_integration", _integration)
+
+    async def _batch(n):
+        token = config_snapshot.ACTIVE.set(cache)
+        try:
+            return await pipeline.process_raw_events(
+                42, "events", [{"id": f"b{n}-{i}"} for i in range(2)], scope="raw-p0"
+            )
+        finally:
+            config_snapshot.ACTIVE.reset(token)
+
+    cache = config_snapshot.SnapshotCache(30, 900, clock=clock)
+
+    # Banco no ar: carrega uma vez e serve da memória dentro do TTL.
+    assert asyncio.run(_batch(1)) is True
+    clock.now += 10
+    assert asyncio.run(_batch(2)) is True
+    assert tape.of("routes") == [7] and calls == {"mapping": 1, "integration": 1}
+
+    # Postgres cai por 5 minutos: os lotes seguem com a última versão boa.
+    def _routes_down(oid):
+        tape.events.append(("routes_down", oid))
+        try:
+            raise _db_down()
+        except Exception as exc:
+            raise pipeline.RoutingUnavailable(f"rotas da org {oid} indisponíveis") from exc
+
+    def _down(*a, **k):
+        raise _db_down()
+
+    mp.setattr(pipeline, "_load_routes_for_org", _routes_down)
+    mp.setattr(pipeline, "_load_current_mapping", _down)
+    mp.setattr(pipeline, "_load_cycle_integration", _down)
+    for minute in range(1, 6):
+        clock.now += 60
+        assert asyncio.run(_batch(10 + minute)) is True, f"lote perdido no minuto {minute}"
+    delivered = [eid for batch in tape.of("dispatch") for eid in batch]
+    assert len(delivered) == 7 * 2 and len(set(delivered)) == 14
+    assert len(tape.of("routes_down")) == 5  # tentou o banco a cada TTL vencido
+
+    # Fora além do teto de idade: o lote FALHA (fica no Kafka), não segue com
+    # configuração velha demais.
+    clock.now += 900
+    with pytest.raises(Exception) as excinfo:
+        asyncio.run(_batch(99))
+    assert config_snapshot.is_store_outage(excinfo.value)
+    assert not any(eid.startswith("b99") for b in tape.of("dispatch") for eid in b)
+
+
+@pytest.mark.source_only  # lê o .py; na imagem Cython o fonte não existe
+def test_destination_maps_go_through_the_snapshot():
+    """Residência de dados, anti-loop Wazuh e fallback eram fail-safe para
+    VAZIO: com o banco fora, a proteção sumia em silêncio. No processor eles
+    passam pelo snapshot — e a versão estrita é a que alimenta o cache."""
+    import inspect
+
+    src = inspect.getsource(pipeline._enqueue_routed)
+    for kind, fn in (
+        ("destination_residency", "_load_destination_residency"),
+        ("wazuh_loop_destinations", "_load_wazuh_loop_destination_ids"),
+        ("fallback_destination", "_load_fallback_destination_id"),
+    ):
+        assert f'config_snapshot.read(\n        "{kind}"' in src, kind
+        assert f"{fn}(" in src and "strict=True" in src, fn
+
+
+def test_processor_activates_the_snapshot(monkeypatch):
+    """O processor liga o snapshot antes de consumir — sem ele, nada desta onda vale."""
+    import threading
+
+    import aiokafka
+
+    seen = {}
+
+    class _Consumer:
+        def __init__(self, *a, **k):
+            pass
+
+        async def start(self):
+            seen["active"] = config_snapshot.ACTIVE.get()
+            raise RuntimeError("para aqui")
+
+        async def stop(self):
+            pass
+
+    monkeypatch.setattr(aiokafka, "AIOKafkaConsumer", _Consumer)
+    monkeypatch.setattr(raw_mod, "_ensure_raw_topic", lambda: None)
+    with pytest.raises(RuntimeError):
+        asyncio.run(proc.run_raw_processor(stop_event=threading.Event()))
+    active = seen["active"]
+    assert isinstance(active, config_snapshot.SnapshotCache)
+    assert active.ttl == settings.CONFIG_SNAPSHOT_TTL_SECONDS
+    assert active.max_stale == settings.CONFIG_SNAPSHOT_MAX_STALE_SECONDS

@@ -293,7 +293,10 @@ def test_every_facade_maps_to_spec_and_vice_versa():
     # +1: collector_otel_export_failures_total{signal} — falhas do export OTLP do
     # próprio processo. Sem Collector no meio, é o único sinal de que a
     # telemetria está se perdendo. 68 → 69.
-    assert len(facade_names) == 69
+    # +1 (ADR-0018 Onda 3b): collector_config_snapshot_stale_total{kind} — o
+    # processor seguindo com a última configuração boa porque o Postgres caiu.
+    # Sem ela, a degradação seria muda até o teto de idade. 69 → 70.
+    assert len(facade_names) == 70
     # O catálogo tem as síncronas + ao menos o observável collector_up.
     assert "collector_up" in otel_metrics._SPEC
     assert "collector_up" not in facade_names

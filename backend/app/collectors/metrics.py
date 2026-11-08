@@ -233,6 +233,8 @@ DATAPLANE_CONSUMER_LAG = _instrument("collector_dataplane_consumer_lag")
 # Tópico raw (ADR-0018 Onda 2).
 RAW_PROCESSED = _instrument("collector_raw_processed_total")
 RAW_CONSUMER_LAG = _instrument("collector_raw_consumer_lag")
+# Snapshot de config do processor servindo a última versão boa (banco fora).
+CONFIG_SNAPSHOT_STALE = _instrument("collector_config_snapshot_stale_total")
 
 # export OTLP do próprio processo (falhas por sinal) — ver otel_common.build_exporter
 OTEL_EXPORT_FAILURES = _instrument("collector_otel_export_failures_total")

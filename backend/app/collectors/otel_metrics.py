@@ -244,6 +244,11 @@ _SPEC: Dict[str, Dict[str, Any]] = {
     # push. outcome = ok | invalid | integration_unavailable | retry | dlq | dlq_failed.
     "collector_raw_processed_total": {"kind": "counter", "unit": "1", "labels": ("outcome",)},
     "collector_raw_consumer_lag": {"kind": "gauge", "unit": "1", "labels": ("partition",)},
+    # ADR-0018 Onda 3b: leituras de configuração do processor servidas da última
+    # versão boa porque o Postgres falhou. ``kind`` = routes | mapping |
+    # integration | inflight_rules | enrichment_policy | ocsf_enforcement |
+    # destination_residency | wazuh_loop_destinations | fallback_destination.
+    "collector_config_snapshot_stale_total": {"kind": "counter", "unit": "1", "labels": ("kind",)},
     # export OTLP do PRÓPRIO processo — sem Collector no meio, é o único sinal de
     # que a telemetria está se perdendo (backend fora, credencial inválida, TLS).
     # ``signal`` ∈ {traces, metrics, logs}. A série de métricas sobe quando o

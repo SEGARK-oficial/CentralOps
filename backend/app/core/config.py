@@ -290,6 +290,13 @@ class Settings(BaseSettings):
     # "*" = todas, ou ids separados por vírgula ("12,40"). Só vale com
     # EVENT_DATAPLANE=kafka e com o papel processor rodando.
     PIPELINE_RAW_INTEGRATIONS: str = ""
+    # Snapshot de configuração do processor (ADR-0018 Onda 3b). Rotas, mapping,
+    # regras em voo, política de enriquecimento e mapas de destino ficam em
+    # memória por TTL (s) — o Postgres sai do caminho de cada lote. Com o banco
+    # fora, a última versão boa vale por até MAX_STALE (s); depois disso o lote
+    # espera no Kafka em vez de seguir com configuração velha demais.
+    CONFIG_SNAPSHOT_TTL_SECONDS: float = 30.0
+    CONFIG_SNAPSHOT_MAX_STALE_SECONDS: float = 900.0
     # ── Resiliência do data-plane (hardening pós-review) ──────
     # Consume side: nº máx. de retentativas TRANSITÓRIAS por registro antes de
     # mandar o lote à DLQ e commitar (espelha o max_retries=10 da lane Celery).

@@ -36,7 +36,7 @@ from sqlalchemy.orm import selectinload
 from ..core.config import settings
 from ..db import database, models
 
-from . import quarantine
+from . import config_snapshot, quarantine
 from .auth.oauth_cache import get_or_refresh_token, invalidate as invalidate_token
 from .base import CollectorContext
 # Import no TOPO, não dentro da função: ``likely_no_session`` é chamado POR EVENTO
@@ -1273,7 +1273,14 @@ class StreamProcessor:
         integração inativa/agregadora ou coletor não registrado."""
         integration_id, stream, redis = self.integration_id, self.stream, self.redis
         # ── 1. Carrega Integration (session efêmera) ──────────────────
-        view = _load_cycle_integration(integration_id, stream)
+        # No processor, cada leitura de configuração deste método passa pelo
+        # snapshot com last-known-good (``config_snapshot``, ADR-0018 Onda 3b):
+        # servida da memória dentro do TTL e, com o banco fora, a última versão
+        # boa. Sem snapshot ativo (ciclo inline) é a leitura direta de sempre.
+        view = config_snapshot.read(
+            "integration", (integration_id, stream),
+            lambda: _load_cycle_integration(integration_id, stream),
+        )
         if view is None:
             return False
         self.integration = view.integration
@@ -1300,7 +1307,8 @@ class StreamProcessor:
         # AQUI, antes de reivindicar qualquer evento — o ciclo falha visível e
         # re-tenta, nada sai sem as regras (ADR-0018 Onda 0).
         dispatch_routes: list[Any] = await asyncio.to_thread(
-            _load_routes_for_org, organization_id
+            config_snapshot.read, "routes", organization_id,
+            lambda: _load_routes_for_org(organization_id),
         )
         self.dispatch_routes = dispatch_routes
 
@@ -1309,7 +1317,9 @@ class StreamProcessor:
         # a validação está OFF. Fail-safe interno → default global (tag_and_pass).
         self._ocsf_enforcement: Optional[str] = (
             await asyncio.to_thread(
-                ocsf_policy.resolve_enforcement_mode, organization_id
+                config_snapshot.read, "ocsf_enforcement", organization_id,
+                lambda: ocsf_policy.resolve_enforcement_mode(organization_id, strict=True),
+                lambda: ocsf_policy.resolve_enforcement_mode(organization_id),
             )
             if settings.OCSF_VALIDATION_ENABLED
             else None
@@ -1362,13 +1372,16 @@ class StreamProcessor:
         # resolvido em todo ciclo, com ou sem regras. O custo é um lookup em
         # ``sys.modules``; o que a ausência de regras economiza é a avaliação por
         # evento, não o import.
+        from .inflight import runtime as _inflight_runtime
         from .inflight.matcher import evaluate_ruleset
-        from .inflight.runtime import InflightAccumulator, load_inflight_rules_for_org
+        from .inflight.runtime import InflightAccumulator
 
         self._evaluate_ruleset = evaluate_ruleset
         self._inflight_org_id = organization_id
         self._inflight_rules = await asyncio.to_thread(
-            load_inflight_rules_for_org, organization_id
+            config_snapshot.read, "inflight_rules", organization_id,
+            lambda: _inflight_runtime.load_inflight_rules_for_org(organization_id, strict=True),
+            lambda: _inflight_runtime.load_inflight_rules_for_org(organization_id),
         )
         # Instanciado SÓ quando há regra: com a tupla vazia o hot path fica
         # byte-idêntico ao anterior (R2) e o flush é curto-circuitado.
@@ -1415,7 +1428,9 @@ class StreamProcessor:
             self._enrich_apply = _enrich_apply
             self._emit_enrich_stats = _emit_enrich_stats
             self._enrich_policy = await asyncio.to_thread(
-                _load_enrich_policy, organization_id, enabled=True
+                config_snapshot.read, "enrichment_policy", organization_id,
+                lambda: _load_enrich_policy(organization_id, enabled=True, strict=True),
+                lambda: _load_enrich_policy(organization_id, enabled=True),
             )
             if self._enrich_policy is not None and self._enrich_policy.rules:
                 self._enrich_runtime = _EnrichRuntime(
@@ -1449,8 +1464,10 @@ class StreamProcessor:
     async def load_mapping(self) -> None:
         """── 3. Carrega config + mapping atual ──"""
         self.config = await get_collector_config(self.redis)
+        platform, event_type = self.platform, self.event_type
         self.mapping_current = await asyncio.to_thread(
-            _load_current_mapping, self.platform, self.event_type
+            config_snapshot.read, "mapping", (platform, event_type),
+            lambda: _load_current_mapping(platform, event_type),
         )
 
     async def process(self, raw_event: Dict[str, Any], msg_id: str) -> None:
@@ -2611,11 +2628,14 @@ def _load_routes_for_org(org_id: Optional[int]) -> list[Any]:
     return compiled
 
 
-def _load_destination_residency(dest_ids: "set[str]") -> "dict[str, Optional[str]]":
+def _load_destination_residency(
+    dest_ids: "set[str]", *, strict: bool = False
+) -> "dict[str, Optional[str]]":
     """Carrega o mapa {destination_id → data_residency} para o conjunto de ids.
 
     Best-effort: falha silenciosa → retorna {} (sem enforcement, conservador
-    no sentido de nunca bloquear por erro de infraestrutura).
+    no sentido de nunca bloquear por erro de infraestrutura). ``strict=True``
+    relança: o snapshot do processor serve o último mapa bom (ADR-0018 Onda 3b).
     """
     if not dest_ids:
         return {}
@@ -2630,6 +2650,8 @@ def _load_destination_residency(dest_ids: "set[str]") -> "dict[str, Optional[str
             ).fetchall()
         return {str(r.id): (str(r.data_residency) if r.data_residency else None) for r in rows}
     except Exception:
+        if strict:
+            raise
         logger.warning("routing: falha ao carregar residency de destinos — enforcement desativado")
         return {}
 
@@ -2655,7 +2677,7 @@ def _bare_host(value: "Optional[str]") -> "Optional[str]":
     return v.lower() or None
 
 
-def _load_fallback_destination_id(org_id: Optional[int]) -> Optional[str]:
+def _load_fallback_destination_id(org_id: Optional[int], *, strict: bool = False) -> Optional[str]:
     """Vendor-neutro: id do Destination marcado ``is_default`` (catch-all).
 
     Resolução: o default da PRÓPRIA org tem precedência; senão um default GLOBAL
@@ -2681,11 +2703,15 @@ def _load_fallback_destination_id(org_id: Optional[int]) -> Optional[str]:
                 if row:
                     return str(row)
     except Exception:  # pragma: no cover — fail-safe: sem fallback inventado
+        if strict:
+            raise
         logger.debug("routing: falha ao resolver destino default (org=%s)", org_id, exc_info=True)
     return None
 
 
-def _load_wazuh_loop_destination_ids(dest_ids: "set[str]") -> "frozenset[str]":
+def _load_wazuh_loop_destination_ids(
+    dest_ids: "set[str]", *, strict: bool = False
+) -> "frozenset[str]":
     """Ids de destinos que entregam de VOLTA ao manager Wazuh.
 
     Qualquer syslog dest cujo host casa (exato, normalizado) o host de uma
@@ -2745,6 +2771,8 @@ def _load_wazuh_loop_destination_ids(dest_ids: "set[str]") -> "frozenset[str]":
             logger.info("routing: %d syslog dest(s) apontam ao manager Wazuh — anti-loop", len(loopy))
         return frozenset(loopy)
     except Exception:
+        if strict:
+            raise
         logger.warning("routing: falha ao computar destinos-loop Wazuh — só o sentinela wazuh-default")
         return frozenset()
 
@@ -2848,13 +2876,30 @@ def _enqueue_routed(
     _all_dest_ids: set[str] = set()
     for r in routes:
         _all_dest_ids.update(r.destination_ids)
-    _destination_residency = _load_destination_residency(_all_dest_ids)
+    # No processor estes três mapas vêm do snapshot com last-known-good
+    # (ADR-0018 Onda 3b): com o banco fora, a residência de dados e o anti-loop
+    # continuam valendo em vez de virarem vazio. Sem snapshot (ciclo inline), a
+    # leitura é a de sempre.
+    _dest_key = frozenset(_all_dest_ids)
+    _destination_residency = config_snapshot.read(
+        "destination_residency", _dest_key,
+        lambda: _load_destination_residency(_all_dest_ids, strict=True),
+        lambda: _load_destination_residency(_all_dest_ids),
+    )
     # destinos syslog que voltam ao manager Wazuh.
-    _wazuh_loop_ids = _load_wazuh_loop_destination_ids(_all_dest_ids)
+    _wazuh_loop_ids = config_snapshot.read(
+        "wazuh_loop_destinations", _dest_key,
+        lambda: _load_wazuh_loop_destination_ids(_all_dest_ids, strict=True),
+        lambda: _load_wazuh_loop_destination_ids(_all_dest_ids),
+    )
     # vendor-neutro: fallback = Destination marcado is_default p/ a org
     # (NÃO mais o wazuh-default hardcoded). None → não-roteados vão à DLQ/quarentena.
     _org_id = _batch_org_id(batch)
-    _fallback_id = _load_fallback_destination_id(_org_id)
+    _fallback_id = config_snapshot.read(
+        "fallback_destination", _org_id,
+        lambda: _load_fallback_destination_id(_org_id, strict=True),
+        lambda: _load_fallback_destination_id(_org_id),
+    )
 
     # sampling de redução resolvido das flags (não se reduz sem
     # medir: exige COST_METERING_ENABLED). Default OFF ⇒ route_batch byte-idêntico.
