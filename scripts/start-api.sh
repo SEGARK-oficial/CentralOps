@@ -52,6 +52,13 @@ fi
 # rodar em TODAS as réplicas no boot (a 1ª aplica/carimba, as demais no-op).
 # Aborta o boot se a migração falhar (não sobe a API com schema inconsistente).
 echo "start-api: migração de schema (python -m app.db.migrate)..."
-python -m app.db.migrate || { echo "start-api: migração FALHOU — abortando." >&2; exit 1; }
+# Com PgBouncer em pooling por transação, a migração vai DIRETO ao Postgres:
+# ela segura um pg_advisory_lock de SESSÃO, que o pooler quebraria
+# (ADR-0018 Onda 1). Sem DATABASE_MIGRATION_URL, usa a DATABASE_URL de sempre.
+if [ -n "${DATABASE_MIGRATION_URL:-}" ]; then
+    DATABASE_URL="${DATABASE_MIGRATION_URL}" python -m app.db.migrate || { echo "start-api: migração FALHOU — abortando." >&2; exit 1; }
+else
+    python -m app.db.migrate || { echo "start-api: migração FALHOU — abortando." >&2; exit 1; }
+fi
 
 exec uvicorn app.main:app --host 0.0.0.0 --port "${API_PORT:-8000}"

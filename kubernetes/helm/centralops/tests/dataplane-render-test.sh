@@ -7,7 +7,8 @@
 #   * o worker sobe pelo cops-celery da IMAGEM (no EE, centralops_ee.celery_app);
 #     o app fixo deixava a imagem EE em k8s sem as próprias tasks;
 #   * os workers têm tempo de drain ≥ task_time_limit (900 s), não os 30 s default;
-#   * o data-plane recebe TLS e RF 3 em broker externo, RF 1 no devBroker.
+#   * o data-plane recebe TLS e RF 3 em broker externo, RF 1 no devBroker;
+#   * PgBouncer opcional: app pelo pooler, migração direta; PrometheusRule opcional.
 #
 # Run: bash tests/dataplane-render-test.sh
 set -euo pipefail
@@ -51,6 +52,35 @@ explicit="$(helm template t "$CHART_DIR" --set devBroker.enabled=true \
 check "app explícito em todos os workers" \
   "$(grep -c '"custom.celery_app"' <<<"$explicit")" \
   "$(grep -c '^kind: Deployment' <<<"$explicit")"
+
+echo "==> Case 4: default — sem PgBouncer nem PrometheusRule"
+check "sem PgBouncer por padrão" "$(grep -c 'name: t-centralops-pgbouncer$' "$tmp/dev.yaml" || true)" "0"
+check "sem PrometheusRule por padrão" "$(grep -c '^kind: PrometheusRule' "$tmp/dev.yaml" || true)" "0"
+check "sem DATABASE_MIGRATION_URL por padrão" "$(grep -c 'DATABASE_MIGRATION_URL' "$tmp/dev.yaml" || true)" "0"
+
+echo "==> Case 5: PgBouncer ligado"
+helm template t "$CHART_DIR" --set devBroker.enabled=true --set networkPolicies.enabled=true \
+  --set pgbouncer.enabled=true \
+  --set 'secrets.databaseUrl=postgresql+psycopg2://cops:pw@db.example.internal:5432/centralops?sslmode=require' \
+  > "$tmp/pgb.yaml"
+check "Deployment do PgBouncer" "$(grep -A3 '^kind: Deployment' "$tmp/pgb.yaml" | grep -c 'name: t-centralops-pgbouncer$')" "1"
+check "Service do PgBouncer" "$(grep -A3 '^kind: Service$' "$tmp/pgb.yaml" | grep -c 'name: t-centralops-pgbouncer$')" "1"
+check "app aponta para o PgBouncer, sem query string" \
+  "$(grep -c 'DATABASE_URL: "postgresql+psycopg2://cops:pw@t-centralops-pgbouncer:5432/centralops"' "$tmp/pgb.yaml")" "1"
+check "migração com a URL direta (com sslmode)" \
+  "$(grep -c 'DATABASE_MIGRATION_URL: "postgresql+psycopg2://cops:pw@db.example.internal:5432/centralops?sslmode=require"' "$tmp/pgb.yaml")" "1"
+check "PgBouncer lê a URL direta" "$(grep -c 'key: DATABASE_MIGRATION_URL' "$tmp/pgb.yaml")" "1"
+check "pooling por transação" "$(grep -c 'name: POOL_MODE, value: "transaction"' "$tmp/pgb.yaml")" "1"
+check "NetworkPolicy de ingress do PgBouncer" "$(grep -c 'name: t-centralops-allow-pgbouncer-from-app' "$tmp/pgb.yaml")" "1"
+
+echo "==> Case 6: PrometheusRule ligado"
+helm template t "$CHART_DIR" --set devBroker.enabled=true \
+  --set monitoring.prometheusRule.enabled=true --set monitoring.prometheusRule.labels.release=kps \
+  --show-only templates/prometheusrule.yaml > "$tmp/rules.yaml"
+check "PrometheusRule renderizado" "$(grep -c '^kind: PrometheusRule' "$tmp/rules.yaml")" "1"
+check "label do seletor aplicada" "$(grep -c 'release: kps' "$tmp/rules.yaml")" "1"
+check "as 9 regras do data-plane" "$(grep -c -- '- alert: CentralOps' "$tmp/rules.yaml")" "9"
+check "template de label preservado" "$(grep -c 'labels.destination_id' "$tmp/rules.yaml")" "2"
 
 if [ "$fail" -ne 0 ]; then echo "FALHOU"; exit 1; fi
 echo "OK"
