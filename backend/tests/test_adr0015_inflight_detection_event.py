@@ -343,7 +343,7 @@ async def test_the_real_wire_reaches_the_routing_helper(
     roteados: list[tuple[list, list]] = []
     monkeypatch.setattr(
         pipeline_mod, "_enqueue_routed",
-        lambda batch, routes: roteados.append((list(batch), list(routes))),
+        lambda batch, routes, **kw: roteados.append((list(batch), list(routes))),
     )
 
     org_id = _seed_org(db_session)

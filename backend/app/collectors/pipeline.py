@@ -25,6 +25,7 @@ import logging
 import ssl
 import time
 from contextlib import asynccontextmanager
+from contextvars import ContextVar
 from datetime import datetime
 from typing import Any, AsyncIterator, Callable, Dict, Optional, Tuple
 
@@ -71,7 +72,13 @@ from .normalize.envelope import EnvelopeContext, build_envelope, has_customer_id
 from .rate_limit_redis import RedisRateLimiter
 from .registry import get as registry_get, has as registry_has
 from .state.cursor import CursorStore
-from .state.dedupe import claim, compute_message_id
+from .state.dedupe import (
+    claim,
+    compute_message_id,
+    pending_set_key,
+    recover_orphan_claims,
+    settle_pending,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -677,20 +684,29 @@ def _record_source_ingested(integration_id: int, count: int) -> None:
         pass
 
 
-async def _maybe_suppress(redis: Any, envelope: dict, suppress_routes: list) -> Optional[str]:
-    """Decide a supressão por assinatura de UM evento.
+async def _suppression_verdicts(
+    redis: Any, envelope: dict, suppress_routes: list
+) -> "frozenset[str]":
+    """Rotas que SUPRIMEM este evento (rate-limit por assinatura, Number-to-Allow).
 
-    A 1ª ``suppress_route`` (pré-filtrada: já tem ``suppress_key`` + ``allow>0``) cuja
-    condição casa DECIDE (short-circuit): acima do limite na janela → retorna o
-    ``route_id`` que suprimiu (o caller DESCARTA o evento); dentro do limite → decora o
-    liberado com ``_centralops.suppress_count`` (preserva a contagem p/ detecção) e
-    retorna ``None`` (entregar). **Fail-OPEN:** qualquer erro (Redis lento/indisponível)
-    → ``None`` = entrega (supressão é otimização de custo, jamais correção — nunca
-    derruba nem perde evento por causa dela)."""
+    Cada ``suppress_route`` (pré-filtrada: ``suppress_key`` + ``allow>0``) cuja
+    condição casa é avaliada com o PRÓPRIO contador: acima do limite na janela, o
+    ``route_id`` entra no conjunto devolvido; dentro do limite, a 1ª rota que libera
+    decora ``_centralops.suppress_count`` (preserva a contagem p/ detecção).
+
+    A supressão vale SÓ para os destinos da rota que suprimiu (ADR-0018 Onda 0): o
+    chamador NÃO descarta o evento, passa o conjunto adiante e ``route_batch`` tira o
+    evento apenas daquela rota. Antes, a 1ª rota que casava decidia e o evento era
+    descartado ANTES do fan-out — sumia de todos os destinos, inclusive do lago.
+
+    **Fail-OPEN:** erro de Redis numa rota → aquela rota não suprime (supressão é
+    otimização de custo, jamais correção)."""
     from .routing.engine import event_labels, matches
     from .state.dedupe import claim_suppress, suppress_signature
 
     labels = event_labels(envelope)
+    suppressed: set[str] = set()
+    decorated = False
     for r in suppress_routes:
         if not matches(r.condition, labels):
             continue
@@ -698,26 +714,27 @@ async def _maybe_suppress(redis: Any, envelope: dict, suppress_routes: list) -> 
             sig = suppress_signature(labels, r.suppress_key)
             if sig is None:
                 # Assinatura DEGENERADA (nenhum componente do suppress_key resolveu
-                # neste evento): agrupar por ela descartaria 100% do tráfego. Não
-                # suprime — ver o fail-safe em suppress_signature.
+                # neste evento): agrupar por ela descartaria 100% do tráfego da rota.
+                # Não suprime — ver o fail-safe em suppress_signature.
                 logger.warning(
                     "suppress: suppress_key=%r não resolveu NENHUM label na rota %s — "
                     "supressão IGNORADA para este evento (labels disponíveis: %s). "
                     "Corrija a chave da rota: só labels de _centralops são válidos.",
                     r.suppress_key, r.id, sorted(labels),
                 )
-                return None
+                continue
             keep, count = await claim_suppress(
                 redis, r.id, sig, r.suppress_allow, r.suppress_window_s
             )
         except Exception:  # noqa: BLE001 — fail-open: erro de Redis → entrega
             logger.debug("suppress: claim_suppress falhou (route=%s) — fail-open", r.id, exc_info=True)
-            return None
+            continue
         if not keep:
-            return r.id
-        envelope.setdefault("_centralops", {})["suppress_count"] = count
-        return None
-    return None
+            suppressed.add(str(r.id))
+        elif not decorated:
+            envelope.setdefault("_centralops", {})["suppress_count"] = count
+            decorated = True
+    return frozenset(suppressed)
 
 
 #: Trava de exclusão mútua por (integração, stream). Ver ``run_collection_once``.
@@ -903,6 +920,14 @@ async def run_collection_once(integration_id: int, stream: str) -> None:
                 pass
 
 
+#: Escopo extra do conjunto de claims pendentes. O ``processor`` do tópico raw
+#: (ADR-0018 Onda 2) roda ciclos SEM a trava do stream — vários processadores podem
+#: tratar o mesmo (integração, stream) em partições diferentes — e define o escopo
+#: como a partição: cada partição tem um único consumidor por vez, então a
+#: recuperação de claims órfãs no início do ciclo só toca claims daquela partição.
+PENDING_SCOPE: "ContextVar[str]" = ContextVar("collect_pending_scope", default="")
+
+
 async def _run_collection_once(integration_id: int, stream: str) -> None:
     # Cada task cria e fecha seu próprio cliente Redis efêmero.
     # Pool compartilhado foi revertido: ConnectionPool async
@@ -912,6 +937,34 @@ async def _run_collection_once(integration_id: int, stream: str) -> None:
 
     redis = get_worker_redis()
     redis_owns = True  # sempre efêmero — fechar no finally é obrigatório
+
+    # ADR-0018 Onda 0 — claims ÓRFÃS de um ciclo morto. Este ciclo roda com a
+    # trava do stream, então nenhum outro está reivindicando: o que sobrou no
+    # conjunto de pendentes é de um ciclo que levou SIGKILL/OOM/hard-timeout sem
+    # passar pelo ``finally``. Soltar ANTES de coletar faz os eventos re-buscados
+    # (o cursor não avançou) serem processados em vez de descartados como
+    # duplicados. Best-effort: Redis fora → a coleta falha adiante de todo jeito.
+    _scope = PENDING_SCOPE.get()
+    _pending_set = pending_set_key(integration_id, f"{stream}:{_scope}" if _scope else stream)
+    try:
+        _orphans = await recover_orphan_claims(redis, integration_id, _pending_set)
+        if _orphans:
+            logger.warning(
+                "dedupe: %d claim(s) órfã(s) de um ciclo interrompido soltas "
+                "(integration=%s stream=%s) — eventos serão reprocessados",
+                _orphans, integration_id, stream,
+                extra={
+                    "event": "dedupe.orphan_claims_recovered",
+                    "integration_id": integration_id,
+                    "stream": stream,
+                    "recovered": _orphans,
+                },
+            )
+    except Exception:  # noqa: BLE001 — nunca bloqueia a coleta
+        logger.warning(
+            "dedupe: recuperação de claims órfãs falhou (integration=%s stream=%s)",
+            integration_id, stream, exc_info=True,
+        )
 
     cursor_store = CursorStore(redis)
     cursor_before: Optional[Dict[str, Any]] = None
@@ -1062,8 +1115,10 @@ async def _run_collection_once(integration_id: int, stream: str) -> None:
         # resolve as rotas UMA vez por ciclo OFF do event
         # loop (a query sync nunca bloqueia a coleta). O ciclo é mono-tenant
         # (uma integração), então ``organization_id`` é autoritativo. Roteamento
-        # é o único modelo: sem rotas extras, tudo cai no catch-all wazuh-default
-        # (byte-idêntico). Fail-safe: ``_load_routes_for_org`` → [] em erro.
+        # é o único modelo: sem rotas extras, tudo cai no destino default.
+        # FAIL-CLOSED: rota quebrada ou banco fora levanta ``RoutingUnavailable``
+        # AQUI, antes de reivindicar qualquer evento — o ciclo falha visível e
+        # re-tenta, nada sai sem as regras (ADR-0018 Onda 0).
         dispatch_routes: list[Any] = await asyncio.to_thread(
             _load_routes_for_org, organization_id
         )
@@ -1243,6 +1298,9 @@ async def _run_collection_once(integration_id: int, stream: str) -> None:
 
         # ── 4. Loop async de coleta ───────────────────────────────────
         batch: list[Dict[str, Any]] = []
+        # Veredito de supressão POR ROTA do lote corrente: event_id → rotas que
+        # o suprimiram. Viaja até o route_batch (ADR-0018 Onda 0).
+        batch_suppressed: Dict[str, "frozenset[str]"] = {}
         last_flush = time.monotonic()
         # (unsettled_claims/batch_msg_ids são inicializados ANTES do try — o
         # except final os referencia; ver comentário na inicialização.)
@@ -1276,6 +1334,7 @@ async def _run_collection_once(integration_id: int, stream: str) -> None:
                         integration_id,
                         msg_id,
                         ttl_seconds=config.effective_dedupe_ttl_seconds,
+                        pending_set=_pending_set,
                     ):
                         DEDUPE_DROPS.labels(vendor=platform, stream=stream).inc()
                         # TAP DE DEDUPE. Antes disto o evento sumia SEM registro
@@ -1594,52 +1653,58 @@ async def _run_collection_once(integration_id: int, stream: str) -> None:
                             )
                         continue
 
-                    # suppression por assinatura (rate-limit
-                    # Number-to-Allow). A 1ª suppress-route que casa decide; acima do
-                    # limite na janela → o evento é SUPRIMIDO (não entra no batch). A 1ª
-                    # ocorrência sempre passa (preserva detecção). Fail-OPEN em erro Redis.
+                    # suppression por assinatura (rate-limit Number-to-Allow),
+                    # POR ROTA (ADR-0018 Onda 0): acima do limite na janela o evento
+                    # deixa de ir aos destinos DAQUELA rota e segue para as outras
+                    # (lago, rotas protegidas). O veredito viaja com o lote até o
+                    # ``route_batch``. A 1ª ocorrência sempre passa (preserva detecção).
+                    # Fail-OPEN em erro Redis.
                     if _suppress_routes:
-                        _suppressed_by = await _maybe_suppress(redis, envelope, _suppress_routes)
-                        if _suppressed_by is not None:
+                        _suppressed_by = await _suppression_verdicts(
+                            redis, envelope, _suppress_routes
+                        )
+                        if _suppressed_by:
                             from .metrics import SUPPRESSED
                             from . import observability_store as _obs_sup
-
-                            SUPPRESSED.labels(route_id=_suppressed_by).inc()
-                            _obs_sup.record_counter("route", _suppressed_by, "suppressed", 1.0)
-                            # volume evitado pela supressão → bytes_saved{reason=suppress}
-                            # (Evitado/Redução). Best-effort; o helper é gated
-                            # (REDUCTION_SUPPRESS + COST_METERING) e fail-closed em org.
                             from .reduction import metering as _metering_sup
-
-                            _metering_sup.record_suppress_saving(
-                                (envelope.get("_centralops") or {}).get("organization_id"),
-                                envelope,
-                            )
-                            # tap de ciclo de vida: o evento suprimido NUNCA chegava à
-                            # captura (morria antes do dispatch) — o operador via um
-                            # buraco sem explicação. Best-effort, curto-circuitado
-                            # quando não há sessão ativa.
                             from .capture_session import OUTCOME_SUPPRESSED
 
+                            for _sup_rid in sorted(_suppressed_by):
+                                SUPPRESSED.labels(route_id=_sup_rid).inc()
+                                _obs_sup.record_counter("route", _sup_rid, "suppressed", 1.0)
+                                # volume evitado pela supressão → bytes_saved{reason=suppress}
+                                # (Evitado/Redução). Best-effort; o helper é gated
+                                # (REDUCTION_SUPPRESS + COST_METERING) e fail-closed em org.
+                                _metering_sup.record_suppress_saving(
+                                    (envelope.get("_centralops") or {}).get("organization_id"),
+                                    envelope,
+                                )
+                            # tap de ciclo de vida: registra QUAIS rotas suprimiram. O
+                            # evento continua — as outras rotas o entregam normalmente.
                             await _capture_outcome(
                                 [envelope],
                                 organization_id,
                                 OUTCOME_SUPPRESSED,
-                                detail=f"route={_suppressed_by}",
-                                # Supressão acontece ANTES do fan-out por destino,
+                                detail="route=" + ",".join(sorted(_suppressed_by)),
+                                # Supressão é decidida ANTES do fan-out por destino,
                                 # logo o envelope ainda é o roteado — sem redação
                                 # de PII por rota aplicada.
                                 stage=capture_session.STAGE_ROUTED,
                                 pii_redacted=False,
                             )
-                            continue
+                            _sup_eid = str(
+                                (envelope.get("_centralops") or {}).get("event_id") or ""
+                            )
+                            if _sup_eid:
+                                batch_suppressed[_sup_eid] = _suppressed_by
 
                     # ── Enriquecimento LOCAL, por evento (ADR-LOCAL-0002) ─
                     # Posição deliberada, e cada vizinho explica um porquê:
                     #   • DEPOIS do dedupe (:1026) → não gasta lookup em evento
                     #     duplicado;
-                    #   • DEPOIS da supressão (o `continue` logo acima) → não
-                    #     gasta lookup em evento que não vai a lugar nenhum;
+                    #   • DEPOIS da supressão → o veredito já está registrado
+                    #     (a supressão é por rota; o evento segue enriquecido
+                    #     para as rotas que não o suprimiram);
                     #   • ANTES da classificação em voo (logo abaixo) → o campo
                     #     enriquecido ALIMENTA a detecção. Esta é a razão de o
                     #     enriquecimento local existir como estágio separado do
@@ -1774,6 +1839,7 @@ async def _run_collection_once(integration_id: int, stream: str) -> None:
                             enrich_skip_reason=(
                                 None if _enrich_policy is not None else "no_policy"
                             ),
+                            suppressed=batch_suppressed,
                         )
                         _flush_capture_buf(
                             capture_buf, organization_id, platform,
@@ -1801,8 +1867,10 @@ async def _run_collection_once(integration_id: int, stream: str) -> None:
                         # silenciosa: a claim ficaria de pé e o retry
                         # descartaria o evento como duplicado.
                         unsettled_claims.difference_update(batch_msg_ids)
+                        await _settle_pending_claims(redis, _pending_set, batch_msg_ids)
                         batch_msg_ids = []
                         batch = []
+                        batch_suppressed = {}
                         last_flush = time.monotonic()
             except aiohttp.ClientResponseError as exc:
                 # Recovery de 401 in-flight: invalida cache OAuth e propaga
@@ -1840,6 +1908,7 @@ async def _run_collection_once(integration_id: int, stream: str) -> None:
                     enrich_skip_reason=(
                         None if _enrich_policy is not None else "no_policy"
                     ),
+                    suppressed=batch_suppressed,
                 )
                 _record_source_ingested(integration_id, len(batch))
                 _flush_capture_buf(
@@ -1857,6 +1926,7 @@ async def _run_collection_once(integration_id: int, stream: str) -> None:
                 # finally e o retry os reprocessaria — duplicata, não perda,
                 # mas ruído evitável.
                 unsettled_claims.difference_update(batch_msg_ids)
+                await _settle_pending_claims(redis, _pending_set, batch_msg_ids)
                 batch_msg_ids = []
 
         # ── 5. Persiste cursor final (RF02) ───────────────────────────
@@ -1985,11 +2055,13 @@ async def _run_collection_once(integration_id: int, stream: str) -> None:
         # de pé até o TTL e o retry descartava os eventos como duplicados —
         # perda silenciosa. OBRIGATORIAMENTE antes do ``aclose`` abaixo: o DEL
         # iria contra um cliente fechado.
+        _pending_clear = not unsettled_claims
         if unsettled_claims:
             try:
                 from .state.dedupe import release_many as _release_many
 
                 _n = await _release_many(redis, integration_id, unsettled_claims)
+                _pending_clear = True
                 logger.warning(
                     "dedupe: %d claim(s) não liquidada(s) solta(s) p/ replay seguro "
                     "(integration=%s stream=%s) — os eventos serão recoletados em vez "
@@ -2004,6 +2076,14 @@ async def _run_collection_once(integration_id: int, stream: str) -> None:
                 )
             except Exception:  # noqa: BLE001 — jamais mascara a exceção original
                 logger.exception("dedupe: falha ao soltar claims não liquidadas")
+        # Ciclo encerrado com toda claim liquidada ou solta: o conjunto de
+        # pendentes zera. Se o release falhou, o conjunto FICA — é ele que deixa
+        # o próximo ciclo soltar essas claims (ADR-0018 Onda 0).
+        if _pending_clear:
+            try:
+                await redis.delete(_pending_set)
+            except Exception:  # noqa: BLE001 — a recuperação do próximo ciclo cobre
+                logger.debug("dedupe: falha ao limpar o conjunto de pendentes", exc_info=True)
         # Fecha conexão apenas se for efêmera (sem pool compartilhado do worker).
         # Fechar client de pool com aclose() devolve conexões ao pool — ok,
         # mas como sinal explícito de intenção: só faz aclose no cliente efêmero.
@@ -2011,13 +2091,28 @@ async def _run_collection_once(integration_id: int, stream: str) -> None:
             await redis.aclose()
 
 
+async def _settle_pending_claims(redis: Any, pending_set: str, ids: list[str]) -> None:
+    """Tira as claims liquidadas do conjunto de pendentes. Best-effort: falhar
+    aqui só faz a recuperação soltar uma claim já liquidada (duplicata, nunca
+    perda)."""
+    try:
+        await settle_pending(redis, pending_set, ids)
+    except Exception:  # noqa: BLE001
+        logger.debug("dedupe: falha ao liquidar pendentes em %s", pending_set, exc_info=True)
+
+
 def _enqueue_dispatch(
     batch: list[Dict[str, Any]],
     routes: Optional[list[Any]] = None,
     *,
     enrich_skip_reason: Optional[str] = "producer_unsupported",
+    suppressed: Optional[Dict[str, "frozenset[str]"]] = None,
 ) -> None:
     """Publica lote pelo ROTEAMENTO (modelo único).
+
+    ``suppressed`` — veredito de supressão POR ROTA (event_id → rotas que o
+    suprimiram), decidido no laço de coleta; o evento só deixa os destinos dessas
+    rotas (ADR-0018 Onda 0).
 
     Roteamento é o único caminho de despacho (sem flag): ``_enqueue_routed``
     avalia cada evento contra as rotas (first-match, ``is_final`` stop vs
@@ -2028,7 +2123,8 @@ def _enqueue_dispatch(
     senão à DLQ (``unrouted``). Os produtores chamam este helper.
 
     ``routes`` é a lista compilada pré-resolvida do ciclo de coleta; ``None``
-    → resolve inline (callers bulk). Fail-safe: ``_load_routes_for_org`` → [].
+    → resolve inline (callers bulk). FAIL-CLOSED: ``_load_routes_for_org``
+    levanta ``RoutingUnavailable`` e o produtor re-tenta (ADR-0018 Onda 0).
     """
     if routes is None:
         routes = _load_routes_for_org(_batch_org_id(batch))
@@ -2056,7 +2152,7 @@ def _enqueue_dispatch(
         batch = _gate_internal_producers(batch)
         if not batch:
             return
-    _enqueue_routed(batch, routes)
+    _enqueue_routed(batch, routes, suppressed=suppressed)
 
 
 #: ``_centralops.vendor`` de tudo que a própria CentralOps produz (1006 da
@@ -2130,17 +2226,17 @@ def _compile_route_row(row: Any) -> Any:
     # raw_reduction, que é fail-open): a spec armazenada já é validada no CRUD
     # (422 no spec ruim), então uma falha de compile em runtime é corrupção — e
     # NÃO podemos entregar PII em claro. Deixamos PROPAGAR: _load_routes_for_org
-    # captura → retorna [] → tudo cai no wazuh-default INTERNO (sem vazamento
-    # externo, zero perda). NUNCA engolir para () (isso seria fail-open = PII em
-    # claro no SIEM). Gated por PII_REDACTION_ENABLED (default OFF → byte-idêntico
+    # converte em ``RoutingUnavailable`` e o lote é RETIDO (o ciclo falha e
+    # re-tenta). NUNCA engolir para () (isso seria fail-open = PII em claro no
+    # SIEM). Gated por PII_REDACTION_ENABLED (default OFF → byte-idêntico
     # quando NENHUMA rota tem spec de redação, mesmo com o roteamento GA ativo).
     _raw_red = getattr(row, "pii_redaction", None)
     if _raw_red:
         if not settings.PII_REDACTION_ENABLED:
             # FAIL-CLOSED: a rota TEM spec de redação mas a
             # feature está desligada. NÃO entregar cleartext ao destino externo —
-            # PROPAGA → _load_routes_for_org cai p/ wazuh-default interno. (Byte-
-            # idêntico só vale quando NENHUMA rota tem spec — o estado default.)
+            # PROPAGA → _load_routes_for_org retém o lote. (Byte-idêntico só vale
+            # quando NENHUMA rota tem spec — o estado default.)
             from .routing import PiiRedactionError
 
             raise PiiRedactionError(
@@ -2189,22 +2285,55 @@ def _compile_route_row(row: Any) -> Any:
     )
 
 
-def _load_routes_for_org(org_id: Optional[int]) -> list[Any]:
-    """Compiled enabled routes for ``org_id`` (sync DB). FAIL-SAFE: returns ``[]``
-    on any error → ``route_batch`` then sends EVERYTHING to wazuh-default (zero
-    silent loss, back-compat). Resolved once per cycle off-loop by the caller."""
-    try:
-        from ..db import repository
+class RoutingUnavailable(RuntimeError):
+    """As rotas da org não puderam ser carregadas ou compiladas: o lote NÃO sai.
 
+    Transitório do ponto de vista do produtor — o ciclo de coleta falha, o cursor
+    volta e as claims são soltas; o próximo ciclo tenta de novo (Celery re-tenta
+    as tasks síncronas). Nenhum evento é perdido e nenhum sai sem as regras."""
+
+
+def _load_routes_for_org(org_id: Optional[int]) -> list[Any]:
+    """Rotas habilitadas e compiladas de ``org_id`` (DB síncrono). Resolvido uma
+    vez por ciclo, fora do event loop, pelo chamador.
+
+    FAIL-CLOSED (ADR-0018 Onda 0). Qualquer falha — banco fora, rota corrompida,
+    spec de PII que não compila — levanta :class:`RoutingUnavailable`, nomeando a
+    rota quando é ela a culpada. Antes devolvia ``[]``: sem rotas, TODO evento ia
+    ao destino ``is_default`` da org — que desde o roteamento vendor-neutro pode
+    ser um destino EXTERNO. Uma rota quebrada desligava em silêncio os drops (volume
+    e custo explodiam) e a redação de PII (dado em claro no SIEM). Cada rota é
+    compilada isoladamente só para o erro dizer QUAL rota está quebrada; o lote
+    continua retido até ela ser corrigida."""
+    from ..db import repository
+
+    try:
         with database.SessionLocal() as session:
             rows = repository.RouteRepository(session).list_enabled_for_org(org_id)
-            return [_compile_route_row(r) for r in rows]
-    except Exception:
-        logger.exception(
-            "routing: falha ao carregar rotas (org=%s) — fallback: tudo p/ wazuh-default",
-            org_id,
-        )
-        return []
+    except Exception as exc:
+        logger.exception("routing: falha ao carregar rotas (org=%s) — lote retido", org_id)
+        raise RoutingUnavailable(f"rotas da org {org_id} indisponíveis") from exc
+
+    compiled: list[Any] = []
+    for row in rows:
+        try:
+            compiled.append(_compile_route_row(row))
+        except Exception as exc:
+            route_id = getattr(row, "id", "?")
+            logger.error(
+                "routing: rota %s (org=%s) não compila — entrega da org retida até a "
+                "correção (fail-closed): %s",
+                route_id, org_id, exc,
+                extra={
+                    "event": "routing.route_invalid",
+                    "organization_id": org_id,
+                    "route_id": str(route_id),
+                },
+            )
+            raise RoutingUnavailable(
+                f"rota {route_id} da org {org_id} inválida: {type(exc).__name__}"
+            ) from exc
+    return compiled
 
 
 def _load_destination_residency(dest_ids: "set[str]") -> "dict[str, Optional[str]]":
@@ -2419,7 +2548,12 @@ def _capture_outcomes(org_id: Optional[int], result: Any) -> None:
         logger.debug("capture: falha ao registrar desfechos do roteamento", exc_info=True)
 
 
-def _enqueue_routed(batch: list[Dict[str, Any]], routes: list[Any]) -> None:
+def _enqueue_routed(
+    batch: list[Dict[str, Any]],
+    routes: list[Any],
+    *,
+    suppressed: Optional[Dict[str, "frozenset[str]"]] = None,
+) -> None:
     """Split the batch per-event via the routing engine and
     enqueue one (sub-)batch per resolved destination. ALL destinations (incl. the
     Wazuh syslog destination) go through the SAME path — Kafka data-plane when
@@ -2466,6 +2600,7 @@ def _enqueue_routed(batch: list[Dict[str, Any]], routes: list[Any]) -> None:
         # drop não tem flag REDUCTION_* (é config de rota, sempre ativa) — a medição
         # segue só o metering de custo. Off ⇒ nenhuma serialização no ramo de drop.
         measure_drop_bytes=bool(settings.COST_METERING_ENABLED),
+        suppressed=suppressed,
     )
 
     # ── Tap de captura: DESFECHO de cada evento que NÃO foi entregue ────
@@ -2486,15 +2621,20 @@ def _enqueue_routed(batch: list[Dict[str, Any]], routes: list[Any]) -> None:
             "marque um destino como default.",
             len(result.unrouted_events), _org_id,
         )
-        try:
-            persist_batch_dlq(
-                result.unrouted_events,
-                destination_id="__unrouted__",
-                error_kind="unrouted",
-                organization_id=_org_id,
+        # A DLQ é o ÚNICO destino destes eventos: se a gravação falhar, o lote
+        # inteiro falha AQUI, antes de qualquer produce — o ciclo volta o cursor e
+        # solta as claims, e o próximo ciclo re-tenta. Antes a falha era engolida
+        # e os eventos sumiam (ADR-0018 Onda 0).
+        if persist_batch_dlq(
+            result.unrouted_events,
+            destination_id="__unrouted__",
+            error_kind="unrouted",
+            organization_id=_org_id,
+        ) is not True:
+            raise RuntimeError(
+                f"DLQ indisponível para {len(result.unrouted_events)} evento(s) "
+                f"sem rota (org={_org_id}) — lote retido"
             )
-        except Exception:  # pragma: no cover — DLQ best-effort, nunca derruba a coleta
-            logger.exception("routing: falha ao persistir não-roteados na DLQ")
 
     for outcome, count in (
         ("routed", result.routed),
@@ -2891,6 +3031,7 @@ async def _send_chunk_with_retry(
     Emits ``EVENTS_SENT``/``EVENTS_REJECTED``/``BYTES_SENT``/``DELIVERY_LATENCY``
     and ``RETRIES`` (one per retry attempt). Returns the last ``DeliveryResult``.
     """
+    from .circuit_breaker import BreakerOpen as _BreakerOpen
     from .delivery import TransientDeliveryError
     from .output._fastjson import dumps_bytes
     from .output.delivery_config import backoff_delay_s
@@ -2956,6 +3097,33 @@ async def _send_chunk_with_retry(
             )
             if attempt >= max_retries:
                 raise TransientDeliveryError(dest_config.destination_id)
+            continue  # retry
+        except _BreakerOpen:
+            raise
+        except Exception as exc:  # noqa: BLE001 — classificado abaixo, nunca engolido
+            # ADR-0018 Onda 0. Um erro do sender que NÃO é timeout (conexão
+            # recusada/resetada, DNS, TLS, ou uma falha não classificada ao
+            # formatar) subia cru até o consumer, que o tratava como
+            # "não-transitório" e COMMITAVA o offset sem DLQ: perda silenciosa
+            # a cada restart do destino syslog (o default). Agora é transitório:
+            # re-tenta com backoff e, esgotado, vira TransientDeliveryError (o
+            # consumer manda à DLQ ``exhausted``). Só erro de rede conta no
+            # breaker — um evento que quebra o formatter não deve abrir o
+            # disjuntor do destino inteiro.
+            elapsed = time.monotonic() - started
+            DELIVERY_LATENCY.labels(**labels).observe(elapsed)
+            if isinstance(exc, (OSError, aiohttp.ClientError)):
+                await circuit_breaker.record_failure_for_config(redis, dest_config)
+            logger.warning(
+                "dispatch_to_destination: falha de envio %s dest=%s attempt=%d/%d",
+                type(exc).__name__,
+                dest_config.destination_id,
+                attempt,
+                max_retries,
+                exc_info=not isinstance(exc, (OSError, aiohttp.ClientError)),
+            )
+            if attempt >= max_retries:
+                raise TransientDeliveryError(dest_config.destination_id) from exc
             continue  # retry
 
         elapsed = time.monotonic() - started

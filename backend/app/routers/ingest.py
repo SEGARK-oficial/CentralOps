@@ -22,7 +22,8 @@ import dataclasses
 import hashlib
 import json
 import logging
-from typing import Any, List, Optional
+import zlib
+from typing import Any, Dict, List, Optional, Tuple
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request, Response, status
 from pydantic import BaseModel
@@ -30,7 +31,8 @@ from redis.exceptions import RedisError
 from sqlalchemy.orm import Session
 
 from ..collectors import registry as collector_registry
-from ..collectors.ingest_buffer import buffer_depth, push_events
+from ..collectors.dataplane.raw import OversizedRawEventError, produce_raw_async
+from ..collectors.ingest_buffer import buffer_depth, push_events, push_goes_to_kafka
 from ..collectors.metrics import (
     INGEST_ACCEPTED,
     INGEST_BUFFER_DEPTH,
@@ -52,6 +54,8 @@ router = APIRouter(prefix="/ingest", tags=["ingest"])
 # Caps por requisição (defesa contra payloads abusivos antes do buffer).
 _MAX_BODY_BYTES = 16 * 1024 * 1024  # 16 MiB
 _MAX_EVENTS_PER_REQUEST = 20_000
+# Espera sugerida ao edge quando o buffer está cheio: ~1 ciclo de dreno (20 s).
+_BUFFER_FULL_RETRY_AFTER_S = 20
 # Teto por-evento individual (após o teto do corpo). Um único evento gigante trava a
 # normalização e estoura o teto de payload do DB/destino a jusante — os concorrentes
 # (Cribl/Vector) truncam ou dropam a linha, não o lote. Aqui: dropa+conta a linha, o
@@ -135,10 +139,11 @@ async def _redis_client() -> Any:
 
 
 def _extract_token(authorization: Optional[str], x_token: Optional[str]) -> Optional[str]:
-    """Token de ``Authorization: Bearer <t>`` ou ``X-CentralOps-Ingest-Token``."""
+    """Token de ``Authorization: Bearer <t>``, ``Authorization: Splunk <t>`` (clientes
+    HEC) ou ``X-CentralOps-Ingest-Token``. É sempre o token de ingestão da integração."""
     if authorization:
         parts = authorization.split(None, 1)
-        if len(parts) == 2 and parts[0].lower() == "bearer":
+        if len(parts) == 2 and parts[0].lower() in ("bearer", "splunk"):
             return parts[1].strip()
     if x_token:
         return x_token.strip()
@@ -290,29 +295,11 @@ def _stamp(event: dict, stream: str) -> dict:
     return event
 
 
-# ── 1. Endpoint de ingestão (token-auth) ────────────────────────────────────
+# ── Núcleo comum dos endpoints de ingestão ─────────────────────────────────
 
 
-@router.post("/{stream}", response_model=IngestResponse)
-async def ingest(
-    stream: str,
-    request: Request,
-    response: Response,
-    authorization: Optional[str] = Header(default=None),
-    x_centralops_ingest_token: Optional[str] = Header(default=None),
-    db: Session = Depends(database.get_session),
-) -> IngestResponse:
-    """Recebe eventos crus de um edge-collector e os bufferiza para o pipeline.
-
-    Autenticado pelo **token de ingestão** da integração (Bearer) — NÃO por
-    sessão de usuário. O token é a credencial e é escopado a UMA integração: ele
-    concede acesso a todos os ``stream`` registrados DESSA integração (o ``stream``
-    no path é só o canal de dados, não um vetor de escopo). Não há acesso
-    cross-org: o token resolve exatamente a integração que o emitiu. Valida que a
-    plataforma é ``transport="push"`` e que o ``stream`` existe para ela."""
-    token = _extract_token(authorization, x_centralops_ingest_token)
-    integ = _authenticate(db, token)
-
+def _admit(integ: models.Integration, stream: str) -> None:
+    """Rate limit + plataforma push + stream registrado. Levanta HTTP ao recusar."""
     # Rate-limit por integração/token: protege o buffer Redis de flood
     # por token vazado. Checagem barata, ANTES de ler o corpo. 429 + Retry-After.
     retry_after = ingest_rate_limiter.check(integ.id)
@@ -347,9 +334,37 @@ async def ingest(
             params={"stream": stream, "platform": integ.platform},
         )
 
-    body = await request.body()
-    batch = _parse_events(body, request.headers.get("content-type", ""))
 
+
+async def _read_body(request: Request) -> bytes:
+    """Lê o corpo; descompacta ``Content-Encoding: gzip`` com teto no tamanho
+    DESCOMPACTADO (sem isto, um gzip pequeno viraria uma bomba de memória).
+    Exporters OTLP e o HEC do Vector mandam gzip por padrão."""
+    body = await request.body()
+    encoding = (request.headers.get("content-encoding") or "").strip().lower()
+    if encoding in ("", "identity"):
+        return body
+    if encoding != "gzip":
+        raise HTTPException(
+            status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+            detail="Content-Encoding não suportado: use gzip ou nenhum",
+        )
+    decompressor = zlib.decompressobj(16 + zlib.MAX_WBITS)
+    try:
+        out = decompressor.decompress(body, _MAX_BODY_BYTES + 1)
+    except zlib.error:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="corpo gzip inválido"
+        ) from None
+    if len(out) > _MAX_BODY_BYTES or decompressor.unconsumed_tail:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail="corpo descompactado grande demais",
+        )
+    return out
+
+
+def _count_rejections(integ: models.Integration, stream: str, batch: _ParsedBatch) -> None:
     # Rejeições de parse (linha ruim / não-objeto / oversized) NÃO derrubam o lote —
     # são contabilizadas por motivo p/ o Grafana e devolvidas ao edge (que pode alarmar
     # ou re-enfileirar seletivamente). Espelha Cribl/Vector: sucesso parcial é 1ª classe.
@@ -367,21 +382,39 @@ async def ingest(
             batch.parse_errors, batch.type_errors, batch.oversized, batch.first_error,
         )
 
-    def _resp(accepted: int, dropped: int, depth: int) -> IngestResponse:
-        # 207 Multi-Status quando houve rejeição parcial no parse (a borda deve inspecionar
-        # os contadores); 200 quando tudo foi aproveitado. Mantém corpo IngestResponse.
-        if batch.rejected:
-            response.status_code = status.HTTP_207_MULTI_STATUS
-        return IngestResponse(
-            accepted=accepted, dropped=dropped, buffer_depth=depth,
-            parse_errors=batch.parse_errors, type_errors=batch.type_errors,
-            oversized=batch.oversized, error_detail=batch.first_error,
-        )
 
-    if not batch.events:
-        return _resp(accepted=0, dropped=0, depth=0)
 
-    stamped = [_stamp(ev, stream) for ev in batch.events]
+async def _store_events(
+    integ: models.Integration, stream: str, stamped: List[dict]
+) -> Tuple[int, int, int]:
+    """Grava os eventos no destino durável do modo corrente e devolve
+    ``(aceitos, recusados, profundidade)``. Levanta HTTP 503/413 quando NADA foi
+    gravado — o chamador nunca responde sucesso de evento que não está guardado."""
+    if push_goes_to_kafka():
+        # ADR-0018 Onda 2: o 200 só sai DEPOIS do ack do tópico raw (acks=all). O
+        # Kafka é o buffer durável; broker fora = 503 e a borda re-tenta com o
+        # buffer de disco dela. Nunca um 200 de evento que não está gravado.
+        try:
+            accepted = await produce_raw_async(integ.id, stream, stamped)
+        except OversizedRawEventError as exc:
+            logger.warning("ingest: %s", exc)
+            raise HTTPException(
+                status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                detail="evento maior que o teto do data-plane (KAFKA_MAX_REQUEST_BYTES)",
+            ) from None
+        except Exception as exc:  # noqa: BLE001 — qualquer falha do broker = não gravado
+            logger.warning(
+                "ingest: tópico raw indisponível integration_id=%s (%s) — 503",
+                integ.id, type(exc).__name__,
+            )
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="data-plane indisponível — re-tente após o Retry-After",
+                headers={"Retry-After": str(_BUFFER_FULL_RETRY_AFTER_S)},
+            ) from None
+        INGEST_ACCEPTED.labels(vendor=integ.platform, stream=stream).inc(accepted)
+        return accepted, 0, 0
+
     redis = await _redis_client()
     try:
         accepted, dropped = await push_events(redis, integ.id, stream, stamped)
@@ -408,15 +441,333 @@ async def ingest(
         except Exception:  # noqa: BLE001 — best-effort
             pass
 
-    # Observabilidade: aceitos/descartados + profundidade do buffer.
-    # ``dropped`` > 0 = perda silenciosa por backpressure → alerta no Grafana.
+    # Observabilidade: aceitos/recusados + profundidade do buffer.
     INGEST_ACCEPTED.labels(vendor=integ.platform, stream=stream).inc(accepted)
-    if dropped:
-        INGEST_DROPPED.labels(vendor=integ.platform, stream=stream).inc(dropped)
     INGEST_BUFFER_DEPTH.labels(integration_id=str(integ.id), stream=stream).set(depth)
+    if dropped:
+        # Buffer cheio: NADA deste lote foi gravado. 503 + Retry-After faz o edge
+        # (Vector, Fluent Bit) re-tentar com o buffer de disco dele. Antes o
+        # buffer descartava os eventos MAIS ANTIGOS — já respondidos com 200 — e
+        # a borda não tinha como reenviá-los (ADR-0018 Onda 0). A métrica
+        # ``dropped`` agora conta recusas, que o edge reenvia.
+        INGEST_DROPPED.labels(vendor=integ.platform, stream=stream).inc(dropped)
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="buffer de ingestão cheio — re-tente após o Retry-After",
+            headers={"Retry-After": str(_BUFFER_FULL_RETRY_AFTER_S)},
+        )
 
+    return accepted, dropped, depth
+
+
+# ── 1. Endpoint de ingestão (token-auth) ────────────────────────────────────
+
+
+@router.post("/{stream}", response_model=IngestResponse)
+async def ingest(
+    stream: str,
+    request: Request,
+    response: Response,
+    authorization: Optional[str] = Header(default=None),
+    x_centralops_ingest_token: Optional[str] = Header(default=None),
+    db: Session = Depends(database.get_session),
+) -> IngestResponse:
+    """Recebe eventos crus de um edge-collector e os bufferiza para o pipeline.
+
+    Autenticado pelo **token de ingestão** da integração (Bearer) — NÃO por
+    sessão de usuário. O token é a credencial e é escopado a UMA integração: ele
+    concede acesso a todos os ``stream`` registrados DESSA integração (o ``stream``
+    no path é só o canal de dados, não um vetor de escopo). Não há acesso
+    cross-org: o token resolve exatamente a integração que o emitiu. Valida que a
+    plataforma é ``transport="push"`` e que o ``stream`` existe para ela."""
+    token = _extract_token(authorization, x_centralops_ingest_token)
+    integ = _authenticate(db, token)
+    _admit(integ, stream)
+
+    body = await _read_body(request)
+    batch = _parse_events(body, request.headers.get("content-type", ""))
+    _count_rejections(integ, stream, batch)
+
+    def _resp(accepted: int, dropped: int, depth: int) -> IngestResponse:
+        # 207 Multi-Status quando houve rejeição parcial no parse (a borda deve inspecionar
+        # os contadores); 200 quando tudo foi aproveitado. Mantém corpo IngestResponse.
+        if batch.rejected:
+            response.status_code = status.HTTP_207_MULTI_STATUS
+        return IngestResponse(
+            accepted=accepted, dropped=dropped, buffer_depth=depth,
+            parse_errors=batch.parse_errors, type_errors=batch.type_errors,
+            oversized=batch.oversized, error_detail=batch.first_error,
+        )
+
+    if not batch.events:
+        return _resp(accepted=0, dropped=0, depth=0)
+
+    stamped = [_stamp(ev, stream) for ev in batch.events]
+    accepted, dropped, depth = await _store_events(integ, stream, stamped)
     return _resp(accepted=accepted, dropped=dropped, depth=depth)
 
+
+# ── 1b. Splunk HEC e OTLP/HTTP (ADR-0018 Onda 2b) ───────────────────────────
+#
+# Mesmos tokens, mesma admissão e mesma gravação durável do endpoint genérico:
+# HEC e OTLP são só formatos de fio. O ADR previa um gateway Vector para eles;
+# ficou nativo porque o caminho de ingestão já tem o que o gateway traria (auth
+# por integração, ack do Kafka antes do 200, 503 com Retry-After), sem um
+# componente a mais, sem mapear token HEC → integração (o token HEC É o token de
+# ingestão) e sem a revisão de licença de um binário a mais na distribuição.
+# O Vector segue como o agente de BORDA recomendado (compose/edge).
+
+_HEC_OK = {"text": "Success", "code": 0}
+
+
+def _parse_hec(body: bytes, *, raw: bool) -> _ParsedBatch:
+    """HEC: objetos JSON CONCATENADOS (com ou sem quebra de linha), cada um com
+    ``event`` (objeto ou texto) e metadados opcionais. ``raw``: uma linha = um
+    evento ``{"message": ...}``. Metadados do HEC vão para ``_hec``."""
+    if len(body) > _MAX_BODY_BYTES:
+        raise HTTPException(status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, detail="payload grande demais")
+    text = body.decode("utf-8", errors="replace")
+    batch = _ParsedBatch()
+    if raw:
+        for line in text.splitlines():
+            if line.strip():
+                _collect(batch, {"message": line})
+    else:
+        decoder = json.JSONDecoder()
+        i, n = 0, len(text)
+        while True:
+            while i < n and text[i].isspace():
+                i += 1
+            if i >= n:
+                break
+            try:
+                obj, i = decoder.raw_decode(text, i)
+            except ValueError as exc:
+                # Sem como ressincronizar depois de um objeto quebrado: o resto
+                # do corpo é contado como um erro de parse.
+                batch.parse_errors += 1
+                batch._note(f"HEC: JSON inválido: {exc}")
+                break
+            if not isinstance(obj, dict) or "event" not in obj:
+                batch.type_errors += 1
+                batch._note("HEC: objeto sem campo 'event'")
+                continue
+            event = obj["event"]
+            if isinstance(event, dict):
+                out = dict(event)
+            elif isinstance(event, str):
+                out = {"message": event}
+            else:
+                out = {"message": json.dumps(event, default=str)}
+            meta = {k: obj[k] for k in ("time", "host", "source", "sourcetype", "index", "fields") if k in obj}
+            if meta:
+                out["_hec"] = meta
+            _collect(batch, out)
+    if len(batch.events) > _MAX_EVENTS_PER_REQUEST:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail=f"máx. {_MAX_EVENTS_PER_REQUEST} eventos por requisição",
+        )
+    return batch
+
+
+async def _ingest_hec(
+    stream: str, request: Request, authorization: Optional[str], x_token: Optional[str], db: Session, *, raw: bool
+) -> Dict[str, Any]:
+    integ = _authenticate(db, _extract_token(authorization, x_token))
+    _admit(integ, stream)
+    batch = _parse_hec(await _read_body(request), raw=raw)
+    _count_rejections(integ, stream, batch)
+    if not batch.events:
+        if batch.rejected:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid data format")
+        return dict(_HEC_OK)
+    stamped = [_stamp(ev, stream) for ev in batch.events]
+    await _store_events(integ, stream, stamped)
+    return dict(_HEC_OK)
+
+
+@router.post("/hec/{stream}/services/collector")
+@router.post("/hec/{stream}/services/collector/event")
+@router.post("/hec/{stream}/services/collector/event/1.0")
+async def ingest_hec_event(
+    stream: str,
+    request: Request,
+    authorization: Optional[str] = Header(default=None),
+    x_centralops_ingest_token: Optional[str] = Header(default=None),
+    db: Session = Depends(database.get_session),
+) -> Dict[str, Any]:
+    """Splunk HEC (``/services/collector/event``). Configure o cliente com a URL base
+    ``https://<host>/api/ingest/hec/<stream>`` e o token de ingestão como token HEC.
+    200 só depois do ack do data-plane; 503 com Retry-After quando não gravou."""
+    return await _ingest_hec(stream, request, authorization, x_centralops_ingest_token, db, raw=False)
+
+
+@router.post("/hec/{stream}/services/collector/raw")
+@router.post("/hec/{stream}/services/collector/raw/1.0")
+async def ingest_hec_raw(
+    stream: str,
+    request: Request,
+    authorization: Optional[str] = Header(default=None),
+    x_centralops_ingest_token: Optional[str] = Header(default=None),
+    db: Session = Depends(database.get_session),
+) -> Dict[str, Any]:
+    """Splunk HEC raw: uma linha do corpo = um evento ``{"message": ...}``."""
+    return await _ingest_hec(stream, request, authorization, x_centralops_ingest_token, db, raw=True)
+
+
+@router.get("/hec/{stream}/services/collector/health")
+@router.get("/hec/{stream}/services/collector/health/1.0")
+async def ingest_hec_health(stream: str) -> Dict[str, Any]:
+    """Healthcheck que clientes HEC (ex.: Vector) chamam antes de enviar."""
+    return {"text": "HEC is healthy", "code": 17}
+
+
+def _otlp_value(value: Any) -> Any:
+    """``AnyValue`` do OTLP (JSON, camelCase ou snake_case) → valor Python."""
+    if not isinstance(value, dict):
+        return value
+    for key in ("stringValue", "string_value"):
+        if key in value:
+            return value[key]
+    for key in ("boolValue", "bool_value", "doubleValue", "double_value", "bytesValue", "bytes_value"):
+        if key in value:
+            return value[key]
+    for key in ("intValue", "int_value"):
+        if key in value:
+            try:
+                return int(value[key])
+            except (TypeError, ValueError):
+                return value[key]
+    for key in ("arrayValue", "array_value"):
+        if key in value:
+            return [_otlp_value(v) for v in (value[key] or {}).get("values", [])]
+    for key in ("kvlistValue", "kvlist_value"):
+        if key in value:
+            return _otlp_attrs((value[key] or {}).get("values", []))
+    return None
+
+
+def _otlp_attrs(items: Any) -> Dict[str, Any]:
+    out: Dict[str, Any] = {}
+    for kv in items or []:
+        if isinstance(kv, dict) and "key" in kv:
+            out[str(kv["key"])] = _otlp_value(kv.get("value"))
+    return out
+
+
+def _g(obj: Dict[str, Any], camel: str, snake: str) -> Any:
+    return obj.get(camel, obj.get(snake))
+
+
+def _flatten_otlp_logs(doc: Any) -> _ParsedBatch:
+    """``ExportLogsServiceRequest`` (forma JSON) → um evento por ``logRecord``.
+    Corpo em mapa vira os campos do evento; corpo texto vira ``message``. O resto
+    (atributos, recurso, escopo, severidade, tempos, trace) vai para ``_otlp``."""
+    batch = _ParsedBatch()
+    if not isinstance(doc, dict):
+        batch.type_errors += 1
+        batch._note("OTLP: corpo não é um objeto")
+        return batch
+    for rl in _g(doc, "resourceLogs", "resource_logs") or []:
+        resource = _otlp_attrs(((rl or {}).get("resource") or {}).get("attributes"))
+        for sl in _g(rl, "scopeLogs", "scope_logs") or []:
+            scope = (sl or {}).get("scope") or {}
+            for rec in _g(sl, "logRecords", "log_records") or []:
+                if not isinstance(rec, dict):
+                    batch.type_errors += 1
+                    continue
+                body = _otlp_value(rec.get("body"))
+                event: Dict[str, Any] = dict(body) if isinstance(body, dict) else {}
+                if body is not None and not isinstance(body, dict):
+                    event["message"] = body
+                meta = {
+                    "time_unix_nano": _g(rec, "timeUnixNano", "time_unix_nano"),
+                    "observed_time_unix_nano": _g(rec, "observedTimeUnixNano", "observed_time_unix_nano"),
+                    "severity_number": _g(rec, "severityNumber", "severity_number"),
+                    "severity_text": _g(rec, "severityText", "severity_text"),
+                    "attributes": _otlp_attrs(rec.get("attributes")),
+                    "resource": resource,
+                    "scope": {k: scope[k] for k in ("name", "version") if scope.get(k)},
+                    "trace_id": _g(rec, "traceId", "trace_id"),
+                    "span_id": _g(rec, "spanId", "span_id"),
+                }
+                event["_otlp"] = {k: v for k, v in meta.items() if v not in (None, "", {}, [])}
+                _collect(batch, event)
+    if len(batch.events) > _MAX_EVENTS_PER_REQUEST:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail=f"máx. {_MAX_EVENTS_PER_REQUEST} eventos por requisição",
+        )
+    return batch
+
+
+def _otlp_protobuf_to_dict(body: bytes) -> Dict[str, Any]:
+    """OTLP/HTTP protobuf → a mesma forma do JSON. Usa o ``opentelemetry-proto`` que
+    vem com o exporter OTLP da imagem; sem ele, 415 (mande JSON)."""
+    try:
+        from google.protobuf import json_format
+        from opentelemetry.proto.collector.logs.v1 import logs_service_pb2
+    except ImportError:
+        raise HTTPException(
+            status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+            detail="OTLP protobuf indisponível nesta imagem — use application/json",
+        ) from None
+    message = logs_service_pb2.ExportLogsServiceRequest()
+    try:
+        message.ParseFromString(body)
+    except Exception:  # noqa: BLE001 — protobuf malformado
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="OTLP protobuf inválido") from None
+    return json_format.MessageToDict(message)
+
+
+def _otlp_protobuf_response() -> bytes:
+    try:
+        from opentelemetry.proto.collector.logs.v1 import logs_service_pb2
+
+        return logs_service_pb2.ExportLogsServiceResponse().SerializeToString()
+    except ImportError:  # pragma: no cover — só chega aqui quem já parseou protobuf
+        return b""
+
+
+@router.post("/otlp/{stream}/v1/logs")
+async def ingest_otlp_logs(
+    stream: str,
+    request: Request,
+    authorization: Optional[str] = Header(default=None),
+    x_centralops_ingest_token: Optional[str] = Header(default=None),
+    db: Session = Depends(database.get_session),
+) -> Response:
+    """OTLP/HTTP logs (JSON ou protobuf, gzip opcional). Configure o exporter com
+    ``endpoint: https://<host>/api/ingest/otlp/<stream>`` e o header
+    ``Authorization: Bearer <token de ingestão>``. 200 só depois do ack do
+    data-plane; 503 com Retry-After (retentável pelo spec OTLP) quando não gravou."""
+    integ = _authenticate(db, _extract_token(authorization, x_centralops_ingest_token))
+    _admit(integ, stream)
+    body = await _read_body(request)
+    content_type = (request.headers.get("content-type") or "").lower()
+    is_protobuf = "protobuf" in content_type
+    if is_protobuf:
+        doc: Any = _otlp_protobuf_to_dict(body)
+    else:
+        try:
+            doc = json.loads(body or b"{}")
+        except ValueError:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="OTLP JSON inválido") from None
+    batch = _flatten_otlp_logs(doc)
+    _count_rejections(integ, stream, batch)
+    if batch.events:
+        stamped = [_stamp(ev, stream) for ev in batch.events]
+        await _store_events(integ, stream, stamped)
+    if is_protobuf:
+        return Response(content=_otlp_protobuf_response(), media_type="application/x-protobuf")
+    payload: Dict[str, Any] = {}
+    if batch.rejected:
+        payload["partialSuccess"] = {
+            "rejectedLogRecords": str(batch.rejected),
+            "errorMessage": batch.first_error or "registros rejeitados",
+        }
+    return Response(content=json.dumps(payload), media_type="application/json")
 
 # ── 2. Gestão de token (admin) ──────────────────────────────────────────────
 

@@ -47,6 +47,11 @@ logger = logging.getLogger(__name__)
 # NOTE: BreakerOpen é TERMINAL e NÃO deve estar aqui.
 _RETRYABLE = (ConnectionError, TimeoutError, OSError, VendorAuthError, TransientDeliveryError)
 
+# Re-tentativa do ``dispatch_to_dlq`` quando a gravação na DLQ falha: backoff
+# exponencial a partir de 15 s, teto de 5 min por espera, ~2 h no total.
+_DLQ_PERSIST_RETRY_MAX_S = 300
+_DLQ_PERSIST_MAX_RETRIES = 30
+
 # ── Dreno da DLQ ─────────────────────────────────────────────────────────────
 # Números escolhidos contra os limites reais do worker, não por gosto.
 #
@@ -208,6 +213,23 @@ def _run_dispatch_to_destination(self, destination_id: str, batch: list[dict]) -
             timeout=DISPATCH_RESULT_TIMEOUT,
         )
     except _RETRYABLE:
+        # Última tentativa (ADR-0018 Onda 0): aqui o autoretry do Celery só
+        # re-levantava, a task falhava e, com acks_late, a mensagem era ackada
+        # mesmo assim — o lote sumia sem passar pela DLQ.
+        if self.request.retries >= (self.max_retries or 0):
+            DISPATCH_FAILURES.labels(
+                target="destination", reason="exhausted", destination_id=destination_id
+            ).inc()
+            dispatch_to_dlq.apply_async(
+                kwargs={
+                    "batch": batch,
+                    "destination_id": destination_id,
+                    "kind": "unknown",
+                    "error_kind": "exhausted",
+                },
+                queue="dispatch.dlq",
+            )
+            return
         raise
     except circuit_breaker.BreakerOpen:
         # breaker is OPEN — the batch was NEVER attempted. Route to DLQ
@@ -293,12 +315,20 @@ def dispatch_to_dlq(
         if isinstance(raw_org, int):
             org_id = raw_org
 
-    persist_batch_dlq(
+    persisted = persist_batch_dlq(
         batch,
         destination_id=destination_id,
         error_kind=error_kind,
         organization_id=org_id,
     )
+    if persisted is not True:
+        # A gravação falhou (Postgres fora, p.ex.). Antes o retorno era ignorado
+        # e o lote sumia; agora a task volta para a fila com backoff até o banco
+        # voltar (ADR-0018 Onda 0).
+        raise self.retry(
+            countdown=min(_DLQ_PERSIST_RETRY_MAX_S, 15 * (2 ** self.request.retries)),
+            max_retries=_DLQ_PERSIST_MAX_RETRIES,
+        )
 
     for _ in batch:
         DLQ_TOTAL.labels(

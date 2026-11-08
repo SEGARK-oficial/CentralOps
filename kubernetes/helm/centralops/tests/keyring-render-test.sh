@@ -40,16 +40,19 @@ secrets:
       -----END PUBLIC KEY-----
 YAML
 helm template t "$CHART_DIR" "${BASE[@]}" -f "$tmp/inline.yaml" > "$tmp/inline_out.yaml"
-check "license-keyring ConfigMap rendered"        "$(grep -c 'name: t-centralops-license-keyring' "$tmp/inline_out.yaml" | head -1)" "8"
+# Pods da app = api + kafka-dispatcher + um por worker declarado. Derivado do render
+# (não fixo): um papel novo de worker entra na conta sozinho.
+app_pods="$(grep -A3 '^kind: Deployment' "$tmp/inline_out.yaml" | grep -cE 'name: t-centralops-(api|kafka-dispatcher|raw-processor|worker-[a-z]+)$')"
+check "license-keyring ConfigMap rendered"        "$(grep -c 'name: t-centralops-license-keyring' "$tmp/inline_out.yaml" | head -1)" "$((app_pods + 1))"
 check "PEM embedded in ConfigMap"                 "$(grep -c 'BEGIN PUBLIC KEY' "$tmp/inline_out.yaml")" "1"
 check "KEYS_DIR=/licensing in -config"            "$(grep -c 'CENTRALOPS_LICENSE_KEYS_DIR: /licensing' "$tmp/inline_out.yaml")" "1"
-# Every app pod (api + kafka-dispatcher + 5 workers = 7) must mount /licensing.
-check "/licensing mounted on all 7 app pods"      "$(grep -c 'mountPath: /licensing' "$tmp/inline_out.yaml")" "7"
+# Every app pod (api + kafka-dispatcher + every worker) must mount /licensing.
+check "/licensing mounted on all $app_pods app pods"  "$(grep -c 'mountPath: /licensing' "$tmp/inline_out.yaml")" "$app_pods"
 
 echo "==> Case 3: existingLicenseKeyring — mount operator's ConfigMap, render none of our own"
 helm template t "$CHART_DIR" "${BASE[@]}" --set secrets.existingLicenseKeyring=my-ee-keyring > "$tmp/existing.yaml"
 check "our -license-keyring ConfigMap NOT rendered" "$(grep -c 'name: t-centralops-license-keyring' "$tmp/existing.yaml" || true)" "0"
-check "volumes reference operator's ConfigMap"      "$(grep -c 'name: my-ee-keyring' "$tmp/existing.yaml")" "7"
+check "volumes reference operator's ConfigMap"      "$(grep -c 'name: my-ee-keyring' "$tmp/existing.yaml")" "$app_pods"
 check "KEYS_DIR still set"                           "$(grep -c 'CENTRALOPS_LICENSE_KEYS_DIR: /licensing' "$tmp/existing.yaml")" "1"
 
 echo

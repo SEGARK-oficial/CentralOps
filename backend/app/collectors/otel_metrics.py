@@ -240,6 +240,10 @@ _SPEC: Dict[str, Dict[str, Any]] = {
     "collector_dataplane_consumed_total": {"kind": "counter", "unit": "1", "labels": ("outcome",)},
     "collector_dataplane_consume_latency_seconds": {"kind": "histogram", "unit": "s", "labels": (), "buckets": (0.005, 0.01, 0.05, 0.1, 0.25, 0.5, 1, 2, 5, 10, 30)},
     "collector_dataplane_consumer_lag": {"kind": "gauge", "unit": "1", "labels": ("partition",)},
+    # Tópico raw (ADR-0018 Onda 2): o processor que roda o pipeline sobre os eventos
+    # push. outcome = ok | invalid | integration_unavailable | retry | dlq | dlq_failed.
+    "collector_raw_processed_total": {"kind": "counter", "unit": "1", "labels": ("outcome",)},
+    "collector_raw_consumer_lag": {"kind": "gauge", "unit": "1", "labels": ("partition",)},
     # export OTLP do PRÓPRIO processo — sem Collector no meio, é o único sinal de
     # que a telemetria está se perdendo (backend fora, credencial inválida, TLS).
     # ``signal`` ∈ {traces, metrics, logs}. A série de métricas sobe quando o

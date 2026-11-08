@@ -286,10 +286,14 @@ def test_every_facade_maps_to_spec_and_vice_versa():
     # e vencimento no HIT das tabelas de threat intel. 64 → 65.
     # +1 (W3.2): collector_syslog_received_total — cada mensagem do receptor
     # syslog por transporte e destino (accepted/unknown_source/unclassified). 65 → 66.
+    # +2 (ADR-0018 Onda 2): collector_raw_processed_total (desfecho de cada lote
+    # do tópico raw: ok/retry/dlq/dlq_failed/invalid/integration_unavailable) e
+    # collector_raw_consumer_lag (backlog do processor por partição). Sem elas, o
+    # push durável no Kafka atrasaria sem nenhum sinal. 66 → 68.
     # +1: collector_otel_export_failures_total{signal} — falhas do export OTLP do
     # próprio processo. Sem Collector no meio, é o único sinal de que a
-    # telemetria está se perdendo. 66 → 67.
-    assert len(facade_names) == 67
+    # telemetria está se perdendo. 68 → 69.
+    assert len(facade_names) == 69
     # O catálogo tem as síncronas + ao menos o observável collector_up.
     assert "collector_up" in otel_metrics._SPEC
     assert "collector_up" not in facade_names

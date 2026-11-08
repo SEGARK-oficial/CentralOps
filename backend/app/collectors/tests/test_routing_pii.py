@@ -138,7 +138,7 @@ def _row(pii_redaction):
 
 def test_flag_off_with_spec_fails_closed(monkeypatch):
     """PII_REDACTION_ENABLED OFF + rota COM spec → FAIL-CLOSED (levanta): não
-    entrega cleartext ao destino externo. _load_routes_for_org cai p/ wazuh."""
+    entrega cleartext ao destino externo. _load_routes_for_org retém o lote."""
     from backend.app.collectors import pipeline
     from backend.app.core.config import settings
 
@@ -228,8 +228,7 @@ def test_flag_on_compiles_spec(monkeypatch):
 
 def test_fail_closed_corrupt_spec_propagates(monkeypatch):
     """FAIL-CLOSED: spec corrompida em runtime (flag ON) PROPAGA — NÃO degrada
-    para () (fail-open = PII em claro). _load_routes_for_org captura → tudo cai
-    no wazuh-default interno."""
+    para () (fail-open = PII em claro). _load_routes_for_org retém o lote."""
     from backend.app.collectors import pipeline
     from backend.app.core.config import settings
 
@@ -240,9 +239,10 @@ def test_fail_closed_corrupt_spec_propagates(monkeypatch):
         pipeline._compile_route_row(row)
 
 
-def test_load_routes_fail_closed_falls_back(monkeypatch):
-    """_load_routes_for_org engole a exceção do compile e retorna [] → o ciclo
-    manda tudo p/ wazuh-default (zero perda, sem vazamento externo)."""
+def test_load_routes_fail_closed_holds_the_batch(monkeypatch):
+    """ADR-0018 Onda 0: rota que não compila RETÉM o lote (levanta
+    ``RoutingUnavailable``). Antes devolvia [] e tudo ia ao destino default —
+    que pode ser EXTERNO — sem a redação de PII."""
     from backend.app.collectors import pipeline
     from backend.app.core.config import settings
 
@@ -262,5 +262,5 @@ def test_load_routes_fail_closed_falls_back(monkeypatch):
     monkeypatch.setattr(pipeline.database, "SessionLocal", lambda: _BadSession())
     monkeypatch.setattr("backend.app.db.repository.RouteRepository", _Repo)
 
-    routes = pipeline._load_routes_for_org(7)
-    assert routes == []  # fail-closed → sem rotas → fallback p/ wazuh-default
+    with pytest.raises(pipeline.RoutingUnavailable):
+        pipeline._load_routes_for_org(7)

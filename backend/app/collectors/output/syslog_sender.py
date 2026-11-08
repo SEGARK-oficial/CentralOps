@@ -85,13 +85,30 @@ class SyslogTCPClient:
         if not batch:
             return
         async with self._lock:
-            await self._ensure()
-            assert self._writer is not None
-            for event in batch:
-                line = format_rfc5424(event).encode("utf-8")
-                frame = f"{len(line)} ".encode("ascii") + line
-                self._writer.write(frame)
-            await self._writer.drain()
+            try:
+                await self._ensure()
+                assert self._writer is not None
+                for event in batch:
+                    line = format_rfc5424(event).encode("utf-8")
+                    frame = f"{len(line)} ".encode("ascii") + line
+                    self._writer.write(frame)
+                await self._writer.drain()
+            except (OSError, asyncio.CancelledError):
+                # Conexão quebrada (destino reiniciou, reset, recusa) ou envio
+                # cancelado pelo timeout no meio de um frame: descarta o writer
+                # para a próxima tentativa RECONECTAR num socket limpo, e propaga —
+                # o dispatch trata como transitório (ADR-0018 Onda 0).
+                self._drop_connection()
+                raise
+
+    def _drop_connection(self) -> None:
+        """Abandona o socket atual sem esperar o fechamento (best-effort)."""
+        writer, self._writer, self._reader = self._writer, None, None
+        if writer is not None:
+            try:
+                writer.close()
+            except Exception:  # pragma: no cover — já está quebrado
+                pass
 
     async def close(self) -> None:
         if self._writer is not None:

@@ -7,6 +7,7 @@ Valida a lógica de commit at-least-once + a resiliência de ``run_dispatch_cons
 - transitório esgotado (> N)    → lote à DLQ (exhausted) + commita;
 - payload não-JSON              → descarta + commita (não trava a partição);
 - envelope sem batch/dest válido→ descarta + commita;
+- erro não classificado         → seek (transitório), nunca commit sem DLQ;
 - lag                           → highwater − position p/ TODAS as partições.
 O round-trip contra Redpanda real fica no teste de integração.
 """
@@ -53,6 +54,7 @@ class _FakeConsumer:
         # p/ o teste de lag: assignment()/end_offsets()/position()
         self._highwater = highwater
         self._position = position
+        self.revoked: set = set()
 
     async def start(self):
         self.started = True
@@ -74,7 +76,11 @@ class _FakeConsumer:
     # ── superfície usada pelo emissor de lag ──
     def assignment(self):
         if self._highwater is None:
-            return set()
+            # Sem lag configurado: todas as partições atribuídas (o consumer só
+            # commita/faz seek em partição que é dele).
+            from aiokafka.structs import TopicPartition
+
+            return {TopicPartition("centralops.deliver", p) for p in range(8)} - self.revoked
         return {_FakeTP("centralops.deliver", 0)}
 
     async def end_offsets(self, partitions):
@@ -91,7 +97,7 @@ def _msg(offset, dest, batch):
     )
 
 
-def _install(monkeypatch, fake, dispatch_impl, *, dlq_capture=None):
+def _install(monkeypatch, fake, dispatch_impl, *, dlq_capture=None, dlq_ok=True):
     import aiokafka
 
     monkeypatch.setattr(aiokafka, "AIOKafkaConsumer", lambda *a, **k: fake)
@@ -109,6 +115,7 @@ def _install(monkeypatch, fake, dispatch_impl, *, dlq_capture=None):
             dlq_capture.append(
                 {"batch": batch, "destination_id": destination_id, "error_kind": error_kind}
             )
+        return dlq_ok
 
     monkeypatch.setattr(_delivery, "persist_batch_dlq", _fake_dlq)
 
@@ -199,17 +206,18 @@ async def test_breaker_open_goes_to_dlq_and_commits(monkeypatch):
     assert fake.seeks == []
 
 
-async def test_nontransient_commits(monkeypatch):
+async def test_unclassified_error_is_retried_not_committed(monkeypatch):
+    """ADR-0018 Onda 0: erro não classificado NÃO commita (antes commitava sem DLQ)."""
     async def _dispatch(dest, batch):
-        raise ValueError("erro não-transitório (rejeições já DLQadas no dispatch)")
+        raise ValueError("erro não classificado")
 
     fake = _FakeConsumer([_msg(3, "dest-3", [{"e": 1}])])
     _install(monkeypatch, fake, _dispatch)
 
     await kt.run_dispatch_consumer()
 
-    assert len(fake.commits) == 1                   # commita: não reprocessa permanente
-    assert fake.seeks == []
+    assert fake.commits == []                       # nada commitado sem DLQ
+    assert len(fake.seeks) == 1                     # relido com backoff
 
 
 async def test_invalid_payload_skipped(monkeypatch):
@@ -263,3 +271,22 @@ async def test_emit_consumer_lag_uses_end_offsets(monkeypatch):
 def test_dispatcher_main_importable():
     # O entrypoint do role importa e expõe main() (smoke).
     assert callable(dispatcher.main)
+
+
+
+async def test_revoked_partition_is_not_committed_or_seeked(monkeypatch):
+    """Rebalance durante o dispatch: a partição deixou de ser deste consumer. Antes,
+    ``commit``/``seek`` nela levantavam IllegalStateError e derrubavam o processo."""
+    from aiokafka.structs import TopicPartition
+
+    fake = _FakeConsumer([_msg(4, "dest-r", [{"e": 1}]), _msg(5, "dest-r", [{"e": 2}])])
+
+    async def _dispatch(dest, batch):
+        fake.revoked.add(TopicPartition("centralops.deliver", 0))  # perdeu no meio
+        if batch[0]["e"] == 2:
+            raise TransientDeliveryError(dest)
+
+    _install(monkeypatch, fake, _dispatch)
+    await kt.run_dispatch_consumer()      # não levanta
+
+    assert fake.commits == [] and fake.seeks == []

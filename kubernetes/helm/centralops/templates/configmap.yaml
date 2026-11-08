@@ -113,3 +113,17 @@ data:
   {{- with .Values.dataPlane.kafka.sasl.mechanism }}
   KAFKA_SASL_MECHANISM: {{ . | quote }}
   {{- end }}
+  # ADR-0018 Onda 1 — TLS e durabilidade do tópico de entrega. Sem o contexto TLS o
+  # data-plane não conectava em broker gerenciado (SASL_SSL).
+  {{- with .Values.dataPlane.kafka.tls.caFile }}
+  KAFKA_SSL_CAFILE: {{ . | quote }}
+  {{- end }}
+  KAFKA_SSL_VERIFY: {{ .Values.dataPlane.kafka.tls.verify | toString | quote }}
+  KAFKA_DELIVER_REPLICATION: {{ ternary 1 .Values.dataPlane.kafka.replicationFactor .Values.devBroker.enabled | toString | quote }}
+  KAFKA_DELIVER_PARTITIONS: {{ .Values.dataPlane.kafka.partitions | toString | quote }}
+  # ADR-0018 Onda 2 — tópico raw (push durável antes do 200).
+  KAFKA_RAW_PARTITIONS: {{ .Values.dataPlane.processor.rawPartitions | toString | quote }}
+  KAFKA_RAW_RETENTION_MS: {{ mul .Values.dataPlane.processor.rawRetentionHours 3600000 | toString | quote }}
+  {{- with .Values.dataPlane.kafka.minInsyncReplicas }}
+  KAFKA_DELIVER_MIN_INSYNC_REPLICAS: {{ . | toString | quote }}
+  {{- end }}

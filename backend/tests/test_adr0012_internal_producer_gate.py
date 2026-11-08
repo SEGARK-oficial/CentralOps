@@ -63,7 +63,7 @@ def _internal_2004(*, severity_id: int = 4, class_uid: int | None = None, vendor
 def routed(monkeypatch):
     """Captura o que chega ao roteamento e zera as métricas do gate."""
     captured: list[dict] = []
-    monkeypatch.setattr(pipeline, "_enqueue_routed", lambda batch, routes: captured.extend(batch))
+    monkeypatch.setattr(pipeline, "_enqueue_routed", lambda batch, routes, **kw: captured.extend(batch))
     monkeypatch.setattr(pipeline, "OCSF_VALID", MagicMock())
     monkeypatch.setattr(pipeline, "OCSF_INVALID", MagicMock())
     monkeypatch.setattr(settings, "OCSF_VALIDATE_INTERNAL_PRODUCERS", True)

@@ -91,12 +91,66 @@ kubectl -n centralops create secret generic centralops-secrets \
 
 A referência completa de variáveis está em **[Configuração](./configuration.md)**.
 
+## Data-plane: broker Kafka gerenciado
+
+Em produção, aponte o data-plane para um broker gerenciado (MSK, Confluent Cloud, Redpanda Cloud) em vez do `devBroker` de testes:
+
+```yaml
+dataPlane:
+  kafka:
+    bootstrapServers: "b-1.seu-broker.internal:9096,b-2.seu-broker.internal:9096"
+    securityProtocol: SASL_SSL
+    sasl:
+      mechanism: SCRAM-SHA-512
+      username: centralops
+      password: ""            # prefira secrets.existingSecret
+    tls:
+      caFile: ""              # caminho da CA privada montada no pod; vazio = CAs do sistema
+      verify: true
+    replicationFactor: 3      # com minInsyncReplicas derivado (2), um broker pode cair
+    partitions: 8
+```
+
+O tópico de entrega é criado na primeira subida com essas partições, réplicas e `min.insync.replicas`. Aumentar partições depois exige repartição manual no broker.
+
+## PgBouncer (recomendado em produção)
+
+Cada processo da aplicação abre até 40 conexões com o Postgres (`DB_POOL_SIZE` + `DB_MAX_OVERFLOW`). Com vários workers, a soma passa facilmente do `max_connections` padrão do Postgres (100). Ligue o PgBouncer do chart:
+
+```yaml
+pgbouncer:
+  enabled: true
+  serverTlsSslmode: require   # TLS do PgBouncer até o Postgres gerenciado
+```
+
+- Com o Secret do chart, `secrets.databaseUrl` continua sendo a URL **direta** do Postgres. O chart aponta a aplicação para o PgBouncer e guarda a URL direta em `DATABASE_MIGRATION_URL`.
+- Com `secrets.existingSecret`, o Secret precisa das duas chaves: `DATABASE_URL` (host `<release>-centralops-pgbouncer`, porta 5432, sem `sslmode`) e `DATABASE_MIGRATION_URL` (Postgres direto).
+- A migração de boot sempre vai direto ao Postgres: ela usa um lock de sessão que o pooling por transação não suporta.
+- A senha do banco não pode depender de URL-encoding, porque o PgBouncer a lê como está escrita na URL.
+
+## Alertas com Prometheus Operator
+
+Se o cluster usa o Prometheus Operator, o chart cria um `PrometheusRule` com as regras do data-plane (DLQ que não grava, lag, breaker aberto, DLQ crescendo, coleta atrasada, evicção do dedupe, push recusando):
+
+```yaml
+monitoring:
+  prometheusRule:
+    enabled: true
+    labels:
+      release: kube-prometheus-stack   # o rótulo que o seu Prometheus seleciona
+```
+
 ## Recursos que o chart entrega
 
 - **API + frontend + workers Celery + beat** como Deployments separados (release
-  desacoplado da UI).
+  desacoplado da UI). Há um worker por papel: coleta prioritária, coleta em lote,
+  manutenção, busca federada e scheduled queries (`query`) e entrega. Quando o pod é
+  encerrado, cada worker tem até 15 minutos e meio para terminar a tarefa em
+  andamento (2 minutos na coleta prioritária).
 - **HPA** para escalar a API/workers por CPU.
-- **PodDisruptionBudget** para não derrubar todas as réplicas em manutenção.
+- **PodDisruptionBudget** (ligado por padrão nos workers e no consumidor do
+  data-plane) para não derrubar todas as réplicas em manutenção, e réplicas do
+  mesmo papel espalhadas por nós quando possível.
 - **NetworkPolicies** restringindo o tráfego entre componentes.
 - **License keyring** (ConfigMap com chaves **públicas**) para verificar a licença
   Enterprise **offline** — ver **[Edições & Upgrade](../editions/community-vs-enterprise.md)**.

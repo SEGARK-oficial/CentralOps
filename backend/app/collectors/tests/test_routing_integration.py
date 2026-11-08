@@ -98,7 +98,7 @@ def test_routing_no_routes_no_fallback_goes_to_dlq(static_db) -> None:
 
     with (
         patch("backend.app.collectors.tasks.dispatch_to_destination.apply_async") as md,
-        patch("backend.app.collectors.delivery.persist_batch_dlq") as mdlq,
+        patch("backend.app.collectors.delivery.persist_batch_dlq", return_value=True) as mdlq,
     ):
         pipeline._enqueue_dispatch([_ev(5), _ev(2)])
     md.assert_not_called()
@@ -179,8 +179,9 @@ def test_routing_zero_canary_routes_nothing_to_canary(static_db) -> None:
     assert len(md.call_args.kwargs["kwargs"]["batch"]) == 3
 
 
-def test_load_routes_fail_safe_returns_empty() -> None:
-    """A DB error loading routes → [] (route_batch then → fallback dest or DLQ)."""
+def test_load_routes_db_error_holds_the_batch() -> None:
+    """A DB error loading routes RAISES ``RoutingUnavailable``: the producer retries
+    instead of sending everything to the (possibly external) default destination."""
     import backend.app.db.database as db_module
     from backend.app.collectors import pipeline
 
@@ -195,6 +196,8 @@ def test_load_routes_fail_safe_returns_empty() -> None:
 
     db_module.SessionLocal = _Boom  # type: ignore[assignment]
     try:
-        assert pipeline._load_routes_for_org(1) == []
+        # ADR-0018 Onda 0: banco fora RETÉM o lote (antes: [] → tudo ao default).
+        with pytest.raises(pipeline.RoutingUnavailable):
+            pipeline._load_routes_for_org(1)
     finally:
         db_module.SessionLocal = original

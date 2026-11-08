@@ -45,6 +45,21 @@ spec:
     matchLabels:
       app.kubernetes.io/name: {{ include "centralops.fullname" . }}-kafka-dispatcher
 {{- end }}
+{{- if and (eq .Values.dataPlane.eventDataplane "kafka") .Values.dataPlane.processor.pdb.enabled }}
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "centralops.fullname" . }}-raw-processor
+  labels:
+    {{- include "centralops.labels" . | nindent 4 }}
+    app.kubernetes.io/component: raw-processor
+spec:
+  maxUnavailable: {{ .Values.dataPlane.processor.pdb.maxUnavailable }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "centralops.fullname" . }}-raw-processor
+{{- end }}
 {{- if .Values.workers.pdb.enabled }}
 {{- range $name, $worker := .Values.workers }}
 {{- if and (kindIs "map" $worker) (hasKey $worker "replicaCount") (ne $name "beat") }}
@@ -57,7 +72,9 @@ metadata:
     {{- include "centralops.labels" $ | nindent 4 }}
     app.kubernetes.io/component: worker-{{ $name }}
 spec:
-  minAvailable: {{ $.Values.workers.pdb.minAvailable }}
+  # maxUnavailable (não minAvailable): com 1 réplica ainda permite o drain do nó;
+  # com N réplicas limita a 1 pod fora por vez.
+  maxUnavailable: {{ $.Values.workers.pdb.maxUnavailable }}
   selector:
     matchLabels:
       app.kubernetes.io/name: {{ include "centralops.fullname" $ }}-worker-{{ $name }}

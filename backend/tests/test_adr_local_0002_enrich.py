@@ -613,7 +613,8 @@ def test_enqueue_dispatch_marks_unenriched_batches():
     """A marcação está no chokepoint dos 7 produtores, não espalhada."""
     src = Path(Path(applier_mod.__file__).parent.parent / "pipeline.py").read_text()
     i_def = src.index("def _enqueue_dispatch(")
-    i_route = src.index("_enqueue_routed(batch, routes)", i_def)
+    # Sem o ")" de fechamento: a chamada ganhou o kwarg ``suppressed`` (ADR-0018).
+    i_route = src.index("_enqueue_routed(batch, routes", i_def)
     assert "note_unenriched(batch," in src[i_def:i_route], (
         "_enqueue_dispatch precisa marcar o lote ANTES de rotear"
     )

@@ -85,6 +85,21 @@ services:
       - OTEL_METRIC_EXPORT_INTERVAL_MS=${OTEL_METRIC_EXPORT_INTERVAL_MS:-15000}
       - COST_METERING_ENABLED=${COST_METERING_ENABLED:-true}
       - APP_ENV=${APP_ENV:-production}
+      # ADR-0018 Onda 1 — data-plane declarado em TODOS os serviços da app, com o
+      # MESMO valor (guard: test_compose_kafka_parity). Sem isto a API e os
+      # workers de maintenance/query caíam no default "celery" do código e
+      # entregavam por outra lane que a coleta.
+      - EVENT_DATAPLANE=${EVENT_DATAPLANE:-kafka}
+      - KAFKA_BOOTSTRAP_SERVERS=${KAFKA_BOOTSTRAP_SERVERS:-redpanda:9092}
+      - KAFKA_SECURITY_PROTOCOL=${KAFKA_SECURITY_PROTOCOL:-PLAINTEXT}
+      - KAFKA_SASL_MECHANISM=${KAFKA_SASL_MECHANISM:-}
+      - KAFKA_SASL_USERNAME=${KAFKA_SASL_USERNAME:-}
+      - KAFKA_SASL_PASSWORD=${KAFKA_SASL_PASSWORD:-}
+      - KAFKA_SSL_CAFILE=${KAFKA_SSL_CAFILE:-}
+      - KAFKA_DELIVER_REPLICATION=${KAFKA_DELIVER_REPLICATION:-1}
+      - KAFKA_RAW_PARTITIONS=${KAFKA_RAW_PARTITIONS:-16}
+      - KAFKA_RAW_RETENTION_MS=${KAFKA_RAW_RETENTION_MS:-86400000}
+      - KAFKA_RAW_SHARDS_PER_STREAM=${KAFKA_RAW_SHARDS_PER_STREAM:-4}
       # Default = nome do produto. O literal "Sua Empresa" aqui sobrescrevia o
       # default do codigo e vazava texto de rascunho para o header e o login de
       # toda instalacao que nao personalizasse a marca.
@@ -109,6 +124,7 @@ services:
       # Default: Postgres do compose. Override via .env pra apontar pra
       # outro host ou voltar a SQLite (sqlite:////app/data/sophos.db).
       - DATABASE_URL=${DATABASE_URL:-postgresql+psycopg2://${POSTGRES_USER:-centralops}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD obrigatorio - gere com openssl rand -base64 24 e coloque no .env}@postgres:5432/${POSTGRES_DB:-centralops}}
+      - DATABASE_MIGRATION_URL=${DATABASE_MIGRATION_URL:-}
       # Teto de ESPERA por lock da migração de boot (ms; default 15000). Não
       # limita quanto a migração DEMORA — só quanto ela aguarda uma tabela
       # travada por outra sessão antes de abortar o boot com erro claro, em vez
@@ -232,6 +248,50 @@ services:
     restart: unless-stopped
 
   # ── Collector Multi-Tenant (RF07, RNF05) ────────────────────────────
+
+  pgbouncer:
+    # ADR-0018 Onda 1 — pooling por TRANSAÇÃO na frente do Postgres. OPCIONAL:
+    # ligue com COMPOSE_PROFILES=pgbouncer e aponte a app para ele no .env:
+    #   DATABASE_URL=postgresql+psycopg2://<user>:<senha>@pgbouncer:5432/<db>
+    #   DATABASE_MIGRATION_URL=postgresql+psycopg2://<user>:<senha>@postgres:5432/<db>
+    # A migração de boot SEMPRE vai direto ao Postgres (advisory lock de sessão,
+    # que o pooling por transação quebraria). Cada processo Python abre até
+    # DB_POOL_SIZE+DB_MAX_OVERFLOW (20+20) conexões; com ~30 processos no compose,
+    # a soma passa do max_connections=100 do Postgres.
+    profiles: ["pgbouncer"]
+    image: edoburu/pgbouncer:v1.24.1-p1
+    user: "70:70"
+    read_only: true
+    tmpfs:
+      - /etc/pgbouncer:uid=70,gid=70
+      - /tmp:uid=70,gid=70
+    entrypoint: ["/bin/sh", "-c"]
+    # A query string sai da URL: ela acabaria no nome do banco do pgbouncer.ini.
+    command: ['export DATABASE_URL="$${UPSTREAM_DATABASE_URL%%\?*}"; exec /entrypoint.sh /usr/bin/pgbouncer /etc/pgbouncer/pgbouncer.ini']
+    environment:
+      - UPSTREAM_DATABASE_URL=${DATABASE_MIGRATION_URL:-postgresql+psycopg2://${POSTGRES_USER:-centralops}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD obrigatorio - gere com openssl rand -base64 24 e coloque no .env}@postgres:5432/${POSTGRES_DB:-centralops}}
+      - LISTEN_PORT=5432
+      - POOL_MODE=transaction
+      - AUTH_TYPE=scram-sha-256
+      - DEFAULT_POOL_SIZE=${PGBOUNCER_DEFAULT_POOL_SIZE:-20}
+      - MAX_CLIENT_CONN=${PGBOUNCER_MAX_CLIENT_CONN:-2000}
+      - IGNORE_STARTUP_PARAMETERS=extra_float_digits
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z 127.0.0.1 5432 || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 128m
+    restart: unless-stopped
+
   redis:
     image: redis:7-alpine
     # AUTH sempre habilitado (RNF06). Em produção, considerar TLS via stunnel.
@@ -507,9 +567,19 @@ services:
       # em prod (e não suba o serviço redpanda local).
       - EVENT_DATAPLANE=${EVENT_DATAPLANE:-kafka}
       - KAFKA_BOOTSTRAP_SERVERS=${KAFKA_BOOTSTRAP_SERVERS:-redpanda:9092}
+      - KAFKA_SECURITY_PROTOCOL=${KAFKA_SECURITY_PROTOCOL:-PLAINTEXT}
+      - KAFKA_SASL_MECHANISM=${KAFKA_SASL_MECHANISM:-}
+      - KAFKA_SASL_USERNAME=${KAFKA_SASL_USERNAME:-}
+      - KAFKA_SASL_PASSWORD=${KAFKA_SASL_PASSWORD:-}
+      - KAFKA_SSL_CAFILE=${KAFKA_SSL_CAFILE:-}
+      - KAFKA_DELIVER_REPLICATION=${KAFKA_DELIVER_REPLICATION:-1}
+      - KAFKA_RAW_PARTITIONS=${KAFKA_RAW_PARTITIONS:-16}
+      - KAFKA_RAW_RETENTION_MS=${KAFKA_RAW_RETENTION_MS:-86400000}
+      - KAFKA_RAW_SHARDS_PER_STREAM=${KAFKA_RAW_SHARDS_PER_STREAM:-4}
       # Default: Postgres do compose. Override via .env pra apontar pra
       # outro host ou voltar a SQLite (sqlite:////app/data/sophos.db).
       - DATABASE_URL=${DATABASE_URL:-postgresql+psycopg2://${POSTGRES_USER:-centralops}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD obrigatorio - gere com openssl rand -base64 24 e coloque no .env}@postgres:5432/${POSTGRES_DB:-centralops}}
+      - DATABASE_MIGRATION_URL=${DATABASE_MIGRATION_URL:-}
       # Teto de ESPERA por lock da migração de boot (ms; default 15000). Não
       # limita quanto a migração DEMORA — só quanto ela aguarda uma tabela
       # travada por outra sessão antes de abortar o boot com erro claro, em vez
@@ -666,9 +736,19 @@ services:
       # em prod (e não suba o serviço redpanda local).
       - EVENT_DATAPLANE=${EVENT_DATAPLANE:-kafka}
       - KAFKA_BOOTSTRAP_SERVERS=${KAFKA_BOOTSTRAP_SERVERS:-redpanda:9092}
+      - KAFKA_SECURITY_PROTOCOL=${KAFKA_SECURITY_PROTOCOL:-PLAINTEXT}
+      - KAFKA_SASL_MECHANISM=${KAFKA_SASL_MECHANISM:-}
+      - KAFKA_SASL_USERNAME=${KAFKA_SASL_USERNAME:-}
+      - KAFKA_SASL_PASSWORD=${KAFKA_SASL_PASSWORD:-}
+      - KAFKA_SSL_CAFILE=${KAFKA_SSL_CAFILE:-}
+      - KAFKA_DELIVER_REPLICATION=${KAFKA_DELIVER_REPLICATION:-1}
+      - KAFKA_RAW_PARTITIONS=${KAFKA_RAW_PARTITIONS:-16}
+      - KAFKA_RAW_RETENTION_MS=${KAFKA_RAW_RETENTION_MS:-86400000}
+      - KAFKA_RAW_SHARDS_PER_STREAM=${KAFKA_RAW_SHARDS_PER_STREAM:-4}
       # Default: Postgres do compose. Override via .env pra apontar pra
       # outro host ou voltar a SQLite (sqlite:////app/data/sophos.db).
       - DATABASE_URL=${DATABASE_URL:-postgresql+psycopg2://${POSTGRES_USER:-centralops}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD obrigatorio - gere com openssl rand -base64 24 e coloque no .env}@postgres:5432/${POSTGRES_DB:-centralops}}
+      - DATABASE_MIGRATION_URL=${DATABASE_MIGRATION_URL:-}
       # Teto de ESPERA por lock da migração de boot (ms; default 15000). Não
       # limita quanto a migração DEMORA — só quanto ela aguarda uma tabela
       # travada por outra sessão antes de abortar o boot com erro claro, em vez
@@ -707,6 +787,137 @@ services:
       test: ["CMD-SHELL", "celery -A app.collectors.celery_app inspect ping -d bulk@$$(hostname) --timeout 10 2>/dev/null | grep -q pong"]
       interval: 60s
       timeout: 20s
+      retries: 3
+      start_period: 120s
+    labels:
+      autoheal: "true"
+    restart: unless-stopped
+
+  # ── P2: housekeeping/compliance ISOLADO do backfill ────────────
+  collector-raw-processor:
+    # backfill é longo (até task_time_limit=900s). O grace precisa
+    # cobri-lo p/ o warm shutdown drenar a task em voo em vez de SIGKILL (com
+    # task_acks_late, um SIGKILL só re-entrega — desperdício, não perda).
+    stop_grace_period: 930s
+    image: ${IMAGE_NAME:-centralops}:${IMAGE_TAG:-latest}
+    entrypoint: ["/usr/local/bin/start-collector.sh"]
+    # ADR-0018 Onda 2 — consome o tópico raw (eventos push gravados com ack pelo
+    # /api/ingest e pelo syslog-receiver) e roda o pipeline. Processo standalone,
+    # como o kafka-dispatcher: NÃO use ``python -m`` (o módulo é .so na imagem).
+    command: ["python", "-c", "from app.collectors.dataplane.processor import main; main()"]
+    environment:
+      # ── Features dos ADRs — declaradas em TODOS os serviços da app ──────
+      #
+      # Elas não estavam em serviço NENHUM, e o efeito era pior que um default
+      # ruim: como não há `env_file:` no compose, o `compose/.env` só serve para
+      # interpolar `${VAR}` AQUI. Uma linha `OCSF_VALIDATION_ENABLED=true` no
+      # `.env` não virava variável do processo — era no-op MUDO. Não existia
+      # caminho suportado para ligar nem para DESLIGAR nada disto.
+      #
+      # TUDO OU NADA, e o critério não é estético: `GET /correlation-rules/limits`
+      # devolve `inflight_cap_as_seen_by_api`, e o nome já admite o problema —
+      # quem AVALIA é o worker, quem RESPONDE é a API, e as duas leem a var em
+      # processos diferentes. Declarar só nos workers (o gesto natural, "é config
+      # de coletor") faz a API responder 50 com confiança total enquanto o
+      # coletor corta em outro número: `truncated_count` vira ficção. É a forma
+      # exata do incidente do broker partido. Guarda: os testes de paridade de
+      # compose no Core e no EE.
+      #
+      # Todos os defaults abaixo REPETEM o default do código, então subir a stack
+      # sem `.env` produz exatamente o comportamento de antes deste bloco.
+      #
+      # ADR-0012 — validação OCSF. Nasce desligada. `tag_and_pass` marca e deixa
+      # passar; `quarantine`/`drop` retêm. Não ligue enforcement sem antes medir
+      # o volume de inválidos.
+      - OCSF_VALIDATION_ENABLED=${OCSF_VALIDATION_ENABLED:-false}
+      - OCSF_DEFAULT_ENFORCEMENT=${OCSF_DEFAULT_ENFORCEMENT:-tag_and_pass}
+      # ADR-0015 — detecção em voo. O teto é por CICLO e o corte é por
+      # `eval_priority DESC, id ASC`: acima dele a regra fica verde na lista e
+      # nunca dispara.
+      - INFLIGHT_MAX_RULES_PER_CYCLE=${INFLIGHT_MAX_RULES_PER_CYCLE:-50}
+      - INFLIGHT_MAX_WHERE_CLAUSES=${INFLIGHT_MAX_WHERE_CLAUSES:-10}
+      # Emitir a Detection como evento OCSF 2004 para os destinos. MUDA VOLUME E
+      # CUSTO do SIEM do cliente — por isso nasce desligada, e por isso se liga
+      # por ambiente e nunca invertendo o default no código.
+      - INFLIGHT_EMIT_OCSF_EVENT=${INFLIGHT_EMIT_OCSF_EVENT:-false}
+      # Teto de regras por org (4x o de avaliação, de propósito).
+      - CORRELATION_MAX_RULES_PER_ORG=${CORRELATION_MAX_RULES_PER_ORG:-200}
+      # ADR-LOCAL-0002 — enriquecimento. Nasce LIGADO (a doc dizia o contrário).
+      - ENRICHMENT_ENABLED=${ENRICHMENT_ENABLED:-true}
+      - SERVICE_ROLE=raw-processor
+      - APP_MASTER_KEY=${APP_MASTER_KEY:-}
+      # 5 — observabilidade OTLP-PUSH p/ o Collector externo
+      # (métricas/traces/logs). Vazio/false = OTel desligado (no-op). Aponte
+      # OTEL_EXPORTER_OTLP_ENDPOINT p/ o gateway (ex.: http://host.docker.internal:4318).
+      - OTEL_ENABLED=${OTEL_ENABLED:-false}
+      - OTEL_EXPORTER_OTLP_ENDPOINT=${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+      - OTEL_TRACES_SAMPLER_RATIO=${OTEL_TRACES_SAMPLER_RATIO:-0}
+      - OTEL_LOGS_ENABLED=${OTEL_LOGS_ENABLED:-false}
+      - OTEL_METRIC_EXPORT_INTERVAL_MS=${OTEL_METRIC_EXPORT_INTERVAL_MS:-15000}
+      - COST_METERING_ENABLED=${COST_METERING_ENABLED:-true}
+      - APP_ENV=${APP_ENV:-production}
+      - SESSION_SECURE_COOKIE=${SESSION_SECURE_COOKIE:-1}
+      # Onda 3 — data-plane durável: kafka é o caminho de DEPLOY (o
+      # producer do fan-out publica no tópico ``deliver``). Override p/ "celery"
+      # só em dev sem broker. Aponte KAFKA_BOOTSTRAP_SERVERS p/ MSK/Redpanda Cloud
+      # em prod (e não suba o serviço redpanda local).
+      - EVENT_DATAPLANE=${EVENT_DATAPLANE:-kafka}
+      - KAFKA_BOOTSTRAP_SERVERS=${KAFKA_BOOTSTRAP_SERVERS:-redpanda:9092}
+      - KAFKA_SECURITY_PROTOCOL=${KAFKA_SECURITY_PROTOCOL:-PLAINTEXT}
+      - KAFKA_SASL_MECHANISM=${KAFKA_SASL_MECHANISM:-}
+      - KAFKA_SASL_USERNAME=${KAFKA_SASL_USERNAME:-}
+      - KAFKA_SASL_PASSWORD=${KAFKA_SASL_PASSWORD:-}
+      - KAFKA_SSL_CAFILE=${KAFKA_SSL_CAFILE:-}
+      - KAFKA_DELIVER_REPLICATION=${KAFKA_DELIVER_REPLICATION:-1}
+      - KAFKA_RAW_PARTITIONS=${KAFKA_RAW_PARTITIONS:-16}
+      - KAFKA_RAW_RETENTION_MS=${KAFKA_RAW_RETENTION_MS:-86400000}
+      - KAFKA_RAW_SHARDS_PER_STREAM=${KAFKA_RAW_SHARDS_PER_STREAM:-4}
+      # Default: Postgres do compose. Override via .env pra apontar pra
+      # outro host ou voltar a SQLite (sqlite:////app/data/sophos.db).
+      - DATABASE_URL=${DATABASE_URL:-postgresql+psycopg2://${POSTGRES_USER:-centralops}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD obrigatorio - gere com openssl rand -base64 24 e coloque no .env}@postgres:5432/${POSTGRES_DB:-centralops}}
+      - DATABASE_MIGRATION_URL=${DATABASE_MIGRATION_URL:-}
+      # Teto de ESPERA por lock da migração de boot (ms; default 15000). Não
+      # limita quanto a migração DEMORA — só quanto ela aguarda uma tabela
+      # travada por outra sessão antes de abortar o boot com erro claro, em vez
+      # de pendurar o container. Este serviço roda a migração no entrypoint, por
+      # isso a variável precisa chegar AQUI: exportá-la só no shell não adianta.
+      - APP_DB_MIGRATION_LOCK_TIMEOUT_MS=${APP_DB_MIGRATION_LOCK_TIMEOUT_MS:-}
+      # Honra override do orquestrador (ex.: Redis gerenciado externamente) e cai
+      # no redis do compose só se não houver override — espelha o REDIS_URL da API.
+      - REDIS_URL=${REDIS_URL:-redis://:${REDIS_PASSWORD:?REDIS_PASSWORD obrigatorio - gere com openssl rand -base64 24 e coloque no .env}@redis:6379/0}
+      - CELERY_BROKER_URL=${CELERY_BROKER_URL:-redis://:${REDIS_PASSWORD:?REDIS_PASSWORD obrigatorio - gere com openssl rand -base64 24 e coloque no .env}@redis-control:6379/1}
+      - CELERY_RESULT_BACKEND=${CELERY_RESULT_BACKEND:-redis://:${REDIS_PASSWORD:?REDIS_PASSWORD obrigatorio - gere com openssl rand -base64 24 e coloque no .env}@redis-control:6379/2}
+    working_dir: /app
+    volumes:
+      - app-data:/app/data
+      - collector-logs:/var/log/centralops/collectors
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      redis-control:
+        condition: service_healthy
+      redpanda:
+        condition: service_healthy
+      centralops:
+        condition: service_started
+    # bulk recebe mais teto (backfill de até 90 dias) que priority.
+    deploy:
+      replicas: ${COLLECTOR_RAW_PROCESSOR_REPLICAS:-1}
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2g
+        reservations:
+          cpus: '0.5'
+          memory: 512m
+    # Liveness pelo CONSUMER — ver collector-worker-priority.
+    healthcheck:
+      # Heartbeat do loop de consumo (tocado a cada poll e pelo emissor de lag).
+      test: ["CMD-SHELL", "test $$(( $$(date +%s) - $$(stat -c %Y /tmp/processor-heartbeat) )) -lt 120"]
+      interval: 60s
+      timeout: 10s
       retries: 3
       start_period: 120s
     labels:
@@ -791,8 +1002,24 @@ services:
       - OTEL_METRIC_EXPORT_INTERVAL_MS=${OTEL_METRIC_EXPORT_INTERVAL_MS:-15000}
       - COST_METERING_ENABLED=${COST_METERING_ENABLED:-true}
       - APP_ENV=${APP_ENV:-production}
+      # ADR-0018 Onda 1 — data-plane declarado em TODOS os serviços da app, com o
+      # MESMO valor (guard: test_compose_kafka_parity). Sem isto a API e os
+      # workers de maintenance/query caíam no default "celery" do código e
+      # entregavam por outra lane que a coleta.
+      - EVENT_DATAPLANE=${EVENT_DATAPLANE:-kafka}
+      - KAFKA_BOOTSTRAP_SERVERS=${KAFKA_BOOTSTRAP_SERVERS:-redpanda:9092}
+      - KAFKA_SECURITY_PROTOCOL=${KAFKA_SECURITY_PROTOCOL:-PLAINTEXT}
+      - KAFKA_SASL_MECHANISM=${KAFKA_SASL_MECHANISM:-}
+      - KAFKA_SASL_USERNAME=${KAFKA_SASL_USERNAME:-}
+      - KAFKA_SASL_PASSWORD=${KAFKA_SASL_PASSWORD:-}
+      - KAFKA_SSL_CAFILE=${KAFKA_SSL_CAFILE:-}
+      - KAFKA_DELIVER_REPLICATION=${KAFKA_DELIVER_REPLICATION:-1}
+      - KAFKA_RAW_PARTITIONS=${KAFKA_RAW_PARTITIONS:-16}
+      - KAFKA_RAW_RETENTION_MS=${KAFKA_RAW_RETENTION_MS:-86400000}
+      - KAFKA_RAW_SHARDS_PER_STREAM=${KAFKA_RAW_SHARDS_PER_STREAM:-4}
       - SESSION_SECURE_COOKIE=${SESSION_SECURE_COOKIE:-1}
       - DATABASE_URL=${DATABASE_URL:-postgresql+psycopg2://${POSTGRES_USER:-centralops}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD obrigatorio - gere com openssl rand -base64 24 e coloque no .env}@postgres:5432/${POSTGRES_DB:-centralops}}
+      - DATABASE_MIGRATION_URL=${DATABASE_MIGRATION_URL:-}
       # Teto de ESPERA por lock da migração de boot (ms; default 15000). Não
       # limita quanto a migração DEMORA — só quanto ela aguarda uma tabela
       # travada por outra sessão antes de abortar o boot com erro claro, em vez
@@ -916,8 +1143,24 @@ services:
       - OTEL_METRIC_EXPORT_INTERVAL_MS=${OTEL_METRIC_EXPORT_INTERVAL_MS:-15000}
       - COST_METERING_ENABLED=${COST_METERING_ENABLED:-true}
       - APP_ENV=${APP_ENV:-production}
+      # ADR-0018 Onda 1 — data-plane declarado em TODOS os serviços da app, com o
+      # MESMO valor (guard: test_compose_kafka_parity). Sem isto a API e os
+      # workers de maintenance/query caíam no default "celery" do código e
+      # entregavam por outra lane que a coleta.
+      - EVENT_DATAPLANE=${EVENT_DATAPLANE:-kafka}
+      - KAFKA_BOOTSTRAP_SERVERS=${KAFKA_BOOTSTRAP_SERVERS:-redpanda:9092}
+      - KAFKA_SECURITY_PROTOCOL=${KAFKA_SECURITY_PROTOCOL:-PLAINTEXT}
+      - KAFKA_SASL_MECHANISM=${KAFKA_SASL_MECHANISM:-}
+      - KAFKA_SASL_USERNAME=${KAFKA_SASL_USERNAME:-}
+      - KAFKA_SASL_PASSWORD=${KAFKA_SASL_PASSWORD:-}
+      - KAFKA_SSL_CAFILE=${KAFKA_SSL_CAFILE:-}
+      - KAFKA_DELIVER_REPLICATION=${KAFKA_DELIVER_REPLICATION:-1}
+      - KAFKA_RAW_PARTITIONS=${KAFKA_RAW_PARTITIONS:-16}
+      - KAFKA_RAW_RETENTION_MS=${KAFKA_RAW_RETENTION_MS:-86400000}
+      - KAFKA_RAW_SHARDS_PER_STREAM=${KAFKA_RAW_SHARDS_PER_STREAM:-4}
       - SESSION_SECURE_COOKIE=${SESSION_SECURE_COOKIE:-1}
       - DATABASE_URL=${DATABASE_URL:-postgresql+psycopg2://${POSTGRES_USER:-centralops}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD obrigatorio - gere com openssl rand -base64 24 e coloque no .env}@postgres:5432/${POSTGRES_DB:-centralops}}
+      - DATABASE_MIGRATION_URL=${DATABASE_MIGRATION_URL:-}
       # Teto de ESPERA por lock da migração de boot (ms; default 15000). Não
       # limita quanto a migração DEMORA — só quanto ela aguarda uma tabela
       # travada por outra sessão antes de abortar o boot com erro claro, em vez
@@ -1037,11 +1280,27 @@ services:
       - OTEL_METRIC_EXPORT_INTERVAL_MS=${OTEL_METRIC_EXPORT_INTERVAL_MS:-15000}
       - COST_METERING_ENABLED=${COST_METERING_ENABLED:-true}
       - APP_ENV=${APP_ENV:-production}
+      # ADR-0018 Onda 1 — data-plane declarado em TODOS os serviços da app, com o
+      # MESMO valor (guard: test_compose_kafka_parity). Sem isto a API e os
+      # workers de maintenance/query caíam no default "celery" do código e
+      # entregavam por outra lane que a coleta.
+      - EVENT_DATAPLANE=${EVENT_DATAPLANE:-kafka}
+      - KAFKA_BOOTSTRAP_SERVERS=${KAFKA_BOOTSTRAP_SERVERS:-redpanda:9092}
+      - KAFKA_SECURITY_PROTOCOL=${KAFKA_SECURITY_PROTOCOL:-PLAINTEXT}
+      - KAFKA_SASL_MECHANISM=${KAFKA_SASL_MECHANISM:-}
+      - KAFKA_SASL_USERNAME=${KAFKA_SASL_USERNAME:-}
+      - KAFKA_SASL_PASSWORD=${KAFKA_SASL_PASSWORD:-}
+      - KAFKA_SSL_CAFILE=${KAFKA_SSL_CAFILE:-}
+      - KAFKA_DELIVER_REPLICATION=${KAFKA_DELIVER_REPLICATION:-1}
+      - KAFKA_RAW_PARTITIONS=${KAFKA_RAW_PARTITIONS:-16}
+      - KAFKA_RAW_RETENTION_MS=${KAFKA_RAW_RETENTION_MS:-86400000}
+      - KAFKA_RAW_SHARDS_PER_STREAM=${KAFKA_RAW_SHARDS_PER_STREAM:-4}
       - SESSION_SECURE_COOKIE=${SESSION_SECURE_COOKIE:-1}
       # Necessario para o config_loader ler collector_config do Postgres.
       # Sem isso o loader cai no default sqlite:///./data/sophos.db, falha
       # com "unable to open database file" e fica em fallback de env.
       - DATABASE_URL=${DATABASE_URL:-postgresql+psycopg2://${POSTGRES_USER:-centralops}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD obrigatorio - gere com openssl rand -base64 24 e coloque no .env}@postgres:5432/${POSTGRES_DB:-centralops}}
+      - DATABASE_MIGRATION_URL=${DATABASE_MIGRATION_URL:-}
       # Teto de ESPERA por lock da migração de boot (ms; default 15000). Não
       # limita quanto a migração DEMORA — só quanto ela aguarda uma tabela
       # travada por outra sessão antes de abortar o boot com erro claro, em vez
@@ -1164,8 +1423,18 @@ services:
       - SESSION_SECURE_COOKIE=${SESSION_SECURE_COOKIE:-1}
       - EVENT_DATAPLANE=${EVENT_DATAPLANE:-kafka}
       - KAFKA_BOOTSTRAP_SERVERS=${KAFKA_BOOTSTRAP_SERVERS:-redpanda:9092}
+      - KAFKA_SECURITY_PROTOCOL=${KAFKA_SECURITY_PROTOCOL:-PLAINTEXT}
+      - KAFKA_SASL_MECHANISM=${KAFKA_SASL_MECHANISM:-}
+      - KAFKA_SASL_USERNAME=${KAFKA_SASL_USERNAME:-}
+      - KAFKA_SASL_PASSWORD=${KAFKA_SASL_PASSWORD:-}
+      - KAFKA_SSL_CAFILE=${KAFKA_SSL_CAFILE:-}
+      - KAFKA_DELIVER_REPLICATION=${KAFKA_DELIVER_REPLICATION:-1}
+      - KAFKA_RAW_PARTITIONS=${KAFKA_RAW_PARTITIONS:-16}
+      - KAFKA_RAW_RETENTION_MS=${KAFKA_RAW_RETENTION_MS:-86400000}
+      - KAFKA_RAW_SHARDS_PER_STREAM=${KAFKA_RAW_SHARDS_PER_STREAM:-4}
       - KAFKA_CONSUMER_GROUP=${KAFKA_CONSUMER_GROUP:-centralops-dispatcher}
       - DATABASE_URL=${DATABASE_URL:-postgresql+psycopg2://${POSTGRES_USER:-centralops}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD obrigatorio - gere com openssl rand -base64 24 e coloque no .env}@postgres:5432/${POSTGRES_DB:-centralops}}
+      - DATABASE_MIGRATION_URL=${DATABASE_MIGRATION_URL:-}
       # Teto de ESPERA por lock da migração de boot (ms; default 15000). Não
       # limita quanto a migração DEMORA — só quanto ela aguarda uma tabela
       # travada por outra sessão antes de abortar o boot com erro claro, em vez
@@ -1245,6 +1514,21 @@ services:
       - SYSLOG_SOURCE_REFRESH_S=${SYSLOG_SOURCE_REFRESH_S:-15}
       - APP_MASTER_KEY=${APP_MASTER_KEY:-}
       - APP_ENV=${APP_ENV:-production}
+      # ADR-0018 Onda 1 — data-plane declarado em TODOS os serviços da app, com o
+      # MESMO valor (guard: test_compose_kafka_parity). Sem isto a API e os
+      # workers de maintenance/query caíam no default "celery" do código e
+      # entregavam por outra lane que a coleta.
+      - EVENT_DATAPLANE=${EVENT_DATAPLANE:-kafka}
+      - KAFKA_BOOTSTRAP_SERVERS=${KAFKA_BOOTSTRAP_SERVERS:-redpanda:9092}
+      - KAFKA_SECURITY_PROTOCOL=${KAFKA_SECURITY_PROTOCOL:-PLAINTEXT}
+      - KAFKA_SASL_MECHANISM=${KAFKA_SASL_MECHANISM:-}
+      - KAFKA_SASL_USERNAME=${KAFKA_SASL_USERNAME:-}
+      - KAFKA_SASL_PASSWORD=${KAFKA_SASL_PASSWORD:-}
+      - KAFKA_SSL_CAFILE=${KAFKA_SSL_CAFILE:-}
+      - KAFKA_DELIVER_REPLICATION=${KAFKA_DELIVER_REPLICATION:-1}
+      - KAFKA_RAW_PARTITIONS=${KAFKA_RAW_PARTITIONS:-16}
+      - KAFKA_RAW_RETENTION_MS=${KAFKA_RAW_RETENTION_MS:-86400000}
+      - KAFKA_RAW_SHARDS_PER_STREAM=${KAFKA_RAW_SHARDS_PER_STREAM:-4}
       - OTEL_ENABLED=${OTEL_ENABLED:-false}
       - OTEL_EXPORTER_OTLP_ENDPOINT=${OTEL_EXPORTER_OTLP_ENDPOINT:-}
       # grpc (4317) ou http/protobuf (4318, default); headers = auth de backend OTLP direto.
@@ -1252,6 +1536,7 @@ services:
       - OTEL_EXPORTER_OTLP_HEADERS=${OTEL_EXPORTER_OTLP_HEADERS:-}
       - OTEL_METRIC_EXPORT_INTERVAL_MS=${OTEL_METRIC_EXPORT_INTERVAL_MS:-15000}
       - DATABASE_URL=${DATABASE_URL:-postgresql+psycopg2://${POSTGRES_USER:-centralops}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD obrigatorio - gere com openssl rand -base64 24 e coloque no .env}@postgres:5432/${POSTGRES_DB:-centralops}}
+      - DATABASE_MIGRATION_URL=${DATABASE_MIGRATION_URL:-}
       - REDIS_URL=${REDIS_URL:-redis://:${REDIS_PASSWORD:?REDIS_PASSWORD obrigatorio - gere com openssl rand -base64 24 e coloque no .env}@redis:6379/0}
     working_dir: /app
     volumes:
@@ -1351,9 +1636,19 @@ services:
       # em prod (e não suba o serviço redpanda local).
       - EVENT_DATAPLANE=${EVENT_DATAPLANE:-kafka}
       - KAFKA_BOOTSTRAP_SERVERS=${KAFKA_BOOTSTRAP_SERVERS:-redpanda:9092}
+      - KAFKA_SECURITY_PROTOCOL=${KAFKA_SECURITY_PROTOCOL:-PLAINTEXT}
+      - KAFKA_SASL_MECHANISM=${KAFKA_SASL_MECHANISM:-}
+      - KAFKA_SASL_USERNAME=${KAFKA_SASL_USERNAME:-}
+      - KAFKA_SASL_PASSWORD=${KAFKA_SASL_PASSWORD:-}
+      - KAFKA_SSL_CAFILE=${KAFKA_SSL_CAFILE:-}
+      - KAFKA_DELIVER_REPLICATION=${KAFKA_DELIVER_REPLICATION:-1}
+      - KAFKA_RAW_PARTITIONS=${KAFKA_RAW_PARTITIONS:-16}
+      - KAFKA_RAW_RETENTION_MS=${KAFKA_RAW_RETENTION_MS:-86400000}
+      - KAFKA_RAW_SHARDS_PER_STREAM=${KAFKA_RAW_SHARDS_PER_STREAM:-4}
       # Default: Postgres do compose. Override via .env pra apontar pra
       # outro host ou voltar a SQLite (sqlite:////app/data/sophos.db).
       - DATABASE_URL=${DATABASE_URL:-postgresql+psycopg2://${POSTGRES_USER:-centralops}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD obrigatorio - gere com openssl rand -base64 24 e coloque no .env}@postgres:5432/${POSTGRES_DB:-centralops}}
+      - DATABASE_MIGRATION_URL=${DATABASE_MIGRATION_URL:-}
       # Teto de ESPERA por lock da migração de boot (ms; default 15000). Não
       # limita quanto a migração DEMORA — só quanto ela aguarda uma tabela
       # travada por outra sessão antes de abortar o boot com erro claro, em vez

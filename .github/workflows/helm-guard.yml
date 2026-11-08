@@ -49,3 +49,5 @@ jobs:
           version: v3.16.2
       - name: Render + assert keyring reaches every edition-resolving pod
         run: bash kubernetes/helm/centralops/tests/keyring-render-test.sh
+      - name: Render + assert data-plane de produção (ADR-0018 Onda 1)
+        run: bash kubernetes/helm/centralops/tests/dataplane-render-test.sh

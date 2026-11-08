@@ -181,6 +181,8 @@ secrets:
   # não forem sobrescritos (ex.: APP_MASTER_KEY < 32 chars aborta o entrypoint).
   existingSecret: ""
   appMasterKey: "CHANGE_ME_TO_A_32_CHARS_MINIMUM_SECRET_KEY"
+  # URL DIRETA do Postgres. Com pgbouncer.enabled, a app passa a usar o PgBouncer
+  # e esta URL fica para a migração e para o próprio PgBouncer.
   databaseUrl: "postgresql+psycopg2://user:CHANGE_ME@postgres.centralops.svc.cluster.local:5432/db"
   redisPassword: "CHANGE_ME"
   # redisUrl → cache/dedup (volatile-lru). broker+result → redis-control
@@ -296,11 +298,27 @@ frontend:
       periodSeconds: 20
 
 workers:
+  # App Celery. Vazio (recomendado) = o da IMAGEM, via /usr/local/bin/cops-celery:
+  # app.collectors.celery_app no Core, centralops_ee.celery_app no EE. Só fixe
+  # para depurar uma imagem customizada.
+  celeryApp: ""
+  # Tempo de drain no SIGTERM: ≥ task_time_limit (900 s) + margem. Override por
+  # papel com workers.<papel>.terminationGracePeriodSeconds.
+  terminationGracePeriodSeconds: 930
+  # Espalha as réplicas de cada papel por nó (soft — ScheduleAnyway).
+  topologySpread:
+    enabled: true
+    topologyKey: kubernetes.io/hostname
   priority:
     replicaCount: 1
+    # Coleta priority é curta (alertas); 120 s sobram para o drain.
+    terminationGracePeriodSeconds: 120
   bulk:
     replicaCount: 1
   maintenance:
+    replicaCount: 1
+  # Busca federada (Detecta → Busca federada) e scheduled queries.
+  query:
     replicaCount: 1
   dispatcher:
     replicaCount: 1
@@ -361,8 +379,8 @@ workers:
     targetCPUUtilizationPercentage: 80
     # targetMemoryUtilizationPercentage: PROIBIDO (ver aviso acima)
   pdb:
-    enabled: false
-    minAvailable: 0
+    enabled: true
+    maxUnavailable: 1
   # Resources MEDIDOS: worker concurrency=2 usa ~200-232Mi → limite 640Mi com folga
   # p/ o pico dos 2 forks. (concurrency=4 exigiria ~1Gi e nós de 8GB.)
   resources:
@@ -444,10 +462,52 @@ devDatabase:
     maxmemory: "256mb"
     maxmemoryPolicy: "noeviction"
 
+# ── PgBouncer (ADR-0018 Onda 1) ───────────────────────────────────────
+# Pooling por TRANSAÇÃO na frente do Postgres. Recomendado em produção: cada
+# processo Python abre até DB_POOL_SIZE+DB_MAX_OVERFLOW (20+20) conexões e, com
+# dezenas de forks Celery, a soma passa de 1.000 contra os 100 default do Postgres.
+#
+# Com o Secret do chart: ``secrets.databaseUrl`` segue sendo a URL DIRETA do
+# Postgres; o chart grava DATABASE_MIGRATION_URL = ela e DATABASE_URL = a mesma
+# URL apontando para o Service do PgBouncer.
+# Com ``secrets.existingSecret``: o Secret precisa das DUAS chaves —
+# DATABASE_URL (host <release>-centralops-pgbouncer:5432, sem sslmode) e
+# DATABASE_MIGRATION_URL (Postgres direto). A migração usa advisory lock de
+# sessão e por isso NUNCA passa pelo PgBouncer.
+# Limite: a senha não pode depender de URL-encoding (o PgBouncer a lê crua).
+pgbouncer:
+  enabled: false
+  image: edoburu/pgbouncer:v1.24.1-p1
+  replicaCount: 2
+  poolMode: transaction
+  authType: scram-sha-256
+  defaultPoolSize: 20        # conexões reais por (banco, usuário) por réplica
+  maxClientConn: 2000        # conexões de cliente aceitas por réplica
+  maxDbConnections: 0        # 0 = sem teto além do pool
+  serverTlsSslmode: prefer   # TLS PgBouncer→Postgres: disable|prefer|require|verify-full
+  resources:
+    limits:
+      cpu: "500m"
+      memory: "128Mi"
+    requests:
+      cpu: "50m"
+      memory: "32Mi"
+
+# ── Alertas (ADR-0018 Onda 1) ─────────────────────────────────────────
+# PrometheusRule com as regras do data-plane (DLQ que não grava, lag, breaker,
+# coleta atrasada, evicção do dedupe, push recusando). Exige o Prometheus
+# Operator (CRD monitoring.coreos.com/v1). ``labels`` = o que o seletor de regras
+# do SEU Prometheus exige (ex.: release: kube-prometheus-stack).
+monitoring:
+  prometheusRule:
+    enabled: false
+    labels: {}
+
 # ── Onda 3 — data-plane durável (Kafka/Redpanda) ──────────────────────
 # Transporte de evento separado do control-plane (Celery+Redis). Com
 # eventDataplane=kafka, o fan-out produz no tópico ``<prefix>.deliver`` e o
-# kafka-dispatcher consome. wazuh-default segue na lane Celery (worker dispatcher).
+# kafka-dispatcher consome. TODOS os destinos (inclusive o wazuh-default) vão
+# por essa via.
 dataPlane:
   eventDataplane: "kafka"          # "kafka" (deploy) | "celery" (dev sem broker)
   kafka:
@@ -456,6 +516,18 @@ dataPlane:
     topicPrefix: "centralops"
     consumerGroup: "centralops-dispatcher"
     securityProtocol: "PLAINTEXT"  # SASL_SSL em broker gerenciado
+    # TLS (SSL/SASL_SSL). caFile = caminho, DENTRO do pod, da CA privada do broker
+    # (monte via extraVolumes/extraVolumeMounts); vazio = CAs do sistema (MSK e
+    # Confluent Cloud usam CA pública). verify=false só em laboratório.
+    tls:
+      caFile: ""
+      verify: true
+    # Replicação do tópico de entrega, aplicada na CRIAÇÃO do tópico. Broker
+    # externo de produção: 3 (com minInsyncReplicas 2, um broker cai sem parar a
+    # entrega). O devBroker é single-node: o template força 1 quando ele está ligado.
+    replicationFactor: 3
+    minInsyncReplicas: ""   # vazio = derivado do RF (3 → 2)
+    partitions: 8
     # Managed-broker egress allow-list for NetworkPolicy (prod brokers off-cluster).
     # Each entry: { cidr: <broker CIDR>, ports: [ { protocol: TCP, port: 9092 } ] }
     brokerCIDRs: []
@@ -490,7 +562,26 @@ dataPlane:
     # maxUnavailable:1 permite drain de nó mesmo com replicaCount:1 (minAvailable:1
     # bloquearia o drain do único pod).
     pdb:
-      enabled: false
+      enabled: true
+      maxUnavailable: 1
+
+  # ADR-0018 Onda 2 — role processor: consome o tópico raw (push) e roda o
+  # pipeline. Mais réplicas = mais vazão de push, até o nº de partições do raw.
+  processor:
+    replicaCount: 1
+    rawPartitions: 16
+    rawRetentionHours: 24     # quanto tempo o processor pode ficar parado sem perder push
+    resources:
+      limits:
+        cpu: "2000m"
+        memory: "1Gi"
+      requests:
+        cpu: "250m"
+        memory: "512Mi"
+    probes:
+      enabled: true
+    pdb:
+      enabled: true
       maxUnavailable: 1
 
 # Broker Redpanda IN-CLUSTER — APENAS dev/test (single-node, sem HA). Em produção

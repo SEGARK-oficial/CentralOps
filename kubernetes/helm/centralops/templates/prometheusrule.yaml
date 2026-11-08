@@ -1,0 +1,22 @@
+{{- if .Values.monitoring.prometheusRule.enabled }}
+{{- /*
+  Regras de alerta do data-plane (ADR-0018 Onda 1) para quem usa o Prometheus
+  Operator. As MESMAS regras do stack de observabilidade do compose: o arquivo em
+  files/prometheus/ é cópia byte a byte de compose/observability/alerts/ (guard:
+  test_adr0018_onda1). Exige a CRD monitoring.coreos.com/v1 no cluster.
+*/ -}}
+{{- $rules := .Files.Get "files/prometheus/centralops-dataplane.rules.yml" | fromYaml }}
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: {{ include "centralops.fullname" . }}-dataplane
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "centralops.labels" . | nindent 4 }}
+    app.kubernetes.io/component: alerts
+    {{- with .Values.monitoring.prometheusRule.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  {{- toYaml $rules | nindent 2 }}
+{{- end }}

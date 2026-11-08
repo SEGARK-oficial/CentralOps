@@ -20,6 +20,11 @@ otlp:
     - service.instance.id
     - deployment.environment
 
+# Regras de alerta do data-plane (ADR-0018 Onda 1). Montadas pelo
+# docker-compose.yml deste diretório em /etc/prometheus/rules.
+rule_files:
+  - /etc/prometheus/rules/*.yml
+
 scrape_configs:
   # Self-métricas do próprio Collector (saúde do gateway: filas, drops de
   # tail_sampling, throughput). NÃO é scrape da app — é do Collector.
