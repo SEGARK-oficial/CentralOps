@@ -244,6 +244,13 @@ _SPEC: Dict[str, Dict[str, Any]] = {
     # push. outcome = ok | invalid | integration_unavailable | retry | dlq | dlq_failed.
     "collector_raw_processed_total": {"kind": "counter", "unit": "1", "labels": ("outcome",)},
     "collector_raw_consumer_lag": {"kind": "gauge", "unit": "1", "labels": ("partition",)},
+    # ADR-0018 Onda 4a: store-and-forward por destino. ``reason`` = breaker_open |
+    # exhausted (lote estacionado em vez de ir à DLQ do Postgres); ``outcome`` do
+    # drenador = delivered | held (destino ainda fora) | retry | invalid; o lag é
+    # o que está estacionado, por partição do tópico.
+    "collector_parked_total": {"kind": "counter", "unit": "1", "labels": ("reason",)},
+    "collector_parked_drained_total": {"kind": "counter", "unit": "1", "labels": ("outcome",)},
+    "collector_parked_lag": {"kind": "gauge", "unit": "1", "labels": ("partition",)},
     # ADR-0018 Onda 3b: leituras de configuração do processor servidas da última
     # versão boa porque o Postgres falhou. ``kind`` = routes | mapping |
     # integration | inflight_rules | enrichment_policy | ocsf_enforcement |

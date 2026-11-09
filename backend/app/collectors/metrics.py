@@ -233,6 +233,10 @@ DATAPLANE_CONSUMER_LAG = _instrument("collector_dataplane_consumer_lag")
 # Tópico raw (ADR-0018 Onda 2).
 RAW_PROCESSED = _instrument("collector_raw_processed_total")
 RAW_CONSUMER_LAG = _instrument("collector_raw_consumer_lag")
+# Store-and-forward por destino (ADR-0018 Onda 4a).
+PARKED = _instrument("collector_parked_total")
+PARKED_DRAINED = _instrument("collector_parked_drained_total")
+PARKED_LAG = _instrument("collector_parked_lag")
 # Snapshot de config do processor servindo a última versão boa (banco fora).
 CONFIG_SNAPSHOT_STALE = _instrument("collector_config_snapshot_stale_total")
 

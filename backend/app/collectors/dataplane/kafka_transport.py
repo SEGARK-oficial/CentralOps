@@ -750,16 +750,18 @@ async def run_dispatch_consumer(stop_event: Optional[threading.Event] = None) ->
     o despacho existente. at-least-once com commit manual EXPLÍCITO por offset:
 
       - sucesso                  → commita ``{tp: offset+1}``;
-      - breaker OPEN             → lote à DLQ (error_kind=breaker_open) + commita;
+      - breaker OPEN             → lote ESTACIONADO no Kafka (``parked``) + commita;
       - transitório < N tentat.  → ``seek`` de volta + backoff (reprocessa);
-      - transitório esgotado     → lote à DLQ (error_kind=exhausted) + commita
+      - transitório esgotado     → lote ESTACIONADO + commita
                                     (desbloqueia a partição — sem poison-trap infinito);
-      - erro NÃO classificado    → tratado como transitório (seek + backoff, depois DLQ);
-      - DLQ não confirmou        → NÃO commita: seek + backoff, o lote segue no tópico;
+      - erro NÃO classificado    → tratado como transitório (seek + backoff, depois estaciona);
+      - estacionar falhou        → NÃO commita: seek + backoff, o lote segue no tópico;
       - envelope inválido/malformado → descarta (outcome=invalid) + commita.
 
     Invariante (ADR-0018 Onda 0): nenhum offset é commitado sem a entrega ou a
-    gravação na DLQ confirmadas.
+    gravação durável (estacionamento; DLQ só para poison) confirmadas. Destino
+    fora não grava linha no Postgres (Onda 4a): o drenador do estacionamento
+    (``parked.run_parked_consumer``) entrega quando ele volta.
 
     Cooperativo: ``stop_event`` faz o loop sair APÓS terminar+commitar o registro
     corrente (drain limpo). Lag é emitido por uma task de BACKGROUND sobre TODAS
@@ -770,8 +772,7 @@ async def run_dispatch_consumer(stop_event: Optional[threading.Event] = None) ->
     from aiokafka.structs import TopicPartition
 
     from .. import circuit_breaker
-    from ..delivery import persist_batch_dlq
-    from ..pipeline import _batch_org_id, dispatch_batch_to_destination
+    from ..pipeline import dispatch_batch_to_destination
 
     try:
         from ..delivery import TransientDeliveryError  # type: ignore
@@ -819,31 +820,10 @@ async def run_dispatch_consumer(stop_event: Optional[threading.Event] = None) ->
             except Exception:  # pragma: no cover — lag é advisory, nunca derruba o loop
                 pass
 
-    async def _persist_dlq(batch: list, dest_id: Any, error_kind: str) -> bool:
-        """Grava o lote na DLQ e diz se GRAVOU. ``persist_batch_dlq`` devolve
-        False em falha (não levanta); qualquer exceção também conta como falha.
-        O chamador só commita o offset com True."""
-        try:
-            ok = await asyncio.to_thread(
-                persist_batch_dlq,
-                batch,
-                destination_id=str(dest_id),
-                error_kind=error_kind,
-                organization_id=_batch_org_id(batch),
-            )
-        except Exception:  # noqa: BLE001 — falha da DLQ = não commitar
-            logger.exception(
-                "data-plane: falha ao gravar DLQ dest=%s kind=%s — lote mantido no tópico",
-                dest_id, error_kind,
-            )
-            return False
-        if ok is not True:
-            logger.error(
-                "data-plane: DLQ não confirmou dest=%s kind=%s — lote mantido no tópico",
-                dest_id, error_kind,
-            )
-            return False
-        return True
+    async def _park(value: bytes, dest_id: Any, reason: str) -> bool:
+        from .parked import park
+
+        return await park(value, str(dest_id), reason)
 
     async def _commit(tp: "TopicPartition", offset: int) -> None:
         """Commit EXPLÍCITO do offset processado (não bare commit de todas as
@@ -933,19 +913,20 @@ async def run_dispatch_consumer(stop_event: Optional[threading.Event] = None) ->
                 await _commit(tp, msg.offset)
                 attempts.pop(key, None)
             except circuit_breaker.BreakerOpen:
-                # Breaker OPEN: o lote NUNCA foi tentado e NÃO foi persistido pelo
-                # dispatch. DLQ (recuperável) ANTES de commitar — e só commita se a
-                # DLQ CONFIRMAR a gravação (ADR-0018 Onda 0): com o Postgres fora,
-                # o lote fica no Kafka e é relido, em vez de sumir.
-                outcome = "breaker_open"
-                if await _persist_dlq(batch, dest_id, "breaker_open"):
-                    logger.warning(
-                        "data-plane: breaker OPEN dest=%s — lote na DLQ (breaker_open)", dest_id
+                # Breaker OPEN: o lote NUNCA foi tentado. Destino fora ESPERA NO
+                # KAFKA (ADR-0018 Onda 4a): o registro vai ao estacionamento e o
+                # drenador o entrega quando o destino voltar — nenhuma linha no
+                # Postgres. Só commita com o estacionamento CONFIRMADO (Onda 0):
+                # broker recusando, o lote fica aqui e é relido.
+                outcome = "parked"
+                if await _park(msg.value, dest_id, "breaker_open"):
+                    logger.info(
+                        "data-plane: breaker OPEN dest=%s — lote estacionado", dest_id
                     )
                     await _commit(tp, msg.offset)
                     attempts.pop(key, None)
                 else:
-                    outcome = "dlq_failed"
+                    outcome = "park_failed"
                     safe_seek(consumer, tp, msg.offset)
                     backoff = _DLQ_FAILURE_BACKOFF_S
             except Exception as exc:  # noqa: BLE001 — nenhum erro commita sem DLQ
@@ -957,19 +938,21 @@ async def run_dispatch_consumer(stop_event: Optional[threading.Event] = None) ->
                 # esgotar, vai à DLQ; o commit só acontece com a DLQ confirmada.
                 attempts[key] = attempts.get(key, 0) + 1
                 if attempts[key] > settings.KAFKA_MAX_DELIVERY_ATTEMPTS:
-                    # Esgotou: DLQ + commit p/ DESBLOQUEAR a partição (sem isto, um
-                    # destino transitório-permanente prende a partição em loop de
-                    # seek e faz HoL-blocking nos co-tenants).
+                    # Esgotou: ESTACIONA + commit p/ DESBLOQUEAR a partição (sem
+                    # isto, um destino transitório-permanente prende a partição em
+                    # loop de seek e faz HoL-blocking nos co-tenants). Transitório não
+                    # é poison: o lote espera no Kafka, não na DLQ (Onda 4a).
                     outcome = "exhausted"
                     logger.error(
-                        "data-plane: transitório esgotado dest=%s offset=%s (%d tentativas, %s) — DLQ",
+                        "data-plane: transitório esgotado dest=%s offset=%s (%d tentativas, %s) "
+                        "— estacionado",
                         dest_id, msg.offset, attempts[key], type(exc).__name__,
                     )
-                    if await _persist_dlq(batch, dest_id, "exhausted"):
+                    if await _park(msg.value, dest_id, "exhausted"):
                         attempts.pop(key, None)
                         await _commit(tp, msg.offset)
                     else:
-                        outcome = "dlq_failed"
+                        outcome = "park_failed"
                         safe_seek(consumer, tp, msg.offset)
                         backoff = _DLQ_FAILURE_BACKOFF_S
                 else:

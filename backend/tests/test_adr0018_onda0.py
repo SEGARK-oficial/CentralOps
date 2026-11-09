@@ -78,24 +78,27 @@ async def test_unknown_delivery_error_never_commits(monkeypatch, error):
     assert dlq == []                   # ainda não esgotou
 
 
-async def test_unknown_delivery_error_exhausted_goes_to_dlq(monkeypatch):
+async def test_unknown_delivery_error_exhausted_is_parked(monkeypatch):
     async def _dispatch(dest, batch):
         raise ConnectionRefusedError("destino fora")
 
     # A mesma mensagem 3× (o fake não re-enfileira no seek): a 3ª passa do teto.
     fake = _FakeConsumer([_msg(1, "d", [{"e": 1}]) for _ in range(3)])
     dlq: list = []
-    _install(monkeypatch, fake, _dispatch, dlq_capture=dlq)
+    parked: list = []
+    _install(monkeypatch, fake, _dispatch, dlq_capture=dlq, park_capture=parked)
     monkeypatch.setattr(kt.settings, "KAFKA_MAX_DELIVERY_ATTEMPTS", 2)
 
     await kt.run_dispatch_consumer()
 
-    assert [d["error_kind"] for d in dlq] == ["exhausted"]
+    # Onda 4a: esgotado ESTACIONA (espera no Kafka), não vai à DLQ do Postgres.
+    assert dlq == []
+    assert [p["reason"] for p in parked] == ["exhausted"]
     assert len(fake.commits) == 1
 
 
 @pytest.mark.parametrize("kind", ["breaker_open", "exhausted"])
-async def test_dlq_write_failure_blocks_commit(monkeypatch, kind):
+async def test_park_failure_blocks_commit(monkeypatch, kind):
     from backend.app.collectors import circuit_breaker
 
     async def _dispatch(dest, batch):
@@ -105,12 +108,12 @@ async def test_dlq_write_failure_blocks_commit(monkeypatch, kind):
 
     n = 1 if kind == "breaker_open" else 2
     fake = _FakeConsumer([_msg(7, "d", [{"e": 1}]) for _ in range(n)])
-    _install(monkeypatch, fake, _dispatch, dlq_capture=[], dlq_ok=False)
+    _install(monkeypatch, fake, _dispatch, dlq_capture=[], park_capture=[], park_ok=False)
     monkeypatch.setattr(kt.settings, "KAFKA_MAX_DELIVERY_ATTEMPTS", 1)
 
     await kt.run_dispatch_consumer()
 
-    assert fake.commits == []          # DLQ não confirmou → offset NÃO avança
+    assert fake.commits == []          # estacionar não confirmou → offset NÃO avança
     assert fake.seeks                  # o lote é relido depois
 
 

@@ -1,7 +1,8 @@
 """Entrypoint do role ``dispatcher`` (consumer do data-plane).
 
 Processo standalone (NÃO é worker Celery): consome o tópico Kafka ``deliver`` e
-chama o despacho existente. Lançado pelo ``start-collector.sh`` (que garante a
+chama o despacho existente; no mesmo processo, drena o estacionamento por destino
+(``deliver.parked``, ADR-0018 Onda 4a). Lançado pelo ``start-collector.sh`` (que garante a
 APP_MASTER_KEY + migra o schema) com::
 
     command: ["python", "-c", "from app.collectors.dataplane.dispatcher import main; main()"]
@@ -28,6 +29,7 @@ import signal
 import threading
 
 from .kafka_transport import run_dispatch_consumer
+from .parked import run_parked_consumer
 
 logger = logging.getLogger(__name__)
 
@@ -37,12 +39,22 @@ logger = logging.getLogger(__name__)
 _DRAIN_DEADLINE_S = 900.0
 
 
+async def _run_consumers(stop_flag: threading.Event) -> None:
+    """Os dois consumers do papel: o tópico de entrega e o drenador do
+    estacionamento (ADR-0018 Onda 4a). Um que morra derruba o processo — o
+    orquestrador reinicia os dois juntos, nunca um dispatcher pela metade."""
+    await asyncio.gather(
+        run_dispatch_consumer(stop_event=stop_flag),
+        run_parked_consumer(stop_event=stop_flag),
+    )
+
+
 async def _amain() -> None:
     # Cooperativo: passa o stop_event; o consumer sai APÓS terminar+
     # commitar o registro corrente. O poll-com-timeout dentro do loop garante que
     # o stop seja observado em ~1s mesmo com a partição ociosa.
     stop_flag = threading.Event()
-    consumer_task = asyncio.create_task(run_dispatch_consumer(stop_event=stop_flag))
+    consumer_task = asyncio.create_task(_run_consumers(stop_flag))
     sig_event = asyncio.Event()
     loop = asyncio.get_running_loop()
     for sig in (signal.SIGTERM, signal.SIGINT):

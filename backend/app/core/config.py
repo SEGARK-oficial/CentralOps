@@ -330,6 +330,18 @@ class Settings(BaseSettings):
     # registro inteiro). 45 s é o default do próprio Kafka desde a 3.0. O
     # rebalance precisa ser MAIOR que a espera pelo lote em voo na revogação
     # (metade dele), senão o membro que drena com correção é quem é expulso.
+    # Store-and-forward por destino (ADR-0018 Onda 4a): lote de destino com o
+    # disjuntor aberto (ou com transitório esgotado) ESTACIONA neste tópico, em
+    # vez de virar linha na DLQ do Postgres, e o drenador o entrega quando o
+    # destino volta. Retenção = quanto tempo um destino pode ficar fora sem perda
+    # (disco ≈ eps do destino × bytes × retenção ÷ compressão). Cada destino cai
+    # sempre na mesma partição; HOLD = quanto uma partição fica pausada antes de
+    # tentar de novo (≈ cooldown do disjuntor, que deixa passar uma sonda).
+    KAFKA_PARKED_TOPIC: str = "deliver.parked"
+    KAFKA_PARKED_PARTITIONS: int = 32
+    KAFKA_PARKED_RETENTION_MS: int = 7 * 24 * 3600 * 1000
+    KAFKA_PARKED_GROUP: str = "centralops-parked"
+    KAFKA_PARKED_HOLD_SECONDS: float = 30.0
     KAFKA_SESSION_TIMEOUT_MS: int = 45000
     KAFKA_HEARTBEAT_INTERVAL_MS: int = 3000
     KAFKA_REBALANCE_TIMEOUT_MS: int = 60000

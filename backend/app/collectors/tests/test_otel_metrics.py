@@ -296,7 +296,9 @@ def test_every_facade_maps_to_spec_and_vice_versa():
     # +1 (ADR-0018 Onda 3b): collector_config_snapshot_stale_total{kind} — o
     # processor seguindo com a última configuração boa porque o Postgres caiu.
     # Sem ela, a degradação seria muda até o teto de idade. 69 → 70.
-    assert len(facade_names) == 70
+    # ADR-0018 Onda 4a: estacionamento por destino (gravados, drenados, lag).
+    # 70 → 73.
+    assert len(facade_names) == 73
     # O catálogo tem as síncronas + ao menos o observável collector_up.
     assert "collector_up" in otel_metrics._SPEC
     assert "collector_up" not in facade_names

@@ -415,7 +415,9 @@ class LocalStack:
             except subprocess.TimeoutExpired:
                 p.kill()
         if self.containers:
-            subprocess.run(["docker", "rm", "-f", *self.containers], capture_output=True)
+            # ``-v``: os volumes anônimos das imagens (Postgres, Redis, Redpanda) vão
+            # junto. Sem ele, cada rodada deixava ~1 GB de dados do Redpanda órfão.
+            subprocess.run(["docker", "rm", "-f", "-v", *self.containers], capture_output=True)
         if self.args.keep:
             _log(f"logs mantidos em {self.work}")
         else:
