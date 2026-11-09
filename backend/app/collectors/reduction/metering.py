@@ -234,7 +234,36 @@ class AddedVolumeAccumulator:
         for (org_id, reason), total in pending.items():
             # ``destination_id=None``: o enriquecimento é PRÉ-fan-out, não há
             # destino atribuível neste ponto (mesma escolha do trim).
-            record_addition(org_id, None, reason, bytes_=total)
+            self._record(org_id, reason, total)
+
+    def _record(self, organization_id: int, reason: str, total: float) -> None:
+        record_addition(organization_id, None, reason, bytes_=total)
+
+
+class SavedVolumeAccumulator(AddedVolumeAccumulator):
+    """Batcher dos bytes EVITADOS pelo trim (``raw_reduction``) — ADR-0018 Onda 3c.
+
+    ``record_trim_saving`` fazia um ``record_saving`` (pipeline Redis síncrono) por
+    evento reduzido, dentro do laço. Aqui a medição por evento é a mesma (os dois
+    dumps, sob as mesmas flags) e a gravação é uma por ``(org, reason)`` no flush."""
+
+    __slots__ = ()
+
+    def add_trim(self, organization_id: Optional[int], raw: Any, reduced: Any) -> None:
+        if not enabled() or not bool(getattr(settings, "REDUCTION_TRIM_ENABLED", False)):
+            return
+        if reduced is None or organization_id is None:
+            return
+        try:
+            saved = _event_bytes(raw) - _event_bytes(reduced)
+        except Exception:  # noqa: BLE001 — best-effort
+            logger.debug("metering: medição do trim falhou (org=%s)", organization_id, exc_info=True)
+            return
+        if saved > 0:
+            self.add(organization_id, "trim", float(saved))
+
+    def _record(self, organization_id: int, reason: str, total: float) -> None:
+        record_saving(organization_id, None, reason, bytes_=total)
 
 
 def record_trim_saving(organization_id: Optional[int], raw: Any, reduced: Any) -> None:

@@ -1,70 +1,22 @@
-"""Testes do subsistema de ingestão push: buffer Redis, tokens de
-ingestão, collector virtual de dreno, endpoint HTTP e seed de mapping OCSF.
+"""Testes do subsistema de ingestão push: tokens de ingestão, coletor push e
+seed de mapping OCSF. O evento push vai direto ao tópico raw (ADR-0018 Onda 2);
+a lista Redis e o coletor que a drenava saíram na Onda 5.
 
 Cobre:
-(a) ingest_buffer: push→drain FIFO + backpressure (cap + descarte).
 (b) ingest_tokens: gera/parse/verifica + rotação invalida o anterior.
-(c) PushBufferCollector: drena o buffer e expõe event_type por subclasse.
-(d) endpoint POST /api/ingest/{stream}: token-auth, bufferiza, 401 sem token,
-    422 p/ plataforma não-push, 404 p/ stream desconhecido.
+(c) PushSourceCollector: não busca nada; dá ``event_type`` e id de dedupe.
 (e) catálogo: fortinet_fortigate/windows_event_log são transport=push e têm
     mapping default OCSF seedável.
+(f) normalização do evento push com o mapping seedado.
+(g) push não tem ciclo agendado.
 """
 
 from __future__ import annotations
 
 import pytest
-import fakeredis.aioredis
 
-from backend.app.collectors import ingest_buffer as ib
 from backend.app.collectors import registry as collector_registry
 from backend.app.collectors.normalize.defaults import DEFAULT_MAPPING_FILES, load_default_rules
-
-
-@pytest.fixture
-def aredis():
-    return fakeredis.aioredis.FakeRedis(decode_responses=True)
-
-
-# ── (a) ingest_buffer ─────────────────────────────────────────────────────
-
-
-@pytest.mark.asyncio
-async def test_buffer_push_drain_fifo(aredis):
-    evs = [{"i": i} for i in range(5)]
-    accepted, dropped = await ib.push_events(aredis, 1, "traffic", evs)
-    assert accepted == 5 and dropped == 0
-    assert await ib.buffer_depth(aredis, 1, "traffic") == 5
-    drained = await ib.drain_events(aredis, 1, "traffic")
-    assert [d["i"] for d in drained] == [0, 1, 2, 3, 4]  # FIFO (mais antigo primeiro)
-    assert await ib.buffer_depth(aredis, 1, "traffic") == 0
-
-
-@pytest.mark.asyncio
-async def test_buffer_backpressure_refuses_whole_batch(aredis):
-    # ADR-0018 Onda 0: cap=3 e um lote de 5 → NADA é gravado (tudo-ou-nada); o
-    # endpoint responde 503 e o edge re-tenta. Antes mantinha os 3 mais recentes.
-    accepted, refused = await ib.push_events(aredis, 9, "s", [{"i": i} for i in range(5)], max_len=3)
-    assert accepted == 0
-    assert refused == 5
-    assert await ib.buffer_depth(aredis, 9, "s") == 0
-    # contador de recusa exposto
-    assert int(await aredis.get(ib.dropped_key(9, "s"))) == 5
-    # um lote que cabe entra inteiro
-    assert await ib.push_events(aredis, 9, "s", [{"i": i} for i in range(3)], max_len=3) == (3, 0)
-
-
-@pytest.mark.asyncio
-async def test_drain_budget_bounds(aredis):
-    await ib.push_events(aredis, 2, "t", [{"i": i} for i in range(10)])
-    drained = await ib.drain_events(aredis, 2, "t", budget=4)
-    assert len(drained) == 4
-    assert await ib.buffer_depth(aredis, 2, "t") == 6
-
-
-@pytest.mark.asyncio
-async def test_drain_empty_is_noop(aredis):
-    assert await ib.drain_events(aredis, 77, "none") == []
 
 
 # ── (b) ingest_tokens ─────────────────────────────────────────────────────
@@ -81,22 +33,16 @@ def test_token_generate_parse_hash():
     assert it.parse_integration_id("coi_abc_x") is None
 
 
-# ── (c) PushBufferCollector ───────────────────────────────────────────────
+# ── (c) PushSourceCollector ───────────────────────────────────────────────
 
 
 @pytest.mark.asyncio
-async def test_push_collector_drains(aredis):
-    from backend.app.collectors.base import CollectorContext
+async def test_push_collector_fetches_nothing():
+    """Fonte push não tem o que buscar: o evento já está no raw."""
     from backend.app.collectors.vendors.push_ingest import FortiGateTrafficCollector
 
-    await ib.push_events(aredis, 5, "traffic", [{"a": 1}, {"a": 2}])
-    ctx = CollectorContext(
-        integration_id=5, organization_id=1, platform="fortinet_fortigate",
-        headers={}, session=None, cursor=None, domain_limiter=None, rate_limiter=None, redis=aredis,
-    )
-    coll = FortiGateTrafficCollector(ctx)
-    out = [e async for e in coll.collect()]
-    assert [e["a"] for e in out] == [1, 2]
+    coll = FortiGateTrafficCollector.__new__(FortiGateTrafficCollector)
+    assert [e async for e in coll.collect()] == []
     assert FortiGateTrafficCollector.event_type == "fortinet_fortigate.traffic"
 
 
@@ -127,14 +73,12 @@ def test_push_platform_catalog_and_mapping(platform, stream, event_type):
     assert any(r.get("target") == "normalized.time" and r.get("required") for r in rule_list)
 
 
-# ── (f) End-to-end: buffer → dreno → normalização OCSF ─────────────────────
+# ── (f) Normalização do evento push ────────────────────────────────────────
 
 
-@pytest.mark.asyncio
-async def test_push_event_drains_and_normalizes(aredis):
-    """Prova o caminho push COMPLETO: evento bufferizado → PushBufferCollector drena
-    → extract_message_id (dedupe) → mapping seedado → envelope OCSF válido."""
-    from backend.app.collectors.base import CollectorContext
+def test_push_event_normalizes_with_the_seeded_mapping():
+    """O evento como o ingest o grava no raw → id de dedupe do carimbo → mapping
+    seedado → OCSF válido. É o que o processor faz com ele."""
     from backend.app.collectors.vendors.push_ingest import FortiGateTrafficCollector
     from backend.app.collectors.normalize.engine import apply_compiled, compile_rules
 
@@ -146,48 +90,21 @@ async def test_push_event_drains_and_normalizes(aredis):
         "dstip": "8.8.8.8", "dstport": 443, "proto": 6,
         "action": "accept", "sentbyte": 1024, "rcvdbyte": 4096,
     }
-    await ib.push_events(aredis, 5, "traffic", [raw])
-
-    ctx = CollectorContext(
-        integration_id=5, organization_id=1, platform="fortinet_fortigate",
-        headers={}, session=None, cursor=None, domain_limiter=None, rate_limiter=None, redis=aredis,
-    )
-    coll = FortiGateTrafficCollector(ctx)
-    drained = [e async for e in coll.collect()]
-    assert len(drained) == 1
-    # dedupe id estável vem do carimbo do endpoint
-    assert coll.extract_message_id(drained[0]) == "evt-deadbeef"
+    coll = FortiGateTrafficCollector.__new__(FortiGateTrafficCollector)
+    assert coll.extract_message_id(raw) == "evt-deadbeef"
 
     rules = load_default_rules("fortinet_fortigate", "fortinet_fortigate.traffic")
-    out = apply_compiled(compile_rules(rules), drained[0]).output
+    out = apply_compiled(compile_rules(rules), raw).output
     n = out.get("normalized", out)
     assert n["class_uid"] == 4001  # OCSF Network Activity
-    assert n["time"]  # tempo resolveu (timestamp || _ingest.received_at)
+    assert n["time"]
     assert n["src_endpoint"]["ip"] == "10.0.0.5"
     assert n["dst_endpoint"]["ip"] == "8.8.8.8"
 
 
-def test_push_platform_scheduled_via_registry():
-    """O dreno É agendado: register_integration_in_beat usa iter_for_platform p/ criar
-    a entry RedBeat. Confirma que cada plataforma push expõe um (stream, task, queue,
-    schedule) válido — sem isso o buffer nunca seria drenado (data-loss silencioso)."""
-    from backend.app.collectors.queues import Q_BULK, T_COLLECT_BULK
-
-    for platform, stream in (("fortinet_fortigate", "traffic"), ("windows_event_log", "security")):
-        regs = {r.stream: r for r in collector_registry.iter_for_platform(platform)}
-        assert stream in regs, f"{platform} sem CollectorRegistration p/ {stream}"
-        r = regs[stream]
-        assert r.task_name == T_COLLECT_BULK
-        assert r.queue == Q_BULK
-        assert 0 < r.schedule.total_seconds() <= 30  # dreno frequente
-
-
-@pytest.mark.asyncio
-async def test_buffer_full_never_evicts_accepted_events(aredis):
-    """Buffer cheio recusa o lote NOVO e preserva os eventos já aceitos (antes o
-    LTRIM apagava os mais antigos, já respondidos com 200)."""
-    await ib.push_events(aredis, 3, "t", [{"i": i} for i in range(3)], max_len=3)
-    accepted, refused = await ib.push_events(aredis, 3, "t", [{"i": 10 + i} for i in range(4)], max_len=3)
-    assert (accepted, refused) == (0, 4)
-    assert await ib.buffer_depth(aredis, 3, "t") == 3
-    assert [d["i"] for d in await ib.drain_events(aredis, 3, "t")] == [0, 1, 2]
+def test_push_platform_has_no_scheduled_cycle():
+    """Push não tem ciclo de coleta (ADR-0018 Onda 5): o registry marca a
+    plataforma e o agendador não cria entry para ela."""
+    for platform in ("fortinet_fortigate", "windows_event_log", "custom_json"):
+        assert collector_registry.is_push_platform(platform), platform
+    assert not collector_registry.is_push_platform("sophos")

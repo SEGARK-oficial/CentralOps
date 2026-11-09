@@ -83,7 +83,10 @@ jobs:
   build:
     name: Build once (Cython + unit sweep) → ci image
     runs-on: ${{ fromJSON(github.event.pull_request.head.repo.fork && '["ubuntu-latest"]' || '["self-hosted","Linux","X64"]') }}
-    timeout-minutes: 50
+    # 75, não 50: o compile + o unit sweep levam ~45 min, e o ``cache-to`` do
+    # BuildKit depois deles (~4–6 min) estourava o teto — o job era CANCELADO com
+    # todos os testes verdes (#112, #115, #118), e os E2E nunca rodavam.
+    timeout-minutes: 75
     permissions:
       contents: read
       packages: write

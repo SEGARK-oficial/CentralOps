@@ -1,21 +1,24 @@
-"""Papel ``processor`` — consome o tópico raw e roda o pipeline (ADR-0018 Onda 2).
+"""Papel ``processor`` — consome o tópico raw e roda o pipeline (ADR-0018).
 
-Transitório: reaproveita o ciclo de coleta existente (``_run_collection_once``)
-alimentando o coletor push com o lote lido do Kafka, em vez da lista Redis. A
-Onda 3 troca isto por um processor de verdade, sem o ciclo de coleta no meio.
+Desde a Onda 3 chama o estágio de processamento direto
+(``pipeline.process_raw_events`` → ``StreamProcessor``), sem o ciclo de coleta no
+meio: nada de token, cursor, coletor instanciado ou sessão HTTP por lote. O raw
+recebe eventos push (ingest HTTP, syslog), o que os coletores pull buscaram e o
+que o backfill buscou (registros ``historical``). Desde a Onda 5 é o ÚNICO lugar
+onde o evento é processado.
 
 Semântica:
   * o offset só é commitado DEPOIS que o ciclo terminou — os eventos já saíram
     para o tópico de entrega (ou para a quarentena/DLQ do próprio ciclo);
   * falha do ciclo → ``seek`` + backoff, até ``KAFKA_MAX_DELIVERY_ATTEMPTS``;
     esgotado, o lote vai à DLQ ``__raw__`` e só então o offset avança;
-  * ciclo que retornou SEM consumir o lote (integração inativa, coletor não
-    registrado) → DLQ ``__raw__`` (``integration_unavailable``), nunca um commit mudo;
+  * lote que não foi processado (integração inativa, coletor não registrado)
+    → DLQ ``__raw__`` (``integration_unavailable``), nunca um commit mudo;
   * a DLQ que não grava segura o offset (o lote continua no tópico).
 
 Vários processors tratam o mesmo (integração, stream) em partições diferentes, então
-o ciclo roda SEM a trava do stream e com o conjunto de claims pendentes escopado
-pela partição (``pipeline.PENDING_SCOPE``): cada partição tem um consumidor por vez.
+o processamento roda SEM a trava do stream, com a janela de dedupe da partição:
+cada partição tem um consumidor por vez.
 
 Entrypoint igual ao dispatcher (``python -c "...processor import main; main()"``):
 na imagem Cython o módulo é ``.so`` e ``python -m`` não funciona.
@@ -51,6 +54,11 @@ class _Group:
     integration_id: Optional[int] = None
     stream: str = ""
     events: List[Dict[str, Any]] = field(default_factory=list)
+    # Paralelo a ``events``: id de dedupe gravado pelo coletor pull, "" quando o
+    # registro não trouxe (push) — derivado no processamento.
+    ids: List[str] = field(default_factory=list)
+    # Lote de backfill (registro com ``historical``): agrupado à parte do ao vivo.
+    historical: bool = False
     invalid: bool = False
 
 
@@ -68,32 +76,61 @@ def _group_records(msgs: List[Any]) -> Iterator[_Group]:
             yield _Group(msg.offset, msg.offset, invalid=True)
             continue
         iid, stream = doc["integration_id"], doc["stream"]
-        if current is not None and (current.integration_id, current.stream) == (iid, stream):
-            current.events.extend(doc["events"])
+        historical = doc.get("historical") is True
+        events = doc["events"]
+        ids = doc.get("ids") or [""] * len(events)
+        if current is not None and (
+            current.integration_id, current.stream, current.historical
+        ) == (iid, stream, historical):
+            current.events.extend(events)
+            current.ids.extend(ids)
             current.last_offset = msg.offset
             continue
         if current is not None:
             yield current
-        current = _Group(msg.offset, msg.offset, iid, stream, list(doc["events"]))
+        current = _Group(
+            msg.offset, msg.offset, iid, stream, list(events), list(ids), historical
+        )
     if current is not None:
         yield current
 
 
-async def process_group(integration_id: int, stream: str, events: List[Dict[str, Any]], partition: int) -> bool:
-    """Roda o ciclo de coleta sobre ``events``. Devolve se o lote foi CONSUMIDO
-    (False = o ciclo retornou cedo sem iterar). Levanta se o ciclo falhou."""
-    from .. import pipeline
-    from ..vendors.push_ingest import RAW_BATCH, RawBatch
+#: Janela de dedupe em memória por partição (ADR-0018 Onda 3c). Uma partição tem
+#: um consumidor por vez, então a janela vive no processo que a detém. Mantida
+#: depois de um rebalance: se a partição voltar, os ids vistos continuam válidos.
+_DEDUPE_WINDOWS: Dict[int, Any] = {}
 
-    batch = RawBatch(events=events)
-    tok_batch = RAW_BATCH.set(batch)
-    tok_scope = pipeline.PENDING_SCOPE.set(f"raw-p{partition}")
-    try:
-        await pipeline._run_collection_once(integration_id, stream)
-    finally:
-        pipeline.PENDING_SCOPE.reset(tok_scope)
-        RAW_BATCH.reset(tok_batch)
-    return batch.consumed
+
+def _window_for(partition: int) -> Any:
+    window = _DEDUPE_WINDOWS.get(partition)
+    if window is None:
+        from ..state.dedupe_window import DedupeWindow
+
+        window = DedupeWindow(
+            max_ids=settings.RAW_DEDUPE_WINDOW_MAX_IDS,
+            ttl_seconds=settings.RAW_DEDUPE_WINDOW_SECONDS,
+        )
+        _DEDUPE_WINDOWS[partition] = window
+    return window
+
+
+async def process_group(
+    integration_id: int,
+    stream: str,
+    events: List[Dict[str, Any]],
+    partition: int,
+    ids: Optional[List[str]] = None,
+    historical: bool = False,
+) -> bool:
+    """Processa ``events`` no estágio de processamento. Devolve se o lote foi
+    PROCESSADO (False = integração inativa ou coletor não registrado). Levanta se
+    o processamento falhou."""
+    from .. import pipeline
+
+    return await pipeline.process_raw_events(
+        integration_id, stream, events, ids=ids, dedupe=_window_for(partition),
+        historical=historical,
+    )
 
 
 def _touch(path: str) -> None:
@@ -120,23 +157,90 @@ async def _persist_raw_dlq(group: _Group, error_kind: str, detail: str) -> bool:
     return ok is True
 
 
+def _revoke_drain_timeout_s() -> float:
+    """Quanto a revogação espera o lote em voo commitar (ADR-0018 Onda 3f): METADE
+    do ``rebalance_timeout`` do grupo. Esperar mais que ele faz o coordenador
+    expulsar justamente o membro que drena com correção — e o lote duplica."""
+    from .kafka_transport import group_timeouts
+
+    return group_timeouts()["rebalance_timeout_ms"] / 2000.0
+
+
+def _revoke_drain(timeout_s: Optional[float] = None) -> Any:
+    """Listener de rebalance que fecha a janela de duplicata da troca de dono.
+
+    Sem ele, quando um processor entra ou sai do grupo, o lote em processamento
+    terminava DEPOIS da revogação: o ``commit`` era recusado (partição não é mais
+    deste processo), e o novo dono relia um lote que já tinha ido para a entrega —
+    duplicata a cada escala, medida no gate de carga (14 mil eventos num rebalance
+    de 2 processos). Com ele, a revogação (1) impede o laço de começar outro lote e
+    (2) espera o lote em voo commitar, ainda como dono, antes de devolver a
+    partição. Estourado o prazo, segue: o novo dono relê (at-least-once)."""
+    from aiokafka import ConsumerRebalanceListener
+
+    if timeout_s is None:
+        timeout_s = _revoke_drain_timeout_s()
+
+    class _RevokeDrain(ConsumerRebalanceListener):
+        def __init__(self) -> None:
+            self.revoking = False
+            self._idle = asyncio.Event()
+            self._idle.set()
+
+        def busy(self) -> None:
+            self._idle.clear()
+
+        def done(self) -> None:
+            self._idle.set()
+
+        async def on_partitions_revoked(self, revoked: Any) -> None:
+            if not revoked:
+                return
+            self.revoking = True
+            try:
+                await asyncio.wait_for(self._idle.wait(), timeout_s)
+            except asyncio.TimeoutError:
+                logger.warning(
+                    "processor: lote em voo não terminou em %.0f s no rebalance — o "
+                    "novo dono da partição o relê (duplicata possível)", timeout_s,
+                )
+
+        async def on_partitions_assigned(self, assigned: Any) -> None:
+            self.revoking = False
+
+    return _RevokeDrain()
+
+
 async def run_raw_processor(stop_event: Optional[threading.Event] = None) -> None:
     from aiokafka import AIOKafkaConsumer
 
     from .. import metrics
-    from .kafka_transport import _client_kwargs, owns_partition
+    from .kafka_transport import _client_kwargs, group_timeouts, owns_partition
     from .raw import _ensure_raw_topic
 
     await asyncio.to_thread(_ensure_raw_topic)
+    # Configuração por snapshot com last-known-good (ADR-0018 Onda 3b): um por
+    # processo, vivo enquanto o consumer roda. Tira o Postgres do caminho de cada
+    # lote e mantém o processamento de pé com o banco fora.
+    from ..config_snapshot import ACTIVE, SnapshotCache
+
+    ACTIVE.set(
+        SnapshotCache(
+            ttl_seconds=settings.CONFIG_SNAPSHOT_TTL_SECONDS,
+            max_stale_seconds=settings.CONFIG_SNAPSHOT_MAX_STALE_SECONDS,
+        )
+    )
     consumer = AIOKafkaConsumer(
-        raw_topic(),
         **_client_kwargs(),
         group_id=settings.KAFKA_PROCESSOR_GROUP,
         enable_auto_commit=False,
         auto_offset_reset="earliest",
         max_partition_fetch_bytes=settings.KAFKA_MAX_REQUEST_BYTES,
         max_poll_interval_ms=settings.KAFKA_MAX_POLL_INTERVAL_MS,
+        **group_timeouts(),
     )
+    drain = _revoke_drain()
+    consumer.subscribe([raw_topic()], listener=drain)
     await consumer.start()
     _touch(_READY_FILE)
     logger.info(
@@ -172,9 +276,16 @@ async def run_raw_processor(stop_event: Optional[threading.Event] = None) -> Non
             _touch(_HEARTBEAT_FILE)
             for tp, msgs in batches.items():
                 for group in _group_records(msgs):
-                    if not owns_partition(consumer, tp):
-                        break  # revogada no rebalance: o novo dono processa o resto
-                    done = await _handle_group(consumer, tp, group, attempts, metrics)
+                    if drain.revoking or not owns_partition(consumer, tp):
+                        # Rebalance em curso ou partição já revogada: nenhum lote
+                        # novo. Depois da reatribuição a posição volta ao último
+                        # commit, então o que ficou aqui é relido por quem for dono.
+                        break
+                    drain.busy()
+                    try:
+                        done = await _handle_group(consumer, tp, group, attempts, metrics)
+                    finally:
+                        drain.done()
                     if not done:
                         break  # seek feito: o resto desta partição é relido depois
     finally:
@@ -207,7 +318,8 @@ async def _handle_group(consumer: Any, tp: Any, group: _Group, attempts: Dict, m
     consumed = False
     try:
         consumed = await process_group(
-            group.integration_id, group.stream, group.events, tp.partition
+            group.integration_id, group.stream, group.events, tp.partition,
+            ids=group.ids, historical=group.historical,
         )
     except Exception as exc:  # noqa: BLE001 — classificado abaixo
         error = exc
@@ -219,7 +331,7 @@ async def _handle_group(consumer: Any, tp: Any, group: _Group, attempts: Dict, m
         return True
 
     if error is None:
-        # O ciclo voltou sem ler o lote: integração inativa/apagada ou coletor não
+        # O lote não foi processado: integração inativa/apagada ou coletor não
         # registrado. Commitar seria perda muda — vai à DLQ __raw__.
         kind, detail = "integration_unavailable", "integração inativa ou sem coletor"
     else:

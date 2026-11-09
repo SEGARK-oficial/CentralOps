@@ -6,7 +6,7 @@ description: Aponte o firewall, o servidor Linux ou o WEC direto para o CentralO
 
 # Receptor syslog nativo
 
-A [ingestão push](./push-ingestion.md) recebe JSON por HTTPS de um edge-collector. O **receptor syslog** é o caminho sem agente: o aparelho fala syslog direto com o CentralOps, o receptor parseia (RFC 3164, RFC 5424 com structured-data, CEF e LEEF) e escreve no **mesmo buffer** da integração push. Dali em diante o pipeline não sabe por onde o evento entrou.
+A [ingestão push](./push-ingestion.md) recebe JSON por HTTPS de um edge-collector. O **receptor syslog** é o caminho sem agente: o aparelho fala syslog direto com o CentralOps, o receptor parseia (RFC 3164, RFC 5424 com structured-data, CEF e LEEF) e grava no **mesmo log** (tópico `raw`) da integração push. Dali em diante o pipeline não sabe por onde o evento entrou.
 
 :::tip[Quando usar cada um]
 **Receptor nativo**: POC, aparelhos que só falam syslog (FortiGate, ASA, PAN-OS, pfSense, Linux `rsyslog`), ambientes sem lugar para rodar um agente. **Edge-collector (Vector)**: escala (muitas fontes, muitos GB/dia), buffer em disco na borda, ou quando você já tem um coletor na rede. Os dois convivem — a integração é a mesma.
@@ -18,7 +18,7 @@ A [ingestão push](./push-ingestion.md) recebe JSON por HTTPS de um edge-collect
 2. Cada mensagem é atribuída a uma **fonte** pelo IP de origem: a fonte é um CIDR cadastrado numa integração push (`fortinet_fortigate`, `windows_event_log` ou a [fonte genérica](./custom-json.md)). O CIDR mais específico vence; porta e transporte podem restringir mais.
 3. Sem fonte para o IP, a mensagem é **descartada e contada** (`collector_syslog_received_total{outcome="unknown_source"}`). Porta 514 não tem cabeçalho de autenticação: a rede é a credencial, e aceitar de qualquer IP seria aceitar da internet inteira. Por isso `0.0.0.0/0` é recusado no cadastro.
 4. O **classificador** da fonte decide o `stream` pelo conteúdo. Sem regra que case, vale o stream padrão da fonte.
-5. O evento parseado ganha o carimbo `_ingest` (id por conteúdo, `received_at`, `transport: "syslog"`, `peer`) e vai ao buffer da integração; o collector virtual drena a cada ~20 s.
+5. O evento parseado ganha o carimbo `_ingest` (id por conteúdo, `received_at`, `transport: "syslog"`, `peer`) e vai ao tópico `raw` da integração, com confirmação do broker. Broker fora: o lote fica em memória (com teto) e é regravado na próxima tentativa.
 
 ## Subir o receptor
 

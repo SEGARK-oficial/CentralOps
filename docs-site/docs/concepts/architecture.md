@@ -57,7 +57,7 @@ Depois de padronizado, o evento é avaliado por regras de roteamento e enviado a
 - **Descarte intencional.** Eventos de ruído podem ser descartados de propósito para controlar custo e volume, conforme as regras que você definir.
 - **Destino padrão.** Todo evento que não se encaixa em nenhuma regra vai para o destino marcado como padrão. Sem destino padrão, ele vai para a fila de reenvio como "sem rota". Nenhum evento se perde por falta de uma regra.
 
-Se um destino fica indisponível, os eventos não são perdidos. Falhas curtas são re-tentadas automaticamente. Se o destino continua fora, os eventos vão para a **fila de reenvio** dele, que você reprocessa pelo botão **Reprocessar** em **Roteia -> Destinos** quando o destino volta. Há também uma proteção contra destino instável, que reduz a pressão sobre um destino com falhas repetidas.
+Se um destino fica indisponível, os eventos não são perdidos. Falhas curtas são re-tentadas automaticamente. Se o destino continua fora, os lotes dele **estacionam** no data-plane e saem sozinhos, na ordem, quando ele volta (até 7 dias, por padrão); a aba **Saúde** do destino mostra quantos estão esperando. Um destino fora do ar não atrasa os outros. Eventos que o destino **recusa de vez** (credencial, formato, tamanho) vão para a **fila de reenvio** dele, que você reprocessa pelo botão **Reprocessar** em **Roteia -> Destinos** depois de corrigir a causa. Há também uma proteção contra destino instável, que reduz a pressão sobre um destino com falhas repetidas.
 
 **Onde acompanhar:**
 
@@ -123,7 +123,7 @@ Use o quadro abaixo para identificar onde está o problema:
 | Eventos demoram a aparecer; acúmulo crescente na coleta | Coleta | **Visão geral -> Saúde do pipeline** e **Coleta -> Integrações** |
 | Eventos caindo em quarentena | Normalização | **Normaliza -> Quarentena** |
 | Muitos campos novos sinalizados | Normalização | **Normaliza -> Drift** |
-| Um destino não recebe; fila de reenvio crescendo | Entrega | **Roteia -> Destinos** e **Roteia -> Rotas** |
+| Um destino não recebe; aviso de lotes estacionados ou fila de reenvio crescendo | Entrega | **Roteia -> Destinos** e **Roteia -> Rotas** |
 
 > Se o acúmulo continua crescendo mesmo sem nenhum erro nas telas acima, pode ser falta de capacidade no processamento em segundo plano. Esse dimensionamento é gerenciado pela equipe de infraestrutura — registre o que você viu na tela de **Saúde do Pipeline** e fale com o administrador da plataforma.
 
@@ -136,9 +136,9 @@ O CentralOps mostra o que está acontecendo de duas formas:
 
 ## Garantias do pipeline
 
-- **Coletar de novo não duplica dentro da janela de dedupe.** Cada evento recebe um identificador, e uma coleta repetida dentro do TTL de dedupe (24 horas por padrão) é descartada. Fora dessa janela, ou se o Redis de dedupe precisar evictar chaves por falta de memória, o evento pode ser entregue de novo.
+- **Coletar de novo não duplica dentro da janela de dedupe.** Cada evento recebe um identificador, e o processador descarta o que já viu na última hora (até 200 mil eventos por partição do tópico `raw`). Fora dessa janela, ou logo depois que um processador reinicia, o evento pode ser entregue de novo.
 - **Entrega pelo menos uma vez.** Um lote só é dado como entregue quando o destino confirma ou quando ele é gravado na fila de reenvio. Depois de uma falha de rede ou de um reinício, o mesmo evento pode chegar duas vezes. Elasticsearch, S3/Security Lake e webhook com chave de idempotência eliminam essas duplicatas; Syslog/Wazuh, Splunk HEC, Sentinel, ClickHouse e LogScale podem recebê-las.
-- **Sem ordem garantida.** Dentro de um destino os eventos costumam sair na ordem da coleta, mas novas tentativas e a fila de reenvio podem trocar a ordem. Use o horário do próprio evento, não a ordem de chegada.
+- **Ordem só quando pedida.** Por padrão a entrega é paralela: lotes de um mesmo destino saem ao mesmo tempo, e os que esperaram um destino fora do ar chegam depois dos novos. Use o horário do próprio evento, não a ordem de chegada. A escolha da rota não muda com isso: prioridade, rota final e catch-all são decididos evento a evento antes da entrega. Para um destino que correlaciona pela ordem de chegada (regras de sequência e de frequência do Wazuh), ligue **Entrega em ordem** na política de entrega dele.
 - **Falha fica visível.** Um evento que não chega ao destino aparece na **Quarentena** (falha de validação), na **fila de reenvio** do destino (destino fora ou rejeição) ou fica retido, com erro na saúde da integração, até a causa ser corrigida (por exemplo, uma rota inválida). Exceção conhecida: quando um mesmo ciclo gera mais eventos de quarentena que o teto por motivo, o excedente é contado na métrica, mas não é guardado.
 
 ## Próximos passos

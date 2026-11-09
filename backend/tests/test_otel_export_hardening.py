@@ -465,29 +465,6 @@ def test_clean_delivery_keeps_the_span_ok(memory_traces):
     assert span.attributes["centralops.events.accepted"] == 10
 
 
-@needs_sdk
-def test_breaker_open_on_celery_lane_is_an_error_consumer_span(memory_traces):
-    """O lote vai para a DLQ e a task termina com ack — antes o span saía OK."""
-    from opentelemetry.trace import SpanKind, StatusCode
-
-    from backend.app.collectors import circuit_breaker, tasks
-
-    def _breaker(coro, **_kw):
-        coro.close()
-        raise circuit_breaker.BreakerOpen("d1")
-
-    with patch.object(tasks, "run_coro_blocking", side_effect=_breaker), patch.object(
-        tasks.dispatch_to_dlq, "apply_async"
-    ) as to_dlq:
-        tasks.dispatch_to_destination("d1", [{"_centralops": {"event_id": "e1"}}])
-    to_dlq.assert_called_once()
-    span = _finished(memory_traces)["dispatch.destination"]
-    assert span.kind is SpanKind.CONSUMER
-    assert span.attributes["messaging.system"] == "celery"
-    assert span.status.status_code is StatusCode.ERROR
-    assert span.attributes["error.type"] == "breaker_open"
-
-
 def test_span_helpers_are_noop_when_tracing_is_off():
     tracing.mark_error("x")
     tracing.set_attributes(a=1)

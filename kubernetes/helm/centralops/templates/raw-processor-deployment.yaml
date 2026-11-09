@@ -1,4 +1,3 @@
-{{- if eq .Values.dataPlane.eventDataplane "kafka" }}
 # ADR-0018 Onda 2 — role processor. Consome o tópico ``raw`` (eventos push
 # gravados com ack pelo /api/ingest e pelo syslog-receiver) e roda o pipeline;
 # commita o offset só depois que o lote saiu para o tópico de entrega. Escala por
@@ -96,4 +95,3 @@ spec:
         {{- if eq (include "centralops.licenseKeyring.enabled" .) "true" }}
         {{- include "centralops.licenseKeyring.volume" . | nindent 8 }}
         {{- end }}
-{{- end }}

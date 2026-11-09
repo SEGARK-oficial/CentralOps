@@ -503,13 +503,12 @@ monitoring:
     enabled: false
     labels: {}
 
-# ── Onda 3 — data-plane durável (Kafka/Redpanda) ──────────────────────
-# Transporte de evento separado do control-plane (Celery+Redis). Com
-# eventDataplane=kafka, o fan-out produz no tópico ``<prefix>.deliver`` e o
-# kafka-dispatcher consome. TODOS os destinos (inclusive o wazuh-default) vão
-# por essa via.
+# ── data-plane durável (Kafka/Redpanda) ───────────────────────────────
+# Transporte de evento separado do control-plane (Celery+Redis) e o ÚNICO
+# caminho do evento (ADR-0018): coleta e ingest gravam no raw, o processor
+# produz no ``<prefix>.deliver`` e o kafka-dispatcher entrega. TODOS os destinos
+# (inclusive o wazuh-default) vão por essa via.
 dataPlane:
-  eventDataplane: "kafka"          # "kafka" (deploy) | "celery" (dev sem broker)
   kafka:
     # PROD: aponte p/ MSK/Redpanda Cloud/Confluent. DEV: use devBroker (redpanda:9092).
     bootstrapServers: "redpanda:9092"

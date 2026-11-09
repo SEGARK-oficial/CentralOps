@@ -81,9 +81,12 @@ def test_ausente_vira_None_e_nao_explode():
 #: Todo módulo que monta envelope para EVENTO REAL. Um caminho novo que não
 #: entre nesta lista escapa do guard — por isso a lista é curta e o teste
 #: falha com o nome do arquivo, não com um contador.
+#:
+#: ``backfill_tasks.py`` saiu na ADR-0018 Onda 3d: o backfill não monta mais
+#: envelope, entrega o evento cru ao ``StreamProcessor`` de ``pipeline.py`` (ver
+#: ``test_backfill_does_not_build_its_own_envelope``).
 _CAMINHOS_DE_PRODUCAO = (
     "backend/app/collectors/pipeline.py",
-    "backend/app/collectors/backfill_tasks.py",
     "backend/app/collectors/scheduler_tasks.py",
     "backend/app/collectors/normalize/reprocess.py",
     "backend/app/collectors/inflight/preview.py",
@@ -125,3 +128,17 @@ def test_todo_call_site_de_producao_passa_o_slug(caminho):
         "enquanto os outros caminhos entregam o slug — divergência silenciosa "
         "na mesma tabela."
     )
+
+
+@pytest.mark.source_only  # lê a árvore de fonte; na imagem Cython ela não existe
+def test_backfill_does_not_build_its_own_envelope():
+    """Se o backfill voltar a montar envelope, ele volta a ser uma cópia do
+    pipeline — e tem de voltar à lista acima."""
+    arquivo = _raiz() / "backend/app/collectors/backfill_tasks.py"
+    arvore = ast.parse(arquivo.read_text())
+    nomes = {
+        no.func.id if isinstance(no.func, ast.Name) else getattr(no.func, "attr", None)
+        for no in ast.walk(arvore)
+        if isinstance(no, ast.Call)
+    }
+    assert not nomes & {"EnvelopeContext", "build_envelope"}, nomes & {"EnvelopeContext", "build_envelope"}

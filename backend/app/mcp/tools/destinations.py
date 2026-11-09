@@ -248,7 +248,9 @@ def specs() -> list[ToolSpec]:
                 "store (Redis rollups — no external Prometheus needed). Returns: "
                 "series (per-minute time-series for 'sent', 'rejected' and "
                 "'latency_avg' over range_minutes; may be empty when no traffic), "
-                "gauges (latest queue_depth and backpressure_state), and the "
+                "parked (batches/events waiting in the Kafka parking topic because "
+                "the destination is down or refusing, and since when — they drain "
+                "on their own when it comes back), and the "
                 "always-available summary: dlq_total, dlq_24h, by_error_kind, "
                 "breaker_state. 'available' is always true (empty series just means "
                 "no data in the window). " + _ADMIN_NOTE

@@ -1,8 +1,8 @@
 """Fonte genérica PUSH — ``custom_json`` (W3.1).
 
 FortiGate e WEC provaram o transporte push (``push_ingest.py``): edge-collector
-faz ``POST /api/ingest/<stream>``, o buffer Redis segura, ``PushBufferCollector``
-drena no mesmo ciclo das fontes pull. Mas as duas têm stream FIXO em código, e
+faz ``POST /api/ingest/<stream>``, o evento vai ao tópico raw e o ``processor``
+o trata como trata as fontes pull. Mas as duas têm stream FIXO em código, e
 o pedido de campo é sempre o mesmo: "tenho um JSON de um produto que vocês não
 conhecem — como entra?".
 
@@ -17,17 +17,17 @@ Esta plataforma responde isso sem código novo por fonte:
   (``registry.register_stream_resolver``): ``has/get/iter_for_platform`` passam
   a enxergar os streams do banco, então ingest, providers, scheduler e pipeline
   funcionam sem saber que o stream nasceu ontem;
-* um ``PushBufferCollector`` é fabricado por stream, com ``event_type`` fixo, e
-  o resto do pipeline (normalize → dedupe → routing) é o de sempre.
+* um ``PushSourceCollector`` é fabricado por stream, com ``event_type`` fixo, e
+  o resto do pipeline (dedupe → normalize → routing) é o de sempre.
 
 O que NÃO é: um receptor syslog. O transporte continua sendo HTTP JSON/NDJSON
 de um edge-collector — é ele quem fala syslog/TCP/arquivo com a fonte.
 
 Sincronização entre processos: quem cria o stream registra na hora no seu
 próprio processo (API); workers e beat pegam pelo resolver, com cache de
-``_SYNC_TTL_S``. O beat precisa de uma entry por stream, então a criação
-re-registra as integrações ``custom_json`` ativas (best-effort, como o hook
-de ``POST /integrations``).
+``_SYNC_TTL_S``. Push não tem entry no beat (ADR-0018 Onda 5); a criação ainda
+re-registra as integrações ``custom_json`` ativas, o que só limpa entradas
+antigas (best-effort, como o hook de ``POST /integrations``).
 """
 
 from __future__ import annotations
@@ -40,7 +40,7 @@ import time
 from datetime import timedelta
 from typing import Any, Dict, List, Optional, Type
 
-from .push_ingest import PushBufferCollector, _push_refresher
+from .push_ingest import PushSourceCollector, _push_refresher
 
 logger = logging.getLogger(__name__)
 
@@ -109,18 +109,18 @@ def stream_name(event_type: str) -> Optional[str]:
 
 # ── collector por stream ─────────────────────────────────────────────────
 
-_COLLECTOR_CLASSES: Dict[str, Type[PushBufferCollector]] = {}
+_COLLECTOR_CLASSES: Dict[str, Type[PushSourceCollector]] = {}
 _lock = threading.RLock()
 
 
-def collector_class_for(stream: str) -> Type[PushBufferCollector]:
+def collector_class_for(stream: str) -> Type[PushSourceCollector]:
     """Uma subclasse por stream: o pipeline lê ``platform/stream/event_type``
-    da CLASSE antes de instanciar (ver ``PushBufferCollector``)."""
+    da CLASSE antes de instanciar (ver ``PushSourceCollector``)."""
     cls = _COLLECTOR_CLASSES.get(stream)
     if cls is None:
         cls = type(
             f"CustomJson_{stream}_Collector",
-            (PushBufferCollector,),
+            (PushSourceCollector,),
             {"platform": PLATFORM, "stream": stream, "event_type": event_type_for(stream)},
         )
         _COLLECTOR_CLASSES[stream] = cls

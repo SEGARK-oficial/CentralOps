@@ -1321,21 +1321,10 @@ class CollectorConfig(Base):
     # ── Batching / dedupe ───────────────────────────────────────────
     collector_batch_size = Column(Integer, nullable=False, default=200)
     collector_batch_flush_seconds = Column(Integer, nullable=False, default=5)
-    # ADR-0015: alinhado a ``collectors.config_loader.DEFAULT_DEDUPE_TTL_DAYS``
-    # (fonte canônica). O literal é repetido aqui de propósito — ``models`` é
-    # importado POR ``config_loader``, então importar de volta seria circular.
-    # A divergência entre os dois é travada por
-    # ``backend/tests/test_dedupe_ttl_invariant.py``.
-    #
-    # Na prática este default é quase inerte: o seed de ``collector_config``
-    # (singleton id=1) informa o campo explicitamente a partir do env. Ele só
-    # valeria num INSERT que omitisse a coluna — e é exatamente aí que a
-    # divergência silenciosa moraria.
+    # LEGADO (sem leitor desde o ADR-0018 Onda 5): configuravam o TTL da chave
+    # Redis de dedupe por evento, que saiu — o dedupe é a janela em memória do
+    # processor (RAW_DEDUPE_WINDOW_*). As colunas ficam para não migrar dados.
     dedupe_ttl_days = Column(Integer, nullable=False, default=1)
-    # TTL CANÔNICO em segundos. `dedupe_ttl_days` fica como legado (lido só
-    # quando este é NULL) — dias não expressam 4h, que é o piso real desta
-    # arquitetura, e o TTL é a alavanca direta sobre o keyspace do Redis
-    # (chaves ≈ EPS × TTL). NULL = deriva de dedupe_ttl_days × 86400.
     dedupe_ttl_seconds = Column(Integer, nullable=True)
 
     # ── JSON-serialized mappings ────────────────────────────────────

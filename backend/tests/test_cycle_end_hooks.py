@@ -7,7 +7,8 @@ contraparte (nack) e nunca pode mascarar o erro original.
 
 Mesmo método de ``test_adr0015_claim_conservation_behavior.py``: o ciclo REAL
 (``pipeline._run_collection_once``) roda contra dublês, e o que se afirma é a
-ORDEM de eventos numa fita — nada é lido do ``.py``.
+ORDEM de eventos numa fita — nada é lido do ``.py``. Desde o ADR-0018 Onda 5 o
+ciclo só grava no tópico raw: o "entregue" aqui é o ack do raw.
 """
 
 from __future__ import annotations
@@ -25,7 +26,7 @@ from typing import Any, List, Optional, Tuple
 import pytest
 
 from backend.app.collectors import pipeline
-from backend.app.collectors.state import dedupe
+from backend.app.collectors.dataplane import raw as raw_mod
 
 
 class _Tape:
@@ -68,7 +69,6 @@ class _FakeDb:
 class _FakeConfig:
     collector_batch_size = 100
     collector_batch_flush_seconds = 1e9
-    effective_dedupe_ttl_seconds = 60
     rate_limits_by_vendor: dict = {}
     domain_concurrency_limits: dict = {}
 
@@ -137,14 +137,9 @@ def harness(monkeypatch):
         async def save(self, integration_id, stream, cursor, *, error=None, **kw):
             tape.events.append(("save_error" if error else "save_ok", error))
 
-    async def _claim(redis, integration_id, msg_id, **kw):
-        return True
-
-    async def _release_many(redis, integration_id, ids):
-        return 0
-
-    def _dispatch(batch, routes=None, **kw):
-        tape.events.append(("dispatch", len(batch)))
+    async def _produce(integration_id, stream, events, ids=None, historical=False):
+        tape.events.append(("produce", len(events)))
+        return len(events)
 
     monkeypatch.setattr("backend.app.collectors.celery_app.get_worker_redis", lambda: _FakeRedis())
     monkeypatch.setattr(pipeline.database, "SessionLocal", lambda: _FakeDb())
@@ -174,9 +169,7 @@ def harness(monkeypatch):
     monkeypatch.setattr(pipeline, "_record_source_ingested", lambda *a, **k: None)
     monkeypatch.setattr(pipeline.drift, "should_capture", lambda *a, **k: False)
     monkeypatch.setattr(pipeline.sample_reservoir, "push", lambda *a, **k: _noop_coro())
-    monkeypatch.setattr(pipeline, "claim", _claim)
-    monkeypatch.setattr(dedupe, "release_many", _release_many)
-    monkeypatch.setattr(pipeline, "_enqueue_dispatch", _dispatch)
+    monkeypatch.setattr(raw_mod, "produce_raw_async", _produce)
 
     def run(**collector_kw) -> Optional[BaseException]:
         reg = _FakeRegistration()
@@ -210,8 +203,8 @@ def test_commit_hook_runs_once_after_dispatch_and_cursor_save(harness):
     tape, run = harness
     assert run() is None
     names = tape.names()
-    assert "dispatch" in names and "save_ok" in names and "committed" in names, names
-    assert names.index("dispatch") < names.index("save_ok") < names.index("committed"), (
+    assert "produce" in names and "save_ok" in names and "committed" in names, names
+    assert names.index("produce") < names.index("save_ok") < names.index("committed"), (
         "a fonte confirmou antes de o cursor estar gravado — falha entre os dois perde o evento"
     )
     assert names.count("committed") == 1 and "aborted" not in names

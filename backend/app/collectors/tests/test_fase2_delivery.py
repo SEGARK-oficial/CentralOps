@@ -10,7 +10,7 @@ Covers:
 
 Fixture strategy: shared StaticPool engine so dispatcher's SessionLocal sees
 seeded rows (avoids the StaticPool gotcha).
-Celery is exercised via apply_async mocks (no broker needed).
+Fan-out is captured by patching ``dataplane.produce_delivery`` (no broker needed).
 Circuit breaker uses fakeredis.
 """
 
@@ -152,6 +152,50 @@ def test_transient_delivery_error_carries_destination_id() -> None:
     exc = TransientDeliveryError("dest-xyz")
     assert exc.destination_id == "dest-xyz"
     assert "dest-xyz" in str(exc)
+
+
+@pytest.mark.asyncio
+async def test_dispatch_uses_the_process_redis_and_does_not_close_it(
+    static_db, seeded_destination
+) -> None:
+    """ADR-0018 Onda 3f: com cliente de processo publicado (o consumer do
+    dispatcher), o despacho NÃO cria cliente por lote nem fecha o compartilhado."""
+    import fakeredis.aioredis as fakeredis_aio
+
+    from backend.app.collectors import pipeline as _pl
+
+    shared = fakeredis_aio.FakeRedis(decode_responses=True)
+    closed: list = []
+    real_aclose = shared.aclose
+
+    async def _aclose(*a, **k):
+        closed.append(True)
+        await real_aclose(*a, **k)
+
+    shared.aclose = _aclose
+    fake_target = AsyncMock()
+    fake_target.send_batch.return_value = DeliveryResult(accepted=1)
+
+    def _no_new_client():
+        raise AssertionError("criou cliente Redis por lote com o de processo publicado")
+
+    token = _pl.DISPATCH_REDIS.set(shared)
+    try:
+        with (
+            patch(
+                "backend.app.collectors.output.destination_cache.get_destination",
+                new_callable=AsyncMock,
+                return_value=fake_target,
+            ),
+            patch("backend.app.collectors.celery_app.get_worker_redis", _no_new_client),
+        ):
+            await _pl.dispatch_batch_to_destination(
+                seeded_destination, [_make_envelope("evt-1")]
+            )
+    finally:
+        _pl.DISPATCH_REDIS.reset(token)
+    assert fake_target.send_batch.await_count == 1
+    assert closed == []
 
 
 # ── CHUNK A: secret resolution in dispatch_batch_to_destination ───────────────
@@ -301,9 +345,9 @@ async def test_dispatch_records_audit_ring_on_success(
 
 def test_wazuh_plus_destinations_enqueued(static_db, seeded_destination) -> None:
     """Both the broadcast destination AND
-    wazuh-default flow through the SAME uniform ``dispatch_to_destination`` fan-out
-    (default EVENT_DATAPLANE=celery). wazuh-default no longer has a dedicated lane —
-    the routing fan-out routes EVERY destination through dispatch_to_destination."""
+    wazuh-default flow through the SAME uniform ``produce_delivery`` fan-out (Kafka
+    ``deliver`` topic, the only data-plane since ADR-0018 Onda 5). wazuh-default has
+    no dedicated lane — the routing fan-out routes EVERY destination the same way."""
     SessionLocal, _ = static_db
     from backend.app.collectors import pipeline
 
@@ -331,38 +375,24 @@ def test_wazuh_plus_destinations_enqueued(static_db, seeded_destination) -> None
 
     batch = [_make_envelope(org_id=None)]  # global destination matches
 
-    with patch(
-        "backend.app.collectors.tasks.dispatch_to_destination.apply_async"
-    ) as mock_dest:
+    with patch("backend.app.collectors.dataplane.produce_delivery") as mock_produce:
         pipeline._enqueue_dispatch(batch)
 
-    # Uniform path: there is no dedicated Wazuh lane anymore — both destinations
-    # (splunk + wazuh-default) go via the same dispatch_to_destination fan-out.
-    assert mock_dest.call_count == 2
-
-    from backend.app.collectors.queues import dispatch_dest_shard_queue
-
-    by_dest = {
-        c.kwargs["kwargs"]["destination_id"]: c.kwargs
-        for c in mock_dest.call_args_list
-    }
+    # Uniform path: there is no dedicated Wazuh lane — both destinations
+    # (splunk + wazuh-default) go via the same produce_delivery fan-out, one
+    # sub-batch per destination (the broadcast route clones, it does not move).
+    assert mock_produce.call_count == 2
+    by_dest = {c.args[0]: c.args[1] for c in mock_produce.call_args_list}
     assert set(by_dest) == {seeded_destination, "wazuh-default"}
-
-    # E5 bulkhead: each destination routed to its own stable shard queue.
-    splunk_kwargs = by_dest[seeded_destination]
-    assert splunk_kwargs["queue"] == dispatch_dest_shard_queue(seeded_destination)
-    assert splunk_kwargs["queue"].startswith("dispatch.destination.")
-
-    wazuh_kwargs = by_dest["wazuh-default"]
-    assert wazuh_kwargs["queue"] == dispatch_dest_shard_queue("wazuh-default")
-    assert wazuh_kwargs["queue"].startswith("dispatch.destination.")
+    for sent in by_dest.values():
+        assert [e["_centralops"]["event_id"] for e in sent] == ["evt-001"]
 
 
 def test_wazuh_default_in_uniform_fan_out(static_db) -> None:
     """wazuh-default is now a NORMAL destination.
-    When a route targets it, it flows through the uniform sharded
-    ``dispatch_to_destination`` fan-out (default EVENT_DATAPLANE=celery) — there is
-    no longer any dedicated Wazuh delivery lane; every destination is uniform."""
+    When a route targets it, it flows through the uniform ``produce_delivery``
+    fan-out (Kafka ``deliver`` topic) — there is no dedicated Wazuh delivery lane;
+    every destination is uniform."""
     TestingSessionLocal, _ = static_db
     with TestingSessionLocal() as session:
         row = models.Destination(
@@ -378,8 +408,8 @@ def test_wazuh_default_in_uniform_fan_out(static_db) -> None:
         session.add(row)
         session.commit()
 
-    # A route that explicitly names wazuh-default as a destination is now served
-    # by the uniform sharded destination lane like any other destination.
+    # A route that explicitly names wazuh-default as a destination is served
+    # by the uniform destination lane like any other destination.
     _seed_route(
         TestingSessionLocal,
         name="broadcast-wazuh",
@@ -394,25 +424,16 @@ def test_wazuh_default_in_uniform_fan_out(static_db) -> None:
 
     batch = [_make_envelope()]
 
-    with patch(
-        "backend.app.collectors.tasks.dispatch_to_destination.apply_async"
-    ) as mock_dest:
+    with patch("backend.app.collectors.dataplane.produce_delivery") as mock_produce:
         pipeline._enqueue_dispatch(batch)
 
-    # wazuh-default IS now in the uniform dispatch_to_destination fan-out, on its
-    # own stable shard queue (no dedicated Wazuh lane exists).
-    from backend.app.collectors.queues import dispatch_dest_shard_queue
-
-    dest_ids = [c.kwargs["kwargs"]["destination_id"] for c in mock_dest.call_args_list]
-    assert "wazuh-default" in dest_ids, (
-        "wazuh-default must now flow through the uniform multi-dest fan-out"
+    # wazuh-default IS in the uniform produce_delivery fan-out (no dedicated
+    # Wazuh lane exists), carrying the batch it was routed.
+    dest_ids = [c.args[0] for c in mock_produce.call_args_list]
+    assert dest_ids == ["wazuh-default"], (
+        "wazuh-default must flow through the uniform multi-dest fan-out"
     )
-    wazuh_call = next(
-        c for c in mock_dest.call_args_list
-        if c.kwargs["kwargs"]["destination_id"] == "wazuh-default"
-    )
-    assert wazuh_call.kwargs["queue"] == dispatch_dest_shard_queue("wazuh-default")
-    assert wazuh_call.kwargs["queue"].startswith("dispatch.destination.")
+    assert mock_produce.call_args.args[1] == batch
 
 
 def test_org_scoped_destination_matches(
@@ -438,15 +459,11 @@ def test_org_scoped_destination_matches(
     batch_org42 = [_make_envelope(org_id=42)]
     batch_other = [_make_envelope(org_id=99)]
 
-    with patch(
-        "backend.app.collectors.tasks.dispatch_to_destination.apply_async"
-    ) as mock_dest:
+    with patch("backend.app.collectors.dataplane.produce_delivery") as mock_dest:
         pipeline._enqueue_dispatch(batch_org42)
-    assert mock_dest.call_count == 1
+    assert [c.args[0] for c in mock_dest.call_args_list] == [seeded_org_destination]
 
-    with patch(
-        "backend.app.collectors.tasks.dispatch_to_destination.apply_async"
-    ) as mock_dest2:
+    with patch("backend.app.collectors.dataplane.produce_delivery") as mock_dest2:
         pipeline._enqueue_dispatch(batch_other)
     assert mock_dest2.call_count == 0
 
@@ -1146,36 +1163,6 @@ async def test_breaker_not_tripped_by_deterministic_rejects(
     assert await verify.exists(f"breaker:{dest_id}:open") == 0
     assert await verify.exists(f"breaker:{dest_id}:fail") == 0
     await verify.aclose()
-
-
-# ── Review LOW: task-level BreakerOpen → DLQ "breaker_open", no retry ─────────
-
-
-def test_task_breaker_open_routes_to_dlq_no_retry(static_db, seeded_destination) -> None:
-    """The dispatch_to_destination TASK must route a BreakerOpen to the DLQ with
-    error_kind='breaker_open' and NOT retry/re-raise (terminal). Previously only
-    the inner coroutine's raise was tested, never the task's handler."""
-    from backend.app.collectors import tasks
-    from backend.app.collectors.circuit_breaker import BreakerOpen
-
-    dest_id = seeded_destination
-
-    async def _raise_breaker(destination_id: str, batch: list) -> None:
-        raise BreakerOpen(destination_id)
-
-    with (
-        patch.object(tasks, "dispatch_batch_to_destination", _raise_breaker),
-        patch.object(tasks.dispatch_to_dlq, "apply_async") as mock_dlq,
-    ):
-        result = tasks.dispatch_to_destination.apply(args=[dest_id, [_make_envelope()]])
-
-    # Task completed without raising (terminal — no autoretry).
-    assert result.successful(), f"task must not fail/retry on BreakerOpen: {result.traceback}"
-    mock_dlq.assert_called_once()
-    kwargs = mock_dlq.call_args.kwargs["kwargs"]
-    assert kwargs["destination_id"] == dest_id
-    assert kwargs["error_kind"] == "breaker_open"
-    assert mock_dlq.call_args.kwargs["queue"] == "dispatch.dlq"
 
 
 # ── Review LOW: DLQ (destination_id, event_id) unique constraint at DB level ──

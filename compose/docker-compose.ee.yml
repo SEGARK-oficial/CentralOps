@@ -92,7 +92,7 @@ services:
 
   collector-dispatcher:
     image: ${CENTRALOPS_EE_IMAGE:-centralops-ee:latest}
-    command: [celery, -A, centralops_ee.celery_app, worker, -Q, "dispatch.dlq,dispatch.destination,dispatch.destination.0,dispatch.destination.1,dispatch.destination.2,dispatch.destination.3,dispatch.destination.4,dispatch.destination.5,dispatch.destination.6,dispatch.destination.7", -n, dispatch@%h, --concurrency=8, --loglevel=info]
+    command: [celery, -A, centralops_ee.celery_app, worker, -Q, "dispatch.dlq", -n, dispatch@%h, --concurrency=2, --loglevel=info]
     environment: *ee-license-env
     volumes: *ee-keyring-vol
 

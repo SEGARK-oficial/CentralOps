@@ -402,3 +402,36 @@ def _hermetic_reserved_dns():
         yield
     finally:
         _socket.getaddrinfo = real_getaddrinfo
+
+
+@_pytest.fixture(autouse=True)
+def _memory_dataplane(monkeypatch):
+    """Broker em memória para o data-plane Kafka (ADR-0018 Onda 5).
+
+    Desde que o Kafka virou o ÚNICO caminho do evento, todo roteamento produz no
+    tópico ``deliver`` e todo ciclo de coleta no ``raw``. Antes, o caminho padrão
+    da suíte era a lane Celery, com o broker em memória do próprio Celery; sem
+    isto, um teste que roteia sem se importar com o transporte tentaria subir um
+    producer real contra ``localhost:9092`` e esperaria o timeout do aiokafka.
+
+    O enquadramento, a escolha de partição e o desvio do evento grande para a DLQ
+    rodam DE VERDADE — só a ida ao broker é trocada por uma lista. Teste que
+    exercita o producer troca ``kafka_transport._producer_thread`` por uma
+    instância própria (com o aiokafka falso) ou faz o próprio monkeypatch, que
+    vence este e é restaurado para ele.
+    """
+    try:
+        from backend.app.collectors.dataplane import kafka_transport as _kt
+        from backend.app.collectors.dataplane import raw as _raw
+    except Exception:  # pragma: no cover — árvore sem o data-plane
+        yield []
+        return
+    records: list = []
+
+    def _produce_value(destination_id, value, key, topic=None, spread=None):
+        records.append((topic or _kt.deliver_topic(), destination_id, key, value))
+
+    monkeypatch.setattr(_kt._producer_thread, "_ensure_started", lambda: None, raising=False)
+    monkeypatch.setattr(_kt._producer_thread, "_produce_value", _produce_value, raising=False)
+    monkeypatch.setattr(_raw, "_raw_topic_ready", True)
+    yield records

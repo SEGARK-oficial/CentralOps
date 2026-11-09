@@ -1,7 +1,5 @@
-{{- if eq .Values.dataPlane.eventDataplane "kafka" }}
-{{-   if and (eq .Values.dataPlane.kafka.bootstrapServers "redpanda:9092") (not .Values.devBroker.enabled) }}
-{{-     fail "dataPlane.eventDataplane=kafka points at the in-cluster broker (redpanda:9092) but devBroker.enabled=false. Set devBroker.enabled=true (dev/test) or point dataPlane.kafka.bootstrapServers at an external/managed broker." }}
-{{-   end }}
+{{- if and (eq .Values.dataPlane.kafka.bootstrapServers "redpanda:9092") (not .Values.devBroker.enabled) }}
+{{-   fail "dataPlane.kafka.bootstrapServers points at the in-cluster broker (redpanda:9092) but devBroker.enabled=false. Set devBroker.enabled=true (dev/test) or point dataPlane.kafka.bootstrapServers at an external/managed broker." }}
 {{- end }}
 apiVersion: v1
 kind: ConfigMap
@@ -104,8 +102,7 @@ data:
   # não verifica e a edição fail-close para Community .
   CENTRALOPS_LICENSE_KEYS_DIR: /licensing
   {{- end }}
-  # ── Onda 3 — data-plane durável (Kafka/Redpanda) ──
-  EVENT_DATAPLANE: {{ .Values.dataPlane.eventDataplane | quote }}
+  # ── data-plane (Kafka/Redpanda) — o único caminho do evento (ADR-0018) ──
   KAFKA_BOOTSTRAP_SERVERS: {{ .Values.dataPlane.kafka.bootstrapServers | quote }}
   KAFKA_TOPIC_PREFIX: {{ .Values.dataPlane.kafka.topicPrefix | quote }}
   KAFKA_CONSUMER_GROUP: {{ .Values.dataPlane.kafka.consumerGroup | quote }}

@@ -2,27 +2,8 @@
 
 from __future__ import annotations
 
-import pytest
 
-from ..state.dedupe import claim, compute_message_id
-
-
-@pytest.mark.asyncio
-async def test_claim_first_call_returns_true(redis_client) -> None:
-    assert await claim(redis_client, integration_id=1, message_id="ev-1") is True
-
-
-@pytest.mark.asyncio
-async def test_claim_second_call_returns_false(redis_client) -> None:
-    assert await claim(redis_client, integration_id=1, message_id="ev-1") is True
-    assert await claim(redis_client, integration_id=1, message_id="ev-1") is False
-
-
-@pytest.mark.asyncio
-async def test_claim_scoped_by_integration(redis_client) -> None:
-    """Mesmo message_id em integrations distintas são independentes."""
-    assert await claim(redis_client, integration_id=1, message_id="shared") is True
-    assert await claim(redis_client, integration_id=2, message_id="shared") is True
+from ..state.dedupe import compute_message_id
 
 
 def test_compute_message_id_prefers_native_id() -> None:

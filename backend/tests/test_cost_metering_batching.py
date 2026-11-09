@@ -315,8 +315,11 @@ class _FakeRedis:
 
 def test_pipeline_flushes_accumulator_in_finally_even_on_early_failure(monkeypatch):
     """O acumulador é instanciado ANTES do try (padrão _track_claims) e o finally
-    SEMPRE faz o flush final — inclusive quando o ciclo falha antes do loop de
-    coleta — sem mascarar o erro original."""
+    SEMPRE faz o flush final — inclusive quando o estágio falha antes do laço de
+    eventos — sem mascarar o erro original. Desde o ADR-0018 Onda 5 o estágio
+    roda no processor (``process_raw_events``)."""
+    from backend.app.collectors.state.dedupe_window import DedupeWindow
+
     from backend.app.collectors import pipeline
 
     class _SpyAcc:
@@ -343,7 +346,9 @@ def test_pipeline_flushes_accumulator_in_finally_even_on_early_failure(monkeypat
     monkeypatch.setattr(pipeline.database, "SessionLocal", _raise)
 
     with pytest.raises(_Boom):
-        asyncio.run(pipeline._run_collection_once(integration_id=999, stream="alerts"))
+        asyncio.run(pipeline.process_raw_events(
+            999, "alerts", [{"id": "x"}], dedupe=DedupeWindow(max_ids=10, ttl_seconds=60)
+        ))
 
     assert len(_SpyAcc.instances) == 1
     assert _SpyAcc.instances[0].flushes == 1
