@@ -299,6 +299,52 @@ def _is_reserved_dns_name(host: object) -> bool:
     return any(name == r or name.endswith("." + r) for r in _RESERVED_DNS_NAMES)
 
 
+#: Variáveis de ambiente cujo HOST a suíte usa de propósito (ex.: o Postgres real
+#: do gate ``-m pg`` é um container de nome ``ci_pg_<run>``). O host delas passa.
+_ALLOWED_HOST_ENVS = (
+    "CENTRALOPS_TEST_PG_DSN", "PG_TEST_DSN", "DATABASE_URL", "REDIS_URL",
+    "CELERY_BROKER_URL", "CELERY_RESULT_BACKEND",
+)
+
+
+def _env_allowed_hosts() -> frozenset:
+    import os as _os
+    from urllib.parse import urlparse as _urlparse
+
+    hosts = set()
+    for var in _ALLOWED_HOST_ENVS:
+        raw = _os.environ.get(var) or ""
+        if "://" in raw:
+            try:
+                h = _urlparse(raw).hostname
+            except ValueError:
+                h = None
+            if h:
+                hosts.add(h.lower())
+    extra = _os.environ.get("CENTRALOPS_TEST_ALLOWED_HOSTS", "")
+    hosts.update(h.strip().lower() for h in extra.split(",") if h.strip())
+    return frozenset(hosts)
+
+
+def _is_external_dns_name(host: object, allowed: frozenset) -> bool:
+    """Nome que sairia para a rede: não é loopback, IP literal nem host liberado."""
+    import ipaddress as _ip
+
+    if isinstance(host, bytes):
+        host = host.decode("ascii", "ignore")
+    if not isinstance(host, str) or not host:
+        return False
+    name = host.lower().rstrip(".")
+    if name in ("localhost", "localhost.localdomain") or name.endswith(".localhost"):
+        return False
+    try:
+        _ip.ip_address(name.split("%", 1)[0])
+        return False
+    except ValueError:
+        pass
+    return name not in allowed
+
+
 @_pytest.fixture(scope="session", autouse=True)
 def _hermetic_reserved_dns():
     """Nome reservado de exemplo falha NA HORA, como NXDOMAIN, em qualquer máquina.
@@ -321,15 +367,33 @@ def _hermetic_reserved_dns():
     resolvedor real, e teste que precisa de DNS de verdade continua livre para
     fazer o próprio monkeypatch (que vence este, e é restaurado para ele).
     """
+    import os as _os
     import socket as _socket
 
     real_getaddrinfo = _socket.getaddrinfo
+    # Rede externa bloqueada por padrão (nov/2026). Só os nomes reservados não
+    # bastavam: criar uma integração Defender/Sophos num teste pedia token de
+    # VERDADE (login.microsoftonline.com, id.sophos.com) e o Celery tentava o
+    # broker pelo nome ``redis``. Na máquina do dev isso falha rápido; no BuildKit
+    # dos runners o DNS pendura, cada chamada espera o timeout do socket e o sweep
+    # compilado foi de ~21 para ~34 min. Teste de unidade não depende de rede: um
+    # nome externo agora falha NA HORA, igual em qualquer máquina.
+    # Escape (diagnóstico local): CENTRALOPS_TEST_REAL_DNS=1 volta a bloquear só os
+    # nomes reservados.
+    block_all = _os.environ.get("CENTRALOPS_TEST_REAL_DNS") != "1"
+    allowed = _env_allowed_hosts()
 
     def _guarded_getaddrinfo(host, *args, **kwargs):
         if _is_reserved_dns_name(host):
             raise _socket.gaierror(
                 _socket.EAI_NONAME,
                 f"{host!r} é nome reservado (RFC 2606) — a suíte não resolve DNS para ele",
+            )
+        if block_all and _is_external_dns_name(host, allowed):
+            raise _socket.gaierror(
+                _socket.EAI_NONAME,
+                f"{host!r}: rede externa bloqueada na suíte de testes — mocke a chamada "
+                "(ou libere o host em CENTRALOPS_TEST_ALLOWED_HOSTS)",
             )
         return real_getaddrinfo(host, *args, **kwargs)
 

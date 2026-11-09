@@ -1,4 +1,14 @@
 import "@testing-library/jest-dom/vitest"
+import { configure } from "@testing-library/react"
+
+// O ``waitFor``/``findBy*`` do Testing Library desiste em 1000 ms por padrão. Na
+// máquina do dev sobra; no runner self-hosted (4 vCPU, dividindo o host com o
+// build da imagem e outros jobs) um render + fetch mockado passa disso de vez em
+// quando, e o frontend-ci falhava em testes DIFERENTES a cada run (ex.:
+// IntegrationHealthPanel "refresh button…" em 1045 ms, SyslogSourcesPanel).
+// 5 s é teto, não espera: um teste verde continua terminando assim que a
+// asserção passa. Teste que falha de verdade demora 5 s para reportar, só isso.
+configure({ asyncUtilTimeout: 5000 })
 
 class ResizeObserverMock {
   observe() {}
