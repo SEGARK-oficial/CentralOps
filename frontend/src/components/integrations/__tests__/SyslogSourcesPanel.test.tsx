@@ -29,8 +29,10 @@ describe("SyslogSourcesPanel", () => {
   it("não renderiza para integração pull", async () => {
     mocked.getIngestInfo.mockRejectedValue(new Error("422"))
     render(<SyslogSourcesPanel integrationId={7} canManage />)
-    await waitFor(() => expect(mocked.getIngestInfo).toHaveBeenCalled())
-    expect(screen.queryByTestId("syslog-sources")).toBeNull()
+    // O painel nasce visível e só some quando a rejeição do getIngestInfo
+    // assenta: esperar só a CHAMADA deixava o assert correr antes disso.
+    expect(screen.getByTestId("syslog-sources")).toBeTruthy()
+    await waitFor(() => expect(screen.queryByTestId("syslog-sources")).toBeNull())
     expect(mocked.listSyslogSources).not.toHaveBeenCalled()
   })
 
