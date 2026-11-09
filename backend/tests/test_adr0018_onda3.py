@@ -754,7 +754,7 @@ def test_pull_raw_records_are_sharded_by_dedupe_id(monkeypatch):
     monkeypatch.setattr(kt, "_exceeds_request_limit", lambda *a, **k: False)
     monkeypatch.setattr(
         kt._producer_thread, "_produce_value",
-        lambda dest, value, key, topic: produced.append((key, raw_mod.decode_raw(value))),
+        lambda dest, value, key, topic, spread=None: produced.append((key, raw_mod.decode_raw(value))),
         raising=False,
     )
     monkeypatch.setattr(settings, "KAFKA_RAW_SHARDS_PER_STREAM", 4)
@@ -1138,3 +1138,94 @@ def test_revoke_drain_gives_up_after_the_timeout():
         assert drain.revoking is False
 
     asyncio.run(_run())
+
+
+
+def test_shards_of_one_stream_never_share_a_partition(monkeypatch):
+    """ADR-0018 Onda 3f, achado do gate: pelo hash da CHAVE, os 4 shards de um
+    stream caíam em 3 de 8 partições (uma com metade do tráfego) e o stream não
+    escalava além de ~2 processors. A partição agora é explícita:
+    ``(base do stream + shard) % partições``."""
+    from backend.app.collectors.dataplane import kafka_transport as kt
+
+    sent: list = []
+
+    class _Producer:
+        async def partitions_for(self, topic):
+            return {3, 0, 7, 1, 6, 2, 5, 4}
+
+        async def send_and_wait(self, topic, value=None, key=None, **kw):
+            sent.append((key, kw.get("partition", "sem partition")))
+
+    pt = kt._ProducerThread()
+    pt._producer = _Producer()
+    base = raw_mod.stream_base(1, "traffic")
+
+    async def _run():
+        for shard in range(8):
+            await pt._bounded_send(b"v", raw_mod.raw_key(1, "traffic", shard), "lt.raw", (base, shard))
+        await pt._bounded_send(b"v", b"dest-1", "lt.deliver")  # entrega: hash da chave
+
+    asyncio.run(_run())
+    stream_parts = [p for _, p in sent[:8]]
+    assert sorted(stream_parts) == list(range(8)), stream_parts
+    assert sent[8] == (b"dest-1", "sem partition")
+
+    # E o produce do raw passa o (base, shard) do lote.
+    calls: list = []
+    monkeypatch.setattr(raw_mod, "_ensure_raw_topic", lambda: None)
+    monkeypatch.setattr(kt, "_exceeds_request_limit", lambda *a, **k: False)
+    monkeypatch.setattr(
+        kt._producer_thread, "_produce_value",
+        lambda dest, value, key, topic, spread=None: calls.append((key, spread)),
+        raising=False,
+    )
+    ids = [f"e{i}" for i in range(64)]
+    raw_mod.produce_raw(1, "traffic", [{"id": i} for i in ids], ids=ids)
+    for key, (b, shard) in calls:
+        assert b == base and key == raw_mod.raw_key(1, "traffic", shard)
+    assert len({s for _, (_, s) in calls}) > 4, "um stream grande ocupa mais que 4 shards"
+
+
+
+def test_group_timeouts_outlast_the_revoke_drain(monkeypatch):
+    """O ``rebalance_timeout`` do aiokafka é, por padrão, a sessão (10 s): a espera
+    pelo lote em voo na revogação passava dele e o coordenador expulsava o membro
+    que drenava — commit recusado, lote duplicado (gate de carga, 3f)."""
+    from backend.app.collectors.dataplane import kafka_transport as kt
+    from backend.app.collectors.dataplane import processor as _proc
+
+    t = kt.group_timeouts()
+    assert t["session_timeout_ms"] >= 30000
+    assert t["heartbeat_interval_ms"] * 3 <= t["session_timeout_ms"]
+    assert _proc._revoke_drain_timeout_s() * 1000 < t["rebalance_timeout_ms"]
+
+    # Configuração incoerente (rebalance < sessão) não vence a sessão.
+    monkeypatch.setattr(settings, "KAFKA_REBALANCE_TIMEOUT_MS", 1000)
+    assert kt.group_timeouts()["rebalance_timeout_ms"] == settings.KAFKA_SESSION_TIMEOUT_MS
+    assert _proc._revoke_drain_timeout_s() * 1000 < kt.group_timeouts()["rebalance_timeout_ms"]
+
+    # Os dois grupos de consumo usam esses valores.
+    import aiokafka
+
+    seen: list = []
+
+    class _Stop(Exception):
+        pass
+
+    def _consumer(*a, **k):
+        seen.append(k)
+        raise _Stop
+
+    monkeypatch.setattr(aiokafka, "AIOKafkaConsumer", _consumer)
+    monkeypatch.setattr(raw_mod, "_ensure_raw_topic", lambda: None)
+
+    async def _noop():
+        return None
+
+    monkeypatch.setattr(kt, "_ensure_deliver_topic", _noop)
+    for coro in (_proc.run_raw_processor(), kt.run_dispatch_consumer()):
+        with pytest.raises(_Stop):
+            asyncio.run(coro)
+    for k in seen:
+        assert {key: k[key] for key in kt.group_timeouts()} == kt.group_timeouts()

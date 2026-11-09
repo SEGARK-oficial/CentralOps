@@ -218,12 +218,22 @@ def verify_counts(seen: Dict[int, int], run_id: str, ranges: List[tuple],
     expected = set()
     for first, size in ranges:
         expected.update(range(first, first + size))
+    dups = sorted(seq for seq, n in seen.items() if n > 1)
+    runs: List[List[int]] = []  # [início, tamanho] das sequências duplicadas
+    for seq in dups:
+        if runs and seq == runs[-1][0] + runs[-1][1]:
+            runs[-1][1] += 1
+        else:
+            runs.append([seq, 1])
     return {
         "expected": len(expected),
         "delivered_unique": len(seen),
         "lost": len(expected - seen.keys()),
         "duplicated": sum(n - 1 for n in seen.values() if n > 1),
         "unexpected": len(seen.keys() - expected) + foreign,
+        # O tamanho das sequências diz de onde veio a duplicata (registro do raw,
+        # lote do processor, chunk do destino).
+        "duplicate_runs": runs[:50],
     }
 
 
@@ -357,8 +367,20 @@ class LocalStack:
 
     def spawn(self, name: str, *argv: str) -> None:
         log = (self.work / f"{name}.log").open("w")
-        self.procs.append(subprocess.Popen([sys.executable, *argv], cwd=BACKEND, env=self.env,
-                                           stdout=log, stderr=subprocess.STDOUT))
+        # Visto num host Ubuntu 26.04 + Docker 29 (gate rodando dentro de um
+        # container): ``execve`` devolvendo EPERM de forma intermitente, sem
+        # registro no kernel; a mesma chamada passa na tentativa seguinte.
+        for attempt in range(5):
+            try:
+                proc = subprocess.Popen([sys.executable, *argv], cwd=BACKEND, env=self.env,
+                                        stdout=log, stderr=subprocess.STDOUT)
+                break
+            except PermissionError:
+                if attempt == 4:
+                    raise
+                _log(f"exec de {name} recusado (EPERM) — tentativa {attempt + 2}/5")
+                time.sleep(0.5)
+        self.procs.append(proc)
 
     def _entry(self, role: str) -> str:
         main = f"from app.collectors.dataplane.{role} import main"
@@ -583,7 +605,8 @@ def main() -> int:
                     help="processors a mais que entram durante a drenagem (força rebalance)")
     lp.add_argument("--scale-out-after", type=float, default=15,
                     help="segundos de drenagem antes de escalar")
-    lp.add_argument("--partitions", type=int, default=8, help="partições do tópico raw")
+    lp.add_argument("--partitions", type=int, default=16,
+                    help="partições do tópico raw (o padrão do produto)")
     lp.add_argument("--broker-cpus", type=int, default=2, help="--smp do Redpanda")
     lp.add_argument("--min-processor-eps", type=float, default=3000,
                     help="limiar de processamento por processo")

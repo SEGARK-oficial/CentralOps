@@ -148,13 +148,16 @@ async def _persist_raw_dlq(group: _Group, error_kind: str, detail: str) -> bool:
     return ok is True
 
 
-#: Quanto o rebalance espera o lote em voo terminar e commitar antes de entregar a
-#: partição (ADR-0018 Onda 3f). Bem abaixo do ``max_poll_interval``, que é o teto
-#: de quanto o grupo inteiro pode ficar parado no rebalance.
-_REVOKE_DRAIN_TIMEOUT_S = 30.0
+def _revoke_drain_timeout_s() -> float:
+    """Quanto a revogação espera o lote em voo commitar (ADR-0018 Onda 3f): METADE
+    do ``rebalance_timeout`` do grupo. Esperar mais que ele faz o coordenador
+    expulsar justamente o membro que drena com correção — e o lote duplica."""
+    from .kafka_transport import group_timeouts
+
+    return group_timeouts()["rebalance_timeout_ms"] / 2000.0
 
 
-def _revoke_drain(timeout_s: float = _REVOKE_DRAIN_TIMEOUT_S) -> Any:
+def _revoke_drain(timeout_s: Optional[float] = None) -> Any:
     """Listener de rebalance que fecha a janela de duplicata da troca de dono.
 
     Sem ele, quando um processor entra ou sai do grupo, o lote em processamento
@@ -165,6 +168,9 @@ def _revoke_drain(timeout_s: float = _REVOKE_DRAIN_TIMEOUT_S) -> Any:
     (2) espera o lote em voo commitar, ainda como dono, antes de devolver a
     partição. Estourado o prazo, segue: o novo dono relê (at-least-once)."""
     from aiokafka import ConsumerRebalanceListener
+
+    if timeout_s is None:
+        timeout_s = _revoke_drain_timeout_s()
 
     class _RevokeDrain(ConsumerRebalanceListener):
         def __init__(self) -> None:
@@ -200,7 +206,7 @@ async def run_raw_processor(stop_event: Optional[threading.Event] = None) -> Non
     from aiokafka import AIOKafkaConsumer
 
     from .. import metrics
-    from .kafka_transport import _client_kwargs, owns_partition
+    from .kafka_transport import _client_kwargs, group_timeouts, owns_partition
     from .raw import _ensure_raw_topic
 
     await asyncio.to_thread(_ensure_raw_topic)
@@ -222,6 +228,7 @@ async def run_raw_processor(stop_event: Optional[threading.Event] = None) -> Non
         auto_offset_reset="earliest",
         max_partition_fetch_bytes=settings.KAFKA_MAX_REQUEST_BYTES,
         max_poll_interval_ms=settings.KAFKA_MAX_POLL_INTERVAL_MS,
+        **group_timeouts(),
     )
     drain = _revoke_drain()
     consumer.subscribe([raw_topic()], listener=drain)

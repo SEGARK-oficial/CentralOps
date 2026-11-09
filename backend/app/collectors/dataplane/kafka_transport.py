@@ -31,7 +31,7 @@ import json
 import logging
 import threading
 import time
-from typing import Any, Dict, Iterator, List, Mapping, Optional
+from typing import Any, Dict, Iterator, List, Mapping, Optional, Tuple
 
 from ...core.config import settings
 
@@ -396,13 +396,34 @@ class _ProducerThread:
         await producer.start()
         return producer
 
-    async def _bounded_send(self, value: bytes, key: bytes, topic: Optional[str] = None) -> Any:
+    async def _bounded_send(
+        self,
+        value: bytes,
+        key: bytes,
+        topic: Optional[str] = None,
+        spread: Optional[Tuple[int, int]] = None,
+    ) -> Any:
         """``send_and_wait`` com teto INTERNO (``asyncio.wait_for``) — garante que
-        o cancelamento propague p/ a corrotina mesmo no wait cross-thread."""
-        return await asyncio.wait_for(
-            self._producer.send_and_wait(topic or deliver_topic(), value=value, key=key),
-            timeout=settings.KAFKA_PRODUCE_WAIT_S,
-        )
+        o cancelamento propague p/ a corrotina mesmo no wait cross-thread.
+
+        ``spread=(base, shard)`` escolhe a partição EXPLICITAMENTE: a de índice
+        ``(base + shard) % partições`` (ADR-0018 Onda 3f). Pelo hash da chave, os
+        shards de um mesmo stream colidiam — 4 shards caíam em 3 de 8 partições,
+        uma delas com metade do tráfego, e o stream não escalava além de ~2
+        processors. Assim, shards distintos de um stream nunca dividem partição."""
+        target = topic or deliver_topic()
+
+        async def _send() -> Any:
+            if spread is None:
+                # Entrega (key=destination_id): partição pelo hash da chave, como sempre.
+                return await self._producer.send_and_wait(target, value=value, key=key)
+            parts = sorted(await self._producer.partitions_for(target))
+            base, shard = spread
+            return await self._producer.send_and_wait(
+                target, value=value, key=key, partition=parts[(base + shard) % len(parts)]
+            )
+
+        return await asyncio.wait_for(_send(), timeout=settings.KAFKA_PRODUCE_WAIT_S)
 
     def run_in_loop(self, coro: Any, timeout: float) -> Any:
         """Roda ``coro`` no loop do producer e espera o resultado (sobe o producer
@@ -532,7 +553,12 @@ class _ProducerThread:
                 )
 
     def _produce_value(
-        self, destination_id: str, value: bytes, key: bytes, topic: Optional[str] = None
+        self,
+        destination_id: str,
+        value: bytes,
+        key: bytes,
+        topic: Optional[str] = None,
+        spread: Optional[Tuple[int, int]] = None,
     ) -> None:
         """Envia UM registro já enquadrado e BLOQUEIA até o ack. Em erro FATAL de
         idempotência, recria o producer (self-heal) e propaga o erro p/ o caller."""
@@ -545,7 +571,7 @@ class _ProducerThread:
         fut: Optional[concurrent.futures.Future] = None
         try:
             fut = asyncio.run_coroutine_threadsafe(
-                self._bounded_send(value, key, topic), self._loop
+                self._bounded_send(value, key, topic, spread), self._loop
             )
             # +2s de folga sobre o teto INTERNO → o wait_for interno dispara
             # primeiro (cancela a send), e este result só colhe resultado/erro.
@@ -648,6 +674,17 @@ def shutdown_producer() -> None:
 
 
 # ── Consumer (role dispatcher) ────────────────────────────────────────────────
+
+def group_timeouts() -> Dict[str, int]:
+    """Sessão, heartbeat e rebalance dos grupos de consumo (processor e
+    dispatcher) — ver ``KAFKA_SESSION_TIMEOUT_MS`` em ``config``."""
+    session = int(settings.KAFKA_SESSION_TIMEOUT_MS)
+    return {
+        "session_timeout_ms": session,
+        "heartbeat_interval_ms": min(int(settings.KAFKA_HEARTBEAT_INTERVAL_MS), session // 3),
+        "rebalance_timeout_ms": max(int(settings.KAFKA_REBALANCE_TIMEOUT_MS), session),
+    }
+
 
 def owns_partition(consumer: Any, tp: Any) -> bool:
     """True se ``tp`` ainda está atribuída a este consumer.
@@ -755,6 +792,7 @@ async def run_dispatch_consumer(stop_event: Optional[threading.Event] = None) ->
         # Folga p/ um dispatch lento não ser tido como "consumer morto" → rebalance
         # espúrio + re-entrega.
         max_poll_interval_ms=settings.KAFKA_MAX_POLL_INTERVAL_MS,
+        **group_timeouts(),
     )
     # Telemetria do data-plane: métricas de consumo/lag + continuidade
     # de trace (span FILHO do carrier W3C carregado na mensagem). No-op se OTel off.

@@ -280,7 +280,10 @@ class Settings(BaseSettings):
     KAFKA_RAW_TOPIC: str = "raw"
     KAFKA_RAW_PARTITIONS: int = 16
     KAFKA_RAW_RETENTION_MS: int = 24 * 3600 * 1000
-    KAFKA_RAW_SHARDS_PER_STREAM: int = 4
+    # = partições do raw: um stream grande (firewall a 10k eps) ocupa o tópico
+    # inteiro, e cada shard vai a uma partição DISTINTA (ADR-0018 Onda 3f). Com 4
+    # o stream não passava de 4 processors (e, pelo hash, de ~2).
+    KAFKA_RAW_SHARDS_PER_STREAM: int = 16
     KAFKA_PROCESSOR_GROUP: str = "centralops-processor"
     # Registros do raw buscados por vez pelo processor (cada um é um lote de eventos).
     RAW_PROCESSOR_MAX_RECORDS: int = 50
@@ -320,6 +323,16 @@ class Settings(BaseSettings):
     # = 1 sub-lote, multi-chunk). Evita rebalance espúrio por "consumer morto"
     # durante um dispatch lento. Default 15min cobre max_elapsed_ms × chunks.
     KAFKA_MAX_POLL_INTERVAL_MS: int = 900000
+    # Grupo de consumo (processor e dispatcher). Medido no gate de carga (ADR-0018
+    # Onda 3f): com o default do aiokafka (sessão de 10 s, rebalance = sessão), um
+    # soluço do broker sob CPU disputada expulsava os membros do grupo; o commit
+    # do lote em voo falhava e outro processo o reprocessava (duplicata de um
+    # registro inteiro). 45 s é o default do próprio Kafka desde a 3.0. O
+    # rebalance precisa ser MAIOR que a espera pelo lote em voo na revogação
+    # (metade dele), senão o membro que drena com correção é quem é expulso.
+    KAFKA_SESSION_TIMEOUT_MS: int = 45000
+    KAFKA_HEARTBEAT_INTERVAL_MS: int = 3000
+    KAFKA_REBALANCE_TIMEOUT_MS: int = 60000
     # Intervalo do emissor de lag em BACKGROUND (independe de chegada de msg —
     # senão o gauge congela quando a partição zera, o pior momento p/ o SRE).
     KAFKA_LAG_REFRESH_SECONDS: int = 15

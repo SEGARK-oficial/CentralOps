@@ -48,6 +48,13 @@ def id_shard(msg_id: str) -> int:
     return zlib.crc32(str(msg_id).encode("utf-8")) % shards
 
 
+def stream_base(integration_id: int, stream: str) -> int:
+    """Partição-base estável do stream; o shard soma a ela (``kafka_transport``
+    escolhe ``(base + shard) % partições``). Espalha streams diferentes pelo
+    tópico e mantém os shards de um MESMO stream em partições distintas."""
+    return zlib.crc32(f"{integration_id}:{stream}".encode("utf-8"))
+
+
 def raw_key(integration_id: int, stream: str, shard: Optional[int] = None) -> bytes:
     shards = max(1, int(settings.KAFKA_RAW_SHARDS_PER_STREAM or 1))
     if shard is None:
@@ -177,21 +184,24 @@ def produce_raw(
             evs, sids = by_shard.setdefault(id_shard(msg_id), ([], []))
             evs.append(ev)
             sids.append(str(msg_id))
-        parts = [(raw_key(integration_id, stream, sh), evs, sids) for sh, (evs, sids) in by_shard.items()]
+        parts = [(sh, evs, sids) for sh, (evs, sids) in by_shard.items()]
     else:
-        parts = [(raw_key(integration_id, stream), list(events), None)]
+        shards = max(1, int(settings.KAFKA_RAW_SHARDS_PER_STREAM or 1))
+        parts = [(random.randrange(shards), list(events), None)]
+    base = stream_base(integration_id, stream)
     planned = []
-    for key, evs, sids in parts:
+    for shard, evs, sids in parts:
+        key = raw_key(integration_id, stream, shard)
         for sub, value in _raw_frames(integration_id, stream, evs, limit, received_at, sids):
             if len(sub) == 1 and _exceeds_request_limit(value, key):
                 raise OversizedRawEventError(
                     f"evento de {len(value)} bytes excede KAFKA_MAX_REQUEST_BYTES "
                     f"(integration={integration_id} stream={stream})"
                 )
-            planned.append((key, value))
+            planned.append((key, value, shard))
     topic = raw_topic()
-    for key, value in planned:
-        _producer_thread._produce_value("__raw__", value, key, topic)
+    for key, value, shard in planned:
+        _producer_thread._produce_value("__raw__", value, key, topic, spread=(base, shard))
     return len(events)
 
 
