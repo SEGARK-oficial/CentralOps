@@ -26,6 +26,7 @@ import {
 import { brandIconFor } from "@/lib/brand-icons"
 import { safeExternalHref } from "@/lib/safeUrl"
 import { useFirstInvalidFocus } from "@/hooks/useFirstInvalidFocus"
+import { AWS_ROLE_SETUP_KEY, AwsRoleSetupPanel } from "./AwsRoleSetupPanel"
 
 // R2-8.3: campos de runtime (`auth_fields` varia por plataforma) entram com a
 // chave `dynamic:${field.key}` — é exatamente o caso que motivou o
@@ -439,7 +440,11 @@ export const IntegrationForm: React.FC<IntegrationFormProps> = ({
       }
     }
     // Plataformas dinâmicas (ninjaone, defender, …): valores em dynamicFieldValues.
-    return { ...dynamicFieldValues }
+    // A org vai junto: probes que agem EM NOME dela (o AssumeRole da AWS usa o
+    // External ID da org) precisam dela, e o backend confere o escopo antes.
+    return organizationId
+      ? { ...dynamicFieldValues, organization_id: Number(organizationId) }
+      : { ...dynamicFieldValues }
   }
 
   const handleTestConnection = async () => {
@@ -984,6 +989,9 @@ export const IntegrationForm: React.FC<IntegrationFormProps> = ({
                 <Notice variant="warning" title={t("form.enterpriseBadge")} className="mb-3">
                   {t("form.sophos.enterpriseRequiredNote")}
                 </Notice>
+              )}
+              {activePlatformDescriptor.auth_setup === AWS_ROLE_SETUP_KEY && (
+                <AwsRoleSetupPanel organizationId={organizationId} />
               )}
               <div className="grid gap-4 md:grid-cols-2">
                 {activePlatformDescriptor.auth_fields.map((field) => (

@@ -260,6 +260,12 @@ class PlatformRegistration:
     #           UI renderiza token de ingestão + endpoint + snippet de edge-collector
     #           em vez de credenciais de poll.
     transport: str = "pull"
+    # ── Assistente de onboarding de credencial ──────────────────────────
+    # Chave de um fluxo de configuração que a UI mostra junto dos auth_fields
+    # (ex.: "aws_assume_role" ⇒ painel com External ID, principal e template do
+    # papel cross-account). Vazio ⇒ só os campos. É metadado de catálogo: a UI
+    # escolhe o painel pela CHAVE, nunca pelo nome da plataforma.
+    auth_setup: str = ""
 
 
 _REGISTRY: Dict[Tuple[str, str], CollectorRegistration] = {}

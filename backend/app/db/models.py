@@ -44,6 +44,12 @@ class Organization(Base):
     external_id = Column(String, nullable=True, index=True)  # Sophos tenant UUID
     auto_managed = Column(Boolean, nullable=False, default=False, server_default=_sa_text("false"))
     iris_customer_id = Column(Integer, nullable=True, index=True)
+    # External ID do STS que os papéis AWS desta org exigem do CentralOps (trust
+    # policy ``sts:ExternalId``). Gerado pelo SERVIDOR na primeira vez que alguém
+    # abre o onboarding AWS e IMUTÁVEL depois: se o cliente pudesse escolhê-lo, ou
+    # se ele mudasse, um papel feito para uma org poderia ser assumido em nome de
+    # outra (confused deputy). Ver ``collectors/auth/aws.py``.
+    aws_external_id = Column(String, nullable=True)
     # Pacotes de regras embarcadas já instalados (JSON list, ex.: ["ioc-v1"]).
     # Marcador de "já instalei", não de "as regras existem": apagar uma regra do
     # pacote não a ressuscita no boot — ver ``collectors/inflight/rule_pack``.

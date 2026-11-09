@@ -25,8 +25,9 @@ Shape do evento: https://docs.aws.amazon.com/AmazonCloudWatchLogs/latest/APIRefe
 ===================  =========================================================
 Coluna genérica      Uso aqui / justificativa
 ===================  =========================================================
-``client_id``        IAM **Access Key ID** — é público (vai no header SigV4),
-                     então cabe numa coluna não-secreta, igual ao CloudTrail.
+``client_id``        **ARN do papel** cross-account (recomendado — AssumeRole com
+                     External ID, ver ``collectors/auth/aws.py``) OU IAM **Access
+                     Key ID** (legado; é público, vai no header SigV4).
 ``secret_access_key``**Secret Access Key** no store (``integration_secrets``),
 (store, não coluna)  nunca em coluna.
 ``base_url``         **Log group name**. É o "endereço lógico" do recurso que o
@@ -60,6 +61,7 @@ import time
 from datetime import datetime, timedelta, timezone
 from typing import Any, AsyncIterator, Dict, Optional
 
+from ..auth import aws as aws_auth
 from ..base import BaseCollector
 from ..metrics import API_LATENCY
 
@@ -107,9 +109,8 @@ class AWSCloudWatchCollector(BaseCollector):
         return f"logs.{self._region}.amazonaws.com" if self._region else "logs.amazonaws.com"
 
     def _load_conn(self) -> Dict[str, Any]:
-        """Creds + config do log group (sync — chamado via ``asyncio.to_thread``)."""
+        """Creds (papel ou chave fixa) + config do log group (sync, em thread)."""
         from ...db import database, models
-        from ...services import integration_secrets
 
         with database.SessionLocal() as db:
             integ = db.get(models.Integration, self.ctx.integration_id)
@@ -117,40 +118,41 @@ class AWSCloudWatchCollector(BaseCollector):
                 raise RuntimeError(
                     f"cloudwatch: integração {self.ctx.integration_id} não encontrada"
                 )
-            access_key_id = (integ.client_id or "").strip()
-            secret = integration_secrets.read_secret(integ, "secret_access_key") or ""
+            try:
+                auth = aws_auth.auth_for_integration(db, integ)
+            except aws_auth.AwsAuthError as exc:
+                raise RuntimeError(
+                    f"cloudwatch: integração {self.ctx.integration_id} incompleta — {exc}"
+                ) from None
             log_group = (integ.base_url or "").strip()
             region = (integ.region or "us-east-1").strip()
-            account_id = (integ.tenant_id or "").strip()
-            if not access_key_id or not secret or not log_group:
+            account_id = (integ.tenant_id or "").strip() or (
+                aws_auth.role_account_id(auth.role_arn) or ""
+            )
+            if not log_group:
                 raise RuntimeError(
                     f"cloudwatch: integração {self.ctx.integration_id} incompleta "
-                    "(precisa de Access Key ID, Secret Access Key e Log Group)"
+                    "(precisa do Log Group)"
                 )
             return {
-                "access_key_id": access_key_id,
-                "secret": secret,
+                "auth": auth,
                 "log_group": log_group,
                 "region": region,
                 "account_id": account_id,
             }
 
-    def _client(self, conn: Dict[str, Any]):
+    def _client(self, conn: Dict[str, Any], client_kwargs: Dict[str, str]):
         """Seam mockável (modelo do ``aws_cloudtrail._s3_client``): import lazy +
         client ``aioboto3`` do serviço ``logs``."""
         import aioboto3  # noqa: PLC0415 — import tardio proposital (mockabilidade)
 
-        return aioboto3.Session().client(
-            "logs",
-            aws_access_key_id=conn["access_key_id"],
-            aws_secret_access_key=conn["secret"],
-            region_name=conn["region"],
-        )
+        return aioboto3.Session().client("logs", **client_kwargs)
 
     async def collect(self) -> AsyncIterator[Dict[str, Any]]:
         conn = await asyncio.to_thread(self._load_conn)
         self._region = conn["region"]
         log_group = conn["log_group"]
+        client_kwargs = await aws_auth.client_kwargs(conn["auth"], conn["region"])
 
         cursor = self.ctx.cursor or {}
         resume_token: Optional[str] = cursor.get("next_token") or None
@@ -178,7 +180,7 @@ class AWSCloudWatchCollector(BaseCollector):
         next_token = resume_token
         pages = 0
 
-        async with self._client(conn) as logs:
+        async with self._client(conn, client_kwargs) as logs:
             while True:
                 await self.ctx.rate_limiter.acquire(self.ctx.integration_id, self.platform)
                 kwargs: Dict[str, Any] = {
@@ -290,40 +292,39 @@ async def _cloudwatch_refresher(integration_id: int) -> Dict[str, object]:
 
 async def _cloudwatch_probe(cfg: Dict[str, Any]):
     """Teste STATELESS pré-save: 1 chamada ``FilterLogEvents`` (limit=1) no log
-    group informado, com as creds digitadas. Valida cred + permissão
-    ``logs:FilterLogEvents`` + existência do log group de uma vez."""
+    group informado, com as creds digitadas. Valida cred (com papel, o AssumeRole
+    de verdade) + permissão ``logs:FilterLogEvents`` + existência do log group."""
     from ..output.base import TestResult
 
     log_group = (cfg.get("base_url") or "").strip()
-    access_key_id = (cfg.get("client_id") or "").strip()
-    secret = (cfg.get("secret_access_key") or "").strip()
     region = (cfg.get("region") or "us-east-1").strip()
-    if not access_key_id or not secret or not log_group:
-        return TestResult.failed("Informe Access Key ID, Secret Access Key e Log Group.")
+    if not log_group:
+        return TestResult.failed("Informe o Log Group.")
 
     t0 = time.perf_counter()
     try:
+        auth = await asyncio.to_thread(aws_auth.auth_for_probe, cfg)
+        client_kwargs = await aws_auth.client_kwargs(auth, region)
+    except aws_auth.AwsAuthError as exc:
+        return TestResult.failed(str(exc))
+    try:
         import aioboto3  # noqa: PLC0415
 
-        session = aioboto3.Session()
-        async with session.client(
-            "logs",
-            aws_access_key_id=access_key_id,
-            aws_secret_access_key=secret,
-            region_name=region,
-        ) as logs:
+        async with aioboto3.Session().client("logs", **client_kwargs) as logs:
             await logs.filter_log_events(
                 logGroupName=log_group,
                 startTime=_now_ms() - _DEFAULT_LOOKBACK_MS,
                 limit=1,
             )
         ms = (time.perf_counter() - t0) * 1000.0
+        how = "papel assumido" if auth.mode == aws_auth.MODE_ROLE else "chave fixa"
         return TestResult.passed(
-            "Conexão OK — acesso ao log group validado.", latency_ms=ms
+            f"Conexão OK ({how}) — acesso ao log group validado.", latency_ms=ms
         )
     except Exception as exc:  # noqa: BLE001
         return TestResult.failed(
-            f"Falha ao consultar o log group: {type(exc).__name__}"
+            "Falha ao consultar o log group: "
+            f"{aws_auth.describe_error(exc, operation='FilterLogEvents')}"
         )
 
 
@@ -349,17 +350,22 @@ def _register() -> None:
             icon_id="aws",
             docs_url="https://docs.aws.amazon.com/AmazonCloudWatchLogs/latest/APIReference/API_FilterLogEvents.html",
             order=51,
+            auth_setup="aws_assume_role",
             test_fn=_cloudwatch_probe,
             required_secrets=("secret_access_key",),
             capabilities=frozenset({"catalog", "auth:test", "collect:events"}),
             auth_fields=(
                 AuthField(
-                    key="client_id", label="Access Key ID", type="string", required=True,
-                    help_text="IAM Access Key ID com permissão logs:FilterLogEvents",
+                    key="client_id", label="ARN do papel ou Access Key ID", type="string",
+                    required=True,
+                    help_text="Recomendado: o ARN do papel criado pelo template "
+                              "(arn:aws:iam::<conta>:role/CentralOpsReadOnly). Access Key ID "
+                              "com logs:FilterLogEvents ainda é aceito.",
                 ),
                 AuthField(
                     key="secret_access_key", label="Secret Access Key",
-                    type="secret", required=True,
+                    type="secret", required=False,
+                    help_text="Só com Access Key ID. Deixe vazio ao usar papel.",
                 ),
                 AuthField(
                     key="base_url", label="Log Group", type="string", required=True,
@@ -371,7 +377,8 @@ def _register() -> None:
                 ),
                 AuthField(
                     key="tenant_id", label="Account ID", type="string", required=False,
-                    help_text="AWS Account ID (opcional) — só enriquece o evento normalizado",
+                    help_text="AWS Account ID (opcional) — só enriquece o evento normalizado. "
+                              "Com papel, vazio = a conta do ARN.",
                 ),
             ),
         )

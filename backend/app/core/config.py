@@ -1068,6 +1068,16 @@ class Settings(BaseSettings):
     # Empty disables the endpoints entirely (returns 503).
     CENTRALOPS_INTERNAL_API_KEY: Optional[str] = None
 
+    # ── Coletores AWS: papel cross-account (AssumeRole) ──────────────
+    # O CentralOps assume, na conta do CLIENTE, um papel que confia na identidade
+    # AWS do próprio CentralOps. Essa identidade vem da cadeia PADRÃO do SDK (env
+    # AWS_ACCESS_KEY_ID/…, perfil, instance profile, IRSA). Este campo só existe
+    # para o template de onboarding: é o ARN que a trust policy do cliente deve
+    # confiar. Vazio ⇒ descoberto por ``sts:GetCallerIdentity`` (sessão de papel
+    # assumido vira o ARN do papel). Preencha quando o papel do CentralOps tem
+    # PATH (``role/sub/caminho/Nome``), que a STS não devolve.
+    AWS_TRUST_PRINCIPAL_ARN: Optional[str] = None
+
     # ── DFIR-IRIS integration (OPCIONAL) ──────────────────────────────
     # Provisionamento de customers no IRIS é uma integração de borda OPCIONAL
     # (não gateia a entrega de eventos). Vazio = desabilitado.

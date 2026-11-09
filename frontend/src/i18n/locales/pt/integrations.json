@@ -313,7 +313,28 @@
       "wazuhManagerPasswordRequired": "Informe a senha do Manager API.",
       "testConnectionFailed": "Falha ao testar conexão."
     },
-    "enterpriseBadge": "Enterprise"
+    "enterpriseBadge": "Enterprise",
+    "awsRole": {
+      "title": "Acesso por papel AWS (recomendado)",
+      "intro": "Em vez de uma chave de acesso fixa, o CentralOps assume um papel só-leitura na conta AWS do cliente, com credenciais temporárias.",
+      "selectOrganization": "Selecione a organização para ver o External ID dela.",
+      "loading": "Carregando dados do papel…",
+      "loadFailed": "Não foi possível carregar os dados do papel AWS.",
+      "externalId": "External ID",
+      "externalIdHelp": "Gerado pelo CentralOps para esta organização e não muda. A trust policy do papel precisa exigir exatamente este valor.",
+      "principal": "Principal do CentralOps",
+      "principalHelp": "A identidade AWS do CentralOps em que o papel deve confiar.",
+      "principalMissingTitle": "Identidade AWS do CentralOps não encontrada",
+      "principalMissing": "O servidor não tem credenciais AWS próprias para assumir papéis. Configure-as no ambiente do servidor (ou AWS_TRUST_PRINCIPAL_ARN) antes de usar o modo papel.",
+      "step1": "Na conta AWS do cliente, crie a stack com o <strong>template CloudFormation</strong> (External ID e principal já vêm preenchidos):",
+      "downloadTemplate": "Baixar template",
+      "cliLabel": "Copiar comando da AWS CLI",
+      "step2": "Copie a saída <strong>RoleArn</strong> da stack e cole no campo <strong>ARN do papel ou Access Key ID</strong> abaixo (formato <code>arn:aws:iam::&lt;conta&gt;:role/CentralOpsReadOnly</code>).",
+      "step3": "Clique em Testar conexão: o CentralOps assume o papel de verdade e confere a leitura.",
+      "manualSummary": "Prefere criar o papel à mão? Ver a trust policy",
+      "manualHelp": "Use esta trust policy no papel e anexe permissões só de leitura para as fontes que vai coletar.",
+      "legacyNote": "Access Key ID + Secret Access Key de um usuário IAM continuam aceitos, mas são credenciais de longa duração: prefira o papel."
+    }
   },
   "ingest": {
     "title": "Ingestão push",

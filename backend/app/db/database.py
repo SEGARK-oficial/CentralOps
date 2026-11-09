@@ -907,6 +907,10 @@ def _run_lightweight_migrations() -> None:
                 conn.execute(text("ALTER TABLE organizations ADD COLUMN depth INTEGER NOT NULL DEFAULT 0"))
             if "kind" not in _org_cols:
                 conn.execute(text("ALTER TABLE organizations ADD COLUMN kind VARCHAR NOT NULL DEFAULT 'customer'"))
+            # External ID do STS para papéis AWS cross-account (nullable: só existe
+            # depois do primeiro onboarding AWS da org).
+            if "aws_external_id" not in _org_cols:
+                conn.execute(text("ALTER TABLE organizations ADD COLUMN aws_external_id VARCHAR"))
             conn.execute(text("CREATE INDEX IF NOT EXISTS ix_organizations_parent_organization_id ON organizations (parent_organization_id)"))
             conn.execute(text("CREATE INDEX IF NOT EXISTS ix_organizations_root_id ON organizations (root_id)"))
             conn.execute(text("CREATE INDEX IF NOT EXISTS ix_organizations_kind ON organizations (kind)"))

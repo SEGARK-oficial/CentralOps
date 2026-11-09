@@ -37,16 +37,18 @@ A resposta do `FilterLogEvents` não traz log group, região, conta nem horário
 ## Quem pode fazer o quê
 
 - **Administrador da plataforma:** cria e edita a integração (menu **Coleta -> Integrações**).
-- **Na AWS:** criar o usuário e a policy exige permissão de IAM.
+- **Na AWS:** criar o papel (ou o usuário) e a policy exige permissão de IAM.
 
 ## Pré-requisitos
 
 - O **nome exato do log group** (ex.: `/aws/lambda/faturamento-api`) e a **região** dele.
-- Uma **access key de usuário IAM**. Assumir role, perfil de instância e credenciais temporárias com session token não são suportados.
+- Um **papel cross-account** (recomendado) ou uma **access key de usuário IAM**. Credenciais temporárias com session token digitadas à mão não são aceitas.
 
-## Passo 1: Criar a credencial de leitura
+## Passo 1: Dar acesso de leitura ao CentralOps
 
-A única permissão usada é `logs:FilterLogEvents` no log group. Troque região, conta e nome:
+**Recomendado: papel cross-account.** É o mesmo papel do CloudTrail: o painel **Acesso por papel AWS**, no formulário da integração, mostra o External ID da organização, o principal do CentralOps e o template CloudFormation. O template já inclui `logs:DescribeLogGroups` e `logs:FilterLogEvents`. O passo a passo, incluindo a identidade do servidor em instalação própria, está em [AWS CloudTrail — Opção A](./aws-cloudtrail.md#opção-a-recomendada-papel-cross-account). Guarde o `RoleArn` da stack.
+
+**Legado: access key de usuário IAM.** A única permissão usada é `logs:FilterLogEvents` no log group. Troque região, conta e nome:
 
 ```json
 {
@@ -78,13 +80,13 @@ Guarde o `AccessKeyId` e o `SecretAccessKey` da saída. Para ler vários log gro
 
    | Campo | O que informar |
    |---|---|
-   | Access Key ID | O `AccessKeyId` do Passo 1. |
-   | Secret Access Key | O `SecretAccessKey` do Passo 1. Fica guardado cifrado. |
+   | ARN do papel ou Access Key ID | O `RoleArn` do papel (ex.: `arn:aws:iam::111122223333:role/CentralOpsReadOnly`) ou o `AccessKeyId`. O CentralOps reconhece o modo pelo formato. |
+   | Secret Access Key | Só com Access Key ID. Fica guardado cifrado. Com papel, deixe vazio. |
    | Log Group | O nome exato, com as barras (ex.: `/aws/lambda/faturamento-api`). Sem curinga. |
    | Região AWS | A região do log group (ex.: `sa-east-1`). |
-   | Account ID | Opcional. Só preenche `cloud.account.uid` no evento normalizado, porque a API não devolve a conta. |
+   | Account ID | Opcional. Só preenche `cloud.account.uid` no evento normalizado, porque a API não devolve a conta. Com papel, vazio = a conta do ARN. |
 
-3. Clique em **testar a conexão**. O teste faz um `FilterLogEvents` de 1 evento na última hora do log group. Ele valida de uma vez a credencial, a permissão e a existência do log group. Responde `Conexão OK — acesso ao log group validado.` ou `Falha ao consultar o log group: <tipo do erro>`.
+3. Clique em **testar a conexão**. O teste faz um `FilterLogEvents` de 1 evento na última hora do log group. Ele valida de uma vez a credencial, a permissão e a existência do log group. Com papel, antes ele assume o papel de verdade. Responde `Conexão OK (papel assumido)…` ou `Conexão OK (chave fixa)…`, ou o motivo da falha (ex.: `Falha ao consultar o log group: ResourceNotFoundException — o recurso (ex.: log group) não existe nesta região.`).
 4. Salve. A coleta começa no próximo ciclo (até 5 minutos).
 
 ## O que é coletado
@@ -200,6 +202,8 @@ Evento normalizado:
 
 **`Falha ao consultar o log group: AccessDeniedException`.** Falta `logs:FilterLogEvents` no ARN desse log group, ou a policy aponta para outra região ou conta.
 
+**`AssumeRole: AccessDenied`.** A trust policy do papel não confia no principal mostrado no painel ou não exige o External ID da organização. Veja [AWS CloudTrail — Solução de problemas](./aws-cloudtrail.md#solução-de-problemas).
+
 **O teste passa, mas nada chega.** O log group pode não ter recebido eventos desde que a integração foi criada. Confira com `aws logs filter-log-events --log-group-name /aws/lambda/faturamento-api --start-time $(( ($(date +%s) - 3600) * 1000 )) --limit 5 --region sa-east-1`.
 
 **"Backlog" em Saúde do Pipeline.** O ciclo leu 20.000 eventos e sobrou fila. Se acontece sempre, o log group gera mais do que cerca de 4.000 eventos por minuto, que é o que a coleta drena de forma contínua.
@@ -209,7 +213,7 @@ Evento normalizado:
 ## Limitações conhecidas
 
 - **Um log group por integração**, pelo nome exato. Não há curinga nem lista.
-- **Só access key estática.**
+- **Um papel por integração, sem descoberta de log groups.** O nome do log group é digitado.
 - **Classe genérica.** Todo evento sai como Base Event (0); os campos extraídos do JSON ficam em `unmapped`, não em atributos OCSF de classe.
 - **Volume alto acumula atraso.** O teto de 20.000 eventos por ciclo de 5 minutos limita a vazão. Log groups como VPC Flow Logs de uma VPC movimentada passam disso.
 - **Recoleta histórica (backfill) não respeita o período pedido.** O coletor começa da janela padrão (última hora), não do início do período escolhido.

@@ -34,7 +34,7 @@ API da AWS ──► CloudTrail (trail) ──► bucket S3 ──list + get (a 
 
 A partição do CloudTrail é pela data de **entrega** do arquivo, não pela hora do evento. Por isso a posição é o `LastModified` do objeto, e o atraso mostrado em **Saúde do Pipeline** é o atraso do CentralOps em relação ao bucket, não o atraso de entrega da própria AWS.
 
-Cada arquivo traz um `Records[]`. Cada item vira um evento. Arquivos ilegíveis (sem permissão, corrompidos) são **pulados** com um aviso no log do worker, e a coleta segue (veja [Solução de problemas](#solução-de-problemas)).
+Cada arquivo traz um `Records[]`. Cada item vira um evento. Um arquivo que **não dá para ler** (sem `s3:GetObject`, sem `kms:Decrypt`, rede) **para o ciclo**: a posição da coleta não avança e o erro aparece em **Saúde do Pipeline**, para que nenhum arquivo seja perdido. Só um arquivo **corrompido** (gzip ou JSON inválido, que reler não conserta) é pulado; ele fica registrado no estado da coleta (veja [Solução de problemas](#solução-de-problemas)).
 
 ## O que entra e o que não entra
 
@@ -75,9 +75,56 @@ aws cloudtrail start-logging --name centralops
 
 A AWS entrega o primeiro arquivo alguns minutos depois de a trail começar a registrar.
 
-## Passo 2: Criar a credencial de leitura
+## Passo 2: Dar acesso de leitura ao CentralOps
 
-O CentralOps usa uma **access key de usuário IAM** (Access Key ID + Secret Access Key). Assumir role, perfil de instância e credenciais temporárias (`ASIA...` com session token) não são suportados: o formulário não tem campo para session token.
+Há dois jeitos. Prefira o **papel**: o CentralOps não guarda nenhuma chave de longa duração, e o cliente pode revogar o acesso apagando o papel.
+
+### Opção A (recomendada): papel cross-account
+
+O cliente cria, na conta AWS dele, um papel só-leitura que confia na identidade AWS do CentralOps e exige um **External ID**. O CentralOps assume esse papel a cada ciclo (`sts:AssumeRole`) e trabalha com credenciais temporárias de 1 hora.
+
+1. No CentralOps, abra **Coleta -> Integrações**, escolha **AWS CloudTrail** e selecione a organização. O painel **Acesso por papel AWS** mostra:
+   - o **External ID** da organização. É gerado pelo CentralOps, é único por organização e não muda;
+   - o **principal do CentralOps**, o ARN em que o papel deve confiar;
+   - o botão **Baixar template**, um template CloudFormation com esses dois valores já preenchidos.
+2. Na conta do cliente, crie a stack com o template. Informe o bucket da trail e, se os arquivos são cifrados com SSE-KMS, o ARN da chave:
+
+   ```bash
+   aws cloudformation deploy \
+     --template-file centralops-readonly-role.json \
+     --stack-name centralops-readonly \
+     --capabilities CAPABILITY_NAMED_IAM \
+     --parameter-overrides CloudTrailBucketName=meu-bucket-cloudtrail \
+       KmsKeyArn=arn:aws:kms:us-east-1:111122223333:key/ID-DA-CHAVE-DA-TRAIL
+
+   aws cloudformation describe-stacks --stack-name centralops-readonly \
+     --query "Stacks[0].Outputs[?OutputKey=='RoleArn'].OutputValue" --output text
+   ```
+
+   O template cria o papel `CentralOpsReadOnly` com `s3:ListBucket`/`s3:GetObject` no bucket, `kms:Decrypt` na chave (se informada) e leitura de CloudWatch Logs. Nenhuma permissão de escrita.
+3. Guarde o `RoleArn` da saída para o Passo 3.
+
+Prefere criar o papel à mão? O painel mostra a trust policy pronta. A condição que importa é esta, com o External ID da organização:
+
+```json
+"Condition": { "StringEquals": { "sts:ExternalId": "centralops-<id-da-organização>" } }
+```
+
+:::warning[O External ID é a trava entre clientes]
+
+Sem ele, quem soubesse o ARN do papel de outro cliente poderia cadastrá-lo numa integração própria. Por isso o CentralOps gera o valor, não aceita um valor digitado e nunca o troca. Não remova a condição `sts:ExternalId` da trust policy.
+
+:::
+
+:::info[Instalação própria (self-hosted): a identidade do servidor]
+
+Para assumir papéis, o servidor do CentralOps precisa de uma identidade AWS própria, pela cadeia padrão do SDK: variáveis `AWS_ACCESS_KEY_ID`/`AWS_SECRET_ACCESS_KEY`, perfil, perfil de instância (EC2) ou IRSA (EKS). Essa identidade só precisa de `sts:AssumeRole` nos papéis dos clientes. O painel descobre o ARN dela sozinho (`sts:GetCallerIdentity`). Se o papel do servidor tem *path* (`role/caminho/Nome`), defina `AWS_TRUST_PRINCIPAL_ARN` com o ARN completo, porque a STS não devolve o path. Sem identidade, o painel avisa e o teste de conexão responde que o servidor não tem identidade AWS própria.
+
+:::
+
+### Opção B (legado): access key de usuário IAM
+
+O CentralOps também aceita uma **access key de usuário IAM** (Access Key ID + Secret Access Key). É uma credencial de longa duração: use só quando o papel não for possível. Credenciais temporárias (`ASIA...` com session token) não são aceitas.
 
 Crie um usuário dedicado e anexe esta policy, trocando o bucket e o Account ID:
 
@@ -127,7 +174,7 @@ aws iam create-access-key --user-name centralops-cloudtrail
 
 Guarde o `AccessKeyId` e o `SecretAccessKey` da saída. O segredo não é mostrado de novo.
 
-Se o bucket fica em **outra conta** (conta central de logs), a bucket policy dessa conta também precisa liberar `s3:ListBucket` e `s3:GetObject` para o ARN do usuário.
+Se o bucket fica em **outra conta** (conta central de logs), a bucket policy dessa conta também precisa liberar `s3:ListBucket` e `s3:GetObject` para o ARN do papel ou do usuário.
 
 ## Passo 3: Criar a integração no CentralOps
 
@@ -136,13 +183,13 @@ Se o bucket fica em **outra conta** (conta central de logs), a bucket policy des
 
    | Campo | O que informar |
    |---|---|
-   | Access Key ID | O `AccessKeyId` do Passo 2 (ex.: `AKIAIOSFODNN7EXAMPLE`). |
-   | Secret Access Key | O `SecretAccessKey` do Passo 2. Fica guardado cifrado. |
+   | ARN do papel ou Access Key ID | Opção A: o `RoleArn` do Passo 2 (ex.: `arn:aws:iam::111122223333:role/CentralOpsReadOnly`). Opção B: o `AccessKeyId` (ex.: `AKIAIOSFODNN7EXAMPLE`). O CentralOps reconhece o modo pelo formato. |
+   | Secret Access Key | Só na Opção B: o `SecretAccessKey`. Fica guardado cifrado. Com papel, deixe vazio. |
    | Bucket S3 | Só o nome do bucket, sem `s3://` (ex.: `meu-bucket-cloudtrail`). |
    | Região AWS | A região cujos eventos você quer (ex.: `us-east-1`). Compõe o prefixo lido. |
-   | Account ID | Os 12 dígitos da conta cujos eventos estão no bucket (ex.: `111122223333`). Compõe o prefixo lido. |
+   | Account ID | Os 12 dígitos da conta cujos eventos estão no bucket (ex.: `111122223333`). Compõe o prefixo lido. Com papel, pode ficar vazio quando a conta dos logs é a mesma do papel. |
 
-3. Clique em **testar a conexão**. O teste lista um objeto do bucket com as credenciais digitadas e responde `Conexão OK — acesso ao bucket validado.` ou `Falha ao acessar o bucket: <tipo do erro>`.
+3. Clique em **testar a conexão**. Com papel, o teste assume o papel de verdade (pega trust policy ou External ID errados antes de salvar). Depois lista um objeto do bucket e responde `Conexão OK (papel assumido)…` ou `Conexão OK (chave fixa)…`, ou o motivo da falha (ex.: `AssumeRole: AccessDenied — confira se a trust policy do papel confia no principal do CentralOps e exige o External ID desta organização.`).
 
    :::note[O teste valida o bucket, não o caminho]
 
@@ -300,11 +347,17 @@ Evento normalizado:
    ```
 
    Vazio? O Account ID ou a região do formulário não batem com a trail, ou a trail usa prefixo de chave ou é de organização (veja [Pré-requisitos](#pré-requisitos)).
-2. Procure no log do worker de coleta por `cloudtrail: objeto <chave> ilegível (<erro>) — pulando`. Com `ClientError`, falta `s3:GetObject` ou, em trail com SSE-KMS, `kms:Decrypt`.
+2. Veja o erro do stream em **Saúde do Pipeline**.
 
-**Os arquivos pulados por falta de permissão não voltam sozinhos.** O arquivo ilegível é pulado e a posição da coleta avança mesmo assim, para um arquivo ruim não travar a fila. Corrigir a permissão vale dali para frente. Os eventos dos arquivos já pulados não são relidos automaticamente.
+**Erro `cloudtrail: falha ao ler s3://… — AccessDenied`.** O CentralOps lista o bucket, mas não consegue ler um arquivo. Com a dica `kms:Decrypt`, falta permissão na chave KMS que cifra a trail; sem ela, falta `s3:GetObject`. A coleta fica parada nesse ponto, **sem perder nada**: corrigida a permissão, o próximo ciclo lê o arquivo e segue.
 
-**`Falha ao acessar o bucket: ClientError` no teste.** Acesso negado ao `s3:ListBucket` (veja o aviso do Passo 2 sobre condição de prefixo) ou bucket inexistente. Teste a mesma credencial com `aws s3 ls s3://meu-bucket-cloudtrail --profile centralops`.
+**`AssumeRole: AccessDenied` no teste ou na coleta.** A trust policy do papel não confia no principal mostrado no painel, ou não exige exatamente o External ID da organização. Compare os dois valores com o painel. Na instalação própria, a identidade do servidor também precisa de `sts:AssumeRole` no ARN do papel.
+
+**`o servidor do CentralOps não tem identidade AWS própria`.** Instalação própria sem credenciais AWS no ambiente do servidor. Veja o aviso *Instalação própria* no Passo 2.
+
+**Arquivo corrompido.** Um arquivo com gzip ou JSON inválido é pulado (reler não conserta) e registrado em `skipped_objects` no estado da coleta do stream, com a chave e o motivo (os 20 mais recentes). O log do worker traz `cloudtrail: objeto <chave> corrompido`.
+
+**`Falha ao acessar o bucket: AccessDenied` no teste.** Acesso negado ao `s3:ListBucket` (veja o aviso da Opção B sobre condição de prefixo) ou bucket de outra conta sem bucket policy. `NoSuchBucket`: nome errado ou bucket em outra região.
 
 **Eventos de IAM não aparecem.** Eles estão no prefixo de `us-east-1`. Crie uma integração para essa região.
 
@@ -313,7 +366,7 @@ Evento normalizado:
 ## Limitações conhecidas
 
 - **Uma conta e uma região por integração**, sem prefixo de chave e sem trail de organização.
-- **Só access key estática.** Rotacione a chave pelo IAM e atualize o campo *Secret Access Key*.
+- **Um papel por integração, sem descoberta.** O bucket e a região são digitados; o CentralOps ainda não descobre trails (`DescribeTrails`) nem contas de uma AWS Organization.
 - **Todos os eventos saem como API Activity com `activity_id` 0 e severidade Informational.** O CentralOps não classifica `Create`/`Read`/`Update`/`Delete` pelo nome da API, e o sucesso ou falha está em `status` (texto), não em `status_id`.
 - **Recoleta histórica (backfill) não respeita o período pedido.** O coletor começa da janela padrão (arquivos das últimas 2 horas), não do início do período escolhido.
-- **Arquivo ilegível é pulado sem nova tentativa** (veja Solução de problemas).
+- **Arquivo corrompido é pulado** e só fica registrado no estado da coleta (veja Solução de problemas).

@@ -22,13 +22,14 @@ from __future__ import annotations
 import logging
 from typing import List, Literal, Optional
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, Field
+from sqlalchemy.orm import Session
 
 from ..api import schemas
 from ..core import auth as app_auth
 from ..core.errors import ApiError
-from ..db import models
+from ..db import database, models
 from ..collectors import capabilities
 from ..collectors import registry as collector_registry
 
@@ -71,6 +72,9 @@ class ProviderPlatformRead(BaseModel):
     # "pull" (poll de API, default) | "push" (fonte empurra p/ /api/ingest). A UI
     # renderiza token de ingestão + endpoint + snippet de edge-collector quando "push".
     transport: str = "pull"
+    # Painel de onboarding de credencial que a UI mostra junto dos campos
+    # (ex.: "aws_assume_role"). Vazio ⇒ só os campos.
+    auth_setup: str = ""
 
 
 class QueryCapabilityRead(BaseModel):
@@ -96,6 +100,21 @@ class ProviderTestRequest(BaseModel):
     """Credenciais CRUAS digitadas na tela (ainda não salvas) para o probe."""
 
     config: dict
+
+
+class AwsRoleSetupRead(BaseModel):
+    """O que o cliente precisa para criar o papel cross-account na conta dele."""
+
+    organization_id: int
+    #: Gerado pelo servidor, único por organização e imutável.
+    external_id: str
+    #: ARN que a trust policy deve confiar. ``None`` quando o servidor não tem
+    #: identidade AWS própria — ``principal_error`` diz o porquê.
+    trust_principal_arn: Optional[str] = None
+    principal_error: Optional[str] = None
+    #: Template CloudFormation (JSON) com External ID e principal já preenchidos.
+    template: dict
+    template_filename: str = "centralops-readonly-role.json"
 
 
 class ProviderTestResponse(BaseModel):
@@ -162,6 +181,7 @@ def list_provider_platforms(
                 streams=_load_streams(plat.platform),
                 supports_test=plat.test_fn is not None,
                 transport=getattr(plat, "transport", "pull"),
+                auth_setup=getattr(plat, "auth_setup", ""),
             )
         )
     return out
@@ -208,11 +228,55 @@ def list_query_capabilities(
     return out
 
 
+@router.get("/aws/role-setup", response_model=AwsRoleSetupRead)
+async def aws_role_setup(
+    organization_id: int = Query(..., ge=1),
+    db: Session = Depends(database.get_session),
+    current_user: models.AppUser = Depends(
+        app_auth.require_permission(app_auth.Permission.INTEGRATION_WRITE)
+    ),
+) -> AwsRoleSetupRead:
+    """External ID da organização + principal do CentralOps + template do papel.
+
+    Cria o External ID na primeira chamada (e nunca mais o troca). Escopo de
+    tenant ANTES de tudo: o External ID é o que separa um cliente do outro, então
+    só quem administra integrações daquela org pode vê-lo.
+    """
+    import asyncio
+
+    from ..collectors.auth import aws as aws_auth
+    from ..core import tenant
+
+    tenant.require_subtree_access(current_user, organization_id, db)
+    try:
+        external_id = await asyncio.to_thread(
+            aws_auth.get_or_create_external_id, db, organization_id
+        )
+    except aws_auth.AwsAuthError:
+        raise ApiError(
+            "organization.not_found",
+            404,
+            messages={
+                "pt": "Organização não encontrada.",
+                "en": "Organization not found.",
+                "es": "Organización no encontrada.",
+            },
+        ) from None
+    principal, principal_error = await aws_auth.trust_principal_arn()
+    return AwsRoleSetupRead(
+        organization_id=organization_id,
+        external_id=external_id,
+        trust_principal_arn=principal,
+        principal_error=principal_error,
+        template=aws_auth.cloudformation_template(external_id, principal),
+    )
+
+
 @router.post("/{platform}/test-connection", response_model=ProviderTestResponse)
 async def test_provider_connection(
     platform: str,
     body: ProviderTestRequest,
-    _: models.AppUser = Depends(app_auth.require_authenticated_user),
+    current_user: models.AppUser = Depends(app_auth.require_authenticated_user),
 ) -> ProviderTestResponse:
     """Testa as credenciais CRUAS (pré-save) de uma plataforma — stateless, NÃO
     persiste nada. Plugin-driven: roda o ``test_fn`` self-describing do vendor
@@ -242,7 +306,23 @@ async def test_provider_connection(
             },
             params={"platform": platform},
         )
-    result = await plat.test_fn(body.config or {})
+    config = dict(body.config or {})
+    # ``organization_id`` no config: o probe vai agir EM NOME dessa org (ex.: o
+    # AssumeRole da AWS usa o External ID dela). Confere o escopo aqui, antes do
+    # probe — senão um usuário de uma org testaria o papel de outra com o External
+    # ID alheio. Valor que não é inteiro positivo é descartado, nunca repassado.
+    raw_org = config.pop("organization_id", None)
+    if raw_org not in (None, ""):
+        try:
+            org_id = int(raw_org)
+        except (TypeError, ValueError):
+            org_id = 0
+        if org_id >= 1 and not isinstance(raw_org, bool):
+            from ..core import tenant
+
+            tenant.require_subtree_access(current_user, org_id)
+            config["organization_id"] = org_id
+    result = await plat.test_fn(config)
     return ProviderTestResponse(
         ok=bool(getattr(result, "ok", False)),
         detail=str(getattr(result, "detail", "")),

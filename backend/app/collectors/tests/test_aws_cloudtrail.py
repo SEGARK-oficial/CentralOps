@@ -16,6 +16,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from ..auth.aws import AwsAuth
 from ..base import CollectorContext
 from ..normalize import engine as E
 from ..normalize.defaults import load_default_rules
@@ -23,8 +24,7 @@ from ..vendors import aws_cloudtrail as ct
 from ..vendors.aws_cloudtrail import AWSCloudTrailCollector
 
 _CONN = {
-    "access_key_id": "AKIA_TEST",
-    "secret": "secret-test",
+    "auth": AwsAuth.access_key("AKIA_TEST", "secret-test"),
     "bucket": "my-cloudtrail-bucket",
     "region": "us-east-1",
     "prefix_base": "AWSLogs/888/CloudTrail/us-east-1/",
@@ -262,3 +262,162 @@ def test_registered_zero_core_exotic_creds() -> None:
     keys = {f.key for f in plat.auth_fields}
     assert {"client_id", "base_url", "region", "tenant_id"} <= keys  # reuso genérico de colunas
     assert get("aws_cloudtrail", "events").refresh_fn.__name__ == "_cloudtrail_refresher"
+
+
+# ── F0: objeto que não dá para ler não pode virar perda silenciosa ─────────
+
+
+class _AwsError(Exception):
+    """Imita ``botocore.exceptions.ClientError`` (só o atributo ``response``)."""
+
+    def __init__(self, code: str, message: str = "") -> None:
+        super().__init__(f"{code}: {message}")
+        self.response = {"Error": {"Code": code, "Message": message}}
+
+
+class _FailingS3(_FakeS3):
+    def __init__(self, listing, objects, failures: Dict[str, Exception]) -> None:
+        super().__init__(listing, objects)
+        self._failures = failures
+
+    async def get_object(self, Bucket, Key):  # noqa: N803
+        if Key in self._failures:
+            raise self._failures[Key]
+        return await super().get_object(Bucket, Key)
+
+
+async def _run(fake, cursor):
+    ctx = _ctx(cursor=cursor)
+    with patch.object(AWSCloudTrailCollector, "_load_conn", return_value=dict(_CONN)), \
+         patch.object(AWSCloudTrailCollector, "_s3_client", return_value=fake), \
+         patch.object(ct, "_date_prefixes", return_value=[_PREFIX]):
+        collected = [ev async for ev in AWSCloudTrailCollector(ctx).collect()]
+    return ctx, collected
+
+
+@pytest.mark.asyncio
+async def test_unreadable_object_fails_the_cycle_instead_of_advancing() -> None:
+    """Sem ``kms:Decrypt`` o GetObject falha. Antes: objeto pulado, watermark
+    avançava para depois dele e a Saúde ficava verde — o objeto nunca mais era
+    lido. Agora o ciclo levanta (o pipeline devolve o cursor e mostra o erro)."""
+    now = datetime.now(timezone.utc)
+    good, locked = f"{_PREFIX}a.json.gz", f"{_PREFIX}b.json.gz"
+    listing = {_PREFIX: {
+        "Contents": [{"Key": good, "LastModified": now}, {"Key": locked, "LastModified": now}],
+        "IsTruncated": False,
+    }}
+    fake = _FailingS3(
+        listing,
+        {good: _gz([_event("ev-1")])},
+        {locked: _AwsError("AccessDenied", "User is not authorized to perform: kms:Decrypt")},
+    )
+    before = {"last_modified": datetime(2026, 6, 20, tzinfo=timezone.utc).isoformat()}
+
+    with pytest.raises(RuntimeError) as err:
+        await _run(fake, dict(before))
+
+    assert locked in str(err.value)
+    assert "kms:Decrypt" in str(err.value)
+
+
+@pytest.mark.asyncio
+async def test_unreadable_object_leaves_cursor_where_it_was() -> None:
+    now = datetime.now(timezone.utc)
+    locked = f"{_PREFIX}b.json.gz"
+    listing = {_PREFIX: {"Contents": [{"Key": locked, "LastModified": now}], "IsTruncated": False}}
+    fake = _FailingS3(listing, {}, {locked: _AwsError("SlowDown")})
+    before = {"last_modified": datetime(2026, 6, 20, tzinfo=timezone.utc).isoformat()}
+    ctx = _ctx(cursor=dict(before))
+
+    with patch.object(AWSCloudTrailCollector, "_load_conn", return_value=dict(_CONN)), \
+         patch.object(AWSCloudTrailCollector, "_s3_client", return_value=fake), \
+         patch.object(ct, "_date_prefixes", return_value=[_PREFIX]):
+        with pytest.raises(RuntimeError):
+            [ev async for ev in AWSCloudTrailCollector(ctx).collect()]
+
+    assert ctx.cursor == before  # nada avançou
+
+
+@pytest.mark.asyncio
+async def test_object_deleted_between_list_and_get_is_skipped() -> None:
+    now = datetime.now(timezone.utc)
+    gone, ok = f"{_PREFIX}a.json.gz", f"{_PREFIX}b.json.gz"
+    listing = {_PREFIX: {
+        "Contents": [{"Key": gone, "LastModified": now}, {"Key": ok, "LastModified": now}],
+        "IsTruncated": False,
+    }}
+    fake = _FailingS3(listing, {ok: _gz([_event("ev-2")])}, {gone: _AwsError("NoSuchKey")})
+
+    ctx, collected = await _run(fake, None)
+
+    assert [e["eventID"] for e in collected] == ["ev-2"]
+    assert ctx.cursor == {"last_modified": now.isoformat()}
+
+
+@pytest.mark.asyncio
+async def test_corrupt_object_is_skipped_but_recorded_in_cursor() -> None:
+    """Conteúdo inválido não melhora relendo; travar o ciclo nele seria um
+    poison-loop. Pula, mas deixa rastro no cursor (Estado da coleta)."""
+    now = datetime.now(timezone.utc)
+    bad, ok = f"{_PREFIX}a.json.gz", f"{_PREFIX}b.json.gz"
+    listing = {_PREFIX: {
+        "Contents": [{"Key": bad, "LastModified": now}, {"Key": ok, "LastModified": now}],
+        "IsTruncated": False,
+    }}
+    fake = _FakeS3(listing, {bad: b"isto nao e gzip", ok: _gz([_event("ev-2")])})
+    previous = [{"key": "antigo.json.gz", "reason": "BadGzipFile"}]
+
+    ctx, collected = await _run(fake, {
+        "last_modified": datetime(2026, 6, 20, tzinfo=timezone.utc).isoformat(),
+        "skipped_objects": previous,
+    })
+
+    assert [e["eventID"] for e in collected] == ["ev-2"]
+    assert ctx.cursor["last_modified"] == now.isoformat()
+    assert ctx.cursor["skipped_objects"][0] == previous[0]  # histórico preservado
+    assert ctx.cursor["skipped_objects"][-1]["key"] == bad
+
+
+@pytest.mark.asyncio
+async def test_skipped_history_is_bounded(monkeypatch) -> None:
+    monkeypatch.setattr(ct, "_MAX_SKIPPED_RECORDED", 2)
+    now = datetime.now(timezone.utc)
+    keys = [f"{_PREFIX}bad{i}.json.gz" for i in range(3)]
+    listing = {_PREFIX: {"Contents": [{"Key": k, "LastModified": now} for k in keys], "IsTruncated": False}}
+    fake = _FakeS3(listing, {k: b"x" for k in keys})
+
+    ctx, _ = await _run(fake, None)
+
+    assert [s["key"] for s in ctx.cursor["skipped_objects"]] == keys[1:]
+
+
+@pytest.mark.asyncio
+async def test_probe_role_mode_without_org_fails_before_any_network(monkeypatch) -> None:
+    from ..auth import aws as aws_auth
+
+    calls: List[int] = []
+
+    async def _never(auth, region):
+        calls.append(1)
+        raise AssertionError("não devia chamar a STS")
+
+    monkeypatch.setattr(aws_auth, "_assume_role", _never)
+    result = await ct._cloudtrail_probe({
+        "client_id": "arn:aws:iam::123456789012:role/CentralOpsReadOnly",
+        "base_url": "bucket",
+    })
+    assert result.ok is False
+    assert "organização" in result.detail
+    assert calls == []
+
+
+def test_registration_offers_role_onboarding_and_optional_secret() -> None:
+    from ..registry import get_platform
+
+    for platform in ("aws_cloudtrail", "aws_cloudwatch"):
+        plat = get_platform(platform)
+        assert plat.auth_setup == "aws_assume_role"
+        fields = {f.key: f for f in plat.auth_fields}
+        # Com papel não existe secret: o campo não pode ser obrigatório.
+        assert fields["secret_access_key"].required is False
+        assert fields["client_id"].required is True
