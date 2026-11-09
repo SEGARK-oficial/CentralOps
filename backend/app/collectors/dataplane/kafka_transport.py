@@ -950,6 +950,12 @@ async def run_dispatch_consumer(stop_event: Optional[threading.Event] = None) ->
     redis_token = DISPATCH_REDIS.set(shared_redis)
     stopping = lambda: stop_event is not None and stop_event.is_set()  # noqa: E731
     dest_sems: Dict[str, asyncio.Semaphore] = {}
+    #: Destino marcado lento (um lote esperou a vez além de ``slow_after``) até
+    #: este instante: os lotes dele que chegarem estacionam JÁ NA BUSCA, sem ocupar
+    #: vaga em voo. Sem isso, os lotes do lento esperavam a vez ocupando as vagas
+    #: do teto global e o destino saudável quase não conseguia entrar (gate de
+    #: carga: 31 s → 159 s para o saudável com um destino a 1 ms/evento).
+    slow_until: Dict[str, float] = {}
     max_inflight = max(1, int(settings.KAFKA_DISPATCH_MAX_INFLIGHT))
     per_dest = max(1, int(settings.KAFKA_DISPATCH_INFLIGHT_PER_DEST))
     slow_after = float(settings.KAFKA_DISPATCH_SLOW_PARK_SECONDS)
@@ -978,7 +984,15 @@ async def run_dispatch_consumer(stop_event: Optional[threading.Event] = None) ->
                 # O destino não deu vez em ``slow_after`` s: está lento ou falhando.
                 # O lote vai ao estacionamento e libera a vaga — é isto que impede
                 # um destino lento de segurar os outros (Onda 4b) por mais que isso.
-                outcome = "parked_slow"
+                # Rótulo próprio: cada espera dessas custou até ``slow_after`` s de
+                # uma vaga em voo; as estacionadas na busca não custam nada.
+                outcome = "parked_slow_wait"
+                # Marca pelo ciclo do estacionamento (não por uma janela de
+                # espera): o drenador entrega o atrasado no ritmo do destino, e o
+                # caminho principal só volta a tentar depois disso.
+                slow_until[dest_id] = time.monotonic() + max(
+                    slow_after, float(settings.KAFKA_PARKED_HOLD_SECONDS)
+                )
                 while not stopping():
                     if await _park(msg.value, dest_id, "slow"):
                         tracker.done(tp, msg.offset)
@@ -1057,6 +1071,7 @@ async def run_dispatch_consumer(stop_event: Optional[threading.Event] = None) ->
     # ``stop_event`` a cada tick → drain cooperativo PRONTO mesmo com a partição
     # ociosa, sem esperar o deadline de hard-cancel.
     _poll_timeout = 1.0
+    _last_touch = [0.0]
     try:
         while not stopping():
             if len(inflight) >= max_inflight or drain.revoking:
@@ -1073,7 +1088,13 @@ async def run_dispatch_consumer(stop_event: Optional[threading.Event] = None) ->
                 continue  # nenhuma msg neste tick — re-checa stop_event no topo
             except StopAsyncIteration:
                 break  # stream encerrado (fake/teste); o getone() real bloqueia
-            _touch_health(_HEARTBEAT_FILE)  # progresso → liveness
+            # progresso → liveness. No máximo 1×/s: o liveness olha o mtime em
+            # segundos, e tocar o arquivo POR REGISTRO era uma abertura de arquivo
+            # por lote no laço principal.
+            _now = time.monotonic()
+            if _now - _last_touch[0] >= 1.0:
+                _touch_health(_HEARTBEAT_FILE)
+                _last_touch[0] = _now
             tp = TopicPartition(msg.topic, msg.partition)
             tracker.start(tp, msg.offset)
 
@@ -1102,6 +1123,18 @@ async def run_dispatch_consumer(stop_event: Optional[threading.Event] = None) ->
                 await _advance(tp)
                 continue
 
+            if slow_until.get(dest_id, 0.0) > time.monotonic():
+                # Destino marcado lento: estaciona sem entrar na fila dele.
+                if await _park(msg.value, dest_id, "slow"):
+                    metrics.DATAPLANE_CONSUMED.labels(outcome="parked_slow").inc()
+                    tracker.done(tp, msg.offset)
+                    await _advance(tp)
+                else:
+                    # Broker recusando: relê depois (nada concluído).
+                    safe_seek(consumer, tp, msg.offset)
+                    tracker.forget(tp, msg.offset)
+                    await _sleep(_DLQ_FAILURE_BACKOFF_S)
+                continue
             task = asyncio.create_task(_deliver(tp, msg, dest_id, batch, payload))
             inflight.add(task)
             task.add_done_callback(inflight.discard)

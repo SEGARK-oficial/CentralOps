@@ -67,22 +67,27 @@ import json, sys
 from app.db import database, models
 from app.services import ingest_tokens
 
-sink_port = int(sys.argv[1])
+ports = [int(p) for p in sys.argv[1:]]
+out = []
 with database.SessionLocal() as db:
-    org = models.Organization(name="Loadtest", slug="loadtest")
-    db.add(org); db.flush()
-    integ = models.Integration(
-        organization_id=org.id, name="FG loadtest", platform="fortinet_fortigate",
-        is_active=True,
-    )
-    db.add(integ); db.flush()
-    token = ingest_tokens.issue(integ)
-    db.add(models.Destination(
-        name="loadtest syslog", kind="syslog_rfc5424", organization_id=org.id, enabled=True,
-        is_default=True, config=json.dumps({"host": "127.0.0.1", "port": sink_port}),
-    ))
+    for i, port in enumerate(ports):
+        org = models.Organization(name=f"Loadtest {i}", slug=f"loadtest-{i}")
+        db.add(org); db.flush()
+        integ = models.Integration(
+            organization_id=org.id, name=f"FG loadtest {i}", platform="fortinet_fortigate",
+            is_active=True,
+        )
+        db.add(integ); db.flush()
+        token = ingest_tokens.issue(integ)
+        # Destino da PRÓPRIA org (não global): cada org entrega ao seu receptor.
+        db.add(models.Destination(
+            name=f"loadtest syslog {i}", kind="syslog_rfc5424", organization_id=org.id,
+            enabled=True, is_default=True,
+            config=json.dumps({"host": "127.0.0.1", "port": port}),
+        ))
+        out.append({"integration_id": integ.id, "token": token})
     db.commit()
-    print(json.dumps({"integration_id": integ.id, "token": token}))
+print(json.dumps(out))
 """
 
 
@@ -160,6 +165,12 @@ class SyslogSink:
         self.seen: Dict[bytes, Dict[int, int]] = {}
         self.frames = 0
         self.last_frame_at = 0.0
+        #: Até este instante (monotônico), toda conexão é derrubada na chegada:
+        #: destino fora do ar (cenário de store-and-forward, ADR-0018 Onda 4).
+        self.refuse_until = 0.0
+        #: Atraso por quadro lido: destino lento (cenário de isolamento).
+        self.delay_s = 0.0
+        self.refused = 0
         self._ready = threading.Event()
         self._thread = threading.Thread(target=self._run, name="syslog-sink", daemon=True)
 
@@ -179,10 +190,19 @@ class SyslogSink:
             await server.serve_forever()
 
     async def _client(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
+        if time.monotonic() < self.refuse_until:
+            self.refused += 1
+            writer.transport.abort()  # RST: o envio do dispatcher falha na hora
+            return
         try:
             while True:
+                if time.monotonic() < self.refuse_until:
+                    writer.transport.abort()
+                    return
                 size = await reader.readuntil(b" ")
                 frame = await reader.readexactly(int(size[:-1]))
+                if self.delay_s:
+                    await asyncio.sleep(self.delay_s)
                 self.frames += 1
                 self.last_frame_at = time.monotonic()
                 m = _SEQ_RUN.search(frame)
@@ -294,7 +314,8 @@ class LocalStack:
         self.args = args
         self.tag = f"cops-gate-{os.getpid()}"
         self.work = pathlib.Path(tempfile.mkdtemp(prefix="cops-gate-"))
-        self.sink = SyslogSink().start()
+        self.sinks = [SyslogSink().start() for _ in range(max(1, args.destinations))]
+        self.sink = self.sinks[0]
         self.procs: List[subprocess.Popen] = []
         self.containers: List[str] = []
         self.pg, self.redis, self.kafka, self.api = (_free_port() for _ in range(4))
@@ -311,6 +332,9 @@ class LocalStack:
             "KAFKA_BOOTSTRAP_SERVERS": f"127.0.0.1:{self.kafka}",
             "KAFKA_TOPIC_PREFIX": "lt",
             "KAFKA_RAW_PARTITIONS": str(args.partitions),
+            # Cenário de queda: o disjuntor abre rápido e a sonda volta logo,
+            # para a drenagem do estacionamento caber no tempo do gate.
+            **({"KAFKA_PARKED_HOLD_SECONDS": str(args.parked_hold)} if args.parked_hold else {}),
         }
         self.bootstrap = self.env["KAFKA_BOOTSTRAP_SERVERS"]
 
@@ -346,9 +370,11 @@ class LocalStack:
         _log("migração e seed")
         subprocess.run([sys.executable, "-m", "app.db.migrate"], cwd=BACKEND, env=self.env,
                        check=True, capture_output=True)
-        seed = subprocess.run([sys.executable, "-c", _SEED, str(self.sink.port)], cwd=BACKEND,
+        seed = subprocess.run([sys.executable, "-c", _SEED, *(str(k.port) for k in self.sinks)],
+                              cwd=BACKEND,
                               env=self.env, check=True, capture_output=True, text=True)
-        self.token = json.loads(seed.stdout.strip().splitlines()[-1])["token"]
+        self.tokens = [d["token"] for d in json.loads(seed.stdout.strip().splitlines()[-1])]
+        self.token = self.tokens[0]
 
         _log("API")
         self.spawn("api", "-m", "uvicorn", "app.main:app", "--host", "127.0.0.1",
@@ -392,7 +418,8 @@ class LocalStack:
                 f"try:\n    main()\nfinally:\n    p.disable(); p.dump_stats({str(out)!r})")
 
     def start_data_plane(self) -> None:
-        self.spawn("dispatcher", "-c", self._entry("dispatcher"))
+        for n in range(max(1, self.args.dispatchers)):
+            self.spawn(f"dispatcher{n}" if n else "dispatcher", "-c", self._entry("dispatcher"))
         for n in range(self.args.processors):
             self.spawn(f"processor{n}", "-c", self._entry("processor"))
 
@@ -424,46 +451,112 @@ class LocalStack:
             shutil.rmtree(self.work, ignore_errors=True)
 
 
+def dlq_rows(stack: "LocalStack") -> Optional[int]:
+    """Linhas na DLQ do Postgres — destino fora não pode gravar nenhuma."""
+    r = subprocess.run(
+        ["docker", "exec", f"{stack.tag}-pg", "psql", "-U", "cops", "-d", "centralops", "-tAc",
+         "select count(*) from destination_dlq"],
+        capture_output=True, text=True,
+    )
+    return int(r.stdout.strip()) if r.returncode == 0 and r.stdout.strip().isdigit() else None
+
+
 async def run_local(args: argparse.Namespace) -> Dict[str, Any]:
     push = _load_push_module()
     stack = LocalStack(args)
     try:
         await asyncio.to_thread(stack.up)
-        _log(f"fase 1 — ingestão por {args.duration:.0f} s, processors parados")
-        load = argparse.Namespace(
-            url=f"http://127.0.0.1:{stack.api}/api/ingest/traffic", token=stack.token,
-            eps=args.eps, duration=args.duration, batch=args.batch,
-            concurrency=args.concurrency, gzip=False,
+        n = len(stack.sinks)
+        _log(f"fase 1 — ingestão por {args.duration:.0f} s em {n} destino(s), processors parados")
+        loads = [
+            argparse.Namespace(
+                url=f"http://127.0.0.1:{stack.api}/api/ingest/traffic", token=tok,
+                eps=(args.eps / n if args.eps else 0), duration=args.duration, batch=args.batch,
+                concurrency=max(1, args.concurrency // n), gzip=False,
+            )
+            for tok in stack.tokens
+        ]
+        sents = await asyncio.gather(
+            *(push.send(ld, run_id=f"lt-{int(time.time())}-{i}") for i, ld in enumerate(loads))
         )
-        sent = await push.send(load)
+        sent = {
+            "run_id": sents[0]["run_id"],
+            "elapsed": max(x["elapsed"] for x in sents),
+            "sent": sum(x["sent"] for x in sents),
+            "accepted": sum(x["accepted"] for x in sents),
+            "statuses": sents[0]["statuses"] if n == 1 else {
+                k: sum(x["statuses"].get(k, 0) for x in sents)
+                for k in {k for x in sents for k in x["statuses"]}
+            },
+            "p50_ms": max(x["p50_ms"] for x in sents),
+            "p95_ms": max(x["p95_ms"] for x in sents),
+            "p99_ms": max(x["p99_ms"] for x in sents),
+            "accepted_ranges": sents[0]["accepted_ranges"],
+        }
         accepted = sent["accepted"]
         topic_raw, topic_deliver = "lt.raw", "lt.deliver"
 
-        _log(f"fase 2 — {args.processors} processor(s) + dispatcher drenando {accepted} eventos")
+        _log(
+            f"fase 2 — {args.processors} processor(s) + {max(1, args.dispatchers)} dispatcher(s) "
+            f"drenando {accepted} eventos"
+        )
         t0 = time.monotonic()
+        if args.outage_seconds:
+            stack.sinks[0].refuse_until = t0 + args.outage_seconds
+            _log(f"destino 0 FORA DO AR por {args.outage_seconds:.0f} s")
+        if args.slow_ms:
+            stack.sinks[0].delay_s = args.slow_ms / 1000.0
+            _log(f"destino 0 LENTO: {args.slow_ms:.0f} ms por quadro")
         await asyncio.to_thread(stack.start_data_plane)
         if args.scale_out:
             await asyncio.sleep(args.scale_out_after)
             _log(f"escala: +{args.scale_out} processor(s) com a drenagem em curso")
             await asyncio.to_thread(stack.scale_out, args.scale_out)
-        # O grupo só existe depois que o primeiro processor entra; até lá o lag
-        # é o tópico inteiro, que é o que queremos medir.
+
+        parked_peak = 0
+
+        async def _watch_parked() -> None:
+            nonlocal parked_peak
+            while True:
+                try:
+                    parked_peak = max(parked_peak, await group_lag(
+                        stack.bootstrap, "centralops-parked", "lt.deliver.parked"))
+                except Exception:  # noqa: BLE001
+                    pass
+                await asyncio.sleep(2)
+
+        watcher = asyncio.create_task(_watch_parked())
         t_proc = await wait_lag_zero(stack.bootstrap, PROCESSOR_GROUP, topic_raw, args.timeout)
-        t_e2e = await wait_received(stack.sink, sent["run_id"], accepted, args.timeout)
+        per_dest = []
+        for i, (sink, sd) in enumerate(zip(stack.sinks, sents)):
+            t_done = await wait_received(sink, sd["run_id"], sd["accepted"], args.timeout)
+            per_dest.append({
+                "destination": i,
+                "accepted": sd["accepted"],
+                "e2e_seconds": None if t_done is None else t_done - t0,
+                "refused_connections": sink.refused,
+                "verify": verify_counts(
+                    dict(sink.seen.get(sd["run_id"].encode(), {})), sd["run_id"],
+                    sd["accepted_ranges"],
+                ),
+            })
+        watcher.cancel()
         dispatcher_lag = await group_lag(stack.bootstrap, DISPATCHER_GROUP, topic_deliver)
-        check = verify_counts(
-            dict(stack.sink.seen.get(sent["run_id"].encode(), {})), sent["run_id"],
-            sent["accepted_ranges"],
-        )
+        done = [d["e2e_seconds"] for d in per_dest]
+        total = {k: sum(d["verify"][k] for d in per_dest)
+                 for k in ("expected", "delivered_unique", "lost", "duplicated", "unexpected")}
         return {
             "mode": "local",
             "processors": args.processors + args.scale_out,
             "ingest": sent,
             "processor_seconds": None if t_proc is None else t_proc - t0,
-            "e2e_seconds": None if t_e2e is None else t_e2e - t0,
+            "e2e_seconds": None if any(x is None for x in done) else max(done),
             "dispatcher_lag_end": dispatcher_lag,
             "crashed": stack.crashed(),
-            "verify": check,
+            "verify": total,
+            "destinations": per_dest,
+            "dlq_rows": dlq_rows(stack),
+            "parked_peak_records": parked_peak,
         }
     finally:
         await asyncio.to_thread(stack.down)
@@ -550,6 +643,15 @@ def verdict(args: argparse.Namespace, r: Dict[str, Any]) -> List[str]:
                 failures.append(f"ponta a ponta {e2e_eps:,.0f} eps < {args.min_e2e_eps:,.0f}")
     elif args.min_e2e_eps:
         failures.append("--min-e2e-eps pede --output-dir (sem ele não há como medir a entrega)")
+    if r.get("dlq_rows"):
+        failures.append(f"{r['dlq_rows']} linha(s) na DLQ do Postgres (destino fora não grava)")
+    if args.mode == "local" and len(r.get("destinations") or []) > 1 and args.max_isolation_s:
+        healthy = [d["e2e_seconds"] for d in r["destinations"][1:]]
+        if any(h is None or h > args.max_isolation_s for h in healthy):
+            failures.append(
+                f"destinos saudáveis terminaram em {healthy} s > {args.max_isolation_s:.0f} s "
+                "(isolamento)"
+            )
     v = r.get("verify")
     if v is not None:
         if v["lost"]:
@@ -579,6 +681,15 @@ def report(r: Dict[str, Any], failures: List[str]) -> None:
         v = r["verify"]
         print(f"conferência          esperados {v['expected']:,}, entregues {v['delivered_unique']:,}, "
               f"perdidos {v['lost']}, duplicados {v['duplicated']}, estranhos {v['unexpected']}")
+    for d in r.get("destinations") or []:
+        if len(r["destinations"]) > 1 or d["refused_connections"]:
+            vv = d["verify"]
+            e2e = "—" if d["e2e_seconds"] is None else f"{d['e2e_seconds']:.1f} s"
+            print(f"  destino {d['destination']}: {d['accepted']:,} em {e2e}, perdidos {vv['lost']}, "
+                  f"duplicados {vv['duplicated']}, conexões recusadas {d['refused_connections']}")
+    if "dlq_rows" in r:
+        print(f"DLQ do Postgres      {r['dlq_rows']} linha(s); estacionamento no pico: "
+              f"{r.get('parked_peak_records', 0)} registro(s)")
     print("GATE VERDE" if not failures else "GATE VERMELHO:\n  - " + "\n  - ".join(failures))
 
 
@@ -607,6 +718,17 @@ def main() -> int:
                     help="processors a mais que entram durante a drenagem (força rebalance)")
     lp.add_argument("--scale-out-after", type=float, default=15,
                     help="segundos de drenagem antes de escalar")
+    lp.add_argument("--destinations", type=int, default=1,
+                    help="destinos (cada um numa org, com token e receptor próprios)")
+    lp.add_argument("--dispatchers", type=int, default=1, help="processos dispatcher")
+    lp.add_argument("--outage-seconds", type=float, default=0,
+                    help="destino 0 recusa conexões nos primeiros S s da drenagem")
+    lp.add_argument("--slow-ms", type=float, default=0,
+                    help="destino 0 lê cada quadro com este atraso (destino lento)")
+    lp.add_argument("--parked-hold", type=float, default=0,
+                    help="KAFKA_PARKED_HOLD_SECONDS dos dispatchers (0 = padrão do produto)")
+    lp.add_argument("--max-isolation-s", type=float, default=0,
+                    help="destinos saudáveis têm de terminar em até S s (com --slow-ms)")
     lp.add_argument("--partitions", type=int, default=16,
                     help="partições do tópico raw (o padrão do produto)")
     lp.add_argument("--broker-cpus", type=int, default=2, help="--smp do Redpanda")
@@ -629,7 +751,7 @@ def main() -> int:
     if args.mode == "local":
         result = asyncio.run(run_local(args))
     else:
-        args.min_processor_eps, args.scale_out = 0, 0
+        args.min_processor_eps, args.scale_out, args.max_isolation_s = 0, 0, 0
         result = asyncio.run(run_external(args))
     failures = verdict(args, result)
     report(result, failures)

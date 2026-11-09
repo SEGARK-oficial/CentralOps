@@ -527,3 +527,76 @@ def test_rejected_events_dlq_is_written_in_batch(dlq_db):
     with Session(dlq_db.engine) as s:
         rows = s.query(dlq_db.models.DestinationDeadLetter).all()
     assert len(rows) == 30 and {r.organization_id for r in rows} == {9}
+
+
+
+def test_slow_destination_is_parked_at_fetch_while_marked(monkeypatch):
+    """Achado do gate de carga: os lotes do destino lento esperavam a vez OCUPANDO
+    vagas do teto global, e o saudável quase não entrava (31 s → 159 s). Depois
+    que um lote estoura a espera, o destino fica marcado lento e os lotes dele
+    estacionam já na busca, sem ocupar vaga."""
+    import time as _time
+
+    from backend.app.collectors.tests.test_dataplane_consumer import (
+        _FakeConsumer,
+        _install as _install_consumer,
+        _msg,
+        _real_sleep,
+    )
+
+    release = asyncio.Event()
+    fast: List[int] = []
+
+    async def _dispatch(dest, batch):
+        if dest == "slow":
+            await release.wait()
+        else:
+            fast.append(batch[0]["e"])
+
+    class _Spaced(_FakeConsumer):
+        """Registros chegando espaçados: o teste dura mais que uma janela de
+        espera, e uma marca que expirasse nela deixaria o lento voltar à fila."""
+
+        async def getone(self, *partitions):
+            await _real_sleep(0.004)
+            return await super().getone(*partitions)
+
+    # 60 lentos e 60 rápidos intercalados; o lento nunca responde.
+    msgs = [_msg(i, "slow" if i % 2 == 0 else "fast", [{"e": i}]) for i in range(120)]
+    fake = _Spaced(msgs)
+    parked_: list = []
+    _install_consumer(monkeypatch, fake, _dispatch, park_capture=parked_)
+    from backend.app.collectors import metrics as _metrics
+
+    outcomes: list = []
+
+    class _Consumed:
+        def labels(self, outcome):
+            outcomes.append(outcome)
+            return types.SimpleNamespace(inc=lambda *a: None)
+
+    monkeypatch.setattr(_metrics, "DATAPLANE_CONSUMED", _Consumed())
+    monkeypatch.setattr(settings, "KAFKA_DISPATCH_INFLIGHT_PER_DEST", 1)
+    monkeypatch.setattr(settings, "KAFKA_DISPATCH_MAX_INFLIGHT", 4)
+    monkeypatch.setattr(settings, "KAFKA_DISPATCH_SLOW_PARK_SECONDS", 0.2)
+    monkeypatch.setattr(settings, "KAFKA_PARKED_HOLD_SECONDS", 5.0)
+
+    async def _run():
+        task = asyncio.create_task(kt.run_dispatch_consumer())
+        t0 = _time.monotonic()
+        while len(fast) < 60 and _time.monotonic() - t0 < 20:
+            await _real_sleep(0.005)
+        took = _time.monotonic() - t0
+        # Uma janela de espera (0,2 s) para marcar o lento; depois tudo flui.
+        # Sem a marca, cada janela deixava passar só algumas vagas.
+        assert len(fast) == 60, len(fast)
+        assert took < 10.0, took  # sanidade; a prova é a contagem de esperas abaixo
+        # Só os lotes da PRIMEIRA janela esperaram a vez (o teto de 4 vagas menos
+        # o travado em voo); a marca durou o teste inteiro.
+        assert 1 <= outcomes.count("parked_slow_wait") <= 3, outcomes.count("parked_slow_wait")
+        # Do lento: 1 em voo (travado), o resto estacionou (na espera ou na busca).
+        assert len(parked_) == 59 and {p["reason"] for p in parked_} == {"slow"}
+        release.set()
+        await task
+
+    asyncio.run(_run())
