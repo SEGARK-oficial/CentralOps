@@ -8,7 +8,6 @@
 # ARQUITETURA (build-once + handoff por registry — padrão da indústria):
 #   build      → compila 1× (final = compile + unit sweep = o GATE) e publica uma
 #                imagem EFÊMERA `ci-<run_id>` no GHCR.
-#   e2e-setup  → PUXA a imagem (não recompila), sobe o stack, seed + autenticação.
 #   e2e        → PUXA a mesma imagem, roda os shards Playwright.
 #   pg-migr.   → gate de migração contra Postgres real (independe do build).
 #   publish    → (só em push/main) RE-TAGUEIA a imagem JÁ TESTADA p/ latest + sha-<commit>.
@@ -68,7 +67,7 @@ on:
       - "kubernetes/**"
       - ".github/ISSUE_TEMPLATE/**"
   schedule:
-    # Nightly 03:00 UTC — cobertura E2E completa (4 shards), herdada do e2e.yml.
+    # Nightly 03:00 UTC — sweep + E2E completos sobre a main (cobre o que mudou sem PR).
     - cron: "0 3 * * *"
 
 concurrency:
@@ -468,188 +467,21 @@ jobs:
           docker rm -f "ci_pg_${{ github.run_id }}" >/dev/null 2>&1 || true
           docker network rm "ci_pgnet_${{ github.run_id }}" >/dev/null 2>&1 || true
 
-  # ── 3) E2E setup: PUXA a imagem (sem recompilar), sobe stack, seed + auth ─────
-  e2e-setup:
-    name: E2E setup (auth states)
-    needs: [build, build-frontend]
-    runs-on: ${{ fromJSON(github.event.pull_request.head.repo.fork && '["ubuntu-latest"]' || '["self-hosted","Linux","X64"]') }}
-    timeout-minutes: 15
-    permissions:
-      contents: read
-      packages: read
-    steps:
-      # Runner self-hosted: (a) devolve a posse do workspace — container root
-      # deixa arquivo que o checkout não apaga (EACCES); (b) garante piso de
-      # disco. Este job puxa/constrói imagem, e quando /var/lib/docker enche o
-      # sintoma NÃO é "disco cheio": é um COPY que falha, um pull truncado, um
-      # pytest com I/O error — o diagnóstico vai parar no lugar errado. Aqui a
-      # falha é explícita e ANTES de qualquer trabalho.
-      # INLINE de propósito: uma action local só existe DEPOIS do checkout, e é
-      # exatamente o checkout que quebra com ENOSPC/EACCES. No-op em
-      # GitHub-hosted (runner efêmero, sempre limpo).
-      - name: Preflight do runner (posse do workspace + piso de disco)
-        if: runner.environment == 'self-hosted'
-        env:
-          MIN_FREE_GB: "12"
-        run: |
-          set -uo pipefail
-          # Devolve a posse do workspace (container root deixa arquivo que o checkout
-          # não apaga: EACCES) SEM sudo. O usuário do runner já fala com o socket do
-          # Docker, o que equivale a root no host; NOPASSWD não acrescentava proteção
-          # e foi removido. O chown roda num container sem rede. Se falhar, RECLAMA
-          # alto: um verde mudo faria o EACCES aparecer depois num job sem relação.
-          if [ -d "$GITHUB_WORKSPACE" ] && ! docker run --rm --network none \
-              -v "$GITHUB_WORKSPACE:/w" alpine:3.22@sha256:2e0b81d60597f449baa56dc25d355367869d2dca4cd57e866f1e2b52af3eb55f \
-              chown -R "$(id -u):$(id -g)" /w; then
-            echo "::warning title=chown do workspace falhou::$(hostname) nao devolveu a posse de $GITHUB_WORKSPACE (docker indisponivel?). Espere EACCES no checkout."
-          fi
-          avail() { df -BG --output=avail / | tail -1 | tr -dc '0-9'; }
-          echo "$(hostname): $(avail)GB livres antes"
-          if [ "$(avail)" -lt "$MIN_FREE_GB" ]; then
-            echo "::warning::Disco abaixo do piso — podando (escopado, do mais barato ao mais caro)."
-            docker system prune -f >/dev/null 2>&1 || true
-            [ "$(avail)" -lt "$MIN_FREE_GB" ] && docker buildx prune -f >/dev/null 2>&1 || true  # sem flag de tamanho: em emergencia o alvo e liberar
-            [ "$(avail)" -lt "$MIN_FREE_GB" ] && docker image prune -a -f --filter until=24h >/dev/null 2>&1 || true
-            [ "$(avail)" -lt "$MIN_FREE_GB" ] && docker image prune -a -f >/dev/null 2>&1 || true
-            echo "$(hostname): $(avail)GB livres apos poda"
-          fi
-          if [ "$(avail)" -lt "$MIN_FREE_GB" ]; then
-            MSG="$(hostname) tem $(avail)GB livres e este job exige ${MIN_FREE_GB}GB."
-            MSG="${MSG} A poda nao resolveu: falta CAPACIDADE, nao limpeza."
-            MSG="${MSG} Recusando rodar para nao morrer no meio do build."
-            echo "::error title=Runner sem disco::${MSG}"
-            exit 1
-          fi
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
-      # Stack E2E POR JOB. As instâncias do pool self-hosted dividem a máquina e o
-      # daemon Docker. Com projeto do compose, porta 3000, volumes e tag de imagem
-      # fixos, dois shards simultâneos subiam o MESMO compose: um recriava os
-      # containers do outro no meio do seed (bootstrap 500 / ECONNRESET). Projeto,
-      # porta livre e imagens próprios isolam cada job. O storageState do setup é
-      # cookie de sessão, que não depende da porta.
-      - name: Isolar a stack E2E deste job
-        run: |
-          proj="ce2e-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}-${GITHUB_JOB}-${{ strategy.job-index }}"
-          port="$(python3 -c 'import socket; s = socket.socket(); s.bind(("127.0.0.1", 0)); print(s.getsockname()[1])')"
-          {
-            echo "COMPOSE_PROJECT_NAME=${proj}"
-            echo "E2E_HTTP_PORT=${port}"
-            echo "BASE_URL=http://localhost:${port}"
-            echo "E2E_API_IMAGE=centralops:${proj}"
-            echo "E2E_FRONTEND_IMAGE=centralops-frontend:${proj}"
-          } >> "$GITHUB_ENV"
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
-        with:
-          node-version: "20"
-          cache: "npm"
-          cache-dependency-path: |
-            frontend/package-lock.json
-            e2e/package-lock.json
-      # O SO entra na chave: o Chromium baixado depende da distro (o Playwright
-      # escolhe o build por `ubuntuXX.YY`). Quando o pool foi para Ubuntu 26.04 o
-      # 1.59 nem instalava ("does not support chromium on ubuntu26.04-x64"); com a
-      # chave só pelo lockfile, a próxima troca de SO restauraria o build do SO
-      # antigo e o install seria PULADO (cache-hit).
-      - name: Identificar o SO do runner
-        id: os
-        run: echo "id=$(. /etc/os-release && echo "${ID}${VERSION_ID}")" >> "$GITHUB_OUTPUT"
-      - name: Cache Playwright browsers
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
-        id: playwright-cache
-        with:
-          path: ~/.cache/ms-playwright
-          key: playwright-${{ steps.os.outputs.id }}-${{ hashFiles('e2e/package-lock.json') }}
-          restore-keys: |
-            playwright-${{ steps.os.outputs.id }}-
-      - name: Instalar dependências do e2e
-        working-directory: e2e
-        run: npm ci
-      - name: Instalar Playwright browsers
-        if: steps.playwright-cache.outputs.cache-hit != 'true'
-        working-directory: e2e
-        # Sem `--with-deps`: ele chama sudo + apt no host, e o runner não tem (nem
-        # deve ter) NOPASSWD. As libs de sistema do Chromium são provisionadas no
-        # runner pelo admin, uma vez por SO: `npx playwright install-deps chromium`.
-        # Faltando alguma, o launch falha nomeando a lib.
-        run: npx playwright install chromium
-
-      # Credencial do registry POR JOB — ver a nota no job `build`.
-      - name: Isolar DOCKER_CONFIG deste job
-        run: |
-          mkdir -p "$RUNNER_TEMP/docker-config"
-          echo "DOCKER_CONFIG=$RUNNER_TEMP/docker-config" >> "$GITHUB_ENV"
-
-      - name: Log in to GHCR
-        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-      # Handoff: puxa a imagem JÁ compilada e aponta o compose direto para ela
-      # (E2E_API_IMAGE / E2E_FRONTEND_IMAGE). Sem re-tag para um nome fixo: com
-      # jobs de PRs diferentes no mesmo daemon, um `docker tag` sobrescrevia a
-      # imagem que o outro ia subir. `up --no-build` garante ZERO recompilação.
-      - name: Pull pre-built images (handoff)
-        run: |
-          docker pull "${{ needs.build.outputs.api }}"
-          docker pull "${{ needs.build-frontend.outputs.frontend }}"
-          {
-            echo "E2E_API_IMAGE=${{ needs.build.outputs.api }}"
-            echo "E2E_FRONTEND_IMAGE=${{ needs.build-frontend.outputs.frontend }}"
-          } >> "$GITHUB_ENV"
-
-      - name: Subir stack E2E (sem build)
-        run: |
-          docker compose -f compose/docker-compose.e2e.yml up --no-build -d
-          echo "Aguardando healthcheck do frontend..."
-          for i in $(seq 1 $COMPOSE_HEALTH_TIMEOUT); do
-            STATUS=$(docker inspect --format='{{.State.Health.Status}}' \
-              $(docker compose -f compose/docker-compose.e2e.yml ps -q frontend) 2>/dev/null || echo "starting")
-            if [ "$STATUS" = "healthy" ]; then echo "healthy após ${i}s"; break; fi
-            if [ "$i" = "$COMPOSE_HEALTH_TIMEOUT" ]; then
-              echo "não ficou healthy em ${COMPOSE_HEALTH_TIMEOUT}s"
-              docker compose -f compose/docker-compose.e2e.yml logs centralops frontend
-              exit 1
-            fi
-            sleep 1
-          done
-      - name: Dump logs (diagnóstico em falha)
-        if: failure()
-        run: |
-          docker compose -f compose/docker-compose.e2e.yml ps -a
-          docker compose -f compose/docker-compose.e2e.yml logs --no-color --timestamps
-      - name: Seed do banco
-        working-directory: e2e
-        run: npx ts-node seed.ts
-        env:
-          BASE_URL: ${{ env.BASE_URL }}
-      - name: Popular reservoir Redis
-        run: bash scripts/seed-redis-e2e.sh
-      - name: Rodar projeto de setup (autenticar roles)
-        working-directory: e2e
-        run: npx playwright test --project=setup
-        env:
-          BASE_URL: ${{ env.BASE_URL }}
-          CI: true
-          # 4 Chromium + o stack docker do E2E estouram 4GB. Em runner
-          # self-hosted (LXC) cai para 2; GitHub-hosted mantém 4.
-          PW_WORKERS: ${{ runner.environment == 'self-hosted' && '2' || '4' }}
-      - name: Upload storageStates
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        with:
-          name: auth-states
-          path: e2e/.auth/
-          retention-days: 1
-          include-hidden-files: true
-          if-no-files-found: error
-      - name: Derrubar stack
-        if: always()
-        run: docker compose -f compose/docker-compose.e2e.yml down -v
-
-  # ── 4) E2E shards: PUXAM a mesma imagem, rodam Playwright ────────────────────
+  # ── 3) E2E: PUXA a mesma imagem e roda o Playwright ─────────────────────────
+  # Havia um job `e2e-setup` antes dos shards (subia a stack, semeava, autenticava
+  # e subia os storageStates como artefato). Era trabalho JOGADO FORA: todo
+  # projeto do playwright.config.ts declara `dependencies: ["setup"]`, então cada
+  # shard já rodava o setup de novo contra a PRÓPRIA stack e sobrescrevia o
+  # artefato (log: "[auth.setup] Session admin salva…"). Removido — 3,3 min a
+  # menos no caminho crítico de todo run.
+  #
+  # UM shard: a suíte inteira executa em ~1 min (18 testes em 11,5 s por quarto),
+  # e cada shard pagava ~3 min fixos (pull, compose up, npm ci, seed). Dividir
+  # multiplicava o custo fixo sem ganhar tempo. Se a suíte passar de ~5 min,
+  # aumente a lista abaixo — o total do --shard vem da matriz.
   e2e:
-    name: E2E shard ${{ matrix.shard }}
-    needs: [build, build-frontend, e2e-setup]
+    name: E2E ${{ matrix.shard }}/${{ strategy.job-total }}
+    needs: [build, build-frontend]
     runs-on: ${{ fromJSON(github.event.pull_request.head.repo.fork && '["ubuntu-latest"]' || '["self-hosted","Linux","X64"]') }}
     timeout-minutes: 30
     permissions:
@@ -658,7 +490,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        shard: ${{ (github.event_name == 'pull_request') && fromJSON('[1, 2]') || fromJSON('[1, 2, 3, 4]') }}
+        shard: [1]
     steps:
       # Runner self-hosted: (a) devolve a posse do workspace — container root
       # deixa arquivo que o checkout não apaga (EACCES); (b) garante piso de
@@ -754,12 +586,6 @@ jobs:
         # runner pelo admin, uma vez por SO: `npx playwright install-deps chromium`.
         # Faltando alguma, o launch falha nomeando a lib.
         run: npx playwright install chromium
-      - name: Download storageStates
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
-        with:
-          name: auth-states
-          path: e2e/.auth/
-      # Credencial do registry POR JOB — ver a nota no job `build`.
       - name: Isolar DOCKER_CONFIG deste job
         run: |
           mkdir -p "$RUNNER_TEMP/docker-config"
@@ -853,7 +679,9 @@ jobs:
     # um SIEM. Um import acrescentado ali custa um round-trip por evento no
     # gargalo do pipeline, e era publicável.
     needs: [build, build-frontend, pg-migrations, e2e, source-tree-guards]
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    # push na main = publish normal; dispatch na main = re-publicar de propósito
+    # (ex.: o image-scan.yml diário acusou CVE de SO corrigível na `latest`).
+    if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main'
     runs-on: ${{ fromJSON(github.event.pull_request.head.repo.fork && '["ubuntu-latest"]' || '["self-hosted","Linux","X64"]') }}
     timeout-minutes: 20
     permissions:
