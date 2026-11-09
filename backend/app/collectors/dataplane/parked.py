@@ -16,7 +16,9 @@ destino volta:
   destino ainda fora, ele volta o offset e PAUSA aquela partição por um ciclo do
   disjuntor; as outras partições seguem. Lote só sai do estacionamento entregue
   (commit) ou recusado como poison pelo próprio despacho (DLQ). Erro transitório
-  nunca vira DLQ aqui: o lote espera no Kafka até a retenção do tópico.
+  nunca vira DLQ aqui: o lote espera no Kafka até a retenção do tópico. Lote de
+  destino com entrega em ordem traz ``ord_seq``; entregá-lo libera o caminho
+  direto do destino (``ordered.release``, Onda 4e).
 
 A escolha (Questão 3 do ADR): pausar a partição do tópico de entrega só isola
 destinos com uma partição para cada destino ativo, e grupo de consumo por destino
@@ -102,6 +104,7 @@ async def run_parked_consumer(
 
     from .. import circuit_breaker, metrics
     from ..pipeline import DISPATCH_REDIS, dispatch_batch_to_destination
+    from . import ordered
     from .kafka_transport import (
         _client_kwargs,
         decode_delivery,
@@ -213,6 +216,18 @@ async def run_parked_consumer(
                 _hold(tp, msg.offset, delay)
                 continue
             attempts.pop(key, None)
+            seq = ordered.sequence_of(payload)
+            if seq is not None:
+                # Destino com entrega em ordem (Onda 4e): o último estacionado
+                # saiu, o caminho direto volta. ANTES do commit: uma queda entre
+                # os dois re-entrega este lote, nunca deixa a marca órfã.
+                try:
+                    await ordered.release(shared_redis, dest_id, seq)
+                except Exception:  # noqa: BLE001 — a marca sai no próximo lote
+                    logger.warning(
+                        "data-plane: não apaguei a marca de ordem dest=%s seq=%s",
+                        dest_id, seq, exc_info=True,
+                    )
             metrics.PARKED_DRAINED.labels(outcome="delivered").inc()
             await safe_commit(consumer, tp, msg.offset + 1)
     finally:

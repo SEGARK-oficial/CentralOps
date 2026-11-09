@@ -212,6 +212,7 @@ Cada destino tem uma **política de entrega** com valores padrão que funcionam 
 | **Reenvio automático (retry)** | Quantas vezes tentar de novo, com espera crescente, quando o destino falha temporariamente. |
 | **Proteção contra destino instável** | Pausa os envios automaticamente quando o destino acumula falhas seguidas e volta sozinho após um tempo, evitando martelar um destino fora do ar. |
 | **Modo de simulação (shadow)** | O CentralOps formata e valida os eventos, mas **não envia**. Útil para pré-visualizar antes de ativar de verdade. |
+| **Entrega em ordem (ordered)** | Os eventos chegam ao destino na ordem em que entraram no pipeline, inclusive depois de uma queda. Ligue só se o destino correlaciona pela ordem de chegada, como as regras de sequência e de frequência do Wazuh. Em troca, o destino entrega um lote por vez e, depois de uma queda, só recebe dado novo quando o atrasado terminar de sair. |
 
 Deixe os campos em branco para usar os padrões do tipo.
 

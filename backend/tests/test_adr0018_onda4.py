@@ -600,3 +600,281 @@ def test_slow_destination_is_parked_at_fetch_while_marked(monkeypatch):
         await task
 
     asyncio.run(_run())
+
+
+# ── 4e. Entrega em ordem por destino ─────────────────────────────────────────
+
+
+from backend.app.collectors.dataplane import ordered as _ordered  # noqa: E402
+
+
+class _OrderRedis:
+    """O que a entrega em ordem usa do Redis, com o compare-and-delete do Lua."""
+
+    def __init__(self, log: list | None = None) -> None:
+        self.kv: Dict[str, str] = {}
+        self.ttl: Dict[str, int] = {}
+        self.log = log if log is not None else []
+
+    async def exists(self, key):
+        return int(key in self.kv)
+
+    async def incr(self, key):
+        self.kv[key] = str(int(self.kv.get(key, "0")) + 1)
+        return int(self.kv[key])
+
+    async def set(self, key, value, ex=None):
+        self.kv[key] = str(value)
+        self.ttl[key] = ex
+
+    async def eval(self, script, numkeys, key, arg):
+        assert "get" in script and "del" in script
+        self.log.append(("release", arg))
+        if self.kv.get(key) == arg:
+            del self.kv[key]
+            return 1
+        return 0
+
+    async def aclose(self):
+        pass
+
+
+_LAST = "dataplane:ordered:dest-ord:last"
+
+
+def _ord_msg(offset, dest, n):
+    return types.SimpleNamespace(
+        topic="centralops.deliver", partition=0, offset=offset,
+        value=kt.encode_delivery(dest, [{"e": n}], ordered=True),
+    )
+
+
+def test_ordered_flag_lives_in_the_delivery_policy():
+    from backend.app.collectors.output.delivery_config import DeliveryConfig, parse_delivery
+
+    assert DeliveryConfig().ordered is False
+    assert parse_delivery("syslog_rfc3164", {"ordered": True}).ordered is True
+
+
+def test_ordered_destination_uses_one_partition_and_marks_the_envelope(monkeypatch):
+    """Destino ordenado: toda produção na partição-base dele, envelope marcado.
+    Os outros seguem espalhados e com o envelope de antes (sem a chave)."""
+    monkeypatch.setattr(settings, "KAFKA_DELIVER_SHARDS_PER_DEST", 4)
+    monkeypatch.setattr(_ordered, "is_ordered", lambda dest: dest == "dest-ord")
+    sent: list = []
+    monkeypatch.setattr(kt._producer_thread, "_ensure_started", lambda: None, raising=False)
+    monkeypatch.setattr(
+        kt._producer_thread, "_produce_value",
+        lambda dest, value, key, topic=None, **kw: sent.append((dest, value, kw.get("spread"))),
+        raising=False,
+    )
+    for _ in range(60):
+        kt._producer_thread.produce("dest-ord", [{"e": 1}])
+        kt._producer_thread.produce("dest-free", [{"e": 1}])
+    ord_ = [(v, s) for d, v, s in sent if d == "dest-ord"]
+    free = [(v, s) for d, v, s in sent if d == "dest-free"]
+    assert {s for _, s in ord_} == {(kt.zlib.crc32(b"dest-ord"), 0)}
+    assert all(kt.decode_delivery(v)["ordered"] is True for v, _ in ord_)
+    assert len({s for _, s in free}) > 1
+    assert all("ordered" not in kt.decode_delivery(v) for v, _ in free)
+
+
+def test_is_ordered_caches_and_survives_the_database(monkeypatch):
+    _ordered.reset_cache()
+    reads: list = []
+    answer = {"v": True}
+
+    def _load(dest):
+        reads.append(dest)
+        if answer["v"] is None:
+            raise RuntimeError("banco fora")
+        return answer["v"]
+
+    monkeypatch.setattr(_ordered, "_load", _load)
+    clock = {"t": 100.0}
+    monkeypatch.setattr(_ordered.time, "monotonic", lambda: clock["t"])
+    assert _ordered.is_ordered("d") is True and _ordered.is_ordered("d") is True
+    assert reads == ["d"]                       # uma leitura por janela
+    clock["t"] += _ordered.CONFIG_TTL_S + 1
+    answer["v"] = None                          # banco fora: mantém a última leitura
+    assert _ordered.is_ordered("d") is True and len(reads) == 2
+    _ordered.reset_cache()
+    assert _ordered.is_ordered("never-read") is False
+
+
+def test_is_ordered_reads_the_destination_row(monkeypatch):
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import sessionmaker
+    from sqlalchemy.pool import StaticPool
+
+    from backend.app.db import database, models
+
+    engine = create_engine(
+        "sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool
+    )
+    models.Destination.__table__.create(engine)
+    maker = sessionmaker(bind=engine)
+    with maker() as s:
+        s.add(models.Destination(id="o", name="o", kind="syslog_rfc3164", delivery='{"ordered": true}'))
+        s.add(models.Destination(id="f", name="f", kind="syslog_rfc3164", delivery="{}"))
+        s.commit()
+    monkeypatch.setattr(database, "SessionLocal", maker)
+    assert _ordered._load("o") is True
+    assert _ordered._load("f") is False and _ordered._load("missing") is False
+
+
+def test_reserve_marks_before_parking_and_release_is_compare_and_delete():
+    redis = _OrderRedis()
+
+    async def _run():
+        assert await _ordered.reserve(redis, "dest-ord") == 1
+        assert await _ordered.reserve(redis, "dest-ord") == 2
+        assert await _ordered.has_backlog(redis, "dest-ord")
+        # O lote 1 sai do estacionamento: o 2 ainda está lá, a marca fica.
+        assert await _ordered.release(redis, "dest-ord", 1) is False
+        assert await _ordered.has_backlog(redis, "dest-ord")
+        assert await _ordered.release(redis, "dest-ord", 2) is True
+        assert not await _ordered.has_backlog(redis, "dest-ord")
+
+    asyncio.run(_run())
+    assert redis.ttl[_LAST] == settings.KAFKA_PARKED_RETENTION_MS // 1000
+    stamped = _ordered.stamp(kt.encode_delivery("dest-ord", [{"e": 1}], ordered=True), 7)
+    assert _ordered.sequence_of(kt.decode_delivery(stamped)) == 7
+
+
+def _ordered_consumer_setup(monkeypatch, msgs, dispatch, *, slow_after=5.0):
+    from backend.app.collectors.tests.test_dataplane_consumer import (
+        _FakeConsumer,
+        _install as _install_consumer,
+    )
+
+    fake = _FakeConsumer(msgs)
+    parked_: list = []
+    _install_consumer(monkeypatch, fake, dispatch, park_capture=parked_)
+    redis = _OrderRedis()
+    monkeypatch.setattr("backend.app.collectors.celery_app.get_worker_redis", lambda: redis)
+    monkeypatch.setattr(settings, "KAFKA_DISPATCH_SLOW_PARK_SECONDS", slow_after)
+    return fake, parked_, redis
+
+
+def test_ordered_destination_is_delivered_in_arrival_order(monkeypatch):
+    """O lote 0 do destino ordenado trava; os seguintes dele esperam (em ordem) e
+    os de outro destino na mesma partição saem sem esperar."""
+    from backend.app.collectors.tests.test_dataplane_consumer import _msg, _real_sleep
+
+    release = asyncio.Event()
+    ord_: List[int] = []
+    free: List[int] = []
+
+    async def _dispatch(dest, batch):
+        n = batch[0]["e"]
+        if dest == "dest-ord":
+            if n == 0:
+                await release.wait()
+            ord_.append(n)
+        else:
+            free.append(n)
+
+    msgs = []
+    for i in range(12):
+        msgs.append(_ord_msg(i, "dest-ord", i) if i % 2 == 0 else _msg(i, "dest-free", [{"e": i}]))
+    fake, parked_, _redis = _ordered_consumer_setup(monkeypatch, msgs, _dispatch)
+
+    async def _run():
+        task = asyncio.create_task(kt.run_dispatch_consumer())
+        for _ in range(400):
+            if len(free) == 6:
+                break
+            await _real_sleep(0.005)
+        assert sorted(free) == [1, 3, 5, 7, 9, 11] and ord_ == []
+        release.set()
+        await task
+
+    asyncio.run(_run())
+    assert ord_ == [0, 2, 4, 6, 8, 10]
+    assert parked_ == []
+    assert list(fake.commits[-1].values())[0] == 12
+
+
+def test_parked_ordered_destination_parks_everything_behind_it(monkeypatch):
+    """Disjuntor aberto no 1º lote: ele estaciona com o nº 1, e os seguintes
+    estacionam atrás dele (sem tentar o destino) enquanto houver estacionado."""
+    calls: list = []
+
+    async def _dispatch(dest, batch):
+        calls.append(batch[0]["e"])
+        raise circuit_breaker.BreakerOpen(dest)
+
+    msgs = [_ord_msg(i, "dest-ord", i) for i in range(4)]
+    fake, parked_, redis = _ordered_consumer_setup(monkeypatch, msgs, _dispatch)
+    asyncio.run(kt.run_dispatch_consumer())
+
+    assert calls == [0]
+    assert [p["reason"] for p in parked_] == ["breaker_open"] + ["ordered_backlog"] * 3
+    seqs = [kt.decode_delivery(p["value"])["ord_seq"] for p in parked_]
+    events = [kt.decode_delivery(p["value"])["batch"][0]["e"] for p in parked_]
+    assert seqs == [1, 2, 3, 4] and events == [0, 1, 2, 3]
+    assert redis.kv[_LAST] == "4"
+    assert list(fake.commits[-1].values())[0] == 4
+
+
+def test_ordered_slow_delivery_is_cut_and_parked(monkeypatch):
+    """Entrega direta acima de ``slow_after`` é cortada e o lote estaciona; o
+    seguinte acha a marca e estaciona atrás. Nada segura a fila do destino."""
+
+    async def _dispatch(dest, batch):
+        await asyncio.Event().wait()          # nunca responde
+
+    msgs = [_ord_msg(i, "dest-ord", i) for i in range(3)]
+    fake, parked_, redis = _ordered_consumer_setup(monkeypatch, msgs, _dispatch, slow_after=0.05)
+    asyncio.run(kt.run_dispatch_consumer())
+    assert [p["reason"] for p in parked_] == ["slow", "ordered_backlog", "ordered_backlog"]
+    assert list(fake.commits[-1].values())[0] == 3
+
+
+def test_ordered_batch_that_waited_too_long_parks_without_trying(monkeypatch):
+    """Cada entrega leva 0,3 s com teto de 0,5 s: o 2º lote esperou 0,3 s e vai
+    direto; o 3º esperou 0,6 s e estaciona sem tentar — a fila do destino não
+    cresce sem fim atrás de um destino mais lento que a entrada."""
+    from backend.app.collectors.tests.test_dataplane_consumer import _real_sleep
+
+    calls: list = []
+
+    async def _dispatch(dest, batch):
+        calls.append(batch[0]["e"])
+        await _real_sleep(0.3)
+
+    msgs = [_ord_msg(i, "dest-ord", i) for i in range(3)]
+    fake, parked_, redis = _ordered_consumer_setup(monkeypatch, msgs, _dispatch, slow_after=0.5)
+    asyncio.run(kt.run_dispatch_consumer())
+    assert calls == [0, 1]
+    assert [p["reason"] for p in parked_] == ["slow"]
+    assert kt.decode_delivery(parked_[0]["value"])["batch"] == [{"e": 2}]
+
+
+def test_drainer_releases_the_ordered_mark_only_on_the_last_parked(monkeypatch):
+    """O drenador apaga a marca ao entregar o lote com o número dela, e ANTES de
+    commitar: uma queda entre os dois re-entrega o lote, nunca deixa marca órfã."""
+    topic = parked.parked_topic()
+    base = kt.encode_delivery("dest-ord", [{"e": 0}], ordered=True)
+    log: list = []
+
+    class _Logged(_ParkedConsumer):
+        async def commit(self, offsets):
+            log.append(("commit", list(offsets.values())[0]))
+            await super().commit(offsets)
+
+    consumer = _Logged({0: [_ordered.stamp(base, 1), _ordered.stamp(base, 2)]}, topic)
+    delivered: list = []
+
+    async def _dispatch(dest, batch):
+        delivered.append(dest)
+
+    stop = _install(monkeypatch, consumer, _dispatch, [])
+    redis = _OrderRedis(log)
+    redis.kv[_LAST] = "2"
+    monkeypatch.setattr("backend.app.collectors.celery_app.get_worker_redis", lambda: redis)
+    asyncio.run(_drain_until(stop, lambda: len(consumer.commits) == 2))
+
+    assert log == [("release", "1"), ("commit", 1), ("release", "2"), ("commit", 2)]
+    assert _LAST not in redis.kv and delivered == ["dest-ord", "dest-ord"]

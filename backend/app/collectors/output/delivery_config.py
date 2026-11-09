@@ -188,6 +188,19 @@ class DeliveryConfig(BaseModel):
     #: shadow mode: run format+validate+metrics but skip the actual send.
     shadow: bool = False
 
+    #: entrega na ORDEM de chegada ao pipeline (ADR-0018 Onda 4e). Ligue só em
+    #: destino que correlaciona pela ordem de chegada (regras de sequência e de
+    #: frequência do Wazuh). Custo: o destino usa uma partição e entrega um lote
+    #: por vez (teto de um dispatcher) e, depois de uma queda, só recebe dado
+    #: novo quando o estacionamento esvaziar. ENFORCED pelo data-plane Kafka.
+    ordered: bool = Field(
+        default=False,
+        description=(
+            "Entrega na ordem de chegada (só p/ destino que correlaciona pela ordem, "
+            "como regras de sequência do Wazuh). Limita a vazão deste destino."
+        ),
+    )
+
     #: tiering hot/cold por destino. **METADADO apenas**:
     #: descreve a intenção (SIEM quente vs. lago frio) e auto-aparece no catálogo
     #: (describe()['delivery_schema']) p/ a UI, mas NÃO move dado nem aplica

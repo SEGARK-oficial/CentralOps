@@ -63,7 +63,7 @@ PROCESSOR_GROUP = "centralops-processor"
 DISPATCHER_GROUP = "centralops-dispatcher"
 
 _SEED = r"""
-import json, sys
+import json, os, sys
 from app.db import database, models
 from app.services import ingest_tokens
 
@@ -84,6 +84,7 @@ with database.SessionLocal() as db:
             name=f"loadtest syslog {i}", kind="syslog_rfc5424", organization_id=org.id,
             enabled=True, is_default=True,
             config=json.dumps({"host": "127.0.0.1", "port": port}),
+            delivery=json.dumps({"ordered": True} if os.environ.get("GATE_ORDERED") else {}),
         ))
         out.append({"integration_id": integ.id, "token": token})
     db.commit()
@@ -163,6 +164,8 @@ class SyslogSink:
     def __init__(self, host: str = "127.0.0.1", port: int = 0) -> None:
         self.host, self.port = host, port or _free_port()
         self.seen: Dict[bytes, Dict[int, int]] = {}
+        #: ``seq`` na ordem de chegada (a 1ª vez de cada um), para medir inversões.
+        self.order: Dict[bytes, List[int]] = {}
         self.frames = 0
         self.last_frame_at = 0.0
         #: Até este instante (monotônico), toda conexão é derrubada na chegada:
@@ -209,6 +212,8 @@ class SyslogSink:
                 if m:
                     runs = self.seen.setdefault(m.group(2), {})
                     seq = int(m.group(1))
+                    if seq not in runs:
+                        self.order.setdefault(m.group(2), []).append(seq)
                     runs[seq] = runs.get(seq, 0) + 1
         except (asyncio.IncompleteReadError, ConnectionError, ValueError):
             pass
@@ -230,6 +235,19 @@ async def wait_received(sink: SyslogSink, run_id: str, expected: int,
             return None  # nada chega há um minuto: não vai chegar
         await asyncio.sleep(0.5)
     return None
+
+
+def count_inversions(order: List[int]) -> int:
+    """Eventos que chegaram DEPOIS de um ``seq`` maior: com a ingestão em ordem
+    (uma requisição por vez, um shard no raw), cada um é um evento entregue fora
+    da ordem em que entrou no pipeline."""
+    top, n = -1, 0
+    for seq in order:
+        if seq < top:
+            n += 1
+        else:
+            top = seq
+    return n
 
 
 def verify_counts(seen: Dict[int, int], run_id: str, ranges: List[tuple],
@@ -335,6 +353,9 @@ class LocalStack:
             # Cenário de queda: o disjuntor abre rápido e a sonda volta logo,
             # para a drenagem do estacionamento caber no tempo do gate.
             **({"KAFKA_PARKED_HOLD_SECONDS": str(args.parked_hold)} if args.parked_hold else {}),
+            # Entrega em ordem (Onda 4e): destinos com ``delivery.ordered`` e o raw
+            # num shard só, para a ordem de entrada no pipeline ser a do ``seq``.
+            **({"GATE_ORDERED": "1", "KAFKA_RAW_SHARDS_PER_STREAM": "1"} if args.ordered else {}),
         }
         self.bootstrap = self.env["KAFKA_BOOTSTRAP_SERVERS"]
 
@@ -472,7 +493,7 @@ async def run_local(args: argparse.Namespace) -> Dict[str, Any]:
             argparse.Namespace(
                 url=f"http://127.0.0.1:{stack.api}/api/ingest/traffic", token=tok,
                 eps=(args.eps / n if args.eps else 0), duration=args.duration, batch=args.batch,
-                concurrency=max(1, args.concurrency // n), gzip=False,
+                concurrency=1 if args.ordered else max(1, args.concurrency // n), gzip=False,
             )
             for tok in stack.tokens
         ]
@@ -535,6 +556,7 @@ async def run_local(args: argparse.Namespace) -> Dict[str, Any]:
                 "accepted": sd["accepted"],
                 "e2e_seconds": None if t_done is None else t_done - t0,
                 "refused_connections": sink.refused,
+                "inversions": count_inversions(sink.order.get(sd["run_id"].encode(), [])),
                 "verify": verify_counts(
                     dict(sink.seen.get(sd["run_id"].encode(), {})), sd["run_id"],
                     sd["accepted_ranges"],
@@ -652,6 +674,11 @@ def verdict(args: argparse.Namespace, r: Dict[str, Any]) -> List[str]:
                 f"destinos saudáveis terminaram em {healthy} s > {args.max_isolation_s:.0f} s "
                 "(isolamento)"
             )
+    if args.mode == "local" and args.ordered:
+        bad = {d["destination"]: d["inversions"] for d in r.get("destinations") or []
+               if d["inversions"]}
+        if bad:
+            failures.append(f"entrega fora de ordem (inversões por destino): {bad}")
     v = r.get("verify")
     if v is not None:
         if v["lost"]:
@@ -682,11 +709,12 @@ def report(r: Dict[str, Any], failures: List[str]) -> None:
         print(f"conferência          esperados {v['expected']:,}, entregues {v['delivered_unique']:,}, "
               f"perdidos {v['lost']}, duplicados {v['duplicated']}, estranhos {v['unexpected']}")
     for d in r.get("destinations") or []:
-        if len(r["destinations"]) > 1 or d["refused_connections"]:
+        if len(r["destinations"]) > 1 or d["refused_connections"] or d["inversions"]:
             vv = d["verify"]
             e2e = "—" if d["e2e_seconds"] is None else f"{d['e2e_seconds']:.1f} s"
             print(f"  destino {d['destination']}: {d['accepted']:,} em {e2e}, perdidos {vv['lost']}, "
-                  f"duplicados {vv['duplicated']}, conexões recusadas {d['refused_connections']}")
+                  f"duplicados {vv['duplicated']}, conexões recusadas {d['refused_connections']}, "
+                  f"fora de ordem {d['inversions']}")
     if "dlq_rows" in r:
         print(f"DLQ do Postgres      {r['dlq_rows']} linha(s); estacionamento no pico: "
               f"{r.get('parked_peak_records', 0)} registro(s)")
@@ -729,6 +757,9 @@ def main() -> int:
                     help="KAFKA_PARKED_HOLD_SECONDS dos dispatchers (0 = padrão do produto)")
     lp.add_argument("--max-isolation-s", type=float, default=0,
                     help="destinos saudáveis têm de terminar em até S s (com --slow-ms)")
+    lp.add_argument("--ordered", action="store_true",
+                    help="destinos com entrega em ordem; ingestão serial e raw num shard, "
+                         "e o gate reprova qualquer evento fora de ordem")
     lp.add_argument("--partitions", type=int, default=16,
                     help="partições do tópico raw (o padrão do produto)")
     lp.add_argument("--broker-cpus", type=int, default=2, help="--smp do Redpanda")

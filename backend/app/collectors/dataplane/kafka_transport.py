@@ -222,18 +222,22 @@ def encode_delivery(
     destination_id: str,
     batch: List[Dict[str, Any]],
     trace_context: Optional[Mapping[str, str]] = None,
+    *,
+    ordered: bool = False,
 ) -> bytes:
-    """Serializa ``{destination_id, batch, trace}`` para o valor da mensagem."""
-    return json.dumps(
-        {
-            "v": _ENVELOPE_VERSION,
-            "destination_id": destination_id,
-            "batch": batch,
-            "trace": dict(trace_context) if trace_context else {},
-        },
-        separators=(",", ":"),
-        default=str,
-    ).encode("utf-8")
+    """Serializa ``{destination_id, batch, trace}`` para o valor da mensagem.
+
+    ``ordered`` marca o lote de destino com entrega em ordem (Onda 4e); sem ele o
+    envelope sai como antes."""
+    envelope: Dict[str, Any] = {
+        "v": _ENVELOPE_VERSION,
+        "destination_id": destination_id,
+        "batch": batch,
+        "trace": dict(trace_context) if trace_context else {},
+    }
+    if ordered:
+        envelope["ordered"] = True
+    return json.dumps(envelope, separators=(",", ":"), default=str).encode("utf-8")
 
 
 def decode_delivery(raw: bytes) -> Dict[str, Any]:
@@ -252,6 +256,7 @@ def _frames(
     batch: List[Dict[str, Any]],
     trace_context: Optional[Mapping[str, str]],
     limit: int,
+    ordered: bool = False,
 ) -> Iterator[tuple]:
     """``(sub_lote, valor)`` de cada registro de :func:`_frame_batch`.
 
@@ -261,13 +266,13 @@ def _frames(
     """
     if not batch:
         return
-    value = encode_delivery(destination_id, batch, trace_context)
+    value = encode_delivery(destination_id, batch, trace_context, ordered=ordered)
     if len(value) <= limit or len(batch) == 1:
         yield batch, value
         return
     mid = len(batch) // 2
-    yield from _frames(destination_id, batch[:mid], trace_context, limit)
-    yield from _frames(destination_id, batch[mid:], trace_context, limit)
+    yield from _frames(destination_id, batch[:mid], trace_context, limit, ordered)
+    yield from _frames(destination_id, batch[mid:], trace_context, limit, ordered)
 
 
 def _frame_batch(
@@ -526,9 +531,20 @@ class _ProducerThread:
         # KAFKA_MAX_REQUEST_BYTES (== limite do broker).
         limit = max(1, int(settings.KAFKA_MAX_REQUEST_BYTES * 0.9))
         oversized: List[Dict[str, Any]] = []
+        # Destino com entrega em ordem (Onda 4e): uma partição só, a primeira
+        # da faixa dele, e o envelope marcado para o dispatcher encadear.
+        from .ordered import is_ordered
+
+        ordered = is_ordered(destination_id)
+        if ordered:
+            spread: Optional[Tuple[int, int]] = (
+                zlib.crc32(destination_id.encode("utf-8")), 0
+            )
+        else:
+            spread = deliver_spread(destination_id)
         self._produce_framed(
             destination_id, batch, trace_context, key, limit, oversized,
-            spread=deliver_spread(destination_id),
+            spread=spread, ordered=ordered,
         )
         if oversized:
             _divert_oversized_to_dlq(destination_id, oversized, trace_context)
@@ -542,6 +558,7 @@ class _ProducerThread:
         limit: int,
         oversized: List[Dict[str, Any]],
         spread: Optional[Tuple[int, int]] = None,
+        ordered: bool = False,
     ) -> None:
         """Produz ``batch`` em registros ≤ ``limit``; o que não cabe vai p/ ``oversized``.
 
@@ -551,7 +568,7 @@ class _ProducerThread:
         2+ eventos é re-dividido com metade do tamanho que ele tinha; a recursão
         termina porque o limite cai pela metade a cada nível até sobrar 1 evento.
         """
-        for sub_batch, value in _frames(destination_id, batch, trace_context, limit):
+        for sub_batch, value in _frames(destination_id, batch, trace_context, limit, ordered):
             if len(sub_batch) == 1 and _exceeds_request_limit(value, key):
                 oversized.extend(sub_batch)
                 continue
@@ -575,7 +592,7 @@ class _ProducerThread:
                 )
                 self._produce_framed(
                     destination_id, sub_batch, trace_context, key,
-                    max(1, len(value) // 2), oversized, spread=spread,
+                    max(1, len(value) // 2), oversized, spread=spread, ordered=ordered,
                 )
 
     def _produce_value(
@@ -861,6 +878,9 @@ async def run_dispatch_consumer(stop_event: Optional[threading.Event] = None) ->
       - estacionar falhou        → NÃO commita: seek + backoff, o lote segue no tópico;
       - envelope inválido/malformado → descarta (outcome=invalid) + commita.
 
+    Destino com ``delivery.ordered`` (Onda 4e) segue outro caminho: um lote por
+    vez, na ordem do tópico, e estacionado nunca é ultrapassado (``ordered``).
+
     Invariante (ADR-0018 Onda 0): nenhum offset é commitado sem a entrega ou a
     gravação durável (estacionamento; DLQ só para poison) confirmadas. Destino
     fora não grava linha no Postgres (Onda 4a): o drenador do estacionamento
@@ -1067,6 +1087,113 @@ async def run_dispatch_consumer(stop_event: Optional[threading.Event] = None) ->
             metrics.DATAPLANE_CONSUME_LATENCY.observe(time.perf_counter() - started)
             metrics.DATAPLANE_CONSUMED.labels(outcome=outcome).inc()
 
+    from . import ordered as _ordered
+
+    #: Último lote em voo de cada destino com entrega em ordem (Onda 4e): o
+    #: próximo só decide depois dele.
+    ordered_tail: Dict[str, asyncio.Task] = {}
+
+    async def _park_ordered(value: bytes, dest_id: str, reason: str) -> bool:
+        """Estaciona um lote de destino ordenado com o número de sequência dele.
+        Só volta False no stop (nada concluído: o registro é relido)."""
+        while not stopping():
+            try:
+                seq = await _ordered.reserve(shared_redis, dest_id)
+            except Exception:  # noqa: BLE001 — Redis fora: sem marca não estaciona
+                logger.warning(
+                    "data-plane: sem marca de ordem no Redis dest=%s — nova tentativa",
+                    dest_id, exc_info=True,
+                )
+                await _sleep(_DLQ_FAILURE_BACKOFF_S)
+                continue
+            if await _park(_ordered.stamp(value, seq), dest_id, reason):
+                return True
+            await _sleep(_DLQ_FAILURE_BACKOFF_S)
+        return False
+
+    async def _deliver_ordered(
+        tp: Any, msg: Any, dest_id: str, batch: list, payload: Dict[str, Any],
+        prev: Optional[asyncio.Task],
+    ) -> None:
+        """Entrega UM lote de destino ordenado, depois do anterior dele.
+
+        Uma tentativa direta, com o teto de ``slow_after``: falha, disjuntor
+        aberto ou demora estacionam o lote (o drenador re-tenta, em ordem), em
+        vez de segurar a fila do destino. Lote que esperou a vez além de
+        ``slow_after`` também estaciona sem tentar, e com isso a fila esvazia
+        rápido: os seguintes acham a marca e estacionam atrás dele."""
+        outcome = "ordered_ok"
+        started = time.perf_counter()
+        try:
+            if prev is not None:
+                await asyncio.wait({prev})
+            if stopping():
+                outcome = "ordered_abandoned"
+                return
+            waited = time.perf_counter() - started
+            reason: Optional[str] = None
+            while reason is None:
+                try:
+                    backlog = await _ordered.has_backlog(shared_redis, dest_id)
+                except Exception:  # noqa: BLE001 — sem saber, não ultrapassa
+                    logger.warning(
+                        "data-plane: Redis fora ao checar a ordem dest=%s — nova tentativa",
+                        dest_id, exc_info=True,
+                    )
+                    await _sleep(_DLQ_FAILURE_BACKOFF_S)
+                    if stopping():
+                        outcome = "ordered_abandoned"
+                        return
+                    continue
+                if backlog:
+                    reason = "ordered_backlog"
+                elif waited > slow_after:
+                    reason = "slow"
+                break
+            if reason is None:
+                try:
+                    with tracing.span_with_parent(
+                        "dataplane.dispatch",
+                        payload.get("trace"),
+                        span_kind="consumer",
+                        **{
+                            "centralops.destination_id": str(dest_id),
+                            "centralops.batch_size": len(batch),
+                            "centralops.ordered": True,
+                            "messaging.system": "kafka",
+                            "messaging.operation.type": "process",
+                            "messaging.destination.name": getattr(msg, "topic", None),
+                            "messaging.destination.partition.id": (
+                                str(msg.partition)
+                                if getattr(msg, "partition", None) is not None else None
+                            ),
+                        },
+                    ):
+                        result = await asyncio.wait_for(
+                            dispatch_batch_to_destination(dest_id, batch), timeout=slow_after
+                        )
+                        tracing.record_dispatch_outcome(result)
+                except circuit_breaker.BreakerOpen:
+                    reason = "breaker_open"
+                except asyncio.TimeoutError:
+                    reason = "slow"
+                except Exception as exc:  # noqa: BLE001 — o drenador re-tenta, em ordem
+                    logger.warning(
+                        "data-plane: entrega em ordem falhou dest=%s offset=%s (%s) — estacionado",
+                        dest_id, msg.offset, type(exc).__name__,
+                    )
+                    reason = "exhausted"
+            if reason is not None:
+                outcome = f"ordered_parked_{reason}"
+                if not await _park_ordered(msg.value, dest_id, reason):
+                    outcome = "ordered_abandoned"
+                    return
+            tracker.done(tp, msg.offset)
+            await _advance(tp)
+        finally:
+            metrics.DATAPLANE_CONSUME_LATENCY.observe(time.perf_counter() - started)
+            metrics.DATAPLANE_CONSUMED.labels(outcome=outcome).inc()
+
     # Poll com timeout (em vez de ``async for``, que bloqueia): permite checar o
     # ``stop_event`` a cada tick → drain cooperativo PRONTO mesmo com a partição
     # ociosa, sem esperar o deadline de hard-cancel.
@@ -1121,6 +1248,25 @@ async def run_dispatch_consumer(stop_event: Optional[threading.Event] = None) ->
                 metrics.DATAPLANE_CONSUMED.labels(outcome="invalid").inc()
                 tracker.done(tp, msg.offset)
                 await _advance(tp)
+                continue
+
+            if payload.get("ordered") is True:
+                # Entrega em ordem (Onda 4e): encadeia no lote anterior do destino.
+                # Nada de estacionar na busca: isso passaria na frente dos que
+                # ainda estão na fila dele.
+                prev = ordered_tail.get(dest_id)
+                task = asyncio.create_task(
+                    _deliver_ordered(tp, msg, dest_id, batch, payload, prev)
+                )
+                ordered_tail[dest_id] = task
+
+                def _untail(t: asyncio.Task, _dest: str = dest_id) -> None:
+                    if ordered_tail.get(_dest) is t:
+                        del ordered_tail[_dest]
+
+                task.add_done_callback(_untail)
+                inflight.add(task)
+                task.add_done_callback(inflight.discard)
                 continue
 
             if slow_until.get(dest_id, 0.0) > time.monotonic():
