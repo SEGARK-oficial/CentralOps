@@ -454,10 +454,9 @@ def test_cycle_measures_the_watermark_from_the_collector_and_persists_it() -> No
     """
     from backend.app.collectors import pipeline
 
-    # ADR-0018 Onda 3: o fim de ciclo mora em ``_commit_cycle``, chamado pelos
-    # dois ciclos (inline e "coleta só coleta").
-    for name in ("_run_collection_once", "_collect_to_raw"):
-        assert "_commit_cycle(" in inspect.getsource(getattr(pipeline, name)), name
+    # ADR-0018 Onda 3: o fim de ciclo mora em ``_commit_cycle``; desde a Onda 5
+    # há um ciclo só ("coleta só coleta").
+    assert "_commit_cycle(" in inspect.getsource(pipeline._run_collection_once)
     src = inspect.getsource(pipeline._commit_cycle)
     assert "collector_cls.watermark_at(ctx.cursor)" in src, (
         "o ciclo não pergunta o watermark ao coletor — o indicador de atraso "
@@ -497,8 +496,7 @@ def test_error_path_does_not_overwrite_the_watermark() -> None:
     """
     from backend.app.collectors import pipeline
 
-    for name in ("_run_collection_once", "_collect_to_raw"):
-        assert "_fail_cycle(" in inspect.getsource(getattr(pipeline, name)), name
+    assert "_fail_cycle(" in inspect.getsource(pipeline._run_collection_once)
     src = inspect.getsource(pipeline._fail_cycle)
     bloco_erro = src[max(src.index("cursor_before or {}") - 300, 0) : src.index("cursor_before or {}") + 400]
     assert "watermark_at=" not in bloco_erro, (

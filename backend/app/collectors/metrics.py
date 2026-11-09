@@ -214,13 +214,9 @@ SHADOW_LATENCY = _instrument("collector_shadow_format_latency_seconds")
 # janela de cooldown, coleta preservada). Incrementa 1 POR ABERTURA, não por
 # falha — alertar em `increase() > 0` é o sinal de "estou perdendo captura".
 CAPTURE_TAP_DISABLED = _instrument("collector_capture_tap_disabled_total")
-DISPATCH_SHED_TOTAL = _instrument("collector_dispatch_shed_total")
-QUEUE_DEPTH = _instrument("collector_dispatch_queue_depth")
 BREAKER_STATE = _instrument("collector_destination_breaker_state")
 # Ingestão push.
 INGEST_ACCEPTED = _instrument("collector_ingest_accepted_total")
-INGEST_DROPPED = _instrument("collector_ingest_dropped_total")
-INGEST_BUFFER_DEPTH = _instrument("collector_ingest_buffer_depth")
 # Eventos rejeitados no parse (NDJSON malformado / não-objeto / acima do teto por-evento).
 INGEST_MALFORMED = _instrument("collector_ingest_malformed_total")
 SYSLOG_RECEIVED = _instrument("collector_syslog_received_total")

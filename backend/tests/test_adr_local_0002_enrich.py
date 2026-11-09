@@ -419,7 +419,8 @@ def test_pipeline_wires_both_seams_in_the_right_places():
     assert i_flush < src.index("await _enrich_remote_batch(") < i_close, (
         "o seam remoto saiu do flush do estágio"
     )
-    for caller in ("async def _run_collection_once(", "async def process_raw_events("):
+    # Desde o ADR-0018 Onda 5 o processor é o único chamador do estágio.
+    for caller in ("async def process_raw_events(",):
         start = src.index(caller)
         end = src.find("\nasync def ", start + 1)
         assert "await processor.flush()" in src[start:end], (

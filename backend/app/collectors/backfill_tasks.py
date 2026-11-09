@@ -7,9 +7,10 @@ baixa (2 workers) para não competir com o polling normal. Cada job:
 2. Para cada stream: executa ``run_backfill_collection_once`` com cursor
    isolado (não toca ``CollectionState`` do polling).
 3. Eventos passam pelo MESMO estágio de processamento da coleta ao vivo
-   (ADR-0018 Onda 3d): ``StreamProcessor`` aqui mesmo, ou o tópico raw e o
-   papel ``processor`` quando a integração está no modo ``raw``.
-4. Dedupe funciona normalmente — eventos já vistos não são re-enviados.
+   (ADR-0018 Onda 3d): vão ao tópico raw marcados como históricos e o papel
+   ``processor`` os trata.
+4. Dedupe pela janela da partição do processor — o que ela ainda lembra não é
+   re-enviado.
 5. A cada iteração, recarrega o job e verifica se foi cancelado.
 
 Garantias:
@@ -127,24 +128,18 @@ async def run_backfill_collection_once(
     roteamento, sem validação OCSF, sem enriquecimento, sem classificação em
     voo, sem supressão, sem amostras de drift e sem soltar as claims de dedupe
     quando o job falhava. O mesmo evento saía diferente pela coleta ao vivo e
-    pelo backfill. Agora a coleta histórica só BUSCA; quem processa é o
-    estágio de processamento da integração:
-
-    * modo ``raw``: os eventos crus vão para o tópico raw (``RawProducer``) e o
-      papel ``processor`` os trata como trata a coleta ao vivo;
-    * modo ``inline``: o ``StreamProcessor`` processa aqui mesmo, marcado como
-      histórico (presença de ausência sim, batimento do observador não).
+    pelo backfill. Agora a coleta histórica só BUSCA: os eventos crus vão para o
+    tópico raw (``RawProducer``) marcados como históricos, e o papel
+    ``processor`` os trata como trata a coleta ao vivo — presença de ausência
+    sim, batimento do observador não. ``job_id`` só identifica o job no log.
 
     Diferenças em relação ao ciclo ao vivo, e só estas:
     - cursor explícito (``initial_cursor``) com a janela, nunca o
       ``CollectionState`` — o cursor final volta para ``BackfillJob``;
-    - ``bounded_per_cycle=False``: drena a janela inteira num run;
-    - as claims de dedupe ficam num conjunto de pendentes do JOB, para a
-      recuperação de órfãs de um job morto não tocar as do ciclo ao vivo.
+    - ``bounded_per_cycle=False``: drena a janela inteira num run.
 
     Retorna ``cursor``, ``events_collected`` (buscados na fonte) e
-    ``events_dispatched`` (entregues ao processamento: roteados no modo
-    ``inline``, gravados no raw no modo ``raw``).
+    ``events_dispatched`` (gravados no raw).
     """
     import aiohttp
 
@@ -158,37 +153,18 @@ async def run_backfill_collection_once(
     events_collected = 0
     skipped = {"cursor": final_cursor, "events_collected": 0, "events_dispatched": 0}
 
-    processor: Optional[Any] = None
-    if _pl.pipeline_mode_for(integration_id) != _pl.PIPELINE_MODE_RAW:
-        processor = _pl.StreamProcessor(
-            integration_id,
-            stream,
-            redis,
-            _pl.pending_set_key(integration_id, f"{stream}:backfill:{job_id or 'adhoc'}"),
-            historical=True,
-        )
+    sink: Optional[Any] = None
 
     try:
-        # Integração + coletor registrado. No modo inline, o ``open`` do
-        # processador é quem carrega (e as regras do lote junto).
-        if processor is not None:
-            await processor.recover_orphan_claims()
-            if not await processor.open():
-                return skipped
-            integration = processor.integration
-            registration = processor.registration
-            platform = processor.platform
-            organization_id = processor.organization_id
-        else:
-            view = _pl._load_cycle_integration(integration_id, stream)
-            if view is None:
-                return skipped
-            registration = _pl._registration_for(view.platform, stream)
-            if registration is None:
-                return skipped
-            integration = view.integration
-            platform = view.platform
-            organization_id = view.organization_id
+        view = _pl._load_cycle_integration(integration_id, stream)
+        if view is None:
+            return skipped
+        registration = _pl._registration_for(view.platform, stream)
+        if registration is None:
+            return skipped
+        integration = view.integration
+        platform = view.platform
+        organization_id = view.organization_id
 
         access_token = await _pl.get_or_refresh_token(
             redis,
@@ -198,13 +174,8 @@ async def run_backfill_collection_once(
         )
         headers = _pl._headers_for(platform, integration, access_token)
 
-        if processor is not None:
-            await processor.load_mapping()
-            config = processor.config
-            sink: Any = processor
-        else:
-            config = await _pl.get_collector_config(redis)
-            sink = _pl.RawProducer(integration_id, stream, config)
+        config = await _pl.get_collector_config(redis)
+        sink = _pl.RawProducer(integration_id, stream, config, historical=True)
 
         rate_limiter = _pl.RedisRateLimiter(redis, config.rate_limits_by_vendor)
         domain_limiter = _pl.DomainLimiter(redis, config.domain_concurrency_limits)
@@ -248,8 +219,8 @@ async def run_backfill_collection_once(
                     await sink.process(raw_event, _pl._resolve_message_id(collector, raw_event))
             except aiohttp.ClientResponseError as exc:
                 await _pl._raise_vendor_auth_error(exc, redis, integration_id, stream, platform)
-            # Flush TERMINAL: liquida as claims do último lote (inline) ou grava
-            # o resto no raw. Antes dele o cursor do job não pode avançar.
+            # Flush TERMINAL: grava o resto no raw. Antes dele o cursor do job
+            # não pode avançar.
             await sink.flush()
 
         # Captura cursor final do contexto.
@@ -263,21 +234,16 @@ async def run_backfill_collection_once(
                 "stream": stream,
                 "events_count": events_collected,
                 "events_dispatched": sink.events_count,
-                "mode": "inline" if processor is not None else "raw",
             },
         )
 
     finally:
-        # Sempre, com ou sem erro, e ANTES do ``aclose``: solta as claims não
-        # liquidadas para o retry do job reprocessar em vez de descartar.
-        if processor is not None:
-            await processor.close()
         await redis.aclose()
 
     return {
         "cursor": final_cursor,
         "events_collected": events_collected,
-        "events_dispatched": sink.events_count,
+        "events_dispatched": sink.events_count if sink is not None else 0,
     }
 
 

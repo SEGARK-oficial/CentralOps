@@ -3,7 +3,10 @@
 Duas famílias:
 
 - ``collect_vendor_logs_{priority,bulk}`` — coleta EDR real-time / bulk.
-- ``dispatch_to_destination`` / ``dispatch_to_dlq`` — despacho de lotes por destino.
+- ``drain_destination_dlq`` — reenvio da DLQ de um destino, pedido pela UI.
+
+O lote de evento NÃO passa por aqui: coleta grava no tópico raw e a entrega é do
+papel ``dispatcher`` do data-plane Kafka (ADR-0018).
 
 Backoff exponencial + jitter delegado ao Celery via ``autoretry_for``.
 Tasks **não** executam código async diretamente — chamam
@@ -24,12 +27,7 @@ from ..db import database
 from . import circuit_breaker  # BreakerOpen terminal routing
 from .celery_app import celery_app
 from .dispatch_runtime import DISPATCH_RESULT_TIMEOUT, run_coro_blocking
-from .metrics import (
-    DELIVERY_LATENCY,
-    DISPATCH_FAILURES,
-    EVENTS_SENT,
-    TASK_DURATION,
-)
+from .metrics import TASK_DURATION
 from .pipeline import (
     VendorAuthError,
     dispatch_batch_to_destination,
@@ -46,11 +44,6 @@ logger = logging.getLogger(__name__)
 # TransientDeliveryError adicionado — 429/5xx transitório por destino.
 # NOTE: BreakerOpen é TERMINAL e NÃO deve estar aqui.
 _RETRYABLE = (ConnectionError, TimeoutError, OSError, VendorAuthError, TransientDeliveryError)
-
-# Re-tentativa do ``dispatch_to_dlq`` quando a gravação na DLQ falha: backoff
-# exponencial a partir de 15 s, teto de 5 min por espera, ~2 h no total.
-_DLQ_PERSIST_RETRY_MAX_S = 300
-_DLQ_PERSIST_MAX_RETRIES = 30
 
 # ── Dreno da DLQ ─────────────────────────────────────────────────────────────
 # Números escolhidos contra os limites reais do worker, não por gosto.
@@ -148,192 +141,6 @@ def collect_vendor_logs_bulk(self, integration_id: int, stream: str) -> None:
                 integration_id, stream, exc.vendor or "?", exc.retry_after,
             )
             raise self.retry(exc=exc, countdown=exc.retry_after, max_retries=10)
-
-
-@celery_app.task(
-    name="collectors.dispatch_to_destination",
-    bind=True,
-    autoretry_for=_RETRYABLE,
-    retry_backoff=True,
-    retry_backoff_max=60,
-    retry_jitter=True,
-    max_retries=10,
-    acks_late=True,
-)
-def dispatch_to_destination(
-    self,
-    destination_id: str,
-    batch: list[dict],
-    traceparent: str | None = None,
-    tracestate: str | None = None,
-) -> None:
-    """Despacho genérico por destino.
-
-    Lane ÚNICA de entrega, parametrizada por ``destination_id``. Não há lane
-    dedicada do Wazuh: ``wazuh-default`` é um destino como qualquer
-    outro. O ``_enqueue_dispatch`` o enfileira via o roteamento por regra,
-    roteado para a shard queue ``dispatch.destination.N`` do destino.
-
-    ``traceparent``/``tracestate`` (defaults None ⇒ back-compat) linkam
-    o span ``dispatch.destination`` ao ciclo de coleta. No-op se OTEL off.
-    """
-    from . import tracing
-
-    _carrier = {
-        k: v
-        for k, v in (("traceparent", traceparent), ("tracestate", tracestate))
-        if v
-    }
-    _delivery_info = getattr(getattr(self, "request", None), "delivery_info", None)
-    _queue = _delivery_info.get("routing_key") if isinstance(_delivery_info, dict) else None
-    # CONSUMER + atributos de mensageria: é o processamento de uma mensagem
-    # enfileirada no ciclo de coleta (o pai, via traceparent). É o que os backends
-    # de APM usam para separar fila de processamento no mapa de serviços.
-    with tracing.span_with_parent(
-        "dispatch.destination",
-        _carrier,
-        span_kind="consumer",
-        **{
-            "centralops.destination_id": destination_id,
-            "centralops.batch_size": len(batch),
-            "messaging.system": "celery",
-            "messaging.operation.type": "process",
-            "messaging.destination.name": _queue,
-        },
-    ):
-        _run_dispatch_to_destination(self, destination_id, batch)
-
-
-def _run_dispatch_to_destination(self, destination_id: str, batch: list[dict]) -> None:
-    from . import tracing
-
-    try:
-        outcome = run_coro_blocking(
-            dispatch_batch_to_destination(destination_id, batch),
-            timeout=DISPATCH_RESULT_TIMEOUT,
-        )
-    except _RETRYABLE:
-        # Última tentativa (ADR-0018 Onda 0): aqui o autoretry do Celery só
-        # re-levantava, a task falhava e, com acks_late, a mensagem era ackada
-        # mesmo assim — o lote sumia sem passar pela DLQ.
-        if self.request.retries >= (self.max_retries or 0):
-            DISPATCH_FAILURES.labels(
-                target="destination", reason="exhausted", destination_id=destination_id
-            ).inc()
-            dispatch_to_dlq.apply_async(
-                kwargs={
-                    "batch": batch,
-                    "destination_id": destination_id,
-                    "kind": "unknown",
-                    "error_kind": "exhausted",
-                },
-                queue="dispatch.dlq",
-            )
-            return
-        raise
-    except circuit_breaker.BreakerOpen:
-        # breaker is OPEN — the batch was NEVER attempted. Route to DLQ
-        # with a distinct error_kind so triage can tell "never tried" from
-        # "exhausted retries". Terminal: no autoretry, no re-raise —
-        # the batch is safely captured and the task succeeds (acks the message).
-        # A task termina com SUCESSO (ack), mas o lote foi para a DLQ: o span
-        # precisa dizer isso, senão o APM conta como entrega bem-sucedida.
-        tracing.mark_error("breaker_open", **{"centralops.dlq": True})
-        DISPATCH_FAILURES.labels(
-            target="destination", reason="breaker_open", destination_id=destination_id
-        ).inc()
-        dispatch_to_dlq.apply_async(
-            kwargs={
-                "batch": batch,
-                "destination_id": destination_id,
-                "kind": "unknown",
-                "error_kind": "breaker_open",
-            },
-            queue="dispatch.dlq",
-        )
-        return
-    except Exception:
-        # A exceção atravessa o span e o marca como erro; isto acrescenta o
-        # desfecho estável (``error.type``) e o desvio para a DLQ.
-        tracing.mark_error("exhausted", **{"centralops.dlq": True})
-        DISPATCH_FAILURES.labels(
-            target="destination", reason="exhausted", destination_id=destination_id
-        ).inc()
-        # passes destination_id for structured DLQ persistence.
-        dispatch_to_dlq.apply_async(
-            kwargs={
-                "batch": batch,
-                "destination_id": destination_id,
-                "kind": "unknown",
-                "error_kind": "exhausted",
-            },
-            queue="dispatch.dlq",
-        )
-        raise
-    # Desfecho sem exceção: destino ausente / de outro tenant / rejeição pelo sink
-    # também desviam para a DLQ — e precisam aparecer como erro no span.
-    tracing.record_dispatch_outcome(outcome)
-
-
-@celery_app.task(
-    name="collectors.dispatch_to_dlq",
-    bind=True,
-    acks_late=True,
-)
-def dispatch_to_dlq(
-    self,
-    batch: list[dict],
-    destination_id: str = "unknown",
-    kind: str = "unknown",
-    error_kind: str = "exhausted",
-) -> None:
-    """Recepção de dead-letter. Persiste uma row por evento no DB.
-
-    Assinatura com defaults backward-compatible: mensagens antigas enfileiradas
-    sem os kwargs extras desserializam normalmente (Celery preenche os defaults).
-
-    Incrementa DLQ_TOTAL por destino/kind/error_kind.
-    """
-    from .delivery import persist_batch_dlq
-    from .metrics import DLQ_TOTAL
-
-    logger.error(
-        "dispatch.dlq: lote falhou após retries destination_id=%s kind=%s "
-        "error_kind=%s size=%d sample_ids=%s",
-        destination_id,
-        kind,
-        error_kind,
-        len(batch),
-        [(e.get("_centralops") or {}).get("integration_id") for e in batch[:3]],
-    )
-
-    # persist to DestinationDeadLetter (best-effort — log only on fail).
-    org_id: int | None = None
-    if batch:
-        meta = batch[0].get("_centralops") or {}
-        raw_org = meta.get("organization_id")
-        if isinstance(raw_org, int):
-            org_id = raw_org
-
-    persisted = persist_batch_dlq(
-        batch,
-        destination_id=destination_id,
-        error_kind=error_kind,
-        organization_id=org_id,
-    )
-    if persisted is not True:
-        # A gravação falhou (Postgres fora, p.ex.). Antes o retorno era ignorado
-        # e o lote sumia; agora a task volta para a fila com backoff até o banco
-        # voltar (ADR-0018 Onda 0).
-        raise self.retry(
-            countdown=min(_DLQ_PERSIST_RETRY_MAX_S, 15 * (2 ** self.request.retries)),
-            max_retries=_DLQ_PERSIST_MAX_RETRIES,
-        )
-
-    for _ in batch:
-        DLQ_TOTAL.labels(
-            destination_id=destination_id, kind=kind, error_kind=error_kind
-        ).inc()
 
 
 @celery_app.task(

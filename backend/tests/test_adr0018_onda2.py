@@ -70,25 +70,22 @@ def test_raw_oversized_event_rejected_before_any_write(monkeypatch):
 # que tem o fixture do app.
 
 
-# ── Syslog no modo kafka ─────────────────────────────────────────────────────
+# ── Syslog grava no raw ──────────────────────────────────────────────────────
 
 
 def test_syslog_flush_writes_to_raw_in_kafka_mode(monkeypatch):
-    from backend.app.collectors import ingest_buffer
     from backend.app.collectors.dataplane import raw as raw_module
     from backend.app.syslog import server as srv
 
-    monkeypatch.setattr(settings, "EVENT_DATAPLANE", "kafka")
     produced: list = []
 
-    async def _produce(iid, stream, events):
+    async def _produce(iid, stream, events, ids=None, historical=False):
         produced.append((iid, stream, len(events)))
         return len(events)
 
     monkeypatch.setattr(raw_module, "produce_raw_async", _produce)
 
     rec = srv.Receiver.__new__(srv.Receiver)
-    rec.redis = object()  # qualquer uso do Redis quebraria
     rec._queues = {(3, "traffic", "fortinet_fortigate"): [{"m": 1}, {"m": 2}]}
     rec.batch_max = 500
     rec.stats = {}
@@ -96,7 +93,6 @@ def test_syslog_flush_writes_to_raw_in_kafka_mode(monkeypatch):
     total = _run(rec.flush())
     assert total == 2 and produced == [(3, "traffic", 2)]
     assert not rec._queues
-    assert ingest_buffer.push_goes_to_kafka()
 
 
 # ── Processor → estágio de processamento (sem ciclo de coleta desde a Onda 3) ──
@@ -104,13 +100,13 @@ def test_syslog_flush_writes_to_raw_in_kafka_mode(monkeypatch):
 
 def test_processor_group_goes_straight_to_the_processing_stage(monkeypatch):
     """O lote do raw vai direto ao ``StreamProcessor`` (``process_raw_events``),
-    com as claims escopadas pela partição e os ids gravados pelo coletor."""
+    com a janela de dedupe da partição e os ids gravados pelo coletor."""
     from backend.app.collectors import pipeline
 
     seen: dict = {}
 
-    async def _stage(iid, stream, events, *, ids=None, scope="", dedupe=None):
-        seen.update(iid=iid, stream=stream, n=len(events), ids=ids, scope=scope)
+    async def _stage(iid, stream, events, *, dedupe, ids=None, historical=False):
+        seen.update(iid=iid, stream=stream, n=len(events), ids=ids, historical=historical)
         seen.setdefault("windows", []).append(dedupe)
         return True
 
@@ -125,7 +121,7 @@ def test_processor_group_goes_straight_to_the_processing_stage(monkeypatch):
 
     assert consumed is True
     windows = seen.pop("windows")
-    assert seen == {"iid": 9, "stream": "security", "n": 1, "ids": ["c"], "scope": "raw-p4"}
+    assert seen == {"iid": 9, "stream": "security", "n": 1, "ids": ["c"], "historical": False}
     # Onda 3c: uma janela de dedupe por partição, a MESMA entre lotes dela.
     from backend.app.collectors.state.dedupe_window import DedupeWindow
 
@@ -232,7 +228,7 @@ def _install(monkeypatch, batches, *, cycle, dlq_ok=True, dlq=None):
 def test_processor_commits_after_cycle_groups_consecutive(monkeypatch):
     calls: list = []
 
-    async def _cycle(iid, stream, events, partition, ids=None):
+    async def _cycle(iid, stream, events, partition, ids=None, historical=False):
         calls.append((iid, stream, len(events)))
         return True
 
@@ -321,7 +317,7 @@ def test_processor_survives_rebalance_mid_cycle(monkeypatch):
     tp = _TP(5)
     fake_holder: dict = {}
 
-    async def _cycle(iid, stream, events, partition, ids=None):
+    async def _cycle(iid, stream, events, partition, ids=None, historical=False):
         fake_holder["fake"].revoked.add(tp)
         return True
 

@@ -1738,18 +1738,10 @@ class CollectorConfigBase(BaseModel):
     wazuh_syslog_format: SyslogFormat = "rfc3164"
     collector_jsonl_dir: str = "/var/log/centralops/collectors"
 
-    # Batching / dedupe
+    # Batching. O TTL de dedupe saiu com a chave Redis por evento (ADR-0018
+    # Onda 5): o dedupe é a janela em memória do processor.
     collector_batch_size: int = Field(default=200, ge=1, le=10_000)
     collector_batch_flush_seconds: int = Field(default=5, ge=1, le=600)
-    # alinhado a ``collectors.config_loader.DEFAULT_DEDUPE_TTL_DAYS``.
-    # Travado contra divergência em ``backend/tests/test_dedupe_ttl_invariant.py``.
-    dedupe_ttl_days: int = Field(default=1, ge=1, le=365)
-    # TTL CANÔNICO em segundos. Piso de 4h = 4x o visibility_timeout do broker
-    # (ver state/dedupe.MIN_TTL_SECONDS e test_dedupe_ttl_invariant): abaixo
-    # disso uma claim órfã expira antes de o broker desistir de redeliverar.
-    # Existe porque `dias` não expressa 4h, e o TTL é a alavanca direta sobre o
-    # keyspace do Redis (chaves ~= EPS x TTL). None = deriva de dedupe_ttl_days.
-    dedupe_ttl_seconds: Optional[int] = Field(default=None, ge=14_400, le=2_678_400)
 
     # Mapas JSON
     domain_concurrency_limits: Dict[str, int] = Field(default_factory=dict)
@@ -1779,11 +1771,6 @@ class CollectorConfigUpdate(StrictUpdateModel):
 
     collector_batch_size: Optional[int] = Field(default=None, ge=1, le=10_000)
     collector_batch_flush_seconds: Optional[int] = Field(default=None, ge=1, le=600)
-    dedupe_ttl_days: Optional[int] = Field(default=None, ge=1, le=365)
-    # Espelha ``CollectorConfigBase.dedupe_ttl_seconds``. Sem este campo o PUT
-    # descartava o valor em silêncio (Pydantic ignora chave desconhecida) e o
-    # TTL efetivo ficava preso no derivado de ``dedupe_ttl_days``.
-    dedupe_ttl_seconds: Optional[int] = Field(default=None, ge=14_400, le=2_678_400)
 
     domain_concurrency_limits: Optional[Dict[str, int]] = None
     rate_limits_by_vendor: Optional[Dict[str, Dict[str, int]]] = None

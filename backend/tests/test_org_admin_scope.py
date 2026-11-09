@@ -262,7 +262,7 @@ def test_scoped_admin_cannot_touch_identity_sso_config(env) -> None:
 
 def test_scoped_admin_cannot_update_platform_collector_config(env) -> None:
     ga, sc = env["global_admin"], env["scoped"]
-    assert sc.put("/api/collectors/config", json={"dedupe_ttl_days": 5}).status_code == 403
+    assert sc.put("/api/collectors/config", json={"collector_batch_size": 500}).status_code == 403
     assert ga.get("/api/collectors/config").status_code == 200
 
 

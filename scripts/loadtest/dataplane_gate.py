@@ -346,7 +346,6 @@ class LocalStack:
             "REDIS_URL": f"redis://127.0.0.1:{self.redis}/0",
             "CELERY_BROKER_URL": f"redis://127.0.0.1:{self.redis}/1",
             "CELERY_RESULT_BACKEND": f"redis://127.0.0.1:{self.redis}/2",
-            "EVENT_DATAPLANE": "kafka",
             "KAFKA_BOOTSTRAP_SERVERS": f"127.0.0.1:{self.kafka}",
             "KAFKA_TOPIC_PREFIX": "lt",
             "KAFKA_RAW_PARTITIONS": str(args.partitions),

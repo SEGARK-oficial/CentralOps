@@ -1,24 +1,19 @@
 """Fontes PUSH — FortiGate (syslog) e Windows Event Log/WEC.
 
-CentralOps nasceu pull-only (Celery beat → poll de API). Fontes que EMPURRAM
-(syslog do FortiGate, Windows Event Forwarding/Collector) não têm API de poll.
-Este módulo introduz o transporte **push** reaproveitando 100% do pipeline:
+Fontes que EMPURRAM (syslog do FortiGate, Windows Event Forwarding/Collector) não
+têm API de poll. O transporte push reaproveita 100% do pipeline:
 
     edge-collector (Vector/OTel)  ──HTTP──▶  POST /api/ingest/<stream>
-                                                   │  (autentica + bufferiza)
-                                                   ▼
-                                         Redis list  ingest:buf:<int>:<stream>
-                                                   │
-                              run_collection_once (beat, ~20s)
-                                                   ▼
-                        PushBufferCollector.collect()  → drena o buffer
-                                                   ▼
-                 normalize (mapping seedado) → dedupe → routing → dispatch
+    receptor syslog               ──────▶        │ (autentica, carimba)
+                                                 ▼
+                                   tópico raw (acks=all, antes do 200)
+                                                 ▼
+                         processor: dedupe → normalize → enrich → route
 
-Não há 2º caminho de normalização: o collector virtual só DRENA; o resto do ciclo
-(``_run_collection_once``) é idêntico ao das fontes pull. O ``refresh_fn`` é no-op
-(não há OAuth); a credencial relevante é o **token de ingestão** (ver
-``services.ingest_tokens``), verificado no endpoint — não no collector.
+Não há ciclo de coleta para push (ADR-0018 Onda 5): a classe registrada aqui só
+diz ao ``processor`` o ``event_type`` e o id de dedupe do evento. O
+``refresh_fn`` é no-op (não há OAuth); a credencial é o **token de ingestão**
+(ver ``services.ingest_tokens``), verificado no endpoint.
 """
 
 from __future__ import annotations
@@ -28,65 +23,24 @@ from datetime import timedelta
 from typing import Any, AsyncIterator, Dict
 
 from ..base import BaseCollector
-from ..ingest_buffer import ack_drained, drain_events
 
 logger = logging.getLogger(__name__)
 
 
-class PushBufferCollector(BaseCollector):
-    """Collector virtual: drena o buffer Redis de ingestão da integração.
+class PushSourceCollector(BaseCollector):
+    """Coletor de uma fonte push: não busca nada.
 
     Subclasses concretas fixam ``platform``/``stream``/``event_type`` (lidos pelo
-    pipeline ANTES da instanciação). Não faz I/O de rede de saída — só move eventos
-    entre listas Redis — então ``rate_limiter``/``domain_limiter`` ficam ociosos (sem host
-    externo)."""
+    ``processor`` sem instanciar). O processor só usa ``extract_message_id``."""
 
     @property
     def domain(self) -> str:
-        # Sem host externo (não puxa de vendor); domínio sintético só para o
-        # semáforo por-domínio não colidir com fontes pull reais.
         return f"push.{self.platform}"
 
-    _drain_exhausted = False
-
     async def collect(self) -> AsyncIterator[Dict[str, Any]]:
-        # Só o modo sem broker passa por aqui: com Kafka o ingest grava no tópico
-        # raw e o ``processor`` processa direto (ADR-0018 Ondas 2 e 3).
-        self._drain_exhausted = False
-        events = await drain_events(self.ctx.redis, self.ctx.integration_id, self.stream)
-        if events:
-            logger.info(
-                "push_ingest: drenando %d evento(s) integration_id=%s stream=%s",
-                len(events), self.ctx.integration_id, self.stream,
-            )
-        for ev in events:
-            yield ev
-        # Só aqui o pipeline recebeu TODOS os eventos drenados. Um ciclo que
-        # parasse de iterar antes não pode confirmar o dreno inteiro.
-        self._drain_exhausted = True
-
-    async def on_cycle_committed(self) -> None:
-        """Ciclo gravado: os eventos drenados já saíram — apaga a lista em
-        processamento. Sem o dreno completo, deixa a lista para o próximo
-        ciclo reprocessar (o dedupe descarta o que já saiu)."""
-        if not self._drain_exhausted:
-            logger.warning(
-                "push_ingest: ciclo encerrou sem consumir todo o dreno — eventos "
-                "ficam para o próximo ciclo (integration_id=%s stream=%s)",
-                self.ctx.integration_id, self.stream,
-            )
-            return
-        await ack_drained(self.ctx.redis, self.ctx.integration_id, self.stream)
-
-    async def on_cycle_aborted(self) -> None:
-        """Ciclo falhou: NÃO confirma. A lista em processamento fica de pé e o
-        próximo dreno a reprocessa primeiro (ADR-0018 Onda 0). Antes o ``RPOP``
-        já tinha apagado os eventos e um ciclo com erro os perdia."""
-        logger.warning(
-            "push_ingest: ciclo com erro — eventos drenados mantidos para o próximo "
-            "ciclo (integration_id=%s stream=%s)",
-            self.ctx.integration_id, self.stream,
-        )
+        # Fonte push não tem o que buscar: o evento já chegou ao raw pelo ingest.
+        return
+        yield  # pragma: no cover — torna isto um gerador assíncrono
 
     def extract_message_id(self, event: Dict[str, Any]) -> str:
         # O endpoint de ingestão carimba ``_ingest_id`` (id estável por evento).
@@ -96,13 +50,13 @@ class PushBufferCollector(BaseCollector):
         return str(meta.get("id") or "")
 
 
-class FortiGateTrafficCollector(PushBufferCollector):
+class FortiGateTrafficCollector(PushSourceCollector):
     platform = "fortinet_fortigate"
     stream = "traffic"
     event_type = "fortinet_fortigate.traffic"
 
 
-class WindowsSecurityEventCollector(PushBufferCollector):
+class WindowsSecurityEventCollector(PushSourceCollector):
     platform = "windows_event_log"
     stream = "security"
     event_type = "windows_event_log.security"
@@ -124,7 +78,8 @@ def _register() -> None:
         register_platform,
     )
 
-    # Cadência de DRENO: ~20s ⇒ latência de cauda baixa sem martelar o Redis.
+    # Push não tem ciclo agendado (``registry.is_push_platform``); a cadência
+    # só alimenta o que o registro exige (TTL da trava, agenda nunca criada).
     drain_schedule = timedelta(seconds=20)
 
     # ── FortiGate (syslog) ────────────────────────────────────────────────

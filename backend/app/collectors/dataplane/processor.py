@@ -3,8 +3,9 @@
 Desde a Onda 3 chama o estágio de processamento direto
 (``pipeline.process_raw_events`` → ``StreamProcessor``), sem o ciclo de coleta no
 meio: nada de token, cursor, coletor instanciado ou sessão HTTP por lote. O raw
-recebe eventos push (ingest HTTP, syslog) e, das integrações em modo raw, o que os
-coletores pull buscaram.
+recebe eventos push (ingest HTTP, syslog), o que os coletores pull buscaram e o
+que o backfill buscou (registros ``historical``). Desde a Onda 5 é o ÚNICO lugar
+onde o evento é processado.
 
 Semântica:
   * o offset só é commitado DEPOIS que o ciclo terminou — os eventos já saíram
@@ -16,8 +17,8 @@ Semântica:
   * a DLQ que não grava segura o offset (o lote continua no tópico).
 
 Vários processors tratam o mesmo (integração, stream) em partições diferentes, então
-o processamento roda SEM a trava do stream e com o conjunto de claims pendentes
-escopado pela partição: cada partição tem um consumidor por vez.
+o processamento roda SEM a trava do stream, com a janela de dedupe da partição:
+cada partição tem um consumidor por vez.
 
 Entrypoint igual ao dispatcher (``python -c "...processor import main; main()"``):
 na imagem Cython o módulo é ``.so`` e ``python -m`` não funciona.
@@ -56,6 +57,8 @@ class _Group:
     # Paralelo a ``events``: id de dedupe gravado pelo coletor pull, "" quando o
     # registro não trouxe (push) — derivado no processamento.
     ids: List[str] = field(default_factory=list)
+    # Lote de backfill (registro com ``historical``): agrupado à parte do ao vivo.
+    historical: bool = False
     invalid: bool = False
 
 
@@ -73,16 +76,21 @@ def _group_records(msgs: List[Any]) -> Iterator[_Group]:
             yield _Group(msg.offset, msg.offset, invalid=True)
             continue
         iid, stream = doc["integration_id"], doc["stream"]
+        historical = doc.get("historical") is True
         events = doc["events"]
         ids = doc.get("ids") or [""] * len(events)
-        if current is not None and (current.integration_id, current.stream) == (iid, stream):
+        if current is not None and (
+            current.integration_id, current.stream, current.historical
+        ) == (iid, stream, historical):
             current.events.extend(events)
             current.ids.extend(ids)
             current.last_offset = msg.offset
             continue
         if current is not None:
             yield current
-        current = _Group(msg.offset, msg.offset, iid, stream, list(events), list(ids))
+        current = _Group(
+            msg.offset, msg.offset, iid, stream, list(events), list(ids), historical
+        )
     if current is not None:
         yield current
 
@@ -112,6 +120,7 @@ async def process_group(
     events: List[Dict[str, Any]],
     partition: int,
     ids: Optional[List[str]] = None,
+    historical: bool = False,
 ) -> bool:
     """Processa ``events`` no estágio de processamento. Devolve se o lote foi
     PROCESSADO (False = integração inativa ou coletor não registrado). Levanta se
@@ -119,8 +128,8 @@ async def process_group(
     from .. import pipeline
 
     return await pipeline.process_raw_events(
-        integration_id, stream, events, ids=ids, scope=f"raw-p{partition}",
-        dedupe=_window_for(partition),
+        integration_id, stream, events, ids=ids, dedupe=_window_for(partition),
+        historical=historical,
     )
 
 
@@ -309,7 +318,8 @@ async def _handle_group(consumer: Any, tp: Any, group: _Group, attempts: Dict, m
     consumed = False
     try:
         consumed = await process_group(
-            group.integration_id, group.stream, group.events, tp.partition, ids=group.ids
+            group.integration_id, group.stream, group.events, tp.partition,
+            ids=group.ids, historical=group.historical,
         )
     except Exception as exc:  # noqa: BLE001 — classificado abaixo
         error = exc

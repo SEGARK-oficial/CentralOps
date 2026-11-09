@@ -35,11 +35,11 @@ _HAS_OTEL = (
     and importlib.util.find_spec("opentelemetry.exporter.otlp.proto.http") is not None
 )
 
-# Valor de label do gauge de profundidade de fila usado abaixo. Atribuído via
-# VARIÁVEL (nunca como literal de task-route com chave/valor entre aspas) de
-# propósito: o guard estático ``test_compose_celery_queues_consumed`` escaneia
-# ``app/**`` — incluindo esta pasta de testes — por rotas de task e flagaria um
-# valor de label de métrica como se fosse uma fila Celery órfã.
+# Valor de label ``queue`` usado abaixo. Atribuído via VARIÁVEL (nunca como
+# literal de task-route com chave/valor entre aspas) de propósito: o guard
+# estático ``test_compose_celery_queues_consumed`` escaneia ``app/**`` — incluindo
+# esta pasta de testes — por rotas de task e flagaria um valor de label de
+# métrica como se fosse uma fila Celery órfã.
 _QLABEL = "obs-test-q"
 
 
@@ -89,7 +89,9 @@ def test_off_is_total_noop(monkeypatch):
     # Emits silenciosos mesmo sem instrumentos montados.
     otel_metrics.count("collector_events_sent_total", 5, {"destination_id": "d1"})
     otel_metrics.record("collector_delivery_latency_seconds", 0.1, {})
-    otel_metrics.set_gauge("collector_dispatch_queue_depth", 9, {"queue": _QLABEL})
+    otel_metrics.set_gauge(
+        "collector_destination_breaker_state", 1, {"destination_id": "d1", "kind": "otlp"}
+    )
     # E pela fachada também (sem levantar).
     metrics.EVENTS_SENT.labels(destination_id="d1", kind="splunk_hec").inc(3)
 
@@ -137,8 +139,6 @@ def test_facade_emits_histogram(monkeypatch):
 
 def test_facade_emits_gauge(monkeypatch):
     fakes = _activate_fake_otel(monkeypatch)
-    metrics.QUEUE_DEPTH.labels(queue=_QLABEL).set(42)
-    assert fakes["collector_dispatch_queue_depth"].calls == [(42, {"queue": _QLABEL})]
     metrics.BREAKER_STATE.labels(destination_id="d9", kind="otlp").set(1)
     assert fakes["collector_destination_breaker_state"].calls == [
         (1, {"destination_id": "d9", "kind": "otlp"})
@@ -298,7 +298,10 @@ def test_every_facade_maps_to_spec_and_vice_versa():
     # Sem ela, a degradação seria muda até o teto de idade. 69 → 70.
     # ADR-0018 Onda 4a: estacionamento por destino (gravados, drenados, lag).
     # 70 → 73.
-    assert len(facade_names) == 73
+    # -4 (ADR-0018 Onda 5): saíram com a lane Celery e o buffer Redis do push —
+    # collector_dispatch_shed_total, collector_dispatch_queue_depth,
+    # collector_ingest_buffer_depth e collector_ingest_dropped_total. 73 → 69.
+    assert len(facade_names) == 69
     # O catálogo tem as síncronas + ao menos o observável collector_up.
     assert "collector_up" in otel_metrics._SPEC
     assert "collector_up" not in facade_names
@@ -420,7 +423,7 @@ def test_init_active_with_real_sdk(monkeypatch):
     # Emits reais (via fachada) não levantam.
     metrics.EVENTS_SENT.labels(destination_id="d1", kind="otlp").inc(1)
     metrics.DELIVERY_LATENCY.labels(destination_id="d1", kind="otlp").observe(0.1)
-    metrics.QUEUE_DEPTH.labels(queue=_QLABEL).set(5)
+    metrics.BREAKER_STATE.labels(destination_id="d1", kind="otlp").set(0)
 
 
 def test_resource_has_semantic_attrs():

@@ -16,7 +16,7 @@ Algumas fontes de segurança não têm uma API de polling — elas **empurram ev
 
 Se o produto não está no catálogo mas exporta JSON, use a [fonte genérica](./custom-json.md): você cria o stream, o CentralOps cria o mapping, e o transporte é este mesmo.
 
-Aparelho que só fala syslog e nenhum lugar para rodar um agente? O [receptor syslog nativo](./syslog-receiver.md) escuta 514/6514 direto e escreve no mesmo buffer desta integração.
+Aparelho que só fala syslog e nenhum lugar para rodar um agente? O [receptor syslog nativo](./syslog-receiver.md) escuta 514/6514 direto e grava no mesmo log desta integração.
 
 ## Quem pode fazer o quê
 
@@ -86,9 +86,9 @@ Assim que o edge-collector começar a enviar eventos:
 
 1. Abra **Coleta -> Integrações** e selecione a integração.
 2. No painel **Ingestão push**, você verá:
-   - **Buffer atual** — eventos aguardando na fila do Redis. Com o data-plane Kafka (o padrão), fica em 0: os eventos esperam no log, e o atraso aparece nas métricas do processamento.
    - **Taxa de ingestão** — eventos recebidos nos últimos minutos.
-   - **Drops** (se houver) — quantos eventos foram recusados com `503` por fila cheia. O edge-collector re-envia esses eventos; eles não se perdem enquanto o buffer de disco dele tiver espaço.
+
+   Os eventos esperam no log do data-plane, nunca numa fila do CentralOps; o atraso do processamento aparece nas métricas dele.
 
 3. Após ~20 segundos, os eventos devem aparecer no destino para onde suas rotas os enviam.
 
@@ -134,19 +134,13 @@ Exemplo de resposta aceita:
 
 ```json
 {
-  "accepted": 100,
-  "dropped": 0,
-  "buffer_depth": 0
+  "accepted": 100
 }
 ```
 
 Se o edge-collector recebe `503` com frequência, o data-plane está fora ou instável. Nesse caso:
 - Confirme que o buffer de disco do edge-collector tem espaço para segurar os eventos durante a espera.
 - Fale com o administrador da plataforma: a saúde do broker e o atraso do processamento aparecem nas métricas do data-plane.
-
-:::note[Instalação sem broker]
-Em ambiente de desenvolvimento sem Kafka (`EVENT_DATAPLANE=celery`), os eventos ficam numa fila no Redis com capacidade de 100 mil por integração e stream. Com a fila cheia, a requisição é recusada com `503` e nenhum evento já aceito é apagado.
-:::
 
 ## Outros formatos: Splunk HEC e OpenTelemetry
 
@@ -176,9 +170,7 @@ Resposta esperada:
 
 ```json
 {
-  "accepted": 1,
-  "dropped": 0,
-  "buffer_depth": 1
+  "accepted": 1
 }
 ```
 

@@ -20,10 +20,10 @@ runs per cooldown even when the send is slow (a 5s probe TTL
 shorter than ``DISPATCH_RESULT_TIMEOUT`` let a second worker win a concurrent
 probe mid-send).
 
-BreakerOpen is TERMINAL — it MUST NOT be in tasks._RETRYABLE; instead it
-propagates to the except-all handler in dispatch_to_destination, which calls
-dispatch_to_dlq (DLQ fallback, no autoretry).  This is the whole point of
-the circuit breaker: stop hammering a failing destination.
+BreakerOpen is TERMINAL — it MUST NOT be retried in place; the Kafka
+dispatcher parks the batch in ``deliver.parked`` and drains it when the
+destination is back (ADR-0018 Onda 4a). This is the whole point of the
+circuit breaker: stop hammering a failing destination.
 
 Redis-outage policy (fail-closed-to-DLQ must not happen):
 the breaker store is an OPTIMIZATION, never a delivery gate.  A Redis blip

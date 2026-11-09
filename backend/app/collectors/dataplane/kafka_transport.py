@@ -3,9 +3,8 @@
 Separa o TRANSPORTE de evento (data-plane durável) do control-plane (Celery+Redis:
 scheduling, OAuth, breaker, rate-limit, observability — que PERMANECE no Celery). O
 fan-out de roteamento PRODUZ cada sub-lote (por destino) num tópico único
-``<prefix>.deliver`` (N partições, **key = destination_id** → mesma destinação na
-mesma partição: ordem + head-of-line-blocking limitado, espelhando o
-``DISPATCH_DEST_SHARDS`` do caminho Celery). Evita o anti-pattern "1 tópico por
+``<prefix>.deliver`` (N partições; cada destino num conjunto fixo de
+sub-shards, ver ``KAFKA_DELIVER_SHARDS_PER_DEST``). Evita o anti-pattern "1 tópico por
 destino" (cardinalidade explode com N tenants × M destinos). Um role ``dispatcher``
 CONSOME o tópico e chama o despacho existente (``dispatch_batch_to_destination`` —
 breaker/chunk/retry/DLQ reusados, sem reescrita).

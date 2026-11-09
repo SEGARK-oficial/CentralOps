@@ -1,4 +1,4 @@
-"""Receptor syslog: UDP/TCP/TLS → parse → classifica → buffer de ingestão.
+"""Receptor syslog: UDP/TCP/TLS → parse → classifica → tópico raw.
 
 Processo próprio (``python -c "from app.syslog.server import main; main()"``),
 como o dispatcher Kafka: não é worker Celery nem parte da API. O que ele sabe:
@@ -13,13 +13,14 @@ como o dispatcher Kafka: não é worker Celery nem parte da API. O que ele sabe:
   Stream que a plataforma não registra é ``unclassified`` (contado, descartado)
   — a API recusa salvar uma fonte cujo stream não existe, então isso só
   acontece se alguém apagou o stream depois.
-* **Para onde** — ``ingest_buffer.push_events`` da integração, com o MESMO
+* **Para onde** — o tópico raw do data-plane (``acks=all``), com o MESMO
   carimbo ``_ingest`` do endpoint HTTP (+ ``transport="syslog"`` e ``peer``).
-  Dali em diante o pipeline não distingue.
+  Dali em diante o pipeline não distingue (ADR-0018 Onda 2).
 
-Lotes: eventos acumulam por (integração, stream) e vão ao Redis a cada
-``SYSLOG_FLUSH_MS`` ou ``SYSLOG_BATCH_MAX`` — um LPUSH por lote, não por linha.
-SIGTERM drena o que está em memória antes de sair.
+Lotes: eventos acumulam por (integração, stream) e vão ao raw a cada
+``SYSLOG_FLUSH_MS`` ou ``SYSLOG_BATCH_MAX`` — um produce por lote, não por
+linha. Broker fora: o lote fica em memória (com teto) e é re-tentado no próximo
+tick. SIGTERM drena o que está em memória antes de sair.
 """
 
 from __future__ import annotations
@@ -135,16 +136,12 @@ def _count(transport: str, outcome: str, n: int = 1) -> None:
         pass
 
 
-def _count_ingest(platform: str, stream: str, accepted: int, dropped: int, integration_id: int, depth: Optional[int]) -> None:
+def _count_ingest(platform: str, stream: str, accepted: int) -> None:
     try:
         from ..collectors import metrics
 
         if accepted:
             metrics.INGEST_ACCEPTED.labels(vendor=platform, stream=stream).inc(accepted)
-        if dropped:
-            metrics.INGEST_DROPPED.labels(vendor=platform, stream=stream).inc(dropped)
-        if depth is not None:
-            metrics.INGEST_BUFFER_DEPTH.labels(integration_id=str(integration_id), stream=stream).set(depth)
     except Exception:  # noqa: BLE001
         pass
 
@@ -167,8 +164,7 @@ class Receiver:
     """Estado compartilhado pelos protocolos: tabela de fontes, filas por
     (integração, stream) e o flusher."""
 
-    def __init__(self, *, redis: Any, sources: SourceTable, registry_has, batch_max: int, flush_ms: int, max_line: int) -> None:
-        self.redis = redis
+    def __init__(self, *, sources: SourceTable, registry_has, batch_max: int, flush_ms: int, max_line: int) -> None:
         self.sources = sources
         self._registry_has = registry_has
         self.batch_max = batch_max
@@ -213,43 +209,30 @@ class Receiver:
         return sum(len(q) for q in self._queues.values())
 
     async def flush(self) -> int:
-        """Empurra tudo que está nas filas. Um LPUSH por (integração, stream)."""
+        """Grava tudo que está nas filas no tópico raw, um produce por
+        (integração, stream), esperando o ack (ADR-0018 Onda 2)."""
         if not self._queues:
             return 0
-        from ..collectors.ingest_buffer import buffer_depth, push_goes_to_kafka, write_push_events
-
-        to_kafka = push_goes_to_kafka()
+        from ..collectors.dataplane.raw import produce_raw_async
 
         queues, self._queues = self._queues, {}
         total = 0
         for (integration_id, stream, platform), events in queues.items():
             try:
-                # Kafka (deploy): tópico raw com ack (ADR-0018 Onda 2). Celery (dev):
-                # lista Redis. Falha em qualquer um → retém em memória e re-tenta.
-                accepted, refused = await write_push_events(self.redis, integration_id, stream, events)
-                depth = 0 if to_kafka else await buffer_depth(self.redis, integration_id, stream)
-            except Exception:  # noqa: BLE001 — Redis fora: devolve para a fila, tenta no próximo tick
-                logger.warning("syslog: falha ao gravar (raw/buffer) integration_id=%s stream=%s — %d evento(s) retidos",
+                accepted = await produce_raw_async(integration_id, stream, events)
+            except Exception:  # noqa: BLE001 — broker fora: devolve para a fila, tenta no próximo tick
+                logger.warning("syslog: falha ao gravar no raw integration_id=%s stream=%s — %d evento(s) retidos",
                                integration_id, stream, len(events), exc_info=True)
                 self._retain((integration_id, stream, platform), events)
                 continue
-            if refused:
-                # Buffer cheio: o push é tudo-ou-nada e NADA foi gravado
-                # (ADR-0018 Onda 0). Retém em memória e tenta no próximo tick,
-                # como com o Redis fora.
-                logger.warning("syslog: buffer cheio integration_id=%s stream=%s — %d evento(s) retidos",
-                               integration_id, stream, refused)
-                self._retain((integration_id, stream, platform), events)
             total += accepted
-            # Recusados ficam retidos (não são perda): o contador de descarte só
-            # conta o que o teto de retenção em memória realmente jogou fora.
-            _count_ingest(platform, stream, accepted, 0, integration_id, depth)
+            _count_ingest(platform, stream, accepted)
         return total
 
     def _retain(self, key: Tuple[int, str, str], events: List[Dict[str, Any]]) -> None:
         """Devolve eventos não gravados à fila em memória. Teto de retenção: não
-        vira OOM se o Redis ficar fora (ou cheio) por horas — o excedente mais
-        antigo é descartado e CONTADO (syslog não tem ack para devolver)."""
+        vira OOM se o broker ficar fora por horas — o excedente mais antigo é
+        descartado e CONTADO (syslog não tem ack para devolver)."""
         q = self._queues.setdefault(key, [])
         q[:0] = events
         if len(q) > self.batch_max * 20:
@@ -440,19 +423,15 @@ async def _refresh_sources(receiver: Receiver, stop: asyncio.Event, interval_s: 
 
 
 async def _amain() -> None:
-    import redis.asyncio as redis_async
-
     from ..collectors import registry
 
-    redis = redis_async.from_url(settings.REDIS_URL or "redis://localhost:6379/0", decode_responses=True,
-                                 socket_timeout=5, socket_connect_timeout=5)
     try:
         sources = await asyncio.to_thread(load_source_table)
     except Exception:  # noqa: BLE001
         logger.error("syslog: não consegui ler as fontes no boot — subindo sem nenhuma (tudo será unknown_source até o banco voltar)", exc_info=True)
         sources = SourceTable([])
     receiver = Receiver(
-        redis=redis, sources=sources, registry_has=registry.has,
+        sources=sources, registry_has=registry.has,
         batch_max=settings.SYSLOG_BATCH_MAX, flush_ms=settings.SYSLOG_FLUSH_MS, max_line=settings.SYSLOG_MAX_LINE_BYTES,
     )
     stop = asyncio.Event()
@@ -502,10 +481,6 @@ async def _amain() -> None:
         except Exception:  # noqa: BLE001
             pass
     await asyncio.gather(*tasks, return_exceptions=True)
-    try:
-        await redis.aclose()
-    except Exception:  # noqa: BLE001
-        pass
 
 
 def _init_observability() -> None:

@@ -839,16 +839,15 @@ def _is_self_emitted(envelope: Mapping[str, Any]) -> bool:
     é acionada:
 
     Pelo desenho atual a cascata NÃO é alcançável por dentro. ``_enqueue_dispatch``
-    é SAÍDA e só saída: ele chama ``_enqueue_routed`` → ``route_batch`` →
-    ``dispatch_to_destination`` (ou o tópico Kafka que o dispatcher consome), e
-    nenhum desses caminhos volta a ``run_collection_once``, que é o ÚNICO lugar
-    onde o matcher em voo roda. Emitir daqui não realimenta a ingestão.
+    é SAÍDA e só saída: ele chama ``_enqueue_routed`` → ``route_batch`` → o
+    tópico ``deliver`` que o dispatcher consome, e nenhum desses caminhos volta
+    ao tópico raw, que é a ÚNICA entrada do ``processor`` — o único lugar onde o
+    matcher em voo roda. Emitir daqui não realimenta a ingestão.
 
     O que é alcançável é a reentrada pela PORTA DA FRENTE, e ela não é
-    hipotética neste repo: ``POST /api/ingest/{stream}`` empurra para o buffer
-    Redis que o ``PushBufferCollector`` drena DENTRO do ``run_collection_once``
-    normal — "reaproveitando 100% do pipeline existente", nas palavras do
-    próprio módulo. Um destino apontado para o ``/api/ingest`` da própria
+    hipotética neste repo: ``POST /api/ingest/{stream}`` grava no mesmo tópico
+    raw que o ``processor`` consome — o push reaproveita 100% do pipeline. Um
+    destino apontado para o ``/api/ingest`` da própria
     instalação (ou para um manager Wazuh que também é FONTE coletada — o laço
     que ``_load_wazuh_loop_destination_ids`` já existe para cortar) devolve o
     evento emitido à ingestão, onde ele é indistinguível de um evento de vendor.

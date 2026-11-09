@@ -20,10 +20,10 @@ SCOPE — read carefully (prefork landmine):
   concurrent ``send_batch`` for one destination across ALL worker processes and
   hosts. ``dispatch_batch_to_destination`` acquires the Redis lease FIRST and
   this semaphore SECOND, so this module is the cheap intra-loop fan-out bound
-  underneath the global cap. Defence-in-depth alongside **hash-routing to shard
-  queues** (``queues.dispatch_dest_shard_queue``) + per-shard worker deployment
-  (OS-level bulkhead) + the **circuit breaker** (a hung destination trips OPEN
-  and fast-fails instead of holding worker slots).
+  underneath the global cap. Defence-in-depth alongside the Kafka dispatcher's
+  per-destination in-flight cap and slow-destination parking (ADR-0018 Onda 4b)
+  + the **circuit breaker** (a hung destination trips OPEN and fast-fails
+  instead of holding slots).
 
   The semaphore is event-loop-bound (``asyncio.Semaphore`` cannot be awaited
   across loops) — keyed by ``(destination_id, id(loop))`` mirroring

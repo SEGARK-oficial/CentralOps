@@ -9,9 +9,11 @@ REAIS rodam contra dublês; nada é lido do ``.py``):
    cursor NÃO anda e a fonte não confirma.
 2. **Processor sem ciclo.** O lote do raw vai direto ao ``StreamProcessor``: sem
    token, sem cursor, sem coletor instanciado. Integração inativa devolve False
-   (o processor manda à DLQ, nunca commita mudo); falha solta as claims.
-3. **Corte por integração.** ``PIPELINE_RAW_INTEGRATIONS`` só vale com Kafka; o
-   resto segue no ciclo inline de sempre.
+   (o processor manda à DLQ, nunca commita mudo); falha devolve as claims à
+   janela da partição.
+3. **Corte por integração** — a flag ``PIPELINE_RAW_INTEGRATIONS`` existiu
+   durante a migração e saiu na Onda 5: todo ciclo é "coleta só coleta"
+   (``test_adr0018_onda5``).
 """
 
 from __future__ import annotations
@@ -34,7 +36,7 @@ from backend.app.collectors import pipeline
 from backend.app.collectors import registry as registry_module
 from backend.app.collectors.dataplane import processor as proc
 from backend.app.collectors.dataplane import raw as raw_mod
-from backend.app.collectors.state import dedupe
+from backend.app.collectors.state.dedupe_window import DedupeWindow
 from backend.app.core.config import settings
 
 
@@ -87,7 +89,6 @@ class _FakeDb:
 class _FakeConfig:
     collector_batch_size = 2
     collector_batch_flush_seconds = 1e9
-    effective_dedupe_ttl_seconds = 60
     rate_limits_by_vendor: dict = {}
     domain_concurrency_limits: dict = {}
 
@@ -160,6 +161,29 @@ async def _null_session():
     yield None
 
 
+class _TapeWindow:
+    """A janela de dedupe REAL da partição, com cada operação na fita."""
+
+    def __init__(self, tape: _Tape) -> None:
+        self._w = DedupeWindow(max_ids=10_000, ttl_seconds=3600)
+        self.tape = tape
+
+    def claim(self, integration_id, msg_id):
+        self.tape.events.append(("claim", msg_id))
+        return self._w.claim(integration_id, msg_id)
+
+    def settle(self, integration_id, msg_ids):
+        msg_ids = list(msg_ids)
+        self.tape.events.append(("settle", msg_ids))
+        self._w.settle(integration_id, msg_ids)
+
+    def release(self, integration_id, msg_ids):
+        msg_ids = sorted(msg_ids)
+        if msg_ids:
+            self.tape.events.append(("release", msg_ids))
+        return self._w.release(integration_id, msg_ids)
+
+
 @pytest.fixture()
 def harness(monkeypatch):
     """Ciclo e estágio reais contra dublês; tudo o que importa cai na fita."""
@@ -181,23 +205,13 @@ def harness(monkeypatch):
                 ("save_error" if error else "save_ok", {"cursor": cursor, "error": error, **kw})
             )
 
-    async def _claim(redis, integration_id, msg_id, **kw):
-        tape.events.append(("claim", (msg_id, kw.get("pending_set"))))
-        return True
-
-    async def _release_many(redis, integration_id, ids):
-        tape.events.append(("release", sorted(ids)))
-        return len(ids)
-
-    async def _recover(redis, integration_id, pending_set):
-        tape.events.append(("recover", pending_set))
-        return 0
-
     def _dispatch(batch, routes=None, **kw):
         tape.events.append(("dispatch", [e["_centralops"]["event_id"] for e in batch]))
 
-    async def _produce(integration_id, stream, events, ids=None):
+    async def _produce(integration_id, stream, events, ids=None, historical=False):
         tape.events.append(("produce", (integration_id, stream, [e["id"] for e in events], ids)))
+        if historical:
+            tape.events.append(("historical", None))
         return len(events)
 
     async def _token(*a, **k):
@@ -237,13 +251,8 @@ def harness(monkeypatch):
     monkeypatch.setattr(pipeline, "_record_source_ingested", lambda *a, **k: None)
     monkeypatch.setattr(pipeline.drift, "should_capture", lambda *a, **k: False)
     monkeypatch.setattr(pipeline.sample_reservoir, "push", lambda *a, **k: _noop_coro())
-    monkeypatch.setattr(pipeline, "claim", _claim)
-    monkeypatch.setattr(pipeline, "recover_orphan_claims", _recover)
-    monkeypatch.setattr(dedupe, "release_many", _release_many)
     monkeypatch.setattr(pipeline, "_enqueue_dispatch", _dispatch)
     monkeypatch.setattr(raw_mod, "produce_raw_async", _produce)
-    monkeypatch.setattr(settings, "EVENT_DATAPLANE", "kafka")
-    monkeypatch.setattr(settings, "PIPELINE_RAW_INTEGRATIONS", "")
 
     def cycle() -> Optional[BaseException]:
         try:
@@ -253,46 +262,15 @@ def harness(monkeypatch):
             return exc
 
     return types.SimpleNamespace(
-        tape=tape, cycle=cycle, reg=reg, integration=integration, monkeypatch=monkeypatch
+        tape=tape, cycle=cycle, reg=reg, integration=integration, monkeypatch=monkeypatch,
+        window=_TapeWindow(tape),
     )
-
-
-# ── 3. Corte por integração ──────────────────────────────────────────────────
-
-
-@pytest.mark.parametrize(
-    ("dataplane", "spec", "expected"),
-    [
-        ("kafka", "", "inline"),
-        ("kafka", "*", "raw"),
-        ("kafka", "40, 42", "raw"),
-        ("kafka", "40,43", "inline"),
-        ("kafka", "abc,42x", "inline"),
-        # Sem broker não há tópico raw: a lista é ignorada (e avisada no log).
-        ("celery", "*", "inline"),
-        ("celery", "42", "inline"),
-    ],
-)
-def test_pipeline_mode_is_per_integration_and_needs_kafka(monkeypatch, dataplane, spec, expected):
-    monkeypatch.setattr(settings, "EVENT_DATAPLANE", dataplane)
-    monkeypatch.setattr(settings, "PIPELINE_RAW_INTEGRATIONS", spec)
-    assert pipeline.pipeline_mode_for(42) == expected
-
-
-def test_inline_mode_still_processes_in_the_cycle(harness):
-    """Fora da lista, nada muda: o ciclo deduplica, normaliza e despacha."""
-    assert harness.cycle() is None
-    names = harness.tape.names()
-    assert "produce" not in names
-    assert harness.tape.of("dispatch") == [["m0", "m1"], ["m2"]]
-    assert names.index("dispatch") < names.index("save_ok") < names.index("committed")
 
 
 # ── 1. Coleta só coleta ──────────────────────────────────────────────────────
 
 
 def test_collector_stage_only_produces_raw(harness):
-    harness.monkeypatch.setattr(settings, "PIPELINE_RAW_INTEGRATIONS", "42")
     assert harness.cycle() is None
     tape = harness.tape
     names = tape.names()
@@ -316,7 +294,6 @@ def test_collector_stage_only_produces_raw(harness):
 def test_raw_collect_with_the_broker_down_keeps_the_cursor(harness):
     """Sem o ack do raw nada foi gravado: o cursor fica onde estava e a fonte de
     fila é avisada para não confirmar. O erro sobe para o retry do Celery."""
-    harness.monkeypatch.setattr(settings, "PIPELINE_RAW_INTEGRATIONS", "*")
 
     async def _broker_down(*a, **k):
         raise ConnectionError("broker fora")
@@ -331,7 +308,6 @@ def test_raw_collect_with_the_broker_down_keeps_the_cursor(harness):
 
 
 def test_raw_collect_skips_inactive_integration_without_touching_the_source(harness):
-    harness.monkeypatch.setattr(settings, "PIPELINE_RAW_INTEGRATIONS", "*")
     harness.integration.is_active = False
     assert harness.cycle() is None
     assert harness.tape.names() == []
@@ -340,44 +316,44 @@ def test_raw_collect_skips_inactive_integration_without_touching_the_source(harn
 # ── 2. Processor sem ciclo de coleta ─────────────────────────────────────────
 
 
-def _process(events, *, ids=None, scope="raw-p3"):
-    return asyncio.run(pipeline.process_raw_events(42, "events", events, ids=ids, scope=scope))
+def _process(harness, events, *, ids=None, historical=False):
+    return asyncio.run(pipeline.process_raw_events(
+        42, "events", events, ids=ids, dedupe=harness.window, historical=historical,
+    ))
 
 
 def test_processor_runs_the_stage_without_a_collection_cycle(harness):
     harness.reg.collector_cls = _make_collector_cls(harness.tape, instantiable=False)
     events = [{"id": "p0"}, {"id": "p1"}, {"id": "p2"}]
     # ids gravados pelo coletor pull vencem; "" cai no extract_message_id da classe.
-    assert _process(events, ids=["c0", "", "c2"]) is True
+    assert _process(harness, events, ids=["c0", "", "c2"]) is True
 
     tape = harness.tape
     names = tape.names()
     for forbidden in ("token", "cursor_load", "save_ok", "save_error", "collector_init", "committed"):
         assert forbidden not in names, f"o processor fez {forbidden!r}"
-    assert [m for m, _ in tape.of("claim")] == ["c0", "p1", "c2"]
+    assert tape.of("claim") == ["c0", "p1", "c2"]
     assert tape.of("dispatch") == [["c0", "p1"], ["c2"]]
-    # Claims escopadas pela partição: a recuperação de órfãs não toca outra.
-    pending = dedupe.pending_set_key(42, "events:raw-p3")
-    assert tape.of("recover") == [pending]
-    assert {ps for _, ps in tape.of("claim")} == {pending}
+    # Claims na janela da partição, liquidadas depois de cada hand-off.
+    assert tape.of("settle") == [["c0", "p1"], ["c2"]]
 
 
 def test_processor_reports_inactive_integration_instead_of_consuming(harness):
     harness.integration.is_active = False
-    assert _process([{"id": "x"}]) is False
+    assert _process(harness, [{"id": "x"}]) is False
     assert "dispatch" not in harness.tape.names()
 
 
 def test_processor_failure_releases_the_claims_and_raises(harness):
-    """Hand-off que falha: as claims tomadas são soltas (o processor relê o lote
-    e o dedupe não pode descartá-lo como duplicado) e o erro sobe para o seek."""
+    """Hand-off que falha: as claims tomadas voltam à janela (o processor relê o
+    lote e o dedupe não pode descartá-lo como duplicado) e o erro sobe para o seek."""
 
     def _dispatch_down(batch, routes=None, **kw):
         raise ConnectionError("data-plane fora")
 
     harness.monkeypatch.setattr(pipeline, "_enqueue_dispatch", _dispatch_down)
     with pytest.raises(ConnectionError):
-        _process([{"id": "a"}, {"id": "b"}])
+        _process(harness, [{"id": "a"}, {"id": "b"}])
     assert harness.tape.of("release") == [["a", "b"]]
 
 
@@ -545,14 +521,6 @@ def test_store_outage_is_recognized_through_the_exception_chain():
     assert not config_snapshot.is_store_outage(ValueError("mapping corrompido"))
 
 
-def test_inline_cycle_reads_without_a_snapshot(harness):
-    """O ciclo inline não ganha cache: lê a cada ciclo, como sempre."""
-    assert config_snapshot.ACTIVE.get() is None
-    assert harness.cycle() is None
-    assert harness.cycle() is None
-    assert harness.tape.of("routes") == [7, 7]
-
-
 def test_processor_survives_postgres_outage(harness):
     tape, mp = harness.tape, harness.monkeypatch
     clock = _Clock()
@@ -582,7 +550,7 @@ def test_processor_survives_postgres_outage(harness):
         token = config_snapshot.ACTIVE.set(cache)
         try:
             return await pipeline.process_raw_events(
-                42, "events", [{"id": f"b{n}-{i}"} for i in range(2)], scope="raw-p0"
+                42, "events", [{"id": f"b{n}-{i}"} for i in range(2)], dedupe=harness.window
             )
         finally:
             config_snapshot.ACTIVE.reset(token)
@@ -676,9 +644,6 @@ def test_processor_activates_the_snapshot(monkeypatch):
 
 # ══ Onda 3c — sem round-trip por evento e janelas por tempo do evento ════════
 
-from backend.app.collectors.state.dedupe_window import DedupeWindow  # noqa: E402
-
-
 # ── Janela de dedupe em memória por partição ─────────────────────────────────
 
 
@@ -708,18 +673,14 @@ def test_dedupe_window_is_bounded_by_size():
 
 
 def test_processor_dedupes_in_memory_across_batches(harness):
-    """Com a janela da partição, o processor não faz claim no Redis, descarta a
-    borda repetida no lote seguinte e reprocessa o lote que falhou."""
-    async def _no_redis_claim(*a, **k):  # pragma: no cover — falha o teste
-        raise AssertionError("claim Redis com a janela em memória")
-
-    harness.monkeypatch.setattr(pipeline, "claim", _no_redis_claim)
+    """Com a janela da partição, o processor descarta a borda repetida no lote
+    seguinte e reprocessa o lote que falhou."""
     window = DedupeWindow(max_ids=1000, ttl_seconds=3600)
 
     def _run_batch(ids):
         return asyncio.run(
             pipeline.process_raw_events(
-                42, "events", [{"id": i} for i in ids], scope="raw-p0", dedupe=window
+                42, "events", [{"id": i} for i in ids], dedupe=window
             )
         )
 
@@ -853,7 +814,7 @@ def test_no_per_event_roundtrip(harness):
         window = DedupeWindow(max_ids=100_000, ttl_seconds=3600)
         events = [{"id": f"n{n_events}-{i}", "extra": i} for i in range(n_events)]
         assert asyncio.run(
-            pipeline.process_raw_events(42, "events", events, scope="raw-p0", dedupe=window)
+            pipeline.process_raw_events(42, "events", events, dedupe=window)
         ) is True
         return redis.roundtrips, sessions["n"], saved["n"]
 
@@ -937,9 +898,8 @@ def test_future_event_time_is_clamped_to_now():
 #
 # O backfill era uma cópia parcial do pipeline: mapping, envelope e roteamento,
 # sem OCSF, enriquecimento, classificação em voo, supressão nem compensação de
-# claims. Agora a coleta histórica só busca e o estágio de processamento é o
-# MESMO da coleta ao vivo — ``StreamProcessor`` no modo inline, tópico raw no
-# modo raw.
+# claims. Agora a coleta histórica só busca e grava no raw marcada como
+# histórica; o estágio de processamento é o MESMO da coleta ao vivo (o processor).
 
 
 def _backfill(harness, *, job_id: Optional[str] = "job-1"):
@@ -983,6 +943,9 @@ def _spy_processor(harness) -> List[Any]:
 
 
 def test_backfill_uses_processor(harness):
+    """O backfill só busca: grava no raw, com os ids do coletor e a marca de
+    histórico. O lote volta pelo processor — o MESMO estágio da coleta ao vivo,
+    que carrega as regras em voo (a cópia antiga nunca carregava)."""
     made = _spy_processor(harness)
     rules_loaded: List[int] = []
 
@@ -998,58 +961,41 @@ def test_backfill_uses_processor(harness):
     tape = harness.tape
     names = tape.names()
 
-    # Cada evento buscado passou pelo estágio de processamento da coleta ao vivo,
-    # que carrega as regras do lote (a cópia antiga nunca carregava as em voo).
-    assert len(made) == 1 and made[0]._historical is True
-    assert tape.of("process") == ["m0", "m1", "m2"]
-    assert rules_loaded == [7]
-    assert tape.of("dispatch") == [["m0", "m1"], ["m2"]]
-    assert result == {
-        "cursor": {"pos": 3},
-        "events_collected": 3,
-        "events_dispatched": 3,
-    }
-    # As claims ficam num conjunto de pendentes DO JOB: a recuperação de órfãs de
-    # um job morto não pode soltar as claims do ciclo ao vivo, e vice-versa.
-    job_set = dedupe.pending_set_key(42, "events:backfill:job-1")
-    assert tape.of("recover") == [job_set]
-    assert {ps for _, ps in tape.of("claim")} == {job_set}
-    # O cursor do polling (CollectionState) não é tocado, e a fonte não confirma.
-    for forbidden in ("cursor_load", "save_ok", "save_error", "committed", "produce"):
-        assert forbidden not in names, f"o backfill fez {forbidden!r}"
-
-
-def test_backfill_in_raw_mode_hands_off_to_the_raw_topic(harness):
-    """Integração no modo raw: o backfill grava no raw, com os ids do coletor,
-    e quem processa é o papel ``processor`` — o mesmo da coleta ao vivo."""
-    made = _spy_processor(harness)
-    harness.monkeypatch.setattr(settings, "PIPELINE_RAW_INTEGRATIONS", "42")
-    result = _backfill(harness)
-    assert not isinstance(result, BaseException), result
-    tape = harness.tape
+    # O worker de backfill não processa nada: grava no raw, marcado como histórico.
     assert made == []
     assert tape.of("produce") == [
         (42, "events", ["m0", "m1"], ["m0", "m1"]),
         (42, "events", ["m2"], ["m2"]),
     ]
-    for forbidden in ("claim", "normalize", "dispatch", "routes", "recover", "save_ok"):
-        assert forbidden not in tape.names(), f"o backfill no modo raw fez {forbidden!r}"
-    assert result["events_collected"] == 3 and result["events_dispatched"] == 3
-    assert result["cursor"] == {"pos": 3}
+    assert names.count("historical") == 2
+    for forbidden in ("claim", "normalize", "dispatch", "routes"):
+        assert forbidden not in names, f"o backfill fez {forbidden!r}"
+    assert result == {"cursor": {"pos": 3}, "events_collected": 3, "events_dispatched": 3}
+    # O cursor do polling (CollectionState) não é tocado, e a fonte não confirma.
+    for forbidden in ("cursor_load", "save_ok", "save_error", "committed"):
+        assert forbidden not in names, f"o backfill fez {forbidden!r}"
+
+    # O processor recebe o registro histórico e roda o estágio inteiro nele.
+    produced = [ids for _i, _s, ids, _ids in tape.of("produce")]
+    for ids in produced:
+        assert _process(harness, [{"id": i} for i in ids], ids=ids, historical=True) is True
+    assert [sp._historical for sp in made] == [True, True]
+    assert tape.of("process") == ["m0", "m1", "m2"]
+    assert rules_loaded == [7, 7]
+    assert tape.of("dispatch") == [["m0", "m1"], ["m2"]]
 
 
-def test_backfill_failure_releases_its_claims(harness):
-    """Job que falha no hand-off solta as claims que tomou: o retry do job
-    reprocessa os eventos em vez de descartá-los como duplicados. A cópia antiga
-    deixava as claims de pé até o TTL — perda silenciosa no retry."""
+def test_backfill_with_the_broker_down_confirms_nothing(harness):
+    """Sem o ack do raw o job falha: nada foi gravado, e o retry do job busca a
+    janela de novo. Não há claim a soltar — o dedupe é do processor."""
 
-    def _dispatch_down(batch, routes=None, **kw):
+    async def _broker_down(*a, **k):
         raise ConnectionError("broker fora")
 
-    harness.monkeypatch.setattr(pipeline, "_enqueue_dispatch", _dispatch_down)
+    harness.monkeypatch.setattr(raw_mod, "produce_raw_async", _broker_down)
     exc = _backfill(harness)
     assert isinstance(exc, ConnectionError)
-    assert harness.tape.of("release") == [["m0", "m1"]]
+    assert "claim" not in harness.tape.names()
 
 
 def test_backfill_without_active_integration_is_a_noop(harness):
@@ -1071,7 +1017,8 @@ def test_historical_processor_writes_no_absence_heartbeat(harness):
     )
 
     async def _open(historical: bool):
-        sp = pipeline.StreamProcessor(42, "events", _FakeRedis(), "ps", historical=historical)
+        window = DedupeWindow(max_ids=100, ttl_seconds=60)
+        sp = pipeline.StreamProcessor(42, "events", _FakeRedis(), window, historical=historical)
         assert await sp.open()
         return sp._inflight_acc.heartbeat
 
@@ -1093,7 +1040,7 @@ def test_rebalance_waits_for_the_in_flight_batch_to_commit(monkeypatch):
     order: List[str] = []
     revoke_task: List[Any] = []
 
-    async def _cycle(iid, stream, events, partition, ids=None):
+    async def _cycle(iid, stream, events, partition, ids=None, historical=False):
         order.append(f"process:{stream}")
         if not revoke_task:
             # O coordenador do grupo revoga ENQUANTO este lote processa.

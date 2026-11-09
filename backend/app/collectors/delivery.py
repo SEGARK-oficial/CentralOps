@@ -13,7 +13,7 @@ CHUNK B — gated fan-out:
 
 CHUNK C — per-destination DLQ persistence:
   persist_rejected_to_dlq  — idempotent, best-effort, maps RejectedEvent → DLQ row.
-  persist_batch_dlq        — whole-batch fallback used by dispatch_to_dlq.
+  persist_batch_dlq        — whole-batch DLQ write (dispatcher poison, DLQ drain).
 
 All DB writes are sync (SessionLocal context manager) and are called from
 `asyncio.to_thread` in the async dispatcher, keeping the event loop free.
@@ -86,56 +86,6 @@ def resolve_destination_ids(org_id: Optional[int]) -> list[str]:
     except Exception:
         logger.exception(
             "resolve_destination_ids: falha ao consultar destinos (org_id=%s) — "
-            "retornando [] (fail-safe, coleta não interrompida)",
-            org_id,
-        )
-        return []
-
-
-def resolve_dispatch_plan(org_id: Optional[int]) -> list[dict]:
-    """Per-cycle dispatch plan for ``org_id``.
-
-    Like :func:`resolve_destination_ids` but returns, per enabled
-    destination, the data the producer needs to route + shed WITHOUT loading
-    config again per batch flush:
-
-        {destination_id, kind, shard_queue, queue_ceiling, backpressure}
-
-    Inclui o wazuh-default (destino normal, sem lane legada).
-    Resolved ONCE per collection cycle (off-loop). Fail-safe: [] on any error.
-    """
-    from .output.delivery_config import parse_delivery_lenient
-    from .queues import dispatch_dest_shard_queue
-
-    try:
-        with database.SessionLocal() as session:
-            rows = session.query(models.Destination).filter(
-                models.Destination.enabled.is_(True),
-            ).all()
-
-            plan: list[dict] = []
-            for row in rows:
-                if not (row.organization_id is None or row.organization_id == org_id):
-                    continue
-                try:
-                    raw_delivery = json.loads(row.delivery or "{}")
-                except (TypeError, ValueError):
-                    raw_delivery = {}
-                dcfg = parse_delivery_lenient(row.kind, raw_delivery)
-                dest_id = str(row.id)
-                plan.append(
-                    {
-                        "destination_id": dest_id,
-                        "kind": row.kind,
-                        "shard_queue": dispatch_dest_shard_queue(dest_id),
-                        "queue_ceiling": dcfg.queue_ceiling,
-                        "backpressure": dcfg.backpressure,
-                    }
-                )
-            return plan
-    except Exception:
-        logger.exception(
-            "resolve_dispatch_plan: falha ao montar plano (org_id=%s) — "
             "retornando [] (fail-safe, coleta não interrompida)",
             org_id,
         )
@@ -330,7 +280,7 @@ def persist_batch_dlq(
     organization_id: Optional[int] = None,
     error_detail: Optional[str] = None,
 ) -> bool:
-    """Whole-batch DLQ fallback used by ``dispatch_to_dlq`` task (CHUNK C).
+    """Whole-batch DLQ write (CHUNK C): poison do dispatcher e dreno da DLQ.
 
     One DestinationDeadLetter row per event in ``batch``.  Uses
     ``_centralops.event_id`` for dedup; generates a fallback UUID-style key

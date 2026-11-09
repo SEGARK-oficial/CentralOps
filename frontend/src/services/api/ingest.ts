@@ -8,7 +8,6 @@ export interface IngestInfo {
   streams: string[]
   has_token: boolean
   endpoint_base: string
-  buffer_depth: number
   icon_id?: string | null
 }
 

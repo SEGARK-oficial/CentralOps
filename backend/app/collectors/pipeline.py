@@ -72,14 +72,9 @@ from .normalize.engine import (
 from .normalize.envelope import EnvelopeContext, build_envelope, has_customer_id
 from .rate_limit_redis import RedisRateLimiter
 from .registry import get as registry_get, has as registry_has
+from .registry import is_push_platform as registry_is_push
 from .state.cursor import CursorStore
-from .state.dedupe import (
-    claim,
-    compute_message_id,
-    pending_set_key,
-    recover_orphan_claims,
-    settle_pending,
-)
+from .state.dedupe import compute_message_id
 
 logger = logging.getLogger(__name__)
 
@@ -848,10 +843,8 @@ async def run_collection_once(integration_id: int, stream: str) -> None:
     perda de dado — o cursor continua sendo a fonte da verdade e a dedupe
     absorve a borda re-buscada.
 
-    Abre o span RAIZ ``collect.cycle`` do trace distribuído. Os
-    ``_enqueue_dispatch`` rodam DENTRO deste escopo, então ``tracing.carrier()``
-    captura este contexto e a task de dispatch vira filha do ciclo (cross-process).
-    No-op quando OTEL_ENABLED off.
+    Abre o span RAIZ ``collect.cycle`` do trace distribuído; o produce no tópico
+    raw roda dentro dele. No-op quando OTEL_ENABLED off.
     """
     import uuid as _uuid
 
@@ -919,39 +912,6 @@ async def run_collection_once(integration_id: int, stream: str) -> None:
                 await lock_redis.aclose()
             except Exception:  # pragma: no cover
                 pass
-
-
-#: Modo de pipeline por integração (ADR-0018 Onda 3, flag TEMPORÁRIA — sai na
-#: Onda 5). ``inline`` é o ciclo de sempre: coleta e processa na mesma task.
-#: ``raw`` é "coleta só coleta": o ciclo grava os eventos crus no tópico raw com
-#: ``acks=all``, avança o cursor e termina; quem deduplica, normaliza e roteia é
-#: o papel ``processor``. Só vale com ``EVENT_DATAPLANE=kafka`` — sem broker não
-#: há tópico raw, e a integração segue ``inline``.
-PIPELINE_MODE_INLINE = "inline"
-PIPELINE_MODE_RAW = "raw"
-_raw_mode_without_kafka_warned = False
-
-
-def pipeline_mode_for(integration_id: int) -> str:
-    """``raw`` ou ``inline`` para esta integração, a partir de
-    ``PIPELINE_RAW_INTEGRATIONS`` (``""`` nenhuma, ``"*"`` todas, ou ids
-    separados por vírgula)."""
-    global _raw_mode_without_kafka_warned
-    spec = (settings.PIPELINE_RAW_INTEGRATIONS or "").strip()
-    if not spec:
-        return PIPELINE_MODE_INLINE
-    if settings.EVENT_DATAPLANE != "kafka":
-        if not _raw_mode_without_kafka_warned:
-            _raw_mode_without_kafka_warned = True
-            logger.warning(
-                "PIPELINE_RAW_INTEGRATIONS ignorada: o modo raw exige "
-                "EVENT_DATAPLANE=kafka — as integrações seguem no ciclo inline"
-            )
-        return PIPELINE_MODE_INLINE
-    if spec == "*":
-        return PIPELINE_MODE_RAW
-    wanted = {int(p) for p in (x.strip() for x in spec.split(",")) if p.isdigit()}
-    return PIPELINE_MODE_RAW if int(integration_id) in wanted else PIPELINE_MODE_INLINE
 
 
 @dataclass
@@ -1156,12 +1116,6 @@ async def _fail_cycle(
     await _notify_cycle_aborted(collector, integration_id, stream)
 
 
-async def _redis_claim(*args: Any, **kwargs: Any) -> bool:
-    """Claim de dedupe no Redis, resolvendo ``claim`` no módulo a cada chamada:
-    é o seam que os testes trocam (``monkeypatch.setattr(pipeline, "claim", …)``)."""
-    return await claim(*args, **kwargs)
-
-
 class StreamProcessor:
     """Estágio de PROCESSAMENTO de um (integração, stream) — ADR-0018 Onda 3.
 
@@ -1170,8 +1124,8 @@ class StreamProcessor:
     data-plane. Antes vivia dentro de ``_run_collection_once``; agora o ciclo
     inline e o papel ``processor`` (tópico raw) chamam o MESMO código, sem cópia.
 
-    Uso: ``recover_orphan_claims`` → ``open`` → ``load_mapping`` → ``process`` por
-    evento → ``flush`` → ``close`` num ``finally`` (sempre, inclusive em erro).
+    Uso: ``open`` → ``load_mapping`` → ``process`` por evento → ``flush`` →
+    ``close`` num ``finally`` (sempre, inclusive em erro).
 
     Todo estado por lote é atributo criado no ``__init__``, ANTES de qualquer I/O.
     É a mesma invariante que o ciclo mantinha inicializando os nomes antes do
@@ -1185,36 +1139,26 @@ class StreamProcessor:
         integration_id: int,
         stream: str,
         redis: Any,
-        pending_set: str,
-        dedupe: Optional[Any] = None,
+        dedupe: Any,
         historical: bool = False,
     ) -> None:
         self.integration_id = integration_id
         self.stream = stream
         self.redis = redis
-        self._pending_set = pending_set
         # Backfill (ADR-0018 Onda 3d): o lote é PASSADO. A classificação em voo
         # roda igual, mas o flush não grava o batimento da ausência — quem diz
         # "estou olhando a fonte agora" é só o processamento ao vivo.
         self._historical = historical
-        # Janela de dedupe em memória da partição (ADR-0018 Onda 3c), só no
-        # processor. ``None`` = claim Redis por evento, o dedupe do ciclo inline.
-        # Com janela, claim/liquidação/devolução são as mesmas três operações,
-        # sem I/O e sem conjunto de pendentes persistente para recuperar.
+        # Janela de dedupe em memória da partição do raw (ADR-0018 Onda 3c):
+        # claim, liquidação e devolução sem I/O. A chave Redis por evento com TTL
+        # de 24 h e o conjunto de pendentes saíram na Onda 5.
         self._dedupe = dedupe
         self.events_count = 0
-        # ADR-0015 Fase 2 — compensação de claim de dedupe, INCONDICIONAL.
-        # Antes era gated por ``EVENT_DATAPLANE == "kafka"``, o que deixava o
-        # data-plane DEFAULT sem nenhuma compensação: um run que falhasse vazava
-        # TODAS as claims tomadas até o TTL, e o retry re-via os eventos, ``claim``
-        # devolvia False e eles eram descartados como "duplicados" — PERDA
-        # SILENCIOSA de log de segurança. A claim é um risco do PIPELINE, não do
-        # transporte.
-        #
-        # Guarda apenas o NÃO-LIQUIDADO: cada id sai do conjunto assim que
-        # ``_enqueue_dispatch`` retorna (hand-off durável feito). Num run
-        # bem-sucedido o conjunto termina VAZIO e o release é no-op. Memória
-        # limitada a ~``collector_batch_size``.
+        # ADR-0015 Fase 2 — compensação de claim de dedupe. Guarda apenas o
+        # NÃO-LIQUIDADO: cada id sai do conjunto assim que ``_enqueue_dispatch``
+        # retorna (hand-off durável feito); o ``close`` devolve o resto à janela,
+        # senão a reentrega do Kafka o descartaria como "duplicado" — perda
+        # silenciosa. Memória limitada a ~``collector_batch_size``.
         self.unsettled_claims: set[str] = set()
         self.batch_msg_ids: list[str] = []
         # Buffer PARALELO ao ``batch``, para os desfechos de coleta (received/deduped).
@@ -1266,40 +1210,6 @@ class StreamProcessor:
         # o suprimiram. Viaja até o route_batch (ADR-0018 Onda 0).
         self.batch_suppressed: Dict[str, "frozenset[str]"] = {}
         self.last_flush = time.monotonic()
-
-    async def recover_orphan_claims(self) -> None:
-        """ADR-0018 Onda 0 — claims ÓRFÃS de um ciclo morto.
-
-        Quem chama tem a exclusão do conjunto de pendentes (a trava do stream no
-        ciclo inline; a posse da partição no ``processor``): o que sobrou no
-        conjunto é de um ciclo que levou SIGKILL/OOM/hard-timeout sem passar pelo
-        ``close``. Soltar ANTES de processar faz os eventos re-buscados (o cursor
-        não avançou) serem processados em vez de descartados como duplicados.
-        Best-effort: Redis fora → o processamento falha adiante de todo jeito.
-
-        Com a janela em memória não há claim persistente: nada a recuperar."""
-        if self._dedupe is not None:
-            return
-        integration_id, stream = self.integration_id, self.stream
-        try:
-            _orphans = await recover_orphan_claims(self.redis, integration_id, self._pending_set)
-            if _orphans:
-                logger.warning(
-                    "dedupe: %d claim(s) órfã(s) de um ciclo interrompido soltas "
-                    "(integration=%s stream=%s) — eventos serão reprocessados",
-                    _orphans, integration_id, stream,
-                    extra={
-                        "event": "dedupe.orphan_claims_recovered",
-                        "integration_id": integration_id,
-                        "stream": stream,
-                        "recovered": _orphans,
-                    },
-                )
-        except Exception:  # noqa: BLE001 — nunca bloqueia a coleta
-            logger.warning(
-                "dedupe: recuperação de claims órfãs falhou (integration=%s stream=%s)",
-                integration_id, stream, exc_info=True,
-            )
 
     async def open(self) -> bool:
         """Carrega a integração e as regras do lote (rotas, OCSF, supressão,
@@ -1525,7 +1435,6 @@ class StreamProcessor:
         mapping_current = self.mapping_current
         capture_buf = self.capture_buf
         unsettled_claims = self.unsettled_claims
-        _pending_set = self._pending_set
         _quarantine_budget_ok = self._quarantine_budget_ok
         _ocsf_enforcement = self._ocsf_enforcement
         _suppress_routes = self._suppress_routes
@@ -1538,20 +1447,10 @@ class StreamProcessor:
         _inflight_acc = self._inflight_acc
         _inflight_rules = self._inflight_rules
         evaluate_ruleset = self._evaluate_ruleset
-        # Dedupe: claim Redis (ciclo inline; resolvido no módulo a cada chamada,
-        # que é o seam que os testes trocam) ou a janela da partição (processor).
-        claim = _redis_claim if self._dedupe is None else self._window_claim
-
         # RNF07 — idempotência. Aplicada SOBRE o raw, antes
         # da normalização, para evitar reprocessar evento
-        # já visto mesmo que o mapping tenha mudado.
-        if not await claim(
-            redis,
-            integration_id,
-            msg_id,
-            ttl_seconds=config.effective_dedupe_ttl_seconds,
-            pending_set=_pending_set,
-        ):
+        # já visto mesmo que o mapping tenha mudado. Janela da partição.
+        if not self._dedupe.claim(integration_id, msg_id):
             DEDUPE_DROPS.labels(vendor=platform, stream=stream).inc()
             # TAP DE DEDUPE. Antes disto o evento sumia SEM registro
             # nenhum: o ``continue`` acontece antes de qualquer tap e
@@ -2047,11 +1946,6 @@ class StreamProcessor:
         ):
             await self.flush()
 
-    async def _window_claim(
-        self, redis: Any, integration_id: int, msg_id: str, **_kw: Any
-    ) -> bool:
-        return self._dedupe.claim(integration_id, msg_id)
-
     async def flush(self) -> None:
         """Entrega o lote corrente ao data-plane e liquida as claims dele.
 
@@ -2105,10 +1999,7 @@ class StreamProcessor:
         # descartaria o evento como duplicado.
         batch_msg_ids = self.batch_msg_ids
         self.unsettled_claims.difference_update(batch_msg_ids)
-        if self._dedupe is not None:
-            self._dedupe.settle(integration_id, batch_msg_ids)
-        else:
-            await _settle_pending_claims(self.redis, self._pending_set, batch_msg_ids)
+        self._dedupe.settle(integration_id, batch_msg_ids)
         self.batch_msg_ids = []
         self.batch = []
         self.batch_suppressed = {}
@@ -2177,161 +2068,28 @@ class StreamProcessor:
             await flush_inflight(self._inflight_acc, self._inflight_org_id)
         except Exception:  # noqa: BLE001
             logger.exception("inflight: flush falhou no encerramento do ciclo")
-        # Solta as claims NÃO LIQUIDADAS (ADR-0015 Fase 2). Num run bem-sucedido
-        # o conjunto está vazio — todo id saiu no ``_enqueue_dispatch`` — então
-        # isto é no-op. No ``finally`` do chamador e não no ``except`` de
-        # propósito: cobre também ``WorkerShutdown``, que deriva de
-        # ``BaseException`` e escapa de ``except Exception``. Sem isto, um run
-        # interrompido deixava as claims de pé até o TTL e o retry descartava os
-        # eventos como duplicados — perda silenciosa. OBRIGATORIAMENTE antes do
-        # ``aclose`` do Redis: o DEL iria contra um cliente fechado.
-        unsettled_claims = self.unsettled_claims
-        if self._dedupe is not None:
-            # Janela em memória: devolver as claims em voo é um set.discard, e não
-            # há conjunto de pendentes no Redis para limpar.
-            self._dedupe.release(integration_id, unsettled_claims)
-            unsettled_claims.clear()
-            return
-        _pending_clear = not unsettled_claims
-        if unsettled_claims:
-            try:
-                from .state.dedupe import release_many as _release_many
-
-                _n = await _release_many(redis, integration_id, unsettled_claims)
-                _pending_clear = True
-                logger.warning(
-                    "dedupe: %d claim(s) não liquidada(s) solta(s) p/ replay seguro "
-                    "(integration=%s stream=%s) — os eventos serão recoletados em vez "
-                    "de descartados como duplicados",
-                    _n, integration_id, stream,
-                    extra={
-                        "event": "dedupe.claims_released",
-                        "integration_id": integration_id,
-                        "stream": stream,
-                        "released": _n,
-                    },
-                )
-            except Exception:  # noqa: BLE001 — jamais mascara a exceção original
-                logger.exception("dedupe: falha ao soltar claims não liquidadas")
-        # Encerrado com toda claim liquidada ou solta: o conjunto de pendentes
-        # zera. Se o release falhou, o conjunto FICA — é ele que deixa o próximo
-        # ciclo soltar essas claims (ADR-0018 Onda 0).
-        if _pending_clear:
-            try:
-                await redis.delete(self._pending_set)
-            except Exception:  # noqa: BLE001 — a recuperação do próximo ciclo cobre
-                logger.debug("dedupe: falha ao limpar o conjunto de pendentes", exc_info=True)
-
-
-async def _run_collection_once(integration_id: int, stream: str) -> None:
-    if pipeline_mode_for(integration_id) == PIPELINE_MODE_RAW:
-        await _collect_to_raw(integration_id, stream)
-        return
-    # Cada task cria e fecha seu próprio cliente Redis efêmero.
-    # Pool compartilhado foi revertido: ConnectionPool async
-    # vincula coroutines ao loop de criação; tasks Celery prefork abrem
-    # um loop por task via asyncio.run() → "Event loop is closed".
-    from .celery_app import get_worker_redis
-
-    redis = get_worker_redis()
-    redis_owns = True  # sempre efêmero — fechar no finally é obrigatório
-
-    # O ciclo roda com a trava do stream: nenhum outro está reivindicando, então
-    # o que sobrou no conjunto de pendentes é órfão de um ciclo morto.
-    processor = StreamProcessor(
-        integration_id, stream, redis, pending_set_key(integration_id, stream)
-    )
-    await processor.recover_orphan_claims()
-
-    cursor_store = CursorStore(redis)
-    cursor_before: Optional[Dict[str, Any]] = None
-    # Fim de ciclo (ack/nack de fonte de fila): o ``except`` chama
-    # ``on_cycle_aborted`` no coletor, e a falha pode vir ANTES de ele existir
-    # (token, mapping). Sem este None antes do try, o ``except`` levantaria
-    # ``UnboundLocalError`` e mascararia o erro original (incidente jul/2026).
-    collector: Optional[Any] = None
-
-    try:
-        if not await processor.open():
-            return
-        platform = processor.platform
-        registration = processor.registration
-
-        # ── 2. Token OAuth com cache Redis + lock distribuído (RF08) ──
-        access_token = await get_or_refresh_token(
-            redis,
-            integration_id=integration_id,
-            refresh_fn=registration.refresh_fn,
-            vendor=platform,
-        )
-        headers = _headers_for(platform, processor.integration, access_token)
-
-        # ── 3. Carrega config + mapping atual ─────────────────────────
-        await processor.load_mapping()
-        config = processor.config
-
-        rate_limiter = RedisRateLimiter(redis, config.rate_limits_by_vendor)
-        domain_limiter = DomainLimiter(redis, config.domain_concurrency_limits)
-        cursor_before = await cursor_store.load(integration_id, stream)
-
-        # ── 4. Loop async de coleta ───────────────────────────────────
-        async with _aiohttp_session() as session:
-            ctx = CollectorContext(
-                integration_id=integration_id,
-                organization_id=processor.organization_id,
-                platform=platform,
-                headers=headers,
-                session=session,
-                cursor=cursor_before,
-                domain_limiter=domain_limiter,
-                rate_limiter=rate_limiter,
-                redis=redis,
-                filters=_load_collection_filters(processor.integration, registration, stream),
-            )
-            collector = processor.collector_cls(ctx)
-
-            try:
-                async for raw_event in collector.collect():
-                    await processor.process(raw_event, _resolve_message_id(collector, raw_event))
-            except aiohttp.ClientResponseError as exc:
-                await _raise_vendor_auth_error(exc, redis, integration_id, stream, platform)
-
-            # Flush TERMINAL — também liquida as claims do último lote; sem isso
-            # o ``close`` as soltaria e o retry reprocessaria (duplicata evitável).
-            await processor.flush()
-
-        await _commit_cycle(
-            cursor_store, processor.collector_cls, ctx, collector,
-            integration_id, stream, processor.events_count,
-        )
-
-    except Exception as exc:
-        # O run falhou e o cursor NÃO avança (será reprocessado). As claims
-        # tomadas neste run são soltas no ``close`` para que o retry re-reclame e
-        # re-produza — senão um produce que falhou deixaria o evento
-        # reclamado-mas-não-entregue, e o reprocesso o descartaria como
-        # "duplicado" (perda silenciosa). Eventos que já foram produzidos serão
-        # reentregues e o dedupe-no-destino (event_id) os absorve (at-least-once).
-        await _fail_cycle(exc, cursor_store, cursor_before, collector, integration_id, stream)
-        raise
-    finally:
-        await processor.close()
-        # Fecha conexão apenas se for efêmera (sem pool compartilhado do worker).
-        if redis_owns:
-            await redis.aclose()
+        # Devolve à janela as claims NÃO LIQUIDADAS (ADR-0015 Fase 2): num lote
+        # bem-sucedido o conjunto está vazio; num lote que falhou, os eventos
+        # voltam a ser processados quando o Kafka reentregar o registro, em vez
+        # de descartados como duplicados.
+        self._dedupe.release(integration_id, self.unsettled_claims)
+        self.unsettled_claims.clear()
 
 
 class RawProducer:
     """Estágio "coleta só coleta" (ADR-0018 Onda 3): mesma interface de
     ``StreamProcessor`` (``process`` por evento, ``flush`` no fim), mas só junta
     os eventos crus e os grava no tópico raw com ``acks=all``, em lotes por
-    tamanho ou tempo. O ciclo de coleta e o backfill escolhem um ou outro pelo
-    modo de pipeline da integração."""
+    tamanho ou tempo. Usado pelo ciclo de coleta e pelo backfill
+    (``historical=True``)."""
 
-    def __init__(self, integration_id: int, stream: str, config: Any) -> None:
+    def __init__(
+        self, integration_id: int, stream: str, config: Any, *, historical: bool = False
+    ) -> None:
         self.integration_id = integration_id
         self.stream = stream
         self.config = config
+        self.historical = historical
         self.events_count = 0
         self._pending: list[Dict[str, Any]] = []
         self._ids: list[str] = []
@@ -2355,16 +2113,18 @@ class RawProducer:
             from .dataplane.raw import produce_raw_async
 
             await produce_raw_async(
-                self.integration_id, self.stream, self._pending, ids=self._ids
+                self.integration_id, self.stream, self._pending, ids=self._ids,
+                historical=self.historical,
             )
             self._pending, self._ids = [], []
         self._last_flush = time.monotonic()
 
 
-async def _collect_to_raw(integration_id: int, stream: str) -> None:
-    """Ciclo "coleta só coleta" (ADR-0018 Onda 3): busca, grava no tópico raw com
-    ``acks=all`` e só então avança o cursor. Não deduplica, não normaliza e não
-    roteia — isso é do ``processor``.
+async def _run_collection_once(integration_id: int, stream: str) -> None:
+    """Ciclo de coleta — "coleta só coleta" (ADR-0018): busca, grava no tópico
+    raw com ``acks=all`` e só então avança o cursor. Não deduplica, não normaliza
+    e não roteia — isso é do papel ``processor``. Desde a Onda 5 é o ÚNICO ciclo:
+    o processamento dentro da task de coleta saiu.
 
     Um crash entre o produce e o cursor faz o próximo ciclo re-buscar e
     re-gravar a borda; o dedupe do ``processor`` absorve (at-least-once). Falha
@@ -2383,6 +2143,15 @@ async def _collect_to_raw(integration_id: int, stream: str) -> None:
         platform = view.platform
         registration = _registration_for(platform, stream)
         if registration is None:
+            return
+        if registry_is_push(platform):
+            # Fonte push não tem o que buscar: o ingest e o receptor syslog gravam
+            # direto no raw. A agenda não cria entrada para ela (scheduler); isto
+            # cobre uma entrada antiga ainda no RedBeat.
+            logger.debug(
+                "collection: stream push sem ciclo integration_id=%s stream=%s",
+                integration_id, stream,
+            )
             return
         access_token = await get_or_refresh_token(
             redis,
@@ -2435,9 +2204,9 @@ async def process_raw_events(
     stream: str,
     events: list[Dict[str, Any]],
     *,
+    dedupe: Any,
     ids: Optional[list[str]] = None,
-    scope: str = "",
-    dedupe: Optional[Any] = None,
+    historical: bool = False,
 ) -> bool:
     """Processa um lote lido do tópico raw, SEM ciclo de coleta (ADR-0018 Onda 3).
 
@@ -2446,11 +2215,9 @@ async def process_raw_events(
     ausentes (fonte push), saem do ``extract_message_id`` da classe registrada,
     que não depende de estado da instância.
 
-    ``scope`` separa o conjunto de claims pendentes por partição: vários
-    processadores tratam o mesmo (integração, stream) em partições diferentes, e
-    a recuperação de órfãs só pode tocar claims da partição que este detém.
-    ``dedupe`` é a janela em memória da partição (Onda 3c); com ela o dedupe não
-    vai ao Redis.
+    ``dedupe`` é a janela em memória da partição (Onda 3c). ``historical`` marca
+    o lote de um backfill: a classificação em voo roda igual, mas o batimento da
+    ausência não é gravado.
 
     Devolve False quando nada foi processado (integração inativa ou coletor não
     registrado) — o chamador manda o lote à DLQ em vez de commitar em silêncio.
@@ -2459,10 +2226,10 @@ async def process_raw_events(
     from .celery_app import get_worker_redis
 
     redis = get_worker_redis()
-    pending = pending_set_key(integration_id, f"{stream}:{scope}" if scope else stream)
-    processor = StreamProcessor(integration_id, stream, redis, pending, dedupe=dedupe)
+    processor = StreamProcessor(
+        integration_id, stream, redis, dedupe, historical=historical
+    )
     try:
-        await processor.recover_orphan_claims()
         if not await processor.open():
             return False
         await processor.load_mapping()
@@ -2488,16 +2255,6 @@ async def process_raw_events(
         await redis.aclose()
 
 
-async def _settle_pending_claims(redis: Any, pending_set: str, ids: list[str]) -> None:
-    """Tira as claims liquidadas do conjunto de pendentes. Best-effort: falhar
-    aqui só faz a recuperação soltar uma claim já liquidada (duplicata, nunca
-    perda)."""
-    try:
-        await settle_pending(redis, pending_set, ids)
-    except Exception:  # noqa: BLE001
-        logger.debug("dedupe: falha ao liquidar pendentes em %s", pending_set, exc_info=True)
-
-
 def _enqueue_dispatch(
     batch: list[Dict[str, Any]],
     routes: Optional[list[Any]] = None,
@@ -2515,7 +2272,7 @@ def _enqueue_dispatch(
     avalia cada evento contra as rotas (first-match, ``is_final`` stop vs
     clone+continue fan-out, ``drop``) e enfileira sub-lotes por destino. TODOS
     os destinos (incl. wazuh-default) vão pela MESMA via —
-    ``dispatch_to_destination`` shardeado (ou Kafka quando EVENT_DATAPLANE=kafka).
+    o tópico ``deliver`` do data-plane Kafka.
     Vendor-neutro: evento sem rota casada vai ao destino ``is_default`` se houver,
     senão à DLQ (``unrouted``). Os produtores chamam este helper.
 
@@ -2964,14 +2721,13 @@ def _enqueue_routed(
 ) -> None:
     """Split the batch per-event via the routing engine and
     enqueue one (sub-)batch per resolved destination. ALL destinations (incl. the
-    Wazuh syslog destination) go through the SAME path — Kafka data-plane when
-    ``EVENT_DATAPLANE=kafka``, else the sharded ``dispatch_to_destination``. There is
-    no longer a wazuh-default special-case (it is a normal syslog_rfc3164 dest)."""
+    Wazuh syslog destination) go through the SAME path: the Kafka ``deliver``
+    topic, consumed by the ``dispatcher`` role. There is no wazuh-default
+    special-case (it is a normal syslog_rfc3164 dest)."""
     from . import tracing
+    from .dataplane import produce_delivery
     from .metrics import ROUTE_EVENTS, ROUTING_DECISIONS
-    from .queues import dispatch_dest_shard_queue
     from .routing import route_batch
-    from .tasks import dispatch_to_destination
 
     # traceparent corrente; VAZIO ⇒ kwargs byte-idêntico (tracing off).
     tp = tracing.carrier()
@@ -3133,42 +2889,13 @@ def _enqueue_routed(
         for _r_org, _r_bytes in _raw_dropped_bytes.items():
             _metering_raw.record_raw_drop_saving(_r_org, _r_bytes)
 
-    # backpressure (drop_newest): resolve o plano de entrega POR DESTINO só
-    # quando a feature está ON (sem custo de DB no default). Mapeia destination_id
-    # → item {shard_queue, queue_ceiling, backpressure} para a decisão de shed.
-    _shed_lookup: dict[str, Dict[str, Any]] = {}
-    if settings.BACKPRESSURE_E6_ENABLED:
-        from .delivery import resolve_dispatch_plan
-
-        _shed_lookup = {
-            p["destination_id"]: p
-            for p in resolve_dispatch_plan(_batch_org_id(batch))
-        }
-
     for dest_id, events in result.sub_batches.items():
         if not events:
             continue
-        # Vendor-neutro: TODOS os destinos fluem uniformemente
-        # pela MESMA via — wazuh-default não é mais special-case. Ele é um
-        # ``Destination`` syslog_rfc3164 normal, entregue por
-        # ``dispatch_batch_to_destination`` (mesmo wire RFC3164), com backpressure
-        # E6 e durabilidade Kafka como qualquer outro destino.
-        # descarta o sub-lote NOVO se a shard queue do destino passou do teto
-        # (drop_newest) — protege o broker de OOM.
-        _item = _shed_lookup.get(dest_id)
-        if _item is not None and _should_shed_dispatch(_item, len(events)):
-            continue
-        if settings.EVENT_DATAPLANE == "kafka":
-            # data-plane durável: sub-lote → tópico Kafka ``deliver`` (key=dest_id),
-            # consumido pelo role dispatcher.
-            from .dataplane import produce_delivery
-
-            produce_delivery(dest_id, events, tp or None)
-        else:
-            dispatch_to_destination.apply_async(
-                kwargs={"destination_id": dest_id, "batch": events, **tp},
-                queue=dispatch_dest_shard_queue(dest_id),
-            )
+        # Vendor-neutro: TODOS os destinos (wazuh-default incluso) seguem pela
+        # MESMA via — o tópico ``deliver``, consumido pelo papel dispatcher, que
+        # entrega, estaciona (destino fora) ou manda à DLQ (poison).
+        produce_delivery(dest_id, events, tp or None)
 
 
 def _record_dest_observability(
@@ -3260,63 +2987,6 @@ def _record_lineage_for_batch(
             destination_id,
             exc_info=True,
         )
-
-
-# Rate-limit do log de shed: 1 a cada N descartes por destino (evita spam).
-_SHED_LOG_EVERY = 100
-_shed_log_counter: Dict[str, int] = {}
-
-
-def _should_shed_dispatch(item: Dict[str, Any], batch_len: int) -> bool:
-    """E6: True se o lote deve ser DESCARTADO antes do enqueue (drop_newest).
-
-    Só descarta quando: a flag E6 está ON, a política do destino é
-    ``drop_newest``, há teto efetivo (>0) e a profundidade da shard queue passou
-    do teto. Fail-open (broker inacessível → não descarta). Publica a métrica de
-    profundidade observada sempre que conseguir lê-la.
-    """
-    if not settings.BACKPRESSURE_E6_ENABLED:
-        return False
-    if item.get("backpressure") != "drop_newest":
-        return False
-
-    ceiling = int(item.get("queue_ceiling") or 0) or settings.DISPATCH_QUEUE_CEILING
-    if ceiling <= 0:
-        return False
-
-    from . import load_shedder
-    from .metrics import DISPATCH_SHED_TOTAL, QUEUE_DEPTH
-
-    shed, depth = load_shedder.should_shed(item["shard_queue"], ceiling)
-    if depth is not None:
-        QUEUE_DEPTH.labels(queue=item["shard_queue"]).set(depth)
-        # native gauges for the UI (per destination) — queue depth +
-        # current backpressure state (ok vs shedding at the ceiling).
-        from . import observability_store as _obs
-
-        _obs.set_gauge("dest", item["destination_id"], "queue_depth", depth)
-        _obs.set_gauge(
-            "dest", item["destination_id"], "backpressure_state", "shedding" if shed else "ok"
-        )
-    if not shed:
-        return False
-
-    dest_id = item["destination_id"]
-    # DISPATCH_SHED_TOTAL is the AUTHORITATIVE shed counter. We deliberately do
-    # NOT touch EVENTS_REJECTED here: that series is DLQ-bound (every
-    # increment maps to a DestinationDeadLetter row) and a shed drop never writes
-    # the DLQ — conflating them would over-report DLQ rejections by shed volume.
-    DISPATCH_SHED_TOTAL.labels(destination_id=dest_id, reason="queue_ceiling").inc()
-
-    count = _shed_log_counter.get(dest_id, 0) + 1
-    _shed_log_counter[dest_id] = count
-    if count % _SHED_LOG_EVERY == 1:
-        logger.warning(
-            "E6 load-shedding: destino %s acima do teto (depth=%s ceiling=%s) — "
-            "descartando lote NOVO (drop_newest); %d descartes acumulados",
-            dest_id, depth, ceiling, count,
-        )
-    return True
 
 
 def _batch_org_id(batch: list[Dict[str, Any]]) -> Optional[int]:
@@ -3481,7 +3151,7 @@ async def _send_chunk_with_retry(
                 and (time.monotonic() - loop_start) >= max_elapsed_s
             ):
                 logger.warning(
-                    "dispatch_to_destination: max_elapsed_ms (%d) excedido dest=%s "
+                    "dispatch: max_elapsed_ms (%d) excedido dest=%s "
                     "no attempt=%d — interrompe retries (vai à DLQ/autoretry)",
                     retry_cfg.max_elapsed_ms,
                     dest_config.destination_id,
@@ -3491,7 +3161,7 @@ async def _send_chunk_with_retry(
             RETRIES.labels(**labels).inc()
             delay = backoff_delay_s(retry_cfg, attempt - 1)
             logger.info(
-                "dispatch_to_destination: retry attempt=%d/%d dest=%s — "
+                "dispatch: retry attempt=%d/%d dest=%s — "
                 "aguardando %.3fs (exponential backoff)",
                 attempt,
                 max_retries,
@@ -3514,7 +3184,7 @@ async def _send_chunk_with_retry(
             DELIVERY_LATENCY.labels(**labels).observe(elapsed)
             await circuit_breaker.record_failure_for_config(redis, dest_config)
             logger.warning(
-                "dispatch_to_destination: timeout (%.0f ms) dest=%s attempt=%d/%d",
+                "dispatch: timeout (%.0f ms) dest=%s attempt=%d/%d",
                 dcfg.timeout_ms,
                 dest_config.destination_id,
                 attempt,
@@ -3540,7 +3210,7 @@ async def _send_chunk_with_retry(
             if isinstance(exc, (OSError, aiohttp.ClientError)):
                 await circuit_breaker.record_failure_for_config(redis, dest_config)
             logger.warning(
-                "dispatch_to_destination: falha de envio %s dest=%s attempt=%d/%d",
+                "dispatch: falha de envio %s dest=%s attempt=%d/%d",
                 type(exc).__name__,
                 dest_config.destination_id,
                 attempt,
@@ -3576,7 +3246,7 @@ async def _send_chunk_with_retry(
             elif result.rejected:
                 # DLQ write failed — treat as transient so acks_late catches it.
                 logger.error(
-                    "dispatch_to_destination: DLQ persist FAILED destination_id=%s "
+                    "dispatch: DLQ persist FAILED destination_id=%s "
                     "(%d rejeitados) — re-tentando lote (E3 durability)",
                     dest_config.destination_id,
                     len(result.rejected),
@@ -3595,7 +3265,7 @@ async def _send_chunk_with_retry(
             # events, a whole-batch retry would DUPLICATE them.
             if result.accepted or result.rejected:
                 logger.error(
-                    "dispatch_to_destination: sender kind=%s returned retryable=True "
+                    "dispatch: sender kind=%s returned retryable=True "
                     "with accepted=%d rejected=%d — whole-batch retry would "
                     "DUPLICATE accepted events (E2). Needs per-item retry before "
                     "this sender is enabled.",
@@ -3705,7 +3375,7 @@ async def dispatch_batch_to_destination(
         from .metrics import DISPATCH_FAILURES
 
         logger.warning(
-            "dispatch_to_destination: destino %s ausente/desabilitado — "
+            "dispatch: destino %s ausente/desabilitado — "
             "persistindo lote na DLQ (error_kind=destination_missing, zero perda)",
             destination_id,
         )
@@ -3741,7 +3411,7 @@ async def dispatch_batch_to_destination(
         from .metrics import DISPATCH_FAILURES
 
         logger.error(
-            "dispatch_to_destination: CROSS-TENANT recusado dest=%s dest_org=%s batch_org=%s "
+            "dispatch: CROSS-TENANT recusado dest=%s dest_org=%s batch_org=%s "
             "— lote p/ DLQ (error_kind=cross_tenant_destination, fail-closed)",
             destination_id, dest_config.organization_id, _batch_org,
         )
@@ -4075,8 +3745,8 @@ async def dispatch_batch_to_destination(
             )
 
     except circuit_breaker.BreakerOpen:
-        # terminal — propagate out to the except-all in
-        # dispatch_to_destination, which calls dispatch_to_dlq (no autoretry).
+        # terminal — propagate to the dispatcher, which parks the batch in
+        # ``deliver.parked`` until the destination is back (ADR-0018 Onda 4a).
         # Registra o desfecho ANTES de propagar (best-effort: não mascara o erro) —
         # sem isto, "o breaker abriu" é justamente o caso invisível na escuta.
         await _capture_delivery_failed(batch, destination_id, "circuit breaker aberto")
@@ -4094,7 +3764,7 @@ async def dispatch_batch_to_destination(
                 await redis.aclose()
         except Exception:  # pragma: no cover - defensive
             logger.debug(
-                "dispatch_to_destination: redis.aclose() falhou (ignorado)",
+                "dispatch: redis.aclose() falhou (ignorado)",
                 exc_info=True,
             )
     # ``BYTES_SENT`` é incrementado em ``_send_chunk_with_retry`` com os

@@ -13,11 +13,10 @@ os.environ.setdefault("APP_MASTER_KEY", "test-master-key-for-centralops-suite-12
 os.environ.setdefault("APP_ENV", "test")
 
 import pytest
-from pydantic import ValidationError
 
 from backend.app.collectors import dataplane
 from backend.app.collectors.dataplane import kafka_transport as kt
-from backend.app.core.config import Settings, settings
+from backend.app.core.config import settings
 
 _KEY = "test-master-key-for-centralops-suite-12345"
 
@@ -61,19 +60,6 @@ def test_client_kwargs_sasl(monkeypatch):
     assert kw["sasl_mechanism"] == "SCRAM-SHA-256"
     assert kw["sasl_plain_username"] == "u"
     assert kw["sasl_plain_password"] == "p"
-
-
-# ── EVENT_DATAPLANE validator ──────────────────────────────────────────────────
-
-def test_event_dataplane_accepts_valid():
-    for v in ("celery", "kafka", "KAFKA"):
-        s = Settings(_env_file=None, APP_MASTER_KEY=_KEY, EVENT_DATAPLANE=v)
-        assert s.EVENT_DATAPLANE == v.lower()
-
-
-def test_event_dataplane_rejects_invalid():
-    with pytest.raises(ValidationError):
-        Settings(_env_file=None, APP_MASTER_KEY=_KEY, EVENT_DATAPLANE="bogus")
 
 
 # ── Producer singleton (aiokafka FAKE) ─────────────────────────────────────────

@@ -60,7 +60,7 @@ from backend.app.collectors.routing import (
     route_batch,
     validate_condition,
 )
-from backend.app.collectors.state import dedupe
+from backend.app.collectors.state.dedupe_window import DedupeWindow
 
 
 # ── A regra REAL: o matcher não é dublê ─────────────────────────────────────
@@ -127,7 +127,6 @@ class _FakeDb:
 class _FakeConfig:
     collector_batch_size = 100  # um hand-off só: o lote inteiro chega junto
     collector_batch_flush_seconds = 1e9
-    effective_dedupe_ttl_seconds = 60
     rate_limits_by_vendor: dict = {}
     domain_concurrency_limits: dict = {}
 
@@ -243,15 +242,6 @@ def harness(monkeypatch):
     monkeypatch.setattr(pipeline.drift, "should_capture", lambda *a, **k: False)
     monkeypatch.setattr(pipeline.sample_reservoir, "push", lambda *a, **k: _noop_coro())
 
-    async def _claim(redis, integration_id, msg_id, **kw):
-        return True
-
-    monkeypatch.setattr(pipeline, "claim", _claim)
-
-    async def _release_many(redis, integration_id, ids):
-        return len(list(ids))
-
-    monkeypatch.setattr(dedupe, "release_many", _release_many)
 
     # O detector, LIGADO: ruleset não vazio ⇒ o bloco roda por evento.
     monkeypatch.setattr(
@@ -283,10 +273,9 @@ def harness(monkeypatch):
             # justamente o que este cenário precisa ver sobreviver.
             monkeypatch.setattr(pipeline, "_DETECTION_MATCHED_FIELD", [])
 
+        raws = _RAWS if raw_events is None else raw_events
         reg = _FakeRegistration()
-        reg.collector_cls = _make_collector_cls(
-            _RAWS if raw_events is None else raw_events
-        )
+        reg.collector_cls = _make_collector_cls(raws)
         monkeypatch.setattr(pipeline, "registry_get", lambda p, s: reg)
 
         def _dispatch(batch, routes=None, **kw):
@@ -297,9 +286,9 @@ def harness(monkeypatch):
 
         monkeypatch.setattr(pipeline, "_enqueue_dispatch", _dispatch)
 
-        return asyncio.run(
-            pipeline._run_collection_once(integration_id=42, stream="alerts")
-        )
+        return asyncio.run(pipeline.process_raw_events(
+            42, "alerts", list(raws), dedupe=DedupeWindow(max_ids=1000, ttl_seconds=3600)
+        ))
 
     return sonda, run
 

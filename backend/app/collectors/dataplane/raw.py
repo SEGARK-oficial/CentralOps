@@ -9,7 +9,7 @@ entre o 200 e o processamento — sem réplica, com teto de memória e dividindo
 
 Registro = um lote de eventos de UM (integração, stream), enquadrado por tamanho
 como o tópico de entrega. Desde a Onda 3 os coletores PULL também gravam aqui
-("coleta só coleta", ``pipeline._collect_to_raw``) e mandam junto, em ``ids``, o
+("coleta só coleta", ``pipeline._run_collection_once``) e mandam junto, em ``ids``, o
 id de dedupe que o coletor calculou — o processor não instancia coletor. Registro
 sem ``ids`` (push) tem o id derivado no processamento. Chave = ``<integração>:<stream>:<shard>``: o shard
 espalha um stream grande por várias partições (e processadores), já que eventos
@@ -69,6 +69,7 @@ def encode_raw(
     *,
     received_at: Optional[float] = None,
     ids: Optional[List[str]] = None,
+    historical: bool = False,
 ) -> bytes:
     doc: Dict[str, Any] = {
         "v": _RAW_VERSION,
@@ -79,6 +80,10 @@ def encode_raw(
     }
     if ids is not None:
         doc["ids"] = [str(i) for i in ids]
+    if historical:
+        # Lote de backfill (ADR-0018 Onda 3d): o processor não grava o batimento
+        # da ausência com ele — o evento é passado, não a fonte viva agora.
+        doc["historical"] = True
     return json.dumps(
         doc,
         separators=(",", ":"),
@@ -112,20 +117,28 @@ def _raw_frames(
     limit: int,
     received_at: float,
     ids: Optional[List[str]] = None,
+    historical: bool = False,
 ) -> Iterator[Tuple[List[Mapping[str, Any]], bytes]]:
     """Divide por bisseção até cada registro caber em ``limit`` bytes (os ``ids``
     acompanham os eventos na mesma posição)."""
     if not events:
         return
-    value = encode_raw(integration_id, stream, events, received_at=received_at, ids=ids)
+    value = encode_raw(
+        integration_id, stream, events, received_at=received_at, ids=ids,
+        historical=historical,
+    )
     if len(value) <= limit or len(events) == 1:
         yield events, value
         return
     mid = len(events) // 2
     left = ids[:mid] if ids is not None else None
     right = ids[mid:] if ids is not None else None
-    yield from _raw_frames(integration_id, stream, events[:mid], limit, received_at, left)
-    yield from _raw_frames(integration_id, stream, events[mid:], limit, received_at, right)
+    yield from _raw_frames(
+        integration_id, stream, events[:mid], limit, received_at, left, historical
+    )
+    yield from _raw_frames(
+        integration_id, stream, events[mid:], limit, received_at, right, historical
+    )
 
 
 _raw_topic_ready = False
@@ -157,6 +170,7 @@ def produce_raw(
     stream: str,
     events: List[Mapping[str, Any]],
     ids: Optional[List[str]] = None,
+    historical: bool = False,
 ) -> int:
     """Grava ``events`` no tópico raw e BLOQUEIA até o ack (``acks=all``).
 
@@ -164,7 +178,8 @@ def produce_raw(
     chamador responde 503 e a borda re-tenta; nada foi confirmado. Um evento
     sozinho maior que o teto levanta :class:`OversizedRawEventError` ANTES de
     gravar qualquer coisa do lote (o endpoint já recusa evento > 1 MiB no parse).
-    ``ids`` (opcional) são os ids de dedupe, um por evento.
+    ``ids`` (opcional) são os ids de dedupe, um por evento. ``historical`` marca
+    o lote de um backfill.
     """
     if not events:
         return 0
@@ -192,7 +207,9 @@ def produce_raw(
     planned = []
     for shard, evs, sids in parts:
         key = raw_key(integration_id, stream, shard)
-        for sub, value in _raw_frames(integration_id, stream, evs, limit, received_at, sids):
+        for sub, value in _raw_frames(
+            integration_id, stream, evs, limit, received_at, sids, historical
+        ):
             if len(sub) == 1 and _exceeds_request_limit(value, key):
                 raise OversizedRawEventError(
                     f"evento de {len(value)} bytes excede KAFKA_MAX_REQUEST_BYTES "
@@ -210,6 +227,9 @@ async def produce_raw_async(
     stream: str,
     events: List[Mapping[str, Any]],
     ids: Optional[List[str]] = None,
+    historical: bool = False,
 ) -> int:
     """:func:`produce_raw` fora do event loop (o produce bloqueia até o ack)."""
-    return await asyncio.to_thread(produce_raw, integration_id, stream, events, ids)
+    return await asyncio.to_thread(
+        produce_raw, integration_id, stream, events, ids, historical
+    )

@@ -215,23 +215,19 @@ class Settings(BaseSettings):
     # intervalo maior (sophos cases/detections) NUNCA disparavam (jul/2026).
     REDBEAT_LOCK_TIMEOUT: int = 150
 
-    # ── data-plane durável (control/data-plane split) ──
-    # Backend de TRANSPORTE de evento (data-plane), separado do control-plane
-    # (Celery+Redis: scheduling, OAuth, breaker, rate-limit, observability — que
-    # PERMANECE no Celery+Redis). Valores:
-    #   "celery" — legado: o lote viaja como payload de task no broker Redis
-    #              (dev/test sem broker; é o DEFAULT só por ergonomia de teste).
-    #   "kafka"  — durável: o lote é produzido num tópico Kafka/Redpanda e um
-    #              consumer dedicado (role ``dispatcher``) despacha. É o caminho de
-    #              DEPLOY — o compose e o Helm setam EVENT_DATAPLANE=kafka.
-    EVENT_DATAPLANE: str = "celery"
+    # ── data-plane (ADR-0018) ──
+    # O evento viaja SÓ pelo Kafka/Redpanda: coleta e ingestão gravam no tópico
+    # raw, o papel ``processor`` transforma e grava no ``deliver``, e o papel
+    # ``dispatcher`` entrega ou estaciona. Celery+Redis ficam no control-plane
+    # (agenda, OAuth, breaker, rate-limit, observabilidade) e nunca carregam
+    # lote de evento (a lane Celery de entrega saiu na Onda 5).
     # Bootstrap do broker (Redpanda self-host, MSK, Redpanda Cloud, Confluent…).
     KAFKA_BOOTSTRAP_SERVERS: str = "localhost:9092"
     # Prefixo de tópico — isola ambientes que compartilham um cluster.
     KAFKA_TOPIC_PREFIX: str = "centralops"
     # Tópico de entrega (sufixado ao prefixo): 1 tópico, N partições, key=dest_id
     # → mesma destinação sempre na mesma partição (ordem + HoL-blocking limitado,
-    # espelha o DISPATCH_DEST_SHARDS do caminho Celery). Evita o anti-pattern de
+    # sub-shards por destino, ver KAFKA_DELIVER_SHARDS_PER_DEST). Evita o anti-pattern de
     # "1 tópico por destino" (cardinalidade explode com N tenants × M destinos).
     KAFKA_DELIVER_TOPIC: str = "deliver"
     KAFKA_DELIVER_PARTITIONS: int = 8
@@ -287,12 +283,6 @@ class Settings(BaseSettings):
     KAFKA_PROCESSOR_GROUP: str = "centralops-processor"
     # Registros do raw buscados por vez pelo processor (cada um é um lote de eventos).
     RAW_PROCESSOR_MAX_RECORDS: int = 50
-    # Corte por integração para "coleta só coleta" (ADR-0018 Onda 3; flag
-    # TEMPORÁRIA, sai na Onda 5). Integrações listadas gravam o evento cru no
-    # tópico raw e avançam o cursor; o processor faz o resto. "" = nenhuma,
-    # "*" = todas, ou ids separados por vírgula ("12,40"). Só vale com
-    # EVENT_DATAPLANE=kafka e com o papel processor rodando.
-    PIPELINE_RAW_INTEGRATIONS: str = ""
     # Snapshot de configuração do processor (ADR-0018 Onda 3b). Rotas, mapping,
     # regras em voo, política de enriquecimento e mapas de destino ficam em
     # memória por TTL (s) — o Postgres sai do caminho de cada lote. Com o banco
@@ -360,14 +350,6 @@ class Settings(BaseSettings):
     # senão o gauge congela quando a partição zera, o pior momento p/ o SRE).
     KAFKA_LAG_REFRESH_SECONDS: int = 15
 
-    @field_validator("EVENT_DATAPLANE")
-    @classmethod
-    def _validate_event_dataplane(cls, value: str) -> str:
-        normalized = value.strip().lower()
-        if normalized not in {"celery", "kafka"}:
-            raise ValueError("EVENT_DATAPLANE must be 'celery' or 'kafka'")
-        return normalized
-
     @model_validator(mode="after")
     def _validate_inflight_budget(self) -> "Settings":
         """O TRABALHO MÁXIMO POR EVENTO da classificação em voo é limitado.
@@ -420,24 +402,12 @@ class Settings(BaseSettings):
     # A saída desacoplada (destinos + fan-out) é o comportamento PADRÃO e
     # incondicional. A lane dedicada do Wazuh foi removida: ``wazuh-default`` é
     # um destino como qualquer outro e
-    # entrega via a lane uniforme ``dispatch_to_destination``. O catch-all é
+    # entrega pelo data-plane Kafka como os demais. O catch-all é
     # vendor-neutro (``Destination.is_default``); sem fallback, lotes sem rota
     # vão para a DLQ como ``unrouted``. NÃO há mais flag de dormência:
     # ``MULTI_DESTINATION_ENABLED`` foi removida (app pré-lançamento, sem
     # necessidade de back-compat). O roteamento por regra é o modelo ÚNICO
     # sempre-ativo (``ROUTING_ENABLED`` também removida).
-
-    # ── backpressure / load-shedding ──────────────────────────────────
-    # OFF (default): nenhum descarte; um destino backed-up conta com a
-    # durabilidade do broker + circuit breaker (que abre e fast-fail-a um sink
-    # morto, drenando a fila). ON: destinos com ``backpressure="drop_newest"`` e
-    # teto de profundidade (``delivery.queue_ceiling`` ou o teto global abaixo)
-    # têm lotes NOVOS descartados quando a shard queue passa do teto — válvula
-    # de segurança contra crescimento ilimitado do Redis (OOM multi-tenant).
-    BACKPRESSURE_E6_ENABLED: bool = False
-    # Teto global de profundidade por shard queue (0 = desabilitado). Usado como
-    # default para destinos drop_newest que não definem ``queue_ceiling`` próprio.
-    DISPATCH_QUEUE_CEILING: int = 0
 
     # ── motor de roteamento (GA, sempre ativo) ────────────────────────
     # O roteamento por regra (tabela ``routes``) é o ÚNICO modelo de despacho —
@@ -971,27 +941,6 @@ class Settings(BaseSettings):
         "microsoft_defender": {"per_second": 15, "per_minute": 600, "per_hour": 15000},
         "ninjaone": {"per_second": 5, "per_minute": 300, "per_hour": 5000},
     }
-
-    # Idempotência: TTL da chave SET NX em dias. Default reduzido de 7 → 1
-    # (raciocínio completo + números medidos em ``state/dedupe.py`` junto de
-    # ``DEFAULT_TTL_DAYS``): o TTL só precisa cobrir a janela real de
-    # reentrega (overlap de polling 1-5min, retry Celery <5min, redelivery
-    # por worker-crash limitado a visibility_timeout=3600s/1h — ver
-    # celery_app.py), não dedupe de longo prazo. 1 dia dá ~24x de folga sobre
-    # o pior caso automático, cobre replay manual do mesmo turno, e reduz o
-    # keyspace ``dedupe:*`` em ~7x — alívio direto da pressão de memória que
-    # causa evicção sob o ``volatile-lru`` 512mb do compose. Reentregas além
-    # do TTL são absorvidas pelo dedupe no destino por ``event_id``
-    # (at-least-once), então isto não é a única linha de defesa.
-    #
-    # NOTA: este campo é só o fallback de bootstrap (``_snapshot_from_env`` em
-    # config_loader.py, usado quando DB/Redis cache falham, e o seed inicial
-    # da tabela ``collector_config`` em database.py). Orgs já existentes têm
-    # ``collector_config.dedupe_ttl_days`` persistido no DB (default histórico
-    # 7, coluna em db/models.py) — mudar este env default NÃO retroage sobre
-    # orgs já provisionadas; alinhar o default do schema/DB é um follow-up
-    # fora do escopo desta mudança (fora dos arquivos tocados aqui).
-    DEDUPE_TTL_DAYS: int = 1
 
     # Coleta: flush de lote para o dispatch
     COLLECTOR_BATCH_SIZE: int = 200

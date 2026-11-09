@@ -136,21 +136,9 @@ groups:
         labels:
           severity: warning
         annotations:
-          summary: "O Redis de dedupe está evictando chaves"
+          summary: "O Redis está evictando chaves"
           description: >-
-            Com evicção, eventos re-buscados podem ser reentregues em duplicidade,
-            e travas e tokens também podem ser evictados. Aumente a memória do
-            Redis ou reduza o TTL de dedupe (chaves ≈ EPS × TTL).
+            Com evicção, cursores, travas, tokens OAuth e estado do disjuntor
+            podem sumir. O Redis guarda só estado de controle (o dedupe por evento
+            saiu no ADR-0018 Onda 5): aumente a memória dele.
           runbook: docs-site/docs/runbooks/redis-capacity.md
-
-      - alert: CentralOpsPushBufferRefusing
-        expr: sum by (vendor, stream) (rate(collector_ingest_dropped_total[5m])) > 0
-        for: 10m
-        labels:
-          severity: warning
-        annotations:
-          summary: "Buffer push recusando lotes com 503 ({{ $labels.vendor }}/{{ $labels.stream }})"
-          description: >-
-            O edge-collector recebe 503 e re-tenta pelo buffer de disco dele. Se
-            durar, o disco do edge enche: aumente a capacidade de dreno.
-          runbook: docs-site/docs/runbooks/collection-lag-backlog.md

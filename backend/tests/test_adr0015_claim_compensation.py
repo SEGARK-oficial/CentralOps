@@ -5,9 +5,10 @@ mas NÃO entregue é perda silenciosa: o run falha, o cursor não avança, o ret
 re-vê o evento, ``claim`` devolve False e ele é descartado como "duplicado". O
 log de segurança some sem erro, sem métrica e sem rastro.
 
-Existia compensação, mas gated por ``EVENT_DATAPLANE == "kafka"`` — ou seja, o
-data-plane DEFAULT não tinha nenhuma. A claim é risco do PIPELINE, não do
-transporte.
+Existia compensação, mas gated pelo data-plane — o caminho default não tinha
+nenhuma. A claim é risco do PIPELINE, não do transporte. Desde o ADR-0018 Onda 5
+a claim mora na janela em memória da partição (não há mais chave Redis), e o
+lote que falha volta do Kafka: soltá-la é o que impede a janela de descartá-lo.
 
 Este arquivo trava a IDENTIDADE DE CONSERVAÇÃO: todo id reivindicado ou foi
 entregue (e liquidado) ou foi solto. Nunca as duas, nunca nenhuma.
@@ -28,70 +29,35 @@ import re
 import pytest
 
 from backend.app.collectors import pipeline
-from backend.app.collectors.state import dedupe
+from backend.app.collectors.state.dedupe_window import DedupeWindow
 
 
-class _FakeRedis:
-    """Redis mínimo: registra os DEL recebidos."""
-
-    def __init__(self, fail: bool = False) -> None:
-        self.deleted: list[str] = []
-        self.fail = fail
-
-    async def delete(self, *keys):
-        if self.fail:
-            raise ConnectionError("redis fora do ar")
-        self.deleted.extend(keys)
-        return len(keys)
+def test_release_returns_the_claims_to_the_window():
+    """Soltar devolve o id à janela: a reentrega do lote volta a ser processada."""
+    w = DedupeWindow(max_ids=100, ttl_seconds=3600)
+    assert w.claim(7, "a") and w.claim(7, "b")
+    assert w.release(7, ["a", "b"]) == 2
+    assert w.claim(7, "a") is True and w.claim(7, "b") is True
 
 
-@pytest.mark.asyncio
-async def test_release_many_deletes_every_key_in_one_call():
-    r = _FakeRedis()
-    n = await dedupe.release_many(r, 7, ["a", "b", "c"])
-    assert n == 3
-    assert len(r.deleted) == 3
-    assert all("7" in k for k in r.deleted), "a chave precisa ser org/integração-escopada"
-
-
-@pytest.mark.asyncio
-async def test_release_many_is_a_noop_on_empty_input():
-    """Guard de R2: nada a soltar não pode custar um round-trip."""
-    r = _FakeRedis()
-    assert await dedupe.release_many(r, 7, []) == 0
-    assert await dedupe.release_many(r, 7, [None, ""]) == 0
-    assert r.deleted == []
-
-
-@pytest.mark.asyncio
-async def test_release_many_propagates_failure_to_the_best_effort_caller():
-    """Falha de Redis PRECISA subir para o chamador logar. Engolir aqui deixaria
-    a perda invisível — o resíduo é claim órfã até o TTL."""
-    with pytest.raises(ConnectionError):
-        await dedupe.release_many(_FakeRedis(fail=True), 7, ["a"])
+def test_release_is_a_noop_on_empty_input():
+    w = DedupeWindow(max_ids=100, ttl_seconds=3600)
+    assert w.release(7, []) == 0
 
 
 # ── Guards estruturais sobre o estágio de processamento ──────────────────────
 #
 # Desde a ADR-0018 Onda 3 a compensação mora em ``pipeline.StreamProcessor``
-# (``close`` solta, ``flush`` liquida), e há TRÊS chamadores: o ciclo inline
-# (``_run_collection_once``), o processor do tópico raw (``process_raw_events``) e,
-# desde a Onda 3d, o backfill (``backfill_tasks.run_backfill_collection_once``).
-# A invariante passa a ter duas metades: o estágio solta no ``close``, e todo
+# (``close`` solta, ``flush`` liquida). Desde a Onda 5 há UM chamador: o processor
+# do tópico raw (``process_raw_events``) — o ciclo de coleta e o backfill só
+# gravam no raw. A invariante tem duas metades: o estágio solta no ``close``, e o
 # chamador chama o ``close`` num ``finally`` e antes de fechar o Redis.
 
-_CALLERS = ("_run_collection_once", "process_raw_events")
+_CALLERS = ("process_raw_events",)
 
 
 def _caller_sources() -> list[tuple[str, str]]:
-    from backend.app.collectors import backfill_tasks
-
-    return [(name, inspect.getsource(getattr(pipeline, name))) for name in _CALLERS] + [
-        (
-            "run_backfill_collection_once",
-            inspect.getsource(backfill_tasks.run_backfill_collection_once),
-        )
-    ]
+    return [(name, inspect.getsource(getattr(pipeline, name))) for name in _CALLERS]
 
 
 @pytest.mark.source_only  # lê o .py; na imagem Cython o fonte não existe
@@ -106,7 +72,9 @@ def test_every_stream_processor_caller_is_guarded():
         for path in root.rglob("*.py")
         if "/tests/" not in str(path) and "StreamProcessor(" in path.read_text()
     )
-    assert callers == ["collectors/backfill_tasks.py", "collectors/pipeline.py"], callers
+    assert callers == ["collectors/pipeline.py"], callers
+    src = inspect.getsource(pipeline)
+    assert src.count("StreamProcessor(") == 1, "o estágio ganhou um chamador fora da lista"
 
 @pytest.mark.source_only  # lê o .py; na imagem Cython o fonte não existe
 def test_compensation_is_unconditional():
@@ -124,7 +92,7 @@ def test_release_runs_in_finally_not_only_in_except():
     """``except Exception`` não pega ``WorkerShutdown`` (BaseException). No
     ``finally``, o kill do worker também solta as claims."""
     close_src = inspect.getsource(pipeline.StreamProcessor.close)
-    assert "release_many" in close_src, "o close do estágio precisa soltar as claims"
+    assert "self._dedupe.release(" in close_src, "o close do estágio precisa soltar as claims"
     for name, src in _caller_sources():
         idx_finally = src.rindex("finally:")
         idx_close = src.index("await processor.close()")
@@ -212,9 +180,7 @@ def test_every_dispatch_site_settles():
     """
     handoffs, liquidacoes = _sites_de_handoff_e_liquidacao()
     for name, src in _caller_sources():
-        # O backfill chama o estágio pelo nome ``sink`` (StreamProcessor ou, no
-        # modo raw, RawProducer — mesma interface).
-        assert re.search(r"await (processor|sink)\.flush\(\)", src), f"{name}: sem flush terminal"
+        assert re.search(r"await processor\.flush\(\)", src), f"{name}: sem flush terminal"
 
     assert len(handoffs) == len(liquidacoes), (
         f"{len(handoffs)} hand-off(s) para {len(liquidacoes)} liquidação(ões). "

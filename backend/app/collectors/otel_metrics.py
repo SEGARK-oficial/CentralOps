@@ -215,18 +215,12 @@ _SPEC: Dict[str, Dict[str, Any]] = {
     # tap é estado de PROCESSO, não por org/sessão, e rotular por org daria
     # cardinalidade ilimitada num contador que só interessa como "está cego?".
     "collector_capture_tap_disabled_total": {"kind": "counter", "unit": "1", "labels": ()},
-    "collector_dispatch_shed_total": {"kind": "counter", "unit": "1", "labels": ("destination_id", "reason")},
-    "collector_dispatch_queue_depth": {"kind": "gauge", "unit": "1", "labels": ("queue",)},
     "collector_destination_breaker_state": {"kind": "gauge", "unit": "1", "labels": ("destination_id", "kind")},
-    # Ingestão push: eventos aceitos no buffer, descartados por
-    # backpressure (drop-oldest) e profundidade atual do buffer Redis por
-    # (integração, stream). ``dropped`` > 0 = perda silenciosa → alerta no Grafana.
+    # Ingestão push: eventos gravados no tópico raw (ack antes do 200).
     "collector_ingest_accepted_total": {"kind": "counter", "unit": "1", "labels": ("vendor", "stream")},
-    "collector_ingest_dropped_total": {"kind": "counter", "unit": "1", "labels": ("vendor", "stream")},
-    "collector_ingest_buffer_depth": {"kind": "gauge", "unit": "1", "labels": ("integration_id", "stream")},
-    # Eventos rejeitados no PARSE (antes do buffer): NDJSON malformado, item não-objeto
-    # ou evento acima do teto por-evento. ``reason`` = parse|type|oversize. Distinto de
-    # ``dropped`` (backpressure) — aqui a borda mandou algo que o servidor não normaliza.
+    # Eventos rejeitados no PARSE (antes do raw): NDJSON malformado, item não-objeto
+    # ou evento acima do teto por-evento. ``reason`` = parse|type|oversize — a borda
+    # mandou algo que o servidor não normaliza.
     "collector_ingest_malformed_total": {"kind": "counter", "unit": "1", "labels": ("vendor", "stream", "reason")},
     # Receptor syslog: cada mensagem recebida, por transporte e destino
     # (accepted | unknown_source | unclassified | dropped_memory). ``unknown_source``
