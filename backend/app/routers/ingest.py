@@ -22,6 +22,7 @@ import dataclasses
 import hashlib
 import json
 import logging
+import time
 import zlib
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -31,6 +32,7 @@ from redis.exceptions import RedisError
 from sqlalchemy.orm import Session
 
 from ..collectors import registry as collector_registry
+from ..collectors.vendors import aws_firehose
 from ..collectors.dataplane.raw import OversizedRawEventError, produce_raw_async
 from ..collectors.ingest_buffer import buffer_depth, push_events, push_goes_to_kafka
 from ..collectors.metrics import (
@@ -768,6 +770,111 @@ async def ingest_otlp_logs(
             "errorMessage": batch.first_error or "registros rejeitados",
         }
     return Response(content=json.dumps(payload), media_type="application/json")
+
+# ── 1c. Amazon Data Firehose (HTTP endpoint) ────────────────────────────────
+#
+# A AWS empurra direto: destino "HTTP endpoint" do Firehose com a URL
+# ``https://<host>/api/ingest/firehose/<stream>`` e o token de ingestão como
+# "access key" (chega em ``X-Amz-Firehose-Access-Key``). A decodificação dos
+# registros mora em ``collectors.vendors.aws_firehose``.
+#
+# O Firehose só entende resposta JSON com ``requestId``/``timestamp`` — também nos
+# erros — e trata 413 como falha PERMANENTE, sem gravar o lote no bucket de
+# backup. Nenhuma recusa daqui sai como 413: o lote grande demais vira 500, que
+# ele re-tenta e, esgotado o prazo, grava no backup em vez de perder.
+
+# Teto do que os registros descompactam num pedido (os da assinatura do
+# CloudWatch Logs vêm em gzip e crescem ~10x). O corpo em si segue o teto comum.
+_FIREHOSE_MAX_DECODED_BYTES = 64 * 1024 * 1024
+# Um registro do CloudWatch Logs carrega vários log events; o teto é por pedido.
+_FIREHOSE_MAX_EVENTS = 50_000
+_FIREHOSE_LOWER_BUFFER = (
+    "lote grande demais para o CentralOps: reduza o 'buffer size' do destino HTTP "
+    "endpoint no Firehose (recomendado: 1 a 5 MiB)"
+)
+
+
+def _firehose_response(
+    request_id: str, status_code: int = 200, error: Optional[str] = None, retry_after: Optional[str] = None
+) -> Response:
+    payload: Dict[str, Any] = {"requestId": request_id, "timestamp": int(time.time() * 1000)}
+    if error:
+        payload["errorMessage"] = error[:8192]
+    headers = {"Retry-After": retry_after} if retry_after else None
+    return Response(
+        content=json.dumps(payload), status_code=status_code, media_type="application/json", headers=headers
+    )
+
+
+@router.post("/firehose/{stream}")
+async def ingest_firehose(
+    stream: str,
+    request: Request,
+    x_amz_firehose_access_key: Optional[str] = Header(default=None),
+    x_amz_firehose_request_id: Optional[str] = Header(default=None),
+    x_amz_firehose_source_arn: Optional[str] = Header(default=None),
+    authorization: Optional[str] = Header(default=None),
+    x_centralops_ingest_token: Optional[str] = Header(default=None),
+    db: Session = Depends(database.get_session),
+) -> Response:
+    """Destino HTTP endpoint do Amazon Data Firehose. 200 só depois do ack do
+    data-plane; erro = JSON no formato do Firehose, que re-tenta (e grava no
+    backup S3 quando o prazo de retry acaba)."""
+    request_id = (x_amz_firehose_request_id or "").strip()
+    try:
+        token = (x_amz_firehose_access_key or "").strip() or _extract_token(
+            authorization, x_centralops_ingest_token
+        )
+        integ = _authenticate(db, token)
+        _admit(integ, stream)
+        body = await _read_body(request)
+        try:
+            decoded = aws_firehose.decode_request(
+                body,
+                stream=stream,
+                aws_specific=integ.platform == aws_firehose.PLATFORM,
+                source_arn=x_amz_firehose_source_arn or "",
+                budget=_FIREHOSE_MAX_DECODED_BYTES,
+            )
+        except aws_firehose.FirehoseRequestError as exc:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from None
+        except aws_firehose.FirehoseTooLarge:
+            raise HTTPException(
+                status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, detail=_FIREHOSE_LOWER_BUFFER
+            ) from None
+        request_id = request_id or decoded.request_id
+
+        batch = _ParsedBatch()
+        for event in decoded.events:
+            _collect(batch, event)
+        if decoded.errors:
+            # Registro que não decodifica não melhora no retry: conta, avisa e
+            # segue com o resto do lote (o Firehose não tem sucesso parcial).
+            batch.parse_errors += decoded.errors
+            batch._note(decoded.first_error or "registro inválido")
+        _count_rejections(integ, stream, batch)
+        if len(batch.events) > _FIREHOSE_MAX_EVENTS:
+            raise HTTPException(
+                status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, detail=_FIREHOSE_LOWER_BUFFER
+            )
+        if batch.events:
+            await _store_events(integ, stream, [_stamp(ev, stream) for ev in batch.events])
+    except HTTPException as exc:
+        code = exc.status_code
+        if code == status.HTTP_413_REQUEST_ENTITY_TOO_LARGE:
+            code = status.HTTP_500_INTERNAL_SERVER_ERROR
+        detail = exc.detail if isinstance(exc.detail, str) else json.dumps(exc.detail, default=str)
+        if exc.status_code == status.HTTP_413_REQUEST_ENTITY_TOO_LARGE and detail != _FIREHOSE_LOWER_BUFFER:
+            detail = f"{detail} — {_FIREHOSE_LOWER_BUFFER}"
+        return _firehose_response(request_id, code, detail, (exc.headers or {}).get("Retry-After"))
+    except ApiError as exc:
+        code = exc.status_code
+        detail = exc.render()
+        if code == status.HTTP_413_REQUEST_ENTITY_TOO_LARGE:
+            code, detail = status.HTTP_500_INTERNAL_SERVER_ERROR, f"{detail} — {_FIREHOSE_LOWER_BUFFER}"
+        return _firehose_response(request_id, code, detail)
+    return _firehose_response(request_id)
+
 
 # ── 2. Gestão de token (admin) ──────────────────────────────────────────────
 

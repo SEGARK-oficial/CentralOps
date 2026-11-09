@@ -372,7 +372,12 @@
       "loadError": "Error al cargar los streams.",
       "nameInvalidError": "Nombre inválido. Usa a-z, 0-9, '_' y '-'."
     },
-    "edgeCollectorConfigGeneric": "Ejemplo de envío (curl / cualquier edge-collector)"
+    "edgeCollectorConfigGeneric": "Ejemplo de envío (curl / cualquier edge-collector)",
+    "firehose": {
+      "endpointsLabel": "URL del destino HTTP endpoint (una por tipo de log)",
+      "help": "En Firehose, cree un stream con destino \"HTTP endpoint\" para cada tipo de log, use la URL correspondiente y pegue el token de ingesta en el campo \"Access key\". Active la compresión GZIP, use un buffer de 1 a 5 MiB y un bucket de respaldo para \"Failed data only\".",
+      "snippetLabel": "Ejemplo con AWS CLI (WAF)"
+    }
   },
   "enterprisePanel": {
     "title": "La importación de tenants es una función Enterprise",

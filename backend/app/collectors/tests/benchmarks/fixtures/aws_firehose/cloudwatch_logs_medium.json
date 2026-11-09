@@ -1,0 +1,11 @@
+{
+  "eventId": "cw-medium-1",
+  "timestamp": 1782036000000,
+  "ingestionTime": 1782036000500,
+  "message": "{\"level\": \"ERROR\", \"eventName\": \"PutItem\", \"user\": \"mary\", \"userId\": \"AIDAEXAMPLE\", \"sourceIPAddress\": \"192.0.2.10\", \"userAgent\": \"aws-sdk-python/1.34.0\", \"errorCode\": \"ProvisionedThroughputExceededException\", \"errorMessage\": \"The level of configured provisioned throughput was exceeded\", \"status\": \"Failure\", \"requestId\": \"8f3a1c2e-0002\", \"durationMs\": 142}",
+  "logStreamName": "2026/06/21/[$LATEST]abc123",
+  "logGroupName": "/aws/lambda/minha-funcao",
+  "awsRegion": "us-east-1",
+  "awsAccountId": "888",
+  "eventTime": "2026-06-21T10:00:00.000Z"
+}

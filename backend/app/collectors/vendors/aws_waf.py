@@ -203,6 +203,25 @@ def unwrap_cloudwatch_event(ev: Dict[str, Any]) -> Dict[str, Any]:
     return rec
 
 
+def waf_message_id(event: Dict[str, Any]) -> str:
+    """Web ACL + requestId + timestamp; sem requestId, a posição na origem.
+
+    O requestId é o ID do serviço protegido (CloudFront, trace do ALB, API
+    Gateway) e vem como ``"null"``/``"-"`` em alguns casos — aí vale a chave S3
+    + linha ou o ``eventId`` do CloudWatch, que são únicos por registro. Também
+    usado pelo recebimento via Firehose (``aws_firehose``)."""
+    req = event.get("httpRequest") if isinstance(event.get("httpRequest"), dict) else {}
+    rid = str(req.get("requestId") or "")
+    if rid not in _NO_REQUEST_ID:
+        return f"{event.get('webaclId', '')}|{rid}|{event.get('timestamp', '')}"
+    meta = event.get("centralops") if isinstance(event.get("centralops"), dict) else {}
+    if meta.get("eventId"):
+        return f"cw|{meta['eventId']}"
+    if meta.get("key"):
+        return f"s3|{meta['key']}|{meta.get('line')}"
+    return ""
+
+
 # ── Coletor registrado ────────────────────────────────────────────────────
 
 
@@ -249,21 +268,7 @@ class AWSWafCollector(BaseCollector):
             yield ev
 
     def extract_message_id(self, event: Dict[str, Any]) -> str:
-        """Web ACL + requestId + timestamp; sem requestId, a posição na origem.
-
-        O requestId é o ID do serviço protegido (CloudFront, trace do ALB, API
-        Gateway) e vem como ``"null"``/``"-"`` em alguns casos — aí vale a chave S3
-        + linha ou o ``eventId`` do CloudWatch, que são únicos por registro."""
-        req = event.get("httpRequest") if isinstance(event.get("httpRequest"), dict) else {}
-        rid = str(req.get("requestId") or "")
-        if rid not in _NO_REQUEST_ID:
-            return f"{event.get('webaclId', '')}|{rid}|{event.get('timestamp', '')}"
-        meta = event.get("centralops") if isinstance(event.get("centralops"), dict) else {}
-        if meta.get("eventId"):
-            return f"cw|{meta['eventId']}"
-        if meta.get("key"):
-            return f"s3|{meta['key']}|{meta.get('line')}"
-        return ""
+        return waf_message_id(event)
 
     @classmethod
     def watermark_at(cls, cursor: Optional[Dict[str, Any]]) -> Optional[datetime]:

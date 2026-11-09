@@ -317,6 +317,17 @@ _FIXTURES = {
 }
 
 
+# AWS via Firehose: o decodificador do recebimento entrega o MESMO registro da
+# integração de pull, então a amostra é a mesma.
+for _firehose_type, _pull_key in {
+    "aws_firehose.waf": ("aws_waf", "aws_waf.event"),
+    "aws_firehose.cloudtrail": ("aws_cloudtrail", "aws_cloudtrail.event"),
+    "aws_firehose.guardduty": ("aws_guardduty", "aws_guardduty.finding"),
+    "aws_firehose.securityhub": ("aws_securityhub", "aws_securityhub.finding"),
+    "aws_firehose.cloudwatch_logs": ("aws_cloudwatch", "aws_cloudwatch.event"),
+}.items():
+    _FIXTURES[("aws_firehose", _firehose_type)] = _FIXTURES[_pull_key]
+
 _ITERATIONS = 1000  # eventos por benchmark
 _REGRESSION_CEILING_US = 50_000  # 50ms/evento — sinal de bug grave
 

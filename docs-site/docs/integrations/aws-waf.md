@@ -37,7 +37,7 @@ O WAF não tem API que devolva o log completo; ele só existe depois que o loggi
 
 Os dois caminhos entregam o mesmo registro. Um arquivo do S3 que **não dá para ler** (sem `s3:GetObject`, sem `kms:Decrypt`) para o ciclo sem avançar a posição, e o erro aparece em **Saúde do Pipeline**. Um arquivo **corrompido** é pulado e fica registrado em `skipped_objects` no estado da coleta. Uma linha inválida dentro de um arquivo bom é descartada sozinha.
 
-O destino **Firehose** do WAF não é lido.
+Para receber o log do WAF **em quase tempo real**, com o destino **Firehose** da web ACL, use a integração [AWS via Firehose](./aws-firehose.md).
 
 ## Pré-requisitos
 

@@ -56,6 +56,7 @@ Para configurar qualquer uma delas, abra o menu **Coleta -> Integrações**, cli
 - [Integração AWS CloudWatch Logs](./aws-cloudwatch.md)
 - [Integração AWS WAF](./aws-waf.md)
 - [AWS Security Hub e GuardDuty](./aws-findings.md)
+- [AWS via Firehose (push)](./aws-firehose.md)
 - [Integração Microsoft Entra ID](./microsoft-entra-id.md)
 - [Integração Okta](./okta.md)
 - [Integração NinjaOne](./ninjaone.md)

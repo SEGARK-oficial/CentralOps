@@ -1,0 +1,453 @@
+{
+  "timestamp": 1782036000000,
+  "formatVersion": 1,
+  "webaclId": "arn:aws:wafv2:us-east-1:888:regional/webacl/site/abc",
+  "terminatingRuleId": "AWS-AWSManagedRulesSQLiRuleSet",
+  "terminatingRuleType": "MANAGED_RULE_GROUP",
+  "action": "BLOCK",
+  "terminatingRuleMatchDetails": [
+    {
+      "conditionType": "SQL_INJECTION",
+      "location": "QUERY_STRING",
+      "matchedData": [
+        "1",
+        "OR",
+        "1"
+      ]
+    }
+  ],
+  "httpSourceName": "ALB",
+  "httpSourceId": "888-app/site/50dc6c495c0c9188",
+  "ruleGroupList": [
+    {
+      "ruleGroupId": "AWS#AWSManagedRulesSQLiRuleSet",
+      "terminatingRule": {
+        "ruleId": "SQLi_QUERYARGUMENTS",
+        "action": "BLOCK"
+      },
+      "nonTerminatingMatchingRules": [],
+      "excludedRules": null
+    }
+  ],
+  "rateBasedRuleList": [],
+  "nonTerminatingMatchingRules": [
+    {
+      "ruleId": "count-rule-0",
+      "action": "COUNT",
+      "ruleMatchDetails": []
+    },
+    {
+      "ruleId": "count-rule-1",
+      "action": "COUNT",
+      "ruleMatchDetails": []
+    },
+    {
+      "ruleId": "count-rule-2",
+      "action": "COUNT",
+      "ruleMatchDetails": []
+    },
+    {
+      "ruleId": "count-rule-3",
+      "action": "COUNT",
+      "ruleMatchDetails": []
+    },
+    {
+      "ruleId": "count-rule-4",
+      "action": "COUNT",
+      "ruleMatchDetails": []
+    },
+    {
+      "ruleId": "count-rule-5",
+      "action": "COUNT",
+      "ruleMatchDetails": []
+    },
+    {
+      "ruleId": "count-rule-6",
+      "action": "COUNT",
+      "ruleMatchDetails": []
+    },
+    {
+      "ruleId": "count-rule-7",
+      "action": "COUNT",
+      "ruleMatchDetails": []
+    },
+    {
+      "ruleId": "count-rule-8",
+      "action": "COUNT",
+      "ruleMatchDetails": []
+    },
+    {
+      "ruleId": "count-rule-9",
+      "action": "COUNT",
+      "ruleMatchDetails": []
+    }
+  ],
+  "httpRequest": {
+    "clientIp": "192.0.2.10",
+    "country": "BR",
+    "headers": [
+      {
+        "name": "x-header-0",
+        "value": "vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv"
+      },
+      {
+        "name": "x-header-1",
+        "value": "vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv"
+      },
+      {
+        "name": "x-header-2",
+        "value": "vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv"
+      },
+      {
+        "name": "x-header-3",
+        "value": "vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv"
+      },
+      {
+        "name": "x-header-4",
+        "value": "vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv"
+      },
+      {
+        "name": "x-header-5",
+        "value": "vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv"
+      },
+      {
+        "name": "x-header-6",
+        "value": "vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv"
+      },
+      {
+        "name": "x-header-7",
+        "value": "vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv"
+      },
+      {
+        "name": "x-header-8",
+        "value": "vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv"
+      },
+      {
+        "name": "x-header-9",
+        "value": "vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv"
+      },
+      {
+        "name": "x-header-10",
+        "value": "vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv"
+      },
+      {
+        "name": "x-header-11",
+        "value": "vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv"
+      },
+      {
+        "name": "x-header-12",
+        "value": "vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv"
+      },
+      {
+        "name": "x-header-13",
+        "value": "vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv"
+      },
+      {
+        "name": "x-header-14",
+        "value": "vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv"
+      },
+      {
+        "name": "x-header-15",
+        "value": "vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv"
+      },
+      {
+        "name": "x-header-16",
+        "value": "vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv"
+      },
+      {
+        "name": "x-header-17",
+        "value": "vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv"
+      },
+      {
+        "name": "x-header-18",
+        "value": "vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv"
+      },
+      {
+        "name": "x-header-19",
+        "value": "vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv"
+      },
+      {
+        "name": "x-header-20",
+        "value": "vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv"
+      },
+      {
+        "name": "x-header-21",
+        "value": "vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv"
+      },
+      {
+        "name": "x-header-22",
+        "value": "vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv"
+      },
+      {
+        "name": "x-header-23",
+        "value": "vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv"
+      },
+      {
+        "name": "x-header-24",
+        "value": "vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv"
+      },
+      {
+        "name": "x-header-25",
+        "value": "vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv"
+      },
+      {
+        "name": "x-header-26",
+        "value": "vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv"
+      },
+      {
+        "name": "x-header-27",
+        "value": "vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv"
+      },
+      {
+        "name": "x-header-28",
+        "value": "vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv"
+      },
+      {
+        "name": "x-header-29",
+        "value": "vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv"
+      },
+      {
+        "name": "x-header-30",
+        "value": "vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv"
+      },
+      {
+        "name": "x-header-31",
+        "value": "vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv"
+      },
+      {
+        "name": "x-header-32",
+        "value": "vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv"
+      },
+      {
+        "name": "x-header-33",
+        "value": "vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv"
+      },
+      {
+        "name": "x-header-34",
+        "value": "vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv"
+      },
+      {
+        "name": "x-header-35",
+        "value": "vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv"
+      },
+      {
+        "name": "x-header-36",
+        "value": "vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv"
+      },
+      {
+        "name": "x-header-37",
+        "value": "vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv"
+      },
+      {
+        "name": "x-header-38",
+        "value": "vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv"
+      },
+      {
+        "name": "x-header-39",
+        "value": "vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv"
+      },
+      {
+        "name": "Host",
+        "value": "site.exemplo.com"
+      },
+      {
+        "name": "User-Agent",
+        "value": "Mozilla/5.0"
+      }
+    ],
+    "uri": "/login",
+    "args": "id=1%20OR%201=1",
+    "httpVersion": "HTTP/1.1",
+    "httpMethod": "GET",
+    "requestId": "1-6510d2f1-large"
+  },
+  "centralops": {
+    "source": "s3",
+    "region": "us-east-1",
+    "accountId": "888"
+  },
+  "labels": [
+    {
+      "name": "awswaf:managed:aws:bot-control:signal:label_0"
+    },
+    {
+      "name": "awswaf:managed:aws:bot-control:signal:label_1"
+    },
+    {
+      "name": "awswaf:managed:aws:bot-control:signal:label_2"
+    },
+    {
+      "name": "awswaf:managed:aws:bot-control:signal:label_3"
+    },
+    {
+      "name": "awswaf:managed:aws:bot-control:signal:label_4"
+    },
+    {
+      "name": "awswaf:managed:aws:bot-control:signal:label_5"
+    },
+    {
+      "name": "awswaf:managed:aws:bot-control:signal:label_6"
+    },
+    {
+      "name": "awswaf:managed:aws:bot-control:signal:label_7"
+    },
+    {
+      "name": "awswaf:managed:aws:bot-control:signal:label_8"
+    },
+    {
+      "name": "awswaf:managed:aws:bot-control:signal:label_9"
+    },
+    {
+      "name": "awswaf:managed:aws:bot-control:signal:label_10"
+    },
+    {
+      "name": "awswaf:managed:aws:bot-control:signal:label_11"
+    },
+    {
+      "name": "awswaf:managed:aws:bot-control:signal:label_12"
+    },
+    {
+      "name": "awswaf:managed:aws:bot-control:signal:label_13"
+    },
+    {
+      "name": "awswaf:managed:aws:bot-control:signal:label_14"
+    },
+    {
+      "name": "awswaf:managed:aws:bot-control:signal:label_15"
+    },
+    {
+      "name": "awswaf:managed:aws:bot-control:signal:label_16"
+    },
+    {
+      "name": "awswaf:managed:aws:bot-control:signal:label_17"
+    },
+    {
+      "name": "awswaf:managed:aws:bot-control:signal:label_18"
+    },
+    {
+      "name": "awswaf:managed:aws:bot-control:signal:label_19"
+    },
+    {
+      "name": "awswaf:managed:aws:bot-control:signal:label_20"
+    },
+    {
+      "name": "awswaf:managed:aws:bot-control:signal:label_21"
+    },
+    {
+      "name": "awswaf:managed:aws:bot-control:signal:label_22"
+    },
+    {
+      "name": "awswaf:managed:aws:bot-control:signal:label_23"
+    },
+    {
+      "name": "awswaf:managed:aws:bot-control:signal:label_24"
+    },
+    {
+      "name": "awswaf:managed:aws:bot-control:signal:label_25"
+    },
+    {
+      "name": "awswaf:managed:aws:bot-control:signal:label_26"
+    },
+    {
+      "name": "awswaf:managed:aws:bot-control:signal:label_27"
+    },
+    {
+      "name": "awswaf:managed:aws:bot-control:signal:label_28"
+    },
+    {
+      "name": "awswaf:managed:aws:bot-control:signal:label_29"
+    },
+    {
+      "name": "awswaf:managed:aws:bot-control:signal:label_30"
+    },
+    {
+      "name": "awswaf:managed:aws:bot-control:signal:label_31"
+    },
+    {
+      "name": "awswaf:managed:aws:bot-control:signal:label_32"
+    },
+    {
+      "name": "awswaf:managed:aws:bot-control:signal:label_33"
+    },
+    {
+      "name": "awswaf:managed:aws:bot-control:signal:label_34"
+    },
+    {
+      "name": "awswaf:managed:aws:bot-control:signal:label_35"
+    },
+    {
+      "name": "awswaf:managed:aws:bot-control:signal:label_36"
+    },
+    {
+      "name": "awswaf:managed:aws:bot-control:signal:label_37"
+    },
+    {
+      "name": "awswaf:managed:aws:bot-control:signal:label_38"
+    },
+    {
+      "name": "awswaf:managed:aws:bot-control:signal:label_39"
+    },
+    {
+      "name": "awswaf:managed:aws:bot-control:signal:label_40"
+    },
+    {
+      "name": "awswaf:managed:aws:bot-control:signal:label_41"
+    },
+    {
+      "name": "awswaf:managed:aws:bot-control:signal:label_42"
+    },
+    {
+      "name": "awswaf:managed:aws:bot-control:signal:label_43"
+    },
+    {
+      "name": "awswaf:managed:aws:bot-control:signal:label_44"
+    },
+    {
+      "name": "awswaf:managed:aws:bot-control:signal:label_45"
+    },
+    {
+      "name": "awswaf:managed:aws:bot-control:signal:label_46"
+    },
+    {
+      "name": "awswaf:managed:aws:bot-control:signal:label_47"
+    },
+    {
+      "name": "awswaf:managed:aws:bot-control:signal:label_48"
+    },
+    {
+      "name": "awswaf:managed:aws:bot-control:signal:label_49"
+    },
+    {
+      "name": "awswaf:managed:aws:bot-control:signal:label_50"
+    },
+    {
+      "name": "awswaf:managed:aws:bot-control:signal:label_51"
+    },
+    {
+      "name": "awswaf:managed:aws:bot-control:signal:label_52"
+    },
+    {
+      "name": "awswaf:managed:aws:bot-control:signal:label_53"
+    },
+    {
+      "name": "awswaf:managed:aws:bot-control:signal:label_54"
+    },
+    {
+      "name": "awswaf:managed:aws:bot-control:signal:label_55"
+    },
+    {
+      "name": "awswaf:managed:aws:bot-control:signal:label_56"
+    },
+    {
+      "name": "awswaf:managed:aws:bot-control:signal:label_57"
+    },
+    {
+      "name": "awswaf:managed:aws:bot-control:signal:label_58"
+    },
+    {
+      "name": "awswaf:managed:aws:bot-control:signal:label_59"
+    }
+  ],
+  "ja4Fingerprint": "t13d1516h2_8daaf6152771_02713d6af862",
+  "ja3Fingerprint": "e7d705a3286e19ea42f587b344ee6865"
+}

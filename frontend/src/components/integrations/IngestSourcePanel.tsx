@@ -25,6 +25,37 @@ import { useFirstInvalidFocus } from "@/hooks/useFirstInvalidFocus"
 /** Plataforma push genérica: os streams são criados pelo operador (um mapping cada). */
 export const CUSTOM_JSON_PLATFORM = "custom_json"
 
+/** AWS via Firehose: a própria AWS empurra; uma URL por stream, token como "access key". */
+export const FIREHOSE_PLATFORM = "aws_firehose"
+
+function firehoseSnippet(endpoint: string, token: string): string {
+  const tok = token || "<SEU_TOKEN_DE_INGESTAO>"
+  return [
+    "# AWS CLI — stream do Firehose que entrega os logs do WAF ao CentralOps.",
+    "# O nome precisa começar com aws-waf-logs-. O bucket guarda só o que o",
+    "# CentralOps recusar depois de esgotar o retry (nada se perde).",
+    "aws firehose create-delivery-stream \\",
+    "  --delivery-stream-name aws-waf-logs-centralops \\",
+    "  --delivery-stream-type DirectPut \\",
+    "  --http-endpoint-destination-configuration '{",
+    `    "EndpointConfiguration": {"Url": "${endpoint}", "Name": "CentralOps", "AccessKey": "${tok}"},`,
+    '    "RequestConfiguration": {"ContentEncoding": "GZIP"},',
+    '    "BufferingHints": {"SizeInMBs": 1, "IntervalInSeconds": 60},',
+    '    "RetryOptions": {"DurationInSeconds": 3600},',
+    '    "S3BackupMode": "FailedDataOnly",',
+    '    "RoleARN": "arn:aws:iam::<conta>:role/<papel-do-firehose>",',
+    '    "S3Configuration": {',
+    '      "RoleARN": "arn:aws:iam::<conta>:role/<papel-do-firehose>",',
+    '      "BucketARN": "arn:aws:s3:::<bucket-de-backup>"',
+    "    }",
+    "  }'",
+    "",
+    "# Depois, aponte o logging da web ACL para o stream:",
+    "aws wafv2 put-logging-configuration --logging-configuration \\",
+    "  ResourceArn=<arn-da-web-acl>,LogDestinationConfigs=<arn-do-stream-do-firehose>",
+  ].join("\n")
+}
+
 /**
  * Classes OCSF 1.8 que o backend aceita para um stream novo — espelha
  * `normalize/ocsf/classes.CLASS_NAMES` (o backend é a fonte da verdade e devolve
@@ -249,10 +280,15 @@ export const IngestSourcePanel: React.FC<IngestSourcePanelProps> = ({ integratio
   const origin = typeof window !== "undefined" ? window.location.origin : ""
   const primaryStream = info?.streams?.[0] ?? (isCustom ? "<stream>" : "events")
   const endpoint = `${origin}${info?.endpoint_base ?? "/api/ingest"}/${primaryStream}`
+  const isFirehose = platform === FIREHOSE_PLATFORM
+  const firehoseEndpoint = (stream: string) => `${origin}${info?.endpoint_base ?? "/api/ingest"}/firehose/${stream}`
 
   const snippet = useMemo(
-    () => edgeSnippet(platform, endpoint, token ?? ""),
-    [platform, endpoint, token],
+    () =>
+      isFirehose
+        ? firehoseSnippet(`${origin}${info?.endpoint_base ?? "/api/ingest"}/firehose/waf`, token ?? "")
+        : edgeSnippet(platform, endpoint, token ?? ""),
+    [isFirehose, origin, info?.endpoint_base, platform, endpoint, token],
   )
 
   const handleIssue = useCallback(async () => {
@@ -314,15 +350,33 @@ export const IngestSourcePanel: React.FC<IngestSourcePanelProps> = ({ integratio
       </div>
 
       {/* Endpoint */}
-      <div className="space-y-1.5">
-        <span className="text-xs font-medium text-text-secondary">{t("ingest.endpointLabel")}</span>
-        <div className="flex items-center gap-2">
-          <code className="flex-1 truncate rounded-md border border-border bg-surface-tertiary px-3 py-2 text-xs text-text">
-            POST {endpoint}
-          </code>
-          <CopyButton text={endpoint} />
+      {isFirehose ? (
+        <div className="space-y-1.5" data-testid="firehose-endpoints">
+          <span className="text-xs font-medium text-text-secondary">{t("ingest.firehose.endpointsLabel")}</span>
+          <p className="text-xs text-text-tertiary">{t("ingest.firehose.help")}</p>
+          <ul className="space-y-1.5">
+            {info.streams.map((s) => (
+              <li key={s} className="flex items-center gap-2">
+                <Badge variant="default" size="sm">{s}</Badge>
+                <code className="flex-1 truncate rounded-md border border-border bg-surface-tertiary px-3 py-2 text-xs text-text">
+                  {firehoseEndpoint(s)}
+                </code>
+                <CopyButton text={firehoseEndpoint(s)} />
+              </li>
+            ))}
+          </ul>
         </div>
-      </div>
+      ) : (
+        <div className="space-y-1.5">
+          <span className="text-xs font-medium text-text-secondary">{t("ingest.endpointLabel")}</span>
+          <div className="flex items-center gap-2">
+            <code className="flex-1 truncate rounded-md border border-border bg-surface-tertiary px-3 py-2 text-xs text-text">
+              POST {endpoint}
+            </code>
+            <CopyButton text={endpoint} />
+          </div>
+        </div>
+      )}
 
       {/* Token */}
       <div className="space-y-1.5">
@@ -446,7 +500,7 @@ export const IngestSourcePanel: React.FC<IngestSourcePanelProps> = ({ integratio
       {/* Snippet do edge-collector */}
       <div className="space-y-1.5">
         <div className="flex items-center justify-between">
-          <span className="text-xs font-medium text-text-secondary">{isCustom ? t("ingest.edgeCollectorConfigGeneric") : t("ingest.edgeCollectorConfig")}</span>
+          <span className="text-xs font-medium text-text-secondary">{isFirehose ? t("ingest.firehose.snippetLabel") : isCustom ? t("ingest.edgeCollectorConfigGeneric") : t("ingest.edgeCollectorConfig")}</span>
           <CopyButton text={snippet} />
         </div>
         <pre className="max-h-72 overflow-auto rounded-md border border-border-field bg-surface-tertiary p-3 text-[11px] leading-relaxed text-text">

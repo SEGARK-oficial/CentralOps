@@ -372,7 +372,12 @@
       "loadError": "Failed to load streams.",
       "nameInvalidError": "Invalid name. Use a-z, 0-9, '_' and '-'."
     },
-    "edgeCollectorConfigGeneric": "Send example (curl / any edge-collector)"
+    "edgeCollectorConfigGeneric": "Send example (curl / any edge-collector)",
+    "firehose": {
+      "endpointsLabel": "HTTP endpoint destination URL (one per log type)",
+      "help": "In Firehose, create a stream with an \"HTTP endpoint\" destination for each log type, use the matching URL and paste the ingestion token into the \"Access key\" field. Turn on GZIP content encoding, use a 1 to 5 MiB buffer and a backup bucket for \"Failed data only\".",
+      "snippetLabel": "AWS CLI example (WAF)"
+    }
   },
   "enterprisePanel": {
     "title": "Tenant import is an Enterprise feature",

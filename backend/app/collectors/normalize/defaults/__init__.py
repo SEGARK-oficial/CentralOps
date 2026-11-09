@@ -52,6 +52,14 @@ DEFAULT_MAPPING_FILES = {
     # AWS Security Hub (ASFF) e GuardDuty → OCSF Detection Finding.
     ("aws_securityhub", "aws_securityhub.finding"): "aws_securityhub_finding.json",
     ("aws_guardduty", "aws_guardduty.finding"): "aws_guardduty_finding.json",
+    # AWS via Firehose (push): o mesmo registro das integrações de pull, então o
+    # mesmo mapping. A decodificação (base64, gzip, envelopes do CloudWatch e do
+    # EventBridge, camelCase do GuardDuty) acontece no recebimento.
+    ("aws_firehose", "aws_firehose.waf"): "aws_waf_event.json",
+    ("aws_firehose", "aws_firehose.cloudtrail"): "aws_cloudtrail_event.json",
+    ("aws_firehose", "aws_firehose.guardduty"): "aws_guardduty_finding.json",
+    ("aws_firehose", "aws_firehose.securityhub"): "aws_securityhub_finding.json",
+    ("aws_firehose", "aws_firehose.cloudwatch_logs"): "aws_cloudwatch_event.json",
     # Google Cloud via Pub/Sub: Audit Logs → API Activity (login → Authentication);
     # GKE → API Activity; Cloud SQL MySQL → Authentication/Datastore Activity.
     ("gcp_pubsub", "gcp.audit"): "gcp_audit.json",

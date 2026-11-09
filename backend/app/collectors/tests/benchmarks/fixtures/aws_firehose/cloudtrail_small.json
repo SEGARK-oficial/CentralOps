@@ -1,0 +1,18 @@
+{
+  "eventID": "ct-small-1",
+  "eventTime": "2026-06-21T10:00:00Z",
+  "eventName": "CreateUser",
+  "eventSource": "iam.amazonaws.com",
+  "awsRegion": "us-east-1",
+  "sourceIPAddress": "192.0.2.0",
+  "userAgent": "aws-cli/2.13.5",
+  "userIdentity": {
+    "type": "IAMUser",
+    "principalId": "AIDA",
+    "arn": "arn:aws:iam::888:user/Mary",
+    "accountId": "888",
+    "userName": "Mary"
+  },
+  "recipientAccountId": "888",
+  "readOnly": false
+}
