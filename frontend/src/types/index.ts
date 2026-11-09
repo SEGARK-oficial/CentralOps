@@ -475,6 +475,8 @@ export interface ProviderPlatformRead {
   transport?: string
   /** Painel de onboarding de credencial (ex.: "aws_assume_role"). Vazio = só os campos. */
   auth_setup?: string
+  /** "" | "partner" | "organization": card que cria um pai com filhas descobertas (Enterprise). */
+  variant?: string
 }
 
 /** GET /providers/aws/role-setup — o que o cliente precisa para criar o papel. */

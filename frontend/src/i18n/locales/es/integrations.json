@@ -333,7 +333,9 @@
       "step3": "Haga clic en Probar conexión: CentralOps asume el rol de verdad y verifica la lectura.",
       "manualSummary": "¿Prefiere crear el rol a mano? Ver la política de confianza",
       "manualHelp": "Use esta política de confianza en el rol y adjunte permisos de solo lectura para las fuentes que va a recolectar.",
-      "legacyNote": "Access Key ID + Secret Access Key de un usuario IAM siguen aceptados, pero son credenciales de larga duración: prefiera el rol."
+      "legacyNote": "Access Key ID + Secret Access Key de un usuario IAM siguen aceptados, pero son credenciales de larga duración: prefiera el rol.",
+      "orgNoticeBody": " al guardar, CentralOps lista las cuentas de la AWS Organization. Cada cuenta aprobada se convierte en una integración en ESTA organización, con el rol del mismo nombre en esa cuenta (o, en CloudTrail, el rol y el bucket del trail central).",
+      "orgEnterpriseNote": "Crear las integraciones de las cuentas requiere Enterprise. En Community puede crear el padre, pero no se importa ninguna cuenta."
     }
   },
   "ingest": {

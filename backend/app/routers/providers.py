@@ -75,6 +75,9 @@ class ProviderPlatformRead(BaseModel):
     # Painel de onboarding de credencial que a UI mostra junto dos campos
     # (ex.: "aws_assume_role"). Vazio ⇒ só os campos.
     auth_setup: str = ""
+    # "" (integração comum) | "partner" | "organization": card que CRIA um pai
+    # cujas filhas saem da descoberta (Enterprise). A UI marca o card e avisa.
+    variant: str = ""
 
 
 class QueryCapabilityRead(BaseModel):
@@ -182,6 +185,7 @@ def list_provider_platforms(
                 supports_test=plat.test_fn is not None,
                 transport=getattr(plat, "transport", "pull"),
                 auth_setup=getattr(plat, "auth_setup", ""),
+                variant=getattr(plat, "variant", ""),
             )
         )
     return out

@@ -59,7 +59,10 @@ aws cloudformation create-stack-instances \
 
 O papel é global (IAM), então uma região basta. Com `auto-deployment`, contas novas da Organization ganham o papel sozinhas. A conta de gerenciamento não recebe instância de um StackSet *service-managed*; crie a stack nela à parte, se for coletar dela.
 
-Hoje é uma integração do CentralOps por conta AWS. Com o Security Hub ou o GuardDuty configurados com **conta administradora delegada**, uma única integração na conta administradora já recebe os achados de todas as contas membro.
+Duas formas de cobrir as contas:
+
+- **Conta administradora delegada do serviço.** Com o Security Hub ou o GuardDuty configurados com administradora delegada, uma única integração nessa conta recebe os achados de todas as contas membro.
+- **Modo AWS Organization (Enterprise).** Os cards **Security Hub — AWS Organization** e **GuardDuty — AWS Organization** criam um *pai* que lista as contas (`organizations:ListAccounts`) e, para cada conta aprovada, uma integração filha nesta mesma organização, assumindo o papel de **mesmo nome e path** na conta membro (o que o StackSet acima criou). Contas suspensas ou que saem da Organization têm a filha desativada no próximo sync. O papel do pai fica na conta de gerenciamento ou numa administradora delegada do AWS Organizations; crie a stack nela com `AllowListAccounts=true`. Na Community o pai é criado, mas nenhuma conta é importada. O modo Organization exige papel; chave fixa não é aceita.
 
 ## Criar a integração
 
@@ -121,6 +124,6 @@ O achado completo fica no `raw`.
 
 ## Limitações conhecidas
 
-- **Uma integração por conta AWS.** O CentralOps ainda não cria integrações para as contas de uma Organization sozinho; use a conta administradora delegada do serviço ou uma integração por conta.
+- **Criar uma integração por conta automaticamente é Enterprise** (modo AWS Organization). Na Community, use a administradora delegada do serviço ou uma integração por conta.
 - **Security Hub em ASFF.** O formato OCSF nativo do novo Security Hub (`GetFindingsV2`) não é usado.
 - **Sem atualização de volta.** O CentralOps não muda o workflow nem arquiva achados na AWS.

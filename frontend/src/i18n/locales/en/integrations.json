@@ -333,7 +333,9 @@
       "step3": "Click Test connection: CentralOps actually assumes the role and checks read access.",
       "manualSummary": "Prefer to create the role by hand? Show the trust policy",
       "manualHelp": "Use this trust policy on the role and attach read-only permissions for the sources you will collect.",
-      "legacyNote": "An IAM user's Access Key ID + Secret Access Key is still accepted, but it is a long-lived credential: prefer the role."
+      "legacyNote": "An IAM user's Access Key ID + Secret Access Key is still accepted, but it is a long-lived credential: prefer the role.",
+      "orgNoticeBody": " on save, CentralOps lists the AWS Organization's accounts. Each approved account becomes an integration in THIS organization, using the same-named role in that account (or, for CloudTrail, the central trail's role and bucket).",
+      "orgEnterpriseNote": "Creating the account integrations requires Enterprise. In Community you can create the parent, but no account is imported."
     }
   },
   "ingest": {

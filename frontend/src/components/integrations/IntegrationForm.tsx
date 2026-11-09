@@ -104,7 +104,11 @@ function dynamicPrefill(
 // a IMPORTAÇÃO de tenants (materialização multi-tenant) é feature Enterprise —
 // o card ganha badge "Enterprise" quando a edição corrente não a licencia.
 // (Mesma heurística do aviso de import mais abaixo: `startsWith("sophos_")`.)
-const isPartnerVariantPlatform = (platform: string) => platform.startsWith("sophos_")
+// Card que cria um PAI (partner/organization) cujas filhas saem da descoberta —
+// feature Enterprise. O catálogo declara ``variant``; o prefixo ``sophos_`` fica
+// como fallback para um backend anterior ao campo.
+const isParentVariant = (d: Pick<ProviderPlatformRead, "platform" | "variant"> | null | undefined) =>
+  !!d && (d.variant ? d.variant !== "" : d.platform.startsWith("sophos_"))
 
 function formatScheduleSeconds(seconds: number): string {
   if (seconds < 60) return `${seconds}s`
@@ -362,7 +366,7 @@ export const IntegrationForm: React.FC<IntegrationFormProps> = ({
       icon: platformIcon(p.platform, p.icon_id),
       // Sinalização Enterprise: import de tenants (partner/organization) é
       // feature paga — badge só quando a edição corrente NÃO licencia.
-      ...(isPartnerVariantPlatform(p.platform) && !isEnterprise
+      ...(isParentVariant(p) && !isEnterprise
         ? { badge: t("form.enterpriseBadge"), badgeTone: "primary" as const }
         : {}),
     }))
@@ -979,15 +983,21 @@ export const IntegrationForm: React.FC<IntegrationFormProps> = ({
           <div className="space-y-4">
             <div className="rounded-xl border border-border bg-surface-tertiary/40 p-4">
               <h3 className="mb-3 text-sm font-semibold text-text">{t("form.credentialsTitle")}</h3>
-              {isPartnerVariantPlatform(platform) && (
+              {isParentVariant(activePlatformDescriptor) && (
                 <div className="mb-3 rounded-md border border-primary-200 bg-primary-50/40 px-3 py-2 text-xs text-text">
                   <strong>{t("form.sophos.importNoticeTitle")}</strong>
-                  <Trans i18nKey="form.sophos.importNoticeBody" t={t} components={{ em: <em /> }} />
+                  {activePlatformDescriptor.auth_setup === AWS_ROLE_SETUP_KEY ? (
+                    <>{t("form.awsRole.orgNoticeBody")}</>
+                  ) : (
+                    <Trans i18nKey="form.sophos.importNoticeBody" t={t} components={{ em: <em /> }} />
+                  )}
                 </div>
               )}
-              {isPartnerVariantPlatform(platform) && !isEnterprise && (
+              {isParentVariant(activePlatformDescriptor) && !isEnterprise && (
                 <Notice variant="warning" title={t("form.enterpriseBadge")} className="mb-3">
-                  {t("form.sophos.enterpriseRequiredNote")}
+                  {activePlatformDescriptor.auth_setup === AWS_ROLE_SETUP_KEY
+                    ? t("form.awsRole.orgEnterpriseNote")
+                    : t("form.sophos.enterpriseRequiredNote")}
                 </Notice>
               )}
               {activePlatformDescriptor.auth_setup === AWS_ROLE_SETUP_KEY && (

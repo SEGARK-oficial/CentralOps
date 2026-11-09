@@ -287,6 +287,7 @@ def test_template_has_optional_read_policy_for_each_log_bucket() -> None:
         "HasBucket": "CentralOpsCloudTrailS3Read",
         "HasWafBucket": "CentralOpsWafLogsS3Read",
         "HasKms": "CentralOpsLogsKmsDecrypt",
+        "CanListAccounts": "CentralOpsOrganizationsList",
     }
     assert set(tpl["Conditions"]) == set(conditional)
 

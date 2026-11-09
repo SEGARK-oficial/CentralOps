@@ -367,7 +367,7 @@ Evento normalizado:
 
 ## Limitações conhecidas
 
-- **Uma conta por integração.** Numa trail de Organization, cada conta precisa da própria integração; o CentralOps ainda não cria as integrações das contas de uma AWS Organization sozinho.
+- **Uma conta por integração.** Numa trail de Organization, cada conta precisa da própria integração. O card **CloudTrail — AWS Organization** (Enterprise) cria um pai que lista as contas e uma filha por conta aprovada, todas lendo o bucket central com o papel do pai. Esse papel precisa listar as contas (`organizations:ListAccounts`, com `AllowListAccounts=true` no template) e ler o bucket: em geral é a conta de log archive registrada como administradora delegada.
 - **O bucket é digitado.** O CentralOps descobre o layout dentro do bucket, mas não descobre qual bucket a trail usa (`DescribeTrails`).
 - **Todos os eventos saem como API Activity com `activity_id` 0 e severidade Informational.** O CentralOps não classifica `Create`/`Read`/`Update`/`Delete` pelo nome da API, e o sucesso ou falha está em `status` (texto), não em `status_id`.
 - **Recoleta histórica (backfill) não respeita o período pedido.** O coletor começa da janela padrão (arquivos das últimas 2 horas), não do início do período escolhido.

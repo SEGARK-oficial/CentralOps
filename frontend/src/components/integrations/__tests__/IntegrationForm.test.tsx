@@ -826,3 +826,48 @@ describe("IntegrationForm — AWS com papel cross-account", () => {
     expect(screen.queryByTestId("aws-role-setup")).not.toBeInTheDocument()
   })
 })
+
+describe("IntegrationForm — AWS Organization (pai com filhas Enterprise)", () => {
+  const AWS_ORG: ProviderPlatformRead = {
+    platform: "aws_guardduty_org",
+    display_name: "Amazon GuardDuty — AWS Organization",
+    category: "Cloud-audit",
+    description: "Uma integração por conta.",
+    icon_id: "aws",
+    docs_url: null,
+    auth_fields: [
+      { key: "client_id", label: "ARN do papel (conta de gerenciamento)", type: "string", required: true },
+    ],
+    streams: [],
+    supports_test: true,
+    auth_setup: "aws_assume_role",
+    variant: "organization",
+  }
+
+  beforeEach(() => {
+    mockedApi.getProviderPlatforms.mockResolvedValue([...CATALOG, AWS_ORG])
+    mockedApi.getAwsRoleSetup.mockResolvedValue({
+      organization_id: 10,
+      external_id: "centralops-x",
+      trust_principal_arn: "arn:aws:iam::111122223333:role/broker",
+      principal_error: null,
+      template: {},
+      template_filename: "t.json",
+    })
+  })
+
+  it("Community: o card do pai ganha o badge Enterprise pelo variant do catálogo", async () => {
+    renderForm()
+    const tile = await screen.findByTestId("tile-card-aws_guardduty_org")
+    expect(within(tile).getByText("Enterprise")).toBeInTheDocument()
+  })
+
+  it("explica que as contas viram integrações nesta organização e que exige Enterprise", async () => {
+    renderForm()
+    fireEvent.click(await screen.findByTestId("tile-card-aws_guardduty_org"))
+    expect(screen.getByText(/lista as contas da AWS Organization/)).toBeInTheDocument()
+    expect(screen.getByText(/Criar as integrações das contas exige Enterprise/)).toBeInTheDocument()
+    // O aviso do Sophos (Organization por tenant) não se aplica aqui.
+    expect(screen.queryByText(/cada tenant desta credencial/i)).not.toBeInTheDocument()
+  })
+})

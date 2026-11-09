@@ -333,7 +333,9 @@
       "step3": "Clique em Testar conexão: o CentralOps assume o papel de verdade e confere a leitura.",
       "manualSummary": "Prefere criar o papel à mão? Ver a trust policy",
       "manualHelp": "Use esta trust policy no papel e anexe permissões só de leitura para as fontes que vai coletar.",
-      "legacyNote": "Access Key ID + Secret Access Key de um usuário IAM continuam aceitos, mas são credenciais de longa duração: prefira o papel."
+      "legacyNote": "Access Key ID + Secret Access Key de um usuário IAM continuam aceitos, mas são credenciais de longa duração: prefira o papel.",
+      "orgNoticeBody": " ao salvar, o CentralOps lista as contas da AWS Organization. Cada conta aprovada vira uma integração NESTA organização, com o papel de mesmo nome na conta (ou, no CloudTrail, o papel e o bucket da trail central).",
+      "orgEnterpriseNote": "Criar as integrações das contas exige Enterprise. Na Community você cria o pai, mas nenhuma conta é importada."
     }
   },
   "ingest": {

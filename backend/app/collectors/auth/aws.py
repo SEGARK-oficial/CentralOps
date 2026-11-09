@@ -385,6 +385,13 @@ def cloudformation_template(external_id: str, principal_arn: Optional[str]) -> D
                 "Default": "",
                 "Description": "Bucket aws-waf-logs-* onde o WAF entrega os logs (vazio = sem WAF via S3).",
             },
+            "AllowListAccounts": {
+                "Type": "String",
+                "Default": "false",
+                "AllowedValues": ["true", "false"],
+                "Description": "true só na conta de gerenciamento/administradora delegada usada "
+                               "pelo modo AWS Organization (organizations:ListAccounts).",
+            },
             "KmsKeyArn": {
                 "Type": "String",
                 "Default": "",
@@ -395,6 +402,7 @@ def cloudformation_template(external_id: str, principal_arn: Optional[str]) -> D
             "HasBucket": {"Fn::Not": [{"Fn::Equals": [{"Ref": "CloudTrailBucketName"}, ""]}]},
             "HasWafBucket": {"Fn::Not": [{"Fn::Equals": [{"Ref": "WafLogsBucketName"}, ""]}]},
             "HasKms": {"Fn::Not": [{"Fn::Equals": [{"Ref": "KmsKeyArn"}, ""]}]},
+            "CanListAccounts": {"Fn::Equals": [{"Ref": "AllowListAccounts"}, "true"]},
         },
         "Resources": {
             "CentralOpsRole": {
@@ -491,6 +499,25 @@ def cloudformation_template(external_id: str, principal_arn: Optional[str]) -> D
                                                 "Action": "s3:GetObject",
                                                 "Resource": {sub: "arn:${AWS::Partition}:s3:::${WafLogsBucketName}/*"},
                                             },
+                                        ],
+                                    },
+                                },
+                                {"Ref": "AWS::NoValue"},
+                            ]
+                        },
+                        {
+                            "Fn::If": [
+                                "CanListAccounts",
+                                {
+                                    "PolicyName": "CentralOpsOrganizationsList",
+                                    "PolicyDocument": {
+                                        "Version": "2012-10-17",
+                                        "Statement": [
+                                            {
+                                                "Effect": "Allow",
+                                                "Action": "organizations:ListAccounts",
+                                                "Resource": "*",
+                                            }
                                         ],
                                     },
                                 },

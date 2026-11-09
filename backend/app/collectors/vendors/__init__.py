@@ -31,6 +31,7 @@ from . import aws_cloudwatch  # noqa: F401    — aws_cloudwatch/events (Logs Fi
 from . import aws_waf  # noqa: F401           — aws_waf/events (logs da web ACL: S3 ou CloudWatch)
 from . import aws_securityhub  # noqa: F401   — aws_securityhub/findings (ASFF, GetFindings)
 from . import aws_guardduty  # noqa: F401    — aws_guardduty/findings (ListFindings + GetFindings)
+from . import aws_organization  # noqa: F401 — pais de AWS Organization (filhas por conta: EE)
 from . import gcp_pubsub  # noqa: F401        — gcp_pubsub/audit+gke_audit+cloudsql_mysql (Pub/Sub pull)
 from . import azure  # noqa: F401             — azure/activity (ARM) + entra+resource (Event Hubs/Kafka)
 from . import akamai  # noqa: F401            — akamai/siem (SIEM Integration API, EdgeGrid)
